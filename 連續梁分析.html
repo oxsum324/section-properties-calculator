@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>連續梁分析工具</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --accent: #059669;
+    --danger: #dc2626;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 20px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+  header h1 { font-size: 1.5em; }
+  header p { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
+  .container { max-width: 1400px; margin: 20px auto; padding: 0 20px; }
+  .top-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: end; }
+  .top-bar .form-group { margin: 0; }
+  .main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  .diagrams-section { margin-top: 16px; }
+  .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  .card h2 { font-size: 1.05em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border); color: var(--primary); }
+  .card h3 { font-size: 0.92em; margin: 12px 0 8px; color: var(--text); }
+  .form-group { margin-bottom: 8px; }
+  .form-group label { display: block; font-size: 0.8em; font-weight: 600; color: var(--text-light); margin-bottom: 2px; }
+  .form-group input, .form-group select { width: 100%; padding: 7px 10px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.92em; font-family: inherit; outline: none; transition: border-color 0.2s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .btn { padding: 6px 12px; border: none; border-radius: 8px; font-size: 0.82em; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-accent:hover { background: #047857; }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-sm { padding: 4px 8px; font-size: 0.78em; }
+  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .btn-calc:hover { background: var(--primary-dark); }
+  .right-panel { display: flex; flex-direction: column; }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 160px; overflow-x: auto; }
+  canvas { display: block; max-width: 100%; }
+  .span-row { display: grid; grid-template-columns: auto 1fr 1fr 1.4fr; gap: 6px; align-items: end; margin-bottom: 4px; padding: 5px 8px; background: #f8fafc; border-radius: 6px; }
+  .support-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: end; margin-bottom: 3px; }
+  .load-item { background: #f1f5f9; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; border-left: 3px solid var(--primary); }
+  .load-item .load-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .load-item .load-header span { font-size: 0.8em; font-weight: 600; color: var(--text-light); }
+  .results-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+  .results-table th, .results-table td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--border); }
+  .results-table th { background: #f1f5f9; font-weight: 600; color: var(--text-light); font-size: 0.8em; }
+  .results-table td { font-family: 'Consolas', monospace; }
+  .section-divider { height: 1px; background: var(--border); margin: 10px 0; }
+  .error-msg { background: #fef2f2; color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
+  .il-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .hint { font-size: 0.75em; color: var(--text-light); margin-top: 2px; font-style: italic; }
+  .material-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; align-items: end; }
+  .ei-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: end; margin-bottom: 4px; padding: 5px 8px; background: #f0fdf4; border-radius: 6px; }
+  .link-btn { background: none; border: 1px solid var(--primary); color: var(--primary); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75em; font-family: inherit; white-space: nowrap; }
+  .link-btn:hover { background: var(--primary); color: white; }
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) {
+    header { padding: 14px 16px; }
+    header h1 { font-size: 1.15em; }
+    .container { margin: 10px auto; padding: 0 10px; }
+    .card { padding: 14px; }
+    .form-row3 { grid-template-columns: 1fr 1fr; }
+    .material-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>連續梁分析工具</h1>
+  <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線</p>
+</header>
+<div class="container">
+  <!-- Top Bar: Unit system -->
+  <div class="card" style="padding:12px 20px;">
+    <div class="top-bar">
+      <div class="form-group" style="min-width:120px;">
+        <label>單位系統</label>
+        <select id="unitSystem" onchange="onUnitChange()">
+          <option value="kN-m" selected>kN - m</option>
+          <option value="tf-m">tf - m</option>
+          <option value="kgf-cm">kgf - cm</option>
+        </select>
+      </div>
+      <div class="form-group" style="min-width:80px;">
+        <label>跨數</label>
+        <select id="numSpans" onchange="onSpanCountChange()">
+          <option value="1">1</option><option value="2" selected>2</option><option value="3">3</option>
+          <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+          <option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+        </select>
+      </div>
+      <div class="form-group" style="min-width:140px;">
+        <label>材料 E 值</label>
+        <select id="matSelect" onchange="onMatChange()">
+          <option value="steel">鋼材 (2.04×10⁶)</option>
+          <option value="concrete">混凝土 (由 fc' 計算)</option>
+          <option value="custom">自訂</option>
+        </select>
+      </div>
+      <div class="form-group" id="fcGroup" style="display:none;min-width:100px;">
+        <label>fc' (<span class="unit-stress">kgf/cm²</span>)</label>
+        <input type="number" id="fcVal" value="280" step="any" onchange="calcEc()">
+      </div>
+      <div class="form-group" style="min-width:140px;">
+        <label>E (<span class="unit-E"></span>)</label>
+        <input type="number" id="eVal" value="" step="any">
+      </div>
+      <div class="form-group" style="min-width:120px;">
+        <label>I 值輸入方式</label>
+        <select id="iMode" onchange="onIModeChange()">
+          <option value="direct">直接輸入 I</option>
+          <option value="section">選擇斷面</option>
+        </select>
+      </div>
+      <div class="form-group" id="globalIGroup" style="min-width:130px;">
+        <label>I (<span class="unit-I"></span>)</label>
+        <input type="number" id="globalI" value="30000" step="any">
+      </div>
+      <div id="sectionSelectGroup" style="display:none;">
+        <button class="link-btn" onclick="openSectionTool()">開啟斷面性質工具</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <!-- Left Panel -->
+    <div>
+      <div class="card" id="input-panel">
+        <h2>跨度與支承</h2>
+        <div id="spanInputs"></div>
+
+        <div class="section-divider"></div>
+        <h3>載重輸入</h3>
+        <div class="form-group">
+          <label>選擇跨度</label>
+          <select id="loadSpanSelect" onchange="renderLoadInputs()"></select>
+        </div>
+        <div id="loadInputs"></div>
+        <button class="btn btn-accent btn-sm" onclick="addLoad()" style="margin-top:4px;">+ 新增載重</button>
+
+        <div class="section-divider"></div>
+        <h3>影響線設定</h3>
+        <div class="form-group">
+          <label><input type="checkbox" id="ilEnabled" onchange="toggleIL()"> 啟用影響線</label>
+        </div>
+        <div id="ilControls" style="display:none;">
+          <div class="il-controls">
+            <div class="form-group">
+              <label>類型</label>
+              <select id="ilType" onchange="onILTypeChange()">
+                <option value="reaction">支承反力</option>
+                <option value="shear">剪力 V(x)</option>
+                <option value="moment">彎矩 M(x)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label id="ilParamLabel">支承編號</label>
+              <input type="number" id="ilParam" value="0" step="any">
+            </div>
+          </div>
+          <p class="hint">反力: 輸入支承編號(0起); 剪力/彎矩: 輸入距左端距離</p>
+        </div>
+
+        <button class="btn-calc" onclick="runAnalysis()">計 算</button>
+        <div class="error-msg" id="errorMsg"></div>
+      </div>
+    </div>
+
+    <!-- Right Panel (schematic only) -->
+    <div>
+      <div class="card"><h2>梁示意圖</h2><div class="canvas-wrap"><canvas id="schematicCanvas"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- Diagrams Section (full width, below grid) -->
+  <div class="diagrams-section">
+    <div class="card" id="sfdCard" style="display:none;"><h2>剪力圖 (SFD)</h2><div class="canvas-wrap"><canvas id="sfdCanvas"></canvas></div></div>
+    <div class="card" id="bmdCard" style="display:none;"><h2>彎矩圖 (BMD)</h2><div class="canvas-wrap"><canvas id="bmdCanvas"></canvas></div></div>
+    <div class="card" id="deflCard" style="display:none;"><h2>撓度曲線</h2><div class="canvas-wrap"><canvas id="deflCanvas"></canvas></div></div>
+    <div class="card" id="ilCard" style="display:none;"><h2 id="ilTitle">影響線</h2><div class="canvas-wrap"><canvas id="ilCanvas"></canvas></div></div>
+    <div class="card" id="resultsCard" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border);">
+        <span style="font-size:1.05em;font-weight:700;color:var(--primary);">分析結果</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-accent btn-sm" onclick="exportJPG()">JPG</button>
+          <button class="btn btn-danger btn-sm" onclick="exportPDF()">PDF</button>
+        </div>
+      </div>
+      <h3 style="margin-top:0;">支承反力</h3>
+      <div id="reactionTable"></div>
+      <h3>各跨極值</h3>
+      <div id="extremeTable"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== UNIT SYSTEM ====================
+const UNITS = {
+  'kN-m':   { force:'kN', moment:'kN-m', dist:'kN/m', length:'m', stress:'MPa',       E:'kN/m²',     I:'m⁴',   Efactor:1,        Ifactor:1,      steelE:2.04e8,  concFn: fc => 3760*Math.sqrt(fc)*1000 },
+  'tf-m':   { force:'tf', moment:'tf-m', dist:'tf/m', length:'m', stress:'kgf/cm²',   E:'tf/m²',     I:'m⁴',   Efactor:1,        Ifactor:1,      steelE:2.04e8/9.80665, concFn: fc => 12000*Math.sqrt(fc)*10 },
+  'kgf-cm': { force:'kgf',moment:'kgf-cm',dist:'kgf/cm',length:'cm',stress:'kgf/cm²', E:'kgf/cm²',   I:'cm⁴',  Efactor:1,        Ifactor:1,      steelE:2.04e6,  concFn: fc => 12000*Math.sqrt(fc) }
+};
+// Steel E values: 2.04×10⁶ kgf/cm² = 2.04×10⁵ MPa = ~2.08×10⁷ tf/m²
+// For simplicity: store E in the unit system's E unit, I in the unit system's I unit
+
+function getUnit() { return UNITS[document.getElementById('unitSystem').value] || UNITS['kN-m']; }
+function getUnitKey() { return document.getElementById('unitSystem').value; }
+
+// 基準單位 → SI (N, m) 的倍率; 用於量綱換算
+const UNIT_BASIS = {
+  'kN-m':   { F: 1e3,     L: 1    }, // 1 kN=1000 N, 1 m
+  'tf-m':   { F: 9806.65, L: 1    }, // 1 tf=9806.65 N
+  'kgf-cm': { F: 9.80665, L: 0.01 }  // 1 kgf=9.80665 N, 1 cm=0.01 m
+};
+// 量綱 [F^a · L^b] 從 fromKey 換算到 toKey 的倍率
+function convFactor(fromKey, toKey, a, b) {
+  const p = UNIT_BASIS[fromKey], q = UNIT_BASIS[toKey];
+  return Math.pow(p.F/q.F, a) * Math.pow(p.L/q.L, b);
+}
+
+let _prevUnitKey = null;
+function onUnitChange() {
+  const u = getUnit();
+  const uk = getUnitKey();
+  const prev = _prevUnitKey;
+  // 先做數值換算 (若有前一組單位且不同)
+  if (prev && prev !== uk) {
+    const fL  = convFactor(prev, uk, 0, 1);   // 長度
+    const fI  = convFactor(prev, uk, 0, 4);   // 慣性矩
+    const fF  = convFactor(prev, uk, 1, 0);   // 力
+    const fM  = convFactor(prev, uk, 1, 1);   // 彎矩
+    const fW  = convFactor(prev, uk, 1,-1);   // 均佈/梯形載重
+    const fE  = convFactor(prev, uk, 1,-2);   // E (應力)
+    // 跨長與內絞點
+    for (const sp of model.spans) {
+      sp.L = +(sp.L * fL).toPrecision(8);
+      if (sp.hinges) sp.hinges = sp.hinges.map(h => +(h*fL).toPrecision(8));
+    }
+    // 各跨載重
+    for (const arr of model.loads) {
+      for (const ld of arr) {
+        if (ld.type === 'udl')        ld.w = +(ld.w * fW).toPrecision(8);
+        else if (ld.type === 'trapezoid') { ld.w1 = +(ld.w1*fW).toPrecision(8); ld.w2 = +(ld.w2*fW).toPrecision(8); }
+        else if (ld.type === 'point') { ld.P = +(ld.P*fF).toPrecision(8); ld.a = +(ld.a*fL).toPrecision(8); }
+        else if (ld.type === 'moment'){ ld.M = +(ld.M*fM).toPrecision(8); ld.a = +(ld.a*fL).toPrecision(8); }
+      }
+    }
+    // 全域 I
+    const giEl = document.getElementById('globalI');
+    if (giEl && giEl.value !== '') giEl.value = +(parseFloat(giEl.value) * fI).toPrecision(8);
+    // E (僅自訂模式才換算; steel/concrete 由 onMatChange/calcEc 重新產生)
+    const matSel = document.getElementById('matSelect');
+    if (matSel && matSel.value === 'custom') {
+      const eEl = document.getElementById('eVal');
+      if (eEl && eEl.value !== '') eEl.value = +(parseFloat(eEl.value) * fE).toPrecision(8);
+    }
+    // 影響線位置參數 (若為 shear/moment 類型則為長度)
+    const ilTypeEl = document.getElementById('ilType');
+    const ilParamEl = document.getElementById('ilParam');
+    if (ilTypeEl && ilParamEl && (ilTypeEl.value === 'shear' || ilTypeEl.value === 'moment') && ilParamEl.value !== '') {
+      ilParamEl.value = +(parseFloat(ilParamEl.value) * fL).toPrecision(8);
+    }
+  }
+  _prevUnitKey = uk;
+
+  // 更新單位標籤
+  document.querySelectorAll('.unit-force').forEach(el => el.textContent = u.force);
+  document.querySelectorAll('.unit-moment').forEach(el => el.textContent = u.moment);
+  document.querySelectorAll('.unit-dist').forEach(el => el.textContent = u.dist);
+  document.querySelectorAll('.unit-length').forEach(el => el.textContent = u.length);
+  document.querySelectorAll('.unit-stress').forEach(el => el.textContent = u.stress);
+  document.querySelectorAll('.unit-E').forEach(el => el.textContent = u.E);
+  document.querySelectorAll('.unit-I').forEach(el => el.textContent = u.I);
+  // 更新 E (若為 steel/concrete 由此路徑重算)
+  onMatChange();
+  // 重新渲染以反映換算後數值
+  renderSpanInputs();
+  renderLoadInputs();
+  drawSchematic();
+}
+
+function onMatChange() {
+  const mat = document.getElementById('matSelect').value;
+  const u = getUnit();
+  const uk = getUnitKey();
+  const fcGroup = document.getElementById('fcGroup');
+  const eInput = document.getElementById('eVal');
+
+  if (mat === 'steel') {
+    fcGroup.style.display = 'none';
+    if (uk === 'kN-m') eInput.value = 2.04e8;
+    else if (uk === 'tf-m') eInput.value = (2.04e6 * 100 / 9.80665).toFixed(0); // ~2.08e7
+    else eInput.value = 2.04e6;
+    eInput.readOnly = true; eInput.style.background = '#f1f5f9';
+  } else if (mat === 'concrete') {
+    fcGroup.style.display = 'block';
+    eInput.readOnly = true; eInput.style.background = '#f1f5f9';
+    calcEc();
+  } else {
+    fcGroup.style.display = 'none';
+    eInput.readOnly = false; eInput.style.background = '';
+  }
+}
+
+function calcEc() {
+  // 新法規 (土木 401-11X 以後): Ec = 12000·√fc' (kgf/cm²)  取代舊式 15000√fc'
+  const fc = parseFloat(document.getElementById('fcVal').value) || 280;
+  const uk = getUnitKey();
+  let Ec;
+  if (uk === 'kgf-cm') {
+    Ec = 12000 * Math.sqrt(fc); // kgf/cm²
+  } else if (uk === 'tf-m') {
+    // fc 輸入為 kgf/cm²;  1 kgf/cm² = 10 tf/m²
+    Ec = 12000 * Math.sqrt(fc) * 10; // tf/m²
+  } else {
+    // kN-m: fc' 以 MPa 輸入。將 12000√fc'(kgf/cm²) 換算為 MPa:
+    //   Ec(MPa) = 0.0981 × 12000 × √(fc'(MPa)×10.197) ≈ 3760·√fc'(MPa)
+    Ec = 3760 * Math.sqrt(fc) * 1000; // kN/m²
+  }
+  document.getElementById('eVal').value = Math.round(Ec);
+}
+
+function onIModeChange() {
+  const mode = document.getElementById('iMode').value;
+  document.getElementById('globalIGroup').style.display = mode === 'direct' ? 'block' : 'none';
+  document.getElementById('sectionSelectGroup').style.display = mode === 'section' ? 'block' : 'none';
+}
+
+let _sectionWin = null;
+function openSectionTool() {
+  _sectionWin = window.open('index.html?pickI=1', 'sectionTool', 'width=1280,height=820');
+}
+
+// 接收來自斷面性質工具回傳的 I 值
+window.addEventListener('message', (ev) => {
+  const d = ev.data;
+  if (!d || d.source !== 'sectionTool' || typeof d.Ix_cm4 !== 'number') return;
+  // 依目前單位系統換算: index.html 回傳以 cm⁴ 為單位的 Ix
+  const uk = getUnitKey();
+  let Iout;
+  if (uk === 'kgf-cm') Iout = d.Ix_cm4;                 // cm⁴
+  else Iout = d.Ix_cm4 * 1e-8;                          // cm⁴ → m⁴ (kN-m 與 tf-m 都用 m⁴)
+  // 切換 I 輸入模式為「直接輸入」，填入數值
+  const iMode = document.getElementById('iMode');
+  if (iMode) { iMode.value = 'direct'; onIModeChange(); }
+  const gi = document.getElementById('globalI');
+  if (gi) { gi.value = Iout; }
+  // 提示
+  const label = d.title ? `（${d.title}）` : '';
+  const note = document.getElementById('errorMsg');
+  if (note) {
+    note.style.display = 'block';
+    note.style.background = '#dcfce7'; note.style.color = '#166534'; note.style.borderColor = '#86efac';
+    note.textContent = `已導入斷面 I = ${Iout} ${getUnit().I}${label}`;
+    setTimeout(() => { note.style.display='none'; note.style.background=''; note.style.color=''; note.style.borderColor=''; }, 4000);
+  }
+});
+
+// ==================== DATA MODEL ====================
+let model = { numSpans: 2, spans: [], supports: [], loads: [] };
+let solution = null;
+let diagrams = null;
+
+function initModel(n) {
+  model.numSpans = n;
+  const old = { spans: model.spans.slice(), supports: model.supports.slice(), loads: model.loads.slice() };
+  model.spans = []; model.supports = []; model.loads = [];
+  for (let i = 0; i < n; i++) {
+    const sp = old.spans[i] || { L: 6.0, eiMul: 1.0 };
+    if (!sp.hinges) sp.hinges = [];
+    model.spans.push(sp);
+    model.loads.push(old.loads[i] || []);
+  }
+  for (let i = 0; i <= n; i++) {
+    model.supports.push(old.supports[i] || { type: (i === 0 || i === n) ? 'pin' : 'roller' });
+  }
+}
+
+// ==================== UI BUILDERS ====================
+function onSpanCountChange() {
+  const n = parseInt(document.getElementById('numSpans').value);
+  initModel(n);
+  renderSpanInputs();
+  renderLoadSpanSelect();
+  renderLoadInputs();
+  drawSchematic();
+}
+
+function renderSpanInputs() {
+  const u = getUnit();
+  const div = document.getElementById('spanInputs');
+  let html = '';
+  for (let i = 0; i <= model.numSpans; i++) {
+    html += `<div class="support-row">
+      <span style="font-size:0.8em;font-weight:600;color:var(--text-light);min-width:50px;">支承${i}</span>
+      <div class="form-group" style="margin:0;">
+        <select onchange="model.supports[${i}].type=this.value" style="padding:5px 8px;font-size:0.85em;">
+          <option value="pin" ${model.supports[i].type==='pin'?'selected':''}>鉸支</option>
+          <option value="roller" ${model.supports[i].type==='roller'?'selected':''}>滾支</option>
+          <option value="fixed" ${model.supports[i].type==='fixed'?'selected':''}>固定端</option>
+          <option value="free" ${model.supports[i].type==='free'?'selected':''}>自由端</option>
+        </select>
+      </div>
+    </div>`;
+    if (i < model.numSpans) {
+      html += `<div class="span-row">
+        <span style="font-size:0.8em;font-weight:600;color:var(--primary);min-width:40px;">跨${i+1}</span>
+        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">L (${u.length})</label>
+          <input type="number" value="${model.spans[i].L}" step="any" onchange="model.spans[${i}].L=parseFloat(this.value)||1" style="padding:5px;font-size:0.85em;"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">EI 倍率</label>
+          <input type="number" value="${model.spans[i].eiMul}" step="any" onchange="model.spans[${i}].eiMul=parseFloat(this.value)||1" style="padding:5px;font-size:0.85em;"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">內絞點位置 (${u.length}, 逗號分隔)</label>
+          <input type="text" value="${(model.spans[i].hinges||[]).join(',')}" placeholder="例: 2,4" onchange="updateHinges(${i},this.value)" style="padding:5px;font-size:0.85em;"></div>
+      </div>`;
+    }
+  }
+  div.innerHTML = html;
+}
+
+function renderLoadSpanSelect() {
+  const sel = document.getElementById('loadSpanSelect');
+  let html = '';
+  for (let i = 0; i < model.numSpans; i++) html += `<option value="${i}">跨 ${i+1}</option>`;
+  sel.innerHTML = html;
+}
+
+function renderLoadInputs() {
+  const u = getUnit();
+  const si = parseInt(document.getElementById('loadSpanSelect').value) || 0;
+  const loads = model.loads[si] || [];
+  const div = document.getElementById('loadInputs');
+  if (!loads.length) { div.innerHTML = '<p class="hint">尚未新增載重</p>'; return; }
+  let html = '';
+  loads.forEach((ld, li) => {
+    html += `<div class="load-item"><div class="load-header"><span>載重${li+1}</span>
+      <button class="btn btn-danger btn-sm" onclick="removeLoad(${si},${li})">移除</button></div>
+      <div class="form-group" style="margin-bottom:4px;">
+        <select onchange="changeLoadType(${si},${li},this.value)" style="padding:4px;font-size:0.85em;">
+          <option value="udl" ${ld.type==='udl'?'selected':''}>均佈載重</option>
+          <option value="trapezoid" ${ld.type==='trapezoid'?'selected':''}>梯形載重</option>
+          <option value="point" ${ld.type==='point'?'selected':''}>集中力</option>
+          <option value="moment" ${ld.type==='moment'?'selected':''}>集中彎矩</option>
+        </select></div>`;
+    const sty = 'padding:4px;font-size:0.85em;';
+    if (ld.type === 'udl') {
+      html += `<div class="form-group" style="margin:0;"><label style="font-size:0.72em;">w (${u.dist})</label>
+        <input type="number" value="${ld.w||0}" step="any" onchange="model.loads[${si}][${li}].w=parseFloat(this.value)||0" style="${sty}"></div>`;
+    } else if (ld.type === 'trapezoid') {
+      html += `<div class="form-row"><div class="form-group" style="margin:0;"><label style="font-size:0.72em;">w1 左 (${u.dist})</label>
+        <input type="number" value="${ld.w1||0}" step="any" onchange="model.loads[${si}][${li}].w1=parseFloat(this.value)||0" style="${sty}"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">w2 右 (${u.dist})</label>
+        <input type="number" value="${ld.w2||0}" step="any" onchange="model.loads[${si}][${li}].w2=parseFloat(this.value)||0" style="${sty}"></div></div>`;
+    } else if (ld.type === 'point') {
+      html += `<div class="form-row"><div class="form-group" style="margin:0;"><label style="font-size:0.72em;">P (${u.force})</label>
+        <input type="number" value="${ld.P||0}" step="any" onchange="model.loads[${si}][${li}].P=parseFloat(this.value)||0" style="${sty}"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">a (${u.length})</label>
+        <input type="number" value="${ld.a||0}" step="any" min="0" onchange="model.loads[${si}][${li}].a=parseFloat(this.value)||0" style="${sty}"></div></div>`;
+    } else if (ld.type === 'moment') {
+      html += `<div class="form-row"><div class="form-group" style="margin:0;"><label style="font-size:0.72em;">M (${u.moment})</label>
+        <input type="number" value="${ld.M||0}" step="any" onchange="model.loads[${si}][${li}].M=parseFloat(this.value)||0" style="${sty}"></div>
+        <div class="form-group" style="margin:0;"><label style="font-size:0.72em;">a (${u.length})</label>
+        <input type="number" value="${ld.a||0}" step="any" min="0" onchange="model.loads[${si}][${li}].a=parseFloat(this.value)||0" style="${sty}"></div></div>`;
+    }
+    html += '</div>';
+  });
+  div.innerHTML = html;
+}
+
+function updateHinges(si, str) {
+  const L = model.spans[si].L;
+  const arr = String(str||'').split(/[,，\s]+/).map(s=>parseFloat(s)).filter(v=>!isNaN(v) && v>1e-6 && v<L-1e-6).sort((a,b)=>a-b);
+  model.spans[si].hinges = arr;
+  drawSchematic();
+}
+
+function addLoad() {
+  const si = parseInt(document.getElementById('loadSpanSelect').value) || 0;
+  if (!model.loads[si]) model.loads[si] = [];
+  model.loads[si].push({ type: 'udl', w: 10 });
+  renderLoadInputs();
+}
+function removeLoad(si, li) { model.loads[si].splice(li, 1); renderLoadInputs(); }
+function changeLoadType(si, li, t) {
+  const L = model.spans[si].L;
+  const defs = { udl:{type:'udl',w:10}, trapezoid:{type:'trapezoid',w1:10,w2:10}, point:{type:'point',P:50,a:L/2}, moment:{type:'moment',M:20,a:L/2} };
+  model.loads[si][li] = defs[t];
+  renderLoadInputs();
+}
+function toggleIL() { document.getElementById('ilControls').style.display = document.getElementById('ilEnabled').checked ? 'block' : 'none'; }
+function onILTypeChange() {
+  const t = document.getElementById('ilType').value;
+  document.getElementById('ilParamLabel').textContent = t === 'reaction' ? '支承編號 (0起)' : '位置 x (' + getUnit().length + ')';
+  document.getElementById('ilParam').value = t === 'reaction' ? 0 : (model.spans.reduce((s,sp)=>s+sp.L,0)/2).toFixed(1);
+}
+
+// ==================== MATRIX UTILITIES ====================
+function zeros(n) { return Array.from({length:n}, ()=>new Float64Array(n)); }
+function zerosVec(n) { return new Float64Array(n); }
+
+function gaussSolve(A, b) {
+  const n = b.length;
+  const a = A.map(r => Float64Array.from(r));
+  const x = Float64Array.from(b);
+  for (let col = 0; col < n; col++) {
+    let maxRow = col, maxVal = Math.abs(a[col][col]);
+    for (let r = col+1; r < n; r++) { const v = Math.abs(a[r][col]); if (v > maxVal) { maxVal = v; maxRow = r; } }
+    if (maxVal < 1e-14) return null;
+    [a[col], a[maxRow]] = [a[maxRow], a[col]];
+    [x[col], x[maxRow]] = [x[maxRow], x[col]];
+    for (let r = col+1; r < n; r++) {
+      const f = a[r][col] / a[col][col];
+      for (let j = col; j < n; j++) a[r][j] -= f * a[col][j];
+      x[r] -= f * x[col];
+    }
+  }
+  const res = new Float64Array(n);
+  for (let i = n-1; i >= 0; i--) {
+    res[i] = x[i];
+    for (let j = i+1; j < n; j++) res[i] -= a[i][j] * res[j];
+    res[i] /= a[i][i];
+  }
+  return res;
+}
+
+// ==================== STRUCTURAL ANALYSIS ====================
+function beamStiffness(EI, L) {
+  const c = EI / (L*L*L), L2 = L*L;
+  return [[12*c,6*L*c,-12*c,6*L*c],[6*L*c,4*L2*c,-6*L*c,2*L2*c],[-12*c,-6*L*c,12*c,-6*L*c],[6*L*c,2*L2*c,-6*L*c,4*L2*c]];
+}
+
+function fixedEndForces(load, L) {
+  const t = load.type;
+  if (t === 'udl') {
+    const w = load.w;
+    return [w*L/2, w*L*L/12, w*L/2, -w*L*L/12];
+  }
+  if (t === 'trapezoid') {
+    const w1 = load.w1, w2 = load.w2;
+    const fU = [w1*L/2, w1*L*L/12, w1*L/2, -w1*L*L/12];
+    const wt = w2 - w1;
+    let fT = [0,0,0,0];
+    if (Math.abs(wt) > 1e-12) {
+      if (wt > 0) { fT = [3*wt*L/20, wt*L*L/30, 7*wt*L/20, -wt*L*L/20]; }
+      else { const ww=-wt; fT = [-7*ww*L/20, -ww*L*L/20, -3*ww*L/20, ww*L*L/30]; }
+    }
+    return [fU[0]+fT[0], fU[1]+fT[1], fU[2]+fT[2], fU[3]+fT[3]];
+  }
+  if (t === 'point') {
+    const P = load.P, a = Math.min(Math.max(load.a,0),L), b = L-a;
+    if (L < 1e-12) return [0,0,0,0];
+    const L3=L*L*L, L2=L*L;
+    return [P*b*b*(3*a+b)/L3, P*a*b*b/L2, P*a*a*(a+3*b)/L3, -P*a*a*b/L2];
+  }
+  if (t === 'moment') {
+    const M0 = load.M, a = Math.min(Math.max(load.a,0),L), b = L-a;
+    if (L < 1e-12) return [0,0,0,0];
+    const L3=L*L*L, L2=L*L;
+    return [6*M0*a*b/L3, M0*b*(2*a-b)/L2, -6*M0*a*b/L3, M0*a*(2*b-a)/L2];
+  }
+  return [0,0,0,0];
+}
+
+function getEI() {
+  const E = parseFloat(document.getElementById('eVal').value) || 1;
+  const I = parseFloat(document.getElementById('globalI').value) || 1;
+  return E * I;
+}
+
+// Build element topology: split each user-span at internal hinges into sub-elements.
+// Each "node" has a vertical DOF; rotation DOF can be split (one per side) at hinges.
+// Returns: { nDof, nodes:[{vDof, suppIdx?}], elems:[{spanIdx, x1, x2, L, EI, dofs:[v1,t1,v2,t2], loads:[{type,...}]}], suppNodeIdx:[node index for each support i] }
+function buildTopology(mdl) {
+  const baseEI = getEI();
+  const nodes = [];      // each node: {vDof, suppIdx?, isHinge?}
+  const elems = [];
+  const suppNodeIdx = []; // maps support i -> node index
+  let dofCount = 0;
+
+  // Allocate node helper
+  function newNode(opts) {
+    const nd = { vDof: dofCount++, leftThetaDof: -1, rightThetaDof: -1, ...opts };
+    nodes.push(nd);
+    return nodes.length - 1;
+  }
+
+  // Build nodes/elems span by span
+  for (let i = 0; i < mdl.numSpans; i++) {
+    const L = mdl.spans[i].L;
+    const hinges = (mdl.spans[i].hinges || []).filter(h=>h>1e-9 && h<L-1e-9).slice().sort((a,b)=>a-b);
+    const cuts = [0, ...hinges, L];
+
+    // Left support node — create only for span 0; otherwise reuse previous span's right node
+    let leftNodeIdx;
+    if (i === 0) {
+      leftNodeIdx = newNode({ suppIdx: 0 });
+      suppNodeIdx[0] = leftNodeIdx;
+      nodes[leftNodeIdx].rightThetaDof = dofCount++;
+    } else {
+      leftNodeIdx = suppNodeIdx[i]; // already created at end of previous span
+    }
+
+    let prevNodeIdx = leftNodeIdx;
+    let prevThetaDof = nodes[leftNodeIdx].rightThetaDof; // theta DOF used by element on its left side
+
+    for (let s = 0; s < cuts.length - 1; s++) {
+      const x1 = cuts[s], x2 = cuts[s+1], subL = x2 - x1;
+      const isLastSubInSpan = (s === cuts.length - 2);
+      let rightNodeIdx;
+      if (isLastSubInSpan) {
+        // Right end of span = next support node
+        rightNodeIdx = newNode({ suppIdx: i+1 });
+        suppNodeIdx[i+1] = rightNodeIdx;
+        // Allocate left theta for this support (used by this elem) and right theta for next span's first elem
+        nodes[rightNodeIdx].leftThetaDof = dofCount++;
+        nodes[rightNodeIdx].rightThetaDof = nodes[rightNodeIdx].leftThetaDof; // continuous (no hinge at support by default)
+      } else {
+        // Hinge node: separate left/right rotations
+        rightNodeIdx = newNode({ isHinge: true });
+        nodes[rightNodeIdx].leftThetaDof = dofCount++;
+        nodes[rightNodeIdx].rightThetaDof = dofCount++;
+      }
+
+      const rightThetaForElem = nodes[rightNodeIdx].leftThetaDof;
+      elems.push({
+        spanIdx: i, x1, x2, L: subL,
+        EI: baseEI * (mdl.spans[i].eiMul || 1),
+        dofs: [nodes[prevNodeIdx].vDof, prevThetaDof, nodes[rightNodeIdx].vDof, rightThetaForElem]
+      });
+
+      prevNodeIdx = rightNodeIdx;
+      prevThetaDof = nodes[rightNodeIdx].rightThetaDof;
+    }
+  }
+  return { nodes, elems, suppNodeIdx, nDof: dofCount, baseEI };
+}
+
+function solve(mdl, eiOverride) {
+  const topo = buildTopology(mdl);
+  if (eiOverride) { for (const e of topo.elems) { const sp = mdl.spans[e.spanIdx]; e.EI = eiOverride * (sp.eiMul||1); } }
+  const nDof = topo.nDof;
+  const K = zeros(nDof), F = zerosVec(nDof);
+
+  // Assemble elem stiffness; distribute span loads onto sub-elements (clip to sub range)
+  for (const e of topo.elems) {
+    const ke = beamStiffness(e.EI, e.L);
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++) K[e.dofs[r]][e.dofs[c]] += ke[r][c];
+    const spanLoads = mdl.loads[e.spanIdx] || [];
+    const spanLfull = mdl.spans[e.spanIdx].L;
+    for (const ld of spanLoads) {
+      const ldEnriched = ld.type==='trapezoid' ? Object.assign({_spanL: spanLfull}, ld) : ld;
+      const subLd = clipLoadToRange(ldEnriched, e.x1, e.x2);
+      if (!subLd) continue;
+      const fef = fixedEndForces(subLd, e.L);
+      for (let r=0;r<4;r++) F[e.dofs[r]] -= fef[r];
+    }
+  }
+
+  // Boundary conditions on support nodes
+  const freeDofs = [], constrainedV = new Set();
+  for (let i = 0; i <= mdl.numSpans; i++) {
+    const nd = topo.nodes[topo.suppNodeIdx[i]];
+    const st = mdl.supports[i].type;
+    if (st === 'free') {
+      // both v and theta free
+    } else if (st === 'fixed') {
+      constrainedV.add(nd.vDof);
+      // also fix rotations at this support
+      if (nd.leftThetaDof >= 0) constrainedV.add(nd.leftThetaDof);
+      if (nd.rightThetaDof >= 0 && nd.rightThetaDof !== nd.leftThetaDof) constrainedV.add(nd.rightThetaDof);
+    } else { // pin or roller: restrain v only
+      constrainedV.add(nd.vDof);
+    }
+  }
+  for (let d=0; d<nDof; d++) if (!constrainedV.has(d)) freeDofs.push(d);
+
+  const nf = freeDofs.length;
+  const disp = zerosVec(nDof);
+  if (nf > 0) {
+    const Kred = zeros(nf), Fred = zerosVec(nf);
+    for (let i=0;i<nf;i++) { Fred[i] = F[freeDofs[i]]; for (let j=0;j<nf;j++) Kred[i][j] = K[freeDofs[i]][freeDofs[j]]; }
+    const dRed = gaussSolve(Kred, Fred);
+    if (!dRed) return null;
+    for (let i=0;i<nf;i++) disp[freeDofs[i]] = dRed[i];
+  }
+
+  // Reaction at each support node
+  const reactions = []; // per support: {Ry, Mr}
+  for (let i = 0; i <= mdl.numSpans; i++) {
+    const nd = topo.nodes[topo.suppNodeIdx[i]];
+    let Ry = 0; for (let j=0;j<nDof;j++) Ry += K[nd.vDof][j]*disp[j]; Ry -= F[nd.vDof];
+    let Mr = 0;
+    if (mdl.supports[i].type === 'fixed') {
+      const td = nd.leftThetaDof >= 0 ? nd.leftThetaDof : nd.rightThetaDof;
+      if (td >= 0) { for (let j=0;j<nDof;j++) Mr += K[td][j]*disp[j]; Mr -= F[td]; }
+    }
+    reactions.push({ Ry, Mr });
+  }
+
+  // Element end forces
+  for (const e of topo.elems) {
+    const ke = beamStiffness(e.EI, e.L);
+    const de = e.dofs.map(d=>disp[d]);
+    const f = [0,0,0,0];
+    for (let r=0;r<4;r++) for (let c=0;c<4;c++) f[r] += ke[r][c]*de[c];
+    const spanLoads = mdl.loads[e.spanIdx] || [];
+    const spanLfull = mdl.spans[e.spanIdx].L;
+    for (const ld of spanLoads) {
+      const ldEnriched = ld.type==='trapezoid' ? Object.assign({_spanL: spanLfull}, ld) : ld;
+      const subLd = clipLoadToRange(ldEnriched, e.x1, e.x2);
+      if (!subLd) continue;
+      const fef = fixedEndForces(subLd, e.L);
+      for (let r=0;r<4;r++) f[r] += fef[r];
+    }
+    e.endForces = { V1:f[0], M1:f[1], V2:f[2], M2:f[3] };
+    e.dispLocal = de;
+  }
+
+  return { disp, reactions, topo };
+}
+
+// Clip a load to a sub-range [x1,x2] within its parent span; returns load relative to sub-element (a in [0, x2-x1])
+function clipLoadToRange(ld, x1, x2) {
+  const subL = x2 - x1;
+  if (subL <= 1e-12) return null;
+  if (ld.type === 'udl') return { type:'udl', w: ld.w };
+  if (ld.type === 'trapezoid') {
+    // Linear load between original span endpoints; need original span length to interpolate.
+    // We don't have it here directly — but trapezoidal w(x) = w1 + (w2-w1)*x/L_span; the caller passes
+    // ld with original parameters, so we need L_span. Add it via closure: handled by caller passing through.
+    // Fallback: treat as udl with avg of endpoints across sub-range using ld._spanL injected by solve flow
+    const Ls = ld._spanL || subL;
+    const wA = ld.w1 + (ld.w2 - ld.w1) * x1 / Ls;
+    const wB = ld.w1 + (ld.w2 - ld.w1) * x2 / Ls;
+    return { type:'trapezoid', w1: wA, w2: wB };
+  }
+  if (ld.type === 'point') {
+    if (ld.a >= x1 - 1e-9 && ld.a <= x2 + 1e-9) return { type:'point', P: ld.P, a: Math.max(0, Math.min(subL, ld.a - x1)) };
+    return null;
+  }
+  if (ld.type === 'moment') {
+    if (ld.a >= x1 - 1e-9 && ld.a <= x2 + 1e-9) return { type:'moment', M: ld.M, a: Math.max(0, Math.min(subL, ld.a - x1)) };
+    return null;
+  }
+  return null;
+}
+
+// ==================== DIAGRAM COMPUTATION ====================
+function computeDiagrams(mdl, sol) {
+  const result = { spans: [] };
+  const topo = sol.topo;
+  // Span offsets along total length
+  const spanOffset = []; let acc=0;
+  for (let i=0;i<mdl.numSpans;i++) { spanOffset.push(acc); acc += mdl.spans[i].L; }
+
+  // Initialize per-span arrays
+  for (let i=0;i<mdl.numSpans;i++) {
+    result.spans.push({xs:[], vs:[], ms:[], ds:[], xStart: spanOffset[i], L: mdl.spans[i].L});
+  }
+
+  // Iterate sub-elements; sample each
+  const nPtsSub = 24;
+  for (const e of topo.elems) {
+    const L = e.L, ef = e.endForces;
+    const [v1, t1, v2, t2] = e.dispLocal;
+    const spanLfull = mdl.spans[e.spanIdx].L;
+    const loads = (mdl.loads[e.spanIdx]||[]).map(ld => ld.type==='trapezoid' ? Object.assign({_spanL: spanLfull}, ld) : ld)
+                                            .map(ld => clipLoadToRange(ld, e.x1, e.x2)).filter(Boolean);
+    const sp = result.spans[e.spanIdx];
+    for (let j = 0; j <= nPtsSub; j++) {
+      const x = j*L/nPtsSub;
+      let V = ef.V1;
+      let M = -ef.M1 + ef.V1*x;
+      for (const ld of loads) {
+        if (ld.type === 'udl') { V -= ld.w*x; M -= ld.w*x*x/2; }
+        else if (ld.type === 'trapezoid') {
+          V -= (ld.w1*x + (ld.w2-ld.w1)*x*x/(2*L));
+          M -= (ld.w1*x*x/2 + (ld.w2-ld.w1)*x*x*x/(6*L));
+        } else if (ld.type === 'point') { if (x > ld.a+1e-10) { V -= ld.P; M -= ld.P*(x-ld.a); } }
+        else if (ld.type === 'moment') { if (x > ld.a+1e-10) M -= ld.M; }
+      }
+      const xi=x/L, xi2=xi*xi, xi3=xi2*xi;
+      const defl = (1-3*xi2+2*xi3)*v1 + L*(xi-2*xi2+xi3)*t1 + (3*xi2-2*xi3)*v2 + L*(-xi2+xi3)*t2;
+      const xGlobal = spanOffset[e.spanIdx] + e.x1 + x;
+      // Avoid duplicate point at sub-element boundary except at very first sample
+      if (j === 0 && sp.xs.length > 0 && Math.abs(sp.xs[sp.xs.length-1] - xGlobal) < 1e-9) continue;
+      sp.xs.push(xGlobal); sp.vs.push(V); sp.ms.push(M); sp.ds.push(defl);
+    }
+  }
+  result.totalLength = acc;
+  return result;
+}
+
+// ==================== INFLUENCE LINE ====================
+function computeInfluenceLine(mdl, type, param) {
+  const totalL = mdl.spans.reduce((s,sp)=>s+sp.L,0);
+  const nPos = 200, positions = [], values = [];
+  const baseEI = getEI();
+  for (let k = 0; k <= nPos; k++) {
+    const xPos = k*totalL/nPos;
+    positions.push(xPos);
+    let cumL=0, spanIdx=-1, localX=0;
+    for (let i = 0; i < mdl.numSpans; i++) {
+      if (xPos <= cumL+mdl.spans[i].L+1e-10) { spanIdx=i; localX=xPos-cumL; break; }
+      cumL += mdl.spans[i].L;
+    }
+    if (spanIdx<0) { spanIdx=mdl.numSpans-1; localX=mdl.spans[spanIdx].L; }
+    const tmp = { numSpans:mdl.numSpans, spans:mdl.spans, supports:mdl.supports, loads:mdl.spans.map(()=>[]) };
+    tmp.loads[spanIdx] = [{type:'point',P:1,a:localX}];
+    const sol = solve(tmp, baseEI);
+    if (!sol) { values.push(0); continue; }
+    let val = 0;
+    if (type === 'reaction') { val = sol.reactions[Math.round(param)].Ry; }
+    else {
+      const diag = computeDiagrams(tmp, sol);
+      let best=0, bestD=Infinity;
+      for (const sp of diag.spans) for (let j=0;j<sp.xs.length;j++) {
+        const d=Math.abs(sp.xs[j]-param);
+        if (d<bestD) { bestD=d; best = type==='shear'?sp.vs[j]:sp.ms[j]; }
+      }
+      val = best;
+    }
+    values.push(val);
+  }
+  return {positions, values};
+}
+
+// ==================== CANVAS DRAWING ====================
+function setupCanvas(id, minW) {
+  const c = document.getElementById(id), wrap = c.parentElement;
+  const w = Math.max(wrap.clientWidth-20, minW||500);
+  const h = id==='schematicCanvas'?200:240;
+  c.width=w; c.height=h;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,w,h);
+  return {ctx,w,h};
+}
+
+function getScale(totalL, cw, m) { return (cw-m.left-m.right)/totalL; }
+
+function drawSchematic() {
+  const {ctx,w,h} = setupCanvas('schematicCanvas');
+  const u = getUnit();
+  const totalL = model.spans.reduce((s,sp)=>s+sp.L,0);
+  if (totalL<=0) return;
+  const margin={left:50,right:30,top:35,bottom:60};
+  const sx = getScale(totalL,w,margin), beamY=h/2-10;
+
+  ctx.strokeStyle='#1e293b'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(margin.left,beamY); ctx.lineTo(margin.left+totalL*sx,beamY); ctx.stroke();
+
+  let xOff=0;
+  for (let i=0;i<=model.numSpans;i++) {
+    const px=margin.left+xOff*sx;
+    drawSupport(ctx,px,beamY,model.supports[i].type);
+    ctx.fillStyle='#000'; ctx.font='bold 13px Segoe UI'; ctx.textAlign='center';
+    ctx.fillText(`${i}`,px,beamY+42);
+    if (i<model.numSpans) {
+      const L=model.spans[i].L, mid=margin.left+(xOff+L/2)*sx;
+      const x1=margin.left+xOff*sx+5, x2=margin.left+(xOff+L)*sx-5;
+      const dimY = beamY+56;
+      ctx.strokeStyle='#64748b'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x1,dimY); ctx.lineTo(x2,dimY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1,dimY-4); ctx.lineTo(x1,dimY+4); ctx.moveTo(x2,dimY-4); ctx.lineTo(x2,dimY+4); ctx.stroke();
+      ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const _lt=`${L} ${u.length}`, _lm=ctx.measureText(_lt);
+      ctx.fillStyle='#fff'; ctx.fillRect(mid-_lm.width/2-3,dimY-9,_lm.width+6,18);
+      ctx.fillStyle='#000'; ctx.fillText(_lt,mid,dimY);
+      ctx.textBaseline='alphabetic';
+      xOff+=L;
+    }
+  }
+  xOff=0;
+  for (let i=0;i<model.numSpans;i++) {
+    const L=model.spans[i].L;
+    for (const ld of (model.loads[i]||[])) drawLoadSymbol(ctx,margin.left,xOff,L,sx,beamY,ld,u);
+    // Internal hinges
+    for (const h of (model.spans[i].hinges||[])) {
+      const px = margin.left + (xOff + h)*sx;
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#ea580c'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, beamY, 4.5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    }
+    xOff+=L;
+  }
+}
+
+function drawSupport(ctx,x,y,type) {
+  ctx.save();
+  if (type==='pin') {
+    ctx.strokeStyle='#1e293b'; ctx.fillStyle='#fff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-9,y+16); ctx.lineTo(x+9,y+16); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-13,y+18); ctx.lineTo(x+13,y+18); ctx.stroke();
+  } else if (type==='roller') {
+    ctx.strokeStyle='#1e293b'; ctx.fillStyle='#fff'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-9,y+12); ctx.lineTo(x+9,y+12); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x,y+16,3.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x-13,y+21); ctx.lineTo(x+13,y+21); ctx.stroke();
+  } else if (type==='fixed') {
+    ctx.strokeStyle='#1e293b'; ctx.fillStyle='#cbd5e1'; ctx.lineWidth=2;
+    ctx.fillRect(x-5,y-10,10,20); ctx.strokeRect(x-5,y-10,10,20);
+    ctx.lineWidth=1; for (let d=-8;d<=8;d+=4) { ctx.beginPath(); ctx.moveTo(x-5,y+d); ctx.lineTo(x-11,y+d+5); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+
+function drawLoadSymbol(ctx,mL,xOff,L,sx,beamY,ld,u) {
+  ctx.save();
+  const x1=mL+xOff*sx, x2=mL+(xOff+L)*sx;
+  if (ld.type==='udl') {
+    const ah=Math.min(28,Math.max(14,Math.abs(ld.w)*1.5));
+    ctx.fillStyle='rgba(220,38,38,0.12)'; ctx.fillRect(x1,beamY-ah,x2-x1,ah);
+    ctx.strokeStyle='#dc2626'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(x1,beamY-ah); ctx.lineTo(x2,beamY-ah); ctx.stroke();
+    const nA=Math.max(3,Math.floor((x2-x1)/20));
+    for (let k=0;k<=nA;k++) { const ax=x1+k*(x2-x1)/nA; ctx.beginPath(); ctx.moveTo(ax,beamY-ah); ctx.lineTo(ax,beamY-2); ctx.stroke(); drawAH(ctx,ax,beamY-2,'down','#dc2626'); }
+    ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    const _wt=`w=${ld.w} ${u.dist}`, _wm=ctx.measureText(_wt), _wtx=(x1+x2)/2, _wty=beamY-ah-5;
+    ctx.fillStyle='#fff'; ctx.fillRect(_wtx-_wm.width/2-2,_wty-14,_wm.width+4,16);
+    ctx.fillStyle='#000'; ctx.fillText(_wt,_wtx,_wty);
+    ctx.textBaseline='alphabetic';
+  } else if (ld.type==='trapezoid') {
+    const mW=Math.max(Math.abs(ld.w1),Math.abs(ld.w2),1);
+    const h1=Math.abs(ld.w1)/mW*28, h2=Math.abs(ld.w2)/mW*28;
+    ctx.fillStyle='rgba(220,38,38,0.1)'; ctx.beginPath();
+    ctx.moveTo(x1,beamY); ctx.lineTo(x1,beamY-h1); ctx.lineTo(x2,beamY-h2); ctx.lineTo(x2,beamY); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#dc2626'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(x1,beamY-h1); ctx.lineTo(x2,beamY-h2); ctx.stroke();
+    ctx.font='bold 12px Segoe UI'; ctx.textBaseline='bottom';
+    const _t1=`${ld.w1} ${u.dist}`, _m1=ctx.measureText(_t1);
+    ctx.fillStyle='#fff'; ctx.fillRect(x1+1,beamY-h1-20,_m1.width+4,16);
+    ctx.fillStyle='#000'; ctx.textAlign='left'; ctx.fillText(_t1,x1+3,beamY-h1-5);
+    const _t2=`${ld.w2} ${u.dist}`, _m2=ctx.measureText(_t2);
+    ctx.fillStyle='#fff'; ctx.fillRect(x2-_m2.width-5,beamY-h2-20,_m2.width+4,16);
+    ctx.fillStyle='#000'; ctx.textAlign='right'; ctx.fillText(_t2,x2-3,beamY-h2-5);
+    ctx.textBaseline='alphabetic';
+  } else if (ld.type==='point') {
+    const px=mL+(xOff+ld.a)*sx;
+    ctx.strokeStyle='#dc2626'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(px,beamY-32); ctx.lineTo(px,beamY-2); ctx.stroke();
+    drawAH(ctx,px,beamY-2,'down','#dc2626');
+    ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    const _pt=`P=${ld.P} ${u.force}`, _pm=ctx.measureText(_pt);
+    ctx.fillStyle='#fff'; ctx.fillRect(px-_pm.width/2-2,beamY-52,_pm.width+4,16);
+    ctx.fillStyle='#000'; ctx.fillText(_pt,px,beamY-37);
+    ctx.textBaseline='alphabetic';
+  } else if (ld.type==='moment') {
+    const px=mL+(xOff+ld.a)*sx;
+    ctx.strokeStyle='#9333ea'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(px,beamY-14,9,0.5,Math.PI*1.5); ctx.stroke();
+    ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    const _mt=`M=${ld.M} ${u.moment}`, _mm=ctx.measureText(_mt);
+    ctx.fillStyle='#fff'; ctx.fillRect(px-_mm.width/2-2,beamY-44,_mm.width+4,16);
+    ctx.fillStyle='#000'; ctx.fillText(_mt,px,beamY-29);
+    ctx.textBaseline='alphabetic';
+  }
+  ctx.restore();
+}
+
+function drawAH(ctx,x,y,dir,color) {
+  ctx.fillStyle=color||'#1e293b'; ctx.beginPath();
+  if (dir==='down') { ctx.moveTo(x,y); ctx.lineTo(x-3,y-5); ctx.lineTo(x+3,y-5); }
+  ctx.closePath(); ctx.fill();
+}
+
+function drawDiagramFill(canvasId, diag, key, color, label, flipSign) {
+  const {ctx,w,h} = setupCanvas(canvasId);
+  const totalL = diag.totalLength;
+  if (totalL<=0) return;
+  const margin={left:55,right:25,top:40,bottom:42};
+  const sx = getScale(totalL,w,margin);
+  const plotH = h-margin.top-margin.bottom;
+  const baseY = margin.top+plotH/2;
+
+  let allVals=[];
+  for (const sp of diag.spans) { const a=key==='v'?sp.vs:key==='m'?sp.ms:sp.ds; allVals=allVals.concat(Array.from(a)); }
+  if (flipSign) allVals=allVals.map(v=>-v);
+  let maxAbs=Math.max(...allVals.map(Math.abs));
+  if (!isFinite(maxAbs) || maxAbs < Number.MIN_VALUE*10) maxAbs = 1; // 全部為 0 時避免除零
+  const sy=(plotH/2-5)/maxAbs;
+
+  // Grid
+  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=0.5;
+  for (let i=-2;i<=2;i++) { const gy=baseY-i*plotH/4; ctx.beginPath(); ctx.moveTo(margin.left,gy); ctx.lineTo(w-margin.right,gy); ctx.stroke(); }
+  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(margin.left,baseY); ctx.lineTo(w-margin.right,baseY); ctx.stroke();
+
+  // Support lines
+  let xOff=0;
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  for (let i=0;i<=model.numSpans;i++) {
+    const px=margin.left+xOff*sx;
+    ctx.beginPath(); ctx.moveTo(px,margin.top); ctx.lineTo(px,h-margin.bottom); ctx.stroke();
+    if (i<model.numSpans) xOff+=model.spans[i].L;
+  }
+  ctx.setLineDash([]);
+
+  // Fill
+  ctx.fillStyle=color.replace(')',',0.18)').replace('rgb','rgba');
+  ctx.strokeStyle=color; ctx.lineWidth=1.5;
+  for (const sp of diag.spans) {
+    const arr=key==='v'?sp.vs:key==='m'?sp.ms:sp.ds;
+    ctx.beginPath(); ctx.moveTo(margin.left+sp.xs[0]*sx,baseY);
+    for (let j=0;j<sp.xs.length;j++) { let v=flipSign?-arr[j]:arr[j]; ctx.lineTo(margin.left+sp.xs[j]*sx,baseY-v*sy); }
+    ctx.lineTo(margin.left+sp.xs[sp.xs.length-1]*sx,baseY); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    for (let j=0;j<sp.xs.length;j++) { let v=flipSign?-arr[j]:arr[j]; const px=margin.left+sp.xs[j]*sx,py=baseY-v*sy; j===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+    ctx.stroke();
+  }
+
+  // 標題 (先測寬, 供標籤佈局避讓)
+  ctx.font='bold 14px Segoe UI';
+  const titleW = ctx.measureText(label).width;
+  const titleX = margin.left+4, titleY = 4; // 畫在畫布頂端 gutter 的最上方
+
+  // 縱軸刻度 (左側)
+  ctx.fillStyle='#000'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='right'; ctx.textBaseline='alphabetic';
+  ctx.fillText(fmtVal(maxAbs),margin.left-4,margin.top+10);
+  ctx.fillText(fmtVal(-maxAbs),margin.left-4,h-margin.bottom);
+  ctx.fillText('0',margin.left-4,baseY+4);
+
+  // Extremes per span — 以引出線將標籤拉到繪圖框外的空白帶, 完全不覆蓋曲線
+  const extremeThresh = Math.max(maxAbs * 0.02, Number.MIN_VALUE); // 2% 相對門檻, 過濾雜訊
+  const uLen = getUnit().length;
+  ctx.font='bold 12px Consolas';
+  const lineH = 14;
+  // 收集每個段的極值
+  const items = [];
+  for (const sp of diag.spans) {
+    const arr = key==='v'?sp.vs:key==='m'?sp.ms:sp.ds;
+    const n = arr.length;
+    if (n<2) continue;
+    let maxV=-Infinity, minV=Infinity, maxJ=0, minJ=0;
+    for (let j=0;j<n;j++) {
+      const v = flipSign?-arr[j]:arr[j];
+      if (v>maxV){maxV=v;maxJ=j;}
+      if (v<minV){minV=v;minJ=j;}
+    }
+    const spL = sp.L || (sp.xs[n-1]-sp.xs[0]);
+    const nearEnd = (j) => (j<=1) || (j>=n-2);
+    const pushOne = (v, j, side) => {
+      if (Math.abs(v) < extremeThresh) return;
+      const gx = sp.xs[j], locX = gx - sp.xStart;
+      const dotX = margin.left + gx*sx, dotY = baseY - v*sy;
+      const lines = [fmtVal(v)];
+      if (!nearEnd(j) && spL>0) lines.push(`x=${fmtVal(locX)}${uLen}`);
+      let maxW = 0;
+      for (const ln of lines) maxW = Math.max(maxW, ctx.measureText(ln).width);
+      items.push({ side, dotX, dotY, lines, maxW, v });
+    };
+    pushOne(maxV, maxJ, 'top');
+    pushOne(minV, minJ, 'bot');
+  }
+  // 合併鄰跨於共用支承上的重複極值 (同側、x 幾乎相同、值幾乎相同)
+  items.sort((a,b)=>a.side===b.side ? a.dotX-b.dotX : (a.side<b.side?-1:1));
+  const merged = [];
+  for (const it of items) {
+    const last = merged[merged.length-1];
+    if (last && last.side===it.side
+        && Math.abs(last.dotX-it.dotX) < 4
+        && Math.abs(last.v-it.v) < Math.max(maxAbs*1e-3, 1e-12)) continue;
+    merged.push(it);
+  }
+  // 依水平位置分流至上下兩排
+  const topLane = merged.filter(it=>it.side==='top').sort((a,b)=>a.dotX-b.dotX);
+  const botLane = merged.filter(it=>it.side==='bot').sort((a,b)=>a.dotX-b.dotX);
+  function layoutLane(lane, laneY, leftLim) {
+    for (const it of lane) { it.lx = it.dotX; it.ly = laneY; }
+    for (let i=1;i<lane.length;i++) {
+      const prev=lane[i-1], cur=lane[i];
+      const minGap=(prev.maxW+cur.maxW)/2+6;
+      if (cur.lx-prev.lx<minGap) cur.lx=prev.lx+minGap;
+    }
+    const rightLim = w - margin.right - 4;
+    for (let i=lane.length-1;i>=0;i--) {
+      const cur=lane[i];
+      if (cur.lx+cur.maxW/2>rightLim) cur.lx=rightLim-cur.maxW/2;
+      if (i>0) {
+        const prev=lane[i-1];
+        const minGap=(prev.maxW+cur.maxW)/2+6;
+        if (cur.lx-prev.lx<minGap) prev.lx=cur.lx-minGap;
+      }
+    }
+    for (const it of lane) if (it.lx-it.maxW/2<leftLim) it.lx=leftLim+it.maxW/2;
+  }
+  // 標籤帶位於繪圖框上/下空白處, 完全不與曲線重疊
+  // 上排需避開左上角的標題
+  const topLaneLeftLim = titleX + titleW + 8;
+  layoutLane(topLane, margin.top/2 + 4, topLaneLeftLim);
+  layoutLane(botLane, h - margin.bottom/2 - 2, margin.left + 4);
+
+  // 繪製引出線
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1;
+  ctx.setLineDash([3,2]);
+  for (const it of merged) {
+    const labelH = it.lines.length*lineH;
+    const boxTop = it.ly - labelH/2 - 2;
+    const boxBot = it.ly + labelH/2 + 2;
+    const anchorY = it.side==='top' ? boxBot : boxTop;
+    ctx.beginPath(); ctx.moveTo(it.dotX, it.dotY); ctx.lineTo(it.lx, anchorY); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // 圓點
+  ctx.fillStyle = color;
+  for (const it of merged) { ctx.beginPath(); ctx.arc(it.dotX, it.dotY, 2.8, 0, Math.PI*2); ctx.fill(); }
+
+  // 標籤框 + 文字
+  ctx.font='bold 12px Consolas'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  for (const it of merged) {
+    const labelH = it.lines.length*lineH;
+    const boxTop = it.ly - labelH/2 - 2;
+    ctx.fillStyle='#fff';
+    ctx.fillRect(it.lx-it.maxW/2-3, boxTop, it.maxW+6, labelH+4);
+    ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1;
+    ctx.strokeRect(it.lx-it.maxW/2-3, boxTop, it.maxW+6, labelH+4);
+    ctx.fillStyle='#000';
+    for (let li=0; li<it.lines.length; li++) {
+      const ty = boxTop + 2 + li*lineH + lineH/2;
+      ctx.fillText(it.lines[li], it.lx, ty);
+    }
+  }
+  ctx.textBaseline='alphabetic';
+
+  // 最後畫標題 (確保在最上層)
+  ctx.fillStyle='#000'; ctx.font='bold 14px Segoe UI'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText(label, titleX, titleY);
+  ctx.textBaseline='alphabetic';
+}
+
+function drawILDiagram(canvasId, ilData, title) {
+  const {ctx,w,h} = setupCanvas(canvasId);
+  const totalL = model.spans.reduce((s,sp)=>s+sp.L,0);
+  if (totalL<=0||!ilData) return;
+  const margin={left:55,right:25,top:40,bottom:42};
+  const sx=getScale(totalL,w,margin), plotH=h-margin.top-margin.bottom, baseY=margin.top+plotH/2;
+  let maxAbs=Math.max(...ilData.values.map(Math.abs),1e-10);
+  const sy=(plotH/2-5)/maxAbs;
+
+  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=0.5;
+  for (let i=-2;i<=2;i++) { const gy=baseY-i*plotH/4; ctx.beginPath(); ctx.moveTo(margin.left,gy); ctx.lineTo(w-margin.right,gy); ctx.stroke(); }
+  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(margin.left,baseY); ctx.lineTo(w-margin.right,baseY); ctx.stroke();
+  let xOff=0;
+  ctx.strokeStyle='#cbd5e1'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  for (let i=0;i<=model.numSpans;i++) { const px=margin.left+xOff*sx; ctx.beginPath(); ctx.moveTo(px,margin.top); ctx.lineTo(px,h-margin.bottom); ctx.stroke(); if(i<model.numSpans) xOff+=model.spans[i].L; }
+  ctx.setLineDash([]);
+
+  const clr='#7c3aed';
+  ctx.fillStyle='rgba(124,58,237,0.12)'; ctx.strokeStyle=clr; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(margin.left+ilData.positions[0]*sx,baseY);
+  for (let j=0;j<ilData.positions.length;j++) ctx.lineTo(margin.left+ilData.positions[j]*sx,baseY-ilData.values[j]*sy);
+  ctx.lineTo(margin.left+ilData.positions[ilData.positions.length-1]*sx,baseY); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  for (let j=0;j<ilData.positions.length;j++) { const px=margin.left+ilData.positions[j]*sx,py=baseY-ilData.values[j]*sy; j===0?ctx.moveTo(px,py):ctx.lineTo(px,py); }
+  ctx.stroke();
+  ctx.fillStyle='#000'; ctx.font='bold 14px Segoe UI'; ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillText(title,margin.left+4,4); ctx.textBaseline='alphabetic';
+}
+
+function fmtVal(v) {
+  const a = Math.abs(v);
+  if (a < 1e-15) return '0';
+  if (a >= 1000) return v.toFixed(1);
+  if (a >= 100) return v.toFixed(2);
+  if (a >= 1) return v.toFixed(3);
+  if (a >= 1e-3) return v.toFixed(4);
+  return v.toExponential(2); // 極小值 (如深度很大的撓度) 用科學記號
+}
+
+// ==================== RESULTS TABLE ====================
+function showResults(sol, diag) {
+  const u = getUnit(), n = model.numSpans;
+  let html = `<table class="results-table"><tr><th>支承</th><th>類型</th><th>Ry (${u.force})</th><th>Mr (${u.moment})</th></tr>`;
+  for (let i=0;i<=n;i++) {
+    const Ry=sol.reactions[i].Ry, Mr=sol.reactions[i].Mr;
+    const st=model.supports[i].type;
+    const nm={pin:'鉸支',roller:'滾支',fixed:'固定端',free:'自由端'}[st];
+    html += `<tr><td>${i}</td><td>${nm}</td><td>${fmtVal(Ry)}</td><td>${st==='fixed'?fmtVal(Mr):'-'}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('reactionTable').innerHTML = html;
+
+  html = `<table class="results-table"><tr><th>跨</th><th>Vmax (${u.force})</th><th>Vmin (${u.force})</th><th>Mmax (${u.moment})</th><th>Mmin (${u.moment})</th></tr>`;
+  for (let i=0;i<n;i++) {
+    const sp=diag.spans[i];
+    html += `<tr><td>${i+1}</td><td>${fmtVal(Math.max(...sp.vs))}</td><td>${fmtVal(Math.min(...sp.vs))}</td><td>${fmtVal(Math.max(...sp.ms))}</td><td>${fmtVal(Math.min(...sp.ms))}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('extremeTable').innerHTML = html;
+}
+
+// ==================== MAIN ====================
+function showError(msg) { const el=document.getElementById('errorMsg'); el.textContent=msg; el.style.display=msg?'block':'none'; }
+
+function runAnalysis() {
+  showError('');
+  for (let i=0;i<model.numSpans;i++) { if (model.spans[i].L<=0) { showError(`跨${i+1}長度必須大於 0`); return; } }
+
+  solution = solve(model);
+  if (!solution) { showError('結構不穩定（奇異矩陣），請檢查支承配置'); return; }
+
+  diagrams = computeDiagrams(model, solution);
+  const u = getUnit();
+
+  drawSchematic();
+  ['sfdCard','bmdCard','deflCard','resultsCard'].forEach(id => document.getElementById(id).style.display='block');
+
+  drawDiagramFill('sfdCanvas', diagrams, 'v', 'rgb(37,99,235)', `V (${u.force})`, false);
+  drawDiagramFill('bmdCanvas', diagrams, 'm', 'rgb(220,38,38)', `M (${u.moment})`, true);
+  drawDiagramFill('deflCanvas', diagrams, 'd', 'rgb(5,150,105)', `Deflection (${u.length})`, false);
+
+  if (document.getElementById('ilEnabled').checked) {
+    const ilType=document.getElementById('ilType').value, ilParam=parseFloat(document.getElementById('ilParam').value)||0;
+    const ilData = computeInfluenceLine(model, ilType, ilParam);
+    const titles = {reaction:`影響線 - 支承${Math.round(ilParam)}反力`,shear:`影響線 - V(${ilParam}${u.length})`,moment:`影響線 - M(${ilParam}${u.length})`};
+    document.getElementById('ilCard').style.display='block';
+    document.getElementById('ilTitle').textContent=titles[ilType];
+    drawILDiagram('ilCanvas',ilData,titles[ilType]);
+  } else { document.getElementById('ilCard').style.display='none'; }
+
+  showResults(solution, diagrams);
+}
+
+// ==================== EXPORT ====================
+function exportJPG() {
+  if (!diagrams) return;
+  const ids = ['schematicCanvas','sfdCanvas','bmdCanvas','deflCanvas'];
+  if (document.getElementById('ilEnabled').checked) ids.push('ilCanvas');
+  const cvs = ids.map(id=>document.getElementById(id)).filter(c=>c.width>0);
+  const totalH = cvs.reduce((s,c)=>s+c.height+8,0)+80;
+  const maxW = Math.max(...cvs.map(c=>c.width),600);
+  const exp = document.createElement('canvas'); exp.width=maxW+40; exp.height=totalH;
+  const ctx = exp.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,exp.width,exp.height);
+  ctx.fillStyle='#1e293b'; ctx.font='bold 16px Segoe UI'; ctx.textAlign='center';
+  ctx.fillText('連續梁分析結果',exp.width/2,28);
+  ctx.font='11px Segoe UI'; ctx.fillStyle='#64748b';
+  ctx.fillText(model.spans.map((s,i)=>`跨${i+1}:${s.L}${getUnit().length}`).join(' | '),exp.width/2,46);
+  let y=60;
+  for (const c of cvs) { ctx.drawImage(c,20,y); y+=c.height+8; }
+  const link=document.createElement('a'); link.download='連續梁分析.jpg'; link.href=exp.toDataURL('image/jpeg',0.95); link.click();
+}
+
+function exportPDF() {
+  if (!diagrams) return;
+  const u = getUnit(), n = model.numSpans;
+  const ids = ['schematicCanvas','sfdCanvas','bmdCanvas','deflCanvas'];
+  if (document.getElementById('ilEnabled').checked) ids.push('ilCanvas');
+  const imgs = ids.map(id=>{const c=document.getElementById(id); return c.width>0?c.toDataURL('image/png'):null;}).filter(Boolean);
+
+  let rHtml = `<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:11px;"><tr><th>支承</th><th>類型</th><th>Ry(${u.force})</th><th>Mr(${u.moment})</th></tr>`;
+  for (let i=0;i<=n;i++) { const st=model.supports[i].type; rHtml+=`<tr><td>${i}</td><td>${{pin:'鉸支',roller:'滾支',fixed:'固定端',free:'自由端'}[st]}</td><td>${fmtVal(solution.reactions[i].Ry)}</td><td>${st==='fixed'?fmtVal(solution.reactions[i].Mr):'-'}</td></tr>`; }
+  rHtml += '</table>';
+
+  let eHtml = `<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:11px;"><tr><th>跨</th><th>Vmax</th><th>Vmin</th><th>Mmax</th><th>Mmin</th></tr>`;
+  for (let i=0;i<n;i++) { const sp=diagrams.spans[i]; eHtml+=`<tr><td>${i+1}</td><td>${fmtVal(Math.max(...sp.vs))}</td><td>${fmtVal(Math.min(...sp.vs))}</td><td>${fmtVal(Math.max(...sp.ms))}</td><td>${fmtVal(Math.min(...sp.ms))}</td></tr>`; }
+  eHtml += '</table>';
+
+  const pw = window.open('','_blank');
+  pw.document.write(`<!DOCTYPE html><html><head><title>連續梁分析</title><style>body{font-family:'Segoe UI',sans-serif;padding:20px;}img{max-width:100%;margin:6px 0;}h1{color:#2563eb;font-size:16px;}h3{margin:10px 0 4px;font-size:13px;}@media print{body{padding:10px;}}</style></head><body>
+  <h1>連續梁分析結果</h1><p style="color:#64748b;font-size:11px;">${model.spans.map((s,i)=>`跨${i+1}:${s.L}${u.length}`).join(' | ')} | 單位: ${getUnitKey()}</p>
+  ${imgs.map(s=>`<img src="${s}">`).join('')}<h3>支承反力</h3>${rHtml}<h3>各跨極值</h3>${eHtml}</body></html>`);
+  pw.document.close(); setTimeout(()=>pw.print(),300);
+}
+
+// ==================== INIT ====================
+function init() {
+  initModel(2);
+  model.loads[0] = [{type:'udl',w:10}];
+  model.loads[1] = [{type:'udl',w:10}];
+  // Set initial E
+  const uk = getUnitKey();
+  if (uk==='kN-m') document.getElementById('eVal').value = 2.04e8;
+  else if (uk==='tf-m') document.getElementById('eVal').value = 20800000;
+  else document.getElementById('eVal').value = 2040000;
+  document.getElementById('eVal').readOnly = true;
+  document.getElementById('eVal').style.background = '#f1f5f9';
+  onUnitChange();
+  renderSpanInputs();
+  renderLoadSpanSelect();
+  renderLoadInputs();
+  drawSchematic();
+}
+
+window.addEventListener('load', init);
+window.addEventListener('resize', () => {
+  drawSchematic();
+  if (diagrams) {
+    const u = getUnit();
+    drawDiagramFill('sfdCanvas',diagrams,'v','rgb(37,99,235)',`V (${u.force})`,false);
+    drawDiagramFill('bmdCanvas',diagrams,'m','rgb(220,38,38)',`M (${u.moment})`,true);
+    drawDiagramFill('deflCanvas',diagrams,'d','rgb(5,150,105)',`Deflection (${u.length})`,false);
+  }
+});
+</script>
+</body>
+</html>

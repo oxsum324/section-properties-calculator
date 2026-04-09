@@ -94,6 +94,7 @@
           <div><span style="font-size:1.1em;font-weight:700;color:var(--primary);">計算結果</span> <span style="font-size:0.75em;font-weight:400;color:var(--text-light);">(單位: cm)</span></div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
             <button onclick="toggleAllResults()" title="全選/取消全選" style="padding:5px 10px;border:1px solid var(--border);background:white;border-radius:6px;cursor:pointer;font-size:0.78em;color:var(--text-light);font-family:inherit;">☑ 全選</button>
+            <button id="btnPickI" onclick="sendIxToOpener()" style="display:none;padding:5px 12px;border:none;background:#2563eb;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">→ 導入至連續梁工具</button>
             <button onclick="exportJPG()" style="padding:5px 12px;border:none;background:#059669;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
             <button onclick="exportPDF()" style="padding:5px 12px;border:none;background:#dc2626;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ PDF</button>
           </div>
@@ -110,6 +111,37 @@ function fmt(v) { if (v === 0) return '0'; if (Math.abs(v) < 0.001 && v !== 0) r
 
 let lastResults = [];
 let lastTitle = '';
+
+// 是否由連續梁工具以 pickI 模式開啟
+const PICK_I_MODE = new URLSearchParams(location.search).get('pickI') === '1';
+window.addEventListener('load', () => {
+  if (PICK_I_MODE) {
+    const btn = document.getElementById('btnPickI');
+    if (btn) btn.style.display = 'inline-block';
+  }
+});
+
+// 從 lastResults 取出 Ix（優先 Ix，其次單軸 I）；回傳 cm⁴
+function extractIx() {
+  if (!lastResults || !lastResults.length) return null;
+  // 先找含 "Ix" 的項
+  let found = lastResults.find(r => /^\s*Ix\b/i.test(String(r[0])));
+  // 其次找純 "I " 開頭（圓形、管形單軸）
+  if (!found) found = lastResults.find(r => /^\s*I\s*(\(|$|\s)/i.test(String(r[0])) && !/Iy/i.test(String(r[0])));
+  if (!found) return null;
+  return { value: parseFloat(found[1]), label: found[0] };
+}
+
+function sendIxToOpener() {
+  if (!window.opener || window.opener.closed) { alert('找不到連續梁工具視窗，請重新從該工具開啟'); return; }
+  const ix = extractIx();
+  if (!ix || !isFinite(ix.value)) { alert('尚未計算出 Ix，請先完成斷面計算'); return; }
+  try {
+    window.opener.postMessage({ source:'sectionTool', Ix_cm4: ix.value, title: lastTitle }, '*');
+  } catch (e) { alert('傳送失敗: ' + e.message); return; }
+  // 延遲關閉讓訊息送達
+  setTimeout(() => window.close(), 120);
+}
 
 function showResults(items) {
   lastResults = items;
