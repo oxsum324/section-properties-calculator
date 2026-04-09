@@ -252,6 +252,8 @@ const tabs = [
   {id:'angle', name:'角鋼'},
   {id:'channel', name:'槽鋼'},
   {id:'c-channel', name:'C 型鋼'},
+  {id:'solid-rect', name:'實心矩形'},
+  {id:'solid-circle', name:'實心圓形'},
   {id:'geo', name:'基本幾何斷面'},
   {id:'custom', name:'自訂組合斷面'},
 ];
@@ -272,7 +274,7 @@ function switchTab(id) {
 // ==================== PANEL BUILDERS ====================
 function buildPanel(id) {
   const p = document.getElementById('input-panel');
-  const builders = { 'h-beam': panelHBeam, 'pipe': panelPipe, 'box': panelBox, 'angle': panelAngle, 'channel': panelChannel, 'c-channel': panelCChannel, 'geo': panelGeo, 'custom': panelCustom };
+  const builders = { 'h-beam': panelHBeam, 'pipe': panelPipe, 'box': panelBox, 'angle': panelAngle, 'channel': panelChannel, 'c-channel': panelCChannel, 'solid-rect': panelSolidRect, 'solid-circle': panelSolidCircle, 'geo': panelGeo, 'custom': panelCustom };
   if (builders[id]) builders[id](p);
 }
 
@@ -459,6 +461,12 @@ function panelChannel(p) {
 function panelCChannel(p) {
   p.innerHTML = `<h2>C 型鋼尺寸 (mm)</h2>${inp('cc-H','H - 全高',60,'calcCChannel()')}${inp('cc-B','B - 翼板寬度',30,'calcCChannel()')}${inp('cc-C','C - 唇緣長度',10,'calcCChannel()')}${inp('cc-t','t - 板厚',1.6,'calcCChannel()')}<button class="btn-calc" onclick="calcCChannel()">計算</button>`;
 }
+function panelSolidRect(p) {
+  p.innerHTML = `<h2>實心矩形尺寸 (mm)</h2>${inp('sr-b','b - 寬度',200,'calcSolidRect()')}${inp('sr-h','h - 高度',300,'calcSolidRect()')}<button class="btn-calc" onclick="calcSolidRect()">計算</button>`;
+}
+function panelSolidCircle(p) {
+  p.innerHTML = `<h2>實心圓形尺寸 (mm)</h2>${inp('sc-d','D - 直徑',200,'calcSolidCircle()')}<button class="btn-calc" onclick="calcSolidCircle()">計算</button>`;
+}
 
 // ==================== GEO PANEL ====================
 const geoShapes = [
@@ -570,9 +578,71 @@ const calcFns = {
   'angle': () => typeof calcAngle==='function' && calcAngle(),
   'channel': () => typeof calcChannel==='function' && calcChannel(),
   'c-channel': () => typeof calcCChannel==='function' && calcCChannel(),
+  'solid-rect': () => typeof calcSolidRect==='function' && calcSolidRect(),
+  'solid-circle': () => typeof calcSolidCircle==='function' && calcSolidCircle(),
   'geo': () => typeof calcGeo==='function' && calcGeo(),
   'custom': () => typeof calcCustom==='function' && calcCustom(),
 };
+
+// ---------- Solid Rect ----------
+function calcSolidRect() {
+  const bmm=val('sr-b'),hmm=val('sr-h'); if(!bmm||!hmm) return;
+  const b=bmm/10,h=hmm/10;
+  const A=b*h;
+  const Ix=b*h**3/12, Iy=h*b**3/12;
+  const Sx=b*h**2/6,  Sy=h*b**2/6;
+  const rx=h/Math.sqrt(12), ry=b/Math.sqrt(12);
+  const Zx=b*h**2/4,  Zy=h*b**2/4;
+  // Torsion: Saint-Venant J approximation for solid rectangle
+  const rat=Math.min(b,h)/Math.max(b,h); // t/b ratio (short/long)
+  const C=1/3*(1-192/PI**5*rat*[...Array(5)].map((_,k)=>{const n=2*k+1;return Math.tanh(n*PI/(2*rat))/n**5;}).reduce((a,v)=>a+v,0));
+  const J=C*Math.min(b,h)**3*Math.max(b,h);
+  const W=A*0.785;
+  showResults([
+    ['A (斷面積)',A,'cm²'],['W (單位重)',W,'kg/m'],
+    ['Ix (強軸慣性矩)',Ix,'cm⁴'],['Iy (弱軸慣性矩)',Iy,'cm⁴'],
+    ['Sx (強軸斷面模數)',Sx,'cm³'],['Sy (弱軸斷面模數)',Sy,'cm³'],
+    ['rx (強軸迴轉半徑)',rx,'cm'],['ry (弱軸迴轉半徑)',ry,'cm'],
+    ['Zx (強軸塑性模數)',Zx,'cm³'],['Zy (弱軸塑性模數)',Zy,'cm³'],
+    ['J (扭轉常數)',J,'cm⁴'],['b/h 寬高比',bmm/hmm,''],
+  ]);
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/bmm,(H-40)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);
+    dimText(ctx,`b=${bmm}`,ox+sw/2,oy+sh+16);dimText(ctx,`h=${hmm}`,ox-24,oy+sh/2);
+    drawAxes(ctx,ox+sw/2,oy+sh/2,Math.max(sw,sh)/2+10);
+  });
+}
+
+// ---------- Solid Circle ----------
+function calcSolidCircle() {
+  const Dmm=val('sc-d'); if(!Dmm) return;
+  const D=Dmm/10,r=D/2;
+  const A=PI*r**2;
+  const I=PI*D**4/64;
+  const S=PI*D**3/32;
+  const rg=D/4;
+  const Z=D**3/6;
+  const J=PI*D**4/32;
+  const W=A*0.785;
+  showResults([
+    ['A (斷面積)',A,'cm²'],['W (單位重)',W,'kg/m'],
+    ['I (慣性矩 Ix=Iy)',I,'cm⁴'],
+    ['S (斷面模數)',S,'cm³'],
+    ['r (迴轉半徑)',rg,'cm'],
+    ['Z (塑性模數)',Z,'cm³'],
+    ['J (極慣性矩/扭轉)',J,'cm⁴'],
+    ['D (直徑)',D,'cm'],
+  ]);
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/Dmm,(H-40)/Dmm),sr=Dmm/2*sc,cx=W/2,cy=H/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(cx,cy,sr,0,PI*2);ctx.fill();ctx.stroke();
+    dimText(ctx,`D=${Dmm}`,cx,cy-sr-8);
+    drawAxes(ctx,cx,cy,sr+10);
+  });
+}
 
 // ---------- H-Beam ----------
 function calcHBeam() {
