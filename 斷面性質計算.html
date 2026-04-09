@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>斷面性質計算工具 V2.0</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --accent: #059669;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 20px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+  header h1 { font-size: 1.5em; }
+  header p { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
+  .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; background: var(--card); padding: 8px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .tab-btn { padding: 10px 16px; border: none; background: transparent; color: var(--text-light); font-size: 0.9em; font-weight: 500; cursor: pointer; border-radius: 8px; transition: all 0.2s; font-family: inherit; }
+  .tab-btn:hover { background: #f1f5f9; color: var(--text); }
+  .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
+  .main-layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
+  .card { background: var(--card); border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .card h2 { font-size: 1.1em; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--border); color: var(--primary); }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 0.85em; font-weight: 600; color: var(--text-light); margin-bottom: 3px; }
+  .form-group input, .form-group select { width: 100%; padding: 9px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 1em; font-family: inherit; outline: none; transition: border-color 0.2s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .btn-calc:hover { background: var(--primary-dark); }
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border-left: 3px solid var(--primary); }
+  .result-item .label { font-size: 0.85em; color: var(--text-light); font-weight: 500; }
+  .result-item .value { font-size: 1em; font-weight: 700; font-family: 'Consolas',monospace; }
+  .result-item .unit { font-size: 0.75em; color: var(--text-light); margin-left: 4px; }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 250px; }
+  canvas { display: block; }
+  .section-panel { display: none; }
+  .section-panel.active { display: block; }
+  .hint { font-size: 0.8em; color: var(--text-light); margin-top: 4px; font-style: italic; }
+  .right-panel { display: flex; flex-direction: column; gap: 20px; }
+  .sub-select { margin-bottom: 14px; }
+  @media (max-width: 768px) { .main-layout { grid-template-columns: 1fr; } .results-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>斷面性質計算工具 V2.0</h1>
+  <p>鋼結構 / 基本幾何斷面性質計算 | 尺寸輸入 mm, 結果輸出 cm</p>
+</header>
+<div class="container">
+  <div class="tabs" id="tabBar"></div>
+  <div class="main-layout">
+    <div class="card" id="input-panel"></div>
+    <div class="right-panel">
+      <div class="card"><h2>斷面圖形</h2><div class="canvas-wrap"><canvas id="sectionCanvas" width="420" height="280"></canvas></div></div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--border);">
+          <div><span style="font-size:1.1em;font-weight:700;color:var(--primary);">計算結果</span> <span style="font-size:0.75em;font-weight:400;color:var(--text-light);">(單位: cm)</span></div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button onclick="toggleAllResults()" title="全選/取消全選" style="padding:5px 10px;border:1px solid var(--border);background:white;border-radius:6px;cursor:pointer;font-size:0.78em;color:var(--text-light);font-family:inherit;">☑ 全選</button>
+            <button onclick="exportJPG()" style="padding:5px 12px;border:none;background:#059669;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
+            <button onclick="exportPDF()" style="padding:5px 12px;border:none;background:#dc2626;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ PDF</button>
+          </div>
+        </div>
+        <div class="results-grid" id="results"><div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const PI = Math.PI;
+function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function fmt(v) { if (v === 0) return '0'; if (Math.abs(v) < 0.001 && v !== 0) return v.toExponential(4); return parseFloat(v.toPrecision(6)); }
+
+let lastResults = [];
+let lastTitle = '';
+
+function showResults(items) {
+  lastResults = items;
+  const tabObj = tabs.find(t => t.id === currentTab);
+  const tabName = tabObj ? tabObj.name : '';
+  if (currentTab === 'h-beam') {
+    const sel = document.getElementById('h-select');
+    const selVal = sel && sel.value;
+    lastTitle = selVal ? (sel.options[sel.selectedIndex]?.text.split(' (')[0] || tabName) : tabName;
+  } else if (currentTab === 'geo') {
+    const gSel = document.getElementById('geo-type');
+    const gText = gSel ? (gSel.options[gSel.selectedIndex]?.text || '') : '';
+    lastTitle = tabName + (gText ? ' - ' + gText : '');
+  } else {
+    lastTitle = tabName;
+  }
+  document.getElementById('results').innerHTML = items.map(([l,v,u]) =>
+    `<div class="result-item" style="gap:8px;"><input type="checkbox" class="res-cb" checked style="flex-shrink:0;width:15px;height:15px;cursor:pointer;accent-color:var(--primary);"><span class="label">${l}</span><span><span class="value">${fmt(v)}</span><span class="unit">${u}</span></span></div>`).join('');
+}
+
+function getCheckedResults() {
+  return [...document.querySelectorAll('.res-cb')].map((cb,i) => cb.checked ? lastResults[i] : null).filter(Boolean);
+}
+
+function toggleAllResults() {
+  const cbs = [...document.querySelectorAll('.res-cb')];
+  const allChecked = cbs.every(cb => cb.checked);
+  cbs.forEach(cb => cb.checked = !allChecked);
+}
+
+function exportJPG() {
+  const checked = getCheckedResults();
+  if (!checked.length) { alert('請至少勾選一個計算項目'); return; }
+  const srcCanvas = document.getElementById('sectionCanvas');
+  const pad = 20, titleH = 48, sectionH = srcCanvas.height + 16;
+  const rowH = 30, cols = 2, colW = 260;
+  const rows = Math.ceil(checked.length / cols);
+  const tableW = colW * cols;
+  const totalW = Math.max(tableW + pad * 2, srcCanvas.width + pad * 2);
+  const totalH = titleH + sectionH + rows * rowH + pad + 20;
+  const out = document.createElement('canvas');
+  out.width = totalW; out.height = totalH;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, totalW, totalH);
+  // Header
+  ctx.fillStyle = '#2563eb'; ctx.fillRect(0, 0, totalW, titleH);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 15px "Microsoft JhengHei","Segoe UI",sans-serif';
+  ctx.textAlign = 'left'; ctx.fillText('斷面性質計算', pad, 20);
+  ctx.font = '12px "Microsoft JhengHei","Segoe UI",sans-serif';
+  ctx.fillText(lastTitle, pad, 38);
+  // Section diagram
+  const sx = (totalW - srcCanvas.width) / 2;
+  ctx.drawImage(srcCanvas, sx, titleH + 8);
+  // Separator
+  const tableY = titleH + sectionH;
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad, tableY); ctx.lineTo(totalW - pad, tableY); ctx.stroke();
+  // Results
+  const ox = (totalW - tableW) / 2;
+  checked.forEach(([l,v,u], i) => {
+    const col = i % cols, row = Math.floor(i / cols);
+    const x = ox + col * colW, y = tableY + row * rowH;
+    ctx.fillStyle = (row % 2 === 0) ? '#f8fafc' : '#ffffff';
+    ctx.fillRect(x, y, colW, rowH);
+    ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 0.5; ctx.strokeRect(x, y, colW, rowH);
+    ctx.fillStyle = '#2563eb'; ctx.fillRect(x, y, 3, rowH);
+    ctx.fillStyle = '#475569'; ctx.font = '12px "Microsoft JhengHei","Segoe UI",sans-serif';
+    ctx.textAlign = 'left'; ctx.fillText(l, x + 10, y + 20);
+    ctx.fillStyle = '#1e293b'; ctx.font = 'bold 12px Consolas,monospace';
+    ctx.textAlign = 'right'; ctx.fillText(String(fmt(v)), x + colW - 36, y + 20);
+    ctx.fillStyle = '#64748b'; ctx.font = '11px "Microsoft JhengHei",sans-serif';
+    ctx.textAlign = 'left'; ctx.fillText(u, x + colW - 32, y + 20);
+  });
+  // Footer
+  ctx.fillStyle = '#94a3b8'; ctx.font = '10px "Segoe UI",sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('斷面性質計算工具 V2.0  |  ' + new Date().toLocaleDateString('zh-TW'), totalW - pad, totalH - 6);
+  const a = document.createElement('a');
+  a.href = out.toDataURL('image/jpeg', 0.95);
+  a.download = (lastTitle || '斷面性質') + '.jpg';
+  a.click();
+}
+
+function exportPDF() {
+  const checked = getCheckedResults();
+  if (!checked.length) { alert('請至少勾選一個計算項目'); return; }
+  const imgData = document.getElementById('sectionCanvas').toDataURL('image/png');
+  const rows = checked.map(([l,v,u]) =>
+    `<tr><td>${l}</td><td class="val">${fmt(v)}</td><td class="unit">${u}</td></tr>`).join('');
+  const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>${lastTitle||'斷面性質計算'}</title>
+<style>
+  body{font-family:"Microsoft JhengHei","Segoe UI",sans-serif;padding:24px 30px;color:#1e293b;max-width:680px;margin:0 auto;}
+  .hdr{background:#2563eb;color:white;padding:12px 16px;border-radius:8px 8px 0 0;}
+  .hdr h1{font-size:16px;margin:0 0 3px;}
+  .hdr p{font-size:12px;margin:0;opacity:.85;}
+  .fig{text-align:center;border:1px solid #e2e8f0;border-top:none;padding:12px;background:#fafbfc;}
+  .fig img{max-height:220px;}
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px;}
+  th{background:#2563eb;color:white;padding:7px 12px;text-align:left;font-size:12px;}
+  td{padding:6px 12px;border-bottom:1px solid #e2e8f0;border-left:3px solid transparent;}
+  tr:nth-child(even) td{background:#f8fafc;}
+  tr td:first-child{border-left-color:#2563eb;}
+  td.val{font-family:Consolas,monospace;font-weight:bold;text-align:right;white-space:nowrap;}
+  td.unit{color:#64748b;white-space:nowrap;}
+  .foot{margin-top:14px;font-size:10px;color:#94a3b8;text-align:right;}
+  @media print{body{padding:8px;}@page{margin:1.2cm;}}
+</style></head><body>
+<div class="hdr"><h1>斷面性質計算</h1><p>${lastTitle}</p></div>
+<div class="fig"><img src="${imgData}"></div>
+<table><tr><th>性質</th><th style="text-align:right">數值</th><th>單位</th></tr>${rows}</table>
+<div class="foot">斷面性質計算工具 V2.0 &nbsp;|&nbsp; ${new Date().toLocaleDateString('zh-TW')}</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
+</body></html>`;
+  const w = window.open('', '_blank');
+  if (!w) { alert('請允許彈出視窗以匯出 PDF'); return; }
+  w.document.write(html); w.document.close();
+}
+
+function drawSection(fn) {
+  const c = document.getElementById('sectionCanvas'), ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+  fn(ctx, c.width, c.height);
+}
+
+function drawAxes(ctx, cx, cy, len) {
+  ctx.save(); ctx.setLineDash([4,4]); ctx.strokeStyle='#ef4444'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(cx-len,cy); ctx.lineTo(cx+len,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,cy-len); ctx.lineTo(cx,cy+len); ctx.stroke();
+  ctx.setLineDash([]); ctx.restore();
+}
+
+function dimText(ctx, txt, x, y) { ctx.fillStyle='#1e293b'; ctx.font='12px Consolas,monospace'; ctx.textAlign='center'; ctx.fillText(txt,x,y); }
+
+// ==================== TAB SYSTEM ====================
+const tabs = [
+  {id:'h-beam', name:'H 型鋼'},
+  {id:'pipe', name:'圓管'},
+  {id:'box', name:'方管'},
+  {id:'angle', name:'角鋼'},
+  {id:'channel', name:'槽鋼'},
+  {id:'c-channel', name:'C 型鋼'},
+  {id:'geo', name:'基本幾何斷面'},
+  {id:'custom', name:'自訂組合斷面'},
+];
+let currentTab = 'h-beam';
+
+function buildTabs() {
+  document.getElementById('tabBar').innerHTML = tabs.map(t =>
+    `<button class="tab-btn${t.id===currentTab?' active':''}" onclick="switchTab('${t.id}')">${t.name}</button>`).join('');
+}
+
+function switchTab(id) {
+  currentTab = id;
+  buildTabs();
+  buildPanel(id);
+  if (calcFns[id]) calcFns[id]();
+}
+
+// ==================== PANEL BUILDERS ====================
+function buildPanel(id) {
+  const p = document.getElementById('input-panel');
+  const builders = { 'h-beam': panelHBeam, 'pipe': panelPipe, 'box': panelBox, 'angle': panelAngle, 'channel': panelChannel, 'c-channel': panelCChannel, 'geo': panelGeo, 'custom': panelCustom };
+  if (builders[id]) builders[id](p);
+}
+
+function inp(id,label,val,oninput) { return `<div class="form-group"><label>${label}</label><input type="number" id="${id}" value="${val}" step="any" oninput="${oninput}"></div>`; }
+
+// ===== Standard RH型鋼 Database =====
+const hSections = [
+  {g:'100×50',  s:[{n:'H100×50×5×7',H:100,B:50,tw:5,tf:7,R:8}]},
+  {g:'100×100', s:[{n:'H100×100×6×8',H:100,B:100,tw:6,tf:8,R:8}]},
+  {g:'125×60',  s:[{n:'H125×60×6×8',H:125,B:60,tw:6,tf:8,R:8}]},
+  {g:'125×125', s:[{n:'H125×125×6.5×9',H:125,B:125,tw:6.5,tf:9,R:8}]},
+  {g:'150×75',  s:[{n:'H150×75×5×7',H:150,B:75,tw:5,tf:7,R:8}]},
+  {g:'150×100', s:[{n:'H148×100×6×9',H:148,B:100,tw:6,tf:9,R:8}]},
+  {g:'150×150', s:[{n:'H150×150×7×10',H:150,B:150,tw:7,tf:10,R:8}]},
+  {g:'175×90',  s:[{n:'H175×90×5×8',H:175,B:90,tw:5,tf:8,R:8}]},
+  {g:'175×175', s:[{n:'H175×175×7.5×11',H:175,B:175,tw:7.5,tf:11,R:13}]},
+  {g:'200×100', s:[
+    {n:'H198×99×4.5×7',H:198,B:99,tw:4.5,tf:7,R:8},
+    {n:'H200×100×5.5×8',H:200,B:100,tw:5.5,tf:8,R:8}]},
+  {g:'200×150', s:[{n:'H194×150×6×9',H:194,B:150,tw:6,tf:9,R:8}]},
+  {g:'200×200', s:[
+    {n:'H200×200×8×12',H:200,B:200,tw:8,tf:12,R:13},
+    {n:'*H200×204×12×12',H:200,B:204,tw:12,tf:12,R:13}]},
+  {g:'250×125', s:[
+    {n:'H248×124×5×8',H:248,B:124,tw:5,tf:8,R:8},
+    {n:'H250×125×6×9',H:250,B:125,tw:6,tf:9,R:8}]},
+  {g:'250×175', s:[{n:'H244×175×7×11',H:244,B:175,tw:7,tf:11,R:13}]},
+  {g:'250×250', s:[
+    {n:'H250×250×9×14',H:250,B:250,tw:9,tf:14,R:13},
+    {n:'*H250×255×14×14',H:250,B:255,tw:14,tf:14,R:13}]},
+  {g:'300×150', s:[
+    {n:'H298×149×5.5×8',H:298,B:149,tw:5.5,tf:8,R:13},
+    {n:'H300×150×6.5×9',H:300,B:150,tw:6.5,tf:9,R:13}]},
+  {g:'300×200', s:[{n:'H294×200×8×12',H:294,B:200,tw:8,tf:12,R:13}]},
+  {g:'300×300', s:[
+    {n:'*H294×302×12×12',H:294,B:302,tw:12,tf:12,R:13},
+    {n:'H300×300×10×15',H:300,B:300,tw:10,tf:15,R:13},
+    {n:'*H300×305×15×15',H:300,B:305,tw:15,tf:15,R:13},
+    {n:'*H304×301×11×17',H:304,B:301,tw:11,tf:17,R:13},
+    {n:'*H312×303×13×21',H:312,B:303,tw:13,tf:21,R:13},
+    {n:'*H318×307×17×24',H:318,B:307,tw:17,tf:24,R:13},
+    {n:'*H326×310×20×28',H:326,B:310,tw:20,tf:28,R:13}]},
+  {g:'350×175', s:[
+    {n:'H346×174×6×9',H:346,B:174,tw:6,tf:9,R:13},
+    {n:'H350×175×7×11',H:350,B:175,tw:7,tf:11,R:13}]},
+  {g:'350×250', s:[
+    {n:'*H336×249×8×12',H:336,B:249,tw:8,tf:12,R:13},
+    {n:'H340×250×9×14',H:340,B:250,tw:9,tf:14,R:13},
+    {n:'*H350×252×11×19',H:350,B:252,tw:11,tf:19,R:13},
+    {n:'*H356×256×15×22',H:356,B:256,tw:15,tf:22,R:13},
+    {n:'*H364×258×17×26',H:364,B:258,tw:17,tf:26,R:13}]},
+  {g:'350×350', s:[
+    {n:'*H338×351×13×13',H:338,B:351,tw:13,tf:13,R:13},
+    {n:'*H344×348×10×16',H:344,B:348,tw:10,tf:16,R:13},
+    {n:'*H344×354×16×16',H:344,B:354,tw:16,tf:16,R:13},
+    {n:'H350×350×12×19',H:350,B:350,tw:12,tf:19,R:13},
+    {n:'*H350×357×19×19',H:350,B:357,tw:19,tf:19,R:13},
+    {n:'*H360×354×16×24',H:360,B:354,tw:16,tf:24,R:13},
+    {n:'*H368×356×18×28',H:368,B:356,tw:18,tf:28,R:13},
+    {n:'*H378×358×20×33',H:378,B:358,tw:20,tf:33,R:13}]},
+  {g:'400×200', s:[
+    {n:'H396×199×7×11',H:396,B:199,tw:7,tf:11,R:13},
+    {n:'H400×200×8×13',H:400,B:200,tw:8,tf:13,R:13}]},
+  {g:'400×300', s:[
+    {n:'*H386×299×9×14',H:386,B:299,tw:9,tf:14,R:13},
+    {n:'H390×300×10×16',H:390,B:300,tw:10,tf:16,R:13},
+    {n:'*H400×304×14×21',H:400,B:304,tw:14,tf:21,R:13},
+    {n:'*H410×308×16×13',H:410,B:308,tw:16,tf:13,R:13},
+    {n:'*H418×310×20×30',H:418,B:310,tw:20,tf:30,R:13}]},
+  {g:'400×400', s:[
+    {n:'*H388×402×15×15',H:388,B:402,tw:15,tf:15,R:22},
+    {n:'*H394×398×12×18',H:394,B:398,tw:12,tf:18,R:22},
+    {n:'*H394×405×18×18',H:394,B:405,tw:18,tf:18,R:22},
+    {n:'H400×400×13×21',H:400,B:400,tw:13,tf:21,R:22},
+    {n:'H400×408×21×21',H:400,B:408,tw:21,tf:21,R:22},
+    {n:'H414×405×18×28',H:414,B:405,tw:18,tf:28,R:22},
+    {n:'H428×407×20×35',H:428,B:407,tw:20,tf:35,R:22}]},
+  {g:'450×200', s:[
+    {n:'H446×199×8×12',H:446,B:199,tw:8,tf:12,R:13},
+    {n:'H450×200×9×14',H:450,B:200,tw:9,tf:14,R:13},
+    {n:'*H456×201×10×17',H:456,B:201,tw:10,tf:17,R:13},
+    {n:'*H466×205×14×22',H:466,B:205,tw:14,tf:22,R:13},
+    {n:'*H478×208×17×28',H:478,B:208,tw:17,tf:28,R:13}]},
+  {g:'450×300', s:[
+    {n:'*H434×299×10×15',H:434,B:299,tw:10,tf:15,R:13},
+    {n:'H440×300×11×18',H:440,B:300,tw:11,tf:18,R:13},
+    {n:'*H446×302×13×21',H:446,B:302,tw:13,tf:21,R:13},
+    {n:'*H450×304×15×23',H:450,B:304,tw:15,tf:23,R:13},
+    {n:'*H458×306×17×27',H:458,B:306,tw:17,tf:27,R:13},
+    {n:'*H468×308×19×32',H:468,B:308,tw:19,tf:32,R:13}]},
+  {g:'500×200', s:[
+    {n:'H496×199×9×14',H:496,B:199,tw:9,tf:14,R:13},
+    {n:'H500×200×10×16',H:500,B:200,tw:10,tf:16,R:13},
+    {n:'H506×201×11×19',H:506,B:201,tw:11,tf:19,R:13},
+    {n:'*H512×202×12×22',H:512,B:202,tw:12,tf:22,R:13},
+    {n:'*H518×205×15×25',H:518,B:205,tw:15,tf:25,R:13},
+    {n:'*H528×208×18×30',H:528,B:208,tw:18,tf:30,R:13},
+    {n:'*H536×210×20×34',H:536,B:210,tw:20,tf:34,R:13},
+    {n:'*H548×215×25×40',H:548,B:215,tw:25,tf:40,R:13}]},
+  {g:'500×300', s:[
+    {n:'H482×300×11×15',H:482,B:300,tw:11,tf:15,R:13},
+    {n:'H488×300×11×18',H:488,B:300,tw:11,tf:18,R:13},
+    {n:'*H494×302×13×21',H:494,B:302,tw:13,tf:21,R:13},
+    {n:'*H500×304×15×24',H:500,B:304,tw:15,tf:24,R:13},
+    {n:'*H510×306×17×29',H:510,B:306,tw:17,tf:29,R:13},
+    {n:'*H518×310×21×33',H:518,B:310,tw:21,tf:33,R:13},
+    {n:'*H532×314×25×40',H:532,B:314,tw:25,tf:40,R:13}]},
+  {g:'600×200', s:[
+    {n:'H596×199×10×15',H:596,B:199,tw:10,tf:15,R:13},
+    {n:'H600×200×11×17',H:600,B:200,tw:11,tf:17,R:13},
+    {n:'H606×201×12×20',H:606,B:201,tw:12,tf:20,R:13},
+    {n:'*H612×202×13×23',H:612,B:202,tw:13,tf:23,R:13},
+    {n:'*H618×205×14×26',H:618,B:205,tw:14,tf:26,R:13},
+    {n:'*H626×207×18×30',H:626,B:207,tw:18,tf:30,R:13},
+    {n:'*H634×209×20×34',H:634,B:209,tw:20,tf:34,R:13},
+    {n:'*H646×214×25×40',H:646,B:214,tw:25,tf:40,R:13}]},
+  {g:'600×300', s:[
+    {n:'H582×300×12×17',H:582,B:300,tw:12,tf:17,R:13},
+    {n:'H588×300×12×20',H:588,B:300,tw:12,tf:20,R:13},
+    {n:'H594×302×14×23',H:594,B:302,tw:14,tf:23,R:13},
+    {n:'*H600×304×16×26',H:600,B:304,tw:16,tf:26,R:13},
+    {n:'*H608×306×18×30',H:608,B:306,tw:18,tf:30,R:13},
+    {n:'*H616×308×20×34',H:616,B:308,tw:20,tf:34,R:13},
+    {n:'*H628×312×24×40',H:628,B:312,tw:24,tf:40,R:13}]},
+  {g:'700×300', s:[
+    {n:'H692×300×13×20',H:692,B:300,tw:13,tf:20,R:18},
+    {n:'H700×300×13×24',H:700,B:300,tw:13,tf:24,R:18},
+    {n:'H708×302×15×28',H:708,B:302,tw:15,tf:28,R:18},
+    {n:'*H712×306×19×30',H:712,B:306,tw:19,tf:30,R:18},
+    {n:'*H718×308×21×33',H:718,B:308,tw:21,tf:33,R:18},
+    {n:'*H732×311×24×40',H:732,B:311,tw:24,tf:40,R:18}]},
+  {g:'800×300', s:[
+    {n:'H792×300×14×22',H:792,B:300,tw:14,tf:22,R:18},
+    {n:'H800×300×14×26',H:800,B:300,tw:14,tf:26,R:18},
+    {n:'H808×302×16×30',H:808,B:302,tw:16,tf:30,R:18}]},
+];
+
+function buildHSelect() {
+  let html = '<option value="">-- 自訂尺寸 --</option>';
+  hSections.forEach(g => {
+    html += `<optgroup label="${g.g}">`;
+    g.s.forEach((s,i) => html += `<option value="${g.g}-${i}">${s.n} (R=${s.R})</option>`);
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+function onHSelect() {
+  const v = document.getElementById('h-select').value;
+  if (!v) return;
+  const [gn, idx] = v.split(/-(?=[^-]*$)/);
+  const grp = hSections.find(g => g.g === gn);
+  if (!grp) return;
+  const s = grp.s[parseInt(idx)];
+  document.getElementById('h-H').value = s.H;
+  document.getElementById('h-B').value = s.B;
+  document.getElementById('h-tw').value = s.tw;
+  document.getElementById('h-tf').value = s.tf;
+  document.getElementById('h-R').value = s.R;
+  calcHBeam();
+}
+
+function panelHBeam(p) {
+  p.innerHTML = `<h2>H 型鋼尺寸 (mm)</h2>
+    <div class="form-group"><label>標準規格選擇</label><select id="h-select" onchange="onHSelect()" style="width:100%;padding:9px 12px;border:2px solid var(--border);border-radius:8px;font-size:0.95em;font-family:inherit;outline:none;cursor:pointer;">${buildHSelect()}</select></div>
+    <div style="text-align:center;color:var(--text-light);font-size:0.8em;margin:-6px 0 8px;">▼ 或手動輸入 ▼</div>
+    ${inp('h-H','H - 全高',588,'calcHBeam()')}${inp('h-B','B - 翼板寬度',300,'calcHBeam()')}
+    <div class="form-row">${inp('h-tw','tw - 腹板厚',12,'calcHBeam()')}${inp('h-tf','tf - 翼板厚',20,'calcHBeam()')}</div>
+    ${inp('h-R','R - 圓角半徑',13,'calcHBeam()')}
+    <button class="btn-calc" onclick="calcHBeam()">計算</button>`;
+}
+function panelPipe(p) {
+  p.innerHTML = `<h2>圓管尺寸 (mm)</h2>${inp('p-D','D - 外徑',48.6,'calcPipe()')}${inp('p-t','t - 壁厚',2.5,'calcPipe()')}<button class="btn-calc" onclick="calcPipe()">計算</button>`;
+}
+function panelBox(p) {
+  p.innerHTML = `<h2>方管尺寸 (mm)</h2>${inp('b-X','X - 寬度',200,'calcBox()')}${inp('b-Y','Y - 高度',150,'calcBox()')}${inp('b-t','t - 壁厚',4.5,'calcBox()')}<button class="btn-calc" onclick="calcBox()">計算</button>`;
+}
+function panelAngle(p) {
+  p.innerHTML = `<h2>角鋼尺寸 (mm)</h2>${inp('a-X','X - 水平翼長',50,'calcAngle()')}${inp('a-Y','Y - 垂直翼長',50,'calcAngle()')}${inp('a-t','t - 厚度',6,'calcAngle()')}<button class="btn-calc" onclick="calcAngle()">計算</button>`;
+}
+function panelChannel(p) {
+  p.innerHTML = `<h2>槽鋼尺寸 (mm)</h2>${inp('c-H','H - 全高',125,'calcChannel()')}${inp('c-B','B - 翼板寬度',65,'calcChannel()')}<div class="form-row">${inp('c-tw','tw - 腹板厚',4,'calcChannel()')}${inp('c-tf','tf - 翼板厚',4,'calcChannel()')}</div><button class="btn-calc" onclick="calcChannel()">計算</button>`;
+}
+function panelCChannel(p) {
+  p.innerHTML = `<h2>C 型鋼尺寸 (mm)</h2>${inp('cc-H','H - 全高',60,'calcCChannel()')}${inp('cc-B','B - 翼板寬度',30,'calcCChannel()')}${inp('cc-C','C - 唇緣長度',10,'calcCChannel()')}${inp('cc-t','t - 板厚',1.6,'calcCChannel()')}<button class="btn-calc" onclick="calcCChannel()">計算</button>`;
+}
+
+// ==================== GEO PANEL ====================
+const geoShapes = [
+  {id:'rect-c', name:'1. 矩形 (軸過形心)'},
+  {id:'rect-e', name:'2. 矩形 (軸在底邊)'},
+  {id:'rect-rot', name:'3. 矩形旋轉角度 θ'},
+  {id:'square-dia', name:'4. 正方形 (菱形放置)'},
+  {id:'hollow-rect', name:'5. 中空矩形 (箱型)'},
+  {id:'hollow-rect2', name:'6. 中空矩形 (等壁厚)'},
+  {id:'solid-circle', name:'7. 實心圓'},
+  {id:'hollow-circle', name:'8. 中空圓 (圓管)'},
+  {id:'semicircle', name:'9. 半圓'},
+  {id:'triangle', name:'10. 三角形 (軸過形心)'},
+  {id:'triangle-e', name:'11. 三角形 (軸在底邊)'},
+  {id:'trapezoid-c', name:'12. 梯形 (軸過形心)'},
+  {id:'trapezoid-e', name:'13. 梯形 (軸在底邊)'},
+  {id:'hexagon', name:'14. 正六角形 (尖端朝上)'},
+  {id:'hexagon-f', name:'15. 正六角形 (平邊朝上)'},
+  {id:'octagon', name:'16. 正八角形'},
+  {id:'polygon', name:'17. 正 n 角形'},
+  {id:'diamond-hollow', name:'18. 中空菱形'},
+  {id:'tee', name:'19. T 型斷面'},
+  {id:'ellipse', name:'20. 橢圓'},
+  {id:'half-ellipse', name:'21. 半橢圓'},
+  {id:'quarter-circle', name:'22. 四分之一圓'},
+  {id:'fillet', name:'23. 填角 (方減四分圓)'},
+  {id:'sector', name:'24. 扇形'},
+  {id:'segment', name:'25. 弓形 (圓弧段)'},
+  {id:'parabola', name:'26. 拋物線'},
+  {id:'half-parabola', name:'27. 半拋物線'},
+  {id:'square-hole', name:'28. 方形含圓孔'},
+  {id:'oblong', name:'29. 跑道形 (長圓)'},
+  {id:'cross', name:'30. 十字形'},
+  {id:'sym-trapezoid', name:'31. 對稱梯形 (寬翼)'},
+  {id:'general', name:'32. 一般組合 (平行軸定理)'},
+];
+
+function panelGeo(p) {
+  let opts = geoShapes.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  p.innerHTML = `<h2>基本幾何斷面</h2>
+    <div class="sub-select"><div class="form-group"><label>選擇斷面類型</label><select id="geo-type" onchange="buildGeoInputs()">${opts}</select></div></div>
+    <div id="geo-inputs"></div>
+    <button class="btn-calc" onclick="calcGeo()">計算</button>`;
+  buildGeoInputs();
+}
+
+function buildGeoInputs() {
+  const t = document.getElementById('geo-type').value;
+  const d = document.getElementById('geo-inputs');
+  const map = {
+    'rect-c': `${inp('g-b','b - 寬度 (mm)',300,'calcGeo()')}${inp('g-h','h - 高度 (mm)',500,'calcGeo()')}`,
+    'rect-e': `${inp('g-b','b - 寬度 (mm)',300,'calcGeo()')}${inp('g-h','h - 高度 (mm)',500,'calcGeo()')}`,
+    'rect-rot': `${inp('g-b','b - 寬度 (mm)',300,'calcGeo()')}${inp('g-h','h - 高度 (mm)',500,'calcGeo()')}${inp('g-theta','θ - 旋轉角度 (度)',45,'calcGeo()')}`,
+    'square-dia': `${inp('g-a','a - 邊長 (mm)',200,'calcGeo()')}`,
+    'hollow-rect': `${inp('g-b','b - 外寬 (mm)',300,'calcGeo()')}${inp('g-h','h - 外高 (mm)',500,'calcGeo()')}${inp('g-b1','b₁ - 內寬 (mm)',260,'calcGeo()')}${inp('g-h1','h₁ - 內高 (mm)',460,'calcGeo()')}`,
+    'hollow-rect2': `${inp('g-b','b - 外寬 (mm)',300,'calcGeo()')}${inp('g-h','h - 外高 (mm)',500,'calcGeo()')}${inp('g-t','t - 壁厚 (mm)',20,'calcGeo()')}`,
+    'solid-circle': `${inp('g-d','D - 直徑 (mm)',300,'calcGeo()')}`,
+    'hollow-circle': `${inp('g-d','D - 外徑 (mm)',300,'calcGeo()')}${inp('g-d1','d - 內徑 (mm)',260,'calcGeo()')}`,
+    'semicircle': `${inp('g-r','r - 半徑 (mm)',150,'calcGeo()')}`,
+    'triangle': `${inp('g-b','b - 底邊 (mm)',300,'calcGeo()')}${inp('g-h','h - 高 (mm)',400,'calcGeo()')}`,
+    'triangle-e': `${inp('g-b','b - 底邊 (mm)',300,'calcGeo()')}${inp('g-h','h - 高 (mm)',400,'calcGeo()')}`,
+    'trapezoid-c': `${inp('g-b','b - 下底 (mm)',400,'calcGeo()')}${inp('g-b1','b₁ - 上底 (mm)',200,'calcGeo()')}${inp('g-h','h - 高 (mm)',300,'calcGeo()')}`,
+    'trapezoid-e': `${inp('g-b','b - 下底 (mm)',400,'calcGeo()')}${inp('g-b1','b₁ - 上底 (mm)',200,'calcGeo()')}${inp('g-h','h - 高 (mm)',300,'calcGeo()')}`,
+    'hexagon': `${inp('g-a','a - 邊長 (mm)',200,'calcGeo()')}`,
+    'hexagon-f': `${inp('g-h','h - 對邊距離 (mm)',200,'calcGeo()')}`,
+    'octagon': `${inp('g-h','h - 對邊距離 (mm)',200,'calcGeo()')}`,
+    'polygon': `${inp('g-n','n - 邊數',6,'calcGeo()')}${inp('g-a','a - 邊長 (mm)',200,'calcGeo()')}`,
+    'diamond-hollow': `${inp('g-b','b - 外對角線邊長 (mm)',300,'calcGeo()')}${inp('g-a','a - 內對角線邊長 (mm)',200,'calcGeo()')}`,
+    'tee': `${inp('g-bf','bf - 翼板寬 (mm)',300,'calcGeo()')}${inp('g-tf','tf - 翼板厚 (mm)',20,'calcGeo()')}${inp('g-hw','hw - 腹板高 (mm)',280,'calcGeo()')}${inp('g-tw','tw - 腹板厚 (mm)',12,'calcGeo()')}`,
+    'ellipse': `${inp('g-b','b - 寬度 (mm)',400,'calcGeo()')}${inp('g-h','h - 高度 (mm)',200,'calcGeo()')}`,
+    'half-ellipse': `${inp('g-a','a - 半高軸 (mm)',200,'calcGeo()')}${inp('g-bb','b - 半寬軸 (mm)',150,'calcGeo()')}`,
+    'quarter-circle': `${inp('g-R','R - 半徑 (mm)',200,'calcGeo()')}`,
+    'fillet': `${inp('g-R','R - 半徑 (mm)',200,'calcGeo()')}`,
+    'sector': `${inp('g-R','R - 半徑 (mm)',200,'calcGeo()')}${inp('g-alpha','2α - 圓心角 (度)',90,'calcGeo()')}`,
+    'segment': `${inp('g-R','R - 半徑 (mm)',200,'calcGeo()')}${inp('g-alpha','2α - 圓心角 (度)',90,'calcGeo()')}`,
+    'parabola': `${inp('g-b','b - 半寬 (mm)',150,'calcGeo()')}${inp('g-h','h - 高度 (mm)',300,'calcGeo()')}`,
+    'half-parabola': `${inp('g-b','b - 寬度 (mm)',150,'calcGeo()')}${inp('g-h','h - 高度 (mm)',300,'calcGeo()')}`,
+    'square-hole': `${inp('g-a','a - 方形邊長 (mm)',300,'calcGeo()')}${inp('g-d','d - 圓孔直徑 (mm)',100,'calcGeo()')}`,
+    'oblong': `${inp('g-b','b - 直邊寬度 (mm)',50,'calcGeo()')}${inp('g-h','h - 總高 (mm)',300,'calcGeo()')}${inp('g-d','d - 圓端直徑 (mm)',100,'calcGeo()')}`,
+    'cross': `${inp('g-B','B - 水平總寬 (mm)',300,'calcGeo()')}${inp('g-H','H - 垂直總高 (mm)',300,'calcGeo()')}${inp('g-b','b - 垂直板寬 (mm)',100,'calcGeo()')}${inp('g-h','h - 水平板高 (mm)',100,'calcGeo()')}`,
+    'sym-trapezoid': `${inp('g-b','b - 下底寬 (mm)',400,'calcGeo()')}${inp('g-b1','b₁ - 上底寬 (mm)',200,'calcGeo()')}${inp('g-h','h - 高 (mm)',300,'calcGeo()')}`,
+    'general': `<p class="hint">使用平行軸定理: I = I₀ + A×d²<br>輸入各子斷面的 A, I₀, d (形心到合成軸距離)</p>
+      ${inp('g-A1','A₁ (mm²)',6000,'calcGeo()')}${inp('g-I1','I₀₁ (mm⁴)',40000,'calcGeo()')}${inp('g-d1','d₁ (mm)',240,'calcGeo()')}
+      ${inp('g-A2','A₂ (mm²)',3360,'calcGeo()')}${inp('g-I2','I₀₂ (mm⁴)',6585600,'calcGeo()')}${inp('g-d2','d₂ (mm)',0,'calcGeo()')}
+      ${inp('g-A3','A₃ (mm², 0=不用)',6000,'calcGeo()')}${inp('g-I3','I₀₃ (mm⁴)',40000,'calcGeo()')}${inp('g-d3','d₃ (mm)',-240,'calcGeo()')}`,
+  };
+  d.innerHTML = map[t] || '';
+  calcGeo();
+}
+
+// ==================== CUSTOM PANEL ====================
+function panelCustom(p) {
+  p.innerHTML = `<h2>自訂組合斷面</h2>
+    <p class="hint">多個矩形疊加組合。b(寬), h(高), yc(中心Y座標) 皆為 mm。</p>
+    <div id="custom-rects">
+      <div class="custom-rect-row" style="margin-top:10px"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 1</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="300" step="any" class="rect-b"></div><div class="form-group"><label>h</label><input type="number" value="20" step="any" class="rect-h"></div><div class="form-group"><label>yc</label><input type="number" value="290" step="any" class="rect-yc"></div></div></div>
+      <div class="custom-rect-row"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 2</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="12" step="any" class="rect-b"></div><div class="form-group"><label>h</label><input type="number" value="260" step="any" class="rect-h"></div><div class="form-group"><label>yc</label><input type="number" value="150" step="any" class="rect-yc"></div></div></div>
+      <div class="custom-rect-row"><div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 3</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="300" step="any" class="rect-b"></div><div class="form-group"><label>h</label><input type="number" value="20" step="any" class="rect-h"></div><div class="form-group"><label>yc</label><input type="number" value="10" step="any" class="rect-yc"></div></div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn-calc" style="flex:1;background:var(--accent);" onclick="addRect()">+ 新增</button><button class="btn-calc" style="flex:1;background:#ef4444;" onclick="removeRect()">- 移除</button></div>
+    <button class="btn-calc" onclick="calcCustom()">計算</button>`;
+}
+
+// ==================== CALC FUNCTIONS ====================
+const calcFns = {
+  'h-beam': () => typeof calcHBeam==='function' && calcHBeam(),
+  'pipe': () => typeof calcPipe==='function' && calcPipe(),
+  'box': () => typeof calcBox==='function' && calcBox(),
+  'angle': () => typeof calcAngle==='function' && calcAngle(),
+  'channel': () => typeof calcChannel==='function' && calcChannel(),
+  'c-channel': () => typeof calcCChannel==='function' && calcCChannel(),
+  'geo': () => typeof calcGeo==='function' && calcGeo(),
+  'custom': () => typeof calcCustom==='function' && calcCustom(),
+};
+
+// ---------- H-Beam ----------
+function calcHBeam() {
+  const Hmm=val('h-H'),Bmm=val('h-B'),tw=val('h-tw'),tf=val('h-tf'),R=val('h-R');
+  if(!Hmm||!Bmm||!tw||!tf) return;
+  const H=Hmm/10,B=Bmm/10,twc=tw/10,tfc=tf/10,Rc=R/10;
+  const hw=H-2*tfc;
+  let A=2*B*tfc+hw*twc;
+  let Ix=2*(B*tfc**3/12+B*tfc*((H-tfc)/2)**2)+twc*hw**3/12;
+  let Iy=2*tfc*B**3/12+hw*twc**3/12;
+  let Zx=2*(B*tfc*(H/2-tfc/2)+twc*(hw/2)*(hw/4));
+  let Zy=2*(tfc*B**2/4+hw*twc**2/4);
+  // Fillet correction
+  if(Rc>0){
+    const Af=Rc**2*(1-PI/4), yf=Rc/(6*(1-PI/4));
+    const Ic=Rc**4*(16-3*PI)/48, Io=Ic-Af*yf**2;
+    const dx=(H/2-tfc)-yf, dy=twc/2+yf;
+    A+=4*Af; Ix+=4*(Io+Af*dx**2); Iy+=4*(Io+Af*dy**2); Zx+=4*Af*dx; Zy+=4*Af*dy;
+  }
+  const Sx=Ix/(H/2),Sy=Iy/(B/2),rx=Math.sqrt(Ix/A),ry=Math.sqrt(Iy/A);
+  const Avx=hw*twc,Avy=2*B*tfc,J=(2*B*tfc**3+hw*twc**3)/3,Cw=Iy*(H-tfc)**2/4,W=A*0.785;
+  const hw3=hw/3,ArT=B*tfc+hw3*twc,IyrT=tfc*B**3/12+hw3*twc**3/12,rT=Math.sqrt(IyrT/ArT);
+  showResults([['A (斷面積)',A,'cm²'],['W (單位重)',W,'kg/m'],['Ix (強軸慣性矩)',Ix,'cm⁴'],['Iy (弱軸慣性矩)',Iy,'cm⁴'],['Sx (強軸斷面模數)',Sx,'cm³'],['Sy (弱軸斷面模數)',Sy,'cm³'],['rx (強軸迴轉半徑)',rx,'cm'],['ry (弱軸迴轉半徑)',ry,'cm'],['Zx (強軸塑性模數)',Zx,'cm³'],['Zy (弱軸塑性模數)',Zy,'cm³'],['Avx (腹板剪力面積)',Avx,'cm²'],['Avy (翼板剪力面積)',Avy,'cm²'],['J (扭轉常數)',J,'cm⁴'],['Cw (翹曲常數)',Cw,'cm⁶'],['rT',rT,'cm'],['翼板寬厚比 B/(2tf)',Bmm/(2*tf),''],['腹板寬厚比 h/tw',(Hmm-2*tf)/tw,'']]);
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/Bmm,(H-40)/Hmm),sw=Bmm*sc,sh=Hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2,stw=tw*sc,stf=tf*sc;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sw,oy);ctx.lineTo(ox+sw,oy+stf);ctx.lineTo(ox+sw/2+stw/2,oy+stf);ctx.lineTo(ox+sw/2+stw/2,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.lineTo(ox,oy+sh-stf);ctx.lineTo(ox+sw/2-stw/2,oy+sh-stf);ctx.lineTo(ox+sw/2-stw/2,oy+stf);ctx.lineTo(ox,oy+stf);ctx.closePath();ctx.fill();ctx.stroke();
+    dimText(ctx,`H=${Hmm}`,ox-24,oy+sh/2);dimText(ctx,`B=${Bmm}`,ox+sw/2,oy+sh+16);
+    drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+10);
+  });
+}
+
+// ---------- Pipe ----------
+function calcPipe() {
+  const D=val('p-D'),t=val('p-t'); if(!D||!t) return;
+  const Dc=D/10,tc=t/10,d=Dc-2*tc;
+  const A=PI/4*(Dc**2-d**2),I=PI/64*(Dc**4-d**4),S=I/(Dc/2),r=Math.sqrt(I/A),Z=(Dc**3-d**3)/6,J=PI/32*(Dc**4-d**4);
+  showResults([['A',A,'cm²'],['W',A*0.785,'kg/m'],['I (慣性矩)',I,'cm⁴'],['S (斷面模數)',S,'cm³'],['r (迴轉半徑)',r,'cm'],['Z (塑性模數)',Z,'cm³'],['J (扭轉常數)',J,'cm⁴']]);
+  drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/D,(H-40)/D),sr=D/2*sc,sir=(D/2-t)*sc,cx=W/2,cy=H/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,0,PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sir,0,PI*2);ctx.fill();ctx.stroke();dimText(ctx,`D=${D}`,cx,cy-sr-8);drawAxes(ctx,cx,cy,sr+10);});
+}
+
+// ---------- Box ----------
+function calcBox() {
+  const X=val('b-X'),Y=val('b-Y'),t=val('b-t'); if(!X||!Y||!t) return;
+  const Xc=X/10,Yc=Y/10,tc=t/10,Xi=Xc-2*tc,Yi=Yc-2*tc;
+  const A=Xc*Yc-Xi*Yi,Ix=(Xc*Yc**3-Xi*Yi**3)/12,Iy=(Yc*Xc**3-Yi*Xi**3)/12;
+  showResults([['A',A,'cm²'],['W',A*0.785,'kg/m'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(Yc/2),'cm³'],['Sy',Iy/(Xc/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']]);
+  drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/X,(H-40)/Y),sw=X*sc,sh=Y*sc,st=t*sc,ox=(W-sw)/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);ctx.fillStyle='#f8fafc';ctx.fillRect(ox+st,oy+st,sw-2*st,sh-2*st);ctx.strokeRect(ox+st,oy+st,sw-2*st,sh-2*st);dimText(ctx,`X=${X}`,ox+sw/2,oy+sh+16);dimText(ctx,`Y=${Y}`,ox-20,oy+sh/2);drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+10);});
+}
+
+// ---------- Angle ----------
+function calcAngle() {
+  const X=val('a-X'),Y=val('a-Y'),t=val('a-t'); if(!X||!Y||!t) return;
+  const Xc=X/10,Yc=Y/10,tc=t/10;
+  const A1=Xc*tc,A2=(Yc-tc)*tc,A=A1+A2;
+  const Cy=(A1*tc/2+A2*(tc+(Yc-tc)/2))/A, Cx=(A1*Xc/2+A2*tc/2)/A;
+  const Ix=Xc*tc**3/12+A1*(Cy-tc/2)**2+tc*(Yc-tc)**3/12+A2*(tc+(Yc-tc)/2-Cy)**2;
+  const Iy=tc*Xc**3/12+A1*(Cx-Xc/2)**2+(Yc-tc)*tc**3/12+A2*(Cx-tc/2)**2;
+  showResults([['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/Math.max(Cy,Yc-Cy),'cm³'],['Sy',Iy/Math.max(Cx,Xc-Cx),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm'],['Cy (形心距底)',Cy,'cm'],['Cx (形心距左)',Cx,'cm']]);
+  drawSection((ctx,W,H)=>{const sc=Math.min((W-80)/X,(H-40)/Y),sw=X*sc,sh=Y*sc,st=t*sc,ox=(W-sw)/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy+sh);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox+sw,oy+sh-st);ctx.lineTo(ox+st,oy+sh-st);ctx.lineTo(ox+st,oy);ctx.lineTo(ox,oy);ctx.closePath();ctx.fill();ctx.stroke();const cxp=ox+Cx/Xc*sw,cyp=oy+sh-Cy/Yc*sh;ctx.fillStyle='#ef4444';ctx.beginPath();ctx.arc(cxp,cyp,4,0,PI*2);ctx.fill();dimText(ctx,'C.G.',cxp+14,cyp-6);});
+}
+
+// ---------- Channel ----------
+function calcChannel() {
+  const Hmm=val('c-H'),Bmm=val('c-B'),tw=val('c-tw'),tf=val('c-tf'); if(!Hmm||!Bmm||!tw||!tf) return;
+  const H=Hmm/10,B=Bmm/10,twc=tw/10,tfc=tf/10,hw=H-2*tfc;
+  const A=2*B*tfc+hw*twc, Cy=(hw*twc*twc/2+2*B*tfc*B/2)/A;
+  const Ix=twc*hw**3/12+2*(B*tfc**3/12+B*tfc*((H-tfc)/2)**2);
+  const Iy=hw*twc**3/12+hw*twc*(Cy-twc/2)**2+2*(tfc*B**3/12+B*tfc*(B/2-Cy)**2);
+  showResults([['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H/2),'cm³'],['Sy',Iy/Math.max(Cy,B-Cy),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm'],['Cy (形心距腹板)',Cy,'cm']]);
+  drawSection((ctx,W,H)=>{const sc=Math.min((W-80)/Bmm,(H-40)/Hmm),sw=Bmm*sc,sh=Hmm*sc,stw=tw*sc,stf=tf*sc,ox=(W-sw)/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sw,oy);ctx.lineTo(ox+sw,oy+stf);ctx.lineTo(ox+stw,oy+stf);ctx.lineTo(ox+stw,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh-stf);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+10);});
+}
+
+// ---------- C-Channel ----------
+function calcCChannel() {
+  const Hmm=val('cc-H'),Bmm=val('cc-B'),Cmm=val('cc-C'),tmm=val('cc-t'); if(!Hmm||!Bmm||!tmm) return;
+  const H=Hmm/10,B=Bmm/10,C=Cmm/10,t=tmm/10,hc=H-t,bc=B-t,cc=C-t/2;
+  const Aw=hc*t,Af=2*bc*t,Al=2*cc*t,A=Aw+Af+Al;
+  const xw=t/2,xf=t+bc/2,xl=t+bc,Cy=(Aw*xw+Af*xf+Al*xl)/A;
+  const Ix=t*hc**3/12+2*(bc*t**3/12+bc*t*(hc/2)**2)+2*(t*cc**3/12+cc*t*((hc-cc)/2)**2);
+  const Iy=hc*t**3/12+Aw*(Cy-xw)**2+2*(t*bc**3/12+bc*t*(xf-Cy)**2)+2*(cc*t**3/12+cc*t*(xl-Cy)**2);
+  showResults([['A',A,'cm²'],['W',A*0.785,'kg/m'],['Cy',Cy,'cm'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H/2),'cm³'],['Sy',Iy/Math.max(Cy,B+C-Cy),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']]);
+  drawSection((ctx,W,H)=>{const tot=Bmm+Cmm,sc=Math.min((W-80)/tot,(H-40)/Hmm),sh=Hmm*sc,sb=Bmm*sc,scc=Cmm*sc,st=tmm*sc,ox=(W-(sb+scc))/2,oy=(H-sh)/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sb,oy);ctx.lineTo(ox+sb,oy+scc);ctx.lineTo(ox+sb-st,oy+scc);ctx.lineTo(ox+sb-st,oy+st);ctx.lineTo(ox+st,oy+st);ctx.lineTo(ox+st,oy+sh-st);ctx.lineTo(ox+sb-st,oy+sh-st);ctx.lineTo(ox+sb-st,oy+sh-scc);ctx.lineTo(ox+sb,oy+sh-scc);ctx.lineTo(ox+sb,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();});
+}
+
+// ==================== GEO CALC ====================
+function calcGeo() {
+  const el = document.getElementById('geo-type');
+  if (!el) return;
+  const t = el.value;
+  const g = (id) => val('g-'+id);
+  let results = [];
+
+  if (t==='rect-c') {
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const A=b*h, I=b*h**3/12, S=b*h**2/6, r=h/Math.sqrt(12);
+    const Iy=h*b**3/12, Sy=h*b**2/6, ry=b/Math.sqrt(12);
+    results=[['A',A,'cm²'],['Ix',I,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',S,'cm³'],['Sy',Sy,'cm³'],['rx',r,'cm'],['ry',ry,'cm'],['e (形心距)',h/2,'cm']];
+    drawGeoRect(g('b'),g('h'),'center');
+  } else if (t==='rect-e') {
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const A=b*h, I=b*h**3/3, S=b*h**2/3, r=h/Math.sqrt(3);
+    results=[['A',A,'cm²'],['I (軸在底邊)',I,'cm⁴'],['S',S,'cm³'],['r',r,'cm'],['e (底邊到頂)',h,'cm']];
+    drawGeoRect(g('b'),g('h'),'edge');
+  } else if (t==='rect-rot') {
+    const b=g('b')/10,h=g('h')/10,th=g('theta')*PI/180; if(!b||!h) return;
+    const A=b*h, ct=Math.cos(th),st=Math.sin(th);
+    const I=b*h/12*(h**2*ct**2+b**2*st**2);
+    const e=(h*ct+b*st)/2;
+    const S=I/e, r=Math.sqrt(I/A);
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['r',r,'cm'],['e',e,'cm']];
+    drawGeoRotRect(g('b'),g('h'),g('theta'));
+  } else if (t==='square-dia') {
+    const a=g('a')/10; if(!a) return;
+    const A=a**2, I=a**4/12, e=a/Math.sqrt(2), S=a**3/(6*Math.sqrt(2)), r=a/Math.sqrt(12);
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['r',r,'cm'],['e (形心到角)',e,'cm']];
+    drawGeoDiamond(g('a'));
+  } else if (t==='hollow-rect') {
+    const b=g('b')/10,h=g('h')/10,b1=g('b1')/10,h1=g('h1')/10; if(!b||!h||!b1||!h1) return;
+    const A=b*h-b1*h1, Ix=(b*h**3-b1*h1**3)/12, Iy=(h*b**3-h1*b1**3)/12;
+    results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(h/2),'cm³'],['Sy',Iy/(b/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
+    drawGeoHollowRect(g('b'),g('h'),g('b1'),g('h1'));
+  } else if (t==='hollow-rect2') {
+    const b=g('b')/10,h=g('h')/10,t2=g('t')/10; if(!b||!h||!t2) return;
+    const bi=b-2*t2,hi=h-2*t2,A=b*h-bi*hi,Ix=(b*h**3-bi*hi**3)/12,Iy=(h*b**3-hi*bi**3)/12;
+    results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(h/2),'cm³'],['Sy',Iy/(b/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
+    drawGeoHollowRect(g('b'),g('h'),g('b')-2*g('t'),g('h')-2*g('t'));
+  } else if (t==='solid-circle') {
+    const d=g('d')/10; if(!d) return;
+    const A=PI*d**2/4, I=PI*d**4/64, S=PI*d**3/32, r=d/4, Z=d**3/6;
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['Z (塑性)',Z,'cm³'],['r',r,'cm']];
+    drawGeoCircle(g('d'),0);
+  } else if (t==='hollow-circle') {
+    const D=g('d')/10,d=g('d1')/10; if(!D||!d) return;
+    const A=PI/4*(D**2-d**2),I=PI/64*(D**4-d**4),S=I/(D/2),r=Math.sqrt(I/A),Z=(D**3-d**3)/6;
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['Z (塑性)',Z,'cm³'],['r',r,'cm']];
+    drawGeoCircle(g('d'),g('d1'));
+  } else if (t==='semicircle') {
+    const r0=g('r')/10; if(!r0) return;
+    const A=PI*r0**2/2, e=4*r0/(3*PI), I_base=PI*r0**4/8;
+    const Ix=I_base-A*e**2; // about centroid
+    const ey_top=r0-e, ey_bot=e;
+    results=[['A',A,'cm²'],['Ix (形心軸)',Ix,'cm⁴'],['Ix (底邊軸)',I_base,'cm⁴'],['e (形心距底)',e,'cm'],['Sx_top',Ix/ey_top,'cm³'],['Sx_bot',Ix/ey_bot,'cm³'],['rx',Math.sqrt(Ix/A),'cm']];
+    drawGeoSemicircle(g('r'));
+  } else if (t==='triangle') {
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const A=b*h/2, e=h/3, I=b*h**3/36, S=b*h**2/24, r=h/Math.sqrt(18);
+    results=[['A',A,'cm²'],['I (形心軸)',I,'cm⁴'],['S (形心軸)',S,'cm³'],['r',r,'cm'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',2*h/3,'cm']];
+    drawGeoTriangle(g('b'),g('h'),'center');
+  } else if (t==='triangle-e') {
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const A=b*h/2, I=b*h**3/12, S=b*h**2/6;
+    results=[['A',A,'cm²'],['I (底邊軸)',I,'cm⁴'],['S (底邊軸)',S,'cm³'],['r',h/Math.sqrt(6),'cm'],['e (底到頂)',h,'cm']];
+    drawGeoTriangle(g('b'),g('h'),'edge');
+  } else if (t==='trapezoid-c') {
+    const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
+    const A=h*(b+b1)/2;
+    const e=h*(b1+2*b)/(3*(b1+b)); // from bottom
+    const e1=h*(b+2*b1)/(3*(b1+b)); // from top
+    const I=h**3*(b**2+4*b*b1+b1**2)/(36*(b+b1));
+    const S=I/Math.max(e,e1);
+    results=[['A',A,'cm²'],['I (形心軸)',I,'cm⁴'],['S',S,'cm³'],['r',Math.sqrt(I/A),'cm'],['e (形心距下底)',e,'cm'],['e₁ (形心距上底)',e1,'cm']];
+    drawGeoTrapezoid(g('b'),g('b1'),g('h'),'center');
+  } else if (t==='trapezoid-e') {
+    const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
+    const A=h*(b+b1)/2;
+    const I=h**3*(3*b+b1)/12;
+    results=[['A',A,'cm²'],['I (下底軸)',I,'cm⁴'],['S',I/h,'cm³'],['r',Math.sqrt(I/A),'cm'],['e (底到頂)',h,'cm']];
+    drawGeoTrapezoid(g('b'),g('b1'),g('h'),'edge');
+  } else if (t==='hexagon') {
+    const a=g('a')/10; if(!a) return;
+    const A=3*Math.sqrt(3)/2*a**2, r2=a, r1=a*Math.sqrt(3)/2;
+    const I=5*Math.sqrt(3)/16*a**4;
+    const e=a; // r2
+    const S=I/e;
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['r',Math.sqrt(I/A),'cm'],['e (形心到頂)',e,'cm'],['外接圓半徑 r₂',r2,'cm'],['內切圓半徑 r₁',r1,'cm']];
+    drawGeoPolygon(6,g('a'),0);
+  } else if (t==='hexagon-f') {
+    const h=g('h')/10; if(!h) return;
+    const a=h/Math.sqrt(3); // side length from flat-to-flat
+    const A=3*Math.sqrt(3)/2*a**2;
+    const I=5*Math.sqrt(3)/16*a**4;
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',I/(h/2),'cm³'],['r',Math.sqrt(I/A),'cm'],['e (形心距邊)',h/2,'cm'],['邊長 a',a,'cm']];
+    drawGeoPolygon(6,g('h')/Math.sqrt(3),30);
+  } else if (t==='octagon') {
+    const h=g('h')/10; if(!h) return;
+    const A=2*h**2*Math.tan(PI/8);
+    const a=h*Math.tan(PI/8); // side length
+    const I=A/48*h**2*(1+2*Math.cos(PI/8)**2/(Math.cos(PI/8)**2)); // approximate
+    // More precise for regular octagon: I = A*h²(1+2cos²(π/8))/(48cos²(π/8))...
+    // Using known: I = (1+√2)/6 × a³ × h ... let me use general polygon formula
+    const n=8, alpha=PI/n;
+    const r1=h/2; // apothem
+    const r2=r1/Math.cos(alpha);
+    const I2=A/24*(6*r2**2-a**2); // = A*r2²/4*(...
+    // General polygon: I = A/24 * (6r₂² - s²) where s=side
+    const s=2*r2*Math.sin(alpha);
+    const Igen=A/24*(6*r2**2-s**2);
+    results=[['A',A,'cm²'],['I',Igen,'cm⁴'],['S',Igen/(h/2),'cm³'],['r',Math.sqrt(Igen/A),'cm'],['e',h/2,'cm'],['邊長',s*10,'mm']];
+    drawGeoPolygon(8,s*10,PI/8*180/PI);
+  } else if (t==='polygon') {
+    const n=g('n'),a=g('a')/10; if(!n||n<3||!a) return;
+    const alpha=PI/n;
+    const r1=a/(2*Math.tan(alpha)); // apothem (inscribed circle radius)
+    const r2=a/(2*Math.sin(alpha)); // circumscribed circle radius
+    const A=n*a*r1/2;
+    const I=A/24*(6*r2**2-a**2);
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',I/r2,'cm³'],['r',Math.sqrt(I/A),'cm'],['r₁ (內切圓)',r1,'cm'],['r₂ (外接圓)',r2,'cm']];
+    drawGeoPolygon(n,g('a'),0);
+  } else if (t==='diamond-hollow') {
+    const b=g('b')/10,a=g('a')/10; if(!b||!a) return;
+    const A=b**2-a**2, I=(b**4-a**4)/12;
+    const e=b/Math.sqrt(2);
+    const S=Math.sqrt(2)*(b**4-a**4)/(12*b);
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',S,'cm³'],['r',Math.sqrt(I/A),'cm'],['e',e,'cm']];
+    drawGeoHollowDiamond(g('b'),g('a'));
+  } else if (t==='tee') {
+    const bf=g('bf')/10,tf=g('tf')/10,hw=g('hw')/10,tw=g('tw')/10; if(!bf||!tf||!hw||!tw) return;
+    const Af=bf*tf, Aw=hw*tw, A=Af+Aw;
+    const H=hw+tf;
+    const yf=hw+tf/2, yw=hw/2;
+    const Ybar=(Af*yf+Aw*yw)/A;
+    const Ix=bf*tf**3/12+Af*(yf-Ybar)**2+tw*hw**3/12+Aw*(yw-Ybar)**2;
+    const Iy=tf*bf**3/12+hw*tw**3/12;
+    const et=H-Ybar, eb=Ybar;
+    results=[['A',A,'cm²'],['Ybar (形心距底)',Ybar,'cm'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx_top',Ix/et,'cm³'],['Sx_bot',Ix/eb,'cm³'],['Sy',Iy/(bf/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
+    drawGeoTee(g('bf'),g('tf'),g('hw'),g('tw'));
+  } else if (t==='ellipse') {
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const A=PI*b*h/4, Ix=PI*b*h**3/64, Iy=PI*h*b**3/64;
+    results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',PI*b*h**2/32,'cm³'],['Sy',PI*h*b**2/32,'cm³'],['rx',h/4,'cm'],['ry',b/4,'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('b'),(H-40)/g('h')),cx=W/2,cy=H/2,rx=g('b')/2*sc,ry=g('h')/2*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,PI*2);ctx.fill();ctx.stroke();dimText(ctx,`b=${g('b')}`,cx,cy+ry+16);dimText(ctx,`h=${g('h')}`,cx-rx-20,cy);drawAxes(ctx,cx,cy,Math.max(rx,ry)+10);});
+
+  } else if (t==='half-ellipse') {
+    const a=g('a')/10,b=g('bb')/10; if(!a||!b) return;
+    const A=PI*a*b/2, e1=4*a/(3*PI), e=a-e1;
+    const I=(PI/8-8/(9*PI))*a**3*b;
+    results=[['A',A,'cm²'],['e (形心距底)',e1,'cm'],['e₁ (形心距頂)',e,'cm'],['I (形心軸)',I,'cm⁴'],['S',0.1907*a**2*b,'cm³'],['S₁',0.2586*a**2*b,'cm³'],['r',Math.sqrt(I/A),'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('bb')*2),(H-40)/g('a')),cx=W/2,cy=H/2+g('a')*sc/4,rx=g('bb')*sc,ry=g('a')*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,PI,0);ctx.closePath();ctx.fill();ctx.stroke();drawAxes(ctx,cx,cy-4*g('a')*sc/(3*PI),rx+10);});
+
+  } else if (t==='quarter-circle') {
+    const R=g('R')/10; if(!R) return;
+    const A=PI*R**2/4, e=0.5756*R, e1=0.4244*R;
+    const I=0.055*R**4;
+    results=[['A',A,'cm²'],['e (距曲邊)',e,'cm'],['e₁ (距直邊)',e1,'cm'],['I',I,'cm⁴'],['S',0.0956*R**3,'cm³'],['S₁',0.1296*R**3,'cm³'],['r',0.26433*R,'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('R'),(H-40)/g('R')),sr=g('R')*sc,ox=W/2-sr/2,oy=H/2-sr/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy+sr);ctx.lineTo(ox,oy);ctx.lineTo(ox+sr,oy);ctx.arc(ox,oy,sr,0,PI/2);ctx.closePath();ctx.fill();ctx.stroke();});
+
+  } else if (t==='fillet') {
+    const R=g('R')/10; if(!R) return;
+    const A=(1-PI/4)*R**2, e=0.2234*R, e1=0.7766*R;
+    const I=0.0075*R**4;
+    results=[['A',A,'cm²'],['e',e,'cm'],['e₁',e1,'cm'],['I',I,'cm⁴'],['S',I/e,'cm³'],['S₁',I/e1,'cm³'],['r',0.187*R,'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('R'),(H-40)/g('R')),sr=g('R')*sc,ox=W/2-sr/2,oy=H/2-sr/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+sr,oy);ctx.lineTo(ox+sr,oy+sr);ctx.arc(ox,oy,sr,PI/2,0,true);ctx.closePath();ctx.fill();ctx.stroke();});
+
+  } else if (t==='sector') {
+    const R=g('R')/10, deg=g('alpha'), alpha=deg/2*PI/180; if(!R||!deg) return;
+    const A=alpha*R**2;
+    const e_cg=2*R*Math.sin(alpha)/(3*alpha);
+    const I=R**4/4*(alpha+Math.sin(alpha)*Math.cos(alpha)-16*Math.sin(alpha)**2/(9*alpha));
+    const I_tip=R**4/4*(alpha-Math.sin(alpha)*Math.cos(alpha));
+    const e_arc=R*Math.sin(alpha);
+    results=[['A',A,'cm²'],['e (形心距圓心)',e_cg,'cm'],['I (形心軸)',I,'cm⁴'],['I (尖端軸)',I_tip,'cm⁴'],['S_tip',I_tip/e_arc,'cm³'],['r_cg',Math.sqrt(I/A),'cm'],['r_tip',Math.sqrt(I_tip/A),'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('R')*2),(H-40)/(g('R')*2)),sr=g('R')*sc,cx=W/2,cy=H/2;const a=alpha;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,sr,-a,a);ctx.closePath();ctx.fill();ctx.stroke();dimText(ctx,`R=${g('R')}`,cx+sr/2+10,cy);dimText(ctx,`2α=${deg}°`,cx,cy-sr/2-8);drawAxes(ctx,cx,cy,sr+10);});
+
+  } else if (t==='segment') {
+    const R=g('R')/10, deg=g('alpha'), alpha=deg/2*PI/180; if(!R||!deg) return;
+    const A=R**2/2*(2*alpha-Math.sin(2*alpha));
+    const e=R*Math.sin(alpha);
+    const sin3=Math.sin(alpha)**3, cos1=Math.cos(alpha), sin2a=Math.sin(2*alpha);
+    const e_cg=4*R*sin3/(3*(2*alpha-sin2a));
+    const I_chord=R**4/4*(alpha-sin2a/2-2*sin3*sin3*4/(9*(2*alpha-sin2a)));
+    results=[['A',A,'cm²'],['e (弦到弧頂)',R*(1-cos1),'cm'],['形心距弦',e_cg,'cm'],['I (形心軸,近似)',Math.abs(I_chord),'cm⁴'],['r',Math.sqrt(Math.abs(I_chord)/A),'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('R')*2),(H-40)/g('R')),sr=g('R')*sc,cx=W/2,cy=H/2;const a=alpha;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,PI/2-a,PI/2+a);ctx.closePath();ctx.fill();ctx.stroke();});
+
+  } else if (t==='parabola') {
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const A=4*b*h/3, e=3*h/5, e1=2*h/5;
+    const I=16*b*h**3/175;
+    results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['S',0.1524*b*h**2,'cm³'],['S₁',0.2286*b*h**2,'cm³'],['r',0.263*h,'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('b')*2),(H-40)/g('h')),sw=g('b')*sc,sh=g('h')*sc,cx=W/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-sw,bot);for(let i=-1;i<=1;i+=0.02){const x=i*sw,y=bot-sh*(1-i*i);}ctx.moveTo(cx-sw,bot);for(let i=0;i<=40;i++){const tt=i/40,xx=-1+2*tt;ctx.lineTo(cx+xx*sw,bot-sh*(1-xx*xx));}ctx.lineTo(cx+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();dimText(ctx,`2b=${g('b')*2}`,cx,bot+16);dimText(ctx,`h=${g('h')}`,cx-sw-22,H/2);});
+
+  } else if (t==='half-parabola') {
+    const b=g('b')/10,h=g('h')/10; if(!b||!h) return;
+    const A=2*b*h/3, e=3*h/5, e1=2*h/5;
+    const I=8*b*h**3/175;
+    results=[['A',A,'cm²'],['e (形心距底)',e,'cm'],['e₁ (形心距頂)',e1,'cm'],['I',I,'cm⁴'],['r',0.263*h,'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('b'),(H-40)/g('h')),sw=g('b')*sc,sh=g('h')*sc,ox=W/2-sw/2,bot=H/2+sh/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox,bot);for(let i=0;i<=40;i++){const tt=i/40;ctx.lineTo(ox+tt*sw,bot-sh*(1-tt*tt));}ctx.lineTo(ox+sw,bot);ctx.closePath();ctx.fill();ctx.stroke();});
+
+  } else if (t==='square-hole') {
+    const a=g('a')/10,d=g('d')/10; if(!a||!d) return;
+    const A=a**2-PI*d**2/4;
+    const I=(a**4-3*PI/16*d**4)/12;
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',I/(a/2),'cm³'],['r',Math.sqrt(I/A),'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/g('a'),(H-40)/g('a')),ss=g('a')*sc,sd=g('d')*sc,cx=W/2,cy=H/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(cx-ss/2,cy-ss/2,ss,ss);ctx.strokeRect(cx-ss/2,cy-ss/2,ss,ss);ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sd/2,0,PI*2);ctx.fill();ctx.stroke();drawAxes(ctx,cx,cy,ss/2+10);});
+
+  } else if (t==='oblong') {
+    const b=g('b')/10,h=g('h')/10,d=g('d')/10; if(!b||!h||!d) return;
+    const A=2*b*(h-d)+PI*d**2/4;
+    const I=(3*PI/16*d**4+b*(h**3-d**3)+b**3*(h-d))/12;
+    results=[['A',A,'cm²'],['I',I,'cm⁴'],['S',I/(h/2),'cm³'],['r',Math.sqrt(I/A),'cm']];
+    drawSection((ctx,W,H)=>{const sc=Math.min((W-60)/(g('b')*2+g('d')),(H-40)/g('h')),cx=W/2,cy=H/2,sw=g('b')*sc,sh=g('h')*sc,sd=g('d')/2*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-sw,cy-sh/2+sd);ctx.arc(cx-sw,cy-sh/2+sd,sd,PI,PI*1.5);ctx.lineTo(cx+sw,cy-sh/2);ctx.arc(cx+sw,cy-sh/2+sd,sd,PI*1.5,0);ctx.lineTo(cx+sw+sd,cy+sh/2-sd);ctx.arc(cx+sw,cy+sh/2-sd,sd,0,PI/2);ctx.lineTo(cx-sw,cy+sh/2);ctx.arc(cx-sw,cy+sh/2-sd,sd,PI/2,PI);ctx.closePath();ctx.fill();ctx.stroke();drawAxes(ctx,cx,cy,sh/2+10);});
+
+  } else if (t==='cross') {
+    const B=g('B')/10,H2=g('H')/10,b=g('b')/10,h=g('h')/10; if(!B||!H2||!b||!h) return;
+    const A=B*h+b*(H2-h);
+    const Ix_v=b*H2**3/12, Ix_h=B*h**3/12;
+    const Ix=Ix_v+Ix_h-b*h**3/12;
+    const Iy=H2*b**3/12+h*B**3/12-h*b**3/12;
+    results=[['A',A,'cm²'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx',Ix/(H2/2),'cm³'],['Sy',Iy/(B/2),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']];
+    drawSection((ctx,W,Hc)=>{const sc=Math.min((W-60)/g('B'),(Hc-40)/g('H')),sB=g('B')*sc,sH=g('H')*sc,sb=g('b')*sc,sh=g('h')*sc,cx=W/2,cy=Hc/2;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(cx-sb/2,cy-sH/2,sb,sH);ctx.strokeRect(cx-sb/2,cy-sH/2,sb,sH);ctx.fillRect(cx-sB/2,cy-sh/2,sB,sh);ctx.strokeRect(cx-sB/2,cy-sh/2,sB,sh);drawAxes(ctx,cx,cy,Math.max(sB,sH)/2+10);});
+
+  } else if (t==='sym-trapezoid') {
+    const b=g('b')/10,b1=g('b1')/10,h=g('h')/10; if(!b||!h) return;
+    const A=h*(2*b+b1)/2;
+    const e=(3*b+2*b1)*h/(3*(2*b+b1));
+    const e_top=h-e;
+    const I=(6*b**2+6*b*b1+b1**2)*h**3/(36*(2*b+b1));
+    results=[['A',A,'cm²'],['e (形心距下底)',e,'cm'],['e₁ (形心距上底)',e_top,'cm'],['I',I,'cm⁴'],['S_bot',I/e,'cm³'],['S_top',I/e_top,'cm³'],['r',Math.sqrt(I/A),'cm']];
+    drawGeoTrapezoid(g('b'),g('b1'),g('h'),'center');
+
+  } else if (t==='general') {
+    const parts=[];
+    for(let i=1;i<=3;i++){const A=g('A'+i),I=g('I'+i),d=g('d'+i);if(A)parts.push({A:A/100,I:I/10000,d:d/10});}
+    if(!parts.length) return;
+    const A=parts.reduce((s,p)=>s+p.A,0);
+    const I=parts.reduce((s,p)=>s+p.I+p.A*p.d**2,0);
+    results=[['A (合計)',A,'cm²'],['I (合計)',I,'cm⁴'],['S',I/Math.max(...parts.map(p=>Math.abs(p.d)+5)),'cm³'],['r',Math.sqrt(I/A),'cm']];
+    drawSection(()=>{});
+  }
+  if(results.length) showResults(results);
+}
+
+// ==================== GEO DRAW HELPERS ====================
+function drawGeoRect(bmm,hmm,mode) {
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-80)/bmm,(H-40)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);
+    dimText(ctx,`b=${bmm}`,ox+sw/2,oy+sh+16);dimText(ctx,`h=${hmm}`,ox-20,oy+sh/2);
+    if(mode==='center') drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+15);
+    else { ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle='#ef4444';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ox-15,oy+sh);ctx.lineTo(ox+sw+15,oy+sh);ctx.stroke();ctx.setLineDash([]);ctx.restore(); }
+  });
+}
+function drawGeoRotRect(bmm,hmm,deg) {
+  drawSection((ctx,W,H)=>{
+    const th=deg*PI/180,sc=Math.min((W-80)/(bmm*Math.abs(Math.cos(th))+hmm*Math.abs(Math.sin(th))),(H-60)/(bmm*Math.abs(Math.sin(th))+hmm*Math.abs(Math.cos(th))));
+    const cx=W/2,cy=H/2;
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(-th);
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.fillRect(-bmm*sc/2,-hmm*sc/2,bmm*sc,hmm*sc);ctx.strokeRect(-bmm*sc/2,-hmm*sc/2,bmm*sc,hmm*sc);
+    ctx.restore();
+    dimText(ctx,`θ=${deg}°`,cx+60,cy-60);
+    drawAxes(ctx,cx,cy,80);
+  });
+}
+function drawGeoDiamond(amm) {
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/(amm*Math.sqrt(2)),(H-40)/(amm*Math.sqrt(2))),s=amm*sc/Math.sqrt(2),cx=W/2,cy=H/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.lineTo(cx+s,cy);ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();ctx.fill();ctx.stroke();
+    dimText(ctx,`a=${amm}`,cx+s/2+15,cy-s/2-5);drawAxes(ctx,cx,cy,s+15);
+  });
+}
+function drawGeoHollowRect(b,h,b1,h1) {
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/b,(H-40)/h),sw=b*sc,sh=h*sc,sw1=b1*sc,sh1=h1*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);
+    ctx.fillStyle='#f8fafc';ctx.fillRect(ox+(sw-sw1)/2,oy+(sh-sh1)/2,sw1,sh1);ctx.strokeRect(ox+(sw-sw1)/2,oy+(sh-sh1)/2,sw1,sh1);
+    drawAxes(ctx,ox+sw/2,oy+sh/2,sw/2+10);
+  });
+}
+function drawGeoCircle(D,d) {
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/D,(H-40)/D),sr=D/2*sc,cx=W/2,cy=H/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,sr,0,PI*2);ctx.fill();ctx.stroke();
+    if(d>0){const sir=d/2*sc;ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.arc(cx,cy,sir,0,PI*2);ctx.fill();ctx.stroke();}
+    dimText(ctx,`D=${D}`,cx,cy-sr-8);drawAxes(ctx,cx,cy,sr+10);
+  });
+}
+function drawGeoSemicircle(rmm) {
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/(rmm*2),(H-40)/rmm),sr=rmm*sc,cx=W/2,cy=H/2+sr/4;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(cx,cy,sr,PI,0);ctx.closePath();ctx.fill();ctx.stroke();
+    dimText(ctx,`r=${rmm}`,cx+sr+10,cy);drawAxes(ctx,cx,cy-4*rmm*sc/(3*PI),sr+10);
+  });
+}
+function drawGeoTriangle(bmm,hmm,mode) {
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/bmm,(H-40)/hmm),sw=bmm*sc,sh=hmm*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ox+sw/2,oy);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();
+    dimText(ctx,`b=${bmm}`,ox+sw/2,oy+sh+16);dimText(ctx,`h=${hmm}`,ox-20,oy+sh/2);
+    if(mode==='center'){const cy=oy+sh-sh/3;ctx.save();ctx.setLineDash([4,4]);ctx.strokeStyle='#ef4444';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(ox-10,cy);ctx.lineTo(ox+sw+10,cy);ctx.stroke();ctx.setLineDash([]);ctx.restore();}
+  });
+}
+function drawGeoTrapezoid(b,b1,h,mode) {
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/b,(H-40)/h),sw=b*sc,sw1=b1*sc,sh=h*sc,ox=(W-sw)/2,oy=(H-sh)/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ox+(sw-sw1)/2,oy);ctx.lineTo(ox+(sw+sw1)/2,oy);ctx.lineTo(ox+sw,oy+sh);ctx.lineTo(ox,oy+sh);ctx.closePath();ctx.fill();ctx.stroke();
+    dimText(ctx,`b=${b}`,ox+sw/2,oy+sh+16);dimText(ctx,`b₁=${b1}`,ox+sw/2,oy-8);dimText(ctx,`h=${h}`,ox-20,oy+sh/2);
+  });
+}
+function drawGeoPolygon(n,amm,rotDeg) {
+  drawSection((ctx,W,H)=>{
+    const a=amm, alpha=PI/n, r2=a/(2*Math.sin(alpha));
+    const sc=Math.min((W-60)/(2*r2),(H-40)/(2*r2)),sr=r2*sc,cx=W/2,cy=H/2,rot=rotDeg*PI/180-PI/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();
+    for(let i=0;i<n;i++){const ang=rot+2*PI*i/n;ctx.lineTo(cx+sr*Math.cos(ang),cy+sr*Math.sin(ang));}
+    ctx.closePath();ctx.fill();ctx.stroke();
+    dimText(ctx,`n=${n}, a=${amm}`,cx,cy+sr+18);drawAxes(ctx,cx,cy,sr+10);
+  });
+}
+function drawGeoHollowDiamond(bmm,amm) {
+  drawSection((ctx,W,H)=>{
+    const sc=Math.min((W-60)/(bmm*Math.sqrt(2)),(H-40)/(bmm*Math.sqrt(2)));
+    const cx=W/2,cy=H/2,sb=bmm*sc/Math.sqrt(2),sa=amm*sc/Math.sqrt(2);
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(cx,cy-sb);ctx.lineTo(cx+sb,cy);ctx.lineTo(cx,cy+sb);ctx.lineTo(cx-sb,cy);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#f8fafc';ctx.beginPath();ctx.moveTo(cx,cy-sa);ctx.lineTo(cx+sa,cy);ctx.lineTo(cx,cy+sa);ctx.lineTo(cx-sa,cy);ctx.closePath();ctx.fill();ctx.stroke();
+    drawAxes(ctx,cx,cy,sb+10);
+  });
+}
+function drawGeoTee(bf,tf,hw,tw) {
+  drawSection((ctx,W,H)=>{
+    const Hmm=parseFloat(hw)+parseFloat(tf),sc=Math.min((W-60)/bf,(H-40)/Hmm);
+    const swf=bf*sc,stf=tf*sc,shw=hw*sc,stw=tw*sc,ox=(W-swf)/2,oy=(H-(shw+stf))/2;
+    ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+swf,oy);ctx.lineTo(ox+swf,oy+stf);ctx.lineTo(ox+swf/2+stw/2,oy+stf);ctx.lineTo(ox+swf/2+stw/2,oy+stf+shw);ctx.lineTo(ox+swf/2-stw/2,oy+stf+shw);ctx.lineTo(ox+swf/2-stw/2,oy+stf);ctx.lineTo(ox,oy+stf);ctx.closePath();ctx.fill();ctx.stroke();
+    dimText(ctx,`bf=${bf}`,ox+swf/2,oy-8);dimText(ctx,`hw=${hw}`,ox+swf/2+stw/2+20,oy+stf+shw/2);
+  });
+}
+
+// ==================== CUSTOM ====================
+function addRect() {
+  const c=document.getElementById('custom-rects'); if(!c) return;
+  const n=c.children.length+1, d=document.createElement('div');
+  d.className='custom-rect-row';
+  d.innerHTML=`<div style="font-size:0.85em;font-weight:600;color:var(--text-light);margin-bottom:4px;">矩形 ${n}</div><div class="form-row3"><div class="form-group"><label>b</label><input type="number" value="100" step="any" class="rect-b"></div><div class="form-group"><label>h</label><input type="number" value="10" step="any" class="rect-h"></div><div class="form-group"><label>yc</label><input type="number" value="0" step="any" class="rect-yc"></div></div>`;
+  c.appendChild(d);
+}
+function removeRect() {
+  const c=document.getElementById('custom-rects'); if(c&&c.children.length>1) c.removeChild(c.lastChild);
+}
+function calcCustom() {
+  const rows=document.querySelectorAll('#custom-rects .custom-rect-row'), rects=[];
+  rows.forEach(r=>{const b=parseFloat(r.querySelector('.rect-b')?.value)||0,h=parseFloat(r.querySelector('.rect-h')?.value)||0,yc=parseFloat(r.querySelector('.rect-yc')?.value)||0;if(b>0&&h>0) rects.push({b:b/10,h:h/10,yc:yc/10,bmm:b,hmm:h,ycmm:yc});});
+  if(!rects.length) return;
+  const A=rects.reduce((s,r)=>s+r.b*r.h,0), Ybar=rects.reduce((s,r)=>s+r.b*r.h*r.yc,0)/A;
+  const Ix=rects.reduce((s,r)=>s+r.b*r.h**3/12+r.b*r.h*(r.yc-Ybar)**2,0);
+  const Iy=rects.reduce((s,r)=>s+r.h*r.b**3/12,0);
+  const yt=Math.max(...rects.map(r=>r.yc+r.h/2))-Ybar, yb=Ybar-Math.min(...rects.map(r=>r.yc-r.h/2));
+  showResults([['A',A,'cm²'],['Ybar',Ybar,'cm'],['Ix',Ix,'cm⁴'],['Iy',Iy,'cm⁴'],['Sx_top',Ix/yt,'cm³'],['Sx_bot',Ix/yb,'cm³'],['Sx (控制)',Math.min(Ix/yt,Ix/yb),'cm³'],['rx',Math.sqrt(Ix/A),'cm'],['ry',Math.sqrt(Iy/A),'cm']]);
+  drawSection((ctx,cW,cH)=>{
+    if(!rects.length) return;
+    const ymin=Math.min(...rects.map(r=>r.ycmm-r.hmm/2)),ymax=Math.max(...rects.map(r=>r.ycmm+r.hmm/2)),bmax=Math.max(...rects.map(r=>r.bmm)),tH=ymax-ymin;
+    const sc=Math.min((cW-80)/bmax,(cH-40)/tH);
+    rects.forEach(r=>{const sw=r.bmm*sc,sh=r.hmm*sc,ox=(cW-sw)/2,oy=(cH-20)-(r.ycmm+r.hmm/2-ymin)*sc;ctx.fillStyle='#dbeafe';ctx.strokeStyle='#2563eb';ctx.lineWidth=2;ctx.fillRect(ox,oy,sw,sh);ctx.strokeRect(ox,oy,sw,sh);});
+    const cgY=(cH-20)-(Ybar*10-ymin)*sc;ctx.fillStyle='#ef4444';ctx.beginPath();ctx.arc(cW/2,cgY,5,0,PI*2);ctx.fill();dimText(ctx,'C.G.',cW/2+16,cgY-6);
+  });
+}
+
+// ==================== INIT ====================
+buildTabs();
+buildPanel('h-beam');
+calcHBeam();
+</script>
+</body>
+</html>
