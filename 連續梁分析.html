@@ -2,7 +2,10 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2563eb">
 <title>連續梁分析工具</title>
 <style>
   :root {
@@ -65,16 +68,68 @@
   .ei-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: end; margin-bottom: 4px; padding: 5px 8px; background: #f0fdf4; border-radius: 6px; }
   .link-btn { background: none; border: 1px solid var(--primary); color: var(--primary); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.75em; font-family: inherit; white-space: nowrap; }
   .link-btn:hover { background: var(--primary); color: white; }
+  /* ===== Tablet (<= 1024px) ===== */
+  @media (max-width: 1024px) {
+    .container { max-width: 100%; padding: 0 16px; margin: 16px auto; }
+    .main-layout { grid-template-columns: 320px 1fr; gap: 14px; }
+    header { padding: 16px 20px; }
+  }
+  /* ===== Tablet portrait / single column (<= 900px) ===== */
   @media (max-width: 900px) {
     .main-layout { grid-template-columns: 1fr; }
+    .right-panel { min-width: 0; }
+    .canvas-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   }
-  @media (max-width: 480px) {
+  /* ===== Phone (<= 640px) ===== */
+  @media (max-width: 640px) {
     header { padding: 14px 16px; }
-    header h1 { font-size: 1.15em; }
+    header h1 { font-size: 1.2em; }
+    header p { font-size: 0.78em; }
     .container { margin: 10px auto; padding: 0 10px; }
-    .card { padding: 14px; }
+    .card { padding: 14px; border-radius: 10px; margin-bottom: 12px; }
+    .card h2 { font-size: 1em; }
+    /* 避免 iOS 聚焦時自動放大: 輸入框字級 >= 16px */
+    .form-group input, .form-group select { font-size: 16px; padding: 9px 10px; min-height: 40px; }
+    .form-group label { font-size: 0.78em; }
+    .btn { padding: 8px 12px; font-size: 0.85em; min-height: 36px; }
+    .btn-sm { padding: 6px 10px; font-size: 0.78em; min-height: 32px; }
+    .btn-calc { padding: 14px; font-size: 1.02em; min-height: 48px; }
+    .link-btn { padding: 6px 10px; font-size: 0.78em; min-height: 32px; }
+    /* 跨、支承、EI 列改為較緊湊的兩欄配置 */
+    .span-row { grid-template-columns: auto 1fr 1fr; row-gap: 4px; }
+    .span-row > div:last-child { grid-column: 1 / -1; }
+    .ei-row { grid-template-columns: auto 1fr 1fr; }
     .form-row3 { grid-template-columns: 1fr 1fr; }
-    .material-row { grid-template-columns: 1fr 1fr; }
+    .material-row { grid-template-columns: 1fr; }
+    .il-controls { grid-template-columns: 1fr; }
+    .results-table { font-size: 0.78em; }
+    .results-table th, .results-table td { padding: 5px 4px; }
+    /* top-bar 項目自動排列 */
+    .top-bar .form-group { flex: 1 1 45%; min-width: 0 !important; }
+    .top-bar .form-group input,
+    .top-bar .form-group select { font-size: 16px; }
+  }
+  /* ===== Small phone (<= 420px) ===== */
+  @media (max-width: 420px) {
+    header h1 { font-size: 1.08em; }
+    .container { padding: 0 8px; }
+    .card { padding: 12px 10px; }
+    .form-row { grid-template-columns: 1fr; gap: 6px; }
+    .form-row3 { grid-template-columns: 1fr; }
+    .span-row { grid-template-columns: 1fr 1fr; }
+    .ei-row { grid-template-columns: 1fr 1fr; }
+    .top-bar .form-group { flex: 1 1 100%; }
+  }
+  /* ===== 觸控裝置共通 ===== */
+  @media (hover: none) and (pointer: coarse) {
+    .btn:hover, .btn-primary:hover, .btn-accent:hover, .btn-danger:hover, .btn-calc:hover, .link-btn:hover { background: initial; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-accent { background: var(--accent); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-calc { background: var(--primary); color: white; }
+    .link-btn { background: none; color: var(--primary); }
+    /* 放大點擊目標 */
+    input[type="number"], input[type="text"], select { min-height: 40px; }
   }
 </style>
 </head>
@@ -842,8 +897,10 @@ function computeInfluenceLine(mdl, type, param) {
 // ==================== CANVAS DRAWING ====================
 function setupCanvas(id, minW) {
   const c = document.getElementById(id), wrap = c.parentElement;
-  const w = Math.max(wrap.clientWidth-20, minW||500);
-  const h = id==='schematicCanvas'?200:240;
+  const isNarrow = window.innerWidth <= 640;
+  const defaultMin = isNarrow ? 320 : 500;
+  const w = Math.max(wrap.clientWidth-20, minW||defaultMin);
+  const h = id==='schematicCanvas' ? (isNarrow?180:200) : (isNarrow?220:240);
   c.width=w; c.height=h;
   const ctx = c.getContext('2d');
   ctx.clearRect(0,0,w,h);
@@ -1295,7 +1352,8 @@ function init() {
 }
 
 window.addEventListener('load', init);
-window.addEventListener('resize', () => {
+let _resizeTimer = null;
+function redrawAll() {
   drawSchematic();
   if (diagrams) {
     const u = getUnit();
@@ -1303,7 +1361,15 @@ window.addEventListener('resize', () => {
     drawDiagramFill('bmdCanvas',diagrams,'m','rgb(220,38,38)',`M (${u.moment})`,true);
     drawDiagramFill('deflCanvas',diagrams,'d','rgb(5,150,105)',`Deflection (${u.length})`,false);
   }
+  if (typeof ilResult !== 'undefined' && ilResult) {
+    try { drawInfluenceLine && drawInfluenceLine(); } catch(e){}
+  }
+}
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(redrawAll, 120);
 });
+window.addEventListener('orientationchange', () => setTimeout(redrawAll, 200));
 </script>
 </body>
 </html>
