@@ -21,8 +21,9 @@
   header h1 { font-size: 1.5em; }
   header p { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
   .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
-  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; background: var(--card); padding: 8px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
-  .tab-btn { padding: 10px 16px; border: none; background: transparent; color: var(--text-light); font-size: 0.9em; font-weight: 500; cursor: pointer; border-radius: 8px; transition: all 0.2s; font-family: inherit; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; background: var(--card); padding: 8px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-btn { padding: 10px 16px; border: none; background: transparent; color: var(--text-light); font-size: 0.9em; font-weight: 500; cursor: pointer; border-radius: 8px; transition: all 0.2s; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
   .tab-btn:hover { background: #f1f5f9; color: var(--text); }
   .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
   .main-layout { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items: start; }
@@ -41,14 +42,40 @@
   .result-item .label { font-size: 0.85em; color: var(--text-light); font-weight: 500; }
   .result-item .value { font-size: 1em; font-weight: 700; font-family: 'Consolas',monospace; }
   .result-item .unit { font-size: 0.75em; color: var(--text-light); margin-left: 4px; }
-  .canvas-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 250px; }
-  canvas { display: block; }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 20px; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 250px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  canvas { display: block; max-width: 100%; }
   .section-panel { display: none; }
   .section-panel.active { display: block; }
   .hint { font-size: 0.8em; color: var(--text-light); margin-top: 4px; font-style: italic; }
   .right-panel { display: flex; flex-direction: column; gap: 20px; }
   .sub-select { margin-bottom: 14px; }
-  @media (max-width: 768px) { .main-layout { grid-template-columns: 1fr; } .results-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .results-grid { grid-template-columns: 1fr; }
+    header { padding: 14px 16px; }
+    header h1 { font-size: 1.25em; }
+    .container { margin: 12px auto; padding: 0 12px; }
+    .card { padding: 16px; }
+    .tabs { flex-wrap: nowrap; padding: 6px; }
+    .tab-btn { padding: 9px 13px; font-size: 0.85em; }
+    .form-group input, .form-group select { padding: 10px 12px; font-size: 0.95em; }
+    .btn-calc { padding: 13px; font-size: 0.95em; }
+  }
+  @media (max-width: 480px) {
+    header h1 { font-size: 1.1em; }
+    header p { font-size: 0.78em; }
+    .container { margin: 8px auto; padding: 0 8px; }
+    .card { padding: 12px; border-radius: 10px; }
+    .form-group { margin-bottom: 10px; }
+    .form-group input, .form-group select { padding: 11px 10px; font-size: 1em; }
+    .btn-calc { padding: 14px; font-size: 1em; }
+    .result-item { padding: 9px 10px; }
+    .result-item .label { font-size: 0.8em; }
+    .result-item .value { font-size: 0.95em; }
+    .form-row3 { grid-template-columns: 1fr 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -65,7 +92,7 @@
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--border);">
           <div><span style="font-size:1.1em;font-weight:700;color:var(--primary);">計算結果</span> <span style="font-size:0.75em;font-weight:400;color:var(--text-light);">(單位: cm)</span></div>
-          <div style="display:flex;gap:6px;align-items:center;">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
             <button onclick="toggleAllResults()" title="全選/取消全選" style="padding:5px 10px;border:1px solid var(--border);background:white;border-radius:6px;cursor:pointer;font-size:0.78em;color:var(--text-light);font-family:inherit;">☑ 全選</button>
             <button onclick="exportJPG()" style="padding:5px 12px;border:none;background:#059669;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ JPG</button>
             <button onclick="exportPDF()" style="padding:5px 12px;border:none;background:#dc2626;color:white;border-radius:6px;cursor:pointer;font-size:0.78em;font-weight:600;font-family:inherit;">↓ PDF</button>
