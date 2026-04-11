@@ -193,7 +193,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   ${notesHtml}
 
   <div class="rep-footer">
-    本計算書由 RC 工具箱自動產生 — 依 112 年混凝土結構設計規範
+    版權所有　弘一工程顧問有限公司
   </div>
 </div>
 </body>
