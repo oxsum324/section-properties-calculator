@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>鋼筋混凝土構件設計工具箱</title>
+<link rel="stylesheet" href="shared/style.css">
+<style>
+  .ver { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:10px;
+         font-size:0.62em; font-weight:700; vertical-align:middle; letter-spacing:0.5px; }
+  .ver-ok    { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+  .ver-draft { background:#fef3c7; color:#a16207; border:1px solid #fcd34d; }
+  .badge-new { display:inline-block; margin-left:4px; padding:1px 8px; border-radius:4px;
+               font-size:0.58em; font-weight:800; vertical-align:middle; letter-spacing:1px;
+               background:#dc2626; color:#fff; border:1px solid #991b1b;
+               box-shadow:0 1px 3px rgba(220,38,38,0.4);
+               animation: pulse-new 1.6s ease-in-out infinite; }
+  @keyframes pulse-new {
+    0%,100% { transform:scale(1); }
+    50%     { transform:scale(1.08); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>鋼筋混凝土構件設計工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V1</span></h1>
+  <p>依 112 年「混凝土結構設計規範」與「耐震特別規定」 ｜ 單位：cm, kgf</p>
+  <p style="font-size:0.78em; opacity:0.85; margin-top:4px;">最後改版日期：115 年 4 月 11 日</p>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <h2>選擇構件</h2>
+    <div class="menu-grid">
+      <a class="menu-card" href="tools/beam.html">
+        <div class="icon">▭</div>
+        <h3>梁 Beam <span class="ver ver-ok">V1</span> <span class="badge-new">NEW</span></h3>
+        <p>撓曲、剪力、扭力、撓度跨深比；含特殊抗彎矩構架耐震檢核</p>
+      </a>
+      <a class="menu-card" href="tools/column.html">
+        <div class="icon">▮</div>
+        <h3>柱 Column <span class="ver ver-draft">V0</span></h3>
+        <p>P-M 互制圖、軸壓上限、橫向圍束；含強柱弱梁與 ℓo 範圍檢核</p>
+      </a>
+      <a class="menu-card" href="tools/slab.html">
+        <div class="icon">▱</div>
+        <h3>板 Slab <span class="ver ver-draft">V0</span></h3>
+        <p>單向/雙向板厚、撓曲與溫度筋、單向剪力與雙向衝剪</p>
+      </a>
+      <a class="menu-card" href="tools/wall.html">
+        <div class="icon">▦</div>
+        <h3>牆 Wall <span class="ver ver-draft">V0</span></h3>
+        <p>承重牆/結構牆厚度、簡易軸力公式、特殊結構牆邊界構材</p>
+      </a>
+      <a class="menu-card" href="tools/foundation.html">
+        <div class="icon">⬓</div>
+        <h3>基礎 Foundation <span class="ver ver-draft">V0</span></h3>
+        <p>獨立基腳尺寸、單向/雙向剪力、撓曲、握裹；含基礎繫材</p>
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>關於本工具箱</h2>
+    <p style="font-size:0.88em; color:var(--text-light); line-height:1.8;">
+      本工具箱以 112 年「混凝土結構設計規範」為依據，依構件分頁設計。每個構件工具皆內建
+      <span style="color:var(--seismic); font-weight:600;">「特殊抗彎矩構架／特殊結構牆」</span>
+      勾選框，啟用後會自動套用耐震特別規定 (含尺寸限制、鋼筋比、橫向鋼筋、塑鉸區、強柱弱梁等)。
+    </p>
+    <div class="note">
+      ⚠ 計算結果僅供初步設計與檢算參考，最終結構設計與圖說仍應由執業技師簽證。
+    </div>
+  </div>
+
+  <footer style="margin-top:24px; padding:14px 0; text-align:center; font-size:0.82em; color:var(--text-light); border-top:1px solid #e2e8f0;">
+    © 弘一工程顧問有限公司　版權所有
+  </footer>
+</div>
+</body>
+</html>
