@@ -93,9 +93,29 @@
           <div class="form-group"><label>主筋號數</label>
             <select id="barNo"><option>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
           </div>
-          <div class="form-group"><label>主筋總根數</label><input type="number" id="nBar" value="12"></div>
+          <div class="form-group"><label>主筋總根數 (自動)</label><input type="number" id="nBar" value="12"></div>
         </div>
-        <p class="hint" id="barLayoutInfo" style="margin:-2px 0 6px; color:#5b21b6;">—</p>
+
+        <div class="checkbox-row" style="margin:6px 0;">
+          <input type="checkbox" id="manualLayout">
+          <label for="manualLayout">手動指定配筋 (對稱) — 含束筋選項</label>
+        </div>
+        <div id="manualLayoutFields" style="display:none;">
+          <p class="hint" style="margin:0 0 6px; color:#5b21b6;">含 4 角筋；束筋上限 4 根 (規範 25.6.1.1)。</p>
+          <div class="form-row">
+            <div class="form-group"><label>b 邊每側位置數 (含角)</label><input type="number" id="nFaceB" value="3" min="2" step="1"></div>
+            <div class="form-group"><label>h 邊每側位置數 (含角)</label><input type="number" id="nFaceH" value="3" min="2" step="1"></div>
+          </div>
+          <div class="form-group"><label>每位置束筋數 (1~4)</label>
+            <select id="nPerBundle">
+              <option value="1" selected>1 (單根)</option>
+              <option value="2">2 (雙束)</option>
+              <option value="3">3 (三束)</option>
+              <option value="4">4 (四束)</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint" id="barLayoutInfo" style="margin:4px 0 6px; color:#5b21b6;">—</p>
 
         <div class="form-group"><label>保護層 (cm)</label><input type="number" id="cover" value="4"></div>
       </div>
@@ -391,6 +411,30 @@
     });
   })();
 
+  // manualLayout 切換 → 顯示/隱藏手動欄位 + 切換 nBar 唯讀 + 重算
+  (function(){
+    const el = document.getElementById('manualLayout');
+    if (!el) return;
+    function apply() {
+      const on = el.checked;
+      const wrap = document.getElementById('manualLayoutFields');
+      if (wrap) wrap.style.display = on ? '' : 'none';
+      const nBarEl = document.getElementById('nBar');
+      if (nBarEl) nBarEl.readOnly = on;  // 手動模式下 nBar 由系統算出
+    }
+    el.addEventListener('change', () => {
+      apply();
+      if (typeof calcColumn === 'function') calcColumn();
+    });
+    ['nFaceB','nFaceH','nPerBundle'].forEach(id => {
+      const f = document.getElementById(id);
+      if (f) f.addEventListener('input', () => {
+        if (typeof calcColumn === 'function') calcColumn();
+      });
+    });
+    apply();
+  })();
+
   // ========== 柱計算邏輯 ==========
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
@@ -412,28 +456,23 @@
 
   // === 規範 25.7.2.3 / 18.7.5.2 縱筋橫向支撐 ===
   // face   : 該邊邊長 (cm)
-  // nSide  : 該邊縱筋根數 (含兩端角筋)
+  // nSide  : 該邊位置數 (含兩端角隅；束筋仍視為一個位置)
   // c      : 保護層 (cm)
   // tieDb  : 箍筋直徑 (cm)
-  // db     : 主筋直徑 (cm)
+  // dbEq   : 主筋等效直徑 (束筋: √n·db；單根: db)
   // isSeismic : 是否啟用 SMRF (規範 18.7.5.2)
-  // 回傳: { ok, legsMin, pitch, unsupClear, hx, crossTies, detail }
-  function lateralSupportCheck(face, nSide, c, tieDb, db, isSeismic) {
+  function lateralSupportCheck(face, nSide, c, tieDb, dbEq, isSeismic) {
     if (nSide <= 2) {
       return { ok: true, legsMin: 2, pitch: 0, unsupClear: 0, hx: 0,
-               crossTies: 0, detail: '每側 2 根 → 角筋直接由箍筋彎角支撐' };
+               crossTies: 0, detail: '每側 2 個位置 → 角筋直接由箍筋彎角支撐' };
     }
-    const pitch = (face - 2*c - 2*tieDb - db) / (nSide - 1);
-    const nMid = nSide - 2;  // 中間 (非角隅) 縱筋數
-    // 規範 25.7.2.3：每隔一根需橫向支撐
-    // 支撐策略：corners 由箍筋彎角支撐 + 中間每隔一根加 cross-tie
-    const crossTies = Math.ceil(nMid / 2);  // 中間 cross-ties 數
-    const legsMin = 2 + crossTies;          // 兩端 + 中間 cross-ties
-    // 未支撐筋與最近支撐筋淨距：當 nMid ≤ 1 時所有筋皆受支撐
-    const unsupClear = (nMid <= 1) ? 0 : Math.max(0, pitch - db);
+    // pitch 為相鄰位置中心距，使用 db_eq 扣除位置寬度
+    const pitch = (face - 2*c - 2*tieDb - dbEq) / (nSide - 1);
+    const nMid = nSide - 2;
+    const crossTies = Math.ceil(nMid / 2);
+    const legsMin = 2 + crossTies;
+    const unsupClear = (nMid <= 1) ? 0 : Math.max(0, pitch - dbEq);
     const okClear = unsupClear <= 15;
-    // SMRF 額外: hx (兩相鄰受支撐縱筋中心距) ≤ 35 cm (規範 18.7.5.2)
-    // nMid ≤ 1 時所有筋皆支撐 → hx = pitch；nMid ≥ 2 時隔一根支撐 → hx = 2·pitch
     const hx = (nMid <= 1) ? pitch : 2 * pitch;
     const okHx = isSeismic ? (hx <= 35) : true;
     return { ok: okClear && okHx, legsMin, pitch, unsupClear, hx,
@@ -509,41 +548,32 @@
     return { Pn, Mn };
   }
 
-  // 建立配筋分布 (4 邊均布；側邊筋形成中間排)
-  // 對給定彎曲方向 (壓力面在 y=0)，回傳多排配筋
-  function buildBars(b, h, cover, nBar, ab) {
-    const yTop = cover + 1;          // 頂層深度 (壓力面起算)
-    const yBot = h - cover - 1;      // 底層深度
-    if (nBar <= 4) {
-      // 4 根 → 角隅各 1
-      return [
-        { y: yTop, As: 2 * ab },
-        { y: yBot, As: 2 * ab }
-      ];
-    }
-    // 將 nBar 均分至 4 邊 (角筋共用)
-    // 每邊根數 nSide，總數 = 4·nSide − 4 ≈ nBar
-    const nSide = Math.max(2, Math.round((nBar + 4) / 4));
-    const nTop = nSide;
-    const nBot = nSide;
-    const nMidRows = Math.max(0, nSide - 2);   // 中間排數
-    // 側邊剩餘筋平均到中間排，每排 2 根
-    const sideBarsTotal = nBar - nTop - nBot;
-    const rowsCount = nMidRows;
+  // 建立矩形柱配筋分布
+  //   layout = { nFaceB, nFaceH, nPerBundle }
+  //     nFaceB = b 邊每側位置數 (含 2 角)
+  //     nFaceH = h 邊每側位置數 (含 2 角)
+  //     nPerBundle = 每位置束筋數 (1~4)
+  // bDim, hDim：彎曲方向下的寬與深 (壓力面在 y=0 對應 hDim)
+  function buildBars(bDim, hDim, cover, layout, ab) {
+    const nFB = Math.max(2, Math.round(layout.nFaceB || 2));
+    const nFH = Math.max(2, Math.round(layout.nFaceH || 2));
+    const nPB = Math.max(1, Math.min(4, Math.round(layout.nPerBundle || 1)));
+    const yTop = cover + 1;
+    const yBot = hDim - cover - 1;
+    const positionAs = nPB * ab;
     const rows = [];
-    rows.push({ y: yTop, As: nTop * ab });
-    if (rowsCount > 0) {
-      const dy = (yBot - yTop) / (rowsCount + 1);
-      // 平均分配 — 若 sideBarsTotal 不能整除，多餘者放在較中間排
-      const base = Math.floor(sideBarsTotal / rowsCount);
-      let extra = sideBarsTotal - base * rowsCount;
-      for (let i = 1; i <= rowsCount; i++) {
-        let cnt = base;
-        if (extra > 0) { cnt += 1; extra -= 1; }
-        rows.push({ y: yTop + dy * i, As: cnt * ab });
+    // 上排 (b 面)：nFB 個位置
+    rows.push({ y: yTop, As: nFB * positionAs });
+    // 中間排 (h 面)：nFH − 2 排，每排 2 個位置 (左右)
+    const nMidRows = nFH - 2;
+    if (nMidRows > 0) {
+      const dy = (yBot - yTop) / (nMidRows + 1);
+      for (let i = 1; i <= nMidRows; i++) {
+        rows.push({ y: yTop + dy * i, As: 2 * positionAs });
       }
     }
-    rows.push({ y: yBot, As: nBot * ab });
+    // 下排 (b 面)
+    rows.push({ y: yBot, As: nFB * positionAs });
     return rows;
   }
 
@@ -551,7 +581,8 @@
   let pmCurveY = [];
 
   // 對給定方向 (寬 bDim, 深 hDim) 計算完整 P-M 互制設計曲線
-  function computePMSection(bDim, hDim, fc, fy, cover, nBar, ab, beta1, colType, db) {
+  // layout = { nFaceB, nFaceH, nPerBundle } (僅矩形需要)
+  function computePMSection(bDim, hDim, fc, fy, cover, nBar, ab, beta1, colType, db, layout) {
     const isCirc = (colType === 'circle' || colType === 'circleTied');
     const D = isCirc ? bDim : null;
     const Ag = isCirc ? Math.PI * D * D / 4 : bDim * hDim;
@@ -562,7 +593,7 @@
     const phiPnMax = phiFactorComp * PnMaxFactor * Po;
     const bars = isCirc
       ? buildBarsCircle(D, cover, nBar, ab, db || 2.22)
-      : buildBars(bDim, hDim, cover, nBar, ab);
+      : buildBars(bDim, hDim, cover, layout, ab);
     const hRef = isCirc ? D : hDim;
     const curve = [];
     curve.push({ P: Po, M: 0, phi: phiFactorComp });
@@ -625,21 +656,39 @@
     const Ag = (colType === 'circle' || colType === 'circleTied')
       ? Math.PI * b * b / 4 : b * h;
 
-    // === 規範 25.7.2 排內最大根數：clear ≥ max(1.5·db, 4 cm) ===
-    // 矩形柱：每側 (b 邊 / h 邊) 可容納的最大根數
-    const sClearCol = Math.max(1.5 * db, 4);
+    // === 手動配筋 (含束筋) 讀取 ===
+    const manualLayout = document.getElementById('manualLayout')?.checked;
+    let nFaceB = 2, nFaceH = 2, nPerBundle = 1;
+    if (manualLayout && colType === 'rect') {
+      nFaceB = Math.max(2, Math.round(num('nFaceB') || 2));
+      nFaceH = Math.max(2, Math.round(num('nFaceH') || 2));
+      nPerBundle = Math.max(1, Math.min(4, Math.round(num('nPerBundle') || 1)));
+      // 反算 nBar：總位置 × 束筋數
+      const totalPos = 2 * nFaceB + 2 * nFaceH - 4;
+      nBar = totalPos * nPerBundle;
+      const nBarEl = document.getElementById('nBar');
+      if (nBarEl && Number(nBarEl.value) !== nBar) nBarEl.value = nBar;
+    }
+    // 等效直徑 (規範 25.6.1.4)：束筋以 db_eq = √n·db 計算淨距/支撐
+    const dbEq = (nPerBundle > 1) ? Math.sqrt(nPerBundle) * db : db;
+
+    // === 規範 25.7.2 排內最大根數 (位置)：clear ≥ max(1.5·db_eq, 4 cm) ===
+    // 矩形柱：每側 (b 邊 / h 邊) 可容納的最大「位置」數
+    const sClearCol = Math.max(1.5 * dbEq, 4);
     const maxBarsPerSide = (face) => {
-      const avail = face - 2 * cover - 2 * tieDb - db;
+      const avail = face - 2 * cover - 2 * tieDb - dbEq;
       if (avail <= 0) return 0;
-      return Math.max(0, Math.floor(avail / (db + sClearCol)) + 1);
+      return Math.max(0, Math.floor(avail / (dbEq + sClearCol)) + 1);
     };
     const nMaxB = maxBarsPerSide(b);
     const nMaxH = maxBarsPerSide(h);
-    // 矩形柱總根數上限 = 兩邊 × 每側 − 4 (角筋共用)
-    const nBarMaxRect = (colType === 'rect') ? (2 * nMaxB + 2 * nMaxH - 4) : (4 * nMaxB - 4);
+    // 矩形柱總根數上限 = (兩邊 × 位置 − 4) × 每位置束筋數
+    const nBarMaxRect = (colType === 'rect')
+      ? (2 * nMaxB + 2 * nMaxH - 4) * (manualLayout ? nPerBundle : 1)
+      : (4 * nMaxB - 4);
 
-    // === 設計模式：由 Ast 需求反算 nBar 並自動填入 ===
-    if (currentMode === 'design') {
+    // === 設計模式：由 Ast 需求反算 nBar 並自動填入 (僅自動模式) ===
+    if (currentMode === 'design' && !manualLayout) {
       // 需先估 AstReq (與下方反算同邏輯，僅為自動填數使用)
       const PuKgfTmp = Pu * 1000;
       const phiTmp = (colType === 'circle') ? PHI.compSpiral : PHI.compTied;
@@ -715,7 +764,9 @@
     const Mcy = isFinite(deltaNS_y) ? Muy * deltaNS_y * swayMul : Infinity;
 
     // === X 方向 (彎 Mx) P-M 互制 ===
-    const secX = computePMSection(b, h, fc, fy, cover, nBar, ab, beta1, colType, db);
+    // 對 X 方向 (繞 y 軸彎曲)：壓力面在 b-face → top/bot 排為 nFaceB
+    const layoutX = { nFaceB, nFaceH, nPerBundle };
+    const secX = computePMSection(b, h, fc, fy, cover, nBar, ab, beta1, colType, db, layoutX);
     pmCurve = secX.curve;
     const pmDesign = secX.pmDesign;
     const Po = secX.Po;
@@ -726,7 +777,9 @@
     const phiPnAtMu = interpAt(pmDesign, Mc, 'M', p => p.P);
 
     // === Y 方向 (彎 My) P-M 互制 — 用於 Bresler 雙向檢核 ===
-    const secY = computePMSection(h, b, fc, fy, cover, nBar, ab, beta1, colType, db);
+    // 旋轉 90°：壓力面在 h-face → top/bot 排為 nFaceH，故 swap
+    const layoutY = { nFaceB: nFaceH, nFaceH: nFaceB, nPerBundle };
+    const secY = computePMSection(h, b, fc, fy, cover, nBar, ab, beta1, colType, db, layoutY);
     pmCurveY = secY.curve;
     const phiMnyAtPu = interpAt(secY.pmDesign, Pu, 'P', p => p.M);
     const phiPnAtMuy = interpAt(secY.pmDesign, Mcy, 'M', p => p.P);
@@ -753,16 +806,18 @@
       }
     }
 
+    // === 自動模式下推導 nFaceB / nFaceH (對稱) ===
+    if (!manualLayout && colType === 'rect') {
+      const nSideEst = Math.max(2, Math.round((nBar + 4) / 4));
+      nFaceB = nSideEst;
+      nFaceH = nSideEst;
+    }
+
     // === 縱筋橫向支撐檢核 (規範 25.7.2.3 / 18.7.5.2) ===
-    // 對矩形柱：每邊根數 nSide (對稱配筋)
-    // - b 邊 (寬, 箍筋 X 向支撐) → legsX
-    // - h 邊 (深, 箍筋 Y 向支撐) → legsY
     let lsB = null, lsH = null, legsXMin = 2, legsYMin = 2;
     if (colType === 'rect') {
-      const nSideB = Math.max(2, Math.round((nBar + 4) / 4));  // 假設對稱
-      const nSideH = nSideB;
-      lsB = lateralSupportCheck(b, nSideB, cover, tieDb, db, seismic);
-      lsH = lateralSupportCheck(h, nSideH, cover, tieDb, db, seismic);
+      lsB = lateralSupportCheck(b, nFaceB, cover, tieDb, dbEq, seismic);
+      lsH = lateralSupportCheck(h, nFaceH, cover, tieDb, dbEq, seismic);
       legsXMin = lsB.legsMin;
       legsYMin = lsH.legsMin;
     }
@@ -906,18 +961,13 @@
     const minBars = (colType === 'circle') ? 6 : 4;
     setCheck('c-nbar', nBar >= minBars, `${nBar} / ${minBars}`);
 
-    // 排內最大根數檢核 (規範 25.7.2.1：clear ≥ max(1.5db, 4 cm))
+    // 排內最大根數 (位置數) 檢核 (規範 25.7.2.1：clear ≥ max(1.5·db_eq, 4 cm))
     let okBarsPerSide, barsPerSideDetail;
     if (colType === 'rect') {
-      // 假設兩邊各 nMaxB / nMaxH 根
-      const nSideEst = Math.max(2, Math.round((nBar + 4) / 4));
-      // 估計每邊根數 (對稱配筋)
-      const nbSide = Math.min(nSideEst, nMaxB);
-      const nhSide = Math.min(nSideEst, nMaxH);
-      okBarsPerSide = (nSideEst <= nMaxB) && (nSideEst <= nMaxH);
-      barsPerSideDetail = `每邊 ${nSideEst}，b 邊上限 ${nMaxB}、h 邊上限 ${nMaxH}`;
+      okBarsPerSide = (nFaceB <= nMaxB) && (nFaceH <= nMaxH);
+      const bundleNote = nPerBundle > 1 ? ` (束筋 ${nPerBundle} 根/位, db_eq=${dbEq.toFixed(2)})` : '';
+      barsPerSideDetail = `b 邊 ${nFaceB}/${nMaxB}，h 邊 ${nFaceH}/${nMaxH}${bundleNote}`;
     } else {
-      // 圓柱以圓周分布；用近似邊長 D 算上限
       okBarsPerSide = nBar <= nBarMaxRect;
       barsPerSideDetail = `${nBar} ≤ 圓周上限 ${nBarMaxRect}`;
     }
@@ -950,9 +1000,13 @@
     {
       const info = $('barLayoutInfo');
       if (info && colType === 'rect') {
-        const nSide = Math.max(2, Math.round((nBar + 4) / 4));
-        const nMid = Math.max(0, nSide - 2);
-        info.textContent = `目前配置：上下排各 ${nSide} 根、兩側各 ${nMid} 排 (每排 1 根)，共 ${2*nSide + 2*nMid} 根；建議箍筋肢數 X≥${legsXMin}, Y≥${legsYMin}`;
+        const totalPos = 2 * nFaceB + 2 * nFaceH - 4;
+        const nMidRows = Math.max(0, nFaceH - 2);
+        const bundleTxt = nPerBundle > 1
+          ? ` × ${nPerBundle} 束 = ${nBar} 根 (db_eq=${dbEq.toFixed(2)} cm)`
+          : ` = ${nBar} 根`;
+        const modeTxt = manualLayout ? '【手動】' : '【自動】';
+        info.textContent = `${modeTxt} b 邊 ${nFaceB} 位置/側, h 邊 ${nFaceH} 位置/側 (含 4 角)；共 ${totalPos} 位置${bundleTxt}；建議箍筋肢數 X≥${legsXMin}, Y≥${legsYMin}`;
       } else if (info) {
         info.textContent = `圓柱：${nBar} 根均布於圓周`;
       }
@@ -1079,13 +1133,14 @@
   上限 = min(40, 34 − 12·M1/M2) = min(40, 34 − 12·${m1m2}) = ${fmt(klrLim,1)}
   → ${isShort?'短柱 (δns = 1.0)':'長柱 (需放大)'}
 
-【3】排內最大根數 (規範 25.7.2.1)
-  淨距 ≥ max(1.5·db, 4 cm) = max(${fmt(1.5*db,2)}, 4) = ${fmt(sClearCol,2)} cm
-  pitch = db + clear = ${fmt(db,2)} + ${fmt(sClearCol,2)} = ${fmt(db+sClearCol,2)} cm
-  b 邊可容: floor((${b}−2·${cover}−2·${fmt(tieDb,2)}−${fmt(db,2)})/${fmt(db+sClearCol,2)})+1 = ${nMaxB}
-  h 邊可容: floor((${h}−2·${cover}−2·${fmt(tieDb,2)}−${fmt(db,2)})/${fmt(db+sClearCol,2)})+1 = ${nMaxH}
-  矩形總上限 ≈ 2·${nMaxB} + 2·${nMaxH} − 4 = ${nBarMaxRect}
-  目前 ${nBar} 根 → ${okBarsPerSide?'✓':'✗'}`;
+【3】排內最大位置數 (規範 25.7.2.1)
+  ${nPerBundle>1?`束筋等效直徑 db_eq = √${nPerBundle}·${fmt(db,2)} = ${fmt(dbEq,2)} cm  (規範 25.6.1.4)`:''}
+  淨距 ≥ max(1.5·db_eq, 4 cm) = max(${fmt(1.5*dbEq,2)}, 4) = ${fmt(sClearCol,2)} cm
+  pitch = db_eq + clear = ${fmt(dbEq,2)} + ${fmt(sClearCol,2)} = ${fmt(dbEq+sClearCol,2)} cm
+  b 邊可容: floor((${b}−2·${cover}−2·${fmt(tieDb,2)}−${fmt(dbEq,2)})/${fmt(dbEq+sClearCol,2)})+1 = ${nMaxB}
+  h 邊可容: floor((${h}−2·${cover}−2·${fmt(tieDb,2)}−${fmt(dbEq,2)})/${fmt(dbEq+sClearCol,2)})+1 = ${nMaxH}
+  矩形總位置上限 ≈ 2·${nMaxB} + 2·${nMaxH} − 4 = ${2*nMaxB+2*nMaxH-4}
+  目前 b 邊 ${nFaceB}/${nMaxB}, h 邊 ${nFaceH}/${nMaxH}, 共 ${nBar} 根${nPerBundle>1?` (${2*nFaceB+2*nFaceH-4} 位置 × ${nPerBundle} 束)`:''} → ${okBarsPerSide?'✓':'✗'}`;
       const sg = $('stepsGeomBody'); if (sg) sg.textContent = stepsGeomTxt;
 
       // P-M 互制
@@ -1148,14 +1203,15 @@ ${num('Muy')>0 ? `【4】雙向 Bresler (Muy=${num('Muy').toFixed(2)})
   目前 s = ${tieS} → ${tieS<=sLimitT?'✓':'✗'}
 
 ${colType==='rect' && lsB && lsH ? `【3】縱筋橫向支撐 (規範 25.7.2.3${seismic?' / 18.7.5.2':''})
-  b 邊：nSide=${Math.max(2,Math.round((nBar+4)/4))}
-    pitch = (${b}−2·${cover}−2·${fmt(tieDb,2)}−${fmt(db,2)})/(nSide−1) = ${fmt(lsB.pitch,2)} cm
-    未支撐筋淨距 = pitch − db = ${fmt(lsB.unsupClear,2)} cm ${lsB.okClear?'≤ 15 ✓':'> 15 ✗'}
-    ${seismic?`hx = 2·pitch = ${fmt(lsB.hx,2)} cm ${lsB.okHx?'≤ 35 ✓':'> 35 ✗'}`:''}
-    建議肢數 ≥ 2 + ceil((nSide−2)/2) = ${legsXMin}
-  h 邊：nSide=${Math.max(2,Math.round((nBar+4)/4))}
-    pitch = (${h}−2·${cover}−2·${fmt(tieDb,2)}−${fmt(db,2)})/(nSide−1) = ${fmt(lsH.pitch,2)} cm
-    未支撐筋淨距 = ${fmt(lsH.unsupClear,2)} cm ${lsH.okClear?'≤ 15 ✓':'> 15 ✗'}
+  ${nPerBundle>1?`束筋: ${nPerBundle} 根/位置 → db_eq = √${nPerBundle}·${fmt(db,2)} = ${fmt(dbEq,2)} cm`:`單根: db = ${fmt(db,2)} cm`}
+  b 邊：位置數 ${nFaceB}
+    pitch = (${b}−2·${cover}−2·${fmt(tieDb,2)}−${fmt(dbEq,2)})/(${nFaceB}−1) = ${fmt(lsB.pitch,2)} cm
+    未支撐位置淨距 = pitch − db_eq = ${fmt(lsB.unsupClear,2)} cm ${lsB.okClear?'≤ 15 ✓':'> 15 ✗'}
+    ${seismic?`hx = ${fmt(lsB.hx,2)} cm ${lsB.okHx?'≤ 35 ✓':'> 35 ✗'}`:''}
+    建議肢數 ≥ 2 + ceil((${nFaceB}−2)/2) = ${legsXMin}
+  h 邊：位置數 ${nFaceH}
+    pitch = (${h}−2·${cover}−2·${fmt(tieDb,2)}−${fmt(dbEq,2)})/(${nFaceH}−1) = ${fmt(lsH.pitch,2)} cm
+    未支撐位置淨距 = ${fmt(lsH.unsupClear,2)} cm ${lsH.okClear?'≤ 15 ✓':'> 15 ✗'}
     ${seismic?`hx = ${fmt(lsH.hx,2)} cm ${lsH.okHx?'≤ 35 ✓':'> 35 ✗'}`:''}
     建議肢數 ≥ ${legsYMin}
   目前 X=${legsX} (建議 ≥${legsXMin}), Y=${legsY} (建議 ≥${legsYMin})
@@ -1220,6 +1276,7 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
       AstReq, rhogReq, bestCombo, sSugg,
       sClearCol, nMaxB, nMaxH, nBarMaxRect, okBarsPerSide, barsPerSideDetail,
       lsB, lsH, legsXMin, legsYMin, tieOverride,
+      manualLayout, nFaceB, nFaceH, nPerBundle, dbEq,
       okRhog, pmOk, okShear: okShearChk, okNbar: nBar >= minBars
     };
   }
@@ -1250,7 +1307,15 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
       ]},
       { group:'配筋', items:[
         { label:'主筋', value: `${r.nBar}-${r.barNo}`, unit:`(Ast=${r.Ast.toFixed(2)} cm²)` },
-        { label:'箍筋', value: `${r.tieNo} @ ${r.tieS} cm`, unit:`(${r.legs} 肢)` },
+        ...(r.colType==='rect' ? [
+          { label:'配筋模式', value: r.manualLayout ? '手動指定' : '自動均布' },
+          { label:'每側位置數', value: `b 邊 ${r.nFaceB}, h 邊 ${r.nFaceH}`, unit:'(含 4 角)' },
+          ...(r.nPerBundle > 1 ? [{
+            label:'束筋', value: `${r.nPerBundle} 根/位置`,
+            unit: `db_eq = √${r.nPerBundle}·db = ${r.dbEq.toFixed(2)} cm (規範 25.6.1.4)`
+          }] : [])
+        ] : []),
+        { label:'箍筋', value: `${r.tieNo} @ ${r.tieS} cm`, unit:`(X=${r.legsX}, Y=${r.legsY} 肢)` },
         { label:'ρg', value: `${(r.rhog*100).toFixed(2)}%` }
       ]},
       { group:'外力', items:[
@@ -1270,8 +1335,8 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
         { label:'最少主筋根數',
           formula: r.colType==='circle'?'圓柱 ≥ 6':'矩形 ≥ 4',
           sub:`配置 ${r.nBar} 根`, value:`${r.nBar}`, ok:r.okNbar },
-        { label:'每側根數 ≤ 邊長限制',
-          formula:`規範 25.7.2.1 — 淨距 ≥ max(1.5·db, 4 cm) = ${r.sClearCol.toFixed(2)} cm`,
+        { label:'每側位置數 ≤ 邊長限制',
+          formula:`規範 25.7.2.1 — 淨距 ≥ max(1.5·db_eq, 4 cm) = ${r.sClearCol.toFixed(2)} cm`,
           sub: r.barsPerSideDetail || '—',
           value: r.okBarsPerSide ? '符合' : '不符', ok: r.okBarsPerSide },
         ...(r.colType==='rect' && r.lsB && r.lsH ? [{
