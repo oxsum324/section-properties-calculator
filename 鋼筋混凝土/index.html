@@ -19,6 +19,15 @@
     0%,100% { transform:scale(1); }
     50%     { transform:scale(1.08); }
   }
+  .menu-card.disabled { background:#f1f5f9; color:#94a3b8; cursor:not-allowed;
+                         pointer-events:none; filter:grayscale(100%); opacity:0.65;
+                         box-shadow:none; border:1px dashed #cbd5e1; position:relative; }
+  .menu-card.disabled .icon { color:#cbd5e1; }
+  .menu-card.disabled h3 { color:#94a3b8; }
+  .menu-card.disabled p  { color:#94a3b8; }
+  .badge-soon { display:inline-block; margin-left:6px; padding:2px 10px; border-radius:4px;
+                font-size:0.6em; font-weight:700; vertical-align:middle; letter-spacing:1px;
+                background:#e2e8f0; color:#64748b; border:1px solid #cbd5e1; }
 </style>
 </head>
 <body>
@@ -38,26 +47,26 @@
         <h3>梁 Beam <span class="ver ver-ok">V1</span> <span class="badge-new">NEW</span></h3>
         <p>撓曲、剪力、扭力、撓度跨深比；含特殊抗彎矩構架耐震檢核</p>
       </a>
-      <a class="menu-card" href="tools/column.html">
+      <div class="menu-card disabled">
         <div class="icon">▮</div>
-        <h3>柱 Column <span class="ver ver-draft">V0</span></h3>
+        <h3>柱 Column <span class="badge-soon">敬請期待</span></h3>
         <p>P-M 互制圖、軸壓上限、橫向圍束；含強柱弱梁與 ℓo 範圍檢核</p>
-      </a>
-      <a class="menu-card" href="tools/slab.html">
+      </div>
+      <div class="menu-card disabled">
         <div class="icon">▱</div>
-        <h3>板 Slab <span class="ver ver-draft">V0</span></h3>
+        <h3>板 Slab <span class="badge-soon">敬請期待</span></h3>
         <p>單向/雙向板厚、撓曲與溫度筋、單向剪力與雙向衝剪</p>
-      </a>
-      <a class="menu-card" href="tools/wall.html">
+      </div>
+      <div class="menu-card disabled">
         <div class="icon">▦</div>
-        <h3>牆 Wall <span class="ver ver-draft">V0</span></h3>
+        <h3>牆 Wall <span class="badge-soon">敬請期待</span></h3>
         <p>承重牆/結構牆厚度、簡易軸力公式、特殊結構牆邊界構材</p>
-      </a>
-      <a class="menu-card" href="tools/foundation.html">
+      </div>
+      <div class="menu-card disabled">
         <div class="icon">⬓</div>
-        <h3>基礎 Foundation <span class="ver ver-draft">V0</span></h3>
+        <h3>基礎 Foundation <span class="badge-soon">敬請期待</span></h3>
         <p>獨立基腳尺寸、單向/雙向剪力、撓曲、握裹；含基礎繫材</p>
-      </a>
+      </div>
     </div>
   </div>
 
