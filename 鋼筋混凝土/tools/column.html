@@ -98,21 +98,79 @@
 
         <div class="checkbox-row" style="margin:6px 0;">
           <input type="checkbox" id="manualLayout">
-          <label for="manualLayout">手動指定配筋 (對稱) — 含束筋選項</label>
+          <label for="manualLayout">手動指定配筋 — 含束筋 (規範 25.6.1)</label>
         </div>
         <div id="manualLayoutFields" style="display:none;">
-          <p class="hint" style="margin:0 0 6px; color:#5b21b6;">含 4 角筋；束筋上限 4 根 (規範 25.6.1.1)。</p>
-          <div class="form-row">
-            <div class="form-group"><label>b 邊每側位置數 (含角)</label><input type="number" id="nFaceB" value="3" min="2" step="1"></div>
-            <div class="form-group"><label>h 邊每側位置數 (含角)</label><input type="number" id="nFaceH" value="3" min="2" step="1"></div>
-          </div>
-          <div class="form-group"><label>每位置束筋數 (1~4)</label>
-            <select id="nPerBundle">
-              <option value="1" selected>1 (單根)</option>
-              <option value="2">2 (雙束)</option>
-              <option value="3">3 (三束)</option>
-              <option value="4">4 (四束)</option>
+          <p class="hint" style="margin:0 0 6px; color:#5b21b6;">含 4 角筋；束筋上限 4 根 (規範 25.6.1.1)；角隅與內部可分別設定。</p>
+          <div class="form-group">
+            <label>配筋方式</label>
+            <select id="layoutMode">
+              <option value="sym" selected>對稱 (b / h 兩向相同)</option>
+              <option value="indep">四面獨立 (上下左右各自)</option>
             </select>
+          </div>
+
+          <!-- 對稱模式 -->
+          <div id="symFields">
+            <div class="form-row">
+              <div class="form-group"><label>b 邊每側位置數 (含角)</label><input type="number" id="nFaceB" value="3" min="2" step="1"></div>
+              <div class="form-group"><label>h 邊每側位置數 (含角)</label><input type="number" id="nFaceH" value="3" min="2" step="1"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>角隅束筋 (4 角共用)</label>
+                <select id="cornerBundle">
+                  <option value="1" selected>1 (單根)</option>
+                  <option value="2">2 (雙束)</option>
+                  <option value="3">3 (三束)</option>
+                  <option value="4">4 (四束)</option>
+                </select>
+              </div>
+              <div class="form-group"><label>內部束筋 (邊上中段)</label>
+                <select id="interiorBundle">
+                  <option value="1" selected>1 (單根)</option>
+                  <option value="2">2 (雙束)</option>
+                  <option value="3">3 (三束)</option>
+                  <option value="4">4 (四束)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 四面獨立模式 -->
+          <div id="indepFields" style="display:none;">
+            <p class="hint" style="margin:4px 0 6px; color:#5b21b6;">四面位置數含兩端角筋；角筋為四面共用，故每面至少 2。</p>
+            <div class="form-row">
+              <div class="form-group"><label>上邊位置數</label><input type="number" id="nFaceTop" value="3" min="2" step="1"></div>
+              <div class="form-group"><label>下邊位置數</label><input type="number" id="nFaceBot" value="3" min="2" step="1"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>左邊位置數</label><input type="number" id="nFaceLeft" value="3" min="2" step="1"></div>
+              <div class="form-group"><label>右邊位置數</label><input type="number" id="nFaceRight" value="3" min="2" step="1"></div>
+            </div>
+            <div class="form-group"><label>角隅束筋 (4 角共用)</label>
+              <select id="cornerBundleI">
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>上邊內部束筋</label>
+                <select id="topBundle"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+              </div>
+              <div class="form-group"><label>下邊內部束筋</label>
+                <select id="botBundle"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>左邊內部束筋</label>
+                <select id="leftBundle"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+              </div>
+              <div class="form-group"><label>右邊內部束筋</label>
+                <select id="rightBundle"><option value="1" selected>1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+              </div>
+            </div>
           </div>
         </div>
         <p class="hint" id="barLayoutInfo" style="margin:4px 0 6px; color:#5b21b6;">—</p>
@@ -212,6 +270,15 @@
         <h2>綜合結論 <span id="conclusionScope" class="hint" style="margin-left:auto; font-style:normal;">—</span></h2>
         <div id="bannerStatus" class="banner-status">尚未計算</div>
         <div id="bannerKey" class="banner-key"></div>
+      </div>
+
+      <!-- 剖面示意圖 -->
+      <div class="card" data-shows="geom pm ties seismic summary">
+        <h2>斷面示意圖 <span class="hint" style="margin-left:auto; font-style:normal;">含主筋 / 箍筋 / 束筋</span></h2>
+        <div class="canvas-wrap">
+          <canvas id="colSectionCanvas" width="420" height="360"></canvas>
+        </div>
+        <p class="hint" id="colSectionHint" style="margin:6px 0 0; text-align:center;">—</p>
       </div>
 
       <!-- 設計建議 hero -->
@@ -426,11 +493,36 @@
       apply();
       if (typeof calcColumn === 'function') calcColumn();
     });
-    ['nFaceB','nFaceH','nPerBundle'].forEach(id => {
+    [
+      'nFaceB','nFaceH','cornerBundle','interiorBundle',
+      'nFaceTop','nFaceBot','nFaceLeft','nFaceRight',
+      'cornerBundleI','topBundle','botBundle','leftBundle','rightBundle'
+    ].forEach(id => {
       const f = document.getElementById(id);
       if (f) f.addEventListener('input', () => {
         if (typeof calcColumn === 'function') calcColumn();
       });
+      if (f) f.addEventListener('change', () => {
+        if (typeof calcColumn === 'function') calcColumn();
+      });
+    });
+    apply();
+  })();
+
+  // layoutMode 切換 → 顯示對稱 / 4 面欄位
+  (function(){
+    const sel = document.getElementById('layoutMode');
+    if (!sel) return;
+    function apply() {
+      const mode = sel.value;
+      const sym = document.getElementById('symFields');
+      const ind = document.getElementById('indepFields');
+      if (sym) sym.style.display = (mode === 'sym') ? '' : 'none';
+      if (ind) ind.style.display = (mode === 'indep') ? '' : 'none';
+    }
+    sel.addEventListener('change', () => {
+      apply();
+      if (typeof calcColumn === 'function') calcColumn();
     });
     apply();
   })();
@@ -548,33 +640,90 @@
     return { Pn, Mn };
   }
 
-  // 建立矩形柱配筋分布
-  //   layout = { nFaceB, nFaceH, nPerBundle }
-  //     nFaceB = b 邊每側位置數 (含 2 角)
-  //     nFaceH = h 邊每側位置數 (含 2 角)
-  //     nPerBundle = 每位置束筋數 (1~4)
-  // bDim, hDim：彎曲方向下的寬與深 (壓力面在 y=0 對應 hDim)
-  function buildBars(bDim, hDim, cover, layout, ab) {
-    const nFB = Math.max(2, Math.round(layout.nFaceB || 2));
-    const nFH = Math.max(2, Math.round(layout.nFaceH || 2));
-    const nPB = Math.max(1, Math.min(4, Math.round(layout.nPerBundle || 1)));
-    const yTop = cover + 1;
-    const yBot = hDim - cover - 1;
-    const positionAs = nPB * ab;
-    const rows = [];
-    // 上排 (b 面)：nFB 個位置
-    rows.push({ y: yTop, As: nFB * positionAs });
-    // 中間排 (h 面)：nFH − 2 排，每排 2 個位置 (左右)
-    const nMidRows = nFH - 2;
-    if (nMidRows > 0) {
-      const dy = (yBot - yTop) / (nMidRows + 1);
-      for (let i = 1; i <= nMidRows; i++) {
-        rows.push({ y: yTop + dy * i, As: 2 * positionAs });
-      }
+  // === 通用配筋 layout 模型 ===
+  //   layout = {
+  //     topN, botN, leftN, rightN  : 各面位置數 (含 2 角)
+  //     cornerBundle               : 4 角共用束筋數
+  //     topBundle, botBundle, leftBundle, rightBundle : 各面內部 (邊上中段) 束筋數
+  //   }
+  function makeLayoutSym(nFaceB, nFaceH, cb, ib) {
+    return {
+      topN: nFaceB, botN: nFaceB, leftN: nFaceH, rightN: nFaceH,
+      cornerBundle: cb, topBundle: ib, botBundle: ib, leftBundle: ib, rightBundle: ib
+    };
+  }
+  function makeLayoutIndep(nT, nB, nL, nR, cb, tb, bb, lb, rb) {
+    return {
+      topN: nT, botN: nB, leftN: nL, rightN: nR,
+      cornerBundle: cb, topBundle: tb, botBundle: bb, leftBundle: lb, rightBundle: rb
+    };
+  }
+  function rotateLayoutForY(L) {
+    // 旋轉 90°：top↔left, bot↔right (用於 Y 向 PM 計算)
+    return {
+      topN: L.leftN, botN: L.rightN, leftN: L.topN, rightN: L.botN,
+      cornerBundle: L.cornerBundle,
+      topBundle: L.leftBundle, botBundle: L.rightBundle,
+      leftBundle: L.topBundle, rightBundle: L.botBundle
+    };
+  }
+  function layoutTotalBars(L) {
+    return 4 * L.cornerBundle
+      + Math.max(0, L.topN - 2) * L.topBundle
+      + Math.max(0, L.botN - 2) * L.botBundle
+      + Math.max(0, L.leftN - 2) * L.leftBundle
+      + Math.max(0, L.rightN - 2) * L.rightBundle;
+  }
+  function layoutMaxBundle(L) {
+    return Math.max(L.cornerBundle, L.topBundle, L.botBundle, L.leftBundle, L.rightBundle);
+  }
+
+  // 取得所有主筋位置 (cm 座標, 原點在斷面左上角)
+  // 回傳: [{x, y, bundle}]
+  function getRebarPositions(L, bDim, hDim, cover) {
+    const xL = cover + 1;
+    const xR = bDim - cover - 1;
+    const yT = cover + 1;
+    const yB = hDim - cover - 1;
+    const positions = [];
+    // 4 角
+    positions.push({ x:xL, y:yT, bundle:L.cornerBundle, kind:'corner' });
+    positions.push({ x:xR, y:yT, bundle:L.cornerBundle, kind:'corner' });
+    positions.push({ x:xL, y:yB, bundle:L.cornerBundle, kind:'corner' });
+    positions.push({ x:xR, y:yB, bundle:L.cornerBundle, kind:'corner' });
+    // 上邊內部
+    const tm = Math.max(0, L.topN - 2);
+    for (let i = 1; i <= tm; i++) {
+      positions.push({ x: xL + (xR-xL)*i/(tm+1), y: yT, bundle: L.topBundle, kind:'top' });
     }
-    // 下排 (b 面)
-    rows.push({ y: yBot, As: nFB * positionAs });
-    return rows;
+    // 下邊內部
+    const bm = Math.max(0, L.botN - 2);
+    for (let i = 1; i <= bm; i++) {
+      positions.push({ x: xL + (xR-xL)*i/(bm+1), y: yB, bundle: L.botBundle, kind:'bot' });
+    }
+    // 左邊內部
+    const lm = Math.max(0, L.leftN - 2);
+    for (let i = 1; i <= lm; i++) {
+      positions.push({ x: xL, y: yT + (yB-yT)*i/(lm+1), bundle: L.leftBundle, kind:'left' });
+    }
+    // 右邊內部
+    const rm = Math.max(0, L.rightN - 2);
+    for (let i = 1; i <= rm; i++) {
+      positions.push({ x: xR, y: yT + (yB-yT)*i/(rm+1), bundle: L.rightBundle, kind:'right' });
+    }
+    return positions;
+  }
+
+  // 建立矩形柱配筋分布 — 由位置 (x,y) 聚合到 y 排，供 PM 應變相容掃描使用
+  function buildBars(bDim, hDim, cover, layout, ab) {
+    const positions = getRebarPositions(layout, bDim, hDim, cover);
+    const yMap = new Map();
+    positions.forEach(p => {
+      const yKey = p.y.toFixed(3);
+      if (!yMap.has(yKey)) yMap.set(yKey, { y: p.y, As: 0 });
+      yMap.get(yKey).As += p.bundle * ab;
+    });
+    return Array.from(yMap.values()).sort((a,b)=>a.y-b.y);
   }
 
   let pmCurve = [];
@@ -658,19 +807,43 @@
 
     // === 手動配筋 (含束筋) 讀取 ===
     const manualLayout = document.getElementById('manualLayout')?.checked;
-    let nFaceB = 2, nFaceH = 2, nPerBundle = 1;
-    if (manualLayout && colType === 'rect') {
-      nFaceB = Math.max(2, Math.round(num('nFaceB') || 2));
-      nFaceH = Math.max(2, Math.round(num('nFaceH') || 2));
-      nPerBundle = Math.max(1, Math.min(4, Math.round(num('nPerBundle') || 1)));
-      // 反算 nBar：總位置 × 束筋數
-      const totalPos = 2 * nFaceB + 2 * nFaceH - 4;
-      nBar = totalPos * nPerBundle;
-      const nBarEl = document.getElementById('nBar');
-      if (nBarEl && Number(nBarEl.value) !== nBar) nBarEl.value = nBar;
+    const layoutMode = document.getElementById('layoutMode')?.value || 'sym';
+    let nFaceB = 2, nFaceH = 2;
+    let columnLayout = null;
+    if (colType === 'rect') {
+      if (manualLayout && layoutMode === 'sym') {
+        nFaceB = Math.max(2, Math.round(num('nFaceB') || 2));
+        nFaceH = Math.max(2, Math.round(num('nFaceH') || 2));
+        const cb = Math.max(1, Math.min(4, Math.round(num('cornerBundle') || 1)));
+        const ib = Math.max(1, Math.min(4, Math.round(num('interiorBundle') || 1)));
+        columnLayout = makeLayoutSym(nFaceB, nFaceH, cb, ib);
+      } else if (manualLayout && layoutMode === 'indep') {
+        const nT = Math.max(2, Math.round(num('nFaceTop') || 2));
+        const nB = Math.max(2, Math.round(num('nFaceBot') || 2));
+        const nL = Math.max(2, Math.round(num('nFaceLeft') || 2));
+        const nR = Math.max(2, Math.round(num('nFaceRight') || 2));
+        const cb = Math.max(1, Math.min(4, Math.round(num('cornerBundleI') || 1)));
+        const tb = Math.max(1, Math.min(4, Math.round(num('topBundle') || 1)));
+        const bb = Math.max(1, Math.min(4, Math.round(num('botBundle') || 1)));
+        const lb = Math.max(1, Math.min(4, Math.round(num('leftBundle') || 1)));
+        const rb = Math.max(1, Math.min(4, Math.round(num('rightBundle') || 1)));
+        columnLayout = makeLayoutIndep(nT, nB, nL, nR, cb, tb, bb, lb, rb);
+        // 取最大邊位置數作為 nFaceB / nFaceH 兼容值 (僅顯示用)
+        nFaceB = Math.max(nT, nB);
+        nFaceH = Math.max(nL, nR);
+      }
+      if (manualLayout) {
+        nBar = layoutTotalBars(columnLayout);
+        const nBarEl = document.getElementById('nBar');
+        if (nBarEl && Number(nBarEl.value) !== nBar) nBarEl.value = nBar;
+      }
     }
-    // 等效直徑 (規範 25.6.1.4)：束筋以 db_eq = √n·db 計算淨距/支撐
-    const dbEq = (nPerBundle > 1) ? Math.sqrt(nPerBundle) * db : db;
+    // 兼容舊變數 (顯示/檢核用)
+    const cornerBundle = columnLayout ? columnLayout.cornerBundle : 1;
+    const maxBundleAll = columnLayout ? layoutMaxBundle(columnLayout) : 1;
+    let nPerBundle = maxBundleAll;
+    // 等效直徑 (規範 25.6.1.4)：以全斷面最大束筋數估算 (用於排內最大根數的保守檢查)
+    const dbEq = (maxBundleAll > 1) ? Math.sqrt(maxBundleAll) * db : db;
 
     // === 規範 25.7.2 排內最大根數 (位置)：clear ≥ max(1.5·db_eq, 4 cm) ===
     // 矩形柱：每側 (b 邊 / h 邊) 可容納的最大「位置」數
@@ -763,9 +936,17 @@
     const Mc  = isFinite(deltaNS)   ? Mux * deltaNS   * swayMul : Infinity;
     const Mcy = isFinite(deltaNS_y) ? Muy * deltaNS_y * swayMul : Infinity;
 
+    // === 自動模式：建立預設對稱 layout (PM 計算前需先有 columnLayout) ===
+    if (!manualLayout && colType === 'rect') {
+      const nSideEst = Math.max(2, Math.round((nBar + 4) / 4));
+      nFaceB = nSideEst;
+      nFaceH = nSideEst;
+      columnLayout = makeLayoutSym(nFaceB, nFaceH, 1, 1);
+    }
+
     // === X 方向 (彎 Mx) P-M 互制 ===
     // 對 X 方向 (繞 y 軸彎曲)：壓力面在 b-face → top/bot 排為 nFaceB
-    const layoutX = { nFaceB, nFaceH, nPerBundle };
+    const layoutX = columnLayout;
     const secX = computePMSection(b, h, fc, fy, cover, nBar, ab, beta1, colType, db, layoutX);
     pmCurve = secX.curve;
     const pmDesign = secX.pmDesign;
@@ -778,7 +959,7 @@
 
     // === Y 方向 (彎 My) P-M 互制 — 用於 Bresler 雙向檢核 ===
     // 旋轉 90°：壓力面在 h-face → top/bot 排為 nFaceH，故 swap
-    const layoutY = { nFaceB: nFaceH, nFaceH: nFaceB, nPerBundle };
+    const layoutY = colType === 'rect' ? rotateLayoutForY(columnLayout) : null;
     const secY = computePMSection(h, b, fc, fy, cover, nBar, ab, beta1, colType, db, layoutY);
     pmCurveY = secY.curve;
     const phiMnyAtPu = interpAt(secY.pmDesign, Pu, 'P', p => p.M);
@@ -806,20 +987,26 @@
       }
     }
 
-    // === 自動模式下推導 nFaceB / nFaceH (對稱) ===
-    if (!manualLayout && colType === 'rect') {
-      const nSideEst = Math.max(2, Math.round((nBar + 4) / 4));
-      nFaceB = nSideEst;
-      nFaceH = nSideEst;
-    }
-
-    // === 縱筋橫向支撐檢核 (規範 25.7.2.3 / 18.7.5.2) ===
-    let lsB = null, lsH = null, legsXMin = 2, legsYMin = 2;
-    if (colType === 'rect') {
-      lsB = lateralSupportCheck(b, nFaceB, cover, tieDb, dbEq, seismic);
-      lsH = lateralSupportCheck(h, nFaceH, cover, tieDb, dbEq, seismic);
-      legsXMin = lsB.legsMin;
-      legsYMin = lsH.legsMin;
+    // === 縱筋橫向支撐檢核 (規範 25.7.2.3 / 18.7.5.2) — 4 面獨立 ===
+    let lsTop = null, lsBot = null, lsLeft = null, lsRight = null;
+    let lsB = null, lsH = null;  // 兼容變數 (顯示用)
+    let legsXMin = 2, legsYMin = 2;
+    if (colType === 'rect' && columnLayout) {
+      // 各面採用 max(角隅, 該面內部) 的束筋等效直徑作保守估算
+      const dbT = Math.sqrt(Math.max(columnLayout.cornerBundle, columnLayout.topBundle))   * db;
+      const dbBo= Math.sqrt(Math.max(columnLayout.cornerBundle, columnLayout.botBundle))   * db;
+      const dbL = Math.sqrt(Math.max(columnLayout.cornerBundle, columnLayout.leftBundle))  * db;
+      const dbR = Math.sqrt(Math.max(columnLayout.cornerBundle, columnLayout.rightBundle)) * db;
+      lsTop   = lateralSupportCheck(b, columnLayout.topN,   cover, tieDb, dbT,  seismic);
+      lsBot   = lateralSupportCheck(b, columnLayout.botN,   cover, tieDb, dbBo, seismic);
+      lsLeft  = lateralSupportCheck(h, columnLayout.leftN,  cover, tieDb, dbL,  seismic);
+      lsRight = lateralSupportCheck(h, columnLayout.rightN, cover, tieDb, dbR,  seismic);
+      // X 向肢數：取上下面所需肢數的最大值 (因為箍筋同時繞兩面)
+      legsXMin = Math.max(lsTop.legsMin, lsBot.legsMin);
+      legsYMin = Math.max(lsLeft.legsMin, lsRight.legsMin);
+      // 兼容變數：取較嚴格者
+      lsB = (lsTop.unsupClear >= lsBot.unsupClear) ? lsTop : lsBot;
+      lsH = (lsLeft.unsupClear >= lsRight.unsupClear) ? lsLeft : lsRight;
     }
 
     // === 自動建議 vs 工程師核可 ===
@@ -963,33 +1150,42 @@
 
     // 排內最大根數 (位置數) 檢核 (規範 25.7.2.1：clear ≥ max(1.5·db_eq, 4 cm))
     let okBarsPerSide, barsPerSideDetail;
-    if (colType === 'rect') {
-      okBarsPerSide = (nFaceB <= nMaxB) && (nFaceH <= nMaxH);
-      const bundleNote = nPerBundle > 1 ? ` (束筋 ${nPerBundle} 根/位, db_eq=${dbEq.toFixed(2)})` : '';
-      barsPerSideDetail = `b 邊 ${nFaceB}/${nMaxB}，h 邊 ${nFaceH}/${nMaxH}${bundleNote}`;
+    if (colType === 'rect' && columnLayout) {
+      const L = columnLayout;
+      okBarsPerSide = (L.topN <= nMaxB) && (L.botN <= nMaxB)
+                    && (L.leftN <= nMaxH) && (L.rightN <= nMaxH);
+      const bundleNote = maxBundleAll > 1 ? ` (最大束筋 ${maxBundleAll} 根/位, db_eq=${dbEq.toFixed(2)})` : '';
+      if (layoutMode === 'indep' && manualLayout) {
+        barsPerSideDetail = `上 ${L.topN}/${nMaxB}，下 ${L.botN}/${nMaxB}，左 ${L.leftN}/${nMaxH}，右 ${L.rightN}/${nMaxH}${bundleNote}`;
+      } else {
+        barsPerSideDetail = `b 邊 ${L.topN}/${nMaxB}，h 邊 ${L.leftN}/${nMaxH}${bundleNote}`;
+      }
     } else {
       okBarsPerSide = nBar <= nBarMaxRect;
       barsPerSideDetail = `${nBar} ≤ 圓周上限 ${nBarMaxRect}`;
     }
     setCheck('c-barsPerSide', okBarsPerSide, barsPerSideDetail);
 
-    // 縱筋橫向支撐 (規範 25.7.2.3 / 18.7.5.2)
-    if (colType === 'rect' && lsB && lsH) {
-      const geomOk = lsB.ok && lsH.ok;
+    // 縱筋橫向支撐 (規範 25.7.2.3 / 18.7.5.2) — 4 面獨立檢核
+    if (colType === 'rect' && lsTop && lsBot && lsLeft && lsRight) {
+      const geomOk = lsTop.ok && lsBot.ok && lsLeft.ok && lsRight.ok;
       const legsOk = (legsX >= legsXMin) && (legsY >= legsYMin);
       const lsOk = geomOk && legsOk;
-      // 若工程師核可：未通過時改為 warn (黃色)，並標註「工程師核可」
       const passArg = tieOverride ? (lsOk ? true : null) : lsOk;
       let detail;
       if (lsOk) {
-        detail = `b 邊 hx=${lsB.hx.toFixed(1)}, h 邊 hx=${lsH.hx.toFixed(1)} cm；實配 X=${legsX}, Y=${legsY} ≥ 建議 X≥${legsXMin}, Y≥${legsYMin}`;
+        detail = `各面 unsup ≤ 15 cm；實配 X=${legsX}, Y=${legsY} ≥ 建議 X≥${legsXMin}, Y≥${legsYMin}`;
       } else if (!legsOk && geomOk) {
-        // 幾何允許但 legs 不足
         detail = (tieOverride ? '⚠ 工程師核可：' : '') +
                  `肢數不足 — 實配 X=${legsX}/${legsXMin}, Y=${legsY}/${legsYMin}`;
       } else {
+        const fails = [];
+        if (!lsTop.ok)   fails.push(`上 ${lsTop.unsupClear.toFixed(1)}`);
+        if (!lsBot.ok)   fails.push(`下 ${lsBot.unsupClear.toFixed(1)}`);
+        if (!lsLeft.ok)  fails.push(`左 ${lsLeft.unsupClear.toFixed(1)}`);
+        if (!lsRight.ok) fails.push(`右 ${lsRight.unsupClear.toFixed(1)}`);
         detail = (tieOverride ? '⚠ 工程師核可：' : '') +
-                 `b 邊未支撐淨距=${lsB.unsupClear.toFixed(1)}, h 邊=${lsH.unsupClear.toFixed(1)} cm (限 15)`;
+                 `未支撐淨距 (${fails.join(', ')}) cm > 15`;
       }
       setCheck('c-lateralSupport', passArg, detail);
     } else {
@@ -999,14 +1195,21 @@
     // 鋼筋配置提示 (UI hint，鋼筋配置下方)
     {
       const info = $('barLayoutInfo');
-      if (info && colType === 'rect') {
-        const totalPos = 2 * nFaceB + 2 * nFaceH - 4;
-        const nMidRows = Math.max(0, nFaceH - 2);
-        const bundleTxt = nPerBundle > 1
-          ? ` × ${nPerBundle} 束 = ${nBar} 根 (db_eq=${dbEq.toFixed(2)} cm)`
-          : ` = ${nBar} 根`;
-        const modeTxt = manualLayout ? '【手動】' : '【自動】';
-        info.textContent = `${modeTxt} b 邊 ${nFaceB} 位置/側, h 邊 ${nFaceH} 位置/側 (含 4 角)；共 ${totalPos} 位置${bundleTxt}；建議箍筋肢數 X≥${legsXMin}, Y≥${legsYMin}`;
+      if (info && colType === 'rect' && columnLayout) {
+        const L = columnLayout;
+        const totalPos = 4 + Math.max(0,L.topN-2) + Math.max(0,L.botN-2) + Math.max(0,L.leftN-2) + Math.max(0,L.rightN-2);
+        const bundleTxt = maxBundleAll > 1
+          ? `；共 ${nBar} 根 (含束筋, max db_eq=${dbEq.toFixed(2)} cm)`
+          : `；共 ${nBar} 根`;
+        const modeTxt = manualLayout ? (layoutMode === 'indep' ? '【手動 4 面】' : '【手動對稱】') : '【自動】';
+        let layoutTxt;
+        if (manualLayout && layoutMode === 'indep') {
+          layoutTxt = `上 ${L.topN}, 下 ${L.botN}, 左 ${L.leftN}, 右 ${L.rightN} 位置`;
+        } else {
+          layoutTxt = `b 邊 ${L.topN} 位置, h 邊 ${L.leftN} 位置`;
+        }
+        const cornTxt = (L.cornerBundle > 1) ? `, 角隅 ${L.cornerBundle} 束` : '';
+        info.textContent = `${modeTxt} ${layoutTxt} (${totalPos} 位置${cornTxt})${bundleTxt}；建議箍筋肢數 X≥${legsXMin}, Y≥${legsYMin}`;
       } else if (info) {
         info.textContent = `圓柱：${nBar} 根均布於圓周`;
       }
@@ -1276,9 +1479,12 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
       AstReq, rhogReq, bestCombo, sSugg,
       sClearCol, nMaxB, nMaxH, nBarMaxRect, okBarsPerSide, barsPerSideDetail,
       lsB, lsH, legsXMin, legsYMin, tieOverride,
-      manualLayout, nFaceB, nFaceH, nPerBundle, dbEq,
+      manualLayout, layoutMode, columnLayout, nFaceB, nFaceH, nPerBundle, dbEq,
       okRhog, pmOk, okShear: okShearChk, okNbar: nBar >= minBars
     };
+
+    // 繪製剖面示意圖
+    drawColumnSection();
   }
 
   function buildColumnReport() {
@@ -1528,6 +1734,192 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
       const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';
       return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;
     }).join('');
+  }
+
+  // === 斷面示意圖 ===
+  function drawColumnSection() {
+    const cv = $('colSectionCanvas');
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0,0,W,H);
+    const r = window.colLast;
+    if (!r) return;
+    const margin = 50;
+    const isCirc = (r.colType === 'circle' || r.colType === 'circleTied');
+
+    if (!isCirc) {
+      const b = r.b, h = r.h, cover = r.cover;
+      const scale = Math.min((W - margin*2) / b, (H - margin*2) / h);
+      const drawW = b * scale;
+      const drawH = h * scale;
+      const x0 = (W - drawW) / 2;
+      const y0 = (H - drawH) / 2;
+
+      // 混凝土
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(x0, y0, drawW, drawH);
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x0, y0, drawW, drawH);
+
+      // 保護層線 (虛線)
+      ctx.setLineDash([3,3]);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x0 + cover*scale, y0 + cover*scale,
+                     drawW - 2*cover*scale, drawH - 2*cover*scale);
+      ctx.setLineDash([]);
+
+      // 箍筋外框 (cover 內側)
+      const tieDb = r.tieDb || 1.27;
+      const tieX0 = x0 + cover*scale;
+      const tieY0 = y0 + cover*scale;
+      const tieW  = drawW - 2*cover*scale;
+      const tieH  = drawH - 2*cover*scale;
+      ctx.strokeStyle = '#0ea5e9';
+      ctx.lineWidth = Math.max(1.5, tieDb * scale * 0.8);
+      ctx.strokeRect(tieX0, tieY0, tieW, tieH);
+
+      // 主筋位置 (含束筋集束)
+      if (r.columnLayout) {
+        const positions = getRebarPositions(r.columnLayout, b, h, cover);
+        const db = r.db || 2.54;
+        const baseR = (db/2) * scale;
+        positions.forEach(p => {
+          const cx = x0 + p.x * scale;
+          const cy = y0 + p.y * scale;
+          drawBundle(ctx, cx, cy, baseR, p.bundle, p.kind === 'corner');
+        });
+      }
+
+      // 內部 cross-tie 簡示 (依 legsX / legsY)
+      const legsX = r.legsX || 2;
+      const legsY = r.legsY || 2;
+      // X 向 (繞 y 軸) cross-tie 為水平線：legsX-2 條
+      ctx.strokeStyle = '#0ea5e9';
+      ctx.lineWidth = Math.max(1, tieDb * scale * 0.6);
+      ctx.setLineDash([6,3]);
+      for (let i = 1; i <= legsY - 2; i++) {
+        const xx = tieX0 + tieW * i / (legsY - 1);
+        ctx.beginPath();
+        ctx.moveTo(xx, tieY0);
+        ctx.lineTo(xx, tieY0 + tieH);
+        ctx.stroke();
+      }
+      for (let i = 1; i <= legsX - 2; i++) {
+        const yy = tieY0 + tieH * i / (legsX - 1);
+        ctx.beginPath();
+        ctx.moveTo(tieX0, yy);
+        ctx.lineTo(tieX0 + tieW, yy);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+
+      // 尺寸標註
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`b = ${b} cm`, x0 + drawW/2, y0 - 14);
+      ctx.save();
+      ctx.translate(x0 - 14, y0 + drawH/2);
+      ctx.rotate(-Math.PI/2);
+      ctx.fillText(`h = ${h} cm`, 0, 0);
+      ctx.restore();
+
+      // 端線
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x0, y0 - 8); ctx.lineTo(x0 + drawW, y0 - 8);
+      ctx.moveTo(x0, y0 - 4); ctx.lineTo(x0, y0 - 12);
+      ctx.moveTo(x0 + drawW, y0 - 4); ctx.lineTo(x0 + drawW, y0 - 12);
+      ctx.moveTo(x0 - 8, y0); ctx.lineTo(x0 - 8, y0 + drawH);
+      ctx.moveTo(x0 - 4, y0); ctx.lineTo(x0 - 12, y0);
+      ctx.moveTo(x0 - 4, y0 + drawH); ctx.lineTo(x0 - 12, y0 + drawH);
+      ctx.stroke();
+
+      // cover 標註
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`保護層 ${cover}`, x0 + drawW + 6, y0 + cover*scale + 4);
+    } else {
+      // 圓形柱
+      const D = r.b, cover = r.cover;
+      const scale = Math.min((W - margin*2) / D, (H - margin*2) / D);
+      const cx = W / 2;
+      const cy = H / 2;
+      const Rpx = (D/2) * scale;
+      // 混凝土
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath(); ctx.arc(cx, cy, Rpx, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx, cy, Rpx, 0, Math.PI*2); ctx.stroke();
+      // 保護層
+      ctx.setLineDash([3,3]);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, Rpx - cover*scale, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      // 箍筋/螺箍
+      ctx.strokeStyle = '#0ea5e9';
+      ctx.lineWidth = Math.max(1.5, (r.tieDb || 1.27) * scale * 0.8);
+      const Rtie = Rpx - cover*scale;
+      ctx.beginPath(); ctx.arc(cx, cy, Rtie, 0, Math.PI*2); ctx.stroke();
+      // 主筋均布
+      const nBar = r.nBar;
+      const Rbar = Rtie - (r.db || 2.54)/2 * scale;
+      const baseR = (r.db || 2.54)/2 * scale;
+      ctx.fillStyle = '#1e293b';
+      for (let i = 0; i < nBar; i++) {
+        const ang = (i / nBar) * Math.PI * 2 - Math.PI/2;
+        const bx = cx + Rbar * Math.cos(ang);
+        const by = cy + Rbar * Math.sin(ang);
+        ctx.beginPath(); ctx.arc(bx, by, baseR, 0, Math.PI*2); ctx.fill();
+      }
+      // 標註
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`D = ${D} cm`, cx, cy - Rpx - 14);
+    }
+
+    // hint 文字
+    const hint = $('colSectionHint');
+    if (hint) {
+      if (!isCirc && r.columnLayout) {
+        const L = r.columnLayout;
+        const totalPos = 4 + Math.max(0,L.topN-2)+Math.max(0,L.botN-2)+Math.max(0,L.leftN-2)+Math.max(0,L.rightN-2);
+        const cb = L.cornerBundle;
+        const bundleNote = (layoutMaxBundle(L) > 1)
+          ? `, 含束筋 (角隅 ${cb}, 內部 max ${Math.max(L.topBundle,L.botBundle,L.leftBundle,L.rightBundle)})`
+          : '';
+        hint.textContent = `${r.b}×${r.h} cm, 共 ${r.nBar} 根-${r.barNo} (${totalPos} 位置${bundleNote}), 保護層 ${r.cover} cm`;
+      } else {
+        hint.textContent = `D=${r.b} cm, 共 ${r.nBar} 根-${r.barNo}, 保護層 ${r.cover} cm`;
+      }
+    }
+  }
+
+  // 在指定中心繪製束筋集束 (1~4 根)
+  function drawBundle(ctx, cx, cy, baseR, n, isCorner) {
+    ctx.fillStyle = isCorner ? '#1e293b' : '#dc2626';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 0.5;
+    if (n === 1) {
+      ctx.beginPath(); ctx.arc(cx, cy, baseR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      return;
+    }
+    // 束筋：以稍小半徑各圓緊靠
+    const r0 = baseR;
+    const offsets = (n === 2) ? [[-r0,0],[r0,0]]
+                    : (n === 3) ? [[0,-r0*1.155],[-r0,r0*0.577],[r0,r0*0.577]]
+                    : [[-r0,-r0],[r0,-r0],[-r0,r0],[r0,r0]];
+    offsets.forEach(([dx,dy]) => {
+      ctx.beginPath(); ctx.arc(cx+dx, cy+dy, r0*0.95, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    });
   }
 
   function drawPM(canvasId, curve, Pu, Mu, phiPnMax) {
