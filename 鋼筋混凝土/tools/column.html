@@ -26,18 +26,18 @@
 <div class="container">
 
   <!-- 模式切換 -->
-  <div class="card" style="padding:14px 20px; margin-bottom:14px; display:flex; align-items:center; gap:14px;">
-    <strong style="color:var(--primary);">作業模式：</strong>
-    <div style="display:flex; gap:0; border:2px solid var(--primary); border-radius:8px; overflow:hidden;">
-      <button class="mode-btn active" data-mode="design"  style="padding:8px 18px; border:none; background:var(--primary); color:#fff; cursor:pointer; font-family:inherit; font-weight:600;">設計</button>
-      <button class="mode-btn"        data-mode="check"   style="padding:8px 18px; border:none; background:#fff; color:var(--primary); cursor:pointer; font-family:inherit; font-weight:600;">檢核</button>
+  <div class="card mode-bar">
+    <strong class="mode-bar__label">作業模式：</strong>
+    <div class="mode-bar__group" role="tablist">
+      <button class="mode-bar__btn mode-btn active" data-mode="design">設計</button>
+      <button class="mode-bar__btn mode-btn"        data-mode="check">檢核</button>
     </div>
-    <span class="hint" id="modeHint" style="margin:0;">設計模式：給定載重，建議鋼筋配置。</span>
-    <div style="margin-left:auto; display:flex; gap:10px; align-items:center;">
-      <input type="text" id="projName" placeholder="計畫名稱" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:5px; width:160px; font-family:inherit;">
-      <input type="text" id="projNo" placeholder="編號" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:5px; width:90px; font-family:inherit;">
-      <input type="text" id="projDesigner" placeholder="設計人" style="padding:6px 10px; border:1px solid #cbd5e1; border-radius:5px; width:90px; font-family:inherit;">
-      <button id="btnReport" type="button" style="padding:8px 16px; background:#1a3d5c; color:#fff; border:0; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600;">📄 計算書</button>
+    <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議鋼筋配置。</span>
+    <div class="mode-bar__proj">
+      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+      <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
     </div>
   </div>
 

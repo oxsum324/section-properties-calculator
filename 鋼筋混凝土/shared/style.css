@@ -45,6 +45,42 @@ header a.back:hover { opacity:1; text-decoration:underline; }
    把所有 .result-item 加上此 class，setResult/setCheck 觸及時自動清除；
    仍標記者代表本次計算未涉及，直接不顯示，避免「—」或舊值誤導。 */
 .result-item.rc-pending { display: none !important; }
+
+/* ── 作業模式列 (設計／檢核 + 計畫資訊) ── */
+.mode-bar { padding: 14px 20px; margin-bottom: 14px; display: flex; flex-wrap: wrap;
+            align-items: center; gap: 12px 14px; }
+.mode-bar__label { color: var(--primary); font-weight: 700; flex: 0 0 auto; }
+.mode-bar__group { display: flex; gap: 0; border: 2px solid var(--primary);
+                   border-radius: 8px; overflow: hidden; flex: 0 0 auto; }
+.mode-bar__btn { padding: 10px 22px; border: 0; background: #fff; color: var(--primary);
+                 cursor: pointer; font-family: inherit; font-weight: 700; font-size: 1em;
+                 min-height: 44px; min-width: 64px; line-height: 1; }
+.mode-bar__btn.active { background: var(--primary); color: #fff; }
+.mode-bar__hint { color: var(--text-light); font-size: 0.85em; font-style: italic;
+                  flex: 1 1 220px; min-width: 180px; line-height: 1.4; }
+.mode-bar__proj { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+                  margin-left: auto; flex: 1 1 auto; justify-content: flex-end; }
+.mode-bar__proj input { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px;
+                        font-family: inherit; font-size: 0.92em; min-height: 38px;
+                        flex: 1 1 110px; min-width: 100px; }
+.mode-bar__proj input.w-name { flex: 1 1 160px; max-width: 220px; }
+.mode-bar__proj input.w-no   { flex: 0 1 100px; max-width: 120px; }
+.mode-bar__proj input.w-des  { flex: 0 1 100px; max-width: 120px; }
+.mode-bar__report { padding: 10px 16px; background: #1a3d5c; color: #fff; border: 0;
+                    border-radius: 6px; cursor: pointer; font-family: inherit;
+                    font-weight: 700; min-height: 40px; flex: 0 0 auto; }
+.mode-bar__report:hover { background: #27567c; }
+
+@media (max-width: 768px) {
+  .mode-bar { padding: 12px 14px; gap: 10px; }
+  .mode-bar__group { width: 100%; }
+  .mode-bar__btn { flex: 1 1 0; padding: 12px 18px; font-size: 1.05em; }
+  .mode-bar__hint { flex: 1 1 100%; min-width: 0; font-size: 0.82em; }
+  .mode-bar__proj { width: 100%; margin-left: 0; justify-content: stretch; }
+  .mode-bar__proj input { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .mode-bar__proj input.w-name { flex: 1 1 100%; max-width: none; }
+  .mode-bar__report { flex: 1 1 100%; padding: 14px 16px; font-size: 1em; }
+}
 .hint { font-size: 0.78em; color: var(--text-light); margin-top: 4px; font-style: italic; }
 .checkbox-row { display:flex; align-items:center; gap:8px; padding:10px 12px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; margin-bottom:12px; }
 .checkbox-row input[type=checkbox] { width:18px; height:18px; accent-color: var(--seismic); }
