@@ -544,6 +544,7 @@
 </div>
 
 <script src="../shared/common.js?v=2"></script>
+<script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/report.js?v=3"></script>
 <script src="../shared/loadcombo.js?v=1"></script>
 <script src="../shared/devlength.js?v=2"></script>
@@ -650,91 +651,10 @@
     document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
   }
 
-  // 多排筋應變相容嚴謹解 (矩形斷面，純彎)
-  // layers: [{ y, As }] — y 為距「壓力面」距離 (cm)，「壓為負, 拉為正」
-  // 回傳: { c, a, Cc, Mn, epsT_max, valid }
-  // 嚴謹應變相容解：給定壓力面為 y=0；layers 為 [{y, As}] (y 為距壓力面深度)
-  // shape: 描述混凝土壓力區寬度隨深度變化
-  //   { type:'rect', b }                                       — 矩形
-  //   { type:'T',    bw, bf, hf, flangeOnComp:true|false }     — T/L 形 (flangeOnComp 表翼緣在壓力面側)
+  // 多排筋應變相容嚴謹解 — 委派 shared/flexure.js
+  // 保留位置式呼叫介面：solveBeamMC(b_or_shape, h, layers, fc, fy, beta1)
   function solveBeamMC(b_or_shape, h, layers, fc, fy, beta1) {
-    const Es = 2.04e6;
-    const eps_cu = 0.003;
-    const shape = (typeof b_or_shape === 'object' && b_or_shape !== null && b_or_shape.type)
-                  ? b_or_shape : { type:'rect', b: b_or_shape };
-    // 在壓力面 y=0 ~ a 範圍內，取得混凝土寬度 b(y)
-    const widthAt = (y) => {
-      if (shape.type === 'rect') return shape.b;
-      // T 形
-      if (shape.flangeOnComp) {
-        return (y < shape.hf) ? shape.bf : shape.bw;
-      } else {
-        // 翼緣在拉力面 → 壓力區一律為腹板
-        return shape.bw;
-      }
-    };
-    // 計算壓力區 [0, a] 的混凝土合力與其作用點 (距壓力面 y=0)
-    const concreteRes = (a) => {
-      if (a <= 0) return { Cc: 0, armC: 0 };
-      if (shape.type === 'rect') {
-        const Cc = 0.85 * fc * shape.b * a;
-        return { Cc, armC: a / 2 };
-      }
-      // T/L 形
-      if (shape.flangeOnComp) {
-        if (a <= shape.hf) {
-          const Cc = 0.85 * fc * shape.bf * a;
-          return { Cc, armC: a / 2 };
-        }
-        const Cf = 0.85 * fc * shape.bf * shape.hf;
-        const Cw = 0.85 * fc * shape.bw * (a - shape.hf);
-        const Cc = Cf + Cw;
-        const armC = (Cf * (shape.hf / 2) + Cw * (shape.hf + (a - shape.hf) / 2)) / Cc;
-        return { Cc, armC };
-      } else {
-        // 翼緣在拉力面 → 壓力區僅腹板
-        const Cc = 0.85 * fc * shape.bw * a;
-        return { Cc, armC: a / 2 };
-      }
-    };
-    const evalC = (c) => {
-      const a = Math.min(beta1 * c, h);
-      const { Cc, armC } = concreteRes(a);
-      let Fnet = 0, Mr = 0;                 // 鋼筋淨軸力 (拉為正), 對壓力面 y=0 取矩
-      let epsT_max = -Infinity;
-      for (const L of layers) {
-        if (L.As <= 0) continue;
-        const eps = eps_cu * (L.y - c) / c;          // 拉為正
-        let fs = Es * eps;
-        if (fs > fy) fs = fy;
-        if (fs < -fy) fs = -fy;
-        // 鋼筋若位於壓力塊內 (y<a)，需扣回該位置混凝土排擠
-        // → 鋼筋「相對於混凝土」的淨力 = (fs + 0.85·fc)·As (拉為正)
-        const inComp = (L.y < a);
-        const Fi = (fs + (inComp ? 0.85 * fc : 0)) * L.As;
-        Fnet += Fi;
-        Mr += Fi * L.y;
-        if (eps > epsT_max) epsT_max = eps;
-      }
-      // 軸力平衡: -Cc + Fnet = 0  → eqN = Fnet - Cc
-      const eqN = Fnet - Cc;
-      // 對 y=0 取矩 (順時針為正): -Cc·armC + ΣFi·yi
-      const Mn = -Cc * armC + Mr;
-      return { c, a, Cc, armC, eqN, Mn, epsT_max };
-    };
-    // 二分: c 小 → eqN 大正; c 大 → eqN 大負
-    let lo = 0.01 * h, hi = 1.5 * h;
-    const rLo = evalC(lo), rHi = evalC(hi);
-    if (rLo.eqN * rHi.eqN > 0) {
-      return { ...rHi, valid: false };
-    }
-    let c, r;
-    for (let i = 0; i < 60; i++) {
-      c = (lo + hi) / 2;
-      r = evalC(c);
-      if (r.eqN > 0) lo = c; else hi = c;
-    }
-    return { ...r, valid: true };
+    return Flexure.solveSection({ shape: b_or_shape, h, layers, fc, fy, beta1 });
   }
 
   // 由「依排建立的鋼筋陣列」算 d 形心 (距該面)、總 As、最外排 db

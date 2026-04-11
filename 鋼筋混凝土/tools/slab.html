@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>板設計 — RC 工具箱</title>
+<link rel="stylesheet" href="../shared/style.css">
+<style>
+  .moment-table { width:100%; border-collapse:collapse; font-size:0.9em; margin-top:8px; }
+  .moment-table th, .moment-table td { border:1px solid #cbd5e1; padding:6px 8px; text-align:center; }
+  .moment-table th { background:#1a3d5c; color:#fff; font-weight:600; font-size:0.85em; }
+  .moment-table tr.ok td { background:#dcfce7; }
+  .moment-table tr.ng td { background:#fee2e2; }
+  .moment-table tr.info td { background:#f1f5f9; color:#64748b; font-style:italic; }
+  .load-tabs { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  .load-tabs button { flex:1 1 120px; padding:8px 12px; border:1px solid #cbd5e1;
+                       background:#fff; cursor:pointer; border-radius:6px;
+                       font-family:inherit; font-weight:600; }
+  .load-tabs button.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .load-mode-panel { display:none; }
+  .load-mode-panel.active { display:block; }
+  .ratio-tag { display:inline-block; padding:2px 10px; border-radius:10px;
+                font-size:0.78em; font-weight:700; margin-left:6px; }
+  .ratio-one { background:#fef3c7; color:#a16207; border:1px solid #fcd34d; }
+  .ratio-two { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+  .future-note { margin-top:14px; padding:10px 14px; background:#f1f5f9;
+                  border-left:3px solid #94a3b8; border-radius:4px;
+                  font-size:0.82em; color:#64748b; }
+</style>
+</head>
+<body>
+<header>
+  <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V2</span></h1>
+  <p><a class="back" href="../index.html">← 回工具箱</a> ｜ 兩向跨距、規範 6.5 係數法 + 8.10 直接設計法、自動配筋</p>
+</header>
+
+<div class="container">
+
+  <!-- 模式列 -->
+  <div class="card mode-bar">
+    <strong class="mode-bar__label">作業模式</strong>
+    <div class="mode-bar__group">
+      <button class="mode-bar__btn active" data-mode="design">設計</button>
+      <button class="mode-bar__btn" data-mode="check">檢核</button>
+    </div>
+    <span class="mode-bar__hint" id="modeHint">設計模式：給定載重與跨距，反算需求並建議鋼筋配置。</span>
+    <div class="mode-bar__proj">
+      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+      <input type="text" id="projNo" class="w-no" placeholder="編號">
+      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <button class="mode-bar__report" id="btnReport" type="button">📄 計算書</button>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <div>
+
+      <!-- A. 幾何與類型 -->
+      <div class="card">
+        <h2>A. 幾何與類型</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>板類型</label>
+            <select id="slabType">
+              <option value="auto" selected>自動 (依 Ly/Lx 判斷)</option>
+              <option value="one">單向板</option>
+              <option value="two">雙向板 (有梁)</option>
+              <option value="flat">無梁版</option>
+              <option value="flatDrop">無梁版 (有柱頭板)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>判定 <span id="ratioTag" class="ratio-tag ratio-two">—</span></label>
+            <div id="ratioInfo" style="font-size:0.85em; color:var(--text-light); padding-top:6px;">Ly/Lx = —</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>短向跨距 Lx (cm)</label><input type="number" id="Lx" value="400"></div>
+          <div class="form-group"><label>長向跨距 Ly (cm)</label><input type="number" id="Ly" value="500"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>板厚 h (cm)</label><input type="number" id="h" value="18"></div>
+          <div class="form-group"><label>保護層 (cm)</label><input type="number" id="cover" value="2"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>fc' (kgf/cm²)</label><input type="number" id="fc" value="280"></div>
+          <div class="form-group"><label>fy (kgf/cm²)</label><input type="number" id="fy" value="4200"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>短向支承 (Lx 兩端)</label>
+            <select id="supportX">
+              <option value="simple">簡支</option>
+              <option value="oneEnd">一端連續</option>
+              <option value="bothEnd" selected>兩端連續</option>
+              <option value="cantilever">懸臂</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>長向支承 (Ly 兩端)</label>
+            <select id="supportY">
+              <option value="simple">簡支</option>
+              <option value="oneEnd">一端連續</option>
+              <option value="bothEnd" selected>兩端連續</option>
+              <option value="cantilever">懸臂</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- B. 載重 -->
+      <div class="card">
+        <h2>B. 載重與內力</h2>
+        <div class="load-tabs">
+          <button class="load-mode-btn active" data-load="simple">直接 wu</button>
+          <button class="load-mode-btn" data-load="dlll">DL + LL</button>
+          <button class="load-mode-btn" data-load="combo">完整載重組合</button>
+        </div>
+
+        <div class="load-mode-panel active" data-load="simple">
+          <div class="form-group">
+            <label>因數化均佈載重 wu (tf/m²)</label>
+            <input type="number" id="wuDirect" value="1.20" step="0.05">
+          </div>
+          <p class="hint">直接輸入已因數化的設計載重，跳過載重組合計算。</p>
+        </div>
+
+        <div class="load-mode-panel" data-load="dlll">
+          <div class="checkbox-row">
+            <input type="checkbox" id="autoSelfWt" checked>
+            <label for="autoSelfWt">自動計算自重 (h × 2.4 tf/m³)</label>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>自重 (tf/m²)</label><input type="number" id="dlSelf" value="0.432" step="0.01" readonly></div>
+            <div class="form-group"><label>附加靜載 SDL (tf/m²)</label><input type="number" id="dlSDL" value="0.15" step="0.05"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>用途別建議 LL</label>
+              <select id="llPreset">
+                <option value="0.20">住宅 (200 kgf/m²)</option>
+                <option value="0.30" selected>辦公 / 教室 (300)</option>
+                <option value="0.50">商場 / 集會 (500)</option>
+                <option value="0">自訂 (依下方輸入)</option>
+              </select>
+            </div>
+            <div class="form-group"><label>活載 LL (tf/m²)</label><input type="number" id="llVal" value="0.30" step="0.05"></div>
+          </div>
+          <div class="hint" id="dlllSummary">wu = 1.2D + 1.6L = —</div>
+        </div>
+
+        <div class="load-mode-panel" data-load="combo">
+          <div id="lcSlabPanel"></div>
+          <p class="hint">由完整載重組合產生器計算 wu，套用至下方分析。</p>
+        </div>
+      </div>
+
+      <!-- C. 分析方法 -->
+      <div class="card">
+        <h2>C. 分析方法 <span class="hint" style="margin-left:auto; font-style:normal;" id="analysisName">—</span></h2>
+        <p class="hint" id="analysisDesc">—</p>
+      </div>
+
+      <!-- D. 撓曲鋼筋 -->
+      <div class="card">
+        <h2>D. 撓曲鋼筋 (短向 / 長向獨立配置)</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>短向主筋號數</label>
+            <select id="barNoX"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option></select>
+          </div>
+          <div class="form-group"><label>短向間距 sX (cm)</label><input type="number" id="barSpX" value="20"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>長向主筋號數</label>
+            <select id="barNoY"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option></select>
+          </div>
+          <div class="form-group"><label>長向間距 sY (cm)</label><input type="number" id="barSpY" value="20"></div>
+        </div>
+        <p class="hint">短向筋置於外層 (有效深較大)；長向筋置於內層。</p>
+      </div>
+
+      <!-- E. 雙向衝剪 -->
+      <div class="card" id="punchCard">
+        <h2>E. 雙向衝剪 (僅平版 / 無梁版)</h2>
+        <div class="form-row">
+          <div class="form-group"><label>柱寬 c1 (cm)</label><input type="number" id="c1" value="50"></div>
+          <div class="form-group"><label>柱深 c2 (cm)</label><input type="number" id="c2" value="50"></div>
+        </div>
+        <div class="form-group">
+          <label>柱位置</label>
+          <select id="colPos">
+            <option value="interior" selected>內柱 (αs=40)</option>
+            <option value="edge">邊柱 (αs=30)</option>
+            <option value="corner">角柱 (αs=20)</option>
+          </select>
+        </div>
+        <p class="hint">柱反力 Vu 由 wu × (Lx·Ly − 衝剪臨界面) 自動估算。</p>
+      </div>
+
+    </div>
+
+    <div>
+
+      <!-- 結論 -->
+      <div class="card">
+        <h2>綜合結論</h2>
+        <div id="bannerStatus" class="banner-status">尚未計算</div>
+        <div id="bannerKey" class="banner-key"></div>
+      </div>
+
+      <!-- 1. 載重 → wu -->
+      <div class="card">
+        <h2>1. 載重 → wu</h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-wu"><span class="label">設計載重 wu</span><span><span class="value">—</span><span class="unit">tf/m²</span></span></div>
+        </div>
+      </div>
+
+      <!-- 2. 板厚檢核 -->
+      <div class="card">
+        <h2>2. 板厚檢核</h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-hmin"><span class="label">最小板厚 hmin</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="r-h"><span class="label">採用板厚</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="c-h"><span class="label">h ≥ hmin</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+      <!-- 3. 內力分析 -->
+      <div class="card">
+        <h2>3. 內力分析 (各方向、各位置)</h2>
+        <table class="moment-table" id="momentTable">
+          <thead><tr><th>方向 / 位置</th><th>係數</th><th>Mu (tf·m/m)</th><th>Vu (tf/m)</th></tr></thead>
+          <tbody><tr class="info"><td colspan="4">輸入後自動計算</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- 4. 撓曲鋼筋檢核 -->
+      <div class="card">
+        <h2>4. 撓曲鋼筋檢核</h2>
+        <table class="moment-table" id="flexTable">
+          <thead><tr><th>位置</th><th>Mu</th><th>As 需求</th><th>As 配置</th><th>φMn</th><th>OK</th></tr></thead>
+          <tbody><tr class="info"><td colspan="6">輸入後自動計算</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- 5. 剪力 -->
+      <div class="card">
+        <h2>5. 剪力檢核</h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-VuX"><span class="label">短向 Vu</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="r-VuY"><span class="label">長向 Vu</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="r-phiVc1"><span class="label">φVc (1m 寬)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="c-v1X"><span class="label">短向 φVc ≥ Vu</span><span class="value">—</span></div>
+          <div class="result-item" id="c-v1Y"><span class="label">長向 φVc ≥ Vu</span><span class="value">—</span></div>
+          <div class="result-item" id="r-VuPunch"><span class="label">柱衝剪 Vu</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="r-phiVc2"><span class="label">φVc (衝剪)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="c-v2"><span class="label">φVc ≥ Vu (衝剪)</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+      <!-- 6. 鋼筋細節 -->
+      <div class="card">
+        <h2>6. 鋼筋細節</h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-AsMin"><span class="label">溫度筋 As,min</span><span><span class="value">—</span><span class="unit">cm²/m</span></span></div>
+          <div class="result-item" id="r-sMaxF"><span class="label">主筋 smax</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="r-sMaxT"><span class="label">溫度筋 smax</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="c-sX"><span class="label">短向 s ≤ smax</span><span class="value">—</span></div>
+          <div class="result-item" id="c-sY"><span class="label">長向 s ≤ smax</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="future-note">
+    📌 <b>未來擴充計畫</b>：等值構架法 (EFM, 規範 8.11) — 適用於不規則柱距、邊界條件複雜的雙向版分析；以及 column strip / middle strip 細分配 (規範 8.4.4)。本工具目前以 6.5 連續板係數法 + 8.10 直接設計法為主，採整跨平均彎矩之設計策略。
+  </div>
+</div>
+
+<script src="../shared/common.js?v=2"></script>
+<script src="../shared/flexure.js?v=1"></script>
+<script src="../shared/report.js?v=3"></script>
+<script src="../shared/loadcombo.js?v=1"></script>
+<script src="../shared/devlength.js?v=2"></script>
+<script src="../shared/formulas.js?v=1"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const num = id => parseFloat($(id)?.value) || 0;
+  let currentMode = 'design', loadMode = 'simple';
+
+  // ─── helpers ────────────────────────────────────
+  function setResult(id, val, unit, digits=2, status=null) {
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    const v = el.querySelector('.value'), u = el.querySelector('.unit');
+    v.textContent = (val == null || isNaN(val) || !isFinite(val)) ? '—' : Number(val).toFixed(digits);
+    if (u && unit !== undefined) u.textContent = unit;
+    el.classList.remove('ok','warn','fail');
+    if (status) el.classList.add(status);
+  }
+  function setCheck(id, pass, text) {
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    el.querySelector('.value').textContent = text || (pass===true?'✓ OK':pass===false?'✗ NG':'—');
+    el.classList.remove('ok','warn','fail');
+    el.classList.add(pass===true?'ok':pass===false?'fail':'warn');
+  }
+  function markAllResultsPending() {
+    document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+  }
+
+  // ─── 模式切換 ───────────────────────────────────
+  document.querySelectorAll('.mode-bar__btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentMode = btn.dataset.mode;
+      document.querySelectorAll('.mode-bar__btn').forEach(b => b.classList.toggle('active', b === btn));
+      $('modeHint').textContent = currentMode==='design'
+        ? '設計模式：給定載重與跨距，反算需求並建議鋼筋配置。'
+        : '檢核模式：給定配筋與載重，檢核是否合於規範。';
+      calcSlab();
+    });
+  });
+
+  // ─── 載重模式切換 ───────────────────────────────
+  document.querySelectorAll('.load-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      loadMode = btn.dataset.load;
+      document.querySelectorAll('.load-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.load-mode-panel').forEach(p => p.classList.toggle('active', p.dataset.load === loadMode));
+      calcSlab();
+    });
+  });
+
+  // 自重連動
+  function updateSelfWt() {
+    if ($('autoSelfWt')?.checked) {
+      $('dlSelf').value = (num('h') * 0.024).toFixed(3);  // h(cm) × 0.024 tf/m³ = tf/m²
+      $('dlSelf').readOnly = true;
+    } else {
+      $('dlSelf').readOnly = false;
+    }
+  }
+  $('autoSelfWt').addEventListener('change', () => { updateSelfWt(); calcSlab(); });
+  $('llPreset').addEventListener('change', () => {
+    const v = parseFloat($('llPreset').value);
+    if (v > 0) $('llVal').value = v.toFixed(2);
+    calcSlab();
+  });
+
+  // ─── 規範 6.5 連續板係數 ────────────────────────
+  // 回傳分母 x：M = wu·ℓn²/x
+  function getCoefficients(support) {
+    if (support === 'simple')     return { pos: 8,    neg: Infinity };
+    if (support === 'oneEnd')     return { pos: 14,   neg: 9 };
+    if (support === 'bothEnd')    return { pos: 16,   neg: 11 };
+    if (support === 'cantilever') return { pos: Infinity, neg: 2 };
+    return { pos: 16, neg: 11 };
+  }
+
+  // ─── DDM 8.10 — 將整跨 Mo (per meter) 分配至 +/− ──
+  function ddmDistribute(support, MoPerM) {
+    if (support === 'simple')     return { pos: MoPerM, neg: 0 };
+    if (support === 'cantilever') return { pos: 0, neg: MoPerM };
+    if (support === 'oneEnd')     return { pos: 0.52*MoPerM, neg: 0.70*MoPerM };  // 端跨保守取較大負彎
+    return { pos: 0.35*MoPerM, neg: 0.65*MoPerM };  // bothEnd 內跨
+  }
+  function ddmRatioLabel(support) {
+    if (support === 'simple')     return { pos:'1.00', neg:'—' };
+    if (support === 'cantilever') return { pos:'—', neg:'1.00' };
+    if (support === 'oneEnd')     return { pos:'0.52', neg:'0.70' };
+    return { pos:'0.35', neg:'0.65' };
+  }
+
+  // ─── 主計算 ────────────────────────────────────
+  function calcSlab() {
+    markAllResultsPending();
+    updateSelfWt();
+
+    // — A. 幾何
+    const Lx = num('Lx'), Ly = num('Ly');
+    const h = num('h'), cover = num('cover'), fc = num('fc'), fy = num('fy');
+    const supX = $('supportX').value, supY = $('supportY').value;
+    let stype = $('slabType').value;
+    const ratio = (Lx > 0) ? Ly / Lx : 0;
+
+    // 自動判別
+    if (stype === 'auto') stype = (ratio > 2) ? 'one' : 'two';
+    const isOneWay = (stype === 'one');
+    const isFlat = (stype === 'flat' || stype === 'flatDrop');
+
+    // 比例顯示
+    $('ratioInfo').textContent = `Ly/Lx = ${ratio.toFixed(2)}` + (ratio > 2 ? '  (>2 → 單向)' : '  (≤2 → 雙向)');
+    const tag = $('ratioTag');
+    tag.textContent = isOneWay ? '單向' : '雙向';
+    tag.className = 'ratio-tag ' + (isOneWay ? 'ratio-one' : 'ratio-two');
+
+    // — B. 載重 → wu
+    let wu = 0, wuFormula = '';
+    if (loadMode === 'simple') {
+      wu = num('wuDirect');
+      wuFormula = `直接輸入 = ${wu.toFixed(3)} tf/m²`;
+    } else if (loadMode === 'dlll') {
+      const dl = num('dlSelf') + num('dlSDL');
+      const ll = num('llVal');
+      wu = 1.2 * dl + 1.6 * ll;
+      wuFormula = `1.2×${dl.toFixed(3)} + 1.6×${ll.toFixed(3)} = ${wu.toFixed(3)} tf/m²`;
+      $('dlllSummary').textContent = `wu = ${wuFormula}`;
+    } else { // combo
+      wu = num('wuDirect');
+      wuFormula = `由載重組合產生器套用 = ${wu.toFixed(3)} tf/m²`;
+    }
+    setResult('r-wu', wu, 'tf/m²', 3);
+
+    // — 板厚最小值
+    let hmin, hminFormula = '';
+    if (isOneWay) {
+      const factor = ({ simple:20, oneEnd:24, bothEnd:28, cantilever:10 })[supX];
+      hmin = Lx / factor;
+      hminFormula = `Lx/${factor} = ${Lx}/${factor}`;
+    } else if (stype === 'two') {
+      hmin = Math.max(Math.min(Lx, Ly) / 30, 9);
+      hminFormula = `max(min(Lx,Ly)/30, 9)`;
+    } else if (stype === 'flat') {
+      hmin = Math.max(Math.max(Lx, Ly) / 33, 12.5);
+      hminFormula = `max(max(Lx,Ly)/33, 12.5)`;
+    } else { // flatDrop
+      hmin = Math.max(Math.max(Lx, Ly) / 36, 10);
+      hminFormula = `max(max(Lx,Ly)/36, 10)`;
+    }
+    setResult('r-hmin', hmin, 'cm', 1);
+    setResult('r-h', h, 'cm', 1);
+    setCheck('c-h', h >= hmin, `${h.toFixed(1)} / ${hmin.toFixed(1)}`);
+
+    // — d (有效深) 短向在外層、長向在內層
+    const dbX = REBAR_TABLE[$('barNoX').value].db;
+    const dbY = REBAR_TABLE[$('barNoY').value].db;
+    const dX = h - cover - dbX/2;
+    const dY = h - cover - dbX - dbY/2;
+    const b = 100;
+
+    // — C. 內力分析
+    const moments = [];
+    const wuKgM2 = wu * 1000;   // kgf/m²
+
+    if (isOneWay) {
+      // 單向板：以短向 (Lx) 為主向
+      const lnX = Lx / 100;
+      const cf = getCoefficients(supX);
+      const VuLine = wuKgM2 * lnX / 2 / 1000;
+      if (isFinite(cf.pos)) {
+        const Mpos = wuKgM2 * lnX * lnX / cf.pos / 1000;
+        moments.push({ dir:'X', loc:'+M (中跨底)', coef:`wu·ℓ²/${cf.pos}`, M: Mpos, V: 0 });
+      }
+      if (isFinite(cf.neg)) {
+        const Mneg = wuKgM2 * lnX * lnX / cf.neg / 1000;
+        moments.push({ dir:'X', loc:'−M (連續端頂)', coef:`wu·ℓ²/${cf.neg}`, M: Mneg, V: 0 });
+      }
+      moments.push({ dir:'X', loc:'剪力 V (d 處)', coef:'wu·ℓ/2', M: 0, V: VuLine });
+      moments.push({ dir:'Y', loc:'長向 (僅溫度收縮筋)', coef:'—', M: 0, V: 0 });
+    } else {
+      // 雙向板：DDM
+      const lnX = Lx / 100, lnY = Ly / 100;
+      // 各方向 per-meter 平均 Mo = wu·ℓn²/8
+      const MoxPerM = wuKgM2 * lnX * lnX / 8 / 1000;   // tf·m/m
+      const MoyPerM = wuKgM2 * lnY * lnY / 8 / 1000;
+      const dx = ddmDistribute(supX, MoxPerM);
+      const dy = ddmDistribute(supY, MoyPerM);
+      const VuX = wuKgM2 * lnX / 2 / 1000;
+      const VuY = wuKgM2 * lnY / 2 / 1000;
+      const lblX = ddmRatioLabel(supX), lblY = ddmRatioLabel(supY);
+      if (dx.pos > 0) moments.push({ dir:'X', loc:'+M (中跨底)', coef:`${lblX.pos}·Mo`, M: dx.pos, V: 0 });
+      if (dx.neg > 0) moments.push({ dir:'X', loc:'−M (連續端頂)', coef:`${lblX.neg}·Mo`, M: dx.neg, V: 0 });
+      if (dy.pos > 0) moments.push({ dir:'Y', loc:'+M (中跨底)', coef:`${lblY.pos}·Mo`, M: dy.pos, V: 0 });
+      if (dy.neg > 0) moments.push({ dir:'Y', loc:'−M (連續端頂)', coef:`${lblY.neg}·Mo`, M: dy.neg, V: 0 });
+      moments.push({ dir:'X', loc:'剪力 V', coef:'wu·ℓx/2', M: 0, V: VuX });
+      moments.push({ dir:'Y', loc:'剪力 V', coef:'wu·ℓy/2', M: 0, V: VuY });
+    }
+
+    // 渲染內力表
+    const mTbody = $('momentTable').querySelector('tbody');
+    mTbody.innerHTML = moments.map(m => {
+      const cls = (m.M === 0 && m.V === 0) ? 'info' : '';
+      return `<tr class="${cls}">
+        <td>${m.dir} ｜ ${m.loc}</td>
+        <td>${m.coef}</td>
+        <td>${m.M > 0 ? m.M.toFixed(3) : '—'}</td>
+        <td>${m.V > 0 ? m.V.toFixed(3) : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    // — D. 撓曲檢核 (各位置)
+    const beta1 = calcBeta1(fc);
+    const flexRows = [];
+    const flexLocs = moments.filter(m => m.M > 0);
+
+    // 配筋
+    const abX = REBAR_TABLE[$('barNoX').value].area;
+    const abY = REBAR_TABLE[$('barNoY').value].area;
+    const spX = num('barSpX'), spY = num('barSpY');
+    const AsX = (100 / Math.max(spX, 0.01)) * abX;     // cm²/m
+    const AsY = (100 / Math.max(spY, 0.01)) * abY;
+
+    flexLocs.forEach(m => {
+      const d = (m.dir === 'X') ? dX : dY;
+      const As = (m.dir === 'X') ? AsX : AsY;
+      const Mu_kgcm = m.M * 1e5;
+      const des = Flexure.designAsRect({ b, d, Mu_kgcm, fc, fy });
+      const chk = Flexure.phiMnRect({ b, d, h, As, fc, fy });
+      const phiMn_tfm = chk.phiMn / 1e5;
+      const ok = phiMn_tfm >= m.M;
+      flexRows.push({
+        loc: `${m.dir} ${m.loc}`, dir: m.dir,
+        M: m.M, AsReq: des.As, As, phiMn: phiMn_tfm, ok
+      });
+    });
+
+    const fTbody = $('flexTable').querySelector('tbody');
+    fTbody.innerHTML = flexRows.length ? flexRows.map(r => `<tr class="${r.ok?'ok':'ng'}">
+      <td>${r.loc}</td>
+      <td>${r.M.toFixed(3)}</td>
+      <td>${r.AsReq.toFixed(2)}</td>
+      <td>${r.As.toFixed(2)}</td>
+      <td>${r.phiMn.toFixed(3)}</td>
+      <td>${r.ok?'✓':'✗'}</td>
+    </tr>`).join('') : `<tr class="info"><td colspan="6">無撓曲位置</td></tr>`;
+
+    // — 5. 剪力
+    const lambda = LAMBDA_NORMAL;
+    const lnX = Lx / 100, lnY = Ly / 100;
+    const VuX = wuKgM2 * lnX / 2 / 1000;
+    const VuY = isOneWay ? NaN : (wuKgM2 * lnY / 2 / 1000);
+    const phiVc1 = PHI.shear * 0.53 * lambda * Math.sqrt(fc) * b * Math.min(dX, dY) / 1000;  // tf/m
+    setResult('r-VuX', VuX, 'tf/m', 3);
+    setResult('r-VuY', VuY, 'tf/m', 3);
+    setResult('r-phiVc1', phiVc1, 'tf/m', 3);
+    setCheck('c-v1X', phiVc1 >= VuX, `${phiVc1.toFixed(2)} / ${VuX.toFixed(2)}`);
+    if (isOneWay) {
+      setCheck('c-v1Y', null, '—');
+    } else {
+      setCheck('c-v1Y', phiVc1 >= VuY, `${phiVc1.toFixed(2)} / ${VuY.toFixed(2)}`);
+    }
+
+    // 衝剪 (僅 flat)
+    let punchData = null;
+    if (isFlat) {
+      const c1 = num('c1'), c2 = num('c2');
+      const dPunch = Math.min(dX, dY);
+      const bo = 2 * (c1 + c2 + 2*dPunch);
+      const beta_c = Math.max(c1,c2) / Math.max(Math.min(c1,c2), 0.01);
+      const alpha_s = ({ interior:40, edge:30, corner:20 })[$('colPos').value] || 40;
+      const vc = Math.min(
+        1.06*lambda*Math.sqrt(fc),
+        0.27*(2 + 4/beta_c)*lambda*Math.sqrt(fc),
+        0.27*(alpha_s*dPunch/bo + 2)*lambda*Math.sqrt(fc)
+      );
+      const phiVc2 = PHI.shear * vc * bo * dPunch / 1000;
+      const punchArea = (c1 + dPunch) * (c2 + dPunch) / 1e4;
+      const tribArea = lnX * lnY;
+      const VuPunch = wu * (tribArea - punchArea);
+      setResult('r-VuPunch', VuPunch, 'tf', 2);
+      setResult('r-phiVc2', phiVc2, 'tf', 2);
+      setCheck('c-v2', phiVc2 >= VuPunch, `${phiVc2.toFixed(1)} / ${VuPunch.toFixed(1)}`);
+      $('punchCard').style.display = '';
+      punchData = { c1, c2, bo, vc, phiVc2, VuPunch, ok: phiVc2 >= VuPunch };
+    } else {
+      $('punchCard').style.display = 'none';
+    }
+
+    // — 6. 鋼筋細節
+    const AsMin = 0.0018 * b * h;
+    const sMaxF = Math.min(2*h, 30);
+    const sMaxT = Math.min(5*h, 45);
+    setResult('r-AsMin', AsMin, 'cm²/m', 2);
+    setResult('r-sMaxF', sMaxF, 'cm', 1);
+    setResult('r-sMaxT', sMaxT, 'cm', 1);
+    setCheck('c-sX', spX <= sMaxF, `${spX} / ${sMaxF.toFixed(0)}`);
+    setCheck('c-sY', spY <= sMaxF, `${spY} / ${sMaxF.toFixed(0)}`);
+
+    // — analysis 顯示
+    const names = {
+      one: '規範 6.5 連續板係數法',
+      two: '規範 8.10 直接設計法 DDM (有梁雙向板)',
+      flat: '規範 8.10 直接設計法 DDM (無梁版)',
+      flatDrop: '規範 8.10 直接設計法 DDM (有柱頭板)'
+    };
+    $('analysisName').textContent = names[stype] || '—';
+    $('analysisDesc').textContent = isOneWay
+      ? '板沿短向跨距 Lx 受彎，依 6.5 係數表計算各位置 Mu/Vu。長向僅配溫度收縮筋。'
+      : '兩向均受彎；以 wu·ℓn²/8 計算 per-meter 整跨平均 Mo (各方向獨立)，再依端／內跨係數分配至 +M/−M。本工具採整跨平均策略，欲精細區分 column strip / middle strip 請依規範 8.4.4 細分。';
+
+    // — banner
+    const allFlexOk = flexRows.length === 0 || flexRows.every(r => r.ok);
+    const shearOk = (phiVc1 >= VuX) && (isOneWay || phiVc1 >= VuY);
+    const punchOk = !punchData || punchData.ok;
+    const allOk = (h >= hmin) && allFlexOk && shearOk && punchOk;
+    const banner = $('bannerStatus');
+    banner.className = 'banner-status ' + (allOk ? 'ok' : 'fail');
+    banner.innerHTML = (allOk ? '✓ OK — 符合規範' : '✗ NG — 部分項目未通過')
+      + `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">`
+      + `${h>=hmin?'✓':'✗'} 板厚 ｜ ${allFlexOk?'✓':'✗'} 撓曲 ｜ ${shearOk?'✓':'✗'} 單向剪力`
+      + (punchData ? ` ｜ ${punchOk?'✓':'✗'} 雙向衝剪` : '')
+      + `</div>`;
+    $('bannerKey').innerHTML = `
+      <div class="k"><span class="k-label">類型</span><span class="k-val">${isOneWay?'單向':'雙向'} (Ly/Lx=${ratio.toFixed(2)})</span></div>
+      <div class="k"><span class="k-label">wu</span><span class="k-val">${wu.toFixed(3)} tf/m²</span></div>
+      <div class="k"><span class="k-label">h / hmin</span><span class="k-val">${h.toFixed(1)} / ${hmin.toFixed(1)}</span></div>
+    `;
+
+    // 儲存供報告
+    window.slabLast = {
+      stype, isOneWay, isFlat, ratio, Lx, Ly, h, cover, fc, fy, dX, dY, supX, supY,
+      wu, wuFormula, hmin, hminFormula, moments, flexRows,
+      VuX, VuY, phiVc1, AsMin, sMaxF, sMaxT,
+      barNoX:$('barNoX').value, spX, AsX, barNoY:$('barNoY').value, spY, AsY,
+      punchData, allOk
+    };
+  }
+
+  // ─── 計算書 ────────────────────────────────────
+  function buildSlabReport() {
+    if (!window.slabLast) calcSlab();
+    const r = window.slabLast;
+    const proj = { name:$('projName').value.trim(), no:$('projNo').value.trim(), designer:$('projDesigner').value.trim() };
+
+    const inputs = [
+      { group:'幾何', items:[
+        { label:'板類型', value: ({one:'單向板',two:'雙向板 (有梁)',flat:'無梁版',flatDrop:'無梁版+柱頭板'})[r.stype] },
+        { label:'短向跨距 Lx', value: r.Lx, unit:'cm' },
+        { label:'長向跨距 Ly', value: r.Ly, unit:'cm' },
+        { label:'Ly/Lx', value: r.ratio.toFixed(2) },
+        { label:'板厚 h', value: r.h, unit:'cm' },
+        { label:'保護層', value: r.cover, unit:'cm' },
+        { label:'短向有效深 dX', value: r.dX.toFixed(2), unit:'cm' },
+        { label:'長向有效深 dY', value: r.dY.toFixed(2), unit:'cm' },
+      ]},
+      { group:'材料', items:[
+        { label:"fc'", value:r.fc, unit:'kgf/cm²' },
+        { label:'fy',  value:r.fy, unit:'kgf/cm²' },
+      ]},
+      { group:'載重', items:[
+        { label:'設計載重 wu', value:r.wu.toFixed(3), unit:'tf/m²' },
+        { label:'計算式', value:r.wuFormula },
+      ]},
+      { group:'配筋', items:[
+        { label:'短向主筋', value:`${r.barNoX} @ ${r.spX} cm  (As=${r.AsX.toFixed(2)} cm²/m)` },
+        { label:'長向主筋', value:`${r.barNoY} @ ${r.spY} cm  (As=${r.AsY.toFixed(2)} cm²/m)` },
+      ]},
+    ];
+
+    const checks = [
+      { group:'板厚', items:[
+        { label:'h ≥ hmin', formula:`hmin = ${r.hminFormula}`,
+          sub:`hmin = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm`,
+          value:`${r.h} / ${r.hmin.toFixed(1)}`, unit:'cm', ok:r.h>=r.hmin }
+      ]},
+      { group:'內力分析 (各方向、各位置)', items: r.moments.map(m => ({
+          label:`${m.dir} ${m.loc}`, formula:m.coef,
+          sub: m.M>0 ? `Mu = ${m.M.toFixed(3)} tf·m/m`
+                     : (m.V>0 ? `Vu = ${m.V.toFixed(3)} tf/m` : '僅配溫度收縮筋'),
+          value: m.M>0 ? m.M.toFixed(3) : (m.V>0 ? m.V.toFixed(3) : '—'),
+          unit: m.M>0 ? 'tf·m/m' : (m.V>0 ? 'tf/m' : ''),
+          ok: null }))
+      },
+      { group:'撓曲鋼筋檢核', items: r.flexRows.length ? r.flexRows.map(f => ({
+          label:f.loc, formula:'φMn = φ·As·fy·(d−a/2)',
+          sub:`As 需求=${f.AsReq.toFixed(2)}, 配置=${f.As.toFixed(2)} cm²/m`,
+          value:`${f.phiMn.toFixed(3)} / ${f.M.toFixed(3)}`, unit:'tf·m/m', ok:f.ok })) :
+          [{ label:'(無撓曲位置)', formula:'—', sub:'—', value:'—', ok:null }]
+      },
+      { group:'單向剪力', items:[
+        { label:'短向 φVc ≥ Vu', formula:'φVc = 0.75·0.53·√fc·b·d',
+          sub:`= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuX.toFixed(3)}`,
+          value:`${r.phiVc1.toFixed(3)} / ${r.VuX.toFixed(3)}`, unit:'tf/m', ok:r.phiVc1>=r.VuX },
+        ...(r.isOneWay ? [] : [{ label:'長向 φVc ≥ Vu', formula:'同上',
+          sub:`= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuY.toFixed(3)}`,
+          value:`${r.phiVc1.toFixed(3)} / ${r.VuY.toFixed(3)}`, unit:'tf/m', ok:r.phiVc1>=r.VuY }])
+      ]},
+      ...(r.punchData ? [{ group:'雙向衝剪', items:[
+        { label:'臨界周長 bo', formula:'bo = 2(c1+c2+2d)',
+          sub:`bo = ${r.punchData.bo.toFixed(1)} cm`,
+          value:`${r.punchData.bo.toFixed(1)}`, unit:'cm', ok:null },
+        { label:'φVc ≥ Vu (衝剪)', formula:'min(1.06√fc, 0.27(2+4/βc)√fc, 0.27(αs·d/bo+2)√fc)',
+          sub:`vc = ${r.punchData.vc.toFixed(2)} kgf/cm²`,
+          value:`${r.punchData.phiVc2.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
+          unit:'tf', ok:r.punchData.ok }
+      ]}] : []),
+      { group:'鋼筋細節', items:[
+        { label:'溫度筋 As,min', formula:'0.0018·b·h',
+          sub:`= 0.0018·100·${r.h} = ${r.AsMin.toFixed(2)} cm²/m`,
+          value:`${r.AsMin.toFixed(2)}`, unit:'cm²/m', ok:null },
+        { label:'主筋最大間距', formula:'min(2h, 30)',
+          sub:`smax = min(${(2*r.h).toFixed(0)}, 30) = ${r.sMaxF.toFixed(0)} cm`,
+          value:`${r.sMaxF.toFixed(0)}`, unit:'cm',
+          ok:(r.spX<=r.sMaxF) && (r.spY<=r.sMaxF) },
+        { label:'溫度筋最大間距', formula:'min(5h, 45)',
+          sub:`smax = min(${(5*r.h).toFixed(0)}, 45) = ${r.sMaxT.toFixed(0)} cm`,
+          value:`${r.sMaxT.toFixed(0)}`, unit:'cm', ok:null },
+      ]},
+    ];
+
+    openReport({
+      title:'板設計計算書', subtitle:'RC Slab Design Report', project:proj,
+      summary:{ ok:r.allOk, text: r.allOk?'✓ OK — 符合規範':'✗ NG — 部分項目未通過' },
+      inputs, checks,
+      symbols:[
+        { sym:"fc'", desc:'混凝土抗壓強度' },
+        { sym:'fy',  desc:'鋼筋降伏強度' },
+        { sym:'Lx',  desc:'短向跨距 (中心至中心)' },
+        { sym:'Ly',  desc:'長向跨距' },
+        { sym:'h',   desc:'板厚' },
+        { sym:'dX',  desc:'短向有效深 (短向筋在外層)' },
+        { sym:'dY',  desc:'長向有效深 (長向筋在內層)' },
+        { sym:'wu',  desc:'已因數化均佈設計載重' },
+        { sym:'Mo',  desc:'DDM per-meter 平均整跨彎矩 = wu·ℓn²/8' },
+        { sym:'βc',  desc:'柱長短邊比 (衝剪用)' },
+        { sym:'αs',  desc:'柱位係數 (內柱40, 邊柱30, 角柱20)' },
+      ],
+      notes:[
+        '依據 112 年混凝土結構設計規範 6.5、8.10、22.6',
+        '本工具採整跨平均彎矩之設計策略；column strip / middle strip 細分配請依規範 8.4.4 自行調整',
+        '未來擴充：等值構架法 (EFM, 規範 8.11)，適用不規則柱距與複雜邊界',
+        '計算結果僅供初步設計參考，實際設計仍應由執業技師簽證'
+      ]
+    });
+  }
+
+  // ─── LoadCombo (完整模式) ─────────────────────────
+  // wu (均佈) 視為 M=wu·1m²，以 LoadCombo 計算後寫回 wuDirect
+  const lcSlabCfg = {
+    prefix: 'lcSlab',
+    forces: [{ key:'wu', label:'wu', unit:'tf/m²' }],
+    targetIds: { wu:'wuDirect' },
+  };
+  $('lcSlabPanel').innerHTML = LoadCombo.buildPanel(lcSlabCfg);
+  LoadCombo.bind(lcSlabCfg);
+
+  // ─── 事件綁定 ──────────────────────────────────
+  document.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', calcSlab);
+    el.addEventListener('change', calcSlab);
+  });
+  $('btnReport').addEventListener('click', buildSlabReport);
+  window.addEventListener('load', () => { updateSelfWt(); calcSlab(); });
+</script>
+</body>
+</html>
