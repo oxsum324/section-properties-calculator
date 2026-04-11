@@ -7,6 +7,7 @@
  *     project: { name, no, designer, date },        // date 留白會自動填今天
  *     inputs:   [{ group, items:[{ label, value, unit }] }, ...],
  *     checks:   [{ group, items:[{ label, formula, sub, value, unit, ok, note }] }, ...],
+ *     diagrams: [{ title, dataURL, caption, width }, ...],   // 斷面 / PM 曲線等示意圖
  *     summary:  { ok: true|false, text: '✓ OK / ✗ NG' },
  *     symbols:  [{ sym, desc }, ...],
  *     notes:    ['依據 112 年混凝土結構設計規範', ...]
@@ -84,6 +85,20 @@ function openReport(cfg) {
       </ol>
     </section>` : '';
 
+  const diagramsHtml = (cfg.diagrams && cfg.diagrams.length) ? `
+    <section class="rep-block rep-diagrams">
+      <h3>斷面示意圖</h3>
+      <div class="rep-diagrams-grid">
+        ${cfg.diagrams.map(d => `
+          <figure class="rep-diagram">
+            ${d.title ? `<figcaption class="rep-diagram-title">${esc(d.title)}</figcaption>` : ''}
+            <img src="${d.dataURL}" alt="${esc(d.title||'')}" style="${d.width?`max-width:${d.width}px;`:''}">
+            ${d.caption ? `<div class="rep-diagram-caption">${esc(d.caption)}</div>` : ''}
+          </figure>
+        `).join('')}
+      </div>
+    </section>` : '';
+
   const stepsHtml = (cfg.steps && cfg.steps.length) ? `
     <section class="rep-block rep-steps-wrap">
       <h3>計算過程明細</h3>
@@ -154,6 +169,12 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-summary.ok { background:#e8f5ec; color:#1b8a3a; border:2px solid #1b8a3a; }
 .rep-summary.ng { background:#fbeaea; color:#c0392b; border:2px solid #c0392b; }
 .rep-summary.na { background:#f0f0f0; color:#555; border:2px solid #888; }
+.rep-diagrams-grid { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; }
+.rep-diagram { margin:0; padding:8px 10px; border:1px solid #cbd5e1; border-radius:4px;
+               background:#fafbfc; text-align:center; page-break-inside: avoid; flex:0 0 auto; }
+.rep-diagram-title { font-size:12px; font-weight:600; color:#1a3d5c; margin-bottom:4px; }
+.rep-diagram img { max-width:100%; height:auto; display:block; margin:0 auto; }
+.rep-diagram-caption { font-size:10px; color:#666; margin-top:4px; font-style:italic; }
 .rep-toolbar { max-width:800px; margin:0 auto 12px; text-align:right; }
 .rep-toolbar button { background:#1a3d5c; color:#fff; border:0; padding:8px 18px;
                       font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
@@ -186,6 +207,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 
   <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
 
+  ${diagramsHtml}
   ${inputsHtml}
   ${checksHtml}
   ${stepsHtml}

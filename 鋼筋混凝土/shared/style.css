@@ -41,12 +41,16 @@ header a.back:hover { opacity:1; text-decoration:underline; }
 .result-item .label { font-size: 0.85em; color: var(--text-light); font-weight: 500; }
 .result-item .value { font-size: 1em; font-weight: 700; font-family: 'Consolas',monospace; }
 .result-item .unit  { font-size: 0.75em; color: var(--text-light); margin-left: 4px; }
+/* 全域規則：本次未檢核項目隱藏。各工具 calc 開頭呼叫 markAllResultsPending()
+   把所有 .result-item 加上此 class，setResult/setCheck 觸及時自動清除；
+   仍標記者代表本次計算未涉及，直接不顯示，避免「—」或舊值誤導。 */
+.result-item.rc-pending { display: none !important; }
 .hint { font-size: 0.78em; color: var(--text-light); margin-top: 4px; font-style: italic; }
 .checkbox-row { display:flex; align-items:center; gap:8px; padding:10px 12px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; margin-bottom:12px; }
 .checkbox-row input[type=checkbox] { width:18px; height:18px; accent-color: var(--seismic); }
 .checkbox-row label { font-size:0.88em; font-weight:600; color: var(--seismic); }
 .section-tabs { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:14px; background:var(--card); padding:6px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
-.section-tabs button { padding:8px 14px; border:none; background:transparent; color:var(--text-light); font-size:0.85em; font-weight:600; cursor:pointer; border-radius:6px; font-family:inherit; }
+.section-tabs button { padding:8px 14px; border:none; background:transparent; color:var(--text-light); font-size:0.85em; font-weight:600; cursor:pointer; border-radius:6px; font-family:inherit; white-space:nowrap; }
 .section-tabs button.active { background:var(--primary); color:#fff; }
 .subpanel { display:none; }
 .subpanel.active { display:block; }
@@ -67,6 +71,9 @@ table.spec th { background:#f1f5f9; color:var(--primary); }
   .container { margin: 12px auto; padding: 0 12px; }
   .card { padding: 16px; }
   .form-row3 { grid-template-columns: 1fr 1fr; }
+  .section-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .section-tabs button { flex: 0 0 auto; }
+  .banner-key { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
   header h1 { font-size: 1.05em; }

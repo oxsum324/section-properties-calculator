@@ -544,7 +544,7 @@
 </div>
 
 <script src="../shared/common.js?v=2"></script>
-<script src="../shared/report.js?v=2"></script>
+<script src="../shared/report.js?v=3"></script>
 <script src="../shared/loadcombo.js?v=1"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="../shared/formulas.js?v=1"></script>
@@ -627,6 +627,7 @@
   function setResult(id, val, unit, digits = 2, status = null) {
     const el = $(id);
     if (!el) return;
+    el.classList.remove('rc-pending');
     const valSpan = el.querySelector('.value');
     const unitSpan = el.querySelector('.unit');
     valSpan.textContent = (val === null || val === undefined || isNaN(val)) ? '—' : Number(val).toFixed(digits);
@@ -637,21 +638,68 @@
   function setCheck(id, pass, text) {
     const el = $(id);
     if (!el) return;
+    el.classList.remove('rc-pending');
     const valSpan = el.querySelector('.value');
     valSpan.textContent = text || (pass ? '✓ OK' : '✗ NG');
     el.classList.remove('ok', 'warn', 'fail');
     el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
   }
+  // 將所有結果項標為「未檢核」；calcBeam 開始時呼叫，
+  // 之後 setCheck/setResult 會清除該標記，未被觸及的項目最終隱藏。
+  function markAllResultsPending() {
+    document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+  }
 
   // 多排筋應變相容嚴謹解 (矩形斷面，純彎)
   // layers: [{ y, As }] — y 為距「壓力面」距離 (cm)，「壓為負, 拉為正」
   // 回傳: { c, a, Cc, Mn, epsT_max, valid }
-  function solveBeamMC(b, h, layers, fc, fy, beta1) {
+  // 嚴謹應變相容解：給定壓力面為 y=0；layers 為 [{y, As}] (y 為距壓力面深度)
+  // shape: 描述混凝土壓力區寬度隨深度變化
+  //   { type:'rect', b }                                       — 矩形
+  //   { type:'T',    bw, bf, hf, flangeOnComp:true|false }     — T/L 形 (flangeOnComp 表翼緣在壓力面側)
+  function solveBeamMC(b_or_shape, h, layers, fc, fy, beta1) {
     const Es = 2.04e6;
     const eps_cu = 0.003;
+    const shape = (typeof b_or_shape === 'object' && b_or_shape !== null && b_or_shape.type)
+                  ? b_or_shape : { type:'rect', b: b_or_shape };
+    // 在壓力面 y=0 ~ a 範圍內，取得混凝土寬度 b(y)
+    const widthAt = (y) => {
+      if (shape.type === 'rect') return shape.b;
+      // T 形
+      if (shape.flangeOnComp) {
+        return (y < shape.hf) ? shape.bf : shape.bw;
+      } else {
+        // 翼緣在拉力面 → 壓力區一律為腹板
+        return shape.bw;
+      }
+    };
+    // 計算壓力區 [0, a] 的混凝土合力與其作用點 (距壓力面 y=0)
+    const concreteRes = (a) => {
+      if (a <= 0) return { Cc: 0, armC: 0 };
+      if (shape.type === 'rect') {
+        const Cc = 0.85 * fc * shape.b * a;
+        return { Cc, armC: a / 2 };
+      }
+      // T/L 形
+      if (shape.flangeOnComp) {
+        if (a <= shape.hf) {
+          const Cc = 0.85 * fc * shape.bf * a;
+          return { Cc, armC: a / 2 };
+        }
+        const Cf = 0.85 * fc * shape.bf * shape.hf;
+        const Cw = 0.85 * fc * shape.bw * (a - shape.hf);
+        const Cc = Cf + Cw;
+        const armC = (Cf * (shape.hf / 2) + Cw * (shape.hf + (a - shape.hf) / 2)) / Cc;
+        return { Cc, armC };
+      } else {
+        // 翼緣在拉力面 → 壓力區僅腹板
+        const Cc = 0.85 * fc * shape.bw * a;
+        return { Cc, armC: a / 2 };
+      }
+    };
     const evalC = (c) => {
       const a = Math.min(beta1 * c, h);
-      const Cc = 0.85 * fc * b * a;        // kgf, 全混凝土壓力 (含被鋼筋占據體積)
+      const { Cc, armC } = concreteRes(a);
       let Fnet = 0, Mr = 0;                 // 鋼筋淨軸力 (拉為正), 對壓力面 y=0 取矩
       let epsT_max = -Infinity;
       for (const L of layers) {
@@ -660,7 +708,7 @@
         let fs = Es * eps;
         if (fs > fy) fs = fy;
         if (fs < -fy) fs = -fy;
-        // 鋼筋若位於壓力塊內 (y<a)，需扣回該位置混凝土排擠 (鋼筋實取代了 0.85·fc·As 的混凝土)
+        // 鋼筋若位於壓力塊內 (y<a)，需扣回該位置混凝土排擠
         // → 鋼筋「相對於混凝土」的淨力 = (fs + 0.85·fc)·As (拉為正)
         const inComp = (L.y < a);
         const Fi = (fs + (inComp ? 0.85 * fc : 0)) * L.As;
@@ -670,15 +718,14 @@
       }
       // 軸力平衡: -Cc + Fnet = 0  → eqN = Fnet - Cc
       const eqN = Fnet - Cc;
-      // 對 y=0 取矩 (順時針為正): -Cc·(a/2) + ΣFi·yi
-      const Mn = -Cc * (a / 2) + Mr;
-      return { c, a, Cc, eqN, Mn, epsT_max };
+      // 對 y=0 取矩 (順時針為正): -Cc·armC + ΣFi·yi
+      const Mn = -Cc * armC + Mr;
+      return { c, a, Cc, armC, eqN, Mn, epsT_max };
     };
     // 二分: c 小 → eqN 大正; c 大 → eqN 大負
     let lo = 0.01 * h, hi = 1.5 * h;
     const rLo = evalC(lo), rHi = evalC(hi);
     if (rLo.eqN * rHi.eqN > 0) {
-      // 同號 — 退化解 (極端配筋)
       return { ...rHi, valid: false };
     }
     let c, r;
@@ -816,6 +863,8 @@
   })();
 
   function calcBeam() {
+    // 標記所有結果項為「未檢核」；下方 setCheck/setResult 會逐一清除
+    markAllResultsPending();
     // === 讀取輸入 ===
     const seismic = $('seismicMode').checked;
     const sectionType = $('sectionType').value;       // rect / T / L
@@ -957,32 +1006,20 @@
         return { phiMn_kgcm: 0, a: 0, Mn_kgcm: 0, epsT: 0, valid: false };
       }
       let Mn_kgcm = 0, a = 0, epsT = 0, valid = true;
-      if (sectionType !== 'rect') {
-        // T/L 形：簡化用「拉力筋總 As + 形心 d」做矩形塊近似
-        const Astens = (direction === 'pos') ? AsBot : AsTop;
-        const dTens = (direction === 'pos') ? d_pos : d_neg;
-        if (Astens <= 0) return { phiMn_kgcm: 0, a: 0, Mn_kgcm: 0, epsT: 0, valid: false };
-        let aBlk = (Astens * fy) / (0.85 * fc * b_eff);
-        if (aBlk > hf && direction === 'pos') {
-          const Asf = (0.85 * fc * (b_eff - bw) * hf) / fy;
-          const Asw = Astens - Asf;
-          const aw = (Asw * fy) / (0.85 * fc * bw);
-          Mn_kgcm = (Asf * fy * (dTens - hf / 2) + Asw * fy * (dTens - aw / 2));
-          a = aw + hf;
-        } else {
-          Mn_kgcm = Astens * fy * (dTens - aBlk / 2);
-          a = aBlk;
-        }
-        // T/L 形 ε_t 假設拉力控制 (一般情況)
-        epsT = 0.005;
+      // 統一採嚴謹應變相容解；T/L 形用 shape 描述混凝土壓力區
+      let shape;
+      if (sectionType === 'rect') {
+        shape = { type:'rect', b: bw };
       } else {
-        // 矩形：嚴謹應變相容
-        const sc = solveBeamMC(b_eff, h, layers, fc, fy, beta1);
-        Mn_kgcm = sc.Mn;
-        a = sc.a;
-        epsT = sc.epsT_max;
-        valid = sc.valid;
+        // direction='pos' (底拉)：壓力面=頂 → 翼緣 (T/L 上翼) 在壓力面側
+        // direction='neg' (頂拉)：壓力面=底 → 翼緣在拉力面側 → 壓力區僅腹板
+        shape = { type:'T', bw, bf, hf, flangeOnComp: (direction === 'pos') };
       }
+      const sc = solveBeamMC(shape, h, layers, fc, fy, beta1);
+      Mn_kgcm = sc.Mn;
+      a = sc.a;
+      epsT = sc.epsT_max;
+      valid = sc.valid;
       // φ 由 εt 決定
       const epsY = fy / 2.04e6;
       let phi;
@@ -1810,6 +1847,20 @@ ${layerBars.map(L => {
       grab('stepsSeismicBody', '耐震 (SMRF)',  r.seismic);
     }
 
+    // === 斷面示意圖 dataURL ===
+    const diagrams = [];
+    try {
+      const secURL = renderBeamSectionForReport();
+      if (secURL) {
+        const sectionType = $('sectionType').value;
+        const bw = num('bw'), h = num('h'), bf = num('bf'), hf = num('hf');
+        const cap = (sectionType === 'rect')
+          ? `${bw}×${h} cm 矩形`
+          : `${sectionType} 形：bw=${bw}, h=${h}, bf=${bf}, hf=${hf} cm`;
+        diagrams.push({ title:'梁斷面 (含底/頂主筋與箍筋)', dataURL: secURL, caption: cap });
+      }
+    } catch(e) { console.warn('beam diagram capture failed', e); }
+
     openReport({
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',
@@ -1818,7 +1869,7 @@ ${layerBars.map(L => {
         ok: anyFail?false:allOk?true:null,
         text: anyFail?'✗ NG — 不符合規範':allOk?'✓ OK — 符合規範':'部分檢核未完成'
       },
-      inputs, checks, steps: stepsArr,
+      inputs, checks, steps: stepsArr, diagrams,
       symbols: [
         { sym:"fc'", desc:'混凝土抗壓強度' },
         { sym:'fy',  desc:'主筋降伏強度' },
@@ -1932,8 +1983,21 @@ ${layerBars.map(L => {
   }
 
   // === 剖面繪圖 (多排) ===
+  // 為計算書產生大尺寸斷面圖
+  function renderBeamSectionForReport() {
+    const cv = document.createElement('canvas');
+    cv.width = 480; cv.height = 340;
+    drawSectionTo(cv);
+    return cv.toDataURL('image/png');
+  }
+
   function drawSection() {
     const cv = $('sectionCanvas');
+    if (!cv) return;
+    drawSectionTo(cv);
+  }
+
+  function drawSectionTo(cv) {
     const ctx = cv.getContext('2d');
     const W = cv.width, H = cv.height;
     ctx.clearRect(0, 0, W, H);
