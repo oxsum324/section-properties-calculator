@@ -30,7 +30,7 @@
 </head>
 <body>
 <header>
-  <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V2</span></h1>
+  <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V1.1</span></h1>
   <p><a class="back" href="../index.html">← 回工具箱</a> ｜ 兩向跨距、規範 6.5 係數法 + 8.10 直接設計法、自動配筋</p>
 </header>
 
@@ -48,6 +48,9 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo" class="w-no" placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <label style="display:flex; align-items:center; gap:4px; margin-right:8px; font-size:0.85em; white-space:nowrap;">
+        <input type="checkbox" id="showSteps"> 顯示計算過程
+      </label>
       <button class="mode-bar__report" id="btnReport" type="button">📄 計算書</button>
     </div>
   </div>
@@ -75,16 +78,26 @@
           </div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>短向跨距 Lx (cm)</label><input type="number" id="Lx" value="400"></div>
+          <div class="form-group"><label>短向跨距 Lx (cm)</label><input type="number" id="Lx" value="350"></div>
           <div class="form-group"><label>長向跨距 Ly (cm)</label><input type="number" id="Ly" value="500"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>板厚 h (cm)</label><input type="number" id="h" value="18"></div>
+          <div class="form-group"><label>板厚 h (cm)</label><input type="number" id="h" value="15"></div>
           <div class="form-group"><label>保護層 (cm)</label><input type="number" id="cover" value="2"></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>fc' (kgf/cm²)</label><input type="number" id="fc" value="280"></div>
-          <div class="form-group"><label>fy (kgf/cm²)</label><input type="number" id="fy" value="4200"></div>
+          <div class="form-group"><label>fy 主筋 (kgf/cm²)</label><input type="number" id="fy" value="2800"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>fyt 溫度筋 (kgf/cm²)</label>
+            <select id="fyT">
+              <option value="2800" selected>SD280W (2800)</option>
+              <option value="4200">SD420W (4200)</option>
+              <option value="5600">SD550W (5600)</option>
+            </select>
+          </div>
+          <div class="form-group"></div>
         </div>
         <div class="form-row">
           <div class="form-group">
@@ -103,6 +116,26 @@
               <option value="oneEnd">一端連續</option>
               <option value="bothEnd" selected>兩端連續</option>
               <option value="cantilever">懸臂</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>支承寬度 c (cm)</label>
+            <input type="number" id="supW" value="30" step="1">
+            <span class="hint" style="font-size:0.78em;">梁寬或柱寬，用以推算淨跨 ℓn = L − c</span>
+          </div>
+          <div class="form-group" id="alphaFmGroup" style="display:none;">
+            <label>α_fm (有梁雙向板)</label>
+            <input type="number" id="alphaFm" value="1.0" step="0.1">
+            <span class="hint" style="font-size:0.78em;">四邊梁之撓曲勁度比平均值；無梁=0</span>
+          </div>
+          <div class="form-group" id="panelPosGroup" style="display:none;">
+            <label>無梁版位置</label>
+            <select id="panelPos">
+              <option value="interior" selected>內版 (Interior)</option>
+              <option value="extWithBeam">外版 (有邊梁)</option>
+              <option value="extNoBeam">外版 (無邊梁)</option>
             </select>
           </div>
         </div>
@@ -129,6 +162,10 @@
           <div class="checkbox-row">
             <input type="checkbox" id="autoSelfWt" checked>
             <label for="autoSelfWt">自動計算自重 (h × 2.4 tf/m³)</label>
+          </div>
+          <div class="checkbox-row">
+            <input type="checkbox" id="rigorousDL">
+            <label for="rigorousDL">嚴謹模式：於計算書中分列 1.2D 與 1.6L 對 Mu 之貢獻</label>
           </div>
           <div class="form-row">
             <div class="form-group"><label>自重 (tf/m²)</label><input type="number" id="dlSelf" value="0.432" step="0.01" readonly></div>
@@ -163,22 +200,61 @@
 
       <!-- D. 撓曲鋼筋 -->
       <div class="card">
-        <h2>D. 撓曲鋼筋 (短向 / 長向獨立配置)</h2>
+        <h2>D. 撓曲鋼筋 <span class="hint" id="flexModeHint" style="margin-left:auto; font-style:normal;">—</span></h2>
         <div class="form-row">
           <div class="form-group">
-            <label>短向主筋號數</label>
-            <select id="barNoX"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option></select>
+            <label>鋼筋層配置</label>
+            <select id="layerMode">
+              <option value="auto" selected>自動 (h ≤ 12 cm → 單層；否則雙層)</option>
+              <option value="thin">薄板單層 (兩向)</option>
+              <option value="thick">厚板雙層 (頂層+底層，各兩向)</option>
+            </select>
           </div>
-          <div class="form-group"><label>短向間距 sX (cm)</label><input type="number" id="barSpX" value="20"></div>
-        </div>
-        <div class="form-row">
           <div class="form-group">
-            <label>長向主筋號數</label>
-            <select id="barNoY"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option></select>
+            <label>判定 <span id="layerTag" class="ratio-tag ratio-two">—</span></label>
+            <div id="layerInfo" style="font-size:0.85em; color:var(--text-light); padding-top:6px;">—</div>
           </div>
-          <div class="form-group"><label>長向間距 sY (cm)</label><input type="number" id="barSpY" value="20"></div>
         </div>
-        <p class="hint">短向筋置於外層 (有效深較大)；長向筋置於內層。</p>
+
+        <!-- 底層 (薄板時為單層) -->
+        <div id="botLayerWrap">
+          <h3 style="margin:12px 0 6px; font-size:0.95em; color:var(--primary);" id="botLayerTitle">底層鋼筋 (承 +M 中跨底)</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>短向主筋號數</label>
+              <select id="barNoXBot"><option selected>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option></select>
+            </div>
+            <div class="form-group"><label>短向間距 sX (cm)</label><input type="number" id="barSpXBot" value="20"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>長向主筋號數</label>
+              <select id="barNoYBot"><option selected>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option></select>
+            </div>
+            <div class="form-group"><label>長向間距 sY (cm)</label><input type="number" id="barSpYBot" value="20"></div>
+          </div>
+        </div>
+
+        <!-- 頂層 (僅厚板) -->
+        <div id="topLayerWrap">
+          <h3 style="margin:12px 0 6px; font-size:0.95em; color:var(--primary);">頂層鋼筋 (承 −M 連續端頂)</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>短向主筋號數</label>
+              <select id="barNoXTop"><option selected>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option></select>
+            </div>
+            <div class="form-group"><label>短向間距 sX (cm)</label><input type="number" id="barSpXTop" value="20"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>長向主筋號數</label>
+              <select id="barNoYTop"><option selected>#3</option><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option></select>
+            </div>
+            <div class="form-group"><label>長向間距 sY (cm)</label><input type="number" id="barSpYTop" value="20"></div>
+          </div>
+        </div>
+
+        <p class="hint">短向筋置於外層 (有效深較大)；長向筋置於內層。薄板單層時同一組鋼筋於 +M 區位於底、−M 區位於頂 (彎起／截斷)。</p>
       </div>
 
       <!-- E. 雙向衝剪 -->
@@ -231,6 +307,11 @@
       <!-- 3. 內力分析 -->
       <div class="card">
         <h2>3. 內力分析 (各方向、各位置)</h2>
+        <div id="methodBanner" style="margin:6px 0 10px; padding:8px 10px; background:#eef2f6;
+             border-left:4px solid var(--primary); font-size:0.85em; line-height:1.5;">
+          <b>採用方法：</b><span id="methodBannerName">—</span>
+          <div id="methodBannerDist" style="margin-top:3px; color:#555;">—</div>
+        </div>
         <table class="moment-table" id="momentTable">
           <thead><tr><th>方向 / 位置</th><th>係數</th><th>Mu (tf·m/m)</th><th>Vu (tf/m)</th></tr></thead>
           <tbody><tr class="info"><td colspan="4">輸入後自動計算</td></tr></tbody>
@@ -241,8 +322,8 @@
       <div class="card">
         <h2>4. 撓曲鋼筋檢核</h2>
         <table class="moment-table" id="flexTable">
-          <thead><tr><th>位置</th><th>Mu</th><th>As 需求</th><th>As 配置</th><th>φMn</th><th>OK</th></tr></thead>
-          <tbody><tr class="info"><td colspan="6">輸入後自動計算</td></tr></tbody>
+          <thead><tr><th>層／位置</th><th>Mu</th><th>bar</th><th>s (cm)</th><th>As 需求</th><th>As 配置</th><th>φMn</th><th>OK</th></tr></thead>
+          <tbody><tr class="info"><td colspan="8">輸入後自動計算</td></tr></tbody>
         </table>
       </div>
 
@@ -268,9 +349,23 @@
           <div class="result-item" id="r-AsMin"><span class="label">溫度筋 As,min</span><span><span class="value">—</span><span class="unit">cm²/m</span></span></div>
           <div class="result-item" id="r-sMaxF"><span class="label">主筋 smax</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
           <div class="result-item" id="r-sMaxT"><span class="label">溫度筋 smax</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
-          <div class="result-item" id="c-sX"><span class="label">短向 s ≤ smax</span><span class="value">—</span></div>
-          <div class="result-item" id="c-sY"><span class="label">長向 s ≤ smax</span><span class="value">—</span></div>
+          <div class="result-item" id="c-sXBot"><span class="label">底層 短向 s ≤ smax</span><span class="value">—</span></div>
+          <div class="result-item" id="c-sYBot"><span class="label">底層 長向 s ≤ smax</span><span class="value">—</span></div>
+          <div class="result-item" id="c-sXTop"><span class="label">頂層 短向 s ≤ smax</span><span class="value">—</span></div>
+          <div class="result-item" id="c-sYTop"><span class="label">頂層 長向 s ≤ smax</span><span class="value">—</span></div>
+          <div class="result-item" id="c-clXBot"><span class="label">底層 短向 淨距 ≥ max(db, 2.5)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-clYBot"><span class="label">底層 長向 淨距 ≥ max(db, 2.5)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-clXTop"><span class="label">頂層 短向 淨距 ≥ max(db, 2.5)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-clYTop"><span class="label">頂層 長向 淨距 ≥ max(db, 2.5)</span><span class="value">—</span></div>
         </div>
+        <p class="hint">淨距下限依規範 25.2.1：平行鋼筋之淨間距 ≥ db 且 ≥ 25 mm。</p>
+      </div>
+
+      <!-- 7. 斷面配筋示意 -->
+      <div class="card">
+        <h2>7. 斷面配筋示意</h2>
+        <div id="sectionSVG" style="overflow-x:auto;"></div>
+        <p class="hint">示意圖以 1 m 寬條帶斷面繪製；短向(X)筋為外層、長向(Y)筋為內層。</p>
       </div>
 
     </div>
@@ -314,6 +409,20 @@
   }
 
   // ─── 模式切換 ───────────────────────────────────
+  const SPACING_IDS = ['barSpXBot','barSpYBot','barSpXTop','barSpYTop'];
+  function syncDesignFields() {
+    const isDesign = (currentMode === 'design');
+    SPACING_IDS.forEach(id => {
+      const el = $(id); if (!el) return;
+      el.readOnly = isDesign;
+      el.style.background = isDesign ? '#f1f5f9' : '';
+      el.style.color = isDesign ? '#475569' : '';
+      el.title = isDesign ? '設計模式：依 Mu 與所選鋼筋號數自動計算所需間距' : '檢核模式：請手動輸入間距';
+    });
+    const fmh = $('flexModeHint'); if (fmh) {
+      fmh.textContent = isDesign ? '設計模式：給號數→反算間距' : '檢核模式：給號數與間距→檢核容量';
+    }
+  }
   document.querySelectorAll('.mode-bar__btn').forEach(btn => {
     btn.addEventListener('click', () => {
       currentMode = btn.dataset.mode;
@@ -321,6 +430,7 @@
       $('modeHint').textContent = currentMode==='design'
         ? '設計模式：給定載重與跨距，反算需求並建議鋼筋配置。'
         : '檢核模式：給定配筋與載重，檢核是否合於規範。';
+      syncDesignFields();
       calcSlab();
     });
   });
@@ -375,6 +485,115 @@
     return { pos:'0.35', neg:'0.65' };
   }
 
+  // ─── 斷面示意圖 (1 m 寬條帶，沿 Y 向觀察) ─────────
+  // 約定：圖面 y 軸向下為「板厚向下」(0 = 頂面)
+  // 短向 X 為外層 → 底層位於底面、頂層位於頂面之最外側
+  // 長向 Y 為內層 → 緊鄰 X 向之內側
+  function renderSlabSection(o) {
+    const W_cm = 100;
+    const padL = 70, padR = 220, padT = 36, padB = 50;   // 右側留 220 給圖例
+    const scaleX = 5.0;
+    const scaleY = Math.max(8, Math.min(16, 220 / Math.max(o.h, 8)));
+    const slabW = W_cm * scaleX;
+    const slabH = o.h * scaleY;
+    const W = slabW + padL + padR;
+    const H = slabH + padT + padB;
+
+    const x0 = padL, y0 = padT;
+    const x1 = x0 + slabW, y1 = y0 + slabH;
+    const xCm = cm => x0 + cm * scaleX;
+    const yCm = cm => y0 + cm * scaleY;     // 0 = 頂面
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px; font:11px sans-serif;">`;
+
+    // 混凝土斷面
+    svg += `<rect x="${x0}" y="${y0}" width="${slabW}" height="${slabH}" fill="#e2e8f0" stroke="#475569" stroke-width="1.5"/>`;
+    // 保護層虛線
+    svg += `<line x1="${x0}" y1="${yCm(o.cover)}" x2="${x1}" y2="${yCm(o.cover)}" stroke="#94a3b8" stroke-dasharray="3,3"/>`;
+    svg += `<line x1="${x0}" y1="${yCm(o.h - o.cover)}" x2="${x1}" y2="${yCm(o.h - o.cover)}" stroke="#94a3b8" stroke-dasharray="3,3"/>`;
+
+    function drawXBars(yDepthCm, db, sp, color) {
+      if (sp <= 0) return;
+      const yPx = yCm(yDepthCm);
+      const r = Math.max(2.5, (db/2) * scaleX);
+      const start = o.cover + db/2;
+      const n = Math.max(1, Math.floor((W_cm - 2*start) / sp) + 1);
+      for (let i = 0; i < n; i++) {
+        const cx = xCm(start + i*sp);
+        if (cx > x1 - 1) break;
+        svg += `<circle cx="${cx}" cy="${yPx}" r="${r}" fill="${color}" stroke="#0f172a" stroke-width="0.6"/>`;
+      }
+    }
+    function drawYBand(yDepthCm, db, color) {
+      const yPx = yCm(yDepthCm);
+      const t = Math.max(2, db * scaleX * 0.9);
+      svg += `<rect x="${x0+2}" y="${yPx - t/2}" width="${slabW - 4}" height="${t}" fill="${color}" opacity="0.55" stroke="#0f172a" stroke-width="0.5"/>`;
+    }
+
+    // 底層 (位於底面 — 距頂面 = h - cover - ...)
+    const yX_bot = o.h - o.cover - o.dbXBot/2;
+    const yY_bot = o.h - o.cover - o.dbXBot - o.dbYBot/2;
+    drawYBand(yY_bot, o.dbYBot, '#15803d');
+    drawXBars(yX_bot, o.dbXBot, o.spXBot, '#1d4ed8');
+
+    // 頂層 (位於頂面 — 距頂面 = cover + ...)
+    if (o.isThick) {
+      const yX_top = o.cover + o.dbXTop/2;
+      const yY_top = o.cover + o.dbXTop + o.dbYTop/2;
+      drawYBand(yY_top, o.dbYTop, '#15803d');
+      drawXBars(yX_top, o.dbXTop, o.spXTop, '#1d4ed8');
+    }
+
+    // 標註：板厚 h
+    svg += `<line x1="${x0 - 12}" y1="${y0}" x2="${x0 - 12}" y2="${y1}" stroke="#0f172a" stroke-width="1"/>`;
+    svg += `<line x1="${x0 - 16}" y1="${y0}" x2="${x0 - 8}" y2="${y0}" stroke="#0f172a"/>`;
+    svg += `<line x1="${x0 - 16}" y1="${y1}" x2="${x0 - 8}" y2="${y1}" stroke="#0f172a"/>`;
+    svg += `<text x="${x0 - 18}" y="${(y0+y1)/2 + 4}" text-anchor="end" font-weight="700">h=${o.h}</text>`;
+    // 1 m 寬度標註
+    svg += `<line x1="${x0}" y1="${y1 + 14}" x2="${x1}" y2="${y1 + 14}" stroke="#0f172a"/>`;
+    svg += `<line x1="${x0}" y1="${y1 + 10}" x2="${x0}" y2="${y1 + 18}" stroke="#0f172a"/>`;
+    svg += `<line x1="${x1}" y1="${y1 + 10}" x2="${x1}" y2="${y1 + 18}" stroke="#0f172a"/>`;
+    svg += `<text x="${(x0+x1)/2}" y="${y1 + 30}" text-anchor="middle" font-weight="700">1 m 寬條帶</text>`;
+
+    // 標題
+    svg += `<text x="${x0}" y="${y0 - 14}" font-weight="700" fill="#0f172a">斷面示意 (沿 Y 向觀察)</text>`;
+    svg += `<text x="${x0}" y="${y0 - 2}" fill="#475569" font-size="10">藍 ● = X 向 (短向) 筋斷面　綠 ▬ = Y 向 (長向) 筋沿斷面延伸</text>`;
+
+    // ─── 右側圖例 (避免標籤被遮蔽) ────────────────
+    const lx = x1 + 22;
+    let ly = y0;
+    const lh = 16;
+    function legendLine(color, shape, text, bold) {
+      if (shape === 'circle') {
+        svg += `<circle cx="${lx + 6}" cy="${ly + 4}" r="4" fill="${color}" stroke="#0f172a" stroke-width="0.6"/>`;
+      } else if (shape === 'band') {
+        svg += `<rect x="${lx}" y="${ly + 1}" width="14" height="6" fill="${color}" opacity="0.55" stroke="#0f172a" stroke-width="0.5"/>`;
+      }
+      svg += `<text x="${lx + 20}" y="${ly + 8}" fill="#0f172a" ${bold?'font-weight="700"':''}>${text}</text>`;
+      ly += lh;
+    }
+    function legendHeader(text) {
+      svg += `<text x="${lx}" y="${ly + 8}" font-weight="700" fill="#1a3d5c">${text}</text>`;
+      ly += lh;
+    }
+    if (o.isThick) {
+      legendHeader('頂層 (承 −M)');
+      legendLine('#1d4ed8','circle',`X (短向)　${o.barNoXTop} @ ${o.spXTop} cm`);
+      legendLine('#15803d','band',  `Y (長向)　${o.barNoYTop} @ ${o.spYTop} cm`);
+      ly += 4;
+      legendHeader('底層 (承 +M)');
+      legendLine('#1d4ed8','circle',`X (短向)　${o.barNoXBot} @ ${o.spXBot} cm`);
+      legendLine('#15803d','band',  `Y (長向)　${o.barNoYBot} @ ${o.spYBot} cm`);
+    } else {
+      legendHeader('單層 (兩向)');
+      legendLine('#1d4ed8','circle',`X (短向)　${o.barNoXBot} @ ${o.spXBot} cm`);
+      legendLine('#15803d','band',  `Y (長向)　${o.barNoYBot} @ ${o.spYBot} cm`);
+    }
+
+    svg += `</svg>`;
+    document.getElementById('sectionSVG').innerHTML = svg;
+  }
+
   // ─── 主計算 ────────────────────────────────────
   function calcSlab() {
     markAllResultsPending();
@@ -398,16 +617,17 @@
     tag.textContent = isOneWay ? '單向' : '雙向';
     tag.className = 'ratio-tag ' + (isOneWay ? 'ratio-one' : 'ratio-two');
 
-    // — B. 載重 → wu
-    let wu = 0, wuFormula = '';
+    // — B. 載重 → wu  (dl/ll 兩個分量於 'dlll' 模式才有意義；其他模式為 NaN)
+    let wu = 0, wuFormula = '', dl_val = NaN, ll_val = NaN;
+    const rigorousDL = !!$('rigorousDL')?.checked && (loadMode === 'dlll');
     if (loadMode === 'simple') {
       wu = num('wuDirect');
       wuFormula = `直接輸入 = ${wu.toFixed(3)} tf/m²`;
     } else if (loadMode === 'dlll') {
-      const dl = num('dlSelf') + num('dlSDL');
-      const ll = num('llVal');
-      wu = 1.2 * dl + 1.6 * ll;
-      wuFormula = `1.2×${dl.toFixed(3)} + 1.6×${ll.toFixed(3)} = ${wu.toFixed(3)} tf/m²`;
+      dl_val = num('dlSelf') + num('dlSDL');
+      ll_val = num('llVal');
+      wu = 1.2 * dl_val + 1.6 * ll_val;
+      wuFormula = `1.2×${dl_val.toFixed(3)} + 1.6×${ll_val.toFixed(3)} = ${wu.toFixed(3)} tf/m²`;
       $('dlllSummary').textContent = `wu = ${wuFormula}`;
     } else { // combo
       wu = num('wuDirect');
@@ -415,69 +635,241 @@
     }
     setResult('r-wu', wu, 'tf/m²', 3);
 
-    // — 板厚最小值
-    let hmin, hminFormula = '';
+    // — 板厚最小值 (規範 9.3.1.1 / 8.3.1.1 / 8.3.1.2)
+    // 條件式 UI：α_fm 僅有梁雙向板可見；panelPos 僅無梁版可見
+    $('alphaFmGroup').style.display = (stype === 'two') ? '' : 'none';
+    $('panelPosGroup').style.display = (isFlat) ? '' : 'none';
+
+    const supW = num('supW') || 0;                              // 支承寬 c (cm)
+    const lnX_cm = Math.max(Lx - supW, 0);                      // 短向淨跨 (cm)
+    const lnY_cm = Math.max(Ly - supW, 0);                      // 長向淨跨 (cm)
+    const fyFactor1Way = (0.4 + fy / 7000);                     // 一向板修正
+    const fyFactor2Way = (0.8 + fy / 14000);                    // 雙向板修正
+    let hmin, hminFormula = '', hminRef = '';
+
     if (isOneWay) {
+      // 規範 9.3.1.1 — 一向實心板 (無內梁)
       const factor = ({ simple:20, oneEnd:24, bothEnd:28, cantilever:10 })[supX];
-      hmin = Lx / factor;
-      hminFormula = `Lx/${factor} = ${Lx}/${factor}`;
+      const supName = ({ simple:'簡支', oneEnd:'一端連續', bothEnd:'兩端連續', cantilever:'懸臂' })[supX];
+      hmin = (lnX_cm / factor) * fyFactor1Way;
+      hminFormula = `ℓn/${factor}·(0.4+fy/7000) = ${lnX_cm.toFixed(1)}/${factor}×${fyFactor1Way.toFixed(3)}`;
+      hminRef = `規範 9.3.1.1 — 一向板 (${supName})`;
     } else if (stype === 'two') {
-      hmin = Math.max(Math.min(Lx, Ly) / 30, 9);
-      hminFormula = `max(min(Lx,Ly)/30, 9)`;
-    } else if (stype === 'flat') {
-      hmin = Math.max(Math.max(Lx, Ly) / 33, 12.5);
-      hminFormula = `max(max(Lx,Ly)/33, 12.5)`;
-    } else { // flatDrop
-      hmin = Math.max(Math.max(Lx, Ly) / 36, 10);
-      hminFormula = `max(max(Lx,Ly)/36, 10)`;
+      // 規範 8.3.1.2 — 有梁兩向板 (依 α_fm)
+      const alphaFm = num('alphaFm');
+      const lnLong = Math.max(lnX_cm, lnY_cm);                   // 長向淨跨
+      const lnShort = Math.min(lnX_cm, lnY_cm);
+      const beta = (lnShort > 0) ? (lnLong / lnShort) : 1;       // 長/短淨跨比
+      if (alphaFm <= 0.2) {
+        // → 套用 8.3.1.1 (視為無梁)
+        hmin = (lnLong / 30) * fyFactor1Way;                      // 與外版無邊梁同
+        hmin = Math.max(hmin, 12.5);
+        hminFormula = `α_fm=${alphaFm.toFixed(2)} ≤ 0.2 → 套用 8.3.1.1; max(ℓn/30·(0.4+fy/7000), 12.5)\n  = max(${lnLong.toFixed(1)}/30×${fyFactor1Way.toFixed(3)}, 12.5)`;
+        hminRef = `規範 8.3.1.2(a) → 8.3.1.1 (α_fm ≤ 0.2)`;
+      } else if (alphaFm <= 2.0) {
+        const denom = 36 + 5 * beta * (alphaFm - 0.2);
+        hmin = (lnLong * fyFactor2Way) / denom;
+        hmin = Math.max(hmin, 12.5);
+        hminFormula = `h = ℓn(0.8+fy/14000) / [36+5β(α_fm−0.2)]\n  = ${lnLong.toFixed(1)}×${fyFactor2Way.toFixed(3)} / [36+5×${beta.toFixed(2)}×${(alphaFm-0.2).toFixed(2)}]\n  = ${lnLong.toFixed(1)}×${fyFactor2Way.toFixed(3)} / ${denom.toFixed(2)}; ≥ 12.5`;
+        hminRef = `規範 8.3.1.2(b) (0.2 < α_fm ≤ 2.0)`;
+      } else {
+        const denom = 36 + 9 * beta;
+        hmin = (lnLong * fyFactor2Way) / denom;
+        hmin = Math.max(hmin, 9);
+        hminFormula = `h = ℓn(0.8+fy/14000) / [36+9β]\n  = ${lnLong.toFixed(1)}×${fyFactor2Way.toFixed(3)} / [36+9×${beta.toFixed(2)}]\n  = ${lnLong.toFixed(1)}×${fyFactor2Way.toFixed(3)} / ${denom.toFixed(2)}; ≥ 9`;
+        hminRef = `規範 8.3.1.2(c) (α_fm > 2.0)`;
+      }
+    } else {
+      // 規範 8.3.1.1 — 無梁版 (flat / flatDrop)
+      const panelPos = $('panelPos').value;
+      const hasDrop = (stype === 'flatDrop');
+      const lnLong = Math.max(lnX_cm, lnY_cm);                   // 長向淨跨
+      // 規範 8.3.1.1 表 — 對 fy=4200，依柱頭板與位置
+      // 無柱頭板:  外版無邊梁 ℓn/30, 外版有邊梁 ℓn/33, 內版 ℓn/33
+      // 有柱頭板:  外版無邊梁 ℓn/33, 外版有邊梁 ℓn/36, 內版 ℓn/36
+      let factor, posName;
+      if (!hasDrop) {
+        factor = (panelPos === 'extNoBeam') ? 30 : 33;
+      } else {
+        factor = (panelPos === 'extNoBeam') ? 33 : 36;
+      }
+      posName = ({ interior:'內版', extWithBeam:'外版(有邊梁)', extNoBeam:'外版(無邊梁)' })[panelPos];
+      const hMinAbs = hasDrop ? 10 : 12.5;
+      hmin = (lnLong / factor) * fyFactor1Way;
+      hmin = Math.max(hmin, hMinAbs);
+      hminFormula = `${posName}${hasDrop?'·有柱頭板':'·無柱頭板'}: max(ℓn/${factor}·(0.4+fy/7000), ${hMinAbs})\n  = max(${lnLong.toFixed(1)}/${factor}×${fyFactor1Way.toFixed(3)}, ${hMinAbs})`;
+      hminRef = `規範 8.3.1.1 (${posName}${hasDrop?'，有柱頭板':'，無柱頭板'})`;
     }
+    // 暴露給計算書使用
+    window.__slab_hmin = { hmin, hminFormula, hminRef };
     setResult('r-hmin', hmin, 'cm', 1);
     setResult('r-h', h, 'cm', 1);
     setCheck('c-h', h >= hmin, `${h.toFixed(1)} / ${hmin.toFixed(1)}`);
 
+    // — 層數判定 (薄 / 厚)
+    const layerMode = $('layerMode').value;
+    // 經驗值：實務上 h ≤ 12 cm 才採單層；h > 12 cm (含 18 cm) 一律雙層 (頂+底)
+    const isThick = (layerMode === 'auto') ? (h > 12) : (layerMode === 'thick');
+    $('topLayerWrap').style.display = isThick ? '' : 'none';
+    $('botLayerTitle').textContent = isThick
+      ? '底層鋼筋 (承 +M 中跨底)'
+      : '單層鋼筋 (兩向)';
+    const lTag = $('layerTag');
+    lTag.textContent = isThick ? '雙層' : '單層';
+    lTag.className = 'ratio-tag ' + (isThick ? 'ratio-two' : 'ratio-one');
+    $('layerInfo').textContent = (layerMode === 'auto')
+      ? `h = ${h} cm ${isThick ? '> 12 → 雙層 (預設)' : '≤ 12 → 單層'}`
+      : (isThick ? '厚板：頂層 + 底層，各兩向' : '薄板：單層兩向');
+
     // — d (有效深) 短向在外層、長向在內層
-    const dbX = REBAR_TABLE[$('barNoX').value].db;
-    const dbY = REBAR_TABLE[$('barNoY').value].db;
-    const dX = h - cover - dbX/2;
-    const dY = h - cover - dbX - dbY/2;
     const b = 100;
+    const barNoXBot = $('barNoXBot').value, barNoYBot = $('barNoYBot').value;
+    const barNoXTop = isThick ? $('barNoXTop').value : barNoXBot;
+    const barNoYTop = isThick ? $('barNoYTop').value : barNoYBot;
+    const dbXBot = REBAR_TABLE[barNoXBot].db, dbYBot = REBAR_TABLE[barNoYBot].db;
+    const dbXTop = REBAR_TABLE[barNoXTop].db, dbYTop = REBAR_TABLE[barNoYTop].db;
+    // 短向(X)外層、長向(Y)內層；頂層與底層相同疊放原則
+    const dXBot = h - cover - dbXBot/2;
+    const dYBot = h - cover - dbXBot - dbYBot/2;
+    const dXTop = h - cover - dbXTop/2;
+    const dYTop = h - cover - dbXTop - dbYTop/2;
+    // 舊變數名相容 (剪力用短向外層深度)
+    const dX = dXBot, dY = dYBot;
 
     // — C. 內力分析
     const moments = [];
     const wuKgM2 = wu * 1000;   // kgf/m²
 
+    // 各 support 類型的代號 → 中文 (用於說明)
+    const SUP_NAME = { simple:'簡支', oneEnd:'一端連續', bothEnd:'兩端連續', cantilever:'懸臂' };
+    let methodRef = '';
     if (isOneWay) {
-      // 單向板：以短向 (Lx) 為主向
+      // 單向板：以短向 (Lx) 為主向；採規範 6.5.2 連續板係數法
+      methodRef = `規範 6.5.2 連續板/梁係數法 (一向板)`;
       const lnX = Lx / 100;
       const cf = getCoefficients(supX);
       const VuLine = wuKgM2 * lnX / 2 / 1000;
+      const wuT = wu;   // tf/m²
+      const lnSqr = lnX * lnX;
       if (isFinite(cf.pos)) {
-        const Mpos = wuKgM2 * lnX * lnX / cf.pos / 1000;
-        moments.push({ dir:'X', loc:'+M (中跨底)', coef:`wu·ℓ²/${cf.pos}`, M: Mpos, V: 0 });
+        const Mpos = wuKgM2 * lnSqr / cf.pos / 1000;
+        moments.push({
+          dir:'X', loc:'+M (中跨底)', coef:`wu·ℓn²/${cf.pos}`, M: Mpos, V: 0,
+          ref: `${methodRef} — 支承=${SUP_NAME[supX]} → +M 係數 1/${cf.pos}`,
+          step: `wu × ℓn² / ${cf.pos} = ${wuT.toFixed(3)} × ${lnX.toFixed(2)}² / ${cf.pos} = ${Mpos.toFixed(3)} tf·m/m`
+        });
       }
       if (isFinite(cf.neg)) {
-        const Mneg = wuKgM2 * lnX * lnX / cf.neg / 1000;
-        moments.push({ dir:'X', loc:'−M (連續端頂)', coef:`wu·ℓ²/${cf.neg}`, M: Mneg, V: 0 });
+        const Mneg = wuKgM2 * lnSqr / cf.neg / 1000;
+        moments.push({
+          dir:'X', loc:'−M (連續端頂)', coef:`wu·ℓn²/${cf.neg}`, M: Mneg, V: 0,
+          ref: `${methodRef} — 支承=${SUP_NAME[supX]} → −M 係數 1/${cf.neg}`,
+          step: `wu × ℓn² / ${cf.neg} = ${wuT.toFixed(3)} × ${lnX.toFixed(2)}² / ${cf.neg} = ${Mneg.toFixed(3)} tf·m/m`,
+          note: `(連續端負彎矩 |−M| 通常 > 中跨正彎矩 +M，因支承拘束轉角而集中彎曲，並非地震引致；故頂層筋承擔之彎矩較大。)`
+        });
       }
-      moments.push({ dir:'X', loc:'剪力 V (d 處)', coef:'wu·ℓ/2', M: 0, V: VuLine });
-      moments.push({ dir:'Y', loc:'長向 (僅溫度收縮筋)', coef:'—', M: 0, V: 0 });
+      moments.push({
+        dir:'X', loc:'剪力 V (d 處)', coef:'wu·ℓn/2', M: 0, V: VuLine,
+        ref: '支承反力之半',
+        step: `Vu = wu × ℓn / 2 = ${wuT.toFixed(3)} × ${lnX.toFixed(2)} / 2 = ${VuLine.toFixed(3)} tf/m`
+      });
+      moments.push({ dir:'Y', loc:'長向 (僅溫度收縮筋)', coef:'—', M: 0, V: 0,
+        ref:'長短向比 > 2 → 長向不分擔撓曲，僅配溫度收縮筋' });
     } else {
-      // 雙向板：DDM
+      // 雙向板：彎矩係數法 (Rankine-Grashof 載重分配 + 規範 6.5 連續板係數)
+      // ─ 載重分配：依勁度比 (1/ℓ⁴) 將 wu 分配到短向 (X)、長向 (Y) 兩組獨立連續板
+      // ─ 各方向再依規範 6.5 之 +M、−M、V 係數計算 per-meter 內力
+      // 物理意義：短向勁度大 (跨距小)，分配到較大載重，故 Mx > My，符合雙向板實際行為
+      methodRef = `雙向板彎矩係數法 (Rankine-Grashof 載重分配 + 規範 6.5 連續板係數)`;
       const lnX = Lx / 100, lnY = Ly / 100;
-      // 各方向 per-meter 平均 Mo = wu·ℓn²/8
-      const MoxPerM = wuKgM2 * lnX * lnX / 8 / 1000;   // tf·m/m
-      const MoyPerM = wuKgM2 * lnY * lnY / 8 / 1000;
-      const dx = ddmDistribute(supX, MoxPerM);
-      const dy = ddmDistribute(supY, MoyPerM);
-      const VuX = wuKgM2 * lnX / 2 / 1000;
-      const VuY = wuKgM2 * lnY / 2 / 1000;
-      const lblX = ddmRatioLabel(supX), lblY = ddmRatioLabel(supY);
-      if (dx.pos > 0) moments.push({ dir:'X', loc:'+M (中跨底)', coef:`${lblX.pos}·Mo`, M: dx.pos, V: 0 });
-      if (dx.neg > 0) moments.push({ dir:'X', loc:'−M (連續端頂)', coef:`${lblX.neg}·Mo`, M: dx.neg, V: 0 });
-      if (dy.pos > 0) moments.push({ dir:'Y', loc:'+M (中跨底)', coef:`${lblY.pos}·Mo`, M: dy.pos, V: 0 });
-      if (dy.neg > 0) moments.push({ dir:'Y', loc:'−M (連續端頂)', coef:`${lblY.neg}·Mo`, M: dy.neg, V: 0 });
-      moments.push({ dir:'X', loc:'剪力 V', coef:'wu·ℓx/2', M: 0, V: VuX });
-      moments.push({ dir:'Y', loc:'剪力 V', coef:'wu·ℓy/2', M: 0, V: VuY });
+      const m_ratio = lnX / lnY;                      // ≤ 1
+      const m4 = Math.pow(m_ratio, 4);
+      const alphaX = 1 / (1 + m4);                    // 短向載重分配
+      const alphaY = m4 / (1 + m4);                   // 長向載重分配
+      const wuX = wu * alphaX;                        // 短向 strip 載重
+      const wuY = wu * alphaY;                        // 長向 strip 載重
+      const wuXkgm2 = wuX * 1000, wuYkgm2 = wuY * 1000;
+      const cfX = getCoefficients(supX);
+      const cfY = getCoefficients(supY);
+      const wuT = wu;
+
+      // 嚴謹模式：分量
+      const dlX = rigorousDL ? dl_val * alphaX : NaN;
+      const llX = rigorousDL ? ll_val * alphaX : NaN;
+      const dlY = rigorousDL ? dl_val * alphaY : NaN;
+      const llY = rigorousDL ? ll_val * alphaY : NaN;
+
+      const distInfoX = `α_x = ℓny⁴/(ℓnx⁴+ℓny⁴) = ${lnY.toFixed(2)}⁴/(${lnX.toFixed(2)}⁴+${lnY.toFixed(2)}⁴) = ${alphaX.toFixed(3)}`;
+      const distInfoY = `α_y = ℓnx⁴/(ℓnx⁴+ℓny⁴) = ${lnX.toFixed(2)}⁴/(${lnX.toFixed(2)}⁴+${lnY.toFixed(2)}⁴) = ${alphaY.toFixed(3)}`;
+
+      // 共用步驟產生器
+      const buildStep = (alpha, dlPart, llPart, ln, cfDiv, label, dirAxis) => {
+        const wuStrip = wu * alpha;
+        const Mu = wuStrip * ln * ln / cfDiv;
+        let s = `wu(${dirAxis}) = α·wu = ${alpha.toFixed(3)}×${wu.toFixed(3)} = ${wuStrip.toFixed(3)} tf/m²`
+              + `\n  ${label} = wu(${dirAxis})·ℓn²/${cfDiv} = ${wuStrip.toFixed(3)}×${ln.toFixed(2)}²/${cfDiv} = ${Mu.toFixed(3)} tf·m/m`;
+        if (rigorousDL && isFinite(dlPart) && isFinite(llPart)) {
+          const Mdl = 1.2 * dlPart * ln * ln / cfDiv;
+          const Mll = 1.6 * llPart * ln * ln / cfDiv;
+          s += `\n  ── 嚴謹分項：`
+             + `\n    DL 貢獻 = α·1.2D·ℓn²/${cfDiv} = ${alpha.toFixed(3)}×1.2×${dl_val.toFixed(3)}×${ln.toFixed(2)}²/${cfDiv} = ${Mdl.toFixed(3)} tf·m/m`
+             + `\n    LL 貢獻 = α·1.6L·ℓn²/${cfDiv} = ${alpha.toFixed(3)}×1.6×${ll_val.toFixed(3)}×${ln.toFixed(2)}²/${cfDiv} = ${Mll.toFixed(3)} tf·m/m`
+             + `\n    合計 = ${(Mdl+Mll).toFixed(3)} tf·m/m`;
+        }
+        return { Mu, step: s };
+      };
+
+      // 短向 (X)
+      if (isFinite(cfX.pos)) {
+        const r = buildStep(alphaX, dlX, llX, lnX, cfX.pos, '+M', 'X');
+        moments.push({
+          dir:'X (短)', loc:'+M (中跨底)', coef:`α_x·wu·ℓnx²/${cfX.pos}`, M:r.Mu, V:0,
+          ref: `${methodRef} — X 支承=${SUP_NAME[supX]}; ${distInfoX}; +M 係數 1/${cfX.pos}`,
+          step: r.step
+        });
+      }
+      if (isFinite(cfX.neg)) {
+        const r = buildStep(alphaX, dlX, llX, lnX, cfX.neg, '−M', 'X');
+        moments.push({
+          dir:'X (短)', loc:'−M (連續端頂)', coef:`α_x·wu·ℓnx²/${cfX.neg}`, M:r.Mu, V:0,
+          ref: `${methodRef} — X 支承=${SUP_NAME[supX]}; ${distInfoX}; −M 係數 1/${cfX.neg}`,
+          step: r.step,
+          note: '連續端 |−M| 通常 > 中跨 +M，因支承拘束轉角而集中彎曲；純為重力連續性結果，與地震無關。'
+        });
+      }
+      // 長向 (Y)
+      if (isFinite(cfY.pos)) {
+        const r = buildStep(alphaY, dlY, llY, lnY, cfY.pos, '+M', 'Y');
+        moments.push({
+          dir:'Y (長)', loc:'+M (中跨底)', coef:`α_y·wu·ℓny²/${cfY.pos}`, M:r.Mu, V:0,
+          ref: `${methodRef} — Y 支承=${SUP_NAME[supY]}; ${distInfoY}; +M 係數 1/${cfY.pos}`,
+          step: r.step
+        });
+      }
+      if (isFinite(cfY.neg)) {
+        const r = buildStep(alphaY, dlY, llY, lnY, cfY.neg, '−M', 'Y');
+        moments.push({
+          dir:'Y (長)', loc:'−M (連續端頂)', coef:`α_y·wu·ℓny²/${cfY.neg}`, M:r.Mu, V:0,
+          ref: `${methodRef} — Y 支承=${SUP_NAME[supY]}; ${distInfoY}; −M 係數 1/${cfY.neg}`,
+          step: r.step
+        });
+      }
+      // 剪力：每方向以該向 strip 自身分配後之 wu 計算
+      const VuX = wuX * lnX / 2;       // tf/m
+      const VuY = wuY * lnY / 2;
+      moments.push({
+        dir:'X (短)', loc:'剪力 V', coef:'α_x·wu·ℓnx/2', M:0, V:VuX,
+        ref:'支承反力之半 (短向 strip)',
+        step:`Vu_x = α_x·wu·ℓnx/2 = ${alphaX.toFixed(3)}×${wu.toFixed(3)}×${lnX.toFixed(2)}/2 = ${VuX.toFixed(3)} tf/m`
+      });
+      moments.push({
+        dir:'Y (長)', loc:'剪力 V', coef:'α_y·wu·ℓny/2', M:0, V:VuY,
+        ref:'支承反力之半 (長向 strip)',
+        step:`Vu_y = α_y·wu·ℓny/2 = ${alphaY.toFixed(3)}×${wu.toFixed(3)}×${lnY.toFixed(2)}/2 = ${VuY.toFixed(3)} tf/m`
+      });
+      // 暴露給後續：剪力檢核仍使用 VuX/VuY
+      window.__slab_alphaX = alphaX; window.__slab_alphaY = alphaY;
+      window.__slab_m = m_ratio;
     }
 
     // 渲染內力表
@@ -492,47 +884,173 @@
       </tr>`;
     }).join('');
 
-    // — D. 撓曲檢核 (各位置)
+    // — D. 撓曲設計 / 檢核
+    const isDesign = (currentMode === 'design');
     const beta1 = calcBeta1(fc);
+    // 溫度筋比例 (規範 24.4.3.2)
+    const fyT = num('fyT') || 2800;
+    let rhoT, rhoTFormula;
+    if (fyT <= 2800)      { rhoT = 0.0020; rhoTFormula = '0.0020 (fy ≤ 2800)'; }
+    else if (fyT <= 4200) { rhoT = 0.0018; rhoTFormula = '0.0018 (fy = 4200)'; }
+    else                  { rhoT = Math.max(0.0018 * 4200 / fyT, 0.0014);
+                            rhoTFormula = `max(0.0018·4200/${fyT}, 0.0014) = ${rhoT.toFixed(5)}`; }
+    const AsMin_temp = rhoT * b * h;            // cm²/m (溫度筋下限)
+    // 主筋最大間距 — 規範 7.7.2.3 (一向板): min(3h, 45)；§ 8.7.2.2 (二向板): min(2h, 45)
+    const sMaxFlex = Math.min(isOneWay ? 3*h : 2*h, 45);
+    const sMaxFlexFormula = isOneWay ? `min(3h, 45) = min(${(3*h).toFixed(0)}, 45)`
+                                     : `min(2h, 45) = min(${(2*h).toFixed(0)}, 45)`;
+
+    // 將同向同號 (+ / −) 的 Mu 取最大值做控制設計
+    // 注意：雙向板新方法中 m.dir 為 "X (短)" / "Y (長)"，需取首字元
+    const MuMax = { Xpos:0, Xneg:0, Ypos:0, Yneg:0 };
+    moments.forEach(m => {
+      if (m.M <= 0) return;
+      const axis = m.dir.charAt(0);   // 'X' 或 'Y'
+      const sign = m.loc.includes('+') ? 'pos'
+                 : (m.loc.includes('−') || m.loc.includes('-')) ? 'neg' : 'pos';
+      const key = axis + sign;
+      if (key in MuMax && m.M > MuMax[key]) MuMax[key] = m.M;
+    });
+
+    // 4 個 slot：bot X/Y (+M)、top X/Y (−M)
+    // 薄板單層時 topX 共用 botX 之鋼筋 (號數/間距)；topY 同理
+    const slots = [
+      { key:'botX', layer:'bot', dir:'X', label:'底層 X (+M 中跨底)',
+        Mu: MuMax.Xpos, d: dXBot, barNo: barNoXBot, spId:'barSpXBot' },
+      { key:'botY', layer:'bot', dir:'Y', label:'底層 Y (+M 中跨底)',
+        Mu: MuMax.Ypos, d: dYBot, barNo: barNoYBot, spId:'barSpYBot' },
+      { key:'topX', layer:'top', dir:'X',
+        label:(isThick?'頂層':'單層(頂)') + ' X (−M 連續端頂)',
+        Mu: MuMax.Xneg, d: dXTop, barNo: barNoXTop,
+        spId: isThick ? 'barSpXTop' : 'barSpXBot' },
+      { key:'topY', layer:'top', dir:'Y',
+        label:(isThick?'頂層':'單層(頂)') + ' Y (−M 連續端頂)',
+        Mu: MuMax.Yneg, d: dYTop, barNo: barNoYTop,
+        spId: isThick ? 'barSpYTop' : 'barSpYBot' },
+    ];
+    // 單向板：Y 向僅配溫度筋 (不進行撓曲設計/檢核)
+    if (isOneWay) { slots[1].Mu = 0; slots[3].Mu = 0; }
+
+    // 設計模式：Mu → AsReq → 依序套用偏好間距，必要時自動加大鋼筋號數
+    // 偏好間距 (由大至小)：30, 25, 20, 15, 12, 10, 8 cm；最小可用 8 cm
+    // 若 8 cm 仍不足 → 鋼筋號數逐級加大 (#3→#4→…→#8)，並寫回 select
+    const PREF_SP = [30, 25, 20, 15, 12, 10, 8];
+    const BAR_LADDER = ['#3','#4','#5','#6','#7','#8'];
+    const upgrades = [];   // 紀錄哪些 slot 被強制加大
+    function snapPrefSp(sNeed) {
+      // 取最大「≤ sNeed」之偏好間距；若 sNeed < 8 → 回傳 null (失敗)
+      for (const p of PREF_SP) if (p <= sNeed) return p;
+      return null;
+    }
+    if (isDesign) {
+      // 計算各 slot 的 AsReq (含溫度筋下限)
+      slots.forEach(s => {
+        const Mu_kgcm = Math.max(s.Mu, 0) * 1e5;
+        if (Mu_kgcm > 0) {
+          const des = Flexure.designAsRect({ b, d: s.d, Mu_kgcm, fc, fy });
+          s.AsReq = Math.max(des.As, AsMin_temp);
+        } else {
+          s.AsReq = AsMin_temp;
+        }
+      });
+      // 依 spId 分群 (薄板 bot/top 共用)：取群內最大 AsReq；barNo 群則取使用者目前所選號數作為起點
+      // 對於同一 spId 的 slot，barNo 必為相同 (因 thin 共用、thick 分開)
+      const groups = {};   // spId → { AsReq, barNoId, startBar, slots[] }
+      slots.forEach(s => {
+        let g = groups[s.spId];
+        if (!g) {
+          // 找對應的 barNo select id
+          const barNoId = (s.spId === 'barSpXBot') ? 'barNoXBot'
+                       : (s.spId === 'barSpYBot') ? 'barNoYBot'
+                       : (s.spId === 'barSpXTop') ? 'barNoXTop'
+                       : 'barNoYTop';
+          g = groups[s.spId] = { AsReq: 0, barNoId, slots: [] };
+        }
+        if (s.AsReq > g.AsReq) g.AsReq = s.AsReq;
+        g.slots.push(s);
+      });
+
+      Object.keys(groups).forEach(spId => {
+        const g = groups[spId];
+        let barNo = $(g.barNoId).value;
+        let idx = BAR_LADDER.indexOf(barNo);
+        if (idx < 0) idx = 1;
+        const startBar = BAR_LADDER[idx];
+        let snap = null, finalBar = barNo;
+        while (idx < BAR_LADDER.length) {
+          finalBar = BAR_LADDER[idx];
+          const ab = REBAR_TABLE[finalBar].area;
+          const sNeed = (ab * 100) / Math.max(g.AsReq, 1e-6);
+          snap = snapPrefSp(Math.min(sNeed, sMaxFlex));
+          if (snap !== null) break;
+          idx++;
+        }
+        if (snap === null) {
+          // 連 #8 @ 8cm 都不夠 → 強制 8 cm 並警示
+          snap = 8;
+          finalBar = BAR_LADDER[BAR_LADDER.length - 1];
+          upgrades.push({ spId, from: startBar, to: finalBar, fail: true });
+        } else if (finalBar !== startBar) {
+          upgrades.push({ spId, from: startBar, to: finalBar, fail: false });
+        }
+        // 寫回 select + spacing
+        if ($(g.barNoId).value !== finalBar) $(g.barNoId).value = finalBar;
+        $(spId).value = snap.toFixed(0);
+        // 同步更新 slot 內 barNo / 後續 As 計算用
+        g.slots.forEach(sl => sl.barNo = finalBar);
+      });
+
+      // 若有自動升號：本次 pass 的 d 值仍為舊號數計算，誤差通常 <0.4 cm
+      // 透過 setTimeout 排程下一輪 calcSlab，下一輪將以新號數重算 d，加 guard 防無限迴圈
+      if (upgrades.length && !window._slabUpgradeGuard) {
+        window._slabUpgradeGuard = true;
+        setTimeout(() => { window._slabUpgradeGuard = false; calcSlab(); }, 0);
+      }
+    }
+    // 公開升號資訊供 banner / 報告使用
+    window._slabUpgrades = upgrades;
+
+    // 讀取實際間距 → 計算 As 配置 / φMn (兩模式共用)
     const flexRows = [];
-    const flexLocs = moments.filter(m => m.M > 0);
-
-    // 配筋
-    const abX = REBAR_TABLE[$('barNoX').value].area;
-    const abY = REBAR_TABLE[$('barNoY').value].area;
-    const spX = num('barSpX'), spY = num('barSpY');
-    const AsX = (100 / Math.max(spX, 0.01)) * abX;     // cm²/m
-    const AsY = (100 / Math.max(spY, 0.01)) * abY;
-
-    flexLocs.forEach(m => {
-      const d = (m.dir === 'X') ? dX : dY;
-      const As = (m.dir === 'X') ? AsX : AsY;
-      const Mu_kgcm = m.M * 1e5;
-      const des = Flexure.designAsRect({ b, d, Mu_kgcm, fc, fy });
-      const chk = Flexure.phiMnRect({ b, d, h, As, fc, fy });
+    slots.forEach(s => {
+      const ab = REBAR_TABLE[s.barNo].area;
+      const sp = num(s.spId);
+      s.sp = sp;
+      s.As = (sp > 0) ? (100 / sp) * ab : 0;
+      if (s.Mu <= 0) return;
+      const Mu_kgcm = s.Mu * 1e5;
+      const des = Flexure.designAsRect({ b, d: s.d, Mu_kgcm, fc, fy });
+      const chk = Flexure.phiMnRect({ b, d: s.d, h, As: s.As, fc, fy });
       const phiMn_tfm = chk.phiMn / 1e5;
-      const ok = phiMn_tfm >= m.M;
+      const ok = phiMn_tfm >= s.Mu;
       flexRows.push({
-        loc: `${m.dir} ${m.loc}`, dir: m.dir,
-        M: m.M, AsReq: des.As, As, phiMn: phiMn_tfm, ok
+        loc: s.label, key: s.key, dir: s.dir, layer: s.layer,
+        barNo: s.barNo, sp, d: s.d,
+        Mu: s.Mu, AsReq: Math.max(des.As, AsMin_temp),
+        As: s.As, phiMn: phiMn_tfm, ok,
+        phi: chk.phi, epsT: chk.epsT,
       });
     });
 
     const fTbody = $('flexTable').querySelector('tbody');
     fTbody.innerHTML = flexRows.length ? flexRows.map(r => `<tr class="${r.ok?'ok':'ng'}">
       <td>${r.loc}</td>
-      <td>${r.M.toFixed(3)}</td>
+      <td>${r.Mu.toFixed(3)}</td>
+      <td>${r.barNo}</td>
+      <td>${r.sp.toFixed(1)}</td>
       <td>${r.AsReq.toFixed(2)}</td>
       <td>${r.As.toFixed(2)}</td>
       <td>${r.phiMn.toFixed(3)}</td>
       <td>${r.ok?'✓':'✗'}</td>
-    </tr>`).join('') : `<tr class="info"><td colspan="6">無撓曲位置</td></tr>`;
+    </tr>`).join('') : `<tr class="info"><td colspan="8">無撓曲位置</td></tr>`;
 
-    // — 5. 剪力
+    // — 5. 剪力 (雙向板採 Rankine-Grashof 分配後之 strip 載重)
     const lambda = LAMBDA_NORMAL;
     const lnX = Lx / 100, lnY = Ly / 100;
-    const VuX = wuKgM2 * lnX / 2 / 1000;
-    const VuY = isOneWay ? NaN : (wuKgM2 * lnY / 2 / 1000);
+    const _aX = isOneWay ? 1 : (window.__slab_alphaX ?? 1);
+    const _aY = isOneWay ? 0 : (window.__slab_alphaY ?? 0);
+    const VuX = (wuKgM2 * _aX) * lnX / 2 / 1000;
+    const VuY = isOneWay ? NaN : ((wuKgM2 * _aY) * lnY / 2 / 1000);
     const phiVc1 = PHI.shear * 0.53 * lambda * Math.sqrt(fc) * b * Math.min(dX, dY) / 1000;  // tf/m
     setResult('r-VuX', VuX, 'tf/m', 3);
     setResult('r-VuY', VuY, 'tf/m', 3);
@@ -571,39 +1089,98 @@
     }
 
     // — 6. 鋼筋細節
-    const AsMin = 0.0018 * b * h;
-    const sMaxF = Math.min(2*h, 30);
+    const AsMin = AsMin_temp;
+    const sMaxF = sMaxFlex;
     const sMaxT = Math.min(5*h, 45);
     setResult('r-AsMin', AsMin, 'cm²/m', 2);
     setResult('r-sMaxF', sMaxF, 'cm', 1);
     setResult('r-sMaxT', sMaxT, 'cm', 1);
-    setCheck('c-sX', spX <= sMaxF, `${spX} / ${sMaxF.toFixed(0)}`);
-    setCheck('c-sY', spY <= sMaxF, `${spY} / ${sMaxF.toFixed(0)}`);
+    // 各 slot 間距檢核 (薄板 top 與 bot 為同一值)
+    const spXBot = num('barSpXBot'), spYBot = num('barSpYBot');
+    const spXTop = isThick ? num('barSpXTop') : spXBot;
+    const spYTop = isThick ? num('barSpYTop') : spYBot;
+    setCheck('c-sXBot', spXBot <= sMaxF, `${spXBot.toFixed(1)} / ${sMaxF.toFixed(0)}`);
+    setCheck('c-sYBot', spYBot <= sMaxF, `${spYBot.toFixed(1)} / ${sMaxF.toFixed(0)}`);
+    if (isThick) {
+      setCheck('c-sXTop', spXTop <= sMaxF, `${spXTop.toFixed(1)} / ${sMaxF.toFixed(0)}`);
+      setCheck('c-sYTop', spYTop <= sMaxF, `${spYTop.toFixed(1)} / ${sMaxF.toFixed(0)}`);
+      $('c-sXTop').style.display = '';
+      $('c-sYTop').style.display = '';
+    } else {
+      $('c-sXTop').style.display = 'none';
+      $('c-sYTop').style.display = 'none';
+    }
 
-    // — analysis 顯示
+    // 淨間距檢核 — 規範 25.2.1: 淨距 ≥ db 且 ≥ 2.5 cm
+    function checkClear(elId, sp, db, show) {
+      const el = $(elId); if (!el) return null;
+      if (!show) { el.style.display = 'none'; return null; }
+      el.style.display = '';
+      const minClear = Math.max(db, 2.5);
+      const clear = sp - db;
+      const ok = clear >= minClear;
+      const deficit = ok ? 0 : (minClear - clear);
+      const text = ok
+        ? `淨=${clear.toFixed(2)} ≥ ${minClear.toFixed(2)}`
+        : `淨=${clear.toFixed(2)} < ${minClear.toFixed(2)} (差 ${deficit.toFixed(2)} cm)`;
+      setCheck(elId, ok, text);
+      return { sp, db, clear, minClear, ok, deficit };
+    }
+    const clearXBot = checkClear('c-clXBot', spXBot, dbXBot, true);
+    const clearYBot = checkClear('c-clYBot', spYBot, dbYBot, true);
+    const clearXTop = checkClear('c-clXTop', spXTop, dbXTop, isThick);
+    const clearYTop = checkClear('c-clYTop', spYTop, dbYTop, isThick);
+    const clearAll = [clearXBot, clearYBot, clearXTop, clearYTop].filter(Boolean);
+    const clearOk = clearAll.every(c => c.ok);
+
+    // 繪製斷面示意圖
+    renderSlabSection({
+      h, cover, isThick,
+      barNoXBot, dbXBot, spXBot, dXBot,
+      barNoYBot, dbYBot, spYBot, dYBot,
+      barNoXTop, dbXTop, spXTop, dXTop,
+      barNoYTop, dbYTop, spYTop, dYTop,
+    });
+
+    // — analysis 顯示 (顯示於上方 C 卡片，亦會帶入 banner / 計算書)
+    const _aXdisp = isOneWay ? 1 : (window.__slab_alphaX ?? 0);
+    const _aYdisp = isOneWay ? 0 : (window.__slab_alphaY ?? 0);
     const names = {
-      one: '規範 6.5 連續板係數法',
-      two: '規範 8.10 直接設計法 DDM (有梁雙向板)',
-      flat: '規範 8.10 直接設計法 DDM (無梁版)',
-      flatDrop: '規範 8.10 直接設計法 DDM (有柱頭板)'
+      one: '單向板：規範 6.5 連續板係數法',
+      two: '雙向板 (有梁)：彎矩係數法 — Rankine-Grashof 載重分配 + 規範 6.5 連續板係數',
+      flat: '雙向板 (無梁版)：彎矩係數法 — Rankine-Grashof 載重分配 + 規範 6.5 連續板係數',
+      flatDrop: '雙向板 (有柱頭板)：彎矩係數法 — Rankine-Grashof 載重分配 + 規範 6.5 連續板係數'
     };
-    $('analysisName').textContent = names[stype] || '—';
+    const methodLabel = names[stype] || '—';
+    $('analysisName').textContent = methodLabel;
+    $('methodBannerName').textContent = methodLabel;
+    $('methodBannerDist').textContent = isOneWay
+      ? '長短向比 > 2，板沿短向 (Lx) 受彎；長向僅配溫度收縮筋。'
+      : `長短向比 m = ℓnx/ℓny = ${(window.__slab_m ?? 0).toFixed(3)}　|　短向載重分配 α_x = ${_aXdisp.toFixed(3)}　|　長向載重分配 α_y = ${_aYdisp.toFixed(3)}　|　${rigorousDL ? '嚴謹模式：分列 1.2D / 1.6L 貢獻' : '簡化模式：合併 wu'}`;
     $('analysisDesc').textContent = isOneWay
-      ? '板沿短向跨距 Lx 受彎，依 6.5 係數表計算各位置 Mu/Vu。長向僅配溫度收縮筋。'
-      : '兩向均受彎；以 wu·ℓn²/8 計算 per-meter 整跨平均 Mo (各方向獨立)，再依端／內跨係數分配至 +M/−M。本工具採整跨平均策略，欲精細區分 column strip / middle strip 請依規範 8.4.4 細分。';
+      ? '板沿短向跨距 Lx 受彎，依規範 6.5 係數表計算各位置 Mu/Vu。長向僅配溫度收縮筋。'
+      : `雙向板採彎矩係數法：先依勁度比 (∝1/ℓ⁴) 將 wu 分配為短向 α_x=${_aXdisp.toFixed(3)}、長向 α_y=${_aYdisp.toFixed(3)}，再以規範 6.5 之 +M/−M/V 係數分別計算兩向 strip 內力。短向因勁度大、分擔較多載重，故 Mx > My，符合雙向板實際行為。`
+      + (rigorousDL ? '　[嚴謹模式] 計算書中將分列 1.2D 與 1.6L 對 Mu 之貢獻。' : '');
 
     // — banner
     const allFlexOk = flexRows.length === 0 || flexRows.every(r => r.ok);
     const shearOk = (phiVc1 >= VuX) && (isOneWay || phiVc1 >= VuY);
     const punchOk = !punchData || punchData.ok;
-    const allOk = (h >= hmin) && allFlexOk && shearOk && punchOk;
+    const allOk = (h >= hmin) && allFlexOk && shearOk && punchOk && clearOk;
     const banner = $('bannerStatus');
     banner.className = 'banner-status ' + (allOk ? 'ok' : 'fail');
     banner.innerHTML = (allOk ? '✓ OK — 符合規範' : '✗ NG — 部分項目未通過')
       + `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">`
       + `${h>=hmin?'✓':'✗'} 板厚 ｜ ${allFlexOk?'✓':'✗'} 撓曲 ｜ ${shearOk?'✓':'✗'} 單向剪力`
       + (punchData ? ` ｜ ${punchOk?'✓':'✗'} 雙向衝剪` : '')
+      + ` ｜ ${clearOk?'✓':'✗'} 鋼筋淨距`
       + `</div>`;
+    if (upgrades.length) {
+      const upTxt = upgrades.map(u =>
+        `${u.spId.replace('barSp','')}: ${u.from}→${u.to}` + (u.fail?' (仍不足!)':'')
+      ).join('，');
+      banner.innerHTML += `<div style="font-size:0.72em; font-weight:600; margin-top:6px; padding:6px 10px; background:#fef3c7; color:#a16207; border-left:3px solid #f59e0b; border-radius:4px;">⚠ 設計模式自動加大鋼筋號數：${upTxt}</div>`;
+    }
     $('bannerKey').innerHTML = `
       <div class="k"><span class="k-label">類型</span><span class="k-val">${isOneWay?'單向':'雙向'} (Ly/Lx=${ratio.toFixed(2)})</span></div>
       <div class="k"><span class="k-label">wu</span><span class="k-val">${wu.toFixed(3)} tf/m²</span></div>
@@ -612,10 +1189,23 @@
 
     // 儲存供報告
     window.slabLast = {
-      stype, isOneWay, isFlat, ratio, Lx, Ly, h, cover, fc, fy, dX, dY, supX, supY,
-      wu, wuFormula, hmin, hminFormula, moments, flexRows,
-      VuX, VuY, phiVc1, AsMin, sMaxF, sMaxT,
-      barNoX:$('barNoX').value, spX, AsX, barNoY:$('barNoY').value, spY, AsY,
+      stype, isOneWay, isFlat, ratio, Lx, Ly, h, cover, fc, fy,
+      dXBot, dYBot, dXTop, dYTop, dX, dY, supX, supY,
+      wu, wuFormula, hmin, hminFormula, hminRef,
+      supW: num('supW'), lnX_cm, lnY_cm,
+      alphaFm: (stype==='two' ? num('alphaFm') : NaN),
+      panelPos: (isFlat ? $('panelPos').value : ''),
+      moments, flexRows,
+      VuX, VuY, phiVc1, AsMin, sMaxF, sMaxT, sMaxFlexFormula,
+      fyT, rhoT, rhoTFormula,
+      methodLabel, alphaX: _aXdisp, alphaY: _aYdisp, m_ratio: (isOneWay ? NaN : (window.__slab_m ?? NaN)),
+      rigorousDL, dl_val, ll_val, wuFormula,
+      isThick, layerMode,
+      barNoXBot, spXBot, dbXBot, barNoYBot, spYBot, dbYBot,
+      barNoXTop, spXTop, dbXTop, barNoYTop, spYTop, dbYTop,
+      clearAll, clearOk,
+      mode: currentMode,
+      showSteps: !!$('showSteps')?.checked,
       punchData, allOk
     };
   }
@@ -634,46 +1224,114 @@
         { label:'Ly/Lx', value: r.ratio.toFixed(2) },
         { label:'板厚 h', value: r.h, unit:'cm' },
         { label:'保護層', value: r.cover, unit:'cm' },
-        { label:'短向有效深 dX', value: r.dX.toFixed(2), unit:'cm' },
-        { label:'長向有效深 dY', value: r.dY.toFixed(2), unit:'cm' },
+        { label:'支承寬 c', value: r.supW, unit:'cm' },
+        { label:'短向淨跨 ℓnx', value: r.lnX_cm.toFixed(1), unit:'cm' },
+        { label:'長向淨跨 ℓny', value: r.lnY_cm.toFixed(1), unit:'cm' },
+        ...(r.stype==='two' ? [{ label:'α_fm', value: r.alphaFm.toFixed(2) }] : []),
+        ...(r.panelPos ? [{ label:'無梁版位置', value: ({interior:'內版',extWithBeam:'外版(有邊梁)',extNoBeam:'外版(無邊梁)'})[r.panelPos] }] : []),
+        { label:'底層 短向有效深 dX', value: r.dXBot.toFixed(2), unit:'cm' },
+        { label:'底層 長向有效深 dY', value: r.dYBot.toFixed(2), unit:'cm' },
+        ...(r.isThick ? [
+          { label:'頂層 短向有效深 dX', value: r.dXTop.toFixed(2), unit:'cm' },
+          { label:'頂層 長向有效深 dY', value: r.dYTop.toFixed(2), unit:'cm' },
+        ] : []),
+        { label:'鋼筋層', value: r.isThick ? '雙層 (頂+底，各兩向)' : '單層 (兩向)' },
       ]},
       { group:'材料', items:[
         { label:"fc'", value:r.fc, unit:'kgf/cm²' },
-        { label:'fy',  value:r.fy, unit:'kgf/cm²' },
+        { label:'fy 主筋',  value:r.fy, unit:'kgf/cm²' },
+        { label:'fyt 溫度筋', value:r.fyT, unit:'kgf/cm²' },
+      ]},
+      { group:'分析方法', items: [
+        { label:'採用方法', value: r.methodLabel },
+        ...(r.isOneWay ? [
+          { label:'說明', value:'長短向比 > 2，板沿短向 (Lx) 受彎；長向僅配溫度收縮筋。' }
+        ] : [
+          { label:'長短向比 m', value: r.m_ratio.toFixed(3) },
+          { label:'短向載重分配 α_x', value: r.alphaX.toFixed(3), unit:'(=ℓny⁴/(ℓnx⁴+ℓny⁴))' },
+          { label:'長向載重分配 α_y', value: r.alphaY.toFixed(3), unit:'(=ℓnx⁴/(ℓnx⁴+ℓny⁴))' },
+        ]),
+        { label:'D/L 模式', value: r.rigorousDL ? '嚴謹：分列 1.2D / 1.6L 對 Mu 之貢獻' : '簡化：以合併 wu 計算' },
+        ...(r.rigorousDL ? [
+          { label:'D (恆載)', value: r.dl_val.toFixed(3), unit:'tf/m²' },
+          { label:'L (活載)', value: r.ll_val.toFixed(3), unit:'tf/m²' },
+        ] : []),
       ]},
       { group:'載重', items:[
         { label:'設計載重 wu', value:r.wu.toFixed(3), unit:'tf/m²' },
         { label:'計算式', value:r.wuFormula },
       ]},
-      { group:'配筋', items:[
-        { label:'短向主筋', value:`${r.barNoX} @ ${r.spX} cm  (As=${r.AsX.toFixed(2)} cm²/m)` },
-        { label:'長向主筋', value:`${r.barNoY} @ ${r.spY} cm  (As=${r.AsY.toFixed(2)} cm²/m)` },
+      { group: r.mode==='design' ? '配筋 (設計模式 — 間距由系統反算)' : '配筋 (檢核模式)', items:[
+        ...(r.isThick ? [
+          { label:'底層 短向', value:`${r.barNoXBot} @ ${r.spXBot} cm` },
+          { label:'底層 長向', value:`${r.barNoYBot} @ ${r.spYBot} cm` },
+          { label:'頂層 短向', value:`${r.barNoXTop} @ ${r.spXTop} cm` },
+          { label:'頂層 長向', value:`${r.barNoYTop} @ ${r.spYTop} cm` },
+        ] : [
+          { label:'單層 短向', value:`${r.barNoXBot} @ ${r.spXBot} cm` },
+          { label:'單層 長向', value:`${r.barNoYBot} @ ${r.spYBot} cm` },
+        ]),
       ]},
     ];
 
     const checks = [
-      { group:'板厚', items:[
-        { label:'h ≥ hmin', formula:`hmin = ${r.hminFormula}`,
-          sub:`hmin = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm`,
-          value:`${r.h} / ${r.hmin.toFixed(1)}`, unit:'cm', ok:r.h>=r.hmin }
+      { group:`板厚最小值檢核 (${r.hminRef})`, items:[
+        { label:'h ≥ hmin',
+          formula: r.isOneWay
+            ? 'hmin = ℓn/k · (0.4+fy/7000)'
+            : (r.stype==='two'
+                ? 'hmin = ℓn(0.8+fy/14000) / [36+5β(α_fm−0.2) 或 36+9β]'
+                : 'hmin = ℓn/k · (0.4+fy/7000)'),
+          sub: `淨跨 ℓnx = Lx − c = ${r.Lx} − ${r.supW} = ${r.lnX_cm.toFixed(1)} cm`
+             + `\n淨跨 ℓny = Ly − c = ${r.Ly} − ${r.supW} = ${r.lnY_cm.toFixed(1)} cm`
+             + (isFinite(r.alphaFm) ? `\nα_fm = ${r.alphaFm.toFixed(2)}` : '')
+             + (r.panelPos ? `\n位置 = ${({interior:'內版',extWithBeam:'外版(有邊梁)',extNoBeam:'外版(無邊梁)'})[r.panelPos]}` : '')
+             + `\n${r.hminFormula}`
+             + `\nhmin = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm`,
+          value:`${r.h} / ${r.hmin.toFixed(1)}`, unit:'cm', ok:r.h>=r.hmin,
+          note: r.h >= r.hmin ? '免做撓度詳算' : '需做撓度詳算或加大板厚' }
       ]},
-      { group:'內力分析 (各方向、各位置)', items: r.moments.map(m => ({
-          label:`${m.dir} ${m.loc}`, formula:m.coef,
-          sub: m.M>0 ? `Mu = ${m.M.toFixed(3)} tf·m/m`
-                     : (m.V>0 ? `Vu = ${m.V.toFixed(3)} tf/m` : '僅配溫度收縮筋'),
-          value: m.M>0 ? m.M.toFixed(3) : (m.V>0 ? m.V.toFixed(3) : '—'),
-          unit: m.M>0 ? 'tf·m/m' : (m.V>0 ? 'tf/m' : ''),
-          ok: null }))
+      { group:'內力分析 (各方向、各位置)', items: r.moments.map(m => {
+          const baseSub = m.M>0 ? `Mu = ${m.M.toFixed(3)} tf·m/m`
+                       : (m.V>0 ? `Vu = ${m.V.toFixed(3)} tf/m` : (m.ref || '僅配溫度收縮筋'));
+          let sub = baseSub;
+          if (r.showSteps && (m.ref || m.step)) {
+            const lines = [];
+            if (m.ref)  lines.push(m.ref);
+            if (m.step) lines.push(m.step);
+            if (m.note) lines.push('💡 ' + m.note);
+            sub = lines.join('\n');
+          }
+          return {
+            label:`${m.dir} ｜ ${m.loc}`, formula:m.coef, sub,
+            value: m.M>0 ? m.M.toFixed(3) : (m.V>0 ? m.V.toFixed(3) : '—'),
+            unit: m.M>0 ? 'tf·m/m' : (m.V>0 ? 'tf/m' : ''),
+            ok: null
+          };
+        })
       },
-      { group:'撓曲鋼筋檢核', items: r.flexRows.length ? r.flexRows.map(f => ({
-          label:f.loc, formula:'φMn = φ·As·fy·(d−a/2)',
-          sub:`As 需求=${f.AsReq.toFixed(2)}, 配置=${f.As.toFixed(2)} cm²/m`,
-          value:`${f.phiMn.toFixed(3)} / ${f.M.toFixed(3)}`, unit:'tf·m/m', ok:f.ok })) :
-          [{ label:'(無撓曲位置)', formula:'—', sub:'—', value:'—', ok:null }]
+      { group: r.mode==='design' ? '撓曲鋼筋設計' : '撓曲鋼筋檢核', items: r.flexRows.length ? r.flexRows.map(f => {
+          const a = (f.As * r.fy) / (0.85 * r.fc * 100);
+          const arm = f.d - a/2;
+          const phi = f.phi;
+          const phiTag = (phi >= 0.895) ? '拉控' : (phi <= 0.655) ? '壓控' : '過渡';
+          const baseSub = `${f.barNo} @ ${f.sp.toFixed(1)} cm，d=${f.d.toFixed(2)}，As 需求=${f.AsReq.toFixed(2)}, 配置=${f.As.toFixed(2)} cm²/m`;
+          const stepSub = r.showSteps
+            ? baseSub + `\n  Mu = ${f.Mu.toFixed(3)} tf·m/m × 1e5 = ${(f.Mu*1e5).toFixed(0)} kgf·cm`
+                     + `\n  a = As·fy/(0.85·fc'·b) = ${f.As.toFixed(2)}×${r.fy}/(0.85×${r.fc}×100) = ${a.toFixed(3)} cm`
+                     + `\n  d − a/2 = ${f.d.toFixed(2)} − ${(a/2).toFixed(3)} = ${arm.toFixed(3)} cm`
+                     + `\n  εt = ${f.epsT.toFixed(4)} → φ = ${phi.toFixed(3)} (${phiTag}, 規範 21.2.2)`
+                     + `\n  φMn = ${phi.toFixed(3)}·As·fy·(d−a/2) = ${phi.toFixed(3)}×${f.As.toFixed(2)}×${r.fy}×${arm.toFixed(3)} / 1e5 = ${f.phiMn.toFixed(3)} tf·m/m`
+            : baseSub;
+          return { label:f.loc, formula:'φMn = φ·As·fy·(d−a/2)', sub: stepSub,
+            value:`${f.phiMn.toFixed(3)} / ${f.Mu.toFixed(3)}`, unit:'tf·m/m', ok:f.ok };
+        }) : [{ label:'(無撓曲位置)', formula:'—', sub:'—', value:'—', ok:null }]
       },
       { group:'單向剪力', items:[
         { label:'短向 φVc ≥ Vu', formula:'φVc = 0.75·0.53·√fc·b·d',
-          sub:`= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuX.toFixed(3)}`,
+          sub: r.showSteps
+            ? `φVc = 0.75 × 0.53 × √${r.fc} × 100 × ${Math.min(r.dXBot,r.dYBot).toFixed(2)} / 1000\n     = ${r.phiVc1.toFixed(3)} tf/m，Vu=${r.VuX.toFixed(3)} tf/m`
+            : `= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuX.toFixed(3)}`,
           value:`${r.phiVc1.toFixed(3)} / ${r.VuX.toFixed(3)}`, unit:'tf/m', ok:r.phiVc1>=r.VuX },
         ...(r.isOneWay ? [] : [{ label:'長向 φVc ≥ Vu', formula:'同上',
           sub:`= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuY.toFixed(3)}`,
@@ -688,22 +1346,60 @@
           value:`${r.punchData.phiVc2.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
           unit:'tf', ok:r.punchData.ok }
       ]}] : []),
+      // ─── 溫度收縮筋檢核 (規範 24.4.3) ───
+      // 對每一層 × 每一向比較實際 As 與 As,min,t；單向板長向僅靠此檢核
+      { group:'溫度收縮筋檢核 (規範 24.4.3)', items: (() => {
+        const layers = r.isThick
+          ? [
+              ['底層 短向 (X)', r.barNoXBot, r.spXBot],
+              ['底層 長向 (Y)', r.barNoYBot, r.spYBot],
+              ['頂層 短向 (X)', r.barNoXTop, r.spXTop],
+              ['頂層 長向 (Y)', r.barNoYTop, r.spYTop],
+            ]
+          : [
+              ['短向 (X) 單層', r.barNoXBot, r.spXBot],
+              ['長向 (Y) 單層', r.barNoYBot, r.spYBot],
+            ];
+        return layers.map(([lbl, bar, sp]) => {
+          const ab = (typeof REBAR_TABLE !== 'undefined' && REBAR_TABLE[bar]) ? REBAR_TABLE[bar].area : 0;
+          const AsAct = sp > 0 ? (100 / sp) * ab : 0;
+          const okAs = AsAct >= r.AsMin - 1e-6;
+          const okSp = sp > 0 && sp <= r.sMaxT + 1e-6;
+          const ok = okAs && okSp;
+          const isYTempOnly = r.isOneWay && lbl.includes('Y');
+          return {
+            label: lbl, formula: 'As ≥ As,min,t　且　s ≤ smax,t',
+            sub: `${bar} @ ${sp.toFixed(1)} cm → As 配置 = ${AsAct.toFixed(2)} cm²/m`
+                + `\nAs,min,t (ρt=${r.rhoT.toFixed(4)}, fyt=${r.fyT}) = ${r.AsMin.toFixed(2)} cm²/m → ${okAs ? '✓ 合' : '✗ 不足'}`
+                + `\n間距 ${sp.toFixed(1)} cm ≤ smax,t = min(5h, 45) = ${r.sMaxT.toFixed(0)} cm → ${okSp ? '✓ 合' : '✗ 超過'}`,
+            value: `${AsAct.toFixed(2)} / ${r.AsMin.toFixed(2)}`, unit: 'cm²/m', ok,
+            note: isYTempOnly ? '單向板長向：此方向僅配溫度收縮筋' : ''
+          };
+        });
+      })() },
       { group:'鋼筋細節', items:[
-        { label:'溫度筋 As,min', formula:'0.0018·b·h',
-          sub:`= 0.0018·100·${r.h} = ${r.AsMin.toFixed(2)} cm²/m`,
+        { label:'溫度筋 As,min', formula:`ρt·b·h　(ρt 由 fyt 決定)`,
+          sub: r.showSteps
+            ? `規範 24.4.3.2：fyt=${r.fyT} → ρt = ${r.rhoTFormula}\nAs,min = ${r.rhoT.toFixed(4)} × 100 × ${r.h} = ${r.AsMin.toFixed(2)} cm²/m`
+            : `ρt=${r.rhoT.toFixed(4)} (fyt=${r.fyT}) → ${r.rhoT.toFixed(4)}·100·${r.h} = ${r.AsMin.toFixed(2)}`,
           value:`${r.AsMin.toFixed(2)}`, unit:'cm²/m', ok:null },
-        { label:'主筋最大間距', formula:'min(2h, 30)',
-          sub:`smax = min(${(2*r.h).toFixed(0)}, 30) = ${r.sMaxF.toFixed(0)} cm`,
+        { label:'主筋最大間距', formula: r.isOneWay ? 'min(3h, 45)' : 'min(2h, 45)',
+          sub:`smax = ${r.sMaxFlexFormula} = ${r.sMaxF.toFixed(0)} cm  ${r.isOneWay?'(規範 7.7.2.3 一向板)':'(規範 8.7.2.2 二向板)'}`,
           value:`${r.sMaxF.toFixed(0)}`, unit:'cm',
-          ok:(r.spX<=r.sMaxF) && (r.spY<=r.sMaxF) },
+          ok:(r.spXBot<=r.sMaxF) && (r.spYBot<=r.sMaxF) && (!r.isThick || ((r.spXTop<=r.sMaxF) && (r.spYTop<=r.sMaxF))) },
         { label:'溫度筋最大間距', formula:'min(5h, 45)',
           sub:`smax = min(${(5*r.h).toFixed(0)}, 45) = ${r.sMaxT.toFixed(0)} cm`,
           value:`${r.sMaxT.toFixed(0)}`, unit:'cm', ok:null },
       ]},
     ];
 
+    const isDesignMode = (r.mode === 'design');
     openReport({
-      title:'板設計計算書', subtitle:'RC Slab Design Report', project:proj,
+      title: isDesignMode ? '板設計計算書 (設計模式)' : '板檢核計算書 (檢核模式)',
+      subtitle: isDesignMode
+        ? 'RC Slab Design Report — 由 Mu 反算所需鋼筋'
+        : 'RC Slab Verification Report — 檢核既有配筋之 φMn 是否足夠',
+      project: proj,
       summary:{ ok:r.allOk, text: r.allOk?'✓ OK — 符合規範':'✗ NG — 部分項目未通過' },
       inputs, checks,
       symbols:[
@@ -744,7 +1440,7 @@
     el.addEventListener('change', calcSlab);
   });
   $('btnReport').addEventListener('click', buildSlabReport);
-  window.addEventListener('load', () => { updateSelfWt(); calcSlab(); });
+  window.addEventListener('load', () => { updateSelfWt(); syncDesignFields(); calcSlab(); });
 </script>
 </body>
 </html>

@@ -144,7 +144,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-check th { background:#eef2f6; font-weight:600; text-align:center; font-size:11px; }
 .rep-check td.lbl { width:18%; font-weight:600; }
 .rep-check td.formula { width:24%; font-family:"Cambria Math","Times New Roman",serif; font-style:italic; }
-.rep-check td.sub { width:30%; font-family:"Consolas",monospace; font-size:11px; color:#333; }
+.rep-check td.sub { width:30%; font-family:"Consolas",monospace; font-size:11px; color:#333; white-space:pre-wrap; word-break:break-word; }
 .rep-check td.value { width:14%; font-weight:600; text-align:right; }
 .rep-check td.judge { width:10%; text-align:center; font-weight:700; }
 .rep-check tr.ok td.judge { color:#1b8a3a; }
