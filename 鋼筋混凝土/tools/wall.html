@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>牆設計 — RC 工具箱</title>
+<link rel="stylesheet" href="../shared/style.css">
+<style>
+  .steps-card h2 { color:#5b21b6; }
+  .steps-body {
+    white-space: pre-wrap; word-break: break-word;
+    font-family: ui-monospace, "Cascadia Code", "Consolas", "Microsoft JhengHei", monospace;
+    font-size: 0.82em; line-height: 1.55;
+    background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 6px;
+    padding: 12px 14px; margin: 0; color: #3b0764;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>牆 Wall 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V0.96</span></h1>
+  <p><a class="back" href="../index.html">← 回工具箱</a> ｜ 承重牆／結構牆厚度、軸力簡易公式、特殊邊界構材</p>
+</header>
+
+<div class="container">
+
+  <!-- 模式切換 (使用 shared .mode-bar 響應式類別) -->
+  <div class="card mode-bar">
+    <strong class="mode-bar__label">作業模式：</strong>
+    <div class="mode-bar__group" role="tablist">
+      <button class="mode-bar__btn mode-btn active" data-mode="design">設計</button>
+      <button class="mode-bar__btn mode-btn"        data-mode="check">檢核</button>
+    </div>
+    <span class="mode-bar__hint" id="modeHint">設計模式：給定載重，建議鋼筋配置。</span>
+    <div class="mode-bar__proj">
+      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+      <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+    </div>
+  </div>
+
+  <div class="section-tabs">
+    <button class="active" data-tab="geom">1. 幾何 ＆ 材料</button>
+    <button data-tab="load">2. 載重</button>
+    <button data-tab="rebar">3. 配筋</button>
+    <button data-tab="methods">4. 計算法</button>
+    <button data-tab="summary">5. 綜合檢核</button>
+  </div>
+
+  <div class="main-layout">
+    <div>
+      <div class="card" data-shows="geom">
+        <h2>基本資料 (幾何 ＆ 材料)</h2>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="seismicMode">
+          <label for="seismicMode">套用特殊結構牆耐震規定</label>
+        </div>
+
+        <div class="checkbox-row" style="background:#ede9fe; border-color:#c4b5fd;">
+          <input type="checkbox" id="showSteps">
+          <label for="showSteps" style="color:#5b21b6;">顯示計算過程 (詳列公式與代入步驟，並印在計算書中)</label>
+        </div>
+
+        <div class="form-group">
+          <label>牆型</label>
+          <select id="wallType">
+            <option value="bearing" selected>承重牆</option>
+            <option value="nonbearing">非承重牆</option>
+            <option value="basement">地下室外牆／基礎外牆</option>
+            <option value="shear">結構牆 (剪力牆)</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group"><label>fc' (kgf/cm²)</label><input type="number" id="fc" value="280"></div>
+          <div class="form-group"><label>fy (kgf/cm²)</label><input type="number" id="fy" value="4200"></div>
+        </div>
+
+        <div class="form-group">
+          <label>混凝土種類 λ</label>
+          <select id="lambdaSel">
+            <option value="1.00" selected>常重 (λ = 1.00)</option>
+            <option value="0.85">砂輕質 (λ = 0.85)</option>
+            <option value="0.75">全輕質 (λ = 0.75)</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group"><label>牆厚 h (cm)</label><input type="number" id="h" value="20"></div>
+          <div class="form-group"><label>牆長 ℓw (cm)</label><input type="number" id="lw" value="500"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group"><label>未支撐高度 ℓc (cm)</label><input type="number" id="lc" value="300"></div>
+          <div class="form-group"><label>有效長度因數 k</label><input type="number" id="k" value="1.0" step="0.1"></div>
+        </div>
+
+        <div class="form-group"><label>牆總高 hw (cm) — 結構牆用</label><input type="number" id="hw" value="1500"></div>
+      </div>
+
+      <div class="card subpanel active" data-panel="geom">
+        <h2>厚度檢核</h2>
+        <p class="hint">依牆型自動檢核最小厚度 (10/20 cm 與 ℓc/25 或 ℓc/30)。</p>
+      </div>
+
+      <div class="card" data-shows="load">
+        <h2>載重組合產生器 (可選)</h2>
+        <div id="lcWallPanel"></div>
+      </div>
+
+      <div class="card subpanel" data-panel="load">
+        <h2>面內載重 (Pu / Vu)</h2>
+        <div class="form-row">
+          <div class="form-group"><label>因數化軸力 Pu (tf)</label><input type="number" id="Pu" value="80"></div>
+          <div class="form-group"><label>偏心 e (cm)</label><input type="number" id="e" value="2"></div>
+        </div>
+        <div class="form-group"><label>面內剪力 Vu (tf)</label><input type="number" id="Vu" value="50"></div>
+        <p class="hint">若 e ≤ h/6 可使用簡易公式 11.5.3.1。Pu 與 Vu 可由下方「載重組合產生器」自動帶入。</p>
+      </div>
+
+      <div class="card subpanel" data-panel="rebar">
+        <h2>鋼筋配置</h2>
+        <p class="hint" id="rebarModeHint">【設計模式】請先選擇欲採用的縱筋／橫筋號數，系統將依當前載重與規範下限計算所需間距與層數。</p>
+        <div class="form-row">
+          <div class="form-group"><label>縱筋號數 (目標)</label>
+            <select id="vBar"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
+          </div>
+          <div class="form-group"><label>橫筋號數 (目標)</label>
+            <select id="hBar"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
+          </div>
+        </div>
+        <div id="rebarDesignInlineSugg" style="margin:8px 0; padding:10px 12px; background:#ecfdf5; border-left:3px solid #16a34a; border-radius:4px; font-size:0.9em;">
+          <div style="font-weight:600; color:#166534; margin-bottom:4px;">📐 依目標號數之建議配筋規格</div>
+          <div id="inlineVSugg" style="font-family:monospace;">縱筋 —</div>
+          <div id="inlineHSugg" style="font-family:monospace;">橫筋 —</div>
+          <div id="inlineLayerSugg" style="font-family:monospace;">層數 —</div>
+        </div>
+        <div class="form-row" data-rebar-spacing>
+          <div class="form-group"><label>縱筋間距 (cm)</label><input type="number" id="vSp" value="20"></div>
+          <div class="form-group"><label>橫筋間距 (cm)</label><input type="number" id="hSp" value="20"></div>
+        </div>
+        <div class="form-group" data-rebar-spacing>
+          <label>鋼筋層數</label>
+          <select id="layers"><option value="1">單層</option><option value="2" selected>雙層</option></select>
+        </div>
+      </div>
+
+      <div class="card subpanel" data-panel="load">
+        <h2>面外載重 (Mua / Pu,oop)</h2>
+        <div class="form-row">
+          <div class="form-group"><label>面外因數化彎矩 Mua (tf·m/m)</label><input type="number" id="Mua" value="2"></div>
+          <div class="form-group"><label>面外軸力 Pu,oop (tf/m)</label><input type="number" id="PuOop" value="20"></div>
+        </div>
+        <p class="hint">適用條件: kℓc/h ≤ 30, Pu ≤ 0.06 fc'·Ag, ρℓ ≥ 0.01。Mua 為含 P-δ 二階放大後的彎矩需求 (tf·m/m)。</p>
+
+        <div class="checkbox-row" style="margin-top:12px;">
+          <input type="checkbox" id="basementWall">
+          <label for="basementWall">地下室外牆 (土壓自動計算)</label>
+        </div>
+        <div id="basementInputs" style="display:none; padding:10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
+          <div class="form-row">
+            <div class="form-group"><label>埋置深度 H (m)</label><input type="number" id="bwH" value="3.0" step="0.1"></div>
+            <div class="form-group"><label>土單位重 γs (tf/m³)</label><input type="number" id="bwGamma" value="1.8" step="0.1"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>主動土壓係數 Ka</label><input type="number" id="bwKa" value="0.33" step="0.01"></div>
+            <div class="form-group"><label>地表超載 q (tf/m²)</label><input type="number" id="bwSurch" value="1.0" step="0.5"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>地下水位高 hw (m, 從牆底)</label><input type="number" id="bwHw" value="0" step="0.1"></div>
+            <div class="form-group"><label>水單位重 γw (tf/m³)</label><input type="number" id="bwGw" value="1.0" step="0.1"></div>
+          </div>
+          <p class="hint">三角形土壓 + 矩形超載 + (可選) 三角形水壓；以單位寬度簡支梁 (M = wL²/8 與三角載重 0.0641·w·L²) 取較大值，並乘 1.6 (土) / 1.6 (水) 因素 → 自動覆蓋上方 Mua 與 PuOop 顯示。</p>
+        </div>
+      </div>
+
+      <div class="card subpanel" data-panel="load">
+        <h2>耐震載重 ＆ 邊界構材參數 <span class="badge-seismic" style="font-size:0.7em;">SSW</span></h2>
+        <div class="form-group"><label>邊緣最大壓應力 σmax (kgf/cm²)</label><input type="number" id="sigmaMax" value="80"></div>
+        <p class="hint">用於檢核是否需要特殊邊界構材 (>0.2fc')。僅在勾選耐震模式或結構牆時適用。</p>
+        <hr style="margin:12px 0; border:0; border-top:1px dashed #cbd5e1;">
+        <h3 style="font-size:0.95em; margin:8px 0;">邊界構材詳細 (若需設置)</h3>
+        <div class="form-row">
+          <div class="form-group"><label>柱(設計彎矩) Mu (tf·m)</label><input type="number" id="MuW" value="800"></div>
+          <div class="form-group"><label>柱(設計剪力) δu/hw</label><input type="number" id="duhw" value="0.012" step="0.001"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>BE 長度 c (cm, 中性軸)</label><input type="number" id="cBE" value="80"></div>
+          <div class="form-group"><label>BE 縱筋 fyt (kgf/cm²)</label><input type="number" id="fytBE" value="4200"></div>
+        </div>
+        <p class="hint">依規範 18.10.6.4 — 若 c ≥ ℓw/(600·(1.5·δu/hw)) 須設置邊界構材, 並沿高度延伸 max(ℓw, Mu/(4Vu))。</p>
+      </div>
+
+      <div class="card subpanel" data-panel="methods">
+        <h2>計算法選擇</h2>
+        <p class="hint">本頁集中所有「演算法／求解選項」，與輸入分離以利對照。</p>
+
+        <h3 style="font-size:0.95em; margin:14px 0 6px;">面外撓曲 P-Δ 求解法 (規範 11.8)</h3>
+        <div class="form-group">
+          <label>方法</label>
+          <select id="slenderMethod">
+            <option value="simple" selected>簡版 (一次 P-δ + Δs ≤ ℓc/150 服務檢核)</option>
+            <option value="iter">完整迭代 (M_(k+1) = Mu + Pu·Δ(M_k))</option>
+          </select>
+        </div>
+
+        <hr style="margin:14px 0; border:0; border-top:1px dashed #cbd5e1;">
+        <h3 style="font-size:0.95em; margin:8px 0;">SBE 沿水平延伸 (壓應力 ≤0.15fc' 終止, 規範 18.10.6.2)</h3>
+        <div class="form-group">
+          <label>延伸計算方法</label>
+          <select id="sbeExtMethod">
+            <option value="linear" selected>線性內插 (σmax → 0)</option>
+            <option value="custom">輸入完整應力分布</option>
+          </select>
+        </div>
+        <div id="sbeExtCustomBox" style="display:none; padding:8px 10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
+          <p class="hint">輸入沿牆長離壓側距離 x (cm) 與對應壓應力 σ (kgf/cm²)，每行一組，逗號或空白分隔。例：<br>0, 80<br>50, 60<br>120, 30<br>200, 0</p>
+          <textarea id="sbeStressData" rows="5" style="width:100%; font-family:monospace; font-size:0.85em; padding:6px; border:1px solid #cbd5e1; border-radius:5px;">0, 80
+50, 60
+120, 30
+200, 0</textarea>
+        </div>
+      </div>
+
+      <div class="card subpanel" data-panel="geom">
+        <h2>有效翼版寬 (L／T／C／I 剖面)</h2>
+        <div class="form-group">
+          <label>剖面形狀</label>
+          <select id="flangeShape">
+            <option value="rect" selected>矩形 (無翼版)</option>
+            <option value="L">L 形 (單邊翼版)</option>
+            <option value="T">T 形 (雙邊翼版)</option>
+            <option value="C">C 形 (端部翼版)</option>
+            <option value="I">I 形 (兩端翼版)</option>
+          </select>
+        </div>
+        <div id="flangeInputs" style="display:none;">
+          <div class="form-row">
+            <div class="form-group"><label>翼版厚 tf (cm)</label><input type="number" id="flangeTf" value="20"></div>
+            <div class="form-group"><label>翼版實際突出 bf,act (cm)</label><input type="number" id="flangeBfAct" value="200"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>至鄰牆半距 s/2 (cm)</label><input type="number" id="flangeHalf" value="300"></div>
+            <div class="form-group"><label>牆總高 hw (cm) ※自動帶入</label><input type="number" id="flangeHw" value="1500"></div>
+          </div>
+          <p class="hint">b_eff = min(s/2, 0.25·hw, bf,act)；I/T/C 會雙邊計算，L 為單邊。</p>
+        </div>
+      </div>
+
+      <div class="card subpanel" data-panel="load">
+        <h2>多片牆聚合檢核</h2>
+        <p class="hint">輸入同層各片牆段，檢核 ΣVn ≤ 2.12·λ·√fc'·ΣAcv (規範 18.10.4.4) 並警示力集中。</p>
+        <table id="aggTable" style="width:100%; border-collapse:collapse; font-size:0.88em;">
+          <thead>
+            <tr style="background:#e2e8f0;">
+              <th style="padding:6px; border:1px solid #cbd5e1;">#</th>
+              <th style="padding:6px; border:1px solid #cbd5e1;">標記</th>
+              <th style="padding:6px; border:1px solid #cbd5e1;">h (cm)</th>
+              <th style="padding:6px; border:1px solid #cbd5e1;">ℓw (cm)</th>
+              <th style="padding:6px; border:1px solid #cbd5e1;">hw/ℓw</th>
+              <th style="padding:6px; border:1px solid #cbd5e1;">ρt</th>
+              <th style="padding:6px; border:1px solid #cbd5e1;">Vu (tf)</th>
+              <th style="padding:6px; border:1px solid #cbd5e1;"></th>
+            </tr>
+          </thead>
+          <tbody id="aggBody"></tbody>
+        </table>
+        <button type="button" id="aggAddBtn" style="margin-top:8px; padding:6px 14px; background:#0e7490; color:#fff; border:0; border-radius:5px; cursor:pointer; font-family:inherit;">+ 新增牆段</button>
+        <button type="button" id="aggUseCurBtn" style="margin-top:8px; margin-left:6px; padding:6px 14px; background:#475569; color:#fff; border:0; border-radius:5px; cursor:pointer; font-family:inherit;">帶入目前牆</button>
+      </div>
+
+      <div class="card subpanel" data-panel="rebar">
+        <h2>詳細規定 (Detailing) 輸入</h2>
+        <div class="checkbox-row">
+          <input type="checkbox" id="hasOpening">
+          <label for="hasOpening">本牆段有開口 (門/窗)</label>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="hasConstrJoint" checked>
+          <label for="hasConstrJoint">本牆段有施工縫</label>
+        </div>
+        <p class="hint">筋距、開口補強、SBE 搭接禁區、施工縫剪摩擦皆依規範自動檢核或列出條目。</p>
+      </div>
+    </div>
+
+    <div>
+      <!-- 綜合結論 banner -->
+      <div class="card" id="conclusionCard">
+        <h2>綜合結論 <span id="conclusionScope" class="hint" style="margin-left:auto; font-style:normal;">—</span></h2>
+        <div id="bannerStatus" class="banner-status">尚未計算</div>
+        <div id="bannerKey" class="banner-key"></div>
+      </div>
+
+      <!-- 設計建議 hero -->
+      <div class="card" id="designSuggestCard" data-shows="rebar summary">
+        <h2>設計建議 <span class="hint" style="margin-left:auto; font-style:normal;">由 Pu / Vu 反算</span></h2>
+        <div id="rebarHeroH" class="rebar-hero">
+          <div class="line"><span class="lbl">建議牆厚</span><span class="combo" id="heroHSugg">—</span></div>
+          <div class="line"><span class="lbl">建議層數</span><span class="combo" id="heroLayerSugg">—</span></div>
+        </div>
+        <div id="rebarHeroBar" class="rebar-hero">
+          <div class="line"><span class="lbl">建議縱筋</span><span class="combo" id="heroVBarSugg">—</span></div>
+          <div class="line"><span class="lbl">建議橫筋</span><span class="combo" id="heroHBarSugg">—</span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="geom summary">
+        <h2>幾何 ＆ 材料檢核結果</h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-pierGate"><span class="label">Wall Pier 判定</span><span class="value">—</span></div>
+          <div class="result-item" id="r-fcLim"><span class="label">SSW fc' ≤ 350</span><span class="value">—</span></div>
+          <div class="result-item" id="r-hmin"><span class="label">最小厚度</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="r-hwlw"><span class="label">hw/ℓw</span><span class="value">—</span></div>
+          <div class="result-item" id="r-Acv"><span class="label">Acv</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" id="r-VnLimit"><span class="label">Vn 上限 (2.65√fc·Acv)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="rebar summary">
+        <h2>斷面強度結果 <span class="hint" style="margin-left:auto; font-style:normal;">依目前配筋</span></h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-phiPn"><span class="label">φPn (簡易)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="r-rhol"><span class="label">ρℓ (縱)</span><span class="value">—</span></div>
+          <div class="result-item" id="r-rhot"><span class="label">ρt (橫)</span><span class="value">—</span></div>
+          <div class="result-item" id="r-phiVn"><span class="label">φVn</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="rebar summary">
+        <h2>牆斷面配筋示意 <span class="hint" style="margin-left:auto; font-style:normal;">水平切面 plan cut</span></h2>
+        <svg id="wallRebarSvg" viewBox="0 0 520 220" style="width:100%; max-width:560px; display:block; margin:0 auto; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px;"></svg>
+        <p class="hint" id="wallRebarSvgNote" style="text-align:center;">—</p>
+      </div>
+
+      <div class="card" data-shows="rebar summary">
+        <h2>規範檢核</h2>
+        <div class="results-grid">
+          <div class="result-item" id="c-h"><span class="label">牆厚滿足下限</span><span class="value">—</span></div>
+          <div class="result-item" id="c-e"><span class="label">e ≤ h/6 (簡易公式適用)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-rhol"><span class="label">ρℓ ≥ 下限</span><span class="value">—</span></div>
+          <div class="result-item" id="c-rhot"><span class="label">ρt ≥ 下限</span><span class="value">—</span></div>
+          <div class="result-item" id="c-layers"><span class="label">需雙層鋼筋網?</span><span class="value">—</span></div>
+          <div class="result-item" id="c-axial"><span class="label">φPn ≥ Pu</span><span class="value">—</span></div>
+          <div class="result-item" id="c-shear"><span class="label">φVn ≥ Vu</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="load methods summary">
+        <h2>面外撓曲 (Alternative Method)</h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-oopApplic"><span class="label">適用性檢查</span><span class="value">—</span></div>
+          <div class="result-item" id="r-oopKlh"><span class="label">k·ℓc/h</span><span class="value">—</span></div>
+          <div class="result-item" id="r-oopPuLim"><span class="label">Pu / 0.06fc'Ag</span><span class="value">—</span></div>
+          <div class="result-item" id="r-oopRhoMin"><span class="label">ρℓ ≥ 0.01</span><span class="value">—</span></div>
+          <div class="result-item" id="r-oopMcr"><span class="label">2/3 Mcr</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+          <div class="result-item" id="r-oopIcr"><span class="label">Icr</span><span><span class="value">—</span><span class="unit">cm⁴/m</span></span></div>
+          <div class="result-item" id="r-oopDelta"><span class="label">中跨撓度 Δs</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="r-oopMu"><span class="label">Mua (含 P-δ)</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+          <div class="result-item" id="r-oopIter"><span class="label">迭代次數 / 收斂</span><span class="value">—</span></div>
+          <div class="result-item" id="r-oopDeflLim"><span class="label">Δs / (ℓc/150)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-oopDeflLim"><span class="label">Δs ≤ ℓc/150 (服務載重)</span><span class="value">—</span></div>
+          <div class="result-item" id="r-oopPhiMn"><span class="label">φMn</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+          <div class="result-item" id="c-oopFlex"><span class="label">φMn ≥ Mua</span><span class="value">—</span></div>
+          <div class="result-item" id="r-bwPa"><span class="label">主動土壓 pa (底)</span><span><span class="value">—</span><span class="unit">tf/m²</span></span></div>
+          <div class="result-item" id="r-bwMtri"><span class="label">M (土三角)</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+          <div class="result-item" id="r-bwMuni"><span class="label">M (超載均布)</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+          <div class="result-item" id="r-bwMw"><span class="label">M (水壓)</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+          <div class="result-item" id="r-bwMutot"><span class="label">1.6·ΣM (因素化)</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="load summary">
+        <h2><span>耐震檢核</span><span class="badge-seismic">SSW</span></h2>
+        <div class="results-grid">
+          <div class="result-item" id="s-rho"><span class="label">ρℓ, ρt ≥ 0.0025</span><span class="value">—</span></div>
+          <div class="result-item" id="s-sigma"><span class="label">σmax / 0.2fc'</span><span class="value">—</span></div>
+          <div class="result-item" id="s-be"><span class="label">需特殊邊界構材?</span><span class="value">—</span></div>
+          <div class="result-item" id="s-vnLimit"><span class="label">Vu ≤ 2.65√fc'·Acw</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="methods summary">
+        <h2>SBE 沿水平延伸範圍</h2>
+        <div class="results-grid">
+          <div class="result-item" id="sbe-method"><span class="label">採用方法</span><span class="value">—</span></div>
+          <div class="result-item" id="sbe-sigmaLim"><span class="label">終止應力 0.15fc'</span><span><span class="value">—</span><span class="unit">kgf/cm²</span></span></div>
+          <div class="result-item" id="sbe-extLen"><span class="label">SBE 水平延伸長度 c'</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="sbe-extRatio"><span class="label">c' / ℓw</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="geom summary">
+        <h2>有效翼版寬</h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-bEff"><span class="label">b_eff (單邊)</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="r-bEffCtrl"><span class="label">b_eff 控制項</span><span class="value">—</span></div>
+          <div class="result-item" id="r-bSection"><span class="label">總有效寬度</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="r-Ig"><span class="label">Ig (含翼版)</span><span><span class="value">—</span><span class="unit">cm⁴</span></span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="rebar summary">
+        <h2>詳細規定檢核</h2>
+        <div class="results-grid">
+          <div class="result-item" id="d-spMax"><span class="label">筋距上限 min(3h, 45)</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="d-vSp"><span class="label">縱筋間距 ≤ 上限</span><span class="value">—</span></div>
+          <div class="result-item" id="d-hSp"><span class="label">橫筋間距 ≤ 上限</span><span class="value">—</span></div>
+          <div class="result-item" id="d-vSpInplane"><span class="label">面內：縱筋 ≤ ℓw/3</span><span class="value">—</span></div>
+          <div class="result-item" id="d-hSpInplane"><span class="label">面內：橫筋 ≤ ℓw/5</span><span class="value">—</span></div>
+          <div class="result-item" id="d-opening"><span class="label">開口補強要求</span><span class="value">—</span></div>
+          <div class="result-item" id="d-spliceBE"><span class="label">SBE 搭接禁區 hsx</span><span class="value">—</span></div>
+          <div class="result-item" id="d-jointRough"><span class="label">施工縫粗糙 0.6 cm</span><span class="value">—</span></div>
+          <div class="result-item" id="d-shearFric"><span class="label">須剪摩擦? Vu vs 1.1λ√fc·Acv</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+      <div class="card" data-shows="load summary">
+        <h2>多片牆聚合</h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-aggN"><span class="label">牆段數</span><span class="value">—</span></div>
+          <div class="result-item" id="r-aggAcv"><span class="label">ΣAcv</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
+          <div class="result-item" id="r-aggVu"><span class="label">ΣVu</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="r-aggVnSum"><span class="label">ΣφVn</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="r-aggVnLimitTot"><span class="label">總上限 2.12√fc'·ΣAcv</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="c-aggTotal"><span class="label">ΣVn ≤ 總上限</span><span class="value">—</span></div>
+          <div class="result-item" id="c-aggSingle"><span class="label">單段 Vn ≤ 2.65√fc'·Acv</span><span class="value">—</span></div>
+          <div class="result-item" id="c-aggConc"><span class="label">力集中警示</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+      <!-- 計算過程卡 (依 showSteps 顯示) -->
+      <div class="card steps-card" id="stepsGeom" data-shows="geom summary" style="display:none;">
+        <h2>計算過程 — 幾何 ＆ 材料</h2>
+        <pre class="steps-body" id="stepsGeomBody"></pre>
+      </div>
+      <div class="card steps-card" id="stepsLoad" data-shows="load summary" style="display:none;">
+        <h2>計算過程 — 載重 (φPn / φVn)</h2>
+        <pre class="steps-body" id="stepsLoadBody"></pre>
+      </div>
+      <div class="card steps-card" id="stepsRebar" data-shows="rebar summary" style="display:none;">
+        <h2>計算過程 — 配筋 ＆ 詳細規定</h2>
+        <pre class="steps-body" id="stepsRebarBody"></pre>
+      </div>
+      <div class="card steps-card" id="stepsMethods" data-shows="methods summary" style="display:none;">
+        <h2>計算過程 — 面外 P-Δ ＆ SBE 延伸</h2>
+        <pre class="steps-body" id="stepsMethodsBody"></pre>
+      </div>
+
+      <div class="card" data-shows="summary" id="masterSummaryCard">
+        <h2>📋 綜合報告彙整 <span class="hint" style="margin-left:auto; font-style:normal;">所有檢核項目一覽</span></h2>
+        <p class="hint" id="summaryModeNote">設計模式：依當前載重給出建議鋼筋配置；可切換至檢核模式核對既有配筋。</p>
+        <div id="summaryTableHost"></div>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button type="button" id="btnReport2" style="padding:8px 16px; background:#1a3d5c; color:#fff; border:0; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:600;">📄 產生完整計算書</button>
+        </div>
+      </div>
+
+      <div class="card" data-shows="load summary">
+        <h2>邊界構材 (BE) 詳細設計</h2>
+        <div class="results-grid">
+          <div class="result-item" id="be-trigger"><span class="label">應變法觸發 (18.10.6.2)</span><span class="value">—</span></div>
+          <div class="result-item" id="be-cLimit"><span class="label">c 上限 ℓw/[600·(1.5δu/hw)]</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="be-cActual"><span class="label">輸入 c</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="be-extLen"><span class="label">BE 沿高延伸長度</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="be-horizLen"><span class="label">BE 水平長度 (max(c−0.1ℓw, c/2))</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="be-stirS"><span class="label">BE 箍筋間距上限</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item" id="be-AshA"><span class="label">Ash/(s·bc) (横向圍束筋比)</span><span class="value">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../shared/common.js?v=2"></script>
+<script src="../shared/report.js?v=1"></script>
+<script src="../shared/loadcombo.js?v=1"></script>
+<script src="../shared/devlength.js?v=2"></script>
+<script src="../shared/formulas.js?v=1"></script>
+<script src="../shared/flexure.js?v=1"></script>
+<script src="../shared/wall.js?v=1"></script>
+<script>
+  function applyPanel(tab) {
+    document.querySelectorAll('.section-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.subpanel').forEach(p => p.classList.toggle('active', p.dataset.panel === tab));
+    document.querySelectorAll('[data-shows]').forEach(card => {
+      const shows = card.dataset.shows.split(/\s+/);
+      card.style.display = shows.includes(tab) ? '' : 'none';
+    });
+    // 計算過程卡：未勾選 showSteps 一律隱藏；勾選時依 data-shows 規則
+    const showStepsOn = document.getElementById('showSteps')?.checked;
+    document.querySelectorAll('.steps-card').forEach(card => {
+      if (!showStepsOn) { card.style.display = 'none'; return; }
+      const shows = (card.dataset.shows || '').split(/\s+/);
+      card.style.display = shows.includes(tab) ? '' : 'none';
+    });
+    const scopeMap = { geom:'幾何 ＆ 材料', load:'載重', rebar:'配筋', methods:'計算法', summary:'綜合檢核' };
+    const el = document.getElementById('conclusionScope');
+    if (el) el.textContent = scopeMap[tab] || '';
+    if (typeof calcWall === 'function') calcWall();
+  }
+  document.querySelectorAll('.section-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => applyPanel(btn.dataset.tab));
+  });
+
+  // showSteps change → 重算 + 重套面板
+  (function(){
+    const el = document.getElementById('showSteps');
+    if (el) el.addEventListener('change', () => {
+      const cur = document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom';
+      if (typeof calcWall === 'function') calcWall();
+      applyPanel(cur);
+    });
+  })();
+
+  // 模式切換
+  let currentMode = 'design';
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentMode = btn.dataset.mode;
+      document.querySelectorAll('.mode-btn').forEach(b => {
+        const active = b === btn;
+        b.classList.toggle('active', active);
+        b.style.background = active ? 'var(--primary)' : '#fff';
+        b.style.color = active ? '#fff' : 'var(--primary)';
+      });
+      document.getElementById('modeHint').textContent = (currentMode === 'design')
+        ? '設計模式：給定載重，建議鋼筋配置。'
+        : '檢核模式：給定配筋與載重，檢核是否合於規範。';
+      document.querySelector('#designSuggestCard h2').childNodes[0].textContent =
+        (currentMode === 'design') ? '設計建議 ' : '需求對比 ';
+      if (typeof applyDesignCheckMode === 'function') applyDesignCheckMode();
+      applyPanel(document.querySelector('.section-tabs button.active').dataset.tab);
+    });
+  });
+
+  // ========== 牆計算邏輯 ==========
+  const $ = id => document.getElementById(id);
+  const num = id => parseFloat($(id).value) || 0;
+
+  function setResult(id, val, unit, digits = 2, status = null) {
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    const v = el.querySelector('.value'), u = el.querySelector('.unit');
+    v.textContent = (val == null || isNaN(val)) ? '—' : Number(val).toFixed(digits);
+    if (u && unit !== undefined) u.textContent = unit;
+    el.classList.remove('ok','warn','fail');
+    if (status) el.classList.add(status);
+  }
+  function setCheck(id, pass, text) {
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    el.querySelector('.value').textContent = text || (pass ? '✓ OK' : '✗ NG');
+    el.classList.remove('ok','warn','fail');
+    el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
+  }
+  function markAllResultsPending() {
+    document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+  }
+
+  // === 多片牆聚合表格管理 ===
+  let _aggRowSeq = 0;
+  function addAggRow(data = {}) {
+    const id = ++_aggRowSeq;
+    const tr = document.createElement('tr');
+    tr.dataset.aggId = id;
+    tr.innerHTML = `
+      <td style="padding:4px; border:1px solid #cbd5e1; text-align:center;">${id}</td>
+      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="text" data-fld="tag" value="${data.tag || 'W' + id}" style="width:60px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
+      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="h" value="${data.h ?? 20}" style="width:60px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
+      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="lw" value="${data.lw ?? 500}" style="width:70px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
+      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="hwlw" value="${data.hwlw ?? 3.0}" step="0.1" style="width:60px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
+      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="rhot" value="${data.rhot ?? 0.0025}" step="0.0001" style="width:80px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
+      <td style="padding:4px; border:1px solid #cbd5e1;"><input type="number" data-fld="Vu" value="${data.Vu ?? 50}" style="width:70px; padding:2px 4px; border:1px solid #cbd5e1; border-radius:3px;"></td>
+      <td style="padding:4px; border:1px solid #cbd5e1; text-align:center;"><button type="button" class="aggDelBtn" style="padding:2px 8px; background:#dc2626; color:#fff; border:0; border-radius:3px; cursor:pointer;">×</button></td>
+    `;
+    document.getElementById('aggBody').appendChild(tr);
+    tr.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calcWall));
+    tr.querySelector('.aggDelBtn').addEventListener('click', () => { tr.remove(); calcWall(); });
+  }
+  function collectAggRows() {
+    const rows = [];
+    document.querySelectorAll('#aggBody tr').forEach(tr => {
+      const get = f => parseFloat(tr.querySelector(`[data-fld="${f}"]`).value) || 0;
+      const hi = get('h'), lwi = get('lw');
+      rows.push({
+        tag: tr.querySelector('[data-fld="tag"]').value,
+        h: hi, lw: lwi,
+        hw: get('hwlw') * lwi,  // 還原 hw
+        rhot: get('rhot'),
+        Vu: get('Vu'),
+      });
+    });
+    return rows;
+  }
+
+  let _wallState = {};
+  function calcWall() {
+    markAllResultsPending();
+    const seismic = $('seismicMode').checked;
+    const wallType = $('wallType').value;
+    const fc = num('fc'), fy = num('fy');
+    const h = num('h'), lw = num('lw'), lc = num('lc'), k = num('k');
+    const hw = num('hw');
+    const Pu = num('Pu') * 1000;          // kgf
+    const e = num('e');
+    const Vu = num('Vu') * 1000;          // kgf
+    const vBar = $('vBar').value, vSp = num('vSp');
+    const hBar = $('hBar').value, hSp = num('hSp');
+    const layers = parseInt($('layers').value);
+    const sigmaMax = num('sigmaMax');     // kgf/cm²
+    let Mua_in = num('Mua') * 1e5;        // tf·m/m → kgf·cm/m
+    let PuOop = num('PuOop') * 1000;      // tf/m → kgf/m
+
+    // === 地下室外牆：自動計算土壓 → Mua, PuOop ===
+    const basement = $('basementMode')?.checked || $('basementWall')?.checked;
+    let bwBreakdown = null;
+    if (basement) {
+      const H  = num('bwH');         // m
+      const ga = num('bwGamma');     // tf/m³
+      const Ka = num('bwKa');
+      const qs = num('bwSurch');     // tf/m²
+      const hwL = num('bwHw');       // m, 水位高
+      const gw = num('bwGw');        // tf/m³
+      // 主動土壓三角形 pa = Ka·γs·H (tf/m²) 在牆底；超載均布 q' = Ka·qs (tf/m²)
+      const pa = Ka * ga * H;
+      const ps = Ka * qs;
+      // 三角形 (頂彈性、底鉸、單位寬簡支梁近似)：M = pa·H²/(9√3) ≈ 0.0641·pa·H²
+      const M_tri = 0.0641 * pa * H * H;        // tf·m/m
+      const M_uni = ps * H * H / 8;             // tf·m/m
+      // 水壓：三角形 pw = γw·hw 在底；以同樣公式
+      const pw = gw * hwL;
+      const M_w = 0.0641 * pw * hwL * hwL;
+      // 因素化：1.6·H + 1.6·F (規範 5.3)
+      const Mu_bw = 1.6 * (M_tri + M_uni + M_w);   // tf·m/m
+      Mua_in = Mu_bw * 1e5;
+      // PuOop：上部結構傳下；保留 UI 輸入值
+      bwBreakdown = { pa, ps, pw, M_tri, M_uni, M_w, Mu_bw, H };
+    }
+    const ci2 = $('basementInputs');
+    if (ci2) ci2.style.display = basement ? '' : 'none';
+    const MuW = num('MuW');               // tf·m
+    const duhw = num('duhw');              // 比值
+    const cBE = num('cBE');                // cm
+    const fytBE = num('fytBE');
+
+    const lambda = parseFloat($('lambdaSel')?.value || '1.0') || LAMBDA_NORMAL;
+
+    const isShearWall = (seismic || wallType === 'shear');
+
+    // === 最小厚度 ===
+    const hmin = Wall.hmin(wallType, lc, lw);
+
+    // === Wall Pier 判定 ===
+    const hwlw_pier = lw > 0 ? hw / lw : 0;
+    const lwbw = h > 0 ? lw / h : 0;
+    const isWallPier = Wall.isWallPier(hw, lw, h);
+
+    // === SSW fc' ≤ 350 限制 ===
+    const fcLimitOk = Wall.checkFcLimit(fc, isShearWall);
+
+    // === 簡易軸力公式 (e ≤ h/6) ===
+    const eLimit = h / 6;
+    const eOk = e <= eLimit;
+    const Ag = h * lw;
+    const Pn = Wall.simplePn({ fc, Ag, k, lc, h });
+    const phiPn = PHI.compTied * Pn;
+
+    // === 鋼筋比 ===
+    const vAb = REBAR_TABLE[vBar].area;
+    const hAb = REBAR_TABLE[hBar].area;
+    // ρℓ = (n 層 × Ab) / (h × s)
+    const rhol = (layers * vAb) / (h * vSp);
+    const rhot = (layers * hAb) / (h * hSp);
+
+    // === 剪力 (結構牆) ===
+    const Acv = h * lw;
+    const hwlw = hw / lw;
+    const alpha_c = Wall.alphaC(hwlw);
+    const Vn = Wall.vn({ Acv, alpha_c, lambda, fc, rhot, fy });
+    const phiVn = PHI.shear * Vn;
+    const VnLimit = Wall.vnMaxSingle(fc, Acv);
+
+    // === 雙層鋼筋網判斷 ===
+    const needTwoLayer = Wall.needTwoLayer({ Vu, phi: PHI.shear, alpha_c, lambda, fc, Acv, hwlw });
+
+    // === 表 11.6.1 鋼筋比下限 ===
+    const { rholMin, rhotMin } = Wall.minRho({ seismic, isShearWall, needTwoLayer, hwlw, rhot });
+
+    // === 面外撓曲 (Alternative method, 規範 11.8) ===
+    // 取單位寬度 b=100 cm
+    const bUnit = 100;
+    const Es = 2.04e6;
+    // 規範 19.2.2：Ec = 12000·√fc'
+    const Ec = 12000 * Math.sqrt(fc);
+    const n = Math.round(Es / Ec);                         // 模數比
+    const dOop = h / 2;                                    // 中央層筋
+    const Asl_perM = (layers * vAb * 100) / vSp;          // cm²/m (垂直筋)
+    // Mcr (per m): fr·Ig/yt
+    const fr_oop = 2 * Math.sqrt(fc);
+    const Ig_oop = bUnit * Math.pow(h, 3) / 12;
+    const Mcr_oop = fr_oop * Ig_oop / (h / 2);             // kgf·cm/m
+    // 等效 As' (含軸力): As_e = As + Pu·h/(2·d·fy)
+    const As_eff = Asl_perM + (PuOop / 1000 * 1000) * h / (2 * dOop * fy);
+    // c, Icr (留在本檔, Flexure 模組目前不提供 cracked I)
+    const c_oop = (As_eff * fy) / (0.85 * fc * bUnit);
+    const Icr_oop = bUnit * Math.pow(c_oop, 3) / 3 + n * As_eff * Math.pow(dOop - c_oop, 2);
+    // φMn 改呼叫 Flexure.phiMnRect (內含 εt → φ 線性內插, 比固定 0.9 更嚴謹)
+    const flexResOop = Flexure.phiMnRect({ b: bUnit, d: dOop, h, As: As_eff, fc, fy });
+    const phiMn_oop = flexResOop.phiMn;          // kgf·cm/m
+    const a_oop = flexResOop.a;
+
+    // P-Δ 計算（簡版 vs 完整迭代）
+    const slenderMethod = $('slenderMethod')?.value || 'simple';
+    let Mua_total = Mua_in, delta_s = 0, iterCount = 0, iterConverged = true;
+
+    function calcDelta(Mu) {
+      const Ie = (Mu <= (2/3) * Mcr_oop) ? Ig_oop : Icr_oop;
+      return 5 * Mu * lc * lc / (48 * Ec * Ie);            // cm
+    }
+
+    if (slenderMethod === 'simple') {
+      // 一次性 P-δ：用 Mu_a 算 Δ → 加一次
+      delta_s = calcDelta(Mua_in);
+      Mua_total = Mua_in + (PuOop / 100) * delta_s;
+      iterCount = 1;
+    } else {
+      // 完整迭代：M_(k+1) = M_a + Pu·Δ(M_k)，收斂至 Δ 變化 < 1e-4 cm
+      let M_k = Mua_in, delta_k = 0;
+      const maxIter = 50, tol = 1e-4;
+      for (let i = 1; i <= maxIter; i++) {
+        delta_k = calcDelta(M_k);
+        const M_next = Mua_in + (PuOop / 100) * delta_k;
+        iterCount = i;
+        if (Math.abs(M_next - M_k) < tol * Math.max(1, M_next)) {
+          M_k = M_next;
+          break;
+        }
+        M_k = M_next;
+        if (i === maxIter) iterConverged = false;
+      }
+      Mua_total = M_k;
+      delta_s = delta_k;
+    }
+    // 服務載重撓度上限 (規範 11.8.4): Δs ≤ ℓc/150
+    const deltaLim = lc / 150;
+    const okDeltaLim = delta_s <= deltaLim;
+    // 適用性
+    const klh_oop = k * lc / h;
+    const PuLimRatio = (PuOop / 100) / (0.06 * fc * h * bUnit);     // (kgf/cm) / kgf
+    const okOopApp_klh = klh_oop <= 30;
+    const okOopApp_Pu = PuLimRatio <= 1;
+    const okOopApp_rho = (Asl_perM / (h * bUnit)) >= 0.01;
+    const oopApplicable = okOopApp_klh && okOopApp_Pu;  // ρ 不一定要 0.01 (只是 alt method 限制)
+    const okOopFlex = (phiMn_oop / 1e5) >= (Mua_total / 1e5);
+
+    // === 邊界構材詳細 (規範 18.10.6) ===
+    const cLimitBE = Wall.beStrainTrigger(lw, duhw);
+    const beTrigger = cBE >= cLimitBE;
+    const beHorizLen = Wall.beHorizontalLength(cBE, lw);
+
+    // === SBE 沿水平延伸 ===
+    const sbeMethod = $('sbeExtMethod')?.value || 'linear';
+    const sbeBox = $('sbeExtCustomBox');
+    if (sbeBox) sbeBox.style.display = (sbeMethod === 'custom') ? '' : 'none';
+    let sbePoints = null;
+    if (sbeMethod === 'custom') {
+      const txt = $('sbeStressData')?.value || '';
+      sbePoints = txt.split(/\n+/).map(line => {
+        const m = line.trim().match(/([\d.]+)[\s,]+([\d.]+)/);
+        return m ? { x: parseFloat(m[1]), s: parseFloat(m[2]) } : null;
+      }).filter(p => p);
+    }
+    const sbeRes = Wall.sbeExtension({ method: sbeMethod, fc, sigmaMax, lw, points: sbePoints });
+    const sigmaStop = sbeRes.sigmaStop;
+    const sbeExtX = sbeRes.x;
+    const sbeMethodLabel = (sbeMethod === 'linear') ? '線性內插' : '完整應力分布';
+    // BE 沿高延伸: max(ℓw, Mu/(4Vu))
+    const beExtLen = Wall.beExtensionLength(lw, MuW * 1e5, Vu);
+    // BE 箍筋間距: min(b/3, 6db, 10+(35-hx)/3)
+    const dbV_be = REBAR_TABLE[vBar].db;
+    const beStirS = Math.min(h / 3, 6 * dbV_be, 15);
+    // Ash/(s·bc) ≥ max(0.3·(Ag/Ach−1)·fc/fyt, 0.09·fc/fyt)
+    // 簡化 Ag/Ach ≈ 1.3
+    const AshRatio = Math.max(0.3 * (1.3 - 1) * fc / fytBE, 0.09 * fc / fytBE);
+
+    // === 顯示 ===
+    setCheck('r-pierGate', !isWallPier,
+      isWallPier
+        ? `⚠ Hw/ℓw=${hwlw_pier.toFixed(2)}, ℓw/bw=${lwbw.toFixed(2)} → 改用柱工具`
+        : `Hw/ℓw=${hwlw_pier.toFixed(2)}, ℓw/bw=${lwbw.toFixed(2)} → 牆設計`);
+    setCheck('r-fcLim', fcLimitOk, `fc'=${fc} / 350 ${(seismic||wallType==='shear')?'(SSW)':'(非SSW免檢)'}`);
+    setResult('r-hmin', hmin, 'cm', 1);
+    setResult('r-phiPn', phiPn / 1000, 'tf', 1);
+    setResult('r-rhol', rhol, '', 4);
+    setResult('r-rhot', rhot, '', 4);
+    setResult('r-phiVn', phiVn / 1000, 'tf', 1);
+    setResult('r-hwlw', hwlw, '', 2);
+    setResult('r-Acv', Acv, 'cm²', 0);
+    setResult('r-VnLimit', VnLimit / 1000, 'tf', 1);
+
+    // 面外撓曲結果
+    setCheck('r-oopApplic', oopApplicable, oopApplicable ? '✓ 可用' : '✗ 不適用');
+    setCheck('r-oopKlh', okOopApp_klh, `${klh_oop.toFixed(2)} / 30`);
+    setCheck('r-oopPuLim', okOopApp_Pu, `${PuLimRatio.toFixed(2)}`);
+    setCheck('r-oopRhoMin', okOopApp_rho, `${(Asl_perM/(h*bUnit)).toFixed(4)} / 0.0100`);
+    setResult('r-oopMcr', (2/3)*Mcr_oop / 1e5, 'tf·m/m', 2);
+    setResult('r-oopIcr', Icr_oop, 'cm⁴/m', 0);
+    setResult('r-oopDelta', delta_s, 'cm', 3);
+    setResult('r-oopMu', Mua_total / 1e5, 'tf·m/m', 2);
+    {
+      const el = $('r-oopIter');
+      if (el) {
+        el.classList.remove('rc-pending','ok','warn','fail');
+        el.querySelector('.value').textContent =
+          slenderMethod === 'simple'
+            ? '簡版 (1 次)'
+            : `${iterCount} 次 ${iterConverged ? '✓' : '✗ 未收斂'}`;
+        el.classList.add(iterConverged ? 'ok' : 'fail');
+      }
+    }
+    setResult('r-oopDeflLim', deltaLim > 0 ? delta_s / deltaLim : NaN, '', 3);
+    setCheck('c-oopDeflLim', okDeltaLim, `Δs=${delta_s.toFixed(3)} / 上限=${deltaLim.toFixed(3)}`);
+    setResult('r-oopPhiMn', phiMn_oop / 1e5, 'tf·m/m', 2);
+    setCheck('c-oopFlex', okOopFlex, `φMn=${(phiMn_oop/1e5).toFixed(2)} / Mua=${(Mua_total/1e5).toFixed(2)}`);
+
+    if (bwBreakdown) {
+      setResult('r-bwPa', bwBreakdown.pa, 'tf/m²', 2);
+      setResult('r-bwMtri', bwBreakdown.M_tri, 'tf·m/m', 2);
+      setResult('r-bwMuni', bwBreakdown.M_uni, 'tf·m/m', 2);
+      setResult('r-bwMw', bwBreakdown.M_w, 'tf·m/m', 2);
+      setResult('r-bwMutot', bwBreakdown.Mu_bw, 'tf·m/m', 2, 'ok');
+    } else {
+      ['r-bwPa','r-bwMtri','r-bwMuni','r-bwMw','r-bwMutot'].forEach(id => {
+        const el = $(id); if (!el) return;
+        el.querySelector('.value').textContent = '— (未啟用)';
+        el.classList.remove('ok','warn','fail');
+      });
+    }
+
+    // SBE 沿水平延伸結果
+    {
+      const el = $('sbe-method');
+      if (el) {
+        el.classList.remove('rc-pending','ok','warn','fail');
+        el.querySelector('.value').textContent = sbeMethodLabel;
+      }
+    }
+    setResult('sbe-sigmaLim', sigmaStop, 'kgf/cm²', 1);
+    setResult('sbe-extLen', sbeExtX, 'cm', 1);
+    setResult('sbe-extRatio', lw > 0 ? sbeExtX / lw : NaN, '', 3);
+
+    // 邊界構材結果
+    setCheck('be-trigger', !beTrigger, beTrigger ? '⚠ c ≥ 上限 → 須設置' : '不需 (c < 上限)');
+    setResult('be-cLimit', isFinite(cLimitBE) ? cLimitBE : NaN, 'cm', 1);
+    setResult('be-cActual', cBE, 'cm', 1);
+    setResult('be-extLen', beExtLen, 'cm', 0);
+    setResult('be-horizLen', beHorizLen, 'cm', 1);
+    setResult('be-stirS', beStirS, 'cm', 1);
+    setResult('be-AshA', AshRatio, '', 4);
+
+    // === 規範檢核 ===
+    setCheck('c-h', h >= hmin, `${h} / ${hmin.toFixed(1)}`);
+    setCheck('c-e', eOk, `e=${e} / h/6=${eLimit.toFixed(1)}`);
+    setCheck('c-rhol', rhol >= rholMin, `${rhol.toFixed(4)} / ${rholMin.toFixed(4)}`);
+    setCheck('c-rhot', rhot >= rhotMin, `${rhot.toFixed(4)} / ${rhotMin.toFixed(4)}`);
+    setCheck('c-layers', !needTwoLayer || layers >= 2,
+             needTwoLayer ? (layers >= 2 ? `需雙層✓` : `需雙層✗ 目前 ${layers}`) : `單層可`);
+    setCheck('c-axial', phiPn >= Pu, `φPn=${(phiPn/1000).toFixed(1)} / Pu=${(Pu/1000).toFixed(1)}`);
+    setCheck('c-shear', phiVn >= Vu, `${(phiVn/1000).toFixed(1)} / ${(Vu/1000).toFixed(1)}`);
+
+    // === 耐震檢核 ===
+    if (seismic || wallType === 'shear') {
+      const okRho = (rhol >= 0.0025) && (rhot >= 0.0025);
+      setCheck('s-rho', okRho, `ρℓ=${rhol.toFixed(4)}, ρt=${rhot.toFixed(4)}`);
+
+      const sigmaLimit = 0.2 * fc;
+      const needBE = sigmaMax > sigmaLimit;
+      setCheck('s-sigma', !needBE, `${sigmaMax} / ${sigmaLimit.toFixed(1)}`);
+      setCheck('s-be', !needBE, needBE ? `⚠ 需特殊邊界構材` : `不需`);
+
+      setCheck('s-vnLimit', Vu <= VnLimit, `${(Vu/1000).toFixed(1)} / ${(VnLimit/1000).toFixed(1)}`);
+    } else {
+      ['s-rho','s-sigma','s-be','s-vnLimit'].forEach(id => {
+        const el = $(id); if (!el) return;
+        el.querySelector('.value').textContent = '— (未啟用)';
+        el.classList.remove('ok','warn','fail');
+      });
+    }
+
+    // === 設計建議 hero (使用使用者選擇的目標號數 + 載重驅動 ρ 需求) ===
+    let hSugg;
+    if (wallType === 'basement') hSugg = 20;
+    else hSugg = Math.max(15, Math.ceil(Math.min(lc, lw) / 25 / 5) * 5);
+
+    // 載重驅動的 ρ 需求
+    // ρℓ: 簡易公式通常以下限控制；取 rholMin
+    const rholReq = rholMin;
+    // ρt: 由剪力反算 → ρt,req = (Vu/(φ·Acv) − αc·λ·√fc) / fy，並 clip 到 rhotMin 以上
+    const rhotFromShear = Math.max(0, (Vu / (PHI.shear * Acv) - alpha_c * lambda * Math.sqrt(fc)) / fy);
+    const rhotReq = Math.max(rhotMin, rhotFromShear);
+
+    const layersSuggN = (seismic || isShearWall || needTwoLayer) ? 2 : 1;
+
+    function suggestSpacing(barName, rhoReq) {
+      if (rhoReq <= 0) return { sp: 30, raw: Infinity };
+      const Ab = REBAR_TABLE[barName].area;
+      const rawS = layersSuggN * Ab / (h * rhoReq);
+      const sp = Math.min(30, Math.max(10, Math.floor(rawS / 2.5) * 2.5));
+      return { sp, raw: rawS };
+    }
+    const vSugg = suggestSpacing(vBar, rholReq);
+    const hSugg_sp = suggestSpacing(hBar, rhotReq);
+    const layerSugg = (layersSuggN === 2) ? '雙層 (需)' : '單層可';
+
+    $('heroHSugg').textContent = `${hSugg} cm (目前 ${h} cm)`;
+    $('heroLayerSugg').textContent = layerSugg;
+    $('heroVBarSugg').textContent = `${vBar} @ ${vSugg.sp} cm × ${layersSuggN} 層 (ρℓ需求=${rholReq.toFixed(4)})`;
+    $('heroHBarSugg').textContent = `${hBar} @ ${hSugg_sp.sp} cm × ${layersSuggN} 層 (ρt需求=${rhotReq.toFixed(4)})`;
+    document.getElementById('rebarHeroH').classList.toggle('fail', h < hmin);
+
+    // === 內嵌建議 (rebar card 中, 僅 design mode 顯示) ===
+    if ($('inlineVSugg')) {
+      $('inlineVSugg').textContent = `縱筋  ${vBar} @ ${vSugg.sp} cm  (原始需求 ${vSugg.raw.toFixed(1)} cm，ρℓ需求 ${rholReq.toFixed(4)})`;
+      $('inlineHSugg').textContent = `橫筋  ${hBar} @ ${hSugg_sp.sp} cm  (原始需求 ${hSugg_sp.raw.toFixed(1)} cm，ρt需求 ${rhotReq.toFixed(4)})`;
+      $('inlineLayerSugg').textContent = `層數  ${layersSuggN} 層  (${needTwoLayer ? '剪力／hw·ℓw 要求雙層' : '單層可'})`;
+    }
+
+    // 綜合結論 banner
+    const okH = h >= hmin;
+    const okRhol = rhol >= rholMin;
+    const okRhot = rhot >= rhotMin;
+    const okLayers = !needTwoLayer || layers >= 2;
+    const okAxial = phiPn >= Pu;
+    const okShearChk = phiVn >= Vu;
+    updateBanner({
+      okH, eOk, okRhol, okRhot, okLayers, okAxial, okShear: okShearChk,
+      h, hmin, e, eLimit, rhol, rhot, rholMin, rhotMin,
+      phiPn: phiPn/1000, Pu: Pu/1000,
+      phiVn: phiVn/1000, Vu: Vu/1000,
+      seismic, sigmaMax, fc
+    });
+
+    // === 有效翼版寬 (Phase C) ===
+    const flangeShape = $('flangeShape')?.value || 'rect';
+    const flangeBox = $('flangeInputs');
+    if (flangeBox) flangeBox.style.display = (flangeShape === 'rect') ? 'none' : '';
+    // 自動帶 hw
+    if ($('flangeHw')) $('flangeHw').value = hw;
+    let bEff = 0, bEffCtrl = '—', sectionTotalB = h, IgFull = h * lw * lw * lw / 12;
+    if (flangeShape !== 'rect') {
+      const tf = num('flangeTf');
+      const bfAct = num('flangeBfAct');
+      const half = num('flangeHalf');
+      const fl = Wall.effectiveFlange({ half, hw, bfAct });
+      bEff = fl.bEff;
+      bEffCtrl = fl.ctrl;
+      const sides = (flangeShape === 'L') ? 1 : 2;
+      sectionTotalB = h + sides * bEff;
+      const Iweb = h * Math.pow(lw, 3) / 12;
+      const Iflange = sides * (bEff * tf) * Math.pow(lw / 2, 2);
+      IgFull = Iweb + Iflange;
+    }
+    setResult('r-bEff', flangeShape === 'rect' ? 0 : bEff, 'cm', 1);
+    const bEffEl = $('r-bEffCtrl');
+    if (bEffEl) {
+      bEffEl.classList.remove('rc-pending');
+      bEffEl.querySelector('.value').textContent = (flangeShape === 'rect') ? '— (矩形)' : bEffCtrl;
+    }
+    setResult('r-bSection', sectionTotalB, 'cm', 1);
+    setResult('r-Ig', IgFull, 'cm⁴', 0);
+
+    // === 詳細規定 (Detailing) 計算 ===
+    const spLim = Wall.spacingLimits(h, lw);
+    const spMax = spLim.general;
+    const vSpInplaneLim = spLim.inplaneVertical;
+    const hSpInplaneLim = spLim.inplaneHorizontal;
+    const okVSp = vSp <= spMax;
+    const okHSp = hSp <= spMax;
+    const okVSpInplane = !isShearWall || (vSp <= vSpInplaneLim);
+    const okHSpInplane = !isShearWall || (hSp <= hSpInplaneLim);
+    const hasOpening = $('hasOpening')?.checked;
+    const hasJoint = $('hasConstrJoint')?.checked;
+    const joinShearLim = Wall.shearFricLimit(lambda, fc, Acv);
+    const needShearFric = hasJoint && (Vu > joinShearLim);
+    // SBE 搭接禁區：hsx = max(610, ℓw, Mu/4Vu)；簡化用 max(ℓw, beExtLen, 610)
+    const hsxNoSplice = Math.min(610, Math.max(lw, 0));
+
+    setCheck('d-vSp', okVSp, `${vSp} / ${spMax.toFixed(0)}`);
+    setCheck('d-hSp', okHSp, `${hSp} / ${spMax.toFixed(0)}`);
+    setResult('d-spMax', spMax, 'cm', 0);
+    if (isShearWall) {
+      setCheck('d-vSpInplane', okVSpInplane, `${vSp} / ${vSpInplaneLim.toFixed(0)}`);
+      setCheck('d-hSpInplane', okHSpInplane, `${hSp} / ${hSpInplaneLim.toFixed(0)}`);
+    } else {
+      ['d-vSpInplane','d-hSpInplane'].forEach(id => {
+        const el = $(id); if (!el) return;
+        el.classList.remove('rc-pending','ok','warn','fail');
+        el.querySelector('.value').textContent = '— (非結構牆)';
+      });
+    }
+    {
+      const el = $('d-opening');
+      if (el) {
+        el.classList.remove('rc-pending','ok','warn','fail');
+        const txt = hasOpening
+          ? (layers >= 2 ? '雙層: 四邊各 2·D16' : '單層: 四邊各 1·D16')
+          : '無開口';
+        el.querySelector('.value').textContent = txt;
+        el.classList.add('warn');
+      }
+    }
+    {
+      const el = $('d-spliceBE');
+      if (el) {
+        el.classList.remove('rc-pending','ok','warn','fail');
+        el.querySelector('.value').textContent = (seismic || wallType === 'shear')
+          ? `禁區 ≤ ${hsxNoSplice} cm 上 (臨界斷面以上)`
+          : '— (非結構牆)';
+        if (seismic || wallType === 'shear') el.classList.add('warn');
+      }
+    }
+    {
+      const el = $('d-jointRough');
+      if (el) {
+        el.classList.remove('rc-pending','ok','warn','fail');
+        el.querySelector('.value').textContent = hasJoint ? '須粗糙至 0.6 cm' : '無施工縫';
+        el.classList.add(hasJoint ? 'warn' : 'ok');
+      }
+    }
+    setCheck('d-shearFric', !needShearFric,
+      hasJoint
+        ? `Vu=${(Vu/1000).toFixed(1)} / 1.1λ√fc·Acv=${(joinShearLim/1000).toFixed(1)} tf${needShearFric?' → 須剪摩擦':''}`
+        : '— (無施工縫)');
+
+    // === 多片牆聚合 (Phase C) ===
+    const aggRows = collectAggRows();
+    const N = aggRows.length;
+    let sumAcv = 0, sumVu = 0, sumVn = 0;
+    let singleOk = true, concentrated = false;
+    for (const row of aggRows) {
+      const Acv_i = row.h * row.lw;
+      const hwlw_i = (row.hw && row.lw) ? row.hw / row.lw : hwlw;
+      const ac_i = Wall.alphaC(hwlw_i);
+      const Vn_i = Wall.vn({ Acv: Acv_i, alpha_c: ac_i, lambda, fc, rhot: row.rhot, fy });
+      const VnSingleLim = Wall.vnMaxSingle(fc, Acv_i);
+      if (Vn_i > VnSingleLim) singleOk = false;
+      sumAcv += Acv_i;
+      sumVu += row.Vu * 1000;
+      sumVn += PHI.shear * Math.min(Vn_i, VnSingleLim);
+    }
+    const VnLimitTotal = Wall.vnMaxTotal(fc, lambda, sumAcv);
+    // 力集中：任一段 Vu/ΣVu > 0.65 視為集中
+    if (N > 1) {
+      const maxRatio = Math.max(...aggRows.map(r => (r.Vu * 1000) / (sumVu || 1)));
+      concentrated = maxRatio > 0.65;
+    }
+    const aggTotalOk = (sumVn / PHI.shear) <= VnLimitTotal;
+    setResult('r-aggN', N, '', 0);
+    setResult('r-aggAcv', sumAcv, 'cm²', 0);
+    setResult('r-aggVu', sumVu / 1000, 'tf', 1);
+    setResult('r-aggVnSum', sumVn / 1000, 'tf', 1);
+    setResult('r-aggVnLimitTot', VnLimitTotal / 1000, 'tf', 1);
+    if (N === 0) {
+      ['c-aggTotal','c-aggSingle','c-aggConc'].forEach(id => {
+        const el = $(id); if (!el) return;
+        el.classList.remove('rc-pending','ok','warn','fail');
+        el.querySelector('.value').textContent = '— (未輸入)';
+      });
+    } else {
+      setCheck('c-aggTotal', aggTotalOk, `${(sumVn/1000).toFixed(1)} / ${(VnLimitTotal/1000).toFixed(1)}`);
+      setCheck('c-aggSingle', singleOk, singleOk ? '✓ 各段均符合' : '✗ 有單段超 2.65√fc·Acv');
+      setCheck('c-aggConc', !concentrated, concentrated ? '⚠ 單段佔比 >65%' : '分布均勻');
+    }
+
+    // === 計算過程文字 (依 showSteps 顯示) ===
+    let stepsGeomTxt = '', stepsLoadTxt = '', stepsRebarTxt = '', stepsMethodsTxt = '';
+    if ($('showSteps')?.checked) {
+      const fmt = (v, d=2) => (v==null||isNaN(v)) ? '—' : Number(v).toFixed(d);
+      const typeLabel2 = ({bearing:'承重牆',nonbearing:'非承重牆',basement:'地下室外牆',shear:'結構剪力牆'})[wallType];
+
+      stepsGeomTxt =
+`【1】斷面與材料常數 (規範 19.2.2)
+  fc' = ${fc} kgf/cm²    fy = ${fy} kgf/cm²
+  λ  = ${fmt(lambda,2)}  (${lambda>=1?'常重':(lambda>=0.85?'砂輕':'全輕')})
+  Ec = 12000·√fc' = 12000·√${fc} = ${fmt(Ec,0)} kgf/cm²
+  牆型: ${typeLabel2}
+  h = ${h} cm ， ℓw = ${lw} cm ， ℓc = ${lc} cm ， k = ${k} ， hw = ${hw} cm
+  Ag = h·ℓw = ${h}·${lw} = ${fmt(Ag,0)} cm²
+  Acv = h·ℓw = ${fmt(Acv,0)} cm²
+
+【2】Wall Pier 判定 (規範 18.10.1)
+  Hw/ℓw = ${hw}/${lw} = ${fmt(hwlw_pier,2)}
+  ℓw/bw = ${lw}/${h} = ${fmt(lwbw,2)}
+  條件: Hw/ℓw ≥ 2.0 且 ℓw/bw ≤ 2.5 → 應改依柱設計
+  → ${isWallPier ? '⚠ 是 Wall Pier，建議改用柱工具' : '牆設計'}
+
+【3】SSW fc' 上限 (規範 18.10.2.4)
+  ${(seismic||isShearWall) ? `套用 SSW 限制: fc' = ${fc} ≤ 350 → ${fcLimitOk?'✓':'✗'}` : '非結構牆，不受 fc'+"'"+' 上限限制'}
+
+【4】最小厚度 (規範 11.3)
+  牆型對應公式: ${({bearing:'max(ℓc/25, 10)', nonbearing:'max(ℓc/30, 10)', basement:'≥ 20', shear:'max(ℓc/25, ℓw/25, 10)'})[wallType]}
+  hmin = ${fmt(hmin,1)} cm    目前 h = ${h} cm  →  ${h>=hmin?'✓':'✗'}
+
+【5】剪力 αc 係數 (規範 11.5.4.3 線性內插)
+  hw/ℓw = ${hw}/${lw} = ${fmt(hwlw,2)}
+  hw/ℓw ≤ 1.5 → αc = 0.80 ；≥ 2.0 → αc = 0.53
+  αc = ${fmt(alpha_c,3)}
+  Vn 單段上限 = 2.65·√fc'·Acv = 2.65·√${fc}·${fmt(Acv,0)} = ${fmt(VnLimit/1000,1)} tf`;
+
+      stepsLoadTxt =
+`【1】面內軸力 (簡易公式 11.5.3.1)
+  適用條件 e ≤ h/6: e = ${e} ， h/6 = ${fmt(eLimit,2)} → ${eOk?'✓':'✗'}
+  Pn = 0.55·fc'·Ag·[1 − (k·ℓc/(32h))²]
+     = 0.55·${fc}·${fmt(Ag,0)}·[1 − (${k}·${lc}/(32·${h}))²]
+     = ${fmt(Pn/1000,1)} tf
+  φPn = 0.65·Pn = ${fmt(phiPn/1000,1)} tf
+  檢核: φPn ${phiPn>=Pu?'≥':'<'} Pu = ${fmt(Pu/1000,1)} → ${phiPn>=Pu?'✓':'✗'}
+
+【2】面內剪力 (規範 11.5.4)
+  Vn = Acv·(αc·λ·√fc' + ρt·fy)
+     = ${fmt(Acv,0)}·(${fmt(alpha_c,3)}·${fmt(lambda,2)}·√${fc} + ${fmt(rhot,4)}·${fy})
+     = ${fmt(Vn/1000,1)} tf
+  φVn = 0.75·Vn = ${fmt(phiVn/1000,1)} tf
+  檢核: φVn ${phiVn>=Vu?'≥':'<'} Vu = ${fmt(Vu/1000,1)} → ${phiVn>=Vu?'✓':'✗'}
+  單段上限: Vn ≤ 2.65·√fc'·Acv = ${fmt(VnLimit/1000,1)} tf
+
+【3】雙層鋼筋網判定 (規範 11.7.2.3 / 18.10.2.2)
+  觸發條件: Vu > 0.5·φVc 或 hw/ℓw ≥ 2.0
+  → ${needTwoLayer ? '需雙層' : '單層可'}
+  目前配筋層數 = ${layers} → ${(!needTwoLayer || layers>=2) ? '✓' : '✗'}
+
+${(seismic||isShearWall) ? `【4】耐震 SSW 檢核
+  σmax = ${sigmaMax} vs 0.2·fc' = ${fmt(0.2*fc,1)} → ${sigmaMax<=0.2*fc?'不需 SBE':'⚠ 需設置 SBE'}
+  Vu ≤ 2.65·√fc'·Acv: ${fmt(Vu/1000,1)} / ${fmt(VnLimit/1000,1)} → ${Vu<=VnLimit?'✓':'✗'}` : '【4】非特殊結構牆，SSW 檢核略過'}`;
+
+      stepsRebarTxt =
+`【1】鋼筋最小量 (規範 11.6.1 / 11.6.2 / 18.10.2.1)
+  ρℓ,min = ${fmt(rholMin,4)}    ρt,min = ${fmt(rhotMin,4)}
+  目前  ρℓ = (${layers}·${fmt(REBAR_TABLE[vBar].area,2)})/(${h}·${vSp}) = ${fmt(rhol,4)} → ${rhol>=rholMin?'✓':'✗'}
+  目前  ρt = (${layers}·${fmt(REBAR_TABLE[hBar].area,2)})/(${h}·${hSp}) = ${fmt(rhot,4)} → ${rhot>=rhotMin?'✓':'✗'}
+
+【2】ρ 需求反算 (設計建議)
+  ρℓ,req = ρℓ,min = ${fmt(rholReq,4)}
+  ρt,req = max(ρt,min, (Vu/(φ·Acv) − αc·λ·√fc')/fy)
+         = max(${fmt(rhotMin,4)}, (${fmt(Vu,0)}/(${PHI.shear}·${fmt(Acv,0)}) − ${fmt(alpha_c,3)}·${fmt(lambda,2)}·√${fc})/${fy})
+         = ${fmt(rhotReq,4)}
+  建議 縱筋: ${vBar} @ ${vSugg.sp} cm × ${layersSuggN} 層  (原始需求 ${fmt(vSugg.raw,1)} cm)
+  建議 橫筋: ${hBar} @ ${hSugg_sp.sp} cm × ${layersSuggN} 層  (原始需求 ${fmt(hSugg_sp.raw,1)} cm)
+
+【3】筋距上限 (規範 11.7.2)
+  筋距上限 spMax = min(3h, 45) = min(${3*h}, 45) = ${fmt(spMax,0)} cm
+  縱筋間距 ${vSp} ≤ ${fmt(spMax,0)} → ${okVSp?'✓':'✗'}
+  橫筋間距 ${hSp} ≤ ${fmt(spMax,0)} → ${okHSp?'✓':'✗'}
+${isShearWall?`  面內附加: 縱 ≤ ℓw/3 = ${fmt(vSpInplaneLim,0)} → ${okVSpInplane?'✓':'✗'}
+             橫 ≤ ℓw/5 = ${fmt(hSpInplaneLim,0)} → ${okHSpInplane?'✓':'✗'}`:''}
+
+【4】施工縫剪摩擦 (規範 22.9)
+  ${hasJoint ? `觸發閾值 = 1.1·λ·√fc'·Acv = 1.1·${fmt(lambda,2)}·√${fc}·${fmt(Acv,0)} = ${fmt(joinShearLim/1000,1)} tf
+  Vu = ${fmt(Vu/1000,1)} → ${needShearFric ? '⚠ 須設計剪摩擦' : '不需額外設計'}` : '本牆段無施工縫'}`;
+
+      stepsMethodsTxt =
+`【1】面外 Slender Wall (規範 11.8, Ec = 12000·√fc')
+  Ec = ${fmt(Ec,0)} kgf/cm²    Es/Ec = ${n}
+  Ig = b·h³/12 = 100·${h}³/12 = ${fmt(Ig_oop,0)} cm⁴/m
+  fr = 2·√fc' = ${fmt(fr_oop,1)} kgf/cm²    Mcr = fr·Ig/(h/2) = ${fmt(Mcr_oop/1e5,2)} tf·m/m
+  2/3·Mcr = ${fmt((2/3)*Mcr_oop/1e5,2)} tf·m/m
+  As_eff = As + Pu·h/(2·d·fy) = ${fmt(Asl_perM,2)} + ${fmt((PuOop/1000*1000)*h/(2*dOop*fy),2)} = ${fmt(As_eff,2)} cm²/m
+  c = As_eff·fy/(0.85·fc'·b) = ${fmt(c_oop,2)} cm
+  Icr = b·c³/3 + n·As_eff·(d−c)² = ${fmt(Icr_oop,0)} cm⁴/m
+
+【2】P-Δ 求解 — ${slenderMethod==='simple'?'簡版 (一次)':'完整迭代'}
+  ${slenderMethod==='simple'
+     ? `Δs = 5·Mua·ℓc²/(48·Ec·Ie) = ${fmt(delta_s,3)} cm
+  Mua,total = Mua + Pu·Δs = ${fmt(Mua_total/1e5,2)} tf·m/m (1 次 P-δ)`
+     : `迭代 ${iterCount} 次 ${iterConverged?'✓ 收斂':'✗ 未收斂'}
+  Δs = ${fmt(delta_s,3)} cm ， Mua,total = ${fmt(Mua_total/1e5,2)} tf·m/m`}
+  服務載重上限 Δs ≤ ℓc/150 = ${fmt(deltaLim,3)} cm → ${okDeltaLim?'✓':'✗'}
+
+【3】φMn (呼叫 Flexure.phiMnRect ， εt→φ 線性內插)
+  φMn = ${fmt(phiMn_oop/1e5,2)} tf·m/m
+  檢核: φMn ${phiMn_oop>=Mua_total?'≥':'<'} Mua,total = ${fmt(Mua_total/1e5,2)} → ${okOopFlex?'✓':'✗'}
+
+【4】SBE 沿水平延伸 (規範 18.10.6.2)
+  方法 = ${sbeMethodLabel}
+  終止應力 = 0.15·fc' = ${fmt(sigmaStop,1)} kgf/cm²
+  ${sbeMethod==='linear' ? `線性內插: σmax=${sigmaMax} → 0 ， c' = ℓw·(1 − 0.15fc'/σmax) = ${fmt(sbeExtX,1)} cm` : `由輸入應力分布搜尋交點: c' = ${fmt(sbeExtX,1)} cm`}
+  比例 c'/ℓw = ${fmt(lw>0?sbeExtX/lw:NaN,3)}`;
+
+      const sg = $('stepsGeomBody');     if (sg) sg.textContent = stepsGeomTxt;
+      const sl = $('stepsLoadBody');     if (sl) sl.textContent = stepsLoadTxt;
+      const sr = $('stepsRebarBody');    if (sr) sr.textContent = stepsRebarTxt;
+      const sm = $('stepsMethodsBody');  if (sm) sm.textContent = stepsMethodsTxt;
+    }
+
+    // === 儲存供計算書 ===
+    window.wallLast = {
+      stepsGeomTxt, stepsLoadTxt, stepsRebarTxt, stepsMethodsTxt,
+      showSteps: !!$('showSteps')?.checked,
+      seismic, wallType, fc, fy, lambda, h, lw, lc, k, hw,
+      Pu_kgf:Pu, e, eLimit, eOk, Vu_kgf:Vu,
+      vBar, vSp, hBar, hSp, layers, sigmaMax,
+      dbV: REBAR_TABLE[vBar]?.db,
+      hmin, Ag, Pn_kgf:Pn, phiPn_kgf:phiPn,
+      rhol, rhot, rholMin, rhotMin, needTwoLayer,
+      Acv, hwlw, alpha_c, Vn_kgf:Vn, phiVn_kgf:phiVn, VnLimit_kgf:VnLimit,
+      hSugg, layerSugg,
+      okH, okRhol, okRhot, okLayers, okAxial, okShear:okShearChk,
+      // gates
+      isWallPier, hwlw_pier, lwbw, fcLimitOk,
+      // 翼版
+      flangeShape, bEff, bEffCtrl, sectionTotalB, IgFull,
+      // 聚合
+      aggRows: aggRows.slice(),
+      sumAcv, sumVu_kgf:sumVu, sumVn_kgf:sumVn,
+      VnLimitTotal_kgf:VnLimitTotal, aggTotalOk, singleOk, concentrated,
+      // 詳細規定
+      spMax, vSpInplaneLim, hSpInplaneLim,
+      okVSp, okHSp, okVSpInplane, okHSpInplane,
+      hasOpening, hasJoint, joinShearLim_kgf:joinShearLim, needShearFric, hsxNoSplice,
+      // SBE 沿水平延伸
+      sbeMethod, sbeMethodLabel, sigmaStop, sbeExtX,
+      // Slender Wall
+      slenderMethod, iterCount, iterConverged,
+      delta_s, deltaLim, okDeltaLim,
+      Mua_total_kgcm:Mua_total, phiMn_oop_kgcm:phiMn_oop, okOopFlex
+    };
+    if (typeof buildSummaryTable === 'function') buildSummaryTable();
+    if (typeof drawWallRebar === 'function') drawWallRebar();
+  }
+
+  // === 牆斷面配筋示意 (SVG, plan cut) ===
+  function drawWallRebar() {
+    const r = window.wallLast; if (!r) return;
+    const svg = document.getElementById('wallRebarSvg'); if (!svg) return;
+    const dbV = REBAR_TABLE[r.vBar]?.db || 1.27;
+    const dbH = REBAR_TABLE[r.hBar]?.db || 1.27;
+    const nSp = 4;                 // 顯示 4 段間距
+    const W_cm = Math.max(nSp * r.vSp, 1);
+    const H_cm = Math.max(r.h, 1);
+    const vw = 520, vh = 220;
+    const padL = 70, padR = 30, padT = 40, padB = 50;
+    const innerW = vw - padL - padR, innerH = vh - padT - padB;
+    const s = Math.min(innerW / W_cm, innerH / H_cm);
+    const drawW = W_cm * s, drawH = H_cm * s;
+    const x0 = padL + (innerW - drawW) / 2;
+    const y0 = padT + (innerH - drawH) / 2;
+    const cover = 2;               // cm (保護層假設)
+    const faceOff = cover + dbH + dbV / 2;
+    const layers = r.layers;
+    const rowYs = (layers === 1) ? [r.h / 2] : [faceOff, r.h - faceOff];
+    const barXs = []; for (let i = 0; i <= nSp; i++) barXs.push(i * r.vSp);
+    // BE 觸發：端部加密示意
+    const showBE = (r.seismic || r.wallType === 'shear') && (r.sigmaMax > 0.2 * r.fc);
+    // 畫圖
+    const dotR = Math.max(2.5, Math.min(5, dbV * s * 0.5));
+    let body = '';
+    // 標題
+    body += `<text x="${vw/2}" y="20" fill="#1a3d5c" font-size="13" text-anchor="middle" font-weight="600">牆水平斷面 — ${layers === 2 ? '雙層' : '單層'}配筋 ${showBE ? '(端部 SBE 加密)' : ''}</text>`;
+    // 牆外框
+    body += `<rect x="${x0}" y="${y0}" width="${drawW}" height="${drawH}" fill="#e0e7ef" stroke="#1a3d5c" stroke-width="1.8"/>`;
+    // 保護層虛線
+    const cy1 = y0 + cover * s, cy2 = y0 + drawH - cover * s;
+    body += `<line x1="${x0}" y1="${cy1}" x2="${x0+drawW}" y2="${cy1}" stroke="#94a3b8" stroke-width="0.6" stroke-dasharray="3,2"/>`;
+    body += `<line x1="${x0}" y1="${cy2}" x2="${x0+drawW}" y2="${cy2}" stroke="#94a3b8" stroke-width="0.6" stroke-dasharray="3,2"/>`;
+    // 橫筋 (藍線，沿牆長方向)
+    rowYs.forEach(ry => {
+      const py = y0 + ry * s;
+      body += `<line x1="${x0}" y1="${py}" x2="${x0+drawW}" y2="${py}" stroke="#0ea5e9" stroke-width="2"/>`;
+    });
+    // 縱筋 (紅點，於交點)
+    rowYs.forEach(ry => {
+      barXs.forEach(bx => {
+        const px = x0 + bx * s, py = y0 + ry * s;
+        body += `<circle cx="${px}" cy="${py}" r="${dotR}" fill="#dc2626" stroke="#7f1d1d" stroke-width="0.8"/>`;
+      });
+    });
+    // BE 端部加密：在最左 1 格加倍紅點
+    if (showBE) {
+      const extraX = r.vSp / 2;
+      rowYs.forEach(ry => {
+        const py = y0 + ry * s;
+        body += `<circle cx="${x0 + extraX * s}" cy="${py}" r="${dotR}" fill="#ea580c" stroke="#7c2d12" stroke-width="0.8"/>`;
+      });
+      // BE 範圍虛框
+      const beW = r.vSp * s;
+      body += `<rect x="${x0}" y="${y0 - 4}" width="${beW}" height="${drawH + 8}" fill="none" stroke="#ea580c" stroke-width="1.2" stroke-dasharray="4,2"/>`;
+      body += `<text x="${x0 + beW/2}" y="${y0 - 8}" fill="#ea580c" font-size="10" text-anchor="middle">SBE 加密</text>`;
+    }
+    // 尺寸線：h (左側)
+    const xDim = x0 - 14;
+    body += `<line x1="${xDim}" y1="${y0}" x2="${xDim}" y2="${y0+drawH}" stroke="#475569" stroke-width="0.9" marker-end="url(#arr)" marker-start="url(#arr)"/>`;
+    body += `<text x="${xDim - 6}" y="${y0 + drawH/2 + 4}" fill="#475569" font-size="11" text-anchor="end">h=${r.h}</text>`;
+    // 尺寸線：s (底部, 第 1 個間距)
+    const yDim = y0 + drawH + 14;
+    const sx1 = x0 + barXs[0] * s, sx2 = x0 + barXs[1] * s;
+    body += `<line x1="${sx1}" y1="${yDim}" x2="${sx2}" y2="${yDim}" stroke="#475569" stroke-width="0.9" marker-end="url(#arr)" marker-start="url(#arr)"/>`;
+    body += `<text x="${(sx1+sx2)/2}" y="${yDim + 14}" fill="#475569" font-size="11" text-anchor="middle">s=${r.vSp} cm</text>`;
+    // 圖例
+    const lgY = vh - 12;
+    body += `<circle cx="${padL}" cy="${lgY}" r="3.5" fill="#dc2626" stroke="#7f1d1d" stroke-width="0.6"/>`;
+    body += `<text x="${padL + 8}" y="${lgY + 4}" fill="#475569" font-size="10">縱筋 ${r.vBar}</text>`;
+    body += `<line x1="${padL + 72}" y1="${lgY}" x2="${padL + 92}" y2="${lgY}" stroke="#0ea5e9" stroke-width="2"/>`;
+    body += `<text x="${padL + 96}" y="${lgY + 4}" fill="#475569" font-size="10">橫筋 ${r.hBar}</text>`;
+    if (showBE) {
+      body += `<circle cx="${padL + 160}" cy="${lgY}" r="3.5" fill="#ea580c" stroke="#7c2d12" stroke-width="0.6"/>`;
+      body += `<text x="${padL + 168}" y="${lgY + 4}" fill="#475569" font-size="10">SBE 加強</text>`;
+    }
+    const defs = `<defs><marker id="arr" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#475569"/></marker></defs>`;
+    svg.innerHTML = defs + body;
+    const note = document.getElementById('wallRebarSvgNote');
+    if (note) {
+      note.textContent = `縱筋 ${r.vBar} @ ${r.vSp} cm (紅點) ， 橫筋 ${r.hBar} @ ${r.hSp} cm (藍線) ， ${layers} 層；示意僅顯示 ${nSp} 個間距範圍，保護層假設 ${cover} cm。`;
+    }
+  }
+
+  // === 綜合報告彙整表 (Summary) ===
+  function buildSummaryTable() {
+    const r = window.wallLast; if (!r) return;
+    const host = $('summaryTableHost'); if (!host) return;
+    const fmt = (v, d=2) => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(d);
+    const ok = b => b === true ? '<span style="color:#16a34a;font-weight:600;">✓ OK</span>'
+                  : b === false ? '<span style="color:#dc2626;font-weight:600;">✗ NG</span>'
+                  : '<span style="color:#64748b;">—</span>';
+    const rows = [];
+    const sec = (title) => rows.push(`<tr style="background:#1a3d5c;color:#fff;"><td colspan="3" style="padding:6px 10px;font-weight:600;">${title}</td></tr>`);
+    const row = (label, val, status) => rows.push(`<tr><td style="padding:5px 10px;border-bottom:1px solid #e2e8f0;">${label}</td><td style="padding:5px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${val}</td><td style="padding:5px 10px;border-bottom:1px solid #e2e8f0;text-align:center;width:70px;">${status}</td></tr>`);
+
+    sec('① 幾何 ＆ 材料');
+    row('Wall Pier 判定', `Hw/ℓw=${fmt(r.hwlw_pier)}, ℓw/bw=${fmt(r.lwbw)}`, ok(!r.isWallPier));
+    row("SSW fc' ≤ 350", `fc'=${r.fc}`, ok(r.fcLimitOk));
+    row(`牆厚 h ≥ hmin`, `${r.h} / ${fmt(r.hmin,1)} cm`, ok(r.okH));
+    if (r.flangeShape && r.flangeShape !== 'rect') {
+      row('有效翼版寬 b_eff', `${fmt(r.bEff,1)} cm (${r.bEffCtrl})`, ok(null));
+      row('總有效寬度', `${fmt(r.sectionTotalB,1)} cm`, ok(null));
+    }
+
+    sec('② 載重 (面內)');
+    row('e ≤ h/6 (簡易公式適用)', `e=${r.e}, h/6=${fmt(r.eLimit,1)}`, ok(r.eOk));
+    row('φPn ≥ Pu', `${fmt(r.phiPn_kgf/1000,1)} / ${fmt(r.Pu_kgf/1000,1)} tf`, ok(r.okAxial));
+    row('φVn ≥ Vu', `${fmt(r.phiVn_kgf/1000,1)} / ${fmt(r.Vu_kgf/1000,1)} tf`, ok(r.okShear));
+    row('Vn 上限 (2.65√fc·Acv)', `${fmt(r.VnLimit_kgf/1000,1)} tf`, ok(null));
+    if (r.aggRows && r.aggRows.length) {
+      row(`多片牆聚合 (${r.aggRows.length} 段)`, `ΣφVn=${fmt(r.sumVn_kgf/1000,1)} / 上限=${fmt(r.VnLimitTotal_kgf/1000,1)} tf`, ok(r.aggTotalOk));
+      row('各段 Vn ≤ 單段上限', '', ok(r.singleOk));
+      row('力分布', r.concentrated ? '⚠ 單段佔比 >65%' : '均勻', ok(!r.concentrated));
+    }
+
+    sec('③ 配筋 ＆ 詳細規定');
+    row('縱筋', `${r.vBar} @ ${r.vSp} cm × ${r.layers} 層`, ok(null));
+    row('橫筋', `${r.hBar} @ ${r.hSp} cm × ${r.layers} 層`, ok(null));
+    row('ρℓ ≥ 下限', `${fmt(r.rhol,4)} / ${fmt(r.rholMin,4)}`, ok(r.okRhol));
+    row('ρt ≥ 下限', `${fmt(r.rhot,4)} / ${fmt(r.rhotMin,4)}`, ok(r.okRhot));
+    row('鋼筋層數', r.needTwoLayer ? `須雙層, 目前 ${r.layers}` : '單層可', ok(r.okLayers));
+    row('筋距 ≤ min(3h, 45)', `縱=${r.vSp}, 橫=${r.hSp}, 上限=${fmt(r.spMax,0)}`, ok(r.okVSp && r.okHSp));
+    if (r.seismic || r.wallType === 'shear') {
+      row('面內：縱筋 ≤ ℓw/3', `${r.vSp} / ${fmt(r.vSpInplaneLim,0)}`, ok(r.okVSpInplane));
+      row('面內：橫筋 ≤ ℓw/5', `${r.hSp} / ${fmt(r.hSpInplaneLim,0)}`, ok(r.okHSpInplane));
+    }
+    row('開口補強', r.hasOpening ? '須補強' : '無開口', ok(null));
+    row('施工縫剪摩擦', r.hasJoint ? (r.needShearFric ? `須剪摩擦 (Vu>${fmt(r.joinShearLim_kgf/1000,1)} tf)` : '不需') : '無施工縫', ok(!r.needShearFric));
+
+    sec('④ 計算法 (Methods)');
+    row('面外 P-Δ 方法', r.slenderMethod === 'simple' ? '簡版 (1 次)' : `迭代 ${r.iterCount} 次`, ok(r.iterConverged));
+    row('Δs ≤ ℓc/150', `${fmt(r.delta_s,3)} / ${fmt(r.deltaLim,3)} cm`, ok(r.okDeltaLim));
+    row('φMn ≥ Mua (面外)', `${fmt(r.phiMn_oop_kgcm/1e5,2)} / ${fmt(r.Mua_total_kgcm/1e5,2)} tf·m/m`, ok(r.okOopFlex));
+    if (r.seismic || r.wallType === 'shear') {
+      row(`SBE 延伸方法`, r.sbeMethodLabel, ok(null));
+      row(`SBE 沿水平延伸長度`, `${fmt(r.sbeExtX,1)} cm (終止 σ=${fmt(r.sigmaStop,1)})`, ok(null));
+    }
+
+    if (r.seismic || r.wallType === 'shear') {
+      sec('⑤ 耐震 (SSW)');
+      row('ρℓ, ρt ≥ 0.0025', `ρℓ=${fmt(r.rhol,4)}, ρt=${fmt(r.rhot,4)}`, ok(r.rhol >= 0.0025 && r.rhot >= 0.0025));
+      row('σmax ≤ 0.2fc′', `${r.sigmaMax} / ${fmt(0.2*r.fc,1)}`, ok(r.sigmaMax <= 0.2*r.fc));
+      row('特殊邊界構材', r.sigmaMax > 0.2*r.fc ? '需設置' : '不需', ok(r.sigmaMax <= 0.2*r.fc));
+      row('Vu ≤ 2.65√fc·Acv', `${fmt(r.Vu_kgf/1000,1)} / ${fmt(r.VnLimit_kgf/1000,1)}`, ok(r.Vu_kgf <= r.VnLimit_kgf));
+    }
+
+    // 底部總結
+    const allCheckBools = [r.okH, r.eOk, r.okAxial, r.okShear, r.okRhol, r.okRhot, r.okLayers, r.okOopFlex, r.okDeltaLim, r.okVSp, r.okHSp];
+    const failCount = allCheckBools.filter(b => b === false).length;
+    const totalCount = allCheckBools.filter(b => b === true || b === false).length;
+    const overall = failCount === 0
+      ? `<div style="padding:10px 14px;background:#dcfce7;color:#166534;border:2px solid #16a34a;border-radius:6px;font-weight:600;">✓ 全部 ${totalCount} 項主要檢核通過</div>`
+      : `<div style="padding:10px 14px;background:#fee2e2;color:#991b1b;border:2px solid #dc2626;border-radius:6px;font-weight:600;">✗ ${failCount} / ${totalCount} 項主要檢核未通過</div>`;
+
+    host.innerHTML = `
+      ${overall}
+      <table style="width:100%;border-collapse:collapse;font-size:0.88em;margin-top:10px;border:1px solid #cbd5e1;">
+        <thead><tr style="background:#e2e8f0;"><th style="padding:6px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">項目</th><th style="padding:6px 10px;text-align:right;border-bottom:2px solid #cbd5e1;">數值 / 比較</th><th style="padding:6px 10px;text-align:center;border-bottom:2px solid #cbd5e1;">狀態</th></tr></thead>
+        <tbody>${rows.join('')}</tbody>
+      </table>`;
+  }
+
+  // === 模式相關：Design vs Check ===
+  function applyDesignCheckMode() {
+    const isDesign = currentMode === 'design';
+    // 設計模式：rebar panel 隱藏 [data-rebar-spacing] (間距/層數)，保留號數選擇
+    document.querySelectorAll('[data-rebar-spacing]').forEach(el => {
+      el.style.display = isDesign ? 'none' : '';
+    });
+    // 設計模式專屬的內嵌建議卡片
+    const inline = $('rebarDesignInlineSugg');
+    if (inline) inline.style.display = isDesign ? '' : 'none';
+    // rebar mode hint 文字
+    const rHint = $('rebarModeHint');
+    if (rHint) rHint.textContent = isDesign
+      ? '【設計模式】請先選擇欲採用的縱筋／橫筋號數，系統將依當前載重與規範下限計算所需間距與層數。'
+      : '【檢核模式】請輸入實際配筋 (號數／間距／層數)，系統將逐項核對是否符合規範各項要求。';
+    // summary 頁模式文字
+    const note = $('summaryModeNote');
+    if (note) note.textContent = isDesign
+      ? '【設計模式】依當前載重 (Pu/Vu/Mua) 給出建議鋼筋配置；可切換至「檢核」模式核對既有配筋。'
+      : '【檢核模式】依當前完整鋼筋輸入 (號數/間距/層數)，逐項核對是否符合規範各項要求。';
+  }
+
+  function buildWallReport() {
+    if (!window.wallLast) calcWall();
+    const r = window.wallLast;
+    const proj = { name:$('projName').value.trim(), no:$('projNo').value.trim(), designer:$('projDesigner').value.trim() };
+    const typeLabel = ({bearing:'承重牆',nonbearing:'非承重牆',basement:'地下室外牆',shear:'結構剪力牆'})[r.wallType];
+
+    const inputs = [
+      { group:'幾何', items:[
+        { label:'牆種類', value:typeLabel },
+        { label:'厚度 h', value:r.h, unit:'cm' },
+        { label:'長度 lw', value:r.lw, unit:'cm' },
+        { label:'淨高 lc', value:r.lc, unit:'cm' },
+        { label:'總高 hw', value:r.hw, unit:'cm' },
+        { label:'k 因數', value:r.k }
+      ]},
+      { group:'材料', items:[
+        { label:"fc'", value:r.fc, unit:'kgf/cm²' },
+        { label:'fy', value:r.fy, unit:'kgf/cm²' }
+      ]},
+      { group:'配筋', items:[
+        { label:'垂直筋', value:`${r.vBar} @ ${r.vSp} cm` },
+        { label:'水平筋', value:`${r.hBar} @ ${r.hSp} cm` },
+        { label:'層數', value:`${r.layers} 層` },
+        { label:'ρℓ / ρt', value:`${r.rhol.toFixed(4)} / ${r.rhot.toFixed(4)}` }
+      ]},
+      { group:'外力', items:[
+        { label:'Pu', value:(r.Pu_kgf/1000).toFixed(2), unit:'tf' },
+        { label:'偏心 e', value:r.e, unit:'cm' },
+        { label:'Vu', value:(r.Vu_kgf/1000).toFixed(2), unit:'tf' },
+        ...(r.seismic?[{ label:'σmax', value:r.sigmaMax, unit:'kgf/cm²' }]:[])
+      ]}
+    ];
+
+    const checks = [
+      { group:'幾何', items:[
+        { label:'Wall Pier 判定', formula:'Hw/ℓw ≥ 2.0 且 ℓw/bw ≤ 2.5 → 應依柱設計',
+          sub:`Hw/ℓw=${r.hwlw_pier.toFixed(2)}, ℓw/bw=${r.lwbw.toFixed(2)}`,
+          value: r.isWallPier ? '⚠ 改用柱工具' : '牆設計', ok: !r.isWallPier },
+        { label:"SSW fc' ≤ 350", formula:'規範 18.10.2.4',
+          sub: r.seismic||r.wallType==='shear' ? `fc'=${r.fc} kgf/cm²` : '非結構牆免檢',
+          value:`${r.fc}`, unit:'kgf/cm²', ok: r.fcLimitOk },
+        { label:'h ≥ hmin', formula: ({bearing:'min(lc,lw)/25',nonbearing:'min(lc,lw)/30',basement:'≥20cm',shear:'min(lc,lw)/25'})[r.wallType],
+          sub:`hmin = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm`,
+          value:`${r.h}`, unit:'cm', ok:r.okH },
+        { label:'偏心 e ≤ h/6', formula:'簡易公式適用範圍',
+          sub:`e=${r.e}    h/6=${r.eLimit.toFixed(1)}`,
+          value:`${r.e}`, unit:'cm', ok:r.eOk }
+      ]},
+      { group:'軸力', items:[
+        { label:'φPn ≥ Pu', formula:"φPn = 0.65·0.55·fc'·Ag·[1−(k·lc/(32h))²]",
+          sub:`= 0.65·0.55·${r.fc}·${r.Ag}·[1−(${r.k}·${r.lc}/(32·${r.h}))²]`,
+          value:`${(r.phiPn_kgf/1000).toFixed(1)} / ${(r.Pu_kgf/1000).toFixed(1)}`, unit:'tf', ok:r.okAxial }
+      ]},
+      { group:'剪力', items:[
+        { label:'αc 內插', formula:'hw/lw ≤1.5→0.80, ≥2.0→0.53',
+          sub:`hw/lw = ${r.hwlw.toFixed(2)}  →  αc = ${r.alpha_c.toFixed(3)}`,
+          value:r.alpha_c.toFixed(3), ok:null },
+        { label:'φVn ≥ Vu', formula:'φVn = 0.75·Acv·(αc·λ·√fc + ρt·fy)',
+          sub:`Acv=${r.Acv}, ρt=${r.rhot.toFixed(4)}  →  φVn=${(r.phiVn_kgf/1000).toFixed(1)} tf`,
+          value:`${(r.phiVn_kgf/1000).toFixed(1)} / ${(r.Vu_kgf/1000).toFixed(1)}`, unit:'tf', ok:r.okShear },
+        ...(r.seismic?[{ label:'Vu ≤ Vn上限', formula:'2.65√fc·Acv',
+          sub:`Vn上限 = ${(r.VnLimit_kgf/1000).toFixed(1)} tf`,
+          value:`${(r.Vu_kgf/1000).toFixed(1)} / ${(r.VnLimit_kgf/1000).toFixed(1)}`, unit:'tf', ok:r.Vu_kgf<=r.VnLimit_kgf }]:[])
+      ]},
+      { group:'最少鋼筋', items:[
+        { label:'ρℓ ≥ ρℓ,min', formula: r.seismic?'≥0.0025':'≥0.0012',
+          sub:`ρℓ = ${r.rhol.toFixed(4)}    下限 = ${r.rholMin.toFixed(4)}`,
+          value:r.rhol.toFixed(4), ok:r.okRhol },
+        { label:'ρt ≥ ρt,min', formula: r.seismic?'≥0.0025':'≥0.0020',
+          sub:`ρt = ${r.rhot.toFixed(4)}    下限 = ${r.rhotMin.toFixed(4)}`,
+          value:r.rhot.toFixed(4), ok:r.okRhot },
+        { label:'雙層鋼筋網', formula:'Vu>0.5φVc 或 hw/lw≥2 須雙層',
+          sub: r.needTwoLayer?`需雙層, 目前 ${r.layers}`:'單層可',
+          value: r.needTwoLayer?(r.layers>=2?'OK':'不足'):'單層', ok:r.okLayers }
+      ]},
+      { group:'握裹 / 搭接長度 (規範 25 章)', items:
+        DevLength.reportItems({ fc:r.fc, fy:r.fy, db:r.dbV||r.db||1.27, lambda:1.0, psit:1.0, psie:1.0 }, '縱筋拉力 ℓd')
+      },
+      ...(r.flangeShape && r.flangeShape !== 'rect' ? [{ group:'有效翼版寬', items:[
+        { label:'b_eff (單邊)', formula:'min(s/2, 0.25hw, bf,act)',
+          sub:`控制項 = ${r.bEffCtrl}`,
+          value:`${r.bEff.toFixed(1)}`, unit:'cm', ok:null },
+        { label:'總有效寬度', formula: r.flangeShape==='L'?'h + b_eff':'h + 2·b_eff',
+          sub:`剖面 = ${r.flangeShape}`,
+          value:`${r.sectionTotalB.toFixed(1)}`, unit:'cm', ok:null },
+        { label:'Ig (含翼版)', formula:'Iweb + 翼版貢獻 (近似)',
+          sub:`= ${r.IgFull.toExponential(2)} cm⁴`,
+          value: r.IgFull.toExponential(2), unit:'cm⁴', ok:null }
+      ]}]:[]),
+      ...(r.aggRows && r.aggRows.length ? [{ group:'多片牆聚合 (規範 18.10.4.4)', items:[
+        { label:'牆段數', formula:'同層平行牆群', sub: r.aggRows.map(w=>w.tag).join(', '),
+          value:`${r.aggRows.length}`, ok:null },
+        { label:'ΣAcv', formula:'總抗剪面積', sub:'',
+          value:`${r.sumAcv}`, unit:'cm²', ok:null },
+        { label:'ΣφVn ≤ 總上限', formula:'總上限 = 2.12·λ·√fc·ΣAcv',
+          sub:`ΣφVn=${(r.sumVn_kgf/1000).toFixed(1)}    上限=${(r.VnLimitTotal_kgf/1000).toFixed(1)} tf`,
+          value:`${(r.sumVn_kgf/1000).toFixed(1)} / ${(r.VnLimitTotal_kgf/1000).toFixed(1)}`, unit:'tf', ok:r.aggTotalOk },
+        { label:'單段 Vn ≤ 2.65√fc·Acv', formula:'規範 18.10.4.4',
+          sub: r.singleOk?'各段均符合':'有單段超上限',
+          value: r.singleOk?'OK':'NG', ok:r.singleOk },
+        { label:'力分布', formula:'單段 Vu/ΣVu > 65% 視為集中',
+          sub: r.concentrated?'分布不均':'均勻',
+          value: r.concentrated?'⚠ 力集中':'均勻', ok: !r.concentrated }
+      ]}]:[]),
+      { group:'面外撓曲 (規範 11.8 Slender Wall)', items:[
+        { label:'P-Δ 方法', formula: r.slenderMethod==='simple'?'簡版 (1 次 + Δs ≤ ℓc/150)':'完整迭代收斂',
+          sub: r.slenderMethod==='simple'?'1 次':`${r.iterCount} 次 ${r.iterConverged?'收斂':'未收斂'}`,
+          value: r.slenderMethod==='simple'?'簡版':'迭代', ok: r.iterConverged },
+        { label:'Δs ≤ ℓc/150', formula:'服務載重撓度上限',
+          sub:`Δs=${r.delta_s.toFixed(3)}    上限=${r.deltaLim.toFixed(3)} cm`,
+          value:`${r.delta_s.toFixed(3)}`, unit:'cm', ok:r.okDeltaLim },
+        { label:'φMn ≥ Mua', formula:'Mua = Mu + Pu·Δs (含 P-δ)',
+          sub:`φMn=${(r.phiMn_oop_kgcm/1e5).toFixed(2)}    Mua=${(r.Mua_total_kgcm/1e5).toFixed(2)} tf·m/m`,
+          value:`${(r.phiMn_oop_kgcm/1e5).toFixed(2)} / ${(r.Mua_total_kgcm/1e5).toFixed(2)}`, unit:'tf·m/m', ok:r.okOopFlex }
+      ]},
+      { group:'詳細規定 (Detailing)', items:[
+        { label:'筋距 ≤ min(3h, 45)', formula:'規範 11.7.2',
+          sub:`上限 ${r.spMax.toFixed(0)} cm    縱=${r.vSp}    橫=${r.hSp}`,
+          value:`${Math.max(r.vSp, r.hSp)}`, unit:'cm', ok:r.okVSp && r.okHSp },
+        ...(r.seismic||r.wallType==='shear'?[
+          { label:'面內：縱筋 ≤ ℓw/3', formula:'結構牆面內剪力',
+            sub:`${r.vSp} / ${r.vSpInplaneLim.toFixed(0)} cm`,
+            value:`${r.vSp}`, unit:'cm', ok:r.okVSpInplane },
+          { label:'面內：橫筋 ≤ ℓw/5', formula:'結構牆面內剪力',
+            sub:`${r.hSp} / ${r.hSpInplaneLim.toFixed(0)} cm`,
+            value:`${r.hSp}`, unit:'cm', ok:r.okHSpInplane }
+        ]:[]),
+        { label:'開口補強', formula: r.layers>=2?'雙層: 四邊各 2·D16':'單層: 四邊各 1·D16',
+          sub: r.hasOpening?'有開口 → 須補強':'無開口',
+          value: r.hasOpening?'須補強':'無', ok:null },
+        { label:'SBE 搭接禁區 hsx', formula:'規範 18.10.6.5: ≤ min(610, ℓw) cm 上不得搭接',
+          sub: r.seismic||r.wallType==='shear' ? `禁區 ≤ ${r.hsxNoSplice} cm 上` : '非結構牆',
+          value: r.seismic||r.wallType==='shear' ? `${r.hsxNoSplice} cm` : '—', ok:null },
+        { label:'施工縫粗糙', formula:'規範 22.9: ≥ 0.6 cm 振幅',
+          sub: r.hasJoint?'須粗糙至 0.6 cm':'無施工縫',
+          value: r.hasJoint?'須粗糙':'無', ok:null },
+        { label:'施工縫剪摩擦', formula:'Vu > 1.1·λ·√fc·Acv → 須設計',
+          sub: r.hasJoint?`Vu=${(r.Vu_kgf/1000).toFixed(1)}    上限=${(r.joinShearLim_kgf/1000).toFixed(1)} tf`:'無施工縫',
+          value: r.hasJoint?(r.needShearFric?'須剪摩擦':'不需'):'—', ok: !r.needShearFric }
+      ]},
+      ...(r.seismic?[{ group:'耐震 (SSW)', items:[
+        { label:'σmax ≤ 0.2fc', formula:'規範 SSW',
+          sub:`${r.sigmaMax} / ${(0.2*r.fc).toFixed(1)}`,
+          value:`${r.sigmaMax}`, unit:'kgf/cm²', ok:r.sigmaMax<=0.2*r.fc },
+        { label:'特殊邊界構材', formula:'σmax > 0.2fc 須設置',
+          sub: r.sigmaMax>0.2*r.fc?`需設置, SBE 沿水平延伸 ${r.sbeExtX.toFixed(1)} cm (${r.sbeMethodLabel})`:'不需',
+          value: r.sigmaMax<=0.2*r.fc?'不需':'需', ok: r.sigmaMax<=0.2*r.fc },
+        { label:'SBE 沿水平延伸', formula:'壓應力 ≤ 0.15fc′ 終止',
+          sub:`方法 = ${r.sbeMethodLabel}    終止應力 = ${r.sigmaStop.toFixed(1)} kgf/cm²`,
+          value:`${r.sbeExtX.toFixed(1)}`, unit:'cm', ok:null }
+      ]}]:[])
+    ];
+
+    const allChecks = checks.flatMap(g=>g.items.map(i=>i.ok)).filter(v=>v===true||v===false);
+    const allOk = allChecks.length>0 && allChecks.every(v=>v===true);
+    const anyFail = allChecks.some(v=>v===false);
+
+    const stepsArr = [];
+    if ($('showSteps') && $('showSteps').checked) {
+      const grab = (id, label) => {
+        const el = $(id);
+        const txt = (el?.textContent || '').trim();
+        if (txt) stepsArr.push({ group: label, body: txt });
+      };
+      grab('stepsGeomBody',    '幾何 ＆ 材料');
+      grab('stepsLoadBody',    '載重 (φPn / φVn)');
+      grab('stepsRebarBody',   '配筋 ＆ 詳細規定');
+      grab('stepsMethodsBody', '面外 P-Δ ＆ SBE 延伸');
+    }
+
+    openReport({
+      title:'牆設計計算書', subtitle:'RC Wall Design Report',
+      project:proj,
+      summary:{ ok:anyFail?false:allOk?true:null, text:anyFail?'✗ NG — 不符合規範':allOk?'✓ OK — 符合規範':'部分檢核未完成' },
+      inputs, checks,
+      steps: stepsArr,
+      symbols:[
+        { sym:"fc'", desc:'混凝土抗壓強度' },
+        { sym:'fy', desc:'鋼筋降伏強度' },
+        { sym:'h', desc:'牆厚' },
+        { sym:'lw', desc:'牆長' },
+        { sym:'lc', desc:'牆淨高' },
+        { sym:'hw', desc:'牆總高 (用於 hw/lw)' },
+        { sym:'Acv', desc:'抗剪斷面積 h·lw' },
+        { sym:'ρℓ', desc:'垂直筋比' },
+        { sym:'ρt', desc:'水平筋比' },
+        { sym:'αc', desc:'剪力強度係數 (依 hw/lw 線性內插)' }
+      ],
+      notes:[
+        '依據 112 年混凝土結構設計規範',
+        '本計算書由 RC 工具箱自動產生，僅供初步設計參考',
+        r.seismic?'已套用特殊結構牆 (SSW) 耐震規定':'未套用耐震規定',
+        `面外撓曲採 ${r.slenderMethod==='simple'?'簡版 (1 次 P-δ)':'完整 P-Δ 迭代'} (Ec = 12000·√fc′, 規範 19.2.2)`,
+        r.aggRows && r.aggRows.length ? `多片牆聚合：${r.aggRows.length} 段，ΣφVn=${(r.sumVn_kgf/1000).toFixed(1)} tf` : '未啟用多片牆聚合'
+      ]
+    });
+  }
+
+
+  function updateBanner(r) {
+    const tab = document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom';
+    const banner = $('bannerStatus');
+    const key = $('bannerKey');
+    let checks = [], kv = [];
+    if (tab === 'geom') {
+      checks.push(['牆厚 ≥ 下限', r.okH]);
+      kv.push({ label:'h', val:`${r.h} cm`, ok:null });
+      kv.push({ label:'hmin', val:`${r.hmin.toFixed(1)} cm`, ok:r.okH });
+    } else if (tab === 'load') {
+      checks.push(['e ≤ h/6 (簡易公式適用)', r.eOk]);
+      checks.push(['φPn ≥ Pu', r.okAxial]);
+      checks.push(['φVn ≥ Vu', r.okShear]);
+      kv.push({ label:'φPn', val:`${r.phiPn.toFixed(2)} tf`, ok:r.okAxial });
+      kv.push({ label:'Pu', val:`${r.Pu.toFixed(2)} tf`, ok:null });
+      kv.push({ label:'φVn', val:`${r.phiVn.toFixed(2)} tf`, ok:r.okShear });
+      kv.push({ label:'Vu', val:`${r.Vu.toFixed(2)} tf`, ok:null });
+    } else if (tab === 'rebar') {
+      checks.push(['ρℓ ≥ 下限', r.okRhol]);
+      checks.push(['ρt ≥ 下限', r.okRhot]);
+      checks.push(['鋼筋層數', r.okLayers]);
+      kv.push({ label:'ρℓ', val:`${r.rhol.toFixed(4)}`, ok:r.okRhol });
+      kv.push({ label:'ρt', val:`${r.rhot.toFixed(4)}`, ok:r.okRhot });
+      kv.push({ label:'ρℓ,min', val:`${r.rholMin.toFixed(4)}`, ok:null });
+      kv.push({ label:'ρt,min', val:`${r.rhotMin.toFixed(4)}`, ok:null });
+    } else if (tab === 'methods') {
+      kv.push({ label:'P-Δ', val: ($('slenderMethod')?.value === 'iter') ? '迭代' : '簡版', ok:null });
+      kv.push({ label:'SBE 延伸', val: ($('sbeExtMethod')?.value === 'custom') ? '應力分布' : '線性', ok:null });
+    } else if (tab === 'summary') {
+      checks.push(['牆厚', r.okH]);
+      checks.push(['φPn ≥ Pu', r.okAxial]);
+      checks.push(['φVn ≥ Vu', r.okShear]);
+      checks.push(['ρℓ', r.okRhol]);
+      checks.push(['ρt', r.okRhot]);
+      checks.push(['層數', r.okLayers]);
+    }
+    const allOk = checks.length > 0 && checks.every(c => c[1] === true);
+    const anyFail = checks.some(c => c[1] === false);
+    banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
+    const icon = anyFail ? '✗' : allOk ? '✓' : '⚠';
+    const txt = anyFail ? 'NG — 不符合規範' : allOk ? 'OK — 符合規範' : '部分項目待檢核';
+    banner.innerHTML = `${icon} ${txt}` + (checks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
+    key.innerHTML = kv.map(item => {
+      const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';
+      return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;
+    }).join('');
+  }
+
+  document.querySelectorAll('.btn-calc').forEach(b => b.addEventListener('click', calcWall));
+  document.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', calcWall);
+    el.addEventListener('change', calcWall);
+  });
+  document.getElementById('btnReport')?.addEventListener('click', buildWallReport);
+  document.getElementById('btnReport2')?.addEventListener('click', buildWallReport);
+
+  const lcWallCfg = {
+    prefix: 'lcWall',
+    forces: [
+      { key:'P', label:'軸力 Pu', unit:'tf' },
+      { key:'V', label:'剪力 Vu', unit:'tf' },
+    ],
+    targetIds: { P:'Pu', V:'Vu' },
+  };
+  document.getElementById('lcWallPanel').innerHTML = LoadCombo.buildPanel(lcWallCfg);
+  LoadCombo.bind(lcWallCfg);
+
+  // === 聚合表格按鈕綁定 ===
+  document.getElementById('aggAddBtn')?.addEventListener('click', () => { addAggRow(); calcWall(); });
+  document.getElementById('aggUseCurBtn')?.addEventListener('click', () => {
+    const h = num('h'), lw = num('lw'), hw = num('hw');
+    const vAb = REBAR_TABLE[$('vBar').value].area;
+    const hAb = REBAR_TABLE[$('hBar').value].area;
+    const layers = parseInt($('layers').value);
+    const rhot = (layers * hAb) / (h * num('hSp'));
+    addAggRow({ tag:'目前牆', h, lw, hwlw: lw>0 ? hw/lw : 3, rhot, Vu: num('Vu') });
+    calcWall();
+  });
+  // 初始放兩筆示範
+  addAggRow({ tag:'W1', h:25, lw:600, hwlw:2.5, rhot:0.0030, Vu:120 });
+  addAggRow({ tag:'W2', h:25, lw:400, hwlw:3.7, rhot:0.0030, Vu:80 });
+
+  function attachFormulaTips() {
+    if (!window.FormulaInfo) return;
+    FormulaInfo.attach({
+      'r-hmin':      '承重牆最小厚度 h ≥ max(ℓc/25, 10 cm)',
+      'r-phiPn':     '簡易公式 φPn = 0.55·φ·fc·Ag·[1−(k·ℓc/(32h))²]',
+      'r-rhol':      '縱向最小配筋比 ρℓ ≥ 0.0012 (#5 以下) 或 0.0015',
+      'r-rhot':      '橫向最小配筋比 ρt ≥ 0.0020 (#5 以下) 或 0.0025',
+      'r-Acv':       'Acv = ℓw·tw (剪力面積)',
+      'r-phiVn':     'φVn = φ·(αc·√fc + ρt·fy)·Acv\nαc = 0.80 (hw/ℓw≤1.5) ~ 0.53 (≥2.0)',
+      'r-VnLimit':   'Vn 上限 = 2.65·√fc·Acv (規範 11.5.4.3)',
+      'r-oopMcr':    '2/3·Mcr = 2/3·fr·Ig/yt\nfr = 2·√fc',
+      'r-oopIcr':    '裂面慣性矩 Icr = (As+Ase)·(d−c)² + b·c³/3',
+      'r-oopDelta':  'Δs = 5·Mua·ℓc² / (48·Ec·Ie)',
+      'r-oopMu':     'Mua = Mu + Pu·Δs (P-δ 放大)',
+      'r-bwPa':      'Rankine 主動土壓 pa = Ka·γs·H (底部)',
+      'r-bwMtri':    '簡支三角形分布 M = 0.0641·pa·H²',
+      'r-bwMuni':    '均布超載 M = (Ka·qs)·H²/8',
+      'r-bwMw':      '水壓 pw = γw·hw；M = 0.0641·pw·hw²',
+      'r-bwMutot':   'Mu = 1.6·(M_土三角 + M_超載 + M_水)',
+      'be-cLimit':   'BE 觸發 c ≥ ℓw / [600·(1.5·δu/hw)]',
+      'be-extLen':   'BE 沿高延伸 = max(ℓw, Mu/(4Vu))',
+      'be-horizLen': 'BE 水平長度 ≥ max(c−0.1ℓw, c/2)',
+      // Phase C/D 新增
+      'r-pierGate':  'Wall Pier 判定 (規範 18.10.1)\nHw/ℓw ≥ 2.0 且 ℓw/bw ≤ 2.5 → 應依柱設計',
+      'r-fcLim':     'SSW fc′ 上限 (規範 18.10.2.4)\n特殊結構牆 fc′ ≤ 350 kgf/cm²',
+      'r-bEff':      '有效翼版寬 (規範 18.10.5.2)\nb_eff = min(s/2, 0.25·hw, bf,act)',
+      'r-bSection':  '總有效寬度 = h + sides·b_eff\n(L 形 sides=1, T/C/I 形 sides=2)',
+      'r-Ig':        'Ig (含翼版近似) = Iweb + Σ(b_eff·tf)·(ℓw/2)²',
+      'r-aggVnLimitTot': '全牆段 ΣVn 上限 = 2.12·λ·√fc′·ΣAcv (規範 18.10.4.4)',
+      'c-aggSingle': '單段上限 Vn ≤ 2.65·√fc′·Acv (規範 18.10.4.4)',
+      'c-aggConc':   '力集中警示：任一段 Vu/ΣVu > 65%',
+      'sbe-extLen':  'SBE 沿水平延伸：壓應力降至 0.15·fc′ 處終止 (規範 18.10.6.2)',
+      'r-oopIter':   'P-Δ 收斂法：M_(k+1) = Mu + Pu·Δs(M_k) 直到 |ΔM| < tol',
+      'r-oopDeflLim':'規範 11.8.4: 服務載重撓度 Δs ≤ ℓc/150',
+      'd-spMax':     '筋距上限 = min(3h, 45 cm) (規範 11.7.2)',
+      'd-vSpInplane':'結構牆面內剪力：縱筋間距 ≤ ℓw/3',
+      'd-hSpInplane':'結構牆面內剪力：橫筋間距 ≤ ℓw/5',
+      'd-shearFric': '施工縫剪摩擦觸發 Vu > 1.1·λ·√fc′·Acv (規範 22.9)',
+      'd-spliceBE':  'SBE 內鋼筋搭接禁區：min(610, ℓw) cm 以上 (規範 18.10.6.5)'
+    });
+  }
+  window.addEventListener('load', () => {
+    applyDesignCheckMode();
+    applyPanel('geom');
+    attachFormulaTips();
+  });
+</script>
+</body>
+</html>
