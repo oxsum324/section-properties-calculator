@@ -1,0 +1,28 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/", "destination": "/結構工具箱/index.html" },
+    { "source": "/wind", "destination": "/結構工具箱/index.html" },
+    { "source": "/wind-force", "destination": "/結構工具箱/tools/wind-force.html" },
+    { "source": "/wind-cc", "destination": "/結構工具箱/tools/wind-cc.html" },
+    { "source": "/wind-open-roof", "destination": "/結構工具箱/tools/wind-open-roof.html" },
+    { "source": "/wind-parapet", "destination": "/結構工具箱/tools/wind-parapet.html" },
+    { "source": "/wind-object-solid", "destination": "/結構工具箱/tools/wind-object-solid.html" },
+    { "source": "/wind-object-frame", "destination": "/結構工具箱/tools/wind-object-frame.html" },
+    { "source": "/wind-object-tower", "destination": "/結構工具箱/tools/wind-object-tower.html" },
+    { "source": "/wind-shape-factor", "destination": "/結構工具箱/tools/wind-shape-factor.html" },
+    { "source": "/wind-special", "destination": "/結構工具箱/tools/wind-special.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ]
+}
