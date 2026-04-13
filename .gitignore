@@ -1,0 +1,17 @@
+/.claude/
+/tmp_*.png
+/tmp_ch3_pages/
+/wind_fig_*.png
+/table_p*.png
+/_search_ch4_tables.txt
+/*.bmp
+/*.pdf
+/*.xls
+/結構工具箱/.claude/
+/結構工具箱/tools/.column-testdeps/
+/結構工具箱/tools/.foundation-testdeps/
+/結構工具箱/tools/.slab-testdeps/
+/結構工具箱/tools/package.json
+/結構工具箱/tools/*-regression.test.js
+/結構工具箱/tools/*-regression-cases.json
+/結構工具箱/tools/test-*.ps1

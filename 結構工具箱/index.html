@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>結構工具箱</title>
+<link rel="stylesheet" href="core/style.css">
+<style>
+  .group-title {
+    margin: 18px 0 10px;
+    padding-left: 10px;
+    border-left: 4px solid var(--primary);
+    color: var(--primary);
+    font-size: 1.05em;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .ver { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:10px;
+         font-size:0.62em; font-weight:700; vertical-align:middle; letter-spacing:0.5px; }
+  .ver-ok    { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+  .ver-new   { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+  .ver-draft { background:#fef3c7; color:#a16207; border:1px solid #fcd34d; }
+  .badge-soon { display:inline-block; margin-left:6px; padding:2px 10px; border-radius:4px;
+                font-size:0.6em; font-weight:700; vertical-align:middle; letter-spacing:1px;
+                background:#e2e8f0; color:#64748b; border:1px solid #cbd5e1; }
+  .menu-card.disabled { background:#f1f5f9; color:#94a3b8; cursor:not-allowed;
+                         pointer-events:none; filter:grayscale(100%); opacity:0.65;
+                         box-shadow:none; border:1px dashed #cbd5e1; }
+  .menu-card.disabled .icon { color:#cbd5e1; }
+  .menu-card.disabled h3 { color:#94a3b8; }
+  .menu-card.disabled p  { color:#94a3b8; }
+  .intro-tag { display:inline-block; margin-right:8px; padding:2px 8px; border-radius:4px;
+               background:rgba(255,255,255,0.18); font-size:0.75em; letter-spacing:1px; }
+  .subgroup-title {
+    margin: 10px 0 12px;
+    font-size: 0.82em;
+    font-weight: 700;
+    color: var(--text-light);
+    letter-spacing: 1px;
+  }
+  .subgroup-title:first-of-type { margin-top: 0; }
+  table.scope-table { width:100%; border-collapse:collapse; font-size:0.84em; margin-top:8px; }
+  table.scope-table th, table.scope-table td { border:1px solid #e2e8f0; padding:8px 10px; vertical-align:top; }
+  table.scope-table th { background:#f8fafc; color:var(--primary); font-weight:700; text-align:left; }
+  .scope-ok { color:#15803d; font-weight:700; }
+  .scope-limit { color:#a16207; font-weight:700; }
+  .scope-no { color:#b91c1c; font-weight:700; }
+  .collapse-toggle { display:flex; align-items:center; gap:8px; padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-top:4px; }
+  .collapse-toggle input[type="checkbox"] { width:18px; height:18px; accent-color: var(--primary); }
+  .collapse-toggle label { font-size:0.88em; font-weight:700; color:var(--primary); cursor:pointer; }
+  .collapse-panel.hidden { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V0.2</span></h1>
+  <p>
+    <span class="intro-tag">RC 構件設計</span>
+    <span class="intro-tag">鋼結構設計</span>
+    <span class="intro-tag">耐風設計</span>
+    <span class="intro-tag">斷面性質</span>
+    <span class="intro-tag">結構分析</span>
+  </p>
+  <p style="font-size:0.78em; opacity:0.85; margin-top:4px;">
+    整合 RC 構件、鋼結構、斷面性質、結構分析、與耐風設計之統一入口 ｜ 單位：cm, kgf
+  </p>
+</header>
+
+<div class="container">
+
+  <!-- ─── 結構分析 ─── -->
+  <div class="card">
+    <div class="group-title">結構分析</div>
+    <div class="menu-grid">
+      <a class="menu-card" href="../連續梁分析.html">
+        <div class="icon">⊏⊐</div>
+        <h3>連續梁分析 <span class="ver ver-ok">V1</span></h3>
+        <p>多跨連續梁彎矩 / 剪力 / 撓度；可導入斷面 I 值</p>
+      </a>
+      <a class="menu-card" href="../../解題/struct_dx/frontend/struct_suite.html">
+        <div class="icon">⌬</div>
+        <h3>struct.dx 解題套件 <span class="ver ver-ok">外部</span></h3>
+        <p>桁架/剛架靜不定分析、傾角變位法、5 道驗算閘 (AI 整合)</p>
+      </a>
+      <a class="menu-card" href="tools/force-picker.html">
+        <div class="icon">⇄</div>
+        <h3>內力 Picker <span class="ver ver-new">NEW</span></h3>
+        <p>整合上游分析結果 (D/L/W/E 載重組合) → 一鍵送往梁/柱設計工具</p>
+      </a>
+    </div>
+  </div>
+
+  <!-- ─── 斷面性質 ─── -->
+  <div class="card">
+    <div class="group-title">斷面性質</div>
+    <div class="menu-grid">
+      <a class="menu-card" href="../index.html">
+        <div class="icon">▣</div>
+        <h3>斷面性質計算 <span class="ver ver-ok">V2.0</span></h3>
+        <p>鋼結構 / 基本幾何斷面 A、I、S、r、Z；支援導入連續梁工具</p>
+      </a>
+    </div>
+  </div>
+
+  <!-- ─── RC 構件設計 ─── -->
+  <div class="card">
+    <div class="group-title">鋼筋混凝土構件設計　<span style="font-size:0.7em; color:var(--text-light); font-weight:500;">依 112 年混凝土結構設計規範</span></div>
+    <div class="menu-grid">
+      <a class="menu-card" href="../鋼筋混凝土/tools/beam.html">
+        <div class="icon">▭</div>
+        <h3>梁 Beam <span class="ver ver-ok">V1</span></h3>
+        <p>撓曲、剪力、扭力、撓度；含特殊抗彎矩構架耐震檢核</p>
+      </a>
+      <a class="menu-card" href="../鋼筋混凝土/tools/column.html">
+        <div class="icon">▮</div>
+        <h3>柱 Column <span class="ver ver-ok">V1</span></h3>
+        <p>P-M 互制圖、軸壓上限、橫向圍束；強柱弱梁檢核</p>
+      </a>
+      <a class="menu-card" href="../鋼筋混凝土/tools/slab.html">
+        <div class="icon">▱</div>
+        <h3>板 Slab <span class="ver ver-ok">V1.1</span></h3>
+        <p>連續板係數法 + 直接設計法、自動配筋</p>
+      </a>
+      <a class="menu-card" href="../鋼筋混凝土/tools/wall.html">
+        <div class="icon">▦</div>
+        <h3>牆 Wall <span class="ver ver-new">V0.96</span></h3>
+        <p>承重牆/結構牆厚度、簡易軸力公式、特殊結構牆邊界構材</p>
+      </a>
+      <a class="menu-card" href="../鋼筋混凝土/tools/foundation.html">
+        <div class="icon">⬓</div>
+        <h3>基礎 Foundation <span class="ver ver-new">V2.0</span></h3>
+        <p>獨立/聯合/筏式/樁基/擋土牆基礎；單向雙向剪力、撓曲、設計/檢核</p>
+      </a>
+    </div>
+  </div>
+
+  <!-- ─── 鋼結構設計 ─── -->
+  <div class="card">
+    <div class="group-title">鋼結構設計　<span style="font-size:0.7em; color:var(--text-light); font-weight:500;">依鋼結構設計規範 (AISC 360 基礎)</span></div>
+    <div class="menu-grid">
+      <a class="menu-card" href="tools/steel-beam.html">
+        <div class="icon">Ⅱ</div>
+        <h3>鋼梁 Steel Beam <span class="ver ver-new">NEW</span></h3>
+        <p>H 型鋼梁撓曲 (LTB)、剪力、撓度驗算；斷面分類 (AISC Table B4.1b)</p>
+      </a>
+      <a class="menu-card" href="tools/steel-column.html">
+        <div class="icon">▮</div>
+        <h3>鋼柱 Steel Column <span class="ver ver-new">NEW</span></h3>
+        <p>軸壓挫屈 (E3/E7)、K 因數、P-M 互制 (H1)、ASD/LRFD 雙軌</p>
+      </a>
+    </div>
+  </div>
+
+  <!-- ─── 耐風設計 (NEW) ─── -->
+  <div class="card">
+    <div class="group-title">耐風設計　<span style="font-size:0.7em; color:var(--text-light); font-weight:500;">依 107 年建築物耐風設計規範</span></div>
+    <div class="subgroup-title">基本計算</div>
+    <div class="menu-grid">
+      <a class="menu-card" href="tools/wind-force.html">
+        <div class="icon">≋</div>
+        <h3>矩形建物 MWFRS <span class="ver ver-ok">V2</span></h3>
+        <p>矩形建物外牆、側牆、平屋頂/單斜/雙斜/拱形/鋸齒屋頂與 MWFRS 女兒牆；風洞替代另行處理</p>
+      </a>
+      <a class="menu-card" href="tools/wind-cc.html">
+        <div class="icon">▥</div>
+        <h3>區域風壓 (C&amp;C) <span class="ver ver-ok">V2</span></h3>
+        <p>外牆 / 屋面構材與包覆物設計風壓 (GC<sub>p</sub>、GC<sub>pi</sub>)；正/負壓組合</p>
+      </a>
+    </div>
+    <div class="subgroup-title">特殊情境</div>
+    <div class="menu-grid">
+      <a class="menu-card" href="tools/wind-parapet.html">
+        <div class="icon">▤</div>
+        <h3>女兒牆風壓 <span class="ver ver-draft">部分適用</span></h3>
+<p>MWFRS 女兒牆依規範條件計算如下；C&amp;C 女兒牆為簡化組合模型</p>
+      </a>
+      <a class="menu-card" href="tools/wind-open-roof.html">
+        <div class="icon">⟍</div>
+        <h3>開放式建築屋面風壓 <span class="ver ver-new">NEW</span></h3>
+        <p>依第三章 3.4 與圖 3.3 的 Cpn 淨風壓係數；適用開放式單斜/雙斜屋頂</p>
+      </a>
+    </div>
+    <div class="subgroup-title">特殊標的物</div>
+    <div class="menu-grid">
+      <a class="menu-card" href="tools/wind-object-solid.html">
+        <div class="icon">⬒</div>
+        <h3>實體標的物風力 <span class="ver ver-new">NEW</span></h3>
+        <p>實體單體之 Cf × A 風力、底部剪力、底部彎矩與沿高度分段剪力表</p>
+      </a>
+      <a class="menu-card" href="tools/wind-object-frame.html">
+        <div class="icon">#</div>
+        <h3>透空式 / 格子式風力 <span class="ver ver-new">NEW</span></h3>
+        <p>中空式標示物、格子式構架、桁架高塔之 Cf 路線；輸出集中或分段風力、剪力與彎矩</p>
+      </a>
+      <a class="menu-card" href="tools/wind-object-tower.html">
+        <div class="icon">⌇</div>
+        <h3>煙囪 / 高塔 / 水塔風力 <span class="ver ver-new">NEW</span></h3>
+        <p>依表 2.12 之塔狀構造物 Cf 路線，輸出分段剪力、總剪力、底部彎矩與塔頂附加風力</p>
+      </a>
+      <a class="menu-card" href="tools/wind-shape-factor.html">
+        <div class="icon">◇</div>
+        <h3>形狀 / 修正係數輔助 <span class="ver ver-new">NEW</span></h3>
+        <p>整合表 2.10、2.13、2.14 之 Cf 與修正係數，供回填特殊標的物與形狀修正使用</p>
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>耐風工具版本說明</h2>
+    <div class="collapse-toggle">
+      <input type="checkbox" id="toggleWindScope">
+      <label for="toggleWindScope">顯示耐風工具版本說明</label>
+    </div>
+    <div id="windScopePanel" class="collapse-panel hidden">
+    <table class="scope-table">
+      <thead>
+        <tr>
+          <th>工具</th>
+          <th>目前狀態</th>
+<th>規範適用狀態</th>
+          <th>不適用 / 限制</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>矩形建物 MWFRS</strong></td>
+<td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>矩形建物外牆、側牆、一般屋面、MWFRS 女兒牆、X/Y 主風向、橫風向、扭矩、控制採用表</td>
+          <td>風洞試驗替代、非本頁幾何假設、開放式建築主結構路線不適用本頁</td>
+        </tr>
+        <tr>
+          <td><strong>區域風壓 (C&amp;C)</strong></td>
+<td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>封閉式 / 部分封閉式建築之外牆與低坡度屋面；含 z、z<sub>h0</sub>、控制區域與設計採用表</td>
+          <td>開放式建築、女兒牆、遮蔽折減、透氣外牆折減不在本頁直接計算範圍</td>
+        </tr>
+        <tr>
+          <td><strong>女兒牆風壓</strong></td>
+<td><span class="scope-limit">依規範條件概算如下</span></td>
+<td>MWFRS 女兒牆依規範條件計算如下；C&amp;C 模式為簡化組合模型，可作工具箱內部設計摘要與比較</td>
+          <td>C&amp;C 女兒牆仍為簡化組合模型，不得視為圖 3.4 / 圖 3.5 逐圖逐區完整讀值結果</td>
+        </tr>
+        <tr>
+          <td><strong>開放式建築屋面風壓</strong></td>
+<td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>符合圖 3.3 幾何條件之單斜 / 雙斜開放式屋頂；含區域 1 / 2 / 3、控制採用表</td>
+          <td>超出圖 3.3 幾何條件者不適用本頁；特殊屋型應另行處理</td>
+        </tr>
+        <tr>
+          <td><strong>實體標的物風力</strong></td>
+<td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>實體單體、箱體、圓柱、球體、看板等之集中或分段風力整理；可輸出 F、V、M 與合力作用高度</td>
+          <td>本頁工具預設 Cf 可直接作為起算值；專案已有規範表列值、試驗值或指定值時，應以覆寫值取代</td>
+        </tr>
+        <tr>
+          <td><strong>煙囪 / 高塔 / 水塔風力</strong></td>
+<td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>表 2.12 之煙囪、水塔等塔狀構造物；可輸出塔身分段風力、塔頂附加風力、總剪力與底部彎矩</td>
+          <td>格構塔、桁架高塔、拉索塔與需另做動力檢核之構造物，不在本頁直接計算範圍</td>
+        </tr>
+        <tr>
+          <td><strong>透空式 / 格子式風力</strong></td>
+<td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>表 2.11 之中空式標示物 / 格子式構架，以及表 2.15 之桁架高塔；可輸出集中或分段風力、剪力與底部彎矩</td>
+          <td>拉索塔、複雜斜風向立體格構、動力反應顯著之高塔，應另行專案分析</td>
+        </tr>
+        <tr>
+          <td><strong>形狀 / 修正係數輔助</strong></td>
+          <td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>表 2.10、2.13、2.14 之 Cf 與修正係數查用；可供回填至實體標的物、角柱體、繩索管材等工具</td>
+          <td>本頁為查表輔助，不直接輸出總風力、剪力或彎矩</td>
+        </tr>
+        <tr>
+          <td><strong>特殊修正 / 折減</strong></td>
+          <td><span class="scope-limit">首頁不獨立列示</span></td>
+          <td>已整合於各耐風工具頁內，以「啟用特殊修正 / 折減」附加流程處理</td>
+          <td>修正係數應由試驗、文獻、風洞或專案依據提供；不作為首頁獨立主工具</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:12px;">
+      耐風工具目前唯一仍保留「簡化模型」定位者，為 <strong>女兒牆風壓的 C&amp;C 模式</strong>。其餘主幹工具均已整理到可於頁面標示適用範圍內直接使用。
+    </div>
+    </div>
+  </div>
+
+  <!-- ─── 耐震設計 ─── -->
+  <div class="card">
+    <div class="group-title">耐震設計　<span style="font-size:0.7em; color:var(--text-light); font-weight:500;">依 TWN-113 建築物耐震設計規範</span></div>
+    <div class="menu-grid">
+      <a class="menu-card" href="tools/seismic-force.html">
+        <div class="icon">⌇</div>
+        <h3>地震靜力法 <span class="ver ver-ok">V2</span></h3>
+        <p>表 2-4 Fa/Fv 內插、VD/V*/VM 三力比較、Fu 四段分段、逐層分配、地下層 K</p>
+      </a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>關於本工具箱</h2>
+    <p style="font-size:0.88em; color:var(--text-light); line-height:1.8;">
+      本工具箱整合 <strong>鋼筋混凝土構件設計</strong>、<strong>鋼結構設計</strong>、<strong>斷面性質計算</strong>、
+      <strong>連續梁分析</strong>、<strong>耐風設計</strong> 及 <strong>耐震設計</strong> 模組。
+      所有工具均以此頁為統一入口，各工具內的「← 回主選單」皆返回此頁。
+    </p>
+    <div class="note">
+      ⚠ 各工具僅得於頁面標示之適用範圍內使用；超出適用範圍者，不得直接採用計算結果。最終結構設計與圖說仍應由執業技師簽證。
+    </div>
+  </div>
+
+  <footer style="margin-top:24px; padding:14px 0; text-align:center; font-size:0.82em; color:var(--text-light); border-top:1px solid #e2e8f0;">
+    © 弘一工程顧問有限公司　版權所有
+  </footer>
+</div>
+<script>
+  (function () {
+    const toggle = document.getElementById('toggleWindScope');
+    const panel = document.getElementById('windScopePanel');
+    if (!toggle || !panel) return;
+    const storageKey = 'windScopePanelVisible';
+    const saved = localStorage.getItem(storageKey);
+    if (saved === '1') {
+      toggle.checked = true;
+      panel.classList.remove('hidden');
+    }
+    toggle.addEventListener('change', function () {
+      panel.classList.toggle('hidden', !this.checked);
+      localStorage.setItem(storageKey, this.checked ? '1' : '0');
+    });
+  })();
+</script>
+</body>
+</html>

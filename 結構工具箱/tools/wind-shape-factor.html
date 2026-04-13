@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐風設計 — 形狀 / 修正係數輔助 V0.1</title>
+<link rel="stylesheet" href="../core/style.css">
+<style>
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#1d4ed8; color:#fff; }
+  .step { margin-bottom:14px; }
+  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px; padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
+  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
+  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
+  .step-body .val.hl { font-size:1.05em; color:#1d4ed8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐風設計 — 形狀 / 修正係數輔助 <span class="badge-v">V0.1</span></h1>
+  <p>整合表 2.10、2.13、2.14 的 Cf / 修正係數查用 ｜ 單位：—</p>
+  <p style="margin-top:4px;"><a class="back" href="../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="card mode-bar print-meta">
+  <strong class="mode-bar__label">計畫資訊：</strong>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo" class="w-no" placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+  </div>
+</div>
+<div class="main-layout">
+<div>
+  <div class="card">
+    <h2>適用範圍</h2>
+    <div class="note">
+      本頁定位為 <strong>形狀 / 修正係數查表輔助</strong>，用於提供 <code>Cf</code> 或修正係數 <code>R</code>，
+      供回填至實體標的物、角柱體、繩索管材等風力工具。本頁不直接輸出總風力、剪力或彎矩。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>查用模式</h2>
+    <div class="form-group">
+      <label>模式</label>
+      <select id="mode">
+        <option value="sign" selected>實體標示物 Cf（表 2.10）</option>
+        <option value="prism">角柱體 / 形狀修正（表 2.13）</option>
+        <option value="cable">繩、竿、管 Cf（表 2.14）</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card" id="signBox">
+    <h2>實體標示物 Cf</h2>
+    <div class="form-group">
+      <label>設置位置</label>
+      <select id="atGround">
+        <option value="true" selected>位於地面上</option>
+        <option value="false">位於地面以上</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>高寬比 / 尺寸比</label>
+      <input id="aspectRatio" type="number" value="10" step="0.1">
+      <div class="hint">地面上用 ν；地面以上用 M/N</div>
+    </div>
+  </div>
+
+  <div class="card" id="prismBox" style="display:none;">
+    <h2>角柱體 / 形狀修正</h2>
+    <div class="form-group">
+      <label>形狀及風向</label>
+      <select id="prismShape">
+        <option value="rect_long" selected>長方柱（風向垂直長邊）</option>
+        <option value="rect_short">長方柱（風向垂直短邊）</option>
+        <option value="tri_vertex">等邊三角柱（風向循著頂點）</option>
+        <option value="tri_face">等邊三角柱（風向垂直面）</option>
+        <option value="right_iso_vertex">直角等腰三角柱（風向循著直角頂）</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>2h / D</label>
+      <input id="slender2hD" type="number" value="12" step="0.1">
+      <div class="hint">依表 2.13 修正係數 R</div>
+    </div>
+  </div>
+
+  <div class="card" id="cableBox" style="display:none;">
+    <h2>繩、竿、管 Cf</h2>
+    <div class="form-group">
+      <label>表面粗糙分類</label>
+      <select id="roughness">
+        <option value="smooth" selected>光滑之繩、竿、管</option>
+        <option value="moderate">中度光滑之繩、竿、管</option>
+        <option value="fine_cable">細電纜、鋼索</option>
+        <option value="rough_cable">粗電纜、鋼索</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>q(z)D</label>
+      <input id="qzD" type="number" value="1.20" step="0.01">
+    </div>
+  </div>
+
+  <div class="card">
+    <button class="btn-calc" id="btnCalc">查用係數</button>
+    <button class="btn-print" type="button">列印計算書</button>
+  </div>
+</div>
+
+<div id="resultPanel">
+  <div class="card">
+    <h2>規範適用檢查</h2>
+    <div id="applicStatus" class="banner-status">尚未檢核</div>
+    <div id="applicList" class="applic-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>查用結果</h2>
+    <div class="results-grid">
+      <div class="result-item" id="r-source"><span class="label">來源表格</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-mode"><span class="label">查用模式</span><span><span class="value">—</span></span></div>
+      <div class="result-item ok" id="r-cf"><span class="label">Cf / R</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-extra"><span class="label">補充資訊</span><span><span class="value">—</span></span></div>
+    </div>
+  </div>
+
+  <details class="card fold-card" id="stepsCard" open>
+    <summary class="fold-summary">
+      <span>說明</span>
+      <span class="fold-chip">查表結果</span>
+    </summary>
+    <div id="steps"></div>
+  </details>
+</div>
+</div>
+</div>
+
+<script src="../core/loads/wind.js"></script>
+<script src="../../鋼筋混凝土/shared/report.js"></script>
+<script src="../core/wind-report.js"></script>
+<script>
+const W = Wind;
+function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
+function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function setR(id, v, d) {
+  const el = document.querySelector('#' + id + ' .value');
+  if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
+}
+function step(title, body) {
+  return `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}</div></div>`;
+}
+function setApplicability(items) {
+  const rank = { ok: 0, warn: 1, fail: 2 };
+  let worst = 'ok';
+  items.forEach(item => { if (rank[item.level] > rank[worst]) worst = item.level; });
+  const status = document.getElementById('applicStatus');
+  status.className = 'banner-status ' + worst;
+  status.textContent = worst === 'ok' ? '依規範條件計算如下' : worst === 'warn' ? '依規範條件概算如下' : '規範條件局部不適用';
+  document.getElementById('applicList').innerHTML = items.map(item => `
+    <div class="k ${item.level}">
+      <span class="k-label">${item.label}</span>
+      <span class="k-val">${item.message}</span>
+    </div>
+  `).join('');
+}
+function refreshMode() {
+  const mode = document.getElementById('mode').value;
+  document.getElementById('signBox').style.display = mode === 'sign' ? '' : 'none';
+  document.getElementById('prismBox').style.display = mode === 'prism' ? '' : 'none';
+  document.getElementById('cableBox').style.display = mode === 'cable' ? '' : 'none';
+}
+function calc() {
+  const mode = document.getElementById('mode').value;
+  let html = '';
+  if (mode === 'sign') {
+    const atGround = document.getElementById('atGround').value === 'true';
+    const aspectRatio = val('aspectRatio');
+    const r = W.lookupSignCf({ atGround, aspectRatio });
+    setApplicability([
+      { label: '查用模式', level: 'ok', message: '實體標示物 Cf（表 2.10）' },
+      { label: '計算定位', level: 'ok', message: '本頁僅供 Cf / 修正係數查用，不直接輸出風力、剪力或彎矩' },
+      { label: '輸入比值', level: 'ok', message: `${atGround ? 'ν' : 'M/N'} = ${fmt(r.aspectRatio,2)}，依表 2.10 查用` }
+    ]);
+    setR('r-source', '表 2.10');
+    setR('r-mode', atGround ? '位於地面上' : '位於地面以上');
+    setR('r-cf', r.cf, 3);
+    setR('r-extra', `${atGround ? 'ν' : 'M/N'} = ${fmt(r.aspectRatio,2)}`);
+    html += step('實體標示物 Cf', `
+      ${atGround ? '地面上' : '地面以上'}<br>
+      ${atGround ? 'ν' : 'M/N'} = <span class="val">${fmt(r.aspectRatio,2)}</span><br>
+      C<sub>f</sub> = <span class="val hl">${fmt(r.cf,3)}</span><br>
+      取值區間：${fmt(r.lowRatio,2)} ~ ${fmt(r.highRatio,2)}
+    `);
+  } else if (mode === 'prism') {
+    const shape = document.getElementById('prismShape').value;
+    const slender = val('slender2hD');
+    const cf = W.lookupAngularPrismCf(shape);
+    const rr = W.lookupAngularPrismR(slender);
+    setApplicability([
+      { label: '查用模式', level: 'ok', message: '角柱體 / 形狀修正（表 2.13）' },
+      { label: '計算定位', level: 'ok', message: '本頁僅供基本 Cf 與修正係數 R 查用' },
+      { label: '輸入比值', level: 'ok', message: `2h/D = ${fmt(slender,2)}，依表 2.13 查用 R` }
+    ]);
+    setR('r-source', '表 2.13');
+    setR('r-mode', cf.name);
+    setR('r-cf', `${fmt(cf.cf,3)} × ${fmt(rr.r,3)} = ${fmt(cf.cf * rr.r,3)}`);
+    setR('r-extra', `2h/D = ${fmt(slender,2)}；R=${fmt(rr.r,3)}`);
+    html += step('角柱體 / 修正係數', `
+      形狀 = <span class="val">${cf.name}</span><br>
+      基本 C<sub>f</sub> = <span class="val">${fmt(cf.cf,3)}</span><br>
+      2h/D = <span class="val">${fmt(slender,2)}</span> → R = <span class="val">${fmt(rr.r,3)}</span><br>
+      修正後係數 = <span class="val hl">${fmt(cf.cf * rr.r,3)}</span>
+    `);
+  } else {
+    const roughness = document.getElementById('roughness').value;
+    const qzD = val('qzD');
+    const r = W.lookupCableCf({ roughness, qzD });
+    setApplicability([
+      { label: '查用模式', level: 'ok', message: '繩、竿、管 Cf（表 2.14）' },
+      { label: '計算定位', level: 'ok', message: '本頁僅供繩索、竿件、管材之 Cf 查用' },
+      { label: '輸入參數', level: 'ok', message: `q(z)D = ${fmt(qzD,2)}，依表 2.14 查用` }
+    ]);
+    setR('r-source', '表 2.14');
+    setR('r-mode', r.name);
+    setR('r-cf', r.cf, 3);
+    setR('r-extra', `${r.regime}`);
+    html += step('繩、竿、管 Cf', `
+      表面粗糙分類 = <span class="val">${r.name}</span><br>
+      q(z)D = <span class="val">${fmt(qzD,2)}</span><br>
+      路線 = <span class="val">${r.regime}</span><br>
+      C<sub>f</sub> = <span class="val hl">${fmt(r.cf,3)}</span>
+    `);
+  }
+  document.getElementById('steps').innerHTML = html;
+}
+document.getElementById('mode').addEventListener('change', function() { refreshMode(); calc(); });
+document.getElementById('btnCalc').addEventListener('click', calc);
+refreshMode();
+calc();
+</script>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐風設計 — 特殊修正 / 折減 V0.1</title>
+<link rel="stylesheet" href="../core/style.css">
+<style>
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:#7c2d12; color:#fff; }
+  .step { margin-bottom:14px; }
+  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px;
+                padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
+  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
+  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
+  .step-body .val.hl { font-size:1.05em; color:#7c2d12; }
+  .guide { padding:12px 14px; background:#fffbeb; border-left:3px solid #f59e0b; border-radius:8px;
+           font-size:0.83em; color:#78350f; line-height:1.8; }
+  .guide code { background:#fef3c7; padding:1px 5px; border-radius:3px; }
+  textarea {
+    width: 100%;
+    min-height: 96px;
+    padding: 10px 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.95em;
+    font-family: inherit;
+    resize: vertical;
+  }
+  @media (max-width: 768px) {
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐風設計 — 特殊修正 / 折減 <span class="badge-v">V0.1</span></h1>
+  <p>依 107 年耐風規範第三章 3.1 解說 ｜ 供遮蔽折減、透氣外牆折減與人工修正整理用</p>
+  <p style="margin-top:4px;"><a class="back" href="../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="main-layout">
+<div>
+  <div class="card">
+    <h2>原始計算結果</h2>
+    <div class="form-group">
+      <label>計算類型</label>
+      <select id="calcType">
+        <option value="mwfrs">MWFRS 主結構風力</option>
+        <option value="cc" selected>C&C / 局部構材風壓</option>
+        <option value="parapet">女兒牆風壓</option>
+        <option value="open-roof">開放式建築屋面風壓</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>原始正值結果</label>
+        <input id="basePos" type="number" value="120" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>原始負值結果</label>
+        <input id="baseNeg" type="number" value="-180" step="0.1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>單位</label>
+      <select id="unit">
+        <option value="kgf/m²" selected>kgf/m²</option>
+        <option value="kgf">kgf</option>
+        <option value="tf">tf</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>修正條件</h2>
+    <div class="form-group">
+      <label>修正模式</label>
+      <select id="mode">
+        <option value="shielding" selected>遮蔽折減</option>
+        <option value="porous">透氣外牆折減</option>
+        <option value="manual">人工指定修正</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>正值修正係數 λ<sub>+</sub></label>
+        <input id="factorPos" type="number" value="0.85" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>負值修正係數 λ<sub>−</sub></label>
+        <input id="factorNeg" type="number" value="0.85" step="0.01">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>依據說明</label>
+      <textarea id="basis">請填寫試驗報告、文獻來源、風洞結果、公司標準或專案設計說明。</textarea>
+    </div>
+    <button class="btn-calc" id="btnCalc">套用修正</button>
+    <button class="btn-print" onclick="window.print()">列印整理結果</button>
+  </div>
+</div>
+
+<div>
+  <div class="card">
+    <h2>規範適用檢查</h2>
+    <div id="applicStatus" class="banner-status">尚未檢核</div>
+    <div id="applicList" class="applic-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>修正結果</h2>
+    <div class="results-grid">
+      <div class="result-item" id="r-mode"><span class="label">修正模式</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-unit"><span class="label">單位</span><span><span class="value">—</span></span></div>
+      <div class="result-item ok" id="r-pos"><span class="label">修正後正值</span><span><span class="value">—</span><span class="unit" id="unitPos">kgf/m²</span></span></div>
+      <div class="result-item fail" id="r-neg"><span class="label">修正後負值</span><span><span class="value">—</span><span class="unit" id="unitNeg">kgf/m²</span></span></div>
+      <div class="result-item warn" id="r-posf"><span class="label">λ<sub>+</sub></span><span><span class="value">—</span></span></div>
+      <div class="result-item warn" id="r-negf"><span class="label">λ<sub>−</sub></span><span><span class="value">—</span></span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>整理說明</h2>
+    <div id="summary" class="guide">尚未計算。</div>
+  </div>
+
+  <div class="card">
+    <h2>使用原則</h2>
+    <div class="guide">
+      規範第三章 <code>3.1</code> 提到：若有可靠試驗結果或文獻提供證明，可考慮鄰近建築物/障礙物造成之遮蔽折減，
+      或考慮透氣性外牆之風壓折減。這代表此類修正通常不是規範提供固定通用係數，而是要基於專案依據採用。
+      因此本頁設計成「修正整理器」，而不是假裝規範已給單一標準答案的自動計算器。
+    </div>
+    <div class="note">
+      ⚠ 本頁不是規範自動計算器，而是修正整理頁。應先完成原始風力/風壓計算，再輸入已核定之修正係數。
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
+function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function setR(id, v, d) {
+  const el = document.querySelector('#' + id + ' .value');
+  if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
+}
+
+function setApplicability(items) {
+  const rank = { ok: 0, warn: 1, fail: 2 };
+  let worst = 'ok';
+  items.forEach(item => { if (rank[item.level] > rank[worst]) worst = item.level; });
+  const el = document.getElementById('applicStatus');
+  el.className = 'banner-status ' + worst;
+el.textContent = worst === 'ok' ? '依整理條件輸出如下' : worst === 'warn' ? '依整理條件概算如下' : '整理條件局部不適用';
+  document.getElementById('applicList').innerHTML = items.map(item => `
+    <div class="k ${item.level}">
+      <span class="k-label">${item.label}</span>
+      <span class="k-val">${item.message}</span>
+    </div>
+  `).join('');
+}
+
+function calc() {
+  const calcType = document.getElementById('calcType').value;
+  const mode = document.getElementById('mode').value;
+  const basePos = val('basePos');
+  const baseNeg = val('baseNeg');
+  const factorPos = val('factorPos');
+  const factorNeg = val('factorNeg');
+  const unit = document.getElementById('unit').value;
+  const basis = document.getElementById('basis').value.trim();
+
+  if (!isFinite(basePos) || !isFinite(baseNeg)) { alert('請輸入有效之原始正負值'); return; }
+  if (factorPos <= 0 || factorNeg <= 0) { alert('修正係數需大於 0'); return; }
+
+  const adjPos = basePos * factorPos;
+  const adjNeg = baseNeg * factorNeg;
+  const modeName =
+    mode === 'shielding' ? '遮蔽折減' :
+    mode === 'porous' ? '透氣外牆折減' :
+    '人工指定修正';
+  const typeName =
+    calcType === 'mwfrs' ? 'MWFRS 主結構風力' :
+    calcType === 'cc' ? 'C&C / 局部構材風壓' :
+    calcType === 'parapet' ? '女兒牆風壓' :
+    '開放式建築屋面風壓';
+
+  setR('r-mode', modeName);
+  setR('r-unit', unit);
+  setR('r-pos', adjPos, 2);
+  setR('r-neg', adjNeg, 2);
+  setR('r-posf', factorPos, 3);
+  setR('r-negf', factorNeg, 3);
+  document.getElementById('unitPos').textContent = unit;
+  document.getElementById('unitNeg').textContent = unit;
+
+  setApplicability([
+    { label: '修正模式', level: 'ok', message: modeName },
+    { label: '計算對象', level: 'ok', message: typeName },
+    { label: '依據說明', level: basis ? 'ok' : 'fail', message: basis ? '已填寫' : '未填寫；不得直接採用修正結果' },
+    { label: '正值係數', level: factorPos <= 1 ? 'ok' : 'warn', message: `λ+ = ${fmt(factorPos,3)}` },
+    { label: '負值係數', level: factorNeg <= 1 ? 'ok' : 'warn', message: `λ− = ${fmt(factorNeg,3)}` },
+  ]);
+
+  document.getElementById('summary').innerHTML = `
+    <strong>修正對象：</strong>${typeName}<br>
+    <strong>修正模式：</strong>${modeName}<br>
+    <strong>原始結果：</strong>正值 ${fmt(basePos,2)} ${unit}；負值 ${fmt(baseNeg,2)} ${unit}<br>
+    <strong>修正後結果：</strong>正值 <span class="val hl">${fmt(adjPos,2)}</span> ${unit}；
+    負值 <span class="val hl">${fmt(adjNeg,2)}</span> ${unit}<br>
+    <strong>採用係數：</strong>λ<sub>+</sub> = ${fmt(factorPos,3)}；λ<sub>−</sub> = ${fmt(factorNeg,3)}<br>
+    <strong>依據：</strong>${basis || '未填寫'}
+  `;
+}
+
+document.getElementById('btnCalc').addEventListener('click', calc);
+calc();
+</script>
+</body>
+</html>

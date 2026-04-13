@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐風設計 — 區域風壓 (C&C) V2</title>
+<link rel="stylesheet" href="../core/style.css">
+<style>
+  table.zone { width:100%; border-collapse:collapse; font-size:0.85em; }
+  table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
+  table.zone th { background:#f1f5f9; color:var(--primary); font-weight:600; font-family:inherit; }
+  table.zone tbody tr.is-selected { outline:2px solid #0ea5e9; outline-offset:-2px; background:#eff6ff; }
+  table.zone tbody tr[data-zone] { cursor:pointer; }
+  .zone-pos { background:#ecfdf5; }
+  .zone-neg { background:#fef2f2; }
+  .legend { font-size:0.78em; color:var(--text-light); margin-top:8px; line-height:1.7; }
+  .legend code { background:#f1f5f9; padding:1px 5px; border-radius:3px; }
+  .schema { background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:12px; font-size:0.82em; line-height:1.6; }
+  .schema strong { color:var(--primary); }
+  .ref-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+  .ref-panel { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .ref-panel h3 { font-size:0.9em; color:var(--primary); margin-bottom:8px; }
+  .ref-svg { width:100%; height:auto; display:block; background:#fff; border:1px solid var(--border); border-radius:8px; }
+  .ref-zone { transition:fill .18s ease, stroke .18s ease, opacity .18s ease; cursor:pointer; }
+  .ref-zone.is-active { stroke:#0ea5e9; stroke-width:3; opacity:1 !important; }
+  .ref-shot { width:100%; height:auto; display:block; border:1px solid var(--border); border-radius:8px; background:#fff; }
+  .ref-caption { font-size:0.78em; color:var(--text-light); margin-top:8px; line-height:1.7; }
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--primary); color:#fff; }
+  .step { margin-bottom:14px; }
+  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px;
+                padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
+  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
+  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
+  .step-body .val.hl { font-size:1.05em; color:#0369a1; }
+  .applic-grid { display:grid; grid-template-columns:1fr; gap:8px; margin-top:12px; }
+  .applic-item { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:10px 12px;
+                 background:#f8fafc; border-radius:8px; border-left:3px solid var(--border); }
+  .applic-item.ok { border-left-color:var(--accent); }
+  .applic-item.warn { border-left-color:var(--warn); }
+  .applic-item.fail { border-left-color:var(--danger); }
+  .applic-item .k { font-size:0.84em; color:var(--text-light); }
+  .applic-item .v { font-size:0.84em; font-weight:700; text-align:right; }
+  textarea.reduction-basis { width:100%; min-height:84px; padding:10px 12px; border:2px solid var(--border);
+                             border-radius:8px; font-size:0.92em; font-family:inherit; resize:vertical; }
+
+  @media (max-width: 768px) {
+    table.zone { font-size: 0.78em; }
+    table.zone th, table.zone td { padding: 4px 5px; }
+    .form-row { grid-template-columns: 1fr; }
+    .ref-grid { grid-template-columns:1fr; }
+    .step-title { font-size: 0.85em; }
+    .step-body { font-size: 0.82em; }
+  }
+  @media (max-width: 480px) {
+    .step-title { font-size: 0.82em; padding: 4px 8px; }
+    .step-body { font-size: 0.78em; }
+    .banner-key .k { font-size: 0.78em; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐風設計 — 區域風壓 (C&amp;C) <span class="badge-v">V2</span></h1>
+  <p>依「建築物耐風設計規範」(107 年版) 第三章 ｜ 局部構材與外部被覆物設計用 ｜ 單位：kgf/m²</p>
+  <p style="margin-top:4px;"><a class="back" href="../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="card mode-bar print-meta">
+  <strong class="mode-bar__label">計畫資訊：</strong>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo" class="w-no" placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+  </div>
+</div>
+<div class="main-layout">
+
+<!-- ─── 輸入面板 ─── -->
+<div>
+  <details class="card fold-card" open>
+    <summary class="fold-summary">
+      <span>建築物基本資料</span>
+      <span class="fold-chip">主輸入</span>
+    </summary>
+    <div class="form-group">
+      <label>地點 (基本設計風速)</label>
+      <select id="city"></select>
+      <div class="hint" id="vHint"></div>
+    </div>
+    <div class="form-group">
+      <label>地況分類</label>
+      <select id="terrain">
+        <option value="A">A — 大城市市中心</option>
+        <option value="B">B — 都市郊區</option>
+        <option value="C" selected>C — 開闊平坦地</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>用途係數</label>
+      <select id="impClass"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>屋頂高 h (m)</label>
+        <input id="h" type="number" value="20" step="0.5">
+      </div>
+      <div class="form-group">
+        <label>構材標高 z (m)</label>
+        <input id="z" type="number" value="20" step="0.5">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>K<sub>zt</sub></label>
+        <input id="Kzt" type="number" value="1.0" step="0.05">
+      </div>
+      <div class="form-group">
+        <div class="hint">`h &gt; 18 m` 且為外牆時，正壓採 `q(z)`；其餘採 `q(h)`</div>
+      </div>
+    </div>
+  </details>
+
+  <details class="card fold-card" open>
+    <summary class="fold-summary">
+      <span>構材條件</span>
+      <span class="fold-chip">區域設定</span>
+    </summary>
+    <div class="form-group">
+      <label>構材類型</label>
+      <select id="surface">
+        <option value="wall">外牆</option>
+        <option value="roof">屋面 (低坡度)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>屋面坡度 θ (°)</label>
+      <input id="roofSlope" type="number" value="5" step="0.5">
+      <div class="hint">僅屋面模式使用；圖 3.1 採 ≤7°，圖 3.2 採 ≤10°</div>
+    </div>
+    <div class="form-group">
+      <label>有效受風面積 A (m²)</label>
+      <input id="A" type="number" value="2" step="0.5">
+      <div class="hint">構材跨距 × 有效寬度，最小取跨距²/3</div>
+    </div>
+    <div class="form-group">
+      <label>建物內部開口</label>
+      <select id="encl">
+        <option value="enclosed" selected>封閉式 (GC<sub>pi</sub> = ±0.375)</option>
+        <option value="partial">部分封閉 (±1.145)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>影響正內壓之最高開口高度 z<sub>h0</sub> (m)</label>
+      <input id="zh0" type="number" value="20" step="0.5">
+      <div class="hint">僅 `h &gt; 18 m` 且部分封閉時使用；依規範 3.2，正內壓可採 `q(z<sub>h0</sub>)`</div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="enableReduce">
+      <label for="enableReduce">啟用特殊修正 / 折減</label>
+    </div>
+    <div id="reduceBox" style="display:none; margin-top:10px;">
+      <div class="form-group">
+        <label>修正模式</label>
+        <select id="reduceMode">
+          <option value="shielding" selected>遮蔽折減</option>
+          <option value="porous">透氣外牆折減</option>
+          <option value="manual">人工指定修正</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>正值修正係數 λ<sub>+</sub></label>
+          <input id="reducePos" type="number" value="0.85" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>負值修正係數 λ<sub>−</sub></label>
+          <input id="reduceNeg" type="number" value="0.85" step="0.01">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>依據說明</label>
+        <textarea id="reduceBasis" class="reduction-basis" placeholder="請填寫試驗報告、文獻來源、風洞結果、公司標準或專案設計說明。"></textarea>
+      </div>
+    </div>
+    <button class="btn-calc" id="btnCalc">計算區域風壓</button>
+    <div class="chk-detail">
+      <input type="checkbox" id="chkDetail">
+      <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
+    </div>
+    <button class="btn-print" type="button">列印計算書</button>
+  </details>
+</div>
+
+<!-- ─── 結果面板 ─── -->
+<div>
+  <div class="card">
+    <h2>規範適用檢查</h2>
+    <div id="applicStatus" class="banner-status">尚未檢核</div>
+    <div id="applicList" class="applic-grid"></div>
+  </div>
+
+  <div class="card">
+    <h2>設計採用表</h2>
+    <table class="zone" id="designAdoptTable">
+      <thead>
+        <tr>
+          <th>項目</th>
+          <th>採用值<br>(kgf/m²)</th>
+          <th>控制區域</th>
+          <th>說明</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="legend" id="designAdoptNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>控制區域明細</h2>
+    <div class="results-grid">
+      <div class="result-item" id="r-zone-name">
+        <span class="label">控制區域</span>
+        <span><span class="value">—</span></span>
+      </div>
+      <div class="result-item warn" id="r-p-abs">
+        <span class="label">控制區域絕對值</span>
+        <span><span class="value">—</span><span class="unit">kgf/m²</span></span>
+      </div>
+      <div class="result-item ok" id="r-p-pos">
+        <span class="label">控制區域正壓 p<sub>+</sub></span>
+        <span><span class="value">—</span><span class="unit">kgf/m²</span></span>
+      </div>
+      <div class="result-item fail" id="r-p-neg">
+        <span class="label">控制區域負壓 p<sub>−</sub></span>
+        <span><span class="value">—</span><span class="unit">kgf/m²</span></span>
+      </div>
+      <div class="result-item" id="r-gcp-pos">
+        <span class="label">GC<sub>p</sub> (正)</span>
+        <span><span class="value">—</span></span>
+      </div>
+      <div class="result-item" id="r-gcp-neg">
+        <span class="label">GC<sub>p</sub> (負)</span>
+        <span><span class="value">—</span></span>
+      </div>
+      <div class="result-item" id="r-gcpi">
+        <span class="label">GC<sub>pi</sub> 內壓</span>
+        <span><span class="value">—</span></span>
+      </div>
+      <div class="result-item" id="r-qh">
+        <span class="label">屋頂高速度壓 q<sub>h</sub></span>
+        <span><span class="value">—</span><span class="unit">kgf/m²</span></span>
+      </div>
+      <div class="result-item" id="r-qz">
+        <span class="label">構材標高速度壓 q<sub>z</sub></span>
+        <span><span class="value">—</span><span class="unit">kgf/m²</span></span>
+      </div>
+      <div class="result-item" id="r-qh0">
+        <span class="label">正內壓速度壓 q<sub>h0</sub></span>
+        <span><span class="value">—</span><span class="unit">kgf/m²</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>規範示意圖</h2>
+    <div class="ref-grid">
+      <div class="ref-panel">
+        <h3 id="refTitle">對應區域示意</h3>
+        <div id="refSvgWrap"></div>
+        <div class="ref-caption" id="refDesc"></div>
+      </div>
+      <div class="ref-panel">
+        <h3 id="refShotTitle">規範截圖</h3>
+        <img id="refShot" class="ref-shot" src="../assets/wind_refs/fig_3_1_wall.png" alt="規範截圖">
+        <div class="ref-caption" id="refShotDesc"></div>
+      </div>
+    </div>
+  </div>
+
+  <details class="card fold-card" open>
+    <summary class="fold-summary">
+      <span>各區域風壓總覽</span>
+      <span class="fold-chip">全部區域</span>
+    </summary>
+    <table class="zone" id="zoneSummaryTable">
+      <thead>
+        <tr>
+          <th>區域</th>
+          <th>GC<sub>p</sub> (正)</th>
+          <th>GC<sub>p</sub> (負)</th>
+          <th>p<sub>+</sub><br>(kgf/m²)</th>
+          <th>p<sub>−</sub><br>(kgf/m²)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="legend" id="zoneSummaryNote"></div>
+  </details>
+
+  <details class="card fold-card" id="stepsCard" open>
+    <summary class="fold-summary">
+      <span>控制區域逐步計算</span>
+      <span class="fold-chip">計算書</span>
+    </summary>
+    <div id="steps"></div>
+  </details>
+
+  <div class="card" id="reduceResultCard" style="display:none;">
+    <h2>特殊修正 / 折減結果</h2>
+    <div class="results-grid">
+      <div class="result-item" id="r-red-mode"><span class="label">修正模式</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-red-posf"><span class="label">λ<sub>+</sub></span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-red-negf"><span class="label">λ<sub>−</sub></span><span><span class="value">—</span></span></div>
+      <div class="result-item ok" id="r-red-pos"><span class="label">折減後控制正壓</span><span><span class="value">—</span><span class="unit">kgf/m²</span></span></div>
+      <div class="result-item fail" id="r-red-neg"><span class="label">折減後控制負壓</span><span><span class="value">—</span><span class="unit">kgf/m²</span></span></div>
+      <div class="result-item warn" id="r-red-abs"><span class="label">折減後控制絕對值</span><span><span class="value">—</span><span class="unit">kgf/m²</span></span></div>
+    </div>
+    <div class="legend" id="reduceSummary"></div>
+  </div>
+
+  <details class="card fold-card" open>
+    <summary class="fold-summary">
+      <span>區域示意與說明</span>
+      <span class="fold-chip">規範路線</span>
+    </summary>
+    <div class="schema">
+      <strong>外牆區域</strong><br>
+      區域 5 = 角隅寬度 a = min(0.1·B, 0.4·h) 但 ≥ 1 m 或 0.04·B<br>
+      區域 4 = 牆面其餘部分<br><br>
+      <strong>屋面區域 (低坡度)</strong><br>
+      區域 1 = 屋面內部 ｜ 區域 2 = 屋面邊緣帶 (寬 a) ｜ 區域 3 = 角隅 (a × a)
+    </div>
+    <div class="legend">
+      <code>h ≤ 18 m: p = q(h) · [(GC<sub>p</sub>) ± (GC<sub>pi</sub>)]</code><br>
+      <code>h &gt; 18 m 外牆正壓: p<sub>+</sub> = q(z) · (GC<sub>p,pos</sub> + GC<sub>pi</sub>)</code><br>
+      <code>h &gt; 18 m 部分封閉正內壓: p<sub>−</sub> 可採 q(z<sub>h0</sub>) · GC<sub>pi</sub></code><br>
+      最大負壓: <code>p<sub>−</sub> = q<sub>h</sub> · (GC<sub>p,neg</sub> − GC<sub>pi</sub>)</code>
+    </div>
+    <div class="note">
+      ⚠ 本工具依規範第三章圖 3.1 / 圖 3.2 簡化，僅適用封閉式或部分封閉式建築物之外牆與低坡度屋面；不含開放式建築、女兒牆及特殊遮蔽折減。
+    </div>
+  </details>
+</div>
+</div>
+</div>
+
+<script src="../core/loads/wind.js"></script>
+<script src="../../鋼筋混凝土/shared/report.js"></script>
+<script src="../core/wind-report.js"></script>
+<script>
+function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
+function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function setR(id, v, d) {
+  const el = document.querySelector('#' + id + ' .value');
+  if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
+}
+function signedReduce(v, posFactor, negFactor) {
+  return v >= 0 ? v * posFactor : v * negFactor;
+}
+function reduceModeName(v) {
+  return v === 'shielding' ? '遮蔽折減' : v === 'porous' ? '透氣外牆折減' : '人工指定修正';
+}
+
+// 城市選單
+const citySel = document.getElementById('city');
+Object.entries(Wind.CITY_QUICK).forEach(([name, v]) => {
+  const o = document.createElement('option');
+  o.value = name;
+  o.textContent = `${name}　(V = ${v} m/s)`;
+  if (name === '臺北市') o.selected = true;
+  citySel.appendChild(o);
+});
+function refreshV() {
+  document.getElementById('vHint').textContent = `V = ${Wind.CITY_QUICK[citySel.value]} m/s`;
+}
+citySel.addEventListener('change', refreshV); refreshV();
+
+// 用途係數
+const impSel = document.getElementById('impClass');
+Object.entries(Wind.IMPORTANCE).forEach(([k, v]) => {
+  const o = document.createElement('option');
+  o.value = k; o.textContent = `${v.name}　I=${v.factor}`;
+  if (k === 'V') o.selected = true;
+  impSel.appendChild(o);
+});
+
+// 區域聯動
+const surfSel = document.getElementById('surface');
+const zInput = document.getElementById('z');
+const zh0Input = document.getElementById('zh0');
+const slopeInput = document.getElementById('roofSlope');
+function getZoneList() {
+  return surfSel.value === 'roof'
+    ? [['zone1','區域 1 — 屋面內部'],['zone2','區域 2 — 屋面邊緣'],['zone3','區域 3 — 屋面角隅']]
+    : [['zone4','區域 4 — 牆面內部'],['zone5','區域 5 — 牆面角隅']];
+}
+function refreshZHint() {
+  const isRoof = surfSel.value === 'roof';
+  zInput.disabled = isRoof;
+  slopeInput.disabled = !isRoof;
+  if (isRoof) zInput.value = document.getElementById('h').value || zInput.value;
+}
+function refreshZh0State() {
+  const encl = document.getElementById('encl').value;
+  const h = val('h');
+  const active = encl === 'partial' && h > 18;
+  zh0Input.disabled = !active;
+  if (!active) zh0Input.value = document.getElementById('h').value || zh0Input.value;
+}
+surfSel.addEventListener('change', refreshZHint);
+document.getElementById('h').addEventListener('input', function() {
+  if (surfSel.value === 'roof') zInput.value = this.value;
+  refreshZh0State();
+});
+document.getElementById('encl').addEventListener('change', refreshZh0State);
+document.getElementById('enableReduce').addEventListener('change', function() {
+  document.getElementById('reduceBox').style.display = this.checked ? '' : 'none';
+});
+refreshZHint();
+refreshZh0State();
+
+function setApplicability(items) {
+  const rank = { ok: 0, warn: 1, fail: 2 };
+  let worst = 'ok';
+  for (const item of items) {
+    if (rank[item.level] > rank[worst]) worst = item.level;
+  }
+  const statusEl = document.getElementById('applicStatus');
+  const listEl = document.getElementById('applicList');
+  statusEl.className = 'banner-status ' + worst;
+  statusEl.textContent =
+    worst === 'ok' ? '依規範條件計算如下' :
+    worst === 'warn' ? '依規範條件概算如下' :
+    '規範條件局部不適用';
+  listEl.innerHTML = items.map(item => `
+    <div class="applic-item ${item.level}">
+      <div class="k">${item.label}</div>
+      <div class="v">${item.message}</div>
+    </div>
+  `).join('');
+}
+
+// 計算
+function calc() {
+  const V = Wind.CITY_QUICK[citySel.value] || 37.5;
+  const terrain = document.getElementById('terrain').value;
+  const I = Wind.IMPORTANCE[impSel.value].factor;
+  const Kzt = val('Kzt') || 1.0;
+  const h = val('h');
+  const z = val('z');
+  const zh0 = val('zh0');
+  const roofSlope = val('roofSlope');
+  const A = val('A');
+  const surface = surfSel.value;
+  const encl = document.getElementById('encl').value;
+  const enableReduce = document.getElementById('enableReduce').checked;
+  const reduceMode = document.getElementById('reduceMode').value;
+  const reducePos = val('reducePos');
+  const reduceNeg = val('reduceNeg');
+  const reduceBasis = document.getElementById('reduceBasis').value.trim();
+
+  if (h <= 0 || A <= 0) { alert('請輸入有效之 h / A'); return; }
+  if (surface === 'wall' && z <= 0) { alert('請輸入有效之外牆構材標高 z'); return; }
+  if (surface === 'wall' && z > h) { alert('外牆構材標高 z 不可大於屋頂高 h'); return; }
+  if (encl === 'partial' && h > 18 && (zh0 <= 0 || zh0 > h)) { alert('部分封閉且 h > 18 m 時，請輸入有效之 z_h0（0 < z_h0 ≤ h）'); return; }
+  if (surface === 'roof' && roofSlope < 0) { alert('屋面坡度 θ 不可為負值'); return; }
+  if (enableReduce && (!isFinite(reducePos) || !isFinite(reduceNeg) || reducePos <= 0 || reduceNeg <= 0)) { alert('啟用修正時，請輸入有效之修正係數'); return; }
+  if (enableReduce && !reduceBasis) { alert('啟用修正時，請填寫依據說明'); return; }
+
+  const zoneEntries = getZoneList();
+  const zoneResults = zoneEntries.map(([zKey, label]) => ({
+    key: zKey,
+    label,
+    data: Wind.calcCC({ V, terrain, I, Kzt, h, z, zh0, zone: zKey, surface, A, encl })
+  }));
+  const maxPos = zoneResults.reduce((best, item) => item.data.p_pos > best.data.p_pos ? item : best, zoneResults[0]);
+  const maxNeg = zoneResults.reduce((best, item) => item.data.p_neg < best.data.p_neg ? item : best, zoneResults[0]);
+  const maxAbs = zoneResults.reduce((best, item) => {
+    const bestAbs = Math.max(Math.abs(best.data.p_pos), Math.abs(best.data.p_neg));
+    const itemAbs = Math.max(Math.abs(item.data.p_pos), Math.abs(item.data.p_neg));
+    return itemAbs > bestAbs ? item : best;
+  }, zoneResults[0]);
+  const r = maxAbs.data;
+  const detailZoneLabel = maxAbs.label;
+
+  setR('r-zone-name', detailZoneLabel);
+  setR('r-qh', r.qh, 1);
+  setR('r-qz', surface === 'wall' ? r.qz : '—');
+  setR('r-qh0', encl === 'partial' && h > 18 ? r.qh0 : '—');
+  setR('r-gcp-pos', r.GCp.pos.toFixed(2));
+  setR('r-gcp-neg', r.GCp.neg.toFixed(2));
+  setR('r-gcpi', r.GCpi === 0 ? '0.000' : '±' + r.GCpi.toFixed(3));
+  setR('r-p-pos', r.p_pos, 1);
+  setR('r-p-neg', r.p_neg, 1);
+  setR('r-p-abs', Math.max(Math.abs(r.p_pos), Math.abs(r.p_neg)), 1);
+
+  const zoneSummaryBody = document.querySelector('#zoneSummaryTable tbody');
+  zoneSummaryBody.innerHTML = zoneResults.map(item => `
+    <tr data-zone="${item.key}"${item.key === maxAbs.key ? ' style="font-weight:700;"' : ''}>
+      <td>${item.label}${item.key === maxAbs.key ? '　(控制絕對值)' : ''}</td>
+      <td class="zone-pos">${fmt(item.data.GCp.pos, 2)}</td>
+      <td class="zone-neg">${fmt(item.data.GCp.neg, 2)}</td>
+      <td class="zone-pos">${fmt(item.data.p_pos, 1)}</td>
+      <td class="zone-neg">${fmt(item.data.p_neg, 1)}</td>
+    </tr>
+  `).join('');
+  document.getElementById('zoneSummaryNote').innerHTML =
+    surface === 'wall'
+      ? '外牆模式同時列出區域 4 與區域 5 設計風壓；表中加粗列為控制絕對值之區域。'
+      : '屋面模式同時列出區域 1 / 2 / 3 設計風壓；表中加粗列為控制絕對值之區域。';
+
+  const designAdoptBody = document.querySelector('#designAdoptTable tbody');
+  designAdoptBody.innerHTML = `
+    <tr>
+      <td>控制正壓</td>
+      <td class="zone-pos">${fmt(maxPos.data.p_pos, 1)}</td>
+      <td>${maxPos.label}</td>
+      <td>各區域 p<sub>+</sub> 取最大值</td>
+    </tr>
+    <tr>
+      <td>控制負壓</td>
+      <td class="zone-neg">${fmt(maxNeg.data.p_neg, 1)}</td>
+      <td>${maxNeg.label}</td>
+      <td>各區域 p<sub>−</sub> 取最不利吸力</td>
+    </tr>
+    <tr>
+      <td>控制絕對值</td>
+      <td>${fmt(Math.max(Math.abs(maxAbs.data.p_pos), Math.abs(maxAbs.data.p_neg)), 1)}</td>
+      <td>${maxAbs.label}</td>
+      <td>便於快速抓取控制設計值</td>
+    </tr>
+  `;
+  document.getElementById('designAdoptNote').innerHTML =
+    surface === 'wall'
+      ? '本表彙整外牆區域 4 / 5 的控制設計值，可直接作為外牆構材與包覆物選用之摘要。'
+      : '本表彙整屋面區域 1 / 2 / 3 的控制設計值，可直接作為屋面構材與包覆物選用之摘要。';
+  if (enableReduce) {
+    const redPos = maxPos.data.p_pos * reducePos;
+    const redNeg = maxNeg.data.p_neg * reduceNeg;
+    const redAbs = Math.max(Math.abs(redPos), Math.abs(redNeg));
+    designAdoptBody.innerHTML += `
+      <tr>
+        <td>折減後控制正壓</td>
+        <td class="zone-pos">${fmt(redPos,1)}</td>
+        <td>${maxPos.label}</td>
+        <td>${reduceModeName(reduceMode)}，λ<sub>+</sub> = ${fmt(reducePos,3)}</td>
+      </tr>
+      <tr>
+        <td>折減後控制負壓</td>
+        <td class="zone-neg">${fmt(redNeg,1)}</td>
+        <td>${maxNeg.label}</td>
+        <td>${reduceModeName(reduceMode)}，λ<sub>−</sub> = ${fmt(reduceNeg,3)}</td>
+      </tr>
+      <tr>
+        <td>折減後控制絕對值</td>
+        <td>${fmt(redAbs,1)}</td>
+        <td>${Math.abs(redPos) >= Math.abs(redNeg) ? maxPos.label : maxNeg.label}</td>
+        <td>依修正參數換算後之控制值</td>
+      </tr>
+    `;
+    document.getElementById('designAdoptNote').innerHTML += '<br>下列三列已續列特殊修正 / 折減後之設計採用值。';
+    document.getElementById('reduceResultCard').style.display = '';
+    setR('r-red-mode', reduceModeName(reduceMode));
+    setR('r-red-posf', reducePos, 3);
+    setR('r-red-negf', reduceNeg, 3);
+    setR('r-red-pos', redPos, 1);
+    setR('r-red-neg', redNeg, 1);
+    setR('r-red-abs', redAbs, 1);
+    document.getElementById('reduceSummary').innerHTML = `
+      <strong>依據說明：</strong>${reduceBasis}<br>
+      <strong>處理方式：</strong>控制正壓採 λ<sub>+</sub>；控制負壓採 λ<sub>−</sub>，並於本頁採用表續列折減後風壓。
+    `;
+  } else {
+    document.getElementById('reduceResultCard').style.display = 'none';
+    document.getElementById('reduceSummary').innerHTML = '';
+  }
+
+  // ── 逐步計算 ──
+  const t = Wind.TERRAIN[terrain];
+  const IV = I * V;
+  const Kz_h = Wind.calcKz(h, terrain);
+  const Kz_z = surface === 'wall' ? Wind.calcKz(r.zUse, terrain) : null;
+  const figLabel = r.isLE18 ? '圖 3.1' : '圖 3.2';
+  const zoneName = detailZoneLabel;
+  const enclosureName = encl === 'enclosed' ? '封閉式' : '部分封閉';
+  const posQLabel = (!r.isLE18 && surface === 'wall') ? `q(z=${fmt(r.zUse,1)}m)` : 'q(h)';
+  const negQiLabel = (!r.isLE18 && encl === 'partial') ? `q(z_h0=${fmt(r.zh0Use,1)}m)` : 'q(h)';
+  const slopeLimit = r.isLE18 ? 7 : 10;
+
+  const applicability = [
+    { label: '建築物型式', level: 'ok', message: `${enclosureName}，屬本工具適用範圍` },
+    { label: '構材類型', level: 'ok', message: surface === 'wall' ? '外牆 C&C' : '低坡度屋面 C&C' },
+    {
+      label: '屋面坡度',
+      level: surface === 'roof' ? (roofSlope <= slopeLimit ? 'ok' : 'fail') : 'ok',
+      message: surface === 'roof'
+        ? `θ = ${fmt(roofSlope,1)}°，本次上限 ${slopeLimit}°`
+        : '外牆模式，不檢核'
+    },
+    {
+      label: '外牆標高',
+      level: surface === 'wall' ? 'ok' : 'ok',
+      message: surface === 'wall'
+        ? (!r.isLE18 ? `h > 18m，正壓已採 q(z=${fmt(r.zUse,1)}m)` : `h ≤ 18m，依規範採 q(h)`)
+        : '屋面模式，採 q(h)'
+    },
+    {
+      label: '內壓速度壓',
+      level: encl === 'partial' && !r.isLE18 ? 'ok' : 'ok',
+      message: encl === 'partial' && !r.isLE18
+        ? `正內壓採 q(z_h0=${fmt(r.zh0Use,1)}m)，負內壓採 q(h)`
+        : '依 q(h) 處理'
+    },
+    {
+      label: '有效受風面積',
+      level: A > 65 ? 'warn' : 'ok',
+      message: A > 65
+        ? `A = ${fmt(A,1)} m²；應另檢核是否改依 2.2 節公式辦理`
+        : `A = ${fmt(A,1)} m²；滿足圖 3.1 / 圖 3.2 讀值條件`
+    },
+    {
+      label: '未納入項目',
+      level: 'warn',
+      message: '未含開放式建築、女兒牆、遮蔽折減、透氣外牆折減'
+    }
+  ];
+  setApplicability(applicability);
+  renderReference(surface, r.isLE18);
+  bindReferenceZoneClicks(maxAbs.key);
+
+  let html = '';
+  html += step('① 基本參數', `
+    V = <span class="val">${V}</span> m/s, I = <span class="val">${I}</span>, K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
+    地況 ${terrain}: α=${t.alpha}, z<sub>g</sub>=${t.zg}m<br>
+    h = ${h} m, z = ${surface === 'wall' ? fmt(r.zUse,1) : fmt(h,1)} m<br>
+    ${surface === 'roof' ? `θ = ${fmt(roofSlope,1)}° (上限 ${slopeLimit}°)<br>` : ''}
+    ${encl === 'partial' && !r.isLE18 ? `z_h0 = ${fmt(r.zh0Use,1)} m（正內壓）<br>` : ''}
+    ${enclosureName} → ${r.isLE18 ? 'h ≤ 18m' : 'h > 18m'} → 使用 <span class="val">${figLabel}</span>
+  `);
+
+  html += step('② 屋頂高速度壓 q<sub>h</sub> (Eq 2.6)', `
+    K(h) = 2.774 × (${h}/${t.zg})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(Kz_h,4)}</span><br>
+    q<sub>h</sub> = 0.06 × ${fmt(Kz_h,4)} × ${Kzt} × (${I}×${V})² = <span class="val hl">${fmt(r.qh,1)}</span> kgf/m²
+  `, `q(h) = 0.06 × K(h) × K<sub>zt</sub> × (I × V)²<br>
+= 0.06 × ${fmt(Kz_h,4)} × ${Kzt} × ${fmt(IV*IV,2)}<br>
+= <b>${fmt(r.qh,2)}</b> kgf/m²`);
+
+  if (surface === 'wall' && !r.isLE18) {
+    html += step('③ 構材標高速度壓 q<sub>z</sub> (Eq 2.6)', `
+      K(z) = 2.774 × (${fmt(r.zUse,1)}/${t.zg})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(Kz_z,4)}</span><br>
+      q<sub>z</sub> = 0.06 × ${fmt(Kz_z,4)} × ${Kzt} × (${I}×${V})² = <span class="val hl">${fmt(r.qz,1)}</span> kgf/m²
+    `, `q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)²<br>
+= 0.06 × ${fmt(Kz_z,4)} × ${Kzt} × ${fmt(IV*IV,2)}<br>
+= <b>${fmt(r.qz,2)}</b> kgf/m²`);
+  }
+
+  if (encl === 'partial' && !r.isLE18) {
+    const stepNo = (surface === 'wall' ? '④' : '③');
+    const Kz_h0 = Wind.calcKz(r.zh0Use, terrain);
+    html += step(stepNo + ' 正內壓速度壓 q<sub>h0</sub> (Eq 3.2)', `
+      z<sub>h0</sub> = <span class="val">${fmt(r.zh0Use,1)}</span> m<br>
+      K(z<sub>h0</sub>) = 2.774 × (${fmt(r.zh0Use,1)}/${t.zg})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(Kz_h0,4)}</span><br>
+      q(z<sub>h0</sub>) = <span class="val hl">${fmt(r.qh0,1)}</span> kgf/m²
+    `);
+  }
+
+  const idxBase = surface === 'wall' && !r.isLE18 ? 1 : 0;
+  const idxZh0 = encl === 'partial' && !r.isLE18 ? 1 : 0;
+  html += step((3 + idxBase + idxZh0 === 3 ? '③' : 3 + idxBase + idxZh0 === 4 ? '④' : '⑤') + ' 外壓係數 GC<sub>p</sub> (' + figLabel + ', ' + zoneName + ')', `
+    有效受風面積 A = <span class="val">${A}</span> m²<br>
+    GC<sub>p,pos</sub> = <span class="val">${r.GCp.pos.toFixed(2)}</span><br>
+    GC<sub>p,neg</sub> = <span class="val">${r.GCp.neg.toFixed(2)}</span>
+  `, `A = ${A} m² (log-linear 內插, A<sub>min</sub>=${Wind.CC_A_MIN}, A<sub>max</sub>=${Wind.CC_A_MAX} m²)<br>
+GC<sub>p,pos</sub> = <b>${r.GCp.pos.toFixed(3)}</b><br>
+GC<sub>p,neg</sub> = <b>${r.GCp.neg.toFixed(3)}</b>`);
+
+  const gcpiStep = 4 + idxBase + idxZh0;
+  html += step((gcpiStep === 4 ? '④' : gcpiStep === 5 ? '⑤' : '⑥') + ' 內壓係數 GC<sub>pi</sub>', `
+    ${enclosureName}: GC<sub>pi</sub> = <span class="val">±${r.GCpi.toFixed(3)}</span>
+  `);
+
+  const pStep = 5 + idxBase + idxZh0;
+  html += step((pStep === 5 ? '⑤' : pStep === 6 ? '⑥' : '⑦') + ' 設計風壓 (Eq 3.1/3.2)', `
+    p<sub>+</sub> = ${posQLabel}·GC<sub>p,pos</sub> + q(h)·GC<sub>pi</sub> = ${fmt(r.qPos,1)}×${r.GCp.pos.toFixed(2)} + ${fmt(r.qiNeg,1)}×${r.GCpi.toFixed(3)} = <span class="val hl">${fmt(r.p_pos,1)}</span> kgf/m²<br>
+    p<sub>−</sub> = q(h)·GC<sub>p,neg</sub> − ${negQiLabel}·GC<sub>pi</sub> = ${fmt(r.qNeg,1)}×${r.GCp.neg.toFixed(2)} − ${fmt(r.qiPos,1)}×${r.GCpi.toFixed(3)} = <span class="val hl">${fmt(r.p_neg,1)}</span> kgf/m²
+  `, `p<sub>+</sub> = ${fmt(r.qPos,2)}×${r.GCp.pos.toFixed(3)} + ${fmt(r.qiNeg,2)}×${r.GCpi.toFixed(3)}<br>
+= <b>${fmt(r.p_pos,2)}</b> kgf/m²<br><br>
+p<sub>−</sub> = ${fmt(r.qNeg,2)}×${r.GCp.neg.toFixed(3)} − ${fmt(r.qiPos,2)}×${r.GCpi.toFixed(3)}<br>
+= <b>${fmt(r.p_neg,2)}</b> kgf/m²`);
+  if (enableReduce) {
+    const detailRedPos = signedReduce(r.p_pos, reducePos, reduceNeg);
+    const detailRedNeg = signedReduce(r.p_neg, reducePos, reduceNeg);
+    html += step('⑧ 特殊修正 / 折減後風壓', `
+      修正模式 = <span class="val">${reduceModeName(reduceMode)}</span><br>
+      λ<sub>+</sub> = <span class="val">${fmt(reducePos,3)}</span>，λ<sub>−</sub> = <span class="val">${fmt(reduceNeg,3)}</span><br>
+      折減後 p<sub>+</sub> = <span class="val hl">${fmt(detailRedPos,1)}</span> kgf/m²<br>
+      折減後 p<sub>−</sub> = <span class="val hl">${fmt(detailRedNeg,1)}</span> kgf/m²<br>
+      依據說明：${reduceBasis}
+    `);
+  }
+
+  document.getElementById('steps').innerHTML = html;
+}
+
+function step(t, b, d) {
+  let h = `<div class="step"><div class="step-title">${t}</div><div class="step-body">${b}</div>`;
+  if (d) h += `<div class="detail-formula">${d}</div>`;
+  h += `</div>`;
+  return h;
+}
+
+function wallRefSvg(figLabel) {
+  return `
+    <svg class="ref-svg" viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${figLabel} 外牆區域示意">
+      <rect x="46" y="26" width="268" height="176" rx="4" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+      <rect class="ref-zone" data-zone="5" x="46" y="26" width="38" height="176" fill="#fde68a" opacity="0.85"/>
+      <rect class="ref-zone" data-zone="5" x="276" y="26" width="38" height="176" fill="#fde68a" opacity="0.85"/>
+      <rect class="ref-zone" data-zone="5" x="46" y="26" width="268" height="32" fill="#fde68a" opacity="0.55"/>
+      <rect class="ref-zone" data-zone="5" x="46" y="170" width="268" height="32" fill="#fde68a" opacity="0.55"/>
+      <rect class="ref-zone" data-zone="4" x="84" y="58" width="192" height="112" fill="#dbeafe" stroke="#60a5fa"/>
+      <text x="180" y="120" text-anchor="middle" font-size="30" font-weight="700" fill="#0f172a">4</text>
+      <text x="65" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">5</text>
+      <text x="295" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">5</text>
+      <text x="65" y="190" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">5</text>
+      <text x="295" y="190" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">5</text>
+      <line x1="324" y1="40" x2="344" y2="40" stroke="#334155" stroke-width="2"/>
+      <line x1="324" y1="40" x2="324" y2="72" stroke="#334155" stroke-width="2"/>
+      <line x1="324" y1="72" x2="344" y2="72" stroke="#334155" stroke-width="2"/>
+      <text x="334" y="62" text-anchor="middle" font-size="16" fill="#334155">a</text>
+      <text x="180" y="228" text-anchor="middle" font-size="15" fill="#475569">${figLabel} 外牆區域：區域 5 = 角隅帶；區域 4 = 其餘牆面</text>
+    </svg>
+  `;
+}
+
+function roofRefSvg(figLabel) {
+  return `
+    <svg class="ref-svg" viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${figLabel} 屋面區域示意">
+      <rect x="42" y="30" width="276" height="170" rx="4" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+      <rect class="ref-zone" data-zone="3" x="42" y="30" width="40" height="170" fill="#fecaca" opacity="0.9"/>
+      <rect class="ref-zone" data-zone="3" x="278" y="30" width="40" height="170" fill="#fecaca" opacity="0.9"/>
+      <rect class="ref-zone" data-zone="2" x="82" y="30" width="196" height="34" fill="#fecaca" opacity="0.55"/>
+      <rect class="ref-zone" data-zone="2" x="82" y="166" width="196" height="34" fill="#fecaca" opacity="0.55"/>
+      <rect class="ref-zone" data-zone="1" x="82" y="64" width="196" height="102" fill="#dbeafe" stroke="#60a5fa"/>
+      <text x="180" y="121" text-anchor="middle" font-size="30" font-weight="700" fill="#0f172a">1</text>
+      <text x="180" y="54" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">2</text>
+      <text x="180" y="190" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">2</text>
+      <text x="61" y="52" text-anchor="middle" font-size="22" font-weight="700" fill="#991b1b">3</text>
+      <text x="299" y="52" text-anchor="middle" font-size="22" font-weight="700" fill="#991b1b">3</text>
+      <text x="61" y="190" text-anchor="middle" font-size="22" font-weight="700" fill="#991b1b">3</text>
+      <text x="299" y="190" text-anchor="middle" font-size="22" font-weight="700" fill="#991b1b">3</text>
+      <line x1="322" y1="42" x2="344" y2="42" stroke="#334155" stroke-width="2"/>
+      <line x1="322" y1="42" x2="322" y2="76" stroke="#334155" stroke-width="2"/>
+      <line x1="322" y1="76" x2="344" y2="76" stroke="#334155" stroke-width="2"/>
+      <text x="333" y="62" text-anchor="middle" font-size="16" fill="#334155">a</text>
+      <text x="180" y="228" text-anchor="middle" font-size="15" fill="#475569">${figLabel} 屋面區域：區域 3 = 角隅；區域 2 = 邊緣帶；區域 1 = 內部</text>
+    </svg>
+  `;
+}
+
+function renderReference(surface, isLE18) {
+  const figLabel = isLE18 ? '圖 3.1' : '圖 3.2';
+  const title = surface === 'wall' ? `${figLabel} 外牆區域示意` : `${figLabel} 屋面區域示意`;
+  const desc = surface === 'wall'
+    ? `${figLabel} 外牆模式對應區域 4 / 5。區域 5 為角隅帶，區域 4 為其餘牆面；本頁總覽與採用表會同步整理兩區控制值。`
+    : `${figLabel} 屋面模式對應區域 1 / 2 / 3。區域 3 為角隅、區域 2 為邊緣帶、區域 1 為內部區；本頁總覽與採用表會同步整理三區控制值。`;
+  const shot = isLE18
+    ? (surface === 'wall'
+        ? { src: '../assets/wind_refs/fig_3_1_wall.png', note: '圖 3.1 外牆區域圖面' }
+        : { src: '../assets/wind_refs/fig_3_1_roof_a.png', note: '圖 3.1 低坡度屋面區域圖面' })
+    : { src: '../assets/wind_refs/fig_3_2.png', note: '圖 3.2 高樓外牆與屋面區域圖面' };
+  document.getElementById('refTitle').textContent = title;
+  document.getElementById('refSvgWrap').innerHTML = surface === 'wall' ? wallRefSvg(figLabel) : roofRefSvg(figLabel);
+  document.getElementById('refDesc').textContent = desc;
+  document.getElementById('refShotTitle').textContent = `${figLabel} 條文 / 圖號對照`;
+  document.getElementById('refShot').src = shot.src;
+  document.getElementById('refShotDesc').innerHTML =
+    `${figLabel} 對應第三章封閉式或部分封閉式建築局部構材及外部被覆物設計風壓路線。<br>` +
+    `右側附入本地規範圖面截圖：${shot.note}。`;
+}
+
+function highlightReferenceZone(zoneKey) {
+  document.querySelectorAll('#zoneSummaryTable tbody tr[data-zone]').forEach(tr => {
+    tr.classList.toggle('is-selected', tr.dataset.zone === zoneKey);
+  });
+  document.querySelectorAll('#refSvgWrap .ref-zone').forEach(node => {
+    node.classList.toggle('is-active', node.dataset.zone === zoneKey);
+  });
+}
+
+function bindReferenceZoneClicks(defaultZone) {
+  document.querySelectorAll('#zoneSummaryTable tbody tr[data-zone]').forEach(tr => {
+    tr.addEventListener('click', () => highlightReferenceZone(tr.dataset.zone));
+  });
+  document.querySelectorAll('#refSvgWrap .ref-zone').forEach(node => {
+    node.addEventListener('click', () => highlightReferenceZone(node.dataset.zone));
+  });
+  highlightReferenceZone(String(defaultZone));
+}
+
+// ── 詳列計算式 toggle ──
+document.getElementById('chkDetail').addEventListener('change', function() {
+  document.getElementById('stepsCard').classList.toggle('show-detail', this.checked);
+});
+
+document.getElementById('btnCalc').addEventListener('click', calc);
+calc();
+</script>
+</body>
+</html>
