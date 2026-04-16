@@ -1547,7 +1547,7 @@ window._fbDoSave = async function() {
     name: name,
     project: project,
     note: note,
-    data: collectSaveData()
+    data: JSON.stringify(collectSaveData())
   };
 
   try {
@@ -1637,7 +1637,8 @@ async function doLoad(docId) {
     const snap = await getDoc(doc(db, COLL, docId));
     if (!snap.exists()) { alert('檔案不存在'); return; }
     const d = snap.data();
-    restoreFromData(d.data);
+    const parsed = typeof d.data === 'string' ? JSON.parse(d.data) : d.data;
+    restoreFromData(parsed);
     currentSaveId = docId;
     currentSaveName = d.name || '(未命名)';
     updateFileLabel();
