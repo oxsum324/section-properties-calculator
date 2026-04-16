@@ -131,6 +131,33 @@
     /* 放大點擊目標 */
     input[type="number"], input[type="text"], select { min-height: 40px; }
   }
+  /* ===== Firebase Save/Load Modal ===== */
+  .save-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 20px; background: var(--card); border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .save-bar .btn { display: inline-flex; align-items: center; gap: 4px; }
+  .save-bar .current-file { font-size: 0.82em; color: var(--text-light); margin-left: 8px; }
+  .save-bar .current-file strong { color: var(--text); }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9999; justify-content: center; align-items: center; }
+  .modal-overlay.active { display: flex; }
+  .modal-box { background: var(--card); border-radius: 14px; padding: 24px; width: 94vw; max-width: 520px; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+  .modal-box h2 { font-size: 1.1em; margin-bottom: 16px; color: var(--primary); }
+  .modal-box .form-group { margin-bottom: 12px; }
+  .modal-box .form-group label { font-size: 0.82em; font-weight: 600; color: var(--text-light); margin-bottom: 4px; display: block; }
+  .modal-box .form-group input { width: 100%; padding: 8px 10px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.92em; font-family: inherit; outline: none; }
+  .modal-box .form-group input:focus { border-color: var(--primary); }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .load-list { list-style: none; padding: 0; margin: 0; }
+  .load-list li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--border); gap: 6px; }
+  .load-list li:last-child { border-bottom: none; }
+  .load-list .li-info { flex: 1; min-width: 0; }
+  .load-list .li-name { font-weight: 600; font-size: 0.9em; color: var(--text); }
+  .load-list .li-meta { font-size: 0.75em; color: var(--text-light); margin-top: 2px; }
+  .load-list .li-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .load-list .empty-msg { text-align: center; padding: 20px; color: var(--text-light); font-size: 0.88em; }
+  @media (max-width: 640px) {
+    .save-bar { padding: 8px 12px; gap: 6px; }
+    .save-bar .btn { font-size: 0.8em; padding: 6px 10px; }
+    .modal-box { padding: 18px 14px; }
+  }
 </style>
 </head>
 <body>
@@ -138,6 +165,48 @@
   <h1>連續梁分析工具</h1>
   <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線</p>
 </header>
+<div class="save-bar">
+  <button class="btn btn-primary btn-sm" onclick="window._fbSave()">💾 儲存</button>
+  <button class="btn btn-accent btn-sm" onclick="window._fbLoad()">📂 載入</button>
+  <span class="current-file" id="currentFileLabel"></span>
+</div>
+
+<!-- Save Modal -->
+<div class="modal-overlay" id="saveModal">
+  <div class="modal-box">
+    <h2>💾 儲存至雲端</h2>
+    <div class="form-group">
+      <label>日期 (YYYYMMDD)</label>
+      <input type="text" id="saveDateInput" maxlength="8" placeholder="20260416">
+    </div>
+    <div class="form-group">
+      <label>工程名稱</label>
+      <input type="text" id="saveProjectInput" placeholder="例：台北市某大樓">
+    </div>
+    <div class="form-group">
+      <label>備註（方案比較用）</label>
+      <input type="text" id="saveNoteInput" placeholder="例：方案A - 加大梁深">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="window._fbDoSave()">確認儲存</button>
+      <button class="btn" style="background:var(--border);" onclick="document.getElementById('saveModal').classList.remove('active')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- Load Modal -->
+<div class="modal-overlay" id="loadModal">
+  <div class="modal-box" style="max-width:600px;">
+    <h2>📂 載入存檔</h2>
+    <ul class="load-list" id="loadList">
+      <li class="empty-msg">讀取中...</li>
+    </ul>
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--border);" onclick="document.getElementById('loadModal').classList.remove('active')">關閉</button>
+    </div>
+  </div>
+</div>
+
 <div class="container">
   <!-- Top Bar: Unit system -->
   <div class="card" style="padding:12px 20px;">
@@ -1370,6 +1439,229 @@ window.addEventListener('resize', () => {
   _resizeTimer = setTimeout(redrawAll, 120);
 });
 window.addEventListener('orientationchange', () => setTimeout(redrawAll, 200));
+</script>
+<script type="module">
+// ==================== FIREBASE CLOUD SAVE ====================
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
+import { getFirestore, collection, addDoc, doc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAEMnle34AXt1oAeJpk2Co0kTXetbIOkPk",
+  authDomain: "my-work-tools-c7a5a.firebaseapp.com",
+  projectId: "my-work-tools-c7a5a",
+  storageBucket: "my-work-tools-c7a5a.firebasestorage.app",
+  messagingSenderId: "992976651028",
+  appId: "1:992976651028:web:7ecb3ee9a06d09db237801"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const COLL = 'beam_saves';
+
+let currentSaveId = null;
+let currentSaveName = null;
+
+function updateFileLabel() {
+  const el = document.getElementById('currentFileLabel');
+  if (currentSaveName) {
+    el.innerHTML = '目前檔案：<strong>' + currentSaveName + '</strong>';
+  } else {
+    el.innerHTML = '';
+  }
+}
+
+function collectSaveData() {
+  return {
+    model: JSON.parse(JSON.stringify(window.model)),
+    unitSystem: document.getElementById('unitSystem').value,
+    matSelect: document.getElementById('matSelect').value,
+    eVal: document.getElementById('eVal').value,
+    globalI: document.getElementById('globalI').value,
+    iMode: document.getElementById('iMode').value,
+    fcVal: document.getElementById('fcVal').value,
+    ilEnabled: document.getElementById('ilEnabled').checked,
+    ilType: document.getElementById('ilType').value,
+    ilParam: document.getElementById('ilParam').value
+  };
+}
+
+function restoreFromData(d) {
+  window._prevUnitKey = null;
+  document.getElementById('unitSystem').value = d.unitSystem || 'kN-m';
+  window._prevUnitKey = d.unitSystem || 'kN-m';
+  window.model = d.model;
+  document.getElementById('numSpans').value = window.model.numSpans;
+  document.getElementById('matSelect').value = d.matSelect || 'steel';
+  document.getElementById('iMode').value = d.iMode || 'direct';
+  window.onIModeChange();
+  document.getElementById('fcVal').value = d.fcVal || '280';
+  window.onMatChange();
+  document.getElementById('eVal').value = d.eVal;
+  document.getElementById('globalI').value = d.globalI;
+  document.getElementById('ilEnabled').checked = d.ilEnabled || false;
+  window.toggleIL();
+  document.getElementById('ilType').value = d.ilType || 'reaction';
+  document.getElementById('ilParam').value = d.ilParam || '0';
+  const u = window.getUnit();
+  document.querySelectorAll('.unit-force').forEach(el => el.textContent = u.force);
+  document.querySelectorAll('.unit-moment').forEach(el => el.textContent = u.moment);
+  document.querySelectorAll('.unit-dist').forEach(el => el.textContent = u.dist);
+  document.querySelectorAll('.unit-length').forEach(el => el.textContent = u.length);
+  document.querySelectorAll('.unit-stress').forEach(el => el.textContent = u.stress);
+  document.querySelectorAll('.unit-E').forEach(el => el.textContent = u.E);
+  document.querySelectorAll('.unit-I').forEach(el => el.textContent = u.I);
+  window.renderSpanInputs();
+  window.renderLoadSpanSelect();
+  window.renderLoadInputs();
+  window.drawSchematic();
+  window.solution = null;
+  window.diagrams = null;
+  ['sfdCard','bmdCard','deflCard','ilCard','resultsCard'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear().toString() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
+}
+
+// === Open Save Modal ===
+window._fbSave = function() {
+  document.getElementById('saveDateInput').value = todayStr();
+  document.getElementById('saveProjectInput').value = '';
+  document.getElementById('saveNoteInput').value = '';
+  document.getElementById('saveModal').classList.add('active');
+};
+
+// === Do Save ===
+window._fbDoSave = async function() {
+  const dateStr = document.getElementById('saveDateInput').value.trim() || todayStr();
+  const project = document.getElementById('saveProjectInput').value.trim();
+  const note = document.getElementById('saveNoteInput').value.trim();
+  if (!project) { alert('請輸入工程名稱'); return; }
+  const name = dateStr + '_' + project;
+  const saveData = {
+    name: name,
+    project: project,
+    note: note,
+    data: collectSaveData()
+  };
+
+  try {
+    if (currentSaveId) {
+      const choice = confirm('目前已載入「' + currentSaveName + '」\n\n按「確定」覆蓋此檔案\n按「取消」另存新檔');
+      if (choice) {
+        // overwrite
+        await updateDoc(doc(db, COLL, currentSaveId), {
+          ...saveData,
+          updated_at: serverTimestamp()
+        });
+        currentSaveName = name;
+        updateFileLabel();
+        alert('已覆蓋儲存：' + name);
+      } else {
+        // save as new
+        saveData.created_at = serverTimestamp();
+        saveData.updated_at = serverTimestamp();
+        const ref = await addDoc(collection(db, COLL), saveData);
+        currentSaveId = ref.id;
+        currentSaveName = name;
+        updateFileLabel();
+        alert('已另存新檔：' + name);
+      }
+    } else {
+      saveData.created_at = serverTimestamp();
+      saveData.updated_at = serverTimestamp();
+      const ref = await addDoc(collection(db, COLL), saveData);
+      currentSaveId = ref.id;
+      currentSaveName = name;
+      updateFileLabel();
+      alert('已儲存：' + name);
+    }
+    document.getElementById('saveModal').classList.remove('active');
+  } catch(e) {
+    alert('儲存失敗：' + e.message);
+    console.error(e);
+  }
+};
+
+// === Open Load Modal ===
+window._fbLoad = async function() {
+  const listEl = document.getElementById('loadList');
+  listEl.innerHTML = '<li class="empty-msg">讀取中...</li>';
+  document.getElementById('loadModal').classList.add('active');
+  try {
+    const q = query(collection(db, COLL), orderBy('created_at', 'desc'));
+    const snap = await getDocs(q);
+    if (snap.empty) {
+      listEl.innerHTML = '<li class="empty-msg">尚無存檔</li>';
+      return;
+    }
+    listEl.innerHTML = '';
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      const li = document.createElement('li');
+      const ts = d.created_at ? new Date(d.created_at.seconds * 1000).toLocaleString('zh-TW') : '';
+      li.innerHTML = '<div class="li-info">'
+        + '<div class="li-name">' + (d.name||'(未命名)') + '</div>'
+        + '<div class="li-meta">' + (d.project||'') + (d.note ? ' | ' + d.note : '') + (ts ? ' | ' + ts : '') + '</div>'
+        + '</div>'
+        + '<div class="li-actions">'
+        + '<button class="btn btn-primary btn-sm" data-action="load" data-id="' + docSnap.id + '">載入</button>'
+        + '<button class="btn btn-danger btn-sm" data-action="delete" data-id="' + docSnap.id + '" data-name="' + (d.name||'') + '">🗑️</button>'
+        + '</div>';
+      listEl.appendChild(li);
+    });
+    // event delegation
+    listEl.onclick = async function(e) {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      if (btn.dataset.action === 'load') {
+        await doLoad(id);
+      } else if (btn.dataset.action === 'delete') {
+        await doDelete(id, btn.dataset.name);
+      }
+    };
+  } catch(e) {
+    listEl.innerHTML = '<li class="empty-msg">載入失敗：' + e.message + '</li>';
+    console.error(e);
+  }
+};
+
+async function doLoad(docId) {
+  try {
+    const snap = await getDoc(doc(db, COLL, docId));
+    if (!snap.exists()) { alert('檔案不存在'); return; }
+    const d = snap.data();
+    restoreFromData(d.data);
+    currentSaveId = docId;
+    currentSaveName = d.name || '(未命名)';
+    updateFileLabel();
+    document.getElementById('loadModal').classList.remove('active');
+  } catch(e) {
+    alert('載入失敗：' + e.message);
+    console.error(e);
+  }
+}
+
+async function doDelete(docId, name) {
+  if (!confirm('確定刪除「' + (name||'此檔案') + '」？')) return;
+  try {
+    await deleteDoc(doc(db, COLL, docId));
+    if (currentSaveId === docId) {
+      currentSaveId = null;
+      currentSaveName = null;
+      updateFileLabel();
+    }
+    // refresh list
+    window._fbLoad();
+  } catch(e) {
+    alert('刪除失敗：' + e.message);
+    console.error(e);
+  }
+}
 </script>
 </body>
 </html>
