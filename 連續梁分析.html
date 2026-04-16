@@ -357,7 +357,7 @@ function convFactor(fromKey, toKey, a, b) {
   return Math.pow(p.F/q.F, a) * Math.pow(p.L/q.L, b);
 }
 
-let _prevUnitKey = null;
+var _prevUnitKey = null;
 function onUnitChange() {
   const u = getUnit();
   const uk = getUnitKey();
@@ -496,9 +496,9 @@ window.addEventListener('message', (ev) => {
 });
 
 // ==================== DATA MODEL ====================
-let model = { numSpans: 2, spans: [], supports: [], loads: [] };
-let solution = null;
-let diagrams = null;
+var model = { numSpans: 2, spans: [], supports: [], loads: [] };
+var solution = null;
+var diagrams = null;
 
 function initModel(n) {
   model.numSpans = n;
@@ -1488,7 +1488,9 @@ function restoreFromData(d) {
   window._prevUnitKey = null;
   document.getElementById('unitSystem').value = d.unitSystem || 'kN-m';
   window._prevUnitKey = d.unitSystem || 'kN-m';
-  window.model = d.model;
+  // 用 Object.assign 替換 model 內容，保持 window.model 參照不變
+  Object.keys(window.model).forEach(k => delete window.model[k]);
+  Object.assign(window.model, d.model);
   document.getElementById('numSpans').value = window.model.numSpans;
   document.getElementById('matSelect').value = d.matSelect || 'steel';
   document.getElementById('iMode').value = d.iMode || 'direct';
