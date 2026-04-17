@@ -444,7 +444,15 @@ function calcMiscSeismicFull(p) {
   const ratioM_m = S.calcSaFuM(ratioM);
 
   if (p.mode === 'similar') {
-    const Vh = (p.I / (1.4 * p.alphaY)) * ratio_m * p.W;
+    // 5.3 相似於建築結構 — 式(2-3) 含上下限
+    const denom = 1.4 * p.alphaY;
+    const Vh_main = (p.I / denom) * ratio_m * p.W;
+    const Vh_cap  = site.SDS * p.I * p.W / denom;       // 不需大於 SDS·I·W/(1.4·αy)
+    const Vh_min  = 0.4 * site.SDS * p.I * p.W / denom;  // 不能小於 0.4·SDS·I·W/(1.4·αy)
+    const Vh = Math.max(Math.min(Vh_main, Vh_cap), Vh_min);
+    let controlledBy = '主公式';
+    if (Vh === Vh_cap && Vh_main > Vh_cap) controlledBy = '上限 (不需大於)';
+    else if (Vh === Vh_min && Vh_main < Vh_min) controlledBy = '下限 (不能小於)';
     const vvRes = S.calcVerticalSeismic({
       SDS: site.SDS,
       SD1: site.SD1,
@@ -478,21 +486,36 @@ function calcMiscSeismicFull(p) {
       ratio_m,
       ratioM,
       ratioM_m,
+      Vh_main, Vh_cap, Vh_min, controlledBy,
       Vh,
       Vv: vvRes.VZ,
       verticalSource: '2.18 節',
       vvRes,
-      formulaUsed: '式(2-3)'
+      formulaUsed: '式(2-3)',
+      denom
     };
   }
 
-  let Vh;
-  let formulaUsed;
+  // 5.4 非相似於建築結構
+  let Vh, Vh_main, Vh_cap, Vh_min, controlledBy, formulaUsed, denom;
   if (T < 0.06) {
-    Vh = site.SDS * p.I * p.W / (3 * p.alphaY);
+    // 式(5-1) 本身即為「假設 SaD/Fu = 0.4·SDS」的簡化剛性公式
+    denom = 3 * p.alphaY;
+    Vh_main = site.SDS * p.I * p.W / denom;
+    Vh_cap  = Vh_main;   // 式(5-1) 即上限型公式
+    Vh_min  = Vh_main;
+    Vh = Vh_main;
+    controlledBy = '式(5-1) 剛性結構簡化';
     formulaUsed = '式(5-1)';
   } else {
-    Vh = (p.I / (1.2 * p.alphaY)) * ratio_m * p.W;
+    denom = 1.2 * p.alphaY;
+    Vh_main = (p.I / denom) * ratio_m * p.W;
+    Vh_cap  = site.SDS * p.I * p.W / denom;        // 不需大於 SDS·I·W/(1.2·αy)
+    Vh_min  = 0.4 * site.SDS * p.I * p.W / denom;   // 不能小於 0.4·SDS·I·W/(1.2·αy)
+    Vh = Math.max(Math.min(Vh_main, Vh_cap), Vh_min);
+    controlledBy = '主公式';
+    if (Vh === Vh_cap && Vh_main > Vh_cap) controlledBy = '上限 (不需大於)';
+    else if (Vh === Vh_min && Vh_main < Vh_min) controlledBy = '下限 (不能小於)';
     formulaUsed = '式(5-2)';
   }
   const Vv = (p.isNearFault ? 2 / 3 : 1 / 2) * Vh;
@@ -518,10 +541,12 @@ function calcMiscSeismicFull(p) {
     ratio_m,
     ratioM,
     ratioM_m,
+    Vh_main, Vh_cap, Vh_min, controlledBy,
     Vh,
     Vv,
     verticalSource: p.isNearFault ? '近斷層取 2/3 Vh' : '一般 / 臺北盆地取 1/2 Vh',
-    formulaUsed
+    formulaUsed,
+    denom
   };
 }
 
@@ -569,7 +594,8 @@ function calcMiscPage() {
   document.getElementById('resultPanel').style.display = '';
   document.getElementById('banner').innerHTML =
     `第五章 ${mode === 'similar' ? '5.3' : '5.4'} ${r.typeName}　最小設計水平總橫力 V<sub>h</sub> = <strong>${fmt(r.Vh, 2)}</strong> tf　` +
-    `最小設計垂直地震力 V<sub>v</sub> = <strong>${fmt(r.Vv, 2)}</strong> tf` +
+    `最小設計垂直地震力 V<sub>v</sub> = <strong>${fmt(r.Vv, 2)}</strong> tf　` +
+    `<span style="font-size:0.85em;opacity:0.85;">(${r.controlledBy || '主公式'})</span>` +
     (exceedsLimit ? `<br><span style="color:#b45309;">注意：本次輸入高度 ${fmt(hn,2)} m 已超過該表列型式之高度上限 ${preset.hLimit}，請回規範複核。</span>` : '');
   document.getElementById('miscOverview').innerHTML = `
     <div class="compact-item">
@@ -583,6 +609,10 @@ function calcMiscPage() {
     <div class="compact-item">
       <span class="label">採用公式</span>
       <span class="value">${r.formulaUsed}</span>
+    </div>
+    <div class="compact-item">
+      <span class="label">控制機制</span>
+      <span class="value">${r.controlledBy || '主公式'}</span>
     </div>
     <div class="compact-item">
       <span class="label">R / α<sub>y</sub></span>
@@ -641,8 +671,10 @@ function calcMiscPage() {
         依第五章 5.3 規定，最小設計水平總橫力依式(2-3)計算。<br>
         S<sub>aD</sub>/F<sub>u</sub> = ${fmt(r.SaD,4)} / ${fmt(r.Fu,4)} = ${fmt(r.ratio,4)}<br>
         (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> = <span class="val">${fmt(r.ratio_m,4)}</span><br>
-        V<sub>h</sub> = [${r.I}/(1.4×${r.alphaY})] × ${fmt(r.ratio_m,4)} × ${fmt(r.W,1)}<br>
-        &emsp;= <span class="val hl">${fmt(r.Vh,2)}</span> tf<br><br>
+        主公式 V<sub>h</sub> = [${r.I}/(1.4×${r.alphaY})] × ${fmt(r.ratio_m,4)} × ${fmt(r.W,1)} = <span class="val">${fmt(r.Vh_main,2)}</span> tf<br>
+        不需大於 V<sub>h</sub> ≤ S<sub>DS</sub>·I·W/(1.4·α<sub>y</sub>) = ${fmt(r.site.SDS,4)}×${r.I}×${fmt(r.W,1)}/(1.4×${r.alphaY}) = <span class="val">${fmt(r.Vh_cap,2)}</span> tf<br>
+        不能小於 V<sub>h</sub> ≥ 0.4·S<sub>DS</sub>·I·W/(1.4·α<sub>y</sub>) = <span class="val">${fmt(r.Vh_min,2)}</span> tf<br>
+        <strong>採用 V<sub>h</sub> = <span class="val hl">${fmt(r.Vh,2)}</span> tf　(${r.controlledBy})</strong><br><br>
 
         <strong>④ 5.3 相似於建築結構：最小設計垂直地震力</strong><br>
         依第五章 5.3 規定，垂直地震力依 2.18 節計算。<br>
@@ -651,15 +683,18 @@ function calcMiscPage() {
         <strong>③ 5.4 非相似於建築結構：最小設計水平總橫力</strong><br>
         ${r.T < 0.06 ? `
         T = ${fmt(r.T,3)} sec &lt; 0.06 sec，採式(5-1)。<br>
+        <span class="note" style="font-size:0.88em;color:#64748b;">解說：式(5-1) 係假設 S<sub>aD</sub>/F<sub>u</sub> = 0.4·S<sub>DS</sub> 之剛性結構簡化式，本身即為下限型公式，無需再套用上下限。</span><br>
         V<sub>h</sub> = S<sub>DS</sub> × I × W / (3 α<sub>y</sub>)<br>
         &emsp;= ${fmt(r.site.SDS,4)} × ${r.I} × ${fmt(r.W,1)} / (3 × ${r.alphaY})<br>
-        &emsp;= <span class="val hl">${fmt(r.Vh,2)}</span> tf<br>
+        <strong>採用 V<sub>h</sub> = <span class="val hl">${fmt(r.Vh,2)}</span> tf　(${r.controlledBy})</strong><br>
         ` : `
         T = ${fmt(r.T,3)} sec ≥ 0.06 sec，採式(5-2)。<br>
         S<sub>aD</sub>/F<sub>u</sub> = ${fmt(r.SaD,4)} / ${fmt(r.Fu,4)} = ${fmt(r.ratio,4)}<br>
         (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> = <span class="val">${fmt(r.ratio_m,4)}</span><br>
-        V<sub>h</sub> = [${r.I}/(1.2×${r.alphaY})] × ${fmt(r.ratio_m,4)} × ${fmt(r.W,1)}<br>
-        &emsp;= <span class="val hl">${fmt(r.Vh,2)}</span> tf<br>
+        主公式 V<sub>h</sub> = [${r.I}/(1.2×${r.alphaY})] × ${fmt(r.ratio_m,4)} × ${fmt(r.W,1)} = <span class="val">${fmt(r.Vh_main,2)}</span> tf<br>
+        不需大於 V<sub>h</sub> ≤ S<sub>DS</sub>·I·W/(1.2·α<sub>y</sub>) = ${fmt(r.site.SDS,4)}×${r.I}×${fmt(r.W,1)}/(1.2×${r.alphaY}) = <span class="val">${fmt(r.Vh_cap,2)}</span> tf<br>
+        不能小於 V<sub>h</sub> ≥ 0.4·S<sub>DS</sub>·I·W/(1.2·α<sub>y</sub>) = <span class="val">${fmt(r.Vh_min,2)}</span> tf<br>
+        <strong>採用 V<sub>h</sub> = <span class="val hl">${fmt(r.Vh,2)}</span> tf　(${r.controlledBy})</strong><br>
         `}
         <br><strong>④ 5.4 非相似於建築結構：最小設計垂直地震力</strong><br>
         V<sub>v</sub> = ${isNearFault ? '2/3' : '1/2'} × V<sub>h</sub><br>
@@ -776,6 +811,7 @@ function openMiscReport() {
         <span class="rep-chip"><b>工址</b>${esc(zoneText)}</span>
         <span class="rep-chip"><b>型式</b>${esc(r.typeName)}</span>
         <span class="rep-chip"><b>採用公式</b>${esc(r.formulaUsed)}</span>
+        <span class="rep-chip"><b>控制機制</b>${esc(r.controlledBy || '—')}</span>
         <span class="rep-chip"><b>R / αy</b>${esc(`${r.R} / ${r.alphaY}`)}</span>
       </div>
       <section class="rep-block">
