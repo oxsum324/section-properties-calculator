@@ -1807,7 +1807,7 @@ function openSeismicReport() {
   <body>
     <div class="rep-toolbar">
       <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
-      <button onclick="window.close()">✕ 關閉</button>
+      <button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button>
     </div>
     <div class="rep-paper">
       <div class="rep-header">

@@ -756,7 +756,7 @@ function openDynamicReport() {
     @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .paper { box-shadow:none; padding:0; max-width:none; } }
   </style></head>
   <body>
-    <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="window.close()">✕ 關閉</button></div>
+    <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button></div>
     <div class="paper">
       <h1>動力分析摘要計算書</h1>
       <div class="sub">反應譜動力分析結果整理與靜力比對</div>
