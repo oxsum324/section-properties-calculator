@@ -45,3 +45,9 @@ _參考資料/
 
 # 鋼構接頭工具開發資料
 鋼構工具/*.smoke-test.js
+
+# 巡檢輸出與本機測試產物
+output/
+**/output/
+**/.playwright-cli/
+*.rar

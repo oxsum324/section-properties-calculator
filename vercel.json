@@ -20,9 +20,12 @@
     { "source": "/seismic-dynamic", "destination": "/結構工具箱/tools/地震力/seismic-dynamic.html" },
     { "source": "/seismic-misc", "destination": "/結構工具箱/tools/地震力/seismic-misc.html" },
 
+    { "source": "/steel-formal", "destination": "/鋼構工具/index.html" },
+    { "source": "/steel-plate", "destination": "/鋼構工具/plate-check.html" },
     { "source": "/steel-beam", "destination": "/結構工具箱/tools/鋼構/steel-beam.html" },
     { "source": "/steel-column", "destination": "/結構工具箱/tools/鋼構/steel-column.html" },
 
+    { "source": "/rc", "destination": "/鋼筋混凝土/index.html" },
     { "source": "/rc-beam", "destination": "/鋼筋混凝土/tools/beam.html" },
     { "source": "/rc-column", "destination": "/鋼筋混凝土/tools/column.html" },
     { "source": "/rc-slab", "destination": "/鋼筋混凝土/tools/slab.html" },
@@ -30,6 +33,8 @@
     { "source": "/rc-foundation", "destination": "/鋼筋混凝土/tools/foundation.html" },
     { "source": "/rc-pile", "destination": "/鋼筋混凝土/tools/single-pile-designer.html" },
 
+    { "source": "/platform", "destination": "/結構工具箱/index.html" },
+    { "source": "/platform-audit", "destination": "/結構工具箱/audit-dashboard.html" },
     { "source": "/section", "destination": "/index.html" },
     { "source": "/beam-analysis", "destination": "/連續梁分析.html" },
     { "source": "/force-picker", "destination": "/結構工具箱/tools/force-picker.html" },

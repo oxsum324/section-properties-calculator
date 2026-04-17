@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>鋼構正式規範核算工具</title>
+  <title>鋼構連接板正式規範核算工具</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <script>
@@ -15,39 +15,33 @@
   <header class="page-header">
     <nav class="page-header__nav" aria-label="鋼構工具導覽">
       <a class="page-header__link" href="../結構工具箱/index.html">← 回結構工具箱</a>
-      <a class="page-header__link" href="./plate-check.html">連接板獨立頁</a>
+      <a class="page-header__link" href="./index.html">鋼構正式工具首頁</a>
       <a class="page-header__link" href="./steel-beam-formal.html">鋼梁正式頁</a>
       <a class="page-header__link" href="./steel-column-formal.html">鋼柱正式頁</a>
     </nav>
-    <h1 id="pageTitle">鋼構正式規範核算工具</h1>
-    <p id="pageDescription">正式核算模組：連接板、拉力構件｜左輸入、右報表、計算流程、核可判讀一體化</p>
+    <h1 id="pageTitle">鋼構連接板正式規範核算工具</h1>
+    <p id="pageDescription">矩形連接板｜全斷面降伏、有效淨斷面斷裂、區塊剪力破壞｜左輸入右報表模板</p>
   </header>
 
   <main class="container">
       <section class="card mode-bar">
         <strong class="mode-bar__label">檢核模組：</strong>
         <div class="mode-bar__proj mode-bar__proj--compact">
-          <select name="connectionType" form="connectionForm" title="檢核模組">
-            <option value="plate_check">連接板檢核｜Connection Plate</option>
-            <option value="tension_member">拉力構件｜Tension Member</option>
-            <option value="single_plate" disabled>剪力接頭｜單剪力板 Shear Tab｜開發中</option>
-            <option value="column_splice" disabled>柱續接｜Column Splice｜開發中</option>
-            <option value="brace_gusset" disabled>支撐 / Gusset 接頭｜開發中</option>
-            <option value="beam_column_moment" disabled>梁柱彎矩接頭｜開發中</option>
-          </select>
+          <input value="連接板檢核｜Connection Plate" disabled>
         </div>
         <strong class="mode-bar__label">設計方法：</strong>
         <div class="mode-bar__group" role="tablist" aria-label="設計法切換">
           <button id="methodLrfBtn" class="mode-bar__btn active" type="button" data-method="LRFD">LRFD</button>
           <button id="methodAsdBtn" class="mode-bar__btn" type="button" data-method="ASD">ASD</button>
         </div>
-        <span class="mode-bar__hint" id="methodHint">流程建議：先選檢核模組，再選設計方法，再載入對應範例。</span>
+        <span class="mode-bar__hint" id="methodHint">此頁固定為連接板檢核；流程建議：先選設計方法，再載入對應範例。</span>
       <div class="mode-bar__proj">
         <input name="projectName" form="connectionForm" type="text" placeholder="計畫名稱">
         <input name="connectionTag" form="connectionForm" type="text" placeholder="接頭編號">
         <input name="designer" form="connectionForm" type="text" placeholder="設計人">
         <select id="examplePresetSelect" title="範例案例">
-          <option value="">選擇範例案例</option>
+          <option value="plate_geometry">連接板｜幾何推導</option>
+          <option value="plate_area_manual">連接板｜面積直輸</option>
         </select>
         <button id="loadExampleBtn" class="mode-bar__report" type="button">載入範例</button>
         <button id="saveDraftBtn" class="mode-bar__report secondary" type="button">儲存草稿</button>
@@ -68,7 +62,7 @@
 
           <div class="card">
             <h2>基本資料</h2>
-            <p class="section-note">上方工作列先決定檢核模組、設計方法與範例；此區保留規範基準、暴露條件與報表選項等基本設定。</p>
+            <p class="section-note">此頁固定為連接板檢核；上方工作列先決定設計方法與範例，此區保留規範基準、暴露條件與報表選項。</p>
             <div class="form-group">
               <label>規範基準</label>
               <input id="codeBasisDisplay" value="鋼構造建築物鋼結構設計技術規範｜依模組切換對應章節與設計法" disabled>
@@ -740,277 +734,7 @@
             </div>
           </div>
 
-          <div class="card" data-connection="tension_member">
-            <h2>拉力構件資料</h2>
-            <p class="section-note">依第四章、第五章與第十章受拉構材條文，整合構材本體、有效淨斷面、長細比，以及螺栓或銲接接合細部。</p>
-            <div class="form-row">
-              <div class="form-group">
-                <label>需求拉力 Tu / Ta (kN)</label>
-                <input name="requiredTension" type="number" min="0" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>接合方式</label>
-                <select name="tensionConnectionMode">
-                  <option value="bolted">螺栓接合</option>
-                  <option value="welded">銲接接合</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>構材 / 接合分類</label>
-                <select name="tensionSectionType">
-                  <option value="connection_plate">栓接之接續板 / 連接板</option>
-                  <option value="general_shape">其他斷面或一般受拉構材</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>輸入模式</label>
-                <select name="tensionAreaInput">
-                  <option value="geometry">幾何輸入</option>
-                  <option value="manual">面積輸入</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>構材 Fy (MPa)</label>
-                <input name="memberYieldStrength" type="number" min="1" step="1">
-              </div>
-              <div class="form-group">
-                <label>構材 Fu (MPa)</label>
-                <input name="memberUltimateStrength" type="number" min="1" step="1">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>未支撐長度 L (mm)</label>
-                <input name="unsupportedLength" type="number" min="1" step="0.1">
-              </div>
-              <div class="form-group">
-                <label>迴轉半徑 r (mm)</label>
-                <input name="radiusOfGyration" type="number" min="0.1" step="0.1">
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>手動 U</label>
-                <input name="tensionShearLagFactor" type="number" min="0" max="1" step="0.01">
-              </div>
-            </div>
-
-            <div data-tension-area="geometry">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>構材寬度 b (mm)</label>
-                  <input name="memberWidth" type="number" min="1" step="0.1">
-                </div>
-                <div class="form-group">
-                  <label>構材厚度 t (mm)</label>
-                  <input name="memberThickness" type="number" min="0.1" step="0.1">
-                </div>
-              </div>
-            </div>
-
-            <div data-tension-area="manual" class="is-hidden">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Ag / An (mm²)</label>
-                  <div class="form-row compact">
-                    <input name="tensionGrossArea" type="number" min="0" step="0.1" placeholder="Ag">
-                    <input name="tensionNetArea" type="number" min="0" step="0.1" placeholder="An">
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>Ae (mm²)</label>
-                  <input name="tensionEffectiveNetArea" type="number" min="0" step="0.1">
-                </div>
-              </div>
-            </div>
-
-            <div data-tension-mode="bolted">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>剪力遲滯分類</label>
-                  <select name="tensionShearLagCase">
-                    <option value="connection_plate_cap">連接板 / 接續板，Ae = min(An, 0.85Ag)</option>
-                    <option value="w_shape_flange_ge_3">翼板接合且每行不少於 3 栓，U = 0.90</option>
-                    <option value="other_ge_3">其他斷面且每行不少於 3 栓，U = 0.85</option>
-                    <option value="two_bolts">每行僅 2 栓，U = 0.75</option>
-                    <option value="manual_u">手動輸入 U（需外部證明）</option>
-                  </select>
-                </div>
-              </div>
-              <div data-tension-area="geometry">
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>沿力方向每行螺栓數</label>
-                    <input name="tensionBoltLineCount" type="number" min="1" step="1">
-                  </div>
-                  <div class="form-group">
-                    <label>垂直力方向螺栓列數</label>
-                    <input name="tensionBoltRowCount" type="number" min="1" step="1">
-                  </div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>端距 e (mm)</label>
-                    <input name="tensionEndDistance" type="number" min="0" step="0.1">
-                  </div>
-                  <div class="form-group">
-                    <label>剪斷面數 ns</label>
-                    <select name="tensionShearPlanes">
-                      <option value="1">單剪</option>
-                      <option value="2">雙剪</option>
-                    </select>
-                  </div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>縱距 s (mm)</label>
-                    <input name="tensionPitchLongitudinal" type="number" min="0" step="0.1">
-                  </div>
-                  <div class="form-group">
-                    <label>橫距 g (mm)</label>
-                    <input name="tensionGaugeTransverse" type="number" min="0" step="0.1">
-                  </div>
-                </div>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>邊距 e1 (mm)</label>
-                    <input name="tensionEdgeDistanceNear" type="number" min="0" step="0.1">
-                  </div>
-                  <div class="form-group">
-                    <label>邊距 e2 (mm)</label>
-                    <input name="tensionEdgeDistanceFar" type="number" min="0" step="0.1">
-                  </div>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>手動輸入區塊剪力面積</label>
-                  <select name="tensionUseManualBlockAreas">
-                    <option value="false">否</option>
-                    <option value="true">是</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Agv / Anv (mm²)</label>
-                  <div class="form-row compact">
-                    <input name="tensionAgv" type="number" min="0" step="0.1" placeholder="Agv">
-                    <input name="tensionAnv" type="number" min="0" step="0.1" placeholder="Anv">
-                  </div>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Agt / Ant (mm²)</label>
-                  <div class="form-row compact">
-                    <input name="tensionAgt" type="number" min="0" step="0.1" placeholder="Agt">
-                    <input name="tensionAnt" type="number" min="0" step="0.1" placeholder="Ant">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div data-tension-mode="welded" class="is-hidden">
-              <div class="form-row">
-                <div class="form-group">
-                  <label>銲接與 Ae 分類</label>
-                  <select name="tensionWeldCase">
-                    <option value="plate_longitudinal_both_sides">鋼板端部雙側縱向銲，Ae = UAg</option>
-                    <option value="transverse_direct">橫向銲道直接傳力，Ae = A</option>
-                    <option value="other_manual_u">其他銲接型式，手動輸入 U（需外部證明）</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>銲接型式</label>
-                  <select name="tensionWeldType">
-                    <option value="fillet">填角銲</option>
-                    <option value="groove_cjp">全滲透開槽銲</option>
-                    <option value="groove_pjp">部分滲透開槽銲</option>
-                    <option value="plug_slot">塞孔銲 / 塞槽銲</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>銲腳尺寸 a (mm)</label>
-                  <input name="tensionWeldSize" type="number" min="0" step="0.1">
-                </div>
-                <div class="form-group">
-                  <label>銲材抗拉強度 FEXX (MPa)</label>
-                  <input name="tensionWeldElectrodeStrength" type="number" min="0" step="1">
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>對接構件厚度 tc (mm)</label>
-                  <input name="tensionConnectedThickness" type="number" min="0" step="0.1">
-                </div>
-                <div class="form-group">
-                  <label>相稱銲材</label>
-                  <select name="tensionWeldMatchingFiller">
-                    <option value="true">是</option>
-                    <option value="false">否</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>縱向有效銲長 l (mm)</label>
-                  <input name="tensionWeldLengthLongitudinal" type="number" min="0" step="0.1">
-                </div>
-                <div class="form-group">
-                  <label>縱向銲道數量</label>
-                  <select name="tensionWeldLineCount">
-                    <option value="2">雙側銲</option>
-                    <option value="1">單側銲</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label>橫向有效銲長 (mm)</label>
-                  <input name="tensionWeldLengthTransverse" type="number" min="0" step="0.1">
-                </div>
-                <div class="form-group">
-                  <label>直接連接部分面積 A (mm²)</label>
-                  <input name="tensionDirectConnectedArea" type="number" min="0" step="0.1">
-                </div>
-              </div>
-              <div class="form-row" data-weld-type="fillet">
-                <div class="form-group">
-                  <label>搭接長度 (mm)</label>
-                  <input name="tensionLapLength" type="number" min="0" step="0.1">
-                </div>
-              </div>
-              <div class="form-row is-hidden" data-weld-type="groove_pjp">
-                <div class="form-group">
-                  <label>有效銲喉厚 te (mm)</label>
-                  <input name="tensionWeldEffectiveThroat" type="number" min="0" step="0.1">
-                </div>
-              </div>
-              <div class="form-row is-hidden" data-weld-type="plug_slot">
-                <div class="form-group">
-                  <label>開孔寬度 (mm)</label>
-                  <input name="tensionWeldOpeningWidth" type="number" min="0" step="0.1">
-                </div>
-                <div class="form-group">
-                  <label>開孔長度 (mm)</label>
-                  <input name="tensionWeldOpeningLength" type="number" min="0" step="0.1">
-                </div>
-              </div>
-              <div class="form-row is-hidden" data-weld-type="plug_slot">
-                <div class="form-group">
-                  <label>開孔數量</label>
-                  <input name="tensionWeldOpeningCount" type="number" min="1" step="1">
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card">
+          <div class="card" data-common-card="bolt">
             <h2>設計備註</h2>
             <div class="form-group">
               <label>備註內容</label>
@@ -1102,21 +826,6 @@
               <div id="plateSketchWrap" class="plate-sketch-wrap"></div>
             </section>
 
-            <section class="report-block is-hidden" id="tensionExtrasBlock">
-              <h3>拉力構件派生面積</h3>
-              <div class="plate-extras-grid">
-                <table class="report-table">
-                  <tbody id="tensionDerivedAreaBody"></tbody>
-                </table>
-                <div id="tensionPathSummary" class="plate-path-summary"></div>
-              </div>
-            </section>
-
-            <section class="report-block is-hidden" id="tensionSketchBlock">
-              <h3>構材與接合示意</h3>
-              <div id="tensionSketchWrap" class="plate-sketch-wrap"></div>
-            </section>
-
             <section class="report-block" id="strengthSection">
               <h3>強度檢核總表</h3>
               <table class="report-table">
@@ -1171,12 +880,6 @@
             <section class="report-block" id="alertsSection">
               <h3>設計依據與限制條件</h3>
               <div id="alertsList" class="alerts-list"></div>
-            </section>
-
-            <section class="report-block">
-              <h3>功能借鏡</h3>
-              <div id="toolReferenceIntro" class="report-summary-note"></div>
-              <div id="toolReferenceList" class="alerts-list"></div>
             </section>
           </article>
         </div>

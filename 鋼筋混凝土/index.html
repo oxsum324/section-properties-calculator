@@ -28,6 +28,22 @@
   .badge-soon { display:inline-block; margin-left:6px; padding:2px 10px; border-radius:4px;
                 font-size:0.6em; font-weight:700; vertical-align:middle; letter-spacing:1px;
                 background:#e2e8f0; color:#64748b; border:1px solid #cbd5e1; }
+  .audit-status-card {
+    display:grid; gap:8px; padding:16px 18px; border:1px solid #d7e3ef; border-radius:12px;
+    background:linear-gradient(180deg,#f8fbff 0%,#f3f8fc 100%);
+  }
+  .audit-status-card__head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .audit-status-card__title { font-size:0.96em; font-weight:800; color:var(--primary); }
+  .audit-status-card__badge { display:inline-flex; align-items:center; justify-content:center; min-height:28px; padding:4px 10px; border-radius:999px; font-size:0.74em; font-weight:800; }
+  .audit-status-card__badge.ok { background:#dcfce7; color:#166534; }
+  .audit-status-card__badge.warn { background:#fef3c7; color:#92400e; }
+  .audit-status-card__badge.fail { background:#fee2e2; color:#991b1b; }
+  .audit-status-card__summary { color:var(--text); font-size:0.84em; line-height:1.6; }
+  .audit-status-card__meta { display:flex; flex-wrap:wrap; gap:8px; }
+  .audit-status-card__meta span { display:inline-flex; align-items:center; min-height:26px; padding:4px 10px; border-radius:999px; background:#e8f1f7; color:#29506d; font-size:0.74em; font-weight:700; }
+  .audit-status-card__links { display:flex; flex-wrap:wrap; gap:8px; }
+  .audit-status-card__links a { color:var(--primary); font-size:0.78em; font-weight:700; text-decoration:none; }
+  .audit-status-card__links a:hover { text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -39,6 +55,17 @@
 </header>
 
 <div class="container">
+
+  <div class="card">
+    <h2>工具健康狀態</h2>
+    <div class="audit-status-card" id="rcAuditStatusCard">
+      <div class="audit-status-card__head">
+        <span class="audit-status-card__title">RC 自動巡檢</span>
+        <span class="audit-status-card__badge warn">讀取中</span>
+      </div>
+      <div class="audit-status-card__summary">讀取最新 RC 巡檢狀態中。</div>
+    </div>
+  </div>
 
   <div class="card">
     <h2>選擇構件</h2>
@@ -87,5 +114,55 @@
     © 弘一工程顧問有限公司　版權所有
   </footer>
 </div>
+<script>
+  (function () {
+    const card = document.getElementById('rcAuditStatusCard');
+    if (!card) return;
+
+    function renderStatus(payload, summaryUrl) {
+      if (!/^https?:$/i.test(window.location.protocol) && !payload) {
+        card.innerHTML = `
+          <div class="audit-status-card__head">
+            <span class="audit-status-card__title">RC 自動巡檢</span>
+            <span class="audit-status-card__badge warn">未讀取</span>
+          </div>
+          <div class="audit-status-card__summary">目前以直接開檔模式執行，未讀取最新巡檢狀態；若改以本機伺服器開啟，會顯示最近一輪 RC 巡檢結果。</div>
+        `;
+        return;
+      }
+
+      const tone = payload && payload.pass ? 'ok' : (payload ? 'fail' : 'warn');
+      const badge = payload ? (payload.pass ? '最新巡檢通過' : `最新巡檢異常 ${payload.failureCount || 0} 項`) : '未讀取';
+      const meta = payload ? [
+        payload.runId ? `runId｜${payload.runId}` : '',
+        payload.loop ? '模式｜循環' : '模式｜單次',
+        `結果｜${payload.failureCount || 0} 項異常`
+      ].filter(Boolean) : [];
+
+      card.innerHTML = `
+        <div class="audit-status-card__head">
+          <span class="audit-status-card__title">RC 自動巡檢</span>
+          <span class="audit-status-card__badge ${tone}">${badge}</span>
+        </div>
+        <div class="audit-status-card__summary">${payload ? `最近一輪 RC 巡檢 ${payload.pass ? '已通過' : '發現異常'}，可作為梁、柱、板、牆、基礎、單樁工具的健康度參考。` : '尚未取得最新 RC 巡檢狀態。'}</div>
+        ${meta.length ? `<div class="audit-status-card__meta">${meta.map((item) => `<span>${item}</span>`).join('')}</div>` : ''}
+        ${summaryUrl ? `<div class="audit-status-card__links"><a href="${summaryUrl}" target="_blank" rel="noreferrer">開啟 RC 巡檢摘要</a></div>` : ''}
+      `;
+    }
+
+    if (!/^https?:$/i.test(window.location.protocol)) {
+      renderStatus(null, './output/audit/audit-summary.md');
+      return;
+    }
+
+    fetch(`./output/audit/audit-status.json?ts=${Date.now()}`, { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((payload) => renderStatus(payload, './output/audit/audit-summary.md'))
+      .catch(() => renderStatus(null, ''));
+  })();
+</script>
 </body>
 </html>

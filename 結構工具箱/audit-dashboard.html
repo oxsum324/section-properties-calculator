@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>平台巡檢儀表板</title>
+<link rel="stylesheet" href="core/style.css">
+<style>
+  .hero-note {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+    border: 1px solid #cbd5e1;
+    color: var(--text);
+    font-size: 0.9em;
+    line-height: 1.8;
+  }
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .toolbar-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .toolbar-status span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #e8f1f7;
+    color: #29506d;
+    font-size: 0.8em;
+    font-weight: 700;
+  }
+  .toolbar-status label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: var(--primary);
+    font-size: 0.8em;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .toolbar-status input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+  }
+  .toolbar a,
+  .toolbar button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: var(--primary);
+    font-family: inherit;
+    font-size: 0.9em;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .toolbar button.primary,
+  .toolbar a.primary {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  .status-card {
+    border: 1px solid #dbe4ee;
+    border-radius: 14px;
+    padding: 16px 18px;
+    background: linear-gradient(180deg, #f8fbff 0%, #f3f8fc 100%);
+  }
+  .status-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .status-title {
+    font-size: 0.96em;
+    font-weight: 800;
+    color: var(--primary);
+  }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.74em;
+    font-weight: 800;
+  }
+  .status-badge.ok { background: #dcfce7; color: #166534; }
+  .status-badge.warn { background: #fef3c7; color: #92400e; }
+  .status-badge.fail { background: #fee2e2; color: #991b1b; }
+  .status-summary {
+    color: var(--text);
+    font-size: 0.85em;
+    line-height: 1.7;
+  }
+  .status-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .status-meta span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #e8f1f7;
+    color: #29506d;
+    font-size: 0.74em;
+    font-weight: 700;
+  }
+  .status-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .status-links a {
+    color: var(--primary);
+    font-size: 0.8em;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .status-links a:hover { text-decoration: underline; }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 14px;
+  }
+  .history-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .history-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 760px;
+    font-size: 0.84em;
+  }
+  .history-table th,
+  .history-table td {
+    border: 1px solid #e2e8f0;
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .history-table th {
+    background: #f8fafc;
+    color: var(--primary);
+    font-weight: 800;
+  }
+  .history-table td code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.95em;
+  }
+  .history-pass { color: #166534; font-weight: 800; }
+  .history-fail { color: #991b1b; font-weight: 800; }
+  .history-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .history-links a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 700;
+  }
+  .history-links a:hover { text-decoration: underline; }
+  .history-empty {
+    color: var(--text-light);
+    font-size: 0.86em;
+    line-height: 1.8;
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
+  .kpi-card {
+    border: 1px solid #dbe4ee;
+    border-radius: 14px;
+    padding: 16px 18px;
+    background: #fff;
+  }
+  .kpi-label {
+    color: var(--text-light);
+    font-size: 0.82em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  .kpi-value {
+    margin-top: 8px;
+    color: var(--primary);
+    font-size: 1.3em;
+    font-weight: 800;
+    line-height: 1.3;
+  }
+  .kpi-hint {
+    margin-top: 8px;
+    color: var(--text-light);
+    font-size: 0.78em;
+    line-height: 1.6;
+  }
+  .kpi-value.ok { color: #166534; }
+  .kpi-value.warn { color: #92400e; }
+  .kpi-value.fail { color: #991b1b; }
+  .summary-card {
+    border: 1px solid #dbe4ee;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .summary-card h3 {
+    margin: 0;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e2e8f0;
+    color: var(--primary);
+    font-size: 0.96em;
+  }
+  .summary-card pre {
+    margin: 0;
+    padding: 16px;
+    min-height: 220px;
+    max-height: 420px;
+    overflow: auto;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 0.78em;
+    line-height: 1.7;
+    font-family: Consolas, "Courier New", monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .summary-card .empty {
+    padding: 16px;
+    color: var(--text-light);
+    font-size: 0.85em;
+    line-height: 1.7;
+  }
+  @media (max-width: 768px) {
+    .toolbar a,
+    .toolbar button {
+      flex: 1 1 100%;
+    }
+    .summary-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="index.html">← 回結構工具箱</a>
+  <h1>平台巡檢儀表板</h1>
+  <p>集中檢視鋼構正式規範工具、RC 構件工具、耐風 / 耐震核心與全平台總巡檢狀態。</p>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2>使用說明</h2>
+    <div class="hero-note">
+      本頁會直接讀取各層巡檢的 `audit-status.json` 與 `audit-summary.md`。若以本機伺服器或部署站開啟，
+      可即時看到最近一輪巡檢結果；若直接以 `file://` 開啟，狀態讀取會受瀏覽器限制。
+    </div>
+    <div class="toolbar">
+      <button id="refreshButton" class="primary" type="button">重新讀取巡檢狀態</button>
+      <a href="../output/audit/platform-summary.md" target="_blank" rel="noreferrer">開啟平台總摘要</a>
+      <a href="../鋼構工具/output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟鋼構摘要</a>
+      <a href="../鋼筋混凝土/output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟 RC 摘要</a>
+      <a href="./output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟核心摘要</a>
+    </div>
+    <div class="toolbar-status">
+      <span id="pageLoadedAt">頁面尚未更新</span>
+      <label for="autoRefreshToggle">
+        <input id="autoRefreshToggle" type="checkbox" checked>
+        每 60 秒自動重新整理
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>總覽指標</h2>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">通過模組</div>
+        <div class="kpi-value ok" id="kpiPassCount">讀取中</div>
+        <div class="kpi-hint">目前四層巡檢中，最近一輪狀態為通過的模組數量。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">異常模組</div>
+        <div class="kpi-value" id="kpiFailCount">讀取中</div>
+        <div class="kpi-hint">若不為 0，代表至少有一層巡檢需要進一步查看摘要。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">最近巡檢時間</div>
+        <div class="kpi-value" id="kpiLatestTime">讀取中</div>
+        <div class="kpi-hint">取四層巡檢中最新的 `generatedAt` 作為平台最近更新時間。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">巡檢新鮮度</div>
+        <div class="kpi-value" id="kpiFreshness">讀取中</div>
+        <div class="kpi-hint" id="kpiFreshnessHint">依最新巡檢距今的時間差判讀是否需要重新執行。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>巡檢狀態</h2>
+    <div class="status-grid">
+      <div class="status-card" id="platformOverallStatus"></div>
+      <div class="status-card" id="steelPlatformStatus"></div>
+      <div class="status-card" id="rcPlatformStatus"></div>
+      <div class="status-card" id="corePlatformStatus"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>最近巡檢歷程</h2>
+    <div class="history-table-wrap" id="historyWrap">
+      <div class="history-empty">讀取最近巡檢歷程中。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>摘要預覽</h2>
+    <div class="summary-grid">
+      <section class="summary-card">
+        <h3>全平台總巡檢摘要</h3>
+        <pre id="platformSummaryPreview">讀取中...</pre>
+      </section>
+      <section class="summary-card">
+        <h3>鋼構正式規範工具摘要</h3>
+        <pre id="steelSummaryPreview">讀取中...</pre>
+      </section>
+      <section class="summary-card">
+        <h3>RC 構件工具摘要</h3>
+        <pre id="rcSummaryPreview">讀取中...</pre>
+      </section>
+      <section class="summary-card">
+        <h3>耐風 / 耐震核心摘要</h3>
+        <pre id="coreSummaryPreview">讀取中...</pre>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    let autoRefreshTimer = null;
+    const statusCache = new Map();
+    const resources = [
+      {
+        cardId: 'platformOverallStatus',
+        summaryId: 'platformSummaryPreview',
+        label: '全平台總巡檢',
+        statusUrl: '../output/audit/platform-status.json',
+        summaryUrl: '../output/audit/platform-summary.md'
+      },
+      {
+        cardId: 'steelPlatformStatus',
+        summaryId: 'steelSummaryPreview',
+        label: '鋼構正式規範工具',
+        statusUrl: '../鋼構工具/output/audit/audit-status.json',
+        summaryUrl: '../鋼構工具/output/audit/audit-summary.md'
+      },
+      {
+        cardId: 'rcPlatformStatus',
+        summaryId: 'rcSummaryPreview',
+        label: 'RC 構件工具',
+        statusUrl: '../鋼筋混凝土/output/audit/audit-status.json',
+        summaryUrl: '../鋼筋混凝土/output/audit/audit-summary.md'
+      },
+      {
+        cardId: 'corePlatformStatus',
+        summaryId: 'coreSummaryPreview',
+        label: '耐風 / 耐震核心',
+        statusUrl: './output/audit/audit-status.json',
+        summaryUrl: './output/audit/audit-summary.md'
+      }
+    ];
+
+    function isHttpMode() {
+      return /^https?:$/i.test(window.location.protocol);
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function deriveHistoryUrl(summaryUrl, historyPath) {
+      if (!summaryUrl || !historyPath) return '';
+      const normalizedHistory = String(historyPath).replace(/\\/g, '/');
+      const outputIndex = normalizedHistory.lastIndexOf('/output/');
+      const summaryOutputIndex = summaryUrl.indexOf('output/');
+      if (outputIndex === -1 || summaryOutputIndex === -1) return '';
+      const outputTail = normalizedHistory.slice(outputIndex + 1);
+      const prefix = summaryUrl.slice(0, summaryOutputIndex);
+      return `${prefix}${outputTail}`;
+    }
+
+    function renderHistory(manifest) {
+      const wrap = document.getElementById('historyWrap');
+      if (!wrap) return;
+      if (!manifest || !Array.isArray(manifest.items) || !manifest.items.length) {
+        wrap.innerHTML = '<div class="history-empty">目前尚無可讀取的巡檢歷程。</div>';
+        return;
+      }
+      const rows = manifest.items.slice(0, 8).map((item) => {
+        const summaryHref = deriveHistoryUrl('../output/audit/platform-summary.md', item.summaryPath || '');
+        const statusClass = item.pass ? 'history-pass' : 'history-fail';
+        const statusText = item.pass ? '通過' : `異常 ${item.failureCount || 0} 項`;
+        const moduleSummary = Array.isArray(item.records)
+          ? item.records.map((record) => `${record.key}:${record.pass ? 'OK' : 'NG'}`).join(' / ')
+          : '-';
+        const failures = Array.isArray(item.failures) && item.failures.length ? item.failures.join('; ') : '無';
+        return `
+          <tr>
+            <td><code>${escapeHtml(item.runId || '-')}</code></td>
+            <td>${escapeHtml(item.generatedAt || '-')}</td>
+            <td><span class="${statusClass}">${escapeHtml(statusText)}</span></td>
+            <td>${escapeHtml(moduleSummary)}</td>
+            <td>${escapeHtml(failures)}</td>
+            <td>
+              <div class="history-links">
+                ${summaryHref ? `<a href="${summaryHref}" target="_blank" rel="noreferrer">摘要</a>` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      wrap.innerHTML = `
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>runId</th>
+              <th>時間</th>
+              <th>整體狀態</th>
+              <th>模組結果</th>
+              <th>異常內容</th>
+              <th>連結</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function parseGeneratedAt(value) {
+      if (!value) return null;
+      const isoLike = String(value).replace(' ', 'T');
+      const parsed = new Date(isoLike);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function updateOverview() {
+      const passNode = document.getElementById('kpiPassCount');
+      const failNode = document.getElementById('kpiFailCount');
+      const latestNode = document.getElementById('kpiLatestTime');
+      const freshnessNode = document.getElementById('kpiFreshness');
+      const freshnessHintNode = document.getElementById('kpiFreshnessHint');
+      const items = Array.from(statusCache.values()).filter(Boolean);
+
+      if (!items.length) {
+        passNode.textContent = '未讀取';
+        failNode.textContent = '未讀取';
+        latestNode.textContent = '未讀取';
+        freshnessNode.textContent = '未讀取';
+        return;
+      }
+
+      const passCount = items.filter((item) => item.pass).length;
+      const failCount = items.length - passCount;
+      const latestDate = items
+        .map((item) => parseGeneratedAt(item.generatedAt))
+        .filter(Boolean)
+        .sort((a, b) => b - a)[0] || null;
+
+      passNode.textContent = `${passCount} / ${items.length}`;
+      failNode.textContent = `${failCount} / ${items.length}`;
+      failNode.className = `kpi-value ${failCount === 0 ? 'ok' : 'fail'}`;
+
+      if (!latestDate) {
+        latestNode.textContent = '無資料';
+        freshnessNode.textContent = '無法判讀';
+        freshnessNode.className = 'kpi-value warn';
+        freshnessHintNode.textContent = '目前各巡檢檔未提供可解析的 generatedAt。';
+        return;
+      }
+
+      latestNode.textContent = latestDate.toLocaleString('zh-TW');
+
+      const ageMinutes = Math.max(0, Math.round((Date.now() - latestDate.getTime()) / 60000));
+      let freshnessText = '新鮮';
+      let freshnessTone = 'ok';
+      let freshnessHint = `最近一輪巡檢約為 ${ageMinutes} 分鐘前。`;
+      if (ageMinutes > 360) {
+        freshnessText = '偏舊';
+        freshnessTone = 'fail';
+        freshnessHint = `最近一輪巡檢已超過 ${ageMinutes} 分鐘，建議重新執行平台巡檢。`;
+      } else if (ageMinutes > 30) {
+        freshnessText = '可接受';
+        freshnessTone = 'warn';
+        freshnessHint = `最近一輪巡檢約為 ${ageMinutes} 分鐘前，若剛修改工具內容可再重跑。`;
+      }
+      freshnessNode.textContent = freshnessText;
+      freshnessNode.className = `kpi-value ${freshnessTone}`;
+      freshnessHintNode.textContent = freshnessHint;
+    }
+
+    function updateLoadedAtLabel() {
+      const node = document.getElementById('pageLoadedAt');
+      if (!node) return;
+      node.textContent = `頁面更新｜${new Date().toLocaleString('zh-TW')}`;
+    }
+
+    function scheduleAutoRefresh() {
+      if (autoRefreshTimer) {
+        window.clearInterval(autoRefreshTimer);
+        autoRefreshTimer = null;
+      }
+      const toggle = document.getElementById('autoRefreshToggle');
+      if (!toggle || !toggle.checked || !isHttpMode()) return;
+      autoRefreshTimer = window.setInterval(function () {
+        loadAll();
+      }, 60000);
+    }
+
+    function renderStatusCard(node, payload, label, summaryUrl) {
+      if (!node) return;
+      if (!payload) {
+        node.innerHTML = `
+          <div class="status-head">
+            <span class="status-title">${label}</span>
+            <span class="status-badge warn">未讀取</span>
+          </div>
+          <div class="status-summary">目前未取得最新巡檢狀態。請以本機伺服器或部署站開啟本頁。</div>
+        `;
+        return;
+      }
+      const badgeTone = payload.pass ? 'ok' : 'fail';
+      const badgeText = payload.pass ? '最新巡檢通過' : `最新巡檢異常 ${payload.failureCount || 0} 項`;
+      const meta = [
+        payload.generatedAt ? `時間｜${payload.generatedAt}` : '',
+        payload.runId ? `runId｜${payload.runId}` : '',
+        payload.loop ? '模式｜循環' : '模式｜單次',
+        Array.isArray(payload.modules) && payload.modules.length ? `模組｜${payload.modules.join(' / ')}` : '',
+        `結果｜${payload.failureCount || 0} 項異常`
+      ].filter(Boolean);
+      const links = [
+        `<a href="${summaryUrl}" target="_blank" rel="noreferrer">開啟最新摘要</a>`
+      ];
+      if (payload.lastHistorySummary) {
+        const historyHref = deriveHistoryUrl(summaryUrl, payload.lastHistorySummary);
+        links.push(`<a href="${historyHref}" target="_blank" rel="noreferrer">開啟歷程摘要</a>`);
+      }
+      node.innerHTML = `
+        <div class="status-head">
+          <span class="status-title">${label}</span>
+          <span class="status-badge ${badgeTone}">${badgeText}</span>
+        </div>
+        <div class="status-summary">最近一輪巡檢 ${payload.pass ? '已通過' : '發現異常'}，此卡片顯示最新狀態與摘要入口。</div>
+        <div class="status-meta">${meta.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}</div>
+        <div class="status-links">${links.join('')}</div>
+      `;
+    }
+
+    async function fetchText(url) {
+      const response = await fetch(`${url}?ts=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.text();
+    }
+
+    async function fetchJson(url) {
+      const response = await fetch(`${url}?ts=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    }
+
+    async function loadResource(resource) {
+      const cardNode = document.getElementById(resource.cardId);
+      const summaryNode = document.getElementById(resource.summaryId);
+      if (!isHttpMode()) {
+        renderStatusCard(cardNode, null, resource.label, resource.summaryUrl);
+        if (summaryNode) {
+          summaryNode.textContent = '請以本機伺服器或部署站開啟本頁，才能直接讀取巡檢摘要預覽。';
+        }
+        return;
+      }
+
+      try {
+        const [statusPayload, summaryText] = await Promise.all([
+          fetchJson(resource.statusUrl),
+          fetchText(resource.summaryUrl)
+        ]);
+        statusCache.set(resource.cardId, statusPayload);
+        renderStatusCard(cardNode, statusPayload, resource.label, resource.summaryUrl);
+        if (summaryNode) {
+          summaryNode.textContent = summaryText.trim() || '摘要內容為空。';
+        }
+      } catch (error) {
+        statusCache.set(resource.cardId, {
+          pass: false,
+          failureCount: 1,
+          runId: '讀取失敗',
+          loop: false
+        });
+        renderStatusCard(cardNode, {
+          pass: false,
+          failureCount: 1,
+          runId: '讀取失敗',
+          loop: false
+        }, resource.label, resource.summaryUrl);
+        if (summaryNode) {
+          summaryNode.textContent = `讀取失敗：${error.message}`;
+        }
+      } finally {
+        updateOverview();
+      }
+    }
+
+    async function loadAll() {
+      await Promise.all(resources.map(loadResource));
+      if (isHttpMode()) {
+        try {
+          const historyManifest = await fetchJson('../output/audit/platform-history.json');
+          renderHistory(historyManifest);
+        } catch (error) {
+          renderHistory(null);
+        }
+      } else {
+        renderHistory(null);
+      }
+      updateLoadedAtLabel();
+      scheduleAutoRefresh();
+    }
+
+    const refreshButton = document.getElementById('refreshButton');
+    if (refreshButton) {
+      refreshButton.addEventListener('click', function () {
+        loadAll();
+      });
+    }
+    const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+    if (autoRefreshToggle) {
+      autoRefreshToggle.addEventListener('change', function () {
+        scheduleAutoRefresh();
+      });
+    }
+
+    loadAll();
+  })();
+</script>
+</body>
+</html>

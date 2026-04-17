@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>鋼梁正式規範核算工具</title>
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./steel-member-formal.css">
+</head>
+<body>
+  <header class="page-header">
+    <nav class="page-header__nav" aria-label="鋼構工具導覽">
+      <a class="page-header__link" href="../結構工具箱/index.html">← 回結構工具箱</a>
+      <a class="page-header__link" href="./index.html">鋼構正式工具首頁</a>
+      <a class="page-header__link" href="./plate-check.html">連接板獨立頁</a>
+      <a class="page-header__link" href="../結構工具箱/tools/鋼構/steel-beam.html">舊版鋼梁頁</a>
+    </nav>
+    <h1>鋼梁正式規範核算工具</h1>
+    <p>沿用既有鋼梁檢算核心，升級為左輸入、右報表、計算流程、參數詞典的一體化正式模板</p>
+  </header>
+
+  <main class="container">
+    <div class="mobile-quick-nav" aria-label="鋼梁快速導覽">
+      <button id="beamQuickInputBtn" class="active" type="button">輸入區</button>
+      <button id="beamQuickReportBtn" type="button">報表</button>
+      <button id="beamQuickFlowBtn" type="button">計算流程</button>
+    </div>
+    <section class="card mode-bar">
+      <strong class="mode-bar__label">設計方法：</strong>
+      <div class="mode-bar__group" role="tablist" aria-label="設計法切換">
+        <button id="btnLRFD" class="mode-bar__btn active" type="button">LRFD</button>
+        <button id="btnASD" class="mode-bar__btn" type="button">ASD</button>
+      </div>
+      <span class="mode-bar__hint" id="methodBadge">鋼構造建築物鋼結構設計技術規範｜鋼梁檢核</span>
+      <div class="mode-bar__proj">
+        <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+        <input type="text" id="projNo" class="w-no" placeholder="編號">
+        <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+        <button id="btnReport" class="mode-bar__report" type="button">📄 輸出報表</button>
+      </div>
+    </section>
+
+    <div class="member-layout">
+      <section class="input-column" id="inputColumn">
+        <div class="input-accordion-toolbar" aria-label="輸入區整理">
+          <span class="input-accordion-toolbar__label">輸入區整理</span>
+          <div class="input-accordion-toolbar__actions">
+            <button id="beamInputPresetSmart" class="active" type="button">重整顯示</button>
+            <button id="beamInputPresetFocus" type="button">收合次要</button>
+            <button id="beamInputPresetOpen" type="button">全部展開</button>
+          </div>
+        </div>
+
+        <div class="card" id="beamCardBasic">
+          <div class="member-card-head">
+            <h2>基本資料</h2>
+            <div class="member-card-meta">
+              <span class="member-fill-badge" id="beamFillBasic">已填 0/1</span>
+              <span class="card-header-meta neutral" id="beamMetaBasic">基礎</span>
+            </div>
+          </div>
+          <p class="section-note">此頁將舊版鋼梁檢算升級為正式模板模式，保留原有檢算邏輯，右側同步提供審查摘要與計算流程。</p>
+          <div class="form-group">
+            <label>規範基準</label>
+            <input id="codeBasisDisplay" value="鋼構造建築物鋼結構設計技術規範｜第七章撓曲構材；撓度限值由設計者依使用性需求輸入" disabled>
+          </div>
+          <div class="checkbox-row">
+            <input id="beamShowFlowInReport" type="checkbox" checked>
+            <label for="beamShowFlowInReport">核可將計算流程顯示於輸出報表</label>
+          </div>
+          <div class="checkbox-row">
+            <input id="beamShowSymbolsInReport" type="checkbox" checked>
+            <label for="beamShowSymbolsInReport">核可於輸出報表顯示符號說明</label>
+          </div>
+          <div class="checkbox-row">
+            <input id="beamShowNotesInReport" type="checkbox" checked>
+            <label for="beamShowNotesInReport">核可於輸出報表顯示備註與條文說明</label>
+          </div>
+          <p class="section-note">可分別控制是否輸出計算流程、符號說明與備註；符號說明僅列出本次實際使用到的符號。</p>
+        </div>
+
+        <div class="card" id="beamCardSection">
+          <div class="member-card-head">
+            <h2>斷面選擇</h2>
+            <div class="member-card-meta">
+              <span class="member-fill-badge" id="beamFillSection">已填 0/5</span>
+              <span class="card-header-meta neutral" id="beamMetaSection">待整理</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>H 型鋼規格</label>
+            <select id="secSelect">
+              <option value="">-- 自訂尺寸 --</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>H 全高 h (mm)</label><input type="number" id="inH" value="400"></div>
+            <div class="form-group"><label>B 翼板寬 bf (mm)</label><input type="number" id="inB" value="200"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>腹板厚 tw (mm)</label><input type="number" id="inTw" value="8"></div>
+            <div class="form-group"><label>翼板厚 tf (mm)</label><input type="number" id="inTf" value="13"></div>
+          </div>
+          <div class="form-group"><label>圓角半徑 R (mm)</label><input type="number" id="inR" value="13"></div>
+        </div>
+
+        <div class="card" id="beamCardMaterial">
+          <div class="member-card-head">
+            <h2>材料與設計參數</h2>
+            <div class="member-card-meta">
+              <span class="member-fill-badge" id="beamFillMaterial">已填 0/5</span>
+              <span class="card-header-meta neutral" id="beamMetaMaterial">待整理</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>鋼材等級</label>
+              <select id="matSelect"></select>
+            </div>
+            <div class="form-group">
+              <label>Fy (kgf/cm²)</label>
+              <input type="number" id="inFy" value="2500">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>跨度 L (cm)</label><input type="number" id="inL" value="800"></div>
+            <div class="form-group"><label>側撐間距 Lb (cm)</label><input type="number" id="inLb" value="400"></div>
+          </div>
+          <div class="form-group">
+            <label>Cb 彎矩梯度修正係數</label>
+            <input type="number" id="inCb" value="1.0" step="0.01">
+            <p class="section-note">均佈載重簡支梁常取 1.14；保守可取 1.0。</p>
+          </div>
+        </div>
+
+        <div class="card" id="beamCardLoad">
+          <div class="member-card-head">
+            <h2 id="loadTitle">載重</h2>
+            <div class="member-card-meta">
+              <span class="member-fill-badge" id="beamFillLoad">已填 0/6</span>
+              <span class="card-header-meta neutral" id="beamMetaLoad">待整理</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label id="lblMu">Mu / Ma 主軸彎矩 (tf·m)</label><input type="number" id="inMu" value="30"></div>
+            <div class="form-group"><label id="lblVu">Vu / Va 剪力 (tf)</label><input type="number" id="inVu" value="15"></div>
+          </div>
+          <hr>
+          <p class="section-note">撓度檢核採使用載重。</p>
+          <div class="form-row">
+            <div class="form-group"><label>wD 靜載重 (kgf/cm)</label><input type="number" id="inWD" value="5"></div>
+            <div class="form-group"><label>wL 活載重 (kgf/cm)</label><input type="number" id="inWL" value="8"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>活載重撓度限值</label>
+              <select id="limL">
+                <option value="240">L/240</option>
+                <option value="360" selected>L/360</option>
+                <option value="480">L/480</option>
+                <option value="600">L/600</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>總撓度限值</label>
+              <select id="limT">
+                <option value="180" selected>L/180</option>
+                <option value="240">L/240</option>
+                <option value="360">L/360</option>
+              </select>
+            </div>
+          </div>
+          <div class="member-actions">
+            <button class="btn-calc" id="runCheckBtn" type="button">執行檢核</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="report-column" id="reportColumn">
+        <div class="section-tabs">
+          <button class="active" type="button" data-panel="report"><span class="section-tab-label">報表預覽</span><span class="section-tab-badge neutral" id="beamTabReportBadge">待計算</span></button>
+          <button type="button" data-panel="flow"><span class="section-tab-label">計算流程</span><span class="section-tab-badge neutral" id="beamTabFlowBadge">0 式</span></button>
+          <button type="button" data-panel="glossary"><span class="section-tab-label">參數詞典</span><span class="section-tab-badge neutral" id="beamTabGlossaryBadge">14 項</span></button>
+        </div>
+
+        <div class="subpanel active" id="panel-report">
+          <div class="report-accordion-toolbar" aria-label="報表閱讀模式">
+            <span class="report-accordion-toolbar__label">報表閱讀模式</span>
+            <div class="report-accordion-toolbar__actions">
+              <button id="beamReportPresetFocus" class="active" type="button">重點閱讀</button>
+              <button id="beamReportPresetOpen" type="button">全部展開</button>
+            </div>
+          </div>
+          <article class="card report-paper">
+            <div class="report-toolbar">
+              <span id="reportStatus">尚未執行檢核</span>
+              <div class="toolbar-actions">
+                <button id="copySummaryBtn" class="btn-secondary" type="button">複製摘要</button>
+                <button id="printReportBtn" class="btn-calc" type="button">列印預覽</button>
+              </div>
+            </div>
+            <header class="report-head">
+              <div>
+                <h2 id="beamReportTitle">鋼梁正式規範核算計算書</h2>
+                <p id="beamReportSubtitle">Steel Beam Formal Report</p>
+              </div>
+              <div class="report-meta">
+                <div><b>計畫名稱</b><span id="beamMetaProjectName">—</span></div>
+                <div><b>編號</b><span id="beamMetaProjectNo">—</span></div>
+                <div><b>設計人</b><span id="beamMetaDesigner">—</span></div>
+                <div><b>製表時間</b><span id="beamReportTimestamp">—</span></div>
+              </div>
+            </header>
+            <section class="report-summary">
+              <div id="beamSummaryBanner" class="member-banner warn">尚未執行檢核</div>
+              <div class="banner-key">
+                <div class="k">
+                  <span class="k-label">控制項</span>
+                  <span class="k-val" id="beamGoverningMode">尚未計算</span>
+                </div>
+                <div class="k">
+                  <span class="k-label">核可判定</span>
+                  <span class="k-val" id="beamApprovalStamp">待計算</span>
+                </div>
+              </div>
+              <p class="report-summary-note" id="beamOverallMessage">輸入鋼梁參數後，系統會自動生成正式檢核摘要。</p>
+              <div class="report-healthbar" id="beamHealthBar"></div>
+              <div class="report-jumpbar">
+                <button id="beamJumpGoverningBtn" class="btn-secondary" type="button">控制檢核</button>
+                <button id="beamJumpFirstNgBtn" class="btn-secondary" type="button">首個 NG</button>
+                <button id="beamJumpAlertsBtn" class="btn-secondary" type="button">限制條件</button>
+              </div>
+            </section>
+            <div class="member-summary-grid" id="beamSummaryGrid"></div>
+            <section class="report-block">
+              <h3>審查摘要 <span class="report-block-status neutral" id="beamReviewBadge">待計算</span></h3>
+              <table class="report-table report-table--matrix">
+                <tbody id="beamReviewBriefBody"></tbody>
+              </table>
+            </section>
+            <section class="report-block">
+              <h3>控制條文與專有名詞說明 <span class="report-block-status neutral" id="beamClauseBadge">待計算</span></h3>
+              <div id="beamClauseNotes" class="member-reminder-list"></div>
+            </section>
+              <section class="report-block">
+                <h3>輸入資料摘要 <span class="report-block-status neutral" id="beamInputBadge">待輸入</span></h3>
+                <table class="report-table report-table--matrix">
+                  <tbody id="beamInputSummaryBody"></tbody>
+                </table>
+              </section>
+              <section class="report-block">
+                <h3>輸出設定 <span class="report-block-status neutral" id="beamOutputBadge">待設定</span></h3>
+                <table class="report-table report-table--matrix">
+                  <tbody id="beamOutputSummaryBody"></tbody>
+                </table>
+              </section>
+              <div class="card report-block" id="beamReminderCard">
+              <h2>提醒與適用範圍 <span class="report-block-status neutral" id="beamReminderBadge">待計算</span></h2>
+              <div id="beamReminderList" class="member-reminder-list"></div>
+            </div>
+            <div class="card" id="propsCard" style="display:none;">
+              <h2>斷面性質</h2>
+              <div class="member-table-wrap">
+                <table class="member-mini-table" id="propsTable"></table>
+              </div>
+            </div>
+            <div id="resultWrap">
+              <div class="card" id="clsCard" style="display:none;">
+                <h2>斷面分類</h2>
+                <div id="clsResult"></div>
+              </div>
+              <div class="card report-block" id="flexCard" style="display:none;">
+                <h2>撓曲構材強度檢核 <span class="report-block-status neutral" id="beamFlexBadge">待計算</span></h2>
+                <div id="flexResult"></div>
+              </div>
+              <div class="card report-block" id="shearCard" style="display:none;">
+                <h2>剪力強度檢核 <span class="report-block-status neutral" id="beamShearBadge">待計算</span></h2>
+                <div id="shearResult"></div>
+              </div>
+              <div class="card report-block" id="deflCard" style="display:none;">
+                <h2>撓度檢核 <span class="report-block-status neutral" id="beamDeflBadge">待計算</span></h2>
+                <div id="deflResult"></div>
+              </div>
+              <div class="card" id="summaryCard" style="display:none;">
+                <h2>總結</h2>
+                <div id="summaryResult"></div>
+              </div>
+            </div>
+            <section class="report-block">
+              <h3>核可欄 <span class="report-block-status neutral" id="beamApprovalBadge">待計算</span></h3>
+              <div class="approval-grid">
+                <div class="approval-card">
+                  <div class="approval-title">設計判定</div>
+                  <div id="beamApprovalDecision" class="approval-value">待計算</div>
+                </div>
+                <div class="approval-card">
+                  <div class="approval-title">控制模式</div>
+                  <div id="beamApprovalGoverning" class="approval-value">—</div>
+                </div>
+                <div class="approval-card">
+                  <div class="approval-title">報表模式</div>
+                  <div class="approval-value">預覽 / 可列印</div>
+                </div>
+                <div class="approval-card">
+                  <div class="approval-title">計算流程輸出</div>
+                  <div id="beamApprovalFlow" class="approval-value">待確認</div>
+                </div>
+              </div>
+            </section>
+          </article>
+        </div>
+
+        <div class="subpanel" id="panel-flow">
+          <article class="card">
+            <h2>計算流程</h2>
+            <div id="beamFlowBody"></div>
+          </article>
+        </div>
+
+        <div class="subpanel" id="panel-glossary">
+          <article class="card">
+            <h2>參數詞典</h2>
+            <div class="table-wrap">
+              <table class="report-table glossary-table">
+                <thead>
+                  <tr>
+                    <th>代號</th>
+                    <th>中文名稱</th>
+                    <th>單位</th>
+                    <th>規範化定義</th>
+                    <th>用途</th>
+                    <th>規範對應</th>
+                  </tr>
+                </thead>
+                <tbody id="beamGlossaryBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <button id="beamMobileFab" class="mobile-fab" type="button" aria-label="回到頂部">回到頂部</button>
+
+  <script src="../結構工具箱/core/materials/steel.js"></script>
+  <script src="../結構工具箱/core/ui/report.js"></script>
+  <script src="./steel-beam-formal.js"></script>
+</body>
+</html>

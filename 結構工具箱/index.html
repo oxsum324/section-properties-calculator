@@ -49,6 +49,36 @@
   .collapse-toggle input[type="checkbox"] { width:18px; height:18px; accent-color: var(--primary); }
   .collapse-toggle label { font-size:0.88em; font-weight:700; color:var(--primary); cursor:pointer; }
   .collapse-panel.hidden { display:none; }
+  .status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+  .status-card {
+    border:1px solid #dbe4ee; border-radius:12px; padding:16px 18px;
+    background:linear-gradient(180deg,#f8fbff 0%,#f3f8fc 100%);
+  }
+  .status-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .status-title { font-size:0.96em; font-weight:800; color:var(--primary); }
+  .status-badge { display:inline-flex; align-items:center; justify-content:center; min-height:28px; padding:4px 10px; border-radius:999px; font-size:0.74em; font-weight:800; }
+  .status-badge.ok { background:#dcfce7; color:#166534; }
+  .status-badge.warn { background:#fef3c7; color:#92400e; }
+  .status-badge.fail { background:#fee2e2; color:#991b1b; }
+  .status-summary { color:var(--text); font-size:0.84em; line-height:1.6; }
+  .status-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .status-meta span { display:inline-flex; align-items:center; min-height:26px; padding:4px 10px; border-radius:999px; background:#e8f1f7; color:#29506d; font-size:0.74em; font-weight:700; }
+  .status-links { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .status-links a { color:var(--primary); font-size:0.78em; font-weight:700; text-decoration:none; }
+  .status-links a:hover { text-decoration:underline; }
+  .status-trend { margin-top:10px; color:var(--text-light); font-size:0.78em; line-height:1.6; }
+  .scope-hero { display:grid; gap:12px; }
+  .scope-pill { display:inline-flex; align-items:center; justify-content:center; min-height:28px; padding:4px 10px; border-radius:999px; font-size:0.74em; font-weight:800; }
+  .scope-pill.formal { background:#dcfce7; color:#166534; }
+  .scope-pill.legacy { background:#fef3c7; color:#92400e; }
+  .scope-pill.core { background:#e0f2fe; color:#0f4c81; }
+  .status-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+  .status-actions a {
+    display:inline-flex; align-items:center; justify-content:center; min-height:40px;
+    padding:10px 14px; border-radius:10px; border:1px solid #cbd5e1;
+    background:#fff; color:var(--primary); text-decoration:none; font-size:0.84em; font-weight:700;
+  }
+  .status-actions a.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
 </style>
 </head>
 <body>
@@ -67,6 +97,44 @@
 </header>
 
 <div class="container">
+
+  <div class="card">
+    <div class="group-title">平台健康狀態</div>
+    <div class="status-grid">
+      <div class="status-card" id="platformOverallStatus">
+        <div class="status-head">
+          <span class="status-title">全平台總巡檢</span>
+          <span class="status-badge warn">讀取中</span>
+        </div>
+        <div class="status-summary">讀取最新平台總巡檢狀態中。</div>
+      </div>
+      <div class="status-card" id="steelPlatformStatus">
+        <div class="status-head">
+          <span class="status-title">鋼構正式規範工具</span>
+          <span class="status-badge warn">讀取中</span>
+        </div>
+        <div class="status-summary">讀取最新鋼構巡檢狀態中。</div>
+      </div>
+      <div class="status-card" id="rcPlatformStatus">
+        <div class="status-head">
+          <span class="status-title">RC 構件工具</span>
+          <span class="status-badge warn">讀取中</span>
+        </div>
+        <div class="status-summary">讀取最新 RC 巡檢狀態中。</div>
+      </div>
+      <div class="status-card" id="corePlatformStatus">
+        <div class="status-head">
+          <span class="status-title">耐風 / 耐震核心</span>
+          <span class="status-badge warn">讀取中</span>
+        </div>
+        <div class="status-summary">讀取最新規範核心巡檢狀態中。</div>
+      </div>
+    </div>
+    <div class="status-actions">
+      <a class="primary" href="audit-dashboard.html">開啟平台巡檢儀表板</a>
+      <a href="../output/audit/platform-summary.md" target="_blank" rel="noreferrer">查看平台摘要</a>
+    </div>
+  </div>
 
   <!-- ─── 結構分析 ─── -->
   <div class="card">
@@ -142,15 +210,34 @@
   <!-- ─── 鋼結構設計 ─── -->
   <div class="card">
     <div class="group-title">鋼結構設計　<span style="font-size:0.7em; color:var(--text-light); font-weight:500;">依鋼結構設計規範 (AISC 360 基礎)</span></div>
+    <div class="subgroup-title">正式規範核算工具</div>
+    <div class="menu-grid">
+      <a class="menu-card" href="../鋼構工具/index.html">
+        <div class="icon">⛭</div>
+        <h3>鋼構正式規範工具 <span class="scope-pill formal">正式模組</span></h3>
+        <p>連接板、拉力構件、審查摘要、計算流程、跨裝置版面、內建自巡檢與歷程輸出</p>
+      </a>
+      <a class="menu-card" href="../鋼構工具/steel-beam-formal.html">
+        <div class="icon">▭</div>
+        <h3>鋼梁正式頁 <span class="scope-pill formal">新版</span></h3>
+        <p>鋼梁正式模板頁：左輸入、右報表、計算流程、參數詞典，保留既有鋼梁檢算核心。</p>
+      </a>
+      <a class="menu-card" href="../鋼構工具/steel-column-formal.html">
+        <div class="icon">▮</div>
+        <h3>鋼柱正式頁 <span class="scope-pill formal">新版</span></h3>
+        <p>鋼柱正式模板頁：左輸入、右報表、計算流程、參數詞典，保留既有鋼柱檢算核心。</p>
+      </a>
+    </div>
+    <div class="subgroup-title">舊式梁柱頁面</div>
     <div class="menu-grid">
       <a class="menu-card" href="tools/鋼構/steel-beam.html">
         <div class="icon">Ⅱ</div>
-        <h3>鋼梁 Steel Beam <span class="ver ver-ok">V3.0</span></h3>
+        <h3>鋼梁 Steel Beam <span class="scope-pill legacy">舊式頁面</span></h3>
         <p>H 型鋼梁撓曲 (LTB)、剪力、撓度驗算；斷面分類 (AISC Table B4.1b)</p>
       </a>
       <a class="menu-card" href="tools/鋼構/steel-column.html">
         <div class="icon">▮</div>
-        <h3>鋼柱 Steel Column <span class="ver ver-ok">V3.0</span></h3>
+        <h3>鋼柱 Steel Column <span class="scope-pill legacy">舊式頁面</span></h3>
         <p>軸壓挫屈 (E3/E7)、K 因數、P-M 互制 (H1)、ASD/LRFD 雙軌</p>
       </a>
     </div>
@@ -374,6 +461,90 @@
 </div>
 <script>
   (function () {
+    function renderStatusCard(node, payload, label, summaryUrl) {
+      if (!node) return;
+      if (!payload) {
+        node.innerHTML = `
+          <div class="status-head">
+            <span class="status-title">${label}</span>
+            <span class="status-badge warn">未讀取</span>
+          </div>
+          <div class="status-summary">目前未取得最新巡檢狀態。若以本機伺服器開啟，會顯示最近一輪巡檢結果。</div>
+        `;
+        return;
+      }
+      const badgeTone = payload.pass ? 'ok' : 'fail';
+      const badgeText = payload.pass ? '最新巡檢通過' : `最新巡檢異常 ${payload.failureCount || 0} 項`;
+      const meta = [
+        payload.runId ? `runId｜${payload.runId}` : '',
+        payload.loop ? '模式｜循環' : '模式｜單次',
+        `結果｜${payload.failureCount || 0} 項異常`
+      ].filter(Boolean);
+      const links = [];
+      if (summaryUrl) {
+        links.push(`<a href="${summaryUrl}" target="_blank" rel="noreferrer">開啟摘要</a>`);
+      }
+      node.innerHTML = `
+        <div class="status-head">
+          <span class="status-title">${label}</span>
+          <span class="status-badge ${badgeTone}">${badgeText}</span>
+        </div>
+        <div class="status-summary">最近一輪巡檢 ${payload.pass ? '已通過' : '發現異常'}，可作為目前工具健康狀態參考。</div>
+        <div class="status-meta">${meta.map((item) => `<span>${item}</span>`).join('')}</div>
+        ${links.length ? `<div class="status-links">${links.join('')}</div>` : ''}
+        <div class="status-trend" data-trend-slot="1">趨勢資料讀取中。</div>
+      `;
+    }
+
+    function renderTrend(nodeId, text) {
+      const host = document.getElementById(nodeId);
+      if (!host) return;
+      const trendNode = host.querySelector('[data-trend-slot]');
+      if (!trendNode) return;
+      trendNode.textContent = text;
+    }
+
+    async function loadStatus(nodeId, url, label) {
+      const node = document.getElementById(nodeId);
+      if (!node) return;
+      const summaryUrl = url.replace(/audit-status\.json$/i, 'audit-summary.md');
+      if (!/^https?:$/i.test(window.location.protocol)) {
+        renderStatusCard(node, null, label, summaryUrl);
+        return;
+      }
+      try {
+        const response = await fetch(`${url}?ts=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const payload = await response.json();
+        renderStatusCard(node, payload, label, summaryUrl);
+        if (nodeId === 'platformOverallStatus') {
+          try {
+            const historyResponse = await fetch(`../output/audit/platform-history.json?ts=${Date.now()}`, { cache: 'no-store' });
+            if (historyResponse.ok) {
+              const historyPayload = await historyResponse.json();
+              const recentItems = Array.isArray(historyPayload.items) ? historyPayload.items.slice(0, 8) : [];
+              const passCount = recentItems.filter((item) => item.pass).length;
+              renderTrend(nodeId, `最近 ${recentItems.length} 輪平台巡檢中，${passCount} 輪通過、${recentItems.length - passCount} 輪異常。`);
+            } else {
+              renderTrend(nodeId, '趨勢資料暫時無法讀取。');
+            }
+          } catch (error) {
+            renderTrend(nodeId, '趨勢資料暫時無法讀取。');
+          }
+        } else {
+          renderTrend(nodeId, payload.pass ? '目前模組維持最新一輪通過。' : '目前模組存在待處理異常。');
+        }
+      } catch (error) {
+        renderStatusCard(node, {
+          pass: false,
+          failureCount: 1,
+          runId: '讀取失敗',
+          loop: false,
+        }, label, '');
+        renderTrend(nodeId, '目前無法讀取趨勢資料。');
+      }
+    }
+
     [
       { toggleId: 'toggleWindScope', panelId: 'windScopePanel', storageKey: 'windScopePanelVisible' },
       { toggleId: 'toggleSeismicScope', panelId: 'seismicScopePanel', storageKey: 'seismicScopePanelVisible' }
@@ -391,6 +562,11 @@
         localStorage.setItem(cfg.storageKey, this.checked ? '1' : '0');
       });
     });
+
+    loadStatus('platformOverallStatus', '../output/audit/platform-status.json', '全平台總巡檢');
+    loadStatus('steelPlatformStatus', '../鋼構工具/output/audit/audit-status.json', '鋼構正式規範工具');
+    loadStatus('rcPlatformStatus', '../鋼筋混凝土/output/audit/audit-status.json', 'RC 構件工具');
+    loadStatus('corePlatformStatus', './output/audit/audit-status.json', '耐風 / 耐震核心');
   })();
 </script>
 </body>
