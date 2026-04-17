@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>鋼梁設計與檢核 V3.0</title>
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  .two-col { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cls-tag { display:inline-block; padding:2px 10px; border-radius:4px; font-size:0.82em; font-weight:700; }
+  .cls-compact     { background:#dcfce7; color:#166534; }
+  .cls-non-compact { background:#fef9c3; color:#854d0e; }
+  .cls-slender     { background:#fee2e2; color:#991b1b; }
+  .zone-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.8em; font-weight:600; margin-left:6px; }
+  .zone-plastic   { background:#dbeafe; color:#1e40af; }
+  .zone-inelastic { background:#fef3c7; color:#92400e; }
+  .zone-elastic   { background:#fce7f3; color:#9d174d; }
+  .step-card { background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px; }
+  .step-card h4 { margin:0 0 8px; font-size:0.95em; color:var(--primary); }
+  .step-card .formula { font-family:Consolas,monospace; font-size:0.88em; color:#334155; margin:2px 0; }
+  .step-card .note { font-size:0.82em; color:#64748b; margin-top:4px; }
+  /* 列印 */
+  .btn-print { display:inline-block; margin-top:8px; padding:8px 18px; background:#0891b2; color:#fff;
+    border:0; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.88em; }
+  .btn-print:hover { background:#0e7490; }
+  .chk-detail { margin-top:6px; font-size:0.85em; color:var(--text-light); }
+
+  @media (max-width:900px) { .two-col { grid-template-columns:1fr; } }
+
+  @media (max-width: 768px) {
+    .two-col > div:first-child .card { padding: 14px; }
+    .res-grid { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .step-card .formula { font-size: 0.82em; overflow-x: auto; }
+  }
+  @media (max-width: 480px) {
+    .two-col { gap: 10px; }
+    .two-col > div:first-child .card,
+    .two-col > div:last-child .card { padding: 10px; }
+    .step-card { padding: 10px 12px; }
+    .step-card .formula { font-size: 0.78em; }
+  }
+
+  @media print {
+    @page { size:A4; margin:15mm 12mm; }
+    body { background:#fff !important; color:#000 !important; font-size:10pt; }
+    .mode-bar { background:#fff !important; border-bottom:2px solid #000; color:#000 !important; }
+    .mode-bar span { color:#000 !important; }
+    .two-col { display:block !important; }
+    .two-col > div:first-child { display:none !important; }
+    .btn-calc, .btn-secondary, .btn-print, .chk-detail, .btn { display:none !important; }
+    .card { break-inside:avoid; box-shadow:none !important; border:1px solid #ccc; }
+    .step-card { break-inside:avoid; }
+    .result-item.ok { border-color:#000 !important; }
+    .result-item.fail { border-color:#000 !important; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>鋼梁設計與檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.0</span></h1>
+  <p>依 AISC 360 / 台灣鋼結構設計規範 ｜ LRFD / ASD 雙模式</p>
+  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
+</header>
+<div class="card mode-bar">
+  <strong class="mode-bar__label">設計方法：</strong>
+  <div class="mode-bar__group" role="tablist">
+    <button class="mode-bar__btn" id="btnLRFD" type="button" onclick="setMethod('LRFD')" style="background:#2563eb;color:#fff;font-weight:700;">LRFD</button>
+    <button class="mode-bar__btn" id="btnASD" type="button" onclick="setMethod('ASD')" style="background:#e2e8f0;color:#64748b;font-weight:700;">ASD</button>
+  </div>
+  <span class="mode-bar__hint" id="methodBadge">AISC 360 / 台灣鋼結構設計規範 (LRFD)</span>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo"   class="w-no"   placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <button id="btnReport" class="mode-bar__report" type="button" onclick="buildBeamReport()">📄 計算書</button>
+  </div>
+</div>
+
+<div style="max-width:1200px; margin:20px auto; padding:0 20px;">
+<div class="two-col">
+  <!-- ===== 左側輸入 ===== -->
+  <div>
+    <div class="card">
+      <h2>斷面選擇</h2>
+      <div class="form-group">
+        <label>H 型鋼規格</label>
+        <select id="secSelect" onchange="onSecSelect()">
+          <option value="">-- 自訂尺寸 --</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>H 全高 (mm)</label><input type="number" id="inH" value="400"></div>
+        <div class="form-group"><label>B 翼板寬 (mm)</label><input type="number" id="inB" value="200"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>tw 腹板厚 (mm)</label><input type="number" id="inTw" value="8"></div>
+        <div class="form-group"><label>tf 翼板厚 (mm)</label><input type="number" id="inTf" value="13"></div>
+      </div>
+      <div class="form-group"><label>R 圓角 (mm)</label><input type="number" id="inR" value="13"></div>
+    </div>
+
+    <div class="card">
+      <h2>材料與設計參數</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>鋼材等級</label>
+          <select id="matSelect" onchange="onMatSelect()"></select>
+        </div>
+        <div class="form-group">
+          <label>Fy (kgf/cm²)</label>
+          <input type="number" id="inFy" value="2500">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>跨度 L (cm)</label><input type="number" id="inL" value="800"></div>
+        <div class="form-group"><label>側撐間距 Lb (cm)</label><input type="number" id="inLb" value="400"></div>
+      </div>
+      <div class="form-group">
+        <label>Cb 彎矩梯度修正係數</label>
+        <input type="number" id="inCb" value="1.0" step="0.01">
+        <p class="hint">均佈載重簡支梁 Cb≈1.14；端彎矩等值 Cb=1.0；保守取 1.0。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="loadTitle">載重 (因數化)</h2>
+      <div class="form-row">
+        <div class="form-group"><label id="lblMu">Mu 因數化彎矩 (tf·m)</label><input type="number" id="inMu" value="30" data-force="M"></div>
+        <div class="form-group"><label id="lblVu">Vu 因數化剪力 (tf)</label><input type="number" id="inVu" value="15" data-force="V"></div>
+      </div>
+      <hr style="margin:12px 0; border:none; border-top:1px dashed #cbd5e1;">
+      <p class="hint" style="margin-bottom:6px;">撓度檢核用 (使用載重，非因數化)</p>
+      <div class="form-row">
+        <div class="form-group"><label>wD 靜載重 (kgf/cm)</label><input type="number" id="inWD" value="5"></div>
+        <div class="form-group"><label>wL 活載重 (kgf/cm)</label><input type="number" id="inWL" value="8"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>ΔL 限值</label>
+          <select id="limL">
+            <option value="240">L/240 (一般)</option>
+            <option value="360" selected>L/360 (辦公/住宅)</option>
+            <option value="480">L/480 (有脆性隔間)</option>
+            <option value="600">L/600 (嚴格)</option>
+          </select>
+        </div>
+        <div class="form-group"><label>ΔT 限值</label>
+          <select id="limT">
+            <option value="180" selected>L/180</option>
+            <option value="240">L/240</option>
+            <option value="360">L/360</option>
+          </select>
+        </div>
+      </div>
+      <hr style="margin:12px 0; border:none; border-top:1px dashed #cbd5e1;">
+      <h3 style="font-size:0.95em; color:var(--primary); margin:6px 0 8px;">載重組合產生器 (可選)</h3>
+      <div id="lcPanel"></div>
+    </div>
+
+    <button class="btn-calc" onclick="runCheck()" style="margin-top:8px;">檢 核</button>
+    <div class="chk-detail">
+      <input type="checkbox" id="chkDetail">
+      <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
+    </div>
+  </div>
+
+  <!-- ===== 右側結果 ===== -->
+  <div id="resultWrap">
+    <div class="card" id="propsCard" style="display:none;">
+      <h2>斷面性質 <span id="secName" style="font-weight:400;font-size:0.85em;color:#64748b;"></span></h2>
+      <div class="res-grid" id="propsGrid"></div>
+    </div>
+    <div class="card" id="clsCard" style="display:none;">
+      <h2>斷面分類</h2>
+      <div id="clsResult"></div>
+    </div>
+    <div class="card" id="flexCard" style="display:none;">
+      <h2>撓曲構材強度檢核</h2>
+      <div id="flexResult"></div>
+    </div>
+    <div class="card" id="shearCard" style="display:none;">
+      <h2>剪力強度檢核</h2>
+      <div id="shearResult"></div>
+    </div>
+    <div class="card" id="deflCard" style="display:none;">
+      <h2>撓度檢核</h2>
+      <div id="deflResult"></div>
+    </div>
+    <div class="card" id="envCard" style="display:none;">
+      <h2>荷重組合控制圖</h2>
+      <div id="envResult"></div>
+    </div>
+    <div class="card" id="summaryCard" style="display:none;">
+      <h2>總結</h2>
+      <div id="summaryResult"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ===== Scripts ===== -->
+<script src="../../core/materials/steel.js"></script>
+<script src="../../core/utils/common.js"></script>
+<script src="../../core/loads/loadcombo.js"></script>
+<script src="../../core/ui/formulas.js"></script>
+<script src="../../core/ui/force-picker.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const num = id => parseFloat($(id)?.value) || 0;
+const f2 = v => v.toFixed(2);
+const f1 = v => v.toFixed(1);
+const f0 = v => Math.round(v).toLocaleString();
+
+// ── 設計方法切換 ──
+let designMethod = 'LRFD';  // 'LRFD' | 'ASD'
+function setMethod(m) {
+  designMethod = m;
+  const isLRFD = m === 'LRFD';
+  $('btnLRFD').style.background = isLRFD ? '#2563eb' : '#e2e8f0';
+  $('btnLRFD').style.color      = isLRFD ? '#fff'    : '#64748b';
+  $('btnASD').style.background  = isLRFD ? '#e2e8f0' : '#d97706';
+  $('btnASD').style.color       = isLRFD ? '#64748b' : '#fff';
+  // 更新標題 / 標籤
+  $('methodBadge').textContent = `AISC 360 / 台灣鋼結構設計規範 (${m})`;
+  $('loadTitle').textContent = isLRFD ? '載重 (因數化)' : '載重 (使用荷重)';
+  $('lblMu').textContent     = isLRFD ? 'Mu 因數化彎矩 (tf·m)' : 'Ma 容許應力彎矩 (tf·m)';
+  $('lblVu').textContent     = isLRFD ? 'Vu 因數化剪力 (tf)'    : 'Va 容許應力剪力 (tf)';
+  if (typeof syncLcLabels === 'function') syncLcLabels();
+  renderLoadComboPanel();
+  renderBeamEnvelope();
+}
+
+function ri(label, value, unit, status) {
+  const cls = status ? ` ${status}` : '';
+  return `<div class="result-item${cls}"><span class="label">${label}</span><span><span class="value">${value}</span><span class="unit">${unit||''}</span></span></div>`;
+}
+
+// ── 初始化斷面下拉 ──
+function buildSecOptions() {
+  const sel = $('secSelect');
+  Steel.H_SECTIONS_MM.forEach(g => {
+    const og = document.createElement('optgroup');
+    og.label = g.g;
+    g.s.forEach((s,i) => {
+      const o = document.createElement('option');
+      o.value = `${g.g}|${i}`;
+      o.textContent = `${s.n}`;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+}
+
+function onSecSelect() {
+  const v = $('secSelect').value;
+  if (!v) return;
+  const [gn, idx] = v.split('|');
+  const grp = Steel.H_SECTIONS_MM.find(g => g.g === gn);
+  if (!grp) return;
+  const s = grp.s[parseInt(idx)];
+  $('inH').value = s.H; $('inB').value = s.B;
+  $('inTw').value = s.tw; $('inTf').value = s.tf; $('inR').value = s.R;
+}
+
+// ── 初始化材料下拉 ──
+function buildMatOptions() {
+  const sel = $('matSelect');
+  Steel.FY_OPTIONS.forEach((m,i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = m.label;
+    sel.appendChild(o);
+  });
+}
+function onMatSelect() {
+  const m = Steel.FY_OPTIONS[parseInt($('matSelect').value)];
+  if (m) $('inFy').value = m.Fy;
+}
+
+// ── 載重組合 ──
+const lcCfg = {
+  prefix:'lcSB',
+  forces:[
+    {key:'M', label:'彎矩 Mu', unit:'tf·m'},
+    {key:'V', label:'剪力 Vu', unit:'tf'},
+  ],
+  targetIds: {M:'inMu', V:'inVu'},
+  getMethod: () => designMethod,
+  onApplied: () => renderBeamEnvelope(),
+};
+function syncLcLabels() {
+  const isLRFD = designMethod === 'LRFD';
+  lcCfg.forces[0].label = isLRFD ? '彎矩 Mu' : '彎矩 Ma';
+  lcCfg.forces[1].label = isLRFD ? '剪力 Vu' : '剪力 Va';
+}
+function renderLoadComboPanel() {
+  $('lcPanel').innerHTML = LoadCombo.buildPanel(lcCfg);
+  LoadCombo.bind(lcCfg);
+}
+function renderBeamEnvelope() {
+  const stored = window.lastLoadCombo && window.lastLoadCombo[lcCfg.prefix];
+  if (!stored?.detail || stored.method !== designMethod) {
+    $('envCard').style.display = 'none';
+    return;
+  }
+  const detail = stored.detail;
+  const envM = detail.envelope.M;
+  const envV = detail.envelope.V;
+  $('envResult').innerHTML = `
+    <div class="hint" style="margin-bottom:10px;">顯示目前 ${detail.comboName} 的各組合控制值；此圖用於辨識主控組合，不代表跨內內力分布包絡。</div>
+    <div class="step-card">
+      <h4>彎矩控制圖 |M|</h4>
+      <div class="formula">Mmax = ${f2(envM.max.value)} tf·m (${envM.max.name})</div>
+      <div class="formula">Mmin = ${f2(envM.min.value)} tf·m (${envM.min.name})</div>
+      <div class="formula">控制 |M| = ${f2(Math.abs(envM.abs.value))} tf·m (${envM.abs.name})</div>
+      <div class="canvas-wrap" style="min-height:240px;"><canvas id="beamEnvelopeM"></canvas></div>
+    </div>
+    <div class="step-card">
+      <h4>剪力控制圖 |V|</h4>
+      <div class="formula">Vmax = ${f2(envV.max.value)} tf (${envV.max.name})</div>
+      <div class="formula">Vmin = ${f2(envV.min.value)} tf (${envV.min.name})</div>
+      <div class="formula">控制 |V| = ${f2(Math.abs(envV.abs.value))} tf (${envV.abs.name})</div>
+      <div class="canvas-wrap" style="min-height:240px;"><canvas id="beamEnvelopeV"></canvas></div>
+    </div>`;
+  LoadCombo.drawEnvelopeChart($('beamEnvelopeM'), detail, 'M', { width: 560, height: 220 });
+  LoadCombo.drawEnvelopeChart($('beamEnvelopeV'), detail, 'V', { width: 560, height: 220 });
+  $('envCard').style.display = '';
+}
+
+// ── 主檢核 ──
+function runCheck() {
+  const mm = { n:'自訂', H:num('inH'), B:num('inB'), tw:num('inTw'), tf:num('inTf'), R:num('inR') };
+  // 嘗試取得規格名稱
+  const selV = $('secSelect').value;
+  if (selV) {
+    const [gn,idx] = selV.split('|');
+    const grp = Steel.H_SECTIONS_MM.find(g => g.g === gn);
+    if (grp) mm.n = grp.s[parseInt(idx)].n;
+  }
+  if (!mm.H || !mm.B || !mm.tw || !mm.tf) { alert('請完整輸入斷面尺寸'); return null; }
+  if (mm.tw <= 0 || mm.tf <= 0 || mm.H <= 0 || mm.B <= 0) { alert('斷面尺寸須為正值'); return null; }
+  if (mm.tf * 2 >= mm.H) { alert('翼板厚 tf×2 不得大於或等於全高 H'); return null; }
+
+  const sec = Steel.calcProps(mm);
+  const Fy  = num('inFy');
+  const Lb  = num('inLb');
+  const Cb  = num('inCb') || 1.0;
+  const Mu  = num('inMu') * 1e5;   // tf·m → kgf·cm
+  const Vu  = num('inVu') * 1000;  // tf   → kgf
+  const L   = num('inL');
+
+  if (!Fy || !L) { alert('請輸入 Fy 與跨度'); return null; }
+  if (Lb <= 0 || Lb > L) { alert('請確認側撐間距 Lb，應滿足 0 < Lb ≤ L'); return null; }
+  if (Cb <= 0) { alert('Cb 應大於 0'); return null; }
+
+  // 1. 斷面性質
+  $('secName').textContent = sec.name;
+  $('propsGrid').innerHTML = [
+    ri('A',f2(sec.A),'cm²'), ri('W',f2(sec.A*0.785),'kg/m'),
+    ri('Ix',f0(sec.Ix),'cm⁴'), ri('Iy',f0(sec.Iy),'cm⁴'),
+    ri('Sx',f1(sec.Sx),'cm³'), ri('Sy',f1(sec.Sy),'cm³'),
+    ri('Zx',f1(sec.Zx),'cm³'), ri('Zy',f1(sec.Zy),'cm³'),
+    ri('rx',f2(sec.rx),'cm'),  ri('ry',f2(sec.ry),'cm'),
+    ri('J',f2(sec.J),'cm⁴'),  ri('Cw',f0(sec.Cw),'cm⁶'),
+    ri('rts',f2(sec.rts),'cm'), ri('ho',f2(sec.ho),'cm'),
+    ri('Aw (腹板)',f2(sec.Aw),'cm²'),
+  ].join('');
+  $('propsCard').style.display = '';
+
+  // 2. 斷面分類
+  const cls = Steel.classify(sec, Fy);
+  const flex = Steel.calcMn(sec, Fy, Lb, Cb);
+  const clsTag = c => `<span class="cls-tag cls-${c}">${({compact:'結實',['non-compact']:'非結實',slender:'細長'})[c]}</span>`;
+  const sectionTypeText = ({
+    plastic:'塑性設計斷面',
+    'semi-plastic':'半結實 / 非結實斷面',
+    slender:'細長肢材斷面',
+  })[flex.sectionType];
+  $('clsResult').innerHTML = `
+    <div class="step-card">
+      <h4>規範判定</h4>
+      <div>主軸彎曲條文適用：<strong>${flex.webSection}</strong></div>
+      <div>截面等級：<strong>${sectionTypeText}</strong></div>
+      <div class="note">依台灣鋼結構規範與解說常見用語，整體斷面以塑性設計斷面、結實 / 半結實斷面、細長肢材斷面說明；板件寬厚比則以結實、非結實、細長表示，並另外標示塑性設計界限。</div>
+    </div>
+    <div class="step-card">
+      <h4>受壓翼板寬厚比</h4>
+      <div class="formula">λf = bf/(2tf) = ${f2(cls.lambdaF)}</div>
+      <div class="formula">塑性設計界限 = 0.38√(E/Fy) = ${f2(cls.lpf)}</div>
+      <div class="formula">非結實界限 = 1.0√(E/Fy) = ${f2(cls.lrf)}</div>
+      <div>判定：${clsTag(cls.flange)}</div>
+    </div>
+    <div class="step-card">
+      <h4>腹板寬厚比</h4>
+      <div class="formula">λw = hw/tw = ${f2(cls.lambdaW)}</div>
+      <div class="formula">塑性設計界限 = 3.76√(E/Fy) = ${f2(cls.lpw)}</div>
+      <div class="formula">非結實界限 = 5.70√(E/Fy) = ${f2(cls.lrw)}</div>
+      <div>判定：${clsTag(cls.web)}</div>
+    </div>`;
+  $('clsCard').style.display = '';
+
+  // 3. 撓曲強度
+  const zoneTag = z => `<span class="zone-tag zone-${z}">${({plastic:'塑性區',inelastic:'非彈性LTB',elastic:'彈性LTB'})[z]}</span>`;
+  const muTfm = Mu/1e5;
+  const muDemand = Math.abs(Mu);
+  const muDemandTfm = Math.abs(muTfm);
+  const isLRFD = designMethod === 'LRFD';
+  // 依設計方法取設計強度
+  const designMn_tfm = isLRFD ? flex.phiMn_tfm : flex.MnOmega_tfm;
+  const designMn     = isLRFD ? flex.phiMn     : flex.MnOmega;
+  const flexOk = designMn >= muDemand;
+  const ratio_flex = designMn > 0 ? (muDemand / designMn * 100).toFixed(1) : '∞';
+  const mSymbol = isLRFD ? 'Mu' : 'Ma';
+  const mStrengthLabel = isLRFD ? 'φMn' : 'Mn/Ω';
+  const flexStrLine = isLRFD
+    ? `<div class="formula"><strong>φMn = ${f2(Steel.PHI.flexure)} × ${f2(flex.Mn/1e5)} = ${f2(designMn_tfm)} tf·m</strong></div>`
+    : `<div class="formula"><strong>Mn/Ω = ${f2(flex.Mn/1e5)} / ${f2(Steel.OMEGA.flexure)} = ${f2(designMn_tfm)} tf·m</strong></div>`;
+  $('flexResult').innerHTML = `
+    <div class="result-item ${flexOk ? 'ok' : 'fail'}">
+      <span class="label">撓曲 |${mSymbol}|=${f2(muDemandTfm)} tf·m vs ${mStrengthLabel}=${f2(designMn_tfm)} tf·m</span>
+      <span class="value">${flexOk ? '✓ OK' : '✗ NG'} (${ratio_flex}%)</span>
+    </div>
+    ${!flexOk ? '<div class="note" style="color:#dc2626; margin:6px 0;">⚠ 建議：增大斷面、縮短側撐間距 Lb、或提高 Cb。</div>' : ''}
+    <div class="detail-formula">
+    <div class="step-card">
+      <h4>適用條文：AISC 360 Section ${flex.webSection}</h4>
+      <div class="formula">Mp = Fy × Zx = ${f0(Fy)} × ${f1(sec.Zx)} = ${f0(flex.Mp)} kgf·cm = ${f2(flex.Mp/1e5)} tf·m</div>
+      ${flex.Rpc !== null ? `<div class="formula">Rpc (腹板塑性化係數) = ${f2(flex.Rpc)}　→ Mn,yield = Rpc × Myc = ${f0(flex.Mn_yield)} kgf·cm = ${f2(flex.Mn_yield/1e5)} tf·m</div>` : ''}
+      ${flex.Rpg !== null ? `<div class="formula">Rpg (彎曲強度折減係數) = ${f2(flex.Rpg)}　→ Mn,yield = Rpg × Fy × Sx = ${f0(flex.Mn_yield)} kgf·cm = ${f2(flex.Mn_yield/1e5)} tf·m</div>` : ''}
+    </div>
+    <div class="step-card">
+      <h4>側向扭轉挫屈 (LTB)</h4>
+      ${flex.webSection === 'F2/F3'
+        ? `<div class="formula">Lp = 1.76·ry·√(E/Fy) = ${f1(flex.Lp)} cm</div>`
+        : `<div class="formula">rt = bf/√(12(1+aw/6)) = ${f2(flex.rt)} cm</div>
+           <div class="formula">Lp = 1.1·rt·√(E/Fy) = ${f1(flex.Lp)} cm</div>`}
+      <div class="formula">Lr = ${f1(flex.Lr)} cm</div>
+      <div class="formula">Lb = ${f1(Lb)} cm ${zoneTag(flex.ltbZone)}</div>
+      <div class="formula">Cb = ${f2(flex.Cb)}</div>
+      <div class="formula">Mn,LTB = ${f0(flex.Mn_ltb)} kgf·cm = ${f2(flex.Mn_ltb/1e5)} tf·m</div>
+    </div>
+    ${cls.flange !== 'compact' ? `<div class="step-card"><h4>翼板局部挫屈 (FLB)</h4><div class="formula">Mn,FLB = ${f0(flex.Mn_flb)} kgf·cm = ${f2(flex.Mn_flb/1e5)} tf·m</div></div>` : ''}
+    <div class="step-card">
+      <h4>${isLRFD ? '設計撓曲強度 (LRFD)' : '容許撓曲強度 (ASD)'}</h4>
+      <div class="formula">Mn = min(${flex.controls.join(', ')}) = ${f0(flex.Mn)} kgf·cm = ${f2(flex.Mn/1e5)} tf·m</div>
+      <div class="note">控制模式：${flex.governing}</div>
+      ${flexStrLine}
+      <div class="formula">${mSymbol} = ${f2(muTfm)} tf·m，|${mSymbol}| = ${f2(muDemandTfm)} tf·m → 應力比 = ${ratio_flex}%</div>
+    </div>
+    </div>`;
+  $('flexCard').style.display = '';
+
+  // 4. 剪力強度
+  const shear = Steel.calcVn(sec, Fy);
+  const vuDemand = Math.abs(Vu);
+  const vuDemandTf = Math.abs(Vu/1000);
+  const designVn    = isLRFD ? shear.phiVn     : shear.VnOmega;
+  const designVn_tf = isLRFD ? shear.phiVn_tf  : shear.VnOmega_tf;
+  const shearOk = designVn >= vuDemand;
+  const ratio_shear = designVn > 0 ? (vuDemand / designVn * 100).toFixed(1) : '∞';
+  const vSymbol = isLRFD ? 'Vu' : 'Va';
+  const vStrengthLabel = isLRFD ? 'φVn' : 'Vn/Ω';
+  const shearFactor = isLRFD
+    ? `φ<sub>v</sub>=${f2(shear.phiV)}${shear.isCompactWeb ? ' (compact web)' : ''}`
+    : `Ω<sub>v</sub>=${f2(shear.omgV)}${shear.isCompactWeb ? ' (compact web)' : ''}`;
+  const shearStrLine = isLRFD
+    ? `<div class="formula"><strong>φVn = ${f2(shear.phiV)} × ${f2(shear.Vn/1000)} = ${f2(designVn_tf)} tf</strong></div>`
+    : `<div class="formula"><strong>Vn/Ω = ${f2(shear.Vn/1000)} / ${f2(shear.omgV)} = ${f2(designVn_tf)} tf</strong></div>`;
+  $('shearResult').innerHTML = `
+    <div class="result-item ${shearOk ? 'ok' : 'fail'}">
+      <span class="label">剪力 |${vSymbol}|=${f2(vuDemandTf)} tf vs ${vStrengthLabel}=${f2(designVn_tf)} tf</span>
+      <span class="value">${shearOk ? '✓ OK' : '✗ NG'} (${ratio_shear}%)</span>
+    </div>
+    ${!shearOk ? '<div class="note" style="color:#dc2626; margin:6px 0;">⚠ 建議：增加腹板厚度或加設加勁板。</div>' : ''}
+    <div class="detail-formula">
+    <div class="step-card">
+      <h4>腹板剪力強度 (AISC G2)</h4>
+      <div class="formula">Aw = hw × tw = ${f2(sec.hw)} × ${f2(sec.tw)} = ${f2(sec.Aw)} cm²</div>
+      <div class="formula">h/tw = ${f1(sec.hw/sec.tw)}　${shearFactor}</div>
+      <div class="formula">Cv1 = ${f2(shear.Cv1)}</div>
+      <div class="formula">Vn = 0.6·Fy·Aw·Cv1 = 0.6 × ${f0(Fy)} × ${f2(sec.Aw)} × ${f2(shear.Cv1)} = ${f0(shear.Vn)} kgf = ${f2(shear.Vn/1000)} tf</div>
+      ${shearStrLine}
+      <div class="formula">${vSymbol} = ${f2(Vu/1000)} tf，|${vSymbol}| = ${f2(vuDemandTf)} tf → 應力比 = ${ratio_shear}%</div>
+    </div>
+    </div>`;
+  $('shearCard').style.display = '';
+
+  // 5. 撓度
+  const wD = num('inWD'), wL = num('inWL');
+  const limLval = parseInt($('limL').value);
+  const limTval = parseInt($('limT').value);
+  let deflHtml = '';
+  let deflStatus = 'skipped';
+  let deflOk = null;
+  if (wD > 0 || wL > 0) {
+    const defl = Steel.calcDeflection(sec, wD, wL, L);
+    const allowL = L / limLval;
+    const allowT = L / limTval;
+    const okL = defl.deltaL <= allowL;
+    const okT = defl.deltaT <= allowT;
+    deflStatus = okL && okT ? 'ok' : 'fail';
+    deflOk = okL && okT;
+    deflHtml = `
+      <div class="result-item ${okL ? 'ok' : 'fail'}">
+        <span class="label">活載重撓度 ΔL=${f2(defl.deltaL)} cm</span>
+        <span class="value">${okL ? '✓ OK' : '✗ NG'} (L/${f0(defl.ratioL)} vs L/${limLval})</span>
+      </div>
+      <div class="result-item ${okT ? 'ok' : 'fail'}" style="margin-top:4px;">
+        <span class="label">總撓度 ΔT=${f2(defl.deltaT)} cm</span>
+        <span class="value">${okT ? '✓ OK' : '✗ NG'} (L/${f0(defl.ratioT)} vs L/${limTval})</span>
+      </div>
+      ${!deflOk ? '<div class="note" style="color:#dc2626; margin:6px 0;">⚠ 建議：增大斷面慣性矩或縮短跨度。</div>' : ''}
+      <div class="detail-formula">
+      <div class="step-card">
+        <h4>簡支均佈撓度 (5wL⁴/384EI)</h4>
+        <div class="formula">EI = ${(defl.EI).toExponential(3)} kgf·cm²</div>
+        <div class="formula">ΔD = ${f2(defl.deltaD)} cm (靜載重)</div>
+        <div class="formula">ΔL = ${f2(defl.deltaL)} cm (活載重)　→ L/ΔL = ${f0(defl.ratioL)}</div>
+        <div class="formula">ΔT = ${f2(defl.deltaT)} cm (總撓度)　→ L/ΔT = ${f0(defl.ratioT)}</div>
+        <div class="formula">容許 ΔL = L/${limLval} = ${f2(allowL)} cm</div>
+        <div class="formula">容許 ΔT = L/${limTval} = ${f2(allowT)} cm</div>
+      </div>
+      </div>`;
+  } else {
+    deflHtml = `
+      <div class="result-item warn">
+        <span class="label">撓度檢核</span>
+        <span class="value">未檢核</span>
+      </div>
+      <p class="hint">未輸入均佈載重 wD/wL，已略過撓度檢核，總結不會視為全部通過。</p>`;
+  }
+  $('deflResult').innerHTML = deflHtml;
+  $('deflCard').style.display = '';
+  renderBeamEnvelope();
+
+  // 6. 總結
+  const allOk = flexOk && shearOk && deflStatus === 'ok';
+  const hasUnchecked = deflStatus === 'skipped';
+  const summaryOk = allOk;
+  const summaryTitle = summaryOk
+    ? '✓ 全部通過 — 斷面安全'
+    : (hasUnchecked && flexOk && shearOk ? '△ 強度通過，撓度未檢核' : '✗ 部分不通過 — 請依建議調整');
+  const summaryTone = summaryOk
+    ? '#dcfce7;border-color:#86efac;color:#166534'
+    : (hasUnchecked && flexOk && shearOk ? '#fffbeb;border-color:#fcd34d;color:#92400e' : '#fee2e2;border-color:#fca5a5;color:#991b1b');
+  const deflItemClass = deflStatus === 'ok' ? 'ok' : (deflStatus === 'fail' ? 'fail' : 'warn');
+  const deflItemText = deflStatus === 'ok' ? 'OK' : (deflStatus === 'fail' ? 'NG' : '未檢核');
+  const methodTag = `<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:0.75em;font-weight:700;margin-left:8px;background:${isLRFD?'#dbeafe;color:#1e40af':'#fef3c7;color:#92400e'}">${designMethod}</span>`;
+  $('summaryResult').innerHTML = `
+    <div class="banner-status" style="background:${summaryTone}; padding:16px; border:2px solid; border-radius:8px; text-align:center; font-size:1.15em; font-weight:700;">
+      ${summaryTitle} ${methodTag}
+    </div>
+    <div class="res-grid" style="margin-top:12px;">
+      <div class="result-item ${flexOk?'ok':'fail'}"><span class="label">撓曲 (${flex.governing})</span><span class="value">${ratio_flex}%</span></div>
+      <div class="result-item ${shearOk?'ok':'fail'}"><span class="label">剪力</span><span class="value">${ratio_shear}%</span></div>
+      <div class="result-item ${deflItemClass}"><span class="label">撓度</span><span class="value">${deflItemText}</span></div>
+    </div>
+    <p class="hint" style="margin-top:12px;">斷面: ${sec.name} | ${designMethod} | Fy=${Fy} kgf/cm² | Lb=${Lb} cm | Cb=${Cb}</p>`;
+  $('summaryCard').style.display = '';
+  return {
+    ok: true,
+    sec, cls, flex, shear,
+    Fy, Lb, Cb, L,
+    Mu, Vu, muDemand, vuDemand,
+    Mu_tf: muTfm, Vu_tf: Vu / 1000,
+    isLRFD,
+    flexOk, shearOk,
+    ratio_flex, ratio_shear,
+    deflStatus, deflOk,
+    allOk, summaryOk, hasUnchecked,
+    secName: sec.name,
+  };
+}
+
+// ── 詳列計算式 toggle ──
+$('chkDetail').addEventListener('change', function() {
+  $('resultWrap').classList.toggle('show-detail', this.checked);
+});
+
+// ── Init ──
+buildSecOptions();
+buildMatOptions();
+renderLoadComboPanel();
+// 預設選第一個材料
+onMatSelect();
+
+function buildBeamReport() {
+  const result = runCheck();
+  if (!result) return;
+
+  const { sec, cls, flex, shear, Fy, Lb, Cb, L, isLRFD, flexOk, shearOk, ratio_flex, ratio_shear, deflStatus, allOk, secName } = result;
+  const reportDetail = $('chkDetail')?.checked;
+  const Mu_tf = num('inMu');
+  const Vu_tf = num('inVu');
+  const Mu_abs_tf = Math.abs(Mu_tf);
+  const Vu_abs_tf = Math.abs(Vu_tf);
+
+  const mLabel = isLRFD ? 'φMn' : 'Mn/Ω';
+  const vLabel = isLRFD ? 'φVn' : 'Vn/Ω';
+  const mDemand = isLRFD ? 'Mu' : 'Ma';
+  const vDemand = isLRFD ? 'Vu' : 'Va';
+
+  // deflection
+  const wD = num('inWD'), wL = num('inWL');
+  let deflChecks = [];
+  if (wD > 0 || wL > 0) {
+    const defl = Steel.calcDeflection(sec, wD, wL, L);
+    const limLval = parseInt($('limL').value);
+    const limTval = parseInt($('limT').value);
+    const allowL = L / limLval;
+    const allowT = L / limTval;
+    const okL = defl.deltaL <= allowL;
+    const okT = defl.deltaT <= allowT;
+    deflChecks = [
+      { label:'活載重撓度 ΔL', formula:'5wL⁴/(384EI)', sub:`wL=${wL}, L=${L}, Ix=${f0(sec.Ix)}`, value:f2(defl.deltaL)+' ≤ '+f2(allowL), unit:'cm', ok:okL },
+      { label:'總撓度 ΔT', formula:'5(wD+wL)L⁴/(384EI)', sub:`wD+wL=${wD+wL}`, value:f2(defl.deltaT)+' ≤ '+f2(allowT), unit:'cm', ok:okT },
+    ];
+  }
+
+  const proj = {
+    name: (document.getElementById('projName')?.value || '').trim(),
+    no: (document.getElementById('projNo')?.value || '').trim(),
+    designer: (document.getElementById('projDesigner')?.value || '').trim(),
+  };
+  const envStored = window.lastLoadCombo && window.lastLoadCombo[lcCfg.prefix];
+  const envDetail = envStored && envStored.method === designMethod ? envStored.detail : null;
+  const diagrams = [];
+  try {
+    if (envDetail) {
+      const chartSpecs = [
+        { id:'beamEnvelopeM', key:'M', title:'荷重組合控制圖 — 彎矩', caption:`${envDetail.comboName}；紅點為控制 |M| = ${f2(Math.abs(envDetail.envelope.M.abs.value))} tf·m (${envDetail.envelope.M.abs.name})。此圖為組合控制值摘要，非跨內彎矩包絡。` },
+        { id:'beamEnvelopeV', key:'V', title:'荷重組合控制圖 — 剪力', caption:`${envDetail.comboName}；紅點為控制 |V| = ${f2(Math.abs(envDetail.envelope.V.abs.value))} tf (${envDetail.envelope.V.abs.name})。此圖為組合控制值摘要，非跨內剪力包絡。` },
+      ];
+      chartSpecs.forEach(spec => {
+        const src = $(spec.id);
+        let dataURL = src?.toDataURL ? src.toDataURL('image/png') : null;
+        if (!dataURL) {
+          const cv = document.createElement('canvas');
+          LoadCombo.drawEnvelopeChart(cv, envDetail, spec.key, { width: 700, height: 280 });
+          dataURL = cv.toDataURL('image/png');
+        }
+        if (dataURL) diagrams.push({ title: spec.title, dataURL, caption: spec.caption, width: 420 });
+      });
+    }
+  } catch (e) {
+    console.warn('steel beam envelope capture failed', e);
+  }
+
+  const clsNote = c => ({compact:'位於塑性設計範圍',['non-compact']:'屬非結實，需折減彎矩強度',slender:'屬細長肢材，需考慮局部挫屈折減'})[c];
+  const clsText = c => ({compact:'結實',['non-compact']:'非結實',slender:'細長'})[c];
+
+  openReport({
+    title: '鋼梁設計檢核計算書',
+    subtitle: `Steel Beam Design Report (${designMethod})`,
+    project: proj,
+    inputs: [
+      { group: '斷面', items: [
+        { label:'規格', value: secName },
+        { label:'H', value: num('inH'), unit:'mm' },
+        { label:'B', value: num('inB'), unit:'mm' },
+        { label:'tw', value: num('inTw'), unit:'mm' },
+        { label:'tf', value: num('inTf'), unit:'mm' },
+        { label:'A', value: f2(sec.A), unit:'cm²' },
+        { label:'Ix', value: f0(sec.Ix), unit:'cm⁴' },
+        { label:'Sx', value: f1(sec.Sx), unit:'cm³' },
+        { label:'Zx', value: f1(sec.Zx), unit:'cm³' },
+        { label:'ry', value: f2(sec.ry), unit:'cm' },
+        { label:'J', value: f2(sec.J), unit:'cm⁴' },
+      ]},
+      { group: '設計參數', items: [
+        { label:'設計方法', value: designMethod },
+        { label:'Fy', value: Fy, unit:'kgf/cm²' },
+        { label:'跨度 L', value: L, unit:'cm' },
+        { label:'側撐間距 Lb', value: Lb, unit:'cm' },
+        { label:'Cb', value: Cb },
+        { label: mDemand, value: Mu_tf, unit:'tf·m' },
+        { label: `|${mDemand}|`, value: Mu_abs_tf, unit:'tf·m' },
+        { label: vDemand, value: Vu_tf, unit:'tf' },
+        { label: `|${vDemand}|`, value: Vu_abs_tf, unit:'tf' },
+      ]},
+      ...(envDetail ? [{ group: '荷重組合控制摘要', items: [
+        { label:'組合模式', value: envDetail.comboName },
+        { label:'Mmax', value: f2(envDetail.envelope.M.max.value), unit:'tf·m' },
+        { label:'Mmin', value: f2(envDetail.envelope.M.min.value), unit:'tf·m' },
+        { label:'控制 |M|', value: `${f2(Math.abs(envDetail.envelope.M.abs.value))} (${envDetail.envelope.M.abs.name})` },
+        { label:'Vmax', value: f2(envDetail.envelope.V.max.value), unit:'tf' },
+        { label:'Vmin', value: f2(envDetail.envelope.V.min.value), unit:'tf' },
+        { label:'控制 |V|', value: `${f2(Math.abs(envDetail.envelope.V.abs.value))} (${envDetail.envelope.V.abs.name})` },
+      ]}] : []),
+    ],
+    checks: [
+      { group: '斷面分類', items: [
+        { label:'整體截面等級', sub:`主軸彎曲條文 ${flex.webSection}`, value:({plastic:'塑性設計斷面','semi-plastic':'半結實 / 非結實斷面',slender:'細長肢材斷面'})[flex.sectionType], ok:flex.sectionType==='slender'?false:null },
+        { label:'受壓翼板 λf', formula:'bf/(2tf)', sub:`λf=${f2(cls.lambdaF)}, 塑性設計界限=${f2(cls.lpf)}, 非結實界限=${f2(cls.lrf)}`, value:`${clsText(cls.flange)} — ${clsNote(cls.flange)}`, ok:cls.flange==='slender'?false:null },
+        { label:'腹板 λw', formula:'hw/tw (hw=翼板間淨高)', sub:`λw=${f2(cls.lambdaW)}, 塑性設計界限=${f2(cls.lpw)}, 非結實界限=${f2(cls.lrw)}`, value:`${clsText(cls.web)} — ${clsNote(cls.web)}`, ok:cls.web==='slender'?false:null },
+      ]},
+      { group: `撓曲強度 (AISC ${flex.webSection})`, items: [
+        { label:'Mp', formula:'Fy×Zx', sub:`${f0(Fy)}×${f1(sec.Zx)}`, value:f2(flex.Mp/1e5), unit:'tf·m', ok:null },
+        ...(flex.Rpc !== null ? [{ label:'Rpc', formula:'腹板塑性化係數', value:f2(flex.Rpc), ok:null }] : []),
+        ...(flex.Rpg !== null ? [{ label:'Rpg', formula:'彎曲強度折減係數', value:f2(flex.Rpg), ok:null }] : []),
+        { label:'Mn,yield', value:f2(flex.Mn_yield/1e5), unit:'tf·m', ok:null },
+        { label:'Lp', formula: (flex.webSection === 'F2' || flex.webSection === 'F3') ? '1.76·ry·√(E/Fy)' : '1.1·rt·√(E/Fy)', value:f1(flex.Lp), unit:'cm', ok:null },
+        { label:'Lr', value:f1(flex.Lr), unit:'cm', ok:null },
+        { label:'LTB Zone', value:flex.ltbZone, ok:null },
+        { label:'Mn', formula:`min(${flex.controls.join(',')})`, sub:`控制模式: ${flex.governing}`, value:f2(flex.Mn/1e5), unit:'tf·m', ok:null },
+        { label: `${mLabel} ≥ |${mDemand}|`, formula: isLRFD ? 'φ×Mn' : 'Mn/Ω', sub:`${f2(isLRFD?flex.phiMn_tfm:flex.MnOmega_tfm)} ≥ ${f2(Mu_abs_tf)}`, value:ratio_flex+'%', ok:flexOk },
+      ]},
+      { group: '剪力強度', items: [
+        { label:'Vn', formula:'0.6·Fy·Aw·Cv1', sub:`0.6×${f0(Fy)}×${f2(sec.Aw)}×${f2(shear.Cv1)}`, value:f2(shear.Vn/1000), unit:'tf', ok:null },
+        { label: `${vLabel} ≥ |${vDemand}|`, formula: isLRFD ? 'φv×Vn' : 'Vn/Ωv', sub:`${f2(isLRFD?shear.phiVn_tf:shear.VnOmega_tf)} ≥ ${f2(Vu_abs_tf)}`, value:ratio_shear+'%', ok:shearOk },
+      ]},
+      ...(deflChecks.length ? [{ group: '撓度檢核', items: deflChecks }] : [{ group: '撓度檢核', items: [{ label:'檢核狀態', value:'未檢核', sub:'未輸入均佈載重 wD / wL，故本次計算書未將撓度視為通過。', ok:null }] }]),
+    ],
+    summary: {
+      ok: allOk,
+      text: allOk ? '✓ 全部通過 — 斷面安全' : (deflStatus === 'skipped' && flexOk && shearOk ? '△ 強度通過，撓度未檢核' : '✗ 部分不通過 — 請依建議調整'),
+    },
+    diagrams,
+    notes: [
+      `設計方法: ${designMethod}`,
+      envDetail ? `荷重組合控制圖採 ${envDetail.comboName}；控制彎矩為 ${envDetail.envelope.M.abs.name}，控制剪力為 ${envDetail.envelope.V.abs.name}。此摘要僅反映組合控制值，不代表跨內內力包絡。` : '若需荷重組合控制摘要，請先使用載重組合產生器套用後再輸出計算書。',
+      ...(reportDetail ? [
+        `規範依據: AISC 360-22 Section ${flex.webSection}；台灣鋼結構設計規範第七章撓曲構材與附錄三補充規定`,
+        `斷面條件: ${secName}, Fy=${Fy} kgf/cm², Lb=${Lb} cm, Cb=${Cb}`,
+        `斷面分類說明: 受壓翼板為${clsText(cls.flange)}，腹板為${clsText(cls.web)}。`,
+      ] : []),
+    ],
+  });
+}
+</script>
+<!-- ForcePicker 接收器 -->
+<script src="../../core/ui/forces-receive.js"></script>
+<script src="../../core/ui/report.js"></script>
+</body>
+</html>

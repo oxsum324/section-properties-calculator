@@ -5,6 +5,9 @@
  *     嚴謹應變相容解 (二分法)，回傳 {c, a, Cc, armC, eqN, Mn, epsT_max, valid}
  *     - shape: { type:'rect', b }
  *              | { type:'T', bw, bf, hf, flangeOnComp:bool }
+ *              | { type:'L', bw, bf, hf, flangeOnComp:bool }
+ *       T/L 形壓力區計算相同 (Whitney 應力方塊僅取決於面積)；
+ *       L 形翼板偏心影響 Ig/Mcr，由呼叫端自行處理。
  *     - layers: [{ y, As }]   y = 距壓力面深度 (cm)
  *     - 回傳 Mn 單位 = kgf·cm，對壓力面 y=0 取矩
  *
@@ -40,7 +43,7 @@
         const Cc = 0.85 * fc * shape.b * a;
         return { Cc, armC: a / 2 };
       }
-      // T/L 形
+      // T/L 形 (壓力區幾何相同；L 形偏心由呼叫端處理 Ig/Mcr)
       if (shape.flangeOnComp) {
         if (a <= shape.hf) {
           const Cc = 0.85 * fc * shape.bf * a;

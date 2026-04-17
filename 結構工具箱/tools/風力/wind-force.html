@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐風設計 — 矩形建物 MWFRS V3</title>
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  table.story { width:100%; border-collapse:collapse; font-size:0.82em; margin-top:8px; }
+  table.story th, table.story td { border:1px solid var(--border); padding:5px 8px; text-align:right; font-family:'Consolas',monospace; }
+  table.story th { background:#f1f5f9; color:var(--primary); text-align:center; font-weight:600; font-family:inherit; }
+  table.story td.idx { text-align:center; font-weight:700; color:var(--primary); }
+  table.story td.edit-cell { text-align:center; }
+  table.story input.story-height-input { width:88px; padding:4px 6px; text-align:right; font-family:'Consolas',monospace; }
+  .step { margin-bottom:14px; }
+  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px;
+                padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
+  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
+  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
+  .step-body .val.hl { font-size:1.05em; color:#0369a1; }
+  .legend { font-size:0.78em; color:var(--text-light); margin-top:6px; line-height:1.7; }
+  .legend code { background:#f1f5f9; padding:1px 5px; border-radius:3px; }
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--primary); color:#fff; }
+  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .inline-actions.compact { margin-top:6px; }
+  .btn-secondary { background:#e2e8f0; color:#0f172a; border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; }
+  .btn-secondary:hover { background:#cbd5e1; }
+  .story-height-summary { margin-top:8px; font-size:0.82em; color:var(--text-light); line-height:1.7; }
+  .result-primary h2 { color:#0f766e; }
+  #controlTable td:first-child,
+  #dirComboTable td:last-child,
+  #comboTable td:first-child { font-family:inherit; }
+  #controlTable td:first-child { text-align:left; }
+  #dirComboTable td:last-child,
+  #comboTable td:last-child { text-align:left; }
+
+  @media print {
+    .card { break-inside: avoid; page-break-inside: avoid; }
+    table.story { font-size:0.76em; }
+    table.story th, table.story td { padding:4px 5px; }
+    #controlTable, #dirComboTable, #comboTable, #storyTable { table-layout:fixed; }
+  }
+
+  @media (max-width: 768px) {
+    table.story { font-size: 0.78em; }
+    table.story th, table.story td { padding: 4px 5px; }
+    .form-row { grid-template-columns: 1fr; }
+    .step-title { font-size: 0.85em; }
+    .step-body { font-size: 0.82em; }
+  }
+  @media (max-width: 480px) {
+    .step-title { font-size: 0.82em; padding: 4px 8px; }
+    .step-body { font-size: 0.78em; }
+    .banner-key .k { font-size: 0.78em; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐風設計 — 矩形建物 MWFRS <span class="badge-v">V3</span></h1>
+  <p>依「建築物耐風設計規範」(107 年版) ｜ 矩形建物牆面 + 一般屋面 MWFRS ｜ 單位：m, kgf/m²</p>
+  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="card mode-bar print-meta">
+  <strong class="mode-bar__label">計畫資訊：</strong>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo" class="w-no" placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+  </div>
+</div>
+<div class="main-layout">
+
+<!-- ═══ 左：輸入面板 ═══ -->
+<div>
+  <div class="card">
+    <h2>適用範圍</h2>
+    <div class="note">
+      本頁定位為 <strong>矩形建物主結構風力（MWFRS）工具</strong>。
+      目前已納入外牆順風向、背風面、側牆、內壓組合，以及表 2.5 / 2.6 / 2.7 / 2.8 的一般屋面主結構壓力；
+      風洞試驗替代與非本頁幾何假設範圍，不適用本頁，應改用專頁或人工計算。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>建築物基本資料</h2>
+    <div class="form-group">
+      <label>地點 (基本設計風速 V<sub>10(C)</sub>)</label>
+      <select id="city"></select>
+      <div class="hint" id="vHint"></div>
+    </div>
+    <div class="form-group">
+      <label>或自訂風速 (m/s)</label>
+      <input id="Vcustom" type="number" value="" step="0.5" placeholder="留空 = 依地點">
+    </div>
+    <div class="form-group">
+      <label>地況分類</label>
+      <select id="terrain">
+        <option value="A">A — 大城市市中心 (α=0.32, z<sub>g</sub>=500m)</option>
+        <option value="B">B — 都市郊區 (α=0.25, z<sub>g</sub>=400m)</option>
+        <option value="C" selected>C — 開闊平坦地 (α=0.15, z<sub>g</sub>=300m)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>用途係數</label>
+      <select id="impClass"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>封閉型式</label>
+        <select id="encl">
+          <option value="enclosed" selected>封閉式 (GCpi = ±0.375)</option>
+          <option value="partial">部分封閉式 (GCpi = ±1.145)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>屋面坡度 θ (deg)</label>
+        <input id="roofSlope" type="number" value="0" step="0.5">
+        <div class="hint">表 2.5 / 2.7：θ&lt;10° 時 h 應採屋簷高</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>屋頂型式</label>
+        <select id="roofType">
+          <option value="flat" selected>平屋頂 / 低坡度屋面</option>
+          <option value="monoslope">單斜屋頂</option>
+          <option value="gable">雙斜屋頂</option>
+          <option value="arched">拱形屋頂</option>
+          <option value="sawtooth">鋸齒屋頂</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>屋脊方向</label>
+        <select id="ridgeAxis">
+          <option value="parallelB" selected>屋脊平行 B 向</option>
+          <option value="parallelL">屋脊平行 L 向</option>
+        </select>
+        <div class="hint">X 風向以 B 為迎風寬；Y 風向以 L 為迎風寬。屋面查表會依屋脊方向自動切換平行/垂直關係。</div>
+      </div>
+    </div>
+    <div class="form-row" id="archRow" style="display:none;">
+      <div class="form-group">
+        <label>拱形屋頂型式</label>
+        <select id="archMode">
+          <option value="with_walls" selected>有直立側牆拱形屋頂</option>
+          <option value="springline">無側牆拱形屋頂</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>拱高跨距比 r</label>
+        <input id="archRiseRatio" type="number" value="0.20" min="0" max="0.6" step="0.01">
+        <div class="hint">表 2.6：0 &lt; r ≤ 0.6</div>
+      </div>
+    </div>
+    <div class="form-row" id="sawRow" style="display:none;">
+      <div class="form-group">
+        <label>鋸齒屋頂面代號</label>
+        <select id="sawtoothFaceCode">
+          <option value="D" selected>第一個迎風面 D</option>
+          <option value="E">第一個背風面 E</option>
+          <option value="D'">第二個迎風面 D'</option>
+          <option value="E'">第二個背風面 E'</option>
+          <option value='D"'>第三個迎風面 D"</option>
+          <option value='E"'>第三個背風面 E"</option>
+          <option value='D"""'>第四個迎風面 D"""</option>
+          <option value='E"""'>第四個背風面 E"""</option>
+          <option value='D""""'>第五個迎風面 D""""</option>
+          <option value='E""""'>其餘 E""""</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>備註</label>
+        <div class="hint" style="margin-top:10px;">表 2.8 中 D、E、D' 需轉用表 2.5，其餘面代號採固定 Cp。</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>地形係數 K<sub>zt</sub></label>
+        <input id="Kzt" type="number" value="1.0" step="0.05">
+        <div class="hint">平地取 1.0；山丘/懸崖 > 1.0</div>
+      </div>
+      <div class="form-group">
+        <label>適用說明</label>
+        <div class="hint" style="margin-top:10px;">本頁為 MWFRS 主結構風力；局部構材/包覆物請改用 C&amp;C，女兒牆另有專頁。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>建物尺寸</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>迎風寬度 B (m)</label>
+        <input id="B" type="number" value="20" step="0.5">
+      </div>
+      <div class="form-group">
+        <label>順風長度 L (m)</label>
+        <input id="L" type="number" value="30" step="0.5">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>樓層數 N</label>
+        <input id="N" type="number" value="6" min="1" step="1">
+      </div>
+      <div class="form-group">
+        <label>初始樓高 h (m)</label>
+        <input id="h" type="number" value="3.5" step="0.1">
+        <div class="hint">先依此值生成逐層樓高表，後續可逐層微調</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>屋簷高度 h<sub>e</sub> (m)</label>
+        <input id="he" type="number" value="21" step="0.1">
+        <div class="hint">θ&lt;10° 時，屋面查表與屋面 q(h) 採 h<sub>e</sub></div>
+      </div>
+      <div class="form-group">
+        <label>備註</label>
+        <div class="hint" style="margin-top:10px;">平屋頂通常可令 h<sub>e</sub> = 總高；斜屋頂請填實際屋簷高。</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>女兒牆高度 h<sub>p</sub> (m)</label>
+        <input id="hp" type="number" value="0" min="0" step="0.1">
+        <div class="hint">0 = 無女兒牆；若有則同步顯示 MWFRS 女兒牆風壓</div>
+      </div>
+      <div class="form-group">
+        <label>備註</label>
+        <div class="hint" style="margin-top:10px;">女兒牆採第二章 Eq 2.3：迎風 +1.8、背風 -1.1。</div>
+      </div>
+    </div>
+  </div>
+
+  <details class="card fold-card" id="storyHeightCard" style="display:none;">
+    <summary class="fold-summary">
+      <span>逐層樓高設定</span>
+      <span class="fold-chip">進階輸入</span>
+    </summary>
+    <div class="note">
+      本區依 <strong>樓層數 N</strong> 與 <strong>初始樓高 h</strong> 生成逐層樓高表。生成後可逐層微調，重算時即按各層實際高度計入。
+    </div>
+    <div class="inline-actions">
+      <button type="button" class="btn-secondary" id="btnStoryReset">依目前 N / h 重新生成逐層樓高</button>
+      <button type="button" class="btn-secondary" id="btnStoryApply">套用逐層樓高並重算</button>
+    </div>
+    <table class="story" id="storyHeightTable">
+      <thead>
+        <tr>
+          <th>樓層</th>
+          <th>樓高 (m)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="story-height-summary" id="storyHeightSummary"></div>
+  </details>
+
+  <details class="card fold-card" id="dynamicCard">
+    <summary class="fold-summary">
+      <span>結構動態特性與加速度</span>
+      <span class="fold-chip">柔性結構 / 舒適度</span>
+    </summary>
+    <div class="checkbox-row" style="background:#fef3c7; border-color:#fcd34d;">
+      <input type="checkbox" id="flex" style="accent-color:#d97706;">
+      <label for="flex" style="color:#78350f;">柔性結構 (f<sub>n</sub> &lt; 1 Hz) — 計算 G<sub>f</sub></label>
+    </div>
+    <div id="flexRow" style="display:none;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>結構型式（阻尼比）</label>
+          <select id="dampingType">
+            <option value="RC" selected>RC / SRC（建議 β = 0.02）</option>
+            <option value="SS">SS（建議 β = 0.01）</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>自然頻率 f<sub>n</sub> (Hz)</label>
+          <input id="fn" type="number" value="0.5" step="0.05">
+          <div class="hint" id="fnHint">規範解說建議概略 fn ≈ 22.86 / H</div>
+          <div class="inline-actions compact">
+            <button type="button" class="btn-secondary" id="btnFreqAll">全部帶入建議值</button>
+            <button type="button" class="btn-secondary" id="btnFreqMain">帶入規範建議值</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>阻尼比 β</label>
+          <input id="beta" type="number" value="0.02" step="0.005">
+          <div class="hint">規範解說建議：RC / SRC = 0.02，SS = 0.01</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Y 風向 f<sub>a,y</sub> (Hz)</label>
+        <input id="faY" type="number" value="" step="0.01" placeholder="留空 = 沿用 X 風向 f_a">
+        <div class="inline-actions compact">
+          <button type="button" class="btn-secondary" id="btnFreqY">帶入 Y 風向建議值</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Y 風向 f<sub>t,y</sub> (Hz)</label>
+        <input id="ftY" type="number" value="" step="0.01" placeholder="留空 = 沿用 X 風向 f_t">
+        <div class="hint">若 X / Y 方向動力特性不同，請分別輸入；留空時沿用 X 方向頻率。</div>
+      </div>
+    </div>
+    <div class="checkbox-row" style="margin-top:10px; background:#ecfccb; border-color:#86efac;">
+      <input type="checkbox" id="chkAccel" style="accent-color:#15803d;">
+      <label for="chkAccel" style="color:#166534;">啟用最高居室樓層角隅側向加速度檢核（第四章）</label>
+    </div>
+    <div id="accelRow" style="display:none;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>加速度模式</label>
+          <select id="accelMode">
+            <option value="manual" selected>規範檢核：輸入 D* / L* / θ*</option>
+            <option value="estimate">簡化推估：輸入平均密度</option>
+          </select>
+          <div class="hint">簡化推估僅供報表輔助，不取代第四章正式檢核。</div>
+        </div>
+        <div class="form-group">
+          <label>最高居室樓層</label>
+          <input id="occFloor" type="number" value="6" min="1" step="1">
+          <div class="hint">以樓層編號表示；通常取最高使用樓層</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>橫風向自然頻率 f<sub>a</sub> (Hz)</label>
+          <input id="fa" type="number" value="0.50" step="0.01">
+          <div class="hint" id="faHint">規範解說建議概略 f<sub>a</sub> ≈ 22.86 / H</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>扭轉向自然頻率 f<sub>t</sub> (Hz)</label>
+          <input id="ft" type="number" value="0.65" step="0.01">
+          <div class="hint" id="ftHint">規範解說建議概略 f<sub>t</sub> ≈ 1.3 f<sub>n</sub></div>
+        </div>
+        <div class="form-group">
+          <label>說明</label>
+          <div class="hint" style="margin-top:10px;">以下位移值應為回歸期半年的共振部分風力作用下，經結構分析所得最高居室樓層形心位移。</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>順風向位移 D* (m)</label>
+          <input id="Dstar" type="number" value="0" step="0.0001">
+        </div>
+        <div class="form-group">
+          <label>橫風向位移 L* (m)</label>
+          <input id="Lstar" type="number" value="0" step="0.0001">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>扭轉角位移 θ* (rad)</label>
+          <input id="thetaStar" type="number" value="0" step="0.000001">
+        </div>
+        <div class="form-group">
+          <label>容許值</label>
+          <div class="hint" style="margin-top:10px;">第四章 4.3：最高居室樓層角隅尖峰加速度 ≤ 0.05 m/s²。</div>
+        </div>
+      </div>
+      <div id="accelEstimateRow" style="display:none;">
+        <div class="form-row">
+          <div class="form-group">
+            <label>結構型式</label>
+            <select id="structType">
+              <option value="RC" selected>RC 結構物（建議 400 kg/m³）</option>
+              <option value="SRC">SRC 結構物（建議 300 kg/m³）</option>
+              <option value="SS">SS 結構物（建議 200 kg/m³）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>平均密度 (kg/m³)</label>
+            <input id="massDensity" type="number" value="400" step="10">
+            <div class="hint">僅用於簡化推估最高居室加速度，不影響規範風力計算值。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <div class="card">
+    <button class="btn-calc" id="btnCalc">計算風力</button>
+    <div class="chk-detail">
+      <input type="checkbox" id="chkDetail">
+      <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
+    </div>
+    <button class="btn-print" type="button">列印計算書</button>
+  </div>
+
+  <details class="card fold-card">
+    <summary class="fold-summary">
+      <span>計算書輸出項目</span>
+      <span class="fold-chip">列印勾選</span>
+    </summary>
+    <div class="checkbox-row"><input type="checkbox" id="rep_summary" checked><label for="rep_summary">1. 綜合結論摘要</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_applicability" checked><label for="rep_applicability">2. 適用性檢查</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_combo" checked><label for="rep_combo">3. 設計風力組合</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_control" checked><label for="rep_control">4. 採用控制表</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_accel_formal" checked><label for="rep_accel_formal">5. 第四章正式檢核</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_accel_estimate" checked><label for="rep_accel_estimate">6. 簡化推估附錄</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_dir_combo" checked><label for="rep_dir_combo">雙主風向設計風力組合</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_floor_combo" checked><label for="rep_floor_combo">逐層設計風力組合</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_story" checked><label for="rep_story">逐層風壓與設計風力</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_case"><label for="rep_case">MWFRS 內外壓組合</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_roof"><label for="rep_roof">屋面主結構壓力</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_lateral"><label for="rep_lateral">橫風向與扭轉向設計風力</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_parapet"><label for="rep_parapet">MWFRS 女兒牆</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_route"><label for="rep_route">適用分流</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_steps"><label for="rep_steps">逐步計算</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_inputs"><label for="rep_inputs">輸入資料表</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_notes"><label for="rep_notes">附註 / 說明</label></div>
+  </details>
+</div>
+
+<!-- ═══ 右：結果面板 ═══ -->
+<div id="resultPanel" style="display:none;">
+
+  <div class="card">
+    <div class="banner-status" id="banner">—</div>
+    <div class="banner-key" id="bannerKey"></div>
+  </div>
+
+  <div class="card">
+    <h2>適用性檢查</h2>
+    <div id="applicability" class="note"></div>
+  </div>
+
+  <div class="card result-primary">
+    <h2>設計風力組合</h2>
+    <div id="comboSummary" class="legend"></div>
+  </div>
+
+  <div class="card result-primary">
+    <h2>控制採用表</h2>
+    <table class="story" id="controlTable">
+      <thead>
+        <tr>
+          <th>項目</th>
+          <th>X 風向</th>
+          <th>Y 風向</th>
+          <th>控制風向</th>
+          <th>控制採用值</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="legend" id="controlNote"></div>
+  </div>
+
+  <div class="card result-primary">
+    <h2>雙主風向設計風力組合</h2>
+    <table class="story" id="dirComboTable">
+      <thead>
+        <tr>
+          <th>風向</th>
+          <th>迎風寬 / 順風長<br>(m)</th>
+          <th>屋面相對屋脊</th>
+          <th>W<sub>D</sub><br>(kgf)</th>
+          <th>W<sub>L</sub><br>(kgf)</th>
+          <th>W<sub>T</sub><br>(kgf·m)</th>
+          <th>橫風 / 扭矩路徑</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="legend" id="dirComboNote"></div>
+  </div>
+
+  <div class="card" id="accelFormalCard">
+    <h2>第四章正式檢核</h2>
+    <div id="accelFormalSummary" class="legend"></div>
+  </div>
+
+  <div class="card" id="accelEstimateCard" style="display:none;">
+    <h2>簡化推估附錄</h2>
+    <div id="accelEstimateSummary" class="legend"></div>
+  </div>
+
+  <div class="card">
+    <h2>逐層設計風力組合</h2>
+    <table class="story" id="comboTable">
+      <thead>
+        <tr>
+          <th>樓層</th>
+          <th>W<sub>D,x</sub><br>(kgf)</th>
+          <th>W<sub>L,x</sub><br>(kgf)</th>
+          <th>M<sub>T,x</sub><br>(kgf·m)</th>
+          <th>W<sub>D,y</sub><br>(kgf)</th>
+          <th>W<sub>L,y</sub><br>(kgf)</th>
+          <th>M<sub>T,y</sub><br>(kgf·m)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="legend" id="comboNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>MWFRS 內外壓組合</h2>
+    <div id="caseSummary" class="legend"></div>
+  </div>
+
+  <div class="card">
+    <h2>屋面主結構壓力</h2>
+    <div id="roofSummary" class="legend"></div>
+  </div>
+
+  <div class="card">
+    <h2>橫風向與扭轉向設計風力</h2>
+    <div id="lateralSummary" class="legend"></div>
+  </div>
+
+  <div class="card">
+    <h2>MWFRS 女兒牆</h2>
+    <div id="parapetSummary" class="legend"></div>
+  </div>
+
+  <div class="card">
+    <h2>適用分流</h2>
+    <div id="routeSummary" class="note"></div>
+  </div>
+
+  <div class="card" id="stepsCard">
+    <h2>逐步計算</h2>
+    <div id="steps"></div>
+  </div>
+
+  <div class="card">
+    <h2>逐層風壓與風力</h2>
+    <table class="story" id="storyTable">
+      <thead>
+        <tr>
+          <th>樓層</th><th>z<sub>mid</sub><br>(m)</th><th>K<sub>z</sub></th>
+          <th>q<sub>z</sub><br>(kgf/m²)</th><th>p<sub>w</sub><br>(kgf/m²)</th>
+          <th>p<sub>l</sub><br>(kgf/m²)</th><th>p<sub>net</sub><br>(kgf/m²)</th>
+          <th>A<br>(m²)</th><th>F<sub>i</sub><br>(kgf)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="legend" id="storyNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>公式 (107 年版)</h2>
+    <div class="legend">
+      <code>Eq 2.6</code> q(z) = 0.06 · K(z) · K<sub>zt</sub> · [I·V<sub>10(C)</sub>]²　(kgf/m²)<br>
+      <code>Eq 2.7</code> K(z) = 2.774 · (z/z<sub>g</sub>)<sup>2α</sup>，z &lt; z<sub>min</sub> 時取 z<sub>min</sub><br>
+      <code>Table 2.2</code> 地況 A: α=0.32, z<sub>g</sub>=500m; B: α=0.25, z<sub>g</sub>=400m; C: α=0.15, z<sub>g</sub>=300m<br>
+      <code>Eq 2.9</code> G = 1.927·(1+1.7·g<sub>Q</sub>·I<sub>z̄</sub>·Q)/(1+1.7·g<sub>V</sub>·I<sub>z̄</sub>)　剛性可取 1.88<br>
+      <code>Eq 2.13</code> G<sub>f</sub> = 1.927·(1+1.7·I<sub>z̄</sub>·√(g²<sub>Q</sub>Q²+g²<sub>R</sub>R²))/(1+1.7·g<sub>V</sub>·I<sub>z̄</sub>)<br>
+      <code>Table 2.4</code> 迎風 C<sub>p</sub>=+0.8；背風 C<sub>p</sub> 依 L/B；側風 C<sub>p</sub>=−0.7<br>
+      <code>MWFRS</code> 牆面/一般屋面以 <code>p = qGCp - qh(GCpi)</code> 檢核正負內壓案例<br>
+      <code>Table 2.5</code> 一般屋頂外風壓係數 Cp；<code>Table 2.6</code> 拱形屋頂；<code>Table 2.7</code> 雙斜式屋頂；<code>Table 2.8</code> 鋸齒屋頂<br>
+      <code>Eq 2.21</code> W<sub>Lz</sub> = 0.87·√(L/B)·W<sub>Dz</sub>　(h/√BL &lt; 3 橫風向)<br>
+      <code>Eq 2.23</code> M<sub>Tz</sub> = 0.28·B·W<sub>Dz</sub>　(h/√BL &lt; 3 扭矩)<br>
+      <code>C4.1</code> A<sub>D</sub> = (2πf<sub>n</sub>)²D*，A<sub>L</sub> = (2πf<sub>a</sub>)²L*，A<sub>T</sub> = (2πf<sub>t</sub>)²θ*<br>
+      <code>第四章角隅式</code> Ã = √[A<sub>D</sub>² + A<sub>L</sub>² + A<sub>T</sub>²(B²/4 + L²/4) + L·A<sub>L</sub>·A<sub>T</sub>]<br>
+      <code>簡化推估</code> M = ρBLH，I<sub>θ</sub> = M(B²+L²)/12，a ≈ F/M，角隅扭轉加速度 ≈ (T/I<sub>θ</sub>)·r
+    </div>
+    <div class="note">
+      ⚠ 本工具適用於矩形建物之外牆/側牆、一般平屋頂、單斜屋頂、雙斜屋頂、拱形屋頂與鋸齒屋頂 MWFRS。
+      規範檢核模式需由設計人輸入最高居室樓層之結構分析位移；簡化推估模式僅供報表輔助，不取代第四章正式檢核。
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<script src="../../core/loads/wind.js"></script>
+<script src="../../鋼筋混凝土/shared/report.js"></script>
+<script src="../../core/wind-report.js"></script>
+<script>
+const W = Wind;
+let storyHeightDraft = [];
+function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
+function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function fmtSigned(v, d) {
+  if (v == null || !isFinite(v)) return '—';
+  const n = Number(v).toFixed(d);
+  return (v > 0 ? '+' : '') + n;
+}
+function pickControl(x, y) {
+  const xValid = isFinite(x);
+  const yValid = isFinite(y);
+  if (!xValid && !yValid) return { dir: '—', value: null };
+  if (xValid && !yValid) return { dir: 'X 風向', value: x };
+  if (!xValid && yValid) return { dir: 'Y 風向', value: y };
+  return Math.abs(x) >= Math.abs(y)
+    ? { dir: 'X 風向', value: x }
+    : { dir: 'Y 風向', value: y };
+}
+function directionWindToRidge(axis, dir) {
+  if (dir === 'x') return axis === 'parallelB' ? 'perpendicular' : 'parallel';
+  return axis === 'parallelB' ? 'parallel' : 'perpendicular';
+}
+function windToRidgeLabel(v) {
+  return v === 'parallel' ? '平行於屋脊' : '垂直於屋脊';
+}
+function getStoryCount() { return Math.max(1, Math.round(val('N'))); }
+function getInitialStoryHeight() { return val('h'); }
+function buildUniformStoryHeights() {
+  const N = getStoryCount();
+  const h = getInitialStoryHeight();
+  return Array(N).fill(h);
+}
+function updateStoryHeightSummary(heights) {
+  const total = heights.reduce((s, v) => s + v, 0);
+  document.getElementById('storyHeightSummary').innerHTML =
+    `目前逐層資料：<strong>${heights.length}</strong> 層，總高 = <strong>${fmt(total,2)}</strong> m。` +
+    ` 若修改 <code>N</code> 或 <code>h</code> 後要重建逐層資料，請按「依目前 N / h 重新生成逐層樓高」。`;
+}
+function renderStoryHeightEditor(heights) {
+  const tbody = document.querySelector('#storyHeightTable tbody');
+  tbody.innerHTML = '';
+  heights.slice().reverse().forEach((height, idx) => {
+    const floor = heights.length - idx;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="idx">${floor}F</td>
+      <td class="edit-cell"><input class="story-height-input" type="number" min="0.1" step="0.1" value="${fmt(height,2)}" data-floor="${floor}"></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('storyHeightCard').style.display = '';
+  document.getElementById('storyHeightCard').open = true;
+  updateStoryHeightSummary(heights);
+}
+function readStoryHeightEditor() {
+  const inputs = Array.from(document.querySelectorAll('#storyHeightTable .story-height-input'));
+  if (!inputs.length) return null;
+  const heightsTopDown = inputs.map(input => parseFloat(input.value));
+  if (heightsTopDown.some(v => !isFinite(v) || v <= 0)) return null;
+  return heightsTopDown.reverse();
+}
+function resolveStoryHeights() {
+  const N = getStoryCount();
+  const uniform = buildUniformStoryHeights();
+  const edited = readStoryHeightEditor();
+  if (!edited || edited.length !== N) return uniform;
+  return edited;
+}
+function refreshFnHint(heights) {
+  const totalH = (heights && heights.length) ? heights.reduce((s, v) => s + v, 0) : getStoryCount() * getInitialStoryHeight();
+  if (totalH > 0) {
+    const est = W.estFrequency(totalH);
+    document.getElementById('fnHint').textContent = `概略 fn ≈ ${est.fn.toFixed(2)} Hz`;
+    document.getElementById('faHint').textContent = `概略 f_a ≈ ${est.fa.toFixed(2)} Hz`;
+    document.getElementById('ftHint').textContent = `概略 f_t ≈ ${est.ft.toFixed(2)} Hz`;
+  }
+}
+function getEstimatedFreqSet() {
+  const storyH = resolveStoryHeights();
+  const totalH = storyH.reduce((s, v) => s + v, 0);
+  const est = W.estFrequency(totalH);
+  return {
+    totalH,
+    fn: est.fn,
+    faX: est.fa,
+    ftX: est.ft,
+    faY: est.fa,
+    ftY: est.ft,
+  };
+}
+function applyMainRecommendedFrequencies() {
+  const est = getEstimatedFreqSet();
+  const dampingType = document.getElementById('dampingType').value;
+  document.getElementById('fn').value = est.fn.toFixed(2);
+  document.getElementById('fa').value = est.faX.toFixed(2);
+  document.getElementById('ft').value = est.ftX.toFixed(2);
+  document.getElementById('beta').value = dampingType === 'SS' ? '0.01' : '0.02';
+  refreshFnHint(resolveStoryHeights());
+}
+function applyYRecommendedFrequencies() {
+  const est = getEstimatedFreqSet();
+  document.getElementById('faY').value = est.faY.toFixed(2);
+  document.getElementById('ftY').value = est.ftY.toFixed(2);
+}
+function applyAllRecommendedValues() {
+  applyMainRecommendedFrequencies();
+  applyYRecommendedFrequencies();
+}
+function syncAccelInputs() {
+  if (document.getElementById('chkAccel').checked) document.getElementById('dynamicCard').open = true;
+  document.getElementById('accelRow').style.display = document.getElementById('chkAccel').checked ? '' : 'none';
+  const estimate = document.getElementById('accelMode').value === 'estimate';
+  document.getElementById('accelEstimateRow').style.display = estimate && document.getElementById('chkAccel').checked ? '' : 'none';
+}
+function syncStructDensity() {
+  const type = document.getElementById('structType').value;
+  const density = W.STRUCTURE_DENSITY[type];
+  if (density) document.getElementById('massDensity').value = density;
+}
+function syncRecommendedDamping() {
+  const dampingType = document.getElementById('dampingType').value;
+  document.getElementById('beta').value = dampingType === 'SS' ? '0.01' : '0.02';
+}
+
+function syncRoofInputs() {
+  const roofType = document.getElementById('roofType').value;
+  const ridge = document.getElementById('ridgeAxis');
+  document.getElementById('archRow').style.display = roofType === 'arched' ? '' : 'none';
+  document.getElementById('sawRow').style.display = roofType === 'sawtooth' ? '' : 'none';
+  ridge.disabled = roofType === 'arched' || roofType === 'sawtooth' || roofType === 'flat';
+}
+
+// ── 城市選單 ──
+(function() {
+  const sel = document.getElementById('city');
+  Object.entries(W.CITY_QUICK).forEach(([name, v]) => {
+    const o = document.createElement('option');
+    o.value = name;
+    o.textContent = `${name}　(V = ${v} m/s)`;
+    if (name === '臺北市') o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', refreshV);
+  refreshV();
+})();
+function refreshV() {
+  const v = W.CITY_QUICK[document.getElementById('city').value];
+  document.getElementById('vHint').textContent = `V₁₀₍C₎ = ${v} m/s (10 分鐘平均, 50 年回歸期)`;
+}
+
+// ── 用途係數選單 ──
+(function() {
+  const sel = document.getElementById('impClass');
+  Object.entries(W.IMPORTANCE).forEach(([k, v]) => {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = `${v.name}　I=${v.factor}`;
+    if (k === 'V') o.selected = true;
+    sel.appendChild(o);
+  });
+})();
+
+// ── 柔性切換 ──
+document.getElementById('flex').addEventListener('change', function() {
+  document.getElementById('dynamicCard').open = true;
+  document.getElementById('flexRow').style.display = this.checked ? '' : 'none';
+  refreshFnHint(resolveStoryHeights());
+});
+document.getElementById('chkAccel').addEventListener('change', syncAccelInputs);
+document.getElementById('accelMode').addEventListener('change', syncAccelInputs);
+document.getElementById('structType').addEventListener('change', syncStructDensity);
+document.getElementById('dampingType').addEventListener('change', syncRecommendedDamping);
+document.getElementById('btnFreqAll').addEventListener('click', applyAllRecommendedValues);
+document.getElementById('btnFreqMain').addEventListener('click', applyMainRecommendedFrequencies);
+document.getElementById('btnFreqY').addEventListener('click', applyYRecommendedFrequencies);
+document.getElementById('roofType').addEventListener('change', syncRoofInputs);
+syncRoofInputs();
+syncAccelInputs();
+syncStructDensity();
+syncRecommendedDamping();
+document.getElementById('N').addEventListener('input', () => refreshFnHint(buildUniformStoryHeights()));
+document.getElementById('h').addEventListener('input', () => refreshFnHint(buildUniformStoryHeights()));
+document.getElementById('btnStoryReset').addEventListener('click', () => {
+  document.getElementById('storyHeightCard').open = true;
+  const heights = buildUniformStoryHeights();
+  if (heights.some(v => !isFinite(v) || v <= 0)) { alert('請先輸入有效之樓層數 N 與初始樓高 h'); return; }
+  storyHeightDraft = heights.slice();
+  renderStoryHeightEditor(storyHeightDraft);
+  refreshFnHint(storyHeightDraft);
+});
+document.getElementById('btnStoryApply').addEventListener('click', () => {
+  document.getElementById('storyHeightCard').open = true;
+  const heights = readStoryHeightEditor();
+  if (!heights || heights.length !== getStoryCount()) { alert('逐層樓高資料無效，請確認各層樓高皆大於 0，且層數與 N 一致。'); return; }
+  storyHeightDraft = heights.slice();
+  updateStoryHeightSummary(storyHeightDraft);
+  refreshFnHint(storyHeightDraft);
+  calc(storyHeightDraft);
+});
+
+// ═══════════════════════════════
+//  計算
+// ═══════════════════════════════
+document.getElementById('btnCalc').addEventListener('click', calc);
+
+function calc(forcedStoryHeights) {
+  const cityV = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
+  const Vcustom = parseFloat(document.getElementById('Vcustom').value);
+  const V = (isFinite(Vcustom) && Vcustom > 0) ? Vcustom : cityV;
+  const terrain = document.getElementById('terrain').value;
+  const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
+  const Kzt = val('Kzt') || 1.0;
+  const B = val('B'), L = val('L');
+  const N = getStoryCount();
+  const h = getInitialStoryHeight();
+  const he = val('he');
+  const encl = document.getElementById('encl').value;
+  const roofSlope = val('roofSlope');
+  const roofType = document.getElementById('roofType').value;
+  const ridgeAxis = document.getElementById('ridgeAxis').value;
+  const windToRidge = directionWindToRidge(ridgeAxis, 'x');
+  const windToRidgeY = directionWindToRidge(ridgeAxis, 'y');
+  const archMode = document.getElementById('archMode').value;
+  const archRiseRatio = val('archRiseRatio');
+  const sawtoothFaceCode = document.getElementById('sawtoothFaceCode').value;
+  const hp = val('hp');
+  const isFlexible = document.getElementById('flex').checked;
+  const fn = val('fn') || 0.5;
+  const beta = val('beta') || 0.02;
+  const doAccelCheck = document.getElementById('chkAccel').checked;
+  const accelMode = document.getElementById('accelMode').value;
+  const occFloor = Math.max(1, Math.round(val('occFloor')));
+  const faInput = val('fa');
+  const ftInput = val('ft');
+  const faYInput = parseFloat(document.getElementById('faY').value);
+  const ftYInput = parseFloat(document.getElementById('ftY').value);
+  const Dstar = val('Dstar');
+  const Lstar = val('Lstar');
+  const thetaStar = val('thetaStar');
+  const massDensity = val('massDensity');
+  const storyH = Array.isArray(forcedStoryHeights) ? forcedStoryHeights.slice() : resolveStoryHeights();
+  const totalHForEst = storyH.reduce((s, v) => s + v, 0);
+  const estFreq0 = W.estFrequency(totalHForEst);
+  const fa = faInput > 0 ? faInput : estFreq0.fa;
+  const ft = ftInput > 0 ? ftInput : estFreq0.ft;
+  const faY = isFinite(faYInput) && faYInput > 0 ? faYInput : fa;
+  const ftY = isFinite(ftYInput) && ftYInput > 0 ? ftYInput : ft;
+
+  if (B <= 0 || L <= 0 || h <= 0 || he <= 0) { alert('請輸入有效之 B / L / h / h_e'); return; }
+  if (storyH.length !== N || storyH.some(v => !isFinite(v) || v <= 0)) { alert('逐層樓高資料無效，請確認各層樓高皆大於 0，且層數與 N 一致。'); return; }
+  if (roofSlope < 0) { alert('屋面坡度 θ 不可小於 0'); return; }
+  if (hp < 0) { alert('女兒牆高度 h_p 不可小於 0'); return; }
+  if (roofType === 'arched' && (archRiseRatio <= 0 || archRiseRatio > 0.6)) { alert('拱形屋頂之 r 應介於 0 ~ 0.6'); return; }
+  if (doAccelCheck && accelMode === 'estimate' && (!isFinite(massDensity) || massDensity <= 0)) { alert('簡化推估模式下，平均密度應大於 0。'); return; }
+  storyHeightDraft = storyH.slice();
+  renderStoryHeightEditor(storyHeightDraft);
+  refreshFnHint(storyHeightDraft);
+  const r = W.calcBuildingWind({
+    V, terrain, I, B, L, storyH, Kzt, isFlexible, fn, beta, encl, roofSlope, roofType, windToRidge,
+    archMode, archRiseRatio, sawtoothFaceCode, eaveHeight: he, fa, ft
+  });
+  const rY = W.calcBuildingWind({
+    V, terrain, I, B: L, L: B, storyH, Kzt, isFlexible, fn, beta, encl, roofSlope, roofType, windToRidge: windToRidgeY,
+    archMode, archRiseRatio, sawtoothFaceCode, eaveHeight: he, fa: faY, ft: ftY
+  });
+  const occFloorUse = Math.min(Math.max(occFloor, 1), storyH.length);
+  const occHeight = storyH.slice(0, occFloorUse).reduce((s, v) => s + v, 0);
+  const hasLateralStep = !!(r.crossWind || r.torsion);
+  document.getElementById('occFloor').value = occFloorUse;
+  if (!(faInput > 0)) document.getElementById('fa').value = estFreq0.fa.toFixed(2);
+  if (!(ftInput > 0)) document.getElementById('ft').value = estFreq0.ft.toFixed(2);
+  if (!(isFinite(faYInput) && faYInput > 0)) document.getElementById('faY').value = faY.toFixed(2);
+  if (!(isFinite(ftYInput) && ftYInput > 0)) document.getElementById('ftY').value = ftY.toFixed(2);
+  let accel = null;
+  let accelY = null;
+  let accelEstimate = null;
+  let accelEstimateY = null;
+  const Vhalf = V * W.V_HALF_YEAR_RATIO;
+  if (doAccelCheck) {
+    if (accelMode === 'manual') {
+      if (fa <= 0 || ft <= 0 || fn <= 0) { alert('啟用角隅加速度檢核時，f_n、f_a、f_t 均須大於 0。'); return; }
+      if (Dstar < 0 || Lstar < 0 || thetaStar < 0) { alert('D*、L*、θ* 應輸入非負值。'); return; }
+      accel = W.calcCornerPeakAcceleration({ fn, fa, ft, Dstar, Lstar, thetaStar, B, L });
+      accelY = W.calcCornerPeakAcceleration({ fn, fa: faY, ft: ftY, Dstar, Lstar, thetaStar, B: L, L: B });
+    } else {
+      const rHalf = W.calcBuildingWind({
+        V: Vhalf, terrain, I, B, L, storyH, Kzt, isFlexible, fn, beta, encl, roofSlope, roofType, windToRidge,
+        archMode, archRiseRatio, sawtoothFaceCode, eaveHeight: he, fa, ft
+      });
+      const rHalfY = W.calcBuildingWind({
+        V: Vhalf, terrain, I, B: L, L: B, storyH, Kzt, isFlexible, fn, beta, encl, roofSlope, roofType, windToRidge: windToRidgeY,
+        archMode, archRiseRatio, sawtoothFaceCode, eaveHeight: he, fa: faY, ft: ftY
+      });
+      const totalMassKg = massDensity * B * L * r.totalH;
+      accelEstimate = W.calcSimplifiedAccelEstimate({
+        totalMassKg,
+        widthB: B,
+        lengthL: L,
+        WD: rHalf.Vb,
+        WL: rHalf.crossWind ? rHalf.crossWind.reduce((s, c) => s + c.WL, 0) : 0,
+        WT: rHalf.torsion ? rHalf.torsion.reduce((s, c) => s + c.MT, 0) : 0,
+      });
+      accelEstimateY = W.calcSimplifiedAccelEstimate({
+        totalMassKg,
+        widthB: L,
+        lengthL: B,
+        WD: rHalfY.Vb,
+        WL: rHalfY.crossWind ? rHalfY.crossWind.reduce((s, c) => s + c.WL, 0) : 0,
+        WT: rHalfY.torsion ? rHalfY.torsion.reduce((s, c) => s + c.MT, 0) : 0,
+      });
+    }
+  }
+  const parapetWindward = hp > 0 ? W.calcMwfrsParapet({ V, terrain, I, Kzt, h: r.totalH, hp, face: 'windward' }) : null;
+  const parapetLeeward = hp > 0 ? W.calcMwfrsParapet({ V, terrain, I, Kzt, h: r.totalH, hp, face: 'leeward' }) : null;
+
+  // ── 顯示結果 ──
+  document.getElementById('resultPanel').style.display = '';
+  const t = W.TERRAIN[terrain];
+
+  // Banner
+  const banner = document.getElementById('banner');
+  banner.className = 'banner-status ok';
+  banner.innerHTML = `底部剪力 V<sub>b</sub> = <strong>${fmt(r.Vb,0)}</strong> kgf　( = <strong>${fmt(r.Vb/1000,1)}</strong> tf )`;
+
+  document.getElementById('bannerKey').innerHTML = `
+    <div class="k"><span class="k-label">V</span><span class="k-val">${V} m/s</span></div>
+    <div class="k"><span class="k-label">G</span><span class="k-val">${fmt(r.G,3)}</span></div>
+    <div class="k"><span class="k-label">q<sub>h</sub></span><span class="k-val">${fmt(r.qH,1)} kgf/m²</span></div>
+    <div class="k"><span class="k-label">GC<sub>pi</sub></span><span class="k-val">±${fmt(r.GCpi,3)}</span></div>
+    <div class="k"><span class="k-label">OTM</span><span class="k-val">${fmt(r.OTM/1000,0)} tf·m</span></div>
+    <div class="k"><span class="k-label">h/√BL</span><span class="k-val">${fmt(r.hBL,2)}</span></div>
+    <div class="k"><span class="k-label">地況</span><span class="k-val">${terrain} (α=${t.alpha})</span></div>
+  `;
+
+  const app = [];
+  app.push(`封閉型式：<strong>${document.getElementById('encl').selectedOptions[0].textContent}</strong>`);
+  app.push(`矩形建物假設：B = ${fmt(B,1)} m，L = ${fmt(L,1)} m，總高 = ${fmt(r.totalH,1)} m。`);
+  app.push(`樓層配置：共 <strong>${storyH.length}</strong> 層；逐層樓高 = <strong>${storyH.map(v => fmt(v,2)).join(' / ')}</strong> m。`);
+  app.push(`屋頂型式：<strong>${document.getElementById('roofType').selectedOptions[0].textContent}</strong>；屋脊方向：<strong>${document.getElementById('ridgeAxis').selectedOptions[0].textContent}</strong>。`);
+  app.push(`X 風向屋面關係：<strong>${windToRidgeLabel(windToRidge)}</strong>；Y 風向屋面關係：<strong>${windToRidgeLabel(windToRidgeY)}</strong>。`);
+  app.push(`屋面坡度 θ = ${fmt(roofSlope,1)}°；屋面 Cp 依 ${r.roof.reference}，比值採 ${r.roof.ratioLabel} = ${fmt(r.roof.ratioUsed,3)}；屋面高度採 h = ${fmt(r.roof.roofRefH,2)} m。`);
+  app.push(doAccelCheck
+    ? accelMode === 'manual'
+      ? `已啟用第四章角隅加速度檢核：最高居室樓層 = <strong>${occFloorUse}F</strong>（標高 ${fmt(occHeight,2)} m），f<sub>a</sub> = ${fmt(fa,3)} Hz，f<sub>t</sub> = ${fmt(ft,3)} Hz。`
+      : `已啟用簡化推估角隅加速度：最高居室樓層 = <strong>${occFloorUse}F</strong>（標高 ${fmt(occHeight,2)} m），平均密度 = <strong>${fmt(massDensity,0)}</strong> kg/m³，半年回歸期風速 = <strong>${fmt(Vhalf,2)}</strong> m/s。`
+    : '未啟用第四章角隅加速度檢核；如需舒適度檢核，應輸入最高居室樓層之結構分析位移。');
+  if (roofType === 'arched') {
+    app.push(`拱形屋頂型式：<strong>${document.getElementById('archMode').selectedOptions[0].textContent}</strong>；r = ${fmt(archRiseRatio,3)}。`);
+  }
+  if (roofType === 'sawtooth') {
+    app.push(`鋸齒屋頂面代號：<strong>${sawtoothFaceCode}</strong>。`);
+  }
+  if (hp > 0) {
+    app.push(`已計入 MWFRS 女兒牆：h_p = ${fmt(hp,2)} m，依 Eq 2.3 另列迎風/背風壓力。`);
+  }
+  app.push('拱形屋頂、鋸齒屋頂、特殊屋面、風洞試驗替代與不規則平面仍需獨立處理。');
+  document.getElementById('applicability').innerHTML = app.join('<br>');
+
+  const firstStory = r.stories[0];
+  document.getElementById('caseSummary').innerHTML = `
+    牆面採 <code>p = qGCp - qh(GCpi)</code> 兩種內壓符號組合。<br>
+    迎風面 1F：CASE I (GCpi=+${fmt(r.GCpi,3)}) = <strong>${fmtSigned(firstStory.wallCases.windward.casePos,1)}</strong> kgf/m²；
+    CASE II (GCpi=-${fmt(r.GCpi,3)}) = <strong>${fmtSigned(firstStory.wallCases.windward.caseNeg,1)}</strong> kgf/m²。<br>
+    背風面：CASE I = <strong>${fmtSigned(firstStory.wallCases.leeward.casePos,1)}</strong> kgf/m²；
+    CASE II = <strong>${fmtSigned(firstStory.wallCases.leeward.caseNeg,1)}</strong> kgf/m²。<br>
+    側牆：CASE I = <strong>${fmtSigned(firstStory.wallCases.side.casePos,1)}</strong> kgf/m²；
+    CASE II = <strong>${fmtSigned(firstStory.wallCases.side.caseNeg,1)}</strong> kgf/m²。
+  `;
+
+  let roofText = `${r.roof.note}<br>屋面 Cp 參考：${r.roof.reference}；比值採 <code>${r.roof.ratioLabel} = ${fmt(r.roof.ratioUsed,3)}</code>。`;
+  if (r.roof.roofType === 'arched') {
+    roofText += `<br>迎風區 P：Cp = <strong>${fmtSigned(r.roof.xDir.windward.cpMin,2)}</strong>，壓力包絡 = <strong>${fmtSigned(r.roof.xDir.windward.pMin,1)}</strong> ~ <strong>${fmtSigned(r.roof.xDir.windward.pMax,1)}</strong> kgf/m²。`;
+    roofText += `<br>中央區 Q：Cp = <strong>${fmtSigned(r.roof.xDir.center.cpMin,2)}</strong>，壓力包絡 = <strong>${fmtSigned(r.roof.xDir.center.pMin,1)}</strong> ~ <strong>${fmtSigned(r.roof.xDir.center.pMax,1)}</strong> kgf/m²。`;
+    roofText += `<br>背風區 P：Cp = <strong>${fmtSigned(r.roof.xDir.leeward.cpMin,2)}</strong>，壓力包絡 = <strong>${fmtSigned(r.roof.xDir.leeward.pMin,1)}</strong> ~ <strong>${fmtSigned(r.roof.xDir.leeward.pMax,1)}</strong> kgf/m²。`;
+  } else if (r.roof.roofType === 'sawtooth') {
+    roofText += `<br>鋸齒面代號 <strong>${r.roof.sawtoothFaceCode}</strong>：Cp = <strong>${fmtSigned(r.roof.xDir.face.cpMin,2)}</strong>，壓力包絡 = <strong>${fmtSigned(r.roof.xDir.face.pMin,1)}</strong> ~ <strong>${fmtSigned(r.roof.xDir.face.pMax,1)}</strong> kgf/m²。`;
+  } else {
+    roofText += `<br>迎風坡面 Cp 範圍：<strong>${fmtSigned(r.roof.xDir.windward.cpMin,2)}</strong> ~ <strong>${fmtSigned(r.roof.xDir.windward.cpMax,2)}</strong>。`;
+    roofText += `<br>背風坡面 Cp 範圍：<strong>${fmtSigned(r.roof.xDir.leeward.cpMin,2)}</strong> ~ <strong>${fmtSigned(r.roof.xDir.leeward.cpMax,2)}</strong>。`;
+    roofText += `<br>迎風坡面壓力包絡：<strong>${fmtSigned(r.roof.xDir.windward.pMin,1)}</strong> ~ <strong>${fmtSigned(r.roof.xDir.windward.pMax,1)}</strong> kgf/m²。`;
+    roofText += `<br>背風坡面壓力包絡：<strong>${fmtSigned(r.roof.xDir.leeward.pMin,1)}</strong> ~ <strong>${fmtSigned(r.roof.xDir.leeward.pMax,1)}</strong> kgf/m²。`;
+    if (r.roof.roofType === 'gable' && r.roof.windToRidge === 'perpendicular' && r.roof.yDir.center) {
+      roofText += `<br>雙斜屋頂中央面 C 區壓力包絡：<strong>${fmtSigned(r.roof.yDir.center.pMin,1)}</strong> ~ <strong>${fmtSigned(r.roof.yDir.center.pMax,1)}</strong> kgf/m²。`;
+    }
+  }
+  document.getElementById('roofSummary').innerHTML = roofText;
+
+  if (r.lateralMeta && r.lateralMeta.regime === 'simple' && r.crossWind && r.torsion) {
+    const VbL = r.crossWind.reduce((s, c) => s + c.WL, 0);
+    const VbT = r.torsion.reduce((s, c) => s + c.MT, 0);
+    document.getElementById('lateralSummary').innerHTML = `
+      h/√BL = <strong>${fmt(r.hBL,2)}</strong>，採 <strong>Eq 2.21 / Eq 2.23</strong>。<br>
+      V<sub>h</sub> = <strong>${fmt(r.Vh,2)}</strong> m/s。<br>
+      橫風向底部剪力 ΣW<sub>L</sub> = <strong>${fmt(VbL,0)}</strong> kgf。<br>
+      扭轉向底部總扭矩 ΣM<sub>T</sub> = <strong>${fmt(VbT,0)}</strong> kgf·m。<br>
+      本頁主結構橫風向與扭矩結果依第二章 <strong>Eq 2.21 / Eq 2.23</strong> 輸出；第四章角隅加速度需配合結構分析位移另行檢核。
+    `;
+  } else if (r.lateralMeta && r.lateralMeta.regime === 'resonant') {
+    const VbL = r.crossWind ? r.crossWind.reduce((s, c) => s + c.WL, 0) : null;
+    const VbT = r.torsion ? r.torsion.reduce((s, c) => s + c.MT, 0) : null;
+    const cw = r.lateralMeta.cross;
+    const tw = r.lateralMeta.torsion;
+    document.getElementById('lateralSummary').innerHTML = `
+      h/√BL = <strong>${fmt(r.hBL,2)}</strong>，符合高寬比 3~6 之矩形建物路徑。<br>
+      V<sub>h</sub> = <strong>${fmt(r.Vh,2)}</strong> m/s；f<sub>a</sub> = <strong>${fmt(r.lateralMeta.fa,3)}</strong> Hz；f<sub>t</sub> = <strong>${fmt(r.lateralMeta.ft,3)}</strong> Hz。<br>
+      ${r.lateralMeta.crossApplicable
+        ? `橫風向採 <strong>Eq 2.22</strong>：C'<sub>L</sub> = <strong>${fmt(cw.CLp,4)}</strong>，g<sub>L</sub> = <strong>${fmt(cw.gL,3)}</strong>，R<sub>LR</sub> = <strong>${fmt(cw.RLR,4)}</strong>，U* = n* = <strong>${fmt(cw.nStar,3)}</strong>；ΣW<sub>L</sub> = <strong>${fmt(VbL,0)}</strong> kgf。`
+        : `橫風向：<strong>不適用 Eq 2.22</strong>，因 V<sub>h</sub> / (f<sub>a</sub>√BL) = <strong>${fmt(cw.nStar ? (r.Vh / (r.lateralMeta.fa * Math.sqrt(B * L))) : 0,3)}</strong> &gt; 10。`}
+      <br>
+      ${r.lateralMeta.torsionApplicable
+        ? `扭轉向採 <strong>Eq 2.24</strong>：C'<sub>T</sub> = <strong>${fmt(tw.CTp,4)}</strong>，g<sub>T</sub> = <strong>${fmt(tw.gT,3)}</strong>，R<sub>TR</sub> = <strong>${fmt(tw.RTR,4)}</strong>，U* = <strong>${fmt(tw.Ustar,3)}</strong>；ΣM<sub>T</sub> = <strong>${fmt(VbT,0)}</strong> kgf·m。`
+        : `扭轉向：<strong>不適用 Eq 2.24</strong>，因 V<sub>h</sub> / (f<sub>t</sub>√BL) = <strong>${fmt(tw.Ustar,3)}</strong> &gt; 10。`}
+    `;
+  } else {
+    document.getElementById('lateralSummary').innerHTML = `
+      h/√BL = <strong>${fmt(r.hBL,2)}</strong>。<br>
+      本頁未套用第二章矩形建物橫風向 / 扭矩公式。<br>
+      超出 <strong>h/√BL &lt; 3</strong> 或 <strong>3 ≤ h/√BL ≤ 6、0.2 ≤ L/B ≤ 5、V<sub>h</sub>/(f√BL) ≤ 10</strong> 之條件時，應依完整規範或風洞試驗辦理。
+    `;
+  }
+
+  const sumWL = r.crossWind ? r.crossWind.reduce((s, c) => s + c.WL, 0) : null;
+  const sumWT = r.torsion ? r.torsion.reduce((s, c) => s + c.MT, 0) : null;
+  const sumWLY = rY.crossWind ? rY.crossWind.reduce((s, c) => s + c.WL, 0) : null;
+  const sumWTY = rY.torsion ? rY.torsion.reduce((s, c) => s + c.MT, 0) : null;
+  const lateralMethodText = r.lateralMeta && r.lateralMeta.methodCross
+    ? `${r.lateralMeta.methodCross}${r.lateralMeta.methodTorsion ? ` / ${r.lateralMeta.methodTorsion}` : ''}`
+    : '未形成本頁可採用之 WL / WT';
+  document.getElementById('comboSummary').innerHTML = `
+    依第二章 2.12，本頁詳算以 <strong>X 風向</strong> 為主，應以 <strong>{ W<sub>D,x</sub>, W<sub>L,x</sub>, W<sub>T,x</sub> }</strong> 輸入結構分析。<br>
+    X 風向：W<sub>D</sub> = <strong>${fmt(r.Vb,0)}</strong> kgf，
+    W<sub>L</sub> = <strong>${sumWL == null ? '—' : fmt(sumWL,0)}</strong> kgf，
+    W<sub>T</sub> = <strong>${sumWT == null ? '—' : fmt(sumWT,0)}</strong> kgf·m。<br>
+    橫風向 / 扭矩採用路徑：<strong>${lateralMethodText}</strong>。<br>
+    Y 風向結果已於下表同步整理；若 X / Y 方向動力特性不同，應於 f<sub>a,y</sub>、f<sub>t,y</sub> 分別輸入。
+  `;
+  const dirTbody = document.querySelector('#dirComboTable tbody');
+  dirTbody.innerHTML = '';
+  [
+    { name: 'X 風向', width: B, depth: L, rel: windToRidgeLabel(windToRidge), rx: r, wl: sumWL, wt: sumWT },
+    { name: 'Y 風向', width: L, depth: B, rel: windToRidgeLabel(windToRidgeY), rx: rY, wl: sumWLY, wt: sumWTY },
+  ].forEach(item => {
+    const tr = document.createElement('tr');
+    const method = item.rx.lateralMeta && item.rx.lateralMeta.methodCross
+      ? `${item.rx.lateralMeta.methodCross}${item.rx.lateralMeta.methodTorsion ? ` / ${item.rx.lateralMeta.methodTorsion}` : ''}`
+      : '不適用本頁';
+    tr.innerHTML = `
+      <td class="idx">${item.name}</td>
+      <td>${fmt(item.width,1)} / ${fmt(item.depth,1)}</td>
+      <td>${item.rel}</td>
+      <td>${fmt(item.rx.Vb,0)}</td>
+      <td>${item.wl == null ? '—' : fmt(item.wl,0)}</td>
+      <td>${item.wt == null ? '—' : fmt(item.wt,0)}</td>
+      <td style="text-align:left; font-family:inherit;">${method}</td>
+    `;
+    dirTbody.appendChild(tr);
+  });
+  document.getElementById('dirComboNote').innerHTML =
+    `X 風向以 B 為迎風寬、L 為順風長；Y 風向以 L 為迎風寬、B 為順風長。兩組結果應分別作為第二章 2.12 之設計風力組合輸入。`;
+  const wdControl = pickControl(r.Vb, rY.Vb);
+  const wlControl = pickControl(sumWL, sumWLY);
+  const wtControl = pickControl(sumWT, sumWTY);
+  const accelPrimary = accelMode === 'estimate' ? accelEstimate : accel;
+  const accelSecondary = accelMode === 'estimate' ? accelEstimateY : accelY;
+  const accelControl = (doAccelCheck && accelPrimary && accelSecondary) ? pickControl(accelPrimary.Apeak, accelSecondary.Apeak) : null;
+  const controlRows = [
+    { label: '順風向設計風力 W_D', x: r.Vb, y: rY.Vb, unit: 'kgf', control: wdControl },
+    { label: '橫風向設計風力 W_L', x: sumWL, y: sumWLY, unit: 'kgf', control: wlControl },
+    { label: '扭轉向設計扭矩 W_T', x: sumWT, y: sumWTY, unit: 'kgf·m', control: wtControl },
+  ];
+  if (doAccelCheck && accelPrimary && accelSecondary) {
+    controlRows.push({ label: accelMode === 'estimate' ? '簡化推估角隅加速度 Ã' : '角隅尖峰加速度 Ã', x: accelPrimary.Apeak, y: accelSecondary.Apeak, unit: 'm/s²', control: accelControl });
+  }
+  const controlTbody = document.querySelector('#controlTable tbody');
+  controlTbody.innerHTML = '';
+  controlRows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="idx" style="text-align:left; font-family:inherit;">${row.label}</td>
+      <td>${row.x == null || !isFinite(row.x) ? '—' : fmt(row.x, row.unit === 'm/s²' ? 4 : 0)}</td>
+      <td>${row.y == null || !isFinite(row.y) ? '—' : fmt(row.y, row.unit === 'm/s²' ? 4 : 0)}</td>
+      <td>${row.control.dir}</td>
+      <td>${row.control.value == null || !isFinite(row.control.value) ? '—' : fmt(row.control.value, row.unit === 'm/s²' ? 4 : 0)} ${row.unit}</td>
+    `;
+    controlTbody.appendChild(tr);
+  });
+  document.getElementById('controlNote').innerHTML =
+    `本表以 X / Y 兩主風向結果比對絕對值後，自動整理控制採用值。構件與系統設計仍應配合實際受力方向、結構分析結果與 2.12 載重組合辦理。`;
+
+  const accelFormalCard = document.getElementById('accelFormalCard');
+  const accelEstimateCard = document.getElementById('accelEstimateCard');
+  if (accelMode === 'manual' && accel && accelY) {
+    accelFormalCard.style.display = '';
+    accelEstimateCard.style.display = 'none';
+    document.getElementById('accelFormalSummary').innerHTML = `
+      模式：<strong>規範檢核（輸入 D* / L* / θ*）</strong><br>
+      最高居室樓層 = <strong>${occFloorUse}F</strong>，樓層標高 = <strong>${fmt(occHeight,2)}</strong> m。<br>
+      A<sub>D</sub> = <strong>${fmt(accel.AD,4)}</strong> m/s²，A<sub>L</sub> = <strong>${fmt(accel.AL,4)}</strong> m/s²，A<sub>T</sub> = <strong>${fmt(accel.AT,6)}</strong> rad/s²。<br>
+      X 風向角隅尖峰加速度 Ã<sub>x</sub> = <strong>${fmt(accel.Apeak,4)}</strong> m/s²。<br>
+      Y 風向角隅尖峰加速度 Ã<sub>y</sub> = <strong>${fmt(accelY.Apeak,4)}</strong> m/s²。<br>
+      控制風向 = <strong>${accelControl.dir}</strong>；控制加速度 = <strong>${fmt(accelControl.value,4)}</strong> m/s²。<br>
+      檢核結果：<strong style="color:${(accelControl.value || 0) <= 0.05 ? '#166534' : '#b91c1c'};">${(accelControl.value || 0) <= 0.05 ? '符合 4.3 容許值' : '不符合 4.3 容許值'}</strong>（限值 = 0.05 m/s²）。
+    `;
+    document.getElementById('accelEstimateSummary').innerHTML = '';
+  } else if (accelMode === 'estimate' && accelEstimate && accelEstimateY) {
+    accelFormalCard.style.display = '';
+    accelEstimateCard.style.display = '';
+    document.getElementById('accelFormalSummary').innerHTML = `
+      本次未執行第四章正式位移檢核。<br>
+      若需依第四章 4.3 進行正式檢核，應改選「規範檢核」並輸入 D*、L*、θ*。<br>
+      下列另列「簡化推估附錄」，僅供報表輔助，不取代正式檢核。
+    `;
+    document.getElementById('accelEstimateSummary').innerHTML = `
+      模式：<strong>簡化推估（平均密度）</strong><br>
+      半年回歸期風速 V<sub>0.5y</sub> = <strong>${fmt(Vhalf,2)}</strong> m/s。<br>
+      平均密度 = <strong>${fmt(massDensity,0)}</strong> kg/m³；建築物總質量 M = <strong>${fmt(accelEstimate.totalMassKg,0)}</strong> kg。<br>
+      X 風向：A<sub>D</sub> = <strong>${fmt(accelEstimate.AD,4)}</strong> m/s²，A<sub>L</sub> = <strong>${fmt(accelEstimate.AL,4)}</strong> m/s²，角隅扭轉加速度 = <strong>${fmt(accelEstimate.ATcorner,4)}</strong> m/s²，Ã<sub>x</sub> = <strong>${fmt(accelEstimate.Apeak,4)}</strong> m/s²。<br>
+      Y 風向：A<sub>D</sub> = <strong>${fmt(accelEstimateY.AD,4)}</strong> m/s²，A<sub>L</sub> = <strong>${fmt(accelEstimateY.AL,4)}</strong> m/s²，角隅扭轉加速度 = <strong>${fmt(accelEstimateY.ATcorner,4)}</strong> m/s²，Ã<sub>y</sub> = <strong>${fmt(accelEstimateY.Apeak,4)}</strong> m/s²。<br>
+      控制風向 = <strong>${accelControl.dir}</strong>；控制加速度 = <strong>${fmt(accelControl.value,4)}</strong> m/s²。<br>
+      本結果為簡化推估報表，不取代第四章正式位移檢核。
+    `;
+  } else {
+    accelFormalCard.style.display = '';
+    accelEstimateCard.style.display = 'none';
+    document.getElementById('accelFormalSummary').innerHTML = `
+      本頁未執行第四章角隅加速度檢核。<br>
+      正式檢核：選擇「規範檢核」並輸入 D*、L*、θ*。<br>
+      報表推估：選擇「簡化推估」並輸入平均密度。
+    `;
+    document.getElementById('accelEstimateSummary').innerHTML = '';
+  }
+
+  if (parapetWindward && parapetLeeward) {
+    document.getElementById('parapetSummary').innerHTML = `
+      女兒牆頂標高 z = h + h<sub>p</sub> = <strong>${fmt(parapetWindward.topZ,2)}</strong> m，
+      q<sub>p</sub> = <strong>${fmt(parapetWindward.qp,1)}</strong> kgf/m²。<br>
+      迎風面：GC<sub>pn</sub> = <strong>${fmtSigned(parapetWindward.GCpn,1)}</strong>，
+      p = <strong>${fmtSigned(parapetWindward.p,1)}</strong> kgf/m²。<br>
+      背風面：GC<sub>pn</sub> = <strong>${fmtSigned(parapetLeeward.GCpn,1)}</strong>，
+      p = <strong>${fmtSigned(parapetLeeward.p,1)}</strong> kgf/m²。
+    `;
+  } else {
+    document.getElementById('parapetSummary').innerHTML = '未輸入女兒牆高度；若需要 MWFRS 女兒牆設計，可輸入 h_p 或改用女兒牆專頁。';
+  }
+
+  const route = [];
+  route.push(`一般矩形建物外牆 / 側牆 MWFRS：<strong>滿足本頁規範適用條件</strong>。`);
+  route.push(`一般平屋頂、單斜屋頂、雙斜屋頂、拱形屋頂、鋸齒屋頂：<strong>滿足本頁屋面規範適用條件</strong>。`);
+  route.push(hp > 0
+    ? `已同時計入 MWFRS 女兒牆；若需第三章正反面外壓組合，<strong>不適用本頁</strong>，請改用 <a href="wind-parapet.html">女兒牆風壓</a>。`
+    : `若要做女兒牆檢核，可在本頁輸入 h_p；若要做第三章女兒牆外壓組合，<strong>不適用本頁</strong>，請改用 <a href="wind-parapet.html">女兒牆風壓</a>。`
+  );
+  route.push(`開放式建築斜屋頂、遮蔽折減、透氣外牆折減：<strong>不適用本頁</strong>，請改用 <a href="wind-open-roof.html">開放式建築屋面風壓</a> 或 <a href="wind-special.html">特殊修正 / 折減</a>。`);
+  document.getElementById('routeSummary').innerHTML = route.join('<br>');
+
+  // ── 逐步計算 ──
+  let html = '';
+  html += step('① 基本設計風速', `
+    V<sub>10(C)</sub> = <span class="val">${V}</span> m/s
+    ${isFinite(Vcustom) && Vcustom > 0 ? '(自訂)' : `(${document.getElementById('city').value})`}<br>
+    用途係數 I = <span class="val">${I}</span><br>
+    地形係數 K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
+    封閉型式 = <span class="val">${document.getElementById('encl').selectedOptions[0].textContent}</span><br>
+    樓層數 N = <span class="val">${storyH.length}</span>；逐層樓高 = <span class="val">${storyH.map(v => fmt(v,2)).join(' / ')}</span> m<br>
+    屋頂型式 = <span class="val">${document.getElementById('roofType').selectedOptions[0].textContent}</span>，
+    屋脊方向 = <span class="val">${document.getElementById('ridgeAxis').selectedOptions[0].textContent}</span><br>
+    X 風向屋面關係 = <span class="val">${windToRidgeLabel(windToRidge)}</span>；Y 風向屋面關係 = <span class="val">${windToRidgeLabel(windToRidgeY)}</span><br>
+      屋面坡度 θ = <span class="val">${fmt(roofSlope,1)}</span>°<br>
+    屋簷高度 h<sub>e</sub> = <span class="val">${fmt(he,2)}</span> m；屋面查表採用高度 h = <span class="val">${fmt(r.roof.roofRefH,2)}</span> m<br>
+    ${roofType === 'arched' ? `拱形屋頂 r = <span class="val">${fmt(archRiseRatio,3)}</span>，型式 = <span class="val">${document.getElementById('archMode').selectedOptions[0].textContent}</span><br>` : ''}
+    ${roofType === 'sawtooth' ? `鋸齒屋頂面代號 = <span class="val">${sawtoothFaceCode}</span><br>` : ''}
+    女兒牆高度 h<sub>p</sub> = <span class="val">${fmt(hp,2)}</span> m<br>
+    角隅加速度檢核 = <span class="val">${doAccelCheck ? '啟用' : '未啟用'}</span>
+  `);
+
+  html += step('② 地況參數 (表 2.2)', `
+    地況 ${terrain}: α = ${t.alpha}, z<sub>g</sub> = ${t.zg} m, z<sub>min</sub> = ${t.zmin} m<br>
+    c = ${t.c}, ℓ = ${t.ell} m, ε̄ = ${t.eps}, b = ${t.b}
+  `);
+
+  // Kz at roof
+  const IV = I * V;
+  html += step('③ 屋頂速度壓 (Eq 2.6, 2.7)', `
+    h = ${r.totalH} m<br>
+    K(h) = 2.774 × (${r.totalH}/${t.zg})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(r.KzH,4)}</span><br>
+    q(h) = 0.06 × ${fmt(r.KzH,4)} × ${Kzt} × (${I} × ${V})² = <span class="val hl">${fmt(r.qH,1)}</span> kgf/m²
+  `, `Eq 2.7: K(z) = 2.774 × (z / z<sub>g</sub>)<sup>2α</sup><br>
+= 2.774 × (${r.totalH} / ${t.zg})<sup>${fmt(2*t.alpha,2)}</sup><br>
+= 2.774 × ${fmt(r.totalH/t.zg, 6)}<sup>${fmt(2*t.alpha,2)}</sup><br>
+= 2.774 × ${fmt(Math.pow(r.totalH/t.zg, 2*t.alpha), 6)} = <b>${fmt(r.KzH,4)}</b><br><br>
+Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
+= 0.06 × ${fmt(r.KzH,4)} × ${Kzt} × (${I} × ${V})²<br>
+= 0.06 × ${fmt(r.KzH,4)} × ${Kzt} × ${fmt(IV*IV, 2)}<br>
+= <b>${fmt(r.qH,2)}</b> kgf/m²`);
+
+  // Gust factor
+  if (r.isFlexible && r.gustInfo) {
+    const g = r.gustInfo;
+    html += step('④ 柔性結構陣風反應因子 G<sub>f</sub> (Eq 2.13)', `
+      f<sub>n</sub> = ${fn} Hz, β = ${beta}<br>
+      z̄ = max(0.6h, z<sub>min</sub>) = ${fmt(g.zBar,1)} m<br>
+      I<sub>z̄</sub> = ${t.c}×(10/${fmt(g.zBar,1)})<sup>1/6</sup> = <span class="val">${fmt(g.Iz,4)}</span><br>
+      L<sub>z̄</sub> = ${t.ell}×(${fmt(g.zBar,1)}/10)<sup>${t.eps}</sup> = <span class="val">${fmt(g.Lz,1)}</span> m<br>
+      V̄<sub>z̄</sub> = ${t.b}×(${fmt(g.zBar,1)}/10)<sup>${t.alpha}</sup>×${V} = <span class="val">${fmt(g.Vz,2)}</span> m/s<br>
+      Q² = <span class="val">${fmt(g.Q2,4)}</span><br>
+      N = f<sub>n</sub>·L<sub>z̄</sub>/V̄<sub>z̄</sub> = <span class="val">${fmt(g.N,4)}</span><br>
+      R<sub>n</sub> = <span class="val">${fmt(g.Rn,4)}</span>,
+      R<sub>h</sub> = <span class="val">${fmt(g.Rh,4)}</span>,
+      R<sub>B</sub> = <span class="val">${fmt(g.RB,4)}</span>,
+      R<sub>L</sub> = <span class="val">${fmt(g.RL,4)}</span><br>
+      R² = (1/β)·R<sub>n</sub>·R<sub>h</sub>·(0.53R<sub>B</sub>+0.47R<sub>L</sub>) = <span class="val">${fmt(g.R2,4)}</span><br>
+      g<sub>R</sub> = <span class="val">${fmt(g.gR,3)}</span><br>
+      <strong>G<sub>f</sub> = <span class="val hl">${fmt(r.G,3)}</span></strong>
+    `);
+  } else if (r.gustInfo) {
+    const g = r.gustInfo;
+    html += step('④ 剛性結構陣風反應因子 G (Eq 2.9)', `
+      z̄ = max(0.6h, z<sub>min</sub>) = ${fmt(g.zBar,1)} m<br>
+      I<sub>z̄</sub> = <span class="val">${fmt(g.Iz,4)}</span><br>
+      L<sub>z̄</sub> = <span class="val">${fmt(g.Lz,1)}</span> m<br>
+      Q = <span class="val">${fmt(g.Q,4)}</span> (Q² = ${fmt(g.Q2,4)})<br>
+      G = 1.927×(1+1.7×3.4×${fmt(g.Iz,4)}×${fmt(g.Q,4)})/(1+1.7×3.4×${fmt(g.Iz,4)})<br>
+      <strong>G = <span class="val hl">${fmt(r.G,3)}</span></strong>　(規範預設 1.88)
+    `);
+  }
+
+  // Cp
+  html += step('⑤ 風壓係數與內壓組合', `
+    迎風面 C<sub>pw</sub> = <span class="val">+${r.Cpw}</span> (使用 q(z))<br>
+    背風面 C<sub>pl</sub> = <span class="val">${fmt(r.Cpl,2)}</span> (L/B = ${fmt(L/B,2)}, 使用 q(h))<br>
+    側風面 C<sub>p,side</sub> = <span class="val">${r.Cp_side}</span> (使用 q(h))<br>
+    屋面 Cp 參考 ${r.roof.reference}，比值採 ${r.roof.ratioLabel} = <span class="val">${fmt(r.roof.ratioUsed,3)}</span><br>
+    ${roofType === 'arched'
+      ? `迎風區 P / 中央區 Q / 背風區 P 依表 2.6 分區。<br>`
+      : roofType === 'sawtooth'
+        ? `鋸齒面代號 <span class="val">${sawtoothFaceCode}</span> 之 C<sub>p</sub> = <span class="val">${fmtSigned(r.roof.xDir.face.cpMin,2)}</span><br>`
+        : `迎風坡面 C<sub>p</sub> 包絡 = <span class="val">${fmtSigned(r.roof.xDir.windward.cpMin,2)}</span> ~ <span class="val">${fmtSigned(r.roof.xDir.windward.cpMax,2)}</span><br>
+           背風坡面 C<sub>p</sub> = <span class="val">${fmtSigned(r.roof.xDir.leeward.cpMin,2)}</span><br>`}
+    GC<sub>pi</sub> = <span class="val">±${fmt(r.GCpi,3)}</span><br>
+    側風面外壓 p<sub>side</sub> = q(h)×G×C<sub>p,side</sub> = <span class="val">${fmt(r.pSide,1)}</span> kgf/m²
+  `);
+
+  html += step('⑥ 內外壓案例 (1F 代表值)', `
+    迎風面：CASE I = <span class="val">${fmtSigned(firstStory.wallCases.windward.casePos,1)}</span> kgf/m²，
+    CASE II = <span class="val">${fmtSigned(firstStory.wallCases.windward.caseNeg,1)}</span> kgf/m²<br>
+    背風面：CASE I = <span class="val">${fmtSigned(firstStory.wallCases.leeward.casePos,1)}</span> kgf/m²，
+    CASE II = <span class="val">${fmtSigned(firstStory.wallCases.leeward.caseNeg,1)}</span> kgf/m²<br>
+    側牆：CASE I = <span class="val">${fmtSigned(firstStory.wallCases.side.casePos,1)}</span> kgf/m²，
+    CASE II = <span class="val">${fmtSigned(firstStory.wallCases.side.caseNeg,1)}</span> kgf/m²<br>
+    ${roofType === 'arched'
+      ? `拱形屋頂迎風區 P：<span class="val">${fmtSigned(r.roof.xDir.windward.pMin,1)}</span> ~ <span class="val">${fmtSigned(r.roof.xDir.windward.pMax,1)}</span> kgf/m²<br>
+         拱形屋頂中央區 Q：<span class="val">${fmtSigned(r.roof.xDir.center.pMin,1)}</span> ~ <span class="val">${fmtSigned(r.roof.xDir.center.pMax,1)}</span> kgf/m²<br>
+         拱形屋頂背風區 P：<span class="val">${fmtSigned(r.roof.xDir.leeward.pMin,1)}</span> ~ <span class="val">${fmtSigned(r.roof.xDir.leeward.pMax,1)}</span> kgf/m²`
+      : roofType === 'sawtooth'
+        ? `鋸齒屋頂面 ${sawtoothFaceCode}：<span class="val">${fmtSigned(r.roof.xDir.face.pMin,1)}</span> ~ <span class="val">${fmtSigned(r.roof.xDir.face.pMax,1)}</span> kgf/m²`
+        : `屋面迎風坡面：<span class="val">${fmtSigned(r.roof.xDir.windward.pMin,1)}</span> ~ <span class="val">${fmtSigned(r.roof.xDir.windward.pMax,1)}</span> kgf/m²<br>
+           屋面背風坡面：<span class="val">${fmtSigned(r.roof.xDir.leeward.pMin,1)}</span> ~ <span class="val">${fmtSigned(r.roof.xDir.leeward.pMax,1)}</span> kgf/m²`}
+  `);
+
+  if (r.lateralMeta && r.lateralMeta.regime === 'simple' && r.crossWind && r.torsion) {
+    const VbL = r.crossWind.reduce((s, c) => s + c.WL, 0);
+    const VbT = r.torsion.reduce((s, c) => s + c.MT, 0);
+    html += step('⑦ 橫風向與扭轉向設計風力', `
+      h/√BL = <span class="val">${fmt(r.hBL,2)}</span> &lt; 3，採第二章簡化式。<br>
+      V<sub>h</sub> = <span class="val">${fmt(r.Vh,2)}</span> m/s<br>
+      ΣW<sub>L</sub> = <span class="val">${fmt(VbL,0)}</span> kgf<br>
+      ΣM<sub>T</sub> = <span class="val">${fmt(VbT,0)}</span> kgf·m
+    `);
+  } else if (r.lateralMeta && r.lateralMeta.regime === 'resonant') {
+    const VbL = r.crossWind ? r.crossWind.reduce((s, c) => s + c.WL, 0) : null;
+    const VbT = r.torsion ? r.torsion.reduce((s, c) => s + c.MT, 0) : null;
+    const cw = r.lateralMeta.cross;
+    const tw = r.lateralMeta.torsion;
+    html += step('⑦ 橫風向與扭轉向設計風力', `
+      h/√BL = <span class="val">${fmt(r.hBL,2)}</span>，0.2 ≤ L/B ≤ 5，採第二章高寬比 3~6 路徑。<br>
+      V<sub>h</sub> = <span class="val">${fmt(r.Vh,2)}</span> m/s，f<sub>a</sub> = <span class="val">${fmt(r.lateralMeta.fa,3)}</span> Hz，f<sub>t</sub> = <span class="val">${fmt(r.lateralMeta.ft,3)}</span> Hz<br>
+      ${r.lateralMeta.crossApplicable
+        ? `橫風向 Eq 2.22：C'<sub>L</sub> = <span class="val">${fmt(cw.CLp,4)}</span>，g<sub>L</sub> = <span class="val">${fmt(cw.gL,3)}</span>，R<sub>LR</sub> = <span class="val">${fmt(cw.RLR,4)}</span>，n* = <span class="val">${fmt(cw.nStar,3)}</span>，ΣW<sub>L</sub> = <span class="val">${fmt(VbL,0)}</span> kgf<br>`
+        : `橫風向 Eq 2.22 不適用：V<sub>h</sub>/(f<sub>a</sub>√BL) &gt; 10<br>`}
+      ${r.lateralMeta.torsionApplicable
+        ? `扭轉向 Eq 2.24：C'<sub>T</sub> = <span class="val">${fmt(tw.CTp,4)}</span>，g<sub>T</sub> = <span class="val">${fmt(tw.gT,3)}</span>，R<sub>TR</sub> = <span class="val">${fmt(tw.RTR,4)}</span>，U* = <span class="val">${fmt(tw.Ustar,3)}</span>，ΣM<sub>T</sub> = <span class="val">${fmt(VbT,0)}</span> kgf·m`
+        : `扭轉向 Eq 2.24 不適用：V<sub>h</sub>/(f<sub>t</sub>√BL) &gt; 10`}
+    `);
+  }
+
+  if (accel) {
+    html += step('⑧ 最高居室樓層角隅加速度 (第四章)', `
+      最高居室樓層 = <span class="val">${occFloorUse}F</span>，標高 = <span class="val">${fmt(occHeight,2)}</span> m<br>
+      D* = <span class="val">${fmt(Dstar,4)}</span> m，L* = <span class="val">${fmt(Lstar,4)}</span> m，θ* = <span class="val">${fmt(thetaStar,6)}</span> rad<br>
+      A<sub>D</sub> = (2πf<sub>n</sub>)²D* = <span class="val">${fmt(accel.AD,4)}</span> m/s²<br>
+      A<sub>L</sub> = (2πf<sub>a</sub>)²L* = <span class="val">${fmt(accel.AL,4)}</span> m/s²<br>
+      A<sub>T</sub> = (2πf<sub>t</sub>)²θ* = <span class="val">${fmt(accel.AT,6)}</span> rad/s²<br>
+      Ã = √[A<sub>D</sub>² + A<sub>L</sub>² + A<sub>T</sub>²(B²/4 + L²/4) + L·A<sub>L</sub>·A<sub>T</sub>] = <span class="val hl">${fmt(accel.Apeak,4)}</span> m/s²<br>
+      檢核結果：<span class="val">${accel.pass ? '符合 4.3 容許值' : '不符合 4.3 容許值'}</span>
+    `);
+  }
+
+  const comboStepNo = accel ? (hasLateralStep ? '⑨' : '⑨') : (hasLateralStep ? '⑧' : '⑧');
+  html += step(`${comboStepNo} 設計風力組合 (2.12)`, `
+    X 風向設計風力組合 = <span class="val">{ W_Dx, W_Lx, W_Tx }</span><br>
+    W<sub>Dx</sub> = <span class="val">${fmt(r.Vb,0)}</span> kgf，W<sub>Lx</sub> = <span class="val">${sumWL == null ? '—' : fmt(sumWL,0)}</span> kgf，W<sub>Tx</sub> = <span class="val">${sumWT == null ? '—' : fmt(sumWT,0)}</span> kgf·m<br>
+    Y 風向設計風力組合 = <span class="val">{ W_Dy, W_Ly, W_Ty }</span><br>
+    W<sub>Dy</sub> = <span class="val">${fmt(rY.Vb,0)}</span> kgf，W<sub>Ly</sub> = <span class="val">${sumWLY == null ? '—' : fmt(sumWLY,0)}</span> kgf，W<sub>Ty</sub> = <span class="val">${sumWTY == null ? '—' : fmt(sumWTY,0)}</span> kgf·m<br>
+    控制 W<sub>D</sub> = <span class="val">${wdControl.dir}</span>，控制值 = <span class="val">${fmt(wdControl.value,0)}</span> kgf<br>
+    控制 W<sub>L</sub> = <span class="val">${wlControl.dir}</span>，控制值 = <span class="val">${wlControl.value == null ? '—' : fmt(wlControl.value,0)}</span> kgf<br>
+    控制 W<sub>T</sub> = <span class="val">${wtControl.dir}</span>，控制值 = <span class="val">${wtControl.value == null ? '—' : fmt(wtControl.value,0)}</span> kgf·m
+  `);
+
+  if (accelMode === 'estimate' && accelEstimate && accelEstimateY) {
+    html += step('⑩ 簡化推估角隅加速度', `
+      V<sub>0.5y</sub> = <span class="val">${fmt(Vhalf,2)}</span> m/s<br>
+      平均密度 ρ = <span class="val">${fmt(massDensity,0)}</span> kg/m³<br>
+      建築物總質量 M = ρBLH = <span class="val">${fmt(accelEstimate.totalMassKg,0)}</span> kg<br>
+      X 風向 Ã<sub>x</sub> = <span class="val">${fmt(accelEstimate.Apeak,4)}</span> m/s²<br>
+      Y 風向 Ã<sub>y</sub> = <span class="val">${fmt(accelEstimateY.Apeak,4)}</span> m/s²<br>
+      控制風向 = <span class="val">${accelControl.dir}</span>；控制加速度 = <span class="val">${fmt(accelControl.value,4)}</span> m/s²
+    `);
+  }
+
+  if (parapetWindward && parapetLeeward) {
+    html += step((accel || accelEstimate) ? '⑪ MWFRS 女兒牆 (Eq 2.3)' : '⑨ MWFRS 女兒牆 (Eq 2.3)', `
+      q<sub>p</sub> = q(h + h<sub>p</sub>) = <span class="val">${fmt(parapetWindward.qp,1)}</span> kgf/m²<br>
+      迎風面 GC<sub>pn</sub> = <span class="val">${fmtSigned(parapetWindward.GCpn,1)}</span>，
+      p = <span class="val">${fmtSigned(parapetWindward.p,1)}</span> kgf/m²<br>
+      背風面 GC<sub>pn</sub> = <span class="val">${fmtSigned(parapetLeeward.GCpn,1)}</span>，
+      p = <span class="val">${fmtSigned(parapetLeeward.p,1)}</span> kgf/m²
+    `);
+  }
+
+  // Summary
+  const summaryStepNo = parapetWindward ? ((accel || accelEstimate) ? '⑫' : '⑩') : ((accel || accelEstimate) ? '⑪' : '⑨');
+  html += step(`${summaryStepNo} 底部剪力與傾覆力矩`, `
+    V<sub>b</sub> = Σ F<sub>i</sub> = <span class="val hl">${fmt(r.Vb,0)}</span> kgf = <span class="val hl">${fmt(r.Vb/1000,1)}</span> tf<br>
+    OTM = Σ(F<sub>i</sub>·z<sub>i</sub>) = <span class="val">${fmt(r.OTM,0)}</span> kgf·m = <span class="val">${fmt(r.OTM/1000,0)}</span> tf·m
+  `);
+
+  document.getElementById('steps').innerHTML = html;
+
+  // ── 逐層表 ──
+  const tbody = document.querySelector('#storyTable tbody');
+  tbody.innerHTML = '';
+  r.stories.slice().reverse().forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="idx">${s.i}F</td>
+      <td>${fmt(s.zMid,1)}</td>
+      <td>${fmt(s.Kz,3)}</td>
+      <td>${fmt(s.qz,1)}</td>
+      <td>${fmt(s.pw,1)}</td>
+      <td>${fmt(s.pl,1)}</td>
+      <td>${fmt(s.pNet,1)}</td>
+      <td>${fmt(s.A,1)}</td>
+      <td>${fmt(s.F,0)}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('storyNote').innerHTML =
+    `表中 p<sub>w</sub>、p<sub>l</sub> 為外壓；MWFRS 內壓組合另列於上方。迎風 p<sub>w</sub> = q(z)·G·C<sub>pw</sub>，背風 p<sub>l</sub> = q(h)·G·C<sub>pl</sub>，p<sub>net</sub> = p<sub>w</sub>−p<sub>l</sub>。本次逐層樓高 = ${storyH.map(v => fmt(v,2)).join(' / ')} m。`;
+
+  const comboTbody = document.querySelector('#comboTable tbody');
+  comboTbody.innerHTML = '';
+  r.stories.slice().reverse().forEach(s => {
+    const wl = r.crossWind ? r.crossWind.find(item => item.i === s.i)?.WL : null;
+    const mt = r.torsion ? r.torsion.find(item => item.i === s.i)?.MT : null;
+    const sy = rY.stories.find(item => item.i === s.i);
+    const wly = rY.crossWind ? rY.crossWind.find(item => item.i === s.i)?.WL : null;
+    const mty = rY.torsion ? rY.torsion.find(item => item.i === s.i)?.MT : null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="idx">${s.i}F</td>
+      <td>${fmt(s.F,0)}</td>
+      <td>${wl == null ? '—' : fmt(wl,0)}</td>
+      <td>${mt == null ? '—' : fmt(mt,0)}</td>
+      <td>${fmt(sy ? sy.F : null,0)}</td>
+      <td>${wly == null ? '—' : fmt(wly,0)}</td>
+      <td>${mty == null ? '—' : fmt(mty,0)}</td>
+    `;
+    comboTbody.appendChild(tr);
+  });
+  document.getElementById('comboNote').innerHTML =
+    `本表同步列出 X / Y 兩主風向之逐層設計風力。W<sub>D,z</sub> 為順風向樓層風力，W<sub>L,z</sub> 為橫風向樓層風力，M<sub>T,z</sub> 為該層扭轉向風力。構件設計若需依 2.12 組合結構效應，應於結構分析模型中對 X / Y 兩風向分別建立載重組合。`;
+}
+
+function step(t, b, d) {
+  let h = `<div class="step"><div class="step-title">${t}</div><div class="step-body">${b}</div>`;
+  if (d) h += `<div class="detail-formula">${d}</div>`;
+  h += `</div>`;
+  return h;
+}
+
+// ── 詳列計算式 toggle ──
+document.getElementById('chkDetail').addEventListener('change', function() {
+  document.getElementById('stepsCard').classList.toggle('show-detail', this.checked);
+});
+
+// 預設算一次
+calc();
+</script>
+</body>
+</html>

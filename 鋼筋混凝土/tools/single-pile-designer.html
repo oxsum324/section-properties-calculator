@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>單樁承載力設計器 V3.0</title>
+<style>
+  :root {
+    --bg: #f4efe6;
+    --card: #fffdf8;
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --line: #d6c8b4;
+    --accent: #9a3412;
+    --accent-2: #14532d;
+    --warn: #b45309;
+    --bad: #b91c1c;
+    --good: #166534;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at top right, rgba(154,52,18,0.08), transparent 30%),
+      linear-gradient(180deg, #f8f3ea 0%, var(--bg) 100%);
+  }
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 24px;
+  }
+  .hero {
+    background: linear-gradient(135deg, #fff8ef 0%, #f8ecdd 100%);
+    border: 1px solid #ead7bd;
+    border-radius: 18px;
+    padding: 22px;
+    margin-bottom: 18px;
+    box-shadow: 0 12px 30px rgba(120, 53, 15, 0.08);
+  }
+  .hero h1 { margin: 0 0 8px; font-size: 1.8rem; }
+  .hero p { margin: 0; color: #5b4633; line-height: 1.6; }
+  .layout {
+    display: grid;
+    grid-template-columns: 480px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  }
+  .card h2, .card h3 { margin: 0 0 14px; }
+  .stack { display: grid; gap: 14px; }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .form-group { display: grid; gap: 6px; }
+  label { font-size: 0.92rem; font-weight: 700; color: #4b5563; }
+  input, select, textarea, button {
+    font: inherit;
+  }
+  input, select, textarea {
+    width: 100%;
+    border: 1px solid #ccb89e;
+    border-radius: 10px;
+    background: #fff;
+    padding: 10px 12px;
+  }
+  textarea {
+    min-height: 180px;
+    resize: vertical;
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+  button {
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #9a3412 0%, #c2410c 100%);
+    color: #fff;
+    padding: 12px 16px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  button.secondary {
+    background: linear-gradient(135deg, #4b5563 0%, #6b7280 100%);
+  }
+  .hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .preset-btn {
+    text-align: left;
+    line-height: 1.4;
+  }
+  .preset-btn small {
+    display: block;
+    opacity: 0.86;
+    font-weight: 500;
+  }
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .result {
+    border: 1px solid #ead7bd;
+    border-radius: 12px;
+    padding: 12px;
+    background: #fff9f2;
+  }
+  .result .k {
+    display: block;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+  .result .v {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+  .good { color: var(--good); }
+  .bad { color: var(--bad); }
+  .warn { color: var(--warn); }
+  .banner {
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+  }
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  th, td {
+    border: 1px solid #e5d7c3;
+    padding: 7px 8px;
+    text-align: right;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  th:nth-child(1), td:nth-child(1),
+  th:nth-child(2), td:nth-child(2),
+  th:nth-child(3), td:nth-child(3) {
+    text-align: left;
+  }
+  thead th {
+    background: #fbf3e7;
+    color: #3f3f46;
+  }
+  tr.pass-row { background: rgba(22, 101, 52, 0.08); }
+  tr.control-row { background: rgba(154, 52, 18, 0.10); }
+  pre {
+    margin: 0;
+    white-space: pre-wrap;
+    line-height: 1.55;
+    font-size: 0.84rem;
+    background: #fcf7ef;
+    border: 1px solid #e9dcc8;
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .section-title {
+    margin: 0 0 10px;
+    color: #7c2d12;
+    font-size: 1rem;
+  }
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+    .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 720px) {
+    .page { padding: 14px; }
+    .form-grid, .result-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <section class="hero">
+    <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.0</span></h1>
+    <p>這是一份可獨立分享的單一 HTML。輸入單樁需求與土層資料後，工具會用 <code>Qs + Qb</code>、沉陷與構造限制，自動搜尋建議樁徑與樁深，並列出逐層摩擦力與候選方案。</p>
+  </section>
+
+  <div class="layout">
+    <section class="stack">
+      <div class="card">
+        <h2>設計輸入</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="pileType">樁型式</label>
+            <select id="pileType">
+              <option value="cast-in-place" selected>場鑄混凝土樁</option>
+              <option value="steel-pipe">鋼管樁</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="pileInstall">施工法</label>
+            <select id="pileInstall">
+              <option value="driven" selected>打入樁</option>
+              <option value="bored">鑽掘樁</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="calcMode">計算法模式</label>
+            <select id="calcMode">
+              <option value="regulation">規範模式</option>
+              <option value="code" selected>一般工程模式</option>
+              <option value="simplified">簡化模式</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="regulationMethod">規範模式支承力法</label>
+            <select id="regulationMethod">
+              <option value="static" selected>靜力學公式</option>
+              <option value="nvalue">N值經驗式</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="longTermLoad">長期服務載重 (tf)</label>
+            <input id="longTermLoad" type="number" value="60" step="1">
+          </div>
+          <div class="form-group">
+            <label for="shortTermLoad">短期服務載重 (tf)</label>
+            <input id="shortTermLoad" type="number" value="80" step="1">
+          </div>
+          <div class="form-group">
+            <label for="factoredLoad">樁身設計載重 Pu (tf)</label>
+            <input id="factoredLoad" type="number" value="180" step="1">
+          </div>
+          <div class="form-group">
+            <label for="safetyFactorLong">長期承載安全係數 FS</label>
+            <input id="safetyFactorLong" type="number" value="3.0" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="safetyFactorShort">短期承載安全係數 FS</label>
+            <input id="safetyFactorShort" type="number" value="2.0" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="allowSettlement">容許沉陷 (cm)</label>
+            <input id="allowSettlement" type="number" value="2.5" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="fc">fc' (kgf/cm²)</label>
+            <input id="fc" type="number" value="280" step="1">
+          </div>
+        </div>
+        <p class="hint">此頁面固定以單樁為對象，不納入群樁間距與群樁效應；「規範模式」固定依 112 年版基礎規範之支承力推估公式執行分項安全係數，「一般工程模式」為工程推估模式，「簡化模式」則保留你慣用的簡化公式。</p>
+      </div>
+
+      <div class="card">
+        <h2>搜尋範圍</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="diameterMin">樁徑起 (cm)</label>
+            <input id="diameterMin" type="number" value="40" step="5">
+          </div>
+          <div class="form-group">
+            <label for="diameterMax">樁徑迄 (cm)</label>
+            <input id="diameterMax" type="number" value="120" step="5">
+          </div>
+          <div class="form-group">
+            <label for="diameterStep">樁徑間距 (cm)</label>
+            <input id="diameterStep" type="number" value="10" step="5">
+          </div>
+          <div class="form-group">
+            <label for="depthMin">樁深起 (m)</label>
+            <input id="depthMin" type="number" value="8" step="0.5">
+          </div>
+          <div class="form-group">
+            <label for="depthMax">樁深迄 (m)</label>
+            <input id="depthMax" type="number" value="40" step="0.5">
+          </div>
+          <div class="form-group">
+            <label for="depthStep">樁深間距 (m)</label>
+            <input id="depthStep" type="number" value="0.5" step="0.5">
+          </div>
+        </div>
+        <p class="hint">工具會對每一組樁徑與樁深逐一試算，並回傳第一個同時滿足承載、沉陷與構造限制的方案。</p>
+      </div>
+
+      <div class="card">
+        <h2>場址快捷帶入</h2>
+        <div class="preset-grid">
+          <button id="btnPresetBh5" type="button" class="preset-btn secondary">高捷紅線 R17 BH-5<small>粉質細砂為主，示範短樁搜尋</small></button>
+          <button id="btnPresetB031" type="button" class="preset-btn secondary">高捷紅線 R17 B-031<small>含泥岩層，示範深樁搜尋</small></button>
+          <button id="btnPresetCh2830" type="button" class="preset-btn secondary">高捷紅線 R17 CH-28~30<small>簡化工程參數表</small></button>
+          <button id="btnBlankProfile" type="button" class="preset-btn secondary">保留空白輸入<small>清空土層資料，自行貼上新場址</small></button>
+        </div>
+        <div class="preset-grid" style="margin-top:10px;">
+          <button id="btnSaveDefaults" type="button" class="preset-btn">設為目前預設值<small>保存目前載重、搜尋範圍、細部參數與土層</small></button>
+          <button id="btnResetDefaults" type="button" class="preset-btn secondary">還原內建預設值<small>清除自訂預設，回到系統示範值</small></button>
+        </div>
+        <p class="hint">快捷鍵現在只會帶入土層資料，不會覆蓋你已輸入的載重、樁徑、搜尋範圍與細部設定；如需固定目前整組數值，可按「設為目前預設值」。</p>
+        <pre id="presetSummary">尚未選擇場址快捷資料</pre>
+      </div>
+
+      <div class="card">
+        <h2>沉陷參數</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="settlementMode">沉陷模式</label>
+            <select id="settlementMode">
+              <option value="auto" selected>自動推估</option>
+              <option value="manual">手動輸入</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="xi">ξ</label>
+            <input id="xi" type="number" value="0.67" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="cp">Cp</label>
+            <input id="cp" type="number" value="0.09" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="cs">Cs</label>
+            <input id="cs" type="number" value="0.30" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="qo">qo (tf/m²，0=自動)</label>
+            <input id="qo" type="number" value="0" step="1">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>細部折減與規範參數</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="alphaSoft">黏土/軟岩 α1 (c ≤ 3 tf/m²)</label>
+            <input id="alphaSoft" type="number" value="0.90" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="alphaMedium">黏土/軟岩 α2 (3 &lt; c ≤ 6)</label>
+            <input id="alphaMedium" type="number" value="0.70" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="alphaStiff">黏土/軟岩 α3 (c &gt; 6)</label>
+            <input id="alphaStiff" type="number" value="0.55" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="sandKDriven">砂層 K (打入樁)</label>
+            <input id="sandKDriven" type="number" value="0.90" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="sandKBored">砂層 K (鑽掘樁)</label>
+            <input id="sandKBored" type="number" value="0.65" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="deltaRatio">砂層 δ / φ 比例</label>
+            <input id="deltaRatio" type="number" value="0.75" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="sandFsCap">一般砂層 fs 上限 (tf/m²)</label>
+            <input id="sandFsCap" type="number" value="8" step="0.5">
+          </div>
+          <div class="form-group">
+            <label for="denseSandFsCap">緊密砂/礫層 fs 上限 (tf/m²)</label>
+            <input id="denseSandFsCap" type="number" value="12" step="0.5">
+          </div>
+          <div class="form-group">
+            <label for="tipCapDriven">N&gt;50 端承上限 打入樁 (tf/m²)</label>
+            <input id="tipCapDriven" type="number" value="1800" step="10">
+          </div>
+          <div class="form-group">
+            <label for="tipCapBored">N&gt;50 端承上限 鑽掘樁 (tf/m²)</label>
+            <input id="tipCapBored" type="number" value="750" step="10">
+          </div>
+          <div class="form-group">
+            <label for="simpleFs1Long">簡化模式 FS1 常時端承</label>
+            <input id="simpleFs1Long" type="number" value="2.5" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="simpleFs2Long">簡化模式 FS2 常時摩擦</label>
+            <input id="simpleFs2Long" type="number" value="3.5" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="simpleFs1Short">簡化模式 FS1 短期端承</label>
+            <input id="simpleFs1Short" type="number" value="1.8" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="simpleFs2Short">簡化模式 FS2 短期摩擦</label>
+            <input id="simpleFs2Short" type="number" value="2.5" step="0.1">
+          </div>
+          <div class="form-group">
+            <label for="upliftSafetyFactor">抗拔 FS</label>
+            <input id="upliftSafetyFactor" type="number" value="3.0" step="0.1">
+          </div>
+        </div>
+        <p class="hint">規範模式下，垂直承載與抗拔安全係數固定依規範表值計算，不讀取上方整體 FS 與此區簡化 FS。此區可調者主要供一般工程模式與簡化模式使用；若專案規範、顧問設計準則或地工報告另有指定，應以專案文件覆核後再修改。</p>
+      </div>
+
+      <div class="card">
+        <h2>土層資料</h2>
+        <div class="form-group">
+          <label for="soilProfile">每列：起深m, 迄深m, N, c(tf/m²), φ(度), γ'(tf/m³), 土名</label>
+          <textarea id="soilProfile">0, 3, 8, 0, 28, 0.95, sand
+3, 9, 18, 0, 32, 1.00, sand
+9, 15, 32, 0, 36, 1.05, dense sand
+15, 24, 55, 0, 38, 1.10, gravel
+24, 32, 40, 12, 0, 1.20, mudstone</textarea>
+        </div>
+        <p class="hint">砂層端承採臨界深度 <code>20D</code>。若 <code>N &gt; 50</code> 的極緊密砂或卵礫石，會自動套用上限：打入樁 <code>1800 tf/m²</code>、鑽掘樁 <code>750 tf/m²</code>。</p>
+        <div class="form-grid">
+          <button id="btnCalc" type="button">重新試算</button>
+          <button id="btnSample" type="button" class="secondary">載入示範資料</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack">
+      <div class="card">
+        <div id="banner" class="banner">等待試算</div>
+        <div class="result-grid">
+          <div class="result"><span class="k">建議樁徑</span><span class="v" id="rDia">—</span></div>
+          <div class="result"><span class="k">建議樁深</span><span class="v" id="rDepth">—</span></div>
+          <div class="result"><span class="k">控制層</span><span class="v" id="rTip">—</span></div>
+          <div class="result"><span class="k">Qall 長期</span><span class="v" id="rQallLong">—</span></div>
+          <div class="result"><span class="k">Qall 短期</span><span class="v" id="rQallShort">—</span></div>
+          <div class="result"><span class="k">Ra 抗拔</span><span class="v" id="rRa">—</span></div>
+          <div class="result"><span class="k">Wo</span><span class="v" id="rWo">—</span></div>
+          <div class="result"><span class="k">Qs / Qb</span><span class="v" id="rSplit">—</span></div>
+          <div class="result"><span class="k">規範檢核</span><span class="v" id="rCode">—</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>設計判讀</h2>
+        <pre id="summary">尚未試算</pre>
+      </div>
+
+      <div class="card">
+        <h2>規範假設檢核</h2>
+        <pre id="complianceSummary">尚未試算</pre>
+      </div>
+
+      <div class="card">
+        <h2>逐層承載力表</h2>
+        <p class="hint" id="layerTableNote">尚未試算</p>
+        <div class="table-wrap">
+          <table id="layerTable">
+            <thead>
+              <tr>
+                <th>層次</th>
+                <th>深度</th>
+                <th>土層</th>
+                <th>N</th>
+                <th>c</th>
+                <th>φ</th>
+                <th>γ'</th>
+                <th>fs</th>
+                <th>ΔQs</th>
+                <th>累計Qs</th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="10">尚未試算</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>候選方案矩陣</h2>
+        <div class="table-wrap">
+          <table id="candidateTable">
+            <thead>
+              <tr>
+                <th>狀態</th>
+                <th>D (cm)</th>
+                <th>L (m)</th>
+                <th>Qs</th>
+                <th>Qb</th>
+                <th>Qall 長/短</th>
+                <th>Wo</th>
+                <th>控制層</th>
+                <th>判讀</th>
+              </tr>
+            </thead>
+            <tbody><tr><td colspan="9">尚未試算</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const STORAGE_KEY = 'singlePileDesigner.userDefaults.v1';
+  const num = id => {
+    const v = parseFloat($(id)?.value);
+    return Number.isFinite(v) ? v : 0;
+  };
+  const safePositive = (v, fallback) => Number.isFinite(v) && v > 0 ? v : fallback;
+  const DEFAULT_RULES = {
+    safetyFactorLong: 3.0,
+    safetyFactorShort: 2.0,
+    upliftSafetyFactor: 3.0,
+    unitWeightPile: 1.8,
+    simpleFs1Long: 2.5,
+    simpleFs2Long: 3.5,
+    simpleFs1Short: 1.8,
+    simpleFs2Short: 2.5,
+    alphaSoft: 0.90,
+    alphaMedium: 0.70,
+    alphaStiff: 0.55,
+    sandKDriven: 0.90,
+    sandKBored: 0.65,
+    deltaRatio: 0.75,
+    sandFsCap: 8,
+    denseSandFsCap: 12,
+    tipCapDriven: 1800,
+    tipCapBored: 750
+  };
+  const REGULATION_FACTORS = {
+    vertical: {
+      normal: { Fs1: 2.5, Fs2: 3.5 },
+      short: { Fs1: 1.8, Fs2: 2.5 },
+      uls: { Fs1: 1.2, Fs2: 1.5 }
+    },
+    uplift: {
+      normal: 5.0,
+      short: 3.0,
+      uls: 2.4
+    }
+  };
+  const NQ_TABLE = {
+    driven: { 26: 10, 28: 15, 30: 21, 31: 24, 32: 29, 33: 35, 34: 42, 35: 50, 36: 62, 37: 77, 38: 96, 39: 120, 40: 145 },
+    bored: { 26: 5, 28: 8, 30: 10, 31: 12, 32: 14, 33: 17, 34: 21, 35: 25, 36: 30, 37: 38, 38: 48, 39: 60, 40: 72 }
+  };
+  const R17_PRESETS = {
+    'bh-5': {
+      name: '高捷紅線 R17 BH-5',
+      note: '粉質細砂為主，地下水位約 GL-2.5m，示範較短樁搜尋。',
+      longTermLoad: 60,
+      shortTermLoad: 80,
+      factoredLoad: 120,
+      pileType: 'cast-in-place',
+      pileInstall: 'driven',
+      calcMode: 'regulation',
+      regulationMethod: 'static',
+      allowSettlement: 5,
+      diameterMin: 40,
+      diameterMax: 100,
+      diameterStep: 10,
+      depthMin: 8,
+      depthMax: 28,
+      depthStep: 0.5,
+      soilProfile: `0, 2.0, 5, 0, 28, 0.95, 棕黃色粉質細砂
+2.0, 6.5, 7, 0, 29, 0.95, 棕灰色粉質細砂
+6.5, 18.4, 12, 0, 30, 1.95, 灰色粉質細砂夾灰色粉質黏土
+18.4, 19.5, 8, 3.0, 25, 1.98, 灰色黏土質粉土夾黏土
+19.5, 20.0, 19, 0, 31, 1.95, 灰色粉質細砂`
+    },
+    'b-031': {
+      name: '高捷紅線 R17 B-031',
+      note: '含珊瑚礁岩塊與泥岩，示範深樁搜尋與黏性/軟岩端承。',
+      longTermLoad: 180,
+      shortTermLoad: 240,
+      factoredLoad: 320,
+      pileType: 'cast-in-place',
+      pileInstall: 'bored',
+      calcMode: 'simplified',
+      regulationMethod: 'static',
+      allowSettlement: 3,
+      diameterMin: 60,
+      diameterMax: 150,
+      diameterStep: 10,
+      depthMin: 15,
+      depthMax: 45,
+      depthStep: 0.5,
+      soilProfile: `0, 6.0, 7, 4.2, 0, 1.00, 棕黃色粉土質黏土(回填層)
+6.0, 15.1, 11, 0, 30, 1.00, 灰色粉土質細砂夾砂質粉土
+15.1, 19.3, 20, 0, 33, 1.10, 珊瑚礁岩塊夾砂土
+19.3, 35.0, 50, 30, 0, 1.25, 灰色泥岩偶夾砂質泥岩
+35.0, 42.0, 50, 35, 0, 1.30, 泥岩延續層`
+    },
+    'ch-28-30': {
+      name: '高捷紅線 R17 CH-28~30',
+      note: '依地層剖面簡化工程參數，平時水位可取 GL-4.0m，N>50 依圖說設計取 50。',
+      longTermLoad: 120,
+      shortTermLoad: 160,
+      factoredLoad: 220,
+      pileType: 'cast-in-place',
+      pileInstall: 'driven',
+      calcMode: 'simplified',
+      regulationMethod: 'static',
+      allowSettlement: 3,
+      diameterMin: 50,
+      diameterMax: 120,
+      diameterStep: 10,
+      depthMin: 12,
+      depthMax: 40,
+      depthStep: 0.5,
+      soilProfile: `0, 6.0, 7, 4.2, 0, 1.00, 棕黃色粉土質黏土(回填層厚約4.6~5.3m)
+6.0, 15.1, 11, 0, 30, 0.95, 灰色粉土質細砂偶夾砂質粉土
+15.1, 19.3, 20, 0, 33, 1.00, 珊瑚礁岩塊夾砂土
+19.3, 35.0, 50, 30, 0, 1.20, 灰色泥岩偶夾砂質泥岩`
+    }
+  };
+  const FIELD_IDS = [
+    'pileType', 'pileInstall', 'calcMode', 'regulationMethod', 'longTermLoad', 'shortTermLoad', 'factoredLoad',
+    'safetyFactorLong', 'safetyFactorShort', 'allowSettlement', 'fc',
+    'diameterMin', 'diameterMax', 'diameterStep', 'depthMin', 'depthMax', 'depthStep',
+    'settlementMode', 'xi', 'cp', 'cs', 'qo',
+    'alphaSoft', 'alphaMedium', 'alphaStiff', 'sandKDriven', 'sandKBored', 'deltaRatio',
+    'sandFsCap', 'denseSandFsCap', 'tipCapDriven', 'tipCapBored',
+    'simpleFs1Long', 'simpleFs2Long', 'simpleFs1Short', 'simpleFs2Short', 'upliftSafetyFactor',
+    'soilProfile'
+  ];
+  const SOIL_ONLY_FIELD_IDS = ['soilProfile'];
+
+  function captureCurrentState() {
+    const state = {};
+    FIELD_IDS.forEach(id => {
+      const el = $(id);
+      if (el) state[id] = el.value;
+    });
+    return state;
+  }
+
+  function applyState(state, fieldIds = FIELD_IDS) {
+    fieldIds.forEach(id => {
+      const el = $(id);
+      if (el && Object.prototype.hasOwnProperty.call(state, id)) el.value = state[id];
+    });
+  }
+
+  function saveUserDefaults() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(captureCurrentState()));
+      $('presetSummary').textContent = '已將目前頁面上的載重、搜尋範圍、細部參數與土層資料保存為你的自訂預設值。重新開啟此頁時會自動載入。';
+    } catch (err) {
+      $('presetSummary').textContent = `儲存自訂預設失敗：${err && err.message ? err.message : err}`;
+    }
+  }
+
+  function loadUserDefaults() {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const state = JSON.parse(raw);
+      applyState(state);
+      $('presetSummary').textContent = '已載入你先前保存的自訂預設值。快捷鍵仍只會更新土層資料。';
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function resetUserDefaults() {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      // ignore localStorage cleanup failures and continue restoring defaults
+    }
+    loadSample();
+    $('presetSummary').textContent = '已清除自訂預設，並恢復為內建示範案例。';
+  }
+
+  function inferSoilType(label, c, phi, N) {
+    const raw = String(label || '').toLowerCase();
+    if (/(gravel|礫|卵礫)/.test(raw)) return 'gravel';
+    if (/(clay|黏|silt|粉土|泥岩|mudstone)/.test(raw)) return c > 0 ? 'clay' : 'rock';
+    if (/(sand|砂)/.test(raw)) return 'sand';
+    if (N > 50) return 'gravel';
+    if (c > 0.5 && phi < 28) return 'clay';
+    return 'sand';
+  }
+
+  function parseSoilProfile(text) {
+    const lines = String(text || '').split(/\r?\n/);
+    const layers = [];
+    const errors = [];
+    lines.forEach((line, idx) => {
+      const raw = line.trim();
+      if (!raw) return;
+      const parts = raw.split(',').map(v => v.trim());
+      if (parts.length < 6) {
+        errors.push(`第 ${idx + 1} 列欄位不足`);
+        return;
+      }
+      const from = parseFloat(parts[0]);
+      const to = parseFloat(parts[1]);
+      const N = parseFloat(parts[2]);
+      const c = parseFloat(parts[3]);
+      const phi = parseFloat(parts[4]);
+      const gammaEff = parseFloat(parts[5]);
+      const label = parts[6] || '';
+      if (![from, to, N, c, phi, gammaEff].every(Number.isFinite)) {
+        errors.push(`第 ${idx + 1} 列存在空值或非數字`);
+        return;
+      }
+      if (!(from >= 0 && to > from)) {
+        errors.push(`第 ${idx + 1} 列深度區間錯誤`);
+        return;
+      }
+      if (N < 0 || c < 0 || phi < 0 || phi > 50 || gammaEff <= 0 || gammaEff > 3) {
+        errors.push(`第 ${idx + 1} 列參數超出合理範圍`);
+        return;
+      }
+      layers.push({ from, to, N, c, phi, gammaEff, label, type: inferSoilType(label, c, phi, N) });
+    });
+    layers.sort((a, b) => a.from - b.from);
+    for (let i = 1; i < layers.length; i++) {
+      if (layers[i].from < layers[i - 1].to - 1e-9) errors.push(`第 ${i + 1} 層與前一層重疊`);
+    }
+    return { layers, errors };
+  }
+
+  function effectiveStressAtDepth(layers, depth) {
+    let sigma = 0;
+    for (const layer of layers) {
+      const dz = Math.max(0, Math.min(depth, layer.to) - layer.from);
+      if (dz <= 0) continue;
+      sigma += layer.gammaEff * dz;
+      if (depth <= layer.to) break;
+    }
+    return sigma;
+  }
+
+  function getLayerAtDepth(layers, depth) {
+    return layers.find(layer => depth > layer.from - 1e-9 && depth <= layer.to + 1e-9) || null;
+  }
+
+  function interpolateSupportFactor(phi, pileInstall) {
+    const table = NQ_TABLE[pileInstall === 'driven' ? 'driven' : 'bored'];
+    const keys = Object.keys(table).map(Number).sort((a, b) => a - b);
+    const p = Math.max(keys[0], Math.min(keys[keys.length - 1], phi));
+    for (let i = 0; i < keys.length - 1; i++) {
+      const a = keys[i];
+      const b = keys[i + 1];
+      if (Math.abs(p - a) < 1e-9) return table[a];
+      if (p > a && p < b) {
+        const t = (p - a) / (b - a);
+        return table[a] + (table[b] - table[a]) * t;
+      }
+    }
+    return table[keys[keys.length - 1]];
+  }
+
+  function integrateSkin(layers, pileLength, pileD_m, pileInstall, rules) {
+    const perimeter = Math.PI * pileD_m;
+    const segments = [];
+    let Qs = 0;
+    for (const layer of layers) {
+      const segLen = Math.max(0, Math.min(pileLength, layer.to) - layer.from);
+      if (segLen <= 0) continue;
+      const zMid = layer.from + segLen / 2;
+      const sigmaMid = effectiveStressAtDepth(layers, zMid);
+      let fs = 0;
+      if (layer.type === 'clay' || layer.type === 'rock') {
+        const alpha = layer.c <= 3 ? rules.alphaSoft : layer.c <= 6 ? rules.alphaMedium : rules.alphaStiff;
+        fs = alpha * Math.max(layer.c, layer.type === 'rock' ? 8 : layer.c);
+      } else {
+        const K = pileInstall === 'driven' ? rules.sandKDriven : rules.sandKBored;
+        const delta = Math.max(15, Math.min(35, layer.phi * rules.deltaRatio)) * Math.PI / 180;
+        fs = Math.min(layer.N > 50 ? rules.denseSandFsCap : rules.sandFsCap, K * sigmaMid * Math.tan(delta));
+      }
+      const dQs = fs * perimeter * segLen;
+      Qs += dQs;
+      segments.push({ ...layer, segLen, fs, dQs, accumQs: Qs });
+    }
+    return { Qs, segments };
+  }
+
+  function calcTipResistance(layers, pileLength, pileD_m, pileInstall, rules) {
+    const tipLayer = getLayerAtDepth(layers, pileLength);
+    if (!tipLayer) return { Qb: 0, qbUlt: 0, tipLayer: null, capApplied: false, criticalDepth: pileLength, sigmaCrit: 0 };
+    const area = Math.PI * pileD_m * pileD_m / 4;
+    const criticalDepth = Math.min(pileLength, 20 * pileD_m);
+    const sigmaCrit = effectiveStressAtDepth(layers, criticalDepth);
+    let qbUlt = 0;
+    let capApplied = false;
+    let capValue = null;
+    if (tipLayer.type === 'clay' || tipLayer.type === 'rock') {
+      qbUlt = 9 * Math.max(tipLayer.c, tipLayer.type === 'rock' ? 20 : tipLayer.c);
+    } else {
+      const phiRad = Math.max(0, Math.min(45, tipLayer.phi)) * Math.PI / 180;
+      const Nq = Math.exp(Math.PI * Math.tan(phiRad)) * Math.pow(Math.tan(Math.PI / 4 + phiRad / 2), 2);
+      qbUlt = sigmaCrit * Nq;
+      if (tipLayer.N > 50 || tipLayer.type === 'gravel') {
+        capValue = pileInstall === 'driven' ? rules.tipCapDriven : rules.tipCapBored;
+        if (qbUlt > capValue) {
+          qbUlt = capValue;
+          capApplied = true;
+        }
+      }
+    }
+    return { Qb: qbUlt * area, qbUlt, tipLayer, capApplied, capValue, criticalDepth, sigmaCrit };
+  }
+
+  function calcSettlement({ Qb, Qs, pileLength, pileArea_m2, pileD_m, fc, mode, xiInput, cpInput, csInput, qoInput, qbUlt }) {
+    const xi = mode === 'manual' ? safePositive(xiInput, 0.67) : 0.67;
+    const Cp = mode === 'manual' ? safePositive(cpInput, 0.09) : 0.09;
+    const B = Math.max(pileD_m, 1e-6);
+    const D = Math.max(pileLength, 1e-6);
+    const Cs = mode === 'manual' ? safePositive(csInput, (0.93 + 0.16 * (D / B) * 0.5) * Cp) : (0.93 + 0.16 * (D / B) * 0.5) * Cp;
+    const Ep = 15000 * Math.sqrt(Math.max(fc, 1)) * 10;
+    const qo = Math.max(1, mode === 'manual' ? safePositive(qoInput, qbUlt || (Qb / Math.max(pileArea_m2, 1e-6))) : (qbUlt || (Qb / Math.max(pileArea_m2, 1e-6))));
+    const Ws = ((Qb + xi * Qs) * pileLength) / Math.max(pileArea_m2 * Ep, 1e-6);
+    const Wpp = (Cp * Qb) / Math.max(B * qo, 1e-6);
+    const Wps = (Cs * Qs) / Math.max(D * qo, 1e-6);
+    return { Ws_cm: Ws * 100, Wpp_cm: Wpp * 100, Wps_cm: Wps * 100, Wo_cm: (Ws + Wpp + Wps) * 100, xi, Cp, Cs, qo };
+  }
+
+  function checkStructural(pileType, diaCm) {
+    if (pileType === 'steel-pipe') {
+      return { ok: diaCm >= 25, text: diaCm >= 25 ? '鋼管樁直徑符合' : '鋼管樁外徑需 ≥ 25 cm' };
+    }
+    const area = Math.PI * diaCm * diaCm / 4;
+    const req = area * 0.005;
+    return { ok: diaCm >= 40, text: `場鑄樁建議至少 40 cm；As,min ≈ ${req.toFixed(2)} cm²` };
+  }
+
+  function buildRules() {
+    return {
+      unitWeightPile: DEFAULT_RULES.unitWeightPile,
+      simpleFs1Long: safePositive(num('simpleFs1Long'), DEFAULT_RULES.simpleFs1Long),
+      simpleFs2Long: safePositive(num('simpleFs2Long'), DEFAULT_RULES.simpleFs2Long),
+      simpleFs1Short: safePositive(num('simpleFs1Short'), DEFAULT_RULES.simpleFs1Short),
+      simpleFs2Short: safePositive(num('simpleFs2Short'), DEFAULT_RULES.simpleFs2Short),
+      upliftSafetyFactor: safePositive(num('upliftSafetyFactor'), DEFAULT_RULES.upliftSafetyFactor),
+      alphaSoft: safePositive(num('alphaSoft'), DEFAULT_RULES.alphaSoft),
+      alphaMedium: safePositive(num('alphaMedium'), DEFAULT_RULES.alphaMedium),
+      alphaStiff: safePositive(num('alphaStiff'), DEFAULT_RULES.alphaStiff),
+      sandKDriven: safePositive(num('sandKDriven'), DEFAULT_RULES.sandKDriven),
+      sandKBored: safePositive(num('sandKBored'), DEFAULT_RULES.sandKBored),
+      deltaRatio: safePositive(num('deltaRatio'), DEFAULT_RULES.deltaRatio),
+      sandFsCap: safePositive(num('sandFsCap'), DEFAULT_RULES.sandFsCap),
+      denseSandFsCap: safePositive(num('denseSandFsCap'), DEFAULT_RULES.denseSandFsCap),
+      tipCapDriven: safePositive(num('tipCapDriven'), DEFAULT_RULES.tipCapDriven),
+      tipCapBored: safePositive(num('tipCapBored'), DEFAULT_RULES.tipCapBored)
+    };
+  }
+
+  function getModeLabel(calcMode) {
+    if (calcMode === 'regulation') return '規範模式';
+    if (calcMode === 'simplified') return '簡化模式';
+    return '一般工程模式';
+  }
+
+  function getRegulationMethodLabel(method) {
+    return method === 'nvalue' ? 'N值經驗式' : '靜力學公式';
+  }
+
+  function buildCompliance(rules, params) {
+    const notes = [];
+    const warnings = [];
+    notes.push(`計算法模式 = ${getModeLabel(params.calcMode)}。`);
+    if (params.calcMode === 'regulation') {
+      notes.push(`規範模式支承力法 = ${getRegulationMethodLabel(params.regulationMethod)}。`);
+      notes.push(`垂直容許支承力固定採規範分項安全係數：常時 Qs/2.5 + Qb/3.5，短期 Qs/1.8 + Qb/2.5，極限限界狀態 Qs/1.2 + Qb/1.5。`);
+      notes.push(`抗拔容許承載力固定採規範分項安全係數：常時 Ra = Wp + Qs/5.0，短期 = Wp + Qs/3.0，極限限界 = Wp + Qs/2.4。`);
+      notes.push('規範模式下，上方整體 FS 與簡化模式 FS 欄位僅保留顯示，不參與計算。');
+    } else {
+      notes.push(`長期 FS = ${params.safetyFactorLong.toFixed(2)}，短期 FS = ${params.safetyFactorShort.toFixed(2)}。`);
+      if (params.safetyFactorLong < DEFAULT_RULES.safetyFactorLong) warnings.push('長期安全係數低於本工具預設保守值 3.0。');
+      if (params.safetyFactorShort < DEFAULT_RULES.safetyFactorShort) warnings.push('短期安全係數低於本工具預設保守值 2.0。');
+    }
+    if (rules.alphaSoft > DEFAULT_RULES.alphaSoft || rules.alphaMedium > DEFAULT_RULES.alphaMedium || rules.alphaStiff > DEFAULT_RULES.alphaStiff) warnings.push('黏土/軟岩 α 係數高於預設值，樁周摩擦力可能偏樂觀。');
+    if (rules.sandKDriven > DEFAULT_RULES.sandKDriven || rules.sandKBored > DEFAULT_RULES.sandKBored) warnings.push('砂層 K 值高於預設值，樁周摩擦力可能偏樂觀。');
+    if (rules.deltaRatio > DEFAULT_RULES.deltaRatio) warnings.push('δ/φ 比例高於預設 0.75，請確認是否符合專案採用設計法。');
+    if (rules.sandFsCap > DEFAULT_RULES.sandFsCap || rules.denseSandFsCap > DEFAULT_RULES.denseSandFsCap) warnings.push('砂層 fs 上限高於預設值，請確認是否符合地工報告。');
+    if (rules.tipCapDriven > DEFAULT_RULES.tipCapDriven || rules.tipCapBored > DEFAULT_RULES.tipCapBored) warnings.push('N>50 端承上限高於目前採用值，可能不保守。');
+    if (params.calcMode === 'regulation' && params.regulationMethod === 'nvalue') warnings.push('規範 N 值經驗式僅適用砂性土；遇礫石層、岩盤或高 N 值特殊地層時，應依試樁或當地經驗另行評估。');
+    if (params.calcMode === 'regulation' && params.regulationMethod === 'static') notes.push('規範靜力學公式中，黏土樁周摩擦採 α·c；砂層樁周摩擦採 K·σ\'v·tanδ；砂層端承採 Nq* 與 20D 臨界深度。');
+    if (params.calcMode === 'code') notes.push('一般工程模式採靜力學公式與工程參數推估，使用 20D 臨界深度、K·σ\'v·tanδ、α·c 與端承上限等保守控制；它不是 112 規範表 5.3-1 的嚴格分項 FS 模式。');
+    notes.push('砂層端承採 20D 臨界深度；N>50 極緊密砂/卵礫石端承套用上限；砂層周摩擦採 K·σ\'v·tanδ 並受 fs 上限控制。');
+    notes.push('黏土/軟岩周摩擦採 α·c；若地工報告另有 β 法、λ 法、層別折減或試樁回饋，應以專案值覆寫。');
+    if (params.calcMode === 'simplified') notes.push(`簡化模式採 Qa = Qb/FS1 + Qs/FS2，Ra = Qs/FS + Wp；目前常時 FS1/FS2 = ${rules.simpleFs1Long.toFixed(2)} / ${rules.simpleFs2Long.toFixed(2)}，短期 FS1/FS2 = ${rules.simpleFs1Short.toFixed(2)} / ${rules.simpleFs2Short.toFixed(2)}，抗拔 FS = ${rules.upliftSafetyFactor.toFixed(2)}。`);
+    return { ok: warnings.length === 0, notes, warnings };
+  }
+
+  function calcSimplifiedResistance(layers, pileLength, pileD_m, pileArea_m2, pilePerimeter_m, pileInstall, params) {
+    let Qs = 0;
+    let Qb = 0;
+    const segments = [];
+    for (const layer of layers) {
+      const segLen = Math.max(0, Math.min(pileLength, layer.to) - layer.from);
+      if (segLen <= 0) continue;
+      let fs = 0;
+      if (layer.type === 'clay' || layer.type === 'rock') {
+        const su = Math.max(layer.c, layer.type === 'rock' ? 8 : layer.c);
+        fs = 0.45 * su;
+      } else {
+        fs = Math.min(layer.N / 3, params.rules.denseSandFsCap);
+      }
+      const dQs = fs * pilePerimeter_m * segLen;
+      Qs += dQs;
+      segments.push({ ...layer, segLen, fs, dQs, accumQs: Qs });
+    }
+    const tipLayer = getLayerAtDepth(layers, pileLength);
+    if (tipLayer) {
+      if (tipLayer.type === 'clay' || tipLayer.type === 'rock') {
+        Qb = 6 * Math.max(tipLayer.c, tipLayer.type === 'rock' ? 20 : tipLayer.c) * pileArea_m2;
+      } else {
+        const qb = (pileInstall === 'bored' ? 7.5 : 30) * Math.min(tipLayer.N, 50);
+        Qb = qb * pileArea_m2;
+      }
+    }
+    return {
+      Qs,
+      Qb,
+      segments,
+      tipLayer,
+      qaLong: Qb / params.rules.simpleFs1Long + Qs / params.rules.simpleFs2Long,
+      qaShort: Qb / params.rules.simpleFs1Short + Qs / params.rules.simpleFs2Short,
+      upliftWp: params.rules.unitWeightPile * pileLength * pileArea_m2,
+      upliftRa: Qs / params.rules.upliftSafetyFactor + params.rules.unitWeightPile * pileLength * pileArea_m2
+    };
+  }
+
+  function calcRegulationResistance(layers, pileLength, pileD_m, pileArea_m2, pilePerimeter_m, pileInstall, params) {
+    const method = params.regulationMethod;
+    const segments = [];
+    let Qs = 0;
+    for (const layer of layers) {
+      const segLen = Math.max(0, Math.min(pileLength, layer.to) - layer.from);
+      if (segLen <= 0) continue;
+      let fs = 0;
+      if (method === 'nvalue') {
+        if (layer.type !== 'sand' && layer.type !== 'gravel') {
+          fs = 0;
+        } else if (pileInstall === 'driven' || pileInstall === 'bored') {
+          fs = Math.min(layer.N / 3, 15);
+        }
+      } else {
+        if (layer.type === 'clay' || layer.type === 'rock') {
+          const alpha = layer.c <= 3 ? params.rules.alphaSoft : layer.c <= 6 ? params.rules.alphaMedium : params.rules.alphaStiff;
+          fs = alpha * Math.max(layer.c, layer.type === 'rock' ? 8 : layer.c);
+        } else {
+          const zMid = layer.from + segLen / 2;
+          const sigmaMid = effectiveStressAtDepth(layers, Math.min(zMid, 20 * pileD_m));
+          const K = pileInstall === 'driven' ? params.rules.sandKDriven : params.rules.sandKBored;
+          const delta = Math.max(15, Math.min(35, layer.phi * params.rules.deltaRatio)) * Math.PI / 180;
+          fs = K * sigmaMid * Math.tan(delta);
+        }
+      }
+      const dQs = fs * pilePerimeter_m * segLen;
+      Qs += dQs;
+      segments.push({ ...layer, segLen, fs, dQs, accumQs: Qs });
+    }
+
+    const tipLayer = getLayerAtDepth(layers, pileLength);
+    let Qb = 0;
+    let qbUlt = 0;
+    let capApplied = false;
+    let capValue = null;
+    const criticalDepth = Math.min(pileLength, 20 * pileD_m);
+    const sigmaCrit = effectiveStressAtDepth(layers, criticalDepth);
+    if (tipLayer) {
+      if (method === 'nvalue') {
+        if (tipLayer.type === 'sand' || tipLayer.type === 'gravel') {
+          const influenceFrom = pileInstall === 'driven' ? Math.max(0, pileLength - 4 * pileD_m) : Math.max(0, pileLength - 1 * pileD_m);
+          const influenceTo = pileLength + 1 * pileD_m;
+          const influenceLayers = layers.filter(layer => layer.to > influenceFrom && layer.from < influenceTo);
+          const weighted = influenceLayers.reduce((acc, layer) => {
+            const len = Math.max(0, Math.min(influenceTo, layer.to) - Math.max(influenceFrom, layer.from));
+            if (len <= 0) return acc;
+            return { sum: acc.sum + Math.min(layer.N, 50) * len, len: acc.len + len };
+          }, { sum: 0, len: 0 });
+          const avgN = weighted.len > 0 ? Math.min(50, weighted.sum / weighted.len) : Math.min(50, tipLayer.N);
+          qbUlt = (pileInstall === 'driven' ? 30 : 7.5) * avgN;
+        } else {
+          qbUlt = 0;
+        }
+      } else if (tipLayer.type === 'clay' || tipLayer.type === 'rock') {
+        qbUlt = (pileInstall === 'driven' ? 9 : 6) * Math.max(tipLayer.c, tipLayer.type === 'rock' ? 20 : tipLayer.c);
+      } else {
+        qbUlt = sigmaCrit * interpolateSupportFactor(tipLayer.phi, pileInstall);
+        if (tipLayer.N > 50 || tipLayer.type === 'gravel') {
+          capValue = pileInstall === 'driven' ? params.rules.tipCapDriven : params.rules.tipCapBored;
+          if (qbUlt > capValue) {
+            qbUlt = capValue;
+            capApplied = true;
+          }
+        }
+      }
+      Qb = qbUlt * pileArea_m2;
+    }
+    const upliftWp = params.rules.unitWeightPile * pileLength * pileArea_m2;
+    return {
+      Qs,
+      Qb,
+      qbUlt,
+      segments,
+      tipLayer,
+      capApplied,
+      capValue,
+      criticalDepth,
+      sigmaCrit,
+      qaLong: Qs / REGULATION_FACTORS.vertical.normal.Fs1 + Qb / REGULATION_FACTORS.vertical.normal.Fs2,
+      qaShort: Qs / REGULATION_FACTORS.vertical.short.Fs1 + Qb / REGULATION_FACTORS.vertical.short.Fs2,
+      upliftWp,
+      upliftRa: upliftWp + Qs / REGULATION_FACTORS.uplift.normal
+    };
+  }
+
+  function evaluateCandidate(diaCm, depthM, layers, params) {
+    const pileD_m = diaCm / 100;
+    const pileArea_m2 = Math.PI * pileD_m * pileD_m / 4;
+    const pilePerimeter_m = Math.PI * pileD_m;
+    const skin = integrateSkin(layers, depthM, pileD_m, params.pileInstall, params.rules);
+    const tip = calcTipResistance(layers, depthM, pileD_m, params.pileInstall, params.rules);
+    const simplified = calcSimplifiedResistance(layers, depthM, pileD_m, pileArea_m2, pilePerimeter_m, params.pileInstall, params);
+    const regulation = calcRegulationResistance(layers, depthM, pileD_m, pileArea_m2, pilePerimeter_m, params.pileInstall, params);
+    const activeSkin = params.calcMode === 'simplified'
+      ? { Qs: simplified.Qs, segments: simplified.segments }
+      : params.calcMode === 'regulation'
+        ? { Qs: regulation.Qs, segments: regulation.segments }
+        : skin;
+    const activeTip = params.calcMode === 'simplified'
+      ? {
+          Qb: simplified.Qb,
+          qbUlt: pileArea_m2 > 0 ? simplified.Qb / pileArea_m2 : 0,
+          tipLayer: simplified.tipLayer,
+          capApplied: false,
+          capValue: null,
+          criticalDepth: Math.min(depthM, 20 * pileD_m),
+          sigmaCrit: effectiveStressAtDepth(layers, Math.min(depthM, 20 * pileD_m))
+        }
+      : params.calcMode === 'regulation'
+        ? {
+            Qb: regulation.Qb,
+            qbUlt: regulation.qbUlt,
+            tipLayer: regulation.tipLayer,
+            capApplied: regulation.capApplied,
+            capValue: regulation.capValue,
+            criticalDepth: regulation.criticalDepth,
+            sigmaCrit: regulation.sigmaCrit
+          }
+        : tip;
+    const settlement = calcSettlement({
+      Qb: activeTip.Qb,
+      Qs: activeSkin.Qs,
+      pileLength: depthM,
+      pileArea_m2,
+      pileD_m,
+      fc: params.fc,
+      mode: params.settlementMode,
+      xiInput: params.xi,
+      cpInput: params.cp,
+      csInput: params.cs,
+      qoInput: params.qo,
+      qbUlt: activeTip.qbUlt
+    });
+    const Qult = activeSkin.Qs + activeTip.Qb;
+    const QallLong = params.calcMode === 'simplified'
+      ? simplified.qaLong
+      : params.calcMode === 'regulation'
+        ? regulation.qaLong
+        : Qult / params.safetyFactorLong;
+    const QallShort = params.calcMode === 'simplified'
+      ? simplified.qaShort
+      : params.calcMode === 'regulation'
+        ? regulation.qaShort
+        : Qult / params.safetyFactorShort;
+    const upliftRa = params.calcMode === 'simplified'
+      ? simplified.upliftRa
+      : params.calcMode === 'regulation'
+        ? regulation.upliftRa
+        : activeSkin.Qs / params.rules.upliftSafetyFactor + params.rules.unitWeightPile * depthM * pileArea_m2;
+    const upliftWp = params.calcMode === 'simplified'
+      ? simplified.upliftWp
+      : params.calcMode === 'regulation'
+        ? regulation.upliftWp
+        : params.rules.unitWeightPile * depthM * pileArea_m2;
+    const stress = (params.factoredLoad * 1000) / Math.max(Math.PI * Math.pow(diaCm / 2, 2), 1e-6);
+    const stressAllow = 0.7 * 0.85 * 0.85 * params.fc;
+    const structural = checkStructural(params.pileType, diaCm);
+    const okBearingLong = QallLong >= params.longTermLoad;
+    const okBearingShort = QallShort >= params.shortTermLoad;
+    const okSettlement = settlement.Wo_cm <= params.allowSettlement;
+    const okStress = stress <= stressAllow;
+    const pass = okBearingLong && okBearingShort && okSettlement && okStress && structural.ok;
+    const reasons = [];
+    if (!okBearingLong) reasons.push('長期承載不足');
+    if (!okBearingShort) reasons.push('短期承載不足');
+    if (!okSettlement) reasons.push('沉陷超限');
+    if (!okStress) reasons.push('樁身壓應力超限');
+    if (!structural.ok) reasons.push('構造限制');
+    if (!reasons.length) reasons.push('通過');
+    return {
+      diaCm, depthM, skin: activeSkin, tip: activeTip, settlement, Qult: activeSkin.Qs + activeTip.Qb, QallLong, QallShort, upliftRa, upliftWp, stress, stressAllow,
+      okBearingLong, okBearingShort, okSettlement, okStress, structural, pass, reasons
+    };
+  }
+
+  function buildCandidates(layers, params) {
+    const rows = [];
+    const diaMin = Math.round(params.diameterMin);
+    const diaMax = Math.round(params.diameterMax);
+    const diaStep = safePositive(Math.round(params.diameterStep), 10);
+    const depthStep = safePositive(params.depthStep, 0.5);
+    for (let dia = diaMin; dia <= diaMax + 1e-9; dia += diaStep) {
+      for (let depth = params.depthMin; depth <= params.depthMax + 1e-9; depth += depthStep) {
+        rows.push(evaluateCandidate(dia, Number(depth.toFixed(2)), layers, params));
+      }
+    }
+    return rows;
+  }
+
+  function chooseBest(candidates) {
+    const passed = candidates.filter(c => c.pass);
+    if (!passed.length) return null;
+    passed.sort((a, b) => {
+      if (a.diaCm !== b.diaCm) return a.diaCm - b.diaCm;
+      return a.depthM - b.depthM;
+    });
+    return passed[0];
+  }
+
+  function chooseDisplayCandidate(candidates, best, params) {
+    if (best) return best;
+    if (!candidates.length) return null;
+    const ranked = [...candidates].sort((a, b) => {
+      const aPenalty =
+        Math.max(0, params.longTermLoad - a.QallLong) +
+        Math.max(0, params.shortTermLoad - a.QallShort) +
+        Math.max(0, a.settlement.Wo_cm - params.allowSettlement) * 10 +
+        Math.max(0, a.stress - a.stressAllow) * 0.05 +
+        (a.structural.ok ? 0 : 1000);
+      const bPenalty =
+        Math.max(0, params.longTermLoad - b.QallLong) +
+        Math.max(0, params.shortTermLoad - b.QallShort) +
+        Math.max(0, b.settlement.Wo_cm - params.allowSettlement) * 10 +
+        Math.max(0, b.stress - b.stressAllow) * 0.05 +
+        (b.structural.ok ? 0 : 1000);
+      if (Math.abs(aPenalty - bPenalty) > 1e-9) return aPenalty - bPenalty;
+      if (a.diaCm !== b.diaCm) return a.diaCm - b.diaCm;
+      return a.depthM - b.depthM;
+    });
+    return ranked[0];
+  }
+
+  function setText(id, text, cls = '') {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = `v ${cls}`.trim();
+  }
+
+  function renderLayerTable(candidate) {
+    const tbody = $('layerTable').querySelector('tbody');
+    const note = $('layerTableNote');
+    tbody.innerHTML = '';
+    if (!candidate) {
+      if (note) note.textContent = '尚未試算';
+      tbody.innerHTML = '<tr><td colspan="10">尚未試算</td></tr>';
+      return;
+    }
+    if (note) {
+      note.textContent = candidate.pass
+        ? `目前顯示建議方案 D ${candidate.diaCm} cm、L ${candidate.depthM.toFixed(1)} m 的逐層承載力分解。`
+        : `目前搜尋範圍尚無完全通過方案；以下顯示最接近通過之控制方案 D ${candidate.diaCm} cm、L ${candidate.depthM.toFixed(1)} m 的逐層承載力分解。`;
+    }
+    candidate.skin.segments.forEach((seg, idx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>L${idx + 1}</td>
+        <td>${seg.from.toFixed(1)}-${Math.min(seg.to, candidate.depthM).toFixed(1)} m</td>
+        <td>${seg.label || seg.type}</td>
+        <td>${seg.N.toFixed(0)}</td>
+        <td>${seg.c.toFixed(2)}</td>
+        <td>${seg.phi.toFixed(1)}</td>
+        <td>${seg.gammaEff.toFixed(2)}</td>
+        <td>${seg.fs.toFixed(2)}</td>
+        <td>${seg.dQs.toFixed(2)}</td>
+        <td>${seg.accumQs.toFixed(2)}</td>`;
+      tbody.appendChild(tr);
+    });
+    const tip = candidate.tip;
+    if (tip.tipLayer) {
+      const tr = document.createElement('tr');
+      tr.className = 'control-row';
+      tr.innerHTML = `
+        <td>Tip</td>
+        <td>${candidate.depthM.toFixed(1)} m</td>
+        <td>${tip.tipLayer.label || tip.tipLayer.type}</td>
+        <td>${tip.tipLayer.N.toFixed(0)}</td>
+        <td>${tip.tipLayer.c.toFixed(2)}</td>
+        <td>${tip.tipLayer.phi.toFixed(1)}</td>
+        <td>${tip.tipLayer.gammaEff.toFixed(2)}</td>
+        <td>qb=${tip.qbUlt.toFixed(1)}</td>
+        <td>Qb=${tip.Qb.toFixed(2)}</td>
+        <td>Qult=${candidate.Qult.toFixed(2)}</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderCandidateTable(candidates, best) {
+    const tbody = $('candidateTable').querySelector('tbody');
+    tbody.innerHTML = '';
+    if (!candidates.length) {
+      tbody.innerHTML = '<tr><td colspan="9">沒有候選資料</td></tr>';
+      return;
+    }
+    candidates.forEach(item => {
+      const tr = document.createElement('tr');
+      if (item.pass) tr.classList.add('pass-row');
+      if (best && item.diaCm === best.diaCm && Math.abs(item.depthM - best.depthM) < 1e-9) tr.classList.add('control-row');
+      tr.innerHTML = `
+        <td>${best && item.diaCm === best.diaCm && Math.abs(item.depthM - best.depthM) < 1e-9 ? '建議' : item.pass ? '通過' : '未通過'}</td>
+        <td>${item.diaCm}</td>
+        <td>${item.depthM.toFixed(1)}</td>
+        <td>${item.skin.Qs.toFixed(2)}</td>
+        <td>${item.tip.Qb.toFixed(2)}</td>
+        <td>${item.QallLong.toFixed(2)} / ${item.QallShort.toFixed(2)}</td>
+        <td>${item.settlement.Wo_cm.toFixed(2)}</td>
+        <td>${item.tip.tipLayer ? (item.tip.tipLayer.label || item.tip.tipLayer.type) : '—'}</td>
+        <td>${item.reasons.join('、')}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function buildSummary(best, params, parsed, candidates, compliance) {
+    if (!best) {
+      const maxQallLong = candidates.length ? Math.max(...candidates.map(c => c.QallLong)) : 0;
+      const maxQallShort = candidates.length ? Math.max(...candidates.map(c => c.QallShort)) : 0;
+      return `目前搜尋範圍內沒有同時滿足條件的方案。
+建議調整方向：
+1. 增加樁徑上限或樁深上限。
+2. 改用打入樁或提高持力層嵌入深度。
+3. 放寬容許沉陷前，請先確認實際使用需求。
+4. 目前最大可達 Qall(長期/短期) 約 ${maxQallLong.toFixed(2)} / ${maxQallShort.toFixed(2)} tf。
+5. ${compliance.ok ? '細部折減仍在本工具預設保守範圍內。' : '細部折減已有自訂值，請人工覆核。'}`;
+    }
+    const tipName = best.tip.tipLayer ? (best.tip.tipLayer.label || best.tip.tipLayer.type) : '—';
+    const shareQs = best.Qult > 0 ? best.skin.Qs / best.Qult : 0;
+    const shareQb = best.Qult > 0 ? best.tip.Qb / best.Qult : 0;
+    const nextDepth = candidates.find(c => c.diaCm === best.diaCm && Math.abs(c.depthM - (best.depthM + params.depthStep)) < 1e-9);
+    const gainText = nextDepth ? `同樁徑再加深 ${params.depthStep.toFixed(1)} m，Qall(長期/短期) 將增加 ${(nextDepth.QallLong - best.QallLong).toFixed(2)} / ${(nextDepth.QallShort - best.QallShort).toFixed(2)} tf。` : '已達目前搜尋深度上限。';
+    return `建議採用 D = ${best.diaCm} cm，L = ${best.depthM.toFixed(1)} m。
+計算法模式：${getModeLabel(params.calcMode)}${params.calcMode === 'regulation' ? ` / ${getRegulationMethodLabel(params.regulationMethod)}` : ''}
+控制端點層：${tipName}
+單樁承載力：Qs = ${best.skin.Qs.toFixed(2)} tf，Qb = ${best.tip.Qb.toFixed(2)} tf，Qall(長期/短期) = ${best.QallLong.toFixed(2)} / ${best.QallShort.toFixed(2)} tf。
+抗拔承載力：Ra = ${best.upliftRa.toFixed(2)} tf = Qs/FS + Wp，其中 Wp = ${best.upliftWp.toFixed(2)} tf。
+服務載重檢核：長期 ${params.longTermLoad.toFixed(2)} tf、短期 ${params.shortTermLoad.toFixed(2)} tf，兩者皆已通過。
+承載組成：摩擦力 ${(shareQs * 100).toFixed(1)}%，端承力 ${(shareQb * 100).toFixed(1)}%。
+沉陷：Ws/Wpp/Wps/Wo = ${best.settlement.Ws_cm.toFixed(2)} / ${best.settlement.Wpp_cm.toFixed(2)} / ${best.settlement.Wps_cm.toFixed(2)} / ${best.settlement.Wo_cm.toFixed(2)} cm。
+樁身壓應力：${best.stress.toFixed(2)} / ${best.stressAllow.toFixed(2)} kgf/cm²。
+結構限制：${best.structural.text}
+土層解析：共 ${parsed.layers.length} 層，端承臨界深度 = ${best.tip.criticalDepth.toFixed(2)} m，σ'v,crit = ${best.tip.sigmaCrit.toFixed(2)} tf/m²。
+${best.tip.capApplied ? `端承已套用上限 ${best.tip.capValue} tf/m²。` : '端承未觸發上限。'}
+安全係數：${params.calcMode === 'regulation'
+      ? '規範模式固定採常時 Qs/2.5 + Qb/3.5、短期 Qs/1.8 + Qb/2.5，抗拔常時 Ra = Wp + Qs/5.0。'
+      : `長期 FS=${params.safetyFactorLong.toFixed(2)}，短期 FS=${params.safetyFactorShort.toFixed(2)}。${params.calcMode === 'code' ? '此模式為工程推估模式，非 112 規範表 5.3-1 的 FS1/FS2 分項模式。' : ''}`}${compliance.ok ? '折減參數仍在預設保守範圍。' : '折減參數已有調整，請依專案規範覆核。'}
+${gainText}`;
+  }
+
+  function updateModeUi() {
+    const calcMode = $('calcMode').value;
+    const isRegulation = calcMode === 'regulation';
+    $('regulationMethod').disabled = !isRegulation;
+    $('safetyFactorLong').disabled = isRegulation;
+    $('safetyFactorShort').disabled = isRegulation;
+  }
+
+  function calc() {
+    const parsed = parseSoilProfile($('soilProfile').value);
+    const banner = $('banner');
+    if (parsed.errors.length) {
+      banner.textContent = `土層資料錯誤：${parsed.errors.join('；')}`;
+      banner.className = 'banner bad';
+      $('summary').textContent = parsed.errors.join('\n');
+      $('complianceSummary').textContent = '土層資料有誤，暫停規範檢核。';
+      renderLayerTable(null);
+      renderCandidateTable([], null);
+      window.singlePileLast = { ok: false, errors: parsed.errors };
+      return;
+    }
+
+    const params = {
+      pileType: $('pileType').value,
+      pileInstall: $('pileInstall').value,
+      calcMode: $('calcMode').value,
+      regulationMethod: $('regulationMethod').value,
+      longTermLoad: safePositive(num('longTermLoad'), 1),
+      shortTermLoad: safePositive(num('shortTermLoad'), safePositive(num('longTermLoad'), 1)),
+      factoredLoad: safePositive(num('factoredLoad'), 1),
+      safetyFactorLong: safePositive(num('safetyFactorLong'), DEFAULT_RULES.safetyFactorLong),
+      safetyFactorShort: safePositive(num('safetyFactorShort'), DEFAULT_RULES.safetyFactorShort),
+      allowSettlement: safePositive(num('allowSettlement'), 2.5),
+      fc: safePositive(num('fc'), 280),
+      diameterMin: safePositive(num('diameterMin'), 40),
+      diameterMax: safePositive(num('diameterMax'), 120),
+      diameterStep: safePositive(num('diameterStep'), 10),
+      depthMin: safePositive(num('depthMin'), 8),
+      depthMax: safePositive(num('depthMax'), 40),
+      depthStep: safePositive(num('depthStep'), 0.5),
+      settlementMode: $('settlementMode').value,
+      xi: num('xi'),
+      cp: num('cp'),
+      cs: num('cs'),
+      qo: num('qo'),
+      rules: buildRules()
+    };
+    if (params.diameterMax < params.diameterMin || params.depthMax < params.depthMin) {
+      banner.textContent = '搜尋範圍設定錯誤：最大值不可小於最小值。';
+      banner.className = 'banner bad';
+      return;
+    }
+    if (params.calcMode !== 'regulation' && params.safetyFactorLong < params.safetyFactorShort) {
+      banner.textContent = '安全係數設定提醒：長期 FS 通常不應小於短期 FS，已依你的輸入繼續試算，但請人工覆核。';
+      banner.className = 'banner warn';
+    }
+    const candidates = buildCandidates(parsed.layers, params);
+    const best = chooseBest(candidates);
+    const displayCandidate = chooseDisplayCandidate(candidates, best, params);
+    const compliance = buildCompliance(params.rules, params);
+    const bannerOk = !!best;
+    if (banner.className !== 'banner warn') {
+      banner.textContent = bannerOk
+        ? `已找到建議方案：D ${best.diaCm} cm，L ${best.depthM.toFixed(1)} m`
+        : '目前搜尋範圍內沒有完全通過的方案';
+      banner.className = `banner ${bannerOk ? 'good' : 'bad'}`;
+    }
+
+    setText('rDia', best ? `${best.diaCm} cm` : '—', bannerOk ? 'good' : 'bad');
+    setText('rDepth', best ? `${best.depthM.toFixed(1)} m` : '—', bannerOk ? 'good' : 'bad');
+    setText('rTip', best && best.tip.tipLayer ? `${best.tip.tipLayer.label || best.tip.tipLayer.type}` : '—');
+    setText('rQallLong', best ? `${best.QallLong.toFixed(2)} tf` : '—', best && best.okBearingLong ? 'good' : 'bad');
+    setText('rQallShort', best ? `${best.QallShort.toFixed(2)} tf` : '—', best && best.okBearingShort ? 'good' : 'bad');
+    setText('rRa', best ? `${best.upliftRa.toFixed(2)} tf` : '—', best ? 'good' : 'bad');
+    setText('rWo', best ? `${best.settlement.Wo_cm.toFixed(2)} cm` : '—', best && best.okSettlement ? 'good' : 'bad');
+    setText('rSplit', best ? `${best.skin.Qs.toFixed(1)} / ${best.tip.Qb.toFixed(1)} tf` : '—');
+    setText('rCode', compliance.ok ? '預設保守值內' : '需人工覆核', compliance.ok ? 'good' : 'warn');
+    $('summary').textContent = buildSummary(best, params, parsed, candidates, compliance);
+    $('complianceSummary').textContent = `${compliance.ok ? '目前細部參數仍在本工具預設保守值範圍內。' : '目前至少有一項細部參數偏離本工具預設保守值，請人工確認是否符合專案規範。'}
+${compliance.notes.join('\n')}
+${compliance.warnings.length ? `\n需要覆核：\n- ${compliance.warnings.join('\n- ')}` : '\n需要覆核：\n- 目前未發現超出本工具預設保守值的細部參數。'}`;
+    renderLayerTable(displayCandidate);
+    renderCandidateTable(candidates, best);
+
+    window.singlePileLast = {
+      ok: bannerOk,
+      longTermLoad: params.longTermLoad,
+      shortTermLoad: params.shortTermLoad,
+      factoredLoad: params.factoredLoad,
+      pileType: params.pileType,
+      pileInstall: params.pileInstall,
+      calcMode: params.calcMode,
+      regulationMethod: params.regulationMethod,
+      safetyFactorLong: params.safetyFactorLong,
+      safetyFactorShort: params.safetyFactorShort,
+      complianceOk: compliance.ok,
+      layers: parsed.layers.length,
+      recommendation: best ? {
+        diaCm: best.diaCm,
+        depthM: best.depthM,
+        Qs: best.skin.Qs,
+        Qb: best.tip.Qb,
+        QallLong: best.QallLong,
+        QallShort: best.QallShort,
+        upliftRa: best.upliftRa,
+        Wo_cm: best.settlement.Wo_cm,
+        tipLayerLabel: best.tip.tipLayer ? (best.tip.tipLayer.label || best.tip.tipLayer.type) : null,
+        capApplied: best.tip.capApplied,
+        stress: best.stress,
+        stressAllow: best.stressAllow
+      } : null,
+      candidateCount: candidates.length
+    };
+  }
+
+  function applyPreset(key) {
+    const preset = R17_PRESETS[key];
+    if (!preset) return;
+    applyState({
+      soilProfile: preset.soilProfile
+    }, SOIL_ONLY_FIELD_IDS);
+    $('presetSummary').textContent = `${preset.name}
+${preset.note}
+建議起始搜尋可參考：D ${preset.diameterMin}~${preset.diameterMax} cm，L ${preset.depthMin}~${preset.depthMax} m
+此快捷鍵僅更新土層資料；你目前的載重、樁徑、搜尋範圍與細部設定都會保留不變。若想把目前整組輸入固定下來，可按「設為目前預設值」。`;
+    calc();
+  }
+
+  function clearProfile() {
+    $('presetSummary').textContent = '目前為空白自訂模式。你可以直接貼上新的土層資料，欄位格式為：起深, 迄深, N, c, φ, γ\', 土名。';
+    $('soilProfile').value = '';
+    calc();
+  }
+
+  function loadSample() {
+    $('presetSummary').textContent = '目前為內建示範案例。你也可以直接點上方高捷紅線快捷鍵，或保留空白後手動貼入土層資料。';
+    $('longTermLoad').value = 60;
+    $('shortTermLoad').value = 80;
+    $('factoredLoad').value = 120;
+    $('pileType').value = 'cast-in-place';
+    $('pileInstall').value = 'driven';
+    $('calcMode').value = 'code';
+    $('regulationMethod').value = 'static';
+    $('allowSettlement').value = 5;
+    $('safetyFactorLong').value = DEFAULT_RULES.safetyFactorLong;
+    $('safetyFactorShort').value = DEFAULT_RULES.safetyFactorShort;
+    $('settlementMode').value = 'auto';
+    $('xi').value = 0.67;
+    $('cp').value = 0.09;
+    $('cs').value = 0.30;
+    $('qo').value = 0;
+    $('alphaSoft').value = DEFAULT_RULES.alphaSoft;
+    $('alphaMedium').value = DEFAULT_RULES.alphaMedium;
+    $('alphaStiff').value = DEFAULT_RULES.alphaStiff;
+    $('sandKDriven').value = DEFAULT_RULES.sandKDriven;
+    $('sandKBored').value = DEFAULT_RULES.sandKBored;
+    $('deltaRatio').value = DEFAULT_RULES.deltaRatio;
+    $('sandFsCap').value = DEFAULT_RULES.sandFsCap;
+    $('denseSandFsCap').value = DEFAULT_RULES.denseSandFsCap;
+    $('tipCapDriven').value = DEFAULT_RULES.tipCapDriven;
+    $('tipCapBored').value = DEFAULT_RULES.tipCapBored;
+    $('simpleFs1Long').value = DEFAULT_RULES.simpleFs1Long;
+    $('simpleFs2Long').value = DEFAULT_RULES.simpleFs2Long;
+    $('simpleFs1Short').value = DEFAULT_RULES.simpleFs1Short;
+    $('simpleFs2Short').value = DEFAULT_RULES.simpleFs2Short;
+    $('upliftSafetyFactor').value = DEFAULT_RULES.upliftSafetyFactor;
+    $('diameterMin').value = 40;
+    $('diameterMax').value = 120;
+    $('diameterStep').value = 10;
+    $('depthMin').value = 8;
+    $('depthMax').value = 35;
+    $('depthStep').value = 0.5;
+    $('soilProfile').value = `0, 4, 6, 3.5, 0, 0.95, silty clay
+4, 10, 12, 0, 30, 0.98, fine sand
+10, 18, 22, 0, 33, 1.02, dense sand
+18, 24, 60, 0, 38, 1.10, gravel
+24, 35, 50, 18, 0, 1.20, mudstone`;
+    calc();
+  }
+
+  $('btnCalc').addEventListener('click', calc);
+  $('btnSample').addEventListener('click', loadSample);
+  $('btnPresetBh5').addEventListener('click', () => applyPreset('bh-5'));
+  $('btnPresetB031').addEventListener('click', () => applyPreset('b-031'));
+  $('btnPresetCh2830').addEventListener('click', () => applyPreset('ch-28-30'));
+  $('btnBlankProfile').addEventListener('click', clearProfile);
+  $('btnSaveDefaults').addEventListener('click', () => {
+    saveUserDefaults();
+    calc();
+  });
+  $('btnResetDefaults').addEventListener('click', resetUserDefaults);
+  document.querySelectorAll('input, select, textarea').forEach(el => {
+    el.addEventListener('change', calc);
+  });
+  $('calcMode').addEventListener('change', updateModeUi);
+  updateModeUi();
+  if (!loadUserDefaults()) loadSample();
+  calc();
+})();
+</script>
+</body>
+</html>

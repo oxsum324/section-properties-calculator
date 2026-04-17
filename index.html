@@ -80,6 +80,7 @@
 </head>
 <body>
 <header>
+  <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
   <h1>斷面性質計算工具 V2.0</h1>
   <p>鋼結構 / 基本幾何斷面性質計算 | 尺寸輸入 mm, 結果輸出 cm</p>
 </header>
@@ -132,12 +133,41 @@ function extractIx() {
   return { value: parseFloat(found[1]), label: found[0] };
 }
 
+// 取出斷面之原始尺寸 (cm) — 供下游 RC 設計工具填入 b、h、D
+// 回傳 { shape:'rect'|'circle'|'other', b, h, D }
+function extractSection() {
+  const tab = currentTab;
+  const v = id => { const e = document.getElementById(id); return e ? parseFloat(e.value)/10 : null; }; // mm → cm
+  if (tab === 'solid-rect') {
+    return { shape:'rect', b: v('sr-b'), h: v('sr-h') };
+  }
+  if (tab === 'solid-circle') {
+    return { shape:'circle', D: v('sc-d') };
+  }
+  if (tab === 'geo') {
+    const g = document.getElementById('geo-type')?.value;
+    if (g === 'rect-c' || g === 'rect-e' || g === 'rect-rot') {
+      return { shape:'rect', b: v('g-b'), h: v('g-h') };
+    }
+    if (g === 'solid-circle') {
+      return { shape:'circle', D: v('g-d') };
+    }
+  }
+  return { shape:'other' };
+}
+
 function sendIxToOpener() {
   if (!window.opener || window.opener.closed) { alert('找不到連續梁工具視窗，請重新從該工具開啟'); return; }
   const ix = extractIx();
   if (!ix || !isFinite(ix.value)) { alert('尚未計算出 Ix，請先完成斷面計算'); return; }
+  const section = extractSection();
   try {
-    window.opener.postMessage({ source:'sectionTool', Ix_cm4: ix.value, title: lastTitle }, '*');
+    window.opener.postMessage({
+      source:'sectionTool',
+      Ix_cm4: ix.value,
+      title: lastTitle,
+      section,           // {shape, b, h, D} (cm)
+    }, '*');
   } catch (e) { alert('傳送失敗: ' + e.message); return; }
   // 延遲關閉讓訊息送達
   setTimeout(() => window.close(), 120);

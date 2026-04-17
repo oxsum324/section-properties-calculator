@@ -1,0 +1,44 @@
+.git
+.claude
+
+# 暫存檔與圖檔
+_tmp
+tmp_ch3_pages
+tmp_fig_tables
+tmp_*.png
+wind_fig_*.png
+table_p*.png
+_search_ch4_tables.txt
+*.bmp
+
+# 規範 PDF / Excel 參考資料
+*.pdf
+*.xls
+*.xlsm
+_參考資料
+基礎
+耐風設計規範
+01建築物耐震設計規範及解說_1130301.pdf
+
+# 結構工具箱開發資料
+結構工具箱/.claude
+結構工具箱/tests
+結構工具箱/tools/.column-testdeps
+結構工具箱/tools/.foundation-testdeps
+結構工具箱/tools/.slab-testdeps
+結構工具箱/tools/.single-pile-testdeps
+
+# 鋼筋混凝土開發資料 (允許 tools/ 與 shared/ 部署)
+鋼筋混凝土/.claude
+鋼筋混凝土/tools/.column-testdeps
+鋼筋混凝土/tools/.foundation-testdeps
+鋼筋混凝土/tools/.slab-testdeps
+鋼筋混凝土/tools/.single-pile-testdeps
+鋼筋混凝土/tools/*-regression.test.js
+鋼筋混凝土/tools/*-regression-cases.json
+鋼筋混凝土/tools/test-*.ps1
+鋼筋混凝土/tools/package.json
+鋼筋混凝土/注意事項.txt
+
+# 鋼構接頭工具開發資料
+鋼構工具/*.smoke-test.js

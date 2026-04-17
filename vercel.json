@@ -1,0 +1,49 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/", "destination": "/結構工具箱/index.html" },
+
+    { "source": "/wind", "destination": "/結構工具箱/index.html" },
+    { "source": "/wind-force", "destination": "/結構工具箱/tools/風力/wind-force.html" },
+    { "source": "/wind-cc", "destination": "/結構工具箱/tools/風力/wind-cc.html" },
+    { "source": "/wind-open-roof", "destination": "/結構工具箱/tools/風力/wind-open-roof.html" },
+    { "source": "/wind-parapet", "destination": "/結構工具箱/tools/風力/wind-parapet.html" },
+    { "source": "/wind-object-solid", "destination": "/結構工具箱/tools/風力/wind-object-solid.html" },
+    { "source": "/wind-object-frame", "destination": "/結構工具箱/tools/風力/wind-object-frame.html" },
+    { "source": "/wind-object-tower", "destination": "/結構工具箱/tools/風力/wind-object-tower.html" },
+    { "source": "/wind-shape-factor", "destination": "/結構工具箱/tools/風力/wind-shape-factor.html" },
+    { "source": "/wind-special", "destination": "/結構工具箱/tools/風力/wind-special.html" },
+
+    { "source": "/seismic", "destination": "/結構工具箱/tools/地震力/seismic-force.html" },
+    { "source": "/seismic-force", "destination": "/結構工具箱/tools/地震力/seismic-force.html" },
+    { "source": "/seismic-dynamic", "destination": "/結構工具箱/tools/地震力/seismic-dynamic.html" },
+    { "source": "/seismic-misc", "destination": "/結構工具箱/tools/地震力/seismic-misc.html" },
+
+    { "source": "/steel-beam", "destination": "/結構工具箱/tools/鋼構/steel-beam.html" },
+    { "source": "/steel-column", "destination": "/結構工具箱/tools/鋼構/steel-column.html" },
+
+    { "source": "/rc-beam", "destination": "/鋼筋混凝土/tools/beam.html" },
+    { "source": "/rc-column", "destination": "/鋼筋混凝土/tools/column.html" },
+    { "source": "/rc-slab", "destination": "/鋼筋混凝土/tools/slab.html" },
+    { "source": "/rc-wall", "destination": "/鋼筋混凝土/tools/wall.html" },
+    { "source": "/rc-foundation", "destination": "/鋼筋混凝土/tools/foundation.html" },
+    { "source": "/rc-pile", "destination": "/鋼筋混凝土/tools/single-pile-designer.html" },
+
+    { "source": "/section", "destination": "/index.html" },
+    { "source": "/beam-analysis", "destination": "/連續梁分析.html" },
+    { "source": "/force-picker", "destination": "/結構工具箱/tools/force-picker.html" },
+    { "source": "/test-dashboard", "destination": "/結構工具箱/tools/test-dashboard.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    }
+  ]
+}
