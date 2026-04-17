@@ -1043,7 +1043,32 @@ function drawSchematic() {
   xOff=0;
   for (let i=0;i<model.numSpans;i++) {
     const L=model.spans[i].L;
-    for (const ld of (model.loads[i]||[])) drawLoadSymbol(ctx,margin.left,xOff,L,sx,beamY,ld,u);
+    const spanLoads = model.loads[i]||[];
+    // 兩階段繪製，避免後畫的 UDL 覆蓋先畫的集中力
+    // Pass 1：先畫分布載重 (UDL / 梯形) 為背景
+    // Pass 2：再畫集中力 / 集中彎矩，並依底層 UDL 高度自動上抬
+    const udlRanges = collectUdlRanges(margin.left,xOff,L,sx,spanLoads);
+    for (const ld of spanLoads) {
+      if (ld.type==='udl' || ld.type==='trapezoid') drawLoadSymbol(ctx,margin.left,xOff,L,sx,beamY,ld,u,0);
+    }
+    // 集中力 / 集中彎矩：依水平位置排序，並對標籤過近者額外往上堆疊
+    const ptLoads = spanLoads
+      .map((ld, idx) => ({ld, idx}))
+      .filter(x => x.ld.type==='point' || x.ld.type==='moment')
+      .sort((a,b) => (a.ld.a||0) - (b.ld.a||0));
+    const placed=[];  // {px, top}
+    for (const {ld} of ptLoads) {
+      const px = margin.left + (xOff + ld.a)*sx;
+      let lift = udlOffsetAt(udlRanges, px);
+      // 若鄰近 ±60px 範圍內已有標籤，再往上堆疊 18px 一層
+      let stack=0;
+      for (const p of placed) {
+        if (Math.abs(p.px - px) < 60) stack = Math.max(stack, p.stack+1);
+      }
+      lift += stack * 18;
+      placed.push({px, stack});
+      drawLoadSymbol(ctx,margin.left,xOff,L,sx,beamY,ld,u,lift);
+    }
     // Internal hinges
     for (const h of (model.spans[i].hinges||[])) {
       const px = margin.left + (xOff + h)*sx;
@@ -1073,8 +1098,34 @@ function drawSupport(ctx,x,y,type) {
   ctx.restore();
 }
 
-function drawLoadSymbol(ctx,mL,xOff,L,sx,beamY,ld,u) {
+// 蒐集本跨內所有 UDL / 梯形載重的高度範圍 (canvas 座標)，
+// 供集中力 / 集中彎矩判斷需要往上抬多少避開
+function collectUdlRanges(mL,xOff,L,sx,loads) {
+  const x1=mL+xOff*sx, x2=mL+(xOff+L)*sx;
+  const ranges=[];
+  for (const ld of loads) {
+    if (ld.type==='udl') {
+      const ah=Math.min(28,Math.max(14,Math.abs(ld.w)*1.5));
+      ranges.push({x1, x2, h: () => ah});
+    } else if (ld.type==='trapezoid') {
+      const mW=Math.max(Math.abs(ld.w1),Math.abs(ld.w2),1);
+      const h1=Math.abs(ld.w1)/mW*28, h2=Math.abs(ld.w2)/mW*28;
+      ranges.push({x1, x2, h: (px) => h1 + (h2-h1)*((px-x1)/(x2-x1 || 1))});
+    }
+  }
+  return ranges;
+}
+function udlOffsetAt(ranges, px) {
+  let max=0;
+  for (const r of ranges) {
+    if (px >= r.x1 && px <= r.x2) max = Math.max(max, r.h(px));
+  }
+  return max;
+}
+
+function drawLoadSymbol(ctx,mL,xOff,L,sx,beamY,ld,u,lift) {
   ctx.save();
+  lift = lift || 0;
   const x1=mL+xOff*sx, x2=mL+(xOff+L)*sx;
   if (ld.type==='udl') {
     const ah=Math.min(28,Math.max(14,Math.abs(ld.w)*1.5));
@@ -1104,23 +1155,31 @@ function drawLoadSymbol(ctx,mL,xOff,L,sx,beamY,ld,u) {
     ctx.fillStyle='#000'; ctx.textAlign='right'; ctx.fillText(_t2,x2-3,beamY-h2-5);
     ctx.textBaseline='alphabetic';
   } else if (ld.type==='point') {
+    // 若位置上方有 UDL 填色，往上抬 (lift+6) 像素，避開覆蓋
+    const off = lift > 0 ? lift + 6 : 0;
     const px=mL+(xOff+ld.a)*sx;
+    const tipY = beamY - 2 - off;
+    const tailY = beamY - 32 - off;
     ctx.strokeStyle='#dc2626'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(px,beamY-32); ctx.lineTo(px,beamY-2); ctx.stroke();
-    drawAH(ctx,px,beamY-2,'down','#dc2626');
+    ctx.beginPath(); ctx.moveTo(px,tailY); ctx.lineTo(px,tipY); ctx.stroke();
+    drawAH(ctx,px,tipY,'down','#dc2626');
     ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
     const _pt=`P=${ld.P} ${u.force}`, _pm=ctx.measureText(_pt);
-    ctx.fillStyle='#fff'; ctx.fillRect(px-_pm.width/2-2,beamY-52,_pm.width+4,16);
-    ctx.fillStyle='#000'; ctx.fillText(_pt,px,beamY-37);
+    const labelTop = tailY - 18;
+    ctx.fillStyle='#fff'; ctx.fillRect(px-_pm.width/2-2,labelTop,_pm.width+4,16);
+    ctx.fillStyle='#000'; ctx.fillText(_pt,px,labelTop+13);
     ctx.textBaseline='alphabetic';
   } else if (ld.type==='moment') {
+    const off = lift > 0 ? lift + 6 : 0;
     const px=mL+(xOff+ld.a)*sx;
+    const cy = beamY - 14 - off;
     ctx.strokeStyle='#9333ea'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(px,beamY-14,9,0.5,Math.PI*1.5); ctx.stroke();
+    ctx.beginPath(); ctx.arc(px,cy,9,0.5,Math.PI*1.5); ctx.stroke();
     ctx.font='bold 13px Segoe UI'; ctx.textAlign='center'; ctx.textBaseline='bottom';
     const _mt=`M=${ld.M} ${u.moment}`, _mm=ctx.measureText(_mt);
-    ctx.fillStyle='#fff'; ctx.fillRect(px-_mm.width/2-2,beamY-44,_mm.width+4,16);
-    ctx.fillStyle='#000'; ctx.fillText(_mt,px,beamY-29);
+    const labelTop = cy - 30;
+    ctx.fillStyle='#fff'; ctx.fillRect(px-_mm.width/2-2,labelTop,_mm.width+4,16);
+    ctx.fillStyle='#000'; ctx.fillText(_mt,px,labelTop+13);
     ctx.textBaseline='alphabetic';
   }
   ctx.restore();
