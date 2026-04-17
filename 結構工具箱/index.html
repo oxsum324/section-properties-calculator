@@ -82,24 +82,27 @@
 </style>
 </head>
 <body>
-<header>
-  <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V0.2</span></h1>
-  <p>
-    <span class="intro-tag">RC 構件設計</span>
-    <span class="intro-tag">鋼結構設計</span>
-    <span class="intro-tag">耐風設計</span>
-    <span class="intro-tag">斷面性質</span>
-    <span class="intro-tag">結構分析</span>
-  </p>
-  <p style="font-size:0.78em; opacity:0.85; margin-top:4px;">
-    整合 RC 構件、鋼結構、斷面性質、結構分析、與耐風設計之統一入口 ｜ 單位：cm, kgf
-  </p>
-</header>
+  <header>
+    <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V1.0</span></h1>
+    <p>
+      <span class="intro-tag">RC 構件設計</span>
+      <span class="intro-tag">鋼結構設計</span>
+      <span class="intro-tag">耐風設計</span>
+      <span class="intro-tag">斷面性質</span>
+      <span class="intro-tag">結構分析</span>
+    </p>
+    <p style="font-size:0.78em; opacity:0.85; margin-top:4px;">
+      正式進入 V1.0｜整合鋼構正式規範工具、RC 構件工具、耐風／耐震核心、斷面性質與分析輔助之統一入口 ｜ 單位：cm, kgf
+    </p>
+    <p style="font-size:0.76em; opacity:0.82; margin-top:6px;">
+      首頁已改為平台化入口，可直接查看正式模組、舊版工具、以及全平台巡檢與健康狀態。
+    </p>
+  </header>
 
 <div class="container">
 
   <div class="card">
-    <div class="group-title">平台健康狀態</div>
+      <div class="group-title">平台健康狀態與版本資訊</div>
     <div class="status-grid">
       <div class="status-card" id="platformOverallStatus">
         <div class="status-head">
@@ -131,10 +134,13 @@
       </div>
     </div>
     <div class="status-actions">
-      <a class="primary" href="audit-dashboard.html">開啟平台巡檢儀表板</a>
-      <a href="../output/audit/platform-summary.md" target="_blank" rel="noreferrer">查看平台摘要</a>
+        <a class="primary" href="audit-dashboard.html">開啟平台巡檢儀表板</a>
+        <a href="../output/audit/platform-summary.md" target="_blank" rel="noreferrer">查看平台摘要</a>
+      </div>
+      <p style="font-size:0.78em; color:var(--text-light); margin-top:10px;">
+        目前平台版本為 <strong>V1.0</strong>。正式規範核算入口以鋼構正式工具為主，RC 與規範核心工具同步納入平台巡檢與健康監控。
+      </p>
     </div>
-  </div>
 
   <!-- ─── 結構分析 ─── -->
   <div class="card">
@@ -204,6 +210,11 @@
         <h3>基礎 Foundation <span class="ver ver-ok">V3.0</span></h3>
         <p>獨立/聯合/筏式/樁基/擋土牆基礎；單向雙向剪力、撓曲、設計/檢核</p>
       </a>
+      <a class="menu-card" href="../鋼筋混凝土/tools/single-pile-designer.html">
+        <div class="icon">⫯</div>
+        <h3>單樁承載力設計器 <span class="ver ver-ok">V3.0</span></h3>
+        <p>樁軸向承載力 (端點＋摩擦)、沉陷檢核、抗拔安全係數；112 年基礎構造設計規範</p>
+      </a>
     </div>
   </div>
 
@@ -212,11 +223,11 @@
     <div class="group-title">鋼結構設計　<span style="font-size:0.7em; color:var(--text-light); font-weight:500;">依鋼結構設計規範 (AISC 360 基礎)</span></div>
     <div class="subgroup-title">正式規範核算工具</div>
     <div class="menu-grid">
-      <a class="menu-card" href="../鋼構工具/index.html">
-        <div class="icon">⛭</div>
-        <h3>鋼構正式規範工具 <span class="scope-pill formal">正式模組</span></h3>
-        <p>連接板、拉力構件、審查摘要、計算流程、跨裝置版面、內建自巡檢與歷程輸出</p>
-      </a>
+        <a class="menu-card" href="../鋼構工具/index.html">
+          <div class="icon">⛭</div>
+          <h3>鋼構正式規範工具 <span class="scope-pill formal">V1.0 正式模組</span></h3>
+          <p>連接板、拉力構件、鋼梁正式頁、鋼柱正式頁，整合審查摘要、計算流程、參數詞典、跨裝置版面與內建自巡檢。</p>
+        </a>
       <a class="menu-card" href="../鋼構工具/steel-beam-formal.html">
         <div class="icon">▭</div>
         <h3>鋼梁正式頁 <span class="scope-pill formal">新版</span></h3>
@@ -226,6 +237,11 @@
         <div class="icon">▮</div>
         <h3>鋼柱正式頁 <span class="scope-pill formal">新版</span></h3>
         <p>鋼柱正式模板頁：左輸入、右報表、計算流程、參數詞典，保留既有鋼柱檢算核心。</p>
+      </a>
+      <a class="menu-card" href="../鋼構工具/plate-check.html">
+        <div class="icon">▤</div>
+        <h3>連接板檢核 <span class="scope-pill formal">新版</span></h3>
+        <p>鋼構連接板 (gusset) 檢核：拉力撕裂、孔邊淨斷面、塊狀剪切；含計算流程與參數詞典。</p>
       </a>
     </div>
     <div class="subgroup-title">舊式梁柱頁面</div>
@@ -293,6 +309,11 @@
         <div class="icon">◇</div>
         <h3>形狀 / 修正係數輔助 <span class="ver ver-ok">V3</span></h3>
         <p>整合表 2.10、2.13、2.14 之 Cf 與修正係數，供回填特殊標的物與形狀修正使用</p>
+      </a>
+      <a class="menu-card" href="tools/風力/wind-special.html">
+        <div class="icon">⚙</div>
+        <h3>特殊修正 / 折減 <span class="ver ver-ok">V3</span></h3>
+        <p>遮蔽折減、透氣外牆折減等自訂 λ 係數的整理與檢核；需依試驗、風洞或專案文件提供依據</p>
       </a>
     </div>
   </div>
