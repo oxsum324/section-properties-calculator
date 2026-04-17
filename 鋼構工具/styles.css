@@ -1514,6 +1514,7 @@ body {
   }
 
   .mode-bar {
+    position: static;
     padding: 12px 14px;
   }
 
@@ -1610,11 +1611,11 @@ body {
   }
 
   .section-tabs {
-    top: 126px;
+    top: 56px;
   }
 
   .mobile-quick-nav {
-    top: 118px;
+    top: 0;
   }
 
   .input-accordion-toolbar {
@@ -1633,7 +1634,7 @@ body {
   .input-column,
   .report-column,
   .subpanel {
-    scroll-margin-top: 210px;
+    scroll-margin-top: 132px;
   }
 }
 
@@ -1656,7 +1657,7 @@ body {
   }
 
   .mode-bar {
-    top: 0;
+    position: static;
     margin-bottom: 14px;
   }
 
@@ -1732,11 +1733,11 @@ body {
   }
 
   .section-tabs {
-    top: 120px;
+    top: 56px;
   }
 
   .mobile-quick-nav {
-    top: 112px;
+    top: 0;
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
@@ -1753,7 +1754,7 @@ body {
   .input-column,
   .report-column,
   .subpanel {
-    scroll-margin-top: 196px;
+    scroll-margin-top: 126px;
   }
 }
 
