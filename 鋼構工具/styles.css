@@ -372,6 +372,52 @@ body {
   transform: translateY(0);
 }
 
+/* 設計方法浮動切換鈕：滾動離開 mode-bar 後顯示於右下 */
+.method-fab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(74px + env(safe-area-inset-bottom));   /* 疊在「回到頂部」FAB 之上 */
+  z-index: 46;
+  min-height: 44px;
+  padding: 8px 14px 8px 10px;
+  border: 2px solid #1a3d5c;
+  border-radius: 999px;
+  background: #fff;
+  color: #1a3d5c;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  touch-action: manipulation;
+}
+.method-fab.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.method-fab__label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+.method-fab__value {
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+.method-fab[data-method="LRFD"] .method-fab__value { color: #2563eb; }
+.method-fab[data-method="ASD"]  .method-fab__value { color: #d97706; }
+.method-fab:hover { background: #f1f5f9; }
+.method-fab:active { transform: translateY(1px); }
+
 .mode-bar {
   display: flex;
   flex-wrap: wrap;

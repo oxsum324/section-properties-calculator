@@ -848,6 +848,7 @@
   const tensionPathSummary = document.getElementById("tensionPathSummary");
   const tensionSketchWrap = document.getElementById("tensionSketchWrap");
   let mobileFab = null;
+  let methodFab = null;
   let quickNavTicking = false;
   let currentAccordionPreset = "smart";
   let currentReportAccordionPreset = "focus";
@@ -2075,6 +2076,7 @@
     methodLrfBtn.classList.toggle("active", isLrfd);
     methodAsdBtn.classList.toggle("active", !isLrfd);
     methodHint.textContent = getCodeBasisText(state);
+    updateMethodFab();
   }
 
   function renderSummary(result) {
@@ -2405,23 +2407,57 @@ ${referenceToolsHtml}
   function prepareMobileFab() {
     if (document.querySelector(".mobile-fab")) {
       mobileFab = document.querySelector(".mobile-fab");
-      return;
+    } else {
+      mobileFab = document.createElement("button");
+      mobileFab.type = "button";
+      mobileFab.className = "mobile-fab";
+      mobileFab.textContent = "回到頂部";
+      mobileFab.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        updateQuickNavActive("input");
+      });
+      document.body.appendChild(mobileFab);
     }
-    mobileFab = document.createElement("button");
-    mobileFab.type = "button";
-    mobileFab.className = "mobile-fab";
-    mobileFab.textContent = "回到頂部";
-    mobileFab.addEventListener("click", () => {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      updateQuickNavActive("input");
-    });
-    document.body.appendChild(mobileFab);
+    // 設計方法浮動切換鈕
+    if (!document.querySelector(".method-fab")) {
+      methodFab = document.createElement("button");
+      methodFab.type = "button";
+      methodFab.className = "method-fab";
+      methodFab.innerHTML = '<span class="method-fab__label">設計法</span><span class="method-fab__value">LRFD</span>';
+      methodFab.title = "切換 LRFD / ASD";
+      methodFab.addEventListener("click", () => {
+        const current = form.elements.namedItem("designMethod").value;
+        const next = current === "LRFD" ? "ASD" : "LRFD";
+        const targetBtn = next === "LRFD" ? methodLrfBtn : methodAsdBtn;
+        if (targetBtn) targetBtn.click();
+      });
+      document.body.appendChild(methodFab);
+    } else {
+      methodFab = document.querySelector(".method-fab");
+    }
+    updateMethodFab();
+  }
+
+  function updateMethodFab() {
+    if (!methodFab) return;
+    const method = form?.elements.namedItem("designMethod")?.value || "LRFD";
+    methodFab.dataset.method = method;
+    const valueEl = methodFab.querySelector(".method-fab__value");
+    if (valueEl) valueEl.textContent = method;
   }
 
   function syncQuickNavByScroll() {
     const compact = window.matchMedia("(max-width: 1024px)").matches;
     if (mobileFab) {
       mobileFab.classList.toggle("is-visible", compact && window.scrollY > 520);
+    }
+    // 設計方法浮動鈕：mode-bar 捲離畫面後 (不分裝置) 顯示
+    if (methodFab) {
+      const modeBar = document.querySelector(".mode-bar");
+      const shouldShow = modeBar
+        ? modeBar.getBoundingClientRect().bottom < 20
+        : window.scrollY > 400;
+      methodFab.classList.toggle("is-visible", shouldShow);
     }
     if (!mobileQuickNav || !compact) return;
 
