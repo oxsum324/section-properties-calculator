@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐風設計 — 區域風壓 (C&C) V2</title>
-<link rel="stylesheet" href="../core/style.css">
+<title>建築物耐風設計 — 區域風壓 (C&C) V3</title>
+<link rel="stylesheet" href="../../core/style.css">
 <style>
   table.zone { width:100%; border-collapse:collapse; font-size:0.85em; }
   table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
@@ -61,9 +61,9 @@
 </head>
 <body>
 <header>
-  <h1>建築物耐風設計 — 區域風壓 (C&amp;C) <span class="badge-v">V2</span></h1>
+  <h1>建築物耐風設計 — 區域風壓 (C&amp;C) <span class="badge-v">V3</span></h1>
   <p>依「建築物耐風設計規範」(107 年版) 第三章 ｜ 局部構材與外部被覆物設計用 ｜ 單位：kgf/m²</p>
-  <p style="margin-top:4px;"><a class="back" href="../index.html">← 回主選單</a></p>
+  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
 <div class="container">
@@ -347,9 +347,9 @@
 </div>
 </div>
 
-<script src="../core/loads/wind.js"></script>
+<script src="../../core/loads/wind.js"></script>
 <script src="../../鋼筋混凝土/shared/report.js"></script>
-<script src="../core/wind-report.js"></script>
+<script src="../../core/wind-report.js"></script>
 <script>
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }

@@ -1,0 +1,2806 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐震設計 — 等值靜力分析 V3</title>
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  /* ── 局部樣式 ── */
+  .step { margin-bottom:18px; }
+  .step-title { font-size:0.95em; font-weight:700; color:var(--seismic); margin-bottom:8px;
+                padding:6px 12px; background:#faf5ff; border-left:4px solid var(--seismic); border-radius:0 6px 6px 0; }
+  .step-body { font-size:0.88em; line-height:1.9; padding:0 4px; }
+  .step-body code { background:#f1f5f9; padding:1px 6px; border-radius:3px; font-family:'Consolas',monospace; }
+  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
+  .step-body .val.hl { color:var(--seismic); font-size:1.05em; }
+  .step-body .formula { display:block; margin:4px 0 4px 12px; color:#475569; font-style:italic; }
+
+  /* 比較表 */
+  table.cmp { width:100%; border-collapse:collapse; font-size:0.85em; margin:8px 0; }
+  table.cmp th, table.cmp td { border:1px solid var(--border); padding:6px 10px; text-align:center; font-family:'Consolas',monospace; }
+  table.cmp th { background:#f1f5f9; color:var(--primary); font-weight:600; font-family:inherit; }
+  table.cmp td.win { background:#ecfdf5; font-weight:700; color:#065f46; }
+
+  /* 樓層表 */
+  table.story { width:100%; border-collapse:collapse; font-size:0.82em; margin-top:8px; }
+  table.story th, table.story td { border:1px solid var(--border); padding:5px 8px; text-align:right; font-family:'Consolas',monospace; }
+  table.story th { background:#f1f5f9; color:var(--primary); text-align:center; font-weight:600; font-family:inherit; }
+  table.story td.idx { text-align:center; font-weight:700; color:var(--primary); }
+
+  /* 樓層編輯表 */
+  table.floor-edit { width:100%; border-collapse:collapse; font-size:0.85em; }
+  table.floor-edit th, table.floor-edit td { padding:4px 6px; border:1px solid var(--border); text-align:center; }
+  table.floor-edit th { background:#f1f5f9; font-size:0.82em; }
+  table.floor-edit input { width:70px; padding:4px; border:1px solid #cbd5e1; border-radius:4px; text-align:right; font-family:'Consolas',monospace; font-size:0.92em; }
+  table.floor-edit .btn-del { background:none; border:none; color:var(--danger); cursor:pointer; font-size:1.1em; }
+
+  /* 捲動區域 */
+  .floor-scroll { max-height:280px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; }
+
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--seismic); color:#fff; }
+
+  /* 摺疊面板 */
+  .collapse-toggle { cursor:pointer; user-select:none; }
+  .collapse-toggle::before { content:'▾ '; font-size:0.9em; }
+  .collapse-toggle.collapsed::before { content:'▸ '; }
+  .collapse-body.hidden { display:none; }
+  .assist-block.hidden { display:none; }
+
+  /* 特殊標記 */
+  .tag-ctrl { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.78em; font-weight:700; }
+  .tag-ctrl.vd   { background:#dbeafe; color:#1d4ed8; }
+  .tag-ctrl.vs   { background:#fef3c7; color:#92400e; }
+  .tag-ctrl.vm   { background:#fce7f3; color:#9d174d; }
+
+  .legend { font-size:0.78em; color:var(--text-light); margin-top:6px; line-height:1.7; }
+  .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
+  .fold-summary::-webkit-details-marker { display:none; }
+  .fold-summary::before { content:'▸ '; color:var(--seismic); }
+  details[open] > .fold-summary::before { content:'▾ '; }
+  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .inline-actions.compact { margin-top:6px; }
+  .btn-secondary { background:#e2e8f0; color:#0f172a; border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; }
+  .btn-secondary:hover { background:#cbd5e1; }
+  .report-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.82em; color:#334155; line-height:1.7; }
+  .report-status strong { color:#0f172a; }
+  .report-status.warn { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
+  .compare-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .compare-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .compare-actions a,
+  .compare-actions button { text-decoration:none; }
+  .compare-note { margin-top:10px; padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.82em; color:#334155; line-height:1.7; }
+
+  @media (max-width:900px) {
+    .main-layout { grid-template-columns:1fr; }
+    .compare-grid { grid-template-columns:1fr; }
+  }
+
+  @media print {
+    .card { break-inside: avoid; page-break-inside: avoid; }
+    table.cmp, table.story { font-size:0.76em; }
+    table.cmp th, table.cmp td,
+    table.story th, table.story td { padding:4px 5px; }
+    #storyTable, #subTable { table-layout:fixed; }
+  }
+
+  @media (max-width: 768px) {
+    table.cmp, table.story { font-size: 0.78em; }
+    table.cmp th, table.cmp td,
+    table.story th, table.story td { padding: 4px 5px; }
+    table.floor-edit input { width: 55px; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 480px) {
+    .step-title { font-size: 0.85em; padding: 4px 8px; }
+    .step-body { font-size: 0.82em; }
+    .banner-key .k { font-size: 0.78em; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐震設計 — 等值靜力分析 <span class="badge-v">V3</span></h1>
+  <p>依「建築物耐震設計規範及解說」113 年版 ｜ 第二章靜力分析方法 ｜ 單位：m, tf, sec</p>
+  <p style="margin-top:4px; font-size:0.9em; color:var(--text-light);">
+    目前版本：113.03.01 修正版（台內國字第1130801422號令）
+  </p>
+  <p style="margin-top:4px; font-size:0.88em; line-height:1.7;">
+    <a href="https://www.nlma.gov.tw/ch/legislation/law%26regusw/175" target="_blank" rel="noopener noreferrer">官方規範頁</a> ｜ 
+    <a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener noreferrer">Sederes 反應譜查詢平台</a> ｜ 
+    <a href="seismic-dynamic.html" class="back">動力分析摘要</a>
+  </p>
+  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="card mode-bar print-meta">
+  <strong class="mode-bar__label">計畫資訊：</strong>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo" class="w-no" placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+  </div>
+</div>
+<div class="main-layout">
+
+<!-- ═══════════ 左：輸入面板 ═══════════ -->
+<div>
+
+  <!-- 結構系統 -->
+  <div class="card">
+    <h2>① 結構系統與用途</h2>
+    <div class="checkbox-row" style="margin-bottom:10px;">
+      <input type="checkbox" id="chkAssist">
+      <label for="chkAssist">顯示規範 / 驗證提示</label>
+    </div>
+    <div class="note assist-block hidden" style="margin-bottom:12px;">
+      本工具目前對應 113 年版等值靜力法主流程；若選到臺北盆地里別微分區，將依表 2-6(c) 與表 2-7 的盆地譜參數進行主計算。
+    </div>
+    <div class="form-group">
+      <label>結構系統</label>
+      <select id="sys"></select>
+      <div class="hint" id="sysHint"></div>
+    </div>
+    <div class="form-row" id="customR" style="display:none;">
+      <div class="form-group">
+        <label>自訂 R</label>
+        <input id="Rcustom" type="number" value="4.0" step="0.1" min="1">
+      </div>
+      <div class="form-group">
+        <label>自訂 α<sub>y</sub></label>
+        <input id="aYcustom" type="number" value="1.0" step="0.1" min="0.1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>用途分類</label>
+      <select id="impClass"></select>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="chkXY">
+      <label for="chkXY">X / Y 向採用不同韌性容量或週期</label>
+    </div>
+    <div id="xyRow" style="display:none;">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Y 向結構系統</label>
+          <select id="sysY"></select>
+        </div>
+        <div class="form-group">
+          <label>Y 向動力分析週期 T<sub>dyna,Y</sub> (sec)</label>
+          <input id="TdynaY" type="number" value="" step="0.01" placeholder="留空同 X">
+        </div>
+      </div>
+      <div class="hint" id="sysYHint" style="margin-bottom:8px;"></div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="chkTaipei">
+      <label for="chkTaipei">臺北盆地微地動特性 (式 2-11, Ra = 1+(R-1)/2)</label>
+    </div>
+  </div>
+
+  <!-- 震區參數 -->
+  <div class="card">
+    <h2>② 震區參數 (查 附錄A)</h2>
+
+    <!-- 地點查詢 -->
+    <div class="form-row">
+      <div class="form-group">
+        <label>縣市</label>
+        <select id="zoneCity"><option value="">— 手動輸入 —</option></select>
+      </div>
+      <div class="form-group">
+        <label>鄉鎮市區</label>
+        <select id="zoneDist"><option value="">請先選縣市</option></select>
+      </div>
+    </div>
+    <div id="basinRow" style="display:none;">
+      <div class="form-group">
+        <label>里 (臺北盆地微分區)</label>
+        <select id="zoneVillage"><option value="">全區</option></select>
+      <div class="hint" id="basinHint"></div>
+      <div class="hint assist-block hidden" style="color:#b45309;">選定里別後，主結構計算將直接套用 113 年版臺北盆地微分區反應譜；仍建議以官方規範表 2-6、表 2-7 或 Sederes 複核。</div>
+      </div>
+    </div>
+    <div class="hint" id="zoneHint" style="margin-bottom:10px;"></div>
+
+    <!-- 近斷層 -->
+    <div id="faultRow" style="display:none;">
+      <div style="padding:8px 12px; background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; margin-bottom:10px;">
+        <div style="font-size:0.85em; font-weight:700; color:#991b1b; margin-bottom:6px;">⚠ 近斷層區域</div>
+        <div class="hint" id="faultList" style="color:#7f1d1d; font-style:normal;"></div>
+        <div class="form-group" style="margin-top:8px; margin-bottom:0;">
+          <label style="color:#991b1b;">距最近斷層距離 (km)</label>
+          <input id="faultDist" type="number" value="" step="0.5" min="0" placeholder="填入距離 → 自動內插增強">
+          <div class="hint">填入後將依距離內插取 SDS/SD1/SMS/SM1；主結構與雜項工作物將直接採用控制後譜值</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>S<sub>sD</sub> (g) — 設計地震</label>
+        <input id="SsD" type="number" value="0.6" step="0.05">
+      </div>
+      <div class="form-group">
+        <label>S<sub>1D</sub> (g) — 設計地震</label>
+        <input id="S1D" type="number" value="0.35" step="0.05">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>S<sub>sM</sub> (g) — 最大考量</label>
+        <input id="SsM" type="number" value="0.8" step="0.05">
+      </div>
+      <div class="form-group">
+        <label>S<sub>1M</sub> (g) — 最大考量</label>
+        <input id="S1M" type="number" value="0.5" step="0.05">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>地盤分類</label>
+      <select id="siteClass">
+        <option value="1">第一類</option>
+        <option value="2" selected>第二類</option>
+        <option value="3">第三類</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 建物量體 -->
+  <div class="card">
+    <h2>③ 建物量體</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>地上樓層數 N</label>
+        <input id="N" type="number" value="5" min="1" step="1">
+      </div>
+      <div class="form-group">
+        <label>建物總高 h<sub>n</sub> (m)</label>
+        <input id="hn" type="number" value="17.2" step="0.1">
+        <div class="hint">= 基面至屋頂高度</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>地下層數 B</label>
+        <input id="B" type="number" value="2" min="0" step="1">
+      </div>
+      <div class="form-group">
+        <label>地下每層深 (m)</label>
+        <input id="Bh" type="number" value="3.5" step="0.1">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <label style="font-weight:600; font-size:0.88em;">各層資料 (由下往上)</label>
+      <div>
+        <button class="btn-secondary" style="width:auto;padding:4px 12px;font-size:0.8em;margin:0;" onclick="genUniform()">快速填入 (等高等重)</button>
+      </div>
+    </div>
+    <div class="form-row" id="uniformRow">
+      <div class="form-group">
+        <label>每層重 w (tf)</label>
+        <input id="wUniform" type="number" value="500" step="10">
+      </div>
+      <div class="form-group">
+        <label>動力分析週期 T<sub>dyna</sub> (sec)</label>
+        <input id="Tdyna" type="number" value="" step="0.01" placeholder="留空 = 1.4×Tcode">
+        <div class="hint">若有動力分析結果可填入</div>
+      </div>
+    </div>
+
+    <div class="floor-scroll">
+      <table class="floor-edit" id="floorTable">
+        <thead><tr><th>#</th><th>標籤</th><th>層高 dH (m)</th><th>層重 W (tf)</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <button class="btn-secondary" style="font-size:0.82em;padding:6px;" onclick="addFloorRow()">+ 增加一層</button>
+
+    <div class="divider"></div>
+      <button class="btn-calc" id="btnCalc">計算等值靜力結果</button>
+    <div class="chk-detail">
+      <input type="checkbox" id="chkDetail">
+      <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
+    </div>
+    <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
+  </div>
+
+  <details class="card fold-card">
+    <summary class="fold-summary">
+      <span>計算書輸出項目</span>
+      <span class="fold-chip">列印勾選</span>
+    </summary>
+    <div class="inline-actions compact">
+      <button class="btn-secondary" id="repPresetDefault" type="button">標準版</button>
+      <button class="btn-secondary" id="repPresetResults" type="button">結果版</button>
+      <button class="btn-secondary" id="repPresetFull" type="button">完整版</button>
+    </div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_summary" checked><label for="rep_summary">1. 綜合結論摘要</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_direction" checked><label for="rep_direction">2. 雙向設計摘要</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_adopt" checked><label for="rep_adopt">3. 設計採用摘要</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_spectrum" checked><label for="rep_spectrum">4. 反應譜圖與說明</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_story" checked><label for="rep_story">5. 逐層水平地震力分配</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_sub" checked><label for="rep_sub">6. 地下層水平震度</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_appendage"><label for="rep_appendage">附屬構造物地震力</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_vertical"><label for="rep_vertical">垂直地震力</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_misc"><label for="rep_misc">雜項工作物地震力</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_steps"><label for="rep_steps">逐步計算</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_inputs" checked><label for="rep_inputs">輸入資料表</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_symbols" checked><label for="rep_symbols">符號說明</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_notes" checked><label for="rep_notes">附註 / 說明</label></div>
+    <div class="checkbox-row" style="margin-top:8px; background:#eef2ff; border-color:#c7d2fe;">
+      <input type="checkbox" id="repRemember" checked>
+      <label for="repRemember">記住本頁列印勾選設定</label>
+    </div>
+    <div class="report-status" id="repStatus"></div>
+  </details>
+</div>
+
+<!-- ═══════════ 右：結果面板 ═══════════ -->
+<div id="resultPanel" style="display:none;">
+
+  <!-- 總覽 banner -->
+  <div class="card">
+    <div class="banner-status" id="banner">尚未計算</div>
+    <div class="banner-key" id="bannerKey"></div>
+  </div>
+
+  <div class="card" id="dynamicCompareCard">
+    <h2>靜力 / 動力比較</h2>
+<div id="dynamicCompareBody" class="compare-note">尚未建立動力分析摘要；可先完成本頁靜力計算後，再前往動力分析摘要頁延續比對。</div>
+  </div>
+
+  <!-- 反應譜圖 -->
+  <div class="card" id="spectrumCard">
+    <h2>設計反應譜 S<sub>a</sub>(T)</h2>
+    <div class="canvas-wrap" style="min-height:280px;">
+      <canvas id="spectrumChart"></canvas>
+    </div>
+    <div class="legend" id="spectrumLegend"></div>
+  </div>
+
+  <!-- 逐步計算 -->
+  <div class="card" id="stepsCard">
+    <h2>逐步計算過程</h2>
+    <div id="steps"></div>
+  </div>
+
+  <!-- 豎向分配 -->
+  <div class="card" id="distCard" style="display:none;">
+    <h2>逐層水平地震力分配</h2>
+    <table class="story" id="storyTable">
+      <thead>
+        <tr><th>樓層</th><th>h<sub>i</sub> (m)</th><th>W<sub>i</sub> (tf)</th>
+            <th>W<sub>i</sub>·h<sub>i</sub></th><th>F<sub>i</sub> (tf)</th><th>V<sub>story</sub> (tf)</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="distNote" class="legend"></div>
+  </div>
+
+  <!-- 地下層 -->
+  <div class="card" id="subCard" style="display:none;">
+    <h2>地下層水平震度 K (式 2-16)</h2>
+    <table class="cmp" id="subTable">
+      <thead><tr><th>地下層</th><th>深度 H (m)</th><th>K<sub>D</sub></th><th>K<sub>M</sub></th><th>K (取大)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- ═══ 附屬構造物地震力 ═══ -->
+  <div class="card" id="appendageCard">
+    <h2 class="collapse-toggle" onclick="toggleCollapse(this)">附屬構造物地震力 (第四章, 式 4-1~4-3)</h2>
+    <div class="collapse-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>構材類型</label>
+          <select id="apType" style="font-size:0.88em;">
+            <optgroup label="建築構造物構材 (表 4-1)"></optgroup>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>或自訂 a<sub>p</sub> / R<sub>p</sub></label>
+          <div class="form-row">
+            <input id="apCustom" type="number" value="" step="0.1" placeholder="ap">
+            <input id="rpCustom" type="number" value="" step="0.1" placeholder="Rp">
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>構材重量 W<sub>p</sub> (tf)</label>
+          <input id="apWp" type="number" value="1.0" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>構材用途係數 I<sub>p</sub></label>
+          <select id="apIp">
+            <option value="1.0">1.0 — 一般構材</option>
+            <option value="1.5">1.5 — 生命安全 / 危險物質</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>固定高度 h<sub>x</sub> (m)</label>
+          <input id="apHx" type="number" value="0" step="0.5">
+          <div class="hint">構材附著點距地面高度</div>
+        </div>
+        <div class="form-group">
+          <label>近斷層區域</label>
+          <select id="apNearFault">
+            <option value="0" selected>否 — F<sub>pv</sub>=½F<sub>ph</sub></option>
+            <option value="1">是 — F<sub>pv</sub>=⅔F<sub>ph</sub></option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-calc" style="background:var(--seismic);" onclick="calcAppendage()">計算附屬構造物地震力</button>
+      <div id="apResult" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- ═══ 垂直地震力 ═══ -->
+  <div class="card" id="verticalCard">
+    <h2 class="collapse-toggle" onclick="toggleCollapse(this)">垂直地震力 (式 2-19, C2-10~C2-12)</h2>
+    <div class="collapse-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>樓版系統重量 W<sub>slab</sub> (tf)</label>
+          <input id="vW" type="number" value="200" step="10">
+          <div class="hint">單層樓版 + 梁 + 活載重之等效重量</div>
+        </div>
+        <div class="form-group">
+          <label>近斷層區域</label>
+          <select id="vNearFault">
+            <option value="0" selected>否 — S<sub>aD,V</sub>=½S<sub>aD</sub></option>
+            <option value="1">是 — S<sub>aD,V</sub>=⅔S<sub>aD</sub></option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-calc" style="background:var(--seismic);" onclick="calcVertical()">計算垂直地震力</button>
+      <div id="vResult" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- ═══ 雜項工作物地震力 (第五章) ═══ -->
+  <div class="card" id="miscCard">
+    <h2 class="collapse-toggle" onclick="toggleCollapse(this)">雜項工作物地震力 (第五章快速分流)</h2>
+    <div class="collapse-body">
+      <div class="hint" style="margin-bottom:10px;">
+        若只需第五章局部計算書，可改用
+        <a href="seismic-misc.html">雜項工作物地震力獨立頁</a>
+        進行快速輸入與列印。
+      </div>
+      <div class="form-group">
+        <label>第五章分類</label>
+        <select id="miscChapterMode">
+          <option value="similar" selected>5.3 相似於建築結構</option>
+          <option value="nonsimilar">5.4 非相似於建築結構</option>
+        </select>
+        <div class="hint" id="miscModeHint">相似於建築結構者，最小設計水平總橫力依式(2-3)計算，垂直地震力依 2.18 節。</div>
+      </div>
+      <div class="form-group">
+        <label id="miscTypeLabel">工作物類型 (表 5-1)</label>
+        <select id="miscType" style="font-size:0.88em;"></select>
+      </div>
+      <div class="form-row" id="miscCustomRow" style="display:none;">
+        <div class="form-group">
+          <label>自訂 R</label>
+          <input id="miscR" type="number" value="1.5" step="0.1" min="1">
+        </div>
+        <div class="form-group">
+          <label>自訂 α<sub>y</sub></label>
+          <input id="miscAY" type="number" value="1.0" step="0.1" min="0.1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>工作物重量 W (tf)</label>
+          <input id="miscW" type="number" value="10" step="1">
+        </div>
+        <div class="form-group">
+          <label>工作物高度 h (m)</label>
+          <input id="miscH" type="number" value="5" step="0.5">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>週期 T (sec)</label>
+          <input id="miscT" type="number" value="0" step="0.01" min="0" placeholder="0 = 剛性">
+          <div class="hint">0 = 假設剛性 (T≈0, 直接取 S<sub>DS</sub>)</div>
+        </div>
+        <div class="form-group">
+          <label>用途係數 I</label>
+          <select id="miscI">
+            <option value="1.0">1.0 — 一般</option>
+            <option value="1.25">1.25 — 公眾使用</option>
+            <option value="1.5">1.5 — 重要 / 危險物</option>
+          </select>
+        </div>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="chkNearFaultMisc">
+        <label for="chkNearFaultMisc">近斷層工址垂直力比值採 2/3（一般 / 臺北盆地為 1/2）</label>
+      </div>
+      <div class="hint" style="margin-bottom:8px;">⬆ 震區參數及地盤分類沿用左側②面板的輸入值</div>
+      <div class="hint" style="margin-bottom:8px; color:#0f766e;">本卡定位為主頁內的第五章快速摘要；若要正式局部計算書、完整輸入或獨立列印，建議改用獨立頁。</div>
+      <button class="btn-calc" style="background:#0891b2;" onclick="calcMisc()">計算雜項工作物地震力</button>
+      <div id="miscResult" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <!-- 公式說明 -->
+  <div class="card">
+    <h2 class="collapse-toggle collapsed" onclick="toggleCollapse(this)">規範與驗證提示</h2>
+    <div class="collapse-body hidden">
+      <div class="note">
+        目前基準驗證已建立於 <code>tests/seismic.test.js</code>，可用 <code>node tests/seismic.test.js</code> 快速檢查一般工址與臺北盆地微分區計算是否正常。
+      </div>
+      <div class="legend" style="margin-top:10px;">
+        驗證涵蓋：一般工址譜參數、臺北盆地 Ra 修正、代表里別 T0 與微分區、一般工址對比盆地譜之設計水平總橫力差異。
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="collapse-toggle collapsed" onclick="toggleCollapse(this)">公式索引 (113 年版)</h2>
+    <div class="collapse-body hidden">
+      <div class="legend">
+        <code>式(2-4)</code> S<sub>DS</sub> = F<sub>a</sub>·S<sub>sD</sub>,  S<sub>D1</sub> = F<sub>v</sub>·S<sub>1D</sub><br>
+        <code>式(2-6)</code> T<sub>oD</sub> = S<sub>D1</sub>/S<sub>DS</sub><br>
+        <code>式(2-7~9)</code> T = C·h<sub>n</sub><sup>3/4</sup>  (C: 鋼 0.085 / RC 0.070 / 牆 0.050)<br>
+        <code>式(2-10)</code> R<sub>a</sub> = 1 + (R−1)/1.5　　<code>式(2-11)</code> R<sub>a</sub> = 1 + (R−1)/2  (臺北盆地)<br>
+        <code>式(2-12)</code> F<sub>u</sub> 四段分段 (T vs T<sub>oD</sub>)<br>
+        <code>式(2-2)</code> (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> 修正<br>
+        <code>式(2-3)</code> V<sub>D</sub> = [I/(1.4·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
+        <code>式(2-13a)</code> V* = [I·F<sub>u</sub>/(4.2·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
+        <code>式(2-13c)</code> V<sub>M</sub> = [I/(1.4·α<sub>y</sub>)] × (S<sub>aM</sub>/F<sub>uM</sub>)<sub>m</sub> × W<br>
+        <code>式(2-14)</code> F<sub>t</sub> = 0.07·T·V  (T&gt;0.7)<br>
+        <code>式(2-15)</code> F<sub>x</sub> = (V−F<sub>t</sub>)·W<sub>x</sub>·h<sub>x</sub> / Σ(W<sub>i</sub>·h<sub>i</sub>)<br>
+        <code>式(2-16)</code> K = 0.1·(1−H/40)·S<sub>DS</sub>·I<br>
+        <code>式(2-19)</code> S<sub>aD,V</sub> = ½·S<sub>aD</sub> (一般) 或 ⅔·S<sub>aD</sub> (近斷層)<br>
+        <code>式(C2-10)</code> V<sub>Z</sub> = [I/(1.4·α<sub>y</sub>)]·(S<sub>aD,V</sub>/F<sub>uv</sub>)<sub>m</sub>·W　(R<sub>a</sub>=3.0)<br>
+        <code>第五章 5.3</code> 相似於建築結構：最小設計水平總橫力依 <code>式(2-3)</code>，垂直地震力依 <code>2.18 節</code><br>
+        <code>式(5-1)</code> 非相似於建築結構且 T&lt;0.06 sec：V<sub>h</sub> = S<sub>DS</sub>·I·W / (3·α<sub>y</sub>)<br>
+        <code>式(5-2)</code> 非相似於建築結構且 T≥0.06 sec：V<sub>h</sub> = [I/(1.2·α<sub>y</sub>)]·(S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub>·W
+      </div>
+      <div class="note">
+        ⚠ 等值靜力法僅適用規律建築，通常應同時滿足高度小於 50 m、未達 15 層，且不屬須進行動力分析者。
+        若有顯著扭轉、軟弱層、垂直不規則、特殊高層或盆地譜需精確納入者，應改採動力分析或至少以官方資料複核。
+      </div>
+      <div class="legend" style="margin-top:10px;">
+        參考連結：
+        <a href="https://www.nlma.gov.tw/ch/legislation/law%26regusw/175" target="_blank" rel="noopener noreferrer">內政部國土管理署法規頁</a> ／
+        <a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener noreferrer">國震中心 Sederes 平台</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div><!-- main-layout -->
+<details class="card" id="pageScopeCard">
+  <summary class="fold-summary">本頁定位與適用範圍</summary>
+  <div class="note" style="margin-top:12px;">
+    本頁主要對應第二章等值靜力法，適合完整建築物之靜力分析整理、雙向結果摘要、反應譜檢視與列印計算書。
+  </div>
+  <div class="legend" style="margin-top:10px;">
+    適合：一般規律建築之靜力法整理、近斷層或臺北盆地條件下的快速複核、靜力與動力結果前置比較。<br>
+    不宜直接取代：顯著不規則、高層、特殊結構、需正式動力分析或專案精算工址條件之案件。<br>
+    第五章雜項工作物若需正式局部計算書，建議改用 <a href="seismic-misc.html">雜項工作物地震力獨立頁</a>。
+  </div>
+</details>
+<details class="card" id="versionInfoCard">
+  <summary class="fold-summary">版本與更新重點</summary>
+  <div class="note" style="margin-top:12px;">
+    目前頁面版本為 <strong>V2</strong>，主軸是把等值靜力法、臺北盆地、近斷層、雙向摘要、列印報表與動力摘要銜接整合在同一頁。
+  </div>
+  <div class="legend" style="margin-top:10px;">
+    本版已完成：近斷層控制譜、臺北盆地微分區主算、設計週期標示、靜力 / 動力摘要橋接、第五章快速分流、列印計算書整理。<br>
+    本頁仍建議定位為：完整建築物靜力法主頁與送審前整理頁。<br>
+      若案件需正式動力分析結果整理，請改用 <a href="seismic-dynamic.html">動力分析摘要</a>；若僅需第五章局部計算書，請改用 <a href="seismic-misc.html">雜項工作物地震力</a>。
+  </div>
+</details>
+</div><!-- container -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="../../core/loads/seismic-zones.js"></script>
+<script src="../../core/loads/seismic.js"></script>
+<script src="../../core/ui/report.js"></script>
+<script>
+/* ════════════════════════════════════════
+ *  seismic-force.html V2  —  UI script
+ * ════════════════════════════════════════ */
+const S = Seismic;
+function fmt(v, d) { return v == null ? '—' : Number(v).toFixed(d); }
+const STATIC_STORAGE_KEY = 'seismic-static-summary';
+const DYNAMIC_STORAGE_KEY = 'seismic-dynamic-summary';
+const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
+
+window._nearFaultOverride = null;
+window._basinSelection = null;
+
+function getStorageJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function setStorageJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {}
+}
+
+function restoreProjectInfo() {
+  const saved = getStorageJson(PROJECT_INFO_STORAGE_KEY);
+  if (!saved) return;
+  if (saved.name != null) document.getElementById('projName').value = saved.name;
+  if (saved.no != null) document.getElementById('projNo').value = saved.no;
+  if (saved.designer != null) document.getElementById('projDesigner').value = saved.designer;
+}
+
+function saveProjectInfo() {
+  setStorageJson(PROJECT_INFO_STORAGE_KEY, getStaticProjectMeta());
+}
+
+function getStaticProjectMeta() {
+  const zoneCity = document.getElementById('zoneCity')?.value || '';
+  const zoneDist = document.getElementById('zoneDist')?.value || '';
+  return {
+    name: document.getElementById('projName')?.value?.trim() || '',
+    no: document.getElementById('projNo')?.value?.trim() || '',
+    designer: document.getElementById('projDesigner')?.value?.trim() || '',
+    zone: [zoneCity, zoneDist].filter(Boolean).join(' '),
+    siteClass: document.getElementById('siteClass')?.value || '',
+    source: 'static'
+  };
+}
+
+function saveStaticSummary(x, y) {
+  if (!x) return;
+  const zoneCity = document.getElementById('zoneCity')?.value || '';
+  const zoneDist = document.getElementById('zoneDist')?.value || '';
+  const impKey = document.getElementById('impClass')?.value || '';
+  const hn = parseFloat(document.getElementById('hn')?.value);
+  const staticWeight = x.W;
+  const payload = {
+    savedAt: new Date().toISOString(),
+    project: {
+      ...getStaticProjectMeta(),
+      zoneCity,
+      zoneDist,
+      siteClass: document.getElementById('siteClass')?.value || '',
+      SsD: parseFloat(document.getElementById('SsD')?.value),
+      S1D: parseFloat(document.getElementById('S1D')?.value),
+      SsM: parseFloat(document.getElementById('SsM')?.value),
+      S1M: parseFloat(document.getElementById('S1M')?.value),
+      importanceKey: impKey,
+      importanceFactor: x.I,
+      hn: isFinite(hn) ? hn : null,
+      W: isFinite(staticWeight) ? staticWeight : null
+    },
+    x: {
+      Vdesign: x.Vdesign,
+      Tdesign: x.Tdesign,
+      coeff: x.V_coeff,
+      controlledBy: x.controlledBy,
+      system: x.sys?.name || '',
+      systemKey: document.getElementById('sys')?.value || ''
+    },
+    y: y ? {
+      Vdesign: y.Vdesign,
+      Tdesign: y.Tdesign,
+      coeff: y.V_coeff,
+      controlledBy: y.controlledBy,
+      system: y.sys?.name || '',
+      systemKey: document.getElementById('chkXY')?.checked ? (document.getElementById('sysY')?.value || '') : (document.getElementById('sys')?.value || '')
+    } : null
+  };
+  setStorageJson(STATIC_STORAGE_KEY, payload);
+}
+
+function renderDynamicCompareCard() {
+  const box = document.getElementById('dynamicCompareBody');
+  if (!box) return;
+  const staticSummary = getStorageJson(STATIC_STORAGE_KEY);
+  const dynamicSummary = getStorageJson(DYNAMIC_STORAGE_KEY);
+  if (!staticSummary?.x) {
+    box.innerHTML = '尚未完成本頁靜力計算，暫時無法建立靜力 / 動力比較。';
+    return;
+  }
+  const projectHint = staticSummary.project?.name || staticSummary.project?.zone || '目前案件';
+  if (!dynamicSummary?.x) {
+    box.innerHTML = `
+      <div class="compare-note">
+        <strong>${escReport(projectHint)}</strong> 已建立等值靜力分析摘要，尚未讀到動力分析結果。<br>
+        建議下一步：前往 <a href="seismic-dynamic.html">動力分析摘要頁</a>，填入模型分析所得之 X / Y 向基底剪力後即可自動比對等值靜力結果。
+      </div>
+      <div class="compare-actions">
+      <a class="btn-secondary" href="seismic-dynamic.html">前往動力分析摘要</a>
+        <button class="btn-secondary" type="button" onclick="clearDynamicSummary()">清除動力摘要</button>
+      </div>
+    `;
+    return;
+  }
+  const rows = [];
+  const staticName = staticSummary.project?.name || '';
+  const dynamicName = dynamicSummary.project?.name || '';
+  const sameProject = !staticName || !dynamicName || staticName === dynamicName;
+  ['x', 'y'].forEach(dir => {
+    if (!staticSummary[dir] || !dynamicSummary[dir]) return;
+    const s = staticSummary[dir];
+    const d = dynamicSummary[dir];
+    const ratio = s.Vdesign > 0 ? d.baseShear / s.Vdesign : null;
+    rows.push(`
+      <div class="k">
+        <span class="k-label">${dir.toUpperCase()} 向</span>
+        <span class="k-val">靜力 ${fmt(s.Vdesign,1)} tf ／ 動力 ${fmt(d.baseShear,1)} tf ／ 比值 ${ratio != null ? fmt(ratio,2) : '—'}</span>
+      </div>
+    `);
+  });
+  box.innerHTML = `
+    <div class="banner-key">${rows.join('')}</div>
+    <div class="compare-note">
+      靜力摘要更新時間：${escReport(new Date(staticSummary.savedAt).toLocaleString('zh-TW'))}<br>
+      動力摘要更新時間：${escReport(new Date(dynamicSummary.savedAt).toLocaleString('zh-TW'))}<br>
+      ${sameProject ? '案件名稱一致，可直接作為同案比對參考。' : `注意：靜力頁案件「${escReport(staticName || '—')}」與動力頁案件「${escReport(dynamicName || '—')}」不一致，請先確認是否為同一專案。`}
+    </div>
+    <div class="compare-actions">
+      <a class="btn-secondary" href="seismic-dynamic.html">打開動力分析摘要頁</a>
+      <button class="btn-secondary" type="button" onclick="clearDynamicSummary()">清除動力摘要</button>
+    </div>
+  `;
+}
+
+function clearDynamicSummary() {
+  try {
+    localStorage.removeItem(DYNAMIC_STORAGE_KEY);
+  } catch (err) {}
+  renderDynamicCompareCard();
+}
+
+function clearNearFaultOverride() {
+  window._nearFaultOverride = null;
+}
+
+function setNearFaultOverride(city, dist, userDist, values) {
+  window._nearFaultOverride = { city, dist, userDist, ...values };
+}
+
+function getNearFaultOverride() {
+  return window._nearFaultOverride;
+}
+
+// ── 結構系統選單 ──
+(function initSys() {
+  const sel = document.getElementById('sys');
+  Object.entries(S.SYSTEMS).forEach(([k, s]) => {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = `${s.name}　(R=${s.R})`;
+    if (k === 'SMRF_RC') o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => {
+    const sys = S.SYSTEMS[sel.value];
+    document.getElementById('sysHint').textContent =
+      `R = ${sys.R}　αy = ${sys.alphaY}　週期係數 C = ${sys.period_C}`;
+    document.getElementById('customR').style.display = sel.value === 'CUSTOM' ? '' : 'none';
+  });
+  sel.dispatchEvent(new Event('change'));
+})();
+
+// ── X/Y 向切換 ──
+document.getElementById('chkXY').addEventListener('change', function() {
+  document.getElementById('xyRow').style.display = this.checked ? '' : 'none';
+});
+(function initSysY() {
+  const sel = document.getElementById('sysY');
+  Object.entries(S.SYSTEMS).forEach(([k, s]) => {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = `${s.name}　(R=${s.R})`;
+    if (k === 'SMRF_RC') o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', () => {
+    const sys = S.SYSTEMS[sel.value];
+    document.getElementById('sysYHint').textContent = `Y 向: R=${sys.R}, αy=${sys.alphaY}, C=${sys.period_C}`;
+  });
+})();
+
+// ── 用途係數選單 ──
+(function initImp() {
+  const sel = document.getElementById('impClass');
+  Object.entries(S.IMPORTANCE).forEach(([k, v]) => {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = `${v.name}　I=${v.factor}`;
+    if (k === 'IV') o.selected = true;
+    sel.appendChild(o);
+  });
+})();
+
+// ── 地點查詢 (SeismicZones) ──
+(function initZoneLookup() {
+  if (typeof SeismicZones === 'undefined') return;
+  const Z = SeismicZones.ZONES;
+  const B = SeismicZones.BASIN;
+  const citySel  = document.getElementById('zoneCity');
+  const distSel  = document.getElementById('zoneDist');
+  const villSel  = document.getElementById('zoneVillage');
+  const basinRow = document.getElementById('basinRow');
+  const hintEl   = document.getElementById('zoneHint');
+  const basinHint = document.getElementById('basinHint');
+
+  // 填入縣市
+  Object.keys(Z).forEach(city => {
+    const o = document.createElement('option');
+    o.value = city; o.textContent = city;
+    citySel.appendChild(o);
+  });
+
+  // 縣市切換 → 填入鄉鎮
+  citySel.addEventListener('change', function() {
+    distSel.innerHTML = '<option value="">— 選擇鄉鎮市區 —</option>';
+    villSel.innerHTML = '<option value="">全區</option>';
+    basinRow.style.display = 'none';
+    hintEl.textContent = '';
+    window._basinSelection = null;
+    clearNearFaultOverride();
+    if (!this.value || !Z[this.value]) return;
+    Object.keys(Z[this.value]).forEach(dist => {
+      const o = document.createElement('option');
+      o.value = dist; o.textContent = dist;
+      distSel.appendChild(o);
+    });
+  });
+
+  const faultRow = document.getElementById('faultRow');
+  const faultListEl = document.getElementById('faultList');
+  const F = SeismicZones.FAULTS;
+
+  // 鄉鎮切換 → 自動填入參數 + 檢查盆地 + 近斷層
+  distSel.addEventListener('change', function() {
+    villSel.innerHTML = '<option value="">全區</option>';
+    basinRow.style.display = 'none';
+    faultRow.style.display = 'none';
+    const city = citySel.value;
+    const dist = this.value;
+    if (!city || !dist || !Z[city] || !Z[city][dist]) return;
+
+    const d = Z[city][dist]; // [SsD, S1D, SsM, S1M, V10C, ?faults[]]
+    document.getElementById('SsD').value = d[0];
+    document.getElementById('S1D').value = d[1];
+    document.getElementById('SsM').value = d[2];
+    document.getElementById('S1M').value = d[3];
+    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}, V10(C)=${d[4]} m/s`;
+
+    // 近斷層
+    clearNearFaultOverride();
+    if (d.length > 5 && Array.isArray(d[5])) {
+      faultRow.style.display = '';
+      const faultNames = d[5];
+      faultListEl.innerHTML = faultNames.map(f => {
+        const info = F[f];
+        return `<b>${f}</b> (影響半徑 ${info ? info.r : '?'} km)`;
+      }).join('、');
+      document.getElementById('faultDist').value = '';
+      document.getElementById('apNearFault').value = '1';
+      document.getElementById('vNearFault').value = '1';
+    } else {
+      document.getElementById('apNearFault').value = '0';
+      document.getElementById('vNearFault').value = '0';
+    }
+
+    // 檢查臺北盆地微分區
+    if (B[city] && B[city][dist]) {
+      basinRow.style.display = '';
+      const villages = B[city][dist];
+      Object.keys(villages).forEach(v => {
+        const o = document.createElement('option');
+        const info = villages[v]; // [zone, T0]
+        const zoneName = ['','台北一區','台北二區','台北三區'][info[0]];
+        o.value = v; o.textContent = `${v}　(${zoneName}, T0=${info[1]})`;
+        villSel.appendChild(o);
+      });
+      basinHint.textContent = '此區屬臺北盆地微分區，可細查至里；選定後將依表 2-6(c) 與表 2-7 套用盆地反應譜';
+      document.getElementById('chkTaipei').checked = true;
+    } else {
+      if (city !== '臺北市' && city !== '新北市') {
+        document.getElementById('chkTaipei').checked = false;
+      }
+    }
+  });
+
+  // 近斷層距離輸入 → 內插增強 (直接控制 SDS/SD1/SMS/SM1，不覆蓋原始區域輸入)
+  document.getElementById('faultDist').addEventListener('change', function() {
+    const city = citySel.value, dist = distSel.value;
+    if (!city || !dist || !Z[city] || !Z[city][dist]) return;
+    const d = Z[city][dist];
+    if (d.length <= 5 || !Array.isArray(d[5])) return;
+
+    const userDist = parseFloat(this.value);
+    if (!isFinite(userDist) || userDist < 0) {
+      clearNearFaultOverride();
+      hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}, V10(C)=${d[4]} m/s`;
+      return;
+    }
+
+    const siteClassNow = +document.getElementById('siteClass').value || 2;
+    const baseSite = S.calcSiteCoeff(siteClassNow, d[0], d[1], d[2], d[3]);
+    let best = [baseSite.SDS, baseSite.SD1, baseSite.SMS, baseSite.SM1];
+    let hasOverride = false;
+
+    d[5].forEach(fName => {
+      const fInfo = F[fName];
+      if (!fInfo || userDist > fInfo.r) return;
+      hasOverride = true;
+      const dists = Object.keys(fInfo.d).map(Number).sort((a, b) => a - b);
+      function interp(idx) {
+        if (userDist <= dists[0]) return fInfo.d[dists[0]][idx];
+        if (userDist >= dists[dists.length - 1]) return fInfo.d[dists[dists.length - 1]][idx];
+        for (let i = 0; i < dists.length - 1; i++) {
+          if (userDist >= dists[i] && userDist <= dists[i + 1]) {
+            const t = (userDist - dists[i]) / (dists[i + 1] - dists[i]);
+            return fInfo.d[dists[i]][idx] + t * (fInfo.d[dists[i + 1]][idx] - fInfo.d[dists[i]][idx]);
+          }
+        }
+        return fInfo.d[dists[dists.length - 1]][idx];
+      }
+      const vals = [interp(0), interp(1), interp(2), interp(3)];
+      for (let i = 0; i < 4; i++) best[i] = Math.max(best[i], +vals[i].toFixed(3));
+    });
+
+    if (!hasOverride) {
+      clearNearFaultOverride();
+      hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}, V10(C)=${d[4]} m/s`;
+      return;
+    }
+
+    setNearFaultOverride(city, dist, userDist, {
+      SDS: best[0],
+      SD1: best[1],
+      SMS: best[2],
+      SM1: best[3]
+    });
+    hintEl.innerHTML = `<b>${city} ${dist}</b> (近斷層 ${userDist} km 控制)　SDS=${best[0]}, SD1=${best[1]}, SMS=${best[2]}, SM1=${best[3]}`;
+  });
+
+  document.getElementById('siteClass').addEventListener('change', function() {
+    const faultDistEl = document.getElementById('faultDist');
+    if (faultDistEl.value !== '') {
+      faultDistEl.dispatchEvent(new Event('change'));
+    }
+  });
+
+  // 里切換 → 更新盆地 T0 提示
+  villSel.addEventListener('change', function() {
+    const city = citySel.value, dist = distSel.value, vill = this.value;
+    if (!vill || !B[city] || !B[city][dist] || !B[city][dist][vill]) {
+      window._basinSelection = null;
+      basinHint.textContent = '此區屬臺北盆地微分區，可細查至里；選定後將依表 2-6(c) 與表 2-7 套用盆地反應譜';
+      return;
+    }
+    const info = B[city][dist][vill]; // [zone, T0]
+    const zoneName = ['','台北一區','台北二區','台北三區'][info[0]];
+    window._basinSelection = { city, dist, village: vill, zone: info[0], zoneName, T0: info[1] };
+    document.getElementById('chkTaipei').checked = true;
+    basinHint.innerHTML = `<b>${vill}</b> → ${zoneName}　T<sub>0</sub>=${info[1]} sec　<span style="color:#065f46;">主結構計算將套用此盆地反應譜</span>`;
+  });
+})();
+
+// ── 樓層表 ──
+let floorData = [];  // [{label, dH, W}]
+
+function renderFloorTable() {
+  const tb = document.querySelector('#floorTable tbody');
+  tb.innerHTML = '';
+  floorData.forEach((f, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="text-align:center;font-weight:700;color:var(--primary)">${i+1}</td>
+      <td><input value="${f.label}" data-i="${i}" data-f="label" style="width:50px;text-align:center;"></td>
+      <td><input type="number" value="${f.dH}" data-i="${i}" data-f="dH" step="0.1" min="0.1"></td>
+      <td><input type="number" value="${f.W}"  data-i="${i}" data-f="W"  step="10"  min="0"></td>
+      <td><button class="btn-del" data-i="${i}" title="刪除">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  // events
+  tb.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const i = +inp.dataset.i, f = inp.dataset.f;
+      floorData[i][f] = f === 'label' ? inp.value : (inp.value === '' ? NaN : parseFloat(inp.value));
+    });
+  });
+  tb.querySelectorAll('.btn-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      floorData.splice(+btn.dataset.i, 1);
+      renderFloorTable();
+    });
+  });
+}
+
+function addFloorRow() {
+  const last = floorData.length > 0 ? floorData[floorData.length-1] : { dH:3.5, W:500 };
+  floorData.push({ label: `${floorData.length+1}F`, dH: last.dH, W: last.W });
+  renderFloorTable();
+}
+
+function genUniform() {
+  const N = Math.max(1, Math.round(parseFloat(document.getElementById('N').value) || 5));
+  const hn = parseFloat(document.getElementById('hn').value) || 17.2;
+  const w  = parseFloat(document.getElementById('wUniform').value) || 500;
+  const dH = +(hn / N).toFixed(2);
+  floorData = [];
+  for (let i = 0; i < N; i++) {
+    floorData.push({ label: `${i+1}F`, dH, W: w });
+  }
+  renderFloorTable();
+}
+genUniform(); // 初始化
+
+function validateFloorData(hn) {
+  if (!isFinite(hn) || hn <= 0) return '建物總高 h_n 必須大於 0';
+  if (floorData.length === 0) return '請至少輸入一層樓層資料';
+
+  let sumH = 0;
+  for (let i = 0; i < floorData.length; i++) {
+    const f = floorData[i];
+    const label = f.label || `${i + 1}F`;
+    if (!isFinite(f.dH) || f.dH <= 0) return `${label} 的層高 dH 必須大於 0`;
+    if (!isFinite(f.W) || f.W <= 0) return `${label} 的層重 W 必須大於 0`;
+    sumH += f.dH;
+  }
+
+  if (Math.abs(sumH - hn) > 0.05) {
+    return `各層層高總和 ${fmt(sumH, 2)} m 與建物總高 h_n ${fmt(hn, 2)} m 不一致，請先修正`;
+  }
+  return '';
+}
+
+function buildApplicabilityNotes(hn, storyCount, isTB, basinSelection) {
+  const notes = [];
+  if (isFinite(hn) && hn >= 50) {
+    notes.push('建物總高已達 50 m，通常不宜直接採等值靜力法。');
+  }
+  if (isFinite(storyCount) && storyCount >= 15) {
+    notes.push('樓層數已達 15 層，請確認是否仍符合第二章靜力分析適用條件。');
+  }
+  if (isTB) {
+    if (basinSelection) {
+      notes.push(`已套用臺北盆地微分區 ${basinSelection.village}（${basinSelection.zoneName}，T0=${basinSelection.T0} sec）之盆地反應譜。`);
+    } else {
+      notes.push('已勾選臺北盆地微地動特性，但尚未選定里別；若工址位於盆地微分區內，建議選到里別以套用表 2-6(c)／表 2-7。');
+    }
+  }
+  return notes;
+}
+
+function getBasinDirectSite() {
+  const basin = window._basinSelection;
+  if (!basin || !basin.zone || !basin.T0) return null;
+
+  const SDS = 0.6;
+  const SMS = 0.8;
+  const T0 = Number(basin.T0);
+  return {
+    SDS,
+    SD1: +(SDS * T0).toFixed(3),
+    SMS,
+    SM1: +(SMS * T0).toFixed(3),
+    basinZone: basin.zone,
+    basinZoneName: basin.zoneName,
+    basinVillage: basin.village,
+    basinT0: T0
+  };
+}
+
+function calcFullSeismicUI(p) {
+  if (!p.directSite) {
+    const r = S.calcFullSeismic(p);
+    r.siteSource = 'derived';
+    r.directSite = null;
+    return r;
+  }
+
+  const sys = S.SYSTEMS[p.systemKey] || S.SYSTEMS.OTHER;
+  const R = p.R || sys.R;
+  const alphaY = p.alphaY ?? sys.alphaY ?? 1.0;
+  const I = p.I || 1.0;
+  const CU = p.CU || 1.4;
+  const isTB = p.isTaipeiBasin || false;
+  const site = { FaD: null, FvD: null, FaM: null, FvM: null, ...p.directSite };
+  const to = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
+  const Tcode = S.calcPeriod(p.systemKey, p.hn);
+  const Tdesign = S.calcTdesign(Tcode, p.Tdyna, CU);
+  const Ra = S.calcRa(R, isTB);
+  const Fu = S.calcFu(Ra, Tdesign, to.ToD);
+  const FuM = S.calcFuM(R, Tdesign, to.ToM);
+  const SaD = S.calcSa(Tdesign, site.SDS, site.SD1);
+  const SaM = S.calcSa(Tdesign, site.SMS, site.SM1);
+  const W = p.floors.reduce((s, f) => s + f.W, 0);
+  const vd = S.calcVD(I, alphaY, SaD, Fu, W);
+  const vs = S.calcVstar(I, alphaY, Fu, SaD, W, isTB);
+  const vm = S.calcVM(I, alphaY, SaM, FuM, W);
+  const Vdesign = Math.max(vd.VD, vs.Vstar, vm.VM);
+  let controlledBy = 'VD';
+  if (Vdesign === vs.Vstar) controlledBy = 'V*';
+  if (Vdesign === vm.VM) controlledBy = 'VM';
+  const dist = S.calcVerticalDist(Vdesign, Tdesign, p.floors);
+
+  return {
+    sys, R, alphaY, I, CU,
+    siteClass: p.siteClass || 2,
+    SsD: p.SsD, S1D: p.S1D, SsM: p.SsM, S1M: p.S1M,
+    site,
+    Tcode, Tdesign, Tdyna: p.Tdyna || null,
+    ToD: to.ToD, ToM: to.ToM,
+    Ra, Fu, FuM,
+    SaD, SaM,
+    W,
+    VD: vd.VD, VD_ratio: vd.ratio, VD_ratio_m: vd.ratio_m, VD_coeff: vd.VD / W,
+    Vstar: vs.Vstar, Vs_ratio: vs.ratio, Vs_ratio_m: vs.ratio_m, Vs_coeff: vs.Vstar / W,
+    VM: vm.VM, VM_ratio: vm.ratio, VM_ratio_m: vm.ratio_m, VM_coeff: vm.VM / W,
+    Vdesign, V_coeff: Vdesign / W, controlledBy,
+    Ft: dist.Ft,
+    dist,
+    siteSource: 'direct',
+    directSite: p.directSite
+  };
+}
+
+function calcMiscSeismicUI(p) {
+  if (!p.directSite) {
+    const r = S.calcMiscSeismic(p);
+    r.siteSource = 'derived';
+    r.directSite = null;
+    return r;
+  }
+
+  const item = p.typeIdx >= 0 ? S.TABLE_5_1[p.typeIdx] : null;
+  const R = item ? item.R : (p.R || 1.5);
+  const alphaY = item ? item.alphaY : (p.alphaY || 1.0);
+  const I = p.I || 1.0;
+  const W = p.W || 0;
+  const hn = p.hn || 1;
+  const isTB = p.isTaipeiBasin || false;
+  const site = { FaD: null, FvD: null, FaM: null, FvM: null, ...p.directSite };
+  const to = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
+  const T = (p.T_user && p.T_user > 0) ? p.T_user : 0;
+  const Ra = S.calcRa(R, isTB);
+  const Fu = S.calcFu(Ra, T, to.ToD);
+  const FuM = S.calcFuM(R, T, to.ToM);
+  const SaD = S.calcSa(T, site.SDS, site.SD1);
+  const SaM = S.calcSa(T, site.SMS, site.SM1);
+  const vd = S.calcVD(I, alphaY, SaD, Fu, W);
+  const vs = S.calcVstar(I, alphaY, Fu, SaD, W, isTB);
+  const vm = S.calcVM(I, alphaY, SaM, FuM, W);
+  const Vdesign = Math.max(vd.VD, vs.Vstar, vm.VM);
+  let controlledBy = 'VD';
+  if (Vdesign === vs.Vstar) controlledBy = 'V*';
+  if (Vdesign === vm.VM) controlledBy = 'VM';
+
+  return {
+    typeName: item ? item.name : '自訂',
+    R, alphaY, I, W, hn, T,
+    site, ToD: to.ToD, ToM: to.ToM, Ra, Fu, FuM,
+    SaD, SaM,
+    VD: vd.VD, VD_ratio: vd.ratio, VD_ratio_m: vd.ratio_m,
+    Vstar: vs.Vstar, Vs_ratio: vs.ratio, Vs_ratio_m: vs.ratio_m,
+    VM: vm.VM, VM_ratio: vm.ratio, VM_ratio_m: vm.ratio_m,
+    Vdesign, controlledBy, Cs: W > 0 ? Vdesign / W : 0,
+    isTaipeiBasin: isTB,
+    siteSource: 'direct',
+    directSite: p.directSite
+  };
+}
+
+// ── 摺疊 ──
+function toggleCollapse(el) {
+  el.classList.toggle('collapsed');
+  el.nextElementSibling.classList.toggle('hidden');
+}
+
+function setAssistVisibility(show) {
+  document.querySelectorAll('.assist-block').forEach(el => {
+    el.classList.toggle('hidden', !show);
+  });
+}
+
+function getProjectInfo() {
+  const v = id => (document.getElementById(id)?.value || '').trim();
+  return {
+    name: v('projName'),
+    no: v('projNo'),
+    designer: v('projDesigner')
+  };
+}
+
+function cleanSeismicText(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function getFieldValue(field) {
+  if (!field) return '—';
+  if (field.tagName === 'SELECT') return cleanSeismicText(field.selectedOptions[0]?.textContent || field.value || '') || '—';
+  if (field.type === 'checkbox') return field.checked ? '啟用' : '未啟用';
+  return cleanSeismicText(field.value || '') || '—';
+}
+
+function makeInputGroup(group, items) {
+  const normalized = (items || []).filter(item => item && cleanSeismicText(item.value) && cleanSeismicText(item.value) !== '—');
+  return normalized.length ? { group, items: normalized } : null;
+}
+
+function appendGroup(list, group) {
+  if (group && group.items && group.items.length) list.push(group);
+}
+
+function reportOpt(id, fallback) {
+  const el = document.getElementById(id);
+  return el ? !!el.checked : !!fallback;
+}
+
+const SEISMIC_REPORT_OPTION_IDS = [
+  'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum',
+  'rep_story', 'rep_sub', 'rep_appendage', 'rep_vertical',
+  'rep_misc', 'rep_steps', 'rep_inputs', 'rep_symbols', 'rep_notes'
+];
+
+const SEISMIC_REPORT_PRESETS = {
+  default: {
+    rep_summary: true,
+    rep_direction: true,
+    rep_adopt: true,
+    rep_spectrum: true,
+    rep_story: true,
+    rep_sub: true,
+    rep_appendage: false,
+    rep_vertical: false,
+    rep_misc: false,
+    rep_steps: false,
+    rep_inputs: true,
+    rep_symbols: true,
+    rep_notes: true
+  },
+  results: {
+    rep_summary: true,
+    rep_direction: true,
+    rep_adopt: true,
+    rep_spectrum: true,
+    rep_story: true,
+    rep_sub: true,
+    rep_appendage: false,
+    rep_vertical: false,
+    rep_misc: false,
+    rep_steps: false,
+    rep_inputs: false,
+    rep_symbols: false,
+    rep_notes: false
+  },
+  full: {
+    rep_summary: true,
+    rep_direction: true,
+    rep_adopt: true,
+    rep_spectrum: true,
+    rep_story: true,
+    rep_sub: true,
+    rep_appendage: true,
+    rep_vertical: true,
+    rep_misc: true,
+    rep_steps: true,
+    rep_inputs: true,
+    rep_symbols: true,
+    rep_notes: true
+  }
+};
+
+function getPresetLabel(snapshot) {
+  const isSame = presetName => SEISMIC_REPORT_OPTION_IDS.every(id => !!snapshot[id] === !!SEISMIC_REPORT_PRESETS[presetName][id]);
+  if (isSame('default')) return '標準版';
+  if (isSame('results')) return '結果版';
+  if (isSame('full')) return '完整版';
+  return '自訂';
+}
+
+function snapshotReportOptions() {
+  return SEISMIC_REPORT_OPTION_IDS.reduce((acc, id) => {
+    acc[id] = reportOpt(id, !!SEISMIC_REPORT_PRESETS.default[id]);
+    return acc;
+  }, {});
+}
+
+function updateReportStatus() {
+  const box = document.getElementById('repStatus');
+  if (!box) return;
+  const snapshot = snapshotReportOptions();
+  const enabled = SEISMIC_REPORT_OPTION_IDS.filter(id => snapshot[id]);
+  const presetLabel = getPresetLabel(snapshot);
+  const includeSteps = snapshot.rep_steps && document.getElementById('chkDetail')?.checked;
+  const waitingSteps = snapshot.rep_steps && !document.getElementById('chkDetail')?.checked;
+  box.classList.toggle('warn', waitingSteps);
+  box.innerHTML =
+    `<strong>目前模式：</strong>${presetLabel} ｜ <strong>輸出項目：</strong>${enabled.length} 項` +
+    `<br><strong>主內容：</strong>${enabled.map(id => document.querySelector('label[for="' + id + '"]')?.textContent || id).slice(0, 4).join('、')}${enabled.length > 4 ? '…' : ''}` +
+    `<br><strong>逐步計算：</strong>${includeSteps ? '會列入計算書' : waitingSteps ? '已勾選，但需再開啟上方「顯示詳列計算式」' : '未列入計算書'}`;
+}
+
+function applyReportPreset(presetName) {
+  const preset = SEISMIC_REPORT_PRESETS[presetName];
+  if (!preset) return;
+  SEISMIC_REPORT_OPTION_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!preset[id];
+  });
+  persistReportOptions();
+  updateReportStatus();
+}
+
+function persistReportOptions() {
+  const remember = document.getElementById('repRemember');
+  if (!remember?.checked) {
+    localStorage.removeItem('seismic-report-options');
+    return;
+  }
+  try {
+    localStorage.setItem('seismic-report-options', JSON.stringify({
+      remember: true,
+      options: snapshotReportOptions()
+    }));
+  } catch (err) {}
+}
+
+function restoreReportOptions() {
+  const remember = document.getElementById('repRemember');
+  if (!remember) return;
+  try {
+    const raw = localStorage.getItem('seismic-report-options');
+    if (!raw) {
+      applyReportPreset('default');
+      return;
+    }
+    const saved = JSON.parse(raw);
+    remember.checked = saved?.remember !== false;
+    if (!saved?.options || !remember.checked) {
+      applyReportPreset('default');
+      return;
+    }
+    SEISMIC_REPORT_OPTION_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && Object.prototype.hasOwnProperty.call(saved.options, id)) {
+        el.checked = !!saved.options[id];
+      }
+    });
+    updateReportStatus();
+  } catch (err) {
+    applyReportPreset('default');
+  }
+}
+
+function collectSeismicInputs() {
+  const inputs = [];
+  const basinSelection = window._basinSelection || null;
+  const floorCount = floorData.length;
+  const totalWeight = floorData.reduce((sum, floor) => sum + (Number(floor.W) || 0), 0);
+  const totalHeight = floorData.reduce((sum, floor) => sum + (Number(floor.dH) || 0), 0);
+  const siteSourceLabel = (() => {
+    const directSite = getNearFaultOverride() || (document.getElementById('chkTaipei').checked ? getBasinDirectSite() : null);
+    if (directSite?.userDist != null) return `近斷層控制譜（${fmt(directSite.userDist, 1)} km）`;
+    if (directSite?.basinZoneName) return `${directSite.basinZoneName}（臺北盆地微分區）`;
+    return '一般工址反應譜';
+  })();
+
+  appendGroup(inputs, makeInputGroup('結構系統與設計模式', [
+    { label: '結構系統', value: getFieldValue(document.getElementById('sys')), unit: '' },
+    { label: '用途分類', value: getFieldValue(document.getElementById('impClass')), unit: '' },
+    { label: 'X / Y 向分別設計', value: document.getElementById('chkXY').checked ? '啟用' : '未啟用', unit: '' },
+    { label: 'Y 向結構系統', value: document.getElementById('chkXY').checked ? getFieldValue(document.getElementById('sysY')) : '—', unit: '' },
+    { label: '動力分析週期 Tdyna', value: getFieldValue(document.getElementById('Tdyna')), unit: 'sec' },
+    { label: 'Y 向動力分析週期 Tdyna,Y', value: document.getElementById('chkXY').checked ? getFieldValue(document.getElementById('TdynaY')) : '—', unit: 'sec' },
+    { label: '臺北盆地微分區', value: document.getElementById('chkTaipei').checked ? '啟用' : '未啟用', unit: '' },
+    { label: '設計譜來源', value: siteSourceLabel, unit: '' }
+  ]));
+
+  appendGroup(inputs, makeInputGroup('震區參數與工址條件', [
+    { label: '縣市', value: getFieldValue(document.getElementById('zoneCity')), unit: '' },
+    { label: '鄉鎮市區', value: getFieldValue(document.getElementById('zoneDist')), unit: '' },
+    { label: '里別微分區', value: basinSelection?.village || getFieldValue(document.getElementById('zoneVillage')), unit: '' },
+    { label: '微分區', value: basinSelection?.zoneName || '—', unit: '' },
+    { label: '盆地特徵週期 T0', value: basinSelection?.T0 != null ? fmt(basinSelection.T0, 3) : '—', unit: 'sec' },
+    { label: '近斷層距離', value: getFieldValue(document.getElementById('faultDist')), unit: 'km' },
+    { label: 'SsD', value: getFieldValue(document.getElementById('SsD')), unit: 'g' },
+    { label: 'S1D', value: getFieldValue(document.getElementById('S1D')), unit: 'g' },
+    { label: 'SsM', value: getFieldValue(document.getElementById('SsM')), unit: 'g' },
+    { label: 'S1M', value: getFieldValue(document.getElementById('S1M')), unit: 'g' },
+    { label: '地盤分類', value: getFieldValue(document.getElementById('siteClass')), unit: '' }
+  ]));
+
+  appendGroup(inputs, makeInputGroup('建物量體與樓層資料', [
+    { label: '地上樓層數 N', value: getFieldValue(document.getElementById('N')), unit: '層' },
+    { label: '建物總高 hn', value: getFieldValue(document.getElementById('hn')), unit: 'm' },
+    { label: '地下層數 B', value: getFieldValue(document.getElementById('B')), unit: '層' },
+    { label: '地下每層深 Bh', value: getFieldValue(document.getElementById('Bh')), unit: 'm' },
+    { label: '快速填入每層重', value: getFieldValue(document.getElementById('wUniform')), unit: 'tf' },
+    { label: '地上樓層筆數', value: floorCount ? String(floorCount) : '—', unit: '層' },
+    { label: '地上總重量 W', value: floorCount ? fmt(totalWeight, 0) : '—', unit: 'tf' },
+    { label: '累計樓高', value: floorCount ? fmt(totalHeight, 2) : '—', unit: 'm' }
+  ]));
+
+  return inputs;
+}
+
+function tableToChecks(table, group) {
+  if (!table) return null;
+  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.replace(/\s+/g, ' ').trim());
+  const items = Array.from(table.querySelectorAll('tbody tr')).map(tr => {
+    const cells = Array.from(tr.cells).map(td => td.textContent.replace(/\s+/g, ' ').trim());
+    if (!cells.length) return null;
+    const extras = [];
+    for (let i = 2; i < cells.length; i++) {
+      if (cells[i]) extras.push(`${headers[i] || `欄位${i + 1}`}：${cells[i]}`);
+    }
+    return {
+      label: cells[0] || '—',
+      formula: headers[1] || '—',
+      sub: extras.join(' ｜ ') || '—',
+      value: cells[1] || '—',
+      unit: '',
+      ok: null
+    };
+  }).filter(Boolean);
+  return items.length ? { group, items } : null;
+}
+
+function textGroupToChecks(group, text) {
+  const body = cleanSeismicText(text);
+  if (!body) return null;
+  return {
+    group,
+    items: [{
+      label: '摘要',
+      formula: '—',
+      sub: body,
+      value: '—',
+      unit: '',
+      ok: null
+    }]
+  };
+}
+
+function keyRowsToChecks(container, group) {
+  if (!container) return null;
+  const items = Array.from(container.querySelectorAll('.k')).map(row => ({
+    label: cleanSeismicText(row.querySelector('.k-label')?.textContent || '項目') || '項目',
+    formula: '—',
+    sub: '—',
+    value: cleanSeismicText(row.querySelector('.k-val')?.textContent || '—') || '—',
+    unit: '',
+    ok: null
+  }));
+  return items.length ? { group, items } : null;
+}
+
+function collectDirectionalSummaryChecks() {
+  const state = window._lastSeismicReport || {};
+  if (!state.x) return null;
+  const x = state.x;
+  const y = state.y;
+  const items = [{
+    label: 'X 向',
+    formula: `${x.sys?.name || '—'} ｜ ${x.controlledBy || '—'} 控制`,
+    sub: `T=${fmt(x.Tdesign,3)} sec ｜ V/W=${fmt((x.V_coeff || 0) * 100, 2)}% ｜ Ft=${fmt(x.Ft,2)} tf`,
+    value: fmt(x.Vdesign, 2),
+    unit: 'tf',
+    ok: true
+  }];
+  if (y) {
+    items.push({
+      label: 'Y 向',
+      formula: `${y.sys?.name || '—'} ｜ ${y.controlledBy || '—'} 控制`,
+      sub: `T=${fmt(y.Tdesign,3)} sec ｜ V/W=${fmt((y.V_coeff || 0) * 100, 2)}% ｜ Ft=${fmt(y.Ft,2)} tf`,
+      value: fmt(y.Vdesign, 2),
+      unit: 'tf',
+      ok: true
+    });
+  }
+  items.push({
+    label: '控制方向',
+    formula: 'max(Vdesign,X, Vdesign,Y)',
+    sub: y ? `取較大者作為控制方向摘要` : '單向設計',
+    value: !y || x.Vdesign >= y.Vdesign ? 'X 向' : 'Y 向',
+    unit: '',
+    ok: null
+  });
+  return { group: '雙向設計摘要', items };
+}
+
+function collectSeismicChecks() {
+  const groups = [];
+  const bannerText = cleanSeismicText(document.getElementById('banner')?.textContent || '');
+  if (reportOpt('rep_summary', true)) appendGroup(groups, textGroupToChecks('綜合結論', bannerText));
+  if (reportOpt('rep_direction', true)) appendGroup(groups, collectDirectionalSummaryChecks());
+  if (reportOpt('rep_adopt', true)) appendGroup(groups, keyRowsToChecks(document.getElementById('bannerKey'), '設計採用摘要'));
+  if (reportOpt('rep_spectrum', true)) appendGroup(groups, textGroupToChecks('反應譜說明', document.getElementById('spectrumLegend')?.textContent));
+  if (reportOpt('rep_story', true)) appendGroup(groups, tableToChecks(document.getElementById('storyTable'), '逐層水平地震力分配'));
+  if (reportOpt('rep_sub', true)) appendGroup(groups, tableToChecks(document.getElementById('subTable'), '地下層水平震度'));
+  if (reportOpt('rep_appendage', false)) appendGroup(groups, textGroupToChecks('附屬構造物地震力', document.getElementById('apResult')?.textContent));
+  if (reportOpt('rep_vertical', false)) appendGroup(groups, textGroupToChecks('垂直地震力', document.getElementById('vResult')?.textContent));
+  if (reportOpt('rep_misc', false)) appendGroup(groups, textGroupToChecks('雜項工作物地震力', document.getElementById('miscResult')?.textContent));
+  return groups;
+}
+
+function collectSeismicSteps() {
+  return Array.from(document.querySelectorAll('#steps .step')).map(step => {
+    const group = cleanSeismicText(step.querySelector('.step-title')?.textContent || '');
+    const body = (step.querySelector('.step-body')?.textContent || '').replace(/\n{2,}/g, '\n').trim();
+    return group && body ? { group, body } : null;
+  }).filter(Boolean);
+}
+
+function collectSeismicNotes() {
+  return Array.from(document.querySelectorAll('.main-layout > div:first-child .note, #resultPanel .note, #resultPanel .legend'))
+    .map(el => cleanSeismicText(el.textContent))
+    .filter(Boolean)
+    .filter((text, index, arr) => arr.indexOf(text) === index)
+    .slice(0, 12);
+}
+
+function collectSeismicDiagrams() {
+  if (!reportOpt('rep_spectrum', true)) return [];
+  const canvas = document.getElementById('spectrumChart');
+  if (!canvas || !canvas.width || !canvas.height) return [];
+  try {
+    return [{
+      title: '設計反應譜',
+      dataURL: canvas.toDataURL('image/png'),
+      caption: cleanSeismicText(document.getElementById('spectrumLegend')?.textContent || '依本次輸入之工址條件、結構系統與設計週期繪製。'),
+      width: 680
+    }];
+  } catch (err) {
+    return [];
+  }
+}
+
+function collectSeismicSymbols() {
+  return [
+    { sym: 'Vdesign', desc: '設計水平總橫力（實務上常稱底部剪力），取 VD、V*、VM 三者控制值。' },
+    { sym: 'SDS / SD1', desc: '設計地震短週期與 1 秒週期譜加速度係數。' },
+    { sym: 'SMS / SM1', desc: '最大考量地震短週期與 1 秒週期譜加速度係數。' },
+    { sym: 'Ra / Fu', desc: '容許韌性容量與地震力折減係數。' },
+    { sym: 'Ft', desc: '頂部附加力，依式 2-14 計入。' }
+  ];
+}
+
+function collectSeismicSummary() {
+  const text = cleanSeismicText(document.getElementById('banner')?.textContent || '尚未計算');
+      const ok = /不適用|警示|NG|不符合/.test(text) ? false : /Vdesign|設計水平總橫力|設計底部剪力|X 向/.test(text) ? true : null;
+  return { ok, text: text || '—' };
+}
+
+function escReport(text) {
+  return (text === null || text === undefined ? '' : String(text))
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function reportMetaHtml(project) {
+  return `
+    <div class="rep-meta">
+      <div><b>計畫名稱</b>${escReport(project.name || '—')}</div>
+      <div><b>計畫編號</b>${escReport(project.no || '—')}</div>
+      <div><b>設計人員</b>${escReport(project.designer || '—')}</div>
+      <div><b>製表日期</b>${escReport(new Date().toLocaleDateString('zh-TW'))}</div>
+    </div>
+  `;
+}
+
+function renderReportInputSections(groups) {
+  return (groups || []).map(group => `
+    <section class="rep-block">
+      <h3>${escReport(group.group)}</h3>
+      <table class="rep-input">
+        <tbody>
+          ${(group.items || []).map(item => `
+            <tr>
+              <th>${escReport(item.label)}</th>
+              <td>${escReport(item.value)}${item.unit ? ` <span class="unit">${escReport(item.unit)}</span>` : ''}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+  `).join('');
+}
+
+function renderReportSymbols(symbols) {
+  if (!symbols?.length) return '';
+  return `
+    <section class="rep-block">
+      <h3>符號說明</h3>
+      <table class="rep-input">
+        <tbody>
+          ${symbols.map(item => `
+            <tr>
+              <th>${escReport(item.sym)}</th>
+              <td>${escReport(item.desc)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function renderReportNotes(notes) {
+  if (!notes?.length) return '';
+  return `
+    <section class="rep-block">
+      <h3>附註 / 說明</h3>
+      <ol class="rep-notes">
+        ${notes.map(note => `<li>${escReport(note)}</li>`).join('')}
+      </ol>
+    </section>
+  `;
+}
+
+function buildDirectionalSummaryHtml() {
+  const state = window._lastSeismicReport || {};
+  if (!state.x || !reportOpt('rep_direction', true)) return '';
+  const x = state.x;
+  const y = state.y;
+  const blocks = [{
+    title: 'X 向',
+    system: x.sys?.name || '—',
+    control: x.controlledBy || '—',
+    period: `${fmt(x.Tdesign, 3)} sec`,
+    ratio: `${fmt((x.V_coeff || 0) * 100, 2)}%`,
+    force: `${fmt(x.Vdesign, 2)} tf`,
+    ft: `${fmt(x.Ft, 2)} tf`
+  }];
+  if (y) {
+    blocks.push({
+      title: 'Y 向',
+      system: y.sys?.name || '—',
+      control: y.controlledBy || '—',
+      period: `${fmt(y.Tdesign, 3)} sec`,
+      ratio: `${fmt((y.V_coeff || 0) * 100, 2)}%`,
+      force: `${fmt(y.Vdesign, 2)} tf`,
+      ft: `${fmt(y.Ft, 2)} tf`
+    });
+  }
+  const controlDir = !y || x.Vdesign >= y.Vdesign ? 'X 向' : 'Y 向';
+  return `
+    <section class="rep-block">
+      <h3>1. 雙向設計摘要</h3>
+      <div class="dir-summary-grid">
+        ${blocks.map(block => `
+          <div class="dir-summary-card">
+            <div class="dir-summary-head">${block.title}</div>
+            <div class="dir-summary-row"><span>結構系統</span><strong>${escReport(block.system)}</strong></div>
+            <div class="dir-summary-row"><span>控制型式</span><strong>${escReport(block.control)}</strong></div>
+            <div class="dir-summary-row"><span>Tdesign</span><strong>${escReport(block.period)}</strong></div>
+            <div class="dir-summary-row"><span>V / W</span><strong>${escReport(block.ratio)}</strong></div>
+            <div class="dir-summary-row"><span>Vdesign</span><strong>${escReport(block.force)}</strong></div>
+            <div class="dir-summary-row"><span>Ft</span><strong>${escReport(block.ft)}</strong></div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="rep-note"><strong>控制方向：</strong>${escReport(controlDir)}</div>
+    </section>
+  `;
+}
+
+function buildSummaryIntroHtml() {
+  return `
+    <section class="rep-block">
+      <h3>綜合結論</h3>
+      <div class="banner-status ok">${document.getElementById('banner')?.innerHTML || '尚未計算'}</div>
+    </section>
+  `;
+}
+
+function buildOriginalBlockHtml(title, innerHtml, extraClass='') {
+  if (!cleanSeismicText(innerHtml)) return '';
+  return `
+    <section class="rep-block">
+      <h3>${escReport(title)}</h3>
+      <div class="${extraClass}">${innerHtml}</div>
+    </section>
+  `;
+}
+
+function openSeismicReport() {
+  if (document.getElementById('resultPanel').style.display === 'none') {
+    calc();
+  }
+  const project = getProjectInfo();
+  const spectrumImage = collectSeismicDiagrams()[0];
+  const inputsHtml = reportOpt('rep_inputs', true) ? renderReportInputSections(collectSeismicInputs()) : '';
+  const symbolsHtml = reportOpt('rep_symbols', true) ? renderReportSymbols(collectSeismicSymbols()) : '';
+  const notesHtml = reportOpt('rep_notes', true) ? renderReportNotes(collectSeismicNotes()) : '';
+  const stepsHtml = (document.getElementById('chkDetail').checked && reportOpt('rep_steps', false))
+    ? `
+      <section class="rep-block">
+        <h3>逐步計算</h3>
+        ${collectSeismicSteps().map(step => `
+          <div class="rep-step">
+            <div class="step-title">${escReport(step.group)}</div>
+            <pre class="rep-step-body">${escReport(step.body)}</pre>
+          </div>
+        `).join('')}
+      </section>
+    ` : '';
+  const html = `<!doctype html>
+  <html lang="zh-TW">
+  <head>
+  <meta charset="utf-8">
+  <title>建築物耐震設計 — 等值靜力分析 計算書</title>
+  <style>
+    @page { size: A4 portrait; margin: 18mm 14mm; }
+    * { box-sizing: border-box; }
+    body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
+    .rep-toolbar { max-width:860px; margin:0 auto 12px; text-align:right; }
+    .rep-toolbar button { background:#6d28d9; color:#fff; border:0; padding:8px 16px; font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
+    .rep-paper { max-width:860px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+    .rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
+    .rep-header h1 { margin:0 0 4px; font-size:22px; }
+    .rep-header .sub { color:#555; font-size:13px; }
+    .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
+    .rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
+    .rep-meta b { display:inline-block; min-width:64px; color:#444; }
+    .rep-block { margin:14px 0 18px; page-break-inside: avoid; }
+    .rep-block h3 { font-size:14px; margin:0 0 8px; padding:4px 8px; background:#6d28d9; color:#fff; border-radius:3px 3px 0 0; }
+    .rep-input, .story, .cmp { width:100%; border-collapse:collapse; font-size:12px; }
+    .rep-input th, .rep-input td, .story th, .story td, .cmp th, .cmp td { border:1px solid #888; padding:5px 8px; }
+    .rep-input th { background:#f5f3ff; text-align:left; width:34%; }
+    .rep-input .unit { color:#666; font-size:11px; margin-left:4px; }
+    .banner-status { padding:12px 14px; border-radius:8px; background:#f5f3ff; border:1px solid #ddd6fe; color:#4c1d95; line-height:1.8; font-size:14px; }
+    .banner-key { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .banner-key .k { display:flex; justify-content:space-between; gap:12px; padding:8px 10px; border:1px solid #ddd6fe; border-radius:8px; background:#faf5ff; font-size:12px; }
+    .banner-key .note { grid-column:1 / -1; background:#fff7ed; border:1px solid #fdba74; padding:10px 12px; border-radius:8px; color:#9a3412; }
+    .k-label { color:#5b21b6; font-weight:700; }
+    .k-val { color:#111827; font-weight:700; }
+    .legend, .rep-note { font-size:12px; color:#475569; line-height:1.8; margin-top:8px; }
+    .dir-summary-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .dir-summary-card { border:1px solid #ddd6fe; border-radius:10px; padding:12px 14px; background:#faf5ff; }
+    .dir-summary-head { font-size:15px; font-weight:700; color:#5b21b6; margin-bottom:8px; }
+    .dir-summary-row { display:flex; justify-content:space-between; gap:10px; padding:4px 0; border-bottom:1px dashed #ddd6fe; font-size:12px; }
+    .dir-summary-row:last-child { border-bottom:0; }
+    .rep-intro { font-size:13px; line-height:1.8; color:#1f2937; }
+    .rep-intro ol { margin:8px 0 10px 20px; padding:0; }
+    .rep-intro p { margin:0 0 8px; }
+    .story th, .cmp th { background:#f5f3ff; color:#4c1d95; text-align:center; }
+    .story td, .cmp td { text-align:right; font-family:"Consolas", monospace; }
+    .story td.idx, .cmp td.idx { text-align:center; font-weight:700; color:#4c1d95; font-family:inherit; }
+    .tag-ctrl { display:inline-block; padding:2px 8px; border-radius:4px; font-size:11px; font-weight:700; }
+    .tag-ctrl.vd { background:#dbeafe; color:#1d4ed8; }
+    .tag-ctrl.vs { background:#fef3c7; color:#92400e; }
+    .tag-ctrl.vm { background:#fce7f3; color:#9d174d; }
+    .rep-spectrum img { width:100%; max-width:720px; display:block; margin:0 auto; border:1px solid #ddd6fe; border-radius:8px; background:#fff; }
+    .rep-step { margin-bottom:12px; }
+    .step-title { font-size:12px; font-weight:700; color:#6d28d9; margin-bottom:4px; padding:4px 8px; background:#faf5ff; border-left:4px solid #6d28d9; border-radius:0 6px 6px 0; }
+    .rep-step-body { white-space:pre-wrap; word-break:break-word; font-family:"Consolas","Cascadia Code",monospace; font-size:11px; line-height:1.6; background:#faf5ff; border:1px solid #e9d5ff; border-radius:4px; padding:8px 10px; margin:0; color:#3b0764; }
+    .rep-notes { padding-left:20px; font-size:12px; }
+    .rep-footer { position:fixed; left:0; bottom:0; width:100%; padding:0 14mm 8mm; font-size:10px; color:#666; display:flex; justify-content:flex-end; align-items:end; }
+    .rep-footer-left { text-align:left; }
+    .rep-footer-right { text-align:right; }
+    @media (max-width: 700px) {
+      .rep-paper { padding:18px; }
+      .rep-meta, .banner-key, .dir-summary-grid { grid-template-columns:1fr; }
+    }
+    @media print {
+      body { background:#fff; padding:0; }
+      .rep-toolbar { display:none; }
+      .rep-paper { box-shadow:none; padding:0; max-width:none; }
+    }
+  </style>
+  </head>
+  <body>
+    <div class="rep-toolbar">
+      <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
+      <button onclick="window.close()">✕ 關閉</button>
+    </div>
+    <div class="rep-paper">
+      <div class="rep-header">
+        <h1>建築物耐震設計 — 等值靜力分析 計算書</h1>
+        <div class="sub">依「建築物耐震設計規範及解說」113 年版｜第二章靜力分析方法</div>
+      </div>
+      ${reportMetaHtml(project)}
+      ${buildSummaryIntroHtml()}
+      ${buildDirectionalSummaryHtml()}
+      ${reportOpt('rep_adopt', true) ? buildOriginalBlockHtml('2. 設計採用摘要', document.getElementById('bannerKey')?.innerHTML || '', 'banner-key') : ''}
+      ${reportOpt('rep_spectrum', true) ? `
+        <section class="rep-block">
+          <h3>3. 譜說明</h3>
+          ${spectrumImage ? `<div class="rep-spectrum"><img src="${spectrumImage.dataURL}" alt="設計反應譜"></div>` : ''}
+          <div class="legend">${document.getElementById('spectrumLegend')?.innerHTML || ''}</div>
+        </section>
+      ` : ''}
+      ${reportOpt('rep_story', true) ? buildOriginalBlockHtml('主要組成一：地震力分配', document.getElementById('storyTable')?.outerHTML || '' ) : ''}
+      ${reportOpt('rep_sub', true) ? buildOriginalBlockHtml('主要組成二：地下水平震度', document.getElementById('subTable')?.outerHTML || '' ) : ''}
+      ${reportOpt('rep_appendage', false) ? buildOriginalBlockHtml('附屬構造物地震力', document.getElementById('apResult')?.innerHTML || '') : ''}
+      ${reportOpt('rep_vertical', false) ? buildOriginalBlockHtml('垂直地震力', document.getElementById('vResult')?.innerHTML || '') : ''}
+      ${reportOpt('rep_misc', false) ? buildOriginalBlockHtml('雜項工作物地震力', document.getElementById('miscResult')?.innerHTML || '') : ''}
+      ${inputsHtml}
+      ${stepsHtml}
+      ${symbolsHtml}
+      ${notesHtml}
+      <div class="rep-footer">
+        <div class="rep-footer-right">版權所有 弘一工程顧問有限公司</div>
+      </div>
+    </div>
+  </body>
+  </html>`;
+  const w = window.open('', '_blank', 'width=980,height=1100,scrollbars=yes');
+  if (!w) { alert('請允許彈出視窗以開啟計算書'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+// ══════════════════════════════
+//  主計算
+// ══════════════════════════════
+document.getElementById('btnCalc').addEventListener('click', calc);
+document.getElementById('chkAssist').addEventListener('change', function() {
+  setAssistVisibility(this.checked);
+});
+document.getElementById('btnPrint').addEventListener('click', openSeismicReport);
+document.getElementById('btnReport').addEventListener('click', openSeismicReport);
+document.getElementById('repPresetDefault').addEventListener('click', () => applyReportPreset('default'));
+document.getElementById('repPresetResults').addEventListener('click', () => applyReportPreset('results'));
+document.getElementById('repPresetFull').addEventListener('click', () => applyReportPreset('full'));
+SEISMIC_REPORT_OPTION_IDS.forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => {
+    persistReportOptions();
+    updateReportStatus();
+  });
+});
+document.getElementById('repRemember')?.addEventListener('change', function() {
+  if (!this.checked) {
+    localStorage.removeItem('seismic-report-options');
+    updateReportStatus();
+    return;
+  }
+  persistReportOptions();
+  updateReportStatus();
+});
+document.getElementById('chkDetail')?.addEventListener('change', updateReportStatus);
+setAssistVisibility(false);
+restoreReportOptions();
+updateReportStatus();
+renderDynamicCompareCard();
+
+function calc() {
+  // 讀取輸入
+  const systemKey = document.getElementById('sys').value;
+  const impKey = document.getElementById('impClass').value;
+  const storyCount = Math.max(floorData.length, Math.round(parseFloat(document.getElementById('N').value) || floorData.length || 0));
+  const Ifactor = S.IMPORTANCE[impKey].factor;
+  const siteClass = +document.getElementById('siteClass').value;
+  const SsD = parseFloat(document.getElementById('SsD').value);
+  const S1D = parseFloat(document.getElementById('S1D').value);
+  const SsM = parseFloat(document.getElementById('SsM').value);
+  const S1M = parseFloat(document.getElementById('S1M').value);
+  const hn  = parseFloat(document.getElementById('hn').value);
+  const isTB = document.getElementById('chkTaipei').checked;
+  const TdynaRaw = parseFloat(document.getElementById('Tdyna').value);
+  const Tdyna = isFinite(TdynaRaw) && TdynaRaw > 0 ? TdynaRaw : null;
+
+  // 自訂 R
+  let R_override = null, aY_override = null;
+  if (systemKey === 'CUSTOM') {
+    R_override  = parseFloat(document.getElementById('Rcustom').value) || 4.0;
+    aY_override = parseFloat(document.getElementById('aYcustom').value) || 1.0;
+  }
+
+  // 驗證
+  if (![SsD, S1D, SsM, S1M].every(v => isFinite(v) && v > 0)) {
+    alert('請完整填入有效的震區參數 (SsD, S1D, SsM, S1M)'); return;
+  }
+  const floorMsg = validateFloorData(hn);
+  if (floorMsg) {
+    alert(floorMsg); return;
+  }
+
+  // 組裝 floors
+  const floors = floorData.map(f => ({ W: f.W, dH: f.dH, label: f.label }));
+  const directSite = getNearFaultOverride() || (isTB ? getBasinDirectSite() : null);
+  const basinSelection = window._basinSelection;
+  const applicabilityNotes = buildApplicabilityNotes(hn, storyCount, isTB, basinSelection);
+
+  // X/Y 分離
+  const isXY = document.getElementById('chkXY').checked;
+  const sysKeyY = isXY ? document.getElementById('sysY').value : systemKey;
+  const TdynaYRaw = parseFloat(document.getElementById('TdynaY').value);
+  const TdynaY = isXY && isFinite(TdynaYRaw) && TdynaYRaw > 0 ? TdynaYRaw : Tdyna;
+
+  // 呼叫引擎 (X 向)
+  const r = calcFullSeismicUI({
+    systemKey, hn, I: Ifactor,
+    R: R_override, alphaY: aY_override,
+    SsD, S1D, SsM, S1M, siteClass,
+    floors, Tdyna, isTaipeiBasin: isTB,
+    directSite,
+  });
+
+  // Y 向 (如果啟用)
+  let rY = null;
+  if (isXY) {
+    rY = calcFullSeismicUI({
+      systemKey: sysKeyY, hn, I: Ifactor,
+      SsD, S1D, SsM, S1M, siteClass,
+      floors, Tdyna: TdynaY, isTaipeiBasin: isTB,
+      directSite,
+    });
+  }
+
+  // ── 儲存計算結果供附屬構造物 / 垂直地震力使用 ──
+  window._lastSeismicSDS = r.site.SDS;
+  window._lastSeismicResult = r;
+  window._lastSeismicReport = { x: r, y: rY };
+  saveStaticSummary(r, rY);
+
+  // ── 顯示結果 ──
+  document.getElementById('resultPanel').style.display = '';
+
+  // Banner
+  const banner = document.getElementById('banner');
+  banner.className = 'banner-status ok';
+  let bannerHTML = isXY
+    ? `X 向設計水平總橫力 V<sub>design</sub> = <strong>${fmt(r.Vdesign, 2)}</strong> tf (${fmt(r.V_coeff*100,2)}%W)　` +
+      `<span class="tag-ctrl ${r.controlledBy === 'VD' ? 'vd' : r.controlledBy === 'V*' ? 'vs' : 'vm'}">${r.controlledBy}</span>` +
+      `<br>Y 向設計水平總橫力 V<sub>design</sub> = <strong>${fmt(rY.Vdesign, 2)}</strong> tf (${fmt(rY.V_coeff*100,2)}%W)　` +
+      `<span class="tag-ctrl ${rY.controlledBy === 'VD' ? 'vd' : rY.controlledBy === 'V*' ? 'vs' : 'vm'}">${rY.controlledBy}</span>`
+    : `設計水平總橫力 V<sub>design</sub> = <strong>${fmt(r.Vdesign, 2)}</strong> tf　` +
+      `( = <strong>${fmt(r.V_coeff * 100, 2)}%</strong> W )　` +
+      `<span class="tag-ctrl ${r.controlledBy === 'VD' ? 'vd' : r.controlledBy === 'V*' ? 'vs' : 'vm'}">${r.controlledBy} 控制</span>`;
+  banner.innerHTML = bannerHTML;
+
+  const bk = document.getElementById('bannerKey');
+  let bkHTML = `
+    <div class="k"><span class="k-label">${isXY?'V<sub>D,X</sub>/W':'V<sub>D</sub>/W'}</span><span class="k-val">${fmt(r.VD_coeff*100,2)}%</span></div>
+    <div class="k"><span class="k-label">${isXY?'V*<sub>X</sub>/W':'V*/W'}</span><span class="k-val">${fmt(r.Vs_coeff*100,2)}%</span></div>
+    <div class="k"><span class="k-label">W</span><span class="k-val">${fmt(r.W,0)} tf</span></div>
+    <div class="k"><span class="k-label">${isXY?'T<sub>X</sub>':'T<sub>design</sub>'}</span><span class="k-val">${fmt(r.Tdesign,3)} sec</span></div>`;
+  if (isXY && rY) {
+    bkHTML += `
+    <div class="k"><span class="k-label">V<sub>design,Y</sub></span><span class="k-val">${fmt(rY.Vdesign,1)} tf</span></div>
+    <div class="k"><span class="k-label">T<sub>Y</sub></span><span class="k-val">${fmt(rY.Tdesign,3)} sec</span></div>`;
+  }
+  bkHTML += `<div class="k"><span class="k-label">F<sub>t</sub></span><span class="k-val">${fmt(r.Ft,2)} tf</span></div>`;
+  if (directSite?.userDist != null) {
+    bkHTML += `<div class="k"><span class="k-label">譜來源</span><span class="k-val">近斷層 ${fmt(directSite.userDist,1)} km</span></div>`;
+  } else if (directSite?.basinZoneName) {
+    bkHTML += `<div class="k"><span class="k-label">譜來源</span><span class="k-val">${directSite.basinZoneName}</span></div>`;
+  } else {
+    bkHTML += `<div class="k"><span class="k-label">譜來源</span><span class="k-val">一般工址</span></div>`;
+  }
+  if (applicabilityNotes.length) {
+    bkHTML += `<div class="note" style="margin-top:10px; width:100%; border-left:4px solid #f59e0b;">${applicabilityNotes.join('<br>')}</div>`;
+  }
+  bk.innerHTML = bkHTML;
+  renderDynamicCompareCard();
+
+  // ── 逐步計算 ──
+  const site = r.site;
+  let html = '';
+
+  // Step 1: Fa/Fv
+  if (r.siteSource === 'direct' && r.directSite) {
+    html += step('① 近斷層控制譜值', `
+      地盤分類 = <span class="val">${r.siteClass}</span> 類<br>
+      原始區域輸入仍保留為 SsD=${r.SsD}, S1D=${r.S1D}, SsM=${r.SsM}, S1M=${r.S1M}<br>
+      近斷層距離 = <span class="val">${fmt(r.directSite.userDist,1)}</span> km<br>
+      本次計算直接採用控制後譜值：
+      S<sub>DS</sub> = <span class="val hl">${fmt(site.SDS,4)}</span> g，
+      S<sub>D1</sub> = <span class="val hl">${fmt(site.SD1,4)}</span> g，
+      S<sub>MS</sub> = <span class="val">${fmt(site.SMS,4)}</span> g，
+      S<sub>M1</sub> = <span class="val">${fmt(site.SM1,4)}</span> g
+    `, `近斷層資料表提供的是直接控制後之 S<sub>DS</sub>/S<sub>D1</sub>/S<sub>MS</sub>/S<sub>M1</sub>，本工具改為直接套用，避免再經 F<sub>a</sub>/F<sub>v</sub> 重複放大。`);
+
+    html += step('② 工址水平譜加速度係數', `
+      本次採用直接控制譜值，不再由 F<sub>a</sub>、F<sub>v</sub> 與 Ss/S1 反算。<br>
+      S<sub>DS</sub> = <span class="val">${fmt(site.SDS,4)}</span> g<br>
+      S<sub>D1</sub> = <span class="val">${fmt(site.SD1,4)}</span> g<br>
+      S<sub>MS</sub> = <span class="val">${fmt(site.SMS,4)}</span> g<br>
+      S<sub>M1</sub> = <span class="val">${fmt(site.SM1,4)}</span> g
+    `);
+  } else {
+    html += step('① 工址放大係數 F<sub>a</sub>, F<sub>v</sub> (表 2-4)', `
+      地盤分類 = <span class="val">${r.siteClass}</span> 類<br>
+      <strong>設計地震 (DBE):</strong><br>
+      &emsp;F<sub>aD</sub> = getFa(${r.siteClass}, S<sub>sD</sub>=${r.SsD}) = <span class="val">${fmt(site.FaD,2)}</span><br>
+      &emsp;F<sub>vD</sub> = getFv(${r.siteClass}, S<sub>1D</sub>=${r.S1D}) = <span class="val">${fmt(site.FvD,2)}</span><br>
+      <strong>最大考量地震 (MCE):</strong><br>
+      &emsp;F<sub>aM</sub> = getFa(${r.siteClass}, S<sub>sM</sub>=${r.SsM}) = <span class="val">${fmt(site.FaM,2)}</span><br>
+      &emsp;F<sub>vM</sub> = getFv(${r.siteClass}, S<sub>1M</sub>=${r.S1M}) = <span class="val">${fmt(site.FvM,2)}</span>
+    `, `由規範表 2-4 查表，第 ${r.siteClass} 類地盤：<br>
+F<sub>aD</sub>：S<sub>sD</sub>=${r.SsD} → 查表內插得 <b>${fmt(site.FaD,3)}</b><br>
+F<sub>vD</sub>：S<sub>1D</sub>=${r.S1D} → 查表內插得 <b>${fmt(site.FvD,3)}</b><br>
+F<sub>aM</sub>：S<sub>sM</sub>=${r.SsM} → 查表內插得 <b>${fmt(site.FaM,3)}</b><br>
+F<sub>vM</sub>：S<sub>1M</sub>=${r.S1M} → 查表內插得 <b>${fmt(site.FvM,3)}</b>`);
+
+    html += step('② 工址水平譜加速度係數 (式 2-4)', `
+      S<sub>DS</sub> = F<sub>aD</sub> × S<sub>sD</sub> = ${fmt(site.FaD,2)} × ${r.SsD} = <span class="val">${fmt(site.SDS,4)}</span> g<br>
+      S<sub>D1</sub> = F<sub>vD</sub> × S<sub>1D</sub> = ${fmt(site.FvD,2)} × ${r.S1D} = <span class="val">${fmt(site.SD1,4)}</span> g<br>
+      S<sub>MS</sub> = F<sub>aM</sub> × S<sub>sM</sub> = ${fmt(site.FaM,2)} × ${r.SsM} = <span class="val">${fmt(site.SMS,4)}</span> g<br>
+      S<sub>M1</sub> = F<sub>vM</sub> × S<sub>1M</sub> = ${fmt(site.FvM,2)} × ${r.S1M} = <span class="val">${fmt(site.SM1,4)}</span> g
+    `, `式(2-4a): S<sub>DS</sub> = F<sub>a</sub>·S<sub>sD</sub> = ${fmt(site.FaD,3)} × ${r.SsD} = <b>${fmt(site.SDS,4)}</b> g<br>
+式(2-4b): S<sub>D1</sub> = F<sub>v</sub>·S<sub>1D</sub> = ${fmt(site.FvD,3)} × ${r.S1D} = <b>${fmt(site.SD1,4)}</b> g<br>
+式(2-4a): S<sub>MS</sub> = F<sub>a</sub>·S<sub>sM</sub> = ${fmt(site.FaM,3)} × ${r.SsM} = <b>${fmt(site.SMS,4)}</b> g<br>
+式(2-4b): S<sub>M1</sub> = F<sub>v</sub>·S<sub>1M</sub> = ${fmt(site.FvM,3)} × ${r.S1M} = <b>${fmt(site.SM1,4)}</b> g`);
+  }
+
+  // Step 3: ToD/ToM
+  html += step('③ 特徵週期 T<sub>oD</sub>, T<sub>oM</sub> (式 2-6)', `
+    T<sub>oD</sub> = S<sub>D1</sub> / S<sub>DS</sub> = ${fmt(site.SD1,4)} / ${fmt(site.SDS,4)} = <span class="val">${fmt(r.ToD,4)}</span> sec<br>
+    T<sub>oM</sub> = S<sub>M1</sub> / S<sub>MS</sub> = ${fmt(site.SM1,4)} / ${fmt(site.SMS,4)} = <span class="val">${fmt(r.ToM,4)}</span> sec
+  `);
+
+  // Step 4: Period
+  const C = r.sys.period_C;
+  html += step('④ 基本振動週期 (式 2-7~9)', `
+    C = ${C}　(${r.sys.name})<br>
+    T<sub>code</sub> = C × h<sub>n</sub><sup>3/4</sup> = ${C} × ${hn}<sup>0.75</sup> = <span class="val">${fmt(r.Tcode,4)}</span> sec<br>
+    ${r.Tdyna ? `T<sub>dyna</sub> = <span class="val">${fmt(r.Tdyna,3)}</span> sec (使用者輸入動力分析結果)<br>` : ''}
+    C<sub>U</sub> = ${r.CU}<br>
+    T<sub>design</sub> = ${r.Tdyna ? `min(C<sub>U</sub>×T<sub>code</sub>, T<sub>dyna</sub>) = min(${fmt(r.CU*r.Tcode,4)}, ${fmt(r.Tdyna,3)})` : `C<sub>U</sub> × T<sub>code</sub> = ${r.CU} × ${fmt(r.Tcode,4)}`} = <span class="val hl">${fmt(r.Tdesign,4)}</span> sec
+  `);
+
+  // Step 5: Ra
+  const raFormula = r.site.FaD > 0 && document.getElementById('chkTaipei').checked
+    ? `1 + (R−1)/2 = 1 + (${r.R}−1)/2` : `1 + (R−1)/1.5 = 1 + (${r.R}−1)/1.5`;
+  html += step('⑤ 容許韌性容量 R<sub>a</sub> (式 2-10/2-11)', `
+    R = <span class="val">${r.R}</span>　(${r.sys.name})<br>
+    R<sub>a</sub> = ${raFormula} = <span class="val hl">${fmt(r.Ra,2)}</span>
+    ${isTB ? '<br><span style="color:var(--seismic);">※ 臺北盆地適用 式(2-11)</span>' : ''}
+  `);
+
+  // Step 6: Fu
+  const fuZone = r.Tdesign >= r.ToD ? `T ≥ T<sub>oD</sub> → F<sub>u</sub> = R<sub>a</sub>`
+    : r.Tdesign >= 0.6*r.ToD ? `0.6T<sub>oD</sub> ≤ T &lt; T<sub>oD</sub> → 線性內插段`
+    : r.Tdesign >= 0.2*r.ToD ? `0.2T<sub>oD</sub> ≤ T &lt; 0.6T<sub>oD</sub>` : `T &lt; 0.2T<sub>oD</sub>`;
+  html += step('⑥ 地震力折減係數 F<sub>u</sub>, F<sub>uM</sub> (式 2-12)', `
+    <strong>F<sub>u</sub> (設計地震):</strong><br>
+    &emsp;T<sub>design</sub> = ${fmt(r.Tdesign,4)}, T<sub>oD</sub> = ${fmt(r.ToD,4)}<br>
+    &emsp;${fuZone}<br>
+    &emsp;F<sub>u</sub> = <span class="val hl">${fmt(r.Fu,4)}</span><br>
+    <strong>F<sub>uM</sub> (最大考量地震):</strong><br>
+    &emsp;T<sub>design</sub> = ${fmt(r.Tdesign,4)}, T<sub>oM</sub> = ${fmt(r.ToM,4)}<br>
+    &emsp;F<sub>uM</sub> = <span class="val">${fmt(r.FuM,4)}</span>
+  `);
+
+  // Step 7: SaD/SaM
+  html += step('⑦ 工址設計 / 最大考量譜加速度 S<sub>aD</sub>, S<sub>aM</sub> (表 2-5)', `
+    S<sub>aD</sub>(T=${fmt(r.Tdesign,3)}) = <span class="val">${fmt(r.SaD,4)}</span> g<br>
+    S<sub>aM</sub>(T=${fmt(r.Tdesign,3)}) = <span class="val">${fmt(r.SaM,4)}</span> g
+  `);
+
+  // Step 8: VD
+  const vd_coeff = Ifactor / (1.4 * r.alphaY);
+  html += step('⑧ V<sub>D</sub> — 最小設計水平總橫力 (式 2-3)', `
+    S<sub>aD</sub>/F<sub>u</sub> = ${fmt(r.SaD,4)} / ${fmt(r.Fu,4)} = <span class="val">${fmt(r.VD_ratio,4)}</span><br>
+    ${r.VD_ratio <= 0.3 ? `(S<sub>aD</sub>/F<sub>u</sub> ≤ 0.3 → 不修正)` :
+      r.VD_ratio >= 0.8 ? `(S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> = 0.70 × ${fmt(r.VD_ratio,4)} = ${fmt(r.VD_ratio_m,4)}` :
+      `(S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> = 0.52×${fmt(r.VD_ratio,4)} + 0.144 = ${fmt(r.VD_ratio_m,4)}`}<br>
+    V<sub>D</sub> = [I/(1.4·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
+    &emsp;= [${Ifactor}/(1.4×${r.alphaY})] × ${fmt(r.VD_ratio_m,4)} × ${fmt(r.W,0)}<br>
+    &emsp;= <span class="val hl">${fmt(r.VD,2)}</span> tf　( = ${fmt(r.VD_coeff*100,2)}% W )
+  `, `式(2-3): V<sub>D</sub> = [I / (1.4·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
+= [${Ifactor} / (1.4 × ${r.alphaY})] × ${fmt(r.VD_ratio_m,4)} × ${fmt(r.W,2)}<br>
+= ${fmt(vd_coeff,4)} × ${fmt(r.VD_ratio_m,4)} × ${fmt(r.W,2)}<br>
+= <b>${fmt(r.VD,2)}</b> tf`);
+
+  // Step 9: V*
+  const vs_denom = isTB ? 3.5 : 4.2;
+  const vs_coeff_val = Ifactor * r.Fu / (vs_denom * r.alphaY);
+  html += step('⑨ V* — 避免中小度地震降伏 (式 2-13a)', `
+    V* = [I·F<sub>u</sub>/(${isTB ? '3.5' : '4.2'}·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
+    &emsp;= [${Ifactor}×${fmt(r.Fu,2)}/(${isTB ? '3.5' : '4.2'}×${r.alphaY})] × ${fmt(r.Vs_ratio_m,4)} × ${fmt(r.W,0)}<br>
+    &emsp;= <span class="val hl">${fmt(r.Vstar,2)}</span> tf　( = ${fmt(r.Vs_coeff*100,2)}% W )
+  `, `式(2-13a): V* = [I·F<sub>u</sub> / (${vs_denom}·α<sub>y</sub>)] × (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> × W<br>
+= [${Ifactor} × ${fmt(r.Fu,4)} / (${vs_denom} × ${r.alphaY})] × ${fmt(r.Vs_ratio_m,4)} × ${fmt(r.W,2)}<br>
+= ${fmt(vs_coeff_val,4)} × ${fmt(r.Vs_ratio_m,4)} × ${fmt(r.W,2)}<br>
+= <b>${fmt(r.Vstar,2)}</b> tf`);
+
+  // Step 10: VM
+  html += step('⑩ V<sub>M</sub> — 避免最大考量地震崩塌 (式 2-13c)', `
+    S<sub>aM</sub>/F<sub>uM</sub> = ${fmt(r.SaM,4)} / ${fmt(r.FuM,4)} = <span class="val">${fmt(r.VM_ratio,4)}</span><br>
+    ${r.VM_ratio <= 0.3 ? `(≤ 0.3 → 不修正)` :
+      r.VM_ratio >= 0.8 ? `(S<sub>aM</sub>/F<sub>uM</sub>)<sub>m</sub> = 0.70 × ${fmt(r.VM_ratio,4)} = ${fmt(r.VM_ratio_m,4)}` :
+      `(S<sub>aM</sub>/F<sub>uM</sub>)<sub>m</sub> = 0.52×${fmt(r.VM_ratio,4)} + 0.144 = ${fmt(r.VM_ratio_m,4)}`}<br>
+    V<sub>M</sub> = [I/(1.4·α<sub>y</sub>)] × (S<sub>aM</sub>/F<sub>uM</sub>)<sub>m</sub> × W<br>
+    &emsp;= <span class="val hl">${fmt(r.VM,2)}</span> tf　( = ${fmt(r.VM_coeff*100,2)}% W )
+  `, `式(2-13c): V<sub>M</sub> = [I / (1.4·α<sub>y</sub>)] × (S<sub>aM</sub>/F<sub>uM</sub>)<sub>m</sub> × W<br>
+= [${Ifactor} / (1.4 × ${r.alphaY})] × ${fmt(r.VM_ratio_m,4)} × ${fmt(r.W,2)}<br>
+= ${fmt(vd_coeff,4)} × ${fmt(r.VM_ratio_m,4)} × ${fmt(r.W,2)}<br>
+= <b>${fmt(r.VM,2)}</b> tf`);
+
+  // Step 11: 三力比較
+  const maxV = Math.max(r.VD, r.Vstar, r.VM);
+  html += step('⑪ 設計水平總橫力 V<sub>design</sub> = max(V<sub>D</sub>, V*, V<sub>M</sub>)', `
+    <table class="cmp">
+      <tr><th></th><th>V<sub>D</sub></th><th>V*</th><th>V<sub>M</sub></th></tr>
+      <tr><td style="font-weight:600">力 (tf)</td>
+          <td${r.VD>=maxV-0.01?' class="win"':''}>${fmt(r.VD,2)}</td>
+          <td${r.Vstar>=maxV-0.01?' class="win"':''}>${fmt(r.Vstar,2)}</td>
+          <td${r.VM>=maxV-0.01?' class="win"':''}>${fmt(r.VM,2)}</td></tr>
+      <tr><td style="font-weight:600">V/W</td>
+          <td${r.VD>=maxV-0.01?' class="win"':''}>${fmt(r.VD_coeff*100,2)}%</td>
+          <td${r.Vstar>=maxV-0.01?' class="win"':''}>${fmt(r.Vs_coeff*100,2)}%</td>
+          <td${r.VM>=maxV-0.01?' class="win"':''}>${fmt(r.VM_coeff*100,2)}%</td></tr>
+    </table>
+    V<sub>design</sub> = <span class="val hl">${fmt(r.Vdesign,2)}</span> tf
+    <span class="tag-ctrl ${r.controlledBy === 'VD' ? 'vd' : r.controlledBy === 'V*' ? 'vs' : 'vm'}">${r.controlledBy} 控制</span>
+  `);
+
+  // Step 12: Ft
+  html += step('⑫ 頂部附加力 F<sub>t</sub> (式 2-14)', `
+    T = ${fmt(r.Tdesign,3)} sec ${r.Tdesign <= 0.7 ? '≤ 0.7 → F<sub>t</sub> = 0' :
+      `> 0.7 → F<sub>t</sub> = min(0.07×T×V, 0.25V) = min(${fmt(0.07*r.Tdesign*r.Vdesign,2)}, ${fmt(0.25*r.Vdesign,2)})`}<br>
+    F<sub>t</sub> = <span class="val">${fmt(r.Ft,2)}</span> tf
+  `);
+
+  document.getElementById('steps').innerHTML = html;
+
+  // ── 豎向分配表 ──
+  const distCard = document.getElementById('distCard');
+  distCard.style.display = '';
+  const tbody = document.querySelector('#storyTable tbody');
+  tbody.innerHTML = '';
+  const fls = r.dist.floors;
+  // 由上往下顯示
+  for (let i = fls.length - 1; i >= 0; i--) {
+    const f = fls[i];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="idx">${floorData[i].label}</td>
+      <td>${fmt(f.h,2)}</td>
+      <td>${fmt(f.W,0)}</td>
+      <td>${fmt(f.Wh,0)}</td>
+      <td>${fmt(f.Fi,2)}</td>
+      <td>${fmt(f.Vstory,2)}</td>`;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('distNote').innerHTML =
+    `ΣW<sub>i</sub>·h<sub>i</sub> = ${fmt(r.dist.sumWh,0)}　|　F<sub>t</sub> = ${fmt(r.Ft,2)} tf　|　OTM = ${fmt(r.dist.OTM,1)} tf·m`;
+
+  // ── 地下層 ──
+  const B = Math.max(0, Math.round(parseFloat(document.getElementById('B').value) || 0));
+  const Bh = parseFloat(document.getElementById('Bh').value) || 3.5;
+  const subCard = document.getElementById('subCard');
+  if (B > 0) {
+    subCard.style.display = '';
+    const stb = document.querySelector('#subTable tbody');
+    stb.innerHTML = '';
+    for (let i = 1; i <= B; i++) {
+      const H = i * Bh;
+      const sk = S.calcSubK(H, site.SDS, site.SMS, Ifactor);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td style="font-weight:700;text-align:center;">B${i}</td>
+        <td>${fmt(H,1)}</td><td>${fmt(sk.KD,4)}</td><td>${fmt(sk.KM,4)}</td>
+        <td style="font-weight:700;">${fmt(sk.K,4)}</td>`;
+      stb.appendChild(tr);
+    }
+  } else {
+    subCard.style.display = 'none';
+  }
+
+  // ── 反應譜圖 ──
+  drawSpectrum(r, rY);
+}
+
+let specChart = null;
+function drawSpectrum(r, rY) {
+  if (typeof Chart === 'undefined') return;
+  const site = r.site;
+  const Tmax = Math.max(3.0, r.Tdesign * 1.5, rY ? rY.Tdesign * 1.5 : 0);
+  const pts = 200;
+  const labels = [];
+  const saD = [], saM = [], saD_Fu_X = [], saD_Fu_Y = [];
+  for (let i = 0; i <= pts; i++) {
+    const T = (i / pts) * Tmax;
+    labels.push(T.toFixed(3));
+    saD.push(S.calcSa(T, site.SDS, site.SD1));
+    saM.push(S.calcSa(T, site.SMS, site.SM1));
+    const fuX = S.calcFu(r.Ra, T, r.ToD);
+    saD_Fu_X.push(S.calcSa(T, site.SDS, site.SD1) / fuX);
+    if (rY) {
+      const fuY = S.calcFu(rY.Ra, T, rY.ToD);
+      saD_Fu_Y.push(S.calcSa(T, site.SDS, site.SD1) / fuY);
+    }
+  }
+  const maxSa = Math.max(...saM, ...saD, ...saD_Fu_X, ...(rY ? saD_Fu_Y : []), r.SaD / r.Fu, rY ? (rY.SaD / rY.Fu) : 0);
+  const datasets = [
+    { label: 'SaD(T) 設計地震', data: saD, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,0.08)', fill: true, pointRadius: 0, borderWidth: 2 },
+    { label: 'SaM(T) 最大考量', data: saM, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.05)', fill: true, pointRadius: 0, borderWidth: 2, borderDash: [6,3] },
+    { label: rY ? 'SaD/Fu (X向)' : 'SaD/Fu 折減後', data: saD_Fu_X, borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.08)', fill: true, pointRadius: 0, borderWidth: 2, borderDash: [3,3] },
+    { label: 'Tdesign,X 位置', data: [{ x: r.Tdesign, y: 0 }, { x: r.Tdesign, y: maxSa }], parsing: false, borderColor: 'rgba(5,150,105,0.5)', borderWidth: 1.5, borderDash: [5,5], pointRadius: 0, fill: false },
+    { label: 'Tdesign,X', data: [{ x: r.Tdesign, y: r.SaD / r.Fu }], parsing: false, borderColor: '#059669', backgroundColor: '#059669', pointRadius: 5, pointHoverRadius: 6, showLine: false }
+  ];
+  if (rY) {
+    datasets.push({ label: 'SaD/Fu (Y向)', data: saD_Fu_Y, borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,0.08)', fill: false, pointRadius: 0, borderWidth: 2, borderDash: [6,2] });
+    datasets.push({ label: 'Tdesign,Y 位置', data: [{ x: rY.Tdesign, y: 0 }, { x: rY.Tdesign, y: maxSa }], parsing: false, borderColor: 'rgba(217,119,6,0.5)', borderWidth: 1.5, borderDash: [5,5], pointRadius: 0, fill: false });
+    datasets.push({ label: 'Tdesign,Y', data: [{ x: rY.Tdesign, y: rY.SaD / rY.Fu }], parsing: false, borderColor: '#d97706', backgroundColor: '#d97706', pointRadius: 5, pointHoverRadius: 6, showLine: false });
+  }
+  const ctx = document.getElementById('spectrumChart').getContext('2d');
+  if (specChart) specChart.destroy();
+  specChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 0 },
+      scales: {
+        x: { type: 'linear', title: { display: true, text: '週期 T (sec)' }, min: 0, max: Tmax, ticks: { stepSize: 0.5 } },
+        y: { title: { display: true, text: 'Sa (g)' }, min: 0, beginAtZero: true }
+      },
+      plugins: {
+        tooltip: { mode: 'index', intersect: false },
+        legend: { position: 'bottom', labels: { font: { size: 11 } } }
+      },
+      interaction: { mode: 'nearest', axis: 'x', intersect: false }
+    }
+  });
+
+  let legend = `圖中虛線標示設計週期位置。T<sub>X</sub> = ${fmt(r.Tdesign,3)} sec　|　S<sub>aD</sub>/F<sub>u,X</sub> = ${fmt(r.SaD/r.Fu,4)} g`;
+  if (rY) legend += `<br>T<sub>Y</sub> = ${fmt(rY.Tdesign,3)} sec　|　S<sub>aD</sub>/F<sub>u,Y</sub> = ${fmt(rY.SaD/rY.Fu,4)} g`;
+  document.getElementById('spectrumLegend').innerHTML = legend;
+}
+
+function step(title, body, detail) {
+  let h = `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}</div>`;
+  if (detail) h += `<div class="detail-formula">${detail}</div>`;
+  h += `</div>`;
+  return h;
+}
+
+// ── 詳列計算式 toggle ──
+document.getElementById('chkDetail').addEventListener('change', function() {
+  document.getElementById('stepsCard').classList.toggle('show-detail', this.checked);
+});
+
+// ═══════════════════════════════
+//  附屬構造物地震力 (第四章)
+// ═══════════════════════════════
+(function initAppendage() {
+  const sel = document.getElementById('apType');
+  // 表 4-1
+  const og1 = sel.querySelector('optgroup');
+  S.TABLE_4_1.forEach((item, i) => {
+    const o = document.createElement('option');
+    o.value = `T1_${i}`;
+    o.textContent = `${item.name} (ap=${item.ap}, Rp=${item.Rp})`;
+    og1.appendChild(o);
+  });
+  // 表 4-2
+  const og2 = document.createElement('optgroup');
+  og2.label = '機電設備構材 (表 4-2)';
+  S.TABLE_4_2.forEach((item, i) => {
+    const o = document.createElement('option');
+    o.value = `T2_${i}`;
+    o.textContent = `${item.name} (ap=${item.ap}, Rp=${item.Rp})`;
+    og2.appendChild(o);
+  });
+  sel.appendChild(og2);
+  // 自訂
+  const ogC = document.createElement('optgroup');
+  ogC.label = '自訂';
+  const oC = document.createElement('option');
+  oC.value = 'CUSTOM'; oC.textContent = '自訂 ap / Rp (填右側欄位)';
+  ogC.appendChild(oC);
+  sel.appendChild(ogC);
+})();
+
+function calcAppendage() {
+  // 需要先有主計算的 SDS
+  const sdsEl = document.getElementById('banner');
+  if (!sdsEl || sdsEl.textContent === '尚未計算') {
+    alert('請先執行主結構地震力計算，以取得 SDS 值'); return;
+  }
+  // 取得 SDS from last calc
+  const lastSDS = window._lastSeismicSDS;
+  if (!lastSDS) { alert('請先執行主結構地震力計算'); return; }
+
+  const typeVal = document.getElementById('apType').value;
+  let ap, Rp;
+  if (typeVal === 'CUSTOM') {
+    ap = parseFloat(document.getElementById('apCustom').value);
+    Rp = parseFloat(document.getElementById('rpCustom').value);
+    if (!ap || !Rp) { alert('請填入自訂 ap 與 Rp'); return; }
+  } else {
+    const [tbl, idx] = typeVal.split('_');
+    const item = tbl === 'T1' ? S.TABLE_4_1[+idx] : S.TABLE_4_2[+idx];
+    ap = item.ap; Rp = item.Rp;
+  }
+
+  const Wp = parseFloat(document.getElementById('apWp').value) || 1.0;
+  const Ip = parseFloat(document.getElementById('apIp').value) || 1.0;
+  const hx = parseFloat(document.getElementById('apHx').value) || 0;
+  const hn = parseFloat(document.getElementById('hn').value) || 17.2;
+  const isTB = document.getElementById('chkTaipei').checked;
+  const isNF = document.getElementById('apNearFault').value === '1';
+
+  const r = S.calcFph({ SDS: lastSDS, Wp, ap, Rp, Ip, hx, hn, isTaipeiBasin: isTB });
+  const Fpv = S.calcFpv(r.Fph, isNF);
+
+  const ctrlLabel = r.controlled === 'max'
+    ? '受式(4-1b)上限控制'
+    : r.controlled === 'min'
+      ? '受式(4-1c)下限控制'
+      : '採式(4-1a)計算值';
+
+  document.getElementById('apResult').innerHTML = `
+    <div class="results-grid">
+      <div class="result-item ok">
+        <span class="label">水平地震力 F<sub>ph</sub></span>
+        <span><span class="value">${fmt(r.Fph,3)}</span><span class="unit">tf</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">垂直地震力 F<sub>pv</sub></span>
+        <span><span class="value">${fmt(Fpv,3)}</span><span class="unit">tf</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">R<sub>pa</sub></span>
+        <span><span class="value">${fmt(r.Rpa,2)}</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">控制條件</span>
+        <span><span class="value" style="font-size:0.85em;">${ctrlLabel}</span></span>
+      </div>
+    </div>
+    <div class="step" style="margin-top:12px;">
+      <div class="step-title" style="border-left-color:var(--seismic);background:#faf5ff;">附屬構造物地震力計算</div>
+      <div class="step-body">
+        <strong>已知條件</strong><br>
+        S<sub>DS</sub> = <span class="val">${fmt(lastSDS,4)}</span> g，
+        a<sub>p</sub> = ${ap}，
+        R<sub>p</sub> = ${Rp}，
+        I<sub>p</sub> = ${Ip}，
+        W<sub>p</sub> = ${Wp} tf<br>
+        h<sub>x</sub> = ${hx} m，
+        h<sub>n</sub> = ${hn} m，
+        h<sub>x</sub>/h<sub>n</sub> = ${fmt(hx/hn,3)}<br><br>
+
+        <strong>式(4-2) 容許耐震韌性容量 R<sub>pa</sub></strong><br>
+        R<sub>pa</sub> = 1 + (R<sub>p</sub> − 1) / ${isTB ? '2.0' : '1.5'}<br>
+        &emsp;= 1 + (${Rp} − 1) / ${isTB ? '2.0' : '1.5'}<br>
+        &emsp;= <span class="val">${fmt(r.Rpa,3)}</span><br><br>
+
+        <strong>式(4-1a) 附屬構造物水平地震力計算值</strong><br>
+        F<sub>ph,a</sub> = 0.4 × S<sub>DS</sub> × I<sub>p</sub> × (a<sub>p</sub> / R<sub>pa</sub>) × (1 + 2h<sub>x</sub>/h<sub>n</sub>) × W<sub>p</sub><br>
+        &emsp;= 0.4 × ${fmt(lastSDS,4)} × ${Ip} × (${ap} / ${fmt(r.Rpa,3)}) × (1 + 2 × ${fmt(hx/hn,3)}) × ${Wp}<br>
+        &emsp;= <span class="val">${fmt(r.Fph_calc,4)}</span> tf<br><br>
+
+        <strong>式(4-1b) 上限值</strong><br>
+        F<sub>ph,max</sub> = 1.6 × S<sub>DS</sub> × I<sub>p</sub> × W<sub>p</sub><br>
+        &emsp;= 1.6 × ${fmt(lastSDS,4)} × ${Ip} × ${Wp}<br>
+        &emsp;= <span class="val">${fmt(r.Fph_max,4)}</span> tf<br><br>
+
+        <strong>式(4-1c) 下限值</strong><br>
+        F<sub>ph,min</sub> = 0.3 × S<sub>DS</sub> × I<sub>p</sub> × W<sub>p</sub><br>
+        &emsp;= 0.3 × ${fmt(lastSDS,4)} × ${Ip} × ${Wp}<br>
+        &emsp;= <span class="val">${fmt(r.Fph_min,4)}</span> tf<br><br>
+
+        <strong>水平設計地震力採用</strong><br>
+        F<sub>ph</sub> = <span class="val hl">${fmt(r.Fph,3)}</span> tf　(${ctrlLabel})<br><br>
+
+        <strong>式(4-3) 垂直地震力</strong><br>
+        F<sub>pv</sub> = ${isNF ? '2/3' : '1/2'} × F<sub>ph</sub><br>
+        &emsp;= ${isNF ? '2/3' : '1/2'} × ${fmt(r.Fph,3)}<br>
+        &emsp;= <span class="val hl">${fmt(Fpv,3)}</span> tf
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════
+//  垂直地震力 (式 2-19, C2-10)
+// ═══════════════════════════════
+function calcVertical() {
+  // 需要先有主計算結果
+  if (!window._lastSeismicSDS) {
+    alert('請先執行主結構地震力計算，以取得 SDS / SD1 等參數'); return;
+  }
+  const lastR = window._lastSeismicResult;
+  if (!lastR) { alert('請先執行主結構地震力計算'); return; }
+
+  const W_slab = parseFloat(document.getElementById('vW').value) || 0;
+  const isNF   = document.getElementById('vNearFault').value === '1';
+
+  const r = S.calcVerticalSeismic({
+    SDS: lastR.site.SDS,
+    SD1: lastR.site.SD1,
+    I: lastR.I,
+    alphaY: lastR.alphaY,
+    T: lastR.Tdesign,
+    ToD: lastR.ToD,
+    isNearFault: isNF,
+    isTaipeiBasin: document.getElementById('chkTaipei').checked,
+    W_slab
+  });
+
+  const nfLabel = isNF ? '⅔' : '½';
+  const loV = isNF ? 0.20 : 0.15;
+  const hiV = isNF ? 0.53 : 0.40;
+  const ratioZone = r.ratio >= hiV ? `≥ ${hiV} → 0.70 倍` :
+                    r.ratio > loV ? `${loV} < ratio < ${hiV} → 線性修正` : `≤ ${loV} → 不修正`;
+
+  document.getElementById('vResult').innerHTML = `
+    <div class="results-grid">
+      <div class="result-item ok">
+        <span class="label">樓版垂直地震力 V<sub>Z</sub></span>
+        <span><span class="value">${fmt(r.VZ, 3)}</span><span class="unit">tf</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">V<sub>Z</sub>/W<sub>slab</sub></span>
+        <span><span class="value">${W_slab > 0 ? fmt(r.VZ/W_slab*100, 2) : '—'}</span><span class="unit">%</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">柱軸力係數</span>
+        <span><span class="value">${fmt(r.col_coeff, 4)}</span><span class="unit">×W</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">S<sub>aD,V</sub></span>
+        <span><span class="value">${fmt(r.SaD_V, 4)}</span><span class="unit">g</span></span>
+      </div>
+    </div>
+    <div class="step" style="margin-top:12px;">
+      <div class="step-title" style="border-left-color:var(--seismic);background:#faf5ff;">垂直地震力計算過程</div>
+      <div class="step-body">
+        <strong>式(2-19) 垂直設計譜加速度:</strong><br>
+        S<sub>aD</sub>(T=${fmt(r.T,3)}) = <span class="val">${fmt(r.SaD,4)}</span> g<br>
+        S<sub>aD,V</sub> = ${nfLabel} × ${fmt(r.SaD,4)} = <span class="val">${fmt(r.SaD_V,4)}</span> g
+        ${isNF ? '<br><span style="color:#dc2626;">※ 近斷層：垂直譜取 ⅔ 倍</span>' : ''}<br><br>
+
+        <strong>垂直方向折減 (R<sub>a</sub>=3.0 固定):</strong><br>
+        F<sub>uv</sub> = calcFu(R<sub>a</sub>=3.0, T=${fmt(r.T,3)}, T<sub>oD</sub>=${fmt(r.ToD,4)}) = <span class="val">${fmt(r.Fuv,4)}</span><br><br>
+
+        <strong>式(C2-11) 修正:</strong><br>
+        S<sub>aD,V</sub>/F<sub>uv</sub> = ${fmt(r.SaD_V,4)} / ${fmt(r.Fuv,4)} = <span class="val">${fmt(r.ratio,4)}</span><br>
+        ${ratioZone}<br>
+        (S<sub>aD,V</sub>/F<sub>uv</sub>)<sub>m</sub> = <span class="val">${fmt(r.ratio_m,4)}</span><br><br>
+
+        <strong>式(C2-10) 樓版系統垂直地震力:</strong><br>
+        V<sub>Z</sub> = [I/(1.4·α<sub>y</sub>)] × (S<sub>aD,V</sub>/F<sub>uv</sub>)<sub>m</sub> × W<sub>slab</sub><br>
+        &emsp;= [${r.I}/(1.4×${r.alphaY})] × ${fmt(r.ratio_m,4)} × ${fmt(W_slab,1)}<br>
+        &emsp;= <span class="val hl">${fmt(r.VZ,3)}</span> tf<br><br>
+
+        <strong>式(C2-12) 柱軸力簡化係數:</strong><br>
+        ${isNF ? `0.80×S<sub>DS</sub>×I/3 = 0.80×${fmt(r.SDS,4)}×${r.I}/3` :
+                 `0.40×S<sub>DS</sub>×I/2 = 0.40×${fmt(r.SDS,4)}×${r.I}/2`}
+        = <span class="val">${fmt(r.col_coeff,4)}</span> × W<sub>col</sub>
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════
+//  雜項工作物地震力 (第五章)
+// ═══════════════════════════════
+const MISC_SIMILAR_TYPES = [
+  { name: '鋼造儲物架', R: 2.4, alphaY: 1.0, hLimit: '不限' },
+  { name: '構架系統', R: 3.6, alphaY: 1.0, hLimit: '50 m' },
+  { name: '鋼造普通同心斜撐構架（高度未達 10 m）', R: 2.0, alphaY: 1.0, hLimit: '10 m' },
+  { name: '鋼造普通同心斜撐構架（高度 10 m 至 50 m 以下）', R: 1.5, alphaY: 1.0, hLimit: '50 m' },
+  { name: '鋼造特殊抗彎構架', R: 4.8, alphaY: 1.0, hLimit: '不限' },
+  { name: '鋼筋混凝土造特殊抗彎構架', R: 4.8, alphaY: 1.0, hLimit: '不限' },
+  { name: '鋼造部份韌性抗彎構架', R: 1.5, alphaY: 1.0, hLimit: '15 m' },
+  { name: '鋼筋混凝土造部份韌性抗彎構架', R: 1.6, alphaY: 1.0, hLimit: '15 m' }
+];
+
+const MISC_NONSIMILAR_TYPES = [
+  { name: '自立式桁架塔', R: 3.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '拉線式桁架塔', R: 3.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '鋼造煙囪', R: 3.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: 'RC 造煙囪', R: 2.0, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '鋼造水塔（支柱式）', R: 2.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: 'RC 造水塔（壁式）', R: 2.0, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '混凝土 / 磚造擋土牆', R: 2.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: 'RC 圍牆', R: 2.0, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '磚造圍牆', R: 1.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '招牌及廣告牌', R: 2.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '獨立式機電設備', R: 2.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '太陽能板支架', R: 2.5, alphaY: 1.0, hLimit: '依表 5-2' },
+  { name: '其他非相似構造（請依表 5-2 自訂）', R: 1.5, alphaY: 1.0, hLimit: '依表 5-2' }
+];
+
+function currentMiscTypeTable() {
+  return document.getElementById('miscChapterMode').value === 'similar'
+    ? MISC_SIMILAR_TYPES
+    : MISC_NONSIMILAR_TYPES;
+}
+
+function rebuildMiscTypeOptions() {
+  const sel = document.getElementById('miscType');
+  const mode = document.getElementById('miscChapterMode').value;
+  const table = currentMiscTypeTable();
+  sel.innerHTML = '';
+  table.forEach((item, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = `${item.name}　(R=${item.R}, αy=${item.alphaY})`;
+    sel.appendChild(o);
+  });
+  const custom = document.createElement('option');
+  custom.value = '-1';
+  custom.textContent = mode === 'similar' ? '自訂 R / αy（請依表 5-1）' : '自訂 R / αy（請依表 5-2）';
+  sel.appendChild(custom);
+  document.getElementById('miscTypeLabel').textContent = mode === 'similar' ? '工作物類型 (表 5-1)' : '工作物類型 (表 5-2)';
+  document.getElementById('miscModeHint').textContent = mode === 'similar'
+    ? '相似於建築結構者，最小設計水平總橫力依式(2-3)計算，垂直地震力依 2.18 節。'
+    : '非相似於建築結構者，T < 0.06 sec 用式(5-1)，T ≥ 0.06 sec 用式(5-2)。';
+  document.getElementById('miscCustomRow').style.display = 'none';
+}
+
+(function initMisc() {
+  rebuildMiscTypeOptions();
+  document.getElementById('miscType').addEventListener('change', function() {
+    document.getElementById('miscCustomRow').style.display = this.value === '-1' ? '' : 'none';
+  });
+  document.getElementById('miscChapterMode').addEventListener('change', rebuildMiscTypeOptions);
+})();
+
+function calcMiscSeismicFull(p) {
+  const site = p.directSite || S.calcSiteCoeff(p.siteClass, p.SsD, p.S1D, p.SsM, p.S1M);
+  const { ToD, ToM } = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
+  const T = p.T_user > 0 ? p.T_user : 0;
+  const Ra = S.calcRa(p.R, p.isTaipeiBasin);
+  const Fu = S.calcFu(Ra, T, ToD);
+  const FuM = S.calcFuM(p.R, T, ToM);
+  const SaD = S.calcSa(T, site.SDS, site.SD1);
+  const SaM = S.calcSa(T, site.SMS, site.SM1);
+  const ratio = SaD / Fu;
+  const ratio_m = S.calcSaFuM(ratio);
+  const ratioM = SaM / FuM;
+  const ratioM_m = S.calcSaFuM(ratioM);
+
+  if (p.mode === 'similar') {
+    const Vh = (p.I / (1.4 * p.alphaY)) * ratio_m * p.W;
+    const vvRes = S.calcVerticalSeismic({
+      SDS: site.SDS,
+      SD1: site.SD1,
+      I: p.I,
+      alphaY: p.alphaY,
+      T,
+      ToD,
+      isNearFault: p.isNearFault,
+      isTaipeiBasin: p.isTaipeiBasin,
+      W_slab: p.W
+    });
+    return {
+      mode: 'similar',
+      typeName: p.typeName,
+      hLimit: p.hLimit || '—',
+      R: p.R,
+      alphaY: p.alphaY,
+      I: p.I,
+      W: p.W,
+      hn: p.hn,
+      T,
+      site,
+      ToD,
+      ToM,
+      Ra,
+      Fu,
+      FuM,
+      SaD,
+      SaM,
+      ratio,
+      ratio_m,
+      ratioM,
+      ratioM_m,
+      Vh,
+      Vv: vvRes.VZ,
+      verticalSource: '2.18 節',
+      formulaUsed: '式(2-3)'
+    };
+  }
+
+  let Vh;
+  let formulaUsed;
+  if (T < 0.06) {
+    Vh = site.SDS * p.I * p.W / (3 * p.alphaY);
+    formulaUsed = '式(5-1)';
+  } else {
+    Vh = (p.I / (1.2 * p.alphaY)) * ratio_m * p.W;
+    formulaUsed = '式(5-2)';
+  }
+  return {
+    mode: 'nonsimilar',
+    typeName: p.typeName,
+    hLimit: p.hLimit || '—',
+    R: p.R,
+    alphaY: p.alphaY,
+    I: p.I,
+    W: p.W,
+    hn: p.hn,
+    T,
+    site,
+    ToD,
+    ToM,
+    Ra,
+    Fu,
+    FuM,
+    SaD,
+    SaM,
+    ratio,
+    ratio_m,
+    ratioM,
+    ratioM_m,
+    Vh,
+    Vv: (p.isNearFault ? 2 / 3 : 1 / 2) * Vh,
+    verticalSource: p.isNearFault ? '近斷層取 2/3 Vh' : '一般 / 臺北盆地取 1/2 Vh',
+    formulaUsed
+  };
+}
+
+function calcMisc() {
+  const mode = document.getElementById('miscChapterMode').value;
+  const table = currentMiscTypeTable();
+  const typeIdx = parseInt(document.getElementById('miscType').value, 10);
+  const SsD = parseFloat(document.getElementById('SsD').value);
+  const S1D = parseFloat(document.getElementById('S1D').value);
+  const SsM = parseFloat(document.getElementById('SsM').value);
+  const S1M = parseFloat(document.getElementById('S1M').value);
+  const siteClass = +document.getElementById('siteClass').value;
+  const isTB = document.getElementById('chkTaipei').checked;
+
+  if (![SsD, S1D, SsM, S1M].every(v => isFinite(v) && v > 0)) {
+    alert('請先在左側②面板填入有效的震區參數 (SsD, S1D, SsM, S1M)'); return;
+  }
+
+  const W  = parseFloat(document.getElementById('miscW').value) || 0;
+  const hn = parseFloat(document.getElementById('miscH').value) || 1;
+  const T_user = parseFloat(document.getElementById('miscT').value) || 0;
+  const I  = parseFloat(document.getElementById('miscI').value) || 1.0;
+  const isNearFault = document.getElementById('chkNearFaultMisc').checked;
+  const preset = typeIdx >= 0 ? table[typeIdx] : null;
+  const R_custom  = typeIdx === -1 ? parseFloat(document.getElementById('miscR').value) || 1.5 : preset.R;
+  const aY_custom = typeIdx === -1 ? parseFloat(document.getElementById('miscAY').value) || 1.0 : preset.alphaY;
+
+  if (!isFinite(W) || W <= 0 || !isFinite(hn) || hn <= 0) {
+    alert('請輸入有效的工作物重量與高度'); return;
+  }
+
+  const r = calcMiscSeismicFull({
+    mode,
+    typeName: preset ? preset.name : '自訂',
+    hLimit: preset ? preset.hLimit : '自訂',
+    R: R_custom, alphaY: aY_custom,
+    SsD, S1D, SsM, S1M, siteClass,
+    I, W, hn, T_user, isTaipeiBasin: isTB,
+    isNearFault,
+    directSite: getNearFaultOverride()
+  });
+  const hasNumericLimit = typeof r.hLimit === 'string' && /m/.test(r.hLimit) && isFinite(parseFloat(r.hLimit));
+  const exceedsLimit = hasNumericLimit && hn > parseFloat(r.hLimit);
+
+  document.getElementById('miscResult').innerHTML = `
+    <div class="results-grid">
+      <div class="result-item ok">
+        <span class="label">最小設計水平總橫力 V<sub>h</sub></span>
+        <span><span class="value">${fmt(r.Vh, 2)}</span><span class="unit">tf</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">最小設計垂直地震力 V<sub>v</sub></span>
+        <span><span class="value">${fmt(r.Vv, 2)}</span><span class="unit">tf</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">採用公式</span>
+        <span><span class="value">${r.formulaUsed}</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">R / α<sub>y</sub></span>
+        <span><span class="value">${r.R} / ${r.alphaY}</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">第五章分類</span>
+        <span><span class="value">${mode === 'similar' ? '5.3 相似於建築' : '5.4 非相似於建築'}</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">高度上限</span>
+        <span><span class="value">${r.hLimit}</span></span>
+      </div>
+    </div>
+    <div class="step" style="margin-top:12px;">
+      <div class="step-title" style="border-left-color:#0891b2;background:#ecfeff;">第五章 — ${r.typeName} 地震力計算</div>
+      <div class="step-body">
+        <strong>① 工址係數</strong><br>
+        S<sub>DS</sub> = <span class="val">${fmt(r.site.SDS,4)}</span> g，
+        S<sub>D1</sub> = <span class="val">${fmt(r.site.SD1,4)}</span> g，
+        S<sub>MS</sub> = <span class="val">${fmt(r.site.SMS,4)}</span> g，
+        S<sub>M1</sub> = <span class="val">${fmt(r.site.SM1,4)}</span> g<br>
+        T<sub>oD</sub> = ${fmt(r.ToD,4)} sec，
+        T<sub>oM</sub> = ${fmt(r.ToM,4)} sec<br><br>
+
+        <strong>② 週期與韌性</strong><br>
+        T = <span class="val">${r.T > 0 ? fmt(r.T,3) + ' sec' : '0 (剛性)'}</span>，
+        R = ${r.R}，
+        R<sub>a</sub> = <span class="val">${fmt(r.Ra,2)}</span><br>
+        F<sub>u</sub> = <span class="val">${fmt(r.Fu,4)}</span>，
+        F<sub>uM</sub> = <span class="val">${fmt(r.FuM,4)}</span><br>
+        S<sub>aD</sub> = <span class="val">${fmt(r.SaD,4)}</span> g，
+        S<sub>aM</sub> = <span class="val">${fmt(r.SaM,4)}</span> g<br><br>
+
+        ${mode === 'similar' ? `
+        <strong>③ 5.3 相似於建築結構：最小設計水平總橫力</strong><br>
+        依第五章 5.3 規定，最小設計水平總橫力依式(2-3)計算。<br>
+        S<sub>aD</sub>/F<sub>u</sub> = ${fmt(r.SaD,4)} / ${fmt(r.Fu,4)} = ${fmt(r.ratio,4)}<br>
+        (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> = <span class="val">${fmt(r.ratio_m,4)}</span><br>
+        V<sub>h</sub> = [${r.I}/(1.4×${r.alphaY})] × ${fmt(r.ratio_m,4)} × ${fmt(r.W,1)}<br>
+        &emsp;= <span class="val hl">${fmt(r.Vh,2)}</span> tf<br><br>
+
+        <strong>④ 5.3 相似於建築結構：最小設計垂直地震力</strong><br>
+        依第五章 5.3 規定，垂直地震力依 2.18 節計算。<br>
+        V<sub>v</sub> = <span class="val hl">${fmt(r.Vv,2)}</span> tf
+        ` : `
+        <strong>③ 5.4 非相似於建築結構：最小設計水平總橫力</strong><br>
+        ${r.T < 0.06 ? `
+        T = ${fmt(r.T,3)} sec &lt; 0.06 sec，採式(5-1)。<br>
+        V<sub>h</sub> = S<sub>DS</sub> × I × W / (3 α<sub>y</sub>)<br>
+        &emsp;= ${fmt(r.site.SDS,4)} × ${r.I} × ${fmt(r.W,1)} / (3 × ${r.alphaY})<br>
+        &emsp;= <span class="val hl">${fmt(r.Vh,2)}</span> tf<br>
+        ` : `
+        T = ${fmt(r.T,3)} sec ≥ 0.06 sec，採式(5-2)。<br>
+        S<sub>aD</sub>/F<sub>u</sub> = ${fmt(r.SaD,4)} / ${fmt(r.Fu,4)} = ${fmt(r.ratio,4)}<br>
+        (S<sub>aD</sub>/F<sub>u</sub>)<sub>m</sub> = <span class="val">${fmt(r.ratio_m,4)}</span><br>
+        V<sub>h</sub> = [${r.I}/(1.2×${r.alphaY})] × ${fmt(r.ratio_m,4)} × ${fmt(r.W,1)}<br>
+        &emsp;= <span class="val hl">${fmt(r.Vh,2)}</span> tf<br>
+        `}
+        <br><strong>④ 5.4 非相似於建築結構：最小設計垂直地震力</strong><br>
+        V<sub>v</sub> = ${isNearFault ? '2/3' : '1/2'} × V<sub>h</sub><br>
+        &emsp;= <span class="val hl">${fmt(r.Vv,2)}</span> tf
+        `}
+        ${exceedsLimit ? `<br><br><span style="color:#b45309;">注意：本次輸入高度 ${fmt(hn,2)} m 已超過該表列型式之高度上限 ${r.hLimit}，請回規範複核。</span>` : ''}
+      </div>
+    </div>`;
+}
+
+(function initPageScopeCard() {
+  const card = document.getElementById('pageScopeCard');
+  if (!card) return;
+  const storageKey = 'seismic-force-page-scope-open';
+  try {
+    if (localStorage.getItem(storageKey) === '1') card.open = true;
+  } catch (err) {}
+  card.addEventListener('toggle', function() {
+    try {
+      localStorage.setItem(storageKey, this.open ? '1' : '0');
+    } catch (err) {}
+  });
+})();
+
+(function initVersionInfoCard() {
+  const card = document.getElementById('versionInfoCard');
+  if (!card) return;
+  const storageKey = 'seismic-force-version-info-open';
+  try {
+    if (localStorage.getItem(storageKey) === '1') card.open = true;
+  } catch (err) {}
+  card.addEventListener('toggle', function() {
+    try {
+      localStorage.setItem(storageKey, this.open ? '1' : '0');
+    } catch (err) {}
+  });
+})();
+
+restoreProjectInfo();
+['projName', 'projNo', 'projDesigner'].forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', saveProjectInfo);
+});
+</script>
+</body>
+</html>
+
+

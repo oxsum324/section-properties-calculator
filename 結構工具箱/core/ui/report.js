@@ -1,4 +1,4 @@
-/* 鋼筋混凝土工具箱 — 共用計算書產生器
+/* 結構工具箱 — 共用計算書產生器
  *
  * 用法:
  *   openReport({
@@ -10,7 +10,6 @@
  *     diagrams: [{ title, dataURL, caption, width }, ...],   // 斷面 / PM 曲線等示意圖
  *     summary:  { ok: true|false, text: '✓ OK / ✗ NG' },
  *     symbols:  [{ sym, desc }, ...],
- *     methods:  [{ item, level, ref, note }, ...],
  *     notes:    ['依據 112 年混凝土結構設計規範', ...]
  *   });
  *
@@ -74,26 +73,6 @@ function openReport(cfg) {
       <table class="rep-sym">
         <tbody>
           ${cfg.symbols.map(s => `<tr><th>${esc(s.sym)}</th><td>${esc(s.desc)}</td></tr>`).join('')}
-       </tbody>
-     </table>
-   </section>` : '';
-
-  const methodsHtml = (cfg.methods && cfg.methods.length) ? `
-    <section class="rep-block">
-      <h3>條文對照 ＆ 方法分級</h3>
-      <table class="rep-method">
-        <thead>
-          <tr><th>功能</th><th>分級</th><th>條文 / 依據</th><th>說明</th></tr>
-        </thead>
-        <tbody>
-          ${cfg.methods.map(m => `
-            <tr>
-              <td>${esc(m.item)}</td>
-              <td class="level">${esc(m.level)}</td>
-              <td class="ref">${esc(m.ref || '—')}</td>
-              <td>${esc(m.note || '—')}</td>
-            </tr>
-          `).join('')}
         </tbody>
       </table>
     </section>` : '';
@@ -108,7 +87,7 @@ function openReport(cfg) {
 
   const diagramsHtml = (cfg.diagrams && cfg.diagrams.length) ? `
     <section class="rep-block rep-diagrams">
-      <h3>斷面示意圖</h3>
+      <h3>計算線圖與示意圖</h3>
       <div class="rep-diagrams-grid">
         ${cfg.diagrams.map(d => `
           <figure class="rep-diagram">
@@ -174,13 +153,9 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-check .note { font-weight:400; font-size:10px; color:#666; margin-top:2px; }
 .rep-sym th { background:#fafbfc; text-align:center; width:80px;
               font-family:"Cambria Math",serif; font-style:italic; }
-  .rep-sym td { padding:4px 8px; border:1px solid #aaa; }
-  .rep-sym tr th { border:1px solid #aaa; }
-  .rep-method th, .rep-method td { border:1px solid #888; padding:5px 6px; vertical-align:top; }
-  .rep-method th { background:#eef2f6; font-weight:600; text-align:center; font-size:11px; }
-  .rep-method td.level { width:12%; text-align:center; font-weight:700; }
-  .rep-method td.ref { width:16%; font-family:"Consolas",monospace; font-size:11px; }
-  .rep-notes { padding-left:20px; font-size:12px; }
+.rep-sym td { padding:4px 8px; border:1px solid #aaa; }
+.rep-sym tr th { border:1px solid #aaa; }
+.rep-notes { padding-left:20px; font-size:12px; }
 .rep-notes li { margin:3px 0; }
 .rep-step { margin:10px 0 14px; page-break-inside: avoid; }
 .rep-step h4 { margin:0 0 4px; padding:3px 8px; font-size:12px;
@@ -206,6 +181,11 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-toolbar button:hover { background:#27567c; }
 .rep-footer { position:fixed; right:14mm; bottom:8mm;
               font-size:10px; color:#666; text-align:right; }
+@media (max-width: 600px) {
+  .rep-paper { padding: 16px; }
+  .rep-meta { grid-template-columns: 1fr; }
+  .rep-check { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
 @media print {
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
@@ -237,7 +217,6 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   ${checksHtml}
   ${stepsHtml}
   ${symHtml}
-  ${methodsHtml}
   ${notesHtml}
 
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>

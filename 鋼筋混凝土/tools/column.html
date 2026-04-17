@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>柱設計 — RC 工具箱</title>
+<title>柱設計 — RC 工具箱 V3.0</title>
 <link rel="stylesheet" href="../shared/style.css">
 <style>
   .steps-card h2 { color:#5b21b6; }
@@ -19,8 +19,8 @@
 </head>
 <body>
 <header>
-  <h1>柱 Column 設計／檢核</h1>
-  <p><a class="back" href="../index.html">← 回工具箱</a> ｜ P-M 互制圖、軸壓上限、橫向圍束、強柱弱梁</p>
+  <h1>柱 Column 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.0</span></h1>
+  <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ P-M 互制圖、軸壓上限、橫向圍束、強柱弱梁</p>
 </header>
 
 <div class="container">
@@ -76,13 +76,13 @@
         </div>
 
         <div class="form-row">
-          <div class="form-group"><label>fc' (kgf/cm²)</label><input type="number" id="fc" value="280"></div>
-          <div class="form-group"><label>fy (kgf/cm²)</label><input type="number" id="fy" value="4200"></div>
+          <div class="form-group"><label>fc' (kgf/cm²)</label><input type="number" id="fc" value="280" data-material="fc"></div>
+          <div class="form-group"><label>fy (kgf/cm²)</label><input type="number" id="fy" value="4200" data-material="fy"></div>
         </div>
 
         <div class="form-row">
-          <div class="form-group"><label>b (cm)</label><input type="number" id="b" value="60"></div>
-          <div class="form-group"><label>h (cm)</label><input type="number" id="h" value="60"></div>
+          <div class="form-group"><label>b (cm)</label><input type="number" id="b" value="60" data-section="b"></div>
+          <div class="form-group"><label>h (cm)</label><input type="number" id="h" value="60" data-section="h"></div>
         </div>
 
         <div class="form-row">
@@ -233,12 +233,12 @@
       <div class="card" data-shows="loads">
         <h2>外力</h2>
         <div class="form-row">
-          <div class="form-group"><label>Pu (tf)</label><input type="number" id="Pu" value="200"></div>
-          <div class="form-group"><label>Mux (tf·m)</label><input type="number" id="Mux" value="40"></div>
+          <div class="form-group"><label>Pu (tf)</label><input type="number" id="Pu" value="200" data-force="P"></div>
+          <div class="form-group"><label>Mux (tf·m)</label><input type="number" id="Mux" value="40" data-force="Mx"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Muy (tf·m)</label><input type="number" id="Muy" value="0"></div>
-          <div class="form-group"><label>Vu (tf)</label><input type="number" id="Vu" value="30"></div>
+          <div class="form-group"><label>Muy (tf·m)</label><input type="number" id="Muy" value="0" data-force="My"></div>
+          <div class="form-group"><label>Vu (tf)</label><input type="number" id="Vu" value="30" data-force="Vx"></div>
         </div>
         <div class="form-group"><label>Ve 地震引致剪力 (tf, 耐震用)</label><input type="number" id="Ve" value="0"></div>
         <p class="hint">耐震模式下若 Ve ≥ 0.5Vu 且 Pu &lt; Ag·fc'/20，塑鉸區 Vc 取 0。</p>
@@ -259,7 +259,7 @@
           <div class="form-group"><label>樓層 ΣPu (tf, 全樓)</label><input type="number" id="sumPu" value="2000"></div>
           <div class="form-group"><label>樓層 ΣPc (tf, 全樓臨界)</label><input type="number" id="sumPc" value="6000"></div>
         </div>
-        <p class="hint">M1/M2: 兩端較小/較大彎矩比，雙曲率為負。βdns: 持久軸力 / 全部因數化軸力。搖擺架構時 δs = 1/(1 − ΣPu/(0.75·ΣPc))。</p>
+        <p class="hint">M1/M2: 兩端較小/較大彎矩比，雙曲率為負。βdns: 持久軸力 / 全部因數化軸力。搖擺架構時 δs = 1/(1 − ΣPu/(0.75·ΣPc))。<br>⚠ 簡化處理：本工具未分離 sway / non-sway 彎矩分量，採 Mc = δns·δs·Mu 乘積法保守估算。</p>
       </div>
 
       <!-- 載重 — 耐震 (僅 seismicMode 顯示) -->
@@ -369,7 +369,7 @@
           <div class="result-item" id="g-AstMin"><span class="label">Ast,min (ρg=1%·Ag)</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
           <div class="result-item" id="g-AstMax"><span class="label">Ast,max (ρg=8%·Ag)</span><span><span class="value">—</span><span class="unit">cm²</span></span></div>
           <div class="result-item" id="g-minBars"><span class="label">主筋下限根數 (規範)</span><span class="value">—</span></div>
-          <div class="result-item" id="g-AgHint"><span class="label">Ag 是否充裕</span><span class="value">—</span></div>
+          <div class="result-item" id="g-AgHint"><span class="label">Ag 配置性提示 (實務參考)</span><span class="value">—</span></div>
         </div>
         <p class="hint" id="g-feasNote" style="margin:8px 0 0;">主筋號數 / 根數與排內間距檢核請至「配筋」分頁。</p>
       </div>
@@ -483,10 +483,15 @@
   </div>
 </div>
 
-<script src="../shared/common.js?v=2"></script>
+<!-- core 單一來源 (材料 + 工具函式 + tooltip) -->
+<script src="../../結構工具箱/core/materials/concrete.js"></script>
+<script src="../../結構工具箱/core/materials/rebar.js"></script>
+<script src="../../結構工具箱/core/utils/common.js"></script>
+<script src="../../結構工具箱/core/ui/formulas.js"></script>
+<!-- RC 相容層 + 專用模組 -->
+<script src="../shared/common.js?v=3"></script>
 <script src="../shared/report.js?v=3"></script>
-<script src="../shared/loadcombo.js?v=1"></script>
-<script src="../shared/formulas.js?v=1"></script>
+<script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
   function applyPanel(tab) {
@@ -943,6 +948,8 @@
     const PnMaxFactor = (colType === 'circle') ? 0.85 : 0.80;
     const phiPnMax = phiFactorComp * PnMaxFactor * Po;
     const hRef = isCirc ? D : hDim;
+    // dt = 最外受拉鋼筋位置 (自壓力面量起的最大 y 值)
+    const dt = Math.max(...bars.map(bar => bar.y));
     const curve = [];
     curve.push({ P: Po, M: 0, phi: phiFactorComp });
     for (let cR = 5; cR >= 0.05; cR -= 0.05) {
@@ -950,7 +957,6 @@
       const { Pn, Mn } = isCirc
         ? calcPMPointCircle(c, D, fc, fy, bars, beta1)
         : calcPMPoint(c, bDim, hDim, fc, fy, bars, beta1);
-      const dt = hRef - cover - 1;
       const epsT = 0.003 * (dt - c) / c;
       let phi;
       if (epsT >= 0.005) phi = PHI.tension;
@@ -1254,7 +1260,7 @@
     const beta1 = calcBeta1(fc);
 
     // === 細長比 + δns 放大 (非搖擺架構, 規範 6.6.4) ===
-    const r = (colType === 'circle') ? 0.25 * b : 0.3 * Math.min(b, h);
+    const r = (colType === 'circle' || colType === 'circleTied') ? 0.25 * b : 0.3 * Math.min(b, h);
     const klr = k * lu / r;
     const m1m2 = num('m1m2');
     const betaDns = Math.min(1, Math.max(0, num('betaDns')));
@@ -1291,7 +1297,8 @@
     const deltaNS_y = slY.delta;
     const Pc = slX.Pc;
     const Pc_y = slY.Pc;
-    // 搖擺架構: Mc = δns·M_ns + δs·M_s (本工具未分離 ns/s, 取 δs 直接放大)
+    // 搖擺架構: Mc = δns·M_ns + δs·M_s
+    // ⚠ 簡化處理：本工具未分離 sway / non-sway 彎矩，採 Mc = δns·δs·Mu 乘積法保守估算
     const swayMul = (swayMode && isFinite(deltaS)) ? deltaS : 1;
     const Mc  = isFinite(deltaNS)   ? Mux * deltaNS   * swayMul : Infinity;
     const Mcy = isFinite(deltaNS_y) ? Muy * deltaNS_y * swayMul : Infinity;
@@ -1360,7 +1367,9 @@
         }
         // (b) PM NG → 嘗試加筋 (+4，對稱)
         const nextNBar = nBar + 4;
-        const nextRhog = (nextNBar * ab) / Ag;
+        // ρg 估算須反映 corner/face 不同號數的實際鋼筋面積
+        const nextAst = 4 * cornerAb + Math.max(0, nextNBar - 4) * faceAb;
+        const nextRhog = nextAst / Ag;
         if (nextRhog <= rhogMaxLoc) {
           nBar = nextNBar;
           buildLayoutAndPM();
@@ -1470,11 +1479,19 @@
     const phiVc = PHI.shear * Vc_x;
     const phiVc_y = PHI.shear * Vc_y;
     const tieAb = REBAR_TABLE[tieNo].area;
-    const Av_x = legsX * tieAb;
-    const Av_y = legsY * tieAb;
+    // 剪力鋼筋面積：分離外箍 (2 肢) + 繫筋 (各方向獨立號數/間距)
+    const nctX = Math.max(0, legsX - 2);  // X 向繫筋數
+    const nctY = Math.max(0, legsY - 2);  // Y 向繫筋數
+    const Av_x = 2 * tieAb + nctX * crossTieAb;
+    const Av_y = 2 * tieAb + nctY * crossTieAb;
     const Av = Av_x;  // 兼容
-    const Vs = (Av_x * 2800 * d_x) / tieS;
-    const Vs_y = (Av_y * 2800 * d_y) / tieS;
+    // Vs = 外箍貢獻 (2 肢, 間距 tieS) + 繫筋貢獻 (nct 肢, 間距 crossTieS)
+    const Vs_tie_x  = (2 * tieAb * 2800 * d_x) / tieS;
+    const Vs_ct_x   = nctX > 0 ? (nctX * crossTieAb * 2800 * d_x) / crossTieS : 0;
+    const Vs = Vs_tie_x + Vs_ct_x;
+    const Vs_tie_y  = (2 * tieAb * 2800 * d_y) / tieS;
+    const Vs_ct_y   = nctY > 0 ? (nctY * crossTieAb * 2800 * d_y) / crossTieS : 0;
+    const Vs_y = Vs_tie_y + Vs_ct_y;
     const phiVs = PHI.shear * Vs;
     const phiVs_y = PHI.shear * Vs_y;
 
@@ -1576,7 +1593,7 @@
     var okRhog = rhog >= 0.01 && rhog <= rhogMax;
     var pmOk;
     setCheck('c-rhog', okRhog, `${rhog.toFixed(4)} (上限 ${rhogMax})`);
-    const minBars = (colType === 'circle') ? 6 : 4;
+    const minBars = (colType === 'circle' || colType === 'circleTied') ? 6 : 4;
     setCheck('c-nbar', nBar >= minBars, `${nBar} / ${minBars}`);
 
     // 排內最大根數 (位置數) 檢核 (規範 25.7.2.1：clear ≥ max(1.5·db_eq, 4 cm))
@@ -1664,7 +1681,8 @@
     } else {
       setCheck('c-biaxial', null, '單向 (Muy=0)');
     }
-    setCheck('c-shear', (phiVn / 1000) >= (Vu / 1000), `φVn=${(phiVn/1000).toFixed(1)} / Vu=${(Vu/1000).toFixed(1)}`);
+    // 剪力檢核：目前 Vu 為 X 向輸入，僅檢核 X 向 (Y 向剪力需使用者自行對照 φVny)
+    setCheck('c-shear', (phiVn / 1000) >= (Vu / 1000), `φVnx=${(phiVn/1000).toFixed(1)} ≥ Vu=${(Vu/1000).toFixed(1)} (X 向；Y 向請對照 φVny)`);
 
     // === 耐震檢核 ===
     if (seismic) {
@@ -1673,6 +1691,7 @@
       const ratio = Math.min(b, h) / Math.max(b, h);
       const okRatio = ratio >= 0.4;
       // ΣMnc 估算 (簡化：用 φMn @ Pu × 2 (上下))
+      // ⚠ 初步提示：未考慮柱上下端不同軸力、梁方向對應、probable strength 等，僅供快速檢核
       const SMnc = (phiMnAtPu || 0) / phiFactorComp * 2;  // 標稱 (去 φ) × 2 柱端
       const okSCWB = SMnc >= 1.2 * SMnb;
       // ℓo 長度
@@ -1682,7 +1701,7 @@
 
       setCheck('s-minDim', okMinDim, `${minDim} / 30`);
       setCheck('s-ratio', okRatio, `${ratio.toFixed(2)} / 0.4`);
-      setCheck('s-scwb', okSCWB, `ΣMnc≈${SMnc.toFixed(1)} / 1.2ΣMnb=${(1.2*SMnb).toFixed(1)}`);
+      setCheck('s-scwb', okSCWB, `ΣMnc≈${SMnc.toFixed(1)} / 1.2ΣMnb=${(1.2*SMnb).toFixed(1)} (初步提示，需工程師複核)`);
       setResult('s-lo', lo, 'cm', 1);
       setResult('s-tieS', sLimit, 'cm', 1, tieS <= sLimit ? 'ok' : 'fail');
       setCheck('s-rhogSeis', rhog <= 0.06, `${rhog.toFixed(4)}`);
@@ -1692,8 +1711,8 @@
           : (lowAxialCol ? `Pu低 (Ve=${Ve}<0.5Vu, 不需歸零)` : '一般 (Pu高)'));
       // 規範 18.7.5：so 介於 4~15 cm；首支箍筋 ≤ so/2
       const soUpper = Math.min(15, 10 + (35 - Math.min(35, (h - cover - 5))) / 3); // 簡化：以 so≤15 為主
-      setCheck('s-firstHoop', null, '首支距構材接合面 ≤ so/2');
-      setCheck('s-soSpacing', sLimit >= 4 && sLimit <= 15, `so≈${sLimit.toFixed(1)} cm (限 4~15)`);
+      setCheck('s-firstHoop', null, '首支距構材接合面 ≤ so/2 (需工程師人工確認)');
+      setCheck('s-soSpacing', sLimit >= 4 && sLimit <= 15, `so≈${sLimit.toFixed(1)} cm (限 4~15, 需工程師人工確認)`);
       // 規範 18.7.4.3：搭接僅限柱中央 1/2 區域，且須以箍筋圍束
       setCheck('s-lapZone', null, `禁區 0~${lo.toFixed(0)} cm (柱端)；可搭接區 ℓc 中央 1/2`);
       // ℓo 外間距 (規範 18.7.5.5): ≤ min(6db, 15)
@@ -1793,7 +1812,7 @@
         '  • 共 100 個 c 值 + 端點 (Po, 0) + (−Ast·fy, 0) → 共 102 點',
         '  • 對應從純壓 Po 平滑掃到純拉狀態，覆蓋整條 PM 曲線',
         '',
-        '【φ 強度折減】依最外側鋼筋拉應變 εt 線性內插 (規範 21.2.2)',
+        '【φ 強度折減】依最外受拉鋼筋實際位置 dt 計算拉應變 εt (規範 21.2.2)',
         `  • εt ≤ 0.002 → 壓控 φ = ${(colType==='circle'?PHI.compSpiral:PHI.compTied).toFixed(2)}`,
         `  • εt ≥ 0.005 → 拉控 φ = ${PHI.tension.toFixed(2)}`,
         '  • 0.002 < εt < 0.005 → 線性過渡',
@@ -1945,6 +1964,7 @@ ${num('Muy')>0 ? `【4】雙向 Bresler (Muy=${num('Muy').toFixed(2)})
       const sp = $('stepsPMBody'); if (sp) sp.textContent = stepsPMTxt;
 
       // 剪力
+      const _ctSame = (crossTieNo === tieNo && crossTieS === tieS);
       const stepsShearTxt =
 `【1】混凝土剪力 Vc (規範 22.5.6 含軸力)
   Vc = 0.53·(1 + Nu/(140·Ag))·√fc·b·d
@@ -1952,15 +1972,19 @@ ${num('Muy')>0 ? `【4】雙向 Bresler (Muy=${num('Muy').toFixed(2)})
      = ${fmt(Vc_x,0)} kgf = ${fmt(Vc_x/1000,2)} tf
   φVc = 0.75·Vc = ${fmt(phiVc/1000,2)} tf${forceVc0?'  ⚠ 耐震塑鉸區強制 = 0':''}
 
-【2】箍筋剪力 Vs (規範 22.5.10)
-  Av = ${legsX}·${fmt(REBAR_TABLE[tieNo].area,2)} = ${fmt(Av_x,2)} cm² (X 向 ${legsX} 肢)
-  Vs = Av·fyt·d/s = ${fmt(Av_x,2)}·2800·${fmt(d_x,1)}/${tieS} = ${fmt(Vs,0)} kgf = ${fmt(Vs/1000,2)} tf
+【2】鋼筋剪力 Vs (規範 22.5.10) — X 向
+  外箍: 2 肢 × ${fmt(tieAb,2)} cm² = ${fmt(2*tieAb,2)} cm², 間距 s=${tieS} cm
+  繫筋: ${nctX} 肢 × ${fmt(crossTieAb,2)} cm² = ${fmt(nctX*crossTieAb,2)} cm², 間距 s_ct=${crossTieS} cm
+  Vs_tie = 2·${fmt(tieAb,2)}·2800·${fmt(d_x,1)}/${tieS} = ${fmt(Vs_tie_x,0)} kgf
+  ${nctX>0?`Vs_ct  = ${nctX}·${fmt(crossTieAb,2)}·2800·${fmt(d_x,1)}/${crossTieS} = ${fmt(Vs_ct_x,0)} kgf`:'Vs_ct  = 0 (無繫筋)'}
+  Vs = Vs_tie + Vs_ct = ${fmt(Vs,0)} kgf = ${fmt(Vs/1000,2)} tf
   φVs = 0.75·Vs = ${fmt(phiVs/1000,2)} tf
 
-【3】總剪力強度
-  φVn = φVc + φVs = ${fmt(phiVc_eff/1000+phiVs/1000,2)} tf
+【3】總剪力強度 (X 向)
+  φVnx = φVc + φVs = ${fmt(phiVc_eff/1000+phiVs/1000,2)} tf
   Vu = ${fmt(num('Vu'),2)} tf
-  檢核: φVn ≥ Vu → ${(phiVn/1000)>=(Vu/1000)?'✓':'✗'}`;
+  檢核: φVnx ≥ Vu → ${(phiVn/1000)>=(Vu/1000)?'✓':'✗'}
+  (Y 向 φVny = ${fmt(phiVn_y/1000,2)} tf — 需使用者自行比對 Y 向剪力需求)`;
       const ss = $('stepsShearBody'); if (ss) ss.textContent = stepsShearTxt;
 
       // 橫向鋼筋
@@ -2044,7 +2068,8 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
       Po, phiPnMax, phiFactorComp,
       phiMnAtPu, phiPnAtMu, phiMnyAtPu, phiPnAtMuy,
       breslerRatio, breslerMethod, breslerOk,
-      Vc_kgf:Vc, phiVc_kgf:phiVc, Vs_kgf:Vs, phiVn_kgf:phiVn,
+      Vc_kgf:Vc, phiVc_kgf:phiVc, Vs_kgf:Vs, phiVn_kgf:phiVn, phiVn_y_kgf:phiVn_y,
+      nctX, nctY, crossTieAb, crossTieS,
       Ve, forceVc0, lowAxialCol, highEqShear, phiVc_eff,
       d, klr, r, klrLim, isShort, m1m2, betaDns, Cm, Ec, Ig_x, Ig_y, Pc, Pc_y,
       deltaNS, deltaNS_y, Mc, Mcy,
@@ -2063,6 +2088,7 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
     calcColumn();  // 永遠先以最新輸入跑一次計算
     const r = window.colLast;
     const isDesignMode = (currentMode === 'design');
+    const reportDetail = $('showSteps')?.checked;
     const proj = {
       name: $('projName').value.trim(),
       no:   $('projNo').value.trim(),
@@ -2101,7 +2127,20 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
         { label:'Mux', value: r.Mux.toFixed(2), unit:'tf·m' },
         { label:'Muy', value: r.Muy.toFixed(2), unit:'tf·m', },
         { label:'Vu', value: r.Vu_in.toFixed(2), unit:'tf' }
-      ]}
+      ]},
+      ...(() => {
+        const envStored = window.lastLoadCombo && window.lastLoadCombo[lcColCfg.prefix];
+        const envDetail = envStored?.detail;
+        if (!envDetail) return [];
+        const items = [
+          { label:'組合模式', value: envDetail.comboName },
+          { label:'控制 |P|', value: `${envDetail.envelope.P.abs.name} (${Math.abs(envDetail.envelope.P.abs.value).toFixed(2)} tf)` },
+          { label:'控制 |Mx|', value: `${envDetail.envelope.Mx.abs.name} (${Math.abs(envDetail.envelope.Mx.abs.value).toFixed(2)} tf·m)` },
+          { label:'控制 |My|', value: `${envDetail.envelope.My.abs.name} (${Math.abs(envDetail.envelope.My.abs.value).toFixed(2)} tf·m)` },
+        ];
+        if (envDetail.envelope.V) items.push({ label:'控制 |V|', value: `${envDetail.envelope.V.abs.name} (${Math.abs(envDetail.envelope.V.abs.value).toFixed(2)} tf)` });
+        return [{ group:'載重組合包絡摘要', items }];
+      })()
     ];
 
     const checks = [
@@ -2183,15 +2222,19 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
           value: r.breslerRatio!=null ? `${r.breslerRatio.toFixed(3)} ≤ 1` : '—',
           ok: r.breslerRatio!=null ? r.breslerOk : null }
       ]},
-      { group:'剪力檢核', items:[
+      { group:'剪力檢核 (X 向)', items:[
         { label:'φVc (含軸力)',
           formula:'φVc = 0.75·0.53·(1+Nu/(140Ag))·√fc·b·d',
           sub:`= 0.75·0.53·(1+${(r.Pu*1000).toFixed(0)}/(140·${r.Ag.toFixed(0)}))·√${r.fc}·${r.b}·${r.d.toFixed(1)}`,
           value:`${(r.phiVc_kgf/1000).toFixed(2)}`, unit:'tf', ok:null },
-        { label:'φVn ≥ Vu',
-          formula:'φVn = φVc + φVs',
-          sub:`φVs = 0.75·${(r.legs*REBAR_TABLE[r.tieNo].area).toFixed(2)}·2800·${r.d.toFixed(1)}/${r.tieS} = ${(0.75*r.Vs_kgf/1000).toFixed(2)} tf  →  φVn = ${(r.phiVn_kgf/1000).toFixed(2)} tf`,
-          value:`${(r.phiVn_kgf/1000).toFixed(2)} / ${r.Vu_in.toFixed(2)}`, unit:'tf', ok:r.okShear }
+        { label:'φVn ≥ Vu (X 向)',
+          formula:'φVn = φVc + φVs；Vs = 外箍 2 肢 (s=tieS) + 繫筋 nct 肢 (s=crossTieS)',
+          sub:`外箍 Vs_tie = 2·${REBAR_TABLE[r.tieNo].area.toFixed(2)}·2800·${r.d.toFixed(1)}/${r.tieS}；繫筋 Vs_ct = ${r.nctX||0}·${(r.crossTieAb||0).toFixed(2)}·2800·${r.d.toFixed(1)}/${r.crossTieS||r.tieS}  →  φVnx = ${(r.phiVn_kgf/1000).toFixed(2)} tf`,
+          value:`${(r.phiVn_kgf/1000).toFixed(2)} / ${r.Vu_in.toFixed(2)}`, unit:'tf', ok:r.okShear },
+        { label:'φVny (Y 向，供對照)',
+          formula:'同理，legsY 方向',
+          sub:`φVny = ${(r.phiVn_y_kgf/1000).toFixed(2)} tf (Y 向剪力需使用者自行比對)`,
+          value:`${(r.phiVn_y_kgf/1000).toFixed(2)}`, unit:'tf', ok:null }
       ]},
       { group:'設計建議 (反算)', items:[
         { label:'Ast 需求', formula:'純壓+撓曲反算', sub:'', value: r.AstReq.toFixed(2), unit:'cm²', ok:(r.Ast>=r.AstReq) },
@@ -2243,6 +2286,25 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
       if (pmYCv && pmYCv.toDataURL && (r.colType==='rect')) diagrams.push({
         title:'P-M 互制曲線 (繞 Y 軸)',
         dataURL: pmYCv.toDataURL('image/png'), width: 360 });
+      const envStored = window.lastLoadCombo && window.lastLoadCombo[lcColCfg.prefix];
+      const envDetail = envStored?.detail;
+      if (envDetail) {
+        [
+          { key:'P', title:'載重包絡線 — 軸力', unit:'tf' },
+          { key:'Mx', title:'載重包絡線 — 強軸彎矩', unit:'tf·m' },
+          { key:'My', title:'載重包絡線 — 弱軸彎矩', unit:'tf·m' },
+          ...(envDetail.envelope.V ? [{ key:'V', title:'載重包絡線 — 剪力', unit:'tf' }] : []),
+        ].forEach(spec => {
+          const cv = document.createElement('canvas');
+          LoadCombo.drawEnvelopeChart(cv, envDetail, spec.key, { width: 700, height: 280 });
+          diagrams.push({
+            title: spec.title,
+            dataURL: cv.toDataURL('image/png'),
+            width: 420,
+            caption: `${envDetail.comboName}；紅點為控制 |值| = ${Math.abs(envDetail.envelope[spec.key].abs.value).toFixed(2)} ${spec.unit} (${envDetail.envelope[spec.key].abs.name})`
+          });
+        });
+      }
     } catch(e) { console.warn('diagram capture failed', e); }
 
     openReport({
@@ -2266,10 +2328,15 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
       ],
       notes:[
         `作業模式：${isDesignMode ? '設計 (依 Pu/Mu 反算配筋)' : '檢核 (使用者自訂配筋與規範比對)'}`,
-        '依據 112 年混凝土結構設計規範',
         '本計算書由 RC 工具箱自動產生，僅供初步設計參考',
-        r.seismic?'已套用特殊抗彎矩構架 (SMRF) 耐震規定':'未套用耐震規定',
-        '圓柱壓力區採封閉解析積分 (規範 22.2 應變相容法)'
+        ...(window.lastLoadCombo && window.lastLoadCombo[lcColCfg.prefix]?.detail
+          ? [`載重組合圖採 ${window.lastLoadCombo[lcColCfg.prefix].detail.comboName} 封包。`]
+          : ['若需載重包絡線，請先使用載重組合產生器套用後再輸出計算書。']),
+        ...(reportDetail ? [
+          '規範依據：112 年混凝土結構設計規範',
+          r.seismic ? '已套用特殊抗彎矩構架 (SMRF) 耐震規定' : '未套用耐震規定',
+          '圓柱壓力區採封閉解析積分 (規範 22.2 應變相容法)'
+        ] : [])
       ]
     });
   }
@@ -2654,7 +2721,18 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
       's-scwb':     '強柱弱梁 ΣMnc ≥ 1.2·ΣMnb (規範 18.7.3.2)'
     });
   }
-  window.addEventListener('load', () => { syncDesignFields(); applyPanel('geom'); attachFormulaTips(); });
+  window.addEventListener('load', () => {
+    // 支援 ?colType=circle|circleTied 自動切換柱型 (由 ForcePicker 帶入)
+    const urlColType = new URLSearchParams(location.search).get('colType');
+    if (urlColType) {
+      const sel = document.getElementById('colType');
+      if (sel && [...sel.options].some(o => o.value === urlColType)) {
+        sel.value = urlColType;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    syncDesignFields(); applyPanel('geom'); attachFormulaTips();
+  });
   // colType / seismicMode 變更 → 重套面板顯隱
   ['colType','seismicMode'].forEach(id => {
     const el = document.getElementById(id);
@@ -2664,5 +2742,7 @@ ${colType==='circle'?`【4】螺箍筋 ρs (規範 25.7.3)
     });
   });
 </script>
+<!-- ForcePicker 接收器 — 自動匯入上游分析之內力 -->
+<script src="../../結構工具箱/core/ui/forces-receive.js"></script>
 </body>
 </html>

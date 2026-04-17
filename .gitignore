@@ -1,17 +1,47 @@
-/.claude/
-/tmp_*.png
-/tmp_ch3_pages/
-/wind_fig_*.png
-/table_p*.png
-/_search_ch4_tables.txt
-/*.bmp
-/*.pdf
-/*.xls
-/結構工具箱/.claude/
-/結構工具箱/tools/.column-testdeps/
-/結構工具箱/tools/.foundation-testdeps/
-/結構工具箱/tools/.slab-testdeps/
-/結構工具箱/tools/package.json
-/結構工具箱/tools/*-regression.test.js
-/結構工具箱/tools/*-regression-cases.json
-/結構工具箱/tools/test-*.ps1
+.claude/
+
+# 暫存檔與圖檔
+_tmp/
+tmp_*.png
+tmp_ch3_pages/
+tmp_fig_tables/
+wind_fig_*.png
+table_p*.png
+_search_ch4_tables.txt
+*.bmp
+
+# 大型參考檔 (PDF / Excel) — 全層不入 repo
+*.pdf
+*.xls
+*.xlsm
+
+# 規範參考資料
+_參考資料/
+基礎/
+耐風設計規範/
+
+# 結構工具箱開發資料
+結構工具箱/.claude/
+結構工具箱/tools/.column-testdeps/
+結構工具箱/tools/.foundation-testdeps/
+結構工具箱/tools/.slab-testdeps/
+結構工具箱/tools/.single-pile-testdeps/
+結構工具箱/tools/package.json
+結構工具箱/tools/*-regression.test.js
+結構工具箱/tools/*-regression-cases.json
+結構工具箱/tools/test-*.ps1
+
+# 鋼筋混凝土開發資料
+鋼筋混凝土/.claude/
+鋼筋混凝土/tools/.column-testdeps/
+鋼筋混凝土/tools/.foundation-testdeps/
+鋼筋混凝土/tools/.slab-testdeps/
+鋼筋混凝土/tools/.single-pile-testdeps/
+鋼筋混凝土/tools/package.json
+鋼筋混凝土/tools/*-regression.test.js
+鋼筋混凝土/tools/*-regression-cases.json
+鋼筋混凝土/tools/test-*.ps1
+鋼筋混凝土/注意事項.txt
+
+# 鋼構接頭工具開發資料
+鋼構工具/*.smoke-test.js

@@ -12,7 +12,7 @@
     if (type === 'bearing')      return Math.max(10, Math.min(lc, lw) / 25);
     if (type === 'nonbearing')   return Math.max(10, Math.min(lc, lw) / 30);
     if (type === 'basement')     return 20;
-    /* shear */                  return Math.max(10, Math.min(lc, lw) / 25);
+    /* shear */                  return Math.max(10, lc / 25, lw / 25);
   };
 
   // === 剪力強度係數 αc (規範 18.10.4.1) ===
@@ -80,11 +80,7 @@
       rholMin = 0.0012;  // 竹節 fy ≥ 4200 且 ≤ #5
       rhotMin = 0.0020;
     }
-    if (needTwoLayer) {
-      rhotMin = Math.max(rhotMin, 0.0025);
-      const adj = 0.0025 + 0.5 * Math.max(0, 2.5 - hwlw) * (rhot - 0.0025);
-      rholMin = Math.max(rholMin, adj);
-    }
+    if (needTwoLayer) rhotMin = Math.max(rhotMin, 0.0025);
     return { rholMin, rhotMin };
   };
 

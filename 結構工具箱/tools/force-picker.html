@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>內力 Picker — 上游分析 → 下游設計</title>
+<link rel="stylesheet" href="../core/style.css">
+<style>
+  .tabs { display:flex; gap:4px; margin-bottom:14px; background:var(--card); padding:6px; border-radius:10px; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+  .tab-btn { flex:1; padding:10px 16px; border:0; background:transparent; color:var(--text-light); font-weight:600; cursor:pointer; border-radius:6px; font-family:inherit; font-size:0.92em; }
+  .tab-btn.active { background:var(--primary); color:#fff; }
+  .pane { display:none; }
+  .pane.active { display:block; }
+
+  table.combo { width:100%; border-collapse:collapse; font-size:0.88em; }
+  table.combo th, table.combo td { padding:6px; text-align:center; border:1px solid var(--border); }
+  table.combo th { background:#f1f5f9; color:var(--primary); font-weight:600; }
+  table.combo td input { width:100%; padding:6px; border:1px solid var(--border); border-radius:5px; font-family:inherit; text-align:right; }
+  table.combo td.label { text-align:left; font-weight:600; padding-left:10px; }
+  table.combo td.out { background:#ecfeff; font-weight:700; color:#155e75; font-family:'Consolas',monospace; }
+  table.combo td.gov { background:#f8fafc; font-size:0.78em; color:var(--text-light); }
+
+  .target-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:14px; }
+  .target-card { padding:14px; border:2px solid var(--border); border-radius:10px; text-align:center; cursor:pointer; transition:all 0.2s; background:var(--card); }
+  .target-card:hover { border-color:var(--primary); transform:translateY(-2px); box-shadow:0 4px 12px rgba(14,116,144,0.15); }
+  .target-card.disabled { opacity:0.5; cursor:not-allowed; pointer-events:none; }
+  .target-card .icon { font-size:1.8em; margin-bottom:6px; color:var(--primary); }
+  .target-card .name { font-weight:700; color:var(--text); margin-bottom:4px; }
+  .target-card .keys { font-size:0.78em; color:var(--text-light); font-family:'Consolas',monospace; }
+
+  .preview { background:#f8fafc; border-radius:10px; padding:14px; font-family:'Consolas',monospace; font-size:0.85em; color:var(--text); margin-top:12px; white-space:pre-wrap; max-height:240px; overflow:auto; border:1px solid var(--border); }
+  .meta-row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px; }
+
+  @media (max-width: 768px) {
+    .meta-row { grid-template-columns: 1fr; }
+    table.combo { font-size: 0.8em; }
+    table.combo td input { width: 80%; padding: 4px; }
+  }
+  @media (max-width: 480px) {
+    .target-grid { grid-template-columns: 1fr; }
+    .target-card { padding: 10px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>內力 Picker</h1>
+  <p>從上游分析工具收集內力,送往下游構件設計工具 (梁 / 柱)</p>
+  <p style="margin-top:4px;"><a class="back" href="../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <h2>① 內力來源</h2>
+    <div class="meta-row">
+      <div class="form-group">
+        <label>來源工具</label>
+        <select id="src">
+          <option>手動輸入</option>
+          <option>連續梁分析</option>
+          <option>struct_dx</option>
+          <option>斷面性質計算</option>
+          <option>其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>工況名稱</label>
+        <input type="text" id="caseName" value="工況-1" placeholder="例: 1F 邊柱 D+L+E">
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-pane="manual">A. 直接輸入因數化內力</button>
+      <button class="tab-btn" data-pane="combo">B. 輸入 D/L/W/E + 自動套用組合</button>
+    </div>
+
+    <!-- ─── A. 直接輸入 ─── -->
+    <div class="pane active" id="pane-manual">
+      <div class="hint" style="margin-bottom:10px;">已經是 P_u / M_u / V_u (因數化) 之內力,可直接輸入。空白欄位會被忽略。</div>
+      <div class="form-row3">
+        <div class="form-group">
+          <label>P 軸力 (tf)　<span class="hint" style="font-style:normal;">壓+ 拉−</span></label>
+          <input type="number" id="m-P" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>Mx 彎矩 (tf·m)</label>
+          <input type="number" id="m-Mx" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>My 彎矩 (tf·m)</label>
+          <input type="number" id="m-My" step="0.1">
+        </div>
+      </div>
+      <div class="form-row3">
+        <div class="form-group">
+          <label>Vx 剪力 (tf)</label>
+          <input type="number" id="m-Vx" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>Vy 剪力 (tf)</label>
+          <input type="number" id="m-Vy" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>T 扭矩 (tf·m)</label>
+          <input type="number" id="m-T" step="0.1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>M 主彎矩 (tf·m) <span class="hint" style="font-style:normal;">(梁用; 留空則取 Mx)</span></label>
+          <input type="number" id="m-M" step="0.1">
+        </div>
+        <div class="form-group">
+          <label>V 主剪力 (tf) <span class="hint" style="font-style:normal;">(梁用; 留空則取 Vx)</span></label>
+          <input type="number" id="m-V" step="0.1">
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── B. 載重組合 ─── -->
+    <div class="pane" id="pane-combo">
+      <div class="hint" style="margin-bottom:10px;">輸入未因數化的 D / L / W / E 各分量,將套用 TW112 規範組合 (10 組,含風力 W) 取封包。</div>
+      <table class="combo">
+        <thead>
+          <tr>
+            <th>力種</th>
+            <th>D 靜載</th>
+            <th>L 活載</th>
+            <th>W 風</th>
+            <th>E 震</th>
+            <th>封包</th>
+            <th>主控組合</th>
+          </tr>
+        </thead>
+        <tbody id="comboBody"></tbody>
+      </table>
+      <button class="btn-secondary" id="btnCalcCombo" style="margin-top:10px;">計算封包</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 預覽 (將送出之 payload)</h2>
+    <div class="preview" id="preview">尚未填入任何力</div>
+  </div>
+
+  <div class="card">
+    <h2>③ 送往下游設計工具</h2>
+    <div class="hint" style="margin-bottom:8px;">點擊目標 → 自動暫存到 localStorage 並開新分頁進入該工具 (URL 加上 <code>?import=1</code>)。
+      目標工具須含 <code>&lt;script src="../core/ui/forces-receive.js"&gt;&lt;/script&gt;</code> 與
+      <code>data-force="M|V|T|P|Mx|My|Vx|Vy"</code> 之輸入欄位才能自動填入。</div>
+    <div class="target-grid" id="targets"></div>
+  </div>
+
+  <div class="card">
+    <h2>關於 ForcePicker</h2>
+    <p style="font-size:0.88em; color:var(--text-light); line-height:1.8;">
+      此模組以 <strong>localStorage</strong> 為媒介,將上游分析結果交付給下游構件設計工具,
+      避免人工抄寫內力造成誤差。模組位於 <code>core/ui/force-picker.js</code>,接收端
+      <code>core/ui/forces-receive.js</code>。各設計工具可在輸入欄位加上
+      <code>data-force="M"</code> 等屬性即可被自動填入。
+    </p>
+    <div class="note">
+      ⚠ 既有 <code>鋼筋混凝土/</code> 資料夾之 beam.html / column.html 尚未加入接收器,
+      點擊「送往梁/柱」會跳轉並寫入 localStorage,但不會自動填入欄位。
+      待加入 <code>data-force</code> 屬性與 <code>&lt;script&gt;</code> 後即可使用。
+    </div>
+  </div>
+
+</div>
+
+<script src="../core/loads/loadcombo.js"></script>
+<script src="../core/ui/force-picker.js"></script>
+<script>
+// ─── Tabs ───
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('pane-' + btn.dataset.pane).classList.add('active');
+    refreshPreview();
+  });
+});
+
+// ─── B. 載重組合 — 用 LoadCombo 模組產生 ───
+const COMBO_FORCES = [
+  { key: 'P',  label: '軸力 P',  unit: 'tf'   },
+  { key: 'Mx', label: '彎矩 Mx', unit: 'tf·m' },
+  { key: 'My', label: '彎矩 My', unit: 'tf·m' },
+  { key: 'Vx', label: '剪力 Vx', unit: 'tf'   },
+  { key: 'Vy', label: '剪力 Vy', unit: 'tf'   },
+  { key: 'T',  label: '扭矩 T',  unit: 'tf·m' },
+];
+document.getElementById('comboBody').innerHTML = COMBO_FORCES.map(f => `
+  <tr>
+    <td class="label">${f.label}</td>
+    <td><input type="number" id="lc_${f.key}_D" value="0" step="0.1"></td>
+    <td><input type="number" id="lc_${f.key}_L" value="0" step="0.1"></td>
+    <td><input type="number" id="lc_${f.key}_W" value="0" step="0.1"></td>
+    <td><input type="number" id="lc_${f.key}_E" value="0" step="0.1"></td>
+    <td class="out" id="lc_${f.key}_out">—</td>
+    <td class="gov" id="lc_${f.key}_gov">—</td>
+  </tr>
+`).join('');
+
+const lcCfg = { prefix: 'lc', forces: COMBO_FORCES };
+
+document.getElementById('btnCalcCombo').addEventListener('click', () => {
+  const env = LoadCombo.compute(lcCfg);
+  for (const f of COMBO_FORCES) {
+    const r = env[f.key];
+    document.getElementById(`lc_${f.key}_out`).textContent = r.value.toFixed(2);
+    document.getElementById(`lc_${f.key}_gov`).textContent = r.governing || '—';
+  }
+  refreshPreview();
+});
+
+// ─── 收集當前模式之 forces ───
+function collectForces() {
+  const activePane = document.querySelector('.pane.active').id;
+  const forces = {};
+  let factored = false;
+
+  if (activePane === 'pane-manual') {
+    factored = true;
+    ['P','Mx','My','Vx','Vy','M','V','T'].forEach(k => {
+      const v = parseFloat(document.getElementById('m-' + k).value);
+      if (isFinite(v)) forces[k] = v;
+    });
+    // 梁 alias: M / V 留空時取 Mx / Vx
+    if (forces.M == null && forces.Mx != null) forces.M = forces.Mx;
+    if (forces.V == null && forces.Vx != null) forces.V = forces.Vx;
+  } else {
+    factored = true;  // 載重組合輸出本來就是因數化
+    const env = LoadCombo.compute(lcCfg);
+    for (const k of Object.keys(env)) {
+      const v = env[k].abs;     // 取絕對值封包
+      if (v !== 0) forces[k] = +v.toFixed(3);
+    }
+    if (forces.Mx != null) forces.M = forces.Mx;
+    if (forces.Vx != null) forces.V = forces.Vx;
+  }
+  return { forces, factored };
+}
+
+// ─── 預覽 ───
+function refreshPreview() {
+  const { forces, factored } = collectForces();
+  const meta = {
+    source:   document.getElementById('src').value,
+    caseName: document.getElementById('caseName').value,
+    factored,
+  };
+  const payload = { meta, forces };
+  document.getElementById('preview').textContent = JSON.stringify(payload, null, 2);
+  return payload;
+}
+
+document.querySelectorAll('input, select').forEach(el => {
+  el.addEventListener('input', refreshPreview);
+  el.addEventListener('change', refreshPreview);
+});
+
+// ─── 目標卡片 ───
+const targetGrid = document.getElementById('targets');
+const TARGETS = [
+  { key: 'beam',        icon: '▭', name: '梁設計 (beam.html)',         disabled: false },
+  { key: 'column-rect', icon: '▮', name: '矩形柱設計 (column.html)',   disabled: false },
+  { key: 'column-circ', icon: '⬤', name: '圓形柱設計 (尚未實作)',     disabled: true  },
+];
+TARGETS.forEach(t => {
+  const keys = ForcePicker.TARGET_KEYS[t.key].join(', ');
+  const card = document.createElement('div');
+  card.className = 'target-card' + (t.disabled ? ' disabled' : '');
+  card.innerHTML = `
+    <div class="icon">${t.icon}</div>
+    <div class="name">${t.name}</div>
+    <div class="keys">需要: ${keys}</div>
+  `;
+  if (!t.disabled) {
+    card.addEventListener('click', () => {
+      const payload = refreshPreview();
+      const filtered = ForcePicker.filterForTarget(payload.forces, t.key);
+      if (Object.keys(filtered).length === 0) {
+        alert(`目前沒有 ${t.name} 需要的內力 (${keys})`);
+        return;
+      }
+      ForcePicker.sendTo(t.key, { ...payload, forces: filtered });
+    });
+  }
+  targetGrid.appendChild(card);
+});
+
+refreshPreview();
+</script>
+</body>
+</html>

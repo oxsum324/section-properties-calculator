@@ -135,6 +135,7 @@
 </head>
 <body>
 <header>
+  <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
   <h1>連續梁分析工具</h1>
   <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線</p>
 </header>
@@ -188,6 +189,10 @@
       <div id="sectionSelectGroup" style="display:none;">
         <button class="link-btn" onclick="openSectionTool()">開啟斷面性質工具</button>
       </div>
+    </div>
+    <div id="pickedSectionPanel" style="display:none; margin-top:10px; padding:10px 14px; background:#ecfeff; border:1px solid #67e8f9; border-left:4px solid #0891b2; border-radius:6px; font-size:0.88em; color:#155e75;">
+      <strong>已選定斷面：</strong><span id="pickedSectionText">—</span>
+      <button class="link-btn" style="margin-left:10px; font-size:0.85em;" onclick="clearPickedSection()">✕ 清除</button>
     </div>
   </div>
 
@@ -253,6 +258,7 @@
         <div style="display:flex;gap:6px;">
           <button class="btn btn-accent btn-sm" onclick="exportJPG()">JPG</button>
           <button class="btn btn-danger btn-sm" onclick="exportPDF()">PDF</button>
+          <span id="designBtns"></span>
         </div>
       </div>
       <h3 style="margin-top:0;">支承反力</h3>
@@ -370,6 +376,7 @@ function onMatChange() {
     fcGroup.style.display = 'none';
     eInput.readOnly = false; eInput.style.background = '';
   }
+  renderDesignBtns();
 }
 
 function calcEc() {
@@ -401,6 +408,28 @@ function openSectionTool() {
   _sectionWin = window.open('index.html?pickI=1', 'sectionTool', 'width=1280,height=820');
 }
 
+// 已選定斷面 (來自斷面性質工具) — 持久保留以便傳遞至下游 RC 設計工具
+let pickedSection = null;  // { shape, b, h, D, title, Ix_cm4 }
+
+function renderPickedSection() {
+  const panel = document.getElementById('pickedSectionPanel');
+  const txt   = document.getElementById('pickedSectionText');
+  if (!panel || !txt) return;
+  if (!pickedSection) { panel.style.display = 'none'; return; }
+  const s = pickedSection;
+  let dim = '';
+  if (s.shape === 'rect' && s.b && s.h)      dim = `矩形 b=${s.b} cm, h=${s.h} cm`;
+  else if (s.shape === 'circle' && s.D)      dim = `圓形 D=${s.D} cm`;
+  else                                        dim = s.title || '其他斷面';
+  txt.innerHTML = `${dim}　｜　Ix = ${s.Ix_cm4.toLocaleString()} cm⁴` + (s.title ? `　｜　${s.title}` : '');
+  panel.style.display = 'block';
+}
+
+function clearPickedSection() {
+  pickedSection = null;
+  renderPickedSection();
+}
+
 // 接收來自斷面性質工具回傳的 I 值
 window.addEventListener('message', (ev) => {
   const d = ev.data;
@@ -415,15 +444,16 @@ window.addEventListener('message', (ev) => {
   if (iMode) { iMode.value = 'direct'; onIModeChange(); }
   const gi = document.getElementById('globalI');
   if (gi) { gi.value = Iout; }
-  // 提示
-  const label = d.title ? `（${d.title}）` : '';
-  const note = document.getElementById('errorMsg');
-  if (note) {
-    note.style.display = 'block';
-    note.style.background = '#dcfce7'; note.style.color = '#166534'; note.style.borderColor = '#86efac';
-    note.textContent = `已導入斷面 I = ${Iout} ${getUnit().I}${label}`;
-    setTimeout(() => { note.style.display='none'; note.style.background=''; note.style.color=''; note.style.borderColor=''; }, 4000);
-  }
+  // 持久保存斷面資訊 (含原始 cm 尺寸) — 供 → 梁/柱設計 按鈕使用
+  pickedSection = {
+    shape:   d.section?.shape || 'other',
+    b:       d.section?.b ?? null,
+    h:       d.section?.h ?? null,
+    D:       d.section?.D ?? null,
+    title:   d.title || '',
+    Ix_cm4:  d.Ix_cm4,
+  };
+  renderPickedSection();
 });
 
 // ==================== DATA MODEL ====================
@@ -1288,7 +1318,122 @@ function runAnalysis() {
   } else { document.getElementById('ilCard').style.display='none'; }
 
   showResults(solution, diagrams);
+  renderDesignBtns();
 }
+
+// ==================== 傳送至設計工具 (依材料分流) ====================
+
+// 路由表：材料 → { beam / column } → { url, label, color, target }
+const DESIGN_ROUTES = {
+  concrete: {
+    beam:       { url: '鋼筋混凝土/tools/beam.html?import=1',                     label: '→ RC 梁設計',        color: '#0f766e', target: 'beam' },
+    columnRect: { url: '鋼筋混凝土/tools/column.html?import=1',                   label: '→ RC 矩形柱',       color: '#7c3aed', target: 'column-rect' },
+    columnCirc: { url: '鋼筋混凝土/tools/column.html?import=1&colType=circle',    label: '→ RC 圓柱',         color: '#6d28d9', target: 'column-circ' },
+  },
+  steel: {
+    beam:   { url: '結構工具箱/tools/steel-beam.html?import=1', label: '→ 鋼梁設計', color: '#2563eb', target: 'steel-beam' },
+    column: { url: '結構工具箱/tools/steel-column.html?import=1', label: '→ 鋼柱設計', color: '#7c3aed', target: 'steel-column' },
+  },
+};
+
+// 取得目前材料類型
+function _currentMatType() {
+  const v = document.getElementById('matSelect')?.value;
+  if (v === 'concrete') return 'concrete';
+  if (v === 'steel')    return 'steel';
+  return 'custom';  // 自訂 → 不顯示設計按鈕
+}
+
+// 動態渲染設計按鈕 (在分析結果區)
+function renderDesignBtns() {
+  const wrap = document.getElementById('designBtns');
+  if (!wrap) return;
+  const mat = _currentMatType();
+  const routes = DESIGN_ROUTES[mat];
+  if (!routes) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = Object.entries(routes).map(([, r]) => {
+    const disabled = !r.url;
+    return `<button class="btn btn-sm" style="background:${r.color};color:#fff;${disabled ? 'opacity:0.5;cursor:not-allowed;' : ''}"
+      onclick="${disabled ? 'return' : `dispatchDesign('${r.target}')`}"
+      title="${r.label}">${r.label}</button>`;
+  }).join(' ');
+}
+
+// 計算當前分析結果之主控內力 (tf, tf·m, cm)
+function _envelopeForDesign() {
+  if (!diagrams) return null;
+  let MposMax = 0, MnegMax = 0, VabsMax = 0, LmaxSpan = 0;
+  for (const sp of diagrams.spans) {
+    for (const m of sp.ms) { if (m > MposMax) MposMax = m; if (m < -MnegMax) MnegMax = -m; }
+    for (const v of sp.vs) { const av = Math.abs(v); if (av > VabsMax) VabsMax = av; }
+    if (sp.L > LmaxSpan) LmaxSpan = sp.L;
+  }
+  const uk = getUnitKey();
+  let Mpos = MposMax, Mneg = MnegMax, V = VabsMax, Lcm = LmaxSpan * 100;
+  if (uk === 'kN-m')        { Mpos /= 9.80665; Mneg /= 9.80665; V /= 9.80665; }
+  else if (uk === 'kgf-cm') { Mpos /= 1e5;     Mneg /= 1e5;     V /= 1000;     Lcm = LmaxSpan; }
+  return {
+    Mpos: +Mpos.toFixed(3),
+    Mneg: +Mneg.toFixed(3),
+    M:    +Math.max(Mpos, Mneg).toFixed(3),
+    V:    +V.toFixed(3),
+    Lcm:  Math.round(Lcm),
+  };
+}
+
+// 收集當前 fc'/fy 與已選定斷面
+function _materialAndSection() {
+  const fc  = parseFloat(document.getElementById('fcVal')?.value);
+  const mat = { fc: isFinite(fc) ? fc : null, fy: 4200 };
+  let section = null;
+  if (pickedSection) {
+    section = {
+      shape: pickedSection.shape,
+      b: pickedSection.b,
+      h: pickedSection.h,
+      D: pickedSection.D,
+      title: pickedSection.title,
+    };
+  }
+  return { material: mat, section };
+}
+
+// 統一派送 (ForcePicker.stash + window.open)
+function dispatchDesign(target) {
+  if (!diagrams) { showError('請先執行分析'); return; }
+  if (typeof ForcePicker === 'undefined') {
+    alert('找不到 ForcePicker 模組'); return;
+  }
+  // 找路由
+  const mat = _currentMatType();
+  const routes = DESIGN_ROUTES[mat];
+  const route = routes && Object.values(routes).find(r => r.target === target);
+  if (!route || !route.url) {
+    alert(`${route?.label || target}　尚未實作`); return;
+  }
+  const env = _envelopeForDesign();
+  const { material, section } = _materialAndSection();
+  const isBeam = target.includes('beam');
+  const forces = isBeam
+    ? { M: env.Mpos, MNeg: env.Mneg, V: env.V }
+    : { P: 0, Mx: env.M, Vx: env.V };
+  ForcePicker.sendTo(target, {
+    meta: {
+      source:   '連續梁分析',
+      caseName: `主控組合 (${isBeam ? '梁' : '柱'})`,
+      factored: false,
+    },
+    forces, material, section,
+  }, route.url);   // ← urlOverride: 以本頁為基準的正確相對路徑
+}
+
+// 載入 ForcePicker (位於 結構工具箱/core/ui/) — 動態引入避免硬相依
+(function loadForcePicker() {
+  const s = document.createElement('script');
+  s.src = '結構工具箱/core/ui/force-picker.js';
+  s.onerror = () => console.warn('ForcePicker 未載入：請確認 結構工具箱 資料夾位置');
+  document.head.appendChild(s);
+})();
 
 // ==================== EXPORT ====================
 function exportJPG() {

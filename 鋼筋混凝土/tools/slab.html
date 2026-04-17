@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>板設計 — RC 工具箱</title>
+<title>板設計 — RC 工具箱 V3.0</title>
 <link rel="stylesheet" href="../shared/style.css">
 <style>
   .moment-table { width:100%; border-collapse:collapse; font-size:0.9em; margin-top:8px; }
@@ -23,6 +23,36 @@
                 font-size:0.78em; font-weight:700; margin-left:6px; }
   .ratio-one { background:#fef3c7; color:#a16207; border:1px solid #fcd34d; }
   .ratio-two { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+  .tool-toggle { margin-top:8px; padding:8px 10px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; }
+  .detail-help { display:none; }
+  .show-detail-help .detail-help { display:block; }
+  .advanced-tools { display:none; margin-top:14px; }
+  .advanced-tools.active { display:block; }
+  .advanced-tools summary {
+    cursor:pointer; font-weight:700; color:#1e3a8a; list-style:none;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 12px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
+  }
+  .advanced-tools summary::-webkit-details-marker { display:none; }
+  .advanced-tools details + details { margin-top:10px; }
+  .advanced-body { margin-top:8px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
+  .advanced-grid { display:grid; grid-template-columns:1fr; gap:10px; }
+  .mono-box { width:100%; font-family:Consolas, monospace; font-size:0.82em; }
+  @media (min-width: 900px) {
+    .advanced-grid.two-col { grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width: 768px) {
+    .mode-bar__proj {
+      display:grid !important; grid-template-columns:1fr 1fr; gap:8px; width:100%;
+    }
+    .mode-bar__proj .w-name,
+    .mode-bar__proj .w-des,
+    .mode-bar__proj .mode-bar__report {
+      grid-column:1 / -1;
+    }
+    .mode-bar__hint { display:block; width:100%; margin-top:8px; line-height:1.45; }
+    .tool-toggle { font-size:0.88em; }
+  }
   .future-note { margin-top:14px; padding:10px 14px; background:#f1f5f9;
                   border-left:3px solid #94a3b8; border-radius:4px;
                   font-size:0.82em; color:#64748b; }
@@ -30,8 +60,8 @@
 </head>
 <body>
 <header>
-  <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V1.1</span></h1>
-  <p><a class="back" href="../index.html">← 回工具箱</a> ｜ 兩向跨距、規範 6.5 係數法 + 8.10 直接設計法、自動配筋</p>
+  <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V3.0</span></h1>
+  <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 單向板 + 簡化二向板初步設計、自動配筋</p>
 </header>
 
 <div class="container">
@@ -53,6 +83,34 @@
       </label>
       <button class="mode-bar__report" id="btnReport" type="button">📄 計算書</button>
     </div>
+    <div class="form-row" style="margin-top:10px;">
+      <div class="form-group">
+        <label>內建案例</label>
+        <select id="testCaseSelect">
+          <option value="">請選擇案例</option>
+          <option value="one_basic">單向板基本例</option>
+          <option value="two_basic">雙向有梁板基本例</option>
+          <option value="flat_interior">無梁板內柱初估例</option>
+          <option value="flat_edge_cons">無梁板邊柱保守例</option>
+        </select>
+      </div>
+      <div class="form-group" style="align-self:end;">
+        <button type="button" id="btnApplyCase" class="mode-bar__report">套用案例</button>
+      </div>
+    </div>
+    <div class="tool-toggle">
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
+        <input type="checkbox" id="showDetailHelp">
+        顯示詳細說明與假設
+      </label>
+    </div>
+    <div class="tool-toggle">
+      <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
+        <input type="checkbox" id="showCaseTools">
+        顯示進階案例工具（JSON / 比較 / 基準報告）
+      </label>
+    </div>
+    <div class="hint" id="testCaseHint">可一鍵帶入標準範例，用於自我檢查與改版比對。</div>
   </div>
 
   <div class="main-layout">
@@ -101,34 +159,35 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>短向支承 (Lx 兩端)</label>
+            <label>短向代表跨類型 (Lx)</label>
             <select id="supportX">
-              <option value="simple">簡支</option>
-              <option value="oneEnd">一端連續</option>
-              <option value="bothEnd" selected>兩端連續</option>
+              <option value="simple">簡支代表跨</option>
+              <option value="oneEnd">端跨 (一端外端)</option>
+              <option value="bothEnd" selected>內跨 (兩端連續)</option>
               <option value="cantilever">懸臂</option>
             </select>
           </div>
           <div class="form-group">
-            <label>長向支承 (Ly 兩端)</label>
+            <label>長向代表跨類型 (Ly)</label>
             <select id="supportY">
-              <option value="simple">簡支</option>
-              <option value="oneEnd">一端連續</option>
-              <option value="bothEnd" selected>兩端連續</option>
+              <option value="simple">簡支代表跨</option>
+              <option value="oneEnd">端跨 (一端外端)</option>
+              <option value="bothEnd" selected>內跨 (兩端連續)</option>
               <option value="cantilever">懸臂</option>
             </select>
           </div>
         </div>
+        <p class="hint detail-help">連續板係數法請以「代表跨」理解；端跨與內跨應分別選擇，且相鄰跨距與載重差異不宜過大。</p>
         <div class="form-row">
           <div class="form-group">
             <label>支承寬度 c (cm)</label>
             <input type="number" id="supW" value="30" step="1">
-            <span class="hint" style="font-size:0.78em;">梁寬或柱寬，用以推算淨跨 ℓn = L − c</span>
+            <span class="hint detail-help" style="font-size:0.78em;">梁寬或柱寬，用以推算淨跨 ℓn = L − c</span>
           </div>
           <div class="form-group" id="alphaFmGroup" style="display:none;">
             <label>α_fm (有梁雙向板)</label>
             <input type="number" id="alphaFm" value="1.0" step="0.1">
-            <span class="hint" style="font-size:0.78em;">四邊梁之撓曲勁度比平均值；無梁=0</span>
+            <span class="hint detail-help" style="font-size:0.78em;">四邊梁之撓曲勁度比平均值；無梁=0</span>
           </div>
           <div class="form-group" id="panelPosGroup" style="display:none;">
             <label>無梁版位置</label>
@@ -153,9 +212,9 @@
         <div class="load-mode-panel active" data-load="simple">
           <div class="form-group">
             <label>因數化均佈載重 wu (tf/m²)</label>
-            <input type="number" id="wuDirect" value="1.20" step="0.05">
+            <input type="number" id="wuManual" value="1.20" step="0.05">
           </div>
-          <p class="hint">直接輸入已因數化的設計載重，跳過載重組合計算。</p>
+          <p class="hint detail-help">直接輸入已因數化的設計載重，跳過載重組合計算。</p>
         </div>
 
         <div class="load-mode-panel" data-load="dlll">
@@ -188,14 +247,24 @@
 
         <div class="load-mode-panel" data-load="combo">
           <div id="lcSlabPanel"></div>
-          <p class="hint">由完整載重組合產生器計算 wu，套用至下方分析。</p>
+          <div class="form-group" style="margin-top:10px;">
+            <label>組合結果 wu_combo (tf/m²)</label>
+            <input type="number" id="wuCombo" value="1.20" step="0.05" readonly>
+          </div>
+          <p class="hint detail-help">由完整載重組合產生器計算 wu，套用至下方分析。</p>
         </div>
+        <div class="hint" id="wuSourceSummary">分析採用 wu_used = —</div>
       </div>
 
       <!-- C. 分析方法 -->
       <div class="card">
         <h2>C. 分析方法 <span class="hint" style="margin-left:auto; font-style:normal;" id="analysisName">—</span></h2>
-        <p class="hint" id="analysisDesc">—</p>
+        <p class="hint detail-help" id="analysisDesc">—</p>
+        <div id="supportModelHint" class="detail-help" style="margin-top:8px; padding:8px 10px; background:#f8fafc; border:1px solid #dbe4ee; border-radius:6px;">
+          <div style="font-weight:700; color:#1a3d5c; margin-bottom:4px;">代表跨模型示意</div>
+          <div id="supportModelText" class="hint" style="margin-bottom:8px;">—</div>
+          <div id="supportModelSketch" style="overflow-x:auto;"></div>
+        </div>
       </div>
 
       <!-- D. 撓曲鋼筋 -->
@@ -254,7 +323,8 @@
           </div>
         </div>
 
-        <p class="hint">短向筋置於外層 (有效深較大)；長向筋置於內層。薄板單層時同一組鋼筋於 +M 區位於底、−M 區位於頂 (彎起／截斷)。</p>
+        <p class="hint detail-help">短向筋置於外層 (有效深較大)；長向筋置於內層。薄板單層時同一組鋼筋於 +M 區位於底、−M 區位於頂 (彎起／截斷)。</p>
+        <p class="hint detail-help">「單層 / 雙層」為工具預設配置策略，非規範強制判定；實際仍應依施工性、保護層、發展長度與負筋配置另行調整。</p>
       </div>
 
       <!-- E. 雙向衝剪 -->
@@ -272,7 +342,14 @@
             <option value="corner">角柱 (αs=20)</option>
           </select>
         </div>
-        <p class="hint">柱反力 Vu 由 wu × (Lx·Ly − 衝剪臨界面) 自動估算。</p>
+        <div class="form-group">
+          <label>衝剪需求模式</label>
+          <select id="punchMode">
+            <option value="prelim" selected>初估模式</option>
+            <option value="conservative">保守放大模式</option>
+          </select>
+        </div>
+        <p class="hint detail-help" id="punchModeHint">柱反力 Vu 由 tributary area 自動估算。保守放大模式會依柱位加乘需求剪力，但仍未納入不平衡彎矩正式分布。</p>
       </div>
 
     </div>
@@ -329,7 +406,8 @@
 
       <!-- 5. 剪力 -->
       <div class="card">
-        <h2>5. 剪力檢核</h2>
+        <h2 id="shearTitle">5. 剪力與衝剪</h2>
+        <p class="hint detail-help" id="shearDesc">—</p>
         <div class="results-grid">
           <div class="result-item" id="r-VuX"><span class="label">短向 Vu</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
           <div class="result-item" id="r-VuY"><span class="label">長向 Vu</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
@@ -358,30 +436,92 @@
           <div class="result-item" id="c-clXTop"><span class="label">頂層 短向 淨距 ≥ max(db, 2.5)</span><span class="value">—</span></div>
           <div class="result-item" id="c-clYTop"><span class="label">頂層 長向 淨距 ≥ max(db, 2.5)</span><span class="value">—</span></div>
         </div>
-        <p class="hint">淨距下限依規範 25.2.1：平行鋼筋之淨間距 ≥ db 且 ≥ 25 mm。</p>
+        <p class="hint detail-help">淨距下限依規範 25.2.1：平行鋼筋之淨間距 ≥ db 且 ≥ 25 mm。</p>
       </div>
 
       <!-- 7. 斷面配筋示意 -->
       <div class="card">
         <h2>7. 斷面配筋示意</h2>
         <div id="sectionSVG" style="overflow-x:auto;"></div>
-        <p class="hint">示意圖以 1 m 寬條帶斷面繪製；短向(X)筋為外層、長向(Y)筋為內層。</p>
+        <p class="hint detail-help">示意圖以 1 m 寬條帶斷面繪製；短向(X)筋為外層、長向(Y)筋為內層。</p>
       </div>
 
     </div>
   </div>
 
-  <div class="future-note">
-    📌 <b>未來擴充計畫</b>：等值構架法 (EFM, 規範 8.11) — 適用於不規則柱距、邊界條件複雜的雙向版分析；以及 column strip / middle strip 細分配 (規範 8.4.4)。本工具目前以 6.5 連續板係數法 + 8.10 直接設計法為主，採整跨平均彎矩之設計策略。
+  <div class="card advanced-tools" id="advancedCaseCard">
+    <h2>案例延伸工具</h2>
+    <p class="hint">主要計算區先保持簡潔；分享、比較或鎖版時，再到這個區塊展開進階工具即可。</p>
+
+    <details open>
+      <summary>案例 JSON 匯出 / 匯入</summary>
+      <div class="advanced-body">
+        <div class="form-row" style="margin-top:0;">
+          <div class="form-group" style="align-self:end;">
+            <button type="button" id="btnExportCase" class="mode-bar__report">匯出目前設定 JSON</button>
+          </div>
+          <div class="form-group" style="align-self:end;">
+            <button type="button" id="btnImportCase" class="mode-bar__report">匯入 JSON</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label>案例 JSON</label>
+          <textarea id="caseJson" class="mono-box" rows="6" placeholder="可貼上匯出的案例 JSON，按「匯入 JSON」即可還原設定。"></textarea>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>案例比較</summary>
+      <div class="advanced-body">
+        <div class="form-row" style="margin-top:0;">
+          <div class="form-group" style="align-self:end;">
+            <button type="button" id="btnCompareCase" class="mode-bar__report">比較兩組 JSON</button>
+          </div>
+        </div>
+        <div class="advanced-grid two-col">
+          <div class="hint">案例 A 直接使用上方「案例 JSON」欄位內容；若要比較，請在右側貼上案例 B。</div>
+          <div class="form-group" style="margin-top:0;">
+            <label>案例 B JSON</label>
+            <textarea id="compareCaseJson" class="mono-box" rows="6" placeholder="貼上另一組案例 JSON，按「比較兩組 JSON」查看差異。"></textarea>
+          </div>
+        </div>
+        <div id="caseCompareResult" class="hint" style="white-space:pre-wrap; line-height:1.5; margin-top:8px;">尚未比較案例。</div>
+      </div>
+    </details>
+
+    <details>
+      <summary>基準報告</summary>
+      <div class="advanced-body">
+        <div class="form-row" style="margin-top:0;">
+          <div class="form-group" style="align-self:end;">
+            <button type="button" id="btnExportBaseline" class="mode-bar__report">輸出基準報告</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label>基準報告</label>
+          <textarea id="baselineReport" class="mono-box" rows="10" placeholder="按「輸出基準報告」後，這裡會產生可保存的文字基準。"></textarea>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="future-note detail-help">
+    📌 <b>未來擴充計畫</b>：等值構架法 (EFM, 規範 8.11) — 適用於不規則柱距、邊界條件複雜的雙向板分析；以及 column strip / middle strip 細分配 (規範 8.4.4)。本工具目前以單向板係數法與簡化二向條帶法為主，供初步配置與方案比較使用，尚非完整 DDM / EFM 規範檢核流程。
   </div>
 </div>
 
-<script src="../shared/common.js?v=2"></script>
+<!-- core 單一來源 (材料 + 工具函式 + tooltip) -->
+<script src="../../結構工具箱/core/materials/concrete.js"></script>
+<script src="../../結構工具箱/core/materials/rebar.js"></script>
+<script src="../../結構工具箱/core/utils/common.js"></script>
+<script src="../../結構工具箱/core/ui/formulas.js"></script>
+<!-- RC 相容層 + 專用模組 -->
+<script src="../shared/common.js?v=3"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/report.js?v=3"></script>
-<script src="../shared/loadcombo.js?v=1"></script>
+<script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
-<script src="../shared/formulas.js?v=1"></script>
 <script>
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id)?.value) || 0;
@@ -406,6 +546,255 @@
   }
   function markAllResultsPending() {
     document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+  }
+  function setLoadMode(mode) {
+    loadMode = mode;
+    document.querySelectorAll('.load-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.load === loadMode));
+    document.querySelectorAll('.load-mode-panel').forEach(p => p.classList.toggle('active', p.dataset.load === loadMode));
+  }
+  function syncDetailHelp() {
+    document.body.classList.toggle('show-detail-help', !!$('showDetailHelp')?.checked);
+  }
+  function syncAdvancedCaseTools() {
+    const panel = $('advancedCaseCard');
+    if (panel) panel.classList.toggle('active', !!$('showCaseTools')?.checked);
+  }
+  const SLAB_TEST_CASES = {
+    one_basic: {
+      label: '單向板基本例',
+      mode: 'simple',
+      values: {
+        slabType:'one', Lx:300, Ly:650, h:12, cover:2, fc:280, fy:4200, fyT:'4200',
+        supportX:'bothEnd', supportY:'simple', supW:25, wuManual:1.15,
+        layerMode:'auto', barNoXBot:'#4', barNoYBot:'#3'
+      },
+      note: '單向板基本例：檢查單向撓曲、剪力與溫度筋配置。'
+    },
+    two_basic: {
+      label: '雙向有梁板基本例',
+      mode: 'dlll',
+      values: {
+        slabType:'two', Lx:350, Ly:500, h:15, cover:2, fc:280, fy:2800, fyT:'2800',
+        supportX:'bothEnd', supportY:'bothEnd', supW:30, alphaFm:1.0,
+        dlSDL:0.15, llVal:0.30, layerMode:'auto', barNoXBot:'#4', barNoYBot:'#4'
+      },
+      note: '雙向有梁板基本例：檢查簡化二向條帶分配與代表跨說明。'
+    },
+    flat_interior: {
+      label: '無梁板內柱初估例',
+      mode: 'combo',
+      values: {
+        slabType:'flat', Lx:650, Ly:650, h:22, cover:2.5, fc:350, fy:4200, fyT:'4200',
+        supportX:'bothEnd', supportY:'bothEnd', supW:55, panelPos:'interior',
+        c1:55, c2:55, colPos:'interior', punchMode:'prelim', wuCombo:1.85,
+        layerMode:'thick', barNoXBot:'#5', barNoYBot:'#5', barNoXTop:'#5', barNoYTop:'#5'
+      },
+      note: '無梁板內柱初估例：觀察平版初估與衝剪初估結果。'
+    },
+    flat_edge_cons: {
+      label: '無梁板邊柱保守例',
+      mode: 'combo',
+      values: {
+        slabType:'flat', Lx:600, Ly:750, h:24, cover:2.5, fc:350, fy:4200, fyT:'4200',
+        supportX:'oneEnd', supportY:'bothEnd', supW:55, panelPos:'extNoBeam',
+        c1:50, c2:70, colPos:'edge', punchMode:'conservative', wuCombo:1.95,
+        layerMode:'thick', barNoXBot:'#5', barNoYBot:'#5', barNoXTop:'#5', barNoYTop:'#5'
+      },
+      note: '無梁板邊柱保守例：觀察保守放大模式與邊柱警語。'
+    }
+  };
+  function applySlabTestCase(caseKey) {
+    const tc = SLAB_TEST_CASES[caseKey];
+    if (!tc) return;
+    Object.entries(tc.values).forEach(([id, value]) => {
+      const el = $(id);
+      if (!el) return;
+      el.value = String(value);
+    });
+    if ($('autoSelfWt')) $('autoSelfWt').checked = true;
+    if ($('rigorousDL')) $('rigorousDL').checked = false;
+    setLoadMode(tc.mode);
+    updateSelfWt();
+    updatePunchModeHint();
+    $('testCaseHint').textContent = `已套用：${tc.label}。${tc.note}`;
+    scheduleCalc();
+  }
+  function collectSlabCasePayload() {
+    const snap = window.slabLast || {};
+    return {
+      schema: 'slab-case-v1',
+      exportedAt: new Date().toISOString(),
+      label: $('testCaseSelect')?.value ? (SLAB_TEST_CASES[$('testCaseSelect').value]?.label || '自訂案例') : '自訂案例',
+      mode: loadMode,
+      values: {
+        slabType: $('slabType').value,
+        Lx: num('Lx'), Ly: num('Ly'), h: num('h'), cover: num('cover'),
+        fc: num('fc'), fy: num('fy'), fyT: $('fyT').value,
+        supportX: $('supportX').value, supportY: $('supportY').value,
+        supW: num('supW'), alphaFm: num('alphaFm'), panelPos: $('panelPos').value,
+        wuManual: num('wuManual'), dlSDL: num('dlSDL'), llVal: num('llVal'), wuCombo: num('wuCombo'),
+        layerMode: $('layerMode').value,
+        barNoXBot: $('barNoXBot').value, barNoYBot: $('barNoYBot').value,
+        barNoXTop: $('barNoXTop').value, barNoYTop: $('barNoYTop').value,
+        c1: num('c1'), c2: num('c2'), colPos: $('colPos').value, punchMode: $('punchMode').value
+      },
+      snapshot: {
+        stype: snap.stype || $('slabType').value,
+        wu: snap.wu ?? null,
+        wuSource: snap.wuSource || loadMode,
+        hmin: snap.hmin ?? null,
+        VuX: snap.VuX ?? null,
+        VuY: snap.VuY ?? null,
+        phiVc1: snap.phiVc1 ?? null,
+        punchVu: snap.punchData?.VuPunch ?? null,
+        punchPhiVc: snap.punchData?.phiVc2 ?? null,
+        punchAmp: snap.punchData?.punchAmp ?? 1,
+        methodLabel: snap.methodLabel || '',
+        allOk: snap.allOk ?? null
+      }
+    };
+  }
+  function exportCurrentSlabCase() {
+    const payload = collectSlabCasePayload();
+    $('caseJson').value = JSON.stringify(payload, null, 2);
+    $('testCaseHint').textContent = '已將目前設定匯出為 JSON，可直接保存或分享。';
+  }
+  function importSlabCaseFromJson() {
+    const raw = $('caseJson').value.trim();
+    if (!raw) {
+      $('testCaseHint').textContent = '匯入失敗：請先貼上案例 JSON。';
+      return;
+    }
+    try {
+      const data = JSON.parse(raw);
+      if (data.schema !== 'slab-case-v1' || !data.values) throw new Error('schema mismatch');
+      Object.entries(data.values).forEach(([id, value]) => {
+        const el = $(id);
+        if (!el || value === undefined || value === null || value === '') return;
+        el.value = String(value);
+      });
+      if (data.mode) setLoadMode(data.mode);
+      updateSelfWt();
+      updatePunchModeHint();
+      $('testCaseSelect').value = '';
+      $('testCaseHint').textContent = `已匯入 JSON 案例：${data.label || '自訂案例'}。`;
+      scheduleCalc();
+    } catch (err) {
+      $('testCaseHint').textContent = '匯入失敗：JSON 格式錯誤或版本不相容。';
+    }
+  }
+  function fmtCaseVal(v) {
+    return (typeof v === 'number' && isFinite(v)) ? v.toFixed(3) : String(v ?? '—');
+  }
+  function compareSlabCaseJson() {
+    const leftRaw = $('caseJson').value.trim();
+    const rightRaw = $('compareCaseJson').value.trim();
+    if (!leftRaw || !rightRaw) {
+      $('caseCompareResult').textContent = '比較失敗：請在兩個 JSON 欄位都貼上案例內容。';
+      return;
+    }
+    try {
+      const left = JSON.parse(leftRaw);
+      const right = JSON.parse(rightRaw);
+      if (left.schema !== 'slab-case-v1' || right.schema !== 'slab-case-v1') throw new Error('schema mismatch');
+      const lines = [];
+      lines.push(`案例 A：${left.label || '未命名'}  vs  案例 B：${right.label || '未命名'}`);
+      lines.push('');
+      const inputKeys = [
+        ['板型', 'slabType'],
+        ['Lx', 'Lx'],
+        ['Ly', 'Ly'],
+        ['h', 'h'],
+        ['支承 X', 'supportX'],
+        ['支承 Y', 'supportY'],
+        ['載重模式', null],
+        ['衝剪模式', 'punchMode']
+      ];
+      lines.push('輸入差異:');
+      inputKeys.forEach(([label, key]) => {
+        const a = key ? left.values?.[key] : left.mode;
+        const b = key ? right.values?.[key] : right.mode;
+        if (String(a ?? '') !== String(b ?? '')) lines.push(`- ${label}: A=${a ?? '—'} | B=${b ?? '—'}`);
+      });
+      const metricKeys = [
+        ['wu', 'wu'],
+        ['hmin', 'hmin'],
+        ['VuX', 'VuX'],
+        ['VuY', 'VuY'],
+        ['φVc(1m)', 'phiVc1'],
+        ['衝剪 Vu', 'punchVu'],
+        ['衝剪 φVc', 'punchPhiVc'],
+        ['衝剪放大係數', 'punchAmp']
+      ];
+      lines.push('');
+      lines.push('結果差異:');
+      metricKeys.forEach(([label, key]) => {
+        const a = left.snapshot?.[key];
+        const b = right.snapshot?.[key];
+        if (fmtCaseVal(a) !== fmtCaseVal(b)) lines.push(`- ${label}: A=${fmtCaseVal(a)} | B=${fmtCaseVal(b)}`);
+      });
+      if ((left.snapshot?.methodLabel || '') !== (right.snapshot?.methodLabel || '')) {
+        lines.push(`- 方法: A=${left.snapshot?.methodLabel || '—'} | B=${right.snapshot?.methodLabel || '—'}`);
+      }
+      if ((left.snapshot?.allOk ?? null) !== (right.snapshot?.allOk ?? null)) {
+        lines.push(`- 結論: A=${left.snapshot?.allOk ? 'OK' : 'NG'} | B=${right.snapshot?.allOk ? 'OK' : 'NG'}`);
+      }
+      if (lines.length <= 4) lines.push('- 無顯著差異');
+      $('caseCompareResult').textContent = lines.join('\n');
+    } catch (err) {
+      $('caseCompareResult').textContent = '比較失敗：JSON 格式錯誤、版本不相容，或缺少 snapshot。';
+    }
+  }
+  function buildSlabBaselineReport() {
+    const payload = collectSlabCasePayload();
+    const s = payload.snapshot || {};
+    const lines = [];
+    lines.push('RC Slab Baseline Report');
+    lines.push(`label: ${payload.label || '自訂案例'}`);
+    lines.push(`schema: ${payload.schema}`);
+    lines.push(`exportedAt: ${payload.exportedAt}`);
+    lines.push('');
+    lines.push('[Inputs]');
+    lines.push(`mode = ${payload.mode}`);
+    lines.push(`slabType = ${payload.values.slabType}`);
+    lines.push(`Lx = ${payload.values.Lx} cm`);
+    lines.push(`Ly = ${payload.values.Ly} cm`);
+    lines.push(`h = ${payload.values.h} cm`);
+    lines.push(`supportX = ${payload.values.supportX}`);
+    lines.push(`supportY = ${payload.values.supportY}`);
+    lines.push(`wuManual = ${payload.values.wuManual}`);
+    lines.push(`wuCombo = ${payload.values.wuCombo}`);
+    lines.push(`punchMode = ${payload.values.punchMode}`);
+    lines.push('');
+    lines.push('[Snapshot]');
+    lines.push(`method = ${s.methodLabel || '—'}`);
+    lines.push(`wu = ${fmtCaseVal(s.wu)}`);
+    lines.push(`wuSource = ${s.wuSource || '—'}`);
+    lines.push(`hmin = ${fmtCaseVal(s.hmin)}`);
+    lines.push(`VuX = ${fmtCaseVal(s.VuX)}`);
+    lines.push(`VuY = ${fmtCaseVal(s.VuY)}`);
+    lines.push(`phiVc1 = ${fmtCaseVal(s.phiVc1)}`);
+    lines.push(`punchVu = ${fmtCaseVal(s.punchVu)}`);
+    lines.push(`punchPhiVc = ${fmtCaseVal(s.punchPhiVc)}`);
+    lines.push(`punchAmp = ${fmtCaseVal(s.punchAmp)}`);
+    lines.push(`allOk = ${s.allOk === true ? 'OK' : s.allOk === false ? 'NG' : '—'}`);
+    const compareText = $('caseCompareResult').textContent.trim();
+    if (compareText && compareText !== '尚未比較案例。') {
+      lines.push('');
+      lines.push('[Comparison Snapshot]');
+      lines.push(compareText);
+    }
+    $('baselineReport').value = lines.join('\n');
+    $('testCaseHint').textContent = '已輸出基準報告，可保存作為後續改版比對基準。';
+  }
+  function updatePunchModeHint() {
+    const mode = $('punchMode')?.value || 'prelim';
+    const colPos = $('colPos')?.value || 'interior';
+    const amp = ({ interior:1.15, edge:1.30, corner:1.50 })[colPos] || 1.15;
+    const colName = ({ interior:'內柱', edge:'邊柱', corner:'角柱' })[colPos] || colPos;
+    $('punchModeHint').textContent = mode === 'conservative'
+      ? `目前為保守放大模式：${colName} 採 ${amp.toFixed(2)} 倍 tributary-area 需求剪力作為 Vu；仍未納入 unbalanced moment transfer、活載偏載與不規則柱網之正式分布。`
+      : '目前為初估模式：Vu 直接採 tributary-area 估算，適合作為內柱或規則平版之初步比較；不宜視為正式衝剪檢核。';
   }
 
   // ─── 模式切換 ───────────────────────────────────
@@ -438,10 +827,8 @@
   // ─── 載重模式切換 ───────────────────────────────
   document.querySelectorAll('.load-mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      loadMode = btn.dataset.load;
-      document.querySelectorAll('.load-mode-btn').forEach(b => b.classList.toggle('active', b === btn));
-      document.querySelectorAll('.load-mode-panel').forEach(p => p.classList.toggle('active', p.dataset.load === loadMode));
-      calcSlab();
+      setLoadMode(btn.dataset.load);
+      scheduleCalc();
     });
   });
 
@@ -454,12 +841,35 @@
       $('dlSelf').readOnly = false;
     }
   }
-  $('autoSelfWt').addEventListener('change', () => { updateSelfWt(); calcSlab(); });
+  let slabCalcQueued = false;
+  function scheduleCalc() {
+    if (slabCalcQueued) return;
+    slabCalcQueued = true;
+    requestAnimationFrame(() => {
+      slabCalcQueued = false;
+      calcSlab();
+    });
+  }
+
+  $('autoSelfWt').addEventListener('change', () => { updateSelfWt(); scheduleCalc(); });
   $('llPreset').addEventListener('change', () => {
     const v = parseFloat($('llPreset').value);
     if (v > 0) $('llVal').value = v.toFixed(2);
-    calcSlab();
+    scheduleCalc();
   });
+  $('btnApplyCase').addEventListener('click', () => applySlabTestCase($('testCaseSelect').value));
+  $('btnExportCase').addEventListener('click', exportCurrentSlabCase);
+  $('btnImportCase').addEventListener('click', importSlabCaseFromJson);
+  $('btnCompareCase').addEventListener('click', compareSlabCaseJson);
+  $('btnExportBaseline').addEventListener('click', buildSlabBaselineReport);
+  $('showDetailHelp').addEventListener('change', syncDetailHelp);
+  $('showCaseTools').addEventListener('change', syncAdvancedCaseTools);
+  $('testCaseSelect').addEventListener('change', () => {
+    const tc = SLAB_TEST_CASES[$('testCaseSelect').value];
+    $('testCaseHint').textContent = tc ? `待套用：${tc.label}。${tc.note}` : '可一鍵帶入標準範例，用於自我檢查與改版比對。';
+  });
+  $('punchMode').addEventListener('change', () => { updatePunchModeHint(); scheduleCalc(); });
+  $('colPos').addEventListener('change', () => { updatePunchModeHint(); scheduleCalc(); });
 
   // ─── 規範 6.5 連續板係數 ────────────────────────
   // 回傳分母 x：M = wu·ℓn²/x
@@ -470,19 +880,42 @@
     if (support === 'cantilever') return { pos: Infinity, neg: 2 };
     return { pos: 16, neg: 11 };
   }
-
-  // ─── DDM 8.10 — 將整跨 Mo (per meter) 分配至 +/− ──
-  function ddmDistribute(support, MoPerM) {
-    if (support === 'simple')     return { pos: MoPerM, neg: 0 };
-    if (support === 'cantilever') return { pos: 0, neg: MoPerM };
-    if (support === 'oneEnd')     return { pos: 0.52*MoPerM, neg: 0.70*MoPerM };  // 端跨保守取較大負彎
-    return { pos: 0.35*MoPerM, neg: 0.65*MoPerM };  // bothEnd 內跨
+  function getSupportName(support) {
+    return ({ simple:'簡支代表跨', oneEnd:'端跨 (一端外端)', bothEnd:'內跨 (兩端連續)', cantilever:'懸臂' })[support] || support;
   }
-  function ddmRatioLabel(support) {
-    if (support === 'simple')     return { pos:'1.00', neg:'—' };
-    if (support === 'cantilever') return { pos:'—', neg:'1.00' };
-    if (support === 'oneEnd')     return { pos:'0.52', neg:'0.70' };
-    return { pos:'0.35', neg:'0.65' };
+  function getSupportModelNote(support) {
+    if (support === 'simple') return '以單跨簡支條帶代表該方向受力；適用於明確簡支或初步保守比較。';
+    if (support === 'oneEnd') return '以端跨代表該方向條帶；一端視為外端，另一端視為連續支承。';
+    if (support === 'bothEnd') return '以內跨代表該方向條帶；兩端皆視為連續支承，適合規則多跨中間跨之初估。';
+    if (support === 'cantilever') return '以懸臂條帶代表該方向受力；自由端與固定端行為需另外確認局部細節。';
+    return '代表跨模型。';
+  }
+  function renderSupportSketch(targetId, support, axisLabel) {
+    const left = (support === 'simple' || support === 'cantilever') ? 'pin' : 'cont';
+    const right = (support === 'simple') ? 'pin' : (support === 'cantilever' ? 'free' : 'cont');
+    const W = 260, H = 72, y = 28, x1 = 28, x2 = 220;
+    const drawSupport = (x, type) => {
+      if (type === 'pin') return `
+        <polygon points="${x},${y+10} ${x-10},${y+24} ${x+10},${y+24}" fill="#94a3b8" stroke="#475569" stroke-width="1"/>
+        <line x1="${x-16}" y1="${y+28}" x2="${x+16}" y2="${y+28}" stroke="#64748b" stroke-width="1.2"/>`;
+      if (type === 'cont') return `
+        <rect x="${x-7}" y="${y+6}" width="14" height="20" fill="#94a3b8" stroke="#475569" stroke-width="1"/>
+        <line x1="${x-16}" y1="${y+28}" x2="${x+16}" y2="${y+28}" stroke="#64748b" stroke-width="1.2"/>`;
+      return `
+        <line x1="${x}" y1="${y-8}" x2="${x}" y2="${y+14}" stroke="#94a3b8" stroke-dasharray="4,3" stroke-width="1.2"/>
+        <text x="${x}" y="${y+30}" text-anchor="middle" fill="#64748b" font-size="10">free</text>`;
+    };
+    const beamEndX = (support === 'cantilever') ? x1 : x1;
+    const beamEndY = x2;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px; font:11px sans-serif;">
+      <text x="${W/2}" y="12" text-anchor="middle" fill="#1a3d5c" font-weight="700">${axisLabel} 方向代表跨</text>
+      <line x1="${beamEndX}" y1="${y}" x2="${beamEndY}" y2="${y}" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
+      ${drawSupport(x1, left)}
+      ${drawSupport(x2, right)}
+      <text x="${(x1+x2)/2}" y="${y-8}" text-anchor="middle" fill="#475569">representative span</text>
+    </svg>`;
+    const el = $(targetId);
+    if (el) el.innerHTML = svg;
   }
 
   // ─── 斷面示意圖 (1 m 寬條帶，沿 Y 向觀察) ─────────
@@ -617,22 +1050,32 @@
     tag.textContent = isOneWay ? '單向' : '雙向';
     tag.className = 'ratio-tag ' + (isOneWay ? 'ratio-one' : 'ratio-two');
 
-    // — B. 載重 → wu  (dl/ll 兩個分量於 'dlll' 模式才有意義；其他模式為 NaN)
-    let wu = 0, wuFormula = '', dl_val = NaN, ll_val = NaN;
+    // — B. 載重 → wu
+    let wu = 0, wuFormula = '', wuSource = '', dl_val = NaN, ll_val = NaN;
+    let wuManual = num('wuManual'), wuDlll = NaN, wuCombo = num('wuCombo');
     const rigorousDL = !!$('rigorousDL')?.checked && (loadMode === 'dlll');
     if (loadMode === 'simple') {
-      wu = num('wuDirect');
-      wuFormula = `直接輸入 = ${wu.toFixed(3)} tf/m²`;
+      wu = wuManual;
+      wuSource = 'manual';
+      wuFormula = `wu_manual = ${wu.toFixed(3)} tf/m²`;
     } else if (loadMode === 'dlll') {
       dl_val = num('dlSelf') + num('dlSDL');
       ll_val = num('llVal');
-      wu = 1.2 * dl_val + 1.6 * ll_val;
-      wuFormula = `1.2×${dl_val.toFixed(3)} + 1.6×${ll_val.toFixed(3)} = ${wu.toFixed(3)} tf/m²`;
-      $('dlllSummary').textContent = `wu = ${wuFormula}`;
+      wuDlll = 1.2 * dl_val + 1.6 * ll_val;
+      wu = wuDlll;
+      wuSource = 'dlll';
+      wuFormula = `wu_dlll = 1.2×${dl_val.toFixed(3)} + 1.6×${ll_val.toFixed(3)} = ${wu.toFixed(3)} tf/m²`;
+      $('dlllSummary').textContent = wuFormula;
     } else { // combo
-      wu = num('wuDirect');
-      wuFormula = `由載重組合產生器套用 = ${wu.toFixed(3)} tf/m²`;
+      wu = wuCombo;
+      wuSource = 'combo';
+      wuFormula = `wu_combo = ${wu.toFixed(3)} tf/m² (由載重組合產生器提供)`;
     }
+    $('wuSourceSummary').textContent =
+      `分析採用 wu_used = ${wu.toFixed(3)} tf/m²　|　來源：`
+      + (wuSource === 'manual' ? '手動輸入 wu_manual'
+         : wuSource === 'dlll' ? 'DL + LL 計算值 wu_dlll'
+         : '完整載重組合結果 wu_combo');
     setResult('r-wu', wu, 'tf/m²', 3);
 
     // — 板厚最小值 (規範 9.3.1.1 / 8.3.1.1 / 8.3.1.2)
@@ -650,7 +1093,7 @@
     if (isOneWay) {
       // 規範 9.3.1.1 — 一向實心板 (無內梁)
       const factor = ({ simple:20, oneEnd:24, bothEnd:28, cantilever:10 })[supX];
-      const supName = ({ simple:'簡支', oneEnd:'一端連續', bothEnd:'兩端連續', cantilever:'懸臂' })[supX];
+      const supName = getSupportName(supX);
       hmin = (lnX_cm / factor) * fyFactor1Way;
       hminFormula = `ℓn/${factor}·(0.4+fy/7000) = ${lnX_cm.toFixed(1)}/${factor}×${fyFactor1Way.toFixed(3)}`;
       hminRef = `規範 9.3.1.1 — 一向板 (${supName})`;
@@ -708,7 +1151,7 @@
 
     // — 層數判定 (薄 / 厚)
     const layerMode = $('layerMode').value;
-    // 經驗值：實務上 h ≤ 12 cm 才採單層；h > 12 cm (含 18 cm) 一律雙層 (頂+底)
+    // 工具預設：實務上常以 h ≤ 12 cm 採單層；h > 12 cm 則預設雙層 (頂+底)
     const isThick = (layerMode === 'auto') ? (h > 12) : (layerMode === 'thick');
     $('topLayerWrap').style.display = isThick ? '' : 'none';
     $('botLayerTitle').textContent = isThick
@@ -741,7 +1184,7 @@
     const wuKgM2 = wu * 1000;   // kgf/m²
 
     // 各 support 類型的代號 → 中文 (用於說明)
-    const SUP_NAME = { simple:'簡支', oneEnd:'一端連續', bothEnd:'兩端連續', cantilever:'懸臂' };
+    const SUP_NAME = { simple:'簡支代表跨', oneEnd:'端跨 (一端外端)', bothEnd:'內跨 (兩端連續)', cantilever:'懸臂' };
     let methodRef = '';
     if (isOneWay) {
       // 單向板：以短向 (Lx) 為主向；採規範 6.5.2 連續板係數法
@@ -776,11 +1219,11 @@
       moments.push({ dir:'Y', loc:'長向 (僅溫度收縮筋)', coef:'—', M: 0, V: 0,
         ref:'長短向比 > 2 → 長向不分擔撓曲，僅配溫度收縮筋' });
     } else {
-      // 雙向板：彎矩係數法 (Rankine-Grashof 載重分配 + 規範 6.5 連續板係數)
+      // 雙向板：簡化二向條帶法 (Rankine-Grashof 載重分配 + 規範 6.5 連續板係數)
       // ─ 載重分配：依勁度比 (1/ℓ⁴) 將 wu 分配到短向 (X)、長向 (Y) 兩組獨立連續板
       // ─ 各方向再依規範 6.5 之 +M、−M、V 係數計算 per-meter 內力
       // 物理意義：短向勁度大 (跨距小)，分配到較大載重，故 Mx > My，符合雙向板實際行為
-      methodRef = `雙向板彎矩係數法 (Rankine-Grashof 載重分配 + 規範 6.5 連續板係數)`;
+      methodRef = `簡化二向條帶法 (Rankine-Grashof 載重分配 + 規範 6.5 連續板係數)`;
       const lnX = Lx / 100, lnY = Ly / 100;
       const m_ratio = lnX / lnY;                      // ≤ 1
       const m4 = Math.pow(m_ratio, 4);
@@ -1044,7 +1487,7 @@
       <td>${r.ok?'✓':'✗'}</td>
     </tr>`).join('') : `<tr class="info"><td colspan="8">無撓曲位置</td></tr>`;
 
-    // — 5. 剪力 (雙向板採 Rankine-Grashof 分配後之 strip 載重)
+    // — 5. 剪力 / 衝剪
     const lambda = LAMBDA_NORMAL;
     const lnX = Lx / 100, lnY = Ly / 100;
     const _aX = isOneWay ? 1 : (window.__slab_alphaX ?? 1);
@@ -1066,10 +1509,12 @@
     let punchData = null;
     if (isFlat) {
       const c1 = num('c1'), c2 = num('c2');
+      const punchMode = $('punchMode').value;
       const dPunch = Math.min(dX, dY);
       const bo = 2 * (c1 + c2 + 2*dPunch);
       const beta_c = Math.max(c1,c2) / Math.max(Math.min(c1,c2), 0.01);
-      const alpha_s = ({ interior:40, edge:30, corner:20 })[$('colPos').value] || 40;
+      const colPos = $('colPos').value;
+      const alpha_s = ({ interior:40, edge:30, corner:20 })[colPos] || 40;
       const vc = Math.min(
         1.06*lambda*Math.sqrt(fc),
         0.27*(2 + 4/beta_c)*lambda*Math.sqrt(fc),
@@ -1078,12 +1523,22 @@
       const phiVc2 = PHI.shear * vc * bo * dPunch / 1000;
       const punchArea = (c1 + dPunch) * (c2 + dPunch) / 1e4;
       const tribArea = lnX * lnY;
-      const VuPunch = wu * (tribArea - punchArea);
+      const VuPunchBase = wu * (tribArea - punchArea);
+      const punchAmp = (punchMode === 'conservative')
+        ? ({ interior:1.15, edge:1.30, corner:1.50 })[colPos] || 1.15
+        : 1.0;
+      const VuPunch = VuPunchBase * punchAmp;
       setResult('r-VuPunch', VuPunch, 'tf', 2);
       setResult('r-phiVc2', phiVc2, 'tf', 2);
       setCheck('c-v2', phiVc2 >= VuPunch, `${phiVc2.toFixed(1)} / ${VuPunch.toFixed(1)}`);
       $('punchCard').style.display = '';
-      punchData = { c1, c2, bo, vc, phiVc2, VuPunch, ok: phiVc2 >= VuPunch };
+      punchData = {
+        c1, c2, bo, vc, phiVc2, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
+        warning: punchMode === 'conservative'
+          ? `Vu 先以 tributary-area 初估，再依柱位保守放大 ${punchAmp.toFixed(2)} 倍；仍未納入 unbalanced moment transfer，僅供偏安全初估。`
+          : 'Vu 目前採 tributary-area 初估，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局不可直接視為正式衝剪檢核。',
+        ok: phiVc2 >= VuPunch
+      };
     } else {
       $('punchCard').style.display = 'none';
     }
@@ -1147,9 +1602,9 @@
     const _aYdisp = isOneWay ? 0 : (window.__slab_alphaY ?? 0);
     const names = {
       one: '單向板：規範 6.5 連續板係數法',
-      two: '雙向板 (有梁)：彎矩係數法 — Rankine-Grashof 載重分配 + 規範 6.5 連續板係數',
-      flat: '雙向板 (無梁版)：彎矩係數法 — Rankine-Grashof 載重分配 + 規範 6.5 連續板係數',
-      flatDrop: '雙向板 (有柱頭板)：彎矩係數法 — Rankine-Grashof 載重分配 + 規範 6.5 連續板係數'
+      two: '雙向板 (有梁)：簡化二向條帶法 — Rankine-Grashof 載重分配 + 規範 6.5 連續板係數',
+      flat: '無梁板：簡化二向條帶初估',
+      flatDrop: '無梁板 (有柱頭板)：簡化二向條帶初估'
     };
     const methodLabel = names[stype] || '—';
     $('analysisName').textContent = methodLabel;
@@ -1158,9 +1613,20 @@
       ? '長短向比 > 2，板沿短向 (Lx) 受彎；長向僅配溫度收縮筋。'
       : `長短向比 m = ℓnx/ℓny = ${(window.__slab_m ?? 0).toFixed(3)}　|　短向載重分配 α_x = ${_aXdisp.toFixed(3)}　|　長向載重分配 α_y = ${_aYdisp.toFixed(3)}　|　${rigorousDL ? '嚴謹模式：分列 1.2D / 1.6L 貢獻' : '簡化模式：合併 wu'}`;
     $('analysisDesc').textContent = isOneWay
-      ? '板沿短向跨距 Lx 受彎，依規範 6.5 係數表計算各位置 Mu/Vu。長向僅配溫度收縮筋。'
-      : `雙向板採彎矩係數法：先依勁度比 (∝1/ℓ⁴) 將 wu 分配為短向 α_x=${_aXdisp.toFixed(3)}、長向 α_y=${_aYdisp.toFixed(3)}，再以規範 6.5 之 +M/−M/V 係數分別計算兩向 strip 內力。短向因勁度大、分擔較多載重，故 Mx > My，符合雙向板實際行為。`
+      ? '板沿短向跨距 Lx 受彎，依規範 6.5 係數表計算各位置 Mu/Vu。長向僅作溫度收縮筋配置；不適用於開口周邊、局部集中載重或拘束顯著情形。'
+      : (isFlat
+          ? `本模式為無梁板初步估算：先依勁度比 (∝1/ℓ⁴) 將 wu 分配為短向 α_x=${_aXdisp.toFixed(3)}、長向 α_y=${_aYdisp.toFixed(3)}，再套用規範 6.5 連續板係數計算兩向 strip 內力。此流程並非完整 8.10 DDM，未含總靜力矩分配、column strip / middle strip 與邊柱列處理。`
+          : `雙向板採簡化二向條帶法：先依勁度比 (∝1/ℓ⁴) 將 wu 分配為短向 α_x=${_aXdisp.toFixed(3)}、長向 α_y=${_aYdisp.toFixed(3)}，再以規範 6.5 之 +M/−M/V 係數分別計算兩向 strip 內力。此結果適合初步配置與方案比較，不宜直接宣稱為完整二向板規範分析。`)
       + (rigorousDL ? '　[嚴謹模式] 計算書中將分列 1.2D 與 1.6L 對 Mu 之貢獻。' : '');
+    $('supportModelText').textContent = `短向：${getSupportName(supX)}；${getSupportModelNote(supX)}  長向：${getSupportName(supY)}；${getSupportModelNote(supY)}`;
+    renderSupportSketch('supportModelSketch', isOneWay ? supX : supX, isOneWay ? 'X' : `X = ${getSupportName(supX)} / Y = ${getSupportName(supY)}`);
+
+    $('shearTitle').textContent = isFlat ? '5. 剪力初估與衝剪初估' : (isOneWay ? '5. 剪力檢核' : '5. 剪力初估');
+    $('shearDesc').textContent = isOneWay
+      ? '單向板依 1 m 條帶進行剪力檢核。'
+      : (isFlat
+          ? `雙向 / 無梁板之 Vu 目前為簡化條帶反力估算；柱衝剪 Vu 為 ${$('punchMode').value === 'conservative' ? 'tributary-area 保守放大估算' : 'tributary-area 初估'}，未納入不平衡彎矩轉移。`
+          : '雙向板之 Vu 目前為簡化條帶反力估算，供初步尺寸與配筋比對，不作正式二向剪力設計依據。');
 
     // — banner
     const allFlexOk = flexRows.length === 0 || flexRows.every(r => r.ok);
@@ -1169,9 +1635,9 @@
     const allOk = (h >= hmin) && allFlexOk && shearOk && punchOk && clearOk;
     const banner = $('bannerStatus');
     banner.className = 'banner-status ' + (allOk ? 'ok' : 'fail');
-    banner.innerHTML = (allOk ? '✓ OK — 符合規範' : '✗ NG — 部分項目未通過')
+    banner.innerHTML = (allOk ? '✓ OK — 初步檢查通過' : '✗ NG — 部分項目未通過')
       + `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">`
-      + `${h>=hmin?'✓':'✗'} 板厚 ｜ ${allFlexOk?'✓':'✗'} 撓曲 ｜ ${shearOk?'✓':'✗'} 單向剪力`
+      + `${h>=hmin?'✓':'✗'} 板厚 ｜ ${allFlexOk?'✓':'✗'} 撓曲 ｜ ${shearOk?'✓':'✗'} ${isOneWay ? '剪力' : '剪力初估'}`
       + (punchData ? ` ｜ ${punchOk?'✓':'✗'} 雙向衝剪` : '')
       + ` ｜ ${clearOk?'✓':'✗'} 鋼筋淨距`
       + `</div>`;
@@ -1192,9 +1658,12 @@
       stype, isOneWay, isFlat, ratio, Lx, Ly, h, cover, fc, fy,
       dXBot, dYBot, dXTop, dYTop, dX, dY, supX, supY,
       wu, wuFormula, hmin, hminFormula, hminRef,
+      wuSource, wuManual, wuDlll, wuCombo,
       supW: num('supW'), lnX_cm, lnY_cm,
       alphaFm: (stype==='two' ? num('alphaFm') : NaN),
       panelPos: (isFlat ? $('panelPos').value : ''),
+      punchMode: (isFlat ? $('punchMode').value : ''),
+      testCaseKey: $('testCaseSelect')?.value || '',
       moments, flexRows,
       VuX, VuY, phiVc1, AsMin, sMaxF, sMaxT, sMaxFlexFormula,
       fyT, rhoT, rhoTFormula,
@@ -1225,10 +1694,14 @@
         { label:'板厚 h', value: r.h, unit:'cm' },
         { label:'保護層', value: r.cover, unit:'cm' },
         { label:'支承寬 c', value: r.supW, unit:'cm' },
+        { label:'短向代表跨', value: getSupportName(r.supX) },
+        { label:'長向代表跨', value: getSupportName(r.supY) },
         { label:'短向淨跨 ℓnx', value: r.lnX_cm.toFixed(1), unit:'cm' },
         { label:'長向淨跨 ℓny', value: r.lnY_cm.toFixed(1), unit:'cm' },
         ...(r.stype==='two' ? [{ label:'α_fm', value: r.alphaFm.toFixed(2) }] : []),
         ...(r.panelPos ? [{ label:'無梁版位置', value: ({interior:'內版',extWithBeam:'外版(有邊梁)',extNoBeam:'外版(無邊梁)'})[r.panelPos] }] : []),
+        ...(r.punchMode ? [{ label:'衝剪需求模式', value: ({prelim:'初估模式', conservative:'保守放大模式'})[r.punchMode] || r.punchMode }] : []),
+        ...(r.testCaseKey ? [{ label:'內建案例', value: SLAB_TEST_CASES[r.testCaseKey]?.label || r.testCaseKey }] : []),
         { label:'底層 短向有效深 dX', value: r.dXBot.toFixed(2), unit:'cm' },
         { label:'底層 長向有效深 dY', value: r.dYBot.toFixed(2), unit:'cm' },
         ...(r.isThick ? [
@@ -1244,6 +1717,7 @@
       ]},
       { group:'分析方法', items: [
         { label:'採用方法', value: r.methodLabel },
+        { label:'模型假設', value:'各方向以代表跨條帶近似，不代表整塊樓板之完整全域分析。' },
         ...(r.isOneWay ? [
           { label:'說明', value:'長短向比 > 2，板沿短向 (Lx) 受彎；長向僅配溫度收縮筋。' }
         ] : [
@@ -1251,6 +1725,8 @@
           { label:'短向載重分配 α_x', value: r.alphaX.toFixed(3), unit:'(=ℓny⁴/(ℓnx⁴+ℓny⁴))' },
           { label:'長向載重分配 α_y', value: r.alphaY.toFixed(3), unit:'(=ℓnx⁴/(ℓnx⁴+ℓny⁴))' },
         ]),
+        { label:'短向代表跨說明', value: `${getSupportName(r.supX)}；${getSupportModelNote(r.supX)}` },
+        { label:'長向代表跨說明', value: `${getSupportName(r.supY)}；${getSupportModelNote(r.supY)}` },
         { label:'D/L 模式', value: r.rigorousDL ? '嚴謹：分列 1.2D / 1.6L 對 Mu 之貢獻' : '簡化：以合併 wu 計算' },
         ...(r.rigorousDL ? [
           { label:'D (恆載)', value: r.dl_val.toFixed(3), unit:'tf/m²' },
@@ -1258,7 +1734,11 @@
         ] : []),
       ]},
       { group:'載重', items:[
-        { label:'設計載重 wu', value:r.wu.toFixed(3), unit:'tf/m²' },
+        { label:'分析採用 wu_used', value:r.wu.toFixed(3), unit:'tf/m²' },
+        { label:'來源', value: ({manual:'手動輸入 wu_manual', dlll:'DL + LL 計算值 wu_dlll', combo:'完整載重組合結果 wu_combo'})[r.wuSource] || '—' },
+        { label:'wu_manual', value:r.wuManual.toFixed(3), unit:'tf/m²' },
+        { label:'wu_dlll', value:isFinite(r.wuDlll) ? r.wuDlll.toFixed(3) : '—', unit:isFinite(r.wuDlll) ? 'tf/m²' : '' },
+        { label:'wu_combo', value:r.wuCombo.toFixed(3), unit:'tf/m²' },
         { label:'計算式', value:r.wuFormula },
       ]},
       { group: r.mode==='design' ? '配筋 (設計模式 — 間距由系統反算)' : '配筋 (檢核模式)', items:[
@@ -1327,14 +1807,14 @@
             value:`${f.phiMn.toFixed(3)} / ${f.Mu.toFixed(3)}`, unit:'tf·m/m', ok:f.ok };
         }) : [{ label:'(無撓曲位置)', formula:'—', sub:'—', value:'—', ok:null }]
       },
-      { group:'單向剪力', items:[
+      { group:r.isOneWay ? '剪力檢核' : '剪力初估', items:[
         { label:'短向 φVc ≥ Vu', formula:'φVc = 0.75·0.53·√fc·b·d',
           sub: r.showSteps
             ? `φVc = 0.75 × 0.53 × √${r.fc} × 100 × ${Math.min(r.dXBot,r.dYBot).toFixed(2)} / 1000\n     = ${r.phiVc1.toFixed(3)} tf/m，Vu=${r.VuX.toFixed(3)} tf/m`
             : `= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuX.toFixed(3)}`,
           value:`${r.phiVc1.toFixed(3)} / ${r.VuX.toFixed(3)}`, unit:'tf/m', ok:r.phiVc1>=r.VuX },
         ...(r.isOneWay ? [] : [{ label:'長向 φVc ≥ Vu', formula:'同上',
-          sub:`= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuY.toFixed(3)}`,
+          sub:`= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuY.toFixed(3)}\n本 Vu 為簡化條帶反力估算，供初步比較用。`,
           value:`${r.phiVc1.toFixed(3)} / ${r.VuY.toFixed(3)}`, unit:'tf/m', ok:r.phiVc1>=r.VuY }])
       ]},
       ...(r.punchData ? [{ group:'雙向衝剪', items:[
@@ -1342,7 +1822,10 @@
           sub:`bo = ${r.punchData.bo.toFixed(1)} cm`,
           value:`${r.punchData.bo.toFixed(1)}`, unit:'cm', ok:null },
         { label:'φVc ≥ Vu (衝剪)', formula:'min(1.06√fc, 0.27(2+4/βc)√fc, 0.27(αs·d/bo+2)√fc)',
-          sub:`vc = ${r.punchData.vc.toFixed(2)} kgf/cm²`,
+          sub:`vc = ${r.punchData.vc.toFixed(2)} kgf/cm²`
+            + `\nVu,base = ${r.punchData.VuPunchBase.toFixed(2)} tf`
+            + (r.punchData.punchAmp > 1 ? `\n保守放大 = ${r.punchData.punchAmp.toFixed(2)} × Vu,base = ${r.punchData.VuPunch.toFixed(2)} tf` : '')
+            + `\n${r.punchData.warning}`,
           value:`${r.punchData.phiVc2.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
           unit:'tf', ok:r.punchData.ok }
       ]}] : []),
@@ -1394,13 +1877,14 @@
     ];
 
     const isDesignMode = (r.mode === 'design');
+    const reportGrade = r.isOneWay ? '單向板係數法 + 其他項目初步檢核' : '簡化條帶法初步設計';
     openReport({
-      title: isDesignMode ? '板設計計算書 (設計模式)' : '板檢核計算書 (檢核模式)',
+      title: isDesignMode ? '板初步設計計算書' : '板初步檢核計算書',
       subtitle: isDesignMode
-        ? 'RC Slab Design Report — 由 Mu 反算所需鋼筋'
-        : 'RC Slab Verification Report — 檢核既有配筋之 φMn 是否足夠',
+        ? `RC Slab Preliminary Design Report — ${reportGrade}`
+        : `RC Slab Preliminary Verification Report — ${reportGrade}`,
       project: proj,
-      summary:{ ok:r.allOk, text: r.allOk?'✓ OK — 符合規範':'✗ NG — 部分項目未通過' },
+      summary:{ ok:r.allOk, text: r.allOk?'✓ OK — 初步檢查通過':'✗ NG — 部分項目未通過' },
       inputs, checks,
       symbols:[
         { sym:"fc'", desc:'混凝土抗壓強度' },
@@ -1411,13 +1895,14 @@
         { sym:'dX',  desc:'短向有效深 (短向筋在外層)' },
         { sym:'dY',  desc:'長向有效深 (長向筋在內層)' },
         { sym:'wu',  desc:'已因數化均佈設計載重' },
-        { sym:'Mo',  desc:'DDM per-meter 平均整跨彎矩 = wu·ℓn²/8' },
         { sym:'βc',  desc:'柱長短邊比 (衝剪用)' },
         { sym:'αs',  desc:'柱位係數 (內柱40, 邊柱30, 角柱20)' },
       ],
       notes:[
-        '依據 112 年混凝土結構設計規範 6.5、8.10、22.6',
-        '本工具採整跨平均彎矩之設計策略；column strip / middle strip 細分配請依規範 8.4.4 自行調整',
+        '本報表屬初步設計 / 初步檢核等級，供配置比較、尺寸篩選與方案討論使用。',
+        '依據 112 年混凝土結構設計規範 6.5、22.6 及相關最小厚度與配筋條文；雙向 / 無梁板主體目前為簡化二向條帶初估，非完整 8.10 DDM。',
+        '本工具未納入 DDM 之總靜力矩分配、column strip / middle strip 細分配、邊柱列與角柱列處理；無梁板結果僅供初步配置與方案比較。',
+        '無梁板衝剪 Vu 目前採 tributary-area 初估或柱位保守放大估算，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局應另作正式檢核。',
         '未來擴充：等值構架法 (EFM, 規範 8.11)，適用不規則柱距與複雜邊界',
         '計算結果僅供初步設計參考，實際設計仍應由執業技師簽證'
       ]
@@ -1425,22 +1910,22 @@
   }
 
   // ─── LoadCombo (完整模式) ─────────────────────────
-  // wu (均佈) 視為 M=wu·1m²，以 LoadCombo 計算後寫回 wuDirect
+  // wu (均佈) 視為 M=wu·1m²，以 LoadCombo 計算後寫回 wuCombo
   const lcSlabCfg = {
     prefix: 'lcSlab',
     forces: [{ key:'wu', label:'wu', unit:'tf/m²' }],
-    targetIds: { wu:'wuDirect' },
+    targetIds: { wu:'wuCombo' },
   };
   $('lcSlabPanel').innerHTML = LoadCombo.buildPanel(lcSlabCfg);
   LoadCombo.bind(lcSlabCfg);
 
   // ─── 事件綁定 ──────────────────────────────────
   document.querySelectorAll('input, select').forEach(el => {
-    el.addEventListener('input', calcSlab);
-    el.addEventListener('change', calcSlab);
+    el.addEventListener('input', scheduleCalc);
+    el.addEventListener('change', scheduleCalc);
   });
   $('btnReport').addEventListener('click', buildSlabReport);
-  window.addEventListener('load', () => { updateSelfWt(); syncDesignFields(); calcSlab(); });
+  window.addEventListener('load', () => { updateSelfWt(); updatePunchModeHint(); syncDesignFields(); syncDetailHelp(); syncAdvancedCaseTools(); calcSlab(); });
 </script>
 </body>
 </html>

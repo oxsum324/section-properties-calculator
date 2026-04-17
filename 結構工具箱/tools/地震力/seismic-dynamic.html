@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐震設計 — 動力分析摘要 V3</title>
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:#0f766e; color:#fff; }
+  .header-links { margin-top:4px; font-size:0.88em; line-height:1.7; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+  .header-links .sep { opacity:0.55; }
+  .hero-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
+  .dynamic-shell { display:grid; grid-template-columns:minmax(340px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
+  .dynamic-form-stack, .dynamic-result-stack { display:grid; gap:18px; }
+  .dynamic-result-stack { position:sticky; top:18px; }
+  .status-box { padding:12px 14px; border-radius:10px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.84em; line-height:1.7; color:#334155; }
+  .status-box strong { color:#0f172a; }
+  .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
+  .fold-summary::-webkit-details-marker { display:none; }
+  .fold-summary::before { content:'▸ '; color:#0f766e; }
+  details[open] > .fold-summary::before { content:'▾ '; }
+  .compare-table { width:100%; border-collapse:collapse; font-size:0.85em; }
+  .compare-table th, .compare-table td { border:1px solid var(--border); padding:7px 10px; text-align:center; }
+  .compare-table th { background:#f1f5f9; color:var(--primary); font-weight:700; }
+  .compare-table td.label { text-align:left; font-weight:700; color:var(--primary); }
+  .chip-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .chip-row .chip { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:#ecfeff; border:1px solid #99f6e4; color:#115e59; font-size:0.78em; }
+  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { flex:1 1 180px; width:auto; margin-top:0; justify-content:center; }
+  .mini-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+  .mini-card { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px 12px; }
+  .mini-card .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; }
+  .mini-card .value { font-weight:700; color:#0c4a6e; font-family:'Consolas',monospace; }
+  .note-list { padding-left:18px; font-size:0.84em; line-height:1.8; color:#475569; }
+  .note-list li + li { margin-top:4px; }
+  .status-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .status-actions .btn-secondary { flex:1 1 160px; width:auto; margin-top:0; }
+  @media (max-width: 1080px) {
+    .dynamic-shell { grid-template-columns:1fr; }
+    .dynamic-result-stack { position:static; }
+  }
+  @media (max-width: 768px) {
+    .header-links .sep { display:none; }
+    .hero-chip { font-size:0.76em; padding:5px 10px; }
+    .mini-grid { grid-template-columns:1fr; }
+    .inline-actions { flex-direction:column; }
+    .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
+    .form-row { grid-template-columns:1fr; }
+  }
+  @media print {
+    .card { break-inside:avoid; page-break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐震設計 — 動力分析摘要 <span class="badge-v">V3</span></h1>
+  <p>反應譜動力分析結果整理、靜力比對與列印 ｜ 單位：m, tf, sec</p>
+  <p class="header-links">
+    <a href="https://www.nlma.gov.tw/ch/legislation/regsearch/175" target="_blank" rel="noopener noreferrer">官方規範頁</a>
+    <span class="sep">｜</span>
+    <a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener noreferrer">Sederes 反應譜查詢平台</a>
+    <span class="sep">｜</span>
+    <a href="../../index.html" class="back">← 回工具箱</a>
+    <span class="sep">｜</span>
+    <a href="seismic-force.html" class="back">等值靜力分析</a>
+  </p>
+  <div class="hero-strip">
+    <span class="hero-chip">動力分析結果整理</span>
+    <span class="hero-chip">靜力 / 動力比對</span>
+    <span class="hero-chip">手機、平板、桌機皆可操作</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card mode-bar print-meta">
+    <strong class="mode-bar__label">計畫資訊：</strong>
+    <div class="mode-bar__proj">
+      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+      <input type="text" id="projNo" class="w-no" placeholder="編號">
+      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+    </div>
+  </div>
+  <div class="main-layout dynamic-shell">
+    <div class="dynamic-form-stack">
+      <div class="card">
+        <h2>① 靜力摘要銜接</h2>
+        <div id="staticImportStatus" class="status-box">尚未讀到等值靜力分析摘要；可直接手動填入動力分析資料。</div>
+        <div class="note" style="margin-top:10px;">
+          本頁定位為「動力分析結果摘要與比對整理」，用來承接 ETABS / SAP2000 / MIDAS 等分析成果；
+          不直接取代結構分析模型本身。
+        </div>
+        <div class="status-actions">
+          <button class="btn-secondary" id="btnLoadStatic" type="button">載入等值靜力摘要</button>
+          <button class="btn-secondary" id="btnClearDynamic" type="button">清除動力摘要</button>
+          <a class="btn-secondary" href="seismic-force.html">前往等值靜力頁</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>② 工址與結構條件</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>縣市</label>
+            <select id="zoneCity"><option value="">— 手動輸入 —</option></select>
+          </div>
+          <div class="form-group">
+            <label>鄉鎮市區</label>
+            <select id="zoneDist"><option value="">請先選縣市</option></select>
+          </div>
+        </div>
+        <div class="hint" id="zoneHint" style="margin-bottom:10px;"></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>SsD (g)</label>
+            <input id="SsD" type="number" value="0.6" step="0.05">
+          </div>
+          <div class="form-group">
+            <label>S1D (g)</label>
+            <input id="S1D" type="number" value="0.35" step="0.05">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>SsM (g)</label>
+            <input id="SsM" type="number" value="0.8" step="0.05">
+          </div>
+          <div class="form-group">
+            <label>S1M (g)</label>
+            <input id="S1M" type="number" value="0.5" step="0.05">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>地盤分類</label>
+            <select id="siteClass">
+              <option value="1">第一類</option>
+              <option value="2" selected>第二類</option>
+              <option value="3">第三類</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>用途係數 I</label>
+            <select id="impClass"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>X 向系統</label>
+            <select id="sysX"></select>
+          </div>
+          <div class="form-group">
+            <label>Y 向系統</label>
+            <select id="sysY"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>建物總高 h<sub>n</sub> (m)</label>
+            <input id="hn" type="number" value="17.2" step="0.1">
+          </div>
+          <div class="form-group">
+            <label>總重量 W (tf)</label>
+            <input id="W" type="number" value="2500" step="10">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>③ 動力分析結果輸入</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>分析程式 / 來源</label>
+            <input id="software" type="text" placeholder="例：ETABS / SAP2000 / MIDAS">
+          </div>
+          <div class="form-group">
+            <label>摘要備註</label>
+            <input id="remark" type="text" placeholder="例：RSA、CQC 組合、25 模態">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>X 向主模態週期 T<sub>x</sub> (sec)</label>
+            <input id="Tx" type="number" value="0.75" step="0.01" min="0.01">
+          </div>
+          <div class="form-group">
+            <label>Y 向主模態週期 T<sub>y</sub> (sec)</label>
+            <input id="Ty" type="number" value="0.65" step="0.01" min="0.01">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>X 向動力基底剪力 V<sub>dyn,x</sub> (tf)</label>
+            <input id="VxDyn" type="number" value="180" step="1" min="0">
+          </div>
+          <div class="form-group">
+            <label>Y 向動力基底剪力 V<sub>dyn,y</sub> (tf)</label>
+            <input id="VyDyn" type="number" value="170" step="1" min="0">
+          </div>
+        </div>
+        <div class="inline-actions">
+          <button class="btn-calc" id="btnCalc">整理動力摘要</button>
+          <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultPanel" class="dynamic-result-stack" style="display:none;">
+      <div class="card">
+        <div class="banner-status ok" id="banner">尚未計算</div>
+      </div>
+      <div class="card">
+        <h2>動力比對摘要</h2>
+        <div id="summaryGrid" class="mini-grid"></div>
+      </div>
+      <div class="card">
+        <h2>設計譜參考</h2>
+        <div id="spectrumRefGrid" class="mini-grid"></div>
+      </div>
+      <div class="card">
+        <h2>動力參數與反應譜</h2>
+        <div class="canvas-wrap" style="min-height:280px;">
+          <canvas id="dynamicSpectrumChart"></canvas>
+        </div>
+        <div class="legend" id="dynamicSpectrumLegend"></div>
+      </div>
+      <div class="card">
+        <h2>靜力 / 動力比較表</h2>
+        <div id="compareTableWrap"></div>
+      </div>
+      <div class="card">
+        <h2>判讀建議</h2>
+        <ul class="note-list" id="noteList"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+<details class="card" id="pageScopeCard">
+  <summary class="fold-summary">本頁定位與適用範圍</summary>
+  <div class="note" style="margin-top:12px;">
+    本頁是「動力分析結果摘要與靜力比對」工具，用來承接外部模型分析成果，整理設計譜參數、動力基底剪力與動 / 靜比。
+  </div>
+  <div class="hint" style="margin-top:10px;">
+    適合：ETABS / SAP2000 / MIDAS 等反應譜分析結果之案件整理、送審前比對、報表化輸出。<br>
+    不適合：直接建立模型、求模態、執行反應譜分析或取代分析軟體本身。<br>
+    若只需完整靜力法計算，請回 <a href="seismic-force.html">等值靜力分析</a>。
+  </div>
+</details>
+<details class="card" id="versionInfoCard">
+  <summary class="fold-summary">版本與更新重點</summary>
+  <div class="note" style="margin-top:12px;">
+    目前頁面版本為 <strong>V1</strong>，定位為動力分析成果的整理、比較與列印，而不是分析求解器本身。
+  </div>
+  <div class="hint" style="margin-top:10px;">
+    本版已完成：靜力摘要載入、案件資料銜接、DBE / MCE 反應譜繪製、Tx / Ty 設計週期標示、動 / 靜比整理與列印。<br>
+    建議用法：先於模型軟體完成分析，再把 X / Y 向基底剪力與週期帶入本頁，作為報表化整理與比對。<br>
+    若需要正式靜力法主算，請回 <a href="seismic-force.html">等值靜力分析</a>。
+  </div>
+</details>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="../../core/loads/seismic.js"></script>
+<script src="../../core/loads/seismic-zones.js"></script>
+<script>
+const S = Seismic;
+const STATIC_STORAGE_KEY = 'seismic-static-summary';
+const DYNAMIC_STORAGE_KEY = 'seismic-dynamic-summary';
+const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
+let lastDynamicResult = null;
+let dynamicSpectrumChart = null;
+
+function fmt(v, d) {
+  return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d);
+}
+
+function getStorageJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function setStorageJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {}
+}
+
+function restoreProjectInfo() {
+  const saved = getStorageJson(PROJECT_INFO_STORAGE_KEY);
+  if (!saved) return;
+  if (saved.name != null) document.getElementById('projName').value = saved.name;
+  if (saved.no != null) document.getElementById('projNo').value = saved.no;
+  if (saved.designer != null) document.getElementById('projDesigner').value = saved.designer;
+}
+
+function saveProjectInfo() {
+  setStorageJson(PROJECT_INFO_STORAGE_KEY, getProjectInfo());
+}
+
+function initSelects() {
+  const imp = document.getElementById('impClass');
+  Object.entries(S.IMPORTANCE).forEach(([k, v]) => {
+    const o = document.createElement('option');
+    o.value = k;
+    o.textContent = `${v.name}　I=${v.factor}`;
+    if (k === 'IV') o.selected = true;
+    imp.appendChild(o);
+  });
+  ['sysX', 'sysY'].forEach(id => {
+    const sel = document.getElementById(id);
+    Object.entries(S.SYSTEMS).forEach(([k, s]) => {
+      const o = document.createElement('option');
+      o.value = k;
+      o.textContent = `${s.name}　(R=${s.R})`;
+      if (k === 'SMRF_RC') o.selected = true;
+      sel.appendChild(o);
+    });
+  });
+}
+
+function initZoneLookup() {
+  if (typeof SeismicZones === 'undefined') return;
+  const Z = SeismicZones.ZONES;
+  const citySel = document.getElementById('zoneCity');
+  const distSel = document.getElementById('zoneDist');
+  const hintEl = document.getElementById('zoneHint');
+  Object.keys(Z).forEach(city => {
+    const opt = document.createElement('option');
+    opt.value = city;
+    opt.textContent = city;
+    citySel.appendChild(opt);
+  });
+  citySel.addEventListener('change', function() {
+    distSel.innerHTML = '<option value="">— 選擇鄉鎮市區 —</option>';
+    hintEl.textContent = '';
+    if (!this.value || !Z[this.value]) return;
+    Object.keys(Z[this.value]).forEach(dist => {
+      const opt = document.createElement('option');
+      opt.value = dist;
+      opt.textContent = dist;
+      distSel.appendChild(opt);
+    });
+  });
+  distSel.addEventListener('change', function() {
+    const city = citySel.value;
+    const dist = this.value;
+    if (!city || !dist || !Z[city] || !Z[city][dist]) return;
+    const d = Z[city][dist];
+    document.getElementById('SsD').value = d[0];
+    document.getElementById('S1D').value = d[1];
+    document.getElementById('SsM').value = d[2];
+    document.getElementById('S1M').value = d[3];
+    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
+  });
+}
+
+function getProjectInfo() {
+  const val = id => (document.getElementById(id)?.value || '').trim();
+  return {
+    name: val('projName'),
+    no: val('projNo'),
+    designer: val('projDesigner')
+  };
+}
+
+function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tdyna) {
+  const sys = S.SYSTEMS[systemKey] || S.SYSTEMS.OTHER;
+  const site = S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M);
+  const to = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
+  const Tcode = S.calcPeriod(systemKey, hn);
+  const Tdesign = S.calcTdesign(Tcode, Tdyna, 1.4);
+  const Ra = S.calcRa(sys.R, false);
+  const Fu = S.calcFu(Ra, Tdesign, to.ToD);
+  const FuM = S.calcFuM(sys.R, Tdesign, to.ToM);
+  const SaD = S.calcSa(Tdesign, site.SDS, site.SD1);
+  const SaM = S.calcSa(Tdesign, site.SMS, site.SM1);
+  const vd = S.calcVD(Ifactor, sys.alphaY, SaD, Fu, W);
+  const vs = S.calcVstar(Ifactor, sys.alphaY, Fu, SaD, W, false);
+  const vm = S.calcVM(Ifactor, sys.alphaY, SaM, FuM, W);
+  const Vdesign = Math.max(vd.VD, vs.Vstar, vm.VM);
+  let controlledBy = 'VD';
+  if (Vdesign === vs.Vstar) controlledBy = 'V*';
+  if (Vdesign === vm.VM) controlledBy = 'VM';
+  return { Vdesign, Tdesign, coeff: W > 0 ? Vdesign / W : 0, controlledBy, site, sys, ToD: to.ToD, ToM: to.ToM, SaD, SaM, Fu, FuM };
+}
+
+function buildSpectrumSeries(site, Tmax) {
+  const limit = Math.max(2.5, Tmax * 1.35);
+  const points = [];
+  const steps = 120;
+  for (let i = 0; i <= steps; i++) {
+    const T = limit * i / steps;
+    points.push({
+      T,
+      dbe: S.calcSa(T, site.SDS, site.SD1),
+      mce: S.calcSa(T, site.SMS, site.SM1)
+    });
+  }
+  return points;
+}
+
+function renderSpectrumChart(result) {
+  const canvas = document.getElementById('dynamicSpectrumChart');
+  const legend = document.getElementById('dynamicSpectrumLegend');
+  if (!canvas || !result?.site || typeof Chart === 'undefined') return;
+  const Tmax = Math.max(result.x?.period || 0, result.y?.period || 0, result.site?.ToM || 0.8);
+  const points = buildSpectrumSeries(result.site, Tmax);
+  const tx = result.x?.period || 0;
+  const ty = result.y?.period || 0;
+  const txSa = result.site?.SaDx || 0;
+  const tySa = result.site?.SaDy || 0;
+  const maxSa = Math.max(...points.map(p => Math.max(p.dbe, p.mce)), txSa, tySa);
+  if (dynamicSpectrumChart) dynamicSpectrumChart.destroy();
+  dynamicSpectrumChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: points.map(p => p.T),
+      datasets: [
+        {
+          label: 'DBE 譜 SaD(T)',
+          data: points.map(p => p.dbe),
+          borderColor: '#0f766e',
+          backgroundColor: 'rgba(15,118,110,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.1
+        },
+        {
+          label: 'MCE 譜 SaM(T)',
+          data: points.map(p => p.mce),
+          borderColor: '#1d4ed8',
+          backgroundColor: 'rgba(29,78,216,0.08)',
+          borderDash: [8, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.1
+        },
+        {
+          label: 'Tx',
+          data: [{ x: tx, y: txSa }],
+          parsing: false,
+          borderColor: '#b45309',
+          backgroundColor: '#f59e0b',
+          pointRadius: 5,
+          pointHoverRadius: 6,
+          showLine: false
+        },
+        {
+          label: 'Tx 位置',
+          data: [{ x: tx, y: 0 }, { x: tx, y: maxSa }],
+          parsing: false,
+          borderColor: 'rgba(180,83,9,0.55)',
+          borderWidth: 1.5,
+          borderDash: [5, 5],
+          pointRadius: 0,
+          fill: false
+        },
+        {
+          label: 'Ty',
+          data: [{ x: ty, y: tySa }],
+          parsing: false,
+          borderColor: '#7c3aed',
+          backgroundColor: '#8b5cf6',
+          pointRadius: 5,
+          pointHoverRadius: 6,
+          showLine: false
+        },
+        {
+          label: 'Ty 位置',
+          data: [{ x: ty, y: 0 }, { x: ty, y: maxSa }],
+          parsing: false,
+          borderColor: 'rgba(124,58,237,0.55)',
+          borderWidth: 1.5,
+          borderDash: [5, 5],
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: '週期 T (sec)' },
+          min: 0
+        },
+        y: {
+          title: { display: true, text: '譜加速度 Sa(T) (g)' },
+          min: 0
+        }
+      },
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label(ctx) {
+              const val = ctx.parsed?.y;
+              const xVal = ctx.parsed?.x ?? ctx.label;
+              return `${ctx.dataset.label}: T=${fmt(xVal,3)} sec, Sa=${fmt(val,3)} g`;
+            }
+          }
+        }
+      }
+    }
+  });
+  legend.innerHTML = `DBE / MCE 反應譜已依本頁工址條件繪製；圖中虛線分別標示設計週期位置。X 向主模態週期 T<sub>x</sub> = <b>${fmt(tx,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(txSa,3)}</b> g；Y 向主模態週期 T<sub>y</sub> = <b>${fmt(ty,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(tySa,3)}</b> g。`;
+}
+
+function buildDirectionResult(dir, dynBaseShear, staticRef, staticImported) {
+  const ref = staticImported?.Vdesign || staticRef.Vdesign;
+  const ratio = ref > 0 ? dynBaseShear / ref : null;
+  return {
+    dir,
+    baseShear: dynBaseShear,
+    ratio,
+    staticRef,
+    staticImported,
+    adoptedStatic: ref,
+      adoptedStaticText: staticImported ? '沿用等值靜力摘要' : '依本頁條件反算等值靜力結果',
+      status: ratio == null ? '—' : ratio >= 1 ? '動力不小於等值靜力結果' : '動力小於等值靜力結果'
+  };
+}
+
+function loadStaticSummaryIntoPage() {
+  const saved = getStorageJson(STATIC_STORAGE_KEY);
+  const box = document.getElementById('staticImportStatus');
+  if (!saved?.x) {
+    box.innerHTML = '尚未讀到等值靜力頁摘要；可直接手動填入工址與動力分析結果。';
+    return null;
+  }
+  const proj = saved.project || {};
+  if (proj.name) document.getElementById('projName').value = proj.name;
+  if (proj.no) document.getElementById('projNo').value = proj.no;
+  if (proj.designer) document.getElementById('projDesigner').value = proj.designer;
+  if (proj.zoneCity) {
+    document.getElementById('zoneCity').value = proj.zoneCity;
+    document.getElementById('zoneCity').dispatchEvent(new Event('change'));
+  }
+  if (proj.zoneDist) {
+    document.getElementById('zoneDist').value = proj.zoneDist;
+    document.getElementById('zoneDist').dispatchEvent(new Event('change'));
+  }
+  if (isFinite(proj.SsD)) document.getElementById('SsD').value = proj.SsD;
+  if (isFinite(proj.S1D)) document.getElementById('S1D').value = proj.S1D;
+  if (isFinite(proj.SsM)) document.getElementById('SsM').value = proj.SsM;
+  if (isFinite(proj.S1M)) document.getElementById('S1M').value = proj.S1M;
+  if (proj.siteClass) document.getElementById('siteClass').value = proj.siteClass;
+  if (proj.importanceKey) document.getElementById('impClass').value = proj.importanceKey;
+  if (isFinite(proj.hn)) document.getElementById('hn').value = proj.hn;
+  if (isFinite(proj.W)) document.getElementById('W').value = proj.W;
+  if (saved.x?.systemKey) document.getElementById('sysX').value = saved.x.systemKey;
+  if (saved.y?.systemKey) document.getElementById('sysY').value = saved.y.systemKey;
+  if (isFinite(saved.x?.Tdesign)) document.getElementById('Tx').value = saved.x.Tdesign;
+  if (isFinite(saved.y?.Tdesign)) document.getElementById('Ty').value = saved.y.Tdesign;
+  box.innerHTML = `
+    <strong>已讀到靜力摘要</strong><br>
+    案件：${proj.name || '—'} ｜ 工址：${proj.zone || '—'}<br>
+    X 向靜力 Vdesign = ${fmt(saved.x.Vdesign, 2)} tf${saved.y ? ` ｜ Y 向 = ${fmt(saved.y.Vdesign, 2)} tf` : ''}<br>
+    靜力摘要時間：${saved.savedAt ? new Date(saved.savedAt).toLocaleString('zh-TW') : '—'}<br>
+    已同步帶入工址、系統、用途與建物量體條件。
+  `;
+  return saved;
+}
+
+function calcDynamic() {
+  const impKey = document.getElementById('impClass').value;
+  const Ifactor = S.IMPORTANCE[impKey]?.factor || 1;
+  const hn = parseFloat(document.getElementById('hn').value);
+  const W = parseFloat(document.getElementById('W').value);
+  const siteClass = +document.getElementById('siteClass').value;
+  const SsD = parseFloat(document.getElementById('SsD').value);
+  const S1D = parseFloat(document.getElementById('S1D').value);
+  const SsM = parseFloat(document.getElementById('SsM').value);
+  const S1M = parseFloat(document.getElementById('S1M').value);
+  const Tx = parseFloat(document.getElementById('Tx').value);
+  const Ty = parseFloat(document.getElementById('Ty').value);
+  const VxDyn = parseFloat(document.getElementById('VxDyn').value);
+  const VyDyn = parseFloat(document.getElementById('VyDyn').value);
+  const sysX = document.getElementById('sysX').value;
+  const sysY = document.getElementById('sysY').value;
+  const software = (document.getElementById('software').value || '').trim();
+  const remark = (document.getElementById('remark').value || '').trim();
+  if (![hn, W, SsD, S1D, SsM, S1M, Tx, Ty, VxDyn, VyDyn].every(v => isFinite(v) && v > 0)) {
+    alert('請完整填入有效的工址條件與動力分析結果。');
+    return;
+  }
+  const imported = getStorageJson(STATIC_STORAGE_KEY);
+  const staticX = calcStaticReference(sysX, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tx);
+  const staticY = calcStaticReference(sysY, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Ty);
+  const x = buildDirectionResult('X', VxDyn, staticX, imported?.x || null);
+  const y = buildDirectionResult('Y', VyDyn, staticY, imported?.y || null);
+  const notes = [];
+  [x, y].forEach(item => {
+    if (item.ratio != null && item.ratio < 1) {
+      notes.push(`${item.dir} 向動力基底剪力小於等值靜力結果，比值 = ${fmt(item.ratio, 2)}；請確認是否需依規範進行縮放或採用較大者。`);
+    } else {
+      notes.push(`${item.dir} 向動力基底剪力不小於等值靜力結果，可作為與靜力結果對照之控制候選。`);
+    }
+  });
+  if (software) notes.push(`本次動力摘要來源：${software}${remark ? `，${remark}` : ''}。`);
+  const result = {
+    savedAt: new Date().toISOString(),
+    project: { ...getProjectInfo(), software, remark, source: 'dynamic' },
+    x: { baseShear: VxDyn, period: Tx, ratio: x.ratio, staticRef: x.adoptedStatic, system: staticX.sys.name },
+    y: { baseShear: VyDyn, period: Ty, ratio: y.ratio, staticRef: y.adoptedStatic, system: staticY.sys.name },
+    site: {
+      SDS: staticX.site.SDS,
+      SD1: staticX.site.SD1,
+      SMS: staticX.site.SMS,
+      SM1: staticX.site.SM1,
+      ToD: staticX.ToD,
+      ToM: staticX.ToM,
+      SaDx: staticX.SaD,
+      SaDy: staticY.SaD,
+      siteClass,
+      weight: W
+    },
+    notes
+  };
+  lastDynamicResult = { result, x, y, imported };
+  setStorageJson(DYNAMIC_STORAGE_KEY, result);
+  renderDynamicResult();
+}
+
+function restoreDynamicSummary() {
+  const saved = getStorageJson(DYNAMIC_STORAGE_KEY);
+  if (!saved?.x || !saved?.y) return;
+  if (saved.project?.name) document.getElementById('projName').value = saved.project.name;
+  if (saved.project?.no) document.getElementById('projNo').value = saved.project.no;
+  if (saved.project?.designer) document.getElementById('projDesigner').value = saved.project.designer;
+  if (saved.project?.software) document.getElementById('software').value = saved.project.software;
+  if (saved.project?.remark) document.getElementById('remark').value = saved.project.remark;
+  if (isFinite(saved.x.period)) document.getElementById('Tx').value = saved.x.period;
+  if (isFinite(saved.y.period)) document.getElementById('Ty').value = saved.y.period;
+  if (isFinite(saved.x.baseShear)) document.getElementById('VxDyn').value = saved.x.baseShear;
+  if (isFinite(saved.y.baseShear)) document.getElementById('VyDyn').value = saved.y.baseShear;
+  lastDynamicResult = {
+    result: saved,
+    x: {
+      ratio: saved.x.ratio,
+      status: saved.x.ratio != null && saved.x.ratio < 1 ? '動力小於等值靜力結果' : '動力不小於等值靜力結果',
+      adoptedStaticText: '沿用上次摘要',
+      adoptedStatic: saved.x.staticRef
+    },
+    y: {
+      ratio: saved.y.ratio,
+      status: saved.y.ratio != null && saved.y.ratio < 1 ? '動力小於等值靜力結果' : '動力不小於等值靜力結果',
+      adoptedStaticText: '沿用上次摘要',
+      adoptedStatic: saved.y.staticRef
+    },
+    imported: getStorageJson(STATIC_STORAGE_KEY)
+  };
+  renderDynamicResult();
+}
+
+function renderDynamicResult() {
+  if (!lastDynamicResult) return;
+  const { result, x, y } = lastDynamicResult;
+  const ratios = [x.ratio, y.ratio].filter(v => v != null);
+  const minRatio = ratios.length ? Math.min(...ratios) : null;
+  const banner = document.getElementById('banner');
+  banner.className = `banner-status ${minRatio != null && minRatio < 1 ? 'warn' : 'ok'}`;
+  banner.innerHTML = `動力分析摘要已整理　X 向比值 = <strong>${fmt(x.ratio, 2)}</strong> ｜ Y 向比值 = <strong>${fmt(y.ratio, 2)}</strong>`;
+  document.getElementById('resultPanel').style.display = '';
+  document.getElementById('summaryGrid').innerHTML = `
+    <div class="mini-card"><span class="label">X 向動力基底剪力</span><span class="value">${fmt(result.x.baseShear,2)} tf</span></div>
+    <div class="mini-card"><span class="label">Y 向動力基底剪力</span><span class="value">${fmt(result.y.baseShear,2)} tf</span></div>
+        <div class="mini-card"><span class="label">X 向等值靜力結果</span><span class="value">${fmt(result.x.staticRef,2)} tf</span></div>
+        <div class="mini-card"><span class="label">Y 向等值靜力結果</span><span class="value">${fmt(result.y.staticRef,2)} tf</span></div>
+  `;
+  const site = result.site || {};
+  document.getElementById('spectrumRefGrid').innerHTML = `
+    <div class="mini-card"><span class="label">SDS / SD1</span><span class="value">${fmt(site.SDS,3)} / ${fmt(site.SD1,3)} g</span></div>
+    <div class="mini-card"><span class="label">SMS / SM1</span><span class="value">${fmt(site.SMS,3)} / ${fmt(site.SM1,3)} g</span></div>
+    <div class="mini-card"><span class="label">ToD / ToM</span><span class="value">${fmt(site.ToD,3)} / ${fmt(site.ToM,3)} sec</span></div>
+    <div class="mini-card"><span class="label">SaD(Tx) / SaD(Ty)</span><span class="value">${fmt(site.SaDx,3)} / ${fmt(site.SaDy,3)} g</span></div>
+  `;
+  document.getElementById('compareTableWrap').innerHTML = `
+    <table class="compare-table">
+      <thead>
+          <tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>動/靜比</th><th>判讀</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="label">X 向</td>
+          <td>${fmt(result.x.period,3)} sec</td>
+          <td>${fmt(result.x.baseShear,2)} tf</td>
+          <td>${fmt(result.x.staticRef,2)} tf</td>
+          <td>${fmt(result.x.ratio,2)}</td>
+          <td>${x.status}</td>
+        </tr>
+        <tr>
+          <td class="label">Y 向</td>
+          <td>${fmt(result.y.period,3)} sec</td>
+          <td>${fmt(result.y.baseShear,2)} tf</td>
+          <td>${fmt(result.y.staticRef,2)} tf</td>
+          <td>${fmt(result.y.ratio,2)}</td>
+          <td>${y.status}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="chip-row">
+      <span class="chip">X 向參考：${x.adoptedStaticText}</span>
+      <span class="chip">Y 向參考：${y.adoptedStaticText}</span>
+    </div>
+  `;
+  document.getElementById('noteList').innerHTML = result.notes.map(note => `<li>${note}</li>`).join('');
+  renderSpectrumChart(result);
+  if (window.matchMedia('(max-width: 1080px)').matches) {
+    document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function openDynamicReport() {
+  if (!lastDynamicResult) calcDynamic();
+  if (!lastDynamicResult) return;
+  const { result, x, y } = lastDynamicResult;
+  const proj = getProjectInfo();
+  const today = new Date().toLocaleDateString('zh-TW');
+  const esc = text => String(text == null ? '' : text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const spectrumCanvas = document.getElementById('dynamicSpectrumChart');
+  const spectrumImage = spectrumCanvas ? spectrumCanvas.toDataURL('image/png') : '';
+  const html = `<!doctype html>
+  <html lang="zh-TW"><head><meta charset="utf-8"><title>動力分析摘要</title>
+  <style>
+    @page { size:A4 portrait; margin:18mm 14mm; }
+    body { font-family:"Microsoft JhengHei","PingFang TC",sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
+    .toolbar { max-width:800px; margin:0 auto 12px; text-align:right; }
+    .toolbar button { background:#0f766e; color:#fff; border:0; padding:8px 18px; border-radius:4px; margin-left:6px; cursor:pointer; }
+    .paper { max-width:800px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+    h1 { margin:0 0 6px; font-size:22px; }
+    .sub { font-size:13px; color:#555; border-bottom:3px double #222; padding-bottom:12px; margin-bottom:14px; }
+    .meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:12px 0 16px; }
+    .meta div { border-bottom:1px dotted #888; padding:4px 0; }
+    .summary { margin:12px 0 18px; padding:14px 18px; border-radius:6px; font-size:18px; font-weight:700; text-align:center; background:#ecfeff; color:#0f766e; border:2px solid #0f766e; }
+    .block { margin:14px 0 18px; page-break-inside:avoid; }
+    .block h3 { font-size:14px; margin:0 0 6px; padding:4px 8px; background:#0f766e; color:#fff; border-radius:3px 3px 0 0; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th, td { border:1px solid #888; padding:6px 8px; text-align:center; }
+    th { background:#ecfeff; color:#0f766e; }
+    td.label, th.label { text-align:left; }
+    .notes { padding-left:20px; font-size:12px; line-height:1.8; }
+    .rep-footer { position:fixed; left:0; bottom:0; width:100%; padding:0 14mm 8mm; font-size:10px; color:#666; display:flex; justify-content:flex-end; align-items:end; }
+    .rep-footer-left { text-align:left; }
+    .rep-footer-right { text-align:right; }
+    @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .paper { box-shadow:none; padding:0; max-width:none; } }
+  </style></head>
+  <body>
+    <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="window.close()">✕ 關閉</button></div>
+    <div class="paper">
+      <h1>動力分析摘要計算書</h1>
+      <div class="sub">反應譜動力分析結果整理與靜力比對</div>
+      <div class="meta">
+        <div><b>計畫名稱</b>${esc(proj.name || '—')}</div>
+        <div><b>計畫編號</b>${esc(proj.no || '—')}</div>
+        <div><b>設計人員</b>${esc(proj.designer || '—')}</div>
+        <div><b>製表日期</b>${esc(today)}</div>
+      </div>
+      <div class="summary">X 向比值 = ${esc(fmt(result.x.ratio,2))} ｜ Y 向比值 = ${esc(fmt(result.y.ratio,2))}</div>
+      <section class="block">
+        <h3>工址與設計譜參考</h3>
+        <table>
+          <tbody>
+            <tr><th class="label">SDS / SD1</th><td>${esc(fmt(result.site?.SDS,3))} / ${esc(fmt(result.site?.SD1,3))} g</td></tr>
+            <tr><th class="label">SMS / SM1</th><td>${esc(fmt(result.site?.SMS,3))} / ${esc(fmt(result.site?.SM1,3))} g</td></tr>
+            <tr><th class="label">ToD / ToM</th><td>${esc(fmt(result.site?.ToD,3))} / ${esc(fmt(result.site?.ToM,3))} sec</td></tr>
+            <tr><th class="label">SaD(Tx) / SaD(Ty)</th><td>${esc(fmt(result.site?.SaDx,3))} / ${esc(fmt(result.site?.SaDy,3))} g</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="block">
+        <h3>動力參數與反應譜</h3>
+        ${spectrumImage ? `<div style="text-align:center; margin-bottom:10px;"><img src="${spectrumImage}" alt="動力反應譜" style="max-width:100%; border:1px solid #ddd; border-radius:6px;"></div>` : ''}
+        <div style="font-size:12px; color:#475569; line-height:1.8;">${document.getElementById('dynamicSpectrumLegend')?.innerHTML || ''}</div>
+      </section>
+      <section class="block">
+        <h3>靜力 / 動力比較表</h3>
+        <table>
+        <thead><tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>動/靜比</th><th>判讀</th></tr></thead>
+          <tbody>
+            <tr><td>X 向</td><td>${esc(fmt(result.x.period,3))} sec</td><td>${esc(fmt(result.x.baseShear,2))} tf</td><td>${esc(fmt(result.x.staticRef,2))} tf</td><td>${esc(fmt(result.x.ratio,2))}</td><td>${esc(x.status)}</td></tr>
+            <tr><td>Y 向</td><td>${esc(fmt(result.y.period,3))} sec</td><td>${esc(fmt(result.y.baseShear,2))} tf</td><td>${esc(fmt(result.y.staticRef,2))} tf</td><td>${esc(fmt(result.y.ratio,2))}</td><td>${esc(y.status)}</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="block">
+        <h3>備註</h3>
+        <ol class="notes">${result.notes.map(note => `<li>${esc(note)}</li>`).join('')}</ol>
+      </section>
+      <div class="rep-footer">
+        <div class="rep-footer-right">版權所有 弘一工程顧問有限公司</div>
+      </div>
+    </div>
+  </body></html>`;
+  const w = window.open('', '_blank', 'width=960,height=1100,scrollbars=yes');
+  if (!w) { alert('請允許彈出視窗以開啟計算書'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+function clearDynamicSummary() {
+  try {
+    localStorage.removeItem(DYNAMIC_STORAGE_KEY);
+  } catch (err) {}
+  lastDynamicResult = null;
+  document.getElementById('resultPanel').style.display = 'none';
+  document.getElementById('staticImportStatus').innerHTML = '動力摘要已清除；如需延續同案，可重新載入靜力頁摘要。';
+}
+
+(function initPageScopeCard() {
+  const card = document.getElementById('pageScopeCard');
+  if (!card) return;
+  const storageKey = 'seismic-dynamic-page-scope-open';
+  try {
+    if (localStorage.getItem(storageKey) === '1') card.open = true;
+  } catch (err) {}
+  card.addEventListener('toggle', function() {
+    try {
+      localStorage.setItem(storageKey, this.open ? '1' : '0');
+    } catch (err) {}
+  });
+})();
+
+(function initVersionInfoCard() {
+  const card = document.getElementById('versionInfoCard');
+  if (!card) return;
+  const storageKey = 'seismic-dynamic-version-info-open';
+  try {
+    if (localStorage.getItem(storageKey) === '1') card.open = true;
+  } catch (err) {}
+  card.addEventListener('toggle', function() {
+    try {
+      localStorage.setItem(storageKey, this.open ? '1' : '0');
+    } catch (err) {}
+  });
+})();
+
+document.getElementById('btnLoadStatic').addEventListener('click', loadStaticSummaryIntoPage);
+document.getElementById('btnClearDynamic').addEventListener('click', clearDynamicSummary);
+document.getElementById('btnCalc').addEventListener('click', calcDynamic);
+document.getElementById('btnPrint').addEventListener('click', openDynamicReport);
+document.getElementById('btnReport').addEventListener('click', openDynamicReport);
+initSelects();
+initZoneLookup();
+restoreProjectInfo();
+['projName', 'projNo', 'projDesigner'].forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', saveProjectInfo);
+});
+loadStaticSummaryIntoPage();
+restoreDynamicSummary();
+</script>
+</body>
+</html>

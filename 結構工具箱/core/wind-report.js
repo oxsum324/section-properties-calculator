@@ -553,7 +553,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-toolbar { max-width:980px; margin:0 auto 12px; text-align:right; }
 .rep-toolbar button { background:#1a3d5c; color:#fff; border:0; padding:8px 18px; font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
 .rep-toolbar button:hover { background:#27567c; }
-.rep-footer { margin-top:24px; padding-top:8px; border-top:1px solid #888; font-size:10px; color:#666; text-align:center; }
+.rep-footer { position:fixed; right:14mm; bottom:8mm; font-size:10px; color:#666; text-align:right; }
 @media print {
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
@@ -595,7 +595,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   ${inputsHtml}
   ${reportOpt('rep_steps', false) ? buildStepsHtml() : ''}
   ${notesHtml}
-  <div class="rep-footer">版權所有　弘一工程顧問有限公司</div>
+  <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </div>
 </body>
 </html>`;
@@ -673,7 +673,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-toolbar { max-width:980px; margin:0 auto 12px; text-align:right; }
 .rep-toolbar button { background:#1a3d5c; color:#fff; border:0; padding:8px 18px; font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
 .rep-toolbar button:hover { background:#27567c; }
-.rep-footer { margin-top:24px; padding-top:8px; border-top:1px solid #888; font-size:10px; color:#666; text-align:center; }
+.rep-footer { position:fixed; right:14mm; bottom:8mm; font-size:10px; color:#666; text-align:right; }
 @media print {
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
@@ -702,7 +702,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   ${inputsHtml}
   ${buildStepsHtml()}
   ${notesHtml}
-  <div class="rep-footer">版權所有　弘一工程顧問有限公司</div>
+  <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </div>
 </body>
 </html>`;

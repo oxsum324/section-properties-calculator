@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工具測試面板</title>
+<link rel="stylesheet" href="../core/style.css">
+<style>
+  .suite-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-bottom:14px; }
+  .suite-card { border:1px solid var(--border); border-radius:10px; padding:14px; background:#f8fafc; }
+  .suite-card label { display:flex; align-items:center; gap:10px; font-weight:700; color:var(--primary); cursor:pointer; }
+  .suite-card input[type="checkbox"] { width:18px; height:18px; accent-color: var(--primary); }
+  .suite-card p { margin-top:8px; font-size:0.82em; color:var(--text-light); }
+  .run-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .run-row .btn-calc { width:auto; min-width:180px; margin-top:0; }
+  .btn-secondary.inline { width:auto; min-width:120px; margin-top:0; }
+  .status-pill { display:inline-flex; align-items:center; justify-content:center; min-height:32px; padding:6px 12px; border-radius:999px; font-size:0.82em; font-weight:700; }
+  .status-pill.idle { background:#e2e8f0; color:#475569; }
+  .status-pill.ok { background:#dcfce7; color:#166534; }
+  .status-pill.fail { background:#fee2e2; color:#991b1b; }
+  .meta-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:10px; }
+  .meta-card { border:1px solid var(--border); border-radius:10px; padding:10px 12px; background:#fff; }
+  .meta-card .label { font-size:0.76em; color:var(--text-light); margin-bottom:4px; }
+  .meta-card .value { font-size:0.9em; font-weight:700; color:var(--text); }
+  .filter-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  .filter-row label { display:flex; align-items:center; gap:8px; font-size:0.84em; font-weight:700; color:var(--primary); cursor:pointer; }
+  .filter-row input[type="checkbox"] { width:18px; height:18px; accent-color: var(--primary); }
+  .suite-result { border:1px solid var(--border); border-radius:10px; margin-top:12px; overflow:hidden; }
+  .suite-result summary { cursor:pointer; list-style:none; display:flex; justify-content:space-between; gap:12px; align-items:center; padding:14px 16px; background:#f8fafc; color:var(--primary); font-weight:700; }
+  .suite-result summary::-webkit-details-marker { display:none; }
+  .suite-result .body { padding:14px 16px; }
+  .suite-result.pass summary { background:#ecfdf5; color:#166534; }
+  .suite-result.fail summary { background:#fef2f2; color:#991b1b; }
+  .result-list { display:grid; gap:8px; }
+  .result-item-test { border-left:3px solid var(--border); background:#fff; border-radius:6px; padding:10px 12px; font-size:0.84em; }
+  .result-item-test.pass { border-left-color: var(--accent); }
+  .result-item-test.fail { border-left-color: var(--danger); }
+  .level-tag { display:inline-flex; align-items:center; justify-content:center; min-width:52px; padding:2px 8px; border-radius:999px; font-size:0.74em; font-weight:700; margin-right:8px; }
+  .level-tag.basic { background:#dbeafe; color:#1d4ed8; }
+  .level-tag.advanced { background:#fef3c7; color:#92400e; }
+  .mono { font-family:'Consolas',monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>工具測試面板</h1>
+  <p>勾選要驗證的模組後執行 ｜ 免命令列 ｜ 以瀏覽器端快速檢查主要計算路徑</p>
+  <p style="margin-top:4px;"><a class="back" href="../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2>測試選項</h2>
+    <div class="suite-grid">
+      <div class="suite-card">
+        <label><input type="checkbox" id="runSeismic" checked>Seismic</label>
+        <p>驗證一般工址、臺北盆地微分區、譜參數與設計力分流。</p>
+      </div>
+      <div class="suite-card">
+        <label><input type="checkbox" id="runWind" checked>Wind</label>
+        <p>驗證代表性風力函數與基本公式是否仍正常。</p>
+      </div>
+      <div class="suite-card">
+        <label><input type="checkbox" id="runRC" checked>RC</label>
+        <p>驗證混凝土與鋼筋材料常數、beta1、Ec 與鋼筋資料表。</p>
+      </div>
+      <div class="suite-card">
+        <label><input type="checkbox" id="runSteel" checked>Steel</label>
+        <p>驗證 H 型鋼斷面性質、分類、撓曲與壓力基本設計能力。</p>
+      </div>
+    </div>
+    <div class="run-row">
+      <button class="btn-secondary inline" id="btnSelectAll">全選</button>
+      <button class="btn-secondary inline" id="btnClearAll">全不選</button>
+      <button class="btn-secondary inline" id="btnExport">匯出摘要</button>
+      <button class="btn-calc" id="btnRun">執行勾選測試</button>
+      <span class="status-pill idle" id="runStatus">尚未執行</span>
+    </div>
+    <div class="meta-row">
+      <div class="meta-card">
+        <div class="label">本次執行</div>
+        <div class="value" id="currentRunTime">尚未執行</div>
+      </div>
+      <div class="meta-card">
+        <div class="label">最後一次執行</div>
+        <div class="value" id="lastRunTime">尚無紀錄</div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <label><input type="checkbox" id="showOnlyFailures">只顯示失敗項目</label>
+      <label><input type="checkbox" id="includeAdvanced">包含進階測試</label>
+      <label><input type="checkbox" id="reuseLastSelection" checked>記住並重用上次勾選組合</label>
+    </div>
+    <div class="note">
+      這個頁面是快速回歸檢查，不是完整正式驗證。若有重大改版，仍建議同步保留命令列測試。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>測試結果</h2>
+    <div id="results">
+      <div class="hint">按下「執行勾選測試」後顯示結果。</div>
+    </div>
+  </div>
+</div>
+
+<script src="../core/loads/seismic.js"></script>
+<script src="../core/loads/seismic-zones.js"></script>
+<script src="../core/loads/wind.js"></script>
+<script src="../core/materials/concrete.js"></script>
+<script src="../core/materials/rebar.js"></script>
+<script src="../core/materials/steel.js"></script>
+<script>
+function approx(actual, expected, tol = 1e-6, msg = '') {
+  if (Math.abs(actual - expected) > tol) {
+    throw new Error(`${msg} expected ${expected}, got ${actual}`);
+  }
+}
+
+function pushPass(results, name) {
+  results.push({ name, ok: true, level: 'basic' });
+}
+
+function pushFail(results, name, error) {
+  results.push({ name, ok: false, error: error?.message || String(error), level: 'basic' });
+}
+
+function runCase(results, name, fn, level = 'basic') {
+  try {
+    fn();
+    results.push({ name, ok: true, level });
+  } catch (error) {
+    results.push({ name, ok: false, error: error?.message || String(error), level });
+  }
+}
+
+function runSeismicSuite(options = {}) {
+  const S = window.Seismic;
+  const Z = window.SeismicZones;
+  const results = [];
+  const includeAdvanced = !!options.includeAdvanced;
+
+  runCase(results, '一般工址譜參數', () => {
+    const site = S.calcSiteCoeff(2, 0.6, 0.35, 0.8, 0.5);
+    approx(site.SDS, 0.66, 1e-9, 'SDS');
+    approx(site.SD1, 0.49, 1e-9, 'SD1');
+    approx(site.SMS, 0.8, 1e-9, 'SMS');
+    approx(site.SM1, 0.55, 1e-9, 'SM1');
+  });
+
+  runCase(results, '臺北盆地 Ra 修正', () => {
+    approx(S.calcRa(4.8, false), 1 + (4.8 - 1) / 1.5, 1e-9, 'general Ra');
+    approx(S.calcRa(4.8, true), 1 + (4.8 - 1) / 2.0, 1e-9, 'basin Ra');
+  });
+
+  runCase(results, '臺北盆地微分區資料讀取', () => {
+    const zone1 = Z.BASIN['臺北市']['大安區']['德安里'];
+    const zone3 = Z.BASIN['臺北市']['大安區']['黎元里'];
+    if (!zone1 || !zone3) throw new Error('缺少代表里別資料');
+    approx(zone1[0], 1, 1e-9, 'zone1 classification');
+    approx(zone1[1], 1.6, 1e-9, 'zone1 T0');
+    approx(zone3[0], 3, 1e-9, 'zone3 classification');
+    approx(zone3[1], 1.05, 1e-9, 'zone3 T0');
+  });
+
+  runCase(results, '盆地譜長週期差異', () => {
+    const T = 1.3;
+    const zone1Sa = S.calcSa(T, 0.6, 0.96);
+    const zone3Sa = S.calcSa(T, 0.6, 0.63);
+    if (!(zone1Sa > zone3Sa)) {
+      throw new Error(`zone1=${zone1Sa}, zone3=${zone3Sa}`);
+    }
+  });
+
+  runCase(results, '盆地案例設計力高於一般工址', () => {
+    const floors = Array.from({ length: 5 }, () => ({ W: 500, dH: 3.5 }));
+    const Tcode = S.calcPeriod('SMRF_RC', 17.5);
+    const Tdesign = S.calcTdesign(Tcode, null, 1.4);
+
+    const generalSite = S.calcSiteCoeff(2, 0.6, 0.35, 0.8, 0.5);
+    const basinSite = { SDS: 0.6, SD1: 0.96, SMS: 0.8, SM1: 1.28 };
+
+    function calcV(site, isTB) {
+      const t = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
+      const Ra = S.calcRa(4.8, isTB);
+      const Fu = S.calcFu(Ra, Tdesign, t.ToD);
+      const FuM = S.calcFuM(4.8, Tdesign, t.ToM);
+      const SaD = S.calcSa(Tdesign, site.SDS, site.SD1);
+      const SaM = S.calcSa(Tdesign, site.SMS, site.SM1);
+      const W = floors.reduce((sum, floor) => sum + floor.W, 0);
+      const vd = S.calcVD(1, 1, SaD, Fu, W).VD;
+      const vs = S.calcVstar(1, 1, Fu, SaD, W, isTB).Vstar;
+      const vm = S.calcVM(1, 1, SaM, FuM, W).VM;
+      return Math.max(vd, vs, vm);
+    }
+
+    const generalV = calcV(generalSite, false);
+    const basinV = calcV(basinSite, true);
+    if (!(basinV > generalV)) {
+      throw new Error(`general=${generalV}, basin=${basinV}`);
+    }
+  });
+
+  if (includeAdvanced) {
+    runCase(results, '近斷層譜參數內插控制', () => {
+      const F = Z.FAULTS['新城斷層'];
+      const left = F.d['3'];
+      const right = F.d['5'];
+      const t = 0.5;
+      const interpSDS = left[0] + (right[0] - left[0]) * t;
+      approx(interpSDS, 0.825, 1e-9, 'interpolated SDS');
+    }, 'advanced');
+
+    runCase(results, '臺北盆地 ToD 對應 T0', () => {
+      const zone1 = { SDS: 0.6, SD1: 0.96, SMS: 0.8, SM1: 1.28 };
+      const zone3 = { SDS: 0.6, SD1: 0.63, SMS: 0.8, SM1: 0.84 };
+      approx(S.calcTo(zone1.SDS, zone1.SD1, zone1.SMS, zone1.SM1).ToD, 1.6, 1e-9, 'zone1 ToD');
+      approx(S.calcTo(zone3.SDS, zone3.SD1, zone3.SMS, zone3.SM1).ToD, 1.05, 1e-9, 'zone3 ToD');
+    }, 'advanced');
+  }
+
+  return results;
+}
+
+function runWindSuite(options = {}) {
+  const W = window.Wind;
+  const results = [];
+  const includeAdvanced = !!options.includeAdvanced;
+
+  runCase(results, 'qz 基本公式', () => {
+    const q = W.calcQz(10, 42.5, 'C', 1.0, 1.0);
+    if (!(q.qz > 0)) throw new Error('qz should be positive');
+  });
+
+  runCase(results, 'C&C 正負壓組合', () => {
+    const cc = W.calcCC({
+      V: 42.5, terrain: 'C', I: 1.0, Kzt: 1.0,
+      h: 30, z: 10, zone: 'zone4', surface: 'wall', A: 2, encl: 'enclosed'
+    });
+    approx(cc.p_pos, cc.qPos * cc.GCp.pos + cc.qiNeg * cc.GCpi, 1e-9, 'positive pressure');
+    approx(cc.p_neg, cc.qNeg * cc.GCp.neg - cc.qiPos * cc.GCpi, 1e-9, 'negative pressure');
+  });
+
+  runCase(results, '矩形建物 MWFRS', () => {
+    const mwfrs = W.calcBuildingWind({
+      V: 42.5, terrain: 'C', I: 1.0, B: 20, L: 30, storyH: [3.5, 3.5, 3.5], Kzt: 1.0,
+      encl: 'enclosed', roofSlope: 0, roofType: 'flat', windToRidge: 'perpendicular', eaveHeight: 9
+    });
+    if (!(mwfrs.Vb > 0)) throw new Error('base shear should be positive');
+    if (mwfrs.stories.length !== 3) throw new Error('story count mismatch');
+  });
+
+  runCase(results, '開放式屋頂區域風壓', () => {
+    const openCalc = W.calcOpenRoofCC({
+      V: 42.5, terrain: 'C', I: 1.0, h: 8, B: 12, L: 18, Kzt: 1.0,
+      theta: 7.5, A: 1.0, zone: 'zone3', roofType: 'monoslope', blockage: 'blocked'
+    });
+    approx(openCalc.p_pos, openCalc.qh * openCalc.G * openCalc.Cpn.pos, 1e-9, 'positive pressure');
+    approx(openCalc.p_neg, openCalc.qh * openCalc.G * openCalc.Cpn.neg, 1e-9, 'negative pressure');
+  });
+
+  if (includeAdvanced) {
+    runCase(results, 'MWFRS 共振路徑', () => {
+      const mwfrsResonant = W.calcBuildingWind({
+        V: 42.5, terrain: 'C', I: 1.0, B: 20, L: 20, storyH: Array(20).fill(5), Kzt: 1.0,
+        encl: 'enclosed', roofSlope: 0, roofType: 'flat', windToRidge: 'perpendicular', eaveHeight: 100,
+        fa: 0.35, ft: 0.45
+      });
+      if (mwfrsResonant.lateralMeta.regime !== 'resonant') throw new Error('should enter resonant regime');
+    }, 'advanced');
+
+    runCase(results, '塔狀構造物風力', () => {
+      const tower = W.calcTowerWind({
+        V: 42.5, terrain: 'C', I: 1.0, zBase: 0, height: 30, D: 2.0,
+        segments: 6, Kzt: 1.0, sectionType: 'square_face', shapeFactor: 1.1,
+        topArea: 4.0
+      });
+      if (!(tower.baseShear > 0 && tower.baseMoment > 0)) throw new Error('tower results should be positive');
+    }, 'advanced');
+  }
+
+  return results;
+}
+
+function runRCSuite(options = {}) {
+  const C = window.Concrete;
+  const R = window.Rebar;
+  const results = [];
+  const includeAdvanced = !!options.includeAdvanced;
+
+  runCase(results, '混凝土 beta1', () => {
+    approx(C.calcBeta1(280), 0.85, 1e-9, 'beta1 at 280');
+    approx(C.calcBeta1(560), 0.65, 1e-9, 'beta1 at 560');
+  });
+
+  runCase(results, '混凝土 Ec', () => {
+    approx(C.calcEc(280), 12000 * Math.sqrt(280), 1e-9, 'Ec');
+  });
+
+  runCase(results, '鋼筋資料表', () => {
+    approx(R.REBAR_TABLE['#4'].db, 1.270, 1e-9, '#4 db');
+    approx(R.REBAR_TABLE['#8'].area, 5.067, 1e-9, '#8 area');
+    if (R.FY_OPTIONS.length < 3) throw new Error('FY options incomplete');
+  });
+
+  if (includeAdvanced) {
+    runCase(results, '混凝土強度選項完整性', () => {
+      if (!Array.isArray(C.FC_OPTIONS) || C.FC_OPTIONS.length < 5) throw new Error('FC options incomplete');
+      if (C.LAMBDA_NORMAL !== 1.0) throw new Error('lambda normal should be 1.0');
+    }, 'advanced');
+
+    runCase(results, '鋼筋彈性模數', () => {
+      approx(R.ES, 2.04e6, 1e-9, 'rebar Es');
+    }, 'advanced');
+  }
+
+  return results;
+}
+
+function runSteelSuite(options = {}) {
+  const St = window.Steel;
+  const results = [];
+  const includeAdvanced = !!options.includeAdvanced;
+  const secRow = St.H_SECTIONS_MM.find(group => group.g === '300×300').s.find(sec => sec.n === 'H300×300×10×15');
+  const sec = St.calcProps(secRow);
+
+  runCase(results, '鋼梁斷面性質', () => {
+    if (!(sec.A > 0 && sec.Ix > sec.Iy && sec.Sx > 0)) throw new Error('section props invalid');
+  });
+
+  runCase(results, '鋼梁分類', () => {
+    const cls = St.classify(sec, 2500);
+    if (!['compact', 'non-compact', 'slender'].includes(cls.flange)) throw new Error('flange class invalid');
+    if (!['compact', 'non-compact', 'slender'].includes(cls.web)) throw new Error('web class invalid');
+  });
+
+  runCase(results, '鋼梁撓曲強度', () => {
+    const mn = St.calcMn(sec, 2500, 300, 1.0);
+    if (!(mn.phiMn_tfm > 0)) throw new Error('phiMn should be positive');
+  });
+
+  runCase(results, '鋼柱壓力強度', () => {
+    const pn = St.calcPn(sec, 2500, 60, 60);
+    if (!(pn.phiPn_tf > 0)) throw new Error('phiPn should be positive');
+  });
+
+  if (includeAdvanced) {
+    runCase(results, '鋼梁剪力強度', () => {
+      const vn = St.calcVn(sec, 2500);
+      if (!(vn.phiVn_tf > 0)) throw new Error('phiVn should be positive');
+    }, 'advanced');
+
+    runCase(results, '鋼構互制公式', () => {
+      const pn = St.calcPn(sec, 2500, 60, 60);
+      const mnx = St.calcMn(sec, 2500, 300, 1.0);
+      const mny = St.calcMny(sec, 2500);
+      const ir = St.calcInteraction(50, pn.phiPn, 1e5, mnx.phiMn, 5e4, mny.phiMny);
+      if (!(ir.IR > 0)) throw new Error('interaction ratio should be positive');
+    }, 'advanced');
+  }
+
+  return results;
+}
+
+function renderSuiteResult(name, results, showOnlyFailures) {
+  const passed = results.filter(r => r.ok).length;
+  const failed = results.length - passed;
+  const filtered = showOnlyFailures ? results.filter(item => !item.ok) : results;
+  const details = filtered.map(item => `
+    <div class="result-item-test ${item.ok ? 'pass' : 'fail'}">
+      <div><span class="level-tag ${item.level}">${item.level === 'advanced' ? '進階' : '基本'}</span><strong>${item.ok ? 'PASS' : 'FAIL'}</strong>｜${item.name}</div>
+      ${item.ok ? '' : `<div class="mono" style="margin-top:6px; color:#991b1b;">${item.error}</div>`}
+    </div>
+  `).join('');
+
+  return `
+    <details class="suite-result ${failed ? 'fail' : 'pass'}" open>
+      <summary>
+        <span>${name}</span>
+        <span>${passed}/${results.length} 通過${failed ? `，${failed} 失敗` : ''}</span>
+      </summary>
+      <div class="body">
+        <div class="result-list">${details || '<div class="hint">目前沒有失敗項目。</div>'}</div>
+      </div>
+    </details>
+  `;
+}
+
+function formatNow() {
+  return new Date().toLocaleString('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
+function setAllSuites(checked) {
+  document.querySelectorAll('.suite-card input[type="checkbox"]').forEach(el => {
+    el.checked = checked;
+  });
+}
+
+function buildMarkdownSummary(runTime, suites, totalPassed, totalCases, failedSuites, includeAdvanced, showOnlyFailures) {
+  const lines = [
+    '# 工具測試摘要',
+    '',
+    `- 執行時間：${runTime}`,
+    `- 結果：${failedSuites ? `${totalPassed}/${totalCases} 通過` : `全部通過 ${totalPassed}/${totalCases}`}`,
+    `- 包含進階測試：${includeAdvanced ? '是' : '否'}`,
+    `- 只顯示失敗項目：${showOnlyFailures ? '是' : '否'}`,
+    ''
+  ];
+
+  suites.forEach(suite => {
+    const visibleItems = showOnlyFailures ? suite.results.filter(item => !item.ok) : suite.results;
+    lines.push(`## ${suite.name}`);
+    lines.push('');
+    lines.push(`- 通過：${suite.results.filter(item => item.ok).length}/${suite.results.length}`);
+    lines.push('');
+    if (!visibleItems.length) {
+      lines.push('- 目前沒有失敗項目');
+      lines.push('');
+      return;
+    }
+    visibleItems.forEach(item => {
+      lines.push(`- [${item.ok ? 'PASS' : 'FAIL'}][${item.level === 'advanced' ? '進階' : '基本'}] ${item.name}${item.ok ? '' : `｜${item.error}`}`);
+    });
+    lines.push('');
+  });
+
+  return lines.join('\n');
+}
+
+function renderFromBundle(bundle) {
+  const resultsEl = document.getElementById('results');
+  const statusEl = document.getElementById('runStatus');
+  const showOnlyFailures = showOnlyFailuresEl.checked;
+  const suiteHtml = bundle.suites.map(suite => renderSuiteResult(suite.name, suite.results, showOnlyFailures)).join('');
+  resultsEl.innerHTML = suiteHtml;
+  statusEl.className = `status-pill ${bundle.failedSuites ? 'fail' : 'ok'}`;
+  statusEl.textContent = bundle.failedSuites
+    ? `完成：${bundle.totalPassed}/${bundle.totalCases} 通過`
+    : `全部通過：${bundle.totalPassed}/${bundle.totalCases}`;
+}
+
+const lastRunTimeEl = document.getElementById('lastRunTime');
+const currentRunTimeEl = document.getElementById('currentRunTime');
+const showOnlyFailuresEl = document.getElementById('showOnlyFailures');
+const includeAdvancedEl = document.getElementById('includeAdvanced');
+const reuseLastSelectionEl = document.getElementById('reuseLastSelection');
+const btnExport = document.getElementById('btnExport');
+const storedLastRun = localStorage.getItem('toolbox-test-dashboard-last-run');
+if (storedLastRun) lastRunTimeEl.textContent = storedLastRun;
+const storedReuse = localStorage.getItem('toolbox-test-dashboard-reuse-selection');
+if (storedReuse != null) reuseLastSelectionEl.checked = storedReuse === 'true';
+const storedAdvanced = localStorage.getItem('toolbox-test-dashboard-include-advanced');
+if (storedAdvanced != null) includeAdvancedEl.checked = storedAdvanced === 'true';
+const storedOnlyFailures = localStorage.getItem('toolbox-test-dashboard-show-only-failures');
+if (storedOnlyFailures != null) showOnlyFailuresEl.checked = storedOnlyFailures === 'true';
+const storedSelection = localStorage.getItem('toolbox-test-dashboard-selection');
+if (reuseLastSelectionEl.checked && storedSelection) {
+  try {
+    const selection = JSON.parse(storedSelection);
+    if (typeof selection.runSeismic === 'boolean') document.getElementById('runSeismic').checked = selection.runSeismic;
+    if (typeof selection.runWind === 'boolean') document.getElementById('runWind').checked = selection.runWind;
+    if (typeof selection.runRC === 'boolean') document.getElementById('runRC').checked = selection.runRC;
+    if (typeof selection.runSteel === 'boolean') document.getElementById('runSteel').checked = selection.runSteel;
+  } catch (_) {}
+}
+
+document.getElementById('btnSelectAll').addEventListener('click', () => setAllSuites(true));
+document.getElementById('btnClearAll').addEventListener('click', () => setAllSuites(false));
+includeAdvancedEl.addEventListener('change', () => {
+  localStorage.setItem('toolbox-test-dashboard-include-advanced', String(includeAdvancedEl.checked));
+});
+showOnlyFailuresEl.addEventListener('change', () => {
+  localStorage.setItem('toolbox-test-dashboard-show-only-failures', String(showOnlyFailuresEl.checked));
+  if (lastRunBundle) renderFromBundle(lastRunBundle);
+});
+reuseLastSelectionEl.addEventListener('change', () => {
+  localStorage.setItem('toolbox-test-dashboard-reuse-selection', String(reuseLastSelectionEl.checked));
+  if (!reuseLastSelectionEl.checked) {
+    localStorage.removeItem('toolbox-test-dashboard-selection');
+  }
+});
+
+let lastRunBundle = null;
+
+btnExport.addEventListener('click', () => {
+  if (!lastRunBundle) {
+    document.getElementById('results').innerHTML = '<div class="note">請先執行一次測試，再匯出摘要。</div>';
+    return;
+  }
+
+  const markdown = buildMarkdownSummary(
+    lastRunBundle.runTime,
+    lastRunBundle.suites,
+    lastRunBundle.totalPassed,
+    lastRunBundle.totalCases,
+    lastRunBundle.failedSuites,
+    lastRunBundle.includeAdvanced,
+    lastRunBundle.showOnlyFailures
+  );
+  const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = lastRunBundle.runTime.replace(/[\/:\s]/g, '-');
+  a.href = url;
+  a.download = `toolbox-test-summary-${stamp}.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btnRun').addEventListener('click', () => {
+  const runSeismic = document.getElementById('runSeismic').checked;
+  const runWind = document.getElementById('runWind').checked;
+  const runRC = document.getElementById('runRC').checked;
+  const runSteel = document.getElementById('runSteel').checked;
+  const includeAdvanced = includeAdvancedEl.checked;
+  const selected = [];
+  if (runSeismic) selected.push(['Seismic', runSeismicSuite]);
+  if (runWind) selected.push(['Wind', runWindSuite]);
+  if (runRC) selected.push(['RC', runRCSuite]);
+  if (runSteel) selected.push(['Steel', runSteelSuite]);
+
+  const resultsEl = document.getElementById('results');
+  const statusEl = document.getElementById('runStatus');
+  const showOnlyFailures = showOnlyFailuresEl.checked;
+
+  if (!selected.length) {
+    resultsEl.innerHTML = '<div class="note">請至少勾選一個測試模組。</div>';
+    statusEl.className = 'status-pill fail';
+    statusEl.textContent = '未勾選模組';
+    currentRunTimeEl.textContent = '未執行';
+    return;
+  }
+
+  const runTime = formatNow();
+  let failedSuites = 0;
+  let totalCases = 0;
+  let totalPassed = 0;
+  const suiteBundles = [];
+
+  selected.forEach(([name, fn]) => {
+    const suiteResults = fn({ includeAdvanced });
+    const passed = suiteResults.filter(r => r.ok).length;
+    const failed = suiteResults.length - passed;
+    totalCases += suiteResults.length;
+    totalPassed += passed;
+    if (failed) failedSuites += 1;
+    suiteBundles.push({ name, results: suiteResults });
+  });
+
+  lastRunBundle = { runTime, suites: suiteBundles, totalPassed, totalCases, failedSuites, includeAdvanced, showOnlyFailures };
+  renderFromBundle(lastRunBundle);
+  currentRunTimeEl.textContent = runTime;
+  lastRunTimeEl.textContent = runTime;
+  localStorage.setItem('toolbox-test-dashboard-last-run', runTime);
+  if (reuseLastSelectionEl.checked) {
+    localStorage.setItem('toolbox-test-dashboard-selection', JSON.stringify({ runSeismic, runWind, runRC, runSteel }));
+  }
+});
+</script>
+</body>
+</html>

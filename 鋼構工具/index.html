@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>鋼構接頭設計與檢核</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="page-header">
+    <h1 id="pageTitle">鋼構接頭設計與檢核</h1>
+    <p id="pageDescription">剪力接頭、柱續接、支撐 Gusset 接頭、梁柱彎矩接頭｜左輸入、右報表、計算流程、核可判讀一體化</p>
+  </header>
+
+  <main class="container">
+    <section class="card mode-bar">
+      <strong class="mode-bar__label">設計方法：</strong>
+      <div class="mode-bar__group" role="tablist" aria-label="設計法切換">
+        <button id="methodLrfBtn" class="mode-bar__btn active" type="button" data-method="LRFD">LRFD</button>
+        <button id="methodAsdBtn" class="mode-bar__btn" type="button" data-method="ASD">ASD</button>
+      </div>
+      <span class="mode-bar__hint" id="methodHint">鋼結構極限設計法，第十章接合設計</span>
+      <div class="mode-bar__proj">
+        <input name="projectName" form="connectionForm" type="text" placeholder="計畫名稱">
+        <input name="connectionTag" form="connectionForm" type="text" placeholder="接頭編號">
+        <input name="designer" form="connectionForm" type="text" placeholder="設計人">
+        <button id="loadExampleBtn" class="mode-bar__report" type="button">載入範例</button>
+        <button id="saveDraftBtn" class="mode-bar__report secondary" type="button">儲存草稿</button>
+        <button id="exportReportBtn" class="mode-bar__report" type="button">📄 輸出報表</button>
+      </div>
+    </section>
+
+    <div class="main-layout">
+      <section class="input-column">
+        <form id="connectionForm" class="form-grid">
+          <input type="hidden" name="designMethod" value="LRFD">
+
+          <div class="card">
+            <h2>基本資料</h2>
+            <p class="section-note">此版統一套用鋼梁 / RC 梁式模板，左側輸入設計條件，右側即時生成計算書與核可判讀。</p>
+            <div class="form-group">
+              <label>規範基準</label>
+              <input value="鋼結構極限設計法 / 容許應力設計法，第十章接合設計；耐震項目以提示方式列管" disabled>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>接頭型式</label>
+                <select name="connectionType">
+                  <option value="single_plate">剪力接頭｜單剪力板 Shear Tab</option>
+                  <option value="column_splice">柱續接｜Column Splice</option>
+                  <option value="brace_gusset">支撐 / Gusset 接頭</option>
+                  <option value="beam_column_moment">梁柱彎矩接頭</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>暴露條件</label>
+                <select name="exposureCondition">
+                  <option value="painted">塗裝或不受腐蝕環境</option>
+                  <option value="weathering">耐候鋼且暴露大氣</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>需求軸力 Pu / Pa (kN)</label>
+                <input name="requiredAxial" type="number" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>需求剪力 Vu / Va (kN)</label>
+                <input name="requiredShear" type="number" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>需求彎矩 Mu / Ma (kN-m)</label>
+                <input name="requiredMoment" type="number" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>偏心 eec (mm)</label>
+                <input name="eccentricity" type="number" min="0" step="0.1">
+              </div>
+            </div>
+            <div class="checkbox-row">
+              <input id="showFlow" type="checkbox" checked>
+              <label for="showFlow">報表中顯示計算流程與公式代入</label>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>共用螺栓與孔型</h2>
+            <p class="section-note">未特別區分之螺栓材料與孔型，將由目前接頭的主要螺栓群共用。</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label>螺栓直徑 db (mm)</label>
+                <input name="boltDiameter" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>孔徑 dh (mm)</label>
+                <input name="holeDiameter" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>孔型</label>
+                <select name="holeType">
+                  <option value="standard">標準孔</option>
+                  <option value="oversized">超大孔</option>
+                  <option value="short_slot_parallel">短槽孔，平行於力方向</option>
+                  <option value="short_slot_perpendicular">短槽孔，垂直於力方向</option>
+                  <option value="long_slot_parallel">長槽孔，平行於力方向</option>
+                  <option value="long_slot_perpendicular">長槽孔，垂直於力方向</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>邊緣加工型式</label>
+                <select name="edgeFabrication">
+                  <option value="rolled">軋壓邊或熱切割邊</option>
+                  <option value="sheared">剪斷邊</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>螺栓抗拉強度 Fub (MPa)</label>
+                <input name="boltUltimateStrength" type="number" min="1" step="1">
+              </div>
+              <div class="form-group">
+                <label>螺紋是否位於剪斷面</label>
+                <select name="threadsCondition">
+                  <option value="included">是，螺紋在剪斷面</option>
+                  <option value="excluded">否，螺紋不在剪斷面</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>承壓變形是否允許</label>
+              <select name="deformationConsidered">
+                <option value="true">允許一般變形</option>
+                <option value="false">不允許明顯變形</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card" data-connection="single_plate">
+            <h2>剪力接頭資料</h2>
+            <div class="form-row">
+              <div class="form-group">
+                <label>螺栓數量 n (支)</label>
+                <input name="boltCount" type="number" min="1" step="1">
+              </div>
+              <div class="form-group">
+                <label>剪斷面數 ns</label>
+                <select name="shearPlanes">
+                  <option value="1">單剪</option>
+                  <option value="2">雙剪</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>端距 e (mm)</label>
+                <input name="endDistance" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>孔距 s (mm)</label>
+                <input name="pitch" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>板厚 tp (mm)</label>
+                <input name="plateThickness" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>自由邊距 g (mm)</label>
+                <input name="transverseEdgeDistance" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>鋼材降伏強度 Fy,p (MPa)</label>
+                <input name="plateYieldStrength" type="number" min="1" step="1">
+              </div>
+              <div class="form-group">
+                <label>鋼材抗拉強度 Fu,p (MPa)</label>
+                <input name="plateUltimateStrength" type="number" min="1" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板厚 tw (mm)</label>
+                <input name="beamWebThickness" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>腹板抗拉強度 Fu,w (MPa)</label>
+                <input name="beamWebUltimateStrength" type="number" min="1" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>填板總厚度 tfill (mm)</label>
+                <input name="fillerThickness" type="number" min="0" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>填板是否延伸至連接板外</label>
+                <select name="fillerExtended">
+                  <option value="true">是，已依規定延伸</option>
+                  <option value="false">否，未延伸</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>銲腳尺寸 a (mm)</label>
+                <input name="weldSize" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>單道有效長 Le (mm)</label>
+                <input name="weldLength" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>銲道數量</label>
+                <select name="weldLineCount">
+                  <option value="2">雙側銲</option>
+                  <option value="1">單側銲</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>銲材抗拉強度 FEXX (MPa)</label>
+                <input name="weldElectrodeStrength" type="number" min="1" step="1">
+              </div>
+            </div>
+          </div>
+
+          <div class="card" data-connection="column_splice">
+            <h2>柱續接資料</h2>
+            <p class="section-note">以柱腹與柱翼續接板之簡化力流進行檢核，將軸力與彎矩分配為翼板拉力，剪力由腹板續接處傳遞。</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label>柱翼受力槓桿臂 hsp (mm)</label>
+                <input name="spliceLeverArm" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>壓力是否可直接承壓傳遞</label>
+                <select name="spliceBearingTransfer">
+                  <option value="true">是，可由承壓面直接傳遞</option>
+                  <option value="false">否，保守視為由續接元件承擔</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>拉側有效翼板螺栓數 nbf (支)</label>
+                <input name="flangeBoltCount" type="number" min="1" step="1">
+              </div>
+              <div class="form-group">
+                <label>翼板端距 ef (mm)</label>
+                <input name="flangeEndDistance" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>翼板孔距 sf (mm)</label>
+                <input name="flangePitch" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>翼板側邊距 gf (mm)</label>
+                <input name="flangeEdgeDistance" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>翼板厚 tfp (mm)</label>
+                <input name="flangePlateThickness" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>翼板總寬 bfp (mm)</label>
+                <input name="flangePlateWidth" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>翼板淨寬 bfn (mm)</label>
+                <input name="flangePlateNetWidth" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>翼板 Fy / Fu (MPa)</label>
+                <div class="form-row compact">
+                  <input name="flangePlateYieldStrength" type="number" min="1" step="1" placeholder="Fy">
+                  <input name="flangePlateUltimateStrength" type="number" min="1" step="1" placeholder="Fu">
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板續接螺栓數 nbw (支)</label>
+                <input name="webBoltCount" type="number" min="1" step="1">
+              </div>
+              <div class="form-group">
+                <label>腹板剪斷面數 nsw</label>
+                <select name="webShearPlanes">
+                  <option value="1">單剪</option>
+                  <option value="2">雙剪</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板端距 ew (mm)</label>
+                <input name="webEndDistance" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>腹板孔距 sw (mm)</label>
+                <input name="webPitch" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板側邊距 gw (mm)</label>
+                <input name="webEdgeDistance" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>腹板續接板深度 hw (mm)</label>
+                <input name="webPlateDepth" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板厚 twp (mm)</label>
+                <input name="webPlateThickness" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>腹板 Fy / Fu (MPa)</label>
+                <div class="form-row compact">
+                  <input name="webPlateYieldStrength" type="number" min="1" step="1" placeholder="Fy">
+                  <input name="webPlateUltimateStrength" type="number" min="1" step="1" placeholder="Fu">
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>續接銲腳 a (mm)</label>
+                <input name="spliceWeldSize" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>單道有效長 Lw (mm)</label>
+                <input name="spliceWeldLength" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>續接銲道數量</label>
+                <select name="spliceWeldLineCount">
+                  <option value="2">雙側銲</option>
+                  <option value="1">單側銲</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>續接銲材 FEXX (MPa)</label>
+                <input name="spliceWeldElectrodeStrength" type="number" min="1" step="1">
+              </div>
+            </div>
+          </div>
+
+          <div class="card" data-connection="brace_gusset">
+            <h2>支撐 / Gusset 接頭資料</h2>
+            <p class="section-note">以支撐軸力為主控，檢核螺栓剪力、孔承壓、淨斷面、塊狀撕裂、Whitmore 有效寬度屈服與銲道強度。</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Gusset 螺栓數 nbg (支)</label>
+                <input name="gussetBoltCount" type="number" min="1" step="1">
+              </div>
+              <div class="form-group">
+                <label>剪斷面數 nsg</label>
+                <select name="gussetShearPlanes">
+                  <option value="1">單剪</option>
+                  <option value="2">雙剪</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>端距 eg (mm)</label>
+                <input name="gussetEndDistance" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>孔距 sg (mm)</label>
+                <input name="gussetPitch" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>側邊距 gg (mm)</label>
+                <input name="gussetEdgeDistance" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>Gusset 厚 tg (mm)</label>
+                <input name="gussetThickness" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Gusset Fy / Fu (MPa)</label>
+                <div class="form-row compact">
+                  <input name="gussetYieldStrength" type="number" min="1" step="1" placeholder="Fy">
+                  <input name="gussetUltimateStrength" type="number" min="1" step="1" placeholder="Fu">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>有效淨寬 bnet (mm)</label>
+                <input name="gussetNetWidth" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>連接初始寬度 b0 (mm)</label>
+                <input name="gussetConnectionWidth" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>Whitmore 展開長度 Lw (mm)</label>
+                <input name="gussetWhitmoreLength" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>銲腳尺寸 a (mm)</label>
+                <input name="gussetWeldSize" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>單道有效長 Le (mm)</label>
+                <input name="gussetWeldLength" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>銲道數量</label>
+                <select name="gussetWeldLineCount">
+                  <option value="2">雙側銲</option>
+                  <option value="1">單側銲</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>銲材 FEXX (MPa)</label>
+                <input name="gussetWeldElectrodeStrength" type="number" min="1" step="1">
+              </div>
+            </div>
+          </div>
+
+          <div class="card" data-connection="beam_column_moment">
+            <h2>梁柱彎矩接頭資料</h2>
+            <p class="section-note">本版採簡化梁端拉壓偶力模型，先檢核拉側螺栓、端板張力、腹板剪力傳遞與 panel zone 容量，不含 prying action 與耐震塑鉸細部。</p>
+            <div class="form-row">
+              <div class="form-group">
+                <label>梁翼力偶槓桿臂 hm (mm)</label>
+                <input name="momentLeverArm" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>拉側有效螺栓數 nbm (支)</label>
+                <input name="momentBoltCount" type="number" min="1" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>端板端距 em (mm)</label>
+                <input name="momentEndDistance" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>端板孔距 sm (mm)</label>
+                <input name="momentPitch" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>端板側邊距 gm (mm)</label>
+                <input name="momentEdgeDistance" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>端板厚 tmp (mm)</label>
+                <input name="momentPlateThickness" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>端板總寬 bmp (mm)</label>
+                <input name="momentPlateWidth" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>端板淨寬 bmn (mm)</label>
+                <input name="momentPlateNetWidth" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>端板 Fy / Fu (MPa)</label>
+                <div class="form-row compact">
+                  <input name="momentPlateYieldStrength" type="number" min="1" step="1" placeholder="Fy">
+                  <input name="momentPlateUltimateStrength" type="number" min="1" step="1" placeholder="Fu">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>腹板剪力螺栓數 nbv (支)</label>
+                <input name="momentShearBoltCount" type="number" min="0" step="1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板剪斷面數 nsv</label>
+                <select name="momentShearPlanes">
+                  <option value="1">單剪</option>
+                  <option value="2">雙剪</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>腹板剪力板厚 tvp (mm)</label>
+                <input name="momentShearPlateThickness" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板剪力板 Fu (MPa)</label>
+                <input name="momentShearPlateUltimateStrength" type="number" min="1" step="1">
+              </div>
+              <div class="form-group">
+                <label>Panel Zone 可用容量 Vpz (kN)</label>
+                <input name="panelZoneCapacity" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板傳力銲腳 a (mm)</label>
+                <input name="momentWeldSize" type="number" min="1" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>單道有效長 Le (mm)</label>
+                <input name="momentWeldLength" type="number" min="1" step="0.1">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>腹板傳力銲道數量</label>
+                <select name="momentWeldLineCount">
+                  <option value="2">雙側銲</option>
+                  <option value="1">單側銲</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>腹板傳力銲材 FEXX (MPa)</label>
+                <input name="momentWeldElectrodeStrength" type="number" min="1" step="1">
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>設計備註</h2>
+            <div class="form-group">
+              <label>備註內容</label>
+              <textarea name="notes" rows="4" placeholder="可記錄構件型號、圖號、審查意見、圖說備註與工程假設"></textarea>
+            </div>
+            <div class="input-actions">
+              <button id="resetBtn" class="btn-secondary" type="button">重設資料</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="report-column">
+        <div class="section-tabs">
+          <button class="active" type="button" data-panel="report">報表預覽</button>
+          <button type="button" data-panel="flow">計算流程</button>
+          <button type="button" data-panel="glossary">參數詞典</button>
+        </div>
+
+        <div class="subpanel active" id="panel-report">
+          <article class="card report-paper">
+            <div class="report-toolbar">
+              <span id="draftStatus">尚未儲存草稿</span>
+              <div class="toolbar-actions">
+                <button id="copySummaryBtn" class="btn-secondary" type="button">複製摘要</button>
+                <button id="printReportBtn" class="btn-calc" type="button">列印預覽</button>
+              </div>
+            </div>
+
+            <header class="report-head">
+              <div>
+                <h2 id="reportTitle">鋼構接頭檢核計算書</h2>
+                <p id="reportSubtitle">Steel Connection Report</p>
+              </div>
+              <div class="report-meta">
+                <div><b>計畫名稱</b><span id="metaProjectName">—</span></div>
+                <div><b>接頭編號</b><span id="metaConnectionTag">—</span></div>
+                <div><b>設計人</b><span id="metaDesigner">—</span></div>
+                <div><b>製表時間</b><span id="reportTimestamp">—</span></div>
+              </div>
+            </header>
+
+            <section class="report-summary">
+              <div class="banner-status" id="reportBanner">等待輸入</div>
+              <div class="banner-key">
+                <div class="k">
+                  <span class="k-label">控制項</span>
+                  <span class="k-val" id="governingMode">尚未計算</span>
+                </div>
+                <div class="k">
+                  <span class="k-label">核可判定</span>
+                  <span class="k-val" id="approvalStamp">待計算</span>
+                </div>
+              </div>
+              <p class="report-summary-note" id="overallMessage">輸入接頭參數後，系統會自動生成檢核報表。</p>
+            </section>
+
+            <section class="report-block">
+              <h3>輸入資料摘要</h3>
+              <div id="inputSummaryTables"></div>
+            </section>
+
+            <section class="report-block">
+              <h3>強度檢核總表</h3>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>檢核項目</th>
+                    <th>需求值</th>
+                    <th>可用強度</th>
+                    <th>DCR</th>
+                    <th>判定</th>
+                  </tr>
+                </thead>
+                <tbody id="strengthCheckTableBody"></tbody>
+              </table>
+            </section>
+
+            <section class="report-block">
+              <h3>細部規定檢核</h3>
+              <table class="report-table">
+                <thead>
+                  <tr>
+                    <th>檢核項目</th>
+                    <th>規定條文</th>
+                    <th>檢核說明</th>
+                    <th>判定</th>
+                  </tr>
+                </thead>
+                <tbody id="detailCheckTableBody"></tbody>
+              </table>
+            </section>
+
+            <section class="report-block">
+              <h3>核可欄</h3>
+              <div class="approval-grid">
+                <div class="approval-card">
+                  <div class="approval-title">設計判定</div>
+                  <div id="approvalDecision" class="approval-value">待計算</div>
+                </div>
+                <div class="approval-card">
+                  <div class="approval-title">控制模式</div>
+                  <div id="approvalGoverning" class="approval-value">—</div>
+                </div>
+                <div class="approval-card">
+                  <div class="approval-title">報表模式</div>
+                  <div class="approval-value">預覽 / 可列印</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="report-block">
+              <h3>提醒與假設</h3>
+              <div id="alertsList" class="alerts-list"></div>
+            </section>
+          </article>
+        </div>
+
+        <div class="subpanel" id="panel-flow">
+          <article class="card">
+            <h2>計算流程</h2>
+            <div id="flowCards"></div>
+          </article>
+        </div>
+
+        <div class="subpanel" id="panel-glossary">
+          <article class="card">
+            <h2>參數名詞定義</h2>
+            <div class="table-wrap">
+              <table class="report-table glossary-table">
+                <thead>
+                  <tr>
+                    <th>代號</th>
+                    <th>中文名稱</th>
+                    <th>單位</th>
+                    <th>規範化定義</th>
+                    <th>用途</th>
+                  </tr>
+                </thead>
+                <tbody id="glossaryTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="./calculator.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
