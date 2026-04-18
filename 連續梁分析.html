@@ -163,8 +163,8 @@
 <body>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>連續梁分析工具</h1>
-  <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線</p>
+  <h1>連續梁分析工具 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.2</span></h1>
+  <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線 / 計算書輸出</p>
 </header>
 <div class="save-bar">
   <button class="btn btn-primary btn-sm" onclick="window._fbSave()">💾 儲存</button>
@@ -265,6 +265,16 @@
     </div>
   </div>
 
+  <div class="card" style="padding:12px 20px; margin-bottom:16px;">
+    <div style="font-size:0.88em; font-weight:700; color:var(--primary); margin-bottom:8px;">計畫資訊（計算書表頭）</div>
+    <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr 1fr; gap:10px;">
+      <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 大樓新建工程"></div>
+      <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
+      <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
+      <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
+    </div>
+  </div>
+
   <div class="main-layout">
     <!-- Left Panel -->
     <div>
@@ -326,7 +336,7 @@
         <span style="font-size:1.05em;font-weight:700;color:var(--primary);">分析結果</span>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-accent btn-sm" onclick="exportJPG()">JPG</button>
-          <button class="btn btn-danger btn-sm" onclick="exportPDF()">PDF</button>
+          <button class="btn btn-danger btn-sm" onclick="exportPDF()">📄 計算書</button>
           <span id="designBtns"></span>
         </div>
       </div>
@@ -338,6 +348,7 @@
   </div>
 </div>
 
+<script src="結構工具箱/core/ui/report.js"></script>
 <script>
 // ==================== UNIT SYSTEM ====================
 const UNITS = {
@@ -1584,25 +1595,120 @@ function exportJPG() {
 }
 
 function exportPDF() {
-  if (!diagrams) return;
-  const u = getUnit(), n = model.numSpans;
-  const ids = ['schematicCanvas','sfdCanvas','bmdCanvas','deflCanvas'];
-  if (document.getElementById('ilEnabled').checked) ids.push('ilCanvas');
-  const imgs = ids.map(id=>{const c=document.getElementById(id); return c.width>0?c.toDataURL('image/png'):null;}).filter(Boolean);
+  if (!diagrams) { alert('請先執行計算再產生計算書'); return; }
+  if (typeof openReport !== 'function') { alert('計算書模組尚未載入，請稍後再試或重新整理頁面'); return; }
+  const u = getUnit(), uk = getUnitKey(), n = model.numSpans;
+  const suppMap = { pin:'鉸支', roller:'滾支', fixed:'固定端', free:'自由端' };
 
-  let rHtml = `<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:11px;"><tr><th>支承</th><th>類型</th><th>Ry(${u.force})</th><th>Mr(${u.moment})</th></tr>`;
-  for (let i=0;i<=n;i++) { const st=model.supports[i].type; rHtml+=`<tr><td>${i}</td><td>${{pin:'鉸支',roller:'滾支',fixed:'固定端',free:'自由端'}[st]}</td><td>${fmtVal(solution.reactions[i].Ry)}</td><td>${st==='fixed'?fmtVal(solution.reactions[i].Mr):'-'}</td></tr>`; }
-  rHtml += '</table>';
+  // 圖表（梁示意 + SFD + BMD + 撓度 + 影響線）
+  const diagSpec = [
+    { id:'schematicCanvas', title:'梁示意圖' },
+    { id:'sfdCanvas',       title:`剪力圖 (${u.force})` },
+    { id:'bmdCanvas',       title:`彎矩圖 (${u.moment})` },
+    { id:'deflCanvas',      title:'撓度曲線' },
+  ];
+  if (document.getElementById('ilEnabled').checked) {
+    const ilTitle = document.getElementById('ilTitle')?.textContent || '影響線';
+    diagSpec.push({ id:'ilCanvas', title: ilTitle });
+  }
+  const reportDiagrams = diagSpec.map(d => {
+    const c = document.getElementById(d.id);
+    if (!c || !c.width) return null;
+    return { title: d.title, dataURL: c.toDataURL('image/png'), width: 720 };
+  }).filter(Boolean);
 
-  let eHtml = `<table border="1" cellpadding="3" cellspacing="0" style="border-collapse:collapse;width:100%;font-size:11px;"><tr><th>跨</th><th>Vmax</th><th>Vmin</th><th>Mmax</th><th>Mmin</th></tr>`;
-  for (let i=0;i<n;i++) { const sp=diagrams.spans[i]; eHtml+=`<tr><td>${i+1}</td><td>${fmtVal(Math.max(...sp.vs))}</td><td>${fmtVal(Math.min(...sp.vs))}</td><td>${fmtVal(Math.max(...sp.ms))}</td><td>${fmtVal(Math.min(...sp.ms))}</td></tr>`; }
-  eHtml += '</table>';
+  // 基本設定
+  const matSel = document.getElementById('matSelect').value;
+  const matLabel = matSel==='steel' ? '鋼材' : matSel==='concrete' ? `混凝土 (fc'=${document.getElementById('fcVal').value} ${u.stress})` : '自訂';
+  const iMode = document.getElementById('iMode').value;
+  const basicItems = [
+    { label:'單位系統',   value: uk },
+    { label:'跨數',       value: n },
+    { label:'材料',       value: matLabel },
+    { label:'彈性模數 E', value: document.getElementById('eVal').value, unit: u.E },
+    { label:'I 值輸入',   value: iMode==='direct' ? `全梁採用 I = ${document.getElementById('globalI').value}` : '逐跨指定（見各跨設定）', unit: iMode==='direct' ? u.I : '' },
+  ];
 
-  const pw = window.open('','_blank');
-  pw.document.write(`<!DOCTYPE html><html><head><title>連續梁分析</title><style>body{font-family:'Segoe UI',sans-serif;padding:20px;}img{max-width:100%;margin:6px 0;}h1{color:#2563eb;font-size:16px;}h3{margin:10px 0 4px;font-size:13px;}@media print{body{padding:10px;}}</style></head><body>
-  <h1>連續梁分析結果</h1><p style="color:#64748b;font-size:11px;">${model.spans.map((s,i)=>`跨${i+1}:${s.L}${u.length}`).join(' | ')} | 單位: ${getUnitKey()}</p>
-  ${imgs.map(s=>`<img src="${s}">`).join('')}<h3>支承反力</h3>${rHtml}<h3>各跨極值</h3>${eHtml}</body></html>`);
-  pw.document.close(); setTimeout(()=>pw.print(),300);
+  // 各跨 L / I
+  const spanItems = model.spans.map((s,i) => ({
+    label: `跨 ${i+1}`,
+    value: `L = ${s.L}${s.I!==undefined?`，I = ${s.I}`:''}`,
+    unit: u.length,
+  }));
+
+  // 支承條件
+  const supportItems = model.supports.map((s,i) => ({
+    label: `支承 ${i}`,
+    value: suppMap[s.type] || s.type,
+  }));
+
+  // 載重清單
+  const loadItems = [];
+  model.loads.forEach((arr,i) => {
+    if (!arr || !arr.length) return;
+    arr.forEach((ld,j) => {
+      let desc = '';
+      if (ld.type === 'udl') desc = `均佈載重 w = ${ld.w} ${u.dist}`;
+      else if (ld.type === 'trapezoid') desc = `梯形載重 w₁ = ${ld.w1}，w₂ = ${ld.w2} ${u.dist}`;
+      else if (ld.type === 'point') desc = `集中力 P = ${ld.P} ${u.force}，距左端 a = ${ld.a} ${u.length}`;
+      else if (ld.type === 'moment') desc = `集中彎矩 M = ${ld.M} ${u.moment}，距左端 a = ${ld.a} ${u.length}`;
+      else desc = JSON.stringify(ld);
+      loadItems.push({ label:`跨 ${i+1} · 載重 ${j+1}`, value: desc });
+    });
+  });
+  if (!loadItems.length) loadItems.push({ label:'—', value:'（未輸入載重）' });
+
+  // 支承反力
+  const reactionItems = [];
+  for (let i=0; i<=n; i++) {
+    const st = model.supports[i].type;
+    const r = solution.reactions[i] || {};
+    const parts = [];
+    parts.push(`Ry = ${fmtVal(r.Ry)} ${u.force}`);
+    if (st === 'fixed') parts.push(`Mr = ${fmtVal(r.Mr)} ${u.moment}`);
+    reactionItems.push({
+      label: `支承 ${i}（${suppMap[st]}）`,
+      value: parts.join('　'),
+    });
+  }
+
+  // 各跨極值
+  const extremeItems = [];
+  for (let i=0; i<n; i++) {
+    const sp = diagrams.spans[i];
+    const Vmax = Math.max(...sp.vs), Vmin = Math.min(...sp.vs);
+    const Mmax = Math.max(...sp.ms), Mmin = Math.min(...sp.ms);
+    extremeItems.push({
+      label: `跨 ${i+1}`,
+      value: `V = [${fmtVal(Vmin)}, ${fmtVal(Vmax)}] ${u.force}　　M = [${fmtVal(Mmin)}, ${fmtVal(Mmax)}] ${u.moment}`,
+    });
+  }
+
+  openReport({
+    title: '連續梁分析計算書',
+    subtitle: `${n} 跨連續梁　｜　單位：${uk}`,
+    project: {
+      name:     document.getElementById('projName')?.value || '',
+      no:       document.getElementById('projNo')?.value || '',
+      designer: document.getElementById('projDesigner')?.value || '',
+    },
+    summary: { ok: null, text: '線彈性連續梁分析（Matrix Stiffness Method）' },
+    inputs: [
+      { group: '基本設定',   items: basicItems },
+      { group: '跨度設定',   items: spanItems },
+      { group: '支承條件',   items: supportItems },
+      { group: '載重清單',   items: loadItems },
+      { group: '支承反力',   items: reactionItems },
+      { group: '各跨內力極值', items: extremeItems },
+    ],
+    diagrams: reportDiagrams,
+    notes: [
+      '本計算書為線彈性連續梁分析結果，未含極限或崩塌分析。',
+      '反力、剪力、彎矩均對應輸入之使用載重，未另行乘上載重因數。',
+      '單位系統：' + uk + '；如需依規範設計，請將分析結果透過「送至工具」轉入對應的梁／柱設計工具。',
+      document.getElementById('projNote')?.value ? ('備註：' + document.getElementById('projNote').value) : '',
+    ].filter(Boolean),
+  });
 }
 
 // ==================== INIT ====================
