@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RC 補強斷面性質計算 V1.6</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --accent: #059669;
+    --warn: #ea580c;
+    --danger: #dc2626;
+    --steel: #f97316;
+    --frp: #a855f7;
+    --concrete: #94a3b8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 20px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+  header h1 { font-size: 1.5em; }
+  header p { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
+  .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--card); padding: 8px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .tab-btn { padding: 10px 20px; border: none; background: transparent; color: var(--text-light); font-size: 0.95em; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all 0.2s; font-family: inherit; flex: 1; }
+  .tab-btn:hover { background: #f1f5f9; color: var(--text); }
+  .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(37,99,235,0.3); }
+  .main-layout { display: grid; grid-template-columns: 400px 1fr; gap: 20px; align-items: start; }
+  .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  .card h2 { font-size: 1.05em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border); color: var(--primary); }
+  .card h3 { font-size: 0.9em; margin: 12px 0 8px; color: var(--text); font-weight: 700; }
+  .form-group { margin-bottom: 10px; }
+  .form-group label { display: block; font-size: 0.82em; font-weight: 600; color: var(--text-light); margin-bottom: 3px; }
+  .form-group input, .form-group select { width: 100%; padding: 8px 11px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.92em; font-family: inherit; outline: none; transition: border-color 0.2s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .form-row4 { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 10px; }
+  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .btn-calc:hover { background: var(--primary-dark); }
+  .btn-report { padding: 6px 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 0.84em; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .btn-report:hover { background: #047857; }
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; background: #f8fafc; border-radius: 8px; border-left: 3px solid var(--primary); }
+  .result-item.hi { border-left-color: var(--accent); background: #ecfdf5; }
+  .result-item.warn { border-left-color: var(--warn); background: #fff7ed; }
+  .result-item .label { font-size: 0.82em; color: var(--text-light); font-weight: 500; }
+  .result-item .value { font-size: 0.95em; font-weight: 700; font-family: 'Consolas',monospace; }
+  .result-item .unit { font-size: 0.75em; color: var(--text-light); margin-left: 4px; }
+  .result-item .delta { font-size: 0.78em; color: var(--accent); margin-left: 6px; font-weight: 700; }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 300px; padding: 10px; }
+  canvas { display: block; max-width: 100%; }
+  .hint { font-size: 0.78em; color: var(--text-light); margin-top: 4px; font-style: italic; }
+  .note-box { background: #fef3c7; border: 1px solid #fcd34d; border-left: 4px solid #ea580c; border-radius: 6px; padding: 8px 12px; font-size: 0.82em; color: #78350f; margin-top: 10px; line-height: 1.7; }
+  .warn-box  { background: #fee2e2; border: 1px solid #fecaca; border-left: 4px solid #dc2626; border-radius: 6px; padding: 8px 12px; font-size: 0.82em; color: #7f1d1d; margin-top: 10px; line-height: 1.7; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .subsect-title { font-size: 0.88em; font-weight: 700; color: var(--primary); margin: 14px 0 8px; padding: 4px 0 4px 10px; border-left: 3px solid var(--primary); }
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .results-grid { grid-template-columns: 1fr; }
+    header { padding: 14px 16px; }
+    header h1 { font-size: 1.25em; }
+    .container { margin: 12px auto; padding: 0 12px; }
+    .card { padding: 16px; }
+    .form-row4 { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
+  <h1>RC 補強斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.0</span></h1>
+  <p>既有 RC 矩形斷面 ＋ 鋼板／碳纖補強 | 彈性斷面性質 + 極限強度（Mn／Pn）| 依 112 規範 + ACI 440.2R-17</p>
+</header>
+
+<div class="container">
+
+  <!-- 計畫資訊 -->
+  <div class="card" style="padding:12px 20px;">
+    <div style="font-size:0.88em; font-weight:700; color:var(--primary); margin-bottom:8px;">計畫資訊（計算書表頭）</div>
+    <div class="form-row4">
+      <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 廠房梁柱補強"></div>
+      <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
+      <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
+      <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tabBeamBtn" onclick="switchTab('beam')">梁（撓曲補強）</button>
+    <button class="tab-btn" id="tabColBtn" onclick="switchTab('col')">柱（軸壓 + 彎矩補強）</button>
+  </div>
+
+  <!-- ============ 梁 Tab ============ -->
+  <div class="tab-panel active" id="tabBeam">
+    <div class="main-layout">
+      <!-- 左：輸入 -->
+      <div>
+        <div class="card">
+          <h2>① RC 梁基本斷面</h2>
+          <div class="form-row">
+            <div class="form-group"><label>b (寬) mm</label><input type="number" id="b-b" value="400" step="any"></div>
+            <div class="form-group"><label>h (全高) mm</label><input type="number" id="b-h" value="600" step="any"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>d (有效深度) mm</label><input type="number" id="b-d" value="540" step="any"></div>
+            <div class="form-group"><label>d' (受壓鋼筋位置) mm</label><input type="number" id="b-dp" value="60" step="any"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>fc' (kgf/cm²)</label><input type="number" id="b-fc" value="280" step="any"></div>
+            <div class="form-group"><label>fy (kgf/cm²)</label><input type="number" id="b-fy" value="4200" step="any"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>As 受拉鋼筋 (cm²)</label><input type="number" id="b-As" value="25.3" step="any"><div class="hint">例：5-#8 = 25.3 cm²</div></div>
+            <div class="form-group"><label>As' 受壓鋼筋 (cm²)</label><input type="number" id="b-Asp" value="0" step="any"></div>
+          </div>
+          <div class="form-group"><label>εbi 既有應變（FRP 施作前底部應變，保守取 0）</label><input type="number" id="b-ebi" value="0" step="any"></div>
+        </div>
+
+        <div class="card">
+          <h2>② 補強型式</h2>
+          <div class="form-group">
+            <label>補強型式</label>
+            <select id="b-mode" onchange="onBeamModeChange()">
+              <option value="none">無（純原 RC 梁）</option>
+              <option value="plate">底貼鋼板（Steel Plate）</option>
+              <option value="frp" selected>底貼 CFRP（Carbon Fiber）</option>
+            </select>
+          </div>
+
+          <!-- 鋼板參數 -->
+          <div id="b-plate-panel" style="display:none;">
+            <div class="subsect-title" style="border-left-color:var(--steel); color:var(--steel);">鋼板補強參數</div>
+            <div class="form-row">
+              <div class="form-group"><label>tsp 底板厚 (mm)</label><input type="number" id="b-tsp" value="6" step="any"></div>
+              <div class="form-group"><label>bsp 底板寬 (mm)</label><input type="number" id="b-bsp" value="" step="any" placeholder="預設 = b"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>fy_sp (kgf/cm²)</label><input type="number" id="b-fysp" value="2500" step="any"><div class="hint">A36 ≈ 2500；SN400 ≈ 2500</div></div>
+              <div class="form-group"><label>Es_sp (kgf/cm²)</label><input type="number" id="b-Essp" value="2040000" step="any"></div>
+            </div>
+            <div class="form-group" style="margin-top:6px; padding:8px 10px; background:#fff7ed; border:1px solid #fed7aa; border-radius:6px;">
+              <label style="display:flex;align-items:center;gap:6px; font-weight:700; color:var(--steel);"><input type="checkbox" id="b-plate-uwrap" onchange="togglePlateUWrap()"> U 型鋼板包覆（底＋雙側；T 型梁、樓板遮頂常用）</label>
+              <div class="hint">T 型梁頂部為樓板無法焊接鋼板；U 型包覆提供撓曲（側板等效受拉鋼筋貢獻）與剪力（連續垂直鋼板）補強。</div>
+            </div>
+            <div id="b-plate-uwrap-panel" style="display:none;">
+              <div class="form-row">
+                <div class="form-group"><label>tsp,s 側板厚 (mm)</label><input type="number" id="b-tsp-s" value="" step="any" placeholder="預設 = tsp (底板厚)" oninput="updateHspDerived()"></div>
+                <div class="form-group">
+                  <label>ts 樓板厚 (mm)</label>
+                  <input type="number" id="b-slab" value="150" step="any" oninput="updateHspDerived()">
+                  <div class="hint">台灣實務典型 120 ~ 180 mm；本工具以 h − ts 自動推算側板高度。</div>
+                </div>
+              </div>
+              <div class="hint" id="hsp-derived" style="color:var(--steel); font-weight:700; margin-top:2px;">側板可貼覆高度 hsp,s = h − ts = — mm</div>
+            </div>
+          </div>
+
+          <!-- CFRP 參數 -->
+          <div id="b-frp-panel">
+            <div class="subsect-title" style="border-left-color:var(--frp); color:var(--frp);">CFRP 補強參數</div>
+            <div class="form-group">
+              <label>典型材料（選擇後自動填入參數）</label>
+              <select id="b-frp-preset" onchange="applyFrpPreset('b')">
+                <option value="custom">自訂</option>
+                <option value="sika-s" selected>Sika CarboDur S（板材）</option>
+                <option value="sika-m">Sika CarboDur M（高模量板）</option>
+                <option value="tyfo">Tyfo SCH-41（織布）</option>
+                <option value="mitsu">Mitsubishi Replark 30</option>
+                <option value="basf">BASF MBrace CF130</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Ef 彈性模數 (GPa)</label><input type="number" id="b-Ef" value="165" step="any"></div>
+              <div class="form-group"><label>ffu* 極限強度 (MPa)</label><input type="number" id="b-ffu" value="2800" step="any"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>εfu* 極限應變 (%)</label><input type="number" id="b-efu" value="1.7" step="any"></div>
+              <div class="form-group"><label>tf 每層厚度 (mm)</label><input type="number" id="b-tf" value="1.2" step="any"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>n 層數</label><input type="number" id="b-nf" value="1" step="1"></div>
+              <div class="form-group">
+                <label>CE 環境係數</label>
+                <select id="b-CE">
+                  <option value="0.95">室內 0.95</option>
+                  <option value="0.85" selected>室外 0.85</option>
+                  <option value="0.85s">侵蝕環境 0.85</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group"><label>bf FRP 寬度 (mm)</label><input type="number" id="b-bf" value="" step="any" placeholder="預設 = b"></div>
+            <div class="form-group" style="margin-top:6px; padding:8px 10px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:6px;">
+              <label style="display:flex;align-items:center;gap:6px; font-weight:700; color:var(--frp);"><input type="checkbox" id="b-frp-uwrap" onchange="toggleFrpUWrap()"> CFRP U 型包覆（底＋雙側；T 梁實務常用）</label>
+              <div class="hint">側 CFRP 同時提供：<b>側面撓曲貢獻</b>、<b>連續剪力補強</b>、並自動<b>解除 εfd 脫層限制</b>（視同端部錨固）。</div>
+            </div>
+            <div id="b-frp-uwrap-panel" style="display:none;">
+              <div class="form-group">
+                <label>ts 樓板厚 (mm)</label>
+                <input type="number" id="b-frp-slab" value="150" step="any" oninput="updateFrpHspDerived()">
+                <div class="hint">台灣實務典型 120 ~ 180 mm；工具以 h − ts 自動推算側 CFRP 高度。</div>
+              </div>
+              <div class="hint" id="hsp-frp-derived" style="color:var(--frp); font-weight:700; margin-top:2px;">側 CFRP 高度 hf,s = h − ts = — mm</div>
+            </div>
+            <div class="form-group" style="margin-top:6px; padding:8px 10px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px;">
+              <label style="display:flex;align-items:center;gap:6px; font-weight:700; color:#0369a1;"><input type="checkbox" id="b-frp-anchor"> 端部設 U 型／機械錨固（僅底貼時需勾選）</label>
+              <div class="hint">U 型包覆已視同錨固；此項僅針對「底貼 CFRP」時額外外加端部錨固的情況。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>③ 剪力檢核 / 補強</h2>
+          <div class="subsect-title">既有箍筋（若無，填 0）</div>
+          <div class="form-row">
+            <div class="form-group"><label>Av 單組箍筋面積 (cm²)</label><input type="number" id="b-Av" value="1.43" step="any"><div class="hint">例：#4 兩支 = 2×0.71 = 1.43</div></div>
+            <div class="form-group"><label>s 箍筋間距 (cm)</label><input type="number" id="b-s" value="20" step="any"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>fyt 箍筋降伏 (kgf/cm²)</label><input type="number" id="b-fyt" value="2800" step="any"></div>
+            <div class="form-group"><label>Vu 設計剪力 (tf)</label><input type="number" id="b-Vu" value="0" step="any"><div class="hint">填入供 φVn/Vu 檢核；可留 0</div></div>
+          </div>
+
+          <div class="subsect-title" style="border-left-color:var(--frp); color:var(--frp); margin-top:10px;">FRP U 型剪力補強（可選）</div>
+          <div class="form-group">
+            <label><input type="checkbox" id="b-frp-shear" onchange="toggleFrpShear()"> 啟用 FRP U 型剪力補強</label>
+            <div class="hint">若撓曲補強已選 CFRP，可延伸為 U 型包覆；否則需另輸入 FRP 參數。</div>
+          </div>
+          <div id="b-frp-shear-panel" style="display:none;">
+            <div class="form-row">
+              <div class="form-group"><label>wf 條帶寬 (mm)</label><input type="number" id="b-wfs" value="100" step="any"></div>
+              <div class="form-group"><label>sf 條帶間距 (mm)</label><input type="number" id="b-sfs" value="100" step="any"><div class="hint">連續布料時 wf = sf。</div></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>α 條帶傾角 (°)</label><input type="number" id="b-alpha" value="90" step="any"></div>
+              <div class="form-group"><label>dfv 剪力作用深度 (mm)</label><input type="number" id="b-dfv" value="" step="any" placeholder="預設 = d"></div>
+            </div>
+            <div class="form-group"><label>εfe 剪力有效應變</label><input type="number" id="b-efe-s" value="0.004" step="any"><div class="hint">ACI 440.2R-17：U-wrap 取 min(κv·εfu, 0.004)，保守採 0.004。</div></div>
+          </div>
+
+          <button class="btn-calc" onclick="calcBeam()">計 算</button>
+          <div class="hint" id="b-msg" style="color:var(--warn); margin-top:6px;"></div>
+        </div>
+      </div>
+
+      <!-- 右：結果 -->
+      <div>
+        <div class="card">
+          <h2>梁斷面示意圖</h2>
+          <div class="canvas-wrap"><canvas id="beamCanvas" width="480" height="340"></canvas></div>
+          <div class="legend">
+            <span><i style="background:#cbd5e1;border-color:#475569;"></i>RC（含 T 梁樓板）</span>
+            <span><i style="background:#fde68a;border-color:#d97706;"></i>主筋</span>
+            <span><i style="background:#fed7aa;border-color:#f97316;"></i>鋼板（底＋U 型側板）</span>
+            <span><i style="background:#e9d5ff;border-color:#a855f7;"></i>CFRP</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border);">
+            <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果（梁）</span>
+            <button class="btn-report" onclick="exportBeamReport()">📄 計算書</button>
+          </div>
+          <div id="b-results">
+            <div class="result-item"><span class="label">請輸入參數後點擊計算</span></div>
+          </div>
+          <div class="note-box" id="b-note" style="display:none;"></div>
+          <div class="warn-box" id="b-warn" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 柱 Tab ============ -->
+  <div class="tab-panel" id="tabCol">
+    <div class="main-layout">
+      <!-- 左：輸入 -->
+      <div>
+        <div class="card">
+          <h2>① RC 柱基本斷面</h2>
+          <div class="form-row">
+            <div class="form-group"><label>b mm</label><input type="number" id="c-b" value="500" step="any"></div>
+            <div class="form-group"><label>h mm</label><input type="number" id="c-h" value="500" step="any"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>fc' (kgf/cm²)</label><input type="number" id="c-fc" value="280" step="any"></div>
+            <div class="form-group"><label>fy (kgf/cm²)</label><input type="number" id="c-fy" value="4200" step="any"></div>
+          </div>
+          <div class="form-group">
+            <label>主筋配置方式</label>
+            <select id="c-rebar-mode" onchange="onRebarModeChange()">
+              <option value="simple">簡化模式（輸入總主筋 Ast + 分布假設）</option>
+              <option value="detail" selected>詳細模式（逐排輸入：號數 × 支數）</option>
+            </select>
+          </div>
+
+          <!-- 簡化模式 -->
+          <div id="c-rebar-simple" style="display:none;">
+            <div class="form-row">
+              <div class="form-group"><label>Ast 總主筋 (cm²)</label><input type="number" id="c-Ast" value="40.56" step="any" oninput="calcCol()"><div class="hint">例：8-#8 = 40.56 cm²</div></div>
+              <div class="form-group"><label>保護層 cover (mm)</label><input type="number" id="c-cov" value="40" step="any" oninput="calcCol()"></div>
+            </div>
+            <div class="form-group">
+              <label>主筋配置假設</label>
+              <select id="c-layout" onchange="calcCol()">
+                <option value="sym2" selected>上下兩列對稱（4-#)</option>
+                <option value="perim">四邊均布（頂 + 中 + 底 三層）</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 詳細模式 -->
+          <div id="c-rebar-detail">
+            <div class="form-group">
+              <label>主筋號數 (bar size)</label>
+              <select id="c-bar-size" onchange="updateRebarSummary(); calcCol();">
+                <option value="D10">D10 (#3) — 0.713 cm²</option>
+                <option value="D13">D13 (#4) — 1.267 cm²</option>
+                <option value="D16">D16 (#5) — 1.986 cm²</option>
+                <option value="D19">D19 (#6) — 2.865 cm²</option>
+                <option value="D22">D22 (#7) — 3.871 cm²</option>
+                <option value="D25" selected>D25 (#8) — 5.067 cm²</option>
+                <option value="D29">D29 (#9) — 6.469 cm²</option>
+                <option value="D32">D32 (#10) — 8.143 cm²</option>
+                <option value="D36">D36 (#11) — 10.07 cm²</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>頂排支數（含角筋）</label><input type="number" id="c-n-top" value="3" step="1" oninput="updateRebarSummary(); calcCol();"></div>
+              <div class="form-group"><label>底排支數（含角筋）</label><input type="number" id="c-n-bot" value="3" step="1" oninput="updateRebarSummary(); calcCol();"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>側邊排數（每排 2 支，左右各 1）</label><input type="number" id="c-n-side-rows" value="1" step="1" oninput="updateRebarSummary(); calcCol();"></div>
+              <div class="form-group"><label>保護層 cover (mm)</label><input type="number" id="c-cov-d" value="40" step="any" oninput="updateRebarSummary(); calcCol();"></div>
+            </div>
+            <div class="hint" id="c-rebar-summary" style="color:var(--primary); font-weight:700; margin-top:2px;">Ast = — cm²</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>② 補強型式</h2>
+          <div class="form-group">
+            <label>補強型式</label>
+            <select id="c-mode" onchange="onColModeChange()">
+              <option value="none">無（純原 RC 柱）</option>
+              <option value="jacket" selected>全包覆鋼板（Steel Jacket）</option>
+              <option value="frp">全包覆 CFRP（FRP Wrap）</option>
+            </select>
+          </div>
+
+          <!-- 鋼套管 -->
+          <div id="c-jacket-panel">
+            <div class="subsect-title" style="border-left-color:var(--steel); color:var(--steel);">鋼套管參數</div>
+            <div class="form-row">
+              <div class="form-group"><label>tj 板厚 (mm)</label><input type="number" id="c-tj" value="6" step="any"></div>
+              <div class="form-group"><label>fyj (kgf/cm²)</label><input type="number" id="c-fyj" value="2500" step="any"></div>
+            </div>
+            <div class="form-group"><label>Esj (kgf/cm²)</label><input type="number" id="c-Esj" value="2040000" step="any"></div>
+            <div class="form-group">
+              <label>ke 形狀效率（Priestley 1994；文獻範圍 0 ~ 0.75）</label>
+              <select id="c-ke-preset" onchange="applyKePreset()">
+                <option value="0">0.00 — 無圍束貢獻（僅剪力 / 搭接束制）</option>
+                <option value="0.25" selected>0.25 — 矩形直貼保守值</option>
+                <option value="0.40">0.40 — 矩形直貼中等（小倒角）</option>
+                <option value="0.50">0.50 — 矩形直貼良好（含灌漿填角）</option>
+                <option value="0.75">0.75 — 橢圓化鋼套管</option>
+                <option value="custom">自訂</option>
+              </select>
+              <input type="number" id="c-ke" value="0.25" step="any" style="margin-top:6px;">
+              <div class="hint">Priestley et al. (1994)：矩形直貼之圍束效率隨角點圓弧化、填角灌漿或橢圓化改造而提升。</div>
+            </div>
+          </div>
+
+          <!-- FRP -->
+          <div id="c-frp-panel" style="display:none;">
+            <div class="subsect-title" style="border-left-color:var(--frp); color:var(--frp);">CFRP 包覆參數</div>
+            <div class="form-group">
+              <label>典型材料</label>
+              <select id="c-frp-preset" onchange="applyFrpPreset('c')">
+                <option value="custom">自訂</option>
+                <option value="sika-s" selected>Sika CarboDur S</option>
+                <option value="sika-m">Sika CarboDur M</option>
+                <option value="tyfo">Tyfo SCH-41</option>
+                <option value="mitsu">Mitsubishi Replark 30</option>
+                <option value="basf">BASF MBrace CF130</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Ef (GPa)</label><input type="number" id="c-Ef" value="165" step="any"></div>
+              <div class="form-group"><label>ffu* (MPa)</label><input type="number" id="c-ffu" value="2800" step="any"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>εfu* (%)</label><input type="number" id="c-efu" value="1.7" step="any"></div>
+              <div class="form-group"><label>tf/層 (mm)</label><input type="number" id="c-tf" value="1.2" step="any"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>n 層</label><input type="number" id="c-nf" value="2" step="1"></div>
+              <div class="form-group">
+                <label>CE 環境係數</label>
+                <select id="c-CE">
+                  <option value="0.95">室內 0.95</option>
+                  <option value="0.85" selected>室外 0.85</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group"><label>εfe 圍束有效應變（建議 0.004 保守）</label><input type="number" id="c-efe" value="0.004" step="any"></div>
+            <div class="form-group">
+              <label>ka 形狀效率（ACI 440.2R-17 §12；矩形範圍 0.25 ~ 0.5）</label>
+              <select id="c-ka-preset" onchange="applyKaPreset()">
+                <option value="0.25">0.25 — 矩形未倒角（保守）</option>
+                <option value="0.30" selected>0.30 — 矩形典型（rc/h ≈ 0 ~ 0.05）</option>
+                <option value="0.40">0.40 — 矩形小倒角（rc/h ≈ 0.1）</option>
+                <option value="0.50">0.50 — 矩形大倒角（rc/h ≥ 0.2 或近圓形）</option>
+                <option value="custom">自訂</option>
+              </select>
+              <input type="number" id="c-ka" value="0.3" step="any" style="margin-top:6px;">
+              <div class="hint">ACI 440.2R-17：ka 隨角隅倒角半徑 rc 增加；法規要求矩形柱倒角半徑 rc ≥ 13 mm。</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>③ 剪力檢核 / 軸力</h2>
+          <div class="form-row">
+            <div class="form-group"><label>Nu 設計軸力 (tf)</label><input type="number" id="c-Nu" value="100" step="any"><div class="hint">用於 Vc 軸壓項；壓力正</div></div>
+            <div class="form-group"><label>Mu 設計彎矩 (tf·m)</label><input type="number" id="c-Mu" value="20" step="any"><div class="hint">供 P-M 圖檢核需求點</div></div>
+          </div>
+          <div class="subsect-title">既有箍筋（若無，填 0）</div>
+          <div class="form-row">
+            <div class="form-group"><label>Av 單組箍筋面積 (cm²)</label><input type="number" id="c-Av" value="2.58" step="any"></div>
+            <div class="form-group"><label>s 箍筋間距 (cm)</label><input type="number" id="c-s" value="10" step="any"></div>
+          </div>
+          <div class="form-group"><label>fyt 箍筋降伏 (kgf/cm²)</label><input type="number" id="c-fyt" value="2800" step="any"></div>
+
+          <div class="subsect-title" style="border-left-color:var(--frp); color:var(--frp); margin-top:10px;">鋼套管／FRP 剪力貢獻（隨補強型式自動帶入）</div>
+          <div class="hint">全包覆鋼板：Vj = Aj·fyj·d/s 近似；全包覆 FRP：εfe 採 0.004、ψf = 0.95。</div>
+
+          <button class="btn-calc" onclick="calcCol()">計 算</button>
+          <div class="hint" id="c-msg" style="color:var(--warn); margin-top:6px;"></div>
+        </div>
+      </div>
+
+      <!-- 右：結果 -->
+      <div>
+        <div class="card">
+          <h2>柱斷面示意圖</h2>
+          <div class="canvas-wrap"><canvas id="colCanvas" width="400" height="400"></canvas></div>
+          <div class="legend">
+            <span><i style="background:#cbd5e1;border-color:#475569;"></i>RC</span>
+            <span><i style="background:#fde68a;border-color:#d97706;"></i>主筋</span>
+            <span><i style="background:#fed7aa;border-color:#f97316;"></i>鋼套管</span>
+            <span><i style="background:#e9d5ff;border-color:#a855f7;"></i>CFRP</span>
+          </div>
+        </div>
+        <div class="card">
+          <h2>P-M 互制曲線</h2>
+          <div class="canvas-wrap" style="min-height:440px;"><canvas id="pmCanvas" width="480" height="440"></canvas></div>
+          <div class="legend">
+            <span><i style="background:#94a3b8;border-color:#64748b;border-style:dashed;"></i>原 RC Pn-Mn</span>
+            <span><i style="background:#dbeafe;border-color:#2563eb;"></i>補強 Pn-Mn</span>
+            <span><i style="background:#d1fae5;border-color:#059669;"></i>補強 φPn-φMn</span>
+            <span style="color:#dc2626; font-weight:700;">● 需求點 (Mu, Nu)</span>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border);">
+            <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果（柱）</span>
+            <button class="btn-report" onclick="exportColReport()">📄 計算書</button>
+          </div>
+          <div id="c-results">
+            <div class="result-item"><span class="label">請輸入參數後點擊計算</span></div>
+          </div>
+          <div class="note-box" id="c-note" style="display:none;"></div>
+          <div class="warn-box" id="c-warn" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="結構工具箱/core/ui/report.js"></script>
+<script>
+const PI = Math.PI;
+function val(id) { const el=document.getElementById(id); return el? (parseFloat(el.value)||0) : 0; }
+function valOrNull(id) { const el=document.getElementById(id); if(!el) return null; const s=el.value.trim(); return s===''?null:parseFloat(s); }
+function fmt(v, d) { if (!isFinite(v)) return '—'; if (v===0) return '0'; if (Math.abs(v) < 0.001) return v.toExponential(3); const p = d||5; return parseFloat(v.toPrecision(p)).toString(); }
+function pct(c, b) { if (!b || !isFinite(b) || b===0) return ''; return ((c-b)/b*100); }
+
+// ============ Tab switch ============
+function switchTab(which) {
+  document.getElementById('tabBeam').classList.toggle('active', which==='beam');
+  document.getElementById('tabCol').classList.toggle('active', which==='col');
+  document.getElementById('tabBeamBtn').classList.toggle('active', which==='beam');
+  document.getElementById('tabColBtn').classList.toggle('active', which==='col');
+  if (which==='beam') calcBeam(); else calcCol();
+}
+
+// ============ FRP 預設材料庫 ============
+// 依 ACI 440.2R-17 格式與廠商 datasheet 彙整
+const FRP_PRESETS = {
+  'sika-s':  { name:'Sika CarboDur S（板）',   Ef_GPa:165, ffu_MPa:2800, efu_pct:1.7, tf_mm:1.2 },
+  'sika-m':  { name:'Sika CarboDur M（板）',   Ef_GPa:210, ffu_MPa:2900, efu_pct:1.3, tf_mm:1.2 },
+  'tyfo':    { name:'Tyfo SCH-41（織布）',     Ef_GPa:95,  ffu_MPa:986,  efu_pct:1.0, tf_mm:1.0 },
+  'mitsu':   { name:'Mitsubishi Replark 30',  Ef_GPa:230, ffu_MPa:3400, efu_pct:1.5, tf_mm:0.167 },
+  'basf':    { name:'BASF MBrace CF130',      Ef_GPa:227, ffu_MPa:3800, efu_pct:1.67, tf_mm:0.165 },
+};
+
+function applyFrpPreset(scope) {
+  const pre = scope==='b' ? 'b' : 'c';
+  const key = document.getElementById(`${pre}-frp-preset`).value;
+  if (key==='custom') return;
+  const p = FRP_PRESETS[key]; if (!p) return;
+  document.getElementById(`${pre}-Ef`).value  = p.Ef_GPa;
+  document.getElementById(`${pre}-ffu`).value = p.ffu_MPa;
+  document.getElementById(`${pre}-efu`).value = p.efu_pct;
+  document.getElementById(`${pre}-tf`).value  = p.tf_mm;
+}
+
+// ============ 模式切換 UI ============
+function onBeamModeChange() {
+  const m = document.getElementById('b-mode').value;
+  document.getElementById('b-plate-panel').style.display = (m==='plate') ? 'block' : 'none';
+  document.getElementById('b-frp-panel').style.display   = (m==='frp')   ? 'block' : 'none';
+  calcBeam();
+}
+function onColModeChange() {
+  const m = document.getElementById('c-mode').value;
+  document.getElementById('c-jacket-panel').style.display = (m==='jacket') ? 'block' : 'none';
+  document.getElementById('c-frp-panel').style.display    = (m==='frp')    ? 'block' : 'none';
+  calcCol();
+}
+function toggleFrpShear() {
+  const on = document.getElementById('b-frp-shear').checked;
+  document.getElementById('b-frp-shear-panel').style.display = on ? 'block' : 'none';
+  calcBeam();
+}
+function togglePlateUWrap() {
+  const on = document.getElementById('b-plate-uwrap').checked;
+  document.getElementById('b-plate-uwrap-panel').style.display = on ? 'block' : 'none';
+  updateHspDerived();
+  calcBeam();
+}
+function updateHspDerived() {
+  const h_mm = val('b-h');
+  const ts_mm = val('b-slab');
+  const hsp = Math.max(0, h_mm - ts_mm);
+  const node = document.getElementById('hsp-derived');
+  if (node) node.textContent = `側板可貼覆高度 hsp,s = h − ts = ${h_mm} − ${ts_mm} = ${hsp} mm`;
+}
+function toggleFrpUWrap() {
+  const on = document.getElementById('b-frp-uwrap').checked;
+  document.getElementById('b-frp-uwrap-panel').style.display = on ? 'block' : 'none';
+  updateFrpHspDerived();
+  calcBeam();
+}
+function updateFrpHspDerived() {
+  const h_mm = val('b-h');
+  const ts_mm = val('b-frp-slab');
+  const hsp = Math.max(0, h_mm - ts_mm);
+  const node = document.getElementById('hsp-frp-derived');
+  if (node) node.textContent = `側 CFRP 高度 hf,s = h − ts = ${h_mm} − ${ts_mm} = ${hsp} mm`;
+}
+// ============ 鋼筋號數資料（CNS） ============
+const BAR_AREA_CM2 = {
+  D10: 0.7133, D13: 1.267, D16: 1.986, D19: 2.865, D22: 3.871,
+  D25: 5.067, D29: 6.469, D32: 8.143, D36: 10.07,
+};
+
+function onRebarModeChange() {
+  const m = document.getElementById('c-rebar-mode').value;
+  document.getElementById('c-rebar-simple').style.display = (m==='simple') ? 'block' : 'none';
+  document.getElementById('c-rebar-detail').style.display = (m==='detail') ? 'block' : 'none';
+  updateRebarSummary();
+  calcCol();
+}
+
+function updateRebarSummary() {
+  const bar = document.getElementById('c-bar-size')?.value || 'D25';
+  const Ab = BAR_AREA_CM2[bar] || 0;
+  const nt = val('c-n-top'), nb = val('c-n-bot'), ns = val('c-n-side-rows');
+  const total = nt + nb + 2*ns;
+  const Ast = total * Ab;
+  const node = document.getElementById('c-rebar-summary');
+  if (node) node.textContent = `共 ${total} 支 ${bar} (Ab = ${Ab.toFixed(3)} cm²)；Ast = ${fmt(Ast,4)} cm²`;
+}
+
+// 建構鋼筋層陣列：[{A (cm²), y (cm, 距頂)}, ...]
+function buildRebarLayers(b_cm, h_cm) {
+  const mode = document.getElementById('c-rebar-mode').value;
+  if (mode === 'detail') {
+    const bar = document.getElementById('c-bar-size').value;
+    const Ab = BAR_AREA_CM2[bar];
+    const nt = Math.max(0, val('c-n-top'));
+    const nb = Math.max(0, val('c-n-bot'));
+    const ns = Math.max(0, val('c-n-side-rows'));
+    const cov_cm = val('c-cov-d')/10;
+    const y_top = cov_cm, y_bot = h_cm - cov_cm;
+    const layers = [];
+    if (nt > 0) layers.push({ A: nt * Ab, y: y_top, label:`頂排 ${nt}-${bar}` });
+    for (let k = 1; k <= ns; k++) {
+      const y = y_top + (y_bot - y_top) * k / (ns + 1);
+      layers.push({ A: 2 * Ab, y, label:`側排 2-${bar}` });
+    }
+    if (nb > 0) layers.push({ A: nb * Ab, y: y_bot, label:`底排 ${nb}-${bar}` });
+    return layers;
+  }
+  // 簡化模式：依 layout 組層
+  const Ast = val('c-Ast');
+  const cov_cm = val('c-cov')/10;
+  const layout = document.getElementById('c-layout').value;
+  const y_top = cov_cm, y_bot = h_cm - cov_cm;
+  if (layout === 'sym2') {
+    return [
+      { A: Ast/2, y: y_top, label:'頂排 Ast/2' },
+      { A: Ast/2, y: y_bot, label:'底排 Ast/2' },
+    ];
+  }
+  // perim: 頂 30% + 中 40% (@h/2) + 底 30%
+  return [
+    { A: 0.3*Ast, y: y_top, label:'頂排 0.30 Ast' },
+    { A: 0.4*Ast, y: h_cm/2, label:'中排 0.40 Ast' },
+    { A: 0.3*Ast, y: y_bot, label:'底排 0.30 Ast' },
+  ];
+}
+
+function applyKePreset() {
+  const v = document.getElementById('c-ke-preset').value;
+  if (v === 'custom') return;
+  document.getElementById('c-ke').value = v;
+  calcCol();
+}
+function applyKaPreset() {
+  const v = document.getElementById('c-ka-preset').value;
+  if (v === 'custom') return;
+  document.getElementById('c-ka').value = v;
+  calcCol();
+}
+
+// ============ 剪力計算（112 規範 + ACI 440.2R-17 §11） ============
+// Vc_beam：112 §22.5.5 簡化 Vc = 0.53·√fc'·b·d（kgf，fc' kgf/cm²，b、d cm）
+function Vc_beam_ksc(fc_ksc, b_cm, d_cm) { return 0.53 * Math.sqrt(fc_ksc) * b_cm * d_cm; }
+
+// Vc_column：112 §22.5.6.1 含軸壓修正 Vc = 0.53·(1 + Nu/(140·Ag))·√fc'·b·d (Nu kgf 壓正)
+function Vc_col_ksc(fc_ksc, b_cm, h_cm, d_cm, Nu_kgf) {
+  const Ag = b_cm * h_cm;
+  const fac = 1 + Nu_kgf / (140 * Ag);
+  return Math.max(0, 0.53 * Math.sqrt(Math.max(fc_ksc,0)) * Math.max(fac, 0) * b_cm * d_cm);
+}
+
+// Vs：Av·fyt·d/s
+function Vs_stirrup(Av_cm2, fyt_ksc, d_cm, s_cm) {
+  if (!s_cm || s_cm <= 0) return 0;
+  return Av_cm2 * fyt_ksc * d_cm / s_cm;
+}
+
+// Vf（FRP 剪力貢獻）：2·n·tf·wf·Ef·εfe·(sinα + cosα)·dfv / sf
+// 單位：Ef kgf/cm²，tf cm，wf cm，dfv cm，sf cm → Vf in kgf
+function Vf_frp(n, tf_cm, wf_cm, Ef_ksc, eps_fe, alpha_deg, dfv_cm, sf_cm) {
+  if (!n || !tf_cm || !sf_cm) return 0;
+  const rad = alpha_deg * Math.PI / 180;
+  return 2 * n * tf_cm * wf_cm * Ef_ksc * eps_fe * (Math.sin(rad) + Math.cos(rad)) * dfv_cm / sf_cm;
+}
+
+// ============ 共用：混凝土 β1、Ec ============
+function beta1(fc_ksc) {
+  // 112 規範：fc' ≤ 280 kgf/cm² → 0.85；280 < fc' ≤ 560 → 線性內插至 0.65；> 560 → 0.65
+  if (fc_ksc <= 280) return 0.85;
+  if (fc_ksc >= 560) return 0.65;
+  return 0.85 - 0.05 * (fc_ksc - 280) / 70;
+}
+function Ec_ksc(fc_ksc) {
+  // 112 規範 19.2.2：Ec = 12000·√fc'  (kgf/cm²)
+  return 12000 * Math.sqrt(fc_ksc);
+}
+
+// ============ ACI 440.2R-17 — εfd 脫層應變 ============
+// εfd = 0.083·√(fc'/(n·Ef·tf))  ≤ 0.9·εfu
+// 單位：fc'、Ef 可同單位（kgf/cm² 或 MPa 均可，因分子分母相同系統），tf mm
+function epsilon_fd(fc, n, Ef, tf_mm, efu) {
+  if (!n || !Ef || !tf_mm) return null;
+  const e = 0.083 * Math.sqrt(fc / (n * Ef * tf_mm));
+  return Math.min(e, 0.9 * efu);
+}
+
+// ============ ACI 440.2R-17 — 活性握裹長度 Le / 握裹折減 κv ============
+// §11.4.1.2：Le [mm] = 23300 / (n·tf·Ef)^0.58；tf [mm]、Ef [MPa]
+function activeBondLength_mm(n, Ef_MPa, tf_mm) {
+  if (!n || !Ef_MPa || !tf_mm) return 0;
+  return 23300 / Math.pow(n * tf_mm * Ef_MPa, 0.58);
+}
+// κv = k1·k2·Le / (11900·εfu) ≤ 0.75
+// k1 = (fc'/27.6)^(2/3)  [fc' MPa]
+// k2：'W' 全包覆 = (dfv − 2·Le)/dfv；'U' U-wrap = (dfv − Le)/dfv；'side' 兩側貼 = (dfv − 2·Le)/dfv
+function kappaV_shear(fc_MPa, n, Ef_MPa, tf_mm, dfv_mm, efu, wrap) {
+  const Le = activeBondLength_mm(n, Ef_MPa, tf_mm);
+  if (!Le) return { Le: 0, k1: 0, k2: 0, kv: 0 };
+  const k1 = Math.pow(Math.max(fc_MPa,0) / 27.6, 2/3);
+  let k2;
+  if (wrap === 'W')       k2 = (dfv_mm - 2*Le) / dfv_mm;
+  else if (wrap === 'U')  k2 = (dfv_mm - Le)   / dfv_mm;
+  else                    k2 = (dfv_mm - 2*Le) / dfv_mm;
+  k2 = Math.max(0, k2);
+  const kv_raw = k1 * k2 * Le / (11900 * efu);
+  const kv = Math.min(kv_raw, 0.75);
+  return { Le, k1, k2, kv, kv_raw };
+}
+
+// ============ 柱：P-M 互制曲線（多排鋼筋 strain compatibility） ============
+// rebarLayers: [{A (cm²), y (cm, 距頂)}, ...]
+// 單位：b, h cm；fc_ksc, fy_ksc, Es_ksc kgf/cm²；Pn kgf；Mn kgf·cm
+function pmCurvePoints(b, h, rebarLayers, fc_ksc, fy_ksc, Es_ksc) {
+  const eps_cu = 0.003;
+  const eps_y  = fy_ksc / Es_ksc;
+  const b1 = beta1(fc_ksc);
+  const pts = [];
+
+  const Ag = b * h;
+  const Ast = rebarLayers.reduce((s, r) => s + (r.A || 0), 0);
+  const Po = 0.85 * fc_ksc * (Ag - Ast) + fy_ksc * Ast;
+  const Pn_max = 0.80 * Po;
+  const Pt = -fy_ksc * Ast;
+
+  const cs = [];
+  const cmax = 5 * h;
+  for (let i = 0; i <= 120; i++) {
+    const t = i / 120;
+    cs.push(0.02 * h + (cmax - 0.02 * h) * t * t);
+  }
+
+  cs.forEach(c => {
+    const a = Math.min(b1 * c, h);
+    const Cc = 0.85 * fc_ksc * a * b;
+
+    let sumF = Cc;
+    let sumM = Cc * (h/2 - a/2);
+    let eps_tens_max = -Infinity; // 最外側受拉鋼筋之拉應變（用於 φ）
+
+    for (const r of rebarLayers) {
+      const y = r.y;
+      const eps_c = eps_cu * (c - y) / c;  // compression +
+      let fs = Math.max(-fy_ksc, Math.min(fy_ksc, Es_ksc * eps_c));
+      let Fs;
+      if (y < a && eps_c > 0) Fs = r.A * (fs - 0.85 * fc_ksc); // 扣去壓塊位移之混凝土
+      else                    Fs = r.A * fs;
+      sumF += Fs;
+      sumM += Fs * (h/2 - y);   // 上方（y<h/2）為正；下方（y>h/2）拉力（Fs<0）同樣貢獻正彎矩
+      const eps_tens = -eps_c;   // tension +
+      if (eps_tens > eps_tens_max) eps_tens_max = eps_tens;
+    }
+
+    let phi;
+    if (eps_tens_max >= 0.005)      phi = 0.90;
+    else if (eps_tens_max >= eps_y) phi = 0.65 + 0.25 * (eps_tens_max - eps_y) / (0.005 - eps_y);
+    else                            phi = 0.65;
+
+    const Pn_cap = Math.min(sumF, Pn_max);
+    const Mn_val = Math.max(0, sumM);
+    pts.push({ c, a, Pn: Pn_cap, Mn: Mn_val, phi, phiPn: phi*Pn_cap, phiMn: phi*Mn_val, eps_bot_tens: eps_tens_max });
+  });
+
+  pts.push({ c: 0, a: 0, Pn: Pt, Mn: 0, phi: 0.90, phiPn: 0.90*Pt, phiMn: 0, eps_bot_tens: 99 });
+  return { pts, Po, Pn_max, Pt };
+}
+
+// 找 Mn at given Pn（插值）
+function findMnAtP(pmRes, Pn_target) {
+  const pts = pmRes.pts;
+  // pts 近似按 c 由大到小；軸壓 Pn 由大到小再轉負
+  // 我們取相鄰 Pn 包夾 target 之線段
+  let best = null;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b2 = pts[i+1];
+    if ((a.Pn - Pn_target) * (b2.Pn - Pn_target) <= 0 && a.Pn !== b2.Pn) {
+      const t = (Pn_target - a.Pn) / (b2.Pn - a.Pn);
+      const Mn = a.Mn + t * (b2.Mn - a.Mn);
+      const phi = a.phi + t * (b2.phi - a.phi);
+      if (!best || Mn > best.Mn) best = { Pn: Pn_target, Mn, phi, phiMn: phi*Mn, phiPn: phi*Pn_target };
+    }
+  }
+  return best;
+}
+
+// ============ 梁：撓曲強度 Mn ============
+// 單位：b, h, d, d' cm；fc', fy, Es kgf/cm²；As, As', Af cm²
+// Returns { c, Mn, fs, fs_p, ffe, eps_s, eps_fe, eps_sp, ok, eps_fd, failMode, phi }
+//
+// 假設：混凝土先壓碎 εcu = 0.003（先假設），後檢 FRP 脫層
+// 分析模式：mode = 'rc' | 'plate' | 'frp'
+function solveBeamMn(b, h, d, dp, fc_ksc, fy_ksc, Es_ksc, As, Asp, opts) {
+  const mode = opts.mode || 'rc';
+  const eps_cu = 0.003;
+  const eps_y  = fy_ksc / Es_ksc;
+  const b1 = beta1(fc_ksc);
+
+  // FRP / plate 擴充
+  const Af  = opts.Af  || 0;    // cm² 底貼 FRP
+  const Ef  = opts.Ef  || 0;    // kgf/cm²
+  const ffu = opts.ffu || 0;    // kgf/cm²
+  const efu = opts.efu || 0;    // strain
+  const eps_fd_max = opts.eps_fd || 0;   // 脫層限界
+  const df  = opts.df || h;    // FRP 形心至最外受壓纖維距離（cm）
+  const eps_bi = opts.eps_bi || 0;
+  // 側 CFRP（U 型包覆）— 以集中於形心之等效拉力處理
+  const Af_side = opts.Af_side || 0;
+  const df_side = opts.df_side || h;
+
+  const Asp_plate = opts.Asp_plate || 0;
+  const fy_sp     = opts.fy_sp || 0;
+  const Es_sp     = opts.Es_sp || 0;
+  const dsp       = opts.dsp || h;
+  // 側板（U 型包覆）— 以集中於形心之等效受拉鋼筋處理
+  const Asp_side  = opts.Asp_side || 0;
+  const dsp_side  = opts.dsp_side || h;
+
+  const psi_f = 0.85; // ACI 440.2R-17 §10.2.10
+
+  // iterate c by bisection：F = Cc + Cs' − Ts − Tf − Tp = 0
+  const Cc = c => 0.85 * fc_ksc * b * Math.min(b1 * c, h);
+  function Cs(c) {
+    if (Asp <= 0) return 0;
+    const a_local = Math.min(b1 * c, h);
+    const es_p = eps_cu * (c - dp) / c;
+    const fs_p = Math.max(Math.min(Es_ksc * es_p, fy_ksc), -fy_ksc);
+    // 受壓鋼筋若位於壓塊（Whitney 塊）內，需扣除排開之混凝土以避免重複計算
+    if (dp < a_local && es_p > 0) return Asp * (fs_p - 0.85 * fc_ksc);
+    return Asp * fs_p;
+  }
+  function Ts(c) {
+    const es = eps_cu * (d - c) / c;
+    const fs = Math.min(Es_ksc * es, fy_ksc);
+    return As * fs;
+  }
+  function Tf(c) {
+    if (mode !== 'frp') return 0;
+    // FRP 的有效應變：εfe = εcu·(df − c)/c − εbi，但不可超過 εfd 或 εfu
+    let eps_fe = eps_cu * (df - c) / c - eps_bi;
+    eps_fe = Math.min(eps_fe, eps_fd_max, efu);
+    if (eps_fe <= 0) return 0;
+    const ffe = Ef * eps_fe;
+    return psi_f * Af * ffe;
+  }
+  function Tf_side(c) {
+    if (mode !== 'frp' || !Af_side) return 0;
+    let eps_s = eps_cu * (df_side - c) / c - eps_bi;
+    if (eps_s <= 0) return 0;
+    eps_s = Math.min(eps_s, eps_fd_max, efu);
+    return psi_f * Af_side * Ef * eps_s;
+  }
+  function Tp(c) {
+    if (mode !== 'plate') return 0;
+    // 鋼板假設與鋼筋類似行為，dsp 為板形心
+    const es_p = eps_cu * (dsp - c) / c;
+    const fs_p = Math.min(Es_sp * es_p, fy_sp);
+    return Asp_plate * fs_p;
+  }
+  function Tp_side(c) {
+    if (mode !== 'plate' || !Asp_side) return 0;
+    // 側板集中於形心 dsp_side；若位於壓力區 (c > dsp_side) 則為壓力，保守忽略
+    const es_side = eps_cu * (dsp_side - c) / c;
+    if (es_side <= 0) return 0;
+    const fs_side = Math.min(Es_sp * es_side, fy_sp);
+    return Asp_side * fs_side;
+  }
+
+  function netF(c) { return Cc(c) + Cs(c) - Ts(c) - Tf(c) - Tf_side(c) - Tp(c) - Tp_side(c); }
+
+  // bisection 0.01·d ~ 0.95·h
+  let lo = 0.01 * d, hi = 0.95 * h, c = 0;
+  let fLo = netF(lo), fHi = netF(hi);
+  if (fLo * fHi > 0) {
+    // 無變號：取中性軸接近全壓（軸壓控制）或全拉（無法平衡）
+    // 採用更寬區間
+    lo = 0.001; hi = h;
+    fLo = netF(lo); fHi = netF(hi);
+    if (fLo * fHi > 0) return { ok:false, msg:'無法求得中性軸（check 材料與幾何）' };
+  }
+  for (let i = 0; i < 80; i++) {
+    c = 0.5 * (lo + hi);
+    const f = netF(c);
+    if (Math.abs(f) < 1e-3) break;
+    if (fLo * f < 0) { hi = c; fHi = f; }
+    else             { lo = c; fLo = f; }
+  }
+
+  // 檢查是否 FRP 先脫層（若 εfe 受 εfd 限制，則實際破壞由 FRP 先決定）
+  let failMode = '混凝土壓碎';
+  if (mode === 'frp') {
+    const eps_fe_raw = eps_cu * (df - c) / c - eps_bi;
+    if (eps_fe_raw > eps_fd_max) failMode = 'FRP 脫層';
+    else if (eps_fe_raw > efu)   failMode = 'FRP 破斷';
+  }
+
+  // 計算 Mn（對壓力形心 β1·c/2 取矩）
+  const a = b1 * c;
+  const es = eps_cu * (d - c) / c;
+  const fs = Math.min(Es_ksc * es, fy_ksc);
+  const es_p = eps_cu * (c - dp) / c;
+  const fs_p = Math.max(Math.min(Es_ksc * es_p, fy_ksc), -fy_ksc);
+  let eps_fe = 0, ffe = 0, eps_fe_side = 0, ffe_side = 0;
+  if (mode === 'frp') {
+    eps_fe = Math.min(eps_cu * (df - c) / c - eps_bi, eps_fd_max, efu);
+    if (eps_fe < 0) eps_fe = 0;
+    ffe = Ef * eps_fe;
+    if (Af_side > 0) {
+      eps_fe_side = Math.min(eps_cu * (df_side - c) / c - eps_bi, eps_fd_max, efu);
+      if (eps_fe_side < 0) eps_fe_side = 0;
+      ffe_side = Ef * eps_fe_side;
+    }
+  }
+  let fsp_plate = 0, es_p_plate = 0;
+  let fs_side = 0, es_side = 0;
+  if (mode === 'plate') {
+    es_p_plate = eps_cu * (dsp - c) / c;
+    fsp_plate = Math.min(Es_sp * es_p_plate, fy_sp);
+    if (Asp_side > 0) {
+      es_side = eps_cu * (dsp_side - c) / c;
+      fs_side = (es_side > 0) ? Math.min(Es_sp * es_side, fy_sp) : 0;
+    }
+  }
+
+  // 受壓鋼筋在壓塊內時採用扣除排開混凝土後之淨應力，以與平衡式一致
+  const fs_p_eff = (Asp>0 && dp < a && es_p > 0) ? (fs_p - 0.85*fc_ksc) : fs_p;
+  const Mn_rc = As * fs * (d - a/2) + (Asp>0 ? Asp * fs_p_eff * (a/2 - dp) : 0);
+  const Mn_frp = (mode==='frp') ? psi_f * Af * ffe * (df - a/2) : 0;
+  const Mn_frp_side = (mode==='frp' && Af_side>0 && eps_fe_side>0) ? psi_f * Af_side * ffe_side * (df_side - a/2) : 0;
+  const Mn_plate = (mode==='plate') ? Asp_plate * fsp_plate * (dsp - a/2) : 0;
+  const Mn_side  = (mode==='plate' && Asp_side>0 && es_side>0) ? Asp_side * fs_side * (dsp_side - a/2) : 0;
+  const Mn = Mn_rc + Mn_frp + Mn_frp_side + Mn_plate + Mn_side; // kgf·cm
+
+  // φ — ACI 440.2R-17 §10.2.7
+  let phi;
+  if (es >= 0.005)      phi = 0.90;
+  else if (es >= eps_y) phi = 0.65 + 0.25 * (es - eps_y) / (0.005 - eps_y);
+  else                  phi = 0.65;
+
+  return { ok:true, c, Mn, phi, a, es, fs, es_p, fs_p, eps_fe, ffe, eps_fd: eps_fd_max, efu, failMode };
+}
+
+// 彈性：轉換斷面（未開裂 uncracked）
+function uncrackedTransSection(b, h, As, Asp, d, dp, ns, Af, nf, df, Ap_plate, dsp, ns_plate) {
+  // 混凝土總斷面
+  const A_c  = b * h;
+  const y_c  = h / 2;
+  // 附加鋼筋（轉換為 (ns-1)As；內嵌於混凝土內）
+  let sumA = A_c;
+  let sumAy = A_c * y_c;
+  const addTrans = (Am, n, y) => {
+    if (!Am || n<=0) return;
+    const A_trans = (n - 1) * Am;  // 減 1 因既有混凝土佔位
+    sumA += A_trans;
+    sumAy += A_trans * y;
+  };
+  // 鋼筋位置：受拉鋼筋 y = h - d（以下緣起算）；受壓鋼筋 y = dp（以上緣起算，換算：若以下緣起算 y_bot = h - dp）
+  const y_As  = h - d;     // 底部受拉鋼筋離下緣
+  const y_Asp = h - dp;    // 上部受壓鋼筋離下緣
+  const y_f   = h - df;    // FRP 離下緣（df 是從上緣算，所以 h - df 是 FRP 位置從下緣）
+  const y_p   = h - dsp;   // 鋼板位置
+  addTrans(As,  ns, y_As);
+  addTrans(Asp, ns, y_Asp);
+  addTrans(Af,  nf, y_f);
+  addTrans(Ap_plate, ns_plate, y_p);
+
+  const yb = sumAy / sumA;  // 形心距下緣
+  const yt = h - yb;
+
+  // 計算 I（對形心軸）
+  // 混凝土
+  let I = b * h**3 / 12 + A_c * (y_c - yb)**2;
+  const addI = (Am, n, y) => {
+    if (!Am || n<=0) return;
+    const A_trans = (n - 1) * Am;
+    I += A_trans * (y - yb)**2;  // 鋼筋近似點面積，自身 I 忽略
+  };
+  addI(As,  ns, y_As);
+  addI(Asp, ns, y_Asp);
+  addI(Af,  nf, y_f);
+  addI(Ap_plate, ns_plate, y_p);
+
+  return { A: sumA, I, yb, yt, Sb: I/yb, St: I/yt };
+}
+
+// 彈性：轉換斷面（開裂 cracked，僅受壓混凝土 + 鋼筋/FRP 拉力）
+function crackedTransSection(b, h, As, Asp, d, dp, ns, Af, nf, df, Ap_plate, dsp, ns_plate) {
+  // 以中性軸 kd 為未知，對其取靜矩為零
+  // 受壓：混凝土 b·kd 形狀（簡單矩形）+ 受壓鋼筋 (ns-1)·As'
+  // 受拉：ns·As + nf·Af + ns_plate·Ap_plate（轉換）
+  // Σ A_i · (kd - y_i) = 0, y 為距頂
+  // 受拉鋼筋距頂 d, 受壓鋼筋距頂 dp, FRP 距頂 df, 鋼板距頂 dsp
+  // 方程式：b·kd²/2 + (ns-1)·As'·(kd - dp) - ns·As·(d - kd) - nf·Af·(df - kd) - ns_plate·Ap_plate·(dsp - kd) = 0
+  const a = b/2;
+  const c1 = (ns-1)*Asp + ns*As + nf*Af + ns_plate*Ap_plate;
+  const c0 = -(ns-1)*Asp*dp - ns*As*d - nf*Af*df - ns_plate*Ap_plate*dsp;
+  // a·kd² + c1·kd + c0 = 0  →  kd = (-c1 + √(c1² - 4·a·c0))/(2a)
+  const disc = c1*c1 - 4*a*c0;
+  if (disc < 0) return { ok:false };
+  const kd = (-c1 + Math.sqrt(disc)) / (2*a);
+  if (kd <= 0 || kd >= h) return { ok:false };
+  // I_cr 對中性軸
+  let Icr = b * kd**3 / 3;
+  if (Asp>0) Icr += (ns-1) * Asp * (kd - dp)**2;
+  Icr += ns * As * (d - kd)**2;
+  if (Af>0) Icr += nf * Af * (df - kd)**2;
+  if (Ap_plate>0) Icr += ns_plate * Ap_plate * (dsp - kd)**2;
+  return { ok:true, kd, Icr };
+}
+
+// ============ 梁主計算 ============
+let lastBeam = null;
+
+function calcBeam() {
+  document.getElementById('b-msg').textContent = '';
+  // 讀取（mm → cm，材料 kgf/cm²）
+  const b_mm = val('b-b'), h_mm = val('b-h'), d_mm = val('b-d'), dp_mm = val('b-dp');
+  if (!b_mm || !h_mm || !d_mm) { document.getElementById('b-msg').textContent = '請填寫 b, h, d'; return; }
+  const b = b_mm/10, h = h_mm/10, d = d_mm/10, dp = dp_mm/10;
+  const fc = val('b-fc'), fy = val('b-fy');
+  const Es = 2.04e6;
+  const As = val('b-As'), Asp = val('b-Asp');
+  const eps_bi = val('b-ebi');
+  const mode = document.getElementById('b-mode').value;
+
+  const Ec = Ec_ksc(fc);
+  const ns = Es / Ec;
+  let Af = 0, Ef = 0, ffu = 0, efu = 0, eps_fd_max = 0, df = h, bf = 0, tf_total_mm = 0, nLayer = 0;
+  let Ap_plate = 0, fy_sp = 0, Es_sp = 0, dsp = h, ns_plate = 0, tsp_mm = 0, bsp_mm = 0;
+  let Ap_side = 0, dsp_side = h, tsp_s_mm = 0, hsp_s_mm = 0, plate_uwrap = false;
+  let CE = 0.85;
+  let frpInfo = {}, plateInfo = {};
+
+  let Af_side_cm2 = 0, df_side_cm = h, frp_uwrap = false, frp_slab_mm = 0, hsp_f_mm = 0;
+  if (mode === 'frp') {
+    const Ef_GPa = val('b-Ef');
+    const ffu_MPa = val('b-ffu');
+    const efu_pct = val('b-efu');
+    const tf_mm = val('b-tf');
+    nLayer = val('b-nf') || 1;
+    CE = parseFloat(document.getElementById('b-CE').value);
+    // 單位換算：GPa → kgf/cm² (×10197)，MPa → kgf/cm² (×10.197)
+    Ef  = Ef_GPa * 10197;
+    ffu = ffu_MPa * 10.197;
+    efu = (efu_pct / 100) * CE;         // 經環境折減
+    ffu *= CE;
+    tf_total_mm = tf_mm * nLayer;
+    bf = valOrNull('b-bf') || b_mm;      // mm
+    Af = (bf/10) * (tf_total_mm/10);     // cm²
+    df = h;                               // FRP 貼於底面，df = h
+    // εfd 脫層限界
+    const eps_fd_calc = epsilon_fd(fc, nLayer, Ef, tf_mm, efu) || 0.9*efu;
+    // Le 活性握裹長度（資訊用）
+    const fc_MPa = fc * 0.0980665;
+    const Le_mm = activeBondLength_mm(nLayer, Ef_GPa*1000, tf_mm);
+    // 端部錨固或 U 型包覆時：視同錨固，解除 εfd 限制（以 εfu 為上限）
+    frp_uwrap = document.getElementById('b-frp-uwrap').checked;
+    const anchor = document.getElementById('b-frp-anchor').checked || frp_uwrap;
+    eps_fd_max = anchor ? efu : eps_fd_calc;
+    // CFRP U 型包覆：側 CFRP 之面積與形心
+    if (frp_uwrap) {
+      frp_slab_mm = val('b-frp-slab');
+      hsp_f_mm = Math.max(0, h_mm - frp_slab_mm);
+      Af_side_cm2 = 2 * (tf_total_mm/10) * (hsp_f_mm/10);   // 雙側合計 (cm²)
+      df_side_cm = h - (hsp_f_mm/10)/2;                      // 側 CFRP 形心距頂（cm）
+    }
+    frpInfo = { Ef_GPa, ffu_MPa, efu_pct, tf_mm, nLayer, CE, bf_mm: bf, tf_total_mm,
+                eps_fd_calc, eps_fd_used: eps_fd_max, Le_mm, fc_MPa, anchor,
+                frp_uwrap, slab_mm: frp_slab_mm, hsp_f_mm, Af_side_cm2, df_side_cm };
+  } else if (mode === 'plate') {
+    tsp_mm = val('b-tsp');
+    bsp_mm = valOrNull('b-bsp') || b_mm;
+    fy_sp  = val('b-fysp');
+    Es_sp  = val('b-Essp');
+    Ap_plate = (bsp_mm/10) * (tsp_mm/10);
+    dsp = h + tsp_mm/10 / 2;             // 板形心稍低於 RC 底
+    ns_plate = Es_sp / Ec;
+    plate_uwrap = document.getElementById('b-plate-uwrap').checked;
+    let slab_mm = 0;
+    if (plate_uwrap) {
+      tsp_s_mm = valOrNull('b-tsp-s') || tsp_mm;
+      slab_mm = val('b-slab');             // 樓板厚（使用者輸入）
+      hsp_s_mm = Math.max(0, h_mm - slab_mm); // 自動推算側板可貼覆高度
+      const tsp_s_cm = tsp_s_mm/10, hsp_s_cm = hsp_s_mm/10;
+      Ap_side = 2 * tsp_s_cm * hsp_s_cm;     // 兩側合計
+      dsp_side = h - hsp_s_cm/2;             // 側板形心距頂（cm），hsp_s 由梁底向上量
+    }
+    plateInfo = { tsp_mm, bsp_mm, fy_sp, Es_sp, plate_uwrap, tsp_s_mm, hsp_s_mm, slab_mm, Ap_side, dsp_side };
+  }
+
+  // 極限 Mn
+  const res = solveBeamMn(b, h, d, dp, fc, fy, Es, As, Asp, {
+    mode,
+    Af, Ef, ffu, efu, eps_fd: eps_fd_max, df, eps_bi,
+    Af_side: Af_side_cm2, df_side: df_side_cm,
+    Asp_plate: Ap_plate, fy_sp, Es_sp, dsp,
+    Asp_side: Ap_side, dsp_side,
+  });
+  // 原 RC Mn（baseline 比較）
+  const res0 = solveBeamMn(b, h, d, dp, fc, fy, Es, As, Asp, { mode:'rc' });
+
+  // 彈性斷面（未開裂）
+  const nf = (mode==='frp') ? Ef/Ec : 0;
+  const nsp = (mode==='plate') ? ns_plate : 0;
+  const uncr = uncrackedTransSection(b, h, As, Asp, d, dp, ns, Af, nf, df, Ap_plate, dsp, nsp);
+  const crk  = crackedTransSection (b, h, As, Asp, d, dp, ns, Af, nf, df, Ap_plate, dsp, nsp);
+  const uncr0 = uncrackedTransSection(b, h, As, Asp, d, dp, ns, 0, 0, df, 0, dsp, 0);
+  const crk0  = crackedTransSection (b, h, As, Asp, d, dp, ns, 0, 0, df, 0, dsp, 0);
+
+  // ========= 剪力檢核 =========
+  const Av = val('b-Av'), s_stirrup = val('b-s'), fyt = val('b-fyt');
+  const Vu_tf = val('b-Vu');
+  const Vc = Vc_beam_ksc(fc, b, d);
+  const Vs_stir = Vs_stirrup(Av, fyt, d, s_stirrup);
+  // U 型鋼板側板剪力貢獻（等同連續垂直鋼板，取形心 d_sp_shear ≈ hsp_s 之 0.9 倍為保守）
+  let Vs_plate = 0;
+  if (mode === 'plate' && plate_uwrap) {
+    const tsp_s_cm = tsp_s_mm/10;
+    const d_eff_shear = Math.min(d, (hsp_s_mm/10) * 0.9);
+    Vs_plate = 2 * tsp_s_cm * fy_sp * d_eff_shear;
+  }
+  const Vs_total_raw = Vs_stir + Vs_plate;
+  // 112 規範 §22.5.1.2：總 Vs（含補強）不得超過 2.1·√fc'·b·d（kgf/cm² 單位）
+  const Vs_hard_cap = 2.1 * Math.sqrt(fc) * b * d;
+  const Vs_used = Math.min(Vs_total_raw, Vs_hard_cap);
+  const Vs = Vs_stir; // 保留既有命名供後續引用
+  const Vs_cap = Vs_hard_cap;
+
+  let Vf = 0, frpShearInfo = null;
+  // CFRP U 型包覆時自動提供連續剪力補強（連續布 α=90°, wf=sf）
+  if (mode === 'frp' && frp_uwrap && hsp_f_mm > 0) {
+    const fc_MPa_v = fc * 0.0980665;
+    const kvObj = kappaV_shear(fc_MPa_v, nLayer, val('b-Ef')*1000, val('b-tf'), hsp_f_mm, efu, 'U');
+    const eps_fe_auto = Math.min(kvObj.kv * efu, 0.004);
+    const psi_f_s = 0.85;
+    const hsp_f_cm = hsp_f_mm/10;
+    // Vf = ψf · 2·n·tf·Ef·εfe·hf,s  (連續 U 包覆)
+    const tf_total_cm = tf_total_mm/10;
+    const Vf_raw = 2 * tf_total_cm * Ef * eps_fe_auto * hsp_f_cm;
+    Vf = psi_f_s * Vf_raw;
+    frpShearInfo = { source: 'U-wrap (自動)', wf_cm: hsp_f_cm, sf_cm: hsp_f_cm, alpha: 90,
+                     dfv_cm: hsp_f_cm, eps_fe_s_user: eps_fe_auto, eps_fe_aci: eps_fe_auto,
+                     eps_fe_s: eps_fe_auto, Ef_ksc_s: Ef, tf_mm_s: val('b-tf'),
+                     nLayer_s: nLayer, CE_s: CE, psi_f_s, Vf_raw,
+                     Le_mm: kvObj.Le, k1: kvObj.k1, k2: kvObj.k2, kv: kvObj.kv, kv_raw: kvObj.kv_raw };
+  }
+  const frpShearOn = document.getElementById('b-frp-shear').checked && !frp_uwrap;
+  if (frpShearOn) {
+    // 採用 U-wrap：ψf,shear = 0.85；參數可獨立輸入
+    const wf_cm = val('b-wfs')/10;
+    const sf_cm = val('b-sfs')/10;
+    const alpha = val('b-alpha') || 90;
+    const dfv_mm = valOrNull('b-dfv') || d_mm;
+    const dfv_cm = dfv_mm/10;
+    const eps_fe_s_user = val('b-efe-s') || 0.004;
+    // Ef, tf, nLayer, CE, efu：優先用撓曲 FRP 參數；未啟用撓曲 FRP 則取 Sika S 預設
+    let Ef_ksc_s, Ef_MPa_s, tf_mm_s, nLayer_s, CE_s, efu_s;
+    if (mode === 'frp') {
+      Ef_ksc_s = Ef; Ef_MPa_s = val('b-Ef')*1000; tf_mm_s = val('b-tf'); nLayer_s = nLayer; CE_s = CE; efu_s = efu;
+    } else {
+      Ef_ksc_s = 165 * 10197; Ef_MPa_s = 165000; tf_mm_s = 1.2; nLayer_s = 1; CE_s = 0.85; efu_s = 0.017 * 0.85;
+    }
+    // 依 ACI 440.2R-17 §11.4.1 計算 κv，取 min(κv·εfu, 0.004, user 輸入)
+    const fc_MPa_v = fc * 0.0980665;
+    const kvObj = kappaV_shear(fc_MPa_v, nLayer_s, Ef_MPa_s, tf_mm_s, dfv_mm, efu_s, 'U');
+    const eps_fe_aci = Math.min(kvObj.kv * efu_s, 0.004);
+    const eps_fe_s = Math.min(eps_fe_s_user, eps_fe_aci);
+    const psi_f_s = 0.85;
+    const tf_cm_s = tf_mm_s / 10;
+    const Vf_raw = Vf_frp(nLayer_s, tf_cm_s, wf_cm, Ef_ksc_s, eps_fe_s, alpha, dfv_cm, sf_cm);
+    Vf = psi_f_s * Vf_raw;
+    frpShearInfo = { wf_cm, sf_cm, alpha, dfv_cm, eps_fe_s_user, eps_fe_aci, eps_fe_s,
+                     Ef_ksc_s, tf_mm_s, nLayer_s, CE_s, psi_f_s, Vf_raw,
+                     Le_mm: kvObj.Le, k1: kvObj.k1, k2: kvObj.k2, kv: kvObj.kv, kv_raw: kvObj.kv_raw };
+  }
+
+  // Vn_base 為原 RC（僅既有箍筋）；Vn 為補強後
+  // 112 §22.5.1.2：總剪力補強貢獻 (Vs + Vf) 不得超過 2.1·√fc'·b·d
+  const Vs_stir_used = Math.min(Vs_stir, Vs_hard_cap);
+  const Vs_Vf_raw = Vs_stir + Vs_plate + Vf;
+  const Vs_Vf_used = Math.min(Vs_Vf_raw, Vs_hard_cap);
+  const Vs_Vf_capped = Vs_Vf_raw > Vs_hard_cap;
+  const Vn_base = Vc + Vs_stir_used;
+  const Vn      = Vc + Vs_Vf_used;
+  const phiVn   = 0.75 * Vn;
+  const phiVn_base = 0.75 * Vn_base;
+  const Vu = Vu_tf * 1000; // tf → kgf
+  const shearRatio = Vu > 0 ? Vu / phiVn : null;
+
+  lastBeam = {
+    geom: { b_mm, h_mm, d_mm, dp_mm, fc, fy, As, Asp, eps_bi, mode, frpInfo, plateInfo, Af, Ap_plate },
+    elastic: { uncr, crk, uncr0, crk0, ns, nf, nsp, Ec },
+    ult: { res, res0 },
+    shear: { Vc, Vs, Vs_stir, Vs_plate, Vs_used, Vs_cap, Vs_hard_cap, Vs_Vf_capped, Vf, Vn_base, Vn, phiVn, phiVn_base, Vu, shearRatio,
+             Av, s: s_stirrup, fyt, frpShearInfo, plate_uwrap, tsp_s_mm, hsp_s_mm },
+  };
+
+  renderBeamResults();
+  drawBeam();
+}
+
+function renderBeamResults() {
+  const d = lastBeam; if (!d) return;
+  const e = d.elastic, u = d.ult, g = d.geom;
+  const host = document.getElementById('b-results');
+  const mode = g.mode;
+  const modeTxt = { none:'無補強', plate:'底貼鋼板', frp:'底貼 CFRP' }[mode];
+
+  const rows = [];
+  rows.push(['<b>補強型式</b>', modeTxt, '', '', 'hi']);
+  rows.push(['<b>彈性斷面（未開裂）</b>', '', '', '']);
+  rows.push(['A_t 轉換斷面積', fmt(e.uncr.A), 'cm²', pct(e.uncr.A, e.uncr0.A)]);
+  rows.push(['I_t 慣性矩',       fmt(e.uncr.I), 'cm⁴', pct(e.uncr.I, e.uncr0.I)]);
+  rows.push(['yb 形心至下緣',    fmt(e.uncr.yb), 'cm', '']);
+  rows.push(['St 上緣斷面模數',  fmt(e.uncr.St), 'cm³', pct(e.uncr.St, e.uncr0.St)]);
+  rows.push(['Sb 下緣斷面模數',  fmt(e.uncr.Sb), 'cm³', pct(e.uncr.Sb, e.uncr0.Sb)]);
+
+  if (e.crk.ok) {
+    rows.push(['<b>彈性斷面（開裂 cracked）</b>', '', '', '']);
+    rows.push(['kd 中性軸距頂', fmt(e.crk.kd), 'cm', '']);
+    rows.push(['Icr 開裂慣性矩', fmt(e.crk.Icr), 'cm⁴', e.crk0.ok ? pct(e.crk.Icr, e.crk0.Icr) : '']);
+    if (e.crk0.ok) rows.push(['EIcr 剛度', fmt(e.Ec * e.crk.Icr), 'kgf·cm²', pct(e.Ec*e.crk.Icr, e.Ec*e.crk0.Icr)]);
+  }
+
+  rows.push(['<b>極限撓曲強度</b>', '', '', '']);
+  if (u.res.ok && u.res0.ok) {
+    rows.push(['c 中性軸', fmt(u.res.c), 'cm', '']);
+    rows.push(['εs 受拉鋼筋應變', fmt(u.res.es), '', '']);
+    if (mode==='frp') {
+      if (g.frpInfo.frp_uwrap) {
+        rows.push(['斷面型式 / 包覆', 'T 型梁 · CFRP U 型包覆（底 + 雙側）', '', '', 'hi']);
+        rows.push(['樓板厚 ts', g.frpInfo.slab_mm, 'mm', '']);
+        rows.push(['側 CFRP 高度 hf,s = h − ts', g.frpInfo.hsp_f_mm, 'mm', '']);
+        rows.push(['Af,side 雙側合計', fmt(g.frpInfo.Af_side_cm2), 'cm²', '']);
+      }
+      rows.push(['εfe 底 CFRP 有效應變', fmt(u.res.eps_fe), '', '']);
+      rows.push(['εfd 脫層限界（無錨固）', fmt(g.frpInfo.eps_fd_calc), '', '']);
+      rows.push(['Le 活性握裹長度', fmt(g.frpInfo.Le_mm,4), 'mm', '']);
+      rows.push(['端部錨固', g.frpInfo.anchor ? (g.frpInfo.frp_uwrap?'U 型包覆視同錨固（免檢 εfd）':'已設（免檢 εfd）') : '未設（以 εfd 為限）', '', '', g.frpInfo.anchor?'hi':'']);
+      rows.push(['破壞模式', u.res.failMode, '', '', 'warn']);
+    }
+    rows.push(['Mn 補強後標稱撓曲', fmt(u.res.Mn/1e5), 'tf·m', pct(u.res.Mn, u.res0.Mn), 'hi']);
+    rows.push(['Mn₀ 原 RC 標稱撓曲', fmt(u.res0.Mn/1e5), 'tf·m', '']);
+    rows.push(['φ 強度折減', fmt(u.res.phi, 3), '', '']);
+    rows.push(['φMn 設計撓曲', fmt(u.res.phi*u.res.Mn/1e5), 'tf·m', pct(u.res.phi*u.res.Mn, u.res0.phi*u.res0.Mn), 'hi']);
+  } else {
+    rows.push([u.res.msg || '極限強度計算失敗', '', '', '']);
+  }
+
+  // ==== 剪力 ====
+  const sh = d.shear;
+  rows.push(['<b>剪力強度</b>', '', '', '']);
+  rows.push(['Vc 混凝土',   fmt(sh.Vc/1000), 'tf', '']);
+  rows.push(['Vs 箍筋',     fmt(sh.Vs_stir/1000), 'tf', '']);
+  if (sh.Vs_plate > 0) rows.push(['Vs,plate U 型鋼板側板 (2·tsp,s·fy·d_eff)', fmt(sh.Vs_plate/1000), 'tf', '', 'hi']);
+  if (sh.Vs_Vf_capped) rows.push(['⚠ 總 Vs + Vf 已達 112 §22.5.1.2 上限 2.1·√fc′·b·d', fmt(sh.Vs_hard_cap/1000), 'tf', '', 'warn']);
+  if (sh.Vf > 0) {
+    const src = (sh.frpShearInfo && sh.frpShearInfo.source) ? `（${sh.frpShearInfo.source}）` : '';
+    rows.push([`Vf FRP (U-wrap, ψf=0.85)${src}`, fmt(sh.Vf/1000), 'tf', '', 'hi']);
+  }
+  if (sh.frpShearInfo) {
+    const fi = sh.frpShearInfo;
+    rows.push(['Le (ACI 活性握裹)', fmt(fi.Le_mm,4), 'mm', '']);
+    rows.push(['κv 剪力握裹係數', `${fmt(fi.kv,3)}（原算 ${fmt(fi.kv_raw,3)}，上限 0.75）`, '', '']);
+    rows.push(['εfe 採用', `${fmt(fi.eps_fe_s,3)}（ACI 預測 ${fmt(fi.eps_fe_aci,3)}）`, '', '']);
+  }
+  rows.push(['Vn₀ 原剪力容量',  fmt(sh.Vn_base/1000), 'tf', '']);
+  rows.push(['Vn 補強後',      fmt(sh.Vn/1000), 'tf', pct(sh.Vn, sh.Vn_base), 'hi']);
+  rows.push(['φVn (φ=0.75)',   fmt(sh.phiVn/1000), 'tf', pct(sh.phiVn, sh.phiVn_base), 'hi']);
+  if (sh.shearRatio !== null) {
+    const ok = sh.shearRatio <= 1.0;
+    rows.push([`Vu/φVn 檢核`, `${fmt(sh.shearRatio,3)} ${ok?'(OK)':'(NG)'}`, '', '', ok?'hi':'warn']);
+  }
+
+  host.innerHTML = `<div class="results-grid">${rows.map(r => {
+    const [label, v, unit, dp, cls] = r;
+    if (v==='') return `<div class="result-item" style="grid-column:1/-1; background:#eef2ff; border-left-color:#6366f1;"><span class="label">${label}</span></div>`;
+    const deltaHTML = (dp !== '' && isFinite(dp) && Math.abs(dp) > 0.01) ? `<span class="delta">${dp>0?'+':''}${dp.toFixed(1)}%</span>` : '';
+    return `<div class="result-item ${cls||''}"><span class="label">${label}</span><span class="value">${v}${unit?` <span class="unit">${unit}</span>`:''}${deltaHTML}</span></div>`;
+  }).join('')}</div>`;
+
+  // Notes
+  const nb = document.getElementById('b-note');
+  const wb = document.getElementById('b-warn');
+  const notes = [];
+  const warns = [];
+  if (mode !== 'none') notes.push('增益百分比以相同基礎 RC 斷面（無補強）之 Mn 為基準。');
+  if (mode === 'frp') {
+    notes.push('ACI 440.2R-17 §10.2.10：FRP 撓曲貢獻乘以 ψf = 0.85 額外折減。');
+    notes.push(`εfd 脫層應變 = 0.083·√(fc'/(n·Ef·tf)) = ${fmt(u.res.eps_fd,3)}；超越時 FRP 先脫層。`);
+    if (u.res.failMode === 'FRP 脫層') warns.push('⚠ 破壞模式為 FRP 脫層（非混凝土壓碎）— 強度受 εfd 限制，設計上建議加 U 型錨固或降低補強量。');
+  }
+  if (mode === 'plate') notes.push('鋼板假設與底部主筋同 strain compatibility 處理，位於 RC 外緣下方。');
+  notes.push('φ 依 ACI 440.2R-17 §10.2.7：εs ≥ 0.005 取 0.90；εy ≤ εs < 0.005 線性內插至 0.65。');
+  notes.push('本工具以 112 規範 + ACI 440.2R-17 為設計依據；實際補強案件請依現場條件與錨固細節逐項覆核。');
+  nb.innerHTML = notes.map(n=>`• ${n}`).join('<br>');  nb.style.display = 'block';
+  if (warns.length) { wb.innerHTML = warns.join('<br>'); wb.style.display='block'; } else wb.style.display='none';
+}
+
+function drawBeam() {
+  const c = document.getElementById('beamCanvas'); if (!c) return;
+  const ctx = c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height);
+  const d = lastBeam; if (!d) return;
+  const g = d.geom;
+  const bmm = g.b_mm, hmm = g.h_mm, dmm = g.d_mm, dpmm = g.dp_mm;
+  const mode = g.mode;
+  const uwrapPlate = (mode==='plate' && g.plateInfo.plate_uwrap);
+  const uwrapFrp   = (mode==='frp'   && g.frpInfo.frp_uwrap);
+  const uwrapOn    = uwrapPlate || uwrapFrp;
+  const extraBot = (mode==='plate') ? (g.plateInfo.tsp_mm||0) : (mode==='frp' ? (g.frpInfo.tf_total_mm||0) : 0);
+  const extraSide = uwrapPlate ? (g.plateInfo.tsp_s_mm||0)
+                   : uwrapFrp  ? (g.frpInfo.tf_total_mm||0) : 0;
+
+  // T 型梁樓板：h 已含樓板，ts 為頂部樓板厚度；stem 高 = h − ts
+  const slabThkMm = uwrapPlate ? Math.max(g.plateInfo.slab_mm || 0, 1)
+                   : uwrapFrp  ? Math.max(g.frpInfo.slab_mm   || 0, 1) : 0;
+  const slabOverhangMm = uwrapOn ? bmm * 0.75 : 0; // 樓板懸臂（單邊），共 1.5b
+
+  const totalWmm = bmm + 2*extraSide + (uwrapOn ? 2*slabOverhangMm : 0);
+  const totalHmm = hmm + extraBot;
+  const W = totalWmm + 60, H = totalHmm + 60;
+  const sc = Math.min((c.width - 60)/W, (c.height - 60)/H);
+  const sw = bmm*sc, sh = hmm*sc, sdp = dpmm*sc, sdd = dmm*sc;
+  const ox = (c.width - sw)/2;
+  const oy = (c.height - sh - extraBot*sc)/2;
+
+  // ===== RC 斷面 =====
+  if (uwrapOn) {
+    // ----- T 型梁：slab（頂部，寬於 stem）+ stem（下方，寬 b、高 h−ts）以單一輪廓繪出 -----
+    const slabThk_sc = slabThkMm * sc;
+    const slabW_sc = (bmm + 2*slabOverhangMm) * sc;
+    const slabX = ox + sw/2 - slabW_sc/2;
+    ctx.fillStyle = '#cbd5e1';
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    // T 型輪廓（順時針自左上起）
+    ctx.moveTo(slabX,               oy);                          // 樓板左上
+    ctx.lineTo(slabX + slabW_sc,    oy);                          // 樓板右上
+    ctx.lineTo(slabX + slabW_sc,    oy + slabThk_sc);            // 樓板右下
+    ctx.lineTo(ox + sw,             oy + slabThk_sc);            // stem 右上（樓板凹口右）
+    ctx.lineTo(ox + sw,             oy + sh);                     // stem 右下
+    ctx.lineTo(ox,                  oy + sh);                     // stem 左下
+    ctx.lineTo(ox,                  oy + slabThk_sc);            // stem 左上
+    ctx.lineTo(slabX,               oy + slabThk_sc);            // 樓板左下
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // 樓板/stem 分界虛線（示意用，同混凝土材）
+    ctx.save();
+    ctx.strokeStyle = '#94a3b8';
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(ox,        oy + slabThk_sc);
+    ctx.lineTo(ox + sw,   oy + slabThk_sc);
+    ctx.stroke();
+    ctx.restore();
+    // 樓板標籤
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 10px "Microsoft JhengHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('樓板 ts=' + slabThkMm + 'mm', ox + sw/2, oy + slabThk_sc/2 + 3);
+    // ts 尺寸標註（左側箭頭）
+    ctx.textAlign = 'right';
+    ctx.font = '10px Consolas,monospace';
+    ctx.fillStyle = '#1e293b';
+    ctx.fillText(`ts=${slabThkMm}`, slabX - 4, oy + slabThk_sc/2 + 3);
+  } else {
+    // ----- 純矩形梁 -----
+    ctx.fillStyle = '#cbd5e1'; ctx.strokeStyle='#475569'; ctx.lineWidth=2;
+    ctx.fillRect(ox, oy, sw, sh); ctx.strokeRect(ox, oy, sw, sh);
+  }
+
+  // 受壓鋼筋（上）
+  if (g.Asp > 0) {
+    ctx.fillStyle = '#fde68a'; ctx.strokeStyle='#d97706';
+    const n = 2, r = Math.min(6, sw/16);
+    for (let i=0; i<n; i++) {
+      const x = ox + sw*(0.15 + i*0.7);
+      ctx.beginPath(); ctx.arc(x, oy + sdp, r, 0, PI*2); ctx.fill(); ctx.stroke();
+    }
+  }
+  // 受拉鋼筋（下）
+  {
+    ctx.fillStyle = '#fde68a'; ctx.strokeStyle='#d97706';
+    const n = 3, r = Math.min(7, sw/14);
+    for (let i=0; i<n; i++) {
+      const x = ox + sw*(0.12 + i*0.38);
+      ctx.beginPath(); ctx.arc(x, oy + sdd, r, 0, PI*2); ctx.fill(); ctx.stroke();
+    }
+  }
+
+  // 鋼板
+  if (mode === 'plate') {
+    const tsp = (g.plateInfo.tsp_mm||0)*sc;
+    const bsp = Math.min((g.plateInfo.bsp_mm||bmm)*sc, sw*1.1);
+    ctx.fillStyle = '#fed7aa'; ctx.strokeStyle = '#f97316'; ctx.lineWidth = 1.5;
+    const xp = ox + (sw - bsp)/2;
+    // 底板
+    ctx.fillRect(xp, oy + sh, bsp, tsp);
+    ctx.strokeRect(xp, oy + sh, bsp, tsp);
+    // U 型包覆 — 雙側板（貼附於 stem 兩側，頂端齊樓板底）
+    if (g.plateInfo.plate_uwrap) {
+      const tsp_s = (g.plateInfo.tsp_s_mm||0)*sc;
+      const hsp_s_mm_val = (g.plateInfo.hsp_s_mm != null) ? g.plateInfo.hsp_s_mm : hmm;
+      const hsp_s = hsp_s_mm_val * sc;
+      const y_top_side = oy + sh - hsp_s; // 側板頂 = stem 頂 = 樓板底
+      // 左側板
+      ctx.fillRect(ox - tsp_s, y_top_side, tsp_s, hsp_s);
+      ctx.strokeRect(ox - tsp_s, y_top_side, tsp_s, hsp_s);
+      // 右側板
+      ctx.fillRect(ox + sw, y_top_side, tsp_s, hsp_s);
+      ctx.strokeRect(ox + sw, y_top_side, tsp_s, hsp_s);
+    }
+  }
+  // CFRP
+  if (mode === 'frp') {
+    const tfT = (g.frpInfo.tf_total_mm||0)*sc;
+    const bf_sc = Math.min((g.frpInfo.bf_mm||bmm)*sc, sw*1.1);
+    ctx.fillStyle = '#e9d5ff'; ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 1.5;
+    const xp = ox + (sw - bf_sc)/2;
+    // 底面 CFRP
+    ctx.fillRect(xp, oy + sh, bf_sc, Math.max(tfT, 3));
+    ctx.strokeRect(xp, oy + sh, bf_sc, Math.max(tfT, 3));
+    // U 型包覆 — 雙側 CFRP（頂端齊樓板底，即 stem 頂）
+    if (g.frpInfo.frp_uwrap) {
+      const hsp_f = (g.frpInfo.hsp_f_mm||0)*sc;
+      const tfw = Math.max(tfT, 3);
+      const y_top_side = oy + sh - hsp_f;
+      ctx.fillRect(ox - tfw, y_top_side, tfw, hsp_f);
+      ctx.strokeRect(ox - tfw, y_top_side, tfw, hsp_f);
+      ctx.fillRect(ox + sw,  y_top_side, tfw, hsp_f);
+      ctx.strokeRect(ox + sw, y_top_side, tfw, hsp_f);
+    }
+  }
+
+  // 尺寸標註
+  ctx.fillStyle = '#1e293b'; ctx.font = '11px Consolas,monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`b=${bmm}`, ox + sw/2, oy + sh + extraBot*sc + 18);
+  ctx.textAlign = 'right';
+  ctx.fillText(`h=${hmm}`, ox - 6, oy + sh/2 + 4);
+}
+
+// ============ 柱計算 ============
+let lastCol = null;
+
+function calcCol() {
+  document.getElementById('c-msg').textContent = '';
+  const b_mm = val('c-b'), h_mm = val('c-h');
+  if (!b_mm || !h_mm) { document.getElementById('c-msg').textContent = '請填寫 b, h'; return; }
+  const b = b_mm/10, h = h_mm/10;
+  const fc = val('c-fc'), fy = val('c-fy');
+  const Es = 2.04e6;
+  const mode = document.getElementById('c-mode').value;
+
+  // 主筋配置（簡化 / 詳細）— 建構鋼筋層陣列
+  const rebarLayers = buildRebarLayers(b, h);
+  const Ast = rebarLayers.reduce((s, r) => s + r.A, 0);
+  const rebarMode = document.getElementById('c-rebar-mode').value;
+  // cover 取決於模式
+  const cov = (rebarMode === 'detail') ? val('c-cov-d')/10 : val('c-cov')/10;
+  const layout = (rebarMode === 'simple') ? document.getElementById('c-layout').value : 'detail';
+
+  const Ag = b * h;
+  const Ec = Ec_ksc(fc);
+  const ns = Es / Ec;
+
+  // 圍束壓應力 f'l, f'cc
+  let f_l = 0, f_cc = fc, confineKind = '';
+  let jacketInfo = {}, frpInfo = {};
+  if (mode === 'jacket') {
+    const tj_mm = val('c-tj'), fyj = val('c-fyj'), Esj = val('c-Esj');
+    const ke = val('c-ke');
+    const tj = tj_mm/10;
+    // 矩形直貼：f'l = 2·fyj·tj / h（沿 h 方向），乘形狀效率 ke
+    f_l = ke * 2 * fyj * tj / h;
+    // Mander 矩形近似（受約束強度）
+    f_cc = fc * (-1.254 + 2.254 * Math.sqrt(1 + 7.94*f_l/fc) - 2*f_l/fc);
+    if (!isFinite(f_cc) || f_cc < fc) f_cc = fc;
+    jacketInfo = { tj_mm, fyj, Esj, ke, f_l, f_cc };
+    confineKind = '鋼板包覆';
+  } else if (mode === 'frp') {
+    const Ef_GPa = val('c-Ef'), tf_mm = val('c-tf'), nLayer = val('c-nf'),
+          efu_pct = val('c-efu'), ffu_MPa = val('c-ffu');
+    const CE = parseFloat(document.getElementById('c-CE').value);
+    const eps_fe = val('c-efe') || 0.004;
+    const ka = val('c-ka') || 0.3;
+    const Ef = Ef_GPa * 10197;
+    // f_l = 2·Ef·εfe·(n·tf) / h  (以 cm)
+    const tf_total_cm = (tf_mm/10) * nLayer;
+    f_l = ka * 2 * Ef * eps_fe * tf_total_cm / h;
+    f_cc = fc + 4.1 * f_l; // Richart 經典式（簡化保守）
+    frpInfo = { Ef_GPa, ffu_MPa, efu_pct, tf_mm, nLayer, CE, eps_fe, ka, f_l, f_cc };
+    confineKind = 'CFRP 包覆';
+  }
+
+  // 軸壓能力
+  const Po_base = 0.85 * fc   * (Ag - Ast) + fy * Ast;
+  const Po_conf = 0.85 * f_cc * (Ag - Ast) + fy * Ast;
+  const Pn_max_base = 0.80 * Po_base;
+  const Pn_max_conf = 0.80 * Po_conf;
+  const phi_axial = 0.65;
+
+  // 純彎 Mn（P=0）：對稱上下兩列主筋假設
+  let As_top = Ast/2, As_bot = Ast/2, d_col = h - cov, dp_col = cov;
+  // 4 邊均布時一半主筋在側邊，角筋在上下：粗略估 0.3 ~ 0.5 在中央，簡化取 0.6 在上下、0.4 在中央側面（中央側筋對純彎貢獻有限）
+  if (layout === 'perim') { As_top = Ast * 0.3; As_bot = Ast * 0.3; }
+
+  // 用梁 Mn 求解，以 f_cc 取代 fc' 以反映圍束
+  const resCol_base = solveBeamMn(b, h, d_col, dp_col, fc,   fy, Es, As_bot, As_top, { mode:'rc' });
+  const resCol_conf = solveBeamMn(b, h, d_col, dp_col, f_cc, fy, Es, As_bot, As_top, { mode:'rc' });
+
+  // 彈性轉換斷面（含鋼板套管或 FRP 的貢獻，粗估）
+  let A_trans = Ag + (ns-1)*Ast;
+  let I_trans = b*h**3/12 + (ns-1)*( (As_top+As_bot)*(h/2 - cov)**2 );
+  let A_base = A_trans, I_base = I_trans;
+  if (mode === 'jacket') {
+    const tj = (jacketInfo.tj_mm||0)/10;
+    const Aj = 2*(b + h + 2*tj)*tj; // 封閉鋼套管總面積（近似：周長×tj）
+    const nj = (jacketInfo.Esj||Es)/Ec;
+    A_trans += (nj - 1) * Aj;
+    // Ij（薄壁套管）：Iz ≈ 2·b·tj·(h/2)² + 2·h·tj·(b/2)²/1（保守粗估主強軸 h）
+    const Ij = 2 * b * tj * (h/2 + tj/2)**2 + 2 * (h)*tj**3/12;
+    I_trans += (nj - 1) * Ij;
+  }
+  if (mode === 'frp') {
+    const tf_total_cm = (frpInfo.tf_mm/10) * frpInfo.nLayer;
+    const Af_total = 2 * (b + h) * tf_total_cm; // 封閉環狀，近似周長×tf_total
+    const Ef_ksc = frpInfo.Ef_GPa * 10197;
+    const nf = Ef_ksc / Ec;
+    A_trans += (nf - 1) * Af_total;
+    // FRP 貢獻剛度小，粗估
+    const Iadd = Af_total * (h/2)**2 * 0.5;
+    I_trans += (nf - 1) * Iadd;
+  }
+
+  // ========= 剪力檢核 =========
+  const Av = val('c-Av'), s_stirrup = val('c-s'), fyt = val('c-fyt');
+  const Nu_kgf = val('c-Nu') * 1000;
+  const Vc = Vc_col_ksc(fc, b, h, d_col, Nu_kgf);
+  const Vs = Vs_stirrup(Av, fyt, d_col, s_stirrup);
+  const Vs_cap = 2.1 * Math.sqrt(fc) * b * d_col;
+  const Vs_used = Math.min(Vs, Vs_cap);
+
+  // 鋼套管或 FRP 剪力貢獻
+  let Vj = 0;
+  if (mode === 'jacket') {
+    // 兩側板當作連續箍筋：Aj = 2·tj·間距單位（連續）→ 採 Av 等效 = 2·tj·1cm，間距 1cm 即 Vj = 2·tj·fyj·d
+    const tj = (jacketInfo.tj_mm||0)/10;
+    const fyj = jacketInfo.fyj;
+    Vj = 2 * tj * fyj * d_col;
+  } else if (mode === 'frp') {
+    const tf_total_cm = (frpInfo.tf_mm/10) * frpInfo.nLayer;
+    const Ef_ksc_j = frpInfo.Ef_GPa * 10197;
+    const eps_fe_v = 0.004;  // 全包覆剪力有效應變，保守取 0.004
+    const psi_f_v = 0.95;    // 全包覆 ψf,shear
+    // 連續布料 α=90°, wf=sf → Vf = 2·n·tf·Ef·εfe·d
+    Vj = psi_f_v * 2 * tf_total_cm * Ef_ksc_j * eps_fe_v * d_col;
+  }
+  // 112 §22.5.1.2：總剪力補強 (Vs + Vj) 不得超過 2.1·√fc'·b·d
+  const Vs_Vj_raw = Vs_used + Vj;
+  const Vs_Vj_used = Math.min(Vs_Vj_raw, Vs_cap);
+  const Vs_Vj_capped = Vs_Vj_raw > Vs_cap;
+  const Vn_base = Vc + Vs_used;
+  const Vn      = Vc + Vs_Vj_used;
+  const phiVn   = 0.75 * Vn;
+  const phiVn_base = 0.75 * Vn_base;
+
+  // ========= P-M 互制曲線（多排鋼筋 strain compatibility） =========
+  const pm_base = pmCurvePoints(b, h, rebarLayers, fc,   fy, Es);
+  const pm_conf = pmCurvePoints(b, h, rebarLayers, f_cc, fy, Es);
+
+  // 需求點 (Mu, Nu) → 互制安全比
+  const Mu_kgfcm = val('c-Mu') * 1e5; // tf·m → kgf·cm
+  const demandAtPu_base = findMnAtP(pm_base, Nu_kgf);
+  const demandAtPu_conf = findMnAtP(pm_conf, Nu_kgf);
+  const checkRatio_base = (demandAtPu_base && demandAtPu_base.phiMn > 0) ? Mu_kgfcm / demandAtPu_base.phiMn : null;
+  const checkRatio_conf = (demandAtPu_conf && demandAtPu_conf.phiMn > 0) ? Mu_kgfcm / demandAtPu_conf.phiMn : null;
+
+  lastCol = {
+    geom: { b_mm, h_mm, fc, fy, Ast, cov: cov*10, layout, rebarMode, rebarLayers, mode, jacketInfo, frpInfo },
+    confine: { f_l, f_cc, confineKind },
+    axial: { Po_base, Po_conf, Pn_max_base, Pn_max_conf, phi_axial },
+    flex:  { Mn_base: resCol_base.Mn, Mn_conf: resCol_conf.Mn, c_base: resCol_base.c, c_conf: resCol_conf.c },
+    elastic: { A_trans, I_trans, A_base, I_base, Ec, ns },
+    shear: { Vc, Vs, Vs_used, Vs_cap, Vs_Vj_capped, Vj, Vn_base, Vn, phiVn, phiVn_base, Av, s: s_stirrup, fyt, Nu_kgf },
+    pm:    { pm_base, pm_conf, Nu_kgf, Mu_kgfcm, demandAtPu_base, demandAtPu_conf, checkRatio_base, checkRatio_conf },
+  };
+
+  renderColResults();
+  drawCol();
+  drawPMCurve();
+}
+
+function renderColResults() {
+  const d = lastCol; if (!d) return;
+  const host = document.getElementById('c-results');
+  const g = d.geom;
+  const modeTxt = { none:'無補強', jacket:'全包覆鋼板', frp:'全包覆 CFRP' }[g.mode];
+  const rows = [];
+  rows.push(['<b>補強型式</b>', modeTxt, '', '', 'hi']);
+
+  // ==== 主筋配置摘要 ====
+  rows.push(['<b>主筋配置（納入 P-M 強度相容法）</b>', '', '', '']);
+  rows.push(['配置模式', (g.rebarMode==='detail') ? '詳細（逐排輸入）' : `簡化（${g.layout==='sym2'?'上下兩列對稱':'四邊均布三層'}）`, '', '']);
+  g.rebarLayers.forEach((r, i) => {
+    rows.push([`層 ${i+1}：${r.label||''}`, `A = ${fmt(r.A,4)} cm² @ y = ${fmt(r.y,3)} cm`, '', '']);
+  });
+  rows.push(['Ast 總主筋', fmt(g.Ast,4), 'cm²', '']);
+
+  rows.push(['<b>圍束效應</b>', '', '', '']);
+  if (g.mode === 'none') {
+    rows.push(['f\'cc (受約束混凝土強度)', fmt(g.fc), 'kgf/cm²', '']);
+  } else {
+    rows.push(['f\'l 等效側向壓力', fmt(d.confine.f_l), 'kgf/cm²', '']);
+    rows.push(['f\'cc 受約束混凝土強度', fmt(d.confine.f_cc), 'kgf/cm²', pct(d.confine.f_cc, g.fc), 'hi']);
+  }
+
+  rows.push(['<b>彈性轉換斷面</b>', '', '', '']);
+  rows.push(['A_t 轉換斷面積', fmt(d.elastic.A_trans), 'cm²', pct(d.elastic.A_trans, d.elastic.A_base)]);
+  rows.push(['I_t 慣性矩',       fmt(d.elastic.I_trans), 'cm⁴', pct(d.elastic.I_trans, d.elastic.I_base)]);
+
+  rows.push(['<b>軸壓能力</b>', '', '', '']);
+  rows.push(['Po 純軸壓（補強後）', fmt(d.axial.Po_conf/1000), 'tf', pct(d.axial.Po_conf, d.axial.Po_base), 'hi']);
+  rows.push(['Po₀ 純軸壓（原 RC）', fmt(d.axial.Po_base/1000), 'tf', '']);
+  rows.push(['Pn_max = 0.80·Po', fmt(d.axial.Pn_max_conf/1000), 'tf', pct(d.axial.Pn_max_conf, d.axial.Pn_max_base)]);
+  rows.push(['φPn_max （φ=0.65）', fmt(0.65*d.axial.Pn_max_conf/1000), 'tf', pct(0.65*d.axial.Pn_max_conf, 0.65*d.axial.Pn_max_base), 'hi']);
+
+  rows.push(['<b>純彎能力（P=0，參考）</b>', '', '', '']);
+  rows.push(['Mn 補強後', fmt(d.flex.Mn_conf/1e5), 'tf·m', pct(d.flex.Mn_conf, d.flex.Mn_base), 'hi']);
+  rows.push(['Mn₀ 原 RC',  fmt(d.flex.Mn_base/1e5), 'tf·m', '']);
+
+  // ==== P-M 需求點檢核 ====
+  const pm = d.pm;
+  rows.push(['<b>P-M 需求點檢核 (Nu, Mu)</b>', '', '', '']);
+  rows.push(['Nu 設計軸力', fmt(pm.Nu_kgf/1000), 'tf', '']);
+  rows.push(['Mu 設計彎矩', fmt(pm.Mu_kgfcm/1e5), 'tf·m', '']);
+  if (pm.demandAtPu_conf) {
+    rows.push(['容量 φMn @ Nu（補強後）', fmt(pm.demandAtPu_conf.phiMn/1e5), 'tf·m',
+      pm.demandAtPu_base ? pct(pm.demandAtPu_conf.phiMn, pm.demandAtPu_base.phiMn) : '', 'hi']);
+  }
+  if (pm.demandAtPu_base) {
+    rows.push(['容量 φMn @ Nu（原 RC）', fmt(pm.demandAtPu_base.phiMn/1e5), 'tf·m', '']);
+  }
+  if (pm.checkRatio_conf !== null) {
+    const ok = pm.checkRatio_conf <= 1.0;
+    rows.push(['Mu/φMn 檢核', `${fmt(pm.checkRatio_conf,3)} ${ok?'(OK)':'(NG)'}`, '', '', ok?'hi':'warn']);
+  }
+
+  // ==== 剪力 ====
+  const sh = d.shear;
+  rows.push(['<b>剪力強度</b>', '', '', '']);
+  rows.push(['Vc 混凝土（含軸壓項）', fmt(sh.Vc/1000), 'tf', '']);
+  rows.push(['Vs 箍筋', fmt(sh.Vs_used/1000), 'tf', '']);
+  if (sh.Vj > 0) {
+    const lbl = g.mode==='jacket' ? 'Vj 鋼套管貢獻' : 'Vf FRP 全包覆 (ψf=0.95)';
+    rows.push([lbl, fmt(sh.Vj/1000), 'tf', '', 'hi']);
+  }
+  if (sh.Vs_Vj_capped) rows.push(['⚠ 總 Vs + Vj 已達 112 §22.5.1.2 上限 2.1·√fc′·b·d', fmt(sh.Vs_cap/1000), 'tf', '', 'warn']);
+  rows.push(['Vn₀ 原剪力容量', fmt(sh.Vn_base/1000), 'tf', '']);
+  rows.push(['Vn 補強後', fmt(sh.Vn/1000), 'tf', pct(sh.Vn, sh.Vn_base), 'hi']);
+  rows.push(['φVn (φ=0.75)', fmt(sh.phiVn/1000), 'tf', pct(sh.phiVn, sh.phiVn_base), 'hi']);
+
+  host.innerHTML = `<div class="results-grid">${rows.map(r => {
+    const [label, v, unit, dp, cls] = r;
+    if (v==='') return `<div class="result-item" style="grid-column:1/-1; background:#eef2ff; border-left-color:#6366f1;"><span class="label">${label}</span></div>`;
+    const deltaHTML = (dp !== '' && isFinite(dp) && Math.abs(dp) > 0.01) ? `<span class="delta">${dp>0?'+':''}${dp.toFixed(1)}%</span>` : '';
+    return `<div class="result-item ${cls||''}"><span class="label">${label}</span><span class="value">${v}${unit?` <span class="unit">${unit}</span>`:''}${deltaHTML}</span></div>`;
+  }).join('')}</div>`;
+
+  // Notes
+  const nb = document.getElementById('c-note');
+  const wb = document.getElementById('c-warn');
+  const notes = [];
+  const warns = [];
+  notes.push('f\'cc 採 Mander（鋼板）或 Richart（FRP）簡化圍束式；形狀效率 ke / ka 反映矩形斷面貼附之圍束效率折減。');
+  notes.push('純彎 Mn 以對稱主筋假設，以 f\'cc 取代 fc\'。實際 P-M 互制需逐點分析。');
+  notes.push('Pn_max = 0.80·Po 為綁箍柱上限；φPn_max 採 φ=0.65。');
+  if (g.mode === 'jacket') notes.push('矩形鋼板直貼之圍束效率有限（ke 建議 0.25 ~ 0.5），重大案件建議採橢圓化或雙向鋼箍補強。');
+  if (g.mode === 'frp') notes.push('FRP 圍束有效應變 εfe 建議採 0.004（保守），避免達極限應變前支柱先失穩。');
+  warns.push('⚠ 本頁僅供評估與初步設計；完整 P-M 互制、細節錨固、接縫處理等請另行依規範逐項檢核。');
+  nb.innerHTML = notes.map(n=>`• ${n}`).join('<br>'); nb.style.display='block';
+  wb.innerHTML = warns.join('<br>'); wb.style.display='block';
+}
+
+function drawCol() {
+  const c = document.getElementById('colCanvas'); if (!c) return;
+  const ctx = c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height);
+  const d = lastCol; if (!d) return;
+  const g = d.geom;
+  const b_mm = g.b_mm, h_mm = g.h_mm;
+  const mode = g.mode;
+  const extra = (mode==='jacket') ? (g.jacketInfo.tj_mm||0)*2
+              : (mode==='frp')    ? ((g.frpInfo.tf_mm||0)*(g.frpInfo.nLayer||1))*2 : 0;
+  const W = b_mm + extra + 40, H = h_mm + extra + 40;
+  const sc = Math.min((c.width - 40)/W, (c.height - 40)/H);
+  const sw = b_mm*sc, sh = h_mm*sc;
+  const cx = c.width/2, cy = c.height/2;
+  const ox = cx - sw/2, oy = cy - sh/2;
+
+  // Jacket / FRP (draw first, covered by RC later)
+  if (mode === 'jacket') {
+    const tj_sc = (g.jacketInfo.tj_mm||0)*sc;
+    ctx.fillStyle = '#fed7aa'; ctx.strokeStyle = '#f97316'; ctx.lineWidth = 1.5;
+    ctx.fillRect(ox-tj_sc, oy-tj_sc, sw+2*tj_sc, sh+2*tj_sc);
+    ctx.strokeRect(ox-tj_sc, oy-tj_sc, sw+2*tj_sc, sh+2*tj_sc);
+  } else if (mode === 'frp') {
+    const tf_total_sc = Math.max(((g.frpInfo.tf_mm||0)*(g.frpInfo.nLayer||1))*sc, 3);
+    ctx.fillStyle = '#e9d5ff'; ctx.strokeStyle = '#a855f7'; ctx.lineWidth = 1.5;
+    ctx.fillRect(ox-tf_total_sc, oy-tf_total_sc, sw+2*tf_total_sc, sh+2*tf_total_sc);
+    ctx.strokeRect(ox-tf_total_sc, oy-tf_total_sc, sw+2*tf_total_sc, sh+2*tf_total_sc);
+  }
+
+  // RC
+  ctx.fillStyle = '#cbd5e1'; ctx.strokeStyle = '#475569'; ctx.lineWidth = 2;
+  ctx.fillRect(ox, oy, sw, sh); ctx.strokeRect(ox, oy, sw, sh);
+
+  // 主筋（依 rebarLayers 實際分層繪出）
+  // g.cov 為 mm、sc 為 px/mm，直接相乘即為像素距離
+  const cov_sc = (g.cov||40)*sc;
+  // 以虛線勾出保護層界線（視覺上呈現四面都有保護層）
+  ctx.save();
+  ctx.strokeStyle = '#94a3b8';
+  ctx.setLineDash([2,3]);
+  ctx.lineWidth = 1;
+  ctx.strokeRect(ox + cov_sc, oy + cov_sc, sw - 2*cov_sc, sh - 2*cov_sc);
+  ctx.restore();
+
+  ctx.fillStyle = '#fde68a'; ctx.strokeStyle = '#d97706';
+  const rad = Math.min(6, sw*0.025);
+  (g.rebarLayers || []).forEach(layer => {
+    const y_mm = layer.y * 10;            // cm → mm 座標
+    const y_canvas = oy + y_mm * sc;
+    // 決定本層鋼筋數（估計：以 A / A_bar_D25 近似，僅供示意；頂底層用較多格子）
+    const isTop = Math.abs(layer.y - (g.cov||40)/10) < 1e-3;
+    const isBot = Math.abs(layer.y - (h_mm/10) + (g.cov||40)/10) < 1e-3;
+    // 估鋼筋粒數：以 A_est / 5.067 (D25) 估（至少 2 支）
+    const n_est = Math.max(2, Math.round(layer.A / 5.067));
+    if (isTop || isBot) {
+      // 均分沿梁寬
+      for (let i = 0; i < n_est; i++) {
+        const x = ox + cov_sc + (sw - 2*cov_sc) * (n_est===1 ? 0.5 : i/(n_est-1));
+        ctx.beginPath(); ctx.arc(x, y_canvas, rad, 0, PI*2); ctx.fill(); ctx.stroke();
+      }
+    } else {
+      // 側排：左右各 1 支
+      ctx.beginPath(); ctx.arc(ox + cov_sc,      y_canvas, rad, 0, PI*2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.arc(ox + sw - cov_sc, y_canvas, rad, 0, PI*2); ctx.fill(); ctx.stroke();
+    }
+  });
+
+  // 標註
+  ctx.fillStyle = '#1e293b'; ctx.font = '11px Consolas,monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`b=${b_mm}`, cx, oy + sh + 16 + extra*sc/2);
+  ctx.textAlign = 'right';
+  ctx.fillText(`h=${h_mm}`, ox - 8 - extra*sc/2, cy + 4);
+}
+
+// ============ P-M 曲線繪製 ============
+function drawPMCurve() {
+  const c = document.getElementById('pmCanvas'); if (!c) return;
+  const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height);
+  const d = lastCol; if (!d || !d.pm) return;
+  const pm = d.pm;
+
+  // 座標範圍：M 從 0 到 max，P 從 Pt 到 Po
+  const pts_all = pm.pm_base.pts.concat(pm.pm_conf.pts);
+  const Mmax = Math.max(...pts_all.map(p => p.Mn), 1) / 1e5; // tf·m
+  const Pmax = Math.max(...pts_all.map(p => p.Pn), 1) / 1000; // tf
+  const Pmin = Math.min(...pts_all.map(p => p.Pn), 0) / 1000; // tf (負：拉)
+
+  // 留邊
+  const pad = { l: 58, r: 16, t: 16, b: 42 };
+  const plotW = c.width  - pad.l - pad.r;
+  const plotH = c.height - pad.t - pad.b;
+  const xScale = Mmax > 0 ? plotW / (Mmax * 1.08) : 1;
+  const yRange = Pmax - Pmin;
+  const yScale = yRange > 0 ? plotH / (yRange * 1.08) : 1;
+  const x0 = pad.l;
+  const y0 = pad.t + plotH * (Pmax / yRange) * 1.04; // 原點 P=0 位置
+
+  const toX = M_tfm => x0 + M_tfm * xScale;
+  const toY = P_tf  => y0 - P_tf * yScale;
+
+  // ===== 格線 =====
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  ctx.font = '10px Consolas,monospace';
+  ctx.fillStyle = '#64748b';
+  ctx.textAlign = 'right';
+  const Psteps = 6;
+  for (let i = 0; i <= Psteps; i++) {
+    const P = Pmin + (Pmax - Pmin) * i / Psteps;
+    const y = toY(P);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    ctx.fillText(P.toFixed(0), pad.l - 4, y + 3);
+  }
+  ctx.textAlign = 'center';
+  const Msteps = 5;
+  for (let i = 0; i <= Msteps; i++) {
+    const M = Mmax * i / Msteps;
+    const x = toX(M);
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + plotH); ctx.stroke();
+    ctx.fillText(M.toFixed(1), x, pad.t + plotH + 14);
+  }
+
+  // ===== 軸標題 =====
+  ctx.fillStyle = '#1e293b';
+  ctx.font = 'bold 11px "Microsoft JhengHei",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Mn (tf·m)', pad.l + plotW/2, c.height - 6);
+  ctx.save();
+  ctx.translate(12, pad.t + plotH/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('Pn (tf)', 0, 0);
+  ctx.restore();
+
+  // ===== P=0 軸線（水平紅虛線）=====
+  ctx.save();
+  ctx.strokeStyle = '#ef4444';
+  ctx.setLineDash([3, 3]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, toY(0));
+  ctx.lineTo(pad.l + plotW, toY(0));
+  ctx.stroke();
+  ctx.restore();
+
+  // ===== 畫曲線：原 RC (dashed gray), 補強 Pn (blue), 補強 φPn (green) =====
+  function drawPoly(pts, color, width, dashed, yfield, xfield) {
+    yfield = yfield || 'Pn'; xfield = xfield || 'Mn';
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    if (dashed) ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    let first = true;
+    for (const p of pts) {
+      const M = p[xfield] / 1e5;
+      const P = p[yfield] / 1000;
+      const x = toX(M), y = toY(P);
+      if (first) { ctx.moveTo(x, y); first = false; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  drawPoly(pm.pm_base.pts, '#64748b', 1.5, true);
+  drawPoly(pm.pm_conf.pts, '#2563eb', 2, false);
+  // φPn vs φMn
+  drawPoly(pm.pm_conf.pts, '#059669', 1.8, false, 'phiPn', 'phiMn');
+
+  // ===== 需求點 (Mu, Nu) =====
+  const Mu = pm.Mu_kgfcm / 1e5;
+  const Nu = pm.Nu_kgf / 1000;
+  if (Mu > 0 || Nu !== 0) {
+    ctx.save();
+    ctx.fillStyle = '#dc2626';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    const x = toX(Mu), y = toY(Nu);
+    ctx.beginPath(); ctx.arc(x, y, 6, 0, 2*Math.PI);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#dc2626';
+    ctx.font = 'bold 10px Consolas,monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`(${Mu.toFixed(1)}, ${Nu.toFixed(0)})`, x + 9, y - 5);
+    ctx.restore();
+  }
+
+  // ===== 標記關鍵點 =====
+  function markPt(M_tfm, P_tf, label, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(toX(M_tfm), toY(P_tf), 3, 0, 2*Math.PI); ctx.fill();
+    ctx.font = '9px Consolas,monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, toX(M_tfm) + 5, toY(P_tf) + 3);
+    ctx.restore();
+  }
+  markPt(0, pm.pm_conf.Pn_max/1000, ` Pn_max`, '#2563eb');
+  markPt(0, pm.pm_conf.Pt/1000,     ` Pt`,     '#2563eb');
+}
+
+// ============ 匯出計算書 ============
+function exportBeamReport() {
+  if (!lastBeam) { alert('請先執行計算'); return; }
+  if (typeof openReport !== 'function') { alert('計算書模組尚未載入'); return; }
+  const d = lastBeam, g = d.geom, e = d.elastic, u = d.ult;
+  const modeTxt = { none:'無補強', plate:'底貼鋼板', frp:'底貼 CFRP' }[g.mode];
+
+  const inputItems = [
+    { label:'b × h',      value:`${g.b_mm} × ${g.h_mm}`, unit:'mm' },
+    { label:'d / d\'',    value:`${g.d_mm} / ${g.dp_mm}`, unit:'mm' },
+    { label:'fc\'',       value: g.fc,  unit:'kgf/cm²' },
+    { label:'fy',         value: g.fy,  unit:'kgf/cm²' },
+    { label:'As / As\'',  value:`${g.As} / ${g.Asp}`, unit:'cm²' },
+    { label:'補強型式',   value: modeTxt },
+  ];
+  if (g.mode === 'frp') {
+    inputItems.push({ label:'CFRP Ef',    value: g.frpInfo.Ef_GPa, unit:'GPa' });
+    inputItems.push({ label:'CFRP ffu*',  value: g.frpInfo.ffu_MPa, unit:'MPa' });
+    inputItems.push({ label:'εfu*',       value: g.frpInfo.efu_pct, unit:'%' });
+    inputItems.push({ label:'tf × n',     value: `${g.frpInfo.tf_mm} × ${g.frpInfo.nLayer}`, unit:'mm' });
+    inputItems.push({ label:'CE',         value: g.frpInfo.CE });
+    inputItems.push({ label:'bf',         value: g.frpInfo.bf_mm, unit:'mm' });
+    inputItems.push({ label:'εbi 既有應變', value: g.eps_bi });
+    if (g.frpInfo.frp_uwrap) {
+      inputItems.push({ label:'斷面型式',        value:'T 型梁（頂部有樓板）' });
+      inputItems.push({ label:'CFRP 包覆型式',   value:'U 型包覆（底＋雙側）' });
+      inputItems.push({ label:'樓板厚 ts',       value: g.frpInfo.slab_mm, unit:'mm' });
+      inputItems.push({ label:'側 CFRP 高 hf,s = h − ts', value:`${g.h_mm} − ${g.frpInfo.slab_mm} = ${g.frpInfo.hsp_f_mm}`, unit:'mm' });
+      inputItems.push({ label:'側 CFRP 面積 Af,side', value: fmt(g.frpInfo.Af_side_cm2,4), unit:'cm²' });
+    }
+  } else if (g.mode === 'plate') {
+    inputItems.push({ label:'底板 tsp × bsp',  value:`${g.plateInfo.tsp_mm} × ${g.plateInfo.bsp_mm}`, unit:'mm' });
+    inputItems.push({ label:'fy_sp / Es_sp', value:`${g.plateInfo.fy_sp} / ${g.plateInfo.Es_sp}`, unit:'kgf/cm²' });
+    if (g.plateInfo.plate_uwrap) {
+      inputItems.push({ label:'斷面型式', value:'T 型梁（頂部有樓板）' });
+      inputItems.push({ label:'樓板厚 ts', value: g.plateInfo.slab_mm, unit:'mm' });
+      inputItems.push({ label:'側板厚 tsp,s', value: g.plateInfo.tsp_s_mm, unit:'mm' });
+      inputItems.push({ label:'側板高 hsp,s = h − ts', value:`${g.h_mm} − ${g.plateInfo.slab_mm} = ${g.plateInfo.hsp_s_mm}`, unit:'mm' });
+    }
+  }
+
+  const elItems = [
+    { label:'A_t', value: `${fmt(e.uncr0.A)} → ${fmt(e.uncr.A)}`, unit:'cm²' },
+    { label:'I_t 未開裂', value: `${fmt(e.uncr0.I)} → ${fmt(e.uncr.I)}`, unit:'cm⁴' },
+  ];
+  if (e.crk.ok && e.crk0.ok) {
+    elItems.push({ label:'Icr 開裂', value: `${fmt(e.crk0.Icr)} → ${fmt(e.crk.Icr)}`, unit:'cm⁴' });
+    elItems.push({ label:'EIcr',    value: `${fmt(e.Ec*e.crk0.Icr)} → ${fmt(e.Ec*e.crk.Icr)}`, unit:'kgf·cm²' });
+  }
+
+  const ultItems = [
+    { label:'c 中性軸',       value: `${fmt(u.res0.c)} → ${fmt(u.res.c)}`, unit:'cm' },
+    { label:'Mn',             value: `${fmt(u.res0.Mn/1e5)} → ${fmt(u.res.Mn/1e5)}`, unit:'tf·m' },
+    { label:'φ',              value: fmt(u.res.phi,3) },
+    { label:'φMn',            value: `${fmt(u.res0.phi*u.res0.Mn/1e5)} → ${fmt(u.res.phi*u.res.Mn/1e5)}`, unit:'tf·m' },
+    { label:'εs',             value: fmt(u.res.es) },
+  ];
+  if (g.mode === 'frp') {
+    ultItems.push({ label:'εfe', value: fmt(u.res.eps_fe) });
+    ultItems.push({ label:'εfd (無錨固計算值)', value: fmt(g.frpInfo.eps_fd_calc) });
+    ultItems.push({ label:'Le 活性握裹長度', value: fmt(g.frpInfo.Le_mm,4), unit:'mm' });
+    ultItems.push({ label:'端部錨固', value: g.frpInfo.anchor ? '已設（免檢 εfd）' : '未設（以 εfd 為限）' });
+    ultItems.push({ label:'破壞模式', value: u.res.failMode });
+  }
+
+  // ===== 剪力 =====
+  const sh = d.shear;
+  const shearItems = [
+    { label:'Vc 混凝土', value: fmt(sh.Vc/1000), unit:'tf' },
+    { label:'Vs 箍筋 (Av×fyt×d/s)', value: fmt(sh.Vs_stir/1000), unit:'tf' },
+  ];
+  if (sh.Vs_plate > 0) shearItems.push({ label:'Vs,plate U 型鋼板側板', value: fmt(sh.Vs_plate/1000), unit:'tf' });
+  if (sh.Vf > 0) shearItems.push({ label:'Vf FRP U-wrap (ψf=0.85)', value: fmt(sh.Vf/1000), unit:'tf' });
+  if (sh.frpShearInfo) {
+    const fi = sh.frpShearInfo;
+    shearItems.push({ label:'Le', value: fmt(fi.Le_mm,4), unit:'mm' });
+    shearItems.push({ label:'κv', value: `${fmt(fi.kv,3)} (原算 ${fmt(fi.kv_raw,3)})` });
+    shearItems.push({ label:'εfe 採用', value: `${fmt(fi.eps_fe_s,3)} (ACI ${fmt(fi.eps_fe_aci,3)})` });
+  }
+  shearItems.push({ label:'Vn₀ → Vn', value:`${fmt(sh.Vn_base/1000)} → ${fmt(sh.Vn/1000)}`, unit:'tf' });
+  shearItems.push({ label:'φVn (φ=0.75)', value: `${fmt(sh.phiVn_base/1000)} → ${fmt(sh.phiVn/1000)}`, unit:'tf' });
+  if (sh.shearRatio !== null) {
+    shearItems.push({ label:'Vu/φVn', value: `${fmt(sh.shearRatio,3)} ${sh.shearRatio<=1.0?'(OK)':'(NG)'}` });
+  }
+
+  const cvs = document.getElementById('beamCanvas');
+  openReport({
+    title: 'RC 梁補強斷面計算書',
+    subtitle: `${g.b_mm}×${g.h_mm} 矩形梁　｜　${modeTxt}`,
+    project: {
+      name: document.getElementById('projName').value || '',
+      no:   document.getElementById('projNo').value   || '',
+      designer: document.getElementById('projDesigner').value || '',
+    },
+    summary: { ok:null, text:`RC 梁補強斷面性質 + 極限撓曲強度（${modeTxt}）` },
+    diagrams: [{ title:'梁斷面示意', dataURL: cvs.toDataURL('image/png'), width: 480 }],
+    inputs: [
+      { group:'輸入條件', items: inputItems },
+      { group:'彈性斷面（原 RC → 補強後）', items: elItems },
+      { group:'極限撓曲（原 RC → 補強後）', items: ultItems },
+      { group:'剪力檢核（依 112 規範 + ACI 440.2R-17 §11）', items: shearItems },
+    ],
+    notes: [
+      '依 112 混凝土結構設計規範：Ec = 12000·√fc\'；β1 依 fc\' 於 0.65 ~ 0.85 間變化。',
+      g.mode==='frp' ? 'CFRP 設計參數依 ACI 440.2R-17：環境係數 CE 折減、ψf = 0.85、εfd = 0.083·√(fc\'/(n·Ef·tf))。' : '',
+      g.mode==='frp' ? `本案 εfd = ${fmt(u.res.eps_fd,3)}；有效應變以 min(εfd, εfu, εcu·(df-c)/c - εbi) 取用。` : '',
+      '剪力公式：112 規範 22.5 節 Vc + Vs；FRP U-wrap 採 Vf = 2·n·tf·wf·Ef·εfe·(sinα+cosα)·dfv/sf，ψf,shear = 0.85。',
+      'φ 依 ACI 440.2R-17 §10.2.7：εs ≥ 0.005 取 0.90；εy ≤ εs < 0.005 線性內插至 0.65。',
+      '本計算為標稱強度；現場補強案件應另檢核錨固、接著面剪力、延性需求與施工細節。',
+      document.getElementById('projNote').value ? ('備註：' + document.getElementById('projNote').value) : '',
+    ].filter(Boolean),
+  });
+}
+
+function exportColReport() {
+  if (!lastCol) { alert('請先執行計算'); return; }
+  if (typeof openReport !== 'function') { alert('計算書模組尚未載入'); return; }
+  const d = lastCol, g = d.geom;
+  const modeTxt = { none:'無補強', jacket:'全包覆鋼板', frp:'全包覆 CFRP' }[g.mode];
+
+  const inputItems = [
+    { label:'b × h', value:`${g.b_mm} × ${g.h_mm}`, unit:'mm' },
+    { label:'fc\'',  value: g.fc,  unit:'kgf/cm²' },
+    { label:'fy',    value: g.fy,  unit:'kgf/cm²' },
+    { label:'Ast 總主筋', value: fmt(g.Ast,4), unit:'cm²' },
+    { label:'主筋配置',   value: (g.rebarMode==='detail') ? '詳細模式（逐排輸入）' : (g.layout==='sym2' ? '簡化 · 上下兩列對稱' : '簡化 · 四邊均布三層') },
+    { label:'補強型式',   value: modeTxt },
+  ];
+  (g.rebarLayers || []).forEach((r, i) => {
+    inputItems.push({ label:`層 ${i+1}：${r.label||''}`, value:`A = ${fmt(r.A,4)} cm² @ y = ${fmt(r.y,3)} cm` });
+  });
+  if (g.mode === 'jacket') {
+    inputItems.push({ label:'tj × fyj', value:`${g.jacketInfo.tj_mm} × ${g.jacketInfo.fyj}`, unit:'mm × kgf/cm²' });
+    inputItems.push({ label:'ke 形狀效率', value: g.jacketInfo.ke });
+  } else if (g.mode === 'frp') {
+    inputItems.push({ label:'Ef', value: g.frpInfo.Ef_GPa, unit:'GPa' });
+    inputItems.push({ label:'tf × n', value:`${g.frpInfo.tf_mm} × ${g.frpInfo.nLayer}`, unit:'mm' });
+    inputItems.push({ label:'εfe 有效應變', value: g.frpInfo.eps_fe });
+    inputItems.push({ label:'ka 形狀效率', value: g.frpInfo.ka });
+  }
+
+  const confItems = [
+    { label:'f\'l 等效側向壓力', value: fmt(d.confine.f_l), unit:'kgf/cm²' },
+    { label:'f\'cc (受約束)',    value: `${fmt(g.fc)} → ${fmt(d.confine.f_cc)}`, unit:'kgf/cm²' },
+  ];
+  const axialItems = [
+    { label:'Po (原 → 補強)',    value:`${fmt(d.axial.Po_base/1000)} → ${fmt(d.axial.Po_conf/1000)}`, unit:'tf' },
+    { label:'Pn_max = 0.8·Po',   value:`${fmt(d.axial.Pn_max_base/1000)} → ${fmt(d.axial.Pn_max_conf/1000)}`, unit:'tf' },
+    { label:'φPn_max (φ=0.65)',  value:`${fmt(0.65*d.axial.Pn_max_base/1000)} → ${fmt(0.65*d.axial.Pn_max_conf/1000)}`, unit:'tf' },
+  ];
+  const flexItems = [
+    { label:'Mn (原 → 補強)', value:`${fmt(d.flex.Mn_base/1e5)} → ${fmt(d.flex.Mn_conf/1e5)}`, unit:'tf·m' },
+    { label:'c (原 → 補強)',  value:`${fmt(d.flex.c_base)} → ${fmt(d.flex.c_conf)}`, unit:'cm' },
+  ];
+
+  // P-M 需求點
+  const pm = d.pm;
+  const pmItems = [
+    { label:'Nu 設計軸力', value: fmt(pm.Nu_kgf/1000), unit:'tf' },
+    { label:'Mu 設計彎矩', value: fmt(pm.Mu_kgfcm/1e5), unit:'tf·m' },
+  ];
+  if (pm.demandAtPu_base) pmItems.push({ label:'φMn @ Nu（原 RC）',   value: fmt(pm.demandAtPu_base.phiMn/1e5), unit:'tf·m' });
+  if (pm.demandAtPu_conf) pmItems.push({ label:'φMn @ Nu（補強後）', value: fmt(pm.demandAtPu_conf.phiMn/1e5), unit:'tf·m' });
+  if (pm.checkRatio_conf !== null) pmItems.push({ label:'Mu/φMn 檢核', value: `${fmt(pm.checkRatio_conf,3)} ${pm.checkRatio_conf<=1.0?'(OK)':'(NG)'}` });
+
+  // 剪力
+  const sh = d.shear;
+  const shearItems = [
+    { label:'Vc 混凝土 (含軸壓修正)', value: fmt(sh.Vc/1000), unit:'tf' },
+    { label:'Vs 箍筋', value: fmt(sh.Vs_used/1000), unit:'tf' },
+  ];
+  if (sh.Vj > 0) {
+    const lbl = g.mode==='jacket' ? 'Vj 鋼套管貢獻' : 'Vf FRP 全包覆 (ψf=0.95)';
+    shearItems.push({ label: lbl, value: fmt(sh.Vj/1000), unit:'tf' });
+  }
+  shearItems.push({ label:'Vn₀ → Vn', value:`${fmt(sh.Vn_base/1000)} → ${fmt(sh.Vn/1000)}`, unit:'tf' });
+  shearItems.push({ label:'φVn (φ=0.75)', value:`${fmt(sh.phiVn_base/1000)} → ${fmt(sh.phiVn/1000)}`, unit:'tf' });
+
+  const cvs = document.getElementById('colCanvas');
+  const pmCvs = document.getElementById('pmCanvas');
+  openReport({
+    title: 'RC 柱補強斷面計算書',
+    subtitle: `${g.b_mm}×${g.h_mm} 矩形柱　｜　${modeTxt}`,
+    project: {
+      name: document.getElementById('projName').value || '',
+      no:   document.getElementById('projNo').value   || '',
+      designer: document.getElementById('projDesigner').value || '',
+    },
+    summary: { ok:null, text:`RC 柱補強：圍束強化 + 軸壓／撓曲能力（${modeTxt}）` },
+    diagrams: [
+      { title:'柱斷面示意', dataURL: cvs.toDataURL('image/png'), width: 380 },
+      { title:'P-M 互制曲線（灰虛＝原 RC；藍＝Pn-Mn；綠＝φPn-φMn；紅●＝需求點）', dataURL: pmCvs.toDataURL('image/png'), width: 480 },
+    ],
+    inputs: [
+      { group:'輸入條件', items: inputItems },
+      { group:'圍束效應', items: confItems },
+      { group:'軸壓能力', items: axialItems },
+      { group:'純彎能力（P=0 參考）', items: flexItems },
+      { group:'P-M 需求點檢核', items: pmItems },
+      { group:'剪力檢核（依 112 規範 22.5 + ACI 440.2R-17 §11）', items: shearItems },
+    ],
+    notes: [
+      '圍束強度 f\'cc 採 Mander（鋼板）/ Richart 4.1 (FRP) 簡化式；形狀效率 ke 或 ka 反映矩形直貼之圍束效率折減。',
+      '軸壓 Po = 0.85·f\'cc·(Ag - Ast) + fy·Ast；Pn_max = 0.80·Po（綁箍柱）；φ = 0.65。',
+      'P-M 互制曲線：以 strain compatibility 逐 c 掃描；φ 依下緣鋼筋拉應變：εs ≥ 0.005 取 0.90，εy 以下取 0.65，之間線性內插。',
+      '剪力：Vc = 0.53·(1 + Nu/(140·Ag))·√fc\'·b·d；鋼套管貢獻以雙側連續箍筋近似；FRP 全包覆 ψf = 0.95、εfe = 0.004。',
+      '矩形鋼板直貼之圍束效率於文獻上未有單一權威值；本工具以 ke、ka 作為可調係數（預設偏保守）。',
+      '本計算為初估；實務補強案件仍須檢核接著面剪力、錨固詳圖、搭接束制與延性需求。',
+      document.getElementById('projNote').value ? ('備註：' + document.getElementById('projNote').value) : '',
+    ].filter(Boolean),
+  });
+}
+
+// ============ Init ============
+function init() {
+  onBeamModeChange();
+  onColModeChange();
+  updateHspDerived();
+  updateFrpHspDerived();
+  // 梁高 h 變更時同步推算 hsp,s（鋼板 & CFRP 兩側）
+  const bh = document.getElementById('b-h');
+  if (bh) {
+    bh.addEventListener('input', updateHspDerived);
+    bh.addEventListener('input', updateFrpHspDerived);
+  }
+  // 柱鋼筋配置初始化
+  onRebarModeChange();
+  calcBeam();
+}
+init();
+</script>
+</body>
+</html>

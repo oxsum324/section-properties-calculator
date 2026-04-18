@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>合成斷面性質計算 V1.1</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --accent: #059669;
+    --warn: #ea580c;
+    --plate-a: #f97316;
+    --plate-b: #a855f7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 20px 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+  header h1 { font-size: 1.5em; }
+  header p { font-size: 0.85em; opacity: 0.85; margin-top: 4px; }
+  .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+  .main-layout { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  .card h2 { font-size: 1.05em; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid var(--border); color: var(--primary); }
+  .card h3 { font-size: 0.9em; margin: 14px 0 8px; color: var(--text); font-weight: 700; }
+  .form-group { margin-bottom: 10px; }
+  .form-group label { display: block; font-size: 0.82em; font-weight: 600; color: var(--text-light); margin-bottom: 3px; }
+  .form-group input, .form-group select { width: 100%; padding: 8px 11px; border: 2px solid var(--border); border-radius: 8px; font-size: 0.94em; font-family: inherit; outline: none; transition: border-color 0.2s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .form-row4 { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 10px; }
+  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .btn-calc:hover { background: var(--primary-dark); }
+  .btn-report { padding: 6px 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 0.84em; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .btn-report:hover { background: #047857; }
+  .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .result-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; background: #f8fafc; border-radius: 8px; border-left: 3px solid var(--primary); }
+  .result-item .label { font-size: 0.82em; color: var(--text-light); font-weight: 500; }
+  .result-item .value { font-size: 0.95em; font-weight: 700; font-family: 'Consolas',monospace; }
+  .result-item .unit { font-size: 0.75em; color: var(--text-light); margin-left: 4px; }
+  .result-item .delta { font-size: 0.78em; color: var(--accent); margin-left: 6px; font-weight: 700; }
+  .canvas-wrap { display: flex; justify-content: center; align-items: center; background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); min-height: 280px; padding: 10px; }
+  canvas { display: block; max-width: 100%; }
+  .hint { font-size: 0.78em; color: var(--text-light); margin-top: 4px; font-style: italic; }
+  .mode-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; font-size: 0.7em; font-weight: 700; background: #eef2f6; color: #374151; }
+  .mode-tag.active { background: #dbeafe; color: #1d4ed8; }
+  .note-box { background: #fef3c7; border: 1px solid #fcd34d; border-left: 4px solid #ea580c; border-radius: 6px; padding: 8px 12px; font-size: 0.82em; color: #78350f; margin-top: 10px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; }
+  @media (max-width: 900px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .results-grid { grid-template-columns: 1fr; }
+    header { padding: 14px 16px; }
+    header h1 { font-size: 1.25em; }
+    .container { margin: 12px auto; padding: 0 12px; }
+    .card { padding: 16px; }
+    .form-row4 { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
+  <h1>合成斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.0</span></h1>
+  <p>H 型鋼 ＋ 補強／蓋板 組合斷面 | 尺寸輸入 mm, 結果輸出 cm</p>
+</header>
+
+<div class="container">
+
+  <div class="card" style="padding:12px 20px;">
+    <div style="font-size:0.88em; font-weight:700; color:var(--primary); margin-bottom:8px;">計畫資訊（計算書表頭）</div>
+    <div class="form-row4">
+      <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 大樓鋼梁補強"></div>
+      <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
+      <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
+      <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <!-- 左：輸入 -->
+    <div>
+      <div class="card">
+        <h2>① 基礎 H 型鋼</h2>
+        <div class="form-group">
+          <label>標準規格選擇</label>
+          <select id="h-select" onchange="onHSelect()"></select>
+        </div>
+        <div style="text-align:center;color:var(--text-light);font-size:0.78em;margin:-4px 0 8px;">▼ 或手動輸入 ▼</div>
+        <div class="form-row">
+          <div class="form-group"><label>H (全高)</label><input type="number" id="h-H" value="400" step="any"></div>
+          <div class="form-group"><label>B (翼寬)</label><input type="number" id="h-B" value="200" step="any"></div>
+        </div>
+        <div class="form-row3">
+          <div class="form-group"><label>tw (腹厚)</label><input type="number" id="h-tw" value="8" step="any"></div>
+          <div class="form-group"><label>tf (翼厚)</label><input type="number" id="h-tf" value="13" step="any"></div>
+          <div class="form-group"><label>R (圓角)</label><input type="number" id="h-R" value="13" step="any"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>② 補強配置</h2>
+        <div class="form-group">
+          <label>補強型式</label>
+          <select id="mode" onchange="onModeChange()">
+            <option value="none">無補強（純 H 型鋼）</option>
+            <option value="side">A 兩側貼板（左右，介於翼板高度）</option>
+            <option value="cover" selected>B 上下蓋板（頂、底翼板外貼）</option>
+            <option value="both">C 四面包覆（A + B 同時使用）</option>
+          </select>
+          <div class="hint">A 可形成封閉箱型，大幅提升弱軸 Iy；B 大幅提升強軸 Ix；C 兩者兼具。</div>
+        </div>
+
+        <div id="side-panel" style="display:none;">
+          <h3 style="color:var(--plate-a);">側板參數（左右各一塊）</h3>
+          <div class="form-row">
+            <div class="form-group"><label>tsp (板厚)</label><input type="number" id="tsp" value="12" step="any"></div>
+            <div class="form-group">
+              <label>hsp (板高)</label>
+              <input type="number" id="hsp" value="" step="any" placeholder="預設 = H">
+              <div class="hint">留空則取 H；常用 H（全高）或 H−2·tf（翼板之間）。</div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="sp-flush" checked> 板緣與翼板外緣齊平（貼焊於翼板端）</label>
+            <div class="hint">未勾選時板中心距離形心 = B/2 + tsp/2（外貼）；勾選即相同位置。</div>
+          </div>
+        </div>
+
+        <div id="cover-panel" style="display:none;">
+          <h3 style="color:var(--plate-b);">蓋板參數（上下各一塊）</h3>
+          <div class="form-row">
+            <div class="form-group"><label>tcp (板厚)</label><input type="number" id="tcp" value="10" step="any"></div>
+            <div class="form-group">
+              <label>wcp (板寬)</label>
+              <input type="number" id="wcp" value="" step="any" placeholder="預設 = B">
+              <div class="hint">留空則取 B；可大於或小於 B。</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-calc" onclick="calcAll()">計 算</button>
+        <div class="hint" id="calcMsg" style="color:var(--warn); margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <!-- 右：結果 -->
+    <div>
+      <div class="card">
+        <h2>合成斷面圖</h2>
+        <div class="canvas-wrap"><canvas id="secCanvas" width="480" height="320"></canvas></div>
+        <div class="legend">
+          <span><i style="background:#dbeafe;border-color:#2563eb;"></i>H 型鋼</span>
+          <span><i style="background:#fed7aa;border-color:#f97316;"></i>側板 (A)</span>
+          <span><i style="background:#e9d5ff;border-color:#a855f7;"></i>蓋板 (B)</span>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:2px solid var(--border);">
+          <div>
+            <span style="font-size:1.05em; font-weight:700; color:var(--primary);">計算結果</span>
+            <span style="font-size:0.75em; color:var(--text-light); margin-left:6px;">(輸出單位：cm)</span>
+            <span class="mode-tag active" id="modeTag">—</span>
+          </div>
+          <button class="btn-report" onclick="exportReport()">📄 計算書</button>
+        </div>
+        <div class="results-grid" id="results">
+          <div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div>
+        </div>
+        <div class="note-box" id="noteBox" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="結構工具箱/core/ui/report.js"></script>
+<script>
+const PI = Math.PI;
+function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function valOrNull(id) { const v = document.getElementById(id).value.trim(); return v==='' ? null : parseFloat(v); }
+function fmt(v) { if (!isFinite(v)) return '—'; if (v===0) return '0'; if (Math.abs(v) < 0.001) return v.toExponential(4); return parseFloat(v.toPrecision(6)).toString(); }
+function pct(cur, base) { if (!base || !isFinite(base) || base===0) return ''; return ((cur-base)/base*100); }
+
+// ===== Standard RH型鋼 Database =====
+const hSections = [
+  {g:'100×50',  s:[{n:'H100×50×5×7',H:100,B:50,tw:5,tf:7,R:8}]},
+  {g:'100×100', s:[{n:'H100×100×6×8',H:100,B:100,tw:6,tf:8,R:8}]},
+  {g:'125×60',  s:[{n:'H125×60×6×8',H:125,B:60,tw:6,tf:8,R:8}]},
+  {g:'125×125', s:[{n:'H125×125×6.5×9',H:125,B:125,tw:6.5,tf:9,R:8}]},
+  {g:'150×75',  s:[{n:'H150×75×5×7',H:150,B:75,tw:5,tf:7,R:8}]},
+  {g:'150×100', s:[{n:'H148×100×6×9',H:148,B:100,tw:6,tf:9,R:8}]},
+  {g:'150×150', s:[{n:'H150×150×7×10',H:150,B:150,tw:7,tf:10,R:8}]},
+  {g:'175×90',  s:[{n:'H175×90×5×8',H:175,B:90,tw:5,tf:8,R:8}]},
+  {g:'175×175', s:[{n:'H175×175×7.5×11',H:175,B:175,tw:7.5,tf:11,R:13}]},
+  {g:'200×100', s:[
+    {n:'H198×99×4.5×7',H:198,B:99,tw:4.5,tf:7,R:8},
+    {n:'H200×100×5.5×8',H:200,B:100,tw:5.5,tf:8,R:8}]},
+  {g:'200×150', s:[{n:'H194×150×6×9',H:194,B:150,tw:6,tf:9,R:8}]},
+  {g:'200×200', s:[
+    {n:'H200×200×8×12',H:200,B:200,tw:8,tf:12,R:13},
+    {n:'*H200×204×12×12',H:200,B:204,tw:12,tf:12,R:13}]},
+  {g:'250×125', s:[
+    {n:'H248×124×5×8',H:248,B:124,tw:5,tf:8,R:8},
+    {n:'H250×125×6×9',H:250,B:125,tw:6,tf:9,R:8}]},
+  {g:'250×175', s:[{n:'H244×175×7×11',H:244,B:175,tw:7,tf:11,R:13}]},
+  {g:'250×250', s:[
+    {n:'H250×250×9×14',H:250,B:250,tw:9,tf:14,R:13},
+    {n:'*H250×255×14×14',H:250,B:255,tw:14,tf:14,R:13}]},
+  {g:'300×150', s:[
+    {n:'H298×149×5.5×8',H:298,B:149,tw:5.5,tf:8,R:13},
+    {n:'H300×150×6.5×9',H:300,B:150,tw:6.5,tf:9,R:13}]},
+  {g:'300×200', s:[{n:'H294×200×8×12',H:294,B:200,tw:8,tf:12,R:13}]},
+  {g:'300×300', s:[
+    {n:'*H294×302×12×12',H:294,B:302,tw:12,tf:12,R:13},
+    {n:'H300×300×10×15',H:300,B:300,tw:10,tf:15,R:13},
+    {n:'*H300×305×15×15',H:300,B:305,tw:15,tf:15,R:13}]},
+  {g:'350×175', s:[
+    {n:'H346×174×6×9',H:346,B:174,tw:6,tf:9,R:13},
+    {n:'H350×175×7×11',H:350,B:175,tw:7,tf:11,R:13}]},
+  {g:'350×250', s:[
+    {n:'H340×250×9×14',H:340,B:250,tw:9,tf:14,R:13}]},
+  {g:'350×350', s:[
+    {n:'H350×350×12×19',H:350,B:350,tw:12,tf:19,R:13}]},
+  {g:'400×200', s:[
+    {n:'H396×199×7×11',H:396,B:199,tw:7,tf:11,R:13},
+    {n:'H400×200×8×13',H:400,B:200,tw:8,tf:13,R:13}]},
+  {g:'400×300', s:[
+    {n:'H390×300×10×16',H:390,B:300,tw:10,tf:16,R:13}]},
+  {g:'400×400', s:[
+    {n:'H400×400×13×21',H:400,B:400,tw:13,tf:21,R:22}]},
+  {g:'450×200', s:[
+    {n:'H446×199×8×12',H:446,B:199,tw:8,tf:12,R:13},
+    {n:'H450×200×9×14',H:450,B:200,tw:9,tf:14,R:13}]},
+  {g:'450×300', s:[
+    {n:'H440×300×11×18',H:440,B:300,tw:11,tf:18,R:13}]},
+  {g:'500×200', s:[
+    {n:'H496×199×9×14',H:496,B:199,tw:9,tf:14,R:13},
+    {n:'H500×200×10×16',H:500,B:200,tw:10,tf:16,R:13}]},
+  {g:'500×300', s:[
+    {n:'H488×300×11×18',H:488,B:300,tw:11,tf:18,R:13}]},
+  {g:'600×200', s:[
+    {n:'H596×199×10×15',H:596,B:199,tw:10,tf:15,R:13},
+    {n:'H600×200×11×17',H:600,B:200,tw:11,tf:17,R:13}]},
+  {g:'600×300', s:[
+    {n:'H588×300×12×20',H:588,B:300,tw:12,tf:20,R:13}]},
+  {g:'700×300', s:[
+    {n:'H700×300×13×24',H:700,B:300,tw:13,tf:24,R:18}]},
+  {g:'800×300', s:[
+    {n:'H800×300×14×26',H:800,B:300,tw:14,tf:26,R:18}]},
+];
+
+function buildHSelect() {
+  let html = '<option value="">-- 自訂尺寸 --</option>';
+  hSections.forEach(g => {
+    html += `<optgroup label="${g.g}">`;
+    g.s.forEach((s,i) => html += `<option value="${g.g}-${i}">${s.n} (R=${s.R})</option>`);
+    html += '</optgroup>';
+  });
+  return html;
+}
+
+function onHSelect() {
+  const v = document.getElementById('h-select').value;
+  if (!v) return;
+  const [g, i] = v.split('-');
+  const grp = hSections.find(x => x.g === g);
+  if (!grp) return;
+  const s = grp.s[+i];
+  document.getElementById('h-H').value = s.H;
+  document.getElementById('h-B').value = s.B;
+  document.getElementById('h-tw').value = s.tw;
+  document.getElementById('h-tf').value = s.tf;
+  document.getElementById('h-R').value = s.R;
+  calcAll();
+}
+
+function currentHName() {
+  const sel = document.getElementById('h-select');
+  if (sel && sel.value) {
+    const opt = sel.options[sel.selectedIndex];
+    if (opt) return opt.textContent.replace(/\s*\(R=\d+\)\s*$/, '');
+  }
+  return `H${val('h-H')}×${val('h-B')}×${val('h-tw')}×${val('h-tf')}`;
+}
+
+function onModeChange() {
+  const mode = document.getElementById('mode').value;
+  document.getElementById('side-panel').style.display  = (mode==='side'  || mode==='both') ? 'block' : 'none';
+  document.getElementById('cover-panel').style.display = (mode==='cover' || mode==='both') ? 'block' : 'none';
+  calcAll();
+}
+
+// ================= 計算核心 =================
+
+// 基礎 H 型鋼（含圓角修正）— 全部以 cm 為單位
+function calcBaseH(H, B, tw, tf, R) {
+  const hw = H - 2*tf;
+  let A = 2*B*tf + hw*tw;
+  let Ix = 2*(B*tf**3/12 + B*tf*((H-tf)/2)**2) + tw*hw**3/12;
+  let Iy = 2*tf*B**3/12 + hw*tw**3/12;
+  let Zx = 2*(B*tf*(H/2 - tf/2)) + tw*hw*hw/4;
+  let Zy = 2*(tf*B*B/4) + hw*tw*tw/4;
+  if (R > 0) {
+    const Af = R*R*(1 - PI/4), yf = R/(6*(1 - PI/4));
+    const Ic = R**4*(16 - 3*PI)/48, Io = Ic - Af*yf*yf;
+    const dx = (H/2 - tf) - yf, dy = tw/2 + yf;
+    A  += 4*Af;
+    Ix += 4*(Io + Af*dx*dx);
+    Iy += 4*(Io + Af*dy*dy);
+    Zx += 4*Af*dx;
+    Zy += 4*Af*dy;
+  }
+  const Jopen = (2*B*tf**3 + hw*tw**3)/3;
+  // 翹曲常數 Cw（雙軸對稱 I 斷面標準式）：Cw = Iy·(H − tf)² / 4
+  const Cw = Iy * (H - tf)**2 / 4;
+  return { A, Ix, Iy, Zx, Zy, Jopen, Cw, ymax: H/2, xmax: B/2 };
+}
+
+// 側板：兩塊，各位於 x = ±(B/2 + tsp/2)，高 hsp
+function calcSidePlates(B, tsp, hsp) {
+  if (!tsp || !hsp) return zeroContrib();
+  const dx = B/2 + tsp/2;
+  const A  = 2 * tsp * hsp;
+  const Ix = 2 * (tsp * hsp**3 / 12);                               // local about x
+  const Iy = 2 * (hsp * tsp**3 / 12 + tsp * hsp * dx*dx);          // local + parallel axis
+  const Zx = tsp * hsp*hsp / 2;                                     // 2 plates, each contributes tsp·hsp²/4
+  const Zy = tsp * hsp * (B + tsp);                                 // 2·A·|x|
+  const Jopen = 2 * hsp * tsp**3 / 3;
+  return { A, Ix, Iy, Zx, Zy, Jopen, xtip: dx + tsp/2 };
+}
+
+// 蓋板：兩塊，各位於 y = ±(H/2 + tcp/2)，寬 wcp
+function calcCoverPlates(H, wcp, tcp) {
+  if (!tcp || !wcp) return zeroContrib();
+  const dy = H/2 + tcp/2;
+  const A  = 2 * wcp * tcp;
+  const Ix = 2 * (wcp * tcp**3 / 12 + wcp * tcp * dy*dy);
+  const Iy = 2 * (tcp * wcp**3 / 12);
+  const Zx = wcp * tcp * (H + tcp);
+  const Zy = wcp*wcp * tcp / 2;
+  const Jopen = 2 * wcp * tcp**3 / 3;
+  return { A, Ix, Iy, Zx, Zy, Jopen, ytip: dy + tcp/2 };
+}
+
+function zeroContrib() { return { A:0, Ix:0, Iy:0, Zx:0, Zy:0, Jopen:0 }; }
+
+// 封閉箱型扭轉常數（當側板與翼板圍成封閉箱）— 薄壁封閉斷面
+// 假設箱牆中心線：top/bottom 翼板中心線 y = ±(H/2 − tf/2)，左右側板中心線 x = ±(B/2 + tsp/2)
+function calcClosedBoxJ(H, B, tf, tsp) {
+  if (!tsp) return null;
+  const hc = H - tf;           // cell 高（兩翼板中心線距）
+  const bc = B + tsp;          // cell 寬（兩側板中心線距）
+  const A_cell = hc * bc;
+  const sumDsOverT = 2*bc/tf + 2*hc/tsp;
+  if (sumDsOverT <= 0) return null;
+  return 4 * A_cell * A_cell / sumDsOverT;
+}
+
+// ================= 主計算 =================
+let lastData = null;
+
+function calcAll() {
+  document.getElementById('calcMsg').textContent = '';
+  const Hmm = val('h-H'), Bmm = val('h-B'), tw = val('h-tw'), tf = val('h-tf'), R = val('h-R');
+  if (!Hmm || !Bmm || !tw || !tf) { document.getElementById('calcMsg').textContent = '請填寫 H、B、tw、tf'; return; }
+
+  // 轉為 cm
+  const H = Hmm/10, B = Bmm/10, twc = tw/10, tfc = tf/10, Rc = R/10;
+  const mode = document.getElementById('mode').value;
+
+  // 側板 / 蓋板輸入（mm → cm）
+  let tspMm = 0, hspMm = 0, tcpMm = 0, wcpMm = 0;
+  if (mode==='side' || mode==='both') {
+    tspMm = val('tsp');
+    const hspUser = valOrNull('hsp');
+    hspMm = (hspUser===null || hspUser<=0) ? Hmm : hspUser;
+    if (!tspMm) { document.getElementById('calcMsg').textContent = '請填寫側板厚度 tsp'; return; }
+  }
+  if (mode==='cover' || mode==='both') {
+    tcpMm = val('tcp');
+    const wcpUser = valOrNull('wcp');
+    wcpMm = (wcpUser===null || wcpUser<=0) ? Bmm : wcpUser;
+    if (!tcpMm) { document.getElementById('calcMsg').textContent = '請填寫蓋板厚度 tcp'; return; }
+  }
+  const tspc = tspMm/10, hspc = hspMm/10, tcpc = tcpMm/10, wcpc = wcpMm/10;
+
+  // 各部分性質
+  const baseH = calcBaseH(H, B, twc, tfc, Rc);
+  const sp    = calcSidePlates(B, tspc, hspc);
+  const cp    = calcCoverPlates(H, wcpc, tcpc);
+
+  // 合成
+  const A  = baseH.A  + sp.A  + cp.A;
+  const Ix = baseH.Ix + sp.Ix + cp.Ix;
+  const Iy = baseH.Iy + sp.Iy + cp.Iy;
+  const Zx = baseH.Zx + sp.Zx + cp.Zx;
+  const Zy = baseH.Zy + sp.Zy + cp.Zy;
+  const Jopen = baseH.Jopen + sp.Jopen + cp.Jopen;
+  const ymax = Math.max(baseH.ymax, cp.ytip || 0);
+  const xmax = Math.max(baseH.xmax, sp.xtip || 0);
+  const Sx = Ix / ymax, Sy = Iy / xmax;
+  const rx = Math.sqrt(Ix/A), ry = Math.sqrt(Iy/A);
+  const W  = A * 0.785;
+
+  // 封閉箱型 J（僅 side/both 且 hsp ≥ H−2tf 時有意義）
+  let Jclosed = null, closedNote = '';
+  if ((mode==='side' || mode==='both') && hspc >= (H - 2*tfc) - 1e-6) {
+    Jclosed = calcClosedBoxJ(H, B, tfc, tspc);
+    closedNote = hspc >= H - 1e-6
+      ? '側板高等於或大於 H，封閉箱型由翼板與側板圍合。'
+      : '側板高介於翼板之間，封閉箱型由翼板內側與側板圍合。';
+  }
+
+  lastData = {
+    geom: { Hmm, Bmm, tw, tf, R, tspMm, hspMm, tcpMm, wcpMm, mode },
+    baseH, sp, cp,
+    total: { A, Ix, Iy, Sx, Sy, rx, ry, Zx, Zy, Jopen, Jclosed, W, ymax, xmax, closedNote },
+  };
+
+  renderResults();
+  drawSection();
+}
+
+function renderResults() {
+  const d = lastData; if (!d) return;
+  const mode = d.geom.mode;
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[mode];
+  document.getElementById('modeTag').textContent = modeText;
+
+  const t = d.total, b = d.baseH;
+  const rows = [
+    ['A (斷面積)',       t.A,  'cm²',  pct(t.A,  b.A)],
+    ['W (單位重)',       t.W,  'kg/m', pct(t.W,  b.A*0.785)],
+    ['Ix (強軸慣性矩)',  t.Ix, 'cm⁴',  pct(t.Ix, b.Ix)],
+    ['Iy (弱軸慣性矩)',  t.Iy, 'cm⁴',  pct(t.Iy, b.Iy)],
+    ['Sx (強軸斷面模數)',t.Sx, 'cm³',  pct(t.Sx, b.Ix/b.ymax)],
+    ['Sy (弱軸斷面模數)',t.Sy, 'cm³',  pct(t.Sy, b.Iy/b.xmax)],
+    ['rx (強軸迴轉半徑)',t.rx, 'cm',   pct(t.rx, Math.sqrt(b.Ix/b.A))],
+    ['ry (弱軸迴轉半徑)',t.ry, 'cm',   pct(t.ry, Math.sqrt(b.Iy/b.A))],
+    ['Zx (強軸塑性模數)',t.Zx, 'cm³',  pct(t.Zx, b.Zx)],
+    ['Zy (弱軸塑性模數)',t.Zy, 'cm³',  pct(t.Zy, b.Zy)],
+    ['J_open (開斷面扭轉常數)', t.Jopen, 'cm⁴', pct(t.Jopen, b.Jopen)],
+    ['Cw (翹曲常數，基礎 H 型鋼)', b.Cw, 'cm⁶', ''],
+  ];
+  if (t.Jclosed !== null) rows.push(['J_closed (封閉箱型)', t.Jclosed, 'cm⁴', '']);
+
+  const host = document.getElementById('results');
+  host.innerHTML = rows.map(([label, v, unit, deltaPct]) => {
+    const deltaHTML = (deltaPct !== '' && isFinite(deltaPct) && Math.abs(deltaPct) > 0.01)
+      ? `<span class="delta">${deltaPct>0?'+':''}${deltaPct.toFixed(1)}%</span>` : '';
+    return `<div class="result-item">
+      <span class="label">${label}</span>
+      <span class="value">${fmt(v)} <span class="unit">${unit}</span>${deltaHTML}</span>
+    </div>`;
+  }).join('');
+
+  // Note box
+  const nb = document.getElementById('noteBox');
+  const notes = [];
+  if (mode !== 'none') notes.push('增益百分比以相同基礎 H 型鋼之純斷面為比較基準。');
+  if (t.Jclosed !== null) notes.push('封閉箱型 J 採用薄壁封閉斷面公式：J = 4·Acell² / Σ(s/t)；與開斷面 J 值差異顯著，設計時應取封閉箱型值。' + d.total.closedNote);
+  notes.push('Cw 為雙軸對稱 I 斷面基礎公式 Cw = Iy·(H−tf)²/4，僅計入基礎 H 型鋼；上下蓋板會增加 Cw（正面效應），封閉箱型 Cw 可忽略（Cw ≈ 0）；LTB 精算請另行考量整體組合效應。');
+  if (mode === 'none') notes.push('目前為純 H 型鋼模式，未加入補強板。');
+  if (notes.length) { nb.innerHTML = notes.map(n=>`• ${n}`).join('<br>'); nb.style.display='block'; }
+  else nb.style.display='none';
+}
+
+// ================= 繪圖 =================
+function drawSection() {
+  const c = document.getElementById('secCanvas');
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  const d = lastData; if (!d) return;
+
+  const g = d.geom;
+  const hasSide  = (g.mode==='side'  || g.mode==='both');
+  const hasCover = (g.mode==='cover' || g.mode==='both');
+
+  // mm 範圍
+  const halfW_mm = g.Bmm/2 + (hasSide  ? (g.tspMm) : 0);
+  const halfH_mm = g.Hmm/2 + (hasCover ? (g.tcpMm) : 0);
+  const W = 2 * halfW_mm + 40, Hd = 2 * halfH_mm + 40;
+  const sc = Math.min((c.width - 80) / W, (c.height - 40) / Hd);
+  const cx = c.width / 2, cy = c.height / 2;
+  const toX = mm => cx + mm * sc;
+  const toY = mm => cy - mm * sc;
+
+  // ===== 蓋板（先畫，H 型鋼會覆蓋交疊部分）=====
+  if (hasCover) {
+    const wcp_mm = g.wcpMm || g.Bmm;
+    ctx.fillStyle = '#e9d5ff';
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 1.5;
+    // 上蓋板
+    ctx.beginPath();
+    ctx.rect(toX(-wcp_mm/2), toY(g.Hmm/2 + g.tcpMm), wcp_mm*sc, g.tcpMm*sc);
+    ctx.fill(); ctx.stroke();
+    // 下蓋板
+    ctx.beginPath();
+    ctx.rect(toX(-wcp_mm/2), toY(-g.Hmm/2), wcp_mm*sc, g.tcpMm*sc);
+    ctx.fill(); ctx.stroke();
+  }
+
+  // ===== 側板 =====
+  if (hasSide) {
+    const hsp_mm = g.hspMm || g.Hmm;
+    ctx.fillStyle = '#fed7aa';
+    ctx.strokeStyle = '#f97316';
+    ctx.lineWidth = 1.5;
+    // 左
+    ctx.beginPath();
+    ctx.rect(toX(-g.Bmm/2 - g.tspMm), toY(hsp_mm/2), g.tspMm*sc, hsp_mm*sc);
+    ctx.fill(); ctx.stroke();
+    // 右
+    ctx.beginPath();
+    ctx.rect(toX(g.Bmm/2), toY(hsp_mm/2), g.tspMm*sc, hsp_mm*sc);
+    ctx.fill(); ctx.stroke();
+  }
+
+  // ===== H 型鋼（覆蓋在最上層）=====
+  ctx.fillStyle = '#dbeafe';
+  ctx.strokeStyle = '#2563eb';
+  ctx.lineWidth = 2;
+  const H = g.Hmm, B = g.Bmm, tw = g.tw, tf = g.tf;
+  const left = toX(-B/2), right = toX(B/2);
+  const top  = toY(H/2),  bot   = toY(-H/2);
+  const wL = toX(-tw/2),  wR    = toX(tw/2);
+  const tfiTop = toY(H/2 - tf), tfiBot = toY(-(H/2 - tf));
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(right, top);
+  ctx.lineTo(right, tfiTop);
+  ctx.lineTo(wR, tfiTop);
+  ctx.lineTo(wR, tfiBot);
+  ctx.lineTo(right, tfiBot);
+  ctx.lineTo(right, bot);
+  ctx.lineTo(left, bot);
+  ctx.lineTo(left, tfiBot);
+  ctx.lineTo(wL, tfiBot);
+  ctx.lineTo(wL, tfiTop);
+  ctx.lineTo(left, tfiTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // ===== 軸線 =====
+  ctx.save();
+  ctx.setLineDash([4,4]);
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 1;
+  const extH = halfH_mm*sc + 16, extW = halfW_mm*sc + 16;
+  ctx.beginPath(); ctx.moveTo(cx-extW, cy); ctx.lineTo(cx+extW, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy-extH); ctx.lineTo(cx, cy+extH); ctx.stroke();
+  ctx.restore();
+
+  // ===== 尺寸標註 =====
+  ctx.fillStyle = '#1e293b';
+  ctx.font = '11px Consolas,monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`B=${B}`, cx, bot + 18 + (hasCover? g.tcpMm*sc : 0));
+  ctx.textAlign = 'right';
+  ctx.fillText(`H=${H}`, left - 6 - (hasSide? g.tspMm*sc : 0), cy + 4);
+}
+
+// ================= 匯出計算書 =================
+function exportReport() {
+  if (!lastData) { alert('請先執行計算'); return; }
+  if (typeof openReport !== 'function') { alert('計算書模組尚未載入'); return; }
+
+  const d = lastData, g = d.geom, t = d.total, b = d.baseH;
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆（A + B）' }[g.mode];
+  const cvs = document.getElementById('secCanvas');
+  const dataURL = cvs.toDataURL('image/png');
+
+  const basicItems = [
+    { label: '基礎型鋼',       value: currentHName() },
+    { label: 'H (全高)',       value: g.Hmm, unit: 'mm' },
+    { label: 'B (翼寬)',       value: g.Bmm, unit: 'mm' },
+    { label: 'tw (腹厚)',      value: g.tw,  unit: 'mm' },
+    { label: 'tf (翼厚)',      value: g.tf,  unit: 'mm' },
+    { label: 'R (圓角)',       value: g.R,   unit: 'mm' },
+    { label: '補強型式',       value: modeText },
+  ];
+  if (g.mode==='side' || g.mode==='both') {
+    basicItems.push({ label:'側板厚 tsp', value: g.tspMm, unit:'mm' });
+    basicItems.push({ label:'側板高 hsp', value: g.hspMm, unit:'mm' });
+  }
+  if (g.mode==='cover' || g.mode==='both') {
+    basicItems.push({ label:'蓋板厚 tcp', value: g.tcpMm, unit:'mm' });
+    basicItems.push({ label:'蓋板寬 wcp', value: g.wcpMm, unit:'mm' });
+  }
+
+  const deltaTxt = (cur, base) => {
+    if (!base || !isFinite(base)) return '—';
+    const p = (cur - base)/base*100;
+    return `${fmt(base)} → ${fmt(cur)}（${p>=0?'+':''}${p.toFixed(1)}%）`;
+  };
+  const compareItems = [
+    { label:'A',  value: deltaTxt(t.A,  b.A),    unit:'cm²' },
+    { label:'Ix', value: deltaTxt(t.Ix, b.Ix),   unit:'cm⁴' },
+    { label:'Iy', value: deltaTxt(t.Iy, b.Iy),   unit:'cm⁴' },
+    { label:'Sx', value: deltaTxt(t.Sx, b.Ix/b.ymax), unit:'cm³' },
+    { label:'Sy', value: deltaTxt(t.Sy, b.Iy/b.xmax), unit:'cm³' },
+    { label:'Zx', value: deltaTxt(t.Zx, b.Zx),   unit:'cm³' },
+    { label:'Zy', value: deltaTxt(t.Zy, b.Zy),   unit:'cm³' },
+    { label:'rx', value: deltaTxt(t.rx, Math.sqrt(b.Ix/b.A)), unit:'cm' },
+    { label:'ry', value: deltaTxt(t.ry, Math.sqrt(b.Iy/b.A)), unit:'cm' },
+    { label:'J_open', value: deltaTxt(t.Jopen, b.Jopen), unit:'cm⁴' },
+  ];
+  if (t.Jclosed !== null) {
+    compareItems.push({ label:'J_closed (封閉箱型)', value: fmt(t.Jclosed), unit:'cm⁴' });
+  }
+
+  const totalItems = [
+    { label:'A (斷面積)',      value: fmt(t.A),  unit:'cm²' },
+    { label:'W (單位重)',      value: fmt(t.W),  unit:'kg/m' },
+    { label:'Ix (強軸慣性矩)', value: fmt(t.Ix), unit:'cm⁴' },
+    { label:'Iy (弱軸慣性矩)', value: fmt(t.Iy), unit:'cm⁴' },
+    { label:'Sx',              value: fmt(t.Sx), unit:'cm³' },
+    { label:'Sy',              value: fmt(t.Sy), unit:'cm³' },
+    { label:'Zx',              value: fmt(t.Zx), unit:'cm³' },
+    { label:'Zy',              value: fmt(t.Zy), unit:'cm³' },
+    { label:'rx',              value: fmt(t.rx), unit:'cm' },
+    { label:'ry',              value: fmt(t.ry), unit:'cm' },
+    { label:'J_open',          value: fmt(t.Jopen), unit:'cm⁴' },
+  ];
+  if (t.Jclosed !== null) totalItems.push({ label:'J_closed (封閉箱型)', value: fmt(t.Jclosed), unit:'cm⁴' });
+
+  openReport({
+    title: '合成斷面性質計算書',
+    subtitle: `${currentHName()}　｜　${modeText}`,
+    project: {
+      name:     document.getElementById('projName').value || '',
+      no:       document.getElementById('projNo').value   || '',
+      designer: document.getElementById('projDesigner').value || '',
+    },
+    summary: { ok: null, text: `合成斷面性質計算：${modeText}` },
+    diagrams: [{ title:'合成斷面示意圖', dataURL, width: 500 }],
+    inputs: [
+      { group: '基本輸入（輸入單位 mm）', items: basicItems },
+      { group: '合成斷面總性質（單位 cm）', items: totalItems },
+      { group: '與基礎 H 型鋼比較（基礎 → 合成（增益％））', items: compareItems },
+    ],
+    notes: [
+      '本計算假設補強板與 H 型鋼同材質（同 E），形心因對稱維持於原幾何中心。',
+      '側板（A）位置：板中心距形心 = B/2 + tsp/2，與翼板外緣齊平貼焊。',
+      '蓋板（B）位置：板中心距形心 = H/2 + tcp/2，覆蓋於上下翼板外側。',
+      (t.Jclosed !== null) ? '封閉箱型扭轉常數採薄壁封閉斷面公式 J = 4·Acell²/Σ(s/t)，設計時應採此值而非 J_open。' + (d.total.closedNote||'') : '',
+      '塑性模數 Zx、Zy 以全斷面塑性假設（單一材料、同降伏應力）疊加計算。',
+      document.getElementById('projNote').value ? ('備註：' + document.getElementById('projNote').value) : '',
+    ].filter(Boolean),
+  });
+}
+
+// ================= INIT =================
+function init() {
+  document.getElementById('h-select').innerHTML = buildHSelect();
+  onModeChange();
+  calcAll();
+}
+init();
+</script>
+</body>
+</html>
