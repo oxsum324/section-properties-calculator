@@ -83,64 +83,13 @@
 </head>
 <body>
   <header>
-    <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V1.0</span></h1>
-    <p>
-      <span class="intro-tag">RC 構件設計</span>
-      <span class="intro-tag">鋼結構設計</span>
-      <span class="intro-tag">耐風設計</span>
-      <span class="intro-tag">斷面性質</span>
-      <span class="intro-tag">結構分析</span>
-    </p>
-    <p style="font-size:0.78em; opacity:0.85; margin-top:4px;">
-      正式進入 V1.0｜整合鋼構正式規範工具、RC 構件工具、耐風／耐震核心、斷面性質與分析輔助之統一入口 ｜ 單位：cm, kgf
-    </p>
-    <p style="font-size:0.76em; opacity:0.82; margin-top:6px;">
-      首頁已改為平台化入口，可直接查看正式模組、舊版工具、以及全平台巡檢與健康狀態。
+    <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V1.2</span></h1>
+    <p style="font-size:0.88em; opacity:0.9; margin-top:4px;">
+      RC／鋼構／耐風／耐震／斷面性質　｜　單位：cm, kgf
     </p>
   </header>
 
 <div class="container">
-
-  <div class="card">
-      <div class="group-title">平台健康狀態與版本資訊</div>
-    <div class="status-grid">
-      <div class="status-card" id="platformOverallStatus">
-        <div class="status-head">
-          <span class="status-title">全平台總巡檢</span>
-          <span class="status-badge warn">讀取中</span>
-        </div>
-        <div class="status-summary">讀取最新平台總巡檢狀態中。</div>
-      </div>
-      <div class="status-card" id="steelPlatformStatus">
-        <div class="status-head">
-          <span class="status-title">鋼構正式規範工具</span>
-          <span class="status-badge warn">讀取中</span>
-        </div>
-        <div class="status-summary">讀取最新鋼構巡檢狀態中。</div>
-      </div>
-      <div class="status-card" id="rcPlatformStatus">
-        <div class="status-head">
-          <span class="status-title">RC 構件工具</span>
-          <span class="status-badge warn">讀取中</span>
-        </div>
-        <div class="status-summary">讀取最新 RC 巡檢狀態中。</div>
-      </div>
-      <div class="status-card" id="corePlatformStatus">
-        <div class="status-head">
-          <span class="status-title">耐風 / 耐震核心</span>
-          <span class="status-badge warn">讀取中</span>
-        </div>
-        <div class="status-summary">讀取最新規範核心巡檢狀態中。</div>
-      </div>
-    </div>
-    <div class="status-actions">
-        <a class="primary" href="audit-dashboard.html">開啟平台巡檢儀表板</a>
-        <a href="../output/audit/platform-summary.md" target="_blank" rel="noreferrer">查看平台摘要</a>
-      </div>
-      <p style="font-size:0.78em; color:var(--text-light); margin-top:10px;">
-        目前平台版本為 <strong>V1.0</strong>。正式規範核算入口以鋼構正式工具為主，RC 與規範核心工具同步納入平台巡檢與健康監控。
-      </p>
-    </div>
 
   <!-- ─── 結構分析 ─── -->
   <div class="card">
@@ -155,16 +104,6 @@
         <div class="icon">⌬</div>
         <h3>struct.dx 解題套件 <span class="ver ver-ok">外部</span></h3>
         <p>桁架/剛架靜不定分析、傾角變位法、5 道驗算閘 (AI 整合)</p>
-      </a>
-      <a class="menu-card" href="tools/force-picker.html">
-        <div class="icon">⇄</div>
-        <h3>內力 Picker <span class="ver ver-new">NEW</span></h3>
-        <p>整合上游分析結果 (D/L/W/E 載重組合) → 一鍵送往梁/柱設計工具</p>
-      </a>
-      <a class="menu-card" href="tools/test-dashboard.html">
-        <div class="icon">✓</div>
-        <h3>工具測試面板 <span class="ver ver-new">NEW</span></h3>
-        <p>勾選 Seismic / Wind 後一鍵執行瀏覽器端快速測試，不必開命令列</p>
       </a>
     </div>
   </div>
@@ -244,18 +183,24 @@
         <p>鋼構連接板 (gusset) 檢核：拉力撕裂、孔邊淨斷面、塊狀剪切；含計算流程與參數詞典。</p>
       </a>
     </div>
-    <div class="subgroup-title">舊式梁柱頁面</div>
-    <div class="menu-grid">
-      <a class="menu-card" href="tools/鋼構/steel-beam.html">
-        <div class="icon">Ⅱ</div>
-        <h3>鋼梁 Steel Beam <span class="scope-pill legacy">舊式頁面</span></h3>
-        <p>H 型鋼梁撓曲 (LTB)、剪力、撓度驗算；斷面分類 (AISC Table B4.1b)</p>
-      </a>
-      <a class="menu-card" href="tools/鋼構/steel-column.html">
-        <div class="icon">▮</div>
-        <h3>鋼柱 Steel Column <span class="scope-pill legacy">舊式頁面</span></h3>
-        <p>軸壓挫屈 (E3/E7)、K 因數、P-M 互制 (H1)、ASD/LRFD 雙軌</p>
-      </a>
+    <div class="collapse-toggle" style="margin-top:14px;">
+      <input type="checkbox" id="toggleLegacySteel">
+      <label for="toggleLegacySteel">顯示舊式鋼梁 / 鋼柱頁面</label>
+    </div>
+    <div id="legacySteelPanel" class="collapse-panel hidden" style="margin-top:12px;">
+      <div class="subgroup-title">舊式梁柱頁面</div>
+      <div class="menu-grid">
+        <a class="menu-card" href="tools/鋼構/steel-beam.html">
+          <div class="icon">Ⅱ</div>
+          <h3>鋼梁 Steel Beam <span class="scope-pill legacy">舊式頁面</span></h3>
+          <p>H 型鋼梁撓曲 (LTB)、剪力、撓度驗算；斷面分類 (AISC Table B4.1b)</p>
+        </a>
+        <a class="menu-card" href="tools/鋼構/steel-column.html">
+          <div class="icon">▮</div>
+          <h3>鋼柱 Steel Column <span class="scope-pill legacy">舊式頁面</span></h3>
+          <p>軸壓挫屈 (E3/E7)、K 因數、P-M 互制 (H1)、ASD/LRFD 雙軌</p>
+        </a>
+      </div>
     </div>
   </div>
 
@@ -568,7 +513,8 @@
 
     [
       { toggleId: 'toggleWindScope', panelId: 'windScopePanel', storageKey: 'windScopePanelVisible' },
-      { toggleId: 'toggleSeismicScope', panelId: 'seismicScopePanel', storageKey: 'seismicScopePanelVisible' }
+      { toggleId: 'toggleSeismicScope', panelId: 'seismicScopePanel', storageKey: 'seismicScopePanelVisible' },
+      { toggleId: 'toggleLegacySteel', panelId: 'legacySteelPanel', storageKey: 'legacySteelPanelVisible' }
     ].forEach(function (cfg) {
       const toggle = document.getElementById(cfg.toggleId);
       const panel = document.getElementById(cfg.panelId);
@@ -584,10 +530,6 @@
       });
     });
 
-    loadStatus('platformOverallStatus', '../output/audit/platform-status.json', '全平台總巡檢');
-    loadStatus('steelPlatformStatus', '../鋼構工具/output/audit/audit-status.json', '鋼構正式規範工具');
-    loadStatus('rcPlatformStatus', '../鋼筋混凝土/output/audit/audit-status.json', 'RC 構件工具');
-    loadStatus('corePlatformStatus', './output/audit/audit-status.json', '耐風 / 耐震核心');
   })();
 </script>
 </body>
