@@ -321,6 +321,7 @@ function calc() {
   const V = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
   const terrain = document.getElementById('terrain').value;
   const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
+  const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
   const Kzt = val('Kzt') || 1.0;
   const mode = document.getElementById('mode').value;
 
@@ -363,13 +364,17 @@ function calc() {
     ];
     html += step('① 基本參數', `
       z = <span class="val">${fmt(z,2)}</span> m, A = <span class="val">${fmt(A,2)}</span> m²<br>
+      地況參數：α = <span class="val">${fmt(terrainData.alpha,2)}</span>，z<sub>g</sub> = <span class="val">${fmt(terrainData.zg,1)}</span> m，z<sub>min</sub> = <span class="val">${fmt(terrainData.zmin,1)}</span> m<br>
       φ = <span class="val">${fmt(phi,2)}</span>, q(z)D = <span class="val">${fmt(qzD,2)}</span><br>
       C<sub>f</sub> = <span class="val hl">${fmt(cfData.cf,3)}</span>
     `);
     html += step('② 設計風力', `
-      q(z) = <span class="val">${fmt(qz,1)}</span> kgf/m², G = <span class="val">${fmt(G,3)}</span><br>
+      z<sub>use</sub> = max(z, z<sub>min</sub>) = <span class="val">${fmt(Math.max(z, terrainData.zmin),2)}</span> m<br>
+      K(z) = 2.774 × (${fmt(Math.max(z, terrainData.zmin),2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(z, terrain),4)}</span><br>
+      q(z) = 0.06 × ${fmt(W.calcKz(z, terrain),4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val">${fmt(qz,1)}</span> kgf/m²<br>
+      G = <span class="val">${fmt(G,3)}</span><br>
       F = q(z) · G · C<sub>f</sub> · A = <span class="val hl">${fmt(F,1)}</span> kgf
-    `);
+    `, `F = ${fmt(qz,2)} × ${fmt(G,3)} × ${fmt(cfData.cf,3)} × ${fmt(A,2)} = ${fmt(F,2)} kgf`);
   } else {
     const zBase = val('lzBase');
     const height = val('lHeight');
@@ -416,6 +421,7 @@ function calc() {
     ];
     html += step('① 基本參數', `
       h = <span class="val">${fmt(height,2)}</span> m, B = <span class="val">${fmt(faceWidth,2)}</span> m<br>
+      地況參數：α = <span class="val">${fmt(terrainData.alpha,2)}</span>，z<sub>g</sub> = <span class="val">${fmt(terrainData.zg,1)}</span> m，z<sub>min</sub> = <span class="val">${fmt(terrainData.zmin,1)}</span> m<br>
       φ = <span class="val">${fmt(phi,2)}</span><br>
       基本 C<sub>f</sub> = <span class="val">${fmt(r.cfData.baseCf,3)}</span><br>
       構材修正 = <span class="val">${fmt(r.cfData.memberFactor,3)}</span>，斜風向修正 = <span class="val">${fmt(r.cfData.skewFactor,3)}</span><br>
@@ -423,9 +429,12 @@ function calc() {
     `);
     html += step('② 分段風力', `
       塔面實體面積 = <span class="val">${fmt(r.totalSolidArea,2)}</span> m²<br>
+      控制段中點 z = <span class="val">${fmt(r.body.rows[r.body.rows.length - 1].zMid,2)}</span> m<br>
+      K(z) = 2.774 × (${fmt(Math.max(r.body.rows[r.body.rows.length - 1].zMid, terrainData.zmin),2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(r.body.rows[r.body.rows.length - 1].zMid, terrain),4)}</span><br>
+      q(z) = 0.06 × ${fmt(W.calcKz(r.body.rows[r.body.rows.length - 1].zMid, terrain),4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val">${fmt(r.body.rows[r.body.rows.length - 1].qz,1)}</span> kgf/m²<br>
       V = <span class="val hl">${fmt(r.baseShear,1)}</span> kgf<br>
       M = <span class="val hl">${fmt(r.baseMoment,1)}</span> kgf·m
-    `);
+    `, `控制段示例：F_i = ${fmt(r.body.rows[r.body.rows.length - 1].qz,2)} × ${fmt(r.body.G,3)} × ${fmt(r.cfData.cf,3)} × ${fmt(r.body.rows[r.body.rows.length - 1].area,2)} = ${fmt(r.body.rows[r.body.rows.length - 1].force,2)} kgf`);
   }
 
   document.querySelector('#adoptTable tbody').innerHTML = adoptRows;

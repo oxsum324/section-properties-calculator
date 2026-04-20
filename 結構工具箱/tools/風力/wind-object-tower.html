@@ -287,6 +287,7 @@ function calc() {
   const V = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
   const terrain = document.getElementById('terrain').value;
   const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
+  const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
   const Kzt = val('Kzt') || 1.0;
   const objectType = document.getElementById('objectType').value;
   const zBase = val('zBase');
@@ -353,6 +354,7 @@ function calc() {
   let html = '';
   html += step('① 基本參數', `
     V = <span class="val">${V}</span> m/s, I = <span class="val">${I}</span>, K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
+    地況參數：α = <span class="val">${fmt(terrainData.alpha,2)}</span>，z<sub>g</sub> = <span class="val">${fmt(terrainData.zg,1)}</span> m，z<sub>min</sub> = <span class="val">${fmt(terrainData.zmin,1)}</span> m<br>
     z<sub>0</sub> = ${fmt(zBase,2)} m, h = ${fmt(height,2)} m, D = ${fmt(D,2)} m<br>
     h / D = <span class="val">${fmt(height / D,2)}</span><br>
     表 2.12 路線 = <span class="val">${r.cfData.name}</span>
@@ -363,15 +365,19 @@ function calc() {
     φ = <span class="val">${fmt(r.shapeFactor,3)}</span> → C<sub>f,eff</sub> = <span class="val hl">${fmt(r.cfData.cf * r.shapeFactor,3)}</span>
   `, `表 2.12 於 h/D = ${fmt(r.cfData.lowRatio,2)} ~ ${fmt(r.cfData.highRatio,2)} 間${r.cfData.lowRatio !== r.cfData.highRatio ? '線性內插' : '直接取值'}`);
   html += step('③ 塔身分段風力', `
+    控制段中點 z = <span class="val">${fmt(r.body.rows[r.body.rows.length - 1].zMid,2)}</span> m<br>
+    K(z) = 2.774 × (${fmt(Math.max(r.body.rows[r.body.rows.length - 1].zMid, terrainData.zmin),2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(r.body.rows[r.body.rows.length - 1].zMid, terrain),4)}</span><br>
+    q(z) = 0.06 × ${fmt(W.calcKz(r.body.rows[r.body.rows.length - 1].zMid, terrain),4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val">${fmt(r.body.rows[r.body.rows.length - 1].qz,1)}</span> kgf/m²<br>
     塔身總風力 ΣF = <span class="val hl">${fmt(r.body.baseShear,1)}</span> kgf<br>
     塔身底部彎矩 ΣM = <span class="val hl">${fmt(r.body.baseMoment,1)}</span> kgf·m
-  `);
+  `, `控制段示例：F_i = ${fmt(r.body.rows[r.body.rows.length - 1].qz,2)} × ${fmt(r.body.G,3)} × ${fmt(r.cfData.cf * r.shapeFactor,3)} × ${fmt(r.body.rows[r.body.rows.length - 1].area,2)} = ${fmt(r.body.rows[r.body.rows.length - 1].force,2)} kgf`);
   if (r.top) {
     html += step('④ 塔頂附加風力', `
       A<sub>top</sub> = <span class="val">${fmt(r.top.area,2)}</span> m²<br>
+      q(z<sub>top</sub>) = <span class="val">${fmt(r.top.qz,1)}</span> kgf/m²，G = <span class="val">${fmt(r.top.G,3)}</span>，C<sub>f</sub> = <span class="val">${fmt(r.top.CfEff,3)}</span><br>
       F<sub>top</sub> = <span class="val hl">${fmt(r.top.force,1)}</span> kgf<br>
       M<sub>top</sub> = <span class="val hl">${fmt(r.top.moment,1)}</span> kgf·m
-    `);
+    `, `F_top = ${fmt(r.top.qz,2)} × ${fmt(r.top.G,3)} × ${fmt(r.top.CfEff,3)} × ${fmt(r.top.area,2)} = ${fmt(r.top.force,2)} kgf`);
   }
   html += step(r.top ? '⑤ 總剪力 / 底部彎矩' : '④ 總剪力 / 底部彎矩', `
     V = <span class="val hl">${fmt(r.baseShear,1)}</span> kgf<br>

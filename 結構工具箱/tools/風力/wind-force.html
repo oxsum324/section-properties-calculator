@@ -1178,6 +1178,20 @@ Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
 = 0.06 × ${fmt(r.KzH,4)} × ${Kzt} × ${fmt(IV*IV, 2)}<br>
 = <b>${fmt(r.qH,2)}</b> kgf/m²`);
 
+  const firstStoryKz = W.calcKz(firstStory.zMid, terrain);
+  html += step('③-1 代表樓層速度壓 q(z)', `
+    1F 中點高度 z = <span class="val">${fmt(firstStory.zMid,2)}</span> m<br>
+    K(z) = 2.774 × (${fmt(Math.max(firstStory.zMid, t.zmin),2)}/${fmt(t.zg,1)})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(firstStoryKz,4)}</span><br>
+    q(z) = 0.06 × ${fmt(firstStoryKz,4)} × ${fmt(Kzt,3)} × (${fmt(I,2)} × ${fmt(V,1)})<sup>2</sup> = <span class="val hl">${fmt(firstStory.qz,1)}</span> kgf/m²
+  `, `逐層迎風面外壓採各層中點 q(z_mid)；1F 代表值 = ${fmt(firstStory.qz,2)} kgf/m²`);
+  if (Math.abs(r.roof.roofRefH - r.totalH) > 1e-9) {
+    html += step('③-2 屋面查表高度速度壓 q(h_e)', `
+      屋面採用高度 h = <span class="val">${fmt(r.roof.roofRefH,2)}</span> m<br>
+      K(h<sub>e</sub>) = 2.774 × (${fmt(Math.max(r.roof.roofRefH, t.zmin),2)}/${fmt(t.zg,1)})<sup>${fmt(2*t.alpha,2)}</sup> = <span class="val">${fmt(r.roof.KzRoof,4)}</span><br>
+      q(h<sub>e</sub>) = 0.06 × ${fmt(r.roof.KzRoof,4)} × ${fmt(Kzt,3)} × (${fmt(I,2)} × ${fmt(V,1)})<sup>2</sup> = <span class="val hl">${fmt(r.roof.qRoof,1)}</span> kgf/m²
+    `, `當 θ < 10° 時，屋面查表高度改採屋簷高度 h_e。`);
+  }
+
   // Gust factor
   if (r.isFlexible && r.gustInfo) {
     const g = r.gustInfo;

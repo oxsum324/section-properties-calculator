@@ -664,7 +664,7 @@ function calc() {
   let html = '';
   html += step('① 基本參數', `
     V = <span class="val">${V}</span> m/s, I = <span class="val">${I}</span>, K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
-    地況 ${terrain}: α=${t.alpha}, z<sub>g</sub>=${t.zg} m<br>
+    地況 ${terrain}: α=${t.alpha}, z<sub>g</sub>=${t.zg} m, z<sub>min</sub>=${t.zmin} m<br>
     屋頂高 h = ${fmt(h,1)} m, 女兒牆高度 h<sub>p</sub> = ${fmt(hp,1)} m<br>
     女兒牆位置 = ${faceText}${mode === 'cc' ? ' / 控制條件' : ''}<br>
     設計模式 = ${mode === 'mwfrs' ? 'MWFRS (第二章 Eq 2.3)' : 'C&C (第三章 Eq 3.3)'}
@@ -672,7 +672,9 @@ function calc() {
 
   html += step('② 女兒牆頂端速度壓 q<sub>p</sub>', `
     女兒牆頂端高度 z = h + h<sub>p</sub> = <span class="val">${fmt(topZ,1)}</span> m<br>
-    q<sub>p</sub> = q(z) = <span class="val hl">${fmt(r.qp,1)}</span> kgf/m²
+    z<sub>use</sub> = max(z, z<sub>min</sub>) = <span class="val">${fmt(Math.max(topZ, t.zmin),1)}</span> m<br>
+    K(z) = 2.774 × (${fmt(Math.max(topZ, t.zmin),1)}/${fmt(t.zg,1)})<sup>${fmt(2 * t.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(topZ, terrain),4)}</span><br>
+    q<sub>p</sub> = q(z) = 0.06 × ${fmt(W.calcKz(topZ, terrain),4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val hl">${fmt(r.qp,1)}</span> kgf/m²
   `, `q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)²，z = ${fmt(topZ,1)} m`);
 
   if (mode === 'mwfrs') {
@@ -681,7 +683,7 @@ function calc() {
     `);
     html += step('④ 設計風壓', `
       p<sub>p</sub> = q<sub>p</sub> × GC<sub>pn</sub> = <span class="val hl">${fmt(r.p,1)}</span> kgf/m²
-    `);
+    `, `p_p = ${fmt(r.qp,2)} × ${fmt(r.GCpn,3)} = ${fmt(r.p,2)} kgf/m²`);
     if (enableReduce) {
       html += step('⑤ 特殊修正 / 折減後風壓', `
         修正模式 = <span class="val">${reduceModeName(reduceMode)}</span><br>
@@ -702,7 +704,7 @@ function calc() {
       正面取最不利內壓符號 <span class="val">${r.frontInternalSign}GC<sub>pi</sub></span> → p<sub>front</sub> = <span class="val hl">${fmt(r.pFront,1)}</span> kgf/m²<br>
       背面取最不利內壓符號 <span class="val">${r.backInternalSign}GC<sub>pi</sub></span> → p<sub>back</sub> = <span class="val hl">${fmt(r.pBack,1)}</span> kgf/m²<br>
       前後面壓差 p<sub>front</sub> − p<sub>back</sub> = <span class="val hl">${fmt(r.pDiff,1)}</span> kgf/m²
-    `, `本頁對正、背面各自採使其外壓方向最不利之內壓符號；此為本工具箱的 C&C 女兒牆簡化計算路線。`);
+    `, `p_front = ${fmt(r.qp,2)} × (${fmt(r.frontGCp,3)} ${r.frontInternalSign === '+' ? '+' : '-'} ${fmt(r.GCpi,3)}) = ${fmt(r.pFront,2)} kgf/m²<br>p_back = ${fmt(r.qp,2)} × (${fmt(r.backGCp,3)} ${r.backInternalSign === '+' ? '+' : '-'} ${fmt(r.GCpi,3)}) = ${fmt(r.pBack,2)} kgf/m²<br>本頁對正、背面各自採使其外壓方向最不利之內壓符號；此為本工具箱的 C&C 女兒牆簡化計算路線。`);
     if (enableReduce) {
       html += step('⑤ 特殊修正 / 折減後風壓', `
         修正模式 = <span class="val">${reduceModeName(reduceMode)}</span><br>

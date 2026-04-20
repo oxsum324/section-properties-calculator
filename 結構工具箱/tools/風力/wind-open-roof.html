@@ -334,6 +334,7 @@ function calc() {
   const V = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
   const terrain = document.getElementById('terrain').value;
   const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
+  const t = W.TERRAIN[terrain] || W.TERRAIN.C;
   const hAvg = val('h');
   const hEave = val('he');
   const Kzt = val('Kzt') || 1.0;
@@ -465,11 +466,14 @@ function calc() {
     V = <span class="val">${V}</span> m/s, I = <span class="val">${I}</span>, K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
     平均屋頂高 h = ${fmt(hAvg,1)} m, 屋簷高 h<sub>e</sub> = ${fmt(hEave,1)} m<br>
     計算採用 h = ${fmt(hUse,1)} m, B = ${fmt(B,1)} m, L = ${fmt(L,1)} m<br>
+    地況參數：α = ${fmt(t.alpha,2)}, z<sub>g</sub> = ${fmt(t.zg,1)} m, z<sub>min</sub> = ${fmt(t.zmin,1)} m<br>
     屋頂形式 = ${roofType === 'monoslope' ? '單斜屋頂' : '雙斜屋頂'}，阻擋 = ${blockage === 'unblocked' ? '無阻擋' : '有阻擋'}<br>
     採用圖表 = ${sourceFigure}
   `);
   html += step('② 速度壓與陣風因子', `
-    q(h) = <span class="val">${fmt(r.qh,1)}</span> kgf/m²<br>
+    z<sub>use</sub> = max(h, z<sub>min</sub>) = <span class="val">${fmt(Math.max(hUse, t.zmin),1)}</span> m<br>
+    K(h) = 2.774 × (${fmt(Math.max(hUse, t.zmin),1)}/${fmt(t.zg,1)})<sup>${fmt(2 * t.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(hUse, terrain),4)}</span><br>
+    q(h) = 0.06 × ${fmt(W.calcKz(hUse, terrain),4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val">${fmt(r.qh,1)}</span> kgf/m²<br>
     G = <span class="val">${fmt(r.G,3)}</span>
   `, `Eq 3.4: p = q(h) × G × Cpn`);
   html += step('③ 圖 3.3 淨風壓係數 Cpn', `
@@ -482,7 +486,7 @@ function calc() {
   html += step('④ 設計風壓', `
     p<sub>+</sub> = q(h) × G × Cpn<sub>pos</sub> = <span class="val hl">${fmt(r.p_pos,1)}</span> kgf/m²<br>
     p<sub>−</sub> = q(h) × G × Cpn<sub>neg</sub> = <span class="val hl">${fmt(r.p_neg,1)}</span> kgf/m²
-  `);
+  `, `p+ = ${fmt(r.qh,2)} × ${fmt(r.G,3)} × ${fmt(r.Cpn.pos,3)} = ${fmt(r.p_pos,2)} kgf/m²<br>p− = ${fmt(r.qh,2)} × ${fmt(r.G,3)} × ${fmt(r.Cpn.neg,3)} = ${fmt(r.p_neg,2)} kgf/m²`);
   if (enableReduce) {
     html += step('⑤ 特殊修正 / 折減後風壓', `
       修正模式 = <span class="val">${reduceModeName(reduceMode)}</span><br>
