@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐風設計 — 案件總覽 V1</title>
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#7c3aed; color:#fff; }
+  .tool-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-top:8px; }
+  .tool-link {
+    display:flex; flex-direction:column; gap:4px;
+    padding:14px 16px; border-radius:10px; border:1px solid var(--border);
+    background:#fff; color:var(--text); text-decoration:none;
+    transition: all 0.15s;
+  }
+  .tool-link:hover { background:#f0f9ff; border-color:#0ea5e9; transform:translateY(-1px); box-shadow:0 4px 10px rgba(14,165,233,0.12); }
+  .tool-link strong { color:var(--primary); font-size:0.95em; }
+  .tool-link .desc { font-size:0.78em; color:var(--text-light); line-height:1.5; }
+  .tool-link .scope { font-size:0.74em; color:#0369a1; background:#e0f2fe; padding:2px 8px; border-radius:6px; align-self:flex-start; margin-top:2px; }
+  .summary-box {
+    background:#f8fafc; border:1px solid var(--border); border-left:4px solid #7c3aed;
+    border-radius:8px; padding:12px 14px; margin-top:8px;
+    font-family:'Consolas',monospace; font-size:0.86em; line-height:1.7;
+  }
+  .summary-box strong { color:#7c3aed; }
+  .legend-tag {
+    display:inline-block; margin:2px 4px 2px 0;
+    padding:2px 10px; border-radius:10px; font-size:0.74em;
+    background:#ede9fe; color:#5b21b6; font-weight:700;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐風設計 — 案件總覽 <span class="badge-v">V1</span></h1>
+  <p>輸入一次案件基本參數，自動派送至各子工具 ｜ 依 107 規範</p>
+  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="card mode-bar print-meta">
+  <strong class="mode-bar__label">計畫資訊：</strong>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo" class="w-no" placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+  </div>
+</div>
+
+<div class="card">
+  <h2>案件基本參數</h2>
+  <div class="form-row">
+    <div class="form-group">
+      <label>地點 (基本設計風速)</label>
+      <select id="city"></select>
+      <div class="hint" id="vHint"></div>
+    </div>
+    <div class="form-group">
+      <label>地況分類</label>
+      <select id="terrain">
+        <option value="A">A — 大城市市中心</option>
+        <option value="B">B — 都市郊區</option>
+        <option value="C" selected>C — 開闊平坦地</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label>用途係數</label>
+      <select id="impClass"></select>
+    </div>
+    <div class="form-group">
+      <label>K<sub>zt</sub> 地形係數</label>
+      <input id="Kzt" type="number" value="1.0" step="0.05">
+      <div class="hint">平地取 1.0；山頂或岩盤需另算 (規範 §2.7)</div>
+    </div>
+  </div>
+  <h3 style="margin-top:14px;">主結構幾何</h3>
+  <div class="form-row">
+    <div class="form-group">
+      <label>建築物總高 H (m)</label>
+      <input id="H" type="number" value="30" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>樓層數</label>
+      <input id="floors" type="number" value="10" step="1">
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label>X 向迎風寬 B<sub>x</sub> (m)</label>
+      <input id="Bx" type="number" value="20" step="0.1">
+    </div>
+    <div class="form-group">
+      <label>Y 向迎風寬 B<sub>y</sub> (m)</label>
+      <input id="By" type="number" value="40" step="0.1">
+    </div>
+  </div>
+  <button class="btn-calc" id="btnSave">儲存共用參數 → 派送至子工具</button>
+  <div class="hint" id="saveMsg" style="margin-top:6px; color:#059669;"></div>
+</div>
+
+<div class="card">
+  <h2>案件摘要</h2>
+  <div class="summary-box" id="summaryBox">尚未儲存案件參數。</div>
+</div>
+
+<div class="card">
+  <h2>主結構工具</h2>
+  <div class="legend">主結構抗風骨架 (MWFRS) 計算路線；總高與兩向迎風寬決定整體風力。</div>
+  <div class="tool-grid">
+    <a class="tool-link" href="wind-force.html" target="_blank">
+      <strong>① 矩形建物 MWFRS</strong>
+      <span class="scope">第二章 主流程</span>
+      <span class="desc">逐層分析、X / Y 兩向、橫風向、扭矩；柔性建物完整 Gf。</span>
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>外牆與屋面構材 (C&amp;C)</h2>
+  <div class="legend">構材與包覆物採區域 GCp 設計，外牆 4/5、屋面 1/2/3。</div>
+  <div class="tool-grid">
+    <a class="tool-link" href="wind-cc.html" target="_blank">
+      <strong>② 區域風壓 (C&amp;C)</strong>
+      <span class="scope">第三章 §3.3 / §3.5</span>
+      <span class="desc">外牆與屋面區域逐區設計風壓；正/負壓組合，主控標示自動高亮。</span>
+    </a>
+    <a class="tool-link" href="wind-parapet.html" target="_blank">
+      <strong>③ 女兒牆風壓</strong>
+      <span class="scope">第三章 §3.4 / 圖 3.4-3.5</span>
+      <span class="desc">MWFRS 與 C&amp;C 雙模式；建築物屋頂 / 單一屋頂女兒牆全條件展開。</span>
+    </a>
+    <a class="tool-link" href="wind-open-roof.html" target="_blank">
+      <strong>④ 開放式建築屋面</strong>
+      <span class="scope">第三章 §3.4 / 圖 3.3</span>
+      <span class="desc">單斜 / 雙斜開放屋頂之 Cpn 淨風壓係數。</span>
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>特殊標的物</h2>
+  <div class="legend">附屬構造物之風力骨架；輸出 F、V、M 與分段剪力表。</div>
+  <div class="tool-grid">
+    <a class="tool-link" href="wind-object-solid.html" target="_blank">
+      <strong>⑤ 實體標的物</strong>
+      <span class="scope">第二章 表 2.13</span>
+      <span class="desc">實體箱體、看板、設備罩體；單一作用點或分段。</span>
+    </a>
+    <a class="tool-link" href="wind-object-frame.html" target="_blank">
+      <strong>⑥ 透空 / 格子式</strong>
+      <span class="scope">第二章 表 2.11 / 2.15</span>
+      <span class="desc">中空標示物、格子構架、桁架高塔。</span>
+    </a>
+    <a class="tool-link" href="wind-object-tower.html" target="_blank">
+      <strong>⑦ 煙囪 / 高塔 / 水塔</strong>
+      <span class="scope">第二章 表 2.12</span>
+      <span class="desc">塔狀構造物 + 塔頂附加風力。</span>
+    </a>
+    <a class="tool-link" href="wind-fence-sign.html" target="_blank">
+      <strong>⑧ 圍籬牆 / 獨立招牌</strong>
+      <span class="scope">第二章 表 2.10</span>
+      <span class="desc">座地 / 架高雙模式；形心高度速度壓 + F/V/M。</span>
+    </a>
+    <a class="tool-link" href="wind-shape-factor.html" target="_blank">
+      <strong>⑨ 形狀 / 修正係數</strong>
+      <span class="scope">第二章 表 2.10/2.13/2.14</span>
+      <span class="desc">Cf 與修正係數查表，供回填至其他工具。</span>
+    </a>
+    <a class="tool-link" href="wind-special.html" target="_blank">
+      <strong>⑩ 特殊修正 / 折減</strong>
+      <span class="scope">附加流程</span>
+      <span class="desc">遮蔽折減、透氣外牆折減等 λ 係數整理。</span>
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <h2>常用工作流程</h2>
+  <div class="legend">建議的耐風檢核順序（依案件規模可選擇性執行）：</div>
+  <ol style="margin:8px 0 0 24px; line-height:1.9; font-size:0.88em;">
+    <li><strong>主結構檢核</strong>：輸入基本參數後執行 ① <em>矩形建物 MWFRS</em>，得到逐層風力、底部剪力、彎矩。</li>
+    <li><strong>包覆物檢核</strong>：以同一案件參數執行 ② <em>C&amp;C</em>，逐區域查最大正/負壓。</li>
+    <li><strong>女兒牆 / 突出物</strong>：若有女兒牆執行 ③；若有附屬看板/設備執行 ⑤–⑧。</li>
+    <li><strong>形狀修正</strong>：特殊形狀（角隅圓弧、傾斜面）以 ⑨ 查係數，回填至 ⑤–⑧。</li>
+    <li><strong>特殊折減</strong>：遮蔽、透氣外牆、風洞修正等以 ⑩ 整理依據。</li>
+  </ol>
+  <div class="note" style="margin-top:10px;">
+    ⚠ 本頁將「案件基本參數」儲存於本機瀏覽器 (localStorage)；後續可參考此摘要在子工具中重複輸入相同參數。
+    （未來版本將擴充 URL 參數派送與一鍵跳轉預填功能。）
+  </div>
+</div>
+</div>
+
+<script src="../../core/loads/wind.js"></script>
+<script>
+const W = window.Wind;
+const fmt = (v, d=2) => isFinite(v) ? v.toFixed(d) : '—';
+
+// ── 城市選單 ──
+(function() {
+  const sel = document.getElementById('city');
+  Object.entries(W.CITY_QUICK).forEach(([name, v]) => {
+    const o = document.createElement('option');
+    o.value = name; o.textContent = `${name}　(V = ${v} m/s)`;
+    if (name === '臺北市') o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', refreshV);
+  refreshV();
+})();
+function refreshV() {
+  const v = W.CITY_QUICK[document.getElementById('city').value];
+  document.getElementById('vHint').textContent = `V₁₀₍C₎ = ${v} m/s (10 分鐘平均, 50 年回歸期)`;
+}
+
+// ── 用途係數選單 ──
+(function() {
+  const sel = document.getElementById('impClass');
+  Object.entries(W.IMPORTANCE).forEach(([k, v]) => {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = `${v.name}　I=${v.factor}`;
+    if (k === 'IV') o.selected = true; // 預設第四類「一般建築」I=1.00
+    sel.appendChild(o);
+  });
+})();
+
+// ── 載入既有摘要 ──
+function loadOverview() {
+  try {
+    const raw = localStorage.getItem('wind-overview-params');
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p.city && document.querySelector(`#city option[value="${p.city}"]`)) document.getElementById('city').value = p.city;
+      if (p.terrain) document.getElementById('terrain').value = p.terrain;
+      if (p.impClass && document.querySelector(`#impClass option[value="${p.impClass}"]`)) document.getElementById('impClass').value = p.impClass;
+      if (p.Kzt != null) document.getElementById('Kzt').value = p.Kzt;
+      if (p.H != null) document.getElementById('H').value = p.H;
+      if (p.floors != null) document.getElementById('floors').value = p.floors;
+      if (p.Bx != null) document.getElementById('Bx').value = p.Bx;
+      if (p.By != null) document.getElementById('By').value = p.By;
+      if (p.projName) document.getElementById('projName').value = p.projName;
+      if (p.projNo) document.getElementById('projNo').value = p.projNo;
+      if (p.projDesigner) document.getElementById('projDesigner').value = p.projDesigner;
+      refreshV();
+      renderSummary(p);
+    }
+  } catch (e) {
+    console.warn('overview load failed', e);
+  }
+}
+
+function gatherParams() {
+  return {
+    city: document.getElementById('city').value,
+    terrain: document.getElementById('terrain').value,
+    impClass: document.getElementById('impClass').value,
+    Kzt: parseFloat(document.getElementById('Kzt').value) || 1.0,
+    H: parseFloat(document.getElementById('H').value) || 0,
+    floors: parseInt(document.getElementById('floors').value) || 0,
+    Bx: parseFloat(document.getElementById('Bx').value) || 0,
+    By: parseFloat(document.getElementById('By').value) || 0,
+    projName: document.getElementById('projName').value || '',
+    projNo: document.getElementById('projNo').value || '',
+    projDesigner: document.getElementById('projDesigner').value || '',
+    savedAt: new Date().toISOString(),
+  };
+}
+
+function renderSummary(p) {
+  const V = W.CITY_QUICK[p.city] || 0;
+  const t = W.TERRAIN[p.terrain];
+  const I = W.IMPORTANCE[p.impClass]?.factor || 1.0;
+  const KzH = W.calcKz(p.H, p.terrain);
+  const qH = 0.06 * KzH * p.Kzt * I * I * V * V;
+  const aspectX = p.Bx > 0 ? (p.H / p.Bx).toFixed(2) : '—';
+  const aspectY = p.By > 0 ? (p.H / p.By).toFixed(2) : '—';
+  const dt = p.savedAt ? new Date(p.savedAt).toLocaleString('zh-TW') : '';
+  document.getElementById('summaryBox').innerHTML = `
+    <div><span class="legend-tag">案件</span>${p.projName || '—'}　<span class="legend-tag">編號</span>${p.projNo || '—'}　<span class="legend-tag">設計</span>${p.projDesigner || '—'}</div>
+    <div style="margin-top:6px;">
+      <strong>V</strong> = ${V} m/s（${p.city}）
+      <strong>地況</strong> ${p.terrain}（α=${t.alpha}, z<sub>g</sub>=${t.zg} m, z<sub>min</sub>=${t.zmin} m）
+      <strong>I</strong> = ${I}　<strong>K<sub>zt</sub></strong> = ${p.Kzt}
+    </div>
+    <div style="margin-top:6px;">
+      <strong>H</strong> = ${p.H} m（${p.floors} 層）
+      <strong>B<sub>x</sub> × B<sub>y</sub></strong> = ${p.Bx} × ${p.By} m
+      <strong>H/B</strong> = ${aspectX} (X) / ${aspectY} (Y)
+    </div>
+    <div style="margin-top:6px;">
+      <strong>K(H)</strong> = ${KzH.toFixed(4)}
+      <strong>q(H)</strong> = <span style="color:#7c3aed;">${qH.toFixed(1)} kgf/m²</span>
+      （頂部速度壓，供子工具參考）
+    </div>
+    <div style="margin-top:6px; font-size:0.82em; color:var(--text-light);">儲存時間：${dt}</div>
+  `;
+}
+
+document.getElementById('btnSave').addEventListener('click', () => {
+  const p = gatherParams();
+  if (p.H <= 0 || p.Bx <= 0 || p.By <= 0) {
+    document.getElementById('saveMsg').textContent = '⚠ H、B_x、B_y 都需大於 0';
+    document.getElementById('saveMsg').style.color = '#dc2626';
+    return;
+  }
+  localStorage.setItem('wind-overview-params', JSON.stringify(p));
+  renderSummary(p);
+  const msg = document.getElementById('saveMsg');
+  msg.style.color = '#059669';
+  msg.textContent = `✓ 已儲存（${new Date().toLocaleTimeString('zh-TW')}）。子工具中可手動沿用此處參數，未來版本將支援自動派送。`;
+});
+
+loadOverview();
+</script>
+</body>
+</html>

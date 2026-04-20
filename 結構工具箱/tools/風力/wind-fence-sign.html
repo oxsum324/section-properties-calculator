@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐風設計 — 圍籬牆 / 獨立招牌風力 V1</title>
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
+  table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
+  table.zone th { background:#f1f5f9; color:var(--primary); font-weight:700; font-family:inherit; }
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#991b1b; color:#fff; }
+  .step { margin-bottom:14px; }
+  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px; padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
+  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
+  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
+  .step-body .val.hl { font-size:1.05em; color:#166534; }
+  .schema-svg { width:100%; max-width:360px; height:auto; display:block; margin:8px auto; background:#fff; border:1px solid var(--border); border-radius:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐風設計 — 圍籬牆 / 獨立招牌風力 <span class="badge-v">V1</span></h1>
+  <p>依規範表 2.10 招牌物 Cf 路線整合 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
+  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="card mode-bar print-meta">
+  <strong class="mode-bar__label">計畫資訊：</strong>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo" class="w-no" placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+  </div>
+</div>
+<div class="main-layout">
+<div>
+  <div class="card">
+    <h2>適用範圍</h2>
+    <div class="note">
+      本頁適用於 <strong>獨立招牌、圍籬牆、廣告塔、自立看板</strong> 等實體單片構造物之風力計算，採規範表 2.10 招牌物 Cf 路線：<br>
+      <code>F = q(z<sub>r</sub>) · G · C<sub>f</sub> · A</code>，<code>z<sub>r</sub> = s + h/2</code>（風力作用於形心高度）。<br>
+      Cf 依寬高比 B/h 與離地狀態（座地 / 架高）查表 2.10：
+      <ul style="margin:6px 0 0 18px; line-height:1.6;">
+        <li><strong>座地</strong>（圍籬牆、直接座地看板）：使用較低之 Cf 路線</li>
+        <li><strong>架高</strong>（離地架立招牌、廣告塔）：因風從底部繞流，採較高 Cf 路線</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>基本資料</h2>
+    <div class="form-group">
+      <label>地點 (基本設計風速)</label>
+      <select id="city"></select>
+      <div class="hint" id="vHint"></div>
+    </div>
+    <div class="form-group">
+      <label>地況分類</label>
+      <select id="terrain">
+        <option value="A">A — 大城市市中心</option>
+        <option value="B">B — 都市郊區</option>
+        <option value="C" selected>C — 開闊平坦地</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>用途係數</label>
+      <select id="impClass"></select>
+    </div>
+    <div class="form-group">
+      <label>K<sub>zt</sub></label>
+      <input id="Kzt" type="number" value="1.0" step="0.05">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>標的物條件</h2>
+    <div class="form-group">
+      <label>標的物類型</label>
+      <select id="objType">
+        <option value="fence" selected>圍籬牆 / 直接座地（s = 0）</option>
+        <option value="elevated">獨立招牌 / 離地架高（s &gt; 0）</option>
+      </select>
+      <div class="hint" id="typeHint"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>標的物高度 h (m)</label>
+        <input id="h" type="number" value="2.0" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>標的物寬度 B (m)</label>
+        <input id="B" type="number" value="6.0" step="0.1">
+      </div>
+    </div>
+    <div class="form-group" id="sBox">
+      <label>離地底高度 s (m)</label>
+      <input id="s" type="number" value="3.0" step="0.1">
+      <div class="hint">圍籬牆模式自動取 s = 0；架高模式由使用者輸入。</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>形狀修正 φ</label>
+        <input id="phi" type="number" value="1.00" step="0.01">
+        <div class="hint">無額外修正取 1.00；圓弧轉角、傾斜面等視情況調整。</div>
+      </div>
+      <div class="form-group">
+        <label>C<sub>f</sub> 覆寫值</label>
+        <input id="cfOverride" type="number" value="" step="0.01" placeholder="留空 = 採表 2.10 預設">
+      </div>
+    </div>
+    <button class="btn-calc" id="btnCalc">計算圍籬牆 / 招牌風力</button>
+    <div class="chk-detail">
+      <input type="checkbox" id="chkDetail">
+      <label for="chkDetail">顯示詳列計算式</label>
+    </div>
+    <button class="btn-print" type="button">列印計算書</button>
+  </div>
+</div>
+
+<div id="resultPanel">
+  <div class="card">
+    <h2>規範適用檢查</h2>
+    <div id="applicStatus" class="banner-status">尚未檢核</div>
+    <div id="applicList" class="applic-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>幾何示意</h2>
+    <svg class="schema-svg" id="schemaSvg" viewBox="0 0 360 220"></svg>
+  </div>
+
+  <div class="card">
+    <h2>設計採用表</h2>
+    <table class="zone" id="adoptTable">
+      <thead>
+        <tr>
+          <th>項目</th>
+          <th>採用值</th>
+          <th>單位</th>
+          <th>說明</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="legend" id="adoptNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>控制結果</h2>
+    <div class="results-grid">
+      <div class="result-item" id="r-zr"><span class="label">作用形心高度 z<sub>r</sub></span><span><span class="value">—</span><span class="unit">m</span></span></div>
+      <div class="result-item" id="r-aspect"><span class="label">寬高比 B/h</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-cf"><span class="label">C<sub>f,eff</sub></span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-qz"><span class="label">速度壓 q(z<sub>r</sub>)</span><span><span class="value">—</span><span class="unit">kgf/m²</span></span></div>
+      <div class="result-item" id="r-g"><span class="label">陣風因子 G</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-area"><span class="label">投影面積 A</span><span><span class="value">—</span><span class="unit">m²</span></span></div>
+      <div class="result-item ok" id="r-force"><span class="label">設計風力 F</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
+      <div class="result-item ok" id="r-shear"><span class="label">底部剪力 V</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
+      <div class="result-item warn" id="r-moment"><span class="label">底部彎矩 M</span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
+    </div>
+  </div>
+
+  <div class="card" id="stepsCard">
+    <h2>逐步計算</h2>
+    <div id="steps"></div>
+  </div>
+
+  <div class="card">
+    <h2>說明</h2>
+    <div class="legend">
+      <code>z<sub>r</sub></code> = s + h/2，作用力施於標的物形心。<br>
+      <code>q(z<sub>r</sub>)</code> = 0.06 × K(z<sub>r</sub>) × K<sub>zt</sub> × (I × V)²，K(z) 依地況以 z<sub>min</sub> 截下限。<br>
+      <code>C<sub>f</sub></code> 依規範表 2.10 (招牌物)：B/h 寬高比查表，分「直接座地」與「離地架高」兩條曲線。<br>
+      <code>F</code> = q(z<sub>r</sub>) · G · C<sub>f,eff</sub> · A，<code>C<sub>f,eff</sub></code> = C<sub>f</sub> · φ。<br>
+      <code>底部剪力 V</code> = F，<code>底部彎矩 M</code> = F · z<sub>r</sub>（單一作用力之底部矩）。
+    </div>
+    <div class="note">
+      ⚠ 本頁工具預設 Cf 採表 2.10 之招牌物路線；若專案已有試驗值或專案文件指定，應於覆寫欄位輸入優先採用。
+      其他特殊形狀（如圓弧轉角、雙面標示、多層）應視情況另採形狀修正係數 φ。
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script src="../../core/loads/wind.js"></script>
+<script src="../../core/wind-report.js"></script>
+<script>
+const W = window.Wind;
+const fmt = (v, d=2) => isFinite(v) ? v.toFixed(d) : '—';
+const val = id => parseFloat(document.getElementById(id).value) || 0;
+const setR = (id, v, d=2) => {
+  const el = document.querySelector('#' + id + ' .value');
+  if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d);
+};
+
+// ── 城市選單 ──
+(function() {
+  const sel = document.getElementById('city');
+  Object.entries(W.CITY_QUICK).forEach(([name, v]) => {
+    const o = document.createElement('option');
+    o.value = name; o.textContent = `${name}　(V = ${v} m/s)`;
+    if (name === '臺北市') o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener('change', refreshV);
+  refreshV();
+})();
+function refreshV() {
+  const v = W.CITY_QUICK[document.getElementById('city').value];
+  document.getElementById('vHint').textContent = `V₁₀₍C₎ = ${v} m/s (10 分鐘平均, 50 年回歸期)`;
+}
+
+// ── 用途係數選單 ──
+(function() {
+  const sel = document.getElementById('impClass');
+  Object.entries(W.IMPORTANCE).forEach(([k, v]) => {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = `${v.name}　I=${v.factor}`;
+    if (k === 'IV') o.selected = true; // 預設第四類「一般建築」I=1.00
+    sel.appendChild(o);
+  });
+})();
+
+// ── 模式切換 ──
+const objType = document.getElementById('objType');
+const sBox = document.getElementById('sBox');
+const sInput = document.getElementById('s');
+function refreshType() {
+  const t = objType.value;
+  if (t === 'fence') {
+    sInput.value = 0;
+    sInput.disabled = true;
+    document.getElementById('typeHint').textContent = '直接座地：風從頂部繞流，採表 2.10 之 SIGN_CF_GROUND 路線（較低 Cf）。';
+  } else {
+    sInput.disabled = false;
+    if (parseFloat(sInput.value) === 0) sInput.value = 3;
+    document.getElementById('typeHint').textContent = '離地架高：風從底部繞流，採表 2.10 之 SIGN_CF_ABOVE 路線（較高 Cf）。';
+  }
+}
+objType.addEventListener('change', refreshType);
+refreshType();
+
+// ── 主計算 ──
+function calc() {
+  const city = document.getElementById('city').value;
+  const V = W.CITY_QUICK[city] || 37.5;
+  const terrain = document.getElementById('terrain').value;
+  const t = W.TERRAIN[terrain];
+  const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
+  const Kzt = val('Kzt') || 1.0;
+  const h = val('h'), B = val('B'), s = val('s');
+  const phi = val('phi') || 1.0;
+  const cfOv = parseFloat(document.getElementById('cfOverride').value);
+  const type = objType.value;
+  if (h <= 0 || B <= 0) {
+    setApplicability([{ label: '幾何', level: 'fail', message: 'h 與 B 須大於 0' }]);
+    return;
+  }
+
+  // 形心高度 zr = s + h/2
+  const zr = s + h / 2;
+  const Kz = W.calcKz(zr, terrain);
+  const qz = 0.06 * Kz * Kzt * I * I * V * V;
+  // Cf 查表 2.10 — 寬高比 B/h
+  const aspectRatio = B / h;
+  const atGround = (type === 'fence');
+  const cfData = W.lookupSignCf({ atGround, aspectRatio });
+  const cfBase = (isFinite(cfOv) && cfOv > 0) ? cfOv : cfData.cf;
+  const cfEff = cfBase * phi;
+  // G — 剛性陣風因子（Bref 取 B 較合理）
+  const Gobj = W.calcGustRigid(h + s, B, terrain);
+  const G = Gobj.G;
+  const A = h * B;
+  const F = qz * G * cfEff * A;
+  const Vshear = F;
+  const Mbase = F * zr;
+
+  // ── 適用性 ──
+  const applic = [
+    { label: '標的物類型', level: 'ok', message: type === 'fence' ? '圍籬牆 / 直接座地' : '獨立招牌 / 離地架高' },
+    { label: '寬高比 B/h', level: 'ok', message: `B/h = ${fmt(aspectRatio, 2)}（表 2.10 適用範圍：${atGround ? '3 ~ 40' : '6 ~ 80'}）` },
+    { label: 'Cf 路線', level: cfOv > 0 ? 'warn' : 'ok', message: cfOv > 0 ? `採覆寫 Cf = ${fmt(cfOv, 3)}` : `採表 2.10 預設 Cf = ${fmt(cfData.cf, 3)}` },
+    { label: 'φ 形狀修正', level: 'ok', message: `φ = ${fmt(phi, 2)}` },
+  ];
+  if (aspectRatio < (atGround ? 3 : 6) || aspectRatio > (atGround ? 40 : 80)) {
+    applic.push({ label: '寬高比範圍', level: 'warn', message: '超出表 2.10 範圍，採表頭/末尾值外推；建議由風洞或文獻另行覆寫 Cf' });
+  }
+  setApplicability(applic);
+
+  // ── 採用表 ──
+  document.querySelector('#adoptTable tbody').innerHTML = `
+    <tr><td>形心高度 z<sub>r</sub></td><td>${fmt(zr, 2)}</td><td>m</td><td>= s + h/2 = ${fmt(s, 2)} + ${fmt(h/2, 2)}</td></tr>
+    <tr><td>速度壓 q(z<sub>r</sub>)</td><td>${fmt(qz, 1)}</td><td>kgf/m²</td><td>K(z<sub>r</sub>) = ${fmt(Kz, 4)}</td></tr>
+    <tr><td>陣風因子 G</td><td>${fmt(G, 3)}</td><td>—</td><td>剛性 G = 0.85·(1 + 1.7·gQ·IzQ·Q) (Eq 2.9)</td></tr>
+    <tr><td>表 2.10 C<sub>f</sub></td><td>${fmt(cfData.cf, 3)}</td><td>—</td><td>路線 = ${atGround ? '直接座地' : '離地架高'}；B/h = ${fmt(aspectRatio, 2)}</td></tr>
+    <tr><td>採用 C<sub>f,eff</sub></td><td>${fmt(cfEff, 3)}</td><td>—</td><td>= C<sub>f</sub> × φ = ${fmt(cfBase, 3)} × ${fmt(phi, 2)}</td></tr>
+    <tr><td>投影面積 A</td><td>${fmt(A, 2)}</td><td>m²</td><td>= h × B = ${fmt(h, 2)} × ${fmt(B, 2)}</td></tr>
+    <tr style="font-weight:700;background:#fff7ed;"><td>設計風力 F</td><td>${fmt(F, 1)}</td><td>kgf</td><td>= q(z<sub>r</sub>) · G · C<sub>f,eff</sub> · A</td></tr>
+    <tr style="font-weight:700;background:#fff7ed;"><td>底部剪力 V</td><td>${fmt(Vshear, 1)}</td><td>kgf</td><td>= F</td></tr>
+    <tr style="font-weight:700;background:#fff7ed;"><td>底部彎矩 M</td><td>${fmt(Mbase, 1)}</td><td>kgf·m</td><td>= F × z<sub>r</sub></td></tr>
+  `;
+  document.getElementById('adoptNote').textContent =
+    `本表為${type === 'fence' ? '圍籬牆 / 直接座地' : '獨立招牌 / 離地架高'}風力之單一作用力整理；M 為對基底取矩之單一作用力底部彎矩。`;
+
+  setR('r-zr', zr); setR('r-aspect', aspectRatio); setR('r-cf', cfEff, 3);
+  setR('r-qz', qz, 1); setR('r-g', G, 3); setR('r-area', A);
+  setR('r-force', F, 1); setR('r-shear', Vshear, 1); setR('r-moment', Mbase, 1);
+
+  // ── 逐步計算 ──
+  const showSteps = document.getElementById('chkDetail').checked;
+  const stepsEl = document.getElementById('steps');
+  if (!showSteps) {
+    stepsEl.innerHTML = '<div class="legend">勾選「顯示詳列計算式」可展開逐步計算過程。</div>';
+  } else {
+    let html = '';
+    html += step('① 基本參數', `
+      V = <span class="val">${V}</span> m/s, I = <span class="val">${I}</span>, K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
+      地況 ${terrain}: α = <span class="val">${fmt(t.alpha, 2)}</span>, z<sub>g</sub> = <span class="val">${fmt(t.zg, 1)}</span> m, z<sub>min</sub> = <span class="val">${fmt(t.zmin, 1)}</span> m<br>
+      標的物 h = <span class="val">${fmt(h, 2)}</span> m, B = <span class="val">${fmt(B, 2)}</span> m, s = <span class="val">${fmt(s, 2)}</span> m
+    `);
+    const zUse = Math.max(zr, t.zmin);
+    html += step('② 形心高度速度壓', `
+      z<sub>r</sub> = s + h/2 = <span class="val">${fmt(zr, 2)}</span> m，z<sub>use</sub> = max(z<sub>r</sub>, z<sub>min</sub>) = <span class="val">${fmt(zUse, 2)}</span> m<br>
+      K(z<sub>r</sub>) = 2.774 × (${fmt(zUse, 2)}/${fmt(t.zg, 1)})<sup>${fmt(2 * t.alpha, 2)}</sup> = <span class="val">${fmt(Kz, 4)}</span><br>
+      q(z<sub>r</sub>) = 0.06 × ${fmt(Kz, 4)} × ${fmt(Kzt, 3)} × (${fmt(I, 2)} × ${fmt(V, 1)})<sup>2</sup> = <span class="val hl">${fmt(qz, 1)}</span> kgf/m²
+    `);
+    html += step('③ 形狀係數 C<sub>f</sub>', `
+      寬高比 B/h = <span class="val">${fmt(aspectRatio, 2)}</span>（路線：${atGround ? '直接座地' : '離地架高'}）<br>
+      表 2.10 內插：C<sub>f</sub> = <span class="val">${fmt(cfData.cf, 3)}</span>${cfOv > 0 ? `（覆寫為 <span class="val">${fmt(cfOv, 3)}</span>）` : ''}<br>
+      C<sub>f,eff</sub> = C<sub>f</sub> · φ = ${fmt(cfBase, 3)} × ${fmt(phi, 2)} = <span class="val hl">${fmt(cfEff, 3)}</span>
+    `, atGround
+      ? '路線：3,1.2 / 5,1.3 / 8,1.4 / 10,1.5 / 20,1.75 / 30,1.85 / 40,2.0'
+      : '路線：6,1.2 / 10,1.3 / 16,1.4 / 20,1.5 / 40,1.75 / 60,1.85 / 80,2.0');
+    html += step('④ 設計風力與底部剪力 / 彎矩', `
+      A = h × B = ${fmt(h, 2)} × ${fmt(B, 2)} = <span class="val">${fmt(A, 2)}</span> m²<br>
+      F = q(z<sub>r</sub>) · G · C<sub>f,eff</sub> · A = ${fmt(qz, 2)} × ${fmt(G, 3)} × ${fmt(cfEff, 3)} × ${fmt(A, 2)} = <span class="val hl">${fmt(F, 1)}</span> kgf<br>
+      V = F = <span class="val hl">${fmt(Vshear, 1)}</span> kgf<br>
+      M = F · z<sub>r</sub> = ${fmt(F, 1)} × ${fmt(zr, 2)} = <span class="val hl">${fmt(Mbase, 1)}</span> kgf·m
+    `);
+    stepsEl.innerHTML = html;
+  }
+
+  drawSchema(h, B, s, type);
+}
+function step(title, body, footer) {
+  return `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}${footer ? `<div class="legend" style="margin-top:6px;">${footer}</div>` : ''}</div></div>`;
+}
+function setApplicability(items) {
+  const banner = document.getElementById('applicStatus');
+  const fail = items.find(i => i.level === 'fail');
+  const warn = items.find(i => i.level === 'warn');
+  banner.className = 'banner-status ' + (fail ? 'banner-fail' : warn ? 'banner-warn' : 'banner-ok');
+  banner.textContent = fail ? '❌ 不符適用範圍' : warn ? '⚠ 含警示項目，請確認' : '✓ 全部符合';
+  document.getElementById('applicList').innerHTML = items.map(i =>
+    `<div class="applic-item applic-${i.level}"><strong>${i.label}：</strong>${i.message}</div>`
+  ).join('');
+}
+
+// ── 幾何示意 ──
+function drawSchema(h, B, s, type) {
+  const svg = document.getElementById('schemaSvg');
+  const W_ = 360, H_ = 220;
+  const groundY = H_ - 30;
+  const margin = 30;
+  // 找出 scale
+  const totalH = s + h;
+  const scaleY = (groundY - 20) / Math.max(totalH, 1);
+  const scaleX = (W_ - 2 * margin) / Math.max(B, 1);
+  const sc = Math.min(scaleY, scaleX, 30);
+  const Bpx = B * sc, hpx = h * sc, spx = s * sc;
+  const cx = W_ / 2;
+  const x1 = cx - Bpx / 2, x2 = cx + Bpx / 2;
+  const yBot = groundY - spx, yTop = yBot - hpx;
+  let svgInner = '';
+  // 地面線
+  svgInner += `<line x1="0" y1="${groundY}" x2="${W_}" y2="${groundY}" stroke="#475569" stroke-width="2"/>`;
+  for (let i = 0; i < W_; i += 12) {
+    svgInner += `<line x1="${i}" y1="${groundY}" x2="${i + 6}" y2="${groundY + 6}" stroke="#475569" stroke-width="1"/>`;
+  }
+  // 板體
+  svgInner += `<rect x="${x1}" y="${yTop}" width="${Bpx}" height="${hpx}" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2"/>`;
+  // 支柱（架高模式）
+  if (type === 'elevated' && spx > 4) {
+    const poleW = 4;
+    svgInner += `<rect x="${x1 + Bpx * 0.2 - poleW / 2}" y="${yBot}" width="${poleW}" height="${spx}" fill="#475569"/>`;
+    svgInner += `<rect x="${x1 + Bpx * 0.8 - poleW / 2}" y="${yBot}" width="${poleW}" height="${spx}" fill="#475569"/>`;
+  }
+  // 風向箭頭
+  svgInner += `<defs><marker id="arrh" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/></marker></defs>`;
+  for (let k = 0; k < 4; k++) {
+    const yA = yTop + (k + 0.5) * hpx / 4;
+    svgInner += `<line x1="${x1 - 50}" y1="${yA}" x2="${x1 - 5}" y2="${yA}" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrh)"/>`;
+  }
+  // 標註
+  const zr = s + h / 2;
+  const zrPx = groundY - zr * sc;
+  svgInner += `<line x1="${x2 + 12}" y1="${yTop}" x2="${x2 + 12}" y2="${yBot}" stroke="#0f172a" stroke-width="1"/>`;
+  svgInner += `<text x="${x2 + 18}" y="${(yTop + yBot) / 2 + 4}" font-size="11" fill="#0f172a">h=${h.toFixed(1)}m</text>`;
+  if (s > 0) {
+    svgInner += `<line x1="${x2 + 12}" y1="${yBot}" x2="${x2 + 12}" y2="${groundY}" stroke="#0f172a" stroke-width="1" stroke-dasharray="3,2"/>`;
+    svgInner += `<text x="${x2 + 18}" y="${(yBot + groundY) / 2 + 4}" font-size="11" fill="#475569">s=${s.toFixed(1)}m</text>`;
+  }
+  svgInner += `<line x1="${x1}" y1="${groundY + 18}" x2="${x2}" y2="${groundY + 18}" stroke="#0f172a" stroke-width="1"/>`;
+  svgInner += `<text x="${cx}" y="${groundY + 30}" text-anchor="middle" font-size="11" fill="#0f172a">B=${B.toFixed(1)}m</text>`;
+  svgInner += `<circle cx="${cx}" cy="${zrPx}" r="3" fill="#f97316"/>`;
+  svgInner += `<text x="${cx + 8}" y="${zrPx + 4}" font-size="10" fill="#c2410c">z_r=${zr.toFixed(2)}m</text>`;
+  svg.innerHTML = svgInner;
+}
+
+document.getElementById('btnCalc').addEventListener('click', calc);
+document.getElementById('chkDetail').addEventListener('change', calc);
+calc();
+</script>
+</body>
+</html>
