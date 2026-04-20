@@ -1332,10 +1332,21 @@
 
   // ═══════════════════════════════
   //  頂樓角隅容許加速度 (§4.3)
-  //  回歸期半年: ≤ 0.05 m/s²
+  //  半年回歸期：依居住類別
+  //  住宅 (residence)：≤ 0.05 m/s²
+  //  辦公室 (office)：≤ 0.06 m/s²
+  //  其他 (general)：≤ 0.07 m/s²（僅供設計溝通使用，規範未明列）
   //  半年回歸期風速 ≈ V50 / 3.34
+  //
+  //  進階：ISO 6897 / ISO 10137 採頻率相依曲線；本工具預設採 §4.3 之
+  //  固定常用值，並提供居住類別切換以反映實務溝通常用之較寬限值。
   // ═══════════════════════════════
-  const ACCEL_LIMIT = 0.05;  // m/s²
+  const ACCEL_LIMITS = {
+    residence: { name: '住宅 (Residential)',     limit: 0.05 },
+    office:    { name: '辦公室 (Office)',         limit: 0.06 },
+    general:   { name: '其他 / 工廠 (General)',   limit: 0.07 },
+  };
+  const ACCEL_LIMIT = ACCEL_LIMITS.residence.limit;  // 預設住宅 (向下相容)
   const V_HALF_YEAR_RATIO = 1 / 3.34;  // V_0.5yr / V_50yr
   const G_ACCEL = 9.80665;
   const STRUCTURE_DENSITY = {
@@ -1446,6 +1457,7 @@
       thetaStar = 0,
       B,
       L,
+      occupancy = 'residence',
     } = p;
     const AD = calcPeakAcceleration(fn, Dstar);
     const AL = calcPeakAcceleration(fa, Lstar);
@@ -1456,12 +1468,16 @@
       AT * AT * ((B * B + L * L) / 4) +
       (L * AL * AT)
     );
+    const limit = (ACCEL_LIMITS[occupancy] || ACCEL_LIMITS.residence).limit;
     return {
       AD,
       AL,
       AT,
       Apeak,
-      pass: Apeak <= ACCEL_LIMIT,
+      occupancy,
+      limit,
+      ratio: Apeak / limit,
+      pass: Apeak <= limit,
     };
   }
 
@@ -1479,6 +1495,7 @@
       WD = 0,
       WL = 0,
       WT = 0,
+      occupancy = 'residence',
     } = p;
     const M = Math.max(totalMassKg, 1e-9);
     const Itheta = M * (widthB * widthB + lengthL * lengthL) / 12;
@@ -1488,6 +1505,7 @@
     const alphaT = WT * G_ACCEL / Itheta;
     const ATcorner = alphaT * rCorner;
     const Apeak = Math.sqrt(AD * AD + AL * AL + ATcorner * ATcorner);
+    const limit = (ACCEL_LIMITS[occupancy] || ACCEL_LIMITS.residence).limit;
     return {
       AD,
       AL,
@@ -1497,7 +1515,10 @@
       totalMassKg: M,
       Itheta,
       rCorner,
-      pass: Apeak <= ACCEL_LIMIT,
+      occupancy,
+      limit,
+      ratio: Apeak / limit,
+      pass: Apeak <= limit,
     };
   }
 
@@ -1902,6 +1923,7 @@
     CC_A_MIN, CC_A_MAX, interpGCp,
     DRIFT_LIMIT,
     ACCEL_LIMIT,
+    ACCEL_LIMITS,
     V_HALF_YEAR_RATIO,
     G_ACCEL,
     STRUCTURE_DENSITY,

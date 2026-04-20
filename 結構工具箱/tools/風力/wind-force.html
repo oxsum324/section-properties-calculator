@@ -332,6 +332,17 @@
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label>居住類別 (容許加速度限值)</label>
+          <select id="occupancy">
+            <option value="residence" selected>住宅 (Residential) — 0.05 m/s²</option>
+            <option value="office">辦公室 (Office) — 0.06 m/s²</option>
+            <option value="general">其他 / 工廠 (General) — 0.07 m/s²</option>
+          </select>
+          <div class="hint">§4.3 規範值對應住宅；其他用途以實務常用較寬限值參考。</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
           <label>橫風向自然頻率 f<sub>a</sub> (Hz)</label>
           <input id="fa" type="number" value="0.50" step="0.01">
           <div class="hint" id="faHint">規範解說建議概略 f<sub>a</sub> ≈ 22.86 / H</div>
@@ -365,7 +376,7 @@
         </div>
         <div class="form-group">
           <label>容許值</label>
-          <div class="hint" style="margin-top:10px;">第四章 4.3：最高居室樓層角隅尖峰加速度 ≤ 0.05 m/s²。</div>
+          <div class="hint" style="margin-top:10px;">第四章 §4.3：最高居室樓層角隅尖峰加速度 Ã 應 ≤ 容許值（住宅 0.05 / 辦公室 0.06 / 其他 0.07 m/s²）。</div>
         </div>
       </div>
       <div id="accelEstimateRow" style="display:none;">
@@ -861,12 +872,13 @@ function calc(forcedStoryHeights) {
   let accelEstimate = null;
   let accelEstimateY = null;
   const Vhalf = V * W.V_HALF_YEAR_RATIO;
+  const occupancy = document.getElementById('occupancy')?.value || 'residence';
   if (doAccelCheck) {
     if (accelMode === 'manual') {
       if (fa <= 0 || ft <= 0 || fn <= 0) { alert('啟用角隅加速度檢核時，f_n、f_a、f_t 均須大於 0。'); return; }
       if (Dstar < 0 || Lstar < 0 || thetaStar < 0) { alert('D*、L*、θ* 應輸入非負值。'); return; }
-      accel = W.calcCornerPeakAcceleration({ fn, fa, ft, Dstar, Lstar, thetaStar, B, L });
-      accelY = W.calcCornerPeakAcceleration({ fn, fa: faY, ft: ftY, Dstar, Lstar, thetaStar, B: L, L: B });
+      accel = W.calcCornerPeakAcceleration({ fn, fa, ft, Dstar, Lstar, thetaStar, B, L, occupancy });
+      accelY = W.calcCornerPeakAcceleration({ fn, fa: faY, ft: ftY, Dstar, Lstar, thetaStar, B: L, L: B, occupancy });
     } else {
       const rHalf = W.calcBuildingWind({
         V: Vhalf, terrain, I, B, L, storyH, Kzt, isFlexible, fn, beta, encl, roofSlope, roofType, windToRidge,
@@ -884,6 +896,7 @@ function calc(forcedStoryHeights) {
         WD: rHalf.Vb,
         WL: rHalf.crossWind ? rHalf.crossWind.reduce((s, c) => s + c.WL, 0) : 0,
         WT: rHalf.torsion ? rHalf.torsion.reduce((s, c) => s + c.MT, 0) : 0,
+        occupancy,
       });
       accelEstimateY = W.calcSimplifiedAccelEstimate({
         totalMassKg,
@@ -892,6 +905,7 @@ function calc(forcedStoryHeights) {
         WD: rHalfY.Vb,
         WL: rHalfY.crossWind ? rHalfY.crossWind.reduce((s, c) => s + c.WL, 0) : 0,
         WT: rHalfY.torsion ? rHalfY.torsion.reduce((s, c) => s + c.MT, 0) : 0,
+        occupancy,
       });
     }
   }
@@ -1084,7 +1098,8 @@ function calc(forcedStoryHeights) {
       X 風向角隅尖峰加速度 Ã<sub>x</sub> = <strong>${fmt(accel.Apeak,4)}</strong> m/s²。<br>
       Y 風向角隅尖峰加速度 Ã<sub>y</sub> = <strong>${fmt(accelY.Apeak,4)}</strong> m/s²。<br>
       控制風向 = <strong>${accelControl.dir}</strong>；控制加速度 = <strong>${fmt(accelControl.value,4)}</strong> m/s²。<br>
-      檢核結果：<strong style="color:${(accelControl.value || 0) <= 0.05 ? '#166534' : '#b91c1c'};">${(accelControl.value || 0) <= 0.05 ? '符合 4.3 容許值' : '不符合 4.3 容許值'}</strong>（限值 = 0.05 m/s²）。
+      居住類別 = <strong>${(W.ACCEL_LIMITS[occupancy] || W.ACCEL_LIMITS.residence).name}</strong>，容許限值 = <strong>${(W.ACCEL_LIMITS[occupancy] || W.ACCEL_LIMITS.residence).limit}</strong> m/s²。<br>
+      檢核結果：<strong style="color:${(accelControl.value || 0) <= (accel.limit || 0.05) ? '#166534' : '#b91c1c'};">${(accelControl.value || 0) <= (accel.limit || 0.05) ? '符合 §4.3 容許值' : '不符合 §4.3 容許值'}</strong>（控制 / 容許 = ${fmt(((accelControl.value || 0) / (accel.limit || 0.05)),3)}）。
     `;
     document.getElementById('accelEstimateSummary').innerHTML = '';
   } else if (accelMode === 'estimate' && accelEstimate && accelEstimateY) {
@@ -1290,7 +1305,8 @@ Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
       A<sub>L</sub> = (2πf<sub>a</sub>)²L* = <span class="val">${fmt(accel.AL,4)}</span> m/s²<br>
       A<sub>T</sub> = (2πf<sub>t</sub>)²θ* = <span class="val">${fmt(accel.AT,6)}</span> rad/s²<br>
       Ã = √[A<sub>D</sub>² + A<sub>L</sub>² + A<sub>T</sub>²(B²/4 + L²/4) + L·A<sub>L</sub>·A<sub>T</sub>] = <span class="val hl">${fmt(accel.Apeak,4)}</span> m/s²<br>
-      檢核結果：<span class="val">${accel.pass ? '符合 4.3 容許值' : '不符合 4.3 容許值'}</span>
+      居住類別 = <span class="val">${(W.ACCEL_LIMITS[occupancy] || W.ACCEL_LIMITS.residence).name}</span>，容許限值 = <span class="val">${accel.limit || 0.05}</span> m/s²<br>
+      Ã / 容許 = <span class="val">${fmt(accel.ratio || 0, 3)}</span>；檢核結果：<span class="val" style="color:${accel.pass ? '#166534' : '#b91c1c'};">${accel.pass ? '符合 §4.3 容許值' : '不符合 §4.3 容許值'}</span>
     `);
   }
 
