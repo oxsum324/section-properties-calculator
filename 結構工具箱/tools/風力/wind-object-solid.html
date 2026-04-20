@@ -376,6 +376,7 @@ function calc() {
   setR('r-zr', r.resultantHeight, 2);
 
   const directCf = cfOverride == null ? '採工具預設 Cf' : `採覆寫 Cf = ${fmt(cfOverride,3)}`;
+  const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
   setApplicability([
     { label: '標的物類型', level: 'ok', message: '實體標的物 / 單體外形' },
     { label: '計算模式', level: 'ok', message: mode === 'point' ? '單一作用高度' : '沿高度分段' },
@@ -387,31 +388,43 @@ function calc() {
   let html = '';
   html += step('① 基本參數', `
     V = <span class="val">${V}</span> m/s, I = <span class="val">${I}</span>, K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
+    地況參數：α = <span class="val">${fmt(terrainData.alpha,2)}</span>，z<sub>g</sub> = <span class="val">${fmt(terrainData.zg,1)}</span> m，z<sub>min</sub> = <span class="val">${fmt(terrainData.zmin,1)}</span> m<br>
     形狀 = <span class="val">${r.shapeName}</span><br>
     C<sub>f</sub> = <span class="val">${fmt(r.baseCf,3)}</span>，φ = <span class="val">${fmt(r.shapeFactor,3)}</span> → C<sub>f,eff</sub> = <span class="val hl">${fmt(r.CfEff,3)}</span><br>
     G = <span class="val">${fmt(r.G,3)}</span>
   `);
   if (mode === 'point') {
+    const zUse = Math.max(r.z, terrainData.zmin);
+    const kz = W.calcKz(r.z, terrain);
     html += step('② 作用高度速度壓', `
-      z = <span class="val">${fmt(r.z,2)}</span> m<br>
-      q(z) = <span class="val hl">${fmt(r.qz,1)}</span> kgf/m²
+      z = <span class="val">${fmt(r.z,2)}</span> m，z<sub>use</sub> = max(z, z<sub>min</sub>) = <span class="val">${fmt(zUse,2)}</span> m<br>
+      K(z) = 2.774 × (z<sub>use</sub>/z<sub>g</sub>)<sup>2α</sup> = 2.774 × (${fmt(zUse,2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(kz,4)}</span><br>
+      q(z) = 0.06 × K(z) × K<sub>zt</sub> × [I×V]<sup>2</sup><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;= 0.06 × ${fmt(kz,4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;= <span class="val hl">${fmt(r.qz,1)}</span> kgf/m²
     `);
     html += step('③ 設計風力 / 剪力 / 彎矩', `
       F = q(z) · G · C<sub>f,eff</sub> · A = <span class="val hl">${fmt(r.F,1)}</span> kgf<br>
       V = <span class="val">${fmt(r.baseShear,1)}</span> kgf<br>
       M = F · z = <span class="val">${fmt(r.baseMoment,1)}</span> kgf·m
-    `, `${fmt(r.qz,2)} × ${fmt(r.G,3)} × ${fmt(r.CfEff,3)} × ${fmt(r.A,2)} = ${fmt(r.F,2)}`);
+    `, `F = ${fmt(r.qz,2)} × ${fmt(r.G,3)} × ${fmt(r.CfEff,3)} × ${fmt(r.A,2)} = ${fmt(r.F,2)} kgf`);
   } else {
+    const topRow = r.rows[r.rows.length - 1];
+    const topZUse = Math.max(topRow.zMid, terrainData.zmin);
+    const topKz = W.calcKz(topRow.zMid, terrain);
     html += step('② 分段風力', `
       z<sub>0</sub> = <span class="val">${fmt(r.zBase,2)}</span> m，H = <span class="val">${fmt(r.height,2)}</span> m，b = <span class="val">${fmt(r.width,2)}</span> m<br>
       分段數 n = <span class="val">${r.segments}</span>，每段高度 = <span class="val">${fmt(r.segmentHeight,2)}</span> m<br>
-      總投影面積 = <span class="val">${fmt(r.totalArea,2)}</span> m²
+      總投影面積 = <span class="val">${fmt(r.totalArea,2)}</span> m²<br>
+      控制段中點 z = <span class="val">${fmt(topRow.zMid,2)}</span> m，z<sub>use</sub> = <span class="val">${fmt(topZUse,2)}</span> m<br>
+      K(z) = 2.774 × (${fmt(topZUse,2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(topKz,4)}</span><br>
+      q(z) = 0.06 × ${fmt(topKz,4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val">${fmt(topRow.qz,1)}</span> kgf/m²
     `);
     html += step('③ 總剪力 / 底部彎矩', `
       V = ΣF<sub>i</sub> = <span class="val hl">${fmt(r.baseShear,1)}</span> kgf<br>
       M = Σ(F<sub>i</sub> · z<sub>i</sub>) = <span class="val hl">${fmt(r.baseMoment,1)}</span> kgf·m<br>
       z<sub>r</sub> = M / V = <span class="val">${fmt(r.resultantHeight,2)}</span> m
-    `);
+    `, `控制段示例：F_i = ${fmt(topRow.qz,2)} × ${fmt(r.G,3)} × ${fmt(r.CfEff,3)} × ${fmt(topRow.area,2)} = ${fmt(topRow.force,2)} kgf`);
   }
   document.getElementById('steps').innerHTML = html;
 }
