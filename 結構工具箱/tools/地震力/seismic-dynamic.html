@@ -210,7 +210,7 @@
 
     <div id="resultPanel" class="dynamic-result-stack" style="display:none;">
       <div class="card">
-        <div class="banner-status ok" id="banner">尚未計算</div>
+        <div class="banner-status" id="banner">尚未計算</div>
       </div>
       <div class="card">
         <h2>動力比對摘要</h2>
@@ -228,7 +228,7 @@
         <div class="legend" id="dynamicSpectrumLegend"></div>
       </div>
       <div class="card">
-        <h2>靜力 / 動力比較表</h2>
+        <h2>等值靜力 / 動力比較表</h2>
         <div id="compareTableWrap"></div>
       </div>
       <div class="card">
@@ -252,7 +252,7 @@
 <details class="card" id="versionInfoCard">
   <summary class="fold-summary">版本與更新重點</summary>
   <div class="note" style="margin-top:12px;">
-    目前頁面版本為 <strong>V1</strong>，定位為動力分析成果的整理、比較與列印，而不是分析求解器本身。
+    目前頁面版本為 <strong>V3</strong>，定位為動力分析成果的整理、比較與列印，而不是分析求解器本身。
   </div>
   <div class="hint" style="margin-top:10px;">
     本版已完成：靜力摘要載入、案件資料銜接、DBE / MCE 反應譜繪製、Tx / Ty 設計週期標示、動 / 靜比整理與列印。<br>
@@ -563,7 +563,7 @@ function loadStaticSummaryIntoPage() {
   if (isFinite(saved.x?.Tdesign)) document.getElementById('Tx').value = saved.x.Tdesign;
   if (isFinite(saved.y?.Tdesign)) document.getElementById('Ty').value = saved.y.Tdesign;
   box.innerHTML = `
-    <strong>已讀到靜力摘要</strong><br>
+    <strong>已讀到等值靜力分析摘要</strong><br>
     案件：${proj.name || '—'} ｜ 工址：${proj.zone || '—'}<br>
     X 向靜力 Vdesign = ${fmt(saved.x.Vdesign, 2)} tf${saved.y ? ` ｜ Y 向 = ${fmt(saved.y.Vdesign, 2)} tf` : ''}<br>
     靜力摘要時間：${saved.savedAt ? new Date(saved.savedAt).toLocaleString('zh-TW') : '—'}<br>
@@ -784,7 +784,7 @@ function openDynamicReport() {
         <div style="font-size:12px; color:#475569; line-height:1.8;">${document.getElementById('dynamicSpectrumLegend')?.innerHTML || ''}</div>
       </section>
       <section class="block">
-        <h3>靜力 / 動力比較表</h3>
+        <h3>等值靜力 / 動力比較表</h3>
         <table>
         <thead><tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>動/靜比</th><th>判讀</th></tr></thead>
           <tbody>
@@ -815,7 +815,7 @@ function clearDynamicSummary() {
   } catch (err) {}
   lastDynamicResult = null;
   document.getElementById('resultPanel').style.display = 'none';
-  document.getElementById('staticImportStatus').innerHTML = '動力摘要已清除；如需延續同案，可重新載入靜力頁摘要。';
+  document.getElementById('staticImportStatus').innerHTML = '動力摘要已清除；如需延續同案，可重新載入等值靜力摘要。';
 }
 
 (function initPageScopeCard() {

@@ -444,6 +444,62 @@
   </div>
 
   <div class="card">
+    <h2>高頻局部計算建議</h2>
+    <div class="collapse-toggle">
+      <input type="checkbox" id="toggleNextTools">
+      <label for="toggleNextTools">顯示下一步工具擴充方向</label>
+    </div>
+    <div id="nextToolsPanel" class="collapse-panel hidden">
+    <table class="scope-table">
+      <thead>
+        <tr>
+          <th>優先度</th>
+          <th>工具方向</th>
+          <th>高頻使用場景</th>
+          <th>目前狀態 / 建議</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>P0</strong></td>
+          <td><strong>附屬構造物地震力</strong></td>
+          <td>機電設備、管線、吊架、外掛構件、非結構牆、屋頂附屬設備</td>
+          <td>已獨立為第四章局部工具，可繼續補型式預設與報表細修</td>
+        </tr>
+        <tr>
+          <td><strong>P1</strong></td>
+          <td><strong>基礎局部檢核</strong></td>
+          <td>獨立基礎、條形基礎、底壓、偏心、抗滑、抗傾覆、局部補算</td>
+          <td>最值得接續獨立；很適合做成單頁輸入、單頁列印的局部計算書</td>
+        </tr>
+        <tr>
+          <td><strong>P1</strong></td>
+          <td><strong>錨栓 / 連接件</strong></td>
+          <td>設備基座、化學錨栓、底板錨栓、螺栓 / 焊道局部補算</td>
+          <td>非常常被單獨抽出來送審或回覆業主，建議列入第二優先</td>
+        </tr>
+        <tr>
+          <td><strong>P2</strong></td>
+          <td><strong>擋土 / 土壓 / 圍牆</strong></td>
+          <td>主動土壓、靜止土壓、地下水壓、圍牆與擋土牆局部檢核</td>
+          <td>適合和基礎模組串接，但公式路線較多，建議在基礎之後展開</td>
+        </tr>
+        <tr>
+          <td><strong>P2</strong></td>
+          <td><strong>設備局部荷重</strong></td>
+          <td>機房設備、發電機、冰水機、消防車、吊車、局部集中荷重</td>
+          <td>很適合快速回覆現場與機電協調需求，適合做成快算型工具</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note" style="margin-top:12px;">
+      下一波最值得做成獨立工具的，不一定是「最大模組」，而是 <strong>最常被單獨抽出來算、單獨出一張計算書</strong> 的題目。
+      目前依實務頻率與落地難度綜合排序，會優先建議走：<strong>附屬構造物 → 基礎局部檢核 → 錨栓 / 連接件</strong>。
+    </div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>關於本工具箱</h2>
     <p style="font-size:0.88em; color:var(--text-light); line-height:1.8;">
       本工具箱整合 <strong>鋼筋混凝土構件設計</strong>、<strong>鋼結構設計</strong>、<strong>斷面性質計算</strong>、
@@ -548,6 +604,7 @@
     [
       { toggleId: 'toggleWindScope', panelId: 'windScopePanel', storageKey: 'windScopePanelVisible' },
       { toggleId: 'toggleSeismicScope', panelId: 'seismicScopePanel', storageKey: 'seismicScopePanelVisible' },
+      { toggleId: 'toggleNextTools', panelId: 'nextToolsPanel', storageKey: 'nextToolsPanelVisible' },
       { toggleId: 'toggleLegacySteel', panelId: 'legacySteelPanel', storageKey: 'legacySteelPanelVisible' }
     ].forEach(function (cfg) {
       const toggle = document.getElementById(cfg.toggleId);

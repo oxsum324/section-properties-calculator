@@ -519,7 +519,7 @@
   }
 
   /**
-   * 式 (4-1): 附屬構造物水平��震力 Fph
+   * 式 (4-1): 附屬構造物水平地震力 Fph
    * @param {object} p
    *   SDS     — 工址短週期設計譜加速度 (g)
    *   Wp      — 構材重量 (tf)
@@ -528,7 +528,7 @@
    *   Ip      — 構材用途係數
    *   hx      — 構材固定高度 (m)
    *   hn      — 建物總高度 (m)
-   *   isTaipeiBasin — ��否為臺北盆地
+   *   isTaipeiBasin — 是否為臺北盆地
    */
   function calcFph(p) {
     const { SDS, Wp, ap, Rp, Ip = 1.0, hx = 0, hn = 1, isTaipeiBasin = false } = p;

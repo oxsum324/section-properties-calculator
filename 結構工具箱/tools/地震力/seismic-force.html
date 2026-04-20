@@ -353,7 +353,7 @@
 
   <div class="card" id="dynamicCompareCard">
     <h2>靜力 / 動力比較</h2>
-<div id="dynamicCompareBody" class="compare-note">尚未建立動力分析摘要；可先完成本頁靜力計算後，再前往動力分析摘要頁延續比對。</div>
+<div id="dynamicCompareBody" class="compare-note">尚未建立動力分析摘要；可先完成本頁等值靜力分析後，再前往動力分析摘要頁延續比對。</div>
   </div>
 
   <!-- 反應譜圖 -->
@@ -397,6 +397,11 @@
   <div class="card" id="appendageCard">
     <h2 class="collapse-toggle" onclick="toggleCollapse(this)">附屬構造物地震力 (第四章, 式 4-1~4-3)</h2>
     <div class="collapse-body">
+      <div class="hint" style="margin-bottom:10px;">
+        若只需第四章局部計算書，可改用
+        <a href="seismic-appendage.html">附屬構造物地震力獨立頁</a>
+        進行快速輸入與列印。
+      </div>
       <div class="form-row">
         <div class="form-group">
           <label>構材類型</label>
@@ -597,7 +602,7 @@
 <details class="card" id="versionInfoCard">
   <summary class="fold-summary">版本與更新重點</summary>
   <div class="note" style="margin-top:12px;">
-    目前頁面版本為 <strong>V2</strong>，主軸是把等值靜力法、臺北盆地、近斷層、雙向摘要、列印報表與動力摘要銜接整合在同一頁。
+    目前頁面版本為 <strong>V3</strong>，主軸是把等值靜力法、臺北盆地、近斷層、雙向摘要、列印報表與動力摘要銜接整合在同一頁。
   </div>
   <div class="legend" style="margin-top:10px;">
     本版已完成：近斷層控制譜、臺北盆地微分區主算、設計週期標示、靜力 / 動力摘要橋接、第五章快速分流、列印計算書整理。<br>
@@ -613,7 +618,7 @@
 <script src="../../core/ui/report.js"></script>
 <script>
 /* ════════════════════════════════════════
- *  seismic-force.html V2  —  UI script
+ *  seismic-force.html V3  —  UI script
  * ════════════════════════════════════════ */
 const S = Seismic;
 function fmt(v, d) { return v == null ? '—' : Number(v).toFixed(d); }
@@ -881,7 +886,7 @@ document.getElementById('chkXY').addEventListener('change', function() {
     document.getElementById('S1D').value = d[1];
     document.getElementById('SsM').value = d[2];
     document.getElementById('S1M').value = d[3];
-    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}, V10(C)=${d[4]} m/s`;
+    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
 
     // 近斷層
     clearNearFaultOverride();
@@ -930,7 +935,7 @@ document.getElementById('chkXY').addEventListener('change', function() {
     const userDist = parseFloat(this.value);
     if (!isFinite(userDist) || userDist < 0) {
       clearNearFaultOverride();
-      hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}, V10(C)=${d[4]} m/s`;
+    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
       return;
     }
 
@@ -961,7 +966,7 @@ document.getElementById('chkXY').addEventListener('change', function() {
 
     if (!hasOverride) {
       clearNearFaultOverride();
-      hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}, V10(C)=${d[4]} m/s`;
+    hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
       return;
     }
 
@@ -2802,5 +2807,3 @@ restoreProjectInfo();
 </script>
 </body>
 </html>
-
-
