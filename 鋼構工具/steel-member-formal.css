@@ -97,7 +97,7 @@
 .result-item .value {
   font-size: 1rem;
   font-weight: 800;
-  font-family: Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 .result-item .unit {
@@ -121,7 +121,7 @@
 }
 
 .step-card .formula {
-  font-family: Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.86rem;
   color: #334155;
   margin: 4px 0;

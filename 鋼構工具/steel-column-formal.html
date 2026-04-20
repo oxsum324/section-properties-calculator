@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>鋼柱正式規範核算工具</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./steel-member-formal.css">
 </head>
@@ -38,6 +39,50 @@
         <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
         <button id="btnReport" class="mode-bar__report" type="button">📄 輸出報表</button>
       </div>
+    </section>
+
+    <section class="card unit-system-card" aria-label="鋼柱正式頁單位系統">
+      <div class="unit-system-heading">
+        <div>
+          <h2>單位系統</h2>
+          <p id="columnUnitIntro">柱正式頁可在舊制與 SI 輸入間切換；斷面尺寸與規格選單固定維持 mm。</p>
+        </div>
+      </div>
+      <div class="unit-system-toolbar">
+        <div class="unit-mode-switch" role="tablist" aria-label="鋼柱輸入單位切換">
+          <button id="columnUnitModeLegacyBtn" class="unit-mode-btn active" type="button">舊制 tf / cm</button>
+          <button id="columnUnitModeSiBtn" class="unit-mode-btn" type="button">SI kN / m</button>
+        </div>
+        <span class="unit-system-badge" id="columnUnitModeBadge">輸入：舊制</span>
+      </div>
+      <div class="unit-system-grid">
+        <div class="unit-system-item">
+          <span>斷面尺寸</span>
+          <strong id="columnUnitSectionValue">mm</strong>
+          <small id="columnUnitSectionNote">H / B / tw / tf / R / B / D / tnom</small>
+        </div>
+        <div class="unit-system-item">
+          <span>長度與穩定參數</span>
+          <strong id="columnUnitLengthValue">cm</strong>
+          <small id="columnUnitLengthNote">Lx / Ly / Lbx</small>
+        </div>
+        <div class="unit-system-item">
+          <span>荷重與強度</span>
+          <strong id="columnUnitForceValue">tf / tf·m</strong>
+          <small id="columnUnitForceNote">Pu、Mux、Muy、設計強度與可用容量</small>
+        </div>
+        <div class="unit-system-item">
+          <span>材料應力</span>
+          <strong id="columnUnitStressValue">kgf/cm²</strong>
+          <small id="columnUnitStressNote">Fy、Fe、Fcr</small>
+        </div>
+      </div>
+      <div class="unit-system-conversion">
+        <strong>SI 常用換算</strong>
+        <p id="columnUnitConversionText">1 tf = 9.80665 kN｜1 tf·m = 9.80665 kN·m｜1 kgf/cm² = 0.0980665 MPa｜1 cm = 10 mm</p>
+      </div>
+      <p class="unit-system-callout" id="columnUnitCallout">輸入欄位、摘要卡與匯出報表會跟著切換；斷面尺寸欄位與規格下拉固定維持 mm。</p>
+      <p class="unit-system-note" id="columnUnitFlowNote">計算流程與符號詞典仍沿用核心計算單位 `kgf/cm² / tf / cm` 顯示代入。</p>
     </section>
 
     <div class="member-layout">
@@ -88,20 +133,83 @@
             </div>
           </div>
           <div class="form-group">
-            <label>H 型鋼規格</label>
-            <select id="secSelect">
-              <option value="">-- 自訂尺寸 --</option>
+            <label>斷面類型</label>
+            <select id="sectionTypeSelect">
+              <option value="h">H 型鋼</option>
+              <option value="shs">方管 SHS</option>
+              <option value="rhs">矩形管 RHS</option>
+              <option value="chs">圓管 CHS</option>
             </select>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label>H 全高 h (mm)</label><input type="number" id="inH" value="300"></div>
-            <div class="form-group"><label>B 翼板寬 bf (mm)</label><input type="number" id="inB" value="300"></div>
+          <div data-section-type="h">
+            <div class="form-group">
+              <label>H 型鋼規格</label>
+              <select id="secSelect">
+                <option value="">-- 自訂尺寸 --</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>H 全高 h (mm)</label><input type="number" id="inH" value="300"></div>
+              <div class="form-group"><label>B 翼板寬 bf (mm)</label><input type="number" id="inB" value="300"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>腹板厚 tw (mm)</label><input type="number" id="inTw" value="10"></div>
+              <div class="form-group"><label>翼板厚 tf (mm)</label><input type="number" id="inTf" value="15"></div>
+            </div>
+            <div class="form-group"><label>圓角半徑 R (mm)</label><input type="number" id="inR" value="13"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label>腹板厚 tw (mm)</label><input type="number" id="inTw" value="10"></div>
-            <div class="form-group"><label>翼板厚 tf (mm)</label><input type="number" id="inTf" value="15"></div>
+          <div data-section-type="shs" class="is-hidden">
+            <div class="form-group">
+              <label>方管快速搜尋</label>
+              <input type="search" id="shsFilterInput" data-filter-input="true" placeholder="輸入 300x300、12.0、SHS 300" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>方管常用規格</label>
+              <select id="shsSelect">
+                <option value="">-- 自訂尺寸 --</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>方管外寬 B (mm)</label><input type="number" id="inShsB" value="300"></div>
+              <div class="form-group"><label>名義厚 tnom (mm)</label><input type="number" id="inShsT" value="12"></div>
+            </div>
+            <p class="section-note">方管依 HSS 名義厚度輸入，正式檢核採設計壁厚 0.93 tnom；目前支援非細長 SHS 正式檢核。</p>
           </div>
-          <div class="form-group"><label>圓角半徑 R (mm)</label><input type="number" id="inR" value="13"></div>
+          <div data-section-type="rhs" class="is-hidden">
+            <div class="form-group">
+              <label>矩形管快速搜尋</label>
+              <input type="search" id="rhsFilterInput" data-filter-input="true" placeholder="輸入 300x200、200x150、12.0" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>矩形管常用規格</label>
+              <select id="rhsSelect">
+                <option value="">-- 自訂尺寸 --</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>矩形管外高 H (mm)</label><input type="number" id="inRhsH" value="300"></div>
+              <div class="form-group"><label>矩形管外寬 B (mm)</label><input type="number" id="inRhsB" value="200"></div>
+            </div>
+            <div class="form-group"><label>名義厚 tnom (mm)</label><input type="number" id="inRhsT" value="9.0"></div>
+            <p class="section-note">矩形管依 HSS 名義厚度輸入，正式檢核採設計壁厚 0.93 tnom；目前支援非細長 RHS，且請以 H ≥ B 對應強軸 / 弱軸輸入。</p>
+          </div>
+          <div data-section-type="chs" class="is-hidden">
+            <div class="form-group">
+              <label>圓管快速搜尋</label>
+              <input type="search" id="chsFilterInput" data-filter-input="true" placeholder="輸入 318.5、10.3、CHS 355.6" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>圓管常用規格</label>
+              <select id="chsSelect">
+                <option value="">-- 自訂尺寸 --</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>圓管外徑 D (mm)</label><input type="number" id="inChsD" value="318.5"></div>
+              <div class="form-group"><label>名義厚 tnom (mm)</label><input type="number" id="inChsT" value="9.0"></div>
+            </div>
+            <p class="section-note">圓管依 HSS 名義厚度輸入，正式檢核採設計壁厚 0.93 tnom；目前支援非細長 CHS 正式檢核。</p>
+          </div>
         </div>
 
         <div class="card" id="columnCardMaterial">
@@ -118,13 +226,13 @@
               <select id="matSelect"></select>
             </div>
             <div class="form-group">
-              <label>Fy (kgf/cm²)</label>
+              <label id="columnFyLabel">Fy (kgf/cm²)</label>
               <input type="number" id="inFy" value="2500">
             </div>
           </div>
           <div class="form-row">
-            <div class="form-group"><label>Lx 強軸無支撐長 (cm)</label><input type="number" id="inLx" value="400"></div>
-            <div class="form-group"><label>Ly 弱軸無支撐長 (cm)</label><input type="number" id="inLy" value="400"></div>
+            <div class="form-group"><label id="columnLxLabel">Lx 強軸無支撐長 (cm)</label><input type="number" id="inLx" value="400"></div>
+            <div class="form-group"><label id="columnLyLabel">Ly 弱軸無支撐長 (cm)</label><input type="number" id="inLy" value="400"></div>
           </div>
           <div class="form-row">
             <div class="form-group"><label>Kx</label><input type="number" id="inKx" value="1.0" step="0.05"></div>
@@ -146,10 +254,11 @@
             <div class="form-group"><label id="lblMx">Mux / Max 強軸彎矩 (tf·m)</label><input type="number" id="inMux" value="0"></div>
             <div class="form-group"><label id="lblMy">Muy / May 弱軸彎矩 (tf·m)</label><input type="number" id="inMuy" value="0"></div>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label>Lbx 強軸側撐間距 (cm)</label><input type="number" id="inLbx" value="400"></div>
+          <div class="form-row" id="columnLtbRow">
+            <div class="form-group"><label id="columnLbxLabel">Lbx 強軸側撐間距 (cm)</label><input type="number" id="inLbx" value="400"></div>
             <div class="form-group"><label>Cbx</label><input type="number" id="inCbx" value="1.0" step="0.01"></div>
           </div>
+          <p class="section-note is-hidden" id="columnClosedShapeNote">方管與圓管為封閉斷面，本版暫不啟用 Lbx / Cbx 側扭挫屈參數。</p>
           <div class="form-row">
             <div class="form-group"><label>Cmx</label><input type="number" id="inCmx" value="0.85" step="0.05"></div>
             <div class="form-group"><label>Cmy</label><input type="number" id="inCmy" value="0.85" step="0.05"></div>
@@ -323,8 +432,8 @@
 
   <button id="columnMobileFab" class="mobile-fab" type="button" aria-label="回到頂部">回到頂部</button>
 
-  <script src="../結構工具箱/core/materials/steel.js"></script>
-  <script src="../結構工具箱/core/ui/report.js"></script>
+  <script src="./core/materials/steel.js"></script>
+  <script src="./core/ui/report.js"></script>
   <script src="./steel-column-formal.js"></script>
 </body>
 </html>

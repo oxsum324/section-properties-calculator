@@ -48,6 +48,9 @@
 - `audit-tool.ps1`：自動巡檢腳本，支援單次靜默檢查與循環巡檢
 - `run-audit.bat`：可直接雙擊啟動單次靜默巡檢
 - `run-audit-loop.bat`：可直接雙擊啟動循環靜默巡檢
+- `sync-formal-core.ps1`：同步 `鋼構工具/core` 與 `結構工具箱/core` 的正式頁共用核心
+- `run-sync-formal-core.bat`：可直接雙擊執行 formal core 同步
+- `core/formal-core-manifest.json`：正式頁 vendored core 的來源、雜湊與同步時間指紋
 
 ## 使用方式
 
@@ -68,6 +71,9 @@ python -m http.server 4173
 ```text
 http://127.0.0.1:4173/index.html
 ```
+
+鋼梁 / 鋼柱正式頁現在可單獨部署於 `鋼構工具` 根目錄；其共用核心已內聚在 `core/materials/steel.js` 與 `core/ui/report.js`。
+同步後的來源路徑、SHA256 指紋與同步時間會寫入 `core/formal-core-manifest.json`。
 
 ## 目前邊界
 
@@ -101,6 +107,24 @@ node .\calculator.smoke-test.js
 .\audit-tool.ps1
 ```
 
+若更新了 [結構工具箱/core](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/core) 內的正式頁共用核心，可先同步：
+
+```powershell
+.\sync-formal-core.ps1
+```
+
+若要直接雙擊同步，也可執行：
+
+```text
+run-sync-formal-core.bat
+```
+
+若只想檢查是否已漂移、不直接覆蓋：
+
+```powershell
+.\sync-formal-core.ps1 -Check
+```
+
 若要以靜默模式執行單次巡檢：
 
 ```powershell
@@ -112,6 +136,9 @@ node .\calculator.smoke-test.js
 ```powershell
 .\audit-tool.ps1 -Quiet -Loop -IntervalSeconds 60
 ```
+
+`audit-tool.ps1` 目前也會自動檢查 `鋼構工具/core` 是否仍與 `結構工具箱/core` 保持同步。
+巡檢情境已包含首頁、獨立連接板頁，以及鋼梁 / 鋼柱正式頁的實頁快照。
 
 或直接執行：
 

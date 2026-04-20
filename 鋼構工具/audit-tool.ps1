@@ -299,6 +299,37 @@ function Run-AuditPass {
     })
   }
 
+  Invoke-Step "Steel formal regression test" {
+    node "$root\steel-formal.regression-test.js"
+    $summaryLines.Add("- steel-formal-regression-test: pass")
+    $auditRecords.Add([pscustomobject]@{
+      label = "steel-formal-regression-test"
+      status = "pass"
+    })
+  }
+
+  Invoke-Step "Formal core sync check" {
+    & "$root\sync-formal-core.ps1" -Check -Quiet:$Quiet
+    $summaryLines.Add("- formal-core-sync-check: pass")
+    $manifestPath = Join-Path $root "core\formal-core-manifest.json"
+    if (Test-Path $manifestPath) {
+      $manifest = Get-Content -Path $manifestPath -Raw | ConvertFrom-Json
+      $summaryLines.Add("- formal-core-manifest: $manifestPath")
+      $summaryLines.Add("  generatedAt=$($manifest.generatedAt)")
+      $summaryLines.Add("  files=$((@($manifest.files).Count))")
+      $auditRecords.Add([pscustomobject]@{
+        label = "formal-core-manifest"
+        path = $manifestPath
+        generatedAt = $manifest.generatedAt
+        fileCount = @($manifest.files).Count
+      })
+    }
+    $auditRecords.Add([pscustomobject]@{
+      label = "formal-core-sync-check"
+      status = "pass"
+    })
+  }
+
   Push-Location $playwrightWorkdir
   try {
     $tensionScenarioCode = @"
@@ -311,6 +342,8 @@ await page.click('#loadExampleBtn');
     Run-PlaywrightScenario -ScenarioName "main-plate" -Url "$baseUrl/index.html" -RunDir $runDir
     Run-PlaywrightScenario -ScenarioName "main-tension" -Url "$baseUrl/index.html" -RunDir $runDir -SetupCode $tensionScenarioCode
     Run-PlaywrightScenario -ScenarioName "standalone-plate" -Url "$baseUrl/plate-check.html" -RunDir $runDir
+    Run-PlaywrightScenario -ScenarioName "formal-beam" -Url "$baseUrl/steel-beam-formal.html" -RunDir $runDir
+    Run-PlaywrightScenario -ScenarioName "formal-column" -Url "$baseUrl/steel-column-formal.html" -RunDir $runDir
   } finally {
     if ((Get-Location).Path -eq $playwrightWorkdir) {
       Pop-Location

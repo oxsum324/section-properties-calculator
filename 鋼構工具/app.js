@@ -2229,7 +2229,7 @@ window.MathJax = { tex: { inlineMath: [["\\\\(", "\\\\)"]], displayMath: [["\\\\
 </script>
 <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 <style>
-body{font-family:"Microsoft JhengHei",sans-serif;color:#111;margin:0;padding:24px;background:#f4f4f4}
+body{font-family:"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif;color:#111;margin:0;padding:24px;background:#f4f4f4}
 .paper{max-width:820px;margin:0 auto;background:#fff;padding:32px 36px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
 h1{margin:0 0 6px;font-size:24px}.sub{color:#555;margin-bottom:16px}
 .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:12px;margin-bottom:18px}
@@ -2241,7 +2241,7 @@ th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}
 th{background:#eef2f6}
 .check-coderef{margin-top:4px;font-size:11px;color:#64748b}
 .flow-decision{font-size:12px;color:#334155;font-weight:700;margin:0 0 8px}
-.mono{white-space:pre-wrap;font-family:Consolas,monospace;background:#faf5ff;border:1px solid #e9d5ff;border-radius:4px;padding:10px;color:#3b0764;font-size:11px;line-height:1.6}
+.mono{white-space:pre-wrap;font-family:"Cascadia Code","Consolas",monospace;background:#faf5ff;border:1px solid #e9d5ff;border-radius:4px;padding:10px;color:#3b0764;font-size:11px;line-height:1.6}
 .equation-math{background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:10px 12px;color:#3b0764;overflow:auto}.equation-math__line + .equation-math__line{margin-top:8px}.equation-list--fallback,.mono--fallback{display:none}.mathjax-fallback .equation-math{display:none}.mathjax-fallback .equation-list--fallback,.mathjax-fallback .mono--fallback{display:block}
 .review-section + .review-section{margin-top:12px}.review-section__title{margin-bottom:6px;font-size:12px;font-weight:700;color:#0e7490}
 .card-placeholder{padding:14px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b}
