@@ -13,6 +13,22 @@
   table.zone tbody tr[data-zone] { cursor:pointer; }
   .zone-pos { background:#ecfdf5; }
   .zone-neg { background:#fef2f2; }
+  /* 主控值自動標示 */
+  td.is-max-pos, td.is-max-neg, td.is-max-abs {
+    box-shadow: inset 0 0 0 2px #f97316;
+    font-weight: 800;
+    color: #c2410c;
+  }
+  td.is-max-pos::after, td.is-max-neg::after, td.is-max-abs::after {
+    content: '★'; margin-left: 4px; color: #f97316; font-size: 0.85em;
+  }
+  tr.row-max-abs td:first-child {
+    background: linear-gradient(90deg, #fff7ed 0%, transparent 60%);
+    border-left: 3px solid #f97316;
+  }
+  table#designAdoptTable tbody tr td:nth-child(2) {
+    font-weight: 800; color: #c2410c; background: #fff7ed;
+  }
   .legend { font-size:0.78em; color:var(--text-light); margin-top:8px; line-height:1.7; }
   .legend code { background:#f1f5f9; padding:1px 5px; border-radius:3px; }
   .schema { background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:12px; font-size:0.82em; line-height:1.6; }
@@ -383,7 +399,7 @@ const impSel = document.getElementById('impClass');
 Object.entries(Wind.IMPORTANCE).forEach(([k, v]) => {
   const o = document.createElement('option');
   o.value = k; o.textContent = `${v.name}　I=${v.factor}`;
-  if (k === 'V') o.selected = true;
+  if (k === 'IV') o.selected = true; // 預設第四類「一般建築」I=1.00
   impSel.appendChild(o);
 });
 
@@ -498,19 +514,26 @@ function calc() {
   setR('r-p-abs', Math.max(Math.abs(r.p_pos), Math.abs(r.p_neg)), 1);
 
   const zoneSummaryBody = document.querySelector('#zoneSummaryTable tbody');
-  zoneSummaryBody.innerHTML = zoneResults.map(item => `
-    <tr data-zone="${item.key}"${item.key === maxAbs.key ? ' style="font-weight:700;"' : ''}>
-      <td>${item.label}${item.key === maxAbs.key ? '　(控制絕對值)' : ''}</td>
+  zoneSummaryBody.innerHTML = zoneResults.map(item => {
+    const isMaxPos = item.key === maxPos.key;
+    const isMaxNeg = item.key === maxNeg.key;
+    const isMaxAbs = item.key === maxAbs.key;
+    const rowCls = isMaxAbs ? ' class="row-max-abs"' : '';
+    return `
+    <tr data-zone="${item.key}"${rowCls}${isMaxAbs ? ' style="font-weight:700;"' : ''}>
+      <td>${item.label}${isMaxAbs ? '　(控制絕對值)' : ''}</td>
       <td class="zone-pos">${fmt(item.data.GCp.pos, 2)}</td>
       <td class="zone-neg">${fmt(item.data.GCp.neg, 2)}</td>
-      <td class="zone-pos">${fmt(item.data.p_pos, 1)}</td>
-      <td class="zone-neg">${fmt(item.data.p_neg, 1)}</td>
+      <td class="zone-pos${isMaxPos ? ' is-max-pos' : ''}">${fmt(item.data.p_pos, 1)}</td>
+      <td class="zone-neg${isMaxNeg ? ' is-max-neg' : ''}">${fmt(item.data.p_neg, 1)}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
   document.getElementById('zoneSummaryNote').innerHTML =
-    surface === 'wall'
-      ? '外牆模式同時列出區域 4 與區域 5 設計風壓；表中加粗列為控制絕對值之區域。'
-      : '屋面模式同時列出區域 1 / 2 / 3 設計風壓；表中加粗列為控制絕對值之區域。';
+    (surface === 'wall'
+      ? '外牆模式同時列出區域 4 與區域 5 設計風壓；'
+      : '屋面模式同時列出區域 1 / 2 / 3 設計風壓；')
+    + '<strong style="color:#c2410c;">★ 標示為主控值</strong>（橘框：控制正壓、控制負壓；橘色左框：控制絕對值之區域）。';
 
   const designAdoptBody = document.querySelector('#designAdoptTable tbody');
   designAdoptBody.innerHTML = `

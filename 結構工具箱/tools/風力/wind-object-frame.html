@@ -305,7 +305,7 @@ el.textContent = worst === 'ok' ? '依規範條件計算如下' : worst === 'war
     const o = document.createElement('option');
     o.value = k;
     o.textContent = `${v.name}　I=${v.factor}`;
-    if (k === 'V') o.selected = true;
+    if (k === 'IV') o.selected = true; // 預設第四類「一般建築」I=1.00
     imp.appendChild(o);
   });
 })();

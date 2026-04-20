@@ -740,7 +740,7 @@ function refreshV() {
     const o = document.createElement('option');
     o.value = k;
     o.textContent = `${v.name}　I=${v.factor}`;
-    if (k === 'V') o.selected = true;
+    if (k === 'IV') o.selected = true; // 預設第四類「一般建築」I=1.00
     sel.appendChild(o);
   });
 })();

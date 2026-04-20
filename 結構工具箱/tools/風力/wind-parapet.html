@@ -9,6 +9,22 @@
   table.zone { width:100%; border-collapse:collapse; font-size:0.85em; }
   table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
   table.zone th { background:#f1f5f9; color:var(--primary); font-weight:600; font-family:inherit; }
+  /* 主控值自動標示 */
+  td.is-max-front, td.is-max-back, td.is-max-diff {
+    box-shadow: inset 0 0 0 2px #f97316;
+    font-weight: 800;
+    color: #c2410c;
+  }
+  td.is-max-front::after, td.is-max-back::after, td.is-max-diff::after {
+    content: '★'; margin-left: 4px; color: #f97316; font-size: 0.85em;
+  }
+  tr.row-max-overall td:first-child {
+    background: linear-gradient(90deg, #fff7ed 0%, transparent 60%);
+    border-left: 3px solid #f97316;
+  }
+  table#designAdoptTable tbody tr td:nth-child(2) {
+    font-weight: 800; color: #c2410c; background: #fff7ed;
+  }
   textarea.reduction-basis { width:100%; min-height:84px; padding:10px 12px; border:2px solid var(--border);
                              border-radius:8px; font-size:0.92em; font-family:inherit; resize:vertical; }
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
@@ -452,7 +468,7 @@ function refreshV() {
     const o = document.createElement('option');
     o.value = k;
     o.textContent = `${v.name}　I=${v.factor}`;
-    if (k === 'V') o.selected = true;
+    if (k === 'IV') o.selected = true; // 預設第四類「一般建築」I=1.00
     sel.appendChild(o);
   });
 })();
@@ -609,21 +625,29 @@ function calc() {
     setR('r-front-p', r.pFront, 1);
     setR('r-back-p', r.pBack, 1);
     setR('r-diff-p', r.pDiff, 1);
-    document.querySelector('#ccSummaryTable tbody').innerHTML = caseList.map(item => `
-      <tr${item.key === controlOverall.key ? ' style="font-weight:700;"' : ''}>
-        <td>${item.label}${item.key === controlOverall.key ? '　(控制壓差)' : ''}</td>
+    document.querySelector('#ccSummaryTable tbody').innerHTML = caseList.map(item => {
+      const isMaxFront = item.key === controlFront.key;
+      const isMaxBack = item.key === controlBack.key;
+      const isMaxDiff = item.key === controlDiff.key;
+      const isOverall = item.key === controlOverall.key;
+      const rowCls = isOverall ? ' class="row-max-overall"' : '';
+      const rowStyle = isOverall ? ' style="font-weight:700;"' : '';
+      return `
+      <tr${rowCls}${rowStyle}>
+        <td>${item.label}${isOverall ? '　(控制壓差)' : ''}</td>
         <td>${parapetRefText(item.data.frontRef)}</td>
         <td>${parapetRefText(item.data.backRef)}</td>
         <td>${fmt(item.data.frontGCp,2)}</td>
         <td>${fmt(item.data.backGCp,2)}</td>
-        <td>${fmt(item.data.pFront,1)}</td>
-        <td>${fmt(item.data.pBack,1)}</td>
-        <td>${fmt(item.data.pDiff,1)}</td>
-      </tr>
-    `).join('');
-    document.getElementById('ccSummaryNote').textContent = ccType === 'single_roof'
-      ? `C&C 模式同時計算圖 3.5 之左右外壓主控與一般邊緣 / 角隅；表中加粗列為控制前後面壓差之條件。GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`
-      : `C&C 模式同時計算圖 3.4 之迎風面 / 背風面與一般邊緣 / 角隅；表中加粗列為控制前後面壓差之條件。GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`;
+        <td${isMaxFront ? ' class="is-max-front"' : ''}>${fmt(item.data.pFront,1)}</td>
+        <td${isMaxBack ? ' class="is-max-back"' : ''}>${fmt(item.data.pBack,1)}</td>
+        <td${isMaxDiff ? ' class="is-max-diff"' : ''}>${fmt(item.data.pDiff,1)}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('ccSummaryNote').innerHTML = (ccType === 'single_roof'
+      ? `C&C 模式同時計算圖 3.5 之左右外壓主控與一般邊緣 / 角隅；GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`
+      : `C&C 模式同時計算圖 3.4 之迎風面 / 背風面與一般邊緣 / 角隅；GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`)
+      + ' <strong style="color:#c2410c;">★ 標示為主控值</strong>（橘框：控制 p_front / p_back / p_diff；橘色左框：控制壓差之條件列）。';
     document.querySelector('#designAdoptTable tbody').innerHTML = `
       <tr>
         <td>控制正面設計壓力</td>
