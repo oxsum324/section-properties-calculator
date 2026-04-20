@@ -107,6 +107,18 @@
 </div>
 
 <div class="card">
+  <h2>共用計算</h2>
+  <div class="legend">地形效應修正獨立計算器，可作為主流程開始前之先期評估。</div>
+  <div class="tool-grid">
+    <a class="tool-link" href="wind-kzt.html" target="_blank" style="border-left:3px solid #0d9488;">
+      <strong>K<sub>zt</sub> 地形係數計算器</strong>
+      <span class="scope">第二章 §2.7 / Eq 2.8</span>
+      <span class="desc">山脊 / 陡崖 / 圓丘三類地形之 K<sub>1</sub>/K<sub>2</sub>/K<sub>3</sub> 與合成 K<sub>zt</sub>，結果回填至各工具。</span>
+    </a>
+  </div>
+</div>
+
+<div class="card">
   <h2>主結構工具</h2>
   <div class="legend">主結構抗風骨架 (MWFRS) 計算路線；總高與兩向迎風寬決定整體風力。</div>
   <div class="tool-grid">
@@ -175,6 +187,22 @@
       <span class="desc">遮蔽折減、透氣外牆折減等 λ 係數整理。</span>
     </a>
   </div>
+</div>
+
+<div class="card" style="border-left:4px solid #0d9488;">
+  <h2>近期平台更新摘要</h2>
+  <div class="legend">本耐風工具平台依 107 規範實作，以下為近期完成之精進項目：</div>
+  <ul style="margin:8px 0 0 20px; line-height:1.85; font-size:0.86em;">
+    <li><strong>用途係數 I 修正</strong>：對齊 §2.5 表 2.4，第一類 1.15、第四類 1.00、第五類 0.95</li>
+    <li><strong>城市風速表細分</strong>：新北、彰化、雲林、臺南細分沿海/內陸；新增恆春、花蓮市、小琉球等</li>
+    <li><strong>主控值自動標示</strong>：wind-cc 與 wind-parapet 表中以 ★ 與橘色外框標示主控條件</li>
+    <li><strong>女兒牆全條件展開</strong>：圖 3.4 / 圖 3.5 之 4 條件（迎/背風 × 一般邊緣/角隅）總覽</li>
+    <li><strong>新增 K<sub>zt</sub> 計算器</strong>：山脊 / 陡崖 / 圓丘 4 類地形含中間 K<sub>1</sub>/K<sub>2</sub>/K<sub>3</sub> 拆解</li>
+    <li><strong>新增圍籬牆 / 獨立招牌工具</strong>：表 2.10 招牌物 Cf 路線；座地 / 架高雙模式</li>
+    <li><strong>新增案件總覽</strong>：本頁，跨工具參數摘要與工作流引導</li>
+    <li><strong>舒適度多級別</strong>：wind-force §4.3 加入住宅 / 辦公室 / 其他三類容許加速度</li>
+    <li><strong>q(z) 完整代入式</strong>：所有工具計算過程展示 K(z) = 2.774·(z/z<sub>g</sub>)<sup>2α</sup> 與單段 F<sub>i</sub> 示例</li>
+  </ul>
 </div>
 
 <div class="card">
