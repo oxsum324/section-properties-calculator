@@ -125,11 +125,20 @@
         <option value="windward" selected>迎風面女兒牆</option>
         <option value="leeward">背風面女兒牆</option>
       </select>
+      <div class="hint" id="faceHint">MWFRS 模式依迎風面 / 背風面分別計算。</div>
     </div>
     <div class="form-group">
       <label>有效受風面積 A (m²)</label>
       <input id="A" type="number" value="2" step="0.5">
       <div class="hint" id="areaHint">使用第三章圖 3.1 / 圖 3.2 牆面、屋面 GCp 內插</div>
+    </div>
+    <div class="form-group">
+      <label>C&amp;C 女兒牆類型</label>
+      <select id="ccType">
+        <option value="building_roof" selected>建築物屋頂女兒牆 (圖 3.4)</option>
+        <option value="single_roof">單一屋頂女兒牆 (圖 3.5)</option>
+      </select>
+      <div class="hint" id="ccTypeHint">C&C 模式下可切換圖 3.4 / 圖 3.5 的對應情境。</div>
     </div>
     <div class="form-group">
       <label>GC<sub>pi</sub> 覆寫值（選填）</label>
@@ -182,6 +191,7 @@
 
   <div class="card">
     <h2>設計採用表</h2>
+    <div class="legend" id="designRouteTag">目前路線：—</div>
     <table class="zone" id="designAdoptTable">
       <thead>
         <tr>
@@ -198,6 +208,7 @@
 
   <div class="card">
     <h2>控制條件明細</h2>
+    <div class="legend" id="controlRouteTag">目前控制條件：—</div>
     <div class="results-grid">
       <div class="result-item" id="r-control-name">
         <span class="label">控制條件</span>
@@ -242,7 +253,7 @@
     <h2>規範示意圖</h2>
     <div class="ref-grid">
       <div class="ref-panel">
-        <h3 id="refTitle">圖 3.4 / 圖 3.5 受壓方向示意</h3>
+        <h3 id="refTitle">規範受壓方向示意</h3>
         <div id="refSvgWrap"></div>
         <div class="ref-caption" id="refDesc"></div>
       </div>
@@ -305,13 +316,12 @@
     </summary>
     <div class="assump">
       <span id="assumpText">
-      本頁依規範第三章式 <code>(3.3)</code> 與圖 <code>3.4 / 3.5</code> 的受壓方向，使用本工具箱既有的牆面/屋面
-      <code>GCp</code> 表去組合女兒牆正反面外壓。
-      目前採用的組合為：迎風面女兒牆 = 正面牆面正壓 + 背面屋面負壓；背風面女兒牆 = 正面牆面負壓 + 背面牆面正壓。
+      本頁在 <code>C&amp;C</code> 模式下依規範第三章式 <code>(3.3)</code>、圖 <code>3.4</code> 的建築物屋頂女兒牆外風壓分布，
+      逐條件列出迎風面 / 背風面與一般邊緣 / 角隅之正、背面外壓來源區域。
       </span>
     </div>
     <div class="note">
-      ⚠ `MWFRS` 模式依規範條件計算如下。`C&amp;C` 模式為本工具箱簡化組合模型，不得直接視為圖 3.4 / 圖 3.5 逐區讀值結果；專案要求逐圖逐區認定時，不適用本頁。
+      ⚠ `MWFRS` 模式依第二章式 <code>(2.3)</code>；`C&amp;C` 模式依第三章式 <code>(3.3)</code>、圖 <code>3.4</code> 逐條件列示建築物屋頂女兒牆正、背面設計壓力。
     </div>
   </details>
 </div>
@@ -367,17 +377,56 @@ function parapetRefSvg(face, edgeKey) {
     <text x="180" y="196" text-anchor="middle" font-size="12" fill="#475569">${isWindward ? '迎風面女兒牆：正面牆面正壓 + 背面屋面負壓' : '背風面女兒牆：正面牆面負壓 + 背面牆面正壓'}</text>
   </svg>`;
 }
+function singleRoofParapetRefSvg(edgeKey, dirKey) {
+  const isCorner = edgeKey === 'corner';
+  const leftActive = dirKey === 'left';
+  const activeEdge = isCorner ? '角隅' : '一般邊緣';
+  return `
+  <svg class="ref-svg" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="單一屋頂女兒牆受壓方向示意">
+    <defs>
+      <marker id="arrBlue" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 z" fill="#1d4ed8"/>
+      </marker>
+    </defs>
+    <rect x="155" y="28" width="50" height="140" fill="#fff" stroke="#0f172a" stroke-width="3"/>
+    <line x1="120" y1="168" x2="250" y2="168" stroke="#94a3b8" stroke-width="2"/>
+    <line x1="135" y1="176" x2="255" y2="152" stroke="#cbd5e1" stroke-width="2"/>
+    <text x="180" y="20" text-anchor="middle" font-size="16" fill="#0f172a">單一屋頂女兒牆</text>
+    <text x="180" y="192" text-anchor="middle" font-size="12" fill="#475569">控制條件：${activeEdge} / ${leftActive ? '左側外壓主控' : '右側外壓主控'}</text>
+    <line x1="40" y1="70" x2="152" y2="70" stroke="${leftActive ? '#1d4ed8' : '#94a3b8'}" stroke-width="3" marker-end="url(#arrBlue)" opacity="${leftActive ? '1' : '0.55'}"/>
+    <line x1="40" y1="110" x2="152" y2="110" stroke="${leftActive ? '#1d4ed8' : '#94a3b8'}" stroke-width="3" marker-end="url(#arrBlue)" opacity="${leftActive ? '1' : '0.55'}"/>
+    <line x1="40" y1="150" x2="152" y2="150" stroke="${leftActive ? '#1d4ed8' : '#94a3b8'}" stroke-width="3" marker-end="url(#arrBlue)" opacity="${leftActive ? '1' : '0.55'}"/>
+    <line x1="320" y1="70" x2="208" y2="70" stroke="${leftActive ? '#94a3b8' : '#1d4ed8'}" stroke-width="3" marker-end="url(#arrBlue)" opacity="${leftActive ? '0.55' : '1'}"/>
+    <line x1="320" y1="110" x2="208" y2="110" stroke="${leftActive ? '#94a3b8' : '#1d4ed8'}" stroke-width="3" marker-end="url(#arrBlue)" opacity="${leftActive ? '0.55' : '1'}"/>
+    <line x1="320" y1="150" x2="208" y2="150" stroke="${leftActive ? '#94a3b8' : '#1d4ed8'}" stroke-width="3" marker-end="url(#arrBlue)" opacity="${leftActive ? '0.55' : '1'}"/>
+    <text x="86" y="56" text-anchor="middle" font-size="12" fill="#1e293b">外風壓</text>
+    <text x="274" y="56" text-anchor="middle" font-size="12" fill="#1e293b">外風壓</text>
+    <text x="180" y="108" text-anchor="middle" font-size="14" fill="#334155">內風壓 (+/-)</text>
+  </svg>`;
+}
 function renderParapetReference(face, edgeKey, isLE18, frontRef, backRef) {
   const figLabel = isLE18 ? '圖 3.1' : '圖 3.2';
-  document.getElementById('refTitle').textContent = `圖 3.4 / 圖 3.5 受壓方向示意`;
+  document.getElementById('refTitle').textContent = `圖 3.4 受壓方向示意`;
   document.getElementById('refSvgWrap').innerHTML = parapetRefSvg(face, edgeKey);
   document.getElementById('refDesc').innerHTML =
-    `受壓方向依 <strong>圖 3.4 / 圖 3.5</strong> 判定；外壓係數取值依 <strong>${figLabel}</strong>。<br>` +
+    `受壓方向依 <strong>圖 3.4</strong> 判定；外壓係數取值依 <strong>${figLabel}</strong>。<br>` +
     `正面來源：${parapetRefText(frontRef)} ｜ 背面來源：${parapetRefText(backRef)}`;
   document.getElementById('refShotTitle').textContent = '圖 3.4 / 圖 3.5 規範圖面';
   document.getElementById('refShot').src = '../assets/wind_refs/fig_3_4_3_5.png';
   document.getElementById('refShotDesc').innerHTML =
-    `右側為圖 3.4 / 圖 3.5 原圖截圖；本頁左側則將本次控制條件的受壓方向與正、背面來源整理為可追溯示意。`;
+    `右側保留圖 3.4 / 圖 3.5 原圖截圖；本頁左側則將圖 3.4 本次控制條件的受壓方向與正、背面來源整理為可追溯示意。`;
+}
+function renderSingleRoofReference(edgeKey, dirKey, isLE18, frontRef, backRef) {
+  const figLabel = isLE18 ? '圖 3.1' : '圖 3.2';
+  document.getElementById('refTitle').textContent = `圖 3.5 受壓方向示意`;
+  document.getElementById('refSvgWrap').innerHTML = singleRoofParapetRefSvg(edgeKey, dirKey);
+  document.getElementById('refDesc').innerHTML =
+    `受壓方向依 <strong>圖 3.5</strong> 判定；外壓係數取值依 <strong>${figLabel}</strong>。<br>` +
+    `正面來源：${parapetRefText(frontRef)} ｜ 背面來源：${parapetRefText(backRef)}`;
+  document.getElementById('refShotTitle').textContent = '圖 3.4 / 圖 3.5 規範圖面';
+  document.getElementById('refShot').src = '../assets/wind_refs/fig_3_4_3_5.png';
+  document.getElementById('refShotDesc').innerHTML =
+    `右側保留圖 3.4 / 圖 3.5 原圖截圖；本頁左側則將圖 3.5 單一屋頂女兒牆本次控制條件的受壓方向與正、背面來源整理為可追溯示意。`;
 }
 
 (function initCity() {
@@ -411,14 +460,31 @@ function refreshV() {
 function refreshModeUI() {
   const mode = document.getElementById('mode').value;
   const isCC = mode === 'cc';
+  const ccType = document.getElementById('ccType').value;
   document.getElementById('A').disabled = !isCC;
   document.getElementById('parapetEncl').disabled = !isCC;
   document.getElementById('gcpiOverride').disabled = !isCC;
+  document.getElementById('face').disabled = isCC;
+  document.getElementById('ccType').disabled = !isCC;
   document.getElementById('areaHint').textContent = isCC
-    ? 'C&C 模式會同時計算一般邊緣與角隅；本欄作為兩者共用之有效面積'
+    ? (ccType === 'single_roof'
+        ? 'C&C 單一屋頂女兒牆模式會同時計算左右外壓主控與一般邊緣 / 角隅；本欄作為全部條件共用之有效面積'
+        : 'C&C 模式會同時計算迎風面 / 背風面與一般邊緣 / 角隅；本欄作為全部條件共用之有效面積')
     : 'MWFRS 模式不使用 A；第二章 Eq 2.3 直接採 GCpn';
+  document.getElementById('ccTypeHint').textContent = isCC
+    ? (ccType === 'single_roof'
+        ? '目前依圖 3.5 列出單一屋頂女兒牆之左右外壓主控條件。'
+        : '目前依圖 3.4 列出建築物屋頂女兒牆四個條件。')
+    : 'MWFRS 模式不使用此欄。';
+  document.getElementById('faceHint').textContent = isCC
+    ? (ccType === 'single_roof'
+        ? 'C&C 單一屋頂女兒牆模式固定同時計算圖 3.5 的全部條件，本欄不作為主輸入。'
+        : 'C&C 模式固定同時計算圖 3.4 的全部女兒牆條件，本欄不作為主輸入。')
+    : 'MWFRS 模式依迎風面 / 背風面分別計算。';
   document.getElementById('assumpText').innerHTML = isCC
-    ? '本頁依規範第三章式 <code>(3.3)</code> 與圖 <code>3.4 / 3.5</code> 的受壓方向，使用本工具箱既有的牆面/屋面 <code>GCp</code> 表去組合女兒牆正反面外壓。<br>本頁 <code>GCpi</code> 依女兒牆體開口狀態取值；若專案已另行認定，可用覆寫值優先代入。<br>目前採用的組合為：迎風面女兒牆 = 正面牆面正壓 + 背面屋面負壓；背風面女兒牆 = 正面牆面負壓 + 背面牆面正壓。'
+    ? (ccType === 'single_roof'
+        ? '本頁依規範第三章式 <code>(3.3)</code>、圖 <code>3.5</code> 的單一屋頂女兒牆內外風壓分布，逐條件列出左右外壓主控與一般邊緣 / 角隅之正、背面外壓來源。<br>本頁 <code>GCpi</code> 依女兒牆體開口狀態取值；若專案已另行認定，可用覆寫值優先代入。<br>外壓係數取同一外牆區域之正、負 <code>GCp</code>，並在總覽表與設計採用表中完整標示來源區域。'
+        : '本頁依規範第三章式 <code>(3.3)</code>、圖 <code>3.4</code> 的建築物屋頂女兒牆外風壓分布，逐條件列出迎風面 / 背風面、一般邊緣 / 角隅之正、背面外壓來源。<br>本頁 <code>GCpi</code> 依女兒牆體開口狀態取值；若專案已另行認定，可用覆寫值優先代入。<br>外壓係數仍依牆面 / 屋面對應區域之 <code>GCp</code> 讀值，並在總覽表與設計採用表中完整標示來源區域。')
     : '本頁在 MWFRS 模式下依第二章式 <code>(2.3)</code> 直接計算屋頂女兒牆設計風壓：迎風面取 <code>(GCpn)=+1.8</code>，背風面取 <code>(GCpn)=-1.1</code>，不再混用 C&amp;C 的 GCp / GCpi 組合。';
   document.getElementById('ccSummaryTable').closest('.card').style.display = isCC ? '' : 'none';
 }
@@ -450,6 +516,8 @@ function step(t, b, d) {
 
 function calc() {
   const mode = document.getElementById('mode').value;
+  const ccType = document.getElementById('ccType').value;
+  const ccTypeLabel = ccType === 'single_roof' ? '圖 3.5 單一屋頂女兒牆' : '圖 3.4 建築物屋頂女兒牆';
   const V = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
   const terrain = document.getElementById('terrain').value;
   const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
@@ -475,6 +543,8 @@ function calc() {
 
   let r;
   if (mode === 'mwfrs') {
+    document.getElementById('designRouteTag').textContent = '目前路線：MWFRS 女兒牆（第二章 Eq 2.3）';
+    document.getElementById('controlRouteTag').textContent = `目前控制條件：${face === 'windward' ? '迎風面' : '背風面'} / MWFRS`;
     r = W.calcMwfrsParapet({ V, terrain, I, Kzt, h, hp, face });
     setR('r-control-name', face === 'windward' ? '迎風面 MWFRS 女兒牆' : '背風面 MWFRS 女兒牆');
     setR('r-qp', r.qp, 1);
@@ -518,23 +588,19 @@ function calc() {
       document.getElementById('reduceSummary').innerHTML = '';
     }
   } else {
-    const edgeCases = [
-      { key: 'edge', label: '一般邊緣' },
-      { key: 'corner', label: '角隅' }
-    ].map(item => ({
-      ...item,
-      data: W.calcParapet({
-        V, terrain, I, Kzt, h, hp, A, face, edge: item.key,
-        encl: parapetEncl,
-        GCpiOverride: gcpiOverride
-      })
-    }));
-    const controlFront = edgeCases.reduce((best, item) => Math.abs(item.data.pFront) > Math.abs(best.data.pFront) ? item : best, edgeCases[0]);
-    const controlBack = edgeCases.reduce((best, item) => Math.abs(item.data.pBack) > Math.abs(best.data.pBack) ? item : best, edgeCases[0]);
-    const controlDiff = edgeCases.reduce((best, item) => Math.abs(item.data.pDiff) > Math.abs(best.data.pDiff) ? item : best, edgeCases[0]);
+    document.getElementById('designRouteTag').textContent = `目前路線：${ccTypeLabel}（第三章 Eq 3.3）`;
+    const caseList = (ccType === 'single_roof' ? W.calcSingleRoofParapetCcCases : W.calcParapetCcCases)({
+      V, terrain, I, Kzt, h, hp, A,
+      encl: parapetEncl,
+      GCpiOverride: gcpiOverride
+    });
+    const controlFront = caseList.reduce((best, item) => Math.abs(item.data.pFront) > Math.abs(best.data.pFront) ? item : best, caseList[0]);
+    const controlBack = caseList.reduce((best, item) => Math.abs(item.data.pBack) > Math.abs(best.data.pBack) ? item : best, caseList[0]);
+    const controlDiff = caseList.reduce((best, item) => Math.abs(item.data.pDiff) > Math.abs(best.data.pDiff) ? item : best, caseList[0]);
     const controlOverall = controlDiff;
     r = controlOverall.data;
-    setR('r-control-name', `${controlOverall.label} / ${face === 'windward' ? '迎風面' : '背風面'}`);
+    document.getElementById('controlRouteTag').textContent = `目前控制條件：${controlOverall.label} / ${ccTypeLabel}`;
+    setR('r-control-name', controlOverall.label);
     setR('r-qp', r.qp, 1);
     setR('r-gcpi', '±' + r.GCpi.toFixed(3));
     setR('r-gcpn', '—');
@@ -543,7 +609,7 @@ function calc() {
     setR('r-front-p', r.pFront, 1);
     setR('r-back-p', r.pBack, 1);
     setR('r-diff-p', r.pDiff, 1);
-    document.querySelector('#ccSummaryTable tbody').innerHTML = edgeCases.map(item => `
+    document.querySelector('#ccSummaryTable tbody').innerHTML = caseList.map(item => `
       <tr${item.key === controlOverall.key ? ' style="font-weight:700;"' : ''}>
         <td>${item.label}${item.key === controlOverall.key ? '　(控制壓差)' : ''}</td>
         <td>${parapetRefText(item.data.frontRef)}</td>
@@ -555,7 +621,9 @@ function calc() {
         <td>${fmt(item.data.pDiff,1)}</td>
       </tr>
     `).join('');
-    document.getElementById('ccSummaryNote').textContent = `C&C 模式同時計算一般邊緣與角隅；表中加粗列為控制前後面壓差之條件。受壓方向依圖 3.4 / 圖 3.5，GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`;
+    document.getElementById('ccSummaryNote').textContent = ccType === 'single_roof'
+      ? `C&C 模式同時計算圖 3.5 之左右外壓主控與一般邊緣 / 角隅；表中加粗列為控制前後面壓差之條件。GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`
+      : `C&C 模式同時計算圖 3.4 之迎風面 / 背風面與一般邊緣 / 角隅；表中加粗列為控制前後面壓差之條件。GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`;
     document.querySelector('#designAdoptTable tbody').innerHTML = `
       <tr>
         <td>控制正面設計壓力</td>
@@ -576,10 +644,16 @@ function calc() {
         <td>前後面壓差取絕對值最大者；正面 = ${parapetRefText(controlDiff.data.frontRef)}，背面 = ${parapetRefText(controlDiff.data.backRef)}</td>
       </tr>
     `;
-    document.getElementById('designAdoptNote').textContent = `本表彙整 C&C 女兒牆一般邊緣與角隅之控制值，可直接作為女兒牆設計採用摘要；本次受壓方向依圖 3.4 / 圖 3.5，GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`;
-    renderParapetReference(face, controlOverall.key, r.isLE18, r.frontRef, r.backRef);
+    document.getElementById('designAdoptNote').textContent = ccType === 'single_roof'
+      ? `本表彙整圖 3.5 單一屋頂女兒牆四個條件之控制值，可直接作為女兒牆設計採用摘要；GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`
+      : `本表彙整圖 3.4 建築物屋頂女兒牆四個條件之控制值，可直接作為女兒牆設計採用摘要；GCp 取值依 ${r.isLE18 ? '圖 3.1' : '圖 3.2'}。`;
+    if (ccType === 'single_roof') {
+      renderSingleRoofReference(controlOverall.edge, controlOverall.dir, r.isLE18, r.frontRef, r.backRef);
+    } else {
+      renderParapetReference(controlOverall.face, controlOverall.edge, r.isLE18, r.frontRef, r.backRef);
+    }
     if (enableReduce) {
-      const reducedCases = edgeCases.map(item => {
+      const reducedCases = caseList.map(item => {
         const redFront = signedReduce(item.data.pFront, reducePos, reduceNeg);
         const redBack = signedReduce(item.data.pBack, reducePos, reduceNeg);
         return { ...item, redFront, redBack, redDiff: redFront - redBack };
@@ -644,10 +718,10 @@ function calc() {
       ]
     : [
         { label: '模式', level: 'ok', message: 'C&C 女兒牆' },
-        { label: '情境', level: 'ok', message: face === 'windward' ? '迎風面女兒牆' : '背風面女兒牆' },
-        { label: '區域', level: 'ok', message: '同時計算一般邊緣與角隅' },
+        { label: '圖面', level: 'ok', message: ccType === 'single_roof' ? '圖 3.5 單一屋頂女兒牆內外風壓分布' : '圖 3.4 建築物屋頂女兒牆外風壓分布' },
+        { label: '條件', level: 'ok', message: ccType === 'single_roof' ? '同時計算左右外壓主控與一般邊緣 / 角隅' : '同時計算迎風面 / 背風面與一般邊緣 / 角隅' },
         { label: '高度表', level: 'ok', message: r.isLE18 ? 'h ≤ 18m，採圖 3.1 系列' : 'h > 18m，採圖 3.2 系列' },
-        { label: '受壓方向', level: 'ok', message: '依圖 3.4 / 圖 3.5 判定正、背面受壓方向' },
+        { label: '受壓方向', level: 'ok', message: ccType === 'single_roof' ? '依圖 3.5 判定各條件正、背面受壓方向' : '依圖 3.4 判定各條件正、背面受壓方向' },
         {
           label: '女兒牆體 GCpi',
           level: gcpiOverride != null ? 'warn' : 'ok',
@@ -656,7 +730,7 @@ function calc() {
             : `依女兒牆體開口狀態採 GCpi = ±${fmt(r.GCpi,3)}`
         },
         { label: '有效面積', level: A > 65 ? 'warn' : 'ok', message: A > 65 ? `A = ${fmt(A,1)} m²；應另檢核是否改依一般公式辦理` : `A = ${fmt(A,1)} m²；滿足本頁面積路線條件` },
-        { label: '工具假設', level: 'warn', message: '本頁 C&C 模式以牆/屋面 GCp 組合女兒牆正反面外壓' }
+        { label: '控制條件', level: 'ok', message: `本次控制壓差 = ${document.querySelector('#r-control-name .value')?.textContent || '—'}` }
       ];
   setApplicability(slopeCheck);
 
@@ -666,8 +740,8 @@ function calc() {
     V = <span class="val">${V}</span> m/s, I = <span class="val">${I}</span>, K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
     地況 ${terrain}: α=${t.alpha}, z<sub>g</sub>=${t.zg} m, z<sub>min</sub>=${t.zmin} m<br>
     屋頂高 h = ${fmt(h,1)} m, 女兒牆高度 h<sub>p</sub> = ${fmt(hp,1)} m<br>
-    女兒牆位置 = ${faceText}${mode === 'cc' ? ' / 控制條件' : ''}<br>
-    設計模式 = ${mode === 'mwfrs' ? 'MWFRS (第二章 Eq 2.3)' : 'C&C (第三章 Eq 3.3)'}
+    女兒牆位置 = ${mode === 'mwfrs' ? faceText : (ccType === 'single_roof' ? '圖 3.5 四個條件同時計算' : '圖 3.4 四個條件同時計算')}<br>
+    設計模式 = ${mode === 'mwfrs' ? 'MWFRS (第二章 Eq 2.3)' : `C&C (第三章 Eq 3.3 / ${ccType === 'single_roof' ? '圖 3.5' : '圖 3.4'})`}
   `);
 
   html += step('② 女兒牆頂端速度壓 q<sub>p</sub>', `
@@ -693,18 +767,21 @@ function calc() {
       `);
     }
   } else {
-    html += step('③ 外壓係數組合 (圖 3.4 / 3.5 路線)', `
-      牆面參考區域 = <span class="val">${r.wallZone}</span>，屋面參考區域 = <span class="val">${r.roofZone}</span><br>
-      正面 GC<sub>p</sub> = <span class="val">${r.frontGCp.toFixed(2)}</span> (${r.frontRef.type}, ${r.frontRef.zone}, ${r.frontRef.sign})<br>
-      背面 GC<sub>p</sub> = <span class="val">${r.backGCp.toFixed(2)}</span> (${r.backRef.type}, ${r.backRef.zone}, ${r.backRef.sign})<br>
+    html += step(`③ 外壓係數組合 (${ccType === 'single_roof' ? '圖 3.5' : '圖 3.4'} 路線)`, `
+      控制條件 = <span class="val">${document.querySelector('#r-control-name .value')?.textContent || '—'}</span><br>
+      牆面參考區域 = <span class="val">${r.wallZone}</span>${r.roofZone ? `，屋面參考區域 = <span class="val">${r.roofZone}</span>` : ''}<br>
+      正面 GC<sub>p</sub> = <span class="val">${r.frontGCp.toFixed(2)}</span> (${parapetRefText(r.frontRef)})<br>
+      背面 GC<sub>p</sub> = <span class="val">${r.backGCp.toFixed(2)}</span> (${parapetRefText(r.backRef)})<br>
       GC<sub>pi</sub> = <span class="val">±${r.GCpi.toFixed(3)}</span> ${gcpiOverride != null ? '(覆寫值)' : '(依女兒牆體開口狀態)'}
-    `);
+    `, ccType === 'single_roof'
+      ? '本頁依圖 3.5 單一屋頂女兒牆四個條件逐一比對，控制條件之正、背面來源如上列。'
+      : '本頁依圖 3.4 建築物屋頂女兒牆四個條件逐一比對，控制條件之正、背面來源如上列。');
 
     html += step('④ 各面設計壓力', `
       正面取最不利內壓符號 <span class="val">${r.frontInternalSign}GC<sub>pi</sub></span> → p<sub>front</sub> = <span class="val hl">${fmt(r.pFront,1)}</span> kgf/m²<br>
       背面取最不利內壓符號 <span class="val">${r.backInternalSign}GC<sub>pi</sub></span> → p<sub>back</sub> = <span class="val hl">${fmt(r.pBack,1)}</span> kgf/m²<br>
       前後面壓差 p<sub>front</sub> − p<sub>back</sub> = <span class="val hl">${fmt(r.pDiff,1)}</span> kgf/m²
-    `, `p_front = ${fmt(r.qp,2)} × (${fmt(r.frontGCp,3)} ${r.frontInternalSign === '+' ? '+' : '-'} ${fmt(r.GCpi,3)}) = ${fmt(r.pFront,2)} kgf/m²<br>p_back = ${fmt(r.qp,2)} × (${fmt(r.backGCp,3)} ${r.backInternalSign === '+' ? '+' : '-'} ${fmt(r.GCpi,3)}) = ${fmt(r.pBack,2)} kgf/m²<br>本頁對正、背面各自採使其外壓方向最不利之內壓符號；此為本工具箱的 C&C 女兒牆簡化計算路線。`);
+    `, `p_front = ${fmt(r.qp,2)} × (${fmt(r.frontGCp,3)} ${r.frontInternalSign === '+' ? '+' : '-'} ${fmt(r.GCpi,3)}) = ${fmt(r.pFront,2)} kgf/m²<br>p_back = ${fmt(r.qp,2)} × (${fmt(r.backGCp,3)} ${r.backInternalSign === '+' ? '+' : '-'} ${fmt(r.GCpi,3)}) = ${fmt(r.pBack,2)} kgf/m²<br>${ccType === 'single_roof' ? '本頁已將圖 3.5 的左右外壓主控與一般邊緣 / 角隅全部條件列入比較，控制值取自最不利條件。' : '本頁已將圖 3.4 的迎風 / 背風與一般邊緣 / 角隅全部條件列入比較，控制值取自最不利條件。'}`);
     if (enableReduce) {
       html += step('⑤ 特殊修正 / 折減後風壓', `
         修正模式 = <span class="val">${reduceModeName(reduceMode)}</span><br>
@@ -724,6 +801,10 @@ document.getElementById('chkDetail').addEventListener('change', function() {
   document.getElementById('stepsCard').classList.toggle('show-detail', this.checked);
 });
 document.getElementById('mode').addEventListener('change', function() {
+  refreshModeUI();
+  calc();
+});
+document.getElementById('ccType').addEventListener('change', function() {
   refreshModeUI();
   calc();
 });

@@ -55,6 +55,36 @@ function run() {
   assert.strictEqual(parapetOverride.frontInternalSign, '-', 'leeward parapet front should use negative internal sign');
   assert.strictEqual(parapetOverride.backInternalSign, '+', 'leeward parapet back should use positive internal sign');
 
+  const parapetCases = W.calcParapetCcCases({
+    V: 42.5, terrain: 'C', I: 1.0, Kzt: 1.0,
+    h: 20, hp: 1.5, A: 2, encl: 'enclosed'
+  });
+  assert.strictEqual(parapetCases.length, 4, 'parapet C&C should enumerate four figure-3.4 cases');
+  assert.strictEqual(
+    parapetCases.map(item => item.key).join('|'),
+    'windward_edge|windward_corner|leeward_edge|leeward_corner',
+    'parapet case order'
+  );
+  approx(parapetCases[0].data.frontGCp, W.lookupGCp(W.GCP_WALL_GT18.zone4, 2).pos, 1e-9, 'windward edge front GCp');
+  approx(parapetCases[1].data.backGCp, W.lookupGCp(W.GCP_ROOF_GT18.zone3, 2).neg, 1e-9, 'windward corner back GCp');
+  approx(parapetCases[2].data.frontGCp, W.lookupGCp(W.GCP_WALL_GT18.zone4, 2).neg, 1e-9, 'leeward edge front GCp');
+  approx(parapetCases[3].data.backGCp, W.lookupGCp(W.GCP_WALL_GT18.zone5, 2).pos, 1e-9, 'leeward corner back GCp');
+
+  const singleRoofCases = W.calcSingleRoofParapetCcCases({
+    V: 42.5, terrain: 'C', I: 1.0, Kzt: 1.0,
+    h: 20, hp: 1.5, A: 2, encl: 'enclosed'
+  });
+  assert.strictEqual(singleRoofCases.length, 4, 'single-roof parapet should enumerate four figure-3.5 cases');
+  assert.strictEqual(
+    singleRoofCases.map(item => item.key).join('|'),
+    'edge_left|edge_right|corner_left|corner_right',
+    'single-roof parapet case order'
+  );
+  approx(singleRoofCases[0].data.frontGCp, W.lookupGCp(W.GCP_WALL_GT18.zone4, 2).pos, 1e-9, 'single roof edge left front GCp');
+  approx(singleRoofCases[0].data.backGCp, W.lookupGCp(W.GCP_WALL_GT18.zone4, 2).neg, 1e-9, 'single roof edge left back GCp');
+  approx(singleRoofCases[1].data.frontGCp, W.lookupGCp(W.GCP_WALL_GT18.zone4, 2).neg, 1e-9, 'single roof edge right front GCp');
+  approx(singleRoofCases[3].data.backGCp, W.lookupGCp(W.GCP_WALL_GT18.zone5, 2).pos, 1e-9, 'single roof corner right back GCp');
+
   const mwfrsParapet = W.calcMwfrsParapet({
     V: 42.5, terrain: 'C', I: 1.0, Kzt: 1.0,
     h: 20, hp: 1.5, face: 'windward'

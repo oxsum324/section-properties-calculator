@@ -181,7 +181,11 @@
   function collectSummary() {
     const banner = document.querySelector('#banner, #applicStatus, .banner-status');
     const text = textFrom(banner);
-    const ok = /符合|滿足規範|滿足本頁|適用|依規範條件計算如下/.test(text) ? true : /不適用|NG|不符合|不滿足|規範條件局部不適用/.test(text) ? false : null;
+    const ok = /依規範條件計算如下/.test(text)
+      ? true
+      : /規範條件局部不適用/.test(text)
+        ? false
+        : null;
     return { ok, text: text || '—' };
   }
 
@@ -230,6 +234,7 @@
   function collectWindParapetChecks() {
     const groups = [];
     appendIf(groups, parseKVList(document.getElementById('applicList'), '適用性檢查'));
+    appendIf(groups, makeTextGroup('規範路線', `${textFrom(document.getElementById('designRouteTag'))} ${textFrom(document.getElementById('controlRouteTag'))}`));
     appendIf(groups, parseTable(document.getElementById('designAdoptTable'), '設計採用表'));
     appendIf(groups, parseResultGrid(document.querySelector('#r-control-name')?.closest('.card'), '控制條件明細'));
     appendIf(groups, parseTable(document.getElementById('ccSummaryTable'), '各條件風壓總覽'));

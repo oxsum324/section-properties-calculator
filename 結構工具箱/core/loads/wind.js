@@ -1142,6 +1142,81 @@
     };
   }
 
+  /**
+   * 建築物屋頂女兒牆 C&C 全條件 (圖 3.4)
+   * 逐條件列出：
+   * - 迎風面 / 背風面
+   * - 一般邊緣 / 角隅
+   * 供頁面直接做逐圖逐區總覽與控制條件採用。
+   */
+  function calcParapetCcCases(p) {
+    const cases = [
+      { key: 'windward_edge', face: 'windward', edge: 'edge', label: '迎風面 / 一般邊緣' },
+      { key: 'windward_corner', face: 'windward', edge: 'corner', label: '迎風面 / 角隅' },
+      { key: 'leeward_edge', face: 'leeward', edge: 'edge', label: '背風面 / 一般邊緣' },
+      { key: 'leeward_corner', face: 'leeward', edge: 'corner', label: '背風面 / 角隅' },
+    ];
+    return cases.map(item => ({
+      ...item,
+      data: calcParapet({ ...p, face: item.face, edge: item.edge }),
+    }));
+  }
+
+  /**
+   * 單一屋頂女兒牆 C&C (圖 3.5)
+   * 以單一女兒牆兩側均受外風壓之情境，列出：
+   * - 一般邊緣 / 角隅
+   * - 左側外壓主控 / 右側外壓主控
+   * 外壓係數均取外牆區域 GCp，方向反轉時交換正、背面來源。
+   */
+  function calcSingleRoofParapetCcCases(p) {
+    const {
+      V, terrain, I, Kzt = 1.0,
+      h, hp, A,
+      encl = 'enclosed',
+      GCpiOverride = null,
+    } = p;
+    const topZ = h + hp;
+    const qp = calcQz(topZ, V, terrain, I, Kzt).qz;
+    const isLE18 = (h <= 18);
+    const wallTbl = isLE18 ? GCP_WALL_LE18 : GCP_WALL_GT18;
+    const GCpi = GCpiOverride != null ? GCpiOverride : (GCPI[encl] ?? GCPI.enclosed);
+    const patterns = [
+      { edge: 'edge', zone: 'zone4', dir: 'left', label: '一般邊緣 / 左側外壓主控' },
+      { edge: 'edge', zone: 'zone4', dir: 'right', label: '一般邊緣 / 右側外壓主控' },
+      { edge: 'corner', zone: 'zone5', dir: 'left', label: '角隅 / 左側外壓主控' },
+      { edge: 'corner', zone: 'zone5', dir: 'right', label: '角隅 / 右側外壓主控' },
+    ];
+    return patterns.map(item => {
+      const wallGCp = lookupGCp(wallTbl[item.zone], A);
+      const frontGCp = item.dir === 'left' ? wallGCp.pos : wallGCp.neg;
+      const backGCp = item.dir === 'left' ? wallGCp.neg : wallGCp.pos;
+      const frontRef = { type: 'wall', zone: item.zone, sign: item.dir === 'left' ? 'pos' : 'neg' };
+      const backRef = { type: 'wall', zone: item.zone, sign: item.dir === 'left' ? 'neg' : 'pos' };
+      const frontInternalSign = frontGCp >= 0 ? '+' : '-';
+      const backInternalSign = backGCp >= 0 ? '+' : '-';
+      const pFront = qp * (frontGCp >= 0 ? (frontGCp + GCpi) : (frontGCp - GCpi));
+      const pBack = qp * (backGCp >= 0 ? (backGCp + GCpi) : (backGCp - GCpi));
+      return {
+        key: `${item.edge}_${item.dir}`,
+        label: item.label,
+        edge: item.edge,
+        dir: item.dir,
+        data: {
+          qp, topZ, GCpi, isLE18,
+          wallZone: item.zone,
+          roofZone: null,
+          wallGCp,
+          roofGCp: null,
+          frontGCp, backGCp,
+          frontRef, backRef,
+          frontInternalSign, backInternalSign,
+          pFront, pBack, pDiff: pFront - pBack,
+        }
+      };
+    });
+  }
+
   function _interp(x1, y1, x2, y2, x) {
     if (x2 === x1) return y1;
     return y1 + (y2 - y1) * ((x - x1) / (x2 - x1));
@@ -1828,6 +1903,8 @@
     calcCC,
     calcMwfrsParapet,
     calcParapet,
+    calcParapetCcCases,
+    calcSingleRoofParapetCcCases,
     lookupOpenRoofCpn,
     calcOpenRoofCC,
     lookupSolidObjectCf,
