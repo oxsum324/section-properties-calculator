@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐風設計 — Kzt 地形係數計算器 V1</title>
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#0d9488; color:#fff; }
+  .step { margin-bottom:14px; }
+  .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px; padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
+  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
+  .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
+  .step-body .val.hl { font-size:1.05em; color:#0d9488; }
+  .topo-svg { width:100%; max-width:480px; height:auto; display:block; margin:8px auto; background:#fff; border:1px solid var(--border); border-radius:8px; }
+  table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
+  table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
+  table.zone th { background:#f1f5f9; color:var(--primary); font-weight:700; font-family:inherit; }
+  .kzt-result {
+    font-size:1.6em; font-weight:800; color:#0d9488;
+    text-align:center; padding:12px; background:#f0fdfa;
+    border-radius:8px; margin:10px 0;
+    font-family:'Consolas',monospace;
+  }
+  .info-pill { display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.78em; background:#f0fdfa; color:#0f766e; font-weight:700; margin-right:6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐風設計 — K<sub>zt</sub> 地形係數計算器 <span class="badge-v">V1</span></h1>
+  <p>規範 §2.7 / Eq 2.8：K<sub>zt</sub> = (1 + K<sub>1</sub>·K<sub>2</sub>·K<sub>3</sub>)²</p>
+  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="card mode-bar print-meta">
+  <strong class="mode-bar__label">計畫資訊：</strong>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo" class="w-no" placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+  </div>
+</div>
+<div class="main-layout">
+<div>
+  <div class="card">
+    <h2>適用範圍</h2>
+    <div class="note">
+      規範 §2.7：建築物若位於山頂、丘陵、峭崖等地形上方，風速會因加速效應放大，需以地形係數 K<sub>zt</sub> 修正速度壓 q(z)。<br>
+      <strong>適用條件</strong>：地形高度 H ≥ 4.5 m（地況 C）或 ≥ 18 m（地況 A、B），且 H/L<sub>h</sub> ≥ 0.2。<br>
+      <strong>不適用</strong>：平地（取 K<sub>zt</sub> = 1.0）；都市建成區內、複雜地形請另作風洞試驗。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>地形與位置</h2>
+    <div class="form-group">
+      <label>地形類型</label>
+      <select id="topoType">
+        <option value="flat">平地（K<sub>zt</sub> = 1.0）</option>
+        <option value="ridge" selected>山脊 / Ridge（雙坡山形）</option>
+        <option value="cliff">陡崖 / Cliff（單面陡崖）</option>
+        <option value="hill">圓丘 / Hill（軸對稱孤立丘）</option>
+      </select>
+      <div class="hint" id="topoHint"></div>
+    </div>
+    <div class="form-group">
+      <label>地況分類（用於決定 K<sub>1</sub>/(H/L<sub>h</sub>)）</label>
+      <select id="terrainGrp">
+        <option value="C" selected>地況 C（開闊平坦地）</option>
+        <option value="AB">地況 A 或 B（市中心 / 郊區）</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>地形高度 H (m)</label>
+        <input id="H" type="number" value="60" step="1">
+        <div class="hint">山脊頂至腳之垂直高度</div>
+      </div>
+      <div class="form-group">
+        <label>地形半長 L<sub>h</sub> (m)</label>
+        <input id="Lh" type="number" value="120" step="1">
+        <div class="hint">自頂至 H/2 處之水平距離</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>建築物距山頂水平距離 x (m)</label>
+        <input id="x" type="number" value="50" step="1">
+        <div class="hint">上風側填負值，下風側填正值</div>
+      </div>
+      <div class="form-group">
+        <label>離地面高度 z (m)</label>
+        <input id="z" type="number" value="10" step="0.5">
+        <div class="hint">通常取建築物計算高度（如 z = H_bldg）</div>
+      </div>
+    </div>
+    <button class="btn-calc" id="btnCalc">計算 K<sub>zt</sub></button>
+    <div class="chk-detail">
+      <input type="checkbox" id="chkDetail" checked>
+      <label for="chkDetail">顯示逐步計算過程</label>
+    </div>
+    <button class="btn-print" type="button">列印計算書</button>
+  </div>
+</div>
+
+<div id="resultPanel">
+  <div class="card">
+    <h2>地形示意</h2>
+    <svg class="topo-svg" id="topoSvg" viewBox="0 0 480 220"></svg>
+  </div>
+
+  <div class="card">
+    <h2>K<sub>zt</sub> 計算結果</h2>
+    <div class="kzt-result" id="kztResult">— </div>
+    <div style="text-align:center;">
+      <span class="info-pill" id="pK1">K₁ = —</span>
+      <span class="info-pill" id="pK2">K₂ = —</span>
+      <span class="info-pill" id="pK3">K₃ = —</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>採用表</h2>
+    <table class="zone" id="adoptTable">
+      <thead><tr><th>項目</th><th>採用值</th><th>說明</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card" id="stepsCard">
+    <h2>逐步計算</h2>
+    <div id="steps"></div>
+  </div>
+
+  <div class="card">
+    <h2>說明</h2>
+    <div class="legend">
+      <code>K<sub>zt</sub></code> = (1 + K<sub>1</sub>·K<sub>2</sub>·K<sub>3</sub>)²<br>
+      <code>K<sub>1</sub></code> = K<sub>1</sub>(地況) × min(H/L<sub>h</sub>, 0.5)，由表 2.3(a) 對應地形類型查得 K<sub>1</sub>(地況)<br>
+      <code>K<sub>2</sub></code> = max(0, 1 − |x|/(μ·L<sub>h_use</sub>))，水平衰減；上風 μ_up，下風 μ_dn<br>
+      <code>K<sub>3</sub></code> = e<sup>−γ·z/L<sub>h_use</sub></sup>，垂直衰減<br>
+      <code>L<sub>h_use</sub></code> = L<sub>h</sub>（H/L<sub>h</sub> &lt; 0.5 時）；H/L<sub>h</sub> ≥ 0.5 時取 2H
+    </div>
+    <div class="note">
+      ⚠ K<sub>zt</sub> 之計算僅適用於規範 §2.7 之孤立簡單地形；複雜地形（多重山丘、谷地、特殊地貌）應依規範另作風洞試驗或專案分析。
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script src="../../core/loads/wind.js"></script>
+<script>
+const W = window.Wind;
+const fmt = (v, d=3) => isFinite(v) ? v.toFixed(d) : '—';
+const val = id => parseFloat(document.getElementById(id).value) || 0;
+
+const TOPO_HINTS = {
+  flat: '平地不需考慮地形效應，K_zt = 1.0。',
+  ridge: '雙坡長條山脊：兩面對稱坡。表 2.3(a)：地況C K₁/(H/L) = 1.45，地況AB = 1.30。',
+  cliff: '單面陡崖：上風側陡降。表 2.3(a)：地況C K₁/(H/L) = 0.85，地況AB = 0.75。',
+  hill:  '軸對稱孤立圓丘：四面對稱。表 2.3(a)：地況C K₁/(H/L) = 1.05，地況AB = 0.95。',
+};
+
+document.getElementById('topoType').addEventListener('change', () => {
+  document.getElementById('topoHint').textContent = TOPO_HINTS[document.getElementById('topoType').value];
+  calc();
+});
+document.getElementById('topoHint').textContent = TOPO_HINTS.ridge;
+
+function calc() {
+  const topoType = document.getElementById('topoType').value;
+  const terrainGrp = document.getElementById('terrainGrp').value;
+  const H = val('H'), Lh = val('Lh'), x = val('x'), z = val('z');
+  const detail = W.calcKztDetail(topoType, terrainGrp, H, Lh, x, z);
+
+  document.getElementById('kztResult').textContent = `K_zt = ${fmt(detail.Kzt, 4)}`;
+  document.getElementById('pK1').textContent = `K₁ = ${fmt(detail.K1, 4)}`;
+  document.getElementById('pK2').textContent = `K₂ = ${fmt(detail.K2, 4)}`;
+  document.getElementById('pK3').textContent = `K₃ = ${fmt(detail.K3, 4)}`;
+
+  const tbody = document.querySelector('#adoptTable tbody');
+  if (topoType === 'flat') {
+    tbody.innerHTML = `<tr><td>地形類型</td><td>平地</td><td>不計地形效應，K_zt = 1.0</td></tr>`;
+  } else {
+    const HLshow = detail.HL_capped ? `${fmt(detail.HL,3)}（受 0.50 上限）` : fmt(detail.HL,3);
+    tbody.innerHTML = `
+      <tr><td>地形類型</td><td>${topoTypeName(topoType)}</td><td>${TOPO_HINTS[topoType]}</td></tr>
+      <tr><td>地況類別</td><td>${terrainGrp === 'C' ? '地況 C' : '地況 A 或 B'}</td><td>影響 K₁/(H/Lh) 之取值</td></tr>
+      <tr><td>H/L<sub>h</sub></td><td>${HLshow}</td><td>規範限 ≤ 0.50；超過時 L<sub>h_use</sub> 改取 2H</td></tr>
+      <tr><td>K<sub>1</sub>/(H/L<sub>h</sub>)</td><td>${fmt(detail.K1_factor,2)}</td><td>表 2.3(a) 依地形與地況查得</td></tr>
+      <tr><td>L<sub>h_use</sub></td><td>${fmt(detail.Lh_use,1)} m</td><td>${detail.HL_capped ? '採 2H（H/L<sub>h</sub> ≥ 0.5）' : '採 L<sub>h</sub>'}</td></tr>
+      <tr><td>μ（${x < 0 ? '上風 μ_up' : '下風 μ_dn'}）</td><td>${fmt(detail.mu,2)}</td><td>${x < 0 ? '建築物在上風側' : '建築物在下風側或山頂'}</td></tr>
+      <tr><td>γ（垂直衰減）</td><td>${fmt(detail.gamma,2)}</td><td>由表 2.3(a) 對應地形類型</td></tr>
+      <tr style="font-weight:700;background:#f0fdfa;"><td>K<sub>1</sub></td><td>${fmt(detail.K1,4)}</td><td>= K<sub>1</sub>/(H/L<sub>h</sub>) × min(H/L<sub>h</sub>, 0.5)</td></tr>
+      <tr style="font-weight:700;background:#f0fdfa;"><td>K<sub>2</sub></td><td>${fmt(detail.K2,4)}</td><td>= max(0, 1 − |x|/(μ·L<sub>h_use</sub>))</td></tr>
+      <tr style="font-weight:700;background:#f0fdfa;"><td>K<sub>3</sub></td><td>${fmt(detail.K3,4)}</td><td>= e<sup>−γ·z/L<sub>h_use</sub></sup></td></tr>
+      <tr style="font-weight:800;background:#fff7ed;"><td>K<sub>zt</sub></td><td>${fmt(detail.Kzt,4)}</td><td>= (1 + K₁·K₂·K₃)²</td></tr>
+    `;
+  }
+
+  const showSteps = document.getElementById('chkDetail').checked;
+  const stepsEl = document.getElementById('steps');
+  if (!showSteps || topoType === 'flat') {
+    stepsEl.innerHTML = topoType === 'flat'
+      ? '<div class="legend">平地：K_zt = 1.0，無逐步計算需要。</div>'
+      : '<div class="legend">勾選「顯示逐步計算過程」可展開明細。</div>';
+  } else {
+    let html = '';
+    html += step('① H/L<sub>h</sub> 計算', `
+      H = <span class="val">${fmt(H,2)}</span> m, L<sub>h</sub> = <span class="val">${fmt(Lh,2)}</span> m<br>
+      H/L<sub>h</sub> = ${fmt(H/Lh,4)} → min(${fmt(H/Lh,4)}, 0.50) = <span class="val">${fmt(detail.HL,4)}</span>
+      ${detail.HL_capped ? '<br><strong style="color:#c2410c;">⚠ H/L<sub>h</sub> 超過 0.50 上限，L<sub>h_use</sub> 改取 2H</strong>' : ''}
+    `);
+    html += step('② K<sub>1</sub> 計算', `
+      地形 = <span class="val">${topoTypeName(topoType)}</span>，地況 = <span class="val">${terrainGrp}</span><br>
+      表 2.3(a)：K<sub>1</sub>/(H/L<sub>h</sub>) = <span class="val">${fmt(detail.K1_factor,2)}</span><br>
+      K<sub>1</sub> = ${fmt(detail.K1_factor,2)} × ${fmt(detail.HL,4)} = <span class="val hl">${fmt(detail.K1,4)}</span>
+    `);
+    html += step('③ K<sub>2</sub> 計算（水平衰減）', `
+      x = <span class="val">${fmt(x,2)}</span> m（${x < 0 ? '上風側' : x > 0 ? '下風側' : '山頂'}），μ = <span class="val">${fmt(detail.mu,2)}</span>，L<sub>h_use</sub> = <span class="val">${fmt(detail.Lh_use,2)}</span> m<br>
+      K<sub>2</sub> = max(0, 1 − |${fmt(x,2)}|/(${fmt(detail.mu,2)} × ${fmt(detail.Lh_use,2)}))<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;= max(0, 1 − ${fmt(Math.abs(x)/(detail.mu*detail.Lh_use),4)})
+      = <span class="val hl">${fmt(detail.K2,4)}</span>
+    `);
+    html += step('④ K<sub>3</sub> 計算（垂直衰減）', `
+      z = <span class="val">${fmt(z,2)}</span> m，γ = <span class="val">${fmt(detail.gamma,2)}</span>，L<sub>h_use</sub> = <span class="val">${fmt(detail.Lh_use,2)}</span> m<br>
+      K<sub>3</sub> = e<sup>−${fmt(detail.gamma,2)} × ${fmt(z,2)} / ${fmt(detail.Lh_use,2)}</sup>
+      = e<sup>${fmt(-detail.gamma*z/detail.Lh_use,4)}</sup>
+      = <span class="val hl">${fmt(detail.K3,4)}</span>
+    `);
+    html += step('⑤ K<sub>zt</sub> 合成', `
+      K<sub>zt</sub> = (1 + K<sub>1</sub>·K<sub>2</sub>·K<sub>3</sub>)²<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;= (1 + ${fmt(detail.K1,4)} × ${fmt(detail.K2,4)} × ${fmt(detail.K3,4)})²<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;= (1 + ${fmt(detail.K1*detail.K2*detail.K3,4)})²
+      = <span class="val hl">${fmt(detail.Kzt,4)}</span>
+    `);
+    stepsEl.innerHTML = html;
+  }
+  drawTopo(topoType, H, Lh, x, z);
+}
+function step(title, body) {
+  return `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}</div></div>`;
+}
+function topoTypeName(t) { return { ridge: '山脊 (Ridge)', cliff: '陡崖 (Cliff)', hill: '圓丘 (Hill)', flat: '平地' }[t]; }
+
+function drawTopo(topoType, H, Lh, x, z) {
+  const svg = document.getElementById('topoSvg');
+  const W_ = 480, Hsvg = 220;
+  const groundY = Hsvg - 30;
+  if (topoType === 'flat') {
+    svg.innerHTML = `<line x1="0" y1="${groundY}" x2="${W_}" y2="${groundY}" stroke="#475569" stroke-width="2"/>
+      <text x="${W_/2}" y="${groundY/2}" text-anchor="middle" font-size="16" fill="#64748b">平地（無地形效應）</text>`;
+    return;
+  }
+  const totalRange = Math.max(Math.abs(x) + Lh*2, Lh*3);
+  const sc = (W_ - 60) / (2 * totalRange);
+  const hSc = Math.min((groundY - 30) / Math.max(H, 1), sc * 0.8);
+  const cx = W_ / 2;  // 山頂 X 像素位置
+  const peakY = groundY - H * hSc;
+  let path = '';
+  if (topoType === 'ridge') {
+    const half = Lh * sc;
+    path = `M ${cx - half*1.5} ${groundY} Q ${cx - half} ${groundY} ${cx} ${peakY} Q ${cx + half} ${groundY} ${cx + half*1.5} ${groundY}`;
+  } else if (topoType === 'cliff') {
+    const half = Lh * sc;
+    path = `M 0 ${peakY} L ${cx - half*0.3} ${peakY} Q ${cx} ${peakY + (groundY-peakY)*0.5} ${cx + half*0.3} ${groundY} L ${W_} ${groundY}`;
+  } else if (topoType === 'hill') {
+    const half = Lh * sc;
+    path = `M ${cx - half*1.5} ${groundY} Q ${cx} ${peakY - 5} ${cx + half*1.5} ${groundY}`;
+  }
+  let svgInner = `<defs><marker id="arrh" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/></marker></defs>`;
+  // 地面
+  svgInner += `<line x1="0" y1="${groundY}" x2="${W_}" y2="${groundY}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="4,3"/>`;
+  // 地形剪影
+  svgInner += `<path d="${path}" fill="#bbf7d0" stroke="#15803d" stroke-width="2"/>`;
+  // 風向箭頭（左→右）
+  for (let k = 0; k < 3; k++) {
+    const yA = 30 + k * 22;
+    svgInner += `<line x1="6" y1="${yA}" x2="55" y2="${yA}" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrh)"/>`;
+  }
+  svgInner += `<text x="60" y="38" font-size="11" fill="#dc2626">風向</text>`;
+  // 建築物位置
+  const bldgX = cx + x * sc;
+  const bldgGround = pathYAt(path, bldgX, groundY) || groundY;
+  const bldgTop = bldgGround - z * hSc;
+  svgInner += `<rect x="${bldgX - 6}" y="${bldgTop}" width="12" height="${bldgGround - bldgTop}" fill="#3b82f6" stroke="#1e40af" stroke-width="1.2"/>`;
+  // 標註
+  svgInner += `<line x1="${cx}" y1="${peakY}" x2="${cx}" y2="${groundY}" stroke="#0f172a" stroke-width="1" stroke-dasharray="3,2"/>`;
+  svgInner += `<text x="${cx + 5}" y="${(peakY + groundY)/2}" font-size="10" fill="#0f172a">H = ${H} m</text>`;
+  svgInner += `<line x1="${cx}" y1="${groundY + 12}" x2="${bldgX}" y2="${groundY + 12}" stroke="#0f172a" stroke-width="1"/>`;
+  svgInner += `<text x="${(cx + bldgX)/2}" y="${groundY + 22}" text-anchor="middle" font-size="10" fill="#0f172a">x = ${x} m</text>`;
+  svgInner += `<text x="${bldgX + 8}" y="${bldgTop + 12}" font-size="10" fill="#1e40af">z = ${z} m</text>`;
+  svg.innerHTML = svgInner;
+}
+function pathYAt(path, xq, fallback) { return fallback; }
+
+document.getElementById('btnCalc').addEventListener('click', calc);
+document.getElementById('chkDetail').addEventListener('change', calc);
+['terrainGrp','H','Lh','x','z'].forEach(id => document.getElementById(id).addEventListener('change', calc));
+calc();
+</script>
+</body>
+</html>

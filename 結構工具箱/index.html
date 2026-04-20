@@ -217,12 +217,17 @@
   <!-- ─── 耐風設計 (NEW) ─── -->
   <div class="card">
     <div class="group-title">耐風設計　<span style="font-size:0.7em; color:var(--text-light); font-weight:500;">依 107 年建築物耐風設計規範</span></div>
-    <div class="subgroup-title">案件總覽</div>
+    <div class="subgroup-title">案件總覽 / 共用計算</div>
     <div class="menu-grid">
       <a class="menu-card" href="tools/風力/wind-overview.html" style="border-left:4px solid #7c3aed;">
         <div class="icon">⊞</div>
         <h3>耐風案件總覽 <span class="ver ver-new">V1 NEW</span></h3>
         <p>輸入一次案件參數（V、地況、I、H、B），統一摘要 + 各子工具入口；建議從這裡開始</p>
+      </a>
+      <a class="menu-card" href="tools/風力/wind-kzt.html" style="border-left:4px solid #0d9488;">
+        <div class="icon">⛰</div>
+        <h3>K<sub>zt</sub> 地形係數計算器 <span class="ver ver-new">V1 NEW</span></h3>
+        <p>規範 §2.7：山脊／陡崖／圓丘三類地形之 K<sub>1</sub>、K<sub>2</sub>、K<sub>3</sub> 與合成 K<sub>zt</sub></p>
       </a>
     </div>
     <div class="subgroup-title">基本計算</div>
@@ -374,6 +379,11 @@
         <h3>動力分析摘要 <span class="ver ver-ok">V3</span></h3>
         <p>整理反應譜動力分析結果、比對等值靜力結果，並輸出動力分析摘要計算書</p>
       </a>
+      <a class="menu-card" href="tools/地震力/seismic-appendage.html">
+        <div class="icon">▦</div>
+        <h3>附屬構造物地震力 <span class="ver ver-new">NEW</span></h3>
+        <p>第四章局部計算；整理 Fph、Fpv、Rpa 與控制條件，並輸出附屬構造物地震力計算書</p>
+      </a>
       <a class="menu-card" href="tools/地震力/seismic-misc.html">
         <div class="icon">⌂</div>
         <h3>雜項工作物地震力 <span class="ver ver-ok">V3</span></h3>
@@ -410,6 +420,12 @@
           <td><span class="scope-limit">比對整理工具</span></td>
           <td>承接 ETABS / SAP2000 / MIDAS 等模型結果；整理動力基底剪力、設計譜參數、等值靜力 / 動力比較與列印摘要</td>
           <td>本頁不是動力求解器，不直接建立模型、求模態或執行反應譜分析；仍須由外部分析成果輸入</td>
+        </tr>
+        <tr>
+          <td><strong>附屬構造物地震力</strong></td>
+          <td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>第四章附屬構造物之 Fph、Fpv、Rpa、上下限控制、局部列印計算書；可獨立輸入或沿用等值靜力摘要</td>
+          <td>本頁為第四章局部工具，不取代完整建築物耐震通盤檢討；主結構等值靜力分析請回主耐震頁處理</td>
         </tr>
         <tr>
           <td><strong>雜項工作物地震力</strong></td>

@@ -158,19 +158,35 @@
    * @param {number} z  離地面高度 (m)
    */
   function calcKzt(topoType, terrainGrp, H, Lh, x, z) {
-    if (topoType === 'flat' || !topoType) return 1.0;
+    return calcKztDetail(topoType, terrainGrp, H, Lh, x, z).Kzt;
+  }
+
+  /**
+   * 地形係數 Kzt 完整明細（含 K1, K2, K3 與中間參數）
+   * 供 Kzt 計算器工具顯示計算過程
+   */
+  function calcKztDetail(topoType, terrainGrp, H, Lh, x, z) {
+    if (topoType === 'flat' || !topoType) {
+      return { topoType: 'flat', Kzt: 1.0, K1: 0, K2: 0, K3: 0, HL: 0, mu: 0, Lh_use: 0, K1_factor: 0, gamma: 0, note: '平地（無地形效應）' };
+    }
     const p = KZT_PARAMS[topoType];
-    if (!p) return 1.0;
+    if (!p) return { topoType, Kzt: 1.0, K1: 0, K2: 0, K3: 0, HL: 0, mu: 0, Lh_use: 0, K1_factor: 0, gamma: 0, note: '未知地形類型' };
     const HL = Math.min(H / Lh, 0.50);
-    const K1f = terrainGrp === 'C' ? p.K1_fC : p.K1_fA;
-    const K1 = K1f * HL;
-    // K2: 水平衰減
+    const HL_capped = (H / Lh) > 0.50;
+    const K1_factor = terrainGrp === 'C' ? p.K1_fC : p.K1_fA;
+    const K1 = K1_factor * HL;
     const mu = x < 0 ? p.mu_up : p.mu_dn;
-    const Lh_use = HL >= 0.50 ? 2 * H : Lh;
+    const Lh_use = HL_capped ? 2 * H : Lh;
     const K2 = Math.max(0, 1 - Math.abs(x) / (mu * Lh_use));
-    // K3: 垂直衰減
     const K3 = Math.exp(-p.gamma * z / Lh_use);
-    return Math.pow(1 + K1 * K2 * K3, 2);
+    const Kzt = Math.pow(1 + K1 * K2 * K3, 2);
+    return {
+      topoType, terrainGrp, H, Lh, x, z,
+      HL, HL_capped, Lh_use,
+      K1_factor, K1, mu, K2, gamma: p.gamma, K3,
+      Kzt,
+      params: p,
+    };
   }
 
   // ═══════════════════════════════
@@ -1939,6 +1955,8 @@
     calcKz,
     calcQz,
     calcKzt,
+    calcKztDetail,
+    KZT_PARAMS,
     calcIz,
     calcLz,
     calcQ2,
