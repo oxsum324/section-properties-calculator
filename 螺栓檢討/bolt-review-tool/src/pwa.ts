@@ -8,9 +8,10 @@ export function registerServiceWorker() {
   }
 
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/anchor/service-worker.js', {
-      scope: '/anchor/',
-    })
+    void navigator.serviceWorker.register(
+      '/section-properties-calculator/anchor/service-worker.js',
+      { scope: '/section-properties-calculator/anchor/' },
+    )
   })
 }
 

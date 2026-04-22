@@ -3,14 +3,14 @@
   "short_name": "錨栓檢討",
   "description": "台灣《建築物混凝土結構設計規範》112年版第17章錨栓檢討工具",
   "lang": "zh-Hant",
-  "start_url": "/anchor/",
-  "scope": "/anchor/",
+  "start_url": "/section-properties-calculator/anchor/",
+  "scope": "/section-properties-calculator/anchor/",
   "display": "standalone",
   "background_color": "#f5efe4",
   "theme_color": "#164b57",
   "icons": [
     {
-      "src": "/anchor/icon.svg",
+      "src": "/section-properties-calculator/anchor/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

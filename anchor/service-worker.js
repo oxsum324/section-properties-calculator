@@ -1,9 +1,9 @@
-const CACHE_NAME = 'bolt-review-tool-v2'
+const CACHE_NAME = 'bolt-review-tool-v3'
 const APP_SHELL = [
-  '/anchor/',
-  '/anchor/index.html',
-  '/anchor/manifest.webmanifest',
-  '/anchor/icon.svg',
+  '/section-properties-calculator/anchor/',
+  '/section-properties-calculator/anchor/index.html',
+  '/section-properties-calculator/anchor/manifest.webmanifest',
+  '/section-properties-calculator/anchor/icon.svg',
 ]
 
 self.addEventListener('install', (event) => {
@@ -51,7 +51,7 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse
           }
-          return caches.match('/anchor/')
+          return caches.match('/section-properties-calculator/anchor/')
         }),
     )
     return

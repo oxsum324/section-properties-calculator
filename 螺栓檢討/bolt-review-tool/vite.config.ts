@@ -3,9 +3,10 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // 部署於 section-properties-calculator 主倉庫的 /anchor/ 子路徑，
-  // 讓 React + Vite build 出來的 asset 以相對於此 base 的方式引用。
-  base: '/anchor/',
+  // 部署於 GitHub Pages 的 oxsum324/section-properties-calculator 倉庫，
+  // 站點實際路徑為 /section-properties-calculator/，因此 /anchor/ 需含 repo 前綴。
+  // 若日後遷至 Vercel 或自訂 domain，此處調整為 '/anchor/' 即可。
+  base: '/section-properties-calculator/anchor/',
   plugins: [react()],
   build: {
     // XLSX 匯出改由 lazy chunk 載入；此 chunk 會帶入 workbook 引擎，
