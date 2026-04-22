@@ -3976,13 +3976,33 @@ function App() {
           className="panel panel-input"
           data-shows="member product layout loads seismic baseplate"
         >
-          <div className="panel-title">
-            <h2>條件輸入</h2>
-            <p>產品、幾何、材料、載重與耐震入口統一在這裡設定。</p>
+          <div className="panel-title" data-shows="member">
+            <h2>構件條件</h2>
+            <p>輸入混凝土構件強度與幾何尺寸，並設定現場狀態（開裂 / 輕質 / Condition A-B 補強鋼筋）。</p>
+          </div>
+          <div className="panel-title" data-shows="product">
+            <h2>選擇錨栓產品</h2>
+            <p>切換目前產品，勾選候選清單並排比選多個錨栓型號。</p>
+          </div>
+          <div className="panel-title" data-shows="layout">
+            <h2>錨栓配置</h2>
+            <p>有效埋置深度 hef、陣列 X × Y、間距與邊距；完成後可於配置預覽檢視。</p>
+          </div>
+          <div className="panel-title" data-shows="loads">
+            <h2>載重輸入</h2>
+            <p>N / V / M、偏心與受剪錨栓數；可展開下方管理載重組合批次與 CSV 匯入。</p>
+          </div>
+          <div className="panel-title" data-shows="seismic">
+            <h2>耐震入口設定</h2>
+            <p>17.10 地震份額、路徑選擇與韌性 / 附掛物降伏條件。</p>
+          </div>
+          <div className="panel-title" data-shows="baseplate">
+            <h2>柱腳與基板</h2>
+            <p>基板承壓、抗彎厚度、錨栓補強鋼筋替代路徑與剪力 U 型補強。</p>
           </div>
 
           <div className="field-grid">
-            <label>
+            <label className="field-slot" data-shows="product">
               選定產品
               <select
                 value={project.selectedProductId}
@@ -6201,34 +6221,40 @@ function App() {
           </div>
         </section>
 
-        <section className="panel panel-geometry" data-shows="member product layout result">
-          <div className="panel-title">
-            <h2>幾何與產品</h2>
-            <p>中央顯示群錨配置與 1.5hef 投影示意；下方可維護產品資料庫。</p>
+        <section className="panel panel-geometry" data-shows="product layout result">
+          <div className="panel-title" data-shows="layout result">
+            <h2>配置預覽</h2>
+            <p>SVG 顯示群錨配置、1.5hef 投影、控制自由邊與錨栓拉 / 壓色碼。</p>
+          </div>
+          <div className="panel-title" data-shows="product">
+            <h2>產品資料庫</h2>
+            <p>維護產品清單、切換目前產品，並於下方填入或覆核產品評估值。</p>
           </div>
 
-          <GeometrySketch review={review} units={unitPreferences} />
+          <div data-shows="layout result" className="geometry-block">
+            <GeometrySketch review={review} units={unitPreferences} />
 
-          <div className="geometry-metrics">
-            <div className="metric-box">
-              <span>錨栓數量</span>
-              <strong>{review.anchorPoints.length}</strong>
-            </div>
-            <div className="metric-box">
-              <span>批次最大 DCR</span>
-              <strong>{formatNumber(batchReview.summary.maxDcr)}</strong>
-            </div>
-            <div className="metric-box">
-              <span>控制組合</span>
-              <strong>{batchReview.controllingLoadCaseName}</strong>
-            </div>
-            <div className="metric-box">
-              <span>補強鋼筋</span>
-              <strong>{project.layout.anchorReinforcementEnabled ? '已啟用' : '未啟用'}</strong>
+            <div className="geometry-metrics">
+              <div className="metric-box">
+                <span>錨栓數量</span>
+                <strong>{review.anchorPoints.length}</strong>
+              </div>
+              <div className="metric-box">
+                <span>批次最大 DCR</span>
+                <strong>{formatNumber(batchReview.summary.maxDcr)}</strong>
+              </div>
+              <div className="metric-box">
+                <span>控制組合</span>
+                <strong>{batchReview.controllingLoadCaseName}</strong>
+              </div>
+              <div className="metric-box">
+                <span>補強鋼筋</span>
+                <strong>{project.layout.anchorReinforcementEnabled ? '已啟用' : '未啟用'}</strong>
+              </div>
             </div>
           </div>
 
-          <div className="sub-panel product-panel">
+          <div className="sub-panel product-panel" data-shows="product">
             <div className="sub-panel-header">
               <h3>產品資料庫</h3>
               <div className="action-row">

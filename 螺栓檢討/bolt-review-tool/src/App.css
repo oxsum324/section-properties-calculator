@@ -1988,10 +1988,47 @@ button:disabled {
   display: flex;
 }
 
-/* workspace 於結果 / 報告 tab 使用單欄展開 */
-.app-shell[data-active-tab='result'] .workspace,
+/* workspace 布局依當前 tab 優化：
+   - 純輸入類 tab (member / loads / seismic / baseplate) 只顯示 panel-input，改為單欄置中（~960px）
+   - 配置類 tab (product / layout) 左為 panel-input、右為 panel-geometry → 兩欄
+   - 結果 tab 左為 panel-geometry (SVG)、右為 panel-results → 兩欄
+   - 報告 tab 由 resource-library-wrapper + case-library 構成，workspace 本身無內容 */
+.app-shell[data-active-tab='member'] .workspace,
+.app-shell[data-active-tab='loads'] .workspace,
+.app-shell[data-active-tab='seismic'] .workspace,
+.app-shell[data-active-tab='baseplate'] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 960px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.app-shell[data-active-tab='product'] .workspace,
+.app-shell[data-active-tab='layout'] .workspace {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.05fr);
+}
+
+.app-shell[data-active-tab='result'] .workspace {
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
+}
+
 .app-shell[data-active-tab='report'] .workspace {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* 單欄 workspace 時 field-grid 自動 2-3 欄彈性排列，避免單欄超寬 */
+.app-shell[data-active-tab='member'] .panel-input .field-grid,
+.app-shell[data-active-tab='loads'] .panel-input .field-grid,
+.app-shell[data-active-tab='seismic'] .panel-input .field-grid,
+.app-shell[data-active-tab='baseplate'] .panel-input .field-grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+/* geometry-block wrapper 不打斷 panel 內部 flex 排列 */
+.panel-geometry > .geometry-block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 /* 列印時強制顯示所有內容，無視 tab 狀態 */
