@@ -15,6 +15,7 @@ import {
 } from 'docx'
 import { buildStandaloneGeometrySketchSvg } from './reportExport'
 import type { ReportArtifactParams } from './reportExport'
+import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
 import {
   buildAuditRows,
   buildCandidateProductRows,
@@ -304,6 +305,72 @@ function buildDataTable(
   })
 }
 
+function formatDocxDateTime(value?: string) {
+  if (!value) {
+    return '—'
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+  return date.toLocaleString('zh-TW', { hour12: false })
+}
+
+function buildTimestampBlock(params: ReportArtifactParams): Table {
+  const reportGeneratedAt =
+    params.reportGeneratedAt ?? new Date().toISOString()
+  const audit = params.auditEntry
+  const auditSourceMap: Record<string, string> = {
+    manual: '手動留痕',
+    html: 'HTML 匯出',
+    print: '列印',
+    preview: '預覽',
+    xlsx: 'XLSX 匯出',
+    docx: 'DOCX 匯出',
+  }
+  const rows: Array<[string, string]> = [
+    [
+      REPORT_TIMESTAMP_LABELS.editedAt,
+      formatDocxDateTime(params.review.project.updatedAt),
+    ],
+    [
+      REPORT_TIMESTAMP_LABELS.generatedAt,
+      formatDocxDateTime(reportGeneratedAt),
+    ],
+    [
+      REPORT_TIMESTAMP_LABELS.auditedAt,
+      audit ? formatDocxDateTime(audit.createdAt) : '尚未留存',
+    ],
+    [
+      REPORT_TIMESTAMP_LABELS.auditSource,
+      audit ? (auditSourceMap[audit.source] ?? audit.source) : '—',
+    ],
+    [
+      REPORT_TIMESTAMP_LABELS.auditHash,
+      audit
+        ? `${audit.hash.slice(0, 12)}${audit.hash.length > 12 ? '…' : ''}`
+        : '—',
+    ],
+  ]
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    rows: rows.map(
+      ([label, value]) =>
+        new TableRow({
+          children: [
+            createTableCell(label, {
+              bold: true,
+              fill: docxColors.sectionFill,
+              color: docxColors.brand,
+            }),
+            createTableCell(value, {}),
+          ],
+        }),
+    ),
+  })
+}
+
 function buildSummarySection(
   params: ReportArtifactParams,
   geometryPngBytes: Uint8Array | null,
@@ -353,6 +420,10 @@ function buildSummarySection(
         color: docxColors.muted,
       },
     ),
+    createParagraph('報告時間戳', {
+      heading: HeadingLevel.HEADING_2,
+    }),
+    buildTimestampBlock(params),
     createParagraph('報告摘要', {
       heading: HeadingLevel.HEADING_1,
     }),

@@ -2382,6 +2382,7 @@ function App() {
   ])
 
   const [isDirty, setIsDirty] = useState(false)
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false)
 
   // 任何 project / products 變動後，先標記為 dirty；debounce 儲存完成才清除
   // 此處 setState 是刻意觸發 UI 更新（未儲存徽章），非同步外部系統
@@ -3642,17 +3643,27 @@ function App() {
         }
       }
       if (event.key === 'Escape') {
+        if (showShortcutHelp) {
+          event.preventDefault()
+          setShowShortcutHelp(false)
+          return
+        }
         if (activeTab === 'report' && hasEnteredWorkspace) {
           event.preventDefault()
           setActiveTab('result')
         }
+      }
+      // Shift+? 或 ? ：開啟快捷鍵說明浮層
+      if (event.key === '?' || (event.shiftKey && event.key === '/')) {
+        event.preventDefault()
+        setShowShortcutHelp((current) => !current)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [hydrated, activeTab, hasEnteredWorkspace])
+  }, [hydrated, activeTab, hasEnteredWorkspace, showShortcutHelp])
 
   async function exportHtmlReport() {
     const url = await buildReportBlobUrl(false, 'html')
@@ -3770,11 +3781,16 @@ function App() {
       <div className="screen-only">
       <header className="app-header app-header-compact">
         <div className="app-header-main">
-          <h1
-            title="快捷鍵：Ctrl/Cmd+S 留痕 · Ctrl/Cmd+P 列印 · Alt+1-6 切 tab · Alt+0/R 回資源庫 · Esc 返回結果"
+          <h1>錨栓檢討工具</h1>
+          <button
+            type="button"
+            className="shortcut-help-trigger"
+            onClick={() => setShowShortcutHelp(true)}
+            title="顯示鍵盤快捷鍵（也可按 ?）"
+            aria-label="顯示鍵盤快捷鍵說明"
           >
-            錨栓檢討工具
-          </h1>
+            ?
+          </button>
           <span className="app-header-ref">
             <a href={activeRuleProfile.officialUrl} target="_blank" rel="noreferrer">
               {activeRuleProfile.chapter17Title}
@@ -3806,6 +3822,8 @@ function App() {
                 ? '有變更尚未寫入本機資料庫（約 0.5 秒內自動儲存）'
                 : saveMessage
             }
+            aria-live="polite"
+            aria-atomic="true"
           >
             <span>同步</span>
             <strong className="status-chip-truncate">
@@ -3997,6 +4015,7 @@ function App() {
               type="button"
               role="tab"
               aria-selected={activeTab === tab.id}
+              tabIndex={activeTab === tab.id ? 0 : -1}
               className={className}
               onClick={() => {
                 setActiveTab(tab.id)
@@ -4043,6 +4062,31 @@ function App() {
             : '首次使用可先從下方「案件樣板庫」套入典型情境，或於「案例庫」建立新案後開始檢核。'}
         </span>
       </div>
+      <section className="workspace-backup-bar" aria-label="工作區備份">
+        <div className="workspace-backup-info">
+          <strong>工作區備份</strong>
+          <span>
+            匯出 JSON 將所有案例、產品與附件打包下載；還原可在另一台裝置重建。
+          </span>
+        </div>
+        <div className="workspace-backup-actions">
+          <button
+            type="button"
+            onClick={() => {
+              void exportWorkspace()
+            }}
+          >
+            匯出 JSON
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={openImportDialog}
+          >
+            還原 JSON
+          </button>
+        </div>
+      </section>
       {caseCards.length > 0 ? (
         <section className="recent-cases-panel" aria-label="最近編輯的案例">
           <div className="recent-cases-header">
@@ -7808,6 +7852,64 @@ function App() {
         saveMessage={saveMessage}
         latestAuditEntry={latestAuditEntry}
       />
+      {showShortcutHelp ? (
+        <div
+          className="shortcut-help-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="shortcut-help-title"
+          onClick={() => setShowShortcutHelp(false)}
+        >
+          <div
+            className="shortcut-help-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="shortcut-help-header">
+              <h2 id="shortcut-help-title">鍵盤快捷鍵</h2>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setShowShortcutHelp(false)}
+                aria-label="關閉說明"
+              >
+                關閉
+              </button>
+            </div>
+            <table className="shortcut-help-table">
+              <tbody>
+                <tr>
+                  <td><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>S</kbd></td>
+                  <td>手動留痕（auto-save 已自動；此處建立審查 hash 簽章）</td>
+                </tr>
+                <tr>
+                  <td><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>P</kbd></td>
+                  <td>開啟獨立列印視窗</td>
+                </tr>
+                <tr>
+                  <td><kbd>Alt</kbd> + <kbd>1</kbd>–<kbd>6</kbd></td>
+                  <td>切換 構件／配置 · 產品 · 載重 · 耐震 · 柱腳 · 結果</td>
+                </tr>
+                <tr>
+                  <td><kbd>Alt</kbd> + <kbd>0</kbd> 或 <kbd>R</kbd></td>
+                  <td>回到資源庫首頁 hub</td>
+                </tr>
+                <tr>
+                  <td><kbd>Esc</kbd></td>
+                  <td>資源庫返回結果頁 / 關閉本說明</td>
+                </tr>
+                <tr>
+                  <td><kbd>?</kbd></td>
+                  <td>開啟 / 關閉本快捷鍵說明</td>
+                </tr>
+              </tbody>
+            </table>
+            <p className="helper-text shortcut-help-note">
+              在輸入框內時，<kbd>Alt</kbd>/<kbd>Esc</kbd> 不會攔截，以避免干擾輸入；
+              <kbd>Ctrl</kbd>+<kbd>S</kbd>/<kbd>Ctrl</kbd>+<kbd>P</kbd> 皆會覆寫瀏覽器預設行為。
+            </p>
+          </div>
+        </div>
+      ) : null}
     </main>
   )
 }

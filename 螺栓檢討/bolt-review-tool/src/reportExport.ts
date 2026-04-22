@@ -664,6 +664,27 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       .anchor-neutral { fill:#9ca3af; }
       .anchor-center { fill:#fff; }
       ul { margin:8px 0 0; padding-left:20px; }
+      .report-preview-toolbar {
+        position: fixed; top: 16px; right: 16px; z-index: 1000;
+        display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+        padding: 10px 14px; background: rgba(255,255,255,0.96);
+        border: 1px solid #cbd5d8; border-radius: 999px;
+        box-shadow: 0 6px 20px rgba(23, 49, 58, 0.18);
+        font-size: 13px;
+      }
+      .report-preview-toolbar button {
+        background: #0b7285; color: #fff; border: 1px solid #0b7285;
+        padding: 6px 14px; border-radius: 999px; cursor: pointer;
+        font-size: 13px; font-weight: 600;
+      }
+      .report-preview-toolbar button:hover { background: #095d6e; }
+      .report-preview-toolbar button[aria-label='關閉預覽視窗'] {
+        background: #fff; color: #4b5f66; border-color: #cbd5d8;
+      }
+      .report-preview-toolbar button[aria-label='關閉預覽視窗']:hover {
+        background: #f0f4f5;
+      }
+      .preview-toolbar-hint { color: #6a7a80; font-size: 12px; }
       @media print {
         body { background:#fff; }
         main { max-width:none; padding:0; }
@@ -672,10 +693,20 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
         tr,td,th { break-inside:avoid; }
         h2,h3 { break-after:avoid-page; }
         .hero { break-after:page; }
+        .report-preview-toolbar { display: none !important; }
       }
     </style>
   </head>
   <body>
+    <div class="report-preview-toolbar" data-role="preview-toolbar">
+      <button type="button" onclick="window.print()" aria-label="列印報表">
+        🖨 列印 / 另存 PDF
+      </button>
+      <button type="button" onclick="window.close()" aria-label="關閉預覽視窗">
+        ✕ 關閉視窗
+      </button>
+      <span class="preview-toolbar-hint">預覽列印效果；印出後此工具列會自動隱藏</span>
+    </div>
     <main>
       <section class="hero">
         <p class="meta">${escapeHtml(reportSettings.companyName || '工程報表草稿')}</p>
