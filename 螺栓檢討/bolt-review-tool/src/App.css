@@ -1896,3 +1896,93 @@ button:disabled {
     font-size: 0.76rem;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   Workspace 分頁切換（參考 RC 梁 section-tabs 模式）
+   使用 .app-shell[data-active-tab="xxx"] 控制內部 [data-shows] 顯示。
+   無 data-shows 屬性的元素照常顯示。列印版 (.print-only) 不受影響。
+   ───────────────────────────────────────────────────────────────── */
+.workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+  padding: 8px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(15, 58, 69, 0.08);
+  box-shadow: 0 4px 12px rgba(15, 58, 69, 0.04);
+  overflow-x: auto;
+}
+
+.workspace-tabs button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid rgba(15, 58, 69, 0.12);
+  border-radius: 999px;
+  background: #f8fbfc;
+  color: #3b5763;
+  font-size: 0.94rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease,
+    box-shadow 0.18s ease;
+  white-space: nowrap;
+}
+
+.workspace-tabs button:hover {
+  background: #eaf3f6;
+  border-color: rgba(11, 114, 133, 0.28);
+  color: #0b7285;
+}
+
+.workspace-tabs button.active {
+  background: #0b7285;
+  border-color: #0b7285;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(11, 114, 133, 0.22);
+}
+
+/* 隱藏未匹配當前 tab 的元素；無 data-shows 者照常顯示 */
+.app-shell [data-shows] {
+  display: none;
+}
+
+.app-shell[data-active-tab='geom'] [data-shows~='geom'],
+.app-shell[data-active-tab='product'] [data-shows~='product'],
+.app-shell[data-active-tab='loads'] [data-shows~='loads'],
+.app-shell[data-active-tab='advanced'] [data-shows~='advanced'],
+.app-shell[data-active-tab='summary'] [data-shows~='summary'],
+.app-shell[data-active-tab='steps'] [data-shows~='steps'],
+.app-shell[data-active-tab='report'] [data-shows~='report'] {
+  display: block;
+}
+
+/* workspace 本身保持 grid/flex；但在部分 tab 下只有單一 panel 顯示時調整 */
+.app-shell[data-active-tab='steps'] .workspace,
+.app-shell[data-active-tab='summary'] .workspace {
+  grid-template-columns: 1fr;
+}
+
+/* 列印時強制顯示所有內容，無視 tab 狀態 */
+@media print {
+  .app-shell [data-shows] {
+    display: revert !important;
+  }
+  .workspace-tabs {
+    display: none !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .workspace-tabs {
+    gap: 6px;
+    padding: 6px;
+  }
+  .workspace-tabs button {
+    min-height: 42px;
+    padding: 8px 14px;
+    font-size: 0.88rem;
+  }
+}

@@ -1944,7 +1944,33 @@ function ReportDocument({
   )
 }
 
+type WorkspaceTabId =
+  | 'geom'
+  | 'product'
+  | 'loads'
+  | 'advanced'
+  | 'summary'
+  | 'steps'
+  | 'report'
+
+interface WorkspaceTabDefinition {
+  id: WorkspaceTabId
+  label: string
+  hint: string
+}
+
+const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
+  { id: 'geom', label: '幾何', hint: '基板 / 錨栓配置 / 尺寸 / SVG 預覽' },
+  { id: 'product', label: '產品', hint: '產品選擇 / 評估值 / 證據對照' },
+  { id: 'loads', label: '載重', hint: '載重組合批次 / 耐震入口 / CSV 匯入' },
+  { id: 'advanced', label: '進階', hint: '錨栓補強鋼筋 / 基板承壓 / 抗彎' },
+  { id: 'summary', label: '結果', hint: 'DCR 矩陣 / 候選比選 / φψ 採用 / SVG' },
+  { id: 'steps', label: '過程', hint: '規範焦點 / 逐項檢核明細 / 診斷' },
+  { id: 'report', label: '報告', hint: '案件樣板 / 案例庫 / 報表設定 / 文件' },
+]
+
 function App() {
+  const [activeTab, setActiveTab] = useState<WorkspaceTabId>('geom')
   const [products, setProducts] = useState<AnchorProduct[]>(defaultProducts)
   const [projects, setProjects] = useState<ProjectCase[]>(() => [
     cloneProject(defaultProject),
@@ -3519,7 +3545,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" data-active-tab={activeTab}>
       <div className="screen-only">
       <header className="app-header">
         <div>
@@ -3715,6 +3741,7 @@ function App() {
         </div>
       </section>
 
+      <div className="resource-library-wrapper" data-shows="report">
       <ResourceLibraryHub
         activeTab={resourceLibraryTab}
         tabs={resourceLibraryTabs}
@@ -3801,8 +3828,9 @@ function App() {
           </Suspense>
         ) : null}
       </ResourceLibraryHub>
+      </div>
 
-      <section className="panel case-library">
+      <section className="panel case-library" data-shows="report">
         <div className="case-library-header">
           <div className="panel-title">
             <h2>案例庫</h2>
@@ -3906,8 +3934,24 @@ function App() {
         </div>
       </section>
 
+      <nav className="workspace-tabs" role="tablist" aria-label="錨栓檢討分頁">
+        {WORKSPACE_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={activeTab === tab.id ? 'active' : ''}
+            onClick={() => setActiveTab(tab.id)}
+            title={tab.hint}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
       <section className="workspace">
-        <section className="panel panel-input">
+        <section className="panel panel-input" data-shows="geom product loads advanced">
           <div className="panel-title">
             <h2>條件輸入</h2>
             <p>產品、幾何、材料、載重與耐震入口統一在這裡設定。</p>
@@ -3929,7 +3973,11 @@ function App() {
                 ))}
               </select>
             </label>
-            <details className="fold-panel sub-panel" open={!simpleMode || candidateProducts.length > 1}>
+            <details
+              className="fold-panel sub-panel"
+              data-shows="product"
+              open={!simpleMode || candidateProducts.length > 1}
+            >
               <summary className="fold-summary">
                 <span>候選產品比選</span>
                 <small>{candidateProducts.length} 個方案</small>
@@ -4095,6 +4143,7 @@ function App() {
             />
             <details
               className="fold-panel sub-panel"
+              data-shows="loads summary"
               open={!simpleMode || candidateLayoutVariants.length > 0}
             >
               <summary className="fold-summary">
@@ -4274,7 +4323,7 @@ function App() {
                   <strong>{formatNumber(batchReview.summary.maxDcr)}</strong>
                 </div>
               </div>
-              <details className="fold-panel sub-panel">
+              <details className="fold-panel sub-panel" data-shows="loads">
                 <summary className="fold-summary">
                   <span>載重組合矩陣快速編輯</span>
                   <small>批次調整核心 N / V / M，不需逐一切換組合</small>
@@ -4430,7 +4479,11 @@ function App() {
                 </div>
               </details>
             </div>
-            <details className="fold-panel sub-panel" open={!simpleMode || project.layout.basePlateBearingEnabled}>
+            <details
+              className="fold-panel sub-panel"
+              data-shows="advanced"
+              open={!simpleMode || project.layout.basePlateBearingEnabled}
+            >
               <summary className="fold-summary">
                 <span>基板承壓檢核</span>
                 <small>22.8 支承強度延伸檢核</small>
@@ -4810,7 +4863,11 @@ function App() {
                 )}
               </div>
             </details>
-            <details className="fold-panel sub-panel" open={!simpleMode}>
+            <details
+              className="fold-panel sub-panel"
+              data-shows="loads"
+              open={!simpleMode}
+            >
               <summary className="fold-summary">
                 <span>載重組合 Preset</span>
                 <small>D / L / E 一鍵展開常用組合</small>
@@ -5060,7 +5117,7 @@ function App() {
                     覆蓋目前組合
                   </button>
                 </div>
-                <details className="fold-panel sub-panel">
+                <details className="fold-panel sub-panel" data-shows="loads">
                   <summary className="fold-summary">
                     <span>Excel / CSV 貼上匯入</span>
                     <small>支援從 Excel 直接複製整塊表格貼上</small>
@@ -5294,7 +5351,11 @@ function App() {
             </label>
           </div>
 
-          <details className="fold-panel sub-panel" open={!simpleMode || project.layout.anchorReinforcementEnabled}>
+          <details
+            className="fold-panel sub-panel"
+            data-shows="advanced"
+            open={!simpleMode || project.layout.anchorReinforcementEnabled}
+          >
             <summary className="fold-summary">
               <span>錨栓補強鋼筋路徑</span>
               <small>17.5.2.1(d) / φ = 0.75</small>
@@ -5406,7 +5467,11 @@ function App() {
             </label>
           </div>
 
-          <details className="fold-panel sub-panel" open={!simpleMode || project.loads.considerSeismic}>
+          <details
+            className="fold-panel sub-panel"
+            data-shows="loads"
+            open={!simpleMode || project.loads.considerSeismic}
+          >
             <summary className="fold-summary">
               <span>耐震入口設定</span>
               <small>17.10 路徑與地震份額</small>
@@ -5729,7 +5794,11 @@ function App() {
             )}
           </details>
 
-          <details className="fold-panel sub-panel" open={!simpleMode}>
+          <details
+            className="fold-panel sub-panel"
+            data-shows="report"
+            open={!simpleMode}
+          >
             <summary className="fold-summary">
               <span>報表設定</span>
               <small>公司、案號、設計 / 校核與輸出模式</small>
@@ -5807,6 +5876,7 @@ function App() {
 
           <details
             className="fold-panel sub-panel"
+            data-shows="report"
             open={!simpleMode || caseDocuments.length > 0}
           >
             <summary className="fold-summary">
@@ -6071,7 +6141,7 @@ function App() {
           </div>
         </section>
 
-        <section className="panel panel-geometry">
+        <section className="panel panel-geometry" data-shows="geom product summary">
           <div className="panel-title">
             <h2>幾何與產品</h2>
             <p>中央顯示群錨配置與 1.5hef 投影示意；下方可維護產品資料庫。</p>
@@ -6225,7 +6295,11 @@ function App() {
               />
             </div>
 
-            <details className="fold-panel sub-panel" open={!simpleMode}>
+            <details
+              className="fold-panel sub-panel"
+              data-shows="product"
+              open={!simpleMode}
+            >
               <summary className="fold-summary">
                 <span>產品評估值</span>
                 <small>評估標準、幾何限制、拉出 / 握裹值</small>
@@ -6432,7 +6506,11 @@ function App() {
               </div>
             </details>
 
-            <details className="fold-panel sub-panel" open={!simpleMode}>
+            <details
+              className="fold-panel sub-panel"
+              data-shows="product"
+              open={!simpleMode}
+            >
               <summary className="fold-summary">
                 <span>產品描述與來源</span>
                 <small>說明、文件來源與備註</small>
@@ -6487,7 +6565,11 @@ function App() {
               )}
             </div>
 
-            <details className="fold-panel sub-panel" open={!simpleMode}>
+            <details
+              className="fold-panel sub-panel"
+              data-shows="product"
+              open={!simpleMode}
+            >
               <summary className="fold-summary">
                 <span>ETA / ICC / 型錄欄位對照</span>
                 <small>文件頁碼、表號、核對狀態</small>
@@ -6765,7 +6847,7 @@ function App() {
           </div>
         </section>
 
-        <section className="panel panel-results">
+        <section className="panel panel-results" data-shows="summary steps">
           <div className="panel-title">
             <h2>結果摘要</h2>
             <p>右側聚焦控制條文、正式判定狀態與缺資料警示。</p>
@@ -6813,7 +6895,7 @@ function App() {
             </p>
           ) : null}
 
-          <div className="sub-panel">
+          <div className="sub-panel" data-shows="summary">
             <h3>載重組合矩陣</h3>
             <table className="data-table compact-table">
               <thead>
@@ -6854,7 +6936,7 @@ function App() {
           </div>
 
           {candidateProductReviews.length > 1 ? (
-            <div className="sub-panel">
+            <div className="sub-panel" data-shows="summary">
               <h3>候選產品比選</h3>
               {bestCandidateReview ? (
                 <div className="summary-card">
@@ -7003,7 +7085,7 @@ function App() {
           ) : null}
 
           {layoutVariantReviews.length > 1 ? (
-            <div className="sub-panel">
+            <div className="sub-panel" data-shows="summary">
               <h3>候選配置比選</h3>
               {bestLayoutVariantReview ? (
                 <div className="summary-card">
@@ -7153,7 +7235,7 @@ function App() {
             </div>
           ) : null}
 
-          <div className="sub-panel">
+          <div className="sub-panel" data-shows="summary">
             <h3>φ / ψ 採用總表</h3>
             <table className="data-table compact-table">
               <thead>
@@ -7179,7 +7261,7 @@ function App() {
             </table>
           </div>
 
-          <div className="sub-panel">
+          <div className="sub-panel" data-shows="summary">
             <h3>正式判定狀態</h3>
             <div className="status-stack">
               <div className="status-line">
@@ -7207,7 +7289,11 @@ function App() {
             )}
           </div>
 
-          <details className="fold-panel sub-panel" open={!simpleMode}>
+          <details
+            className="fold-panel sub-panel"
+            data-shows="steps"
+            open={!simpleMode || activeTab === 'steps'}
+          >
             <summary className="fold-summary">
               <span>規範焦點與工程提醒</span>
               <small>條文入口與注意事項</small>
@@ -7239,7 +7325,11 @@ function App() {
         </section>
       </section>
 
-      <details className="panel panel-bottom fold-panel" open={!simpleMode}>
+      <details
+        className="panel panel-bottom fold-panel"
+        data-shows="steps summary"
+        open={!simpleMode || activeTab === 'steps'}
+      >
         <summary className="fold-summary panel-title-like">
           <span>逐項檢核明細</span>
           <small>條文編號、需求值與設計強度</small>
