@@ -1,0 +1,38 @@
+:root {
+  font-family:
+    'Aptos',
+    'IBM Plex Sans',
+    'Noto Sans TC',
+    'PingFang TC',
+    'Microsoft JhengHei',
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #17313a;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f0efe8;
+}
+
+a {
+  color: #0d6b75;
+}
+
+a:hover {
+  color: #0a5561;
+}

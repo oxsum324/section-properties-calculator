@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">
+  <title>錨栓檢討工具</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#164b57" />
+      <stop offset="100%" stop-color="#0f2d33" />
+    </linearGradient>
+    <linearGradient id="bolt" x1="0%" x2="0%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#f2b46d" />
+      <stop offset="100%" stop-color="#cf7c3a" />
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="url(#bg)" />
+  <path d="M90 52h76l18 22-18 22H90L72 74z" fill="#f4efe3" />
+  <path d="M110 96h36v84h20v20H90v-20h20z" fill="url(#bolt)" />
+  <path d="M78 168h100l-10 36H88z" fill="#f4efe3" opacity="0.92" />
+  <path d="M52 186h152" stroke="#79c5c8" stroke-linecap="round" stroke-width="12" />
+  <circle cx="128" cy="128" r="90" fill="none" opacity="0.22" stroke="#79c5c8" stroke-width="8" />
+</svg>

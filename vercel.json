@@ -38,7 +38,10 @@
     { "source": "/section", "destination": "/index.html" },
     { "source": "/beam-analysis", "destination": "/連續梁分析.html" },
     { "source": "/force-picker", "destination": "/結構工具箱/tools/force-picker.html" },
-    { "source": "/test-dashboard", "destination": "/結構工具箱/tools/test-dashboard.html" }
+    { "source": "/test-dashboard", "destination": "/結構工具箱/tools/test-dashboard.html" },
+
+    { "source": "/anchor", "destination": "/anchor/index.html" },
+    { "source": "/anchor-review", "destination": "/anchor/index.html" }
   ],
   "headers": [
     {
