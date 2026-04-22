@@ -1944,24 +1944,53 @@ button:disabled {
   box-shadow: 0 6px 16px rgba(11, 114, 133, 0.22);
 }
 
+/* 動態淡色 tab：當前案件未啟用對應模組（耐震 / 柱腳）時顯示為弱化狀態 */
+.workspace-tabs button.dimmed {
+  opacity: 0.5;
+  font-weight: 500;
+  background: #f3f6f8;
+  border-style: dashed;
+}
+
+.workspace-tabs button.dimmed:hover {
+  opacity: 0.8;
+  background: #eaf1f3;
+}
+
 /* 隱藏未匹配當前 tab 的元素；無 data-shows 者照常顯示 */
 .app-shell [data-shows] {
   display: none;
 }
 
-.app-shell[data-active-tab='geom'] [data-shows~='geom'],
+.app-shell[data-active-tab='member'] [data-shows~='member'],
 .app-shell[data-active-tab='product'] [data-shows~='product'],
+.app-shell[data-active-tab='layout'] [data-shows~='layout'],
 .app-shell[data-active-tab='loads'] [data-shows~='loads'],
-.app-shell[data-active-tab='advanced'] [data-shows~='advanced'],
-.app-shell[data-active-tab='summary'] [data-shows~='summary'],
-.app-shell[data-active-tab='steps'] [data-shows~='steps'],
+.app-shell[data-active-tab='seismic'] [data-shows~='seismic'],
+.app-shell[data-active-tab='baseplate'] [data-shows~='baseplate'],
+.app-shell[data-active-tab='result'] [data-shows~='result'],
 .app-shell[data-active-tab='report'] [data-shows~='report'] {
   display: block;
 }
 
-/* workspace 本身保持 grid/flex；但在部分 tab 下只有單一 panel 顯示時調整 */
-.app-shell[data-active-tab='steps'] .workspace,
-.app-shell[data-active-tab='summary'] .workspace {
+/* field-slot 是在 field-grid 內包欄位用，維持 grid cell 行為 */
+.field-grid .field-slot,
+.field-grid > .field-slot {
+  min-width: 0;
+}
+
+/* switch-grid 內的 label.switch 原本是 flex，加 data-shows 後預設 display:none，
+   當命中當前 tab 的 CSS 規則會改回 block。但 switch 本身需保持 flex layout 才能
+   讓 checkbox 與文字並排，因此 override 為 flex。 */
+.app-shell[data-active-tab='member'] .switch-grid label.switch[data-shows~='member'],
+.app-shell[data-active-tab='baseplate'] .switch-grid label.switch[data-shows~='baseplate'],
+.app-shell[data-active-tab='seismic'] .switch-grid label.switch[data-shows~='seismic'] {
+  display: flex;
+}
+
+/* workspace 於結果 / 報告 tab 使用單欄展開 */
+.app-shell[data-active-tab='result'] .workspace,
+.app-shell[data-active-tab='report'] .workspace {
   grid-template-columns: 1fr;
 }
 

@@ -1945,12 +1945,13 @@ function ReportDocument({
 }
 
 type WorkspaceTabId =
-  | 'geom'
+  | 'member'
   | 'product'
+  | 'layout'
   | 'loads'
-  | 'advanced'
-  | 'summary'
-  | 'steps'
+  | 'seismic'
+  | 'baseplate'
+  | 'result'
   | 'report'
 
 interface WorkspaceTabDefinition {
@@ -1960,17 +1961,18 @@ interface WorkspaceTabDefinition {
 }
 
 const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
-  { id: 'geom', label: '幾何', hint: '基板 / 錨栓配置 / 尺寸 / SVG 預覽' },
-  { id: 'product', label: '產品', hint: '產品選擇 / 評估值 / 證據對照' },
-  { id: 'loads', label: '載重', hint: '載重組合批次 / 耐震入口 / CSV 匯入' },
-  { id: 'advanced', label: '進階', hint: '錨栓補強鋼筋 / 基板承壓 / 抗彎' },
-  { id: 'summary', label: '結果', hint: 'DCR 矩陣 / 候選比選 / φψ 採用 / SVG' },
-  { id: 'steps', label: '過程', hint: '規範焦點 / 逐項檢核明細 / 診斷' },
-  { id: 'report', label: '報告', hint: '案件樣板 / 案例庫 / 報表設定 / 文件' },
+  { id: 'member', label: '構件', hint: '混凝土構件幾何 / fc′ / 裂縫 / Condition A/B' },
+  { id: 'product', label: '產品', hint: '產品選擇 / 候選比選 / 評估值 / 證據' },
+  { id: 'layout', label: '配置', hint: '錨栓陣列 / 間距 / 邊距 / hef / 剪力偏心' },
+  { id: 'loads', label: '載重', hint: 'N / V / M / 載重組合批次 / CSV 匯入' },
+  { id: 'seismic', label: '耐震', hint: '耐震路徑 / Ωo / 韌性 / 附掛物降伏' },
+  { id: 'baseplate', label: '柱腳', hint: '基板承壓 / 抗彎厚度 / 錨栓補強鋼筋' },
+  { id: 'result', label: '結果', hint: 'DCR / φψ 採用 / 候選比選 / 逐項明細' },
+  { id: 'report', label: '報告', hint: '樣板庫 / 案例庫 / 報表設定 / 文件附件' },
 ]
 
 function App() {
-  const [activeTab, setActiveTab] = useState<WorkspaceTabId>('geom')
+  const [activeTab, setActiveTab] = useState<WorkspaceTabId>('member')
   const [products, setProducts] = useState<AnchorProduct[]>(defaultProducts)
   const [projects, setProjects] = useState<ProjectCase[]>(() => [
     cloneProject(defaultProject),
@@ -3935,23 +3937,45 @@ function App() {
       </section>
 
       <nav className="workspace-tabs" role="tablist" aria-label="錨栓檢討分頁">
-        {WORKSPACE_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            className={activeTab === tab.id ? 'active' : ''}
-            onClick={() => setActiveTab(tab.id)}
-            title={tab.hint}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {WORKSPACE_TABS.map((tab) => {
+          const dimmed =
+            (tab.id === 'seismic' && !project.loads.considerSeismic) ||
+            (tab.id === 'baseplate' &&
+              !project.layout.basePlateBearingEnabled &&
+              !project.layout.basePlateBendingEnabled &&
+              !project.layout.anchorReinforcementEnabled &&
+              !project.layout.shearHairpinReinforcement)
+          const className = [
+            activeTab === tab.id ? 'active' : '',
+            dimmed && activeTab !== tab.id ? 'dimmed' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={className}
+              onClick={() => setActiveTab(tab.id)}
+              title={
+                dimmed
+                  ? `${tab.hint}（尚未啟用，點擊進入 tab 後可在該頁勾選）`
+                  : tab.hint
+              }
+            >
+              {tab.label}
+            </button>
+          )
+        })}
       </nav>
 
       <section className="workspace">
-        <section className="panel panel-input" data-shows="geom product loads advanced">
+        <section
+          className="panel panel-input"
+          data-shows="member product layout loads seismic baseplate"
+        >
           <div className="panel-title">
             <h2>條件輸入</h2>
             <p>產品、幾何、材料、載重與耐震入口統一在這裡設定。</p>
@@ -4017,36 +4041,63 @@ function App() {
                 </div>
               </div>
             </details>
-            <UnitNumberField
-              label="混凝土強度 f'c"
-              quantity="stress"
-              units={unitPreferences}
-              value={project.layout.concreteStrengthMpa}
-              onValueChange={(value) =>
-                patchLayout({ concreteStrengthMpa: value ?? 28 })
-              }
-              fallback={28}
-            />
-            <UnitNumberField
-              label="構材厚度 ha"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.thicknessMm}
-              onValueChange={(value) =>
-                patchLayout({ thicknessMm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="有效埋置深度 hef"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.effectiveEmbedmentMm}
-              onValueChange={(value) =>
-                patchLayout({ effectiveEmbedmentMm: value ?? 0 })
-              }
-            />
-
-            <label>
+            <div className="field-slot" data-shows="member">
+              <UnitNumberField
+                label="混凝土強度 f'c"
+                quantity="stress"
+                units={unitPreferences}
+                value={project.layout.concreteStrengthMpa}
+                onValueChange={(value) =>
+                  patchLayout({ concreteStrengthMpa: value ?? 28 })
+                }
+                fallback={28}
+              />
+            </div>
+            <div className="field-slot" data-shows="member">
+              <UnitNumberField
+                label="構材厚度 ha"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.thicknessMm}
+                onValueChange={(value) =>
+                  patchLayout({ thicknessMm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="member">
+              <UnitNumberField
+                label="混凝土寬度"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.concreteWidthMm}
+                onValueChange={(value) =>
+                  patchLayout({ concreteWidthMm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="member">
+              <UnitNumberField
+                label="混凝土高度"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.concreteHeightMm}
+                onValueChange={(value) =>
+                  patchLayout({ concreteHeightMm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="layout">
+              <UnitNumberField
+                label="有效埋置深度 hef"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.effectiveEmbedmentMm}
+                onValueChange={(value) =>
+                  patchLayout({ effectiveEmbedmentMm: value ?? 0 })
+                }
+              />
+            </div>
+            <label className="field-slot" data-shows="layout">
               錨栓列數 X
               <input
                 type="number"
@@ -4057,8 +4108,7 @@ function App() {
                 }
               />
             </label>
-
-            <label>
+            <label className="field-slot" data-shows="layout">
               錨栓列數 Y
               <input
                 type="number"
@@ -4069,81 +4119,75 @@ function App() {
                 }
               />
             </label>
-            <UnitNumberField
-              label="間距 sx"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.spacingXmm}
-              onValueChange={(value) =>
-                patchLayout({ spacingXmm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="間距 sy"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.spacingYmm}
-              onValueChange={(value) =>
-                patchLayout({ spacingYmm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="左邊距"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.edgeLeftMm}
-              onValueChange={(value) =>
-                patchLayout({ edgeLeftMm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="右邊距"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.edgeRightMm}
-              onValueChange={(value) =>
-                patchLayout({ edgeRightMm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="下邊距"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.edgeBottomMm}
-              onValueChange={(value) =>
-                patchLayout({ edgeBottomMm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="上邊距"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.edgeTopMm}
-              onValueChange={(value) =>
-                patchLayout({ edgeTopMm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="混凝土寬度"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.concreteWidthMm}
-              onValueChange={(value) =>
-                patchLayout({ concreteWidthMm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="混凝土高度"
-              quantity="length"
-              units={unitPreferences}
-              value={project.layout.concreteHeightMm}
-              onValueChange={(value) =>
-                patchLayout({ concreteHeightMm: value ?? 0 })
-              }
-            />
+            <div className="field-slot" data-shows="layout">
+              <UnitNumberField
+                label="間距 sx"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.spacingXmm}
+                onValueChange={(value) =>
+                  patchLayout({ spacingXmm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="layout">
+              <UnitNumberField
+                label="間距 sy"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.spacingYmm}
+                onValueChange={(value) =>
+                  patchLayout({ spacingYmm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="layout">
+              <UnitNumberField
+                label="左邊距"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.edgeLeftMm}
+                onValueChange={(value) =>
+                  patchLayout({ edgeLeftMm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="layout">
+              <UnitNumberField
+                label="右邊距"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.edgeRightMm}
+                onValueChange={(value) =>
+                  patchLayout({ edgeRightMm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="layout">
+              <UnitNumberField
+                label="下邊距"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.edgeBottomMm}
+                onValueChange={(value) =>
+                  patchLayout({ edgeBottomMm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="layout">
+              <UnitNumberField
+                label="上邊距"
+                quantity="length"
+                units={unitPreferences}
+                value={project.layout.edgeTopMm}
+                onValueChange={(value) =>
+                  patchLayout({ edgeTopMm: value ?? 0 })
+                }
+              />
+            </div>
             <details
               className="fold-panel sub-panel"
-              data-shows="loads summary"
+              data-shows="layout result"
               open={!simpleMode || candidateLayoutVariants.length > 0}
             >
               <summary className="fold-summary">
@@ -4481,7 +4525,7 @@ function App() {
             </div>
             <details
               className="fold-panel sub-panel"
-              data-shows="advanced"
+              data-shows="baseplate"
               open={!simpleMode || project.layout.basePlateBearingEnabled}
             >
               <summary className="fold-summary">
@@ -5166,52 +5210,62 @@ function App() {
                 </details>
               </div>
             </details>
-            <UnitNumberField
-              label={usingSeparatedSeismicInput ? '靜載 / 非地震拉力 N' : '設計拉力 N'}
-              quantity="force"
-              units={unitPreferences}
-              value={project.loads.tensionKn}
-              onValueChange={(value) =>
-                patchLoads({ tensionKn: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label={usingSeparatedSeismicInput ? '靜載 / 非地震剪力 Vx' : '剪力 Vx'}
-              quantity="force"
-              units={unitPreferences}
-              value={project.loads.shearXKn}
-              onValueChange={(value) =>
-                patchLoads({ shearXKn: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label={usingSeparatedSeismicInput ? '靜載 / 非地震剪力 Vy' : '剪力 Vy'}
-              quantity="force"
-              units={unitPreferences}
-              value={project.loads.shearYKn}
-              onValueChange={(value) =>
-                patchLoads({ shearYKn: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label={usingSeparatedSeismicInput ? '靜載 / 非地震彎矩 Mx' : 'Mx'}
-              quantity="moment"
-              units={unitPreferences}
-              value={project.loads.momentXKnM}
-              onValueChange={(value) =>
-                patchLoads({ momentXKnM: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label={usingSeparatedSeismicInput ? '靜載 / 非地震彎矩 My' : 'My'}
-              quantity="moment"
-              units={unitPreferences}
-              value={project.loads.momentYKnM}
-              onValueChange={(value) =>
-                patchLoads({ momentYKnM: value ?? 0 })
-              }
-            />
-            <label>
+            <div className="field-slot" data-shows="loads">
+              <UnitNumberField
+                label={usingSeparatedSeismicInput ? '靜載 / 非地震拉力 N' : '設計拉力 N'}
+                quantity="force"
+                units={unitPreferences}
+                value={project.loads.tensionKn}
+                onValueChange={(value) =>
+                  patchLoads({ tensionKn: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="loads">
+              <UnitNumberField
+                label={usingSeparatedSeismicInput ? '靜載 / 非地震剪力 Vx' : '剪力 Vx'}
+                quantity="force"
+                units={unitPreferences}
+                value={project.loads.shearXKn}
+                onValueChange={(value) =>
+                  patchLoads({ shearXKn: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="loads">
+              <UnitNumberField
+                label={usingSeparatedSeismicInput ? '靜載 / 非地震剪力 Vy' : '剪力 Vy'}
+                quantity="force"
+                units={unitPreferences}
+                value={project.loads.shearYKn}
+                onValueChange={(value) =>
+                  patchLoads({ shearYKn: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="loads">
+              <UnitNumberField
+                label={usingSeparatedSeismicInput ? '靜載 / 非地震彎矩 Mx' : 'Mx'}
+                quantity="moment"
+                units={unitPreferences}
+                value={project.loads.momentXKnM}
+                onValueChange={(value) =>
+                  patchLoads({ momentXKnM: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="loads">
+              <UnitNumberField
+                label={usingSeparatedSeismicInput ? '靜載 / 非地震彎矩 My' : 'My'}
+                quantity="moment"
+                units={unitPreferences}
+                value={project.loads.momentYKnM}
+                onValueChange={(value) =>
+                  patchLoads({ momentYKnM: value ?? 0 })
+                }
+              />
+            </div>
+            <label className="field-slot" data-shows="loads">
               <span className="label-row">
                 <span>受剪錨栓數</span>
               </span>
@@ -5242,40 +5296,46 @@ function App() {
                 }
               />
             </label>
-            <UnitNumberField
-              label="剪力槓桿臂 e_v"
-              quantity="length"
-              units={unitPreferences}
-              value={project.loads.shearLeverArmMm}
-              optional
-              onValueChange={(value) =>
-                patchLoads({ shearLeverArmMm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="剪力偏心 e'Vx"
-              quantity="length"
-              units={unitPreferences}
-              value={project.loads.shearEccentricityXmm}
-              optional
-              onValueChange={(value) =>
-                patchLoads({ shearEccentricityXmm: value ?? 0 })
-              }
-            />
-            <UnitNumberField
-              label="剪力偏心 e'Vy"
-              quantity="length"
-              units={unitPreferences}
-              value={project.loads.shearEccentricityYmm}
-              optional
-              onValueChange={(value) =>
-                patchLoads({ shearEccentricityYmm: value ?? 0 })
-              }
-            />
+            <div className="field-slot" data-shows="loads">
+              <UnitNumberField
+                label="剪力槓桿臂 e_v"
+                quantity="length"
+                units={unitPreferences}
+                value={project.loads.shearLeverArmMm}
+                optional
+                onValueChange={(value) =>
+                  patchLoads({ shearLeverArmMm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="loads">
+              <UnitNumberField
+                label="剪力偏心 e'Vx"
+                quantity="length"
+                units={unitPreferences}
+                value={project.loads.shearEccentricityXmm}
+                optional
+                onValueChange={(value) =>
+                  patchLoads({ shearEccentricityXmm: value ?? 0 })
+                }
+              />
+            </div>
+            <div className="field-slot" data-shows="loads">
+              <UnitNumberField
+                label="剪力偏心 e'Vy"
+                quantity="length"
+                units={unitPreferences}
+                value={project.loads.shearEccentricityYmm}
+                optional
+                onValueChange={(value) =>
+                  patchLoads({ shearEccentricityYmm: value ?? 0 })
+                }
+              />
+            </div>
           </div>
 
           <div className="switch-grid">
-            <label className="switch">
+            <label className="switch" data-shows="member">
               <input
                 type="checkbox"
                 checked={project.layout.crackedConcrete}
@@ -5285,7 +5345,7 @@ function App() {
               />
               <span>開裂混凝土</span>
             </label>
-            <label className="switch">
+            <label className="switch" data-shows="member">
               <input
                 type="checkbox"
                 checked={project.layout.supplementaryReinforcement}
@@ -5297,7 +5357,7 @@ function App() {
               />
               <span>配置補強 / 錨定鋼筋</span>
             </label>
-            <label className="switch">
+            <label className="switch" data-shows="baseplate">
               <input
                 type="checkbox"
                 checked={project.layout.shearHairpinReinforcement}
@@ -5309,7 +5369,7 @@ function App() {
               />
               <span>剪力 U 型補強鋼筋（需另依 17.7.2.5.1 配置細節覆核）</span>
             </label>
-            <label className="switch">
+            <label className="switch" data-shows="member">
               <input
                 type="checkbox"
                 checked={project.layout.lightweightConcrete}
@@ -5319,7 +5379,7 @@ function App() {
               />
               <span>輕質混凝土</span>
             </label>
-            <label className="switch">
+            <label className="switch" data-shows="seismic">
               <input
                 type="checkbox"
                 checked={project.loads.considerSeismic}
@@ -5353,7 +5413,7 @@ function App() {
 
           <details
             className="fold-panel sub-panel"
-            data-shows="advanced"
+            data-shows="baseplate"
             open={!simpleMode || project.layout.anchorReinforcementEnabled}
           >
             <summary className="fold-summary">
@@ -5469,7 +5529,7 @@ function App() {
 
           <details
             className="fold-panel sub-panel"
-            data-shows="loads"
+            data-shows="seismic"
             open={!simpleMode || project.loads.considerSeismic}
           >
             <summary className="fold-summary">
@@ -6141,7 +6201,7 @@ function App() {
           </div>
         </section>
 
-        <section className="panel panel-geometry" data-shows="geom product summary">
+        <section className="panel panel-geometry" data-shows="member product layout result">
           <div className="panel-title">
             <h2>幾何與產品</h2>
             <p>中央顯示群錨配置與 1.5hef 投影示意；下方可維護產品資料庫。</p>
@@ -6847,7 +6907,7 @@ function App() {
           </div>
         </section>
 
-        <section className="panel panel-results" data-shows="summary steps">
+        <section className="panel panel-results" data-shows="result">
           <div className="panel-title">
             <h2>結果摘要</h2>
             <p>右側聚焦控制條文、正式判定狀態與缺資料警示。</p>
@@ -6895,7 +6955,7 @@ function App() {
             </p>
           ) : null}
 
-          <div className="sub-panel" data-shows="summary">
+          <div className="sub-panel" data-shows="result">
             <h3>載重組合矩陣</h3>
             <table className="data-table compact-table">
               <thead>
@@ -6936,7 +6996,7 @@ function App() {
           </div>
 
           {candidateProductReviews.length > 1 ? (
-            <div className="sub-panel" data-shows="summary">
+            <div className="sub-panel" data-shows="result">
               <h3>候選產品比選</h3>
               {bestCandidateReview ? (
                 <div className="summary-card">
@@ -7085,7 +7145,7 @@ function App() {
           ) : null}
 
           {layoutVariantReviews.length > 1 ? (
-            <div className="sub-panel" data-shows="summary">
+            <div className="sub-panel" data-shows="result">
               <h3>候選配置比選</h3>
               {bestLayoutVariantReview ? (
                 <div className="summary-card">
@@ -7235,7 +7295,7 @@ function App() {
             </div>
           ) : null}
 
-          <div className="sub-panel" data-shows="summary">
+          <div className="sub-panel" data-shows="result">
             <h3>φ / ψ 採用總表</h3>
             <table className="data-table compact-table">
               <thead>
@@ -7261,7 +7321,7 @@ function App() {
             </table>
           </div>
 
-          <div className="sub-panel" data-shows="summary">
+          <div className="sub-panel" data-shows="result">
             <h3>正式判定狀態</h3>
             <div className="status-stack">
               <div className="status-line">
@@ -7291,8 +7351,8 @@ function App() {
 
           <details
             className="fold-panel sub-panel"
-            data-shows="steps"
-            open={!simpleMode || activeTab === 'steps'}
+            data-shows="result"
+            open={!simpleMode || activeTab === 'result'}
           >
             <summary className="fold-summary">
               <span>規範焦點與工程提醒</span>
@@ -7327,8 +7387,8 @@ function App() {
 
       <details
         className="panel panel-bottom fold-panel"
-        data-shows="steps summary"
-        open={!simpleMode || activeTab === 'steps'}
+        data-shows="result"
+        open={!simpleMode || activeTab === 'result'}
       >
         <summary className="fold-summary panel-title-like">
           <span>逐項檢核明細</span>
