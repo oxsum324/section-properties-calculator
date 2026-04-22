@@ -42,3 +42,9 @@ _參考資料
 
 # 鋼構接頭工具開發資料
 鋼構工具/*.smoke-test.js
+
+# 錨栓檢討工具：只部署 /anchor build 產物，source 與參考圖 / PDF 不上 Vercel
+螺栓檢討/bolt-review-tool
+螺栓檢討/*.jpg
+螺栓檢討/*.png
+螺栓檢討/*.pdf

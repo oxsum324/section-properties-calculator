@@ -41,7 +41,9 @@
     { "source": "/test-dashboard", "destination": "/結構工具箱/tools/test-dashboard.html" },
 
     { "source": "/anchor", "destination": "/anchor/index.html" },
-    { "source": "/anchor-review", "destination": "/anchor/index.html" }
+    { "source": "/anchor/", "destination": "/anchor/index.html" },
+    { "source": "/anchor-review", "destination": "/anchor/index.html" },
+    { "source": "/anchor-review/", "destination": "/anchor/index.html" }
   ],
   "headers": [
     {
