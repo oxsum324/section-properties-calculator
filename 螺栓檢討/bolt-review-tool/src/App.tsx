@@ -3752,6 +3752,41 @@ function App() {
         </div>
       </section>
 
+      <nav className="workspace-tabs" role="tablist" aria-label="錨栓檢討分頁">
+        {WORKSPACE_TABS.map((tab) => {
+          const dimmed =
+            (tab.id === 'seismic' && !project.loads.considerSeismic) ||
+            (tab.id === 'baseplate' &&
+              !project.layout.basePlateBearingEnabled &&
+              !project.layout.basePlateBendingEnabled &&
+              !project.layout.anchorReinforcementEnabled &&
+              !project.layout.shearHairpinReinforcement)
+          const className = [
+            activeTab === tab.id ? 'active' : '',
+            dimmed && activeTab !== tab.id ? 'dimmed' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={className}
+              onClick={() => setActiveTab(tab.id)}
+              title={
+                dimmed
+                  ? `${tab.hint}（尚未啟用，點擊進入 tab 後可在該頁勾選）`
+                  : tab.hint
+              }
+            >
+              {tab.label}
+            </button>
+          )
+        })}
+      </nav>
+
       <div className="resource-library-wrapper" data-shows="report">
       <ResourceLibraryHub
         activeTab={resourceLibraryTab}
@@ -3944,41 +3979,6 @@ function App() {
           })}
         </div>
       </section>
-
-      <nav className="workspace-tabs" role="tablist" aria-label="錨栓檢討分頁">
-        {WORKSPACE_TABS.map((tab) => {
-          const dimmed =
-            (tab.id === 'seismic' && !project.loads.considerSeismic) ||
-            (tab.id === 'baseplate' &&
-              !project.layout.basePlateBearingEnabled &&
-              !project.layout.basePlateBendingEnabled &&
-              !project.layout.anchorReinforcementEnabled &&
-              !project.layout.shearHairpinReinforcement)
-          const className = [
-            activeTab === tab.id ? 'active' : '',
-            dimmed && activeTab !== tab.id ? 'dimmed' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              className={className}
-              onClick={() => setActiveTab(tab.id)}
-              title={
-                dimmed
-                  ? `${tab.hint}（尚未啟用，點擊進入 tab 後可在該頁勾選）`
-                  : tab.hint
-              }
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-      </nav>
 
       <section className="workspace">
         <section
@@ -5363,7 +5363,7 @@ function App() {
             </div>
           </div>
 
-          <div className="switch-grid">
+          <div className="switch-grid" data-shows="member seismic baseplate">
             <label className="switch" data-shows="member">
               <input
                 type="checkbox"
@@ -5538,7 +5538,7 @@ function App() {
             </div>
           </details>
 
-          <div className="field-grid compact-grid">
+          <div className="field-grid compact-grid" data-shows="loads">
             <label>
               拉剪互制式
               <select
