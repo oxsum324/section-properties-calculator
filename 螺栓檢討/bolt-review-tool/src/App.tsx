@@ -796,11 +796,13 @@ function UnitNumberField(props: {
     fallback = 0,
   } = props
 
+  const unitSymbol = getUnitSymbol(quantity, units)
+
   return (
-    <label>
+    <label title={`${label}（單位：${unitSymbol}；可於頂部切換）`}>
       <span className="label-row">
         <span>{label}</span>
-        <span className="unit-chip">{getUnitSymbol(quantity, units)}</span>
+        <span className="unit-chip">{unitSymbol}</span>
       </span>
       <input
         type="number"

@@ -227,6 +227,34 @@
 
 .toolbar-units {
   align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.toolbar-units label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: rgba(14, 92, 104, 0.06);
+  color: #0f5260;
+  line-height: 1;
+}
+
+.toolbar-units label select {
+  border: none;
+  background: transparent;
+  color: #0f5260;
+  font-weight: 600;
+  padding: 2px 4px;
+  min-width: 54px;
+}
+
+.toolbar-units label.switch {
+  background: transparent;
+  color: #3b5763;
 }
 
 .toolbar-note {
@@ -584,6 +612,26 @@ label {
   background: rgba(14, 92, 104, 0.08);
   color: #0f5260;
   font-size: 0.78rem;
+}
+
+/* 螢幕上欄位內的單位標籤預設隱藏，以減少重複：
+   單位由頂部 toolbar 統一切換；滑鼠 hover label 會顯示 tooltip 顯示個別單位。
+   列印 / 報告區仍保留 unit-chip 以確保書面文件完整。 */
+.screen-only .unit-chip,
+.panel .unit-chip,
+.app-shell .unit-chip {
+  display: none;
+}
+
+/* 若使用者開啟「顯示單位標示」切換，可取消隱藏（預留） */
+.app-shell.show-inline-units .unit-chip {
+  display: inline-flex;
+}
+
+/* 報告 / print 區內的單位標籤照舊顯示 */
+.print-report .unit-chip,
+.report-section .unit-chip {
+  display: inline-flex !important;
 }
 
 input,
