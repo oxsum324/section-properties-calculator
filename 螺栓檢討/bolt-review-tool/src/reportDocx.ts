@@ -3,6 +3,7 @@ import {
   BorderStyle,
   Document,
   HeadingLevel,
+  ImageRun,
   Packer,
   Paragraph,
   Table,
@@ -12,6 +13,7 @@ import {
   TextRun,
   WidthType,
 } from 'docx'
+import { buildStandaloneGeometrySketchSvg } from './reportExport'
 import type { ReportArtifactParams } from './reportExport'
 import {
   buildAuditRows,
@@ -25,6 +27,104 @@ import {
   buildSummaryRows,
   type ReportTableRow,
 } from './reportWorkbook'
+
+/**
+ * 將 SVG 字串轉為 PNG Uint8Array；瀏覽器環境使用。
+ * 失敗（例如無 document / canvas）時回傳 null，呼叫端需優雅降級。
+ */
+async function svgToPngBytes(
+  svg: string,
+  targetWidth = 960,
+  targetHeight = 720,
+  timeoutMs = 2000,
+): Promise<Uint8Array | null> {
+  if (typeof document === 'undefined' || typeof Image === 'undefined') {
+    return null
+  }
+  // jsdom 不支援 HTMLCanvasElement.toBlob；直接略過
+  const probeCanvas =
+    typeof document.createElement === 'function'
+      ? document.createElement('canvas')
+      : null
+  if (
+    !probeCanvas ||
+    typeof (probeCanvas as HTMLCanvasElement).toBlob !== 'function' ||
+    typeof (probeCanvas as HTMLCanvasElement).getContext !== 'function'
+  ) {
+    return null
+  }
+  return new Promise((resolve) => {
+    let settled = false
+    const settle = (value: Uint8Array | null) => {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
+    try {
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const image = new Image()
+      const cleanup = () => URL.revokeObjectURL(url)
+      // 安全網：若 2 秒內 onload/onerror 都未觸發（例如 jsdom 或受限環境），放棄嵌入
+      const timeoutHandle = setTimeout(() => {
+        cleanup()
+        settle(null)
+      }, timeoutMs)
+      const originalOnload = () => clearTimeout(timeoutHandle)
+      image.onload = () => {
+        originalOnload()
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = targetWidth
+          canvas.height = targetHeight
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            cleanup()
+            settle(null)
+            return
+          }
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, targetWidth, targetHeight)
+          // 保持比例縮放 + 置中
+          const ratio = Math.min(
+            targetWidth / image.width,
+            targetHeight / image.height,
+          )
+          const drawWidth = image.width * ratio
+          const drawHeight = image.height * ratio
+          const offsetX = (targetWidth - drawWidth) / 2
+          const offsetY = (targetHeight - drawHeight) / 2
+          ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight)
+          canvas.toBlob((pngBlob) => {
+            cleanup()
+            if (!pngBlob) {
+              settle(null)
+              return
+            }
+            pngBlob
+              .arrayBuffer()
+              .then((buf) => settle(new Uint8Array(buf)))
+              .catch(() => settle(null))
+          }, 'image/png')
+        } catch (error) {
+          console.warn('[reportDocx] SVG→PNG 繪製失敗', error)
+          cleanup()
+          settle(null)
+        }
+      }
+      image.onerror = () => {
+        originalOnload()
+        console.warn('[reportDocx] SVG 載入失敗，略過圖片嵌入')
+        cleanup()
+        settle(null)
+      }
+      image.src = url
+    } catch (error) {
+      console.warn('[reportDocx] SVG→PNG 轉換異常', error)
+      settle(null)
+    }
+  })
+}
 
 const docxColors = {
   brand: '0F5461',
@@ -204,7 +304,37 @@ function buildDataTable(
   })
 }
 
-function buildSummarySection(params: ReportArtifactParams) {
+function buildSummarySection(
+  params: ReportArtifactParams,
+  geometryPngBytes: Uint8Array | null,
+) {
+  const geometryParagraphs: Paragraph[] = []
+  if (geometryPngBytes) {
+    geometryParagraphs.push(
+      createParagraph('配置預覽（含 1.5hef 投影 / 承壓接觸區 / 補強鋼筋覆蓋）', {
+        heading: HeadingLevel.HEADING_2,
+      }),
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new ImageRun({
+            // docx 型別為 Buffer | Uint8Array；Uint8Array 直接可用
+            data: geometryPngBytes,
+            transformation: {
+              width: 560,
+              height: 420,
+            },
+            type: 'png',
+          }),
+        ],
+      }),
+      createParagraph(
+        '圖示：紅 = 受拉、藍 = 受壓、灰 = 中性；青 = A_Nc、橘 = A_Vc、綠 = 錨栓補強鋼筋、紫 = A1/接觸承壓區。',
+        { color: docxColors.muted, size: 18 },
+      ),
+    )
+  }
+
   return [
     createParagraph(params.review.project.name, {
       bold: true,
@@ -227,6 +357,7 @@ function buildSummarySection(params: ReportArtifactParams) {
       heading: HeadingLevel.HEADING_1,
     }),
     buildDataTable(buildSummaryRows(params)),
+    ...geometryParagraphs,
   ]
 }
 
@@ -251,7 +382,10 @@ function buildSection(
   ]
 }
 
-export function buildReportDocument(params: ReportArtifactParams) {
+export function buildReportDocument(
+  params: ReportArtifactParams,
+  geometryPngBytes: Uint8Array | null = null,
+) {
   const loadCaseRows = buildLoadCaseRows(params)
   const resultRows = buildResultRows(params)
   const dimensionRows = buildDimensionRows(params)
@@ -262,7 +396,7 @@ export function buildReportDocument(params: ReportArtifactParams) {
   const auditRows = buildAuditRows(params)
 
   const children = [
-    ...buildSummarySection(params),
+    ...buildSummarySection(params, geometryPngBytes),
     ...buildSection('載重組合批次檢核', loadCaseRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
       pageBreakBefore: true,
@@ -318,7 +452,18 @@ export function buildReportDocument(params: ReportArtifactParams) {
 }
 
 export async function serializeReportDocument(params: ReportArtifactParams) {
-  const document = buildReportDocument(params)
+  // 嘗試將幾何 SVG 轉為 PNG 以嵌入 Word；若環境不支援 canvas/Image 則略過
+  let geometryPngBytes: Uint8Array | null = null
+  try {
+    const svg = buildStandaloneGeometrySketchSvg(
+      params.review,
+      params.unitPreferences,
+    )
+    geometryPngBytes = await svgToPngBytes(svg)
+  } catch (error) {
+    console.warn('[reportDocx] 幾何圖嵌入失敗，僅輸出表格版', error)
+  }
+  const document = buildReportDocument(params, geometryPngBytes)
   const buffer = await Packer.toBuffer(document)
   return new Uint8Array(buffer)
 }

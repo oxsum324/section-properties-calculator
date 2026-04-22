@@ -325,6 +325,7 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     unitPreferences,
   } = params
 
+  const reportGeneratedAt = params.reportGeneratedAt ?? new Date().toISOString()
   return [
     { 項目: '案例名稱', 值: review.project.name },
     { 項目: '規範版本', 值: review.ruleProfile.versionLabel },
@@ -339,9 +340,11 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     { 項目: '控制 DCR', 值: formatNumber(getGoverningDcr(batchReview.summary)) },
     { 項目: '最大數值 DCR', 值: formatNumber(batchReview.summary.maxDcr) },
     { 項目: '產品 completeness', 值: completeness.formal ? '完整' : '待補' },
-    { 項目: '最新留痕 Hash', 值: formatAuditHash(params.auditEntry?.hash) },
-    { 項目: '最新留痕時間', 值: params.auditEntry?.createdAt ?? '' },
-    { 項目: '最新留痕來源', 值: auditSourceLabel(params.auditEntry?.source) },
+    { 項目: '案例最後編修時間', 值: review.project.updatedAt },
+    { 項目: '報表生成時間', 值: reportGeneratedAt },
+    { 項目: '留痕時間', 值: params.auditEntry?.createdAt ?? '' },
+    { 項目: '留痕來源', 值: auditSourceLabel(params.auditEntry?.source) },
+    { 項目: '留痕 Hash', 值: formatAuditHash(params.auditEntry?.hash) },
     {
       項目: '目前單位',
       值: `${getUnitSymbol('length', unitPreferences)} / ${getUnitSymbol('area', unitPreferences)} / ${getUnitSymbol('force', unitPreferences)} / ${getUnitSymbol('stress', unitPreferences)}`,

@@ -41,3 +41,18 @@ export async function ensureSeedData() {
     await db.projects.put(defaultProject)
   }
 }
+
+/**
+ * 清空本機資料庫並重建 seed；用於啟動時讀取失敗後的「重置」選項。
+ * 會關閉並刪除 IndexedDB，重新 open 後寫入 seed 資料。
+ */
+export async function resetLocalDatabase() {
+  try {
+    db.close()
+  } catch {
+    // close 失敗可忽略，delete 會強制移除
+  }
+  await Dexie.delete('bolt-review-tool')
+  await db.open()
+  await ensureSeedData()
+}

@@ -22,6 +22,44 @@
   letter-spacing: 0.04em;
 }
 
+.hydration-error {
+  padding: 24px;
+}
+
+.hydration-error-card {
+  max-width: 560px;
+  background: #fff;
+  color: #1b2b30;
+  border: 1px solid #e0a44d;
+  border-left: 6px solid #e0a44d;
+  border-radius: 10px;
+  padding: 24px 28px;
+  box-shadow: 0 12px 32px rgba(23, 49, 58, 0.25);
+}
+
+.hydration-error-card h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #a5561a;
+}
+
+.hydration-error-message {
+  background: #fff4e1;
+  border-left: 3px solid #e0a44d;
+  padding: 8px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92rem;
+  word-break: break-word;
+  margin: 8px 0 14px;
+}
+
+.hydration-error-actions {
+  display: flex;
+  gap: 10px;
+  margin: 16px 0 10px;
+  flex-wrap: wrap;
+}
+
 .app-header,
 .toolbar,
 .panel {
@@ -2244,6 +2282,21 @@ details.fold-panel[data-shows~='member'] .switch-grid {
 .resource-back-hint {
   color: #4b5f66;
   font-size: 0.88rem;
+}
+
+.resource-back-bar .primary-cta {
+  background: #0b7285;
+  color: #fff;
+  border: 1px solid #0b7285;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(11, 114, 133, 0.2);
+}
+
+.resource-back-bar .primary-cta:hover {
+  background: #095d6e;
 }
 
 /* 列印時強制顯示所有內容，無視 tab 狀態 */

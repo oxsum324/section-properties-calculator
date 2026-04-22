@@ -3,6 +3,7 @@ import {
   type ChangeEvent,
   lazy,
   startTransition,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -23,7 +24,7 @@ import {
   evaluateLayoutVariants,
   evaluateProjectBatch,
 } from './calc'
-import { db, ensureSeedData } from './db'
+import { db, ensureSeedData, resetLocalDatabase } from './db'
 import {
   normalizeReportSettings,
   defaultProducts,
@@ -1093,6 +1094,7 @@ function ReportDocument({
   unitPreferences,
   reportSettings,
   saveMessage,
+  latestAuditEntry,
 }: {
   batchReview: ReturnType<typeof evaluateProjectBatch>
   candidateProductReviews: ReturnType<typeof evaluateCandidateProducts>
@@ -1104,6 +1106,7 @@ function ReportDocument({
   unitPreferences: UnitPreferences
   reportSettings: ReportSettings
   saveMessage: string
+  latestAuditEntry: ProjectAuditEntry | null
 }) {
   const evidenceRows = evaluationFieldStates.filter(
     (field) => field.hasValue || field.hasEvidence,
@@ -1259,16 +1262,24 @@ function ReportDocument({
               <strong>{formatDate(reportSettings.issueDate)}</strong>
             </div>
             <div>
-              <span>輸出時間</span>
+              <span>案例最後編修</span>
               <strong>{formatDateTime(review.project.updatedAt)}</strong>
+            </div>
+            <div>
+              <span>報表生成時間</span>
+              <strong>{formatDateTime(new Date().toISOString())}</strong>
+            </div>
+            <div>
+              <span>留痕時間</span>
+              <strong>{latestAuditEntry ? formatDateTime(latestAuditEntry.createdAt) : '尚未留存'}</strong>
+            </div>
+            <div>
+              <span>留痕來源</span>
+              <strong>{latestAuditEntry ? auditSourceLabel(latestAuditEntry.source) : '—'}</strong>
             </div>
             <div>
               <span>規範版本</span>
               <strong>{review.ruleProfile.versionLabel}</strong>
-            </div>
-            <div>
-              <span>離線狀態</span>
-              <strong>{saveMessage}</strong>
             </div>
           </div>
         </header>
@@ -1971,7 +1982,9 @@ const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
 ]
 
 function App() {
-  const [activeTab, setActiveTab] = useState<WorkspaceTabId>('member')
+  // 預設落地頁為資源庫（首頁 hub）：讓使用者先選樣板 / 載入案例，再進檢核工作台
+  const [activeTab, setActiveTab] = useState<WorkspaceTabId>('report')
+  const [hasEnteredWorkspace, setHasEnteredWorkspace] = useState(false)
   const [products, setProducts] = useState<AnchorProduct[]>(defaultProducts)
   const [projects, setProjects] = useState<ProjectCase[]>(() => [
     cloneProject(defaultProject),
@@ -1982,6 +1995,9 @@ function App() {
   )
   const [hydrated, setHydrated] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [hydrationError, setHydrationError] = useState<string | null>(null)
+  const [hydrationRetryCount, setHydrationRetryCount] = useState(0)
+  const [isResetting, setIsResetting] = useState(false)
   const [saveMessage, setSaveMessage] = useState('尚未同步到本機資料庫')
   const [projectTemplateFilter, setProjectTemplateFilter] = useState<
     'all' | ProjectTemplateCategory
@@ -2032,41 +2048,88 @@ function App() {
   useEffect(() => {
     let mounted = true
 
-    async function load() {
-      await ensureSeedData()
-      const storedProducts = await db.products.toArray()
-      const storedProjects = await db.projects.toArray()
-      const nextProducts =
-        storedProducts.length > 0 ? storedProducts : defaultProducts
-      const nextProjects = (
-        storedProjects.length > 0 ? storedProjects : [defaultProject]
-      ).map((item) => normalizeProjectSelection(item, nextProducts))
-      const initialProject =
-        [...nextProjects].sort(
-          (left, right) =>
-            new Date(right.updatedAt).getTime() -
-            new Date(left.updatedAt).getTime(),
-        )[0] ?? cloneProject(defaultProject)
+    async function loadAppState() {
+      setLoading(true)
+      setHydrationError(null)
+      try {
+        await ensureSeedData()
+        const storedProducts = await db.products.toArray()
+        const storedProjects = await db.projects.toArray()
+        const nextProducts =
+          storedProducts.length > 0 ? storedProducts : defaultProducts
+        const nextProjects = (
+          storedProjects.length > 0 ? storedProjects : [defaultProject]
+        ).map((item) => normalizeProjectSelection(item, nextProducts))
+        const initialProject =
+          [...nextProjects].sort(
+            (left, right) =>
+              new Date(right.updatedAt).getTime() -
+              new Date(left.updatedAt).getTime(),
+          )[0] ?? cloneProject(defaultProject)
 
-      if (!mounted) {
-        return
+        if (!mounted) {
+          return
+        }
+
+        setProducts(nextProducts)
+        setProjects(nextProjects)
+        setActiveProjectId(initialProject.id)
+        setProject(initialProject)
+        setHydrated(true)
+      } catch (error) {
+        if (!mounted) {
+          return
+        }
+        console.error('[bolt-review] 啟動載入失敗', error)
+        const message =
+          error instanceof Error ? error.message : String(error ?? '未知錯誤')
+        setHydrationError(message)
+        // fallback：以 defaults 讓使用者至少能操作，但不 setHydrated 以避免覆寫 DB
+        setProducts(defaultProducts)
+        setProjects([cloneProject(defaultProject)])
+        setActiveProjectId(defaultProject.id)
+        setProject(cloneProject(defaultProject))
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
       }
-
-      setProducts(nextProducts)
-      setProjects(nextProjects)
-      setActiveProjectId(initialProject.id)
-      setProject(initialProject)
-
-      setHydrated(true)
-      setLoading(false)
     }
 
-    void load()
+    void loadAppState()
 
     return () => {
       mounted = false
     }
+  }, [hydrationRetryCount])
+
+  const retryHydration = useCallback(() => {
+    setHydrationRetryCount((count) => count + 1)
   }, [])
+
+  const resetLocalDatabaseAndReload = useCallback(async () => {
+    if (isResetting) {
+      return
+    }
+    const confirmed = window.confirm(
+      '將清除本機所有案例、產品與文件附件並重建預設資料。此操作不可復原，是否繼續？',
+    )
+    if (!confirmed) {
+      return
+    }
+    setIsResetting(true)
+    try {
+      await resetLocalDatabase()
+      setHydrationRetryCount((count) => count + 1)
+    } catch (error) {
+      console.error('[bolt-review] 清空本機資料失敗', error)
+      const message =
+        error instanceof Error ? error.message : String(error ?? '未知錯誤')
+      setHydrationError(`清空本機資料失敗：${message}`)
+    } finally {
+      setIsResetting(false)
+    }
+  }, [isResetting])
 
   const selectedProduct =
     products.find((item) => item.id === project.selectedProductId) ?? products[0]
@@ -3416,6 +3479,7 @@ function App() {
     autoPrint = false,
     auditEntry: ProjectAuditEntry | null = latestAuditEntry,
     auditTrail: ProjectAuditEntry[] = project.auditTrail ?? [],
+    reportGeneratedAt: string = new Date().toISOString(),
   ): ReportArtifactParams {
     return {
       batchReview,
@@ -3431,6 +3495,7 @@ function App() {
       auditEntry: auditEntry ?? undefined,
       auditTrail,
       autoPrint,
+      reportGeneratedAt,
     }
   }
 
@@ -3542,7 +3607,45 @@ function App() {
   }
 
   if (loading) {
-    return <main className="loading-screen">正在讀取離線資料庫與規範設定…</main>
+    return (
+      <main className="loading-screen" aria-busy="true">
+        正在讀取離線資料庫與規範設定…
+      </main>
+    )
+  }
+
+  if (hydrationError && !hydrated) {
+    return (
+      <main className="loading-screen hydration-error" role="alert">
+        <div className="hydration-error-card">
+          <h2>離線資料庫讀取失敗</h2>
+          <p className="hydration-error-message">錯誤訊息：{hydrationError}</p>
+          <p className="helper-text">
+            可能原因：瀏覽器處於無痕/隱私模式、IndexedDB 配額已滿、或資料庫版本不相容。
+            可先嘗試重新載入；若持續失敗，可清空本機資料後以預設值重建。
+          </p>
+          <div className="hydration-error-actions">
+            <button type="button" onClick={retryHydration} disabled={isResetting}>
+              重新嘗試載入
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                void resetLocalDatabaseAndReload()
+              }}
+              disabled={isResetting}
+            >
+              {isResetting ? '清空中…' : '清空本機資料後重建'}
+            </button>
+          </div>
+          <p className="helper-text">
+            注意：清空會移除本機案例、產品、文件附件，且不可復原。
+            建議先於正常狀態下匯出 JSON 備份。
+          </p>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -3558,6 +3661,7 @@ function App() {
             <em>· {activeRuleProfile.versionLabel}</em>
           </span>
         </div>
+        {/* eslint-disable-next-line no-constant-binary-expression */}
         {false && (
         <div className="app-header-status-archived" style={{ display: 'none' }}>
           <p className="lede">
@@ -3764,7 +3868,10 @@ function App() {
               role="tab"
               aria-selected={activeTab === tab.id}
               className={className}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id)
+                setHasEnteredWorkspace(true)
+              }}
               title={
                 dimmed
                   ? `${tab.hint}（尚未啟用，點擊進入 tab 後可在該頁勾選）`
@@ -3781,13 +3888,29 @@ function App() {
       <div className="resource-back-bar">
         <button
           type="button"
-          className="secondary-button"
-          onClick={() => setActiveTab('result')}
+          className="primary-cta"
+          onClick={() => {
+            setActiveTab('member')
+            setHasEnteredWorkspace(true)
+          }}
         >
-          ← 返回結果
+          {hasEnteredWorkspace ? '返回檢核工作台 →' : '開始檢核（進入構件／配置）→'}
         </button>
+        {hasEnteredWorkspace ? (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setActiveTab('result')
+            }}
+          >
+            返回結果頁
+          </button>
+        ) : null}
         <span className="resource-back-hint">
-          樣板、案例庫、文件附件皆可於此維護；完成後返回結果頁檢視與匯出。
+          {hasEnteredWorkspace
+            ? '樣板、案例庫、文件附件可於此維護；完成後返回結果頁檢視與匯出。'
+            : '首次使用可先從下方「案件樣板庫」套入典型情境，或於「案例庫」建立新案後開始檢核。'}
         </span>
       </div>
       <ResourceLibraryHub
@@ -7510,6 +7633,7 @@ function App() {
         unitPreferences={unitPreferences}
         reportSettings={reportSettings}
         saveMessage={saveMessage}
+        latestAuditEntry={latestAuditEntry}
       />
     </main>
   )

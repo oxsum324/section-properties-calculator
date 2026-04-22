@@ -34,6 +34,12 @@ export interface ReportArtifactParams {
   auditEntry?: ProjectAuditEntry
   auditTrail?: ProjectAuditEntry[]
   autoPrint?: boolean
+  /**
+   * 報表生成時間（ISO 字串）。產生匯出檔（HTML/XLSX/DOCX）時由呼叫端傳入；
+   * 若未提供則於函式內使用 new Date()。與 project.updatedAt（案例最後編修時間）
+   * 及 auditEntry.createdAt（留痕時間）各自獨立，不應混用。
+   */
+  reportGeneratedAt?: string
 }
 
 function escapeHtml(value: string) {
@@ -440,6 +446,45 @@ function buildGeometrySketchSvg(review: ReviewResult, units: UnitPreferences) {
   </svg>`
 }
 
+/**
+ * 幾何 SVG 專用的內嵌樣式；用於 DOCX / PNG 匯出等不帶外層 HTML CSS 的情境。
+ * 與 buildStandaloneReportHtml 中的 <style> 區塊同步，僅保留 .geometry 相關規則。
+ */
+const GEOMETRY_SVG_STYLE = `
+  .concrete-body { fill:#edf1f6; stroke:#7f8ea3; stroke-width:3; }
+  .bearing-zone { fill:rgba(123,92,168,.09); stroke:rgba(94,65,139,.42); stroke-width:2.4; stroke-dasharray:10 8; }
+  .bearing-contact-zone { fill:rgba(110,77,163,.20); stroke:rgba(85,56,132,.56); stroke-width:2.8; }
+  .bearing-contact-zone-uplift_x,.bearing-contact-zone-uplift_y,.bearing-contact-zone-uplift_xy { fill:rgba(129,72,191,.24); }
+  .bearing-overlay-label { fill:#45315f; font-size:16px; font-weight:700; }
+  .zone-tension_breakout { fill:rgba(14,165,233,.18); stroke:#0284c7; stroke-width:2; }
+  .zone-shear_breakout_x,.zone-shear_breakout_y { fill:rgba(249,115,22,.16); stroke:#ea580c; stroke-width:2; }
+  .reinforcement-zone { fill:rgba(24,133,84,.08); stroke:rgba(20,108,69,.6); stroke-width:2.5; stroke-dasharray:10 8; }
+  .reinforcement-line { stroke:rgba(20,108,69,.55); stroke-width:2.5; stroke-linecap:round; }
+  .edge-highlight { stroke:#dc2626; stroke-width:4; stroke-dasharray:10 8; }
+  .edge-label,.anchor-label,.anchor-demand,.sketch-title,.sketch-legend,.sketch-meta,.reinforcement-label { font-size:12px; fill:#22304a; }
+  .anchor { stroke:#10213b; stroke-width:2; }
+  .anchor-tension { fill:#ef4444; }
+  .anchor-compression { fill:#2563eb; }
+  .anchor-neutral { fill:#9ca3af; }
+  .anchor-center { fill:#fff; }
+`.trim()
+
+/**
+ * 產生自含樣式、可獨立渲染的幾何 SVG 字串（用於 DOCX / PNG 匯出等情境）。
+ */
+export function buildStandaloneGeometrySketchSvg(
+  review: ReviewResult,
+  units: UnitPreferences,
+) {
+  const innerSvg = buildGeometrySketchSvg(review, units)
+  // 將內部 <svg ...> 替換為帶 xmlns + <defs><style>；保留原 viewBox
+  return innerSvg.replace(
+    /<svg([^>]*)>/,
+    (_, attrs) =>
+      `<svg${attrs} xmlns="http://www.w3.org/2000/svg"><defs><style>${GEOMETRY_SVG_STYLE}</style></defs>`,
+  )
+}
+
 export function buildStandaloneReportHtml(params: ReportArtifactParams) {
   const {
     batchReview,
@@ -455,6 +500,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
     auditEntry,
     auditTrail = [],
     autoPrint = false,
+    reportGeneratedAt = new Date().toISOString(),
   } = params
 
   const evidenceRows = evaluationFieldStates.filter(
@@ -636,9 +682,10 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
           <div><small class="meta">案號 / 專案</small><div>${escapeHtml(reportSettings.projectCode || '未填')}</div></div>
           <div><small class="meta">規範版本</small><div>${escapeHtml(review.ruleProfile.versionLabel)}</div></div>
           <div><small class="meta">發行日期</small><div>${escapeHtml(formatDate(reportSettings.issueDate))}</div></div>
-          <div><small class="meta">輸出時間</small><div>${escapeHtml(formatDateTime(review.project.updatedAt))}</div></div>
-          <div><small class="meta">留痕 Hash</small><div>${escapeHtml(formatAuditHash(auditEntry?.hash))}</div></div>
+          <div><small class="meta">案例最後編修</small><div>${escapeHtml(formatDateTime(review.project.updatedAt))}</div></div>
+          <div><small class="meta">報表生成時間</small><div>${escapeHtml(formatDateTime(reportGeneratedAt))}</div></div>
           <div><small class="meta">留痕時間</small><div>${escapeHtml(formatDateTime(auditEntry?.createdAt))}</div></div>
+          <div><small class="meta">留痕來源 / Hash</small><div>${escapeHtml(auditEntry ? `${auditSourceLabel(auditEntry.source)} · ${formatAuditHash(auditEntry.hash)}` : '尚未留存')}</div></div>
           <div><small class="meta">整體判定</small><div>${buildStatusChip(batchReview.summary.overallStatus)}</div></div>
           <div><small class="meta">正式判定</small><div>${buildStatusChip(batchReview.summary.formalStatus)}</div></div>
           <div><small class="meta">控制模式</small><div>${escapeHtml(batchReview.summary.governingMode)}</div></div>
