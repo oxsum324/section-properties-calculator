@@ -1949,7 +1949,6 @@ function ReportDocument({
 type WorkspaceTabId =
   | 'member'
   | 'product'
-  | 'layout'
   | 'loads'
   | 'seismic'
   | 'baseplate'
@@ -1963,14 +1962,12 @@ interface WorkspaceTabDefinition {
 }
 
 const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
-  { id: 'member', label: '構件', hint: '混凝土構件幾何 / fc′ / 裂縫 / Condition A/B' },
+  { id: 'member', label: '構件／配置', hint: '混凝土基材 fc′ / 裂縫 / hef / 陣列 / 間距 / 邊距' },
   { id: 'product', label: '產品', hint: '產品選擇 / 候選比選 / 評估值 / 證據' },
-  { id: 'layout', label: '配置', hint: '錨栓陣列 / 間距 / 邊距 / hef / 剪力偏心' },
   { id: 'loads', label: '載重', hint: 'N / V / M / 載重組合批次 / CSV 匯入' },
   { id: 'seismic', label: '耐震', hint: '耐震路徑 / Ωo / 韌性 / 附掛物降伏' },
   { id: 'baseplate', label: '柱腳', hint: '基板承壓 / 抗彎厚度 / 錨栓補強鋼筋' },
-  { id: 'result', label: '結果', hint: 'DCR / φψ 採用 / 候選比選 / 逐項明細' },
-  { id: 'report', label: '報告', hint: '樣板庫 / 案例庫 / 報表設定 / 文件附件' },
+  { id: 'result', label: '結果', hint: 'DCR / φψ 採用 / 候選比選 / 逐項明細 / 匯出' },
 ]
 
 function App() {
@@ -3598,31 +3595,13 @@ function App() {
       </header>
 
       <section className="toolbar">
-        <div className="toolbar-group" data-shows="report">
+        <div className="toolbar-group">
           <label>
             案例名稱
             <input
               value={project.name}
               onChange={(event) => patchProject({ name: event.target.value })}
             />
-          </label>
-          <label>
-            樣板快選
-            <select
-              defaultValue=""
-              onChange={(event) => {
-                if (event.target.value) {
-                  void loadProjectTemplate(event.target.value)
-                }
-              }}
-            >
-              <option value="">選擇案件樣板</option>
-              {availableProjectTemplates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {projectTemplateCategoryLabel(template.category)} / {template.name}
-                </option>
-              ))}
-            </select>
           </label>
           <label>
             規範版本
@@ -3641,34 +3620,45 @@ function App() {
               ))}
             </select>
           </label>
-                  <button type="button" onClick={printReport}>
-                    列印報表
-                  </button>
-                  <button type="button" onClick={() => {
-                    void openStandaloneReportWindow(false)
-                  }}>
-                    預覽報表
-                  </button>
-                  <button type="button" onClick={() => {
-                    void exportHtmlReport()
-                  }}>
-                    匯出 HTML
-                  </button>
-                  <button type="button" onClick={() => {
-                    void exportXlsxReport()
-                  }}>
-                    匯出 XLSX
-                  </button>
-                  <button type="button" onClick={() => {
-                    void exportDocxReport()
-                  }}>
-                    匯出 DOCX
-                  </button>
-                  <button type="button" onClick={() => {
-                    void recordCurrentAuditTrail('manual')
-                  }}>
-                    留存簽章
-                  </button>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => setActiveTab('report')}
+            title="開啟案件樣板、案例庫、文件附件與匯出設定"
+          >
+            資源 / 樣板
+          </button>
+        </div>
+
+        <div className="toolbar-group toolbar-export" data-shows="result report">
+          <button type="button" onClick={printReport}>
+            列印報表
+          </button>
+          <button type="button" onClick={() => {
+            void openStandaloneReportWindow(false)
+          }}>
+            預覽報表
+          </button>
+          <button type="button" onClick={() => {
+            void exportHtmlReport()
+          }}>
+            匯出 HTML
+          </button>
+          <button type="button" onClick={() => {
+            void exportXlsxReport()
+          }}>
+            匯出 XLSX
+          </button>
+          <button type="button" onClick={() => {
+            void exportDocxReport()
+          }}>
+            匯出 DOCX
+          </button>
+          <button type="button" className="secondary-button" onClick={() => {
+            void recordCurrentAuditTrail('manual')
+          }}>
+            留存簽章
+          </button>
         </div>
 
         <div className="toolbar-group toolbar-units">
@@ -3788,6 +3778,18 @@ function App() {
       </nav>
 
       <div className="resource-library-wrapper" data-shows="report">
+      <div className="resource-back-bar">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => setActiveTab('result')}
+        >
+          ← 返回結果
+        </button>
+        <span className="resource-back-hint">
+          樣板、案例庫、文件附件皆可於此維護；完成後返回結果頁檢視與匯出。
+        </span>
+      </div>
       <ResourceLibraryHub
         activeTab={resourceLibraryTab}
         tabs={resourceLibraryTabs}
@@ -3983,19 +3985,15 @@ function App() {
       <section className="workspace">
         <section
           className="panel panel-input"
-          data-shows="member product layout loads seismic baseplate"
+          data-shows="member product loads seismic baseplate"
         >
           <div className="panel-title" data-shows="member">
-            <h2>構件條件</h2>
-            <p>輸入混凝土構件強度與幾何尺寸，並設定現場狀態（開裂 / 輕質 / Condition A-B 補強鋼筋）。</p>
+            <h2>構件 / 配置</h2>
+            <p>混凝土基材（fc′、尺寸、裂縫 / 輕質 / Condition A-B）＋錨栓幾何（hef、陣列、間距、邊距）。</p>
           </div>
           <div className="panel-title" data-shows="product">
             <h2>選擇錨栓產品</h2>
             <p>切換目前產品，勾選候選清單並排比選多個錨栓型號。</p>
-          </div>
-          <div className="panel-title" data-shows="layout">
-            <h2>錨栓配置</h2>
-            <p>有效埋置深度 hef、陣列 X × Y、間距與邊距；完成後可於配置預覽檢視。</p>
           </div>
           <div className="panel-title" data-shows="loads">
             <h2>載重輸入</h2>
@@ -4115,7 +4113,7 @@ function App() {
                 }
               />
             </div>
-            <div className="field-slot" data-shows="layout">
+            <div className="field-slot" data-shows="member">
               <UnitNumberField
                 label="有效埋置深度 hef"
                 quantity="length"
@@ -4126,7 +4124,7 @@ function App() {
                 }
               />
             </div>
-            <label className="field-slot" data-shows="layout">
+            <label className="field-slot" data-shows="member">
               錨栓列數 X
               <input
                 type="number"
@@ -4137,7 +4135,7 @@ function App() {
                 }
               />
             </label>
-            <label className="field-slot" data-shows="layout">
+            <label className="field-slot" data-shows="member">
               錨栓列數 Y
               <input
                 type="number"
@@ -4148,7 +4146,7 @@ function App() {
                 }
               />
             </label>
-            <div className="field-slot" data-shows="layout">
+            <div className="field-slot" data-shows="member">
               <UnitNumberField
                 label="間距 sx"
                 quantity="length"
@@ -4159,7 +4157,7 @@ function App() {
                 }
               />
             </div>
-            <div className="field-slot" data-shows="layout">
+            <div className="field-slot" data-shows="member">
               <UnitNumberField
                 label="間距 sy"
                 quantity="length"
@@ -4170,7 +4168,7 @@ function App() {
                 }
               />
             </div>
-            <div className="field-slot" data-shows="layout">
+            <div className="field-slot" data-shows="member">
               <UnitNumberField
                 label="左邊距"
                 quantity="length"
@@ -4181,7 +4179,7 @@ function App() {
                 }
               />
             </div>
-            <div className="field-slot" data-shows="layout">
+            <div className="field-slot" data-shows="member">
               <UnitNumberField
                 label="右邊距"
                 quantity="length"
@@ -4192,7 +4190,7 @@ function App() {
                 }
               />
             </div>
-            <div className="field-slot" data-shows="layout">
+            <div className="field-slot" data-shows="member">
               <UnitNumberField
                 label="下邊距"
                 quantity="length"
@@ -4203,7 +4201,7 @@ function App() {
                 }
               />
             </div>
-            <div className="field-slot" data-shows="layout">
+            <div className="field-slot" data-shows="member">
               <UnitNumberField
                 label="上邊距"
                 quantity="length"
@@ -4216,7 +4214,7 @@ function App() {
             </div>
             <details
               className="fold-panel sub-panel"
-              data-shows="layout result"
+              data-shows="member result"
               open={!simpleMode || candidateLayoutVariants.length > 0}
             >
               <summary className="fold-summary">
@@ -6230,17 +6228,17 @@ function App() {
           </div>
         </section>
 
-        <section className="panel panel-geometry" data-shows="product layout result">
-          <div className="panel-title" data-shows="layout result">
+        <section className="panel panel-geometry" data-shows="member product loads seismic baseplate result">
+          <div className="panel-title geometry-title-main">
             <h2>配置預覽</h2>
-            <p>SVG 顯示群錨配置、1.5hef 投影、控制自由邊與錨栓拉 / 壓色碼。</p>
+            <p>SVG 顯示群錨配置、1.5hef 投影、控制自由邊與錨栓拉 / 壓色碼（所有頁面同步）。</p>
           </div>
           <div className="panel-title" data-shows="product">
             <h2>產品資料庫</h2>
             <p>維護產品清單、切換目前產品，並於下方填入或覆核產品評估值。</p>
           </div>
 
-          <div data-shows="layout result" className="geometry-block">
+          <div className="geometry-block">
             <GeometrySketch review={review} units={unitPreferences} />
 
             <div className="geometry-metrics">

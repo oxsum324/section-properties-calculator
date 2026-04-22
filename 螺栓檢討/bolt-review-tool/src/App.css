@@ -2117,13 +2117,18 @@ button:disabled {
 
 .app-shell[data-active-tab='member'] [data-shows~='member'],
 .app-shell[data-active-tab='product'] [data-shows~='product'],
-.app-shell[data-active-tab='layout'] [data-shows~='layout'],
 .app-shell[data-active-tab='loads'] [data-shows~='loads'],
 .app-shell[data-active-tab='seismic'] [data-shows~='seismic'],
 .app-shell[data-active-tab='baseplate'] [data-shows~='baseplate'],
 .app-shell[data-active-tab='result'] [data-shows~='result'],
 .app-shell[data-active-tab='report'] [data-shows~='report'] {
   display: block;
+}
+
+/* toolbar-export 為 flex layout，data-shows 啟動時強制改回 flex 以保持按鈕並排 */
+.app-shell[data-active-tab='result'] .toolbar-export[data-shows~='result'],
+.app-shell[data-active-tab='report'] .toolbar-export[data-shows~='report'] {
+  display: flex;
 }
 
 /* field-slot 是在 field-grid 內包欄位用，維持 grid cell 行為 */
@@ -2148,7 +2153,7 @@ button:disabled {
 
 /* 候選產品 / 候選配置 fold 內的 switch-grid 改用 auto-fit 彈性欄寬 */
 details.fold-panel[data-shows~='product'] .switch-grid,
-details.fold-panel[data-shows~='layout'] .switch-grid {
+details.fold-panel[data-shows~='member'] .switch-grid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
 }
 
@@ -2162,27 +2167,21 @@ details.fold-panel[data-shows~='layout'] .switch-grid {
 }
 
 /* workspace 布局依當前 tab 優化：
-   - 純輸入類 tab (member / loads / seismic / baseplate) 只顯示 panel-input，改為單欄置中（~960px）
-   - 配置類 tab (product / layout) 左為 panel-input、右為 panel-geometry → 兩欄
-   - 結果 tab 左為 panel-geometry (SVG)、右為 panel-results → 兩欄
-   - 報告 tab 由 resource-library-wrapper + case-library 構成，workspace 本身無內容 */
+   所有輸入類 tab 皆為 左 panel-input / 右 panel-geometry（右側為常駐 sticky 預覽）
+   結果 tab 左為 panel-geometry (SVG)、右為 panel-results
+   報告 tab 由 resource-library-wrapper + case-library 構成，workspace 本身無內容 */
 .app-shell[data-active-tab='member'] .workspace,
+.app-shell[data-active-tab='product'] .workspace,
 .app-shell[data-active-tab='loads'] .workspace,
 .app-shell[data-active-tab='seismic'] .workspace,
 .app-shell[data-active-tab='baseplate'] .workspace {
-  grid-template-columns: minmax(0, 1fr);
-  max-width: 960px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.app-shell[data-active-tab='product'] .workspace,
-.app-shell[data-active-tab='layout'] .workspace {
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  align-items: start;
 }
 
 .app-shell[data-active-tab='result'] .workspace {
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.15fr);
+  align-items: start;
 }
 
 .app-shell[data-active-tab='report'] .workspace {
@@ -2202,6 +2201,49 @@ details.fold-panel[data-shows~='layout'] .switch-grid {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* 右側常駐配置預覽：僅在輸入類 tab 使用 sticky（結果 / 報告 tab 不需要） */
+@media (min-width: 960px) {
+  .app-shell[data-active-tab='member'] .panel-geometry,
+  .app-shell[data-active-tab='product'] .panel-geometry,
+  .app-shell[data-active-tab='loads'] .panel-geometry,
+  .app-shell[data-active-tab='seismic'] .panel-geometry,
+  .app-shell[data-active-tab='baseplate'] .panel-geometry {
+    position: sticky;
+    top: 12px;
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+  }
+}
+
+/* 小螢幕 (<960px)：workspace 改單欄上下排，預覽在下方 */
+@media (max-width: 959px) {
+  .app-shell[data-active-tab='member'] .workspace,
+  .app-shell[data-active-tab='product'] .workspace,
+  .app-shell[data-active-tab='loads'] .workspace,
+  .app-shell[data-active-tab='seismic'] .workspace,
+  .app-shell[data-active-tab='baseplate'] .workspace,
+  .app-shell[data-active-tab='result'] .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 報告 tab 返回列 */
+.resource-back-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid #d8e2e6;
+  background: #f7fafb;
+  border-radius: 8px;
+}
+
+.resource-back-hint {
+  color: #4b5f66;
+  font-size: 0.88rem;
 }
 
 /* 列印時強制顯示所有內容，無視 tab 狀態 */
