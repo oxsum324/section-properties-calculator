@@ -41,6 +41,92 @@
   margin-bottom: 18px;
 }
 
+/* 緊湊表頭：h1 縮小、移除說明段、狀態壓成 chip */
+.app-header-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding: 12px 20px;
+  margin-bottom: 10px;
+  border-radius: 18px;
+  align-items: center;
+}
+
+.app-header-compact .app-header-main {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.app-header-compact .app-header-main h1 {
+  margin: 0;
+  font-size: clamp(1.2rem, 1.8vw, 1.45rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.app-header-ref {
+  color: #446771;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+}
+
+.app-header-ref a {
+  color: #0b7285;
+  text-decoration: none;
+}
+
+.app-header-ref a:hover {
+  text-decoration: underline;
+}
+
+.app-header-ref em {
+  font-style: normal;
+  color: #7b8c92;
+  margin-left: 4px;
+}
+
+.app-header-status {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.status-chip {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 12px;
+  min-width: 90px;
+  max-width: 200px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(15, 58, 69, 0.12);
+  font-size: 0.74rem;
+}
+
+.status-chip > span {
+  color: #6a7e84;
+  letter-spacing: 0.1em;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+}
+
+.status-chip > strong {
+  color: #102f37;
+  font-size: 0.84rem;
+  line-height: 1.15;
+}
+
+.status-chip-truncate {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .eyebrow {
   margin: 0 0 10px;
   text-transform: uppercase;
@@ -104,13 +190,32 @@
 
 .toolbar {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   gap: 16px;
-  border-radius: 22px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.74);
-  padding: 16px 20px;
-  margin-bottom: 18px;
+  padding: 10px 16px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+/* 非報告 tab：toolbar 只剩單位 + 簡化模式，單位面板往右靠 */
+.app-shell:not([data-active-tab='report']) .toolbar {
+  justify-content: flex-end;
+}
+
+.app-shell:not([data-active-tab='report']) .toolbar .toolbar-units {
+  font-size: 0.84rem;
+}
+
+/* toolbar-group 與 toolbar-note 預設 flex；套上 data-shows 顯示規則後須回復 flex */
+.app-shell[data-active-tab='report'] .toolbar > .toolbar-group[data-shows~='report'] {
+  display: flex;
+}
+
+.app-shell[data-active-tab='report'] .toolbar-note[data-shows~='report'] {
+  display: flex;
 }
 
 .toolbar-group {

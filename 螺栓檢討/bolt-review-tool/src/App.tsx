@@ -3549,47 +3549,54 @@ function App() {
   return (
     <main className="app-shell" data-active-tab={activeTab}>
       <div className="screen-only">
-      <header className="app-header">
-        <div>
-          <p className="eyebrow">Taiwan RC Anchor Review</p>
+      <header className="app-header app-header-compact">
+        <div className="app-header-main">
           <h1>錨栓檢討工具</h1>
+          <span className="app-header-ref">
+            <a href={activeRuleProfile.officialUrl} target="_blank" rel="noreferrer">
+              {activeRuleProfile.chapter17Title}
+            </a>
+            <em>· {activeRuleProfile.versionLabel}</em>
+          </span>
+        </div>
+        {false && (
+        <div className="app-header-status-archived" style={{ display: 'none' }}>
           <p className="lede">
             依 <a href={activeRuleProfile.officialUrl} target="_blank" rel="noreferrer">{activeRuleProfile.name}</a>{' '}
             第17章進行預埋、膨脹與黏結式錨栓檢討。內部固定以 mm / kN / MPa 計算，畫面可切換成 cm / m / kgf / tf 顯示與輸入。
           </p>
         </div>
-        <div className="header-cards">
-          <div className="mini-card">
-            <span>規範狀態</span>
-            <strong>{activeRuleProfile.versionLabel}</strong>
-            <small>發布 {activeRuleProfile.officialPublishedDate}</small>
-          </div>
-          <div className="mini-card">
-            <span>案例狀態</span>
+        )}
+        <div className="app-header-status">
+          <div className="status-chip">
+            <span>案例</span>
             <div className="badge-row">
               <Badge status={batchReview.summary.overallStatus} />
               <Badge status={batchReview.summary.formalStatus} />
             </div>
-            <small>{saveMessage}</small>
           </div>
-          <div className="mini-card">
-            <span>審查留痕</span>
-            <strong>
-              {latestAuditEntry
-                ? formatAuditHash(latestAuditEntry.hash)
-                : '尚未留存'}
-            </strong>
-            <small>
-              {latestAuditEntry
+          <div className="status-chip" title={saveMessage}>
+            <span>同步</span>
+            <strong className="status-chip-truncate">{saveMessage}</strong>
+          </div>
+          <div
+            className="status-chip"
+            title={
+              latestAuditEntry
                 ? `${auditSourceLabel(latestAuditEntry.source)} / ${formatDateTime(latestAuditEntry.createdAt)}`
-                : '可手動留痕或於匯出報告時自動建立'}
-            </small>
+                : '尚未留存；可手動留痕或於匯出報告時自動建立'
+            }
+          >
+            <span>留痕</span>
+            <strong>
+              {latestAuditEntry ? formatAuditHash(latestAuditEntry.hash) : '尚未留存'}
+            </strong>
           </div>
         </div>
       </header>
 
       <section className="toolbar">
-        <div className="toolbar-group">
+        <div className="toolbar-group" data-shows="report">
           <label>
             案例名稱
             <input
@@ -3735,7 +3742,7 @@ function App() {
           </label>
         </div>
 
-        <div className="toolbar-note">
+        <div className="toolbar-note" data-shows="report">
           <strong>規範唯一預設：</strong>
           <span>{activeRuleProfile.chapter17Title}</span>
           <span className="separator">/</span>
