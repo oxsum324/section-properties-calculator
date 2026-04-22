@@ -2132,6 +2132,26 @@ button:disabled {
   min-width: 0;
 }
 
+/* field-grid 內的 fold-panel 跨全寬，避免 fold 內部內容被擠成極窄欄 */
+.field-grid > details.fold-panel,
+.field-grid > .fold-panel {
+  grid-column: 1 / -1;
+}
+
+/* fold-panel 內若父層窄 (< 480px)，switch-grid 強制單列以避免每個選項被擠到文字換行 */
+@media (max-width: 480px) {
+  .fold-stack .switch-grid,
+  details.fold-panel .switch-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 候選產品 / 候選配置 fold 內的 switch-grid 改用 auto-fit 彈性欄寬 */
+details.fold-panel[data-shows~='product'] .switch-grid,
+details.fold-panel[data-shows~='layout'] .switch-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+
 /* switch-grid 內的 label.switch 原本是 flex，加 data-shows 後預設 display:none，
    當命中當前 tab 的 CSS 規則會改回 block。但 switch 本身需保持 flex layout 才能
    讓 checkbox 與文字並排，因此 override 為 flex。 */

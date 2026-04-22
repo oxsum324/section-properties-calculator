@@ -6216,7 +6216,7 @@ function App() {
             )}
           </details>
 
-          <div className="legacy-panel">
+          <div className="legacy-panel" data-shows="report">
             <h3>單位預覽</h3>
             <p>內部固定以 mm / kN / MPa 計算；畫面依你選的單位即時換算。`kg` 介面以 `kgf` 顯示。</p>
             <ul>
