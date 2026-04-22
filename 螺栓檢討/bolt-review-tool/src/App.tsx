@@ -90,6 +90,7 @@ import {
   normalizeRuleProfileId,
 } from './ruleProfiles'
 import type { ReportArtifactParams } from './reportExport'
+import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
 import { getResultPresentationSummary } from './resultPresentation'
 import type { SeismicRouteGuidance } from './seismicRouteGuidance'
 import ResourceLibraryHub, {
@@ -1262,19 +1263,19 @@ function ReportDocument({
               <strong>{formatDate(reportSettings.issueDate)}</strong>
             </div>
             <div>
-              <span>案例最後編修</span>
+              <span>{REPORT_TIMESTAMP_LABELS.editedAt}</span>
               <strong>{formatDateTime(review.project.updatedAt)}</strong>
             </div>
             <div>
-              <span>報表生成時間</span>
+              <span>{REPORT_TIMESTAMP_LABELS.generatedAt}</span>
               <strong>{formatDateTime(new Date().toISOString())}</strong>
             </div>
             <div>
-              <span>留痕時間</span>
+              <span>{REPORT_TIMESTAMP_LABELS.auditedAt}</span>
               <strong>{latestAuditEntry ? formatDateTime(latestAuditEntry.createdAt) : '尚未留存'}</strong>
             </div>
             <div>
-              <span>留痕來源</span>
+              <span>{REPORT_TIMESTAMP_LABELS.auditSource}</span>
               <strong>{latestAuditEntry ? auditSourceLabel(latestAuditEntry.source) : '—'}</strong>
             </div>
             <div>
@@ -2380,6 +2381,18 @@ function App() {
     evidenceLinkStatusFilter,
   ])
 
+  const [isDirty, setIsDirty] = useState(false)
+
+  // 任何 project / products 變動後，先標記為 dirty；debounce 儲存完成才清除
+  // 此處 setState 是刻意觸發 UI 更新（未儲存徽章），非同步外部系統
+  useEffect(() => {
+    if (!hydrated) {
+      return
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsDirty(true)
+  }, [hydrated, products, project, projects])
+
   useEffect(() => {
     if (!hydrated) {
       return
@@ -2407,15 +2420,54 @@ function App() {
           : normalizeProjectSelection(item, products),
       )
 
-      void db.products.bulkPut(products)
-      void db.projects.bulkPut(nextProjectsToPersist)
-      setSaveMessage(`已離線儲存 ${new Date().toLocaleTimeString('zh-TW')}`)
+      Promise.all([
+        db.products.bulkPut(products),
+        db.projects.bulkPut(nextProjectsToPersist),
+      ])
+        .then(() => {
+          setSaveMessage(
+            `已離線儲存 ${new Date().toLocaleTimeString('zh-TW')}`,
+          )
+          setIsDirty(false)
+        })
+        .catch((error) => {
+          console.warn('[bolt-review] 自動儲存失敗', error)
+          const message =
+            error instanceof Error ? error.message : String(error ?? '未知錯誤')
+          setSaveMessage(`自動儲存失敗：${message}`)
+          // 保留 isDirty=true，提示使用者需人工留意
+        })
     }, 450)
 
     return () => {
       window.clearTimeout(timeout)
     }
   }, [hydrated, products, project, projects])
+
+  // 有未儲存變更時，關閉分頁前給瀏覽器原生提示
+  useEffect(() => {
+    if (!isDirty) {
+      return
+    }
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      // 現代瀏覽器只會顯示通用訊息，returnValue 用於相容舊版
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => {
+      window.removeEventListener('beforeunload', handler)
+    }
+  }, [isDirty])
+
+  // 鍵盤捷徑的 handler 用 ref 儲存；待 printReport / recordCurrentAuditTrail 宣告後再 assign
+  const shortcutHandlersRef = useRef<{
+    recordCurrentAuditTrail: (source: ProjectAuditSource) => void
+    printReport: () => void
+  }>({
+    recordCurrentAuditTrail: () => {},
+    printReport: () => {},
+  })
 
   useEffect(() => {
     if (!previewDocumentId) {
@@ -3471,10 +3523,6 @@ function App() {
     )
   }
 
-  function printReport() {
-    void openStandaloneReportWindow(true)
-  }
-
   function getReportArtifactParams(
     autoPrint = false,
     auditEntry: ProjectAuditEntry | null = latestAuditEntry,
@@ -3536,6 +3584,75 @@ function App() {
     }
     setSaveMessage(autoPrint ? '已開啟獨立報告列印視窗。' : '已開啟獨立報告預覽。')
   }
+
+  // 每次 render 後同步 ref（printReport / recordCurrentAuditTrail 在此檔上方宣告但下游呼叫 openStandaloneReportWindow）
+  useEffect(() => {
+    shortcutHandlersRef.current.recordCurrentAuditTrail = recordCurrentAuditTrail
+    shortcutHandlersRef.current.printReport = () => {
+      void openStandaloneReportWindow(true)
+    }
+  })
+
+  // 全域鍵盤捷徑：Ctrl/Cmd+S 留痕、Ctrl/Cmd+P 列印、Alt+1–6 切 tab、Alt+0 回首頁、Esc 返回結果
+  useEffect(() => {
+    if (!hydrated) {
+      return
+    }
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false
+      }
+      const tag = target.tagName
+      return (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target.isContentEditable
+      )
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const meta = event.ctrlKey || event.metaKey
+      const alt = event.altKey
+      if (meta && !alt && !event.shiftKey && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        shortcutHandlersRef.current.recordCurrentAuditTrail('manual')
+        return
+      }
+      if (meta && !alt && !event.shiftKey && event.key.toLowerCase() === 'p') {
+        event.preventDefault()
+        shortcutHandlersRef.current.printReport()
+        return
+      }
+      if (isTypingTarget(event.target)) {
+        return
+      }
+      if (alt && !meta && !event.shiftKey) {
+        if (event.key === '0' || event.key.toLowerCase() === 'r') {
+          event.preventDefault()
+          setActiveTab('report')
+          return
+        }
+        const digit = Number(event.key)
+        if (Number.isInteger(digit) && digit >= 1 && digit <= WORKSPACE_TABS.length) {
+          event.preventDefault()
+          const targetTab = WORKSPACE_TABS[digit - 1]
+          setActiveTab(targetTab.id)
+          setHasEnteredWorkspace(true)
+          return
+        }
+      }
+      if (event.key === 'Escape') {
+        if (activeTab === 'report' && hasEnteredWorkspace) {
+          event.preventDefault()
+          setActiveTab('result')
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [hydrated, activeTab, hasEnteredWorkspace])
 
   async function exportHtmlReport() {
     const url = await buildReportBlobUrl(false, 'html')
@@ -3653,7 +3770,11 @@ function App() {
       <div className="screen-only">
       <header className="app-header app-header-compact">
         <div className="app-header-main">
-          <h1>錨栓檢討工具</h1>
+          <h1
+            title="快捷鍵：Ctrl/Cmd+S 留痕 · Ctrl/Cmd+P 列印 · Alt+1-6 切 tab · Alt+0/R 回資源庫 · Esc 返回結果"
+          >
+            錨栓檢討工具
+          </h1>
           <span className="app-header-ref">
             <a href={activeRuleProfile.officialUrl} target="_blank" rel="noreferrer">
               {activeRuleProfile.chapter17Title}
@@ -3678,9 +3799,18 @@ function App() {
               <Badge status={batchReview.summary.formalStatus} />
             </div>
           </div>
-          <div className="status-chip" title={saveMessage}>
+          <div
+            className={`status-chip${isDirty ? ' status-chip-dirty' : ''}`}
+            title={
+              isDirty
+                ? '有變更尚未寫入本機資料庫（約 0.5 秒內自動儲存）'
+                : saveMessage
+            }
+          >
             <span>同步</span>
-            <strong className="status-chip-truncate">{saveMessage}</strong>
+            <strong className="status-chip-truncate">
+              {isDirty ? '未儲存變更…' : saveMessage}
+            </strong>
           </div>
           <div
             className="status-chip"
@@ -3735,7 +3865,7 @@ function App() {
         </div>
 
         <div className="toolbar-group toolbar-export" data-shows="result report">
-          <button type="button" onClick={printReport}>
+          <button type="button" onClick={() => shortcutHandlersRef.current.printReport()}>
             列印報表
           </button>
           <button type="button" onClick={() => {
@@ -3913,6 +4043,49 @@ function App() {
             : '首次使用可先從下方「案件樣板庫」套入典型情境，或於「案例庫」建立新案後開始檢核。'}
         </span>
       </div>
+      {caseCards.length > 0 ? (
+        <section className="recent-cases-panel" aria-label="最近編輯的案例">
+          <div className="recent-cases-header">
+            <h3>最近編輯的案例</h3>
+            <span className="recent-cases-subtitle">
+              點擊卡片直接載入並進入檢核工作台
+            </span>
+          </div>
+          <div className="recent-cases-grid">
+            {caseCards.slice(0, 3).map((item) => {
+              const isActive = item.id === project.id
+              return (
+                <button
+                  key={`recent-${item.id}`}
+                  type="button"
+                  className={`recent-case-card${isActive ? ' active' : ''}`}
+                  onClick={() => {
+                    if (!isActive) {
+                      selectProject(item.id)
+                    }
+                    setActiveTab('member')
+                    setHasEnteredWorkspace(true)
+                  }}
+                  title={`${item.name}｜最後編修 ${formatDateTime(item.updatedAt)}`}
+                >
+                  <span className="recent-case-name">
+                    {item.name}
+                    {isActive ? (
+                      <span className="recent-case-active-badge">目前案例</span>
+                    ) : null}
+                  </span>
+                  <span className="recent-case-meta">
+                    {formatDateTime(item.updatedAt)}
+                  </span>
+                  <span className="recent-case-hint">
+                    {isActive ? '繼續檢核 →' : '載入並進入檢核 →'}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      ) : null}
       <ResourceLibraryHub
         activeTab={resourceLibraryTab}
         tabs={resourceLibraryTabs}

@@ -20,6 +20,9 @@ import type {
 import { getUnitSymbol, toDisplayValue } from './units'
 import type { EvaluationFieldState } from './evaluationCatalog'
 
+import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
+export { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
+
 export interface ReportArtifactParams {
   batchReview: ReturnType<typeof import('./calc').evaluateProjectBatch>
   candidateProductReviews: ReturnType<typeof import('./calc').evaluateCandidateProducts>
@@ -682,10 +685,10 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
           <div><small class="meta">案號 / 專案</small><div>${escapeHtml(reportSettings.projectCode || '未填')}</div></div>
           <div><small class="meta">規範版本</small><div>${escapeHtml(review.ruleProfile.versionLabel)}</div></div>
           <div><small class="meta">發行日期</small><div>${escapeHtml(formatDate(reportSettings.issueDate))}</div></div>
-          <div><small class="meta">案例最後編修</small><div>${escapeHtml(formatDateTime(review.project.updatedAt))}</div></div>
-          <div><small class="meta">報表生成時間</small><div>${escapeHtml(formatDateTime(reportGeneratedAt))}</div></div>
-          <div><small class="meta">留痕時間</small><div>${escapeHtml(formatDateTime(auditEntry?.createdAt))}</div></div>
-          <div><small class="meta">留痕來源 / Hash</small><div>${escapeHtml(auditEntry ? `${auditSourceLabel(auditEntry.source)} · ${formatAuditHash(auditEntry.hash)}` : '尚未留存')}</div></div>
+          <div><small class="meta">${REPORT_TIMESTAMP_LABELS.editedAt}</small><div>${escapeHtml(formatDateTime(review.project.updatedAt))}</div></div>
+          <div><small class="meta">${REPORT_TIMESTAMP_LABELS.generatedAt}</small><div>${escapeHtml(formatDateTime(reportGeneratedAt))}</div></div>
+          <div><small class="meta">${REPORT_TIMESTAMP_LABELS.auditedAt}</small><div>${escapeHtml(formatDateTime(auditEntry?.createdAt))}</div></div>
+          <div><small class="meta">${REPORT_TIMESTAMP_LABELS.auditSource} / ${REPORT_TIMESTAMP_LABELS.auditHash}</small><div>${escapeHtml(auditEntry ? `${auditSourceLabel(auditEntry.source)} · ${formatAuditHash(auditEntry.hash)}` : '尚未留存')}</div></div>
           <div><small class="meta">整體判定</small><div>${buildStatusChip(batchReview.summary.overallStatus)}</div></div>
           <div><small class="meta">正式判定</small><div>${buildStatusChip(batchReview.summary.formalStatus)}</div></div>
           <div><small class="meta">控制模式</small><div>${escapeHtml(batchReview.summary.governingMode)}</div></div>

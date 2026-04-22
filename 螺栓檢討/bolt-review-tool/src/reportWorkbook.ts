@@ -6,6 +6,7 @@ import type {
   UnitPreferences,
 } from './domain'
 import type { ReportArtifactParams } from './reportExport'
+import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
 import { getUnitSymbol, toDisplayValue } from './units'
 
 type WorkbookRow = Record<string, string | number | boolean | null>
@@ -340,11 +341,11 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     { 項目: '控制 DCR', 值: formatNumber(getGoverningDcr(batchReview.summary)) },
     { 項目: '最大數值 DCR', 值: formatNumber(batchReview.summary.maxDcr) },
     { 項目: '產品 completeness', 值: completeness.formal ? '完整' : '待補' },
-    { 項目: '案例最後編修時間', 值: review.project.updatedAt },
-    { 項目: '報表生成時間', 值: reportGeneratedAt },
-    { 項目: '留痕時間', 值: params.auditEntry?.createdAt ?? '' },
-    { 項目: '留痕來源', 值: auditSourceLabel(params.auditEntry?.source) },
-    { 項目: '留痕 Hash', 值: formatAuditHash(params.auditEntry?.hash) },
+    { 項目: REPORT_TIMESTAMP_LABELS.editedAt, 值: review.project.updatedAt },
+    { 項目: REPORT_TIMESTAMP_LABELS.generatedAt, 值: reportGeneratedAt },
+    { 項目: REPORT_TIMESTAMP_LABELS.auditedAt, 值: params.auditEntry?.createdAt ?? '' },
+    { 項目: REPORT_TIMESTAMP_LABELS.auditSource, 值: auditSourceLabel(params.auditEntry?.source) },
+    { 項目: REPORT_TIMESTAMP_LABELS.auditHash, 值: formatAuditHash(params.auditEntry?.hash) },
     {
       項目: '目前單位',
       值: `${getUnitSymbol('length', unitPreferences)} / ${getUnitSymbol('area', unitPreferences)} / ${getUnitSymbol('force', unitPreferences)} / ${getUnitSymbol('stress', unitPreferences)}`,

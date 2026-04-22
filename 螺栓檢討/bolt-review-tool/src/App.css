@@ -2299,6 +2299,107 @@ details.fold-panel[data-shows~='member'] .switch-grid {
   background: #095d6e;
 }
 
+/* 最近案例快速入口卡片（首頁 hub 落地時最顯眼） */
+.recent-cases-panel {
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  border: 1px solid #d4dde0;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(23, 49, 58, 0.05);
+}
+
+.recent-cases-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.recent-cases-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0b4b56;
+}
+
+.recent-cases-subtitle {
+  color: #6a7a80;
+  font-size: 0.85rem;
+}
+
+.recent-cases-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+}
+
+.recent-case-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #d0d9dc;
+  background: #f7fafb;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s,
+    transform 0.15s;
+}
+
+.recent-case-card:hover {
+  border-color: #0b7285;
+  background: #edf6f8;
+  transform: translateY(-1px);
+}
+
+.recent-case-card.active {
+  border-color: #0b7285;
+  background: #e0f2f5;
+  box-shadow: inset 0 0 0 1px #0b7285;
+}
+
+.recent-case-name {
+  font-weight: 600;
+  color: #0b4b56;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recent-case-active-badge {
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: #0b7285;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.recent-case-meta {
+  color: #6a7a80;
+  font-size: 0.82rem;
+}
+
+.recent-case-hint {
+  color: #0b7285;
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+
+/* 未儲存變更的 chip 樣式 */
+.status-chip.status-chip-dirty {
+  background: #fff4e1;
+  border-color: #e0a44d;
+}
+.status-chip.status-chip-dirty strong {
+  color: #a5561a;
+}
+
 /* 列印時強制顯示所有內容，無視 tab 狀態 */
 @media print {
   .app-shell [data-shows] {
