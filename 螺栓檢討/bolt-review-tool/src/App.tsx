@@ -2461,6 +2461,46 @@ function App() {
     }
   }, [isDirty])
 
+  // 切換 tab 後自動聚焦到該 tab 第一個可編輯欄位（input/select/textarea）
+  // 只在主要輸入型 tab 啟用，避免 result/report 頁跳焦干擾閱讀
+  useEffect(() => {
+    if (!hydrated) {
+      return
+    }
+    const FOCUSABLE_TABS: WorkspaceTabId[] = [
+      'member',
+      'product',
+      'loads',
+      'seismic',
+      'baseplate',
+    ]
+    if (!FOCUSABLE_TABS.includes(activeTab)) {
+      return
+    }
+    // 給 CSS data-shows 一個 frame 讓 display 切換；並避免初次 mount 立刻搶焦點
+    const raf = window.requestAnimationFrame(() => {
+      const panel = document.querySelector<HTMLElement>(
+        `.app-shell[data-active-tab="${activeTab}"] .panel-input`,
+      )
+      if (!panel) {
+        return
+      }
+      const target = panel.querySelector<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])',
+      )
+      if (target && !panel.contains(document.activeElement)) {
+        try {
+          target.focus({ preventScroll: true })
+        } catch {
+          target.focus()
+        }
+      }
+    })
+    return () => {
+      window.cancelAnimationFrame(raf)
+    }
+  }, [activeTab, hydrated])
+
   // 鍵盤捷徑的 handler 用 ref 儲存；待 printReport / recordCurrentAuditTrail 宣告後再 assign
   const shortcutHandlersRef = useRef<{
     recordCurrentAuditTrail: (source: ProjectAuditSource) => void
@@ -3736,8 +3776,16 @@ function App() {
 
   if (loading) {
     return (
-      <main className="loading-screen" aria-busy="true">
-        正在讀取離線資料庫與規範設定…
+      <main className="loading-screen" aria-busy="true" role="status">
+        <div className="loading-card">
+          <div className="loading-spinner" aria-hidden="true" />
+          <strong>錨栓檢討工具</strong>
+          <span>正在讀取離線資料庫與規範設定…</span>
+          <small>
+            首次載入會建立本機 IndexedDB、載入產品型錄與規範資料；
+            若卡住超過 10 秒請試 F5 重新整理。
+          </small>
+        </div>
       </main>
     )
   }
@@ -4003,9 +4051,27 @@ function App() {
               !project.layout.basePlateBendingEnabled &&
               !project.layout.anchorReinforcementEnabled &&
               !project.layout.shearHairpinReinforcement)
+          // Tab 標示：result tab 依整體判定顯示徽章；其他 tab 只在有錯時顯示
+          let badge: { tone: 'fail' | 'warn' | 'pass'; label: string } | null =
+            null
+          if (tab.id === 'result') {
+            const overall = batchReview.summary.overallStatus
+            if (overall === 'fail') {
+              badge = { tone: 'fail', label: '不合格' }
+            } else if (overall === 'warning' || overall === 'screening') {
+              badge = { tone: 'warn', label: overall === 'warning' ? '須注意' : '篩選' }
+            } else if (overall === 'incomplete') {
+              badge = { tone: 'warn', label: '待補' }
+            } else if (overall === 'pass' && !completeness.formal) {
+              badge = { tone: 'warn', label: '待補資料' }
+            } else if (overall === 'pass') {
+              badge = { tone: 'pass', label: 'OK' }
+            }
+          }
           const className = [
             activeTab === tab.id ? 'active' : '',
             dimmed && activeTab !== tab.id ? 'dimmed' : '',
+            badge ? `tab-with-badge tab-badge-${badge.tone}` : '',
           ]
             .filter(Boolean)
             .join(' ')
@@ -4024,10 +4090,17 @@ function App() {
               title={
                 dimmed
                   ? `${tab.hint}（尚未啟用，點擊進入 tab 後可在該頁勾選）`
-                  : tab.hint
+                  : badge
+                    ? `${tab.hint}｜狀態：${badge.label}`
+                    : tab.hint
               }
             >
-              {tab.label}
+              <span>{tab.label}</span>
+              {badge ? (
+                <span className="tab-badge" aria-label={`狀態 ${badge.label}`}>
+                  {badge.label}
+                </span>
+              ) : null}
             </button>
           )
         })}
@@ -4060,6 +4133,17 @@ function App() {
           {hasEnteredWorkspace
             ? '樣板、案例庫、文件附件可於此維護；完成後返回結果頁檢視與匯出。'
             : '首次使用可先從下方「案件樣板庫」套入典型情境，或於「案例庫」建立新案後開始檢核。'}
+        </span>
+        <span
+          className="resource-back-active-case"
+          title={`最後編修 ${formatDateTime(project.updatedAt)}`}
+        >
+          目前案例：<strong>{project.name || '未命名'}</strong>
+          <em>
+            DCR = {formatNumber(getGoverningDcr(batchReview.summary))} · 整體
+            {' '}
+            {statusLabel(batchReview.summary.overallStatus)}
+          </em>
         </span>
       </div>
       <section className="workspace-backup-bar" aria-label="工作區備份">

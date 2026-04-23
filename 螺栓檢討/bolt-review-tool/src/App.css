@@ -22,6 +22,47 @@
   letter-spacing: 0.04em;
 }
 
+.loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 36px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  max-width: 440px;
+  text-align: center;
+}
+
+.loading-card strong {
+  font-size: 1.2rem;
+  letter-spacing: 0.08em;
+}
+
+.loading-card small {
+  color: rgba(245, 239, 228, 0.7);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(245, 239, 228, 0.2);
+  border-top-color: #f5efe4;
+  border-radius: 50%;
+  animation: loading-spin 0.9s linear infinite;
+  margin-bottom: 4px;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .hydration-error {
   padding: 24px;
 }
@@ -2135,6 +2176,37 @@ button:disabled {
   box-shadow: 0 6px 16px rgba(11, 114, 133, 0.22);
 }
 
+/* Tab 右側狀態徽章：結果 tab 依整體判定顯示合格/注意/不合格 */
+.workspace-tabs button.tab-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-tabs .tab-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.workspace-tabs .tab-badge-pass .tab-badge {
+  background: #d1f2e1;
+  color: #166c45;
+}
+
+.workspace-tabs .tab-badge-warn .tab-badge {
+  background: #fff4cf;
+  color: #8a5a0f;
+}
+
+.workspace-tabs .tab-badge-fail .tab-badge {
+  background: #fadbd4;
+  color: #9c2b16;
+}
+
 /* 動態淡色 tab：當前案件未啟用對應模組（耐震 / 柱腳）時顯示為弱化狀態 */
 .workspace-tabs button.dimmed {
   opacity: 0.5;
@@ -2282,6 +2354,39 @@ details.fold-panel[data-shows~='member'] .switch-grid {
 .resource-back-hint {
   color: #4b5f66;
   font-size: 0.88rem;
+}
+
+.resource-back-active-case {
+  margin-left: auto;
+  color: #0b4b56;
+  font-size: 0.88rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+  padding-left: 12px;
+  border-left: 1px solid #d0d9dc;
+}
+
+.resource-back-active-case strong {
+  color: #0b2b31;
+}
+
+.resource-back-active-case em {
+  font-style: normal;
+  color: #4b5f66;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 720px) {
+  .resource-back-active-case {
+    margin-left: 0;
+    border-left: none;
+    padding-left: 0;
+    align-items: flex-start;
+    text-align: left;
+  }
 }
 
 .resource-back-bar .primary-cta {
