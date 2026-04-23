@@ -2574,6 +2574,25 @@ details.fold-panel[data-shows~='member'] .switch-grid {
   font-size: 0.86rem;
 }
 
+.shortcut-help-version {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e0e6e8;
+  color: #6a7a80;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shortcut-help-version code {
+  background: #f0f4f5;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  margin: 0 2px;
+}
+
 .shortcut-help-trigger {
   width: 26px;
   height: 26px;
@@ -2777,6 +2796,117 @@ label.field-has-warning > input {
   left: 8px;
   outline: 2px solid #e0a44d;
   outline-offset: 2px;
+}
+
+/* 命令面板（Ctrl+K） */
+.command-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 30, 34, 0.55);
+  z-index: 3500;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 72px 16px 16px;
+}
+
+.command-palette-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: min(620px, 100%);
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(11, 30, 34, 0.4);
+  overflow: hidden;
+}
+
+.command-palette-input {
+  border: none;
+  border-bottom: 1px solid #e0e6e8;
+  padding: 14px 18px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.command-palette-input:focus {
+  border-bottom-color: #0b7285;
+}
+
+.command-palette-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 440px;
+}
+
+.command-palette-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f4f5;
+  font-size: 0.92rem;
+}
+
+.command-palette-item.active {
+  background: #edf6f8;
+}
+
+.command-palette-item-label {
+  color: #0b2b31;
+  font-weight: 500;
+}
+
+.command-palette-item-group {
+  color: #0b7285;
+  font-size: 0.78rem;
+  background: #e6f1f3;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.command-palette-item-hint {
+  color: #6a7a80;
+  font-size: 0.78rem;
+  justify-self: end;
+  text-align: right;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-palette-empty {
+  padding: 20px 18px;
+  color: #6a7a80;
+  text-align: center;
+}
+
+.command-palette-footer {
+  padding: 8px 16px;
+  border-top: 1px solid #e0e6e8;
+  display: flex;
+  justify-content: space-between;
+  color: #6a7a80;
+  font-size: 0.78rem;
+  background: #fafcfc;
+}
+
+.command-palette-footer kbd {
+  background: #f0f4f5;
+  border: 1px solid #cbd5d8;
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  margin: 0 1px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.76rem;
 }
 
 /* 工作區備份 bar（hub 首頁可見） */

@@ -2014,6 +2014,131 @@ const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
   { id: 'result', label: '結果', hint: 'DCR / φψ 採用 / 候選比選 / 逐項明細 / 匯出' },
 ]
 
+interface CommandItem {
+  id: string
+  label: string
+  group: string
+  hint?: string
+  run: () => void
+}
+
+function CommandPalette(props: {
+  query: string
+  onQueryChange: (value: string) => void
+  onClose: () => void
+  commands: CommandItem[]
+}) {
+  const { query, onQueryChange, onClose, commands } = props
+  const normalized = query.trim().toLowerCase()
+  const filtered = commands.filter((cmd) => {
+    if (!normalized) {
+      return true
+    }
+    const haystack = `${cmd.label} ${cmd.group} ${cmd.hint ?? ''}`.toLowerCase()
+    return normalized
+      .split(/\s+/)
+      .filter(Boolean)
+      .every((token) => haystack.includes(token))
+  })
+  const [activeIndex, setActiveIndex] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  // 當 query 變動時重置 active index：derive during render + 只有 index 超過 filtered 時修正
+  // 避免 setState-in-effect 警告；filtered 本身是 render 時推導
+  const effectiveActiveIndex =
+    filtered.length === 0
+      ? 0
+      : Math.min(activeIndex, filtered.length - 1)
+
+  useEffect(() => {
+    const active = listRef.current?.querySelector<HTMLButtonElement>(
+      `[data-palette-index="${effectiveActiveIndex}"]`,
+    )
+    active?.scrollIntoView({ block: 'nearest' })
+  }, [effectiveActiveIndex])
+
+  return (
+    <div
+      className="command-palette-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="命令面板"
+      onClick={onClose}
+    >
+      <div
+        className="command-palette-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <input
+          ref={inputRef}
+          type="search"
+          className="command-palette-input"
+          value={query}
+          placeholder="輸入關鍵字：tab 名稱 / 案例 / 產品 / 動作…"
+          onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowDown') {
+              event.preventDefault()
+              setActiveIndex((i) => Math.min(i + 1, filtered.length - 1))
+            } else if (event.key === 'ArrowUp') {
+              event.preventDefault()
+              setActiveIndex((i) => Math.max(i - 1, 0))
+            } else if (event.key === 'Enter') {
+              event.preventDefault()
+              const target = filtered[effectiveActiveIndex]
+              if (target) {
+                target.run()
+                onClose()
+              }
+            }
+          }}
+          aria-label="命令搜尋"
+        />
+        <div className="command-palette-list" ref={listRef}>
+          {filtered.length === 0 ? (
+            <div className="command-palette-empty">
+              沒有符合的指令；試試「切換」「匯出」「案例」等關鍵字
+            </div>
+          ) : null}
+          {filtered.map((cmd, index) => (
+            <button
+              key={cmd.id}
+              type="button"
+              data-palette-index={index}
+              className={`command-palette-item${
+                index === effectiveActiveIndex ? ' active' : ''
+              }`}
+              onMouseEnter={() => setActiveIndex(index)}
+              onClick={() => {
+                cmd.run()
+                onClose()
+              }}
+            >
+              <span className="command-palette-item-label">{cmd.label}</span>
+              <span className="command-palette-item-group">{cmd.group}</span>
+              {cmd.hint ? (
+                <span className="command-palette-item-hint">{cmd.hint}</span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+        <div className="command-palette-footer">
+          <span>
+            <kbd>↑</kbd> <kbd>↓</kbd> 切換 · <kbd>Enter</kbd> 執行 ·
+            <kbd>Esc</kbd> 關閉
+          </span>
+          <span>共 {filtered.length} / {commands.length} 項</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   // 預設落地頁為資源庫（首頁 hub）：讓使用者先選樣板 / 載入案例，再進檢核工作台
   const [activeTab, setActiveTab] = useState<WorkspaceTabId>('report')
@@ -2434,6 +2559,8 @@ function App() {
   const [isDirty, setIsDirty] = useState(false)
   const [showShortcutHelp, setShowShortcutHelp] = useState(false)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [paletteQuery, setPaletteQuery] = useState('')
 
   // 任何 project / products 變動後，先標記為 dirty；debounce 儲存完成才清除
   // 此處 setState 是刻意觸發 UI 更新（未儲存徽章），非同步外部系統
@@ -2610,6 +2737,24 @@ function App() {
     })
     return () => window.cancelAnimationFrame(raf)
   }, [activeTab, hydrated])
+
+  // 切到結果頁且整體判定有問題時，自動捲到「建議動作」提示卡
+  useEffect(() => {
+    if (!hydrated || activeTab !== 'result') {
+      return
+    }
+    const overall = batchReview.summary.overallStatus
+    const needsAttention =
+      overall === 'fail' || overall === 'warning' || overall === 'incomplete'
+    if (!needsAttention) {
+      return
+    }
+    const raf = window.requestAnimationFrame(() => {
+      const hint = document.querySelector<HTMLElement>('[data-action-hint]')
+      hint?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [activeTab, hydrated, batchReview.summary.overallStatus])
 
   // 切換 tab 後自動聚焦到該 tab 第一個可編輯欄位（input/select/textarea）
   // 只在主要輸入型 tab 啟用，避免 result/report 頁跳焦干擾閱讀
@@ -3454,6 +3599,54 @@ function App() {
     void db.files.where('projectId').equals(project.id).delete()
   }
 
+  function exportCurrentCase() {
+    // 只輸出目前單一案例 + 其使用的產品（以 selectedProductId 與候選）+ 該案件附件
+    // 附件為 async 取得；使用 IIFE 封裝
+    void (async () => {
+      try {
+        const { buildWorkspaceBackup } = await import('./backup')
+        const caseProject = normalizeProjectSelection(project, products)
+        const linkedProductIds = new Set<string>([
+          caseProject.selectedProductId,
+          ...(caseProject.candidateProductIds ?? []),
+        ])
+        const linkedProducts = products.filter((item) =>
+          linkedProductIds.has(item.id),
+        )
+        const allFiles = await db.files.toArray()
+        const linkedFiles = allFiles.filter(
+          (file) => file.projectId === caseProject.id,
+        )
+        const payload = await buildWorkspaceBackup(
+          linkedProducts,
+          [caseProject],
+          linkedFiles,
+        )
+        const blob = new Blob([JSON.stringify(payload, null, 2)], {
+          type: 'application/json',
+        })
+        const objectUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        const safeName =
+          (caseProject.name || 'anchor-case')
+            .replace(/[\\/:*?"<>|]+/g, '-')
+            .trim() || 'anchor-case'
+        const exportDate = payload.exportedAt.slice(0, 10)
+        link.href = objectUrl
+        link.download = `${safeName}-${exportDate}.json`
+        link.click()
+        window.URL.revokeObjectURL(objectUrl)
+        setSaveMessage(
+          `已匯出單案 ${linkedProducts.length} 產品 / ${linkedFiles.length} 附件：${safeName}`,
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : '匯出失敗'
+        setSaveMessage(`單案匯出失敗：${message}`)
+      }
+    })()
+  }
+
   async function exportWorkspace() {
     const { buildWorkspaceBackup } = await import('./backup')
     const files = await db.files.toArray()
@@ -3864,6 +4057,13 @@ function App() {
         shortcutHandlersRef.current.printReport()
         return
       }
+      // Ctrl/Cmd+K：開啟命令面板
+      if (meta && !alt && !event.shiftKey && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteQuery('')
+        setShowCommandPalette(true)
+        return
+      }
       if (isTypingTarget(event.target)) {
         return
       }
@@ -3883,6 +4083,11 @@ function App() {
         }
       }
       if (event.key === 'Escape') {
+        if (showCommandPalette) {
+          event.preventDefault()
+          setShowCommandPalette(false)
+          return
+        }
         if (showShortcutHelp) {
           event.preventDefault()
           setShowShortcutHelp(false)
@@ -3903,7 +4108,7 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [hydrated, activeTab, hasEnteredWorkspace, showShortcutHelp])
+  }, [hydrated, activeTab, hasEnteredWorkspace, showShortcutHelp, showCommandPalette])
 
   async function exportHtmlReport() {
     const url = await buildReportBlobUrl(false, 'html')
@@ -4567,6 +4772,14 @@ function App() {
               title="保留案例 ID / 名稱 / UI / 規範版本，其他欄位全部還原為預設"
             >
               還原為預設值
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={exportCurrentCase}
+              title="僅匯出目前案例 + 選用/候選產品 + 該案附件"
+            >
+              匯出本案 JSON
             </button>
             <button
               type="button"
@@ -7708,7 +7921,7 @@ function App() {
             const overall = batchReview.summary.overallStatus
             if (overall === 'fail' || (overall === 'warning' && dcr > 0.9)) {
               return (
-                <div className="action-hint action-hint-fail">
+                <div className="action-hint action-hint-fail" data-action-hint>
                   <strong>建議動作</strong>
                   <span>
                     控制模式：<em>{batchReview.summary.governingMode}</em>；
@@ -7729,7 +7942,7 @@ function App() {
             }
             if (overall === 'incomplete') {
               return (
-                <div className="action-hint action-hint-warn">
+                <div className="action-hint action-hint-warn" data-action-hint>
                   <strong>待補資料</strong>
                   <span>
                     {completeness.missing.slice(0, 2).join('、') || '請於產品頁補齊評估值'}
@@ -8318,6 +8531,128 @@ function App() {
           {toast.message}
         </div>
       ) : null}
+      {showCommandPalette ? (
+        <CommandPalette
+          query={paletteQuery}
+          onQueryChange={setPaletteQuery}
+          onClose={() => setShowCommandPalette(false)}
+          commands={[
+            ...WORKSPACE_TABS.map((tab) => ({
+              id: `tab:${tab.id}`,
+              label: `切換到 ${tab.label}`,
+              group: '導覽',
+              hint: tab.hint,
+              run: () => {
+                setActiveTab(tab.id)
+                setHasEnteredWorkspace(true)
+              },
+            })),
+            {
+              id: 'tab:report',
+              label: '回到資源庫 hub',
+              group: '導覽',
+              hint: '案件樣板 / 案例庫 / 附件 / 匯出',
+              run: () => setActiveTab('report'),
+            },
+            ...caseCards.slice(0, 10).map((item) => ({
+              id: `case:${item.id}`,
+              label: `載入案例：${item.name}`,
+              group: '案例',
+              hint: formatDateTime(item.updatedAt),
+              run: () => {
+                selectProject(item.id)
+                setActiveTab('member')
+                setHasEnteredWorkspace(true)
+              },
+            })),
+            ...products.slice(0, 10).map((item) => ({
+              id: `product:${item.id}`,
+              label: `切換產品：${item.brand} ${item.model}`,
+              group: '產品',
+              hint: familyLabel(item.family),
+              run: () => {
+                patchProject({ selectedProductId: item.id })
+                setActiveTab('product')
+                setHasEnteredWorkspace(true)
+              },
+            })),
+            {
+              id: 'action:print',
+              label: '列印報表',
+              group: '動作',
+              hint: 'Ctrl/Cmd+P',
+              run: () => shortcutHandlersRef.current.printReport(),
+            },
+            {
+              id: 'action:preview',
+              label: '預覽報表（獨立視窗）',
+              group: '動作',
+              hint: '可在新分頁檢視完整報告',
+              run: () => {
+                void openStandaloneReportWindow(false)
+              },
+            },
+            {
+              id: 'action:export-html',
+              label: '匯出 HTML 報告',
+              group: '動作',
+              hint: '下載單檔離線可讀',
+              run: () => {
+                void exportHtmlReport()
+              },
+            },
+            {
+              id: 'action:export-xlsx',
+              label: '匯出 XLSX 報告',
+              group: '動作',
+              hint: '表格版多工作表',
+              run: () => {
+                void exportXlsxReport()
+              },
+            },
+            {
+              id: 'action:export-docx',
+              label: '匯出 DOCX 報告',
+              group: '動作',
+              hint: '含幾何配置圖',
+              run: () => {
+                void exportDocxReport()
+              },
+            },
+            {
+              id: 'action:audit',
+              label: '留存簽章（手動留痕）',
+              group: '動作',
+              hint: 'Ctrl/Cmd+S',
+              run: () =>
+                shortcutHandlersRef.current.recordCurrentAuditTrail('manual'),
+            },
+            {
+              id: 'action:export-case',
+              label: '匯出本案 JSON（僅目前案例）',
+              group: '動作',
+              hint: '含選用 / 候選產品 + 該案附件',
+              run: () => exportCurrentCase(),
+            },
+            {
+              id: 'action:backup',
+              label: '匯出整個工作區 JSON',
+              group: '動作',
+              hint: '含所有案例 / 產品 / 附件',
+              run: () => {
+                void exportWorkspace()
+              },
+            },
+            {
+              id: 'action:help',
+              label: '顯示鍵盤快捷鍵',
+              group: '動作',
+              hint: '?',
+              run: () => setShowShortcutHelp(true),
+            },
+          ]}
+        />
+      ) : null}
       {showShortcutHelp ? (
         <div
           className="shortcut-help-backdrop"
@@ -8352,6 +8687,10 @@ function App() {
                   <td>開啟獨立列印視窗</td>
                 </tr>
                 <tr>
+                  <td><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>K</kbd></td>
+                  <td>命令面板：快速切 tab / 案例 / 產品 / 匯出</td>
+                </tr>
+                <tr>
                   <td><kbd>Alt</kbd> + <kbd>1</kbd>–<kbd>6</kbd></td>
                   <td>切換 構件／配置 · 產品 · 載重 · 耐震 · 柱腳 · 結果</td>
                 </tr>
@@ -8373,6 +8712,16 @@ function App() {
               在輸入框內時，<kbd>Alt</kbd>/<kbd>Esc</kbd> 不會攔截，以避免干擾輸入；
               <kbd>Ctrl</kbd>+<kbd>S</kbd>/<kbd>Ctrl</kbd>+<kbd>P</kbd> 皆會覆寫瀏覽器預設行為。
             </p>
+            <div className="shortcut-help-version">
+              <span>
+                build：<code>{__APP_COMMIT_HASH__}</code> ·
+                <code>{formatDateTime(__APP_BUILD_TIME__)}</code>
+              </span>
+              <span>
+                規範：{activeRuleProfile.chapter17Title} ·{' '}
+                {activeRuleProfile.versionLabel}
+              </span>
+            </div>
           </div>
         </div>
       ) : null}

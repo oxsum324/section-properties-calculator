@@ -1,8 +1,25 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { execSync } from 'node:child_process'
 import path from 'node:path'
 import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+
+/**
+ * 取得當前 git commit 短 hash；CI / 無 git 環境回傳 'local'。
+ */
+function getBuildCommitHash(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim()
+  } catch {
+    return 'local'
+  }
+}
+
+const BUILD_COMMIT_HASH = getBuildCommitHash()
+const BUILD_TIMESTAMP = new Date().toISOString()
 
 /**
  * build 結束後將 dist/service-worker.js 內的 __BUILD_VERSION__ 佔位符
@@ -40,6 +57,10 @@ export default defineConfig({
   // 若日後遷至 Vercel 或自訂 domain，此處調整為 '/anchor/' 即可。
   base: '/section-properties-calculator/anchor/',
   plugins: [react(), serviceWorkerVersionPlugin()],
+  define: {
+    __APP_COMMIT_HASH__: JSON.stringify(BUILD_COMMIT_HASH),
+    __APP_BUILD_TIME__: JSON.stringify(BUILD_TIMESTAMP),
+  },
   build: {
     // XLSX 匯出改由 lazy chunk 載入；此 chunk 會帶入 workbook 引擎，
     // 比主應用大很多，但不影響首頁載入，因此提高 warning 門檻避免假警報。

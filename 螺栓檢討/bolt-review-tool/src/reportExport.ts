@@ -1044,6 +1044,12 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
             window.addEventListener('load', () => {
               window.setTimeout(() => window.print(), 160)
             })
+            // 列印完成後 1.2 秒自動關閉視窗（若瀏覽器允許）
+            window.addEventListener('afterprint', () => {
+              window.setTimeout(() => {
+                try { window.close() } catch (_) {}
+              }, 1200)
+            })
           </script>`
         : ''
     }
