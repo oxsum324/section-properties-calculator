@@ -73,6 +73,133 @@ export function applyTemplateToProduct(
 
 export const productTemplates: ProductTemplate[] = [
   {
+    id: 'tw-plated-cast-in-m16',
+    brand: 'Generic TW',
+    series: '預埋附板錨栓 M16（60 mm 方板）',
+    family: 'cast_in',
+    status: 'starter',
+    verifiedOn: '2026-04-23',
+    summary:
+      '預埋附板錨栓 M16：螺桿前端焊接或壓合附板以提供拉拔承壓面，不依賴握裹；適合設備基礎、輕型鋼柱腳。',
+    highlights: [
+      '附板取代錨頭，pullout 直接以 A_brg 依 17.6.3.2 計算（Np = 8·A_brg·f′c·ψc,P）。',
+      '本模板以「60 × 60 × 8 mm 方板」為基礎，扣除 M16 螺桿面積後 A_brg ≈ 3400 mm²。',
+      '可直接用「附板尺寸 → A_brg 換算輔助」依實際板尺寸覆寫。',
+    ],
+    caveat:
+      '附板與螺桿之焊接 / 壓合強度須另行檢核，不在 17 章範疇內；若附板過小將受 15dₐ 淨距限制觸發群錨耦合。',
+    references: [
+      {
+        label: '台灣《建築物混凝土結構設計規範》112年版 第 17.6.3.2 條',
+        url: 'https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf',
+      },
+    ],
+    product: {
+      id: 'template-plated-cast-in-m16',
+      family: 'cast_in',
+      installationBehavior: 'not_torqued',
+      brand: 'Generic TW',
+      model: 'Plated Cast-in M16 (60 sq × 8)',
+      description:
+        '預埋附板錨栓 M16，前端 60 mm 方形附板；適合機械基座、柱腳板起始案例。',
+      diameterMm: 16,
+      effectiveAreaMm2: 157,
+      embedmentMinMm: 150,
+      embedmentMaxMm: 400,
+      steelYieldStrengthMpa: 400,
+      steelUltimateStrengthMpa: 620,
+      // 60² − π·16²/4 = 3600 − 201.06 = 3399 mm²
+      headBearingAreaMm2: 3399,
+      evaluation: {},
+      source: '',
+      notes: '',
+    },
+  },
+  {
+    id: 'tw-plated-cast-in-m20',
+    brand: 'Generic TW',
+    series: '預埋附板錨栓 M20（80 mm 方板）',
+    family: 'cast_in',
+    status: 'starter',
+    verifiedOn: '2026-04-23',
+    summary:
+      '預埋附板錨栓 M20：螺桿前端焊接或壓合附板，常見於 H 型鋼柱腳與中重型設備基座。',
+    highlights: [
+      '附板取代錨頭，pullout 依 17.6.3.2 由 A_brg 決定（以「80 × 80 × 10 mm 方板」為起點）。',
+      '扣除 M20 螺桿面積後 A_brg ≈ 6086 mm²，對中大拉力案件提供較高 Np。',
+      '支援直接換用圓附板 / 六角螺帽；由介面輔助工具轉換。',
+    ],
+    caveat:
+      '附板厚度須依鋼板受彎設計（常用 8-16 mm）；焊道強度自行檢核。附板不可小於 1.5·da 推薦最小值。',
+    references: [
+      {
+        label: '台灣《建築物混凝土結構設計規範》112年版 第 17.6.3.2 條',
+        url: 'https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf',
+      },
+    ],
+    product: {
+      id: 'template-plated-cast-in-m20',
+      family: 'cast_in',
+      installationBehavior: 'not_torqued',
+      brand: 'Generic TW',
+      model: 'Plated Cast-in M20 (80 sq × 10)',
+      description: '預埋附板錨栓 M20，前端 80 mm 方形附板；H 型鋼柱腳常用。',
+      diameterMm: 20,
+      effectiveAreaMm2: 245,
+      embedmentMinMm: 180,
+      embedmentMaxMm: 500,
+      steelYieldStrengthMpa: 400,
+      steelUltimateStrengthMpa: 620,
+      // 80² − π·20²/4 = 6400 − 314.16 = 6086 mm²
+      headBearingAreaMm2: 6086,
+      evaluation: {},
+      source: '',
+      notes: '',
+    },
+  },
+  {
+    id: 'tw-plated-cast-in-m24',
+    brand: 'Generic TW',
+    series: '預埋附板錨栓 M24（100 mm 方板）',
+    family: 'cast_in',
+    status: 'starter',
+    verifiedOn: '2026-04-23',
+    summary:
+      '預埋附板錨栓 M24：常見於大型鋼柱腳、門型剛架柱腳、重型設備基座。',
+    highlights: [
+      '附板取代錨頭，pullout 依 17.6.3.2（以「100 × 100 × 12 mm 方板」為起點）。',
+      '扣除 M24 螺桿面積後 A_brg ≈ 9548 mm²，適合高拉力 + 大邊距案件。',
+      '鋼材以 400/620 MPa 為起點；實務常用 SS400 / A36 / A572 Gr.50 再依圖說覆寫。',
+    ],
+    caveat:
+      '附板須有足夠厚度以發展 A_brg；過薄會受附板局部彎曲限制。建議 t ≥ 0.5·(a − da)。',
+    references: [
+      {
+        label: '台灣《建築物混凝土結構設計規範》112年版 第 17.6.3.2 條',
+        url: 'https://www.nlma.gov.tw/uploads/files/011d9249cac7d6c5547786aa348e352a.pdf',
+      },
+    ],
+    product: {
+      id: 'template-plated-cast-in-m24',
+      family: 'cast_in',
+      installationBehavior: 'not_torqued',
+      brand: 'Generic TW',
+      model: 'Plated Cast-in M24 (100 sq × 12)',
+      description: '預埋附板錨栓 M24，前端 100 mm 方形附板；大型柱腳、剛架常用。',
+      diameterMm: 24,
+      effectiveAreaMm2: 353,
+      embedmentMinMm: 220,
+      embedmentMaxMm: 600,
+      steelYieldStrengthMpa: 400,
+      steelUltimateStrengthMpa: 620,
+      // 100² − π·24²/4 = 10000 − 452.39 = 9548 mm²
+      headBearingAreaMm2: 9548,
+      evaluation: {},
+      source: '',
+      notes: '',
+    },
+  },
+  {
     id: 'tw-generic-cast-in-m16',
     brand: 'Generic TW',
     series: '預埋擴頭錨栓 M16',

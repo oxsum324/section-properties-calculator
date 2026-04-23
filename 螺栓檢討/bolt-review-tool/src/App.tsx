@@ -2567,6 +2567,12 @@ function App() {
   const [hSectionFlangeEdgeMm, setHSectionFlangeEdgeMm] = useState(50)
   const [hSectionWebEdgeMm, setHSectionWebEdgeMm] = useState(50)
   const [hSectionAnchorsPerFlange, setHSectionAnchorsPerFlange] = useState(2)
+  // 錨頭承壓面積 A_brg 換算輔助暫存
+  const [plateHelperShape, setPlateHelperShape] = useState<
+    'square' | 'circle' | 'hex_nut'
+  >('square')
+  const [plateHelperSizeMm, setPlateHelperSizeMm] = useState(60)
+  const [plateHelperDeductShank, setPlateHelperDeductShank] = useState(true)
 
   // 任何 project / products 變動後，先標記為 dirty；debounce 儲存完成才清除
   // 此處 setState 是刻意觸發 UI 更新（未儲存徽章），非同步外部系統
@@ -7475,6 +7481,106 @@ function App() {
                 <span>產品評估值</span>
                 <small>評估標準、幾何限制、拉出 / 握裹值</small>
               </summary>
+              <div className="plate-abrg-helper">
+                <div className="plate-abrg-helper-title">
+                  <strong>附板 / 錨頭尺寸 → A_brg 換算輔助</strong>
+                  <small>
+                    附板錨栓（有頭螺栓）時填 A_brg；下方協助由附板幾何反算
+                  </small>
+                </div>
+                <div className="field-grid compact-grid">
+                  <label>
+                    附板型式
+                    <select
+                      value={plateHelperShape}
+                      onChange={(event) =>
+                        setPlateHelperShape(
+                          event.target.value as typeof plateHelperShape,
+                        )
+                      }
+                    >
+                      <option value="square">方形附板（邊長 a）</option>
+                      <option value="circle">圓形附板（直徑 D）</option>
+                      <option value="hex_nut">六角螺帽（對邊距 s）</option>
+                    </select>
+                  </label>
+                  <UnitNumberField
+                    label={
+                      plateHelperShape === 'square'
+                        ? '附板邊長 a'
+                        : plateHelperShape === 'circle'
+                          ? '附板直徑 D'
+                          : '螺帽對邊距 s'
+                    }
+                    quantity="length"
+                    units={unitPreferences}
+                    value={plateHelperSizeMm}
+                    onValueChange={(value) =>
+                      setPlateHelperSizeMm(value ?? 0)
+                    }
+                  />
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={plateHelperDeductShank}
+                      onChange={(event) =>
+                        setPlateHelperDeductShank(event.target.checked)
+                      }
+                    />
+                    <span>扣除螺桿斷面積（da² π/4）</span>
+                  </label>
+                </div>
+                {(() => {
+                  const da = selectedProduct.diameterMm ?? 0
+                  const s = Math.max(0, plateHelperSizeMm)
+                  let gross = 0
+                  if (plateHelperShape === 'square') {
+                    gross = s * s
+                  } else if (plateHelperShape === 'circle') {
+                    gross = (Math.PI / 4) * s * s
+                  } else {
+                    // 六角螺帽：A = 2·√3 · (s/2)² = (√3/2)·s²
+                    gross = (Math.sqrt(3) / 2) * s * s
+                  }
+                  const shank = plateHelperDeductShank
+                    ? (Math.PI / 4) * da * da
+                    : 0
+                  const aBrg = Math.max(0, gross - shank)
+                  return (
+                    <div className="plate-abrg-preview">
+                      <span>
+                        毛面積 = {formatQuantity(gross, 'area', unitPreferences)}
+                      </span>
+                      <span>
+                        扣除螺桿 = {formatQuantity(shank, 'area', unitPreferences)}
+                      </span>
+                      <strong>
+                        A_brg = {formatQuantity(aBrg, 'area', unitPreferences)}
+                      </strong>
+                      <button
+                        type="button"
+                        disabled={aBrg <= 0}
+                        onClick={() => {
+                          patchSelectedProduct({
+                            headBearingAreaMm2: aBrg,
+                          })
+                          setSaveMessage(
+                            `已套用 A_brg = ${aBrg.toFixed(0)} mm²（${
+                              plateHelperShape === 'square'
+                                ? '方板'
+                                : plateHelperShape === 'circle'
+                                  ? '圓板'
+                                  : '六角螺帽'
+                            }）`,
+                          )
+                        }}
+                      >
+                        套用到 A_brg
+                      </button>
+                    </div>
+                  )
+                })()}
+              </div>
               <div className="field-grid compact-grid">
                 <UnitNumberField
                   label="Abrg"

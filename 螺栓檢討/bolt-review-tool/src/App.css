@@ -2939,6 +2939,55 @@ label.field-has-warning > input {
   border-radius: 4px;
 }
 
+/* 附板錨栓 A_brg 換算輔助 */
+.plate-abrg-helper {
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border: 1px dashed #cbd5d8;
+  border-radius: 8px;
+  background: #f7fafb;
+}
+
+.plate-abrg-helper-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.plate-abrg-helper-title strong {
+  color: #0b4b56;
+}
+
+.plate-abrg-helper-title small {
+  color: #6a7a80;
+  font-size: 0.82rem;
+}
+
+.plate-abrg-preview {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.88rem;
+  color: #0b4b56;
+}
+
+.plate-abrg-preview strong {
+  color: #0b2b31;
+  background: #e6f1f3;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.plate-abrg-preview button {
+  margin-left: auto;
+}
+
 /* 工作區備份 bar（hub 首頁可見） */
 .workspace-backup-bar {
   display: flex;
