@@ -2032,6 +2032,10 @@ function App() {
   const [hydrationRetryCount, setHydrationRetryCount] = useState(0)
   const [isResetting, setIsResetting] = useState(false)
   const [saveMessage, setSaveMessage] = useState('尚未同步到本機資料庫')
+  // 短暫 toast：每次 saveMessage 變更且已 hydrated 時浮現 3.5 秒後自動消失
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(
+    null,
+  )
   const [projectTemplateFilter, setProjectTemplateFilter] = useState<
     'all' | ProjectTemplateCategory
   >('all')
@@ -2180,29 +2184,42 @@ function App() {
   const simpleMode = unitPreferences.simpleMode
   const activeRuleProfile = getRuleProfileById(project.ruleProfileId)
   const ruleProfileOptions = getRuleProfileOptions()
-  const batchReview = evaluateProjectBatch(
-    deferredProject,
-    deferredProduct,
-    activeRuleProfile,
+  // 重量級計算以 useMemo 快取；deferred 值變動才重算，避免使用者打字每 keystroke 都跑完整評估
+  const batchReview = useMemo(
+    () => evaluateProjectBatch(deferredProject, deferredProduct, activeRuleProfile),
+    [deferredProject, deferredProduct, activeRuleProfile],
   )
-  const candidateProductReviews = evaluateCandidateProducts(
-    deferredProject,
-    deferredCandidateProducts,
-    activeRuleProfile,
+  const candidateProductReviews = useMemo(
+    () =>
+      evaluateCandidateProducts(
+        deferredProject,
+        deferredCandidateProducts,
+        activeRuleProfile,
+      ),
+    [deferredProject, deferredCandidateProducts, activeRuleProfile],
   )
-  const layoutVariantReviews = evaluateLayoutVariants(
-    deferredProject,
-    deferredProduct,
-    deferredCandidateLayoutVariants,
-    activeRuleProfile,
+  const layoutVariantReviews = useMemo(
+    () =>
+      evaluateLayoutVariants(
+        deferredProject,
+        deferredProduct,
+        deferredCandidateLayoutVariants,
+        activeRuleProfile,
+      ),
+    [
+      deferredProject,
+      deferredProduct,
+      deferredCandidateLayoutVariants,
+      activeRuleProfile,
+    ],
   )
-  const candidateComparisonMatrix = buildCandidateComparisonMatrix(
-    batchReview,
-    candidateProductReviews,
+  const candidateComparisonMatrix = useMemo(
+    () => buildCandidateComparisonMatrix(batchReview, candidateProductReviews),
+    [batchReview, candidateProductReviews],
   )
-  const layoutComparisonMatrix = buildLayoutComparisonMatrix(
-    batchReview,
-    layoutVariantReviews,
+  const layoutComparisonMatrix = useMemo(
+    () => buildLayoutComparisonMatrix(batchReview, layoutVariantReviews),
+    [batchReview, layoutVariantReviews],
   )
   const bestCandidateReview = candidateProductReviews[0]
   const bestLayoutVariantReview = layoutVariantReviews[0]
@@ -2416,6 +2433,7 @@ function App() {
 
   const [isDirty, setIsDirty] = useState(false)
   const [showShortcutHelp, setShowShortcutHelp] = useState(false)
+  const [isDraggingFile, setIsDraggingFile] = useState(false)
 
   // 任何 project / products 變動後，先標記為 dirty；debounce 儲存完成才清除
   // 此處 setState 是刻意觸發 UI 更新（未儲存徽章），非同步外部系統
@@ -2478,6 +2496,25 @@ function App() {
     }
   }, [hydrated, products, project, projects])
 
+  // saveMessage 變動時冒出 toast（hydration 前不觸發，避免初始訊息刷屏）
+  const savedMessageRef = useRef(saveMessage)
+  useEffect(() => {
+    if (!hydrated) {
+      savedMessageRef.current = saveMessage
+      return
+    }
+    if (savedMessageRef.current === saveMessage) {
+      return
+    }
+    savedMessageRef.current = saveMessage
+    const id = Date.now() + Math.random()
+    setToast({ id, message: saveMessage })
+    const timeout = window.setTimeout(() => {
+      setToast((current) => (current?.id === id ? null : current))
+    }, 3500)
+    return () => window.clearTimeout(timeout)
+  }, [saveMessage, hydrated])
+
   // 有未儲存變更時，關閉分頁前給瀏覽器原生提示
   useEffect(() => {
     if (!isDirty) {
@@ -2493,6 +2530,68 @@ function App() {
       window.removeEventListener('beforeunload', handler)
     }
   }, [isDirty])
+
+  // 全視窗拖放 JSON：任意位置拖入檔案即可還原工作區備份
+  useEffect(() => {
+    if (!hydrated) {
+      return
+    }
+    // 使用 counter 避免 dragleave 在子元素間觸發時誤判離開
+    let dragCounter = 0
+    const hasFile = (event: DragEvent) =>
+      Array.from(event.dataTransfer?.items ?? []).some(
+        (item) => item.kind === 'file',
+      )
+    const onDragEnter = (event: DragEvent) => {
+      if (!hasFile(event)) {
+        return
+      }
+      dragCounter += 1
+      event.preventDefault()
+      setIsDraggingFile(true)
+    }
+    const onDragOver = (event: DragEvent) => {
+      if (!hasFile(event)) {
+        return
+      }
+      event.preventDefault()
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'copy'
+      }
+    }
+    const onDragLeave = (event: DragEvent) => {
+      if (!hasFile(event)) {
+        return
+      }
+      dragCounter = Math.max(0, dragCounter - 1)
+      if (dragCounter === 0) {
+        setIsDraggingFile(false)
+      }
+    }
+    const onDrop = (event: DragEvent) => {
+      if (!hasFile(event)) {
+        return
+      }
+      event.preventDefault()
+      dragCounter = 0
+      setIsDraggingFile(false)
+      const file = event.dataTransfer?.files?.[0]
+      if (!file) {
+        return
+      }
+      void importFileHandlerRef.current.run(file)
+    }
+    window.addEventListener('dragenter', onDragEnter)
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('dragleave', onDragLeave)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter)
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('dragleave', onDragLeave)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [hydrated])
 
   // 切換 tab 後，把 active tab 按鈕自動捲進可視範圍（手機窄橫向捲軸時需要）
   useEffect(() => {
@@ -2559,6 +2658,11 @@ function App() {
   }>({
     recordCurrentAuditTrail: () => {},
     printReport: () => {},
+  })
+
+  // 拖放匯入的 handler ref（importWorkspaceFromFile 在此下方宣告，透過物件欄位避免 ref.current 被替換）
+  const importFileHandlerRef = useRef<{ run: (file: File) => Promise<void> }>({
+    run: async () => {},
   })
 
   useEffect(() => {
@@ -3374,14 +3478,15 @@ function App() {
     importInputRef.current?.click()
   }
 
-  async function importWorkspace(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-
-    if (!file) {
-      return
-    }
-
+  async function importWorkspaceFromFile(file: File) {
     try {
+      if (
+        !file.type.includes('json') &&
+        !file.name.toLowerCase().endsWith('.json')
+      ) {
+        setSaveMessage(`忽略非 JSON 檔案：${file.name}`)
+        return
+      }
       const { mergeWorkspaceBackup, parseWorkspaceBackup } = await import('./backup')
       const text = await file.text()
       const parsed = parseWorkspaceBackup(text)
@@ -3412,6 +3517,16 @@ function App() {
       const message =
         error instanceof Error ? error.message : '匯入失敗，請確認 JSON 格式。'
       setSaveMessage(`匯入失敗：${message}`)
+    }
+  }
+
+  async function importWorkspace(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+    try {
+      await importWorkspaceFromFile(file)
     } finally {
       event.target.value = ''
     }
@@ -3715,6 +3830,8 @@ function App() {
     shortcutHandlersRef.current.printReport = () => {
       void openStandaloneReportWindow(true)
     }
+    // eslint-disable-next-line react-hooks/immutability
+    importFileHandlerRef.current.run = importWorkspaceFromFile
   })
 
   // 全域鍵盤捷徑：Ctrl/Cmd+S 留痕、Ctrl/Cmd+P 列印、Alt+1–6 切 tab、Alt+0 回首頁、Esc 返回結果
@@ -3909,6 +4026,9 @@ function App() {
 
   return (
     <main className="app-shell" data-active-tab={activeTab}>
+      <a href="#main-content" className="skip-to-main">
+        跳到主要內容
+      </a>
       <div className="screen-only">
       <header className="app-header app-header-compact">
         <div className="app-header-main">
@@ -4125,7 +4245,44 @@ function App() {
         </div>
       </section>
 
-      <nav className="workspace-tabs" role="tablist" aria-label="錨栓檢討分頁">
+      <nav
+        className="workspace-tabs"
+        role="tablist"
+        aria-label="錨栓檢討分頁"
+        onKeyDown={(event) => {
+          // WAI-ARIA tablist：左右鍵切換、Home/End 跳首尾；其他 key 交還瀏覽器
+          const currentIndex = WORKSPACE_TABS.findIndex(
+            (item) => item.id === activeTab,
+          )
+          if (currentIndex < 0) {
+            return
+          }
+          let nextIndex = currentIndex
+          if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            nextIndex = (currentIndex + 1) % WORKSPACE_TABS.length
+          } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+            nextIndex =
+              (currentIndex - 1 + WORKSPACE_TABS.length) % WORKSPACE_TABS.length
+          } else if (event.key === 'Home') {
+            nextIndex = 0
+          } else if (event.key === 'End') {
+            nextIndex = WORKSPACE_TABS.length - 1
+          } else {
+            return
+          }
+          event.preventDefault()
+          const nextTab = WORKSPACE_TABS[nextIndex]
+          setActiveTab(nextTab.id)
+          setHasEnteredWorkspace(true)
+          // 捲動 + focus 會透過 useEffect 自動處理，這裡額外確保新按鈕 focus
+          window.requestAnimationFrame(() => {
+            const next = document.querySelector<HTMLButtonElement>(
+              `.workspace-tabs button[data-tab-id="${nextTab.id}"]`,
+            )
+            next?.focus({ preventScroll: false })
+          })
+        }}
+      >
         {WORKSPACE_TABS.map((tab) => {
           const dimmed =
             (tab.id === 'seismic' && !project.loads.considerSeismic) ||
@@ -4163,6 +4320,7 @@ function App() {
               key={tab.id}
               type="button"
               role="tab"
+              data-tab-id={tab.id}
               aria-selected={activeTab === tab.id}
               tabIndex={activeTab === tab.id ? 0 : -1}
               className={className}
@@ -4497,7 +4655,7 @@ function App() {
         </div>
       </section>
 
-      <section className="workspace">
+      <section className="workspace" id="main-content" tabIndex={-1}>
         <section
           className="panel panel-input"
           data-shows="member product loads seismic baseplate"
@@ -8138,6 +8296,28 @@ function App() {
         saveMessage={saveMessage}
         latestAuditEntry={latestAuditEntry}
       />
+      {isDraggingFile ? (
+        <div className="drop-overlay" aria-hidden="true">
+          <div className="drop-overlay-card">
+            <strong>📥 放開以匯入備份 JSON</strong>
+            <span>
+              拖放的檔案會與現有工作區合併（以 ID 為 key）；
+              非 JSON 檔案會被忽略。
+            </span>
+          </div>
+        </div>
+      ) : null}
+      {toast ? (
+        <div
+          key={toast.id}
+          className="toast"
+          role="status"
+          aria-live="polite"
+          onClick={() => setToast(null)}
+        >
+          {toast.message}
+        </div>
+      ) : null}
       {showShortcutHelp ? (
         <div
           className="shortcut-help-backdrop"
