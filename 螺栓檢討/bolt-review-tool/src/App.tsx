@@ -236,6 +236,27 @@ function resultStatusSeverity(status: ReviewStatus) {
   }
 }
 
+function productMatchesSearch(product: AnchorProduct, raw: string) {
+  const query = raw.trim().toLowerCase()
+  if (!query) {
+    return true
+  }
+  const familyText = familyLabel(product.family)
+  const haystack = [
+    product.brand,
+    product.model,
+    product.family,
+    familyText,
+  ]
+    .map((text) => String(text ?? '').toLowerCase())
+    .join('\n')
+  // 多關鍵字以空白分隔 — 需全部命中
+  return query
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((token) => haystack.includes(token))
+}
+
 function familyLabel(family: AnchorFamily) {
   switch (family) {
     case 'cast_in':
@@ -785,6 +806,8 @@ function UnitNumberField(props: {
   disabled?: boolean
   min?: number
   fallback?: number
+  /** 可選的輸入警告；非 null 時以黃底小字顯示於輸入框下方，不攔截輸入。 */
+  warning?: string | null
 }) {
   const {
     label,
@@ -796,12 +819,16 @@ function UnitNumberField(props: {
     disabled = false,
     min,
     fallback = 0,
+    warning = null,
   } = props
 
   const unitSymbol = getUnitSymbol(quantity, units)
 
   return (
-    <label title={`${label}（單位：${unitSymbol}；可於頂部切換）`}>
+    <label
+      title={`${label}（單位：${unitSymbol}；可於頂部切換）`}
+      className={warning ? 'field-has-warning' : undefined}
+    >
       <span className="label-row">
         <span>{label}</span>
         <span className="unit-chip">{unitSymbol}</span>
@@ -835,6 +862,11 @@ function UnitNumberField(props: {
           onValueChange(fromDisplayValue(parsed, quantity, units))
         }}
       />
+      {warning ? (
+        <span className="field-warning" role="status">
+          {warning}
+        </span>
+      ) : null}
     </label>
   )
 }
@@ -2008,6 +2040,7 @@ function App() {
     useState<ResourceLibraryTabId>('project_templates')
   const [templateFilter, setTemplateFilter] = useState<'all' | AnchorFamily>('all')
   const [templateSearch, setTemplateSearch] = useState('')
+  const [productSearch, setProductSearch] = useState('')
   const [templateCatalog, setTemplateCatalog] = useState<ProductTemplate[] | null>(
     null,
   )
@@ -2460,6 +2493,24 @@ function App() {
       window.removeEventListener('beforeunload', handler)
     }
   }, [isDirty])
+
+  // 切換 tab 後，把 active tab 按鈕自動捲進可視範圍（手機窄橫向捲軸時需要）
+  useEffect(() => {
+    if (!hydrated) {
+      return
+    }
+    const raf = window.requestAnimationFrame(() => {
+      const active = document.querySelector<HTMLElement>(
+        '.workspace-tabs button.active',
+      )
+      active?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      })
+    })
+    return () => window.cancelAnimationFrame(raf)
+  }, [activeTab, hydrated])
 
   // 切換 tab 後自動聚焦到該 tab 第一個可編輯欄位（input/select/textarea）
   // 只在主要輸入型 tab 啟用，避免 result/report 頁跳焦干擾閱讀
@@ -3221,6 +3272,38 @@ function App() {
       setProject(nextProject)
       setProjects((current) => [...current, nextProject])
       setSaveMessage(`已新增案例：${nextProject.name}`)
+    })
+  }
+
+  function resetCurrentProjectToDefaults() {
+    const confirmed = window.confirm(
+      `將把目前案例「${project.name}」的所有輸入還原為預設值，但保留案例 ID、名稱、UI 偏好與報表設定。此操作不可復原（可先匯出 JSON 備份）。確定繼續？`,
+    )
+    if (!confirmed) {
+      return
+    }
+    const preservedId = project.id
+    const preservedName = project.name
+    const preservedUi = project.ui
+    const preservedReport = project.report
+    const preservedRuleProfileId = project.ruleProfileId
+    const next = normalizeProjectSelection(
+      {
+        ...cloneProject(defaultProject),
+        id: preservedId,
+        name: preservedName,
+        ui: preservedUi,
+        report: preservedReport,
+        ruleProfileId: preservedRuleProfileId,
+        updatedAt: new Date().toISOString(),
+      },
+      products,
+    )
+    clearPreviewDocument()
+    startTransition(() => {
+      setProject(next)
+      setProjects((current) => replaceProjectInList(current, next))
+      setSaveMessage(`已將「${preservedName}」還原為預設值`)
     })
   }
 
@@ -4322,6 +4405,14 @@ function App() {
             <button
               type="button"
               className="secondary-button"
+              onClick={resetCurrentProjectToDefaults}
+              title="保留案例 ID / 名稱 / UI / 規範版本，其他欄位全部還原為預設"
+            >
+              還原為預設值
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
               onClick={deleteCurrentProject}
               disabled={projectLibrary.length === 1}
             >
@@ -4502,6 +4593,13 @@ function App() {
                   patchLayout({ concreteStrengthMpa: value ?? 28 })
                 }
                 fallback={28}
+                warning={
+                  project.layout.concreteStrengthMpa < 17
+                    ? "f'c 低於 17 MPa 不建議"
+                    : project.layout.concreteStrengthMpa > 70
+                      ? "f'c 超過 70 MPa 超出 Ch.17 適用範圍"
+                      : null
+                }
               />
             </div>
             <div className="field-slot" data-shows="member">
@@ -4512,6 +4610,14 @@ function App() {
                 value={project.layout.thicknessMm}
                 onValueChange={(value) =>
                   patchLayout({ thicknessMm: value ?? 0 })
+                }
+                warning={
+                  project.layout.thicknessMm <= 0
+                    ? '構材厚度須大於 0'
+                    : project.layout.thicknessMm <
+                        1.5 * (project.layout.effectiveEmbedmentMm ?? 0)
+                      ? 'ha < 1.5hef，將觸發 17.6.2.1.2 側面破壞檢核'
+                      : null
                 }
               />
             </div>
@@ -4524,6 +4630,11 @@ function App() {
                 onValueChange={(value) =>
                   patchLayout({ concreteWidthMm: value ?? 0 })
                 }
+                warning={
+                  project.layout.concreteWidthMm <= 0
+                    ? '寬度須大於 0'
+                    : null
+                }
               />
             </div>
             <div className="field-slot" data-shows="member">
@@ -4535,6 +4646,11 @@ function App() {
                 onValueChange={(value) =>
                   patchLayout({ concreteHeightMm: value ?? 0 })
                 }
+                warning={
+                  project.layout.concreteHeightMm <= 0
+                    ? '高度須大於 0'
+                    : null
+                }
               />
             </div>
             <div className="field-slot" data-shows="member">
@@ -4545,6 +4661,11 @@ function App() {
                 value={project.layout.effectiveEmbedmentMm}
                 onValueChange={(value) =>
                   patchLayout({ effectiveEmbedmentMm: value ?? 0 })
+                }
+                warning={
+                  (project.layout.effectiveEmbedmentMm ?? 0) <= 0
+                    ? 'hef 須大於 0（依產品 ETA 評估值填入）'
+                    : null
                 }
               />
             </div>
@@ -4579,6 +4700,11 @@ function App() {
                 onValueChange={(value) =>
                   patchLayout({ spacingXmm: value ?? 0 })
                 }
+                warning={
+                  project.layout.anchorCountX > 1 && project.layout.spacingXmm <= 0
+                    ? 'X 方向多錨栓時間距須大於 0'
+                    : null
+                }
               />
             </div>
             <div className="field-slot" data-shows="member">
@@ -4589,6 +4715,11 @@ function App() {
                 value={project.layout.spacingYmm}
                 onValueChange={(value) =>
                   patchLayout({ spacingYmm: value ?? 0 })
+                }
+                warning={
+                  project.layout.anchorCountY > 1 && project.layout.spacingYmm <= 0
+                    ? 'Y 方向多錨栓時間距須大於 0'
+                    : null
                 }
               />
             </div>
@@ -6701,18 +6832,51 @@ function App() {
               </div>
             </div>
 
-            <div className="product-list">
-              {products.map((product) => (
+            <div className="product-search-row">
+              <input
+                type="search"
+                value={productSearch}
+                onChange={(event) => setProductSearch(event.target.value)}
+                placeholder="搜尋品牌 / 型號 / 類型…"
+                aria-label="搜尋產品"
+              />
+              {productSearch ? (
                 <button
-                  key={product.id}
                   type="button"
-                  className={`product-pill ${product.id === selectedProduct.id ? 'active' : ''}`}
-                  onClick={() => patchProject({ selectedProductId: product.id })}
+                  className="secondary-button"
+                  onClick={() => setProductSearch('')}
+                  aria-label="清除搜尋"
                 >
-                  <span>{familyLabel(product.family)}</span>
-                  <strong>{product.brand} {product.model}</strong>
+                  清除
                 </button>
-              ))}
+              ) : null}
+              <span className="product-count-hint">
+                {productSearch
+                  ? `${products.filter((p) => productMatchesSearch(p, productSearch)).length} / ${products.length}`
+                  : `${products.length} 個產品`}
+              </span>
+            </div>
+
+            <div className="product-list">
+              {products
+                .filter((product) => productMatchesSearch(product, productSearch))
+                .map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className={`product-pill ${product.id === selectedProduct.id ? 'active' : ''}`}
+                    onClick={() => patchProject({ selectedProductId: product.id })}
+                  >
+                    <span>{familyLabel(product.family)}</span>
+                    <strong>{product.brand} {product.model}</strong>
+                  </button>
+                ))}
+              {productSearch &&
+              products.filter((p) => productMatchesSearch(p, productSearch)).length === 0 ? (
+                <div className="helper-text">
+                  無符合搜尋的產品；試試更短關鍵字或清除搜尋。
+                </div>
+              ) : null}
             </div>
 
             <div className="field-grid compact-grid">
@@ -7380,6 +7544,44 @@ function App() {
               <Badge status={batchReview.summary.formalStatus} />
             </div>
           </div>
+
+          {(() => {
+            const dcr = getGoverningDcr(batchReview.summary)
+            const overall = batchReview.summary.overallStatus
+            if (overall === 'fail' || (overall === 'warning' && dcr > 0.9)) {
+              return (
+                <div className="action-hint action-hint-fail">
+                  <strong>建議動作</strong>
+                  <span>
+                    控制模式：<em>{batchReview.summary.governingMode}</em>；
+                    建議依主控拉/剪模式回頭調整
+                    {batchReview.summary.governingTensionMode.includes('breakout')
+                      ? ' hef 或補強鋼筋'
+                      : batchReview.summary.governingShearMode.includes('breakout')
+                        ? ' 邊距 ca1 或剪力 U 型補強'
+                        : batchReview.summary.governingTensionMode.includes('pullout')
+                          ? ' 錨栓 Np 評估值或直徑'
+                          : batchReview.summary.governingShearMode.includes('pryout')
+                            ? ' hef 或減少偏心距'
+                            : '產品規格或幾何條件'}
+                    ；或於候選比選中加入替代方案比較。
+                  </span>
+                </div>
+              )
+            }
+            if (overall === 'incomplete') {
+              return (
+                <div className="action-hint action-hint-warn">
+                  <strong>待補資料</strong>
+                  <span>
+                    {completeness.missing.slice(0, 2).join('、') || '請於產品頁補齊評估值'}
+                    {completeness.missing.length > 2 ? '…' : ''}
+                  </span>
+                </div>
+              )
+            }
+            return null
+          })()}
 
           <div className="summary-grid">
             <div className="summary-card">

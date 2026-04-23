@@ -2596,6 +2596,86 @@ details.fold-panel[data-shows~='member'] .switch-grid {
   border-color: #0b7285;
 }
 
+/* 欄位輸入警告：非阻擋性（不阻止儲存），僅提示可能觸發特殊檢核或不合理值 */
+.field-warning {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.76rem;
+  color: #8a5a0f;
+  background: #fff8e1;
+  border-left: 3px solid #e0a44d;
+  padding: 4px 8px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+label.field-has-warning > input {
+  border-color: #e0a44d;
+  background: #fffaf2;
+}
+
+/* 結果頁建議動作提示 */
+.action-hint {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.action-hint strong {
+  font-size: 0.92rem;
+}
+
+.action-hint span {
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.action-hint em {
+  font-style: normal;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.action-hint-fail {
+  background: #fcecea;
+  border-left: 4px solid #c04030;
+  color: #7a1e10;
+}
+
+.action-hint-warn {
+  background: #fff7dc;
+  border-left: 4px solid #e0a44d;
+  color: #6d4a0c;
+}
+
+.product-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.product-search-row input[type='search'] {
+  flex: 1;
+  min-width: 160px;
+  padding: 6px 10px;
+  border: 1px solid #c9d3d6;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.product-search-row .product-count-hint {
+  color: #6a7a80;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 /* 工作區備份 bar（hub 首頁可見） */
 .workspace-backup-bar {
   display: flex;
@@ -2646,10 +2726,34 @@ details.fold-panel[data-shows~='member'] .switch-grid {
   .workspace-tabs {
     gap: 6px;
     padding: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
   }
   .workspace-tabs button {
     min-height: 42px;
     padding: 8px 14px;
     font-size: 0.88rem;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  /* 讓 active tab 自動捲入視線中央（CSS scroll-snap 輔助） */
+  .workspace-tabs {
+    scroll-snap-type: x proximity;
+  }
+  .workspace-tabs button.active {
+    scroll-snap-align: center;
+  }
+  /* 頁首 compact 模式在手機縮為單行 */
+  .app-header.app-header-compact {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .app-header-status {
+    flex-wrap: wrap;
+  }
+  .status-chip {
+    flex: 1 1 140px;
   }
 }
