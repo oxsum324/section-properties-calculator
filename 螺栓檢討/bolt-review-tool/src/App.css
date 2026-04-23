@@ -2993,6 +2993,89 @@ label.field-has-warning > input {
   display: none !important;
 }
 
+/* 群錨折減係數 / 單錨強度速檢卡 */
+.quick-check-card {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border: 1px solid #c9d3d6;
+  background: #fafcfc;
+  border-radius: 10px;
+}
+
+.quick-check-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.quick-check-header strong {
+  color: #0b4b56;
+}
+
+.quick-check-header small {
+  color: #6a7a80;
+  font-size: 0.82rem;
+}
+
+.quick-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.quick-check-col h4 {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  color: #0b4b56;
+}
+
+.quick-check-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.quick-check-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #eef2f3;
+}
+
+.quick-check-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-check-table tr.quick-check-total td {
+  font-weight: 600;
+  background: #e6f1f3;
+}
+
+.quick-check-verdict {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.quick-check-verdict.pass {
+  background: #d6f0e2;
+  border-left: 4px solid #1e7a4b;
+  color: #0e4a2c;
+}
+
+.quick-check-verdict.need-group {
+  background: #fff4e1;
+  border-left: 4px solid #e0a44d;
+  color: #6d4a0c;
+}
+
+.quick-check-verdict strong {
+  display: inline-block;
+  margin-right: 6px;
+}
+
 /* 精簡載重提示列 */
 .loads-simple-hint {
   margin: 8px 0;
