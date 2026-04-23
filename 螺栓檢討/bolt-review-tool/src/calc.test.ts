@@ -1184,9 +1184,12 @@ describe('Taiwan Chapter 17 review engine', () => {
 
     // 整體判定不應再受 incomplete 影響
     expect(filtered.summary.overallStatus).not.toBe('incomplete')
-    // 備註需列出被排除項目
+    // summary.notes 不應含任何「不檢討」字樣，確保匯出報告完全乾淨
     expect(
-      filtered.summary.notes.some((note) => note.includes('不檢討')),
+      filtered.summary.notes.every((note) => !note.includes('不檢討')),
+    ).toBe(true)
+    expect(
+      filtered.summary.notes.every((note) => !note.includes('已標記')),
     ).toBe(true)
     // results 仍保留全部（UI 需顯示），只是 summary 不算
     expect(filtered.results.length).toBe(baseline.results.length)

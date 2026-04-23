@@ -965,11 +965,6 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
 
       <section class="card">
         <h2>破壞模式檢核</h2>
-        ${
-          excludedSet.size > 0
-            ? `<p class="meta">註：已排除 ${excludedSet.size} 項「不檢討」檢核（${[...excludedSet].map(escapeHtml).join('、')}）</p>`
-            : ''
-        }
         <table>
           <thead><tr><th>模式</th><th>條文</th><th>需求值</th><th>設計值</th><th>DCR</th><th>狀態</th></tr></thead>
           <tbody>

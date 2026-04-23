@@ -3521,11 +3521,9 @@ function buildSummary(
       .sort((first, second) => second.dcr - first.dcr)[0]?.dcr ?? 0,
     3,
   )
-  if (excludedSet.size > 0) {
-    notes.push(
-      `已標記「不檢討」：${excludedCheckIds.join('、')}，不參與整體判定、不列入報告表格。`,
-    )
-  }
+  // 注意：排除項目不寫入 summary.notes，以確保匯出報告完全不顯現「不檢討」痕跡。
+  // UI 結果頁每列有「列入報告」核可方塊與弱化樣式作為使用者可見追蹤點；
+  // 審查追溯由 project.excludedCheckIds 欄位 + audit trail snapshot 負責。
   if (governingDcr < numericMaxDcr) {
     notes.push(
       `最大數值 DCR = ${numericMaxDcr}，但控制模式依 severity 判定為「${maxResult?.mode ?? '尚無控制結果'}」，控制 DCR = ${governingDcr}。`,
