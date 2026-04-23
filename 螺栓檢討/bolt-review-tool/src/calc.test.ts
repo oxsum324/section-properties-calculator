@@ -1105,7 +1105,7 @@ describe('Taiwan Chapter 17 review engine', () => {
     expect(interaction?.designStrengthKn).toBeGreaterThan(0)
   })
 
-  it('defaults interaction checks to the conservative linear equation', () => {
+  it('defaults interaction checks to the ACI 17.8.3 linear tri-linear (<= 1.2)', () => {
     const project = cloneProject(defaultProject)
     project.loads.tensionKn = 120
     project.loads.shearXKn = 70
@@ -1116,7 +1116,7 @@ describe('Taiwan Chapter 17 review engine', () => {
     const review = evaluateProject(project, castIn!)
     const interaction = review.results.find((result) => result.id === 'interaction')
 
-    expect(interaction?.note).toContain('保守線性互制式')
+    expect(interaction?.note).toContain('≤ 1.2')
     expect(interaction?.designStrengthKn).toBe(1.2)
   })
 
@@ -1134,6 +1134,46 @@ describe('Taiwan Chapter 17 review engine', () => {
 
     expect(interaction?.note).toContain('5/3')
     expect(interaction?.designStrengthKn).toBe(1)
+  })
+
+  it('supports strict linear interaction (sum <= 1.0, no 1.2 allowance)', () => {
+    const project = cloneProject(defaultProject)
+    project.loads.tensionKn = 120
+    project.loads.shearXKn = 70
+    project.loads.interactionEquation = 'linear_strict'
+
+    const castIn = defaultProducts.find((product) => product.id === 'generic-cast-m20')
+    expect(castIn).toBeDefined()
+
+    const review = evaluateProject(project, castIn!)
+    const interaction = review.results.find((result) => result.id === 'interaction')
+
+    expect(interaction?.note).toContain('保守')
+    expect(interaction?.designStrengthKn).toBe(1)
+    // 保守式 DCR 應 >= 規範式 DCR（同樣的 T, V，分母由 1.2 改 1.0）
+    const projectDefault = cloneProject(project)
+    projectDefault.loads.interactionEquation = 'linear'
+    const reviewDefault = evaluateProject(projectDefault, castIn!)
+    const interactionDefault = reviewDefault.results.find(
+      (item) => item.id === 'interaction',
+    )
+    expect(interaction?.dcr).toBeGreaterThanOrEqual(interactionDefault?.dcr ?? 0)
+  })
+
+  it('applies 17.8.1 / 17.8.2 exception when either ratio <= 0.2', () => {
+    // T ratio 很小、V ratio 大 → 應免作 17.8.3，直接以 V 檢核
+    const project = cloneProject(defaultProject)
+    project.loads.tensionKn = 5 // T ratio ~很小
+    project.loads.shearXKn = 80
+
+    const castIn = defaultProducts.find((product) => product.id === 'generic-cast-m20')
+    expect(castIn).toBeDefined()
+
+    const review = evaluateProject(project, castIn!)
+    const interaction = review.results.find((result) => result.id === 'interaction')
+    expect(interaction?.note).toContain('17.8')
+    // DCR 應等於 max(T,V) 而非 sum / 1.2
+    // （此處 V 支配 → interaction DCR ≈ V 的 DCR）
   })
 
   it('warns when seismic entry ratios cannot be formed because total factored demand is zero', () => {

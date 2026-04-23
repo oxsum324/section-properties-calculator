@@ -6652,7 +6652,9 @@ function App() {
           </details>
 
           <div className="field-grid compact-grid" data-shows="loads">
-            <label>
+            <label
+              title="17.8.1 / 17.8.2：任一比值 ≤ 0.2 時免作互制（直接以 max(N/φNn, V/φVn) 檢核）"
+            >
               拉剪互制式
               <select
                 value={project.loads.interactionEquation}
@@ -6663,8 +6665,15 @@ function App() {
                   })
                 }
               >
-                <option value="linear">線性 / 1.2（預設保守）</option>
-                <option value="power">5/3 次方</option>
+                <option value="linear">
+                  17.8.3 線性（N/φNn + V/φVn ≤ 1.2）— 規範上限
+                </option>
+                <option value="linear_strict">
+                  保守線性（N/φNn + V/φVn ≤ 1.0）
+                </option>
+                <option value="power">
+                  17.8.3 5/3 次方（(N/φNn)^5/3 + (V/φVn)^5/3 ≤ 1.0）
+                </option>
               </select>
             </label>
           </div>

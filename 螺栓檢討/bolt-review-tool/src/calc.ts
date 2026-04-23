@@ -2871,30 +2871,51 @@ function getInteractionResult(
   shearResult: CheckResult,
   formal: boolean,
 ): CheckResult {
-  const tensionRatio = tensionResult.dcr
-  const shearRatio = shearResult.dcr
+  // Nu / (φNn)、Vu / (φVn) 即各自 DCR（ratio ≥ 0）
+  const tensionRatio = Math.max(0, tensionResult.dcr)
+  const shearRatio = Math.max(0, shearResult.dcr)
   const interactionMethod = project.loads.interactionEquation ?? 'linear'
 
   let demand = 0
-  let capacity = Number.POSITIVE_INFINITY
+  let capacity = 1
   let dcr = 0
-  let note = '依 17.8 互制式檢核'
+  let note = ''
+  let methodLabel = ''
 
+  // 17.8.1：V ≤ 0.2·φVn → 全 N 可用 → 只需 N ≤ φNn
+  // 17.8.2：N ≤ 0.2·φNn → 全 V 可用 → 只需 V ≤ φVn
   if (tensionRatio <= 0.2 || shearRatio <= 0.2) {
+    // 任一 ratio ≤ 0.2 時，只以較大 ratio 當 DCR（= max(T, V)）
     dcr = Math.max(tensionRatio, shearRatio)
     demand = round(dcr, 3)
     capacity = 1
-    note = '任一方向比值小於 0.2，依 17.8.1 / 17.8.2 可免互制放大'
+    methodLabel = tensionRatio <= 0.2 ? '17.8.2 例外' : '17.8.1 例外'
+    note = `${tensionRatio <= 0.2 ? 'N/φNn' : 'V/φVn'} ≤ 0.2，依 ${methodLabel} 免作 17.8.3 互制，僅以 max(N/φNn, V/φVn) = ${round(dcr, 3)} 檢核。`
   } else if (interactionMethod === 'power') {
-    dcr = tensionRatio ** (5 / 3) + shearRatio ** (5 / 3)
-    demand = round(dcr, 3)
+    // (N/φNn)^5/3 + (V/φVn)^5/3 ≤ 1.0
+    const sumPower =
+      tensionRatio ** (5 / 3) + shearRatio ** (5 / 3)
+    dcr = sumPower
+    demand = round(sumPower, 3)
     capacity = 1
-    note = '依使用者選定之 5/3 次方互制式進行拉剪互制檢核'
+    methodLabel = '17.8.3 5/3 次方'
+    note = `(N/φNn)^5/3 + (V/φVn)^5/3 = ${round(tensionRatio ** (5 / 3), 3)} + ${round(shearRatio ** (5 / 3), 3)} = ${round(sumPower, 3)} ≤ 1.0`
+  } else if (interactionMethod === 'linear_strict') {
+    // 保守線性：sum ≤ 1.0（無 1.2 放大）
+    const sum = tensionRatio + shearRatio
+    dcr = sum
+    demand = round(sum, 3)
+    capacity = 1
+    methodLabel = '保守線性（≤ 1.0）'
+    note = `保守型式：N/φNn + V/φVn = ${round(tensionRatio, 3)} + ${round(shearRatio, 3)} = ${round(sum, 3)} ≤ 1.0（無 1.2 放大餘裕）`
   } else {
-    dcr = (tensionRatio + shearRatio) / 1.2
-    demand = round(tensionRatio + shearRatio, 3)
+    // 預設 linear：ACI 17.8.3 三折線上限，sum ≤ 1.2
+    const sum = tensionRatio + shearRatio
+    dcr = sum / 1.2
+    demand = round(sum, 3)
     capacity = 1.2
-    note = '依保守線性互制式進行拉剪互制檢核，(Nu / φNn + Vu / φVn) / 1.2'
+    methodLabel = '17.8.3 線性（≤ 1.2）'
+    note = `ACI/規範式：N/φNn + V/φVn = ${round(tensionRatio, 3)} + ${round(shearRatio, 3)} = ${round(sum, 3)} ≤ 1.2（DCR = ${round(dcr, 3)}）`
   }
 
   let status: ReviewStatus
@@ -2933,9 +2954,11 @@ function getInteractionResult(
     formal: formal && tensionResult.formal && shearResult.formal,
     presentation: 'ratio',
     factors: [
-      factor('Eq.', '互制方程', project.loads.interactionEquation === 'power' ? '5/3 次方' : '線性 / 1.2'),
-      factor('T', '控制拉力模式', tensionResult.mode),
-      factor('V', '控制剪力模式', shearResult.mode),
+      factor('Eq.', '互制方程', methodLabel),
+      factor('N/φNn', '拉力比', round(tensionRatio, 3)),
+      factor('V/φVn', '剪力比', round(shearRatio, 3)),
+      factor('T mode', '控制拉力模式', tensionResult.mode),
+      factor('V mode', '控制剪力模式', shearResult.mode),
     ],
     note,
   }
