@@ -2567,6 +2567,8 @@ function App() {
   const [hSectionFlangeEdgeMm, setHSectionFlangeEdgeMm] = useState(50)
   const [hSectionWebEdgeMm, setHSectionWebEdgeMm] = useState(50)
   const [hSectionAnchorsPerFlange, setHSectionAnchorsPerFlange] = useState(2)
+  // H 型鋼輔助：腹板側邊（Y 方向）每側的螺栓數（不含翼板端點）
+  const [hSectionAnchorsPerWebSide, setHSectionAnchorsPerWebSide] = useState(0)
   // 錨頭承壓面積 A_brg 換算輔助暫存
   const [plateHelperShape, setPlateHelperShape] = useState<
     'square' | 'circle' | 'hex_nut'
@@ -5074,6 +5076,25 @@ function App() {
                 }
               />
             </label>
+            <label className="field-slot" data-shows="member">
+              排列型式
+              <select
+                value={project.layout.anchorLayoutPattern ?? 'grid'}
+                onChange={(event) =>
+                  patchLayout({
+                    anchorLayoutPattern: event.target.value as
+                      | 'grid'
+                      | 'perimeter',
+                  })
+                }
+                title="grid = 全網格；perimeter = 只保留外框（H 型鋼周邊 / 只在四周的螺栓）"
+              >
+                <option value="grid">全網格（nx × ny）</option>
+                <option value="perimeter">
+                  只外框（周邊螺栓，剔除內部）
+                </option>
+              </select>
+            </label>
             <div className="field-slot" data-shows="member">
               <UnitNumberField
                 label="間距 sx"
@@ -5208,28 +5229,67 @@ function App() {
                         )
                       }
                     >
-                      <option value={2}>2（共 4 支，角點）</option>
-                      <option value={3}>3（共 6 支）</option>
-                      <option value={4}>4（共 8 支）</option>
-                      <option value={5}>5（共 10 支）</option>
+                      <option value={2}>2（角點）</option>
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                      <option value={5}>5</option>
+                    </select>
+                  </label>
+                  <label>
+                    腹板每側螺栓數 n_w
+                    <select
+                      value={hSectionAnchorsPerWebSide}
+                      onChange={(event) =>
+                        setHSectionAnchorsPerWebSide(
+                          Number(event.target.value) || 0,
+                        )
+                      }
+                      title="腹板方向（柱深方向）兩側各插幾支螺栓（不含翼板端點）"
+                    >
+                      <option value={0}>0（只在翼板）</option>
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                      <option value={3}>3</option>
                     </select>
                   </label>
                 </div>
                 {(() => {
                   const nf = Math.max(2, hSectionAnchorsPerFlange)
-                  const sx = nf > 1
-                    ? Math.max(0, (hSectionBfMm - 2 * hSectionFlangeEdgeMm) / (nf - 1))
-                    : 0
-                  const sy = Math.max(0, hSectionHcMm + 2 * hSectionWebEdgeMm)
-                  const totalWidth = hSectionBfMm
-                  const totalHeight = sy
+                  const nw = Math.max(0, hSectionAnchorsPerWebSide)
+                  // X 方向螺栓數 = 翼板螺栓數（翼板本身就是 X 方向全部位置）
+                  const nxNew = nf
+                  // Y 方向螺栓數 = 2（翼板）+ 腹板每側 n_w 支（共 2·n_w 支）
+                  const nyNew = 2 + nw
+                  const sx =
+                    nxNew > 1
+                      ? Math.max(
+                          0,
+                          (hSectionBfMm - 2 * hSectionFlangeEdgeMm) / (nxNew - 1),
+                        )
+                      : 0
+                  const syOuter = Math.max(0, hSectionHcMm + 2 * hSectionWebEdgeMm)
+                  const sy = nyNew > 1 ? syOuter / (nyNew - 1) : 0
+                  // 用 perimeter 型式：只保留外框（腹板中間沒螺栓時）
+                  // nw=0 時等同於 grid（nx × 2），無差異
+                  const patternNew: 'grid' | 'perimeter' =
+                    nw > 0 && nxNew >= 3 ? 'perimeter' : 'grid'
+                  const totalCount =
+                    patternNew === 'perimeter'
+                      ? 2 * nxNew + 2 * (nyNew - 2)
+                      : nxNew * nyNew
                   return (
                     <div className="h-section-preview">
                       <div className="h-section-metrics">
-                        <span>預覽 sx = {formatQuantity(sx, 'length', unitPreferences)}</span>
-                        <span>預覽 sy = {formatQuantity(sy, 'length', unitPreferences)}</span>
-                        <span>錨栓總數 = {nf * 2}</span>
-                        <span>外接矩形 = {formatQuantity(totalWidth, 'length', unitPreferences)} × {formatQuantity(totalHeight, 'length', unitPreferences)}</span>
+                        <span>X 方向 {nxNew} 支 · Y 方向 {nyNew} 支</span>
+                        <span>排列 = {patternNew === 'perimeter' ? '只外框' : '全網格'}</span>
+                        <span>sx = {formatQuantity(sx, 'length', unitPreferences)}</span>
+                        <span>sy = {formatQuantity(sy, 'length', unitPreferences)}</span>
+                        <span>錨栓總數 = {totalCount}</span>
+                        <span>
+                          外接矩形 ={' '}
+                          {formatQuantity(hSectionBfMm, 'length', unitPreferences)} ×{' '}
+                          {formatQuantity(syOuter, 'length', unitPreferences)}
+                        </span>
                       </div>
                       <div className="action-row">
                         <button
@@ -5242,20 +5302,24 @@ function App() {
                           }
                           onClick={() => {
                             patchLayout({
-                              anchorCountX: nf,
-                              anchorCountY: 2,
+                              anchorCountX: nxNew,
+                              anchorCountY: nyNew,
                               spacingXmm: sx,
                               spacingYmm: sy,
+                              anchorLayoutPattern: patternNew,
                             })
                             setSaveMessage(
-                              `已套用 H 型鋼周邊配置：${nf}×2（${nf * 2} 支）sx=${sx.toFixed(1)}mm sy=${sy.toFixed(1)}mm`,
+                              `已套用 H 型鋼周邊配置：${nxNew}×${nyNew}${
+                                patternNew === 'perimeter' ? '（外框）' : ''
+                              } 共 ${totalCount} 支`,
                             )
                           }}
                         >
                           套用到配置
                         </button>
                         <span className="helper-text" style={{ margin: 0 }}>
-                          僅覆寫 anchorCountX/Y 與 spacing；邊距請依實際配置於上方欄位調整。
+                          nx×ny 寫入錨栓列數；當腹板側有螺栓時自動切到「只外框」排列。
+                          邊距請另行檢視。
                         </span>
                       </div>
                     </div>

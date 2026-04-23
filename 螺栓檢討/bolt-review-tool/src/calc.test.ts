@@ -48,6 +48,51 @@ describe('buildAnchorPoints', () => {
       { id: 'A2-2', x: 300, y: 300 },
     ])
   })
+
+  it('perimeter pattern excludes interior anchors (H-section with web-side bolts)', () => {
+    const layout = {
+      ...defaultProject.layout,
+      anchorCountX: 3,
+      anchorCountY: 3,
+      spacingXmm: 100,
+      spacingYmm: 100,
+      edgeLeftMm: 50,
+      edgeBottomMm: 50,
+      anchorLayoutPattern: 'perimeter' as const,
+    }
+    const points = buildAnchorPoints(layout)
+    // 3x3 外框 = 8 支（扣除中心 A2-2）
+    expect(points).toHaveLength(8)
+    expect(points.find((p) => p.id === 'A2-2')).toBeUndefined()
+    // 四角仍存在
+    expect(points.find((p) => p.id === 'A1-1')).toBeDefined()
+    expect(points.find((p) => p.id === 'A3-3')).toBeDefined()
+    // 腹板側邊（中列的上下端點）仍存在
+    expect(points.find((p) => p.id === 'A2-1')).toBeDefined()
+    expect(points.find((p) => p.id === 'A2-3')).toBeDefined()
+  })
+
+  it('perimeter pattern is identity when nx < 3 or ny < 3', () => {
+    const layout22 = {
+      ...defaultProject.layout,
+      anchorCountX: 2,
+      anchorCountY: 2,
+      anchorLayoutPattern: 'perimeter' as const,
+    }
+    // 2x2 無內部 → 4 點
+    expect(buildAnchorPoints(layout22)).toHaveLength(4)
+
+    const layout52 = {
+      ...defaultProject.layout,
+      anchorCountX: 5,
+      anchorCountY: 2,
+      spacingXmm: 80,
+      spacingYmm: 200,
+      anchorLayoutPattern: 'perimeter' as const,
+    }
+    // 5x2 無內部 → 10 點（等同 grid）
+    expect(buildAnchorPoints(layout52)).toHaveLength(10)
+  })
 })
 
 describe('Taiwan Chapter 17 review engine', () => {

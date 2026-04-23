@@ -267,6 +267,14 @@ export interface AnchorLayout {
   effectiveEmbedmentMm: number
   anchorCountX: number
   anchorCountY: number
+  /**
+   * 錨栓排列型式：
+   * - 'grid'（預設）：nx × ny 矩形網格，所有位置皆有錨栓
+   * - 'perimeter'：僅外框錨栓（H 型鋼周邊 / 大型柱腳周邊），
+   *   亦即剔除 indexX ∈ [1, nx-2] 且 indexY ∈ [1, ny-2] 的內部位置。
+   *   總數 = 2·nx + 2·(ny-2) = 2·(nx+ny-2)（nx,ny ≥ 2 時）。
+   */
+  anchorLayoutPattern?: 'grid' | 'perimeter'
   spacingXmm: number
   spacingYmm: number
   edgeLeftMm: number

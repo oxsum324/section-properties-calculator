@@ -832,9 +832,24 @@ function getTensionBreakoutBaseStrengthKn(
 
 export function buildAnchorPoints(layout: AnchorLayout): AnchorPoint[] {
   const points: AnchorPoint[] = []
+  const nx = layout.anchorCountX
+  const ny = layout.anchorCountY
+  const pattern = layout.anchorLayoutPattern ?? 'grid'
 
-  for (let indexX = 0; indexX < layout.anchorCountX; indexX += 1) {
-    for (let indexY = 0; indexY < layout.anchorCountY; indexY += 1) {
+  for (let indexX = 0; indexX < nx; indexX += 1) {
+    for (let indexY = 0; indexY < ny; indexY += 1) {
+      // perimeter 型式：只保留外框，剔除內部（當 nx ≥ 3 且 ny ≥ 3 才有內部）
+      if (
+        pattern === 'perimeter' &&
+        nx >= 3 &&
+        ny >= 3 &&
+        indexX > 0 &&
+        indexX < nx - 1 &&
+        indexY > 0 &&
+        indexY < ny - 1
+      ) {
+        continue
+      }
       points.push({
         id: `A${indexX + 1}-${indexY + 1}`,
         x: layout.edgeLeftMm + indexX * layout.spacingXmm,
