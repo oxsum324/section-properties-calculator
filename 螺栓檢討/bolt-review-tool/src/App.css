@@ -2909,6 +2909,36 @@ label.field-has-warning > input {
   font-size: 0.76rem;
 }
 
+/* H 型鋼周邊錨栓輔助面板 */
+.h-section-helper {
+  background: #f7fafb;
+}
+
+.h-section-preview {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px dashed #cbd5d8;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.h-section-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px;
+  font-size: 0.86rem;
+  color: #0b4b56;
+}
+
+.h-section-metrics span {
+  background: #e6f1f3;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
 /* 工作區備份 bar（hub 首頁可見） */
 .workspace-backup-bar {
   display: flex;

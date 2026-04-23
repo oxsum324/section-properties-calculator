@@ -1,5 +1,5 @@
 // 版本戳由 vite build 時的 serviceWorkerVersionPlugin 注入；dev 環境為字面值
-const CACHE_NAME = 'bolt-review-tool-b0682fbaeb'
+const CACHE_NAME = 'bolt-review-tool-899a01f687'
 const APP_SHELL = [
   '/section-properties-calculator/anchor/',
   '/section-properties-calculator/anchor/index.html',

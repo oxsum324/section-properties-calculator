@@ -2561,6 +2561,12 @@ function App() {
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [paletteQuery, setPaletteQuery] = useState('')
+  // H 型鋼周邊錨栓輔助面板的暫存輸入（不持久化，只用於一次套用）
+  const [hSectionBfMm, setHSectionBfMm] = useState(300)
+  const [hSectionHcMm, setHSectionHcMm] = useState(300)
+  const [hSectionFlangeEdgeMm, setHSectionFlangeEdgeMm] = useState(50)
+  const [hSectionWebEdgeMm, setHSectionWebEdgeMm] = useState(50)
+  const [hSectionAnchorsPerFlange, setHSectionAnchorsPerFlange] = useState(2)
 
   // 任何 project / products 變動後，先標記為 dirty；debounce 儲存完成才清除
   // 此處 setState 是刻意觸發 UI 更新（未儲存徽章），非同步外部系統
@@ -5138,6 +5144,119 @@ function App() {
                 }
               />
             </div>
+            <details
+              className="fold-panel sub-panel h-section-helper"
+              data-shows="member"
+              open={false}
+            >
+              <summary className="fold-summary">
+                <span>H 型鋼周邊錨栓配置輔助</span>
+                <small>翼板 / 柱深 / 每翼板螺栓數 → 自動算 sx · sy · 邊距</small>
+              </summary>
+              <div className="fold-stack">
+                <p className="helper-text">
+                  H 型鋼柱腳典型為錨栓沿翼板周邊配置，非規則網格。
+                  以下依 <strong>翼板寬度 bf</strong>、<strong>柱深 hc</strong>、
+                  <strong>每翼板螺栓數 n_f</strong> 近似為「外接矩形 n_f × 2」網格：
+                  sx = (bf − 2·e_f) / (n_f − 1)、sy = hc + 2·e_w。
+                  僅適用於對稱配置；若翼板兩側螺栓數不同或含腹板螺栓請另外處理。
+                </p>
+                <div className="field-grid compact-grid">
+                  <UnitNumberField
+                    label="翼板寬度 bf"
+                    quantity="length"
+                    units={unitPreferences}
+                    value={hSectionBfMm}
+                    onValueChange={(value) => setHSectionBfMm(value ?? 0)}
+                  />
+                  <UnitNumberField
+                    label="柱深 hc"
+                    quantity="length"
+                    units={unitPreferences}
+                    value={hSectionHcMm}
+                    onValueChange={(value) => setHSectionHcMm(value ?? 0)}
+                  />
+                  <UnitNumberField
+                    label="翼板外緣到螺栓中心 e_f"
+                    quantity="length"
+                    units={unitPreferences}
+                    value={hSectionFlangeEdgeMm}
+                    onValueChange={(value) =>
+                      setHSectionFlangeEdgeMm(value ?? 0)
+                    }
+                  />
+                  <UnitNumberField
+                    label="柱外緣到螺栓中心 e_w"
+                    quantity="length"
+                    units={unitPreferences}
+                    value={hSectionWebEdgeMm}
+                    onValueChange={(value) => setHSectionWebEdgeMm(value ?? 0)}
+                  />
+                  <label>
+                    每翼板螺栓數 n_f
+                    <select
+                      value={hSectionAnchorsPerFlange}
+                      onChange={(event) =>
+                        setHSectionAnchorsPerFlange(
+                          Number(event.target.value) || 2,
+                        )
+                      }
+                    >
+                      <option value={2}>2（共 4 支，角點）</option>
+                      <option value={3}>3（共 6 支）</option>
+                      <option value={4}>4（共 8 支）</option>
+                      <option value={5}>5（共 10 支）</option>
+                    </select>
+                  </label>
+                </div>
+                {(() => {
+                  const nf = Math.max(2, hSectionAnchorsPerFlange)
+                  const sx = nf > 1
+                    ? Math.max(0, (hSectionBfMm - 2 * hSectionFlangeEdgeMm) / (nf - 1))
+                    : 0
+                  const sy = Math.max(0, hSectionHcMm + 2 * hSectionWebEdgeMm)
+                  const totalWidth = hSectionBfMm
+                  const totalHeight = sy
+                  return (
+                    <div className="h-section-preview">
+                      <div className="h-section-metrics">
+                        <span>預覽 sx = {formatQuantity(sx, 'length', unitPreferences)}</span>
+                        <span>預覽 sy = {formatQuantity(sy, 'length', unitPreferences)}</span>
+                        <span>錨栓總數 = {nf * 2}</span>
+                        <span>外接矩形 = {formatQuantity(totalWidth, 'length', unitPreferences)} × {formatQuantity(totalHeight, 'length', unitPreferences)}</span>
+                      </div>
+                      <div className="action-row">
+                        <button
+                          type="button"
+                          disabled={
+                            hSectionBfMm <= 0 ||
+                            hSectionHcMm <= 0 ||
+                            sx < 0 ||
+                            sy <= 0
+                          }
+                          onClick={() => {
+                            patchLayout({
+                              anchorCountX: nf,
+                              anchorCountY: 2,
+                              spacingXmm: sx,
+                              spacingYmm: sy,
+                            })
+                            setSaveMessage(
+                              `已套用 H 型鋼周邊配置：${nf}×2（${nf * 2} 支）sx=${sx.toFixed(1)}mm sy=${sy.toFixed(1)}mm`,
+                            )
+                          }}
+                        >
+                          套用到配置
+                        </button>
+                        <span className="helper-text" style={{ margin: 0 }}>
+                          僅覆寫 anchorCountX/Y 與 spacing；邊距請依實際配置於上方欄位調整。
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </details>
             <details
               className="fold-panel sub-panel"
               data-shows="member result"
