@@ -26,8 +26,9 @@ describe('getAnchorReinforcementOverlay', () => {
     )
 
     expect(overlay).not.toBeNull()
-    expect(overlay?.x1).toBeLessThan(120)
-    expect(overlay?.x2).toBeGreaterThan(300)
+    // 預設 layout 的首末錨栓 x = 260 / 440；overlay 應略涵蓋於其外
+    expect(overlay?.x1).toBeLessThan(260)
+    expect(overlay?.x2).toBeGreaterThan(440)
     expect(overlay?.label).toContain('As=4000')
   })
 })

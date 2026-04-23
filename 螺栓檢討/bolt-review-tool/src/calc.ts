@@ -2441,6 +2441,14 @@ function getEdgeRowForShear(
   direction: 'x' | 'y',
   sign: 1 | -1,
 ) {
+  // ACI 318-19 §17.7.2.1.2 / 台灣 112 規範：當錨栓群受多邊距或腹板厚度約束時，
+  // 計算 Avc 與 Vb 所用之「有效 ca1」應限制為下列三者之「最大值」（非最小值）：
+  //   (1) max(ca2,1, ca2,2) / 1.5
+  //   (2) ha / 1.5
+  //   (3) 平行剪力方向之最大錨栓間距 / 3
+  // 且必須 ≤ actual ca1（不能超過真實邊距）。
+  // 原實作誤用 Math.min，導致間距一小即把 ca1 壓到不合理低值（例 s=180→60），
+  // 使 Vcbg 嚴重低估。此處修正為 Math.max(...)，並 cap 於 actualCa1。
   if (direction === 'x') {
     const targetX =
       sign > 0
@@ -2452,14 +2460,11 @@ function getEdgeRowForShear(
     const ca2 = Math.min(layout.edgeBottomMm, layout.edgeTopMm)
     const parallelSpacing =
       layout.anchorCountY > 1 ? layout.spacingYmm : Number.POSITIVE_INFINITY
-    const effectiveCa1 = Math.min(
-      actualCa1,
-      Math.min(
-        ca2 / 1.5,
-        layout.thicknessMm / 1.5,
-        Number.isFinite(parallelSpacing) ? parallelSpacing / 3 : Number.POSITIVE_INFINITY,
-      ),
-    )
+    const limitingValues = [ca2 / 1.5, layout.thicknessMm / 1.5]
+    if (Number.isFinite(parallelSpacing)) {
+      limitingValues.push(parallelSpacing / 3)
+    }
+    const effectiveCa1 = Math.min(actualCa1, Math.max(...limitingValues))
     return {
       row,
       ca1: effectiveCa1,
@@ -2482,14 +2487,11 @@ function getEdgeRowForShear(
   const ca2 = Math.min(layout.edgeLeftMm, layout.edgeRightMm)
   const parallelSpacing =
     layout.anchorCountX > 1 ? layout.spacingXmm : Number.POSITIVE_INFINITY
-  const effectiveCa1 = Math.min(
-    actualCa1,
-    Math.min(
-      ca2 / 1.5,
-      layout.thicknessMm / 1.5,
-      Number.isFinite(parallelSpacing) ? parallelSpacing / 3 : Number.POSITIVE_INFINITY,
-    ),
-  )
+  const limitingValuesY = [ca2 / 1.5, layout.thicknessMm / 1.5]
+  if (Number.isFinite(parallelSpacing)) {
+    limitingValuesY.push(parallelSpacing / 3)
+  }
+  const effectiveCa1 = Math.min(actualCa1, Math.max(...limitingValuesY))
   return {
     row,
     ca1: effectiveCa1,

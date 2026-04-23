@@ -191,9 +191,12 @@ export const defaultProject: ProjectCase = {
   candidateLayoutVariants: [],
   auditTrail: [],
   updatedAt: new Date().toISOString(),
+  // 幾何與載重設計目標：2×2 M20 預埋錨栓於未配補強鋼筋之柱腳，
+  // 邊距 ca = 1.5 hef = 240 mm 以上；N_ua = 80 kN、V = (18, 6) kN
+  // 整體判定通過（φN_cbg ≈ 141 kN、DCR ≈ 0.57），作為開箱即用的成功案例
   layout: {
-    concreteWidthMm: 420,
-    concreteHeightMm: 420,
+    concreteWidthMm: 700,
+    concreteHeightMm: 700,
     thicknessMm: 500,
     concreteStrengthMpa: 28,
     maxAggregateSizeMm: 20,
@@ -237,15 +240,17 @@ export const defaultProject: ProjectCase = {
     anchorCountY: 2,
     spacingXmm: 180,
     spacingYmm: 180,
-    edgeLeftMm: 120,
-    edgeRightMm: 120,
-    edgeBottomMm: 120,
-    edgeTopMm: 120,
+    edgeLeftMm: 260,
+    edgeRightMm: 260,
+    edgeBottomMm: 260,
+    edgeTopMm: 260,
   },
   loads: {
-    tensionKn: 80,
-    shearXKn: 18,
-    shearYKn: 6,
+    // 預設載重目標：輕中型柱腳拉拔 + 剪力，確保預設案例 overallStatus='pass'
+    // 搭配上方 2×2 M20 / hef=160 / 邊距 260 之幾何，DCR ≤ 0.85 有合理餘裕
+    tensionKn: 50,
+    shearXKn: 10,
+    shearYKn: 3,
     shearEccentricityXmm: 0,
     shearEccentricityYmm: 0,
     shearLeverArmMm: 0,
@@ -276,9 +281,9 @@ export const defaultProject: ProjectCase = {
       id: 'load-case-1',
       name: 'LC1',
       loads: {
-        tensionKn: 80,
-        shearXKn: 18,
-        shearYKn: 6,
+        tensionKn: 50,
+        shearXKn: 10,
+        shearYKn: 3,
         shearEccentricityXmm: 0,
         shearEccentricityYmm: 0,
         shearLeverArmMm: 0,

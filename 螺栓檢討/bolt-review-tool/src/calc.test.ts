@@ -42,11 +42,28 @@ describe('buildAnchorPoints', () => {
     const points = buildAnchorPoints(defaultProject.layout)
 
     expect(points).toEqual([
-      { id: 'A1-1', x: 120, y: 120 },
-      { id: 'A1-2', x: 120, y: 300 },
-      { id: 'A2-1', x: 300, y: 120 },
-      { id: 'A2-2', x: 300, y: 300 },
+      { id: 'A1-1', x: 260, y: 260 },
+      { id: 'A1-2', x: 260, y: 440 },
+      { id: 'A2-1', x: 440, y: 260 },
+      { id: 'A2-2', x: 440, y: 440 },
     ])
+  })
+
+  it('default project passes overall (開箱即用的成功案例)', () => {
+    const castIn = defaultProducts.find((product) => product.id === 'generic-cast-m20')
+    expect(castIn).toBeDefined()
+    const review = evaluateProject(defaultProject, castIn!)
+    // 預設案例應直接通過；overallStatus = 'pass'；整體 DCR < 1
+    expect(review.summary.overallStatus).toBe('pass')
+    expect(review.summary.formalStatus).toBe('pass')
+    expect(review.summary.governingDcr).toBeLessThan(1)
+    expect(review.summary.maxDcr).toBeLessThan(1)
+    // 關鍵檢核皆不應 fail
+    const tensionBreakout = review.results.find(
+      (r) => r.id === 'concrete-breakout-tension',
+    )
+    expect(tensionBreakout?.status).toBe('pass')
+    expect(tensionBreakout?.dcr).toBeLessThan(1)
   })
 
   it('perimeter pattern excludes interior anchors (H-section with web-side bolts)', () => {
@@ -364,6 +381,12 @@ describe('Taiwan Chapter 17 review engine', () => {
     const project = cloneProject(defaultProject)
     project.loads.tensionKn = 100
     project.layout.effectiveEmbedmentMm = 320
+    // side-face blowout 於 hef > 2.5·ca1 時觸發；預設邊距 260 配 hef=320 不會觸發
+    // 故此測試必須以小邊距 120 建立臨界條件
+    project.layout.edgeLeftMm = 120
+    project.layout.edgeRightMm = 120
+    project.layout.edgeBottomMm = 120
+    project.layout.edgeTopMm = 120
 
     const castIn = defaultProducts.find((product) => product.id === 'generic-cast-m20')
     expect(castIn).toBeDefined()
@@ -1420,7 +1443,8 @@ describe('Taiwan Chapter 17 review engine', () => {
     const seismic = review.results.find((result) => result.id === 'seismic')
     const steelTension = review.results.find((result) => result.id === 'steel-tension')
 
-    expect(review.analysisLoads.tensionKn).toBe(96)
+    // 預設 N=50（靜載），Eq=20，Ω_attachment=1.8 → total = 50 + (1.8-1)·20 = 66
+    expect(review.analysisLoads.tensionKn).toBe(66)
     expect(review.analysisNote).toContain('Ω_attachment = 1.8')
     expect(seismic?.factors?.some((item) => item.symbol === 'Ω_attachment')).toBe(true)
     expect(steelTension?.note).toContain('Ω_attachment = 1.8')
