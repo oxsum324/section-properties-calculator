@@ -4251,7 +4251,11 @@ function App() {
   }
 
   return (
-    <main className="app-shell" data-active-tab={activeTab}>
+    <main
+      className="app-shell"
+      data-active-tab={activeTab}
+      data-loads-simple={unitPreferences.loadsSimpleMode ? '1' : '0'}
+    >
       <a href="#main-content" className="skip-to-main">
         跳到主要內容
       </a>
@@ -4904,7 +4908,24 @@ function App() {
           </div>
           <div className="panel-title" data-shows="loads">
             <h2>載重輸入</h2>
-            <p>N / V / M、偏心與受剪錨栓數；可展開下方管理載重組合批次與 CSV 匯入。</p>
+            <p>
+              {unitPreferences.loadsSimpleMode
+                ? '精簡模式：只輸入一組設計 N / Vx / Vy / Mx / My；取消勾選進階模式啟用批次組合 / CSV / D·L·E Preset。'
+                : '進階模式：可管理多組載重組合、D / L / E Preset、CSV 匯入。'}
+            </p>
+            <label
+              className="switch switch-inline loads-simple-toggle"
+              title="精簡模式僅保留單一組設計載重輸入；其他進階功能（批次、CSV、Preset）會隱藏"
+            >
+              <input
+                type="checkbox"
+                checked={unitPreferences.loadsSimpleMode ?? true}
+                onChange={(event) =>
+                  patchUi({ loadsSimpleMode: event.target.checked })
+                }
+              />
+              <span>精簡載重模式</span>
+            </label>
           </div>
           <div className="panel-title" data-shows="seismic">
             <h2>耐震入口設定</h2>
@@ -5432,7 +5453,7 @@ function App() {
                 )}
               </div>
             </details>
-            <div className="load-case-panel">
+            <div className="load-case-panel" data-loads-advanced="1">
               <div className="load-case-panel-header">
                 <div>
                   <strong>載重組合</strong>
@@ -6059,6 +6080,7 @@ function App() {
             <details
               className="fold-panel sub-panel"
               data-shows="loads"
+              data-loads-advanced="1"
               open={!simpleMode}
             >
               <summary className="fold-summary">

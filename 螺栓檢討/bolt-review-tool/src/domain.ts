@@ -76,6 +76,13 @@ export interface UnitPreferences {
   forceUnit: ForceUnit
   stressUnit: StressUnit
   simpleMode: boolean
+  /**
+   * 精簡載重模式：隱藏載重組合批次 / D·L·E Preset / CSV 匯入 / 17.10 耐震入口，
+   * 僅顯示單一組設計 N / Vx / Vy / Mx / My + 受剪錨栓數 + 拉剪互制式。
+   * 讓單一設計值使用者（簡易機械基座、樁頭預埋、暫時性支架等）不被複雜選項干擾。
+   * 預設 true（新案例預設精簡）；隨時可取消以進入進階模式。
+   */
+  loadsSimpleMode?: boolean
 }
 
 export type ReportMode = 'summary' | 'full'

@@ -36,6 +36,7 @@ export const defaultUnitPreferences: UnitPreferences = {
   forceUnit: 'kN',
   stressUnit: 'MPa',
   simpleMode: true,
+  loadsSimpleMode: true,
 }
 
 export function normalizeUnitPreferences(

@@ -2988,6 +2988,29 @@ label.field-has-warning > input {
   margin-left: auto;
 }
 
+/* 精簡載重模式：隱藏 D/L/E Preset、載重組合批次、CSV 匯入等進階區塊 */
+.app-shell[data-loads-simple='1'] [data-loads-advanced='1'] {
+  display: none !important;
+}
+
+/* 精簡載重提示列 */
+.loads-simple-hint {
+  margin: 8px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #eef6f9;
+  border: 1px dashed #8aa3a8;
+  color: #0b4b56;
+  font-size: 0.88rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.loads-simple-hint strong {
+  color: #0b2b31;
+}
+
 /* 標記「不檢討」的結果列：弱化顯示 */
 .result-row-excluded {
   opacity: 0.55;
