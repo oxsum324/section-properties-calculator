@@ -47,4 +47,27 @@ describe('unit conversion helpers', () => {
     expect(formatInputQuantity(157, 'area', units)).toBe('1.57')
     expect(defaultUnitPreferences.simpleMode).toBe(true)
   })
+
+  it('preserves literal zero in integer-display units (regression: can key 0)', () => {
+    const mmUnits = normalizeUnitPreferences({ lengthUnit: 'mm' })
+    const kgfUnits = normalizeUnitPreferences({ forceUnit: 'kgf' })
+    const kNUnits = normalizeUnitPreferences({ forceUnit: 'kN' })
+
+    // digits=0 的單位（mm / kgf）：0 必須保留為 "0"
+    expect(formatInputQuantity(0, 'length', mmUnits)).toBe('0')
+    expect(formatInputQuantity(0, 'force', kgfUnits)).toBe('0')
+
+    // digits>0 的單位（kN / tf / MPa）：0 也應顯示為 "0" 而非空字串
+    expect(formatInputQuantity(0, 'force', kNUnits)).toBe('0')
+
+    // 小數位尾 0 仍應剝除
+    expect(formatInputQuantity(12.5, 'force', kNUnits)).toBe('12.5')
+    expect(formatInputQuantity(10, 'force', kNUnits)).toBe('10')
+  })
+
+  it('returns empty string for undefined / NaN', () => {
+    const units = defaultUnitPreferences
+    expect(formatInputQuantity(undefined, 'force', units)).toBe('')
+    expect(formatInputQuantity(Number.NaN, 'length', units)).toBe('')
+  })
 })

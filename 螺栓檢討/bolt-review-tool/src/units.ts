@@ -191,5 +191,12 @@ export function formatInputQuantity(
   }
 
   const display = toDisplayValue(value, quantity, units)
-  return display.toFixed(getDigits(quantity, units)).replace(/\.?0+$/, '')
+  const digits = getDigits(quantity, units)
+  const formatted = display.toFixed(digits)
+  // 只在有小數點時剝除尾隨零（含孤兒小數點），避免整數 0 被剝成空字串
+  // 例如 "0.00" → "0"、"12.50" → "12.5"、"0" → "0"（保留）、"10" → "10"
+  if (digits > 0 && formatted.includes('.')) {
+    return formatted.replace(/\.?0+$/, '') || '0'
+  }
+  return formatted
 }
