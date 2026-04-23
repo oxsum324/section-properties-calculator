@@ -397,11 +397,15 @@ export function buildLoadCaseRows(params: ReportArtifactParams): ReportTableRow[
 }
 
 export function buildResultRows(params: ReportArtifactParams): ReportTableRow[] {
-  const { batchReview, unitPreferences } = params
+  const { batchReview, unitPreferences, review } = params
+  const excludedSet = new Set(review.project.excludedCheckIds ?? [])
   const rows: WorkbookRow[] = []
 
   for (const item of batchReview.loadCaseReviews) {
     for (const result of item.review.results) {
+      if (excludedSet.has(result.id)) {
+        continue
+      }
       const unit = getResultValueUnit(result, unitPreferences)
       rows.push({
         組合: item.loadCaseName,
@@ -447,11 +451,15 @@ export function buildDimensionRows(params: ReportArtifactParams): ReportTableRow
 }
 
 export function buildFactorRows(params: ReportArtifactParams): ReportTableRow[] {
-  const { batchReview } = params
+  const { batchReview, review } = params
+  const excludedSet = new Set(review.project.excludedCheckIds ?? [])
   const rows: WorkbookRow[] = []
 
   for (const item of batchReview.loadCaseReviews) {
     for (const result of item.review.results) {
+      if (excludedSet.has(result.id)) {
+        continue
+      }
       for (const factor of result.factors ?? []) {
         rows.push({
           組合: item.loadCaseName,

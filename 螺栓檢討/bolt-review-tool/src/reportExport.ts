@@ -506,14 +506,18 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
     reportGeneratedAt = new Date().toISOString(),
   } = params
 
+  // 過濾使用者標記「不檢討」的檢核項目
+  const excludedSet = new Set(review.project.excludedCheckIds ?? [])
+  const reportResults = review.results.filter((item) => !excludedSet.has(item.id))
+
   const evidenceRows = evaluationFieldStates.filter(
     (field) => field.hasValue || field.hasEvidence,
   )
-  const factorResults = review.results.filter(
+  const factorResults = reportResults.filter(
     (result) => result.factors && result.factors.length > 0,
   )
   const seismicResult =
-    review.results.find((result) => result.id === 'seismic') ?? null
+    reportResults.find((result) => result.id === 'seismic') ?? null
   const seismicRouteGuidance = review.project.loads.considerSeismic
     ? getSeismicRouteGuidance(
         review.project.loads,
@@ -961,10 +965,15 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
 
       <section class="card">
         <h2>破壞模式檢核</h2>
+        ${
+          excludedSet.size > 0
+            ? `<p class="meta">註：已排除 ${excludedSet.size} 項「不檢討」檢核（${[...excludedSet].map(escapeHtml).join('、')}）</p>`
+            : ''
+        }
         <table>
           <thead><tr><th>模式</th><th>條文</th><th>需求值</th><th>設計值</th><th>DCR</th><th>狀態</th></tr></thead>
           <tbody>
-            ${review.results
+            ${reportResults
               .map(
                 (result) => `<tr>
                   <td>${escapeHtml(result.mode)}<br /><small class="meta">${escapeHtml(getResultPresentationSummary(result, unitPreferences))}</small></td>

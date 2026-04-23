@@ -3459,13 +3459,21 @@ function buildSummary(
   completeness: ProductCompleteness,
   dimensionChecks: DimensionCheck[],
   results: CheckResult[],
+  excludedCheckIds: string[] = [],
 ) {
+  // 標記「不檢討」的檢核不參與整體判定與 DCR 排序；但仍保留在 results 給 UI 顯示
+  const excludedSet = new Set(excludedCheckIds)
+  const effectiveResults = results.filter((item) => !excludedSet.has(item.id))
+
   const dimensionFailure = dimensionChecks.some((item) => item.status === 'fail')
-  const incomplete = results.some((item) => item.status === 'incomplete')
-  const hasFail = results.some((item) => item.status === 'fail')
-  const hasScreening = results.some((item) => item.status === 'screening')
+  const incomplete = effectiveResults.some((item) => item.status === 'incomplete')
+  const hasFail = effectiveResults.some((item) => item.status === 'fail')
+  const hasScreening = effectiveResults.some(
+    (item) => item.status === 'screening',
+  )
   const maxResult =
-    [...results].sort(compareResultsForGovernance)[0] ?? results[0]
+    [...effectiveResults].sort(compareResultsForGovernance)[0] ??
+    effectiveResults[0]
 
   let overallStatus: ReviewStatus = 'pass'
   if (dimensionFailure || hasFail) {
@@ -3476,8 +3484,12 @@ function buildSummary(
     overallStatus = 'screening'
   }
 
-  const tensionResults = results.filter((item) => item.citation.clause.startsWith('17.6'))
-  const shearResults = results.filter((item) => item.citation.clause.startsWith('17.7'))
+  const tensionResults = effectiveResults.filter((item) =>
+    item.citation.clause.startsWith('17.6'),
+  )
+  const shearResults = effectiveResults.filter((item) =>
+    item.citation.clause.startsWith('17.7'),
+  )
   const governingTensionMode = pickGoverningMode(
     tensionResults,
     '無拉力結果',
@@ -3504,11 +3516,16 @@ function buildSummary(
     3,
   )
   const numericMaxDcr = round(
-    results
+    effectiveResults
       .filter((item) => Number.isFinite(item.dcr))
       .sort((first, second) => second.dcr - first.dcr)[0]?.dcr ?? 0,
     3,
   )
+  if (excludedSet.size > 0) {
+    notes.push(
+      `已標記「不檢討」：${excludedCheckIds.join('、')}，不參與整體判定、不列入報告表格。`,
+    )
+  }
   if (governingDcr < numericMaxDcr) {
     notes.push(
       `最大數值 DCR = ${numericMaxDcr}，但控制模式依 severity 判定為「${maxResult?.mode ?? '尚無控制結果'}」，控制 DCR = ${governingDcr}。`,
@@ -3668,7 +3685,13 @@ export function evaluateProject(
     ),
     dimensionChecks,
     results,
-    summary: buildSummary(product, completeness, dimensionChecks, results),
+    summary: buildSummary(
+      product,
+      completeness,
+      dimensionChecks,
+      results,
+      project.excludedCheckIds,
+    ),
   }
 }
 

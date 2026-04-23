@@ -1849,7 +1849,14 @@ function ReportDocument({
                   </tr>
                 </thead>
                 <tbody>
-                  {review.results.map((result) => (
+                  {review.results
+                    .filter(
+                      (result) =>
+                        !(review.project.excludedCheckIds ?? []).includes(
+                          result.id,
+                        ),
+                    )
+                    .map((result) => (
                     <tr key={result.id}>
                         <td>
                           <div className="result-mode-cell">
@@ -8760,17 +8767,38 @@ function App() {
                       <th>採用因子</th>
                       <th>DCR</th>
                       <th>狀態</th>
+                      <th>列入報告</th>
                 </tr>
               </thead>
               <tbody>
-                {review.results.map((result) => (
-                  <tr key={result.id}>
+                {review.results.map((result) => {
+                  const excluded = (project.excludedCheckIds ?? []).includes(
+                    result.id,
+                  )
+                  const needsAttention =
+                    result.status === 'incomplete' ||
+                    result.status === 'screening'
+                  return (
+                    <tr
+                      key={result.id}
+                      className={excluded ? 'result-row-excluded' : undefined}
+                    >
                       <td>
                         <div className="table-mode">
                           <strong>{result.mode}</strong>
                           <small>
                             {getResultPresentationSummary(result, unitPreferences)}
                             {result.note ? ` / ${result.note}` : ''}
+                            {needsAttention && !excluded ? (
+                              <em className="result-need-info">
+                                （需補資料，可在右側勾選「不檢討」排除）
+                              </em>
+                            ) : null}
+                            {excluded ? (
+                              <em className="result-excluded-note">
+                                （已標記不檢討，不列入報告）
+                              </em>
+                            ) : null}
                           </small>
                         </div>
                       </td>
@@ -8785,8 +8813,39 @@ function App() {
                         <small>{result.formal ? '正式' : '初篩 / 補資料'}</small>
                       </div>
                     </td>
+                    <td>
+                      <label
+                        className="switch switch-inline"
+                        title={
+                          excluded
+                            ? '勾選以重新檢討此項並列入報告'
+                            : '取消勾選以不檢討此項；將不列入報告且不影響整體判定'
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!excluded}
+                          onChange={(event) => {
+                            const current =
+                              project.excludedCheckIds ?? []
+                            const shouldInclude = event.target.checked
+                            const next = shouldInclude
+                              ? current.filter((id) => id !== result.id)
+                              : [...new Set([...current, result.id])]
+                            patchProject({ excludedCheckIds: next })
+                            setSaveMessage(
+                              shouldInclude
+                                ? `已恢復檢討「${result.mode}」`
+                                : `已標記「${result.mode}」不檢討（不列入報告）`,
+                            )
+                          }}
+                        />
+                        <span>{excluded ? '不檢討' : '檢討此項'}</span>
+                      </label>
+                    </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>

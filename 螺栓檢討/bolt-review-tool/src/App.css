@@ -2988,6 +2988,39 @@ label.field-has-warning > input {
   margin-left: auto;
 }
 
+/* 標記「不檢討」的結果列：弱化顯示 */
+.result-row-excluded {
+  opacity: 0.55;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(203, 213, 216, 0.15) 0 6px,
+    rgba(203, 213, 216, 0.3) 6px 12px
+  );
+}
+
+.result-row-excluded td {
+  text-decoration-color: #9aa6ab;
+}
+
+.result-row-excluded .table-mode strong {
+  text-decoration: line-through;
+  color: #6a7a80;
+}
+
+/* 需補資料的提示 / 被排除的註記 */
+.result-need-info {
+  color: #8a5a0f;
+  font-style: normal;
+  font-weight: 500;
+  margin-left: 6px;
+}
+
+.result-excluded-note {
+  color: #6a7a80;
+  font-style: normal;
+  margin-left: 6px;
+}
+
 /* 工作區備份 bar（hub 首頁可見） */
 .workspace-backup-bar {
   display: flex;

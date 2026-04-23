@@ -1160,6 +1160,38 @@ describe('Taiwan Chapter 17 review engine', () => {
     expect(interaction?.dcr).toBeGreaterThanOrEqual(interactionDefault?.dcr ?? 0)
   })
 
+  it('excludedCheckIds hides items from summary and does not pollute overallStatus', () => {
+    // 用 expansion 產品缺資料的情境，預期 seismic 或 pullout 為 incomplete
+    const expansion = defaultProducts.find(
+      (product) => product.id === 'template-expansion-m16',
+    )
+    expect(expansion).toBeDefined()
+    const project = cloneProject(defaultProject)
+    project.loads.tensionKn = 10
+    project.loads.shearXKn = 5
+    project.layout.crackedConcrete = true
+    project.loads.considerSeismic = true
+
+    const baseline = evaluateProject(project, expansion!)
+    const incompleteIds = baseline.results
+      .filter((r) => r.status === 'incomplete')
+      .map((r) => r.id)
+    expect(incompleteIds.length).toBeGreaterThan(0)
+
+    // 標記全部 incomplete 項目為不檢討
+    project.excludedCheckIds = incompleteIds
+    const filtered = evaluateProject(project, expansion!)
+
+    // 整體判定不應再受 incomplete 影響
+    expect(filtered.summary.overallStatus).not.toBe('incomplete')
+    // 備註需列出被排除項目
+    expect(
+      filtered.summary.notes.some((note) => note.includes('不檢討')),
+    ).toBe(true)
+    // results 仍保留全部（UI 需顯示），只是 summary 不算
+    expect(filtered.results.length).toBe(baseline.results.length)
+  })
+
   it('applies 17.8.1 / 17.8.2 exception when either ratio <= 0.2', () => {
     // T ratio 很小、V ratio 大 → 應免作 17.8.3，直接以 V 檢核
     const project = cloneProject(defaultProject)

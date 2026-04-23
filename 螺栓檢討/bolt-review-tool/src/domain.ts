@@ -387,6 +387,15 @@ export interface ProjectCase {
   ui?: UnitPreferences
   report?: ReportSettings
   documents?: ProjectDocument[]
+  /**
+   * 使用者標記「不檢討此項」的檢核 ID 清單（例如 'side-face-blowout', 'seismic'）。
+   * 這些檢核：
+   * - 仍會在 UI 結果頁顯示，但以弱化樣式呈現並標註「不列入報告」
+   * - 不參與 overallStatus / maxDcr / governingMode 的判定
+   * - 不寫入 HTML / XLSX / DOCX / 畫面列印區的報告表格
+   * 用於本案不適用、資料不足且不影響主控的次要檢核，避免「incomplete」污染整體判定。
+   */
+  excludedCheckIds?: string[]
   updatedAt: string
   snapshot?: ProjectSnapshot
   auditTrail?: ProjectAuditEntry[]
