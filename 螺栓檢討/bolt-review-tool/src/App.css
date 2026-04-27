@@ -2695,6 +2695,11 @@ label.field-has-warning > input {
   line-height: 1.5;
 }
 
+.action-hint button {
+  align-self: flex-start;
+  margin-top: 10px;
+}
+
 .action-hint em {
   font-style: normal;
   font-weight: 600;
@@ -2713,6 +2718,12 @@ label.field-has-warning > input {
   background: #fff7dc;
   border-left: 4px solid #e0a44d;
   color: #6d4a0c;
+}
+
+.action-hint-passive {
+  background: #eef6f8;
+  border-left: 4px solid #6b9fb1;
+  color: #23404a;
 }
 
 .product-search-row {
@@ -4250,6 +4261,68 @@ label.field-has-warning > input {
   color: #6a7a80;
   padding: 16px;
   font-style: italic;
+}
+
+/* 列印報告：使用邊界與版本區塊（最末頁） */
+.report-disclaimer-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 2px solid #6a7a80;
+  page-break-before: always;
+}
+
+.report-disclaimer-section h2 {
+  margin-bottom: 12px;
+  color: #1b2b30;
+}
+
+.report-version-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.4fr) 1fr;
+  gap: 6px 12px;
+  margin: 0 0 14px;
+  font-size: 0.92rem;
+}
+
+.report-version-list > div {
+  display: contents;
+}
+
+.report-version-list dt {
+  margin: 0;
+  color: #4b5f66;
+  font-weight: 600;
+  border-bottom: 1px dashed #cbd5d8;
+  padding: 4px 0;
+}
+
+.report-version-list dd {
+  margin: 0;
+  color: #1b2b30;
+  border-bottom: 1px dashed #cbd5d8;
+  padding: 4px 0;
+}
+
+.report-version-list code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #f0f4f5;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.report-disclaimer-text {
+  background: #fafcfc;
+  border: 1px solid #cbd5d8;
+  border-left: 4px solid #c04030;
+  padding: 12px 14px;
+  border-radius: 6px;
+  line-height: 1.7;
+  color: #1b2b30;
+  font-size: 0.92rem;
+}
+
+.report-disclaimer-text strong {
+  color: #7a1e10;
 }
 
 @media print {

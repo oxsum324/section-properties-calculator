@@ -14,6 +14,13 @@ import {
 import './App.css'
 import { getAnchorReinforcementOverlay } from './anchorReinforcementOverlay'
 import {
+  CURRENT_APP_BUILD_TIME,
+  CURRENT_CALC_ENGINE_VERSION,
+  ENGINEERING_USE_DISCLAIMER,
+  getCalcEngineVersionStatus,
+  normalizeCalcEngineVersion,
+} from './appMeta'
+import {
   getBasePlatePlanDimensions,
   getColumnSectionType,
   getDerivedBasePlateCantilevers,
@@ -350,6 +357,7 @@ function cloneProject(project: ProjectCase) {
   return {
     ...project,
     ruleProfileId: normalizeRuleProfileId(project.ruleProfileId),
+    calcEngineVersion: normalizeCalcEngineVersion(project.calcEngineVersion),
     layout: {
       ...defaultProject.layout,
       ...project.layout,
@@ -1993,6 +2001,47 @@ function ReportDocument({
             <div className="report-signature-line" />
           </article>
         </section>
+
+        <section className="report-section report-disclaimer-section">
+          <h2>使用邊界與版本</h2>
+          <dl className="report-version-list">
+            <div>
+              <dt>本案計算版本</dt>
+              <dd>
+                <code>
+                  {review.project.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION}
+                </code>
+              </dd>
+            </div>
+            <div>
+              <dt>目前工具版本</dt>
+              <dd>
+                <code>{CURRENT_CALC_ENGINE_VERSION}</code> · build{' '}
+                {formatDateTime(CURRENT_APP_BUILD_TIME)}
+              </dd>
+            </div>
+            <div>
+              <dt>版本一致性</dt>
+              <dd>
+                {(review.project.calcEngineVersion ??
+                  CURRENT_CALC_ENGINE_VERSION) === CURRENT_CALC_ENGINE_VERSION
+                  ? '✓ 一致'
+                  : '⚠ 不一致：建議重新留痕'}
+              </dd>
+            </div>
+            <div>
+              <dt>規範版本</dt>
+              <dd>
+                {review.ruleProfile.chapter17Title} ·{' '}
+                {review.ruleProfile.versionLabel}
+              </dd>
+            </div>
+          </dl>
+          <p className="report-disclaimer-text">
+            <strong>簽證責任聲明：</strong>
+            {ENGINEERING_USE_DISCLAIMER}
+          </p>
+        </section>
       </div>
     </section>
   )
@@ -2679,6 +2728,14 @@ function App() {
     () => getLatestProjectAuditEntry(project) ?? null,
     [project],
   )
+  const calcEngineVersionStatus = useMemo(
+    () => getCalcEngineVersionStatus(project.calcEngineVersion),
+    [project.calcEngineVersion],
+  )
+  const calcEngineMismatch = calcEngineVersionStatus.mismatch
+  const calcEngineStatusMessage = calcEngineMismatch
+    ? `本案原始計算版本為 ${calcEngineVersionStatus.projectVersion}，目前工具為 ${calcEngineVersionStatus.runtimeVersion}。目前畫面結果已依最新版引擎重算，正式交付前應重新檢核並建立新留痕。`
+    : `本案計算版本與目前工具版本一致：${calcEngineVersionStatus.runtimeVersion}`
   const caseDocuments = useMemo(() => project.documents ?? [], [project.documents])
   const previewDocumentMeta = previewDocumentId
     ? caseDocuments.find((item) => item.id === previewDocumentId) ?? null
@@ -3216,6 +3273,15 @@ function App() {
       ...patch,
       updatedAt: new Date().toISOString(),
     })
+  }
+
+  function adoptCurrentCalcEngineVersion() {
+    patchProject({
+      calcEngineVersion: CURRENT_CALC_ENGINE_VERSION,
+    })
+    setSaveMessage(
+      `已將本案計算版本更新為 ${CURRENT_CALC_ENGINE_VERSION}；建議立即重新留痕或重新匯出報表。`,
+    )
   }
 
   function patchCandidateProducts(nextCandidateProductIds: string[]) {
@@ -4348,6 +4414,7 @@ function App() {
       '最大 DCR',
       '控制模式',
       '控制組合',
+      '計算版本',
       'Hash',
     ]
     const body = [...trail]
@@ -4365,6 +4432,7 @@ function App() {
         e.summary.maxDcr ?? '',
         e.summary.governingMode ?? '',
         e.summary.controllingLoadCaseName ?? '',
+        e.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION,
         e.hash,
       ])
     const csv = [header, ...body]
@@ -4403,7 +4471,6 @@ function App() {
       evaluationFieldStates,
       unitPreferences,
       reportSettings,
-      saveMessage,
       auditEntry: auditEntry ?? undefined,
       auditTrail,
       autoPrint,
@@ -4755,6 +4822,17 @@ function App() {
               {latestAuditEntry ? formatAuditHash(latestAuditEntry.hash) : '尚未留存'}
             </strong>
           </div>
+          <div
+            className={`status-chip${calcEngineMismatch ? ' status-chip-dirty' : ''}`}
+            title={calcEngineStatusMessage}
+          >
+            <span>引擎</span>
+            <strong className="status-chip-truncate">
+              {calcEngineMismatch
+                ? `${calcEngineVersionStatus.projectVersion} → ${calcEngineVersionStatus.runtimeVersion}`
+                : calcEngineVersionStatus.runtimeVersion}
+            </strong>
+          </div>
         </div>
       </header>
 
@@ -4918,6 +4996,27 @@ function App() {
           <span className="separator">/</span>
           <span>案例會凍結在目前 profileId</span>
         </div>
+      </section>
+
+      <section
+        className={`action-hint ${calcEngineMismatch ? 'action-hint-warn' : 'action-hint-passive'}`}
+        aria-live="polite"
+      >
+        <strong>
+          {calcEngineMismatch ? '計算版本差異' : '簽證責任與版本追溯'}
+        </strong>
+        <span>
+          {calcEngineStatusMessage} {ENGINEERING_USE_DISCLAIMER}
+        </span>
+        {calcEngineMismatch ? (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={adoptCurrentCalcEngineVersion}
+          >
+            將本案版本更新為目前 build
+          </button>
+        ) : null}
       </section>
 
       <nav
@@ -8227,6 +8326,11 @@ function App() {
             <p className="helper-text">
               摘要版列印時只保留控制檢核與例外尺寸；完整明細版會附上逐項條文與產品證據對照。
             </p>
+            <p className="helper-text">
+              目前工具版本：<code>{CURRENT_CALC_ENGINE_VERSION}</code> · build{' '}
+              <code>{formatDateTime(CURRENT_APP_BUILD_TIME)}</code>。案例會保存本案計算版本，報表也會同步列出版本狀態與留痕資訊。
+            </p>
+            <p className="helper-text">{ENGINEERING_USE_DISCLAIMER}</p>
           </details>
 
           <details
@@ -9933,6 +10037,7 @@ function App() {
                       <th>整體</th>
                       <th>控制 DCR</th>
                       <th>控制模式</th>
+                      <th>計算版本</th>
                       <th>Hash</th>
                       <th>操作</th>
                     </tr>
@@ -9994,6 +10099,9 @@ function App() {
                               </code>
                             </td>
                             <td>{entry.summary.governingMode ?? '—'}</td>
+                            <td>
+                              <code>{entry.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION}</code>
+                            </td>
                             <td>
                               <code
                                 className="audit-hash-cell"

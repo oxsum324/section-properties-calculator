@@ -10,6 +10,7 @@ import {
   defaultProject,
   normalizeReportSettings,
 } from './defaults'
+import { CURRENT_CALC_ENGINE_VERSION, ENGINEERING_USE_DISCLAIMER } from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildStandaloneReportHtml } from './reportExport'
 import { normalizeUnitPreferences } from './units'
@@ -34,13 +35,16 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(defaultProject.ui),
       reportSettings: normalizeReportSettings(defaultProject.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('<!doctype html>')
     expect(html).toContain(defaultProject.name)
     expect(html).toContain('載重組合批次檢核')
     expect(html).toContain('φ / ψ 採用總表')
+    expect(html).toContain('使用邊界與版本追溯')
+    expect(html).toContain(CURRENT_CALC_ENGINE_VERSION)
+    expect(html).toContain(ENGINEERING_USE_DISCLAIMER)
+    expect(html).not.toContain('離線狀態')
   })
 
   it('renders audit trail metadata when provided', () => {
@@ -61,7 +65,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(defaultProject.ui),
       reportSettings: normalizeReportSettings(defaultProject.report),
-      saveMessage: '離線資料已同步',
       auditEntry: {
         id: 'audit-1',
         createdAt: '2026-04-22T10:00:00.000Z',
@@ -128,7 +131,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '已存檔',
     })
 
     expect(html).not.toContain('<script>alert(1)</script>')
@@ -154,7 +156,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(defaultProject.ui),
       reportSettings: normalizeReportSettings(defaultProject.report),
-      saveMessage: '離線資料已同步',
       autoPrint: true,
     })
 
@@ -199,7 +200,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('候選配置比選')
@@ -246,7 +246,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('route-matrix')
@@ -279,7 +278,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('補強鋼筋 As=4000 fy=420')
@@ -313,7 +311,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('A1 40,000')
@@ -367,7 +364,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('bearing-zone')
@@ -424,7 +420,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('自訂 Sx / Sy')
@@ -477,7 +472,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('應力（MPa）')
@@ -536,7 +530,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('B × N')
@@ -585,7 +578,6 @@ describe('buildStandaloneReportHtml', () => {
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(project.ui),
       reportSettings: normalizeReportSettings(project.report),
-      saveMessage: '離線資料已同步',
     })
 
     expect(html).toContain('耐震路徑建議')

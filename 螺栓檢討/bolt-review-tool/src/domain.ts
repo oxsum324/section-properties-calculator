@@ -373,6 +373,7 @@ export interface ProjectAuditEntry {
   createdAt: string
   hash: string
   source: ProjectAuditSource
+  calcEngineVersion?: string
   ruleProfileId: RuleProfileId
   projectName: string
   productLabel: string
@@ -383,6 +384,7 @@ export interface ProjectCase {
   id: string
   name: string
   ruleProfileId: RuleProfileId
+  calcEngineVersion?: string
   selectedProductId: string
   candidateProductIds?: string[]
   candidateLayoutVariants?: ProjectLayoutVariant[]

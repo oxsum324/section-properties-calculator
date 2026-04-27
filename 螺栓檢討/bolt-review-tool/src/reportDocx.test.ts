@@ -53,7 +53,6 @@ function buildParams() {
     evaluationFieldStates: getEvaluationFieldStates(product!),
     unitPreferences: normalizeUnitPreferences(project.ui),
     reportSettings: normalizeReportSettings(project.report),
-    saveMessage: '離線資料已同步',
   }
 }
 

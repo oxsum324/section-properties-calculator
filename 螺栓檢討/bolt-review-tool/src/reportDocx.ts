@@ -13,6 +13,12 @@ import {
   TextRun,
   WidthType,
 } from 'docx'
+import {
+  CURRENT_APP_BUILD_TIME,
+  CURRENT_CALC_ENGINE_VERSION,
+  ENGINEERING_USE_DISCLAIMER,
+  getCalcEngineVersionStatus,
+} from './appMeta'
 import { buildStandaloneGeometrySketchSvg } from './reportExport'
 import type { ReportArtifactParams } from './reportExport'
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
@@ -453,6 +459,66 @@ function buildSection(
   ]
 }
 
+/**
+ * 「使用邊界與版本」終章：報告固定附最後一頁，含 calc engine 版本、build 時間、
+ * 版本一致性狀態，以及法律免責聲明。供工程審查與簽證驗證。
+ */
+function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
+  const status = getCalcEngineVersionStatus(
+    params.review.project.calcEngineVersion,
+  )
+  const versionRows: Array<[string, string]> = [
+    ['本案計算版本', status.projectVersion],
+    ['目前工具版本（runtime）', status.runtimeVersion],
+    [
+      '版本一致性',
+      status.mismatch
+        ? '⚠ 不一致：本案先前以另一版本計算；如需確認請按主畫面「升級至目前版本」並重新留痕'
+        : '✓ 一致：本案計算版本與目前工具相同',
+    ],
+    ['工具 build 時間', formatDocxDateTime(CURRENT_APP_BUILD_TIME)],
+    [
+      '規範版本',
+      `${params.review.ruleProfile.chapter17Title}（${params.review.ruleProfile.versionLabel}）`,
+    ],
+  ]
+  return [
+    createParagraph('使用邊界與版本', {
+      heading: HeadingLevel.HEADING_1,
+      pageBreakBefore: true,
+    }),
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      layout: TableLayoutType.FIXED,
+      rows: versionRows.map(
+        ([label, value]) =>
+          new TableRow({
+            children: [
+              createTableCell(label, {
+                bold: true,
+                fill: docxColors.sectionFill,
+                color: docxColors.brand,
+              }),
+              createTableCell(value, {}),
+            ],
+          }),
+      ),
+    }),
+    createParagraph('簽證責任聲明', {
+      heading: HeadingLevel.HEADING_2,
+    }),
+    createParagraph(ENGINEERING_USE_DISCLAIMER, {
+      color: docxColors.muted,
+    }),
+    createParagraph(
+      `本報告由 bolt-review-tool ${CURRENT_CALC_ENGINE_VERSION} 自動產出；` +
+        '計算邏輯經內部測試，但仍應由執業技師依現行規範、原始資料與完整工程判斷負責。' +
+        '報表設計值與最大數值 DCR 僅供決策輔助；正式設計、審查、簽證以技師最終認定為準。',
+      { color: docxColors.muted, size: 18 },
+    ),
+  ]
+}
+
 export function buildReportDocument(
   params: ReportArtifactParams,
   geometryPngBytes: Uint8Array | null = null,
@@ -498,6 +564,8 @@ export function buildReportDocument(
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
       pageBreakBefore: true,
     }),
+    // 使用邊界與版本：固定置於文件最末，作為簽證責任 / 版本驗證依據
+    ...buildVersionAndDisclaimerSection(params),
   ]
 
   return new Document({

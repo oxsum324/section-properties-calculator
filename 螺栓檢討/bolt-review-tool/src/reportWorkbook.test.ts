@@ -12,6 +12,7 @@ import {
   defaultProject,
   normalizeReportSettings,
 } from './defaults'
+import { CURRENT_CALC_ENGINE_VERSION } from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildReportWorkbook, serializeReportWorkbook } from './reportWorkbook'
 import { normalizeUnitPreferences } from './units'
@@ -55,7 +56,6 @@ function buildParams() {
     evaluationFieldStates: getEvaluationFieldStates(product!),
     unitPreferences: normalizeUnitPreferences(project.ui),
     reportSettings: normalizeReportSettings(project.report),
-    saveMessage: '離線資料已同步',
     auditEntry: {
       id: 'audit-1',
       createdAt: '2026-04-22T10:00:00.000Z',
@@ -148,6 +148,15 @@ describe('reportWorkbook', () => {
     const summaryRows = worksheetToObjects(workbook, 'Summary')
     expect(summaryRows.some((row) => row.項目 === '案例名稱')).toBe(true)
     expect(summaryRows.some((row) => row.項目 === '控制模式')).toBe(true)
+    expect(
+      summaryRows.some(
+        (row) =>
+          row.項目 === '案件計算版本' && row.值 === CURRENT_CALC_ENGINE_VERSION,
+      ),
+    ).toBe(true)
+    expect(
+      summaryRows.some((row) => row.項目 === '使用邊界 / 簽證責任'),
+    ).toBe(true)
 
     const summarySheet = workbook.getWorksheet('Summary')
     expect(summarySheet).toBeDefined()

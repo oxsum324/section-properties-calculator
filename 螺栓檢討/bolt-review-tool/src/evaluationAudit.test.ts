@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { assessProductCompleteness, evaluateProjectBatch } from './calc'
+import { CURRENT_CALC_ENGINE_VERSION } from './appMeta'
 import { defaultProducts, defaultProject, normalizeReportSettings } from './defaults'
 import { createProjectAuditEntry } from './evaluationAudit'
 
@@ -38,6 +39,7 @@ describe('evaluationAudit', () => {
     ])
 
     expect(first.hash).toBe(second.hash)
+    expect(first.calcEngineVersion).toBe(CURRENT_CALC_ENGINE_VERSION)
   })
 
   it('changes hash when engineering inputs change', async () => {

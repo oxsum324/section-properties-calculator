@@ -10,6 +10,10 @@ import type {
   ReportSettings,
   ReviewBatchResult,
 } from './domain'
+import {
+  CURRENT_CALC_ENGINE_VERSION,
+  normalizeCalcEngineVersion,
+} from './appMeta'
 
 interface CreateProjectAuditEntryParams {
   project: ProjectCase
@@ -60,6 +64,7 @@ function stripProjectForAudit(project: ProjectCase) {
     id: project.id,
     name: project.name,
     ruleProfileId: project.ruleProfileId,
+    calcEngineVersion: normalizeCalcEngineVersion(project.calcEngineVersion),
     selectedProductId: project.selectedProductId,
     candidateProductIds: [...(project.candidateProductIds ?? [])],
     candidateLayoutVariants: (project.candidateLayoutVariants ?? []).map(
@@ -181,6 +186,7 @@ export async function createProjectAuditEntry(
 ): Promise<ProjectAuditEntry> {
   const payload = {
     schema: 'bolt-review-tool-audit-v1',
+    runtimeCalcEngineVersion: CURRENT_CALC_ENGINE_VERSION,
     project: stripProjectForAudit(params.project),
     selectedProduct: {
       ...params.selectedProduct,
@@ -209,6 +215,7 @@ export async function createProjectAuditEntry(
     createdAt: timestamp,
     hash,
     source: params.source,
+    calcEngineVersion: CURRENT_CALC_ENGINE_VERSION,
     ruleProfileId: params.project.ruleProfileId,
     projectName: params.project.name,
     productLabel: `${params.selectedProduct.brand} ${params.selectedProduct.model}`,

@@ -1,4 +1,10 @@
 import ExcelJS from 'exceljs'
+import {
+  CURRENT_APP_BUILD_TIME,
+  CURRENT_CALC_ENGINE_VERSION,
+  ENGINEERING_USE_DISCLAIMER,
+  getCalcEngineVersionStatus,
+} from './appMeta'
 import type {
   CheckResult,
   ProjectAuditSource,
@@ -29,6 +35,25 @@ function formatNumber(value: number, digits = 3) {
 
   const scale = 10 ** digits
   return Math.round(value * scale) / scale
+}
+
+function formatDateTime(value?: string) {
+  if (!value) {
+    return ''
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  return parsed.toLocaleString('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function statusLabel(status: ReviewStatus) {
@@ -354,6 +379,12 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
   } = params
 
   const reportGeneratedAt = params.reportGeneratedAt ?? new Date().toISOString()
+  const calcEngineVersionStatus = getCalcEngineVersionStatus(
+    review.project.calcEngineVersion,
+  )
+  const calcEngineStatusLabel = calcEngineVersionStatus.mismatch
+    ? `本案原始版本 ${calcEngineVersionStatus.projectVersion}，目前以 ${calcEngineVersionStatus.runtimeVersion} 重算；正式交付前應重新檢核並留痕。`
+    : `與目前工具版本一致（${CURRENT_CALC_ENGINE_VERSION}）`
   return [
     { 項目: '案例名稱', 值: review.project.name },
     { 項目: '規範版本', 值: review.ruleProfile.versionLabel },
@@ -368,11 +399,16 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     { 項目: '控制 DCR', 值: formatNumber(getGoverningDcr(batchReview.summary)) },
     { 項目: '最大數值 DCR', 值: formatNumber(batchReview.summary.maxDcr) },
     { 項目: '產品 completeness', 值: completeness.formal ? '完整' : '待補' },
-    { 項目: REPORT_TIMESTAMP_LABELS.editedAt, 值: review.project.updatedAt },
-    { 項目: REPORT_TIMESTAMP_LABELS.generatedAt, 值: reportGeneratedAt },
-    { 項目: REPORT_TIMESTAMP_LABELS.auditedAt, 值: params.auditEntry?.createdAt ?? '' },
+    { 項目: '案件計算版本', 值: calcEngineVersionStatus.projectVersion },
+    { 項目: '目前工具版本', 值: calcEngineVersionStatus.runtimeVersion },
+    { 項目: '版本狀態', 值: calcEngineStatusLabel },
+    { 項目: REPORT_TIMESTAMP_LABELS.editedAt, 值: formatDateTime(review.project.updatedAt) },
+    { 項目: REPORT_TIMESTAMP_LABELS.generatedAt, 值: formatDateTime(reportGeneratedAt) },
+    { 項目: REPORT_TIMESTAMP_LABELS.auditedAt, 值: formatDateTime(params.auditEntry?.createdAt) },
     { 項目: REPORT_TIMESTAMP_LABELS.auditSource, 值: auditSourceLabel(params.auditEntry?.source) },
     { 項目: REPORT_TIMESTAMP_LABELS.auditHash, 值: formatAuditHash(params.auditEntry?.hash) },
+    { 項目: '目前 build 時間', 值: formatDateTime(CURRENT_APP_BUILD_TIME) },
+    { 項目: '使用邊界 / 簽證責任', 值: ENGINEERING_USE_DISCLAIMER },
     {
       項目: '目前單位',
       值: `${getUnitSymbol('length', unitPreferences)} / ${getUnitSymbol('area', unitPreferences)} / ${getUnitSymbol('force', unitPreferences)} / ${getUnitSymbol('stress', unitPreferences)}`,
@@ -382,9 +418,10 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
 
 export function buildAuditRows(params: ReportArtifactParams): ReportTableRow[] {
   return (params.auditTrail ?? []).map((entry) => ({
-    時間: entry.createdAt,
+    時間: formatDateTime(entry.createdAt),
     來源: auditSourceLabel(entry.source),
     Hash: formatAuditHash(entry.hash, 16),
+    計算版本: entry.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION,
     控制組合: entry.summary.controllingLoadCaseName ?? '',
     控制模式: entry.summary.governingMode,
     控制DCR: formatNumber(entry.summary.governingDcr ?? entry.summary.maxDcr),

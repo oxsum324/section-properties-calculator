@@ -1,4 +1,9 @@
 import { getAnchorReinforcementOverlay } from './anchorReinforcementOverlay'
+import {
+  CURRENT_APP_BUILD_TIME,
+  ENGINEERING_USE_DISCLAIMER,
+  getCalcEngineVersionStatus,
+} from './appMeta'
 import { getBasePlateBearingOverlay } from './bearingOverlay'
 import {
   getBasePlatePlanDimensions,
@@ -33,8 +38,6 @@ export interface ReportArtifactParams {
   evaluationFieldStates: EvaluationFieldState[]
   unitPreferences: UnitPreferences
   reportSettings: ReportSettings
-  /** @deprecated 暫時 UI 狀態，不應出現在正式報告。保留欄位避免破壞 caller，內部不再渲染。 */
-  saveMessage: string
   auditEntry?: ProjectAuditEntry
   auditTrail?: ProjectAuditEntry[]
   autoPrint?: boolean
@@ -500,12 +503,17 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
     evaluationFieldStates,
     unitPreferences,
     reportSettings,
-    // saveMessage 為暫時 UI 狀態，不再寫入正式報告（保留欄位於介面避免破壞 caller）
     auditEntry,
     auditTrail = [],
     autoPrint = false,
     reportGeneratedAt = new Date().toISOString(),
   } = params
+  const calcEngineVersionStatus = getCalcEngineVersionStatus(
+    review.project.calcEngineVersion,
+  )
+  const calcEngineStatusLabel = calcEngineVersionStatus.mismatch
+    ? `本案原始版本 ${calcEngineVersionStatus.projectVersion}，目前以 ${calcEngineVersionStatus.runtimeVersion} 重算；正式交付前應重新檢核並留痕。`
+    : `本案計算版本與目前工具版本一致：${calcEngineVersionStatus.runtimeVersion}`
 
   // 過濾使用者標記「不檢討」的檢核項目
   const excludedSet = new Set(review.project.excludedCheckIds ?? [])
@@ -741,6 +749,8 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
             <li>Ase = ${escapeHtml(formatQuantity(selectedProduct.effectiveAreaMm2, 'area', unitPreferences))}</li>
             <li>目前單位 = ${escapeHtml(getUnitSymbol('length', unitPreferences))} / ${escapeHtml(getUnitSymbol('area', unitPreferences))} / ${escapeHtml(getUnitSymbol('force', unitPreferences))} / ${escapeHtml(getUnitSymbol('stress', unitPreferences))}</li>
             <li>產品完整性 = ${escapeHtml(completeness.formal ? '正式判定' : '需補資料')}</li>
+            <li>案件計算版本 = <code>${escapeHtml(calcEngineVersionStatus.projectVersion)}</code></li>
+            <li>目前工具版本 = <code>${escapeHtml(calcEngineVersionStatus.runtimeVersion)}</code> / build ${escapeHtml(formatDateTime(CURRENT_APP_BUILD_TIME))}</li>
             <li>基板承壓 = ${escapeHtml(review.project.layout.basePlateBearingEnabled ? `已啟用（A1 ${formatQuantity(getEffectiveBasePlateLoadedArea(review), 'area', unitPreferences)} / ${basePlateSectionTypeLabel(basePlateSectionType)}${basePlatePlan.widthMm > 0 && basePlatePlan.heightMm > 0 ? ` / B × N ${formatQuantity(basePlatePlan.widthMm, 'length', unitPreferences)} × ${formatQuantity(basePlatePlan.heightMm, 'length', unitPreferences)}` : ''}${((review.project.layout.columnCentroidOffsetXmm ?? 0) !== 0 || (review.project.layout.columnCentroidOffsetYmm ?? 0) !== 0) ? ` / 柱偏移 ${formatQuantity(review.project.layout.columnCentroidOffsetXmm ?? 0, 'length', unitPreferences)} × ${formatQuantity(review.project.layout.columnCentroidOffsetYmm ?? 0, 'length', unitPreferences)}` : ''}${review.project.layout.basePlateBendingEnabled ? ` / tp ${formatQuantity(review.project.layout.basePlateThicknessMm, 'length', unitPreferences)} / Fy ${formatQuantity(review.project.layout.basePlateSteelYieldMpa, 'stress', unitPreferences)}` : ''}）` : '未啟用')}</li>
           </ul>
           ${
@@ -771,13 +781,14 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
           ? `<section class="card">
               <h2>審查留痕</h2>
               <table>
-                <thead><tr><th>時間</th><th>來源</th><th>Hash</th><th>控制組合</th><th>控制模式</th><th>控制 DCR</th></tr></thead>
+                <thead><tr><th>時間</th><th>來源</th><th>計算版本</th><th>Hash</th><th>控制組合</th><th>控制模式</th><th>控制 DCR</th></tr></thead>
                 <tbody>
                   ${auditTrail
                     .map(
                       (entry) => `<tr>
                         <td>${escapeHtml(formatDateTime(entry.createdAt))}</td>
                         <td>${escapeHtml(auditSourceLabel(entry.source))}</td>
+                        <td><code>${escapeHtml(entry.calcEngineVersion ?? calcEngineVersionStatus.runtimeVersion)}</code></td>
                         <td><code>${escapeHtml(formatAuditHash(entry.hash, 16))}</code></td>
                         <td>${escapeHtml(entry.summary.controllingLoadCaseName ?? '—')}</td>
                         <td>${escapeHtml(entry.summary.governingMode)}</td>
@@ -790,6 +801,18 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
             </section>`
           : ''
       }
+
+      <section class="card">
+        <h2>使用邊界與版本追溯</h2>
+        <ul>
+          <li>版本狀態 = ${escapeHtml(calcEngineStatusLabel)}</li>
+          <li>案件計算版本 = <code>${escapeHtml(calcEngineVersionStatus.projectVersion)}</code></li>
+          <li>目前工具版本 = <code>${escapeHtml(calcEngineVersionStatus.runtimeVersion)}</code></li>
+          <li>目前 build 時間 = ${escapeHtml(formatDateTime(CURRENT_APP_BUILD_TIME))}</li>
+          <li>留痕來源 / Hash = ${escapeHtml(auditEntry ? `${auditSourceLabel(auditEntry.source)} / ${formatAuditHash(auditEntry.hash, 16)}` : '未留存')}</li>
+        </ul>
+        <p class="meta">${escapeHtml(ENGINEERING_USE_DISCLAIMER)}</p>
+      </section>
 
       <section class="card">
         <h2>幾何配置</h2>

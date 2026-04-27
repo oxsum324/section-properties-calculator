@@ -4,6 +4,7 @@ import type {
   ReportSettings,
   RuleProfile,
 } from './domain'
+import { normalizeCalcEngineVersion } from './appMeta'
 import { defaultLoadCasePresetInput } from './loadCasePresetInput'
 import { defaultUnitPreferences } from './units'
 
@@ -186,6 +187,7 @@ export const defaultProject: ProjectCase = {
   id: 'current-project',
   name: '柱腳基板示例',
   ruleProfileId: 'tw_rc_112_anchor_profile',
+  calcEngineVersion: normalizeCalcEngineVersion(),
   selectedProductId: 'generic-cast-m20',
   candidateProductIds: ['generic-cast-m20'],
   candidateLayoutVariants: [],
