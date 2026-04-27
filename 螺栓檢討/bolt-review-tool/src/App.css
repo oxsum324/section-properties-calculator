@@ -3876,6 +3876,93 @@ label.field-has-warning > input {
   }
 }
 
+/* 案例庫搜尋列 */
+.case-library-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.case-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: 1;
+  min-width: 220px;
+  justify-content: flex-end;
+}
+
+.case-search-row input[type='search'] {
+  flex: 1;
+  max-width: 320px;
+  padding: 6px 10px;
+  border: 1px solid #c9d3d6;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+/* 審查留痕歷程表 */
+.audit-history-panel summary {
+  font-weight: 600;
+}
+
+.audit-history-table code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #eef3f4;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.84rem;
+}
+
+.audit-history-table .audit-row-latest {
+  background: #f0f7f7;
+}
+
+.audit-latest-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  background: #0b7285;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.audit-hash-cell {
+  margin-right: 4px;
+}
+
+.audit-hash-copy,
+.audit-delete {
+  background: transparent;
+  border: 1px solid #c9d3d6;
+  color: #4b5f66;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.audit-hash-copy:hover {
+  background: #e6f1f3;
+  border-color: #0b7285;
+  color: #0b4b56;
+}
+
+.audit-delete {
+  color: #9c2b16;
+  border-color: #d4a4a4;
+}
+
+.audit-delete:hover {
+  background: #fcecea;
+  border-color: #c04030;
+}
+
 @media print {
   .copy-summary-button,
   .landing-pwa-install {

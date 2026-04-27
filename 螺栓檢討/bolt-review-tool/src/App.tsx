@@ -2436,6 +2436,8 @@ function App() {
   const [expandedResultIds, setExpandedResultIds] = useState<Set<string>>(
     new Set(),
   )
+  // 案例庫搜尋字串：依名稱 / 案號 / 產品 / 控制模式即時過濾
+  const [caseLibrarySearch, setCaseLibrarySearch] = useState('')
   // 首次造訪歡迎卡：localStorage 記錄是否已關閉
   const [showWelcome, setShowWelcome] = useState(() => {
     if (typeof window === 'undefined') {
@@ -4289,6 +4291,86 @@ function App() {
     )
   }
 
+  function deleteAuditEntry(entryId: string) {
+    const trail = project.auditTrail ?? []
+    const target = trail.find((entry) => entry.id === entryId)
+    if (!target) {
+      return
+    }
+    const confirmed = window.confirm(
+      `確定刪除留痕「${formatAuditHash(target.hash)}」？此操作不可復原。`,
+    )
+    if (!confirmed) {
+      return
+    }
+    patchProject({
+      auditTrail: trail.filter((entry) => entry.id !== entryId),
+    })
+    setSaveMessage(`已刪除留痕：${formatAuditHash(target.hash)}`)
+  }
+
+  function exportAuditTrailCsv() {
+    const trail = project.auditTrail ?? []
+    if (trail.length === 0) {
+      setSaveMessage('目前案例無留痕可匯出')
+      return
+    }
+    const escape = (cell: string | number) => {
+      const text = String(cell ?? '')
+      if (/[",\n]/.test(text)) {
+        return `"${text.replaceAll('"', '""')}"`
+      }
+      return text
+    }
+    const header = [
+      '時間',
+      '來源',
+      '案件名稱',
+      '產品',
+      '整體判定',
+      '控制 DCR',
+      '最大 DCR',
+      '控制模式',
+      '控制組合',
+      'Hash',
+    ]
+    const body = [...trail]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
+      .map((e) => [
+        e.createdAt,
+        auditSourceLabel(e.source),
+        e.projectName,
+        e.productLabel,
+        e.summary.overallStatus,
+        e.summary.governingDcr ?? e.summary.maxDcr ?? '',
+        e.summary.maxDcr ?? '',
+        e.summary.governingMode ?? '',
+        e.summary.controllingLoadCaseName ?? '',
+        e.hash,
+      ])
+    const csv = [header, ...body]
+      .map((line) => line.map(escape).join(','))
+      .join('\r\n')
+    const BOM = '﻿'
+    const blob = new Blob([`${BOM}${csv}`], {
+      type: 'text/csv;charset=utf-8',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const safeName =
+      (project.name || 'anchor-audit-trail')
+        .replace(/[\\/:*?"<>|]+/g, '-')
+        .trim() || 'anchor-audit-trail'
+    link.href = url
+    link.download = `${safeName}-audit-trail.csv`
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+    setSaveMessage(`已匯出 ${trail.length} 筆留痕為 CSV`)
+  }
+
   function getReportArtifactParams(
     autoPrint = false,
     auditEntry: ProjectAuditEntry | null = latestAuditEntry,
@@ -5385,9 +5467,30 @@ function App() {
           </div>
         </div>
 
-        <div className="case-count">
-          目前共 {projectLibrary.length} 個案例，正在編輯：
-          <strong> {project.name}</strong>
+        <div className="case-library-toolbar">
+          <div className="case-count">
+            目前共 {projectLibrary.length} 個案例，正在編輯：
+            <strong> {project.name}</strong>
+          </div>
+          <div className="case-search-row">
+            <input
+              type="search"
+              value={caseLibrarySearch}
+              onChange={(event) => setCaseLibrarySearch(event.target.value)}
+              placeholder="搜尋案例：名稱 / 案號 / 產品 / 控制模式…"
+              aria-label="搜尋案例"
+            />
+            {caseLibrarySearch ? (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setCaseLibrarySearch('')}
+                aria-label="清除搜尋"
+              >
+                清除
+              </button>
+            ) : null}
+          </div>
         </div>
         <input
           ref={importInputRef}
@@ -5559,7 +5662,37 @@ function App() {
         ) : null}
 
         <div className="case-grid">
-          {caseCards.map((item) => {
+          {(() => {
+            const query = caseLibrarySearch.trim().toLowerCase()
+            const filtered = query
+              ? caseCards.filter((item) => {
+                  const cardProduct = products.find(
+                    (product) => product.id === item.selectedProductId,
+                  )
+                  const haystack = [
+                    item.name,
+                    item.report?.projectCode ?? '',
+                    cardProduct?.brand ?? '',
+                    cardProduct?.model ?? '',
+                    item.snapshot?.governingMode ?? '',
+                    item.snapshot?.controllingLoadCaseName ?? '',
+                  ]
+                    .join('\n')
+                    .toLowerCase()
+                  return query
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .every((token) => haystack.includes(token))
+                })
+              : caseCards
+            if (filtered.length === 0) {
+              return (
+                <p className="helper-text" style={{ gridColumn: '1 / -1' }}>
+                  無符合搜尋的案例；試試更短關鍵字或清除搜尋
+                </p>
+              )
+            }
+            return filtered.map((item) => {
             const cardProduct = products.find(
               (product) => product.id === item.selectedProductId,
             )
@@ -5624,7 +5757,8 @@ function App() {
                 </button>
               </div>
             )
-          })}
+          })
+          })()}
         </div>
       </section>
 
@@ -9324,6 +9458,145 @@ function App() {
             simpleMode={simpleMode}
             baselineDcr={getGoverningDcr(batchReview.summary)}
           />
+
+          <details
+            className="fold-panel sub-panel audit-history-panel"
+            data-shows="result"
+            open={false}
+          >
+            <summary className="fold-summary">
+              <span>審查留痕歷程</span>
+              <small>
+                共 {(project.auditTrail ?? []).length} 筆 hash 簽章；最新
+                {latestAuditEntry
+                  ? `：${formatAuditHash(latestAuditEntry.hash)} · ${formatDateTime(latestAuditEntry.createdAt)}`
+                  : '：尚未留存'}
+              </small>
+            </summary>
+            <div className="fold-stack">
+              <div className="action-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void recordCurrentAuditTrail('manual')
+                  }}
+                  title="重新計算 hash 並追加一筆手動留痕"
+                >
+                  ＋ 留存簽章
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={exportAuditTrailCsv}
+                  disabled={(project.auditTrail ?? []).length === 0}
+                  title="匯出整份留痕表為 CSV，供工程審查 / QA 紀錄"
+                >
+                  匯出留痕 CSV
+                </button>
+              </div>
+              {(project.auditTrail ?? []).length === 0 ? (
+                <p className="helper-text">
+                  尚未留存任何 hash 簽章。可按 Ctrl/⌘+S 或匯出報告時自動建立。
+                </p>
+              ) : (
+                <table className="data-table compact-table audit-history-table">
+                  <thead>
+                    <tr>
+                      <th>時間</th>
+                      <th>來源</th>
+                      <th>整體</th>
+                      <th>控制 DCR</th>
+                      <th>控制模式</th>
+                      <th>Hash</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...(project.auditTrail ?? [])]
+                      .sort(
+                        (a, b) =>
+                          new Date(b.createdAt).getTime() -
+                          new Date(a.createdAt).getTime(),
+                      )
+                      .map((entry) => {
+                        const isLatest = entry.id === latestAuditEntry?.id
+                        return (
+                          <tr
+                            key={`audit-${entry.id}`}
+                            className={isLatest ? 'audit-row-latest' : undefined}
+                          >
+                            <td>
+                              {formatDateTime(entry.createdAt)}
+                              {isLatest ? (
+                                <span className="audit-latest-pill">最新</span>
+                              ) : null}
+                            </td>
+                            <td>{auditSourceLabel(entry.source)}</td>
+                            <td>
+                              <Badge status={entry.summary.overallStatus} />
+                            </td>
+                            <td>
+                              <code>
+                                {formatNumber(
+                                  entry.summary.governingDcr ??
+                                    entry.summary.maxDcr ??
+                                    0,
+                                )}
+                              </code>
+                            </td>
+                            <td>{entry.summary.governingMode ?? '—'}</td>
+                            <td>
+                              <code
+                                className="audit-hash-cell"
+                                title={`完整 hash：${entry.hash}`}
+                              >
+                                {formatAuditHash(entry.hash)}
+                              </code>
+                              <button
+                                type="button"
+                                className="audit-hash-copy"
+                                title="複製完整 hash 到剪貼簿"
+                                onClick={() => {
+                                  if (navigator.clipboard?.writeText) {
+                                    void navigator.clipboard
+                                      .writeText(entry.hash)
+                                      .then(() =>
+                                        setSaveMessage(
+                                          `已複製 hash：${formatAuditHash(entry.hash)}`,
+                                        ),
+                                      )
+                                      .catch(() =>
+                                        setSaveMessage('複製失敗：瀏覽器拒絕剪貼簿'),
+                                      )
+                                  }
+                                }}
+                              >
+                                📋
+                              </button>
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="audit-delete"
+                                onClick={() => deleteAuditEntry(entry.id)}
+                                title="刪除這筆留痕（不可復原）"
+                              >
+                                刪除
+                              </button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              )}
+              <p className="helper-text">
+                提示：留痕是把當下案件 + 計算結果以 SHA-1 雜湊封存，
+                供日後審查覆驗 — 同樣輸入應得到相同 hash。
+                報告匯出時會自動帶入留痕資訊。
+              </p>
+            </div>
+          </details>
 
           <details
             className="fold-panel sub-panel"
