@@ -4162,6 +4162,96 @@ label.field-has-warning > input {
   margin-right: 4px;
 }
 
+/* 自動敘述卡 */
+.auto-narrative-card {
+  margin: 12px 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f7fafb 0%, #eef6f9 100%);
+  border: 1px solid #cbd9dd;
+  border-left: 4px solid #1f7a4d;
+  border-radius: 8px;
+}
+
+.auto-narrative-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.auto-narrative-card h4 {
+  margin: 0;
+  color: #0b4b56;
+}
+
+.auto-narrative-copy {
+  background: #1f7a4d;
+  color: #fff;
+  border: 1px solid #1f7a4d;
+}
+
+.auto-narrative-copy:hover {
+  background: #155a36;
+}
+
+.auto-narrative-text {
+  margin: 0 0 8px;
+  line-height: 1.85;
+  color: #1b2b30;
+  font-size: 0.94rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 結果明細表控制列：過濾 + 展開全部 */
+.result-detail-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.result-filter-group {
+  display: inline-flex;
+  border: 1px solid #c9d3d6;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.result-filter-group button {
+  background: #fff;
+  border: none;
+  color: #4b5f66;
+  padding: 6px 12px;
+  font-size: 0.84rem;
+  cursor: pointer;
+  border-right: 1px solid #e0e6e8;
+}
+
+.result-filter-group button:last-child {
+  border-right: none;
+}
+
+.result-filter-group button:hover {
+  background: #f0f4f5;
+}
+
+.result-filter-group button.active {
+  background: #0b7285;
+  color: #fff;
+}
+
+.result-filter-empty {
+  text-align: center;
+  color: #6a7a80;
+  padding: 16px;
+  font-style: italic;
+}
+
 @media print {
   .copy-summary-button,
   .landing-pwa-install {

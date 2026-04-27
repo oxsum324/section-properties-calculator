@@ -2436,6 +2436,10 @@ function App() {
   const [expandedResultIds, setExpandedResultIds] = useState<Set<string>>(
     new Set(),
   )
+  // 結果明細表過濾：只看不通過 / 只看主控 / 全部
+  const [resultDetailFilter, setResultDetailFilter] = useState<
+    'all' | 'failing' | 'governing'
+  >('all')
   // 案例庫搜尋字串：依名稱 / 案號 / 產品 / 控制模式即時過濾
   const [caseLibrarySearch, setCaseLibrarySearch] = useState('')
   // 留痕對比：勾選 2 筆 audit 顯示 diff（最多 2）
@@ -9471,6 +9475,78 @@ function App() {
             </div>
           </div>
 
+          {/* 自動敘述卡：把整體判定、產品、幾何、載重、控制模式組成一段可貼到報告的中文敘述 */}
+          <div className="auto-narrative-card">
+            {(() => {
+              const dcr = getGoverningDcr(batchReview.summary)
+              const overallLabel = statusLabel(batchReview.summary.overallStatus)
+              const layoutMin = Math.min(
+                project.layout.edgeLeftMm,
+                project.layout.edgeRightMm,
+                project.layout.edgeBottomMm,
+                project.layout.edgeTopMm,
+              )
+              const totalShear = Math.hypot(
+                review.analysisLoads.shearXKn,
+                review.analysisLoads.shearYKn,
+              )
+              const recommendation =
+                batchReview.summary.overallStatus === 'fail'
+                  ? '建議調整 hef、邊距或更換更大規格產品；可於候選比選增加替代方案後比較。'
+                  : batchReview.summary.overallStatus === 'incomplete'
+                    ? `產品評估資料尚需補齊（${completeness.missing.slice(0, 2).join('、') || '見產品頁待補項目'}），目前 DCR 僅供排序參考。`
+                    : dcr >= 0.85
+                      ? `通過但餘裕僅 ${((1 - dcr) * 100).toFixed(0)}%，建議保留更大邊距或加大 hef 以提升安全餘裕。`
+                      : '通過且具合理安全餘裕；可進入正式設計階段。'
+              const narrative =
+                `本案依「${review.ruleProfile.chapter17Title}」（${review.ruleProfile.versionLabel}）` +
+                `進行錨栓群檢核，採用 ${selectedProduct.brand} ${selectedProduct.model}` +
+                `（${familyLabel(selectedProduct.family)}），錨栓配置 ${project.layout.anchorCountX}×${project.layout.anchorCountY}` +
+                `（${review.anchorPoints.length} 支），hef = ${formatQuantity(project.layout.effectiveEmbedmentMm, 'length', unitPreferences)}，` +
+                `間距 sx/sy = ${formatQuantity(project.layout.spacingXmm, 'length', unitPreferences)}/${formatQuantity(project.layout.spacingYmm, 'length', unitPreferences)}，` +
+                `最小邊距 c_a,min = ${formatQuantity(layoutMin, 'length', unitPreferences)}；` +
+                `f'c = ${formatQuantity(project.layout.concreteStrengthMpa, 'stress', unitPreferences)}` +
+                `${project.layout.crackedConcrete ? '（cracked）' : '（uncracked）'}。` +
+                `設計拉力 N = ${formatQuantity(review.analysisLoads.tensionKn, 'force', unitPreferences)}、` +
+                `合成剪力 V = ${formatQuantity(totalShear, 'force', unitPreferences)}，` +
+                `控制組合「${batchReview.controllingLoadCaseName}」。` +
+                `整體判定 ${overallLabel}（${completeness.formal ? '正式' : '初篩'}），` +
+                `控制 DCR = ${formatNumber(dcr)}，控制模式為「${batchReview.summary.governingMode}」。` +
+                recommendation
+              return (
+                <>
+                  <header>
+                    <h4>自動報告敘述</h4>
+                    <button
+                      type="button"
+                      className="copy-summary-button auto-narrative-copy"
+                      title="複製整段敘述到剪貼簿，可直接貼入工程報告"
+                      onClick={() => {
+                        if (navigator.clipboard?.writeText) {
+                          void navigator.clipboard
+                            .writeText(narrative)
+                            .then(() =>
+                              setSaveMessage('已複製自動敘述到剪貼簿'),
+                            )
+                            .catch(() =>
+                              setSaveMessage('複製失敗：瀏覽器拒絕剪貼簿'),
+                            )
+                        }
+                      }}
+                    >
+                      📋 複製敘述
+                    </button>
+                  </header>
+                  <p className="auto-narrative-text">{narrative}</p>
+                  <p className="helper-text">
+                    自動依目前案件、產品、控制模式組成；可作為工程報告開頭段落或審查摘要起點，
+                    請依實際情境潤飾後使用。
+                  </p>
+                </>
+              )
+            })()}
+          </div>
+
           {/* 採用設計載重明細：把實際代入計算的 N / V / M / 偏心一次列出，方便核對 */}
           <div className="analysis-loads-card">
             <header>
@@ -10510,6 +10586,63 @@ function App() {
         </summary>
         <div className="panel-title">
           <p>每一列都回傳條文編號、設計強度、需求值與目前使用的是產品值還是規範退回值。</p>
+          <div className="result-detail-controls">
+            <div className="result-filter-group" role="radiogroup" aria-label="顯示過濾">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={resultDetailFilter === 'all'}
+                className={resultDetailFilter === 'all' ? 'active' : ''}
+                onClick={() => setResultDetailFilter('all')}
+              >
+                全部 ({review.results.length})
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={resultDetailFilter === 'failing'}
+                className={resultDetailFilter === 'failing' ? 'active' : ''}
+                onClick={() => setResultDetailFilter('failing')}
+              >
+                只看不通過 (
+                {
+                  review.results.filter(
+                    (r) => r.status === 'fail' || r.status === 'incomplete',
+                  ).length
+                }
+                )
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={resultDetailFilter === 'governing'}
+                className={resultDetailFilter === 'governing' ? 'active' : ''}
+                onClick={() => setResultDetailFilter('governing')}
+              >
+                只看主控
+              </button>
+            </div>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                if (expandedResultIds.size > 0) {
+                  setExpandedResultIds(new Set())
+                } else {
+                  setExpandedResultIds(
+                    new Set(review.results.map((r) => r.id)),
+                  )
+                }
+              }}
+              title={
+                expandedResultIds.size > 0
+                  ? '收合所有列的因子明細'
+                  : '展開所有列的因子明細'
+              }
+            >
+              {expandedResultIds.size > 0 ? '收合全部因子' : '展開全部因子'}
+            </button>
+          </div>
           <button
             type="button"
             className="secondary-button"
@@ -10612,7 +10745,32 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {review.results.map((result) => {
+                {(() => {
+                  const filteredResults = review.results.filter((r) => {
+                    if (resultDetailFilter === 'failing') {
+                      return r.status === 'fail' || r.status === 'incomplete'
+                    }
+                    if (resultDetailFilter === 'governing') {
+                      // 主控：governing tension/shear mode 命中、或 interaction
+                      return (
+                        r.id === 'interaction' ||
+                        r.mode === batchReview.summary.governingMode ||
+                        r.mode === batchReview.summary.governingTensionMode ||
+                        r.mode === batchReview.summary.governingShearMode
+                      )
+                    }
+                    return true
+                  })
+                  if (filteredResults.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={8} className="result-filter-empty">
+                          目前過濾條件下無結果列；可切換到「全部」檢視
+                        </td>
+                      </tr>
+                    )
+                  }
+                  return filteredResults.map((result) => {
                   const excluded = (project.excludedCheckIds ?? []).includes(
                     result.id,
                   )
@@ -10793,7 +10951,8 @@ function App() {
                   ) : null}
                   </Fragment>
                   )
-                })}
+                })
+                })()}
               </tbody>
             </table>
           </div>
