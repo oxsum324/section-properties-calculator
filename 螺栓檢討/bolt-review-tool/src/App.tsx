@@ -2438,6 +2438,8 @@ function App() {
   )
   // 案例庫搜尋字串：依名稱 / 案號 / 產品 / 控制模式即時過濾
   const [caseLibrarySearch, setCaseLibrarySearch] = useState('')
+  // 留痕對比：勾選 2 筆 audit 顯示 diff（最多 2）
+  const [auditCompareIds, setAuditCompareIds] = useState<string[]>([])
   // 首次造訪歡迎卡：localStorage 記錄是否已關閉
   const [showWelcome, setShowWelcome] = useState(() => {
     if (typeof window === 'undefined') {
@@ -3144,6 +3146,16 @@ function App() {
   // 拖放匯入的 handler ref（importWorkspaceFromFile 在此下方宣告，透過物件欄位避免 ref.current 被替換）
   const importFileHandlerRef = useRef<{ run: (file: File) => Promise<void> }>({
     run: async () => {},
+  })
+
+  // 案例循環快捷鍵：用 ref 拿最新 caseCards / activeProjectId / selectProject，
+  // 避免每次 caseCards 變化都重新註冊 keydown listener
+  const caseCardsRef = useRef<typeof caseCards>(caseCards)
+  const activeProjectIdRef = useRef<string>(activeProjectId)
+  const selectProjectRef = useRef<(id: string) => void>(() => {})
+  useEffect(() => {
+    caseCardsRef.current = caseCards
+    activeProjectIdRef.current = activeProjectId
   })
 
   useEffect(() => {
@@ -4441,6 +4453,7 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/immutability
     importFileHandlerRef.current.run = importWorkspaceFromFile
+    selectProjectRef.current = selectProject
   })
 
   // 全域鍵盤捷徑：Ctrl/Cmd+S 留痕、Ctrl/Cmd+P 列印、Alt+1–6 切 tab、Alt+0 回首頁、Esc 返回結果
@@ -4495,6 +4508,25 @@ function App() {
           const targetTab = WORKSPACE_TABS[digit - 1]
           setActiveTab(targetTab.id)
           setHasEnteredWorkspace(true)
+          return
+        }
+        // Alt+] / Alt+[：循環切換案例（依 caseCards 排序）
+        if (event.key === ']' || event.key === '[') {
+          const cycleCases = caseCardsRef.current
+          if (cycleCases.length <= 1) {
+            return
+          }
+          event.preventDefault()
+          const currentIndex = cycleCases.findIndex(
+            (c) => c.id === activeProjectIdRef.current,
+          )
+          const direction = event.key === ']' ? 1 : -1
+          const nextIndex =
+            (currentIndex + direction + cycleCases.length) % cycleCases.length
+          const next = cycleCases[nextIndex]
+          if (next) {
+            selectProjectRef.current(next.id)
+          }
           return
         }
       }
@@ -9499,9 +9531,145 @@ function App() {
                   尚未留存任何 hash 簽章。可按 Ctrl/⌘+S 或匯出報告時自動建立。
                 </p>
               ) : (
+                <>
+                  {auditCompareIds.length === 2 ? (() => {
+                    const trail = project.auditTrail ?? []
+                    const a = trail.find((e) => e.id === auditCompareIds[0])
+                    const b = trail.find((e) => e.id === auditCompareIds[1])
+                    if (!a || !b) {
+                      return null
+                    }
+                    // older first（依時間排）
+                    const [older, newer] =
+                      new Date(a.createdAt).getTime() <
+                      new Date(b.createdAt).getTime()
+                        ? [a, b]
+                        : [b, a]
+                    const fields: Array<{
+                      label: string
+                      a: string
+                      b: string
+                    }> = [
+                      {
+                        label: '時間',
+                        a: formatDateTime(older.createdAt),
+                        b: formatDateTime(newer.createdAt),
+                      },
+                      {
+                        label: '來源',
+                        a: auditSourceLabel(older.source),
+                        b: auditSourceLabel(newer.source),
+                      },
+                      {
+                        label: '案件名稱',
+                        a: older.projectName,
+                        b: newer.projectName,
+                      },
+                      {
+                        label: '產品',
+                        a: older.productLabel,
+                        b: newer.productLabel,
+                      },
+                      {
+                        label: '整體判定',
+                        a: older.summary.overallStatus,
+                        b: newer.summary.overallStatus,
+                      },
+                      {
+                        label: '控制 DCR',
+                        a: formatNumber(
+                          older.summary.governingDcr ??
+                            older.summary.maxDcr ??
+                            0,
+                        ),
+                        b: formatNumber(
+                          newer.summary.governingDcr ??
+                            newer.summary.maxDcr ??
+                            0,
+                        ),
+                      },
+                      {
+                        label: '最大 DCR',
+                        a: formatNumber(older.summary.maxDcr ?? 0),
+                        b: formatNumber(newer.summary.maxDcr ?? 0),
+                      },
+                      {
+                        label: '控制模式',
+                        a: older.summary.governingMode ?? '—',
+                        b: newer.summary.governingMode ?? '—',
+                      },
+                      {
+                        label: '控制組合',
+                        a: older.summary.controllingLoadCaseName ?? '—',
+                        b: newer.summary.controllingLoadCaseName ?? '—',
+                      },
+                      {
+                        label: 'Hash',
+                        a: formatAuditHash(older.hash),
+                        b: formatAuditHash(newer.hash),
+                      },
+                    ]
+                    return (
+                      <div className="audit-diff-card" role="region" aria-label="留痕對比">
+                        <header>
+                          <h4>留痕對比（前 → 後）</h4>
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() => setAuditCompareIds([])}
+                          >
+                            清除選取
+                          </button>
+                        </header>
+                        <table className="data-table compact-table">
+                          <thead>
+                            <tr>
+                              <th>欄位</th>
+                              <th>較舊</th>
+                              <th>較新</th>
+                              <th>差異</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {fields.map((row) => {
+                              const changed = row.a !== row.b
+                              return (
+                                <tr
+                                  key={row.label}
+                                  className={
+                                    changed
+                                      ? 'audit-diff-row-changed'
+                                      : undefined
+                                  }
+                                >
+                                  <td>
+                                    <strong>{row.label}</strong>
+                                  </td>
+                                  <td>{row.a}</td>
+                                  <td>{row.b}</td>
+                                  <td>
+                                    {changed ? (
+                                      <span className="audit-diff-pill">
+                                        變更
+                                      </span>
+                                    ) : (
+                                      <span className="audit-diff-pill same">
+                                        相同
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })() : null}
                 <table className="data-table compact-table audit-history-table">
                   <thead>
                     <tr>
+                      <th>對比</th>
                       <th>時間</th>
                       <th>來源</th>
                       <th>整體</th>
@@ -9520,11 +9688,34 @@ function App() {
                       )
                       .map((entry) => {
                         const isLatest = entry.id === latestAuditEntry?.id
+                        const isCompared = auditCompareIds.includes(entry.id)
                         return (
                           <tr
                             key={`audit-${entry.id}`}
-                            className={isLatest ? 'audit-row-latest' : undefined}
+                            className={`${isLatest ? 'audit-row-latest' : ''}${isCompared ? ' audit-row-compared' : ''}`.trim() || undefined}
                           >
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={isCompared}
+                                aria-label={`對比 ${formatAuditHash(entry.hash)}`}
+                                onChange={(event) => {
+                                  const checked = event.target.checked
+                                  setAuditCompareIds((current) => {
+                                    if (checked) {
+                                      if (current.length >= 2) {
+                                        // 取代最舊的選取
+                                        return [current[1], entry.id]
+                                      }
+                                      return [...current, entry.id]
+                                    }
+                                    return current.filter(
+                                      (id) => id !== entry.id,
+                                    )
+                                  })
+                                }}
+                              />
+                            </td>
                             <td>
                               {formatDateTime(entry.createdAt)}
                               {isLatest ? (
@@ -9589,11 +9780,12 @@ function App() {
                       })}
                   </tbody>
                 </table>
+                </>
               )}
               <p className="helper-text">
                 提示：留痕是把當下案件 + 計算結果以 SHA-1 雜湊封存，
                 供日後審查覆驗 — 同樣輸入應得到相同 hash。
-                報告匯出時會自動帶入留痕資訊。
+                勾選 2 筆「對比」可看欄位差異；報告匯出時會自動帶入留痕資訊。
               </p>
             </div>
           </details>
@@ -10627,6 +10819,10 @@ function App() {
                 <tr>
                   <td><kbd>Alt</kbd> + <kbd>0</kbd> 或 <kbd>R</kbd></td>
                   <td>回到資源庫首頁 hub</td>
+                </tr>
+                <tr>
+                  <td><kbd>Alt</kbd> + <kbd>]</kbd> / <kbd>[</kbd></td>
+                  <td>循環切換下 / 上一個案例（依最近編輯排序）</td>
                 </tr>
                 <tr>
                   <td><kbd>Esc</kbd></td>

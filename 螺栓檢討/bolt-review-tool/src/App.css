@@ -3963,6 +3963,59 @@ label.field-has-warning > input {
   border-color: #c04030;
 }
 
+/* 留痕對比卡片 */
+.audit-diff-card {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: #f7fafb;
+  border: 1px solid #cbd5d8;
+  border-left: 4px solid #5b6bbd;
+  border-radius: 8px;
+}
+
+.audit-diff-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.audit-diff-card h4 {
+  margin: 0;
+  color: #0b4b56;
+}
+
+.audit-diff-row-changed {
+  background: #fff7dc;
+}
+
+.audit-diff-row-changed td {
+  font-weight: 500;
+}
+
+.audit-diff-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #fff4e1;
+  color: #8a5a0f;
+  border: 1px solid #e0a44d;
+}
+
+.audit-diff-pill.same {
+  background: #e8f5ee;
+  color: #1f7a4d;
+  border-color: #5fb381;
+}
+
+.audit-row-compared {
+  outline: 2px dashed #5b6bbd;
+  outline-offset: -2px;
+}
+
 @media print {
   .copy-summary-button,
   .landing-pwa-install {
