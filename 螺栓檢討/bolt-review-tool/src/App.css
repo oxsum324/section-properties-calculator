@@ -4016,6 +4016,152 @@ label.field-has-warning > input {
   outline-offset: -2px;
 }
 
+/* 採用設計載重 card（結果頁）*/
+.analysis-loads-card {
+  margin: 12px 0;
+  padding: 12px 14px;
+  background: #fafcfc;
+  border: 1px solid #d8e1e1;
+  border-left: 4px solid #0b7285;
+  border-radius: 8px;
+}
+
+.analysis-loads-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.analysis-loads-card h4 {
+  margin: 0;
+  color: #0b4b56;
+  font-size: 0.96rem;
+}
+
+.analysis-loads-card header small {
+  color: #6a7a80;
+  font-size: 0.82rem;
+}
+
+.analysis-loads-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 8px;
+}
+
+.analysis-load-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid #e0e6e8;
+  border-radius: 6px;
+}
+
+.analysis-load-cell span {
+  font-size: 0.78rem;
+  color: #6a7a80;
+}
+
+.analysis-load-cell strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #0b2b31;
+  font-size: 0.96rem;
+}
+
+.analysis-load-cell small {
+  color: #6a7a80;
+  font-size: 0.74rem;
+}
+
+.analysis-load-cell.analysis-load-note {
+  grid-column: 1 / -1;
+}
+
+.analysis-load-cell.analysis-load-note strong {
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: #4b5f66;
+  line-height: 1.5;
+}
+
+/* 17 章公式速查 */
+.formula-reference-stack {
+  gap: 12px;
+}
+
+.formula-reference-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+}
+
+.formula-card {
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #e0e6e8;
+  border-radius: 8px;
+  border-top: 3px solid #0b7285;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formula-card h4 {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #0b4b56;
+}
+
+.formula-card code {
+  display: block;
+  background: #f0f4f5;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86rem;
+  color: #1b2b30;
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.formula-card small {
+  color: #6a7a80;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.formula-card-vars {
+  border-top-color: #5b6bbd;
+}
+
+.formula-card-vars ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.formula-card-vars li {
+  font-size: 0.84rem;
+  color: #1b2b30;
+  line-height: 1.5;
+}
+
+.formula-card-vars code {
+  display: inline;
+  background: #eef3f4;
+  padding: 1px 6px;
+  font-size: 0.82rem;
+  margin-right: 4px;
+}
+
 @media print {
   .copy-summary-button,
   .landing-pwa-install {
