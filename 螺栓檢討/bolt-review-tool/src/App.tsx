@@ -4629,74 +4629,216 @@ function App() {
           </em>
         </span>
       </div>
-      <section className="workspace-backup-bar" aria-label="工作區備份">
-        <div className="workspace-backup-info">
-          <strong>工作區備份</strong>
-          <span>
-            匯出 JSON 將所有案例、產品與附件打包下載；還原可在另一台裝置重建。
-          </span>
-        </div>
-        <div className="workspace-backup-actions">
+      {/* 首頁工作台：5 區卡片網格（最近案例 / 推薦樣板 / 工作區備份 / 產品掃描 / 最近留痕） */}
+      <section className="landing-grid" aria-label="首頁工作台">
+        {/* 最近案例 */}
+        <article className="landing-card landing-card-cases">
+          <header className="landing-card-header">
+            <h3>最近編輯案例</h3>
+            <small>共 {caseCards.length} 個</small>
+          </header>
+          {caseCards.length > 0 ? (
+            <ul className="landing-card-list">
+              {caseCards.slice(0, 3).map((item) => {
+                const isActive = item.id === project.id
+                return (
+                  <li key={`landing-case-${item.id}`}>
+                    <button
+                      type="button"
+                      className={`landing-list-button${isActive ? ' active' : ''}`}
+                      onClick={() => {
+                        if (!isActive) {
+                          selectProject(item.id)
+                        }
+                        setActiveTab('member')
+                        setHasEnteredWorkspace(true)
+                      }}
+                    >
+                      <span className="landing-list-title">
+                        {item.name}
+                        {isActive ? (
+                          <span className="landing-active-pill">目前</span>
+                        ) : null}
+                      </span>
+                      <span className="landing-list-meta">
+                        {formatDateTime(item.updatedAt)}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p className="landing-card-empty">尚無案例；下方建立第一個案例</p>
+          )}
           <button
             type="button"
+            className="landing-card-cta"
+            onClick={createProject}
+          >
+            ＋ 新增案例
+          </button>
+        </article>
+
+        {/* 推薦樣板 */}
+        <article className="landing-card landing-card-templates">
+          <header className="landing-card-header">
+            <h3>推薦案件樣板</h3>
+            <small>依目前產品族群</small>
+          </header>
+          {recommendedProjectTemplates.length > 0 ? (
+            <ul className="landing-card-list">
+              {recommendedProjectTemplates.map((rec) => (
+                <li key={`landing-tpl-${rec.template.id}`}>
+                  <button
+                    type="button"
+                    className="landing-list-button"
+                    onClick={() => {
+                      void loadProjectTemplate(rec.template.id)
+                    }}
+                    title={rec.template.summary}
+                  >
+                    <span className="landing-list-title">
+                      {rec.template.name}
+                      <span className="landing-badge">
+                        {rec.reasons[0] ?? `分 ${rec.score}`}
+                      </span>
+                    </span>
+                    <span className="landing-list-meta">
+                      {projectTemplateCategoryLabel(rec.template.category)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="landing-card-empty">無對應推薦；下方瀏覽完整樣板庫</p>
+          )}
+          <button
+            type="button"
+            className="landing-card-cta secondary"
             onClick={() => {
-              void exportWorkspace()
+              setResourceLibraryTab('project_templates')
+              window.requestAnimationFrame(() => {
+                document
+                  .querySelector('.resource-library-wrapper')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              })
             }}
           >
-            匯出 JSON
+            瀏覽完整樣板庫 →
           </button>
+        </article>
+
+        {/* 工作區備份 */}
+        <article className="landing-card landing-card-backup">
+          <header className="landing-card-header">
+            <h3>工作區備份</h3>
+            <small>跨裝置遷移</small>
+          </header>
+          <p className="landing-card-desc">
+            匯出 JSON：所有案例 / 產品 / 附件打包下載
+            <br />
+            還原 JSON：另一台裝置重建工作區
+            <br />
+            <em>提示：可直接拖放 JSON 檔到視窗任意位置</em>
+          </p>
+          <div className="landing-card-actions">
+            <button
+              type="button"
+              className="landing-card-cta"
+              onClick={() => {
+                void exportWorkspace()
+              }}
+            >
+              匯出 JSON
+            </button>
+            <button
+              type="button"
+              className="landing-card-cta secondary"
+              onClick={openImportDialog}
+            >
+              還原 JSON
+            </button>
+          </div>
+        </article>
+
+        {/* 產品掃描 */}
+        <article className="landing-card landing-card-scan">
+          <header className="landing-card-header">
+            <h3>產品掃描助手</h3>
+            <small>依條件快速尋找錨栓</small>
+          </header>
+          <p className="landing-card-desc">
+            依 hef 範圍、產品族群、評估標準（ACI 355.2 / .4）篩選
+            內建產品庫，直接加入候選比選。
+          </p>
           <button
             type="button"
-            className="secondary-button"
-            onClick={openImportDialog}
+            className="landing-card-cta"
+            onClick={() => {
+              setResourceLibraryTab('product_scan')
+              window.requestAnimationFrame(() => {
+                document
+                  .querySelector('.resource-library-wrapper')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              })
+            }}
           >
-            還原 JSON
+            前往產品掃描 →
           </button>
-        </div>
+        </article>
+
+        {/* 最近留痕 */}
+        <article className="landing-card landing-card-audit">
+          <header className="landing-card-header">
+            <h3>最近留痕</h3>
+            <small>審查 hash 簽章</small>
+          </header>
+          {(project.auditTrail ?? []).length > 0 ? (
+            <ul className="landing-card-list">
+              {[...(project.auditTrail ?? [])]
+                .sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime(),
+                )
+                .slice(0, 3)
+                .map((entry) => (
+                  <li key={`landing-audit-${entry.id}`}>
+                    <div
+                      className="landing-list-button landing-audit-row"
+                      title={`${auditSourceLabel(entry.source)}｜DCR ${entry.summary.governingDcr ?? entry.summary.maxDcr}`}
+                    >
+                      <span className="landing-list-title">
+                        <code>{formatAuditHash(entry.hash)}</code>
+                        <span className="landing-badge">
+                          {auditSourceLabel(entry.source)}
+                        </span>
+                      </span>
+                      <span className="landing-list-meta">
+                        {formatDateTime(entry.createdAt)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          ) : (
+            <p className="landing-card-empty">
+              尚未留存；按 Ctrl/Cmd+S 或匯出報告時自動建立
+            </p>
+          )}
+          <button
+            type="button"
+            className="landing-card-cta secondary"
+            onClick={() => {
+              void recordCurrentAuditTrail('manual')
+            }}
+          >
+            手動留存簽章
+          </button>
+        </article>
       </section>
-      {caseCards.length > 0 ? (
-        <section className="recent-cases-panel" aria-label="最近編輯的案例">
-          <div className="recent-cases-header">
-            <h3>最近編輯的案例</h3>
-            <span className="recent-cases-subtitle">
-              點擊卡片直接載入並進入檢核工作台
-            </span>
-          </div>
-          <div className="recent-cases-grid">
-            {caseCards.slice(0, 3).map((item) => {
-              const isActive = item.id === project.id
-              return (
-                <button
-                  key={`recent-${item.id}`}
-                  type="button"
-                  className={`recent-case-card${isActive ? ' active' : ''}`}
-                  onClick={() => {
-                    if (!isActive) {
-                      selectProject(item.id)
-                    }
-                    setActiveTab('member')
-                    setHasEnteredWorkspace(true)
-                  }}
-                  title={`${item.name}｜最後編修 ${formatDateTime(item.updatedAt)}`}
-                >
-                  <span className="recent-case-name">
-                    {item.name}
-                    {isActive ? (
-                      <span className="recent-case-active-badge">目前案例</span>
-                    ) : null}
-                  </span>
-                  <span className="recent-case-meta">
-                    {formatDateTime(item.updatedAt)}
-                  </span>
-                  <span className="recent-case-hint">
-                    {isActive ? '繼續檢核 →' : '載入並進入檢核 →'}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </section>
-      ) : null}
       <ResourceLibraryHub
         activeTab={resourceLibraryTab}
         tabs={resourceLibraryTabs}

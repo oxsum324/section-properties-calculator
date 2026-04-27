@@ -3206,6 +3206,224 @@ label.field-has-warning > input {
   flex-wrap: wrap;
 }
 
+/* 首頁工作台：5 區卡片網格 */
+.landing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+  margin: 16px 0 20px;
+}
+
+.landing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #d8e1e1;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(15, 58, 69, 0.06);
+}
+
+.landing-card-cases {
+  border-top: 4px solid #0b7285;
+}
+
+.landing-card-templates {
+  border-top: 4px solid #1f7a4d;
+}
+
+.landing-card-backup {
+  border-top: 4px solid #5b6bbd;
+}
+
+.landing-card-scan {
+  border-top: 4px solid #9b6e3a;
+}
+
+.landing-card-audit {
+  border-top: 4px solid #7c4d8f;
+}
+
+.landing-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px dashed #e6ebed;
+  padding-bottom: 6px;
+}
+
+.landing-card-header h3 {
+  margin: 0;
+  color: #0b4b56;
+  font-size: 1rem;
+}
+
+.landing-card-header small {
+  color: #6a7a80;
+  font-size: 0.78rem;
+}
+
+.landing-card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.landing-list-button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  background: #f7fafb;
+  border: 1px solid #dfe6e8;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
+}
+
+.landing-list-button:hover {
+  background: #edf6f8;
+  border-color: #0b7285;
+}
+
+.landing-list-button.active {
+  background: #e0f2f5;
+  border-color: #0b7285;
+  box-shadow: inset 0 0 0 1px #0b7285;
+}
+
+.landing-list-button:active {
+  transform: translateY(1px);
+}
+
+.landing-audit-row {
+  cursor: default;
+}
+
+.landing-audit-row:hover {
+  background: #f7fafb;
+  border-color: #dfe6e8;
+}
+
+.landing-list-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: #0b2b31;
+  font-size: 0.92rem;
+  flex-wrap: wrap;
+}
+
+.landing-list-title code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #eef3f4;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+
+.landing-list-meta {
+  font-size: 0.78rem;
+  color: #6a7a80;
+}
+
+.landing-active-pill,
+.landing-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+.landing-active-pill {
+  background: #0b7285;
+  color: #fff;
+}
+
+.landing-badge {
+  background: #eef3f4;
+  color: #4b5f66;
+}
+
+.landing-card-empty {
+  margin: 0;
+  padding: 12px;
+  color: #6a7a80;
+  background: #f7fafb;
+  border: 1px dashed #dfe6e8;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  text-align: center;
+  flex: 1;
+}
+
+.landing-card-desc {
+  margin: 0;
+  color: #4b5f66;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  flex: 1;
+}
+
+.landing-card-desc em {
+  color: #6a7a80;
+  font-style: normal;
+  font-size: 0.8rem;
+}
+
+.landing-card-cta {
+  background: #0b7285;
+  color: #fff;
+  border: 1px solid #0b7285;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, transform 0.08s;
+}
+
+.landing-card-cta:hover {
+  background: #095d6e;
+}
+
+.landing-card-cta:active {
+  transform: translateY(1px);
+}
+
+.landing-card-cta.secondary {
+  background: #fff;
+  color: #0b4b56;
+  border-color: #cbd5d8;
+}
+
+.landing-card-cta.secondary:hover {
+  background: #f0f4f5;
+  border-color: #0b7285;
+}
+
+.landing-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.landing-card-actions .landing-card-cta {
+  flex: 1;
+  min-width: 110px;
+}
+
 /* 列印時強制顯示所有內容，無視 tab 狀態 */
 @media print {
   .app-shell [data-shows] {
