@@ -30,7 +30,6 @@ import {
   assessProductCompleteness,
   evaluateCandidateProducts,
   evaluateLayoutVariants,
-  evaluateProject,
   evaluateProjectBatch,
 } from './calc'
 import { db, ensureSeedData, resetLocalDatabase } from './db'
@@ -66,7 +65,6 @@ import type {
   ProjectSnapshot,
   ReviewResult,
   ReviewStatus,
-  RuleProfile,
   StoredDocumentFile,
   StressUnit,
   UnitPreferences,
@@ -107,6 +105,15 @@ import ResourceLibraryHub, {
   type ResourceLibraryTabId,
 } from './ResourceLibraryHub'
 import { WelcomeCard } from './WelcomeCard'
+import { SensitivityPanel } from './SensitivityPanel'
+import { CommandPalette } from './CommandPalette'
+import { FormulaReferencePanel } from './FormulaReferencePanel'
+import {
+  formatFileSize,
+  formatNumber,
+  formatQuantity,
+  getGoverningDcr,
+} from './formatHelpers'
 import {
   IconClipboard,
   IconCommand,
@@ -121,7 +128,6 @@ import {
   getUnitOptionLabel,
   getUnitSymbol,
   normalizeUnitPreferences,
-  toDisplayValue,
 } from './units'
 import type { QuantityKind } from './units'
 
@@ -129,35 +135,13 @@ const ProjectTemplateLibrary = lazy(() => import('./ProjectTemplateLibrary'))
 const ProductTemplateLibrary = lazy(() => import('./ProductTemplateLibrary'))
 const ProductScanAssistant = lazy(() => import('./ProductScanAssistant'))
 
-const numberFormatter = new Intl.NumberFormat('zh-TW', {
-  maximumFractionDigits: 2,
-})
-
 const loadCaseDelimitedHeaderRow =
   'name,tension_kN,shear_x_kN,shear_y_kN,moment_x_kN_m,moment_y_kN_m,shear_ecc_x_mm,shear_ecc_y_mm,shear_lever_arm_mm,shear_anchor_count,interaction_equation,consider_seismic,seismic_input_mode,eq_tension_kN,eq_shear_total_kN,eq_shear_x_kN,eq_shear_y_kN,eq_moment_x_kN_m,eq_moment_y_kN_m,seismic_design_method,omega_o,ductile_stretch_length_mm,ductile_buckling_restrained,ductile_attachment_mechanism_verified,attachment_yield_tension_kN,attachment_yield_shear_kN,attachment_yield_interaction,omega_attachment'
 
 const loadCaseDelimitedExampleRow =
   'LC1,80,18,6,0,0,,,,,linear,false,total_design,0,0,0,0,0,0,standard,1,0,false,false,0,0,none,1'
 
-function formatNumber(value: number) {
-  if (!Number.isFinite(value)) {
-    return '—'
-  }
-
-  return numberFormatter.format(value)
-}
-
-function formatFileSize(sizeBytes: number) {
-  if (sizeBytes < 1024) {
-    return `${sizeBytes} B`
-  }
-
-  if (sizeBytes < 1024 * 1024) {
-    return `${formatNumber(sizeBytes / 1024)} KB`
-  }
-
-  return `${formatNumber(sizeBytes / (1024 * 1024))} MB`
-}
+// formatNumber / formatFileSize 已移至 ./formatHelpers
 
 function statusLabel(status: ReviewStatus) {
   switch (status) {
@@ -176,9 +160,7 @@ function statusLabel(status: ReviewStatus) {
   }
 }
 
-function getGoverningDcr(summary: { governingDcr?: number; maxDcr: number }) {
-  return summary.governingDcr ?? summary.maxDcr
-}
+// getGoverningDcr 已移至 ./formatHelpers
 
 function getSeismicGuidanceBadgeStatus(state: string): ReviewStatus {
   switch (state) {
@@ -646,17 +628,7 @@ function formatDateTime(value?: string) {
   })
 }
 
-function formatQuantity(
-  value: number,
-  quantity: QuantityKind,
-  units: UnitPreferences,
-) {
-  if (!Number.isFinite(value)) {
-    return '—'
-  }
-
-  return `${formatNumber(toDisplayValue(value, quantity, units))} ${getUnitSymbol(quantity, units)}`
-}
+// formatQuantity 已移至 ./formatHelpers
 
 function formatLayoutVariantSummary(
   layout: AnchorLayout,
@@ -2086,359 +2058,7 @@ const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
   { id: 'result', label: '結果', hint: 'DCR / φψ 採用 / 候選比選 / 逐項明細 / 匯出' },
 ]
 
-interface CommandItem {
-  id: string
-  label: string
-  group: string
-  hint?: string
-  run: () => void
-}
 
-function CommandPalette(props: {
-  query: string
-  onQueryChange: (value: string) => void
-  onClose: () => void
-  commands: CommandItem[]
-}) {
-  const { query, onQueryChange, onClose, commands } = props
-  const normalized = query.trim().toLowerCase()
-  const filtered = commands.filter((cmd) => {
-    if (!normalized) {
-      return true
-    }
-    const haystack = `${cmd.label} ${cmd.group} ${cmd.hint ?? ''}`.toLowerCase()
-    return normalized
-      .split(/\s+/)
-      .filter(Boolean)
-      .every((token) => haystack.includes(token))
-  })
-  const [activeIndex, setActiveIndex] = useState(0)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
-
-  // 當 query 變動時重置 active index：derive during render + 只有 index 超過 filtered 時修正
-  // 避免 setState-in-effect 警告；filtered 本身是 render 時推導
-  const effectiveActiveIndex =
-    filtered.length === 0
-      ? 0
-      : Math.min(activeIndex, filtered.length - 1)
-
-  useEffect(() => {
-    const active = listRef.current?.querySelector<HTMLButtonElement>(
-      `[data-palette-index="${effectiveActiveIndex}"]`,
-    )
-    active?.scrollIntoView({ block: 'nearest' })
-  }, [effectiveActiveIndex])
-
-  return (
-    <div
-      className="command-palette-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="命令面板"
-      onClick={onClose}
-    >
-      <div
-        className="command-palette-modal"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <input
-          ref={inputRef}
-          type="search"
-          className="command-palette-input"
-          value={query}
-          placeholder="輸入關鍵字：tab 名稱 / 案例 / 產品 / 動作…"
-          onChange={(event) => onQueryChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'ArrowDown') {
-              event.preventDefault()
-              setActiveIndex((i) => Math.min(i + 1, filtered.length - 1))
-            } else if (event.key === 'ArrowUp') {
-              event.preventDefault()
-              setActiveIndex((i) => Math.max(i - 1, 0))
-            } else if (event.key === 'Enter') {
-              event.preventDefault()
-              const target = filtered[effectiveActiveIndex]
-              if (target) {
-                target.run()
-                onClose()
-              }
-            }
-          }}
-          aria-label="命令搜尋"
-        />
-        <div className="command-palette-list" ref={listRef}>
-          {filtered.length === 0 ? (
-            <div className="command-palette-empty">
-              沒有符合的指令；試試「切換」「匯出」「案例」等關鍵字
-            </div>
-          ) : null}
-          {filtered.map((cmd, index) => (
-            <button
-              key={cmd.id}
-              type="button"
-              data-palette-index={index}
-              className={`command-palette-item${
-                index === effectiveActiveIndex ? ' active' : ''
-              }`}
-              onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => {
-                cmd.run()
-                onClose()
-              }}
-            >
-              <span className="command-palette-item-label">{cmd.label}</span>
-              <span className="command-palette-item-group">{cmd.group}</span>
-              {cmd.hint ? (
-                <span className="command-palette-item-hint">{cmd.hint}</span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-        <div className="command-palette-footer">
-          <span>
-            <kbd>↑</kbd> <kbd>↓</kbd> 切換 · <kbd>Enter</kbd> 執行 ·
-            <kbd>Esc</kbd> 關閉
-          </span>
-          <span>共 {filtered.length} / {commands.length} 項</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * 敏感度分析面板：對 4 個關鍵輸入做 ±20% / ±10% 微擾，回傳對應 DCR 變化。
- * 讓使用者快速看到「再加 hef 10%、邊距 10%、減載 10% 會變成多少」，
- * 直接服務於補強設計的優化判斷。
- */
-function SensitivityPanel(props: {
-  project: ProjectCase
-  selectedProduct: AnchorProduct
-  activeRuleProfile: RuleProfile
-  unitPreferences: UnitPreferences
-  simpleMode: boolean
-  baselineDcr: number
-}) {
-  const {
-    project,
-    selectedProduct,
-    activeRuleProfile,
-    unitPreferences,
-    simpleMode,
-    baselineDcr,
-  } = props
-  const [enabled, setEnabled] = useState(false)
-
-  const variations = useMemo<
-    Array<{
-      axis: string
-      label: string
-      symbol: string
-      baseline: number
-      quantity: 'force' | 'length'
-      perturb: (project: ProjectCase, factor: number) => ProjectCase
-    }>
-  >(() => {
-    return [
-      {
-        axis: 'load',
-        label: '設計拉力 N',
-        symbol: 'N',
-        baseline: project.loads.tensionKn,
-        quantity: 'force',
-        perturb: (p, factor) => ({
-          ...p,
-          loads: { ...p.loads, tensionKn: p.loads.tensionKn * factor },
-        }),
-      },
-      {
-        axis: 'shear',
-        label: '設計剪力 V（同比例）',
-        symbol: 'V',
-        baseline: Math.hypot(project.loads.shearXKn, project.loads.shearYKn),
-        quantity: 'force',
-        perturb: (p, factor) => ({
-          ...p,
-          loads: {
-            ...p.loads,
-            shearXKn: p.loads.shearXKn * factor,
-            shearYKn: p.loads.shearYKn * factor,
-          },
-        }),
-      },
-      {
-        axis: 'hef',
-        label: '有效埋置 hef',
-        symbol: 'hef',
-        baseline: project.layout.effectiveEmbedmentMm,
-        quantity: 'length',
-        perturb: (p, factor) => ({
-          ...p,
-          layout: {
-            ...p.layout,
-            effectiveEmbedmentMm: p.layout.effectiveEmbedmentMm * factor,
-          },
-        }),
-      },
-      {
-        axis: 'edge',
-        label: '邊距 ca（四側同比例）',
-        symbol: 'ca',
-        baseline: Math.min(
-          project.layout.edgeLeftMm,
-          project.layout.edgeRightMm,
-          project.layout.edgeBottomMm,
-          project.layout.edgeTopMm,
-        ),
-        quantity: 'length',
-        perturb: (p, factor) => ({
-          ...p,
-          layout: {
-            ...p.layout,
-            edgeLeftMm: p.layout.edgeLeftMm * factor,
-            edgeRightMm: p.layout.edgeRightMm * factor,
-            edgeBottomMm: p.layout.edgeBottomMm * factor,
-            edgeTopMm: p.layout.edgeTopMm * factor,
-          },
-        }),
-      },
-    ]
-  }, [project])
-
-  const factors = useMemo(() => [-0.2, -0.1, 0.1, 0.2], []) // ±10%、±20%
-
-  const matrix = useMemo(() => {
-    if (!enabled) {
-      return null
-    }
-    return variations.map((variation) => {
-      const cells = factors.map((delta) => {
-        const factor = 1 + delta
-        const perturbed = variation.perturb(project, factor)
-        try {
-          const review = evaluateProject(
-            perturbed,
-            selectedProduct,
-            activeRuleProfile,
-          )
-          const dcr = getGoverningDcr(review.summary)
-          const newValue = variation.baseline * factor
-          return { delta, factor, dcr, newValue, ok: dcr <= 1 }
-        } catch {
-          return {
-            delta,
-            factor,
-            dcr: Number.NaN,
-            newValue: Number.NaN,
-            ok: false,
-          }
-        }
-      })
-      return { variation, cells }
-    })
-  }, [enabled, variations, factors, project, selectedProduct, activeRuleProfile])
-
-  return (
-    <details
-      className="fold-panel sub-panel sensitivity-panel"
-      data-shows="result"
-      open={enabled}
-      onToggle={(event) => {
-        const isOpen = (event.target as HTMLDetailsElement).open
-        setEnabled(isOpen)
-      }}
-    >
-      <summary className="fold-summary">
-        <span>敏感度分析</span>
-        <small>
-          {simpleMode
-            ? '按 ±10% / ±20% 微擾後 DCR 變化'
-            : '展開此區會額外跑 16 次評估；4 個參數 × 4 個變化（±10%、±20%）'}
-        </small>
-      </summary>
-      <div className="fold-stack">
-        {!matrix ? (
-          <p className="helper-text">
-            展開後會以目前案例為基準，分別微擾 N / V / hef / ca 邊距各
-            ±10% 與 ±20%，並以新數據重算控制 DCR；用於補強設計或變更案的快速試算。
-          </p>
-        ) : (
-          <>
-            <p className="helper-text">
-              基準控制 DCR ={' '}
-              <strong>{formatNumber(baselineDcr)}</strong>。
-              下表顯示各參數變動後的新 DCR；
-              標 ✓ 表示通過、✗ 表示超過 1.0。
-            </p>
-            <table className="data-table compact-table sensitivity-table">
-              <thead>
-                <tr>
-                  <th>參數</th>
-                  <th>基準</th>
-                  {factors.map((delta) => (
-                    <th key={`hd-${delta}`}>
-                      {delta > 0 ? `+${(delta * 100).toFixed(0)}%` : `${(delta * 100).toFixed(0)}%`}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {matrix.map(({ variation, cells }) => (
-                  <tr key={variation.axis}>
-                    <td>
-                      <div className="table-mode">
-                        <strong>{variation.label}</strong>
-                        <small>
-                          {formatQuantity(
-                            variation.baseline,
-                            variation.quantity,
-                            unitPreferences,
-                          )}
-                        </small>
-                      </div>
-                    </td>
-                    <td className="sensitivity-baseline">
-                      <code>{formatNumber(baselineDcr)}</code>
-                    </td>
-                    {cells.map((cell) => (
-                      <td
-                        key={`${variation.axis}-${cell.delta}`}
-                        className={`sensitivity-cell sensitivity-${
-                          !Number.isFinite(cell.dcr)
-                            ? 'na'
-                            : cell.dcr > 1
-                              ? 'fail'
-                              : cell.dcr >= 0.85
-                                ? 'warn'
-                                : 'pass'
-                        }`}
-                        title={`${variation.symbol} = ${formatQuantity(cell.newValue, variation.quantity, unitPreferences)} → DCR ${formatNumber(cell.dcr)}`}
-                      >
-                        <strong>{formatNumber(cell.dcr)}</strong>
-                        <span>
-                          {cell.ok ? '✓' : Number.isFinite(cell.dcr) ? '✗' : '—'}
-                        </span>
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="helper-text">
-              注意：此處只重算控制 DCR，未重新檢視拉剪互制細項；用於設計優化方向參考，
-              正式檢核仍以主畫面實際輸入為準。
-            </p>
-          </>
-        )}
-      </div>
-    </details>
-  )
-}
 
 function App() {
   // 預設落地頁為資源庫（首頁 hub）；若上次離開時非 report，下次自動回到該 tab
@@ -9975,93 +9595,7 @@ function App() {
             baselineDcr={getGoverningDcr(batchReview.summary)}
           />
 
-          <details
-            className="fold-panel sub-panel formula-reference-panel"
-            data-shows="result"
-            open={false}
-          >
-            <summary className="fold-summary">
-              <span>17 章公式速查（規範參考）</span>
-              <small>群錨 / 拉力 / 剪力 / 互制核心公式與變數定義</small>
-            </summary>
-            <div className="fold-stack formula-reference-stack">
-              <p className="helper-text">
-                整理自台灣 112 規範第 17 章（≈ ACI 318-19 Ch.17）。
-                本卡為靜態參考，實際計算以工具引擎為準（含所有 ψ 因子調整）。
-              </p>
-              <div className="formula-reference-grid">
-                <article className="formula-card">
-                  <h4>17.6.1 鋼材拉力</h4>
-                  <code>φN_sa = φ · n · A_se,N · f_uta</code>
-                  <small>f_uta ≤ min(1.9·f_ya, 860 MPa)；φ = 0.75（ductile 鋼材）</small>
-                </article>
-                <article className="formula-card">
-                  <h4>17.6.2 混凝土拉破</h4>
-                  <code>φN_cbg = φ · (A_Nc/A_Nco) · ψ_ec,N · ψ_ed,N · ψ_c,N · ψ_cp,N · N_b</code>
-                  <small>
-                    N_b = k_c · λ_a · √f'c · h_ef^1.5；k_c = 10（預埋）/ 7（後置）
-                    <br />A_Nco = 9·h_ef²；ψ_ed,N = 0.7 + 0.3·c_a,min/(1.5·h_ef)
-                  </small>
-                </article>
-                <article className="formula-card">
-                  <h4>17.6.3 拉出（Headed）</h4>
-                  <code>φN_pn = φ · ψ_c,P · N_p；N_p = 8 · A_brg · f'c</code>
-                  <small>
-                    彎鉤式（Hooked）：N_p = 0.9 · f'c · e_h · d_a，3·d_a ≤ e_h ≤ 4.5·d_a
-                  </small>
-                </article>
-                <article className="formula-card">
-                  <h4>17.6.4 側面破裂</h4>
-                  <code>φN_sb = φ · 13 · c_a1 · √A_brg · λ_a · √f'c</code>
-                  <small>
-                    僅適用 h_ef &gt; 2.5·c_a1 之預埋 headed 錨栓
-                  </small>
-                </article>
-                <article className="formula-card">
-                  <h4>17.7.1 鋼材剪力</h4>
-                  <code>φV_sa = φ · n · 0.6 · A_se,V · f_uta</code>
-                  <small>
-                    預埋 not-grouted 加 sleeve 取 0.6；後置依產品評估值
-                  </small>
-                </article>
-                <article className="formula-card">
-                  <h4>17.7.2 混凝土剪破</h4>
-                  <code>φV_cbg = φ · (A_Vc/A_Vco) · ψ_ec,V · ψ_ed,V · ψ_c,V · ψ_h,V · V_b</code>
-                  <small>
-                    V_b = 0.6·(l_e/d_a)^0.2·√d_a·λ_a·√f'c·c_a1^1.5（≤ 3.7·λ·√f'c·c_a1^1.5）
-                    <br />A_Vco = 4.5·c_a1²；多邊距時 c_a1 取 max(c_a2/1.5, h_a/1.5, s/3)
-                  </small>
-                </article>
-                <article className="formula-card">
-                  <h4>17.7.3 撬出</h4>
-                  <code>φV_cp = φ · k_cp · N_cbg</code>
-                  <small>
-                    k_cp = 1.0（h_ef &lt; 65 mm）/ 2.0（h_ef ≥ 65 mm）；以 N_cbg 為基底
-                  </small>
-                </article>
-                <article className="formula-card">
-                  <h4>17.8.3 拉剪互制</h4>
-                  <code>N_ua/φN_n + V_ua/φV_n ≤ 1.2</code>
-                  <small>
-                    或 5/3 次方：(N/φN_n)^5/3 + (V/φV_n)^5/3 ≤ 1.0
-                    <br />任一比值 ≤ 0.2 時免作互制（17.8.1 / 17.8.2）
-                  </small>
-                </article>
-                <article className="formula-card formula-card-vars">
-                  <h4>主要變數定義</h4>
-                  <ul>
-                    <li><code>h_ef</code>：有效埋置深度</li>
-                    <li><code>c_a1, c_a,min</code>：邊距 / 最小邊距</li>
-                    <li><code>A_Nc / A_Nco</code>：實際 / 單錨拉破投影面積</li>
-                    <li><code>A_Vc / A_Vco</code>：實際 / 單錨剪破投影面積</li>
-                    <li><code>A_brg</code>：錨頭 / 附板淨承壓面積</li>
-                    <li><code>ψ_ec, ψ_ed, ψ_c, ψ_cp</code>：偏心 / 邊距 / 裂縫 / 後置劈裂修正</li>
-                    <li><code>λ_a</code>：輕質混凝土修正（一般 = 1.0）</li>
-                  </ul>
-                </article>
-              </div>
-            </div>
-          </details>
+          <FormulaReferencePanel />
 
           <details
             className="fold-panel sub-panel audit-history-panel"
