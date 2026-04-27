@@ -2900,6 +2900,8 @@ function App() {
   const [isDirty, setIsDirty] = useState(false)
   const [showShortcutHelp, setShowShortcutHelp] = useState(false)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
+  // SW 新版可用時顯示 banner 提示重新載入
+  const [swUpdateAvailable, setSwUpdateAvailable] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [paletteQuery, setPaletteQuery] = useState('')
   // PWA 可安裝事件：若瀏覽器支援，beforeinstallprompt 會被攔截，顯示一鍵安裝按鈕
@@ -3017,6 +3019,21 @@ function App() {
       // 隱私模式 / quota 等情境忽略；不影響主流程
     }
   }, [activeTab, hydrated])
+
+  // SW 新版可用：main.tsx 會 dispatch CustomEvent，這裡監聽並顯示 banner
+  useEffect(() => {
+    const handler = () => setSwUpdateAvailable(true)
+    window.addEventListener(
+      'bolt-review-tool:sw-update-available',
+      handler as EventListener,
+    )
+    return () => {
+      window.removeEventListener(
+        'bolt-review-tool:sw-update-available',
+        handler as EventListener,
+      )
+    }
+  }, [])
 
   // PWA 安裝事件：攔截 beforeinstallprompt 後待使用者點擊「安裝」按鈕觸發
   useEffect(() => {
@@ -4835,6 +4852,37 @@ function App() {
           </div>
         </div>
       </header>
+
+      {swUpdateAvailable ? (
+        <div className="sw-update-banner" role="status">
+          <div className="sw-update-text">
+            <strong>🔄 工具有新版本可用</strong>
+            <span>
+              關閉所有此工具分頁後重新開啟，即可載入最新計算邏輯與功能。
+              建議於完成目前手上的留痕 / 報表後再行升級。
+            </span>
+          </div>
+          <div className="sw-update-actions">
+            <button
+              type="button"
+              className="sw-update-reload"
+              onClick={() => {
+                window.location.reload()
+              }}
+            >
+              立即重新載入 →
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setSwUpdateAvailable(false)}
+              aria-label="暫時隱藏新版提醒"
+            >
+              稍後
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {calcEngineMismatch ? (
         <div className="calc-engine-mismatch-banner" role="alert">

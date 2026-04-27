@@ -193,16 +193,75 @@ export async function buildWorkspaceBackup(
   }
 }
 
+/**
+ * 嚴謹解析工作區備份檔；除了原本的物件型別檢查，加入：
+ * - schema 標記檢查（避免使用者誤匯入其他工具的 JSON）
+ * - 必要欄位完整性提示（產品缺直徑 / 案例缺 layout 時抛具名錯誤，幫使用者定位）
+ * 失敗時拋擲帶上下文的 Error，由 caller 顯示給使用者。
+ */
 export function parseWorkspaceBackup(text: string): WorkspaceBackup {
-  const parsed = JSON.parse(text) as unknown
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '未知錯誤'
+    throw new Error(`JSON 格式錯誤（${message}），請確認檔案完整下載。`)
+  }
 
   if (!isRecord(parsed)) {
     throw new Error('備份檔內容不是有效的 JSON 物件。')
   }
 
+  // schema 標記檢查（軟性：警告但仍嘗試解析；其他工具的 JSON 通常會在後續欄位失敗）
+  if (parsed.schema !== undefined && parsed.schema !== 'bolt-review-tool-backup') {
+    throw new Error(
+      `備份檔 schema 不符（讀到「${String(parsed.schema)}」，應為「bolt-review-tool-backup」）。請確認是本工具匯出的 JSON。`,
+    )
+  }
+
   if (!Array.isArray(parsed.products) || !Array.isArray(parsed.projects)) {
     throw new Error('備份檔缺少 products / projects 陣列。')
   }
+
+  // 至少要有一個 product 與一個 project，否則匯入無意義
+  if (parsed.products.length === 0 && parsed.projects.length === 0) {
+    throw new Error('備份檔不含任何產品或案例，無資料可匯入。')
+  }
+
+  // 對 projects 做基本欄位健檢，有缺直接告訴使用者第幾個案件出問題
+  parsed.projects.forEach((item, index) => {
+    if (!isRecord(item)) {
+      throw new Error(`第 ${index + 1} 個案例不是物件。`)
+    }
+    if (!isRecord(item.layout)) {
+      throw new Error(
+        `第 ${index + 1} 個案例「${
+          typeof item.name === 'string' ? item.name : 'unnamed'
+        }」缺 layout 欄位。`,
+      )
+    }
+    if (!isRecord(item.loads)) {
+      throw new Error(
+        `第 ${index + 1} 個案例「${
+          typeof item.name === 'string' ? item.name : 'unnamed'
+        }」缺 loads 欄位。`,
+      )
+    }
+  })
+
+  // 對 products 做基本欄位健檢
+  parsed.products.forEach((item, index) => {
+    if (!isRecord(item)) {
+      throw new Error(`第 ${index + 1} 個產品不是物件。`)
+    }
+    if (typeof item.diameterMm !== 'number' || item.diameterMm <= 0) {
+      throw new Error(
+        `第 ${index + 1} 個產品「${
+          typeof item.model === 'string' ? item.model : 'unnamed'
+        }」缺有效 diameterMm（必須 > 0）。`,
+      )
+    }
+  })
 
   const files = Array.isArray(parsed.files)
     ? parsed.files

@@ -627,7 +627,15 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(review.project.name)} - 錨栓檢討報告</title>
     <style>
-      @page { size: A4; margin: 14mm 12mm 16mm; }
+      @page {
+        size: A4;
+        margin: 14mm 12mm 16mm;
+        @bottom-right {
+          content: "第 " counter(page) " / " counter(pages) " 頁";
+          font-size: 9pt;
+          color: #5b6475;
+        }
+      }
       :root { color-scheme: light; --ink:#14213d; --muted:#5b6475; --line:#d8deea; --panel:#f7f9fc; --accent:#0b7285; --warn:#c2410c; --pass:#166534; --fail:#b91c1c; --screen:#7c3aed; }
       * { box-sizing:border-box; }
       body { margin:0; font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif; color:var(--ink); background:#eef2f7; }

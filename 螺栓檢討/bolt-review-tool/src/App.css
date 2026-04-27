@@ -2032,6 +2032,7 @@ button:disabled {
   @page {
     size: A4;
     margin: 16mm 12mm 18mm;
+    /* Chrome 列印支援 @page 標頭 / 頁尾的 marginal box；headers 由 print viewer 自帶 */
   }
 
   body {
@@ -2089,7 +2090,8 @@ button:disabled {
   }
 
   .report-page-number::after {
-    content: "第 " counter(page) " 頁";
+    /* Chrome 印表機渲染下 counter(pages) 顯示總頁數；不支援的瀏覽器只顯示頁碼 */
+    content: "第 " counter(page) " / " counter(pages) " 頁";
   }
 
   .report-body {
@@ -4536,9 +4538,65 @@ label.field-has-warning > input {
 }
 
 @media print {
-  .calc-engine-mismatch-banner {
+  .calc-engine-mismatch-banner,
+  .sw-update-banner {
     display: none !important;
   }
+}
+
+/* SW 新版可用 banner */
+.sw-update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 8px 0 12px;
+  padding: 10px 16px;
+  background: #e8f0fc;
+  border: 1px solid #6b94d2;
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.sw-update-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 280px;
+}
+
+.sw-update-text strong {
+  color: #1e3a8a;
+  font-size: 0.96rem;
+}
+
+.sw-update-text span {
+  color: #2c4a8c;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.sw-update-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sw-update-reload {
+  background: #2563eb;
+  color: #fff;
+  border: 1px solid #2563eb;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sw-update-reload:hover {
+  background: #1d4ed8;
 }
 
 @media print {

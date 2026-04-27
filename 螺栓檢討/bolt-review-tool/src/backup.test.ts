@@ -114,4 +114,35 @@ describe('workspace backup helpers', () => {
     expect(merged.files).toHaveLength(1)
     expect(merged.projects[1].documents?.[0]?.id).toBe(merged.files[0].id)
   })
+
+  it('rejects backup with wrong schema marker', () => {
+    const payload = JSON.stringify({
+      schema: 'other-tool-backup',
+      version: 1,
+      products: [],
+      projects: [],
+    })
+    expect(() => parseWorkspaceBackup(payload)).toThrow(/schema 不符/)
+  })
+
+  it('rejects malformed JSON with helpful message', () => {
+    expect(() => parseWorkspaceBackup('{"products":')).toThrow(
+      /JSON 格式錯誤/,
+    )
+  })
+
+  it('rejects backup missing required fields per project', () => {
+    const payload = JSON.stringify({
+      schema: 'bolt-review-tool-backup',
+      version: 1,
+      products: [
+        { id: 'p1', diameterMm: 16 },
+      ],
+      projects: [
+        // 缺 layout
+        { id: 'pr1', name: '案 A', loads: { tensionKn: 10 } },
+      ],
+    })
+    expect(() => parseWorkspaceBackup(payload)).toThrow(/缺 layout/)
+  })
 })

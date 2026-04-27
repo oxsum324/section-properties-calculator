@@ -1,0 +1,67 @@
+{
+  "id": "R17-cast-in-2x2-baseline",
+  "source": "工具預設案；calc engine v0.x baseline。日後對照 ACI 318-19 R17.6.2.1 範例或 Hilti Profis 計算可置換 expected 區塊。",
+  "description": "M20 預埋附板錨栓，2×2 群錨於 700×700×500 mm 混凝土塊，hef=160 mm，邊距 ca=260 mm（≥1.5hef），N=50 kN、V=(10,3) kN，cracked concrete。預期所有 17 章檢核通過、控制模式為拉剪互制。",
+  "input": {
+    "ruleProfileId": "tw_rc_112_anchor_profile",
+    "layout": {
+      "concreteWidthMm": 700,
+      "concreteHeightMm": 700,
+      "thicknessMm": 500,
+      "concreteStrengthMpa": 28,
+      "crackedConcrete": true,
+      "lightweightConcrete": false,
+      "supplementaryReinforcement": false,
+      "effectiveEmbedmentMm": 160,
+      "anchorCountX": 2,
+      "anchorCountY": 2,
+      "spacingXmm": 180,
+      "spacingYmm": 180,
+      "edgeLeftMm": 260,
+      "edgeRightMm": 260,
+      "edgeBottomMm": 260,
+      "edgeTopMm": 260
+    },
+    "product": {
+      "id": "generic-cast-m20",
+      "family": "cast_in",
+      "diameterMm": 20,
+      "effectiveAreaMm2": 245,
+      "steelYieldStrengthMpa": 400,
+      "steelUltimateStrengthMpa": 620,
+      "headBearingAreaMm2": 804
+    },
+    "loads": {
+      "tensionKn": 50,
+      "shearXKn": 10,
+      "shearYKn": 3,
+      "interactionEquation": "linear"
+    }
+  },
+  "expected": {
+    "overallStatus": "pass",
+    "governingDcrMax": 0.85,
+    "checks": [
+      {
+        "id": "concrete-breakout-tension",
+        "designStrengthKnMin": 130,
+        "designStrengthKnMax": 155,
+        "dcrTolerance": 0.05
+      },
+      {
+        "id": "pullout",
+        "designStrengthKnMin": 110,
+        "designStrengthKnMax": 145,
+        "dcrTolerance": 0.05
+      },
+      {
+        "id": "steel-tension",
+        "dcrMax": 0.5
+      },
+      {
+        "id": "steel-shear",
+        "dcrMax": 0.5
+      }
+    ]
+  }
+}
