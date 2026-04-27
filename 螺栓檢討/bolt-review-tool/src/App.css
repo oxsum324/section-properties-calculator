@@ -4325,6 +4325,222 @@ label.field-has-warning > input {
   color: #7a1e10;
 }
 
+/* 進階分析群組：把敏感度 / 公式速查 / 留痕歷程聚合一區 */
+.advanced-analysis-group {
+  margin: 16px 0;
+  padding: 12px 14px 6px;
+  background: #f6f9fa;
+  border: 1px dashed #cbd5d8;
+  border-radius: 10px;
+}
+
+.advanced-analysis-group > details {
+  margin-bottom: 6px;
+}
+
+.advanced-analysis-group > details:last-child {
+  margin-bottom: 0;
+}
+
+.advanced-analysis-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed #cbd5d8;
+}
+
+.advanced-analysis-header h3 {
+  margin: 0;
+  color: #4b5f66;
+  font-size: 0.96rem;
+  letter-spacing: 0.04em;
+}
+
+.advanced-analysis-header small {
+  color: #6a7a80;
+  font-size: 0.82rem;
+}
+
+/* 17.10 耐震決策樹 */
+.seismic-method-decision {
+  grid-column: 1 / -1;
+  margin: 8px 0;
+  padding: 14px 16px;
+  background: #fafcfc;
+  border: 1px solid #cbd5d8;
+  border-left: 4px solid #5b6bbd;
+  border-radius: 8px;
+}
+
+.seismic-method-decision strong {
+  color: #0b4b56;
+  font-size: 0.96rem;
+}
+
+.seismic-decision-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.seismic-decision-question {
+  border: 1px solid #d8e1e1;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.seismic-decision-question legend {
+  padding: 0 6px;
+  font-weight: 600;
+  color: #0b4b56;
+  font-size: 0.9rem;
+}
+
+.seismic-decision-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 6px 8px;
+  border: 1px solid #e0e6e8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.seismic-decision-option:hover {
+  background: #f0f4f5;
+  border-color: #0b7285;
+}
+
+.seismic-decision-option input[type='radio'] {
+  margin-top: 4px;
+}
+
+.seismic-decision-option input[type='radio']:checked + span {
+  color: #0b2b31;
+}
+
+.seismic-decision-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.seismic-decision-option span strong {
+  font-size: 0.92rem;
+  color: #1b2b30;
+}
+
+.seismic-decision-option span small {
+  color: #6a7a80;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.seismic-decision-option:has(input:checked) {
+  background: #eaf2f4;
+  border-color: #0b7285;
+  box-shadow: inset 0 0 0 1px #0b7285;
+}
+
+.seismic-decision-current {
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  background: #e6f1f3;
+  border-radius: 6px;
+  color: #0b4b56;
+  font-size: 0.9rem;
+}
+
+.seismic-decision-current strong {
+  margin-left: 6px;
+  color: #0b2b31;
+}
+
+.seismic-decision-standard {
+  background: #fff7dc;
+  color: #6d4a0c;
+}
+
+/* calc engine 版本不一致警示 banner */
+.calc-engine-mismatch-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 8px 0 12px;
+  padding: 10px 16px;
+  background: #fff4e1;
+  border: 1px solid #e0a44d;
+  border-left: 4px solid #c08a30;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.calc-engine-mismatch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 280px;
+}
+
+.calc-engine-mismatch-text strong {
+  color: #7a5210;
+  font-size: 0.96rem;
+}
+
+.calc-engine-mismatch-text span {
+  color: #6d4a0c;
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.calc-engine-mismatch-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.84rem;
+}
+
+.calc-engine-upgrade-btn {
+  background: #c08a30;
+  color: #fff;
+  border: 1px solid #c08a30;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.calc-engine-upgrade-btn:hover {
+  background: #a5731f;
+}
+
+/* 快捷鍵說明彈窗 - 動作列（重新顯示歡迎卡等） */
+.shortcut-help-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+@media print {
+  .calc-engine-mismatch-banner {
+    display: none !important;
+  }
+}
+
 @media print {
   .copy-summary-button,
   .landing-pwa-install {

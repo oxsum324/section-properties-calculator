@@ -4836,6 +4836,28 @@ function App() {
         </div>
       </header>
 
+      {calcEngineMismatch ? (
+        <div className="calc-engine-mismatch-banner" role="alert">
+          <div className="calc-engine-mismatch-text">
+            <strong>⚠ 本案計算版本與目前工具不一致</strong>
+            <span>
+              本案先前以 <code>{calcEngineVersionStatus.projectVersion}</code>{' '}
+              計算；目前工具版本為{' '}
+              <code>{calcEngineVersionStatus.runtimeVersion}</code>。
+              畫面顯示已依最新版重算；正式交付前請按右側按鈕升級並重新留痕。
+            </span>
+          </div>
+          <button
+            type="button"
+            className="calc-engine-upgrade-btn"
+            onClick={adoptCurrentCalcEngineVersion}
+            title="把本案計算版本標記為目前工具版本，建議完成後立即重新留痕"
+          >
+            升級此案 →
+          </button>
+        </div>
+      ) : null}
+
       <section className="toolbar">
         <div className="toolbar-group">
           <label>
@@ -7995,24 +8017,122 @@ function App() {
                   patchLoads({ designEarthquakeMomentYKnM: value ?? 0 })
                 }
               />
-              <label>
-                設計方式
-                <select
-                  value={project.loads.seismicDesignMethod}
-                  onChange={(event) =>
-                    patchLoads({
-                      seismicDesignMethod: event.target
-                        .value as ProjectCase['loads']['seismicDesignMethod'],
-                    })
-                  }
-                >
-                  <option value="standard">未指定</option>
-                  <option value="ductile_steel">韌性鋼材路徑</option>
-                  <option value="attachment_yield">附掛物降伏路徑</option>
-                  <option value="nonyielding_attachment">非降伏附掛物</option>
-                  <option value="overstrength">Ωo 放大</option>
-                </select>
-              </label>
+              <div className="seismic-method-decision">
+                <strong>17.10 耐震路徑選擇</strong>
+                <p className="helper-text" style={{ margin: '4px 0 8px' }}>
+                  依案件實況勾選兩個關鍵問題，工具自動推算合適路徑：
+                </p>
+                <div className="seismic-decision-tree">
+                  <fieldset className="seismic-decision-question">
+                    <legend>Q1：附掛物（被固定的構件）會降伏嗎？</legend>
+                    <label className="seismic-decision-option">
+                      <input
+                        type="radio"
+                        name="seismic-q1-attachment-yields"
+                        checked={
+                          project.loads.seismicDesignMethod === 'attachment_yield'
+                        }
+                        onChange={() =>
+                          patchLoads({ seismicDesignMethod: 'attachment_yield' })
+                        }
+                      />
+                      <span>
+                        <strong>是 — 附掛物先行降伏</strong>
+                        <small>用 Vyield,attachment / Nyield,attachment 倒推；錨栓 φNn ≥ 1.2·Nyield</small>
+                      </span>
+                    </label>
+                    <label className="seismic-decision-option">
+                      <input
+                        type="radio"
+                        name="seismic-q1-attachment-yields"
+                        checked={
+                          project.loads.seismicDesignMethod === 'nonyielding_attachment'
+                        }
+                        onChange={() =>
+                          patchLoads({
+                            seismicDesignMethod: 'nonyielding_attachment',
+                          })
+                        }
+                      />
+                      <span>
+                        <strong>否 — 非降伏附掛物（剛性接合）</strong>
+                        <small>需以 Ωattachment 放大地震力傳至錨栓</small>
+                      </span>
+                    </label>
+                  </fieldset>
+
+                  <fieldset className="seismic-decision-question">
+                    <legend>
+                      Q2：以上若不適用，採用哪種錨栓內力路徑？
+                    </legend>
+                    <label className="seismic-decision-option">
+                      <input
+                        type="radio"
+                        name="seismic-q2-anchor-route"
+                        checked={
+                          project.loads.seismicDesignMethod === 'ductile_steel'
+                        }
+                        onChange={() =>
+                          patchLoads({ seismicDesignMethod: 'ductile_steel' })
+                        }
+                      />
+                      <span>
+                        <strong>韌性鋼材路徑</strong>
+                        <small>錨栓鋼材延伸 ≥ 8da 且 fya/futa ≤ 0.7；可用 ductile φ</small>
+                      </span>
+                    </label>
+                    <label className="seismic-decision-option">
+                      <input
+                        type="radio"
+                        name="seismic-q2-anchor-route"
+                        checked={
+                          project.loads.seismicDesignMethod === 'overstrength'
+                        }
+                        onChange={() =>
+                          patchLoads({ seismicDesignMethod: 'overstrength' })
+                        }
+                      />
+                      <span>
+                        <strong>Ωo 放大路徑</strong>
+                        <small>地震力以 Ωo 放大進入錨栓檢核（混凝土主控時必選）</small>
+                      </span>
+                    </label>
+                    <label className="seismic-decision-option">
+                      <input
+                        type="radio"
+                        name="seismic-q2-anchor-route"
+                        checked={
+                          project.loads.seismicDesignMethod === 'standard'
+                        }
+                        onChange={() =>
+                          patchLoads({ seismicDesignMethod: 'standard' })
+                        }
+                      />
+                      <span>
+                        <strong>未指定（暫不套用 17.10 加重）</strong>
+                        <small>僅適用初期評估；正式設計需明確選定路徑</small>
+                      </span>
+                    </label>
+                  </fieldset>
+                  <p
+                    className={`seismic-decision-current seismic-decision-${project.loads.seismicDesignMethod}`}
+                  >
+                    目前路徑：
+                    <strong>
+                      {project.loads.seismicDesignMethod === 'attachment_yield'
+                        ? '附掛物降伏路徑'
+                        : project.loads.seismicDesignMethod ===
+                            'nonyielding_attachment'
+                          ? '非降伏附掛物（Ωattachment 放大）'
+                          : project.loads.seismicDesignMethod === 'ductile_steel'
+                            ? '韌性鋼材路徑'
+                            : project.loads.seismicDesignMethod === 'overstrength'
+                              ? 'Ωo 放大路徑'
+                              : '未指定'}
+                    </strong>
+                  </p>
+                </div>
+              </div>
               <label>
                 Ωo
                 <input
@@ -9756,6 +9876,16 @@ function App() {
             </p>
           ) : null}
 
+          {/* 進階分析群組：3 個摺疊面板默認收起，視覺上聚合為一區 */}
+          <section
+            className="advanced-analysis-group"
+            aria-label="進階分析"
+            data-shows="result"
+          >
+            <div className="advanced-analysis-header">
+              <h3>進階分析</h3>
+              <small>依需求展開：敏感度 ／ 公式速查 ／ 留痕歷程</small>
+            </div>
           <SensitivityPanel
             project={project}
             selectedProduct={selectedProduct}
@@ -10155,11 +10285,12 @@ function App() {
               </p>
             </div>
           </details>
+          </section>
 
           <details
             className="fold-panel sub-panel"
             data-shows="result"
-            open={!simpleMode}
+            open={false}
           >
             <summary className="fold-summary">
               <span>錨栓力學分配</span>
@@ -11287,6 +11418,27 @@ function App() {
               在輸入框內時，<kbd>Alt</kbd>/<kbd>Esc</kbd> 不會攔截，以避免干擾輸入；
               <kbd>Ctrl</kbd>+<kbd>S</kbd>/<kbd>Ctrl</kbd>+<kbd>P</kbd> 皆會覆寫瀏覽器預設行為。
             </p>
+            <div className="shortcut-help-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setShowWelcome(true)
+                  try {
+                    window.localStorage.removeItem(
+                      'bolt-review-tool:welcomeDismissed',
+                    )
+                  } catch {
+                    /* 隱私模式忽略 */
+                  }
+                  setShowShortcutHelp(false)
+                  setActiveTab('report')
+                }}
+                title="重新顯示首頁歡迎卡（4 步驟新手引導）"
+              >
+                重新顯示歡迎卡
+              </button>
+            </div>
             <div className="shortcut-help-version">
               <span>
                 build：<code>{__APP_COMMIT_HASH__}</code> ·
