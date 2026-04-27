@@ -106,6 +106,14 @@ import type { SeismicRouteGuidance } from './seismicRouteGuidance'
 import ResourceLibraryHub, {
   type ResourceLibraryTabId,
 } from './ResourceLibraryHub'
+import { WelcomeCard } from './WelcomeCard'
+import {
+  IconClipboard,
+  IconCommand,
+  IconDownload,
+  IconInstall,
+  IconRefresh,
+} from './Icons'
 import {
   formatInputQuantity,
   fromDisplayValue,
@@ -1213,6 +1221,13 @@ function ReportDocument({
   return (
     <section className="print-report print-only">
       <section className="report-cover">
+        {reportSettings.companyLogoDataUrl ? (
+          <img
+            src={reportSettings.companyLogoDataUrl}
+            alt={reportSettings.companyName || '公司 LOGO'}
+            className="report-cover-logo"
+          />
+        ) : null}
         <div className="report-cover-badge">
           {reportSettings.companyName || '工程報表草稿'}
         </div>
@@ -4856,7 +4871,9 @@ function App() {
       {swUpdateAvailable ? (
         <div className="sw-update-banner" role="status">
           <div className="sw-update-text">
-            <strong>🔄 工具有新版本可用</strong>
+            <strong>
+              <IconRefresh aria-hidden /> 工具有新版本可用
+            </strong>
             <span>
               關閉所有此工具分頁後重新開啟，即可載入最新計算邏輯與功能。
               建議於完成目前手上的留痕 / 報表後再行升級。
@@ -4950,7 +4967,7 @@ function App() {
             title="快速跳到 tab / 案例 / 產品 / 動作（Ctrl/Cmd+K）"
             aria-label="開啟命令面板"
           >
-            <span aria-hidden="true">⌘</span>
+            <IconCommand aria-hidden />
             <span>快速命令</span>
             <kbd className="command-palette-trigger-kbd">Ctrl+K</kbd>
           </button>
@@ -5193,59 +5210,19 @@ function App() {
 
       <div className="resource-library-wrapper" data-shows="report">
       {showWelcome && !hasEnteredWorkspace ? (
-        <section
-          className="welcome-card"
-          aria-labelledby="welcome-card-title"
-        >
-          <div className="welcome-card-header">
-            <h2 id="welcome-card-title">歡迎使用錨栓檢討工具</h2>
-            <button
-              type="button"
-              className="welcome-close"
-              aria-label="關閉歡迎卡"
-              onClick={() => {
-                setShowWelcome(false)
-                try {
-                  window.localStorage.setItem(
-                    'bolt-review-tool:welcomeDismissed',
-                    '1',
-                  )
-                } catch {
-                  /* 隱私模式忽略 */
-                }
-              }}
-            >
-              ✕
-            </button>
-          </div>
-          <p className="welcome-intro">
-            符合台灣 112 年版規範第 17 章 / ACI 318-19 Ch.17。
-            <strong>預設案例「柱腳基板示例」可直接套用通過</strong>，
-            不必先填欄位即可看到完整檢核流程。
-          </p>
-          <ol className="welcome-steps">
-            <li>
-              <strong>選樣板或載入案例</strong>
-              <span>下方「推薦案件樣板」/「最近編輯案例」直接套用</span>
-            </li>
-            <li>
-              <strong>進入「構件／配置」分頁</strong>
-              <span>fc′、hef、邊距、錨栓陣列；含 H 型鋼周邊輔助</span>
-            </li>
-            <li>
-              <strong>填「載重」</strong>
-              <span>精簡模式只需 N / V / M；進階可批次組合</span>
-            </li>
-            <li>
-              <strong>看「結果」</strong>
-              <span>整體判定 / 逐項 DCR / 敏感度分析 / 一鍵匯出 PDF/XLSX/DOCX</span>
-            </li>
-          </ol>
-          <p className="welcome-shortcut-hint">
-            💡 任何時候按 <kbd>Ctrl/⌘</kbd>+<kbd>K</kbd> 開啟命令面板，
-            或按 <kbd>?</kbd> 查看快捷鍵
-          </p>
-        </section>
+        <WelcomeCard
+          onDismiss={() => {
+            setShowWelcome(false)
+            try {
+              window.localStorage.setItem(
+                'bolt-review-tool:welcomeDismissed',
+                '1',
+              )
+            } catch {
+              /* 隱私模式忽略 */
+            }
+          }}
+        />
       ) : null}
       <div className="resource-back-bar">
         <button
@@ -5443,7 +5420,7 @@ function App() {
                 }
               }}
             >
-              📲 安裝為桌面 App
+              <IconInstall aria-hidden /> 安裝為桌面 App
             </button>
           ) : null}
         </article>
@@ -8491,6 +8468,61 @@ function App() {
                 </select>
               </label>
             </div>
+            <div className="report-logo-row">
+              {reportSettings.companyLogoDataUrl ? (
+                <div className="report-logo-preview">
+                  <img
+                    src={reportSettings.companyLogoDataUrl}
+                    alt="公司 LOGO 預覽"
+                  />
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => patchReport({ companyLogoDataUrl: '' })}
+                  >
+                    移除 LOGO
+                  </button>
+                </div>
+              ) : (
+                <p className="helper-text" style={{ margin: 0 }}>
+                  尚未上傳公司 LOGO（建議 PNG / SVG，≤ 200KB）
+                </p>
+              )}
+              <label className="report-logo-upload">
+                <span className="secondary-button" role="button">
+                  {reportSettings.companyLogoDataUrl ? '更換 LOGO' : '上傳 LOGO'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (!file) return
+                    if (file.size > 200 * 1024) {
+                      setSaveMessage(
+                        `LOGO 檔案 ${(file.size / 1024).toFixed(0)} KB 超過 200 KB；請壓縮後再上傳`,
+                      )
+                      event.target.value = ''
+                      return
+                    }
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                      const dataUrl = reader.result
+                      if (typeof dataUrl === 'string') {
+                        patchReport({ companyLogoDataUrl: dataUrl })
+                        setSaveMessage(`已上傳 LOGO：${file.name}`)
+                      }
+                    }
+                    reader.onerror = () => {
+                      setSaveMessage('LOGO 讀取失敗，請改用其他檔案')
+                    }
+                    reader.readAsDataURL(file)
+                    event.target.value = ''
+                  }}
+                />
+              </label>
+            </div>
             <p className="helper-text">
               摘要版列印時只保留控制檢核與例外尺寸；完整明細版會附上逐項條文與產品證據對照。
             </p>
@@ -9663,7 +9695,7 @@ function App() {
                   }
                 }}
               >
-                📋 複製摘要
+                <IconClipboard aria-hidden /> 複製摘要
               </button>
             </div>
           </div>
@@ -9806,7 +9838,7 @@ function App() {
                         }
                       }}
                     >
-                      📋 複製敘述
+                      <IconClipboard aria-hidden /> 複製敘述
                     </button>
                   </header>
                   <p className="auto-narrative-text">{narrative}</p>
@@ -10306,7 +10338,7 @@ function App() {
                                   }
                                 }}
                               >
-                                📋
+                                <IconClipboard aria-hidden />
                               </button>
                             </td>
                             <td>
@@ -11262,7 +11294,9 @@ function App() {
       {isDraggingFile ? (
         <div className="drop-overlay" aria-hidden="true">
           <div className="drop-overlay-card">
-            <strong>📥 放開以匯入備份 JSON</strong>
+            <strong>
+              <IconDownload aria-hidden /> 放開以匯入備份 JSON
+            </strong>
             <span>
               拖放的檔案會與現有工作區合併（以 ID 為 key）；
               非 JSON 檔案會被忽略。

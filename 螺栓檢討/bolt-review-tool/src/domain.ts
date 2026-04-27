@@ -102,6 +102,11 @@ export interface ReportSettings {
   checker: string
   issueDate: string
   reportMode: ReportMode
+  /**
+   * 公司 LOGO（dataURL，建議 PNG/SVG，最大 200KB）。
+   * 報表封面與列印 running-head 自動帶入。空字串代表未設定。
+   */
+  companyLogoDataUrl?: string
 }
 
 export type ProjectDocumentKind =

@@ -643,6 +643,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       h1,h2,h3 { margin:0 0 12px; }
       p,li,td,th,dd,dt,small,span,strong { line-height:1.5; }
       .hero { background:linear-gradient(135deg,#ffffff 0%,#eef8fb 100%); border:1px solid var(--line); border-radius:24px; padding:28px; margin-bottom:24px; }
+      .hero-logo { display:block; max-width:160px; max-height:80px; margin-bottom:14px; object-fit:contain; }
       .hero-grid,.grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
       .card { background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px; margin-bottom:20px; box-shadow:0 8px 20px rgba(20,33,61,.06); }
       .chip { display:inline-block; padding:4px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-right:6px; }
@@ -730,6 +731,11 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
     </div>
     <main>
       <section class="hero">
+        ${
+          reportSettings.companyLogoDataUrl
+            ? `<img src="${escapeHtml(reportSettings.companyLogoDataUrl)}" alt="${escapeHtml(reportSettings.companyName || '公司 LOGO')}" class="hero-logo" />`
+            : ''
+        }
         <p class="meta">${escapeHtml(reportSettings.companyName || '工程報表草稿')}</p>
         <h1>${escapeHtml(review.project.name)}</h1>
         <p>台灣《建築物混凝土結構設計規範》112年版第17章 錨栓檢討 ${escapeHtml(reportModeLabel(reportSettings.reportMode))}</p>

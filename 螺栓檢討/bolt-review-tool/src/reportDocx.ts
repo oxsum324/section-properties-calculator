@@ -408,7 +408,39 @@ function buildSummarySection(
     )
   }
 
+  // 公司 LOGO（PNG/JPG dataURL → Uint8Array）；SVG 與其他格式略過
+  const logoParagraphs: Paragraph[] = []
+  const logoDataUrl = params.reportSettings.companyLogoDataUrl ?? ''
+  if (logoDataUrl) {
+    const match = logoDataUrl.match(/^data:image\/(png|jpe?g);base64,(.+)$/i)
+    if (match) {
+      try {
+        const binary = atob(match[2])
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i += 1) {
+          bytes[i] = binary.charCodeAt(i)
+        }
+        const imgType = match[1].toLowerCase().startsWith('jp') ? 'jpg' : 'png'
+        logoParagraphs.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({
+                data: bytes,
+                transformation: { width: 200, height: 100 },
+                type: imgType as 'png' | 'jpg',
+              }),
+            ],
+          }),
+        )
+      } catch (error) {
+        console.warn('[reportDocx] LOGO 解碼失敗，略過：', error)
+      }
+    }
+  }
+
   return [
+    ...logoParagraphs,
     createParagraph(params.review.project.name, {
       bold: true,
       size: 34,
