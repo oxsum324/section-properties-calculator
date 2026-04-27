@@ -33,6 +33,7 @@ export interface ReportArtifactParams {
   evaluationFieldStates: EvaluationFieldState[]
   unitPreferences: UnitPreferences
   reportSettings: ReportSettings
+  /** @deprecated 暫時 UI 狀態，不應出現在正式報告。保留欄位避免破壞 caller，內部不再渲染。 */
   saveMessage: string
   auditEntry?: ProjectAuditEntry
   auditTrail?: ProjectAuditEntry[]
@@ -499,7 +500,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
     evaluationFieldStates,
     unitPreferences,
     reportSettings,
-    saveMessage,
+    // saveMessage 為暫時 UI 狀態，不再寫入正式報告（保留欄位於介面避免破壞 caller）
     auditEntry,
     auditTrail = [],
     autoPrint = false,
@@ -755,7 +756,6 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
             <li>批次最大數值 DCR = ${escapeHtml(formatNumber(batchReview.summary.maxDcr))}</li>
             <li>控制拉力 = ${escapeHtml(batchReview.summary.governingTensionMode)}</li>
             <li>控制剪力 = ${escapeHtml(batchReview.summary.governingShearMode)}</li>
-            <li>離線狀態 = ${escapeHtml(saveMessage)}</li>
             <li>最新留痕 = ${escapeHtml(auditEntry ? `${formatAuditHash(auditEntry.hash)} / ${auditSourceLabel(auditEntry.source)}` : '未留存')}</li>
           </ul>
           ${

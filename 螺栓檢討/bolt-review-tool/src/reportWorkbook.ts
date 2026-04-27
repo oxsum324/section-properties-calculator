@@ -114,30 +114,39 @@ function getResultValueUnit(
   return { quantity: 'force', symbol: getUnitSymbol('force', units) }
 }
 
+/**
+ * 把 CheckResult 的內部數值（mm / kN / MPa）依使用者單位轉成顯示單位的「原始數值」。
+ * 回傳 number（無法解析 finite 時回 ''），供 ExcelJS 寫入 raw cell；
+ * 顯示位數靠 cell.numFmt 控制，避免依賴格式化字串供公式重算。
+ */
 function convertResultValue(
   result: CheckResult,
   value: number,
   units: UnitPreferences,
-) {
+): number | string {
+  if (!Number.isFinite(value)) {
+    return ''
+  }
   const presentation = getResultValueUnit(result, units)
   if (presentation.quantity === 'ratio') {
-    return formatNumber(value)
+    return value
   }
-  return formatNumber(
-    toDisplayValue(
-      value,
-      presentation.quantity === 'force'
-        ? 'force'
-        : presentation.quantity === 'stress'
-          ? 'stress'
-          : 'length',
-      units,
-    ),
+  return toDisplayValue(
+    value,
+    presentation.quantity === 'force'
+      ? 'force'
+      : presentation.quantity === 'stress'
+        ? 'stress'
+        : 'length',
+    units,
   )
 }
 
-function convertLength(value: number, units: UnitPreferences) {
-  return formatNumber(toDisplayValue(value, 'length', units))
+function convertLength(value: number, units: UnitPreferences): number | string {
+  if (!Number.isFinite(value)) {
+    return ''
+  }
+  return toDisplayValue(value, 'length', units)
 }
 
 function getColumnLetter(columnNumber: number) {
@@ -182,6 +191,8 @@ function styleWorksheet(
       designHeader: string
     }>
     emphasizeSummarySheet?: boolean
+    /** 對指定欄位套用 Excel number format（保留 raw value 並控制顯示位數） */
+    numberFormatColumns?: Array<{ header: string; numFmt: string }>
   },
 ) {
   const headerRow = worksheet.getRow(1)
@@ -269,6 +280,21 @@ function styleWorksheet(
     }
   }
 
+  // 套用 number format（不改 raw value，只改顯示）
+  for (const numberFormatColumn of options?.numberFormatColumns ?? []) {
+    const index = headers.indexOf(numberFormatColumn.header)
+    if (index === -1) {
+      continue
+    }
+    const column = index + 1
+    for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber += 1) {
+      const cell = worksheet.getRow(rowNumber).getCell(column)
+      if (typeof cell.value === 'number') {
+        cell.numFmt = numberFormatColumn.numFmt
+      }
+    }
+  }
+
   for (const formulaColumn of options?.formulaColumns ?? []) {
     const outputIndex = headers.indexOf(formulaColumn.outputHeader)
     const demandIndex = headers.indexOf(formulaColumn.demandHeader)
@@ -309,6 +335,7 @@ function appendSheet(
       designHeader: string
     }>
     emphasizeSummarySheet?: boolean
+    numberFormatColumns?: Array<{ header: string; numFmt: string }>
   },
 ) {
   const worksheet = workbook.addWorksheet(name)
@@ -413,15 +440,16 @@ export function buildResultRows(params: ReportArtifactParams): ReportTableRow[] 
         條文: `${result.citation.clause} ${result.citation.title}`,
         狀態: statusLabel(result.status),
         正式性: result.formal ? '正式' : '初篩/提醒',
+        // raw numeric cells；顯示位數由 cell.numFmt 控制（供 DCR重算 公式使用）
         需求值: convertResultValue(result, result.demandKn, unitPreferences),
         設計值: convertResultValue(result, result.designStrengthKn, unitPreferences),
         名義值: convertResultValue(result, result.nominalStrengthKn, unitPreferences),
-      單位: unit.symbol,
-      DCR: formatNumber(result.dcr),
-      DCR重算: '',
-      說明: result.note ?? '',
-    })
-  }
+        單位: unit.symbol,
+        DCR: Number.isFinite(result.dcr) ? result.dcr : '',
+        DCR重算: '',
+        說明: result.note ?? '',
+      })
+    }
   }
 
   return rows
@@ -544,6 +572,13 @@ export function buildReportWorkbook(params: ReportArtifactParams) {
         demandHeader: '需求值',
         designHeader: '設計值',
       },
+    ],
+    numberFormatColumns: [
+      { header: '需求值', numFmt: '0.00' },
+      { header: '設計值', numFmt: '0.00' },
+      { header: '名義值', numFmt: '0.00' },
+      { header: 'DCR', numFmt: '0.000' },
+      { header: 'DCR重算', numFmt: '0.000' },
     ],
   })
 

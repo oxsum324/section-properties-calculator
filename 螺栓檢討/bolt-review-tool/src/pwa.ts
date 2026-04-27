@@ -1,3 +1,6 @@
+// __APP_BASE_PATH__ 由 vite.config 的 define 注入；單一來源避免多處硬寫
+declare const __APP_BASE_PATH__: string
+
 export function registerServiceWorker() {
   if (!import.meta.env.PROD) {
     return
@@ -8,10 +11,10 @@ export function registerServiceWorker() {
   }
 
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register(
-      '/section-properties-calculator/anchor/service-worker.js',
-      { scope: '/section-properties-calculator/anchor/' },
-    )
+    const base = __APP_BASE_PATH__
+    void navigator.serviceWorker.register(`${base}service-worker.js`, {
+      scope: base,
+    })
   })
 }
 

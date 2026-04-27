@@ -1126,7 +1126,6 @@ function ReportDocument({
   evaluationFieldStates,
   unitPreferences,
   reportSettings,
-  saveMessage,
   latestAuditEntry,
 }: {
   batchReview: ReturnType<typeof evaluateProjectBatch>
@@ -1138,7 +1137,6 @@ function ReportDocument({
   evaluationFieldStates: EvaluationFieldState[]
   unitPreferences: UnitPreferences
   reportSettings: ReportSettings
-  saveMessage: string
   latestAuditEntry: ProjectAuditEntry | null
 }) {
   const evidenceRows = evaluationFieldStates.filter(
@@ -1267,7 +1265,7 @@ function ReportDocument({
 
       <div className="report-running-foot">
         <span>{reportSettings.companyName || '工程報表草稿'}</span>
-        <span>{saveMessage}</span>
+        <span>{review.ruleProfile.versionLabel}</span>
         <span className="report-page-number" />
       </div>
 
@@ -4360,6 +4358,20 @@ function App() {
             title="開啟案件樣板、案例庫、文件附件與匯出設定"
           >
             資源 / 樣板
+          </button>
+          <button
+            type="button"
+            className="command-palette-trigger"
+            onClick={() => {
+              setPaletteQuery('')
+              setShowCommandPalette(true)
+            }}
+            title="快速跳到 tab / 案例 / 產品 / 動作（Ctrl/Cmd+K）"
+            aria-label="開啟命令面板"
+          >
+            <span aria-hidden="true">⌘</span>
+            <span>快速命令</span>
+            <kbd className="command-palette-trigger-kbd">Ctrl+K</kbd>
           </button>
         </div>
 
@@ -9095,7 +9107,6 @@ function App() {
         evaluationFieldStates={evaluationFieldStates}
         unitPreferences={unitPreferences}
         reportSettings={reportSettings}
-        saveMessage={saveMessage}
         latestAuditEntry={latestAuditEntry}
       />
       {isDraggingFile ? (

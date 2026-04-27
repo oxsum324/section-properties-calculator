@@ -22,29 +22,41 @@ const BUILD_COMMIT_HASH = getBuildCommitHash()
 const BUILD_TIMESTAMP = new Date().toISOString()
 
 /**
- * build 結束後將 dist/service-worker.js 內的 __BUILD_VERSION__ 佔位符
- * 替換為 dist 下主要 asset bundle 的 hash，避免舊 SW 吃到新 bundle。
+ * 部署 base path 統一以環境變數 ANCHOR_BASE_PATH 控制。
+ * - 預設 '/section-properties-calculator/anchor/'（GitHub Pages oxsum324 倉庫）
+ * - Vercel / 自訂 domain：設 ANCHOR_BASE_PATH=/anchor/
+ * - Tauri / 桌面包裝：設 ANCHOR_BASE_PATH=./
+ * - 子路徑：設 ANCHOR_BASE_PATH=/structural-tools/anchor/
+ *
+ * service worker 的 APP_SHELL 路徑也由此值生成，無第二處需要同步。
+ */
+const ANCHOR_BASE_PATH =
+  process.env.ANCHOR_BASE_PATH ?? '/section-properties-calculator/anchor/'
+
+/**
+ * build 結束後將 dist/service-worker.js 內的占位符替換：
+ * - __BUILD_VERSION__：以 dist/index.html 哈希為版本戳
+ * - __BASE_PATH__：以 ANCHOR_BASE_PATH 為實際部署 path
  * 失敗則記警告，不中斷 build。
  */
-function serviceWorkerVersionPlugin(): Plugin {
+function serviceWorkerInjectPlugin(): Plugin {
   return {
-    name: 'sw-version-inject',
+    name: 'sw-inject',
     apply: 'build',
     closeBundle() {
       const swPath = path.resolve('dist/service-worker.js')
       const indexPath = path.resolve('dist/index.html')
       try {
         const index = readFileSync(indexPath, 'utf-8')
-        // 用 index.html 整頁哈希作為版本戳（asset hash 已包含在內）
         const version = createHash('sha1').update(index).digest('hex').slice(0, 10)
         const original = readFileSync(swPath, 'utf-8')
-        if (!original.includes('__BUILD_VERSION__')) {
-          return
+        let updated = original.replaceAll('__BUILD_VERSION__', version)
+        updated = updated.replaceAll('__BASE_PATH__', ANCHOR_BASE_PATH)
+        if (updated !== original) {
+          writeFileSync(swPath, updated)
         }
-        const updated = original.replaceAll('__BUILD_VERSION__', version)
-        writeFileSync(swPath, updated)
       } catch (error) {
-        console.warn('[sw-version-inject] 無法注入 SW 版本：', error)
+        console.warn('[sw-inject] 無法注入 SW 版本/base path：', error)
       }
     },
   }
@@ -52,14 +64,12 @@ function serviceWorkerVersionPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  // 部署於 GitHub Pages 的 oxsum324/section-properties-calculator 倉庫，
-  // 站點實際路徑為 /section-properties-calculator/，因此 /anchor/ 需含 repo 前綴。
-  // 若日後遷至 Vercel 或自訂 domain，此處調整為 '/anchor/' 即可。
-  base: '/section-properties-calculator/anchor/',
-  plugins: [react(), serviceWorkerVersionPlugin()],
+  base: ANCHOR_BASE_PATH,
+  plugins: [react(), serviceWorkerInjectPlugin()],
   define: {
     __APP_COMMIT_HASH__: JSON.stringify(BUILD_COMMIT_HASH),
     __APP_BUILD_TIME__: JSON.stringify(BUILD_TIMESTAMP),
+    __APP_BASE_PATH__: JSON.stringify(ANCHOR_BASE_PATH),
   },
   build: {
     // XLSX 匯出改由 lazy chunk 載入；此 chunk 會帶入 workbook 引擎，

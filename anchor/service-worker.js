@@ -1,10 +1,11 @@
-// 版本戳由 vite build 時的 serviceWorkerVersionPlugin 注入；dev 環境為字面值
-const CACHE_NAME = 'bolt-review-tool-fa2b26c4fa'
+// 版本戳與 base path 由 vite build 時的 sw-inject plugin 注入；dev 環境為字面值
+const CACHE_NAME = 'bolt-review-tool-d699e265e6'
+const BASE_PATH = '/section-properties-calculator/anchor/'
 const APP_SHELL = [
-  '/section-properties-calculator/anchor/',
-  '/section-properties-calculator/anchor/index.html',
-  '/section-properties-calculator/anchor/manifest.webmanifest',
-  '/section-properties-calculator/anchor/icon.svg',
+  BASE_PATH,
+  BASE_PATH + 'index.html',
+  BASE_PATH + 'manifest.webmanifest',
+  BASE_PATH + 'icon.svg',
 ]
 
 self.addEventListener('install', (event) => {
@@ -52,7 +53,7 @@ self.addEventListener('fetch', (event) => {
           if (cachedResponse) {
             return cachedResponse
           }
-          return caches.match('/section-properties-calculator/anchor/')
+          return caches.match(BASE_PATH)
         }),
     )
     return

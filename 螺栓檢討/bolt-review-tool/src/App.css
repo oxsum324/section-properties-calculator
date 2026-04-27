@@ -2615,6 +2615,49 @@ details.fold-panel[data-shows~='member'] .switch-grid {
   border-color: #0b7285;
 }
 
+/* Toolbar 上的「快速命令」明顯按鈕 */
+.command-palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(180deg, #f3f8fa, #e6f1f3);
+  color: #0b4b56;
+  border: 1px solid #cbd5d8;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.88rem;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s;
+}
+
+.command-palette-trigger:hover {
+  background: linear-gradient(180deg, #0b7285, #095d6e);
+  color: #fff;
+  border-color: #0b7285;
+}
+
+.command-palette-trigger:active {
+  transform: translateY(1px);
+}
+
+.command-palette-trigger-kbd {
+  margin-left: 2px;
+  padding: 1px 6px;
+  background: rgba(11, 30, 34, 0.08);
+  border: 1px solid rgba(11, 30, 34, 0.18);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: inherit;
+}
+
+.command-palette-trigger:hover .command-palette-trigger-kbd {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
 /* 欄位輸入警告：非阻擋性（不阻止儲存），僅提示可能觸發特殊檢核或不合理值 */
 .field-warning {
   display: block;

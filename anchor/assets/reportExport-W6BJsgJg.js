@@ -1,4 +1,4 @@
-import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as a,r as o,s,u as c}from"./index-BsF33d70.js";import{t as l}from"./seismicRouteGuidance-Dn5r5gPN.js";function u(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`).replaceAll(`'`,`&#39;`)}function d(e){return Number.isFinite(e)?new Intl.NumberFormat(`zh-TW`,{maximumFractionDigits:2}).format(e):`—`}function f(e){switch(e){case`pass`:return`符合`;case`fail`:return`不符合`;case`screening`:return`初篩`;case`incomplete`:return`需補資料`;case`warning`:return`提醒`;default:return e}}function p(e){switch(e){case`cast_in`:return`預埋錨栓`;case`post_installed_expansion`:return`後置膨脹錨栓`;case`post_installed_bonded`:return`後置黏結式錨栓`;case`screw_anchor`:return`螺紋錨栓`;case`undercut_anchor`:return`擴底式錨栓`;case`shear_lug`:return`剪力榫`;default:return e}}function m(e){return e===`summary`?`摘要版`:`完整明細版`}function h(e,t){return`${t} ${e}`}function g(e){if(!e)return`—`;let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleDateString(`zh-TW`,{year:`numeric`,month:`2-digit`,day:`2-digit`})}function _(e){if(!e)return`—`;let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleString(`zh-TW`,{year:`numeric`,month:`2-digit`,day:`2-digit`,hour:`2-digit`,minute:`2-digit`})}function v(e,t=12){return e?e.slice(0,Math.max(8,t)).toUpperCase():`—`}function y(e){switch(e){case`manual`:return`手動留存`;case`preview`:return`報表預覽`;case`print`:return`列印報表`;case`html`:return`匯出 HTML`;case`xlsx`:return`匯出 XLSX`;case`docx`:return`匯出 DOCX`;default:return`—`}}function b(e){return e===`product`?`產品值`:e===`code_fallback`?`規範退回值`:`規範值`}function x(n,r,i){return Number.isFinite(n)?`${d(e(n,r,i))} ${t(r,i)}`:`—`}function S(e,t){let n=e.anchorCountX*e.anchorCountY,r=Math.min(e.edgeLeftMm,e.edgeRightMm,e.edgeBottomMm,e.edgeTopMm);return[`${e.anchorCountX} × ${e.anchorCountY}（${n} 支）`,`hef ${x(e.effectiveEmbedmentMm,`length`,t)}`,`sx ${x(e.spacingXmm,`length`,t)}`,`sy ${x(e.spacingYmm,`length`,t)}`,`cmin ${x(r,`length`,t)}`].join(` / `)}function C(e,t,n){return e.presentation===`ratio`?d(t):e.presentation===`stress`?x(t,`stress`,n):e.presentation===`length`?x(t,`length`,n):x(t,`force`,n)}function w(e){return!e.factors||e.factors.length===0?`—`:e.factors.map(e=>e.note?`${e.symbol}=${e.value}（${e.label}；${e.note}）`:`${e.symbol}=${e.value}（${e.label}）`).join(`；`)}function T(e){return e.governingDcr??e.maxDcr}function E(e){if(e.project.layout.basePlateLoadedAreaMm2>0)return e.project.layout.basePlateLoadedAreaMm2;let t=Math.max(0,e.project.layout.basePlateLoadedWidthMm??0),n=Math.max(0,e.project.layout.basePlateLoadedHeightMm??0);return t>0&&n>0?t*n:0}function D(e){return e.project.layout.basePlateSectionType===`custom`?`custom`:`rectangle`}function O(e){return e===`custom`?`自訂 Sx / Sy`:`矩形承壓區`}function k(e){switch(e){case`i_h`:return`I / H 形柱`;case`rect`:return`矩形柱`;case`pipe`:return`圓管 / 圓柱`;default:return`手動輸入`}}function A(e){switch(e){case`ready`:return`pass`;case`configuration_issue`:return`warning`;default:return`incomplete`}}function j(e){return`zone-${e}`}function M(e){return`<span class="chip chip-${e}">${u(f(e))}</span>`}function N(e,t){let{layout:n}=e.project,i=r(n,e.anchorPoints),a=s(n,e.analysisLoads),o=new Map,c=new Map(e.visualization.anchors.map(e=>[e.anchorId,e]));e.visualization.edges.forEach(e=>{let t=o.get(e.edge)??[];t.includes(e.label)||t.push(e.label),o.set(e.edge,t)});let l=e.visualization.rectangles.map(e=>`<rect x="${e.x1}" y="${e.y1}" width="${e.x2-e.x1}" height="${e.y2-e.y1}" class="zone ${j(e.kind)}" />`).join(``),f=a?`<g>
+import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as a,r as o,s,u as c}from"./index-4rFs6myu.js";import{t as l}from"./seismicRouteGuidance-Dn5r5gPN.js";function u(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`).replaceAll(`'`,`&#39;`)}function d(e){return Number.isFinite(e)?new Intl.NumberFormat(`zh-TW`,{maximumFractionDigits:2}).format(e):`—`}function f(e){switch(e){case`pass`:return`符合`;case`fail`:return`不符合`;case`screening`:return`初篩`;case`incomplete`:return`需補資料`;case`warning`:return`提醒`;default:return e}}function p(e){switch(e){case`cast_in`:return`預埋錨栓`;case`post_installed_expansion`:return`後置膨脹錨栓`;case`post_installed_bonded`:return`後置黏結式錨栓`;case`screw_anchor`:return`螺紋錨栓`;case`undercut_anchor`:return`擴底式錨栓`;case`shear_lug`:return`剪力榫`;default:return e}}function m(e){return e===`summary`?`摘要版`:`完整明細版`}function h(e,t){return`${t} ${e}`}function g(e){if(!e)return`—`;let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleDateString(`zh-TW`,{year:`numeric`,month:`2-digit`,day:`2-digit`})}function _(e){if(!e)return`—`;let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleString(`zh-TW`,{year:`numeric`,month:`2-digit`,day:`2-digit`,hour:`2-digit`,minute:`2-digit`})}function v(e,t=12){return e?e.slice(0,Math.max(8,t)).toUpperCase():`—`}function y(e){switch(e){case`manual`:return`手動留存`;case`preview`:return`報表預覽`;case`print`:return`列印報表`;case`html`:return`匯出 HTML`;case`xlsx`:return`匯出 XLSX`;case`docx`:return`匯出 DOCX`;default:return`—`}}function b(e){return e===`product`?`產品值`:e===`code_fallback`?`規範退回值`:`規範值`}function x(n,r,i){return Number.isFinite(n)?`${d(e(n,r,i))} ${t(r,i)}`:`—`}function S(e,t){let n=e.anchorCountX*e.anchorCountY,r=Math.min(e.edgeLeftMm,e.edgeRightMm,e.edgeBottomMm,e.edgeTopMm);return[`${e.anchorCountX} × ${e.anchorCountY}（${n} 支）`,`hef ${x(e.effectiveEmbedmentMm,`length`,t)}`,`sx ${x(e.spacingXmm,`length`,t)}`,`sy ${x(e.spacingYmm,`length`,t)}`,`cmin ${x(r,`length`,t)}`].join(` / `)}function C(e,t,n){return e.presentation===`ratio`?d(t):e.presentation===`stress`?x(t,`stress`,n):e.presentation===`length`?x(t,`length`,n):x(t,`force`,n)}function w(e){return!e.factors||e.factors.length===0?`—`:e.factors.map(e=>e.note?`${e.symbol}=${e.value}（${e.label}；${e.note}）`:`${e.symbol}=${e.value}（${e.label}）`).join(`；`)}function T(e){return e.governingDcr??e.maxDcr}function E(e){if(e.project.layout.basePlateLoadedAreaMm2>0)return e.project.layout.basePlateLoadedAreaMm2;let t=Math.max(0,e.project.layout.basePlateLoadedWidthMm??0),n=Math.max(0,e.project.layout.basePlateLoadedHeightMm??0);return t>0&&n>0?t*n:0}function D(e){return e.project.layout.basePlateSectionType===`custom`?`custom`:`rectangle`}function O(e){return e===`custom`?`自訂 Sx / Sy`:`矩形承壓區`}function k(e){switch(e){case`i_h`:return`I / H 形柱`;case`rect`:return`矩形柱`;case`pipe`:return`圓管 / 圓柱`;default:return`手動輸入`}}function A(e){switch(e){case`ready`:return`pass`;case`configuration_issue`:return`warning`;default:return`incomplete`}}function j(e){return`zone-${e}`}function M(e){return`<span class="chip chip-${e}">${u(f(e))}</span>`}function N(e,t){let{layout:n}=e.project,i=r(n,e.anchorPoints),a=s(n,e.analysisLoads),o=new Map,c=new Map(e.visualization.anchors.map(e=>[e.anchorId,e]));e.visualization.edges.forEach(e=>{let t=o.get(e.edge)??[];t.includes(e.label)||t.push(e.label),o.set(e.edge,t)});let l=e.visualization.rectangles.map(e=>`<rect x="${e.x1}" y="${e.y1}" width="${e.x2-e.x1}" height="${e.y2-e.y1}" class="zone ${j(e.kind)}" />`).join(``),f=a?`<g>
         <rect
           x="${a.loadedArea.x1}"
           y="${a.loadedArea.y1}"
@@ -75,11 +75,11 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
   .anchor-tension { fill:#ef4444; }
   .anchor-compression { fill:#2563eb; }
   .anchor-neutral { fill:#9ca3af; }
-  .anchor-center { fill:#fff; }`;function F(e,t){return N(e,t).replace(/<svg([^>]*)>/,(e,t)=>`<svg${t} xmlns="http://www.w3.org/2000/svg"><defs><style>${P}</style></defs>`)}function I(e){let{batchReview:r,candidateProductReviews:s,layoutVariantReviews:f=[],review:j,selectedProduct:P,completeness:F,evaluationFieldStates:I,unitPreferences:L,reportSettings:R,saveMessage:z,auditEntry:B,auditTrail:V=[],autoPrint:H=!1,reportGeneratedAt:U=new Date().toISOString()}=e,W=new Set(j.project.excludedCheckIds??[]),G=j.results.filter(e=>!W.has(e.id)),K=I.filter(e=>e.hasValue||e.hasEvidence),q=G.filter(e=>e.factors&&e.factors.length>0),J=G.find(e=>e.id===`seismic`)??null,Y=j.project.loads.considerSeismic?l(j.project.loads,P,J):null,X=D(j),Z=n(j.project.layout),Q=c(j.project.layout),$=i(j.project.layout),ee=r.loadCaseReviews.map(e=>{let t=s.map(t=>{let n=t.batchReview.loadCaseReviews.find(t=>t.loadCaseId===e.loadCaseId);return n?`<td>
+  .anchor-center { fill:#fff; }`;function F(e,t){return N(e,t).replace(/<svg([^>]*)>/,(e,t)=>`<svg${t} xmlns="http://www.w3.org/2000/svg"><defs><style>${P}</style></defs>`)}function I(e){let{batchReview:r,candidateProductReviews:s,layoutVariantReviews:f=[],review:j,selectedProduct:P,completeness:F,evaluationFieldStates:I,unitPreferences:L,reportSettings:R,auditEntry:z,auditTrail:B=[],autoPrint:V=!1,reportGeneratedAt:H=new Date().toISOString()}=e,U=new Set(j.project.excludedCheckIds??[]),W=j.results.filter(e=>!U.has(e.id)),G=I.filter(e=>e.hasValue||e.hasEvidence),K=W.filter(e=>e.factors&&e.factors.length>0),q=W.find(e=>e.id===`seismic`)??null,J=j.project.loads.considerSeismic?l(j.project.loads,P,q):null,Y=D(j),X=n(j.project.layout),Z=c(j.project.layout),Q=i(j.project.layout),$=r.loadCaseReviews.map(e=>{let t=s.map(t=>{let n=t.batchReview.loadCaseReviews.find(t=>t.loadCaseId===e.loadCaseId);return n?`<td>
             <strong>DCR ${u(d(T(n.review.summary)))}</strong><br />
             ${M(n.review.summary.overallStatus)}<br />
             <small>${u(n.review.summary.governingMode)}${t.batchReview.controllingLoadCaseId===e.loadCaseId?` / 該產品控制`:``}</small>
-          </td>`:`<td>—</td>`}).join(``),n=e.loadCaseId===r.activeLoadCaseId&&e.loadCaseId===r.controllingLoadCaseId?`（目前編輯 / 控制組合）`:e.loadCaseId===r.activeLoadCaseId?`（目前編輯）`:e.loadCaseId===r.controllingLoadCaseId?`（控制組合）`:``;return`<tr><td>${u(e.loadCaseName+n)}</td>${t}</tr>`}).join(``),te=r.loadCaseReviews.map(e=>{let t=f.map(t=>{let n=t.batchReview.loadCaseReviews.find(t=>t.loadCaseId===e.loadCaseId);return n?`<td>
+          </td>`:`<td>—</td>`}).join(``),n=e.loadCaseId===r.activeLoadCaseId&&e.loadCaseId===r.controllingLoadCaseId?`（目前編輯 / 控制組合）`:e.loadCaseId===r.activeLoadCaseId?`（目前編輯）`:e.loadCaseId===r.controllingLoadCaseId?`（控制組合）`:``;return`<tr><td>${u(e.loadCaseName+n)}</td>${t}</tr>`}).join(``),ee=r.loadCaseReviews.map(e=>{let t=f.map(t=>{let n=t.batchReview.loadCaseReviews.find(t=>t.loadCaseId===e.loadCaseId);return n?`<td>
               <div class="matrix-cell${t.batchReview.controllingLoadCaseId===e.loadCaseId?` matrix-cell-controlling`:``}">
                 <strong>DCR ${u(d(T(n.review.summary)))}</strong>
                 ${M(n.review.summary.overallStatus)}
@@ -203,9 +203,9 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
           <div><small class="meta">規範版本</small><div>${u(j.ruleProfile.versionLabel)}</div></div>
           <div><small class="meta">發行日期</small><div>${u(g(R.issueDate))}</div></div>
           <div><small class="meta">${o.editedAt}</small><div>${u(_(j.project.updatedAt))}</div></div>
-          <div><small class="meta">${o.generatedAt}</small><div>${u(_(U))}</div></div>
-          <div><small class="meta">${o.auditedAt}</small><div>${u(_(B?.createdAt))}</div></div>
-          <div><small class="meta">${o.auditSource} / ${o.auditHash}</small><div>${u(B?`${y(B.source)} · ${v(B.hash)}`:`尚未留存`)}</div></div>
+          <div><small class="meta">${o.generatedAt}</small><div>${u(_(H))}</div></div>
+          <div><small class="meta">${o.auditedAt}</small><div>${u(_(z?.createdAt))}</div></div>
+          <div><small class="meta">${o.auditSource} / ${o.auditHash}</small><div>${u(z?`${y(z.source)} · ${v(z.hash)}`:`尚未留存`)}</div></div>
           <div><small class="meta">整體判定</small><div>${M(r.summary.overallStatus)}</div></div>
           <div><small class="meta">正式判定</small><div>${M(r.summary.formalStatus)}</div></div>
           <div><small class="meta">控制模式</small><div>${u(r.summary.governingMode)}</div></div>
@@ -222,9 +222,9 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
             <li>Ase = ${u(x(P.effectiveAreaMm2,`area`,L))}</li>
             <li>目前單位 = ${u(t(`length`,L))} / ${u(t(`area`,L))} / ${u(t(`force`,L))} / ${u(t(`stress`,L))}</li>
             <li>產品完整性 = ${u(F.formal?`正式判定`:`需補資料`)}</li>
-            <li>基板承壓 = ${u(j.project.layout.basePlateBearingEnabled?`已啟用（A1 ${x(E(j),`area`,L)} / ${O(X)}${Z.widthMm>0&&Z.heightMm>0?` / B × N ${x(Z.widthMm,`length`,L)} × ${x(Z.heightMm,`length`,L)}`:``}${(j.project.layout.columnCentroidOffsetXmm??0)!==0||(j.project.layout.columnCentroidOffsetYmm??0)!==0?` / 柱偏移 ${x(j.project.layout.columnCentroidOffsetXmm??0,`length`,L)} × ${x(j.project.layout.columnCentroidOffsetYmm??0,`length`,L)}`:``}${j.project.layout.basePlateBendingEnabled?` / tp ${x(j.project.layout.basePlateThicknessMm,`length`,L)} / Fy ${x(j.project.layout.basePlateSteelYieldMpa,`stress`,L)}`:``}）`:`未啟用`)}</li>
+            <li>基板承壓 = ${u(j.project.layout.basePlateBearingEnabled?`已啟用（A1 ${x(E(j),`area`,L)} / ${O(Y)}${X.widthMm>0&&X.heightMm>0?` / B × N ${x(X.widthMm,`length`,L)} × ${x(X.heightMm,`length`,L)}`:``}${(j.project.layout.columnCentroidOffsetXmm??0)!==0||(j.project.layout.columnCentroidOffsetYmm??0)!==0?` / 柱偏移 ${x(j.project.layout.columnCentroidOffsetXmm??0,`length`,L)} × ${x(j.project.layout.columnCentroidOffsetYmm??0,`length`,L)}`:``}${j.project.layout.basePlateBendingEnabled?` / tp ${x(j.project.layout.basePlateThicknessMm,`length`,L)} / Fy ${x(j.project.layout.basePlateSteelYieldMpa,`stress`,L)}`:``}）`:`未啟用`)}</li>
           </ul>
-          ${Y?`<p class="meta">耐震路徑狀態：${u(Y.title)} / ${u(Y.stateMessage)}${Y.recommendation?` 建議：${u(Y.recommendation.title)}。`:``}</p>`:``}
+          ${J?`<p class="meta">耐震路徑狀態：${u(J.title)} / ${u(J.stateMessage)}${J.recommendation?` 建議：${u(J.recommendation.title)}。`:``}</p>`:``}
         </article>
         <article class="card">
           <h2>總結</h2>
@@ -233,19 +233,18 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
             <li>批次最大數值 DCR = ${u(d(r.summary.maxDcr))}</li>
             <li>控制拉力 = ${u(r.summary.governingTensionMode)}</li>
             <li>控制剪力 = ${u(r.summary.governingShearMode)}</li>
-            <li>離線狀態 = ${u(z)}</li>
-            <li>最新留痕 = ${u(B?`${v(B.hash)} / ${y(B.source)}`:`未留存`)}</li>
+            <li>最新留痕 = ${u(z?`${v(z.hash)} / ${y(z.source)}`:`未留存`)}</li>
           </ul>
           ${T(r.summary)<r.summary.maxDcr?`<p class="meta">控制 DCR 跟隨 severity 判定；最大數值 DCR 僅供統計比較。</p>`:``}
         </article>
       </section>
 
-      ${V.length>0?`<section class="card">
+      ${B.length>0?`<section class="card">
               <h2>審查留痕</h2>
               <table>
                 <thead><tr><th>時間</th><th>來源</th><th>Hash</th><th>控制組合</th><th>控制模式</th><th>控制 DCR</th></tr></thead>
                 <tbody>
-                  ${V.map(e=>`<tr>
+                  ${B.map(e=>`<tr>
                         <td>${u(_(e.createdAt))}</td>
                         <td>${u(y(e.source))}</td>
                         <td><code>${u(v(e.hash,16))}</code></td>
@@ -262,9 +261,9 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
         <div class="geometry-wrap">
           ${N(j,L)}
         </div>
-        ${j.project.layout.basePlateBearingEnabled?`<p class="meta">基板承壓：A1 ${u(x(E(j),`area`,L))} / A2 ${u(x(j.project.layout.basePlateSupportAreaMm2,`area`,L))}${(j.project.layout.basePlateLoadedWidthMm??0)>0&&(j.project.layout.basePlateLoadedHeightMm??0)>0?` / b1 × h1 ${u(x(j.project.layout.basePlateLoadedWidthMm??0,`length`,L))} × ${u(x(j.project.layout.basePlateLoadedHeightMm??0,`length`,L))}`:``}${Z.widthMm>0&&Z.heightMm>0?` / B × N ${u(x(Z.widthMm,`length`,L))} × ${u(x(Z.heightMm,`length`,L))}`:``}${(j.project.layout.columnCentroidOffsetXmm??0)!==0||(j.project.layout.columnCentroidOffsetYmm??0)!==0?` / 柱偏移 ${u(x(j.project.layout.columnCentroidOffsetXmm??0,`length`,L))} × ${u(x(j.project.layout.columnCentroidOffsetYmm??0,`length`,L))}`:``} / ${u(O(X))}${X===`custom`?` / Sx ${u(d(j.project.layout.basePlateSectionModulusXmm3??0))} mm³ / Sy ${u(d(j.project.layout.basePlateSectionModulusYmm3??0))} mm³`:``}</p>
-               <p class="meta">${X===`custom`?`若以 b1 / h1 + 自訂 Sx / Sy 進入偏心承壓應力模式，b1 / h1 僅供接觸尺寸、kern 與 uplift 判讀；彎曲應力採自訂斷面模數。`:`若以 b1 / h1 進入偏心承壓應力模式，報表目前採矩形承壓區之 Sx / Sy 假設；非矩形基板請另按實際幾何檢算。`}${$===`manual`?``:` 基板抗彎若未手填 lx / ly，可由 ${u(k($))}、B / N 與柱尺寸自動推算。`}</p>
-               ${Q?`<p class="meta">AISC DG1 自動推算：m = ${u(x(Q.mMm,`length`,L))} / n = ${u(x(Q.nMm,`length`,L))} / λn' = ${u(x(Q.lambdaPrimeMm,`length`,L))} / 建議 lx = ${u(x(Q.xMm,`length`,L))} / ly = ${u(x(Q.yMm,`length`,L))}</p>`:``}`:``}
+        ${j.project.layout.basePlateBearingEnabled?`<p class="meta">基板承壓：A1 ${u(x(E(j),`area`,L))} / A2 ${u(x(j.project.layout.basePlateSupportAreaMm2,`area`,L))}${(j.project.layout.basePlateLoadedWidthMm??0)>0&&(j.project.layout.basePlateLoadedHeightMm??0)>0?` / b1 × h1 ${u(x(j.project.layout.basePlateLoadedWidthMm??0,`length`,L))} × ${u(x(j.project.layout.basePlateLoadedHeightMm??0,`length`,L))}`:``}${X.widthMm>0&&X.heightMm>0?` / B × N ${u(x(X.widthMm,`length`,L))} × ${u(x(X.heightMm,`length`,L))}`:``}${(j.project.layout.columnCentroidOffsetXmm??0)!==0||(j.project.layout.columnCentroidOffsetYmm??0)!==0?` / 柱偏移 ${u(x(j.project.layout.columnCentroidOffsetXmm??0,`length`,L))} × ${u(x(j.project.layout.columnCentroidOffsetYmm??0,`length`,L))}`:``} / ${u(O(Y))}${Y===`custom`?` / Sx ${u(d(j.project.layout.basePlateSectionModulusXmm3??0))} mm³ / Sy ${u(d(j.project.layout.basePlateSectionModulusYmm3??0))} mm³`:``}</p>
+               <p class="meta">${Y===`custom`?`若以 b1 / h1 + 自訂 Sx / Sy 進入偏心承壓應力模式，b1 / h1 僅供接觸尺寸、kern 與 uplift 判讀；彎曲應力採自訂斷面模數。`:`若以 b1 / h1 進入偏心承壓應力模式，報表目前採矩形承壓區之 Sx / Sy 假設；非矩形基板請另按實際幾何檢算。`}${Q===`manual`?``:` 基板抗彎若未手填 lx / ly，可由 ${u(k(Q))}、B / N 與柱尺寸自動推算。`}</p>
+               ${Z?`<p class="meta">AISC DG1 自動推算：m = ${u(x(Z.mMm,`length`,L))} / n = ${u(x(Z.nMm,`length`,L))} / λn' = ${u(x(Z.lambdaPrimeMm,`length`,L))} / 建議 lx = ${u(x(Z.xMm,`length`,L))} / ly = ${u(x(Z.yMm,`length`,L))}</p>`:``}`:``}
       </section>
 
       <section class="card">
@@ -285,13 +284,13 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
         ${j.analysisNote?`<p class="meta">${u(j.analysisNote)}</p>`:``}
       </section>
 
-      ${Y?`<section class="card">
+      ${J?`<section class="card">
               <h2>耐震路徑建議</h2>
-              <p><strong>${u(Y.title)}</strong> / ${u(Y.clause)}</p>
-              <p class="meta">${u(Y.summary)}</p>
-              <p class="meta">目前路徑狀態：${u(Y.stateMessage)}</p>
+              <p><strong>${u(J.title)}</strong> / ${u(J.clause)}</p>
+              <p class="meta">${u(J.summary)}</p>
+              <p class="meta">目前路徑狀態：${u(J.stateMessage)}</p>
               <div class="route-matrix">
-                ${Y.routeMatrix.map(e=>`<article class="route-matrix-card route-matrix-card-${e.state}${e.isCurrent?` route-matrix-card-current`:``}">
+                ${J.routeMatrix.map(e=>`<article class="route-matrix-card route-matrix-card-${e.state}${e.isCurrent?` route-matrix-card-current`:``}">
                       <div class="route-matrix-head">
                         <div>
                           <strong>${u(e.title)}</strong>
@@ -303,7 +302,7 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
                       <p class="meta">readiness ${Math.round(e.readinessScore*100)}% / 待補輸入 ${e.missingInputCount} 項${e.configurationIssueCount>0?`，配置限制 ${e.configurationIssueCount} 項`:``}</p>
                     </article>`).join(``)}
               </div>
-              ${Y.recommendation?`<p class="meta">建議路徑：<strong>${u(Y.recommendation.title)}</strong>。${u(Y.recommendation.reason)}</p>`:``}
+              ${J.recommendation?`<p class="meta">建議路徑：<strong>${u(J.recommendation.title)}</strong>。${u(J.recommendation.reason)}</p>`:``}
             </section>`:``}
 
       ${s.length>1?`<section class="card">
@@ -330,7 +329,7 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
                     ${s.map(e=>`<th>${u(e.product.brand)} ${u(e.product.model)}</th>`).join(``)}
                   </tr>
                 </thead>
-                <tbody>${ee}</tbody>
+                <tbody>${$}</tbody>
               </table>
             </section>`:``}
 
@@ -358,7 +357,7 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
                     ${f.map(e=>`<th>${u(e.variant.name)}<br /><small class="meta">${u(e.isCurrent?`目前配置`:S(e.variant.layout,L))}</small></th>`).join(``)}
                   </tr>
                 </thead>
-                <tbody>${te}</tbody>
+                <tbody>${ee}</tbody>
               </table>
             </section>`:``}
 
@@ -384,7 +383,7 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
         <table>
           <thead><tr><th>模式</th><th>條文</th><th>需求值</th><th>設計值</th><th>DCR</th><th>狀態</th></tr></thead>
           <tbody>
-            ${G.map(e=>`<tr>
+            ${W.map(e=>`<tr>
                   <td>${u(e.mode)}<br /><small class="meta">${u(a(e,L))}</small></td>
                   <td>${u(h(e.citation.title,e.citation.clause))}</td>
                   <td>${u(C(e,e.demandKn,L))}</td>
@@ -401,7 +400,7 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
         <table>
           <thead><tr><th>模式</th><th>條文</th><th>採用因子</th><th>狀態</th></tr></thead>
           <tbody>
-            ${q.map(e=>`<tr>
+            ${K.map(e=>`<tr>
                   <td>${u(e.mode)}</td>
                   <td>${u(h(e.citation.title,e.citation.clause))}</td>
                   <td>${u(w(e))}</td>
@@ -411,12 +410,12 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
         </table>
       </section>
 
-      ${K.length>0?`<section class="card">
+      ${G.length>0?`<section class="card">
               <h2>產品證據對照</h2>
               <table>
                 <thead><tr><th>欄位</th><th>目前值</th><th>文件 / 報告</th><th>頁碼 / 表號</th><th>已核對</th></tr></thead>
                 <tbody>
-                  ${K.map(e=>{let t=typeof e.rawValue==`number`&&e.quantity?x(e.rawValue,e.quantity,L):e.rawValue===void 0||e.rawValue===null||e.rawValue===``?`未填`:String(e.rawValue);return`<tr>
+                  ${G.map(e=>{let t=typeof e.rawValue==`number`&&e.quantity?x(e.rawValue,e.quantity,L):e.rawValue===void 0||e.rawValue===null||e.rawValue===``?`未填`:String(e.rawValue);return`<tr>
                         <td>${u(e.label)}</td>
                         <td>${u(t)}</td>
                         <td>${u(e.evidence?.documentName??`—`)}</td>
@@ -434,7 +433,7 @@ import{c as e,o as t}from"./units-CQ38fsXI.js";import{c as n,d as r,l as i,n as 
         </ul>
       </section>
     </main>
-    ${H?`<script>
+    ${V?`<script>
             window.addEventListener('load', () => {
               window.setTimeout(() => window.print(), 160)
             })
