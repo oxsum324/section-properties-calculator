@@ -2429,6 +2429,8 @@ function App() {
   const [templateFilter, setTemplateFilter] = useState<'all' | AnchorFamily>('all')
   const [templateSearch, setTemplateSearch] = useState('')
   const [productSearch, setProductSearch] = useState('')
+  // 案例 A/B/C 並排比較：勾選 2~3 個案例，立即顯示 summary 對照表
+  const [comparedCaseIds, setComparedCaseIds] = useState<string[]>([])
   const [templateCatalog, setTemplateCatalog] = useState<ProductTemplate[] | null>(
     null,
   )
@@ -5336,38 +5338,221 @@ function App() {
           }}
         />
 
+        {comparedCaseIds.length >= 2 ? (
+          <section className="case-compare-panel" aria-label="案例並排比較">
+            <header className="case-compare-header">
+              <h3>案例並排比較</h3>
+              <div className="case-compare-actions">
+                <span className="helper-text" style={{ margin: 0 }}>
+                  已選 {comparedCaseIds.length} 個案例（最多 4 個）；
+                  資料來自各案例最近一次計算 snapshot
+                </span>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setComparedCaseIds([])}
+                >
+                  清除選取
+                </button>
+              </div>
+            </header>
+            <div className="case-compare-table-wrap">
+              <table className="data-table compact-table case-compare-table">
+                <thead>
+                  <tr>
+                    <th>欄位</th>
+                    {comparedCaseIds.map((caseId) => {
+                      const c = projectLibrary.find((p) => p.id === caseId)
+                      return (
+                        <th key={`compare-head-${caseId}`}>{c?.name ?? caseId}</th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    type CaseRow = (typeof projectLibrary)[number]
+                    const cases = comparedCaseIds
+                      .map((id) => projectLibrary.find((p) => p.id === id))
+                      .filter((c): c is CaseRow => Boolean(c))
+                    const rows: Array<[string, (c: CaseRow) => React.ReactNode]> = [
+                      [
+                        '案號',
+                        (c) => c.report?.projectCode || '—',
+                      ],
+                      [
+                        '產品',
+                        (c) => {
+                          const p = products.find(
+                            (item) => item.id === c.selectedProductId,
+                          )
+                          return p ? `${p.brand} ${p.model}` : '未指定'
+                        },
+                      ],
+                      [
+                        '錨栓配置',
+                        (c) =>
+                          `${c.layout.anchorCountX} × ${c.layout.anchorCountY}` +
+                          ` @ ${formatQuantity(c.layout.spacingXmm, 'length', unitPreferences)}` +
+                          ` / ${formatQuantity(c.layout.spacingYmm, 'length', unitPreferences)}`,
+                      ],
+                      [
+                        'hef',
+                        (c) =>
+                          formatQuantity(
+                            c.layout.effectiveEmbedmentMm,
+                            'length',
+                            unitPreferences,
+                          ),
+                      ],
+                      [
+                        '邊距 ca,min',
+                        (c) =>
+                          formatQuantity(
+                            Math.min(
+                              c.layout.edgeLeftMm,
+                              c.layout.edgeRightMm,
+                              c.layout.edgeBottomMm,
+                              c.layout.edgeTopMm,
+                            ),
+                            'length',
+                            unitPreferences,
+                          ),
+                      ],
+                      [
+                        '設計拉力 N',
+                        (c) =>
+                          formatQuantity(
+                            c.loads.tensionKn,
+                            'force',
+                            unitPreferences,
+                          ),
+                      ],
+                      [
+                        '設計剪力 V',
+                        (c) =>
+                          formatQuantity(
+                            Math.hypot(
+                              c.loads.shearXKn,
+                              c.loads.shearYKn,
+                            ),
+                            'force',
+                            unitPreferences,
+                          ),
+                      ],
+                      [
+                        '整體判定',
+                        (c) => (
+                          <Badge status={c.snapshot?.overallStatus ?? 'warning'} />
+                        ),
+                      ],
+                      [
+                        '控制 DCR',
+                        (c) => (
+                          <code>
+                            {formatNumber(
+                              c.snapshot?.governingDcr ??
+                                c.snapshot?.maxDcr ??
+                                0,
+                            )}
+                          </code>
+                        ),
+                      ],
+                      [
+                        '控制模式',
+                        (c) => c.snapshot?.governingMode ?? '尚未計算',
+                      ],
+                      [
+                        '控制組合',
+                        (c) => c.snapshot?.controllingLoadCaseName ?? '單一組合',
+                      ],
+                      [
+                        '最後編修',
+                        (c) => formatDateTime(c.updatedAt),
+                      ],
+                    ]
+                    return rows.map(([label, render]) => (
+                      <tr key={`compare-row-${label}`}>
+                        <td>
+                          <strong>{label}</strong>
+                        </td>
+                        {cases.map((c) => (
+                          <td key={`compare-${label}-${c.id}`}>{render(c)}</td>
+                        ))}
+                      </tr>
+                    ))
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
         <div className="case-grid">
           {caseCards.map((item) => {
             const cardProduct = products.find(
               (product) => product.id === item.selectedProductId,
             )
+            const isCompared = comparedCaseIds.includes(item.id)
 
             return (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                className={`case-card ${item.id === activeProjectId ? 'active' : ''}`}
-                onClick={() => selectProject(item.id)}
+                className={`case-card ${item.id === activeProjectId ? 'active' : ''}${
+                  isCompared ? ' compared' : ''
+                }`}
               >
-                <div className="case-card-top">
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>{item.report?.projectCode || '未填案號'}</span>
+                <div className="case-card-compare-toggle">
+                  <label
+                    className="switch switch-inline"
+                    title="勾選後與其他案例並排比較（最多 4 個）"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isCompared}
+                      onChange={(event) => {
+                        const checked = event.target.checked
+                        setComparedCaseIds((current) => {
+                          if (checked) {
+                            if (current.length >= 4) {
+                              setSaveMessage('比較最多 4 個案例；請先取消其他選取')
+                              return current
+                            }
+                            return [...current, item.id]
+                          }
+                          return current.filter((id) => id !== item.id)
+                        })
+                      }}
+                    />
+                    <span>比較</span>
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="case-card-body"
+                  onClick={() => selectProject(item.id)}
+                >
+                  <div className="case-card-top">
+                    <div>
+                      <strong>{item.name}</strong>
+                      <span>{item.report?.projectCode || '未填案號'}</span>
+                    </div>
+                    <Badge status={item.snapshot?.overallStatus ?? 'warning'} />
                   </div>
-                  <Badge status={item.snapshot?.overallStatus ?? 'warning'} />
-                </div>
-                <div className="case-card-meta">
-                  <span>{cardProduct ? `${cardProduct.brand} ${cardProduct.model}` : '產品未指定'}</span>
-                  <span>{item.snapshot?.governingMode ?? '尚未計算'}</span>
-                  <span>{item.snapshot?.controllingLoadCaseName ? `控制組合 ${item.snapshot.controllingLoadCaseName}` : '單一組合'}</span>
-                </div>
-                <div className="case-card-footer">
-                  <span>
-                    控制 DCR {formatNumber(item.snapshot?.governingDcr ?? item.snapshot?.maxDcr ?? 0)}
-                  </span>
-                  <span>{formatDateTime(item.updatedAt)}</span>
-                </div>
-              </button>
+                  <div className="case-card-meta">
+                    <span>{cardProduct ? `${cardProduct.brand} ${cardProduct.model}` : '產品未指定'}</span>
+                    <span>{item.snapshot?.governingMode ?? '尚未計算'}</span>
+                    <span>{item.snapshot?.controllingLoadCaseName ? `控制組合 ${item.snapshot.controllingLoadCaseName}` : '單一組合'}</span>
+                  </div>
+                  <div className="case-card-footer">
+                    <span>
+                      控制 DCR {formatNumber(item.snapshot?.governingDcr ?? item.snapshot?.maxDcr ?? 0)}
+                    </span>
+                    <span>{formatDateTime(item.updatedAt)}</span>
+                  </div>
+                </button>
+              </div>
             )
           })}
         </div>
@@ -9069,6 +9254,103 @@ function App() {
             simpleMode={simpleMode}
             baselineDcr={getGoverningDcr(batchReview.summary)}
           />
+
+          <details
+            className="fold-panel sub-panel"
+            data-shows="result"
+            open={!simpleMode}
+          >
+            <summary className="fold-summary">
+              <span>錨栓力學分配</span>
+              <small>每支錨栓拉壓 / 剪力分擔（彈性分析）</small>
+            </summary>
+            <div className="fold-stack">
+              <p className="helper-text">
+                依群錨彈性分析（軸力均分 + 彎矩線性分擔）；正號為受拉、負號為受壓。
+                平均剪力為 V_total / 受剪錨栓數，符合規範保守簡化。
+              </p>
+              <table className="data-table compact-table per-anchor-table">
+                <thead>
+                  <tr>
+                    <th>錨栓</th>
+                    <th>位置 (x, y)</th>
+                    <th>狀態</th>
+                    <th>彈性軸力</th>
+                    <th>採用拉力 (≥ 0)</th>
+                    <th>分擔剪力</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const anchorMap = new Map(
+                      review.visualization.anchors.map((a) => [a.anchorId, a]),
+                    )
+                    const totalShear = Math.hypot(
+                      project.loads.shearXKn,
+                      project.loads.shearYKn,
+                    )
+                    const shearAnchorCount =
+                      project.loads.shearAnchorCount &&
+                      project.loads.shearAnchorCount > 0
+                        ? project.loads.shearAnchorCount
+                        : Math.max(
+                            project.layout.anchorCountX,
+                            project.layout.anchorCountY,
+                          )
+                    const sharePerAnchor =
+                      shearAnchorCount > 0
+                        ? totalShear / shearAnchorCount
+                        : 0
+                    return review.anchorPoints.map((point) => {
+                      const state = anchorMap.get(point.id)
+                      const elastic = state?.elasticTensionKn ?? 0
+                      const applied = state?.appliedTensionKn ?? 0
+                      const stateLabel =
+                        state?.state === 'tension'
+                          ? '受拉'
+                          : state?.state === 'compression'
+                            ? '受壓'
+                            : '中性'
+                      return (
+                        <tr key={`per-anchor-${point.id}`}>
+                          <td>
+                            <strong>{point.id}</strong>
+                          </td>
+                          <td>
+                            <code>
+                              ({formatQuantity(point.x, 'length', unitPreferences)},{' '}
+                              {formatQuantity(point.y, 'length', unitPreferences)})
+                            </code>
+                          </td>
+                          <td>
+                            <span
+                              className={`anchor-state-pill anchor-state-${state?.state ?? 'neutral'}`}
+                            >
+                              {stateLabel}
+                            </span>
+                          </td>
+                          <td className={elastic < 0 ? 'force-negative' : ''}>
+                            {elastic >= 0 ? '+' : ''}
+                            {formatQuantity(elastic, 'force', unitPreferences)}
+                          </td>
+                          <td>
+                            {formatQuantity(applied, 'force', unitPreferences)}
+                          </td>
+                          <td>
+                            {formatQuantity(sharePerAnchor, 'force', unitPreferences)}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  })()}
+                </tbody>
+              </table>
+              <p className="helper-text">
+                註：剪力分擔採用「平均到受剪錨栓」的常見保守做法；若實際以最不利錨栓單獨檢核，
+                請於主畫面調整「受剪錨栓數」並重新核對。
+              </p>
+            </div>
+          </details>
 
           <div className="sub-panel" data-shows="result">
             <h3>載重組合矩陣</h3>

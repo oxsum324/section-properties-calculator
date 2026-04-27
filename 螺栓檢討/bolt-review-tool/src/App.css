@@ -3517,6 +3517,131 @@ label.field-has-warning > input {
   color: #6a7a80;
 }
 
+/* 錨栓力學分配表 */
+.per-anchor-table code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #f0f4f5;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.84rem;
+}
+
+.per-anchor-table .force-negative {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.anchor-state-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.anchor-state-tension {
+  background: #fcecea;
+  color: #c04030;
+}
+
+.anchor-state-compression {
+  background: #e0eaf8;
+  color: #2563eb;
+}
+
+.anchor-state-neutral {
+  background: #f0f4f5;
+  color: #6a7a80;
+}
+
+/* 案例並排比較面板 */
+.case-compare-panel {
+  margin: 12px 0;
+  padding: 14px 16px;
+  background: #f7fafb;
+  border: 1px solid #d8e1e1;
+  border-radius: 12px;
+}
+
+.case-compare-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.case-compare-header h3 {
+  margin: 0;
+  color: #0b4b56;
+}
+
+.case-compare-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.case-compare-table-wrap {
+  overflow-x: auto;
+}
+
+.case-compare-table th:first-child,
+.case-compare-table td:first-child {
+  background: #eef3f4;
+  font-weight: 600;
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+}
+
+.case-compare-table code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* 案例卡片含 compare checkbox 的調整 */
+.case-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.case-card.compared {
+  outline: 2px dashed #0b7285;
+  outline-offset: 2px;
+}
+
+.case-card-compare-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #cbd5d8;
+  font-size: 0.78rem;
+}
+
+.case-card-body {
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  color: inherit;
+}
+
 @media print {
   .copy-summary-button,
   .landing-pwa-install {
