@@ -3642,6 +3642,240 @@ label.field-has-warning > input {
   color: inherit;
 }
 
+/* 結果列展開：採用因子明細 */
+.result-expand-toggle {
+  background: transparent;
+  border: 1px solid #c9d3d6;
+  color: #0b4b56;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  margin-right: 6px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.result-expand-toggle:hover {
+  background: #0b7285;
+  color: #fff;
+  border-color: #0b7285;
+}
+
+.result-detail-row td {
+  background: #f7fafb;
+  border-top: 2px solid #0b7285;
+}
+
+.result-detail {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  padding: 12px 8px;
+}
+
+.result-detail-section h4 {
+  margin: 0 0 8px;
+  color: #0b4b56;
+  font-size: 0.92rem;
+}
+
+.result-factor-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.result-factor-item {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.6fr) 1fr;
+  gap: 10px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid #e0e6e8;
+  border-radius: 6px;
+}
+
+.result-factor-item dt {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+  color: #4b5f66;
+}
+
+.result-factor-item dt code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #eef3f4;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  color: #0b4b56;
+  align-self: flex-start;
+}
+
+.result-factor-item dt span {
+  font-size: 0.78rem;
+  color: #6a7a80;
+}
+
+.result-factor-item dd {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #1b2b30;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.result-factor-item dd strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.result-factor-note {
+  font-style: normal;
+  font-size: 0.78rem;
+  color: #6a7a80;
+}
+
+@media (max-width: 720px) {
+  .result-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 首次造訪歡迎卡（landing 上方） */
+.welcome-card {
+  margin-bottom: 16px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, #0b4b56 0%, #0b7285 50%, #1f7a4d 100%);
+  color: #f7fafb;
+  border-radius: 14px;
+  position: relative;
+  box-shadow: 0 10px 28px rgba(11, 30, 34, 0.18);
+}
+
+.welcome-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.welcome-card-header h2 {
+  margin: 0;
+  font-size: 1.18rem;
+  color: #fff;
+}
+
+.welcome-close {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.welcome-close:hover {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.welcome-intro {
+  margin: 8px 0 12px;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.6;
+}
+
+.welcome-intro strong {
+  color: #fff5d6;
+}
+
+.welcome-steps {
+  margin: 0 0 12px;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 10px;
+  counter-reset: welcome-step;
+}
+
+.welcome-steps li {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  counter-increment: welcome-step;
+  position: relative;
+}
+
+.welcome-steps li::before {
+  content: counter(welcome-step);
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  background: #e0a44d;
+  color: #1b2b30;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.welcome-steps li strong {
+  color: #fff;
+  font-size: 0.94rem;
+}
+
+.welcome-steps li span {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.welcome-shortcut-hint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.86rem;
+}
+
+.welcome-shortcut-hint kbd {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 6px;
+  margin: 0 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: #fff;
+}
+
+@media print {
+  .welcome-card {
+    display: none !important;
+  }
+}
+
 @media print {
   .copy-summary-button,
   .landing-pwa-install {

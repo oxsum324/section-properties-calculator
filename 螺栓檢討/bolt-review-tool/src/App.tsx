@@ -1,4 +1,5 @@
 import {
+  Fragment,
   Suspense,
   type ChangeEvent,
   lazy,
@@ -2431,6 +2432,20 @@ function App() {
   const [productSearch, setProductSearch] = useState('')
   // 案例 A/B/C 並排比較：勾選 2~3 個案例，立即顯示 summary 對照表
   const [comparedCaseIds, setComparedCaseIds] = useState<string[]>([])
+  // 結果頁逐項檢核明細：點擊展開查看採用因子全表
+  const [expandedResultIds, setExpandedResultIds] = useState<Set<string>>(
+    new Set(),
+  )
+  // 首次造訪歡迎卡：localStorage 記錄是否已關閉
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+    return (
+      window.localStorage.getItem('bolt-review-tool:welcomeDismissed') !==
+      '1'
+    )
+  })
   const [templateCatalog, setTemplateCatalog] = useState<ProductTemplate[] | null>(
     null,
   )
@@ -4890,6 +4905,61 @@ function App() {
       </nav>
 
       <div className="resource-library-wrapper" data-shows="report">
+      {showWelcome && !hasEnteredWorkspace ? (
+        <section
+          className="welcome-card"
+          aria-labelledby="welcome-card-title"
+        >
+          <div className="welcome-card-header">
+            <h2 id="welcome-card-title">歡迎使用錨栓檢討工具</h2>
+            <button
+              type="button"
+              className="welcome-close"
+              aria-label="關閉歡迎卡"
+              onClick={() => {
+                setShowWelcome(false)
+                try {
+                  window.localStorage.setItem(
+                    'bolt-review-tool:welcomeDismissed',
+                    '1',
+                  )
+                } catch {
+                  /* 隱私模式忽略 */
+                }
+              }}
+            >
+              ✕
+            </button>
+          </div>
+          <p className="welcome-intro">
+            符合台灣 112 年版規範第 17 章 / ACI 318-19 Ch.17。
+            <strong>預設案例「柱腳基板示例」可直接套用通過</strong>，
+            不必先填欄位即可看到完整檢核流程。
+          </p>
+          <ol className="welcome-steps">
+            <li>
+              <strong>選樣板或載入案例</strong>
+              <span>下方「推薦案件樣板」/「最近編輯案例」直接套用</span>
+            </li>
+            <li>
+              <strong>進入「構件／配置」分頁</strong>
+              <span>fc′、hef、邊距、錨栓陣列；含 H 型鋼周邊輔助</span>
+            </li>
+            <li>
+              <strong>填「載重」</strong>
+              <span>精簡模式只需 N / V / M；進階可批次組合</span>
+            </li>
+            <li>
+              <strong>看「結果」</strong>
+              <span>整體判定 / 逐項 DCR / 敏感度分析 / 一鍵匯出 PDF/XLSX/DOCX</span>
+            </li>
+          </ol>
+          <p className="welcome-shortcut-hint">
+            💡 任何時候按 <kbd>Ctrl/⌘</kbd>+<kbd>K</kbd> 開啟命令面板，
+            或按 <kbd>?</kbd> 查看快捷鍵
+          </p>
+        </section>
+      ) : null}
       <div className="resource-back-bar">
         <button
           type="button"
@@ -9902,13 +9972,39 @@ function App() {
                   const needsAttention =
                     result.status === 'incomplete' ||
                     result.status === 'screening'
+                  const isExpanded = expandedResultIds.has(result.id)
+                  const factors = result.factors ?? []
                   return (
+                    <Fragment key={result.id}>
                     <tr
-                      key={result.id}
                       className={excluded ? 'result-row-excluded' : undefined}
                     >
                       <td>
                         <div className="table-mode">
+                          <button
+                            type="button"
+                            className="result-expand-toggle"
+                            aria-expanded={isExpanded}
+                            aria-label={isExpanded ? '收合詳細因子' : '展開詳細因子'}
+                            onClick={() =>
+                              setExpandedResultIds((current) => {
+                                const next = new Set(current)
+                                if (next.has(result.id)) {
+                                  next.delete(result.id)
+                                } else {
+                                  next.add(result.id)
+                                }
+                                return next
+                              })
+                            }
+                            title={
+                              isExpanded
+                                ? '收合採用因子明細'
+                                : '展開採用因子明細（看完整公式變數）'
+                            }
+                          >
+                            {isExpanded ? '▼' : '▶'}
+                          </button>
                           <strong>{result.mode}</strong>
                           <small>
                             {getResultPresentationSummary(result, unitPreferences)}
@@ -9968,6 +10064,87 @@ function App() {
                       </label>
                     </td>
                   </tr>
+                  {isExpanded ? (
+                    <tr className="result-detail-row">
+                      <td colSpan={8}>
+                        <div className="result-detail">
+                          <div className="result-detail-section">
+                            <h4>採用因子明細</h4>
+                            {factors.length > 0 ? (
+                              <dl className="result-factor-list">
+                                {factors.map((f, idx) => (
+                                  <div
+                                    key={`factor-${result.id}-${idx}-${f.symbol}`}
+                                    className="result-factor-item"
+                                  >
+                                    <dt>
+                                      <code>{f.symbol}</code>
+                                      <span>{f.label}</span>
+                                    </dt>
+                                    <dd>
+                                      <strong>{f.value}</strong>
+                                      {f.note ? (
+                                        <em className="result-factor-note">{f.note}</em>
+                                      ) : null}
+                                    </dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            ) : (
+                              <p className="helper-text">此檢核未提供細部因子。</p>
+                            )}
+                          </div>
+                          <div className="result-detail-section result-detail-meta">
+                            <h4>條文與計算備註</h4>
+                            <dl className="result-factor-list">
+                              <div className="result-factor-item">
+                                <dt>
+                                  <code>條文</code>
+                                </dt>
+                                <dd>
+                                  {result.citation.chapter} 章 {result.citation.clause}{' '}
+                                  {result.citation.title}
+                                  {result.citation.note ? (
+                                    <em className="result-factor-note">
+                                      {result.citation.note}
+                                    </em>
+                                  ) : null}
+                                </dd>
+                              </div>
+                              <div className="result-factor-item">
+                                <dt>
+                                  <code>需求 / 設計</code>
+                                </dt>
+                                <dd>
+                                  {formatResultValue(
+                                    result,
+                                    result.demandKn,
+                                    unitPreferences,
+                                  )}{' '}
+                                  /{' '}
+                                  {formatResultValue(
+                                    result,
+                                    result.designStrengthKn,
+                                    unitPreferences,
+                                  )}{' '}
+                                  → DCR {formatNumber(result.dcr)}
+                                </dd>
+                              </div>
+                              {result.note ? (
+                                <div className="result-factor-item">
+                                  <dt>
+                                    <code>備註</code>
+                                  </dt>
+                                  <dd>{result.note}</dd>
+                                </div>
+                              ) : null}
+                            </dl>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                   )
                 })}
               </tbody>
