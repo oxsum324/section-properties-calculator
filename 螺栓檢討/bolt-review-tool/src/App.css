@@ -3455,6 +3455,68 @@ label.field-has-warning > input {
   background: rgba(255, 255, 255, 0.32);
 }
 
+/* 敏感度分析面板 */
+.sensitivity-panel summary {
+  font-weight: 600;
+}
+
+.sensitivity-table th,
+.sensitivity-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.sensitivity-table th:first-child,
+.sensitivity-table td:first-child {
+  text-align: left;
+}
+
+.sensitivity-baseline {
+  background: #f0f4f5;
+  color: #4b5f66;
+}
+
+.sensitivity-baseline code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+}
+
+.sensitivity-cell {
+  font-weight: 600;
+  position: relative;
+}
+
+.sensitivity-cell strong {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.sensitivity-cell span {
+  display: block;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.sensitivity-pass {
+  background: #e8f5ee;
+  color: #1f7a4d;
+}
+
+.sensitivity-warn {
+  background: #fff7dc;
+  color: #6d4a0c;
+}
+
+.sensitivity-fail {
+  background: #fcecea;
+  color: #7a1e10;
+}
+
+.sensitivity-na {
+  background: #f0f4f5;
+  color: #6a7a80;
+}
+
 @media print {
   .copy-summary-button,
   .landing-pwa-install {
