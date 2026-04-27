@@ -3424,6 +3424,44 @@ label.field-has-warning > input {
   min-width: 110px;
 }
 
+/* PWA 安裝按鈕：突出但不爭奪主行動 */
+.landing-pwa-install {
+  margin-top: 8px;
+  background: linear-gradient(180deg, #0b7285, #095d6e) !important;
+  color: #fff !important;
+  border-color: #0b7285 !important;
+  box-shadow: 0 4px 12px rgba(11, 114, 133, 0.25);
+}
+
+.landing-pwa-install:hover {
+  background: linear-gradient(180deg, #095d6e, #07505d) !important;
+}
+
+/* 「複製摘要」按鈕：放在整體判定 banner 右側 */
+.copy-summary-button {
+  background: rgba(255, 255, 255, 0.18);
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.copy-summary-button:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+@media print {
+  .copy-summary-button,
+  .landing-pwa-install {
+    display: none !important;
+  }
+}
+
 /* 列印時強制顯示所有內容，無視 tab 狀態 */
 @media print {
   .app-shell [data-shows] {

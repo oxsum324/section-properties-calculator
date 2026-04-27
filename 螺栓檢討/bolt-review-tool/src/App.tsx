@@ -2145,9 +2145,32 @@ function CommandPalette(props: {
 }
 
 function App() {
-  // 預設落地頁為資源庫（首頁 hub）：讓使用者先選樣板 / 載入案例，再進檢核工作台
-  const [activeTab, setActiveTab] = useState<WorkspaceTabId>('report')
-  const [hasEnteredWorkspace, setHasEnteredWorkspace] = useState(false)
+  // 預設落地頁為資源庫（首頁 hub）；若上次離開時非 report，下次自動回到該 tab
+  const [activeTab, setActiveTab] = useState<WorkspaceTabId>(() => {
+    if (typeof window === 'undefined') {
+      return 'report'
+    }
+    const saved = window.localStorage.getItem('bolt-review-tool:lastActiveTab')
+    const validTabs: WorkspaceTabId[] = [
+      'member',
+      'product',
+      'loads',
+      'seismic',
+      'baseplate',
+      'result',
+      'report',
+    ]
+    if (saved && (validTabs as string[]).includes(saved)) {
+      return saved as WorkspaceTabId
+    }
+    return 'report'
+  })
+  const [hasEnteredWorkspace, setHasEnteredWorkspace] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem('bolt-review-tool:lastActiveTab') !== null &&
+      window.localStorage.getItem('bolt-review-tool:lastActiveTab') !== 'report',
+  )
   const [products, setProducts] = useState<AnchorProduct[]>(defaultProducts)
   const [projects, setProjects] = useState<ProjectCase[]>(() => [
     cloneProject(defaultProject),
@@ -2566,6 +2589,12 @@ function App() {
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [paletteQuery, setPaletteQuery] = useState('')
+  // PWA 可安裝事件：若瀏覽器支援，beforeinstallprompt 會被攔截，顯示一鍵安裝按鈕
+  const installPromptRef = useRef<{
+    prompt: () => Promise<void>
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+  } | null>(null)
+  const [canInstallPwa, setCanInstallPwa] = useState(false)
   // H 型鋼周邊錨栓輔助面板的暫存輸入（不持久化，只用於一次套用）
   const [hSectionBfMm, setHSectionBfMm] = useState(300)
   const [hSectionHcMm, setHSectionHcMm] = useState(300)
@@ -2660,6 +2689,44 @@ function App() {
     }, 3500)
     return () => window.clearTimeout(timeout)
   }, [saveMessage, hydrated])
+
+  // 保存最後 active tab 到 localStorage，供下次回來自動恢復
+  useEffect(() => {
+    if (typeof window === 'undefined' || !hydrated) {
+      return
+    }
+    try {
+      window.localStorage.setItem(
+        'bolt-review-tool:lastActiveTab',
+        activeTab,
+      )
+    } catch {
+      // 隱私模式 / quota 等情境忽略；不影響主流程
+    }
+  }, [activeTab, hydrated])
+
+  // PWA 安裝事件：攔截 beforeinstallprompt 後待使用者點擊「安裝」按鈕觸發
+  useEffect(() => {
+    const handler = (event: Event) => {
+      event.preventDefault()
+      // BeforeInstallPromptEvent 不在標準 lib.dom，cast 為 unknown 後當作物件用
+      installPromptRef.current = event as unknown as {
+        prompt: () => Promise<void>
+        userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+      }
+      setCanInstallPwa(true)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    const onInstalled = () => {
+      installPromptRef.current = null
+      setCanInstallPwa(false)
+    }
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
 
   // 有未儲存變更時，關閉分頁前給瀏覽器原生提示
   useEffect(() => {
@@ -4761,6 +4828,34 @@ function App() {
               還原 JSON
             </button>
           </div>
+          {canInstallPwa ? (
+            <button
+              type="button"
+              className="landing-card-cta landing-pwa-install"
+              title="把工具安裝到桌面/應用程式列表，下次無網路也能離線使用"
+              onClick={async () => {
+                const promptEvent = installPromptRef.current
+                if (!promptEvent) {
+                  return
+                }
+                try {
+                  await promptEvent.prompt()
+                  const choice = await promptEvent.userChoice
+                  if (choice.outcome === 'accepted') {
+                    setSaveMessage('已安裝為應用程式（可離線使用）')
+                    installPromptRef.current = null
+                    setCanInstallPwa(false)
+                  } else {
+                    setSaveMessage('已取消安裝')
+                  }
+                } catch {
+                  setSaveMessage('安裝失敗：瀏覽器拒絕或不支援')
+                }
+              }}
+            >
+              📲 安裝為桌面 App
+            </button>
+          ) : null}
         </article>
 
         {/* 產品掃描 */}
@@ -8604,6 +8699,44 @@ function App() {
             <div className="banner-badges">
               <Badge status={batchReview.summary.overallStatus} />
               <Badge status={batchReview.summary.formalStatus} />
+              <button
+                type="button"
+                className="copy-summary-button"
+                title="把整體判定 / 控制模式 / DCR 複製到剪貼簿，可貼到 Email/Slack/Teams"
+                onClick={() => {
+                  const dcr = getGoverningDcr(batchReview.summary)
+                  const lines = [
+                    `案例：${project.name}`,
+                    `規範：${review.ruleProfile.chapter17Title}（${review.ruleProfile.versionLabel}）`,
+                    `產品：${selectedProduct.brand} ${selectedProduct.model}`,
+                    `整體判定：${statusLabel(batchReview.summary.overallStatus)}（${
+                      completeness.formal ? '正式' : '初篩 / 待補資料'
+                    }）`,
+                    `控制模式：${batchReview.summary.governingMode}`,
+                    `控制組合：${batchReview.controllingLoadCaseName}`,
+                    `控制 DCR：${formatNumber(dcr)} / 最大數值 DCR：${formatNumber(batchReview.summary.maxDcr)}`,
+                    `控制拉力：${batchReview.summary.governingTensionMode}`,
+                    `控制剪力：${batchReview.summary.governingShearMode}`,
+                    `案例最後編修：${formatDateTime(project.updatedAt)}`,
+                    latestAuditEntry
+                      ? `留痕：${formatAuditHash(latestAuditEntry.hash)} · ${auditSourceLabel(latestAuditEntry.source)} · ${formatDateTime(latestAuditEntry.createdAt)}`
+                      : '留痕：尚未留存',
+                  ]
+                  const text = lines.join('\n')
+                  if (navigator.clipboard?.writeText) {
+                    void navigator.clipboard
+                      .writeText(text)
+                      .then(() => setSaveMessage('結果摘要已複製到剪貼簿'))
+                      .catch(() =>
+                        setSaveMessage('複製失敗：瀏覽器拒絕剪貼簿存取'),
+                      )
+                  } else {
+                    setSaveMessage('此瀏覽器不支援剪貼簿 API')
+                  }
+                }}
+              >
+                📋 複製摘要
+              </button>
             </div>
           </div>
 
@@ -8638,6 +8771,27 @@ function App() {
                   <span>
                     {completeness.missing.slice(0, 2).join('、') || '請於產品頁補齊評估值'}
                     {completeness.missing.length > 2 ? '…' : ''}
+                  </span>
+                </div>
+              )
+            }
+            // 通過但餘裕緊：DCR ≥ 0.85 且 < 1.0，提示安全邊際偏低
+            if (overall === 'pass' && dcr >= 0.85 && dcr < 1) {
+              const marginPct = ((1 - dcr) * 100).toFixed(1)
+              return (
+                <div className="action-hint action-hint-warn" data-action-hint>
+                  <strong>餘裕偏低</strong>
+                  <span>
+                    控制 DCR = {formatNumber(dcr)}（餘裕僅 {marginPct}%）；
+                    通過但對載重變動敏感。建議：
+                    {batchReview.summary.governingMode.includes('breakout')
+                      ? ' 加大 hef 或邊距 ca1 / 使用補強鋼筋'
+                      : batchReview.summary.governingMode.includes('pullout')
+                        ? ' 加大附板 A_brg 或換更大直徑錨栓'
+                        : batchReview.summary.governingMode.includes('pryout')
+                          ? ' 加大 hef'
+                          : ' 加大產品規格或幾何條件'}
+                    。
                   </span>
                 </div>
               )
