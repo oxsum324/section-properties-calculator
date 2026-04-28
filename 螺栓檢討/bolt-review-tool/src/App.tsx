@@ -109,7 +109,9 @@ import { SensitivityPanel } from './SensitivityPanel'
 import { CommandPalette } from './CommandPalette'
 import { AnalysisLoadsCard } from './AnalysisLoadsCard'
 import { AuditHistoryPanel } from './AuditHistoryPanel'
+import { CaseLibraryPanel } from './CaseLibraryPanel'
 import { FormulaReferencePanel } from './FormulaReferencePanel'
+import { LandingHubGrid } from './LandingHubGrid'
 import { StatusBanners } from './StatusBanners'
 import {
   auditSourceLabel,
@@ -123,7 +125,6 @@ import {
   IconClipboard,
   IconCommand,
   IconDownload,
-  IconInstall,
 } from './Icons'
 import {
   formatInputQuantity,
@@ -4807,244 +4808,46 @@ function App() {
           </em>
         </span>
       </div>
-      {/* 首頁工作台：5 區卡片網格（最近案例 / 推薦樣板 / 工作區備份 / 產品掃描 / 最近留痕） */}
-      <section className="landing-grid" aria-label="首頁工作台">
-        {/* 最近案例 */}
-        <article className="landing-card landing-card-cases">
-          <header className="landing-card-header">
-            <h3>最近編輯案例</h3>
-            <small>共 {caseCards.length} 個</small>
-          </header>
-          {caseCards.length > 0 ? (
-            <ul className="landing-card-list">
-              {caseCards.slice(0, 3).map((item) => {
-                const isActive = item.id === project.id
-                return (
-                  <li key={`landing-case-${item.id}`}>
-                    <button
-                      type="button"
-                      className={`landing-list-button${isActive ? ' active' : ''}`}
-                      onClick={() => {
-                        if (!isActive) {
-                          selectProject(item.id)
-                        }
-                        setActiveTab('member')
-                        setHasEnteredWorkspace(true)
-                      }}
-                    >
-                      <span className="landing-list-title">
-                        {item.name}
-                        {isActive ? (
-                          <span className="landing-active-pill">目前</span>
-                        ) : null}
-                      </span>
-                      <span className="landing-list-meta">
-                        {formatDateTime(item.updatedAt)}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          ) : (
-            <p className="landing-card-empty">尚無案例；下方建立第一個案例</p>
-          )}
-          <button
-            type="button"
-            className="landing-card-cta"
-            onClick={createProject}
-          >
-            ＋ 新增案例
-          </button>
-        </article>
-
-        {/* 推薦樣板 */}
-        <article className="landing-card landing-card-templates">
-          <header className="landing-card-header">
-            <h3>推薦案件樣板</h3>
-            <small>依目前產品族群</small>
-          </header>
-          {recommendedProjectTemplates.length > 0 ? (
-            <ul className="landing-card-list">
-              {recommendedProjectTemplates.map((rec) => (
-                <li key={`landing-tpl-${rec.template.id}`}>
-                  <button
-                    type="button"
-                    className="landing-list-button"
-                    onClick={() => {
-                      void loadProjectTemplate(rec.template.id)
-                    }}
-                    title={rec.template.summary}
-                  >
-                    <span className="landing-list-title">
-                      {rec.template.name}
-                      <span className="landing-badge">
-                        {rec.reasons[0] ?? `分 ${rec.score}`}
-                      </span>
-                    </span>
-                    <span className="landing-list-meta">
-                      {projectTemplateCategoryLabel(rec.template.category)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="landing-card-empty">無對應推薦；下方瀏覽完整樣板庫</p>
-          )}
-          <button
-            type="button"
-            className="landing-card-cta secondary"
-            onClick={() => {
-              setResourceLibraryTab('project_templates')
-              window.requestAnimationFrame(() => {
-                document
-                  .querySelector('.resource-library-wrapper')
-                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              })
-            }}
-          >
-            瀏覽完整樣板庫 →
-          </button>
-        </article>
-
-        {/* 工作區備份 */}
-        <article className="landing-card landing-card-backup">
-          <header className="landing-card-header">
-            <h3>工作區備份</h3>
-            <small>跨裝置遷移</small>
-          </header>
-          <p className="landing-card-desc">
-            匯出 JSON：所有案例 / 產品 / 附件打包下載
-            <br />
-            還原 JSON：另一台裝置重建工作區
-            <br />
-            <em>提示：可直接拖放 JSON 檔到視窗任意位置</em>
-          </p>
-          <div className="landing-card-actions">
-            <button
-              type="button"
-              className="landing-card-cta"
-              onClick={() => {
-                void exportWorkspace()
-              }}
-            >
-              匯出 JSON
-            </button>
-            <button
-              type="button"
-              className="landing-card-cta secondary"
-              onClick={openImportDialog}
-            >
-              還原 JSON
-            </button>
-          </div>
-          {canInstallPwa ? (
-            <button
-              type="button"
-              className="landing-card-cta landing-pwa-install"
-              title="把工具安裝到桌面/應用程式列表，下次無網路也能離線使用"
-              onClick={async () => {
-                const promptEvent = installPromptRef.current
-                if (!promptEvent) {
-                  return
-                }
-                try {
-                  await promptEvent.prompt()
-                  const choice = await promptEvent.userChoice
-                  if (choice.outcome === 'accepted') {
-                    setSaveMessage('已安裝為應用程式（可離線使用）')
-                    installPromptRef.current = null
-                    setCanInstallPwa(false)
-                  } else {
-                    setSaveMessage('已取消安裝')
-                  }
-                } catch {
-                  setSaveMessage('安裝失敗：瀏覽器拒絕或不支援')
-                }
-              }}
-            >
-              <IconInstall aria-hidden /> 安裝為桌面 App
-            </button>
-          ) : null}
-        </article>
-
-        {/* 產品掃描 */}
-        <article className="landing-card landing-card-scan">
-          <header className="landing-card-header">
-            <h3>產品掃描助手</h3>
-            <small>依條件快速尋找錨栓</small>
-          </header>
-          <p className="landing-card-desc">
-            依 hef 範圍、產品族群、評估標準（ACI 355.2 / .4）篩選
-            內建產品庫，直接加入候選比選。
-          </p>
-          <button
-            type="button"
-            className="landing-card-cta"
-            onClick={() => {
-              setResourceLibraryTab('product_scan')
-              window.requestAnimationFrame(() => {
-                document
-                  .querySelector('.resource-library-wrapper')
-                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              })
-            }}
-          >
-            前往產品掃描 →
-          </button>
-        </article>
-
-        {/* 最近留痕 */}
-        <article className="landing-card landing-card-audit">
-          <header className="landing-card-header">
-            <h3>最近留痕</h3>
-            <small>審查 hash 簽章</small>
-          </header>
-          {(project.auditTrail ?? []).length > 0 ? (
-            <ul className="landing-card-list">
-              {[...(project.auditTrail ?? [])]
-                .sort(
-                  (a, b) =>
-                    new Date(b.createdAt).getTime() -
-                    new Date(a.createdAt).getTime(),
-                )
-                .slice(0, 3)
-                .map((entry) => (
-                  <li key={`landing-audit-${entry.id}`}>
-                    <div
-                      className="landing-list-button landing-audit-row"
-                      title={`${auditSourceLabel(entry.source)}｜DCR ${entry.summary.governingDcr ?? entry.summary.maxDcr}`}
-                    >
-                      <span className="landing-list-title">
-                        <code>{formatAuditHash(entry.hash)}</code>
-                        <span className="landing-badge">
-                          {auditSourceLabel(entry.source)}
-                        </span>
-                      </span>
-                      <span className="landing-list-meta">
-                        {formatDateTime(entry.createdAt)}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-            </ul>
-          ) : (
-            <p className="landing-card-empty">
-              尚未留存；按 Ctrl/Cmd+S 或匯出報告時自動建立
-            </p>
-          )}
-          <button
-            type="button"
-            className="landing-card-cta secondary"
-            onClick={() => {
-              void recordCurrentAuditTrail('manual')
-            }}
-          >
-            手動留存簽章
-          </button>
-        </article>
-      </section>
+      <LandingHubGrid
+        caseCards={caseCards}
+        project={project}
+        onSelectProject={selectProject}
+        onEnterWorkspace={() => {
+          setActiveTab('member')
+          setHasEnteredWorkspace(true)
+        }}
+        onCreateProject={createProject}
+        recommendedProjectTemplates={recommendedProjectTemplates}
+        onLoadProjectTemplate={loadProjectTemplate}
+        onBrowseProjectTemplates={() => {
+          setResourceLibraryTab('project_templates')
+          window.requestAnimationFrame(() => {
+            document
+              .querySelector('.resource-library-wrapper')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          })
+        }}
+        onExportWorkspace={exportWorkspace}
+        onOpenImportDialog={openImportDialog}
+        canInstallPwa={canInstallPwa}
+        installPromptRef={installPromptRef}
+        onPwaInstalled={() => {
+          setSaveMessage('已安裝為應用程式（可離線使用）')
+          installPromptRef.current = null
+          setCanInstallPwa(false)
+        }}
+        onPwaInstallCancelled={() => setSaveMessage('已取消安裝')}
+        onPwaInstallFailed={() => setSaveMessage('安裝失敗：瀏覽器拒絕或不支援')}
+        onGoToProductScan={() => {
+          setResourceLibraryTab('product_scan')
+          window.requestAnimationFrame(() => {
+            document
+              .querySelector('.resource-library-wrapper')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          })
+        }}
+        onRecordAuditTrail={recordCurrentAuditTrail}
+      />
       <ResourceLibraryHub
         activeTab={resourceLibraryTab}
         tabs={resourceLibraryTabs}
@@ -5133,360 +4936,32 @@ function App() {
       </ResourceLibraryHub>
       </div>
 
-      <section className="panel case-library" data-shows="report">
-        <div className="case-library-header">
-          <div className="panel-title">
-            <h2>案例庫</h2>
-            <p>同一台裝置可離線保存多個錨栓檢核案，隨時切換與複製。</p>
-          </div>
-          <div className="case-actions">
-            <button type="button" onClick={createProject}>
-              新增案例
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={duplicateProject}
-            >
-              複製目前案例
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={resetCurrentProjectToDefaults}
-              title="保留案例 ID / 名稱 / UI / 規範版本，其他欄位全部還原為預設"
-            >
-              還原為預設值
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={exportCurrentCase}
-              title="僅匯出目前案例 + 選用/候選產品 + 該案附件"
-            >
-              匯出本案 JSON
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={deleteCurrentProject}
-              disabled={projectLibrary.length === 1}
-            >
-              刪除目前案例
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                void exportWorkspace()
-              }}
-            >
-              匯出 JSON
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={openImportDialog}
-            >
-              匯入 JSON
-            </button>
-          </div>
-        </div>
-
-        <div className="case-library-toolbar">
-          <div className="case-count">
-            目前共 {projectLibrary.length} 個案例，正在編輯：
-            <strong> {project.name}</strong>
-          </div>
-          <div className="case-search-row">
-            <input
-              type="search"
-              value={caseLibrarySearch}
-              onChange={(event) => setCaseLibrarySearch(event.target.value)}
-              placeholder="搜尋案例：名稱 / 案號 / 產品 / 控制模式…"
-              aria-label="搜尋案例"
-            />
-            {caseLibrarySearch ? (
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setCaseLibrarySearch('')}
-                aria-label="清除搜尋"
-              >
-                清除
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept="application/json,.json"
-          hidden
-          onChange={(event) => {
-            void importWorkspace(event)
-          }}
-        />
-        <input
-          ref={loadCaseCsvInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          hidden
-          onChange={(event) => {
-            void importLoadCasesCsv(event)
-          }}
-        />
-
-        {comparedCaseIds.length >= 2 ? (
-          <section className="case-compare-panel" aria-label="案例並排比較">
-            <header className="case-compare-header">
-              <h3>案例並排比較</h3>
-              <div className="case-compare-actions">
-                <span className="helper-text" style={{ margin: 0 }}>
-                  已選 {comparedCaseIds.length} 個案例（最多 4 個）；
-                  資料來自各案例最近一次計算 snapshot
-                </span>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setComparedCaseIds([])}
-                >
-                  清除選取
-                </button>
-              </div>
-            </header>
-            <div className="case-compare-table-wrap">
-              <table className="data-table compact-table case-compare-table">
-                <thead>
-                  <tr>
-                    <th>欄位</th>
-                    {comparedCaseIds.map((caseId) => {
-                      const c = projectLibrary.find((p) => p.id === caseId)
-                      return (
-                        <th key={`compare-head-${caseId}`}>{c?.name ?? caseId}</th>
-                      )
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    type CaseRow = (typeof projectLibrary)[number]
-                    const cases = comparedCaseIds
-                      .map((id) => projectLibrary.find((p) => p.id === id))
-                      .filter((c): c is CaseRow => Boolean(c))
-                    const rows: Array<[string, (c: CaseRow) => React.ReactNode]> = [
-                      [
-                        '案號',
-                        (c) => c.report?.projectCode || '—',
-                      ],
-                      [
-                        '產品',
-                        (c) => {
-                          const p = products.find(
-                            (item) => item.id === c.selectedProductId,
-                          )
-                          return p ? `${p.brand} ${p.model}` : '未指定'
-                        },
-                      ],
-                      [
-                        '錨栓配置',
-                        (c) =>
-                          `${c.layout.anchorCountX} × ${c.layout.anchorCountY}` +
-                          ` @ ${formatQuantity(c.layout.spacingXmm, 'length', unitPreferences)}` +
-                          ` / ${formatQuantity(c.layout.spacingYmm, 'length', unitPreferences)}`,
-                      ],
-                      [
-                        'hef',
-                        (c) =>
-                          formatQuantity(
-                            c.layout.effectiveEmbedmentMm,
-                            'length',
-                            unitPreferences,
-                          ),
-                      ],
-                      [
-                        '邊距 ca,min',
-                        (c) =>
-                          formatQuantity(
-                            Math.min(
-                              c.layout.edgeLeftMm,
-                              c.layout.edgeRightMm,
-                              c.layout.edgeBottomMm,
-                              c.layout.edgeTopMm,
-                            ),
-                            'length',
-                            unitPreferences,
-                          ),
-                      ],
-                      [
-                        '設計拉力 N',
-                        (c) =>
-                          formatQuantity(
-                            c.loads.tensionKn,
-                            'force',
-                            unitPreferences,
-                          ),
-                      ],
-                      [
-                        '設計剪力 V',
-                        (c) =>
-                          formatQuantity(
-                            Math.hypot(
-                              c.loads.shearXKn,
-                              c.loads.shearYKn,
-                            ),
-                            'force',
-                            unitPreferences,
-                          ),
-                      ],
-                      [
-                        '整體判定',
-                        (c) => (
-                          <Badge status={c.snapshot?.overallStatus ?? 'warning'} />
-                        ),
-                      ],
-                      [
-                        '控制 DCR',
-                        (c) => (
-                          <code>
-                            {formatNumber(
-                              c.snapshot?.governingDcr ??
-                                c.snapshot?.maxDcr ??
-                                0,
-                            )}
-                          </code>
-                        ),
-                      ],
-                      [
-                        '控制模式',
-                        (c) => c.snapshot?.governingMode ?? '尚未計算',
-                      ],
-                      [
-                        '控制組合',
-                        (c) => c.snapshot?.controllingLoadCaseName ?? '單一組合',
-                      ],
-                      [
-                        '最後編修',
-                        (c) => formatDateTime(c.updatedAt),
-                      ],
-                    ]
-                    return rows.map(([label, render]) => (
-                      <tr key={`compare-row-${label}`}>
-                        <td>
-                          <strong>{label}</strong>
-                        </td>
-                        {cases.map((c) => (
-                          <td key={`compare-${label}-${c.id}`}>{render(c)}</td>
-                        ))}
-                      </tr>
-                    ))
-                  })()}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        ) : null}
-
-        <div className="case-grid">
-          {(() => {
-            const query = caseLibrarySearch.trim().toLowerCase()
-            const filtered = query
-              ? caseCards.filter((item) => {
-                  const cardProduct = products.find(
-                    (product) => product.id === item.selectedProductId,
-                  )
-                  const haystack = [
-                    item.name,
-                    item.report?.projectCode ?? '',
-                    cardProduct?.brand ?? '',
-                    cardProduct?.model ?? '',
-                    item.snapshot?.governingMode ?? '',
-                    item.snapshot?.controllingLoadCaseName ?? '',
-                  ]
-                    .join('\n')
-                    .toLowerCase()
-                  return query
-                    .split(/\s+/)
-                    .filter(Boolean)
-                    .every((token) => haystack.includes(token))
-                })
-              : caseCards
-            if (filtered.length === 0) {
-              return (
-                <p className="helper-text" style={{ gridColumn: '1 / -1' }}>
-                  無符合搜尋的案例；試試更短關鍵字或清除搜尋
-                </p>
-              )
-            }
-            return filtered.map((item) => {
-            const cardProduct = products.find(
-              (product) => product.id === item.selectedProductId,
-            )
-            const isCompared = comparedCaseIds.includes(item.id)
-
-            return (
-              <div
-                key={item.id}
-                className={`case-card ${item.id === activeProjectId ? 'active' : ''}${
-                  isCompared ? ' compared' : ''
-                }`}
-              >
-                <div className="case-card-compare-toggle">
-                  <label
-                    className="switch switch-inline"
-                    title="勾選後與其他案例並排比較（最多 4 個）"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isCompared}
-                      onChange={(event) => {
-                        const checked = event.target.checked
-                        setComparedCaseIds((current) => {
-                          if (checked) {
-                            if (current.length >= 4) {
-                              setSaveMessage('比較最多 4 個案例；請先取消其他選取')
-                              return current
-                            }
-                            return [...current, item.id]
-                          }
-                          return current.filter((id) => id !== item.id)
-                        })
-                      }}
-                    />
-                    <span>比較</span>
-                  </label>
-                </div>
-                <button
-                  type="button"
-                  className="case-card-body"
-                  onClick={() => selectProject(item.id)}
-                >
-                  <div className="case-card-top">
-                    <div>
-                      <strong>{item.name}</strong>
-                      <span>{item.report?.projectCode || '未填案號'}</span>
-                    </div>
-                    <Badge status={item.snapshot?.overallStatus ?? 'warning'} />
-                  </div>
-                  <div className="case-card-meta">
-                    <span>{cardProduct ? `${cardProduct.brand} ${cardProduct.model}` : '產品未指定'}</span>
-                    <span>{item.snapshot?.governingMode ?? '尚未計算'}</span>
-                    <span>{item.snapshot?.controllingLoadCaseName ? `控制組合 ${item.snapshot.controllingLoadCaseName}` : '單一組合'}</span>
-                  </div>
-                  <div className="case-card-footer">
-                    <span>
-                      控制 DCR {formatNumber(item.snapshot?.governingDcr ?? item.snapshot?.maxDcr ?? 0)}
-                    </span>
-                    <span>{formatDateTime(item.updatedAt)}</span>
-                  </div>
-                </button>
-              </div>
-            )
-          })
-          })()}
-        </div>
-      </section>
+      <CaseLibraryPanel
+        project={project}
+        projectLibrary={projectLibrary}
+        caseCards={caseCards}
+        activeProjectId={activeProjectId}
+        products={products}
+        unitPreferences={unitPreferences}
+        caseLibrarySearch={caseLibrarySearch}
+        setCaseLibrarySearch={setCaseLibrarySearch}
+        comparedCaseIds={comparedCaseIds}
+        setComparedCaseIds={setComparedCaseIds}
+        onCreateProject={createProject}
+        onDuplicateProject={duplicateProject}
+        onResetCurrentProjectToDefaults={resetCurrentProjectToDefaults}
+        onExportCurrentCase={exportCurrentCase}
+        onDeleteCurrentProject={deleteCurrentProject}
+        onExportWorkspace={exportWorkspace}
+        onOpenImportDialog={openImportDialog}
+        onSelectProject={selectProject}
+        setSaveMessage={setSaveMessage}
+        importInputRef={importInputRef}
+        loadCaseCsvInputRef={loadCaseCsvInputRef}
+        onImportWorkspace={importWorkspace}
+        onImportLoadCasesCsv={importLoadCasesCsv}
+        Badge={Badge}
+      />
 
       <section className="workspace" id="main-content" tabIndex={-1}>
         <section
