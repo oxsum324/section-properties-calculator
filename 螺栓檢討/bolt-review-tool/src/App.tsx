@@ -102,12 +102,14 @@ import { SensitivityPanel } from './SensitivityPanel'
 import { CommandPalette } from './CommandPalette'
 import { AnalysisLoadsCard } from './AnalysisLoadsCard'
 import { AuditHistoryPanel } from './AuditHistoryPanel'
+import { CaseDocumentsPanel } from './CaseDocumentsPanel'
 import { CaseLibraryPanel } from './CaseLibraryPanel'
 import { FormulaReferencePanel } from './FormulaReferencePanel'
 import { HSectionAnchorHelperPanel } from './HSectionAnchorHelperPanel'
 import { LandingHubGrid } from './LandingHubGrid'
-import { LoadPresetGrid } from './LoadPresetGrid'
+import { LoadPresetPanel } from './LoadPresetPanel'
 import { QuickCheckCard } from './QuickCheckCard'
+import { ReportSettingsPanel } from './ReportSettingsPanel'
 import { ResultsDetailPanel } from './ResultsDetailPanel'
 import { Badge } from './resultDisplay'
 import {
@@ -5683,133 +5685,20 @@ function App() {
                 )}
               </div>
             </details>
-            <details
-              className="fold-panel sub-panel"
-              data-shows="loads"
-              data-loads-advanced="1"
-              open={!simpleMode}
-            >
-              <summary className="fold-summary">
-                <span>載重組合 Preset</span>
-                <small>D / L / E 一鍵展開常用組合</small>
-              </summary>
-              <div className="fold-stack">
-                <p className="helper-text">
-                  輸入死載 D、活載 L、地震分量 E 的 N / V / M 組件後，可一鍵產生
-                  `1.2D+1.6L`、`1.2D±1.0E+1.0L`、`0.9D±1.0E`、`1.2D±ΩoE+1.0L`
-                  、`0.9D±ΩoE`，若有填 `Ωattachment` 也會加上對應的
-                  `ΩattachmentE` 組合。產生出的組合視為已明確組合之設計載重，
-                  會自動清空 17.10 額外地震入口欄位，避免重複放大。
-                </p>
-                <LoadPresetGrid
-                  loadPresetInput={loadPresetInput}
-                  unitPreferences={unitPreferences}
-                  patchLoadPresetComponent={patchLoadPresetComponent}
-                />
-                <div className="field-grid compact-grid">
-                  <label>
-                    <span className="label-row">
-                      <span>Ωo</span>
-                    </span>
-                    <input
-                      type="number"
-                      min="1"
-                      step="0.1"
-                      value={loadPresetInput.overstrengthFactor}
-                      onChange={(event) =>
-                        patchLoadPresetInput({
-                          overstrengthFactor: Math.max(
-                            1,
-                            parseNumber(event.target.value, 1),
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    <span className="label-row">
-                      <span>Ωattachment</span>
-                    </span>
-                    <input
-                      type="number"
-                      min="1"
-                      step="0.1"
-                      value={loadPresetInput.attachmentOverstrengthFactor}
-                      onChange={(event) =>
-                        patchLoadPresetInput({
-                          attachmentOverstrengthFactor: Math.max(
-                            1,
-                            parseNumber(event.target.value, 1),
-                          ),
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-                <div className="action-row preset-actions">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => void applyLoadCasePreset('append')}
-                  >
-                    附加 Preset 組合
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void applyLoadCasePreset('replace')}
-                  >
-                    覆蓋目前組合
-                  </button>
-                </div>
-                <details className="fold-panel sub-panel" data-shows="loads">
-                  <summary className="fold-summary">
-                    <span>Excel / CSV 貼上匯入</span>
-                    <small>支援從 Excel 直接複製整塊表格貼上</small>
-                  </summary>
-                  <div className="fold-stack">
-                    <p className="helper-text">
-                      可直接從 Excel 複製含欄名的整塊表格貼到下方，工具會自動辨識
-                      `Tab` 或 `CSV` 分隔。欄位固定使用內部單位 `kN / kN-m / mm`。
-                    </p>
-                    <div className="action-row">
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => {
-                          void copyLoadCaseHeaderRow()
-                        }}
-                      >
-                        複製欄名
-                      </button>
-                    </div>
-                    <label>
-                      貼上表格內容
-                      <textarea
-                        rows={8}
-                        value={loadCasePasteText}
-                        onChange={(event) => setLoadCasePasteText(event.target.value)}
-                        placeholder={`${loadCaseDelimitedHeaderRow}\n${loadCaseDelimitedExampleRow}`}
-                      />
-                    </label>
-                    <div className="action-row preset-actions">
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => void importPastedLoadCases('append')}
-                      >
-                        貼上內容附加
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void importPastedLoadCases('replace')}
-                      >
-                        貼上內容覆蓋
-                      </button>
-                    </div>
-                  </div>
-                </details>
-              </div>
-            </details>
+            <LoadPresetPanel
+              loadPresetInput={loadPresetInput}
+              unitPreferences={unitPreferences}
+              simpleMode={simpleMode}
+              patchLoadPresetComponent={patchLoadPresetComponent}
+              patchLoadPresetInput={patchLoadPresetInput}
+              applyLoadCasePreset={applyLoadCasePreset}
+              copyLoadCaseHeaderRow={copyLoadCaseHeaderRow}
+              loadCasePasteText={loadCasePasteText}
+              setLoadCasePasteText={setLoadCasePasteText}
+              importPastedLoadCases={importPastedLoadCases}
+              loadCaseDelimitedHeaderRow={loadCaseDelimitedHeaderRow}
+              loadCaseDelimitedExampleRow={loadCaseDelimitedExampleRow}
+            />
             <div className="field-slot" data-shows="loads">
               <UnitNumberField
                 label={usingSeparatedSeismicInput ? '靜載 / 非地震拉力 N' : '設計拉力 N'}
@@ -6147,398 +6036,32 @@ function App() {
             applyRecommendedSeismicRoute={applyRecommendedSeismicRoute}
           />
 
-          <details
-            className="fold-panel sub-panel"
-            data-shows="report"
-            open={!simpleMode}
-          >
-            <summary className="fold-summary">
-              <span>報表設定</span>
-              <small>公司、案號、設計 / 校核與輸出模式</small>
-            </summary>
-            <div className="field-grid">
-              <label>
-                公司 / 單位
-                <input
-                  value={reportSettings.companyName}
-                  placeholder="例如 XX 結構技師事務所"
-                  onChange={(event) =>
-                    patchReport({ companyName: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                案號 / 專案代碼
-                <input
-                  value={reportSettings.projectCode}
-                  placeholder="例如 P-2026-014"
-                  onChange={(event) =>
-                    patchReport({ projectCode: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                設計者
-                <input
-                  value={reportSettings.designer}
-                  placeholder="例如 王大明"
-                  onChange={(event) =>
-                    patchReport({ designer: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                校核者
-                <input
-                  value={reportSettings.checker}
-                  placeholder="例如 李小華"
-                  onChange={(event) =>
-                    patchReport({ checker: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                發行日期
-                <input
-                  type="date"
-                  value={reportSettings.issueDate}
-                  onChange={(event) =>
-                    patchReport({ issueDate: event.target.value })
-                  }
-                />
-              </label>
-              <label>
-                輸出模式
-                <select
-                  value={reportSettings.reportMode}
-                  onChange={(event) =>
-                    patchReport({
-                      reportMode: event.target.value as ReportMode,
-                    })
-                  }
-                >
-                  <option value="full">完整明細版</option>
-                  <option value="summary">摘要版</option>
-                </select>
-              </label>
-            </div>
-            <div className="report-logo-row">
-              {reportSettings.companyLogoDataUrl ? (
-                <div className="report-logo-preview">
-                  <img
-                    src={reportSettings.companyLogoDataUrl}
-                    alt="公司 LOGO 預覽"
-                  />
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => patchReport({ companyLogoDataUrl: '' })}
-                  >
-                    移除 LOGO
-                  </button>
-                </div>
-              ) : (
-                <p className="helper-text" style={{ margin: 0 }}>
-                  尚未上傳公司 LOGO（建議 PNG / SVG，≤ 200KB）
-                </p>
-              )}
-              <label className="report-logo-upload">
-                <span className="secondary-button" role="button">
-                  {reportSettings.companyLogoDataUrl ? '更換 LOGO' : '上傳 LOGO'}
-                </span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/svg+xml"
-                  hidden
-                  onChange={(event) => {
-                    const file = event.target.files?.[0]
-                    if (!file) return
-                    if (file.size > 200 * 1024) {
-                      setSaveMessage(
-                        `LOGO 檔案 ${(file.size / 1024).toFixed(0)} KB 超過 200 KB；請壓縮後再上傳`,
-                      )
-                      event.target.value = ''
-                      return
-                    }
-                    const reader = new FileReader()
-                    reader.onload = () => {
-                      const dataUrl = reader.result
-                      if (typeof dataUrl === 'string') {
-                        patchReport({ companyLogoDataUrl: dataUrl })
-                        setSaveMessage(`已上傳 LOGO：${file.name}`)
-                      }
-                    }
-                    reader.onerror = () => {
-                      setSaveMessage('LOGO 讀取失敗，請改用其他檔案')
-                    }
-                    reader.readAsDataURL(file)
-                    event.target.value = ''
-                  }}
-                />
-              </label>
-            </div>
-            <p className="helper-text">
-              摘要版列印時只保留控制檢核與例外尺寸；完整明細版會附上逐項條文與產品證據對照。
-            </p>
-            <p className="helper-text">
-              目前工具版本：<code>{CURRENT_CALC_ENGINE_VERSION}</code> · build{' '}
-              <code>{formatDateTime(CURRENT_APP_BUILD_TIME)}</code>。案例會保存本案計算版本，報表也會同步列出版本狀態與留痕資訊。
-            </p>
-            <p className="helper-text">{ENGINEERING_USE_DISCLAIMER}</p>
-          </details>
+          <ReportSettingsPanel
+            reportSettings={reportSettings}
+            patchReport={patchReport}
+            setSaveMessage={setSaveMessage}
+            simpleMode={simpleMode}
+          />
 
-          <details
-            className="fold-panel sub-panel"
-            data-shows="report"
-            open={!simpleMode || caseDocuments.length > 0}
-          >
-            <summary className="fold-summary">
-              <span>案例附件 / 文件管理</span>
-              <small>離線保存 PDF、圖片與佐證檔</small>
-            </summary>
-            <div className="sub-panel-header">
-              <div>
-                <p className="helper-text">
-                  已上傳的案例文件會保存在本機 IndexedDB，也能在證據欄位直接選用文件名稱。
-                </p>
-              </div>
-              <div className="document-upload-row">
-                <label className="document-kind-field">
-                  文件類型
-                  <select
-                    value={pendingDocumentKind}
-                    onChange={(event) =>
-                      setPendingDocumentKind(
-                        event.target.value as ProjectDocumentKind,
-                      )
-                    }
-                  >
-                    {(
-                      [
-                        'eta',
-                        'catalog',
-                        'drawing',
-                        'calculation',
-                        'photo',
-                        'other',
-                      ] as ProjectDocumentKind[]
-                    ).map((kind) => (
-                      <option key={kind} value={kind}>
-                        {documentKindLabel(kind)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button type="button" onClick={openDocumentDialog}>
-                  上傳文件
-                </button>
-              </div>
-            </div>
-
-            <input
-              ref={documentInputRef}
-              type="file"
-              multiple
-              hidden
-              onChange={(event) => {
-                void uploadCaseDocuments(event)
-              }}
-            />
-
-            {previewDocumentMeta ? (
-              <article className="document-preview-panel">
-                <div className="document-preview-head">
-                  <div>
-                    <h4>文件預覽</h4>
-                    <p className="helper-text">
-                      {previewDocumentMeta.name} /{' '}
-                      {documentKindLabel(previewDocumentMeta.kind)} /{' '}
-                      {previewDocumentMeta.fileName}
-                    </p>
-                  </div>
-                  <div className="action-row">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => {
-                        void openCaseDocument(previewDocumentMeta.id)
-                      }}
-                    >
-                      新分頁開啟
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={clearPreviewDocument}
-                    >
-                      收起預覽
-                    </button>
-                  </div>
-                </div>
-
-                {previewDocumentError ? (
-                  <p className="helper-text">{previewDocumentError}</p>
-                ) : previewDocumentFile && previewDocumentUrl ? (
-                  previewDocumentFile.mimeType.startsWith('image/') ? (
-                    <img
-                      className="document-preview-image"
-                      src={previewDocumentUrl}
-                      alt={previewDocumentMeta.name}
-                    />
-                  ) : previewDocumentFile.mimeType === 'application/pdf' ? (
-                    <iframe
-                      className="document-preview-frame"
-                      src={previewDocumentUrl}
-                      title={previewDocumentMeta.name}
-                    />
-                  ) : (
-                    <div className="document-preview-fallback">
-                      <p className="helper-text">
-                        這個檔案類型目前不提供內嵌預覽，可以用新分頁開啟或直接下載。
-                      </p>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => {
-                          void downloadCaseDocument(previewDocumentMeta.id)
-                        }}
-                      >
-                        下載附件
-                      </button>
-                    </div>
-                  )
-                ) : (
-                  <p className="helper-text">正在載入文件預覽…</p>
-                )}
-              </article>
-            ) : null}
-
-            {caseDocuments.length > 0 ? (
-              <div className="document-grid">
-                {caseDocuments.map((document) => (
-                  <article key={document.id} className="document-card">
-                    <div className="document-card-top">
-                      <div>
-                        <h4>{document.name}</h4>
-                        <p className="helper-text">
-                          {documentKindLabel(document.kind)} / {document.fileName} /{' '}
-                          {formatFileSize(document.sizeBytes)}
-                        </p>
-                      </div>
-                      <label className="checkbox-line">
-                        <input
-                          type="checkbox"
-                          checked={document.verified}
-                          onChange={(event) =>
-                            patchProjectDocument(document.id, {
-                              verified: event.target.checked,
-                            })
-                          }
-                        />
-                        已核對
-                      </label>
-                    </div>
-
-                    <div className="field-grid">
-                      <label>
-                        文件名稱
-                        <input
-                          value={document.name}
-                          onChange={(event) =>
-                            patchProjectDocument(document.id, {
-                              name: event.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        文件類型
-                        <select
-                          value={document.kind}
-                          onChange={(event) =>
-                            patchProjectDocument(document.id, {
-                              kind: event.target.value as ProjectDocumentKind,
-                            })
-                          }
-                        >
-                          {(
-                            [
-                              'eta',
-                              'catalog',
-                              'drawing',
-                              'calculation',
-                              'photo',
-                              'other',
-                            ] as ProjectDocumentKind[]
-                          ).map((kind) => (
-                            <option key={kind} value={kind}>
-                              {documentKindLabel(kind)}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-
-                    <label className="notes-field">
-                      文件備註
-                      <textarea
-                        value={document.note}
-                        placeholder="記錄此文件的用途，例如 ETA 表號、型錄版本或施工現況"
-                        onChange={(event) =>
-                          patchProjectDocument(document.id, {
-                            note: event.target.value,
-                          })
-                        }
-                      />
-                    </label>
-
-                    <div className="action-row">
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => {
-                          previewCaseDocument(document.id)
-                        }}
-                      >
-                        預覽
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => {
-                          void openCaseDocument(document.id)
-                        }}
-                      >
-                        新分頁
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => {
-                          void downloadCaseDocument(document.id)
-                        }}
-                      >
-                        下載
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => {
-                          void deleteCaseDocument(document.id)
-                        }}
-                      >
-                        刪除
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="helper-text">
-                目前這個案例還沒有附件。你可以先上傳 ETA、型錄、圖面或現場照片，後續證據欄位就能直接引用。
-              </p>
-            )}
-          </details>
+          <CaseDocumentsPanel
+            caseDocuments={caseDocuments}
+            pendingDocumentKind={pendingDocumentKind}
+            setPendingDocumentKind={setPendingDocumentKind}
+            documentInputRef={documentInputRef}
+            uploadCaseDocuments={uploadCaseDocuments}
+            openDocumentDialog={openDocumentDialog}
+            previewDocumentMeta={previewDocumentMeta}
+            previewDocumentFile={previewDocumentFile}
+            previewDocumentUrl={previewDocumentUrl}
+            previewDocumentError={previewDocumentError}
+            clearPreviewDocument={clearPreviewDocument}
+            openCaseDocument={openCaseDocument}
+            downloadCaseDocument={downloadCaseDocument}
+            previewCaseDocument={previewCaseDocument}
+            deleteCaseDocument={deleteCaseDocument}
+            patchProjectDocument={patchProjectDocument}
+            simpleMode={simpleMode}
+          />
 
           <div className="legacy-panel" data-shows="report">
             <h3>單位預覽</h3>
