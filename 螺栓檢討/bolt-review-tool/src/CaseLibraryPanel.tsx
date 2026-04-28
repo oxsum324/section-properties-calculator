@@ -1,11 +1,11 @@
-import type { ChangeEvent, ComponentType, ReactNode, RefObject } from 'react'
+import type { ChangeEvent, ReactNode, RefObject } from 'react'
 import type {
   AnchorProduct,
   ProjectCase,
-  ReviewStatus,
   UnitPreferences,
 } from './domain'
 import { formatDateTime, formatNumber, formatQuantity } from './formatHelpers'
+import { Badge } from './resultDisplay'
 
 /**
  * 案例庫面板：列出本機所有案例 + 工具列（新增 / 複製 / 還原 / 匯出 / 刪除 / 匯入），
@@ -42,7 +42,6 @@ export function CaseLibraryPanel(props: {
   onImportLoadCasesCsv: (
     event: ChangeEvent<HTMLInputElement>,
   ) => Promise<void> | void
-  Badge: ComponentType<{ status: ReviewStatus }>
 }) {
   const {
     project,
@@ -68,7 +67,6 @@ export function CaseLibraryPanel(props: {
     loadCaseCsvInputRef,
     onImportWorkspace,
     onImportLoadCasesCsv,
-    Badge,
   } = props
 
   return (

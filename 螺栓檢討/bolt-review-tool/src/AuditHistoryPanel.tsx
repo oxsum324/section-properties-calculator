@@ -1,9 +1,7 @@
-import type { ComponentType } from 'react'
 import type {
   ProjectAuditEntry,
   ProjectAuditSource,
   ProjectCase,
-  ReviewStatus,
 } from './domain'
 import { CURRENT_CALC_ENGINE_VERSION } from './appMeta'
 import { formatAuditHash } from './evaluationAudit'
@@ -13,6 +11,7 @@ import {
   formatNumber,
 } from './formatHelpers'
 import { IconClipboard } from './Icons'
+import { Badge } from './resultDisplay'
 
 /**
  * 審查留痕歷程：列出案件目前所有 hash 簽章；提供新增、刪除、CSV 匯出與
@@ -31,7 +30,6 @@ export function AuditHistoryPanel(props: {
   exportAuditTrailCsv: () => void
   deleteAuditEntry: (entryId: string) => void
   setSaveMessage: (message: string) => void
-  Badge: ComponentType<{ status: ReviewStatus }>
 }) {
   const {
     project,
@@ -42,7 +40,6 @@ export function AuditHistoryPanel(props: {
     exportAuditTrailCsv,
     deleteAuditEntry,
     setSaveMessage,
-    Badge,
   } = props
   const trail = project.auditTrail ?? []
 
