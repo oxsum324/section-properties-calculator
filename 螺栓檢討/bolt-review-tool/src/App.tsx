@@ -105,6 +105,7 @@ import { AuditHistoryPanel } from './AuditHistoryPanel'
 import { CaseLibraryPanel } from './CaseLibraryPanel'
 import { FormulaReferencePanel } from './FormulaReferencePanel'
 import { LandingHubGrid } from './LandingHubGrid'
+import { LoadPresetGrid } from './LoadPresetGrid'
 import { QuickCheckCard } from './QuickCheckCard'
 import { ResultsDetailPanel } from './ResultsDetailPanel'
 import { Badge } from './resultDisplay'
@@ -117,6 +118,7 @@ import {
 } from './resultDisplayHelpers'
 import { StatusBanners } from './StatusBanners'
 import { TopHeaderToolbar } from './TopHeaderToolbar'
+import { UnitNumberField } from './UnitNumberField'
 import {
   auditSourceLabel,
   formatDateTime,
@@ -694,80 +696,7 @@ function buildLayoutComparisonMatrix(
   }))
 }
 
-function UnitNumberField(props: {
-  label: string
-  quantity: QuantityKind
-  units: UnitPreferences
-  value?: number
-  onValueChange?: (value: number | undefined) => void
-  optional?: boolean
-  disabled?: boolean
-  min?: number
-  fallback?: number
-  /** 可選的輸入警告；非 null 時以黃底小字顯示於輸入框下方，不攔截輸入。 */
-  warning?: string | null
-}) {
-  const {
-    label,
-    quantity,
-    units,
-    value,
-    onValueChange,
-    optional = false,
-    disabled = false,
-    min,
-    fallback = 0,
-    warning = null,
-  } = props
-
-  const unitSymbol = getUnitSymbol(quantity, units)
-
-  return (
-    <label
-      title={`${label}（單位：${unitSymbol}；可於頂部切換）`}
-      className={warning ? 'field-has-warning' : undefined}
-    >
-      <span className="label-row">
-        <span>{label}</span>
-        <span className="unit-chip">{unitSymbol}</span>
-      </span>
-      <input
-        type="number"
-        step={getInputStep(quantity, units)}
-        min={min}
-        disabled={disabled}
-        value={
-          optional
-            ? formatInputQuantity(value, quantity, units)
-            : formatInputQuantity(value ?? fallback, quantity, units)
-        }
-        onChange={(event) => {
-          if (!onValueChange) {
-            return
-          }
-
-          if (optional && event.target.value.trim() === '') {
-            onValueChange(undefined)
-            return
-          }
-
-          const parsed = Number(event.target.value)
-          if (!Number.isFinite(parsed)) {
-            onValueChange(optional ? undefined : fallback)
-            return
-          }
-
-          onValueChange(fromDisplayValue(parsed, quantity, units))
-        }}
-      />
-      {warning ? (
-        <span className="field-warning" role="status">
-          {warning}
-        </span>
-      ) : null}
-    </label>
-  )
-}
+// UnitNumberField 已移至 ./UnitNumberField
 
 function GeometrySketch({
   review,
@@ -5939,188 +5868,11 @@ function App() {
                   `ΩattachmentE` 組合。產生出的組合視為已明確組合之設計載重，
                   會自動清空 17.10 額外地震入口欄位，避免重複放大。
                 </p>
-                <div className="preset-component-grid">
-                  <section className="preset-card">
-                    <h4>死載 D</h4>
-                    <div className="field-grid compact-grid">
-                      <UnitNumberField
-                        label="N"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.dead.tensionKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('dead', {
-                            tensionKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Vx"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.dead.shearXKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('dead', {
-                            shearXKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Vy"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.dead.shearYKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('dead', {
-                            shearYKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Mx"
-                        quantity="moment"
-                        units={unitPreferences}
-                        value={loadPresetInput.dead.momentXKnM}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('dead', {
-                            momentXKnM: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="My"
-                        quantity="moment"
-                        units={unitPreferences}
-                        value={loadPresetInput.dead.momentYKnM}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('dead', {
-                            momentYKnM: value ?? 0,
-                          })
-                        }
-                      />
-                    </div>
-                  </section>
-                  <section className="preset-card">
-                    <h4>活載 L</h4>
-                    <div className="field-grid compact-grid">
-                      <UnitNumberField
-                        label="N"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.live.tensionKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('live', {
-                            tensionKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Vx"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.live.shearXKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('live', {
-                            shearXKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Vy"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.live.shearYKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('live', {
-                            shearYKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Mx"
-                        quantity="moment"
-                        units={unitPreferences}
-                        value={loadPresetInput.live.momentXKnM}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('live', {
-                            momentXKnM: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="My"
-                        quantity="moment"
-                        units={unitPreferences}
-                        value={loadPresetInput.live.momentYKnM}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('live', {
-                            momentYKnM: value ?? 0,
-                          })
-                        }
-                      />
-                    </div>
-                  </section>
-                  <section className="preset-card">
-                    <h4>地震分量 E</h4>
-                    <div className="field-grid compact-grid">
-                      <UnitNumberField
-                        label="N"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.earthquake.tensionKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('earthquake', {
-                            tensionKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Vx"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.earthquake.shearXKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('earthquake', {
-                            shearXKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Vy"
-                        quantity="force"
-                        units={unitPreferences}
-                        value={loadPresetInput.earthquake.shearYKn}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('earthquake', {
-                            shearYKn: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="Mx"
-                        quantity="moment"
-                        units={unitPreferences}
-                        value={loadPresetInput.earthquake.momentXKnM}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('earthquake', {
-                            momentXKnM: value ?? 0,
-                          })
-                        }
-                      />
-                      <UnitNumberField
-                        label="My"
-                        quantity="moment"
-                        units={unitPreferences}
-                        value={loadPresetInput.earthquake.momentYKnM}
-                        onValueChange={(value) =>
-                          patchLoadPresetComponent('earthquake', {
-                            momentYKnM: value ?? 0,
-                          })
-                        }
-                      />
-                    </div>
-                  </section>
-                </div>
+                <LoadPresetGrid
+                  loadPresetInput={loadPresetInput}
+                  unitPreferences={unitPreferences}
+                  patchLoadPresetComponent={patchLoadPresetComponent}
+                />
                 <div className="field-grid compact-grid">
                   <label>
                     <span className="label-row">
