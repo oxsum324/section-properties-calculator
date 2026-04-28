@@ -107,8 +107,13 @@ import ResourceLibraryHub, {
 import { WelcomeCard } from './WelcomeCard'
 import { SensitivityPanel } from './SensitivityPanel'
 import { CommandPalette } from './CommandPalette'
+import { AnalysisLoadsCard } from './AnalysisLoadsCard'
+import { AuditHistoryPanel } from './AuditHistoryPanel'
 import { FormulaReferencePanel } from './FormulaReferencePanel'
+import { StatusBanners } from './StatusBanners'
 import {
+  auditSourceLabel,
+  formatDateTime,
   formatFileSize,
   formatNumber,
   formatQuantity,
@@ -119,7 +124,6 @@ import {
   IconCommand,
   IconDownload,
   IconInstall,
-  IconRefresh,
 } from './Icons'
 import {
   formatInputQuantity,
@@ -450,24 +454,7 @@ function buildProjectSnapshot(
   }
 }
 
-function auditSourceLabel(source: ProjectAuditSource) {
-  switch (source) {
-    case 'manual':
-      return '手動留存'
-    case 'preview':
-      return '報表預覽'
-    case 'print':
-      return '列印報表'
-    case 'html':
-      return '匯出 HTML'
-    case 'xlsx':
-      return '匯出 XLSX'
-    case 'docx':
-      return '匯出 DOCX'
-    default:
-      return source
-  }
-}
+// auditSourceLabel 已移至 ./formatHelpers
 
 const projectIdSeed = Date.now()
 let projectIdSequence = 0
@@ -609,25 +596,7 @@ function formatDate(value?: string) {
   })
 }
 
-function formatDateTime(value?: string) {
-  if (!value) {
-    return '—'
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
-
-  return parsed.toLocaleString('zh-TW', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
+// formatDateTime 已移至 ./formatHelpers
 // formatQuantity 已移至 ./formatHelpers
 
 function formatLayoutVariantSummary(
@@ -4488,60 +4457,15 @@ function App() {
         </div>
       </header>
 
-      {swUpdateAvailable ? (
-        <div className="sw-update-banner" role="status">
-          <div className="sw-update-text">
-            <strong>
-              <IconRefresh aria-hidden /> 工具有新版本可用
-            </strong>
-            <span>
-              關閉所有此工具分頁後重新開啟，即可載入最新計算邏輯與功能。
-              建議於完成目前手上的留痕 / 報表後再行升級。
-            </span>
-          </div>
-          <div className="sw-update-actions">
-            <button
-              type="button"
-              className="sw-update-reload"
-              onClick={() => {
-                window.location.reload()
-              }}
-            >
-              立即重新載入 →
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => setSwUpdateAvailable(false)}
-              aria-label="暫時隱藏新版提醒"
-            >
-              稍後
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {calcEngineMismatch ? (
-        <div className="calc-engine-mismatch-banner" role="alert">
-          <div className="calc-engine-mismatch-text">
-            <strong>⚠ 本案計算版本與目前工具不一致</strong>
-            <span>
-              本案先前以 <code>{calcEngineVersionStatus.projectVersion}</code>{' '}
-              計算；目前工具版本為{' '}
-              <code>{calcEngineVersionStatus.runtimeVersion}</code>。
-              畫面顯示已依最新版重算；正式交付前請按右側按鈕升級並重新留痕。
-            </span>
-          </div>
-          <button
-            type="button"
-            className="calc-engine-upgrade-btn"
-            onClick={adoptCurrentCalcEngineVersion}
-            title="把本案計算版本標記為目前工具版本，建議完成後立即重新留痕"
-          >
-            升級此案 →
-          </button>
-        </div>
-      ) : null}
+      <StatusBanners
+        swUpdateAvailable={swUpdateAvailable}
+        onDismissSwUpdate={() => setSwUpdateAvailable(false)}
+        onReload={() => window.location.reload()}
+        calcEngineMismatch={calcEngineMismatch}
+        projectCalcEngineVersion={calcEngineVersionStatus.projectVersion}
+        runtimeCalcEngineVersion={calcEngineVersionStatus.runtimeVersion}
+        onAdoptCurrentCalcEngineVersion={adoptCurrentCalcEngineVersion}
+      />
 
       <section className="toolbar">
         <div className="toolbar-group">
@@ -9471,99 +9395,13 @@ function App() {
             })()}
           </div>
 
-          {/* 採用設計載重明細：把實際代入計算的 N / V / M / 偏心一次列出，方便核對 */}
-          <div className="analysis-loads-card">
-            <header>
-              <h4>採用設計載重</h4>
-              <small>
-                載重組合「{batchReview.controllingLoadCaseName}」實際代入計算的數值
-              </small>
-            </header>
-            <div className="analysis-loads-grid">
-              <div className="analysis-load-cell">
-                <span>拉力 N</span>
-                <strong>
-                  {formatQuantity(
-                    review.analysisLoads.tensionKn,
-                    'force',
-                    unitPreferences,
-                  )}
-                </strong>
-              </div>
-              <div className="analysis-load-cell">
-                <span>剪力 V_total</span>
-                <strong>
-                  {formatQuantity(
-                    Math.hypot(
-                      review.analysisLoads.shearXKn,
-                      review.analysisLoads.shearYKn,
-                    ),
-                    'force',
-                    unitPreferences,
-                  )}
-                </strong>
-                <small>
-                  Vx = {formatQuantity(review.analysisLoads.shearXKn, 'force', unitPreferences)}
-                  ｜ Vy = {formatQuantity(review.analysisLoads.shearYKn, 'force', unitPreferences)}
-                </small>
-              </div>
-              <div className="analysis-load-cell">
-                <span>彎矩 Mx / My</span>
-                <strong>
-                  {formatQuantity(
-                    review.analysisLoads.momentXKnM,
-                    'moment',
-                    unitPreferences,
-                  )}{' '}
-                  /{' '}
-                  {formatQuantity(
-                    review.analysisLoads.momentYKnM,
-                    'moment',
-                    unitPreferences,
-                  )}
-                </strong>
-              </div>
-              {(review.analysisLoads.shearEccentricityXmm ?? 0) !== 0 ||
-              (review.analysisLoads.shearEccentricityYmm ?? 0) !== 0 ? (
-                <div className="analysis-load-cell">
-                  <span>剪力偏心 ex / ey</span>
-                  <strong>
-                    {formatQuantity(
-                      review.analysisLoads.shearEccentricityXmm ?? 0,
-                      'length',
-                      unitPreferences,
-                    )}{' '}
-                    /{' '}
-                    {formatQuantity(
-                      review.analysisLoads.shearEccentricityYmm ?? 0,
-                      'length',
-                      unitPreferences,
-                    )}
-                  </strong>
-                </div>
-              ) : null}
-              <div className="analysis-load-cell">
-                <span>受剪錨栓數</span>
-                <strong>
-                  {review.analysisLoads.shearAnchorCount &&
-                  review.analysisLoads.shearAnchorCount > 0
-                    ? review.analysisLoads.shearAnchorCount
-                    : Math.max(
-                        project.layout.anchorCountX,
-                        project.layout.anchorCountY,
-                      )}{' '}
-                  支
-                </strong>
-                <small>分擔 V_total / n</small>
-              </div>
-              {review.analysisNote ? (
-                <div className="analysis-load-cell analysis-load-note">
-                  <span>耐震 / 路徑備註</span>
-                  <strong>{review.analysisNote}</strong>
-                </div>
-              ) : null}
-            </div>
-          </div>
+          <AnalysisLoadsCard
+            project={project}
+            controllingLoadCaseName={batchReview.controllingLoadCaseName}
+            analysisLoads={review.analysisLoads}
+            analysisNote={review.analysisNote}
+            unitPreferences={unitPreferences}
+          />
 
           {batchReview.summary.overallStatus === 'incomplete' ? (
             <p className="helper-text incomplete-emphasis">
@@ -9597,308 +9435,17 @@ function App() {
 
           <FormulaReferencePanel />
 
-          <details
-            className="fold-panel sub-panel audit-history-panel"
-            data-shows="result"
-            open={false}
-          >
-            <summary className="fold-summary">
-              <span>審查留痕歷程</span>
-              <small>
-                共 {(project.auditTrail ?? []).length} 筆 hash 簽章；最新
-                {latestAuditEntry
-                  ? `：${formatAuditHash(latestAuditEntry.hash)} · ${formatDateTime(latestAuditEntry.createdAt)}`
-                  : '：尚未留存'}
-              </small>
-            </summary>
-            <div className="fold-stack">
-              <div className="action-row">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void recordCurrentAuditTrail('manual')
-                  }}
-                  title="重新計算 hash 並追加一筆手動留痕"
-                >
-                  ＋ 留存簽章
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={exportAuditTrailCsv}
-                  disabled={(project.auditTrail ?? []).length === 0}
-                  title="匯出整份留痕表為 CSV，供工程審查 / QA 紀錄"
-                >
-                  匯出留痕 CSV
-                </button>
-              </div>
-              {(project.auditTrail ?? []).length === 0 ? (
-                <p className="helper-text">
-                  尚未留存任何 hash 簽章。可按 Ctrl/⌘+S 或匯出報告時自動建立。
-                </p>
-              ) : (
-                <>
-                  {auditCompareIds.length === 2 ? (() => {
-                    const trail = project.auditTrail ?? []
-                    const a = trail.find((e) => e.id === auditCompareIds[0])
-                    const b = trail.find((e) => e.id === auditCompareIds[1])
-                    if (!a || !b) {
-                      return null
-                    }
-                    // older first（依時間排）
-                    const [older, newer] =
-                      new Date(a.createdAt).getTime() <
-                      new Date(b.createdAt).getTime()
-                        ? [a, b]
-                        : [b, a]
-                    const fields: Array<{
-                      label: string
-                      a: string
-                      b: string
-                    }> = [
-                      {
-                        label: '時間',
-                        a: formatDateTime(older.createdAt),
-                        b: formatDateTime(newer.createdAt),
-                      },
-                      {
-                        label: '來源',
-                        a: auditSourceLabel(older.source),
-                        b: auditSourceLabel(newer.source),
-                      },
-                      {
-                        label: '案件名稱',
-                        a: older.projectName,
-                        b: newer.projectName,
-                      },
-                      {
-                        label: '產品',
-                        a: older.productLabel,
-                        b: newer.productLabel,
-                      },
-                      {
-                        label: '整體判定',
-                        a: older.summary.overallStatus,
-                        b: newer.summary.overallStatus,
-                      },
-                      {
-                        label: '控制 DCR',
-                        a: formatNumber(
-                          older.summary.governingDcr ??
-                            older.summary.maxDcr ??
-                            0,
-                        ),
-                        b: formatNumber(
-                          newer.summary.governingDcr ??
-                            newer.summary.maxDcr ??
-                            0,
-                        ),
-                      },
-                      {
-                        label: '最大 DCR',
-                        a: formatNumber(older.summary.maxDcr ?? 0),
-                        b: formatNumber(newer.summary.maxDcr ?? 0),
-                      },
-                      {
-                        label: '控制模式',
-                        a: older.summary.governingMode ?? '—',
-                        b: newer.summary.governingMode ?? '—',
-                      },
-                      {
-                        label: '控制組合',
-                        a: older.summary.controllingLoadCaseName ?? '—',
-                        b: newer.summary.controllingLoadCaseName ?? '—',
-                      },
-                      {
-                        label: 'Hash',
-                        a: formatAuditHash(older.hash),
-                        b: formatAuditHash(newer.hash),
-                      },
-                    ]
-                    return (
-                      <div className="audit-diff-card" role="region" aria-label="留痕對比">
-                        <header>
-                          <h4>留痕對比（前 → 後）</h4>
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() => setAuditCompareIds([])}
-                          >
-                            清除選取
-                          </button>
-                        </header>
-                        <table className="data-table compact-table">
-                          <thead>
-                            <tr>
-                              <th>欄位</th>
-                              <th>較舊</th>
-                              <th>較新</th>
-                              <th>差異</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {fields.map((row) => {
-                              const changed = row.a !== row.b
-                              return (
-                                <tr
-                                  key={row.label}
-                                  className={
-                                    changed
-                                      ? 'audit-diff-row-changed'
-                                      : undefined
-                                  }
-                                >
-                                  <td>
-                                    <strong>{row.label}</strong>
-                                  </td>
-                                  <td>{row.a}</td>
-                                  <td>{row.b}</td>
-                                  <td>
-                                    {changed ? (
-                                      <span className="audit-diff-pill">
-                                        變更
-                                      </span>
-                                    ) : (
-                                      <span className="audit-diff-pill same">
-                                        相同
-                                      </span>
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )
-                  })() : null}
-                <table className="data-table compact-table audit-history-table">
-                  <thead>
-                    <tr>
-                      <th>對比</th>
-                      <th>時間</th>
-                      <th>來源</th>
-                      <th>整體</th>
-                      <th>控制 DCR</th>
-                      <th>控制模式</th>
-                      <th>計算版本</th>
-                      <th>Hash</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...(project.auditTrail ?? [])]
-                      .sort(
-                        (a, b) =>
-                          new Date(b.createdAt).getTime() -
-                          new Date(a.createdAt).getTime(),
-                      )
-                      .map((entry) => {
-                        const isLatest = entry.id === latestAuditEntry?.id
-                        const isCompared = auditCompareIds.includes(entry.id)
-                        return (
-                          <tr
-                            key={`audit-${entry.id}`}
-                            className={`${isLatest ? 'audit-row-latest' : ''}${isCompared ? ' audit-row-compared' : ''}`.trim() || undefined}
-                          >
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={isCompared}
-                                aria-label={`對比 ${formatAuditHash(entry.hash)}`}
-                                onChange={(event) => {
-                                  const checked = event.target.checked
-                                  setAuditCompareIds((current) => {
-                                    if (checked) {
-                                      if (current.length >= 2) {
-                                        // 取代最舊的選取
-                                        return [current[1], entry.id]
-                                      }
-                                      return [...current, entry.id]
-                                    }
-                                    return current.filter(
-                                      (id) => id !== entry.id,
-                                    )
-                                  })
-                                }}
-                              />
-                            </td>
-                            <td>
-                              {formatDateTime(entry.createdAt)}
-                              {isLatest ? (
-                                <span className="audit-latest-pill">最新</span>
-                              ) : null}
-                            </td>
-                            <td>{auditSourceLabel(entry.source)}</td>
-                            <td>
-                              <Badge status={entry.summary.overallStatus} />
-                            </td>
-                            <td>
-                              <code>
-                                {formatNumber(
-                                  entry.summary.governingDcr ??
-                                    entry.summary.maxDcr ??
-                                    0,
-                                )}
-                              </code>
-                            </td>
-                            <td>{entry.summary.governingMode ?? '—'}</td>
-                            <td>
-                              <code>{entry.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION}</code>
-                            </td>
-                            <td>
-                              <code
-                                className="audit-hash-cell"
-                                title={`完整 hash：${entry.hash}`}
-                              >
-                                {formatAuditHash(entry.hash)}
-                              </code>
-                              <button
-                                type="button"
-                                className="audit-hash-copy"
-                                title="複製完整 hash 到剪貼簿"
-                                onClick={() => {
-                                  if (navigator.clipboard?.writeText) {
-                                    void navigator.clipboard
-                                      .writeText(entry.hash)
-                                      .then(() =>
-                                        setSaveMessage(
-                                          `已複製 hash：${formatAuditHash(entry.hash)}`,
-                                        ),
-                                      )
-                                      .catch(() =>
-                                        setSaveMessage('複製失敗：瀏覽器拒絕剪貼簿'),
-                                      )
-                                  }
-                                }}
-                              >
-                                <IconClipboard aria-hidden />
-                              </button>
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="audit-delete"
-                                onClick={() => deleteAuditEntry(entry.id)}
-                                title="刪除這筆留痕（不可復原）"
-                              >
-                                刪除
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                  </tbody>
-                </table>
-                </>
-              )}
-              <p className="helper-text">
-                提示：留痕是把當下案件 + 計算結果以 SHA-1 雜湊封存，
-                供日後審查覆驗 — 同樣輸入應得到相同 hash。
-                勾選 2 筆「對比」可看欄位差異；報告匯出時會自動帶入留痕資訊。
-              </p>
-            </div>
-          </details>
+          <AuditHistoryPanel
+            project={project}
+            latestAuditEntry={latestAuditEntry}
+            auditCompareIds={auditCompareIds}
+            setAuditCompareIds={setAuditCompareIds}
+            recordCurrentAuditTrail={recordCurrentAuditTrail}
+            exportAuditTrailCsv={exportAuditTrailCsv}
+            deleteAuditEntry={deleteAuditEntry}
+            setSaveMessage={setSaveMessage}
+            Badge={Badge}
+          />
           </section>
 
           <details

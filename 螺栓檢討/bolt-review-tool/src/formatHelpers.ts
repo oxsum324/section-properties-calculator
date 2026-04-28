@@ -5,7 +5,7 @@
  *
  * 後續 P4「同盤工具共用模組」第一波候選之一；可移至 monorepo shared 套件。
  */
-import type { UnitPreferences } from './domain'
+import type { ProjectAuditSource, UnitPreferences } from './domain'
 import {
   getUnitSymbol,
   toDisplayValue,
@@ -45,6 +45,47 @@ export function getGoverningDcr(summary: {
   maxDcr: number
 }): number {
   return summary.governingDcr ?? summary.maxDcr
+}
+
+/**
+ * 將 ISO 字串格式化為 zh-TW 在地化日期時間（YYYY/MM/DD HH:mm）。
+ * 無效輸入回傳「—」；無法解析則原字串回傳。
+ */
+export function formatDateTime(value?: string): string {
+  if (!value) {
+    return '—'
+  }
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+  return parsed.toLocaleString('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/** 留痕來源代碼 → 顯示文字（手動 / 預覽 / 列印 / HTML / XLSX / DOCX）。 */
+export function auditSourceLabel(source: ProjectAuditSource): string {
+  switch (source) {
+    case 'manual':
+      return '手動留存'
+    case 'preview':
+      return '報表預覽'
+    case 'print':
+      return '列印報表'
+    case 'html':
+      return '匯出 HTML'
+    case 'xlsx':
+      return '匯出 XLSX'
+    case 'docx':
+      return '匯出 DOCX'
+    default:
+      return source
+  }
 }
 
 /** 檔案大小友善顯示：B / KB / MB */
