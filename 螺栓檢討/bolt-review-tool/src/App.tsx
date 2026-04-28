@@ -38,17 +38,14 @@ import {
   defaultProject,
 } from './defaults'
 import type {
-  AreaUnit,
   AnchorFamily,
   AnchorLayout,
   AnchorProduct,
   BasePlateSectionType,
   BearingConfinementMode,
   ColumnSectionType,
-  ForceUnit,
   LoadCasePresetInput,
   LoadCombinationComponents,
-  LengthUnit,
   ProjectLoadCase,
   ProjectAuditEntry,
   ProjectAuditSource,
@@ -63,7 +60,6 @@ import type {
   ReviewResult,
   ReviewStatus,
   StoredDocumentFile,
-  StressUnit,
   UnitPreferences,
 } from './domain'
 import type {
@@ -109,6 +105,7 @@ import { AuditHistoryPanel } from './AuditHistoryPanel'
 import { CaseLibraryPanel } from './CaseLibraryPanel'
 import { FormulaReferencePanel } from './FormulaReferencePanel'
 import { LandingHubGrid } from './LandingHubGrid'
+import { QuickCheckCard } from './QuickCheckCard'
 import { ResultsDetailPanel } from './ResultsDetailPanel'
 import { Badge } from './resultDisplay'
 import {
@@ -119,6 +116,7 @@ import {
   statusLabel,
 } from './resultDisplayHelpers'
 import { StatusBanners } from './StatusBanners'
+import { TopHeaderToolbar } from './TopHeaderToolbar'
 import {
   auditSourceLabel,
   formatDateTime,
@@ -129,14 +127,12 @@ import {
 } from './formatHelpers'
 import {
   IconClipboard,
-  IconCommand,
   IconDownload,
 } from './Icons'
 import {
   formatInputQuantity,
   fromDisplayValue,
   getInputStep,
-  getUnitOptionLabel,
   getUnitSymbol,
   normalizeUnitPreferences,
 } from './units'
@@ -4388,167 +4384,26 @@ function App() {
         onAdoptCurrentCalcEngineVersion={adoptCurrentCalcEngineVersion}
       />
 
-      <section className="toolbar">
-        <div className="toolbar-group">
-          <label>
-            案例名稱
-            <input
-              value={project.name}
-              onChange={(event) => patchProject({ name: event.target.value })}
-            />
-          </label>
-          <label>
-            規範版本
-            <select
-              value={project.ruleProfileId}
-              onChange={(event) =>
-                patchProject({
-                  ruleProfileId: normalizeRuleProfileId(event.target.value),
-                })
-              }
-            >
-              {ruleProfileOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => setActiveTab('report')}
-            title="開啟案件樣板、案例庫、文件附件與匯出設定"
-          >
-            資源 / 樣板
-          </button>
-          <button
-            type="button"
-            className="command-palette-trigger"
-            onClick={() => {
-              setPaletteQuery('')
-              setShowCommandPalette(true)
-            }}
-            title="快速跳到 tab / 案例 / 產品 / 動作（Ctrl/Cmd+K）"
-            aria-label="開啟命令面板"
-          >
-            <IconCommand aria-hidden />
-            <span>快速命令</span>
-            <kbd className="command-palette-trigger-kbd">Ctrl+K</kbd>
-          </button>
-        </div>
-
-        <div className="toolbar-group toolbar-export" data-shows="result report">
-          <button type="button" onClick={() => shortcutHandlersRef.current.printReport()}>
-            列印報表
-          </button>
-          <button type="button" onClick={() => {
-            void openStandaloneReportWindow(false)
-          }}>
-            預覽報表
-          </button>
-          <button type="button" onClick={() => {
-            void exportHtmlReport()
-          }}>
-            匯出 HTML
-          </button>
-          <button type="button" onClick={() => {
-            void exportXlsxReport()
-          }}>
-            匯出 XLSX
-          </button>
-          <button type="button" onClick={() => {
-            void exportDocxReport()
-          }}>
-            匯出 DOCX
-          </button>
-          <button type="button" className="secondary-button" onClick={() => {
-            void recordCurrentAuditTrail('manual')
-          }}>
-            留存簽章
-          </button>
-        </div>
-
-        <div className="toolbar-group toolbar-units">
-          <label>
-            長度
-            <select
-              value={unitPreferences.lengthUnit}
-              onChange={(event) =>
-                patchUi({ lengthUnit: event.target.value as LengthUnit })
-              }
-            >
-              {(['mm', 'cm', 'm'] as LengthUnit[]).map((unit) => (
-                <option key={unit} value={unit}>
-                  {getUnitOptionLabel(unit)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            面積
-            <select
-              value={unitPreferences.areaUnit}
-              onChange={(event) =>
-                patchUi({ areaUnit: event.target.value as AreaUnit })
-              }
-            >
-              {(['mm2', 'cm2'] as AreaUnit[]).map((unit) => (
-                <option key={unit} value={unit}>
-                  {getUnitOptionLabel(unit)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            力量
-            <select
-              value={unitPreferences.forceUnit}
-              onChange={(event) =>
-                patchUi({ forceUnit: event.target.value as ForceUnit })
-              }
-            >
-              {(['kN', 'kgf', 'tf'] as ForceUnit[]).map((unit) => (
-                <option key={unit} value={unit}>
-                  {getUnitOptionLabel(unit)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            應力
-            <select
-              value={unitPreferences.stressUnit}
-              onChange={(event) =>
-                patchUi({ stressUnit: event.target.value as StressUnit })
-              }
-            >
-              {(['MPa', 'kgf_cm2'] as StressUnit[]).map((unit) => (
-                <option key={unit} value={unit}>
-                  {getUnitOptionLabel(unit)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="switch switch-inline">
-            <input
-              type="checkbox"
-              checked={simpleMode}
-              onChange={(event) =>
-                patchUi({ simpleMode: event.target.checked })
-              }
-            />
-            <span>簡化模式</span>
-          </label>
-        </div>
-
-        <div className="toolbar-note" data-shows="report">
-          <strong>規範唯一預設：</strong>
-          <span>{activeRuleProfile.chapter17Title}</span>
-          <span className="separator">/</span>
-          <span>案例會凍結在目前 profileId</span>
-        </div>
-      </section>
+      <TopHeaderToolbar
+        project={project}
+        patchProject={patchProject}
+        ruleProfileOptions={ruleProfileOptions}
+        unitPreferences={unitPreferences}
+        patchUi={patchUi}
+        simpleMode={simpleMode}
+        activeRuleProfileChapter17Title={activeRuleProfile.chapter17Title}
+        setActiveTab={setActiveTab}
+        onOpenCommandPalette={() => {
+          setPaletteQuery('')
+          setShowCommandPalette(true)
+        }}
+        onPrintReport={() => shortcutHandlersRef.current.printReport()}
+        onPreviewReport={() => openStandaloneReportWindow(false)}
+        onExportHtmlReport={exportHtmlReport}
+        onExportXlsxReport={exportXlsxReport}
+        onExportDocxReport={exportDocxReport}
+        onRecordAuditTrailManual={() => recordCurrentAuditTrail('manual')}
+      />
 
       <section
         className={`action-hint ${calcEngineMismatch ? 'action-hint-warn' : 'action-hint-passive'}`}
@@ -6696,215 +6551,7 @@ function App() {
             </label>
           </div>
 
-          {(() => {
-            // 速檢卡：顯示群錨折減係數與單錨強度是否足夠
-            // 從目前主 review 抽出現成值，無需重新計算
-            const quickReview = review
-            const breakout = quickReview.results.find(
-              (r) => r.id === 'concrete-breakout-tension',
-            )
-            const steelTension = quickReview.results.find(
-              (r) => r.id === 'steel-tension',
-            )
-            const pullout = quickReview.results.find((r) => r.id === 'pullout')
-            const factorValue = (
-              result: typeof breakout,
-              symbol: string,
-            ): number | null => {
-              if (!result) return null
-              const found = result.factors?.find((f) => f.symbol === symbol)
-              if (!found) return null
-              const v =
-                typeof found.value === 'number'
-                  ? found.value
-                  : Number.parseFloat(String(found.value))
-              return Number.isFinite(v) ? v : null
-            }
-            const areaRatio = factorValue(breakout, 'A_Nc/A_Nco')
-            const psiEdN = factorValue(breakout, 'ψ_ed,N')
-            const psiEcN = factorValue(breakout, 'ψ_ec,N')
-            const psiCN = factorValue(breakout, 'ψ_c,N')
-            const phiN = factorValue(breakout, 'φ')
-            const nAnchors = quickReview.anchorPoints.length || 1
-            const tensionDemandKn = Math.max(
-              0,
-              quickReview.analysisLoads.tensionKn,
-            )
-            const perAnchorDemand = tensionDemandKn / nAnchors
-            // 單錨強度：steel Nsa/ anchor / n（已內含群效應），取 min 作為單錨限制
-            const phiNsaTotal = steelTension?.designStrengthKn ?? 0
-            const phiNsaSingle =
-              phiNsaTotal > 0 ? phiNsaTotal / nAnchors : null
-            // pullout 為群錨合計 min(Ncbg, Np·n)；取 Npn 單錨需回推
-            const phiNpnSingle = (() => {
-              const phiFactor = factorValue(pullout, 'φ')
-              const npFactor = pullout?.factors?.find((f) => f.symbol === 'N_p')
-              const rawNp =
-                npFactor && typeof npFactor.value === 'number'
-                  ? npFactor.value
-                  : null
-              if (phiFactor && rawNp) return phiFactor * rawNp
-              // 回退：pullout designStrengthKn 為群錨合計，除以 n
-              const total = pullout?.designStrengthKn ?? 0
-              return total > 0 ? total / nAnchors : null
-            })()
-            const singleMin =
-              [phiNsaSingle, phiNpnSingle]
-                .filter((v): v is number => typeof v === 'number' && v > 0)
-                .sort((a, b) => a - b)[0] ?? null
-            // 單錨是否足夠：每支分擔拉力 ≤ 單錨最小設計強度
-            const singleAnchorOk =
-              singleMin !== null && perAnchorDemand <= singleMin
-            const groupReductionProduct =
-              areaRatio !== null &&
-              psiEdN !== null &&
-              psiEcN !== null &&
-              psiCN !== null
-                ? areaRatio * psiEdN * psiEcN * psiCN
-                : null
-            return (
-              <section className="quick-check-card" data-shows="loads">
-                <header className="quick-check-header">
-                  <strong>群錨折減係數 / 單錨強度速檢</strong>
-                  <small>依 17.6.2 / 17.6.1.2；由目前幾何 + 載重即時算出</small>
-                </header>
-                <div className="quick-check-grid">
-                  <div className="quick-check-col">
-                    <h4>群錨折減係數（拉破）</h4>
-                    <table className="quick-check-table">
-                      <tbody>
-                        <tr>
-                          <td>A_Nc / A_Nco</td>
-                          <td>{areaRatio !== null ? areaRatio.toFixed(3) : '—'}</td>
-                        </tr>
-                        <tr>
-                          <td>ψ_ed,N（邊距）</td>
-                          <td>{psiEdN !== null ? psiEdN.toFixed(3) : '—'}</td>
-                        </tr>
-                        <tr>
-                          <td>ψ_ec,N（偏心）</td>
-                          <td>{psiEcN !== null ? psiEcN.toFixed(3) : '—'}</td>
-                        </tr>
-                        <tr>
-                          <td>ψ_c,N（裂縫）</td>
-                          <td>{psiCN !== null ? psiCN.toFixed(3) : '—'}</td>
-                        </tr>
-                        <tr className="quick-check-total">
-                          <td>總折減 = 乘積</td>
-                          <td>
-                            {groupReductionProduct !== null
-                              ? groupReductionProduct.toFixed(3)
-                              : '—'}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>φ (強度折減)</td>
-                          <td>{phiN !== null ? phiN.toFixed(2) : '—'}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                    <small className="helper-text">
-                      Ncbg = (A_Nc/A_Nco)·ψ_ed·ψ_ec·ψ_c·Nb；φNcbg =
-                      {' '}
-                      {breakout
-                        ? formatQuantity(
-                            breakout.designStrengthKn,
-                            'force',
-                            unitPreferences,
-                          )
-                        : '—'}
-                    </small>
-                  </div>
-                  <div className="quick-check-col">
-                    <h4>單錨設計強度（每支）</h4>
-                    <table className="quick-check-table">
-                      <tbody>
-                        <tr>
-                          <td>φN_sa（鋼材）</td>
-                          <td>
-                            {phiNsaSingle !== null
-                              ? formatQuantity(
-                                  phiNsaSingle,
-                                  'force',
-                                  unitPreferences,
-                                )
-                              : '—'}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>φN_pn（拉出）</td>
-                          <td>
-                            {phiNpnSingle !== null
-                              ? formatQuantity(
-                                  phiNpnSingle,
-                                  'force',
-                                  unitPreferences,
-                                )
-                              : '—'}
-                          </td>
-                        </tr>
-                        <tr className="quick-check-total">
-                          <td>單錨最小 = min(上述)</td>
-                          <td>
-                            {singleMin !== null
-                              ? formatQuantity(
-                                  singleMin,
-                                  'force',
-                                  unitPreferences,
-                                )
-                              : '—'}
-                          </td>
-                        </tr>
-                        <tr>
-                          <td>每支分擔 = N_ua / n</td>
-                          <td>
-                            {formatQuantity(
-                              perAnchorDemand,
-                              'force',
-                              unitPreferences,
-                            )}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div
-                  className={`quick-check-verdict ${
-                    singleAnchorOk ? 'pass' : 'need-group'
-                  }`}
-                >
-                  {singleMin === null ? (
-                    <span>資料不足，請先設定產品評估值與幾何</span>
-                  ) : singleAnchorOk ? (
-                    <span>
-                      <strong>✓ 單錨即足夠</strong>：每支分擔{' '}
-                      {formatQuantity(
-                        perAnchorDemand,
-                        'force',
-                        unitPreferences,
-                      )}{' '}
-                      ≤ 單錨最小{' '}
-                      {formatQuantity(singleMin, 'force', unitPreferences)}。
-                      群錨混凝土拉破仍須另行滿足（見結果頁）。
-                    </span>
-                  ) : (
-                    <span>
-                      <strong>⚠ 需群錨檢核</strong>：每支分擔{' '}
-                      {formatQuantity(
-                        perAnchorDemand,
-                        'force',
-                        unitPreferences,
-                      )}{' '}
-                      &gt; 單錨最小{' '}
-                      {formatQuantity(singleMin, 'force', unitPreferences)}；
-                      須倚賴群錨折減後 φNcbg 或補強鋼筋路徑，不可僅以單錨強度代表。
-                    </span>
-                  )}
-                </div>
-              </section>
-            )
-          })()}
+          <QuickCheckCard review={review} unitPreferences={unitPreferences} />
 
           <details
             className="fold-panel sub-panel"
