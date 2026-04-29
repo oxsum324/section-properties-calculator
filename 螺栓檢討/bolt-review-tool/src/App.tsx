@@ -1,6 +1,5 @@
 import {
   Suspense,
-  type ChangeEvent,
   lazy,
   startTransition,
   useCallback,
@@ -71,8 +70,6 @@ import type {
   ProductTemplate,
 } from './productTemplates'
 import {
-  applyProjectTemplate,
-  findProjectTemplateById,
   projectTemplates as projectTemplateCatalog,
   type ProjectTemplateCategory,
   type ProjectTemplateRecommendation,
@@ -131,6 +128,7 @@ import {
   loadCaseDelimitedHeaderRow,
   loadCaseDelimitedExampleRow,
 } from './useLoadCaseLibrary'
+import { useProjectLibrary } from './useProjectLibrary'
 import { useReportExports } from './useReportExports'
 import {
   auditSourceLabel,
@@ -354,20 +352,7 @@ function replaceProjectInList(
   )
 }
 
-function makeUniqueProjectName(baseName: string, projects: ProjectCase[]) {
-  const trimmed = baseName.trim() || '新案例'
-
-  if (!projects.some((item) => item.name === trimmed)) {
-    return trimmed
-  }
-
-  let index = 2
-  while (projects.some((item) => item.name === `${trimmed} ${index}`)) {
-    index += 1
-  }
-
-  return `${trimmed} ${index}`
-}
+// makeUniqueProjectName 已下放至 useProjectLibrary
 
 function normalizeProjectSelection(
   project: ProjectCase,
@@ -413,17 +398,13 @@ function buildProjectSnapshot(
 
 // auditSourceLabel 已移至 ./formatHelpers
 
-const projectIdSeed = Date.now()
-let projectIdSequence = 0
+// projectIdSeed / projectIdSequence 已下放至 useProjectLibrary
 // loadCaseIdSeed / loadCaseIdSequence 已下放至 useLoadCaseLibrary
 const layoutVariantIdSeed = Date.now()
 let layoutVariantIdSequence = 0
 // documentIdSeed / nextDocumentId 已下放至 useDocumentLibrary
 
-function nextProjectId() {
-  projectIdSequence += 1
-  return `project-${projectIdSeed}-${projectIdSequence}`
-}
+// nextProjectId 已下放至 useProjectLibrary
 
 // nextLoadCaseId 已下放至 useLoadCaseLibrary
 
@@ -1922,7 +1903,7 @@ function App() {
   const [evidenceLinkSummaries, setEvidenceLinkSummaries] = useState<
     EvidenceLinkSummary[]
   >([])
-  const importInputRef = useRef<HTMLInputElement | null>(null)
+  // importInputRef 已下放至 useProjectLibrary
   // loadCaseCsvInputRef 已下放至 useLoadCaseLibrary
   // documentInputRef 已下放至 useDocumentLibrary
 
@@ -2943,257 +2924,37 @@ function App() {
     })
   }
 
-  async function loadProjectTemplate(templateId: string) {
-    const template =
-      findProjectTemplateById(templateId) ??
-      projectTemplateCatalog.find((item) => item.id === templateId)
-    if (!template) {
-      return
-    }
-
-    clearPreviewDocument()
-    commitProject(applyProjectTemplate(template, project))
-    setSaveMessage(`已套用案件樣板：${template.name}`)
-  }
-
-  function selectProject(projectId: string) {
-    const nextProject = projectLibrary.find((item) => item.id === projectId)
-    if (!nextProject) {
-      return
-    }
-
-    clearPreviewDocument()
-    startTransition(() => {
-      setActiveProjectId(projectId)
-      setProject(nextProject)
-      setProjects((current) => replaceProjectInList(current, nextProject))
-      setSaveMessage(`已切換案例：${nextProject.name}`)
-    })
-  }
-
-  function createProject() {
-    const nextProject = normalizeProjectSelection(
-      {
-        ...defaultProject,
-        id: nextProjectId(),
-        name: makeUniqueProjectName('新案例', projectLibrary),
-        selectedProductId: selectedProduct.id,
-        ui: project.ui,
-        report: project.report,
-        updatedAt: new Date().toISOString(),
-      },
-      products,
-    )
-
-    clearPreviewDocument()
-    startTransition(() => {
-      setActiveProjectId(nextProject.id)
-      setProject(nextProject)
-      setProjects((current) => [...current, nextProject])
-      setSaveMessage(`已新增案例：${nextProject.name}`)
-    })
-  }
-
-  function resetCurrentProjectToDefaults() {
-    const confirmed = window.confirm(
-      `將把目前案例「${project.name}」的所有輸入還原為預設值，但保留案例 ID、名稱、UI 偏好與報表設定。此操作不可復原（可先匯出 JSON 備份）。確定繼續？`,
-    )
-    if (!confirmed) {
-      return
-    }
-    const preservedId = project.id
-    const preservedName = project.name
-    const preservedUi = project.ui
-    const preservedReport = project.report
-    const preservedRuleProfileId = project.ruleProfileId
-    const next = normalizeProjectSelection(
-      {
-        ...cloneProject(defaultProject),
-        id: preservedId,
-        name: preservedName,
-        ui: preservedUi,
-        report: preservedReport,
-        ruleProfileId: preservedRuleProfileId,
-        updatedAt: new Date().toISOString(),
-      },
-      products,
-    )
-    clearPreviewDocument()
-    startTransition(() => {
-      setProject(next)
-      setProjects((current) => replaceProjectInList(current, next))
-      setSaveMessage(`已將「${preservedName}」還原為預設值`)
-    })
-  }
-
-  function duplicateProject() {
-    const nextProject = cloneProject({
-      ...project,
-      id: nextProjectId(),
-      name: makeUniqueProjectName(`${project.name} 副本`, projectLibrary),
-      updatedAt: new Date().toISOString(),
-    })
-
-    clearPreviewDocument()
-    startTransition(() => {
-      setActiveProjectId(nextProject.id)
-      setProject(nextProject)
-      setProjects((current) => [...current, nextProject])
-      setSaveMessage(`已複製案例：${nextProject.name}`)
-    })
-  }
-
-  function deleteCurrentProject() {
-    if (projectLibrary.length === 1) {
-      return
-    }
-
-    const targetIndex = projectLibrary.findIndex((item) => item.id === project.id)
-    const remaining = projectLibrary.filter((item) => item.id !== project.id)
-    const fallbackProject =
-      remaining[targetIndex] ?? remaining[targetIndex - 1] ?? remaining[0]
-
-    if (!fallbackProject) {
-      return
-    }
-
-    clearPreviewDocument()
-    startTransition(() => {
-      setProjects(remaining)
-      setActiveProjectId(fallbackProject.id)
-      setProject(fallbackProject)
-      setSaveMessage(`已刪除案例：${project.name}`)
-    })
-
-    void db.projects.delete(project.id)
-    void db.files.where('projectId').equals(project.id).delete()
-  }
-
-  function exportCurrentCase() {
-    // 只輸出目前單一案例 + 其使用的產品（以 selectedProductId 與候選）+ 該案件附件
-    // 附件為 async 取得；使用 IIFE 封裝
-    void (async () => {
-      try {
-        const { buildWorkspaceBackup } = await import('./backup')
-        const caseProject = normalizeProjectSelection(project, products)
-        const linkedProductIds = new Set<string>([
-          caseProject.selectedProductId,
-          ...(caseProject.candidateProductIds ?? []),
-        ])
-        const linkedProducts = products.filter((item) =>
-          linkedProductIds.has(item.id),
-        )
-        const allFiles = await db.files.toArray()
-        const linkedFiles = allFiles.filter(
-          (file) => file.projectId === caseProject.id,
-        )
-        const payload = await buildWorkspaceBackup(
-          linkedProducts,
-          [caseProject],
-          linkedFiles,
-        )
-        const blob = new Blob([JSON.stringify(payload, null, 2)], {
-          type: 'application/json',
-        })
-        const objectUrl = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        const safeName =
-          (caseProject.name || 'anchor-case')
-            .replace(/[\\/:*?"<>|]+/g, '-')
-            .trim() || 'anchor-case'
-        const exportDate = payload.exportedAt.slice(0, 10)
-        link.href = objectUrl
-        link.download = `${safeName}-${exportDate}.json`
-        link.click()
-        window.URL.revokeObjectURL(objectUrl)
-        setSaveMessage(
-          `已匯出單案 ${linkedProducts.length} 產品 / ${linkedFiles.length} 附件：${safeName}`,
-        )
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : '匯出失敗'
-        setSaveMessage(`單案匯出失敗：${message}`)
-      }
-    })()
-  }
-
-  async function exportWorkspace() {
-    const { buildWorkspaceBackup } = await import('./backup')
-    const files = await db.files.toArray()
-    const payload = await buildWorkspaceBackup(products, projectLibrary, files)
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json',
-    })
-    const objectUrl = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    const exportDate = payload.exportedAt.slice(0, 10)
-
-    link.href = objectUrl
-    link.download = `bolt-review-backup-${exportDate}.json`
-    link.click()
-    window.URL.revokeObjectURL(objectUrl)
-    setSaveMessage(
-      `已匯出 ${payload.projects.length} 個案例 / ${payload.products.length} 個產品 / ${payload.files.length} 份附件`,
-    )
-  }
-
-  function openImportDialog() {
-    importInputRef.current?.click()
-  }
-
-  async function importWorkspaceFromFile(file: File) {
-    try {
-      if (
-        !file.type.includes('json') &&
-        !file.name.toLowerCase().endsWith('.json')
-      ) {
-        setSaveMessage(`忽略非 JSON 檔案：${file.name}`)
-        return
-      }
-      const { mergeWorkspaceBackup, parseWorkspaceBackup } = await import('./backup')
-      const text = await file.text()
-      const parsed = parseWorkspaceBackup(text)
-      const currentFiles = await db.files.toArray()
-      const merged = mergeWorkspaceBackup(
-        products,
-        projectLibrary,
-        currentFiles,
-        parsed,
-      )
-      const nextProject =
-        merged.projects[merged.projects.length - 1] ?? project
-
-      await db.files.bulkPut(merged.files)
-
-      clearPreviewDocument()
-      startTransition(() => {
-        setProducts(merged.products)
-        setProjects(merged.projects)
-        setActiveProjectId(nextProject.id)
-        setProject(nextProject)
-      })
-
-      setSaveMessage(
-        `已匯入 ${merged.importedProjects} 個案例 / ${merged.importedProducts} 個產品 / ${merged.importedFiles} 份附件`,
-      )
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : '匯入失敗，請確認 JSON 格式。'
-      setSaveMessage(`匯入失敗：${message}`)
-    }
-  }
-
-  async function importWorkspace(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    if (!file) {
-      return
-    }
-    try {
-      await importWorkspaceFromFile(file)
-    } finally {
-      event.target.value = ''
-    }
-  }
+  // 案例庫管理 11 個動作 + import input ref 已下放至 useProjectLibrary
+  const {
+    importInputRef,
+    loadProjectTemplate,
+    selectProject,
+    createProject,
+    resetCurrentProjectToDefaults,
+    duplicateProject,
+    deleteCurrentProject,
+    exportCurrentCase,
+    exportWorkspace,
+    openImportDialog,
+    importWorkspaceFromFile,
+    importWorkspace,
+  } = useProjectLibrary({
+    project,
+    projectLibrary,
+    products,
+    selectedProduct,
+    projectTemplateCatalog,
+    setProject,
+    setProjects,
+    setActiveProjectId,
+    setProducts,
+    setSaveMessage,
+    clearPreviewDocument,
+    commitProject,
+    cloneProject,
+    normalizeProjectSelection,
+    replaceProjectInList,
+  })
 
   // 文件管理 8 個動作 + 4 個 preview state + ref 已下放至 useDocumentLibrary（hook 呼叫於上方）
 
