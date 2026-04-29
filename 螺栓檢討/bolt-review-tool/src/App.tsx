@@ -45,7 +45,6 @@ import type {
   LoadCombinationComponents,
   ProjectLoadCase,
   ProjectAuditEntry,
-  ProjectAuditSource,
   ProjectCase,
   ProjectLayoutVariant,
   ProjectDocumentKind,
@@ -66,7 +65,6 @@ import type {
 } from './evidenceLinks'
 import type { EvaluationFieldState } from './evaluationCatalog'
 import {
-  createProjectAuditEntry,
   formatAuditHash,
   getLatestProjectAuditEntry,
 } from './evaluationAudit'
@@ -126,6 +124,8 @@ import { SeismicInputPanel } from './SeismicInputPanel'
 import { StatusBanners } from './StatusBanners'
 import { TopHeaderToolbar } from './TopHeaderToolbar'
 import { UnitNumberField } from './UnitNumberField'
+import { useAuditTrail } from './useAuditTrail'
+import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { useReportExports } from './useReportExports'
 import {
   auditSourceLabel,
@@ -2616,29 +2616,11 @@ function App() {
     }
   }, [activeTab, hydrated])
 
-  // 鍵盤捷徑的 handler 用 ref 儲存；待 printReport / recordCurrentAuditTrail 宣告後再 assign
-  const shortcutHandlersRef = useRef<{
-    recordCurrentAuditTrail: (source: ProjectAuditSource) => void
-    printReport: () => void
-  }>({
-    recordCurrentAuditTrail: () => {},
-    printReport: () => {},
-  })
-
   // 拖放匯入的 handler ref（importWorkspaceFromFile 在此下方宣告，透過物件欄位避免 ref.current 被替換）
   const importFileHandlerRef = useRef<{ run: (file: File) => Promise<void> }>({
     run: async () => {},
   })
-
-  // 案例循環快捷鍵：用 ref 拿最新 caseCards / activeProjectId / selectProject，
-  // 避免每次 caseCards 變化都重新註冊 keydown listener
-  const caseCardsRef = useRef<typeof caseCards>(caseCards)
-  const activeProjectIdRef = useRef<string>(activeProjectId)
-  const selectProjectRef = useRef<(id: string) => void>(() => {})
-  useEffect(() => {
-    caseCardsRef.current = caseCards
-    activeProjectIdRef.current = activeProjectId
-  })
+  // 鍵盤捷徑相關的 caseCardsRef / activeProjectIdRef / selectProjectRef 已下放至 useKeyboardShortcuts
 
   useEffect(() => {
     if (!previewDocumentId) {
@@ -3737,144 +3719,23 @@ function App() {
     patchProject({ selectedProductId: remaining[0].id })
   }
 
-  async function ensureProjectAudit(
-    source: ProjectAuditSource,
-  ): Promise<{
-    auditEntry: ProjectAuditEntry
-    auditTrail: ProjectAuditEntry[]
-    reused: boolean
-  }> {
-    const snapshot = buildProjectSnapshot(
-      batchReview.summary,
-      batchReview.controllingLoadCaseName,
-    )
-    const nextEntry = await createProjectAuditEntry({
-      project: cloneProject({
-        ...project,
-        snapshot,
-      }),
-      selectedProduct,
-      batchReview,
-      reportSettings,
-      completeness,
-      snapshot,
-      source,
-    })
-    const currentTrail = project.auditTrail ?? []
-    const existingEntry = currentTrail.find((item) => item.hash === nextEntry.hash)
-    if (existingEntry) {
-      return {
-        auditEntry: existingEntry,
-        auditTrail: currentTrail,
-        reused: true,
-      }
-    }
-
-    const nextProject = cloneProject({
-      ...project,
-      updatedAt: new Date().toISOString(),
-      snapshot,
-      auditTrail: [nextEntry, ...currentTrail].slice(0, 25),
-    })
-    commitProject(nextProject)
-
-    return {
-      auditEntry: nextEntry,
-      auditTrail: nextProject.auditTrail ?? [nextEntry],
-      reused: false,
-    }
-  }
-
-  async function recordCurrentAuditTrail(source: ProjectAuditSource) {
-    const { auditEntry, reused } = await ensureProjectAudit(source)
-    setSaveMessage(
-      reused
-        ? `已沿用既有留痕：${formatAuditHash(auditEntry.hash)}`
-        : `已留存檢核簽章：${formatAuditHash(auditEntry.hash)}`,
-    )
-  }
-
-  function deleteAuditEntry(entryId: string) {
-    const trail = project.auditTrail ?? []
-    const target = trail.find((entry) => entry.id === entryId)
-    if (!target) {
-      return
-    }
-    const confirmed = window.confirm(
-      `確定刪除留痕「${formatAuditHash(target.hash)}」？此操作不可復原。`,
-    )
-    if (!confirmed) {
-      return
-    }
-    patchProject({
-      auditTrail: trail.filter((entry) => entry.id !== entryId),
-    })
-    setSaveMessage(`已刪除留痕：${formatAuditHash(target.hash)}`)
-  }
-
-  function exportAuditTrailCsv() {
-    const trail = project.auditTrail ?? []
-    if (trail.length === 0) {
-      setSaveMessage('目前案例無留痕可匯出')
-      return
-    }
-    const escape = (cell: string | number) => {
-      const text = String(cell ?? '')
-      if (/[",\n]/.test(text)) {
-        return `"${text.replaceAll('"', '""')}"`
-      }
-      return text
-    }
-    const header = [
-      '時間',
-      '來源',
-      '案件名稱',
-      '產品',
-      '整體判定',
-      '控制 DCR',
-      '最大 DCR',
-      '控制模式',
-      '控制組合',
-      '計算版本',
-      'Hash',
-    ]
-    const body = [...trail]
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      )
-      .map((e) => [
-        e.createdAt,
-        auditSourceLabel(e.source),
-        e.projectName,
-        e.productLabel,
-        e.summary.overallStatus,
-        e.summary.governingDcr ?? e.summary.maxDcr ?? '',
-        e.summary.maxDcr ?? '',
-        e.summary.governingMode ?? '',
-        e.summary.controllingLoadCaseName ?? '',
-        e.calcEngineVersion ?? CURRENT_CALC_ENGINE_VERSION,
-        e.hash,
-      ])
-    const csv = [header, ...body]
-      .map((line) => line.map(escape).join(','))
-      .join('\r\n')
-    const BOM = '﻿'
-    const blob = new Blob([`${BOM}${csv}`], {
-      type: 'text/csv;charset=utf-8',
-    })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    const safeName =
-      (project.name || 'anchor-audit-trail')
-        .replace(/[\\/:*?"<>|]+/g, '-')
-        .trim() || 'anchor-audit-trail'
-    link.href = url
-    link.download = `${safeName}-audit-trail.csv`
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
-    setSaveMessage(`已匯出 ${trail.length} 筆留痕為 CSV`)
-  }
+  // 留痕 4 個動作（ensure/record/delete/exportCsv）已下放至 useAuditTrail
+  const {
+    ensureProjectAudit,
+    recordCurrentAuditTrail,
+    deleteAuditEntry,
+    exportAuditTrailCsv,
+  } = useAuditTrail({
+    project,
+    selectedProduct,
+    batchReview,
+    reportSettings,
+    completeness,
+    cloneProject,
+    commitProject,
+    patchProject,
+    setSaveMessage,
+  })
 
   // 報表匯出（HTML / XLSX / DOCX / 獨立預覽 / 列印）已抽至 useReportExports
   const {
@@ -3898,118 +3759,33 @@ function App() {
     setSaveMessage,
   })
 
-  // 每次 render 後同步 ref（printReport / recordCurrentAuditTrail 在此檔上方宣告但下游呼叫 openStandaloneReportWindow）
+  // 每次 render 後同步拖放匯入的 ref
   useEffect(() => {
-    shortcutHandlersRef.current.recordCurrentAuditTrail = recordCurrentAuditTrail
-    shortcutHandlersRef.current.printReport = () => {
-      void openStandaloneReportWindow(true)
-    }
     // eslint-disable-next-line react-hooks/immutability
     importFileHandlerRef.current.run = importWorkspaceFromFile
-    selectProjectRef.current = selectProject
   })
 
-  // 全域鍵盤捷徑：Ctrl/Cmd+S 留痕、Ctrl/Cmd+P 列印、Alt+1–6 切 tab、Alt+0 回首頁、Esc 返回結果
-  useEffect(() => {
-    if (!hydrated) {
-      return
-    }
-    const isTypingTarget = (target: EventTarget | null) => {
-      if (!(target instanceof HTMLElement)) {
-        return false
-      }
-      const tag = target.tagName
-      return (
-        tag === 'INPUT' ||
-        tag === 'TEXTAREA' ||
-        tag === 'SELECT' ||
-        target.isContentEditable
-      )
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const meta = event.ctrlKey || event.metaKey
-      const alt = event.altKey
-      if (meta && !alt && !event.shiftKey && event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        shortcutHandlersRef.current.recordCurrentAuditTrail('manual')
-        return
-      }
-      if (meta && !alt && !event.shiftKey && event.key.toLowerCase() === 'p') {
-        event.preventDefault()
-        shortcutHandlersRef.current.printReport()
-        return
-      }
-      // Ctrl/Cmd+K：開啟命令面板
-      if (meta && !alt && !event.shiftKey && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        setPaletteQuery('')
-        setShowCommandPalette(true)
-        return
-      }
-      if (isTypingTarget(event.target)) {
-        return
-      }
-      if (alt && !meta && !event.shiftKey) {
-        if (event.key === '0' || event.key.toLowerCase() === 'r') {
-          event.preventDefault()
-          setActiveTab('report')
-          return
-        }
-        const digit = Number(event.key)
-        if (Number.isInteger(digit) && digit >= 1 && digit <= WORKSPACE_TABS.length) {
-          event.preventDefault()
-          const targetTab = WORKSPACE_TABS[digit - 1]
-          setActiveTab(targetTab.id)
-          setHasEnteredWorkspace(true)
-          return
-        }
-        // Alt+] / Alt+[：循環切換案例（依 caseCards 排序）
-        if (event.key === ']' || event.key === '[') {
-          const cycleCases = caseCardsRef.current
-          if (cycleCases.length <= 1) {
-            return
-          }
-          event.preventDefault()
-          const currentIndex = cycleCases.findIndex(
-            (c) => c.id === activeProjectIdRef.current,
-          )
-          const direction = event.key === ']' ? 1 : -1
-          const nextIndex =
-            (currentIndex + direction + cycleCases.length) % cycleCases.length
-          const next = cycleCases[nextIndex]
-          if (next) {
-            selectProjectRef.current(next.id)
-          }
-          return
-        }
-      }
-      if (event.key === 'Escape') {
-        if (showCommandPalette) {
-          event.preventDefault()
-          setShowCommandPalette(false)
-          return
-        }
-        if (showShortcutHelp) {
-          event.preventDefault()
-          setShowShortcutHelp(false)
-          return
-        }
-        if (activeTab === 'report' && hasEnteredWorkspace) {
-          event.preventDefault()
-          setActiveTab('result')
-        }
-      }
-      // Shift+? 或 ? ：開啟快捷鍵說明浮層
-      if (event.key === '?' || (event.shiftKey && event.key === '/')) {
-        event.preventDefault()
-        setShowShortcutHelp((current) => !current)
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [hydrated, activeTab, hasEnteredWorkspace, showShortcutHelp, showCommandPalette])
+  // 全域鍵盤捷徑：已下放至 useKeyboardShortcuts
+  useKeyboardShortcuts({
+    hydrated,
+    activeTab,
+    hasEnteredWorkspace,
+    showShortcutHelp,
+    showCommandPalette,
+    workspaceTabs: WORKSPACE_TABS,
+    caseCards,
+    activeProjectId,
+    recordCurrentAuditTrail,
+    printReport: () => {
+      void openStandaloneReportWindow(true)
+    },
+    selectProject,
+    setActiveTab,
+    setHasEnteredWorkspace,
+    setShowCommandPalette,
+    setShowShortcutHelp,
+    setPaletteQuery,
+  })
 
   // exportHtmlReport / exportXlsxReport / exportDocxReport 已下放至 useReportExports
 
@@ -4174,7 +3950,9 @@ function App() {
           setPaletteQuery('')
           setShowCommandPalette(true)
         }}
-        onPrintReport={() => shortcutHandlersRef.current.printReport()}
+        onPrintReport={() => {
+          void openStandaloneReportWindow(true)
+        }}
         onPreviewReport={() => openStandaloneReportWindow(false)}
         onExportHtmlReport={exportHtmlReport}
         onExportXlsxReport={exportXlsxReport}
@@ -6318,7 +6096,9 @@ function App() {
               label: '列印報表',
               group: '動作',
               hint: 'Ctrl/Cmd+P',
-              run: () => shortcutHandlersRef.current.printReport(),
+              run: () => {
+                void openStandaloneReportWindow(true)
+              },
             },
             {
               id: 'action:preview',
@@ -6361,8 +6141,9 @@ function App() {
               label: '留存簽章（手動留痕）',
               group: '動作',
               hint: 'Ctrl/Cmd+S',
-              run: () =>
-                shortcutHandlersRef.current.recordCurrentAuditTrail('manual'),
+              run: () => {
+                void recordCurrentAuditTrail('manual')
+              },
             },
             {
               id: 'action:export-case',
