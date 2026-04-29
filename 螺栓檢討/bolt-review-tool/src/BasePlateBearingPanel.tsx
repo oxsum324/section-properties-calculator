@@ -10,13 +10,8 @@ import {
   getBasePlatePlanDimensions,
   getDerivedBasePlateCantilevers,
 } from './basePlateGeometry'
-import { formatQuantity } from './formatHelpers'
+import { formatQuantity, parseNumber } from './formatHelpers'
 import { UnitNumberField } from './UnitNumberField'
-
-function parseNumber(value: string, fallback = 0) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
 
 function getBearingConfinementMode(
   layout: AnchorLayout,

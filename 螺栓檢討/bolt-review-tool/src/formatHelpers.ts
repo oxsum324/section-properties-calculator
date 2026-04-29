@@ -88,6 +88,15 @@ export function auditSourceLabel(source: ProjectAuditSource): string {
   }
 }
 
+/**
+ * 安全數值解析：非有限值 / 空字串時退回 fallback；
+ * 用於 input[type=number] onChange / 文字 → 數值轉換。
+ */
+export function parseNumber(value: string, fallback = 0): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
 /** 檔案大小友善顯示：B / KB / MB */
 export function formatFileSize(sizeBytes: number): string {
   if (sizeBytes < 1024) {

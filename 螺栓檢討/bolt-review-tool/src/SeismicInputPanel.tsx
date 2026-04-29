@@ -1,12 +1,8 @@
 import type { ProjectCase, ReviewStatus, UnitPreferences } from './domain'
 import type { SeismicRouteGuidance } from './seismicRouteGuidance'
+import { parseNumber } from './formatHelpers'
 import { Badge } from './resultDisplay'
 import { UnitNumberField } from './UnitNumberField'
-
-function parseNumber(value: string, fallback = 0) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
 
 function getSeismicGuidanceBadgeStatus(state: string): ReviewStatus {
   switch (state) {

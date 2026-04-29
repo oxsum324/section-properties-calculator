@@ -8,11 +8,7 @@ import {
   fromDisplayValue,
   getInputStep,
 } from './units'
-
-function parseNumber(value: string, fallback = 0) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
+import { parseNumber } from './formatHelpers'
 
 /**
  * 載重組合矩陣快速編輯：以 5 欄表格（N / Vx / Vy / Mx / My）批次調整每組核心載重值，

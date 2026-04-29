@@ -1,10 +1,6 @@
 import type { LoadCasePresetInput, UnitPreferences } from './domain'
+import { parseNumber } from './formatHelpers'
 import { LoadPresetGrid } from './LoadPresetGrid'
-
-function parseNumber(value: string, fallback = 0) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
 
 /**
  * 載重組合 Preset 面板：D / L / E 組件輸入卡網（LoadPresetGrid）+ Ωo / Ωattachment +

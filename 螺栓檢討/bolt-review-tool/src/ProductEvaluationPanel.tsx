@@ -1,12 +1,7 @@
 import { useState } from 'react'
 import type { AnchorProduct, UnitPreferences } from './domain'
-import { formatQuantity } from './formatHelpers'
+import { formatQuantity, parseNumber } from './formatHelpers'
 import { UnitNumberField } from './UnitNumberField'
-
-function parseNumber(value: string, fallback = 0) {
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : fallback
-}
 
 type PlateShape = 'square' | 'circle' | 'hex_nut'
 
