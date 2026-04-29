@@ -20,11 +20,8 @@ import {
   getDerivedBasePlateCantilevers,
 } from './basePlateGeometry'
 // getBasePlateBearingOverlay 已下放至 ./GeometrySketch
-import {
-  assessProductCompleteness,
-  evaluateProjectBatch,
-} from './calc'
-import { db } from './db'
+import { assessProductCompleteness } from './calc'
+// db 已下放至各 hook
 import {
   normalizeReportSettings,
   defaultProducts,
@@ -107,6 +104,8 @@ import { StatusBanners } from './StatusBanners'
 import { TopHeaderToolbar } from './TopHeaderToolbar'
 import { UnitNumberField } from './UnitNumberField'
 import { useAuditTrail } from './useAuditTrail'
+import { useAutoSave } from './useAutoSave'
+import { useCommandPaletteCommands } from './useCommandPaletteCommands'
 import { useDocumentLibrary } from './useDocumentLibrary'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { useLayoutVariants } from './useLayoutVariants'
@@ -445,10 +444,7 @@ function App() {
   )
   // 啟動水合 5 個 state + 2 個 callback 已下放至 useWorkspaceHydration（hook 呼叫於下方）
   const [saveMessage, setSaveMessage] = useState('尚未同步到本機資料庫')
-  // 短暫 toast：每次 saveMessage 變更且已 hydrated 時浮現 3.5 秒後自動消失
-  const [toast, setToast] = useState<{ id: number; message: string } | null>(
-    null,
-  )
+  // toast state 已下放至 useAutoSave
   const [projectTemplateFilter, setProjectTemplateFilter] = useState<
     'all' | ProjectTemplateCategory
   >('all')
@@ -769,7 +765,7 @@ function App() {
     evidenceLinkStatusFilter,
   ])
 
-  const [isDirty, setIsDirty] = useState(false)
+  // isDirty / toast 已下放至 useAutoSave（hook 呼叫於下方）
   const [showShortcutHelp, setShowShortcutHelp] = useState(false)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
   // SW 新版可用時顯示 banner 提示重新載入
@@ -785,85 +781,17 @@ function App() {
   // H 型鋼周邊錨栓 helper 的 6 個輸入狀態已下放至 HSectionAnchorHelperPanel 自管
   // 錨頭承壓面積 A_brg 換算輔助 3 個輸入狀態已下放至 ProductEvaluationPanel 自管
 
-  // 任何 project / products 變動後，先標記為 dirty；debounce 儲存完成才清除
-  // 此處 setState 是刻意觸發 UI 更新（未儲存徽章），非同步外部系統
-  useEffect(() => {
-    if (!hydrated) {
-      return
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsDirty(true)
-  }, [hydrated, products, project, projects])
-
-  useEffect(() => {
-    if (!hydrated) {
-      return
-    }
-
-    const timeout = window.setTimeout(() => {
-      const activeProject = normalizeProjectSelection(project, products)
-      const activeProduct =
-        products.find((item) => item.id === activeProject.selectedProductId) ??
-        products[0]
-      const activeBatchReview = evaluateProjectBatch(
-        activeProject,
-        activeProduct,
-        getRuleProfileById(activeProject.ruleProfileId),
-      )
-      const nextProjectsToPersist = projects.map((item) =>
-        item.id === activeProject.id
-          ? cloneProject({
-              ...activeProject,
-              snapshot: buildProjectSnapshot(
-                activeBatchReview.summary,
-                activeBatchReview.controllingLoadCaseName,
-              ),
-            })
-          : normalizeProjectSelection(item, products),
-      )
-
-      Promise.all([
-        db.products.bulkPut(products),
-        db.projects.bulkPut(nextProjectsToPersist),
-      ])
-        .then(() => {
-          setSaveMessage(
-            `已離線儲存 ${new Date().toLocaleTimeString('zh-TW')}`,
-          )
-          setIsDirty(false)
-        })
-        .catch((error) => {
-          console.warn('[bolt-review] 自動儲存失敗', error)
-          const message =
-            error instanceof Error ? error.message : String(error ?? '未知錯誤')
-          setSaveMessage(`自動儲存失敗：${message}`)
-          // 保留 isDirty=true，提示使用者需人工留意
-        })
-    }, 450)
-
-    return () => {
-      window.clearTimeout(timeout)
-    }
-  }, [hydrated, products, project, projects])
-
-  // saveMessage 變動時冒出 toast（hydration 前不觸發，避免初始訊息刷屏）
-  const savedMessageRef = useRef(saveMessage)
-  useEffect(() => {
-    if (!hydrated) {
-      savedMessageRef.current = saveMessage
-      return
-    }
-    if (savedMessageRef.current === saveMessage) {
-      return
-    }
-    savedMessageRef.current = saveMessage
-    const id = Date.now() + Math.random()
-    setToast({ id, message: saveMessage })
-    const timeout = window.setTimeout(() => {
-      setToast((current) => (current?.id === id ? null : current))
-    }, 3500)
-    return () => window.clearTimeout(timeout)
-  }, [saveMessage, hydrated])
+  // 自動儲存 + toast 已下放至 useAutoSave
+  const { isDirty, toast, dismissToast } = useAutoSave({
+    hydrated,
+    project,
+    products,
+    projects,
+    saveMessage,
+    setSaveMessage,
+    cloneProject,
+    normalizeProjectSelection,
+  })
 
   // 保存最後 active tab 到 localStorage，供下次回來自動恢復
   useEffect(() => {
@@ -1395,6 +1323,25 @@ function App() {
   })
 
   // exportHtmlReport / exportXlsxReport / exportDocxReport 已下放至 useReportExports
+
+  // 命令面板指令清單（~120 行）已下放至 useCommandPaletteCommands
+  const paletteCommands = useCommandPaletteCommands({
+    workspaceTabs: WORKSPACE_TABS,
+    caseCards,
+    products,
+    setActiveTab,
+    setHasEnteredWorkspace,
+    selectProject,
+    patchProject,
+    openStandaloneReportWindow,
+    exportHtmlReport,
+    exportXlsxReport,
+    exportDocxReport,
+    recordCurrentAuditTrail,
+    exportCurrentCase,
+    exportWorkspace,
+    setShowShortcutHelp,
+  })
 
   if (loading) {
     return (
@@ -3648,7 +3595,7 @@ function App() {
           className="toast"
           role="status"
           aria-live="polite"
-          onClick={() => setToast(null)}
+          onClick={dismissToast}
         >
           {toast.message}
         </div>
@@ -3658,124 +3605,7 @@ function App() {
           query={paletteQuery}
           onQueryChange={setPaletteQuery}
           onClose={() => setShowCommandPalette(false)}
-          commands={[
-            ...WORKSPACE_TABS.map((tab) => ({
-              id: `tab:${tab.id}`,
-              label: `切換到 ${tab.label}`,
-              group: '導覽',
-              hint: tab.hint,
-              run: () => {
-                setActiveTab(tab.id)
-                setHasEnteredWorkspace(true)
-              },
-            })),
-            {
-              id: 'tab:report',
-              label: '回到資源庫 hub',
-              group: '導覽',
-              hint: '案件樣板 / 案例庫 / 附件 / 匯出',
-              run: () => setActiveTab('report'),
-            },
-            ...caseCards.slice(0, 10).map((item) => ({
-              id: `case:${item.id}`,
-              label: `載入案例：${item.name}`,
-              group: '案例',
-              hint: formatDateTime(item.updatedAt),
-              run: () => {
-                selectProject(item.id)
-                setActiveTab('member')
-                setHasEnteredWorkspace(true)
-              },
-            })),
-            ...products.slice(0, 10).map((item) => ({
-              id: `product:${item.id}`,
-              label: `切換產品：${item.brand} ${item.model}`,
-              group: '產品',
-              hint: familyLabel(item.family),
-              run: () => {
-                patchProject({ selectedProductId: item.id })
-                setActiveTab('product')
-                setHasEnteredWorkspace(true)
-              },
-            })),
-            {
-              id: 'action:print',
-              label: '列印報表',
-              group: '動作',
-              hint: 'Ctrl/Cmd+P',
-              run: () => {
-                void openStandaloneReportWindow(true)
-              },
-            },
-            {
-              id: 'action:preview',
-              label: '預覽報表（獨立視窗）',
-              group: '動作',
-              hint: '可在新分頁檢視完整報告',
-              run: () => {
-                void openStandaloneReportWindow(false)
-              },
-            },
-            {
-              id: 'action:export-html',
-              label: '匯出 HTML 報告',
-              group: '動作',
-              hint: '下載單檔離線可讀',
-              run: () => {
-                void exportHtmlReport()
-              },
-            },
-            {
-              id: 'action:export-xlsx',
-              label: '匯出 XLSX 報告',
-              group: '動作',
-              hint: '表格版多工作表',
-              run: () => {
-                void exportXlsxReport()
-              },
-            },
-            {
-              id: 'action:export-docx',
-              label: '匯出 DOCX 報告',
-              group: '動作',
-              hint: '含幾何配置圖',
-              run: () => {
-                void exportDocxReport()
-              },
-            },
-            {
-              id: 'action:audit',
-              label: '留存簽章（手動留痕）',
-              group: '動作',
-              hint: 'Ctrl/Cmd+S',
-              run: () => {
-                void recordCurrentAuditTrail('manual')
-              },
-            },
-            {
-              id: 'action:export-case',
-              label: '匯出本案 JSON（僅目前案例）',
-              group: '動作',
-              hint: '含選用 / 候選產品 + 該案附件',
-              run: () => exportCurrentCase(),
-            },
-            {
-              id: 'action:backup',
-              label: '匯出整個工作區 JSON',
-              group: '動作',
-              hint: '含所有案例 / 產品 / 附件',
-              run: () => {
-                void exportWorkspace()
-              },
-            },
-            {
-              id: 'action:help',
-              label: '顯示鍵盤快捷鍵',
-              group: '動作',
-              hint: '?',
-              run: () => setShowShortcutHelp(true),
-            },
-          ]}
+          commands={paletteCommands}
         />
       ) : null}
       {showShortcutHelp ? (
