@@ -55,7 +55,6 @@ import type {
   ProjectSnapshot,
   ReviewResult,
   ReviewStatus,
-  StoredDocumentFile,
   UnitPreferences,
 } from './domain'
 import type {
@@ -125,6 +124,7 @@ import { StatusBanners } from './StatusBanners'
 import { TopHeaderToolbar } from './TopHeaderToolbar'
 import { UnitNumberField } from './UnitNumberField'
 import { useAuditTrail } from './useAuditTrail'
+import { useDocumentLibrary } from './useDocumentLibrary'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { useReportExports } from './useReportExports'
 import {
@@ -418,17 +418,11 @@ const loadCaseIdSeed = Date.now()
 let loadCaseIdSequence = 0
 const layoutVariantIdSeed = Date.now()
 let layoutVariantIdSequence = 0
-const documentIdSeed = Date.now()
-let documentIdSequence = 0
+// documentIdSeed / nextDocumentId 已下放至 useDocumentLibrary
 
 function nextProjectId() {
   projectIdSequence += 1
   return `project-${projectIdSeed}-${projectIdSequence}`
-}
-
-function nextDocumentId() {
-  documentIdSequence += 1
-  return `document-${documentIdSeed}-${documentIdSequence}`
 }
 
 function nextLoadCaseId() {
@@ -1921,17 +1915,11 @@ function App() {
   const [templateCatalog, setTemplateCatalog] = useState<ProductTemplate[] | null>(
     null,
   )
-  const [pendingDocumentKind, setPendingDocumentKind] =
-    useState<ProjectDocumentKind>('catalog')
+  // pendingDocumentKind / preview {Id, File, Url, Error} state 已下放至 useDocumentLibrary
   const [evidenceDocumentKindFilter, setEvidenceDocumentKindFilter] =
     useState<'all' | ProjectDocumentKind>('all')
   const [evidenceLinkStatusFilter, setEvidenceLinkStatusFilter] =
     useState<EvidenceLinkStatusFilter>('all')
-  const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null)
-  const [previewDocumentFile, setPreviewDocumentFile] =
-    useState<StoredDocumentFile | null>(null)
-  const [previewDocumentUrl, setPreviewDocumentUrl] = useState<string | null>(null)
-  const [previewDocumentError, setPreviewDocumentError] = useState('')
   const [pendingLoadCaseImportMode, setPendingLoadCaseImportMode] =
     useState<'append' | 'replace'>('append')
   const [loadCasePasteText, setLoadCasePasteText] = useState('')
@@ -1954,7 +1942,7 @@ function App() {
   >([])
   const importInputRef = useRef<HTMLInputElement | null>(null)
   const loadCaseCsvInputRef = useRef<HTMLInputElement | null>(null)
-  const documentInputRef = useRef<HTMLInputElement | null>(null)
+  // documentInputRef 已下放至 useDocumentLibrary
 
   useEffect(() => {
     let mounted = true
@@ -2153,9 +2141,7 @@ function App() {
     ? `本案原始計算版本為 ${calcEngineVersionStatus.projectVersion}，目前工具為 ${calcEngineVersionStatus.runtimeVersion}。目前畫面結果已依最新版引擎重算，正式交付前應重新檢核並建立新留痕。`
     : `本案計算版本與目前工具版本一致：${calcEngineVersionStatus.runtimeVersion}`
   const caseDocuments = useMemo(() => project.documents ?? [], [project.documents])
-  const previewDocumentMeta = previewDocumentId
-    ? caseDocuments.find((item) => item.id === previewDocumentId) ?? null
-    : null
+  // previewDocumentMeta 已下放至 useDocumentLibrary（從其 hook 結果取得）
   const normalizedProjectTemplateSearch = projectTemplateSearch
     .trim()
     .toLowerCase()
@@ -2622,45 +2608,7 @@ function App() {
   })
   // 鍵盤捷徑相關的 caseCardsRef / activeProjectIdRef / selectProjectRef 已下放至 useKeyboardShortcuts
 
-  useEffect(() => {
-    if (!previewDocumentId) {
-      return
-    }
-
-    let cancelled = false
-    const currentId = previewDocumentId
-    let objectUrl: string | null = null
-
-    async function loadPreview() {
-      const file = await db.files.get(currentId)
-
-      if (cancelled) {
-        return
-      }
-
-      if (!file) {
-        setPreviewDocumentFile(null)
-        setPreviewDocumentError('找不到附件檔案，請重新上傳。')
-        setPreviewDocumentUrl(null)
-        return
-      }
-
-      objectUrl = window.URL.createObjectURL(file.blob)
-      setPreviewDocumentFile(file)
-      setPreviewDocumentError('')
-      setPreviewDocumentUrl(objectUrl)
-    }
-
-    void loadPreview()
-
-    return () => {
-      cancelled = true
-      if (objectUrl) {
-        window.URL.revokeObjectURL(objectUrl)
-      }
-    }
-  }, [previewDocumentId])
-
+  // 預覽載入 effect 已下放至 useDocumentLibrary
   function commitProject(nextProject: ProjectCase) {
     const normalized = normalizeProjectSelection(nextProject, products)
 
@@ -2751,21 +2699,29 @@ function App() {
     })
   }
 
-  function patchProjectDocument(
-    documentId: string,
-    patch: Partial<NonNullable<ProjectCase['documents']>[number]>,
-  ) {
-    patchProject({
-      documents: caseDocuments.map((item) =>
-        item.id === documentId
-          ? {
-              ...item,
-              ...patch,
-            }
-          : item,
-      ),
-    })
-  }
+  // 文件管理 hook：patchProjectDocument / 上傳 / 預覽 / 開啟 / 下載 / 刪除 + 預覽 state
+  const {
+    documentInputRef,
+    pendingDocumentKind,
+    setPendingDocumentKind,
+    previewDocumentMeta,
+    previewDocumentFile,
+    previewDocumentUrl,
+    previewDocumentError,
+    openDocumentDialog,
+    previewCaseDocument,
+    clearPreviewDocument,
+    patchProjectDocument,
+    uploadCaseDocuments,
+    openCaseDocument,
+    downloadCaseDocument,
+    deleteCaseDocument,
+  } = useDocumentLibrary({
+    project,
+    caseDocuments,
+    patchProject,
+    setSaveMessage,
+  })
 
   function patchLayout(patch: Partial<AnchorLayout>) {
     commitProject({
@@ -3546,111 +3502,7 @@ function App() {
     }
   }
 
-  function openDocumentDialog() {
-    documentInputRef.current?.click()
-  }
-
-  function previewCaseDocument(documentId: string) {
-    if (previewDocumentId === documentId) {
-      return
-    }
-
-    setPreviewDocumentFile(null)
-    setPreviewDocumentError('')
-    setPreviewDocumentUrl(null)
-    setPreviewDocumentId(documentId)
-  }
-
-  function clearPreviewDocument() {
-    setPreviewDocumentFile(null)
-    setPreviewDocumentError('')
-    setPreviewDocumentUrl(null)
-    setPreviewDocumentId(null)
-  }
-
-  async function uploadCaseDocuments(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? [])
-
-    if (files.length === 0) {
-      return
-    }
-
-    const addedAt = new Date().toISOString()
-    const documents = files.map((file) => {
-      const id = nextDocumentId()
-
-      return {
-        document: {
-          id,
-          name: file.name,
-          fileName: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          sizeBytes: file.size,
-          kind: pendingDocumentKind,
-          note: '',
-          verified: false,
-          addedAt,
-        },
-        storedFile: {
-          id,
-          projectId: project.id,
-          fileName: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          sizeBytes: file.size,
-          blob: file,
-          updatedAt: addedAt,
-        } satisfies StoredDocumentFile,
-      }
-    })
-
-    await db.files.bulkPut(documents.map((item) => item.storedFile))
-    patchProject({
-      documents: [...caseDocuments, ...documents.map((item) => item.document)],
-    })
-    setPreviewDocumentId(documents[0]?.document.id ?? null)
-    setSaveMessage(`已加入 ${documents.length} 份案例文件`)
-    event.target.value = ''
-  }
-
-  async function openCaseDocument(documentId: string) {
-    const file = await db.files.get(documentId)
-    if (!file) {
-      setSaveMessage('找不到附件檔案，請重新上傳。')
-      return
-    }
-
-    const objectUrl = window.URL.createObjectURL(file.blob)
-    window.open(objectUrl, '_blank', 'noopener,noreferrer')
-    window.setTimeout(() => {
-      window.URL.revokeObjectURL(objectUrl)
-    }, 60_000)
-  }
-
-  async function downloadCaseDocument(documentId: string) {
-    const file = await db.files.get(documentId)
-    if (!file) {
-      setSaveMessage('找不到附件檔案，請重新上傳。')
-      return
-    }
-
-    const objectUrl = window.URL.createObjectURL(file.blob)
-    const link = document.createElement('a')
-    link.href = objectUrl
-    link.download = file.fileName
-    link.click()
-    window.URL.revokeObjectURL(objectUrl)
-  }
-
-  async function deleteCaseDocument(documentId: string) {
-    await db.files.delete(documentId)
-    if (previewDocumentId === documentId) {
-      setPreviewDocumentId(null)
-    }
-    patchProject({
-      documents: caseDocuments.filter((item) => item.id !== documentId),
-    })
-    setSaveMessage('已刪除案例附件')
-  }
+  // 文件管理 8 個動作 + 4 個 preview state + ref 已下放至 useDocumentLibrary（hook 呼叫於上方）
 
   function createProduct() {
     const next = makeBlankProduct()
