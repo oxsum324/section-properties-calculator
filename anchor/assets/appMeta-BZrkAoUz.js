@@ -1,0 +1,1 @@
+var e=`8e8187c`,t=`2026-04-29T01:45:49.828Z`,n=`本工具計算結果僅供工程判讀、方案比較與報表整理輔助；正式設計、審查與簽證仍應由執業技師依現行規範、原始資料與完整工程判斷負責。`;function r(e){return e?.trim()||`8e8187c`}function i(t){let n=r(t);return{projectVersion:n,runtimeVersion:e,mismatch:n!==e}}export{r as a,i,e as n,n as r,t};
