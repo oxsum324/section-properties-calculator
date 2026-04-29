@@ -87,7 +87,6 @@ import {
   getRuleProfileOptions,
   normalizeRuleProfileId,
 } from './ruleProfiles'
-import type { ReportArtifactParams } from './reportExport'
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
 import { getResultPresentationSummary } from './resultPresentation'
 import type { SeismicRouteGuidance } from './seismicRouteGuidance'
@@ -127,6 +126,7 @@ import { SeismicInputPanel } from './SeismicInputPanel'
 import { StatusBanners } from './StatusBanners'
 import { TopHeaderToolbar } from './TopHeaderToolbar'
 import { UnitNumberField } from './UnitNumberField'
+import { useReportExports } from './useReportExports'
 import {
   auditSourceLabel,
   formatDateTime,
@@ -3876,66 +3876,27 @@ function App() {
     setSaveMessage(`已匯出 ${trail.length} 筆留痕為 CSV`)
   }
 
-  function getReportArtifactParams(
-    autoPrint = false,
-    auditEntry: ProjectAuditEntry | null = latestAuditEntry,
-    auditTrail: ProjectAuditEntry[] = project.auditTrail ?? [],
-    reportGeneratedAt: string = new Date().toISOString(),
-  ): ReportArtifactParams {
-    return {
-      batchReview,
-      candidateProductReviews,
-      layoutVariantReviews,
-      review,
-      selectedProduct,
-      completeness,
-      evaluationFieldStates,
-      unitPreferences,
-      reportSettings,
-      auditEntry: auditEntry ?? undefined,
-      auditTrail,
-      autoPrint,
-      reportGeneratedAt,
-    }
-  }
-
-  async function buildReportHtml(
-    autoPrint = false,
-    source: ProjectAuditSource = 'html',
-  ) {
-    const { auditEntry, auditTrail } = await ensureProjectAudit(source)
-    const { buildStandaloneReportHtml } = await import('./reportExport')
-
-    return buildStandaloneReportHtml(
-      getReportArtifactParams(autoPrint, auditEntry, auditTrail),
-    )
-  }
-
-  async function buildReportBlobUrl(
-    autoPrint = false,
-    source: ProjectAuditSource = 'html',
-  ) {
-    const html = await buildReportHtml(autoPrint, source)
-    return URL.createObjectURL(
-      new Blob([html], {
-        type: 'text/html;charset=utf-8',
-      }),
-    )
-  }
-
-  async function openStandaloneReportWindow(autoPrint = false) {
-    const url = await buildReportBlobUrl(
-      autoPrint,
-      autoPrint ? 'print' : 'preview',
-    )
-    const nextWindow = window.open(url, '_blank')
-    window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
-    if (!nextWindow) {
-      setSaveMessage('瀏覽器封鎖了報告視窗，請允許彈出視窗後再試。')
-      return
-    }
-    setSaveMessage(autoPrint ? '已開啟獨立報告列印視窗。' : '已開啟獨立報告預覽。')
-  }
+  // 報表匯出（HTML / XLSX / DOCX / 獨立預覽 / 列印）已抽至 useReportExports
+  const {
+    openStandaloneReportWindow,
+    exportHtmlReport,
+    exportXlsxReport,
+    exportDocxReport,
+  } = useReportExports({
+    project,
+    batchReview,
+    candidateProductReviews,
+    layoutVariantReviews,
+    review,
+    selectedProduct,
+    completeness,
+    evaluationFieldStates,
+    unitPreferences,
+    reportSettings,
+    latestAuditEntry,
+    ensureProjectAudit,
+    setSaveMessage,
+  })
 
   // 每次 render 後同步 ref（printReport / recordCurrentAuditTrail 在此檔上方宣告但下游呼叫 openStandaloneReportWindow）
   useEffect(() => {
@@ -4050,74 +4011,7 @@ function App() {
     }
   }, [hydrated, activeTab, hasEnteredWorkspace, showShortcutHelp, showCommandPalette])
 
-  async function exportHtmlReport() {
-    const url = await buildReportBlobUrl(false, 'html')
-    const link = document.createElement('a')
-    const safeName =
-      (project.name || 'anchor-review-report')
-        .replace(/[\\/:*?"<>|]+/g, '-')
-        .trim() || 'anchor-review-report'
-
-    link.href = url
-    link.download = `${safeName}.html`
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
-    setSaveMessage(`已匯出 HTML 報告：${safeName}.html`)
-  }
-
-  async function exportXlsxReport() {
-    const { auditEntry, auditTrail, reused } = await ensureProjectAudit('xlsx')
-    const { serializeReportWorkbook } = await import('./reportWorkbook')
-    const buffer = await serializeReportWorkbook(
-      getReportArtifactParams(false, auditEntry, auditTrail),
-    )
-    const blob = new Blob([buffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    const safeName =
-      (project.name || 'anchor-review-report')
-        .replace(/[\\/:*?"<>|]+/g, '-')
-        .trim() || 'anchor-review-report'
-
-    link.href = url
-    link.download = `${safeName}.xlsx`
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
-    setSaveMessage(
-      reused
-        ? `已匯出 XLSX 報告：${safeName}.xlsx（沿用留痕 ${formatAuditHash(auditEntry.hash)}）`
-        : `已匯出 XLSX 報告：${safeName}.xlsx`,
-    )
-  }
-
-  async function exportDocxReport() {
-    const { auditEntry, auditTrail, reused } = await ensureProjectAudit('docx')
-    const { serializeReportDocument } = await import('./reportDocx')
-    const buffer = await serializeReportDocument(
-      getReportArtifactParams(false, auditEntry, auditTrail),
-    )
-    const blob = new Blob([buffer], {
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    const safeName =
-      (project.name || 'anchor-review-report')
-        .replace(/[\\/:*?"<>|]+/g, '-')
-        .replaceAll(/\s+/g, '-')
-
-    link.href = url
-    link.download = `${safeName}.docx`
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
-    setSaveMessage(
-      reused
-        ? `已匯出 DOCX 報告：${safeName}.docx（沿用留痕 ${formatAuditHash(auditEntry.hash)}）`
-        : `已匯出 DOCX 報告：${safeName}.docx`,
-    )
-  }
+  // exportHtmlReport / exportXlsxReport / exportDocxReport 已下放至 useReportExports
 
   if (loading) {
     return (
