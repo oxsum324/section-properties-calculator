@@ -46,8 +46,6 @@ import type {
   ProjectAuditEntry,
   ProjectCase,
   ProjectDocumentKind,
-  ProductEvidenceEntry,
-  ProductEvidenceFieldKey,
   ReportMode,
   ReportSettings,
   ProjectSnapshot,
@@ -128,6 +126,7 @@ import {
   loadCaseDelimitedHeaderRow,
   loadCaseDelimitedExampleRow,
 } from './useLoadCaseLibrary'
+import { useProductLibrary } from './useProductLibrary'
 import { useProjectLibrary } from './useProjectLibrary'
 import { useReportExports } from './useReportExports'
 import {
@@ -409,52 +408,7 @@ function buildProjectSnapshot(
 
 // nextLayoutVariantId 已下放至 useLayoutVariants
 
-function cloneProduct(product: AnchorProduct, id: string) {
-  return {
-    ...product,
-    id,
-    evaluation: { ...product.evaluation },
-    evidence: { ...product.evidence },
-  }
-}
-
-function nextTemplateImportId(templateId: string, products: AnchorProduct[]) {
-  const prefix = `${templateId}-import-`
-  const usedIndexes = new Set(
-    products
-      .filter((item) => item.id.startsWith(prefix))
-      .map((item) => Number(item.id.slice(prefix.length)))
-      .filter((value) => Number.isInteger(value) && value > 0),
-  )
-
-  let nextIndex = 1
-  while (usedIndexes.has(nextIndex)) {
-    nextIndex += 1
-  }
-
-  return `${prefix}${nextIndex}`
-}
-
-function makeBlankProduct() {
-  const timestamp = Date.now()
-  return {
-    id: `product-${timestamp}`,
-    family: 'post_installed_expansion' as const,
-    installationBehavior: 'torque_controlled' as const,
-    brand: 'New',
-    model: `Custom-${timestamp.toString().slice(-4)}`,
-    description: '自訂產品資料',
-    diameterMm: 16,
-    effectiveAreaMm2: 157,
-    embedmentMinMm: 60,
-    embedmentMaxMm: 200,
-    steelYieldStrengthMpa: 500,
-    steelUltimateStrengthMpa: 650,
-    evaluation: {},
-    source: '使用者自建',
-    notes: '',
-  }
-}
+// cloneProduct / nextTemplateImportId / makeBlankProduct 已下放至 useProductLibrary
 
 // makeUniqueLoadCaseName 已下放至 useLoadCaseLibrary
 
@@ -2743,68 +2697,24 @@ function App() {
     })
   }
 
-  function patchSelectedProduct(patch: Partial<AnchorProduct>) {
-    startTransition(() => {
-      setProducts((current) =>
-        current.map((item) =>
-          item.id === selectedProduct.id
-            ? {
-                ...item,
-                ...patch,
-                evaluation: {
-                  ...item.evaluation,
-                  ...patch.evaluation,
-                },
-              }
-            : item,
-        ),
-      )
-    })
-  }
-
-  function patchSelectedProductEvaluation(
-    patch: Partial<AnchorProduct['evaluation']>,
-  ) {
-    startTransition(() => {
-      setProducts((current) =>
-        current.map((item) =>
-          item.id === selectedProduct.id
-            ? {
-                ...item,
-                evaluation: {
-                  ...item.evaluation,
-                  ...patch,
-                },
-              }
-            : item,
-        ),
-      )
-    })
-  }
-
-  function patchSelectedProductEvidence(
-    field: ProductEvidenceFieldKey,
-    patch: Partial<ProductEvidenceEntry>,
-  ) {
-    startTransition(() => {
-      setProducts((current) =>
-        current.map((item) =>
-          item.id === selectedProduct.id
-            ? {
-                ...item,
-                evidence: {
-                  ...item.evidence,
-                  [field]: {
-                    ...item.evidence?.[field],
-                    ...patch,
-                  },
-                },
-              }
-            : item,
-        ),
-      )
-    })
-  }
+  // 產品庫 8 個動作已下放至 useProductLibrary
+  const {
+    patchSelectedProduct,
+    patchSelectedProductEvaluation,
+    patchSelectedProductEvidence,
+    createProduct,
+    duplicateSelectedProduct,
+    deleteSelectedProduct,
+    importTemplate,
+    applyTemplate,
+  } = useProductLibrary({
+    products,
+    selectedProduct,
+    setProducts,
+    setProject,
+    patchProject,
+    setSaveMessage,
+  })
 
   // 案例庫管理 11 個動作 + import input ref 已下放至 useProjectLibrary
   const {
@@ -2840,72 +2750,8 @@ function App() {
 
   // 文件管理 8 個動作 + 4 個 preview state + ref 已下放至 useDocumentLibrary（hook 呼叫於上方）
 
-  function createProduct() {
-    const next = makeBlankProduct()
-    setProducts((current) => [...current, next])
-    patchProject({ selectedProductId: next.id })
-  }
-
-  async function importTemplate(templateId: string) {
-    const { instantiateProductTemplate, productTemplates } = await import(
-      './productTemplates'
-    )
-    const template = productTemplates.find((item) => item.id === templateId)
-    if (!template) {
-      return
-    }
-
-    const imported = instantiateProductTemplate(
-      template,
-      nextTemplateImportId(template.id, products),
-    )
-
-    startTransition(() => {
-      setProducts((current) => [...current, imported])
-      setProject((current) => ({
-        ...current,
-        selectedProductId: imported.id,
-        updatedAt: new Date().toISOString(),
-      }))
-      setSaveMessage(`已匯入模板：${template.brand} ${template.series}`)
-    })
-  }
-
-  async function applyTemplate(templateId: string) {
-    const { applyTemplateToProduct, productTemplates } = await import(
-      './productTemplates'
-    )
-    const template = productTemplates.find((item) => item.id === templateId)
-    if (!template) {
-      return
-    }
-
-    const applied = applyTemplateToProduct(template, selectedProduct)
-    startTransition(() => {
-      setProducts((current) =>
-        current.map((item) => (item.id === selectedProduct.id ? applied : item)),
-      )
-      setSaveMessage(`已套用模板：${template.brand} ${template.series}`)
-    })
-  }
-
-  function duplicateSelectedProduct() {
-    const nextId = `copy-${Date.now()}`
-    const cloned = cloneProduct(selectedProduct, nextId)
-    cloned.model = `${selectedProduct.model}-copy`
-    setProducts((current) => [...current, cloned])
-    patchProject({ selectedProductId: nextId })
-  }
-
-  function deleteSelectedProduct() {
-    if (products.length === 1) {
-      return
-    }
-
-    const remaining = products.filter((item) => item.id !== selectedProduct.id)
-    setProducts(remaining)
-    patchProject({ selectedProductId: remaining[0].id })
-  }
+  // createProduct / importTemplate / applyTemplate / duplicateSelectedProduct /
+  // deleteSelectedProduct 均已下放至 useProductLibrary（hook 呼叫於上方）
 
   // 留痕 4 個動作（ensure/record/delete/exportCsv）已下放至 useAuditTrail
   const {
