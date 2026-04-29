@@ -1,4 +1,4 @@
-import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}from"./units-MZTj-v8w.js";import{c as a,d as o,l as s,n as c,s as l,t as u,u as d}from"./index-Dv-CMiXf.js";import{t as f}from"./seismicRouteGuidance-Bd1hg0fM.js";function p(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`).replaceAll(`'`,`&#39;`)}function m(e){return Number.isFinite(e)?new Intl.NumberFormat(`zh-TW`,{maximumFractionDigits:2}).format(e):`—`}function h(e){switch(e){case`pass`:return`符合`;case`fail`:return`不符合`;case`screening`:return`初篩`;case`incomplete`:return`需補資料`;case`warning`:return`提醒`;default:return e}}function g(e){switch(e){case`cast_in`:return`預埋錨栓`;case`post_installed_expansion`:return`後置膨脹錨栓`;case`post_installed_bonded`:return`後置黏結式錨栓`;case`screw_anchor`:return`螺紋錨栓`;case`undercut_anchor`:return`擴底式錨栓`;case`shear_lug`:return`剪力榫`;default:return e}}function ee(e){return e===`summary`?`摘要版`:`完整明細版`}function _(e,t){return`${t} ${e}`}function v(e){if(!e)return`—`;let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleDateString(`zh-TW`,{year:`numeric`,month:`2-digit`,day:`2-digit`})}function y(e){if(!e)return`—`;let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleString(`zh-TW`,{year:`numeric`,month:`2-digit`,day:`2-digit`,hour:`2-digit`,minute:`2-digit`})}function b(e,t=12){return e?e.slice(0,Math.max(8,t)).toUpperCase():`—`}function x(e){switch(e){case`manual`:return`手動留存`;case`preview`:return`報表預覽`;case`print`:return`列印報表`;case`html`:return`匯出 HTML`;case`xlsx`:return`匯出 XLSX`;case`docx`:return`匯出 DOCX`;default:return`—`}}function te(e){return e===`product`?`產品值`:e===`code_fallback`?`規範退回值`:`規範值`}function S(e,t,n){return Number.isFinite(e)?`${m(r(e,t,n))} ${i(t,n)}`:`—`}function C(e,t){let n=e.anchorCountX*e.anchorCountY,r=Math.min(e.edgeLeftMm,e.edgeRightMm,e.edgeBottomMm,e.edgeTopMm);return[`${e.anchorCountX} × ${e.anchorCountY}（${n} 支）`,`hef ${S(e.effectiveEmbedmentMm,`length`,t)}`,`sx ${S(e.spacingXmm,`length`,t)}`,`sy ${S(e.spacingYmm,`length`,t)}`,`cmin ${S(r,`length`,t)}`].join(` / `)}function w(e,t,n){return e.presentation===`ratio`?m(t):e.presentation===`stress`?S(t,`stress`,n):e.presentation===`length`?S(t,`length`,n):S(t,`force`,n)}function T(e){return!e.factors||e.factors.length===0?`—`:e.factors.map(e=>e.note?`${e.symbol}=${e.value}（${e.label}；${e.note}）`:`${e.symbol}=${e.value}（${e.label}）`).join(`；`)}function E(e){return e.governingDcr??e.maxDcr}function D(e){if(e.project.layout.basePlateLoadedAreaMm2>0)return e.project.layout.basePlateLoadedAreaMm2;let t=Math.max(0,e.project.layout.basePlateLoadedWidthMm??0),n=Math.max(0,e.project.layout.basePlateLoadedHeightMm??0);return t>0&&n>0?t*n:0}function O(e){return e.project.layout.basePlateSectionType===`custom`?`custom`:`rectangle`}function k(e){return e===`custom`?`自訂 Sx / Sy`:`矩形承壓區`}function A(e){switch(e){case`i_h`:return`I / H 形柱`;case`rect`:return`矩形柱`;case`pipe`:return`圓管 / 圓柱`;default:return`手動輸入`}}function j(e){switch(e){case`ready`:return`pass`;case`configuration_issue`:return`warning`;default:return`incomplete`}}function M(e){return`zone-${e}`}function N(e){return`<span class="chip chip-${e}">${p(h(e))}</span>`}function P(e,t){let{layout:n}=e.project,r=o(n,e.anchorPoints),i=l(n,e.analysisLoads),a=new Map,s=new Map(e.visualization.anchors.map(e=>[e.anchorId,e]));e.visualization.edges.forEach(e=>{let t=a.get(e.edge)??[];t.includes(e.label)||t.push(e.label),a.set(e.edge,t)});let c=e.visualization.rectangles.map(e=>`<rect x="${e.x1}" y="${e.y1}" width="${e.x2-e.x1}" height="${e.y2-e.y1}" class="zone ${M(e.kind)}" />`).join(``),u=i?`<g>
+import{i as e,r as t,t as n}from"./appMeta-DoBRtdsd.js";import{a as r,i,r as a}from"./basePlateStressState-wYduPT6T.js";import{c as o,o as s}from"./units-m4ngsLPL.js";import{i as c,n as l,r as u,t as d}from"./index-D6jBOR9k.js";import{t as f}from"./seismicRouteGuidance-CMiH4g__.js";function p(e){return e.replaceAll(`&`,`&amp;`).replaceAll(`<`,`&lt;`).replaceAll(`>`,`&gt;`).replaceAll(`"`,`&quot;`).replaceAll(`'`,`&#39;`)}function m(e){return Number.isFinite(e)?new Intl.NumberFormat(`zh-TW`,{maximumFractionDigits:2}).format(e):`—`}function h(e){switch(e){case`pass`:return`符合`;case`fail`:return`不符合`;case`screening`:return`初篩`;case`incomplete`:return`需補資料`;case`warning`:return`提醒`;default:return e}}function g(e){switch(e){case`cast_in`:return`預埋錨栓`;case`post_installed_expansion`:return`後置膨脹錨栓`;case`post_installed_bonded`:return`後置黏結式錨栓`;case`screw_anchor`:return`螺紋錨栓`;case`undercut_anchor`:return`擴底式錨栓`;case`shear_lug`:return`剪力榫`;default:return e}}function ee(e){return e===`summary`?`摘要版`:`完整明細版`}function _(e,t){return`${t} ${e}`}function v(e){if(!e)return`—`;let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleDateString(`zh-TW`,{year:`numeric`,month:`2-digit`,day:`2-digit`})}function y(e){if(!e)return`—`;let t=new Date(e);return Number.isNaN(t.getTime())?e:t.toLocaleString(`zh-TW`,{year:`numeric`,month:`2-digit`,day:`2-digit`,hour:`2-digit`,minute:`2-digit`})}function b(e,t=12){return e?e.slice(0,Math.max(8,t)).toUpperCase():`—`}function x(e){switch(e){case`manual`:return`手動留存`;case`preview`:return`報表預覽`;case`print`:return`列印報表`;case`html`:return`匯出 HTML`;case`xlsx`:return`匯出 XLSX`;case`docx`:return`匯出 DOCX`;default:return`—`}}function S(e){return e===`product`?`產品值`:e===`code_fallback`?`規範退回值`:`規範值`}function C(e,t,n){return Number.isFinite(e)?`${m(o(e,t,n))} ${s(t,n)}`:`—`}function w(e,t){let n=e.anchorCountX*e.anchorCountY,r=Math.min(e.edgeLeftMm,e.edgeRightMm,e.edgeBottomMm,e.edgeTopMm);return[`${e.anchorCountX} × ${e.anchorCountY}（${n} 支）`,`hef ${C(e.effectiveEmbedmentMm,`length`,t)}`,`sx ${C(e.spacingXmm,`length`,t)}`,`sy ${C(e.spacingYmm,`length`,t)}`,`cmin ${C(r,`length`,t)}`].join(` / `)}function T(e,t,n){return e.presentation===`ratio`?m(t):e.presentation===`stress`?C(t,`stress`,n):e.presentation===`length`?C(t,`length`,n):C(t,`force`,n)}function E(e){return!e.factors||e.factors.length===0?`—`:e.factors.map(e=>e.note?`${e.symbol}=${e.value}（${e.label}；${e.note}）`:`${e.symbol}=${e.value}（${e.label}）`).join(`；`)}function D(e){return e.governingDcr??e.maxDcr}function O(e){if(e.project.layout.basePlateLoadedAreaMm2>0)return e.project.layout.basePlateLoadedAreaMm2;let t=Math.max(0,e.project.layout.basePlateLoadedWidthMm??0),n=Math.max(0,e.project.layout.basePlateLoadedHeightMm??0);return t>0&&n>0?t*n:0}function te(e){return e.project.layout.basePlateSectionType===`custom`?`custom`:`rectangle`}function k(e){return e===`custom`?`自訂 Sx / Sy`:`矩形承壓區`}function A(e){switch(e){case`i_h`:return`I / H 形柱`;case`rect`:return`矩形柱`;case`pipe`:return`圓管 / 圓柱`;default:return`手動輸入`}}function j(e){switch(e){case`ready`:return`pass`;case`configuration_issue`:return`warning`;default:return`incomplete`}}function M(e){return`zone-${e}`}function N(e){return`<span class="chip chip-${e}">${p(h(e))}</span>`}function P(e,t){let{layout:n}=e.project,r=c(n,e.anchorPoints),i=u(n,e.analysisLoads),a=new Map,o=new Map(e.visualization.anchors.map(e=>[e.anchorId,e]));e.visualization.edges.forEach(e=>{let t=a.get(e.edge)??[];t.includes(e.label)||t.push(e.label),a.set(e.edge,t)});let s=e.visualization.rectangles.map(e=>`<rect x="${e.x1}" y="${e.y1}" width="${e.x2-e.x1}" height="${e.y2-e.y1}" class="zone ${M(e.kind)}" />`).join(``),l=i?`<g>
         <rect
           x="${i.loadedArea.x1}"
           y="${i.loadedArea.y1}"
@@ -18,7 +18,7 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
           y="${i.labelY}"
           class="bearing-overlay-label"
         >${p(i.label)}</text>
-      </g>`:``,d=e.anchorPoints.map(e=>{let t=s.get(e.id),n=t?.state===`tension`?`anchor-tension`:t?.state===`compression`?`anchor-compression`:`anchor-neutral`,r=t?`${t.elasticTensionKn>=0?`+`:``}${m(t.elasticTensionKn)}`:`0`;return`<g>
+      </g>`:``,d=e.anchorPoints.map(e=>{let t=o.get(e.id),n=t?.state===`tension`?`anchor-tension`:t?.state===`compression`?`anchor-compression`:`anchor-neutral`,r=t?`${t.elasticTensionKn>=0?`+`:``}${m(t.elasticTensionKn)}`:`0`;return`<g>
         <circle cx="${e.x}" cy="${e.y}" r="10" class="anchor ${n}" />
         <circle cx="${e.x}" cy="${e.y}" r="3" class="anchor-center" />
         <text x="${e.x}" y="${e.y-16}" text-anchor="middle" class="anchor-label">${p(e.id)}</text>
@@ -52,14 +52,14 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
         >${p(r.label)}</text>
       </g>`:``;return`<svg class="geometry" viewBox="0 0 ${n.concreteWidthMm} ${n.concreteHeightMm}" xmlns="http://www.w3.org/2000/svg">
     <rect x="0" y="0" width="${n.concreteWidthMm}" height="${n.concreteHeightMm}" rx="8" class="concrete-body" />
-    ${u}
-    ${c}
+    ${l}
+    ${s}
     ${h}
     ${f}
     ${d}
     <text x="16" y="24" class="sketch-title">混凝土平面 / 活躍組合</text>
     <text x="16" y="46" class="sketch-legend">紅 = 受拉，藍 = 受壓，灰 = 中性；青 = A_Nc，橘 = A_Vc，綠 = 錨栓補強鋼筋，紫 = A1 / 接觸承壓區</text>
-    <text x="16" y="${n.concreteHeightMm-14}" class="sketch-meta">${p(`${S(n.concreteWidthMm,`length`,t)} × ${S(n.concreteHeightMm,`length`,t)}`)}</text>
+    <text x="16" y="${n.concreteHeightMm-14}" class="sketch-meta">${p(`${C(n.concreteWidthMm,`length`,t)} × ${C(n.concreteHeightMm,`length`,t)}`)}</text>
   </svg>`}var F=`.concrete-body { fill:#edf1f6; stroke:#7f8ea3; stroke-width:3; }
   .bearing-zone { fill:rgba(123,92,168,.09); stroke:rgba(94,65,139,.42); stroke-width:2.4; stroke-dasharray:10 8; }
   .bearing-contact-zone { fill:rgba(110,77,163,.20); stroke:rgba(85,56,132,.56); stroke-width:2.8; }
@@ -75,17 +75,17 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
   .anchor-tension { fill:#ef4444; }
   .anchor-compression { fill:#2563eb; }
   .anchor-neutral { fill:#9ca3af; }
-  .anchor-center { fill:#fff; }`;function I(e,t){return P(e,t).replace(/<svg([^>]*)>/,(e,t)=>`<svg${t} xmlns="http://www.w3.org/2000/svg"><defs><style>${F}</style></defs>`)}function L(r){let{batchReview:o,candidateProductReviews:l,layoutVariantReviews:h=[],review:M,selectedProduct:F,completeness:I,evaluationFieldStates:L,unitPreferences:R,reportSettings:z,auditEntry:B,auditTrail:V=[],autoPrint:H=!1,reportGeneratedAt:U=new Date().toISOString()}=r,W=e(M.project.calcEngineVersion),G=W.mismatch?`本案原始版本 ${W.projectVersion}，目前以 ${W.runtimeVersion} 重算；正式交付前應重新檢核並留痕。`:`本案計算版本與目前工具版本一致：${W.runtimeVersion}`,K=new Set(M.project.excludedCheckIds??[]),q=M.results.filter(e=>!K.has(e.id)),J=L.filter(e=>e.hasValue||e.hasEvidence),ne=q.filter(e=>e.factors&&e.factors.length>0),re=q.find(e=>e.id===`seismic`)??null,Y=M.project.loads.considerSeismic?f(M.project.loads,F,re):null,X=O(M),Z=a(M.project.layout),Q=d(M.project.layout),$=s(M.project.layout),ie=o.loadCaseReviews.map(e=>{let t=l.map(t=>{let n=t.batchReview.loadCaseReviews.find(t=>t.loadCaseId===e.loadCaseId);return n?`<td>
-            <strong>DCR ${p(m(E(n.review.summary)))}</strong><br />
+  .anchor-center { fill:#fff; }`;function I(e,t){return P(e,t).replace(/<svg([^>]*)>/,(e,t)=>`<svg${t} xmlns="http://www.w3.org/2000/svg"><defs><style>${F}</style></defs>`)}function L(o){let{batchReview:c,candidateProductReviews:u,layoutVariantReviews:h=[],review:M,selectedProduct:F,completeness:I,evaluationFieldStates:L,unitPreferences:R,reportSettings:z,auditEntry:B,auditTrail:V=[],autoPrint:H=!1,reportGeneratedAt:U=new Date().toISOString()}=o,W=e(M.project.calcEngineVersion),G=W.mismatch?`本案原始版本 ${W.projectVersion}，目前以 ${W.runtimeVersion} 重算；正式交付前應重新檢核並留痕。`:`本案計算版本與目前工具版本一致：${W.runtimeVersion}`,K=new Set(M.project.excludedCheckIds??[]),q=M.results.filter(e=>!K.has(e.id)),J=L.filter(e=>e.hasValue||e.hasEvidence),ne=q.filter(e=>e.factors&&e.factors.length>0),re=q.find(e=>e.id===`seismic`)??null,Y=M.project.loads.considerSeismic?f(M.project.loads,F,re):null,X=te(M),Z=a(M.project.layout),Q=r(M.project.layout),$=i(M.project.layout),ie=c.loadCaseReviews.map(e=>{let t=u.map(t=>{let n=t.batchReview.loadCaseReviews.find(t=>t.loadCaseId===e.loadCaseId);return n?`<td>
+            <strong>DCR ${p(m(D(n.review.summary)))}</strong><br />
             ${N(n.review.summary.overallStatus)}<br />
             <small>${p(n.review.summary.governingMode)}${t.batchReview.controllingLoadCaseId===e.loadCaseId?` / 該產品控制`:``}</small>
-          </td>`:`<td>—</td>`}).join(``),n=e.loadCaseId===o.activeLoadCaseId&&e.loadCaseId===o.controllingLoadCaseId?`（目前編輯 / 控制組合）`:e.loadCaseId===o.activeLoadCaseId?`（目前編輯）`:e.loadCaseId===o.controllingLoadCaseId?`（控制組合）`:``;return`<tr><td>${p(e.loadCaseName+n)}</td>${t}</tr>`}).join(``),ae=o.loadCaseReviews.map(e=>{let t=h.map(t=>{let n=t.batchReview.loadCaseReviews.find(t=>t.loadCaseId===e.loadCaseId);return n?`<td>
+          </td>`:`<td>—</td>`}).join(``),n=e.loadCaseId===c.activeLoadCaseId&&e.loadCaseId===c.controllingLoadCaseId?`（目前編輯 / 控制組合）`:e.loadCaseId===c.activeLoadCaseId?`（目前編輯）`:e.loadCaseId===c.controllingLoadCaseId?`（控制組合）`:``;return`<tr><td>${p(e.loadCaseName+n)}</td>${t}</tr>`}).join(``),ae=c.loadCaseReviews.map(e=>{let t=h.map(t=>{let n=t.batchReview.loadCaseReviews.find(t=>t.loadCaseId===e.loadCaseId);return n?`<td>
               <div class="matrix-cell${t.batchReview.controllingLoadCaseId===e.loadCaseId?` matrix-cell-controlling`:``}">
-                <strong>DCR ${p(m(E(n.review.summary)))}</strong>
+                <strong>DCR ${p(m(D(n.review.summary)))}</strong>
                 ${N(n.review.summary.overallStatus)}
                 <small>${p(n.review.summary.governingMode)}${t.batchReview.controllingLoadCaseId===e.loadCaseId?` / 該配置控制`:``}</small>
               </div>
-            </td>`:`<td>—</td>`}).join(``),n=e.loadCaseId===o.activeLoadCaseId&&e.loadCaseId===o.controllingLoadCaseId?`目前編輯 / 控制組合`:e.loadCaseId===o.activeLoadCaseId?`目前編輯`:e.loadCaseId===o.controllingLoadCaseId?`控制組合`:`批次結果`;return`<tr>
+            </td>`:`<td>—</td>`}).join(``),n=e.loadCaseId===c.activeLoadCaseId&&e.loadCaseId===c.controllingLoadCaseId?`目前編輯 / 控制組合`:e.loadCaseId===c.activeLoadCaseId?`目前編輯`:e.loadCaseId===c.controllingLoadCaseId?`控制組合`:`批次結果`;return`<tr>
           <td>
             <div class="table-mode">
               <strong>${p(e.loadCaseName)}</strong>
@@ -212,14 +212,14 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
           <div><small class="meta">案號 / 專案</small><div>${p(z.projectCode||`未填`)}</div></div>
           <div><small class="meta">規範版本</small><div>${p(M.ruleProfile.versionLabel)}</div></div>
           <div><small class="meta">發行日期</small><div>${p(v(z.issueDate))}</div></div>
-          <div><small class="meta">${u.editedAt}</small><div>${p(y(M.project.updatedAt))}</div></div>
-          <div><small class="meta">${u.generatedAt}</small><div>${p(y(U))}</div></div>
-          <div><small class="meta">${u.auditedAt}</small><div>${p(y(B?.createdAt))}</div></div>
-          <div><small class="meta">${u.auditSource} / ${u.auditHash}</small><div>${p(B?`${x(B.source)} · ${b(B.hash)}`:`尚未留存`)}</div></div>
-          <div><small class="meta">整體判定</small><div>${N(o.summary.overallStatus)}</div></div>
-          <div><small class="meta">正式判定</small><div>${N(o.summary.formalStatus)}</div></div>
-          <div><small class="meta">控制模式</small><div>${p(o.summary.governingMode)}</div></div>
-          <div><small class="meta">控制組合</small><div>${p(o.controllingLoadCaseName)}</div></div>
+          <div><small class="meta">${d.editedAt}</small><div>${p(y(M.project.updatedAt))}</div></div>
+          <div><small class="meta">${d.generatedAt}</small><div>${p(y(U))}</div></div>
+          <div><small class="meta">${d.auditedAt}</small><div>${p(y(B?.createdAt))}</div></div>
+          <div><small class="meta">${d.auditSource} / ${d.auditHash}</small><div>${p(B?`${x(B.source)} · ${b(B.hash)}`:`尚未留存`)}</div></div>
+          <div><small class="meta">整體判定</small><div>${N(c.summary.overallStatus)}</div></div>
+          <div><small class="meta">正式判定</small><div>${N(c.summary.formalStatus)}</div></div>
+          <div><small class="meta">控制模式</small><div>${p(c.summary.governingMode)}</div></div>
+          <div><small class="meta">控制組合</small><div>${p(c.controllingLoadCaseName)}</div></div>
         </div>
       </section>
 
@@ -228,26 +228,26 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
           <h2>產品與案例</h2>
           <p><strong>${p(F.brand)} ${p(F.model)}</strong> / ${p(g(F.family))}</p>
           <ul>
-            <li>錨栓直徑 da = ${p(S(F.diameterMm,`length`,R))}</li>
-            <li>Ase = ${p(S(F.effectiveAreaMm2,`area`,R))}</li>
-            <li>目前單位 = ${p(i(`length`,R))} / ${p(i(`area`,R))} / ${p(i(`force`,R))} / ${p(i(`stress`,R))}</li>
+            <li>錨栓直徑 da = ${p(C(F.diameterMm,`length`,R))}</li>
+            <li>Ase = ${p(C(F.effectiveAreaMm2,`area`,R))}</li>
+            <li>目前單位 = ${p(s(`length`,R))} / ${p(s(`area`,R))} / ${p(s(`force`,R))} / ${p(s(`stress`,R))}</li>
             <li>產品完整性 = ${p(I.formal?`正式判定`:`需補資料`)}</li>
             <li>案件計算版本 = <code>${p(W.projectVersion)}</code></li>
             <li>目前工具版本 = <code>${p(W.runtimeVersion)}</code> / build ${p(y(n))}</li>
-            <li>基板承壓 = ${p(M.project.layout.basePlateBearingEnabled?`已啟用（A1 ${S(D(M),`area`,R)} / ${k(X)}${Z.widthMm>0&&Z.heightMm>0?` / B × N ${S(Z.widthMm,`length`,R)} × ${S(Z.heightMm,`length`,R)}`:``}${(M.project.layout.columnCentroidOffsetXmm??0)!==0||(M.project.layout.columnCentroidOffsetYmm??0)!==0?` / 柱偏移 ${S(M.project.layout.columnCentroidOffsetXmm??0,`length`,R)} × ${S(M.project.layout.columnCentroidOffsetYmm??0,`length`,R)}`:``}${M.project.layout.basePlateBendingEnabled?` / tp ${S(M.project.layout.basePlateThicknessMm,`length`,R)} / Fy ${S(M.project.layout.basePlateSteelYieldMpa,`stress`,R)}`:``}）`:`未啟用`)}</li>
+            <li>基板承壓 = ${p(M.project.layout.basePlateBearingEnabled?`已啟用（A1 ${C(O(M),`area`,R)} / ${k(X)}${Z.widthMm>0&&Z.heightMm>0?` / B × N ${C(Z.widthMm,`length`,R)} × ${C(Z.heightMm,`length`,R)}`:``}${(M.project.layout.columnCentroidOffsetXmm??0)!==0||(M.project.layout.columnCentroidOffsetYmm??0)!==0?` / 柱偏移 ${C(M.project.layout.columnCentroidOffsetXmm??0,`length`,R)} × ${C(M.project.layout.columnCentroidOffsetYmm??0,`length`,R)}`:``}${M.project.layout.basePlateBendingEnabled?` / tp ${C(M.project.layout.basePlateThicknessMm,`length`,R)} / Fy ${C(M.project.layout.basePlateSteelYieldMpa,`stress`,R)}`:``}）`:`未啟用`)}</li>
           </ul>
           ${Y?`<p class="meta">耐震路徑狀態：${p(Y.title)} / ${p(Y.stateMessage)}${Y.recommendation?` 建議：${p(Y.recommendation.title)}。`:``}</p>`:``}
         </article>
         <article class="card">
           <h2>總結</h2>
           <ul>
-            <li>控制 DCR = ${p(m(E(o.summary)))}</li>
-            <li>批次最大數值 DCR = ${p(m(o.summary.maxDcr))}</li>
-            <li>控制拉力 = ${p(o.summary.governingTensionMode)}</li>
-            <li>控制剪力 = ${p(o.summary.governingShearMode)}</li>
+            <li>控制 DCR = ${p(m(D(c.summary)))}</li>
+            <li>批次最大數值 DCR = ${p(m(c.summary.maxDcr))}</li>
+            <li>控制拉力 = ${p(c.summary.governingTensionMode)}</li>
+            <li>控制剪力 = ${p(c.summary.governingShearMode)}</li>
             <li>最新留痕 = ${p(B?`${b(B.hash)} / ${x(B.source)}`:`未留存`)}</li>
           </ul>
-          ${E(o.summary)<o.summary.maxDcr?`<p class="meta">控制 DCR 跟隨 severity 判定；最大數值 DCR 僅供統計比較。</p>`:``}
+          ${D(c.summary)<c.summary.maxDcr?`<p class="meta">控制 DCR 跟隨 severity 判定；最大數值 DCR 僅供統計比較。</p>`:``}
         </article>
       </section>
 
@@ -286,9 +286,9 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
         <div class="geometry-wrap">
           ${P(M,R)}
         </div>
-        ${M.project.layout.basePlateBearingEnabled?`<p class="meta">基板承壓：A1 ${p(S(D(M),`area`,R))} / A2 ${p(S(M.project.layout.basePlateSupportAreaMm2,`area`,R))}${(M.project.layout.basePlateLoadedWidthMm??0)>0&&(M.project.layout.basePlateLoadedHeightMm??0)>0?` / b1 × h1 ${p(S(M.project.layout.basePlateLoadedWidthMm??0,`length`,R))} × ${p(S(M.project.layout.basePlateLoadedHeightMm??0,`length`,R))}`:``}${Z.widthMm>0&&Z.heightMm>0?` / B × N ${p(S(Z.widthMm,`length`,R))} × ${p(S(Z.heightMm,`length`,R))}`:``}${(M.project.layout.columnCentroidOffsetXmm??0)!==0||(M.project.layout.columnCentroidOffsetYmm??0)!==0?` / 柱偏移 ${p(S(M.project.layout.columnCentroidOffsetXmm??0,`length`,R))} × ${p(S(M.project.layout.columnCentroidOffsetYmm??0,`length`,R))}`:``} / ${p(k(X))}${X===`custom`?` / Sx ${p(m(M.project.layout.basePlateSectionModulusXmm3??0))} mm³ / Sy ${p(m(M.project.layout.basePlateSectionModulusYmm3??0))} mm³`:``}</p>
+        ${M.project.layout.basePlateBearingEnabled?`<p class="meta">基板承壓：A1 ${p(C(O(M),`area`,R))} / A2 ${p(C(M.project.layout.basePlateSupportAreaMm2,`area`,R))}${(M.project.layout.basePlateLoadedWidthMm??0)>0&&(M.project.layout.basePlateLoadedHeightMm??0)>0?` / b1 × h1 ${p(C(M.project.layout.basePlateLoadedWidthMm??0,`length`,R))} × ${p(C(M.project.layout.basePlateLoadedHeightMm??0,`length`,R))}`:``}${Z.widthMm>0&&Z.heightMm>0?` / B × N ${p(C(Z.widthMm,`length`,R))} × ${p(C(Z.heightMm,`length`,R))}`:``}${(M.project.layout.columnCentroidOffsetXmm??0)!==0||(M.project.layout.columnCentroidOffsetYmm??0)!==0?` / 柱偏移 ${p(C(M.project.layout.columnCentroidOffsetXmm??0,`length`,R))} × ${p(C(M.project.layout.columnCentroidOffsetYmm??0,`length`,R))}`:``} / ${p(k(X))}${X===`custom`?` / Sx ${p(m(M.project.layout.basePlateSectionModulusXmm3??0))} mm³ / Sy ${p(m(M.project.layout.basePlateSectionModulusYmm3??0))} mm³`:``}</p>
                <p class="meta">${X===`custom`?`若以 b1 / h1 + 自訂 Sx / Sy 進入偏心承壓應力模式，b1 / h1 僅供接觸尺寸、kern 與 uplift 判讀；彎曲應力採自訂斷面模數。`:`若以 b1 / h1 進入偏心承壓應力模式，報表目前採矩形承壓區之 Sx / Sy 假設；非矩形基板請另按實際幾何檢算。`}${$===`manual`?``:` 基板抗彎若未手填 lx / ly，可由 ${p(A($))}、B / N 與柱尺寸自動推算。`}</p>
-               ${Q?`<p class="meta">AISC DG1 自動推算：m = ${p(S(Q.mMm,`length`,R))} / n = ${p(S(Q.nMm,`length`,R))} / λn' = ${p(S(Q.lambdaPrimeMm,`length`,R))} / 建議 lx = ${p(S(Q.xMm,`length`,R))} / ly = ${p(S(Q.yMm,`length`,R))}</p>`:``}`:``}
+               ${Q?`<p class="meta">AISC DG1 自動推算：m = ${p(C(Q.mMm,`length`,R))} / n = ${p(C(Q.nMm,`length`,R))} / λn' = ${p(C(Q.lambdaPrimeMm,`length`,R))} / 建議 lx = ${p(C(Q.xMm,`length`,R))} / ly = ${p(C(Q.yMm,`length`,R))}</p>`:``}`:``}
       </section>
 
       <section class="card">
@@ -296,12 +296,12 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
         <table>
           <thead><tr><th>組合</th><th>拉力 N</th><th>合成剪力 V</th><th>控制模式</th><th>控制 DCR</th><th>整體狀態</th></tr></thead>
           <tbody>
-            ${o.loadCaseReviews.map(e=>`<tr>
+            ${c.loadCaseReviews.map(e=>`<tr>
                   <td>${p(e.loadCaseName)}</td>
-                  <td>${p(S(e.review.analysisLoads.tensionKn,`force`,R))}</td>
-                  <td>${p(S(Math.hypot(e.review.analysisLoads.shearXKn,e.review.analysisLoads.shearYKn),`force`,R))}</td>
+                  <td>${p(C(e.review.analysisLoads.tensionKn,`force`,R))}</td>
+                  <td>${p(C(Math.hypot(e.review.analysisLoads.shearXKn,e.review.analysisLoads.shearYKn),`force`,R))}</td>
                   <td>${p(e.review.summary.governingMode)}</td>
-                  <td>${p(m(E(e.review.summary)))}</td>
+                  <td>${p(m(D(e.review.summary)))}</td>
                   <td>${N(e.review.summary.overallStatus)}</td>
                 </tr>`).join(``)}
           </tbody>
@@ -330,17 +330,17 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
               ${Y.recommendation?`<p class="meta">建議路徑：<strong>${p(Y.recommendation.title)}</strong>。${p(Y.recommendation.reason)}</p>`:``}
             </section>`:``}
 
-      ${l.length>1?`<section class="card">
+      ${u.length>1?`<section class="card">
               <h2>候選產品比選</h2>
               <table>
                 <thead><tr><th>產品</th><th>族群</th><th>控制組合</th><th>控制模式</th><th>控制 DCR</th><th>整體狀態</th><th>正式性</th></tr></thead>
                 <tbody>
-                  ${l.map(e=>`<tr>
+                  ${u.map(e=>`<tr>
                         <td>${p(e.product.brand)} ${p(e.product.model)}${e.product.id===F.id?`（目前選定）`:``}</td>
                         <td>${p(g(e.product.family))}</td>
                         <td>${p(e.batchReview.controllingLoadCaseName)}</td>
                         <td>${p(e.batchReview.summary.governingMode)}</td>
-                        <td>${p(m(E(e.batchReview.summary)))}</td>
+                        <td>${p(m(D(e.batchReview.summary)))}</td>
                         <td>${N(e.batchReview.summary.overallStatus)}</td>
                         <td>${N(e.batchReview.summary.formalStatus)}</td>
                       </tr>`).join(``)}
@@ -351,7 +351,7 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
                 <thead>
                   <tr>
                     <th>載重組合</th>
-                    ${l.map(e=>`<th>${p(e.product.brand)} ${p(e.product.model)}</th>`).join(``)}
+                    ${u.map(e=>`<th>${p(e.product.brand)} ${p(e.product.model)}</th>`).join(``)}
                   </tr>
                 </thead>
                 <tbody>${ie}</tbody>
@@ -365,10 +365,10 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
                 <tbody>
                   ${h.map(e=>`<tr>
                         <td>${p(e.variant.name)}${e.isCurrent?`（目前配置）`:``}</td>
-                        <td>${p(C(e.variant.layout,R))}</td>
+                        <td>${p(w(e.variant.layout,R))}</td>
                         <td>${p(e.batchReview.controllingLoadCaseName)}</td>
                         <td>${p(e.batchReview.summary.governingMode)}</td>
-                        <td>${p(m(E(e.batchReview.summary)))}</td>
+                        <td>${p(m(D(e.batchReview.summary)))}</td>
                         <td>${N(e.batchReview.summary.overallStatus)}</td>
                         <td>${N(e.batchReview.summary.formalStatus)}</td>
                       </tr>`).join(``)}
@@ -379,7 +379,7 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
                 <thead>
                   <tr>
                     <th>載重組合</th>
-                    ${h.map(e=>`<th>${p(e.variant.name)}<br /><small class="meta">${p(e.isCurrent?`目前配置`:C(e.variant.layout,R))}</small></th>`).join(``)}
+                    ${h.map(e=>`<th>${p(e.variant.name)}<br /><small class="meta">${p(e.isCurrent?`目前配置`:w(e.variant.layout,R))}</small></th>`).join(``)}
                   </tr>
                 </thead>
                 <tbody>${ae}</tbody>
@@ -393,9 +393,9 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
           <tbody>
             ${M.dimensionChecks.map(e=>`<tr>
                   <td>${p(e.label)}</td>
-                  <td>${p(S(e.actualMm,`length`,R))}</td>
-                  <td>${p(S(e.requiredMm,`length`,R))}</td>
-                  <td>${p(te(e.source))}</td>
+                  <td>${p(C(e.actualMm,`length`,R))}</td>
+                  <td>${p(C(e.requiredMm,`length`,R))}</td>
+                  <td>${p(S(e.source))}</td>
                   <td>${p(_(e.citation.title,e.citation.clause))}</td>
                   <td>${N(e.status)}</td>
                 </tr>`).join(``)}
@@ -409,10 +409,10 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
           <thead><tr><th>模式</th><th>條文</th><th>需求值</th><th>設計值</th><th>DCR</th><th>狀態</th></tr></thead>
           <tbody>
             ${q.map(e=>`<tr>
-                  <td>${p(e.mode)}<br /><small class="meta">${p(c(e,R))}</small></td>
+                  <td>${p(e.mode)}<br /><small class="meta">${p(l(e,R))}</small></td>
                   <td>${p(_(e.citation.title,e.citation.clause))}</td>
-                  <td>${p(w(e,e.demandKn,R))}</td>
-                  <td>${p(w(e,e.designStrengthKn,R))}</td>
+                  <td>${p(T(e,e.demandKn,R))}</td>
+                  <td>${p(T(e,e.designStrengthKn,R))}</td>
                   <td>${p(m(e.dcr))}</td>
                   <td>${N(e.status)} ${p(e.formal?`正式`:`初篩 / 補資料`)}</td>
                 </tr>`).join(``)}
@@ -428,7 +428,7 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
             ${ne.map(e=>`<tr>
                   <td>${p(e.mode)}</td>
                   <td>${p(_(e.citation.title,e.citation.clause))}</td>
-                  <td>${p(T(e))}</td>
+                  <td>${p(E(e))}</td>
                   <td>${N(e.status)}</td>
                 </tr>`).join(``)}
           </tbody>
@@ -440,7 +440,7 @@ import{i as e,r as t,t as n}from"./appMeta-lzM6C23P.js";import{c as r,o as i}fro
               <table>
                 <thead><tr><th>欄位</th><th>目前值</th><th>文件 / 報告</th><th>頁碼 / 表號</th><th>已核對</th></tr></thead>
                 <tbody>
-                  ${J.map(e=>{let t=typeof e.rawValue==`number`&&e.quantity?S(e.rawValue,e.quantity,R):e.rawValue===void 0||e.rawValue===null||e.rawValue===``?`未填`:String(e.rawValue);return`<tr>
+                  ${J.map(e=>{let t=typeof e.rawValue==`number`&&e.quantity?C(e.rawValue,e.quantity,R):e.rawValue===void 0||e.rawValue===null||e.rawValue===``?`未填`:String(e.rawValue);return`<tr>
                         <td>${p(e.label)}</td>
                         <td>${p(t)}</td>
                         <td>${p(e.evidence?.documentName??`—`)}</td>
