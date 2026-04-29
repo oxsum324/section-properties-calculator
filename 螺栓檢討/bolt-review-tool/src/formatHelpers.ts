@@ -5,7 +5,11 @@
  *
  * 後續 P4「同盤工具共用模組」第一波候選之一；可移至 monorepo shared 套件。
  */
-import type { ProjectAuditSource, UnitPreferences } from './domain'
+import type {
+  AnchorLayout,
+  ProjectAuditSource,
+  UnitPreferences,
+} from './domain'
 import {
   getUnitSymbol,
   toDisplayValue,
@@ -95,6 +99,31 @@ export function auditSourceLabel(source: ProjectAuditSource): string {
 export function parseNumber(value: string, fallback = 0): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
+}
+
+/**
+ * 候選配置 / Layout variant 一行摘要：
+ *   "{nx} × {ny}（{count} 支） / hef {…} / sx {…} / sy {…} / cmin {…}"
+ * 同時供 LayoutVariantsPanel / ReportDocument / reportExport 共用。
+ */
+export function formatLayoutVariantSummary(
+  layout: AnchorLayout,
+  units: UnitPreferences,
+): string {
+  const anchorCount = layout.anchorCountX * layout.anchorCountY
+  const minimumEdge = Math.min(
+    layout.edgeLeftMm,
+    layout.edgeRightMm,
+    layout.edgeBottomMm,
+    layout.edgeTopMm,
+  )
+  return [
+    `${layout.anchorCountX} × ${layout.anchorCountY}（${anchorCount} 支）`,
+    `hef ${formatQuantity(layout.effectiveEmbedmentMm, 'length', units)}`,
+    `sx ${formatQuantity(layout.spacingXmm, 'length', units)}`,
+    `sy ${formatQuantity(layout.spacingYmm, 'length', units)}`,
+    `cmin ${formatQuantity(minimumEdge, 'length', units)}`,
+  ].join(' / ')
 }
 
 /** 檔案大小友善顯示：B / KB / MB */

@@ -1,29 +1,5 @@
-import type {
-  AnchorLayout,
-  ProjectLayoutVariant,
-  UnitPreferences,
-} from './domain'
-import { formatQuantity } from './formatHelpers'
-
-function formatLayoutVariantSummary(
-  layout: AnchorLayout,
-  units: UnitPreferences,
-) {
-  const anchorCount = layout.anchorCountX * layout.anchorCountY
-  const minimumEdge = Math.min(
-    layout.edgeLeftMm,
-    layout.edgeRightMm,
-    layout.edgeBottomMm,
-    layout.edgeTopMm,
-  )
-  return [
-    `${layout.anchorCountX} × ${layout.anchorCountY}（${anchorCount} 支）`,
-    `hef ${formatQuantity(layout.effectiveEmbedmentMm, 'length', units)}`,
-    `sx ${formatQuantity(layout.spacingXmm, 'length', units)}`,
-    `sy ${formatQuantity(layout.spacingYmm, 'length', units)}`,
-    `cmin ${formatQuantity(minimumEdge, 'length', units)}`,
-  ].join(' / ')
-}
+import type { ProjectLayoutVariant, UnitPreferences } from './domain'
+import { formatLayoutVariantSummary } from './formatHelpers'
 
 /**
  * 候選配置比選面板：在主畫面維持單一幾何輸入的前提下，把目前配置存成候選；
