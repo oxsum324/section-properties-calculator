@@ -2,7 +2,6 @@ import {
   Suspense,
   lazy,
   startTransition,
-  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -29,7 +28,7 @@ import {
   evaluateLayoutVariants,
   evaluateProjectBatch,
 } from './calc'
-import { db, ensureSeedData, resetLocalDatabase } from './db'
+import { db } from './db'
 import {
   normalizeReportSettings,
   defaultProducts,
@@ -129,6 +128,7 @@ import {
 import { useProductLibrary } from './useProductLibrary'
 import { useProjectLibrary } from './useProjectLibrary'
 import { useReportExports } from './useReportExports'
+import { useWorkspaceHydration } from './useWorkspaceHydration'
 import {
   auditSourceLabel,
   formatDateTime,
@@ -1768,11 +1768,7 @@ function App() {
   const [project, setProject] = useState<ProjectCase>(() =>
     cloneProject(defaultProject),
   )
-  const [hydrated, setHydrated] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [hydrationError, setHydrationError] = useState<string | null>(null)
-  const [hydrationRetryCount, setHydrationRetryCount] = useState(0)
-  const [isResetting, setIsResetting] = useState(false)
+  // 啟動水合 5 個 state + 2 個 callback 已下放至 useWorkspaceHydration（hook 呼叫於下方）
   const [saveMessage, setSaveMessage] = useState('尚未同步到本機資料庫')
   // 短暫 toast：每次 saveMessage 變更且已 hydrated 時浮現 3.5 秒後自動消失
   const [toast, setToast] = useState<{ id: number; message: string } | null>(
@@ -1841,91 +1837,22 @@ function App() {
   // loadCaseCsvInputRef 已下放至 useLoadCaseLibrary
   // documentInputRef 已下放至 useDocumentLibrary
 
-  useEffect(() => {
-    let mounted = true
-
-    async function loadAppState() {
-      setLoading(true)
-      setHydrationError(null)
-      try {
-        await ensureSeedData()
-        const storedProducts = await db.products.toArray()
-        const storedProjects = await db.projects.toArray()
-        const nextProducts =
-          storedProducts.length > 0 ? storedProducts : defaultProducts
-        const nextProjects = (
-          storedProjects.length > 0 ? storedProjects : [defaultProject]
-        ).map((item) => normalizeProjectSelection(item, nextProducts))
-        const initialProject =
-          [...nextProjects].sort(
-            (left, right) =>
-              new Date(right.updatedAt).getTime() -
-              new Date(left.updatedAt).getTime(),
-          )[0] ?? cloneProject(defaultProject)
-
-        if (!mounted) {
-          return
-        }
-
-        setProducts(nextProducts)
-        setProjects(nextProjects)
-        setActiveProjectId(initialProject.id)
-        setProject(initialProject)
-        setHydrated(true)
-      } catch (error) {
-        if (!mounted) {
-          return
-        }
-        console.error('[bolt-review] 啟動載入失敗', error)
-        const message =
-          error instanceof Error ? error.message : String(error ?? '未知錯誤')
-        setHydrationError(message)
-        // fallback：以 defaults 讓使用者至少能操作，但不 setHydrated 以避免覆寫 DB
-        setProducts(defaultProducts)
-        setProjects([cloneProject(defaultProject)])
-        setActiveProjectId(defaultProject.id)
-        setProject(cloneProject(defaultProject))
-      } finally {
-        if (mounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    void loadAppState()
-
-    return () => {
-      mounted = false
-    }
-  }, [hydrationRetryCount])
-
-  const retryHydration = useCallback(() => {
-    setHydrationRetryCount((count) => count + 1)
-  }, [])
-
-  const resetLocalDatabaseAndReload = useCallback(async () => {
-    if (isResetting) {
-      return
-    }
-    const confirmed = window.confirm(
-      '將清除本機所有案例、產品與文件附件並重建預設資料。此操作不可復原，是否繼續？',
-    )
-    if (!confirmed) {
-      return
-    }
-    setIsResetting(true)
-    try {
-      await resetLocalDatabase()
-      setHydrationRetryCount((count) => count + 1)
-    } catch (error) {
-      console.error('[bolt-review] 清空本機資料失敗', error)
-      const message =
-        error instanceof Error ? error.message : String(error ?? '未知錯誤')
-      setHydrationError(`清空本機資料失敗：${message}`)
-    } finally {
-      setIsResetting(false)
-    }
-  }, [isResetting])
+  // 啟動水合：讀取 IndexedDB → 失敗 fallback → 提供 retry / reset 兩個 callback
+  const {
+    hydrated,
+    loading,
+    hydrationError,
+    isResetting,
+    retryHydration,
+    resetLocalDatabaseAndReload,
+  } = useWorkspaceHydration({
+    setProducts,
+    setProjects,
+    setActiveProjectId,
+    setProject,
+    cloneProject,
+    normalizeProjectSelection,
+  })
 
   const selectedProduct =
     products.find((item) => item.id === project.selectedProductId) ?? products[0]
