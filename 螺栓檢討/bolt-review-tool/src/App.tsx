@@ -105,6 +105,11 @@ import { TopHeaderToolbar } from './TopHeaderToolbar'
 import { UnitNumberField } from './UnitNumberField'
 import { useAuditTrail } from './useAuditTrail'
 import { useAutoSave } from './useAutoSave'
+import {
+  useActiveTabPersistence,
+  usePwaInstallPrompt,
+  useServiceWorkerUpdate,
+} from './useBrowserIntegration'
 import { useCommandPaletteCommands } from './useCommandPaletteCommands'
 import { useDocumentLibrary } from './useDocumentLibrary'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
@@ -768,16 +773,13 @@ function App() {
   // isDirty / toast 已下放至 useAutoSave（hook 呼叫於下方）
   const [showShortcutHelp, setShowShortcutHelp] = useState(false)
   const [isDraggingFile, setIsDraggingFile] = useState(false)
-  // SW 新版可用時顯示 banner 提示重新載入
-  const [swUpdateAvailable, setSwUpdateAvailable] = useState(false)
+  // SW 新版可用時顯示 banner（hook 內部監聽 CustomEvent）
+  const { swUpdateAvailable, setSwUpdateAvailable } = useServiceWorkerUpdate()
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [paletteQuery, setPaletteQuery] = useState('')
-  // PWA 可安裝事件：若瀏覽器支援，beforeinstallprompt 會被攔截，顯示一鍵安裝按鈕
-  const installPromptRef = useRef<{
-    prompt: () => Promise<void>
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-  } | null>(null)
-  const [canInstallPwa, setCanInstallPwa] = useState(false)
+  // PWA 安裝事件 hook：攔截 beforeinstallprompt + appinstalled，提供 ref + flag
+  const { installPromptRef, canInstallPwa, setCanInstallPwa } =
+    usePwaInstallPrompt()
   // H 型鋼周邊錨栓 helper 的 6 個輸入狀態已下放至 HSectionAnchorHelperPanel 自管
   // 錨頭承壓面積 A_brg 換算輔助 3 個輸入狀態已下放至 ProductEvaluationPanel 自管
 
@@ -793,58 +795,9 @@ function App() {
     normalizeProjectSelection,
   })
 
-  // 保存最後 active tab 到 localStorage，供下次回來自動恢復
-  useEffect(() => {
-    if (typeof window === 'undefined' || !hydrated) {
-      return
-    }
-    try {
-      window.localStorage.setItem(
-        'bolt-review-tool:lastActiveTab',
-        activeTab,
-      )
-    } catch {
-      // 隱私模式 / quota 等情境忽略；不影響主流程
-    }
-  }, [activeTab, hydrated])
-
-  // SW 新版可用：main.tsx 會 dispatch CustomEvent，這裡監聽並顯示 banner
-  useEffect(() => {
-    const handler = () => setSwUpdateAvailable(true)
-    window.addEventListener(
-      'bolt-review-tool:sw-update-available',
-      handler as EventListener,
-    )
-    return () => {
-      window.removeEventListener(
-        'bolt-review-tool:sw-update-available',
-        handler as EventListener,
-      )
-    }
-  }, [])
-
-  // PWA 安裝事件：攔截 beforeinstallprompt 後待使用者點擊「安裝」按鈕觸發
-  useEffect(() => {
-    const handler = (event: Event) => {
-      event.preventDefault()
-      // BeforeInstallPromptEvent 不在標準 lib.dom，cast 為 unknown 後當作物件用
-      installPromptRef.current = event as unknown as {
-        prompt: () => Promise<void>
-        userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-      }
-      setCanInstallPwa(true)
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-    const onInstalled = () => {
-      installPromptRef.current = null
-      setCanInstallPwa(false)
-    }
-    window.addEventListener('appinstalled', onInstalled)
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler)
-      window.removeEventListener('appinstalled', onInstalled)
-    }
-  }, [])
+  // active tab 持久化、SW 升級監聽、PWA 安裝事件 3 個 useEffect 已下放至
+  // useActiveTabPersistence / useServiceWorkerUpdate / usePwaInstallPrompt
+  useActiveTabPersistence({ activeTab, hydrated })
 
   // 有未儲存變更時，關閉分頁前給瀏覽器原生提示
   useEffect(() => {
