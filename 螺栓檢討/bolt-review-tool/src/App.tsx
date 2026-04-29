@@ -2,7 +2,6 @@ import {
   Suspense,
   lazy,
   startTransition,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -125,9 +124,14 @@ import {
   loadCaseDelimitedHeaderRow,
   loadCaseDelimitedExampleRow,
 } from './useLoadCaseLibrary'
+import {
+  buildCandidateComparisonMatrix,
+  buildLayoutComparisonMatrix,
+} from './reviewArtifacts'
 import { useProductLibrary } from './useProductLibrary'
 import { useProjectLibrary } from './useProjectLibrary'
 import { useReportExports } from './useReportExports'
+import { useReviewArtifacts } from './useReviewArtifacts'
 import { useWorkspaceHydration } from './useWorkspaceHydration'
 import {
   auditSourceLabel,
@@ -488,71 +492,10 @@ function formatEvidenceValue(
   return '未填'
 }
 
-type BatchReviewResult = ReturnType<typeof evaluateProjectBatch>
-type CandidateProductReview = ReturnType<typeof evaluateCandidateProducts>[number]
-type LayoutVariantReview = ReturnType<typeof evaluateLayoutVariants>[number]
+// BatchReviewResult / CandidateProductReview / LayoutVariantReview 型別已移至 ./reviewArtifacts
 
-function getCandidateLoadCaseReview(
-  candidateReview: CandidateProductReview,
-  loadCaseId: string,
-) {
-  return candidateReview.batchReview.loadCaseReviews.find(
-    (item) => item.loadCaseId === loadCaseId,
-  )
-}
-
-function buildCandidateComparisonMatrix(
-  batchReview: BatchReviewResult,
-  candidateProductReviews: ReturnType<typeof evaluateCandidateProducts>,
-) {
-  return batchReview.loadCaseReviews.map((loadCaseReview) => ({
-    loadCaseId: loadCaseReview.loadCaseId,
-    loadCaseName: loadCaseReview.loadCaseName,
-    isActive: loadCaseReview.loadCaseId === batchReview.activeLoadCaseId,
-    isControlling: loadCaseReview.loadCaseId === batchReview.controllingLoadCaseId,
-    candidateCells: candidateProductReviews.map((candidateReview) => ({
-      candidateReview,
-      loadCaseReview: getCandidateLoadCaseReview(
-        candidateReview,
-        loadCaseReview.loadCaseId,
-      ),
-      isControllingForProduct:
-        candidateReview.batchReview.controllingLoadCaseId ===
-        loadCaseReview.loadCaseId,
-    })),
-  }))
-}
-
-function getLayoutVariantLoadCaseReview(
-  layoutVariantReview: LayoutVariantReview,
-  loadCaseId: string,
-) {
-  return layoutVariantReview.batchReview.loadCaseReviews.find(
-    (item) => item.loadCaseId === loadCaseId,
-  )
-}
-
-function buildLayoutComparisonMatrix(
-  batchReview: BatchReviewResult,
-  layoutVariantReviews: LayoutVariantReview[],
-) {
-  return batchReview.loadCaseReviews.map((loadCaseReview) => ({
-    loadCaseId: loadCaseReview.loadCaseId,
-    loadCaseName: loadCaseReview.loadCaseName,
-    isActive: loadCaseReview.loadCaseId === batchReview.activeLoadCaseId,
-    isControlling: loadCaseReview.loadCaseId === batchReview.controllingLoadCaseId,
-    variantCells: layoutVariantReviews.map((layoutVariantReview) => ({
-      layoutVariantReview,
-      loadCaseReview: getLayoutVariantLoadCaseReview(
-        layoutVariantReview,
-        loadCaseReview.loadCaseId,
-      ),
-      isControllingForVariant:
-        layoutVariantReview.batchReview.controllingLoadCaseId ===
-        loadCaseReview.loadCaseId,
-    })),
-  }))
-}
+// 4 個比較矩陣 helper（getCandidateLoadCaseReview / buildCandidateComparisonMatrix /
+// getLayoutVariantLoadCaseReview / buildLayoutComparisonMatrix）已移至 ./reviewArtifacts
 
 // UnitNumberField 已移至 ./UnitNumberField
 
@@ -1860,58 +1803,29 @@ function App() {
     (project.candidateProductIds ?? [project.selectedProductId]).includes(item.id),
   )
   const candidateLayoutVariants = project.candidateLayoutVariants ?? []
-  const deferredProject = useDeferredValue(project)
-  const deferredProduct = useDeferredValue(selectedProduct)
-  const deferredCandidateProducts = useDeferredValue(candidateProducts)
-  const deferredCandidateLayoutVariants = useDeferredValue(candidateLayoutVariants)
   const unitPreferences = normalizeUnitPreferences(project.ui)
   const reportSettings = normalizeReportSettings(project.report)
   const simpleMode = unitPreferences.simpleMode
   const activeRuleProfile = getRuleProfileById(project.ruleProfileId)
   const ruleProfileOptions = getRuleProfileOptions()
-  // 重量級計算以 useMemo 快取；deferred 值變動才重算，避免使用者打字每 keystroke 都跑完整評估
-  const batchReview = useMemo(
-    () => evaluateProjectBatch(deferredProject, deferredProduct, activeRuleProfile),
-    [deferredProject, deferredProduct, activeRuleProfile],
-  )
-  const candidateProductReviews = useMemo(
-    () =>
-      evaluateCandidateProducts(
-        deferredProject,
-        deferredCandidateProducts,
-        activeRuleProfile,
-      ),
-    [deferredProject, deferredCandidateProducts, activeRuleProfile],
-  )
-  const layoutVariantReviews = useMemo(
-    () =>
-      evaluateLayoutVariants(
-        deferredProject,
-        deferredProduct,
-        deferredCandidateLayoutVariants,
-        activeRuleProfile,
-      ),
-    [
-      deferredProject,
-      deferredProduct,
-      deferredCandidateLayoutVariants,
-      activeRuleProfile,
-    ],
-  )
-  const candidateComparisonMatrix = useMemo(
-    () => buildCandidateComparisonMatrix(batchReview, candidateProductReviews),
-    [batchReview, candidateProductReviews],
-  )
-  const layoutComparisonMatrix = useMemo(
-    () => buildLayoutComparisonMatrix(batchReview, layoutVariantReviews),
-    [batchReview, layoutVariantReviews],
-  )
-  const bestCandidateReview = candidateProductReviews[0]
-  const bestLayoutVariantReview = layoutVariantReviews[0]
-  const review = batchReview.activeReview
-  const factorResults = review.results.filter(
-    (result) => result.factors && result.factors.length > 0,
-  )
+  // Review artifact 計算群（deferred + memo + 比較矩陣）已下放至 useReviewArtifacts
+  const {
+    batchReview,
+    candidateProductReviews,
+    layoutVariantReviews,
+    candidateComparisonMatrix,
+    layoutComparisonMatrix,
+    review,
+    factorResults,
+    bestCandidateReview,
+    bestLayoutVariantReview,
+  } = useReviewArtifacts({
+    project,
+    selectedProduct,
+    candidateProducts,
+    candidateLayoutVariants,
+    activeRuleProfile,
+  })
   const activeLoadCaseId = project.activeLoadCaseId ?? project.loadCases?.[0]?.id
   const activeLoadCase =
     project.loadCases?.find((item) => item.id === activeLoadCaseId) ??
