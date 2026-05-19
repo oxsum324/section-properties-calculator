@@ -123,6 +123,8 @@
 
   return {
     version: '0.1.0',
+    inputSchemaVersion: 'earth-pressure.input.v0.1',
+    logicSignature: 'earth-pressure-core:v0.1:rankine-surcharge-water-stability',
     normalizeInput,
     validateInput,
     calculate

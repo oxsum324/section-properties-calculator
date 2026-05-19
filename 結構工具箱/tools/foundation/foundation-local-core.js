@@ -115,6 +115,8 @@
 
   return {
     version: '0.1.0',
+    inputSchemaVersion: 'foundation-local.input.v0.1',
+    logicSignature: 'foundation-local-core:v0.1:service-stability:qmax-qmin-sliding-overturning',
     normalizeInput,
     validateInput,
     calculate

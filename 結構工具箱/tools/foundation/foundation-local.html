@@ -427,6 +427,8 @@
     const metaRows = [
       ['頁面版本', 'V0.1 初估 / 局部'],
       ['計算核心', `FoundationLocalCore v${Core.version || 'unknown'}`],
+      ['輸入格式', Core.inputSchemaVersion || 'unknown'],
+      ['計算指紋', Core.logicSignature || 'unknown'],
       ['產製時間', nowText()],
       ['適用範圍', '矩形淺基礎服務載重局部穩定檢核：底壓、偏心、抗滑與抗傾覆'],
       ['不適用範圍', '配筋、剪力、沉陷、樁基、筏基、聯合基礎、土壤互制或正式簽證設計']

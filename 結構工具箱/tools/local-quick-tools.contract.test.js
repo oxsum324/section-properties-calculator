@@ -118,16 +118,25 @@ for (const tool of tools) {
     tool.label,
     '初估',
     '列印計算書',
+    '輸入格式',
+    '計算指紋',
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));
 
   [
     tool.coreGlobal,
     "version: '0.1.0'",
+    'inputSchemaVersion',
+    'logicSignature',
     'function normalizeInput',
     'function validateInput',
     'function calculate',
     'module.exports',
   ].forEach(needle => assertIncludes(core, needle, `${tool.key} core`));
+
+  const api = require(corePath);
+  assert.equal(api.version, '0.1.0', `${tool.key} core version`);
+  assert.match(api.inputSchemaVersion, /\.input\.v0\.1$/, `${tool.key} input schema version`);
+  assert.ok(api.logicSignature.startsWith(`${tool.key}-core:v0.1:`), `${tool.key} logic signature`);
 
   [
     'goldenCases',

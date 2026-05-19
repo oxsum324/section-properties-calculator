@@ -101,6 +101,8 @@
 
   return {
     version: '0.1.0',
+    inputSchemaVersion: 'equipment-load.input.v0.1',
+    logicSignature: 'equipment-load-core:v0.1:point-contact-spread-horizontal',
     normalizeInput,
     validateInput,
     calculate

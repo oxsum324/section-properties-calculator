@@ -404,6 +404,8 @@
     const metaRows = [
       ['頁面版本', 'V0.1 初估 / 荷重整理'],
       ['計算核心', `EquipmentLoadCore v${Core.version || 'unknown'}`],
+      ['輸入格式', Core.inputSchemaVersion || 'unknown'],
+      ['計算指紋', Core.logicSignature || 'unknown'],
       ['產製時間', nowText()],
       ['適用範圍', '設備重量、支承點反力、接觸壓、1:1 分布壓、等效面載重與水平力初估'],
       ['不適用範圍', '樓板、梁、基礎、錨栓、振動、疲勞、衝擊或正式構件承載設計']

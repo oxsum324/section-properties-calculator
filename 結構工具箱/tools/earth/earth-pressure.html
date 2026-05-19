@@ -403,6 +403,8 @@
     const metaRows = [
       ['頁面版本', 'V0.1 初估 / 土壓'],
       ['計算核心', `EarthPressureCore v${Core.version || 'unknown'}`],
+      ['輸入格式', Core.inputSchemaVersion || 'unknown'],
+      ['計算指紋', Core.logicSignature || 'unknown'],
       ['產製時間', nowText()],
       ['適用範圍', '水平背填 Rankine 主動 / 靜止土壓、均佈超載、水壓與每公尺牆長簡化穩定檢核'],
       ['不適用範圍', 'Coulomb 牆摩擦、地震土壓、分層土、排水滲流、結構配筋與正式擋土牆設計']
