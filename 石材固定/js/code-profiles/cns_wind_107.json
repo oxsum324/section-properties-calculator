@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cns_wind_107",
+  "scope": "wind",
+  "name": "建築物耐風設計規範及解說（107 年版）",
+  "issued": "2018-XX-XX",
+  "publisher": "內政部營建署",
+  "supersedes": null,
+  "expires": null,
+  "params": {
+    "I_categories": {
+      "general": 1.0,
+      "important": 1.1,
+      "essential": 1.15
+    },
+    "exposure_classes": ["A", "B", "C"],
+    "design_pressure_factor_default": 1.25,
+    "GCpi_enclosed": 0.18,
+    "GCpi_partial": 0.55,
+    "Cpe_zone_4_typical": 1.07,
+    "Cpe_zone_5_typical": 1.07
+  },
+  "notes": "對應建築物耐風設計規範及解說，第 6 章 C&C 法。具體參數依規範表 6.2-1 縣市風速、表 4.2-1 用途係數、表 6.11-1 內壓係數、圖 6.11.4-1 外壓係數查表使用。"
+}

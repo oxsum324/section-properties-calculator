@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cns_stone_general",
+  "scope": "stone",
+  "name": "CNS 14448、CNS 6300 A1028 與 JASS 9 常用安全係數",
+  "issued": null,
+  "publisher": "中華民國國家標準 / 日本建築學會 JASS",
+  "supersedes": null,
+  "expires": null,
+  "params": {
+    "granite_grade1_fb": 70,
+    "granite_grade2_fb": 55,
+    "marble_fb": 35,
+    "sandstone_fb": 22,
+    "granite_grade1_ft": 45,
+    "granite_grade2_ft": 35,
+    "marble_ft": 22,
+    "sandstone_ft": 14,
+    "min_thickness_default_mm": 30,
+    "max_panel_area_default_m2": 1.0,
+    "back_anchor_cone_angle_deg_default": 30,
+    "back_anchor_cone_angle_deg_options": [20, 30, 45],
+    "thermal_alpha_stone_default": 8e-6,
+    "thermal_alpha_steel_default": 12e-6,
+    "thermal_delta_T_default": 40
+  },
+  "notes": "石材容許抗彎與局部破壞值整合 CNS 14448、CNS 6300 A1028 試驗值與日本 JASS 9 常用安全係數。本檔 fb / ft 數值對齊 js/constants.spec.js 之 STONE_GRADE_CATALOG（CNS 為主），V2.2.0 已校正 marble / sandstone 與 CONSTS 之差異。背擴孔錐形拉出 30° 為花崗岩常用，45° 需試驗佐證。"
+}

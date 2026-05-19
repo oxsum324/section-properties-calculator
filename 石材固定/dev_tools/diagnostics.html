@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>啟動診斷 ‧ 石材計算書產生器</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft JhengHei','Segoe UI',sans-serif;background:#f0f3f7;color:#222;padding:24px;line-height:1.6}
+.wrap{max-width:780px;margin:0 auto;background:#fff;padding:28px 36px;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+h1{font-size:21px;color:#1a3a5c;border-bottom:2px solid #1a3a5c;padding-bottom:8px;margin-bottom:6px}
+.subtitle{font-size:12.5px;color:#666;margin-bottom:18px}
+h2{font-size:15px;color:#1a3a5c;margin:20px 0 10px;border-left:4px solid #1a3a5c;padding-left:8px}
+.check{display:flex;align-items:flex-start;gap:8px;padding:8px 12px;margin:5px 0;border-radius:4px;background:#f8f9fb;border-left:3px solid #ccc;font-size:13px}
+.check.ok{background:#f0faf2;border-left-color:#1d6c2a}
+.check.warn{background:#fffaef;border-left-color:#d99a4a}
+.check.err{background:#fff3f3;border-left-color:#c62828}
+.check.pending{background:#f5f8fc;border-left-color:#5b7fa3}
+.check .ico{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.check .body{flex:1}
+.check .name{font-weight:bold;color:#222;margin-bottom:1px}
+.check .detail{font-size:11.5px;color:#555;line-height:1.55}
+.check .detail code{background:#eef2f8;padding:1px 5px;border-radius:3px;font-family:Consolas,monospace;font-size:11px;color:#1a3a5c}
+.btn{display:inline-block;padding:8px 14px;background:#1a3a5c;color:#fff;text-decoration:none;border-radius:4px;font-size:12.5px;font-weight:bold;border:none;cursor:pointer;margin-right:6px}
+.btn:hover{background:#2c5280}
+.btn.green{background:#196019}.btn.gray{background:#666}
+.summary-bar{padding:10px 14px;border-radius:4px;margin:14px 0;font-size:13px;font-weight:bold;text-align:center;border:2px solid}
+.summary-bar.ok{background:#e8f5e9;color:#1d6c2a;border-color:#1d6c2a}
+.summary-bar.warn{background:#fff8e1;color:#a5691a;border-color:#d99a4a}
+.summary-bar.err{background:#ffebee;color:#b71c1c;border-color:#c62828}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;padding-top:14px;border-top:1px dashed #d4dbe5}
+hr{border:none;border-top:1px solid #d6deea;margin:18px 0}
+table{width:100%;border-collapse:collapse;margin:6px 0;font-size:12px}
+th,td{border:1px solid #ccd4df;padding:5px 8px;text-align:left}
+th{background:#eaf2fb;color:#1a3a5c}
+.code-box{background:#f7f9fc;border-left:3px solid #2c5280;padding:8px 12px;font-family:Consolas,monospace;font-size:11.5px;line-height:1.5;border-radius:3px;margin:6px 0;overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🩺 啟動診斷</h1>
+  <p class="subtitle">檢查石材計算書產生器運作所需的環境配置與相依資源是否就緒。</p>
+
+  <div class="summary-bar pending" id="summary">⏳ 診斷執行中…</div>
+
+  <h2>瀏覽器環境</h2>
+  <div id="grp_browser"></div>
+
+  <h2>V2 主檔資源</h2>
+  <div id="grp_html"></div>
+
+  <h2>計算核心模組</h2>
+  <div id="grp_calc"></div>
+
+  <h2>渲染引擎（KaTeX）</h2>
+  <div id="grp_katex"></div>
+
+  <h2>本地伺服器（auto_word.py）</h2>
+  <div id="grp_server"></div>
+
+  <h2>本機儲存（LocalStorage）</h2>
+  <div id="grp_storage"></div>
+
+  <h2>金樣本護欄（baseline harness）</h2>
+  <div id="grp_baseline"></div>
+
+  <div class="btn-row">
+    <button class="btn" onclick="runDiagnostics()">🔄 重新檢測</button>
+    <a class="btn green" href="../石材計算書產生器_規範版V2.html">🚀 開啟 V2 主工具</a>
+    <a class="btn gray" href="../石材計算書產生器_規範版V2.html?dev=1">🛡 V2 Dev 模式</a>
+    <a class="btn gray" href="./baseline_capture.html">📸 Baseline Capture</a>
+    <a class="btn gray" href="./architecture.md">📖 架構文件</a>
+  </div>
+
+  <hr>
+
+  <h2>診斷結果原始資料（JSON）</h2>
+  <div class="code-box" id="raw_dump">尚未執行</div>
+
+  <p style="text-align:center;color:#888;font-size:11px;margin-top:18px">
+    弘一工程顧問有限公司 ‧ 啟動診斷 v1.0
+  </p>
+</div>
+
+<script>
+const V2_URL = '../石材計算書產生器_規範版V2.html';
+const SERVER_URL = 'http://127.0.0.1:8765/';
+const KATEX_CSS = '../vendor/katex/katex.min.css';
+const KATEX_JS = '../vendor/katex/katex.min.js';
+const KATEX_AUTO = '../vendor/katex/contrib/auto-render.min.js';
+const CALC_FILES = [
+  '../js/calculator.spec.js',
+  '../js/constants.spec.js',
+  '../js/formula-registry.spec.js'
+];
+const BASELINE_FILES = [
+  '../tests/golden/case_01_standard_safe.json',
+  '../tests/golden/case_02_dcr_near_limit.json',
+  '../tests/golden/case_03_pin_4h_30mm.json',
+  '../tests/golden/case_04_wind_control.json',
+  '../tests/golden/case_05_seismic_control.json'
+];
+
+function row(group, status, name, detail){
+  const cls = status === 'ok' ? 'ok' : status === 'warn' ? 'warn' : status === 'err' ? 'err' : 'pending';
+  const ico = status === 'ok' ? '✓' : status === 'warn' ? '⚠' : status === 'err' ? '✗' : '⏳';
+  const div = document.createElement('div');
+  div.className = `check ${cls}`;
+  div.innerHTML = `<span class="ico">${ico}</span><div class="body"><div class="name">${name}</div><div class="detail">${detail}</div></div>`;
+  document.getElementById(group).appendChild(div);
+  return { group, status, name, detail };
+}
+
+async function fetchOk(url){
+  try{
+    const r = await fetch(url, {method:'HEAD'});
+    return r.ok;
+  }catch(e){
+    try{
+      const r = await fetch(url);
+      return r.ok;
+    }catch(_){ return false; }
+  }
+}
+
+async function runDiagnostics(){
+  // Reset
+  ['grp_browser','grp_html','grp_calc','grp_katex','grp_server','grp_storage','grp_baseline'].forEach(id=>document.getElementById(id).innerHTML='');
+  const raw = [];
+
+  // 瀏覽器環境
+  raw.push(row('grp_browser', 'ok', '瀏覽器版本',
+    `<code>${navigator.userAgent}</code>`));
+  raw.push(row('grp_browser',
+    typeof crypto?.subtle?.digest === 'function' ? 'ok' : 'err',
+    'Web Crypto API (SHA-256)',
+    typeof crypto?.subtle?.digest === 'function'
+      ? '可用：用於 calc_source_hash 自動指紋與 baseline integrity 比對'
+      : '不可用：影響公式指紋計算（建議升級瀏覽器或改用 https/file://）'));
+  raw.push(row('grp_browser',
+    typeof TextEncoder !== 'undefined' ? 'ok' : 'err',
+    'TextEncoder',
+    typeof TextEncoder !== 'undefined' ? '可用' : '不可用'));
+  raw.push(row('grp_browser',
+    location.protocol === 'http:' || location.protocol === 'https:' ? 'ok' : 'warn',
+    `URL 協定：${location.protocol}`,
+    location.protocol === 'file:'
+      ? 'file:// 環境下 fetch 受限，calc_source_hash 可能無法計算。建議透過本地伺服器（auto_word.py 內建 :8765）開啟 V2。'
+      : '透過 http/https 開啟，fetch 完整可用'));
+
+  // V2 HTML
+  const v2Ok = await fetchOk(V2_URL);
+  raw.push(row('grp_html',
+    v2Ok ? 'ok' : 'err',
+    'V2 主檔 (石材計算書產生器_規範版V2.html)',
+    v2Ok ? `<code>${V2_URL}</code> 可載入` : `無法載入 <code>${V2_URL}</code>`));
+
+  // calc-core 三檔
+  const calcResults = await Promise.all(CALC_FILES.map(f => fetchOk(f).then(ok => ({f, ok}))));
+  calcResults.forEach(({f, ok})=>{
+    const fname = f.split('/').pop();
+    raw.push(row('grp_calc',
+      ok ? 'ok' : 'err',
+      fname,
+      ok ? `<code>${f}</code> 可載入` : `無法載入 <code>${f}</code>（V2 計算將失敗）`));
+  });
+
+  // KaTeX
+  const katexOk = await fetchOk(KATEX_CSS) && await fetchOk(KATEX_JS) && await fetchOk(KATEX_AUTO);
+  raw.push(row('grp_katex',
+    katexOk ? 'ok' : 'warn',
+    'KaTeX 0.16.x 字型 + JS',
+    katexOk ? '本地離線版可用，公式可完整渲染'
+            : 'KaTeX 載入失敗，公式會退回純文字（不影響計算正確性）'));
+
+  // 伺服器
+  let serverInfo = null;
+  try{
+    const r = await fetch(SERVER_URL + 'health', { signal: AbortSignal.timeout(2000) });
+    if(r.ok){ serverInfo = await r.json().catch(()=>({})); }
+  }catch(e){ serverInfo = null; }
+  raw.push(row('grp_server',
+    serverInfo ? 'ok' : 'warn',
+    '本地伺服器 (auto_word.py)',
+    serverInfo
+      ? `已連線：<code>${SERVER_URL}</code>${serverInfo.tool_html ? '；伺服器版本 HTML：<code>'+serverInfo.tool_html+'</code>' : ''}`
+      : `未啟動或無法連線（<code>${SERVER_URL}</code>）。離線使用 V2 仍可，但 ⚡ PDF→Word 自動匯出將不可用。<br>啟動方法：執行 <code>啟動伺服器.bat</code>`));
+
+  // LocalStorage
+  let storageOk = true, storageDetail = '';
+  try{
+    const test = '__v2_diag_'+Date.now();
+    localStorage.setItem(test, '1');
+    localStorage.removeItem(test);
+    const v3 = localStorage.getItem('stone_calc_spec_v3');
+    const v1 = localStorage.getItem('stone_calc_spec_v1');
+    if(v3) storageDetail = '✓ 已存在 v3 schema 專案資料';
+    else if(v1) storageDetail = '⚠ 僅有 v1 schema 資料；載入 V2 時會自動遷移為 v3';
+    else storageDetail = '尚無已儲存資料';
+  }catch(e){
+    storageOk = false;
+    storageDetail = `寫入測試失敗：${e.message}（隱私模式或配額已滿？）`;
+  }
+  raw.push(row('grp_storage',
+    storageOk ? 'ok' : 'err',
+    'LocalStorage 可寫',
+    storageDetail));
+
+  // Baseline harness
+  const blResults = await Promise.all(BASELINE_FILES.map(f => fetchOk(f).then(ok => ({f, ok}))));
+  const blPresent = blResults.filter(b => b.ok).length;
+  raw.push(row('grp_baseline',
+    blPresent === BASELINE_FILES.length ? 'ok' : (blPresent > 0 ? 'warn' : 'err'),
+    `Golden Samples (${blPresent}/${BASELINE_FILES.length})`,
+    blPresent === BASELINE_FILES.length
+      ? `5 組基準案例完備，可執行漂移偵測`
+      : `僅 ${blPresent} 組可載入；建議跑 <code>python tests/golden/auto_capture.py</code> 重新拍攝`));
+  // 比對 baseline 內 calc_source_hash 與目前是否一致（須能 fetch 計算）
+  if(blPresent > 0){
+    try{
+      const bl0 = await fetch(BASELINE_FILES[0]).then(r => r.json());
+      const blHash = bl0?.captured_env?.calc_source_hash || '—';
+      raw.push(row('grp_baseline', 'ok',
+        '基準案例公式指紋（最新）',
+        `<code>${blHash.slice(0, 32)}…</code>`));
+    }catch(e){}
+  }
+
+  // 結論
+  const errCnt = raw.filter(r=>r.status==='err').length;
+  const warnCnt = raw.filter(r=>r.status==='warn').length;
+  const okCnt = raw.filter(r=>r.status==='ok').length;
+  const summary = document.getElementById('summary');
+  if(errCnt > 0){
+    summary.className = 'summary-bar err';
+    summary.textContent = `✗ 偵測到 ${errCnt} 項錯誤、${warnCnt} 項警告（${okCnt} 項通過）。請優先處理錯誤項目。`;
+  } else if(warnCnt > 0){
+    summary.className = 'summary-bar warn';
+    summary.textContent = `⚠ 通過 ${okCnt} 項；${warnCnt} 項警告（不影響核心功能，但建議確認）`;
+  } else {
+    summary.className = 'summary-bar ok';
+    summary.textContent = `✓ 全部 ${okCnt} 項通過，工具就緒可正式使用`;
+  }
+
+  document.getElementById('raw_dump').textContent = JSON.stringify(raw, null, 2);
+}
+
+runDiagnostics();
+</script>
+</body>
+</html>

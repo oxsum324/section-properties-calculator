@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cns_seismic_113",
+  "scope": "seismic",
+  "name": "建築物耐震設計規範及解說（113 年版）",
+  "issued": "2024-XX-XX",
+  "publisher": "內政部營建署",
+  "supersedes": "cns_seismic_111",
+  "expires": null,
+  "params": {
+    "Fph_simple_factor": 1.6,
+    "Fph_detailed_lower_factor": 0.3,
+    "Fph_detailed_upper_factor": 1.6,
+    "Fph_detailed_base_factor": 0.4,
+    "ap_default": 1.0,
+    "ap_rigid": 1.0,
+    "ap_flexible": 2.5,
+    "Rp_stone_panel_default": 2.5,
+    "Rp_rigid_component": 1.5,
+    "PEV_factor_conservative": 0.5,
+    "PEV_factor_standard": 0.2,
+    "Ip_categories": {
+      "general": 1.0,
+      "important": 1.25,
+      "essential": 1.5
+    },
+    "Ip_facade_minimum": 1.5
+  },
+  "notes": "對應建築物耐震設計規範第 13.5 節非結構組件。Fph 簡式 = 1.6×SDS×Ip×Wp；細式 = 0.4×ap×SDS×Ip×(1+2z/h)×Wp/Rp，並受 0.3SDSIpWp 與 1.6SDSIpWp 上下限控制。"
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0.0",
+  "description": "verifier.py 交叉驗算容許值配置；不同檢核類型有不同的合理誤差範圍。",
+  "design_intent": "verifier.py 故意以獨立公式實作驗算 V2 主流程結果。差異 <= tolerance 視為通過；超出視為「需人工復核」。",
+  "tolerances": {
+    "global_default": {
+      "rel_tol": 1e-6,
+      "abs_tol": 1e-6,
+      "description": "預設嚴格容許值（封閉式公式）"
+    },
+    "by_field_kind": {
+      "closed_form": {
+        "rel_tol": 1e-6,
+        "abs_tol": 1e-6,
+        "applies_to": ["A", "G", "Wp", "Fph", "PE", "PEV", "T", "V", "S", "P"],
+        "description": "封閉式公式：應完全相符（浮點誤差容許）"
+      },
+      "empirical": {
+        "rel_tol": 0.02,
+        "abs_tol": 1e-3,
+        "applies_to": ["Cpe", "GCpi", "ap"],
+        "description": "經驗公式或內插值：±2% 容許"
+      },
+      "table_lookup": {
+        "rel_tol": 0.005,
+        "abs_tol": 1e-3,
+        "applies_to": ["Kz", "SDS", "Ip"],
+        "description": "規範查表：±0.5% 容許（內插誤差）"
+      },
+      "dcr": {
+        "rel_tol": 1e-4,
+        "abs_tol": 1e-4,
+        "must_not_cross": [0.9, 1.0],
+        "applies_to": ["DCR"],
+        "description": "DCR 必須極嚴格相符；跨門檻 0.9/1.0 即使在容許內也視為差異（責任風險守衛）"
+      }
+    },
+    "categorical_must_match": [
+      "gov_wind", "all_ok", "pass", "governing_check",
+      "item", "category", "tier", "sense", "severity"
+    ]
+  },
+  "behavior": {
+    "on_within_tolerance": "PASS — 視為一致",
+    "on_exceed_tolerance": "WARN — 標示「需人工復核」，列出差異",
+    "on_categorical_mismatch": "ERROR — 視為實質不一致，需立即處理",
+    "max_errors_to_report": 50,
+    "report_format": "console + JSON dump"
+  },
+  "use_cases": [
+    "事務所內部品質檢查：CI / 排程跑驗算，確保兩管道結果一致",
+    "重構驗證：calculator.spec.js 修改後跑驗算確認沒有意外漂移",
+    "新規範採用：規範改版時可比對舊計算與新計算的差異"
+  ],
+  "warnings": {
+    "do_not_use_verifier_values_for_formal_output": "verifier.py 的計算結果不得作為正式計算書數值來源；正式計算書以 V2 主流程 (StoneCalculator) 為唯一信賴源。",
+    "tolerance_should_match_engineering_significance": "容許值應與工程意義相符；過嚴會誤報，過鬆會掩蓋實質誤差。",
+    "categorical_mismatches_are_critical": "類別性欄位（如 pass / governing_check）不一致代表實質判斷不同，不可放行。"
+  },
+  "last_updated": "2026-04-27"
+}

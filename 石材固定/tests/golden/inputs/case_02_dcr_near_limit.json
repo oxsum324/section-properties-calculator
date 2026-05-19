@@ -1,0 +1,31 @@
+{
+  "case_id": "case_02_dcr_near_limit",
+  "purpose": "approved_critical",
+  "title": "DCR 邊界案 1500×1200 / 30mm 背扣 4H / V=42.5 / SDS=0.8",
+  "notes": "大板 + 強風 + 高 SDS，預期 DCR 接近 1.0；用於驗證 must_not_cross 守衛",
+  "global_params": {
+    "w_v": 42.5,
+    "w_i": 1.0,
+    "s_sds": 0.8,
+    "w_neg": 426,
+    "w_pos": 532,
+    "w_cf": 1.25,
+    "st_t": 30,
+    "st_gam": 2800,
+    "cc_h": 25,
+    "cc_z": 20,
+    "cc_A": 1.8
+  },
+  "case_params": {
+    "name": "BASELINE_CASE_02",
+    "w": 1500,
+    "h": 1200,
+    "type": "bk_4h",
+    "fx": 200,
+    "fy1": 180,
+    "fy2": 230,
+    "bh": 10,
+    "H1": 5,
+    "d1": 2.5
+  }
+}

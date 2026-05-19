@@ -1,0 +1,79 @@
+Baseline Drift Report
+=====================
+Generated: 2026-04-27 10:38:35
+Tolerance: ±1.0%
+Total cases: 5 | Pass: 5 | Fail: 0
+
+
+  ── case_01_standard_safe ──
+    purpose: characterization
+    ℹ V2 HTML hash 已變動：
+        baseline: sha256:f1db5c1388e07cab7…
+        current:  sha256:7f954f42f7e009b5e…
+    -- result.summary --
+    ✓ Fph                       24.192 → 24.192  Δ=0.000%
+    ✓ Tmax                      74.1675 → 74.1675  Δ=0.000%
+    ✓ Vmax                      14.616 → 14.616  Δ=0.000%
+    ✓ DCR_governing             0.5937 → 0.5937  Δ=0.000%
+    ✓ governing_check           '膨脹螺栓 Tu2（水平力）'  (不變)
+    ✓ passed                    False → False  Δ=0.000%
+
+  ── case_02_dcr_near_limit ──
+    purpose: approved_critical
+    ℹ V2 HTML hash 已變動：
+        baseline: sha256:e5e9da82a638b7452…
+        current:  sha256:14b94d5dbdf5d5073…
+    -- result.summary --
+    ✓ Fph                       32.256 → 32.256  Δ=0.000%
+    ✓ Tmax                      239.625 → 239.625  Δ=0.000%
+    ✓ Vmax                      37.8 → 37.8  Δ=0.000%
+    ✓ DCR_governing             2.9748 → 2.9748  Δ=0.000%
+    ✓ governing_check           '膨脹螺栓 拉剪交互'  (不變)
+    ✓ passed                    False → False  Δ=0.000%
+
+  ── case_03_pin_4h_30mm ──
+    purpose: characterization
+    ℹ V2 HTML hash 已變動：
+        baseline: sha256:52ce6c756636dc44f…
+        current:  sha256:424c41e134ca2e658…
+    -- result.summary --
+    ✓ Fph                       24.192 → 24.192  Δ=0.000%
+    ✓ Tmax                      148.335 → 148.335  Δ=0.000%
+    ✓ Vmax                      29.232 → 29.232  Δ=0.000%
+    ✓ DCR_governing             6.995 → 6.995  Δ=0.000%
+    ✓ governing_check           '插銷 剪力'  (不變)
+    ✓ passed                    False → False  Δ=0.000%
+
+  ── case_04_wind_control ──
+    purpose: characterization
+    ℹ V2 HTML hash 已變動：
+        baseline: sha256:95b7575bb9ae6f42b…
+        current:  sha256:4a7c077d1c5030d9d…
+    -- result.summary --
+    ✓ Fph                       26.88 → 26.88  Δ=0.000%
+    ✓ Tmax                      243 → 243  Δ=0.000%
+    ✓ Vmax                      50.4 → 50.4  Δ=0.000%
+    ✓ DCR_governing             11.4592 → 11.4592  Δ=0.000%
+    ✓ governing_check           '插銷 剪力'  (不變)
+    ✓ passed                    False → False  Δ=0.000%
+
+  ── case_05_seismic_control ──
+    purpose: characterization
+    ℹ V2 HTML hash 已變動：
+        baseline: sha256:a5c791c9d6d85295d…
+        current:  sha256:9d5c769fbf33c3f4a…
+    -- result.summary --
+    ✓ Fph                       67.2 → 67.2  Δ=0.000%
+    ✓ Tmax                      49.5 → 49.5  Δ=0.000%
+    ✓ Vmax                      25.2 → 25.2  Δ=0.000%
+    ✓ DCR_governing             0.3962 → 0.3962  Δ=0.000%
+    ✓ governing_check           '膨脹螺栓 Tu2（水平力）'  (不變)
+    ✓ passed                    True → True  Δ=0.000%
+
+======================================================================
+Summary:
+  case_01_standard_safe: PASS
+  case_02_dcr_near_limit: PASS
+  case_03_pin_4h_30mm: PASS
+  case_04_wind_control: PASS
+  case_05_seismic_control: PASS

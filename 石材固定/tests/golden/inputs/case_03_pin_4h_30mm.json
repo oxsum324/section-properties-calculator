@@ -1,0 +1,28 @@
+{
+  "case_id": "case_03_pin_4h_30mm",
+  "purpose": "characterization",
+  "title": "標準插銷 870×800 / 30mm",
+  "notes": "插銷式工法基準對照案；DCR 應與 case_01 接近但控制項不同",
+  "global_params": {
+    "w_v": 37.5,
+    "w_i": 1.0,
+    "s_sds": 0.6,
+    "w_neg": 341,
+    "w_pos": 426,
+    "w_cf": 1.25,
+    "st_t": 30,
+    "st_gam": 2800,
+    "cc_h": 15,
+    "cc_z": 10,
+    "cc_A": 1.0
+  },
+  "case_params": {
+    "name": "BASELINE_CASE_03",
+    "w": 870,
+    "h": 800,
+    "type": "pk_4h",
+    "fx": 150,
+    "fy1": 150,
+    "fy2": 200
+  }
+}

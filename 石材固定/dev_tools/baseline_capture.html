@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>Baseline Capture 工具 – 重構護欄</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Microsoft JhengHei','Segoe UI',sans-serif;background:#f0f3f7;color:#222;padding:24px;line-height:1.6}
+.wrap{max-width:920px;margin:0 auto;background:#fff;padding:32px 40px;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+h1{font-size:22px;color:#1a3a5c;border-bottom:2px solid #1a3a5c;padding-bottom:8px;margin-bottom:18px}
+h2{font-size:16px;color:#1a3a5c;margin:20px 0 8px;border-left:4px solid #1a3a5c;padding-left:8px}
+h3{font-size:14px;color:#37516d;margin:12px 0 4px}
+p{font-size:13.5px;margin-bottom:8px}
+ol,ul{margin:6px 0 8px 22px;font-size:13.5px}
+li{margin-bottom:3px}
+code{background:#eef3fa;padding:1px 5px;border-radius:3px;font-family:'Consolas',monospace;font-size:12.5px;color:#1a3a5c}
+pre{background:#f7f9fc;border-left:3px solid #2c5280;padding:8px 12px;font-family:'Consolas',monospace;font-size:12px;line-height:1.5;overflow-x:auto;margin:8px 0;border-radius:3px}
+.btn{display:inline-block;padding:9px 16px;background:#1a3a5c;color:#fff;text-decoration:none;border-radius:4px;font-size:13px;font-weight:bold;border:none;cursor:pointer;margin-right:6px}
+.btn:hover{background:#2c5280}
+.btn.green{background:#196019}.btn.green:hover{background:#1d7a1d}
+.btn.gray{background:#666}.btn.gray:hover{background:#888}
+.warn-box{background:#fff8e8;border:1px solid #e7c07b;border-left:4px solid #c49828;padding:8px 12px;margin:10px 0;font-size:12.5px;color:#5a4116}
+.info-box{background:#eef5ff;border:1px solid #b6c4d8;border-left:4px solid #2c5280;padding:8px 12px;margin:10px 0;font-size:12.5px;color:#2c5280}
+table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12.5px}
+th,td{border:1px solid #ccd4df;padding:5px 8px;text-align:left}
+th{background:#eaf2fb;color:#1a3a5c}
+.purpose-tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:10px;font-weight:bold;margin-right:4px}
+.purpose-tag.char{background:#e0e7f0;color:#37516d}
+.purpose-tag.safe{background:#c8e6c9;color:#1b5e20}
+.purpose-tag.crit{background:#fff3c4;color:#8a5b00}
+.purpose-tag.fail{background:#ffcdd2;color:#b71c1c}
+.purpose-tag.regr{background:#e1bee7;color:#4a148c}
+hr{border:none;border-top:1px solid #d6deea;margin:18px 0}
+#diff-area{margin-top:14px;padding:12px;background:#f7f9fc;border-radius:4px;display:none}
+#diff-area.show{display:block}
+#diff-result{font-family:'Consolas',monospace;font-size:12px;white-space:pre-wrap;background:#fff;padding:10px;border-radius:3px;border:1px solid #ccd4df;max-height:420px;overflow-y:auto;margin-top:8px}
+input[type=file]{font-size:12px}
+.drop-zone{border:2px dashed #b6c4d8;border-radius:4px;padding:18px;text-align:center;color:#555;font-size:12.5px;background:#fafbfd;margin:6px 0;transition:all .2s}
+.drop-zone.over{border-color:#2c5280;background:#eef5ff}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>🛡️ Baseline Capture 工具 – 重構護欄</h1>
+
+<p>本頁是「<b>金樣本（Golden Samples）擷取流程</b>」的入口。在 calc-core 抽取重構前，
+先用此工具凍結現況計算結果，作為 refactor 的不變條件。</p>
+
+<div class="info-box">
+<b>為什麼需要這個？</b><br>
+若直接 refactor 公式核心而沒有事先凍結現況，重構完成後只能驗「新系統自洽」，
+無法保證「沒有意外改變現有計算結果」。Characterization Testing 是工程治理的標準護欄。
+</div>
+
+<h2>📋 操作流程</h2>
+
+<ol>
+<li>選一個尚未拍攝的代表性工程案例（建議從下方「目標案例清單」選一組）</li>
+<li>點下方「<b>啟動 V2 開發模式</b>」按鈕，會以 <code>?dev=1</code> 開啟 V2</li>
+<li>在 V2 中輸入該案例完整參數，按「🔄 重新計算 / 預覽」確認結果</li>
+<li>右上角浮現的 <b>🛡️ Dev Capture</b> 浮層內，選 <code>case_purpose</code>、填 <code>case_id</code> 與 <code>notes</code></li>
+<li>勾「自動去識別化」（提交至 git 必勾）</li>
+<li>點「📸 Capture Baseline」，瀏覽器自動下載 <code>case_xx_*.json</code></li>
+<li>檢查下載檔，確認沒洩漏業主資訊；放入 <code>tests/golden/</code></li>
+<li>在 <code>tests/golden/_approval_log.md</code> 新增一筆 entry</li>
+</ol>
+
+<p style="margin-top:14px">
+<a class="btn green" href="../石材計算書產生器_規範版V2.html?dev=1" target="_blank">
+  🚀 啟動 V2 開發模式（?dev=1）
+</a>
+<a class="btn gray" href="./baseline_schema.md" target="_blank">📖 Schema 規格</a>
+<a class="btn gray" href="../tests/golden/README.md" target="_blank">📖 Golden Samples 使用指南</a>
+</p>
+
+<hr>
+
+<h2>🎯 目標案例清單（建議優先拍攝）</h2>
+
+<table>
+<thead><tr>
+  <th style="width:80px">case_id</th>
+  <th>用途</th>
+  <th>建議參數</th>
+  <th>預期 DCR 區間</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>case_01</td>
+  <td><span class="purpose-tag char">characterization</span> 標準安全案</td>
+  <td>背扣 4H / 870×800 / 30mm / V=37.5 / SDS=0.6</td>
+  <td>0.6 ~ 0.8</td>
+</tr>
+<tr>
+  <td>case_02</td>
+  <td><span class="purpose-tag crit">approved_critical</span> DCR 接近 1.0</td>
+  <td>背扣 4H / 1500×1200 / 30mm / V=42.5 / SDS=0.8</td>
+  <td>0.92 ~ 0.99（需確認跨 0.9 守衛）</td>
+</tr>
+<tr>
+  <td>case_03</td>
+  <td><span class="purpose-tag fail">approved_failure</span> 邊距不足反例</td>
+  <td>插銷 4H / 870×800 / 25mm / fx=20（過小）</td>
+  <td>NA — passed 必為 false</td>
+</tr>
+<tr>
+  <td>case_04</td>
+  <td><span class="purpose-tag char">characterization</span> 風壓控制案</td>
+  <td>插銷 6H / 1200×900 / 50mm / V=47.5（澎湖）/ SDS=0.4</td>
+  <td>governing_check 應為 wind 相關</td>
+</tr>
+<tr>
+  <td>case_05</td>
+  <td><span class="purpose-tag char">characterization</span> 地震控制案</td>
+  <td>背扣 6H / 1200×900 / 50mm / V=30 / SDS=1.0 / Ip=1.5</td>
+  <td>governing_check 應為 seismic 相關</td>
+</tr>
+</tbody>
+</table>
+
+<div class="warn-box" style="margin-top:10px">
+<b>⚠ 注意：</b>以上參數僅為「拍攝建議」。實際拍攝時應使用您手邊真實工程案例的參數
+（並開啟去識別化），這樣 baseline 才能反映真實業務風險。
+</div>
+
+<hr>
+
+<h2>🔍 比對既有 Baseline（diff 預覽）</h2>
+
+<p>選一個已拍攝的 <code>baseline.json</code>，與另一份（或當前 V2 結果）比對：</p>
+
+<div class="drop-zone" id="dropA">
+  <b>檔案 A（baseline）：</b><br>
+  <input type="file" id="fileA" accept=".json"><br>
+  <span style="font-size:11px;color:#888">或拖放 baseline.json 至此</span>
+</div>
+
+<div class="drop-zone" id="dropB">
+  <b>檔案 B（對照組）：</b><br>
+  <input type="file" id="fileB" accept=".json"><br>
+  <span style="font-size:11px;color:#888">或拖放 baseline.json 至此</span>
+</div>
+
+<button class="btn" onclick="runDiff()">▶ 執行 Diff</button>
+<button class="btn gray" onclick="clearDiff()">清除</button>
+
+<div id="diff-area">
+  <h3>Diff 結果</h3>
+  <pre id="diff-result"></pre>
+</div>
+
+<hr>
+
+<h2>📦 已拍攝 Baseline（提示：file:// 下需手動檢視）</h2>
+
+<p>瀏覽器在 <code>file://</code> 協定下無法列舉資料夾。請至以下路徑手動檢視：</p>
+<pre>C:\Users\USER\Desktop\AI\小工具製作\石材固定\tests\golden\</pre>
+
+<hr>
+
+<h2>🔒 治理規則摘要</h2>
+
+<ul>
+<li><b>不可逆</b>：baseline 一旦提交，後續變更必須走 <code>baseline:approve --reason="…"</code> 流程</li>
+<li><b>去識別化</b>：實際業主/技師/地址資訊不得進入 git；提交前必勾去識別化</li>
+<li><b>環境指紋</b>：每份 baseline 強制包含 <code>v2_html_hash</code>、<code>calc_source_hash</code>、<code>ts</code>、<code>ua</code></li>
+<li><b>變更紀錄</b>：所有 baseline 新增/修改必須在 <code>tests/golden/_approval_log.md</code> 記錄</li>
+</ul>
+
+<hr>
+
+<p style="text-align:center;color:#888;font-size:11px;margin-top:20px">
+弘一工程顧問有限公司 ‧ 重構護欄基礎設施 v1.0 ‧ 建立於 2026-04
+</p>
+
+</div>
+
+<script>
+let fileAData = null, fileBData = null;
+
+function loadFile(input, slot){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const obj = JSON.parse(e.target.result);
+      if(slot === 'A') fileAData = obj;
+      else fileBData = obj;
+      document.getElementById('drop'+slot).style.borderColor = '#196019';
+      document.getElementById('drop'+slot).style.background = '#f0fff0';
+    }catch(err){ alert('JSON 解析失敗：' + err.message); }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+document.getElementById('fileA').addEventListener('change', e => loadFile(e.target, 'A'));
+document.getElementById('fileB').addEventListener('change', e => loadFile(e.target, 'B'));
+
+['A','B'].forEach(s => {
+  const zone = document.getElementById('drop'+s);
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if(f) document.getElementById('file'+s).files = e.dataTransfer.files;
+    loadFile(document.getElementById('file'+s), s);
+  });
+});
+
+function runDiff(){
+  if(!fileAData || !fileBData){ alert('請先載入兩個檔案'); return; }
+  const out = [];
+  const a = fileAData, b = fileBData;
+  out.push('=== Baseline Diff Report ===\n');
+  out.push(`A: ${a.case_id || '?'}  (${a.purpose})  @${a.captured_env?.ts || '?'}`);
+  out.push(`B: ${b.case_id || '?'}  (${b.purpose})  @${b.captured_env?.ts || '?'}`);
+  out.push('');
+  out.push('--- captured_env ---');
+  ['v2_html_hash','calc_source_hash'].forEach(k => {
+    const va = a.captured_env?.[k] || '';
+    const vb = b.captured_env?.[k] || '';
+    const eq = va === vb ? '✓' : '✗';
+    out.push(`  ${eq} ${k}:`);
+    out.push(`     A: ${va.slice(0,32)}…`);
+    out.push(`     B: ${vb.slice(0,32)}…`);
+  });
+  out.push('');
+  out.push('--- result.summary ---');
+  const sa = a.result?.summary || {}, sb = b.result?.summary || {};
+  ['Fph','Tmax','Vmax','DCR_governing','governing_check','passed'].forEach(k => {
+    const va = sa[k], vb = sb[k];
+    let mark = '✓';
+    if(va !== vb){
+      if(typeof va === 'number' && typeof vb === 'number'){
+        const errPct = Math.abs((vb - va)/va)*100;
+        mark = errPct < 0.1 ? '~' : '✗';
+        out.push(`  ${mark} ${k}:  A=${va}  B=${vb}  Δ=${errPct.toFixed(3)}%`);
+      } else {
+        out.push(`  ✗ ${k}:  A=${JSON.stringify(va)}  B=${JSON.stringify(vb)}`);
+      }
+    } else {
+      out.push(`  ✓ ${k}:  ${JSON.stringify(va)}`);
+    }
+  });
+  document.getElementById('diff-result').textContent = out.join('\n');
+  document.getElementById('diff-area').classList.add('show');
+}
+function clearDiff(){
+  fileAData = fileBData = null;
+  document.getElementById('fileA').value = '';
+  document.getElementById('fileB').value = '';
+  ['A','B'].forEach(s => {
+    const z = document.getElementById('drop'+s);
+    z.style.borderColor = '#b6c4d8';
+    z.style.background = '#fafbfd';
+  });
+  document.getElementById('diff-area').classList.remove('show');
+}
+</script>
+</body>
+</html>

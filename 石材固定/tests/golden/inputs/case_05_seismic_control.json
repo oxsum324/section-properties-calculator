@@ -1,0 +1,31 @@
+{
+  "case_id": "case_05_seismic_control",
+  "purpose": "characterization",
+  "title": "地震控制案 1200×900 / 50mm 背扣 6H / SDS=1.0 Ip=1.5",
+  "notes": "低風速 + 高 SDS + Ip=1.5（重要建物）；governing_check 預期為地震相關",
+  "global_params": {
+    "w_v": 30,
+    "w_i": 1.0,
+    "s_sds": 1.0,
+    "w_neg": 220,
+    "w_pos": 280,
+    "w_cf": 1.25,
+    "st_t": 50,
+    "st_gam": 2800,
+    "cc_h": 20,
+    "cc_z": 15,
+    "cc_A": 1.5
+  },
+  "case_params": {
+    "name": "BASELINE_CASE_05",
+    "w": 1200,
+    "h": 900,
+    "type": "bk_6h",
+    "fx": 200,
+    "fy1": 180,
+    "fy2": 220,
+    "bh": 10,
+    "H1": 5,
+    "d1": 2.5
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "id": "aci_318_appendix_d",
+  "scope": "anchor",
+  "name": "ACI 318 Appendix D（混凝土結構用錨栓）",
+  "issued": "2014",
+  "publisher": "American Concrete Institute",
+  "supersedes": null,
+  "expires": null,
+  "params": {
+    "phi_steel": 0.75,
+    "phi_concrete_condition_a": 0.75,
+    "phi_concrete_condition_b": 0.65,
+    "psi_cN_uncracked": 1.25,
+    "psi_cN_cracked": 1.0,
+    "psi_cV_full_rebar": 1.4,
+    "psi_cV_edge_rebar": 1.2,
+    "psi_cV_no_rebar": 1.0,
+    "service_factor_typical": 1.6,
+    "interaction_exponent_steel": 1.6666666666666667,
+    "min_anchor_diameter_mm": 4,
+    "min_anchor_length_mm": 75,
+    "min_embedment_mm": 40,
+    "min_edge_distance_mm": 25
+  },
+  "notes": "對應 ACI 318 附篇 D（混凝土結構用錨栓）。φ 折減係數依破壞模式分鋼材控制（0.75）與混凝土控制（0.65, Condition B）。Category 對 ψc 的影響由 ACI 355.2 試驗結果決定。"
+}

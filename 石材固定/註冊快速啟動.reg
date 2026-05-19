@@ -1,0 +1,21 @@
+Windows Registry Editor Version 5.00
+
+; ─────────────────────────────────────────────────────────────
+;  石材計算書：註冊 stonecalc:// 自訂協定
+;  雙擊本檔一次（按「是」同意）即可，之後 HTML 按鈕可自動啟動伺服器。
+;  登錄於 HKCU，無需管理員權限。
+; ─────────────────────────────────────────────────────────────
+
+[HKEY_CURRENT_USER\Software\Classes\stonecalc]
+@="URL:Stone Calc Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\stonecalc\DefaultIcon]
+@="%SystemRoot%\\System32\\SHELL32.dll,-16710"
+
+[HKEY_CURRENT_USER\Software\Classes\stonecalc\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\stonecalc\shell\open]
+
+[HKEY_CURRENT_USER\Software\Classes\stonecalc\shell\open\command]
+@="cmd.exe /c \"\"C:\\Users\\USER\\Desktop\\AI\\小工具製作\\石材固定\\開啟石材計算書.bat\"\""

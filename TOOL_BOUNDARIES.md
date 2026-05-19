@@ -11,7 +11,7 @@
 | `anchor/` | 納入部署資產 | Vercel `/anchor/` 乾淨路由直接使用此輸出；hash asset 更新時舊檔刪除與新檔新增需一起提交。 |
 | `結構工具箱/tools/風力/*.html` | 納入 | 風力頁面共用報告路徑屬於平台可用性修正。 |
 | `鋼構工具/audit-tool.ps1` | 納入 | 修正 Playwright CLI `network` 指令不存在時造成總巡檢中斷。 |
-| `石材固定/` | 建議納入，但先排除輸出、暫存與大型參考 | 已有 self_check、quick smoke、版本治理與交付流程；適合成為正式工具，但需先清掉輸出與案例雜訊。 |
+| `石材固定/` | 納入程式碼與必要離線 vendor，排除參考資料與輸出 | 已有 self_check、quick smoke、版本治理、golden samples 與交付流程；納入正式 V2 工具、測試、治理文件、必要 vendor，PDF/XLS/Word 範例、圖片、專案報告與舊版 HTML 不進 repo。 |
 | `開挖擋土支撐/` | 納入程式碼，排除工程資料 | Backend tests 與 frontend build 已納入 preflight；只提交 backend/frontend 原始碼、設定、README、啟停腳本與本目錄 `.gitignore`，不提交工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`。 |
 | `覆工板/` | 納入程式碼，排除工程資料與輸出 | 已有 `index.html`、Python 報告產生器、固定 smoke fixture 與 preflight 產報檢查；Excel、PDF、doc/docx、抽圖、dump 與吊車參考資料不進 repo。 |
 | `鋼架/` | 可納入 | 目前只有單一 HTML 靜態工具，preflight 已做基本 smoke。 |

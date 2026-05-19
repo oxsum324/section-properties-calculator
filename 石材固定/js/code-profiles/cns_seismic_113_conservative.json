@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cns_seismic_113_conservative",
+  "scope": "seismic",
+  "name": "建築物耐震設計規範（113 年版）— 保守對照",
+  "issued": "2024-XX-XX",
+  "publisher": "內政部營建署 / 弘一工程顧問有限公司（保守對照版）",
+  "supersedes": null,
+  "expires": null,
+  "params": {
+    "Fph_simple_factor": 1.6,
+    "Fph_detailed_lower_factor": 0.4,
+    "Fph_detailed_upper_factor": 1.6,
+    "Fph_detailed_base_factor": 0.4,
+    "ap_default": 1.0,
+    "ap_rigid": 1.0,
+    "ap_flexible": 2.5,
+    "Rp_stone_panel_default": 2.0,
+    "Rp_rigid_component": 1.5,
+    "PEV_factor_conservative": 0.5,
+    "PEV_factor_standard": 0.2,
+    "Ip_categories": {
+      "general": 1.0,
+      "important": 1.25,
+      "essential": 1.5
+    },
+    "Ip_facade_minimum": 1.5
+  },
+  "notes": "保守對照版本：與 cns_seismic_113 同 規範依據，但採較保守參數以利敏感度比較。差異：(1) Fph_detailed_lower_factor 由 0.3 提高至 0.4（拉高細算下限）；(2) Rp_stone_panel_default 由 2.5 降至 2.0（增加耐震需求 25%）。本 profile 不取代 113 年版規範，僅供工程設計階段對照保守邊界使用，正式簽證若採此 profile 應於計算書附敘述說明採用理由。"
+}

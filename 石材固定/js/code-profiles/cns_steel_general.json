@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "id": "cns_steel_general",
+  "scope": "steel",
+  "name": "鋼構造建築物鋼結構設計技術規範（容許應力設計法）",
+  "issued": null,
+  "publisher": "內政部營建署",
+  "supersedes": null,
+  "expires": null,
+  "params": {
+    "Fy_SUS304_default": 2100,
+    "Fy_A36_default": 2500,
+    "Fb_factor_static": 0.6,
+    "Fb_factor_with_wind_seismic": 1.25,
+    "Fv_factor": 0.4
+  },
+  "notes": "鋼結構容許應力法。Fb = 0.6×Fy（純靜載）；含風或地震組合可乘 cf=1.25。容許剪力 Fv = 0.4×Fy（淨截面）。"
+}

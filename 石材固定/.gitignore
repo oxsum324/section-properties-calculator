@@ -1,0 +1,54 @@
+# Python / Node cache
+__pycache__/
+*.py[cod]
+node_modules/
+
+# Browser and test output
+.playwright-cli/
+test-results/
+tmp/
+_tmp_spec*/
+
+# Generated export output
+output/
+release/
+*_驗證報告.json
+stone_report*.json
+*.doc
+*.docx
+
+# Known temporary smoke/development files
+_tmp_stone_report*.json
+_tmp_stone_report*.docx
+.tmp-spec-inline.js
+tmp-spec-inline*.js
+server-test.log
+server-test.err
+plot.log
+sshot-*.jpg
+stone_report_test*.json
+stone_report_test*.docx
+
+# Local editor / OS noise
+.DS_Store
+Thumbs.db
+
+# Keep only the browser bundle used by the V2 HTML tool.
+vendor/package/dist/*
+!vendor/package/dist/index.iife.js
+
+# Reference documents and legacy local materials. Keep these in the working
+# folder when needed, but do not include them in the source-control package.
+*.pdf
+*.xls
+*.xlsx
+*.xlsm
+01_*.jpg
+02*.jpg
+02*.png
+專案報告/
+石材計算書產生器.html
+石材計算書產生器_直接Word版.html
+石材計算書產生器_規範版.html
+生成Word報告.bat
+PDF轉Word.bat
