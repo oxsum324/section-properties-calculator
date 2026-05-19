@@ -34,6 +34,12 @@ V1.0 的重點是把首頁收斂成真正的平台入口，能同時看到：
   [結構工具箱/audit-core.ps1](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/audit-core.ps1:1)
 - 全平台總巡檢：
   [audit-all.ps1](/C:/Users/USER/Desktop/AI/小工具製作/audit-all.ps1:1)
+- 高價值工具交付前檢查：
+  [preflight-tools.ps1](/C:/Users/USER/Desktop/AI/小工具製作/preflight-tools.ps1:1)
+
+`audit-all.ps1` 用來守住主平台的鋼構、RC 與規範核心；`preflight-tools.ps1` 則再納入風力路徑、連續梁、錨栓、石材、開挖擋土支撐、覆工板與鋼架靜態 smoke，適合交付前或跨工具大改後執行。
+
+跨工具納入版本控管前，先參考 [TOOL_BOUNDARIES.md](/C:/Users/USER/Desktop/AI/小工具製作/TOOL_BOUNDARIES.md:1) 與 [STAGING_GROUPS.md](/C:/Users/USER/Desktop/AI/小工具製作/STAGING_GROUPS.md:1)，避免把案例輸出、暫存檔、Office 文件或本機依賴一起提交。
 
 ## 巡檢啟動
 
@@ -47,6 +53,8 @@ V1.0 的重點是把首頁收斂成真正的平台入口，能同時看到：
   [run-audit-all.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-audit-all.bat:1)
 - 全平台循環：
   [run-audit-all-loop.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-audit-all-loop.bat:1)
+- 高價值工具 preflight：
+  [run-preflight-tools.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-preflight-tools.bat:1)
 
 ## 最新平台摘要
 
@@ -54,6 +62,7 @@ V1.0 的重點是把首頁收斂成真正的平台入口，能同時看到：
 - [platform-status.json](/C:/Users/USER/Desktop/AI/小工具製作/output/audit/platform-status.json:1)
 - [platform-history.json](/C:/Users/USER/Desktop/AI/小工具製作/output/audit/platform-history.json:1)
 - [結構工具箱/audit-dashboard.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/audit-dashboard.html:1)
+- [preflight-summary.md](/C:/Users/USER/Desktop/AI/小工具製作/output/preflight/preflight-summary.md:1)
 
 ## 巡檢閱讀方式
 

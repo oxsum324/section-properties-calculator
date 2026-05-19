@@ -118,6 +118,32 @@ function Ensure-Server {
   return $process
 }
 
+function Invoke-OptionalPlaywrightCommand {
+  param(
+    [string]$CommandName
+  )
+
+  $previousErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  try {
+    $output = & npx --yes @playwright/cli $CommandName 2>&1
+    $exitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+
+  if ($exitCode -ne 0) {
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("[WARN] Playwright CLI command '$CommandName' failed or is unavailable. exitCode=$exitCode")
+    foreach ($line in @($output)) {
+      $lines.Add([string]$line)
+    }
+    return $lines.ToArray()
+  }
+
+  return @($output)
+}
+
 function Run-PlaywrightSnapshot {
   param(
     [string]$Url,
@@ -158,8 +184,8 @@ function Run-PlaywrightSnapshot {
   npx --yes @playwright/cli screenshot --filename $screenshotPath --full-page | Out-Null
   Copy-Item -Path $screenshotPath -Destination $screenshotHistoryPath -Force
 
-  $consoleOutput = npx --yes @playwright/cli console 2>&1
-  $networkOutput = npx --yes @playwright/cli network 2>&1
+  $consoleOutput = Invoke-OptionalPlaywrightCommand -CommandName "console"
+  $networkOutput = Invoke-OptionalPlaywrightCommand -CommandName "network"
 
   Set-Content -Path $consolePath -Value $consoleOutput -Encoding UTF8
   Set-Content -Path $consoleHistoryPath -Value $consoleOutput -Encoding UTF8
@@ -169,7 +195,8 @@ function Run-PlaywrightSnapshot {
   $consoleJoined = ($consoleOutput -join "`n")
   $networkJoined = ($networkOutput -join "`n")
   $consoleErrors = if ($consoleJoined -match "Errors:\s*(\d+)") { [int]$matches[1] } else { 0 }
-  $networkErrors = @($networkOutput | Where-Object { $_ -match "^\s*(GET|POST|PUT|PATCH|DELETE).*( 4\d\d | 5\d\d )" }).Count
+  $networkUnavailable = $networkJoined -match "Unknown command:\s*network" -or $networkJoined -match "command 'network' failed or is unavailable"
+  $networkErrors = if ($networkUnavailable) { 0 } else { @($networkOutput | Where-Object { $_ -match "^\s*(GET|POST|PUT|PATCH|DELETE).*( 4\d\d | 5\d\d )" }).Count }
 
   $summaryLines.Add("- ${Label}: snapshot=$snapshotPath")
   $summaryLines.Add("  screenshot=$screenshotPath")

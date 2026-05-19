@@ -2,6 +2,18 @@
 
 # 暫存檔與圖檔
 _tmp/
+tmp/
+**/tmp/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.vite/
+**/node_modules/
+**/test-results/
+**/tests/_run_log/
+**/app_data/
+*.py[cod]
+*.log
 tmp_*.png
 tmp_ch3_pages/
 tmp_fig_tables/
