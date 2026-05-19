@@ -1,6 +1,6 @@
 // 版本戳與 base path 由 vite build 時的 sw-inject plugin 注入；dev 環境為字面值
-const CACHE_NAME = 'bolt-review-tool-73249a9aab'
-const BASE_PATH = '/section-properties-calculator/anchor/'
+const CACHE_NAME = 'bolt-review-tool-208984cf16'
+const BASE_PATH = '/anchor/'
 const APP_SHELL = [
   BASE_PATH,
   BASE_PATH + 'index.html',
