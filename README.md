@@ -1,15 +1,18 @@
-# 結構工具平台 V1.0
+# 結構工具平台 V1.5
 
-這個資料夾目前已整理成一套分層式結構工具平台，並正式進入 `V1.0`。入口以 [結構工具箱/index.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/index.html:1) 為主，並區分：
+這個資料夾目前已整理成一套分層式結構工具平台，並正式進入 `V1.5`。入口以 [結構工具箱/index.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/index.html:1) 為主，並區分：
 
 - `鋼構正式規範工具`
 - `鋼筋混凝土工具`
 - `耐風 / 耐震核心工具`
 - `斷面性質與分析輔助工具`
+- `連接件 / 錨栓 / 外牆固定工具`
+- `施工臨時設施與高頻局部快算工具`
 
-V1.0 的重點是把首頁收斂成真正的平台入口，能同時看到：
+V1.5 的重點是把首頁收斂成真正的平台入口，能同時看到：
 - 正式規範核算模組
 - 舊式頁面與輔助工具
+- 服務型本機工具與靜態快算工具的啟動邊界
 - 平台巡檢與健康狀態
 - 各子系統的入口與摘要
 
@@ -23,6 +26,10 @@ V1.0 的重點是把首頁收斂成真正的平台入口，能同時看到：
   [鋼構工具/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/index.html:1)
 - RC 工具入口：
   [鋼筋混凝土/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/index.html:1)
+- 基礎局部檢核：
+  [結構工具箱/tools/foundation/foundation-local.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/foundation/foundation-local.html:1)
+- 設備局部荷重：
+  [結構工具箱/tools/equipment/equipment-load.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/equipment/equipment-load.html:1)
 
 ## 巡檢分層
 
@@ -37,7 +44,7 @@ V1.0 的重點是把首頁收斂成真正的平台入口，能同時看到：
 - 高價值工具交付前檢查：
   [preflight-tools.ps1](/C:/Users/USER/Desktop/AI/小工具製作/preflight-tools.ps1:1)
 
-`audit-all.ps1` 用來守住主平台的鋼構、RC 與規範核心；`preflight-tools.ps1` 則再納入風力路徑、連續梁、錨栓、石材、開挖擋土支撐、覆工板與鋼架靜態 smoke，適合交付前或跨工具大改後執行。
+`audit-all.ps1` 用來守住主平台的鋼構、RC 與規範核心；`preflight-tools.ps1` 則再納入風力路徑、連續梁、錨栓、石材、開挖擋土支撐、覆工板、鋼架、基礎局部檢核與設備局部荷重 smoke / regression，適合交付前或跨工具大改後執行。
 
 跨工具納入版本控管前，先參考 [TOOL_BOUNDARIES.md](/C:/Users/USER/Desktop/AI/小工具製作/TOOL_BOUNDARIES.md:1) 與 [STAGING_GROUPS.md](/C:/Users/USER/Desktop/AI/小工具製作/STAGING_GROUPS.md:1)，避免把案例輸出、暫存檔、Office 文件或本機依賴一起提交。
 
