@@ -10,6 +10,7 @@
   const CORE_NAME = 'EquipmentLoadCore';
   const CORE_VERSION = '0.1.0';
   const INPUT_SCHEMA_VERSION = 'equipment-load.input.v0.1';
+  const RESULT_SCHEMA_VERSION = 'equipment-load.result.v0.1';
   const LOGIC_SIGNATURE = 'equipment-load-core:v0.1:point-contact-spread-horizontal';
 
   function provenance() {
@@ -17,7 +18,22 @@
       core: CORE_NAME,
       version: CORE_VERSION,
       inputSchemaVersion: INPUT_SCHEMA_VERSION,
+      resultSchemaVersion: RESULT_SCHEMA_VERSION,
       logicSignature: LOGIC_SIGNATURE
+    };
+  }
+
+  function checkItem(key, label, passed, detail, value, limit, unit) {
+    const isApplicable = passed !== null;
+    return {
+      key,
+      label,
+      status: isApplicable ? (passed ? 'pass' : 'fail') : 'not_applicable',
+      passed: isApplicable ? Boolean(passed) : null,
+      detail,
+      value,
+      limit,
+      unit
     };
   }
 
@@ -85,8 +101,25 @@
     const spreadOk = qSpread <= i.allowableSpread;
     const pointOk = i.allowablePoint > 0 ? pointLoad <= i.allowablePoint : null;
     const overallOk = contactOk && spreadOk && pointOk !== false;
+    const summary = {
+      status: overallOk ? 'pass' : 'fail',
+      headline: overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算',
+      primaryMetrics: [
+        { key: 'designWeight', label: '設計重量', value: designWeight, unit: 'tf' },
+        { key: 'pointLoad', label: '單點反力', value: pointLoad, unit: 'tf' },
+        { key: 'qContact', label: '接觸壓', value: qContact, unit: 'tf/m2' },
+        { key: 'qSpread', label: '分布壓', value: qSpread, unit: 'tf/m2' }
+      ]
+    };
+    const checks = [
+      checkItem('contact-pressure', '接觸壓檢核', contactOk, `qContact = ${qContact}, allowableContact = ${i.allowableContact}`, qContact, i.allowableContact, 'tf/m2'),
+      checkItem('spread-pressure', '分布壓檢核', spreadOk, `qSpread = ${qSpread}, allowableSpread = ${i.allowableSpread}`, qSpread, i.allowableSpread, 'tf/m2'),
+      checkItem('point-load', '單點反力檢核', pointOk, i.allowablePoint > 0 ? `pointLoad = ${pointLoad}, allowablePoint = ${i.allowablePoint}` : '未設定容許單點反力，略過單點反力檢核。', pointLoad, i.allowablePoint, 'tf'),
+      checkItem('horizontal-load', '水平力提示', true, `horizontalTotal = ${horizontalTotal}`, horizontalTotal, null, 'tf')
+    ];
 
     return Object.assign({}, i, {
+      resultSchemaVersion: RESULT_SCHEMA_VERSION,
       supportCount,
       serviceWeight,
       designWeight,
@@ -110,6 +143,8 @@
       spreadOk,
       pointOk,
       overallOk,
+      summary,
+      checks,
       provenance: provenance()
     });
   }
@@ -117,6 +152,7 @@
   return {
     version: CORE_VERSION,
     inputSchemaVersion: INPUT_SCHEMA_VERSION,
+    resultSchemaVersion: RESULT_SCHEMA_VERSION,
     logicSignature: LOGIC_SIGNATURE,
     provenance,
     normalizeInput,

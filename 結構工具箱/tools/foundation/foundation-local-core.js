@@ -10,6 +10,7 @@
   const CORE_NAME = 'FoundationLocalCore';
   const CORE_VERSION = '0.1.0';
   const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.1';
+  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.1';
   const LOGIC_SIGNATURE = 'foundation-local-core:v0.1:service-stability:qmax-qmin-sliding-overturning';
 
   function provenance() {
@@ -17,7 +18,21 @@
       core: CORE_NAME,
       version: CORE_VERSION,
       inputSchemaVersion: INPUT_SCHEMA_VERSION,
+      resultSchemaVersion: RESULT_SCHEMA_VERSION,
       logicSignature: LOGIC_SIGNATURE
+    };
+  }
+
+  function checkItem(key, label, passed, detail, value, limit, unit) {
+    return {
+      key,
+      label,
+      status: passed ? 'pass' : 'fail',
+      passed: Boolean(passed),
+      detail,
+      value,
+      limit,
+      unit
     };
   }
 
@@ -94,8 +109,26 @@
     const overOk = fsOver >= i.fsOverReq;
     const compressionOk = Ptotal > 0;
     const overallOk = compressionOk && bearingOk && slideOk && overOk;
+    const summary = {
+      status: overallOk ? 'pass' : 'fail',
+      headline: overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算',
+      primaryMetrics: [
+        { key: 'Ptotal', label: '垂直合力', value: Ptotal, unit: 'tf' },
+        { key: 'qmax', label: '最大底壓', value: qmax, unit: 'tf/m2' },
+        { key: 'fsSlide', label: '抗滑 FS', value: fsSlide, unit: '' },
+        { key: 'fsOver', label: '抗傾覆 FS', value: fsOver, unit: '' }
+      ]
+    };
+    const checks = [
+      checkItem('compression', '垂直合力為壓力', compressionOk, `Ptotal = ${Ptotal}`, Ptotal, 0, 'tf'),
+      checkItem('full-contact', '合力位於中央核內', fullContact, `kernUtil = ${kernUtil}`, kernUtil, 1 / 6, ''),
+      checkItem('bearing', '容許地耐力', bearingOk, `qmax = ${qmax}, qa = ${i.qa}`, qmax, i.qa, 'tf/m2'),
+      checkItem('sliding', '抗滑', slideOk, `fsSlide = ${fsSlide}, fsSlideReq = ${i.fsSlideReq}`, fsSlide, i.fsSlideReq, ''),
+      checkItem('overturning', '抗傾覆', overOk, `fsOver = ${fsOver}, fsOverReq = ${i.fsOverReq}`, fsOver, i.fsOverReq, '')
+    ];
 
     return Object.assign({}, i, {
+      resultSchemaVersion: RESULT_SCHEMA_VERSION,
       area,
       soilCoverDepth,
       footingWeight,
@@ -124,6 +157,8 @@
       overOk,
       compressionOk,
       overallOk,
+      summary,
+      checks,
       provenance: provenance()
     });
   }
@@ -131,6 +166,7 @@
   return {
     version: CORE_VERSION,
     inputSchemaVersion: INPUT_SCHEMA_VERSION,
+    resultSchemaVersion: RESULT_SCHEMA_VERSION,
     logicSignature: LOGIC_SIGNATURE,
     provenance,
     normalizeInput,

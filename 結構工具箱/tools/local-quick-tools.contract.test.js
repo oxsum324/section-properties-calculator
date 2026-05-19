@@ -123,8 +123,10 @@ for (const tool of tools) {
     tool.coreGlobal,
     "CORE_VERSION = '0.1.0'",
     'inputSchemaVersion',
+    'resultSchemaVersion',
     'logicSignature',
     'function provenance',
+    'function checkItem',
     'function normalizeInput',
     'function validateInput',
     'function calculate',
@@ -134,16 +136,33 @@ for (const tool of tools) {
   const api = require(corePath);
   assert.equal(api.version, '0.1.0', `${tool.key} core version`);
   assert.match(api.inputSchemaVersion, /\.input\.v0\.1$/, `${tool.key} input schema version`);
+  assert.match(api.resultSchemaVersion, /\.result\.v0\.1$/, `${tool.key} result schema version`);
   assert.ok(api.logicSignature.startsWith(`${tool.key}-core:v0.1:`), `${tool.key} logic signature`);
   assert.equal(typeof api.provenance, 'function', `${tool.key} provenance function`);
   const apiProvenance = api.provenance();
   assert.equal(apiProvenance.core, tool.coreGlobal, `${tool.key} provenance core`);
   assert.equal(apiProvenance.version, api.version, `${tool.key} provenance version`);
   assert.equal(apiProvenance.inputSchemaVersion, api.inputSchemaVersion, `${tool.key} provenance schema`);
+  assert.equal(apiProvenance.resultSchemaVersion, api.resultSchemaVersion, `${tool.key} provenance result schema`);
   assert.equal(apiProvenance.logicSignature, api.logicSignature, `${tool.key} provenance signature`);
   const goldenCases = require(goldenPath);
   const result = api.calculate(goldenCases[0].input);
+  assert.equal(result.resultSchemaVersion, api.resultSchemaVersion, `${tool.key} result schema`);
   assert.deepEqual(result.provenance, apiProvenance, `${tool.key} result provenance`);
+  assert.ok(result.summary, `${tool.key} result summary`);
+  assert.equal(typeof result.summary.status, 'string', `${tool.key} summary status`);
+  assert.equal(typeof result.summary.headline, 'string', `${tool.key} summary headline`);
+  assert.ok(Array.isArray(result.summary.primaryMetrics), `${tool.key} summary primary metrics`);
+  assert.ok(result.summary.primaryMetrics.length >= 3, `${tool.key} summary primary metrics count`);
+  assert.ok(Array.isArray(result.checks), `${tool.key} result checks`);
+  assert.ok(result.checks.length >= 3, `${tool.key} checks count`);
+  for (const check of result.checks) {
+    assert.equal(typeof check.key, 'string', `${tool.key} check key`);
+    assert.equal(typeof check.label, 'string', `${tool.key} check label`);
+    assert.ok(['pass', 'fail', 'not_applicable'].includes(check.status), `${tool.key} check status`);
+    assert.ok(Object.prototype.hasOwnProperty.call(check, 'passed'), `${tool.key} check passed`);
+    assert.equal(typeof check.detail, 'string', `${tool.key} check detail`);
+  }
 
   [
     'goldenCases',

@@ -10,6 +10,7 @@
   const CORE_NAME = 'EarthPressureCore';
   const CORE_VERSION = '0.1.0';
   const INPUT_SCHEMA_VERSION = 'earth-pressure.input.v0.1';
+  const RESULT_SCHEMA_VERSION = 'earth-pressure.result.v0.1';
   const LOGIC_SIGNATURE = 'earth-pressure-core:v0.1:rankine-surcharge-water-stability';
 
   function provenance() {
@@ -17,7 +18,21 @@
       core: CORE_NAME,
       version: CORE_VERSION,
       inputSchemaVersion: INPUT_SCHEMA_VERSION,
+      resultSchemaVersion: RESULT_SCHEMA_VERSION,
       logicSignature: LOGIC_SIGNATURE
+    };
+  }
+
+  function checkItem(key, label, passed, detail, value, limit, unit) {
+    return {
+      key,
+      label,
+      status: passed ? 'pass' : 'fail',
+      passed: Boolean(passed),
+      detail,
+      value,
+      limit,
+      unit
     };
   }
 
@@ -100,8 +115,25 @@
     const fullContact = qmin >= -1e-9 && e <= kernLimit + 1e-9;
     const bearingOk = fullContact && qmax <= i.qa;
     const overallOk = bearingOk && slideOk && overOk;
+    const summary = {
+      status: overallOk ? 'pass' : 'fail',
+      headline: overallOk ? '土壓局部穩定初估通過' : '土壓或穩定條件需修正 / 詳算',
+      primaryMetrics: [
+        { key: 'K', label: '土壓係數', value: K, unit: '' },
+        { key: 'totalForce', label: '側向合力', value: totalForce, unit: 'tf/m' },
+        { key: 'fsSlide', label: '抗滑 FS', value: fsSlide, unit: '' },
+        { key: 'fsOver', label: '抗傾覆 FS', value: fsOver, unit: '' }
+      ]
+    };
+    const checks = [
+      checkItem('full-contact', '基底全壓縮', fullContact, `e = ${e}, kernLimit = ${kernLimit}`, e, kernLimit, 'm'),
+      checkItem('bearing', '容許基底壓', bearingOk, `qmax = ${qmax}, qa = ${i.qa}`, qmax, i.qa, 'tf/m2'),
+      checkItem('sliding', '抗滑', slideOk, `fsSlide = ${fsSlide}, fsSlideReq = ${i.fsSlideReq}`, fsSlide, i.fsSlideReq, ''),
+      checkItem('overturning', '抗傾覆', overOk, `fsOver = ${fsOver}, fsOverReq = ${i.fsOverReq}`, fsOver, i.fsOverReq, '')
+    ];
 
     return Object.assign({}, i, {
+      resultSchemaVersion: RESULT_SCHEMA_VERSION,
       phiRad,
       sinPhi,
       Ka,
@@ -132,6 +164,8 @@
       fullContact,
       bearingOk,
       overallOk,
+      summary,
+      checks,
       provenance: provenance()
     });
   }
@@ -139,6 +173,7 @@
   return {
     version: CORE_VERSION,
     inputSchemaVersion: INPUT_SCHEMA_VERSION,
+    resultSchemaVersion: RESULT_SCHEMA_VERSION,
     logicSignature: LOGIC_SIGNATURE,
     provenance,
     normalizeInput,
