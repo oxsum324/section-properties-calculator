@@ -19,6 +19,7 @@
 | `結構工具箱/tools/equipment/` | 納入 | 設備局部荷重為靜態快算工具，已拆 `equipment-load-core.js`、`equipment-load-golden-cases.js` 與 `equipment-load-core.test.js`，preflight 會跑接觸壓 / 分布壓 / 單點反力 regression。 |
 | `結構工具箱/tools/earth/` | 納入 | 擋土土壓局部快算為靜態初估工具，已拆 `earth-pressure-core.js`、`earth-pressure-golden-cases.js` 與 `earth-pressure-core.test.js`，preflight 會跑 Rankine 土壓 / 水壓 / 簡化穩定 regression。 |
 | `結構工具箱/tools/local-quick-tools.manifest.json` | 納入 | 高頻局部快算工具清冊；集中記錄路由、入口檔、核心檔、golden regression、smoke 標記與文件邊界，避免新增工具時只改頁面、漏改契約與 preflight。 |
+| `結構工具箱/tools/local-quick-tools.run.js` | 納入 | manifest-driven 局部快算測試入口；由清冊呼叫 JSON 匯出 helper regression 與共同契約，preflight 以此作為局部快算總閘門。 |
 | `結構工具箱/tools/local-quick-export.js` | 納入 | 高頻局部快算共用 JSON 匯出 helper；集中處理 payload 組裝、非有限數值序列化與下載動作，避免各頁匯出格式分歧。 |
 | `結構工具箱/tools/local-quick-export.test.js` | 納入 | JSON 匯出 helper 的 Node stub regression；驗證 payload、預設檔名、MIME、click/remove/revoke 與 Infinity/NaN 序列化，不依賴瀏覽器下載事件。 |
 | `結構工具箱/tools/local-quick-tools.contract.test.js` | 納入 | 高頻局部快算共同契約測試；集中確認工具檔案、首頁入口、乾淨路由、README、邊界文件、staging 建議、頁面責任邊界與各工具 golden regression。 |

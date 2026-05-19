@@ -3,6 +3,7 @@
   "family": "local-quick-tools",
   "description": "高頻局部快算工具清冊。此檔集中記錄工具入口、核心檔案、測試檔、乾淨路由與文件邊界，供契約測試與交付檢查使用。",
   "shared": {
+    "runner": "tools/local-quick-tools.run.js",
     "exportHelper": "tools/local-quick-export.js",
     "exportHelperTest": "tools/local-quick-export.test.js",
     "contractTest": "tools/local-quick-tools.contract.test.js"

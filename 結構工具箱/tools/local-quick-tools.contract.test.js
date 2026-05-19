@@ -47,8 +47,10 @@ const repoDocs = {
   vercel: readText(repoFile('vercel.json')),
 };
 
+const runnerPath = assertFile(manifest.shared.runner);
 const exportHelperPath = assertFile(manifest.shared.exportHelper);
 const exportHelperTestPath = assertFile(manifest.shared.exportHelperTest);
+const runnerText = readText(runnerPath);
 const exportHelperText = readText(exportHelperPath);
 const exportHelperTestText = readText(exportHelperTestPath);
 const ExportHelper = require(exportHelperPath);
@@ -57,11 +59,19 @@ const ExportHelper = require(exportHelperPath);
   '"version": "0.1.0"',
   '"family": "local-quick-tools"',
   '"shared"',
+  '"runner"',
   '"tools"',
   '"foundation-local"',
   '"equipment-load"',
   '"earth-pressure"',
 ].forEach(needle => assertIncludes(manifestText, needle, 'local quick tools manifest'));
+
+[
+  'local quick tools manifest runner OK',
+  'manifest.shared.exportHelperTest',
+  'manifest.shared.contractTest',
+  'runNode',
+].forEach(needle => assertIncludes(runnerText, needle, 'local quick tools runner'));
 
 [
   'LocalQuickExport',
@@ -102,12 +112,15 @@ assert.strictEqual(
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.js', 'local quick export README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest README');
+assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner README');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.js', 'local quick export boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest boundary');
+assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner boundary');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest staging group');
+assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner staging group');
 
 const routes = new Set();
 

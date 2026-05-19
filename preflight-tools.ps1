@@ -145,190 +145,13 @@ Write-Output 'frame analysis static smoke OK'
 exit 0
 '@
 
-$foundationLocalCommand = @'
-$htmlPath = '結構工具箱\tools\foundation\foundation-local.html'
-$exportPath = '結構工具箱\tools\local-quick-export.js'
-$corePath = '結構工具箱\tools\foundation\foundation-local-core.js'
-$testPath = '結構工具箱\tools\foundation\foundation-local-core.test.js'
-$goldenPath = '結構工具箱\tools\foundation\foundation-local-golden-cases.js'
-if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $exportPath)) { Write-Error "missing $exportPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
-if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
-$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
-$core = Get-Content -LiteralPath $corePath -Raw -Encoding UTF8
-$needles = @(
-  'foundation-local-smoke',
-  '<title>基礎局部檢核 V0.1</title>',
-  'function calculateFoundationLocal',
-  '../local-quick-export.js',
-  'foundation-local-core.js',
-  'id="btnCalc"',
-  'id="btnJson"',
-  'id="metricGrid"',
-  'id="checkList"',
-  'id="coreVersion"',
-  '工具與責任邊界',
-  'function downloadResultJson',
-  'LocalQuickExport',
-  'FoundationLocalCore',
-  '計算指紋',
-  '基礎局部檢核'
-)
-foreach ($needle in $needles) {
-  if ($html -notlike "*$needle*") {
-    Write-Error "foundation local static smoke missing: $needle"
-    exit 1
-  }
-}
-$coreNeedles = @(
-  'FoundationLocalCore',
-  'function calculate',
-  'function validateInput',
-  'module.exports'
-)
-foreach ($needle in $coreNeedles) {
-  if ($core -notlike "*$needle*") {
-    Write-Error "foundation local core smoke missing: $needle"
-    exit 1
-  }
-}
-node $testPath
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-Write-Output 'foundation local static and regression smoke OK'
-exit 0
-'@
-
-$equipmentLoadCommand = @'
-$htmlPath = '結構工具箱\tools\equipment\equipment-load.html'
-$exportPath = '結構工具箱\tools\local-quick-export.js'
-$corePath = '結構工具箱\tools\equipment\equipment-load-core.js'
-$testPath = '結構工具箱\tools\equipment\equipment-load-core.test.js'
-$goldenPath = '結構工具箱\tools\equipment\equipment-load-golden-cases.js'
-if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $exportPath)) { Write-Error "missing $exportPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
-if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
-$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
-$core = Get-Content -LiteralPath $corePath -Raw -Encoding UTF8
-$needles = @(
-  'equipment-load-smoke',
-  '<title>設備局部荷重 V0.1</title>',
-  'function calculateEquipmentLoad',
-  '../local-quick-export.js',
-  'equipment-load-core.js',
-  'id="btnCalc"',
-  'id="btnJson"',
-  'id="metricGrid"',
-  'id="checkList"',
-  'id="coreVersion"',
-  '工具與責任邊界',
-  'function downloadResultJson',
-  'LocalQuickExport',
-  'EquipmentLoadCore',
-  '計算指紋',
-  '設備局部荷重'
-)
-foreach ($needle in $needles) {
-  if ($html -notlike "*$needle*") {
-    Write-Error "equipment load static smoke missing: $needle"
-    exit 1
-  }
-}
-$coreNeedles = @(
-  'EquipmentLoadCore',
-  'function calculate',
-  'function validateInput',
-  'module.exports'
-)
-foreach ($needle in $coreNeedles) {
-  if ($core -notlike "*$needle*") {
-    Write-Error "equipment load core smoke missing: $needle"
-    exit 1
-  }
-}
-node $testPath
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-Write-Output 'equipment load static and regression smoke OK'
-exit 0
-'@
-
-$earthPressureCommand = @'
-$htmlPath = '結構工具箱\tools\earth\earth-pressure.html'
-$exportPath = '結構工具箱\tools\local-quick-export.js'
-$corePath = '結構工具箱\tools\earth\earth-pressure-core.js'
-$testPath = '結構工具箱\tools\earth\earth-pressure-core.test.js'
-$goldenPath = '結構工具箱\tools\earth\earth-pressure-golden-cases.js'
-if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $exportPath)) { Write-Error "missing $exportPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
-if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
-if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
-$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
-$core = Get-Content -LiteralPath $corePath -Raw -Encoding UTF8
-$needles = @(
-  'earth-pressure-smoke',
-  '<title>擋土土壓局部快算 V0.1</title>',
-  'function calculateEarthPressure',
-  '../local-quick-export.js',
-  'earth-pressure-core.js',
-  'id="btnCalc"',
-  'id="btnJson"',
-  'id="metricGrid"',
-  'id="checkList"',
-  'id="coreVersion"',
-  '工具與責任邊界',
-  'function downloadResultJson',
-  'LocalQuickExport',
-  'EarthPressureCore',
-  '計算指紋',
-  '擋土土壓局部快算'
-)
-foreach ($needle in $needles) {
-  if ($html -notlike "*$needle*") {
-    Write-Error "earth pressure static smoke missing: $needle"
-    exit 1
-  }
-}
-$coreNeedles = @(
-  'EarthPressureCore',
-  'function calculate',
-  'function validateInput',
-  'module.exports'
-)
-foreach ($needle in $coreNeedles) {
-  if ($core -notlike "*$needle*") {
-    Write-Error "earth pressure core smoke missing: $needle"
-    exit 1
-  }
-}
-node $testPath
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-Write-Output 'earth pressure static and regression smoke OK'
-exit 0
-'@
-
 $localQuickToolsContractCommand = @'
-$manifestPath = '結構工具箱\tools\local-quick-tools.manifest.json'
-$exportTestPath = '結構工具箱\tools\local-quick-export.test.js'
-$testPath = '結構工具箱\tools\local-quick-tools.contract.test.js'
-if (-not (Test-Path -LiteralPath $manifestPath)) {
-  Write-Error "missing $manifestPath"
+$runnerPath = '結構工具箱\tools\local-quick-tools.run.js'
+if (-not (Test-Path -LiteralPath $runnerPath)) {
+  Write-Error "missing $runnerPath"
   exit 1
 }
-if (-not (Test-Path -LiteralPath $exportTestPath)) {
-  Write-Error "missing $exportTestPath"
-  exit 1
-}
-if (-not (Test-Path -LiteralPath $testPath)) {
-  Write-Error "missing $testPath"
-  exit 1
-}
-node $exportTestPath
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-node $testPath
+node $runnerPath
 exit $LASTEXITCODE
 '@
 
@@ -514,31 +337,10 @@ $checks = @(
     slow = $false
   },
   [pscustomobject]@{
-    key = "local-quick-tools-contract"
-    label = "Local quick tools contract"
+    key = "local-quick-tools-runner"
+    label = "Local quick tools manifest runner"
     workdir = $root
     command = $localQuickToolsContractCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "foundation-local-static"
-    label = "Foundation local static smoke"
-    workdir = $root
-    command = $foundationLocalCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "equipment-load-static"
-    label = "Equipment load static smoke"
-    workdir = $root
-    command = $equipmentLoadCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "earth-pressure-static"
-    label = "Earth pressure static smoke"
-    workdir = $root
-    command = $earthPressureCommand
     slow = $false
   }
 )
