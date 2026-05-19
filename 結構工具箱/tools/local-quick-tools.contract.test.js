@@ -29,53 +29,15 @@ function assertIncludes(text, needle, label) {
   assert.ok(text.includes(needle), `${label} missing: ${needle}`);
 }
 
-const tools = [
-  {
-    key: 'foundation-local',
-    label: '基礎局部檢核',
-    route: '/foundation-local',
-    html: 'tools/foundation/foundation-local.html',
-    core: 'tools/foundation/foundation-local-core.js',
-    test: 'tools/foundation/foundation-local-core.test.js',
-    golden: 'tools/foundation/foundation-local-golden-cases.js',
-    smoke: 'foundation-local-smoke',
-    title: '<title>基礎局部檢核 V0.1</title>',
-    calcFunction: 'function calculateFoundationLocal',
-    coreGlobal: 'FoundationLocalCore',
-    indexHref: 'tools/foundation/foundation-local.html',
-    boundaryPath: '結構工具箱/tools/foundation/',
-  },
-  {
-    key: 'equipment-load',
-    label: '設備局部荷重',
-    route: '/equipment-load',
-    html: 'tools/equipment/equipment-load.html',
-    core: 'tools/equipment/equipment-load-core.js',
-    test: 'tools/equipment/equipment-load-core.test.js',
-    golden: 'tools/equipment/equipment-load-golden-cases.js',
-    smoke: 'equipment-load-smoke',
-    title: '<title>設備局部荷重 V0.1</title>',
-    calcFunction: 'function calculateEquipmentLoad',
-    coreGlobal: 'EquipmentLoadCore',
-    indexHref: 'tools/equipment/equipment-load.html',
-    boundaryPath: '結構工具箱/tools/equipment/',
-  },
-  {
-    key: 'earth-pressure',
-    label: '擋土土壓局部快算',
-    route: '/earth-pressure',
-    html: 'tools/earth/earth-pressure.html',
-    core: 'tools/earth/earth-pressure-core.js',
-    test: 'tools/earth/earth-pressure-core.test.js',
-    golden: 'tools/earth/earth-pressure-golden-cases.js',
-    smoke: 'earth-pressure-smoke',
-    title: '<title>擋土土壓局部快算 V0.1</title>',
-    calcFunction: 'function calculateEarthPressure',
-    coreGlobal: 'EarthPressureCore',
-    indexHref: 'tools/earth/earth-pressure.html',
-    boundaryPath: '結構工具箱/tools/earth/',
-  },
-];
+const manifestPath = assertFile('tools/local-quick-tools.manifest.json');
+const manifestText = readText(manifestPath);
+const manifest = JSON.parse(manifestText);
+const tools = manifest.tools;
+
+assert.equal(manifest.version, '0.1.0', 'local quick tools manifest version');
+assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
+assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
+assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
 
 const repoDocs = {
   index: readText(path.join(toolboxRoot, 'index.html')),
@@ -85,11 +47,21 @@ const repoDocs = {
   vercel: readText(repoFile('vercel.json')),
 };
 
-const exportHelperPath = assertFile('tools/local-quick-export.js');
-const exportHelperTestPath = assertFile('tools/local-quick-export.test.js');
+const exportHelperPath = assertFile(manifest.shared.exportHelper);
+const exportHelperTestPath = assertFile(manifest.shared.exportHelperTest);
 const exportHelperText = readText(exportHelperPath);
 const exportHelperTestText = readText(exportHelperTestPath);
 const ExportHelper = require(exportHelperPath);
+
+[
+  '"version": "0.1.0"',
+  '"family": "local-quick-tools"',
+  '"shared"',
+  '"tools"',
+  '"foundation-local"',
+  '"equipment-load"',
+  '"earth-pressure"',
+].forEach(needle => assertIncludes(manifestText, needle, 'local quick tools manifest'));
 
 [
   'LocalQuickExport',
@@ -129,10 +101,13 @@ assert.strictEqual(
 );
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.js', 'local quick export README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test README');
+assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest README');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.js', 'local quick export boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test boundary');
+assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest boundary');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test staging group');
+assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest staging group');
 
 const routes = new Set();
 

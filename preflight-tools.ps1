@@ -311,8 +311,13 @@ exit 0
 '@
 
 $localQuickToolsContractCommand = @'
+$manifestPath = '結構工具箱\tools\local-quick-tools.manifest.json'
 $exportTestPath = '結構工具箱\tools\local-quick-export.test.js'
 $testPath = '結構工具箱\tools\local-quick-tools.contract.test.js'
+if (-not (Test-Path -LiteralPath $manifestPath)) {
+  Write-Error "missing $manifestPath"
+  exit 1
+}
 if (-not (Test-Path -LiteralPath $exportTestPath)) {
   Write-Error "missing $exportTestPath"
   exit 1
