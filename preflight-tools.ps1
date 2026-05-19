@@ -311,11 +311,18 @@ exit 0
 '@
 
 $localQuickToolsContractCommand = @'
+$exportTestPath = '結構工具箱\tools\local-quick-export.test.js'
 $testPath = '結構工具箱\tools\local-quick-tools.contract.test.js'
+if (-not (Test-Path -LiteralPath $exportTestPath)) {
+  Write-Error "missing $exportTestPath"
+  exit 1
+}
 if (-not (Test-Path -LiteralPath $testPath)) {
   Write-Error "missing $testPath"
   exit 1
 }
+node $exportTestPath
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 node $testPath
 exit $LASTEXITCODE
 '@

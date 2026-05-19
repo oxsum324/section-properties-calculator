@@ -86,7 +86,9 @@ const repoDocs = {
 };
 
 const exportHelperPath = assertFile('tools/local-quick-export.js');
+const exportHelperTestPath = assertFile('tools/local-quick-export.test.js');
 const exportHelperText = readText(exportHelperPath);
+const exportHelperTestText = readText(exportHelperTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
@@ -99,6 +101,14 @@ const ExportHelper = require(exportHelperPath);
   'module.exports',
 ].forEach(needle => assertIncludes(exportHelperText, needle, 'local quick export helper'));
 
+[
+  'withDownloadStubs',
+  'downloadResultJson',
+  'foundation-local-2026-05-19.json',
+  'application/json;charset=utf-8',
+  'local quick export helper OK',
+].forEach(needle => assertIncludes(exportHelperTestText, needle, 'local quick export helper test'));
+
 assert.equal(ExportHelper.version, '0.1.0', 'local quick export helper version');
 const helperPayload = ExportHelper.buildPayload({
   tool: { id: 'helper-smoke', name: 'Helper Smoke' },
@@ -108,9 +118,21 @@ const helperPayload = ExportHelper.buildPayload({
 });
 assert.equal(helperPayload.tool.id, 'helper-smoke', 'local quick export helper payload tool');
 assert.equal(JSON.stringify(helperPayload, ExportHelper.jsonReplacer).includes('"Infinity"'), true, 'local quick export helper non-finite number serialization');
+const helperTestRun = spawnSync(process.execPath, [exportHelperTestPath], {
+  cwd: repoRoot,
+  encoding: 'utf8',
+});
+assert.strictEqual(
+  helperTestRun.status,
+  0,
+  `local quick export helper test failed\nSTDOUT:\n${helperTestRun.stdout}\nSTDERR:\n${helperTestRun.stderr}`
+);
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.js', 'local quick export README');
+assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test README');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.js', 'local quick export boundary');
+assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test boundary');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
+assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test staging group');
 
 const routes = new Set();
 

@@ -19,6 +19,7 @@
 | `結構工具箱/tools/equipment/` | 納入 | 設備局部荷重為靜態快算工具，已拆 `equipment-load-core.js`、`equipment-load-golden-cases.js` 與 `equipment-load-core.test.js`，preflight 會跑接觸壓 / 分布壓 / 單點反力 regression。 |
 | `結構工具箱/tools/earth/` | 納入 | 擋土土壓局部快算為靜態初估工具，已拆 `earth-pressure-core.js`、`earth-pressure-golden-cases.js` 與 `earth-pressure-core.test.js`，preflight 會跑 Rankine 土壓 / 水壓 / 簡化穩定 regression。 |
 | `結構工具箱/tools/local-quick-export.js` | 納入 | 高頻局部快算共用 JSON 匯出 helper；集中處理 payload 組裝、非有限數值序列化與下載動作，避免各頁匯出格式分歧。 |
+| `結構工具箱/tools/local-quick-export.test.js` | 納入 | JSON 匯出 helper 的 Node stub regression；驗證 payload、預設檔名、MIME、click/remove/revoke 與 Infinity/NaN 序列化，不依賴瀏覽器下載事件。 |
 | `結構工具箱/tools/local-quick-tools.contract.test.js` | 納入 | 高頻局部快算共同契約測試；集中確認工具檔案、首頁入口、乾淨路由、README、邊界文件、staging 建議、頁面責任邊界與各工具 golden regression。 |
 | `螺栓檢討/bolt-review-tool/` | 保持原工具碼與 deploy 輸出分流 | 原始 React 工具用 npm verify；`anchor/` 是部署鏡像。 |
 
