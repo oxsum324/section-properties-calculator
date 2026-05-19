@@ -241,6 +241,54 @@ Write-Output 'equipment load static and regression smoke OK'
 exit 0
 '@
 
+$earthPressureCommand = @'
+$htmlPath = '結構工具箱\tools\earth\earth-pressure.html'
+$corePath = '結構工具箱\tools\earth\earth-pressure-core.js'
+$testPath = '結構工具箱\tools\earth\earth-pressure-core.test.js'
+$goldenPath = '結構工具箱\tools\earth\earth-pressure-golden-cases.js'
+if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
+if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
+$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
+$core = Get-Content -LiteralPath $corePath -Raw -Encoding UTF8
+$needles = @(
+  'earth-pressure-smoke',
+  '<title>擋土土壓局部快算 V0.1</title>',
+  'function calculateEarthPressure',
+  'earth-pressure-core.js',
+  'id="btnCalc"',
+  'id="metricGrid"',
+  'id="checkList"',
+  'id="coreVersion"',
+  '工具與責任邊界',
+  'EarthPressureCore v',
+  '擋土土壓局部快算'
+)
+foreach ($needle in $needles) {
+  if ($html -notlike "*$needle*") {
+    Write-Error "earth pressure static smoke missing: $needle"
+    exit 1
+  }
+}
+$coreNeedles = @(
+  'EarthPressureCore',
+  'function calculate',
+  'function validateInput',
+  'module.exports'
+)
+foreach ($needle in $coreNeedles) {
+  if ($core -notlike "*$needle*") {
+    Write-Error "earth pressure core smoke missing: $needle"
+    exit 1
+  }
+}
+node $testPath
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Output 'earth pressure static and regression smoke OK'
+exit 0
+'@
+
 $excavationLauncherCommand = @'
 $launcherPath = '開挖擋土支撐\index.html'
 $readmePath = '開挖擋土支撐\README.md'
@@ -434,6 +482,13 @@ $checks = @(
     label = "Equipment load static smoke"
     workdir = $root
     command = $equipmentLoadCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "earth-pressure-static"
+    label = "Earth pressure static smoke"
+    workdir = $root
+    command = $earthPressureCommand
     slow = $false
   }
 )
