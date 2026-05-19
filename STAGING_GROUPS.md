@@ -53,7 +53,7 @@ Refresh anchor deployment assets
 不建議在目前直接整包 staging。先分別決定是否納入 repo，並把案例資料、Office/PDF 輸出與暫存資料排除。
 
 - `石材固定/`：工具成熟度最高，但混有參考 PDF、範例 doc、專案報告圖檔與 vendor 檔。建議先建立「程式碼清單」後分批納入。
-- `開挖擋土支撐/`：backend/frontend 架構清楚，但混有工程案例、輸出與 TypeScript build info。建議先納入 `backend/`、`frontend/src/`、設定與 tests，再處理範例資料。
+- `開挖擋土支撐/`：以「程式碼納入、工程資料排除」處理。納入 `.gitignore`、`README.md`、`backend/`、`frontend/index.html`、`frontend/package*.json`、`frontend/src/`、`frontend/tsconfig*.json`、`frontend/vite.config.cjs`、`frontend/vite.config.ts`、`start_html_mode.ps1`、`stop_html_mode.ps1`；排除工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`、`*.tsbuildinfo`。
 - `覆工板/`：目前仍是工具與案例資料混合。建議先納入 `index.html`、`report/`、`shared/`、`dump_xls.py`，大型 Excel/Word/PDF 另放參考資料或 ignore。
 - `鋼架/`：目前只有 `平面剛架分析.html`，可在確認用途後獨立一包納入。
 

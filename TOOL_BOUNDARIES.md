@@ -12,7 +12,7 @@
 | `結構工具箱/tools/風力/*.html` | 納入 | 風力頁面共用報告路徑屬於平台可用性修正。 |
 | `鋼構工具/audit-tool.ps1` | 納入 | 修正 Playwright CLI `network` 指令不存在時造成總巡檢中斷。 |
 | `石材固定/` | 建議納入，但先排除輸出、暫存與大型參考 | 已有 self_check、quick smoke、版本治理與交付流程；適合成為正式工具，但需先清掉輸出與案例雜訊。 |
-| `開挖擋土支撐/` | 建議納入，但先排除 `frontend/node_modules/`、`frontend/dist/`、`app_data/`、`tmp/` 與工程案例輸出 | Backend tests 與 frontend build 已能納入 preflight；大型工程資料不應混入程式碼提交。 |
+| `開挖擋土支撐/` | 納入程式碼，排除工程資料 | Backend tests 與 frontend build 已納入 preflight；只提交 backend/frontend 原始碼、設定、README、啟停腳本與本目錄 `.gitignore`，不提交工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`。 |
 | `覆工板/` | 暫列候選工具 | 已有 `index.html` 與 Python 報告產生器；目前仍混有 Excel、PDF、doc/docx、抽圖與 dump 檔，需先分離案例資料。 |
 | `鋼架/` | 可納入 | 目前只有單一 HTML 靜態工具，preflight 已做基本 smoke。 |
 | `螺栓檢討/bolt-review-tool/` | 保持原工具碼與 deploy 輸出分流 | 原始 React 工具用 npm verify；`anchor/` 是部署鏡像。 |
