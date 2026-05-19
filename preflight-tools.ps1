@@ -241,6 +241,53 @@ Write-Output 'equipment load static and regression smoke OK'
 exit 0
 '@
 
+$excavationLauncherCommand = @'
+$launcherPath = '開挖擋土支撐\index.html'
+$readmePath = '開挖擋土支撐\README.md'
+$startPath = '開挖擋土支撐\start_html_mode.ps1'
+$stopPath = '開挖擋土支撐\stop_html_mode.ps1'
+foreach ($path in @($launcherPath, $readmePath, $startPath, $stopPath)) {
+  if (-not (Test-Path -LiteralPath $path)) {
+    Write-Error "missing excavation service file: $path"
+    exit 1
+  }
+}
+$launcher = Get-Content -LiteralPath $launcherPath -Raw -Encoding UTF8
+$startScript = Get-Content -LiteralPath $startPath -Raw -Encoding UTF8
+$stopScript = Get-Content -LiteralPath $stopPath -Raw -Encoding UTF8
+$launcherNeedles = @(
+  '本機服務工具',
+  'start_html_mode.ps1 -OpenBrowser',
+  'stop_html_mode.ps1',
+  '/api/health',
+  'app_data/',
+  '服務邊界',
+  '不可直接當靜態部署'
+)
+foreach ($needle in $launcherNeedles) {
+  if ($launcher -notlike "*$needle*") {
+    Write-Error "excavation launcher smoke missing: $needle"
+    exit 1
+  }
+}
+$startNeedles = @('Test-HealthEndpoint', 'uvicorn', '--port', '8000', 'html-mode-backend.pid')
+foreach ($needle in $startNeedles) {
+  if ($startScript -notlike "*$needle*") {
+    Write-Error "excavation start script smoke missing: $needle"
+    exit 1
+  }
+}
+$stopNeedles = @('html-mode-backend.pid', 'LocalPort 8000', 'LocalPort 5173', 'HTML mode stopped')
+foreach ($needle in $stopNeedles) {
+  if ($stopScript -notlike "*$needle*") {
+    Write-Error "excavation stop script smoke missing: $needle"
+    exit 1
+  }
+}
+Write-Output 'excavation launcher and service-boundary smoke OK'
+exit 0
+'@
+
 $stoneQuickCommand = @'
 $tests = @(
   'regression-smoke',
@@ -338,6 +385,13 @@ $checks = @(
     label = "Stone fixing quick smoke tests"
     workdir = (Join-Path $root "石材固定")
     command = $stoneQuickCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "excavation-launcher"
+    label = "Excavation launcher service-boundary smoke"
+    workdir = $root
+    command = $excavationLauncherCommand
     slow = $false
   },
   [pscustomobject]@{

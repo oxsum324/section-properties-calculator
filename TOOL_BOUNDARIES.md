@@ -12,7 +12,7 @@
 | `結構工具箱/tools/風力/*.html` | 納入 | 風力頁面共用報告路徑屬於平台可用性修正。 |
 | `鋼構工具/audit-tool.ps1` | 納入 | 修正 Playwright CLI `network` 指令不存在時造成總巡檢中斷。 |
 | `石材固定/` | 納入程式碼與必要離線 vendor，排除參考資料與輸出 | 已有 self_check、quick smoke、版本治理、golden samples 與交付流程；納入正式 V2 工具、測試、治理文件、必要 vendor，PDF/XLS/Word 範例、圖片、專案報告與舊版 HTML 不進 repo。 |
-| `開挖擋土支撐/` | 納入程式碼，排除工程資料 | Backend tests 與 frontend build 已納入 preflight；只提交 backend/frontend 原始碼、設定、README、啟停腳本與本目錄 `.gitignore`，不提交工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`。 |
+| `開挖擋土支撐/` | 納入程式碼，排除工程資料 | Backend tests、frontend build 與 launcher 靜態 smoke 已納入 preflight；只提交 `index.html`、backend/frontend 原始碼、設定、README、啟停腳本與本目錄 `.gitignore`，不提交工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`。 |
 | `覆工板/` | 納入程式碼，排除工程資料與輸出 | 已有 `index.html`、Python 報告產生器、固定 smoke fixture 與 preflight 產報檢查；Excel、PDF、doc/docx、抽圖、dump 與吊車參考資料不進 repo。 |
 | `鋼架/` | 可納入 | 目前只有單一 HTML 靜態工具，preflight 已做基本 smoke。 |
 | `結構工具箱/tools/foundation/` | 納入 | 基礎局部檢核為靜態快算工具，已拆 `foundation-local-core.js`、`foundation-local-golden-cases.js` 與 `foundation-local-core.test.js`，preflight 會跑 golden regression。注意不要改放到 `tools/基礎/`，會被根目錄 `基礎/` ignore 規則誤排除。 |

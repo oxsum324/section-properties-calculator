@@ -8,11 +8,28 @@
   <style>
     .launcher-layout { display:grid; gap:16px; max-width:960px; margin:0 auto; }
     .status-pill { display:inline-flex; align-items:center; min-height:30px; padding:4px 12px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:0.78em; font-weight:800; }
-    .command-box { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:14px 16px; font-family:Consolas, "Courier New", monospace; font-size:0.86em; line-height:1.7; overflow:auto; }
+    .command-box { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:14px 16px; font-family:Consolas, "Courier New", monospace; font-size:0.86em; line-height:1.7; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .command-label { margin:12px 0 6px; color:var(--primary); font-size:0.82em; font-weight:800; }
     .launcher-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
     .launcher-actions a { display:inline-flex; align-items:center; justify-content:center; min-height:40px; padding:10px 14px; border-radius:10px; border:1px solid #cbd5e1; background:#fff; color:var(--primary); text-decoration:none; font-size:0.86em; font-weight:800; }
     .launcher-actions a.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+    .scope-table td { white-space:normal; }
     .scope-table td:first-child { width:180px; font-weight:700; color:var(--primary); }
+    .service-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:10px; }
+    .service-item { border:1px solid #e2e8f0; border-left:4px solid #cbd5e1; border-radius:8px; background:#f8fafc; padding:10px 12px; }
+    .service-item.local { border-left-color:#a16207; }
+    .service-item.data { border-left-color:#0b7285; }
+    .service-item.deploy { border-left-color:#b91c1c; }
+    .service-item strong { display:block; color:var(--primary); font-size:0.86em; margin-bottom:2px; }
+    .service-item span { display:block; color:var(--text-light); font-size:0.8em; line-height:1.55; }
+    @media (max-width:768px) {
+      table.scope-table,
+      table.scope-table tbody,
+      table.scope-table tr,
+      table.scope-table td { display:block; width:100%; white-space:normal; }
+      table.scope-table td:first-child { width:auto; border-bottom:0; padding-bottom:2px; }
+      table.scope-table td + td { border-top:0; padding-top:2px; }
+    }
   </style>
 </head>
 <body>
@@ -32,8 +49,16 @@
               <td>已納入工具箱索引，但不是純靜態 HTML；需啟動本機後端服務後使用。</td>
             </tr>
             <tr>
+              <td>使用入口</td>
+              <td>此頁是 launcher 與邊界說明；實際操作介面由 FastAPI 掛載前端，預設網址為 <code>http://127.0.0.1:8000</code>。</td>
+            </tr>
+            <tr>
               <td>主要流程</td>
               <td>匯入 .RIO / .LST / .o 分析文字檔，整理支撐、橫擋、斜撐、大角撐與柱構件檢核，並輸出報表。</td>
+            </tr>
+            <tr>
+              <td>資料邊界</td>
+              <td>SQLite、專案 JSON、匯入檔與報表輸出存於 <code>app_data/</code>；該資料夾屬本機工作資料，不進版本控管。</td>
             </tr>
             <tr>
               <td>目前限制</td>
@@ -45,12 +70,37 @@
 
       <div class="card">
         <h2>啟動方式</h2>
+        <div class="command-label">啟動本機服務</div>
         <div class="command-box">cd C:\Users\USER\Desktop\AI\小工具製作\開挖擋土支撐
-.\start_html_mode.ps1</div>
+.\start_html_mode.ps1 -OpenBrowser</div>
+        <div class="command-label">停止本機服務</div>
+        <div class="command-box">cd C:\Users\USER\Desktop\AI\小工具製作\開挖擋土支撐
+.\stop_html_mode.ps1</div>
+        <div class="command-label">健康檢查</div>
+        <div class="command-box">Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/api/health</div>
         <div class="launcher-actions">
           <a class="primary" href="http://127.0.0.1:8000">開啟本機服務</a>
+          <a href="http://127.0.0.1:8000/api/health">檢查 API health</a>
           <a href="README.md">查看 README</a>
           <a href="../結構工具箱/index.html">返回結構工具箱</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>服務邊界</h2>
+        <div class="service-grid">
+          <div class="service-item local">
+            <strong>本機服務，不是靜態頁</strong>
+            <span>需要 Python FastAPI 後端；若前端建置失敗，腳本會退回 Vite dev proxy 模式。</span>
+          </div>
+          <div class="service-item data">
+            <strong>工程資料留在本機</strong>
+            <span>分析檔、SQLite、PDF/DOCX 報表與專案狀態均屬本機資料，預設排除於 repo 外。</span>
+          </div>
+          <div class="service-item deploy">
+            <strong>不可直接當靜態部署</strong>
+            <span>若要公開部署，需另行規劃 API、資料儲存、權限與前端 base path。</span>
+          </div>
         </div>
       </div>
 
