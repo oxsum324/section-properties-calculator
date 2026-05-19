@@ -107,6 +107,7 @@ for (const tool of tools) {
     tool.calcFunction,
     path.basename(tool.core),
     'id="btnCalc"',
+    'id="btnJson"',
     'id="metricGrid"',
     'id="checkList"',
     'id="coreVersion"',
@@ -115,6 +116,10 @@ for (const tool of tools) {
     tool.label,
     '初估',
     '列印計算書',
+    '下載 JSON',
+    'function downloadResultJson',
+    'application/json',
+    'generatedAt',
     '輸入格式',
     '計算指紋',
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));

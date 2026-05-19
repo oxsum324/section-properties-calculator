@@ -204,6 +204,7 @@
         <div class="inline-actions">
           <button class="btn-calc" id="btnCalc" type="button">計算局部檢核</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
+          <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
           <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
         </div>
       </div>
@@ -407,14 +408,51 @@
     return new Date().toLocaleString('zh-TW', { hour12: false });
   }
 
-  function openReport() {
-    const r = lastResult || calculateFoundationLocal();
-    if (!r) return;
-    const proj = {
+  function gatherProjectInfo() {
+    return {
       name: $('projName').value.trim() || '未填',
       no: $('projNo').value.trim() || '未填',
       designer: $('projDesigner').value.trim() || '未填'
     };
+  }
+
+  function jsonReplacer(key, value) {
+    return typeof value === 'number' && !Number.isFinite(value) ? String(value) : value;
+  }
+
+  function downloadJson(filename, payload) {
+    const json = JSON.stringify(payload, jsonReplacer, 2);
+    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadResultJson() {
+    const r = lastResult || calculateFoundationLocal();
+    if (!r) return;
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadJson(`foundation-local-${stamp}.json`, {
+      tool: {
+        id: 'foundation-local',
+        name: '基礎局部檢核',
+        pageVersion: 'V0.1'
+      },
+      project: gatherProjectInfo(),
+      generatedAt: new Date().toISOString(),
+      result: r
+    });
+  }
+
+  function openReport() {
+    const r = lastResult || calculateFoundationLocal();
+    if (!r) return;
+    const proj = gatherProjectInfo();
     const prov = r.provenance || (Core.provenance ? Core.provenance() : {});
     const inputRows = [
       ['基礎 B×L×t', `${fmt(r.B)} × ${fmt(r.L)} × ${fmt(r.t)} m`],
@@ -499,6 +537,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
   document.getElementById('btnCalc').addEventListener('click', calculateFoundationLocal);
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnReport').addEventListener('click', openReport);
+  document.getElementById('btnJson').addEventListener('click', downloadResultJson);
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
   $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
   ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
