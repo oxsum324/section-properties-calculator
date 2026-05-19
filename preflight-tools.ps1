@@ -149,9 +149,11 @@ $foundationLocalCommand = @'
 $htmlPath = '結構工具箱\tools\foundation\foundation-local.html'
 $corePath = '結構工具箱\tools\foundation\foundation-local-core.js'
 $testPath = '結構工具箱\tools\foundation\foundation-local-core.test.js'
+$goldenPath = '結構工具箱\tools\foundation\foundation-local-golden-cases.js'
 if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
 if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
 $html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
 $core = Get-Content -LiteralPath $corePath -Raw -Encoding UTF8
 $needles = @(
@@ -192,9 +194,11 @@ $equipmentLoadCommand = @'
 $htmlPath = '結構工具箱\tools\equipment\equipment-load.html'
 $corePath = '結構工具箱\tools\equipment\equipment-load-core.js'
 $testPath = '結構工具箱\tools\equipment\equipment-load-core.test.js'
+$goldenPath = '結構工具箱\tools\equipment\equipment-load-golden-cases.js'
 if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
 if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
 $html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
 $core = Get-Content -LiteralPath $corePath -Raw -Encoding UTF8
 $needles = @(
