@@ -289,6 +289,16 @@ Write-Output 'earth pressure static and regression smoke OK'
 exit 0
 '@
 
+$localQuickToolsContractCommand = @'
+$testPath = '結構工具箱\tools\local-quick-tools.contract.test.js'
+if (-not (Test-Path -LiteralPath $testPath)) {
+  Write-Error "missing $testPath"
+  exit 1
+}
+node $testPath
+exit $LASTEXITCODE
+'@
+
 $excavationLauncherCommand = @'
 $launcherPath = '開挖擋土支撐\index.html'
 $readmePath = '開挖擋土支撐\README.md'
@@ -468,6 +478,13 @@ $checks = @(
     label = "Frame analysis static smoke"
     workdir = $root
     command = $frameStaticCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "local-quick-tools-contract"
+    label = "Local quick tools contract"
+    workdir = $root
+    command = $localQuickToolsContractCommand
     slow = $false
   },
   [pscustomobject]@{
