@@ -72,6 +72,17 @@
   .scope-pill.formal { background:#dcfce7; color:#166534; }
   .scope-pill.legacy { background:#fef3c7; color:#92400e; }
   .scope-pill.core { background:#e0f2fe; color:#0f4c81; }
+  .scope-pill.analysis { background:#ede9fe; color:#5b21b6; }
+  .scope-pill.temp { background:#fef3c7; color:#92400e; }
+  .scope-pill.service { background:#f1f5f9; color:#475569; }
+  .tool-legend { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px 18px; margin-top:6px; }
+  .tool-legend__item { border-left:3px solid #cbd5e1; padding-left:10px; min-height:48px; }
+  .tool-legend__item.formal { border-left-color:#16a34a; }
+  .tool-legend__item.analysis { border-left-color:#7c3aed; }
+  .tool-legend__item.local { border-left-color:#0b7285; }
+  .tool-legend__item.temp { border-left-color:#a16207; }
+  .tool-legend__item strong { display:block; color:var(--primary); font-size:0.86em; margin-bottom:2px; }
+  .tool-legend__item span { color:var(--text-light); font-size:0.78em; line-height:1.45; }
   .status-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
   .status-actions a {
     display:inline-flex; align-items:center; justify-content:center; min-height:40px;
@@ -83,13 +94,36 @@
 </head>
 <body>
   <header>
-    <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V1.2</span></h1>
+    <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V1.3</span></h1>
     <p style="font-size:0.88em; opacity:0.9; margin-top:4px;">
-      RC／鋼構／耐風／耐震／斷面性質　｜　單位：cm, kgf
+      RC／鋼構／耐風／耐震／錨栓／施工臨設／斷面性質　｜　單位：cm, kgf
     </p>
   </header>
 
 <div class="container">
+
+  <!-- ─── 入口分類 ─── -->
+  <div class="card">
+    <div class="group-title">工具入口分類</div>
+    <div class="tool-legend">
+      <div class="tool-legend__item formal">
+        <strong>正式規範核算</strong>
+        <span>RC、鋼構、耐風、耐震、錨栓與石材固定，適合形成案件計算書主線。</span>
+      </div>
+      <div class="tool-legend__item analysis">
+        <strong>分析與斷面輔助</strong>
+        <span>連續梁、平面剛架、斷面性質與 struct.dx，提供模型前後的快速校核。</span>
+      </div>
+      <div class="tool-legend__item local">
+        <strong>局部與附掛構件</strong>
+        <span>附屬構造物、雜項工作物、錨栓與設備固定，處理常被單獨抽出的補算。</span>
+      </div>
+      <div class="tool-legend__item temp">
+        <strong>施工臨時設施 / 本機服務</strong>
+        <span>覆工板與開挖擋土支撐屬施工流程工具；服務型工具會另標示啟動條件。</span>
+      </div>
+    </div>
+  </div>
 
   <!-- ─── 結構分析 ─── -->
   <div class="card">
@@ -99,6 +133,11 @@
         <div class="icon">⊏⊐</div>
         <h3>連續梁分析 <span class="ver ver-ok">V1.2</span></h3>
         <p>多跨連續梁彎矩 / 剪力 / 撓度；可導入斷面 I 值；整合共用計算書輸出</p>
+      </a>
+      <a class="menu-card" href="../鋼架/平面剛架分析.html">
+        <div class="icon">⌗</div>
+        <h3>平面剛架分析 <span class="scope-pill analysis">V0.1</span></h3>
+        <p>2D 剛架節點、桿件與荷重輸入；以直接勁度法輸出位移、反力與內力圖，適合模型前後快速校核。</p>
       </a>
       <a class="menu-card" href="../../解題/struct_dx/frontend/struct_suite.html">
         <div class="icon">⌬</div>
@@ -418,6 +457,11 @@
         <h3>覆工板系統計算 <span class="ver ver-new">V1.0</span></h3>
         <p>覆工板面、覆工小梁、覆工大梁、共構柱、握裹與樁基承載檢核；可匯出 JSON 並產生 Word 計算書。</p>
       </a>
+      <a class="menu-card" href="../開挖擋土支撐/index.html" style="border-left:4px solid #a16207;">
+        <div class="icon">▥</div>
+        <h3>開挖擋土支撐 <span class="scope-pill service">本機服務</span></h3>
+        <p>FastAPI + React + SQLite 工作流；匯入分析檔、構件檢核與 PDF / DOCX 報表。入口頁標示啟動條件與目前限制。</p>
+      </a>
     </div>
   </div>
 
@@ -476,7 +520,7 @@
     <h2>高頻局部計算建議</h2>
     <div class="collapse-toggle">
       <input type="checkbox" id="toggleNextTools">
-      <label for="toggleNextTools">顯示下一步工具擴充方向</label>
+      <label for="toggleNextTools">顯示已納管狀態與下一步擴充方向</label>
     </div>
     <div id="nextToolsPanel" class="collapse-panel hidden">
     <table class="scope-table">
@@ -493,25 +537,43 @@
           <td><strong>P0</strong></td>
           <td><strong>附屬構造物地震力</strong></td>
           <td>機電設備、管線、吊架、外掛構件、非結構牆、屋頂附屬設備</td>
-          <td>已獨立為第四章局部工具，可繼續補型式預設與報表細修</td>
+          <td><span class="scope-ok">已上線</span>；可再補常用型式預設與報表細修</td>
         </tr>
         <tr>
-          <td><strong>P1</strong></td>
-          <td><strong>基礎局部檢核</strong></td>
-          <td>獨立基礎、條形基礎、底壓、偏心、抗滑、抗傾覆、局部補算</td>
-          <td>最值得接續獨立；很適合做成單頁輸入、單頁列印的局部計算書</td>
-        </tr>
-        <tr>
-          <td><strong>P1</strong></td>
+          <td><strong>P0</strong></td>
           <td><strong>錨栓 / 連接件</strong></td>
           <td>設備基座、化學錨栓、底板錨栓、螺栓 / 焊道局部補算</td>
-          <td>已獨立為<a href="../anchor/">錨栓檢討工具</a>，完整覆蓋規範第17章與基板承壓／抗彎</td>
+          <td><span class="scope-ok">已上線</span>；錨栓工具已覆蓋第17章與基板承壓／抗彎，後續重點是案例庫與審查範本</td>
+        </tr>
+        <tr>
+          <td><strong>P1</strong></td>
+          <td><strong>石材固定構件</strong></td>
+          <td>外牆石材固定片、支承件、錨栓、風震局部力與送審計算書</td>
+          <td><span class="scope-ok">已納管</span>；下一步以 golden samples、版本指紋與跨輸出一致性持續加固</td>
+        </tr>
+        <tr>
+          <td><strong>P1</strong></td>
+          <td><strong>覆工板系統</strong></td>
+          <td>施工覆工板、覆工小梁、大梁、共構柱、握裹與樁基承載檢核</td>
+          <td><span class="scope-ok">已納管</span>；後續可補常見車種/施工階段荷重模板與報表版型</td>
+        </tr>
+        <tr>
+          <td><strong>P1</strong></td>
+          <td><strong>開挖擋土支撐</strong></td>
+          <td>支撐、橫擋、斜撐、大角撐、柱構件與分析輸出匯入</td>
+          <td><span class="scope-limit">本機服務已納管</span>；需先以啟動腳本提供 FastAPI + React 服務，再進行案件操作</td>
+        </tr>
+        <tr>
+          <td><strong>P2</strong></td>
+          <td><strong>基礎局部檢核</strong></td>
+          <td>獨立基礎、條形基礎、底壓、偏心、抗滑、抗傾覆、局部補算</td>
+          <td>仍是下一個最值得獨立的快算題目，適合做成單頁輸入、單頁列印的局部計算書</td>
         </tr>
         <tr>
           <td><strong>P2</strong></td>
           <td><strong>擋土 / 土壓 / 圍牆</strong></td>
           <td>主動土壓、靜止土壓、地下水壓、圍牆與擋土牆局部檢核</td>
-          <td>適合和基礎模組串接，但公式路線較多，建議在基礎之後展開</td>
+          <td>開挖支撐已先納管；一般擋土牆/圍牆仍適合和基礎模組串接後展開</td>
         </tr>
         <tr>
           <td><strong>P2</strong></td>
@@ -522,8 +584,8 @@
       </tbody>
     </table>
     <div class="note" style="margin-top:12px;">
-      下一波最值得做成獨立工具的，不一定是「最大模組」，而是 <strong>最常被單獨抽出來算、單獨出一張計算書</strong> 的題目。
-      目前依實務頻率與落地難度綜合排序，會優先建議走：<strong>附屬構造物 → 基礎局部檢核 → 錨栓 / 連接件（已獨立上線）</strong>。
+      目前高頻局部工具已從「缺入口」推進到「多數已納管」。下一波不應只追求新增頁面，應優先補
+      <strong>案例基準、報表一致性、服務型工具啟動/部署邊界</strong>；若要再開新工具，建議先做 <strong>基礎局部檢核</strong>。
     </div>
     </div>
   </div>
@@ -532,7 +594,8 @@
     <h2>關於本工具箱</h2>
     <p style="font-size:0.88em; color:var(--text-light); line-height:1.8;">
       本工具箱整合 <strong>鋼筋混凝土構件設計</strong>、<strong>鋼結構設計</strong>、<strong>斷面性質計算</strong>、
-      <strong>連續梁分析</strong>、<strong>耐風設計</strong> 及 <strong>耐震設計</strong> 模組。
+      <strong>結構分析</strong>、<strong>耐風設計</strong>、<strong>耐震設計</strong>、<strong>連接件 / 錨栓</strong>
+      及 <strong>施工臨時設施 / 局部檢核</strong> 模組。
       所有工具均以此頁為統一入口，各工具內的「← 回主選單」皆返回此頁。
     </p>
     <div class="note">
