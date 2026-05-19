@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>平面剛架分析 V0.1</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --accent: #059669;
+    --danger: #dc2626;
+    --warn: #d97706;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI','Microsoft JhengHei',sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+  header { background: linear-gradient(135deg,var(--primary),var(--primary-dark)); color: white; padding: 18px 28px; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+  header h1 { font-size: 1.45em; }
+  header p { font-size: 0.83em; opacity: 0.85; margin-top: 3px; }
+  .container { max-width: 1500px; margin: 16px auto; padding: 0 16px; }
+  .main-layout { display: grid; grid-template-columns: 420px 1fr; gap: 18px; align-items: start; }
+  .card { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; }
+  .card h2 { font-size: 1em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--border); color: var(--primary); display: flex; justify-content: space-between; align-items: center; }
+  .card h3 { font-size: 0.9em; margin: 10px 0 6px; color: var(--text); }
+  .hint { font-size: 0.75em; color: var(--text-light); margin-top: 2px; font-style: italic; }
+
+  label { font-size: 0.78em; font-weight: 600; color: var(--text-light); }
+  input, select { padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 0.86em; font-family: inherit; outline: none; transition: border-color 0.15s; background: white; }
+  input:focus, select:focus { border-color: var(--primary); }
+  input[type=number] { text-align: right; font-family: 'Consolas', monospace; }
+
+  .btn { padding: 6px 12px; border: none; border-radius: 6px; font-size: 0.82em; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-ghost { background: white; color: var(--text-light); border: 1.5px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-sm { padding: 3px 8px; font-size: 0.76em; }
+  .btn-calc { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 6px; }
+  .btn-calc:hover { background: var(--primary-dark); }
+
+  table.data-tbl { width: 100%; border-collapse: collapse; font-size: 0.83em; }
+  table.data-tbl th, table.data-tbl td { padding: 4px 5px; border-bottom: 1px solid var(--border); text-align: center; vertical-align: middle; }
+  table.data-tbl th { background: #f1f5f9; font-weight: 600; color: var(--text-light); font-size: 0.78em; }
+  table.data-tbl td input, table.data-tbl td select { width: 100%; padding: 4px 6px; font-size: 0.85em; }
+  table.data-tbl td.id-col { font-weight: 600; color: var(--primary); }
+  table.data-tbl td .del-btn { background: #fee2e2; border: none; color: var(--danger); border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 0.8em; }
+  table.data-tbl td .del-btn:hover { background: #fecaca; }
+
+  .support-check { display: inline-flex; gap: 4px; justify-content: center; }
+  .support-check label { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72em; }
+  .support-check input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; }
+
+  .canvas-wrap { background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); padding: 8px; overflow: auto; }
+  canvas { display: block; margin: 0 auto; }
+
+  .results-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
+  .results-table th, .results-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: center; }
+  .results-table th { background: #f1f5f9; font-weight: 600; color: var(--text-light); font-size: 0.76em; }
+  .results-table td { font-family: 'Consolas', monospace; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .flex-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+  .error-msg { background: #fef2f2; color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
+  .warn-msg { background: #fef3c7; color: var(--warn); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
+
+  .diag-card .canvas-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
+  .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .diag-title .legend { font-size: 0.75em; color: var(--text-light); }
+
+  @media (max-width: 1024px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>平面剛架分析 V0.1</h1>
+  <p>2D Rigid Frame — 直接勁度法 (Direct Stiffness Method) ‧ 單位 tf-m</p>
+</header>
+
+<div class="container">
+  <div class="main-layout">
+    <!-- ============== LEFT PANEL ============== -->
+    <div>
+      <div class="card">
+        <h2>材料與預設</h2>
+        <div class="row3">
+          <div>
+            <label>預設 E (tf/cm²)</label>
+            <input type="number" id="defE" value="2040" step="10">
+          </div>
+          <div>
+            <label>預設 A (cm²)</label>
+            <input type="number" id="defA" value="63.1" step="0.1">
+          </div>
+          <div>
+            <label>預設 I (cm⁴)</label>
+            <input type="number" id="defI" value="13600" step="100">
+          </div>
+        </div>
+        <div class="hint">鋼材 E ≈ 2040 tf/cm² (200 GPa)。範例斷面：H350×175×7×11。</div>
+        <div class="flex-row" style="margin-top:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('portal')">載入門型剛架範例</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">載入懸臂驗證</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">載入簡支梁驗證</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>節點 <button class="btn btn-primary btn-sm" onclick="addNodeRow()">+ 新增節點</button></h2>
+        <table class="data-tbl">
+          <thead>
+            <tr>
+              <th style="width:38px;">#</th>
+              <th>X (m)</th>
+              <th>Y (m)</th>
+              <th style="width:110px;">支承 (uX uY θ)</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="nodeTbody"></tbody>
+        </table>
+        <div class="hint">勾選對應自由度 = 該方向被固定。未勾選 = 自由。</div>
+      </div>
+
+      <div class="card">
+        <h2>桿件 <button class="btn btn-primary btn-sm" onclick="addMemberRow()">+ 新增桿件</button></h2>
+        <table class="data-tbl">
+          <thead>
+            <tr>
+              <th style="width:38px;">#</th>
+              <th>i 節點</th>
+              <th>j 節點</th>
+              <th>E (tf/cm²)</th>
+              <th>A (cm²)</th>
+              <th>I (cm⁴)</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="memberTbody"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>節點載重 <button class="btn btn-primary btn-sm" onclick="addNodalLoadRow()">+ 新增</button></h2>
+        <table class="data-tbl">
+          <thead>
+            <tr>
+              <th style="width:38px;">節點</th>
+              <th>Fx (tf)</th>
+              <th>Fy (tf)</th>
+              <th>M (tf·m)</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="nodalLoadTbody"></tbody>
+        </table>
+        <div class="hint">Fx 向右 (+), Fy 向上 (+), M 逆時針 (+)</div>
+      </div>
+
+      <div class="card">
+        <h2>桿件均布載重 <button class="btn btn-primary btn-sm" onclick="addMemberLoadRow()">+ 新增</button></h2>
+        <table class="data-tbl">
+          <thead>
+            <tr>
+              <th style="width:38px;">桿件</th>
+              <th>w (tf/m)</th>
+              <th>方向</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="memberLoadTbody"></tbody>
+        </table>
+        <div class="hint">全域向下 = 重力載重 (正值向下)。局部垂直 = 垂直於桿件軸向 (+y_local)。</div>
+      </div>
+
+      <button class="btn-calc" onclick="runAnalysis()">▶ 執行分析</button>
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="warn-msg" id="warnMsg"></div>
+    </div>
+
+    <!-- ============== RIGHT PANEL ============== -->
+    <div>
+      <div class="card diag-card">
+        <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">幾何 / 變形圖</h2><span class="legend">灰 = 原始, 藍 = 變形 (放大顯示)</span></div>
+        <div class="canvas-wrap"><canvas id="geomCanvas" width="800" height="500"></canvas></div>
+      </div>
+
+      <div class="card diag-card">
+        <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">彎矩圖 M</h2><span class="legend">紅 = 正彎矩 (內側張力), 藍 = 負彎矩</span></div>
+        <div class="canvas-wrap"><canvas id="momCanvas" width="800" height="400"></canvas></div>
+      </div>
+
+      <div class="card diag-card">
+        <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">剪力圖 V</h2></div>
+        <div class="canvas-wrap"><canvas id="shearCanvas" width="800" height="400"></canvas></div>
+      </div>
+
+      <div class="card diag-card">
+        <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">軸力圖 N</h2><span class="legend">紅 = 拉力 (+), 藍 = 壓力 (−)</span></div>
+        <div class="canvas-wrap"><canvas id="axialCanvas" width="800" height="400"></canvas></div>
+      </div>
+
+      <div class="card">
+        <h2>節點位移 / 反力</h2>
+        <table class="results-table" id="dispTbl"><thead><tr>
+          <th>節點</th><th>uX (mm)</th><th>uY (mm)</th><th>θZ (×10⁻³ rad)</th>
+          <th>Rx (tf)</th><th>Ry (tf)</th><th>Mz (tf·m)</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+
+      <div class="card">
+        <h2>桿件端力 (局部座標)</h2>
+        <table class="results-table" id="memTbl"><thead><tr>
+          <th>桿件</th><th>端</th><th>N (tf)</th><th>V (tf)</th><th>M (tf·m)</th>
+        </tr></thead><tbody></tbody></table>
+        <div class="hint">N: 拉正壓負 ‧ V: +y_local 為正 ‧ M: 逆時針 CCW 為正</div>
+      </div>
+
+      <div class="card">
+        <h2>桿件極值</h2>
+        <table class="results-table" id="extrTbl"><thead><tr>
+          <th>桿件</th><th>L (m)</th><th>|M|max (tf·m)</th><th>|V|max (tf)</th><th>|N|max (tf)</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 資料模型
+// ============================================================
+const state = {
+  nodes: [],        // {id, x, y, cx, cy, crz}  // cx/cy/crz = 被約束旗標
+  members: [],      // {id, i, j, E, A, I}      // E: tf/cm², A: cm², I: cm⁴
+  nodalLoads: [],   // {node, Fx, Fy, M}        // tf, tf, tf·m
+  memberLoads: [],  // {member, w, dir}         // w (tf/m), dir: 'globalY'|'localY'
+  solution: null
+};
+
+let nodeIdCnt = 0, memberIdCnt = 0;
+
+// ============================================================
+// UI: 資料表格
+// ============================================================
+function addNodeRow(data) {
+  const d = data || { x: 0, y: 0, cx: false, cy: false, crz: false };
+  const id = ++nodeIdCnt;
+  state.nodes.push({ id, x: d.x, y: d.y, cx: d.cx, cy: d.cy, crz: d.crz });
+  renderNodeTable();
+  refreshNodeSelectors();
+}
+function renderNodeTable() {
+  const tb = document.getElementById('nodeTbody');
+  tb.innerHTML = '';
+  state.nodes.forEach((n, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="id-col">${n.id}</td>
+      <td><input type="number" step="0.1" value="${n.x}" onchange="updateNode(${idx},'x',this.value)"></td>
+      <td><input type="number" step="0.1" value="${n.y}" onchange="updateNode(${idx},'y',this.value)"></td>
+      <td><span class="support-check">
+        <label><input type="checkbox" ${n.cx?'checked':''} onchange="updateNode(${idx},'cx',this.checked)">X</label>
+        <label><input type="checkbox" ${n.cy?'checked':''} onchange="updateNode(${idx},'cy',this.checked)">Y</label>
+        <label><input type="checkbox" ${n.crz?'checked':''} onchange="updateNode(${idx},'crz',this.checked)">θ</label>
+      </span></td>
+      <td><button class="del-btn" onclick="delNode(${idx})">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+function updateNode(idx, key, val) {
+  if (key === 'cx' || key === 'cy' || key === 'crz') {
+    state.nodes[idx][key] = !!val;
+  } else {
+    state.nodes[idx][key] = parseFloat(val) || 0;
+  }
+}
+function delNode(idx) {
+  const nid = state.nodes[idx].id;
+  // 移除參考到此節點的桿件與載重
+  state.members = state.members.filter(m => m.i !== nid && m.j !== nid);
+  state.nodalLoads = state.nodalLoads.filter(l => l.node !== nid);
+  state.nodes.splice(idx, 1);
+  renderNodeTable();
+  renderMemberTable();
+  renderNodalLoadTable();
+  renderMemberLoadTable();
+  refreshNodeSelectors();
+}
+
+function addMemberRow(data) {
+  const d = data || {};
+  const id = ++memberIdCnt;
+  const defE = parseFloat(document.getElementById('defE').value) || 2040;
+  const defA = parseFloat(document.getElementById('defA').value) || 63;
+  const defI = parseFloat(document.getElementById('defI').value) || 13600;
+  const firstNode = state.nodes[0]?.id || 0;
+  const secondNode = state.nodes[1]?.id || 0;
+  state.members.push({
+    id,
+    i: d.i ?? firstNode,
+    j: d.j ?? secondNode,
+    E: d.E ?? defE,
+    A: d.A ?? defA,
+    I: d.I ?? defI
+  });
+  renderMemberTable();
+}
+function renderMemberTable() {
+  const tb = document.getElementById('memberTbody');
+  tb.innerHTML = '';
+  const opts = state.nodes.map(n => `<option value="${n.id}">N${n.id}</option>`).join('');
+  state.members.forEach((m, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="id-col">${m.id}</td>
+      <td><select onchange="updateMember(${idx},'i',this.value)">${opts}</select></td>
+      <td><select onchange="updateMember(${idx},'j',this.value)">${opts}</select></td>
+      <td><input type="number" step="10" value="${m.E}" onchange="updateMember(${idx},'E',this.value)"></td>
+      <td><input type="number" step="0.1" value="${m.A}" onchange="updateMember(${idx},'A',this.value)"></td>
+      <td><input type="number" step="100" value="${m.I}" onchange="updateMember(${idx},'I',this.value)"></td>
+      <td><button class="del-btn" onclick="delMember(${idx})">✕</button></td>`;
+    tb.appendChild(tr);
+    // set selects
+    tr.children[1].firstChild.value = m.i;
+    tr.children[2].firstChild.value = m.j;
+  });
+}
+function updateMember(idx, key, val) {
+  if (key === 'i' || key === 'j') state.members[idx][key] = parseInt(val);
+  else state.members[idx][key] = parseFloat(val) || 0;
+}
+function delMember(idx) {
+  const mid = state.members[idx].id;
+  state.memberLoads = state.memberLoads.filter(l => l.member !== mid);
+  state.members.splice(idx, 1);
+  renderMemberTable();
+  renderMemberLoadTable();
+}
+
+function addNodalLoadRow(data) {
+  const d = data || {};
+  state.nodalLoads.push({
+    node: d.node ?? (state.nodes[0]?.id || 0),
+    Fx: d.Fx ?? 0,
+    Fy: d.Fy ?? 0,
+    M:  d.M  ?? 0
+  });
+  renderNodalLoadTable();
+}
+function renderNodalLoadTable() {
+  const tb = document.getElementById('nodalLoadTbody');
+  tb.innerHTML = '';
+  const opts = state.nodes.map(n => `<option value="${n.id}">N${n.id}</option>`).join('');
+  state.nodalLoads.forEach((l, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><select onchange="updateNodalLoad(${idx},'node',this.value)">${opts}</select></td>
+      <td><input type="number" step="0.1" value="${l.Fx}" onchange="updateNodalLoad(${idx},'Fx',this.value)"></td>
+      <td><input type="number" step="0.1" value="${l.Fy}" onchange="updateNodalLoad(${idx},'Fy',this.value)"></td>
+      <td><input type="number" step="0.1" value="${l.M}"  onchange="updateNodalLoad(${idx},'M',this.value)"></td>
+      <td><button class="del-btn" onclick="delNodalLoad(${idx})">✕</button></td>`;
+    tb.appendChild(tr);
+    tr.children[0].firstChild.value = l.node;
+  });
+}
+function updateNodalLoad(idx, key, val) {
+  if (key === 'node') state.nodalLoads[idx][key] = parseInt(val);
+  else state.nodalLoads[idx][key] = parseFloat(val) || 0;
+}
+function delNodalLoad(idx) { state.nodalLoads.splice(idx, 1); renderNodalLoadTable(); }
+
+function addMemberLoadRow(data) {
+  const d = data || {};
+  state.memberLoads.push({
+    member: d.member ?? (state.members[0]?.id || 0),
+    w: d.w ?? 0,
+    dir: d.dir ?? 'globalY'
+  });
+  renderMemberLoadTable();
+}
+function renderMemberLoadTable() {
+  const tb = document.getElementById('memberLoadTbody');
+  tb.innerHTML = '';
+  const opts = state.members.map(m => `<option value="${m.id}">M${m.id}</option>`).join('');
+  state.memberLoads.forEach((l, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><select onchange="updateMemberLoad(${idx},'member',this.value)">${opts}</select></td>
+      <td><input type="number" step="0.1" value="${l.w}" onchange="updateMemberLoad(${idx},'w',this.value)"></td>
+      <td><select onchange="updateMemberLoad(${idx},'dir',this.value)">
+        <option value="globalY">全域 -Y (重力)</option>
+        <option value="localY">局部 +y</option>
+      </select></td>
+      <td><button class="del-btn" onclick="delMemberLoad(${idx})">✕</button></td>`;
+    tb.appendChild(tr);
+    tr.children[0].firstChild.value = l.member;
+    tr.children[2].firstChild.value = l.dir;
+  });
+}
+function updateMemberLoad(idx, key, val) {
+  if (key === 'member') state.memberLoads[idx][key] = parseInt(val);
+  else if (key === 'dir') state.memberLoads[idx][key] = val;
+  else state.memberLoads[idx][key] = parseFloat(val) || 0;
+}
+function delMemberLoad(idx) { state.memberLoads.splice(idx, 1); renderMemberLoadTable(); }
+
+function refreshNodeSelectors() {
+  renderMemberTable();
+  renderNodalLoadTable();
+  renderMemberLoadTable();
+}
+
+// ============================================================
+// 矩陣基本工具
+// ============================================================
+function zeros(n, m) {
+  if (m === undefined) return new Array(n).fill(0);
+  return Array.from({ length: n }, () => new Array(m).fill(0));
+}
+function matmul(A, B) {
+  const n = A.length, k = A[0].length, m = B[0].length;
+  const C = zeros(n, m);
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < m; j++) {
+      let s = 0;
+      for (let p = 0; p < k; p++) s += A[i][p] * B[p][j];
+      C[i][j] = s;
+    }
+  return C;
+}
+function matvec(A, v) {
+  const n = A.length, k = A[0].length;
+  const r = zeros(n);
+  for (let i = 0; i < n; i++) {
+    let s = 0;
+    for (let j = 0; j < k; j++) s += A[i][j] * v[j];
+    r[i] = s;
+  }
+  return r;
+}
+function transpose(A) {
+  const n = A.length, m = A[0].length;
+  const B = zeros(m, n);
+  for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) B[j][i] = A[i][j];
+  return B;
+}
+// Gauss elimination with partial pivoting, solve Ax=b (A is mutated)
+function solveLinear(Ain, bin) {
+  const n = Ain.length;
+  const A = Ain.map(r => r.slice());
+  const b = bin.slice();
+  for (let k = 0; k < n; k++) {
+    // partial pivoting
+    let maxRow = k, maxVal = Math.abs(A[k][k]);
+    for (let i = k + 1; i < n; i++) {
+      if (Math.abs(A[i][k]) > maxVal) { maxVal = Math.abs(A[i][k]); maxRow = i; }
+    }
+    if (maxVal < 1e-18) throw new Error('勁度矩陣奇異 (可能支承不足或機構失穩)');
+    if (maxRow !== k) { [A[k], A[maxRow]] = [A[maxRow], A[k]]; [b[k], b[maxRow]] = [b[maxRow], b[k]]; }
+    for (let i = k + 1; i < n; i++) {
+      const f = A[i][k] / A[k][k];
+      if (f === 0) continue;
+      for (let j = k; j < n; j++) A[i][j] -= f * A[k][j];
+      b[i] -= f * b[k];
+    }
+  }
+  const x = zeros(n);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = b[i];
+    for (let j = i + 1; j < n; j++) s -= A[i][j] * x[j];
+    x[i] = s / A[i][i];
+  }
+  return x;
+}
+
+// ============================================================
+// 分析核心 (單位: tf, m, rad)
+// ============================================================
+// E 輸入 tf/cm²  → 計算時需要 EA [tf] 與 EI [tf·m²]
+//   EA (tf)  = E(tf/cm²) × A(cm²)
+//   EI (tf·m²) = E(tf/cm²) × I(cm⁴) × 1e-4
+function analyze() {
+  const nodes = state.nodes;
+  const members = state.members;
+  if (nodes.length < 2) throw new Error('至少需要 2 個節點');
+  if (members.length < 1) throw new Error('至少需要 1 支桿件');
+
+  // 節點 id → 索引對照
+  const idToIdx = new Map();
+  nodes.forEach((n, i) => idToIdx.set(n.id, i));
+
+  const nDof = nodes.length * 3;
+  const K = zeros(nDof, nDof);
+  const F = zeros(nDof);
+
+  // 套用節點載重
+  for (const ld of state.nodalLoads) {
+    const i = idToIdx.get(ld.node);
+    if (i === undefined) continue;
+    F[i * 3 + 0] += ld.Fx;
+    F[i * 3 + 1] += ld.Fy;
+    F[i * 3 + 2] += ld.M;
+  }
+
+  // 桿件組裝
+  const elemResults = [];
+  for (const m of members) {
+    const iIdx = idToIdx.get(m.i);
+    const jIdx = idToIdx.get(m.j);
+    if (iIdx === undefined || jIdx === undefined) throw new Error(`桿件 M${m.id} 參考到不存在的節點`);
+    const ni = nodes[iIdx], nj = nodes[jIdx];
+    const dx = nj.x - ni.x, dy = nj.y - ni.y;
+    const L = Math.sqrt(dx * dx + dy * dy);
+    if (L < 1e-9) throw new Error(`桿件 M${m.id} 長度為零`);
+    const c = dx / L, s = dy / L;
+    const EA = m.E * m.A;                // tf
+    const EI = m.E * m.I * 1e-4;         // tf·m²
+
+    const k1 = EA / L;
+    const k2 = 12 * EI / (L * L * L);
+    const k3 = 6 * EI / (L * L);
+    const k4 = 4 * EI / L;
+    const k5 = 2 * EI / L;
+
+    const kL = [
+      [ k1,   0,    0,   -k1,  0,    0   ],
+      [ 0,    k2,   k3,   0,  -k2,   k3  ],
+      [ 0,    k3,   k4,   0,  -k3,   k5  ],
+      [-k1,   0,    0,    k1,  0,    0   ],
+      [ 0,   -k2,  -k3,   0,   k2,  -k3  ],
+      [ 0,    k3,   k5,   0,  -k3,   k4  ]
+    ];
+
+    const T = [
+      [ c,  s,  0,  0,  0,  0],
+      [-s,  c,  0,  0,  0,  0],
+      [ 0,  0,  1,  0,  0,  0],
+      [ 0,  0,  0,  c,  s,  0],
+      [ 0,  0,  0, -s,  c,  0],
+      [ 0,  0,  0,  0,  0,  1]
+    ];
+    const Tt = transpose(T);
+    const kG = matmul(matmul(Tt, kL), T);
+
+    // 桿件均布載重 → 局部 FEM
+    // f_FEM_local = [0, -wL/2, -wL²/12, 0, -wL/2, +wL²/12]  (w 為局部 +y 方向強度)
+    let wLocal = 0;
+    for (const ml of state.memberLoads) {
+      if (ml.member !== m.id) continue;
+      if (ml.dir === 'localY') wLocal += ml.w;
+      else {
+        // globalY: 輸入為向下強度 (>0 表示向下, 全域 -Y)
+        // 全域載重向量: (0, -ml.w) per 單位長度
+        // 投影到局部 +y 方向 (局部 y 在全域: (-s, c)):
+        //   w_localY = (0, -ml.w) · (-s, c) = -ml.w · c
+        wLocal += -ml.w * c;
+      }
+    }
+    const fFEMlocal = [
+      0,
+      -wLocal * L / 2,
+      -wLocal * L * L / 12,
+      0,
+      -wLocal * L / 2,
+      +wLocal * L * L / 12
+    ];
+    const fFEMglobal = matvec(Tt, fFEMlocal);
+
+    const dofs = [iIdx * 3, iIdx * 3 + 1, iIdx * 3 + 2, jIdx * 3, jIdx * 3 + 1, jIdx * 3 + 2];
+    for (let a = 0; a < 6; a++) {
+      // 等效節點載重 = -f_FEM_global 加到載重向量
+      F[dofs[a]] -= fFEMglobal[a];
+      for (let b = 0; b < 6; b++) K[dofs[a]][dofs[b]] += kG[a][b];
+    }
+
+    elemResults.push({ m, L, c, s, T, kL, fFEMlocal, dofs, wLocal });
+  }
+
+  // 保存原始 K 以便計算反力
+  const Korig = K.map(r => r.slice());
+  const Forig = F.slice();
+
+  // 套用支承 (大數法)
+  const PEN = 1e20;
+  for (let i = 0; i < nodes.length; i++) {
+    if (nodes[i].cx) K[i * 3 + 0][i * 3 + 0] += PEN;
+    if (nodes[i].cy) K[i * 3 + 1][i * 3 + 1] += PEN;
+    if (nodes[i].crz) K[i * 3 + 2][i * 3 + 2] += PEN;
+  }
+
+  const d = solveLinear(K, F);
+
+  // 反力: R = K_orig · d − F_orig, 只在被約束 DOF 有意義
+  const KdOrig = matvec(Korig, d);
+  const reactions = zeros(nDof);
+  for (let i = 0; i < nodes.length; i++) {
+    if (nodes[i].cx) reactions[i * 3 + 0] = KdOrig[i * 3 + 0] - Forig[i * 3 + 0];
+    if (nodes[i].cy) reactions[i * 3 + 1] = KdOrig[i * 3 + 1] - Forig[i * 3 + 1];
+    if (nodes[i].crz) reactions[i * 3 + 2] = KdOrig[i * 3 + 2] - Forig[i * 3 + 2];
+  }
+
+  // 各桿件端力 (局部座標) + 內力沿桿件離散化
+  for (const e of elemResults) {
+    const dG = e.dofs.map(dof => d[dof]);
+    const dL = matvec(e.T, dG);
+    const qElastic = matvec(e.kL, dL);
+    const qL = qElastic.map((v, i) => v + e.fFEMlocal[i]);
+    e.qLocal = qL;  // [N_i, V_i, M_i, N_j, V_j, M_j] (局部端力)
+    e.dLocal = dL;
+
+    // 沿桿件內力 (x 從 0 到 L)
+    // 局部端力含義: q[0]=F_xi, q[1]=F_yi, q[2]=M_i  作用於 i 端 (方向 = 局部座標軸)
+    // 對應內力 (x 從 i 往 j):
+    //   N(x) = -q[0]  (節點推桿件 +x 表壓縮, 即 N = -q[0])
+    //   V(x) = q[1] - wLocal*x  (等效集中力下)
+    //   M(x) = -q[2] + q[1]*x - wLocal*x²/2
+    // (取 N: 拉為正; M: 使桿件上緣凹 (CCW 於 i 端切段右側) 為正)
+    const N_steps = 21;
+    const xs = [], Ns = [], Vs = [], Ms = [];
+    for (let k = 0; k <= N_steps; k++) {
+      const x = e.L * k / N_steps;
+      const N = -e.qLocal[0];
+      const V = e.qLocal[1] - e.wLocal * x;
+      const M = -e.qLocal[2] + e.qLocal[1] * x - 0.5 * e.wLocal * x * x;
+      xs.push(x); Ns.push(N); Vs.push(V); Ms.push(M);
+    }
+    e.diag = { xs, Ns, Vs, Ms };
+  }
+
+  return { d, reactions, elems: elemResults };
+}
+
+// ============================================================
+// 繪圖
+// ============================================================
+function fitToCanvas(canvas, xs, ys, pad) {
+  const W = canvas.width, H = canvas.height;
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const dx = (maxX - minX) || 1, dy = (maxY - minY) || 1;
+  const sx = (W - 2 * pad) / dx, sy = (H - 2 * pad) / dy;
+  const s = Math.min(sx, sy);
+  const ox = pad + (W - 2 * pad - s * dx) / 2 - s * minX;
+  const oy = H - pad - (H - 2 * pad - s * dy) / 2 + s * minY;
+  return {
+    x: x => ox + s * x,
+    y: y => oy - s * y,
+    s
+  };
+}
+
+function drawGeometry() {
+  const cv = document.getElementById('geomCanvas');
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (state.nodes.length === 0) return;
+
+  const sol = state.solution;
+
+  // 蒐集座標 (含變形後)
+  const xs = [], ys = [];
+  state.nodes.forEach(n => { xs.push(n.x); ys.push(n.y); });
+  const pad = 50;
+  const tr = fitToCanvas(cv, xs, ys, pad);
+
+  // 變形圖的放大倍率 (若有解)
+  let scale = 0;
+  if (sol) {
+    let maxDisp = 0;
+    for (let i = 0; i < state.nodes.length; i++) {
+      const u = sol.d[i * 3], v = sol.d[i * 3 + 1];
+      maxDisp = Math.max(maxDisp, Math.hypot(u, v));
+    }
+    const diagSize = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    scale = maxDisp > 1e-10 ? (diagSize * 0.12) / maxDisp : 0;
+  }
+
+  // 原始幾何
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 2;
+  for (const m of state.members) {
+    const ni = state.nodes.find(n => n.id === m.i);
+    const nj = state.nodes.find(n => n.id === m.j);
+    if (!ni || !nj) continue;
+    ctx.beginPath();
+    ctx.moveTo(tr.x(ni.x), tr.y(ni.y));
+    ctx.lineTo(tr.x(nj.x), tr.y(nj.y));
+    ctx.stroke();
+  }
+
+  // 變形後幾何
+  if (sol && scale > 0) {
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth = 2.5;
+    for (const m of state.members) {
+      const iIdx = state.nodes.findIndex(n => n.id === m.i);
+      const jIdx = state.nodes.findIndex(n => n.id === m.j);
+      if (iIdx < 0 || jIdx < 0) continue;
+      const ni = state.nodes[iIdx], nj = state.nodes[jIdx];
+      const xi = ni.x + scale * sol.d[iIdx * 3];
+      const yi = ni.y + scale * sol.d[iIdx * 3 + 1];
+      const xj = nj.x + scale * sol.d[jIdx * 3];
+      const yj = nj.y + scale * sol.d[jIdx * 3 + 1];
+      ctx.beginPath();
+      ctx.moveTo(tr.x(xi), tr.y(yi));
+      ctx.lineTo(tr.x(xj), tr.y(yj));
+      ctx.stroke();
+    }
+  }
+
+  // 節點 + 編號
+  for (const n of state.nodes) {
+    const px = tr.x(n.x), py = tr.y(n.y);
+    ctx.fillStyle = (n.cx || n.cy || n.crz) ? '#dc2626' : '#1e293b';
+    ctx.beginPath();
+    ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 12px Consolas';
+    ctx.fillText('N' + n.id, px + 7, py - 7);
+    // 支承符號
+    drawSupport(ctx, px, py, n.cx, n.cy, n.crz);
+  }
+
+  // 桿件編號
+  ctx.fillStyle = '#2563eb';
+  ctx.font = 'bold 11px Consolas';
+  for (const m of state.members) {
+    const ni = state.nodes.find(n => n.id === m.i);
+    const nj = state.nodes.find(n => n.id === m.j);
+    if (!ni || !nj) continue;
+    const mx = (ni.x + nj.x) / 2, my = (ni.y + nj.y) / 2;
+    ctx.fillText('M' + m.id, tr.x(mx) + 5, tr.y(my) - 5);
+  }
+
+  // 載重箭頭 (節點載重)
+  ctx.strokeStyle = '#059669';
+  ctx.fillStyle = '#059669';
+  ctx.lineWidth = 1.8;
+  for (const ld of state.nodalLoads) {
+    const n = state.nodes.find(nn => nn.id === ld.node);
+    if (!n) continue;
+    const px = tr.x(n.x), py = tr.y(n.y);
+    if (ld.Fx !== 0) drawArrow(ctx, px - 30 * Math.sign(ld.Fx), py, px - 3 * Math.sign(ld.Fx), py, ld.Fx.toFixed(2) + 'tf');
+    if (ld.Fy !== 0) drawArrow(ctx, px, py + 30 * Math.sign(ld.Fy), px, py + 3 * Math.sign(ld.Fy), ld.Fy.toFixed(2) + 'tf');
+  }
+
+  // 桿件均布載重
+  ctx.strokeStyle = '#d97706';
+  for (const ml of state.memberLoads) {
+    const m = state.members.find(mm => mm.id === ml.member);
+    if (!m) continue;
+    const ni = state.nodes.find(n => n.id === m.i);
+    const nj = state.nodes.find(n => n.id === m.j);
+    if (!ni || !nj) continue;
+    // 簡化顯示: 只處理 globalY 向下
+    if (ml.dir === 'globalY' && ml.w > 0) {
+      const nArrows = 6;
+      for (let k = 0; k <= nArrows; k++) {
+        const t = k / nArrows;
+        const x = ni.x + t * (nj.x - ni.x);
+        const y = ni.y + t * (nj.y - ni.y);
+        drawArrow(ctx, tr.x(x), tr.y(y) - 22, tr.x(x), tr.y(y) - 3);
+      }
+      const mx = (ni.x + nj.x) / 2;
+      const my = Math.max(ni.y, nj.y);
+      ctx.fillStyle = '#d97706';
+      ctx.font = 'bold 11px Consolas';
+      ctx.fillText('w=' + ml.w.toFixed(2) + ' tf/m', tr.x(mx) + 5, tr.y(my) - 28);
+    }
+  }
+}
+
+function drawArrow(ctx, x0, y0, x1, y1, label) {
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  const hl = 6;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - hl * Math.cos(ang - 0.4), y1 - hl * Math.sin(ang - 0.4));
+  ctx.lineTo(x1 - hl * Math.cos(ang + 0.4), y1 - hl * Math.sin(ang + 0.4));
+  ctx.closePath();
+  ctx.fill();
+  if (label) {
+    ctx.font = '10px Consolas';
+    ctx.fillText(label, x0 + 4, y0 - 2);
+  }
+}
+
+function drawSupport(ctx, px, py, cx, cy, crz) {
+  ctx.save();
+  ctx.strokeStyle = '#dc2626';
+  ctx.fillStyle = '#fecaca';
+  ctx.lineWidth = 1.5;
+  if (cx && cy && crz) {
+    // 固定支承: 方塊
+    ctx.fillRect(px - 10, py + 2, 20, 8);
+    ctx.strokeRect(px - 10, py + 2, 20, 8);
+    // 斜線
+    for (let k = 0; k < 5; k++) {
+      ctx.beginPath();
+      ctx.moveTo(px - 10 + k * 5, py + 10);
+      ctx.lineTo(px - 14 + k * 5, py + 16);
+      ctx.stroke();
+    }
+  } else if (cx && cy) {
+    // 鉸支承: 三角形
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px - 9, py + 14);
+    ctx.lineTo(px + 9, py + 14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  } else if (cy) {
+    // 滾動 Y: 三角形 + 圓
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px - 9, py + 12);
+    ctx.lineTo(px + 9, py + 12);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(px - 5, py + 15, 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(px + 5, py + 15, 2, 0, Math.PI * 2); ctx.stroke();
+  } else if (cx) {
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px - 12, py - 9);
+    ctx.lineTo(px - 12, py + 9);
+    ctx.closePath();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// 沿桿件法線方向繪製內力圖的通用函式
+function drawDiagram(canvasId, getter, posColor, negColor, labelUnit) {
+  const cv = document.getElementById(canvasId);
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const sol = state.solution;
+  if (!sol) return;
+
+  const xs = state.nodes.map(n => n.x);
+  const ys = state.nodes.map(n => n.y);
+  const pad = 50;
+
+  // 先決定比例 (以幾何)
+  const tr = fitToCanvas(cv, xs, ys, pad);
+
+  // 求最大絕對值
+  let maxAbs = 0;
+  for (const e of sol.elems) {
+    for (const v of getter(e.diag)) maxAbs = Math.max(maxAbs, Math.abs(v));
+  }
+  if (maxAbs < 1e-9) maxAbs = 1;
+
+  // 圖形放大 (以幾何對角線 15%)
+  const diagSize = Math.hypot(Math.max(...xs) - Math.min(...xs) || 1, Math.max(...ys) - Math.min(...ys) || 1);
+  const diagScale = (diagSize * 0.18) / maxAbs;
+
+  // 畫桿件
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1.5;
+  for (const e of sol.elems) {
+    const ni = state.nodes.find(n => n.id === e.m.i);
+    const nj = state.nodes.find(n => n.id === e.m.j);
+    ctx.beginPath();
+    ctx.moveTo(tr.x(ni.x), tr.y(ni.y));
+    ctx.lineTo(tr.x(nj.x), tr.y(nj.y));
+    ctx.stroke();
+  }
+
+  // 畫內力圖
+  for (const e of sol.elems) {
+    const ni = state.nodes.find(n => n.id === e.m.i);
+    const nj = state.nodes.find(n => n.id === e.m.j);
+    const c = e.c, s = e.s;
+    // 局部 +y 在全域 = (-s, c), 局部 -y = (s, -c); 圖形繪於桿件外側 (+y_local)
+    const nx = -s, ny = c;
+    const vals = getter(e.diag);
+    const positions = [];
+    for (let k = 0; k < e.diag.xs.length; k++) {
+      const t = e.diag.xs[k] / e.L;
+      const bx = ni.x + t * (nj.x - ni.x);
+      const by = ni.y + t * (nj.y - ni.y);
+      const mag = vals[k] * diagScale;
+      const px = bx + nx * mag;
+      const py = by + ny * mag;
+      positions.push({ bx, by, px, py, v: vals[k] });
+    }
+    // 填充區塊 (分正負上色)
+    for (let k = 0; k < positions.length - 1; k++) {
+      const a = positions[k], b = positions[k + 1];
+      const midV = (a.v + b.v) / 2;
+      ctx.fillStyle = midV >= 0 ? posColor : negColor;
+      ctx.beginPath();
+      ctx.moveTo(tr.x(a.bx), tr.y(a.by));
+      ctx.lineTo(tr.x(a.px), tr.y(a.py));
+      ctx.lineTo(tr.x(b.px), tr.y(b.py));
+      ctx.lineTo(tr.x(b.bx), tr.y(b.by));
+      ctx.closePath();
+      ctx.fill();
+    }
+    // 外輪廓
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.moveTo(tr.x(positions[0].bx), tr.y(positions[0].by));
+    for (const p of positions) ctx.lineTo(tr.x(p.px), tr.y(p.py));
+    ctx.lineTo(tr.x(positions[positions.length - 1].bx), tr.y(positions[positions.length - 1].by));
+    ctx.stroke();
+
+    // 端點值標註
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 10.5px Consolas';
+    const v0 = vals[0], vN = vals[vals.length - 1];
+    const p0 = positions[0], pN = positions[positions.length - 1];
+    ctx.fillText(v0.toFixed(2), tr.x(p0.px) + 3, tr.y(p0.py) - 3);
+    ctx.fillText(vN.toFixed(2), tr.x(pN.px) + 3, tr.y(pN.py) - 3);
+    // 極值標註 (最大絕對值, 不含端點)
+    let maxK = 0, maxV = 0;
+    for (let k = 1; k < vals.length - 1; k++) {
+      if (Math.abs(vals[k]) > Math.abs(maxV)) { maxV = vals[k]; maxK = k; }
+    }
+    if (Math.abs(maxV) > Math.max(Math.abs(v0), Math.abs(vN)) * 1.02) {
+      const pm = positions[maxK];
+      ctx.fillStyle = '#dc2626';
+      ctx.fillText(maxV.toFixed(2), tr.x(pm.px) + 3, tr.y(pm.py) - 3);
+    }
+  }
+
+  // 節點 + 編號
+  for (const n of state.nodes) {
+    const px = tr.x(n.x), py = tr.y(n.y);
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(px, py, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 圖例
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px Consolas';
+  ctx.fillText('max |v| = ' + maxAbs.toFixed(3) + ' ' + labelUnit, 10, 18);
+}
+
+// ============================================================
+// 結果表格
+// ============================================================
+function renderResults() {
+  const sol = state.solution;
+  const tbD = document.querySelector('#dispTbl tbody');
+  const tbM = document.querySelector('#memTbl tbody');
+  const tbE = document.querySelector('#extrTbl tbody');
+  tbD.innerHTML = ''; tbM.innerHTML = ''; tbE.innerHTML = '';
+  if (!sol) return;
+
+  // 節點位移 / 反力
+  for (let i = 0; i < state.nodes.length; i++) {
+    const n = state.nodes[i];
+    const u = sol.d[i * 3], v = sol.d[i * 3 + 1], r = sol.d[i * 3 + 2];
+    const Rx = sol.reactions[i * 3], Ry = sol.reactions[i * 3 + 1], Mz = sol.reactions[i * 3 + 2];
+    const cell = (val, show) => show ? val.toFixed(3) : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>N${n.id}</td>
+      <td>${(u * 1000).toFixed(3)}</td>
+      <td>${(v * 1000).toFixed(3)}</td>
+      <td>${(r * 1000).toFixed(3)}</td>
+      <td>${cell(Rx, n.cx)}</td>
+      <td>${cell(Ry, n.cy)}</td>
+      <td>${cell(Mz, n.crz)}</td>`;
+    tbD.appendChild(tr);
+  }
+
+  // 桿件端力
+  for (const e of sol.elems) {
+    const q = e.qLocal;
+    const rowI = document.createElement('tr');
+    // i 端: N = -q[0], V = q[1], M = q[2]
+    rowI.innerHTML = `<td>M${e.m.id}</td><td>i</td>
+      <td>${(-q[0]).toFixed(3)}</td>
+      <td>${q[1].toFixed(3)}</td>
+      <td>${q[2].toFixed(3)}</td>`;
+    tbM.appendChild(rowI);
+    const rowJ = document.createElement('tr');
+    // j 端: N = +q[3] (拉為正, 若 q[3]>0 表節點推桿件 +x 即壓縮 → 內力 = -q[3])
+    // 但對 j 端而言, 節點作用方向 +x_local 是「往外」?
+    // 實際: q_local[3] 是節點作用於桿件 j 端的 +x_local 方向力。
+    //   若 q[3] > 0 = 節點往 +x 推桿件 = 壓縮; 若 q[3] < 0 = 節點往 -x 拉桿件 = 拉力
+    //   但 i 端: q[0] > 0 = 節點往 +x 推桿件 = 節點在 i 端(x=0) 推向 x=L 方向 = 桿件被拉 (j 端若也拉則整體拉力)
+    //   軸力內力 N(x) 定義為切面拉正.  在 x=L− 的切面: 左半由 q[0] 軸向力與 q[3] 軸向力共同作用.
+    //   實際上靜力學: q[0] + q[3] = 0 (若無軸向分布載重) → q[3] = -q[0]
+    //   軸力內力 = -q[0] = +q[3] — 在 j 端處兩者應相等
+    //   為了明確顯示兩端: N_i = -q[0], N_j = q[3]; 兩者同號 (拉正)
+    rowJ.innerHTML = `<td>M${e.m.id}</td><td>j</td>
+      <td>${q[3].toFixed(3)}</td>
+      <td>${(-q[4]).toFixed(3)}</td>
+      <td>${(-q[5]).toFixed(3)}</td>`;
+    tbM.appendChild(rowJ);
+  }
+
+  // 桿件極值
+  for (const e of sol.elems) {
+    const mMax = Math.max(...e.diag.Ms.map(Math.abs));
+    const vMax = Math.max(...e.diag.Vs.map(Math.abs));
+    const nMax = Math.max(...e.diag.Ns.map(Math.abs));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>M${e.m.id}</td><td>${e.L.toFixed(3)}</td>
+      <td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td>`;
+    tbE.appendChild(tr);
+  }
+}
+
+// ============================================================
+// 執行分析
+// ============================================================
+function runAnalysis() {
+  const err = document.getElementById('errorMsg');
+  const warn = document.getElementById('warnMsg');
+  err.style.display = 'none';
+  warn.style.display = 'none';
+  try {
+    state.solution = analyze();
+    drawGeometry();
+    drawDiagram('momCanvas',   d => d.Ms.map(v => -v), '#fecaca', '#bfdbfe', 'tf·m');
+    drawDiagram('shearCanvas', d => d.Vs, '#fed7aa', '#ddd6fe', 'tf');
+    drawDiagram('axialCanvas', d => d.Ns, '#fecaca', '#bfdbfe', 'tf');
+    renderResults();
+  } catch (e) {
+    err.textContent = '錯誤: ' + e.message;
+    err.style.display = 'block';
+    console.error(e);
+  }
+}
+
+// M 圖的慣例: 繪製於受拉側, 所以取 -M (因為 M>0 = 使桿件上緣受壓 = 下緣受拉, 圖繪於張力側 = 下側 = -y_local 方向)
+
+// ============================================================
+// 預設範例
+// ============================================================
+function resetAll() {
+  state.nodes = []; state.members = []; state.nodalLoads = []; state.memberLoads = [];
+  state.solution = null;
+  nodeIdCnt = 0; memberIdCnt = 0;
+}
+
+function loadExample(kind) {
+  resetAll();
+  const E = 2040, A = 63.1, I = 13600;
+  if (kind === 'portal') {
+    // 門型剛架: 高 6m, 寬 8m, 底部固定, 頂梁 UDL 2 tf/m 向下
+    addNodeRow({ x: 0, y: 0, cx: true, cy: true, crz: true });
+    addNodeRow({ x: 0, y: 6, cx: false, cy: false, crz: false });
+    addNodeRow({ x: 8, y: 6, cx: false, cy: false, crz: false });
+    addNodeRow({ x: 8, y: 0, cx: true, cy: true, crz: true });
+    addMemberRow({ i: 1, j: 2, E, A, I });  // 左柱
+    addMemberRow({ i: 2, j: 3, E, A, I });  // 頂梁
+    addMemberRow({ i: 3, j: 4, E, A, I });  // 右柱
+    addMemberLoadRow({ member: 2, w: 2.0, dir: 'globalY' });
+  } else if (kind === 'cantilever') {
+    // 懸臂柱: 6m 高, 底固定, 頂端 1 tf 水平力 → δ = PL³/(3EI), M_base = PL
+    addNodeRow({ x: 0, y: 0, cx: true, cy: true, crz: true });
+    addNodeRow({ x: 0, y: 6, cx: false, cy: false, crz: false });
+    addMemberRow({ i: 1, j: 2, E, A, I });
+    addNodalLoadRow({ node: 2, Fx: 1.0, Fy: 0, M: 0 });
+  } else if (kind === 'ss') {
+    // 簡支梁: 8m, 左鉸右滾, UDL 1 tf/m → M_max = wL²/8 = 8
+    addNodeRow({ x: 0, y: 0, cx: true, cy: true, crz: false });
+    addNodeRow({ x: 8, y: 0, cx: false, cy: true, crz: false });
+    addMemberRow({ i: 1, j: 2, E, A, I });
+    addMemberLoadRow({ member: 1, w: 1.0, dir: 'globalY' });
+  }
+  runAnalysis();
+}
+
+// 啟動
+window.addEventListener('DOMContentLoaded', () => {
+  loadExample('portal');
+});
+</script>
+</body>
+</html>
