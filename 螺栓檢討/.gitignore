@@ -1,0 +1,4 @@
+# Root-level reference files live beside the React tool but are not app assets.
+/*.jpg
+/*.png
+/*.pdf
