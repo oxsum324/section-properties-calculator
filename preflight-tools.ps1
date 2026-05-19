@@ -145,6 +145,30 @@ Write-Output 'frame analysis static smoke OK'
 exit 0
 '@
 
+$foundationLocalCommand = @'
+$htmlPath = '結構工具箱\tools\foundation\foundation-local.html'
+if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
+$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
+$needles = @(
+  'foundation-local-smoke',
+  '<title>基礎局部檢核 V0.1</title>',
+  'function calculateFoundationLocal',
+  'function calculateCore',
+  'id="btnCalc"',
+  'id="metricGrid"',
+  'id="checkList"',
+  '基礎局部檢核'
+)
+foreach ($needle in $needles) {
+  if ($html -notlike "*$needle*") {
+    Write-Error "foundation local static smoke missing: $needle"
+    exit 1
+  }
+}
+Write-Output 'foundation local static smoke OK'
+exit 0
+'@
+
 $stoneQuickCommand = @'
 $tests = @(
   'regression-smoke',
@@ -270,6 +294,13 @@ $checks = @(
     label = "Frame analysis static smoke"
     workdir = $root
     command = $frameStaticCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "foundation-local-static"
+    label = "Foundation local static smoke"
+    workdir = $root
+    command = $foundationLocalCommand
     slow = $false
   }
 )

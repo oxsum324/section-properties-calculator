@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<!-- foundation-local-smoke -->
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基礎局部檢核 V0.1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:#a16207; color:#fff; }
+  .header-links { margin-top:4px; font-size:0.88em; line-height:1.7; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+  .header-links .sep { opacity:0.55; }
+  .hero-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
+  .foundation-shell { display:grid; grid-template-columns:minmax(320px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
+  .foundation-form-stack { display:grid; gap:18px; }
+  .foundation-result-stack { display:grid; gap:18px; position:sticky; top:18px; }
+  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .inline-actions .btn-calc,
+  .inline-actions .btn-print,
+  .inline-actions .btn-secondary {
+    flex:1 1 180px;
+    width:auto;
+    min-height:46px;
+    margin-top:0;
+    justify-content:center;
+  }
+  .scope-box { padding:12px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fcd34d; color:#78350f; font-size:0.84em; line-height:1.75; }
+  .scope-box strong { color:#92400e; }
+  .metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+  .metric { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; padding:10px 12px; min-height:72px; }
+  .metric .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; line-height:1.45; }
+  .metric .value { font-weight:800; color:#0f172a; font-family:'Consolas',monospace; overflow-wrap:anywhere; }
+  .metric.ok { border-left:4px solid var(--accent); }
+  .metric.warn { border-left:4px solid var(--warn); }
+  .metric.fail { border-left:4px solid var(--danger); }
+  .check-list { display:grid; gap:9px; }
+  .check-item { padding:10px 12px; border-radius:8px; background:#f8fafc; border-left:4px solid #cbd5e1; }
+  .check-item.ok { border-left-color:var(--accent); }
+  .check-item.warn { border-left-color:var(--warn); }
+  .check-item.fail { border-left-color:var(--danger); }
+  .check-item .k { display:block; color:var(--text-light); font-size:0.8em; font-weight:700; margin-bottom:2px; }
+  .check-item .v { display:block; color:var(--text); font-size:0.88em; line-height:1.6; }
+  .step-card { font-size:0.84em; line-height:1.8; color:#334155; }
+  .step-card .step-title { margin:10px 0 4px; font-weight:800; color:#92400e; }
+  .step-card code { font-family:'Consolas',monospace; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; }
+  .mini-table { width:100%; border-collapse:collapse; font-size:0.84em; margin-top:8px; }
+  .mini-table th, .mini-table td { border:1px solid #e2e8f0; padding:6px 8px; text-align:right; }
+  .mini-table th { background:#f8fafc; color:var(--primary); font-weight:700; text-align:center; }
+  .mini-table td:first-child { text-align:left; color:var(--text-light); font-weight:700; }
+  .muted { color:var(--text-light); font-size:0.82em; line-height:1.65; }
+  @media (max-width:1080px) {
+    .foundation-shell { grid-template-columns:1fr; }
+    .foundation-result-stack { position:static; }
+  }
+  @media (max-width:768px) {
+    .header-links { font-size:0.82em; gap:4px 8px; }
+    .header-links .sep { display:none; }
+    .hero-chip { font-size:0.76em; padding:5px 10px; }
+    .foundation-shell, .foundation-form-stack, .foundation-result-stack { gap:14px; }
+    .form-row, .metric-grid { grid-template-columns:1fr; }
+    .inline-actions { flex-direction:column; }
+    .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>基礎局部檢核 <span class="badge-v">V0.1 初估 / 局部</span></h1>
+  <p>淺基礎服務載重底壓、偏心、抗滑、抗傾覆快速檢核 ｜ 單位：m, tf, tf/m²</p>
+  <p class="header-links">
+    <a href="../../index.html" class="back">← 回工具箱</a>
+    <span class="sep">｜</span>
+    <a href="../../../鋼筋混凝土/tools/foundation.html" class="back">RC 基礎完整工具</a>
+  </p>
+  <div class="hero-strip">
+    <span class="hero-chip">矩形淺基礎</span>
+    <span class="hero-chip">服務載重穩定檢核</span>
+    <span class="hero-chip">單頁計算書</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card mode-bar print-meta">
+    <strong class="mode-bar__label">計畫資訊：</strong>
+    <div class="mode-bar__proj">
+      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+      <input type="text" id="projNo" class="w-no" placeholder="編號">
+      <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+    </div>
+  </div>
+
+  <div class="main-layout foundation-shell">
+    <div class="foundation-form-stack">
+      <div class="card">
+        <h2>適用範圍</h2>
+        <div class="scope-box">
+          <strong>本頁是局部快算，不是完整基礎設計。</strong><br>
+          適用於矩形獨立基礎或設備基座的初步穩定檢核：服務載重底壓、合力偏心、抗滑與抗傾覆。
+          若有樁基、筏基、聯合基腳、衝剪、配筋、沉陷或土壤互制問題，應回 RC 基礎完整工具或正式計算書處理。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>① 幾何與土壤參數</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>基礎寬 B，X 向 (m)</label>
+            <input type="number" id="B" value="2.50" step="0.05" min="0.1">
+          </div>
+          <div class="form-group">
+            <label>基礎長 L，Y 向 (m)</label>
+            <input type="number" id="L" value="3.00" step="0.05" min="0.1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>基礎厚度 t (m)</label>
+            <input type="number" id="t" value="0.60" step="0.05" min="0">
+          </div>
+          <div class="form-group">
+            <label>基礎底深 Df (m)</label>
+            <input type="number" id="Df" value="1.20" step="0.05" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>混凝土單位重 γc (tf/m³)</label>
+            <input type="number" id="gammaC" value="2.40" step="0.05" min="0">
+          </div>
+          <div class="form-group">
+            <label>回填土單位重 γs (tf/m³)</label>
+            <input type="number" id="gammaS" value="1.80" step="0.05" min="0">
+          </div>
+        </div>
+        <div class="checkbox-row">
+          <input type="checkbox" id="includeSelfWeight" checked>
+          <label for="includeSelfWeight">納入基礎自重與基礎頂以上覆土重</label>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>② 服務載重與檢核基準</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>外加垂直力 P (tf，壓力為正)</label>
+            <input type="number" id="P" value="80" step="1">
+          </div>
+          <div class="form-group">
+            <label>容許地耐力 qa (tf/m²)</label>
+            <input type="number" id="qa" value="20" step="0.5" min="0.1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Mx (tf·m，繞 X 軸)</label>
+            <input type="number" id="Mx" value="12" step="0.5">
+          </div>
+          <div class="form-group">
+            <label>My (tf·m，繞 Y 軸)</label>
+            <input type="number" id="My" value="8" step="0.5">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>水平力 Hx (tf)</label>
+            <input type="number" id="Hx" value="4" step="0.5">
+          </div>
+          <div class="form-group">
+            <label>水平力 Hy (tf)</label>
+            <input type="number" id="Hy" value="3" step="0.5">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>摩擦係數 μ</label>
+            <input type="number" id="mu" value="0.45" step="0.05" min="0">
+          </div>
+          <div class="form-group">
+            <label>被動土壓或剪力鍵抵抗 Rp (tf)</label>
+            <input type="number" id="passive" value="0" step="0.5" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>抗滑 FS 需求</label>
+            <input type="number" id="fsSlideReq" value="1.50" step="0.05" min="0.1">
+          </div>
+          <div class="form-group">
+            <label>抗傾覆 FS 需求</label>
+            <input type="number" id="fsOverReq" value="1.50" step="0.05" min="0.1">
+          </div>
+        </div>
+        <div class="inline-actions">
+          <button class="btn-calc" id="btnCalc" type="button">計算局部檢核</button>
+          <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
+          <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="foundation-result-stack">
+      <div class="card">
+        <h2>檢核總覽</h2>
+        <div id="bannerStatus" class="banner-status warn">尚未計算</div>
+        <div class="banner-key" id="bannerKey"></div>
+      </div>
+
+      <div class="card">
+        <h2>主要結果</h2>
+        <div class="metric-grid" id="metricGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>檢核項目</h2>
+        <div class="check-list" id="checkList"></div>
+      </div>
+
+      <div class="card">
+        <h2>計算過程</h2>
+        <div class="step-card" id="stepBody">請先按「計算局部檢核」。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const STORAGE_KEY = 'foundationLocalProjectInfo';
+  const DEFAULTS = {
+    B: '2.50', L: '3.00', t: '0.60', Df: '1.20', gammaC: '2.40', gammaS: '1.80',
+    P: '80', qa: '20', Mx: '12', My: '8', Hx: '4', Hy: '3', mu: '0.45',
+    passive: '0', fsSlideReq: '1.50', fsOverReq: '1.50'
+  };
+  let lastResult = null;
+
+  function $(id) { return document.getElementById(id); }
+  function num(id) {
+    const value = parseFloat($(id).value);
+    return Number.isFinite(value) ? value : 0;
+  }
+  function fmt(value, digits = 2) {
+    if (!Number.isFinite(value)) return '∞';
+    return Number(value).toFixed(digits);
+  }
+  function signFmt(value, digits = 2) {
+    if (!Number.isFinite(value)) return '∞';
+    return `${value >= 0 ? '+' : ''}${value.toFixed(digits)}`;
+  }
+  function statusClass(ok, warn = false) {
+    if (ok === true) return 'ok';
+    if (ok === false) return warn ? 'warn' : 'fail';
+    return 'warn';
+  }
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, function (ch) {
+      return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
+    });
+  }
+
+  function gatherInputs() {
+    const includeSelfWeight = $('includeSelfWeight').checked;
+    return {
+      B: num('B'), L: num('L'), t: num('t'), Df: num('Df'),
+      gammaC: num('gammaC'), gammaS: num('gammaS'),
+      P: num('P'), qa: num('qa'), Mx: num('Mx'), My: num('My'),
+      Hx: num('Hx'), Hy: num('Hy'), mu: num('mu'), passive: num('passive'),
+      fsSlideReq: num('fsSlideReq'), fsOverReq: num('fsOverReq'),
+      includeSelfWeight
+    };
+  }
+
+  function validateInput(i) {
+    const errors = [];
+    if (i.B <= 0 || i.L <= 0) errors.push('基礎 B、L 必須大於 0。');
+    if (i.qa <= 0) errors.push('容許地耐力 qa 必須大於 0。');
+    if (i.P <= 0 && !i.includeSelfWeight) errors.push('未納入自重時，外加垂直力 P 應大於 0。');
+    if (i.fsSlideReq <= 0 || i.fsOverReq <= 0) errors.push('安全係數需求值必須大於 0。');
+    if (i.mu < 0 || i.passive < 0) errors.push('摩擦係數與被動抵抗不得為負。');
+    return errors;
+  }
+
+  function calculateCore(i) {
+    const area = i.B * i.L;
+    const soilCoverDepth = Math.max(i.Df - i.t, 0);
+    const footingWeight = i.includeSelfWeight ? area * i.t * i.gammaC : 0;
+    const soilWeight = i.includeSelfWeight ? area * soilCoverDepth * i.gammaS : 0;
+    const Ptotal = i.P + footingWeight + soilWeight;
+    const qAvg = Ptotal / area;
+    const ex = Ptotal > 0 ? i.My / Ptotal : Infinity;
+    const ey = Ptotal > 0 ? i.Mx / Ptotal : Infinity;
+    const kernUtil = Math.abs(ex) / i.B + Math.abs(ey) / i.L;
+    const qFromMx = 6 * i.Mx / (i.B * i.L * i.L);
+    const qFromMy = 6 * i.My / (i.L * i.B * i.B);
+    const corners = [
+      { name: '+X +Y', q: qAvg + qFromMy + qFromMx },
+      { name: '+X -Y', q: qAvg + qFromMy - qFromMx },
+      { name: '-X +Y', q: qAvg - qFromMy + qFromMx },
+      { name: '-X -Y', q: qAvg - qFromMy - qFromMx }
+    ];
+    const qmax = Math.max(...corners.map(c => c.q));
+    const qmin = Math.min(...corners.map(c => c.q));
+    const qmaxCorner = corners.reduce((a, b) => (b.q > a.q ? b : a), corners[0]);
+    const qminCorner = corners.reduce((a, b) => (b.q < a.q ? b : a), corners[0]);
+    const fullContact = qmin >= -1e-9 && kernUtil <= (1 / 6) + 1e-9;
+    const bearingOk = fullContact && qmax <= i.qa;
+    const H = Math.hypot(i.Hx, i.Hy);
+    const slideResistance = i.mu * Ptotal + i.passive;
+    const fsSlide = H > 0 ? slideResistance / H : Infinity;
+    const slideOk = fsSlide >= i.fsSlideReq;
+    const fsOverB = Math.abs(i.My) > 0 ? Ptotal * (i.B / 2) / Math.abs(i.My) : Infinity;
+    const fsOverL = Math.abs(i.Mx) > 0 ? Ptotal * (i.L / 2) / Math.abs(i.Mx) : Infinity;
+    const fsOver = Math.min(fsOverB, fsOverL);
+    const overOk = fsOver >= i.fsOverReq;
+    const compressionOk = Ptotal > 0;
+    const overallOk = compressionOk && bearingOk && slideOk && overOk;
+    return {
+      ...i,
+      area, soilCoverDepth, footingWeight, soilWeight, Ptotal,
+      qAvg, ex, ey, kernUtil, qFromMx, qFromMy, corners, qmax, qmin,
+      qmaxCorner, qminCorner, fullContact, bearingOk, H, slideResistance,
+      fsSlide, slideOk, fsOverB, fsOverL, fsOver, overOk, compressionOk, overallOk
+    };
+  }
+
+  function renderBanner(r) {
+    const banner = $('bannerStatus');
+    banner.className = `banner-status ${r.overallOk ? 'ok' : 'fail'}`;
+    banner.textContent = r.overallOk
+      ? '局部穩定檢核初步通過'
+      : '需修正尺寸 / 載重，或改採正式詳算';
+    const items = [
+      ['qmax / qa', `${fmt(r.qmax)} / ${fmt(r.qa)} = ${fmt(r.qmax / r.qa, 2)}`, r.bearingOk],
+      ['偏心核', `${fmt(r.kernUtil, 4)} / ${fmt(1 / 6, 4)}`, r.fullContact],
+      ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`, r.slideOk],
+      ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`, r.overOk]
+    ];
+    $('bannerKey').innerHTML = items.map(function (item) {
+      return `<div class="k ${statusClass(item[2])}"><span class="k-label">${item[0]}</span><span class="k-val">${item[1]}</span></div>`;
+    }).join('');
+  }
+
+  function renderMetrics(r) {
+    const metrics = [
+      ['Ptotal', `${fmt(r.Ptotal)} tf`, `外加 P + 自重 ${fmt(r.footingWeight)} + 覆土 ${fmt(r.soilWeight)}`, r.compressionOk],
+      ['qmax', `${fmt(r.qmax)} tf/m²`, `控制角 ${r.qmaxCorner.name}`, r.bearingOk],
+      ['qmin', `${fmt(r.qmin)} tf/m²`, `控制角 ${r.qminCorner.name}`, r.fullContact],
+      ['偏心 e', `ex ${signFmt(r.ex, 3)} m / ey ${signFmt(r.ey, 3)} m`, `ex=My/P，ey=Mx/P`, r.fullContact],
+      ['抗滑 FS', fmt(r.fsSlide, 2), `R=${fmt(r.slideResistance)} tf，H=${fmt(r.H)} tf`, r.slideOk],
+      ['抗傾覆 FS', fmt(r.fsOver, 2), `B向 ${fmt(r.fsOverB, 2)}；L向 ${fmt(r.fsOverL, 2)}`, r.overOk]
+    ];
+    $('metricGrid').innerHTML = metrics.map(function (m) {
+      return `<div class="metric ${statusClass(m[3])}">
+        <span class="label">${m[0]}</span>
+        <span class="value">${m[1]}</span>
+        <div class="muted">${m[2]}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderChecks(r) {
+    const checks = [
+      ['垂直合力為壓力', r.compressionOk, `Ptotal = ${fmt(r.Ptotal)} tf`],
+      ['合力位於中央核內', r.fullContact, `|ex|/B + |ey|/L = ${fmt(r.kernUtil, 4)} ${r.fullContact ? '≤' : '>'} 1/6`],
+      ['容許地耐力', r.bearingOk, `qmax = ${fmt(r.qmax)} tf/m² ${r.bearingOk ? '≤' : '>'} qa = ${fmt(r.qa)} tf/m²`],
+      ['抗滑', r.slideOk, `FS = (μP + Rp) / H = ${fmt(r.fsSlide, 2)} ${r.slideOk ? '≥' : '<'} ${fmt(r.fsSlideReq, 2)}`],
+      ['抗傾覆', r.overOk, `FSmin = ${fmt(r.fsOver, 2)} ${r.overOk ? '≥' : '<'} ${fmt(r.fsOverReq, 2)}`]
+    ];
+    if (!r.fullContact) {
+      checks.push(['部分受壓警示', false, 'qmin < 0 或偏心超出中央核；本頁線性全接觸公式不得作為正式採用值。']);
+    }
+    $('checkList').innerHTML = checks.map(function (c) {
+      return `<div class="check-item ${statusClass(c[1])}">
+        <span class="k">${c[0]}</span>
+        <span class="v">${c[2]}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderSteps(r) {
+    const cornerRows = r.corners.map(function (c) {
+      const cls = c === r.qmaxCorner ? ' style="font-weight:800;color:#991b1b;"' : '';
+      return `<tr${cls}><td>${c.name}</td><td>${fmt(c.q)}</td></tr>`;
+    }).join('');
+    $('stepBody').innerHTML = `
+      <div class="step-title">1. 垂直合力與面積</div>
+      <div>
+        <code>A = B × L = ${fmt(r.B)} × ${fmt(r.L)} = ${fmt(r.area)} m²</code><br>
+        <code>Wf = A × t × γc = ${fmt(r.footingWeight)} tf</code><br>
+        <code>Ws = A × max(Df - t, 0) × γs = ${fmt(r.soilWeight)} tf</code><br>
+        <code>Ptotal = P + Wf + Ws = ${fmt(r.P)} + ${fmt(r.footingWeight)} + ${fmt(r.soilWeight)} = ${fmt(r.Ptotal)} tf</code>
+      </div>
+      <div class="step-title">2. 偏心與中央核</div>
+      <div>
+        <code>ex = My / Ptotal = ${fmt(r.My)} / ${fmt(r.Ptotal)} = ${fmt(r.ex, 4)} m</code><br>
+        <code>ey = Mx / Ptotal = ${fmt(r.Mx)} / ${fmt(r.Ptotal)} = ${fmt(r.ey, 4)} m</code><br>
+        <code>|ex|/B + |ey|/L = ${fmt(r.kernUtil, 4)} ${r.fullContact ? '≤' : '>'} 1/6 = ${fmt(1 / 6, 4)}</code>
+      </div>
+      <div class="step-title">3. 四角線性土壓</div>
+      <div>
+        <code>q = P/A ± 6My/(L·B²) ± 6Mx/(B·L²)</code><br>
+        <code>qavg = ${fmt(r.qAvg)} tf/m²；Δqx = ${fmt(r.qFromMy)}；Δqy = ${fmt(r.qFromMx)}</code>
+        <table class="mini-table">
+          <thead><tr><th>角點</th><th>q (tf/m²)</th></tr></thead>
+          <tbody>${cornerRows}</tbody>
+        </table>
+      </div>
+      <div class="step-title">4. 抗滑與抗傾覆</div>
+      <div>
+        <code>H = √(Hx² + Hy²) = √(${fmt(r.Hx)}² + ${fmt(r.Hy)}²) = ${fmt(r.H)} tf</code><br>
+        <code>FSslide = (μPtotal + Rp) / H = (${fmt(r.mu)}×${fmt(r.Ptotal)} + ${fmt(r.passive)}) / ${fmt(r.H)} = ${fmt(r.fsSlide, 2)}</code><br>
+        <code>FSover,B = Ptotal·B/2 / |My| = ${fmt(r.fsOverB, 2)}</code><br>
+        <code>FSover,L = Ptotal·L/2 / |Mx| = ${fmt(r.fsOverL, 2)}</code>
+      </div>
+      <div class="scope-box" style="margin-top:12px;">
+        ${r.fullContact ? '目前合力位於中央核內，四角線性土壓可作為本頁局部檢核值。' : '目前偏心已超出本頁全接觸假設；請改用正式土壓分布、非線性接觸或完整基礎設計流程。'}
+      </div>`;
+  }
+
+  function calculateFoundationLocal() {
+    const input = gatherInputs();
+    const errors = validateInput(input);
+    if (errors.length) {
+      $('bannerStatus').className = 'banner-status fail';
+      $('bannerStatus').textContent = errors.join(' ');
+      $('bannerKey').innerHTML = '';
+      $('metricGrid').innerHTML = '';
+      $('checkList').innerHTML = '';
+      $('stepBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
+      lastResult = null;
+      return null;
+    }
+    const result = calculateCore(input);
+    lastResult = result;
+    renderBanner(result);
+    renderMetrics(result);
+    renderChecks(result);
+    renderSteps(result);
+    return result;
+  }
+
+  function reportRows(rows) {
+    return rows.map(row => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join('');
+  }
+
+  function openReport() {
+    const r = lastResult || calculateFoundationLocal();
+    if (!r) return;
+    const proj = {
+      name: $('projName').value.trim() || '未填',
+      no: $('projNo').value.trim() || '未填',
+      designer: $('projDesigner').value.trim() || '未填'
+    };
+    const inputRows = [
+      ['基礎 B×L×t', `${fmt(r.B)} × ${fmt(r.L)} × ${fmt(r.t)} m`],
+      ['基礎底深 Df', `${fmt(r.Df)} m`],
+      ['外加垂直力 P', `${fmt(r.P)} tf`],
+      ['Mx / My', `${fmt(r.Mx)} / ${fmt(r.My)} tf·m`],
+      ['Hx / Hy', `${fmt(r.Hx)} / ${fmt(r.Hy)} tf`],
+      ['qa', `${fmt(r.qa)} tf/m²`],
+      ['μ / Rp', `${fmt(r.mu)} / ${fmt(r.passive)} tf`]
+    ];
+    const resultRows = [
+      ['綜合結論', r.overallOk ? '局部穩定檢核初步通過' : '需修正或另行詳算'],
+      ['Ptotal', `${fmt(r.Ptotal)} tf`],
+      ['qmax / qmin', `${fmt(r.qmax)} / ${fmt(r.qmin)} tf/m²`],
+      ['偏心核', `${fmt(r.kernUtil, 4)} / ${fmt(1 / 6, 4)}`],
+      ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`],
+      ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`]
+    ];
+    const reportHtml = `<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="UTF-8"><title>基礎局部檢核計算書</title>
+<style>
+body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;line-height:1.65;}
+.toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px 16px;display:flex;gap:8px;z-index:2;}
+.toolbar button{padding:8px 12px;border:0;border-radius:6px;font-weight:700;cursor:pointer;}
+.paper{max-width:860px;margin:20px auto;background:#fff;padding:30px 34px;box-shadow:0 2px 12px rgba(15,23,42,.12);}
+h1{font-size:1.45rem;margin:0 0 6px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px;color:#92400e;}
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:32%;}
+.conclusion{padding:12px 14px;border-radius:8px;border:2px solid ${r.overallOk ? '#10b981' : '#ef4444'};background:${r.overallOk ? '#ecfdf5' : '#fef2f2'};font-weight:800;}
+.note{margin-top:14px;padding:10px 12px;border-left:4px solid #f59e0b;background:#fffbeb;color:#78350f;font-size:.9rem;}
+@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}}
+</style></head><body>
+<div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
+<main class="paper">
+<h1>基礎局部檢核計算書</h1>
+<div>計畫名稱：${escapeHtml(proj.name)}　編號：${escapeHtml(proj.no)}　設計人：${escapeHtml(proj.designer)}</div>
+<div class="conclusion">${r.overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
+<h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
+<h2>檢核結果</h2><table>${reportRows(resultRows)}</table>
+<h2>角點土壓</h2><table><tr><th>角點</th><th>q (tf/m²)</th></tr>${r.corners.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${fmt(c.q)}</td></tr>`).join('')}</table>
+<div class="note">本計算書為矩形淺基礎服務載重局部檢核。若 qmin < 0、偏心超出中央核、或涉及配筋、剪力、沉陷、樁基、筏基與聯合基礎，應另行正式詳算。</div>
+</main></body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.open();
+    win.document.write(reportHtml);
+    win.document.close();
+  }
+
+  function saveProjectInfo() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        name: $('projName').value,
+        no: $('projNo').value,
+        designer: $('projDesigner').value
+      }));
+    } catch (err) {}
+  }
+  function loadProjectInfo() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if (data.name) $('projName').value = data.name;
+      if (data.no) $('projNo').value = data.no;
+      if (data.designer) $('projDesigner').value = data.designer;
+    } catch (err) {}
+  }
+  function resetDefaults() {
+    Object.keys(DEFAULTS).forEach(id => { $(id).value = DEFAULTS[id]; });
+    $('includeSelfWeight').checked = true;
+    calculateFoundationLocal();
+  }
+
+  document.getElementById('btnCalc').addEventListener('click', calculateFoundationLocal);
+  document.getElementById('btnPrint').addEventListener('click', openReport);
+  document.getElementById('btnReport').addEventListener('click', openReport);
+  document.getElementById('btnReset').addEventListener('click', resetDefaults);
+  ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
+  Array.from(document.querySelectorAll('input')).forEach(function (input) {
+    if (['projName', 'projNo', 'projDesigner'].includes(input.id)) return;
+    input.addEventListener('input', calculateFoundationLocal);
+    input.addEventListener('change', calculateFoundationLocal);
+  });
+  loadProjectInfo();
+  calculateFoundationLocal();
+})();
+</script>
+</body>
+</html>

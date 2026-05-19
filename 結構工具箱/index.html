@@ -94,7 +94,7 @@
 </head>
 <body>
   <header>
-    <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V1.3</span></h1>
+    <h1>結構工具箱 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V1.4</span></h1>
     <p style="font-size:0.88em; opacity:0.9; margin-top:4px;">
       RC／鋼構／耐風／耐震／錨栓／施工臨設／斷面性質　｜　單位：cm, kgf
     </p>
@@ -452,6 +452,11 @@
   <div class="card">
     <div class="group-title">施工臨時設施 / 局部檢核</div>
     <div class="menu-grid">
+      <a class="menu-card" href="tools/foundation/foundation-local.html" style="border-left:4px solid #a16207;">
+        <div class="icon">▰</div>
+        <h3>基礎局部檢核 <span class="ver ver-draft">V0.1 初估</span></h3>
+        <p>矩形淺基礎服務載重快算；檢核底壓、偏心、抗滑與抗傾覆，並輸出單頁局部計算書。</p>
+      </a>
       <a class="menu-card" href="../覆工板/index.html" style="border-left:4px solid #166534;">
         <div class="icon">▤</div>
         <h3>覆工板系統計算 <span class="ver ver-new">V1.0</span></h3>
@@ -564,10 +569,10 @@
           <td><span class="scope-limit">本機服務已納管</span>；需先以啟動腳本提供 FastAPI + React 服務，再進行案件操作</td>
         </tr>
         <tr>
-          <td><strong>P2</strong></td>
+          <td><strong>P1</strong></td>
           <td><strong>基礎局部檢核</strong></td>
           <td>獨立基礎、條形基礎、底壓、偏心、抗滑、抗傾覆、局部補算</td>
-          <td>仍是下一個最值得獨立的快算題目，適合做成單頁輸入、單頁列印的局部計算書</td>
+          <td><span class="scope-limit">初版已上線</span>；目前限矩形淺基礎服務載重穩定檢核，剪力、配筋、沉陷仍回 RC 基礎完整工具</td>
         </tr>
         <tr>
           <td><strong>P2</strong></td>
@@ -585,7 +590,7 @@
     </table>
     <div class="note" style="margin-top:12px;">
       目前高頻局部工具已從「缺入口」推進到「多數已納管」。下一波不應只追求新增頁面，應優先補
-      <strong>案例基準、報表一致性、服務型工具啟動/部署邊界</strong>；若要再開新工具，建議先做 <strong>基礎局部檢核</strong>。
+      <strong>案例基準、報表一致性、服務型工具啟動/部署邊界</strong>；若要再開新工具，建議接著做 <strong>設備局部荷重</strong> 或補強基礎局部檢核案例基準。
     </div>
     </div>
   </div>
