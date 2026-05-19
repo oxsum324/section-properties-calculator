@@ -33,6 +33,7 @@
     { "source": "/rc-foundation", "destination": "/鋼筋混凝土/tools/foundation.html" },
     { "source": "/rc-pile", "destination": "/鋼筋混凝土/tools/single-pile-designer.html" },
     { "source": "/foundation-local", "destination": "/結構工具箱/tools/foundation/foundation-local.html" },
+    { "source": "/equipment-load", "destination": "/結構工具箱/tools/equipment/equipment-load.html" },
 
     { "source": "/platform", "destination": "/結構工具箱/index.html" },
     { "source": "/platform-audit", "destination": "/結構工具箱/audit-dashboard.html" },

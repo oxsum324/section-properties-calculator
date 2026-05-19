@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<!-- equipment-load-smoke -->
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>設備局部荷重 V0.1</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
+             font-size:0.6em; font-weight:700; vertical-align:middle; background:#0b7285; color:#fff; }
+  .header-links { margin-top:4px; font-size:0.88em; line-height:1.7; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+  .header-links .sep { opacity:0.55; }
+  .hero-strip { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
+  .equipment-shell { display:grid; grid-template-columns:minmax(320px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
+  .equipment-form-stack { display:grid; gap:18px; }
+  .equipment-result-stack { display:grid; gap:18px; position:sticky; top:18px; }
+  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .inline-actions .btn-calc,
+  .inline-actions .btn-print,
+  .inline-actions .btn-secondary {
+    flex:1 1 180px;
+    width:auto;
+    min-height:46px;
+    margin-top:0;
+    justify-content:center;
+  }
+  .scope-box { padding:12px 14px; border-radius:10px; background:#ecfeff; border:1px solid #67e8f9; color:#155e75; font-size:0.84em; line-height:1.75; }
+  .scope-box strong { color:#0e7490; }
+  .metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+  .metric { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; padding:10px 12px; min-height:72px; }
+  .metric .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; line-height:1.45; }
+  .metric .value { font-weight:800; color:#0f172a; font-family:'Consolas',monospace; overflow-wrap:anywhere; }
+  .metric.ok { border-left:4px solid var(--accent); }
+  .metric.warn { border-left:4px solid var(--warn); }
+  .metric.fail { border-left:4px solid var(--danger); }
+  .check-list { display:grid; gap:9px; }
+  .check-item { padding:10px 12px; border-radius:8px; background:#f8fafc; border-left:4px solid #cbd5e1; }
+  .check-item.ok { border-left-color:var(--accent); }
+  .check-item.warn { border-left-color:var(--warn); }
+  .check-item.fail { border-left-color:var(--danger); }
+  .check-item .k { display:block; color:var(--text-light); font-size:0.8em; font-weight:700; margin-bottom:2px; }
+  .check-item .v { display:block; color:var(--text); font-size:0.88em; line-height:1.6; }
+  .step-card { font-size:0.84em; line-height:1.8; color:#334155; }
+  .step-card .step-title { margin:10px 0 4px; font-weight:800; color:#0b7285; }
+  .step-card code { font-family:'Consolas',monospace; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; }
+  .muted { color:var(--text-light); font-size:0.82em; line-height:1.65; }
+  @media (max-width:1080px) {
+    .equipment-shell { grid-template-columns:1fr; }
+    .equipment-result-stack { position:static; }
+  }
+  @media (max-width:768px) {
+    .header-links { font-size:0.82em; gap:4px 8px; }
+    .header-links .sep { display:none; }
+    .hero-chip { font-size:0.76em; padding:5px 10px; }
+    .equipment-shell, .equipment-form-stack, .equipment-result-stack { gap:14px; }
+    .form-row, .metric-grid { grid-template-columns:1fr; }
+    .inline-actions { flex-direction:column; }
+    .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>設備局部荷重 <span class="badge-v">V0.1 初估 / 荷重整理</span></h1>
+  <p>設備重量、支承點反力、接觸壓、1:1 分布壓與水平力初估 ｜ 單位：m, tf, tf/m²</p>
+  <p class="header-links">
+    <a href="../../index.html" class="back">← 回工具箱</a>
+    <span class="sep">｜</span>
+    <a href="../foundation/foundation-local.html" class="back">基礎局部檢核</a>
+    <span class="sep">｜</span>
+    <a href="../../../anchor/" class="back">錨栓檢討工具</a>
+  </p>
+  <div class="hero-strip">
+    <span class="hero-chip">設備基座協調</span>
+    <span class="hero-chip">單點 / 多點支承</span>
+    <span class="hero-chip">局部壓力快算</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card mode-bar print-meta">
+    <strong class="mode-bar__label">計畫資訊：</strong>
+    <div class="mode-bar__proj">
+      <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+      <input type="text" id="projNo" class="w-no" placeholder="編號">
+      <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
+      <button class="mode-bar__report" id="btnReport" type="button">列印計算書</button>
+    </div>
+  </div>
+
+  <div class="main-layout equipment-shell">
+    <div class="equipment-form-stack">
+      <div class="card">
+        <h2>適用範圍</h2>
+        <div class="scope-box">
+          <strong>本頁只整理局部荷重與接觸壓，不做構件承載設計。</strong><br>
+          適用於設備、機台、冰水主機、發電機、基座腳座等初步協調：將設備重量換算成單點反力、
+          接觸壓、分布壓與水平力。樓板、梁、基礎、錨栓與振動檢核仍須使用相應正式工具或模型。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>① 設備重量</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>設備乾重 Wd (tf)</label>
+            <input type="number" id="equipmentWeight" value="12" step="0.1" min="0">
+          </div>
+          <div class="form-group">
+            <label>流體 / 操作重量 Wf (tf)</label>
+            <input type="number" id="fluidWeight" value="2" step="0.1" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>附屬件 / 管線重量 Wa (tf)</label>
+            <input type="number" id="accessoryWeight" value="1" step="0.1" min="0">
+          </div>
+          <div class="form-group">
+            <label>動力 / 衝擊係數 I</label>
+            <input type="number" id="dynamicFactor" value="1.10" step="0.05" min="0.1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>設備平面寬 B (m)</label>
+            <input type="number" id="planB" value="2.40" step="0.05" min="0.1">
+          </div>
+          <div class="form-group">
+            <label>設備平面長 L (m)</label>
+            <input type="number" id="planL" value="1.20" step="0.05" min="0.1">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>② 支承與檢核基準</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>支承點數 n</label>
+            <input type="number" id="supportCount" value="4" step="1" min="1">
+          </div>
+          <div class="form-group">
+            <label>水平係數 kh</label>
+            <input type="number" id="horizontalCoeff" value="0.20" step="0.05" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>單支承接觸寬 b (m)</label>
+            <input type="number" id="contactB" value="0.25" step="0.01" min="0.01">
+          </div>
+          <div class="form-group">
+            <label>單支承接觸長 l (m)</label>
+            <input type="number" id="contactL" value="0.25" step="0.01" min="0.01">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>1:1 分布厚度 h (m)</label>
+            <input type="number" id="spreadDepth" value="0.15" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>容許單點反力 Pa (tf，0=不檢核)</label>
+            <input type="number" id="allowablePoint" value="5" step="0.1" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>容許接觸壓 qa,contact (tf/m²)</label>
+            <input type="number" id="allowableContact" value="100" step="1" min="0.1">
+          </div>
+          <div class="form-group">
+            <label>容許分布壓 qa,spread (tf/m²)</label>
+            <input type="number" id="allowableSpread" value="20" step="0.5" min="0.1">
+          </div>
+        </div>
+        <div class="inline-actions">
+          <button class="btn-calc" id="btnCalc" type="button">計算設備局部荷重</button>
+          <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
+          <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="equipment-result-stack">
+      <div class="card">
+        <h2>檢核總覽</h2>
+        <div id="bannerStatus" class="banner-status warn">尚未計算</div>
+        <div class="banner-key" id="bannerKey"></div>
+      </div>
+      <div class="card">
+        <h2>主要結果</h2>
+        <div class="metric-grid" id="metricGrid"></div>
+      </div>
+      <div class="card">
+        <h2>檢核項目</h2>
+        <div class="check-list" id="checkList"></div>
+      </div>
+      <div class="card">
+        <h2>計算過程</h2>
+        <div class="step-card" id="stepBody">請先按「計算設備局部荷重」。</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="equipment-load-core.js"></script>
+<script>
+(function () {
+  const STORAGE_KEY = 'equipmentLoadProjectInfo';
+  const DEFAULTS = {
+    equipmentWeight: '12',
+    fluidWeight: '2',
+    accessoryWeight: '1',
+    dynamicFactor: '1.10',
+    supportCount: '4',
+    contactB: '0.25',
+    contactL: '0.25',
+    spreadDepth: '0.15',
+    planB: '2.40',
+    planL: '1.20',
+    allowableContact: '100',
+    allowableSpread: '20',
+    allowablePoint: '5',
+    horizontalCoeff: '0.20'
+  };
+  let lastResult = null;
+  const Core = window.EquipmentLoadCore;
+  if (!Core) throw new Error('EquipmentLoadCore is not loaded.');
+
+  function $(id) { return document.getElementById(id); }
+  function num(id) {
+    const value = parseFloat($(id).value);
+    return Number.isFinite(value) ? value : 0;
+  }
+  function fmt(value, digits = 2) {
+    if (value === null || value === undefined) return '—';
+    if (!Number.isFinite(value)) return '∞';
+    return Number(value).toFixed(digits);
+  }
+  function statusClass(ok) {
+    if (ok === true) return 'ok';
+    if (ok === false) return 'fail';
+    return 'warn';
+  }
+  function escapeHtml(text) {
+    return String(text).replace(/[&<>"']/g, function (ch) {
+      return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
+    });
+  }
+  function gatherInputs() {
+    return {
+      equipmentWeight: num('equipmentWeight'),
+      fluidWeight: num('fluidWeight'),
+      accessoryWeight: num('accessoryWeight'),
+      dynamicFactor: num('dynamicFactor'),
+      supportCount: num('supportCount'),
+      contactB: num('contactB'),
+      contactL: num('contactL'),
+      spreadDepth: num('spreadDepth'),
+      planB: num('planB'),
+      planL: num('planL'),
+      allowableContact: num('allowableContact'),
+      allowableSpread: num('allowableSpread'),
+      allowablePoint: num('allowablePoint'),
+      horizontalCoeff: num('horizontalCoeff')
+    };
+  }
+
+  function renderBanner(r) {
+    const banner = $('bannerStatus');
+    banner.className = `banner-status ${r.overallOk ? 'ok' : 'fail'}`;
+    banner.textContent = r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算';
+    const items = [
+      ['單點反力', `${fmt(r.pointLoad)} / ${r.allowablePoint > 0 ? fmt(r.allowablePoint) : '不檢核'} tf`, r.pointOk],
+      ['接觸壓', `${fmt(r.qContact)} / ${fmt(r.allowableContact)} tf/m²`, r.contactOk],
+      ['分布壓', `${fmt(r.qSpread)} / ${fmt(r.allowableSpread)} tf/m²`, r.spreadOk],
+      ['水平力', `${fmt(r.horizontalTotal)} tf total`, true]
+    ];
+    $('bannerKey').innerHTML = items.map(function (item) {
+      return `<div class="k ${statusClass(item[2])}"><span class="k-label">${item[0]}</span><span class="k-val">${item[1]}</span></div>`;
+    }).join('');
+  }
+
+  function renderMetrics(r) {
+    const metrics = [
+      ['設計重量', `${fmt(r.designWeight)} tf`, `服務重量 ${fmt(r.serviceWeight)} × I=${fmt(r.dynamicFactor, 2)}`, true],
+      ['單點反力', `${fmt(r.pointLoad)} tf`, `n=${r.supportCount} 點`, r.pointOk],
+      ['接觸壓', `${fmt(r.qContact)} tf/m²`, `A=${fmt(r.contactAreaEach, 4)} m² / 點`, r.contactOk],
+      ['分布壓', `${fmt(r.qSpread)} tf/m²`, `${fmt(r.spreadB)} × ${fmt(r.spreadL)} m / 點`, r.spreadOk],
+      ['等效面載重', `${fmt(r.qEquivalent)} tf/m²`, `設備投影 ${fmt(r.planArea)} m²`, true],
+      ['水平力初估', `${fmt(r.horizontalTotal)} tf`, `每點 ${fmt(r.horizontalPerSupport)} tf`, true]
+    ];
+    $('metricGrid').innerHTML = metrics.map(function (m) {
+      return `<div class="metric ${statusClass(m[3])}">
+        <span class="label">${m[0]}</span>
+        <span class="value">${m[1]}</span>
+        <div class="muted">${m[2]}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderChecks(r) {
+    const checks = [
+      ['接觸壓檢核', r.contactOk, `qcontact = ${fmt(r.qContact)} tf/m² ${r.contactOk ? '≤' : '>'} ${fmt(r.allowableContact)} tf/m²`],
+      ['1:1 分布壓檢核', r.spreadOk, `qspread = ${fmt(r.qSpread)} tf/m² ${r.spreadOk ? '≤' : '>'} ${fmt(r.allowableSpread)} tf/m²`],
+      ['單點反力檢核', r.pointOk, r.allowablePoint > 0 ? `Ppoint = ${fmt(r.pointLoad)} tf ${r.pointOk ? '≤' : '>'} ${fmt(r.allowablePoint)} tf` : '未啟用單點反力檢核'],
+      ['水平力提示', true, `H = kh × Wdesign = ${fmt(r.horizontalCoeff, 2)} × ${fmt(r.designWeight)} = ${fmt(r.horizontalTotal)} tf；錨栓請另用錨栓檢討工具。`]
+    ];
+    $('checkList').innerHTML = checks.map(function (c) {
+      return `<div class="check-item ${statusClass(c[1])}">
+        <span class="k">${c[0]}</span>
+        <span class="v">${c[2]}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderSteps(r) {
+    $('stepBody').innerHTML = `
+      <div class="step-title">1. 設備設計重量</div>
+      <div>
+        <code>Wservice = Wd + Wf + Wa = ${fmt(r.equipmentWeight)} + ${fmt(r.fluidWeight)} + ${fmt(r.accessoryWeight)} = ${fmt(r.serviceWeight)} tf</code><br>
+        <code>Wdesign = Wservice × I = ${fmt(r.serviceWeight)} × ${fmt(r.dynamicFactor, 2)} = ${fmt(r.designWeight)} tf</code>
+      </div>
+      <div class="step-title">2. 單點反力與接觸壓</div>
+      <div>
+        <code>Ppoint = Wdesign / n = ${fmt(r.designWeight)} / ${r.supportCount} = ${fmt(r.pointLoad)} tf</code><br>
+        <code>Acontact = b × l = ${fmt(r.contactB)} × ${fmt(r.contactL)} = ${fmt(r.contactAreaEach, 4)} m²</code><br>
+        <code>qcontact = Ppoint / Acontact = ${fmt(r.qContact)} tf/m²</code>
+      </div>
+      <div class="step-title">3. 1:1 分布壓</div>
+      <div>
+        <code>Bspread = b + 2h = ${fmt(r.contactB)} + 2×${fmt(r.spreadDepth)} = ${fmt(r.spreadB)} m</code><br>
+        <code>Lspread = l + 2h = ${fmt(r.contactL)} + 2×${fmt(r.spreadDepth)} = ${fmt(r.spreadL)} m</code><br>
+        <code>Aspread = ${fmt(r.spreadAreaEach, 4)} m²；qspread = ${fmt(r.qSpread)} tf/m²</code>
+      </div>
+      <div class="step-title">4. 協調用等效值</div>
+      <div>
+        <code>qequiv = Wdesign / (Bplan × Lplan) = ${fmt(r.qEquivalent)} tf/m²</code><br>
+        <code>Htotal = kh × Wdesign = ${fmt(r.horizontalTotal)} tf；Hpoint = ${fmt(r.horizontalPerSupport)} tf / 點</code>
+      </div>
+      <div class="scope-box" style="margin-top:12px;">
+        本頁結果用於荷重整理與早期協調；樓板、梁、基礎、錨栓、振動與疲勞仍須另行正式檢核。
+      </div>`;
+  }
+
+  function calculateEquipmentLoad() {
+    const input = gatherInputs();
+    const errors = Core.validateInput(input);
+    if (errors.length) {
+      $('bannerStatus').className = 'banner-status fail';
+      $('bannerStatus').textContent = errors.join(' ');
+      $('bannerKey').innerHTML = '';
+      $('metricGrid').innerHTML = '';
+      $('checkList').innerHTML = '';
+      $('stepBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
+      lastResult = null;
+      return null;
+    }
+    const result = Core.calculate(input);
+    lastResult = result;
+    renderBanner(result);
+    renderMetrics(result);
+    renderChecks(result);
+    renderSteps(result);
+    return result;
+  }
+
+  function reportRows(rows) {
+    return rows.map(row => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join('');
+  }
+
+  function openReport() {
+    const r = lastResult || calculateEquipmentLoad();
+    if (!r) return;
+    const proj = {
+      name: $('projName').value.trim() || '未填',
+      no: $('projNo').value.trim() || '未填',
+      designer: $('projDesigner').value.trim() || '未填'
+    };
+    const inputRows = [
+      ['設備重量', `Wd ${fmt(r.equipmentWeight)} + Wf ${fmt(r.fluidWeight)} + Wa ${fmt(r.accessoryWeight)} tf`],
+      ['動力 / 衝擊係數', fmt(r.dynamicFactor, 2)],
+      ['支承點數', `${r.supportCount} 點`],
+      ['單支承接觸尺寸', `${fmt(r.contactB)} × ${fmt(r.contactL)} m`],
+      ['分布厚度', `${fmt(r.spreadDepth)} m`],
+      ['容許值', `contact ${fmt(r.allowableContact)} tf/m²；spread ${fmt(r.allowableSpread)} tf/m²；point ${r.allowablePoint > 0 ? fmt(r.allowablePoint) + ' tf' : '不檢核'}`]
+    ];
+    const resultRows = [
+      ['綜合結論', r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'],
+      ['設計重量 / 單點反力', `${fmt(r.designWeight)} / ${fmt(r.pointLoad)} tf`],
+      ['接觸壓', `${fmt(r.qContact)} tf/m²`],
+      ['分布壓', `${fmt(r.qSpread)} tf/m²`],
+      ['等效面載重', `${fmt(r.qEquivalent)} tf/m²`],
+      ['水平力', `${fmt(r.horizontalTotal)} tf；每點 ${fmt(r.horizontalPerSupport)} tf`]
+    ];
+    const reportHtml = `<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="UTF-8"><title>設備局部荷重計算書</title>
+<style>
+body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;line-height:1.65;}
+.toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px 16px;display:flex;gap:8px;z-index:2;}
+.toolbar button{padding:8px 12px;border:0;border-radius:6px;font-weight:700;cursor:pointer;}
+.paper{max-width:860px;margin:20px auto;background:#fff;padding:30px 34px;box-shadow:0 2px 12px rgba(15,23,42,.12);}
+h1{font-size:1.45rem;margin:0 0 6px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px;color:#0b7285;}
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:32%;}
+.conclusion{padding:12px 14px;border-radius:8px;border:2px solid ${r.overallOk ? '#10b981' : '#ef4444'};background:${r.overallOk ? '#ecfdf5' : '#fef2f2'};font-weight:800;}
+.note{margin-top:14px;padding:10px 12px;border-left:4px solid #0891b2;background:#ecfeff;color:#155e75;font-size:.9rem;}
+@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}}
+</style></head><body>
+<div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
+<main class="paper">
+<h1>設備局部荷重計算書</h1>
+<div>計畫名稱：${escapeHtml(proj.name)}　編號：${escapeHtml(proj.no)}　整理人：${escapeHtml(proj.designer)}</div>
+<div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>
+<h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
+<h2>整理結果</h2><table>${reportRows(resultRows)}</table>
+<div class="note">本計算書為設備局部荷重整理；不取代樓板、梁、基礎、錨栓、振動或疲勞之正式檢核。</div>
+</main></body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.open();
+    win.document.write(reportHtml);
+    win.document.close();
+  }
+
+  function saveProjectInfo() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        name: $('projName').value,
+        no: $('projNo').value,
+        designer: $('projDesigner').value
+      }));
+    } catch (err) {}
+  }
+  function loadProjectInfo() {
+    try {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if (data.name) $('projName').value = data.name;
+      if (data.no) $('projNo').value = data.no;
+      if (data.designer) $('projDesigner').value = data.designer;
+    } catch (err) {}
+  }
+  function resetDefaults() {
+    Object.keys(DEFAULTS).forEach(id => { $(id).value = DEFAULTS[id]; });
+    calculateEquipmentLoad();
+  }
+
+  document.getElementById('btnCalc').addEventListener('click', calculateEquipmentLoad);
+  document.getElementById('btnPrint').addEventListener('click', openReport);
+  document.getElementById('btnReport').addEventListener('click', openReport);
+  document.getElementById('btnReset').addEventListener('click', resetDefaults);
+  ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
+  Array.from(document.querySelectorAll('input')).forEach(function (input) {
+    if (['projName', 'projNo', 'projDesigner'].includes(input.id)) return;
+    input.addEventListener('input', calculateEquipmentLoad);
+    input.addEventListener('change', calculateEquipmentLoad);
+  });
+  loadProjectInfo();
+  calculateEquipmentLoad();
+})();
+</script>
+</body>
+</html>

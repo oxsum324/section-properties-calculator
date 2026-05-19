@@ -188,6 +188,49 @@ Write-Output 'foundation local static and regression smoke OK'
 exit 0
 '@
 
+$equipmentLoadCommand = @'
+$htmlPath = '結構工具箱\tools\equipment\equipment-load.html'
+$corePath = '結構工具箱\tools\equipment\equipment-load-core.js'
+$testPath = '結構工具箱\tools\equipment\equipment-load-core.test.js'
+if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
+if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
+$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
+$core = Get-Content -LiteralPath $corePath -Raw -Encoding UTF8
+$needles = @(
+  'equipment-load-smoke',
+  '<title>設備局部荷重 V0.1</title>',
+  'function calculateEquipmentLoad',
+  'equipment-load-core.js',
+  'id="btnCalc"',
+  'id="metricGrid"',
+  'id="checkList"',
+  '設備局部荷重'
+)
+foreach ($needle in $needles) {
+  if ($html -notlike "*$needle*") {
+    Write-Error "equipment load static smoke missing: $needle"
+    exit 1
+  }
+}
+$coreNeedles = @(
+  'EquipmentLoadCore',
+  'function calculate',
+  'function validateInput',
+  'module.exports'
+)
+foreach ($needle in $coreNeedles) {
+  if ($core -notlike "*$needle*") {
+    Write-Error "equipment load core smoke missing: $needle"
+    exit 1
+  }
+}
+node $testPath
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Output 'equipment load static and regression smoke OK'
+exit 0
+'@
+
 $stoneQuickCommand = @'
 $tests = @(
   'regression-smoke',
@@ -320,6 +363,13 @@ $checks = @(
     label = "Foundation local static smoke"
     workdir = $root
     command = $foundationLocalCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "equipment-load-static"
+    label = "Equipment load static smoke"
+    workdir = $root
+    command = $equipmentLoadCommand
     slow = $false
   }
 )
