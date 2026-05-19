@@ -147,13 +147,18 @@ exit 0
 
 $foundationLocalCommand = @'
 $htmlPath = '結構工具箱\tools\foundation\foundation-local.html'
+$corePath = '結構工具箱\tools\foundation\foundation-local-core.js'
+$testPath = '結構工具箱\tools\foundation\foundation-local-core.test.js'
 if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
+if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
 $html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
+$core = Get-Content -LiteralPath $corePath -Raw -Encoding UTF8
 $needles = @(
   'foundation-local-smoke',
   '<title>基礎局部檢核 V0.1</title>',
   'function calculateFoundationLocal',
-  'function calculateCore',
+  'foundation-local-core.js',
   'id="btnCalc"',
   'id="metricGrid"',
   'id="checkList"',
@@ -165,7 +170,21 @@ foreach ($needle in $needles) {
     exit 1
   }
 }
-Write-Output 'foundation local static smoke OK'
+$coreNeedles = @(
+  'FoundationLocalCore',
+  'function calculate',
+  'function validateInput',
+  'module.exports'
+)
+foreach ($needle in $coreNeedles) {
+  if ($core -notlike "*$needle*") {
+    Write-Error "foundation local core smoke missing: $needle"
+    exit 1
+  }
+}
+node $testPath
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Output 'foundation local static and regression smoke OK'
 exit 0
 '@
 
