@@ -7,6 +7,20 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  const CORE_NAME = 'EarthPressureCore';
+  const CORE_VERSION = '0.1.0';
+  const INPUT_SCHEMA_VERSION = 'earth-pressure.input.v0.1';
+  const LOGIC_SIGNATURE = 'earth-pressure-core:v0.1:rankine-surcharge-water-stability';
+
+  function provenance() {
+    return {
+      core: CORE_NAME,
+      version: CORE_VERSION,
+      inputSchemaVersion: INPUT_SCHEMA_VERSION,
+      logicSignature: LOGIC_SIGNATURE
+    };
+  }
+
   function numberValue(value) {
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
@@ -117,14 +131,16 @@
       kernUtil,
       fullContact,
       bearingOk,
-      overallOk
+      overallOk,
+      provenance: provenance()
     });
   }
 
   return {
-    version: '0.1.0',
-    inputSchemaVersion: 'earth-pressure.input.v0.1',
-    logicSignature: 'earth-pressure-core:v0.1:rankine-surcharge-water-stability',
+    version: CORE_VERSION,
+    inputSchemaVersion: INPUT_SCHEMA_VERSION,
+    logicSignature: LOGIC_SIGNATURE,
+    provenance,
     normalizeInput,
     validateInput,
     calculate

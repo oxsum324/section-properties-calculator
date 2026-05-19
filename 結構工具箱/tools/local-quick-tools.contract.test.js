@@ -42,7 +42,6 @@ const tools = [
     title: '<title>基礎局部檢核 V0.1</title>',
     calcFunction: 'function calculateFoundationLocal',
     coreGlobal: 'FoundationLocalCore',
-    coreReportLabel: 'FoundationLocalCore v',
     indexHref: 'tools/foundation/foundation-local.html',
     boundaryPath: '結構工具箱/tools/foundation/',
   },
@@ -58,7 +57,6 @@ const tools = [
     title: '<title>設備局部荷重 V0.1</title>',
     calcFunction: 'function calculateEquipmentLoad',
     coreGlobal: 'EquipmentLoadCore',
-    coreReportLabel: 'EquipmentLoadCore v',
     indexHref: 'tools/equipment/equipment-load.html',
     boundaryPath: '結構工具箱/tools/equipment/',
   },
@@ -74,7 +72,6 @@ const tools = [
     title: '<title>擋土土壓局部快算 V0.1</title>',
     calcFunction: 'function calculateEarthPressure',
     coreGlobal: 'EarthPressureCore',
-    coreReportLabel: 'EarthPressureCore v',
     indexHref: 'tools/earth/earth-pressure.html',
     boundaryPath: '結構工具箱/tools/earth/',
   },
@@ -114,7 +111,7 @@ for (const tool of tools) {
     'id="checkList"',
     'id="coreVersion"',
     '工具與責任邊界',
-    tool.coreReportLabel,
+    tool.coreGlobal,
     tool.label,
     '初估',
     '列印計算書',
@@ -124,9 +121,10 @@ for (const tool of tools) {
 
   [
     tool.coreGlobal,
-    "version: '0.1.0'",
+    "CORE_VERSION = '0.1.0'",
     'inputSchemaVersion',
     'logicSignature',
+    'function provenance',
     'function normalizeInput',
     'function validateInput',
     'function calculate',
@@ -137,6 +135,15 @@ for (const tool of tools) {
   assert.equal(api.version, '0.1.0', `${tool.key} core version`);
   assert.match(api.inputSchemaVersion, /\.input\.v0\.1$/, `${tool.key} input schema version`);
   assert.ok(api.logicSignature.startsWith(`${tool.key}-core:v0.1:`), `${tool.key} logic signature`);
+  assert.equal(typeof api.provenance, 'function', `${tool.key} provenance function`);
+  const apiProvenance = api.provenance();
+  assert.equal(apiProvenance.core, tool.coreGlobal, `${tool.key} provenance core`);
+  assert.equal(apiProvenance.version, api.version, `${tool.key} provenance version`);
+  assert.equal(apiProvenance.inputSchemaVersion, api.inputSchemaVersion, `${tool.key} provenance schema`);
+  assert.equal(apiProvenance.logicSignature, api.logicSignature, `${tool.key} provenance signature`);
+  const goldenCases = require(goldenPath);
+  const result = api.calculate(goldenCases[0].input);
+  assert.deepEqual(result.provenance, apiProvenance, `${tool.key} result provenance`);
 
   [
     'goldenCases',

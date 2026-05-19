@@ -393,6 +393,7 @@
       no: $('projNo').value.trim() || '未填',
       designer: $('projDesigner').value.trim() || '未填'
     };
+    const prov = r.provenance || (Core.provenance ? Core.provenance() : {});
     const inputRows = [
       ['設備重量', `Wd ${fmt(r.equipmentWeight)} + Wf ${fmt(r.fluidWeight)} + Wa ${fmt(r.accessoryWeight)} tf`],
       ['動力 / 衝擊係數', fmt(r.dynamicFactor, 2)],
@@ -403,9 +404,9 @@
     ];
     const metaRows = [
       ['頁面版本', 'V0.1 初估 / 荷重整理'],
-      ['計算核心', `EquipmentLoadCore v${Core.version || 'unknown'}`],
-      ['輸入格式', Core.inputSchemaVersion || 'unknown'],
-      ['計算指紋', Core.logicSignature || 'unknown'],
+      ['計算核心', `${prov.core || 'EquipmentLoadCore'} v${prov.version || Core.version || 'unknown'}`],
+      ['輸入格式', prov.inputSchemaVersion || Core.inputSchemaVersion || 'unknown'],
+      ['計算指紋', prov.logicSignature || Core.logicSignature || 'unknown'],
       ['產製時間', nowText()],
       ['適用範圍', '設備重量、支承點反力、接觸壓、1:1 分布壓、等效面載重與水平力初估'],
       ['不適用範圍', '樓板、梁、基礎、錨栓、振動、疲勞、衝擊或正式構件承載設計']

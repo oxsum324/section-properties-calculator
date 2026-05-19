@@ -166,7 +166,8 @@ $needles = @(
   'id="checkList"',
   'id="coreVersion"',
   '工具與責任邊界',
-  'FoundationLocalCore v',
+  'FoundationLocalCore',
+  '計算指紋',
   '基礎局部檢核'
 )
 foreach ($needle in $needles) {
@@ -214,7 +215,8 @@ $needles = @(
   'id="checkList"',
   'id="coreVersion"',
   '工具與責任邊界',
-  'EquipmentLoadCore v',
+  'EquipmentLoadCore',
+  '計算指紋',
   '設備局部荷重'
 )
 foreach ($needle in $needles) {
@@ -262,7 +264,8 @@ $needles = @(
   'id="checkList"',
   'id="coreVersion"',
   '工具與責任邊界',
-  'EarthPressureCore v',
+  'EarthPressureCore',
+  '計算指紋',
   '擋土土壓局部快算'
 )
 foreach ($needle in $needles) {
