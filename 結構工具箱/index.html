@@ -90,6 +90,20 @@
     background:#fff; color:var(--primary); text-decoration:none; font-size:0.84em; font-weight:700;
   }
   .status-actions a.primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+  .scope-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; margin-top:14px; }
+  .scope-strip__item { border:1px solid #dbe4ee; border-left:4px solid #cbd5e1; border-radius:8px; padding:11px 12px; background:#f8fafc; }
+  .scope-strip__item.formal { border-left-color:#16a34a; }
+  .scope-strip__item.local { border-left-color:#d97706; }
+  .scope-strip__item.service { border-left-color:#475569; }
+  .scope-strip__item strong { display:block; color:var(--primary); font-size:0.86em; margin-bottom:2px; }
+  .scope-strip__item span { color:var(--text-light); font-size:0.78em; line-height:1.5; }
+  .section-brief { margin:0 0 14px; padding:11px 13px; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:8px; background:#fffbeb; color:#78350f; font-size:0.84em; line-height:1.65; }
+  .section-brief strong { color:#92400e; }
+  .card-scope { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .card-scope span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#f1f5f9; color:#475569; font-size:0.72em; font-weight:800; }
+  .card-scope .scope-local { background:#fef3c7; color:#92400e; }
+  .card-scope .scope-formal { background:#dcfce7; color:#166534; }
+  .card-scope .scope-service { background:#e2e8f0; color:#334155; }
 </style>
 </head>
 <body>
@@ -121,6 +135,20 @@
       <div class="tool-legend__item temp">
         <strong>施工臨時設施 / 本機服務</strong>
         <span>覆工板與開挖擋土支撐屬施工流程工具；服務型工具會另標示啟動條件。</span>
+      </div>
+    </div>
+    <div class="scope-strip" aria-label="使用邊界速查">
+      <div class="scope-strip__item formal">
+        <strong>正式核算優先</strong>
+        <span>送審主線先使用 RC、鋼構、耐風、耐震、錨栓與石材固定正式工具。</span>
+      </div>
+      <div class="scope-strip__item local">
+        <strong>局部初估需回填</strong>
+        <span>基礎與設備快算只整理局部條件，結果需回正式模型、配筋或構件檢核複核。</span>
+      </div>
+      <div class="scope-strip__item service">
+        <strong>本機服務另啟動</strong>
+        <span>開挖擋土支撐等服務型工具需先啟動前後端，再進行案件操作與報表輸出。</span>
       </div>
     </div>
   </div>
@@ -451,26 +479,34 @@
   <!-- ─── 施工臨時設施 / 局部檢核 ─── -->
   <div class="card">
     <div class="group-title">施工臨時設施 / 局部檢核</div>
+    <div class="section-brief">
+      本區工具適合處理常被案件中途抽出的補算。標示為 <strong>初估</strong> 的工具只提供局部判斷，
+      不取代完整配筋、沉陷、樓板梁、錨栓或施工階段整體檢討。
+    </div>
     <div class="menu-grid">
       <a class="menu-card" href="tools/foundation/foundation-local.html" style="border-left:4px solid #a16207;">
         <div class="icon">▰</div>
         <h3>基礎局部檢核 <span class="ver ver-draft">V0.1 初估</span></h3>
         <p>矩形淺基礎服務載重快算；檢核底壓、偏心、抗滑與抗傾覆，並輸出單頁局部計算書。</p>
+        <div class="card-scope"><span class="scope-local">局部初估</span><span>不含剪力 / 配筋 / 沉陷</span></div>
       </a>
       <a class="menu-card" href="tools/equipment/equipment-load.html" style="border-left:4px solid #0b7285;">
         <div class="icon">▣</div>
         <h3>設備局部荷重 <span class="ver ver-draft">V0.1 初估</span></h3>
         <p>設備重量、支承點反力、接觸壓、1:1 分布壓與水平力初估；適合機電設備與基座協調。</p>
+        <div class="card-scope"><span class="scope-local">荷重整理</span><span>不含樓板梁 / 錨栓設計</span></div>
       </a>
       <a class="menu-card" href="../覆工板/index.html" style="border-left:4px solid #166534;">
         <div class="icon">▤</div>
         <h3>覆工板系統計算 <span class="ver ver-new">V1.0</span></h3>
         <p>覆工板面、覆工小梁、覆工大梁、共構柱、握裹與樁基承載檢核；可匯出 JSON 並產生 Word 計算書。</p>
+        <div class="card-scope"><span class="scope-formal">施工計算書</span><span>Word 報表</span></div>
       </a>
       <a class="menu-card" href="../開挖擋土支撐/index.html" style="border-left:4px solid #a16207;">
         <div class="icon">▥</div>
         <h3>開挖擋土支撐 <span class="scope-pill service">本機服務</span></h3>
         <p>FastAPI + React + SQLite 工作流；匯入分析檔、構件檢核與 PDF / DOCX 報表。入口頁標示啟動條件與目前限制。</p>
+        <div class="card-scope"><span class="scope-service">本機服務</span><span>需啟動前後端</span></div>
       </a>
     </div>
   </div>
@@ -580,22 +616,23 @@
           <td><span class="scope-limit">初版已上線</span>；目前限矩形淺基礎服務載重穩定檢核，剪力、配筋、沉陷仍回 RC 基礎完整工具</td>
         </tr>
         <tr>
+          <td><strong>P1</strong></td>
+          <td><strong>設備局部荷重</strong></td>
+          <td>機房設備、發電機、冰水機、消防車、吊車、局部集中荷重</td>
+          <td><span class="scope-limit">初版已上線</span>；目前定位為荷重整理與接觸壓初估，正式樓板/梁/錨栓仍需另行檢核</td>
+        </tr>
+        <tr>
           <td><strong>P2</strong></td>
           <td><strong>擋土 / 土壓 / 圍牆</strong></td>
           <td>主動土壓、靜止土壓、地下水壓、圍牆與擋土牆局部檢核</td>
           <td>開挖支撐已先納管；一般擋土牆/圍牆仍適合和基礎模組串接後展開</td>
         </tr>
-        <tr>
-          <td><strong>P2</strong></td>
-          <td><strong>設備局部荷重</strong></td>
-          <td>機房設備、發電機、冰水機、消防車、吊車、局部集中荷重</td>
-          <td><span class="scope-limit">初版已上線</span>；目前定位為荷重整理與接觸壓初估，正式樓板/梁/錨栓仍需另行檢核</td>
-        </tr>
       </tbody>
     </table>
     <div class="note" style="margin-top:12px;">
       目前高頻局部工具已從「缺入口」推進到「多數已納管」。下一波不應只追求新增頁面，應優先補
-      <strong>案例基準、報表一致性、服務型工具啟動/部署邊界</strong>；若要再開新工具，建議接著做 <strong>設備局部荷重</strong> 或補強基礎局部檢核案例基準。
+      <strong>案例基準、報表一致性、服務型工具啟動/部署邊界</strong>。短期先補 <strong>基礎局部檢核</strong> 與
+      <strong>設備局部荷重</strong> 的案例基準；若要再開新工具，建議以 <strong>擋土 / 土壓 / 圍牆</strong> 為下一個靜態快算方向。
     </div>
     </div>
   </div>
