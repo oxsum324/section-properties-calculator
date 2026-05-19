@@ -29,6 +29,8 @@
   }
   .scope-box { padding:12px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fcd34d; color:#78350f; font-size:0.84em; line-height:1.75; }
   .scope-box strong { color:#92400e; }
+  .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:0.78em; font-weight:800; }
   .metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
   .metric { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; padding:10px 12px; min-height:72px; }
   .metric .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; line-height:1.45; }
@@ -101,6 +103,11 @@
           <strong>本頁是局部快算，不是完整基礎設計。</strong><br>
           適用於矩形獨立基礎或設備基座的初步穩定檢核：服務載重底壓、合力偏心、抗滑與抗傾覆。
           若有樁基、筏基、聯合基腳、衝剪、配筋、沉陷或土壤互制問題，應回 RC 基礎完整工具或正式計算書處理。
+          <div class="tool-meta" aria-label="工具版本與責任邊界">
+            <span>頁面 V0.1</span>
+            <span id="coreVersion">Core v—</span>
+            <span>初估 / 局部</span>
+          </div>
         </div>
       </div>
 
@@ -396,6 +403,10 @@
     return rows.map(row => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join('');
   }
 
+  function nowText() {
+    return new Date().toLocaleString('zh-TW', { hour12: false });
+  }
+
   function openReport() {
     const r = lastResult || calculateFoundationLocal();
     if (!r) return;
@@ -412,6 +423,13 @@
       ['Hx / Hy', `${fmt(r.Hx)} / ${fmt(r.Hy)} tf`],
       ['qa', `${fmt(r.qa)} tf/m²`],
       ['μ / Rp', `${fmt(r.mu)} / ${fmt(r.passive)} tf`]
+    ];
+    const metaRows = [
+      ['頁面版本', 'V0.1 初估 / 局部'],
+      ['計算核心', `FoundationLocalCore v${Core.version || 'unknown'}`],
+      ['產製時間', nowText()],
+      ['適用範圍', '矩形淺基礎服務載重局部穩定檢核：底壓、偏心、抗滑與抗傾覆'],
+      ['不適用範圍', '配筋、剪力、沉陷、樁基、筏基、聯合基礎、土壤互制或正式簽證設計']
     ];
     const resultRows = [
       ['綜合結論', r.overallOk ? '局部穩定檢核初步通過' : '需修正或另行詳算'],
@@ -439,6 +457,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <h1>基礎局部檢核計算書</h1>
 <div>計畫名稱：${escapeHtml(proj.name)}　編號：${escapeHtml(proj.no)}　設計人：${escapeHtml(proj.designer)}</div>
 <div class="conclusion">${r.overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
+<h2>工具與責任邊界</h2><table>${reportRows(metaRows)}</table>
 <h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
 <h2>檢核結果</h2><table>${reportRows(resultRows)}</table>
 <h2>角點土壓</h2><table><tr><th>角點</th><th>q (tf/m²)</th></tr>${r.corners.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${fmt(c.q)}</td></tr>`).join('')}</table>
@@ -478,6 +497,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnReport').addEventListener('click', openReport);
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
+  $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
   ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
   Array.from(document.querySelectorAll('input')).forEach(function (input) {
     if (['projName', 'projNo', 'projDesigner'].includes(input.id)) return;

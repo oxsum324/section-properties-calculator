@@ -164,6 +164,9 @@ $needles = @(
   'id="btnCalc"',
   'id="metricGrid"',
   'id="checkList"',
+  'id="coreVersion"',
+  '工具與責任邊界',
+  'FoundationLocalCore v',
   '基礎局部檢核'
 )
 foreach ($needle in $needles) {
@@ -209,6 +212,9 @@ $needles = @(
   'id="btnCalc"',
   'id="metricGrid"',
   'id="checkList"',
+  'id="coreVersion"',
+  '工具與責任邊界',
+  'EquipmentLoadCore v',
   '設備局部荷重'
 )
 foreach ($needle in $needles) {

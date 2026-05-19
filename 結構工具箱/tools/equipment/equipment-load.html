@@ -29,6 +29,8 @@
   }
   .scope-box { padding:12px 14px; border-radius:10px; background:#ecfeff; border:1px solid #67e8f9; color:#155e75; font-size:0.84em; line-height:1.75; }
   .scope-box strong { color:#0e7490; }
+  .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#cffafe; color:#155e75; font-size:0.78em; font-weight:800; }
   .metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
   .metric { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; padding:10px 12px; min-height:72px; }
   .metric .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; line-height:1.45; }
@@ -99,6 +101,11 @@
           <strong>本頁只整理局部荷重與接觸壓，不做構件承載設計。</strong><br>
           適用於設備、機台、冰水主機、發電機、基座腳座等初步協調：將設備重量換算成單點反力、
           接觸壓、分布壓與水平力。樓板、梁、基礎、錨栓與振動檢核仍須使用相應正式工具或模型。
+          <div class="tool-meta" aria-label="工具版本與責任邊界">
+            <span>頁面 V0.1</span>
+            <span id="coreVersion">Core v—</span>
+            <span>初估 / 荷重整理</span>
+          </div>
         </div>
       </div>
 
@@ -374,6 +381,10 @@
     return rows.map(row => `<tr><th>${escapeHtml(row[0])}</th><td>${escapeHtml(row[1])}</td></tr>`).join('');
   }
 
+  function nowText() {
+    return new Date().toLocaleString('zh-TW', { hour12: false });
+  }
+
   function openReport() {
     const r = lastResult || calculateEquipmentLoad();
     if (!r) return;
@@ -389,6 +400,13 @@
       ['單支承接觸尺寸', `${fmt(r.contactB)} × ${fmt(r.contactL)} m`],
       ['分布厚度', `${fmt(r.spreadDepth)} m`],
       ['容許值', `contact ${fmt(r.allowableContact)} tf/m²；spread ${fmt(r.allowableSpread)} tf/m²；point ${r.allowablePoint > 0 ? fmt(r.allowablePoint) + ' tf' : '不檢核'}`]
+    ];
+    const metaRows = [
+      ['頁面版本', 'V0.1 初估 / 荷重整理'],
+      ['計算核心', `EquipmentLoadCore v${Core.version || 'unknown'}`],
+      ['產製時間', nowText()],
+      ['適用範圍', '設備重量、支承點反力、接觸壓、1:1 分布壓、等效面載重與水平力初估'],
+      ['不適用範圍', '樓板、梁、基礎、錨栓、振動、疲勞、衝擊或正式構件承載設計']
     ];
     const resultRows = [
       ['綜合結論', r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'],
@@ -416,6 +434,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <h1>設備局部荷重計算書</h1>
 <div>計畫名稱：${escapeHtml(proj.name)}　編號：${escapeHtml(proj.no)}　整理人：${escapeHtml(proj.designer)}</div>
 <div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>
+<h2>工具與責任邊界</h2><table>${reportRows(metaRows)}</table>
 <h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
 <h2>整理結果</h2><table>${reportRows(resultRows)}</table>
 <div class="note">本計算書為設備局部荷重整理；不取代樓板、梁、基礎、錨栓、振動或疲勞之正式檢核。</div>
@@ -453,6 +472,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnReport').addEventListener('click', openReport);
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
+  $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
   ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
   Array.from(document.querySelectorAll('input')).forEach(function (input) {
     if (['projName', 'projNo', 'projDesigner'].includes(input.id)) return;
