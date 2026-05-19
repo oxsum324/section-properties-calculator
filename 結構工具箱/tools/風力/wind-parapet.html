@@ -276,7 +276,7 @@
       </div>
       <div class="ref-panel">
         <h3 id="refShotTitle">規範圖面截圖</h3>
-        <img id="refShot" class="ref-shot" src="../assets/wind_refs/fig_3_4_3_5.png" alt="規範圖面截圖">
+        <img id="refShot" class="ref-shot" src="../../assets/wind_refs/fig_3_4_3_5.png" alt="規範圖面截圖">
         <div class="ref-caption" id="refShotDesc"></div>
       </div>
     </div>
@@ -347,7 +347,7 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
-<script src="../../鋼筋混凝土/shared/report.js"></script>
+<script src="../../../鋼筋混凝土/shared/report.js"></script>
 <script src="../../core/wind-report.js"></script>
 <script>
 const W = Wind;
@@ -429,7 +429,7 @@ function renderParapetReference(face, edgeKey, isLE18, frontRef, backRef) {
     `受壓方向依 <strong>圖 3.4</strong> 判定；外壓係數取值依 <strong>${figLabel}</strong>。<br>` +
     `正面來源：${parapetRefText(frontRef)} ｜ 背面來源：${parapetRefText(backRef)}`;
   document.getElementById('refShotTitle').textContent = '圖 3.4 / 圖 3.5 規範圖面';
-  document.getElementById('refShot').src = '../assets/wind_refs/fig_3_4_3_5.png';
+  document.getElementById('refShot').src = '../../assets/wind_refs/fig_3_4_3_5.png';
   document.getElementById('refShotDesc').innerHTML =
     `右側保留圖 3.4 / 圖 3.5 原圖截圖；本頁左側則將圖 3.4 本次控制條件的受壓方向與正、背面來源整理為可追溯示意。`;
 }
@@ -441,7 +441,7 @@ function renderSingleRoofReference(edgeKey, dirKey, isLE18, frontRef, backRef) {
     `受壓方向依 <strong>圖 3.5</strong> 判定；外壓係數取值依 <strong>${figLabel}</strong>。<br>` +
     `正面來源：${parapetRefText(frontRef)} ｜ 背面來源：${parapetRefText(backRef)}`;
   document.getElementById('refShotTitle').textContent = '圖 3.4 / 圖 3.5 規範圖面';
-  document.getElementById('refShot').src = '../assets/wind_refs/fig_3_4_3_5.png';
+  document.getElementById('refShot').src = '../../assets/wind_refs/fig_3_4_3_5.png';
   document.getElementById('refShotDesc').innerHTML =
     `右側保留圖 3.4 / 圖 3.5 原圖截圖；本頁左側則將圖 3.5 單一屋頂女兒牆本次控制條件的受壓方向與正、背面來源整理為可追溯示意。`;
 }
@@ -729,7 +729,7 @@ function calc() {
     document.getElementById('refSvgWrap').innerHTML = parapetRefSvg(face, 'edge');
     document.getElementById('refDesc').innerHTML = 'MWFRS 模式依第二章式 <strong>(2.3)</strong> 直接採 <strong>GCpn</strong>，不再組合 C&amp;C 的正、背面外壓。';
     document.getElementById('refShotTitle').textContent = '圖 3.4 / 圖 3.5 參考圖面';
-    document.getElementById('refShot').src = '../assets/wind_refs/fig_3_4_3_5.png';
+    document.getElementById('refShot').src = '../../assets/wind_refs/fig_3_4_3_5.png';
     document.getElementById('refShotDesc').innerHTML = '右側圖面保留女兒牆風壓分布參考；MWFRS 模式實際計算仍以第二章 GCpn 路線為準。';
   }
 

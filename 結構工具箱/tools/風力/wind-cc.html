@@ -152,7 +152,7 @@
         <option value="roof">屋面 (低坡度)</option>
       </select>
     </div>
-    <div class="form-group">
+    <div class="form-group" id="roofSlopeGroup">
       <label>屋面坡度 θ (°)</label>
       <input id="roofSlope" type="number" value="5" step="0.5">
       <div class="hint">僅屋面模式使用；圖 3.1 採 ≤7°，圖 3.2 採 ≤10°</div>
@@ -174,7 +174,7 @@
       <input id="zh0" type="number" value="20" step="0.5">
       <div class="hint">僅 `h &gt; 18 m` 且部分封閉時使用；依規範 3.2，正內壓可採 `q(z<sub>h0</sub>)`</div>
     </div>
-    <div class="checkbox-row">
+    <div class="checkbox-row" data-report-unchecked="omit">
       <input type="checkbox" id="enableReduce">
       <label for="enableReduce">啟用特殊修正 / 折減</label>
     </div>
@@ -291,7 +291,7 @@
       </div>
       <div class="ref-panel">
         <h3 id="refShotTitle">規範截圖</h3>
-        <img id="refShot" class="ref-shot" src="../assets/wind_refs/fig_3_1_wall.png" alt="規範截圖">
+        <img id="refShot" class="ref-shot" src="../../assets/wind_refs/fig_3_1_wall.png" alt="規範截圖">
         <div class="ref-caption" id="refShotDesc"></div>
       </div>
     </div>
@@ -365,7 +365,7 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
-<script src="../../鋼筋混凝土/shared/report.js"></script>
+<script src="../../../鋼筋混凝土/shared/report.js"></script>
 <script src="../../core/wind-report.js"></script>
 <script>
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
@@ -409,6 +409,7 @@ const surfSel = document.getElementById('surface');
 const zInput = document.getElementById('z');
 const zh0Input = document.getElementById('zh0');
 const slopeInput = document.getElementById('roofSlope');
+const slopeGroup = document.getElementById('roofSlopeGroup');
 function getZoneList() {
   return surfSel.value === 'roof'
     ? [['zone1','區域 1 — 屋面內部'],['zone2','區域 2 — 屋面邊緣'],['zone3','區域 3 — 屋面角隅']]
@@ -418,6 +419,7 @@ function refreshZHint() {
   const isRoof = surfSel.value === 'roof';
   zInput.disabled = isRoof;
   slopeInput.disabled = !isRoof;
+  slopeGroup.hidden = !isRoof;
   if (isRoof) zInput.value = document.getElementById('h').value || zInput.value;
 }
 function refreshZh0State() {
@@ -617,13 +619,11 @@ function calc() {
   const applicability = [
     { label: '建築物型式', level: 'ok', message: `${enclosureName}，屬本工具適用範圍` },
     { label: '構材類型', level: 'ok', message: surface === 'wall' ? '外牆 C&C' : '低坡度屋面 C&C' },
-    {
+    ...(surface === 'roof' ? [{
       label: '屋面坡度',
-      level: surface === 'roof' ? (roofSlope <= slopeLimit ? 'ok' : 'fail') : 'ok',
-      message: surface === 'roof'
-        ? `θ = ${fmt(roofSlope,1)}°，本次上限 ${slopeLimit}°`
-        : '外牆模式，不檢核'
-    },
+      level: roofSlope <= slopeLimit ? 'ok' : 'fail',
+      message: `θ = ${fmt(roofSlope,1)}°，本次上限 ${slopeLimit}°`
+    }] : []),
     {
       label: '外牆標高',
       level: surface === 'wall' ? 'ok' : 'ok',
@@ -792,9 +792,9 @@ function renderReference(surface, isLE18) {
     : `${figLabel} 屋面模式對應區域 1 / 2 / 3。區域 3 為角隅、區域 2 為邊緣帶、區域 1 為內部區；本頁總覽與採用表會同步整理三區控制值。`;
   const shot = isLE18
     ? (surface === 'wall'
-        ? { src: '../assets/wind_refs/fig_3_1_wall.png', note: '圖 3.1 外牆區域圖面' }
-        : { src: '../assets/wind_refs/fig_3_1_roof_a.png', note: '圖 3.1 低坡度屋面區域圖面' })
-    : { src: '../assets/wind_refs/fig_3_2.png', note: '圖 3.2 高樓外牆與屋面區域圖面' };
+        ? { src: '../../assets/wind_refs/fig_3_1_wall.png', note: '圖 3.1 外牆區域圖面' }
+        : { src: '../../assets/wind_refs/fig_3_1_roof_a.png', note: '圖 3.1 低坡度屋面區域圖面' })
+    : { src: '../../assets/wind_refs/fig_3_2.png', note: '圖 3.2 高樓外牆與屋面區域圖面' };
   document.getElementById('refTitle').textContent = title;
   document.getElementById('refSvgWrap').innerHTML = surface === 'wall' ? wallRefSvg(figLabel) : roofRefSvg(figLabel);
   document.getElementById('refDesc').textContent = desc;

@@ -48,15 +48,19 @@
       .map(card => {
         const items = [];
         card.querySelectorAll('.form-group').forEach(group => {
+          if (!isVisible(group)) return;
           const label = textFrom(group.querySelector('label'));
           const field = group.querySelector('input, select, textarea');
           if (!label || !field) return;
+          if (field.disabled || field.hidden || !isVisible(field)) return;
           items.push({ label, value: fieldValue(field), unit: '' });
         });
         card.querySelectorAll('.checkbox-row').forEach(row => {
+          if (!isVisible(row)) return;
           const label = textFrom(row.querySelector('label'));
           const field = row.querySelector('input[type="checkbox"]');
           if (!label || !field) return;
+          if (!field.checked && row.dataset.reportUnchecked === 'omit') return;
           items.push({ label, value: field.checked ? '啟用' : '未啟用', unit: '' });
         });
         return items.length ? { group: titleFrom(card), items } : null;
