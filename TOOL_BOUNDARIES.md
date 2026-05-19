@@ -13,7 +13,7 @@
 | `鋼構工具/audit-tool.ps1` | 納入 | 修正 Playwright CLI `network` 指令不存在時造成總巡檢中斷。 |
 | `石材固定/` | 建議納入，但先排除輸出、暫存與大型參考 | 已有 self_check、quick smoke、版本治理與交付流程；適合成為正式工具，但需先清掉輸出與案例雜訊。 |
 | `開挖擋土支撐/` | 納入程式碼，排除工程資料 | Backend tests 與 frontend build 已納入 preflight；只提交 backend/frontend 原始碼、設定、README、啟停腳本與本目錄 `.gitignore`，不提交工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`。 |
-| `覆工板/` | 暫列候選工具 | 已有 `index.html` 與 Python 報告產生器；目前仍混有 Excel、PDF、doc/docx、抽圖與 dump 檔，需先分離案例資料。 |
+| `覆工板/` | 納入程式碼，排除工程資料與輸出 | 已有 `index.html`、Python 報告產生器、固定 smoke fixture 與 preflight 產報檢查；Excel、PDF、doc/docx、抽圖、dump 與吊車參考資料不進 repo。 |
 | `鋼架/` | 可納入 | 目前只有單一 HTML 靜態工具，preflight 已做基本 smoke。 |
 | `螺栓檢討/bolt-review-tool/` | 保持原工具碼與 deploy 輸出分流 | 原始 React 工具用 npm verify；`anchor/` 是部署鏡像。 |
 
@@ -24,6 +24,7 @@
 - `output/`、測試 run log、release bundle
 - 本機專案資料：`app_data/`
 - 大型工程輸出與參考：PDF、Excel、Word、LibreOffice 暫存 profile
+- 反查或抽取資料：`_extracted/`、dump 文字檔、OLE/EMF/WMF 圖檔
 
 ## 提交前檢查順序
 

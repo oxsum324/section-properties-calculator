@@ -1,0 +1,26 @@
+.claude/
+__pycache__/
+report/__pycache__/
+_extracted/
+吊車/
+
+# Reverse-engineering dumps and extracted source documents
+_dump.txt
+_pdf_text.txt
+dump*.txt
+*.xls
+*.xlsx
+*.xlsm
+*.doc
+*.docx
+*.pdf
+*.bin
+*.emf
+*.wmf
+*.gif
+*.png
+
+# User-exported payloads and generated calculation reports.
+# Stable smoke fixtures live under test-fixtures/.
+覆工板_*.json
+覆工板計算書_*.docx

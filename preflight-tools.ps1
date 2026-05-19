@@ -164,6 +164,36 @@ node 'tests\syntax_check.js'
 exit $LASTEXITCODE
 '@
 
+$deckReportCommand = @'
+python -m py_compile dump_xls.py report\gen_report.py
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+$sample = 'test-fixtures\report-smoke.json'
+if (-not (Test-Path -LiteralPath $sample)) {
+  Write-Error "missing cover slab report smoke fixture: $sample"
+  exit 1
+}
+
+$outDir = '..\output\preflight'
+if (-not (Test-Path -LiteralPath $outDir)) {
+  New-Item -Path $outDir -ItemType Directory | Out-Null
+}
+
+$out = Join-Path $outDir 'cover-slab-report-smoke.docx'
+$env:COVER_SLAB_NO_OPEN = '1'
+python report\gen_report.py $sample $out
+$code = $LASTEXITCODE
+Remove-Item Env:\COVER_SLAB_NO_OPEN -ErrorAction SilentlyContinue
+if ($code -ne 0) { exit $code }
+if (-not (Test-Path -LiteralPath $out)) {
+  Write-Error "missing cover slab smoke report: $out"
+  exit 1
+}
+
+Write-Output "cover slab report smoke OK: $out"
+exit 0
+'@
+
 $checks = @(
   [pscustomobject]@{
     key = "platform-audit"
@@ -230,9 +260,9 @@ $checks = @(
   },
   [pscustomobject]@{
     key = "deck-python"
-    label = "Cover slab Python compile"
+    label = "Cover slab report smoke"
     workdir = (Join-Path $root "覆工板")
-    command = 'python -m py_compile dump_xls.py report\gen_report.py'
+    command = $deckReportCommand
     slow = $false
   },
   [pscustomobject]@{

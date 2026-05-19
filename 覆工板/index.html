@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>覆工板系統計算工具 v1.0</title>
+<style>
+  :root {
+    --c-bg: #f5f6f8;
+    --c-card: #ffffff;
+    --c-border: #d4d8de;
+    --c-primary: #1a4480;
+    --c-accent: #2a6fc4;
+    --c-ok: #1e7e34;
+    --c-ng: #c0392b;
+    --c-warn: #d68910;
+    --c-input: #fff8d6;
+    --c-output: #e8f4ff;
+    --c-step: #f7f7f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft JhengHei", "微軟正黑體", "Segoe UI", system-ui, sans-serif;
+    background: var(--c-bg);
+    color: #222;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(135deg, var(--c-primary), var(--c-accent));
+    color: #fff;
+    padding: 14px 24px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.15);
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  header .sub { font-size: 12px; opacity: .85; margin-top: 2px; }
+  header .home-link {
+    color: rgba(255,255,255,.85);
+    text-decoration: none;
+    font-size: 12px;
+    display: inline-block;
+    margin-bottom: 4px;
+  }
+  header .home-link:hover { color: #fff; text-decoration: underline; }
+
+  nav.tabs {
+    display: flex;
+    background: #fff;
+    border-bottom: 2px solid var(--c-border);
+    padding: 0 16px;
+    overflow-x: auto;
+  }
+  nav.tabs button {
+    background: none;
+    border: none;
+    padding: 12px 18px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #555;
+    border-bottom: 3px solid transparent;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  nav.tabs button:hover { background: #f0f4fa; }
+  nav.tabs button.active {
+    color: var(--c-primary);
+    border-bottom-color: var(--c-primary);
+    font-weight: 600;
+  }
+
+  main { padding: 18px 24px 60px; max-width: 1400px; margin: 0 auto; }
+  section.tab-panel { display: none; }
+  section.tab-panel.active { display: block; }
+
+  .card {
+    background: var(--c-card);
+    border: 1px solid var(--c-border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .card h2 {
+    margin: 0 0 12px;
+    font-size: 16px;
+    color: var(--c-primary);
+    border-left: 4px solid var(--c-primary);
+    padding-left: 10px;
+  }
+  .card h3 {
+    margin: 14px 0 8px;
+    font-size: 14px;
+    color: #444;
+  }
+
+  .grid {
+    display: grid;
+    gap: 10px 14px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+  .field { display: flex; flex-direction: column; }
+  .field label {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 3px;
+  }
+  .field input, .field select {
+    padding: 6px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    background: var(--c-input);
+  }
+  .field input:read-only, .field input.readonly {
+    background: var(--c-output);
+    color: #1a4480;
+    font-weight: 500;
+  }
+  .field .unit {
+    font-size: 11px;
+    color: #888;
+    margin-top: 2px;
+  }
+
+  table.calc {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 13px;
+  }
+  table.calc th, table.calc td {
+    border: 1px solid var(--c-border);
+    padding: 6px 8px;
+    text-align: center;
+  }
+  table.calc th {
+    background: #eef3fa;
+    font-weight: 600;
+    color: var(--c-primary);
+  }
+  table.calc td.label { text-align: left; background: #fafbfc; font-weight: 500; }
+  table.calc td.formula { text-align: left; font-family: Consolas, monospace; font-size: 12px; color: #555; }
+  table.calc td.value { font-family: Consolas, monospace; font-weight: 600; }
+  table.calc td.max { background: #fff3cd; }
+
+  .check {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: 600;
+    display: inline-block;
+  }
+  .check.ok { background: #d4edda; color: var(--c-ok); }
+  .check.ng { background: #f8d7da; color: var(--c-ng); }
+
+  .summary {
+    background: #f0f8ff;
+    border: 1px solid #b8d4f0;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin: 12px 0;
+  }
+  .summary h3 { margin: 0 0 8px; color: var(--c-primary); font-size: 14px; }
+  .summary .row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px dashed #cde;
+  }
+  .summary .row:last-child { border: none; }
+  .summary .row .name { color: #555; }
+  .summary .row .val { font-family: Consolas, monospace; font-weight: 600; }
+
+  details.steps {
+    background: var(--c-step);
+    border: 1px solid var(--c-border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin: 10px 0;
+    font-size: 12px;
+  }
+  details.steps summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--c-accent);
+  }
+  details.steps pre {
+    margin: 8px 0 0;
+    font-family: Consolas, monospace;
+    white-space: pre-wrap;
+    color: #333;
+  }
+
+  .row-flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    background: var(--c-accent);
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .btn:hover { background: var(--c-primary); }
+  .btn-ghost {
+    background: #fff;
+    color: var(--c-primary);
+    border: 1px solid var(--c-accent);
+  }
+  .note {
+    font-size: 12px;
+    color: #666;
+    background: #fffbe6;
+    border-left: 3px solid var(--c-warn);
+    padding: 6px 10px;
+    margin: 8px 0;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 6px;
+  }
+  .badge.compact { background: #d4edda; color: var(--c-ok); }
+  .badge.noncompact { background: #fff3cd; color: var(--c-warn); }
+  .badge.slender { background: #f8d7da; color: var(--c-ng); }
+
+  /* 狀態列 */
+  .statusbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #fff;
+    border-bottom: 1px solid var(--c-border);
+    padding: 6px 24px;
+    display: flex;
+    gap: 8px 16px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .statusbar .group { display: flex; gap: 4px; align-items: center; }
+  .statusbar .group b { color: #555; margin-right: 4px; font-weight: 600; }
+  .statusbar .pill {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-family: Consolas, monospace;
+    font-size: 11px;
+  }
+  .statusbar .pill.ok    { background: #d4edda; color: var(--c-ok); }    /* <70% */
+  .statusbar .pill.warn1 { background: #fff3cd; color: #856404; }       /* 70~90% */
+  .statusbar .pill.warn2 { background: #ffe5b4; color: #b35900; }       /* 90~100% */
+  .statusbar .pill.ng    { background: #f8d7da; color: var(--c-ng); }   /* >100% */
+  .statusbar .pill.na    { background: #e9ecef; color: #888; }
+  .statusbar .pill.info  { background: #d6e9f7; color: #0a558c; }
+
+  /* 案件抬頭 */
+  .project-head {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #f8fafd;
+    border: 1px solid var(--c-border);
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+  .project-head input {
+    border: 1px solid var(--c-border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    background: #fff;
+    font-family: inherit;
+    font-size: 13px;
+  }
+
+  /* 範本快捷區 */
+  .preset-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    background: linear-gradient(90deg, #fffbe6, #fff8d6);
+    border: 1px solid #ffe082;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  .preset-bar b { color: var(--c-primary); font-size: 13px; }
+
+  /* 自動連動標示 */
+  .field input.linked {
+    border-left: 3px solid var(--c-accent);
+    background: #f0f8ff;
+  }
+  .auto-link-toggle {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #555;
+  }
+
+  @media print {
+    nav.tabs, .btn, .statusbar, .preset-bar, .auto-link-toggle, header .home-link { display: none !important; }
+    section.tab-panel { display: block !important; page-break-after: always; }
+    header { background: var(--c-primary) !important; -webkit-print-color-adjust: exact; }
+    body { background: #fff; font-size: 11px; }
+    .card { box-shadow: none; page-break-inside: avoid; }
+    .summary, table.calc th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="home-link" href="../結構工具箱/index.html">&larr; 回主選單</a>
+  <h1>覆工板系統計算工具 v1.0</h1>
+  <div class="sub">覆工板面 → 覆工小梁 → 覆工大梁 → 共構柱｜HS20-44 / PC400 / 45T-300T 吊車載重　｜　Ctrl+1~5 切頁　｜　Ctrl+P 列印報告</div>
+</header>
+
+<nav class="tabs">
+  <button data-tab="global" class="active">① 全域參數</button>
+  <button data-tab="deck">② 覆工版面</button>
+  <button data-tab="stringer">③ 覆工小梁</button>
+  <button data-tab="girder">④ 覆工大梁</button>
+  <button data-tab="column">⑤ 共構柱</button>
+  <button data-tab="report">⑥ 📑 彙整報告</button>
+  <button class="btn" style="margin-left:auto; align-self:center;" onclick="window.print()" title="列印 / 匯出 PDF">🖨 列印</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="resetAll()" title="清空所有輸入">↺ 重置</button>
+</nav>
+
+<div class="statusbar" id="statusbar">
+  <div class="group"><b>覆工版</b><span class="pill na" id="st-deck-fb">fb —</span><span class="pill na" id="st-deck-fv">fv —</span><span class="pill na" id="st-deck-d">δ —</span></div>
+  <div class="group"><b>小梁</b><span class="pill na" id="st-s-fb">fb —</span><span class="pill na" id="st-s-fv">fv —</span><span class="pill na" id="st-s-d">δ —</span></div>
+  <div class="group"><b>大梁</b><span class="pill na" id="st-g-fb">fb —</span><span class="pill na" id="st-g-fv">fv —</span><span class="pill na" id="st-g-d">δ —</span><span class="pill na" id="st-g-pu">Pu —</span></div>
+  <div class="group"><b>柱</b><span class="pill na" id="st-c-int">交互式 —</span><span class="pill na" id="st-c-bond">握裹 —</span><span class="pill na" id="st-c-pile">樁 —</span></div>
+</div>
+
+<main>
+
+<!-- ==================== Tab 1: 全域參數 ==================== -->
+<section class="tab-panel active" id="tab-global">
+  <div class="project-head">
+    <div><label style="font-size:11px;color:#666;">案名</label><br><input id="proj_name" placeholder="例：○○捷運 G1 工區覆工板系統" style="width:100%"></div>
+    <div><label style="font-size:11px;color:#666;">案件編號</label><br><input id="proj_no" placeholder="例：CV-2025-001" style="width:100%"></div>
+    <div><label style="font-size:11px;color:#666;">日期</label><br><input id="proj_date" type="date" style="width:100%"></div>
+  </div>
+
+  <div class="preset-bar">
+    <b>一鍵套用整套工況：</b>
+    <button class="btn" onclick="applyPreset('general')">① 一般載重 (HS20+PC400+45T)</button>
+    <button class="btn" onclick="applyPreset('200T')">② 200T 吊車作業</button>
+    <button class="btn" onclick="applyPreset('300T')">③ 300T 吊車作業</button>
+    <span class="auto-link-toggle">
+      <input type="checkbox" id="autolink" checked>
+      <label for="autolink">啟用跨頁自動連動 (板跨→小梁B、Pu→柱N…)</label>
+    </span>
+  </div>
+
+  <div class="card">
+    <h2>材料與載重全域參數</h2>
+    <div class="grid">
+      <div class="field">
+        <label>鋼料降伏強度 Fy</label>
+        <input type="number" id="g_Fy" value="2500" step="50">
+        <span class="unit">kgf/cm² (A36 = 2500)</span>
+      </div>
+      <div class="field">
+        <label>鋼料彈性模數 E</label>
+        <input type="number" id="g_E" value="2040000" step="10000">
+        <span class="unit">kgf/cm²</span>
+      </div>
+      <div class="field">
+        <label>短期應力放大係數 β</label>
+        <input type="number" id="g_beta" value="1.25" step="0.01">
+        <span class="unit">一般 1.33／吊車工況 1.25</span>
+      </div>
+      <div class="field">
+        <label>衝擊係數 i</label>
+        <input type="number" id="g_imp" value="0.3" step="0.05">
+        <span class="unit">行駛車輛適用，固定吊裝不計</span>
+      </div>
+      <div class="field">
+        <label>覆工板自重 Wp</label>
+        <input type="number" id="g_Wp" value="163" step="1">
+        <span class="unit">kgf/m²</span>
+      </div>
+      <div class="field">
+        <label>活載重 Wl (一般工況)</label>
+        <input type="number" id="g_Wl" value="150" step="50">
+        <span class="unit">kgf/m²</span>
+      </div>
+      <div class="field">
+        <label>容許撓度比</label>
+        <input type="number" id="g_defl" value="360" step="10">
+        <span class="unit">L / __ (常用 360)</span>
+      </div>
+    </div>
+    <div class="note">此頁參數會自動套用至 Tab2~Tab4 計算。修改後請切回各分頁查看更新結果（已即時連動）。</div>
+  </div>
+
+  <div class="card">
+    <h2>載重規格速查</h2>
+    <table class="calc">
+      <thead><tr><th>類別</th><th>型式</th><th>載重</th><th>幾何</th><th>備註</th></tr></thead>
+      <tbody>
+        <tr><td>HS 20-44 卡車</td><td>集中</td><td>P = 7.3 t/輪</td><td>輪心距 1.2 / 1.8 / 1.2 m</td><td>含衝擊 ×1.3</td></tr>
+        <tr><td>PC400 履帶車</td><td>均佈(履帶)</td><td>Wc = 8.244 t/m</td><td>輪心距 2.74 m，履帶長 4.35 m</td><td>含衝擊 ×1.3</td></tr>
+        <tr><td>45T 吊車</td><td>集中</td><td>P = 13.63 t</td><td>支撐距 6.6 × 5.4 m</td><td>容許 M = 50 T-m</td></tr>
+        <tr><td>200T 吊車 (NK-1600)</td><td>集中</td><td>P = 56.51 t</td><td>支撐距 5.7 × 9.2 m</td><td>容許 M = 350 T-m</td></tr>
+        <tr><td>300T 吊車</td><td>集中</td><td>P = 89.83 t</td><td>(依機型)</td><td>容許 M ≈ 630 T-m</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== Tab 2: 覆工版面 ==================== -->
+<section class="tab-panel" id="tab-deck">
+  <div class="card">
+    <h2>覆工板面（H190 集成 200 mm 厚標準板 1m × 3m）</h2>
+    <div class="grid">
+      <div class="field">
+        <label>板寬 B (考慮 1 m 寬條)</label>
+        <input type="number" id="d_B" value="1.0" step="0.1">
+        <span class="unit">m</span>
+      </div>
+      <div class="field">
+        <label>板跨 L</label>
+        <input type="number" id="d_L" value="3.0" step="0.1">
+        <span class="unit">m</span>
+      </div>
+      <div class="field">
+        <label>並排板數 n</label>
+        <input type="number" id="d_n" value="1" step="1" min="1">
+        <span class="unit">片 (NG 時可加倍)</span>
+      </div>
+      <div class="field">
+        <label>Sx (每片)</label>
+        <input type="number" id="d_Sx" value="1560" step="10">
+        <span class="unit">cm³</span>
+      </div>
+      <div class="field">
+        <label>Ix (每片)</label>
+        <input type="number" id="d_Ix" value="15150" step="100">
+        <span class="unit">cm⁴</span>
+      </div>
+      <div class="field">
+        <label>Aw (每片)</label>
+        <input type="number" id="d_Aw" value="47.5" step="1">
+        <span class="unit">cm²</span>
+      </div>
+      <div class="field">
+        <label>吊車集中載重 P</label>
+        <input type="number" id="d_Pcrane" value="13.63" step="0.1">
+        <span class="unit">tf (45T=13.63；200T=56.51；300T=89.83)</span>
+      </div>
+    </div>
+    <div class="row-flex" style="margin-top:10px;">
+      <span style="font-size:12px; color:#555;">載入吊車範本：</span>
+      <button class="btn-ghost btn" onclick="setDeckPreset(13.63)">45T</button>
+      <button class="btn-ghost btn" onclick="setDeckPreset(56.51)">200T</button>
+      <button class="btn-ghost btn" onclick="setDeckPreset(89.83)">300T</button>
+    </div>
+  </div>
+
+  <div class="card" id="deck-result">
+    <h2>計算與檢核</h2>
+    <div id="deck-output"></div>
+  </div>
+</section>
+
+<!-- ==================== Tab 3: 覆工小梁 ==================== -->
+<section class="tab-panel" id="tab-stringer">
+  <div class="card">
+    <h2>覆工小梁</h2>
+    <div class="grid">
+      <div class="field">
+        <label>型鋼斷面</label>
+        <select id="s_section"></select>
+        <span class="unit">下拉選擇</span>
+      </div>
+      <div class="field">
+        <label>並排支數 n</label>
+        <input type="number" id="s_n" value="1" min="1" step="1">
+        <span class="unit">支 (補強時可 ≥2)</span>
+      </div>
+      <div class="field">
+        <label>小梁間距 B (= 板跨)</label>
+        <input type="number" id="s_B" value="3.0" step="0.1">
+        <span class="unit">m</span>
+      </div>
+      <div class="field">
+        <label>小梁跨距 L</label>
+        <input type="number" id="s_L" value="6.5" step="0.1">
+        <span class="unit">m</span>
+      </div>
+      <div class="field">
+        <label>未支撐長 Lt</label>
+        <input type="number" id="s_Lt" value="0" step="10">
+        <span class="unit">cm (有覆工版即 0)</span>
+      </div>
+      <div class="field">
+        <label>軸壓應力 fa</label>
+        <input type="number" id="s_fa" value="0" step="100">
+        <span class="unit">kgf/cm² (純彎時 0)</span>
+      </div>
+      <div class="field">
+        <label>吊車集中載重 P</label>
+        <input type="number" id="s_Pcrane" value="13.63" step="0.1">
+        <span class="unit">tf</span>
+      </div>
+    </div>
+    <div class="row-flex" style="margin-top:10px;">
+      <span style="font-size:12px; color:#555;">範本：</span>
+      <button class="btn-ghost btn" onclick="setStringerPreset(13.63)">45T</button>
+      <button class="btn-ghost btn" onclick="setStringerPreset(56.51)">200T</button>
+      <button class="btn-ghost btn" onclick="setStringerPreset(89.83)">300T</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>計算與檢核</h2>
+    <div id="stringer-output"></div>
+  </div>
+</section>
+
+<!-- ==================== Tab 4: 覆工大梁 ==================== -->
+<section class="tab-panel" id="tab-girder">
+  <div class="card">
+    <h2>覆工大梁</h2>
+    <div class="grid">
+      <div class="field">
+        <label>型鋼斷面</label>
+        <select id="g4_section"></select>
+      </div>
+      <div class="field">
+        <label>並排支數 n</label>
+        <input type="number" id="g4_n" value="1" min="1" step="1">
+        <span class="unit">支</span>
+      </div>
+      <div class="field">
+        <label>大梁間距 B</label>
+        <input type="number" id="g4_B" value="6.5" step="0.1">
+        <span class="unit">m (= 小梁跨)</span>
+      </div>
+      <div class="field">
+        <label>大梁跨距 L</label>
+        <input type="number" id="g4_L" value="6.5" step="0.1">
+        <span class="unit">m (= 柱距)</span>
+      </div>
+      <div class="field">
+        <label>小梁線載 W2</label>
+        <input type="number" id="g4_W2" value="441" step="10">
+        <span class="unit">kgf/m (=Wb_小×B×支數/L)</span>
+      </div>
+      <div class="field">
+        <label>未支撐長 Lt</label>
+        <input type="number" id="g4_Lt" value="0" step="10">
+        <span class="unit">cm</span>
+      </div>
+      <div class="field">
+        <label>軸壓應力 fa</label>
+        <input type="number" id="g4_fa" value="0" step="100">
+        <span class="unit">kgf/cm²</span>
+      </div>
+      <div class="field">
+        <label>吊車集中載重 P</label>
+        <input type="number" id="g4_Pcrane" value="56.51" step="0.1">
+        <span class="unit">tf</span>
+      </div>
+    </div>
+    <div class="row-flex" style="margin-top:10px;">
+      <span style="font-size:12px; color:#555;">範本：</span>
+      <button class="btn-ghost btn" onclick="setGirderPreset(13.63)">45T</button>
+      <button class="btn-ghost btn" onclick="setGirderPreset(56.51)">200T</button>
+      <button class="btn-ghost btn" onclick="setGirderPreset(89.83)">300T</button>
+    </div>
+    <div class="note">大梁吊車工況不疊加堆料/活載：WT₂ = Wp·B + Wb + W2</div>
+  </div>
+
+  <div class="card">
+    <h2>計算與檢核</h2>
+    <div id="girder-output"></div>
+  </div>
+
+  <div class="card">
+    <h2>柱頂軸力 Pu (傳給共構柱)</h2>
+    <div id="girder-pu"></div>
+  </div>
+</section>
+
+<!-- ==================== Tab 5: 共構柱 ==================== -->
+<section class="tab-panel" id="tab-column">
+  <div class="card">
+    <h2>共構柱（軸壓 + 雙軸彎矩 AISC 交互式）</h2>
+    <div class="grid">
+      <div class="field">
+        <label>柱型鋼斷面</label>
+        <select id="c_section"></select>
+      </div>
+      <div class="field">
+        <label>柱長度 L₁ (開挖面以上)</label>
+        <input type="number" id="c_L" value="840" step="10">
+        <span class="unit">cm</span>
+      </div>
+      <div class="field">
+        <label>K (有效長度係數)</label>
+        <input type="number" id="c_K" value="1.0" step="0.1">
+      </div>
+      <div class="field">
+        <label>軸力 N (壓)</label>
+        <input type="number" id="c_N" value="64.6" step="0.1">
+        <span class="unit">tf (= 大梁 Pu + 自重)</span>
+      </div>
+      <div class="field">
+        <label>偏心 ex</label>
+        <input type="number" id="c_ex" value="1.7" step="0.1">
+        <span class="unit">cm (托架偏心)</span>
+      </div>
+      <div class="field">
+        <label>偏心 ey</label>
+        <input type="number" id="c_ey" value="1.7" step="0.1">
+        <span class="unit">cm (B/200 等)</span>
+      </div>
+      <div class="field">
+        <label>舊料折減</label>
+        <input type="number" id="c_old" value="0.9" step="0.05" min="0.5" max="1.0">
+        <span class="unit">新料 1.0；舊料 0.9</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>檢核結果</h2>
+    <div id="column-output"></div>
+  </div>
+
+  <div class="card">
+    <h2>H 型鋼貫入 PC 之握裹力</h2>
+    <div class="grid">
+      <div class="field">
+        <label>混凝土強度 fc'</label>
+        <input type="number" id="b_fc" value="175" step="10">
+        <span class="unit">kgf/cm²</span>
+      </div>
+      <div class="field">
+        <label>貫入深度 L</label>
+        <input type="number" id="b_L" value="175" step="10">
+        <span class="unit">cm</span>
+      </div>
+      <div class="field">
+        <label>軸壓 P</label>
+        <input type="number" id="b_P" value="64.6" step="1">
+        <span class="unit">tf</span>
+      </div>
+      <div class="field">
+        <label>拉拔 T</label>
+        <input type="number" id="b_T" value="0" step="1">
+        <span class="unit">tf</span>
+      </div>
+    </div>
+    <div id="bond-output"></div>
+  </div>
+
+  <div class="card">
+    <h2>樁基承載 (簡化分層計算)</h2>
+    <div class="grid">
+      <div class="field">
+        <label>樁徑 D</label>
+        <input type="number" id="p_D" value="100" step="10">
+        <span class="unit">cm</span>
+      </div>
+      <div class="field">
+        <label>樁長 Lb</label>
+        <input type="number" id="p_Lb" value="860" step="10">
+        <span class="unit">cm</span>
+      </div>
+      <div class="field">
+        <label>樁底 SPT-N (砂)</label>
+        <input type="number" id="p_Nb" value="11" step="1">
+      </div>
+      <div class="field">
+        <label>側摩擦平均 N (砂)</label>
+        <input type="number" id="p_Ns" value="9" step="1">
+      </div>
+      <div class="field">
+        <label>FS_b (端點)</label>
+        <input type="number" id="p_FSb" value="1.8" step="0.1">
+      </div>
+      <div class="field">
+        <label>FS_s (側摩擦)</label>
+        <input type="number" id="p_FSs" value="2.5" step="0.1">
+      </div>
+      <div class="field">
+        <label>樁頂壓力 P</label>
+        <input type="number" id="p_P" value="64.6" step="1">
+        <span class="unit">tf</span>
+      </div>
+    </div>
+    <div id="pile-output"></div>
+    <div class="note">簡化：假設全段砂層、同一 SPT-N 平均。複雜地層請用獨立樁基工具。</div>
+  </div>
+</section>
+
+<!-- ==================== Tab 6: 彙整報告 ==================== -->
+<section class="tab-panel" id="tab-report">
+  <div class="card">
+    <h2>📑 覆工板系統結構計算書（彙整版）</h2>
+    <div class="note">此頁整合 Tab②~⑤ 所有檢核結果，可直接按「🖨 列印」匯出 PDF 作為計算書附件。</div>
+
+    <div class="row-flex" style="margin-bottom:12px; padding:10px; background:#e8f4ff; border:1px solid #b8d4f0; border-radius:6px;">
+      <b style="color:#1a4480;">📄 產出正式 Word 計算書：</b>
+      <button class="btn" onclick="exportJSON()">💾 步驟 1：下載 JSON 參數檔</button>
+      <span style="font-size:12px; color:#555;">→ 雙擊本資料夾內「<b>產生計算書.bat</b>」→ 生成 Word 檔</span>
+    </div>
+
+    <div id="report-output"></div>
+  </div>
+</section>
+
+</main>
+
+<script src="shared/h-section-table.js"></script>
+<script>
+//============================================================
+// 全域結果暫存（供報告頁彙整）
+//============================================================
+const RESULTS = { deck:null, stringer:null, girder:null, column:null, bond:null, pile:null };
+
+//============================================================
+// 共用：取全域參數
+//============================================================
+const G = () => ({
+  Fy:   parseFloat(document.getElementById('g_Fy').value)   || 2500,
+  E:    parseFloat(document.getElementById('g_E').value)    || 2040000,
+  beta: parseFloat(document.getElementById('g_beta').value) || 1.25,
+  imp:  parseFloat(document.getElementById('g_imp').value)  || 0.3,
+  Wp:   parseFloat(document.getElementById('g_Wp').value)   || 163,
+  Wl:   parseFloat(document.getElementById('g_Wl').value)   || 150,
+  defl: parseFloat(document.getElementById('g_defl').value) || 360,
+});
+
+const fmt = (v, d=3) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : '—';
+const checkTag = (ok) => `<span class="check ${ok?'ok':'ng'}">${ok?'OK':'NG'}</span>`;
+
+//============================================================
+// 共用：H 型鋼斷面 helper
+//============================================================
+function fillSectionSelects() {
+  const opts = H_SECTIONS.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+  ['s_section','g4_section','c_section'].forEach(id => {
+    const el = document.getElementById(id);
+    el.innerHTML = opts;
+  });
+  document.getElementById('s_section').value = "H400×400×13×21";
+  document.getElementById('g4_section').value = "H414×405×18×28";
+  document.getElementById('c_section').value = "H350×350×12×19";
+}
+const getSec = (name) => H_SECTIONS.find(s => s.name === name);
+
+//============================================================
+// 共用：斷面分類 + 側撐 + Fbt
+//============================================================
+function classifyFlange(Bf, tf, Fy) {
+  // 結實: B/(2tf) < 545/√Fy；半結實: < 800/√Fy；其餘 slender
+  const r = Bf/(2*tf);
+  const c = 545/Math.sqrt(Fy);
+  const nc = 800/Math.sqrt(Fy);
+  if (r < c)  return { code: 1, label: '結實', limit: c };
+  if (r < nc) return { code: 2, label: '半結實', limit: nc };
+  return { code: 3, label: '非結實', limit: nc };
+}
+function classifyWeb(H, tw, Fy, fa) {
+  // 結實: H/tw < 5370/√Fy·(1-3.74·fa/Fy)
+  const r = H/tw;
+  const factor = Math.max(0, 1 - 3.74*fa/Fy);
+  const c = 5370/Math.sqrt(Fy) * factor;
+  if (r < c) return { code: 1, label: '結實', limit: c };
+  return { code: 2, label: '非結實', limit: c };
+}
+function lateralBracing(B, H, Af, Fy, Lt) {
+  const L1 = 640*B/Math.sqrt(Fy);
+  const L2 = 1.4e6*Af/(H*Fy);
+  const Lc = Math.min(L1, L2);
+  const Lu = Math.max(L1, L2);
+  let code, label;
+  if (Lt <= Lc)      { code = 10; label = '充分側撐'; }
+  else if (Lt <= Lu) { code = 20; label = '局部側撐'; }
+  else               { code = 30; label = '未充分側撐'; }
+  return { L1, L2, Lc, Lu, code, label };
+}
+function calcFb(beta, Fy, flangeCode, brace, B, H, tf, Lt, rt) {
+  // 簡化規則：充分側撐+結實 → 0.66Fy；其餘保守取 0.6Fy
+  let Fb_basic;
+  if (brace.code === 10 && flangeCode === 1) {
+    Fb_basic = 0.66 * Fy;
+  } else if (brace.code === 10 && flangeCode === 2) {
+    Fb_basic = Fy * (1.07 - 0.005*(B/(2*tf))*Math.sqrt(Fy));
+    if (Fb_basic > 0.66*Fy) Fb_basic = 0.66*Fy;
+  } else {
+    Fb_basic = 0.6 * Fy;
+  }
+  return Fb_basic * beta;
+}
+
+//============================================================
+// 共用：載重組合計算 (回傳 M1~M3, V1~V3)
+//============================================================
+function loadCombo({WT, WT2, L, P_HS, P_crane, Wc, trackLen=4.35, useWT2_for_crane=false}) {
+  // M1, V1: HS20 集中載重 (含衝擊已在 P_HS 內)
+  const M1 = (1/8)*WT*L*L + P_HS*L/4;
+  const V1 = 0.5*WT*L + P_HS;
+  // M2, V2: PC400 履帶 (含衝擊已在 Wc 內)
+  let M2, V2;
+  if (L <= trackLen) {
+    M2 = (1/8)*WT*L*L + (1/8)*Wc*L*L;
+    V2 = 0.5*WT*L + 0.5*Wc*L;
+  } else {
+    M2 = (1/8)*WT*L*L + (1/8)*Wc*(L*L - 4*Math.pow((L-trackLen)/2, 2));
+    V2 = 0.5*WT*L + 0.5*Wc*trackLen;
+  }
+  // M3, V3: 吊車集中（不衝擊）
+  const W3 = useWT2_for_crane ? WT2 : WT;
+  const M3 = (1/8)*W3*L*L + P_crane*L/4;
+  const V3 = 0.5*W3*L + P_crane;
+
+  const Mmax = Math.max(M1, M2, M3);
+  const Vmax = Math.max(V1, V2, V3);
+  const ctrl = Mmax === M3 ? '45T/吊車' : (Mmax === M2 ? 'PC400' : 'HS20');
+  return {M1, M2, M3, V1, V2, V3, Mmax, Vmax, ctrl, W3};
+}
+
+//============================================================
+// 嚴謹撓度：簡支梁中央撓度三大基本式（全部以閉式解）
+//   δ_UDL_full     = 5wL⁴/(384EI)                          // 全跨均佈
+//   δ_UDL_partial  = wc(8L³−4c²L+c³)/(384EI)                // 中央對稱部分均佈，長度 c
+//   δ_P_center     = PL³/(48EI)                            // 集中載重於中央
+//============================================================
+function defl_UDL_full(w_kgf_cm, L_cm, EI) {
+  return 5 * w_kgf_cm * Math.pow(L_cm, 4) / (384 * EI);
+}
+function defl_UDL_partial(w_kgf_cm, c_cm, L_cm, EI) {
+  // 對稱部分均佈撓度（中央），c=載重長度，L=跨距，c≤L
+  if (c_cm >= L_cm) return defl_UDL_full(w_kgf_cm, L_cm, EI);
+  return (w_kgf_cm * c_cm) * (8*Math.pow(L_cm,3) - 4*c_cm*c_cm*L_cm + Math.pow(c_cm,3)) / (384 * EI);
+}
+function defl_P_center(P_kgf, L_cm, EI) {
+  return P_kgf * Math.pow(L_cm, 3) / (48 * EI);
+}
+
+// 三組工況各別算撓度，回傳 {d1,d2,d3,dmax,case}
+function deflThreeCases({w_self_kgf_m, P_HS_tf, P_crane_tf, Wc_tf_m, trackLen_m, L_m, E, I, useSelfOnly_for_crane=false, w_self_crane_kgf_m=null}) {
+  const EI = E * I;
+  const L = L_m * 100;
+  const w_self = w_self_kgf_m / 100;             // kgf/cm
+  const w_self_crane = (useSelfOnly_for_crane ? (w_self_crane_kgf_m||w_self_kgf_m) : w_self_kgf_m) / 100;
+
+  // Case 1: HS20 集中（含衝擊）+ 自重 UDL
+  const d1_w = defl_UDL_full(w_self, L, EI);
+  const d1_p = defl_P_center(P_HS_tf*1000, L, EI);
+  const d1 = d1_w + d1_p;
+
+  // Case 2: PC400 履帶（含衝擊）+ 自重 UDL  ← 用部分 UDL 嚴謹解
+  const d2_w_self = defl_UDL_full(w_self, L, EI);
+  const d2_w_pc   = defl_UDL_partial(Wc_tf_m*1000/100, trackLen_m*100, L, EI);
+  const d2 = d2_w_self + d2_w_pc;
+
+  // Case 3: 吊車集中（不衝擊） + 自重 UDL（吊車工況可能不疊堆料）
+  const d3_w = defl_UDL_full(w_self_crane, L, EI);
+  const d3_p = defl_P_center(P_crane_tf*1000, L, EI);
+  const d3 = d3_w + d3_p;
+
+  const arr = [{n:'HS20', d:d1, dw:d1_w, dp:d1_p}, {n:'PC400', d:d2, dw:d2_w_self+d2_w_pc, dp:0}, {n:'吊車', d:d3, dw:d3_w, dp:d3_p}];
+  arr.sort((a,b)=> b.d - a.d);
+  return { d1, d2, d3, dmax: arr[0].d, ctrl: arr[0].n, detail: arr };
+}
+
+//============================================================
+// Tab 切換
+//============================================================
+document.querySelectorAll('nav.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('section.tab-panel').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+//============================================================
+// Tab 2: 覆工版面
+//============================================================
+function setDeckPreset(P) {
+  document.getElementById('d_Pcrane').value = P;
+  calcDeck();
+}
+function calcDeck() {
+  const g = G();
+  const B = parseFloat(document.getElementById('d_B').value);
+  const L = parseFloat(document.getElementById('d_L').value);
+  const n = parseInt(document.getElementById('d_n').value);
+  const Sx = parseFloat(document.getElementById('d_Sx').value) * n;
+  const Ix = parseFloat(document.getElementById('d_Ix').value) * n;
+  const Aw = parseFloat(document.getElementById('d_Aw').value) * n;
+  const Pc = parseFloat(document.getElementById('d_Pcrane').value);
+
+  const Wp_line = g.Wp * B;                    // kgf/m
+  const Wl_line = g.Wl * B;                    // kgf/m
+  const WT = (Wp_line + Wl_line) / 1000;       // Tf/m
+  const P_HS = 7.3 * (1 + g.imp);              // tf
+  const Wc   = 8.244 * (1 + g.imp);            // tf/m
+
+  // 覆工版面：履帶/卡車視為佈滿板寬，無履帶長修正（板跨短）
+  const M1 = (1/8)*WT*L*L + P_HS*L/4;
+  const M2 = (1/8)*WT*L*L + (1/8)*Wc*L*L;
+  const M3 = (1/8)*WT*L*L + Pc*L/4;
+  const V1 = 0.5*WT*L + P_HS;
+  const V2 = 0.5*WT*L + 0.5*Wc*L;
+  const V3 = 0.5*WT*L + Pc;
+  const Mmax = Math.max(M1,M2,M3), Vmax = Math.max(V1,V2,V3);
+  const ctrl = Mmax===M3 ? '吊車' : (Mmax===M2 ? 'PC400' : 'HS20');
+
+  const Fb = 0.6 * g.Fy * g.beta;
+  const fb = Mmax * 1e5 / Sx;
+  const Fv = 0.4 * g.Fy * g.beta;
+  const fv = Vmax * 1e3 / Aw;
+
+  // 撓度：對 HS20 / PC400 / 吊車 三工況各別計算，取最大
+  const def3 = deflThreeCases({
+    w_self_kgf_m: Wp_line + Wl_line,
+    P_HS_tf: P_HS, P_crane_tf: Pc, Wc_tf_m: Wc,
+    trackLen_m: 4.35, L_m: L, E: g.E, I: Ix
+  });
+  const def_allow = L * 100 / g.defl;
+  const def = { dw: def3.detail[0].dw, dp: def3.detail[0].dp, total: def3.dmax };
+
+  const html = `
+    <table class="calc">
+      <thead><tr><th>項目</th><th>公式</th><th>計算</th><th>結果</th></tr></thead>
+      <tbody>
+        <tr><td class="label">線均佈 WT</td><td class="formula">(Wp+Wl)·B / 1000</td>
+            <td class="formula">(${g.Wp}+${g.Wl})×${B}/1000</td><td class="value">${fmt(WT,4)} Tf/m</td></tr>
+        <tr><td class="label">HS20 含衝擊 P_HS</td><td class="formula">7.3×(1+i)</td>
+            <td class="formula">7.3×${1+g.imp}</td><td class="value">${fmt(P_HS,3)} tf</td></tr>
+        <tr><td class="label">PC400 含衝擊 Wc</td><td class="formula">8.244×(1+i)</td>
+            <td class="formula">8.244×${1+g.imp}</td><td class="value">${fmt(Wc,4)} tf/m</td></tr>
+        <tr><td class="label">M1 (HS20)</td><td class="formula">⅛·WT·L² + P_HS·L/4</td>
+            <td class="formula">⅛·${fmt(WT,3)}·${L}² + ${fmt(P_HS,2)}·${L}/4</td><td class="value">${fmt(M1,3)} Tf-m</td></tr>
+        <tr><td class="label">M2 (PC400)</td><td class="formula">⅛·(WT+Wc)·L²</td>
+            <td class="formula">⅛·(${fmt(WT,3)}+${fmt(Wc,3)})·${L}²</td><td class="value">${fmt(M2,3)} Tf-m</td></tr>
+        <tr><td class="label">M3 (吊車)</td><td class="formula">⅛·WT·L² + P·L/4</td>
+            <td class="formula">⅛·${fmt(WT,3)}·${L}² + ${fmt(Pc,2)}·${L}/4</td><td class="value">${fmt(M3,3)} Tf-m</td></tr>
+        <tr><td class="label max">Mmax (${ctrl} 控制)</td><td colspan="2" class="formula">max(M1,M2,M3)</td><td class="value max">${fmt(Mmax,3)} Tf-m</td></tr>
+        <tr><td class="label">V1 / V2 / V3</td><td colspan="2" class="formula">同上邏輯</td>
+            <td class="value">${fmt(V1,2)} / ${fmt(V2,2)} / ${fmt(V3,2)} Tf</td></tr>
+        <tr><td class="label max">Vmax</td><td colspan="2" class="formula">max(V1,V2,V3)</td><td class="value max">${fmt(Vmax,3)} Tf</td></tr>
+      </tbody>
+    </table>
+
+    <div class="summary">
+      <h3>檢核結果（n=${n} 片，總 Sx=${Sx} cm³, Ix=${Ix} cm⁴, Aw=${Aw} cm²）</h3>
+      <div class="row"><span class="name">彎矩應力 fb = Mmax×10⁵/Sx</span>
+        <span class="val">${fmt(fb,1)} kgf/cm² &lt; Fb = 0.6·Fy·β = ${fmt(Fb,0)} ${checkTag(fb<Fb)}</span></div>
+      <div class="row"><span class="name">剪應力 fv = Vmax×10³/Aw</span>
+        <span class="val">${fmt(fv,1)} kgf/cm² &lt; Fv = 0.4·Fy·β = ${fmt(Fv,0)} ${checkTag(fv<Fv)}</span></div>
+      <div class="row"><span class="name">撓度 δmax (${def3.ctrl} 控制) — 三工況分別算取大</span>
+        <span class="val">${fmt(def3.dmax,3)} cm &lt; L/${g.defl} = ${fmt(def_allow,3)} cm ${checkTag(def3.dmax<def_allow)}</span></div>
+    </div>
+
+    <details class="steps" open><summary>三工況撓度明細</summary>
+<pre>HS20  : δ = δw + δp = ${fmt(def3.detail.find(x=>x.n==='HS20').dw,4)} + ${fmt(def3.detail.find(x=>x.n==='HS20').dp,4)} = ${fmt(def3.d1,4)} cm
+PC400 : δ = δw_self + δw_track = ${fmt(def3.d2,4)} cm   (履帶用部分 UDL 嚴謹解)
+吊車  : δ = δw + δp = ${fmt(def3.detail.find(x=>x.n==='吊車').dw,4)} + ${fmt(def3.detail.find(x=>x.n==='吊車').dp,4)} = ${fmt(def3.d3,4)} cm
+δmax  = ${fmt(def3.dmax,4)} cm  (${def3.ctrl} 控制)</pre></details>
+  `;
+  document.getElementById('deck-output').innerHTML = html;
+  RESULTS.deck = {
+    B, L, n, Sx, Ix, Aw, Pc, P_HS, Wc, WT, ctrl,
+    M1, M2, M3, V1, V2, V3, Mmax, Vmax,
+    Fb, fb, Fv, fv, def3, def_allow,
+    ok_fb: fb<Fb, ok_fv: fv<Fv, ok_d: def3.dmax<def_allow
+  };
+  setStatus('st-deck-fb', 'fb', (fb/Fb*100).toFixed(0)+'%', fb<Fb);
+  setStatus('st-deck-fv', 'fv', (fv/Fv*100).toFixed(0)+'%', fv<Fv);
+  setStatus('st-deck-d',  'δ',  (def3.dmax/def_allow*100).toFixed(0)+'%', def3.dmax<def_allow);
+}
+
+//============================================================
+// Tab 3: 覆工小梁
+//============================================================
+function setStringerPreset(P) {
+  document.getElementById('s_Pcrane').value = P;
+  calcStringer();
+}
+function calcStringer() {
+  const g = G();
+  const sec = getSec(document.getElementById('s_section').value);
+  const n = parseInt(document.getElementById('s_n').value);
+  const B = parseFloat(document.getElementById('s_B').value);
+  const L = parseFloat(document.getElementById('s_L').value);
+  const Lt = parseFloat(document.getElementById('s_Lt').value);
+  const fa = parseFloat(document.getElementById('s_fa').value);
+  const Pc = parseFloat(document.getElementById('s_Pcrane').value);
+
+  const Sx = sec.Sx * n, Ix = sec.Ix * n;
+  const Aw_unit = sec.H * sec.tw;       // cm²/支
+  const Aw = Aw_unit * n;
+  const Af_unit = sec.B * sec.tf;
+  const Wb = sec.Wb * n;                // kgf/m
+
+  const Wp_line = g.Wp * B;
+  const Wl_line = g.Wl * B;
+  const WT = (Wp_line + Wl_line + Wb) / 1000;        // Tf/m
+  const P_HS = 7.3 * (1 + g.imp);
+  const Wc   = 8.244 * (1 + g.imp);
+
+  const c = loadCombo({WT, WT2:WT, L, P_HS, P_crane:Pc, Wc});
+  const Fb_compact = 0.6 * g.Fy * g.beta;
+
+  // 斷面分類
+  const flange = classifyFlange(sec.B, sec.tf, g.Fy);
+  const web    = classifyWeb(sec.H, sec.tw, g.Fy, fa);
+  const brace  = lateralBracing(sec.B, sec.H, Af_unit, g.Fy, Lt);
+  const Fb     = calcFb(g.beta, g.Fy, flange.code, brace, sec.B, sec.H, sec.tf, Lt);
+
+  const fb = c.Mmax * 1e5 / Sx;
+  const Fv = 0.4 * g.Fy * g.beta;
+  const fv = c.Vmax * 1e3 / Aw;
+
+  // 撓度：三工況各別計算，取最大
+  const def3 = deflThreeCases({
+    w_self_kgf_m: Wp_line + Wl_line + Wb,
+    P_HS_tf: P_HS, P_crane_tf: Pc, Wc_tf_m: Wc,
+    trackLen_m: 4.35, L_m: L, E: g.E, I: Ix
+  });
+  const def_allow = L * 100 / g.defl;
+
+  const flagBadge = {1:'compact',2:'noncompact',3:'slender'};
+  const html = `
+    <div class="summary">
+      <h3>斷面性質 (${sec.name} × ${n} 支)</h3>
+      <div class="row"><span class="name">A=${sec.A} cm²　Wb=${sec.Wb} kg/m　Sx=${sec.Sx} → ${Sx} cm³　Ix=${sec.Ix} → ${Ix} cm⁴　Aw=${fmt(Aw_unit,1)} → ${fmt(Aw,1)} cm²</span></div>
+      <div class="row"><span class="name">翼板 B/(2tf) = ${fmt(sec.B/(2*sec.tf),2)} vs 限值 ${fmt(flange.limit,2)}</span><span class="val"><span class="badge ${flagBadge[flange.code]}">${flange.label}</span></span></div>
+      <div class="row"><span class="name">腹板 H/tw = ${fmt(sec.H/sec.tw,2)} vs 限值 ${fmt(web.limit,2)} (fa=${fa})</span><span class="val"><span class="badge ${flagBadge[web.code]}">${web.label}</span></span></div>
+      <div class="row"><span class="name">側撐 L1=${fmt(brace.L1,1)} cm  L2=${fmt(brace.L2,1)} cm  Lc=${fmt(brace.Lc,1)} Lu=${fmt(brace.Lu,1)}  Lt=${Lt}</span><span class="val">${brace.label}</span></div>
+    </div>
+
+    <table class="calc">
+      <thead><tr><th>項目</th><th>計算</th><th>結果</th></tr></thead>
+      <tbody>
+        <tr><td class="label">WT</td><td class="formula">(Wp·B + Wl·B + Wb)/1000 = (${Wp_line}+${Wl_line}+${Wb})/1000</td><td class="value">${fmt(WT,4)} Tf/m</td></tr>
+        <tr><td class="label">M1 (HS20)</td><td class="formula">⅛·WT·L² + P_HS·L/4</td><td class="value">${fmt(c.M1,3)} Tf-m</td></tr>
+        <tr><td class="label">M2 (PC400 履帶)</td><td class="formula">⅛·WT·L² + ⅛·Wc·(L²−4·((L−4.35)/2)²)</td><td class="value">${fmt(c.M2,3)} Tf-m</td></tr>
+        <tr><td class="label">M3 (吊車)</td><td class="formula">⅛·WT·L² + P·L/4</td><td class="value">${fmt(c.M3,3)} Tf-m</td></tr>
+        <tr><td class="label max">Mmax (${c.ctrl} 控制)</td><td class="formula">max</td><td class="value max">${fmt(c.Mmax,3)} Tf-m</td></tr>
+        <tr><td class="label">V1 / V2 / V3</td><td colspan="1" class="formula">同上</td><td class="value">${fmt(c.V1,2)} / ${fmt(c.V2,2)} / ${fmt(c.V3,2)} Tf</td></tr>
+        <tr><td class="label max">Vmax</td><td class="formula">max</td><td class="value max">${fmt(c.Vmax,3)} Tf</td></tr>
+      </tbody>
+    </table>
+
+    <div class="summary">
+      <h3>檢核結果</h3>
+      <div class="row"><span class="name">彎矩應力 fb = Mmax×10⁵/Sx</span>
+        <span class="val">${fmt(fb,1)} &lt; Fb = ${fmt(Fb,0)} kgf/cm² ${checkTag(fb<Fb)}</span></div>
+      <div class="row"><span class="name">剪應力 fv = Vmax×10³/Aw</span>
+        <span class="val">${fmt(fv,1)} &lt; Fv = ${fmt(Fv,0)} kgf/cm² ${checkTag(fv<Fv)}</span></div>
+      <div class="row"><span class="name">撓度 δmax (${def3.ctrl} 控制)</span>
+        <span class="val">${fmt(def3.dmax,3)} &lt; L/${g.defl} = ${fmt(def_allow,3)} cm ${checkTag(def3.dmax<def_allow)}</span></div>
+    </div>
+
+    <details class="steps" open><summary>三工況撓度明細</summary>
+<pre>HS20  : δ = ${fmt(def3.d1,4)} cm  (5wL⁴/384EI + PL³/48EI)
+PC400 : δ = ${fmt(def3.d2,4)} cm  (履帶部分 UDL 嚴謹解 wc(8L³−4c²L+c³)/384EI)
+吊車  : δ = ${fmt(def3.d3,4)} cm
+δmax  = ${fmt(def3.dmax,4)} cm  (${def3.ctrl} 控制)</pre></details>
+  `;
+  document.getElementById('stringer-output').innerHTML = html;
+  RESULTS.stringer = {
+    sec, n, B, L, Lt, fa, Pc, P_HS, Wc, WT, Wb,
+    Sx, Ix, Aw, flange, web, brace,
+    M1:c.M1, M2:c.M2, M3:c.M3, V1:c.V1, V2:c.V2, V3:c.V3, Mmax:c.Mmax, Vmax:c.Vmax, ctrl:c.ctrl,
+    Fb, fb, Fv, fv, def3, def_allow,
+    ok_fb: fb<Fb, ok_fv: fv<Fv, ok_d: def3.dmax<def_allow
+  };
+  setStatus('st-s-fb', 'fb', (fb/Fb*100).toFixed(0)+'%', fb<Fb);
+  setStatus('st-s-fv', 'fv', (fv/Fv*100).toFixed(0)+'%', fv<Fv);
+  setStatus('st-s-d',  'δ',  (def3.dmax/def_allow*100).toFixed(0)+'%', def3.dmax<def_allow);
+}
+
+//============================================================
+// Tab 4: 覆工大梁
+//============================================================
+function setGirderPreset(P) {
+  document.getElementById('g4_Pcrane').value = P;
+  calcGirder();
+}
+function calcGirder() {
+  const g = G();
+  const sec = getSec(document.getElementById('g4_section').value);
+  const n  = parseInt(document.getElementById('g4_n').value);
+  const B  = parseFloat(document.getElementById('g4_B').value);
+  const L  = parseFloat(document.getElementById('g4_L').value);
+  const W2 = parseFloat(document.getElementById('g4_W2').value);
+  const Lt = parseFloat(document.getElementById('g4_Lt').value);
+  const fa = parseFloat(document.getElementById('g4_fa').value);
+  const Pc = parseFloat(document.getElementById('g4_Pcrane').value);
+
+  const Sx = sec.Sx * n, Ix = sec.Ix * n;
+  const Aw_unit = sec.H * sec.tw;
+  const Aw = Aw_unit * n;
+  const Af_unit = sec.B * sec.tf;
+  const Wb = sec.Wb * n;
+
+  const Wp_line = g.Wp * B, Wl_line = g.Wl * B;
+  const WT  = (Wp_line + Wl_line + Wb + W2) / 1000;   // 一般工況
+  const WT2 = (Wp_line + Wb + W2) / 1000;             // 吊車工況不疊堆料/活載
+  const P_HS = 7.3 * (1 + g.imp);
+  const Wc   = 8.244 * (1 + g.imp);
+
+  const c = loadCombo({WT, WT2, L, P_HS, P_crane:Pc, Wc, useWT2_for_crane:true});
+  const flange = classifyFlange(sec.B, sec.tf, g.Fy);
+  const web    = classifyWeb(sec.H, sec.tw, g.Fy, fa);
+  const brace  = lateralBracing(sec.B, sec.H, Af_unit, g.Fy, Lt);
+  const Fb     = calcFb(g.beta, g.Fy, flange.code, brace, sec.B, sec.H, sec.tf, Lt);
+
+  const fb = c.Mmax * 1e5 / Sx;
+  const Fv = 0.4 * g.Fy * g.beta;
+  const fv = c.Vmax * 1e3 / Aw;
+
+  // 撓度：三工況各別計算（吊車工況不疊堆料／活載）
+  const def3 = deflThreeCases({
+    w_self_kgf_m: Wp_line + Wl_line + Wb + W2,
+    P_HS_tf: P_HS, P_crane_tf: Pc, Wc_tf_m: Wc,
+    trackLen_m: 4.35, L_m: L, E: g.E, I: Ix,
+    useSelfOnly_for_crane: true,
+    w_self_crane_kgf_m: Wp_line + Wb + W2
+  });
+  const def_allow = L * 100 / g.defl;
+
+  const flagBadge = {1:'compact',2:'noncompact',3:'slender'};
+
+  document.getElementById('girder-output').innerHTML = `
+    <div class="summary">
+      <h3>斷面 (${sec.name} × ${n} 支)</h3>
+      <div class="row"><span class="name">總 Sx=${Sx}, Ix=${Ix}, Aw=${fmt(Aw,1)} cm²　Wb_總=${Wb} kgf/m</span></div>
+      <div class="row"><span class="name">翼板</span><span class="val"><span class="badge ${flagBadge[flange.code]}">${flange.label}</span></span></div>
+      <div class="row"><span class="name">腹板</span><span class="val"><span class="badge ${flagBadge[web.code]}">${web.label}</span></span></div>
+      <div class="row"><span class="name">側撐 (Lc=${fmt(brace.Lc,1)}/Lu=${fmt(brace.Lu,1)} cm)</span><span class="val">${brace.label}</span></div>
+    </div>
+
+    <table class="calc">
+      <thead><tr><th>項目</th><th>計算</th><th>結果</th></tr></thead>
+      <tbody>
+        <tr><td class="label">WT (一般)</td><td class="formula">(Wp·B+Wl·B+Wb+W2)/1000 = (${Wp_line}+${Wl_line}+${Wb}+${W2})/1000</td><td class="value">${fmt(WT,4)} Tf/m</td></tr>
+        <tr><td class="label">WT₂ (吊車)</td><td class="formula">(Wp·B+Wb+W2)/1000</td><td class="value">${fmt(WT2,4)} Tf/m</td></tr>
+        <tr><td class="label">M1 (HS20, WT)</td><td class="formula">⅛·WT·L² + P_HS·L/4</td><td class="value">${fmt(c.M1,3)} Tf-m</td></tr>
+        <tr><td class="label">M2 (PC400, WT)</td><td class="formula">履帶修正</td><td class="value">${fmt(c.M2,3)} Tf-m</td></tr>
+        <tr><td class="label">M3 (吊車, WT₂)</td><td class="formula">⅛·WT₂·L² + P·L/4</td><td class="value">${fmt(c.M3,3)} Tf-m</td></tr>
+        <tr><td class="label max">Mmax (${c.ctrl})</td><td class="formula">max</td><td class="value max">${fmt(c.Mmax,3)} Tf-m</td></tr>
+        <tr><td class="label">V1/V2/V3</td><td class="formula">同邏輯</td><td class="value">${fmt(c.V1,2)} / ${fmt(c.V2,2)} / ${fmt(c.V3,2)} Tf</td></tr>
+        <tr><td class="label max">Vmax</td><td class="formula">max</td><td class="value max">${fmt(c.Vmax,3)} Tf</td></tr>
+      </tbody>
+    </table>
+
+    <div class="summary">
+      <h3>檢核結果</h3>
+      <div class="row"><span class="name">fb = ${fmt(fb,1)} &lt; Fb = ${fmt(Fb,0)}</span><span class="val">${checkTag(fb<Fb)}</span></div>
+      <div class="row"><span class="name">fv = ${fmt(fv,1)} &lt; Fv = ${fmt(Fv,0)}</span><span class="val">${checkTag(fv<Fv)}</span></div>
+      <div class="row"><span class="name">δmax = ${fmt(def3.dmax,3)} cm (${def3.ctrl}) &lt; L/${g.defl} = ${fmt(def_allow,3)}</span><span class="val">${checkTag(def3.dmax<def_allow)}</span></div>
+    </div>
+
+    <details class="steps" open><summary>三工況撓度明細（吊車工況不疊堆料/活載）</summary>
+<pre>HS20  : δ = ${fmt(def3.d1,4)} cm
+PC400 : δ = ${fmt(def3.d2,4)} cm  (履帶部分 UDL 嚴謹解)
+吊車  : δ = ${fmt(def3.d3,4)} cm
+δmax  = ${fmt(def3.dmax,4)} cm  (${def3.ctrl} 控制)</pre></details>
+  `;
+
+  // Pu 三情境 (柱頂軸力)
+  const Pu1 = c.Vmax;                                    // PC400 固定支座壓柱
+  const Pu2 = 0.5*WT2*L + Pc*(L-0.5)/L;                  // 吊車支座距柱 0.5 m
+  const Pu3 = 0.5*WT2*L + Pc*2*Math.max(0, L-4)/L;       // 吊車支座位於相鄰跨間
+  const PuMax = Math.max(Pu1, Pu2, Pu3);
+
+  document.getElementById('girder-pu').innerHTML = `
+    <table class="calc">
+      <thead><tr><th>情境</th><th>公式</th><th>Pu (tf)</th></tr></thead>
+      <tbody>
+        <tr><td class="label">情境①：PC400 固定支座位於柱上</td><td class="formula">Pu = Vmax</td><td class="value">${fmt(Pu1,3)}</td></tr>
+        <tr><td class="label">情境②：吊車支座距柱 0.5 m</td><td class="formula">½·WT₂·L + P·(L−0.5)/L</td><td class="value">${fmt(Pu2,3)}</td></tr>
+        <tr><td class="label">情境③：吊車支座位於相鄰跨間 (L>4)</td><td class="formula">½·WT₂·L + 2P·(L−4)/L</td><td class="value">${fmt(Pu3,3)}</td></tr>
+        <tr><td class="label max">控制 Pu</td><td colspan="1" class="formula">max</td><td class="value max">${fmt(PuMax,3)} tf</td></tr>
+      </tbody>
+    </table>
+    <div class="note">將 PuMax 填入 Tab5 的「軸力 N」進行共構柱檢核。${document.getElementById('autolink')?.checked ? '（已自動連動）' : ''}</div>
+  `;
+  RESULTS.girder = {
+    sec, n, B, L, Lt, fa, W2, Pc, P_HS, Wc, WT, WT2, Wb,
+    Sx, Ix, Aw, flange, web, brace,
+    M1:c.M1, M2:c.M2, M3:c.M3, V1:c.V1, V2:c.V2, V3:c.V3, Mmax:c.Mmax, Vmax:c.Vmax, ctrl:c.ctrl,
+    Fb, fb, Fv, fv, def3, def_allow,
+    Pu1, Pu2, Pu3, PuMax,
+    ok_fb: fb<Fb, ok_fv: fv<Fv, ok_d: def3.dmax<def_allow
+  };
+  setStatus('st-g-fb', 'fb', (fb/Fb*100).toFixed(0)+'%', fb<Fb);
+  setStatus('st-g-fv', 'fv', (fv/Fv*100).toFixed(0)+'%', fv<Fv);
+  setStatus('st-g-d',  'δ',  (def3.dmax/def_allow*100).toFixed(0)+'%', def3.dmax<def_allow);
+  setStatus('st-g-pu', 'Pu', PuMax.toFixed(1)+'t', null);
+  autolinkPuToColumn(PuMax);
+}
+
+//============================================================
+// Tab 5: 共構柱
+//============================================================
+function calcColumn() {
+  const g = G();
+  const sec = getSec(document.getElementById('c_section').value);
+  const L = parseFloat(document.getElementById('c_L').value);
+  const K = parseFloat(document.getElementById('c_K').value);
+  const N = parseFloat(document.getElementById('c_N').value);
+  const ex = parseFloat(document.getElementById('c_ex').value);
+  const ey = parseFloat(document.getElementById('c_ey').value);
+  const old = parseFloat(document.getElementById('c_old').value);
+
+  const A = sec.A;
+  const fa = N * 1000 / A;          // kgf/cm²
+  const Mx = N * ex / 100;          // tf-m  (e in cm → m)
+  const My = N * ey / 100;
+  const fbx = Mx * 1e5 / sec.Sx;
+  const fby = My * 1e5 / sec.Sy;
+
+  const KLrx = K * L / sec.rx;
+  const KLry = K * L / sec.ry;
+  const KLr = Math.max(KLrx, KLry);
+
+  const Cc = Math.sqrt(2 * Math.PI * Math.PI * g.E / g.Fy);
+
+  let Fa;
+  if (KLr < Cc) {
+    const m = KLr / Cc;
+    Fa = (1 - m*m/2) * g.Fy / (5/3 + 3*m/8 - Math.pow(m,3)/8);
+  } else {
+    Fa = 12 * Math.PI*Math.PI * g.E / (23 * KLr * KLr);
+  }
+  const Fa1 = Fa * g.beta * old;
+
+  const Fbx = 0.66 * g.Fy * g.beta * old;
+  const Fby = 0.75 * g.Fy * g.beta * old;
+  const Fex = 12 * Math.PI*Math.PI * g.E / (23 * KLrx*KLrx);
+  const Fey = 12 * Math.PI*Math.PI * g.E / (23 * KLry*KLry);
+
+  // AISC 交互式
+  const Cm = 1.0;
+  const ratio = fa / Fa1;
+  let chk1, chk2;
+  if (ratio > 0.15) {
+    chk1 = ratio + Cm*fbx/(1 - fa/Fex)/Fbx + Cm*fby/(1 - fa/Fey)/Fby;
+    chk2 = fa/(0.6*g.Fy*old) + fbx/Fbx + fby/Fby;
+  } else {
+    chk1 = ratio + fbx/Fbx + fby/Fby;
+    chk2 = chk1;
+  }
+
+  document.getElementById('column-output').innerHTML = `
+    <table class="calc">
+      <thead><tr><th>項目</th><th>計算</th><th>結果</th></tr></thead>
+      <tbody>
+        <tr><td class="label">A, Sx, Sy, rx, ry</td><td class="formula">由斷面表</td><td class="value">${A}, ${sec.Sx}, ${sec.Sy}, ${sec.rx}, ${sec.ry}</td></tr>
+        <tr><td class="label">fa = N/A</td><td class="formula">${N}×1000/${A}</td><td class="value">${fmt(fa,3)} kgf/cm²</td></tr>
+        <tr><td class="label">Mx, My (tf-m)</td><td class="formula">N·e/100</td><td class="value">${fmt(Mx,3)} / ${fmt(My,3)}</td></tr>
+        <tr><td class="label">fbx, fby</td><td class="formula">M×10⁵/S</td><td class="value">${fmt(fbx,2)} / ${fmt(fby,2)}</td></tr>
+        <tr><td class="label">KL/rx, KL/ry</td><td class="formula">K·L/r</td><td class="value">${fmt(KLrx,2)} / ${fmt(KLry,2)}</td></tr>
+        <tr><td class="label">Cc</td><td class="formula">√(2π²E/Fy)</td><td class="value">${fmt(Cc,2)}</td></tr>
+        <tr><td class="label">Fa, Fa₁ (×β×折減)</td><td class="formula">AISC 公式</td><td class="value">${fmt(Fa,1)} → ${fmt(Fa1,1)} kgf/cm²</td></tr>
+        <tr><td class="label">Fbx, Fby</td><td class="formula">0.66/0.75·Fy·β·折減</td><td class="value">${fmt(Fbx,1)} / ${fmt(Fby,1)}</td></tr>
+        <tr><td class="label">Fex, Fey</td><td class="formula">12π²E/(23(KL/r)²)</td><td class="value">${fmt(Fex,1)} / ${fmt(Fey,1)}</td></tr>
+      </tbody>
+    </table>
+    <div class="summary">
+      <h3>AISC 交互式 (fa/Fa = ${fmt(ratio,3)} ${ratio>0.15?'> 0.15 → 二次彎矩':'≤ 0.15 → 簡式'})</h3>
+      <div class="row"><span class="name">式①: fa/Fa₁ + Cm·fbx/(1−fa/Fex)/Fbx + Cm·fby/(1−fa/Fey)/Fby</span>
+        <span class="val">${fmt(chk1,3)} ${checkTag(chk1<=1.0)}</span></div>
+      <div class="row"><span class="name">式②: fa/(0.6Fy) + fbx/Fbx + fby/Fby</span>
+        <span class="val">${fmt(chk2,3)} ${checkTag(chk2<=1.0)}</span></div>
+    </div>
+  `;
+  const worst = Math.max(chk1, chk2);
+  RESULTS.column = { sec, L, K, N, ex, ey, old, A, fa, Mx, My, fbx, fby, KLrx, KLry, Cc, Fa, Fa1, Fbx, Fby, chk1, chk2, worst, ok: worst<=1.0 };
+  setStatus('st-c-int', '比', worst.toFixed(2), worst<=1.0);
+}
+
+function calcBond() {
+  const fc = parseFloat(document.getElementById('b_fc').value);
+  const L = parseFloat(document.getElementById('b_L').value);
+  const P = parseFloat(document.getElementById('b_P').value);
+  const T = parseFloat(document.getElementById('b_T').value);
+  const sec = getSec(document.getElementById('c_section').value);
+  const ls = 2*(sec.B + sec.H);     // 周長 cm
+  const As = sec.A;
+  const tau = 0.03 * fc;            // kgf/cm²
+  const F = tau * L * ls / 1000;    // tf
+  const Nc = (tau * L * ls + 0.35*fc*As) / 1000;  // tf
+
+  document.getElementById('bond-output').innerHTML = `
+    <table class="calc">
+      <thead><tr><th>項目</th><th>計算</th><th>結果</th></tr></thead>
+      <tbody>
+        <tr><td class="label">τ = 0.03·fc'</td><td class="formula">0.03×${fc}</td><td class="value">${fmt(tau,3)} kgf/cm²</td></tr>
+        <tr><td class="label">周長 ls</td><td class="formula">2(B+H) = 2(${sec.B}+${sec.H})</td><td class="value">${fmt(ls,2)} cm</td></tr>
+        <tr><td class="label">拉拔阻力 F = τ·L·ls</td><td class="formula">${fmt(tau,3)}×${L}×${fmt(ls,1)}/1000</td><td class="value">${fmt(F,2)} tf</td></tr>
+        <tr><td class="label">壓力阻力 N = τ·L·ls + 0.35·fc'·As</td><td class="formula">+ 0.35×${fc}×${As}/1000</td><td class="value">${fmt(Nc,2)} tf</td></tr>
+        <tr><td class="label max">拉拔檢核 F &gt; T</td><td class="formula">${fmt(F,2)} vs ${T}</td><td class="value max">${checkTag(F>T)}</td></tr>
+        <tr><td class="label max">壓力檢核 N &gt; P</td><td class="formula">${fmt(Nc,2)} vs ${P}</td><td class="value max">${checkTag(Nc>P)}</td></tr>
+      </tbody>
+    </table>
+  `;
+  const ok = (F>T) && (Nc>P);
+  RESULTS.bond = { fc, L, P, T, ls, tau, F, Nc, ok_T: F>T, ok_P: Nc>P, ok };
+  setStatus('st-c-bond', '握裹', ok?'OK':'NG', ok);
+}
+
+function calcPile() {
+  const D = parseFloat(document.getElementById('p_D').value);
+  const Lb = parseFloat(document.getElementById('p_Lb').value);
+  const Nb = parseFloat(document.getElementById('p_Nb').value);
+  const Ns = parseFloat(document.getElementById('p_Ns').value);
+  const FSb = parseFloat(document.getElementById('p_FSb').value);
+  const FSs = parseFloat(document.getElementById('p_FSs').value);
+  const P = parseFloat(document.getElementById('p_P').value);
+
+  const Ab = Math.PI * D*D / 4;     // cm²
+  const As = Math.PI * D;           // cm/cm 周長
+
+  const qb = 7.5 * Nb;              // tf/m² (砂)
+  const fs = Ns / 3;                // tf/m² (砂)
+  const Qb = qb * (Ab/10000);       // tf  (cm² → m²)
+  const Qs = fs * (As/100) * (Lb/100);  // tf
+  const Qa = Qb/FSb + Qs/FSs;
+
+  document.getElementById('pile-output').innerHTML = `
+    <table class="calc">
+      <thead><tr><th>項目</th><th>計算</th><th>結果</th></tr></thead>
+      <tbody>
+        <tr><td class="label">Ab = πD²/4</td><td class="formula">π×${D}²/4</td><td class="value">${fmt(Ab,1)} cm²</td></tr>
+        <tr><td class="label">qb = 7.5·N (砂)</td><td class="formula">7.5×${Nb}</td><td class="value">${fmt(qb,2)} tf/m²</td></tr>
+        <tr><td class="label">fs = N/3 (砂)</td><td class="formula">${Ns}/3</td><td class="value">${fmt(fs,2)} tf/m²</td></tr>
+        <tr><td class="label">Qb = qb·Ab</td><td class="formula"></td><td class="value">${fmt(Qb,2)} tf</td></tr>
+        <tr><td class="label">Qs = fs·πD·Lb</td><td class="formula"></td><td class="value">${fmt(Qs,2)} tf</td></tr>
+        <tr><td class="label max">Qa = Qb/FS_b + Qs/FS_s</td><td class="formula">${fmt(Qb,1)}/${FSb}+${fmt(Qs,1)}/${FSs}</td><td class="value max">${fmt(Qa,2)} tf</td></tr>
+        <tr><td class="label max">承載檢核 Qa &gt; P</td><td class="formula">${fmt(Qa,2)} vs ${P}</td><td class="value max">${checkTag(Qa>P)}</td></tr>
+      </tbody>
+    </table>
+  `;
+  RESULTS.pile = { D, Lb, Nb, Ns, FSb, FSs, P, Ab, qb, fs, Qb, Qs, Qa, ok: Qa>P };
+  setStatus('st-c-pile', '樁', (Qa/P).toFixed(2)+'×', Qa>P);
+}
+
+//============================================================
+// 狀態列更新
+//============================================================
+function setStatus(id, label, value, ok) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = `${label} ${value}`;
+  el.className = 'pill ' + (ok === null ? 'na' : (ok ? 'ok' : 'ng'));
+}
+
+//============================================================
+// 整套工況範本
+//============================================================
+const PRESETS = {
+  general: {
+    name: '一般載重 (HS20+PC400+45T)',
+    g_beta: 1.33, g_imp: 0.3, g_Wl: 150,
+    d_Pcrane: 13.63, s_Pcrane: 13.63, g4_Pcrane: 13.63,
+  },
+  '200T': {
+    name: '200T 吊車作業',
+    g_beta: 1.25, g_imp: 0.0, g_Wl: 0,
+    d_Pcrane: 56.51, s_Pcrane: 56.51, g4_Pcrane: 56.51,
+    s_section: 'H400×400×13×21', s_n: 2,
+    g4_section: 'H428×407×20×35', g4_n: 1,
+  },
+  '300T': {
+    name: '300T 吊車作業',
+    g_beta: 1.25, g_imp: 0.0, g_Wl: 0,
+    d_Pcrane: 89.83, s_Pcrane: 89.83, g4_Pcrane: 89.83,
+    s_section: 'H400×400×13×21', s_n: 3,
+    g4_section: 'H458×417×30×50', g4_n: 1,
+  },
+};
+function applyPreset(key) {
+  const p = PRESETS[key];
+  if (!p) return;
+  Object.entries(p).forEach(([k, v]) => {
+    if (k === 'name') return;
+    const el = document.getElementById(k);
+    if (el) el.value = v;
+  });
+  recalcAll();
+  alert(`已套用：${p.name}`);
+}
+
+//============================================================
+// 跨頁自動連動
+//============================================================
+function autolinkApply() {
+  if (!document.getElementById('autolink').checked) return;
+  const dL = parseFloat(document.getElementById('d_L').value);
+  const sL = parseFloat(document.getElementById('s_L').value);
+  // 板跨 → 小梁間距 B (因小梁在板正下方)
+  document.getElementById('s_B').value = dL;
+  document.getElementById('s_B').classList.add('linked');
+  // 小梁跨 → 大梁間距 B
+  document.getElementById('g4_B').value = sL;
+  document.getElementById('g4_B').classList.add('linked');
+
+  // 自動算 W2：小梁 WT × 小梁跨 / 大梁跨 (估算傳遞)
+  const sec_s = getSec(document.getElementById('s_section').value);
+  const s_n = parseInt(document.getElementById('s_n').value);
+  const g = G();
+  const sB = parseFloat(document.getElementById('s_B').value);
+  const g4L = parseFloat(document.getElementById('g4_L').value);
+  if (sec_s && g4L > 0) {
+    const Wb_s = sec_s.Wb * s_n;
+    const sWT = (g.Wp * sB + g.Wl * sB + Wb_s); // kgf/m
+    // 估算：每根小梁傳兩端反力 R = sWT × sL / 2，沿大梁長 L_g 上若有 m 支小梁交點，等效線載 ≈ Σ2R/L_g
+    // 簡化：W2 ≈ sWT × sL / g4L  (反映「小梁總荷除以大梁支距」)
+    const W2 = sWT * sL / g4L;
+    document.getElementById('g4_W2').value = Math.round(W2);
+    document.getElementById('g4_W2').classList.add('linked');
+  }
+}
+function autolinkPuToColumn(puMax) {
+  if (!document.getElementById('autolink').checked) return;
+  const cN = document.getElementById('c_N');
+  const bP = document.getElementById('b_P');
+  const pP = document.getElementById('p_P');
+  cN.value = puMax.toFixed(2); cN.classList.add('linked');
+  bP.value = puMax.toFixed(2); bP.classList.add('linked');
+  pP.value = puMax.toFixed(2); pP.classList.add('linked');
+}
+
+//============================================================
+// localStorage 持久化
+//============================================================
+const LS_KEY = 'fugongban_v1';
+function saveState() {
+  const data = {};
+  document.querySelectorAll('input, select').forEach(el => {
+    if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+function restoreState() {
+  const raw = localStorage.getItem(LS_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    Object.entries(data).forEach(([id, v]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = v;
+      else el.value = v;
+    });
+  } catch(e) { console.warn(e); }
+}
+function resetAll() {
+  if (!confirm('確定清空所有輸入並重置為預設值？')) return;
+  localStorage.removeItem(LS_KEY);
+  location.reload();
+}
+
+//============================================================
+// 匯出 JSON 參數檔（給 Python 產 Word 報告用）
+//============================================================
+function exportJSON() {
+  const g = G();
+  const payload = {
+    project: {
+      name: document.getElementById('proj_name').value || '',
+      no:   document.getElementById('proj_no').value || '',
+      date: document.getElementById('proj_date').value || '',
+    },
+    global: g,
+    inputs: {
+      deck:     { B: +document.getElementById('d_B').value, L: +document.getElementById('d_L').value,
+                  n: +document.getElementById('d_n').value, Sx: +document.getElementById('d_Sx').value,
+                  Ix: +document.getElementById('d_Ix').value, Aw: +document.getElementById('d_Aw').value,
+                  Pcrane: +document.getElementById('d_Pcrane').value },
+      stringer: { section: document.getElementById('s_section').value, n: +document.getElementById('s_n').value,
+                  B: +document.getElementById('s_B').value, L: +document.getElementById('s_L').value,
+                  Lt: +document.getElementById('s_Lt').value, fa: +document.getElementById('s_fa').value,
+                  Pcrane: +document.getElementById('s_Pcrane').value },
+      girder:   { section: document.getElementById('g4_section').value, n: +document.getElementById('g4_n').value,
+                  B: +document.getElementById('g4_B').value, L: +document.getElementById('g4_L').value,
+                  W2: +document.getElementById('g4_W2').value, Lt: +document.getElementById('g4_Lt').value,
+                  fa: +document.getElementById('g4_fa').value, Pcrane: +document.getElementById('g4_Pcrane').value },
+      column:   { section: document.getElementById('c_section').value, L: +document.getElementById('c_L').value,
+                  K: +document.getElementById('c_K').value, N: +document.getElementById('c_N').value,
+                  ex: +document.getElementById('c_ex').value, ey: +document.getElementById('c_ey').value,
+                  old: +document.getElementById('c_old').value },
+      bond:     { fc: +document.getElementById('b_fc').value, L: +document.getElementById('b_L').value,
+                  P: +document.getElementById('b_P').value, T: +document.getElementById('b_T').value },
+      pile:     { D: +document.getElementById('p_D').value, Lb: +document.getElementById('p_Lb').value,
+                  Nb: +document.getElementById('p_Nb').value, Ns: +document.getElementById('p_Ns').value,
+                  FSb: +document.getElementById('p_FSb').value, FSs: +document.getElementById('p_FSs').value,
+                  P: +document.getElementById('p_P').value },
+    },
+    results: JSON.parse(JSON.stringify(RESULTS, (k, v) =>
+      (typeof v === 'object' && v !== null && 'name' in v && 'H' in v) ? {name: v.name, H: v.H, B: v.B, tw: v.tw, tf: v.tf, A: v.A, Wb: v.Wb, Ix: v.Ix, Iy: v.Iy, Sx: v.Sx, Sy: v.Sy, rx: v.rx, ry: v.ry} : v
+    )),
+    exportedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fname = `覆工板_${(payload.project.no || 'CASE')}_${(payload.project.date || new Date().toISOString().slice(0,10))}.json`;
+  a.href = url; a.download = fname;
+  a.click();
+  URL.revokeObjectURL(url);
+  setTimeout(() => alert(`已下載：${fname}\n\n請將檔案放到本工具資料夾，雙擊「產生計算書.bat」即可產出 Word 報告。`), 100);
+}
+
+//============================================================
+// Tab 6: 彙整報告 / 計算書附件
+//============================================================
+function buildReport() {
+  const g = G();
+  const name = document.getElementById('proj_name').value || '(未填)';
+  const no   = document.getElementById('proj_no').value || '(未填)';
+  const date = document.getElementById('proj_date').value || '';
+  const R = RESULTS;
+
+  const chk = (ok) => ok===undefined?'—':(ok?'<span class="check ok">OK</span>':'<span class="check ng">NG</span>');
+  const pct = (a,b) => (a && b)?`${(a/b*100).toFixed(0)}%`:'—';
+
+  const overallOk = [R.deck,R.stringer,R.girder].every(x=>x && x.ok_fb && x.ok_fv && x.ok_d)
+                 && (!R.column || R.column.ok)
+                 && (!R.bond   || R.bond.ok)
+                 && (!R.pile   || R.pile.ok);
+
+  const deckRow = R.deck ? `
+    <tr><td>覆工版面</td><td>${R.deck.n}片×(${R.deck.Sx/R.deck.n} cm³/片)</td>
+        <td>${fmt(R.deck.Mmax,2)}</td><td>${fmt(R.deck.Vmax,2)}</td>
+        <td>${fmt(R.deck.fb,0)}/${fmt(R.deck.Fb,0)}<br>${pct(R.deck.fb,R.deck.Fb)}</td>
+        <td>${fmt(R.deck.fv,0)}/${fmt(R.deck.Fv,0)}<br>${pct(R.deck.fv,R.deck.Fv)}</td>
+        <td>${fmt(R.deck.def3.dmax,3)}/${fmt(R.deck.def_allow,3)}<br>${pct(R.deck.def3.dmax,R.deck.def_allow)}</td>
+        <td>${chk(R.deck.ok_fb && R.deck.ok_fv && R.deck.ok_d)}</td></tr>` : '';
+
+  const strRow = R.stringer ? `
+    <tr><td>覆工小梁</td><td>${R.stringer.sec.name}×${R.stringer.n}</td>
+        <td>${fmt(R.stringer.Mmax,2)}</td><td>${fmt(R.stringer.Vmax,2)}</td>
+        <td>${fmt(R.stringer.fb,0)}/${fmt(R.stringer.Fb,0)}<br>${pct(R.stringer.fb,R.stringer.Fb)}</td>
+        <td>${fmt(R.stringer.fv,0)}/${fmt(R.stringer.Fv,0)}<br>${pct(R.stringer.fv,R.stringer.Fv)}</td>
+        <td>${fmt(R.stringer.def3.dmax,3)}/${fmt(R.stringer.def_allow,3)}<br>${pct(R.stringer.def3.dmax,R.stringer.def_allow)}</td>
+        <td>${chk(R.stringer.ok_fb && R.stringer.ok_fv && R.stringer.ok_d)}</td></tr>` : '';
+
+  const girRow = R.girder ? `
+    <tr><td>覆工大梁</td><td>${R.girder.sec.name}×${R.girder.n}</td>
+        <td>${fmt(R.girder.Mmax,2)}</td><td>${fmt(R.girder.Vmax,2)}</td>
+        <td>${fmt(R.girder.fb,0)}/${fmt(R.girder.Fb,0)}<br>${pct(R.girder.fb,R.girder.Fb)}</td>
+        <td>${fmt(R.girder.fv,0)}/${fmt(R.girder.Fv,0)}<br>${pct(R.girder.fv,R.girder.Fv)}</td>
+        <td>${fmt(R.girder.def3.dmax,3)}/${fmt(R.girder.def_allow,3)}<br>${pct(R.girder.def3.dmax,R.girder.def_allow)}</td>
+        <td>${chk(R.girder.ok_fb && R.girder.ok_fv && R.girder.ok_d)}</td></tr>` : '';
+
+  const colBlock = R.column ? `
+    <h3>4. 共構柱檢核（AISC 軸壓+雙軸彎交互式）</h3>
+    <table class="calc"><thead><tr><th>項</th><th>值</th></tr></thead><tbody>
+      <tr><td>柱斷面</td><td>${R.column.sec.name} (A=${R.column.A} cm²)</td></tr>
+      <tr><td>軸力 N / 偏心 ex,ey</td><td>${fmt(R.column.N,2)} tf / ${R.column.ex},${R.column.ey} cm</td></tr>
+      <tr><td>fa = N/A</td><td>${fmt(R.column.fa,2)} kgf/cm²</td></tr>
+      <tr><td>Mx / My</td><td>${fmt(R.column.Mx,3)} / ${fmt(R.column.My,3)} tf-m</td></tr>
+      <tr><td>KL/rx / KL/ry</td><td>${fmt(R.column.KLrx,1)} / ${fmt(R.column.KLry,1)}</td></tr>
+      <tr><td>Fa₁ (含β×折減)</td><td>${fmt(R.column.Fa1,0)} kgf/cm²</td></tr>
+      <tr><td>交互式 ①</td><td>${fmt(R.column.chk1,3)} ${chk(R.column.chk1<=1)}</td></tr>
+      <tr><td>交互式 ②</td><td>${fmt(R.column.chk2,3)} ${chk(R.column.chk2<=1)}</td></tr>
+    </tbody></table>` : '';
+
+  const bondBlock = R.bond ? `
+    <h3>5. H 型鋼貫入 PC 握裹力</h3>
+    <table class="calc"><thead><tr><th>項</th><th>值</th></tr></thead><tbody>
+      <tr><td>fc' / 貫入深度 L</td><td>${R.bond.fc} kgf/cm² / ${R.bond.L} cm</td></tr>
+      <tr><td>τ = 0.03·fc'</td><td>${fmt(R.bond.tau,3)} kgf/cm²</td></tr>
+      <tr><td>拉拔 F &gt; T</td><td>${fmt(R.bond.F,2)} &gt; ${R.bond.T} tf ${chk(R.bond.ok_T)}</td></tr>
+      <tr><td>壓入 N &gt; P</td><td>${fmt(R.bond.Nc,2)} &gt; ${R.bond.P} tf ${chk(R.bond.ok_P)}</td></tr>
+    </tbody></table>` : '';
+
+  const pileBlock = R.pile ? `
+    <h3>6. 樁基承載</h3>
+    <table class="calc"><thead><tr><th>項</th><th>值</th></tr></thead><tbody>
+      <tr><td>樁徑 / 樁長</td><td>D=${R.pile.D} cm / Lb=${R.pile.Lb} cm</td></tr>
+      <tr><td>Qb / Qs</td><td>${fmt(R.pile.Qb,2)} / ${fmt(R.pile.Qs,2)} tf</td></tr>
+      <tr><td>Qa (FS_b=${R.pile.FSb}, FS_s=${R.pile.FSs})</td><td>${fmt(R.pile.Qa,2)} tf</td></tr>
+      <tr><td>承載 Qa &gt; P</td><td>${fmt(R.pile.Qa,2)} &gt; ${R.pile.P} tf ${chk(R.pile.ok)}</td></tr>
+    </tbody></table>` : '';
+
+  const html = `
+    <div style="text-align:center; margin-bottom:16px;">
+      <h1 style="margin:4px 0; font-size:22px;">覆工板系統結構計算書</h1>
+      <div style="color:#666; font-size:13px;">案名：${name}　　案件編號：${no}　　日期：${date}</div>
+    </div>
+
+    <div class="summary" style="text-align:center; font-size:16px; background:${overallOk?'#d4edda':'#f8d7da'}; border-color:${overallOk?'#b7e1c2':'#e9a4a4'}">
+      <h3 style="color:${overallOk?'#1e7e34':'#c0392b'}">整體結論：${overallOk ? '✅ 覆工板系統整體檢核「通過」' : '❌ 部分項目不通過（NG）— 請於下表確認'}</h3>
+    </div>
+
+    <h3>1. 設計條件</h3>
+    <table class="calc"><thead><tr><th>項</th><th>值</th></tr></thead><tbody>
+      <tr><td>鋼料</td><td>Fy = ${g.Fy} kgf/cm²　E = ${g.E.toExponential(2)} kgf/cm²</td></tr>
+      <tr><td>短期放大係數 β</td><td>${g.beta}</td></tr>
+      <tr><td>衝擊係數 i</td><td>${g.imp}</td></tr>
+      <tr><td>覆工板自重 Wp</td><td>${g.Wp} kgf/m²</td></tr>
+      <tr><td>活載重 Wl</td><td>${g.Wl} kgf/m²</td></tr>
+      <tr><td>容許撓度</td><td>L / ${g.defl}</td></tr>
+    </tbody></table>
+
+    <h3>2. 設計載重</h3>
+    <table class="calc"><thead><tr><th>類型</th><th>原始載重</th><th>含衝擊</th></tr></thead><tbody>
+      <tr><td>HS 20-44 卡車</td><td>P = 7.3 tf/輪</td><td>${fmt(7.3*(1+g.imp),2)} tf</td></tr>
+      <tr><td>PC400 履帶車</td><td>Wc = 8.244 tf/m (履帶長 4.35 m)</td><td>${fmt(8.244*(1+g.imp),3)} tf/m</td></tr>
+      <tr><td>吊車 (案例)</td><td>覆工版 P = ${R.deck?R.deck.Pc:'—'} tf　小梁 P = ${R.stringer?R.stringer.Pc:'—'} tf　大梁 P = ${R.girder?R.girder.Pc:'—'} tf</td><td>不衝擊（固定吊裝）</td></tr>
+    </tbody></table>
+
+    <h3>3. 構件檢核彙整表</h3>
+    <table class="calc"><thead><tr>
+      <th>構件</th><th>規格</th>
+      <th>Mmax<br>(tf-m)</th><th>Vmax<br>(tf)</th>
+      <th>fb / Fb<br>使用率</th><th>fv / Fv<br>使用率</th>
+      <th>δmax / δallow<br>使用率</th><th>結果</th>
+    </tr></thead><tbody>
+      ${deckRow}${strRow}${girRow}
+    </tbody></table>
+
+    ${R.girder ? `
+    <h4>大梁柱頂軸力 Pu（傳給共構柱）</h4>
+    <table class="calc"><thead><tr><th>情境</th><th>公式</th><th>Pu (tf)</th></tr></thead><tbody>
+      <tr><td>① PC400 支座位於柱上</td><td>Vmax</td><td>${fmt(R.girder.Pu1,2)}</td></tr>
+      <tr><td>② 吊車支座距柱 0.5 m</td><td>½·WT₂·L + P·(L−0.5)/L</td><td>${fmt(R.girder.Pu2,2)}</td></tr>
+      <tr><td>③ 吊車支座於相鄰跨間</td><td>½·WT₂·L + 2P·(L−4)/L</td><td>${fmt(R.girder.Pu3,2)}</td></tr>
+      <tr><td class="max"><b>控制 PuMax</b></td><td class="max">max</td><td class="max"><b>${fmt(R.girder.PuMax,2)}</b></td></tr>
+    </tbody></table>` : ''}
+
+    ${colBlock}
+    ${bondBlock}
+    ${pileBlock}
+
+    <h3>7. 檢核方法說明</h3>
+    <div style="font-size:12px; line-height:1.7; color:#333;">
+      <p><b>(1) 載重組合：</b>對覆工板面、覆工小梁、覆工大梁各分三組工況（HS20 集中＋衝擊；PC400 履帶分佈＋衝擊；吊車集中不衝擊），取 M、V、δ 之最大值控制設計。</p>
+      <p><b>(2) 容許應力法：</b>Fb = 0.6·Fy·β（充分側撐+結實斷面取 0.66·Fy·β）；Fv = 0.4·Fy·β。β 為短期應力放大係數（一般載重 1.33、吊車工況 1.25）。</p>
+      <p><b>(3) 撓度嚴謹解：</b>全跨均佈 δ = 5wL⁴/(384EI)；集中載重於中央 δ = PL³/(48EI)；對稱部分均佈長度 c 於中央 δ = wc(8L³−4c²L+c³)/(384EI)。三工況各別疊加，取最大為控制撓度。允許值 L/${g.defl}。</p>
+      <p><b>(4) 共構柱：</b>AISC ASD 軸壓＋雙軸彎交互式（fa/Fa > 0.15 採二次彎矩放大）；短期放大 β 與舊料折減（新料 1.0、舊料 0.9）併用。</p>
+      <p><b>(5) H 型鋼貫入 PC：</b>τ = 0.03·fc'；拉拔阻力 F = τ·L·ls；壓入阻力 N = τ·L·ls + 0.35·fc'·As'。</p>
+      <p><b>(6) 樁基承載：</b>Qult = qb·Ab + fs·πD·Lb（砂層 qb=7.5N, fs=N/3）；Qa = Qb/FS_b + Qs/FS_s。</p>
+      <p><b>(7) 斷面分類：</b>翼板細實 B/(2tf) vs 545/√Fy (結實)、800/√Fy (半結實)；腹板細實 H/tw vs 5370/√Fy·(1−3.74·fa/Fy)。</p>
+      <p><b>(8) 側撐：</b>Lc = min(L1, L2)，其中 L1 = 640·B/√Fy、L2 = 1.4×10⁶·Af/(H·Fy)。Lt ≤ Lc → 充分側撐。</p>
+    </div>
+
+    <div style="margin-top:24px; text-align:right; color:#888; font-size:11px;">
+      報告產出時間：${new Date().toLocaleString('zh-TW')}｜覆工板系統計算工具 v1.0
+    </div>
+  `;
+  document.getElementById('report-output').innerHTML = html;
+}
+
+//============================================================
+// 重算所有 + 連動
+//============================================================
+function recalcAll() {
+  autolinkApply();
+  calcDeck();
+  calcStringer();
+  calcGirder();
+  calcColumn();
+  calcBond();
+  calcPile();
+  buildReport();
+  saveState();
+}
+
+//============================================================
+// 啟動：綁定即時計算
+//============================================================
+function bindAll() {
+  // 任一輸入變動 → 全部重算 + 儲存
+  document.querySelectorAll('input, select').forEach(el => {
+    if (!el.id) return;
+    el.addEventListener('input', () => recalcAll());
+    el.addEventListener('change', () => recalcAll());
+  });
+}
+
+// 鍵盤捷徑 Ctrl+1~5 切頁
+document.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  const map = {'1':'global','2':'deck','3':'stringer','4':'girder','5':'column'};
+  if (map[e.key]) {
+    e.preventDefault();
+    document.querySelector(`nav.tabs button[data-tab="${map[e.key]}"]`).click();
+  }
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  fillSectionSelects();
+  restoreState();
+  // 預設日期 = 今天
+  const dateEl = document.getElementById('proj_date');
+  if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0,10);
+  bindAll();
+  recalcAll();
+});
+</script>
+</body>
+</html>
