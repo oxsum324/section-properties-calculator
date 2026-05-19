@@ -235,6 +235,7 @@
   </div>
 </div>
 
+<script src="../local-quick-export.js"></script>
 <script src="foundation-local-core.js"></script>
 <script>
 (function () {
@@ -247,6 +248,8 @@
   let lastResult = null;
   const Core = window.FoundationLocalCore;
   if (!Core) throw new Error('FoundationLocalCore is not loaded.');
+  const Exporter = window.LocalQuickExport;
+  if (!Exporter) throw new Error('LocalQuickExport is not loaded.');
 
   function $(id) { return document.getElementById(id); }
   function num(id) {
@@ -416,35 +419,16 @@
     };
   }
 
-  function jsonReplacer(key, value) {
-    return typeof value === 'number' && !Number.isFinite(value) ? String(value) : value;
-  }
-
-  function downloadJson(filename, payload) {
-    const json = JSON.stringify(payload, jsonReplacer, 2);
-    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
   function downloadResultJson() {
     const r = lastResult || calculateFoundationLocal();
     if (!r) return;
-    const stamp = new Date().toISOString().slice(0, 10);
-    downloadJson(`foundation-local-${stamp}.json`, {
+    Exporter.downloadResultJson({
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
         pageVersion: 'V0.1'
       },
       project: gatherProjectInfo(),
-      generatedAt: new Date().toISOString(),
       result: r
     });
   }

@@ -219,6 +219,7 @@
   </div>
 </div>
 
+<script src="../local-quick-export.js"></script>
 <script src="earth-pressure-core.js"></script>
 <!-- earth-pressure-smoke -->
 <script>
@@ -242,6 +243,8 @@
   let lastResult = null;
   const Core = window.EarthPressureCore;
   if (!Core) throw new Error('EarthPressureCore is not loaded.');
+  const Exporter = window.LocalQuickExport;
+  if (!Exporter) throw new Error('LocalQuickExport is not loaded.');
 
   function $(id) { return document.getElementById(id); }
   function num(id) {
@@ -401,35 +404,16 @@
     };
   }
 
-  function jsonReplacer(key, value) {
-    return typeof value === 'number' && !Number.isFinite(value) ? String(value) : value;
-  }
-
-  function downloadJson(filename, payload) {
-    const json = JSON.stringify(payload, jsonReplacer, 2);
-    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
   function downloadResultJson() {
     const r = lastResult || calculateEarthPressure();
     if (!r) return;
-    const stamp = new Date().toISOString().slice(0, 10);
-    downloadJson(`earth-pressure-${stamp}.json`, {
+    Exporter.downloadResultJson({
       tool: {
         id: 'earth-pressure',
         name: '擋土土壓局部快算',
         pageVersion: 'V0.1'
       },
       project: gatherProjectInfo(),
-      generatedAt: new Date().toISOString(),
       result: r
     });
   }

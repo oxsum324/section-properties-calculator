@@ -216,6 +216,7 @@
   </div>
 </div>
 
+<script src="../local-quick-export.js"></script>
 <script src="equipment-load-core.js"></script>
 <script>
 (function () {
@@ -239,6 +240,8 @@
   let lastResult = null;
   const Core = window.EquipmentLoadCore;
   if (!Core) throw new Error('EquipmentLoadCore is not loaded.');
+  const Exporter = window.LocalQuickExport;
+  if (!Exporter) throw new Error('LocalQuickExport is not loaded.');
 
   function $(id) { return document.getElementById(id); }
   function num(id) {
@@ -394,35 +397,16 @@
     };
   }
 
-  function jsonReplacer(key, value) {
-    return typeof value === 'number' && !Number.isFinite(value) ? String(value) : value;
-  }
-
-  function downloadJson(filename, payload) {
-    const json = JSON.stringify(payload, jsonReplacer, 2);
-    const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  }
-
   function downloadResultJson() {
     const r = lastResult || calculateEquipmentLoad();
     if (!r) return;
-    const stamp = new Date().toISOString().slice(0, 10);
-    downloadJson(`equipment-load-${stamp}.json`, {
+    Exporter.downloadResultJson({
       tool: {
         id: 'equipment-load',
         name: '設備局部荷重',
         pageVersion: 'V0.1'
       },
       project: gatherProjectInfo(),
-      generatedAt: new Date().toISOString(),
       result: r
     });
   }

@@ -85,6 +85,33 @@ const repoDocs = {
   vercel: readText(repoFile('vercel.json')),
 };
 
+const exportHelperPath = assertFile('tools/local-quick-export.js');
+const exportHelperText = readText(exportHelperPath);
+const ExportHelper = require(exportHelperPath);
+
+[
+  'LocalQuickExport',
+  'function jsonReplacer',
+  'function buildPayload',
+  'function downloadJson',
+  'function downloadResultJson',
+  'application/json',
+  'module.exports',
+].forEach(needle => assertIncludes(exportHelperText, needle, 'local quick export helper'));
+
+assert.equal(ExportHelper.version, '0.1.0', 'local quick export helper version');
+const helperPayload = ExportHelper.buildPayload({
+  tool: { id: 'helper-smoke', name: 'Helper Smoke' },
+  project: { name: '未填' },
+  generatedAt: '2026-05-19T00:00:00.000Z',
+  result: { value: Infinity }
+});
+assert.equal(helperPayload.tool.id, 'helper-smoke', 'local quick export helper payload tool');
+assert.equal(JSON.stringify(helperPayload, ExportHelper.jsonReplacer).includes('"Infinity"'), true, 'local quick export helper non-finite number serialization');
+assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.js', 'local quick export README');
+assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.js', 'local quick export boundary');
+assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
+
 const routes = new Set();
 
 for (const tool of tools) {
@@ -105,6 +132,7 @@ for (const tool of tools) {
     tool.smoke,
     tool.title,
     tool.calcFunction,
+    '../local-quick-export.js',
     path.basename(tool.core),
     'id="btnCalc"',
     'id="btnJson"',
@@ -117,9 +145,8 @@ for (const tool of tools) {
     '初估',
     '列印計算書',
     '下載 JSON',
+    'LocalQuickExport',
     'function downloadResultJson',
-    'application/json',
-    'generatedAt',
     '輸入格式',
     '計算指紋',
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));
@@ -187,6 +214,7 @@ for (const tool of tools) {
   assertIncludes(repoDocs.readme, tool.label, `${tool.key} README`);
   assertIncludes(repoDocs.boundaries, tool.boundaryPath, `${tool.key} tool boundary`);
   assertIncludes(repoDocs.staging, tool.html, `${tool.key} staging group`);
+  assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
   assertIncludes(repoDocs.vercel, `"source": "${tool.route}"`, `${tool.key} vercel route`);
   assertIncludes(repoDocs.vercel, `"destination": "/結構工具箱/${tool.html}"`, `${tool.key} vercel destination`);
 

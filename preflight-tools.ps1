@@ -147,10 +147,12 @@ exit 0
 
 $foundationLocalCommand = @'
 $htmlPath = '結構工具箱\tools\foundation\foundation-local.html'
+$exportPath = '結構工具箱\tools\local-quick-export.js'
 $corePath = '結構工具箱\tools\foundation\foundation-local-core.js'
 $testPath = '結構工具箱\tools\foundation\foundation-local-core.test.js'
 $goldenPath = '結構工具箱\tools\foundation\foundation-local-golden-cases.js'
 if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $exportPath)) { Write-Error "missing $exportPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
 if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
@@ -160,6 +162,7 @@ $needles = @(
   'foundation-local-smoke',
   '<title>基礎局部檢核 V0.1</title>',
   'function calculateFoundationLocal',
+  '../local-quick-export.js',
   'foundation-local-core.js',
   'id="btnCalc"',
   'id="btnJson"',
@@ -168,7 +171,7 @@ $needles = @(
   'id="coreVersion"',
   '工具與責任邊界',
   'function downloadResultJson',
-  'application/json',
+  'LocalQuickExport',
   'FoundationLocalCore',
   '計算指紋',
   '基礎局部檢核'
@@ -199,10 +202,12 @@ exit 0
 
 $equipmentLoadCommand = @'
 $htmlPath = '結構工具箱\tools\equipment\equipment-load.html'
+$exportPath = '結構工具箱\tools\local-quick-export.js'
 $corePath = '結構工具箱\tools\equipment\equipment-load-core.js'
 $testPath = '結構工具箱\tools\equipment\equipment-load-core.test.js'
 $goldenPath = '結構工具箱\tools\equipment\equipment-load-golden-cases.js'
 if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $exportPath)) { Write-Error "missing $exportPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
 if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
@@ -212,6 +217,7 @@ $needles = @(
   'equipment-load-smoke',
   '<title>設備局部荷重 V0.1</title>',
   'function calculateEquipmentLoad',
+  '../local-quick-export.js',
   'equipment-load-core.js',
   'id="btnCalc"',
   'id="btnJson"',
@@ -220,7 +226,7 @@ $needles = @(
   'id="coreVersion"',
   '工具與責任邊界',
   'function downloadResultJson',
-  'application/json',
+  'LocalQuickExport',
   'EquipmentLoadCore',
   '計算指紋',
   '設備局部荷重'
@@ -251,10 +257,12 @@ exit 0
 
 $earthPressureCommand = @'
 $htmlPath = '結構工具箱\tools\earth\earth-pressure.html'
+$exportPath = '結構工具箱\tools\local-quick-export.js'
 $corePath = '結構工具箱\tools\earth\earth-pressure-core.js'
 $testPath = '結構工具箱\tools\earth\earth-pressure-core.test.js'
 $goldenPath = '結構工具箱\tools\earth\earth-pressure-golden-cases.js'
 if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
+if (-not (Test-Path -LiteralPath $exportPath)) { Write-Error "missing $exportPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $corePath)) { Write-Error "missing $corePath"; exit 1 }
 if (-not (Test-Path -LiteralPath $testPath)) { Write-Error "missing $testPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $goldenPath)) { Write-Error "missing $goldenPath"; exit 1 }
@@ -264,6 +272,7 @@ $needles = @(
   'earth-pressure-smoke',
   '<title>擋土土壓局部快算 V0.1</title>',
   'function calculateEarthPressure',
+  '../local-quick-export.js',
   'earth-pressure-core.js',
   'id="btnCalc"',
   'id="btnJson"',
@@ -272,7 +281,7 @@ $needles = @(
   'id="coreVersion"',
   '工具與責任邊界',
   'function downloadResultJson',
-  'application/json',
+  'LocalQuickExport',
   'EarthPressureCore',
   '計算指紋',
   '擋土土壓局部快算'
