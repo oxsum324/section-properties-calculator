@@ -51,10 +51,12 @@ const runnerPath = assertFile(manifest.shared.runner);
 const exportHelperPath = assertFile(manifest.shared.exportHelper);
 const exportHelperTestPath = assertFile(manifest.shared.exportHelperTest);
 const outputConsistencyTestPath = assertFile(manifest.shared.outputConsistencyTest);
+const browserSmokeTestPath = assertFile(manifest.shared.browserSmokeTest);
 const runnerText = readText(runnerPath);
 const exportHelperText = readText(exportHelperPath);
 const exportHelperTestText = readText(exportHelperTestPath);
 const outputConsistencyTestText = readText(outputConsistencyTestPath);
+const browserSmokeTestText = readText(browserSmokeTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
@@ -63,6 +65,7 @@ const ExportHelper = require(exportHelperPath);
   '"shared"',
   '"runner"',
   '"outputConsistencyTest"',
+  '"browserSmokeTest"',
   '"tools"',
   '"foundation-local"',
   '"equipment-load"',
@@ -73,6 +76,7 @@ const ExportHelper = require(exportHelperPath);
   'local quick tools manifest runner OK',
   'manifest.shared.exportHelperTest',
   'manifest.shared.outputConsistencyTest',
+  'manifest.shared.browserSmokeTest',
   'manifest.shared.contractTest',
   'runNode',
 ].forEach(needle => assertIncludes(runnerText, needle, 'local quick tools runner'));
@@ -83,6 +87,14 @@ const ExportHelper = require(exportHelperPath);
   'Exporter.buildPayload',
   'r.provenance',
 ].forEach(needle => assertIncludes(outputConsistencyTestText, needle, 'local quick output consistency test'));
+
+[
+  'local quick browser smoke OK',
+  'Microsoft Edge',
+  'Target.createTarget',
+  'Emulation.setDeviceMetricsOverride',
+  'horizontalOverflow',
+].forEach(needle => assertIncludes(browserSmokeTestText, needle, 'local quick browser smoke test'));
 
 [
   'LocalQuickExport',
@@ -123,16 +135,19 @@ assert.strictEqual(
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.js', 'local quick export README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test README');
+assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-browser-smoke.test.js', 'local quick browser smoke test README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner README');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.js', 'local quick export boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test boundary');
+assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-browser-smoke.test.js', 'local quick browser smoke test boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner boundary');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test staging group');
+assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-browser-smoke.test.js', 'local quick browser smoke test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner staging group');
 
