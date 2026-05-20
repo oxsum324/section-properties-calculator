@@ -282,6 +282,51 @@ function toolExpression(tool) {
   })()`;
 }
 
+function jsonExportExpression() {
+  return `(async () => {
+    const originalCreateObjectURL = URL.createObjectURL.bind(URL);
+    const originalRevokeObjectURL = URL.revokeObjectURL.bind(URL);
+    const originalAnchorClick = HTMLAnchorElement.prototype.click;
+    const objectUrls = [];
+    const downloads = [];
+    const revoked = [];
+
+    URL.createObjectURL = function (blob) {
+      const url = 'blob:local-quick-smoke-' + objectUrls.length;
+      objectUrls.push({ url, blob });
+      return url;
+    };
+    URL.revokeObjectURL = function (url) {
+      revoked.push(url);
+    };
+    HTMLAnchorElement.prototype.click = function () {
+      downloads.push({
+        download: this.download || '',
+        href: this.getAttribute('href') || this.href || '',
+        attached: document.body.contains(this)
+      });
+    };
+
+    try {
+      document.getElementById('btnJson').click();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      const texts = await Promise.all(objectUrls.map(item => item.blob.text()));
+      return {
+        downloadCount: downloads.length,
+        downloads,
+        revoked,
+        blobCount: objectUrls.length,
+        blobTextLength: texts[0] ? texts[0].length : 0,
+        payload: texts[0] ? JSON.parse(texts[0]) : null
+      };
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      URL.revokeObjectURL = originalRevokeObjectURL;
+      HTMLAnchorElement.prototype.click = originalAnchorClick;
+    }
+  })()`;
+}
+
 function assertHomeState(state, tools, label) {
   assert.equal(state.title, '結構工具箱', `${label} home title`);
   assert.ok(state.hasLocalSection, `${label} home local section`);
@@ -306,6 +351,27 @@ function assertToolState(state, tool, label) {
   assert.ok(state.metricText.length > 20, `${label} ${tool.key} initial metrics`);
   assert.ok(state.checkText.length > 20, `${label} ${tool.key} initial checks`);
   assert.equal(state.horizontalOverflow, false, `${label} ${tool.key} horizontal overflow`);
+}
+
+function assertJsonExportState(state, tool, label) {
+  assert.equal(state.downloadCount, 1, `${label} ${tool.key} JSON click count`);
+  assert.equal(state.blobCount, 1, `${label} ${tool.key} JSON blob count`);
+  assert.deepEqual(state.revoked, ['blob:local-quick-smoke-0'], `${label} ${tool.key} JSON revoke`);
+  assert.match(state.downloads[0].download, new RegExp(`^${tool.key}-\\d{4}-\\d{2}-\\d{2}\\.json$`), `${label} ${tool.key} JSON filename`);
+  assert.equal(state.downloads[0].href, 'blob:local-quick-smoke-0', `${label} ${tool.key} JSON href`);
+  assert.equal(state.downloads[0].attached, true, `${label} ${tool.key} JSON anchor attached`);
+  assert.ok(state.blobTextLength > 500, `${label} ${tool.key} JSON payload length`);
+  assert.ok(state.payload, `${label} ${tool.key} JSON payload`);
+  assert.equal(state.payload.tool.id, tool.key, `${label} ${tool.key} payload tool id`);
+  assert.equal(state.payload.tool.name, tool.label, `${label} ${tool.key} payload tool name`);
+  assert.equal(state.payload.tool.pageVersion, tool.pageVersion, `${label} ${tool.key} payload page version`);
+  assert.equal(typeof state.payload.generatedAt, 'string', `${label} ${tool.key} payload generatedAt`);
+  assert.match(state.payload.result.resultSchemaVersion, /\.result\.v0\.1$/, `${label} ${tool.key} payload result schema`);
+  assert.equal(state.payload.result.provenance.core, tool.coreGlobal, `${label} ${tool.key} payload provenance core`);
+  assert.ok(Array.isArray(state.payload.result.checks), `${label} ${tool.key} payload checks`);
+  assert.ok(state.payload.result.checks.length >= 3, `${label} ${tool.key} payload checks count`);
+  assert.ok(Array.isArray(state.payload.result.summary.primaryMetrics), `${label} ${tool.key} payload metrics`);
+  assert.ok(state.payload.result.summary.primaryMetrics.length >= 3, `${label} ${tool.key} payload metrics count`);
 }
 
 async function main() {
@@ -375,6 +441,10 @@ async function main() {
           const result = await navigateAndInspect(client, sessionId, toolCase.url, viewport, toolExpression(tool));
           assert.deepEqual(result.errors, [], `${label} ${tool.key} console errors: ${result.errors.join(' | ')}`);
           assertToolState(result.state, tool, label);
+          if (toolCase.key === 'route-tool') {
+            const exportState = await evaluate(client, sessionId, jsonExportExpression());
+            assertJsonExportState(exportState, tool, label);
+          }
         }
       }
     }

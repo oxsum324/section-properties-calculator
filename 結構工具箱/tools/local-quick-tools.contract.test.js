@@ -95,6 +95,9 @@ const ExportHelper = require(exportHelperPath);
   'Target.createTarget',
   'Emulation.setDeviceMetricsOverride',
   'route-tool',
+  'btnJson',
+  'blob.text()',
+  'assertJsonExportState',
   'horizontalOverflow',
 ].forEach(needle => assertIncludes(browserSmokeTestText, needle, 'local quick browser smoke test'));
 
