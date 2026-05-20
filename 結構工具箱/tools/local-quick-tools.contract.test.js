@@ -98,6 +98,8 @@ const ExportHelper = require(exportHelperPath);
   'btnJson',
   'blob.text()',
   'assertJsonExportState',
+  'btnPrint',
+  'assertReportState',
   'horizontalOverflow',
 ].forEach(needle => assertIncludes(browserSmokeTestText, needle, 'local quick browser smoke test'));
 

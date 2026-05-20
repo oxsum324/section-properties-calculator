@@ -327,6 +327,53 @@ function jsonExportExpression() {
   })()`;
 }
 
+function reportExpression() {
+  return `(() => {
+    const originalOpen = window.open;
+    const opened = [];
+    const writes = [];
+    let documentOpened = false;
+    let closed = false;
+    let focused = false;
+
+    window.open = function (url, target) {
+      opened.push({ url: url || '', target: target || '' });
+      return {
+        document: {
+          open() {
+            documentOpened = true;
+          },
+          write(html) {
+            writes.push(String(html || ''));
+          },
+          close() {
+            closed = true;
+          }
+        },
+        focus() {
+          focused = true;
+        }
+      };
+    };
+
+    try {
+      document.getElementById('btnPrint').click();
+      const html = writes.join('');
+      return {
+        openCount: opened.length,
+        opened,
+        documentOpened,
+        closed,
+        focused,
+        htmlLength: html.length,
+        html
+      };
+    } finally {
+      window.open = originalOpen;
+    }
+  })()`;
+}
+
 function assertHomeState(state, tools, label) {
   assert.equal(state.title, '結構工具箱', `${label} home title`);
   assert.ok(state.hasLocalSection, `${label} home local section`);
@@ -372,6 +419,26 @@ function assertJsonExportState(state, tool, label) {
   assert.ok(state.payload.result.checks.length >= 3, `${label} ${tool.key} payload checks count`);
   assert.ok(Array.isArray(state.payload.result.summary.primaryMetrics), `${label} ${tool.key} payload metrics`);
   assert.ok(state.payload.result.summary.primaryMetrics.length >= 3, `${label} ${tool.key} payload metrics count`);
+}
+
+function assertReportState(state, tool, label) {
+  assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
+  assert.equal(state.opened[0].target, '_blank', `${label} ${tool.key} report target`);
+  assert.equal(state.documentOpened, true, `${label} ${tool.key} report document open`);
+  assert.equal(state.closed, true, `${label} ${tool.key} report document close`);
+  assert.ok(state.htmlLength > 1500, `${label} ${tool.key} report HTML length`);
+  [
+    tool.label,
+    '計算書',
+    '計算核心',
+    '輸入格式',
+    '計算指紋',
+    '適用範圍',
+    '不適用範圍',
+    '初估',
+  ].forEach(needle => {
+    assert.ok(state.html.includes(needle), `${label} ${tool.key} report includes ${needle}`);
+  });
 }
 
 async function main() {
@@ -444,6 +511,8 @@ async function main() {
           if (toolCase.key === 'route-tool') {
             const exportState = await evaluate(client, sessionId, jsonExportExpression());
             assertJsonExportState(exportState, tool, label);
+            const reportState = await evaluate(client, sessionId, reportExpression());
+            assertReportState(reportState, tool, label);
           }
         }
       }
