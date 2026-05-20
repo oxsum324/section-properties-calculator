@@ -24,7 +24,7 @@
       "pageVersion": "V0.1",
       "calcFunction": "function calculateFoundationLocal",
       "coreGlobal": "FoundationLocalCore",
-      "indexHref": "tools/foundation/foundation-local.html",
+      "indexHref": "/foundation-local",
       "boundaryPath": "結構工具箱/tools/foundation/"
     },
     {
@@ -40,7 +40,7 @@
       "pageVersion": "V0.1",
       "calcFunction": "function calculateEquipmentLoad",
       "coreGlobal": "EquipmentLoadCore",
-      "indexHref": "tools/equipment/equipment-load.html",
+      "indexHref": "/equipment-load",
       "boundaryPath": "結構工具箱/tools/equipment/"
     },
     {
@@ -56,7 +56,7 @@
       "pageVersion": "V0.1",
       "calcFunction": "function calculateEarthPressure",
       "coreGlobal": "EarthPressureCore",
-      "indexHref": "tools/earth/earth-pressure.html",
+      "indexHref": "/earth-pressure",
       "boundaryPath": "結構工具箱/tools/earth/"
     }
   ]

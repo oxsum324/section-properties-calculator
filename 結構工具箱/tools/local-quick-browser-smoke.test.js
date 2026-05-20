@@ -24,8 +24,16 @@ function toolboxFile(relativePath) {
   return path.join(toolboxRoot, ...relativePath.split('/'));
 }
 
+function repoFile(relativePath) {
+  return path.join(repoRoot, ...relativePath.split('/'));
+}
+
 function readJson(relativePath) {
   return JSON.parse(fs.readFileSync(toolboxFile(relativePath), 'utf8'));
+}
+
+function readRootJson(relativePath) {
+  return JSON.parse(fs.readFileSync(repoFile(relativePath), 'utf8'));
 }
 
 function getFreePort() {
@@ -54,10 +62,26 @@ function contentType(filePath) {
   }
 }
 
-function startStaticServer(port) {
+function createRewriteMap(vercelConfig) {
+  const rewriteMap = new Map();
+  for (const rewrite of vercelConfig.rewrites || []) {
+    if (rewrite.source && rewrite.destination) {
+      rewriteMap.set(rewrite.source, rewrite.destination);
+    }
+  }
+  return rewriteMap;
+}
+
+function resolveRequestPath(pathname, rewriteMap) {
+  const rewrittenPath = rewriteMap.get(pathname) || pathname;
+  return decodeURIComponent(rewrittenPath).replace(/^\/+/, '') || '結構工具箱/index.html';
+}
+
+function startStaticServer(port, vercelConfig) {
+  const rewriteMap = createRewriteMap(vercelConfig);
   const server = http.createServer((req, res) => {
     const requestUrl = new URL(req.url || '/', `http://127.0.0.1:${port}`);
-    const requestedPath = decodeURIComponent(requestUrl.pathname).replace(/^\/+/, '') || '結構工具箱/index.html';
+    const requestedPath = resolveRequestPath(requestUrl.pathname, rewriteMap);
     const fullPath = path.resolve(repoRoot, requestedPath);
     const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : repoRoot + path.sep;
 
@@ -245,8 +269,8 @@ function toolExpression(tool) {
       hasJsonButton: !!document.getElementById('btnJson'),
       hasMetricGrid: !!document.getElementById('metricGrid'),
       hasCheckList: !!document.getElementById('checkList'),
-      hasExportScript: scripts.includes('../local-quick-export.js'),
-      hasCoreScript: scripts.includes(${JSON.stringify(path.basename(tool.core))}),
+      hasExportScript: scripts.includes('/結構工具箱/tools/local-quick-export.js'),
+      hasCoreScript: scripts.includes(${JSON.stringify(`/結構工具箱/${tool.core}`)}),
       coreVersion: text('coreVersion'),
       banner: text('bannerStatus'),
       metricText: text('metricGrid'),
@@ -286,6 +310,7 @@ function assertToolState(state, tool, label) {
 
 async function main() {
   const manifest = readJson('tools/local-quick-tools.manifest.json');
+  const vercelConfig = readRootJson('vercel.json');
   const edgePath = EDGE_CANDIDATES.find(candidate => fs.existsSync(candidate));
   assert.ok(edgePath, `Microsoft Edge not found in: ${EDGE_CANDIDATES.join(', ')}`);
   assert.equal(typeof WebSocket, 'function', 'Node WebSocket support is required for CDP smoke');
@@ -298,7 +323,7 @@ async function main() {
   let client;
 
   try {
-    server = await startStaticServer(serverPort);
+    server = await startStaticServer(serverPort, vercelConfig);
     edge = spawn(edgePath, [
       '--headless=new',
       `--remote-debugging-port=${debugPort}`,
@@ -327,23 +352,35 @@ async function main() {
     await client.send('Runtime.enable', {}, sessionId);
     await client.send('Log.enable', {}, sessionId);
 
-    const homeUrl = `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/index.html')}`;
+    const homeCases = [
+      { key: 'file-home', url: `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/index.html')}` },
+      { key: 'route-root', url: `http://127.0.0.1:${serverPort}/` },
+      { key: 'route-platform', url: `http://127.0.0.1:${serverPort}/platform` },
+    ];
     for (const viewport of viewports) {
-      const label = viewport.key;
-      const home = await navigateAndInspect(client, sessionId, homeUrl, viewport, homeExpression(manifest.tools));
-      assert.deepEqual(home.errors, [], `${label} home console errors: ${home.errors.join(' | ')}`);
-      assertHomeState(home.state, manifest.tools, label);
+      for (const homeCase of homeCases) {
+        const label = `${viewport.key} ${homeCase.key}`;
+        const home = await navigateAndInspect(client, sessionId, homeCase.url, viewport, homeExpression(manifest.tools));
+        assert.deepEqual(home.errors, [], `${label} console errors: ${home.errors.join(' | ')}`);
+        assertHomeState(home.state, manifest.tools, label);
+      }
 
       for (const tool of manifest.tools) {
-        const toolUrl = `http://127.0.0.1:${serverPort}/${encodeURI(`結構工具箱/${tool.html}`)}`;
-        const result = await navigateAndInspect(client, sessionId, toolUrl, viewport, toolExpression(tool));
-        assert.deepEqual(result.errors, [], `${label} ${tool.key} console errors: ${result.errors.join(' | ')}`);
-        assertToolState(result.state, tool, label);
+        const toolCases = [
+          { key: 'file-tool', url: `http://127.0.0.1:${serverPort}/${encodeURI(`結構工具箱/${tool.html}`)}` },
+          { key: 'route-tool', url: `http://127.0.0.1:${serverPort}${tool.route}` },
+        ];
+        for (const toolCase of toolCases) {
+          const label = `${viewport.key} ${toolCase.key}`;
+          const result = await navigateAndInspect(client, sessionId, toolCase.url, viewport, toolExpression(tool));
+          assert.deepEqual(result.errors, [], `${label} ${tool.key} console errors: ${result.errors.join(' | ')}`);
+          assertToolState(result.state, tool, label);
+        }
       }
     }
 
     await client.send('Browser.close').catch(() => {});
-    console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports)`);
+    console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports, clean routes)`);
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {

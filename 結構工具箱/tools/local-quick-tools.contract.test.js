@@ -91,8 +91,10 @@ const ExportHelper = require(exportHelperPath);
 [
   'local quick browser smoke OK',
   'Microsoft Edge',
+  'vercel.json',
   'Target.createTarget',
   'Emulation.setDeviceMetricsOverride',
+  'route-tool',
   'horizontalOverflow',
 ].forEach(needle => assertIncludes(browserSmokeTestText, needle, 'local quick browser smoke test'));
 
@@ -172,8 +174,9 @@ for (const tool of tools) {
     tool.title,
     `pageVersion: '${tool.pageVersion}'`,
     tool.calcFunction,
-    '../local-quick-export.js',
-    path.basename(tool.core),
+    'href="/結構工具箱/core/style.css"',
+    'src="/結構工具箱/tools/local-quick-export.js"',
+    `src="/結構工具箱/${tool.core}"`,
     'id="btnCalc"',
     'id="btnJson"',
     'id="metricGrid"',
