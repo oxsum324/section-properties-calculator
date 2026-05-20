@@ -104,6 +104,111 @@ function run() {
   approx(zone1To.ToD, 1.6, 1e-9, 'Taipei zone 1 ToD');
   approx(zone3To.ToD, 1.05, 1e-9, 'Taipei zone 3 ToD');
 
+  assert.strictEqual(S.TABLE_5_1[0].name, '鋼造儲物架', 'table 5-1 first item');
+  approx(S.TABLE_5_1[0].R, 2.4, 1e-9, 'table 5-1 steel storage rack R');
+  assert.strictEqual(S.TABLE_5_1[2].hLimit, '未達 10 m', 'ordinary steel braced frame low-height range');
+  approx(S.TABLE_5_1[2].R, 2.0, 1e-9, 'ordinary steel braced frame under 10m R');
+  assert.strictEqual(S.TABLE_5_1[3].hLimit, '10 m（含）至 50 m 以下', 'ordinary steel braced frame higher range');
+  approx(S.TABLE_5_1[3].R, 1.5, 1e-9, 'ordinary steel braced frame 10m to 50m R');
+
+  const tower = S.TABLE_5_2.find(item => item.name.startsWith('桁架式高塔'));
+  assert.ok(tower, 'table 5-2 trussed tower exists');
+  approx(tower.R, 1.8, 1e-9, 'table 5-2 trussed tower R');
+  assert.strictEqual(tower.hLimit, '不限', 'table 5-2 trussed tower height limit');
+
+  const sign = S.TABLE_5_2.find(item => item.name === '招牌及廣告版');
+  assert.ok(sign, 'table 5-2 signboard exists');
+  approx(sign.R, 2.0, 1e-9, 'table 5-2 signboard R');
+
+  const other = S.TABLE_5_2.find(item => item.name === '前述以外之其它自己承擔載重之結構物');
+  assert.ok(other, 'table 5-2 other self-supporting structures exists');
+  approx(other.R, 1.6, 1e-9, 'table 5-2 other self-supporting structures R');
+  assert.strictEqual(other.hLimit, '15 m', 'table 5-2 other self-supporting structures height limit');
+
+  const appendage = S.calcFph({
+    SDS: generalSite.SDS,
+    Wp: 2.5,
+    ap: 1.0,
+    Rp: 2.5,
+    Ip: 1.0,
+    hx: 10,
+    hn: 20,
+    isTaipeiBasin: false,
+  });
+  approx(appendage.Rpa, 2.0, 1e-9, 'appendage Rpa');
+  approx(appendage.Cph_calc, 0.4 * generalSite.SDS * (1.0 / appendage.Rpa) * (1 + 2 * 10 / 20), 1e-9, 'appendage calculated coefficient');
+  approx(appendage.Cph_max, 1.6 * generalSite.SDS, 1e-9, 'appendage maximum coefficient');
+  approx(appendage.Cph_min, 0.3 * generalSite.SDS, 1e-9, 'appendage minimum coefficient');
+  approx(appendage.Cph, appendage.Fph / appendage.Wp, 1e-9, 'appendage adopted horizontal coefficient');
+  approx(appendage.Fph_calc, appendage.Cph_calc * appendage.Wp, 1e-9, 'appendage calculated force from coefficient');
+  approx(S.calcFpv(appendage.Fph, false) / appendage.Wp, 0.5 * appendage.Cph, 1e-9, 'appendage general vertical coefficient');
+  approx(S.calcFpv(appendage.Fph, true) / appendage.Wp, (2 / 3) * appendage.Cph, 1e-9, 'appendage near-fault vertical coefficient');
+
+  const signIdx = S.TABLE_5_2.findIndex(item => item.name === '招牌及廣告版');
+  const signRigid = S.calcMiscSeismic({
+    mode: 'nonsimilar',
+    typeIdx: signIdx,
+    siteClass: 2,
+    SsD: 0.6,
+    S1D: 0.35,
+    SsM: 0.8,
+    S1M: 0.5,
+    I: 1.0,
+    W: 10,
+    hn: 5,
+    T_user: 0,
+  });
+  assert.strictEqual(signRigid.formulaUsed, '式(5-1)', 'rigid non-similar misc formula');
+  approx(signRigid.R, 2.0, 1e-9, 'signboard calculation uses table 5-2 R');
+  approx(signRigid.Vh, 0.66 * 10 / 3, 1e-9, 'rigid signboard Vh');
+  approx(signRigid.Vv, signRigid.Vh / 2, 1e-9, 'rigid signboard Vv');
+  approx(signRigid.VhCoeff, signRigid.Vh / signRigid.W, 1e-9, 'rigid signboard Vh coefficient');
+  approx(signRigid.VvCoeff, signRigid.Vv / signRigid.W, 1e-9, 'rigid signboard Vv coefficient');
+
+  const similarLong = S.calcMiscSeismic({
+    mode: 'similar',
+    typeIdx: 5,
+    siteClass: 2,
+    SsD: 0.6,
+    S1D: 0.35,
+    SsM: 0.8,
+    S1M: 0.5,
+    I: 1.0,
+    W: 100,
+    hn: 20,
+    T_user: 2.0,
+  });
+  const similarExpectedRatio = S.calcSa(2.0, similarLong.site.SDS, similarLong.site.SD1) / similarLong.Fu;
+  const similarExpected = S.calcSaFuM(similarExpectedRatio) * 100 / 1.4;
+  approx(similarLong.Vh, similarExpected, 1e-9, 'similar misc uses equation 2-3 directly');
+  approx(similarLong.VhCoeff, similarLong.Vh / similarLong.W, 1e-9, 'similar misc Vh coefficient');
+  approx(similarLong.VvCoeff, similarLong.Vv / similarLong.W, 1e-9, 'similar misc Vv coefficient');
+  assert.ok(
+    similarLong.Vh < 0.4 * similarLong.site.SDS * 100 / 1.4,
+    'similar misc should not apply a separate 0.4 SDS force clamp beyond equation 2-3'
+  );
+
+  const towerIdx = S.TABLE_5_2.findIndex(item => item.name.startsWith('桁架式高塔'));
+  const towerFlexible = S.calcMiscSeismic({
+    mode: 'nonsimilar',
+    typeIdx: towerIdx,
+    siteClass: 2,
+    SsD: 0.6,
+    S1D: 0.35,
+    SsM: 0.8,
+    S1M: 0.5,
+    I: 1.0,
+    W: 80,
+    hn: 30,
+    T_user: 0.8,
+  });
+  const towerExpectedRatio = S.calcSa(0.8, towerFlexible.site.SDS, towerFlexible.site.SD1) / towerFlexible.Fu;
+  const towerExpected = S.calcSaFuM(towerExpectedRatio) * 80 / 1.2;
+  assert.strictEqual(towerFlexible.formulaUsed, '式(5-2)', 'flexible non-similar misc formula');
+  approx(towerFlexible.Vh, towerExpected, 1e-9, 'non-similar misc uses equation 5-2 directly');
+  approx(towerFlexible.VhCoeff, towerFlexible.Vh / towerFlexible.W, 1e-9, 'non-similar misc Vh coefficient');
+  approx(towerFlexible.VvCoeff, towerFlexible.Vv / towerFlexible.W, 1e-9, 'non-similar misc Vv coefficient');
+
   console.log('seismic.js tests passed');
 }
 

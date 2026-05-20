@@ -41,11 +41,13 @@ assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
 
 const repoDocs = {
   index: readText(path.join(toolboxRoot, 'index.html')),
+  homeJs: readText(toolboxFile('assets/home/home.js')),
   readme: readText(repoFile('README.md')),
   boundaries: readText(repoFile('TOOL_BOUNDARIES.md')),
   staging: readText(repoFile('STAGING_GROUPS.md')),
   vercel: readText(repoFile('vercel.json')),
 };
+repoDocs.homeSource = `${repoDocs.index}\n${repoDocs.homeJs}`;
 
 const runnerPath = assertFile(manifest.shared.runner);
 const exportHelperPath = assertFile(manifest.shared.exportHelper);
@@ -258,14 +260,19 @@ for (const tool of tools) {
     'input',
   ].forEach(needle => assertIncludes(golden, needle, `${tool.key} golden cases`));
 
-  assertIncludes(repoDocs.index, `href="${tool.indexHref}"`, `${tool.key} platform index`);
-  assertIncludes(repoDocs.index, tool.label, `${tool.key} platform index label`);
+  assertIncludes(repoDocs.homeSource, tool.indexHref, `${tool.key} platform index`);
+  assertIncludes(repoDocs.homeSource, tool.label, `${tool.key} platform index label`);
   assertIncludes(repoDocs.readme, tool.label, `${tool.key} README`);
   assertIncludes(repoDocs.boundaries, tool.boundaryPath, `${tool.key} tool boundary`);
   assertIncludes(repoDocs.staging, tool.html, `${tool.key} staging group`);
   assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
   assertIncludes(repoDocs.vercel, `"source": "${tool.route}"`, `${tool.key} vercel route`);
-  assertIncludes(repoDocs.vercel, `"destination": "/結構工具箱/${tool.html}"`, `${tool.key} vercel destination`);
+  const cleanDestination = `/結構工具箱/${tool.html.replace(/\.html$/i, '')}`;
+  assert.ok(
+    repoDocs.vercel.includes(`"destination": "/結構工具箱/${tool.html}"`) ||
+      repoDocs.vercel.includes(`"destination": "${cleanDestination}"`),
+    `${tool.key} vercel destination missing: /結構工具箱/${tool.html} or ${cleanDestination}`
+  );
 
   const run = spawnSync(process.execPath, [testPath], {
     cwd: repoRoot,

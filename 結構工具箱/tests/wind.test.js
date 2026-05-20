@@ -228,8 +228,13 @@ function run() {
   const towerCf = W.lookupTowerCf({ sectionType: 'square_face', hOverD: 10 });
   approx(towerCf.cf, 1.5, 1e-12, 'tower cf linear interpolation for square face');
 
-  const towerCfCircular = W.lookupTowerCf({ sectionType: 'circular_auto', hOverD: 7, qzD: 1.5 });
-  approx(towerCfCircular.cf, 0.8, 1e-12, 'tower cf circular low qD');
+  approx(W.calcDiameterSqrtQz(2, 9), 6, 1e-12, 'D sqrt(qz) classifier');
+
+  const towerCfCircular = W.lookupTowerCf({ sectionType: 'circular_auto', hOverD: 7, dSqrtQz: 1.5 });
+  approx(towerCfCircular.cf, 0.8, 1e-12, 'tower cf circular low D sqrt(qz)');
+
+  const cylinderCf = W.lookupCircularCylinderCf({ diameter: 2, height: 14, dSqrtQz: 1.69 });
+  approx(cylinderCf.cf, 0.8, 1e-12, 'circular cylinder table 2.12 low D sqrt(qz)');
 
   const tower = W.calcTowerWind({
     V: 42.5, terrain: 'C', I: 1.0, zBase: 0, height: 30, D: 2.0,
@@ -266,8 +271,8 @@ function run() {
   const prismR = W.lookupAngularPrismR(6);
   approx(prismR.r, 0.7, 1e-12, 'angular prism slenderness correction');
 
-  const cable = W.lookupCableCf({ roughness: 'rough_cable', qzD: 2.0 });
-  approx(cable.cf, 1.1, 1e-12, 'cable Cf high q(z)D');
+  const cable = W.lookupCableCf({ roughness: 'rough_cable', dSqrtQz: 2.0 });
+  approx(cable.cf, 1.1, 1e-12, 'cable Cf high D sqrt(qz)');
 
   console.log('wind.js tests passed');
 }

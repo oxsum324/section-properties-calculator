@@ -533,12 +533,16 @@
   function calcFph(p) {
     const { SDS, Wp, ap, Rp, Ip = 1.0, hx = 0, hn = 1, isTaipeiBasin = false } = p;
     const Rpa = calcRpa(Rp, isTaipeiBasin);
-    const Fph_calc = 0.4 * SDS * Ip * (ap / Rpa) * (1 + 2 * hx / hn) * Wp;
-    const Fph_max = 1.6 * SDS * Ip * Wp;
-    const Fph_min = 0.3 * SDS * Ip * Wp;
-    const Fph = Math.min(Fph_max, Math.max(Fph_min, Fph_calc));
-    const controlled = Fph_calc > Fph_max ? 'max' : Fph_calc < Fph_min ? 'min' : 'calc';
-    return { Fph, Fph_calc, Fph_max, Fph_min, Rpa, controlled, ap, Rp, Ip, hx, hn, SDS, Wp };
+    const Cph_calc = 0.4 * SDS * Ip * (ap / Rpa) * (1 + 2 * hx / hn);
+    const Cph_max = 1.6 * SDS * Ip;
+    const Cph_min = 0.3 * SDS * Ip;
+    const Cph = Math.min(Cph_max, Math.max(Cph_min, Cph_calc));
+    const Fph_calc = Cph_calc * Wp;
+    const Fph_max = Cph_max * Wp;
+    const Fph_min = Cph_min * Wp;
+    const Fph = Cph * Wp;
+    const controlled = Cph_calc > Cph_max ? 'max' : Cph_calc < Cph_min ? 'min' : 'calc';
+    return { Fph, Fph_calc, Fph_max, Fph_min, Cph, Cph_calc, Cph_max, Cph_min, Rpa, controlled, ap, Rp, Ip, hx, hn, SDS, Wp };
   }
 
   /**
@@ -616,31 +620,62 @@
   }
 
   // ═══════════════════════════════
-  //  第五章 — 雜項工作物地震力 (式 5-1)
+  //  第五章 — 雜項工作物地震力
   // ═══════════════════════════════
 
-  /** 表 5-1: 雜項工作物之韌性容量 R 與 αy */
+  /** 表 5-1: 相似於建築結構之雜項工作物結構系統韌性容量與高度限制 */
   const TABLE_5_1 = [
-    { name: '自立式桁架塔',           R: 3.5, alphaY: 1.0 },
-    { name: '拉線式桁架塔',           R: 3.5, alphaY: 1.0 },
-    { name: '鋼造煙囪',               R: 3.5, alphaY: 1.0 },
-    { name: 'RC 造煙囪',              R: 2.0, alphaY: 1.0 },
-    { name: '鋼造水塔 (支柱式)',       R: 2.5, alphaY: 1.0 },
-    { name: 'RC 造水塔 (壁式)',        R: 2.0, alphaY: 1.0 },
-    { name: '混凝土 / 磚造擋土牆',    R: 2.5, alphaY: 1.0 },
-    { name: 'RC 圍牆',                R: 2.0, alphaY: 1.0 },
-    { name: '磚造圍牆',               R: 1.5, alphaY: 1.0 },
-    { name: '招牌及廣告牌',           R: 2.5, alphaY: 1.0 },
-    { name: '獨立式機電設備',          R: 2.5, alphaY: 1.0 },
-    { name: '太陽能板支架',           R: 2.5, alphaY: 1.0 },
-    { name: '其他 (保守)',             R: 1.5, alphaY: 1.0 },
+    { name: '鋼造儲物架', R: 2.4, alphaY: 1.0, hLimit: '不限' },
+    { name: '鋼造特殊同心斜撐構架（同表 1-3）', R: 3.6, alphaY: 1.0, hLimit: '50 m', hMax: 50 },
+    { name: '鋼造普通同心斜撐構架（高度未達 10 m）', R: 2.0, alphaY: 1.0, hLimit: '未達 10 m', hMax: 10, hMaxInclusive: false },
+    { name: '鋼造普通同心斜撐構架（高度 10 m（含）至 50 m 以下）', R: 1.5, alphaY: 1.0, hLimit: '10 m（含）至 50 m 以下', hMin: 10, hMax: 50, hMaxInclusive: false },
+    { name: '鋼造特殊抗彎構架', R: 4.8, alphaY: 1.0, hLimit: '不限' },
+    { name: '鋼筋混凝土造特殊抗彎構架', R: 4.8, alphaY: 1.0, hLimit: '不限' },
+    { name: '鋼造部份韌性抗彎構架', R: 1.5, alphaY: 1.0, hLimit: '15 m', hMax: 15 },
+    { name: '鋼筋混凝土造部份韌性抗彎構架', R: 1.6, alphaY: 1.0, hLimit: '15 m', hMax: 15 },
+  ];
+
+  /** 表 5-2: 非相似於建築結構之雜項工作物結構韌性容量與高度限制 */
+  const TABLE_5_2 = [
+    { name: '高架式容器、水塔、儲槽或壓力容器：對稱式斜撐支架', R: 1.8, alphaY: 1.0, hLimit: '50 m', hMax: 50 },
+    { name: '高架式容器、水塔、儲槽或壓力容器：無斜撐或不對稱式斜撐支架', R: 1.2, alphaY: 1.0, hLimit: '30 m', hMax: 30 },
+    { name: '鞍座支承之臥式銲接鋼槽', R: 1.8, alphaY: 1.0, hLimit: '不限' },
+    { name: '類建築塔式結構支承之儲存槽', R: 1.0, alphaY: 1.0, hLimit: '依相似建築結構系統參照表 1-3', hLimitRef: '表 1-3' },
+    { name: '地盤支承之平底式儲存槽：鋼造或碳纖強化可塑式，機械錨定式', R: 1.8, alphaY: 1.0, hLimit: '不限' },
+    { name: '地盤支承之平底式儲存槽：鋼造或碳纖強化可塑式，自錨定式', R: 1.5, alphaY: 1.0, hLimit: '不限' },
+    { name: '地盤支承之平底式儲存槽：鋼筋混凝土造或預力混凝土造，強化無滑動式基礎', R: 1.2, alphaY: 1.0, hLimit: '不限' },
+    { name: '地盤支承之平底式儲存槽：鋼筋混凝土造或預力混凝土造，錨定式柔性基礎', R: 2.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '地盤支承之平底式儲存槽：鋼筋混凝土造或預力混凝土造，無錨定與束制式柔性基礎', R: 1.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '地盤支承之平底式儲存槽：其他', R: 1.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '現地澆注之混凝土榖倉及煙囪，具連續性之牆壁並延續至基礎者', R: 2.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '非類似於建築之部分加強磚造剪力牆結構', R: 1.8, alphaY: 1.0, hLimit: '15 m', hMax: 15 },
+    { name: '混凝土造煙囪或排氣管', R: 1.6, alphaY: 1.0, hLimit: '不限' },
+    { name: '質量均佈懸臂結構：銲接式鋼造', R: 1.2, alphaY: 1.0, hLimit: '不限' },
+    { name: '質量均佈懸臂結構：具特殊細節之銲接式鋼造', R: 1.8, alphaY: 1.0, hLimit: '不限' },
+    { name: '質量均佈懸臂結構：預力混凝土或鋼筋混凝土造', R: 1.2, alphaY: 1.0, hLimit: '不限' },
+    { name: '質量均佈懸臂結構：具特殊細節之預力混凝土或鋼筋混凝土造', R: 1.8, alphaY: 1.0, hLimit: '不限' },
+    { name: '桁架式高塔（獨立式或拉線式）、拉線式倉房或煙囪', R: 1.8, alphaY: 1.0, hLimit: '不限' },
+    { name: '冷卻水塔：混凝土造或鋼造', R: 2.1, alphaY: 1.0, hLimit: '不限' },
+    { name: '冷卻水塔：木構架式', R: 2.1, alphaY: 1.0, hLimit: '不限' },
+    { name: '通訊電塔：鋼造桁架', R: 1.8, alphaY: 1.0, hLimit: '不限' },
+    { name: '通訊電塔：桿式，鋼造', R: 1.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '通訊電塔：桿式，木造', R: 1.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '通訊電塔：桿式，混凝土造', R: 1.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '通訊電塔：構架式，鋼造', R: 1.5, alphaY: 1.0, hLimit: '不限' },
+    { name: '通訊電塔：構架式，木造', R: 1.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '通訊電塔：構架式，混凝土造', R: 1.2, alphaY: 1.0, hLimit: '不限' },
+    { name: '遊樂用結構及紀念碑', R: 1.2, alphaY: 1.0, hLimit: '不限' },
+    { name: '倒鐘擺型結構（高塔式容器或儲存槽除外）', R: 1.2, alphaY: 1.0, hLimit: '不限' },
+    { name: '招牌及廣告版', R: 2.0, alphaY: 1.0, hLimit: '不限' },
+    { name: '前述以外之其它自己承擔載重之結構物', R: 1.6, alphaY: 1.0, hLimit: '15 m', hMax: 15 },
   ];
 
   /**
-   * 雜項工作物地震力計算 (式 5-1)
-   * 同建築物公式但使用表 5-1 的 R/αy
+   * 雜項工作物地震力計算
+   * 依 mode 使用表 5-1 或表 5-2 的 R 值，alphaY 預設 1.0。
    * @param {object} p
-   *   typeIdx     — TABLE_5_1 索引 (或 -1 自訂)
+   *   mode        — 'similar' 使用表 5-1，'nonsimilar' 使用表 5-2
+   *   typeIdx     — 表列索引 (或 -1 自訂)
    *   R, alphaY   — 自訂時使用
    *   SsD, S1D, SsM, S1M — 震區參數
    *   siteClass   — 地盤分類
@@ -651,7 +686,9 @@
    *   isTaipeiBasin
    */
   function calcMiscSeismic(p) {
-    const item = p.typeIdx >= 0 ? TABLE_5_1[p.typeIdx] : null;
+    const mode = p.mode === 'similar' ? 'similar' : 'nonsimilar';
+    const table = mode === 'similar' ? TABLE_5_1 : TABLE_5_2;
+    const item = p.typeIdx >= 0 ? table[p.typeIdx] : null;
     const R      = item ? item.R      : (p.R || 1.5);
     const alphaY = item ? item.alphaY : (p.alphaY || 1.0);
     const I      = p.I || 1.0;
@@ -675,33 +712,87 @@
     const SaD = calcSa(T, site.SDS, site.SD1);
     const SaM = calcSa(T, site.SMS, site.SM1);
 
-    // VD (式 2-3)
-    const vd = calcVD(I, alphaY, SaD, Fu, W);
-
-    // V* (式 2-13a)
-    const vs = calcVstar(I, alphaY, Fu, SaD, W, isTB);
-
-    // VM (式 2-13c)
-    const vm = calcVM(I, alphaY, SaM, FuM, W);
-
-    const Vdesign = Math.max(vd.VD, vs.Vstar, vm.VM);
-    let controlledBy = 'VD';
-    if (Vdesign === vs.Vstar) controlledBy = 'V*';
-    if (Vdesign === vm.VM) controlledBy = 'VM';
-
-    // 震力係數 = V/W
-    const Cs = W > 0 ? Vdesign / W : 0;
-
-    return {
+    const ratio = SaD / Fu;
+    const ratio_m = calcSaFuM(ratio);
+    const ratioM = SaM / FuM;
+    const ratioM_m = calcSaFuM(ratioM);
+    const base = {
+      mode,
       typeName: item ? item.name : '自訂',
+      hLimit: item ? item.hLimit : '自訂',
+      hMin: item && item.hMin != null ? item.hMin : null,
+      hMax: item && item.hMax != null ? item.hMax : null,
+      hMinInclusive: !item || item.hMinInclusive !== false,
+      hMaxInclusive: !item || item.hMaxInclusive !== false,
       R, alphaY, I, W, hn, T,
       site, ToD, ToM, Ra, Fu, FuM,
       SaD, SaM,
-      VD: vd.VD, VD_ratio: vd.ratio, VD_ratio_m: vd.ratio_m,
-      Vstar: vs.Vstar, Vs_ratio: vs.ratio, Vs_ratio_m: vs.ratio_m,
-      VM: vm.VM, VM_ratio: vm.ratio, VM_ratio_m: vm.ratio_m,
-      Vdesign, controlledBy, Cs,
+      ratio,
+      ratio_m,
+      ratioM,
+      ratioM_m,
       isTaipeiBasin: isTB
+    };
+
+    if (mode === 'similar') {
+      const denom = 1.4 * alphaY;
+      const Vh_main = (I / denom) * ratio_m * W;
+      const vvRes = calcVerticalSeismic({
+        SDS: site.SDS,
+        SD1: site.SD1,
+        I,
+        alphaY,
+        T,
+        ToD,
+        isNearFault: p.isNearFault,
+        isTaipeiBasin: isTB,
+        W_slab: W
+      });
+      return {
+        ...base,
+        denom,
+        Vh_main,
+        Vh: Vh_main,
+        Vv: vvRes.VZ,
+        Vdesign: Vh_main,
+        VhCoeff: W > 0 ? Vh_main / W : 0,
+        VvCoeff: W > 0 ? vvRes.VZ / W : 0,
+        Cs: W > 0 ? Vh_main / W : 0,
+        controlledBy: '式(2-3)',
+        verticalSource: '2.18 節',
+        vvRes,
+        formulaUsed: '式(2-3)'
+      };
+    }
+
+    let Vh, Vh_main, controlledBy, formulaUsed, denom;
+    if (T < 0.06) {
+      denom = 3 * alphaY;
+      Vh_main = site.SDS * I * W / denom;
+      Vh = Vh_main;
+      controlledBy = '式(5-1) 剛性結構簡化';
+      formulaUsed = '式(5-1)';
+    } else {
+      denom = 1.2 * alphaY;
+      Vh_main = (I / denom) * ratio_m * W;
+      Vh = Vh_main;
+      controlledBy = '式(5-2)';
+      formulaUsed = '式(5-2)';
+    }
+    const Vv = (p.isNearFault ? 2 / 3 : 1 / 2) * Vh;
+    return {
+      ...base,
+      denom,
+      Vh_main,
+      Vh,
+      Vv,
+      Vdesign: Vh,
+      VhCoeff: W > 0 ? Vh / W : 0,
+      VvCoeff: W > 0 ? Vv / W : 0,
+      Cs: W > 0 ? Vh / W : 0,
+      controlledBy,
+      verticalSource: p.isNearFault ? '近斷層取 2/3 Vh' : '一般 / 臺北盆地取 1/2 Vh',
+      formulaUsed
     };
   }
 
@@ -741,6 +832,7 @@
     calcVerticalSeismic,
     // 第五章 — 雜項工作物
     TABLE_5_1,
+    TABLE_5_2,
     calcMiscSeismic,
     // 向後相容
     calcStaticSeismic,

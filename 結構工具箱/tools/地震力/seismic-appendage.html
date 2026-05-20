@@ -255,6 +255,7 @@ const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
 let lastAppendResult = null;
 
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
+function fmtCoeff(v) { return fmt(v, 4); }
 function getProjectInfo() {
   const v = id => (document.getElementById(id)?.value || '').trim();
   return { name: v('projName'), no: v('projNo'), designer: v('projDesigner') };
@@ -414,12 +415,13 @@ function calcAppendagePage() {
   const site = S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M);
   const r = S.calcFph({ SDS: site.SDS, Wp, ap, Rp, Ip, hx, hn, isTaipeiBasin: isTB });
   const Fpv = S.calcFpv(r.Fph, isNF);
+  const Cpv = isNF ? (2 / 3) * r.Cph : 0.5 * r.Cph;
   const ctrlLabel = r.controlled === 'max'
     ? '受式(4-1b)上限控制'
     : r.controlled === 'min'
       ? '受式(4-1c)下限控制'
       : '採式(4-1a)計算值';
-  lastAppendResult = { ...r, Fpv, site, ctrlLabel, typeName, note, isNearFault: isNF, isTaipeiBasin: isTB };
+  lastAppendResult = { ...r, Fpv, Cpv, site, ctrlLabel, typeName, note, isNearFault: isNF, isTaipeiBasin: isTB };
   document.getElementById('resultPanel').style.display = '';
   document.getElementById('banner').className = 'banner-status ok';
   document.getElementById('banner').innerHTML =
@@ -437,8 +439,16 @@ function calcAppendagePage() {
         <span><span class="value">${fmt(r.Fph,3)}</span><span class="unit">tf</span></span>
       </div>
       <div class="result-item">
+        <span class="label">水平係數 F<sub>ph</sub> / W<sub>p</sub></span>
+        <span><span class="value">${fmtCoeff(r.Cph)}</span><span class="unit">W<sub>p</sub></span></span>
+      </div>
+      <div class="result-item">
         <span class="label">垂直地震力 F<sub>pv</sub></span>
         <span><span class="value">${fmt(Fpv,3)}</span><span class="unit">tf</span></span>
+      </div>
+      <div class="result-item">
+        <span class="label">垂直係數 F<sub>pv</sub> / W<sub>p</sub></span>
+        <span><span class="value">${fmtCoeff(Cpv)}</span><span class="unit">W<sub>p</sub></span></span>
       </div>
       <div class="result-item">
         <span class="label">R<sub>pa</sub></span>
@@ -477,25 +487,30 @@ function calcAppendagePage() {
 
         <strong>③ 式(4-1a) 附屬構造物水平地震力計算值</strong><br>
         F<sub>ph,a</sub> = 0.4 × S<sub>DS</sub> × I<sub>p</sub> × (a<sub>p</sub> / R<sub>pa</sub>) × (1 + 2h<sub>x</sub>/h<sub>n</sub>) × W<sub>p</sub><br>
-        &emsp;= 0.4 × ${fmt(site.SDS,4)} × ${Ip} × (${ap} / ${fmt(r.Rpa,3)}) × (1 + 2 × ${fmt(hx / hn,3)}) × ${Wp}<br>
+        水平計算係數 C<sub>ph,a</sub> = 0.4 × ${fmt(site.SDS,4)} × ${Ip} × (${ap} / ${fmt(r.Rpa,3)}) × (1 + 2 × ${fmt(hx / hn,3)}) = <span class="val">${fmtCoeff(r.Cph_calc)}</span><br>
+        F<sub>ph,a</sub> = C<sub>ph,a</sub>W<sub>p</sub> = ${fmtCoeff(r.Cph_calc)}W<sub>p</sub> = ${fmtCoeff(r.Cph_calc)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val">${fmt(r.Fph_calc,4)}</span> tf<br><br>
 
         <strong>④ 式(4-1b) 上限值</strong><br>
         F<sub>ph,max</sub> = 1.6 × S<sub>DS</sub> × I<sub>p</sub> × W<sub>p</sub><br>
-        &emsp;= 1.6 × ${fmt(site.SDS,4)} × ${Ip} × ${Wp}<br>
+        C<sub>ph,max</sub> = 1.6 × ${fmt(site.SDS,4)} × ${Ip} = <span class="val">${fmtCoeff(r.Cph_max)}</span><br>
+        F<sub>ph,max</sub> = C<sub>ph,max</sub>W<sub>p</sub> = ${fmtCoeff(r.Cph_max)}W<sub>p</sub> = ${fmtCoeff(r.Cph_max)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val">${fmt(r.Fph_max,4)}</span> tf<br><br>
 
         <strong>⑤ 式(4-1c) 下限值</strong><br>
         F<sub>ph,min</sub> = 0.3 × S<sub>DS</sub> × I<sub>p</sub> × W<sub>p</sub><br>
-        &emsp;= 0.3 × ${fmt(site.SDS,4)} × ${Ip} × ${Wp}<br>
+        C<sub>ph,min</sub> = 0.3 × ${fmt(site.SDS,4)} × ${Ip} = <span class="val">${fmtCoeff(r.Cph_min)}</span><br>
+        F<sub>ph,min</sub> = C<sub>ph,min</sub>W<sub>p</sub> = ${fmtCoeff(r.Cph_min)}W<sub>p</sub> = ${fmtCoeff(r.Cph_min)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val">${fmt(r.Fph_min,4)}</span> tf<br><br>
 
         <strong>⑥ 水平設計地震力採用</strong><br>
-        F<sub>ph</sub> = <span class="val hl">${fmt(r.Fph,3)}</span> tf　(${ctrlLabel})<br><br>
+        F<sub>ph</sub> = C<sub>ph</sub>W<sub>p</sub> = ${fmtCoeff(r.Cph)}W<sub>p</sub> = ${fmtCoeff(r.Cph)} × ${fmt(Wp,3)}<br>
+        &emsp;= <span class="val hl">${fmt(r.Fph,3)}</span> tf　(${ctrlLabel})<br><br>
 
         <strong>⑦ 式(4-3) 垂直地震力</strong><br>
         F<sub>pv</sub> = ${isNF ? '2/3' : '1/2'} × F<sub>ph</sub><br>
-        &emsp;= ${isNF ? '2/3' : '1/2'} × ${fmt(r.Fph,3)}<br>
+        垂直係數 C<sub>pv</sub> = ${isNF ? '2/3' : '1/2'} × C<sub>ph</sub> = <span class="val">${fmtCoeff(Cpv)}</span><br>
+        F<sub>pv</sub> = C<sub>pv</sub>W<sub>p</sub> = ${fmtCoeff(Cpv)}W<sub>p</sub> = ${fmtCoeff(Cpv)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val hl">${fmt(Fpv,3)}</span> tf
       </div>
     </div>
@@ -552,7 +567,7 @@ function openAppendageReport() {
         <div><b>設計人員</b>${proj.designer || '—'}</div>
         <div><b>製表日期</b>${today}</div>
       </div>
-      <div class="summary">${r.typeName}　Fph = ${fmt(r.Fph,3)} tf　｜　Fpv = ${fmt(r.Fpv,3)} tf</div>
+      <div class="summary">${r.typeName}　Fph = ${fmtCoeff(r.Cph)}Wp = ${fmt(r.Fph,3)} tf　｜　Fpv = ${fmtCoeff(r.Cpv)}Wp = ${fmt(r.Fpv,3)} tf</div>
       <section class="block">
         <h3>工址與建物條件</h3>
         <table><tbody>
@@ -580,7 +595,9 @@ function openAppendageReport() {
         <h3>結果摘要</h3>
         <div class="results-grid">
           <div class="result-item ok"><span class="label">水平地震力 Fph</span><span><span class="value">${fmt(r.Fph,3)}</span><span class="unit">tf</span></span></div>
+          <div class="result-item"><span class="label">水平係數 Fph / Wp</span><span><span class="value">${fmtCoeff(r.Cph)}</span><span class="unit">Wp</span></span></div>
           <div class="result-item"><span class="label">垂直地震力 Fpv</span><span><span class="value">${fmt(r.Fpv,3)}</span><span class="unit">tf</span></span></div>
+          <div class="result-item"><span class="label">垂直係數 Fpv / Wp</span><span><span class="value">${fmtCoeff(r.Cpv)}</span><span class="unit">Wp</span></span></div>
           <div class="result-item"><span class="label">Rpa</span><span><span class="value">${fmt(r.Rpa,3)}</span></span></div>
           <div class="result-item"><span class="label">控制條件</span><span><span class="value">${r.ctrlLabel}</span></span></div>
         </div>

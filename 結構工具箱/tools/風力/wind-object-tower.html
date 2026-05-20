@@ -109,12 +109,12 @@
         <option value="square_face">方形（風向垂直於某面）</option>
         <option value="square_diagonal">方形（風向沿對角線）</option>
         <option value="hex_oct">六邊形 / 八邊形</option>
-        <option value="circular_auto" selected>圓形（自動依 q(z)D 判別）</option>
+        <option value="circular_auto" selected>圓形（自動依 D√q(z) 判別）</option>
         <option value="circular_moderate">圓形（中度光滑）</option>
         <option value="circular_rough">圓形（粗糙）</option>
         <option value="circular_very_rough">圓形（極粗糙）</option>
       </select>
-      <div class="hint">圓形自動模式：若 q(z)D ≤ 1.70，採表 2.12 低 q(z)D 路線；反之採中度光滑預設值。</div>
+      <div class="hint">圓形自動模式：若 D√q(z) ≤ 1.70，採表 2.12 低 D√q(z) 路線；反之採中度光滑預設值。</div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -170,7 +170,7 @@
     <div class="results-grid">
       <div class="result-item" id="r-shape"><span class="label">斷面類型</span><span><span class="value">—</span></span></div>
       <div class="result-item" id="r-hd"><span class="label">h / D</span><span><span class="value">—</span></span></div>
-      <div class="result-item" id="r-qd"><span class="label">q(z)D</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-qd"><span class="label">D√q(z)</span><span><span class="value">—</span></span></div>
       <div class="result-item" id="r-cf"><span class="label">C<sub>f,eff</sub></span><span><span class="value">—</span></span></div>
       <div class="result-item" id="r-g"><span class="label">G</span><span><span class="value">—</span></span></div>
       <div class="result-item ok" id="r-shear"><span class="label">底部剪力 V</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
@@ -336,7 +336,8 @@ function calc() {
 
   setR('r-shape', r.cfData.name);
   setR('r-hd', height / D, 2);
-  setR('r-qd', r.qzD, 2);
+  const dSqrtQz = r.dSqrtQz != null ? r.dSqrtQz : r.qzD;
+  setR('r-qd', dSqrtQz, 2);
   setR('r-cf', r.cfData.cf * r.shapeFactor, 3);
   setR('r-g', r.body.G, 3);
   setR('r-shear', r.baseShear, 1);
@@ -361,7 +362,7 @@ function calc() {
     表 2.12 路線 = <span class="val">${r.cfData.name}</span>
   `);
   html += step('② 風力係數 C_f', `
-    q(z<sub>top</sub>)D = <span class="val">${fmt(r.qzD,2)}</span><br>
+    D√q(z<sub>top</sub>) = <span class="val">${fmt(dSqrtQz,2)}</span><br>
     C<sub>f</sub> = <span class="val">${fmt(r.cfData.cf,3)}</span><br>
     φ = <span class="val">${fmt(r.shapeFactor,3)}</span> → C<sub>f,eff</sub> = <span class="val hl">${fmt(r.cfData.cf * r.shapeFactor,3)}</span>
   `, `表 2.12 於 h/D = ${fmt(r.cfData.lowRatio,2)} ~ ${fmt(r.cfData.highRatio,2)} 間${r.cfData.lowRatio !== r.cfData.highRatio ? '線性內插' : '直接取值'}`);

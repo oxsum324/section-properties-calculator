@@ -1391,21 +1391,26 @@
       points: [[1, 1.0], [7, 1.2], [25, 1.4]],
     },
     circular_low_qd: {
-      name: '圓形（q(z)D ≤ 1.70）',
+      name: '圓形（D√q(z) ≤ 1.70）',
       points: [[1, 0.7], [7, 0.8], [25, 1.2]],
     },
     circular_moderate: {
-      name: '圓形（中度光滑，q(z)D > 1.70）',
+      name: '圓形（中度光滑，D√q(z) > 1.70）',
       points: [[1, 0.5], [7, 0.6], [25, 0.7]],
     },
     circular_rough: {
-      name: '圓形（粗糙，q(z)D > 1.70）',
+      name: '圓形（粗糙，D√q(z) > 1.70）',
       points: [[1, 0.7], [7, 0.8], [25, 0.9]],
     },
     circular_very_rough: {
-      name: '圓形（極粗糙，q(z)D > 1.70）',
+      name: '圓形（極粗糙，D√q(z) > 1.70）',
       points: [[1, 0.8], [7, 1.0], [25, 1.2]],
     },
+  };
+  const CIRCULAR_CYLINDER_ROUGHNESS = {
+    moderate: { name: '中度光滑', sectionType: 'circular_moderate' },
+    rough: { name: '粗糙 (D\u2032/D \u2248 0.02)', sectionType: 'circular_rough' },
+    very_rough: { name: '極粗糙 (D\u2032/D \u2248 0.08)', sectionType: 'circular_very_rough' },
   };
   const POROUS_FRAME_CF_TABLE = {
     circular_low_qd: [
@@ -1538,10 +1543,70 @@
     };
   }
 
-  function lookupSolidObjectCf(shapeType) {
+  function lookupSolidObjectCf(shapeType, opts = {}) {
     const data = SOLID_OBJECT_CF[shapeType];
     if (!data) throw new Error('Unknown solid object shape: ' + shapeType);
+    const dSqrtQz = opts.dSqrtQz != null ? opts.dSqrtQz : opts.qzD;
+    if (
+      shapeType === 'circular_cylinder' &&
+      opts.diameter > 0 &&
+      opts.height > 0 &&
+      dSqrtQz != null &&
+      isFinite(dSqrtQz)
+    ) {
+      const cfData = lookupCircularCylinderCf({
+        diameter: opts.diameter,
+        height: opts.height,
+        dSqrtQz,
+        roughness: opts.roughness,
+      });
+      return {
+        shapeType,
+        name: data.name,
+        cf: cfData.cf,
+        cfData,
+      };
+    }
     return { shapeType, name: data.name, cf: data.cf };
+  }
+
+  function calcDiameterSqrtQz(diameter, qz) {
+    const D = Number(diameter);
+    const q = Number(qz);
+    return D > 0 && q >= 0 ? D * Math.sqrt(q) : null;
+  }
+
+  function lookupCircularCylinderCf(p) {
+    const {
+      diameter,
+      height,
+      roughness = 'moderate',
+    } = p;
+    const dSqrtQz = p.dSqrtQz != null ? p.dSqrtQz : p.qzD;
+    const D = Math.max(diameter || 0, 1e-9);
+    const h = Math.max(height || 0, 1e-9);
+    const lowQd = dSqrtQz <= 1.70;
+    const roughData = CIRCULAR_CYLINDER_ROUGHNESS[roughness] || CIRCULAR_CYLINDER_ROUGHNESS.moderate;
+    const sectionType = lowQd ? 'circular_low_qd' : roughData.sectionType;
+    const cfData = lookupTowerCf({
+      sectionType,
+      hOverD: h / D,
+      dSqrtQz,
+    });
+    const dSqrtQzRegime = lowQd ? 'D√q(z) ≤ 1.70' : 'D√q(z) > 1.70';
+    return {
+      ...cfData,
+      source: '表 2.12',
+      diameter: D,
+      height: h,
+      roughness,
+      roughnessName: lowQd ? '所有' : roughData.name,
+      dSqrtQz,
+      qzD: dSqrtQz,
+      dSqrtQzRegime,
+      qzDRegime: dSqrtQzRegime,
+      hOverD: cfData.hOverD,
+    };
   }
 
   function calcSolidObjectWind(p) {
@@ -1555,12 +1620,21 @@
       Cf = null,
       shapeFactor = 1.0,
       G = null,
+      diameter = null,
+      height = null,
+      cylinderRoughness = 'moderate',
     } = p;
     const zUse = Math.max(z, 0);
-    const shape = lookupSolidObjectCf(shapeType);
+    const qz = calcQz(zUse, V, terrain, I, Kzt).qz;
+    const dSqrtQz = calcDiameterSqrtQz(diameter, qz);
+    const shape = lookupSolidObjectCf(shapeType, {
+      diameter,
+      height,
+      dSqrtQz,
+      roughness: cylinderRoughness,
+    });
     const baseCf = Cf == null ? shape.cf : Cf;
     const CfEff = baseCf * shapeFactor;
-    const qz = calcQz(zUse, V, terrain, I, Kzt).qz;
     const gust = G == null ? calcGustRigid(Math.max(zUse, 0.1), Math.max(charWidth || 1, 1), terrain).G : G;
     const pressure = qz * gust * CfEff;
     const F = pressure * A;
@@ -1571,6 +1645,8 @@
       shapeType,
       shapeName: shape.name,
       baseCf,
+      suggestedCf: shape.cf,
+      cfData: shape.cfData || null,
       shapeFactor,
       CfEff,
       A,
@@ -1594,11 +1670,20 @@
       Cf = null,
       shapeFactor = 1.0,
       G = null,
+      diameter = null,
+      cylinderRoughness = 'moderate',
     } = p;
     const n = Math.max(1, Math.round(segments));
     const dz = height / n;
     const topZ = zBase + height;
-    const shape = lookupSolidObjectCf(shapeType);
+    const qTop = calcQz(topZ, V, terrain, I, Kzt).qz;
+    const D = diameter > 0 ? diameter : width;
+    const shape = lookupSolidObjectCf(shapeType, {
+      diameter: D,
+      height,
+      dSqrtQz: calcDiameterSqrtQz(D, qTop),
+      roughness: cylinderRoughness,
+    });
     const baseCf = Cf == null ? shape.cf : Cf;
     const CfEff = baseCf * shapeFactor;
     const gust = G == null ? calcGustRigid(Math.max(topZ, dz), Math.max(width || 1, 1), terrain).G : G;
@@ -1639,6 +1724,8 @@
       shapeType,
       shapeName: shape.name,
       baseCf,
+      suggestedCf: shape.cf,
+      cfData: shape.cfData || null,
       shapeFactor,
       CfEff,
       totalArea: width * height,
@@ -1653,11 +1740,13 @@
     const {
       sectionType = 'square_face',
       hOverD,
+      dSqrtQz = null,
       qzD = null,
     } = p;
+    const dQ = dSqrtQz != null ? dSqrtQz : qzD;
     let key = sectionType;
     if (sectionType === 'circular_auto') {
-      key = (qzD != null && qzD <= 1.70) ? 'circular_low_qd' : 'circular_moderate';
+      key = (dQ != null && dQ <= 1.70) ? 'circular_low_qd' : 'circular_moderate';
     }
     const data = TOWER_CF_TABLE[key];
     if (!data) throw new Error('Unknown tower section type: ' + sectionType);
@@ -1682,7 +1771,8 @@
       lowCf: low[1],
       highCf: high[1],
       cf,
-      qzD,
+      dSqrtQz: dQ,
+      qzD: dQ,
     };
   }
 
@@ -1701,8 +1791,8 @@
     } = p;
     const refZ = zBase + height;
     const qTop = calcQz(refZ, V, terrain, I, Kzt).qz;
-    const qzD = qTop * D;
-    const cfData = lookupTowerCf({ sectionType, hOverD: height / Math.max(D, 1e-9), qzD });
+    const dSqrtQz = calcDiameterSqrtQz(D, qTop);
+    const cfData = lookupTowerCf({ sectionType, hOverD: height / Math.max(D, 1e-9), dSqrtQz });
     const body = calcVerticalSolidObjectWind({
       V, terrain, I,
       zBase,
@@ -1743,7 +1833,8 @@
       height,
       D,
       qTop,
-      qzD,
+      dSqrtQz,
+      qzD: dSqrtQz,
       cfData,
       shapeFactor,
       body,
@@ -1758,11 +1849,13 @@
     const {
       solidity,
       memberType = 'circular',
+      dSqrtQz = null,
       qzD = null,
     } = p;
+    const dQ = dSqrtQz != null ? dSqrtQz : qzD;
     let key;
     if (memberType === 'flat') key = 'flat_member';
-    else key = (qzD != null && qzD <= 1.70) ? 'circular_low_qd' : 'circular_high_qd';
+    else key = (dQ != null && dQ <= 1.70) ? 'circular_low_qd' : 'circular_high_qd';
     const rows = POROUS_FRAME_CF_TABLE[key];
     const phi = Math.max(rows[0].min, Math.min(solidity, rows[rows.length - 1].max));
     const row = rows.find(item => phi >= item.min && phi <= item.max) || rows[rows.length - 1];
@@ -1770,7 +1863,8 @@
       key,
       memberType,
       solidity: phi,
-      qzD,
+      dSqrtQz: dQ,
+      qzD: dQ,
       cf: row.cf,
       band: `${row.min.toFixed(2)}~${row.max.toFixed(2)}`,
     };
@@ -1909,15 +2003,17 @@
   }
 
   function lookupCableCf(p) {
-    const { roughness = 'smooth', qzD } = p;
+    const { roughness = 'smooth', dSqrtQz = null, qzD = null } = p;
+    const dQ = dSqrtQz != null ? dSqrtQz : qzD;
     const data = CABLE_CF[roughness];
     if (!data) throw new Error('Unknown cable roughness: ' + roughness);
-    const lowRegime = qzD <= 1.70;
+    const lowRegime = dQ <= 1.70;
     return {
       roughness,
       name: data.name,
-      qzD,
-      regime: lowRegime ? 'q(z)D ≤ 1.70' : 'q(z)D > 1.70',
+      dSqrtQz: dQ,
+      qzD: dQ,
+      regime: lowRegime ? 'D√q(z) ≤ 1.70' : 'D√q(z) > 1.70',
       cf: lowRegime ? data.low : data.high,
     };
   }
@@ -1951,6 +2047,7 @@
     ANGULAR_PRISM_CF,
     ANGULAR_PRISM_R,
     CABLE_CF,
+    CIRCULAR_CYLINDER_ROUGHNESS,
 
     calcKz,
     calcQz,
@@ -1983,7 +2080,9 @@
     calcSingleRoofParapetCcCases,
     lookupOpenRoofCpn,
     calcOpenRoofCC,
+    calcDiameterSqrtQz,
     lookupSolidObjectCf,
+    lookupCircularCylinderCf,
     calcSolidObjectWind,
     calcVerticalSolidObjectWind,
     lookupTowerCf,

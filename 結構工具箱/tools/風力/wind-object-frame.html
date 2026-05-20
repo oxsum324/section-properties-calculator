@@ -100,7 +100,7 @@
       <div class="form-group">
         <label>圓斷面構材直徑 D (m)</label>
         <input id="memberD" type="number" value="0.15" step="0.01">
-        <div class="hint">供圓斷面之 q(z)D 判別使用</div>
+        <div class="hint">供圓斷面之 D√q(z) 判別使用</div>
       </div>
     </div>
     <div class="form-group">
@@ -338,8 +338,8 @@ function calc() {
     const memberType = document.getElementById('memberType').value;
     if (z <= 0 || A <= 0 || phi < 0 || phi > 0.7) { alert('請輸入有效之 z / A / φ（表 2.11 以 φ ≤ 0.7 為主要範圍）'); return; }
     const qz = W.calcQz(z, V, terrain, I, Kzt).qz;
-    const qzD = qz * D;
-    const cfData = W.lookupPorousFrameCf({ solidity: phi, memberType, qzD });
+    const dSqrtQz = W.calcDiameterSqrtQz(D, qz);
+    const cfData = W.lookupPorousFrameCf({ solidity: phi, memberType, dSqrtQz });
     const G = W.calcGustRigid(z, Math.max(Math.sqrt(A), 1), terrain).G;
     const F = qz * G * cfData.cf * A;
     setR('r-type', memberType === 'circular' ? '中空式 / 圓斷面構材' : '中空式 / 平邊構材');
@@ -349,7 +349,7 @@ function calc() {
     setR('r-force', F, 1);
     setR('r-shear', F, 1);
     setR('r-moment', F * z, 1);
-    setR('r-extra', `φ=${fmt(phi,2)}，q(z)D=${fmt(qzD,2)}`);
+    setR('r-extra', `φ=${fmt(phi,2)}，D√q(z)=${fmt(dSqrtQz,2)}`);
     document.getElementById('segmentCard').style.display = 'none';
     adoptRows = `
       <tr><td>設計風力 F</td><td>${fmt(F,1)}</td><td>kgf</td><td>表 2.11 路線</td></tr>
@@ -361,12 +361,12 @@ function calc() {
       { label: '規範路線', level: 'ok', message: '表 2.11' },
       { label: '構材型式', level: 'ok', message: memberType === 'circular' ? '圓形斷面構材' : '平邊構材' },
       { label: '實體率 φ', level: phi <= 0.7 ? 'ok' : 'warn', message: fmt(phi,2) },
-      { label: 'q(z)D', level: memberType === 'circular' ? 'ok' : 'warn', message: memberType === 'circular' ? fmt(qzD,2) : '平邊構材不使用 q(z)D 分類' },
+      { label: 'D√q(z)', level: memberType === 'circular' ? 'ok' : 'warn', message: memberType === 'circular' ? fmt(dSqrtQz,2) : '平邊構材不使用 D√q(z) 分類' },
     ];
     html += step('① 基本參數', `
       z = <span class="val">${fmt(z,2)}</span> m, A = <span class="val">${fmt(A,2)}</span> m²<br>
       地況參數：α = <span class="val">${fmt(terrainData.alpha,2)}</span>，z<sub>g</sub> = <span class="val">${fmt(terrainData.zg,1)}</span> m，z<sub>min</sub> = <span class="val">${fmt(terrainData.zmin,1)}</span> m<br>
-      φ = <span class="val">${fmt(phi,2)}</span>, q(z)D = <span class="val">${fmt(qzD,2)}</span><br>
+      φ = <span class="val">${fmt(phi,2)}</span>, D√q(z) = <span class="val">${fmt(dSqrtQz,2)}</span><br>
       C<sub>f</sub> = <span class="val hl">${fmt(cfData.cf,3)}</span>
     `);
     html += step('② 設計風力', `

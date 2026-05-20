@@ -62,26 +62,40 @@ function contentType(filePath) {
   }
 }
 
-function createRewriteMap(vercelConfig) {
-  const rewriteMap = new Map();
+function createRouteMap(vercelConfig) {
+  const routeMap = new Map();
   for (const rewrite of vercelConfig.rewrites || []) {
     if (rewrite.source && rewrite.destination) {
-      rewriteMap.set(rewrite.source, rewrite.destination);
+      routeMap.set(rewrite.source, rewrite.destination);
     }
   }
-  return rewriteMap;
+  for (const redirect of vercelConfig.redirects || []) {
+    if (redirect.source && redirect.destination) {
+      routeMap.set(redirect.source, redirect.destination);
+    }
+  }
+  return routeMap;
 }
 
-function resolveRequestPath(pathname, rewriteMap) {
-  const rewrittenPath = rewriteMap.get(pathname) || pathname;
-  return decodeURIComponent(rewrittenPath).replace(/^\/+/, '') || '結構工具箱/index.html';
+function resolveRequestPath(pathname, routeMap) {
+  const routedPath = routeMap.get(pathname) || pathname;
+  const relativePath = decodeURIComponent(routedPath).replace(/^\/+/, '') || '結構工具箱/index.html';
+  if (relativePath.endsWith('/')) return `${relativePath}index.html`;
+  if (path.extname(relativePath)) return relativePath;
+
+  const candidates = [
+    `${relativePath}.html`,
+    path.join(relativePath, 'index.html'),
+    relativePath,
+  ];
+  return candidates.find(candidate => fs.existsSync(path.resolve(repoRoot, candidate))) || relativePath;
 }
 
 function startStaticServer(port, vercelConfig) {
-  const rewriteMap = createRewriteMap(vercelConfig);
+  const routeMap = createRouteMap(vercelConfig);
   const server = http.createServer((req, res) => {
     const requestUrl = new URL(req.url || '/', `http://127.0.0.1:${port}`);
-    const requestedPath = resolveRequestPath(requestUrl.pathname, rewriteMap);
+    const requestedPath = resolveRequestPath(requestUrl.pathname, routeMap);
     const fullPath = path.resolve(repoRoot, requestedPath);
     const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : repoRoot + path.sep;
 
