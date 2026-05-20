@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>struct.dx — 結構解題套件</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;500;600&display=swap');
+:root{
+  --bg:#0c0c0a;--bg2:#131311;--bg3:#1a1a17;--bg4:#222220;
+  --border:#272725;--border2:#333330;--border3:#404040;
+  --text:#e4e3de;--text2:#8a8880;--text3:#525050;
+  --accent:#d4f055;--accent2:#b8d840;
+  --pass:#3dba6e;--pass-bg:rgba(61,186,110,.1);--pass-b:rgba(61,186,110,.3);
+  --fail:#e05555;--fail-bg:rgba(224,85,85,.1);--fail-b:rgba(224,85,85,.3);
+  --warn:#e0a835;--warn-bg:rgba(224,168,53,.1);--warn-b:rgba(224,168,53,.3);
+  --info:#5599e0;--info-bg:rgba(85,153,224,.1);--info-b:rgba(85,153,224,.3);
+  --mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;font-size:14px}
+
+/* ── Top nav ── */
+nav{display:flex;align-items:stretch;border-bottom:1px solid var(--border);height:44px;flex-shrink:0}
+.nav-logo{padding:0 20px;display:flex;align-items:center;gap:8px;border-right:1px solid var(--border)}
+.nav-logo-dot{width:7px;height:7px;background:var(--accent);border-radius:50%}
+.nav-logo-text{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:.1em}
+.nav-tabs{display:flex;flex:1}
+.tab{padding:0 18px;display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--text3);cursor:pointer;border-right:1px solid var(--border);transition:color .15s,background .15s;position:relative;user-select:none}
+.tab:hover{color:var(--text2);background:var(--bg2)}
+.tab.active{color:var(--text);background:var(--bg2)}
+.tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent)}
+.tab-num{font-family:var(--mono);font-size:9px;width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;background:var(--bg3);color:var(--text3)}
+.tab.active .tab-num{background:var(--accent);color:#0c0c0a}
+.tab.done .tab-num{background:var(--pass-bg);color:var(--pass);border:1px solid var(--pass-b)}
+.nav-status{margin-left:auto;padding:0 16px;display:flex;align-items:center;gap:8px}
+.progress-dots{display:flex;gap:5px}
+.pdot{width:6px;height:6px;border-radius:50%;background:var(--bg4);border:1px solid var(--border2);transition:background .2s,border-color .2s}
+.pdot.done{background:var(--pass);border-color:var(--pass)}
+.pdot.active{background:var(--accent);border-color:var(--accent)}
+.pdot.warn{background:var(--warn);border-color:var(--warn)}
+.pdot.fail{background:var(--fail);border-color:var(--fail)}
+
+/* ── Pages ── */
+.page{display:none;flex:1;overflow:hidden}
+.page.active{display:flex}
+
+/* ── Two-col layout ── */
+.two-col{display:grid;grid-template-columns:320px 1fr;flex:1;min-height:0;overflow:hidden}
+.three-col{display:grid;grid-template-columns:260px 1fr 240px;flex:1;min-height:0;overflow:hidden}
+.col{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.col:last-child{border-right:none}
+.col-hdr{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.col-title{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em}
+.col-body{flex:1;overflow-y:auto;padding:14px}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:2px}
+
+/* ── Upload zone ── */
+.upzone{border:1px dashed var(--border2);border-radius:6px;padding:28px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,border-color .15s;position:relative;text-align:center;min-height:180px}
+.upzone:hover,.upzone.drag{background:var(--bg2);border-color:var(--border3)}
+.upzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upzone-ico{width:36px;height:36px;border:1px solid var(--border2);border-radius:5px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;color:var(--text3)}
+.upzone-lbl{font-size:12px;color:var(--text2);line-height:1.7}
+.upzone-sub{font-size:10px;color:var(--text3);margin-top:4px;font-family:var(--mono)}
+#prev-img{width:100%;max-height:160px;object-fit:contain;display:none;padding:4px}
+
+/* ── Form elements ── */
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.flbl{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.07em}
+textarea,select,input{background:var(--bg2);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 10px;outline:none;transition:border-color .15s;width:100%}
+textarea:focus,select:focus,input:focus{border-color:var(--border3)}
+textarea{resize:none;line-height:1.7}
+textarea::placeholder,input::placeholder{color:var(--text3)}
+
+/* ── Buttons ── */
+.btn-primary{background:var(--accent);color:#0c0c0a;border:none;border-radius:4px;padding:10px 16px;font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s,opacity .15s;width:100%}
+.btn-primary:hover{background:var(--accent2)}
+.btn-primary:disabled{opacity:.3;cursor:not-allowed}
+.btn-sec{background:transparent;border:1px solid var(--border2);border-radius:4px;color:var(--text2);padding:8px 12px;font-family:var(--sans);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:background .15s,border-color .15s;width:100%}
+.btn-sec:hover{background:var(--bg2);border-color:var(--border3);color:var(--text)}
+.spin{width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Diag cards ── */
+.dc{border:1px solid var(--border);border-radius:5px;overflow:hidden;margin-bottom:10px;animation:fi .2s ease}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.dch{padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.dcn{font-family:var(--mono);font-size:9px;color:var(--text3);min-width:16px}
+.dct{font-size:11px;font-weight:500;flex:1}
+.badge{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;border:1px solid;font-weight:500}
+.bok{background:var(--pass-bg);color:var(--pass);border-color:var(--pass-b)}
+.bwarn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-b)}
+.berr{background:var(--fail-bg);color:var(--fail);border-color:var(--fail-b)}
+.binfo{background:var(--info-bg);color:var(--info);border-color:var(--info-b)}
+.dcb{padding:12px 14px}
+.dv{font-size:11px;line-height:1.8;color:var(--text)}
+.hi{color:var(--accent);font-weight:500}
+.fm{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:11px;color:var(--accent);line-height:1.9;margin-top:7px}
+.cl{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.ci{display:flex;align-items:flex-start;gap:6px;font-size:11px;line-height:1.6}
+.cico{width:13px;height:13px;border-radius:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:8px;font-weight:600}
+.cok{background:var(--pass-bg);color:var(--pass)}
+.cw{background:var(--warn-bg);color:var(--warn)}
+.ce{background:var(--fail-bg);color:var(--fail)}
+.wb{background:var(--warn-bg);border:1px solid var(--warn-b);border-radius:4px;padding:8px 11px;font-size:11px;color:var(--warn);line-height:1.7;margin-top:8px}
+
+/* ── Passport ── */
+.passport{border:1px solid var(--accent);border-radius:5px;overflow:hidden;margin-top:8px}
+.pp-h{background:rgba(212,240,85,.07);padding:9px 13px;border-bottom:1px solid rgba(212,240,85,.15);font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:.08em;display:flex;align-items:center;gap:6px}
+.pp-body{padding:12px;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.pp-i{display:flex;flex-direction:column;gap:2px}
+.pp-l{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.05em}
+.pp-v{font-size:11px;color:var(--text)}
+.pp-v.acc{color:var(--accent);font-weight:500}
+.pp-v.warn{color:var(--warn)}
+
+/* ── Step cards (page 2) ── */
+.step-item{border:1px solid var(--border);border-radius:5px;margin-bottom:8px;overflow:hidden}
+.step-item.pass{border-color:var(--pass-b)}
+.step-item.fail{border-color:var(--fail-b)}
+.step-item.warn{border-color:var(--warn-b)}
+.step-item.pending{border-color:var(--border)}
+.step-hdr{padding:8px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.step-item.pass .step-hdr{background:var(--pass-bg)}
+.step-item.fail .step-hdr{background:var(--fail-bg)}
+.step-item.warn .step-hdr{background:var(--warn-bg)}
+.step-item.pending .step-hdr{background:var(--bg2)}
+.step-ico{width:18px;height:18px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.pass .step-ico{background:var(--pass);color:#0c0c0a}
+.fail .step-ico{background:var(--fail);color:#0c0c0a}
+.warn .step-ico{background:var(--warn);color:#0c0c0a}
+.pending .step-ico{background:var(--bg4);color:var(--text3)}
+.step-name{font-size:11px;font-weight:500;flex:1}
+.step-body-inner{padding:11px 13px;border-top:1px solid var(--border);display:none}
+.step-body-inner.open{display:block}
+.calc-block{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 11px;font-family:var(--mono);font-size:11px;line-height:1.9;color:var(--text);margin-bottom:8px}
+.verdict-row{font-size:11px;line-height:1.7;color:var(--text2)}
+.gate-result{padding:7px 10px;border-radius:4px;font-size:11px;margin-top:7px}
+.gate-result.pass{background:var(--pass-bg);color:var(--pass);border:1px solid var(--pass-b)}
+.gate-result.fail{background:var(--fail-bg);color:var(--fail);border:1px solid var(--fail-b)}
+.gate-result.warn{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-b)}
+.action-row{margin-top:7px;font-size:11px;color:var(--text2);line-height:1.7}
+
+/* ── Gate summary (right col) ── */
+.gate-mini{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:4px;border:1px solid var(--border);margin-bottom:6px;font-size:11px}
+.gate-mini.pass{background:var(--pass-bg);border-color:var(--pass-b);color:var(--pass)}
+.gate-mini.fail{background:var(--fail-bg);border-color:var(--fail-b);color:var(--fail)}
+.gate-mini.warn{background:var(--warn-bg);border-color:var(--warn-b);color:var(--warn)}
+.gate-mini.pending{background:var(--bg2);color:var(--text3)}
+.gate-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.pass .gate-dot{background:var(--pass)}
+.fail .gate-dot{background:var(--fail)}
+.warn .gate-dot{background:var(--warn)}
+.pending .gate-dot{background:var(--text3)}
+
+.score-card{background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:14px;text-align:center;margin:10px 0}
+.score-big{font-size:34px;font-weight:600;font-family:var(--mono)}
+.score-lbl{font-size:10px;color:var(--text2);margin-top:2px}
+
+/* ── BMD page ── */
+.bmd-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:10px}
+.bmd-placeholder svg{opacity:.2}
+.bmd-placeholder p{font-size:12px;text-align:center;line-height:1.8}
+
+/* ── Idle states ── */
+.idle-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:8px;text-align:center}
+.idle-state p{font-size:12px;line-height:1.9}
+
+/* ── Section label ── */
+.sec-lbl{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.08em;margin-bottom:6px}
+
+/* ── Next step btn ── */
+.next-btn{margin-top:10px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:10px;font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;display:none;align-items:center;justify-content:center;gap:6px;transition:background .14s;width:100%}
+.next-btn:hover{background:rgba(212,240,85,.07)}
+.next-btn.show{display:flex}
+
+/* ── Tooltip pill ── */
+.tpill{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;border:1px solid var(--border2);color:var(--text3);margin-left:4px}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/" style="padding:0 12px;display:flex;align-items:center;color:var(--text3);text-decoration:none;font-size:11px;border-right:1px solid var(--border);white-space:nowrap;" title="回結構工具箱主選單">← 主選單</a>
+  <div class="nav-logo">
+    <div class="nav-logo-dot"></div>
+    <div class="nav-logo-text">struct.dx</div>
+  </div>
+  <div class="nav-tabs">
+    <div class="tab active" data-tab="diag" onclick="switchTab('diag')">
+      <div class="tab-num" id="tn-diag">1</div>
+      前置診斷
+    </div>
+    <div class="tab" data-tab="solve" onclick="switchTab('solve')">
+      <div class="tab-num" id="tn-solve">2</div>
+      解題 + 驗算
+    </div>
+    <div class="tab" data-tab="bmd" onclick="switchTab('bmd')">
+      <div class="tab-num" id="tn-bmd">3</div>
+      彎矩圖
+    </div>
+  </div>
+  <div class="nav-status">
+    <div class="progress-dots" id="pdots">
+      <div class="pdot" id="pd-diag" title="前置診斷"></div>
+      <div class="pdot" id="pd-eq" title="靜力平衡"></div>
+      <div class="pdot" id="pd-node" title="節點平衡"></div>
+      <div class="pdot" id="pd-fem" title="固端彎矩"></div>
+      <div class="pdot" id="pd-compat" title="諧合方程"></div>
+      <div class="pdot" id="pd-phys" title="物理意義"></div>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════ PAGE 1: DIAGNOSIS ══════════════ -->
+<div class="page active" id="page-diag">
+  <div class="two-col">
+
+    <!-- Left: upload -->
+    <div class="col">
+      <div class="col-hdr">
+        <div class="col-title">上傳結構圖</div>
+      </div>
+      <div class="col-body">
+        <div class="upzone" id="uz">
+          <input type="file" id="fi" accept="image/*,application/pdf,.pdf">
+          <div id="uph">
+            <div class="upzone-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+            <div class="upzone-lbl">上傳結構圖片或 PDF</div>
+            <div class="upzone-sub">PNG / JPG / PDF — 點擊或拖曳</div>
+          </div>
+          <img id="prev-img" alt="">
+          <div id="prev-file" style="display:none;padding:24px 16px;text-align:center;font-family:ui-monospace,Menlo,Consolas,monospace">
+            <div style="font-size:28px;margin-bottom:8px">📄</div>
+            <div id="prev-file-name" style="font-size:12px;color:var(--text);word-break:break-all;margin-bottom:4px"></div>
+            <div id="prev-file-meta" style="font-size:10px;color:var(--text3)"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="field">
+            <div class="flbl">補充說明（選填）</div>
+            <textarea id="extra" rows="3" placeholder="EI = 20000 kN·m²&#10;支承D沉陷 3mm&#10;求水平力 P…"></textarea>
+          </div>
+          <button class="btn-primary" id="diag-btn" disabled onclick="runDiag()">
+            <div class="spin" id="dsp"></div>
+            <svg id="dico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+            執行前置診斷
+          </button>
+        </div>
+
+        <div style="margin-top:14px">
+          <div class="sec-lbl">快速載入歷史題目</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <button class="btn-sec" style="font-size:11px;justify-content:flex-start" onclick="loadPreset('portal')">L型剛架 — 傾角變位法</button>
+            <button class="btn-sec" style="font-size:11px;justify-content:flex-start" onclick="loadPreset('truss')">靜不定桁架 — 力法</button>
+            <button class="btn-sec" style="font-size:11px;justify-content:flex-start" onclick="loadPreset('settlement')">剛架 + 支承沉陷</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: diagnosis output -->
+    <div class="col">
+      <div class="col-hdr">
+        <div class="col-title">診斷報告</div>
+        <div class="badge binfo" id="diag-pill">待機</div>
+      </div>
+      <div class="col-body" id="diag-body">
+        <div class="idle-state">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <p>上傳圖片後點擊「執行前置診斷」<br>AI 完成五項解題前檢核<br>並生成解題護照</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ PAGE 2: SOLVE + VERIFY ══════════════ -->
+<div class="page" id="page-solve">
+  <div class="three-col">
+
+    <!-- Left: step input -->
+    <div class="col">
+      <div class="col-hdr">
+        <div class="col-title">輸入計算步驟</div>
+      </div>
+      <div class="col-body">
+        <div class="field">
+          <div class="flbl">驗算閘門</div>
+          <select id="gate-sel" onchange="this.dataset.touched='1'">
+            <option value="equilibrium">① 靜力平衡閘</option>
+            <option value="node">② 節點彎矩平衡閘</option>
+            <option value="fem">③ 固端彎矩公式閘</option>
+            <option value="compat">④ 諧合方程閘</option>
+            <option value="physical">⑤ 物理意義閘</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="flbl">本步驟計算結果</div>
+          <textarea id="step-calc" rows="5" placeholder="例：V_A = -50 kN（↓）&#10;V_D = 80 kN（↑）&#10;H_D = 120 kN（←）"></textarea>
+        </div>
+        <div class="field">
+          <div class="flbl">原始條件（供驗算對照）</div>
+          <textarea id="step-cond" rows="4" placeholder="例：B點集中力50kN↑&#10;AB均佈側向20kN/m&#10;A鉸支, C滾支, D固定端"></textarea>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-primary" id="solve-btn" onclick="runSolve()" style="flex:1;background:var(--accent);color:#0c0c0a;border-color:var(--accent);">
+            <div class="spin" id="ssp"></div>
+            <svg id="sico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5"/><path d="M8 5v3l2 1"/></svg>
+            🤖 AI 解題
+          </button>
+          <button class="btn-primary" id="verify-btn" onclick="runVerify()" style="flex:1">
+            <div class="spin" id="vsp"></div>
+            <svg id="vico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 8l4 4 8-8"/></svg>
+            手動驗算
+          </button>
+        </div>
+
+        <div style="margin-top:12px">
+          <div class="sec-lbl">範例快速載入</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="btn-sec" style="font-size:10px;justify-content:flex-start" onclick="loadVerEx('eq')">① 靜力平衡 — L型剛架反力</button>
+            <button class="btn-sec" style="font-size:10px;justify-content:flex-start" onclick="loadVerEx('node')">② 節點平衡 — 桿端彎矩驗算</button>
+            <button class="btn-sec" style="font-size:10px;justify-content:flex-start" onclick="loadVerEx('fem')">③ 固端彎矩 — A鉸支修正</button>
+            <button class="btn-sec" style="font-size:10px;justify-content:flex-start" onclick="loadVerEx('compat')">④ 諧合方程 — 贅力代回</button>
+            <button class="btn-sec" style="font-size:10px;justify-content:flex-start" onclick="loadVerEx('phys')">⑤ 物理意義 — 桿端彎矩方向</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Middle: step results -->
+    <div class="col">
+      <div class="col-hdr">
+        <div class="col-title">驗算紀錄</div>
+        <div class="badge binfo" id="step-count-pill">0 步</div>
+      </div>
+      <div class="col-body" id="step-list">
+        <div class="idle-state">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M9 12l2 2 4-4"/><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/></svg>
+          <p>🤖 點擊「AI 解題」自動計算<br>或手動輸入後點擊「手動驗算」<br>閘門逐項自動檢核</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: gate summary -->
+    <div class="col">
+      <div class="col-hdr">
+        <div class="col-title">閘門總覽</div>
+      </div>
+      <div class="col-body" id="gate-summary">
+        <div class="sec-lbl">五道驗算閘門</div>
+        <div id="gate-list">
+          <div class="gate-mini pending" id="gm-equilibrium"><div class="gate-dot"></div><div style="flex:1">靜力平衡閘</div><span style="font-family:var(--mono);font-size:9px">待執行</span></div>
+          <div class="gate-mini pending" id="gm-node"><div class="gate-dot"></div><div style="flex:1">節點彎矩平衡閘</div><span style="font-family:var(--mono);font-size:9px">待執行</span></div>
+          <div class="gate-mini pending" id="gm-fem"><div class="gate-dot"></div><div style="flex:1">固端彎矩公式閘</div><span style="font-family:var(--mono);font-size:9px">待執行</span></div>
+          <div class="gate-mini pending" id="gm-compat"><div class="gate-dot"></div><div style="flex:1">諧合方程閘</div><span style="font-family:var(--mono);font-size:9px">待執行</span></div>
+          <div class="gate-mini pending" id="gm-physical"><div class="gate-dot"></div><div style="flex:1">物理意義閘</div><span style="font-family:var(--mono);font-size:9px">待執行</span></div>
+        </div>
+        <div class="score-card" id="score-card">
+          <div class="score-big" id="score-num" style="color:var(--text3)">—</div>
+          <div class="score-lbl">閘門通過 / 已執行</div>
+        </div>
+        <div id="overall-banner"></div>
+        <button class="next-btn" id="to-bmd-btn" onclick="switchTab('bmd')" style="margin-top:10px">
+          所有閘門通過 → 繪製彎矩圖 ↗
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ PAGE 3: BMD ══════════════ -->
+<div class="page" id="page-bmd">
+  <div class="two-col">
+    <div class="col">
+      <div class="col-hdr"><div class="col-title">桿端彎矩輸入</div></div>
+      <div class="col-body">
+        <div class="field">
+          <div class="flbl">輸入驗算通過的桿端彎矩（kN·m）</div>
+          <textarea id="bmd-input" rows="8" placeholder="M_BA = -68.64&#10;M_BC = +68.64&#10;M_CB = -1.82&#10;M_CD = +1.82&#10;M_DC = -11.33&#10;&#10;結構：L型剛架&#10;柱高6m，梁跨8m（BC=4m, CD=4m）"></textarea>
+        </div>
+        <button class="btn-primary" id="bmd-btn" onclick="drawBMD()">
+          <div class="spin" id="bsp"></div>
+          <svg id="bico" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 12 Q4 4 8 6 Q12 8 14 2"/></svg>
+          繪製彎矩圖
+        </button>
+        <div style="margin-top:10px">
+          <button class="btn-sec" onclick="loadBMDEx()">載入範例數值</button>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-hdr"><div class="col-title">彎矩圖 BMD</div></div>
+      <div class="col-body" id="bmd-area">
+        <div class="bmd-placeholder">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M2 18 Q6 6 12 10 Q18 14 22 2"/></svg>
+          <p>輸入桿端彎矩後<br>點擊「繪製彎矩圖」</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ──────────── State ──────────── */
+// 後端 API 位址（若部署到其他主機，改這一行即可）
+const API_BASE = 'http://localhost:3000';
+
+let diagResult = null;
+let stepHistory = [];
+let gateStatus = {};
+let img64 = null, imgType = null;
+
+const PRESETS = {
+  portal: { extra: 'EI為定值，忽略軸向變形\n傾角變位法求各桿端彎矩及支承反力' },
+  truss:  { extra: 'EA = 200000 kN，所有桿件相同\n求桿件BD內力，標明拉/壓' },
+  settlement: { extra: 'EI = 20000 kN·m²\n支承D沉陷3mm，求使E點垂直位移=0的水平力P' }
+};
+
+const VER_EX = {
+  eq:     { gate:'equilibrium', calc:'V_A = -50 kN（↓）\nV_D = 80 kN（↑）\nH_A = 0\nH_D = 120 kN（←）', cond:'B點垂直集中力50kN（↑）\nAB跨水平均佈載重20kN/m L=6m\nA鉸支 C滾支 D固定端' },
+  node:   { gate:'node',        calc:'M_BA = -68.64 kN·m\nM_BC = +68.64 kN·m\nM_CB = -1.82 kN·m\nM_CD = +1.82 kN·m', cond:'節點B: M_BA+M_BC=0\n節點C（滾支）: M_CB+M_CD=0\nKθ_B=3.5606 Kθ_C=0.1515' },
+  fem:    { gate:'fem',         calc:'M_BA^F = -90 kN·m（A鉸支修正後）\nM_BC^F = -25 kN·m\nM_CB^F = +25 kN·m\nM_CD^F = 0', cond:'柱AB: A鉸支 w=20kN/m L=6m\n梁BC: 集中力P=50kN↑ 於中點 L=4m\n梁CD: 無載重 D固定端' },
+  compat: { gate:'compat',      calc:'R = -8.61 kN\nN_BD = -15√41/2 + (-√41/8)×(-8.61)\n= -48.01 + 6.90 = -41.1 kN（壓）', cond:'諧合方程: Δ1\'+f11×R=0\nΔ1\'=125.8/EA f11=14.61/EA\nR=-125.8/14.61=-8.61 kN' },
+  phys:   { gate:'physical',    calc:'M_BA=-68.64 M_BC=+68.64（節點B平衡✓）\nM_CB=-1.82 M_CD=+1.82（節點C平衡✓）\nM_DC=-11.33 kN·m（固定端殘餘彎矩）', cond:'水平力向右作用於柱→柱頂大彎矩\nD固定端必有殘餘彎矩\n節點B剛接，彎矩需平衡' }
+};
+
+/* ──────────── Tab switching ──────────── */
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + id));
+  if (id === 'solve') autoFillVerifyFromPassport();
+  if (id === 'bmd')   autoFillBMDFromSteps();
+}
+
+/* ──────────── 全流程串接 ──────────── */
+function autoFillVerifyFromPassport() {
+  if (!diagResult) return;
+  const condEl = document.getElementById('step-cond');
+  if (!condEl || condEl.value.trim()) return; // 已有內容就不覆蓋
+  const d = diagResult;
+  const lines = [];
+  if (d.d1?.type)    lines.push(`結構：${d.d1.type}${d.d1.subtype ? '（' + d.d1.subtype + '）' : ''}`);
+  if (d.d2?.nodes?.length)   lines.push('節點：' + d.d2.nodes.join('、'));
+  if (d.d2?.members?.length) lines.push('桿件：' + d.d2.members.join('、'));
+  if (d.d2?.loads?.length)   lines.push('載重：' + d.d2.loads.join('、'));
+  if (d.passport?.degree)    lines.push(`靜不定：${d.passport.degree}`);
+  if (d.passport?.method)    lines.push(`解法：${d.passport.method}`);
+  if (d.passport?.key_warning) lines.push(`⚠ ${d.passport.key_warning}`);
+  condEl.value = lines.join('\n');
+
+  // 根據 passport 推薦的解法自動選閘門
+  const gateSel = document.getElementById('gate-sel');
+  if (gateSel && !gateSel.dataset.touched) {
+    const warn = (d.passport?.key_warning || '') + (d.d5?.warnings || []).join(' ');
+    if (/wL.?\/8|鉸支|固端彎矩|FEM/i.test(warn)) gateSel.value = 'fem';
+    else if (/力法|諧合|贅力/.test(d.passport?.method || '')) gateSel.value = 'compat';
+    else if (/傾角變位|節點/.test(d.passport?.method || '')) gateSel.value = 'node';
+  }
+}
+
+/* 從已通過的驗算步驟中抽出桿端彎矩組成 BMD 輸入 */
+function autoFillBMDFromSteps() {
+  const bmdEl = document.getElementById('bmd-input');
+  if (!bmdEl || bmdEl.value.trim()) return;
+  if (!stepHistory.length) return;
+
+  // 從 step.calc 抓 M_XX = ±數字 形式
+  const found = new Map();
+  stepHistory.forEach(step => {
+    (step.checks || []).forEach(c => {
+      const text = (c.calc || '') + ' ' + (c.verdict || '');
+      const re = /M_?([A-Z]{2})\s*[=＝]\s*([+-]?\d+(?:\.\d+)?)/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        found.set(`M_${m[1]}`, m[2]);
+      }
+    });
+  });
+  if (!found.size) return;
+
+  // 加入結構摘要（取自 diagResult）
+  const lines = [];
+  for (const [k, v] of found) lines.push(`${k} = ${v}`);
+  if (diagResult) {
+    lines.push('');
+    if (diagResult.d1?.type) lines.push(`結構：${diagResult.d1.type}`);
+    if (diagResult.d2?.members?.length) lines.push('桿件：' + diagResult.d2.members.join('、'));
+    if (diagResult.d2?.loads?.length)   lines.push('載重：' + diagResult.d2.loads.join('、'));
+  }
+  bmdEl.value = lines.join('\n');
+}
+
+/* ──────────── Upload ──────────── */
+const fi = document.getElementById('fi');
+function isAcceptedFile(f) {
+  if (!f) return false;
+  return f.type.startsWith('image/') || f.type === 'application/pdf' || /\.pdf$/i.test(f.name || '');
+}
+fi.addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (!isAcceptedFile(f)) { alert('僅支援圖片（PNG/JPG）或 PDF'); return; }
+  const r = new FileReader();
+  r.onload = ev => {
+    img64 = ev.target.result.split(',')[1];
+    imgType = ev.target.result.split(';')[0].split(':')[1];
+    // PDF 某些瀏覽器回 "" 或 application/octet-stream，依副檔名修正
+    if (/\.pdf$/i.test(f.name) && imgType !== 'application/pdf') imgType = 'application/pdf';
+    const isPdf = imgType === 'application/pdf';
+    const imgEl = document.getElementById('prev-img');
+    const fileEl = document.getElementById('prev-file');
+    if (isPdf) {
+      imgEl.style.display = 'none';
+      fileEl.style.display = 'block';
+      document.getElementById('prev-file-name').textContent = f.name;
+      document.getElementById('prev-file-meta').textContent = `PDF · ${(f.size/1024).toFixed(1)} KB`;
+    } else {
+      fileEl.style.display = 'none';
+      imgEl.src = ev.target.result;
+      imgEl.style.display = 'block';
+    }
+    document.getElementById('uph').style.display = 'none';
+    document.getElementById('diag-btn').disabled = false;
+  };
+  r.readAsDataURL(f);
+});
+const uz = document.getElementById('uz');
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('drag'));
+uz.addEventListener('drop', e => {
+  e.preventDefault(); uz.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (isAcceptedFile(f)) {
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    fi.files = dt.files;
+    fi.dispatchEvent(new Event('change'));
+  } else {
+    alert('僅支援圖片（PNG/JPG）或 PDF');
+  }
+});
+
+function loadPreset(k) {
+  document.getElementById('extra').value = PRESETS[k].extra;
+  document.getElementById('diag-btn').disabled = !img64;
+}
+function loadVerEx(k) {
+  const e = VER_EX[k];
+  document.getElementById('gate-sel').value = e.gate;
+  document.getElementById('step-calc').value = e.calc;
+  document.getElementById('step-cond').value = e.cond;
+}
+function loadBMDEx() {
+  document.getElementById('bmd-input').value = 'M_BA = -68.64\nM_BC = +68.64\nM_CB = -1.82\nM_CD = +1.82\nM_DC = -11.33\n\n結構：L型剛架\n柱AB高6m，梁BC=4m，梁CD=4m\nA鉸支 C滾支 D固定端';
+}
+
+/* ──────────── Helpers ──────────── */
+function setPill(id, text, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'badge ' + cls;
+}
+function setLoading(btnId, spinId, icoId, on) {
+  document.getElementById(btnId).disabled = on;
+  document.getElementById(spinId).style.display = on ? 'block' : 'none';
+  document.getElementById(icoId).style.display = on ? 'none' : 'block';
+}
+function bc(b) { return b==='ok'?'bok':b==='warn'?'bwarn':'berr'; }
+function bt(b) { return b==='ok'?'正常':b==='warn'?'注意':'警告'; }
+function sc(b) { return b==='pass'?'bok':b==='warn'?'bwarn':'berr'; }
+
+/* ──────────── Page 1: Diagnosis ──────────── */
+async function runDiag() {
+  const extra = document.getElementById('extra').value.trim();
+  setLoading('diag-btn','dsp','dico',true);
+  setPill('diag-pill','分析中','binfo');
+  document.getElementById('diag-body').innerHTML = '<div class="idle-state"><p>AI 正在識別結構並執行五項檢核…</p></div>';
+
+  const sys = `你是結構工程診斷AI。輸出純JSON不含markdown：
+{"d1":{"type":"結構類型","subtype":"子類型","badge":"ok/warn/err","confidence":"高/中/低"},
+"d2":{"nodes":["A(0,0)鉸支"],"members":["AB(L=6m)"],"loads":["AB均佈20kN/m"],"badge":"ok/warn"},
+"d3":{"formula":"3m+r vs 3j","calc":"3×3+6=15 vs 12","degree":數字,"verdict":"N次靜不定","badge":"ok/warn/err"},
+"d4":{"recommended":"傾角變位法","reason":"原因","methods":[{"name":"法名","desc":"適用","suitable":true}],"key_formula":"公式","fem_formula":"固端彎矩公式說明","badge":"ok"},
+"d5":{"known":["EI定值"],"missing":[],"warnings":["A鉸支用wL²/8"],"badge":"ok/warn/err"},
+"passport":{"type":"結構類型","degree":"N次靜不定","method":"建議解法","unknowns":"θ_B","equations":"1個","key_warning":"最重要提醒或null"}}
+補充：${extra||'無'}`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/diagnose`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ image_base64: img64, image_type: imgType, extra })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'diagnose failed');
+    diagResult = json.data;
+    renderDiag(diagResult);
+    setPill('diag-pill','完成','bok');
+    document.getElementById('tn-diag').className = 'tab-num';
+    document.getElementById('pd-diag').className = 'pdot done';
+    document.querySelectorAll('.tab')[0].classList.add('done');
+  } catch(e) {
+    setPill('diag-pill','失敗','berr');
+    document.getElementById('diag-body').innerHTML = `<div style="padding:20px;color:var(--fail);font-size:12px">診斷失敗（CORS限制）<br><br>請直接在Claude對話中輸入：<br>「請對此圖做前置診斷」<br>Claude會直接輸出診斷結果。</div>`;
+    console.error(e);
+  }
+  setLoading('diag-btn','dsp','dico',false);
+}
+
+function renderDiag(r) {
+  const body = document.getElementById('diag-body');
+  const sublbl = t => `<div class="sec-lbl" style="margin:6px 0 4px">${t}</div>`;
+  const ci = (cls,t) => `<div class="ci"><div class="cico ${cls}">${cls==='cok'?'✓':cls==='cw'?'!':'✗'}</div><div>${t}</div></div>`;
+
+  let html = '';
+
+  // D1
+  html += `<div class="dc"><div class="dch"><div class="dcn">01</div><div class="dct">結構類型識別</div><div class="badge ${bc(r.d1.badge)}">${bt(r.d1.badge)}</div></div><div class="dcb"><div class="dv"><span class="hi">${r.d1.type}</span>　${r.d1.subtype}<br><span style="font-size:10px;color:var(--text3)">信心度：${r.d1.confidence}</span></div></div></div>`;
+
+  // D2
+  const n2 = r.d2.nodes.map(x=>ci('cok',x)).join('');
+  const m2 = r.d2.members.map(x=>ci('cok',x)).join('');
+  const l2 = r.d2.loads.map(x=>ci('cw',x)).join('');
+  html += `<div class="dc"><div class="dch"><div class="dcn">02</div><div class="dct">幾何條件</div><div class="badge ${bc(r.d2.badge)}">${bt(r.d2.badge)}</div></div><div class="dcb">${sublbl('NODES')}<div class="cl">${n2}</div>${sublbl('MEMBERS')}<div class="cl">${m2}</div>${sublbl('LOADS')}<div class="cl">${l2}</div></div></div>`;
+
+  // D3
+  const deg = r.d3.degree;
+  const degCls = deg===0?'bok':deg<=2?'bwarn':'berr';
+  html += `<div class="dc"><div class="dch"><div class="dcn">03</div><div class="dct">靜不定次數</div><div class="badge ${degCls}">${deg===0?'靜定':`${deg}次靜不定`}</div></div><div class="dcb"><div class="dv" style="color:var(--text2);margin-bottom:6px">${r.d3.formula}</div><div class="fm">${r.d3.calc}<br>→ <span style="color:${deg===0?'var(--pass)':'var(--warn)'}">${r.d3.verdict}</span></div>${deg>0?`<div class="wb">⚠ ${deg}次靜不定，不可直接靜力法求解</div>`:''}</div></div>`;
+
+  // D4
+  const mhtml = r.d4.methods.map(m=>`<div style="padding:7px 9px;border-radius:4px;border:1px solid ${m.suitable?'var(--accent)':'var(--border)'};background:${m.suitable?'rgba(212,240,85,.05)':'var(--bg2)'};margin-bottom:5px"><div style="font-size:11px;font-weight:500;color:${m.suitable?'var(--accent)':'var(--text2)'}">${m.name}</div><div style="font-size:10px;color:var(--text3)">${m.desc}</div></div>`).join('');
+  html += `<div class="dc"><div class="dch"><div class="dcn">04</div><div class="dct">建議解法</div><div class="badge bok">正常</div></div><div class="dcb"><div class="dv">建議：<span class="hi">${r.d4.recommended}</span><br><span style="font-size:10px;color:var(--text2)">${r.d4.reason}</span></div><div class="fm" style="margin-top:8px">${r.d4.key_formula}<br><br>固端彎矩：${r.d4.fem_formula}</div><div style="margin-top:8px">${mhtml}</div></div></div>`;
+
+  // D5
+  const k5 = r.d5.known.map(x=>ci('cok',x)).join('');
+  const ms5 = r.d5.missing.map(x=>ci('ce',x)).join('');
+  const wb5 = r.d5.warnings.length ? `<div class="wb">${r.d5.warnings.map(w=>'⚠ '+w).join('<br>')}</div>` : '';
+  html += `<div class="dc"><div class="dch"><div class="dcn">05</div><div class="dct">已知條件 &amp; 注意</div><div class="badge ${bc(r.d5.badge)}">${bt(r.d5.badge)}</div></div><div class="dcb"><div class="cl">${k5}${ms5}</div>${wb5}</div></div>`;
+
+  // Passport
+  const pp = r.passport;
+  html += `<div class="passport"><div class="pp-h"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M5 8h6M5 5h6M5 11h4"/></svg>解題護照</div><div class="pp-body"><div class="pp-i"><div class="pp-l">TYPE</div><div class="pp-v acc">${pp.type}</div></div><div class="pp-i"><div class="pp-l">INDETERMINACY</div><div class="pp-v warn">${pp.degree}</div></div><div class="pp-i"><div class="pp-l">METHOD</div><div class="pp-v">${pp.method}</div></div><div class="pp-i"><div class="pp-l">UNKNOWNS</div><div class="pp-v">${pp.unknowns}</div></div><div class="pp-i"><div class="pp-l">EQUATIONS</div><div class="pp-v">${pp.equations}</div></div><div class="pp-i"><div class="pp-l">WARNING</div><div class="pp-v warn">${pp.key_warning||'—'}</div></div></div></div>`;
+
+  // Next button
+  html += `<button class="next-btn show" onclick="switchTab('solve')" style="margin-top:10px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>診斷完成 → 進入解題驗算 ↗</button>`;
+
+  body.innerHTML = html;
+}
+
+/* ──────────── Page 2: AI Solve ──────────── */
+async function runSolve() {
+  const gate = document.getElementById('gate-sel').value;
+  const cond = document.getElementById('step-cond').value.trim();
+  if (!cond) { alert('請確認「原始條件」已填入（可先執行前置診斷自動帶入）'); return; }
+
+  setLoading('solve-btn','ssp','sico',true);
+
+  // 組合 passport 資訊
+  let passport = '';
+  if (diagResult?.passport) {
+    const pp = diagResult.passport;
+    passport = `類型:${pp.type}, 靜不定:${pp.degree}, 解法:${pp.method}, 未知數:${pp.unknowns}, 方程數:${pp.equations}`;
+    if (pp.key_warning) passport += `, 注意:${pp.key_warning}`;
+  }
+
+  const gateNames = { equilibrium:'靜力平衡閘', node:'節點彎矩平衡閘', fem:'固端彎矩公式閘', compat:'諧合方程閘', physical:'物理意義閘' };
+
+  try {
+    const res = await fetch(`${API_BASE}/api/solve`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ gate, cond, passport })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'solve failed');
+    const r = json.data;
+    stepHistory.unshift(r);
+    gateStatus[gate] = r.overall;
+    renderStep(r);
+    updateGateSummary();
+    updateProgressDots(gate, r.overall);
+    document.getElementById('step-count-pill').textContent = `${stepHistory.length} 步`;
+  } catch(e) {
+    const gn = gateNames[gate];
+    addFallbackStep(gn, '（AI 解題模式）', cond);
+    console.error(e);
+  }
+  setLoading('solve-btn','ssp','sico',false);
+}
+
+/* ──────────── Page 2: Verify ──────────── */
+async function runVerify() {
+  const gate = document.getElementById('gate-sel').value;
+  const calc = document.getElementById('step-calc').value.trim();
+  const cond = document.getElementById('step-cond').value.trim();
+  if (!calc || !cond) { alert('請填入計算結果與原始條件'); return; }
+
+  setLoading('verify-btn','vsp','vico',true);
+
+  const gateNames = { equilibrium:'靜力平衡閘', node:'節點彎矩平衡閘', fem:'固端彎矩公式閘', compat:'諧合方程閘', physical:'物理意義閘' };
+  const sys = `你是結構工程驗算AI，執行「${gateNames[gate]}」。輸出純JSON不含markdown：
+{"gate":"${gate}","gate_label":"${gateNames[gate]}","overall":"pass/fail/warn",
+"checks":[{"name":"項目名","status":"pass/fail/warn","calc":"計算過程（含數字）","verdict":"結果說明","action":"修正指引或通過原因"}],
+"summary":"整體評語2句","block_reason":"失敗原因或null","next_step":"下一步建議"}`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/verify`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ gate, calc, cond })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'verify failed');
+    const r = json.data;
+    stepHistory.unshift(r);
+    gateStatus[gate] = r.overall;
+    renderStep(r);
+    updateGateSummary();
+    updateProgressDots(gate, r.overall);
+    document.getElementById('step-count-pill').textContent = `${stepHistory.length} 步`;
+  } catch(e) {
+    // Fallback: show CORS notice + Claude-based workflow
+    const gn = gateNames[gate];
+    addFallbackStep(gn, calc, cond);
+    console.error(e);
+  }
+  setLoading('verify-btn','vsp','vico',false);
+}
+
+function addFallbackStep(gateName, calc, cond) {
+  const list = document.getElementById('step-list');
+  const idle = list.querySelector('.idle-state');
+  if (idle) idle.remove();
+  const id = 'step-' + Date.now();
+  list.insertAdjacentHTML('afterbegin', `
+    <div class="step-item warn" id="${id}">
+      <div class="step-hdr" onclick="toggleStep('${id}')">
+        <div class="step-ico">!</div>
+        <div class="step-name">${gateName} <span class="tpill">CORS — 改用Claude對話</span></div>
+        <div class="badge bwarn">注意</div>
+      </div>
+      <div class="step-body-inner open" id="${id}-body">
+        <div class="calc-block">${calc.replace(/\n/g,'<br>')}</div>
+        <div class="action-row" style="background:var(--warn-bg);border:1px solid var(--warn-b);border-radius:4px;padding:8px 10px;color:var(--warn)">
+          瀏覽器無法直接呼叫 API（CORS）。<br>
+          請在Claude對話中輸入：<br>
+          <strong>「【驗算閘門：${gateName}】計算結果：${calc.split('\n')[0]}… 原始條件：${cond.split('\n')[0]}… 請執行驗算」</strong>
+        </div>
+      </div>
+    </div>`);
+}
+
+function renderStep(r) {
+  const list = document.getElementById('step-list');
+  const idle = list.querySelector('.idle-state');
+  if (idle) idle.remove();
+
+  const si = { pass:'✓', fail:'✗', warn:'!' };
+  const sl = { pass:'通過', fail:'中斷', warn:'注意' };
+  const id = 'step-' + Date.now();
+
+  let checksHtml = r.checks.map(c => `
+    <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <div style="width:14px;height:14px;border-radius:2px;background:${c.status==='pass'?'var(--pass)':c.status==='warn'?'var(--warn)':'var(--fail)'};color:#0c0c0a;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700">${si[c.status]}</div>
+        <div style="font-size:11px;font-weight:500">${c.name}</div>
+      </div>
+      <div class="calc-block">${c.calc}</div>
+      <div class="verdict-row">${c.verdict}</div>
+      <div class="gate-result ${c.status}">${c.action}</div>
+    </div>`).join('');
+
+  list.insertAdjacentHTML('afterbegin', `
+    <div class="step-item ${r.overall}" id="${id}">
+      <div class="step-hdr" onclick="toggleStep('${id}')">
+        <div class="step-ico">${si[r.overall]}</div>
+        <div class="step-name">${r.gate_label}</div>
+        <div class="badge ${sc(r.overall)}">${sl[r.overall]}</div>
+      </div>
+      <div class="step-body-inner open" id="${id}-body">
+        ${checksHtml}
+        <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${r.summary}</div>
+        ${r.block_reason?`<div class="gate-result fail"><strong>中斷：</strong>${r.block_reason}</div>`:''}
+        ${r.next_step?`<div style="margin-top:6px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--text2)"><strong style="color:var(--text)">下一步：</strong>${r.next_step}</div>`:''}
+      </div>
+    </div>`);
+}
+
+function toggleStep(id) {
+  const b = document.getElementById(id + '-body');
+  if (b) b.classList.toggle('open');
+}
+
+function updateGateSummary() {
+  const gates = [
+    { key:'equilibrium', label:'靜力平衡閘' },
+    { key:'node',        label:'節點彎矩平衡閘' },
+    { key:'fem',         label:'固端彎矩公式閘' },
+    { key:'compat',      label:'諧合方程閘' },
+    { key:'physical',    label:'物理意義閘' }
+  ];
+  const stl = { pass:'通過', fail:'中斷', warn:'注意', undefined:'待執行' };
+
+  gates.forEach(g => {
+    const s = gateStatus[g.key] || 'pending';
+    const el = document.getElementById('gm-' + g.key);
+    if (!el) return;
+    el.className = `gate-mini ${s}`;
+    el.innerHTML = `<div class="gate-dot"></div><div style="flex:1">${g.label}</div><span style="font-family:var(--mono);font-size:9px">${stl[s]}</span>`;
+  });
+
+  const done = Object.keys(gateStatus).length;
+  const passed = Object.values(gateStatus).filter(s => s === 'pass').length;
+  const failed = Object.values(gateStatus).filter(s => s === 'fail').length;
+  const warned = Object.values(gateStatus).filter(s => s === 'warn').length;
+
+  const scoreEl = document.getElementById('score-num');
+  scoreEl.textContent = done === 0 ? '—' : `${passed}/${done}`;
+  scoreEl.style.color = failed > 0 ? 'var(--fail)' : warned > 0 ? 'var(--warn)' : done > 0 ? 'var(--pass)' : 'var(--text3)';
+
+  let banner = '';
+  if (failed > 0) banner = `<div style="background:var(--fail-bg);border:1px solid var(--fail-b);border-radius:4px;padding:8px 10px;font-size:11px;color:var(--fail);margin-top:8px">⚠ ${failed} 個閘門中斷。請修正後重新提交。</div>`;
+  else if (warned > 0) banner = `<div style="background:var(--warn-bg);border:1px solid var(--warn-b);border-radius:4px;padding:8px 10px;font-size:11px;color:var(--warn);margin-top:8px">注意 ${warned} 個閘門有警示，確認後可繼續。</div>`;
+  else if (done > 0 && passed === done) banner = `<div style="background:var(--pass-bg);border:1px solid var(--pass-b);border-radius:4px;padding:8px 10px;font-size:11px;color:var(--pass);margin-top:8px">所有閘門通過，可繼續繪製彎矩圖。</div>`;
+  document.getElementById('overall-banner').innerHTML = banner;
+
+  const toBtn = document.getElementById('to-bmd-btn');
+  if (done > 0 && failed === 0) toBtn.classList.add('show');
+  else toBtn.classList.remove('show');
+}
+
+function updateProgressDots(gate, status) {
+  const dotMap = { equilibrium:'pd-eq', node:'pd-node', fem:'pd-fem', compat:'pd-compat', physical:'pd-phys' };
+  const dotId = dotMap[gate];
+  if (dotId) document.getElementById(dotId).className = `pdot ${status}`;
+}
+
+/* ──────────── Page 3: BMD ──────────── */
+async function drawBMD() {
+  const input = document.getElementById('bmd-input').value.trim();
+  if (!input) { alert('請輸入桿端彎矩'); return; }
+  setLoading('bmd-btn','bsp','bico',true);
+
+  const sys = `你是結構工程 AI，根據桿端彎矩數值繪製彎矩圖。
+輸出純JSON不含markdown：
+{"members":[{"id":"AB","type":"column","length":6,"start_m":0,"end_m":-68.64,"loads":"20kN/m均佈"},{"id":"BC","type":"beam","length":4,"start_m":68.64,"end_m":-1.82,"loads":"中點50kN"},{"id":"CD","type":"beam","length":4,"start_m":1.82,"end_m":-11.33,"loads":"無載重"}],
+"max_moment":{"value":68.64,"location":"B點"},
+"min_moment":{"value":-68.64,"location":"B點"},
+"inflection_points":["BC跨距B點1.2m處","CD跨距C點2.4m處"]}`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/bmd`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ moments_text: input })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'bmd failed');
+    renderBMD(json.data);
+  } catch(e) {
+    renderBMDFallback(input);
+    console.error(e);
+  }
+  setLoading('bmd-btn','bsp','bico',false);
+}
+
+/* 精確 BMD 繪圖：Canvas 版
+   - UDL 段以拋物線疊加（M(x) = Ms(1-t) + Me t + wL²t(1-t)/2）
+   - 無載重段為直線
+   - 自動偵測零點反曲點（線性內插）
+   - 全域比例尺由 max|M| 決定，柱/梁共用 */
+let bmdLastResult = null;
+function renderBMD(r) {
+  bmdLastResult = r;
+  const area = document.getElementById('bmd-area');
+  const members = (r.members || []).map(m => ({
+    id: m.id || '?',
+    type: m.type || 'beam',
+    length: +m.length || 4,
+    start_m: +m.start_m || 0,
+    end_m: +m.end_m || 0,
+    mid_m: m.mid_m == null ? null : +m.mid_m,
+    loads: m.loads || ''
+  }));
+  if (!members.length) { area.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:12px">無桿件資料</div>'; return; }
+
+  // Parse UDL value (kN/m) from loads string
+  const parseUDL = s => {
+    if (!s) return 0;
+    const mm = s.match(/(-?\d+(?:\.\d+)?)\s*kN\/m(?!·)/);
+    return mm ? parseFloat(mm[1]) : 0;
+  };
+
+  // Analytic moment along member at t ∈ [0,1]
+  const sampleM = (seg, t) => {
+    const Ms = seg.start_m, Me = seg.end_m, L = seg.length;
+    const w = parseUDL(seg.loads);
+    const lin = Ms * (1 - t) + Me * t;
+    const para = w * L * L * t * (1 - t) / 2;
+    // 若後端有給 mid_m，用來校正拋物線頂值
+    if (seg.mid_m != null && w === 0) {
+      // 非 UDL 但有 mid_m：用二次擬合
+      const a = 2 * (Ms - 2 * seg.mid_m + Me);
+      const b = -3 * Ms + 4 * seg.mid_m - Me;
+      return Ms + b * t + (a / 2) * t * t * 2; // 簡化：放棄擬合，直接線性
+    }
+    return lin + para;
+  };
+
+  // Global max |M|
+  let maxAbsM = 0;
+  members.forEach(m => {
+    for (let i = 0; i <= 20; i++) {
+      maxAbsM = Math.max(maxAbsM, Math.abs(sampleM(m, i / 20)));
+    }
+  });
+  if (maxAbsM === 0) maxAbsM = 1;
+
+  // Layout
+  const PAD_X = 60, PAD_TOP = 40, PAD_BOT = 90;
+  const pxPerM = 38;
+  const mScale = 60 / maxAbsM; // 最大彎矩對應 60px
+  const beams = members.filter(m => m.type !== 'column');
+  const cols  = members.filter(m => m.type === 'column');
+  const beamsLen = beams.reduce((s, m) => s + m.length * pxPerM, 0);
+  const colsLen  = cols.reduce((s, m) => s + m.length * pxPerM, 0);
+  const colMaxLen = cols.reduce((s, m) => Math.max(s, m.length * pxPerM), 0);
+
+  const W = Math.max(620, PAD_X * 2 + Math.max(beamsLen + 20 * Math.max(0, beams.length - 1), colsLen + 80 * cols.length));
+  const H = PAD_TOP + 80 + colMaxLen + PAD_BOT;
+  const baseY = PAD_TOP + 40 + colMaxLen;
+
+  // Colors from CSS vars
+  const css = getComputedStyle(document.documentElement);
+  const cv = (n, fb) => (css.getPropertyValue(n).trim() || fb);
+  const C = {
+    base:   cv('--border3', '#444'),
+    text:   cv('--text2',   '#aaa'),
+    dim:    cv('--text3',   '#777'),
+    pos:    '#5599e0',
+    neg:    '#e07070',
+    fill:   'rgba(85,153,224,.14)',
+    fillNeg:'rgba(224,112,112,.14)',
+    accent: cv('--accent',  '#d4f055'),
+    ok:     cv('--pass',    '#6dd080')
+  };
+
+  // Retina canvas
+  const canvas = document.createElement('canvas');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = '100%'; canvas.style.maxWidth = W + 'px'; canvas.style.height = 'auto'; canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
+
+  // Title
+  ctx.fillStyle = C.text;
+  ctx.textAlign = 'center';
+  ctx.fillText('彎矩圖 BMD（kN·m）— 正彎矩繪於構件外側 / 上側', W / 2, 18);
+
+  // Draw member BMD: common routine. dir: 'h' (beam) or 'v' (column)
+  // For beam: baseline from (bx, y) to (bx+L, y), positive moment UP (−y)
+  // For column: baseline from (x, by_bot) to (x, by_top), positive moment to the RIGHT (+x)
+  const drawMember = (seg, ax, ay, dir) => {
+    const Lpx = seg.length * pxPerM;
+    const N = 60;
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const M = sampleM(seg, t);
+      if (dir === 'h') {
+        pts.push({ x: ax + Lpx * t, y: ay - M * mScale, M });
+      } else {
+        // column: t=0 at bottom (start_m), t=1 at top (end_m)
+        pts.push({ x: ax + M * mScale, y: ay - Lpx * t, M });
+      }
+    }
+
+    // Baseline
+    ctx.strokeStyle = C.base;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    if (dir === 'h') { ctx.moveTo(ax, ay); ctx.lineTo(ax + Lpx, ay); }
+    else             { ctx.moveTo(ax, ay); ctx.lineTo(ax, ay - Lpx); }
+    ctx.stroke();
+
+    // Fill region (splitting at zero crossings so +/- get different colors)
+    const segs = [[pts[0]]];
+    for (let i = 1; i < pts.length; i++) {
+      const prev = pts[i - 1], curr = pts[i];
+      if ((prev.M >= 0) !== (curr.M >= 0) && prev.M !== 0) {
+        const tt = prev.M / (prev.M - curr.M);
+        const zx = prev.x + (curr.x - prev.x) * tt;
+        const zy = prev.y + (curr.y - prev.y) * tt;
+        segs[segs.length - 1].push({ x: zx, y: zy, M: 0 });
+        segs.push([{ x: zx, y: zy, M: 0 }]);
+      }
+      segs[segs.length - 1].push(curr);
+    }
+    segs.forEach(sp => {
+      if (sp.length < 2) return;
+      const sign = sp.find(p => p.M !== 0)?.M || 0;
+      ctx.beginPath();
+      if (dir === 'h') {
+        ctx.moveTo(sp[0].x, ay);
+        sp.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.lineTo(sp[sp.length - 1].x, ay);
+      } else {
+        ctx.moveTo(ax, sp[0].y);
+        sp.forEach(p => ctx.lineTo(p.x, p.y));
+        ctx.lineTo(ax, sp[sp.length - 1].y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = sign >= 0 ? C.fill : C.fillNeg;
+      ctx.fill();
+    });
+
+    // Curve outline
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.strokeStyle = C.pos;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    // Zero crossings (inflection points on BMD)
+    for (let i = 1; i < pts.length; i++) {
+      if ((pts[i - 1].M >= 0) !== (pts[i].M >= 0) && pts[i - 1].M !== 0) {
+        const tt = pts[i - 1].M / (pts[i - 1].M - pts[i].M);
+        const zx = pts[i - 1].x + (pts[i].x - pts[i - 1].x) * tt;
+        const zy = pts[i - 1].y + (pts[i].y - pts[i - 1].y) * tt;
+        ctx.fillStyle = C.accent;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (dir === 'h') ctx.arc(zx, ay, 3.5, 0, Math.PI * 2);
+        else             ctx.arc(ax, zy, 3.5, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+      }
+    }
+
+    // Local extremum (for UDL段 找真實極值)
+    const w = parseUDL(seg.loads);
+    if (Math.abs(w) > 1e-9) {
+      // dM/dt=0 → (Me-Ms) + wL²(1-2t)/2 = 0 → t = 1/2 + (Me-Ms)/(wL²)
+      const tStar = 0.5 + (seg.end_m - seg.start_m) / (w * seg.length * seg.length);
+      if (tStar > 0.02 && tStar < 0.98) {
+        const Mstar = sampleM(seg, tStar);
+        const px = dir === 'h' ? ax + Lpx * tStar : ax + Mstar * mScale;
+        const py = dir === 'h' ? ay - Mstar * mScale : ay - Lpx * tStar;
+        ctx.fillStyle = C.ok;
+        ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = C.ok;
+        ctx.textAlign = 'center';
+        ctx.fillText(Mstar.toFixed(2), px, py - 6);
+      }
+    }
+
+    // End labels
+    ctx.fillStyle = C.dim;
+    ctx.textAlign = 'center';
+    if (dir === 'h') {
+      ctx.fillText(seg.start_m.toFixed(2), pts[0].x,  pts[0].y  + (seg.start_m >= 0 ? -6 : 12));
+      ctx.fillText(seg.end_m.toFixed(2),   pts[N].x,  pts[N].y  + (seg.end_m   >= 0 ? -6 : 12));
+    } else {
+      ctx.textAlign = 'left';
+      ctx.fillText(' ' + seg.start_m.toFixed(2), pts[0].x, pts[0].y + 4);
+      ctx.fillText(' ' + seg.end_m.toFixed(2),   pts[N].x, pts[N].y + 4);
+    }
+
+    // Member label
+    ctx.fillStyle = C.text;
+    if (dir === 'h') {
+      ctx.textAlign = 'center';
+      ctx.fillText(`${seg.id}  (${seg.length}m)${seg.loads ? '  ' + seg.loads : ''}`, ax + Lpx / 2, ay + 26);
+    } else {
+      ctx.save();
+      ctx.translate(ax - 18, ay - Lpx / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText(`${seg.id}  (${seg.length}m)${seg.loads ? '  ' + seg.loads : ''}`, 0, 0);
+      ctx.restore();
+    }
+  };
+
+  // Draw columns stacked from left
+  let colX = PAD_X + 20;
+  cols.forEach(c => {
+    drawMember(c, colX, baseY, 'v');
+    colX += 90;
+  });
+
+  // Draw beams in a row starting after columns
+  let beamX = Math.max(PAD_X + 20, colX + 20);
+  beams.forEach(b => {
+    drawMember(b, beamX, baseY, 'h');
+    beamX += b.length * pxPerM + 20;
+  });
+
+  // Scale bar
+  const sbY = H - 55;
+  ctx.strokeStyle = C.dim;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD_X, sbY); ctx.lineTo(PAD_X + maxAbsM * mScale, sbY);
+  ctx.moveTo(PAD_X, sbY - 3); ctx.lineTo(PAD_X, sbY + 3);
+  ctx.moveTo(PAD_X + maxAbsM * mScale, sbY - 3); ctx.lineTo(PAD_X + maxAbsM * mScale, sbY + 3);
+  ctx.stroke();
+  ctx.fillStyle = C.dim;
+  ctx.textAlign = 'left';
+  ctx.fillText(`比例尺 ${maxAbsM.toFixed(1)} kN·m`, PAD_X + maxAbsM * mScale + 10, sbY + 4);
+
+  // Legend
+  ctx.fillStyle = C.fill;    ctx.fillRect(W - 180, sbY - 8, 12, 10);
+  ctx.fillStyle = C.fillNeg; ctx.fillRect(W - 110, sbY - 8, 12, 10);
+  ctx.fillStyle = C.accent;  ctx.beginPath(); ctx.arc(W - 40, sbY - 3, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = C.dim;
+  ctx.textAlign = 'left';
+  ctx.fillText('正彎矩',  W - 164, sbY + 2);
+  ctx.fillText('負彎矩',  W - 94,  sbY + 2);
+  ctx.fillText('反曲點',  W - 28,  sbY + 2);
+
+  // Bottom summary
+  ctx.fillStyle = C.ok;
+  ctx.textAlign = 'center';
+  ctx.fillText(
+    `最大彎矩：${(r.max_moment?.value ?? 0).toFixed(2)} kN·m @ ${r.max_moment?.location || '—'}`,
+    W / 2, H - 18
+  );
+
+  // Attach
+  area.innerHTML = '';
+  area.appendChild(canvas);
+
+  // Textual addendum
+  const info = document.createElement('div');
+  info.style.cssText = 'margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;font-size:11px;color:var(--text2);font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.8';
+  const infl = (r.inflection_points || []).join('、') || '—';
+  const mx = r.max_moment ? `${(+r.max_moment.value).toFixed(2)} @ ${r.max_moment.location}` : '—';
+  const mn = r.min_moment ? `${(+r.min_moment.value).toFixed(2)} @ ${r.min_moment.location}` : '—';
+  const rx = r.reactions ? Object.entries(r.reactions).map(([k, v]) => `${k}=${v}`).join(' ｜ ') : '—';
+  info.innerHTML = `<div>反曲點：${infl}</div><div>最大 / 最小：${mx} / ${mn}</div><div>支承反力：${rx}</div>`;
+  area.appendChild(info);
+
+  // 啟用「匯出計算書」按鈕（若存在）
+  const expBtn = document.getElementById('export-btn');
+  if (expBtn) expBtn.classList.add('show');
+}
+
+function renderBMDFallback(input) {
+  document.getElementById('bmd-area').innerHTML = `
+    <div style="padding:16px;font-size:12px;color:var(--warn);line-height:1.8">
+      API 連線受限。<br>請在Claude對話中輸入：<br>
+      「根據以下桿端彎矩繪製彎矩圖（SVG）：<br>${input.replace(/\n/g,'<br>')}」<br>
+      Claude 會直接在對話中繪製 SVG 彎矩圖。
+    </div>`;
+}
+</script>
+</body>
+</html>

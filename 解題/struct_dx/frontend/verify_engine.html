@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>步驟驗算引擎</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #fafaf8;
+  --bg2: #f2f1ee;
+  --bg3: #e8e7e3;
+  --border: #dddbd6;
+  --border2: #c8c6c0;
+  --text: #1a1a18;
+  --text2: #6b6960;
+  --text3: #a8a69f;
+  --pass: #1a6b3a;
+  --pass-bg: #edf7f1;
+  --pass-b: #b8dfc8;
+  --fail: #8b1a1a;
+  --fail-bg: #fdf0f0;
+  --fail-b: #f0b8b8;
+  --warn: #7a4f00;
+  --warn-bg: #fdf6e8;
+  --warn-b: #f0d898;
+  --active: #1a3a8b;
+  --active-bg: #eff3fd;
+  --active-b: #b8c8f0;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+.hdr {
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.hdr-left { display: flex; align-items: center; gap: 12px; }
+.hdr-logo {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  letter-spacing: .1em;
+  display: flex; align-items: center; gap: 6px;
+}
+.hdr-logo::before {
+  content: '';
+  width: 7px; height: 7px;
+  background: var(--text);
+  border-radius: 50%;
+  display: block;
+}
+.hdr-title { font-size: 14px; font-weight: 500; }
+.hdr-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+
+/* ── Layout ── */
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 300px 1fr 260px;
+  gap: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Panel base ── */
+.panel {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.panel:last-child { border-right: none; }
+.panel-hdr {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: .1em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+/* ── Left: Step input ── */
+.step-form { display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: .07em;
+}
+.field select,
+.field input,
+.field textarea {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color .15s;
+  width: 100%;
+}
+.field select:focus,
+.field input:focus,
+.field textarea:focus { border-color: var(--text2); }
+.field textarea { resize: none; height: 80px; line-height: 1.7; }
+
+.verify-btn {
+  background: var(--text);
+  color: var(--bg);
+  border: none;
+  border-radius: 4px;
+  padding: 11px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: opacity .15s;
+  width: 100%;
+  margin-top: 4px;
+}
+.verify-btn:hover { opacity: .85; }
+.verify-btn:disabled { opacity: .35; cursor: not-allowed; }
+.spin {
+  width: 13px; height: 13px;
+  border: 2px solid var(--bg);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  display: none;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* quick examples */
+.eg-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: .07em; margin-bottom: 5px; }
+.eg-list { display: flex; flex-direction: column; gap: 5px; }
+.eg-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  cursor: pointer;
+  text-align: left;
+  transition: background .12s, border-color .12s;
+  line-height: 1.5;
+}
+.eg-btn:hover { background: var(--bg3); border-color: var(--border2); color: var(--text); }
+
+/* ── Middle: Verification results ── */
+.steps-list { display: flex; flex-direction: column; gap: 14px; }
+
+.step-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  animation: fadeIn .25s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.step-card.pass { border-color: var(--pass-b); }
+.step-card.fail { border-color: var(--fail-b); }
+.step-card.warn { border-color: var(--warn-b); }
+.step-card.check { border-color: var(--active-b); }
+
+.step-hdr {
+  padding: 9px 13px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid var(--border);
+}
+.step-card.pass .step-hdr { background: var(--pass-bg); border-bottom-color: var(--pass-b); }
+.step-card.fail .step-hdr { background: var(--fail-bg); border-bottom-color: var(--fail-b); }
+.step-card.warn .step-hdr { background: var(--warn-bg); border-bottom-color: var(--warn-b); }
+.step-card.check .step-hdr { background: var(--active-bg); border-bottom-color: var(--active-b); }
+
+.step-icon {
+  width: 20px; height: 20px;
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; flex-shrink: 0;
+}
+.pass .step-icon { background: var(--pass); color: white; }
+.fail .step-icon { background: var(--fail); color: white; }
+.warn .step-icon { background: var(--warn); color: white; }
+.check .step-icon { background: var(--active); color: white; }
+
+.step-name { font-size: 12px; font-weight: 500; flex: 1; }
+.step-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-weight: 500;
+  letter-spacing: .05em;
+}
+.pass .step-tag { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass-b); }
+.fail .step-tag { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail-b); }
+.warn .step-tag { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-b); }
+.check .step-tag { background: var(--active-bg); color: var(--active); border: 1px solid var(--active-b); }
+
+.step-body { padding: 12px 14px; background: var(--bg); }
+.step-body .calc {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--text);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 9px 12px;
+  margin-bottom: 9px;
+}
+.step-body .verdict {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text2);
+}
+.step-body .verdict .ok { color: var(--pass); font-weight: 500; }
+.step-body .verdict .no { color: var(--fail); font-weight: 500; }
+.step-body .verdict .caution { color: var(--warn); font-weight: 500; }
+.step-body .action {
+  margin-top: 9px;
+  padding: 8px 11px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.fail .action { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail-b); }
+.warn .action { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-b); }
+.pass .action { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass-b); }
+
+/* residual bar */
+.res-bar-wrap { margin-top: 8px; }
+.res-bar-label { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-bottom: 4px; display: flex; justify-content: space-between; }
+.res-bar-track { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.res-bar-fill { height: 100%; border-radius: 3px; transition: width .6s ease; }
+
+/* ── Right: Summary ── */
+.summary-empty { color: var(--text3); font-size: 13px; text-align: center; padding-top: 40px; line-height: 1.8; }
+.gate-list { display: flex; flex-direction: column; gap: 8px; }
+.gate-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+.gate-item.pass { background: var(--pass-bg); border-color: var(--pass-b); color: var(--pass); }
+.gate-item.fail { background: var(--fail-bg); border-color: var(--fail-b); color: var(--fail); }
+.gate-item.warn { background: var(--warn-bg); border-color: var(--warn-b); color: var(--warn); }
+.gate-item.pending { background: var(--bg2); color: var(--text3); }
+.gate-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.pass .gate-dot { background: var(--pass); }
+.fail .gate-dot { background: var(--fail); }
+.warn .gate-dot { background: var(--warn); }
+.pending .gate-dot { background: var(--border2); }
+.gate-name { flex: 1; }
+.gate-status { font-family: var(--mono); font-size: 10px; }
+
+.score-block {
+  padding: 14px;
+  background: var(--bg2);
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  margin-top: 14px;
+  text-align: center;
+}
+.score-num { font-size: 32px; font-weight: 600; font-family: var(--mono); }
+.score-lbl { font-size: 11px; color: var(--text2); margin-top: 3px; }
+
+.verdict-banner {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.7;
+  display: none;
+}
+.verdict-banner.pass { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass-b); display: block; }
+.verdict-banner.fail { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail-b); display: block; }
+.verdict-banner.warn { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-b); display: block; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
+
+/* responsive */
+@media (max-width: 800px) {
+  main { grid-template-columns: 1fr; overflow: visible; }
+  .panel { border-right: none; border-bottom: 1px solid var(--border); max-height: none; overflow: visible; }
+}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-logo">struct.dx</div>
+    <div>
+      <div class="hdr-title">步驟驗算引擎</div>
+      <div class="hdr-sub">每步完成後自動執行對應驗算閘門</div>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<!-- ── Left: Input ── -->
+<div class="panel">
+  <div class="panel-hdr">
+    <span>輸入驗算資料</span>
+  </div>
+  <div class="panel-body">
+    <div class="step-form">
+
+      <div class="field">
+        <label>驗算閘門類型</label>
+        <select id="gate-type">
+          <option value="equilibrium">靜力平衡閘 — ΣFx, ΣFy, ΣM</option>
+          <option value="node">節點彎矩平衡閘 — ΣM_節點</option>
+          <option value="fem">固端彎矩公式閘 — 邊界條件確認</option>
+          <option value="compat">諧合方程閘 — 代回驗證殘差</option>
+          <option value="physical">物理意義閘 — 符號量級方向</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>結構類型</label>
+        <select id="struct-type">
+          <option value="portal">平面剛架</option>
+          <option value="truss">平面桁架</option>
+          <option value="beam">連續梁</option>
+          <option value="frame-indet">靜不定剛架</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>計算結果（輸入本步驟求得的數值）</label>
+        <textarea id="calc-input" placeholder="例：
+V_A = -50 kN
+V_D = 80 kN
+H_A = 0"></textarea>
+      </div>
+
+      <div class="field">
+        <label>原始條件（載重、幾何、支承）</label>
+        <textarea id="cond-input" placeholder="例：
+B點垂直集中力 50kN（↑）
+AB跨均佈側向載重 20kN/m
+A鉸支, C滾支, D固定端"></textarea>
+      </div>
+
+      <button class="verify-btn" id="vbtn" onclick="verify()">
+        <div class="spin" id="sp"></div>
+        <svg id="vi" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 8l4 4 8-8"/></svg>
+        執行驗算
+      </button>
+
+      <div>
+        <div class="eg-label">快速載入範例</div>
+        <div class="eg-list">
+          <button class="eg-btn" onclick="loadEx('eq')">① 靜力平衡 — L型剛架反力</button>
+          <button class="eg-btn" onclick="loadEx('node')">② 節點彎矩平衡 — 傾角變位法</button>
+          <button class="eg-btn" onclick="loadEx('fem')">③ 固端彎矩公式 — A鉸支邊界條件</button>
+          <button class="eg-btn" onclick="loadEx('compat')">④ 諧合方程代回驗算</button>
+          <button class="eg-btn" onclick="loadEx('phys')">⑤ 物理意義閘 — 桿端彎矩</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Middle: Verification steps ── -->
+<div class="panel">
+  <div class="panel-hdr">
+    <span>驗算報告</span>
+    <span id="step-count" style="font-size:10px;color:var(--text3)">—</span>
+  </div>
+  <div class="panel-body">
+    <div class="steps-list" id="steps-list">
+      <div style="color:var(--text3);font-size:13px;padding-top:30px;text-align:center;line-height:2">
+        選擇驗算類型並輸入計算結果<br>
+        引擎將逐項執行對應閘門
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Right: Summary ── -->
+<div class="panel">
+  <div class="panel-hdr">
+    <span>閘門總覽</span>
+  </div>
+  <div class="panel-body">
+    <div id="summary-area">
+      <div class="summary-empty">執行驗算後<br>此處顯示各閘門狀態</div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+const EXAMPLES = {
+  eq: {
+    gate: 'equilibrium', struct: 'portal',
+    calc: 'V_A = -50 kN（↓）\nV_D = 80 kN（↑）\nH_A = 0 kN\nH_D = 120 kN（←）',
+    cond: 'B點垂直集中力 50kN（↑）\nAB跨水平均佈載重 20kN/m，L=6m\nA鉸支, C滾支, D固定端\nΣM_B=0求V_D, ΣFy=0求V_A, ΣFx=0求H_A'
+  },
+  node: {
+    gate: 'node', struct: 'portal',
+    calc: 'M_BA = -68.64 kN·m\nM_BC = +68.64 kN·m\nM_CB = -1.82 kN·m\nM_CD = +1.82 kN·m',
+    cond: '節點B: M_BA + M_BC = 0\n節點C（滾支）: M_CB + M_CD = 0\nKθ_B = 3.5606, Kθ_C = 0.1515'
+  },
+  fem: {
+    gate: 'fem', struct: 'portal',
+    calc: 'M_BA^F = -90 kN·m（A鉸支修正後）\nM_BC^F = -25 kN·m\nM_CB^F = +25 kN·m\nM_CD^F = 0',
+    cond: '柱AB：A鉸支（遠端），均佈側向載重w=20kN/m，L=6m\n梁BC：集中力P=50kN↑於中點，L=4m\n梁CD：無載重，D固定端'
+  },
+  compat: {
+    gate: 'compat', struct: 'truss',
+    calc: 'R（贅力）= -8.61 kN\nN_BD = N\'_BD + n_BD × R\n= -15√41/2 + (-√41/8)(-8.61)\n= -48.01 + 6.90 = -41.1 kN',
+    cond: '諧合方程：Δ1\' + f11×R = 0\nΔ1\' = 125.8/EA, f11 = 14.61/EA\n代入：R = -125.8/14.61 = -8.61 kN'
+  },
+  phys: {
+    gate: 'physical', struct: 'portal',
+    calc: 'M_BA = -68.64 kN·m（柱頂，逆時針）\nM_BC = +68.64 kN·m（梁左端，順時針）\nM_DC = -11.33 kN·m（固定端）',
+    cond: '水平力P向右施加於柱頂→柱受彎\nD為固定端應有殘餘彎矩\n節點B為剛接，彎矩需平衡'
+  }
+};
+
+function loadEx(key) {
+  const e = EXAMPLES[key];
+  document.getElementById('gate-type').value = e.gate;
+  document.getElementById('struct-type').value = e.struct;
+  document.getElementById('calc-input').value = e.calc;
+  document.getElementById('cond-input').value = e.cond;
+}
+
+const GATE_DEFS = {
+  equilibrium: {
+    label: '靜力平衡閘',
+    checks: ['ΣFx = 0', 'ΣFy = 0', 'ΣM = 0'],
+    icon: 'Σ'
+  },
+  node: {
+    label: '節點彎矩平衡閘',
+    checks: ['各節點 ΣM = 0', '桿端彎矩符號一致性', '節點數量完整'],
+    icon: 'M'
+  },
+  fem: {
+    label: '固端彎矩公式閘',
+    checks: ['邊界條件識別', '公式選用正確', '數值計算正確'],
+    icon: 'F'
+  },
+  compat: {
+    label: '諧合方程閘',
+    checks: ['代回原方程', '殘差 < 容許值', '物理諧合條件'],
+    icon: 'C'
+  },
+  physical: {
+    label: '物理意義閘',
+    checks: ['符號與直覺一致', '量級合理', '力系平衡整體'],
+    icon: 'P'
+  }
+};
+
+const API_BASE = 'http://localhost:3000';
+let history = [];
+
+// ── 讀取 diagnosis.html 傳來的診斷資料（若有）──────────────
+(function loadPendingDiag(){
+  try{
+    const raw = localStorage.getItem('structdx_pending_diag');
+    if (!raw) return;
+    const { ts, diag } = JSON.parse(raw);
+    // 超過 1 小時就忽略
+    if (Date.now() - ts > 3600000) { localStorage.removeItem('structdx_pending_diag'); return; }
+    if (!diag) return;
+
+    // 組 cond 文字
+    const lines = [];
+    if (diag.d1?.type)    lines.push(`結構：${diag.d1.type}${diag.d1.subtype ? '（' + diag.d1.subtype + '）' : ''}`);
+    if (diag.d2?.nodes?.length)   lines.push('節點：' + diag.d2.nodes.join('、'));
+    if (diag.d2?.members?.length) lines.push('桿件：' + diag.d2.members.join('、'));
+    if (diag.d2?.loads?.length)   lines.push('載重：' + diag.d2.loads.join('、'));
+    if (diag.passport?.degree)    lines.push(`靜不定：${diag.passport.degree}`);
+    if (diag.passport?.method)    lines.push(`解法：${diag.passport.method}`);
+    if (diag.passport?.key_warning) lines.push(`⚠ ${diag.passport.key_warning}`);
+    (diag.d5?.warnings || []).forEach(w => lines.push(`⚠ ${w}`));
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const condEl = document.getElementById('cond-input');
+      if (condEl && !condEl.value.trim()) condEl.value = lines.join('\n');
+
+      // 根據診斷類型自動選 struct-type
+      const stSel = document.getElementById('struct-type');
+      if (stSel) {
+        const t = (diag.d1?.type || '') + ' ' + (diag.passport?.type || '');
+        if (/桁架|truss/i.test(t))      stSel.value = 'truss';
+        else if (/連續梁|beam/i.test(t)) stSel.value = 'beam';
+        else if (/靜不定.*剛架|indet/i.test(t)) stSel.value = 'frame-indet';
+        else if (/剛架|frame|portal/i.test(t))  stSel.value = 'portal';
+      }
+
+      // 根據 key_warning 推薦閘門
+      const gtSel = document.getElementById('gate-type');
+      if (gtSel) {
+        const warn = (diag.passport?.key_warning || '') + ' ' + (diag.d5?.warnings || []).join(' ');
+        if (/wL.?\/8|鉸支|固端彎矩|FEM|近固遠鉸/i.test(warn)) gtSel.value = 'fem';
+        else if (/力法|諧合|贅力/.test(diag.passport?.method || '')) gtSel.value = 'compat';
+        else if (/傾角變位|撓角變位|節點/.test(diag.passport?.method || '')) gtSel.value = 'node';
+      }
+
+      // 在頁面頂端顯示「已從診斷帶入」提示條
+      const main = document.querySelector('main') || document.body;
+      const banner = document.createElement('div');
+      banner.style.cssText = 'margin:12px;padding:10px 14px;background:rgba(212,240,85,.08);border:1px solid var(--accent,#d4f055);border-radius:4px;font-size:12px;color:var(--text2,#aaa);display:flex;justify-content:space-between;align-items:center';
+      banner.innerHTML = `<span>✓ 已從前置診斷帶入結構資訊（${diag.passport?.type || ''} · ${diag.passport?.method || ''}）</span><button onclick="clearPendingDiag()" style="background:transparent;border:1px solid #444;color:#aaa;padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer">清除</button>`;
+      main.insertBefore(banner, main.firstChild);
+    });
+  }catch(e){console.warn('loadPendingDiag error',e)}
+})();
+
+function clearPendingDiag(){
+  localStorage.removeItem('structdx_pending_diag');
+  location.reload();
+}
+
+async function verify() {
+  const gate = document.getElementById('gate-type').value;
+  const struct = document.getElementById('struct-type').value;
+  const calc = document.getElementById('calc-input').value.trim();
+  const cond = document.getElementById('cond-input').value.trim();
+  if (!calc || !cond) { alert('請填入計算結果與原始條件'); return; }
+
+  const btn = document.getElementById('vbtn');
+  btn.disabled = true;
+  document.getElementById('sp').style.display = 'block';
+  document.getElementById('vi').style.display = 'none';
+
+  const gateInfo = GATE_DEFS[gate];
+  const sys = `你是結構工程驗算 AI。針對使用者提交的計算步驟，執行嚴格的「${gateInfo.label}」驗算。
+輸出純 JSON（不含 markdown）：
+{
+  "gate": "${gate}",
+  "gate_label": "${gateInfo.label}",
+  "overall": "pass 或 fail 或 warn",
+  "checks": [
+    {
+      "name": "驗算項目名稱",
+      "status": "pass 或 fail 或 warn",
+      "calc": "具體計算過程（含數字）",
+      "residual": 數字或null（殘差絕對值，無則null）,
+      "verdict": "通過/失敗/注意的說明（1-2句）",
+      "action": "若失敗或注意，給出具體修正指引；若通過，說明正確原因"
+    }
+  ],
+  "summary": "整體評語（2-3句）",
+  "block_reason": "若 overall=fail，說明哪個關卡卡住及原因；若pass則為null",
+  "next_step": "建議下一步驟或注意事項"
+}
+結構類型：${struct}
+驗算閘門：${gate}`;
+
+  const userMsg = `【計算結果】\n${calc}\n\n【原始條件】\n${cond}`;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gate, calc, cond: `結構類型：${struct}\n\n${cond}` })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'verify failed');
+    const result = json.data;
+    history.unshift(result);
+    renderResult(result);
+    renderSummary();
+  } catch (e) {
+    renderError();
+    console.error(e);
+  }
+
+  btn.disabled = false;
+  document.getElementById('sp').style.display = 'none';
+  document.getElementById('vi').style.display = 'block';
+}
+
+function renderResult(r) {
+  const list = document.getElementById('steps-list');
+  const statusIcon = { pass: '✓', fail: '✗', warn: '!' };
+  const statusLabel = { pass: '通過', fail: '中斷', warn: '注意' };
+
+  let html = `<div class="step-card ${r.overall}" style="margin-bottom:4px">
+    <div class="step-hdr">
+      <div class="step-icon">${statusIcon[r.overall]}</div>
+      <div class="step-name">${r.gate_label}</div>
+      <div class="step-tag">${statusLabel[r.overall]}</div>
+    </div>
+    <div class="step-body">`;
+
+  r.checks.forEach(c => {
+    const maxRes = 100;
+    const resVal = c.residual !== null && c.residual !== undefined ? c.residual : null;
+    const barW = resVal !== null ? Math.min(100, (resVal / maxRes) * 100) : 0;
+    const barColor = c.status === 'pass' ? '#1a6b3a' : c.status === 'warn' ? '#7a4f00' : '#8b1a1a';
+
+    html += `<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+        <div style="width:16px;height:16px;border-radius:3px;background:${c.status==='pass'?'var(--pass)':c.status==='warn'?'var(--warn)':'var(--fail)'};color:white;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;flex-shrink:0">${statusIcon[c.status]}</div>
+        <div style="font-size:12px;font-weight:500">${c.name}</div>
+      </div>
+      <div class="calc">${c.calc}</div>
+      ${resVal !== null ? `<div class="res-bar-wrap">
+        <div class="res-bar-label"><span>殘差</span><span>${resVal.toFixed(4)}</span></div>
+        <div class="res-bar-track"><div class="res-bar-fill" style="width:${barW.toFixed(1)}%;background:${barColor}"></div></div>
+      </div>` : ''}
+      <div class="verdict">${c.verdict.replace(/通過/g,'<span class="ok">通過</span>').replace(/失敗/g,'<span class="no">失敗</span>').replace(/注意/g,'<span class="caution">注意</span>')}</div>
+      <div class="action">${c.action}</div>
+    </div>`;
+  });
+
+  html += `<div style="font-size:12px;color:var(--text2);line-height:1.7;margin-top:4px">${r.summary}</div>`;
+
+  if (r.block_reason) {
+    html += `<div class="action" style="margin-top:9px;background:var(--fail-bg);color:var(--fail);border:1px solid var(--fail-b);border-radius:4px;padding:8px 11px;font-size:12px"><strong>中斷原因：</strong>${r.block_reason}</div>`;
+  }
+  if (r.next_step) {
+    html += `<div style="margin-top:9px;padding:8px 11px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;font-size:12px;color:var(--text2)"><strong style="color:var(--text)">下一步：</strong>${r.next_step}</div>`;
+  }
+
+  html += `</div></div>`;
+
+  const prev = list.querySelector('div[style*="padding-top"]');
+  if (prev) prev.remove();
+  list.insertAdjacentHTML('afterbegin', html);
+
+  document.getElementById('step-count').textContent = `${history.length} 項已驗算`;
+}
+
+function renderSummary() {
+  const gateStatus = {};
+  history.forEach(r => { gateStatus[r.gate] = r.overall; });
+
+  const gates = [
+    { key: 'equilibrium', label: '靜力平衡閘' },
+    { key: 'node', label: '節點彎矩平衡閘' },
+    { key: 'fem', label: '固端彎矩公式閘' },
+    { key: 'compat', label: '諧合方程閘' },
+    { key: 'physical', label: '物理意義閘' }
+  ];
+
+  const passed = gates.filter(g => gateStatus[g.key] === 'pass').length;
+  const failed = gates.filter(g => gateStatus[g.key] === 'fail').length;
+  const warned = gates.filter(g => gateStatus[g.key] === 'warn').length;
+  const done = Object.keys(gateStatus).length;
+
+  const scoreColor = failed > 0 ? '#8b1a1a' : warned > 0 ? '#7a4f00' : '#1a6b3a';
+  const score = done === 0 ? '—' : `${passed}/${done}`;
+
+  let bannerClass = '', bannerText = '';
+  if (done > 0) {
+    if (failed > 0) { bannerClass = 'fail'; bannerText = `⚠ ${failed} 個閘門未通過，計算中斷。請修正後重新提交。`; }
+    else if (warned > 0) { bannerClass = 'warn'; bannerText = `注意 ${warned} 個閘門有警示，建議仔細確認後繼續。`; }
+    else { bannerClass = 'pass'; bannerText = '所有已執行的閘門均通過，可繼續下一步驟。'; }
+  }
+
+  document.getElementById('summary-area').innerHTML = `
+    <div class="gate-list">
+      ${gates.map(g => {
+        const s = gateStatus[g.key] || 'pending';
+        const label = s === 'pass' ? '通過' : s === 'fail' ? '中斷' : s === 'warn' ? '注意' : '待執行';
+        return `<div class="gate-item ${s}"><div class="gate-dot"></div><div class="gate-name">${g.label}</div><div class="gate-status">${label}</div></div>`;
+      }).join('')}
+    </div>
+    <div class="score-block">
+      <div class="score-num" style="color:${scoreColor}">${score}</div>
+      <div class="score-lbl">閘門通過數 / 已執行數</div>
+    </div>
+    <div class="verdict-banner ${bannerClass}">${bannerText}</div>
+  `;
+}
+
+function renderError() {
+  document.getElementById('steps-list').insertAdjacentHTML('afterbegin',
+    `<div class="step-card fail"><div class="step-hdr"><div class="step-icon">!</div><div class="step-name">API 連線失敗</div></div><div class="step-body"><div class="verdict"><span class="no">此工具需在支援 API 呼叫的環境中運行。</span><br>請改為在 Claude 對話中直接貼上計算結果，由 Claude 執行驗算。</div></div></div>`
+  );
+}
+</script>
+</body>
+</html>
