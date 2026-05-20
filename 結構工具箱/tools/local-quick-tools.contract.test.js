@@ -50,9 +50,11 @@ const repoDocs = {
 const runnerPath = assertFile(manifest.shared.runner);
 const exportHelperPath = assertFile(manifest.shared.exportHelper);
 const exportHelperTestPath = assertFile(manifest.shared.exportHelperTest);
+const outputConsistencyTestPath = assertFile(manifest.shared.outputConsistencyTest);
 const runnerText = readText(runnerPath);
 const exportHelperText = readText(exportHelperPath);
 const exportHelperTestText = readText(exportHelperTestPath);
+const outputConsistencyTestText = readText(outputConsistencyTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
@@ -60,6 +62,7 @@ const ExportHelper = require(exportHelperPath);
   '"family": "local-quick-tools"',
   '"shared"',
   '"runner"',
+  '"outputConsistencyTest"',
   '"tools"',
   '"foundation-local"',
   '"equipment-load"',
@@ -69,9 +72,17 @@ const ExportHelper = require(exportHelperPath);
 [
   'local quick tools manifest runner OK',
   'manifest.shared.exportHelperTest',
+  'manifest.shared.outputConsistencyTest',
   'manifest.shared.contractTest',
   'runNode',
 ].forEach(needle => assertIncludes(runnerText, needle, 'local quick tools runner'));
+
+[
+  'local quick output consistency OK',
+  'assertNonFiniteNumbersSerialized',
+  'Exporter.buildPayload',
+  'r.provenance',
+].forEach(needle => assertIncludes(outputConsistencyTestText, needle, 'local quick output consistency test'));
 
 [
   'LocalQuickExport',
@@ -111,14 +122,17 @@ assert.strictEqual(
 );
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.js', 'local quick export README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test README');
+assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner README');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.js', 'local quick export boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test boundary');
+assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner boundary');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test staging group');
+assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner staging group');
 
@@ -141,6 +155,7 @@ for (const tool of tools) {
   [
     tool.smoke,
     tool.title,
+    `pageVersion: '${tool.pageVersion}'`,
     tool.calcFunction,
     '../local-quick-export.js',
     path.basename(tool.core),

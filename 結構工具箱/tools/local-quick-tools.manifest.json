@@ -6,6 +6,7 @@
     "runner": "tools/local-quick-tools.run.js",
     "exportHelper": "tools/local-quick-export.js",
     "exportHelperTest": "tools/local-quick-export.test.js",
+    "outputConsistencyTest": "tools/local-quick-output-consistency.test.js",
     "contractTest": "tools/local-quick-tools.contract.test.js"
   },
   "tools": [
@@ -19,6 +20,7 @@
       "golden": "tools/foundation/foundation-local-golden-cases.js",
       "smoke": "foundation-local-smoke",
       "title": "<title>基礎局部檢核 V0.1</title>",
+      "pageVersion": "V0.1",
       "calcFunction": "function calculateFoundationLocal",
       "coreGlobal": "FoundationLocalCore",
       "indexHref": "tools/foundation/foundation-local.html",
@@ -34,6 +36,7 @@
       "golden": "tools/equipment/equipment-load-golden-cases.js",
       "smoke": "equipment-load-smoke",
       "title": "<title>設備局部荷重 V0.1</title>",
+      "pageVersion": "V0.1",
       "calcFunction": "function calculateEquipmentLoad",
       "coreGlobal": "EquipmentLoadCore",
       "indexHref": "tools/equipment/equipment-load.html",
@@ -49,6 +52,7 @@
       "golden": "tools/earth/earth-pressure-golden-cases.js",
       "smoke": "earth-pressure-smoke",
       "title": "<title>擋土土壓局部快算 V0.1</title>",
+      "pageVersion": "V0.1",
       "calcFunction": "function calculateEarthPressure",
       "coreGlobal": "EarthPressureCore",
       "indexHref": "tools/earth/earth-pressure.html",

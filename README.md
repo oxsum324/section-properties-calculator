@@ -38,6 +38,8 @@ V1.5 的重點是把首頁收斂成真正的平台入口，能同時看到：
   [結構工具箱/tools/local-quick-export.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-export.js:1)
 - 局部快算 JSON 匯出 helper 測試：
   [結構工具箱/tools/local-quick-export.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-export.test.js:1)
+- 局部快算輸出一致性測試：
+  [結構工具箱/tools/local-quick-output-consistency.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-output-consistency.test.js:1)
 - 局部快算工具 manifest：
   [結構工具箱/tools/local-quick-tools.manifest.json](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.manifest.json:1)
 - 局部快算 manifest runner：
@@ -56,7 +58,7 @@ V1.5 的重點是把首頁收斂成真正的平台入口，能同時看到：
 - 高價值工具交付前檢查：
   [preflight-tools.ps1](/C:/Users/USER/Desktop/AI/小工具製作/preflight-tools.ps1:1)
 
-`audit-all.ps1` 用來守住主平台的鋼構、RC 與規範核心；`preflight-tools.ps1` 則再納入風力路徑、連續梁、錨栓、石材、開挖擋土支撐、覆工板、鋼架、局部快算 manifest runner / 共同契約 / JSON 匯出 helper 與其下載 stub regression、基礎局部檢核、設備局部荷重與擋土土壓局部快算 smoke / regression，適合交付前或跨工具大改後執行。
+`audit-all.ps1` 用來守住主平台的鋼構、RC 與規範核心；`preflight-tools.ps1` 則再納入風力路徑、連續梁、錨栓、石材、開挖擋土支撐、覆工板、鋼架、局部快算 manifest runner / 共同契約 / JSON 匯出 helper / 跨輸出一致性 regression、基礎局部檢核、設備局部荷重與擋土土壓局部快算 smoke / regression，適合交付前或跨工具大改後執行。
 
 跨工具納入版本控管前，先參考 [TOOL_BOUNDARIES.md](/C:/Users/USER/Desktop/AI/小工具製作/TOOL_BOUNDARIES.md:1) 與 [STAGING_GROUPS.md](/C:/Users/USER/Desktop/AI/小工具製作/STAGING_GROUPS.md:1)，避免把案例輸出、暫存檔、Office 文件或本機依賴一起提交。
 
