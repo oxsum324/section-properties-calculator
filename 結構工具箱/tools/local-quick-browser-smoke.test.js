@@ -246,9 +246,11 @@ function homeExpression(tools) {
   return `(() => {
     const links = Array.from(document.querySelectorAll('a[href]')).map(a => a.getAttribute('href'));
     const required = ${JSON.stringify(tools.map(tool => tool.indexHref))};
+    const relativeLinks = links.filter(href => !/^(?:[a-z][a-z0-9+.-]*:|\\/|#|\\$)/i.test(href));
     return {
       title: document.title,
       requiredLinks: required.map(href => ({ href, exists: links.includes(href) })),
+      relativeLinks,
       hasLocalSection: document.body.innerText.includes('施工臨時設施 / 局部檢核'),
       hasNextToolsPanel: !!document.getElementById('nextToolsPanel'),
       scrollWidth: document.documentElement.scrollWidth,
@@ -379,6 +381,7 @@ function assertHomeState(state, tools, label) {
   assert.ok(state.hasLocalSection, `${label} home local section`);
   assert.ok(state.hasNextToolsPanel, `${label} home next tools panel`);
   assert.equal(state.horizontalOverflow, false, `${label} home horizontal overflow`);
+  assert.deepEqual(state.relativeLinks, [], `${label} home relative links`);
   for (const link of state.requiredLinks) {
     assert.equal(link.exists, true, `${label} home link exists: ${link.href}`);
   }

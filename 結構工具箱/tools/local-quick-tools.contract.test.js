@@ -100,6 +100,7 @@ const ExportHelper = require(exportHelperPath);
   'assertJsonExportState',
   'btnPrint',
   'assertReportState',
+  'relativeLinks',
   'horizontalOverflow',
 ].forEach(needle => assertIncludes(browserSmokeTestText, needle, 'local quick browser smoke test'));
 
