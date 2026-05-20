@@ -42,14 +42,16 @@ function contentType(filePath) {
   }
 }
 
-function buildRewriteMap(config) {
-  const map = new Map();
-  for (const rewrite of config.rewrites || []) {
-    if (rewrite.source && rewrite.destination) {
-      map.set(rewrite.source, rewrite.destination);
-    }
+function buildRouteMaps(config) {
+  const rewriteMap = new Map();
+  const redirectMap = new Map();
+  for (const r of config.rewrites || []) {
+    if (r.source && r.destination) rewriteMap.set(r.source, r.destination);
   }
-  return map;
+  for (const r of config.redirects || []) {
+    if (r.source && r.destination) redirectMap.set(r.source, r.destination);
+  }
+  return { rewriteMap, redirectMap };
 }
 
 function safeDecode(pathname) {
@@ -61,6 +63,9 @@ function safeDecode(pathname) {
 }
 
 function resolveTarget(pathname, rewriteMap) {
+  if (rewriteMap.has(pathname)) {
+    return rewriteMap.get(pathname).replace(/^\/+/, '');
+  }
   if (pathname === '/' || pathname === '') return HOME_DESTINATION;
   return safeDecode(pathname).replace(/^\/+/, '');
 }
@@ -83,12 +88,12 @@ function isInsideRepo(fullPath) {
   return fullPath === repoRoot || fullPath.startsWith(rootWithSep);
 }
 
-function serve(req, res, rewriteMap) {
+function serve(req, res, rewriteMap, redirectMap) {
   const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
   const pathname = requestUrl.pathname;
 
-  if (pathname !== '/' && rewriteMap.has(pathname)) {
-    const dest = stripExt(rewriteMap.get(pathname));
+  if (redirectMap.has(pathname)) {
+    const dest = stripExt(redirectMap.get(pathname));
     const encoded = dest.split('/').map(seg => encodeURIComponent(seg)).join('/');
     res.writeHead(308, { Location: encoded });
     res.end();
@@ -148,14 +153,14 @@ function openBrowser(url) {
 
 async function main() {
   const config = loadVercelConfig();
-  const rewriteMap = buildRewriteMap(config);
+  const { rewriteMap, redirectMap } = buildRouteMaps(config);
   const port = await getPort();
-  const server = http.createServer((req, res) => serve(req, res, rewriteMap));
+  const server = http.createServer((req, res) => serve(req, res, rewriteMap, redirectMap));
 
   server.listen(port, '127.0.0.1', () => {
     const url = `http://127.0.0.1:${port}/`;
     console.log(`[serve-local] serving ${repoRoot}`);
-    console.log(`[serve-local] vercel.json rewrites: ${rewriteMap.size}`);
+    console.log(`[serve-local] vercel.json rewrites: ${rewriteMap.size}, redirects: ${redirectMap.size}`);
     console.log(`[serve-local] listening on ${url}`);
     console.log(`[serve-local] press Ctrl+C to stop`);
     openBrowser(url);
