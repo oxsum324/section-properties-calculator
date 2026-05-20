@@ -61,11 +61,12 @@ function safeDecode(pathname) {
 }
 
 function resolveTarget(pathname, rewriteMap) {
-  if (rewriteMap.has(pathname)) {
-    return rewriteMap.get(pathname).replace(/^\/+/, '');
-  }
   if (pathname === '/' || pathname === '') return HOME_DESTINATION;
   return safeDecode(pathname).replace(/^\/+/, '');
+}
+
+function stripExt(destination) {
+  return destination.replace(/\.html$/i, '');
 }
 
 function tryCleanUrlVariants(rel) {
@@ -84,7 +85,17 @@ function isInsideRepo(fullPath) {
 
 function serve(req, res, rewriteMap) {
   const requestUrl = new URL(req.url || '/', 'http://127.0.0.1');
-  const target = resolveTarget(requestUrl.pathname, rewriteMap);
+  const pathname = requestUrl.pathname;
+
+  if (pathname !== '/' && rewriteMap.has(pathname)) {
+    const dest = stripExt(rewriteMap.get(pathname));
+    const encoded = dest.split('/').map(seg => encodeURIComponent(seg)).join('/');
+    res.writeHead(308, { Location: encoded });
+    res.end();
+    return;
+  }
+
+  const target = resolveTarget(pathname, rewriteMap);
   const candidates = tryCleanUrlVariants(target);
 
   for (const candidate of candidates) {
