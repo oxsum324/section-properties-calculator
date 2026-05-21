@@ -2,11 +2,12 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/", "destination": "/結構工具箱/index.html" },
     { "source": "/section", "destination": "/index.html" }
   ],
   "redirects": [
-    { "source": "/wind", "destination": "/結構工具箱", "permanent": true },
+    { "source": "/", "destination": "/結構工具箱/", "permanent": true },
+    { "source": "/toolbox-home", "destination": "/結構工具箱/home", "permanent": true },
+    { "source": "/wind", "destination": "/結構工具箱/", "permanent": true },
     { "source": "/wind-force", "destination": "/結構工具箱/tools/風力/wind-force", "permanent": true },
     { "source": "/wind-cc", "destination": "/結構工具箱/tools/風力/wind-cc", "permanent": true },
     { "source": "/wind-open-roof", "destination": "/結構工具箱/tools/風力/wind-open-roof", "permanent": true },
@@ -38,7 +39,7 @@
     { "source": "/equipment-load", "destination": "/結構工具箱/tools/equipment/equipment-load", "permanent": true },
     { "source": "/earth-pressure", "destination": "/結構工具箱/tools/earth/earth-pressure", "permanent": true },
 
-    { "source": "/platform", "destination": "/結構工具箱", "permanent": true },
+    { "source": "/platform", "destination": "/結構工具箱/", "permanent": true },
     { "source": "/platform-audit", "destination": "/結構工具箱/audit-dashboard", "permanent": true },
     { "source": "/beam-analysis", "destination": "/連續梁分析", "permanent": true },
     { "source": "/force-picker", "destination": "/結構工具箱/tools/force-picker", "permanent": true },

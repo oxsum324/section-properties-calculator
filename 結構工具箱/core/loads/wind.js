@@ -1,4 +1,4 @@
-/* core/loads/wind.js — v2.0
+/* core/loads/wind.js — v3.1
  * 台灣建築物耐風設計規範 — 完整計算引擎
  * 依據：建築物耐風設計規範及解說 (107 年版)
  *
@@ -13,6 +13,10 @@
  *   ‧ 新增扭矩 MTz (Eq 2.23/2.24)
  *   ‧ 新增基本設計風速詳細表 (至鄉鎮區層級)
  *   ‧ 新增用途係數 5 分類
+ *
+ * v3.1 更新：
+ *   ‧ 實體標的物圓柱體改依表 2.14 以 D√q(z) 與粗糙分類查用 Cf
+ *   ‧ 煙囪 / 水塔等塔狀構造物保留表 2.12 h/D 內插路線
  */
 (function (global) {
   'use strict';
@@ -1407,11 +1411,6 @@
       points: [[1, 0.8], [7, 1.0], [25, 1.2]],
     },
   };
-  const CIRCULAR_CYLINDER_ROUGHNESS = {
-    moderate: { name: '中度光滑', sectionType: 'circular_moderate' },
-    rough: { name: '粗糙 (D\u2032/D \u2248 0.02)', sectionType: 'circular_rough' },
-    very_rough: { name: '極粗糙 (D\u2032/D \u2248 0.08)', sectionType: 'circular_very_rough' },
-  };
   const POROUS_FRAME_CF_TABLE = {
     circular_low_qd: [
       { min: 0.00, max: 0.10, cf: 2.0 },
@@ -1550,13 +1549,11 @@
     if (
       shapeType === 'circular_cylinder' &&
       opts.diameter > 0 &&
-      opts.height > 0 &&
       dSqrtQz != null &&
       isFinite(dSqrtQz)
     ) {
       const cfData = lookupCircularCylinderCf({
         diameter: opts.diameter,
-        height: opts.height,
         dSqrtQz,
         roughness: opts.roughness,
       });
@@ -1579,33 +1576,21 @@
   function lookupCircularCylinderCf(p) {
     const {
       diameter,
-      height,
       roughness = 'moderate',
     } = p;
     const dSqrtQz = p.dSqrtQz != null ? p.dSqrtQz : p.qzD;
     const D = Math.max(diameter || 0, 1e-9);
-    const h = Math.max(height || 0, 1e-9);
-    const lowQd = dSqrtQz <= 1.70;
-    const roughData = CIRCULAR_CYLINDER_ROUGHNESS[roughness] || CIRCULAR_CYLINDER_ROUGHNESS.moderate;
-    const sectionType = lowQd ? 'circular_low_qd' : roughData.sectionType;
-    const cfData = lookupTowerCf({
-      sectionType,
-      hOverD: h / D,
-      dSqrtQz,
-    });
-    const dSqrtQzRegime = lowQd ? 'D√q(z) ≤ 1.70' : 'D√q(z) > 1.70';
+    const cfData = lookupCableCf({ roughness, dSqrtQz });
     return {
       ...cfData,
-      source: '表 2.12',
+      source: '表 2.14',
       diameter: D,
-      height: h,
       roughness,
-      roughnessName: lowQd ? '所有' : roughData.name,
+      roughnessName: cfData.name,
       dSqrtQz,
       qzD: dSqrtQz,
-      dSqrtQzRegime,
-      qzDRegime: dSqrtQzRegime,
-      hOverD: cfData.hOverD,
+      dSqrtQzRegime: cfData.regime,
+      qzDRegime: cfData.regime,
     };
   }
 
@@ -2047,7 +2032,6 @@
     ANGULAR_PRISM_CF,
     ANGULAR_PRISM_R,
     CABLE_CF,
-    CIRCULAR_CYLINDER_ROUGHNESS,
 
     calcKz,
     calcQz,

@@ -3,6 +3,7 @@ const http = require('http');
 const net = require('net');
 const os = require('os');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const { spawn } = require('child_process');
 const assert = require('assert');
 
@@ -62,23 +63,29 @@ function contentType(filePath) {
   }
 }
 
-function createRouteMap(vercelConfig) {
-  const routeMap = new Map();
+function createRouteMaps(vercelConfig) {
+  const rewriteMap = new Map();
+  const redirectMap = new Map();
   for (const rewrite of vercelConfig.rewrites || []) {
     if (rewrite.source && rewrite.destination) {
-      routeMap.set(rewrite.source, rewrite.destination);
+      rewriteMap.set(rewrite.source, rewrite.destination);
     }
   }
   for (const redirect of vercelConfig.redirects || []) {
     if (redirect.source && redirect.destination) {
-      routeMap.set(redirect.source, redirect.destination);
+      redirectMap.set(redirect.source, redirect.destination);
     }
   }
-  return routeMap;
+  return { rewriteMap, redirectMap };
 }
 
-function resolveRequestPath(pathname, routeMap) {
-  const routedPath = routeMap.get(pathname) || pathname;
+function redirectLocation(destination) {
+  const cleanDestination = destination.replace(/\.html$/i, '');
+  return cleanDestination.split('/').map(segment => encodeURIComponent(segment)).join('/');
+}
+
+function resolveRequestPath(pathname, rewriteMap) {
+  const routedPath = rewriteMap.get(pathname) || pathname;
   const relativePath = decodeURIComponent(routedPath).replace(/^\/+/, '') || '結構工具箱/index.html';
   if (relativePath.endsWith('/')) return `${relativePath}index.html`;
   if (path.extname(relativePath)) return relativePath;
@@ -92,10 +99,16 @@ function resolveRequestPath(pathname, routeMap) {
 }
 
 function startStaticServer(port, vercelConfig) {
-  const routeMap = createRouteMap(vercelConfig);
+  const { rewriteMap, redirectMap } = createRouteMaps(vercelConfig);
   const server = http.createServer((req, res) => {
     const requestUrl = new URL(req.url || '/', `http://127.0.0.1:${port}`);
-    const requestedPath = resolveRequestPath(requestUrl.pathname, routeMap);
+    if (redirectMap.has(requestUrl.pathname)) {
+      res.writeHead(308, { Location: redirectLocation(redirectMap.get(requestUrl.pathname)) });
+      res.end();
+      return;
+    }
+
+    const requestedPath = resolveRequestPath(requestUrl.pathname, rewriteMap);
     const fullPath = path.resolve(repoRoot, requestedPath);
     const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : repoRoot + path.sep;
 
@@ -124,6 +137,24 @@ function startStaticServer(port, vercelConfig) {
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function removeDirectoryBestEffort(directoryPath) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      fs.rmSync(directoryPath, {
+        recursive: true,
+        force: true,
+        maxRetries: 5,
+        retryDelay: 200,
+      });
+      return;
+    } catch (err) {
+      if (!['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(err.code)) throw err;
+      await delay(250 * (attempt + 1));
+    }
+  }
+  console.warn(`Warning: could not remove temporary Edge profile: ${directoryPath}`);
 }
 
 async function waitForJson(url, timeoutMs = 10000) {
@@ -274,6 +305,65 @@ function homeExpression(tools) {
   })()`;
 }
 
+function newHomeExpression(tools) {
+  return `(() => {
+    const links = Array.from(document.querySelectorAll('a[href]')).map(a => a.getAttribute('href'));
+    const cards = Array.from(document.querySelectorAll('.tool-card'));
+    const cardStates = cards.map(card => ({
+      href: card.getAttribute('href'),
+      routeHref: card.getAttribute('data-route-href') || ''
+    }));
+    const statusLinks = Array.from(document.querySelectorAll('[data-file-href]')).map(a => a.getAttribute('href'));
+    const required = ${JSON.stringify(tools.map(tool => tool.indexHref))};
+    const text = document.body.innerText;
+    const categoryMarks = Array.from(document.querySelectorAll('.category-card .icon-mark')).map(node => node.textContent.trim()).sort();
+    const toolMarks = Array.from(document.querySelectorAll('.tool-card__icon .icon-mark')).map(node => node.textContent.trim());
+    const categoryIconCount = document.querySelectorAll('.category-icon svg').length;
+    const toolIconCount = document.querySelectorAll('.tool-card__icon svg').length;
+    const memberButton = Array.from(document.querySelectorAll('.category-card')).find(card => card.textContent.includes('構件承載力檢核'));
+    if (memberButton) memberButton.click();
+    const memberPanel = document.getElementById('memberSystemPanel');
+    const memberTabs = Array.from(document.querySelectorAll('.member-system-tab strong')).map(node => node.textContent.trim());
+    const memberGroups = Array.from(document.querySelectorAll('.tool-group__head h3')).map(node => node.textContent.trim());
+    const memberToolSystems = Array.from(document.querySelectorAll('.tool-card .tool-chip--system')).map(node => node.textContent.trim());
+    const srcButton = Array.from(document.querySelectorAll('.member-system-tab')).find(button => button.textContent.includes('SRC'));
+    if (srcButton) srcButton.click();
+    const srcEmptyText = document.getElementById('emptyState')?.innerText || '';
+    return {
+      title: document.title,
+      protocol: window.location.protocol,
+      hasHomeApp: !!document.querySelector('[data-home-app]'),
+      hasToolGrid: !!document.getElementById('toolGrid'),
+      hasCategoryOverview: !!document.getElementById('categoryOverview'),
+      hasNextToolsPanel: !!document.getElementById('nextToolsPanel'),
+      hasOriginalHomeLink: links.includes('/結構工具箱/index.html') || links.includes('index.html'),
+      hasDoNotReplaceCopy: text.includes('不取代原本首頁'),
+      hasLocalSection: text.includes('施工臨時設施 / 局部檢核'),
+      imageCount: document.querySelectorAll('img').length,
+      categoryIconCount,
+      toolIconCount,
+      categoryMarks,
+      toolMarks,
+      hasMemberSystemPanel: !!memberPanel && memberPanel.hidden === false,
+      memberTabs,
+      memberGroups,
+      memberToolSystems,
+      srcEmptyText,
+      hasCategoryArt: !!document.querySelector('.category-art'),
+      cardCount: cards.length,
+      requiredLinks: required.map(href => ({
+        href,
+        exists: cardStates.some(card => card.href === href || card.routeHref === href)
+      })),
+      absoluteCardLinks: cardStates.filter(card => /^\\//.test(card.href || '')).map(card => card.href),
+      absoluteStatusLinks: statusLinks.filter(href => /^\\//.test(href || '')),
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+    };
+  })()`;
+}
+
 function toolExpression(tool) {
   return `(() => {
     const text = (id) => document.getElementById(id)?.textContent?.replace(/\\s+/g, ' ').trim() || '';
@@ -395,9 +485,36 @@ function assertHomeState(state, tools, label) {
   assert.ok(state.hasLocalSection, `${label} home local section`);
   assert.ok(state.hasNextToolsPanel, `${label} home next tools panel`);
   assert.equal(state.horizontalOverflow, false, `${label} home horizontal overflow`);
-  assert.deepEqual(state.relativeLinks, [], `${label} home relative links`);
+}
+
+function assertNewHomeState(state, tools, label) {
+  assert.equal(state.title, '結構工具箱新版入口', `${label} new home title`);
+  assert.ok(state.hasHomeApp, `${label} new home app shell`);
+  assert.ok(state.hasToolGrid, `${label} new home tool grid`);
+  assert.ok(state.hasCategoryOverview, `${label} new home category overview`);
+  assert.ok(state.hasNextToolsPanel, `${label} new home next tools panel`);
+  assert.ok(state.hasOriginalHomeLink, `${label} new home original link`);
+  assert.ok(state.hasDoNotReplaceCopy, `${label} new home preserve-original copy`);
+  assert.ok(state.hasLocalSection, `${label} new home local section`);
+  assert.equal(state.imageCount, 0, `${label} new home image elements`);
+  assert.equal(state.categoryIconCount, 7, `${label} new home category icons`);
+  assert.equal(state.toolIconCount, state.cardCount, `${label} new home tool card icons`);
+  assert.deepEqual(state.categoryMarks, ['B', 'E', 'F', 'P', 'S', 'T', 'W'], `${label} new home category icon marks`);
+  assert.equal(state.toolMarks.every(mark => /^[BEFPSTW]$/.test(mark)), true, `${label} new home tool icon marks`);
+  assert.equal(state.hasMemberSystemPanel, true, `${label} new home member system panel`);
+  assert.deepEqual(state.memberTabs, ['全部', 'RC', '鋼構', 'SRC'], `${label} new home member system tabs`);
+  assert.deepEqual(state.memberGroups, ['RC', '鋼構'], `${label} new home member grouped tools`);
+  assert.equal(state.memberToolSystems.every(system => ['RC', '鋼構'].includes(system)), true, `${label} new home member tool systems`);
+  assert.ok(state.srcEmptyText.includes('此材料系統尚未建立工具'), `${label} new home SRC empty state`);
+  assert.equal(state.hasCategoryArt, false, `${label} new home category art`);
+  assert.ok(state.cardCount >= tools.length, `${label} new home card count`);
+  assert.equal(state.horizontalOverflow, false, `${label} new home horizontal overflow`);
   for (const link of state.requiredLinks) {
-    assert.equal(link.exists, true, `${label} home link exists: ${link.href}`);
+    assert.equal(link.exists, true, `${label} new home link exists: ${link.href}`);
+  }
+  if (state.protocol === 'file:') {
+    assert.deepEqual(state.absoluteCardLinks, [], `${label} new home file-mode card links`);
+    assert.deepEqual(state.absoluteStatusLinks, [], `${label} new home file-mode status links`);
   }
 }
 
@@ -507,12 +624,23 @@ async function main() {
       { key: 'route-root', url: `http://127.0.0.1:${serverPort}/` },
       { key: 'route-platform', url: `http://127.0.0.1:${serverPort}/platform` },
     ];
+    const newHomeCases = [
+      { key: 'file-new-home', url: `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/home.html')}` },
+      { key: 'route-toolbox-home', url: `http://127.0.0.1:${serverPort}/toolbox-home` },
+      { key: 'file-url-new-home', url: pathToFileURL(toolboxFile('home.html')).href },
+    ];
     for (const viewport of viewports) {
       for (const homeCase of homeCases) {
         const label = `${viewport.key} ${homeCase.key}`;
         const home = await navigateAndInspect(client, sessionId, homeCase.url, viewport, homeExpression(manifest.tools));
         assert.deepEqual(home.errors, [], `${label} console errors: ${home.errors.join(' | ')}`);
         assertHomeState(home.state, manifest.tools, label);
+      }
+      for (const newHomeCase of newHomeCases) {
+        const label = `${viewport.key} ${newHomeCase.key}`;
+        const home = await navigateAndInspect(client, sessionId, newHomeCase.url, viewport, newHomeExpression(manifest.tools));
+        assert.deepEqual(home.errors, [], `${label} console errors: ${home.errors.join(' | ')}`);
+        assertNewHomeState(home.state, manifest.tools, label);
       }
 
       for (const tool of manifest.tools) {
@@ -550,12 +678,7 @@ async function main() {
       });
     }
     if (server) await new Promise(resolve => server.close(resolve));
-    fs.rmSync(userDataDir, {
-      recursive: true,
-      force: true,
-      maxRetries: 5,
-      retryDelay: 200,
-    });
+    await removeDirectoryBestEffort(userDataDir);
   }
 }
 

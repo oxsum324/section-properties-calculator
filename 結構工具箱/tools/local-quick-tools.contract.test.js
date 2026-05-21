@@ -41,13 +41,15 @@ assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
 
 const repoDocs = {
   index: readText(path.join(toolboxRoot, 'index.html')),
+  homeHtml: readText(toolboxFile('home.html')),
+  homeCss: readText(toolboxFile('assets/home/home.css')),
   homeJs: readText(toolboxFile('assets/home/home.js')),
   readme: readText(repoFile('README.md')),
   boundaries: readText(repoFile('TOOL_BOUNDARIES.md')),
   staging: readText(repoFile('STAGING_GROUPS.md')),
   vercel: readText(repoFile('vercel.json')),
 };
-repoDocs.homeSource = `${repoDocs.index}\n${repoDocs.homeJs}`;
+repoDocs.homeSource = `${repoDocs.index}\n${repoDocs.homeHtml}\n${repoDocs.homeJs}`;
 
 const runnerPath = assertFile(manifest.shared.runner);
 const exportHelperPath = assertFile(manifest.shared.exportHelper);
@@ -97,6 +99,9 @@ const ExportHelper = require(exportHelperPath);
   'Target.createTarget',
   'Emulation.setDeviceMetricsOverride',
   'route-tool',
+  'route-toolbox-home',
+  'file-url-new-home',
+  'assertNewHomeState',
   'btnJson',
   'blob.text()',
   'assertJsonExportState',
@@ -148,18 +153,66 @@ assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-output-consis
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-browser-smoke.test.js', 'local quick browser smoke test README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner README');
+assertIncludes(repoDocs.readme, '結構工具箱/home.html', 'new home README');
+assertIncludes(repoDocs.readme, '/toolbox-home', 'new home route README');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.js', 'local quick export boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-browser-smoke.test.js', 'local quick browser smoke test boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner boundary');
+assertIncludes(repoDocs.boundaries, '結構工具箱/home.html', 'new home boundary');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-browser-smoke.test.js', 'local quick browser smoke test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner staging group');
+assertIncludes(repoDocs.homeHtml, '<title>結構工具箱新版入口</title>', 'new home title');
+assertIncludes(repoDocs.homeHtml, 'assets/home/home.css', 'new home stylesheet');
+assertIncludes(repoDocs.homeHtml, 'assets/home/home.js', 'new home script');
+assertIncludes(repoDocs.homeHtml, '不取代原本首頁', 'new home preserve original copy');
+assertIncludes(repoDocs.homeHtml, '力量來源與檢核目的', 'new home logic categories copy');
+assertIncludes(repoDocs.homeHtml, 'data-file-href="index.html"', 'new home file-mode original link');
+assertIncludes(repoDocs.homeHtml, 'id="memberSystemPanel"', 'new home member system panel');
+[
+  '結構分析力量',
+  '風力規範外力',
+  '地震力規範外力',
+  '構件承載力檢核',
+  '連接、附掛物與外牆構件',
+  '斷面、係數與資料查詢',
+  '施工臨設與現場快算',
+  'categoryIcons',
+  "mark: 'S'",
+  "mark: 'W'",
+  "mark: 'E'",
+  "mark: 'F'",
+  "mark: 'B'",
+  "mark: 'P'",
+  "mark: 'T'",
+  'memberSystems',
+  "memberSystem: 'rc'",
+  "memberSystem: 'steel'",
+  "label: 'SRC'",
+].forEach(needle => assertIncludes(repoDocs.homeJs, needle, 'new home logic category data'));
+assertIncludes(repoDocs.homeCss, '.category-icon', 'new home category icon CSS');
+assertIncludes(repoDocs.homeCss, '.icon-mark', 'new home icon mark CSS');
+assertIncludes(repoDocs.homeCss, '.member-system-panel', 'new home member system CSS');
+assertIncludes(repoDocs.homeCss, '.tool-group__grid', 'new home member grouped CSS');
+assertIncludes(repoDocs.homeCss, '.tool-chip--system', 'new home member system chip CSS');
+assertIncludes(repoDocs.homeCss, '.tool-card--analysis', 'new home logic card CSS');
+assertIncludes(repoDocs.homeCss, '.tool-card--wind', 'new home wind card CSS');
+assertIncludes(repoDocs.homeCss, '.tool-card--seismic', 'new home seismic card CSS');
+assertIncludes(repoDocs.homeCss, '.tool-card__icon', 'new home tool icon CSS');
+assert.equal(repoDocs.homeCss.includes('category-tiles.png'), false, 'new home does not use category tile image');
+assert.equal(repoDocs.homeJs.includes('category-art'), false, 'new home does not render category art');
+assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), false, 'dynamic seismic summary is not mixed into structural analysis');
+assert.match(repoDocs.homeJs, /title: '錨栓檢討工具'[\s\S]*?categories: \['attachments'\]/, 'anchor stays in attachment category');
+assert.match(repoDocs.homeJs, /title: '石材固定構件計算書'[\s\S]*?categories: \['attachments'\]/, 'stone fixing stays in attachment category');
+assert.match(repoDocs.homeJs, /title: '覆工板系統計算'[\s\S]*?categories: \['temporary'\]/, 'deck system stays in temporary category');
+assertIncludes(repoDocs.vercel, '"source": "/toolbox-home"', 'new home vercel route');
+assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/home"', 'new home vercel destination');
 
 const routes = new Set();
 

@@ -233,8 +233,16 @@ function run() {
   const towerCfCircular = W.lookupTowerCf({ sectionType: 'circular_auto', hOverD: 7, dSqrtQz: 1.5 });
   approx(towerCfCircular.cf, 0.8, 1e-12, 'tower cf circular low D sqrt(qz)');
 
-  const cylinderCf = W.lookupCircularCylinderCf({ diameter: 2, height: 14, dSqrtQz: 1.69 });
-  approx(cylinderCf.cf, 0.8, 1e-12, 'circular cylinder table 2.12 low D sqrt(qz)');
+  const towerCfCircularHigh = W.lookupTowerCf({ sectionType: 'circular_auto', hOverD: 7, dSqrtQz: 2.0 });
+  approx(towerCfCircularHigh.cf, 0.6, 1e-12, 'tower cf circular high D sqrt(qz moderate default)');
+
+  const cylinderCfLow = W.lookupCircularCylinderCf({ diameter: 2, height: 14, dSqrtQz: 1.69, roughness: 'moderate' });
+  const cylinderCfLowOtherHeight = W.lookupCircularCylinderCf({ diameter: 2, height: 40, dSqrtQz: 1.69, roughness: 'moderate' });
+  approx(cylinderCfLow.cf, 1.2, 1e-12, 'circular cylinder table 2.14 low D sqrt(qz)');
+  approx(cylinderCfLowOtherHeight.cf, cylinderCfLow.cf, 1e-12, 'circular cylinder table 2.14 does not use h/D');
+
+  const cylinderCfHigh = W.lookupCircularCylinderCf({ diameter: 2, dSqrtQz: 2.0, roughness: 'moderate' });
+  approx(cylinderCfHigh.cf, 0.7, 1e-12, 'circular cylinder table 2.14 high D sqrt(qz)');
 
   const tower = W.calcTowerWind({
     V: 42.5, terrain: 'C', I: 1.0, zBase: 0, height: 30, D: 2.0,
