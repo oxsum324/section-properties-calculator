@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>附屬構造物地震力 V1</title>
+<title>附屬構造物地震力 V2.5</title>
 <link rel="stylesheet" href="../../core/style.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
@@ -48,6 +48,41 @@
   #zoneHint b { color:#6d28d9; }
   #resultPanel { min-width:0; }
   #appendResult { display:grid; gap:12px; }
+  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .case-actions button {
+    border:none;
+    border-radius:8px;
+    padding:9px 12px;
+    font-weight:700;
+    cursor:pointer;
+    background:#ede9fe;
+    color:#4c1d95;
+  }
+  .case-actions button:hover { background:#ddd6fe; }
+  .case-actions .primary { background:#6d28d9; color:#fff; }
+  .case-actions .primary:hover { background:#5b21b6; }
+  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
+  .case-status:empty { display:none; }
+  .print-option-row { margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; }
+  .report-mode-control { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #ddd6fe; border-radius:10px; background:#faf5ff; color:#334155; font-size:0.84em; line-height:1.6; }
+  .report-mode-label { font-weight:700; color:#4c1d95; margin-right:2px; }
+  .mode-segment { border:1px solid #c4b5fd; background:#fff; color:#5b21b6; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
+  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#6d28d9; color:#fff; border-color:#6d28d9; box-shadow:0 4px 10px rgba(109,40,217,.18); }
+  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
+  .type-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .type-tab { border:1px solid #cbd5e1; background:#fff; color:#334155; border-radius:999px; padding:7px 12px; font-weight:700; cursor:pointer; }
+  .type-tab.active { border-color:#7c3aed; background:#ede9fe; color:#4c1d95; }
+  .type-meta { margin-top:8px; display:flex; flex-wrap:wrap; gap:8px; font-size:0.82em; }
+  .type-badge { display:inline-flex; align-items:center; gap:4px; border:1px solid #ddd6fe; background:#faf5ff; color:#5b21b6; border-radius:999px; padding:5px 9px; font-weight:700; }
+  .input-check-panel { display:grid; gap:7px; margin-top:12px; }
+  .input-check-panel:empty { display:none; }
+  .check-msg { border:1px solid #cbd5e1; border-radius:9px; padding:8px 10px; font-size:0.82em; line-height:1.55; color:#334155; background:#f8fafc; }
+  .check-msg.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+  .check-msg.error { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
+  .check-msg.info { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
+  .diagram-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
+  .line-h2-diagram { display:block; width:100%; height:auto; max-height:360px; }
+  .diagram-caption { margin-top:8px; color:#475569; font-size:0.82em; line-height:1.7; }
   @media (max-width: 1080px) {
     .append-shell { grid-template-columns:1fr; }
     .append-result-stack { position:static; }
@@ -66,7 +101,7 @@
 </head>
 <body>
 <header>
-  <h1>附屬構造物地震力 <span class="badge-v">V1</span></h1>
+  <h1>附屬構造物地震力 <span class="badge-v">V2.5</span></h1>
   <p>依「建築物耐震設計規範及解說」113 年版 ｜ 第四章附屬構造物 ｜ 單位：m, tf, sec</p>
   <p class="header-links">
     <a href="https://www.nlma.gov.tw/ch/legislation/law%26regusw/175" target="_blank" rel="noopener noreferrer">官方規範頁</a>
@@ -89,8 +124,25 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo" class="w-no" placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-      <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+      <div class="case-actions">
+        <button id="btnExportCaseJson" type="button">匯出案件 JSON</button>
+        <button id="btnImportCaseJson" type="button">匯入案件 JSON</button>
+        <button id="btnResetCase" type="button">恢復預設</button>
+        <button class="primary" id="btnReport" type="button">列印計算書</button>
+        <input id="caseJsonFile" type="file" accept="application/json,.json" hidden>
+      </div>
     </div>
+    <div class="print-option-row">
+      <div class="report-mode-control" role="group" aria-label="列印模式">
+        <span class="report-mode-label">列印模式</span>
+        <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true" title="列印詳算式計算書">詳算式</button>
+        <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
+        <input id="printReportMode" type="hidden" value="detail">
+        <input id="printCalcDetailSection" type="checkbox" checked hidden>
+        <span class="report-mode-hint">詳算式輸出完整代入式與採用值；簡易結果只輸出條件表與摘要。</span>
+      </div>
+    </div>
+    <div id="caseJsonStatus" class="case-status"></div>
   </div>
 
   <div class="main-layout append-shell">
@@ -158,9 +210,15 @@
 
       <div class="card">
         <h2>② 附屬構造物資料</h2>
+        <div class="type-tabs" role="group" aria-label="構材類型分類">
+          <button class="type-tab active" id="btnApGroupT1" type="button" data-ap-group="T1">建築構材</button>
+          <button class="type-tab" id="btnApGroupT2" type="button" data-ap-group="T2">機電設備</button>
+          <button class="type-tab" id="btnApGroupCustom" type="button" data-ap-group="CUSTOM">自訂</button>
+        </div>
         <div class="form-group">
-          <label>構材類型</label>
+          <label id="apTypeLabel">構材類型</label>
           <select id="apType"></select>
+          <div class="type-meta" id="apTypeMeta"></div>
         </div>
         <div class="form-row" id="customRow" style="display:none;">
           <div class="form-group">
@@ -196,9 +254,9 @@
             <input id="apRemark" type="text" placeholder="例：屋頂水箱、管線吊架、空調設備">
           </div>
         </div>
+        <div id="inputCheckPanel" class="input-check-panel"></div>
         <div class="inline-actions">
           <button class="btn-calc" id="btnCalc">計算附屬構造物地震力</button>
-          <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
         </div>
       </div>
     </div>
@@ -215,6 +273,10 @@
           <div class="compact-item"><span class="label">R<sub>pa</sub></span><span class="value">尚未計算</span></div>
           <div class="compact-item"><span class="label">控制條件</span><span class="value">尚未計算</span></div>
         </div>
+      </div>
+      <div class="card">
+        <h2>計算示意圖</h2>
+        <div id="appendDiagram"></div>
       </div>
       <div class="card">
         <h2>結果摘要</h2>
@@ -237,10 +299,10 @@
   <details class="card" id="versionInfoCard">
     <summary class="fold-summary">版本與更新重點</summary>
     <div class="note" style="margin-top:12px;">
-      本頁目前版本為 <strong>V1</strong>，定位為第四章附屬構造物的獨立局部工具，支援獨立輸入與沿用等值靜力摘要兩種模式。
+      本頁目前版本為 <strong>V2.5</strong>，定位為第四章附屬構造物的獨立局部工具，支援獨立輸入、沿用等值靜力摘要與案件 JSON 回讀三種模式。
     </div>
     <div class="hint" style="margin-top:10px;">
-      本版已完成：表 4-1 / 表 4-2 型式整理、式(4-1)~式(4-3) 計算、R<sub>pa</sub> 盆地調整、垂直力近斷層比值、地區回填與列印計算書。<br>
+      本版已完成：表 4-1 / 表 4-2 型式整理、式(4-1)~式(4-3) 計算、R<sub>pa</sub> 盆地調整、垂直力近斷層比值、地區回填、案件 JSON 匯入匯出、詳算式 / 簡易結果列印模式、構材類型分頁、輸入檢核與示意圖。<br>
       建議用法：作為第四章專章計算與送審前整理頁；若需與主結構耐震結果一併統整，請回 <a href="seismic-force.html">等值靜力分析</a>。
     </div>
   </details>
@@ -250,12 +312,71 @@
 <script src="../../core/loads/seismic-zones.js"></script>
 <script>
 const S = Seismic;
+const TOOL_VERSION = '2.5';
+const CASE_SCHEMA_VERSION = 'seismic-appendage.case.v1';
 const STATIC_STORAGE_KEY = 'seismic-static-summary';
 const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
+const CASE_VALUE_FIELDS = [
+  'projName',
+  'projNo',
+  'projDesigner',
+  'zoneCity',
+  'zoneDist',
+  'SsD',
+  'S1D',
+  'SsM',
+  'S1M',
+  'siteClass',
+  'hn',
+  'printReportMode',
+  'apType',
+  'apCustom',
+  'rpCustom',
+  'apWp',
+  'apIp',
+  'apHx',
+  'apRemark'
+];
+const CASE_CHECK_FIELDS = ['chkTaipei', 'chkNearFault', 'printCalcDetailSection'];
+const DEFAULT_CASE_INPUTS = {
+  values: {
+    projName: '',
+    projNo: '',
+    projDesigner: '',
+    zoneCity: '',
+    zoneDist: '',
+    SsD: '0.6',
+    S1D: '0.35',
+    SsM: '0.8',
+    S1M: '0.5',
+    siteClass: '2',
+    hn: '17.2',
+    printReportMode: 'detail',
+    apType: 'T1_0',
+    apCustom: '',
+    rpCustom: '',
+    apWp: '1.0',
+    apIp: '1.0',
+    apHx: '0',
+    apRemark: ''
+  },
+  checks: {
+    chkTaipei: false,
+    chkNearFault: false,
+    printCalcDetailSection: true
+  }
+};
 let lastAppendResult = null;
 
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function fmtCoeff(v) { return fmt(v, 4); }
+function escHtml(text) {
+  return String(text == null ? '' : text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 function getProjectInfo() {
   const v = id => (document.getElementById(id)?.value || '').trim();
   return { name: v('projName'), no: v('projNo'), designer: v('projDesigner') };
@@ -281,33 +402,242 @@ function restoreProjectInfo() {
   if (saved.designer != null) document.getElementById('projDesigner').value = saved.designer;
 }
 
+function getPrintReportMode() {
+  return document.getElementById('printReportMode')?.value === 'simple' ? 'simple' : 'detail';
+}
+
+function syncPrintReportMode(mode) {
+  const nextMode = mode === 'simple' ? 'simple' : 'detail';
+  const modeInput = document.getElementById('printReportMode');
+  const legacyCheck = document.getElementById('printCalcDetailSection');
+  if (modeInput) modeInput.value = nextMode;
+  if (legacyCheck) legacyCheck.checked = nextMode === 'detail';
+  document.querySelectorAll('.mode-segment').forEach(button => {
+    const active = button.dataset.reportMode === nextMode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function setCaseStatus(message, tone) {
+  const el = document.getElementById('caseJsonStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.style.borderColor = tone === 'warn' ? '#fdba74' : '#e2e8f0';
+  el.style.background = tone === 'warn' ? '#fff7ed' : '#f8fafc';
+  el.style.color = tone === 'warn' ? '#9a3412' : '#475569';
+}
+
+function safeFileName(value) {
+  return String(value || 'seismic-appendage-case')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '-')
+    .slice(0, 80) || 'seismic-appendage-case';
+}
+
+function downloadTextFile(filename, text, type) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function collectCaseInputs() {
+  const values = {};
+  CASE_VALUE_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    values[id] = el.value;
+  });
+  const checks = {};
+  CASE_CHECK_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    checks[id] = Boolean(el.checked);
+  });
+  return { values, checks };
+}
+
+function applyCaseInputs(inputs) {
+  const merged = {
+    values: { ...DEFAULT_CASE_INPUTS.values, ...(inputs?.values || {}) },
+    checks: { ...DEFAULT_CASE_INPUTS.checks, ...(inputs?.checks || {}) }
+  };
+  const citySel = document.getElementById('zoneCity');
+  const distSel = document.getElementById('zoneDist');
+  if (citySel) {
+    citySel.value = merged.values.zoneCity || '';
+    citySel.dispatchEvent(new Event('change'));
+  }
+  if (distSel) {
+    distSel.value = merged.values.zoneDist || '';
+    distSel.dispatchEvent(new Event('change'));
+  }
+  CASE_VALUE_FIELDS.forEach(id => {
+    if (id === 'zoneCity' || id === 'zoneDist') return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = merged.values[id] == null ? '' : merged.values[id];
+  });
+  CASE_CHECK_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.checked = Boolean(merged.checks[id]);
+  });
+  const reportMode = merged.values.printReportMode || (merged.checks.printCalcDetailSection === false ? 'simple' : 'detail');
+  syncPrintReportMode(reportMode);
+  syncTypeGroupFromValue(merged.values.apType || DEFAULT_CASE_INPUTS.values.apType);
+  updateInputChecks();
+  saveProjectInfo();
+}
+
+function buildCasePayload() {
+  return {
+    schemaVersion: CASE_SCHEMA_VERSION,
+    toolVersion: TOOL_VERSION,
+    exportedAt: new Date().toISOString(),
+    project: getProjectInfo(),
+    inputs: collectCaseInputs(),
+    result: lastAppendResult || null
+  };
+}
+
+function exportCaseJson() {
+  const payload = buildCasePayload();
+  const base = payload.project.no || payload.project.name || 'seismic-appendage-case';
+  downloadTextFile(`${safeFileName(base)}-case.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+  setCaseStatus('已匯出附屬構造物案件 JSON；可用於日後回讀本頁輸入與計算結果。');
+}
+
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schemaVersion && payload.schemaVersion !== CASE_SCHEMA_VERSION) {
+        throw new Error(`案件格式不符：${payload.schemaVersion}`);
+      }
+      applyCaseInputs(payload.inputs || payload);
+      lastAppendResult = null;
+      document.getElementById('resultPanel').style.display = 'none';
+      setCaseStatus('已匯入案件 JSON；請按「計算附屬構造物地震力」重新整理結果。');
+    } catch (err) {
+      setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
+    } finally {
+      document.getElementById('caseJsonFile').value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetCaseDefaults() {
+  applyCaseInputs(DEFAULT_CASE_INPUTS);
+  lastAppendResult = null;
+  document.getElementById('resultPanel').style.display = 'none';
+  document.getElementById('zoneHint').textContent = '';
+  document.getElementById('staticImportStatus').innerHTML = '尚未讀到等值靜力分析摘要；可直接手動輸入工址與建物條件。';
+  setCaseStatus('已恢復本頁預設值。');
+}
+
+function getAppendageTypeItem(typeVal) {
+  if (typeVal === 'CUSTOM') return null;
+  const [tbl, idxRaw] = String(typeVal || '').split('_');
+  const idx = parseInt(idxRaw, 10);
+  const table = tbl === 'T2' ? S.TABLE_4_2 : S.TABLE_4_1;
+  return table[idx] || table[0] || null;
+}
+
+function setAppendageTypeGroup(group, selectedValue) {
+  const nextGroup = group === 'T2' || group === 'CUSTOM' ? group : 'T1';
+  const sel = document.getElementById('apType');
+  const meta = document.getElementById('apTypeMeta');
+  const customRow = document.getElementById('customRow');
+  const apTypeLabel = document.getElementById('apTypeLabel');
+  document.querySelectorAll('.type-tab').forEach(button => {
+    const active = button.dataset.apGroup === nextGroup;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  if (!sel) return;
+  sel.innerHTML = '';
+  if (nextGroup === 'CUSTOM') {
+    const custom = document.createElement('option');
+    custom.value = 'CUSTOM';
+    custom.textContent = '自訂 a_p / R_p';
+    sel.appendChild(custom);
+    sel.value = 'CUSTOM';
+    sel.style.display = 'none';
+    if (apTypeLabel) apTypeLabel.textContent = '自訂構材參數';
+    if (customRow) customRow.style.display = '';
+    if (meta) {
+      meta.innerHTML = '<span class="type-badge">自訂參數</span><span class="type-badge">請自行確認規範依據</span>';
+    }
+    updateInputChecks();
+    return;
+  }
+  const table = nextGroup === 'T2' ? S.TABLE_4_2 : S.TABLE_4_1;
+  table.forEach((item, i) => {
+    const option = document.createElement('option');
+    option.value = `${nextGroup}_${i}`;
+    option.textContent = item.name;
+    sel.appendChild(option);
+  });
+  const fallbackValue = `${nextGroup}_0`;
+  sel.value = selectedValue && selectedValue.startsWith(`${nextGroup}_`) ? selectedValue : fallbackValue;
+  sel.style.display = '';
+  if (apTypeLabel) apTypeLabel.textContent = nextGroup === 'T2' ? '機電設備構材' : '建築構造物構材';
+  if (customRow) customRow.style.display = 'none';
+  renderTypeMeta();
+  updateInputChecks();
+}
+
+function syncTypeGroupFromValue(typeVal) {
+  const value = typeVal || DEFAULT_CASE_INPUTS.values.apType;
+  if (value === 'CUSTOM') {
+    setAppendageTypeGroup('CUSTOM', value);
+  } else if (String(value).startsWith('T2_')) {
+    setAppendageTypeGroup('T2', value);
+  } else {
+    setAppendageTypeGroup('T1', value);
+  }
+}
+
+function renderTypeMeta() {
+  const meta = document.getElementById('apTypeMeta');
+  if (!meta) return;
+  const value = document.getElementById('apType')?.value || '';
+  if (value === 'CUSTOM') {
+    meta.innerHTML = '<span class="type-badge">自訂參數</span><span class="type-badge">需自行確認規範依據</span>';
+    return;
+  }
+  const item = getAppendageTypeItem(value);
+  if (!item) {
+    meta.innerHTML = '';
+    return;
+  }
+  meta.innerHTML = `
+    <span class="type-badge">a<sub>p</sub> = ${item.ap}</span>
+    <span class="type-badge">R<sub>p</sub> = ${item.Rp}</span>
+    <span class="type-badge">${String(value).startsWith('T2_') ? '表 4-2' : '表 4-1'}</span>
+  `;
+}
+
 function initTypeOptions() {
   const sel = document.getElementById('apType');
-  sel.innerHTML = '';
-  const g1 = document.createElement('optgroup');
-  g1.label = '表 4-1 建築構造物構材';
-  S.TABLE_4_1.forEach((item, i) => {
-    const o = document.createElement('option');
-    o.value = `T1_${i}`;
-    o.textContent = `${item.name}　(ap=${item.ap}, Rp=${item.Rp})`;
-    g1.appendChild(o);
+  setAppendageTypeGroup('T1', DEFAULT_CASE_INPUTS.values.apType);
+  sel?.addEventListener('change', function() {
+    renderTypeMeta();
+    updateInputChecks();
   });
-  const g2 = document.createElement('optgroup');
-  g2.label = '表 4-2 機電設備構材';
-  S.TABLE_4_2.forEach((item, i) => {
-    const o = document.createElement('option');
-    o.value = `T2_${i}`;
-    o.textContent = `${item.name}　(ap=${item.ap}, Rp=${item.Rp})`;
-    g2.appendChild(o);
-  });
-  sel.appendChild(g1);
-  sel.appendChild(g2);
-  const custom = document.createElement('option');
-  custom.value = 'CUSTOM';
-  custom.textContent = '自訂 a_p / R_p';
-  sel.appendChild(custom);
-  sel.addEventListener('change', function() {
-    document.getElementById('customRow').style.display = this.value === 'CUSTOM' ? '' : 'none';
+  document.querySelectorAll('.type-tab').forEach(button => {
+    button.addEventListener('click', () => setAppendageTypeGroup(button.dataset.apGroup));
   });
 }
 
@@ -374,7 +704,157 @@ function loadStaticSummaryIntoPage() {
     已同步帶入震區參數、地盤分類與建物總高度。
   `;
   saveProjectInfo();
+  updateInputChecks();
   return saved;
+}
+
+function validateAppendageInputs() {
+  const messages = [];
+  const num = id => parseFloat(document.getElementById(id)?.value);
+  const SsD = num('SsD');
+  const S1D = num('S1D');
+  const SsM = num('SsM');
+  const S1M = num('S1M');
+  const hn = num('hn');
+  const hx = num('apHx');
+  const Wp = num('apWp');
+  const Ip = parseFloat(document.getElementById('apIp')?.value);
+  const typeVal = document.getElementById('apType')?.value || '';
+
+  [
+    ['SsD', SsD],
+    ['S1D', S1D],
+    ['SsM', SsM],
+    ['S1M', S1M],
+    ['建物總高度 hn', hn],
+    ['構材重量 Wp', Wp]
+  ].forEach(([label, value]) => {
+    if (!(isFinite(value) && value > 0)) messages.push({ type: 'error', text: `${label} 必須為大於 0 的數值。` });
+  });
+  if (!(isFinite(hx) && hx >= 0)) {
+    messages.push({ type: 'error', text: '固定高度 hx 必須為 0 或正值。' });
+  }
+  if (isFinite(hx) && isFinite(hn) && hn > 0 && hx > hn) {
+    messages.push({ type: 'error', text: '固定高度 hx 不應大於建物總高度 hn；請確認附著點高度。' });
+  }
+  if (isFinite(hx) && isFinite(hn) && hn > 0 && hx / hn > 0.85 && hx <= hn) {
+    messages.push({ type: 'warn', text: `hx / hn = ${fmt(hx / hn, 3)}，接近屋頂位置；請確認附屬構造物高度輸入。` });
+  }
+  if (Ip === 1.5) {
+    messages.push({ type: 'info', text: 'Ip = 1.5 通常用於生命安全、危險物質或重要功能相關構材；請確認適用情境。' });
+  }
+  if (typeVal === 'CUSTOM') {
+    const ap = num('apCustom');
+    const Rp = num('rpCustom');
+    if (!(isFinite(ap) && ap > 0)) messages.push({ type: 'error', text: '自訂 ap 必須為大於 0 的數值。' });
+    if (!(isFinite(Rp) && Rp > 0)) messages.push({ type: 'error', text: '自訂 Rp 必須為大於 0 的數值。' });
+    messages.push({ type: 'warn', text: '自訂 ap / Rp 不由表 4-1 或表 4-2 帶入，需由使用者自行確認規範依據。' });
+  }
+  return messages;
+}
+
+function renderInputChecks(messages) {
+  const panel = document.getElementById('inputCheckPanel');
+  if (!panel) return;
+  panel.innerHTML = messages.map(message => `<div class="check-msg ${message.type}">${escHtml(message.text)}</div>`).join('');
+}
+
+function updateInputChecks() {
+  renderInputChecks(validateAppendageInputs());
+}
+
+function renderAppendageDiagram(r, options = {}) {
+  if (!r) return '';
+  const hnValue = Number(r.hn);
+  const hxValue = Number(r.hx);
+  const ratioRaw = hnValue > 0 && isFinite(hxValue) ? hxValue / hnValue : 0;
+  const ratio = Math.max(0, Math.min(1, ratioRaw));
+  const groundY = 292;
+  const roofY = 86;
+  const buildingX = 126;
+  const buildingW = 118;
+  const rawAttachY = groundY - 14 - ratio * 188;
+  const attachY = Math.max(112, Math.min(266, rawAttachY));
+  const objectX = 278;
+  const objectW = 48;
+  const objectH = 44;
+  const fphY = attachY;
+  const fphStartX = objectX + objectW + 4;
+  const fphEndX = 380;
+  const fpvX = 368;
+  const fpvBelow = attachY < 218;
+  const fpvTopY = fpvBelow ? attachY + 24 : attachY - 62;
+  const fpvBottomY = fpvBelow ? attachY + 62 : attachY - 24;
+  const objectY = attachY - objectH / 2;
+  const isEquipment = r.typeGroup === 'T2';
+  const title = escHtml(r.typeName || '附屬構造物');
+  const controlText = options.simple
+    ? (r.controlled === 'max' ? '上限控制' : r.controlled === 'min' ? '下限控制' : '計算值控制')
+    : (r.ctrlLabel || '');
+  const diagramClass = options.compact ? 'line-h2-diagram compact' : 'line-h2-diagram';
+  const objectIcon = isEquipment
+    ? `<g class="object-icon">
+        <rect x="${objectX}" y="${objectY}" width="${objectW}" height="${objectH}" rx="10" fill="#ffffff" stroke="#7c3aed" stroke-width="2.5"/>
+        <circle cx="${objectX + objectW / 2}" cy="${attachY}" r="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+        <path d="M${objectX + objectW / 2} ${attachY - 10}v20M${objectX + objectW / 2 - 10} ${attachY}h20" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/>
+      </g>`
+    : `<g class="object-icon">
+        <rect x="${objectX}" y="${objectY}" width="${objectW}" height="${objectH}" rx="8" fill="#fff7ed" stroke="#d97706" stroke-width="2.5"/>
+        <path d="M${objectX + 10} ${attachY - 12}h28M${objectX + 10} ${attachY}h28M${objectX + 10} ${attachY + 12}h28" stroke="#f59e0b" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M${objectX + 24} ${attachY - 14}v28" stroke="#f59e0b" stroke-width="1.6" stroke-linecap="round"/>
+      </g>`;
+  return `
+    <div class="diagram-wrap">
+      <svg class="${diagramClass}" viewBox="0 0 560 360" role="img" aria-label="附屬構造物地震力示意圖">
+        <defs>
+          <marker id="appendageArrowPurple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 Z" fill="#6d28d9"/>
+          </marker>
+          <marker id="appendageArrowTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 Z" fill="#0f766e"/>
+          </marker>
+          <linearGradient id="appendageBuildingFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#eef2ff"/>
+            <stop offset="100%" stop-color="#ffffff"/>
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width="560" height="360" rx="18" fill="#f8fafc"/>
+        <path d="M58 ${groundY + 1}H500" stroke="#94a3b8" stroke-width="2"/>
+        <path d="M72 ${groundY + 9}h404" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="7 8"/>
+        <rect x="${buildingX}" y="${roofY}" width="${buildingW}" height="${groundY - roofY}" rx="12" fill="url(#appendageBuildingFill)" stroke="#334155" stroke-width="2.5"/>
+        <path d="M${buildingX} 138h${buildingW}M${buildingX} 190h${buildingW}M${buildingX} 242h${buildingW}" stroke="#cbd5e1" stroke-width="1.5"/>
+        <path d="M${buildingX + 39} ${roofY}v${groundY - roofY}M${buildingX + 78} ${roofY}v${groundY - roofY}" stroke="#e2e8f0" stroke-width="1.5"/>
+        <rect x="${buildingX + 14}" y="104" width="25" height="25" rx="5" fill="#dbeafe"/>
+        <rect x="${buildingX + 55}" y="104" width="25" height="25" rx="5" fill="#dbeafe"/>
+        <rect x="${buildingX + 96}" y="104" width="15" height="25" rx="5" fill="#dbeafe"/>
+        <line x1="94" y1="${groundY}" x2="94" y2="${roofY}" stroke="#0f766e" stroke-width="2.4" marker-start="url(#appendageArrowTeal)" marker-end="url(#appendageArrowTeal)"/>
+        <text x="75" y="197" fill="#0f766e" font-size="13" font-weight="700" transform="rotate(-90 75 197)">h_n = ${fmt(r.hn, 2)} m</text>
+        <path d="M${buildingX + buildingW} ${attachY}h${objectX - buildingX - buildingW - 8}" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+        <circle cx="${buildingX + buildingW}" cy="${attachY}" r="4" fill="#334155"/>
+        <line x1="64" y1="${attachY}" x2="${objectX + objectW}" y2="${attachY}" stroke="#cbd5e1" stroke-width="1.3" stroke-dasharray="5 8"/>
+        ${objectIcon}
+        <g data-diagram-role="fph-arrow-zone">
+          <rect x="${fphStartX}" y="${fphY - 9}" width="${fphEndX - fphStartX + 12}" height="18" fill="transparent"/>
+          <line data-diagram-role="fph-arrow" x1="${fphStartX}" y1="${fphY}" x2="${fphEndX}" y2="${fphY}" stroke="#6d28d9" stroke-width="4" stroke-linecap="round" marker-end="url(#appendageArrowPurple)"/>
+        </g>
+        <g data-diagram-role="fpv-arrow-zone">
+          <rect x="${fpvX - 9}" y="${fpvTopY - 4}" width="18" height="${fpvBottomY - fpvTopY + 8}" fill="transparent"/>
+          <line data-diagram-role="fpv-arrow" x1="${fpvX}" y1="${fpvTopY}" x2="${fpvX}" y2="${fpvBottomY}" stroke="#6d28d9" stroke-width="4" stroke-linecap="round" marker-end="url(#appendageArrowPurple)"/>
+        </g>
+        <g data-diagram-role="force-panel">
+          <rect x="402" y="40" width="126" height="128" rx="14" fill="#fff" stroke="#ddd6fe" stroke-width="1.4"/>
+          <text x="418" y="64" fill="#4c1d95" font-size="13" font-weight="700">計算結果</text>
+          <text x="418" y="89" fill="#4c1d95" font-size="13" font-weight="700">Fph → ${fmt(r.Fph, 3)} tf</text>
+          <text x="418" y="113" fill="#4c1d95" font-size="13" font-weight="700">Fpv ↓ ${fmt(r.Fpv, 3)} tf</text>
+          <path d="M418 128h84" stroke="#ede9fe" stroke-width="1"/>
+          <text x="418" y="149" fill="#64748b" font-size="12">Cph = ${fmtCoeff(r.Cph)}</text>
+        </g>
+        <rect x="42" y="24" width="282" height="38" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+        <text x="58" y="48" fill="#0f172a" font-size="14" font-weight="700">${title}</text>
+        <text x="42" y="330" fill="#475569" font-size="12">h_x = ${fmt(r.hx, 2)} m ｜ h_x/h_n = ${fmt(r.hx / r.hn, 3)} ｜ ${escHtml(controlText)}</text>
+      </svg>
+      <div class="diagram-caption">簡化線稿示意只表達附著位置與水平、垂直地震力方向；數值集中於結果框，避免箭頭與文字互相遮蔽。</div>
+    </div>`;
 }
 
 function calcAppendagePage() {
@@ -390,10 +870,6 @@ function calcAppendagePage() {
     ap = parseFloat(document.getElementById('apCustom').value);
     Rp = parseFloat(document.getElementById('rpCustom').value);
     typeName = '自訂附屬構造物';
-    if (!(isFinite(ap) && ap > 0 && isFinite(Rp) && Rp > 0)) {
-      alert('請填入有效的自訂 a_p 與 R_p。');
-      return;
-    }
   } else {
     const [tbl, idxRaw] = typeVal.split('_');
     const idx = parseInt(idxRaw, 10);
@@ -408,8 +884,12 @@ function calcAppendagePage() {
   const isTB = document.getElementById('chkTaipei').checked;
   const isNF = document.getElementById('chkNearFault').checked;
   const note = (document.getElementById('apRemark').value || '').trim();
-  if (![SsD, S1D, SsM, S1M, hn, Wp].every(v => isFinite(v) && v > 0) || !isFinite(hx) || hx < 0) {
-    alert('請完整填入有效的工址條件、建物總高度與構材資料。');
+  const typeGroup = typeVal === 'CUSTOM' ? 'CUSTOM' : (typeVal.startsWith('T2_') ? 'T2' : 'T1');
+  const validationMessages = validateAppendageInputs();
+  renderInputChecks(validationMessages);
+  const blockingMessages = validationMessages.filter(message => message.type === 'error');
+  if (blockingMessages.length) {
+    alert(blockingMessages.map(message => message.text).join('\n'));
     return;
   }
   const site = S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M);
@@ -421,7 +901,7 @@ function calcAppendagePage() {
     : r.controlled === 'min'
       ? '受式(4-1c)下限控制'
       : '採式(4-1a)計算值';
-  lastAppendResult = { ...r, Fpv, Cpv, site, ctrlLabel, typeName, note, isNearFault: isNF, isTaipeiBasin: isTB };
+  lastAppendResult = { ...r, Fpv, Cpv, site, ctrlLabel, typeName, typeGroup, note, isNearFault: isNF, isTaipeiBasin: isTB };
   document.getElementById('resultPanel').style.display = '';
   document.getElementById('banner').className = 'banner-status ok';
   document.getElementById('banner').innerHTML =
@@ -432,6 +912,7 @@ function calcAppendagePage() {
     <div class="compact-item"><span class="label">R<sub>pa</sub></span><span class="value">${fmt(r.Rpa,3)}</span></div>
     <div class="compact-item"><span class="label">控制條件</span><span class="value">${ctrlLabel}</span></div>
   `;
+  document.getElementById('appendDiagram').innerHTML = renderAppendageDiagram(lastAppendResult);
   document.getElementById('appendResult').innerHTML = `
     <div class="results-grid">
       <div class="result-item ok">
@@ -524,6 +1005,71 @@ function openAppendageReport() {
   const proj = getProjectInfo();
   const today = new Date().toLocaleDateString('zh-TW');
   const zoneText = [document.getElementById('zoneCity').value, document.getElementById('zoneDist').value].filter(Boolean).join(' ') || '手動輸入震區參數';
+  const siteClassText = document.getElementById('siteClass').selectedOptions[0]?.textContent || '—';
+  const includeCalcDetail = getPrintReportMode() === 'detail';
+  const calcDetailHtml = document.getElementById('appendResult')?.querySelector('.step')?.outerHTML || document.getElementById('appendResult')?.innerHTML || '';
+  const detailedDiagramHtml = renderAppendageDiagram(r, { compact: true });
+  const simpleDiagramHtml = renderAppendageDiagram(r, { compact: true, simple: true });
+  const simpleCtrlLabel = r.controlled === 'max'
+    ? '上限控制'
+    : r.controlled === 'min'
+      ? '下限控制'
+      : '計算值控制';
+  const simpleReportHtml = `
+      <div class="summary">${escHtml(r.typeName)}　Fph = ${fmt(r.Fph,3)} tf　｜　Fpv = ${fmt(r.Fpv,3)} tf</div>
+      <section class="block">
+        <h3>工址與建物條件</h3>
+        <table><tbody>
+          <tr><th>工址地區</th><td>${escHtml(zoneText)}</td></tr>
+          <tr><th>SsD / S1D</th><td>${escHtml(document.getElementById('SsD').value)} / ${escHtml(document.getElementById('S1D').value)} g</td></tr>
+          <tr><th>SsM / S1M</th><td>${escHtml(document.getElementById('SsM').value)} / ${escHtml(document.getElementById('S1M').value)} g</td></tr>
+          <tr><th>地盤分類</th><td>${escHtml(siteClassText)}</td></tr>
+          <tr><th>建物總高度 h_n</th><td>${fmt(r.hn,2)} m</td></tr>
+          <tr><th>臺北盆地韌性調整</th><td>${r.isTaipeiBasin ? '啟用' : '未啟用'}</td></tr>
+          <tr><th>近斷層垂直力比值</th><td>${r.isNearFault ? '採 2/3 Fph' : '採 1/2 Fph'}</td></tr>
+        </tbody></table>
+      </section>
+      <section class="block">
+        <h3>附屬構造物資料</h3>
+        <table><tbody>
+          <tr><th>構材類型</th><td>${escHtml(r.typeName)}</td></tr>
+          <tr><th>a_p / R_p</th><td>${r.ap} / ${r.Rp}</td></tr>
+          <tr><th>I_p</th><td>${r.Ip}</td></tr>
+          <tr><th>構材重量 W_p</th><td>${fmt(r.Wp,3)} tf</td></tr>
+          <tr><th>固定高度 h_x</th><td>${fmt(r.hx,2)} m</td></tr>
+          <tr><th>備註</th><td>${escHtml(r.note || '—')}</td></tr>
+        </tbody></table>
+      </section>
+      <section class="block">
+        <h3>結果摘要</h3>
+        <div class="results-grid">
+          <div class="result-item ok"><span class="label">水平地震力 Fph</span><span><span class="value">${fmt(r.Fph,3)}</span><span class="unit">tf</span></span></div>
+          <div class="result-item"><span class="label">水平係數 Fph / Wp</span><span><span class="value">${fmtCoeff(r.Cph)}</span><span class="unit">Wp</span></span></div>
+          <div class="result-item"><span class="label">垂直地震力 Fpv</span><span><span class="value">${fmt(r.Fpv,3)}</span><span class="unit">tf</span></span></div>
+          <div class="result-item"><span class="label">垂直係數 Fpv / Wp</span><span><span class="value">${fmtCoeff(r.Cpv)}</span><span class="unit">Wp</span></span></div>
+          <div class="result-item"><span class="label">Rpa</span><span><span class="value">${fmt(r.Rpa,3)}</span></span></div>
+          <div class="result-item"><span class="label">控制條件</span><span><span class="value">${simpleCtrlLabel}</span></span></div>
+        </div>
+      </section>
+      <section class="block">
+        <h3>計算示意圖</h3>
+        ${simpleDiagramHtml}
+      </section>`;
+  const detailedReportHtml = `
+      <section class="block">
+        <h3>計算示意圖</h3>
+        ${detailedDiagramHtml}
+      </section>
+      <section class="block">
+        <h3>計算內容</h3>
+        <div class="detail-basis">
+          <strong>規範依據與工址摘要</strong><br>
+          依「建築物耐震設計規範及解說」113 年版第四章附屬構造物；工址地區：${escHtml(zoneText)}；
+          地盤分類：${escHtml(siteClassText)}；臺北盆地韌性調整：${r.isTaipeiBasin ? '啟用' : '未啟用'}；
+          近斷層垂直力比值：${r.isNearFault ? '採 2/3 Fph' : '採 1/2 Fph'}。
+        </div>
+        ${calcDetailHtml}
+      </section>`;
   const html = `<!doctype html>
   <html lang="zh-TW"><head><meta charset="utf-8"><title>附屬構造物地震力計算書</title>
   <style>
@@ -552,65 +1098,32 @@ function openAppendageReport() {
     .step-body { font-size:12px; line-height:1.8; color:#1f2937; }
     .step-body .val { font-weight:700; color:#6d28d9; font-family:"Consolas", monospace; }
     .step-body .val.hl { color:#4c1d95; }
+    .detail-basis { margin:0 0 12px; padding:10px 12px; border:1px solid #ddd6fe; border-radius:8px; background:#faf5ff; font-size:12px; line-height:1.8; color:#374151; }
+    .detail-basis strong { color:#4c1d95; }
+    .diagram-wrap { border:1px solid #dbeafe; border-radius:10px; background:#f8fafc; padding:8px; overflow:hidden; }
+    .line-h2-diagram { display:block; width:100%; height:auto; max-height:310px; }
+    .diagram-caption { margin-top:6px; color:#475569; font-size:11px; line-height:1.6; }
     .notes { padding-left:20px; font-size:12px; line-height:1.8; }
     .rep-footer { position:fixed; left:0; bottom:0; width:100%; padding:0 14mm 8mm; font-size:10px; color:#666; display:flex; justify-content:flex-end; align-items:end; }
     @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .paper { box-shadow:none; padding:0; max-width:none; } }
   </style></head>
   <body>
-    <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="window.close()">✕ 關閉</button></div>
+    <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button></div>
     <div class="paper">
       <h1>附屬構造物地震力計算書</h1>
       <div class="sub">依「建築物耐震設計規範及解說」113 年版｜第四章附屬構造物</div>
       <div class="meta">
-        <div><b>計畫名稱</b>${proj.name || '—'}</div>
-        <div><b>計畫編號</b>${proj.no || '—'}</div>
-        <div><b>設計人員</b>${proj.designer || '—'}</div>
-        <div><b>製表日期</b>${today}</div>
+        <div><b>計畫名稱</b>${escHtml(proj.name || '—')}</div>
+        <div><b>計畫編號</b>${escHtml(proj.no || '—')}</div>
+        <div><b>設計人員</b>${escHtml(proj.designer || '—')}</div>
+        <div><b>製表日期</b>${escHtml(today)}</div>
       </div>
-      <div class="summary">${r.typeName}　Fph = ${fmtCoeff(r.Cph)}Wp = ${fmt(r.Fph,3)} tf　｜　Fpv = ${fmtCoeff(r.Cpv)}Wp = ${fmt(r.Fpv,3)} tf</div>
-      <section class="block">
-        <h3>工址與建物條件</h3>
-        <table><tbody>
-          <tr><th>工址地區</th><td>${zoneText}</td></tr>
-          <tr><th>SsD / S1D</th><td>${document.getElementById('SsD').value} / ${document.getElementById('S1D').value} g</td></tr>
-          <tr><th>SsM / S1M</th><td>${document.getElementById('SsM').value} / ${document.getElementById('S1M').value} g</td></tr>
-          <tr><th>地盤分類</th><td>${document.getElementById('siteClass').selectedOptions[0].textContent}</td></tr>
-          <tr><th>建物總高度 h_n</th><td>${fmt(r.hn,2)} m</td></tr>
-          <tr><th>臺北盆地韌性調整</th><td>${r.isTaipeiBasin ? '啟用' : '未啟用'}</td></tr>
-          <tr><th>近斷層垂直力比值</th><td>${r.isNearFault ? '採 2/3 Fph' : '採 1/2 Fph'}</td></tr>
-        </tbody></table>
-      </section>
-      <section class="block">
-        <h3>附屬構造物資料</h3>
-        <table><tbody>
-          <tr><th>構材類型</th><td>${r.typeName}</td></tr>
-          <tr><th>a_p / R_p</th><td>${r.ap} / ${r.Rp}</td></tr>
-          <tr><th>I_p</th><td>${r.Ip}</td></tr>
-          <tr><th>構材重量 W_p</th><td>${fmt(r.Wp,3)} tf</td></tr>
-          <tr><th>固定高度 h_x</th><td>${fmt(r.hx,2)} m</td></tr>
-          <tr><th>備註</th><td>${r.note || '—'}</td></tr>
-        </tbody></table>
-      </section>
-      <section class="block">
-        <h3>結果摘要</h3>
-        <div class="results-grid">
-          <div class="result-item ok"><span class="label">水平地震力 Fph</span><span><span class="value">${fmt(r.Fph,3)}</span><span class="unit">tf</span></span></div>
-          <div class="result-item"><span class="label">水平係數 Fph / Wp</span><span><span class="value">${fmtCoeff(r.Cph)}</span><span class="unit">Wp</span></span></div>
-          <div class="result-item"><span class="label">垂直地震力 Fpv</span><span><span class="value">${fmt(r.Fpv,3)}</span><span class="unit">tf</span></span></div>
-          <div class="result-item"><span class="label">垂直係數 Fpv / Wp</span><span><span class="value">${fmtCoeff(r.Cpv)}</span><span class="unit">Wp</span></span></div>
-          <div class="result-item"><span class="label">Rpa</span><span><span class="value">${fmt(r.Rpa,3)}</span></span></div>
-          <div class="result-item"><span class="label">控制條件</span><span><span class="value">${r.ctrlLabel}</span></span></div>
-        </div>
-      </section>
-      <section class="block">
-        <h3>計算過程</h3>
-        ${document.getElementById('appendResult').innerHTML}
-      </section>
+      ${includeCalcDetail ? detailedReportHtml : simpleReportHtml}
       <section class="block">
         <h3>備註</h3>
         <ol class="notes">
           <li>本頁為第四章附屬構造物局部計算書；完整建築物耐震通盤檢討請另由等值靜力分析頁辦理。</li>
-          ${r.note ? `<li>${r.note}</li>` : ''}
+          ${r.note ? `<li>${escHtml(r.note)}</li>` : ''}
         </ol>
       </section>
       <div class="rep-footer"><div>版權所有 弘一工程顧問有限公司</div></div>
@@ -645,16 +1158,30 @@ function openAppendageReport() {
 
 document.getElementById('btnLoadStatic').addEventListener('click', loadStaticSummaryIntoPage);
 document.getElementById('btnCalc').addEventListener('click', calcAppendagePage);
-document.getElementById('btnPrint').addEventListener('click', openAppendageReport);
 document.getElementById('btnReport').addEventListener('click', openAppendageReport);
+document.getElementById('btnExportCaseJson').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCaseJson').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
+document.getElementById('caseJsonFile').addEventListener('change', event => importCaseJsonFile(event.target.files?.[0]));
+document.querySelectorAll('.mode-segment').forEach(button => {
+  button.addEventListener('click', () => syncPrintReportMode(button.dataset.reportMode));
+});
 initTypeOptions();
 initZoneLookup();
+syncPrintReportMode(DEFAULT_CASE_INPUTS.values.printReportMode);
 restoreProjectInfo();
+['SsD', 'S1D', 'SsM', 'S1M', 'siteClass', 'hn', 'apCustom', 'rpCustom', 'apWp', 'apIp', 'apHx', 'chkTaipei', 'chkNearFault'].forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', updateInputChecks);
+  el.addEventListener('change', updateInputChecks);
+});
 ['projName', 'projNo', 'projDesigner'].forEach(function(id) {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('input', saveProjectInfo);
 });
+updateInputChecks();
 </script>
 </body>
 </html>

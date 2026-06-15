@@ -46,7 +46,7 @@ assert.equal(manifest.shared.outputConsistencyTest, 'tools/local-quick-output-co
 let nonFiniteCount = 0;
 
 for (const tool of manifest.tools) {
-  assert.equal(tool.pageVersion, 'V0.1', `${tool.key} page version`);
+  assert.match(tool.pageVersion, /^V0\.\d+$/, `${tool.key} page version`);
 
   const html = readText(tool.html);
   const core = require(toolboxFile(tool.core));
@@ -55,9 +55,16 @@ for (const tool of manifest.tools) {
   assertIncludes(html, `id: '${tool.key}'`, `${tool.key} JSON export tool id`);
   assertIncludes(html, `name: '${tool.label}'`, `${tool.key} JSON export tool name`);
   assertIncludes(html, `pageVersion: '${tool.pageVersion}'`, `${tool.key} JSON export page version`);
-  assertIncludes(html, 'const prov = r.provenance || (Core.provenance ? Core.provenance() : {})', `${tool.key} report provenance source`);
-  assertIncludes(html, '輸入格式', `${tool.key} report input schema row`);
-  assertIncludes(html, '計算指紋', `${tool.key} report logic signature row`);
+  if (['foundation-local', 'earth-pressure'].includes(tool.key)) {
+    assertIncludes(html, '<h2>計算依據</h2>', `${tool.key} concise report basis section`);
+    assert.equal(html.includes('<h2>工具與責任邊界</h2>'), false, `${tool.key} concise report removes boundary heading`);
+    assert.equal(html.includes("['適用範圍'"), false, `${tool.key} concise report removes fit row`);
+    assert.equal(html.includes("['不適用範圍'"), false, `${tool.key} concise report removes limit row`);
+  } else {
+    assertIncludes(html, 'const prov = r.provenance || (Core.provenance ? Core.provenance() : {})', `${tool.key} report provenance source`);
+    assertIncludes(html, '輸入格式', `${tool.key} report input schema row`);
+    assertIncludes(html, '計算指紋', `${tool.key} report logic signature row`);
+  }
 
   const apiProvenance = core.provenance();
   assert.equal(apiProvenance.core, tool.coreGlobal, `${tool.key} provenance core`);

@@ -208,12 +208,17 @@ function run() {
 
   const solid = W.calcSolidObjectWind({
     V: 42.5, terrain: 'C', I: 1.0, z: 12, A: 6, charWidth: 2.5,
-    Kzt: 1.0, shapeType: 'flat_panel', shapeFactor: 1.1
+    Kzt: 1.0, shapeType: 'box', shapeFactor: 1.1
   });
-  approx(solid.baseCf, 1.8, 1e-12, 'solid object base Cf');
-  approx(solid.CfEff, 1.98, 1e-12, 'solid object corrected Cf');
+  approx(solid.baseCf, 1.3, 1e-12, 'solid object base Cf');
+  approx(solid.CfEff, 1.43, 1e-12, 'solid object corrected Cf');
   approx(solid.F, solid.qz * solid.G * solid.CfEff * solid.A, 1e-9, 'solid object force');
   approx(solid.baseMoment, solid.F * solid.z, 1e-9, 'solid object base moment');
+  assert.ok(solid.gustDetail, 'solid object should expose gust factor detail');
+  approx(solid.gustDetail.G, solid.G, 1e-12, 'solid object gust detail G');
+  approx(solid.gustDetail.Q, Math.sqrt(solid.gustDetail.Q2), 1e-12, 'solid object gust detail Q');
+  assert.strictEqual(solid.gustDetail.gQ, 3.4, 'solid object gust peak factor gQ');
+  assert.strictEqual(solid.gustDetail.gV, 3.4, 'solid object gust peak factor gV');
 
   const verticalSolid = W.calcVerticalSolidObjectWind({
     V: 42.5, terrain: 'C', I: 1.0, zBase: 0, height: 12, width: 1.5,
@@ -224,11 +229,39 @@ function run() {
   approx(verticalSolid.baseShear, verticalSolid.rows.reduce((s, row) => s + row.force, 0), 1e-9, 'vertical solid total shear');
   approx(verticalSolid.baseMoment, verticalSolid.rows.reduce((s, row) => s + row.moment, 0), 1e-9, 'vertical solid total moment');
   approx(verticalSolid.resultantHeight, verticalSolid.baseMoment / verticalSolid.baseShear, 1e-9, 'vertical solid resultant height');
+  assert.ok(verticalSolid.gustDetail, 'vertical solid should expose gust factor detail');
+  approx(verticalSolid.gustDetail.G, verticalSolid.G, 1e-12, 'vertical solid gust detail G');
+
+  const verticalSolidWithCharWidth = W.calcVerticalSolidObjectWind({
+    V: 42.5, terrain: 'C', I: 1.0, zBase: 0, height: 12, width: 0.6, charWidth: 3.0,
+    segments: 4, Kzt: 1.0, shapeType: 'flat_panel', Cf: 1.2
+  });
+  approx(verticalSolidWithCharWidth.gustDetail.B, 3.0, 1e-12, 'vertical solid gust should use characteristic width when provided');
 
   const towerCf = W.lookupTowerCf({ sectionType: 'square_face', hOverD: 10 });
   approx(towerCf.cf, 1.5, 1e-12, 'tower cf linear interpolation for square face');
 
   approx(W.calcDiameterSqrtQz(2, 9), 6, 1e-12, 'D sqrt(qz) classifier');
+
+  // Coefficient lookups are owned by the formal wind workflows. Keep the
+  // shared table functions deterministic so each page can rely on its own Cf
+  // confirmation path instead of a separate coefficient guide tool.
+  approx(W.lookupSignCf({ atGround: true, aspectRatio: 3 }).cf, 1.2, 1e-12, 'table 2.10 ground sign lower anchor');
+  approx(W.lookupSignCf({ atGround: true, aspectRatio: 40 }).cf, 2.0, 1e-12, 'table 2.10 ground sign upper anchor');
+  approx(W.lookupSignCf({ atGround: false, aspectRatio: 80 }).cf, 2.0, 1e-12, 'table 2.10 elevated sign upper anchor');
+
+  approx(W.lookupTowerCf({ sectionType: 'hex_oct', hOverD: 25 }).cf, 1.4, 1e-12, 'table 2.12 hex/oct upper anchor');
+  approx(W.lookupTowerCf({ sectionType: 'circular_rough', hOverD: 7, dSqrtQz: 2.0 }).cf, 0.8, 1e-12, 'table 2.12 rough circular anchor');
+
+  approx(W.lookupPorousFrameCf({ solidity: 0.05, memberType: 'circular', dSqrtQz: 1.2 }).cf, 2.0, 1e-12, 'table 2.11 circular low D sqrt(qz) low solidity');
+  approx(W.lookupPorousFrameCf({ solidity: 0.35, memberType: 'circular', dSqrtQz: 2.0 }).cf, 1.5, 1e-12, 'table 2.11 circular high D sqrt(qz) medium solidity');
+  approx(W.lookupPorousFrameCf({ solidity: 0.35, memberType: 'flat', dSqrtQz: 2.0 }).cf, 1.1, 1e-12, 'table 2.11 flat member medium solidity');
+
+  approx(W.lookupLatticeTowerCf({ solidity: 0.5, towerShape: 'square', memberShape: 'angle_flat', skewWind: false }).cf, 1.8, 1e-12, 'table 2.15 square lattice plateau');
+  approx(W.lookupAngularPrismCf('rect_long').cf, 2.2, 1e-12, 'table 2.13 rectangular prism long face');
+  approx(W.lookupAngularPrismR(40).r, 1.0, 1e-12, 'table 2.13 slenderness correction upper band');
+  approx(W.lookupCableCf({ roughness: 'smooth', dSqrtQz: 2.0 }).cf, 0.5, 1e-12, 'table 2.14 smooth cable high D sqrt(qz)');
+  approx(W.lookupCableCf({ roughness: 'rough_cable', dSqrtQz: 1.7 }).cf, 1.3, 1e-12, 'table 2.14 rough cable threshold low branch');
 
   const towerCfCircular = W.lookupTowerCf({ sectionType: 'circular_auto', hOverD: 7, dSqrtQz: 1.5 });
   approx(towerCfCircular.cf, 0.8, 1e-12, 'tower cf circular low D sqrt(qz)');
@@ -270,9 +303,12 @@ function run() {
   assert.strictEqual(lattice.body.rows.length, 4, 'lattice tower segments');
   approx(lattice.totalSolidArea, 24 * 3 * 0.2, 1e-12, 'lattice tower solid area');
   approx(lattice.baseShear, lattice.body.baseShear, 1e-12, 'lattice tower base shear passthrough');
+  approx(lattice.body.gustDetail.B, 3.0, 1e-12, 'lattice tower gust should use full face width');
 
   const signGround = W.lookupSignCf({ atGround: true, aspectRatio: 15 });
   approx(signGround.cf, 1.625, 1e-12, 'ground sign Cf interpolation');
+  const signAbove = W.lookupSignCf({ atGround: false, aspectRatio: 30 });
+  approx(signAbove.cf, 1.625, 1e-12, 'elevated sign M/N Cf interpolation');
 
   const prism = W.lookupAngularPrismCf('tri_face');
   approx(prism.cf, 2.0, 1e-12, 'angular prism base cf');

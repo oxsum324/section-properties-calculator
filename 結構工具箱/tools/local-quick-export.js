@@ -13,12 +13,14 @@
 
   function buildPayload(options) {
     const generatedAt = options.generatedAt || new Date().toISOString();
-    return {
+    const payload = {
       tool: Object.assign({}, options.tool),
       project: Object.assign({}, options.project),
       generatedAt,
       result: options.result
     };
+    if (options.input) payload.input = Object.assign({}, options.input);
+    return payload;
   }
 
   function downloadJson(filename, payload) {
@@ -40,6 +42,7 @@
       tool: options.tool,
       project: options.project,
       generatedAt,
+      input: options.input,
       result: options.result
     });
     const filename = options.filename || `${options.tool.id}-${generatedAt.slice(0, 10)}.json`;

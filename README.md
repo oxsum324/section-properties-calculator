@@ -45,6 +45,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/local-quick-output-consistency.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-output-consistency.test.js:1)
 - 局部快算瀏覽器 smoke：
   [結構工具箱/tools/local-quick-browser-smoke.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-browser-smoke.test.js:1)
+- 風力 / 地震正式頁瀏覽器 smoke：
+  [結構工具箱/tools/formal-browser-smoke.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-browser-smoke.test.js:1)
 - 局部快算工具 manifest：
   [結構工具箱/tools/local-quick-tools.manifest.json](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.manifest.json:1)
 - 局部快算 manifest runner：
@@ -63,9 +65,11 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - 高價值工具交付前檢查：
   [preflight-tools.ps1](/C:/Users/USER/Desktop/AI/小工具製作/preflight-tools.ps1:1)
 
-`audit-all.ps1` 用來守住主平台的鋼構、RC 與規範核心；`preflight-tools.ps1` 則再納入風力路徑、連續梁、錨栓、石材、開挖擋土支撐、覆工板、鋼架、局部快算 manifest runner / 共同契約 / JSON 匯出 helper / 跨輸出一致性 regression / Edge 瀏覽器 smoke（含 `vercel.json` 乾淨路由、JSON 匯出按鈕與列印計算書）、基礎局部檢核、設備局部荷重與擋土土壓局部快算 smoke / regression，適合交付前或跨工具大改後執行。
+`audit-all.ps1` 用來守住主平台的鋼構、RC 與規範核心；`preflight-tools.ps1` 則再納入風力路徑、連續梁、錨栓、石材、開挖擋土支撐、覆工板、鋼架、局部快算 manifest runner / 共同契約 / JSON 匯出 helper / 跨輸出一致性 regression / Edge 瀏覽器 smoke（含 `vercel.json` 乾淨路由、JSON 匯出按鈕與列印計算書）、風力 / 地震正式頁 Edge 瀏覽器 smoke（14 個正式 / 報表頁，含乾淨路由、桌機 / 手機橫向溢出、詳算式 / 簡易結果模式、具備者的 JSON 匯出、列印計算書與示意圖角色）、基礎局部檢核、設備局部荷重與擋土土壓局部快算 smoke / regression，適合交付前或跨工具大改後執行。
 
 跨工具納入版本控管前，先參考 [TOOL_BOUNDARIES.md](/C:/Users/USER/Desktop/AI/小工具製作/TOOL_BOUNDARIES.md:1) 與 [STAGING_GROUPS.md](/C:/Users/USER/Desktop/AI/小工具製作/STAGING_GROUPS.md:1)，避免把案例輸出、暫存檔、Office 文件或本機依賴一起提交。
+
+新增或重構工具、示意圖與列印計算書前，請先參考 [TOOL_REPORT_GUIDE.md](/C:/Users/USER/Desktop/AI/小工具製作/TOOL_REPORT_GUIDE.md:1)。此檔固定說明示意圖、詳算式 / 簡易結果版面、計算書出具內容規範、JSON 匯出匯入與回歸檢查重點，避免重複踩到報告格式與工程依據文字問題。
 
 ## 巡檢啟動
 

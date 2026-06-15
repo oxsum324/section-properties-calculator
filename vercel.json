@@ -14,13 +14,16 @@
     { "source": "/wind-parapet", "destination": "/結構工具箱/tools/風力/wind-parapet", "permanent": true },
     { "source": "/wind-object-solid", "destination": "/結構工具箱/tools/風力/wind-object-solid", "permanent": true },
     { "source": "/wind-object-frame", "destination": "/結構工具箱/tools/風力/wind-object-frame", "permanent": true },
+    { "source": "/wind-lattice-tower", "destination": "/結構工具箱/tools/風力/wind-lattice-tower", "permanent": true },
     { "source": "/wind-object-tower", "destination": "/結構工具箱/tools/風力/wind-object-tower", "permanent": true },
-    { "source": "/wind-shape-factor", "destination": "/結構工具箱/tools/風力/wind-shape-factor", "permanent": true },
+    { "source": "/wind-fence-sign", "destination": "/結構工具箱/tools/風力/wind-fence-sign", "permanent": true },
+    { "source": "/wind-sign-pole", "destination": "/結構工具箱/tools/風力/wind-sign-pole", "permanent": true },
     { "source": "/wind-special", "destination": "/結構工具箱/tools/風力/wind-special", "permanent": true },
 
     { "source": "/seismic", "destination": "/結構工具箱/tools/地震力/seismic-force", "permanent": true },
     { "source": "/seismic-force", "destination": "/結構工具箱/tools/地震力/seismic-force", "permanent": true },
     { "source": "/seismic-dynamic", "destination": "/結構工具箱/tools/地震力/seismic-dynamic", "permanent": true },
+    { "source": "/seismic-appendage", "destination": "/結構工具箱/tools/地震力/seismic-appendage", "permanent": true },
     { "source": "/seismic-misc", "destination": "/結構工具箱/tools/地震力/seismic-misc", "permanent": true },
 
     { "source": "/steel-formal", "destination": "/鋼構工具", "permanent": true },

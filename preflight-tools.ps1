@@ -155,6 +155,16 @@ node $runnerPath
 exit $LASTEXITCODE
 '@
 
+$formalBrowserSmokeCommand = @'
+$smokePath = '結構工具箱\tools\formal-browser-smoke.test.js'
+if (-not (Test-Path -LiteralPath $smokePath)) {
+  Write-Error "missing $smokePath"
+  exit 1
+}
+node $smokePath
+exit $LASTEXITCODE
+'@
+
 $excavationLauncherCommand = @'
 $launcherPath = '開挖擋土支撐\index.html'
 $readmePath = '開挖擋土支撐\README.md'
@@ -341,6 +351,13 @@ $checks = @(
     label = "Local quick tools manifest runner"
     workdir = $root
     command = $localQuickToolsContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "formal-browser-smoke"
+    label = "Formal wind and seismic browser smoke"
+    workdir = $root
+    command = $formalBrowserSmokeCommand
     slow = $false
   }
 )

@@ -11,7 +11,10 @@
 ```powershell
 git add -- .gitignore README.md TOOL_BOUNDARIES.md STAGING_GROUPS.md preflight-tools.ps1 run-preflight-tools.bat continuous-beam-regression.test.js test-continuous-beam.ps1
 git add -- "鋼構工具/audit-tool.ps1"
-git add -- "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-shape-factor.html"
+git add -- "結構工具箱/core/style.css"
+git add -- "結構工具箱/tools/formal-browser-smoke.test.js"
+git add -- "結構工具箱/tools/風力/wind-force.html" "結構工具箱/tools/風力/wind-object-frame.html" "結構工具箱/tools/風力/wind-object-solid.html" "結構工具箱/tools/風力/wind-object-tower.html" "結構工具箱/tools/風力/wind-open-roof.html" "結構工具箱/tools/風力/wind-fence-sign.html" "結構工具箱/tools/風力/wind-lattice-tower.html" "結構工具箱/tools/風力/wind-sign-pole.html"
+git add -A -- "結構工具箱/tools/風力/wind-shape-factor.html"
 ```
 
 需要人工 hunk review，不建議整檔直接 staging：
@@ -65,7 +68,7 @@ Refresh anchor deployment assets
 git add -- "結構工具箱/tools/foundation/foundation-local.html" "結構工具箱/tools/foundation/foundation-local-core.js" "結構工具箱/tools/foundation/foundation-local-core.test.js" "結構工具箱/tools/foundation/foundation-local-golden-cases.js"
 git add -- "結構工具箱/tools/equipment/equipment-load.html" "結構工具箱/tools/equipment/equipment-load-core.js" "結構工具箱/tools/equipment/equipment-load-core.test.js" "結構工具箱/tools/equipment/equipment-load-golden-cases.js"
 git add -- "結構工具箱/tools/earth/earth-pressure.html" "結構工具箱/tools/earth/earth-pressure-core.js" "結構工具箱/tools/earth/earth-pressure-core.test.js" "結構工具箱/tools/earth/earth-pressure-golden-cases.js"
-git add -- "結構工具箱/tools/local-quick-tools.manifest.json" "結構工具箱/tools/local-quick-tools.run.js" "結構工具箱/tools/local-quick-export.js" "結構工具箱/tools/local-quick-export.test.js" "結構工具箱/tools/local-quick-output-consistency.test.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "結構工具箱/tools/local-quick-tools.contract.test.js"
+git add -- "結構工具箱/tools/local-quick-tools.manifest.json" "結構工具箱/tools/local-quick-tools.run.js" "結構工具箱/tools/local-quick-export.js" "結構工具箱/tools/local-quick-export.test.js" "結構工具箱/tools/local-quick-output-consistency.test.js" "結構工具箱/tools/local-quick-browser-smoke.test.js" "結構工具箱/tools/formal-browser-smoke.test.js" "結構工具箱/tools/local-quick-tools.contract.test.js"
 git add -- "結構工具箱/index.html" "vercel.json" "preflight-tools.ps1"
 ```
 

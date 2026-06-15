@@ -154,35 +154,40 @@
 
 <div class="card">
   <h2>特殊標的物</h2>
-  <div class="legend">附屬構造物之風力骨架；輸出 F、V、M 與分段剪力表。</div>
+  <div class="legend">附屬構造物之風力骨架；先判定規範表格，再進入對應工作流。</div>
   <div class="tool-grid">
     <a class="tool-link" href="wind-object-solid.html" target="_blank">
-      <strong>⑤ 實體標的物</strong>
-      <span class="scope">第二章 表 2.13</span>
-      <span class="desc">實體箱體、看板、設備罩體；單一作用點或分段。</span>
+      <strong>⑤ 實體標示物</strong>
+      <span class="scope">第二章 表 2.10</span>
+      <span class="desc">開口率 &lt; 30%，依座地條件、ν = H/B、M/N 判定 Cf 與斜風向 0.3B 偏心。</span>
     </a>
     <a class="tool-link" href="wind-object-frame.html" target="_blank">
-      <strong>⑥ 透空 / 格子式</strong>
-      <span class="scope">第二章 表 2.11 / 2.15</span>
-      <span class="desc">中空標示物、格子構架、桁架高塔。</span>
+      <strong>⑥ 中空式 / 格子式</strong>
+      <span class="scope">第二章 表 2.11</span>
+      <span class="desc">中空式標示物、格子式構架。</span>
+    </a>
+    <a class="tool-link" href="wind-lattice-tower.html" target="_blank">
+      <strong>⑦ 桁架高塔</strong>
+      <span class="scope">第二章 表 2.15</span>
+      <span class="desc">方形或三角形桁架高塔，依實體率、構材與分段高度整理底部作用。</span>
     </a>
     <a class="tool-link" href="wind-object-tower.html" target="_blank">
-      <strong>⑦ 煙囪 / 高塔 / 水塔</strong>
+      <strong>⑧ 煙囪 / 水塔</strong>
       <span class="scope">第二章 表 2.12</span>
-      <span class="desc">塔狀構造物 + 塔頂附加風力。</span>
+      <span class="desc">煙囪、水塔等；依 h/D 與斷面路線整理分段風力。</span>
     </a>
     <a class="tool-link" href="wind-fence-sign.html" target="_blank">
-      <strong>⑧ 圍籬牆 / 獨立招牌</strong>
+      <strong>⑨ 圍籬牆 / 獨立招牌</strong>
       <span class="scope">第二章 表 2.10</span>
-      <span class="desc">座地 / 架高雙模式；形心高度速度壓 + F/V/M。</span>
+      <span class="desc">平板告示牌、圍籬牆、自立看板；座地 / 架高雙模式。</span>
     </a>
-    <a class="tool-link" href="wind-shape-factor.html" target="_blank">
-      <strong>⑨ 形狀 / 修正係數</strong>
-      <span class="scope">第二章 表 2.10/2.13/2.14</span>
-      <span class="desc">Cf 與修正係數查表，供回填至其他工具。</span>
+    <a class="tool-link" href="wind-sign-pole.html" target="_blank">
+      <strong>⑩ 招牌 / 燈桿組合</strong>
+      <span class="scope">表 2.10 + 表 2.14 / 表 2.13</span>
+      <span class="desc">上方面板與下方管材或型鋼支撐分別計算，合成底部剪力、彎矩與支撐分段風力。</span>
     </a>
     <a class="tool-link" href="wind-special.html" target="_blank">
-      <strong>⑩ 特殊修正 / 折減</strong>
+      <strong>⑪ 特殊修正 / 折減</strong>
       <span class="scope">附加流程</span>
       <span class="desc">遮蔽折減、透氣外牆折減等 λ 係數整理。</span>
     </a>
@@ -198,7 +203,7 @@
     <li><strong>主控值自動標示</strong>：wind-cc 與 wind-parapet 表中以 ★ 與橘色外框標示主控條件</li>
     <li><strong>女兒牆全條件展開</strong>：圖 3.4 / 圖 3.5 之 4 條件（迎/背風 × 一般邊緣/角隅）總覽</li>
     <li><strong>新增 K<sub>zt</sub> 計算器</strong>：山脊 / 陡崖 / 圓丘 4 類地形含中間 K<sub>1</sub>/K<sub>2</sub>/K<sub>3</sub> 拆解</li>
-    <li><strong>新增圍籬牆 / 獨立招牌工具</strong>：表 2.10 招牌物 Cf 路線；座地 / 架高雙模式</li>
+    <li><strong>實體標示物工具回歸表 2.10</strong>：依開口率、座地條件、ν、M/N 判定 Cf，並整理斜風向 0.3B 偏心</li>
     <li><strong>新增案件總覽</strong>：本頁，跨工具參數摘要與工作流引導</li>
     <li><strong>舒適度多級別</strong>：wind-force §4.3 加入住宅 / 辦公室 / 其他三類容許加速度</li>
     <li><strong>q(z) 完整代入式</strong>：所有工具計算過程展示 K(z) = 2.774·(z/z<sub>g</sub>)<sup>2α</sup> 與單段 F<sub>i</sub> 示例</li>
@@ -211,9 +216,9 @@
   <ol style="margin:8px 0 0 24px; line-height:1.9; font-size:0.88em;">
     <li><strong>主結構檢核</strong>：輸入基本參數後執行 ① <em>矩形建物 MWFRS</em>，得到逐層風力、底部剪力、彎矩。</li>
     <li><strong>包覆物檢核</strong>：以同一案件參數執行 ② <em>C&amp;C</em>，逐區域查最大正/負壓。</li>
-    <li><strong>女兒牆 / 突出物</strong>：若有女兒牆執行 ③；若有附屬看板/設備執行 ⑤–⑧。</li>
-    <li><strong>形狀修正</strong>：特殊形狀（角隅圓弧、傾斜面）以 ⑨ 查係數，回填至 ⑤–⑧。</li>
-    <li><strong>特殊折減</strong>：遮蔽、透氣外牆、風洞修正等以 ⑩ 整理依據。</li>
+    <li><strong>女兒牆 / 突出物</strong>：若有女兒牆執行 ③；若有附屬看板、燈桿或設備執行 ⑤–⑩。</li>
+    <li><strong>Cf 確認</strong>：特殊標的物之 Cf 應在 ⑤–⑩ 各正式工作流內依規範表格與適用條件確認。</li>
+    <li><strong>特殊折減</strong>：遮蔽、透氣外牆、風洞修正等以 ⑪ 整理依據。</li>
   </ol>
   <div class="note" style="margin-top:10px;">
     ⚠ 本頁將「案件基本參數」儲存於本機瀏覽器 (localStorage)；後續可參考此摘要在子工具中重複輸入相同參數。

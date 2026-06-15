@@ -3,24 +3,62 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐風設計 — 中空式標示物 / 格子式構架 / 桁架高塔 V3</title>
+<title>建築物耐風設計 — 中空式 / 格子式風力 V3.3</title>
 <link rel="stylesheet" href="../../core/style.css">
 <style>
   table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
   table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
   table.zone th { background:#f1f5f9; color:var(--primary); font-weight:700; font-family:inherit; }
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#6d28d9; color:#fff; }
+  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+  .case-actions button { border:none; border-radius:8px; padding:9px 12px; font-weight:700; cursor:pointer; background:#ede9fe; color:#5b21b6; }
+  .case-actions button:hover { background:#ddd6fe; }
+  .case-actions .primary { background:#6d28d9; color:#fff; }
+  .case-actions .primary:hover { background:#5b21b6; }
+  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
+  .case-status.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+  .case-status:empty { display:none; }
+  .report-mode-control { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #ddd6fe; border-radius:10px; background:#f5f3ff; color:#334155; font-size:0.84em; line-height:1.6; }
+  .report-mode-label { font-weight:700; color:#5b21b6; margin-right:2px; }
+  .mode-segment { border:1px solid #c4b5fd; background:#fff; color:#5b21b6; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
+  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#6d28d9; color:#fff; border-color:#6d28d9; box-shadow:0 4px 10px rgba(109,40,217,.18); }
+  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
+  .inline-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
+  .inline-actions .btn-calc { flex:1 1 220px; width:auto; min-height:46px; margin-top:0; justify-content:center; }
+  .form-error { display:none; margin:10px 0 0; border:1px solid #fecaca; background:#fef2f2; color:#991b1b; border-radius:9px; padding:10px 12px; font-size:0.9em; font-weight:700; line-height:1.55; }
+  .form-error.show { display:block; }
+  .conditional-field.is-hidden { display:none; }
+  .applic-list { display:grid; gap:8px; margin-top:10px; }
+  .applic-item { border:1px solid #dbeafe; border-radius:9px; background:#f8fafc; padding:8px 10px; font-size:0.84em; line-height:1.6; }
+  .applic-ok { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .applic-warn { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .applic-fail { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .applic-label { display:block; font-weight:700; margin-bottom:2px; }
+  .schema-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
+  .schema-svg { width:100%; max-width:620px; height:auto; display:block; margin:0 auto; background:#f8fafc; border:0; border-radius:12px; }
   .step { margin-bottom:14px; }
   .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px; padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
   .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
   .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
   .step-body .val.hl { font-size:1.05em; color:#6d28d9; }
+  .detail-formula { margin-top:6px; padding:6px 8px; background:#f8fafc; border-left:3px solid #94a3b8; color:#475569; font-size:0.84em; }
+  #resultPanel { min-width:0; }
+  @media (max-width:768px) {
+    .inline-actions { flex-direction:column; }
+    .inline-actions .btn-calc { width:100%; flex-basis:auto; }
+    .case-actions button { flex:1 1 120px; }
+  }
+  @media print {
+    header, .btn-calc, .back, .case-actions, .report-mode-control { display:none; }
+    .container { max-width:none; padding:0; }
+    .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>建築物耐風設計 — 中空式標示物 / 格子式構架 / 桁架高塔 <span class="badge-v">V3</span></h1>
-  <p>依表 2.11、表 2.15 的 Cf 路線 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
+  <h1>建築物耐風設計 — 中空式 / 格子式風力 <span class="badge-v">V3.3</span></h1>
+  <p>依規範表 2.11 的 C<sub>f</sub> 路線 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
@@ -31,22 +69,35 @@
     <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
     <input type="text" id="projNo" class="w-no" placeholder="編號">
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+    <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
   </div>
+  <div class="report-mode-control" role="group" aria-label="列印計算書輸出模式">
+    <span class="report-mode-label">計算書模式</span>
+    <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true">詳算式</button>
+    <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
+    <span class="report-mode-hint">詳算式輸出示意圖、查表路線與公式代入；簡易結果只整理條件、示意圖與控制值。</span>
+  </div>
+  <input type="hidden" id="printReportMode" value="detail">
+  <div class="case-actions">
+    <button class="primary" id="btnExportCase" type="button">匯出案件 JSON</button>
+    <button id="btnImportCase" type="button">匯入案件 JSON</button>
+    <button id="btnResetCase" type="button">恢復預設</button>
+    <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
+  </div>
+  <div class="case-status" id="caseStatus"></div>
 </div>
 <div class="main-layout">
 <div>
   <div class="card">
-    <h2>適用範圍</h2>
+    <h2>規範路線</h2>
     <div class="note">
-      本頁適用於 <strong>中空式標示物、格子式構架、桁架高塔</strong> 之風力整理。
-      中空式標示物採表 <code>2.11</code>；桁架高塔採表 <code>2.15</code>。
-      格構塔若含更複雜斜風向、動力反應、拉索作用或特殊外包形狀，應另行專案分析。
+      本頁僅處理<strong>中空式標示物 / 格子式構架</strong>，採規範表 2.11 查 C<sub>f</sub>。
+      若為實體標示物、圍籬牆、煙囪、水塔或圓柱體，應改用對應規範表格工具，不在本頁混用。
     </div>
   </div>
 
   <div class="card">
-    <h2>基本資料</h2>
+    <h2>① 基本風速與地況</h2>
     <div class="form-group">
       <label>地點 (基本設計風速)</label>
       <select id="city"></select>
@@ -68,20 +119,13 @@
       <div class="form-group">
         <label>K<sub>zt</sub></label>
         <input id="Kzt" type="number" value="1.0" step="0.05">
-        <div class="hint">平地取 1.0；山頂/丘陵 → <a href="wind-kzt.html" target="_blank">K<sub>zt</sub> 計算器</a></div>
-      </div>
-      <div class="form-group">
-        <label>計算類型</label>
-        <select id="mode">
-          <option value="porous" selected>中空式標示物 / 格子式構架</option>
-          <option value="lattice">桁架高塔</option>
-        </select>
+        <div class="hint">平地取 1.0；山頂 / 丘陵可由 Kzt 工具取得。</div>
       </div>
     </div>
   </div>
 
   <div class="card" id="porousBox">
-    <h2>中空式標示物 / 格子式構架</h2>
+    <h2>② 中空式標示物 / 格子式構架</h2>
     <div class="form-row">
       <div class="form-group">
         <label>作用高度 z (m)</label>
@@ -96,89 +140,51 @@
       <div class="form-group">
         <label>實體率 φ</label>
         <input id="phi" type="number" value="0.20" min="0" max="1" step="0.01">
+        <div class="hint">表 2.11 主要範圍以 φ ≤ 0.7 整理。</div>
       </div>
       <div class="form-group">
-        <label>圓斷面構材直徑 D (m)</label>
+        <label>構材斷面類型</label>
+        <select id="memberType">
+          <option value="circular" selected>圓形斷面構材</option>
+          <option value="flat">平邊構材</option>
+        </select>
+        <div class="hint">先選斷面類型，再依規範表 2.11 顯示必要參數。</div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group conditional-field" id="memberDGroup">
+        <label>圓形斷面構材直徑 D (m)</label>
         <input id="memberD" type="number" value="0.15" step="0.01">
-        <div class="hint">供圓斷面之 D√q(z) 判別使用</div>
-      </div>
-    </div>
-    <div class="form-group">
-      <label>構材斷面類型</label>
-      <select id="memberType">
-        <option value="circular" selected>圓形斷面構材</option>
-        <option value="flat">平邊構材</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="card" id="latticeBox" style="display:none;">
-    <h2>桁架高塔</h2>
-    <div class="form-row">
-      <div class="form-group">
-        <label>底部標高 z<sub>0</sub> (m)</label>
-        <input id="lzBase" type="number" value="0" step="0.1">
-      </div>
-      <div class="form-group">
-        <label>高塔高度 h (m)</label>
-        <input id="lHeight" type="number" value="45" step="0.1">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>塔面寬度 B (m)</label>
-        <input id="faceWidth" type="number" value="4.0" step="0.1">
-      </div>
-      <div class="form-group">
-        <label>塔面實體率 φ</label>
-        <input id="towerPhi" type="number" value="0.20" min="0" max="1" step="0.01">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>高塔形式</label>
-        <select id="towerShape">
-          <option value="square" selected>方形高塔</option>
-          <option value="triangular">三角形高塔</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>構材型式</label>
-        <select id="towerMemberShape">
-          <option value="angle_flat" selected>角鋼 / 平邊構材</option>
-          <option value="circular">圓斷面構材</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>分段數 n</label>
-        <input id="lSegments" type="number" value="8" min="1" step="1">
-      </div>
-      <div class="form-group">
-        <div class="checkbox-row" style="margin-top:24px;">
-          <input type="checkbox" id="skewWind">
-          <label for="skewWind">方形塔斜風向修正</label>
-        </div>
+        <div class="hint">僅圓形斷面構材使用，用於 D√q(z) 分類判別。</div>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <button class="btn-calc" id="btnCalc">計算透空式 / 格子式風力</button>
+    <h2>③ 執行計算</h2>
+    <div class="form-error" id="formError"></div>
     <div class="chk-detail">
       <input type="checkbox" id="chkDetail">
-      <label for="chkDetail">顯示詳列計算式</label>
+      <label for="chkDetail">畫面顯示詳列計算式</label>
     </div>
-    <button class="btn-print" type="button">列印計算書</button>
+    <div class="inline-actions">
+      <button class="btn-calc" id="btnCalc" type="button">計算中空式 / 格子式風力</button>
+    </div>
   </div>
 </div>
 
 <div id="resultPanel">
   <div class="card">
-    <h2>規範適用檢查</h2>
+    <h2>規範判定檢查</h2>
     <div id="applicStatus" class="banner-status">尚未檢核</div>
     <div id="applicList" class="applic-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>計算示意圖</h2>
+    <div class="schema-wrap">
+      <svg class="schema-svg" id="schemaSvg" viewBox="0 0 620 360" role="img" aria-label="中空式標示物或格子式構架風力示意圖"></svg>
+    </div>
   </div>
 
   <div class="card">
@@ -207,71 +213,172 @@
       <div class="result-item ok" id="r-force"><span class="label">設計風力 F</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
       <div class="result-item ok" id="r-shear"><span class="label">底部剪力 V</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
       <div class="result-item warn" id="r-moment"><span class="label">底部彎矩 M</span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
-      <div class="result-item" id="r-extra"><span class="label">補充資訊</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-extra"><span class="label">查表資訊</span><span><span class="value">—</span></span></div>
     </div>
   </div>
 
-  <details class="card fold-card" id="segmentCard" style="display:none;" open>
-    <summary class="fold-summary">
-      <span>分段剪力表</span>
-      <span class="fold-chip">結果明細</span>
-    </summary>
-    <table class="zone" id="segmentTable">
-      <thead>
-        <tr>
-          <th>段</th>
-          <th>z<sub>mid</sub><br>(m)</th>
-          <th>實體面積<br>(m²)</th>
-          <th>q(z)<br>(kgf/m²)</th>
-          <th>段風力 F<sub>i</sub><br>(kgf)</th>
-          <th>段彎矩 M<sub>i</sub><br>(kgf·m)</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="legend" id="segmentNote"></div>
-  </details>
-
-  <details class="card fold-card" id="stepsCard" open>
+  <details class="card fold-card" id="stepsCard" style="display:none;" open>
     <summary class="fold-summary">
       <span>逐步計算</span>
-      <span class="fold-chip">計算書</span>
+      <span class="fold-chip">畫面詳算</span>
     </summary>
     <div id="steps"></div>
-  </details>
-
-  <details class="card fold-card" open>
-    <summary class="fold-summary">
-      <span>說明</span>
-      <span class="fold-chip">規範路線</span>
-    </summary>
-    <div class="legend">
-      <code>表 2.11</code> 中空式標示物或格子式構架 C<sub>f</sub><br>
-      <code>表 2.15</code> 桁架高塔 C<sub>f</sub><br>
-      <code>集中式</code> F = q(z) · G · C<sub>f</sub> · A<br>
-      <code>分段式</code> F<sub>i</sub> = q(z<sub>i</sub>) · G · C<sub>f</sub> · A<sub>solid,i</sub>
-    </div>
   </details>
 </div>
 </div>
 </div>
 
 <script src="../../core/loads/wind.js"></script>
-<script src="../../../鋼筋混凝土/shared/report.js"></script>
-<script src="../../core/wind-report.js"></script>
 <script>
-const W = Wind;
-function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
+const W = window.Wind;
+const TOOL_VERSION = '3.3';
+const CASE_SCHEMA_VERSION = 'wind-object-frame.case.v2';
+let lastResult = null;
+let lastStepsHtml = '';
+const DEFAULT_CASE_INPUTS = {
+  project: { name: '', no: '', designer: '' },
+  values: {
+    printReportMode: 'detail',
+    city: '臺北市',
+    terrain: 'C',
+    impClass: 'IV',
+    Kzt: 1.0,
+    pz: 15,
+    pA: 8,
+    phi: 0.20,
+    memberD: 0.15,
+    memberType: 'circular',
+    chkDetail: false
+  }
+};
+
+function fmt(v, d = 2) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
-function setR(id, v, d) {
-  const el = document.querySelector('#' + id + ' .value');
-  if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
+function textVal(id) { return document.getElementById(id)?.value ?? ''; }
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
 }
-function step(title, body, detail) {
-  let html = `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}</div>`;
-  if (detail) html += `<div class="detail-formula">${detail}</div>`;
-  html += `</div>`;
-  return html;
+function setR(id, v, d = 2) {
+  const el = document.querySelector(`#${id} .value`);
+  if (el) el.textContent = typeof v === 'number' ? fmt(v, d) : v;
+}
+function step(title, body, detail = '') {
+  return `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}${detail ? `<div class="detail-formula">${detail}</div>` : ''}</div></div>`;
+}
+function showFormError(message, focusId) {
+  const el = document.getElementById('formError');
+  el.textContent = message;
+  el.classList.add('show');
+  if (focusId) document.getElementById(focusId)?.focus();
+  return null;
+}
+function clearFormError() {
+  const el = document.getElementById('formError');
+  el.textContent = '';
+  el.classList.remove('show');
+}
+function getProjectInfo() {
+  return { name: textVal('projName'), no: textVal('projNo'), designer: textVal('projDesigner') };
+}
+function getPrintReportMode() {
+  return document.getElementById('printReportMode').value || 'detail';
+}
+function syncPrintReportMode(mode) {
+  const normalized = mode === 'simple' ? 'simple' : 'detail';
+  document.getElementById('printReportMode').value = normalized;
+  document.querySelectorAll('.mode-segment[data-report-mode]').forEach(btn => {
+    const active = btn.dataset.reportMode === normalized;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+function setCaseStatus(message, tone = '') {
+  const el = document.getElementById('caseStatus');
+  el.textContent = message || '';
+  el.className = `case-status ${tone}`.trim();
+}
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value == null) return;
+  el.value = value;
+}
+function setInputChecked(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.checked = !!value;
+}
+function readCaseInputs() {
+  return {
+    project: getProjectInfo(),
+    values: {
+      printReportMode: getPrintReportMode(),
+      city: textVal('city'),
+      terrain: textVal('terrain'),
+      impClass: textVal('impClass'),
+      Kzt: val('Kzt'),
+      pz: val('pz'),
+      pA: val('pA'),
+      phi: val('phi'),
+      memberD: val('memberD'),
+      memberType: textVal('memberType'),
+      chkDetail: document.getElementById('chkDetail').checked
+    }
+  };
+}
+function applyCaseInputs(payload) {
+  const project = payload.project || {};
+  const values = payload.values || payload;
+  setInputValue('projName', project.name || '');
+  setInputValue('projNo', project.no || '');
+  setInputValue('projDesigner', project.designer || '');
+  [
+    'city','terrain','impClass','Kzt','pz','pA','phi','memberD','memberType'
+  ].forEach(id => setInputValue(id, values[id]));
+  setInputChecked('chkDetail', values.chkDetail);
+  syncPrintReportMode(values.printReportMode || 'detail');
+  calc();
+}
+function resetCaseDefaults() {
+  applyCaseInputs(DEFAULT_CASE_INPUTS);
+  setCaseStatus('已恢復本頁預設值。');
+}
+function exportCaseJson() {
+  calc();
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'wind-object-frame', name: '中空式 / 格子式風力', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: lastResult || null
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CATII-WindFrame-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出中空式 / 格子式風力案件 JSON；可回讀本頁輸入與最近一次計算結果。');
+}
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已讀取不同版本案件 JSON (${payload.schema})，將盡量依現有欄位套用。`, 'warn');
+      }
+      applyCaseInputs(payload);
+      setCaseStatus('已匯入案件 JSON，並依目前頁面重新計算。');
+    } catch (err) {
+      setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
+    } finally {
+      document.getElementById('caseJsonFile').value = '';
+    }
+  };
+  reader.readAsText(file);
 }
 function setApplicability(items) {
   const rank = { ok: 0, warn: 1, fail: 2 };
@@ -279,15 +386,325 @@ function setApplicability(items) {
   items.forEach(item => { if (rank[item.level] > rank[worst]) worst = item.level; });
   const el = document.getElementById('applicStatus');
   el.className = 'banner-status ' + worst;
-el.textContent = worst === 'ok' ? '依規範條件計算如下' : worst === 'warn' ? '依規範條件概算如下' : '規範條件局部不適用';
+  el.textContent = worst === 'ok' ? '依規範條件計算如下' : worst === 'warn' ? '請確認規範邊界後採用' : '規範條件局部不適用';
   document.getElementById('applicList').innerHTML = items.map(item => `
-    <div class="k ${item.level}">
-      <span class="k-label">${item.label}</span>
-      <span class="k-val">${item.message}</span>
+    <div class="applic-item applic-${item.level}">
+      <span class="applic-label">${item.label}</span>
+      <span>${item.message}</span>
     </div>
   `).join('');
 }
+function memberTypeLabel(value) {
+  return value === 'flat' ? '平邊構材' : '圓形斷面構材';
+}
+function syncMemberTypeInputs() {
+  const memberType = document.getElementById('memberType').value;
+  const group = document.getElementById('memberDGroup');
+  const input = document.getElementById('memberD');
+  const isCircular = memberType === 'circular';
+  if (group) {
+    group.classList.toggle('is-hidden', !isCircular);
+    group.setAttribute('aria-hidden', isCircular ? 'false' : 'true');
+  }
+  if (input) input.disabled = !isCircular;
+}
+function porousCfRouteLabel(cfData) {
+  if (cfData.memberType === 'flat') return '表 2.11 平邊構材';
+  return cfData.key === 'circular_low_qd' ? '表 2.11 圓斷面，D√q(z) ≤ 1.70' : '表 2.11 圓斷面，D√q(z) > 1.70';
+}
+function buildGustDetailHtml(g, options = {}) {
+  if (!g) return '';
+  const terrain = W.TERRAIN[g.terrain] || W.TERRAIN.C;
+  const heightName = options.heightName || 'h';
+  const widthName = options.widthName || 'B';
+  const intro = options.intro ? `${options.intro}<br>` : '';
+  const widthLine = options.widthExpression || `${widthName} = <span class="val">${fmt(g.B,2)}</span> m`;
+  return `${intro}
+    ${heightName} = <span class="val">${fmt(g.h,2)}</span> m；${widthLine}<br>
+    z&#772; = max(0.6${heightName}, z<sub>min</sub>) = max(${fmt(0.6 * g.h,2)}, ${fmt(terrain.zmin,2)}) = <span class="val">${fmt(g.zBar,2)}</span> m<br>
+    I<sub>z</sub> = c(10 / z&#772;)<sup>1/6</sup> = ${fmt(terrain.c,3)} × (10 / ${fmt(g.zBar,2)})<sup>1/6</sup> = <span class="val">${fmt(g.Iz,4)}</span><br>
+    L<sub>z</sub> = ℓ(z&#772; / 10)<sup>ε</sup> = ${fmt(terrain.ell,1)} × (${fmt(g.zBar,2)} / 10)<sup>${fmt(terrain.eps,2)}</sup> = <span class="val">${fmt(g.Lz,2)}</span> m<br>
+    Q<sup>2</sup> = 1 / {1 + 0.63[( ${widthName} + ${heightName}) / L<sub>z</sub>]<sup>0.63</sup>} = <span class="val">${fmt(g.Q2,4)}</span><br>
+    Q = √Q<sup>2</sup> = <span class="val">${fmt(g.Q,4)}</span>；g<sub>Q</sub> = g<sub>V</sub> = <span class="val">${fmt(g.gQ,1)}</span><br>
+    G = 1.927 × [1 + 1.7 × ${fmt(g.gQ,1)} × ${fmt(g.Iz,4)} × ${fmt(g.Q,4)}] / [1 + 1.7 × ${fmt(g.gV,1)} × ${fmt(g.Iz,4)}] = <span class="val">${fmt(g.G,3)}</span>`;
+}
+function updateStepsVisibility() {
+  document.getElementById('stepsCard').style.display = document.getElementById('chkDetail').checked ? '' : 'none';
+}
+function drawFrameDiagram(r) {
+  const svg = document.getElementById('schemaSvg');
+  if (!r) {
+    svg.innerHTML = '';
+    return;
+  }
+  svg.innerHTML = `
+    <defs>
+      <marker id="frameForceArrow" markerWidth="15" markerHeight="15" refX="14" refY="7.5" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L15,7.5 L0,15 z" fill="#6d28d9"/></marker>
+      <marker id="frameHeightArrow" markerWidth="16" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L16,8 L0,16 z" fill="#0f766e"/></marker>
+    </defs>
+    <rect x="0" y="0" width="620" height="360" fill="#f8fafc"/>
+    <line x1="70" y1="288" x2="540" y2="288" stroke="#94a3b8" stroke-width="3"/>
+    <line x1="92" y1="305" x2="500" y2="305" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="10 12"/>
+    <rect x="192" y="90" width="160" height="180" rx="14" fill="#f5f3ff" stroke="#334155" stroke-width="4"/>
+    <g stroke="#a78bfa" stroke-width="2" opacity=".8">
+      <line x1="232" y1="90" x2="232" y2="270"/><line x1="272" y1="90" x2="272" y2="270"/><line x1="312" y1="90" x2="312" y2="270"/>
+      <line x1="192" y1="135" x2="352" y2="135"/><line x1="192" y1="180" x2="352" y2="180"/><line x1="192" y1="225" x2="352" y2="225"/>
+    </g>
+    <g fill="#ddd6fe" opacity=".85">
+      <rect x="205" y="103" width="24" height="24" rx="6"/><rect x="245" y="103" width="24" height="24" rx="6"/><rect x="285" y="103" width="24" height="24" rx="6"/><rect x="325" y="103" width="16" height="24" rx="6"/>
+    </g>
+    <g data-diagram-role="force-label-zone">
+      <rect data-diagram-role="force-label-mask" x="382" y="128" width="154" height="32" rx="9" fill="#ffffff" stroke="#ddd6fe" stroke-width="1.5"/>
+      <text x="396" y="149" fill="#4c1d95" font-size="14" font-weight="700">F = ${fmt(r.force,1)} kgf</text>
+    </g>
+    <line data-diagram-role="force-arrow-zone" x1="386" y1="184" x2="492" y2="184" stroke="#6d28d9" stroke-width="5" marker-end="url(#frameForceArrow)"/>
+    <line data-diagram-role="height-arrow-zone" x1="150" y1="90" x2="150" y2="288" stroke="#0f766e" stroke-width="4" marker-end="url(#frameHeightArrow)"/>
+    <g data-diagram-role="height-label-zone">
+      <rect x="92" y="134" width="32" height="126" rx="9" fill="#f8fafc" opacity=".92"/>
+      <text x="116" y="196" transform="rotate(-90 116 196)" fill="#0f766e" font-size="17" font-weight="700">z = ${fmt(r.z,2)} m</text>
+    </g>
+    <rect x="392" y="218" width="140" height="66" rx="11" fill="#ffffff" stroke="#c4b5fd" stroke-width="1.8"/>
+    <text x="408" y="242" fill="#4c1d95" font-size="14" font-weight="700">表 2.11</text>
+    <text x="408" y="263" fill="#475569" font-size="12">φ = ${fmt(r.phi,2)}，Cf = ${fmt(r.cfData.cf,3)}</text>
+    <text x="408" y="280" fill="#475569" font-size="12">A = ${fmt(r.A,2)} m²</text>
+  `;
+}
+function buildAdoptRows(r) {
+  return [
+    ['規範路線', r.cfRoute, '', `φ 區間 ${r.cfData.band}`],
+    ['C_f', fmt(r.cfData.cf,3), '', '依表 2.11'],
+    ['q(z)', fmt(r.qz,1), 'kgf/m²', `K(z) = ${fmt(r.Kz,4)}`],
+    ['G', fmt(r.G,3), '', '剛性陣風反應因子'],
+    ['設計風力 F', fmt(r.force,1), 'kgf', 'F = q(z) · G · C_f · A'],
+    ['底部彎矩 M', fmt(r.baseMoment,1), 'kgf·m', 'M = F · z']
+  ];
+}
+function renderAdoptRows(rows) {
+  document.querySelector('#adoptTable tbody').innerHTML = rows.map(row => `
+    <tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td><td>${row[3]}</td></tr>
+  `).join('');
+}
+function calc() {
+  clearFormError();
+  const cityName = document.getElementById('city').value;
+  const V = W.CITY_QUICK[cityName] || 37.5;
+  const terrain = document.getElementById('terrain').value;
+  const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
+  const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
+  const Kzt = val('Kzt') || 1.0;
+  let html = '';
+  const z = val('pz');
+  const A = val('pA');
+  const phi = val('phi');
+  const D = val('memberD');
+  const memberType = document.getElementById('memberType').value;
+  syncMemberTypeInputs();
+  if (z <= 0) return showFormError('作用高度 z 需大於 0。', 'pz');
+  if (A <= 0) return showFormError('投影面積 A 需大於 0。', 'pA');
+  if (phi < 0 || phi > 0.7) return showFormError('表 2.11 主要範圍以 0 ≤ φ ≤ 0.7 整理，請確認實體率。', 'phi');
+  if (memberType === 'circular' && D <= 0) return showFormError('圓形斷面構材需輸入有效直徑 D。', 'memberD');
+  const q = W.calcQz(z, V, terrain, I, Kzt);
+  const dSqrtQz = memberType === 'circular' ? W.calcDiameterSqrtQz(D, q.qz) : null;
+  const cfData = W.lookupPorousFrameCf({ solidity: phi, memberType, dSqrtQz });
+  const gustInfo = W.calcGustRigid(z, Math.max(Math.sqrt(A), 1), terrain);
+  const G = gustInfo.G;
+  const force = q.qz * G * cfData.cf * A;
+  const baseMoment = force * z;
+  const cfRoute = porousCfRouteLabel(cfData);
+  const r = {
+    mode: 'porous', cityName, V, terrain, I, Kzt, terrainData,
+    z, A, phi, D, memberType, qz: q.qz, Kz: q.Kz, zUse: Math.max(z, terrainData.zmin),
+    dSqrtQz, cfData, cfRoute, gustInfo, G,
+    force, baseShear: force, baseMoment, resultantHeight: z
+  };
+  setR('r-type', `中空式 / ${memberTypeLabel(memberType)}`);
+  setR('r-cf', cfData.cf, 3);
+  setR('r-qz', q.qz, 1);
+  setR('r-g', G, 3);
+  setR('r-force', force, 1);
+  setR('r-shear', force, 1);
+  setR('r-moment', baseMoment, 1);
+  setR('r-extra', memberType === 'circular' ? `φ=${fmt(phi,2)}；D√q(z)=${fmt(dSqrtQz,2)}` : `φ=${fmt(phi,2)}；平邊構材`);
+  document.getElementById('adoptNote').textContent = '設計採用表僅列計算採用值；規範提醒保留在頁面檢查區，不列入列印計算書。';
+  const applicability = [
+    { label: '規範路線', level: 'ok', message: '中空式標示物 / 格子式構架採表 2.11。' },
+    { label: '構材型式', level: 'ok', message: memberTypeLabel(memberType) },
+    { label: '實體率 φ', level: 'ok', message: `${fmt(phi,2)}，採表列區間 ${cfData.band}` }
+  ];
+  if (memberType === 'circular') {
+    applicability.push({ label: 'D√q(z) 分類', level: 'ok', message: `D√q(z) = ${fmt(dSqrtQz,2)}，${cfRoute}` });
+  }
+  setApplicability(applicability);
+  html += step('① 規範查表路線', `
+    規範路線 = <span class="val">中空式標示物 / 格子式構架</span>，採 <span class="val">表 2.11</span><br>
+    構材型式 = <span class="val">${memberTypeLabel(memberType)}</span>，φ = <span class="val">${fmt(phi,2)}</span><br>
+    ${memberType === 'circular' ? `D√q(z) = <span class="val">${fmt(dSqrtQz,2)}</span>，採用路線 = <span class="val">${cfRoute}</span><br>` : `平邊構材依表 2.11 對應列查 C_f。<br>`}
+    C<sub>f</sub> = <span class="val hl">${fmt(cfData.cf,3)}</span>
+  `);
+  html += step('② 速度壓與陣風反應因子', `
+    z<sub>use</sub> = max(z, z<sub>min</sub>) = <span class="val">${fmt(r.zUse,2)}</span> m<br>
+    K(z) = 2.774 × (${fmt(r.zUse,2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(q.Kz,4)}</span><br>
+    q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup> = <span class="val">${fmt(q.qz,1)}</span> kgf/m²<br>
+    G = <span class="val">${fmt(G,3)}</span>
+  `, buildGustDetailHtml(gustInfo, {
+    intro: 'G 採剛性陣風反應因子；本頁以作用高度 z 作為 h<sub>G</sub>，並以投影面積換算等效寬度 B<sub>G</sub>。',
+    heightName: 'h<sub>G</sub>',
+    widthName: 'B<sub>G</sub>',
+    widthExpression: `B<sub>G</sub> = max(√A, 1.00) = max(√${fmt(A,2)}, 1.00) = <span class="val">${fmt(gustInfo.B,2)}</span> m`
+  }));
+  html += step('③ 設計風力與底部作用', `
+    F = q(z) · G · C<sub>f</sub> · A = <span class="val hl">${fmt(force,1)}</span> kgf<br>
+    底部剪力 V = F = <span class="val">${fmt(force,1)}</span> kgf<br>
+    底部彎矩 M = F · z = <span class="val hl">${fmt(baseMoment,1)}</span> kgf·m
+  `, `F = ${fmt(q.qz,2)} × ${fmt(G,3)} × ${fmt(cfData.cf,3)} × ${fmt(A,2)} = ${fmt(force,2)} kgf`);
 
+  lastResult = r;
+  lastStepsHtml = html;
+  renderAdoptRows(buildAdoptRows(r));
+  document.getElementById('steps').innerHTML = html;
+  drawFrameDiagram(r);
+  updateStepsVisibility();
+  return r;
+}
+function buildReportTable(rows) {
+  return `<table class="rep-input"><tbody>${rows.map(row => `
+    <tr><th>${escHtml(row[0])}</th><td>${escHtml(row[1])}</td></tr>
+  `).join('')}</tbody></table>`;
+}
+function buildConditionRows(r) {
+  const base = [
+    ['地點 / V', `${r.cityName} / ${fmt(r.V,1)} m/s`],
+    ['地況 / 用途 / Kzt', `${r.terrain} / I = ${fmt(r.I,2)} / Kzt = ${fmt(r.Kzt,3)}`]
+  ];
+  return base.concat([
+    ['規範路線', r.cfRoute],
+    ['幾何與實體率', `z = ${fmt(r.z,2)} m；A = ${fmt(r.A,2)} m²；φ = ${fmt(r.phi,2)}`],
+    ['構材型式', r.memberType === 'circular' ? `${memberTypeLabel(r.memberType)}；D√q(z) = ${fmt(r.dSqrtQz,2)}` : memberTypeLabel(r.memberType)]
+  ]);
+}
+function buildSimpleResultRows(r) {
+  const rows = [
+    ['C_f', fmt(r.cfData.cf,3)],
+    ['G', fmt(r.G,3)],
+    ['設計風力 / 底部剪力', `${fmt(r.baseShear,1)} kgf`],
+    ['底部彎矩 M', `${fmt(r.baseMoment,1)} kgf·m`]
+  ];
+  rows.splice(2, 0, ['q(z)', `${fmt(r.qz,1)} kgf/m²`]);
+  return rows;
+}
+function buildFrameObjectReportHtml() {
+  const r = calc();
+  if (!r) return '';
+  const includeDetail = getPrintReportMode() === 'detail';
+  const project = getProjectInfo();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+  const diagramHtml = document.getElementById('schemaSvg')?.outerHTML || '';
+  const simpleReportHtml = `
+    <section class="rep-block">
+      <h3>設計條件</h3>
+      ${buildReportTable(buildConditionRows(r))}
+    </section>
+    <section class="rep-block">
+      <h3>計算示意圖</h3>
+      <div class="rep-diagram">${diagramHtml}</div>
+    </section>
+    <section class="rep-block">
+      <h3>控制結果</h3>
+      ${buildReportTable(buildSimpleResultRows(r))}
+    </section>
+  `;
+  const detailedReportHtml = `
+    <section class="rep-block">
+      <h3>計算示意圖</h3>
+      <div class="rep-diagram">${diagramHtml}</div>
+    </section>
+    <section class="rep-block">
+      <h3>計算內容</h3>
+      <div class="rep-steps">${lastStepsHtml}</div>
+    </section>
+  `;
+  return `<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<title>中空式 / 格子式風力計算書 ${TOOL_VERSION}</title>
+<style>
+@page { size:A4 portrait; margin:18mm 14mm; }
+* { box-sizing:border-box; }
+body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif; color:#111827; margin:0; padding:24px; background:#f4f4f4; line-height:1.7; }
+.rep-paper { max-width:980px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+.rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
+.rep-header h1 { margin:0 0 4px; font-size:22px; }
+.rep-header .sub { color:#555; font-size:13px; }
+.rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
+.rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
+.rep-meta b { display:inline-block; min-width:64px; color:#444; }
+.rep-block { margin:14px 0 18px; page-break-inside:avoid; }
+.rep-block h3 { font-size:14px; margin:0 0 6px; padding:4px 8px; background:#6d28d9; color:#fff; border-radius:3px 3px 0 0; }
+.rep-input { width:100%; border-collapse:collapse; font-size:12px; }
+.rep-input th,.rep-input td { border:1px solid #888; padding:6px 8px; vertical-align:top; text-align:left; }
+.rep-input th { background:#f5f3ff; width:34%; font-weight:700; color:#4c1d95; }
+.rep-diagram { border:1px solid #888; border-top:0; padding:10px; text-align:center; }
+.rep-diagram svg { width:100%; max-width:760px; height:auto; }
+.rep-steps { border:1px solid #888; border-top:0; padding:8px 10px; }
+.rep-steps .step { margin:10px 0 14px; page-break-inside:avoid; }
+.rep-steps .step-title { margin:0 0 4px; padding:3px 8px; font-size:12px; background:#ede9fe; color:#4c1d95; border-left:3px solid #6d28d9; font-weight:700; }
+.rep-steps .step-body { font-size:12px; line-height:1.8; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:4px; padding:8px 10px; color:#374151; }
+.rep-steps .detail-formula { margin:6px 0 0; font-size:11px; color:#555; line-height:1.7; }
+.val { font-weight:700; }
+.rep-toolbar { max-width:980px; margin:0 auto 12px; text-align:right; }
+.rep-toolbar button { background:#6d28d9; color:#fff; border:0; padding:8px 18px; font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
+.rep-footer { position:fixed; right:14mm; bottom:8mm; font-size:10px; color:#666; text-align:right; }
+@media print {
+  body { background:#fff; padding:0; }
+  .rep-toolbar { display:none; }
+  .rep-paper { box-shadow:none; padding:0; max-width:none; }
+}
+</style>
+</head>
+<body>
+<div class="rep-toolbar">
+  <button onclick="window.print()">列印 / 存 PDF</button>
+  <button onclick="window.close()">關閉</button>
+</div>
+<div class="rep-paper">
+  <div class="rep-header">
+    <h1>中空式 / 格子式風力計算書</h1>
+    <div class="sub">建築物耐風設計｜表 2.11 Cf 路線｜${TOOL_VERSION}｜${includeDetail ? '詳算式' : '簡易結果'}</div>
+  </div>
+  <div class="rep-meta">
+    <div><b>計畫名稱</b>${escHtml(project.name) || '—'}</div>
+    <div><b>計畫編號</b>${escHtml(project.no) || '—'}</div>
+    <div><b>設計人員</b>${escHtml(project.designer) || '—'}</div>
+    <div><b>製表日期</b>${todayStr}</div>
+  </div>
+  ${includeDetail ? detailedReportHtml : simpleReportHtml}
+  <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
+</div>
+</body>
+</html>`;
+}
+function openFrameObjectReport() {
+  const html = buildFrameObjectReportHtml();
+  if (!html) return;
+  const win = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
+  if (!win) {
+    setCaseStatus('列印視窗被瀏覽器封鎖，請允許彈出視窗後再試一次。', 'warn');
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+window.buildFrameObjectReportHtml = buildFrameObjectReportHtml;
+window.openFrameObjectReport = openFrameObjectReport;
+function bindRecalc(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', calc);
+  el.addEventListener('change', calc);
+}
 (function init() {
   const city = document.getElementById('city');
   Object.entries(W.CITY_QUICK).forEach(([name, v]) => {
@@ -306,153 +723,23 @@ el.textContent = worst === 'ok' ? '依規範條件計算如下' : worst === 'war
     const o = document.createElement('option');
     o.value = k;
     o.textContent = `${v.name}　I=${v.factor}`;
-    if (k === 'IV') o.selected = true; // 預設第四類「一般建築」I=1.00
+    if (k === 'IV') o.selected = true;
     imp.appendChild(o);
   });
-})();
-
-function refreshMode() {
-  const lattice = document.getElementById('mode').value === 'lattice';
-  document.getElementById('porousBox').style.display = lattice ? 'none' : '';
-  document.getElementById('latticeBox').style.display = lattice ? '' : 'none';
-  document.getElementById('segmentCard').style.display = lattice ? '' : 'none';
-}
-
-function calc() {
-  const V = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
-  const terrain = document.getElementById('terrain').value;
-  const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
-  const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
-  const Kzt = val('Kzt') || 1.0;
-  const mode = document.getElementById('mode').value;
-
-  let html = '';
-  let adoptRows = '';
-  let applic = [];
-
-  if (mode === 'porous') {
-    const z = val('pz');
-    const A = val('pA');
-    const phi = val('phi');
-    const D = val('memberD');
-    const memberType = document.getElementById('memberType').value;
-    if (z <= 0 || A <= 0 || phi < 0 || phi > 0.7) { alert('請輸入有效之 z / A / φ（表 2.11 以 φ ≤ 0.7 為主要範圍）'); return; }
-    const qz = W.calcQz(z, V, terrain, I, Kzt).qz;
-    const dSqrtQz = W.calcDiameterSqrtQz(D, qz);
-    const cfData = W.lookupPorousFrameCf({ solidity: phi, memberType, dSqrtQz });
-    const G = W.calcGustRigid(z, Math.max(Math.sqrt(A), 1), terrain).G;
-    const F = qz * G * cfData.cf * A;
-    setR('r-type', memberType === 'circular' ? '中空式 / 圓斷面構材' : '中空式 / 平邊構材');
-    setR('r-cf', cfData.cf, 3);
-    setR('r-qz', qz, 1);
-    setR('r-g', G, 3);
-    setR('r-force', F, 1);
-    setR('r-shear', F, 1);
-    setR('r-moment', F * z, 1);
-    setR('r-extra', `φ=${fmt(phi,2)}，D√q(z)=${fmt(dSqrtQz,2)}`);
-    document.getElementById('segmentCard').style.display = 'none';
-    adoptRows = `
-      <tr><td>設計風力 F</td><td>${fmt(F,1)}</td><td>kgf</td><td>表 2.11 路線</td></tr>
-      <tr><td>底部剪力 V</td><td>${fmt(F,1)}</td><td>kgf</td><td>集中受力，V = F</td></tr>
-      <tr><td>底部彎矩 M</td><td>${fmt(F * z,1)}</td><td>kgf·m</td><td>M = F · z</td></tr>
-    `;
-    document.getElementById('adoptNote').textContent = '本表適用於中空式標示物或格子式構架之集中風力整理。';
-    applic = [
-      { label: '規範路線', level: 'ok', message: '表 2.11' },
-      { label: '構材型式', level: 'ok', message: memberType === 'circular' ? '圓形斷面構材' : '平邊構材' },
-      { label: '實體率 φ', level: phi <= 0.7 ? 'ok' : 'warn', message: fmt(phi,2) },
-      { label: 'D√q(z)', level: memberType === 'circular' ? 'ok' : 'warn', message: memberType === 'circular' ? fmt(dSqrtQz,2) : '平邊構材不使用 D√q(z) 分類' },
-    ];
-    html += step('① 基本參數', `
-      z = <span class="val">${fmt(z,2)}</span> m, A = <span class="val">${fmt(A,2)}</span> m²<br>
-      地況參數：α = <span class="val">${fmt(terrainData.alpha,2)}</span>，z<sub>g</sub> = <span class="val">${fmt(terrainData.zg,1)}</span> m，z<sub>min</sub> = <span class="val">${fmt(terrainData.zmin,1)}</span> m<br>
-      φ = <span class="val">${fmt(phi,2)}</span>, D√q(z) = <span class="val">${fmt(dSqrtQz,2)}</span><br>
-      C<sub>f</sub> = <span class="val hl">${fmt(cfData.cf,3)}</span>
-    `);
-    html += step('② 設計風力', `
-      z<sub>use</sub> = max(z, z<sub>min</sub>) = <span class="val">${fmt(Math.max(z, terrainData.zmin),2)}</span> m<br>
-      K(z) = 2.774 × (${fmt(Math.max(z, terrainData.zmin),2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(z, terrain),4)}</span><br>
-      q(z) = 0.06 × ${fmt(W.calcKz(z, terrain),4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val">${fmt(qz,1)}</span> kgf/m²<br>
-      G = <span class="val">${fmt(G,3)}</span><br>
-      F = q(z) · G · C<sub>f</sub> · A = <span class="val hl">${fmt(F,1)}</span> kgf
-    `, `F = ${fmt(qz,2)} × ${fmt(G,3)} × ${fmt(cfData.cf,3)} × ${fmt(A,2)} = ${fmt(F,2)} kgf`);
-  } else {
-    const zBase = val('lzBase');
-    const height = val('lHeight');
-    const faceWidth = val('faceWidth');
-    const phi = val('towerPhi');
-    const segments = val('lSegments');
-    const towerShape = document.getElementById('towerShape').value;
-    const memberShape = document.getElementById('towerMemberShape').value;
-    const skewWind = document.getElementById('skewWind').checked;
-    if (height <= 0 || faceWidth <= 0 || phi <= 0 || phi > 1 || segments < 1) { alert('請輸入有效之 z0 / h / B / φ / n'); return; }
-    const r = W.calcLatticeTowerWind({ V, terrain, I, zBase, height, faceWidth, solidity: phi, segments, Kzt, towerShape, memberShape, skewWind });
-    document.getElementById('segmentCard').style.display = '';
-    document.querySelector('#segmentTable tbody').innerHTML = r.body.rows.map(row => `
-      <tr>
-        <td>${row.index}</td>
-        <td>${fmt(row.zMid,2)}</td>
-        <td>${fmt(row.area,2)}</td>
-        <td>${fmt(row.qz,1)}</td>
-        <td>${fmt(row.force,1)}</td>
-        <td>${fmt(row.moment,1)}</td>
-      </tr>
-    `).join('');
-    document.getElementById('segmentNote').textContent = `塔面實體面積 = ${fmt(r.totalSolidArea,2)} m²；已分 ${r.body.segments} 段計算。`;
-    setR('r-type', towerShape === 'square' ? '方形桁架高塔' : '三角形桁架高塔');
-    setR('r-cf', r.cfData.cf, 3);
-    setR('r-qz', r.body.rows[r.body.rows.length - 1].qz, 1);
-    setR('r-g', r.body.G, 3);
-    setR('r-force', r.baseShear, 1);
-    setR('r-shear', r.baseShear, 1);
-    setR('r-moment', r.baseMoment, 1);
-    setR('r-extra', `φ=${fmt(phi,2)}；C_member=${fmt(r.cfData.memberFactor,3)}；C_skew=${fmt(r.cfData.skewFactor,3)}`);
-    adoptRows = `
-      <tr><td>塔身總風力 ΣF</td><td>${fmt(r.baseShear,1)}</td><td>kgf</td><td>表 2.15 路線</td></tr>
-      <tr><td>底部剪力 V</td><td>${fmt(r.baseShear,1)}</td><td>kgf</td><td>V = ΣF_i</td></tr>
-      <tr><td>底部彎矩 M</td><td>${fmt(r.baseMoment,1)}</td><td>kgf·m</td><td>M = Σ(F_i · z_i)</td></tr>
-    `;
-    document.getElementById('adoptNote').textContent = '本表適用於桁架高塔之分段風力、總剪力與底部彎矩整理。';
-    applic = [
-      { label: '規範路線', level: 'ok', message: '表 2.15' },
-      { label: '高塔型式', level: 'ok', message: towerShape === 'square' ? '方形高塔' : '三角形高塔' },
-      { label: '實體率 φ', level: 'ok', message: fmt(phi,2) },
-      { label: '構材型式', level: 'ok', message: memberShape === 'circular' ? '圓斷面構材' : '角鋼 / 平邊構材' },
-      { label: '斜風向修正', level: (towerShape === 'square' && skewWind) ? 'warn' : 'ok', message: (towerShape === 'square' && skewWind) ? `已乘 C = ${fmt(r.cfData.skewFactor,3)}` : '未啟用' },
-    ];
-    html += step('① 基本參數', `
-      h = <span class="val">${fmt(height,2)}</span> m, B = <span class="val">${fmt(faceWidth,2)}</span> m<br>
-      地況參數：α = <span class="val">${fmt(terrainData.alpha,2)}</span>，z<sub>g</sub> = <span class="val">${fmt(terrainData.zg,1)}</span> m，z<sub>min</sub> = <span class="val">${fmt(terrainData.zmin,1)}</span> m<br>
-      φ = <span class="val">${fmt(phi,2)}</span><br>
-      基本 C<sub>f</sub> = <span class="val">${fmt(r.cfData.baseCf,3)}</span><br>
-      構材修正 = <span class="val">${fmt(r.cfData.memberFactor,3)}</span>，斜風向修正 = <span class="val">${fmt(r.cfData.skewFactor,3)}</span><br>
-      C<sub>f</sub> = <span class="val hl">${fmt(r.cfData.cf,3)}</span>
-    `);
-    html += step('② 分段風力', `
-      塔面實體面積 = <span class="val">${fmt(r.totalSolidArea,2)}</span> m²<br>
-      控制段中點 z = <span class="val">${fmt(r.body.rows[r.body.rows.length - 1].zMid,2)}</span> m<br>
-      K(z) = 2.774 × (${fmt(Math.max(r.body.rows[r.body.rows.length - 1].zMid, terrainData.zmin),2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(W.calcKz(r.body.rows[r.body.rows.length - 1].zMid, terrain),4)}</span><br>
-      q(z) = 0.06 × ${fmt(W.calcKz(r.body.rows[r.body.rows.length - 1].zMid, terrain),4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val">${fmt(r.body.rows[r.body.rows.length - 1].qz,1)}</span> kgf/m²<br>
-      V = <span class="val hl">${fmt(r.baseShear,1)}</span> kgf<br>
-      M = <span class="val hl">${fmt(r.baseMoment,1)}</span> kgf·m
-    `, `控制段示例：F_i = ${fmt(r.body.rows[r.body.rows.length - 1].qz,2)} × ${fmt(r.body.G,3)} × ${fmt(r.cfData.cf,3)} × ${fmt(r.body.rows[r.body.rows.length - 1].area,2)} = ${fmt(r.body.rows[r.body.rows.length - 1].force,2)} kgf`);
-  }
-
-  document.querySelector('#adoptTable tbody').innerHTML = adoptRows;
-  setApplicability(applic);
-  document.getElementById('steps').innerHTML = html;
-}
-
-document.getElementById('mode').addEventListener('change', function() {
-  refreshMode();
+  document.getElementById('chkDetail').addEventListener('change', updateStepsVisibility);
+  document.getElementById('btnCalc').addEventListener('click', calc);
+  document.getElementById('btnReport').addEventListener('click', openFrameObjectReport);
+  document.getElementById('btnReportModeDetail').addEventListener('click', () => syncPrintReportMode('detail'));
+  document.getElementById('btnReportModeSimple').addEventListener('click', () => syncPrintReportMode('simple'));
+  document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+  document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+  document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
+  document.getElementById('caseJsonFile').addEventListener('change', event => importCaseJsonFile(event.target.files && event.target.files[0]));
+  [
+    'city','terrain','impClass','Kzt','pz','pA','phi','memberD','memberType'
+  ].forEach(bindRecalc);
   calc();
-});
-document.getElementById('chkDetail').addEventListener('change', function() {
-  document.getElementById('stepsCard').classList.toggle('show-detail', this.checked);
-});
-document.getElementById('btnCalc').addEventListener('click', calc);
-refreshMode();
-calc();
+})();
 </script>
 </body>
 </html>

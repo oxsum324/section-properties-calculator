@@ -28,6 +28,33 @@ for (const goldenCase of goldenCases) {
 }
 
 {
+  const r = EquipmentLoadCore.calculate({
+    ...goldenCases[0].input,
+    concreteFc: 280,
+    concreteThickness: 0.2,
+    effectiveDepth: 0.16,
+    bearingSupportB: 0.8,
+    bearingSupportL: 0.8,
+    concretePhiBearing: 0.65,
+    concretePhiShear: 0.75,
+    punchingPosition: 'interior',
+    steelPlateB: 0.45,
+    steelPlateL: 0.45,
+    steelPlateThickness: 0.012,
+    steelFy: 2450,
+    steelPhiFlexure: 0.9
+  });
+  assert.equal(r.concreteBearingOk, true);
+  assert.equal(r.punchingOk, true);
+  assert.equal(r.steelPlateOk, true);
+  approx(r.concreteBearingDesign, 193.375);
+  assert.ok(r.punchingDesignShear > r.pointLoad);
+  assert.ok(r.steelPlateRequiredThickness > 0.005);
+  assert.ok(r.steelPlateRequiredThickness < 0.006);
+  assert.equal(r.governingCheck.key, 'point-load');
+}
+
+{
   const errors = EquipmentLoadCore.validateInput({
     ...goldenCases[0].input,
     equipmentWeight: 0,

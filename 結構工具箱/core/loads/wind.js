@@ -16,7 +16,7 @@
  *
  * v3.1 更新：
  *   ‧ 實體標的物圓柱體改依表 2.14 以 D√q(z) 與粗糙分類查用 Cf
- *   ‧ 煙囪 / 水塔等塔狀構造物保留表 2.12 h/D 內插路線
+ *   ‧ 煙囪 / 水塔等保留表 2.12 h/D 內插路線
  */
 (function (global) {
   'use strict';
@@ -252,7 +252,7 @@
     const Q  = Math.sqrt(Q2);
     const gQ = 3.4, gV = 3.4;
     const G = 1.927 * (1 + 1.7 * gQ * Iz * Q) / (1 + 1.7 * gV * Iz);
-    return { G, Iz, Lz, Q2, Q, zBar };
+    return { G, Iz, Lz, Q2, Q, zBar, h, B, terrain, gQ, gV };
   }
 
   // ═══════════════════════════════
@@ -1375,7 +1375,7 @@
     SS: 200,
   };
   const SOLID_OBJECT_CF = {
-    flat_panel: { name: '平板 / 告示牌', cf: 1.80 },
+    flat_panel: { name: '投影面積單體（需指定 C_f）', cf: 1.00 },
     box: { name: '矩形箱體', cf: 1.30 },
     circular_cylinder: { name: '圓柱體', cf: 0.70 },
     polygonal_prism: { name: '多角柱', cf: 1.20 },
@@ -1601,7 +1601,7 @@
       A,
       charWidth,
       Kzt = 1.0,
-      shapeType = 'flat_panel',
+      shapeType = 'box',
       Cf = null,
       shapeFactor = 1.0,
       G = null,
@@ -1620,13 +1620,17 @@
     });
     const baseCf = Cf == null ? shape.cf : Cf;
     const CfEff = baseCf * shapeFactor;
-    const gust = G == null ? calcGustRigid(Math.max(zUse, 0.1), Math.max(charWidth || 1, 1), terrain).G : G;
+    const gustDetail = G == null
+      ? calcGustRigid(Math.max(zUse, 0.1), Math.max(charWidth || 1, 1), terrain)
+      : { G, h: Math.max(zUse, 0.1), B: Math.max(charWidth || 1, 1), terrain, manual: true };
+    const gust = gustDetail.G;
     const pressure = qz * gust * CfEff;
     const F = pressure * A;
     return {
       z: zUse,
       qz,
       G: gust,
+      gustDetail,
       shapeType,
       shapeName: shape.name,
       baseCf,
@@ -1649,9 +1653,10 @@
       zBase = 0,
       height,
       width,
+      charWidth = null,
       segments = 10,
       Kzt = 1.0,
-      shapeType = 'flat_panel',
+      shapeType = 'box',
       Cf = null,
       shapeFactor = 1.0,
       G = null,
@@ -1671,7 +1676,11 @@
     });
     const baseCf = Cf == null ? shape.cf : Cf;
     const CfEff = baseCf * shapeFactor;
-    const gust = G == null ? calcGustRigid(Math.max(topZ, dz), Math.max(width || 1, 1), terrain).G : G;
+    const gustWidth = Math.max(charWidth || width || 1, 1);
+    const gustDetail = G == null
+      ? calcGustRigid(Math.max(topZ, dz), gustWidth, terrain)
+      : { G, h: Math.max(topZ, dz), B: gustWidth, terrain, manual: true };
+    const gust = gustDetail.G;
     const rows = [];
     let baseShear = 0;
     let baseMoment = 0;
@@ -1706,6 +1715,7 @@
       segments: n,
       segmentHeight: dz,
       G: gust,
+      gustDetail,
       shapeType,
       shapeName: shape.name,
       baseCf,

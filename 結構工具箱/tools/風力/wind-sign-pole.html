@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>建築物耐風設計 — 招牌 / 燈桿組合風力 V1.0</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../core/style.css">
+<style>
+  .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#0f766e; color:#fff; }
+  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+  .case-actions button { border:none; border-radius:8px; padding:9px 12px; font-weight:700; cursor:pointer; background:#ccfbf1; color:#115e59; }
+  .case-actions button:hover { background:#99f6e4; }
+  .case-actions .primary { background:#0f766e; color:#fff; }
+  .case-actions .primary:hover { background:#115e59; }
+  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
+  .case-status.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+  .case-status:empty { display:none; }
+  .report-mode-control { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #99f6e4; border-radius:10px; background:#f0fdfa; color:#334155; font-size:0.84em; line-height:1.6; }
+  .report-mode-label { font-weight:700; color:#0f766e; margin-right:2px; }
+  .mode-segment { border:1px solid #5eead4; background:#fff; color:#0f766e; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
+  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#0f766e; color:#fff; border-color:#0f766e; box-shadow:0 4px 10px rgba(15,118,110,.18); }
+  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
+  .form-error { display:none; margin-top:10px; padding:9px 11px; border:1px solid #fca5a5; border-radius:9px; background:#fef2f2; color:#991b1b; font-size:0.84em; line-height:1.6; }
+  .form-error.show { display:block; }
+  .hint-panel { margin-top:8px; padding:9px 11px; border-radius:9px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e3a8a; font-size:0.82em; line-height:1.65; }
+  .support-fields { display:none; }
+  .support-fields.active { display:block; }
+  .schema-wrap { border:1px solid #ccfbf1; border-radius:12px; background:linear-gradient(180deg,#f8fffd 0%,#ffffff 100%); padding:10px; overflow:hidden; }
+  .schema-svg { width:100%; max-width:680px; height:auto; display:block; margin:0 auto; background:#f8fafc; border-radius:12px; }
+  table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
+  table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
+  table.zone th { background:#f1f5f9; color:var(--primary); font-weight:700; font-family:inherit; }
+  .component-table td:first-child, .component-table th:first-child { text-align:left; font-family:inherit; }
+  .mini-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px; margin-top:10px; }
+  .mini-stat { border:1px solid #dbeafe; border-radius:10px; padding:9px 10px; background:#fff; line-height:1.5; }
+  .mini-stat b { display:block; color:#0f766e; font-size:0.78em; margin-bottom:2px; }
+  .mini-stat span { font-family:'Consolas',monospace; font-size:1.02em; font-weight:700; color:#172554; }
+  .step { margin-bottom:14px; }
+  .step-title { font-size:0.92em; font-weight:700; color:#0f766e; margin-bottom:6px; padding:5px 10px; background:#f0fdfa; border-left:4px solid #0f766e; border-radius:0 6px 6px 0; }
+  .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
+  .step-body .val { font-weight:700; color:#0f766e; font-family:'Consolas',monospace; }
+  .step-body .val.hl { font-size:1.05em; color:#166534; }
+  .step-note { display:block; margin-top:4px; color:#64748b; }
+  .inline-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
+  .inline-actions .btn-calc { flex:1 1 220px; width:auto; min-height:46px; margin-top:0; justify-content:center; }
+  .main-layout { grid-template-columns:minmax(0, 380px) minmax(0, 1fr); }
+  .main-layout > div, #resultPanel, .card, .form-group, .form-row { min-width:0; }
+  .form-row { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .form-group input, .form-group select { min-width:0; }
+  @media (max-width:768px) {
+    .main-layout { grid-template-columns:1fr; }
+    .case-actions button { flex:1 1 120px; }
+    .inline-actions { flex-direction:column; }
+    .inline-actions .btn-calc { width:100%; flex:1 1 auto; }
+  }
+  @media (max-width:520px) {
+    .form-row { grid-template-columns:1fr; }
+    .report-mode-control .mode-segment { flex:1 1 120px; }
+    .case-actions button { flex:1 1 100%; }
+  }
+  @media print {
+    header, .back, .case-actions, .report-mode-control, .btn-calc, .form-error, .hint-panel { display:none; }
+    .container { max-width:none; padding:0; }
+    .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>建築物耐風設計 — 招牌 / 燈桿組合風力 <span class="badge-v">V1.0</span></h1>
+  <p>面板採表 2.10；支撐構件依型式採表 2.14 或表 2.13 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
+  <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
+</header>
+
+<div class="container">
+<div class="card mode-bar print-meta">
+  <strong class="mode-bar__label">計畫資訊：</strong>
+  <div class="mode-bar__proj">
+    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
+    <input type="text" id="projNo" class="w-no" placeholder="編號">
+    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+    <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+  </div>
+  <div class="report-mode-control" role="group" aria-label="列印計算書輸出模式">
+    <span class="report-mode-label">計算書模式</span>
+    <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true">詳算式</button>
+    <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
+    <span class="report-mode-hint">詳算式列出元件分流、G 與分段計算；簡易結果只整理條件、示意圖與控制值。</span>
+  </div>
+  <input type="hidden" id="printReportMode" value="detail">
+  <div class="case-actions">
+    <button class="primary" id="btnExportCase" type="button">匯出案件 JSON</button>
+    <button id="btnImportCase" type="button">匯入案件 JSON</button>
+    <button id="btnResetCase" type="button">恢復預設</button>
+    <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
+  </div>
+  <div class="case-status" id="caseStatus"></div>
+</div>
+
+<div class="main-layout">
+<div>
+  <div class="card">
+    <h2>基本資料</h2>
+    <div class="form-group">
+      <label>地點 (基本設計風速)</label>
+      <select id="city"></select>
+      <div class="hint" id="vHint"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>地況分類</label>
+        <select id="terrain">
+          <option value="A">A — 大城市市中心</option>
+          <option value="B">B — 都市郊區</option>
+          <option value="C" selected>C — 開闊平坦地</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>用途係數</label>
+        <select id="impClass"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>K<sub>zt</sub> 地形係數</label>
+      <input id="Kzt" type="number" value="1.0" step="0.05">
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>招牌面板</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>面板寬度 B<sub>p</sub> (m)</label>
+        <input id="panelWidth" type="number" value="4.0" step="0.1">
+      </div>
+      <div class="form-group">
+        <label>面板高度 H<sub>p</sub> (m)</label>
+        <input id="panelHeight" type="number" value="2.0" step="0.1">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>面板底緣高度 z<sub>b</sub> (m)</label>
+        <input id="panelBottom" type="number" value="5.0" step="0.1">
+        <div class="hint">同時作為下方支撐構件高度。</div>
+      </div>
+      <div class="form-group">
+        <label>開口率 (%)</label>
+        <input id="openingRatio" type="number" value="0" step="1" min="0">
+        <div class="hint">開口率達 30% 時，應改用中空式 / 格子式路線。</div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>專案指定面板 C<sub>f</sub></label>
+      <input id="panelCfOverride" type="number" value="" step="0.01" placeholder="留空 = 依表 2.10 判定">
+    </div>
+    <div class="hint-panel">面板以表 2.10 判定 C<sub>f</sub>，支撐構件另依表 2.14 或表 2.13 計算，最後合併剪力與底部彎矩。</div>
+  </div>
+
+  <div class="card">
+    <h2>支撐構件</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>支撐型式</label>
+        <select id="supportType">
+          <option value="pipe" selected>管材 / 燈桿 (表 2.14)</option>
+          <option value="angular">型鋼 / 角柱體 (表 2.13)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>支撐數量 n</label>
+        <input id="supportCount" type="number" value="1" step="1" min="1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>支撐分段數</label>
+      <input id="supportSegments" type="number" value="6" step="1" min="1">
+      <div class="hint">分段以各段中點高度計算 q(z)，輸出等效分段風力。</div>
+    </div>
+    <div id="pipeFields" class="support-fields active">
+      <div class="form-row">
+        <div class="form-group">
+          <label>管材外徑 D (m)</label>
+          <input id="pipeDiameter" type="number" value="0.216" step="0.001">
+        </div>
+        <div class="form-group">
+          <label>表面分類</label>
+          <select id="pipeRoughness">
+            <option value="smooth">光滑繩、竿、管</option>
+            <option value="moderate" selected>中度光滑繩、竿、管</option>
+            <option value="fine_cable">細電纜、鋼索</option>
+            <option value="rough_cable">粗電纜、鋼索</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="angularFields" class="support-fields">
+      <div class="form-row">
+        <div class="form-group">
+          <label>迎風投影寬 b<sub>s</sub> (m)</label>
+          <input id="prismWidth" type="number" value="0.30" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>角柱體形狀</label>
+          <select id="prismShape">
+            <option value="rect_long" selected>長方柱（風向垂直長邊）</option>
+            <option value="rect_short">長方柱（風向垂直短邊）</option>
+            <option value="tri_vertex">等邊三角柱（風向循著頂點）</option>
+            <option value="tri_face">等邊三角柱（風向垂直面）</option>
+            <option value="right_iso_vertex">直角等腰三角柱（風向循著直角頂）</option>
+          </select>
+        </div>
+      </div>
+      <div class="hint">型鋼支撐以迎風投影寬與表 2.13 角柱體形狀路線整理；特殊斷面仍應由設計者確認等效化方式。</div>
+    </div>
+    <div class="chk-detail">
+      <input type="checkbox" id="chkDetail" checked>
+      <label for="chkDetail">畫面顯示詳列計算式</label>
+    </div>
+    <div id="formError" class="form-error"></div>
+    <div class="inline-actions">
+      <button class="btn-calc" id="btnCalc" type="button">計算組合風力</button>
+    </div>
+  </div>
+</div>
+
+<div id="resultPanel">
+  <div class="card">
+    <h2>組合示意圖</h2>
+    <div class="schema-wrap">
+      <svg class="schema-svg" id="schemaSvg" viewBox="0 0 680 420" role="img" aria-label="招牌面板與下方支撐構件風力組合示意圖"></svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>控制結果</h2>
+    <div class="results-grid">
+      <div class="result-item ok" id="r-totalV"><span class="label">合計底部剪力 V</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
+      <div class="result-item warn" id="r-totalM"><span class="label">合計底部彎矩 M</span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
+      <div class="result-item" id="r-zbar"><span class="label">合力作用高度 z<sub>r</sub></span><span><span class="value">—</span><span class="unit">m</span></span></div>
+      <div class="result-item" id="r-panelF"><span class="label">面板風力 F<sub>p</sub></span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
+      <div class="result-item" id="r-supportF"><span class="label">支撐風力 F<sub>s</sub></span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
+      <div class="result-item" id="r-lineLoad"><span class="label">支撐平均線載重 w<sub>s</sub></span><span><span class="value">—</span><span class="unit">kgf/m</span></span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>元件合計</h2>
+    <table class="zone component-table" id="componentTable">
+      <thead>
+        <tr>
+          <th>元件</th><th>規範路線</th><th>採用 C<sub>f</sub></th><th>G</th><th>面積 (m²)</th><th>F (kgf)</th><th>M (kgf·m)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>支撐分段風力</h2>
+    <table class="zone" id="segmentTable">
+      <thead>
+        <tr>
+          <th>段</th><th>z<sub>mid</sub> (m)</th><th>q(z) (kgf/m²)</th><th>C<sub>f</sub></th><th>單段面積 (m²)</th><th>F<sub>i</sub> (kgf)</th><th>M<sub>i</sub> (kgf·m)</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card" id="stepsCard">
+    <h2>逐步計算</h2>
+    <div id="steps"></div>
+  </div>
+</div>
+</div>
+</div>
+
+<script src="../../core/loads/wind.js"></script>
+<script>
+const W = window.Wind;
+const TOOL_VERSION = '1.0';
+const CASE_SCHEMA_VERSION = 'wind-sign-pole.case.v1';
+let lastResult = null;
+let lastStepsHtml = '';
+
+const DEFAULT_CASE_INPUTS = {
+  project: { name: '', no: '', designer: '' },
+  values: {
+    printReportMode: 'detail',
+    city: '臺北市',
+    terrain: 'C',
+    impClass: 'IV',
+    Kzt: 1.0,
+    panelWidth: 4.0,
+    panelHeight: 2.0,
+    panelBottom: 5.0,
+    openingRatio: 0,
+    panelCfOverride: '',
+    supportType: 'pipe',
+    supportCount: 1,
+    supportSegments: 6,
+    pipeDiameter: 0.216,
+    pipeRoughness: 'moderate',
+    prismWidth: 0.30,
+    prismShape: 'rect_long',
+    chkDetail: true
+  }
+};
+
+const fmt = (v, d=2) => Number.isFinite(v) ? Number(v).toFixed(d) : '—';
+const val = id => {
+  const n = parseFloat(document.getElementById(id)?.value);
+  return Number.isFinite(n) ? n : 0;
+};
+const text = id => (document.getElementById(id)?.value || '').trim();
+const checked = id => !!document.getElementById(id)?.checked;
+const escHtml = s => (s === null || s === undefined ? '' : String(s))
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+
+function getProjectInfo() {
+  return {
+    name: text('projName'),
+    no: text('projNo'),
+    designer: text('projDesigner')
+  };
+}
+
+function getPrintReportMode() {
+  return document.getElementById('printReportMode')?.value === 'simple' ? 'simple' : 'detail';
+}
+
+function setPrintReportMode(mode) {
+  const next = mode === 'simple' ? 'simple' : 'detail';
+  document.getElementById('printReportMode').value = next;
+  document.querySelectorAll('[data-report-mode]').forEach(btn => {
+    const active = btn.dataset.reportMode === next;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function setCaseStatus(message, level='info') {
+  const box = document.getElementById('caseStatus');
+  box.textContent = message || '';
+  box.classList.toggle('warn', level === 'warn');
+}
+
+function showFormError(message) {
+  const box = document.getElementById('formError');
+  box.textContent = message || '';
+  box.classList.toggle('show', !!message);
+}
+
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  el.value = value;
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setInputChecked(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  el.checked = !!value;
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function readCaseInputs() {
+  return {
+    project: getProjectInfo(),
+    values: {
+      printReportMode: getPrintReportMode(),
+      city: document.getElementById('city')?.value || '臺北市',
+      terrain: document.getElementById('terrain')?.value || 'C',
+      impClass: document.getElementById('impClass')?.value || 'IV',
+      Kzt: text('Kzt'),
+      panelWidth: text('panelWidth'),
+      panelHeight: text('panelHeight'),
+      panelBottom: text('panelBottom'),
+      openingRatio: text('openingRatio'),
+      panelCfOverride: text('panelCfOverride'),
+      supportType: document.getElementById('supportType')?.value || 'pipe',
+      supportCount: text('supportCount'),
+      supportSegments: text('supportSegments'),
+      pipeDiameter: text('pipeDiameter'),
+      pipeRoughness: document.getElementById('pipeRoughness')?.value || 'moderate',
+      prismWidth: text('prismWidth'),
+      prismShape: document.getElementById('prismShape')?.value || 'rect_long',
+      chkDetail: checked('chkDetail')
+    }
+  };
+}
+
+function applyCaseInputs(payload) {
+  const data = payload || DEFAULT_CASE_INPUTS;
+  const project = data.project || {};
+  setInputValue('projName', project.name || '');
+  setInputValue('projNo', project.no || '');
+  setInputValue('projDesigner', project.designer || '');
+  const values = { ...DEFAULT_CASE_INPUTS.values, ...(data.values || {}) };
+  setPrintReportMode(values.printReportMode);
+  ['city', 'terrain', 'impClass', 'supportType', 'pipeRoughness', 'prismShape'].forEach(id => setInputValue(id, values[id]));
+  ['Kzt', 'panelWidth', 'panelHeight', 'panelBottom', 'openingRatio', 'panelCfOverride', 'supportCount', 'supportSegments', 'pipeDiameter', 'prismWidth'].forEach(id => setInputValue(id, values[id]));
+  setInputChecked('chkDetail', values.chkDetail);
+  updateSupportFields();
+  calc();
+}
+
+function exportCaseJson() {
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'wind-sign-pole', name: '招牌 / 燈桿組合風力', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: lastResult || null
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10).replaceAll('-', '');
+  a.href = url;
+  a.download = `wind-sign-pole-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出案件 JSON。');
+}
+
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(reader.result);
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已讀取不同版本案件 JSON (${payload.schema})，將盡量依現有欄位套用。`, 'warn');
+      } else {
+        setCaseStatus('已匯入案件 JSON，並依目前頁面重新計算。');
+      }
+      applyCaseInputs(payload);
+    } catch (err) {
+      setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
+    } finally {
+      document.getElementById('caseJsonFile').value = '';
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function resetCaseDefaults() {
+  applyCaseInputs(JSON.parse(JSON.stringify(DEFAULT_CASE_INPUTS)));
+  setCaseStatus('已恢復預設值。');
+}
+
+function populateSelectors() {
+  const citySel = document.getElementById('city');
+  Object.entries(W.CITY_QUICK).forEach(([name, speed]) => {
+    const o = document.createElement('option');
+    o.value = name;
+    o.textContent = `${name}　(V = ${speed} m/s)`;
+    if (name === DEFAULT_CASE_INPUTS.values.city) o.selected = true;
+    citySel.appendChild(o);
+  });
+  const impSel = document.getElementById('impClass');
+  Object.entries(W.IMPORTANCE).forEach(([key, data]) => {
+    const o = document.createElement('option');
+    o.value = key;
+    o.textContent = `${data.name}　I=${data.factor}`;
+    if (key === DEFAULT_CASE_INPUTS.values.impClass) o.selected = true;
+    impSel.appendChild(o);
+  });
+  refreshWindHint();
+}
+
+function refreshWindHint() {
+  const v = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
+  document.getElementById('vHint').textContent = `V10(C) = ${v} m/s (10 分鐘平均, 50 年回歸期)`;
+}
+
+function updateSupportFields() {
+  const type = document.getElementById('supportType').value;
+  document.getElementById('pipeFields').classList.toggle('active', type === 'pipe');
+  document.getElementById('angularFields').classList.toggle('active', type === 'angular');
+}
+
+function roundSegmentCount(n) {
+  return Math.max(1, Math.min(24, Math.round(n || 1)));
+}
+
+function calcSupportSegments(p) {
+  const {
+    supportType, supportHeight, supportCount, supportSegments,
+    V, terrain, I, Kzt,
+    pipeDiameter, pipeRoughness, prismWidth, prismShape
+  } = p;
+  const count = Math.max(1, Math.round(supportCount));
+  const n = roundSegmentCount(supportSegments);
+  const h = Math.max(0, supportHeight);
+  if (h <= 0) {
+    return {
+      rows: [],
+      shear: 0,
+      moment: 0,
+      area: 0,
+      G: 0,
+      gust: null,
+      source: supportType === 'pipe' ? '表 2.14 繩、竿、管' : '表 2.13 角柱體',
+      cfSummary: '—',
+      cfValue: 0,
+      componentName: '支撐構件',
+      lineLoadAvg: 0,
+      lineLoadPerSupport: 0,
+      typeLabel: supportType === 'pipe' ? '管材 / 燈桿' : '型鋼 / 角柱體',
+      basis: {}
+    };
+  }
+  const dz = h / n;
+  const width = supportType === 'pipe' ? Math.max(pipeDiameter, 1e-6) : Math.max(prismWidth, 1e-6);
+  const gust = W.calcGustRigid(Math.max(h, 0.1), width, terrain);
+  let shear = 0;
+  let moment = 0;
+  let area = 0;
+  const rows = [];
+  const basis = {};
+
+  if (supportType === 'angular') {
+    const shape = W.lookupAngularPrismCf(prismShape);
+    const rData = W.lookupAngularPrismR(h / width);
+    basis.shape = shape;
+    basis.rData = rData;
+  }
+
+  for (let i = 0; i < n; i++) {
+    const z1 = i * dz;
+    const z2 = z1 + dz;
+    const zMid = (z1 + z2) / 2;
+    const q = W.calcQz(zMid, V, terrain, I, Kzt);
+    let cf = 0;
+    let cfNote = '';
+    if (supportType === 'pipe') {
+      const dSqrtQz = W.calcDiameterSqrtQz(pipeDiameter, q.qz);
+      const cfData = W.lookupCableCf({ roughness: pipeRoughness, dSqrtQz });
+      cf = cfData.cf;
+      cfNote = `${cfData.regime}`;
+      basis.roughnessName = cfData.name;
+    } else {
+      cf = basis.shape.cf * basis.rData.r;
+      cfNote = `R=${fmt(basis.rData.r, 2)}`;
+    }
+    const segArea = width * dz * count;
+    const pressure = q.qz * gust.G * cf;
+    const force = pressure * segArea;
+    const segMoment = force * zMid;
+    shear += force;
+    moment += segMoment;
+    area += segArea;
+    rows.push({
+      index: i + 1,
+      z1, z2, zMid,
+      qz: q.qz,
+      Kz: q.Kz,
+      cf,
+      cfNote,
+      area: segArea,
+      pressure,
+      force,
+      moment: segMoment
+    });
+  }
+  const cfValue = rows.length ? Math.max(...rows.map(row => row.cf)) : 0;
+  return {
+    rows,
+    shear,
+    moment,
+    area,
+    G: gust.G,
+    gust,
+    source: supportType === 'pipe' ? '表 2.14 繩、竿、管' : '表 2.13 角柱體',
+    cfSummary: supportType === 'pipe'
+      ? `分段依 D√q(z) 判定，最大 ${fmt(cfValue, 3)}`
+      : `${basis.shape.name} × R=${fmt(basis.rData.r, 2)}`,
+    cfValue,
+    componentName: supportType === 'pipe' ? '支撐管材 / 燈桿' : '型鋼 / 角柱體支撐',
+    lineLoadAvg: shear / h,
+    lineLoadPerSupport: shear / h / count,
+    typeLabel: supportType === 'pipe' ? '管材 / 燈桿' : '型鋼 / 角柱體',
+    basis
+  };
+}
+
+function calc() {
+  const city = document.getElementById('city').value;
+  const V = W.CITY_QUICK[city] || 37.5;
+  const terrain = document.getElementById('terrain').value;
+  const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
+  const impClass = document.getElementById('impClass').value;
+  const I = W.IMPORTANCE[impClass].factor;
+  const Kzt = val('Kzt') || 1.0;
+  const panelWidth = val('panelWidth');
+  const panelHeight = val('panelHeight');
+  const panelBottom = val('panelBottom');
+  const openingRatio = val('openingRatio');
+  const panelCfOverride = parseFloat(text('panelCfOverride'));
+  const supportType = document.getElementById('supportType').value;
+  const supportCount = val('supportCount');
+  const supportSegments = val('supportSegments');
+  const pipeDiameter = val('pipeDiameter');
+  const pipeRoughness = document.getElementById('pipeRoughness').value;
+  const prismWidth = val('prismWidth');
+  const prismShape = document.getElementById('prismShape').value;
+
+  if (panelWidth <= 0 || panelHeight <= 0) {
+    return failCalc('面板寬度與高度需大於 0。');
+  }
+  if (panelBottom < 0) {
+    return failCalc('面板底緣高度不得小於 0。');
+  }
+  if (openingRatio >= 30) {
+    return failCalc('開口率達 30% 時，不宜在本頁採表 2.10 實體面板路線，應改用中空式 / 格子式風力。');
+  }
+  if (supportCount <= 0 || supportSegments <= 0) {
+    return failCalc('支撐數量與分段數需大於 0。');
+  }
+  if (supportType === 'pipe' && pipeDiameter <= 0) {
+    return failCalc('管材外徑 D 需大於 0。');
+  }
+  if (supportType === 'angular' && prismWidth <= 0) {
+    return failCalc('角柱體迎風投影寬 b_s 需大於 0。');
+  }
+
+  showFormError('');
+  const panelTop = panelBottom + panelHeight;
+  const panelZr = panelBottom + panelHeight / 2;
+  const panelArea = panelWidth * panelHeight * Math.max(0, 1 - openingRatio / 100);
+  const panelQ = W.calcQz(panelZr, V, terrain, I, Kzt);
+  const panelAspect = panelWidth / panelHeight;
+  const atGround = panelBottom <= 0;
+  const panelCfData = W.lookupSignCf({ atGround, aspectRatio: panelAspect });
+  const panelCf = (Number.isFinite(panelCfOverride) && panelCfOverride > 0) ? panelCfOverride : panelCfData.cf;
+  const panelCfSource = (Number.isFinite(panelCfOverride) && panelCfOverride > 0) ? '專案指定值' : '表 2.10 實體標示物';
+  const panelGust = W.calcGustRigid(Math.max(panelTop, 0.1), panelWidth, terrain);
+  const panelPressure = panelQ.qz * panelGust.G * panelCf;
+  const panelForce = panelPressure * panelArea;
+  const panelMoment = panelForce * panelZr;
+
+  const support = calcSupportSegments({
+    supportType,
+    supportHeight: panelBottom,
+    supportCount,
+    supportSegments,
+    V, terrain, I, Kzt,
+    pipeDiameter,
+    pipeRoughness,
+    prismWidth,
+    prismShape
+  });
+
+  const totalShear = panelForce + support.shear;
+  const totalMoment = panelMoment + support.moment;
+  const resultantHeight = totalShear > 0 ? totalMoment / totalShear : 0;
+
+  lastResult = {
+    toolVersion: TOOL_VERSION,
+    input: {
+      city, V, terrain, terrainName: terrainData.name, impClass, I, Kzt,
+      panelWidth, panelHeight, panelBottom, openingRatio,
+      supportType, supportCount: Math.max(1, Math.round(supportCount)),
+      supportSegments: roundSegmentCount(supportSegments),
+      pipeDiameter, pipeRoughness,
+      prismWidth, prismShape
+    },
+    panel: {
+      top: panelTop,
+      zr: panelZr,
+      area: panelArea,
+      qz: panelQ.qz,
+      Kz: panelQ.Kz,
+      aspectRatio: panelAspect,
+      atGround,
+      cfTable: panelCfData.cf,
+      cfData: panelCfData,
+      cf: panelCf,
+      cfSource: panelCfSource,
+      G: panelGust.G,
+      gust: panelGust,
+      pressure: panelPressure,
+      force: panelForce,
+      moment: panelMoment
+    },
+    support,
+    total: {
+      shear: totalShear,
+      moment: totalMoment,
+      resultantHeight
+    },
+    formula: 'V = ΣF_i, M = Σ(F_i · z_i)'
+  };
+
+  renderResult(lastResult);
+  lastStepsHtml = buildStepsHtml(lastResult);
+  document.getElementById('steps').innerHTML = checked('chkDetail') ? lastStepsHtml : '<div class="legend">已隱藏畫面詳列計算式；列印輸出可由上方「計算書模式」控制。</div>';
+  drawSignPoleDiagram(lastResult);
+  return lastResult;
+}
+
+function failCalc(message) {
+  showFormError(message);
+  lastResult = null;
+  lastStepsHtml = '';
+  document.querySelectorAll('.result-item .value').forEach(el => { el.textContent = '—'; });
+  document.querySelector('#componentTable tbody').innerHTML = '';
+  document.querySelector('#segmentTable tbody').innerHTML = '';
+  document.getElementById('steps').innerHTML = '<div class="legend">請先修正輸入條件。</div>';
+  document.getElementById('schemaSvg').innerHTML = '';
+  return null;
+}
+
+function renderResult(r) {
+  setResult('r-totalV', r.total.shear, 1);
+  setResult('r-totalM', r.total.moment, 1);
+  setResult('r-zbar', r.total.resultantHeight, 2);
+  setResult('r-panelF', r.panel.force, 1);
+  setResult('r-supportF', r.support.shear, 1);
+  setResult('r-lineLoad', r.support.lineLoadAvg, 1);
+  renderComponentTable(r);
+  renderSegmentTable(r.support.rows);
+}
+
+function setResult(id, value, digits) {
+  document.querySelector(`#${id} .value`).textContent = fmt(value, digits);
+}
+
+function renderComponentTable(r) {
+  const rows = [
+    {
+      name: '招牌面板',
+      source: r.panel.cfSource,
+      cf: fmt(r.panel.cf, 3),
+      G: fmt(r.panel.G, 3),
+      area: fmt(r.panel.area, 2),
+      force: fmt(r.panel.force, 1),
+      moment: fmt(r.panel.moment, 1)
+    },
+    {
+      name: r.support.componentName,
+      source: r.support.source,
+      cf: r.support.cfSummary,
+      G: fmt(r.support.G, 3),
+      area: fmt(r.support.area, 2),
+      force: fmt(r.support.shear, 1),
+      moment: fmt(r.support.moment, 1)
+    },
+    {
+      name: '合計',
+      source: '元件合成',
+      cf: '—',
+      G: '—',
+      area: fmt(r.panel.area + r.support.area, 2),
+      force: fmt(r.total.shear, 1),
+      moment: fmt(r.total.moment, 1)
+    }
+  ];
+  document.querySelector('#componentTable tbody').innerHTML = rows.map(row => `
+    <tr>
+      <td>${escHtml(row.name)}</td>
+      <td>${escHtml(row.source)}</td>
+      <td>${row.cf}</td>
+      <td>${row.G}</td>
+      <td>${row.area}</td>
+      <td>${row.force}</td>
+      <td>${row.moment}</td>
+    </tr>
+  `).join('');
+}
+
+function renderSegmentTable(rows) {
+  const tbody = document.querySelector('#segmentTable tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7">面板底緣高度為 0，無下方支撐分段風力。</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(row => `
+    <tr>
+      <td>${row.index}</td>
+      <td>${fmt(row.zMid, 2)}</td>
+      <td>${fmt(row.qz, 1)}</td>
+      <td>${fmt(row.cf, 3)}</td>
+      <td>${fmt(row.area, 3)}</td>
+      <td>${fmt(row.force, 1)}</td>
+      <td>${fmt(row.moment, 1)}</td>
+    </tr>
+  `).join('');
+}
+
+function gustDetailHtml(label, g) {
+  return `
+    <span class="step-note">${label}：z&#772; = max(0.6h, z<sub>min</sub>) = <span class="val">${fmt(g.zBar, 2)}</span> m，
+    I<sub>z</sub> = <span class="val">${fmt(g.Iz, 4)}</span>，
+    L<sub>z</sub> = <span class="val">${fmt(g.Lz, 2)}</span>，
+    Q = <span class="val">${fmt(g.Q, 4)}</span>。</span>
+    <span class="step-note">G = 1.927 × (1 + 1.7g<sub>Q</sub>I<sub>z</sub>Q) / (1 + 1.7g<sub>V</sub>I<sub>z</sub>) = <span class="val">${fmt(g.G, 3)}</span>，g<sub>Q</sub> = g<sub>V</sub> = 3.4。</span>
+  `;
+}
+
+function buildStepsHtml(r) {
+  const supportRows = r.support.rows;
+  const first = supportRows[0] || null;
+  const last = supportRows[supportRows.length - 1] || null;
+  const supportExample = first ? `
+    第 1 段：z<sub>mid</sub> = <span class="val">${fmt(first.zMid, 2)}</span> m，
+    q(z) = <span class="val">${fmt(first.qz, 1)}</span> kgf/m²，
+    C<sub>f</sub> = <span class="val">${fmt(first.cf, 3)}</span>，
+    A<sub>i</sub> = <span class="val">${fmt(first.area, 3)}</span> m²，
+    F<sub>i</sub> = q(z)GC<sub>f</sub>A<sub>i</sub> = <span class="val">${fmt(first.force, 1)}</span> kgf。
+  ` : '面板底緣高度為 0，無下方支撐構件風力。';
+  const supportRange = first && last ? `
+    支撐分段 q(z) 範圍：<span class="val">${fmt(first.qz, 1)}</span> 至 <span class="val">${fmt(last.qz, 1)}</span> kgf/m²。
+  ` : '';
+  const supportBasis = r.input.supportType === 'pipe'
+    ? `支撐構件採表 2.14 繩、竿、管；表面分類為 <span class="val">${escHtml(r.support.basis.roughnessName || '')}</span>，各段依 D√q(z) 判定 C<sub>f</sub>。`
+    : `支撐構件採表 2.13 角柱體；${escHtml(r.support.basis.shape?.name || '')}，細長比 h/b = <span class="val">${fmt(r.support.basis.rData?.slenderRatio, 2)}</span>，R = <span class="val">${fmt(r.support.basis.rData?.r, 2)}</span>。`;
+  return `
+    <div class="step">
+      <div class="step-title">① 基本風速與速度壓</div>
+      <div class="step-body">
+        地點：<span class="val">${escHtml(r.input.city)}</span>，V<sub>10</sub>(C) = <span class="val">${fmt(r.input.V, 1)}</span> m/s；
+        地況：<span class="val">${escHtml(r.input.terrainName)}</span>；I = <span class="val">${fmt(r.input.I, 2)}</span>；K<sub>zt</sub> = <span class="val">${fmt(r.input.Kzt, 2)}</span>。<br>
+        q(z) = 0.06 K(z)K<sub>zt</sub>[IV<sub>10</sub>(C)]²。
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-title">② 招牌面板（表 2.10）</div>
+      <div class="step-body">
+        面板高度 H<sub>p</sub> = <span class="val">${fmt(r.input.panelHeight, 2)}</span> m，寬度 B<sub>p</sub> = <span class="val">${fmt(r.input.panelWidth, 2)}</span> m，
+        底緣高度 z<sub>b</sub> = <span class="val">${fmt(r.input.panelBottom, 2)}</span> m。<br>
+        形心高度 z<sub>p</sub> = z<sub>b</sub> + H<sub>p</sub>/2 = <span class="val">${fmt(r.panel.zr, 2)}</span> m，
+        B<sub>p</sub>/H<sub>p</sub> = <span class="val">${fmt(r.panel.aspectRatio, 3)}</span>，
+        ${r.panel.atGround ? '座地路線' : '架高路線'}；C<sub>f</sub> = <span class="val">${fmt(r.panel.cf, 3)}</span>（${escHtml(r.panel.cfSource)}）。<br>
+        q(z<sub>p</sub>) = <span class="val">${fmt(r.panel.qz, 1)}</span> kgf/m²，A<sub>p</sub> = <span class="val">${fmt(r.panel.area, 2)}</span> m²。<br>
+        ${gustDetailHtml('面板陣風反應因子', r.panel.gust)}
+        F<sub>p</sub> = q(z<sub>p</sub>)GC<sub>f</sub>A<sub>p</sub> = <span class="val hl">${fmt(r.panel.force, 1)}</span> kgf，
+        M<sub>p</sub> = F<sub>p</sub>z<sub>p</sub> = <span class="val">${fmt(r.panel.moment, 1)}</span> kgf·m。
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-title">③ 支撐構件（${escHtml(r.support.source)}）</div>
+      <div class="step-body">
+        ${supportBasis}<br>
+        支撐高度 h<sub>s</sub> = <span class="val">${fmt(r.input.panelBottom, 2)}</span> m，
+        數量 n = <span class="val">${r.input.supportCount}</span>，
+        分段數 = <span class="val">${r.input.supportSegments}</span>。<br>
+        ${gustDetailHtml('支撐陣風反應因子', r.support.gust || { zBar:0, Iz:0, Lz:0, Q:0, G:0 })}
+        ${supportRange}<br>${supportExample}<br>
+        F<sub>s</sub> = ΣF<sub>i</sub> = <span class="val hl">${fmt(r.support.shear, 1)}</span> kgf，
+        M<sub>s</sub> = Σ(F<sub>i</sub>z<sub>i</sub>) = <span class="val">${fmt(r.support.moment, 1)}</span> kgf·m，
+        平均線載重 w<sub>s</sub> = F<sub>s</sub>/h<sub>s</sub> = <span class="val">${fmt(r.support.lineLoadAvg, 1)}</span> kgf/m。
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-title">④ 組合結果</div>
+      <div class="step-body">
+        V = F<sub>p</sub> + F<sub>s</sub> = <span class="val hl">${fmt(r.total.shear, 1)}</span> kgf。<br>
+        M = M<sub>p</sub> + M<sub>s</sub> = <span class="val hl">${fmt(r.total.moment, 1)}</span> kgf·m。<br>
+        合力作用高度 z<sub>r</sub> = M/V = <span class="val">${fmt(r.total.resultantHeight, 2)}</span> m。
+      </div>
+    </div>
+  `;
+}
+
+function drawSignPoleDiagram(r) {
+  const svg = document.getElementById('schemaSvg');
+  if (!r) {
+    svg.innerHTML = '';
+    return;
+  }
+  const width = 680;
+  const height = 420;
+  const groundY = 340;
+  const centerX = 260;
+  const totalH = Math.max(r.panel.top, 1);
+  const scaleY = Math.min(30, 230 / totalH);
+  const panelH = Math.max(48, r.input.panelHeight * scaleY);
+  const panelW = Math.max(110, Math.min(210, r.input.panelWidth * scaleY * 0.9));
+  const panelBottomY = groundY - r.input.panelBottom * scaleY;
+  const panelTopY = panelBottomY - panelH;
+  const panelLeft = centerX - panelW / 2;
+  const panelRight = centerX + panelW / 2;
+  const panelCenterY = panelTopY + panelH / 2;
+  const supportBaseX = centerX;
+  const supportTopY = panelBottomY;
+  const supportBottomY = groundY;
+  const supportCount = Math.max(1, r.input.supportCount);
+  const supportSpacing = supportCount > 1 ? Math.min(44, panelW / (supportCount + 1)) : 0;
+  const supportXs = Array.from({ length: supportCount }, (_, i) => supportCount === 1
+    ? supportBaseX
+    : supportBaseX - supportSpacing * (supportCount - 1) / 2 + supportSpacing * i);
+  const panelArrowX1 = panelRight + 22;
+  const panelArrowX2 = Math.min(490, panelArrowX1 + 88);
+  const supportArrowX1 = centerX + 34;
+  const supportArrowX2 = Math.min(445, supportArrowX1 + 54);
+  const dimX = 88;
+  const resultX = 505;
+  const resultY = 60;
+  const componentBoxX = 505;
+  const componentBoxY = 224;
+  const lineY = (a, b, ratio) => a + (b - a) * ratio;
+  const supportLoadLines = r.support.rows.length
+    ? [0.20, 0.42, 0.64, 0.86].map((ratio, i) => {
+      const y = lineY(supportTopY, supportBottomY, ratio);
+      return `<line x1="${supportArrowX1}" y1="${y}" x2="${supportArrowX2}" y2="${y}" stroke="#0891b2" stroke-width="${i === 0 ? 4 : 3}" marker-end="url(#arrowSmall)" data-diagram-role="support-load-zone"/>`;
+    }).join('')
+    : '';
+  const supports = supportXs.map((x, i) => {
+    const sw = r.input.supportType === 'pipe' ? 10 : 14;
+    return `<rect x="${x - sw / 2}" y="${supportTopY}" width="${sw}" height="${supportBottomY - supportTopY}" rx="${sw / 2}" fill="${i % 2 ? '#134e4a' : '#0f766e'}" data-diagram-role="support-member"/>`;
+  }).join('');
+  svg.innerHTML = `
+    <defs>
+      <marker id="arrowMain" markerWidth="14" markerHeight="12" refX="13" refY="6" orient="auto" markerUnits="userSpaceOnUse">
+        <path d="M0,0 L13,6 L0,12 Z" fill="#0f766e"></path>
+      </marker>
+      <marker id="arrowSmall" markerWidth="11" markerHeight="9" refX="10" refY="4.5" orient="auto" markerUnits="userSpaceOnUse">
+        <path d="M0,0 L10,4.5 L0,9 Z" fill="#0891b2"></path>
+      </marker>
+    </defs>
+    <rect x="0" y="0" width="${width}" height="${height}" fill="#f8fafc"/>
+    <line x1="58" y1="${groundY}" x2="610" y2="${groundY}" stroke="#94a3b8" stroke-width="3"/>
+    <line x1="80" y1="${groundY + 22}" x2="585" y2="${groundY + 22}" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="13 15"/>
+    <rect x="${centerX - 58}" y="${groundY}" width="116" height="10" rx="5" fill="#cbd5e1"/>
+    ${supports}
+    <rect x="${panelLeft}" y="${panelTopY}" width="${panelW}" height="${panelH}" rx="10" fill="#dffdf6" stroke="#0f766e" stroke-width="4" data-diagram-role="panel-body"/>
+    <line x1="${panelLeft + 22}" y1="${panelTopY + 28}" x2="${panelRight - 22}" y2="${panelTopY + 28}" stroke="#5eead4" stroke-width="3"/>
+    <line x1="${panelLeft + 22}" y1="${panelTopY + panelH - 30}" x2="${panelRight - 22}" y2="${panelTopY + panelH - 30}" stroke="#5eead4" stroke-width="3"/>
+    <line x1="${panelArrowX1}" y1="${panelCenterY}" x2="${panelArrowX2}" y2="${panelCenterY}" stroke="#0f766e" stroke-width="7" marker-end="url(#arrowMain)" data-diagram-role="panel-force-zone"/>
+    <rect x="${panelArrowX1 + 8}" y="${panelCenterY - 35}" width="46" height="24" rx="8" fill="#f8fafc" opacity=".96" data-diagram-role="force-label-mask"/>
+    <text x="${panelArrowX1 + 20}" y="${panelCenterY - 18}" fill="#115e59" font-size="15" font-weight="800" data-diagram-role="force-label-zone">F_p</text>
+    ${supportLoadLines}
+    <line x1="${dimX}" y1="${supportBottomY}" x2="${dimX}" y2="${supportTopY}" stroke="#475569" stroke-width="3"/>
+    <path d="M${dimX - 11},${supportBottomY - 1} L${dimX},${supportBottomY + 18} L${dimX + 11},${supportBottomY - 1}" fill="#475569"/>
+    <path d="M${dimX - 11},${supportTopY + 1} L${dimX},${supportTopY - 18} L${dimX + 11},${supportTopY + 1}" fill="#475569"/>
+    <rect x="${dimX - 58}" y="${(supportTopY + supportBottomY) / 2 - 17}" width="48" height="34" rx="8" fill="#f8fafc" opacity=".96" data-diagram-role="height-label-zone"/>
+    <text x="${dimX - 33}" y="${(supportTopY + supportBottomY) / 2 + 5}" fill="#334155" font-size="16" font-weight="700" transform="rotate(-90 ${dimX - 33} ${(supportTopY + supportBottomY) / 2 + 5})">z_b</text>
+    <line x1="${dimX + 36}" y1="${panelBottomY}" x2="${dimX + 36}" y2="${panelTopY}" stroke="#0f766e" stroke-width="3"/>
+    <path d="M${dimX + 25},${panelBottomY - 1} L${dimX + 36},${panelBottomY + 18} L${dimX + 47},${panelBottomY - 1}" fill="#0f766e"/>
+    <path d="M${dimX + 25},${panelTopY + 1} L${dimX + 36},${panelTopY - 18} L${dimX + 47},${panelTopY + 1}" fill="#0f766e"/>
+    <rect x="${dimX + 50}" y="${panelCenterY - 18}" width="54" height="34" rx="8" fill="#f8fafc" opacity=".96" data-diagram-role="height-label-zone"/>
+    <text x="${dimX + 60}" y="${panelCenterY + 4}" fill="#0f766e" font-size="16" font-weight="700">H_p</text>
+    <rect x="${resultX}" y="${resultY}" width="142" height="142" rx="15" fill="#ffffff" stroke="#99f6e4" stroke-width="2" data-diagram-role="result-panel"/>
+    <text x="${resultX + 18}" y="${resultY + 30}" fill="#0f766e" font-size="17" font-weight="800">合計結果</text>
+    <text x="${resultX + 18}" y="${resultY + 62}" fill="#115e59" font-size="16" font-weight="700">V = ${fmt(r.total.shear, 1)}</text>
+    <text x="${resultX + 18}" y="${resultY + 92}" fill="#115e59" font-size="16" font-weight="700">M = ${fmt(r.total.moment, 1)}</text>
+    <text x="${resultX + 18}" y="${resultY + 122}" fill="#475569" font-size="14">z_r = ${fmt(r.total.resultantHeight, 2)} m</text>
+    <rect x="${componentBoxX}" y="${componentBoxY}" width="142" height="92" rx="14" fill="#ffffff" stroke="#bae6fd" stroke-width="2" data-diagram-role="component-result-panel"/>
+    <text x="${componentBoxX + 16}" y="${componentBoxY + 27}" fill="#0e7490" font-size="15" font-weight="800">元件摘要</text>
+    <text x="${componentBoxX + 16}" y="${componentBoxY + 55}" fill="#334155" font-size="14">F_p = ${fmt(r.panel.force, 1)}</text>
+    <text x="${componentBoxX + 16}" y="${componentBoxY + 78}" fill="#334155" font-size="14">w_s = ${fmt(r.support.lineLoadAvg, 1)}</text>
+    <text x="${panelLeft}" y="${panelTopY - 18}" fill="#0f172a" font-size="18" font-weight="800">招牌面板</text>
+  `;
+}
+
+function buildReportTable(rows) {
+  return `<table class="rep-input"><tbody>${rows.map(row => `
+    <tr><th>${escHtml(row[0])}</th><td>${escHtml(row[1])}</td></tr>
+  `).join('')}</tbody></table>`;
+}
+
+function buildConditionRows(r) {
+  return [
+    ['地點 / V', `${r.input.city} / ${fmt(r.input.V, 1)} m/s`],
+    ['地況 / 用途係數', `${r.input.terrainName} / I=${fmt(r.input.I, 2)}`],
+    ['Kzt', fmt(r.input.Kzt, 2)],
+    ['面板尺寸', `B_p=${fmt(r.input.panelWidth, 2)} m, H_p=${fmt(r.input.panelHeight, 2)} m, z_b=${fmt(r.input.panelBottom, 2)} m`],
+    ['面板 Cf 來源', r.panel.cfSource],
+    ['支撐型式', `${r.support.typeLabel} / ${r.support.source}`],
+    ['支撐數量 / 分段', `${r.input.supportCount} / ${r.input.supportSegments}`]
+  ];
+}
+
+function buildSimpleResultRows(r) {
+  return [
+    ['面板風力 Fp', `${fmt(r.panel.force, 1)} kgf`],
+    ['支撐風力 Fs', `${fmt(r.support.shear, 1)} kgf`],
+    ['合計底部剪力 V', `${fmt(r.total.shear, 1)} kgf`],
+    ['合計底部彎矩 M', `${fmt(r.total.moment, 1)} kgf·m`],
+    ['合力作用高度 zr', `${fmt(r.total.resultantHeight, 2)} m`],
+    ['支撐平均線載重 ws', `${fmt(r.support.lineLoadAvg, 1)} kgf/m`]
+  ];
+}
+
+function buildComponentReportTable(r) {
+  const rows = [
+    ['招牌面板', r.panel.cfSource, fmt(r.panel.cf, 3), fmt(r.panel.G, 3), fmt(r.panel.area, 2), fmt(r.panel.force, 1), fmt(r.panel.moment, 1)],
+    [r.support.componentName, r.support.source, r.support.cfSummary, fmt(r.support.G, 3), fmt(r.support.area, 2), fmt(r.support.shear, 1), fmt(r.support.moment, 1)],
+    ['合計', '元件合成', '—', '—', fmt(r.panel.area + r.support.area, 2), fmt(r.total.shear, 1), fmt(r.total.moment, 1)]
+  ];
+  return `<table class="rep-input"><thead><tr><th>元件</th><th>規範路線</th><th>Cf</th><th>G</th><th>A (m²)</th><th>F (kgf)</th><th>M (kgf·m)</th></tr></thead><tbody>${rows.map(row => `
+    <tr>${row.map(cell => `<td>${escHtml(cell)}</td>`).join('')}</tr>
+  `).join('')}</tbody></table>`;
+}
+
+function buildSegmentReportTable(rows) {
+  if (!rows.length) return '<div class="rep-note">面板底緣高度為 0，無下方支撐分段風力。</div>';
+  return `<table class="rep-input"><thead><tr><th>段</th><th>z_mid (m)</th><th>q(z)</th><th>Cf</th><th>A_i</th><th>F_i</th><th>M_i</th></tr></thead><tbody>${rows.map(row => `
+    <tr><td>${row.index}</td><td>${fmt(row.zMid, 2)}</td><td>${fmt(row.qz, 1)}</td><td>${fmt(row.cf, 3)}</td><td>${fmt(row.area, 3)}</td><td>${fmt(row.force, 1)}</td><td>${fmt(row.moment, 1)}</td></tr>
+  `).join('')}</tbody></table>`;
+}
+
+function buildSignPoleReportHtml() {
+  const r = calc();
+  if (!r) return '';
+  const includeDetail = getPrintReportMode() === 'detail';
+  const project = getProjectInfo();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+  const diagramHtml = document.getElementById('schemaSvg')?.outerHTML || '';
+  const simpleReportHtml = `
+    <section class="rep-block">
+      <h3>設計條件</h3>
+      ${buildReportTable(buildConditionRows(r))}
+    </section>
+    <section class="rep-block">
+      <h3>計算示意圖</h3>
+      <div class="rep-diagram">${diagramHtml}</div>
+    </section>
+    <section class="rep-block">
+      <h3>控制結果</h3>
+      ${buildReportTable(buildSimpleResultRows(r))}
+    </section>
+    <section class="rep-block">
+      <h3>元件合計表</h3>
+      ${buildComponentReportTable(r)}
+    </section>
+  `;
+  const detailedReportHtml = `
+    <section class="rep-block">
+      <h3>計算示意圖</h3>
+      <div class="rep-diagram">${diagramHtml}</div>
+    </section>
+    <section class="rep-block">
+      <h3>計算內容</h3>
+      ${lastStepsHtml}
+    </section>
+    <section class="rep-block">
+      <h3>支撐分段風力表</h3>
+      ${buildSegmentReportTable(r.support.rows)}
+    </section>
+    <section class="rep-block">
+      <h3>元件合計表</h3>
+      ${buildComponentReportTable(r)}
+    </section>
+  `;
+  return `<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<title>招牌 / 燈桿組合風力計算書 ${TOOL_VERSION}</title>
+<style>
+@page { size:A4 portrait; margin:18mm 14mm; }
+* { box-sizing:border-box; }
+body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif; color:#111827; margin:0; padding:24px; background:#f4f4f4; line-height:1.7; }
+.rep-paper { max-width:980px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+.rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
+.rep-header h1 { margin:0 0 4px; font-size:22px; }
+.rep-header .sub { color:#555; font-size:13px; }
+.rep-meta { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:12px 0 18px; font-size:13px; }
+.rep-meta div { border:1px solid #ddd; padding:7px 9px; min-height:34px; }
+.rep-meta b { display:block; font-size:11px; color:#666; margin-bottom:2px; }
+.rep-block { margin:18px 0; break-inside:avoid; }
+.rep-block h3 { margin:0 0 8px; padding:5px 8px; border-left:4px solid #0f766e; background:#f0fdfa; font-size:16px; }
+.rep-input { width:100%; border-collapse:collapse; font-size:12px; }
+.rep-input th, .rep-input td { border:1px solid #d1d5db; padding:6px 7px; vertical-align:top; }
+.rep-input th { width:27%; background:#f8fafc; text-align:left; }
+.rep-diagram { text-align:center; border:1px solid #ddd; border-radius:8px; padding:8px; background:#fff; }
+.rep-diagram svg { width:100%; max-width:680px; height:auto; }
+.step { margin:8px 0 12px; }
+.step-title { font-weight:700; color:#0f766e; margin-bottom:3px; }
+.step-body { font-size:12px; line-height:1.75; }
+.val { font-family:Consolas,monospace; font-weight:700; color:#0f766e; }
+.val.hl { color:#166534; }
+.step-note { display:block; color:#374151; }
+.rep-note { border:1px solid #d1d5db; padding:8px 10px; background:#f8fafc; font-size:12px; }
+.rep-toolbar { position:sticky; top:0; background:#111827; color:#fff; padding:10px 14px; margin:-24px -24px 18px; display:flex; justify-content:center; gap:10px; }
+.rep-toolbar button { border:0; border-radius:8px; padding:8px 14px; font-weight:700; cursor:pointer; }
+@media print {
+  body { background:#fff; padding:0; }
+  .rep-paper { box-shadow:none; padding:0; max-width:none; }
+  .rep-toolbar { display:none; }
+}
+</style>
+</head>
+<body>
+<div class="rep-toolbar"><button onclick="window.print()">列印 / 另存 PDF</button><button onclick="window.close()">關閉</button></div>
+<main class="rep-paper">
+  <div class="rep-header">
+    <h1>招牌 / 燈桿組合風力計算書</h1>
+    <div class="sub">建築物耐風設計｜表 2.10 + 表 2.14 / 表 2.13 元件組合｜${TOOL_VERSION}｜${includeDetail ? '詳算式' : '簡易結果'}</div>
+  </div>
+  <div class="rep-meta">
+    <div><b>計畫名稱</b>${escHtml(project.name) || '—'}</div>
+    <div><b>計畫編號</b>${escHtml(project.no) || '—'}</div>
+    <div><b>設計人員</b>${escHtml(project.designer) || '—'}</div>
+    <div><b>製表日期</b>${todayStr}</div>
+  </div>
+  ${includeDetail ? detailedReportHtml : simpleReportHtml}
+</main>
+</body>
+</html>`;
+}
+
+function openSignPoleReport() {
+  const html = buildSignPoleReportHtml();
+  if (!html) {
+    setCaseStatus('輸入條件尚未通過，無法產生計算書。', 'warn');
+    return;
+  }
+  const w = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
+  if (!w) {
+    alert('請允許彈出視窗以開啟計算書');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+function bindEvents() {
+  document.getElementById('city').addEventListener('change', () => { refreshWindHint(); calc(); });
+  ['terrain', 'impClass', 'Kzt', 'panelWidth', 'panelHeight', 'panelBottom', 'openingRatio', 'panelCfOverride', 'supportCount', 'supportSegments', 'pipeDiameter', 'pipeRoughness', 'prismWidth', 'prismShape'].forEach(id => {
+    document.getElementById(id).addEventListener('input', calc);
+    document.getElementById(id).addEventListener('change', calc);
+  });
+  document.getElementById('supportType').addEventListener('change', () => {
+    updateSupportFields();
+    calc();
+  });
+  document.getElementById('chkDetail').addEventListener('change', calc);
+  document.getElementById('btnCalc').addEventListener('click', calc);
+  document.getElementById('btnReport').addEventListener('click', openSignPoleReport);
+  document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+  document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+  document.getElementById('caseJsonFile').addEventListener('change', event => importCaseJsonFile(event.target.files?.[0]));
+  document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
+  document.querySelectorAll('[data-report-mode]').forEach(btn => {
+    btn.addEventListener('click', () => setPrintReportMode(btn.dataset.reportMode));
+  });
+}
+
+window.buildSignPoleReportHtml = buildSignPoleReportHtml;
+window.drawSignPoleDiagram = drawSignPoleDiagram;
+window.calcSignPole = calc;
+populateSelectors();
+bindEvents();
+updateSupportFields();
+calc();
+</script>
+</body>
+</html>

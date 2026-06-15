@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐震設計 — 動力分析摘要 V3</title>
+<title>建築物耐震設計 — 反應譜動力分析規範整理 V3.8</title>
 <link rel="stylesheet" href="../../core/style.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
@@ -14,7 +14,8 @@
   .hero-chip { display:inline-flex; align-items:center; padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.24); font-size:0.8em; color:#fff; }
   .dynamic-shell { display:grid; grid-template-columns:minmax(340px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
   .dynamic-form-stack, .dynamic-result-stack { display:grid; gap:18px; }
-  .dynamic-result-stack { position:sticky; top:18px; }
+  .dynamic-shell, .dynamic-form-stack, .dynamic-result-stack, .dynamic-shell .card { min-width:0; }
+  .dynamic-result-stack { position:sticky; top:18px; overflow:hidden; }
   .status-box { padding:12px 14px; border-radius:10px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.84em; line-height:1.7; color:#334155; }
   .status-box strong { color:#0f172a; }
   .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
@@ -25,6 +26,7 @@
   .compare-table th, .compare-table td { border:1px solid var(--border); padding:7px 10px; text-align:center; }
   .compare-table th { background:#f1f5f9; color:var(--primary); font-weight:700; }
   .compare-table td.label { text-align:left; font-weight:700; color:var(--primary); }
+  .compact-pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .chip-row { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .chip-row .chip { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:#ecfeff; border:1px solid #99f6e4; color:#115e59; font-size:0.78em; }
   .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
@@ -33,10 +35,51 @@
   .mini-card { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px 12px; }
   .mini-card .label { display:block; font-size:0.78em; color:var(--text-light); margin-bottom:4px; }
   .mini-card .value { font-weight:700; color:#0c4a6e; font-family:'Consolas',monospace; }
+  .decision-panel { display:grid; gap:10px; }
+  .decision-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+  .decision-card { border:1px solid #cbd5e1; border-left:5px solid #0f766e; border-radius:10px; background:#f8fafc; padding:12px 14px; }
+  .decision-card.warn { border-left-color:#f59e0b; background:#fffbeb; border-color:#fcd34d; }
+  .decision-card.pending { border-left-color:#64748b; background:#f8fafc; border-color:#cbd5e1; }
+  .decision-card strong { display:block; color:#0f172a; margin-bottom:5px; }
+  .decision-card .decision-line { display:flex; justify-content:space-between; gap:12px; padding:3px 0; font-size:0.84em; color:#334155; }
+  .decision-card .decision-line span:last-child { font-family:'Consolas',monospace; font-weight:700; color:#0f172a; text-align:right; }
+  .decision-note { padding:10px 12px; border-radius:10px; background:#ecfeff; border:1px solid #99f6e4; color:#115e59; font-size:0.84em; line-height:1.75; }
+  .spectrum-panel { display:grid; gap:12px; min-width:0; max-width:100%; overflow:hidden; }
+  .spectrum-table-wrap { overflow-x:auto; min-width:0; max-width:100%; border:1px solid var(--border); border-radius:10px; }
+  .spectrum-table { min-width:920px; width:100%; border-collapse:collapse; font-size:0.82em; }
+  .spectrum-table th, .spectrum-table td { border:1px solid var(--border); padding:6px 8px; text-align:center; }
+  .spectrum-table th { background:#f1f5f9; color:var(--primary); font-weight:700; }
+  .spectrum-table td.label { font-weight:700; color:#0f172a; background:#f8fafc; }
+  .spectrum-table td.control-design { font-weight:700; color:#115e59; background:#ecfdf5; }
+  .spectrum-table td.control-lower { font-weight:700; color:#9a3412; background:#fffbeb; }
+  .spectrum-note { padding:10px 12px; border-radius:10px; background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:0.84em; line-height:1.75; }
+  .spectrum-note.info { background:#f0fdfa; border-color:#99f6e4; color:#115e59; }
+  .code-step-strip { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin:12px 0; }
+  .code-step { border:1px solid #cbd5e1; border-radius:10px; background:linear-gradient(180deg, #ffffff, #f8fafc); padding:9px 10px; min-height:76px; }
+  .code-step span { display:inline-flex; align-items:center; justify-content:center; min-width:38px; padding:2px 7px; border-radius:999px; background:#0f766e; color:#fff; font-size:0.72em; font-weight:700; margin-bottom:6px; }
+  .code-step strong { display:block; color:#0f172a; font-size:0.9em; margin-bottom:3px; }
+  .code-step small { display:block; color:#64748b; font-size:0.76em; line-height:1.45; }
+  .export-actions { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; margin-top:10px; }
+  .export-actions .btn-secondary { width:100%; margin-top:0; justify-content:center; }
+  .checklist-grid { display:grid; gap:8px; margin-top:10px; }
+  .check-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; padding:9px 10px; border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; }
+  .check-row label { margin:0; color:#0f172a; font-weight:700; }
+  .check-row small { display:block; color:#64748b; font-weight:400; line-height:1.45; margin-top:2px; }
+  .check-row input[type="checkbox"] { width:20px; height:20px; accent-color:#0f766e; }
+  .model-status-list { display:grid; gap:8px; }
+  .model-status-item { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:start; padding:9px 10px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; }
+  .model-status-item strong { color:#0f172a; }
+  .model-status-item small { display:block; color:#64748b; margin-top:2px; line-height:1.45; }
+  .status-pill { display:inline-flex; align-items:center; justify-content:center; min-width:52px; padding:3px 8px; border-radius:999px; font-size:0.76em; font-weight:700; }
+  .status-pill.pass { background:#dcfce7; color:#166534; }
+  .status-pill.warn { background:#fef3c7; color:#92400e; }
+  .status-pill.pending { background:#e2e8f0; color:#475569; }
   .note-list { padding-left:18px; font-size:0.84em; line-height:1.8; color:#475569; }
   .note-list li + li { margin-top:4px; }
   .status-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .status-actions .btn-secondary { flex:1 1 160px; width:auto; margin-top:0; }
+  .status-actions .btn-secondary { flex:1 1 160px; width:auto; min-width:0; margin-top:0; white-space:normal; }
+  .case-file-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; padding-top:10px; border-top:1px solid #e2e8f0; }
+  .case-file-actions .btn-secondary { flex:1 1 150px; width:auto; min-width:0; margin-top:0; justify-content:center; white-space:normal; }
   @media (max-width: 1080px) {
     .dynamic-shell { grid-template-columns:1fr; }
     .dynamic-result-stack { position:static; }
@@ -44,9 +87,15 @@
   @media (max-width: 768px) {
     .header-links .sep { display:none; }
     .hero-chip { font-size:0.76em; padding:5px 10px; }
-    .mini-grid { grid-template-columns:1fr; }
+    .mini-grid, .decision-grid, .compact-pair { grid-template-columns:1fr; }
+    .code-step-strip { grid-template-columns:1fr; }
+    .export-actions { grid-template-columns:1fr; }
     .inline-actions { flex-direction:column; }
     .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
+    .status-actions { flex-direction:column; }
+    .status-actions .btn-secondary { width:100%; flex:1 1 auto; }
+    .case-file-actions { flex-direction:column; }
+    .case-file-actions .btn-secondary { width:100%; flex:1 1 auto; }
     .form-row { grid-template-columns:1fr; }
   }
   @media print {
@@ -56,10 +105,12 @@
 </head>
 <body>
 <header>
-  <h1>建築物耐震設計 — 動力分析摘要 <span class="badge-v">V3</span></h1>
-  <p>反應譜動力分析結果整理、靜力比對與列印 ｜ 單位：m, tf, sec</p>
+  <h1>建築物耐震設計 — 反應譜動力分析規範整理 <span class="badge-v">V3.8</span></h1>
+  <p>依規範精神整理反應譜動力分析、總橫力調整、輸入譜判讀與列印 ｜ 單位：m, tf, sec</p>
   <p class="header-links">
-    <a href="https://www.nlma.gov.tw/ch/legislation/regsearch/175" target="_blank" rel="noopener noreferrer">官方規範頁</a>
+    <a href="https://www.nlma.gov.tw/ch/legislation/law%26regusw/175" target="_blank" rel="noopener noreferrer">官方規範頁</a>
+    <span class="sep">｜</span>
+    <a href="https://www.nlma.gov.tw/uploads/files/5cf77b5e6f4e97835a4e48ae9bdaec20.pdf" target="_blank" rel="noopener noreferrer">第三章動力分析</a>
     <span class="sep">｜</span>
     <a href="https://seaport.ncree.org/sederes/" target="_blank" rel="noopener noreferrer">Sederes 反應譜查詢平台</a>
     <span class="sep">｜</span>
@@ -68,8 +119,10 @@
     <a href="seismic-force.html" class="back">等值靜力分析</a>
   </p>
   <div class="hero-strip">
-    <span class="hero-chip">動力分析結果整理</span>
-    <span class="hero-chip">靜力 / 動力比對</span>
+    <span class="hero-chip">第 3.2 節反應譜係數</span>
+    <span class="hero-chip">中小度下限檢核</span>
+    <span class="hero-chip">最大考量地震輸入譜</span>
+    <span class="hero-chip">第 3.3 節總橫力調整</span>
     <span class="hero-chip">手機、平板、桌機皆可操作</span>
   </div>
 </header>
@@ -82,6 +135,12 @@
       <input type="text" id="projNo" class="w-no" placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
       <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+    </div>
+    <div class="case-file-actions">
+      <button class="btn-secondary" id="btnExportCaseJson" type="button">匯出案件 JSON</button>
+      <button class="btn-secondary" id="btnImportCaseJson" type="button">匯入案件 JSON</button>
+      <button class="btn-secondary" id="btnResetCase" type="button">恢復預設</button>
+      <input id="caseJsonFile" type="file" accept="application/json,.json" hidden>
     </div>
   </div>
   <div class="main-layout dynamic-shell">
@@ -135,6 +194,22 @@
         </div>
         <div class="form-row">
           <div class="form-group">
+            <label>設計譜值來源</label>
+            <select id="siteInputMode">
+              <option value="zone" selected>震區係數經 Fa / Fv 放大</option>
+              <option value="direct">直接採用輸入譜值（近斷層控制譜 / 外部查表值）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>中小度下限譜 SsD0 / S1D0 (g)</label>
+            <div class="compact-pair">
+              <input id="SsDLower" type="number" value="0.6" step="0.05" min="0" title="中小度地震與下限用短週期係數，未特別調整時可同 SsD">
+              <input id="S1DLower" type="number" value="0.35" step="0.05" min="0" title="中小度地震與下限用一秒週期係數，未特別調整時可同 S1D">
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label>地盤分類</label>
             <select id="siteClass">
               <option value="1">第一類</option>
@@ -178,7 +253,7 @@
           </div>
           <div class="form-group">
             <label>摘要備註</label>
-            <input id="remark" type="text" placeholder="例：RSA、CQC 組合、25 模態">
+            <input id="remark" type="text" placeholder="例：CQC 組合、有效質量 > 90%、25 模態">
           </div>
         </div>
         <div class="form-row">
@@ -201,9 +276,186 @@
             <input id="VyDyn" type="number" value="170" step="1" min="0">
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>X 向採用總橫力 V<sub>use,x</sub> (tf)</label>
+            <input id="VxAdopted" type="number" placeholder="輸入正式採用值" step="1" min="0">
+          </div>
+          <div class="form-group">
+            <label>Y 向採用總橫力 V<sub>use,y</sub> (tf)</label>
+            <input id="VyAdopted" type="number" placeholder="輸入正式採用值" step="1" min="0">
+          </div>
+        </div>
+        <div class="hint" style="margin-top:-4px;">
+          未輸入採用總橫力時，本頁只列出規範調整要求與最低縮放倍率，不代替工程師決定正式採用值。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>④ 規範反應譜與總橫力調整</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>反應譜基準週期 T<sub>1</sub> (sec)</label>
+            <input id="codeT1" type="number" value="0.51" step="0.01" min="0.01">
+          </div>
+          <div class="form-group">
+            <label>阻尼比 ξ (%)</label>
+            <input id="codeDamping" type="number" value="5" step="0.5" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>R / Ra</label>
+            <div class="compact-pair">
+              <input id="codeR" type="number" value="2" step="0.1" min="1">
+              <input id="codeRa" type="number" value="1.6667" step="0.0001" min="1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>α<sub>y</sub></label>
+            <input id="codeAlphaY" type="number" value="1.5" step="0.1" min="0.1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>B<sub>S</sub> / B<sub>1</sub></label>
+            <div class="compact-pair">
+              <input id="codeBS" type="number" value="1" step="0.05" min="0.1">
+              <input id="codeB1" type="number" value="1" step="0.05" min="0.1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>參數用途</label>
+            <div class="status-box">用於產生規範第 3.2 節設計水平加速度反應譜；阻尼修正採 S<sub>DS</sub>/B<sub>S</sub> 與 S<sub>D1</sub>/B<sub>1</sub>。不取代模型軟體的模態求解。</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>總橫力調整要求</label>
+            <select id="baseShearFloorRatio">
+              <option value="1" selected>第 3.3 節：不規則建築物 / 保守採 100%</option>
+              <option value="0.9">第 3.3 節：規則建築物採 90%</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>規範工作順序</label>
+            <div class="status-box">先建立設計反應譜與最大考量地震反應譜，再檢核中小度下限與總橫力調整要求；模型振態、方向組合與構材內力仍以分析軟體輸出為準。</div>
+          </div>
+        </div>
+        <div class="code-step-strip" aria-label="規範工作順序">
+          <div class="code-step"><span>3.2</span><strong>反應譜係數</strong><small>建立設計地震與最大考量地震譜。</small></div>
+          <div class="code-step"><span>3.2</span><strong>下限控制</strong><small>檢核中小度地震時不過早降伏。</small></div>
+          <div class="code-step"><span>3.3</span><strong>總橫力調整</strong><small>依規則性選取 90% 或 100% 調整比例。</small></div>
+          <div class="code-step"><span>3.5</span><strong>模型確認</strong><small>確認有效質量、振態疊加與方向輸入。</small></div>
+        </div>
         <div class="inline-actions">
           <button class="btn-calc" id="btnCalc">整理動力摘要</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>⑤ 反應譜匯出與模型檢核</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>匯出目標</label>
+            <select id="spectrumExportTarget">
+              <option value="ETABS">ETABS</option>
+              <option value="SAP2000">SAP2000</option>
+              <option value="MIDAS">MIDAS</option>
+              <option value="Generic" selected>通用表格</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>反應譜名稱</label>
+            <input id="spectrumExportName" type="text" value="CODE_RSA_DESIGN" placeholder="例：CODE_RSA_DESIGN">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>圖表週期上限 T<sub>plot</sub> (sec)</label>
+            <div class="compact-pair">
+              <select id="spectrumPlotRangeMode">
+                <option value="auto" selected>自動建議</option>
+                <option value="2">固定 2 sec</option>
+                <option value="3">固定 3 sec</option>
+                <option value="4">固定 4 sec</option>
+                <option value="custom">自訂</option>
+              </select>
+              <input id="spectrumPlotTmaxCustom" type="number" placeholder="自訂秒數" step="0.5" min="0.5">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>匯出週期上限 T<sub>export</sub> (sec)</label>
+            <input id="spectrumExportTmax" type="number" value="4" step="0.5" min="0.5">
+          </div>
+        </div>
+        <div class="export-actions">
+          <button class="btn-secondary" id="btnExportSpectrumCsv" type="button">匯出反應譜 CSV</button>
+          <button class="btn-secondary" id="btnExportSpectrumJson" type="button">匯出反應譜 JSON</button>
+          <button class="btn-secondary" id="btnExportModelCheckJson" type="button">匯出檢核表 JSON</button>
+        </div>
+        <div class="note" style="margin-top:10px;">
+          圖表範圍只影響畫面顯示；匯出範圍另由 T<sub>export</sub> 控制。CSV 採純欄位表格：週期、採用設計輸入譜、中小度下限譜、最大考量地震輸入譜，可依軟體需求貼入或再篩選欄位。
+        </div>
+
+        <h3 style="margin-top:16px;">動力模型檢核資料</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label>模態數</label>
+            <input id="modelModeCount" type="number" value="25" step="1" min="1">
+          </div>
+          <div class="form-group">
+            <label>振態疊加方法</label>
+            <select id="modalCombination">
+              <option value="CQC" selected>CQC</option>
+              <option value="SRSS">SRSS</option>
+              <option value="CQC/SRSS">CQC / SRSS 混合或分案</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>X / Y 向有效質量參與率 (%)</label>
+            <div class="compact-pair">
+              <input id="massParticipationX" type="number" value="90" step="0.1" min="0" max="100">
+              <input id="massParticipationY" type="number" value="90" step="0.1" min="0" max="100">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>扭轉有效質量參與率 (%)</label>
+            <input id="massParticipationRz" type="number" value="90" step="0.1" min="0" max="100">
+          </div>
+        </div>
+        <div class="checklist-grid">
+          <div class="check-row">
+            <label>有效質量和達 90%<small>對應規範第 3.5 節 X、Y、扭轉方向有效質量和要求。</small></label>
+            <input id="checkMassParticipation" type="checkbox" checked>
+          </div>
+          <div class="check-row">
+            <label>CQC / SRSS 使用原則已確認<small>週期相近宜採 CQC；週期不甚相近可採 SRSS。</small></label>
+            <input id="checkModalCombination" type="checkbox" checked>
+          </div>
+          <div class="check-row">
+            <label>扭轉偶然偏心已納入模型或載重組合<small>供模型設定與審查紀錄，不由本頁自動生成載重組合。</small></label>
+            <input id="checkAccidentalTorsion" type="checkbox">
+          </div>
+          <div class="check-row">
+            <label>樓層剪力 / 反應結果已依總橫力調整<small>確認模型輸出已按第 3.3 節縮放後再進行構件設計。</small></label>
+            <input id="checkStoryShearScale" type="checkbox">
+          </div>
+          <div class="check-row">
+            <label>地震輸入方向與不規則性已確認<small>建築物甚不規則時，應評估多個地震輸入角度。</small></label>
+            <input id="checkDirectionAngle" type="checkbox">
+          </div>
+          <div class="check-row">
+            <label>計算書包含動力模型檢核表<small>取消勾選時，畫面與案件 JSON 仍保留檢核資料，但列印計算書不輸出此表。</small></label>
+            <input id="printModelCheckSection" type="checkbox" checked>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;">
+          <label>模型檢核備註</label>
+          <input id="modelCheckNote" type="text" placeholder="例：X/Y/Rz 有效質量均超過 90%，樓層剪力已依採用倍率縮放">
         </div>
       </div>
     </div>
@@ -217,19 +469,31 @@
         <div id="summaryGrid" class="mini-grid"></div>
       </div>
       <div class="card">
-        <h2>設計譜參考</h2>
+        <h2>總橫力調整檢核</h2>
+        <div id="designActionPanel" class="decision-panel"></div>
+      </div>
+      <div class="card">
+        <h2>反應譜係數參考</h2>
         <div id="spectrumRefGrid" class="mini-grid"></div>
       </div>
       <div class="card">
-        <h2>動力參數與反應譜</h2>
+        <h2>規範反應譜輸出表</h2>
+        <div id="codeSpectrumPanel" class="spectrum-panel"></div>
+      </div>
+      <div class="card">
+        <h2>反應譜圖形化檢核</h2>
         <div class="canvas-wrap" style="min-height:280px;">
           <canvas id="dynamicSpectrumChart"></canvas>
         </div>
         <div class="legend" id="dynamicSpectrumLegend"></div>
       </div>
       <div class="card">
-        <h2>等值靜力 / 動力比較表</h2>
+        <h2>總橫力比對表</h2>
         <div id="compareTableWrap"></div>
+      </div>
+      <div class="card">
+        <h2>動力模型檢核表</h2>
+        <div id="modelCheckPanel" class="model-status-list"></div>
       </div>
       <div class="card">
         <h2>判讀建議</h2>
@@ -241,10 +505,11 @@
 <details class="card" id="pageScopeCard">
   <summary class="fold-summary">本頁定位與適用範圍</summary>
   <div class="note" style="margin-top:12px;">
-    本頁是「動力分析結果摘要與靜力比對」工具，用來承接外部模型分析成果，整理設計譜參數、動力基底剪力與動 / 靜比。
+    本頁是「反應譜動力分析規範整理」工具，用來承接外部模型分析成果，整理設計譜參數、動力基底剪力、總橫力調整要求與動 / 靜比。
   </div>
   <div class="hint" style="margin-top:10px;">
     適合：ETABS / SAP2000 / MIDAS 等反應譜分析結果之案件整理、送審前比對、報表化輸出。<br>
+    仍須於分析模型中確認：規範第 3.5 節有效質量和、CQC / SRSS 振態疊加方式、地震輸入方向與構件內力組合。<br>
     不適合：直接建立模型、求模態、執行反應譜分析或取代分析軟體本身。<br>
     若只需完整靜力法計算，請回 <a href="seismic-force.html">等值靜力分析</a>。
   </div>
@@ -252,10 +517,10 @@
 <details class="card" id="versionInfoCard">
   <summary class="fold-summary">版本與更新重點</summary>
   <div class="note" style="margin-top:12px;">
-    目前頁面版本為 <strong>V3</strong>，定位為動力分析成果的整理、比較與列印，而不是分析求解器本身。
+    目前頁面版本為 <strong>V3.8</strong>，定位為動力分析成果的整理、規範靜力比對、設計水平加速度反應譜工作輸出、總橫力調整判讀、案件資料匯入匯出、反應譜資料匯出、模型檢核與列印，而不是分析求解器本身。
   </div>
   <div class="hint" style="margin-top:10px;">
-    本版已完成：靜力摘要載入、案件資料銜接、DBE / MCE 反應譜繪製、Tx / Ty 設計週期標示、動 / 靜比整理與列印。<br>
+    本版已完成：靜力摘要載入、案件資料銜接、案件 JSON 匯入 / 匯出、設計地震與最大考量地震反應譜繪製、規範設計水平加速度反應譜、中小度下限譜、Tx / Ty 設計週期標示、圖表與匯出週期上限分離、總橫力調整要求、採用總橫力輸入、反應譜 CSV / JSON 匯出、動力模型檢核表、計算書檢核表顯示選項、動 / 靜比整理、縮放倍率提示與列印。<br>
     建議用法：先於模型軟體完成分析，再把 X / Y 向基底剪力與週期帶入本頁，作為報表化整理與比對。<br>
     若需要正式靜力法主算，請回 <a href="seismic-force.html">等值靜力分析</a>。
   </div>
@@ -270,11 +535,38 @@ const S = Seismic;
 const STATIC_STORAGE_KEY = 'seismic-static-summary';
 const DYNAMIC_STORAGE_KEY = 'seismic-dynamic-summary';
 const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
+const CASE_SCHEMA_VERSION = 'seismic-dynamic.case.v1';
+const TOOL_VERSION = '3.8';
 let lastDynamicResult = null;
 let dynamicSpectrumChart = null;
 
+const CASE_VALUE_FIELDS = [
+  'projName', 'projNo', 'projDesigner',
+  'zoneCity', 'zoneDist',
+  'SsD', 'S1D', 'SsM', 'S1M', 'siteInputMode', 'SsDLower', 'S1DLower',
+  'siteClass', 'impClass', 'sysX', 'sysY', 'hn', 'W',
+  'software', 'remark', 'Tx', 'Ty', 'VxDyn', 'VyDyn', 'VxAdopted', 'VyAdopted',
+  'codeT1', 'codeDamping', 'codeR', 'codeRa', 'codeAlphaY', 'codeBS', 'codeB1',
+  'baseShearFloorRatio',
+  'spectrumExportTarget', 'spectrumExportName', 'spectrumPlotRangeMode', 'spectrumPlotTmaxCustom', 'spectrumExportTmax',
+  'modelModeCount', 'modalCombination', 'massParticipationX', 'massParticipationY', 'massParticipationRz', 'modelCheckNote'
+];
+
+const CASE_CHECK_FIELDS = [
+  'checkMassParticipation',
+  'checkModalCombination',
+  'checkAccidentalTorsion',
+  'checkStoryShearScale',
+  'checkDirectionAngle',
+  'printModelCheckSection'
+];
+
 function fmt(v, d) {
   return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d);
+}
+
+function escapeHtml(text) {
+  return String(text == null ? '' : text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function getStorageJson(key) {
@@ -292,6 +584,257 @@ function setStorageJson(key, value) {
   } catch (err) {}
 }
 
+function safeFileName(text) {
+  return String(text || 'seismic-spectrum')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, '-')
+    .slice(0, 80) || 'seismic-spectrum';
+}
+
+function downloadTextFile(filename, text, mimeType) {
+  const blob = new Blob([text], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function readModelCheckInputs() {
+  const pick = id => Boolean(document.getElementById(id)?.checked);
+  return {
+    modeCount: num('modelModeCount'),
+    massX: num('massParticipationX'),
+    massY: num('massParticipationY'),
+    massRz: num('massParticipationRz'),
+    modalCombination: document.getElementById('modalCombination')?.value || 'CQC',
+    checks: {
+      massParticipation: pick('checkMassParticipation'),
+      modalCombination: pick('checkModalCombination'),
+      accidentalTorsion: pick('checkAccidentalTorsion'),
+      storyShearScale: pick('checkStoryShearScale'),
+      directionAngle: pick('checkDirectionAngle')
+    },
+    note: (document.getElementById('modelCheckNote')?.value || '').trim()
+  };
+}
+
+function normalizeModelCheck(modelCheck) {
+  const c = modelCheck || {};
+  c.checks = c.checks || {};
+  return {
+    modeCount: isFinite(c.modeCount) ? c.modeCount : null,
+    massX: isFinite(c.massX) ? c.massX : null,
+    massY: isFinite(c.massY) ? c.massY : null,
+    massRz: isFinite(c.massRz) ? c.massRz : null,
+    modalCombination: c.modalCombination || 'CQC',
+    checks: {
+      massParticipation: Boolean(c.checks.massParticipation),
+      modalCombination: Boolean(c.checks.modalCombination),
+      accidentalTorsion: Boolean(c.checks.accidentalTorsion),
+      storyShearScale: Boolean(c.checks.storyShearScale),
+      directionAngle: Boolean(c.checks.directionAngle)
+    },
+    note: c.note || ''
+  };
+}
+
+function evaluateModelCheck(modelCheck) {
+  const c = normalizeModelCheck(modelCheck);
+  const massOk = [c.massX, c.massY, c.massRz].every(v => isFinite(v) && v >= 90) && c.checks.massParticipation;
+  return [
+    {
+      key: 'mass',
+      label: '有效質量和',
+      detail: `X=${fmt(c.massX,1)}%，Y=${fmt(c.massY,1)}%，Rz=${fmt(c.massRz,1)}%，模態數=${fmt(c.modeCount,0)}`,
+      status: massOk ? 'pass' : 'warn',
+      text: massOk ? '滿足' : '待確認'
+    },
+    {
+      key: 'combination',
+      label: '振態疊加方法',
+      detail: `採用 ${c.modalCombination}；週期相近時宜確認 CQC，週期不甚相近可採 SRSS。`,
+      status: c.checks.modalCombination ? 'pass' : 'pending',
+      text: c.checks.modalCombination ? '已確認' : '待確認'
+    },
+    {
+      key: 'torsion',
+      label: '扭轉偶然偏心',
+      detail: '確認模型或載重組合是否已納入案件要求之偶然偏心。',
+      status: c.checks.accidentalTorsion ? 'pass' : 'pending',
+      text: c.checks.accidentalTorsion ? '已納入' : '待確認'
+    },
+    {
+      key: 'storyShear',
+      label: '樓層剪力縮放',
+      detail: '確認樓層剪力、構件內力與設計輸出是否已依總橫力調整後採用。',
+      status: c.checks.storyShearScale ? 'pass' : 'pending',
+      text: c.checks.storyShearScale ? '已確認' : '待確認'
+    },
+    {
+      key: 'direction',
+      label: '地震輸入方向',
+      detail: '不規則建築物宜確認多角度輸入或方向組合是否符合案件設定。',
+      status: c.checks.directionAngle ? 'pass' : 'pending',
+      text: c.checks.directionAngle ? '已確認' : '待確認'
+    }
+  ];
+}
+
+function renderModelCheckPanel(modelCheck) {
+  const items = evaluateModelCheck(modelCheck);
+  const note = modelCheck?.note ? `<div class="decision-note">備註：${escapeHtml(modelCheck.note)}</div>` : '';
+  return `
+    ${items.map(item => `
+      <div class="model-status-item">
+        <div><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.detail)}</small></div>
+        <span class="status-pill ${item.status}">${escapeHtml(item.text)}</span>
+      </div>
+    `).join('')}
+    ${note}
+  `;
+}
+
+function buildSpectrumExportRows(result) {
+  const rows = result?.responseSpectrum?.exportRows || result?.responseSpectrum?.chartRows || [];
+  return rows.map(row => ({
+    period_sec: Number(row.T.toFixed(4)),
+    adopted_design_accel_g: Number(row.designAccel.toFixed(6)),
+    design_input_accel_g: Number(row.designAccelRaw.toFixed(6)),
+    moderate_lower_bound_accel_g: Number(row.lowerAccel.toFixed(6)),
+    max_considered_accel_g: Number(row.mceAccel.toFixed(6)),
+    SaD_g: Number(row.SaD.toFixed(6)),
+    SaM_g: Number(row.SaM.toFixed(6)),
+    control: row.control
+  }));
+}
+
+function csvEscape(value) {
+  const text = String(value == null ? '' : value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function ensureDynamicResult() {
+  calcDynamic();
+  return lastDynamicResult?.result || null;
+}
+
+function collectCaseInputs() {
+  const values = {};
+  CASE_VALUE_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    values[id] = el.value;
+  });
+  const checks = {};
+  CASE_CHECK_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    checks[id] = Boolean(el.checked);
+  });
+  return { values, checks };
+}
+
+function applyCaseInputs(inputs) {
+  if (!inputs?.values) return;
+  const values = inputs.values || {};
+  const checks = inputs.checks || {};
+  const citySel = document.getElementById('zoneCity');
+  const distSel = document.getElementById('zoneDist');
+  if (citySel && values.zoneCity != null) {
+    citySel.value = values.zoneCity;
+    citySel.dispatchEvent(new Event('change'));
+  }
+  if (distSel && values.zoneDist != null) {
+    distSel.value = values.zoneDist;
+    distSel.dispatchEvent(new Event('change'));
+  }
+  CASE_VALUE_FIELDS.forEach(id => {
+    if (id === 'zoneCity' || id === 'zoneDist') return;
+    const el = document.getElementById(id);
+    if (!el || values[id] == null) return;
+    el.value = values[id];
+  });
+  CASE_CHECK_FIELDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || checks[id] == null) return;
+    el.checked = Boolean(checks[id]);
+  });
+  saveProjectInfo();
+}
+
+function buildCasePayload() {
+  if (!lastDynamicResult) {
+    try { calcDynamic(); } catch (err) {}
+  }
+  return {
+    schemaVersion: CASE_SCHEMA_VERSION,
+    toolVersion: TOOL_VERSION,
+    exportedAt: new Date().toISOString(),
+    project: getProjectInfo(),
+    inputs: collectCaseInputs(),
+    result: lastDynamicResult?.result || null
+  };
+}
+
+function exportCaseJson() {
+  const payload = buildCasePayload();
+  const base = payload.project.no || payload.project.name || 'seismic-dynamic-case';
+  downloadTextFile(`${safeFileName(base)}-case.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+}
+
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (!payload?.schemaVersion || !payload.schemaVersion.startsWith('seismic-dynamic.case.')) {
+        alert('這不是本頁支援的動力分析案件 JSON。');
+        return;
+      }
+      applyCaseInputs(payload.inputs);
+      lastDynamicResult = null;
+      calcDynamic();
+      document.getElementById('staticImportStatus').innerHTML = `已匯入案件 JSON：${escapeHtml(file.name)}。`;
+    } catch (err) {
+      alert(`案件 JSON 讀取失敗：${err.message}`);
+    } finally {
+      const input = document.getElementById('caseJsonFile');
+      if (input) input.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetCaseDefaults() {
+  if (!confirm('確定要恢復本頁預設值？目前暫存的案件資料會清除。')) return;
+  try {
+    localStorage.removeItem(DYNAMIC_STORAGE_KEY);
+    localStorage.removeItem(PROJECT_INFO_STORAGE_KEY);
+  } catch (err) {}
+  window.location.reload();
+}
+
+function roundUpToHalf(value) {
+  return Math.ceil(value * 2) / 2;
+}
+
+function readSpectrumRangeInputs() {
+  const plotMode = document.getElementById('spectrumPlotRangeMode')?.value || 'auto';
+  const customPlotTmax = num('spectrumPlotTmaxCustom');
+  const exportTmax = num('spectrumExportTmax');
+  return {
+    plotMode,
+    customPlotTmax: isFinite(customPlotTmax) && customPlotTmax > 0 ? customPlotTmax : null,
+    exportTmax: isFinite(exportTmax) && exportTmax > 0 ? exportTmax : 4
+  };
+}
+
 function restoreProjectInfo() {
   const saved = getStorageJson(PROJECT_INFO_STORAGE_KEY);
   if (!saved) return;
@@ -302,6 +845,180 @@ function restoreProjectInfo() {
 
 function saveProjectInfo() {
   setStorageJson(PROJECT_INFO_STORAGE_KEY, getProjectInfo());
+}
+
+function num(id) {
+  return parseFloat(document.getElementById(id)?.value);
+}
+
+function resolveSpectrumSite(mode, siteClass, SsD, S1D, SsM, S1M) {
+  if (mode === 'direct') {
+    return {
+      FaD: 1,
+      FvD: 1,
+      FaM: 1,
+      FvM: 1,
+      SDS: SsD,
+      SD1: S1D,
+      SMS: SsM,
+      SM1: S1M,
+      mode: 'direct',
+      modeLabel: '直接採用輸入譜值'
+    };
+  }
+  return {
+    ...S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M),
+    mode: 'zone',
+    modeLabel: '震區係數經 Fa / Fv 放大'
+  };
+}
+
+function calcSpectrumSa(T, Sshort, Sone, BS, B1) {
+  const shortCoeff = Sshort / BS;
+  const oneSecCoeff = Sone / B1;
+  const To = oneSecCoeff / shortCoeff;
+  if (T <= 0.2 * To) return shortCoeff * (0.4 + 3.0 * T / To);
+  if (T <= To) return shortCoeff;
+  if (T <= 2.5 * To) return oneSecCoeff / T;
+  return Math.max(0.4 * shortCoeff, oneSecCoeff / T);
+}
+
+function buildPreviewPeriods(ToD, ToLower, ToM, T1) {
+  const values = [0, 0.2 * ToD, T1, ToD, 2.5 * ToD, 0.2 * ToLower, ToLower, 2.5 * ToLower, 0.2 * ToM, ToM, 2.5 * ToM, 4];
+  return Array.from(new Set(values.filter(v => isFinite(v) && v >= 0).map(v => Number(v.toFixed(4))))).sort((a, b) => a - b);
+}
+
+function buildChartPeriods(Tmax, steps = 100) {
+  const limit = Math.max(0.5, Tmax || 0);
+  const rows = [];
+  for (let i = 0; i <= steps; i += 1) rows.push(limit * i / steps);
+  return rows;
+}
+
+function resolveSpectrumRanges(p, ToD, ToLower, ToM) {
+  const controllingPeriod = Math.max(p.Tx || 0, p.Ty || 0, p.T1 || 0);
+  const controlTmax = Math.max(2.5 * ToD, 2.5 * ToLower, 2.5 * ToM, 1.5 * controllingPeriod);
+  const recommendedPlotTmax = Math.min(4, Math.max(2, roundUpToHalf(controlTmax)));
+  let plotTmax = recommendedPlotTmax;
+  if (p.range?.plotMode === 'custom') plotTmax = p.range.customPlotTmax || recommendedPlotTmax;
+  if (['2', '3', '4'].includes(p.range?.plotMode)) plotTmax = Number(p.range.plotMode);
+  plotTmax = Math.max(0.5, plotTmax);
+  const exportTmax = Math.max(0.5, p.range?.exportTmax || 4);
+  return {
+    plotMode: p.range?.plotMode || 'auto',
+    recommendedPlotTmax,
+    plotTmax,
+    exportTmax,
+    controllingPeriod,
+    controlTmax,
+    isPlotShort: plotTmax < 1.5 * controllingPeriod
+  };
+}
+
+function buildCodeResponseSpectrum(p) {
+  const ToD = (p.site.SD1 * p.BS) / (p.site.SDS * p.B1);
+  const ToLower = (p.lowerSite.SD1 * p.BS) / (p.lowerSite.SDS * p.B1);
+  const ToM = (p.site.SM1 * p.BS) / (p.site.SMS * p.B1);
+  const SaD_T1 = calcSpectrumSa(p.T1, p.site.SDS, p.site.SD1, p.BS, p.B1);
+  const SaM_T1 = calcSpectrumSa(p.T1, p.site.SMS, p.site.SM1, p.BS, p.B1);
+  const Fu = S.calcFu(p.Ra, p.T1, ToD);
+  const FuM = S.calcFuM(p.R, p.T1, ToM);
+  const SaFuM = S.calcSaFuM(SaD_T1 / Fu);
+  const SaMFuMM = S.calcSaFuM(SaM_T1 / FuM);
+  const designFactor = p.I / (1.4 * p.alphaY * SaD_T1) * SaFuM;
+  const lowerFactor = p.I * Fu / (4.2 * p.alphaY * SaD_T1) * SaFuM;
+  const mceFactor = p.I / (1.4 * p.alphaY * SaM_T1) * SaMFuMM;
+  const ranges = resolveSpectrumRanges(p, ToD, ToLower, ToM);
+
+  function row(T) {
+    const SaD = calcSpectrumSa(T, p.site.SDS, p.site.SD1, p.BS, p.B1);
+    const SaLower = calcSpectrumSa(T, p.lowerSite.SDS, p.lowerSite.SD1, p.BS, p.B1);
+    const SaM = calcSpectrumSa(T, p.site.SMS, p.site.SM1, p.BS, p.B1);
+    const designAccelRaw = SaD * designFactor;
+    const lowerAccel = SaLower * lowerFactor;
+    const designAccel = Math.max(designAccelRaw, lowerAccel);
+    const mceAccel = SaM * mceFactor;
+    return {
+      T,
+      SaD,
+      SaLower,
+      SaM,
+      designAccelRaw,
+      lowerAccel,
+      designAccel,
+      mceAccel,
+      control: lowerAccel > designAccelRaw ? '中小度下限' : '設計地震'
+    };
+  }
+
+  const previewRows = buildPreviewPeriods(ToD, ToLower, ToM, p.T1).map(row);
+  const chartRows = buildChartPeriods(ranges.plotTmax).map(row);
+  const exportRows = buildChartPeriods(ranges.exportTmax, Math.max(100, Math.ceil(ranges.exportTmax * 25))).map(row);
+  const t1Row = row(p.T1);
+  const peakRows = exportRows.length ? exportRows : chartRows;
+  const peakBy = prop => peakRows.reduce((best, current) => current[prop] > best[prop] ? current : best, peakRows[0] || t1Row);
+  const lowerControlCount = peakRows.filter(item => item.control === '中小度下限').length;
+  return {
+    params: {
+      siteInputMode: p.siteInputMode,
+      siteModeLabel: p.site.modeLabel,
+      I: p.I,
+      R: p.R,
+      Ra: p.Ra,
+      alphaY: p.alphaY,
+      T1: p.T1,
+      damping: p.damping,
+      BS: p.BS,
+      B1: p.B1
+    },
+    site: {
+      SDS: p.site.SDS,
+      SD1: p.site.SD1,
+      SMS: p.site.SMS,
+      SM1: p.site.SM1,
+      lowerSDS: p.lowerSite.SDS,
+      lowerSD1: p.lowerSite.SD1
+    },
+    basis: { ToD, ToLower, ToM, SaD_T1, SaM_T1, Fu, FuM, SaFuM, SaMFuMM, designFactor, lowerFactor, mceFactor },
+    ranges,
+    summary: {
+      t1: t1Row,
+      adoptedPeak: peakBy('designAccel'),
+      lowerPeak: peakBy('lowerAccel'),
+      mcePeak: peakBy('mceAccel'),
+      lowerControlCount,
+      lowerControlShare: peakRows.length ? lowerControlCount / peakRows.length : 0
+    },
+    previewRows,
+    chartRows,
+    exportRows
+  };
+}
+
+function readCodeSpectrumInputs(base) {
+  const lowerSsD = num('SsDLower');
+  const lowerS1D = num('S1DLower');
+  const p = {
+    siteInputMode: document.getElementById('siteInputMode').value,
+    I: base.I,
+    site: resolveSpectrumSite(document.getElementById('siteInputMode').value, base.siteClass, base.SsD, base.S1D, base.SsM, base.S1M),
+    lowerSite: resolveSpectrumSite(document.getElementById('siteInputMode').value, base.siteClass, lowerSsD || base.SsD, lowerS1D || base.S1D, base.SsM, base.S1M),
+    R: num('codeR'),
+    Ra: num('codeRa'),
+    alphaY: num('codeAlphaY'),
+    T1: num('codeT1'),
+    damping: num('codeDamping'),
+    BS: num('codeBS'),
+    B1: num('codeB1'),
+    Tx: base.Tx,
+    Ty: base.Ty,
+    range: readSpectrumRangeInputs()
+  };
+  if (![p.I, p.site.SDS, p.site.SD1, p.site.SMS, p.site.SM1, p.lowerSite.SDS, p.lowerSite.SD1, p.R, p.Ra, p.alphaY, p.T1, p.damping, p.BS, p.B1].every(v => isFinite(v) && v > 0)) {
+    alert('請完整填入有效的規範反應譜參數。');
+    return null;
+  }
+  return p;
 }
 
 function initSelects() {
@@ -357,6 +1074,9 @@ function initZoneLookup() {
     document.getElementById('S1D').value = d[1];
     document.getElementById('SsM').value = d[2];
     document.getElementById('S1M').value = d[3];
+    document.getElementById('SsDLower').value = d[0];
+    document.getElementById('S1DLower').value = d[1];
+    document.getElementById('siteInputMode').value = 'zone';
     hintEl.innerHTML = `<b>${city} ${dist}</b>　SsD=${d[0]}, S1D=${d[1]}, SsM=${d[2]}, S1M=${d[3]}`;
   });
 }
@@ -370,9 +1090,9 @@ function getProjectInfo() {
   };
 }
 
-function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tdyna) {
+function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tdyna, siteInputMode) {
   const sys = S.SYSTEMS[systemKey] || S.SYSTEMS.OTHER;
-  const site = S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M);
+  const site = resolveSpectrumSite(siteInputMode, siteClass, SsD, S1D, SsM, S1M);
   const to = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
   const Tcode = S.calcPeriod(systemKey, hn);
   const Tdesign = S.calcTdesign(Tcode, Tdyna, 1.4);
@@ -392,7 +1112,7 @@ function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, If
 }
 
 function buildSpectrumSeries(site, Tmax) {
-  const limit = Math.max(2.5, Tmax * 1.35);
+  const limit = Math.max(0.5, Tmax || 0);
   const points = [];
   const steps = 120;
   for (let i = 0; i <= steps; i++) {
@@ -410,22 +1130,28 @@ function renderSpectrumChart(result) {
   const canvas = document.getElementById('dynamicSpectrumChart');
   const legend = document.getElementById('dynamicSpectrumLegend');
   if (!canvas || !result?.site || typeof Chart === 'undefined') return;
-  const Tmax = Math.max(result.x?.period || 0, result.y?.period || 0, result.site?.ToM || 0.8);
+  const Tmax = result.responseSpectrum?.ranges?.plotTmax || Math.max(result.x?.period || 0, result.y?.period || 0, result.site?.ToM || 0.8);
   const points = buildSpectrumSeries(result.site, Tmax);
+  const codeRows = result.responseSpectrum?.chartRows || [];
   const tx = result.x?.period || 0;
   const ty = result.y?.period || 0;
   const txSa = result.site?.SaDx || 0;
   const tySa = result.site?.SaDy || 0;
-  const maxSa = Math.max(...points.map(p => Math.max(p.dbe, p.mce)), txSa, tySa);
+  const maxSa = Math.max(
+    ...points.map(p => Math.max(p.dbe, p.mce)),
+    ...codeRows.map(p => Math.max(p.designAccel, p.lowerAccel, p.mceAccel)),
+    txSa,
+    tySa
+  );
   if (dynamicSpectrumChart) dynamicSpectrumChart.destroy();
   dynamicSpectrumChart = new Chart(canvas, {
     type: 'line',
     data: {
-      labels: points.map(p => p.T),
       datasets: [
         {
-          label: 'DBE 譜 SaD(T)',
-          data: points.map(p => p.dbe),
+          label: '設計地震反應譜 SaD(T)',
+          data: points.map(p => ({ x: p.T, y: p.dbe })),
+          parsing: false,
           borderColor: '#0f766e',
           backgroundColor: 'rgba(15,118,110,0.08)',
           borderWidth: 2,
@@ -433,8 +1159,9 @@ function renderSpectrumChart(result) {
           tension: 0.1
         },
         {
-          label: 'MCE 譜 SaM(T)',
-          data: points.map(p => p.mce),
+          label: '最大考量地震反應譜 SaM(T)',
+          data: points.map(p => ({ x: p.T, y: p.mce })),
+          parsing: false,
           borderColor: '#1d4ed8',
           backgroundColor: 'rgba(29,78,216,0.08)',
           borderDash: [8, 4],
@@ -443,7 +1170,39 @@ function renderSpectrumChart(result) {
           tension: 0.1
         },
         {
-          label: 'Tx',
+          label: '採用設計輸入譜 Accel./g',
+          data: codeRows.map(p => ({ x: p.T, y: p.designAccel })),
+          parsing: false,
+          borderColor: '#b45309',
+          backgroundColor: 'rgba(245,158,11,0.10)',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.1
+        },
+        {
+          label: '中小度下限譜 Accel./g',
+          data: codeRows.map(p => ({ x: p.T, y: p.lowerAccel })),
+          parsing: false,
+          borderColor: '#64748b',
+          backgroundColor: 'rgba(100,116,139,0.08)',
+          borderWidth: 1.8,
+          borderDash: [2, 5],
+          pointRadius: 0,
+          tension: 0.1
+        },
+        {
+          label: '最大考量地震輸入譜 Accel./g',
+          data: codeRows.map(p => ({ x: p.T, y: p.mceAccel })),
+          parsing: false,
+          borderColor: '#be123c',
+          backgroundColor: 'rgba(225,29,72,0.10)',
+          borderWidth: 2,
+          borderDash: [3, 4],
+          pointRadius: 0,
+          tension: 0.1
+        },
+        {
+          label: 'Tx 設計週期',
           data: [{ x: tx, y: txSa }],
           parsing: false,
           borderColor: '#b45309',
@@ -453,7 +1212,7 @@ function renderSpectrumChart(result) {
           showLine: false
         },
         {
-          label: 'Tx 位置',
+          label: 'Tx 週期位置',
           data: [{ x: tx, y: 0 }, { x: tx, y: maxSa }],
           parsing: false,
           borderColor: 'rgba(180,83,9,0.55)',
@@ -463,7 +1222,7 @@ function renderSpectrumChart(result) {
           fill: false
         },
         {
-          label: 'Ty',
+          label: 'Ty 設計週期',
           data: [{ x: ty, y: tySa }],
           parsing: false,
           borderColor: '#7c3aed',
@@ -473,7 +1232,7 @@ function renderSpectrumChart(result) {
           showLine: false
         },
         {
-          label: 'Ty 位置',
+          label: 'Ty 週期位置',
           data: [{ x: ty, y: 0 }, { x: ty, y: maxSa }],
           parsing: false,
           borderColor: 'rgba(124,58,237,0.55)',
@@ -495,7 +1254,7 @@ function renderSpectrumChart(result) {
           min: 0
         },
         y: {
-          title: { display: true, text: '譜加速度 Sa(T) (g)' },
+          title: { display: true, text: 'Sa / Accel. (g)' },
           min: 0
         }
       },
@@ -506,29 +1265,151 @@ function renderSpectrumChart(result) {
             label(ctx) {
               const val = ctx.parsed?.y;
               const xVal = ctx.parsed?.x ?? ctx.label;
-              return `${ctx.dataset.label}: T=${fmt(xVal,3)} sec, Sa=${fmt(val,3)} g`;
+              return `${ctx.dataset.label}: T=${fmt(xVal,3)} sec, 譜值=${fmt(val,3)} g`;
             }
           }
         }
       }
     }
   });
-  legend.innerHTML = `DBE / MCE 反應譜已依本頁工址條件繪製；圖中虛線分別標示設計週期位置。X 向主模態週期 T<sub>x</sub> = <b>${fmt(tx,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(txSa,3)}</b> g；Y 向主模態週期 T<sub>y</sub> = <b>${fmt(ty,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(tySa,3)}</b> g。`;
+  const ranges = result.responseSpectrum?.ranges || {};
+  legend.innerHTML = `圖中依工址條件繪出設計地震反應譜、最大考量地震反應譜，以及依規範第 3.2 節換算之分析輸入譜；中小度下限譜以灰色虛線表示，用來判斷採用設計輸入譜是否由下限控制。圖表週期上限 T<sub>plot</sub> = <b>${fmt(ranges.plotTmax,1)}</b> sec，匯出週期上限 T<sub>export</sub> = <b>${fmt(ranges.exportTmax,1)}</b> sec。X 向主模態週期 T<sub>x</sub> = <b>${fmt(tx,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(txSa,3)}</b> g；Y 向主模態週期 T<sub>y</sub> = <b>${fmt(ty,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(tySa,3)}</b> g。${ranges.isPlotShort ? '<br><strong>提醒：</strong>目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍再判讀。' : ''}`;
 }
 
-function buildDirectionResult(dir, dynBaseShear, staticRef, staticImported) {
-  const ref = staticImported?.Vdesign || staticRef.Vdesign;
+function buildDirectionResult(dir, dynBaseShear, adoptedInput, staticRef, staticImported, floorRatio = 1, floorLabel = '') {
+  const staticFull = staticImported?.Vdesign || staticRef.Vdesign;
+  const ref = staticFull * floorRatio;
   const ratio = ref > 0 ? dynBaseShear / ref : null;
+  const adoptedShear = isFinite(adoptedInput) && adoptedInput > 0 ? adoptedInput : null;
   return {
     dir,
     baseShear: dynBaseShear,
+    adoptedShear,
     ratio,
     staticRef,
     staticImported,
+    staticFull,
     adoptedStatic: ref,
-      adoptedStaticText: staticImported ? '沿用等值靜力摘要' : '依本頁條件反算等值靜力結果',
-      status: ratio == null ? '—' : ratio >= 1 ? '動力不小於等值靜力結果' : '動力小於等值靜力結果'
+    floorRatio,
+    floorLabel,
+    adoptedStaticText: `${staticImported ? '沿用等值靜力摘要' : '依本頁條件反算等值靜力結果'}，調整比例 ${fmt(floorRatio * 100, 0)}%`,
+    status: ratio == null ? '—' : ratio >= 1 ? '動力不小於總橫力調整要求' : '動力小於總橫力調整要求'
   };
+}
+
+function buildDesignAction(dir, directionResult) {
+  const dyn = Number(directionResult?.baseShear || 0);
+  const stat = Number(directionResult?.staticRef || 0);
+  const staticFull = Number(directionResult?.staticFull || stat);
+  const floorRatio = Number(directionResult?.floorRatio || 1);
+  const ratio = stat > 0 ? dyn / stat : null;
+  const requiredScale = dyn > 0 && stat > 0 ? stat / dyn : null;
+  const adoptedShear = isFinite(directionResult?.adoptedShear) && directionResult.adoptedShear > 0 ? Number(directionResult.adoptedShear) : null;
+  const adoptedScale = adoptedShear != null && dyn > 0 ? adoptedShear / dyn : null;
+  const hasAdopted = adoptedShear != null;
+  const adoptedPass = hasAdopted && adoptedShear >= stat;
+  const needsScale = ratio != null && ratio < 1;
+  return {
+    dir,
+    dyn,
+    stat,
+    staticFull,
+    floorRatio,
+    ratio,
+    needsScale,
+    requiredScale,
+    scaleFactor: requiredScale,
+    hasAdopted,
+    adoptedShear,
+    adoptedScale,
+    adoptedPass,
+    status: !hasAdopted
+      ? '尚未輸入採用總橫力，僅列示規範調整要求。'
+      : adoptedPass
+        ? '輸入採用總橫力已滿足第 3.3 節調整要求。'
+        : '輸入採用總橫力低於第 3.3 節調整要求，需提高或重新縮放。'
+  };
+}
+
+function buildDesignActions(result) {
+  return [
+    buildDesignAction('X', result.x),
+    buildDesignAction('Y', result.y)
+  ];
+}
+
+function renderDesignActionCards(actions) {
+  return `
+    <div class="decision-grid">
+      ${actions.map(action => `
+        <div class="decision-card ${!action.hasAdopted ? 'pending' : action.adoptedPass ? 'ok' : 'warn'}">
+          <strong>${action.dir} 向工作輸出</strong>
+          <div class="decision-line"><span>等值靜力結果</span><span>${fmt(action.staticFull, 2)} tf</span></div>
+          <div class="decision-line"><span>調整要求</span><span>${fmt(action.stat, 2)} tf (${fmt(action.floorRatio * 100, 0)}%)</span></div>
+          <div class="decision-line"><span>最低縮放倍率</span><span>${fmt(action.requiredScale, 2)}</span></div>
+          <div class="decision-line"><span>輸入採用總橫力</span><span>${action.hasAdopted ? `${fmt(action.adoptedShear, 2)} tf` : '未輸入'}</span></div>
+          <div class="decision-line"><span>採用縮放倍率</span><span>${fmt(action.adoptedScale, 2)}</span></div>
+          <div class="decision-line"><span>判讀</span><span>${!action.hasAdopted ? '待輸入' : action.adoptedPass ? '滿足' : '不足'}</span></div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="decision-note">
+      依規範第 3.3 節精神，動力分析所得總橫力需與等值靜力分析結果之規定比例比對；本區列出最低縮放倍率，並檢核工程師輸入之採用總橫力。
+      正式採用仍需確認建築物規則性、模型軟體輸出、方向組合與案件審查要求。
+    </div>
+  `;
+}
+
+function renderCodeSpectrumPanel(spectrum) {
+  if (!spectrum) {
+    return '<div class="spectrum-note">尚未建立規範反應譜資料；請重新整理動力摘要。</div>';
+  }
+  const b = spectrum.basis;
+  const p = spectrum.params;
+  const s = spectrum.summary || {};
+  const ranges = spectrum.ranges || {};
+  const rows = spectrum.previewRows.slice(0, 12);
+  return `
+    <div class="mini-grid">
+      <div class="mini-card"><span class="label">設計譜值來源</span><span class="value">${p.siteModeLabel}</span></div>
+      <div class="mini-card"><span class="label">T1 / ξ</span><span class="value">${fmt(p.T1,3)} sec / ${fmt(p.damping,1)}%</span></div>
+      <div class="mini-card"><span class="label">R / Ra / αy</span><span class="value">${fmt(p.R,2)} / ${fmt(p.Ra,4)} / ${fmt(p.alphaY,2)}</span></div>
+      <div class="mini-card"><span class="label">ToD / To0 / ToM</span><span class="value">${fmt(b.ToD,3)} / ${fmt(b.ToLower,3)} / ${fmt(b.ToM,3)} sec</span></div>
+      <div class="mini-card"><span class="label">Fu(T1) / FuM(T1)</span><span class="value">${fmt(b.Fu,4)} / ${fmt(b.FuM,4)}</span></div>
+      <div class="mini-card"><span class="label">SaD(T1) / SaM(T1)</span><span class="value">${fmt(b.SaD_T1,4)} / ${fmt(b.SaM_T1,4)} g</span></div>
+      <div class="mini-card"><span class="label">採用設計輸入譜峰值</span><span class="value">${fmt(s.adoptedPeak?.designAccel,4)} g @ T=${fmt(s.adoptedPeak?.T,3)}</span></div>
+      <div class="mini-card"><span class="label">最大考量地震輸入譜峰值</span><span class="value">${fmt(s.mcePeak?.mceAccel,4)} g @ T=${fmt(s.mcePeak?.T,3)}</span></div>
+      <div class="mini-card"><span class="label">T1 採用設計輸入譜</span><span class="value">${fmt(s.t1?.designAccel,4)} g</span></div>
+      <div class="mini-card"><span class="label">中小度下限控制比例</span><span class="value">${fmt((s.lowerControlShare || 0) * 100,0)}%</span></div>
+      <div class="mini-card"><span class="label">圖表 / 匯出週期上限</span><span class="value">${fmt(ranges.plotTmax,1)} / ${fmt(ranges.exportTmax,1)} sec</span></div>
+      <div class="mini-card"><span class="label">圖表範圍建議</span><span class="value">${ranges.plotMode === 'auto' ? '自動' : '手動'} ｜ 建議 ${fmt(ranges.recommendedPlotTmax,1)} sec</span></div>
+    </div>
+    <div class="spectrum-table-wrap">
+      <table class="spectrum-table">
+        <thead>
+          <tr><th>T(sec)</th><th>設計地震 SaD</th><th>設計輸入譜</th><th>中小度下限譜</th><th>採用設計輸入譜</th><th>控制</th><th>最大考量 SaM</th><th>最大考量輸入譜</th></tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td class="label">${fmt(row.T,4)}</td>
+              <td>${fmt(row.SaD,4)}</td>
+              <td>${fmt(row.designAccelRaw,4)}</td>
+              <td>${fmt(row.lowerAccel,4)}</td>
+              <td>${fmt(row.designAccel,4)}</td>
+              <td class="${row.control === '中小度下限' ? 'control-lower' : 'control-design'}">${row.control}</td>
+              <td>${fmt(row.SaM,4)}</td>
+              <td>${fmt(row.mceAccel,4)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="spectrum-note info">
+      Accel./g 依規範第 3.2 節整理：阻尼修正採 S<sub>DS</sub>/B<sub>S</sub> 與 S<sub>D1</sub>/B<sub>1</sub>；採用設計輸入譜取設計地震反應與中小度下限譜之較大值；最大考量地震輸入譜另依 S<sub>aM</sub>(T<sub>1</sub>) 與 F<sub>uM</sub>(T<sub>1</sub>) 轉換。
+      ${ranges.isPlotShort ? '<br><strong>提醒：</strong>目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍再判讀。' : ''}
+    </div>
+  `;
 }
 
 function loadStaticSummaryIntoPage() {
@@ -554,6 +1435,9 @@ function loadStaticSummaryIntoPage() {
   if (isFinite(proj.S1D)) document.getElementById('S1D').value = proj.S1D;
   if (isFinite(proj.SsM)) document.getElementById('SsM').value = proj.SsM;
   if (isFinite(proj.S1M)) document.getElementById('S1M').value = proj.S1M;
+  if (proj.siteInputMode) document.getElementById('siteInputMode').value = proj.siteInputMode;
+  if (isFinite(proj.SsDLower)) document.getElementById('SsDLower').value = proj.SsDLower;
+  if (isFinite(proj.S1DLower)) document.getElementById('S1DLower').value = proj.S1DLower;
   if (proj.siteClass) document.getElementById('siteClass').value = proj.siteClass;
   if (proj.importanceKey) document.getElementById('impClass').value = proj.importanceKey;
   if (isFinite(proj.hn)) document.getElementById('hn').value = proj.hn;
@@ -582,37 +1466,63 @@ function calcDynamic() {
   const S1D = parseFloat(document.getElementById('S1D').value);
   const SsM = parseFloat(document.getElementById('SsM').value);
   const S1M = parseFloat(document.getElementById('S1M').value);
+  const siteInputMode = document.getElementById('siteInputMode').value;
   const Tx = parseFloat(document.getElementById('Tx').value);
   const Ty = parseFloat(document.getElementById('Ty').value);
   const VxDyn = parseFloat(document.getElementById('VxDyn').value);
   const VyDyn = parseFloat(document.getElementById('VyDyn').value);
+  const VxAdopted = parseFloat(document.getElementById('VxAdopted').value);
+  const VyAdopted = parseFloat(document.getElementById('VyAdopted').value);
   const sysX = document.getElementById('sysX').value;
   const sysY = document.getElementById('sysY').value;
   const software = (document.getElementById('software').value || '').trim();
   const remark = (document.getElementById('remark').value || '').trim();
+  const modelCheck = readModelCheckInputs();
+  const floorSelect = document.getElementById('baseShearFloorRatio');
+  const baseShearFloorRatio = parseFloat(floorSelect?.value || '1') || 1;
+  const baseShearFloorLabel = floorSelect?.selectedOptions?.[0]?.textContent || '第 3.3 節總橫力調整要求';
   if (![hn, W, SsD, S1D, SsM, S1M, Tx, Ty, VxDyn, VyDyn].every(v => isFinite(v) && v > 0)) {
     alert('請完整填入有效的工址條件與動力分析結果。');
     return;
   }
+  const responseSpectrumInputs = readCodeSpectrumInputs({ I: Ifactor, siteClass, SsD, S1D, SsM, S1M, Tx, Ty });
+  if (!responseSpectrumInputs) return;
+  const responseSpectrum = buildCodeResponseSpectrum(responseSpectrumInputs);
   const imported = getStorageJson(STATIC_STORAGE_KEY);
-  const staticX = calcStaticReference(sysX, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tx);
-  const staticY = calcStaticReference(sysY, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Ty);
-  const x = buildDirectionResult('X', VxDyn, staticX, imported?.x || null);
-  const y = buildDirectionResult('Y', VyDyn, staticY, imported?.y || null);
+  const staticX = calcStaticReference(sysX, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tx, siteInputMode);
+  const staticY = calcStaticReference(sysY, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Ty, siteInputMode);
+  const x = buildDirectionResult('X', VxDyn, VxAdopted, staticX, imported?.x || null, baseShearFloorRatio, baseShearFloorLabel);
+  const y = buildDirectionResult('Y', VyDyn, VyAdopted, staticY, imported?.y || null, baseShearFloorRatio, baseShearFloorLabel);
   const notes = [];
   [x, y].forEach(item => {
     if (item.ratio != null && item.ratio < 1) {
-      notes.push(`${item.dir} 向動力基底剪力小於等值靜力結果，比值 = ${fmt(item.ratio, 2)}；請確認是否需依規範進行縮放或採用較大者。`);
+      notes.push(`${item.dir} 向動力基底剪力小於第 3.3 節總橫力調整要求，比值 = ${fmt(item.ratio, 2)}；請確認是否需依規範進行縮放。`);
     } else {
-      notes.push(`${item.dir} 向動力基底剪力不小於等值靜力結果，可作為與靜力結果對照之控制候選。`);
+      notes.push(`${item.dir} 向動力基底剪力不小於第 3.3 節總橫力調整要求。`);
     }
   });
   if (software) notes.push(`本次動力摘要來源：${software}${remark ? `，${remark}` : ''}。`);
+  notes.push(`已建立第 3.2 節反應譜輸出；設計譜值來源為「${responseSpectrum.params.siteModeLabel}」，T1 = ${fmt(responseSpectrum.params.T1, 3)} sec，圖表上限 = ${fmt(responseSpectrum.ranges.plotTmax,1)} sec，匯出上限 = ${fmt(responseSpectrum.ranges.exportTmax,1)} sec，中小度下限控制比例約 ${fmt(responseSpectrum.summary.lowerControlShare * 100, 0)}%。`);
+  if (responseSpectrum.ranges.isPlotShort) notes.push('目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍後再判讀長週期段。');
+  notes.push('依規範第 3.5 節，正式模型仍應確認 X 向、Y 向及扭轉方向有效質量和、振態疊加方法與地震輸入方向。');
   const result = {
     savedAt: new Date().toISOString(),
-    project: { ...getProjectInfo(), software, remark, source: 'dynamic' },
-    x: { baseShear: VxDyn, period: Tx, ratio: x.ratio, staticRef: x.adoptedStatic, system: staticX.sys.name },
-    y: { baseShear: VyDyn, period: Ty, ratio: y.ratio, staticRef: y.adoptedStatic, system: staticY.sys.name },
+    project: {
+      ...getProjectInfo(),
+      software,
+      remark,
+      source: 'dynamic',
+      siteInputMode,
+      SsDLower: num('SsDLower'),
+      S1DLower: num('S1DLower'),
+      baseShearFloorRatio,
+      baseShearFloorLabel,
+      spectrumRange: responseSpectrumInputs.range
+    },
+    baseShearFloorRatio,
+    baseShearFloorLabel,
+    x: { baseShear: VxDyn, adoptedShear: x.adoptedShear, period: Tx, ratio: x.ratio, staticRef: x.adoptedStatic, staticFull: x.staticFull, floorRatio: baseShearFloorRatio, system: staticX.sys.name },
+    y: { baseShear: VyDyn, adoptedShear: y.adoptedShear, period: Ty, ratio: y.ratio, staticRef: y.adoptedStatic, staticFull: y.staticFull, floorRatio: baseShearFloorRatio, system: staticY.sys.name },
     site: {
       SDS: staticX.site.SDS,
       SD1: staticX.site.SD1,
@@ -623,10 +1533,23 @@ function calcDynamic() {
       SaDx: staticX.SaD,
       SaDy: staticY.SaD,
       siteClass,
-      weight: W
+      weight: W,
+      modeLabel: staticX.site.modeLabel
     },
+    responseSpectrum,
+    modelCheck,
     notes
   };
+  result.designActions = buildDesignActions(result);
+  result.designActions.forEach(action => {
+    if (!action.hasAdopted) {
+      notes.push(`${action.dir} 向尚未輸入採用總橫力；最低縮放倍率 = ${fmt(action.requiredScale, 2)}，第 3.3 節調整要求 = ${fmt(action.stat, 2)} tf。`);
+    } else if (!action.adoptedPass) {
+      notes.push(`${action.dir} 向輸入採用總橫力 = ${fmt(action.adoptedShear, 2)} tf，採用縮放倍率 = ${fmt(action.adoptedScale, 2)}，低於第 3.3 節調整要求 ${fmt(action.stat, 2)} tf。`);
+    } else {
+      notes.push(`${action.dir} 向輸入採用總橫力 = ${fmt(action.adoptedShear, 2)} tf，採用縮放倍率 = ${fmt(action.adoptedScale, 2)}，已滿足第 3.3 節調整要求。`);
+    }
+  });
   lastDynamicResult = { result, x, y, imported };
   setStorageJson(DYNAMIC_STORAGE_KEY, result);
   renderDynamicResult();
@@ -635,26 +1558,63 @@ function calcDynamic() {
 function restoreDynamicSummary() {
   const saved = getStorageJson(DYNAMIC_STORAGE_KEY);
   if (!saved?.x || !saved?.y) return;
+  saved.designActions = saved.designActions || buildDesignActions(saved);
   if (saved.project?.name) document.getElementById('projName').value = saved.project.name;
   if (saved.project?.no) document.getElementById('projNo').value = saved.project.no;
   if (saved.project?.designer) document.getElementById('projDesigner').value = saved.project.designer;
   if (saved.project?.software) document.getElementById('software').value = saved.project.software;
   if (saved.project?.remark) document.getElementById('remark').value = saved.project.remark;
+  if (saved.project?.siteInputMode) document.getElementById('siteInputMode').value = saved.project.siteInputMode;
+  if (isFinite(saved.project?.baseShearFloorRatio)) document.getElementById('baseShearFloorRatio').value = saved.project.baseShearFloorRatio;
+  if (isFinite(saved.project?.SsDLower)) document.getElementById('SsDLower').value = saved.project.SsDLower;
+  if (isFinite(saved.project?.S1DLower)) document.getElementById('S1DLower').value = saved.project.S1DLower;
+  const savedRange = saved.project?.spectrumRange || saved.responseSpectrum?.ranges || null;
+  if (savedRange) {
+    if (savedRange.plotMode) document.getElementById('spectrumPlotRangeMode').value = savedRange.plotMode;
+    if (isFinite(savedRange.customPlotTmax)) document.getElementById('spectrumPlotTmaxCustom').value = savedRange.customPlotTmax;
+    if (isFinite(savedRange.exportTmax)) document.getElementById('spectrumExportTmax').value = savedRange.exportTmax;
+  }
+  if (saved.responseSpectrum?.params) {
+    const p = saved.responseSpectrum.params;
+    if (isFinite(p.T1)) document.getElementById('codeT1').value = p.T1;
+    if (isFinite(p.damping)) document.getElementById('codeDamping').value = p.damping;
+    if (isFinite(p.R)) document.getElementById('codeR').value = p.R;
+    if (isFinite(p.Ra)) document.getElementById('codeRa').value = p.Ra;
+    if (isFinite(p.alphaY)) document.getElementById('codeAlphaY').value = p.alphaY;
+    if (isFinite(p.BS)) document.getElementById('codeBS').value = p.BS;
+    if (isFinite(p.B1)) document.getElementById('codeB1').value = p.B1;
+  }
+  if (saved.modelCheck) {
+    const c = normalizeModelCheck(saved.modelCheck);
+    if (isFinite(c.modeCount)) document.getElementById('modelModeCount').value = c.modeCount;
+    if (isFinite(c.massX)) document.getElementById('massParticipationX').value = c.massX;
+    if (isFinite(c.massY)) document.getElementById('massParticipationY').value = c.massY;
+    if (isFinite(c.massRz)) document.getElementById('massParticipationRz').value = c.massRz;
+    document.getElementById('modalCombination').value = c.modalCombination;
+    document.getElementById('checkMassParticipation').checked = c.checks.massParticipation;
+    document.getElementById('checkModalCombination').checked = c.checks.modalCombination;
+    document.getElementById('checkAccidentalTorsion').checked = c.checks.accidentalTorsion;
+    document.getElementById('checkStoryShearScale').checked = c.checks.storyShearScale;
+    document.getElementById('checkDirectionAngle').checked = c.checks.directionAngle;
+    document.getElementById('modelCheckNote').value = c.note;
+  }
   if (isFinite(saved.x.period)) document.getElementById('Tx').value = saved.x.period;
   if (isFinite(saved.y.period)) document.getElementById('Ty').value = saved.y.period;
   if (isFinite(saved.x.baseShear)) document.getElementById('VxDyn').value = saved.x.baseShear;
   if (isFinite(saved.y.baseShear)) document.getElementById('VyDyn').value = saved.y.baseShear;
+  if (isFinite(saved.x.adoptedShear)) document.getElementById('VxAdopted').value = saved.x.adoptedShear;
+  if (isFinite(saved.y.adoptedShear)) document.getElementById('VyAdopted').value = saved.y.adoptedShear;
   lastDynamicResult = {
     result: saved,
     x: {
       ratio: saved.x.ratio,
-      status: saved.x.ratio != null && saved.x.ratio < 1 ? '動力小於等值靜力結果' : '動力不小於等值靜力結果',
+      status: saved.x.ratio != null && saved.x.ratio < 1 ? '動力小於總橫力調整要求' : '動力不小於總橫力調整要求',
       adoptedStaticText: '沿用上次摘要',
       adoptedStatic: saved.x.staticRef
     },
     y: {
       ratio: saved.y.ratio,
-      status: saved.y.ratio != null && saved.y.ratio < 1 ? '動力小於等值靜力結果' : '動力不小於等值靜力結果',
+      status: saved.y.ratio != null && saved.y.ratio < 1 ? '動力小於總橫力調整要求' : '動力不小於總橫力調整要求',
       adoptedStaticText: '沿用上次摘要',
       adoptedStatic: saved.y.staticRef
     },
@@ -666,46 +1626,64 @@ function restoreDynamicSummary() {
 function renderDynamicResult() {
   if (!lastDynamicResult) return;
   const { result, x, y } = lastDynamicResult;
+  result.x.staticFull = result.x.staticFull || result.x.staticRef;
+  result.y.staticFull = result.y.staticFull || result.y.staticRef;
+  result.x.floorRatio = result.x.floorRatio || result.baseShearFloorRatio || 1;
+  result.y.floorRatio = result.y.floorRatio || result.baseShearFloorRatio || 1;
+  result.designActions = buildDesignActions(result);
   const ratios = [x.ratio, y.ratio].filter(v => v != null);
   const minRatio = ratios.length ? Math.min(...ratios) : null;
   const banner = document.getElementById('banner');
   banner.className = `banner-status ${minRatio != null && minRatio < 1 ? 'warn' : 'ok'}`;
-  banner.innerHTML = `動力分析摘要已整理　X 向比值 = <strong>${fmt(x.ratio, 2)}</strong> ｜ Y 向比值 = <strong>${fmt(y.ratio, 2)}</strong>`;
+  banner.innerHTML = `動力分析摘要已整理　X 向動力 / 調整要求 = <strong>${fmt(x.ratio, 2)}</strong> ｜ Y 向動力 / 調整要求 = <strong>${fmt(y.ratio, 2)}</strong>`;
   document.getElementById('resultPanel').style.display = '';
   document.getElementById('summaryGrid').innerHTML = `
     <div class="mini-card"><span class="label">X 向動力基底剪力</span><span class="value">${fmt(result.x.baseShear,2)} tf</span></div>
     <div class="mini-card"><span class="label">Y 向動力基底剪力</span><span class="value">${fmt(result.y.baseShear,2)} tf</span></div>
-        <div class="mini-card"><span class="label">X 向等值靜力結果</span><span class="value">${fmt(result.x.staticRef,2)} tf</span></div>
-        <div class="mini-card"><span class="label">Y 向等值靜力結果</span><span class="value">${fmt(result.y.staticRef,2)} tf</span></div>
+    <div class="mini-card"><span class="label">X 向總橫力調整要求</span><span class="value">${fmt(result.x.staticRef,2)} tf</span></div>
+    <div class="mini-card"><span class="label">Y 向總橫力調整要求</span><span class="value">${fmt(result.y.staticRef,2)} tf</span></div>
+    <div class="mini-card"><span class="label">等值靜力結果</span><span class="value">X ${fmt(result.x.staticFull,2)} / Y ${fmt(result.y.staticFull,2)} tf</span></div>
+    <div class="mini-card"><span class="label">第 3.3 節調整比例</span><span class="value">${fmt((result.baseShearFloorRatio || result.x.floorRatio || 1) * 100,0)}%</span></div>
   `;
+  document.getElementById('designActionPanel').innerHTML = renderDesignActionCards(result.designActions);
   const site = result.site || {};
   document.getElementById('spectrumRefGrid').innerHTML = `
     <div class="mini-card"><span class="label">SDS / SD1</span><span class="value">${fmt(site.SDS,3)} / ${fmt(site.SD1,3)} g</span></div>
     <div class="mini-card"><span class="label">SMS / SM1</span><span class="value">${fmt(site.SMS,3)} / ${fmt(site.SM1,3)} g</span></div>
     <div class="mini-card"><span class="label">ToD / ToM</span><span class="value">${fmt(site.ToD,3)} / ${fmt(site.ToM,3)} sec</span></div>
     <div class="mini-card"><span class="label">SaD(Tx) / SaD(Ty)</span><span class="value">${fmt(site.SaDx,3)} / ${fmt(site.SaDy,3)} g</span></div>
+    <div class="mini-card"><span class="label">設計譜值來源</span><span class="value">${site.modeLabel || '震區係數經 Fa / Fv 放大'}</span></div>
   `;
+  document.getElementById('codeSpectrumPanel').innerHTML = renderCodeSpectrumPanel(result.responseSpectrum);
   document.getElementById('compareTableWrap').innerHTML = `
     <table class="compare-table">
       <thead>
-          <tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>動/靜比</th><th>判讀</th></tr>
+          <tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>調整要求</th><th>動力/要求</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr>
       </thead>
       <tbody>
         <tr>
           <td class="label">X 向</td>
           <td>${fmt(result.x.period,3)} sec</td>
           <td>${fmt(result.x.baseShear,2)} tf</td>
+          <td>${fmt(result.x.staticFull,2)} tf</td>
           <td>${fmt(result.x.staticRef,2)} tf</td>
           <td>${fmt(result.x.ratio,2)}</td>
-          <td>${x.status}</td>
+          <td>${fmt(result.designActions[0].requiredScale,2)}</td>
+          <td>${result.designActions[0].hasAdopted ? `${fmt(result.designActions[0].adoptedShear,2)} tf` : '未輸入'}</td>
+          <td>${fmt(result.designActions[0].adoptedScale,2)}</td>
+          <td>${result.designActions[0].status}</td>
         </tr>
         <tr>
           <td class="label">Y 向</td>
           <td>${fmt(result.y.period,3)} sec</td>
           <td>${fmt(result.y.baseShear,2)} tf</td>
+          <td>${fmt(result.y.staticFull,2)} tf</td>
           <td>${fmt(result.y.staticRef,2)} tf</td>
           <td>${fmt(result.y.ratio,2)}</td>
-          <td>${y.status}</td>
+          <td>${fmt(result.designActions[1].requiredScale,2)}</td>
+          <td>${result.designActions[1].hasAdopted ? `${fmt(result.designActions[1].adoptedShear,2)} tf` : '未輸入'}</td>
+          <td>${fmt(result.designActions[1].adoptedScale,2)}</td>
+          <td>${result.designActions[1].status}</td>
         </tr>
       </tbody>
     </table>
@@ -714,6 +1692,7 @@ function renderDynamicResult() {
       <span class="chip">Y 向參考：${y.adoptedStaticText}</span>
     </div>
   `;
+  document.getElementById('modelCheckPanel').innerHTML = renderModelCheckPanel(result.modelCheck);
   document.getElementById('noteList').innerHTML = result.notes.map(note => `<li>${note}</li>`).join('');
   renderSpectrumChart(result);
   if (window.matchMedia('(max-width: 1080px)').matches) {
@@ -725,13 +1704,24 @@ function openDynamicReport() {
   if (!lastDynamicResult) calcDynamic();
   if (!lastDynamicResult) return;
   const { result, x, y } = lastDynamicResult;
+  result.x.staticFull = result.x.staticFull || result.x.staticRef;
+  result.y.staticFull = result.y.staticFull || result.y.staticRef;
+  result.x.floorRatio = result.x.floorRatio || result.baseShearFloorRatio || 1;
+  result.y.floorRatio = result.y.floorRatio || result.baseShearFloorRatio || 1;
+  result.designActions = buildDesignActions(result);
   const proj = getProjectInfo();
   const today = new Date().toLocaleDateString('zh-TW');
   const esc = text => String(text == null ? '' : text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const codeSpectrum = result.responseSpectrum || null;
+  const codeRows = codeSpectrum?.previewRows?.slice(0, 12) || [];
+  const codeSummary = codeSpectrum?.summary || {};
+  const modelCheck = normalizeModelCheck(result.modelCheck || readModelCheckInputs());
+  const modelCheckItems = evaluateModelCheck(modelCheck);
+  const includeModelCheck = Boolean(document.getElementById('printModelCheckSection')?.checked);
   const spectrumCanvas = document.getElementById('dynamicSpectrumChart');
   const spectrumImage = spectrumCanvas ? spectrumCanvas.toDataURL('image/png') : '';
   const html = `<!doctype html>
-  <html lang="zh-TW"><head><meta charset="utf-8"><title>動力分析摘要</title>
+  <html lang="zh-TW"><head><meta charset="utf-8"><title>反應譜動力分析規範整理</title>
   <style>
     @page { size:A4 portrait; margin:18mm 14mm; }
     body { font-family:"Microsoft JhengHei","PingFang TC",sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
@@ -758,15 +1748,35 @@ function openDynamicReport() {
   <body>
     <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button></div>
     <div class="paper">
-      <h1>動力分析摘要計算書</h1>
-      <div class="sub">反應譜動力分析結果整理與靜力比對</div>
+      <h1>反應譜動力分析規範整理計算書</h1>
+      <div class="sub">依規範第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求</div>
       <div class="meta">
         <div><b>計畫名稱</b>${esc(proj.name || '—')}</div>
         <div><b>計畫編號</b>${esc(proj.no || '—')}</div>
         <div><b>設計人員</b>${esc(proj.designer || '—')}</div>
         <div><b>製表日期</b>${esc(today)}</div>
       </div>
-      <div class="summary">X 向比值 = ${esc(fmt(result.x.ratio,2))} ｜ Y 向比值 = ${esc(fmt(result.y.ratio,2))}</div>
+      <div class="summary">X 向動力 / 調整要求 = ${esc(fmt(result.x.ratio,2))} ｜ Y 向動力 / 調整要求 = ${esc(fmt(result.y.ratio,2))}</div>
+      <section class="block">
+        <h3>第 3.3 節總橫力調整檢核</h3>
+        <table>
+          <thead><tr><th>方向</th><th>等值靜力結果</th><th>調整要求</th><th>動力 / 要求</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr></thead>
+          <tbody>
+            ${result.designActions.map(action => `
+              <tr>
+                <td>${esc(action.dir)} 向</td>
+                <td>${esc(fmt(action.staticFull,2))} tf</td>
+                <td>${esc(fmt(action.stat,2))} tf (${esc(fmt(action.floorRatio * 100,0))}%)</td>
+                <td>${esc(fmt(action.ratio,2))}</td>
+                <td>${esc(fmt(action.requiredScale,2))}</td>
+                <td>${action.hasAdopted ? `${esc(fmt(action.adoptedShear,2))} tf` : '未輸入'}</td>
+                <td>${esc(fmt(action.adoptedScale,2))}</td>
+                <td>${esc(action.status)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </section>
       <section class="block">
         <h3>工址與設計譜參考</h3>
         <table>
@@ -775,24 +1785,53 @@ function openDynamicReport() {
             <tr><th class="label">SMS / SM1</th><td>${esc(fmt(result.site?.SMS,3))} / ${esc(fmt(result.site?.SM1,3))} g</td></tr>
             <tr><th class="label">ToD / ToM</th><td>${esc(fmt(result.site?.ToD,3))} / ${esc(fmt(result.site?.ToM,3))} sec</td></tr>
             <tr><th class="label">SaD(Tx) / SaD(Ty)</th><td>${esc(fmt(result.site?.SaDx,3))} / ${esc(fmt(result.site?.SaDy,3))} g</td></tr>
+            <tr><th class="label">設計譜值來源</th><td>${esc(result.site?.modeLabel || '震區係數經 Fa / Fv 放大')}</td></tr>
           </tbody>
         </table>
       </section>
       <section class="block">
-        <h3>動力參數與反應譜</h3>
+        <h3>第 3.2 節反應譜輸出表</h3>
+        <table style="margin-bottom:8px;">
+          <tbody>
+            <tr><th class="label">T1 / ξ</th><td>${esc(fmt(codeSpectrum?.params?.T1,3))} sec / ${esc(fmt(codeSpectrum?.params?.damping,1))}%</td><th class="label">R / Ra / αy</th><td>${esc(fmt(codeSpectrum?.params?.R,2))} / ${esc(fmt(codeSpectrum?.params?.Ra,4))} / ${esc(fmt(codeSpectrum?.params?.alphaY,2))}</td></tr>
+            <tr><th class="label">Fu / FuM</th><td>${esc(fmt(codeSpectrum?.basis?.Fu,4))} / ${esc(fmt(codeSpectrum?.basis?.FuM,4))}</td><th class="label">中小度下限 SDS / SD1</th><td>${esc(fmt(codeSpectrum?.site?.lowerSDS,3))} / ${esc(fmt(codeSpectrum?.site?.lowerSD1,3))} g</td></tr>
+            <tr><th class="label">採用設計輸入譜峰值</th><td>${esc(fmt(codeSummary.adoptedPeak?.designAccel,4))} g @ T=${esc(fmt(codeSummary.adoptedPeak?.T,3))}</td><th class="label">最大考量地震輸入譜峰值</th><td>${esc(fmt(codeSummary.mcePeak?.mceAccel,4))} g @ T=${esc(fmt(codeSummary.mcePeak?.T,3))}</td></tr>
+          </tbody>
+        </table>
+        <table>
+          <thead><tr><th>T(sec)</th><th>設計地震 SaD</th><th>設計輸入譜</th><th>中小度下限譜</th><th>採用設計輸入譜</th><th>控制</th><th>最大考量 SaM</th><th>最大考量輸入譜</th></tr></thead>
+          <tbody>
+            ${codeRows.map(row => `<tr><td>${esc(fmt(row.T,4))}</td><td>${esc(fmt(row.SaD,4))}</td><td>${esc(fmt(row.designAccelRaw,4))}</td><td>${esc(fmt(row.lowerAccel,4))}</td><td>${esc(fmt(row.designAccel,4))}</td><td>${esc(row.control)}</td><td>${esc(fmt(row.SaM,4))}</td><td>${esc(fmt(row.mceAccel,4))}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </section>
+      <section class="block">
+        <h3>反應譜圖形化檢核</h3>
         ${spectrumImage ? `<div style="text-align:center; margin-bottom:10px;"><img src="${spectrumImage}" alt="動力反應譜" style="max-width:100%; border:1px solid #ddd; border-radius:6px;"></div>` : ''}
         <div style="font-size:12px; color:#475569; line-height:1.8;">${document.getElementById('dynamicSpectrumLegend')?.innerHTML || ''}</div>
       </section>
       <section class="block">
-        <h3>等值靜力 / 動力比較表</h3>
+        <h3>總橫力比對表</h3>
         <table>
-        <thead><tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>動/靜比</th><th>判讀</th></tr></thead>
+        <thead><tr><th>方向</th><th>週期 T</th><th>動力基底剪力</th><th>等值靜力結果</th><th>調整要求</th><th>動力/要求</th><th>最低倍率</th><th>輸入採用總橫力</th><th>採用倍率</th><th>判讀</th></tr></thead>
           <tbody>
-            <tr><td>X 向</td><td>${esc(fmt(result.x.period,3))} sec</td><td>${esc(fmt(result.x.baseShear,2))} tf</td><td>${esc(fmt(result.x.staticRef,2))} tf</td><td>${esc(fmt(result.x.ratio,2))}</td><td>${esc(x.status)}</td></tr>
-            <tr><td>Y 向</td><td>${esc(fmt(result.y.period,3))} sec</td><td>${esc(fmt(result.y.baseShear,2))} tf</td><td>${esc(fmt(result.y.staticRef,2))} tf</td><td>${esc(fmt(result.y.ratio,2))}</td><td>${esc(y.status)}</td></tr>
+            <tr><td>X 向</td><td>${esc(fmt(result.x.period,3))} sec</td><td>${esc(fmt(result.x.baseShear,2))} tf</td><td>${esc(fmt(result.x.staticFull,2))} tf</td><td>${esc(fmt(result.x.staticRef,2))} tf</td><td>${esc(fmt(result.x.ratio,2))}</td><td>${esc(fmt(result.designActions[0].requiredScale,2))}</td><td>${result.designActions[0].hasAdopted ? `${esc(fmt(result.designActions[0].adoptedShear,2))} tf` : '未輸入'}</td><td>${esc(fmt(result.designActions[0].adoptedScale,2))}</td><td>${esc(result.designActions[0].status)}</td></tr>
+            <tr><td>Y 向</td><td>${esc(fmt(result.y.period,3))} sec</td><td>${esc(fmt(result.y.baseShear,2))} tf</td><td>${esc(fmt(result.y.staticFull,2))} tf</td><td>${esc(fmt(result.y.staticRef,2))} tf</td><td>${esc(fmt(result.y.ratio,2))}</td><td>${esc(fmt(result.designActions[1].requiredScale,2))}</td><td>${result.designActions[1].hasAdopted ? `${esc(fmt(result.designActions[1].adoptedShear,2))} tf` : '未輸入'}</td><td>${esc(fmt(result.designActions[1].adoptedScale,2))}</td><td>${esc(result.designActions[1].status)}</td></tr>
           </tbody>
         </table>
       </section>
+      ${includeModelCheck ? `
+        <section class="block">
+          <h3>動力模型檢核表</h3>
+          <table>
+            <thead><tr><th>項目</th><th>檢核內容</th><th>狀態</th></tr></thead>
+            <tbody>
+              ${modelCheckItems.map(item => `<tr><td>${esc(item.label)}</td><td class="label">${esc(item.detail)}</td><td>${esc(item.text)}</td></tr>`).join('')}
+              ${modelCheck.note ? `<tr><td>備註</td><td class="label" colspan="2">${esc(modelCheck.note)}</td></tr>` : ''}
+            </tbody>
+          </table>
+        </section>
+      ` : ''}
       <section class="block">
         <h3>備註</h3>
         <ol class="notes">${result.notes.map(note => `<li>${esc(note)}</li>`).join('')}</ol>
@@ -807,6 +1846,72 @@ function openDynamicReport() {
   w.document.open();
   w.document.write(html);
   w.document.close();
+}
+
+function exportResponseSpectrumCsv() {
+  const result = ensureDynamicResult();
+  if (!result?.responseSpectrum) return;
+  const target = document.getElementById('spectrumExportTarget')?.value || 'Generic';
+  const name = document.getElementById('spectrumExportName')?.value || 'CODE_RSA_DESIGN';
+  const rows = buildSpectrumExportRows(result);
+  const headers = [
+    'period_sec',
+    'adopted_design_accel_g',
+    'design_input_accel_g',
+    'moderate_lower_bound_accel_g',
+    'max_considered_accel_g',
+    'SaD_g',
+    'SaM_g',
+    'control'
+  ];
+  const csv = [
+    headers.join(','),
+    ...rows.map(row => headers.map(header => csvEscape(row[header])).join(','))
+  ].join('\r\n');
+  downloadTextFile(`${safeFileName(name)}-${safeFileName(target)}-spectrum.csv`, csv, 'text/csv;charset=utf-8');
+}
+
+function exportResponseSpectrumJson() {
+  const result = ensureDynamicResult();
+  if (!result?.responseSpectrum) return;
+  const target = document.getElementById('spectrumExportTarget')?.value || 'Generic';
+  const name = document.getElementById('spectrumExportName')?.value || 'CODE_RSA_DESIGN';
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    target,
+    spectrumName: name,
+    unit: 'g',
+    basis: '規範第 3.2 節反應譜輸出；週期單位 sec，加速度為 g。',
+    project: result.project || getProjectInfo(),
+    params: result.responseSpectrum.params,
+    site: result.responseSpectrum.site,
+    basisValues: result.responseSpectrum.basis,
+    ranges: result.responseSpectrum.ranges,
+    summary: result.responseSpectrum.summary,
+    rows: buildSpectrumExportRows(result)
+  };
+  downloadTextFile(`${safeFileName(name)}-${safeFileName(target)}-spectrum.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+}
+
+function exportModelCheckJson() {
+  const result = ensureDynamicResult();
+  if (!result) return;
+  const name = document.getElementById('spectrumExportName')?.value || 'dynamic-model-check';
+  const modelCheck = normalizeModelCheck(result.modelCheck || readModelCheckInputs());
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    basis: '規範第三章動力分析模型與總橫力調整自查。',
+    project: result.project || getProjectInfo(),
+    modelCheck,
+    evaluatedItems: evaluateModelCheck(modelCheck),
+    baseShear: {
+      floorRatio: result.baseShearFloorRatio,
+      floorLabel: result.baseShearFloorLabel,
+      x: result.designActions?.[0] || null,
+      y: result.designActions?.[1] || null
+    }
+  };
+  downloadTextFile(`${safeFileName(name)}-model-check.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
 }
 
 function clearDynamicSummary() {
@@ -851,6 +1956,13 @@ document.getElementById('btnClearDynamic').addEventListener('click', clearDynami
 document.getElementById('btnCalc').addEventListener('click', calcDynamic);
 document.getElementById('btnPrint').addEventListener('click', openDynamicReport);
 document.getElementById('btnReport').addEventListener('click', openDynamicReport);
+document.getElementById('btnExportSpectrumCsv').addEventListener('click', exportResponseSpectrumCsv);
+document.getElementById('btnExportSpectrumJson').addEventListener('click', exportResponseSpectrumJson);
+document.getElementById('btnExportModelCheckJson').addEventListener('click', exportModelCheckJson);
+document.getElementById('btnExportCaseJson').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCaseJson').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
+document.getElementById('caseJsonFile').addEventListener('change', event => importCaseJsonFile(event.target.files?.[0]));
 initSelects();
 initZoneLookup();
 restoreProjectInfo();

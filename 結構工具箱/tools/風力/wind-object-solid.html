@@ -1,255 +1,290 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>建築物耐風設計 — 實體標的物風力 V3.1</title>
+<title>建築物耐風設計 — 實體標示物風力 V4.0</title>
 <link rel="stylesheet" href="../../core/style.css">
 <style>
   table.zone { width:100%; border-collapse:collapse; font-size:0.84em; }
   table.zone th, table.zone td { border:1px solid var(--border); padding:6px 8px; text-align:center; font-family:'Consolas',monospace; }
   table.zone th { background:#f1f5f9; color:var(--primary); font-weight:700; font-family:inherit; }
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px; font-size:0.6em; font-weight:700; vertical-align:middle; background:#166534; color:#fff; }
+  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+  .case-actions button { border:none; border-radius:8px; padding:9px 12px; font-weight:700; cursor:pointer; background:#dcfce7; color:#166534; }
+  .case-actions button:hover { background:#bbf7d0; }
+  .case-actions .primary { background:#166534; color:#fff; }
+  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
+  .case-status:empty { display:none; }
+  .report-mode-control { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #bbf7d0; border-radius:10px; background:#f0fdf4; color:#334155; font-size:0.84em; line-height:1.6; }
+  .report-mode-label { font-weight:700; color:#166534; margin-right:2px; }
+  .mode-segment { border:1px solid #86efac; background:#fff; color:#166534; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
+  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#166534; color:#fff; border-color:#166534; box-shadow:0 4px 10px rgba(22,101,52,.18); }
+  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
+  .inline-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
+  .inline-actions .btn-calc { flex:1 1 220px; width:auto; min-height:46px; margin-top:0; justify-content:center; }
+  .form-error { display:none; margin:10px 0 0; border:1px solid #fecaca; background:#fef2f2; color:#991b1b; border-radius:9px; padding:10px 12px; font-size:0.9em; font-weight:700; line-height:1.55; }
+  .form-error.show { display:block; }
+  .cf-manual-box textarea { width:100%; min-height:76px; border:1px solid var(--border); border-radius:8px; padding:9px 10px; font:inherit; resize:vertical; box-sizing:border-box; }
+  .source-chip { display:inline-flex; align-items:center; gap:6px; padding:3px 8px; border-radius:999px; background:#dcfce7; color:#166534; font-size:0.78em; font-weight:700; }
+  .computed-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
+  .computed-item { border:1px solid #dbeafe; border-radius:9px; background:#f8fafc; padding:8px 10px; font-size:0.85em; line-height:1.55; }
+  .computed-item strong { display:block; color:#334155; font-size:0.86em; }
+  .computed-item span { font-family:'Consolas',monospace; font-weight:700; color:#166534; }
   .step { margin-bottom:14px; }
   .step-title { font-size:0.92em; font-weight:700; color:var(--primary); margin-bottom:6px; padding:5px 10px; background:#ecfeff; border-left:4px solid var(--primary); border-radius:0 6px 6px 0; }
   .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
   .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
   .step-body .val.hl { font-size:1.05em; color:#166534; }
-  .sub-panel { background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:12px; margin:10px 0; }
-  .sub-panel h3 { margin:0 0 8px; font-size:0.92em; color:var(--primary); }
+  .detail-formula { margin-top:6px; padding:6px 8px; background:#f8fafc; border-left:3px solid #94a3b8; color:#475569; font-size:0.84em; }
+  .applic-list { display:grid; gap:8px; margin-top:10px; }
+  .applic-item { border:1px solid #dbeafe; border-radius:9px; background:#f8fafc; padding:8px 10px; font-size:0.84em; line-height:1.6; }
+  .applic-ok { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .applic-warn { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .applic-fail { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .applic-label { display:block; font-weight:700; margin-bottom:2px; }
+  .schema-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
+  .schema-svg { width:100%; max-width:680px; height:auto; display:block; margin:0 auto; background:#f8fafc; border:0; border-radius:12px; }
+  #resultPanel { min-width:0; }
+  @media (max-width:768px) {
+    .computed-grid { grid-template-columns:1fr; }
+    .inline-actions { flex-direction:column; }
+    .inline-actions .btn-calc { width:100%; flex-basis:auto; }
+    .case-actions button { flex:1 1 120px; }
+  }
+  @media print {
+    header, .btn-calc, .btn-print, .back, .case-actions, .report-mode-control { display:none; }
+    .container { max-width:none; padding:0; }
+    .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>建築物耐風設計 — 實體標的物風力 <span class="badge-v">V3.1</span></h1>
-  <p>特殊標的物風力骨架 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
+  <h1>建築物耐風設計 — 實體標示物風力 <span class="badge-v">V4.0</span></h1>
+  <p>依規範表 2.10 實體標示物 Cf 路線 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
 <div class="container">
-<div class="card mode-bar print-meta">
-  <strong class="mode-bar__label">計畫資訊：</strong>
-  <div class="mode-bar__proj">
-    <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
-    <input type="text" id="projNo" class="w-no" placeholder="編號">
-    <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+  <div class="card mode-bar print-meta">
+    <strong class="mode-bar__label">計畫資訊：</strong>
+    <div class="mode-bar__proj">
+      <input id="projName" class="w-name" type="text" value="未填" placeholder="計畫名稱">
+      <input id="projNo" class="w-no" type="text" value="" placeholder="編號">
+      <input id="projDesigner" class="w-des" type="text" value="" placeholder="設計人">
+      <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+    </div>
+    <div class="report-mode-control" role="group" aria-label="計算書模式">
+      <span class="report-mode-label">計算書模式</span>
+      <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true">詳算式</button>
+      <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
+      <span class="report-mode-hint">詳算式輸出表 2.10 判定、公式與代入；簡易結果只整理條件、示意圖與控制值。</span>
+    </div>
+    <input type="hidden" id="printReportMode" value="detail">
+    <div class="case-actions">
+      <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
+      <button type="button" id="btnImportCase">匯入案件 JSON</button>
+      <button type="button" id="btnResetCase">恢復預設</button>
+      <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
+    </div>
+    <div class="case-status" id="caseStatus"></div>
   </div>
-</div>
+
 <div class="main-layout">
 <div>
   <div class="card">
-    <h2>適用範圍</h2>
+    <h2>規範路線</h2>
     <div class="note">
-      本頁用於 <strong>實體標的物 / 實心外形單體</strong> 之風力整理，採 <code>F = q(z) · G · C<sub>f</sub> · A</code> 路線。
-      適用於看板、設備罩體、實體箱體、圓柱體、球體等單體標的物。
-      專案若已有規範表列或試驗取得之 <code>Cf</code>，應直接覆寫本頁工具預設值。
+      本頁僅適用於 <strong>規範表 2.10 實體標示物</strong>：標示物開口面積小於總面積 30%，並分別以 ν 與 M/N 內插 C<sub>f</sub>，規範判定值取兩者較大者。
+      物體高度 H<sub>o</sub> 與平面斷面兩邊長 M、N 分開輸入；M/N 不得拿物體高度或支承高度代入。
+      圓柱體、球體、角柱體、煙囪、水塔、格子式構架等不得在本頁套用。
     </div>
   </div>
 
   <div class="card">
-    <h2>基本資料</h2>
-    <div class="form-group">
-      <label>地點 (基本設計風速)</label>
-      <select id="city"></select>
-      <div class="hint" id="vHint"></div>
-    </div>
-    <div class="form-group">
-      <label>地況分類</label>
-      <select id="terrain">
-        <option value="A">A — 大城市市中心</option>
-        <option value="B">B — 都市郊區</option>
-        <option value="C" selected>C — 開闊平坦地</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>用途係數</label>
-      <select id="impClass"></select>
-    </div>
+    <h2>① 基本風速與地況</h2>
     <div class="form-row">
+      <div class="form-group">
+        <label>地點</label>
+        <select id="city"></select>
+        <div class="hint" id="vHint"></div>
+      </div>
+      <div class="form-group">
+        <label>地況</label>
+        <select id="terrain">
+          <option value="A">A — 海岸 / 開闊地</option>
+          <option value="B" selected>B — 郊區 / 小市鎮</option>
+          <option value="C">C — 大都市市郊或小市鎮</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>用途係數 I</label>
+        <select id="impClass"></select>
+      </div>
       <div class="form-group">
         <label>K<sub>zt</sub></label>
         <input id="Kzt" type="number" value="1.0" step="0.05">
-        <div class="hint">平地取 1.0；山頂/丘陵 → <a href="wind-kzt.html" target="_blank">K<sub>zt</sub> 計算器</a></div>
-      </div>
-      <div class="form-group">
-        <label>計算模式</label>
-        <select id="mode">
-          <option value="point" selected>單一作用高度</option>
-          <option value="vertical">沿高度分段</option>
-        </select>
+        <div class="hint">平地取 1.0；山頂 / 丘陵可由 Kzt 工具取得。</div>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <h2>標的物條件</h2>
-    <div class="form-group">
-      <label>標的物形狀</label>
-      <select id="shapeType">
-        <option value="flat_panel" selected>平板 / 告示牌</option>
-        <option value="box">矩形箱體</option>
-        <option value="circular_cylinder">圓柱體</option>
-        <option value="polygonal_prism">多角柱</option>
-        <option value="sphere">球體</option>
-      </select>
-      <div class="hint" id="shapeHint"></div>
-    </div>
+    <h2>② 物體高度、斷面尺寸與安裝高度</h2>
     <div class="form-row">
       <div class="form-group">
-        <label>工具預設 C<sub>f</sub></label>
-        <input id="cfSuggest" type="number" value="1.8" step="0.01" disabled>
+        <label>物體高度 H<sub>o</sub> (m)</label>
+        <input id="objectHeight" type="number" value="3.0" step="0.1" min="0">
+        <div class="hint">物體本身垂直高度；用於作用高度、受風面積與座地判定，不代入 M/N。</div>
       </div>
       <div class="form-group">
-        <label>C<sub>f</sub> 覆寫值</label>
-        <input id="cfOverride" type="number" value="" step="0.01" placeholder="留空 = 採工具預設值">
-      </div>
-    </div>
-    <div class="sub-panel" id="cylinderBox" style="display:none;">
-      <h3>圓柱體 / 管件 C<sub>f</sub> 查表參數 (表 2.14)</h3>
-      <div class="form-row" id="cylinderPointDims">
-        <div class="form-group">
-          <label>圓柱直徑 D (m)</label>
-          <input id="cylDiameter" type="number" value="1.0" step="0.1" min="0">
-        </div>
+        <label>斷面大邊 M (m)</label>
+        <input id="sectionMajor" type="number" value="2.0" step="0.1" min="0">
+        <div class="hint">物體平面斷面的較大邊；只用於 M/N 判定。</div>
       </div>
       <div class="form-group">
-        <label>表面粗糙程度</label>
-        <select id="cylRoughness">
-          <option value="smooth">光滑之繩、竿、管</option>
-          <option value="moderate" selected>中度光滑</option>
-          <option value="fine_cable">細電纜、鋼索</option>
-          <option value="rough_cable">粗電纜、鋼索</option>
+        <label>斷面小邊 N (m)</label>
+        <input id="sectionMinor" type="number" value="0.1" step="0.1" min="0">
+        <div class="hint">物體平面斷面的較小邊；只用於 M/N 判定。</div>
+      </div>
+      <div class="form-group">
+        <label>本次風向投影寬度 b<sub>w</sub></label>
+        <select id="windWidthMode">
+          <option value="major" selected>採斷面大邊 M</option>
+          <option value="minor">採斷面小邊 N</option>
+          <option value="custom">自訂投影寬度</option>
         </select>
-        <div class="hint" id="cylinderHint">依表 2.14 以 D√q(z) 與表面粗糙分類查 C_f；此路線不使用圓柱高度 h/D。</div>
+        <div class="hint">用於 A = H<sub>o</sub> x b<sub>w</sub> 與斜風向 0.3b<sub>w</sub>；不改變 M/N。</div>
+      </div>
+      <div class="form-group" id="windWidthCustomBox" style="display:none;">
+        <label>自訂 b<sub>w</sub> (m)</label>
+        <input id="windWidthCustom" type="number" value="" step="0.1" min="0" placeholder="請輸入本風向投影寬度">
+        <div class="hint">用於特殊風向或專案指定投影寬度。</div>
+      </div>
+      <div class="form-group">
+        <label>物體底緣離地 z<sub>b</sub> (m)</label>
+        <input id="bottomClearance" type="number" value="0.0" step="0.1" min="0">
+        <div class="hint">z<sub>b</sub> &lt; 0.25H<sub>o</sub> 判定為位於地面上；形心高度 z<sub>r</sub> = z<sub>b</sub> + H<sub>o</sub>/2。</div>
+      </div>
+      <div class="form-group">
+        <label>開口率 (%)</label>
+        <input id="openingRatio" type="number" value="0" step="1" min="0" max="100">
+        <div class="hint">需小於 30% 方屬表 2.10 實體標示物。</div>
       </div>
     </div>
+    <div class="computed-grid">
+      <div class="computed-item"><strong>物體高度 H<sub>o</sub></strong><span id="objectHeightDim">—</span></div>
+      <div class="computed-item"><strong>較大邊 M</strong><span id="mDim">—</span></div>
+      <div class="computed-item"><strong>較小邊 N</strong><span id="nDim">—</span></div>
+      <div class="computed-item"><strong>受風投影寬 b<sub>w</sub></strong><span id="windWidthDim">—</span></div>
+      <div class="computed-item"><strong>ν = H<sub>o</sub> / b<sub>w</sub></strong><span id="nuRatio">—</span></div>
+      <div class="computed-item"><strong>M / N</strong><span id="mnRatio">—</span></div>
+      <div class="computed-item"><strong>C<sub>f</sub>(ν)</strong><span id="cfNuValue">—</span></div>
+      <div class="computed-item"><strong>C<sub>f</sub>(M/N)</strong><span id="cfMnValue">—</span></div>
+      <div class="computed-item"><strong>形心高度 z<sub>r</sub></strong><span id="zrDim">—</span></div>
+      <div class="computed-item"><strong>頂緣高度 z<sub>t</sub></strong><span id="topElevation">—</span></div>
+      <div class="computed-item"><strong>座地判定</strong><span id="groundRoute">—</span></div>
+      <div class="computed-item"><strong>C<sub>f</sub> 控制</strong><span id="tableRatio">—</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>③ C<sub>f</sub> 採用來源</h2>
     <div class="form-row">
       <div class="form-group">
-        <label>形狀修正係數 φ</label>
-        <input id="shapeFactor" type="number" value="1.00" step="0.01">
-        <div class="hint">若無額外修正，取 1.00</div>
+        <label>規範判定 C<sub>f</sub></label>
+        <input id="cfSuggest" type="number" value="1.2" step="0.01" disabled>
       </div>
       <div class="form-group">
-        <label>參考寬度 B<sub>ref</sub> (m)</label>
-        <input id="charWidth" type="number" value="2.0" step="0.1">
-        <div class="hint">供剛性陣風因子 G 估算使用</div>
+        <label>C<sub>f</sub> 採用來源</label>
+        <select id="cfSource">
+          <option value="code" selected>規範表 2.10 判定值</option>
+          <option value="project">專案指定值</option>
+          <option value="wind_tunnel">風洞試驗 / 專案文件</option>
+        </select>
       </div>
     </div>
-    <div id="pointBox">
+    <div class="sub-panel cf-manual-box" id="cfManualBox" style="display:none;">
+      <h3>專案 C<sub>f</sub> 採用依據</h3>
       <div class="form-row">
         <div class="form-group">
-          <label>作用高度 z (m)</label>
-          <input id="z" type="number" value="12" step="0.1">
+          <label>專案採用 C<sub>f</sub></label>
+          <input id="cfOverride" type="number" value="" step="0.01" placeholder="請輸入採用 Cf">
         </div>
         <div class="form-group">
-          <label>投影面積 A (m²)</label>
-          <input id="A" type="number" value="6" step="0.1">
+          <label>來源類型</label>
+          <div class="hint" id="cfSourceHint">採專案指定時，計算書會保留採用依據，避免與規範判定值混用。</div>
         </div>
       </div>
-    </div>
-    <div id="verticalBox" style="display:none;">
-      <div class="form-row">
-        <div class="form-group">
-          <label>底部標高 z<sub>0</sub> (m)</label>
-          <input id="zBase" type="number" value="0" step="0.1">
-        </div>
-        <div class="form-group">
-          <label>標的物高度 H (m)</label>
-          <input id="height" type="number" value="18" step="0.1">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>投影寬度 b (m)</label>
-          <input id="width" type="number" value="1.5" step="0.1">
-        </div>
-        <div class="form-group">
-          <label>分段數 n</label>
-          <input id="segments" type="number" value="6" min="1" step="1">
-        </div>
+      <div class="form-group">
+        <label>C<sub>f</sub> 採用依據 / 備註</label>
+        <textarea id="cfBasis" placeholder="例：依風洞報告第 3.2 節；或依專案文件採用 C_f = ..."></textarea>
       </div>
     </div>
-    <button class="btn-calc" id="btnCalc">計算實體標的物風力</button>
-    <div class="chk-detail">
-      <input type="checkbox" id="chkDetail">
-      <label for="chkDetail">顯示詳列計算式</label>
+    <div class="form-error" id="formError"></div>
+    <div class="inline-actions">
+      <button class="btn-calc" id="btnCalc" type="button">計算實體標示物風力</button>
     </div>
-    <button class="btn-print" type="button">列印計算書</button>
   </div>
 </div>
 
 <div id="resultPanel">
   <div class="card">
-    <h2>規範適用檢查</h2>
-    <div id="applicStatus" class="banner-status">尚未檢核</div>
-    <div id="applicList" class="applic-list"></div>
+    <h2>規範判定檢查</h2>
+    <div class="banner-status ok" id="applicStatus">依採用條件計算如下</div>
+    <div class="applic-list" id="applicList"></div>
+  </div>
+
+  <div class="card">
+    <h2>計算示意圖</h2>
+    <div class="schema-wrap">
+      <svg class="schema-svg" id="schemaSvg" viewBox="0 0 680 380" role="img" aria-label="實體標示物風力示意圖"></svg>
+    </div>
   </div>
 
   <div class="card">
     <h2>設計採用表</h2>
     <table class="zone" id="adoptTable">
       <thead>
-        <tr>
-          <th>項目</th>
-          <th>採用值</th>
-          <th>單位</th>
-          <th>說明</th>
-        </tr>
+        <tr><th>項目</th><th>值</th><th>單位</th><th>說明</th></tr>
       </thead>
       <tbody></tbody>
     </table>
-    <div class="legend" id="adoptNote"></div>
+    <div class="note" id="adoptNote">依表 2.10 實體標示物路線判定 C_f。</div>
   </div>
 
   <div class="card">
     <h2>控制結果</h2>
     <div class="results-grid">
-      <div class="result-item" id="r-shape"><span class="label">形狀</span><span><span class="value">—</span></span></div>
-      <div class="result-item" id="r-cf"><span class="label">C<sub>f,eff</sub></span><span><span class="value">—</span></span></div>
-      <div class="result-item" id="r-qz"><span class="label">控制 q(z)</span><span><span class="value">—</span><span class="unit">kgf/m²</span></span></div>
+      <div class="result-item" id="r-route"><span class="label">查表路線</span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-cf"><span class="label">C<sub>f</sub></span><span><span class="value">—</span></span></div>
+      <div class="result-item" id="r-qz"><span class="label">q(z<sub>r</sub>)</span><span><span class="value">—</span><span class="unit">kgf/m²</span></span></div>
       <div class="result-item" id="r-g"><span class="label">G</span><span><span class="value">—</span></span></div>
       <div class="result-item ok" id="r-force"><span class="label">設計風力 F</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
-      <div class="result-item ok" id="r-shear"><span class="label">底部剪力 V</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
-      <div class="result-item warn" id="r-moment"><span class="label">底部彎矩 M</span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
-      <div class="result-item" id="r-zr"><span class="label">合力作用高度 z<sub>r</sub></span><span><span class="value">—</span><span class="unit">m</span></span></div>
+      <div class="result-item" id="r-shear"><span class="label">底部剪力 V</span><span><span class="value">—</span><span class="unit">kgf</span></span></div>
+      <div class="result-item" id="r-moment"><span class="label">底部彎矩 M<sub>b</sub></span><span><span class="value">—</span><span class="unit">kgf·m</span></span></div>
+      <div class="result-item" id="r-ecc"><span class="label">斜風向偏心 e</span><span><span class="value">—</span><span class="unit">m</span></span></div>
     </div>
-  </div>
-
-  <div class="card" id="segmentCard" style="display:none;">
-    <h2>分段剪力表</h2>
-    <table class="zone" id="segmentTable">
-      <thead>
-        <tr>
-          <th>段</th>
-          <th>z<sub>mid</sub><br>(m)</th>
-          <th>面積<br>(m²)</th>
-          <th>q(z)<br>(kgf/m²)</th>
-          <th>段風力 F<sub>i</sub><br>(kgf)</th>
-          <th>段彎矩 M<sub>i</sub><br>(kgf·m)</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-    <div class="legend" id="segmentNote"></div>
-  </div>
-
-  <div class="card" id="stepsCard">
-    <h2>逐步計算</h2>
-    <div id="steps"></div>
   </div>
 
   <div class="card">
+    <h2>逐步計算</h2>
+    <label class="chk-detail">
+      <input type="checkbox" id="chkDetail" checked> 顯示詳算式
+    </label>
+    <div id="steps"></div>
+  </div>
+
+  <div class="card formula">
     <h2>說明</h2>
-    <div class="legend">
-      <code>集中式</code> F = q(z) · G · C<sub>f,eff</sub> · A<br>
-      <code>分段式</code> F<sub>i</sub> = q(z<sub>i</sub>) · G · C<sub>f,eff</sub> · A<sub>i</sub><br>
-      <code>底部剪力</code> V = ΣF<sub>i</sub><br>
-      <code>底部彎矩</code> M = Σ(F<sub>i</sub> · z<sub>i</sub>)<br>
-      <code>形狀修正</code> C<sub>f,eff</sub> = C<sub>f</sub> · φ
-    </div>
-    <div class="note">
-      本頁提供特殊標的物之第一階段風力骨架。若專案已有專用規範表列值、風洞試驗值或指定形狀修正，應直接覆寫本頁工具預設 C<sub>f</sub> 與修正係數。
+    <div>
+      <code>F</code> = q(z<sub>r</sub>) x G x C<sub>f</sub> x A<br>
+      <code>z<sub>r</sub></code> = z<sub>b</sub> + H<sub>o</sub> / 2<br>
+      <code>A</code> = H<sub>o</sub> x b<sub>w</sub><br>
+      <code>表 2.10 比對</code>：分別以 ν = H<sub>o</sub> / b<sub>w</sub> 與 M / N 內插 C<sub>f</sub>，採較大值<br>
+      <code>座地判定</code>：z<sub>b</sub> &lt; 0.25H<sub>o</sub> 為位於地面上，仍列入計算說明<br>
+      <code>斜風向</code>：合力同高，距迎風緣 0.3b<sub>w</sub> 處另行考慮偏心作用
     </div>
   </div>
 </div>
@@ -257,21 +292,224 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
-<script src="../../../鋼筋混凝土/shared/report.js"></script>
-<script src="../../core/wind-report.js"></script>
 <script>
-const W = Wind;
-function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
-function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
-function setR(id, v, d) {
-  const el = document.querySelector('#' + id + ' .value');
-  if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
+const W = window.Wind;
+const TOOL_VERSION = 'V4.0';
+const CASE_SCHEMA_VERSION = 'wind-object-solid.case.v3';
+let lastResult = null;
+let lastStepsHtml = '';
+
+const DEFAULT_CASE_INPUTS = {
+  project: { name: '未填', no: '', designer: '' },
+  values: {
+    printReportMode: 'detail',
+    city: '臺北市',
+    terrain: 'B',
+    impClass: 'IV',
+    Kzt: 1.0,
+    objectHeight: 3.0,
+    sectionMajor: 2.0,
+    sectionMinor: 0.1,
+    windWidthMode: 'major',
+    windWidthCustom: '',
+    bottomClearance: 0.0,
+    openingRatio: 0,
+    cfSource: 'code',
+    cfOverride: '',
+    cfBasis: '',
+    chkDetail: true
+  }
+};
+
+function fmt(x, d = 2) {
+  if (!isFinite(x)) return '—';
+  return Number(x).toFixed(d);
 }
-function step(title, body, detail) {
-  let html = `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}</div>`;
-  if (detail) html += `<div class="detail-formula">${detail}</div>`;
-  html += `</div>`;
-  return html;
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+function val(id) {
+  return parseFloat(document.getElementById(id).value) || 0;
+}
+function textVal(id) {
+  return document.getElementById(id)?.value ?? '';
+}
+function setR(id, v, d = 2) {
+  const el = document.querySelector(`#${id} .value`);
+  if (el) el.textContent = typeof v === 'number' ? fmt(v, d) : v;
+}
+function step(title, body, formula = '') {
+  return `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}${formula ? `<div class="detail-formula">${formula}</div>` : ''}</div></div>`;
+}
+function showFormError(message, focusId) {
+  const el = document.getElementById('formError');
+  el.textContent = message;
+  el.classList.add('show');
+  if (focusId) document.getElementById(focusId)?.focus();
+  return null;
+}
+function clearFormError() {
+  const el = document.getElementById('formError');
+  el.textContent = '';
+  el.classList.remove('show');
+}
+function getProjectInfo() {
+  return {
+    name: textVal('projName'),
+    no: textVal('projNo'),
+    designer: textVal('projDesigner')
+  };
+}
+function getPrintReportMode() {
+  return document.getElementById('printReportMode').value || 'detail';
+}
+function syncPrintReportMode(mode) {
+  const normalized = mode === 'simple' ? 'simple' : 'detail';
+  document.getElementById('printReportMode').value = normalized;
+  document.querySelectorAll('[data-report-mode]').forEach(btn => {
+    const active = btn.dataset.reportMode === normalized;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+function setCaseStatus(message, level = 'ok') {
+  const el = document.getElementById('caseStatus');
+  el.textContent = message;
+  el.style.borderColor = level === 'warn' ? '#fde68a' : '#e2e8f0';
+  el.style.background = level === 'warn' ? '#fffbeb' : '#f8fafc';
+}
+function setInputValue(id, value, options = {}) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  el.value = value;
+  if (options.silent) return;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function setInputChecked(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.checked = !!value;
+}
+function readCaseInputs() {
+  return {
+    project: getProjectInfo(),
+    values: {
+      printReportMode: getPrintReportMode(),
+      city: document.getElementById('city').value,
+      terrain: document.getElementById('terrain').value,
+      impClass: document.getElementById('impClass').value,
+      Kzt: textVal('Kzt'),
+      objectHeight: textVal('objectHeight'),
+      sectionMajor: textVal('sectionMajor'),
+      sectionMinor: textVal('sectionMinor'),
+      windWidthMode: document.getElementById('windWidthMode').value,
+      windWidthCustom: textVal('windWidthCustom'),
+      bottomClearance: textVal('bottomClearance'),
+      openingRatio: textVal('openingRatio'),
+      cfSource: document.getElementById('cfSource').value,
+      cfOverride: textVal('cfOverride'),
+      cfBasis: textVal('cfBasis'),
+      chkDetail: document.getElementById('chkDetail').checked
+    }
+  };
+}
+function applyCaseInputs(data) {
+  const input = data?.values ? data : { project: data?.project || {}, values: data || {} };
+  const project = input.project || {};
+  const values = { ...DEFAULT_CASE_INPUTS.values, ...(input.values || {}) };
+  if (project.name != null) document.getElementById('projName').value = project.name;
+  if (project.no != null) document.getElementById('projNo').value = project.no;
+  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  syncPrintReportMode(values.printReportMode);
+  ['city', 'terrain', 'impClass', 'cfSource', 'windWidthMode'].forEach(id => setInputValue(id, values[id], { silent: true }));
+  ['Kzt', 'objectHeight', 'sectionMajor', 'sectionMinor', 'windWidthCustom', 'bottomClearance', 'openingRatio', 'cfOverride', 'cfBasis'].forEach(id => setInputValue(id, values[id], { silent: true }));
+  document.getElementById('vHint').textContent = `V = ${W.CITY_QUICK[document.getElementById('city').value]} m/s`;
+  setInputChecked('chkDetail', values.chkDetail);
+  refreshWindWidthMode(false);
+  refreshCfSource();
+  calc();
+}
+function exportCaseJson() {
+  calc();
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'wind-object-solid', name: '實體標示物風力', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: lastResult || null
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CATII-WindSolidSign-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出實體標示物風力案件 JSON；可回讀本頁輸入、Cf 來源與計算結果。');
+}
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已讀取不同版本案件 JSON (${payload.schema})，將盡量依現有欄位套用。`, 'warn');
+      }
+      applyCaseInputs(payload);
+      setCaseStatus('已匯入案件 JSON，並依目前頁面重新計算。');
+    } catch (err) {
+      setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
+    } finally {
+      document.getElementById('caseJsonFile').value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+function resetCaseDefaults() {
+  applyCaseInputs(DEFAULT_CASE_INPUTS);
+  setCaseStatus('已恢復本頁預設值。');
+}
+function cfSourceLabel(value) {
+  return {
+    code: '規範表 2.10 判定值',
+    project: '專案指定值',
+    wind_tunnel: '風洞試驗 / 專案文件'
+  }[value] || '規範表 2.10 判定值';
+}
+function readCfState() {
+  const source = document.getElementById('cfSource').value;
+  const useManual = source !== 'code';
+  const cfText = textVal('cfOverride');
+  const cfValue = useManual ? parseFloat(cfText) : null;
+  return {
+    source,
+    label: cfSourceLabel(source),
+    useManual,
+    cfText,
+    cfValue,
+    basis: textVal('cfBasis')
+  };
+}
+function refreshCfSource() {
+  const cfState = readCfState();
+  document.getElementById('cfManualBox').style.display = cfState.useManual ? '' : 'none';
+  document.getElementById('cfSourceHint').textContent = cfState.source === 'wind_tunnel'
+    ? '風洞或專案文件值會取代規範判定值，計算書會保留文件來源。'
+    : '採專案指定時，計算書會保留採用依據，避免與規範判定值混用。';
+}
+function readWindWidthState(M, N) {
+  const mode = document.getElementById('windWidthMode').value;
+  if (mode === 'minor') return { mode, width: N, label: '採斷面小邊 N' };
+  if (mode === 'custom') return { mode, width: val('windWidthCustom'), label: '自訂投影寬度' };
+  return { mode: 'major', width: M, label: '採斷面大邊 M' };
+}
+function refreshWindWidthMode(recalc = true) {
+  const mode = document.getElementById('windWidthMode').value;
+  document.getElementById('windWidthCustomBox').style.display = mode === 'custom' ? '' : 'none';
+  if (recalc) calc();
 }
 function setApplicability(items) {
   const rank = { ok: 0, warn: 1, fail: 2 };
@@ -279,15 +517,419 @@ function setApplicability(items) {
   items.forEach(item => { if (rank[item.level] > rank[worst]) worst = item.level; });
   const el = document.getElementById('applicStatus');
   el.className = 'banner-status ' + worst;
-el.textContent = worst === 'ok' ? '依規範條件計算如下' : worst === 'warn' ? '依規範條件概算如下' : '規範條件局部不適用';
+  el.textContent = worst === 'ok' ? '依採用條件計算如下' : worst === 'warn' ? '請確認規範條件或採用依據' : '不屬表 2.10 實體標示物';
   document.getElementById('applicList').innerHTML = items.map(item => `
-    <div class="k ${item.level}">
-      <span class="k-label">${item.label}</span>
-      <span class="k-val">${item.message}</span>
+    <div class="applic-item applic-${item.level}">
+      <span class="applic-label">${escHtml(item.label)}</span>
+      <span>${escHtml(item.message)}</span>
     </div>
   `).join('');
 }
+function updateComputedValues(data) {
+  document.getElementById('objectHeightDim').textContent = `${fmt(data.objectHeight,2)} m`;
+  document.getElementById('mDim').textContent = `${fmt(data.bigM,2)} m`;
+  document.getElementById('nDim').textContent = `${fmt(data.smallN,2)} m`;
+  document.getElementById('windWidthDim').textContent = `${fmt(data.windWidth,2)} m`;
+  document.getElementById('nuRatio').textContent = fmt(data.nu,3);
+  document.getElementById('mnRatio').textContent = fmt(data.mnRatio,3);
+  document.getElementById('cfNuValue').textContent = fmt(data.cfByNu.cf,3);
+  document.getElementById('cfMnValue').textContent = fmt(data.cfByMN.cf,3);
+  document.getElementById('zrDim').textContent = `${fmt(data.zr,2)} m`;
+  document.getElementById('topElevation').textContent = `${fmt(data.topElevation,2)} m`;
+  document.getElementById('groundRoute').textContent = data.atGround ? '位於地面上' : '位於地面以上';
+  document.getElementById('tableRatio').textContent = `${data.controllingCfKey === 'nu' ? 'ν' : 'M/N'}，C_f = ${fmt(data.suggestedCf,3)}`;
+}
+function renderAdoptTable(rows) {
+  document.querySelector('#adoptTable tbody').innerHTML = rows.map(row => `
+    <tr>
+      <td>${escHtml(row.item)}</td>
+      <td>${escHtml(row.value)}</td>
+      <td>${escHtml(row.unit)}</td>
+      <td>${escHtml(row.note)}</td>
+    </tr>
+  `).join('');
+}
+function cfInterpPlain(label, rawRatio, data) {
+  const clamp = Math.abs(rawRatio - data.aspectRatio) > 1e-9
+    ? `；超出表列範圍，採 ${fmt(data.aspectRatio,3)}`
+    : '';
+  if (Math.abs(data.lowRatio - data.highRatio) < 1e-9) {
+    return `${label} = ${fmt(rawRatio,3)}${clamp}；端點 C_f = ${fmt(data.cf,3)}`;
+  }
+  return `${label} = ${fmt(rawRatio,3)}${clamp}；於 ${fmt(data.lowRatio,3)} / ${fmt(data.lowCf,3)} 至 ${fmt(data.highRatio,3)} / ${fmt(data.highCf,3)} 間線性內插，C_f = ${fmt(data.cf,3)}`;
+}
+function cfInterpHtml(labelHtml, rawRatio, data) {
+  const clamp = Math.abs(rawRatio - data.aspectRatio) > 1e-9
+    ? `；超出表列範圍，採 <span class="val">${fmt(data.aspectRatio,3)}</span>`
+    : '';
+  if (Math.abs(data.lowRatio - data.highRatio) < 1e-9) {
+    return `${labelHtml} = <span class="val">${fmt(rawRatio,3)}</span>${clamp}；端點 C<sub>f</sub> = <span class="val">${fmt(data.cf,3)}</span>`;
+  }
+  return `${labelHtml} = <span class="val">${fmt(rawRatio,3)}</span>${clamp}；於 ` +
+    `<span class="val">${fmt(data.lowRatio,3)}</span> / <span class="val">${fmt(data.lowCf,3)}</span> 至 ` +
+    `<span class="val">${fmt(data.highRatio,3)}</span> / <span class="val">${fmt(data.highCf,3)}</span> 間線性內插，` +
+    `C<sub>f</sub> = <span class="val">${fmt(data.cf,3)}</span>`;
+}
+function buildAdoptRows(r) {
+  return [
+    { item: '規範路線', value: '表 2.10', unit: '-', note: '實體標示物之風力係數 Cf' },
+    { item: '實體標示物條件', value: `${fmt(r.openingRatio * 100,1)}%`, unit: '-', note: '開口率 < 30%' },
+    { item: '物體高度 H_o', value: fmt(r.objectHeight,2), unit: 'm', note: '物體垂直高度；不代入 M/N' },
+    { item: '座地判定', value: r.atGround ? '位於地面上' : '位於地面以上', unit: '-', note: `z_b = ${fmt(r.bottomClearance,2)} m；0.25H_o = ${fmt(r.groundLimit,2)} m` },
+    { item: '斷面大邊 M / 小邊 N', value: `${fmt(r.bigM,2)} / ${fmt(r.smallN,2)}`, unit: 'm', note: 'M、N 為物體平面斷面兩邊長，不含物體高度或支承高度' },
+    { item: '受風投影寬 b_w', value: fmt(r.windWidth,2), unit: 'm', note: r.windWidthLabel },
+    { item: '表 2.10：ν', value: `${fmt(r.nu,3)} → ${fmt(r.cfByNu.cf,3)}`, unit: '-', note: cfInterpPlain('ν', r.nu, r.cfByNu) },
+    { item: '表 2.10：M/N', value: `${fmt(r.mnRatio,3)} → ${fmt(r.cfByMN.cf,3)}`, unit: '-', note: cfInterpPlain('M/N', r.mnRatio, r.cfByMN) },
+    { item: '規範判定 C_f', value: fmt(r.suggestedCf,3), unit: '-', note: `取 max[C_f(ν), C_f(M/N)]，控制 = ${r.controllingCfKey === 'nu' ? 'ν' : 'M/N'}` },
+    { item: 'C_f', value: fmt(r.baseCf,3), unit: '-', note: r.cfSourceNote },
+    { item: '形心高度 z_r', value: fmt(r.zr,2), unit: 'm', note: 'z_r = z_b + H_o/2' },
+    { item: '設計風力 F', value: fmt(r.F,1), unit: 'kgf', note: 'F = q(z_r) x G x C_f x A' },
+    { item: '底部彎矩 M_b', value: fmt(r.baseMoment,1), unit: 'kgf·m', note: 'M_b = F x z_r' },
+    { item: '斜風向偏心 e', value: fmt(r.obliqueEccentricity,2), unit: 'm', note: 'e = 0.3b_w，自迎風緣量取' }
+  ];
+}
+function gustDetailHtml(r) {
+  const g = r.gustDetail || null;
+  if (!g || g.manual) return `G = <span class="val hl">${fmt(r.G,3)}</span>；依設計指定值採用。`;
+  const terrainData = W.TERRAIN[r.terrain] || W.TERRAIN.C;
+  const q2Base = (g.B + g.h) / g.Lz;
+  const gNumerator = 1 + 1.7 * g.gQ * g.Iz * g.Q;
+  const gDenominator = 1 + 1.7 * g.gV * g.Iz;
+  return `
+    陣風反應因子依規範式 (2.9) 之剛性結構公式：<br>
+    h = z<sub>r</sub> = <span class="val">${fmt(g.h,2)}</span> m，b<sub>w</sub> = <span class="val">${fmt(g.B,2)}</span> m，g<sub>Q</sub> = g<sub>V</sub> = <span class="val">${fmt(g.gQ,1)}</span><br>
+    z&#772; = max(0.6h, z<sub>min</sub>) = max(0.6 x ${fmt(g.h,2)}, ${fmt(terrainData.zmin,1)}) = <span class="val">${fmt(g.zBar,2)}</span> m<br>
+    I<sub>z</sub> = c(10 / z&#772;)<sup>1/6</sup> = ${fmt(terrainData.c,3)} x (10 / ${fmt(g.zBar,2)})<sup>1/6</sup> = <span class="val">${fmt(g.Iz,4)}</span><br>
+    L<sub>z</sub> = ℓ(z&#772; / 10)<sup>ε</sup> = ${fmt(terrainData.ell,1)} x (${fmt(g.zBar,2)} / 10)<sup>${fmt(terrainData.eps,2)}</sup> = <span class="val">${fmt(g.Lz,2)}</span> m<br>
+    Q<sup>2</sup> = 1 / [1 + 0.63((b<sub>w</sub> + h) / L<sub>z</sub>)<sup>0.63</sup>] = 1 / [1 + 0.63(${fmt(q2Base,4)})<sup>0.63</sup>] = <span class="val">${fmt(g.Q2,4)}</span><br>
+    Q = √Q<sup>2</sup> = <span class="val">${fmt(g.Q,4)}</span><br>
+    G = 1.927 x (1 + 1.7g<sub>Q</sub>I<sub>z</sub>Q) / (1 + 1.7g<sub>V</sub>I<sub>z</sub>)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;= 1.927 x (${fmt(gNumerator,4)} / ${fmt(gDenominator,4)}) = <span class="val hl">${fmt(g.G,3)}</span>
+  `;
+}
+function calc() {
+  clearFormError();
+  const V = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
+  const terrain = document.getElementById('terrain').value;
+  const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
+  const Kzt = parseFloat(document.getElementById('Kzt').value);
+  const objectHeight = val('objectHeight');
+  const inputM = val('sectionMajor');
+  const inputN = val('sectionMinor');
+  const bottomZ = val('bottomClearance');
+  const openingRatio = val('openingRatio') / 100;
+  const cfState = readCfState();
+  if (!isFinite(Kzt) || Kzt <= 0) return showFormError('請確認 Kzt 為大於 0 的有效數值。', 'Kzt');
+  if (objectHeight <= 0) return showFormError('請輸入大於 0 的物體高度 H_o。', 'objectHeight');
+  if (inputM <= 0 || inputN <= 0) return showFormError('請輸入大於 0 的斷面大邊 M 與小邊 N。', inputM <= 0 ? 'sectionMajor' : 'sectionMinor');
+  if (bottomZ < 0) return showFormError('物體底緣離地 z_b 不可小於 0。', 'bottomClearance');
+  if (!isFinite(openingRatio) || openingRatio < 0 || openingRatio >= 0.30) return showFormError('開口率需小於 30%，才屬表 2.10 實體標示物。', 'openingRatio');
+  if (cfState.useManual && (!isFinite(cfState.cfValue) || cfState.cfValue <= 0)) {
+    return showFormError('請輸入大於 0 的採用 C_f，或將 C_f 採用來源改回規範表 2.10 判定值。', 'cfOverride');
+  }
 
+  const bigM = Math.max(inputM, inputN);
+  const smallN = Math.min(inputM, inputN);
+  const windWidthState = readWindWidthState(bigM, smallN);
+  const windWidth = windWidthState.width;
+  if (!isFinite(windWidth) || windWidth <= 0) return showFormError('請確認本次風向投影寬度 b_w 為大於 0 的有效數值。', windWidthState.mode === 'custom' ? 'windWidthCustom' : 'windWidthMode');
+  const nu = objectHeight / windWidth;
+  const mnRatio = bigM / smallN;
+  const groundLimit = 0.25 * objectHeight;
+  const atGround = bottomZ < groundLimit;
+  const cfByNu = W.lookupSignCf({ atGround: true, aspectRatio: nu });
+  const cfByMN = W.lookupSignCf({ atGround: false, aspectRatio: mnRatio });
+  const controllingCfKey = cfByNu.cf >= cfByMN.cf ? 'nu' : 'mn';
+  const cfData = controllingCfKey === 'nu' ? cfByNu : cfByMN;
+  const tableRatio = controllingCfKey === 'nu' ? nu : mnRatio;
+  const codeCf = Math.max(cfByNu.cf, cfByMN.cf);
+  const baseCf = cfState.useManual ? cfState.cfValue : codeCf;
+  const zr = bottomZ + objectHeight / 2;
+  const topElevation = bottomZ + objectHeight;
+  const qzData = W.calcQz(zr, V, terrain, I, Kzt);
+  const qz = qzData.qz;
+  const gustDetail = W.calcGustRigid(Math.max(zr, 0.1), Math.max(windWidth, 1), terrain);
+  const G = gustDetail.G;
+  const A = objectHeight * windWidth;
+  const F = qz * G * baseCf * A;
+  const obliqueEccentricity = 0.3 * windWidth;
+  const obliqueTorsion = F * obliqueEccentricity;
+  const cfReference = `表 2.10：ν = ${fmt(nu,3)}，C_f(ν) = ${fmt(cfByNu.cf,3)}；M/N = ${fmt(mnRatio,3)}，C_f(M/N) = ${fmt(cfByMN.cf,3)}；規範判定取較大 C_f = ${fmt(codeCf,3)}（控制：${controllingCfKey === 'nu' ? 'ν' : 'M/N'}）`;
+  const cfSourceNote = cfState.useManual
+    ? `${cfState.label}；規範判定參考：${cfReference}${cfState.basis ? `；依據：${cfState.basis}` : '；採用依據未填'}`
+    : cfReference;
+  const r = {
+    V, terrain, I, Kzt,
+    objectHeight, H: objectHeight,
+    sectionMajor: bigM, sectionMinor: smallN,
+    windWidth, windWidthMode: windWidthState.mode, windWidthLabel: windWidthState.label,
+    B: windWidth, bottomClearance: bottomZ, topElevation, openingRatio,
+    bigM, smallN, nu, mnRatio, groundLimit, atGround, tableRatio, cfData,
+    cfByNu, cfByMN, controllingCfKey,
+    baseCf, suggestedCf: codeCf,
+    zr, qz, qzKz: qzData.Kz, G, gustDetail, A, F,
+    baseShear: F, baseMoment: F * zr,
+    obliqueEccentricity, obliqueTorsion,
+    cfSourceLabel: cfState.label,
+    cfSourceNote
+  };
+  updateComputedValues(r);
+  document.getElementById('cfSuggest').value = fmt(codeCf,3);
+  setR('r-route', `控制：${controllingCfKey === 'nu' ? 'ν' : 'M/N'}`);
+  setR('r-cf', baseCf, 3);
+  setR('r-qz', qz, 1);
+  setR('r-g', G, 3);
+  setR('r-force', F, 1);
+  setR('r-shear', F, 1);
+  setR('r-moment', r.baseMoment, 1);
+  setR('r-ecc', obliqueEccentricity, 2);
+  renderAdoptTable(buildAdoptRows(r));
+  setApplicability([
+    { label: '規範表格', level: 'ok', message: '表 2.10 實體標示物之風力係數 Cf' },
+    { label: '開口率', level: openingRatio < 0.30 ? 'ok' : 'fail', message: `${fmt(openingRatio * 100,1)}% < 30%` },
+    { label: '高度 / 斷面分離', level: 'ok', message: `H_o = ${fmt(objectHeight,2)} m；M = ${fmt(bigM,2)} m，N = ${fmt(smallN,2)} m。H_o 不代入 M/N。` },
+    { label: '座地 / 架高', level: 'ok', message: `${atGround ? '位於地面上' : '位於地面以上'}；z_b = ${fmt(bottomZ,2)} m，0.25H_o = ${fmt(groundLimit,2)} m` },
+    { label: '受風投影寬', level: 'ok', message: `b_w = ${fmt(windWidth,2)} m；${windWidthState.label}。` },
+    { label: '表 2.10 比對', level: 'ok', message: `C_f(ν) = ${fmt(cfByNu.cf,3)}；C_f(M/N) = ${fmt(cfByMN.cf,3)}；取較大值 ${fmt(codeCf,3)}。` },
+    { label: 'C_f 來源', level: cfState.useManual && !cfState.basis ? 'warn' : 'ok', message: cfSourceNote },
+    { label: '斜風向作用', level: 'ok', message: `除垂直風向形心作用外，應另考慮同高且距迎風緣 0.3b_w = ${fmt(obliqueEccentricity,2)} m 之偏心作用。` }
+  ]);
+  drawSolidObjectDiagram(r);
+  const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
+  const zUse = Math.max(zr, terrainData.zmin);
+  let html = '';
+  html += step('① 表 2.10 路線判定', `
+    開口率 = <span class="val">${fmt(openingRatio * 100,1)}</span>% &lt; 30%，屬實體標示物。<br>
+    H<sub>o</sub> = <span class="val">${fmt(objectHeight,2)}</span> m；斷面 M = <span class="val">${fmt(bigM,2)}</span> m，N = <span class="val">${fmt(smallN,2)}</span> m。<br>
+    b<sub>w</sub> = <span class="val">${fmt(windWidth,2)}</span> m（${escHtml(windWidthState.label)}），用於受風面積與偏心；M/N 僅取平面斷面兩邊長。<br>
+    z<sub>b</sub> = <span class="val">${fmt(bottomZ,2)}</span> m，0.25H<sub>o</sub> = <span class="val">${fmt(groundLimit,2)}</span> m，因此採 <span class="val hl">${atGround ? '位於地面上' : '位於地面以上'}</span> 路線。<br>
+    ${cfInterpHtml('ν = H<sub>o</sub>/b<sub>w</sub>', nu, cfByNu)}<br>
+    ${cfInterpHtml('M/N', mnRatio, cfByMN)}<br>
+    規範判定 C<sub>f</sub> = max[C<sub>f</sub>(ν), C<sub>f</sub>(M/N)] = <span class="val hl">${fmt(codeCf,3)}</span>（控制：${controllingCfKey === 'nu' ? 'ν' : 'M/N'}）<br>
+    <span class="source-chip">${escHtml(cfState.label)}</span> 採用 C<sub>f</sub> = <span class="val hl">${fmt(baseCf,3)}</span>
+    ${cfState.useManual ? `<br>採用依據：<span class="val">${escHtml(cfState.basis || '未填')}</span>` : ''}
+  `);
+  html += step('② 速度壓與陣風因子', `
+    z<sub>r</sub> = z<sub>b</sub> + H<sub>o</sub>/2 = ${fmt(bottomZ,2)} + ${fmt(objectHeight,2)}/2 = <span class="val">${fmt(zr,2)}</span> m<br>
+    z<sub>t</sub> = z<sub>b</sub> + H<sub>o</sub> = ${fmt(bottomZ,2)} + ${fmt(objectHeight,2)} = <span class="val">${fmt(topElevation,2)}</span> m<br>
+    z<sub>use</sub> = max(z<sub>r</sub>, z<sub>min</sub>) = max(${fmt(zr,2)}, ${fmt(terrainData.zmin,1)}) = <span class="val">${fmt(zUse,2)}</span> m<br>
+    K(z) = 2.774 x (z<sub>use</sub>/z<sub>g</sub>)<sup>2α</sup> = 2.774 x (${fmt(zUse,2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(qzData.Kz,4)}</span><br>
+    q(z<sub>r</sub>) = 0.06 x K(z) x K<sub>zt</sub> x [I x V]<sup>2</sup> = <span class="val hl">${fmt(qz,1)}</span> kgf/m²<br>
+    ${gustDetailHtml(r)}
+  `);
+  html += step('③ 設計風力與底部作用', `
+    A = H<sub>o</sub> x b<sub>w</sub> = ${fmt(objectHeight,2)} x ${fmt(windWidth,2)} = <span class="val">${fmt(A,2)}</span> m²<br>
+    F = q(z<sub>r</sub>) x G x C<sub>f</sub> x A = <span class="val hl">${fmt(F,1)}</span> kgf<br>
+    V = F = <span class="val">${fmt(F,1)}</span> kgf<br>
+    M<sub>b</sub> = F x z<sub>r</sub> = <span class="val">${fmt(r.baseMoment,1)}</span> kgf·m
+  `, `F = ${fmt(qz,2)} x ${fmt(G,3)} x ${fmt(baseCf,3)} x ${fmt(A,2)} = ${fmt(F,2)} kgf`);
+  html += step('④ 斜風向偏心作用', `
+    除風向垂直於標示物時合力作用於幾何中心外，表 2.10 註記亦要求考慮斜風向。<br>
+    e = 0.3b<sub>w</sub> = 0.3 x ${fmt(windWidth,2)} = <span class="val">${fmt(obliqueEccentricity,2)}</span> m<br>
+    T = F x e = <span class="val">${fmt(obliqueTorsion,1)}</span> kgf·m
+  `);
+  lastResult = r;
+  lastStepsHtml = html;
+  document.getElementById('steps').innerHTML = document.getElementById('chkDetail').checked ? html : '';
+  return r;
+}
+function drawSolidObjectDiagram(r) {
+  const svg = document.getElementById('schemaSvg');
+  if (!svg || !r) return;
+  const groundY = 306;
+  const scale = Math.min(42, 190 / Math.max(r.bottomClearance + r.H, 1));
+  const signH = Math.max(66, Math.min(190, r.H * scale));
+  const signW = Math.max(72, Math.min(200, r.B * scale));
+  const x = 164;
+  const yBottom = groundY - r.bottomClearance * scale;
+  const yTop = yBottom - signH;
+  const zrY = groundY - r.zr * scale;
+  const panel = { x: 458, y: 62, w: 170, h: 186 };
+  const arrowX1 = x + signW + 24;
+  const arrowX2 = panel.x - 24;
+  const eX = x + Math.min(signW, 0.3 * r.B * scale);
+  svg.innerHTML = `
+    <defs>
+      <marker id="signWindArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M0 0 L10 5 L0 10 Z" fill="#0e7490"/>
+      </marker>
+      <marker id="signDimArrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 Z" fill="#475569"/>
+      </marker>
+    </defs>
+    <rect x="0" y="0" width="680" height="380" rx="18" fill="#f8fafc"/>
+    <rect x="42" y="24" width="340" height="42" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="58" y="50" fill="#0f172a" font-size="14" font-weight="700">實體標示物｜表 2.10｜${escHtml(r.atGround ? '位於地面上' : '位於地面以上')}</text>
+    <path d="M64 ${groundY}H614" stroke="#94a3b8" stroke-width="2"/>
+    <path d="M92 ${groundY + 15}h470" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="7 8"/>
+    <rect x="${x}" y="${yTop}" width="${signW}" height="${signH}" rx="6" fill="#dcfce7" stroke="#166534" stroke-width="2.4"/>
+    <path d="M${x + 14} ${yTop + 18}h${Math.max(20, signW - 28)}M${x + 14} ${yTop + signH / 2}h${Math.max(20, signW - 28)}M${x + 14} ${Math.max(yTop + signH - 18, yTop + 28)}h${Math.max(20, signW - 28)}" stroke="#86efac" stroke-width="1.5" stroke-linecap="round"/>
+    ${r.bottomClearance > 0 ? `<path d="M${x - 14} ${yBottom}H${x + signW + 14}" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="5 5"/>` : ''}
+    <line data-diagram-role="height-arrow-zone" x1="${x - 44}" y1="${yBottom}" x2="${x - 44}" y2="${yTop}" stroke="#475569" stroke-width="2" marker-start="url(#signDimArrow)" marker-end="url(#signDimArrow)"/>
+    <rect data-diagram-role="height-label-zone" x="${x - 74}" y="${(yTop + yBottom) / 2 - 38}" width="28" height="76" rx="8" fill="#f8fafc" opacity=".95"/>
+    <text data-diagram-role="height-label-zone" x="${x - 58}" y="${(yTop + yBottom) / 2}" transform="rotate(-90 ${x - 58} ${(yTop + yBottom) / 2})" font-size="12" font-weight="700" fill="#334155">H_o = ${fmt(r.objectHeight,2)} m</text>
+    <line x1="${x}" y1="${groundY + 38}" x2="${x + signW}" y2="${groundY + 38}" stroke="#475569" stroke-width="2" marker-start="url(#signDimArrow)" marker-end="url(#signDimArrow)"/>
+    <text x="${x + signW / 2}" y="${groundY + 61}" text-anchor="middle" font-size="12" font-weight="700" fill="#334155">b_w = ${fmt(r.windWidth,2)} m</text>
+    ${r.bottomClearance > 0 ? `<line x1="${x + signW + 18}" y1="${groundY}" x2="${x + signW + 18}" y2="${yBottom}" stroke="#64748b" stroke-width="1.7" marker-start="url(#signDimArrow)" marker-end="url(#signDimArrow)"/>
+      <text x="${x + signW + 42}" y="${(groundY + yBottom) / 2 + 4}" font-size="11.5" fill="#64748b">z_b = ${fmt(r.bottomClearance,2)} m</text>` : ''}
+    <line data-diagram-role="force-arrow-zone" x1="${arrowX1}" y1="${zrY}" x2="${arrowX2}" y2="${zrY}" stroke="#0e7490" stroke-width="4" stroke-linecap="round" marker-end="url(#signWindArrow)"/>
+    <circle cx="${x + signW / 2}" cy="${zrY}" r="5" fill="#f97316" stroke="#fff" stroke-width="2"/>
+    <rect data-diagram-role="force-label-mask" x="${arrowX1 - 6}" y="${zrY - 36}" width="${Math.max(120, arrowX2 - arrowX1 - 10)}" height="24" rx="7" fill="#f8fafc" opacity=".95"/>
+    <text data-diagram-role="force-label-zone" x="${arrowX1}" y="${zrY - 19}" font-size="12" font-weight="700" fill="#0f766e">F = ${fmt(r.F,1)} kgf</text>
+    <path d="M${eX} ${yTop - 10}v${Math.max(10, signH * .2)}" stroke="#f97316" stroke-width="2" marker-end="url(#signWindArrow)"/>
+    <text x="${eX + 8}" y="${yTop - 14}" font-size="11" fill="#b45309">0.3b_w</text>
+    <rect data-diagram-role="force-panel" x="${panel.x}" y="${panel.y}" width="${panel.w}" height="${panel.h}" rx="14" fill="#ffffff" stroke="#bbf7d0" stroke-width="1.4"/>
+    <text x="${panel.x + 16}" y="${panel.y + 25}" fill="#166534" font-size="13" font-weight="700">控制結果</text>
+    <text x="${panel.x + 16}" y="${panel.y + 50}" fill="#166534" font-size="12">Cf = ${fmt(r.baseCf,3)}</text>
+    <text x="${panel.x + 16}" y="${panel.y + 73}" fill="#166534" font-size="12">G = ${fmt(r.G,3)}</text>
+    <text x="${panel.x + 16}" y="${panel.y + 96}" fill="#166534" font-size="12">q = ${fmt(r.qz,1)} kgf/m²</text>
+    <text x="${panel.x + 16}" y="${panel.y + 119}" fill="#166534" font-size="12">V = ${fmt(r.baseShear,1)} kgf</text>
+    <text x="${panel.x + 16}" y="${panel.y + 142}" fill="#166534" font-size="12">Mb = ${fmt(r.baseMoment,1)} kgf·m</text>
+    <text x="${panel.x + 16}" y="${panel.y + 165}" fill="#64748b" font-size="11">M/N = ${fmt(r.mnRatio,3)}，b_w = ${fmt(r.windWidth,2)} m</text>
+  `;
+}
+function buildReportTable(rows) {
+  return `<table class="rep-input"><tbody>${rows.map(row => `
+    <tr><th>${escHtml(row[0])}</th><td>${escHtml(row[1])}</td></tr>
+  `).join('')}</tbody></table>`;
+}
+function buildConditionRows(r) {
+  return [
+    ['地點 / V', `${document.getElementById('city').value} / ${fmt(r.V,1)} m/s`],
+    ['地況 / 用途 / Kzt', `${r.terrain} / I = ${fmt(r.I,2)} / Kzt = ${fmt(r.Kzt,3)}`],
+    ['規範路線', `表 2.10 實體標示物；${r.atGround ? '位於地面上' : '位於地面以上'}`],
+    ['高度 / 斷面', `H_o = ${fmt(r.objectHeight,2)} m；斷面 M = ${fmt(r.bigM,2)} m，N = ${fmt(r.smallN,2)} m`],
+    ['受風投影寬', `b_w = ${fmt(r.windWidth,2)} m；${r.windWidthLabel}`],
+    ['C_f 採用來源', r.cfSourceNote],
+    ['控制高度 / 面積', `z_b = ${fmt(r.bottomClearance,2)} m，z_r = ${fmt(r.zr,2)} m，z_t = ${fmt(r.topElevation,2)} m，A = ${fmt(r.A,2)} m²`]
+  ];
+}
+function buildSimpleResultRows(r) {
+  return [
+    ['C_f', fmt(r.baseCf,3)],
+    ['G', fmt(r.G,3)],
+    ['q(z_r)', `${fmt(r.qz,1)} kgf/m²`],
+    ['設計風力 F', `${fmt(r.F,1)} kgf`],
+    ['底部剪力 V', `${fmt(r.baseShear,1)} kgf`],
+    ['底部彎矩 M_b', `${fmt(r.baseMoment,1)} kgf·m`],
+    ['斜風向偏心 e', `${fmt(r.obliqueEccentricity,2)} m`],
+    ['斜風向扭矩 T', `${fmt(r.obliqueTorsion,1)} kgf·m`]
+  ];
+}
+function buildSolidObjectReportHtml() {
+  const r = calc();
+  if (!r) return '';
+  const includeDetail = getPrintReportMode() === 'detail';
+  const project = getProjectInfo();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+  const diagramHtml = document.getElementById('schemaSvg')?.outerHTML || '';
+  const simpleReportHtml = `
+    <section class="rep-block">
+      <h3>設計條件</h3>
+      ${buildReportTable(buildConditionRows(r))}
+    </section>
+    <section class="rep-block">
+      <h3>計算示意圖</h3>
+      <div class="rep-diagram">${diagramHtml}</div>
+    </section>
+    <section class="rep-block">
+      <h3>控制結果</h3>
+      ${buildReportTable(buildSimpleResultRows(r))}
+    </section>
+  `;
+  const detailedReportHtml = `
+    <section class="rep-block">
+      <h3>計算示意圖</h3>
+      <div class="rep-diagram">${diagramHtml}</div>
+    </section>
+    <section class="rep-block">
+      <h3>計算內容</h3>
+      <div class="rep-steps">${lastStepsHtml}</div>
+    </section>
+  `;
+  return `<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<title>實體標示物風力計算書 ${TOOL_VERSION}</title>
+<style>
+@page { size:A4 portrait; margin:18mm 14mm; }
+* { box-sizing:border-box; }
+body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif; color:#111827; margin:0; padding:24px; background:#f4f4f4; line-height:1.7; }
+.rep-paper { max-width:980px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
+.rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
+.rep-header h1 { margin:0 0 4px; font-size:22px; }
+.rep-header .sub { color:#555; font-size:13px; }
+.rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
+.rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
+.rep-meta b { display:inline-block; min-width:64px; color:#444; }
+.rep-block { margin:14px 0 18px; page-break-inside:avoid; }
+.rep-block h3 { font-size:14px; margin:0 0 6px; padding:4px 8px; background:#166534; color:#fff; border-radius:3px 3px 0 0; }
+.rep-input { width:100%; border-collapse:collapse; font-size:12px; }
+.rep-input th,.rep-input td { border:1px solid #888; padding:6px 8px; vertical-align:top; text-align:left; }
+.rep-input th { background:#f0fdf4; width:34%; font-weight:700; color:#14532d; }
+.rep-diagram { border:1px solid #888; border-top:0; padding:10px; text-align:center; }
+.rep-diagram svg { width:100%; max-width:760px; height:auto; }
+.rep-steps { border:1px solid #888; border-top:0; padding:8px 10px; }
+.rep-steps .step { margin:10px 0 14px; page-break-inside:avoid; }
+.rep-steps .step-title { margin:0 0 4px; padding:3px 8px; font-size:12px; background:#dcfce7; color:#14532d; border-left:3px solid #166534; font-weight:700; }
+.rep-steps .step-body { font-size:12px; line-height:1.8; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:4px; padding:8px 10px; color:#374151; }
+.rep-steps .detail-formula { margin:6px 0 0; font-size:11px; color:#555; line-height:1.7; }
+.val { font-weight:700; }
+.source-chip { display:inline-block; padding:2px 7px; border-radius:999px; background:#dcfce7; color:#166534; font-weight:700; }
+.rep-toolbar { max-width:980px; margin:0 auto 12px; text-align:right; }
+.rep-toolbar button { background:#166534; color:#fff; border:0; padding:8px 18px; font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
+.rep-footer { position:fixed; right:14mm; bottom:8mm; font-size:10px; color:#666; text-align:right; }
+@media print {
+  body { background:#fff; padding:0; }
+  .rep-toolbar { display:none; }
+  .rep-paper { box-shadow:none; padding:0; max-width:none; }
+}
+</style>
+</head>
+<body>
+<div class="rep-toolbar">
+  <button onclick="window.print()">列印 / 存 PDF</button>
+  <button onclick="window.close()">關閉</button>
+</div>
+<div class="rep-paper">
+  <div class="rep-header">
+    <h1>實體標示物風力計算書</h1>
+    <div class="sub">建築物耐風設計｜表 2.10 實體標示物 Cf 路線｜${TOOL_VERSION}｜${includeDetail ? '詳算式' : '簡易結果'}</div>
+  </div>
+  <div class="rep-meta">
+    <div><b>計畫名稱</b>${escHtml(project.name) || '—'}</div>
+    <div><b>計畫編號</b>${escHtml(project.no) || '—'}</div>
+    <div><b>設計人員</b>${escHtml(project.designer) || '—'}</div>
+    <div><b>製表日期</b>${todayStr}</div>
+  </div>
+  ${includeDetail ? detailedReportHtml : simpleReportHtml}
+  <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
+</div>
+</body>
+</html>`;
+}
+function openSolidObjectReport() {
+  const html = buildSolidObjectReportHtml();
+  if (!html) return;
+  const win = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
+  if (!win) {
+    alert('瀏覽器封鎖了列印視窗，請允許彈出視窗後再試一次。');
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+window.buildSolidObjectReportHtml = buildSolidObjectReportHtml;
+window.openSolidObjectReport = openSolidObjectReport;
+function bindRecalc(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', calc);
+  el.addEventListener('change', calc);
+}
 (function init() {
   const city = document.getElementById('city');
   Object.entries(W.CITY_QUICK).forEach(([name, v]) => {
@@ -301,206 +943,36 @@ el.textContent = worst === 'ok' ? '依規範條件計算如下' : worst === 'war
     document.getElementById('vHint').textContent = `V = ${W.CITY_QUICK[city.value]} m/s`;
   });
   document.getElementById('vHint').textContent = `V = ${W.CITY_QUICK[city.value]} m/s`;
-
   const imp = document.getElementById('impClass');
   Object.entries(W.IMPORTANCE).forEach(([k, v]) => {
     const o = document.createElement('option');
     o.value = k;
     o.textContent = `${v.name}　I=${v.factor}`;
-    if (k === 'IV') o.selected = true; // 預設第四類「一般建築」I=1.00
+    if (k === 'IV') o.selected = true;
     imp.appendChild(o);
   });
 })();
-
-function refreshShape() {
-  const shapeType = document.getElementById('shapeType').value;
-  const data = W.lookupSolidObjectCf(shapeType);
-  const isCylinder = shapeType === 'circular_cylinder';
-  document.getElementById('cylinderBox').style.display = isCylinder ? '' : 'none';
-  document.getElementById('cfSuggest').value = data.cf.toFixed(2);
-  document.getElementById('shapeHint').textContent = isCylinder
-    ? '圓柱體 / 管件將依表 2.14 以 D√q(z) 與粗糙分類查用 Cf；煙囪、水塔請改用「煙囪高塔」工具。'
-    : `工具預設值：${data.name}，Cf = ${data.cf.toFixed(2)}。專案已有指定值時，應以覆寫值取代。`;
-  refreshMode();
-}
-
-function refreshMode() {
-  const vertical = document.getElementById('mode').value === 'vertical';
-  const isCylinder = document.getElementById('shapeType').value === 'circular_cylinder';
-  document.getElementById('pointBox').style.display = vertical ? 'none' : '';
-  document.getElementById('verticalBox').style.display = vertical ? '' : 'none';
-  document.getElementById('segmentCard').style.display = vertical ? '' : 'none';
-  document.getElementById('cylinderPointDims').style.display = isCylinder && !vertical ? '' : 'none';
-  document.getElementById('cylinderHint').textContent = isCylinder && vertical
-    ? '沿高度分段模式以「投影寬度 b」作為 D，並以頂部速度壓判斷 D√q(z)；若屬煙囪、水塔，請改用煙囪高塔工具。'
-    : '依表 2.14 以 D√q(z) 與表面粗糙分類查 C_f；此路線不使用圓柱高度 h/D。';
-}
-
-function calc() {
-  const V = W.CITY_QUICK[document.getElementById('city').value] || 37.5;
-  const terrain = document.getElementById('terrain').value;
-  const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
-  const Kzt = val('Kzt') || 1.0;
-  const mode = document.getElementById('mode').value;
-  const shapeType = document.getElementById('shapeType').value;
-  const charWidth = val('charWidth');
-  const shapeFactor = val('shapeFactor') || 1.0;
-  const isCylinder = shapeType === 'circular_cylinder';
-  const cylinderRoughness = document.getElementById('cylRoughness').value;
-  const cfOverrideText = document.getElementById('cfOverride').value.trim();
-  const cfOverride = cfOverrideText === '' ? null : parseFloat(cfOverrideText);
-  if (!isFinite(Kzt) || Kzt <= 0 || !isFinite(charWidth) || charWidth <= 0 || !isFinite(shapeFactor) || shapeFactor <= 0) {
-    alert('請輸入有效之 Kzt / B_ref / φ');
-    return;
-  }
-  if (cfOverrideText !== '' && (!isFinite(cfOverride) || cfOverride <= 0)) {
-    alert('Cf 覆寫值應大於 0');
-    return;
-  }
-
-  let r;
-  if (mode === 'point') {
-    const z = val('z');
-    const A = val('A');
-    if (z <= 0 || A <= 0) { alert('請輸入有效之 z / A'); return; }
-    const cylDiameter = val('cylDiameter');
-    if (isCylinder && cylDiameter <= 0) { alert('圓柱體請輸入有效之 D'); return; }
-    r = W.calcSolidObjectWind({
-      V, terrain, I, z, A,
-      charWidth: isCylinder ? cylDiameter : charWidth,
-      Kzt, shapeType, Cf: cfOverride, shapeFactor,
-      diameter: isCylinder ? cylDiameter : null,
-      cylinderRoughness,
-    });
-    document.getElementById('segmentCard').style.display = 'none';
-    document.querySelector('#adoptTable tbody').innerHTML = `
-      <tr><td>設計風力 F</td><td>${fmt(r.F,1)}</td><td>kgf</td><td>單一作用高度風力</td></tr>
-      <tr><td>底部剪力 V</td><td>${fmt(r.baseShear,1)}</td><td>kgf</td><td>集中受力，V = F</td></tr>
-      <tr><td>底部彎矩 M</td><td>${fmt(r.baseMoment,1)}</td><td>kgf·m</td><td>M = F · z</td></tr>
-      <tr><td>合力作用高度 z_r</td><td>${fmt(r.resultantHeight,2)}</td><td>m</td><td>集中受力作用高度</td></tr>
-    `;
-    document.getElementById('adoptNote').textContent = '本表適用於單一作用高度之實體標的物風力整理。';
-  } else {
-    const zBase = val('zBase');
-    const height = val('height');
-    const width = val('width');
-    const segments = val('segments');
-    if (height <= 0 || width <= 0 || segments < 1) { alert('請輸入有效之 z0 / H / b / n'); return; }
-    r = W.calcVerticalSolidObjectWind({
-      V, terrain, I, zBase, height, width, segments,
-      charWidth, Kzt, shapeType, Cf: cfOverride, shapeFactor,
-      diameter: isCylinder ? width : null,
-      cylinderRoughness,
-    });
-    document.getElementById('segmentCard').style.display = '';
-    document.querySelector('#segmentTable tbody').innerHTML = r.rows.map(row => `
-      <tr>
-        <td>${row.index}</td>
-        <td>${fmt(row.zMid,2)}</td>
-        <td>${fmt(row.area,2)}</td>
-        <td>${fmt(row.qz,1)}</td>
-        <td>${fmt(row.force,1)}</td>
-        <td>${fmt(row.moment,1)}</td>
-      </tr>
-    `).join('');
-    document.getElementById('segmentNote').textContent = `本表依高度分成 ${r.segments} 段；總投影面積 = ${fmt(r.totalArea,2)} m²。`;
-    document.querySelector('#adoptTable tbody').innerHTML = `
-      <tr><td>總設計風力 ΣF</td><td>${fmt(r.baseShear,1)}</td><td>kgf</td><td>各段風力加總</td></tr>
-      <tr><td>底部剪力 V</td><td>${fmt(r.baseShear,1)}</td><td>kgf</td><td>V = ΣF_i</td></tr>
-      <tr><td>底部彎矩 M</td><td>${fmt(r.baseMoment,1)}</td><td>kgf·m</td><td>M = Σ(F_i · z_i)</td></tr>
-      <tr><td>合力作用高度 z_r</td><td>${fmt(r.resultantHeight,2)}</td><td>m</td><td>z_r = M / V</td></tr>
-    `;
-    document.getElementById('adoptNote').textContent = '本表適用於沿高度分段之實體標的物、塔狀單體或直立設備之風力整理。';
-  }
-
-  setR('r-shape', `${r.shapeName}`);
-  setR('r-cf', r.CfEff, 3);
-  setR('r-qz', mode === 'point' ? r.qz : r.rows[r.rows.length - 1].qz, 1);
-  setR('r-g', r.G, 3);
-  setR('r-force', mode === 'point' ? r.F : r.baseShear, 1);
-  setR('r-shear', r.baseShear, 1);
-  setR('r-moment', r.baseMoment, 1);
-  setR('r-zr', r.resultantHeight, 2);
-
-  document.getElementById('cfSuggest').value = fmt(r.suggestedCf || r.baseCf, 3);
-  const cfLookup = r.cfData || null;
-  const cfRegime = cfLookup ? (cfLookup.dSqrtQzRegime || cfLookup.qzDRegime) : '';
-  const tableCfText = cfLookup
-    ? `${cfLookup.source || '查表'}：${cfRegime}，粗糙分類 = ${cfLookup.roughnessName}，Cf = ${fmt(cfLookup.cf,3)}`
-    : `工具預設 Cf = ${fmt(r.suggestedCf || r.baseCf,3)}`;
-  const directCf = cfOverride == null ? tableCfText : `採覆寫 Cf = ${fmt(cfOverride,3)}；建議值 ${tableCfText}`;
-  const terrainData = W.TERRAIN[terrain] || W.TERRAIN.C;
-  setApplicability([
-    { label: '標的物類型', level: 'ok', message: '實體標的物 / 單體外形' },
-    { label: '計算模式', level: 'ok', message: mode === 'point' ? '單一作用高度' : '沿高度分段' },
-    { label: 'Cf 來源', level: cfOverride == null && !cfLookup ? 'warn' : 'ok', message: directCf },
-    { label: '形狀修正', level: shapeFactor === 1 ? 'ok' : 'warn', message: `φ = ${fmt(shapeFactor,3)}` },
-    { label: '剪力路線', level: 'ok', message: mode === 'point' ? 'V = F；M = F·z' : 'V = ΣF_i；M = Σ(F_i·z_i)' },
-  ]);
-
-  let html = '';
-  html += step('① 基本參數', `
-    V = <span class="val">${V}</span> m/s, I = <span class="val">${I}</span>, K<sub>zt</sub> = <span class="val">${Kzt}</span><br>
-    地況參數：α = <span class="val">${fmt(terrainData.alpha,2)}</span>，z<sub>g</sub> = <span class="val">${fmt(terrainData.zg,1)}</span> m，z<sub>min</sub> = <span class="val">${fmt(terrainData.zmin,1)}</span> m<br>
-    形狀 = <span class="val">${r.shapeName}</span><br>
-    ${cfLookup ? `${cfLookup.source || '查表'}：D = <span class="val">${fmt(cfLookup.diameter,2)}</span> m，D√q(z) = <span class="val">${fmt(cfLookup.dSqrtQz,2)}</span>，${cfRegime}，粗糙分類 = <span class="val">${cfLookup.roughnessName}</span><br>` : ''}
-    C<sub>f</sub> = <span class="val">${fmt(r.baseCf,3)}</span>，φ = <span class="val">${fmt(r.shapeFactor,3)}</span> → C<sub>f,eff</sub> = <span class="val hl">${fmt(r.CfEff,3)}</span><br>
-    G = <span class="val">${fmt(r.G,3)}</span>
-  `);
-  if (mode === 'point') {
-    const zUse = Math.max(r.z, terrainData.zmin);
-    const kz = W.calcKz(r.z, terrain);
-    html += step('② 作用高度速度壓', `
-      z = <span class="val">${fmt(r.z,2)}</span> m，z<sub>use</sub> = max(z, z<sub>min</sub>) = <span class="val">${fmt(zUse,2)}</span> m<br>
-      K(z) = 2.774 × (z<sub>use</sub>/z<sub>g</sub>)<sup>2α</sup> = 2.774 × (${fmt(zUse,2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(kz,4)}</span><br>
-      q(z) = 0.06 × K(z) × K<sub>zt</sub> × [I×V]<sup>2</sup><br>
-      &nbsp;&nbsp;&nbsp;&nbsp;= 0.06 × ${fmt(kz,4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup><br>
-      &nbsp;&nbsp;&nbsp;&nbsp;= <span class="val hl">${fmt(r.qz,1)}</span> kgf/m²
-    `);
-    html += step('③ 設計風力 / 剪力 / 彎矩', `
-      F = q(z) · G · C<sub>f,eff</sub> · A = <span class="val hl">${fmt(r.F,1)}</span> kgf<br>
-      V = <span class="val">${fmt(r.baseShear,1)}</span> kgf<br>
-      M = F · z = <span class="val">${fmt(r.baseMoment,1)}</span> kgf·m
-    `, `F = ${fmt(r.qz,2)} × ${fmt(r.G,3)} × ${fmt(r.CfEff,3)} × ${fmt(r.A,2)} = ${fmt(r.F,2)} kgf`);
-  } else {
-    const topRow = r.rows[r.rows.length - 1];
-    const topZUse = Math.max(topRow.zMid, terrainData.zmin);
-    const topKz = W.calcKz(topRow.zMid, terrain);
-    html += step('② 分段風力', `
-      z<sub>0</sub> = <span class="val">${fmt(r.zBase,2)}</span> m，H = <span class="val">${fmt(r.height,2)}</span> m，b = <span class="val">${fmt(r.width,2)}</span> m<br>
-      分段數 n = <span class="val">${r.segments}</span>，每段高度 = <span class="val">${fmt(r.segmentHeight,2)}</span> m<br>
-      總投影面積 = <span class="val">${fmt(r.totalArea,2)}</span> m²<br>
-      控制段中點 z = <span class="val">${fmt(topRow.zMid,2)}</span> m，z<sub>use</sub> = <span class="val">${fmt(topZUse,2)}</span> m<br>
-      K(z) = 2.774 × (${fmt(topZUse,2)}/${fmt(terrainData.zg,1)})<sup>${fmt(2 * terrainData.alpha,2)}</sup> = <span class="val">${fmt(topKz,4)}</span><br>
-      q(z) = 0.06 × ${fmt(topKz,4)} × ${fmt(Kzt,3)} × (${fmt(I,2)}×${fmt(V,1)})<sup>2</sup> = <span class="val">${fmt(topRow.qz,1)}</span> kgf/m²
-    `);
-    html += step('③ 總剪力 / 底部彎矩', `
-      V = ΣF<sub>i</sub> = <span class="val hl">${fmt(r.baseShear,1)}</span> kgf<br>
-      M = Σ(F<sub>i</sub> · z<sub>i</sub>) = <span class="val hl">${fmt(r.baseMoment,1)}</span> kgf·m<br>
-      z<sub>r</sub> = M / V = <span class="val">${fmt(r.resultantHeight,2)}</span> m
-    `, `控制段示例：F_i = ${fmt(topRow.qz,2)} × ${fmt(r.G,3)} × ${fmt(r.CfEff,3)} × ${fmt(topRow.area,2)} = ${fmt(topRow.force,2)} kgf`);
-  }
-  document.getElementById('steps').innerHTML = html;
-}
-
-document.getElementById('shapeType').addEventListener('change', function() {
-  refreshShape();
-  calc();
-});
-document.getElementById('mode').addEventListener('change', function() {
-  refreshMode();
-  calc();
-});
-['cylDiameter', 'cylRoughness'].forEach(id => {
-  document.getElementById(id).addEventListener('input', calc);
-  document.getElementById(id).addEventListener('change', calc);
-});
+[
+  'city', 'terrain', 'impClass', 'Kzt', 'objectHeight', 'sectionMajor', 'sectionMinor',
+  'windWidthCustom', 'bottomClearance', 'openingRatio', 'cfSource', 'cfOverride', 'cfBasis'
+].forEach(bindRecalc);
+document.getElementById('windWidthMode').addEventListener('change', () => refreshWindWidthMode(true));
+document.getElementById('cfSource').addEventListener('change', refreshCfSource);
 document.getElementById('chkDetail').addEventListener('change', function() {
-  document.getElementById('stepsCard').classList.toggle('show-detail', this.checked);
+  document.getElementById('steps').innerHTML = this.checked ? lastStepsHtml : '';
+});
+document.querySelectorAll('[data-report-mode]').forEach(btn => {
+  btn.addEventListener('click', () => syncPrintReportMode(btn.dataset.reportMode));
 });
 document.getElementById('btnCalc').addEventListener('click', calc);
-refreshShape();
-refreshMode();
+document.getElementById('btnReport').addEventListener('click', openSolidObjectReport);
+document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('caseJsonFile').addEventListener('change', e => importCaseJsonFile(e.target.files?.[0]));
+document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
+syncPrintReportMode('detail');
+refreshWindWidthMode(false);
+refreshCfSource();
 calc();
 </script>
 </body>

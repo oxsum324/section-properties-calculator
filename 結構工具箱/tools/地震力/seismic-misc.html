@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>雜項工作物地震力 V3</title>
+<title>雜項工作物地震力 V3.3</title>
 <link rel="stylesheet" href="../../core/style.css">
 <style>
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
@@ -33,6 +33,35 @@
   .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
   .btn-secondary { background:#e2e8f0; color:#0f172a; border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; }
   .btn-secondary:hover { background:#cbd5e1; }
+  .case-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .case-actions button {
+    border:none;
+    border-radius:8px;
+    padding:9px 12px;
+    font-weight:700;
+    cursor:pointer;
+    background:#ccfbf1;
+    color:#115e59;
+  }
+  .case-actions button:hover { background:#99f6e4; }
+  .case-actions .primary { background:#0f766e; color:#fff; }
+  .case-actions .primary:hover { background:#115e59; }
+  .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
+  .case-status:empty { display:none; }
+  .print-option-row { margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; }
+  .report-mode-control { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #99f6e4; border-radius:10px; background:#f0fdfa; color:#334155; font-size:0.84em; line-height:1.6; }
+  .report-mode-label { font-weight:700; color:#0f766e; margin-right:2px; }
+  .mode-segment { border:1px solid #5eead4; background:#fff; color:#0f766e; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
+  .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#0f766e; color:#fff; border-color:#0f766e; box-shadow:0 4px 10px rgba(15,118,110,.18); }
+  .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
+  .input-check-panel { display:grid; gap:7px; margin-top:12px; }
+  .input-check-panel:empty { display:none; }
+  .check-msg { border:1px solid #cbd5e1; border-radius:9px; padding:8px 10px; font-size:0.82em; line-height:1.55; color:#334155; background:#f8fafc; }
+  .check-msg.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
+  .check-msg.error { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
+  .check-msg.info { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
+  .diagram-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
+  .line-h2-diagram { display:block; width:100%; height:auto; max-height:340px; }
   .tag-ctrl { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.78em; font-weight:700; }
   .tag-ctrl.vd { background:#dbeafe; color:#1d4ed8; }
   .tag-ctrl.vs { background:#fef3c7; color:#92400e; }
@@ -95,7 +124,7 @@
 </head>
 <body>
 <header>
-  <h1>雜項工作物地震力 <span class="badge-v">V3</span></h1>
+  <h1>雜項工作物地震力 <span class="badge-v">V3.3</span></h1>
   <p>依「建築物耐震設計規範及解說」113 年版 ｜ 第五章雜項工作物 ｜ 單位：m, tf, sec</p>
   <p class="header-links">
     <a href="https://www.nlma.gov.tw/ch/legislation/law%26regusw/175" target="_blank" rel="noopener noreferrer">官方規範頁</a>
@@ -118,7 +147,23 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo" class="w-no" placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-      <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
+      <div class="case-actions">
+        <button id="btnExportCaseJson" type="button">匯出案件 JSON</button>
+        <button id="btnImportCaseJson" type="button">匯入案件 JSON</button>
+        <button id="btnResetCase" type="button">恢復預設</button>
+        <button class="primary" id="btnReport" type="button">列印計算書</button>
+      </div>
+      <input type="file" id="caseJsonFile" accept=".json,application/json" style="display:none;">
+    </div>
+    <div class="case-status" id="caseStatus"></div>
+    <div class="print-option-row">
+      <div class="report-mode-control" role="group" aria-label="列印計算書模式">
+        <span class="report-mode-label">列印模式</span>
+        <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true" title="列印詳算式計算書">詳算式</button>
+        <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false" title="只列印條件與結果摘要">簡易結果</button>
+        <span class="report-mode-hint">詳算式輸出完整代入式與採用值；簡易結果只輸出條件表、示意圖與摘要。</span>
+      </div>
+      <input type="hidden" id="printReportMode" value="detail">
     </div>
   </div>
   <div class="main-layout misc-shell">
@@ -184,7 +229,7 @@
       <div class="card">
         <h2>② 雜項工作物資料</h2>
         <div class="form-group">
-          <label>第五章分類</label>
+          <label>規範章節分類</label>
           <select id="miscChapterMode">
             <option value="similar" selected>5.3 相似於建築結構</option>
             <option value="nonsimilar">5.4 非相似於建築結構</option>
@@ -192,7 +237,12 @@
           <div class="hint" id="miscModeHint">相似於建築結構者，最小設計水平總橫力依式(2-3)計算。</div>
         </div>
         <div class="form-group">
-          <label id="miscTypeLabel">工作物類型 (表 5-1)</label>
+          <label>情境分類（先縮小型式）</label>
+          <select id="miscCategory"></select>
+          <div class="hint" id="miscCategoryHint">先用常見物件情境縮小表列選項；實際採用仍以規範表列型式為準。</div>
+        </div>
+        <div class="form-group">
+          <label id="miscTypeLabel">規範表列型式 (表 5-1)</label>
           <select id="miscType"></select>
         </div>
         <div class="form-row" id="miscCustomRow" style="display:none;">
@@ -229,9 +279,9 @@
           <input type="checkbox" id="chkNearFaultMisc">
           <label for="chkNearFaultMisc">近斷層工址垂直力比值採 2/3（一般 / 臺北盆地為 1/2）</label>
         </div>
+        <div id="inputCheckPanel" class="input-check-panel"></div>
         <div class="inline-actions">
           <button class="btn-calc" id="btnCalc">計算雜項工作物地震力</button>
-          <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
         </div>
       </div>
     </div>
@@ -262,6 +312,10 @@
         </div>
       </div>
       <div class="card">
+        <h2>計算示意圖</h2>
+        <div id="miscDiagram"></div>
+      </div>
+      <div class="card">
         <h2>結果摘要</h2>
         <div id="miscResult"></div>
       </div>
@@ -282,10 +336,10 @@
 <details class="card" id="versionInfoCard">
   <summary class="fold-summary">版本與更新重點</summary>
   <div class="note" style="margin-top:12px;">
-    本頁目前定位為第五章局部章節工具，核心目標是把雜項工作物的輸入、分流、列印與正式章節語言整理乾淨。
+    本頁目前版本為 <strong>V3.3</strong>，定位為第五章局部章節工具，核心目標是把雜項工作物的輸入、分流、列印與正式章節語言整理乾淨。
   </div>
   <div class="hint" style="margin-top:10px;">
-    本版已完成：5.3 / 5.4 分流、表 5-1 / 表 5-2 型式整理、Vh / Vv 公式分流、地區回填、局部計算書列印與全裝置版面。<br>
+    本版已完成：5.3 / 5.4 分流、表 5-1 / 表 5-2 型式整理、Vh / Vv 公式分流、地區回填、案件 JSON 匯入匯出、輸入檢核、計算示意圖、詳算式 / 簡易結果列印與全裝置版面。<br>
     建議用法：作為第五章專章計算與送審前整理頁；若需和主結構耐震結果一起統整，請回 <a href="seismic-force.html">等值靜力分析</a>。
   </div>
 </details>
@@ -296,9 +350,54 @@
 <script>
 const S = Seismic;
 let lastMiscResult = null;
+const TOOL_VERSION = '3.3';
+const CASE_SCHEMA_VERSION = 'seismic-misc.case.v1';
 const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
+const DEFAULT_CASE_INPUTS = {
+  project: { name: '', no: '', designer: '' },
+  values: {
+    printReportMode: 'detail',
+    zoneCity: '',
+    zoneDist: '',
+    SsD: 0.6,
+    S1D: 0.35,
+    SsM: 0.8,
+    S1M: 0.5,
+    siteClass: '2',
+    miscI: '1.0',
+    chkTaipei: false,
+    miscChapterMode: 'similar',
+    miscCategory: 'all',
+    miscType: '0',
+    miscR: 1.5,
+    miscAY: 1.0,
+    miscW: 10,
+    miscH: 5,
+    miscT: 0,
+    miscRemark: '',
+    chkNearFaultMisc: false
+  }
+};
 const SIMILAR_TYPES = S.TABLE_5_1;
 const NONSIMILAR_TYPES = S.TABLE_5_2;
+const MISC_CATEGORY_OPTIONS = {
+  similar: [
+    { value: 'all', label: '全部型式' },
+    { value: 'storage', label: '儲物架' },
+    { value: 'braced', label: '鋼構斜撐系統' },
+    { value: 'steel-moment', label: '鋼構抗彎系統' },
+    { value: 'rc-moment', label: 'RC 抗彎系統' }
+  ],
+  nonsimilar: [
+    { value: 'all', label: '全部型式' },
+    { value: 'tank', label: '儲槽、水塔與容器' },
+    { value: 'chimney', label: '煙囪、榖倉與排氣管' },
+    { value: 'tower', label: '高塔、通訊塔與桁架' },
+    { value: 'cantilever', label: '懸臂、倒鐘擺與紀念碑' },
+    { value: 'sign', label: '招牌與廣告版' },
+    { value: 'other', label: '其他自承載結構' }
+  ]
+};
 
 function fmt(v, d) {
   return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d);
@@ -308,8 +407,74 @@ function fmtCoeff(v) {
   return fmt(v, 4);
 }
 
+function escHtml(s) {
+  return (s === null || s === undefined ? '' : String(s))
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function miscTypeOptionLabel(item) {
   return `${item.name}　(R=${item.R}, 高度=${item.hLimit || '—'})`;
+}
+
+function getMiscTypeCategory(item, mode) {
+  const name = item?.name || '';
+  if (mode === 'similar') {
+    if (name.includes('儲物架')) return 'storage';
+    if (name.includes('同心斜撐')) return 'braced';
+    if (name.includes('鋼筋混凝土造') && name.includes('抗彎')) return 'rc-moment';
+    if (name.includes('鋼造') && name.includes('抗彎')) return 'steel-moment';
+    return 'all';
+  }
+  if (/(容器|水塔|儲槽)/.test(name)) return 'tank';
+  if (/(煙囪|榖倉|排氣管)/.test(name)) return 'chimney';
+  if (/(通訊電塔|高塔|桁架式|塔式)/.test(name)) return 'tower';
+  if (/(懸臂|倒鐘擺|紀念碑|遊樂)/.test(name)) return 'cantilever';
+  if (/(招牌|廣告)/.test(name)) return 'sign';
+  return 'other';
+}
+
+function typeMatchesCategory(item, mode, category) {
+  return !category || category === 'all' || getMiscTypeCategory(item, mode) === category;
+}
+
+function rebuildMiscCategoryOptions() {
+  const sel = document.getElementById('miscCategory');
+  if (!sel) return;
+  const mode = document.getElementById('miscChapterMode').value;
+  const current = sel.value || 'all';
+  const options = MISC_CATEGORY_OPTIONS[mode] || MISC_CATEGORY_OPTIONS.nonsimilar;
+  sel.innerHTML = '';
+  options.forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.value;
+    option.textContent = item.label;
+    sel.appendChild(option);
+  });
+  sel.value = options.some(item => item.value === current) ? current : 'all';
+}
+
+function splitSvgLabel(text, limit = 15, maxLines = 2) {
+  const chars = Array.from(String(text || '雜項工作物').replace(/\s+/g, ' ').trim());
+  const lines = [];
+  while (chars.length && lines.length < maxLines) {
+    lines.push(chars.splice(0, limit).join(''));
+  }
+  if (chars.length && lines.length) {
+    const last = lines[lines.length - 1];
+    lines[lines.length - 1] = `${last.slice(0, Math.max(1, limit - 1))}…`;
+  }
+  return lines.length ? lines : ['雜項工作物'];
+}
+
+function renderSvgTitleLines(text, x, y) {
+  const lines = splitSvgLabel(text);
+  return `<text data-diagram-role="type-title" x="${x}" y="${y}" fill="#0f172a" font-size="12.5" font-weight="700">
+    ${lines.map((line, i) => `<tspan x="${x}" dy="${i === 0 ? 0 : 17}">${escHtml(line)}</tspan>`).join('')}
+  </text>`;
 }
 
 function getHeightLimitWarning(item, h) {
@@ -348,6 +513,158 @@ function saveProjectInfo() {
   } catch (err) {}
 }
 
+function setCaseStatus(message, type = 'info') {
+  const el = document.getElementById('caseStatus');
+  if (!el) return;
+  if (!message) {
+    el.textContent = '';
+    return;
+  }
+  el.innerHTML = `<span class="check-msg ${type}">${escHtml(message)}</span>`;
+}
+
+function getPrintReportMode() {
+  return document.getElementById('printReportMode')?.value === 'simple' ? 'simple' : 'detail';
+}
+
+function syncPrintReportMode(mode) {
+  const nextMode = mode === 'simple' ? 'simple' : 'detail';
+  const hidden = document.getElementById('printReportMode');
+  if (hidden) hidden.value = nextMode;
+  document.querySelectorAll('.mode-segment').forEach(button => {
+    const active = button.dataset.reportMode === nextMode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function readCaseInputs() {
+  const value = id => document.getElementById(id)?.value ?? '';
+  const checked = id => !!document.getElementById(id)?.checked;
+  return {
+    project: getProjectInfo(),
+    values: {
+      printReportMode: getPrintReportMode(),
+      zoneCity: value('zoneCity'),
+      zoneDist: value('zoneDist'),
+      SsD: parseFloat(value('SsD')),
+      S1D: parseFloat(value('S1D')),
+      SsM: parseFloat(value('SsM')),
+      S1M: parseFloat(value('S1M')),
+      siteClass: value('siteClass'),
+      miscI: value('miscI'),
+      chkTaipei: checked('chkTaipei'),
+      miscChapterMode: value('miscChapterMode'),
+      miscCategory: value('miscCategory'),
+      miscType: value('miscType'),
+      miscR: parseFloat(value('miscR')),
+      miscAY: parseFloat(value('miscAY')),
+      miscW: parseFloat(value('miscW')),
+      miscH: parseFloat(value('miscH')),
+      miscT: parseFloat(value('miscT')),
+      miscRemark: value('miscRemark'),
+      chkNearFaultMisc: checked('chkNearFaultMisc')
+    }
+  };
+}
+
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setInputChecked(id, checked) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.checked = !!checked;
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function applyCaseInputs(data) {
+  const input = data?.values ? data : { project: data?.project || {}, values: data || {} };
+  const project = input.project || {};
+  const values = { ...DEFAULT_CASE_INPUTS.values, ...(input.values || {}) };
+  if (project.name != null) document.getElementById('projName').value = project.name;
+  if (project.no != null) document.getElementById('projNo').value = project.no;
+  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  syncPrintReportMode(values.printReportMode);
+  setInputValue('zoneCity', values.zoneCity || '');
+  document.getElementById('zoneCity').dispatchEvent(new Event('change'));
+  setInputValue('zoneDist', values.zoneDist || '');
+  if (values.zoneDist) document.getElementById('zoneDist').dispatchEvent(new Event('change'));
+  ['SsD', 'S1D', 'SsM', 'S1M', 'siteClass', 'miscI'].forEach(id => setInputValue(id, values[id]));
+  setInputChecked('chkTaipei', values.chkTaipei);
+  setInputValue('miscChapterMode', values.miscChapterMode);
+  rebuildMiscCategoryOptions();
+  setInputValue('miscCategory', values.miscCategory || 'all');
+  rebuildMiscTypeOptions();
+  const miscType = String(values.miscType ?? '0');
+  const typeEl = document.getElementById('miscType');
+  typeEl.value = Array.from(typeEl.options).some(option => option.value === miscType) ? miscType : '0';
+  document.getElementById('miscCustomRow').style.display = typeEl.value === '-1' ? '' : 'none';
+  ['miscR', 'miscAY', 'miscW', 'miscH', 'miscT', 'miscRemark'].forEach(id => setInputValue(id, values[id]));
+  setInputChecked('chkNearFaultMisc', values.chkNearFaultMisc);
+  saveProjectInfo();
+  updateInputChecks();
+}
+
+function exportCaseJson() {
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: {
+      id: 'seismic-misc',
+      name: '雜項工作物地震力',
+      version: TOOL_VERSION
+    },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: lastMiscResult || null
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CATII-SeismicMisc-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出雜項工作物案件 JSON；可用於日後回讀本頁輸入與計算結果。');
+}
+
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已讀取不同版本案件 JSON (${payload.schema})，將盡量依現有欄位套用。`, 'warn');
+      }
+      applyCaseInputs(payload);
+      lastMiscResult = null;
+      document.getElementById('resultPanel').style.display = 'none';
+      setCaseStatus('已匯入案件 JSON；請按「計算雜項工作物地震力」重新整理結果。');
+    } catch (err) {
+      setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
+    } finally {
+      document.getElementById('caseJsonFile').value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetCaseDefaults() {
+  applyCaseInputs(DEFAULT_CASE_INPUTS);
+  lastMiscResult = null;
+  document.getElementById('resultPanel').style.display = 'none';
+  document.getElementById('zoneHint').textContent = '';
+  setCaseStatus('已恢復本頁預設值。');
+}
+
 function currentTypeTable() {
   return document.getElementById('miscChapterMode').value === 'similar' ? SIMILAR_TYPES : NONSIMILAR_TYPES;
 }
@@ -355,9 +672,12 @@ function currentTypeTable() {
 function rebuildMiscTypeOptions() {
   const sel = document.getElementById('miscType');
   const mode = document.getElementById('miscChapterMode').value;
+  const category = document.getElementById('miscCategory')?.value || 'all';
   const table = currentTypeTable();
+  const currentValue = sel.value;
   sel.innerHTML = '';
   table.forEach((item, i) => {
+    if (!typeMatchesCategory(item, mode, category)) return;
     const o = document.createElement('option');
     o.value = i;
     o.textContent = miscTypeOptionLabel(item);
@@ -367,11 +687,12 @@ function rebuildMiscTypeOptions() {
   custom.value = '-1';
   custom.textContent = mode === 'similar' ? '自訂 R / αy（請依表 5-1）' : '自訂 R / αy（請依表 5-2）';
   sel.appendChild(custom);
-  document.getElementById('miscTypeLabel').textContent = mode === 'similar' ? '工作物類型 (表 5-1)' : '工作物類型 (表 5-2)';
+  if (Array.from(sel.options).some(option => option.value === currentValue)) sel.value = currentValue;
+  document.getElementById('miscTypeLabel').textContent = mode === 'similar' ? '規範表列型式 (表 5-1)' : '規範表列型式 (表 5-2)';
   document.getElementById('miscModeHint').textContent = mode === 'similar'
     ? '相似於建築結構者，最小設計水平總橫力依式(2-3)計算，垂直地震力依 2.18 節。'
     : '非相似於建築結構者，T < 0.06 sec 用式(5-1)，T ≥ 0.06 sec 用式(5-2)。';
-  document.getElementById('miscCustomRow').style.display = 'none';
+  document.getElementById('miscCustomRow').style.display = sel.value === '-1' ? '' : 'none';
 }
 
 function initZoneLookupMisc() {
@@ -415,11 +736,74 @@ function initZoneLookupMisc() {
 }
 
 function initMisc() {
+  rebuildMiscCategoryOptions();
   rebuildMiscTypeOptions();
+  document.getElementById('miscCategory').addEventListener('change', function() {
+    rebuildMiscTypeOptions();
+    updateInputChecks();
+  });
   document.getElementById('miscType').addEventListener('change', function() {
     document.getElementById('miscCustomRow').style.display = this.value === '-1' ? '' : 'none';
+    updateInputChecks();
   });
-  document.getElementById('miscChapterMode').addEventListener('change', rebuildMiscTypeOptions);
+  document.getElementById('miscChapterMode').addEventListener('change', function() {
+    rebuildMiscCategoryOptions();
+    rebuildMiscTypeOptions();
+    updateInputChecks();
+  });
+}
+
+function validateMiscInputs() {
+  const messages = [];
+  const num = id => parseFloat(document.getElementById(id)?.value);
+  const mode = document.getElementById('miscChapterMode')?.value || 'similar';
+  const table = currentTypeTable();
+  const typeIdx = parseInt(document.getElementById('miscType')?.value, 10);
+  const preset = typeIdx >= 0 ? table[typeIdx] : null;
+  const SsD = num('SsD');
+  const S1D = num('S1D');
+  const SsM = num('SsM');
+  const S1M = num('S1M');
+  const W = num('miscW');
+  const h = num('miscH');
+  const T = num('miscT');
+  const R = typeIdx === -1 ? num('miscR') : preset?.R;
+  const alphaY = typeIdx === -1 ? num('miscAY') : preset?.alphaY;
+  [
+    ['SsD', SsD],
+    ['S1D', S1D],
+    ['SsM', SsM],
+    ['S1M', S1M],
+    ['工作物重量 W', W],
+    ['工作物高度 h', h]
+  ].forEach(([label, value]) => {
+    if (!(isFinite(value) && value > 0)) messages.push({ type: 'error', text: `${label} 必須為大於 0 的數值。` });
+  });
+  if (!(isFinite(T) && T >= 0)) messages.push({ type: 'error', text: '週期 T 必須為 0 或正值；若視為剛性可填 0。' });
+  if (!(isFinite(R) && R > 0)) messages.push({ type: 'error', text: 'R 必須為大於 0 的數值。' });
+  if (!(isFinite(alphaY) && alphaY > 0)) messages.push({ type: 'error', text: 'αy 必須為大於 0 的數值。' });
+  if (typeIdx === -1) {
+    messages.push({ type: 'warn', text: '目前採自訂 R / αy，請由第五章表列或專案依據自行複核。' });
+  }
+  const limitWarning = getHeightLimitWarning(preset, h);
+  if (limitWarning) messages.push({ type: 'warn', text: limitWarning });
+  if (mode === 'nonsimilar' && isFinite(T) && T > 0 && T < 0.06) {
+    messages.push({ type: 'info', text: '5.4 非相似於建築結構且 T < 0.06 sec 時，將採式(5-1)剛性簡化公式。' });
+  }
+  if (mode === 'similar' && isFinite(T) && T === 0) {
+    messages.push({ type: 'info', text: '5.3 相似於建築結構若未輸入週期，將以 T = 0 剛性條件計算；請確認是否符合案件模型。' });
+  }
+  return messages;
+}
+
+function renderInputChecks(messages) {
+  const panel = document.getElementById('inputCheckPanel');
+  if (!panel) return;
+  panel.innerHTML = messages.map(message => `<div class="check-msg ${message.type}">${escHtml(message.text)}</div>`).join('');
+}
+
+function updateInputChecks() {
+  renderInputChecks(validateMiscInputs());
 }
 
 function calcMiscSeismicFull(p) {
@@ -546,6 +930,84 @@ function calcMiscSeismicFull(p) {
   };
 }
 
+function renderMiscDiagram(r, options = {}) {
+  if (!r) return '';
+  const maxDisplayHeight = r.mode === 'similar' ? 150 : 176;
+  const hRatio = Math.max(0.35, Math.min(1, Number(r.hn || 0) / 30));
+  const groundY = 258;
+  const objectH = 74 + hRatio * (maxDisplayHeight - 74);
+  const topY = groundY - objectH;
+  const centerX = 210;
+  const midY = topY + objectH * 0.55;
+  const vhStartX = centerX + 52;
+  const vhEndX = 366;
+  const vvX = 348;
+  const vvTopY = Math.max(76, midY - 60);
+  const vvBottomY = Math.max(vvTopY + 34, midY - 18);
+  const panelX = 394;
+  const isSimilar = r.mode === 'similar';
+  const diagramClass = options.compact ? 'line-h2-diagram compact' : 'line-h2-diagram';
+  const modeLabel = isSimilar ? '5.3 相似於建築' : '5.4 非相似於建築';
+  const title = r.typeName || '雜項工作物';
+  const objectShape = isSimilar
+    ? `<g data-diagram-object="building">
+        <path d="M${centerX - 54} ${topY + 18}L${centerX} ${topY - 8}L${centerX + 54} ${topY + 18}Z" fill="#dbeafe" stroke="#334155" stroke-width="2"/>
+        <rect x="${centerX - 48}" y="${topY + 18}" width="96" height="${objectH - 18}" rx="8" fill="#ffffff" stroke="#334155" stroke-width="2.4"/>
+        <path d="M${centerX - 48} ${topY + objectH * 0.43}h96M${centerX - 48} ${topY + objectH * 0.70}h96M${centerX - 16} ${topY + 18}v${objectH - 18}M${centerX + 16} ${topY + 18}v${objectH - 18}" stroke="#cbd5e1" stroke-width="1.5"/>
+        <rect x="${centerX - 34}" y="${topY + 34}" width="18" height="18" rx="4" fill="#bfdbfe"/>
+        <rect x="${centerX + 16}" y="${topY + 34}" width="18" height="18" rx="4" fill="#bfdbfe"/>
+        <path d="M${centerX - 10} ${groundY}v-28h20v28" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+        <path d="M${centerX - 58} ${groundY + 4}h116" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+      </g>`
+    : `<g data-diagram-object="nonbuilding">
+        <rect x="${centerX - 34}" y="${topY - 4}" width="68" height="28" rx="5" fill="#ffffff" stroke="#0f766e" stroke-width="2"/>
+        <path d="M${centerX - 24} ${topY + 5}h48M${centerX - 18} ${topY + 15}h36" stroke="#5eead4" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M${centerX - 34} ${topY + 24}L${centerX - 52} ${groundY}M${centerX + 34} ${topY + 24}L${centerX + 52} ${groundY}M${centerX} ${topY + 24}v${objectH - 24}" stroke="#0f766e" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M${centerX - 28} ${topY + objectH * 0.35}h56M${centerX - 38} ${topY + objectH * 0.58}h76M${centerX - 46} ${topY + objectH * 0.80}h92" stroke="#5eead4" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M${centerX - 34} ${topY + 24}L${centerX + 28} ${topY + objectH * 0.35}L${centerX - 38} ${topY + objectH * 0.58}L${centerX + 46} ${topY + objectH * 0.80}M${centerX + 34} ${topY + 24}L${centerX - 28} ${topY + objectH * 0.35}L${centerX + 38} ${topY + objectH * 0.58}L${centerX - 46} ${topY + objectH * 0.80}" stroke="#99f6e4" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+        <rect x="${centerX - 60}" y="${groundY}" width="120" height="8" rx="3" fill="#e2e8f0" stroke="#94a3b8"/>
+      </g>`;
+  return `
+    <div class="diagram-wrap">
+      <svg class="${diagramClass}" viewBox="0 0 560 330" role="img" aria-label="雜項工作物地震力示意圖">
+        <title>${escHtml(title)}</title>
+        <defs>
+          <marker id="miscArrowTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 Z" fill="#0f766e"/>
+          </marker>
+          <marker id="miscArrowCyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0 L10 5 L0 10 Z" fill="#0891b2"/>
+          </marker>
+        </defs>
+        <rect x="0" y="0" width="560" height="330" rx="18" fill="#f8fafc"/>
+        <rect x="40" y="22" width="286" height="52" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
+        ${renderSvgTitleLines(title, 56, 43)}
+        <path d="M70 ${groundY + 1}H500" stroke="#94a3b8" stroke-width="2"/>
+        <path d="M84 ${groundY + 9}h390" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="7 8"/>
+        <line x1="112" y1="${groundY}" x2="112" y2="${topY}" stroke="#0f766e" stroke-width="2.4" marker-start="url(#miscArrowTeal)" marker-end="url(#miscArrowTeal)"/>
+        <text x="94" y="${topY + objectH / 2}" fill="#0f766e" font-size="13" font-weight="700" transform="rotate(-90 94 ${topY + objectH / 2})">h = ${fmt(r.hn, 2)} m</text>
+        ${objectShape}
+        <g data-diagram-role="vh-arrow-zone">
+          <rect x="${vhStartX}" y="${midY - 9}" width="${vhEndX - vhStartX + 12}" height="18" fill="transparent"/>
+          <line data-diagram-role="vh-arrow" x1="${vhStartX}" y1="${midY}" x2="${vhEndX}" y2="${midY}" stroke="#0891b2" stroke-width="4" stroke-linecap="round" marker-end="url(#miscArrowCyan)"/>
+        </g>
+        <g data-diagram-role="vv-arrow-zone">
+          <rect x="${vvX - 9}" y="${vvTopY - 4}" width="18" height="${vvBottomY - vvTopY + 8}" fill="transparent"/>
+          <line data-diagram-role="vv-arrow" x1="${vvX}" y1="${vvTopY}" x2="${vvX}" y2="${vvBottomY}" stroke="#0891b2" stroke-width="4" stroke-linecap="round" marker-end="url(#miscArrowCyan)"/>
+        </g>
+        <g data-diagram-role="force-panel">
+          <rect x="${panelX}" y="40" width="128" height="132" rx="14" fill="#ffffff" stroke="#99f6e4" stroke-width="1.4"/>
+          <text x="${panelX + 16}" y="64" fill="#0f766e" font-size="13" font-weight="700">計算結果</text>
+          <text x="${panelX + 16}" y="89" fill="#0f766e" font-size="13" font-weight="700">Vh → ${fmt(r.Vh, 2)} tf</text>
+          <text x="${panelX + 16}" y="113" fill="#0f766e" font-size="13" font-weight="700">Vv ↓ ${fmt(r.Vv, 2)} tf</text>
+          <path d="M${panelX + 16} 128h88" stroke="#ccfbf1" stroke-width="1"/>
+          <text x="${panelX + 16}" y="149" fill="#64748b" font-size="12">${escHtml(r.formulaUsed)}</text>
+        </g>
+        <text x="42" y="302" fill="#475569" font-size="12">${escHtml(modeLabel)} ｜ T = ${fmt(r.T, 3)} sec ｜ R / αy = ${escHtml(`${r.R} / ${r.alphaY}`)}</text>
+      </svg>
+    </div>`;
+}
+
 function calcMiscPage() {
   const mode = document.getElementById('miscChapterMode').value;
   const table = currentTypeTable();
@@ -562,15 +1024,14 @@ function calcMiscPage() {
   const I = parseFloat(document.getElementById('miscI').value) || 1.0;
   const isNearFault = document.getElementById('chkNearFaultMisc').checked;
   const preset = typeIdx >= 0 ? table[typeIdx] : null;
-  const R = typeIdx === -1 ? parseFloat(document.getElementById('miscR').value) || 1.5 : preset.R;
-  const alphaY = typeIdx === -1 ? parseFloat(document.getElementById('miscAY').value) || 1.0 : preset.alphaY;
-
-  if (![SsD, S1D, SsM, S1M].every(v => isFinite(v) && v > 0)) {
-    alert('請完整填入有效的震區參數。');
-    return;
-  }
-  if (!isFinite(W) || W <= 0 || !isFinite(hn) || hn <= 0) {
-    alert('請輸入有效的工作物重量與高度。');
+  const isCustomType = typeIdx === -1 || !preset;
+  const R = isCustomType ? parseFloat(document.getElementById('miscR').value) || 1.5 : preset.R;
+  const alphaY = isCustomType ? parseFloat(document.getElementById('miscAY').value) || 1.0 : preset.alphaY;
+  const validationMessages = validateMiscInputs();
+  renderInputChecks(validationMessages);
+  const blockingMessages = validationMessages.filter(message => message.type === 'error');
+  if (blockingMessages.length) {
+    alert(blockingMessages.map(message => message.text).join('\n'));
     return;
   }
 
@@ -588,15 +1049,19 @@ function calcMiscPage() {
     isTaipeiBasin: isTB,
     isNearFault
   });
+  r.note = (document.getElementById('miscRemark').value || '').trim();
+  r.isTaipeiBasin = isTB;
+  r.isNearFault = isNearFault;
+  r.toolVersion = TOOL_VERSION;
   lastMiscResult = r;
   const limitWarning = getHeightLimitWarning(preset, hn);
 
   document.getElementById('resultPanel').style.display = '';
   document.getElementById('banner').innerHTML =
-    `第五章 ${mode === 'similar' ? '5.3' : '5.4'} ${r.typeName}　最小設計水平總橫力 V<sub>h</sub> = <strong>${fmt(r.Vh, 2)}</strong> tf　` +
+    `第五章 ${mode === 'similar' ? '5.3' : '5.4'} ${escHtml(r.typeName)}　最小設計水平總橫力 V<sub>h</sub> = <strong>${fmt(r.Vh, 2)}</strong> tf　` +
     `最小設計垂直地震力 V<sub>v</sub> = <strong>${fmt(r.Vv, 2)}</strong> tf　` +
-    `<span style="font-size:0.85em;opacity:0.85;">(${r.controlledBy || '主公式'})</span>` +
-    (limitWarning ? `<br><span style="color:#b45309;">${limitWarning}</span>` : '');
+    `<span style="font-size:0.85em;opacity:0.85;">(${escHtml(r.controlledBy || '主公式')})</span>` +
+    (limitWarning ? `<br><span style="color:#b45309;">${escHtml(limitWarning)}</span>` : '');
   document.getElementById('miscOverview').innerHTML = `
     <div class="compact-item">
       <span class="label">第五章分類</span>
@@ -604,21 +1069,22 @@ function calcMiscPage() {
     </div>
     <div class="compact-item">
       <span class="label">工作物類型</span>
-      <span class="value">${r.typeName}</span>
+      <span class="value">${escHtml(r.typeName)}</span>
     </div>
     <div class="compact-item">
       <span class="label">採用公式</span>
-      <span class="value">${r.formulaUsed}</span>
+      <span class="value">${escHtml(r.formulaUsed)}</span>
     </div>
     <div class="compact-item">
       <span class="label">控制機制</span>
-      <span class="value">${r.controlledBy || '主公式'}</span>
+      <span class="value">${escHtml(r.controlledBy || '主公式')}</span>
     </div>
     <div class="compact-item">
       <span class="label">R / α<sub>y</sub></span>
       <span class="value">${r.R} / ${r.alphaY}</span>
     </div>
   `;
+  document.getElementById('miscDiagram').innerHTML = renderMiscDiagram(r);
   if (window.matchMedia('(max-width: 1080px)').matches) {
     document.getElementById('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -729,16 +1195,83 @@ function openMiscReport() {
   const typeIdx = parseInt(document.getElementById('miscType').value, 10);
   const isCustomType = typeIdx === -1;
   const limitWarning = getHeightLimitWarning(r, r.hn);
+  const includeDetail = getPrintReportMode() === 'detail';
+  const diagramHtml = renderMiscDiagram(r, { compact: true });
+  const resultGridHtml = document.getElementById('miscResult')?.querySelector('.results-grid')?.outerHTML || '';
+  const calcDetailHtml = document.getElementById('miscResult')?.querySelector('.step')?.outerHTML || document.getElementById('miscResult')?.innerHTML || '';
   const reportNotes = [];
   if (note) reportNotes.push(note);
   if (isCustomType) reportNotes.push('本案 R 與 αy 由使用者自訂，請對照第五章表列規定複核。');
   if (limitWarning) reportNotes.push(limitWarning);
   if (!reportNotes.length) reportNotes.push('本頁為第五章局部計算書；其他章節檢核請另由完整耐震頁辦理。');
+  const simpleReportHtml = `
+      <div class="rep-summary">第五章 ${esc(modeLabel)}　Vh = ${esc(fmt(r.Vh, 2))} tf　｜　Vv = ${esc(fmt(r.Vv, 2))} tf</div>
+      <div class="rep-chipbar">
+        <span class="rep-chip"><b>工址</b>${esc(zoneText)}</span>
+        <span class="rep-chip"><b>型式</b>${esc(r.typeName)}</span>
+        <span class="rep-chip"><b>採用公式</b>${esc(r.formulaUsed)}</span>
+        <span class="rep-chip"><b>控制機制</b>${esc(r.controlledBy || '—')}</span>
+        <span class="rep-chip"><b>R / αy</b>${esc(`${r.R} / ${r.alphaY}`)}</span>
+      </div>
+      <section class="rep-block">
+        <h3>工址條件</h3>
+        <table class="rep-input"><tbody>
+          <tr><th>工址地區</th><td>${esc(zoneText)}</td></tr>
+          <tr><th>SsD / S1D</th><td>${esc(document.getElementById('SsD').value)} / ${esc(document.getElementById('S1D').value)} g</td></tr>
+          <tr><th>SsM / S1M</th><td>${esc(document.getElementById('SsM').value)} / ${esc(document.getElementById('S1M').value)} g</td></tr>
+          <tr><th>地盤分類</th><td>${esc(document.getElementById('siteClass').selectedOptions[0].textContent)}</td></tr>
+          <tr><th>用途係數 I</th><td>${esc(document.getElementById('miscI').value)}</td></tr>
+          <tr><th>臺北盆地韌性調整</th><td>${document.getElementById('chkTaipei').checked ? '啟用' : '未啟用'}</td></tr>
+          <tr><th>近斷層垂直力比值</th><td>${document.getElementById('chkNearFaultMisc').checked ? '採 2/3 Vh' : '採 1/2 Vh'}</td></tr>
+        </tbody></table>
+      </section>
+      <section class="rep-block">
+        <h3>雜項工作物資料</h3>
+        <table class="rep-input"><tbody>
+          <tr><th>第五章分類</th><td>${esc(modeLabel)}</td></tr>
+          <tr><th>工作物類型</th><td>${esc(r.typeName)}</td></tr>
+          <tr><th>重量 W</th><td>${esc(fmt(r.W, 2))} tf</td></tr>
+          <tr><th>高度 h</th><td>${esc(fmt(r.hn, 2))} m</td></tr>
+          <tr><th>週期 T</th><td>${esc(fmt(r.T, 3))} sec</td></tr>
+          <tr><th>R / αy</th><td>${esc(`${r.R} / ${r.alphaY}`)}</td></tr>
+          <tr><th>表列高度上限</th><td>${esc(r.hLimit)}</td></tr>
+          <tr><th>備註</th><td>${esc(note || '—')}</td></tr>
+        </tbody></table>
+      </section>
+      <section class="rep-block">
+        <h3>結果摘要</h3>
+        <div class="report-body-card">
+          ${resultGridHtml}
+        </div>
+      </section>
+      <section class="rep-block">
+        <h3>計算示意圖</h3>
+        ${diagramHtml}
+      </section>`;
+  const detailedReportHtml = `
+      <section class="rep-block">
+        <h3>計算示意圖</h3>
+        ${diagramHtml}
+      </section>
+      <section class="rep-block">
+        <h3>計算內容</h3>
+        <div class="detail-basis">
+          <strong>規範依據與工址摘要</strong><br>
+          依「建築物耐震設計規範及解說」113 年版第五章雜項工作物；工址地區：${esc(zoneText)}；
+          第五章分類：${esc(modeLabel)}；工作物類型：${esc(r.typeName)}；
+          地盤分類：${esc(document.getElementById('siteClass').selectedOptions[0].textContent)}；
+          臺北盆地韌性調整：${document.getElementById('chkTaipei').checked ? '啟用' : '未啟用'}；
+          近斷層垂直力比值：${document.getElementById('chkNearFaultMisc').checked ? '採 2/3 Vh' : '採 1/2 Vh'}。
+        </div>
+        <div class="report-body-card">
+          ${calcDetailHtml}
+        </div>
+      </section>`;
   const html = `<!doctype html>
   <html lang="zh-TW">
   <head>
   <meta charset="utf-8">
-  <title>雜項工作物地震力計算書 V3</title>
+  <title>雜項工作物地震力計算書 V3.3</title>
   <style>
     @page { size: A4 portrait; margin: 18mm 14mm; }
     * { box-sizing: border-box; }
@@ -783,6 +1316,10 @@ function openMiscReport() {
     .report-body-card .result-item { min-height:72px; }
     .report-body-card .step { page-break-inside: avoid; break-inside: avoid; }
     .report-body-card .cmp { table-layout:fixed; }
+    .detail-basis { margin:0 0 12px; padding:10px 12px; border:1px solid #99f6e4; border-radius:8px; background:#f0fdfa; font-size:12px; line-height:1.8; color:#374151; }
+    .detail-basis strong { color:#0f766e; }
+    .diagram-wrap { border:1px solid #dbeafe; border-radius:10px; background:#f8fafc; padding:8px; overflow:hidden; }
+    .line-h2-diagram { display:block; width:100%; height:auto; max-height:300px; }
     .rep-footer { position:fixed; left:0; bottom:0; width:100%; padding:0 14mm 8mm; font-size:10px; color:#666; display:flex; justify-content:flex-end; align-items:end; }
     .rep-footer-left { text-align:left; }
     .rep-footer-right { text-align:right; }
@@ -813,49 +1350,7 @@ function openMiscReport() {
         <div><b>設計人員</b>${esc(proj.designer || '—')}</div>
         <div><b>製表日期</b>${esc(today)}</div>
       </div>
-      <div class="rep-summary">第五章 ${esc(modeLabel)}　Vh = ${esc(fmt(r.Vh, 2))} tf　｜　Vv = ${esc(fmt(r.Vv, 2))} tf</div>
-      <div class="rep-chipbar">
-        <span class="rep-chip"><b>工址</b>${esc(zoneText)}</span>
-        <span class="rep-chip"><b>型式</b>${esc(r.typeName)}</span>
-        <span class="rep-chip"><b>採用公式</b>${esc(r.formulaUsed)}</span>
-        <span class="rep-chip"><b>控制機制</b>${esc(r.controlledBy || '—')}</span>
-        <span class="rep-chip"><b>R / αy</b>${esc(`${r.R} / ${r.alphaY}`)}</span>
-      </div>
-      <section class="rep-block">
-        <h3>工址條件</h3>
-        <table class="rep-input"><tbody>
-          <tr><th>工址地區</th><td>${esc(zoneText)}</td></tr>
-          <tr><th>SsD / S1D</th><td>${esc(document.getElementById('SsD').value)} / ${esc(document.getElementById('S1D').value)} g</td></tr>
-          <tr><th>SsM / S1M</th><td>${esc(document.getElementById('SsM').value)} / ${esc(document.getElementById('S1M').value)} g</td></tr>
-          <tr><th>地盤分類</th><td>${esc(document.getElementById('siteClass').selectedOptions[0].textContent)}</td></tr>
-          <tr><th>用途係數 I</th><td>${esc(document.getElementById('miscI').value)}</td></tr>
-          <tr><th>臺北盆地韌性調整</th><td>${document.getElementById('chkTaipei').checked ? '啟用' : '未啟用'}</td></tr>
-          <tr><th>近斷層垂直力比值</th><td>${document.getElementById('chkNearFaultMisc').checked ? '採 2/3 Vh' : '採 1/2 Vh'}</td></tr>
-        </tbody></table>
-      </section>
-      <section class="rep-block">
-        <h3>雜項工作物資料</h3>
-        <table class="rep-input"><tbody>
-          <tr><th>第五章分類</th><td>${esc(modeLabel)}</td></tr>
-          <tr><th>工作物類型</th><td>${esc(r.typeName)}</td></tr>
-          <tr><th>重量 W</th><td>${esc(fmt(r.W, 2))} tf</td></tr>
-          <tr><th>高度 h</th><td>${esc(fmt(r.hn, 2))} m</td></tr>
-          <tr><th>週期 T</th><td>${esc(fmt(r.T, 3))} sec</td></tr>
-          <tr><th>R / αy</th><td>${esc(`${r.R} / ${r.alphaY}`)}</td></tr>
-          <tr><th>表列高度上限</th><td>${esc(r.hLimit)}</td></tr>
-          <tr><th>備註</th><td>${esc(note || '—')}</td></tr>
-        </tbody></table>
-      </section>
-      <section class="rep-block">
-        <h3>綜合結論</h3>
-        <div class="banner-status ok">${document.getElementById('banner').innerHTML}</div>
-      </section>
-      <section class="rep-block">
-        <h3>第五章地震力計算結果</h3>
-        <div class="report-body-card">
-          ${document.getElementById('miscResult').innerHTML}
-        </div>
-      </section>
+      ${includeDetail ? detailedReportHtml : simpleReportHtml}
       <section class="rep-block">
         <h3>備註</h3>
         <ol class="rep-notes">
@@ -904,16 +1399,30 @@ function openMiscReport() {
 })();
 
 document.getElementById('btnCalc').addEventListener('click', calcMiscPage);
-document.getElementById('btnPrint').addEventListener('click', openMiscReport);
 document.getElementById('btnReport').addEventListener('click', openMiscReport);
+document.getElementById('btnExportCaseJson').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCaseJson').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
+document.getElementById('caseJsonFile').addEventListener('change', event => importCaseJsonFile(event.target.files?.[0]));
+document.querySelectorAll('.mode-segment').forEach(button => {
+  button.addEventListener('click', () => syncPrintReportMode(button.dataset.reportMode));
+});
 initMisc();
 initZoneLookupMisc();
+syncPrintReportMode(DEFAULT_CASE_INPUTS.values.printReportMode);
 restoreProjectInfo();
+['SsD', 'S1D', 'SsM', 'S1M', 'siteClass', 'miscI', 'chkTaipei', 'miscChapterMode', 'miscType', 'miscR', 'miscAY', 'miscW', 'miscH', 'miscT', 'miscRemark', 'chkNearFaultMisc'].forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', updateInputChecks);
+  el.addEventListener('change', updateInputChecks);
+});
 ['projName', 'projNo', 'projDesigner'].forEach(function(id) {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('input', saveProjectInfo);
 });
+updateInputChecks();
 </script>
 </body>
 </html>

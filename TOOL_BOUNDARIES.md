@@ -24,6 +24,7 @@
 | `結構工具箱/tools/local-quick-export.test.js` | 納入 | JSON 匯出 helper 的 Node stub regression；驗證 payload、預設檔名、MIME、click/remove/revoke 與 Infinity/NaN 序列化，不依賴瀏覽器下載事件。 |
 | `結構工具箱/tools/local-quick-output-consistency.test.js` | 納入 | 局部快算跨輸出一致性 regression；以 manifest + golden cases 驗證 core result、JSON payload、summary/checks、schema、provenance 與 HTML 匯出/report metadata 的工具身份一致。 |
 | `結構工具箱/tools/local-quick-browser-smoke.test.js` | 納入 | 局部快算 Edge/CDP 瀏覽器 smoke；啟動臨時靜態 server 並模擬 `vercel.json` rewrites，在 desktop/mobile viewport 載入首頁、乾淨路由與三個工具頁，檢查初始計算、JSON 匯出按鈕 payload、列印計算書 metadata、script、console error 與橫向溢出。 |
+| `結構工具箱/tools/formal-browser-smoke.test.js` | 納入 | 風力 / 地震正式頁 Edge/CDP 瀏覽器 smoke；覆蓋 14 個正式 / 報表頁，包含 MWFRS、C&C、開放式屋面、女兒牆、表 2.10、2.11、2.12、2.15、招牌 / 燈桿、等值靜力、附屬構造物、雜項工作物與動力摘要頁的乾淨路由、桌機 / 手機橫向溢出、詳算式 / 簡易結果切換、具備者的 JSON 匯出、列印計算書與示意圖角色。 |
 | `結構工具箱/tools/local-quick-tools.contract.test.js` | 納入 | 高頻局部快算共同契約測試；集中確認工具檔案、首頁入口、乾淨路由、README、邊界文件、staging 建議、頁面責任邊界與各工具 golden regression。 |
 | `結構工具箱/home.html` | 納入 | 新版公司內部 Web App 型工具入口；保留原 `結構工具箱/index.html`，新版入口以 `/toolbox-home` 或直接開啟本檔使用。 |
 | `結構工具箱/assets/home/` | 納入 | 首頁 Web App 的資料驅動工具清單、分類樣式與 inline SVG 小圖示；不再使用分類圖片資產。 |

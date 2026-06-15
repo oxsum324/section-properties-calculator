@@ -66,6 +66,7 @@ const payload = Exporter.buildPayload({
   tool: { id: 'foundation-local', name: '基礎局部檢核', pageVersion: 'V0.1' },
   project: { name: '測試案', no: 'T-001', designer: 'QA' },
   generatedAt: '2026-05-19T12:34:56.000Z',
+  input: { width: 1.2, length: 3.4 },
   result: {
     value: Infinity,
     nested: { ratio: -Infinity },
@@ -76,6 +77,7 @@ const payload = Exporter.buildPayload({
 assert.deepEqual(payload.tool, { id: 'foundation-local', name: '基礎局部檢核', pageVersion: 'V0.1' });
 assert.deepEqual(payload.project, { name: '測試案', no: 'T-001', designer: 'QA' });
 assert.equal(payload.generatedAt, '2026-05-19T12:34:56.000Z');
+assert.deepEqual(payload.input, { width: 1.2, length: 3.4 });
 assert.equal(payload.result.value, Infinity);
 
 const serialized = JSON.stringify(payload, Exporter.jsonReplacer);
@@ -88,6 +90,7 @@ withDownloadStubs((captured) => {
     tool: { id: 'foundation-local', name: '基礎局部檢核', pageVersion: 'V0.1' },
     project: { name: '測試案' },
     generatedAt: '2026-05-19T12:34:56.000Z',
+    input: { fs: 10 },
     result: { fs: Infinity },
   });
 
@@ -103,7 +106,9 @@ withDownloadStubs((captured) => {
   const downloaded = JSON.parse(captured.blobParts[0]);
   assert.equal(downloaded.tool.id, 'foundation-local');
   assert.equal(downloaded.generatedAt, '2026-05-19T12:34:56.000Z');
+  assert.equal(downloaded.input.fs, 10);
   assert.equal(downloaded.result.fs, 'Infinity');
+  assert.equal(returnedPayload.input.fs, 10);
   assert.equal(returnedPayload.result.fs, Infinity);
 });
 

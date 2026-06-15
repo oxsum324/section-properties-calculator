@@ -269,7 +269,7 @@ function runWindSuite(options = {}) {
       if (mwfrsResonant.lateralMeta.regime !== 'resonant') throw new Error('should enter resonant regime');
     }, 'advanced');
 
-    runCase(results, '塔狀構造物風力', () => {
+    runCase(results, '煙囪 / 水塔風力', () => {
       const tower = W.calcTowerWind({
         V: 42.5, terrain: 'C', I: 1.0, zBase: 0, height: 30, D: 2.0,
         segments: 6, Kzt: 1.0, sectionType: 'square_face', shapeFactor: 1.1,

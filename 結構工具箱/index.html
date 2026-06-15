@@ -328,28 +328,33 @@
     <div class="menu-grid">
       <a class="menu-card" href="tools/風力/wind-object-solid.html">
         <div class="icon">⬒</div>
-        <h3>實體標的物風力 <span class="ver ver-ok">V3.1</span></h3>
-        <p>實體單體之 Cf × A 風力、底部剪力、底部彎矩與沿高度分段剪力表</p>
+        <h3>實體標示物風力 <span class="ver ver-ok">V4.0</span></h3>
+        <p>規範表 2.10 實體標示物 Cf；依開口率、座地條件、H/B、M/N 判定風力與 0.3B 斜風向偏心</p>
       </a>
       <a class="menu-card" href="tools/風力/wind-object-frame.html">
         <div class="icon">#</div>
-        <h3>透空式 / 格子式風力 <span class="ver ver-ok">V3</span></h3>
-        <p>中空式標示物、格子式構架、桁架高塔之 Cf 路線；輸出集中或分段風力、剪力與彎矩</p>
+        <h3>中空式 / 格子式風力 <span class="ver ver-ok">V3.3</span></h3>
+        <p>規範表 2.11 中空式標示物、格子式構架之 Cf 路線；輸出風力、剪力與彎矩</p>
+      </a>
+      <a class="menu-card" href="tools/風力/wind-lattice-tower.html">
+        <div class="icon">╱</div>
+        <h3>桁架高塔風力 <span class="ver ver-ok">V1.1</span></h3>
+        <p>規範表 2.15 桁架高塔 Cf 路線；依高塔型式、構材、實體率與分段高度整理底部作用</p>
       </a>
       <a class="menu-card" href="tools/風力/wind-object-tower.html">
         <div class="icon">⌇</div>
-        <h3>煙囪 / 高塔 / 水塔風力 <span class="ver ver-ok">V3</span></h3>
-        <p>依表 2.12 之塔狀構造物 Cf 路線，輸出分段剪力、總剪力、底部彎矩與塔頂附加風力</p>
+        <h3>煙囪 / 水塔風力 <span class="ver ver-ok">V3.2</span></h3>
+        <p>規範表 2.12 煙囪、水塔等 Cf 路線；含 h/D 內插、G 詳算、分段剪力與頂部附加風力</p>
       </a>
       <a class="menu-card" href="tools/風力/wind-fence-sign.html">
         <div class="icon">▮</div>
-        <h3>圍籬牆 / 獨立招牌風力 <span class="ver ver-new">V1 NEW</span></h3>
-        <p>規範表 2.10 招牌物 Cf 路線；座地 / 架高雙模式 + 形心高度速度壓 + F/V/M</p>
+        <h3>圍籬牆 / 獨立招牌風力 <span class="ver ver-ok">V2.1</span></h3>
+        <p>規範表 2.10 招牌物 Cf 路線；座地 / 架高雙模式 + JSON 案件 + 簡易 / 詳算計算書</p>
       </a>
-      <a class="menu-card" href="tools/風力/wind-shape-factor.html">
-        <div class="icon">◇</div>
-        <h3>形狀 / 修正係數輔助 <span class="ver ver-ok">V3</span></h3>
-        <p>整合表 2.10、2.13、2.14 之 Cf 與修正係數，供回填特殊標的物與形狀修正使用</p>
+      <a class="menu-card" href="tools/風力/wind-sign-pole.html">
+        <div class="icon">╋</div>
+        <h3>招牌 / 燈桿組合風力 <span class="ver ver-ok">V1.0</span></h3>
+        <p>面板採表 2.10，管材燈桿採表 2.14，型鋼支撐採表 2.13；分別計算後合成底部作用</p>
       </a>
     </div>
   </div>
@@ -396,28 +401,34 @@
           <td>超出圖 3.3 幾何條件者不適用本頁；特殊屋型應另行處理</td>
         </tr>
         <tr>
-          <td><strong>實體標的物風力</strong></td>
+          <td><strong>實體標示物風力</strong></td>
 <td><span class="scope-ok">依規範條件計算如下</span></td>
-          <td>實體單體、箱體、圓柱、球體、看板等之集中或分段風力整理；可輸出 F、V、M 與合力作用高度</td>
-          <td>本頁工具預設 Cf 可直接作為起算值；專案已有規範表列值、試驗值或指定值時，應以覆寫值取代</td>
+          <td>表 2.10 實體標示物；開口面積小於總面積 30%，依座地條件採 ν = H/B 或 M/N 查表，輸出 F、V、M 與斜風向 0.3B 偏心</td>
+          <td>圓柱、球體、角柱體、煙囪、水塔、格子式構架等不得在本頁套用，應改用各自規範表格路線</td>
         </tr>
         <tr>
-          <td><strong>煙囪 / 高塔 / 水塔風力</strong></td>
+          <td><strong>煙囪 / 水塔風力</strong></td>
 <td><span class="scope-ok">依規範條件計算如下</span></td>
-          <td>表 2.12 之煙囪、水塔等塔狀構造物；可輸出塔身分段風力、塔頂附加風力、總剪力與底部彎矩</td>
-          <td>格構塔、桁架高塔、拉索塔與需另做動力檢核之構造物，不在本頁直接計算範圍</td>
+          <td>表 2.12 之煙囪、水塔等；依 h/D、斷面形狀與圓形 D√q(z) 分類，輸出本體分段風力、頂部附加風力、總剪力與底部彎矩</td>
+          <td>桁架高塔、中空式標示物、格子式構架、拉索塔與需另做動力檢核之構造物，不在本頁直接計算範圍</td>
         </tr>
         <tr>
-          <td><strong>透空式 / 格子式風力</strong></td>
+          <td><strong>中空式 / 格子式風力</strong></td>
 <td><span class="scope-ok">依規範條件計算如下</span></td>
-          <td>表 2.11 之中空式標示物 / 格子式構架，以及表 2.15 之桁架高塔；可輸出集中或分段風力、剪力與底部彎矩</td>
-          <td>拉索塔、複雜斜風向立體格構、動力反應顯著之高塔，應另行專案分析</td>
+          <td>表 2.11 之中空式標示物 / 格子式構架；依實體率、構材斷面與 D√q(z) 分類輸出風力、剪力與底部彎矩</td>
+          <td>桁架高塔、煙囪、水塔、拉索塔、複雜斜風向立體格構，應改用對應規範路線或另行專案分析</td>
         </tr>
         <tr>
-          <td><strong>形狀 / 修正係數輔助</strong></td>
-          <td><span class="scope-ok">依規範條件計算如下</span></td>
-          <td>表 2.10、2.13、2.14 之 Cf 與修正係數查用；可供回填至實體標的物、角柱體、繩索管材等工具</td>
-          <td>本頁為查表輔助，不直接輸出總風力、剪力或彎矩</td>
+          <td><strong>桁架高塔風力</strong></td>
+<td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>表 2.15 之方形或三角形桁架高塔；依塔型、構材型式、實體率與分段高度輸出底部剪力與彎矩</td>
+          <td>煙囪、水塔、中空式標示物、格子式構架、拉索塔與需動力分析之高塔，不在本頁直接計算範圍</td>
+        </tr>
+        <tr>
+          <td><strong>招牌 / 燈桿組合風力</strong></td>
+<td><span class="scope-ok">依規範條件計算如下</span></td>
+          <td>上方實體招牌面板採表 2.10；下方支撐依管材或角柱體分別採表 2.14 或表 2.13，輸出支撐分段風力與合計底部作用</td>
+          <td>開口率達 30% 以上、格構式支撐、桁架高塔或需動力分析之構造物，不在本頁直接計算範圍</td>
         </tr>
         <tr>
           <td><strong>特殊修正 / 折減</strong></td>
@@ -444,8 +455,8 @@
       </a>
       <a class="menu-card" href="tools/地震力/seismic-dynamic.html">
         <div class="icon">⌁</div>
-        <h3>動力分析摘要 <span class="ver ver-ok">V3</span></h3>
-        <p>整理反應譜動力分析結果、比對等值靜力結果，並輸出動力分析摘要計算書</p>
+        <h3>動力分析摘要 <span class="ver ver-ok">V3.1</span></h3>
+        <p>整理反應譜動力分析結果、比對等值靜力結果，提示縮放倍率與採用剪力候選</p>
       </a>
       <a class="menu-card" href="tools/地震力/seismic-appendage.html">
         <div class="icon">▦</div>
@@ -544,7 +555,7 @@
         <tr>
           <td><strong>動力分析摘要</strong></td>
           <td><span class="scope-limit">比對整理工具</span></td>
-          <td>承接 ETABS / SAP2000 / MIDAS 等模型結果；整理動力基底剪力、設計譜參數、等值靜力 / 動力比較與列印摘要</td>
+          <td>承接 ETABS / SAP2000 / MIDAS 等模型結果；整理動力基底剪力、設計譜參數、等值靜力 / 動力比較、縮放倍率與列印摘要</td>
           <td>本頁不是動力求解器，不直接建立模型、求模態或執行反應譜分析；仍須由外部分析成果輸入</td>
         </tr>
         <tr>

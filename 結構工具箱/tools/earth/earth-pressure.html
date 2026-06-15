@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>擋土土壓局部快算 V0.1</title>
+<title>擋土土壓局部快算 V0.4</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/結構工具箱/core/style.css">
 <style>
@@ -18,12 +18,34 @@
   .earth-shell { display:grid; grid-template-columns:minmax(320px, 0.95fr) minmax(420px, 1.25fr); gap:18px; align-items:start; }
   .earth-form-stack { display:grid; gap:18px; }
   .earth-result-stack { display:grid; gap:18px; position:sticky; top:18px; }
-  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .inline-actions .btn-calc,
-  .inline-actions .btn-print,
-  .inline-actions .btn-secondary { flex:1 1 180px; width:auto; min-height:46px; margin-top:0; justify-content:center; }
+  .case-actions,
+  .output-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .case-actions { flex:1 1 180px; justify-content:flex-end; margin-left:auto; }
+  .case-actions .btn-secondary {
+    flex:0 1 128px;
+    width:auto;
+    min-height:40px;
+    margin-top:0;
+    padding:8px 12px;
+    justify-content:center;
+  }
+  .action-card { border-top:3px solid var(--primary); }
+  .output-actions { margin-top:10px; }
+  .output-actions .btn-calc,
+  .output-actions .btn-print,
+  .output-actions .btn-secondary {
+    width:auto;
+    min-height:48px;
+    margin-top:0;
+    justify-content:center;
+  }
+  .output-actions .btn-calc { flex:2 1 220px; }
+  .output-actions .btn-print,
+  .output-actions .btn-secondary { flex:1 1 150px; }
   .scope-box { padding:12px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fcd34d; color:#78350f; font-size:0.84em; line-height:1.75; }
   .scope-box strong { color:#92400e; }
+  .model-summary { margin-top:12px; }
+  input:disabled, select:disabled { background:#f1f5f9; color:#64748b; cursor:not-allowed; }
   .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:0.78em; font-weight:800; }
   .metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
@@ -33,6 +55,38 @@
   .metric.ok { border-left:4px solid var(--accent); }
   .metric.warn { border-left:4px solid var(--warn); }
   .metric.fail { border-left:4px solid var(--danger); }
+  .type-output { display:grid; gap:10px; }
+  .type-output__head { padding:12px 14px; border-radius:10px; background:#eef2ff; border:1px solid #c7d2fe; color:#1e1b4b; }
+  .type-output__head strong { display:block; margin-bottom:4px; color:#312e81; font-size:1.02em; }
+  .type-output__primary { margin-top:4px; font-family:'Consolas',monospace; font-weight:800; color:#0f172a; }
+  .type-output__grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
+  .type-output__item { min-height:92px; padding:10px 12px; border-radius:10px; border:1px solid #e2e8f0; background:#f8fafc; }
+  .type-output__item .k { display:block; margin-bottom:5px; color:#92400e; font-size:0.82em; font-weight:800; }
+  .type-output__item .v { display:block; color:#334155; font-size:0.84em; line-height:1.65; overflow-wrap:anywhere; }
+  .diagram-card { overflow:hidden; }
+  .diagram-wrap { border:1px solid #e2e8f0; border-radius:10px; background:#f8fafc; padding:10px; }
+  .pressure-diagram { display:block; width:100%; max-width:100%; height:auto; }
+  .pressure-diagram text { font-family:"Microsoft JhengHei",Arial,sans-serif; fill:#334155; font-size:13px; }
+  .pressure-diagram .small { font-size:11px; fill:#64748b; }
+  .pressure-diagram .tiny { font-size:10px; fill:#64748b; }
+  .pressure-diagram .label-strong { font-weight:800; fill:#0f172a; }
+  .pressure-diagram .label-panel { fill:#f8fafc; stroke:#e2e8f0; stroke-width:1; }
+  .pressure-diagram .wall { fill:#94a3b8; stroke:#475569; stroke-width:2; }
+  .pressure-diagram .wall-gravity { fill:#a8b2c1; }
+  .pressure-diagram .base { fill:#cbd5e1; stroke:#64748b; stroke-width:2; }
+  .pressure-diagram .toe-zone { fill:#e0f2fe; stroke:#7dd3fc; stroke-width:1; opacity:.72; }
+  .pressure-diagram .heel-zone { fill:#fef3c7; stroke:#fbbf24; stroke-width:1; opacity:.72; }
+  .pressure-diagram .soil { fill:#fef3c7; stroke:#d97706; stroke-width:1.4; }
+  .pressure-diagram .water { fill:#bae6fd; stroke:#0284c7; stroke-width:1.4; }
+  .pressure-diagram .surcharge { fill:#ddd6fe; stroke:#7c3aed; stroke-width:1.4; }
+  .pressure-diagram .arrow { stroke:#0f172a; stroke-width:2.2; marker-end:url(#arrowHead); fill:none; }
+  .pressure-diagram .load-arrow { stroke:#0f172a; stroke-width:2; marker-end:url(#arrowHead); fill:none; }
+  .pressure-diagram .dimension { stroke:#64748b; stroke-width:1.2; marker-start:url(#dimTick); marker-end:url(#dimTick); fill:none; }
+  .pressure-diagram .dimension-text { font-size:11px; fill:#475569; font-weight:700; }
+  .pressure-diagram .datum { stroke:#94a3b8; stroke-dasharray:4 4; stroke-width:1.2; }
+  .pressure-diagram .danger-line { stroke:#ef4444; stroke-width:1.6; }
+  .pressure-diagram .ok-line { stroke:#10b981; stroke-width:1.6; }
+  .pressure-diagram .reaction-fill { opacity:.92; }
   .check-list { display:grid; gap:9px; }
   .check-item { padding:10px 12px; border-radius:8px; background:#f8fafc; border-left:4px solid #cbd5e1; }
   .check-item.ok { border-left-color:var(--accent); }
@@ -58,15 +112,21 @@
     .hero-chip { font-size:0.76em; padding:5px 10px; }
     .earth-shell, .earth-form-stack, .earth-result-stack { gap:14px; }
     .form-row, .metric-grid { grid-template-columns:1fr; }
-    .inline-actions { flex-direction:column; }
-    .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
+    .type-output__grid { grid-template-columns:1fr; }
+    .case-actions,
+    .output-actions { flex-direction:column; align-items:stretch; width:100%; }
+    .case-actions { margin-left:0; }
+    .case-actions .btn-secondary,
+    .output-actions .btn-calc,
+    .output-actions .btn-print,
+    .output-actions .btn-secondary { width:100%; flex:1 1 auto; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>擋土土壓局部快算 <span class="badge-v">V0.1 初估 / 局部</span></h1>
-  <p>Rankine 主動 / 靜止土壓、均佈超載、水壓與簡化穩定檢核 ｜ 單位：m, tf, tf/m²</p>
+  <h1>擋土土壓局部快算 <span class="badge-v">V0.4 初估 / 局部</span></h1>
+  <p>擋土牆型式、牆體位移條件、Rankine 主動 / 靜止土壓、均佈超載、水壓與簡化穩定檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="/platform" class="back">← 回工具箱</a>
     <span class="sep">｜</span>
@@ -75,8 +135,8 @@
     <a href="/foundation-local" class="back">基礎局部檢核</a>
   </p>
   <div class="hero-strip">
-    <span class="hero-chip">水平背填 Rankine</span>
-    <span class="hero-chip">水壓 / 超載</span>
+    <span class="hero-chip">模型假設留痕</span>
+    <span class="hero-chip">Rankine 水平背填</span>
     <span class="hero-chip">每公尺牆長初估</span>
   </div>
 </header>
@@ -88,7 +148,9 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo" class="w-no" placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
-      <button class="mode-bar__report" id="btnReport" type="button">列印計算書</button>
+    </div>
+    <div class="case-actions" aria-label="案例管理">
+      <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
     </div>
   </div>
 
@@ -101,7 +163,7 @@
           適用水平背填、垂直牆背、無黏性土之 Rankine 主動 / 靜止土壓；可加入均佈超載與地下水壓。
           不處理斜背填、Coulomb 牆摩擦、地震土壓、分層土、排水細節、結構配筋與正式施工支撐設計。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.1</span>
+            <span>頁面 V0.4</span>
             <span id="coreVersion">Core v—</span>
             <span>初估 / 土壓</span>
           </div>
@@ -109,7 +171,55 @@
       </div>
 
       <div class="card">
-        <h2>① 土壓參數</h2>
+        <h2>① 土壓模型與假設</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>採用準則</label>
+            <select id="designReference">
+              <option value="taiwanFoundation2023">台灣基礎構造設計規範 112 年版（初估）</option>
+              <option value="rankineTextbook">Rankine 土壓理論 / 土壤力學教科書</option>
+              <option value="projectManual">專案指定準則（人工確認）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>擋土牆型式</label>
+            <select id="wallType">
+              <option value="cantilever">懸臂式擋土牆</option>
+              <option value="gravity">重力式擋土牆</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>牆體位移條件</label>
+            <select id="wallCondition">
+              <option value="yielding">可產生位移：採主動土壓 Ka</option>
+              <option value="restrained">受約束 / 地下室外牆：採靜止土壓 K0</option>
+              <option value="manual">手動指定土壓模式</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>土壓模式</label>
+            <select id="mode">
+              <option value="active">主動土壓 Ka</option>
+              <option value="atRest">靜止土壓 K0</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>地下水處理</label>
+            <select id="waterModel">
+              <option value="hydrostatic">依 hw 納入靜水壓</option>
+              <option value="none">不納入地下水壓</option>
+            </select>
+          </div>
+        </div>
+        <div id="modelSummary" class="scope-box model-summary">請先確認牆體位移條件與地下水處理。</div>
+      </div>
+
+      <div class="card">
+        <h2>② 土壓參數</h2>
         <div class="form-row">
           <div class="form-group">
             <label>擋土高度 H (m)</label>
@@ -126,31 +236,24 @@
             <input type="number" id="phiDeg" value="30" step="1" min="0" max="59">
           </div>
           <div class="form-group">
-            <label>土壓模式</label>
-            <select id="mode">
-              <option value="active">主動土壓 Ka</option>
-              <option value="atRest">靜止土壓 K0</option>
-            </select>
+            <label>均佈超載 q (tf/m²)</label>
+            <input type="number" id="surcharge" value="1.00" step="0.1" min="0">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>均佈超載 q (tf/m²)</label>
-            <input type="number" id="surcharge" value="1.00" step="0.1" min="0">
-          </div>
-          <div class="form-group">
             <label>地下水深 hw，由底部往上 (m)</label>
             <input type="number" id="waterDepth" value="0.00" step="0.05" min="0">
           </div>
-        </div>
-        <div class="form-group">
-          <label>水單位重 γw (tf/m³)</label>
-          <input type="number" id="gammaWater" value="1.00" step="0.01" min="0">
+          <div class="form-group">
+            <label>水單位重 γw (tf/m³)</label>
+            <input type="number" id="gammaWater" value="1.00" step="0.01" min="0">
+          </div>
         </div>
       </div>
 
       <div class="card">
-        <h2>② 簡化穩定參數</h2>
+        <h2>③ 簡化穩定參數</h2>
         <div class="form-row">
           <div class="form-group">
             <label>基底寬 B (m)</label>
@@ -173,6 +276,20 @@
         </div>
         <div class="form-row">
           <div class="form-group">
+            <label>被動抵抗採用方式</label>
+            <select id="passiveMode">
+              <option value="ignore">不採計被動抵抗</option>
+              <option value="reduced">折減採計被動抵抗</option>
+              <option value="includeFull">全額採計被動抵抗</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>被動抵抗折減係數</label>
+            <input type="number" id="passiveReductionFactor" value="0.50" step="0.05" min="0.05" max="1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label>被動抵抗 Rp (tf/m)</label>
             <input type="number" id="passive" value="0.00" step="0.1" min="0">
           </div>
@@ -185,11 +302,15 @@
           <label>抗傾覆需求 FS</label>
           <input type="number" id="fsOverReq" value="1.50" step="0.05" min="0.1">
         </div>
-        <div class="inline-actions">
+      </div>
+
+      <div class="card action-card">
+        <h2>④ 計算與輸出</h2>
+        <div class="scope-box">所有模型假設、土壓、地下水與穩定參數確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+        <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算土壓初估</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
           <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
-          <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
         </div>
       </div>
     </div>
@@ -204,6 +325,16 @@
       <div class="card">
         <h2>主要結果</h2>
         <div class="metric-grid" id="metricGrid"></div>
+      </div>
+
+      <div class="card">
+        <h2>牆型工作輸出</h2>
+        <div id="wallTypeOutputBody" class="type-output">請先按「計算土壓初估」。</div>
+      </div>
+
+      <div class="card diagram-card">
+        <h2>計算示意圖</h2>
+        <div class="diagram-wrap" id="diagramBody">請先按「計算土壓初估」。</div>
       </div>
 
       <div class="card">
@@ -226,16 +357,23 @@
 (function () {
   const STORAGE_KEY = 'earthPressureProjectInfo';
   const DEFAULTS = {
+    designReference: 'taiwanFoundation2023',
+    wallType: 'cantilever',
+    wallCondition: 'yielding',
     H: '2.50',
     gammaSoil: '1.80',
     phiDeg: '30',
+    mode: 'active',
     surcharge: '1.00',
+    waterModel: 'hydrostatic',
     waterDepth: '0.00',
     gammaWater: '1.00',
     baseB: '1.80',
     verticalLoad: '16.00',
     qa: '15.00',
     mu: '0.45',
+    passiveMode: 'ignore',
+    passiveReductionFactor: '0.50',
     passive: '0.00',
     fsSlideReq: '1.50',
     fsOverReq: '1.50'
@@ -247,6 +385,7 @@
   if (!Exporter) throw new Error('LocalQuickExport is not loaded.');
 
   function $(id) { return document.getElementById(id); }
+  function val(id) { return $(id).value; }
   function num(id) {
     const value = parseFloat($(id).value);
     return Number.isFinite(value) ? value : 0;
@@ -267,21 +406,52 @@
   }
   function gatherInputs() {
     return {
+      designReference: val('designReference'),
+      wallType: val('wallType'),
+      wallCondition: val('wallCondition'),
       H: num('H'),
       gammaSoil: num('gammaSoil'),
       phiDeg: num('phiDeg'),
-      mode: $('mode').value,
+      mode: val('mode'),
       surcharge: num('surcharge'),
+      waterModel: val('waterModel'),
       waterDepth: num('waterDepth'),
       gammaWater: num('gammaWater'),
       baseB: num('baseB'),
       verticalLoad: num('verticalLoad'),
       qa: num('qa'),
       mu: num('mu'),
+      passiveMode: val('passiveMode'),
+      passiveReductionFactor: num('passiveReductionFactor'),
       passive: num('passive'),
       fsSlideReq: num('fsSlideReq'),
       fsOverReq: num('fsOverReq')
     };
+  }
+
+  function syncModeFromWallCondition() {
+    const wallCondition = val('wallCondition');
+    if (wallCondition === 'yielding') $('mode').value = 'active';
+    if (wallCondition === 'restrained') $('mode').value = 'atRest';
+    $('mode').disabled = wallCondition !== 'manual';
+  }
+
+  function updateConditionalInputs() {
+    const waterDisabled = val('waterModel') === 'none';
+    $('waterDepth').disabled = waterDisabled;
+    $('gammaWater').disabled = waterDisabled;
+    const passiveMode = val('passiveMode');
+    $('passive').disabled = passiveMode === 'ignore';
+    $('passiveReductionFactor').disabled = passiveMode !== 'reduced';
+  }
+
+  function renderModelSummary(r) {
+    const result = r || Core.calculate(gatherInputs());
+    const passiveText = `${result.passiveModeLabel}；Rp 採用值 = ${fmt(result.effectivePassive)} tf/m`;
+    $('modelSummary').innerHTML = `
+      <strong>模型摘要：</strong>${escapeHtml(result.wallTypeLabel)}；${escapeHtml(result.wallConditionLabel)}，${escapeHtml(result.modeLabel)}。<br>
+      ${escapeHtml(result.backfillModelLabel)}；${escapeHtml(result.waterModelLabel)}；${escapeHtml(passiveText)}。
+    `;
   }
 
   function renderBanner(r) {
@@ -289,7 +459,9 @@
     banner.className = `banner-status ${r.overallOk ? 'ok' : 'fail'}`;
     banner.textContent = r.overallOk ? '土壓局部穩定初估通過' : '土壓或穩定條件需修正 / 詳算';
     const items = [
+      ['牆型', r.wallTypeLabel, true],
       ['K', `${r.mode === 'atRest' ? 'K0' : 'Ka'} = ${fmt(r.K, 3)}`, true],
+      ['模型', r.wallCondition === 'manual' ? '手動指定' : (r.mode === 'atRest' ? '受約束' : '可位移'), true],
       ['側向合力', `${fmt(r.totalForce)} tf/m`, true],
       ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`, r.slideOk],
       ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`, r.overOk]
@@ -299,12 +471,35 @@
     }).join('');
   }
 
+  function renderWallTypeOutput(r) {
+    const output = r.wallTypeOutput || {
+      headline: '牆型工作輸出',
+      focus: '尚未建立此牆型的工作摘要。',
+      primaryResult: '請重新計算。',
+      outputGroups: []
+    };
+    const groups = output.outputGroups.map(function (group) {
+      return `<div class="type-output__item">
+        <span class="k">${escapeHtml(group.label)}</span>
+        <span class="v">${escapeHtml(group.detail)}</span>
+      </div>`;
+    }).join('');
+    $('wallTypeOutputBody').innerHTML = `
+      <div class="type-output__head">
+        <strong>${escapeHtml(output.headline)}</strong>
+        <div>${escapeHtml(output.focus)}</div>
+        <div class="type-output__primary">${escapeHtml(output.primaryResult)}</div>
+      </div>
+      <div class="type-output__grid">${groups}</div>
+    `;
+  }
+
   function renderMetrics(r) {
     const metrics = [
       ['土壓係數', `${r.mode === 'atRest' ? 'K0' : 'Ka'} = ${fmt(r.K, 3)}`, `Ka=${fmt(r.Ka, 3)}；K0=${fmt(r.K0, 3)}`, true],
       ['側向合力', `${fmt(r.totalForce)} tf/m`, `作用高度 ${fmt(r.resultantHeight)} m`, true],
       ['傾覆力矩', `${fmt(r.overturningMoment)} tf·m/m`, 'about toe / base', r.overOk],
-      ['抗滑 FS', fmt(r.fsSlide, 2), `R=${fmt(r.slideResistance)} tf/m`, r.slideOk],
+      ['抗滑 FS', fmt(r.fsSlide, 2), `R=μV+Rp採用=${fmt(r.slideResistance)} tf/m`, r.slideOk],
       ['基底壓', `${fmt(r.qmax)} / ${fmt(r.qmin)} tf/m²`, `e=${fmt(r.e, 3)} m；B/6=${fmt(r.kernLimit, 3)} m`, r.bearingOk],
       ['抗傾覆 FS', fmt(r.fsOver, 2), `Mr=${fmt(r.resistingMoment)} tf·m/m`, r.overOk]
     ];
@@ -317,15 +512,149 @@
     }).join('');
   }
 
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function buildPressureDiagramSvg(r) {
+    const top = 58;
+    const bottom = 278;
+    const height = bottom - top;
+    const wallX = 158;
+    const wallW = 26;
+    const pressureX = wallX + wallW + 16;
+    const soilPanelW = 190;
+    const H = Math.max(r.H, 0.001);
+    const yAt = h => bottom - clamp(h / H, 0, 1) * height;
+    const waterTop = yAt(r.waterDepth);
+    const resultantY = yAt(r.resultantHeight);
+    const soilBottomPressure = r.K * r.gammaSoil * r.H;
+    const surchargePressure = r.K * r.surcharge;
+    const waterBottomPressure = r.gammaWater * r.waterDepth;
+    const pressureMax = Math.max(soilBottomPressure, surchargePressure, waterBottomPressure, 0.001);
+    const pressureScale = 84 / pressureMax;
+    const soilW = clamp(soilBottomPressure * pressureScale, 7, 84);
+    const surchargeW = r.surcharge > 0 ? clamp(surchargePressure * pressureScale, 7, 84) : 0;
+    const waterW = r.waterDepth > 0 ? clamp(waterBottomPressure * pressureScale, 7, 84) : 0;
+    const totalW = Math.max(soilW, surchargeW, waterW, 20);
+    const arrowStartX = Math.min(pressureX + totalW + 78, 414);
+    const dimX = 112;
+    const baseX = 74;
+    const baseY = bottom;
+    const baseW = 224;
+    const baseH = 32;
+    const qBaseY = 410;
+    const qScale = 56 / Math.max(Math.abs(r.qmax), Math.abs(r.qmin), 1);
+    const qMaxY = clamp(qBaseY - r.qmax * qScale, 336, 430);
+    const qMinY = clamp(qBaseY - r.qmin * qScale, 336, 430);
+    const qStatusClass = r.bearingOk ? 'ok-line' : 'danger-line';
+    const qFill = r.bearingOk ? '#dcfce7' : '#fee2e2';
+    const isGravity = r.wallType === 'gravity';
+    const toeWidth = wallX - baseX;
+    const heelWidth = baseX + baseW - wallX - wallW;
+    const wallShape = isGravity
+      ? `<path class="wall wall-gravity" d="M ${wallX - 18} ${top} L ${wallX + wallW + 10} ${top} L ${wallX + wallW + 44} ${bottom} L ${wallX - 44} ${bottom} Z"></path>
+         <text class="tiny" x="${wallX - 30}" y="${top + 18}">重力式塊體</text>`
+      : `<rect class="wall" x="${wallX}" y="${top}" width="${wallW}" height="${height}"></rect>
+         <text class="tiny" x="${wallX - 8}" y="${top + 18}">牆身</text>
+         <text class="tiny" x="${baseX + 17}" y="${baseY + 22}">趾版 toe</text>
+         <text class="tiny" x="${wallX + wallW + 36}" y="${baseY + 22}">踵版 heel</text>`;
+    const baseZones = isGravity
+      ? ''
+      : `<rect class="toe-zone" x="${baseX}" y="${baseY}" width="${toeWidth}" height="${baseH}"></rect>
+         <rect class="heel-zone" x="${wallX + wallW}" y="${baseY}" width="${heelWidth}" height="${baseH}"></rect>`;
+    const waterLine = r.waterDepth > 0
+      ? `<line class="datum" x1="${pressureX - 12}" y1="${waterTop}" x2="${pressureX + soilPanelW}" y2="${waterTop}"></line>
+         <text class="small" x="${pressureX + soilPanelW - 82}" y="${waterTop - 6}">水位 hw=${fmt(r.waterDepth)} m</text>`
+      : '';
+    const waterShape = r.waterDepth > 0
+      ? `<polygon class="water" opacity="0.72" points="${pressureX},${waterTop} ${pressureX},${bottom} ${pressureX + waterW},${bottom}"></polygon>
+         <text class="tiny" x="${pressureX + waterW + 8}" y="${bottom - 20}">Pw=${fmt(r.waterForce)} tf/m</text>`
+      : '';
+    const surchargeShape = r.surcharge > 0
+      ? `<rect class="surcharge" opacity="0.54" x="${pressureX}" y="${top}" width="${surchargeW}" height="${height}"></rect>
+         <text class="tiny" x="${pressureX + surchargeW + 8}" y="${top + 50}">Pq=${fmt(r.surchargeForce)} tf/m</text>`
+      : '';
+    const contactNote = r.fullContact ? '全壓縮' : '偏心超出核心或有拉力';
+
+    return `
+<svg class="pressure-diagram" viewBox="0 0 760 460" role="img" aria-label="擋土土壓與基底壓計算示意圖">
+  <defs>
+    <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f172a"></path>
+    </marker>
+    <marker id="dimTick" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M 5 0 L 5 10" stroke="#64748b" stroke-width="1.4"></path>
+    </marker>
+  </defs>
+  <rect x="18" y="18" width="724" height="424" rx="12" fill="#ffffff" stroke="#e2e8f0"></rect>
+  <text class="label-strong" x="38" y="40">土壓與穩定示意 - ${escapeHtml(r.wallTypeLabel)}</text>
+
+  <rect x="${pressureX}" y="${top}" width="${soilPanelW}" height="${height}" fill="#fffbeb" stroke="#fde68a"></rect>
+  <text class="small" x="${pressureX + 12}" y="${top + 20}">${escapeHtml(r.modeLabel)}</text>
+  <text class="tiny" x="${pressureX + 12}" y="${top + 37}">${escapeHtml(r.wallConditionLabel)}</text>
+  ${wallShape}
+  ${baseZones}
+  <rect class="base" x="${baseX}" y="${baseY}" width="${baseW}" height="${baseH}"></rect>
+
+  <line class="dimension" x1="${dimX}" y1="${top}" x2="${dimX}" y2="${bottom}"></line>
+  <line class="datum" x1="${dimX + 8}" y1="${top}" x2="${wallX - 6}" y2="${top}"></line>
+  <line class="datum" x1="${dimX + 8}" y1="${bottom}" x2="${baseX + baseW + 6}" y2="${bottom}"></line>
+  <text class="dimension-text" x="${dimX - 48}" y="${(top + bottom) / 2}">H=${fmt(r.H)} m</text>
+  <line class="dimension" x1="${baseX}" y1="${baseY + 48}" x2="${baseX + baseW}" y2="${baseY + 48}"></line>
+  <text class="dimension-text" x="${baseX + baseW / 2 - 23}" y="${baseY + 66}">B=${fmt(r.baseB)} m</text>
+  ${waterLine}
+
+  <polygon class="soil" opacity="0.78" points="${pressureX},${top} ${pressureX},${bottom} ${pressureX + soilW},${bottom}"></polygon>
+  ${surchargeShape}
+  ${waterShape}
+  <text class="tiny" x="${pressureX + soilW + 8}" y="${bottom - 46}">Pa=${fmt(r.soilForce)} tf/m</text>
+  <line class="arrow" x1="${arrowStartX}" y1="${resultantY}" x2="${pressureX + 8}" y2="${resultantY}"></line>
+  <text class="label-strong" x="${arrowStartX - 8}" y="${resultantY - 8}" text-anchor="end">P=${fmt(r.totalForce)} tf/m</text>
+  <text class="small" x="${arrowStartX - 8}" y="${resultantY + 12}" text-anchor="end">h=${fmt(r.resultantHeight)} m</text>
+  <line class="load-arrow" x1="${wallX + wallW + 8}" y1="${top - 28}" x2="${wallX + wallW + 8}" y2="${top + 6}"></line>
+  <text class="small" x="${wallX + wallW + 16}" y="${top - 12}">V=${fmt(r.verticalLoad)} tf/m</text>
+
+  <rect class="label-panel" x="438" y="58" width="274" height="128" rx="10"></rect>
+  <text class="label-strong" x="456" y="82">計算值</text>
+  <text class="small" x="456" y="106">K=${fmt(r.K, 4)}；Mo=${fmt(r.overturningMoment)} tf·m/m</text>
+  <text class="small" x="456" y="128">FS滑=${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}</text>
+  <text class="small" x="456" y="150">FS傾=${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}</text>
+  <text class="small" x="456" y="172">e=${fmt(r.e, 3)} m；B/6=${fmt(r.kernLimit, 3)} m</text>
+
+  <rect class="label-panel" x="438" y="204" width="274" height="80" rx="10"></rect>
+  <text class="label-strong" x="456" y="228">圖例</text>
+  <rect class="soil" x="456" y="244" width="14" height="10"></rect><text class="tiny" x="476" y="253">土壓 Pa</text>
+  <rect class="surcharge" x="548" y="244" width="14" height="10"></rect><text class="tiny" x="568" y="253">超載 Pq</text>
+  <rect class="water" x="640" y="244" width="14" height="10"></rect><text class="tiny" x="660" y="253">水壓 Pw</text>
+  <line class="${qStatusClass}" x1="456" y1="270" x2="482" y2="270"></line><text class="tiny" x="490" y="274">基底反力 / 接觸狀態</text>
+
+  <text class="label-strong" x="38" y="348">基底反力示意</text>
+  <line class="datum" x1="${baseX}" y1="${qBaseY}" x2="${baseX + baseW}" y2="${qBaseY}"></line>
+  <polygon class="reaction-fill" points="${baseX},${qBaseY} ${baseX},${qMaxY} ${baseX + baseW},${qMinY} ${baseX + baseW},${qBaseY}" fill="${qFill}" stroke="none"></polygon>
+  <line class="${qStatusClass}" x1="${baseX}" y1="${qMaxY}" x2="${baseX + baseW}" y2="${qMinY}"></line>
+  <text class="small" x="${baseX - 4}" y="${qMaxY - 8}">qmax=${fmt(r.qmax)} tf/m²</text>
+  <text class="small" x="${baseX + baseW - 8}" y="${qMinY - 8}" text-anchor="end">qmin=${fmt(r.qmin)} tf/m²</text>
+  <text class="small" x="${baseX}" y="438">qa=${fmt(r.qa)} tf/m²；${contactNote}</text>
+</svg>`;
+  }
+
+  function renderDiagram(r) {
+    $('diagramBody').innerHTML = buildPressureDiagramSvg(r);
+  }
+
   function renderChecks(r) {
     const checks = [
+      ['土壓模型', true, `${r.selectedModeReason} ${r.backfillModelLabel}。`],
       ['基底全壓縮', r.fullContact, `e = ${fmt(r.e, 3)} m ${r.fullContact ? '≤' : '>'} B/6 = ${fmt(r.kernLimit, 3)} m`],
       ['容許基底壓', r.bearingOk, `qmax = ${fmt(r.qmax)} tf/m² ${r.bearingOk ? '≤' : '>'} qa = ${fmt(r.qa)} tf/m²`],
-      ['抗滑', r.slideOk, `FS = (μV + Rp) / P = ${fmt(r.fsSlide, 2)} ${r.slideOk ? '≥' : '<'} ${fmt(r.fsSlideReq, 2)}`],
+      ['抗滑', r.slideOk, `FS = (μV + Rp採用) / P = ${fmt(r.fsSlide, 2)} ${r.slideOk ? '≥' : '<'} ${fmt(r.fsSlideReq, 2)}；${r.passiveModeLabel}，Rp採用=${fmt(r.effectivePassive)} tf/m`],
       ['抗傾覆', r.overOk, `FS = Mr / Mo = ${fmt(r.fsOver, 2)} ${r.overOk ? '≥' : '<'} ${fmt(r.fsOverReq, 2)}`]
     ];
-    if (r.waterDepth > 0) {
+    if (r.waterModel === 'hydrostatic' && r.waterDepth > 0) {
       checks.push(['地下水壓提示', true, `已加入 hw=${fmt(r.waterDepth)} m 之靜水壓；排水與滲流仍需另行判斷。`]);
+    } else if (r.waterModel === 'none') {
+      checks.push(['地下水壓提示', true, '本次不納入地下水壓；須確認排水條件或設計水位。']);
     }
     $('checkList').innerHTML = checks.map(function (c) {
       return `<div class="check-item ${statusClass(c[1])}">
@@ -343,8 +672,10 @@
       ['合計', fmt(r.totalForce), fmt(r.overturningMoment)]
     ].map(row => `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`).join('');
     $('stepBody').innerHTML = `
-      <div class="step-title">1. Rankine 土壓係數</div>
+      <div class="step-title">1. 模型與 Rankine 土壓係數</div>
       <div>
+        <code>${escapeHtml(r.wallConditionLabel)}；${escapeHtml(r.selectedModeReason)}</code><br>
+        <code>${escapeHtml(r.backfillModelLabel)}；${escapeHtml(r.waterModelLabel)}</code><br>
         <code>Ka = (1 - sinφ) / (1 + sinφ) = ${fmt(r.Ka, 4)}</code><br>
         <code>K0 = 1 - sinφ = ${fmt(r.K0, 4)}</code><br>
         <code>本次採用 ${escapeHtml(r.modeLabel)} = ${fmt(r.K, 4)}</code>
@@ -358,7 +689,8 @@
       </div>
       <div class="step-title">3. 簡化穩定</div>
       <div>
-        <code>FSslide = (μV + Rp) / Ptotal = (${fmt(r.mu)}×${fmt(r.verticalLoad)} + ${fmt(r.passive)}) / ${fmt(r.totalForce)} = ${fmt(r.fsSlide, 2)}</code><br>
+        <code>Rp採用 = ${fmt(r.passive)} × ${fmt(r.passiveFactor, 2)} = ${fmt(r.effectivePassive)} tf/m（${escapeHtml(r.passiveModeLabel)}）</code><br>
+        <code>FSslide = (μV + Rp採用) / Ptotal = (${fmt(r.mu)}×${fmt(r.verticalLoad)} + ${fmt(r.effectivePassive)}) / ${fmt(r.totalForce)} = ${fmt(r.fsSlide, 2)}</code><br>
         <code>FSover = V·B/2 / Mo = ${fmt(r.resistingMoment)} / ${fmt(r.overturningMoment)} = ${fmt(r.fsOver, 2)}</code><br>
         <code>e = Mo / V = ${fmt(r.e, 4)} m；qmax/min = V/B · (1 ± 6e/B)</code>
       </div>
@@ -368,6 +700,8 @@
   }
 
   function calculateEarthPressure() {
+    syncModeFromWallCondition();
+    updateConditionalInputs();
     const input = gatherInputs();
     const errors = Core.validateInput(input);
     if (errors.length) {
@@ -375,6 +709,8 @@
       $('bannerStatus').textContent = errors.join(' ');
       $('bannerKey').innerHTML = '';
       $('metricGrid').innerHTML = '';
+      $('wallTypeOutputBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
+      $('diagramBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
       $('checkList').innerHTML = '';
       $('stepBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
       lastResult = null;
@@ -382,8 +718,11 @@
     }
     const result = Core.calculate(input);
     lastResult = result;
+    renderModelSummary(result);
     renderBanner(result);
     renderMetrics(result);
+    renderWallTypeOutput(result);
+    renderDiagram(result);
     renderChecks(result);
     renderSteps(result);
     return result;
@@ -411,7 +750,7 @@
       tool: {
         id: 'earth-pressure',
         name: '擋土土壓局部快算',
-        pageVersion: 'V0.1'
+        pageVersion: 'V0.4'
       },
       project: gatherProjectInfo(),
       result: r
@@ -422,30 +761,41 @@
     const r = lastResult || calculateEarthPressure();
     if (!r) return;
     const proj = gatherProjectInfo();
-    const prov = r.provenance || (Core.provenance ? Core.provenance() : {});
-    const metaRows = [
-      ['頁面版本', 'V0.1 初估 / 土壓'],
-      ['計算核心', `${prov.core || 'EarthPressureCore'} v${prov.version || Core.version || 'unknown'}`],
-      ['輸入格式', prov.inputSchemaVersion || Core.inputSchemaVersion || 'unknown'],
-      ['計算指紋', prov.logicSignature || Core.logicSignature || 'unknown'],
+    const basisRows = [
+      ['採用準則', r.designReferenceLabel],
+      ['擋土牆型式', r.wallTypeLabel],
+      ['計算方式', 'Rankine 水平背填土壓初估'],
+      ['牆體位移條件', r.wallConditionLabel],
+      ['背填與牆背假設', r.backfillModelLabel],
+      ['土壓模式', r.modeLabel],
+      ['土壓係數', `${r.mode === 'atRest' ? 'K0' : 'Ka'} = ${fmt(r.K, 4)}`],
+      ['地下水處理', `${r.waterModelLabel}；hw = ${fmt(r.waterDepth)} m`],
+      ['被動抵抗採用', `${r.passiveModeLabel}；Rp採用 = ${fmt(r.effectivePassive)} tf/m`],
+      ['安全係數需求', `抗滑 FS ${fmt(r.fsSlideReq, 2)}；抗傾覆 FS ${fmt(r.fsOverReq, 2)}`],
       ['產製時間', nowText()],
-      ['適用範圍', '水平背填 Rankine 主動 / 靜止土壓、均佈超載、水壓與每公尺牆長簡化穩定檢核'],
-      ['不適用範圍', 'Coulomb 牆摩擦、地震土壓、分層土、排水滲流、結構配筋與正式擋土牆設計']
     ];
     const inputRows = [
+      ['擋土牆型式', r.wallTypeLabel],
       ['H / γ / φ', `${fmt(r.H)} m / ${fmt(r.gammaSoil)} tf/m³ / ${fmt(r.phiDeg, 1)}°`],
       ['土壓模式', r.modeLabel],
       ['q / hw / γw', `${fmt(r.surcharge)} tf/m² / ${fmt(r.waterDepth)} m / ${fmt(r.gammaWater)} tf/m³`],
       ['B / V / qa', `${fmt(r.baseB)} m / ${fmt(r.verticalLoad)} tf/m / ${fmt(r.qa)} tf/m²`],
-      ['μ / Rp', `${fmt(r.mu)} / ${fmt(r.passive)} tf/m`]
+      ['μ / Rp 原始 / Rp 採用', `${fmt(r.mu)} / ${fmt(r.passive)} tf/m / ${fmt(r.effectivePassive)} tf/m`]
     ];
     const resultRows = [
       ['綜合結論', r.overallOk ? '土壓局部穩定初估通過' : '需修正尺寸 / 載重，或改採正式詳算'],
+      ['牆型控制項', r.wallTypeOutput.primaryResult],
       ['K / Ptotal', `${fmt(r.K, 4)} / ${fmt(r.totalForce)} tf/m`],
       ['Mo / 作用高度', `${fmt(r.overturningMoment)} tf·m/m / ${fmt(r.resultantHeight)} m`],
       ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`],
       ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`],
       ['qmax / qmin', `${fmt(r.qmax)} / ${fmt(r.qmin)} tf/m²`]
+    ];
+    const wallTypeRows = [
+      ['工作輸出', r.wallTypeOutput.headline],
+      ['判讀重點', r.wallTypeOutput.focus],
+      ['主要摘要', r.wallTypeOutput.primaryResult],
+      ...r.wallTypeOutput.outputGroups.map(group => [group.label, group.detail])
     ];
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>擋土土壓局部快算計算書</title>
@@ -458,17 +808,41 @@ h1{font-size:1.45rem;margin:0 0 6px;color:#0f172a;} h2{font-size:1.05rem;border-
 table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:32%;}
 .conclusion{padding:12px 14px;border-radius:8px;border:2px solid ${r.overallOk ? '#10b981' : '#ef4444'};background:${r.overallOk ? '#ecfdf5' : '#fef2f2'};font-weight:800;}
 .note{margin-top:14px;padding:10px 12px;border-left:4px solid #f59e0b;background:#fffbeb;color:#78350f;font-size:.9rem;}
+.report-diagram{border:1px solid #d1d5db;border-radius:8px;background:#f8fafc;padding:8px;margin-top:8px;}
+.pressure-diagram{width:100%;height:auto;display:block;}
+.pressure-diagram text{font-family:"Microsoft JhengHei",Arial,sans-serif;fill:#334155;font-size:13px;}
+.pressure-diagram .small{font-size:11px;fill:#64748b;}
+.pressure-diagram .tiny{font-size:10px;fill:#64748b;}
+.pressure-diagram .label-strong{font-weight:800;fill:#0f172a;}
+.pressure-diagram .label-panel{fill:#f8fafc;stroke:#e2e8f0;stroke-width:1;}
+.pressure-diagram .wall{fill:#94a3b8;stroke:#475569;stroke-width:2;}
+.pressure-diagram .wall-gravity{fill:#a8b2c1;}
+.pressure-diagram .base{fill:#cbd5e1;stroke:#64748b;stroke-width:2;}
+.pressure-diagram .toe-zone{fill:#e0f2fe;stroke:#7dd3fc;stroke-width:1;opacity:.72;}
+.pressure-diagram .heel-zone{fill:#fef3c7;stroke:#fbbf24;stroke-width:1;opacity:.72;}
+.pressure-diagram .soil{fill:#fef3c7;stroke:#d97706;stroke-width:1.4;}
+.pressure-diagram .water{fill:#bae6fd;stroke:#0284c7;stroke-width:1.4;}
+.pressure-diagram .surcharge{fill:#ddd6fe;stroke:#7c3aed;stroke-width:1.4;}
+.pressure-diagram .arrow{stroke:#0f172a;stroke-width:2.2;marker-end:url(#arrowHead);fill:none;}
+.pressure-diagram .load-arrow{stroke:#0f172a;stroke-width:2;marker-end:url(#arrowHead);fill:none;}
+.pressure-diagram .dimension{stroke:#64748b;stroke-width:1.2;marker-start:url(#dimTick);marker-end:url(#dimTick);fill:none;}
+.pressure-diagram .dimension-text{font-size:11px;fill:#475569;font-weight:700;}
+.pressure-diagram .datum{stroke:#94a3b8;stroke-dasharray:4 4;stroke-width:1.2;}
+.pressure-diagram .danger-line{stroke:#ef4444;stroke-width:1.6;}
+.pressure-diagram .ok-line{stroke:#10b981;stroke-width:1.6;}
+.pressure-diagram .reaction-fill{opacity:.92;}
 @media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}}
 </style></head><body>
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
-<h1>擋土土壓局部快算計算書</h1>
+<h1>擋土土壓局部快算計算書（初估）</h1>
 <div>計畫名稱：${escapeHtml(proj.name)}　編號：${escapeHtml(proj.no)}　整理人：${escapeHtml(proj.designer)}</div>
 <div class="conclusion">${r.overallOk ? '土壓局部穩定初估通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
-<h2>工具與責任邊界</h2><table>${reportRows(metaRows)}</table>
+<h2>計算依據</h2><table>${reportRows(basisRows)}</table>
+<h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
+<h2>計算示意圖</h2><div class="report-diagram">${buildPressureDiagramSvg(r)}</div>
 <h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
-<h2>整理結果</h2><table>${reportRows(resultRows)}</table>
-<div class="note">本計算書為擋土土壓局部初估；不取代正式擋土牆設計、施工支撐分析、排水滲流、地震土壓或結構配筋檢核。</div>
+<h2>檢核結果</h2><table>${reportRows(resultRows)}</table>
 </main></body></html>`;
     const win = window.open('', '_blank');
     if (!win) return;
@@ -496,13 +870,13 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
   }
   function resetDefaults() {
     Object.keys(DEFAULTS).forEach(id => { $(id).value = DEFAULTS[id]; });
-    $('mode').value = 'active';
+    syncModeFromWallCondition();
+    updateConditionalInputs();
     calculateEarthPressure();
   }
 
   document.getElementById('btnCalc').addEventListener('click', calculateEarthPressure);
   document.getElementById('btnPrint').addEventListener('click', openReport);
-  document.getElementById('btnReport').addEventListener('click', openReport);
   document.getElementById('btnJson').addEventListener('click', downloadResultJson);
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
   $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;

@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>設備局部荷重 V0.1</title>
+<title>設備局部荷重 V0.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/結構工具箱/core/style.css">
 <style>
@@ -17,16 +17,33 @@
   .equipment-shell { display:grid; grid-template-columns:minmax(320px, 430px) minmax(0, 1fr); gap:18px; align-items:start; }
   .equipment-form-stack { display:grid; gap:18px; }
   .equipment-result-stack { display:grid; gap:18px; position:sticky; top:18px; }
-  .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .inline-actions .btn-calc,
-  .inline-actions .btn-print,
-  .inline-actions .btn-secondary {
-    flex:1 1 180px;
+  .case-actions,
+  .output-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .case-actions { flex:1 1 260px; justify-content:flex-end; margin-left:auto; }
+  .case-actions .btn-secondary {
+    flex:0 1 128px;
     width:auto;
-    min-height:46px;
+    min-height:40px;
+    margin-top:0;
+    padding:8px 12px;
+    justify-content:center;
+  }
+  .action-card { border-top:3px solid var(--primary); }
+  .output-actions { margin-top:10px; }
+  .output-actions .btn-calc,
+  .output-actions .btn-print,
+  .output-actions .btn-secondary {
+    width:auto;
+    min-height:48px;
     margin-top:0;
     justify-content:center;
   }
+  .output-actions .btn-calc { flex:2 1 220px; }
+  .output-actions .btn-print,
+  .output-actions .btn-secondary { flex:1 1 150px; }
+  .json-file-input { display:none; }
+  .json-status { flex:1 1 100%; margin-top:0; }
+  .form-group select { width:100%; min-height:42px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:0.95rem; }
   .scope-box { padding:12px 14px; border-radius:10px; background:#ecfeff; border:1px solid #67e8f9; color:#155e75; font-size:0.84em; line-height:1.75; }
   .scope-box strong { color:#0e7490; }
   .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
@@ -49,6 +66,7 @@
   .step-card .step-title { margin:10px 0 4px; font-weight:800; color:#0b7285; }
   .step-card code { font-family:'Consolas',monospace; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; }
   .muted { color:var(--text-light); font-size:0.82em; line-height:1.65; }
+  .basis-note { margin-top:8px; padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px dashed #cbd5e1; color:#475569; font-size:0.8em; line-height:1.7; }
   @media (max-width:1080px) {
     .equipment-shell { grid-template-columns:1fr; }
     .equipment-result-stack { position:static; }
@@ -59,15 +77,20 @@
     .hero-chip { font-size:0.76em; padding:5px 10px; }
     .equipment-shell, .equipment-form-stack, .equipment-result-stack { gap:14px; }
     .form-row, .metric-grid { grid-template-columns:1fr; }
-    .inline-actions { flex-direction:column; }
-    .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
+    .case-actions,
+    .output-actions { flex-direction:column; align-items:stretch; width:100%; }
+    .case-actions { margin-left:0; }
+    .case-actions .btn-secondary,
+    .output-actions .btn-calc,
+    .output-actions .btn-print,
+    .output-actions .btn-secondary { width:100%; flex:1 1 auto; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>設備局部荷重 <span class="badge-v">V0.1 初估 / 荷重整理</span></h1>
-  <p>設備重量、支承點反力、接觸壓、1:1 分布壓與水平力初估 ｜ 單位：m, tf, tf/m²</p>
+  <h1>設備局部荷重 <span class="badge-v">V0.2 初估 / 檢核基準</span></h1>
+  <p>設備重量、支承點反力、接觸壓、混凝土承壓、RC 穿孔剪力與鋼板分散厚度初估 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="/platform" class="back">← 回工具箱</a>
     <span class="sep">｜</span>
@@ -79,6 +102,8 @@
     <span class="hero-chip">設備基座協調</span>
     <span class="hero-chip">單點 / 多點支承</span>
     <span class="hero-chip">局部壓力快算</span>
+    <span class="hero-chip">混凝土 / 鋼板基準</span>
+    <span class="hero-chip" id="coreVersion">Core v—</span>
   </div>
 </header>
 
@@ -89,26 +114,17 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo" class="w-no" placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
-      <button class="mode-bar__report" id="btnReport" type="button">列印計算書</button>
+    </div>
+    <div class="case-actions" aria-label="案例管理">
+      <button class="btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
+      <input class="json-file-input" id="jsonFile" type="file" accept="application/json,.json">
+      <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
+      <div class="muted json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</div>
     </div>
   </div>
 
   <div class="main-layout equipment-shell">
     <div class="equipment-form-stack">
-      <div class="card">
-        <h2>適用範圍</h2>
-        <div class="scope-box">
-          <strong>本頁只整理局部荷重與接觸壓，不做構件承載設計。</strong><br>
-          適用於設備、機台、冰水主機、發電機、基座腳座等初步協調：將設備重量換算成單點反力、
-          接觸壓、分布壓與水平力。樓板、梁、基礎、錨栓與振動檢核仍須使用相應正式工具或模型。
-          <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.1</span>
-            <span id="coreVersion">Core v—</span>
-            <span>初估 / 荷重整理</span>
-          </div>
-        </div>
-      </div>
-
       <div class="card">
         <h2>① 設備重量</h2>
         <div class="form-row">
@@ -185,11 +201,88 @@
             <input type="number" id="allowableSpread" value="20" step="0.5" min="0.1">
           </div>
         </div>
-        <div class="inline-actions">
+      </div>
+
+      <div class="card">
+        <h2>③ 材料與厚度檢核</h2>
+        <div class="basis-note">
+          混凝土承壓與穿孔剪力為初判基準；若新欄位填 0，該項視為未啟用。靠邊、開孔、配筋與動力設備仍需正式構件檢核。
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>混凝土 f'c (kgf/cm²)</label>
+            <input type="number" id="concreteFc" value="280" step="10" min="0">
+          </div>
+          <div class="form-group">
+            <label>混凝土厚度 hc (m)</label>
+            <input type="number" id="concreteThickness" value="0.20" step="0.01" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>有效深度 d (m)</label>
+            <input type="number" id="effectiveDepth" value="0.16" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>穿孔剪力位置</label>
+            <select id="punchingPosition">
+              <option value="interior">內部支承</option>
+              <option value="edge">邊緣支承</option>
+              <option value="corner">角隅支承</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>承壓可擴散寬 B2 (m)</label>
+            <input type="number" id="bearingSupportB" value="0.80" step="0.05" min="0">
+          </div>
+          <div class="form-group">
+            <label>承壓可擴散長 L2 (m)</label>
+            <input type="number" id="bearingSupportL" value="0.80" step="0.05" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>鋼板寬 Bp (m)</label>
+            <input type="number" id="steelPlateB" value="0.45" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>鋼板長 Lp (m)</label>
+            <input type="number" id="steelPlateL" value="0.45" step="0.01" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>鋼板厚度 tp (m)</label>
+            <input type="number" id="steelPlateThickness" value="0.012" step="0.001" min="0">
+          </div>
+          <div class="form-group">
+            <label>鋼板 Fy (kgf/cm²)</label>
+            <input type="number" id="steelFy" value="2450" step="50" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>混凝土承壓 phi</label>
+            <input type="number" id="concretePhiBearing" value="0.65" step="0.05" min="0">
+          </div>
+          <div class="form-group">
+            <label>穿孔剪力 phi</label>
+            <input type="number" id="concretePhiShear" value="0.75" step="0.05" min="0">
+            <label style="margin-top:8px;">鋼板彎曲 phi</label>
+            <input type="number" id="steelPhiFlexure" value="0.90" step="0.05" min="0">
+          </div>
+        </div>
+      </div>
+
+      <div class="card action-card">
+        <h2>④ 計算與輸出</h2>
+        <div class="basis-note">所有輸入與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+        <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算設備局部荷重</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
           <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
-          <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
         </div>
       </div>
     </div>
@@ -235,8 +328,22 @@
     allowableContact: '100',
     allowableSpread: '20',
     allowablePoint: '5',
-    horizontalCoeff: '0.20'
+    horizontalCoeff: '0.20',
+    concreteFc: '280',
+    concreteThickness: '0.20',
+    effectiveDepth: '0.16',
+    bearingSupportB: '0.80',
+    bearingSupportL: '0.80',
+    concretePhiBearing: '0.65',
+    concretePhiShear: '0.75',
+    punchingPosition: 'interior',
+    steelPlateB: '0.45',
+    steelPlateL: '0.45',
+    steelPlateThickness: '0.012',
+    steelFy: '2450',
+    steelPhiFlexure: '0.90'
   };
+  const FORM_FIELD_IDS = Object.keys(DEFAULTS);
   let lastResult = null;
   const Core = window.EquipmentLoadCore;
   if (!Core) throw new Error('EquipmentLoadCore is not loaded.');
@@ -247,6 +354,10 @@
   function num(id) {
     const value = parseFloat($(id).value);
     return Number.isFinite(value) ? value : 0;
+  }
+  function text(id) {
+    const node = $(id);
+    return node ? String(node.value || '') : '';
   }
   function fmt(value, digits = 2) {
     if (value === null || value === undefined) return '—';
@@ -278,8 +389,74 @@
       allowableContact: num('allowableContact'),
       allowableSpread: num('allowableSpread'),
       allowablePoint: num('allowablePoint'),
-      horizontalCoeff: num('horizontalCoeff')
+      horizontalCoeff: num('horizontalCoeff'),
+      concreteFc: num('concreteFc'),
+      concreteThickness: num('concreteThickness'),
+      effectiveDepth: num('effectiveDepth'),
+      bearingSupportB: num('bearingSupportB'),
+      bearingSupportL: num('bearingSupportL'),
+      concretePhiBearing: num('concretePhiBearing'),
+      concretePhiShear: num('concretePhiShear'),
+      punchingPosition: text('punchingPosition'),
+      steelPlateB: num('steelPlateB'),
+      steelPlateL: num('steelPlateL'),
+      steelPlateThickness: num('steelPlateThickness'),
+      steelFy: num('steelFy'),
+      steelPhiFlexure: num('steelPhiFlexure')
     };
+  }
+
+  function setJsonStatus(message, isError) {
+    const node = $('jsonStatus');
+    if (!node) return;
+    node.textContent = message;
+    node.style.color = isError ? '#991b1b' : '';
+  }
+
+  function inputText(value) {
+    if (value === null || value === undefined || value === '') return '';
+    const n = Number(value);
+    return Number.isFinite(n) ? String(n) : '';
+  }
+
+  function setFormValue(id, value) {
+    const node = $(id);
+    if (!node) return;
+    if (node.tagName === 'SELECT') {
+      node.value = value || DEFAULTS[id] || '';
+      return;
+    }
+    node.value = inputText(value);
+  }
+
+  function applyProjectInfo(project) {
+    if (!project || typeof project !== 'object') return;
+    $('projName').value = project.name && project.name !== '未填' ? project.name : '';
+    $('projNo').value = project.no && project.no !== '未填' ? project.no : '';
+    $('projDesigner').value = project.designer && project.designer !== '未填' ? project.designer : '';
+    saveProjectInfo();
+  }
+
+  function extractImportedInput(payload) {
+    if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
+    const toolId = payload.tool && payload.tool.id;
+    if (toolId && toolId !== 'equipment-load') {
+      throw new Error(`此 JSON 屬於 ${toolId}，不是設備局部荷重案例。`);
+    }
+    return payload.input || (payload.result && payload.result.input) || payload.result || payload;
+  }
+
+  function applyImportedCase(payload, fileName) {
+    const importedInput = extractImportedInput(payload);
+    const normalized = Core.normalizeInput(importedInput);
+    const errors = Core.validateInput(normalized);
+    if (errors.length) throw new Error(errors.join(' '));
+    FORM_FIELD_IDS.forEach(function (id) {
+      setFormValue(id, normalized[id]);
+    });
+    applyProjectInfo(payload.project);
+    calculateEquipmentLoad();
+    setJsonStatus(`已讀取 JSON：${fileName || '案例檔'}。`, false);
   }
 
   function renderBanner(r) {
@@ -290,6 +467,9 @@
       ['單點反力', `${fmt(r.pointLoad)} / ${r.allowablePoint > 0 ? fmt(r.allowablePoint) : '不檢核'} tf`, r.pointOk],
       ['接觸壓', `${fmt(r.qContact)} / ${fmt(r.allowableContact)} tf/m²`, r.contactOk],
       ['分布壓', `${fmt(r.qSpread)} / ${fmt(r.allowableSpread)} tf/m²`, r.spreadOk],
+      ['混凝土承壓', r.concreteBearingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.concreteBearingDesign)} tf` : '未啟用', r.concreteBearingOk],
+      ['穿孔剪力', r.punchingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.punchingDesignShear)} tf` : '未啟用', r.punchingOk],
+      ['鋼板厚度', r.steelPlateApplicable ? `t=${fmt(r.steelPlateThickness * 1000, 0)} / req ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm` : '未啟用', r.steelPlateOk],
       ['水平力', `${fmt(r.horizontalTotal)} tf total`, true]
     ];
     $('bannerKey').innerHTML = items.map(function (item) {
@@ -303,6 +483,10 @@
       ['單點反力', `${fmt(r.pointLoad)} tf`, `n=${r.supportCount} 點`, r.pointOk],
       ['接觸壓', `${fmt(r.qContact)} tf/m²`, `A=${fmt(r.contactAreaEach, 4)} m² / 點`, r.contactOk],
       ['分布壓', `${fmt(r.qSpread)} tf/m²`, `${fmt(r.spreadB)} × ${fmt(r.spreadL)} m / 點`, r.spreadOk],
+      ['混凝土承壓', r.concreteBearingApplicable ? `${fmt(r.concreteBearingDesign)} tf` : '未啟用', r.concreteBearingApplicable ? `qa=${fmt(r.concreteBearingAllowablePressure)} tf/m²` : '填 0 可關閉此項', r.concreteBearingOk],
+      ['RC 穿孔剪力', r.punchingApplicable ? `${fmt(r.punchingDesignShear)} tf` : '未啟用', r.punchingApplicable ? `bo=${fmt(r.punchingBo)} m, d=${fmt(r.effectiveDepth)} m` : '填 0 可關閉此項', r.punchingOk],
+      ['鋼板分散厚度', r.steelPlateApplicable ? `${fmt(r.steelPlateUtil, 2)}` : '未啟用', r.steelPlateApplicable ? `t=${fmt(r.steelPlateThickness * 1000, 0)} mm, req=${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm` : '填 0 可關閉此項', r.steelPlateOk],
+      ['控制項目', r.governingCheck ? r.governingCheck.label : '—', r.governingCheck ? `util=${fmt(r.governingCheck.utilization, 2)}` : '未形成控制項目', r.governingCheck ? r.governingCheck.utilization <= 1 : true],
       ['等效面載重', `${fmt(r.qEquivalent)} tf/m²`, `設備投影 ${fmt(r.planArea)} m²`, true],
       ['水平力初估', `${fmt(r.horizontalTotal)} tf`, `每點 ${fmt(r.horizontalPerSupport)} tf`, true]
     ];
@@ -320,6 +504,9 @@
       ['接觸壓檢核', r.contactOk, `qcontact = ${fmt(r.qContact)} tf/m² ${r.contactOk ? '≤' : '>'} ${fmt(r.allowableContact)} tf/m²`],
       ['1:1 分布壓檢核', r.spreadOk, `qspread = ${fmt(r.qSpread)} tf/m² ${r.spreadOk ? '≤' : '>'} ${fmt(r.allowableSpread)} tf/m²`],
       ['單點反力檢核', r.pointOk, r.allowablePoint > 0 ? `Ppoint = ${fmt(r.pointLoad)} tf ${r.pointOk ? '≤' : '>'} ${fmt(r.allowablePoint)} tf` : '未啟用單點反力檢核'],
+      ['混凝土承壓檢核', r.concreteBearingOk, r.concreteBearingApplicable ? `phiBn = ${fmt(r.concreteBearingDesign)} tf；A2/A1 factor = ${fmt(r.concreteBearingFactor, 2)}` : '未啟用混凝土承壓基準'],
+      ['RC 穿孔剪力初判', r.punchingOk, r.punchingApplicable ? `phiVn = ${fmt(r.punchingDesignShear)} tf；bo = ${fmt(r.punchingBo)} m；vc = ${fmt(r.punchingVc)} kgf/cm²` : '未啟用穿孔剪力基準'],
+      ['鋼板分散彎曲初判', r.steelPlateOk, r.steelPlateApplicable ? `Mu/phiMn = ${fmt(r.steelPlateUtil, 2)}；tReq = ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm` : '未啟用鋼板分散基準'],
       ['水平力提示', true, `H = kh × Wdesign = ${fmt(r.horizontalCoeff, 2)} × ${fmt(r.designWeight)} = ${fmt(r.horizontalTotal)} tf；錨栓請另用錨栓檢討工具。`]
     ];
     $('checkList').innerHTML = checks.map(function (c) {
@@ -354,8 +541,26 @@
         <code>qequiv = Wdesign / (Bplan × Lplan) = ${fmt(r.qEquivalent)} tf/m²</code><br>
         <code>Htotal = kh × Wdesign = ${fmt(r.horizontalTotal)} tf；Hpoint = ${fmt(r.horizontalPerSupport)} tf / 點</code>
       </div>
+      <div class="step-title">5. 混凝土承壓基準</div>
+      <div>
+        ${r.concreteBearingApplicable ? `
+        <code>A1 = ${fmt(r.concreteBearingAreaA1, 4)} m²；A2 = ${fmt(r.concreteBearingAreaA2, 4)} m²；factor = ${fmt(r.concreteBearingFactor, 2)}</code><br>
+        <code>phiBn = ${fmt(r.concretePhiBearing, 2)} × 0.85 × f'c × A1 × factor = ${fmt(r.concreteBearingDesign)} tf</code>` : '未啟用混凝土承壓基準。'}
+      </div>
+      <div class="step-title">6. RC 穿孔剪力初判</div>
+      <div>
+        ${r.punchingApplicable ? `
+        <code>bo = 2 × (b + l + 2d) = ${fmt(r.punchingBo)} m；beta = ${fmt(r.punchingBeta, 2)}；alpha = ${fmt(r.punchingAlpha, 0)}</code><br>
+        <code>vc = min(${fmt(r.punchingVc1)}, ${fmt(r.punchingVc2)}, ${fmt(r.punchingVc3)}) = ${fmt(r.punchingVc)} kgf/cm²；phiVn = ${fmt(r.punchingDesignShear)} tf</code>` : '未啟用穿孔剪力基準。'}
+      </div>
+      <div class="step-title">7. 鋼板分散厚度初判</div>
+      <div>
+        ${r.steelPlateApplicable ? `
+        <code>qplate = Ppoint / (Bp × Lp) = ${fmt(r.steelPlatePressure)} tf/m²；a = ${fmt(r.steelPlateControllingProjection)} m</code><br>
+        <code>Mu = qplate × a² / 2 = ${fmt(r.steelPlateMomentDemand, 4)}；tReq = ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm</code>` : '未啟用鋼板分散基準。'}
+      </div>
       <div class="scope-box" style="margin-top:12px;">
-        本頁結果用於荷重整理與早期協調；樓板、梁、基礎、錨栓、振動與疲勞仍須另行正式檢核。
+        本頁結果用於荷重整理與早期協調；混凝土承壓、穿孔剪力與鋼板厚度僅為初判，不取代樓板、梁、基礎、錨栓、振動與疲勞之正式檢核。
       </div>`;
   }
 
@@ -400,15 +605,30 @@
   function downloadResultJson() {
     const r = lastResult || calculateEquipmentLoad();
     if (!r) return;
+    const input = gatherInputs();
     Exporter.downloadResultJson({
       tool: {
         id: 'equipment-load',
         name: '設備局部荷重',
-        pageVersion: 'V0.1'
+        pageVersion: 'V0.2'
       },
       project: gatherProjectInfo(),
+      input,
       result: r
     });
+    setJsonStatus('已產生 JSON，可用「讀取 JSON」回復本頁案例。', false);
+  }
+
+  async function importJsonFile(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      applyImportedCase(JSON.parse(text), file.name);
+    } catch (error) {
+      setJsonStatus(`讀取失敗：${error.message || error}`, true);
+    } finally {
+      $('jsonFile').value = '';
+    }
   }
 
   function openReport() {
@@ -422,22 +642,29 @@
       ['支承點數', `${r.supportCount} 點`],
       ['單支承接觸尺寸', `${fmt(r.contactB)} × ${fmt(r.contactL)} m`],
       ['分布厚度', `${fmt(r.spreadDepth)} m`],
-      ['容許值', `contact ${fmt(r.allowableContact)} tf/m²；spread ${fmt(r.allowableSpread)} tf/m²；point ${r.allowablePoint > 0 ? fmt(r.allowablePoint) + ' tf' : '不檢核'}`]
+      ['容許值', `contact ${fmt(r.allowableContact)} tf/m²；spread ${fmt(r.allowableSpread)} tf/m²；point ${r.allowablePoint > 0 ? fmt(r.allowablePoint) + ' tf' : '不檢核'}`],
+      ['混凝土基準', `f'c ${fmt(r.concreteFc, 0)} kgf/cm²；hc ${fmt(r.concreteThickness)} m；d ${fmt(r.effectiveDepth)} m；位置 ${r.punchingPosition}`],
+      ['鋼板基準', `Bp × Lp × tp = ${fmt(r.steelPlateB)} × ${fmt(r.steelPlateL)} × ${fmt(r.steelPlateThickness)} m；Fy ${fmt(r.steelFy, 0)} kgf/cm²`]
     ];
     const metaRows = [
-      ['頁面版本', 'V0.1 初估 / 荷重整理'],
+      ['頁面版本', 'V0.2 初估 / 檢核基準'],
       ['計算核心', `${prov.core || 'EquipmentLoadCore'} v${prov.version || Core.version || 'unknown'}`],
       ['輸入格式', prov.inputSchemaVersion || Core.inputSchemaVersion || 'unknown'],
       ['計算指紋', prov.logicSignature || Core.logicSignature || 'unknown'],
       ['產製時間', nowText()],
-      ['適用範圍', '設備重量、支承點反力、接觸壓、1:1 分布壓、等效面載重與水平力初估'],
-      ['不適用範圍', '樓板、梁、基礎、錨栓、振動、疲勞、衝擊或正式構件承載設計']
+      ['檢核基準', '台灣混凝土規範之支承承壓與雙向剪力概念；鋼板分散依 AISC 底板設計概念作彈性懸臂條初判'],
+      ['適用範圍', '設備重量、支承點反力、接觸壓、混凝土承壓、RC 穿孔剪力、鋼板分散厚度與水平力初估'],
+      ['不適用範圍', '開孔、靠邊精算、梁板完整配筋、基礎、錨栓、振動、疲勞、衝擊或正式構件承載設計']
     ];
     const resultRows = [
       ['綜合結論', r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'],
       ['設計重量 / 單點反力', `${fmt(r.designWeight)} / ${fmt(r.pointLoad)} tf`],
       ['接觸壓', `${fmt(r.qContact)} tf/m²`],
       ['分布壓', `${fmt(r.qSpread)} tf/m²`],
+      ['混凝土承壓', r.concreteBearingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.concreteBearingDesign)} tf` : '未啟用'],
+      ['RC 穿孔剪力', r.punchingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.punchingDesignShear)} tf` : '未啟用'],
+      ['鋼板分散厚度', r.steelPlateApplicable ? `t ${fmt(r.steelPlateThickness * 1000, 0)} mm；tReq ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm` : '未啟用'],
+      ['控制項目', r.governingCheck ? `${r.governingCheck.label}，util=${fmt(r.governingCheck.utilization, 2)}` : '—'],
       ['等效面載重', `${fmt(r.qEquivalent)} tf/m²`],
       ['水平力', `${fmt(r.horizontalTotal)} tf；每點 ${fmt(r.horizontalPerSupport)} tf`]
     ];
@@ -462,7 +689,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <h2>工具與責任邊界</h2><table>${reportRows(metaRows)}</table>
 <h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
 <h2>整理結果</h2><table>${reportRows(resultRows)}</table>
-<div class="note">本計算書為設備局部荷重整理；不取代樓板、梁、基礎、錨栓、振動或疲勞之正式檢核。</div>
+<div class="note">本計算書為設備局部荷重與檢核基準整理；不取代樓板、梁、基礎、錨栓、振動或疲勞之正式檢核。</div>
 </main></body></html>`;
     const win = window.open('', '_blank');
     if (!win) return;
@@ -489,19 +716,24 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
     } catch (err) {}
   }
   function resetDefaults() {
-    Object.keys(DEFAULTS).forEach(id => { $(id).value = DEFAULTS[id]; });
+    Object.keys(DEFAULTS).forEach(id => { setFormValue(id, DEFAULTS[id]); });
     calculateEquipmentLoad();
   }
 
   document.getElementById('btnCalc').addEventListener('click', calculateEquipmentLoad);
   document.getElementById('btnPrint').addEventListener('click', openReport);
-  document.getElementById('btnReport').addEventListener('click', openReport);
   document.getElementById('btnJson').addEventListener('click', downloadResultJson);
+  document.getElementById('btnImportJson').addEventListener('click', function () {
+    $('jsonFile').click();
+  });
+  document.getElementById('jsonFile').addEventListener('change', function (event) {
+    importJsonFile(event.target.files && event.target.files[0]);
+  });
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
   $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
   ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
-  Array.from(document.querySelectorAll('input')).forEach(function (input) {
-    if (['projName', 'projNo', 'projDesigner'].includes(input.id)) return;
+  Array.from(document.querySelectorAll('input, select')).forEach(function (input) {
+    if (['projName', 'projNo', 'projDesigner', 'jsonFile'].includes(input.id)) return;
     input.addEventListener('input', calculateEquipmentLoad);
     input.addEventListener('change', calculateEquipmentLoad);
   });

@@ -320,6 +320,18 @@ function newHomeExpression(tools) {
     const toolMarks = Array.from(document.querySelectorAll('.tool-card__icon .icon-mark')).map(node => node.textContent.trim());
     const categoryIconCount = document.querySelectorAll('.category-icon svg').length;
     const toolIconCount = document.querySelectorAll('.tool-card__icon svg').length;
+    const toolUpdatedCount = document.querySelectorAll('.tool-updated').length;
+    const toolStateChipCount = document.querySelectorAll('.tool-card .tool-state').length;
+    const toolBoundaryCount = document.querySelectorAll('.tool-boundary').length;
+    const toolProfileCount = document.querySelectorAll('.tool-profile').length;
+    const toolOutputCount = Array.from(document.querySelectorAll('.tool-profile__item span')).filter(node => node.textContent.trim() === '輸出').length;
+    const toolStates = Array.from(document.querySelectorAll('.tool-card')).map(card => card.getAttribute('data-state') || '');
+    const duplicateMetaLabels = cards.map(card => {
+      const labels = Array.from(card.querySelectorAll('.tool-meta span')).map(node => node.textContent.trim()).filter(Boolean);
+      return labels.filter((label, index) => labels.indexOf(label) !== index);
+    }).filter(duplicates => duplicates.length > 0);
+    const hasToolFinder = text.includes('Tool Finder');
+    const hasToolSearch = !!document.getElementById('toolSearch');
     const memberButton = Array.from(document.querySelectorAll('.category-card')).find(card => card.textContent.includes('構件承載力檢核'));
     if (memberButton) memberButton.click();
     const memberPanel = document.getElementById('memberSystemPanel');
@@ -342,6 +354,16 @@ function newHomeExpression(tools) {
       imageCount: document.querySelectorAll('img').length,
       categoryIconCount,
       toolIconCount,
+      toolUpdatedCount,
+      toolStateChipCount,
+      toolBoundaryCount,
+      toolProfileCount,
+      toolOutputCount,
+      toolStates,
+      duplicateMetaLabels,
+      hasStateFilterPanel: !!document.getElementById('stateFilterPanel'),
+      hasToolFinder,
+      hasToolSearch,
       categoryMarks,
       toolMarks,
       hasMemberSystemPanel: !!memberPanel && memberPanel.hidden === false,
@@ -374,12 +396,20 @@ function toolExpression(tool) {
       hasCalcButton: !!document.getElementById('btnCalc'),
       hasJsonButton: !!document.getElementById('btnJson'),
       hasMetricGrid: !!document.getElementById('metricGrid'),
+      hasWallTypeOutputBody: !!document.getElementById('wallTypeOutputBody'),
+      hasDiagramBody: !!document.getElementById('diagramBody'),
       hasCheckList: !!document.getElementById('checkList'),
       hasExportScript: scripts.includes('/結構工具箱/tools/local-quick-export.js'),
       hasCoreScript: scripts.includes(${JSON.stringify(`/結構工具箱/${tool.core}`)}),
+      hasJsonImportButton: !!document.getElementById('btnImportJson'),
+      hasJsonFileInput: !!document.getElementById('jsonFile'),
+      jsonStatus: text('jsonStatus'),
       coreVersion: text('coreVersion'),
       banner: text('bannerStatus'),
       metricText: text('metricGrid'),
+      wallTypeOutputText: text('wallTypeOutputBody'),
+      diagramText: text('diagramBody'),
+      diagramSvgCount: document.querySelectorAll('#diagramBody svg.pressure-diagram').length,
       checkText: text('checkList'),
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
@@ -430,6 +460,45 @@ function jsonExportExpression() {
       URL.revokeObjectURL = originalRevokeObjectURL;
       HTMLAnchorElement.prototype.click = originalAnchorClick;
     }
+  })()`;
+}
+
+function earthWallTypeExpression() {
+  return `(() => {
+    const text = (id) => document.getElementById(id)?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+    const select = document.getElementById('wallType');
+    select.value = 'gravity';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return {
+      value: select.value,
+      outputText: text('wallTypeOutputBody'),
+      diagramText: text('diagramBody'),
+      modelSummary: text('modelSummary')
+    };
+  })()`;
+}
+
+function jsonImportExpression(payload) {
+  return `(async () => {
+    const payload = ${JSON.stringify(payload)};
+    payload.project = Object.assign({}, payload.project, { name: '回讀測試案' });
+    document.getElementById('equipmentWeight').value = '99';
+    document.getElementById('fluidWeight').value = '9';
+    document.getElementById('projName').value = '';
+    const fileInput = document.getElementById('jsonFile');
+    const file = new File([JSON.stringify(payload)], 'equipment-load-import.json', { type: 'application/json' });
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return {
+      equipmentWeight: document.getElementById('equipmentWeight').value,
+      fluidWeight: document.getElementById('fluidWeight').value,
+      projectName: document.getElementById('projName').value,
+      jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
+      banner: document.getElementById('bannerStatus')?.textContent || ''
+    };
   })()`;
 }
 
@@ -499,6 +568,16 @@ function assertNewHomeState(state, tools, label) {
   assert.equal(state.imageCount, 0, `${label} new home image elements`);
   assert.equal(state.categoryIconCount, 7, `${label} new home category icons`);
   assert.equal(state.toolIconCount, state.cardCount, `${label} new home tool card icons`);
+  assert.equal(state.toolUpdatedCount, state.cardCount, `${label} new home tool updated dates`);
+  assert.equal(state.toolStateChipCount, state.cardCount, `${label} new home compact state chips`);
+  assert.equal(state.toolBoundaryCount, 0, `${label} new home hidden fit limit fields`);
+  assert.equal(state.toolProfileCount, state.cardCount, `${label} new home tool profiles`);
+  assert.equal(state.toolOutputCount, state.cardCount, `${label} new home tool output fields`);
+  assert.equal(state.toolStates.every(toolState => /^(formal|assist|reference|estimate|report|workflow|service|legacy|external)$/.test(toolState)), true, `${label} new home governed tool states`);
+  assert.deepEqual(state.duplicateMetaLabels, [], `${label} new home duplicate meta labels`);
+  assert.equal(state.hasStateFilterPanel, false, `${label} new home removes state filter panel`);
+  assert.equal(state.hasToolFinder, false, `${label} new home removes Tool Finder`);
+  assert.equal(state.hasToolSearch, false, `${label} new home removes search input`);
   assert.deepEqual(state.categoryMarks, ['B', 'E', 'F', 'P', 'S', 'T', 'W'], `${label} new home category icon marks`);
   assert.equal(state.toolMarks.every(mark => /^[BEFPSTW]$/.test(mark)), true, `${label} new home tool icon marks`);
   assert.equal(state.hasMemberSystemPanel, true, `${label} new home member system panel`);
@@ -527,7 +606,26 @@ function assertToolState(state, tool, label) {
   assert.ok(state.hasCheckList, `${label} ${tool.key} check list`);
   assert.ok(state.hasExportScript, `${label} ${tool.key} export script`);
   assert.ok(state.hasCoreScript, `${label} ${tool.key} core script`);
-  assert.match(state.coreVersion, /^Core v0\.1\.0$/, `${label} ${tool.key} core version`);
+  assert.match(state.coreVersion, /^Core v0\.\d+\.0$/, `${label} ${tool.key} core version`);
+  if (tool.key === 'equipment-load') {
+    assert.equal(state.hasJsonImportButton, true, `${label} ${tool.key} JSON import button`);
+    assert.equal(state.hasJsonFileInput, true, `${label} ${tool.key} JSON file input`);
+    assert.ok(state.jsonStatus.includes('JSON'), `${label} ${tool.key} JSON status`);
+    assert.ok(state.checkText.includes('混凝土承壓'), `${label} ${tool.key} concrete bearing check`);
+    assert.ok(state.checkText.includes('穿孔剪力'), `${label} ${tool.key} punching shear check`);
+    assert.ok(state.checkText.includes('鋼板分散'), `${label} ${tool.key} steel plate check`);
+  }
+  if (tool.key === 'earth-pressure') {
+    assert.equal(state.hasWallTypeOutputBody, true, `${label} ${tool.key} wall type output body`);
+    assert.ok(state.wallTypeOutputText.includes('懸臂式工作輸出'), `${label} ${tool.key} cantilever output`);
+    assert.ok(state.wallTypeOutputText.includes('整體穩定'), `${label} ${tool.key} wall type output groups`);
+    assert.equal(state.hasDiagramBody, true, `${label} ${tool.key} diagram body`);
+    assert.equal(state.diagramSvgCount, 1, `${label} ${tool.key} pressure diagram svg`);
+    assert.ok(state.diagramText.includes('土壓與穩定示意'), `${label} ${tool.key} diagram title`);
+    assert.ok(state.diagramText.includes('基底反力示意'), `${label} ${tool.key} base reaction diagram`);
+    assert.ok(state.diagramText.includes('圖例'), `${label} ${tool.key} diagram legend`);
+    assert.ok(state.diagramText.includes('趾版 toe'), `${label} ${tool.key} cantilever toe label`);
+  }
   assert.ok(state.banner && state.banner !== '尚未計算', `${label} ${tool.key} initial calculation banner`);
   assert.ok(state.metricText.length > 20, `${label} ${tool.key} initial metrics`);
   assert.ok(state.checkText.length > 20, `${label} ${tool.key} initial checks`);
@@ -547,12 +645,27 @@ function assertJsonExportState(state, tool, label) {
   assert.equal(state.payload.tool.name, tool.label, `${label} ${tool.key} payload tool name`);
   assert.equal(state.payload.tool.pageVersion, tool.pageVersion, `${label} ${tool.key} payload page version`);
   assert.equal(typeof state.payload.generatedAt, 'string', `${label} ${tool.key} payload generatedAt`);
-  assert.match(state.payload.result.resultSchemaVersion, /\.result\.v0\.1$/, `${label} ${tool.key} payload result schema`);
+  assert.match(state.payload.result.resultSchemaVersion, /\.result\.v0\.\d+$/, `${label} ${tool.key} payload result schema`);
   assert.equal(state.payload.result.provenance.core, tool.coreGlobal, `${label} ${tool.key} payload provenance core`);
   assert.ok(Array.isArray(state.payload.result.checks), `${label} ${tool.key} payload checks`);
   assert.ok(state.payload.result.checks.length >= 3, `${label} ${tool.key} payload checks count`);
   assert.ok(Array.isArray(state.payload.result.summary.primaryMetrics), `${label} ${tool.key} payload metrics`);
   assert.ok(state.payload.result.summary.primaryMetrics.length >= 3, `${label} ${tool.key} payload metrics count`);
+  if (tool.key === 'equipment-load') {
+    assert.equal(state.payload.input.equipmentWeight, 12, `${label} ${tool.key} payload input`);
+  }
+  if (tool.key === 'earth-pressure') {
+    assert.equal(state.payload.result.wallType, 'cantilever', `${label} ${tool.key} payload wall type`);
+    assert.equal(state.payload.result.wallTypeOutput.headline, '懸臂式工作輸出', `${label} ${tool.key} payload wall output`);
+  }
+}
+
+function assertJsonImportState(state, label) {
+  assert.equal(state.equipmentWeight, '12', `${label} equipment import weight`);
+  assert.equal(state.fluidWeight, '2', `${label} equipment import fluid weight`);
+  assert.equal(state.projectName, '回讀測試案', `${label} equipment import project`);
+  assert.ok(state.jsonStatus.includes('已讀取 JSON'), `${label} equipment import status`);
+  assert.ok(state.banner && state.banner !== '尚未計算', `${label} equipment import recalculates`);
 }
 
 function assertReportState(state, tool, label) {
@@ -561,16 +674,32 @@ function assertReportState(state, tool, label) {
   assert.equal(state.documentOpened, true, `${label} ${tool.key} report document open`);
   assert.equal(state.closed, true, `${label} ${tool.key} report document close`);
   assert.ok(state.htmlLength > 1500, `${label} ${tool.key} report HTML length`);
-  [
+  const requiredNeedles = [
     tool.label,
     '計算書',
-    '計算核心',
-    '輸入格式',
-    '計算指紋',
-    '適用範圍',
-    '不適用範圍',
     '初估',
-  ].forEach(needle => {
+  ];
+  if (tool.key === 'foundation-local' || tool.key === 'earth-pressure') {
+    requiredNeedles.push('計算依據', '檢核結果');
+    if (tool.key === 'foundation-local') {
+      requiredNeedles.push('採用規範', '載重情況');
+    } else {
+      requiredNeedles.push('Rankine', '擋土牆型式', '牆型工作輸出', '土壓模式', '牆體位移條件', '被動抵抗採用', '計算示意圖');
+    }
+    [
+      '工具與責任邊界',
+      '適用範圍',
+      '不適用範圍',
+      '計算核心',
+      '輸入格式',
+      '計算指紋',
+    ].forEach(needle => {
+      assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
+    });
+  } else {
+    requiredNeedles.push('計算核心', '輸入格式', '計算指紋', '適用範圍', '不適用範圍');
+  }
+  requiredNeedles.forEach(needle => {
     assert.ok(state.html.includes(needle), `${label} ${tool.key} report includes ${needle}`);
   });
 }
@@ -656,6 +785,19 @@ async function main() {
           if (toolCase.key === 'route-tool') {
             const exportState = await evaluate(client, sessionId, jsonExportExpression());
             assertJsonExportState(exportState, tool, label);
+            if (tool.key === 'equipment-load') {
+              const importState = await evaluate(client, sessionId, jsonImportExpression(exportState.payload));
+              assertJsonImportState(importState, label);
+            }
+            if (tool.key === 'earth-pressure') {
+              const wallTypeState = await evaluate(client, sessionId, earthWallTypeExpression());
+              assert.equal(wallTypeState.value, 'gravity', `${label} ${tool.key} gravity wall type selection`);
+              assert.ok(wallTypeState.outputText.includes('重力式工作輸出'), `${label} ${tool.key} gravity output`);
+              assert.ok(wallTypeState.outputText.includes('自重與抗傾覆'), `${label} ${tool.key} gravity output groups`);
+              assert.ok(wallTypeState.diagramText.includes('重力式擋土牆'), `${label} ${tool.key} gravity diagram label`);
+              assert.ok(wallTypeState.diagramText.includes('重力式塊體'), `${label} ${tool.key} gravity wall body`);
+              assert.ok(wallTypeState.modelSummary.includes('重力式擋土牆'), `${label} ${tool.key} gravity model summary`);
+            }
             const reportState = await evaluate(client, sessionId, reportExpression());
             assertReportState(reportState, tool, label);
           }
