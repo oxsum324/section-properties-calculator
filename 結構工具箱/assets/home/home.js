@@ -631,7 +631,9 @@
   }
 
   function toFileHref(href) {
-    if (!isFileMode || !href.startsWith('/')) return href;
+    // 永遠轉成相對檔案路徑：GitHub Pages（子目錄部署）、file:// 與本機靜態
+    // 伺服器都只能用相對路徑；clean route（/rc-beam 等）僅 Vercel rewrite 有效。
+    if (!href.startsWith('/')) return href;
     if (routeFileMap[href]) return routeFileMap[href];
     if (href.startsWith('/結構工具箱/')) return href.replace(/^\/結構工具箱\//, '');
     return `../${href.replace(/^\/+/, '')}`;
@@ -896,8 +898,9 @@
   }
 
   async function loadStatus() {
+    // 狀態列連結一律改用相對路徑，確保 GitHub Pages 子目錄部署也能正確解析。
     document.querySelectorAll('[data-file-href]').forEach(link => {
-      if (isFileMode) link.setAttribute('href', link.getAttribute('data-file-href'));
+      link.setAttribute('href', link.getAttribute('data-file-href'));
     });
     if (!/^https?:$/i.test(window.location.protocol)) {
       renderStatus(document.getElementById('platformStatus'), '平台巡檢', null, '以本機伺服器開啟時會讀取最新平台巡檢。');
