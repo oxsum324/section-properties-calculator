@@ -6,7 +6,8 @@
   ],
   "redirects": [
     { "source": "/", "destination": "/結構工具箱/", "permanent": true },
-    { "source": "/toolbox-home", "destination": "/結構工具箱/home", "permanent": true },
+    { "source": "/toolbox-home", "destination": "/結構工具箱/", "permanent": true },
+    { "source": "/toolbox-classic", "destination": "/結構工具箱/index-classic", "permanent": true },
     { "source": "/wind", "destination": "/結構工具箱/", "permanent": true },
     { "source": "/wind-force", "destination": "/結構工具箱/tools/風力/wind-force", "permanent": true },
     { "source": "/wind-cc", "destination": "/結構工具箱/tools/風力/wind-cc", "permanent": true },

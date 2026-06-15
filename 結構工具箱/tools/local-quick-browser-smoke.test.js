@@ -348,7 +348,7 @@ function newHomeExpression(tools) {
       hasToolGrid: !!document.getElementById('toolGrid'),
       hasCategoryOverview: !!document.getElementById('categoryOverview'),
       hasNextToolsPanel: !!document.getElementById('nextToolsPanel'),
-      hasOriginalHomeLink: links.includes('/結構工具箱/index.html') || links.includes('index.html'),
+      hasOriginalHomeLink: links.includes('/結構工具箱/index-classic.html') || links.includes('index-classic.html'),
       hasDoNotReplaceCopy: text.includes('不取代原本首頁'),
       hasLocalSection: text.includes('施工臨時設施 / 局部檢核'),
       imageCount: document.querySelectorAll('img').length,
@@ -557,13 +557,13 @@ function assertHomeState(state, tools, label) {
 }
 
 function assertNewHomeState(state, tools, label) {
-  assert.equal(state.title, '結構工具箱新版入口', `${label} new home title`);
+  assert.equal(state.title, '結構工具箱', `${label} new home title`);
   assert.ok(state.hasHomeApp, `${label} new home app shell`);
   assert.ok(state.hasToolGrid, `${label} new home tool grid`);
   assert.ok(state.hasCategoryOverview, `${label} new home category overview`);
   assert.ok(state.hasNextToolsPanel, `${label} new home next tools panel`);
-  assert.ok(state.hasOriginalHomeLink, `${label} new home original link`);
-  assert.ok(state.hasDoNotReplaceCopy, `${label} new home preserve-original copy`);
+  assert.ok(state.hasOriginalHomeLink, `${label} new home links to classic menu`);
+  // 新版已成為正式首頁，不再保留「不取代原本首頁」文案
   assert.ok(state.hasLocalSection, `${label} new home local section`);
   assert.equal(state.imageCount, 0, `${label} new home image elements`);
   assert.equal(state.categoryIconCount, 7, `${label} new home category icons`);
@@ -748,15 +748,17 @@ async function main() {
     await client.send('Runtime.enable', {}, sessionId);
     await client.send('Log.enable', {}, sessionId);
 
+    // 經典公文版選單（已封存為 index-classic.html）
     const homeCases = [
+      { key: 'file-classic', url: `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/index-classic.html')}` },
+    ];
+    // 正式工具箱首頁（弘一設計系統新版）— 根路由、/platform 與 /toolbox-home 皆導向於此
+    const newHomeCases = [
       { key: 'file-home', url: `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/index.html')}` },
       { key: 'route-root', url: `http://127.0.0.1:${serverPort}/` },
       { key: 'route-platform', url: `http://127.0.0.1:${serverPort}/platform` },
-    ];
-    const newHomeCases = [
-      { key: 'file-new-home', url: `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/home.html')}` },
       { key: 'route-toolbox-home', url: `http://127.0.0.1:${serverPort}/toolbox-home` },
-      { key: 'file-url-new-home', url: pathToFileURL(toolboxFile('home.html')).href },
+      { key: 'file-url-new-home', url: pathToFileURL(toolboxFile('index.html')).href },
     ];
     for (const viewport of viewports) {
       for (const homeCase of homeCases) {

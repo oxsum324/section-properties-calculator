@@ -51,7 +51,8 @@ assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
 
 const repoDocs = {
   index: readText(path.join(toolboxRoot, 'index.html')),
-  homeHtml: readText(toolboxFile('home.html')),
+  homeHtml: readText(toolboxFile('index.html')),
+  indexClassic: readText(toolboxFile('index-classic.html')),
   homeCss: readText(toolboxFile('assets/home/home.css')),
   homeJs: readText(toolboxFile('assets/home/home.js')),
   seismicDynamic: readText(toolboxFile('tools/地震力/seismic-dynamic.html')),
@@ -205,7 +206,7 @@ assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-browser-smoke
 assertIncludes(repoDocs.readme, '結構工具箱/tools/formal-browser-smoke.test.js', 'formal browser smoke test README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner README');
-assertIncludes(repoDocs.readme, '結構工具箱/home.html', 'new home README');
+assertIncludes(repoDocs.readme, '結構工具箱/index-classic.html', 'classic home README');
 assertIncludes(repoDocs.readme, '/toolbox-home', 'new home route README');
 assertIncludes(repoDocs.readme, 'TOOL_REPORT_GUIDE.md', 'tool report guide README');
 [
@@ -245,7 +246,7 @@ assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-browser-s
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/formal-browser-smoke.test.js', 'formal browser smoke test boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest boundary');
 assertIncludes(repoDocs.boundaries, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner boundary');
-assertIncludes(repoDocs.boundaries, '結構工具箱/home.html', 'new home boundary');
+assertIncludes(repoDocs.boundaries, '結構工具箱/index-classic.html', 'classic home boundary');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.js', 'local quick export staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test staging group');
@@ -253,12 +254,13 @@ assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-browser-smok
 assertIncludes(repoDocs.staging, '結構工具箱/tools/formal-browser-smoke.test.js', 'formal browser smoke test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner staging group');
-assertIncludes(repoDocs.homeHtml, '<title>結構工具箱新版入口</title>', 'new home title');
+assertIncludes(repoDocs.homeHtml, '<title>結構工具箱</title>', 'new home title');
 assertIncludes(repoDocs.homeHtml, 'assets/home/home.css', 'new home stylesheet');
 assertIncludes(repoDocs.homeHtml, 'assets/home/home.js', 'new home script');
-assertIncludes(repoDocs.homeHtml, '不取代原本首頁', 'new home preserve original copy');
+assert.equal(repoDocs.homeHtml.includes('不取代原本首頁'), false, 'new home is now the live home (no preserve-original copy)');
+assertIncludes(repoDocs.indexClassic, '結構工具箱', 'classic home preserved');
 assertIncludes(repoDocs.homeHtml, '力量來源與檢核目的', 'new home logic categories copy');
-assertIncludes(repoDocs.homeHtml, 'data-file-href="index.html"', 'new home file-mode original link');
+assertIncludes(repoDocs.homeHtml, 'data-file-href="index-classic.html"', 'new home links to classic menu');
 assert.equal(repoDocs.homeHtml.includes('Tool Finder'), false, 'new home removes Tool Finder');
 assert.equal(repoDocs.homeHtml.includes('id="toolSearch"'), false, 'new home removes search input');
 assert.equal(repoDocs.homeHtml.includes('id="stateFilterPanel"'), false, 'new home removes state filter panel');
@@ -389,7 +391,7 @@ assertHomeToolCategories('石材固定構件計算書', ['attachments'], 'stone 
 assertHomeToolCategories('設備局部荷重', ['temporary'], 'equipment load stays in temporary category');
 assertHomeToolCategories('覆工板系統計算', ['temporary'], 'deck system stays in temporary category');
 assertIncludes(repoDocs.vercel, '"source": "/toolbox-home"', 'new home vercel route');
-assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/home"', 'new home vercel destination');
+assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home vercel destination');
 [
   '<title>建築物耐震設計 — 反應譜動力分析規範整理 V3.8</title>',
   '總橫力調整檢核',
