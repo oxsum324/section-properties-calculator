@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="tech" data-layout="grid" data-header="navy" data-density="regular" data-codes="on">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>結構工具箱</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="assets/hy/colors_and_type.css">
+<link rel="stylesheet" href="assets/home2/home2.css">
+<link rel="stylesheet" href="assets/home2/tech-theme.css">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  <div class="wrap">
+    <div class="site-header__bar">
+      <div class="brand">
+        <img class="brand__logo brand__logo--dark" src="assets/hy/logo.svg" alt="弘一工程顧問">
+        <img class="brand__logo brand__logo--light" src="assets/hy/logo-white.svg" alt="" aria-hidden="true">
+        <div class="brand__name">結構工具箱 <span>· 內部平台</span></div>
+      </div>
+      <div class="site-header__spacer"></div>
+      <div class="site-header__meta">
+        <span>版本</span>
+        <span class="mono">v2.0 · 2026-06</span>
+      </div>
+    </div>
+  </div>
+  <div class="hero">
+    <div class="wrap">
+      <div class="hero__inner">
+        <div>
+          <p class="eyebrow">公司內部工程工具入口</p>
+          <hr class="red-rule">
+          <h1><b>結構工具箱</b><em>弘一工程顧問</em></h1>
+        </div>
+        <div class="hero__status">
+          <small>收錄工具</small>
+          <strong><span class="num" id="heroToolCount"></span> 項 · <span id="heroCatCount"></span> 類</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- CATEGORY STRIP -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Categories</p>
+        <h2>力量來源與檢核目的</h2>
+      </div>
+      <p class="section-head__count">
+        顯示 <b class="num" id="visibleCount"></b> 項<span id="activeLabel"></span>
+      </p>
+    </div>
+    <div class="cat-reset">
+      <button class="chip" id="chipAll" aria-pressed="true" data-cat="all">全部工具</button>
+    </div>
+    <div class="cats" id="catGrid"></div>
+  </div>
+</section>
+
+<!-- WORKSPACE: tool grid + status rail -->
+<section class="section">
+  <div class="wrap">
+    <div class="workspace">
+      <div>
+        <div class="tool-grid" id="toolGrid"></div>
+        <div class="empty" id="emptyState" style="display:none">
+          <strong>找不到符合條件的工具</strong>
+          <p>請切回「全部」，或改從其他分類進入。</p>
+        </div>
+      </div>
+      <aside class="rail">
+        <div class="rail__group">
+          <p class="rail__title">Links</p>
+          <div class="rail__links" id="railLinks"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- NOTE -->
+<section class="section">
+  <div class="wrap">
+    <div class="note">
+      <strong>使用邊界</strong>
+      <p>各工具僅得於頁面標示之適用範圍內使用；超出適用範圍者不得直接採用計算結果。最終結構設計與圖說仍應由執業技師簽證。</p>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="site-footer__inner">
+      <span>弘一工程顧問有限公司　內部工程工具平台</span>
+      <span class="mono">HY-TOOLBOX · v2.0</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* =========================================================================
+   資料定義
+   ========================================================================= */
+var CATEGORIES = [
+  { id: 'analysis',    label: '結構分析力量',      en: 'Analysis',   icon: 'sigma',     desc: '連續梁、剛架與外力整理，釐清結構內力來源。' },
+  { id: 'wind',        label: '風力規範外力',       en: 'Wind',       icon: 'wind',      desc: '依建築物耐風設計規範推算設計風壓與風力。' },
+  { id: 'seismic',     label: '地震力規範外力',     en: 'Seismic',    icon: 'activity',  desc: '依耐震設計規範求設計地震力與反應譜。' },
+  { id: 'member',      label: '構件承載力檢核',     en: 'Member',     icon: 'layers',    desc: '鋼構與 RC 斷面之強度、穩定與承載檢核。' },
+  { id: 'attachments', label: '連接、附掛物',       en: 'Connect',    icon: 'link',      desc: '錨栓、連接板、石材固定與附掛構件檢核。' },
+  { id: 'reference',   label: '斷面與資料查詢',     en: 'Reference',  icon: 'book-open', desc: '斷面性質、合成斷面與材料參數查詢。' },
+  { id: 'temporary',   label: '施工臨設與快算',     en: 'Temp Works', icon: 'hard-hat',  desc: '覆工板、開挖支撐、局部基礎與現場初判。' }
+];
+
+var TAGS = {
+  formal:    { label: '正式核算', tone: 'success' },
+  assist:    { label: '分析輔助', tone: 'navy' },
+  reference: { label: '輔助查詢', tone: 'navy' },
+  estimate:  { label: '初估',     tone: 'warning' },
+  report:    { label: '案件報表', tone: 'navy' },
+  workflow:  { label: '案件入口', tone: 'navy' },
+  service:   { label: '本機服務', tone: 'warning' },
+  legacy:    { label: '舊版',     tone: 'warning' },
+  external:  { label: '外部套件', tone: 'warning' }
+};
+
+var LINKS = [
+  { label: '原本首頁',       href: 'index.html' },
+  { label: '巡檢儀表板',     href: 'audit-dashboard.html' },
+  { label: '平台摘要',       href: '../output/audit/platform-summary.md' },
+  { label: 'Preflight 摘要', href: '../output/preflight/preflight-summary.md' }
+];
+
+/* hrefs 相對於 結構工具箱/home.html */
+var TOOLS = [
+  /* --- 結構分析 --- */
+  { code:'HY-ANA-01', cat:'analysis',    tag:'assist',    icon:'git-merge',    name:'連續梁分析',       scope:'多跨連續梁彎矩、剪力與撓度',       href:'../連續梁分析.html' },
+  { code:'HY-ANA-02', cat:'analysis',    tag:'assist',    icon:'triangle',     name:'平面剛架分析',     scope:'2D 剛架直接勁度法分析',            href:'../鋼架/平面剛架分析.html' },
+  { code:'HY-ANA-03', cat:'analysis',    tag:'external',  icon:'cpu',          name:'struct.dx 解題',   scope:'靜不定分析 + AI 輔助',             href:'../解題/struct_dx/frontend/struct_suite.html' },
+
+  /* --- 風力 --- */
+  { code:'HY-WIND-00', cat:'wind',       tag:'workflow',  icon:'layout-dashboard', name:'耐風案件總覽',  scope:'案件參數摘要與子工具入口',          href:'tools/風力/wind-overview.html' },
+  { code:'HY-WIND-KZ', cat:'wind',       tag:'reference', icon:'map-pin',      name:'Kzt 地形係數',     scope:'K1、K2、K3 與 Kzt 查詢',           href:'tools/風力/wind-kzt.html' },
+  { code:'HY-WIND-01', cat:'wind',       tag:'formal',    icon:'wind',         name:'矩形建物 MWFRS',   scope:'MWFRS 風力、風壓與計算書',          href:'tools/風力/wind-force.html' },
+  { code:'HY-WIND-02', cat:'wind',       tag:'formal',    icon:'square',       name:'區域風壓 C&C',     scope:'C&C 正負風壓與局部計算書',          href:'tools/風力/wind-cc.html' },
+  { code:'HY-WIND-03', cat:'wind',       tag:'formal',    icon:'fence',        name:'女兒牆風壓',        scope:'MWFRS / C&C 女兒牆風壓',           href:'tools/風力/wind-parapet.html' },
+  { code:'HY-WIND-04', cat:'wind',       tag:'formal',    icon:'tent',         name:'開放式屋面風壓',   scope:'開放式單斜 / 雙斜屋頂風壓',        href:'tools/風力/wind-open-roof.html' },
+  { code:'HY-WIND-05', cat:'wind',       tag:'formal',    icon:'panel-top',    name:'實體標示物風力',   scope:'表 2.10 Cf 計算書',                href:'tools/風力/wind-object-solid.html' },
+  { code:'HY-WIND-06', cat:'wind',       tag:'formal',    icon:'grid-3x3',     name:'中空式/格子式風力', scope:'表 2.11 Cf 計算書',               href:'tools/風力/wind-object-frame.html' },
+  { code:'HY-WIND-07', cat:'wind',       tag:'formal',    icon:'tower-control', name:'桁架高塔風力',    scope:'表 2.15 分段風力計算書',            href:'tools/風力/wind-lattice-tower.html' },
+  { code:'HY-WIND-08', cat:'wind',       tag:'formal',    icon:'cylinder',     name:'煙囪 / 水塔風力',  scope:'表 2.12 h/D 內插計算書',           href:'tools/風力/wind-object-tower.html' },
+  { code:'HY-WIND-09', cat:'wind',       tag:'formal',    icon:'signpost',     name:'圍籬牆/獨立招牌',  scope:'表 2.10 招牌物 Cf 計算書',         href:'tools/風力/wind-fence-sign.html' },
+  { code:'HY-WIND-10', cat:'wind',       tag:'formal',    icon:'lamp-floor',   name:'招牌/燈桿組合',    scope:'面板 + 支撐組合風力計算書',        href:'tools/風力/wind-sign-pole.html' },
+
+  /* --- 地震力 --- */
+  { code:'HY-EQ-01', cat:'seismic',      tag:'formal',    icon:'activity',     name:'等值靜力分析',     scope:'等值靜力法與逐層分配計算書',        href:'tools/地震力/seismic-force.html' },
+  { code:'HY-EQ-02', cat:'seismic',      tag:'report',    icon:'bar-chart-4',  name:'動力分析摘要',     scope:'反應譜動力分析比對與縮放倍率',      href:'tools/地震力/seismic-dynamic.html' },
+  { code:'HY-EQ-03', cat:'seismic',      tag:'formal',    icon:'zap',          name:'附屬構造物地震力', scope:'Fph / Fpv / Rpa 計算',             href:'tools/地震力/seismic-appendage.html' },
+  { code:'HY-EQ-04', cat:'seismic',      tag:'formal',    icon:'audio-waveform', name:'雜項工作物地震力', scope:'第五章快速分流計算書',           href:'tools/地震力/seismic-misc.html' },
+
+  /* --- 構件：RC --- */
+  { code:'HY-RC-01', cat:'member',       tag:'formal',    icon:'move-horizontal', name:'RC 梁',          scope:'撓曲、剪力、扭力與撓度',           href:'../鋼筋混凝土/tools/beam.html' },
+  { code:'HY-RC-02', cat:'member',       tag:'formal',    icon:'columns-3',    name:'RC 柱',            scope:'P-M 互制圖與橫向圍束',              href:'../鋼筋混凝土/tools/column.html' },
+  { code:'HY-RC-03', cat:'member',       tag:'formal',    icon:'layout-grid',  name:'RC 板',            scope:'連續板係數法與自動配筋',            href:'../鋼筋混凝土/tools/slab.html' },
+  { code:'HY-RC-04', cat:'member',       tag:'formal',    icon:'align-justify', name:'RC 牆',           scope:'承重牆、結構牆與特殊邊界構材',      href:'../鋼筋混凝土/tools/wall.html' },
+  { code:'HY-RC-05', cat:'member',       tag:'formal',    icon:'home',         name:'RC 基礎',          scope:'獨立、聯合、筏式與樁基礎',          href:'../鋼筋混凝土/tools/foundation.html' },
+  { code:'HY-RC-06', cat:'member',       tag:'formal',    icon:'milestone',    name:'單樁承載力',        scope:'軸向承載力、沉陷與抗拔',            href:'../鋼筋混凝土/tools/single-pile-designer.html' },
+  { code:'HY-RC-07', cat:'member',       tag:'formal',    icon:'shield-plus',  name:'RC 補強斷面',      scope:'鋼板、CFRP 補強 P-M 與剪力',       href:'../RC補強斷面性質.html' },
+
+  /* --- 構件：鋼構 --- */
+  { code:'HY-STL-00', cat:'member',      tag:'workflow',  icon:'door-open',    name:'鋼構正式規範工具', scope:'子工具入口與審查摘要',              href:'../鋼構工具/index.html' },
+  { code:'HY-STL-01', cat:'member',      tag:'formal',    icon:'arrow-left-right', name:'鋼梁正式頁',   scope:'鋼梁撓曲、剪力、撓度與報表',       href:'../鋼構工具/steel-beam-formal.html' },
+  { code:'HY-STL-02', cat:'member',      tag:'formal',    icon:'box',          name:'鋼柱正式頁',       scope:'軸壓挫屈、K 因數與 P-M',           href:'../鋼構工具/steel-column-formal.html' },
+  { code:'HY-STL-L1', cat:'member',      tag:'legacy',    icon:'archive',      name:'鋼梁（舊版）',     scope:'舊版鋼梁撓曲、剪力、撓度',          href:'tools/鋼構/steel-beam.html' },
+  { code:'HY-STL-L2', cat:'member',      tag:'legacy',    icon:'archive',      name:'鋼柱（舊版）',     scope:'舊版鋼柱軸壓與 P-M 檢核',           href:'tools/鋼構/steel-column.html' },
+
+  /* --- 連接、附掛物 --- */
+  { code:'HY-CON-01', cat:'attachments', tag:'formal',    icon:'square-stack', name:'連接板檢核',       scope:'降伏、斷裂與區塊剪力破壞',          href:'../鋼構工具/plate-check.html' },
+  { code:'HY-CON-02', cat:'attachments', tag:'formal',    icon:'anchor',       name:'錨栓檢討工具',     scope:'第 17 章錨栓多破壞模式',            href:'../anchor/index.html' },
+  { code:'HY-CON-03', cat:'attachments', tag:'formal',    icon:'gem',          name:'石材固定計算書',   scope:'外牆石材固定送審計算書',            href:'../石材固定/石材計算書產生器_規範版V2.html' },
+
+  /* --- 斷面與查詢 --- */
+  { code:'HY-REF-01', cat:'reference',   tag:'reference', icon:'square',       name:'斷面性質計算',     scope:'A、I、S、r、Z 等基本斷面性質',      href:'../index.html' },
+  { code:'HY-REF-02', cat:'reference',   tag:'reference', icon:'copy',         name:'合成斷面性質',     scope:'組合斷面 J、翹曲常數與增益',        href:'../合成斷面性質.html' },
+
+  /* --- 施工臨設 --- */
+  { code:'HY-TMP-01', cat:'temporary',   tag:'formal',    icon:'truck',        name:'覆工板系統計算',   scope:'板面、小梁、大梁、樁基礎',          href:'../覆工板/index.html' },
+  { code:'HY-TMP-02', cat:'temporary',   tag:'service',   icon:'hard-hat',     name:'開挖擋土支撐',     scope:'FastAPI + React + SQLite 工作流',   href:'../開挖擋土支撐/index.html' },
+  { code:'HY-TMP-03', cat:'temporary',   tag:'estimate',  icon:'home',         name:'基礎局部檢核',     scope:'矩形淺基礎底壓、偏心、抗滑',        href:'tools/foundation/foundation-local.html' },
+  { code:'HY-TMP-04', cat:'temporary',   tag:'estimate',  icon:'cpu',          name:'設備局部荷重',     scope:'設備支承反力與接觸壓初估',          href:'tools/equipment/equipment-load.html' },
+  { code:'HY-TMP-05', cat:'temporary',   tag:'estimate',  icon:'mountain',     name:'擋土土壓快算',     scope:'Rankine 主動 / 靜止土壓初估',       href:'tools/earth/earth-pressure.html' }
+];
+
+/* =========================================================================
+   渲染邏輯
+   ========================================================================= */
+var activeCategory = 'all';
+
+function tagHtml(key) {
+  var t = TAGS[key] || { label: key, tone: 'navy' };
+  return '<span class="tag tag--' + t.tone + '">' + t.label + '</span>';
+}
+
+function renderCats() {
+  var html = CATEGORIES.map(function(c) {
+    var count = TOOLS.filter(function(t) { return t.cat === c.id; }).length;
+    var pressed = activeCategory === c.id ? 'true' : 'false';
+    return '<button class="cat" aria-pressed="' + pressed + '" data-cat="' + c.id + '">' +
+      '<span class="cat__head">' +
+        '<i class="cat__icon" data-lucide="' + c.icon + '"></i>' +
+        '<span class="cat__en">' + c.en + '</span>' +
+      '</span>' +
+      '<span class="cat__label">' + c.label + '</span>' +
+      '<span class="cat__desc">' + c.desc + '</span>' +
+      '<span class="cat__count"><b>' + count + '</b> 項工具</span>' +
+    '</button>';
+  }).join('');
+  document.getElementById('catGrid').innerHTML = html;
+
+  document.querySelectorAll('.cat').forEach(function(btn) {
+    btn.addEventListener('click', function() { filterCat(btn.dataset.cat); });
+  });
+}
+
+function renderTools() {
+  var filtered = activeCategory === 'all'
+    ? TOOLS
+    : TOOLS.filter(function(t) { return t.cat === activeCategory; });
+
+  document.getElementById('visibleCount').textContent = filtered.length;
+
+  var cat = CATEGORIES.find(function(c) { return c.id === activeCategory; });
+  document.getElementById('activeLabel').textContent = cat ? ' · ' + cat.label : '';
+
+  var grid = document.getElementById('toolGrid');
+  var empty = document.getElementById('emptyState');
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(function(t) {
+    return '<a class="tool tk-hit" href="' + t.href + '">' +
+      '<div class="tool__top">' +
+        '<span class="tool__icon"><i data-lucide="' + t.icon + '"></i></span>' +
+        '<span class="tool__code">' + t.code + '</span>' +
+        tagHtml(t.tag) +
+      '</div>' +
+      '<h3 class="tool__name">' + t.name + '</h3>' +
+      '<p class="tool__scope">' + t.scope + '</p>' +
+      '<div class="tool__go">' +
+        '<span>開啟工具</span>' +
+        '<i data-lucide="arrow-right"></i>' +
+      '</div>' +
+    '</a>';
+  }).join('');
+}
+
+function renderRail() {
+  document.getElementById('railLinks').innerHTML = LINKS.map(function(l) {
+    return '<a href="' + l.href + '">' +
+      '<span>' + l.label + '</span>' +
+      '<i data-lucide="arrow-up-right"></i>' +
+    '</a>';
+  }).join('');
+}
+
+function filterCat(id) {
+  activeCategory = id;
+
+  document.getElementById('chipAll').setAttribute('aria-pressed', id === 'all' ? 'true' : 'false');
+  document.querySelectorAll('.cat').forEach(function(btn) {
+    btn.setAttribute('aria-pressed', btn.dataset.cat === id ? 'true' : 'false');
+  });
+
+  renderTools();
+  if (window.lucide) lucide.createIcons();
+}
+
+/* init */
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('heroToolCount').textContent = TOOLS.length;
+  document.getElementById('heroCatCount').textContent = CATEGORIES.length;
+  document.getElementById('visibleCount').textContent = TOOLS.length;
+
+  renderCats();
+  renderTools();
+  renderRail();
+  if (window.lucide) lucide.createIcons();
+});
+
+document.getElementById('chipAll').addEventListener('click', function() { filterCat('all'); });
+</script>
+</body>
+</html>

@@ -1,0 +1,349 @@
+/* =========================================================================
+   弘一工程顧問 — Colors & Type
+   Foundational CSS variables. Import this stylesheet first in any
+   弘一-branded artifact.
+   ========================================================================= */
+
+/* -- Webfonts ------------------------------------------------------------- */
+/* Noto Sans TC (繁體中文 UI / body) + Noto Serif TC (印章/標題) +
+   JetBrains Mono (refined, slightly rounded mono — for case nos & numerics).
+   Imported from Google Fonts
+   (closest match for this authoritative Taiwanese engineering aesthetic).
+   Substitute with licensed locals if desired. */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Noto+Serif+TC:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* =========================================================================
+     COLORS
+     Sampled from the corporate logo. Navy + red is THE brand.
+     Everything else is a neutral scale.
+     ========================================================================= */
+
+  /* Brand primaries — use sparingly, with conviction */
+  --hy-navy:            #002060;   /* logo navy; primary brand color */
+  --hy-navy-deep:       #001440;   /* pressed / heavy surfaces */
+  --hy-navy-700:        #0A2D7A;   /* hover on navy fills */
+  --hy-navy-500:        #2E4C94;   /* secondary navy, links */
+  --hy-navy-300:        #9AA9CB;   /* disabled navy text, borders on navy surfaces */
+  --hy-navy-100:        #E6EAF3;   /* navy wash for section backgrounds */
+  --hy-navy-50:         #F3F5FA;   /* subtlest navy tint */
+
+  --hy-red:             #E00000;   /* logo red; used as ACCENT only — alerts, key stats, the crossbar */
+  --hy-red-deep:        #B30000;   /* pressed red */
+  --hy-red-100:         #FCE5E5;   /* red wash for warnings */
+
+  /* Neutrals — warm-leaning grey, feels like concrete + paper */
+  --hy-ink:             #111316;   /* body copy */
+  --hy-ink-soft:        #2A2E36;   /* headings on light */
+  --hy-slate-700:       #3F4653;   /* secondary text */
+  --hy-slate-500:       #6B7280;   /* tertiary text, icon default */
+  --hy-slate-400:       #9CA3AF;   /* disabled text */
+  --hy-slate-300:       #D4D7DC;   /* dividers */
+  --hy-slate-200:       #E6E8EC;   /* card borders */
+  --hy-slate-100:       #F1F2F5;   /* subtle fills, zebra rows */
+  --hy-slate-50:        #F7F8FA;   /* app background */
+  --hy-paper:           #FFFFFF;   /* card surface, default bg */
+
+  /* Semantic */
+  --hy-success:         #1F7A4D;
+  --hy-success-100:     #E3F1EA;
+  --hy-warning:         #B8860B;   /* dark amber — matches the serious tone */
+  --hy-warning-100:     #FBF2DB;
+  --hy-danger:          var(--hy-red);
+  --hy-danger-100:      var(--hy-red-100);
+  --hy-info:            var(--hy-navy-500);
+  --hy-info-100:        var(--hy-navy-100);
+
+  /* Foreground / background semantic tokens */
+  --fg-1:               var(--hy-ink);
+  --fg-2:               var(--hy-slate-700);
+  --fg-3:               var(--hy-slate-500);
+  --fg-disabled:        var(--hy-slate-400);
+  --fg-on-navy:         #FFFFFF;
+  --fg-on-navy-muted:   rgba(255,255,255,0.72);
+  --fg-accent:          var(--hy-red);
+  --fg-link:            var(--hy-navy-500);
+
+  --bg-page:            var(--hy-slate-50);
+  --bg-surface:         var(--hy-paper);
+  --bg-subtle:          var(--hy-slate-100);
+  --bg-navy:            var(--hy-navy);
+  --bg-navy-deep:       var(--hy-navy-deep);
+
+  --border-default:     var(--hy-slate-200);
+  --border-strong:      var(--hy-slate-300);
+  --border-navy:        var(--hy-navy);
+  --divider:            var(--hy-slate-200);
+
+  /* =========================================================================
+     TYPE
+     Noto Sans TC for UI & body (authoritative, neutral, excellent TC coverage).
+     Noto Serif TC reserved for formal report titles + chapter headings —
+     evokes official documents / government 公文 aesthetic.
+     JetBrains Mono for measurements, case numbers, code.
+     ========================================================================= */
+
+  --font-sans:    'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif:   'Noto Serif TC', 'PMingLiU', 'Times New Roman', serif;
+  --font-mono:    'JetBrains Mono', 'Consolas', 'Menlo', monospace;
+  /* Numeric font — serif with oldstyle, tabular figures. The single source of truth
+     for every number in the brand: stats, measurements, case nos, timestamps.
+     Gives the system a distinctive editorial / hand-set feel. */
+  --font-numeric: 'Noto Serif TC', 'Georgia', 'Times New Roman', serif;
+
+  /* Type scale — major second (1.125) at the small end, major third (1.25) at display */
+  --fs-xs:    12px;
+  --fs-sm:    13px;
+  --fs-base:  15px;
+  --fs-md:    17px;
+  --fs-lg:    20px;
+  --fs-xl:    24px;
+  --fs-2xl:   30px;
+  --fs-3xl:   38px;
+  --fs-4xl:   48px;
+  --fs-5xl:   60px;
+  --fs-6xl:   76px;
+
+  --lh-tight:   1.15;
+  --lh-snug:    1.3;
+  --lh-normal:  1.55;
+  --lh-relaxed: 1.75;
+
+  --tracking-tight:   -0.02em;
+  --tracking-snug:    -0.01em;
+  --tracking-normal:   0;
+  --tracking-wide:     0.06em;
+  --tracking-wider:    0.12em;   /* for 小標/eyebrows in ALL CAPS / 全形 */
+
+  --fw-light:    300;
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-bold:     700;
+  --fw-black:    900;
+
+  /* =========================================================================
+     SPACING — 4px base grid
+     ========================================================================= */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+  --space-32:  128px;
+
+  /* =========================================================================
+     RADIUS — small / conservative. Engineering firms don't use playful pills.
+     ========================================================================= */
+  --radius-none:   0;
+  --radius-sm:     2px;
+  --radius-md:     4px;
+  --radius-lg:     6px;
+  --radius-xl:     10px;
+  --radius-pill:   999px;   /* badges only */
+
+  /* =========================================================================
+     SHADOWS — restrained. Mostly hairlines; elevation only for floating surfaces.
+     ========================================================================= */
+  --shadow-none:   none;
+  --shadow-hairline: 0 0 0 1px var(--border-default);
+  --shadow-sm:     0 1px 2px rgba(17,19,22,0.06), 0 0 0 1px rgba(17,19,22,0.04);
+  --shadow-md:     0 2px 6px rgba(17,19,22,0.08), 0 1px 2px rgba(17,19,22,0.04);
+  --shadow-lg:     0 8px 24px rgba(17,19,22,0.10), 0 2px 6px rgba(17,19,22,0.06);
+  --shadow-xl:     0 16px 40px rgba(17,19,22,0.14);
+  --shadow-focus:  0 0 0 3px rgba(0,32,96,0.25);   /* navy focus ring */
+  --shadow-inset:  inset 0 1px 2px rgba(17,19,22,0.08);
+
+  /* =========================================================================
+     MOTION — quick, confident, no bounces
+     ========================================================================= */
+  --ease-standard: cubic-bezier(0.4, 0.0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0.0, 0, 1);
+  --dur-fast:    120ms;
+  --dur-base:    180ms;
+  --dur-slow:    260ms;
+
+  /* Layout */
+  --container-narrow: 760px;
+  --container-base:   1080px;
+  --container-wide:   1280px;
+  --container-max:    1440px;
+}
+
+/* ==========================================================================
+   SEMANTIC ELEMENT STYLES
+   Use these via utility classes (.hy-h1 etc) or as a base reset.
+   ========================================================================== */
+
+.hy-body {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  color: var(--fg-1);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.hy-display {
+  font-family: var(--font-serif);
+  font-weight: var(--fw-black);
+  font-size: var(--fs-6xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+
+.hy-h1 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-4xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg-1);
+}
+
+.hy-h2 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-3xl);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--fg-1);
+}
+
+.hy-h3 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+}
+
+.hy-h4 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+}
+
+.hy-h5 {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+}
+
+.hy-serif-display {
+  font-family: var(--font-serif);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-5xl);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg-1);
+}
+
+.hy-serif-title {
+  font-family: var(--font-serif);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-3xl);
+  line-height: var(--lh-snug);
+  color: var(--fg-1);
+}
+
+.hy-p {
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-relaxed);
+  color: var(--fg-1);
+}
+
+.hy-p-lg {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-relaxed);
+  color: var(--fg-1);
+}
+
+.hy-small {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  color: var(--fg-2);
+}
+
+.hy-micro {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  color: var(--fg-3);
+}
+
+/* Eyebrow — small caps-like label above section titles.
+   Chinese doesn't do uppercase, so we use tracking + weight + navy color instead. */
+.hy-eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-wider);
+  color: var(--hy-navy);
+  text-transform: uppercase;
+}
+
+.hy-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  color: var(--fg-1);
+}
+
+/* Case numbers, measurements, stats — every number in the brand uses this treatment.
+   Noto Serif TC with oldstyle + tabular figures = editorial, hand-set, 手寫感.
+   Use `.hy-numeric` on any element (or nested <span>) containing digits. */
+.hy-numeric {
+  font-family: var(--font-numeric);
+  font-weight: 500;
+  font-variant-numeric: oldstyle-nums tabular-nums;
+  font-feature-settings: "onum" 1, "tnum" 1;
+  letter-spacing: -0.005em;
+}
+
+.hy-code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  background: var(--hy-slate-100);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--hy-navy-deep);
+}
+
+.hy-link {
+  color: var(--fg-link);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--dur-fast) var(--ease-standard);
+}
+.hy-link:hover { border-bottom-color: currentColor; }
+
+/* The signature brand accent — a red rule that echoes the logo's crossbar */
+.hy-rule-red {
+  height: 3px;
+  width: 40px;
+  background: var(--hy-red);
+  border: 0;
+  margin: 0 0 var(--space-4) 0;
+}
+.hy-rule-navy {
+  height: 1px;
+  background: var(--hy-navy);
+  border: 0;
+  margin: 0;
+}

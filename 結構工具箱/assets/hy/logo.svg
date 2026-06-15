@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 414 285" role="img" aria-label="弘一工程顧問">
+  <g fill="#002060">
+    
+    
+    <path d="M 52 78 L 110 18 L 168 78 L 168 98 L 110 48 L 52 98 Z"></path>
+    <rect x="52" y="108" width="116" height="16"></rect>
+    <rect x="52" y="132" width="116" height="16"></rect>
+    <rect x="52" y="156" width="116" height="16"></rect>
+    <rect x="52" y="180" width="116" height="16"></rect>
+    <rect x="52" y="204" width="116" height="16"></rect>
+    <rect x="52" y="228" width="116" height="20"></rect>
+
+    
+    <path d="M 246 78 L 304 18 L 362 78 L 362 98 L 304 48 L 246 98 Z"></path>
+    <rect x="246" y="108" width="116" height="16"></rect>
+    <rect x="246" y="132" width="116" height="16"></rect>
+    <rect x="246" y="156" width="116" height="16"></rect>
+    <rect x="246" y="180" width="116" height="16"></rect>
+    <rect x="246" y="204" width="116" height="16"></rect>
+    <rect x="246" y="228" width="116" height="20"></rect>
+  </g>
+
+  
+  <g fill="#E00000">
+    <rect x="160" y="148" width="90" height="24"></rect>
+    <polygon points="250,138 250,182 274,160"></polygon>
+  </g>
+</svg>
