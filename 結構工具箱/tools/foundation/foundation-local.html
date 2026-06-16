@@ -73,6 +73,8 @@
   .mini-table th { background:#f8fafc; color:var(--primary); font-weight:700; text-align:center; }
   .mini-table td:first-child { text-align:left; color:var(--text-light); font-weight:700; }
   .muted { color:var(--text-light); font-size:0.82em; line-height:1.65; }
+  .diagram-wrap { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px; }
+  .diagram-wrap svg { width:100%; height:auto; display:block; max-width:520px; margin:0 auto; }
   @media (max-width:1080px) {
     .foundation-shell { grid-template-columns:1fr; }
     .foundation-result-stack { position:static; }
@@ -95,7 +97,7 @@
 </head>
 <body>
 <header>
-  <h1>基礎局部檢核 <span class="badge-v">V0.2 初估 / 局部</span></h1>
+  <h1>基礎局部檢核 <span class="badge-v">V0.2 局部正式檢核</span></h1>
   <p>淺基礎服務載重底壓、偏心、抗滑、抗傾覆快速檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="/platform" class="back">← 回工具箱</a>
@@ -133,7 +135,7 @@
           <div class="tool-meta" aria-label="工具版本與責任邊界">
             <span>頁面 V0.2</span>
             <span id="coreVersion">Core v—</span>
-            <span>初估 / 局部</span>
+            <span>正式核算 / 局部</span>
           </div>
         </div>
       </div>
@@ -277,10 +279,21 @@
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
         <div class="scope-box">所有幾何、載重與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>計算書模式</label>
+            <select id="reportMode">
+              <option value="detailed">詳算式（公式逐步）</option>
+              <option value="summary">簡易結果（摘要）</option>
+            </select>
+          </div>
+        </div>
         <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算局部檢核</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
           <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
+          <button class="btn-secondary" id="btnImport" type="button">讀取 JSON</button>
+          <input type="file" id="jsonFile" accept=".json,application/json" style="display:none">
         </div>
       </div>
     </div>
@@ -295,6 +308,14 @@
       <div class="card">
         <h2>採用規範與安全係數</h2>
         <div class="basis-grid" id="basisSummary"></div>
+      </div>
+
+      <div class="card">
+        <h2>計算示意圖</h2>
+        <div class="diagram-wrap" id="diagramBody">
+          <svg id="foundationDiagram" viewBox="0 0 480 300" role="img" aria-label="基礎平面核心與底壓分布示意"></svg>
+        </div>
+        <p class="muted" id="diagramLegend"></p>
       </div>
 
       <div class="card">
@@ -537,6 +558,64 @@
       </div>`;
   }
 
+  function drawDiagram(r) {
+    const svg = document.getElementById('foundationDiagram');
+    if (!svg) return;
+    if (!r || !(r.B > 0) || !(r.L > 0)) { svg.innerHTML = ''; return; }
+    const B = r.B, L = r.L;
+    const pcx = 130, pcy = 150;
+    const s = Math.min(95 / (B / 2), 105 / (L / 2));
+    const pxB = s * B / 2, pxL = s * L / 2;
+    const X = mx => pcx + s * mx;
+    const Y = my => pcy - s * my;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const exC = Number.isFinite(r.ex) ? clamp(r.ex, -B / 2, B / 2) : 0;
+    const eyC = Number.isFinite(r.ey) ? clamp(r.ey, -L / 2, L / 2) : 0;
+    const kern = `M ${X(B/6)} ${Y(0)} L ${X(0)} ${Y(L/6)} L ${X(-B/6)} ${Y(0)} L ${X(0)} ${Y(-L/6)} Z`;
+    const cornerPos = { '+X +Y': [B/2, L/2], '+X -Y': [B/2, -L/2], '-X +Y': [-B/2, L/2], '-X -Y': [-B/2, -L/2] };
+    const cornerText = r.corners.map(c => {
+      const p = cornerPos[c.name]; if (!p) return '';
+      const isMax = c === r.qmaxCorner;
+      const anchor = p[0] > 0 ? 'start' : 'end';
+      const dx = p[0] > 0 ? 4 : -4, dy = p[1] > 0 ? -4 : 12;
+      return `<text x="${(X(p[0]) + dx).toFixed(1)}" y="${(Y(p[1]) + dy).toFixed(1)}" font-size="9" text-anchor="${anchor}" fill="${isMax ? '#991b1b' : '#475569'}" font-weight="${isMax ? '800' : '600'}">${fmt(c.q, 1)}</text>`;
+    }).join('');
+    const resColor = r.fullContact ? '#059669' : '#dc2626';
+    const ex0 = 285, ex1 = 455, ebase = 118, pmaxPx = 74;
+    const absMax = Math.max(Math.abs(r.qmax), Math.abs(r.qmin), 1e-6);
+    const qScale = pmaxPx / absMax;
+    const yq = q => ebase + q * qScale;
+    const pressurePts = `${ex0},${ebase} ${ex0},${yq(r.qmin).toFixed(1)} ${ex1},${yq(r.qmax).toFixed(1)} ${ex1},${ebase}`;
+    svg.innerHTML = `
+      <defs><marker id="fd-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 Z" fill="#0f172a"/></marker></defs>
+      <g data-diagram-role="plan">
+        <text x="130" y="20" font-size="11" text-anchor="middle" fill="#0f172a" font-weight="800">基礎平面 ‧ 中央核</text>
+        <rect x="${(pcx-pxB).toFixed(1)}" y="${(pcy-pxL).toFixed(1)}" width="${(2*pxB).toFixed(1)}" height="${(2*pxL).toFixed(1)}" fill="#eff6ff" stroke="#1e3a8a" stroke-width="1.5"/>
+        <path d="${kern}" fill="rgba(37,99,235,0.12)" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="${pcx}" y1="${(pcy-pxL).toFixed(1)}" x2="${pcx}" y2="${(pcy+pxL).toFixed(1)}" stroke="#cbd5e1" stroke-width="0.6"/>
+        <line x1="${(pcx-pxB).toFixed(1)}" y1="${pcy}" x2="${(pcx+pxB).toFixed(1)}" y2="${pcy}" stroke="#cbd5e1" stroke-width="0.6"/>
+        ${cornerText}
+        <circle cx="${X(exC).toFixed(1)}" cy="${Y(eyC).toFixed(1)}" r="4" fill="${resColor}"/>
+        <text x="${X(exC).toFixed(1)}" y="${(Y(eyC)-7).toFixed(1)}" font-size="8.5" text-anchor="middle" fill="${resColor}" font-weight="800">R</text>
+        <text x="130" y="${(pcy+pxL+18).toFixed(1)}" font-size="9" text-anchor="middle" fill="#475569">B = ${fmt(B)} m</text>
+        <text x="${(pcx-pxB-9).toFixed(1)}" y="${pcy.toFixed(1)}" font-size="9" text-anchor="middle" fill="#475569" transform="rotate(-90 ${(pcx-pxB-9).toFixed(1)} ${pcy.toFixed(1)})">L = ${fmt(L)} m</text>
+      </g>
+      <g data-diagram-role="pressure">
+        <text x="370" y="20" font-size="11" text-anchor="middle" fill="#0f172a" font-weight="800">底壓分布 qmin→qmax</text>
+        <line x1="${ex0}" y1="${ebase}" x2="${ex1}" y2="${ebase}" stroke="#1e3a8a" stroke-width="2"/>
+        <polygon points="${pressurePts}" fill="rgba(220,38,38,0.14)" stroke="#dc2626" stroke-width="1.2"/>
+        <line x1="370" y1="${(ebase-58)}" x2="370" y2="${(ebase-6)}" stroke="#059669" stroke-width="1.6" marker-end="url(#fd-arrow)"/>
+        <text x="375" y="${(ebase-44)}" font-size="9" fill="#047857" font-weight="700">P=${fmt(r.Ptotal)}</text>
+        <line x1="${ex0-18}" y1="${(ebase-26)}" x2="${ex0-3}" y2="${(ebase-26)}" stroke="#b45309" stroke-width="1.6" marker-end="url(#fd-arrow)"/>
+        <text x="${ex0-18}" y="${(ebase-30)}" font-size="9" fill="#b45309" font-weight="700">H=${fmt(r.H)}</text>
+        <text x="${ex0}" y="${(yq(r.qmin) + (r.qmin < 0 ? -3 : 13)).toFixed(1)}" font-size="9" text-anchor="middle" fill="#475569">${fmt(r.qmin,1)}</text>
+        <text x="${ex1}" y="${(yq(r.qmax)+13).toFixed(1)}" font-size="9" text-anchor="middle" fill="#991b1b" font-weight="800">${fmt(r.qmax,1)}</text>
+        <text x="370" y="${(ebase+96)}" font-size="8.5" text-anchor="middle" fill="#94a3b8">tf/m²；qa=${fmt(r.qa,1)}</text>
+      </g>`;
+    const legend = document.getElementById('diagramLegend');
+    if (legend) legend.textContent = `R = 合力作用位置（${r.fullContact ? '位於中央核內，全斷面受壓' : '已超出中央核，屬部分受壓警示'}）；虛線菱形為中央核 B/6 × L/6；右圖為 qmin→qmax 線性底壓摘要。`;
+  }
+
   function calculateFoundationLocal() {
     const input = gatherInputs();
     const errors = Core.validateInput(input);
@@ -547,6 +626,7 @@
       $('metricGrid').innerHTML = '';
       $('checkList').innerHTML = '';
       $('stepBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
+      drawDiagram(null);
       lastResult = null;
       return null;
     }
@@ -558,6 +638,7 @@
     renderMetrics(result);
     renderChecks(result);
     renderSteps(result);
+    drawDiagram(result);
     return result;
   }
 
@@ -591,66 +672,133 @@
     });
   }
 
+  function svgForReport(r) {
+    drawDiagram(r);
+    const svg = document.getElementById('foundationDiagram');
+    return svg ? svg.outerHTML : '';
+  }
+
+  function detailedBody(r, svgHtml) {
+    const basis = r.designBasis || {};
+    const cornerRows = r.corners.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${fmt(c.q)}</td></tr>`).join('');
+    return `
+<h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div>
+<h2>計算內容</h2>
+<h3>1. 採用基準與安全係數</h3>
+<p>規範：${escapeHtml(basis.designCodeLabel || '使用者自訂')}（${escapeHtml(basis.reference || '')}）。載重情況：${escapeHtml(basis.loadConditionLabel || '')}。</p>
+<p>規範依據：${escapeHtml(basis.basis || '依專案基準採用')}。</p>
+<p><code>qa = ${r.bearingMode === 'ultimate' ? `qult/FS = ${fmt(r.qult)}/${fmt(r.bearingSafetyFactor, 2)} = ${fmt(r.qa)}` : fmt(r.qa)} tf/m²；FS_slide,req = ${fmt(r.fsSlideReq, 2)}；FS_over,req = ${fmt(r.fsOverReq, 2)}</code></p>
+<h3>2. 垂直合力與基礎面積</h3>
+<p><code>A = B×L = ${fmt(r.B)}×${fmt(r.L)} = ${fmt(r.area)} m²</code></p>
+<p><code>Wf = A·t·γc = ${fmt(r.footingWeight)} tf；Ws = A·max(Df−t,0)·γs = ${fmt(r.soilWeight)} tf</code></p>
+<p><code>Ptotal = P + Wf + Ws = ${fmt(r.P)} + ${fmt(r.footingWeight)} + ${fmt(r.soilWeight)} = ${fmt(r.Ptotal)} tf</code></p>
+<h3>3. 合力偏心與中央核</h3>
+<p><code>ex = My/Ptotal = ${fmt(r.ex, 4)} m；ey = Mx/Ptotal = ${fmt(r.ey, 4)} m</code></p>
+<p><code>|ex|/B + |ey|/L = ${fmt(r.kernUtil, 4)} ${r.fullContact ? '≤' : '>'} 1/6 = ${fmt(1 / 6, 4)}</code></p>
+<h3>4. 角點線性底壓</h3>
+<p><code>q = P/A ± 6·My/(L·B²) ± 6·Mx/(B·L²)；qavg = ${fmt(r.qAvg)}，Δqx = ${fmt(r.qFromMy)}，Δqy = ${fmt(r.qFromMx)} tf/m²</code></p>
+<table><tr><th>角點</th><th>q (tf/m²)</th></tr>${cornerRows}</table>
+<h3>5. 抗滑與抗傾覆</h3>
+<p><code>H = √(Hx²+Hy²) = √(${fmt(r.Hx)}²+${fmt(r.Hy)}²) = ${fmt(r.H)} tf</code></p>
+<p><code>FS_slide = (μ·Ptotal + Rp)/H = (${fmt(r.mu)}×${fmt(r.Ptotal)} + ${fmt(r.passive)})/${fmt(r.H)} = ${fmt(r.fsSlide, 2)}</code></p>
+<p><code>FS_over,B = Ptotal·(B/2)/|My| = ${fmt(r.fsOverB, 2)}；FS_over,L = Ptotal·(L/2)/|Mx| = ${fmt(r.fsOverL, 2)}</code></p>
+<div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆）。衝剪、單向剪力、配筋、沉陷、液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>`;
+  }
+
+  function summaryBody(r, svgHtml) {
+    const basis = r.designBasis || {};
+    const condRows = [
+      ['採用規範 / 載重情況', `${basis.designCodeLabel || ''}／${basis.loadConditionLabel || ''}`],
+      ['規範依據', basis.basis || '依專案基準採用'],
+      ['容許地耐力 qa', `${fmt(r.qa)} tf/m²`],
+      ['垂直支承 / 抗滑 / 抗傾覆 FS', `${fmt(r.bearingSafetyFactor, 2)} / ${fmt(r.fsSlideReq, 2)} / ${fmt(r.fsOverReq, 2)}`],
+      ['基礎 B×L×t / Df', `${fmt(r.B)} × ${fmt(r.L)} × ${fmt(r.t)} m；Df = ${fmt(r.Df)} m`],
+      ['服務載重 P / Mx / My', `${fmt(r.P)} tf / ${fmt(r.Mx)} / ${fmt(r.My)} tf·m`],
+      ['水平力 Hx / Hy；μ / Rp', `${fmt(r.Hx)} / ${fmt(r.Hy)} tf；${fmt(r.mu)} / ${fmt(r.passive)} tf`]
+    ];
+    const ctrlRows = [
+      ['Ptotal', `${fmt(r.Ptotal)} tf`],
+      ['qmax / qmin', `${fmt(r.qmax)} / ${fmt(r.qmin)} tf/m²（qa = ${fmt(r.qa)}）`],
+      ['偏心核 |ex|/B+|ey|/L', `${fmt(r.kernUtil, 4)} / ${fmt(1 / 6, 4)}`],
+      ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`],
+      ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`]
+    ];
+    const checkRows = r.checks.map(c => `<tr><th>${escapeHtml(c.label)}</th><td>${c.passed ? '通過' : '不通過'}</td></tr>`).join('');
+    return `
+<h2>設計條件</h2><table>${reportRows(condRows)}</table>
+<h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div>
+<h2>控制結果</h2>
+<div class="conclusion">${r.overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
+<table>${reportRows(ctrlRows)}</table>
+<table><tr><th>檢核項目</th><th>結果</th></tr>${checkRows}</table>`;
+  }
+
   function openReport() {
     const r = lastResult || calculateFoundationLocal();
     if (!r) return;
     const proj = gatherProjectInfo();
-    const basis = r.designBasis || {};
-    const inputRows = [
-      ['基礎 B×L×t', `${fmt(r.B)} × ${fmt(r.L)} × ${fmt(r.t)} m`],
-      ['基礎底深 Df', `${fmt(r.Df)} m`],
-      ['外加垂直力 P', `${fmt(r.P)} tf`],
-      ['Mx / My', `${fmt(r.Mx)} / ${fmt(r.My)} tf·m`],
-      ['Hx / Hy', `${fmt(r.Hx)} / ${fmt(r.Hy)} tf`],
-      ['qa', `${fmt(r.qa)} tf/m²`],
-      ['地耐力輸入方式', r.bearingMode === 'ultimate' ? `qult / FS = ${fmt(r.qult)} / ${fmt(r.bearingSafetyFactor, 2)}` : '直接輸入容許地耐力 qa'],
-      ['μ / Rp', `${fmt(r.mu)} / ${fmt(r.passive)} tf`]
-    ];
-    const basisRows = [
-      ['採用規範 / 基準', basis.designCodeLabel || r.designCode || '未指定'],
-      ['載重情況', basis.loadConditionLabel || r.loadCondition || '未指定'],
-      ['規範依據', `${basis.reference || ''}；${basis.basis || ''}`],
-      ['安全係數來源', basis.criteriaSource || 'user-defined'],
-      ['垂直支承 FS', fmt(r.bearingSafetyFactor, 2)],
-      ['抗滑 / 抗傾覆 FS 需求', `${fmt(r.fsSlideReq, 2)} / ${fmt(r.fsOverReq, 2)}`],
-      ['產製時間', nowText()]
-    ];
-    const resultRows = [
-      ['綜合結論', r.overallOk ? '局部穩定檢核初步通過' : '需修正或另行詳算'],
-      ['Ptotal', `${fmt(r.Ptotal)} tf`],
-      ['qmax / qmin', `${fmt(r.qmax)} / ${fmt(r.qmin)} tf/m²`],
-      ['偏心核', `${fmt(r.kernUtil, 4)} / ${fmt(1 / 6, 4)}`],
-      ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`],
-      ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`]
-    ];
+    const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
+    const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
+    const svgHtml = svgForReport(r);
+    const body = mode === 'summary' ? summaryBody(r, svgHtml) : detailedBody(r, svgHtml);
     const reportHtml = `<!DOCTYPE html>
-<html lang="zh-TW"><head><meta charset="UTF-8"><title>基礎局部檢核計算書</title>
+<html lang="zh-TW"><head><meta charset="UTF-8"><title>基礎局部穩定檢核計算書</title>
 <style>
 body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;line-height:1.65;}
 .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px 16px;display:flex;gap:8px;z-index:2;}
 .toolbar button{padding:8px 12px;border:0;border-radius:6px;font-weight:700;cursor:pointer;}
-.paper{max-width:860px;margin:20px auto;background:#fff;padding:30px 34px;box-shadow:0 2px 12px rgba(15,23,42,.12);}
-h1{font-size:1.45rem;margin:0 0 6px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px;color:#92400e;}
-table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:32%;}
+.paper{max-width:880px;margin:20px auto;background:#fff;padding:30px 34px;box-shadow:0 2px 12px rgba(15,23,42,.12);}
+h1{font-size:1.4rem;margin:0 0 8px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:22px;color:#1e3a8a;}
+h3{font-size:0.96rem;margin:14px 0 4px;color:#92400e;}
+.case-head{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.9rem;color:#334155;border-bottom:1px solid #e5e7eb;padding-bottom:8px;}
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:34%;}
+code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-radius:4px;} p{margin:4px 0;}
+.rpt-diagram{border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fafbff;} .rpt-diagram svg{width:100%;max-width:560px;height:auto;display:block;margin:0 auto;}
 .conclusion{padding:12px 14px;border-radius:8px;border:2px solid ${r.overallOk ? '#10b981' : '#ef4444'};background:${r.overallOk ? '#ecfdf5' : '#fef2f2'};font-weight:800;}
 .note{margin-top:14px;padding:10px 12px;border-left:4px solid #f59e0b;background:#fffbeb;color:#78350f;font-size:.9rem;}
 @media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}}
 </style></head><body>
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
-<h1>基礎局部檢核計算書（初估）</h1>
-<div>計畫名稱：${escapeHtml(proj.name)}　編號：${escapeHtml(proj.no)}　設計人：${escapeHtml(proj.designer)}</div>
-<div class="conclusion">${r.overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
-<h2>計算依據</h2><table>${reportRows(basisRows)}</table>
-<h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
-<h2>檢核結果</h2><table>${reportRows(resultRows)}</table>
-<h2>角點土壓</h2><table><tr><th>角點</th><th>q (tf/m²)</th></tr>${r.corners.map(c => `<tr><td>${escapeHtml(c.name)}</td><td>${fmt(c.q)}</td></tr>`).join('')}</table>
+<h1>基礎局部穩定檢核計算書</h1>
+<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>設計人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.2</span></div>
+${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.open();
     win.document.write(reportHtml);
     win.document.close();
+  }
+
+  function applyImported(data) {
+    const src = (data && (data.input || data.result)) || data || {};
+    ['designCode', 'loadCondition', 'bearingMode'].forEach(id => { if (src[id] && $(id)) $(id).value = src[id]; });
+    ['bearingSafetyFactor', 'qult', 'B', 'L', 't', 'Df', 'gammaC', 'gammaS', 'P', 'qa', 'Mx', 'My', 'Hx', 'Hy', 'mu', 'passive', 'fsSlideReq', 'fsOverReq']
+      .forEach(id => { if (src[id] !== undefined && src[id] !== null && $(id)) $(id).value = src[id]; });
+    if (typeof src.includeSelfWeight === 'boolean') $('includeSelfWeight').checked = src.includeSelfWeight;
+    const proj = data && data.project;
+    if (proj) {
+      if (proj.name && proj.name !== '未填') $('projName').value = proj.name;
+      if (proj.no && proj.no !== '未填') $('projNo').value = proj.no;
+      if (proj.designer && proj.designer !== '未填') $('projDesigner').value = proj.designer;
+    }
+    updateCriteriaPreview();
+    calculateFoundationLocal();
+  }
+  function importJson(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try { applyImported(JSON.parse(ev.target.result)); }
+      catch (e) {
+        $('bannerStatus').className = 'banner-status fail';
+        $('bannerStatus').textContent = '讀取 JSON 失敗：' + e.message;
+      }
+      input.value = '';
+    };
+    reader.readAsText(file);
   }
 
   function saveProjectInfo() {
@@ -680,6 +828,8 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
   document.getElementById('btnCalc').addEventListener('click', calculateFoundationLocal);
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnJson').addEventListener('click', downloadResultJson);
+  document.getElementById('btnImport').addEventListener('click', () => document.getElementById('jsonFile').click());
+  document.getElementById('jsonFile').addEventListener('change', function () { importJson(this); });
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
   ['designCode', 'loadCondition'].forEach(id => $(id).addEventListener('change', applyCriteriaPreset));
   $('bearingMode').addEventListener('change', function () {
@@ -689,7 +839,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
   $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
   ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
   Array.from(document.querySelectorAll('input')).forEach(function (input) {
-    if (['projName', 'projNo', 'projDesigner'].includes(input.id)) return;
+    if (['projName', 'projNo', 'projDesigner', 'jsonFile'].includes(input.id)) return;
     input.addEventListener('input', calculateFoundationLocal);
     input.addEventListener('change', calculateFoundationLocal);
   });

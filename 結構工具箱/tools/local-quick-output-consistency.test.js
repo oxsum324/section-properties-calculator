@@ -55,7 +55,15 @@ for (const tool of manifest.tools) {
   assertIncludes(html, `id: '${tool.key}'`, `${tool.key} JSON export tool id`);
   assertIncludes(html, `name: '${tool.label}'`, `${tool.key} JSON export tool name`);
   assertIncludes(html, `pageVersion: '${tool.pageVersion}'`, `${tool.key} JSON export page version`);
-  if (['foundation-local', 'earth-pressure'].includes(tool.key)) {
+  if (tool.key === 'foundation-local') {
+    // 正式化：兩段式計算書（詳算式 計算內容 / 簡易結果 設計條件）+ 計算示意圖
+    assertIncludes(html, '<h2>計算內容</h2>', `${tool.key} detailed report content section`);
+    assertIncludes(html, '<h2>設計條件</h2>', `${tool.key} summary report condition section`);
+    assertIncludes(html, '<h2>計算示意圖</h2>', `${tool.key} report diagram section`);
+    assert.equal(html.includes('<h2>工具與責任邊界</h2>'), false, `${tool.key} report removes boundary heading`);
+    assert.equal(html.includes("['適用範圍'"), false, `${tool.key} report removes fit row`);
+    assert.equal(html.includes("['不適用範圍'"), false, `${tool.key} report removes limit row`);
+  } else if (tool.key === 'earth-pressure') {
     assertIncludes(html, '<h2>計算依據</h2>', `${tool.key} concise report basis section`);
     assert.equal(html.includes('<h2>工具與責任邊界</h2>'), false, `${tool.key} concise report removes boundary heading`);
     assert.equal(html.includes("['適用範圍'"), false, `${tool.key} concise report removes fit row`);

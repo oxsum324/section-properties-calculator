@@ -490,15 +490,15 @@
     },
     {
       title: '基礎局部檢核',
-      version: 'V0.1',
+      version: 'V0.2',
       href: '/foundation-local',
       categories: ['temporary'],
-      state: 'estimate',
-      output: '基礎底壓、偏心、抗滑、抗傾覆與 JSON',
-      summary: '矩形淺基礎服務載重快算，檢核底壓、偏心、抗滑與抗傾覆。',
-      fit: '基礎尺寸初判與局部補算。',
-      limit: '不含剪力、配筋、沉陷與完整地工承載力詳算。',
-      capabilities: ['初估 / 簡化', 'JSON']
+      state: 'formal',
+      output: '底壓/偏心/抗滑/抗傾覆檢核、中央核示意圖、兩段式計算書與 JSON',
+      summary: '矩形淺基礎服務載重底壓、合力偏心、抗滑與抗傾覆檢核，依台灣 112 基礎構造設計規範安全係數，含中央核示意圖與詳算式/簡易結果計算書。',
+      fit: '矩形獨立基礎與設備基座之局部穩定正式檢核。',
+      limit: '衝剪、配筋、沉陷、液化、樁基與土壤互制不在本頁範圍，需回 RC 基礎完整工具。',
+      capabilities: ['正式核算', '計算書', '示意圖']
     },
     {
       title: '設備局部荷重',

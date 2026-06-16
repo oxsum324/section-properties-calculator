@@ -677,27 +677,21 @@ function assertReportState(state, tool, label) {
   const requiredNeedles = [
     tool.label,
     '計算書',
-    '初估',
   ];
-  if (tool.key === 'foundation-local' || tool.key === 'earth-pressure') {
-    requiredNeedles.push('計算依據', '檢核結果');
-    if (tool.key === 'foundation-local') {
-      requiredNeedles.push('採用規範', '載重情況');
-    } else {
-      requiredNeedles.push('Rankine', '擋土牆型式', '牆型工作輸出', '土壓模式', '牆體位移條件', '被動抵抗採用', '計算示意圖');
-    }
-    [
-      '工具與責任邊界',
-      '適用範圍',
-      '不適用範圍',
-      '計算核心',
-      '輸入格式',
-      '計算指紋',
-    ].forEach(needle => {
+  const removedFromLocalReport = ['工具與責任邊界', '適用範圍', '不適用範圍', '計算核心', '輸入格式', '計算指紋'];
+  if (tool.key === 'foundation-local') {
+    // 已正式化：兩段式計算書（預設詳算式）含計算內容與示意圖，不再以「初估」標示
+    requiredNeedles.push('計算內容', '計算示意圖', '載重情況');
+    removedFromLocalReport.forEach(needle => {
+      assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
+    });
+  } else if (tool.key === 'earth-pressure') {
+    requiredNeedles.push('初估', '計算依據', '檢核結果', 'Rankine', '擋土牆型式', '牆型工作輸出', '土壓模式', '牆體位移條件', '被動抵抗採用', '計算示意圖');
+    removedFromLocalReport.forEach(needle => {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
     });
   } else {
-    requiredNeedles.push('計算核心', '輸入格式', '計算指紋', '適用範圍', '不適用範圍');
+    requiredNeedles.push('初估', '計算核心', '輸入格式', '計算指紋', '適用範圍', '不適用範圍');
   }
   requiredNeedles.forEach(needle => {
     assert.ok(state.html.includes(needle), `${label} ${tool.key} report includes ${needle}`);
