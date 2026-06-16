@@ -623,16 +623,16 @@ function analyze() {
     // 局部端力含義: q[0]=F_xi, q[1]=F_yi, q[2]=M_i  作用於 i 端 (方向 = 局部座標軸)
     // 對應內力 (x 從 i 往 j):
     //   N(x) = -q[0]  (節點推桿件 +x 表壓縮, 即 N = -q[0])
-    //   V(x) = q[1] - wLocal*x  (等效集中力下)
-    //   M(x) = -q[2] + q[1]*x - wLocal*x²/2
+    //   V(x) = q[1] + wLocal*x         (dV/dx = wLocal)
+    //   M(x) = -q[2] + q[1]*x + wLocal*x²/2   (dM/dx = V, 與端力一致)
     // (取 N: 拉為正; M: 使桿件上緣凹 (CCW 於 i 端切段右側) 為正)
     const N_steps = 21;
     const xs = [], Ns = [], Vs = [], Ms = [];
     for (let k = 0; k <= N_steps; k++) {
       const x = e.L * k / N_steps;
       const N = -e.qLocal[0];
-      const V = e.qLocal[1] - e.wLocal * x;
-      const M = -e.qLocal[2] + e.qLocal[1] * x - 0.5 * e.wLocal * x * x;
+      const V = e.qLocal[1] + e.wLocal * x;
+      const M = -e.qLocal[2] + e.qLocal[1] * x + 0.5 * e.wLocal * x * x;
       xs.push(x); Ns.push(N); Vs.push(V); Ms.push(M);
     }
     e.diag = { xs, Ns, Vs, Ms };
