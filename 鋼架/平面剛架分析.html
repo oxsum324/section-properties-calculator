@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>平面剛架分析 V0.1</title>
+<title>平面剛架分析 V0.2</title>
 <style>
   :root {
     --primary: #2563eb;
@@ -83,8 +83,8 @@
 </head>
 <body>
 <header>
-  <h1>平面剛架分析 V0.1</h1>
-  <p>2D Rigid Frame — 直接勁度法 (Direct Stiffness Method) ‧ 單位 tf-m</p>
+  <h1>平面剛架分析 V0.2</h1>
+  <p>2D Rigid Frame — 直接勁度法 ‧ 集中/均布/自重載重 ‧ 端部鉸接 ‧ JSON ‧ 計算書 ‧ 單位 tf-m</p>
 </header>
 
 <div class="container">
@@ -114,6 +114,21 @@
           <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">懸臂驗證</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">簡支梁(均布)</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('ssP')">簡支梁(集中)</button>
+        </div>
+        <div class="flex-row" style="margin-top:10px; gap:12px; align-items:center;">
+          <label style="display:inline-flex;align-items:center;gap:5px;font-weight:600;">
+            <input type="checkbox" id="selfWeight" style="width:14px;height:14px;"> 含自重
+          </label>
+          <span style="display:inline-flex;align-items:center;gap:5px;">
+            <label>γ (tf/m³)</label>
+            <input type="number" id="density" value="7.85" step="0.05" style="width:60px;">
+          </span>
+        </div>
+        <div class="flex-row" style="margin-top:8px;">
+          <button class="btn btn-accent btn-sm" onclick="exportJSON()">存檔 JSON</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
+          <input type="file" id="jsonFile" accept=".json,application/json" style="display:none" onchange="importJSONFile(this)">
+          <button class="btn btn-ghost btn-sm" onclick="printReport()">列印計算書</button>
         </div>
       </div>
 
@@ -597,6 +612,9 @@ function analyze() {
   if (nodes.length < 2) throw new Error('至少需要 2 個節點');
   if (members.length < 1) throw new Error('至少需要 1 支桿件');
 
+  const selfWeightOn = !!(document.getElementById('selfWeight') && document.getElementById('selfWeight').checked);
+  const density = parseFloat(document.getElementById('density') && document.getElementById('density').value) || 0;
+
   // 節點 id → 索引對照
   const idToIdx = new Map();
   nodes.forEach((n, i) => idToIdx.set(n.id, i));
@@ -660,6 +678,7 @@ function analyze() {
       if (ml.dir === 'localY') wLocal += ml.w;
       else wLocal += -ml.w * c;   // globalY 向下 (0,-w) 投影到局部 +y = -w·c
     }
+    if (selfWeightOn && density > 0) wLocal += -(density * m.A * 1e-4) * c;  // 自重 g=γ·A → globalY 向下
     // 均布固端力 f_FEM_local = [0, -wL/2, -wL²/12, 0, -wL/2, +wL²/12]
     const fFEMlocal = [
       0, -wLocal * L / 2, -wLocal * L * L / 12,
@@ -765,6 +784,19 @@ function analyze() {
     for (const p of e.ptLocal) {   // 集中載重兩側各取一點以呈現剪力跳躍
       xset.add(Math.max(0, p.a - 1e-6));
       xset.add(Math.min(e.L, p.a + 1e-6));
+    }
+    // V=0 交點 → 各均布段彎矩極值精確定位
+    if (Math.abs(e.wLocal) > 1e-12) {
+      const brk = [0, e.L].concat(e.ptLocal.map(p => p.a))
+        .filter(v => v >= 0 && v <= e.L).sort((u, v) => u - v);
+      for (let si = 0; si < brk.length - 1; si++) {
+        const xa = brk[si], xb = brk[si + 1];
+        if (xb - xa < 1e-9) continue;
+        let cumPy = 0;
+        for (const p of e.ptLocal) if (p.a <= xa + 1e-9) cumPy += p.Pyl;
+        const x0 = -(e.qLocal[1] + cumPy) / e.wLocal;   // q1 + wLocal·x + ΣPy = 0
+        if (x0 > xa + 1e-9 && x0 < xb - 1e-9) xset.add(x0);
+      }
     }
     const xs = Array.from(xset).sort((u, v) => u - v);
     const Ns = [], Vs = [], Ms = [];
@@ -1239,6 +1271,127 @@ function resetAll() {
   state.memberLoads = []; state.memberPointLoads = [];
   state.solution = null;
   nodeIdCnt = 0; memberIdCnt = 0;
+}
+
+// ============================================================
+// JSON 存檔 / 讀取
+// ============================================================
+function exportJSON() {
+  const data = {
+    tool: '平面剛架分析', version: 'V0.2', unit: 'tf-m',
+    defaults: {
+      E: parseFloat(document.getElementById('defE').value) || 0,
+      A: parseFloat(document.getElementById('defA').value) || 0,
+      I: parseFloat(document.getElementById('defI').value) || 0
+    },
+    selfWeight: !!document.getElementById('selfWeight').checked,
+    density: parseFloat(document.getElementById('density').value) || 0,
+    nodes: state.nodes,
+    members: state.members,
+    nodalLoads: state.nodalLoads,
+    memberLoads: state.memberLoads,
+    memberPointLoads: state.memberPointLoads
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url; a.download = 'frame-' + stamp + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function importJSONFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try { loadFromData(JSON.parse(ev.target.result)); }
+    catch (e) {
+      const err = document.getElementById('errorMsg');
+      err.textContent = '讀取 JSON 失敗: ' + e.message; err.style.display = 'block';
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+function loadFromData(data) {
+  resetAll();
+  if (data.defaults) {
+    if (data.defaults.E != null) document.getElementById('defE').value = data.defaults.E;
+    if (data.defaults.A != null) document.getElementById('defA').value = data.defaults.A;
+    if (data.defaults.I != null) document.getElementById('defI').value = data.defaults.I;
+  }
+  document.getElementById('selfWeight').checked = !!data.selfWeight;
+  if (data.density != null) document.getElementById('density').value = data.density;
+  // 直接還原(保留原 id, 避免桿件參照錯位)
+  state.nodes = (data.nodes || []).map(n => ({ id: n.id, x: +n.x || 0, y: +n.y || 0, cx: !!n.cx, cy: !!n.cy, crz: !!n.crz }));
+  state.members = (data.members || []).map(m => ({ id: m.id, i: m.i, j: m.j, E: +m.E || 0, A: +m.A || 0, I: +m.I || 0, relI: !!m.relI, relJ: !!m.relJ }));
+  state.nodalLoads = (data.nodalLoads || []).map(l => ({ node: l.node, Fx: +l.Fx || 0, Fy: +l.Fy || 0, M: +l.M || 0 }));
+  state.memberLoads = (data.memberLoads || []).map(l => ({ member: l.member, w: +l.w || 0, dir: l.dir || 'globalY' }));
+  state.memberPointLoads = (data.memberPointLoads || []).map(l => ({ member: l.member, P: +l.P || 0, a: +l.a || 0, dir: l.dir || 'globalY' }));
+  nodeIdCnt = state.nodes.reduce((mx, n) => Math.max(mx, n.id), 0);
+  memberIdCnt = state.members.reduce((mx, m) => Math.max(mx, m.id), 0);
+  renderNodeTable(); refreshNodeSelectors();
+  runAnalysis();
+}
+
+// ============================================================
+// 列印計算書
+// ============================================================
+function printReport() {
+  if (!state.solution) runAnalysis();
+  const sol = state.solution;
+  if (!sol) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const nodesRows = state.nodes.map(n =>
+    `<tr><td>N${n.id}</td><td>${n.x}</td><td>${n.y}</td><td>${((n.cx?'X':'')+(n.cy?'Y':'')+(n.crz?'θ':''))||'自由'}</td></tr>`).join('');
+  const memRows = state.members.map(m =>
+    `<tr><td>M${m.id}</td><td>N${m.i}→N${m.j}</td><td>${m.E}</td><td>${m.A}</td><td>${m.I}</td><td>${((m.relI?'i':'')+(m.relJ?(m.relI?',j':'j'):''))||'剛接'}</td></tr>`).join('');
+  const loadRows = []
+    .concat(state.nodalLoads.map(l => `<tr><td>節點 N${l.node}</td><td>Fx=${l.Fx}, Fy=${l.Fy}, M=${l.M}</td></tr>`))
+    .concat(state.memberLoads.map(l => `<tr><td>桿件 M${l.member} 均布</td><td>w=${l.w} (${l.dir})</td></tr>`))
+    .concat(state.memberPointLoads.map(l => `<tr><td>桿件 M${l.member} 集中</td><td>P=${l.P} @ a=${l.a} (${l.dir})</td></tr>`))
+    .join('') || '<tr><td colspan="2">無</td></tr>';
+  const dispRows = state.nodes.map((n, i) => {
+    const u = sol.d[i*3]*1000, v = sol.d[i*3+1]*1000, r = sol.d[i*3+2]*1000;
+    const Rx = n.cx ? sol.reactions[i*3].toFixed(3) : '—';
+    const Ry = n.cy ? sol.reactions[i*3+1].toFixed(3) : '—';
+    const Mz = n.crz ? sol.reactions[i*3+2].toFixed(3) : '—';
+    return `<tr><td>N${n.id}</td><td>${u.toFixed(3)}</td><td>${v.toFixed(3)}</td><td>${r.toFixed(3)}</td><td>${Rx}</td><td>${Ry}</td><td>${Mz}</td></tr>`;
+  }).join('');
+  const extrRows = sol.elems.map(e => {
+    const mMax = Math.max(...e.diag.Ms.map(Math.abs));
+    const vMax = Math.max(...e.diag.Vs.map(Math.abs));
+    const nMax = Math.max(...e.diag.Ns.map(Math.abs));
+    return `<tr><td>M${e.m.id}</td><td>${e.L.toFixed(3)}</td><td>${mMax.toFixed(3)}</td><td>${vMax.toFixed(3)}</td><td>${nMax.toFixed(3)}</td></tr>`;
+  }).join('');
+  const img = id => { try { return document.getElementById(id).toDataURL('image/png'); } catch (e) { return ''; } };
+  const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>平面剛架分析計算書 ${today}</title>
+<style>body{font-family:'Microsoft JhengHei',sans-serif;margin:24px;color:#1e293b;font-size:13px;}
+h1{font-size:18px;border-bottom:2px solid #2563eb;padding-bottom:6px;margin:0 0 4px;}
+h2{font-size:14px;color:#2563eb;margin:16px 0 6px;}
+table{border-collapse:collapse;width:100%;margin-bottom:8px;}
+th,td{border:1px solid #cbd5e1;padding:4px 8px;text-align:center;font-size:12px;}
+th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0;}
+.meta{color:#64748b;font-size:12px;margin:2px 0;} button{padding:6px 14px;margin:6px 0;cursor:pointer;}
+@media print{button{display:none;}}</style></head><body>
+<h1>平面剛架分析 計算書</h1>
+<p class="meta">直接勁度法 (Direct Stiffness Method) ‧ 單位 tf-m ‧ 產生日期 ${today}</p>
+<button onclick="window.print()">列印 / 另存 PDF</button>
+<h2>節點</h2><table><tr><th>節點</th><th>X(m)</th><th>Y(m)</th><th>支承</th></tr>${nodesRows}</table>
+<h2>桿件</h2><table><tr><th>桿件</th><th>i→j</th><th>E(tf/cm²)</th><th>A(cm²)</th><th>I(cm⁴)</th><th>端鉸接</th></tr>${memRows}</table>
+<h2>載重</h2><table><tr><th>項目</th><th>內容</th></tr>${loadRows}</table>
+<h2>幾何 / 變形圖</h2><img src="${img('geomCanvas')}">
+<h2>彎矩圖 M (tf·m)</h2><img src="${img('momCanvas')}">
+<h2>剪力圖 V (tf)</h2><img src="${img('shearCanvas')}">
+<h2>軸力圖 N (tf)</h2><img src="${img('axialCanvas')}">
+<h2>節點位移 / 反力</h2><table><tr><th>節點</th><th>uX(mm)</th><th>uY(mm)</th><th>θZ(×10⁻³rad)</th><th>Rx(tf)</th><th>Ry(tf)</th><th>Mz(tf·m)</th></tr>${dispRows}</table>
+<h2>桿件極值</h2><table><tr><th>桿件</th><th>L(m)</th><th>|M|max(tf·m)</th><th>|V|max(tf)</th><th>|N|max(tf)</th></tr>${extrRows}</table>
+<p class="meta">本計算書由平面剛架分析工具產生，僅供結構分析校核參考；最終設計與圖說仍應由執業技師簽證。</p>
+</body></html>`;
+  const win = window.open('', '_blank');
+  if (!win) { alert('請允許彈出視窗以開啟計算書'); return; }
+  win.document.write(html); win.document.close();
 }
 
 function loadExample(kind) {
