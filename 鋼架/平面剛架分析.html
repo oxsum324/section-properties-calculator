@@ -109,9 +109,11 @@
         </div>
         <div class="hint">鋼材 E ≈ 2040 tf/cm² (200 GPa)。範例斷面：H350×175×7×11。</div>
         <div class="flex-row" style="margin-top:8px;">
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('portal')">載入門型剛架範例</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">載入懸臂驗證</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">載入簡支梁驗證</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('portal')">門型剛架</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('portalHinge')">門型剛架(梁端鉸接)</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">懸臂驗證</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">簡支梁(均布)</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('ssP')">簡支梁(集中)</button>
         </div>
       </div>
 
@@ -143,6 +145,7 @@
               <th>E (tf/cm²)</th>
               <th>A (cm²)</th>
               <th>I (cm⁴)</th>
+              <th style="width:62px;">端鉸接</th>
               <th style="width:30px;"></th>
             </tr>
           </thead>
@@ -181,6 +184,23 @@
           <tbody id="memberLoadTbody"></tbody>
         </table>
         <div class="hint">全域向下 = 重力載重 (正值向下)。局部垂直 = 垂直於桿件軸向 (+y_local)。</div>
+      </div>
+
+      <div class="card">
+        <h2>桿件集中載重 <button class="btn btn-primary btn-sm" onclick="addMemberPointLoadRow()">+ 新增</button></h2>
+        <table class="data-tbl">
+          <thead>
+            <tr>
+              <th style="width:38px;">桿件</th>
+              <th>P (tf)</th>
+              <th>a (m)</th>
+              <th>方向</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="memberPointLoadTbody"></tbody>
+        </table>
+        <div class="hint">a = 自 i 端沿桿件之距離 (0 ≤ a ≤ L)。全域 -Y = 重力向下；局部 +y = 垂直桿軸；局部 +x = 沿桿軸。</div>
       </div>
 
       <button class="btn-calc" onclick="runAnalysis()">▶ 執行分析</button>
@@ -242,9 +262,10 @@
 // ============================================================
 const state = {
   nodes: [],        // {id, x, y, cx, cy, crz}  // cx/cy/crz = 被約束旗標
-  members: [],      // {id, i, j, E, A, I}      // E: tf/cm², A: cm², I: cm⁴
+  members: [],      // {id, i, j, E, A, I, relI, relJ}  // relI/relJ = i/j 端彎矩釋放(鉸接)
   nodalLoads: [],   // {node, Fx, Fy, M}        // tf, tf, tf·m
   memberLoads: [],  // {member, w, dir}         // w (tf/m), dir: 'globalY'|'localY'
+  memberPointLoads: [], // {member, P, a, dir}  // P(tf), a(m 從 i 端沿桿件), dir
   solution: null
 };
 
@@ -312,7 +333,9 @@ function addMemberRow(data) {
     j: d.j ?? secondNode,
     E: d.E ?? defE,
     A: d.A ?? defA,
-    I: d.I ?? defI
+    I: d.I ?? defI,
+    relI: d.relI ?? false,
+    relJ: d.relJ ?? false
   });
   renderMemberTable();
 }
@@ -329,6 +352,10 @@ function renderMemberTable() {
       <td><input type="number" step="10" value="${m.E}" onchange="updateMember(${idx},'E',this.value)"></td>
       <td><input type="number" step="0.1" value="${m.A}" onchange="updateMember(${idx},'A',this.value)"></td>
       <td><input type="number" step="100" value="${m.I}" onchange="updateMember(${idx},'I',this.value)"></td>
+      <td><span class="support-check">
+        <label><input type="checkbox" ${m.relI?'checked':''} onchange="updateMember(${idx},'relI',this.checked)">i</label>
+        <label><input type="checkbox" ${m.relJ?'checked':''} onchange="updateMember(${idx},'relJ',this.checked)">j</label>
+      </span></td>
       <td><button class="del-btn" onclick="delMember(${idx})">✕</button></td>`;
     tb.appendChild(tr);
     // set selects
@@ -338,14 +365,17 @@ function renderMemberTable() {
 }
 function updateMember(idx, key, val) {
   if (key === 'i' || key === 'j') state.members[idx][key] = parseInt(val);
+  else if (key === 'relI' || key === 'relJ') state.members[idx][key] = !!val;
   else state.members[idx][key] = parseFloat(val) || 0;
 }
 function delMember(idx) {
   const mid = state.members[idx].id;
   state.memberLoads = state.memberLoads.filter(l => l.member !== mid);
+  state.memberPointLoads = state.memberPointLoads.filter(l => l.member !== mid);
   state.members.splice(idx, 1);
   renderMemberTable();
   renderMemberLoadTable();
+  renderMemberPointLoadTable();
 }
 
 function addNodalLoadRow(data) {
@@ -415,10 +445,50 @@ function updateMemberLoad(idx, key, val) {
 }
 function delMemberLoad(idx) { state.memberLoads.splice(idx, 1); renderMemberLoadTable(); }
 
+function addMemberPointLoadRow(data) {
+  const d = data || {};
+  state.memberPointLoads.push({
+    member: d.member ?? (state.members[0]?.id || 0),
+    P: d.P ?? 0,
+    a: d.a ?? 0,
+    dir: d.dir ?? 'globalY'
+  });
+  renderMemberPointLoadTable();
+}
+function renderMemberPointLoadTable() {
+  const tb = document.getElementById('memberPointLoadTbody');
+  tb.innerHTML = '';
+  const opts = state.members.map(m => `<option value="${m.id}">M${m.id}</option>`).join('');
+  state.memberPointLoads.forEach((l, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><select onchange="updateMemberPointLoad(${idx},'member',this.value)">${opts}</select></td>
+      <td><input type="number" step="0.1" value="${l.P}" onchange="updateMemberPointLoad(${idx},'P',this.value)"></td>
+      <td><input type="number" step="0.1" value="${l.a}" onchange="updateMemberPointLoad(${idx},'a',this.value)"></td>
+      <td><select onchange="updateMemberPointLoad(${idx},'dir',this.value)">
+        <option value="globalY">全域 -Y (重力)</option>
+        <option value="localY">局部 +y</option>
+        <option value="globalX">全域 +X</option>
+        <option value="localX">局部 +x (軸向)</option>
+      </select></td>
+      <td><button class="del-btn" onclick="delMemberPointLoad(${idx})">✕</button></td>`;
+    tb.appendChild(tr);
+    tr.children[0].firstChild.value = l.member;
+    tr.children[3].firstChild.value = l.dir;
+  });
+}
+function updateMemberPointLoad(idx, key, val) {
+  if (key === 'member') state.memberPointLoads[idx][key] = parseInt(val);
+  else if (key === 'dir') state.memberPointLoads[idx][key] = val;
+  else state.memberPointLoads[idx][key] = parseFloat(val) || 0;
+}
+function delMemberPointLoad(idx) { state.memberPointLoads.splice(idx, 1); renderMemberPointLoadTable(); }
+
 function refreshNodeSelectors() {
   renderMemberTable();
   renderNodalLoadTable();
   renderMemberLoadTable();
+  renderMemberPointLoadTable();
 }
 
 // ============================================================
@@ -454,6 +524,37 @@ function transpose(A) {
   const B = zeros(m, n);
   for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) B[j][i] = A[i][j];
   return B;
+}
+function subtractMat(A, B) { return A.map((r, i) => r.map((v, j) => v - B[i][j])); }
+// 1x1 / 2x2 反矩陣 (鉸接凝縮用, 釋放自由度至多 2)
+function invSmall(M) {
+  const n = M.length;
+  if (n === 1) return [[1 / M[0][0]]];
+  const a = M[0][0], b = M[0][1], c = M[1][0], d = M[1][1];
+  const det = a * d - b * c;
+  if (Math.abs(det) < 1e-30) throw new Error('鉸接凝縮失敗 (端部勁度奇異)');
+  return [[d / det, -b / det], [-c / det, a / det]];
+}
+// 靜態凝縮: 自局部 6x6 系統移除釋放自由度 (端部彎矩 = 0)。
+// 回傳組裝用的凝縮 kc/fc, 以及內力回復用的 R/N/kRN/kRRinv/fR。
+function condenseReleases(kL, fFEM, released) {
+  const all = [0, 1, 2, 3, 4, 5];
+  const R = released.slice();
+  const N = all.filter(i => R.indexOf(i) < 0);
+  const sub = (rs, cs) => rs.map(r => cs.map(cc => kL[r][cc]));
+  const kNN = sub(N, N), kNR = sub(N, R), kRN = sub(R, N), kRR = sub(R, R);
+  const fN = N.map(i => fFEM[i]), fR = R.map(i => fFEM[i]);
+  const kRRinv = invSmall(kRR);
+  const A = matmul(kNR, kRRinv);
+  const kcNN = subtractMat(kNN, matmul(A, kRN));
+  const AfR = matvec(A, fR);
+  const fcN = fN.map((v, i) => v - AfR[i]);
+  const kc = zeros(6, 6), fc = zeros(6);
+  N.forEach((ri, a) => {
+    fc[ri] = fcN[a];
+    N.forEach((ci, b) => { kc[ri][ci] = kcNN[a][b]; });
+  });
+  return { kc, fc, R, N, kRN, kRRinv, fR };
 }
 // Gauss elimination with partial pivoting, solve Ax=b (A is mutated)
 function solveLinear(Ain, bin) {
@@ -551,40 +652,65 @@ function analyze() {
       [ 0,  0,  0,  0,  0,  1]
     ];
     const Tt = transpose(T);
-    const kG = matmul(matmul(Tt, kL), T);
 
-    // 桿件均布載重 → 局部 FEM
-    // f_FEM_local = [0, -wL/2, -wL²/12, 0, -wL/2, +wL²/12]  (w 為局部 +y 方向強度)
+    // ---- 桿件均布載重 → 局部 +y 強度 wLocal ----
     let wLocal = 0;
     for (const ml of state.memberLoads) {
       if (ml.member !== m.id) continue;
       if (ml.dir === 'localY') wLocal += ml.w;
-      else {
-        // globalY: 輸入為向下強度 (>0 表示向下, 全域 -Y)
-        // 全域載重向量: (0, -ml.w) per 單位長度
-        // 投影到局部 +y 方向 (局部 y 在全域: (-s, c)):
-        //   w_localY = (0, -ml.w) · (-s, c) = -ml.w · c
-        wLocal += -ml.w * c;
+      else wLocal += -ml.w * c;   // globalY 向下 (0,-w) 投影到局部 +y = -w·c
+    }
+    // 均布固端力 f_FEM_local = [0, -wL/2, -wL²/12, 0, -wL/2, +wL²/12]
+    const fFEMlocal = [
+      0, -wLocal * L / 2, -wLocal * L * L / 12,
+      0, -wLocal * L / 2, +wLocal * L * L / 12
+    ];
+
+    // ---- 桿件集中載重 → 局部分量 (Pxl 軸向, Pyl 橫向) + 固端力 ----
+    const ptLocal = [];
+    for (const pl of state.memberPointLoads) {
+      if (pl.member !== m.id) continue;
+      let a = pl.a; if (a < 0) a = 0; if (a > L) a = L;
+      const b = L - a;
+      let Pxl = 0, Pyl = 0;
+      if (pl.dir === 'localY') Pyl = pl.P;
+      else if (pl.dir === 'localX') Pxl = pl.P;
+      else if (pl.dir === 'globalX') { Pxl = pl.P * c; Pyl = -pl.P * s; }
+      else { Pxl = -pl.P * s; Pyl = -pl.P * c; }   // globalY 向下 (0,-P)
+      ptLocal.push({ a, Pxl, Pyl });
+      if (Math.abs(Pyl) > 1e-12) {   // 橫向集中載重固端力
+        fFEMlocal[1] += -Pyl * b * b * (L + 2 * a) / (L * L * L);
+        fFEMlocal[2] += -Pyl * a * b * b / (L * L);
+        fFEMlocal[4] += -Pyl * a * a * (L + 2 * b) / (L * L * L);
+        fFEMlocal[5] += +Pyl * a * a * b / (L * L);
+      }
+      if (Math.abs(Pxl) > 1e-12) {   // 軸向集中載重 (槓桿分配)
+        fFEMlocal[0] += -Pxl * b / L;
+        fFEMlocal[3] += -Pxl * a / L;
       }
     }
-    const fFEMlocal = [
-      0,
-      -wLocal * L / 2,
-      -wLocal * L * L / 12,
-      0,
-      -wLocal * L / 2,
-      +wLocal * L * L / 12
-    ];
-    const fFEMglobal = matvec(Tt, fFEMlocal);
+
+    // ---- 端部彎矩釋放 (鉸接) → 靜態凝縮 ----
+    const released = [];
+    if (m.relI) released.push(2);
+    if (m.relJ) released.push(5);
+    let kLuse = kL, fFEMuse = fFEMlocal, condInfo = null;
+    if (released.length) {
+      condInfo = condenseReleases(kL, fFEMlocal, released);
+      kLuse = condInfo.kc;
+      fFEMuse = condInfo.fc;
+    }
+
+    const kG = matmul(matmul(Tt, kLuse), T);
+    const fFEMglobal = matvec(Tt, fFEMuse);
 
     const dofs = [iIdx * 3, iIdx * 3 + 1, iIdx * 3 + 2, jIdx * 3, jIdx * 3 + 1, jIdx * 3 + 2];
     for (let a = 0; a < 6; a++) {
-      // 等效節點載重 = -f_FEM_global 加到載重向量
-      F[dofs[a]] -= fFEMglobal[a];
+      F[dofs[a]] -= fFEMglobal[a];   // 等效節點載重 = -f_FEM_global
       for (let b = 0; b < 6; b++) K[dofs[a]][dofs[b]] += kG[a][b];
     }
 
-    elemResults.push({ m, L, c, s, T, kL, fFEMlocal, dofs, wLocal });
+    elemResults.push({ m, L, c, s, T, kL, fFEMlocal, dofs, wLocal, ptLocal, condInfo });
   }
 
   // 保存原始 K 以便計算反力
@@ -614,26 +740,42 @@ function analyze() {
   for (const e of elemResults) {
     const dG = e.dofs.map(dof => d[dof]);
     const dL = matvec(e.T, dG);
-    const qElastic = matvec(e.kL, dL);
+    // 鉸接釋放: 回復被凝縮的端部轉角, 取得完整局部位移後再算端力
+    let dFull = dL;
+    if (e.condInfo) {
+      const ci = e.condInfo;
+      const dN = ci.N.map(idx => dL[idx]);
+      const rhs = matvec(ci.kRN, dN).map((v, i) => v + ci.fR[i]);
+      const dR = matvec(ci.kRRinv, rhs).map(v => -v);   // dR = -kRRinv(kRN·dN + fR)
+      dFull = dL.slice();
+      ci.R.forEach((idx, a) => { dFull[idx] = dR[a]; });
+    }
+    const qElastic = matvec(e.kL, dFull);
     const qL = qElastic.map((v, i) => v + e.fFEMlocal[i]);
     e.qLocal = qL;  // [N_i, V_i, M_i, N_j, V_j, M_j] (局部端力)
-    e.dLocal = dL;
+    e.dLocal = dFull;
 
-    // 沿桿件內力 (x 從 0 到 L)
-    // 局部端力含義: q[0]=F_xi, q[1]=F_yi, q[2]=M_i  作用於 i 端 (方向 = 局部座標軸)
-    // 對應內力 (x 從 i 往 j):
-    //   N(x) = -q[0]  (節點推桿件 +x 表壓縮, 即 N = -q[0])
-    //   V(x) = q[1] + wLocal*x         (dV/dx = wLocal)
-    //   M(x) = -q[2] + q[1]*x + wLocal*x²/2   (dM/dx = V, 與端力一致)
-    // (取 N: 拉為正; M: 使桿件上緣凹 (CCW 於 i 端切段右側) 為正)
-    const N_steps = 21;
-    const xs = [], Ns = [], Vs = [], Ms = [];
-    for (let k = 0; k <= N_steps; k++) {
-      const x = e.L * k / N_steps;
-      const N = -e.qLocal[0];
-      const V = e.qLocal[1] + e.wLocal * x;
-      const M = -e.qLocal[2] + e.qLocal[1] * x + 0.5 * e.wLocal * x * x;
-      xs.push(x); Ns.push(N); Vs.push(V); Ms.push(M);
+    // 沿桿件內力 (x 從 0 到 L): 端力 + 均布 + 集中載重 (Heaviside)
+    //   N(x) = -q[0] − Σ Pxl(a≤x)
+    //   V(x) = q[1] + wLocal·x + Σ Pyl(a≤x)
+    //   M(x) = -q[2] + q[1]·x + wLocal·x²/2 + Σ Pyl·(x−a)(a≤x)
+    const N_steps = 24;
+    const xset = new Set();
+    for (let k = 0; k <= N_steps; k++) xset.add(e.L * k / N_steps);
+    for (const p of e.ptLocal) {   // 集中載重兩側各取一點以呈現剪力跳躍
+      xset.add(Math.max(0, p.a - 1e-6));
+      xset.add(Math.min(e.L, p.a + 1e-6));
+    }
+    const xs = Array.from(xset).sort((u, v) => u - v);
+    const Ns = [], Vs = [], Ms = [];
+    for (const x of xs) {
+      let sumPx = 0, sumPy = 0, sumMom = 0;
+      for (const p of e.ptLocal) {
+        if (p.a <= x + 1e-9) { sumPx += p.Pxl; sumPy += p.Pyl; sumMom += p.Pyl * (x - p.a); }
+      }
+      Ns.push(-e.qLocal[0] - sumPx);
+      Vs.push(e.qLocal[1] + e.wLocal * x + sumPy);
+      Ms.push(-e.qLocal[2] + e.qLocal[1] * x + 0.5 * e.wLocal * x * x + sumMom);
     }
     e.diag = { xs, Ns, Vs, Ms };
   }
@@ -779,6 +921,45 @@ function drawGeometry() {
       ctx.font = 'bold 11px Consolas';
       ctx.fillText('w=' + ml.w.toFixed(2) + ' tf/m', tr.x(mx) + 5, tr.y(my) - 28);
     }
+  }
+
+  // 桿件集中載重
+  ctx.strokeStyle = '#7c3aed';
+  ctx.fillStyle = '#7c3aed';
+  ctx.lineWidth = 1.8;
+  for (const pl of state.memberPointLoads) {
+    const m = state.members.find(mm => mm.id === pl.member);
+    if (!m || !pl.P) continue;
+    const ni = state.nodes.find(n => n.id === m.i);
+    const nj = state.nodes.find(n => n.id === m.j);
+    if (!ni || !nj) continue;
+    const dx = nj.x - ni.x, dy = nj.y - ni.y;
+    const L = Math.hypot(dx, dy) || 1;
+    const t = Math.max(0, Math.min(1, pl.a / L));
+    const px = tr.x(ni.x + t * dx), py = tr.y(ni.y + t * dy);
+    if (pl.dir === 'globalX') drawArrow(ctx, px - 28, py, px - 3, py, 'P=' + pl.P.toFixed(1));
+    else drawArrow(ctx, px, py - 28, px, py - 3, 'P=' + pl.P.toFixed(1));
+  }
+
+  // 桿件端部鉸接標記 (空心圓)
+  ctx.lineWidth = 1.6;
+  for (const m of state.members) {
+    const ni = state.nodes.find(n => n.id === m.i);
+    const nj = state.nodes.find(n => n.id === m.j);
+    if (!ni || !nj) continue;
+    const dx = nj.x - ni.x, dy = nj.y - ni.y;
+    const L = Math.hypot(dx, dy) || 1;
+    const ux = dx / L, uy = dy / L, off = 0.08 * L;
+    const mark = (atI) => {
+      const bx = atI ? ni.x + ux * off : nj.x - ux * off;
+      const by = atI ? ni.y + uy * off : nj.y - uy * off;
+      ctx.beginPath();
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0f172a';
+      ctx.arc(tr.x(bx), tr.y(by), 3.6, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+    };
+    if (m.relI) mark(true);
+    if (m.relJ) mark(false);
   }
 }
 
@@ -1054,7 +1235,8 @@ function runAnalysis() {
 // 預設範例
 // ============================================================
 function resetAll() {
-  state.nodes = []; state.members = []; state.nodalLoads = []; state.memberLoads = [];
+  state.nodes = []; state.members = []; state.nodalLoads = [];
+  state.memberLoads = []; state.memberPointLoads = [];
   state.solution = null;
   nodeIdCnt = 0; memberIdCnt = 0;
 }
@@ -1084,6 +1266,22 @@ function loadExample(kind) {
     addNodeRow({ x: 8, y: 0, cx: false, cy: true, crz: false });
     addMemberRow({ i: 1, j: 2, E, A, I });
     addMemberLoadRow({ member: 1, w: 1.0, dir: 'globalY' });
+  } else if (kind === 'ssP') {
+    // 簡支梁 8m, 中點集中載重 10 tf → M_max = PL/4 = 20
+    addNodeRow({ x: 0, y: 0, cx: true, cy: true, crz: false });
+    addNodeRow({ x: 8, y: 0, cx: false, cy: true, crz: false });
+    addMemberRow({ i: 1, j: 2, E, A, I });
+    addMemberPointLoadRow({ member: 1, P: 10, a: 4, dir: 'globalY' });
+  } else if (kind === 'portalHinge') {
+    // 門型剛架, 底固定, 頂梁左端鉸接 (relI), 頂梁 UDL 2 tf/m → 鉸接端 M=0
+    addNodeRow({ x: 0, y: 0, cx: true, cy: true, crz: true });
+    addNodeRow({ x: 0, y: 6, cx: false, cy: false, crz: false });
+    addNodeRow({ x: 8, y: 6, cx: false, cy: false, crz: false });
+    addNodeRow({ x: 8, y: 0, cx: true, cy: true, crz: true });
+    addMemberRow({ i: 1, j: 2, E, A, I });
+    addMemberRow({ i: 2, j: 3, E, A, I, relI: true });
+    addMemberRow({ i: 3, j: 4, E, A, I });
+    addMemberLoadRow({ member: 2, w: 2.0, dir: 'globalY' });
   }
   runAnalysis();
 }
