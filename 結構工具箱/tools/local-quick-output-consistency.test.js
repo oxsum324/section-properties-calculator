@@ -68,6 +68,12 @@ for (const tool of manifest.tools) {
     assert.equal(html.includes('<h2>工具與責任邊界</h2>'), false, `${tool.key} concise report removes boundary heading`);
     assert.equal(html.includes("['適用範圍'"), false, `${tool.key} concise report removes fit row`);
     assert.equal(html.includes("['不適用範圍'"), false, `${tool.key} concise report removes limit row`);
+  } else if (tool.key === 'equipment-load') {
+    // 正式化：兩段式計算書 + 計算示意圖
+    assertIncludes(html, '<h2>計算內容</h2>', `${tool.key} detailed report content section`);
+    assertIncludes(html, '<h2>設計條件</h2>', `${tool.key} summary report condition section`);
+    assertIncludes(html, '<h2>計算示意圖</h2>', `${tool.key} report diagram section`);
+    assert.equal(html.includes('<h2>工具與責任邊界</h2>'), false, `${tool.key} report removes boundary heading`);
   } else {
     assertIncludes(html, 'const prov = r.provenance || (Core.provenance ? Core.provenance() : {})', `${tool.key} report provenance source`);
     assertIncludes(html, '輸入格式', `${tool.key} report input schema row`);

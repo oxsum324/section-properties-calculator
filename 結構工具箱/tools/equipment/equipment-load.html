@@ -66,6 +66,8 @@
   .step-card .step-title { margin:10px 0 4px; font-weight:800; color:#0b7285; }
   .step-card code { font-family:'Consolas',monospace; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px; padding:1px 5px; }
   .muted { color:var(--text-light); font-size:0.82em; line-height:1.65; }
+  .diagram-wrap { background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px; }
+  .diagram-wrap svg { width:100%; height:auto; display:block; max-width:520px; margin:0 auto; }
   .basis-note { margin-top:8px; padding:10px 12px; border-radius:8px; background:#f8fafc; border:1px dashed #cbd5e1; color:#475569; font-size:0.8em; line-height:1.7; }
   @media (max-width:1080px) {
     .equipment-shell { grid-template-columns:1fr; }
@@ -89,7 +91,7 @@
 </head>
 <body>
 <header>
-  <h1>設備局部荷重 <span class="badge-v">V0.2 初估 / 檢核基準</span></h1>
+  <h1>設備局部荷重 <span class="badge-v">V0.2 局部正式檢核</span></h1>
   <p>設備重量、支承點反力、接觸壓、混凝土承壓、RC 穿孔剪力與鋼板分散厚度初估 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="/platform" class="back">← 回工具箱</a>
@@ -279,6 +281,15 @@
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
         <div class="basis-note">所有輸入與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>計算書模式</label>
+            <select id="reportMode">
+              <option value="detailed">詳算式（公式逐步）</option>
+              <option value="summary">簡易結果（摘要）</option>
+            </select>
+          </div>
+        </div>
         <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算設備局部荷重</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
@@ -292,6 +303,13 @@
         <h2>檢核總覽</h2>
         <div id="bannerStatus" class="banner-status warn">尚未計算</div>
         <div class="banner-key" id="bannerKey"></div>
+      </div>
+      <div class="card">
+        <h2>計算示意圖</h2>
+        <div class="diagram-wrap" id="diagramBody">
+          <svg id="equipmentDiagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" role="img" aria-label="設備支承平面與 1:1 分布示意"></svg>
+        </div>
+        <p class="muted" id="diagramLegend"></p>
       </div>
       <div class="card">
         <h2>主要結果</h2>
@@ -564,6 +582,59 @@
       </div>`;
   }
 
+  function drawDiagram(r) {
+    const svg = document.getElementById('equipmentDiagram');
+    if (!svg) return;
+    if (!r || !(r.planB > 0) || !(r.planL > 0)) { svg.innerHTML = ''; return; }
+    // 平面：設備外框 + 支承點 + 單支承接觸/分布
+    const pcx = 120, pcy = 155;
+    const s = Math.min(98 / (r.planB / 2), 110 / (r.planL / 2));
+    const pxB = s * r.planB / 2, pxL = s * r.planL / 2;
+    const n = Math.max(1, Math.round(r.supportCount));
+    const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+    let dots = '', idx = 0;
+    for (let rr = 0; rr < rows; rr++) {
+      for (let cc = 0; cc < cols && idx < n; cc++, idx++) {
+        const fx = cols > 1 ? (cc / (cols - 1) - 0.5) : 0;
+        const fy = rows > 1 ? (rr / (rows - 1) - 0.5) : 0;
+        const sx = pcx + fx * 2 * pxB * 0.74, sy = pcy + fy * 2 * pxL * 0.74;
+        const hl = (idx === 0);
+        if (hl) {
+          const sb = Math.min(s * r.spreadB, 2 * pxB), sl = Math.min(s * r.spreadL, 2 * pxL);
+          const cb = s * r.contactB, cl = s * r.contactL;
+          dots += `<rect x="${(sx - sb / 2).toFixed(1)}" y="${(sy - sl / 2).toFixed(1)}" width="${sb.toFixed(1)}" height="${sl.toFixed(1)}" fill="rgba(8,145,178,0.12)" stroke="#0891b2" stroke-width="0.8" stroke-dasharray="3 2"/>`;
+          dots += `<rect x="${(sx - cb / 2).toFixed(1)}" y="${(sy - cl / 2).toFixed(1)}" width="${cb.toFixed(1)}" height="${cl.toFixed(1)}" fill="rgba(220,38,38,0.20)" stroke="#dc2626" stroke-width="1"/>`;
+        }
+        dots += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${hl ? 3.4 : 3}" fill="${hl ? '#dc2626' : '#0b7285'}"/>`;
+      }
+    }
+    // 立面：單支承 1:1 應力擴散
+    const ex = 360, topY = 70, slabTop = 150;
+    const slabH = Math.max(28, Math.min(70, (r.concreteThickness || 0.2) * 120));
+    const es = 50;
+    const cbE = Math.max(10, Math.min(40, r.contactB * es));
+    const sbE = Math.max(cbE + 8, Math.min(140, r.spreadB * es));
+    const elev =
+      `<rect x="${ex - 90}" y="${slabTop}" width="180" height="${slabH}" fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"/>` +
+      `<rect x="${(ex - cbE / 2).toFixed(1)}" y="${slabTop - 12}" width="${cbE.toFixed(1)}" height="12" fill="#cbd5e1" stroke="#475569" stroke-width="1"/>` +
+      `<line x1="${ex}" y1="${topY}" x2="${ex}" y2="${slabTop - 13}" stroke="#047857" stroke-width="2" marker-end="url(#eq-arrow)"/>` +
+      `<text x="${ex + 6}" y="${topY + 14}" font-size="9" fill="#047857" font-weight="700">P=${fmt(r.pointLoad)}</text>` +
+      `<line x1="${(ex - cbE / 2).toFixed(1)}" y1="${slabTop}" x2="${(ex - sbE / 2).toFixed(1)}" y2="${slabTop + slabH}" stroke="#0891b2" stroke-width="1" stroke-dasharray="3 2"/>` +
+      `<line x1="${(ex + cbE / 2).toFixed(1)}" y1="${slabTop}" x2="${(ex + sbE / 2).toFixed(1)}" y2="${slabTop + slabH}" stroke="#0891b2" stroke-width="1" stroke-dasharray="3 2"/>` +
+      `<text x="${ex}" y="${slabTop - 16}" font-size="8.5" text-anchor="middle" fill="#991b1b" font-weight="700">qc=${fmt(r.qContact, 0)}</text>` +
+      `<text x="${ex}" y="${slabTop + slabH + 13}" font-size="8.5" text-anchor="middle" fill="#0e7490" font-weight="700">qs=${fmt(r.qSpread, 1)}</text>` +
+      `<text x="${ex}" y="${slabTop + slabH / 2 + 3}" font-size="8" text-anchor="middle" fill="#64748b">1:1 (h=${fmt(r.spreadDepth)})</text>`;
+    svg.innerHTML =
+      `<defs><marker id="eq-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L6,3 L0,6 Z" fill="#047857"/></marker></defs>` +
+      `<g data-diagram-role="plan"><text x="120" y="22" font-size="11" text-anchor="middle" fill="#0f172a" font-weight="800">設備平面 ‧ ${n} 支承</text>` +
+      `<rect x="${(pcx - pxB).toFixed(1)}" y="${(pcy - pxL).toFixed(1)}" width="${(2 * pxB).toFixed(1)}" height="${(2 * pxL).toFixed(1)}" fill="#ecfeff" stroke="#0e7490" stroke-width="1.5"/>` +
+      dots +
+      `<text x="120" y="${(pcy + pxL + 18).toFixed(1)}" font-size="9" text-anchor="middle" fill="#475569">B=${fmt(r.planB)} m</text></g>` +
+      `<g data-diagram-role="elevation"><text x="360" y="22" font-size="11" text-anchor="middle" fill="#0f172a" font-weight="800">單支承 1:1 分布</text>${elev}</g>`;
+    const legend = document.getElementById('diagramLegend');
+    if (legend) legend.textContent = '紅框 = 單支承接觸面 b×l（qc）；藍虛框 = 經厚度 h 之 1:1 分布面（qs）；右圖為單支承立面 1:1 應力擴散。';
+  }
+
   function calculateEquipmentLoad() {
     const input = gatherInputs();
     const errors = Core.validateInput(input);
@@ -574,6 +645,7 @@
       $('metricGrid').innerHTML = '';
       $('checkList').innerHTML = '';
       $('stepBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
+      drawDiagram(null);
       lastResult = null;
       return null;
     }
@@ -583,6 +655,7 @@
     renderMetrics(result);
     renderChecks(result);
     renderSteps(result);
+    drawDiagram(result);
     return result;
   }
 
@@ -631,52 +704,97 @@
     }
   }
 
+  function svgForReport(r) {
+    drawDiagram(r);
+    const svg = document.getElementById('equipmentDiagram');
+    return svg ? svg.outerHTML : '';
+  }
+
+  function detailedBody(r, svgHtml) {
+    let extra = '';
+    if (r.concreteBearingApplicable) {
+      extra += `<h3>5. 混凝土承壓基準</h3>
+<p><code>A1 = ${fmt(r.concreteBearingAreaA1, 4)} m²；A2 = ${fmt(r.concreteBearingAreaA2, 4)} m²；√(A2/A1) = ${fmt(r.concreteBearingFactor, 2)}（上限 2）</code></p>
+<p><code>φBn = φ·0.85·f'c·A1·√(A2/A1) = ${fmt(r.concreteBearingDesign)} tf ${r.pointLoad <= r.concreteBearingDesign ? '≥' : '<'} Ppoint = ${fmt(r.pointLoad)} tf</code></p>`;
+    }
+    if (r.punchingApplicable) {
+      extra += `<h3>6. RC 穿孔剪力初判（雙向剪力）</h3>
+<p><code>bo = 2(b + l + 2d) = ${fmt(r.punchingBo)} m；β = ${fmt(r.punchingBeta, 2)}；αs = ${fmt(r.punchingAlpha, 0)}</code></p>
+<p><code>vc = min(1.06√f'c, 0.53(1+2/β)√f'c, 0.265(αs·d/bo+2)√f'c) = ${fmt(r.punchingVc)} kgf/cm²</code></p>
+<p><code>φVn = ${fmt(r.punchingDesignShear)} tf ${r.pointLoad <= r.punchingDesignShear ? '≥' : '<'} Ppoint = ${fmt(r.pointLoad)} tf</code></p>`;
+    }
+    if (r.steelPlateApplicable) {
+      extra += `<h3>7. 鋼板分散厚度初判</h3>
+<p><code>qplate = Ppoint/(Bp·Lp) = ${fmt(r.steelPlatePressure)} tf/m²；懸臂 a = ${fmt(r.steelPlateControllingProjection)} m</code></p>
+<p><code>Mu = qplate·a²/2 = ${fmt(r.steelPlateMomentDemand, 4)} tf·m/m；t,req = ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm（現用 ${fmt(r.steelPlateThickness * 1000, 0)} mm）</code></p>`;
+    }
+    return `
+<h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div>
+<h2>計算內容</h2>
+<h3>1. 設備設計重量</h3>
+<p><code>Wservice = Wd + Wf + Wa = ${fmt(r.equipmentWeight)} + ${fmt(r.fluidWeight)} + ${fmt(r.accessoryWeight)} = ${fmt(r.serviceWeight)} tf</code></p>
+<p><code>Wdesign = Wservice × I = ${fmt(r.serviceWeight)} × ${fmt(r.dynamicFactor, 2)} = ${fmt(r.designWeight)} tf</code></p>
+<h3>2. 單點反力與接觸壓</h3>
+<p><code>Ppoint = Wdesign / n = ${fmt(r.designWeight)} / ${r.supportCount} = ${fmt(r.pointLoad)} tf</code></p>
+<p><code>Acontact = b×l = ${fmt(r.contactB)}×${fmt(r.contactL)} = ${fmt(r.contactAreaEach, 4)} m²；qcontact = ${fmt(r.qContact)} tf/m²</code></p>
+<h3>3. 1:1 分布壓</h3>
+<p><code>Bspread = b+2h = ${fmt(r.spreadB)} m；Lspread = l+2h = ${fmt(r.spreadL)} m；qspread = ${fmt(r.qSpread)} tf/m²</code></p>
+<h3>4. 等效面載重與水平力</h3>
+<p><code>qequiv = Wdesign/(Bplan·Lplan) = ${fmt(r.qEquivalent)} tf/m²；H = kh·Wdesign = ${fmt(r.horizontalTotal)} tf（每點 ${fmt(r.horizontalPerSupport)} tf）</code></p>
+${extra}
+<div class="note">本頁為設備支承局部荷重與承壓 / 穿孔剪力 / 鋼板分散之檢核；錨栓、樓板與梁配筋、振動與疲勞不在本頁範圍，錨栓請用錨栓檢討工具，構件配筋回正式構件工具。</div>`;
+  }
+
+  function summaryBody(r, svgHtml) {
+    const condRows = [
+      ['設備重量 Wd/Wf/Wa', `${fmt(r.equipmentWeight)} / ${fmt(r.fluidWeight)} / ${fmt(r.accessoryWeight)} tf；I=${fmt(r.dynamicFactor, 2)}`],
+      ['支承點數 / 水平係數', `${r.supportCount} 點；kh=${fmt(r.horizontalCoeff, 2)}`],
+      ['單支承接觸 b×l / 分布厚度 h', `${fmt(r.contactB)}×${fmt(r.contactL)} m；h=${fmt(r.spreadDepth)} m`],
+      ['容許接觸 / 分布 / 單點', `${fmt(r.allowableContact)} / ${fmt(r.allowableSpread)} tf/m²；${r.allowablePoint > 0 ? fmt(r.allowablePoint) + ' tf' : '不檢核'}`],
+      ['混凝土基準', (r.concreteBearingApplicable || r.punchingApplicable) ? `f'c ${fmt(r.concreteFc, 0)} kgf/cm²；hc ${fmt(r.concreteThickness)} m；d ${fmt(r.effectiveDepth)} m` : '未啟用'],
+      ['鋼板基準', r.steelPlateApplicable ? `${fmt(r.steelPlateB)}×${fmt(r.steelPlateL)}×${fmt(r.steelPlateThickness)} m；Fy ${fmt(r.steelFy, 0)}` : '未啟用']
+    ];
+    const ctrlRows = [
+      ['設計重量 / 單點反力', `${fmt(r.designWeight)} / ${fmt(r.pointLoad)} tf`],
+      ['接觸壓 qc', `${fmt(r.qContact)} / ${fmt(r.allowableContact)} tf/m²`],
+      ['分布壓 qs', `${fmt(r.qSpread)} / ${fmt(r.allowableSpread)} tf/m²`],
+      ['混凝土承壓', r.concreteBearingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.concreteBearingDesign)} tf` : '未啟用'],
+      ['RC 穿孔剪力', r.punchingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.punchingDesignShear)} tf` : '未啟用'],
+      ['鋼板分散厚度', r.steelPlateApplicable ? `現用 ${fmt(r.steelPlateThickness * 1000, 0)} / 需求 ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm` : '未啟用'],
+      ['控制項目', r.governingCheck ? `${r.governingCheck.label}，util=${fmt(r.governingCheck.utilization, 2)}` : '—'],
+      ['水平力', `${fmt(r.horizontalTotal)} tf（每點 ${fmt(r.horizontalPerSupport)} tf）`]
+    ];
+    const checkRows = r.checks.map(c => `<tr><th>${escapeHtml(c.label)}</th><td>${c.passed === null ? '未啟用' : (c.passed ? '通過' : '不通過')}</td></tr>`).join('');
+    return `
+<h2>設計條件</h2><table>${reportRows(condRows)}</table>
+<h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div>
+<h2>控制結果</h2>
+<div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>
+<table>${reportRows(ctrlRows)}</table>
+<table><tr><th>檢核項目</th><th>結果</th></tr>${checkRows}</table>`;
+  }
+
   function openReport() {
     const r = lastResult || calculateEquipmentLoad();
     if (!r) return;
     const proj = gatherProjectInfo();
-    const prov = r.provenance || (Core.provenance ? Core.provenance() : {});
-    const inputRows = [
-      ['設備重量', `Wd ${fmt(r.equipmentWeight)} + Wf ${fmt(r.fluidWeight)} + Wa ${fmt(r.accessoryWeight)} tf`],
-      ['動力 / 衝擊係數', fmt(r.dynamicFactor, 2)],
-      ['支承點數', `${r.supportCount} 點`],
-      ['單支承接觸尺寸', `${fmt(r.contactB)} × ${fmt(r.contactL)} m`],
-      ['分布厚度', `${fmt(r.spreadDepth)} m`],
-      ['容許值', `contact ${fmt(r.allowableContact)} tf/m²；spread ${fmt(r.allowableSpread)} tf/m²；point ${r.allowablePoint > 0 ? fmt(r.allowablePoint) + ' tf' : '不檢核'}`],
-      ['混凝土基準', `f'c ${fmt(r.concreteFc, 0)} kgf/cm²；hc ${fmt(r.concreteThickness)} m；d ${fmt(r.effectiveDepth)} m；位置 ${r.punchingPosition}`],
-      ['鋼板基準', `Bp × Lp × tp = ${fmt(r.steelPlateB)} × ${fmt(r.steelPlateL)} × ${fmt(r.steelPlateThickness)} m；Fy ${fmt(r.steelFy, 0)} kgf/cm²`]
-    ];
-    const metaRows = [
-      ['頁面版本', 'V0.2 初估 / 檢核基準'],
-      ['計算核心', `${prov.core || 'EquipmentLoadCore'} v${prov.version || Core.version || 'unknown'}`],
-      ['輸入格式', prov.inputSchemaVersion || Core.inputSchemaVersion || 'unknown'],
-      ['計算指紋', prov.logicSignature || Core.logicSignature || 'unknown'],
-      ['產製時間', nowText()],
-      ['檢核基準', '台灣混凝土規範之支承承壓與雙向剪力概念；鋼板分散依 AISC 底板設計概念作彈性懸臂條初判'],
-      ['適用範圍', '設備重量、支承點反力、接觸壓、混凝土承壓、RC 穿孔剪力、鋼板分散厚度與水平力初估'],
-      ['不適用範圍', '開孔、靠邊精算、梁板完整配筋、基礎、錨栓、振動、疲勞、衝擊或正式構件承載設計']
-    ];
-    const resultRows = [
-      ['綜合結論', r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'],
-      ['設計重量 / 單點反力', `${fmt(r.designWeight)} / ${fmt(r.pointLoad)} tf`],
-      ['接觸壓', `${fmt(r.qContact)} tf/m²`],
-      ['分布壓', `${fmt(r.qSpread)} tf/m²`],
-      ['混凝土承壓', r.concreteBearingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.concreteBearingDesign)} tf` : '未啟用'],
-      ['RC 穿孔剪力', r.punchingApplicable ? `${fmt(r.pointLoad)} / ${fmt(r.punchingDesignShear)} tf` : '未啟用'],
-      ['鋼板分散厚度', r.steelPlateApplicable ? `t ${fmt(r.steelPlateThickness * 1000, 0)} mm；tReq ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm` : '未啟用'],
-      ['控制項目', r.governingCheck ? `${r.governingCheck.label}，util=${fmt(r.governingCheck.utilization, 2)}` : '—'],
-      ['等效面載重', `${fmt(r.qEquivalent)} tf/m²`],
-      ['水平力', `${fmt(r.horizontalTotal)} tf；每點 ${fmt(r.horizontalPerSupport)} tf`]
-    ];
+    const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
+    const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
+    const svgHtml = svgForReport(r);
+    const body = mode === 'summary' ? summaryBody(r, svgHtml) : detailedBody(r, svgHtml);
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>設備局部荷重計算書</title>
 <style>
 body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:#111827;margin:0;line-height:1.65;}
 .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px 16px;display:flex;gap:8px;z-index:2;}
 .toolbar button{padding:8px 12px;border:0;border-radius:6px;font-weight:700;cursor:pointer;}
-.paper{max-width:860px;margin:20px auto;background:#fff;padding:30px 34px;box-shadow:0 2px 12px rgba(15,23,42,.12);}
-h1{font-size:1.45rem;margin:0 0 6px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px;color:#0b7285;}
-table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:32%;}
+.paper{max-width:880px;margin:20px auto;background:#fff;padding:30px 34px;box-shadow:0 2px 12px rgba(15,23,42,.12);}
+h1{font-size:1.4rem;margin:0 0 8px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:22px;color:#0b7285;}
+h3{font-size:0.96rem;margin:14px 0 4px;color:#0e7490;}
+.case-head{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.9rem;color:#334155;border-bottom:1px solid #e5e7eb;padding-bottom:8px;}
+table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:34%;}
+code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-radius:4px;} p{margin:4px 0;}
+.rpt-diagram{border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fafdff;} .rpt-diagram svg{width:100%;max-width:560px;height:auto;display:block;margin:0 auto;}
 .conclusion{padding:12px 14px;border-radius:8px;border:2px solid ${r.overallOk ? '#10b981' : '#ef4444'};background:${r.overallOk ? '#ecfdf5' : '#fef2f2'};font-weight:800;}
 .note{margin-top:14px;padding:10px 12px;border-left:4px solid #0891b2;background:#ecfeff;color:#155e75;font-size:.9rem;}
 @media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}}
@@ -684,12 +802,8 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>設備局部荷重計算書</h1>
-<div>計畫名稱：${escapeHtml(proj.name)}　編號：${escapeHtml(proj.no)}　整理人：${escapeHtml(proj.designer)}</div>
-<div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>
-<h2>工具與責任邊界</h2><table>${reportRows(metaRows)}</table>
-<h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
-<h2>整理結果</h2><table>${reportRows(resultRows)}</table>
-<div class="note">本計算書為設備局部荷重與檢核基準整理；不取代樓板、梁、基礎、錨栓、振動或疲勞之正式檢核。</div>
+<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>整理人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：設備局部荷重 V0.2</span></div>
+${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
     if (!win) return;

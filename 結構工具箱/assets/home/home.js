@@ -502,15 +502,15 @@
     },
     {
       title: '設備局部荷重',
-      version: 'V0.1',
+      version: 'V0.2',
       href: '/equipment-load',
       categories: ['temporary'],
-      state: 'estimate',
-      output: '支承反力、接觸壓、分布壓、水平力與 JSON',
-      summary: '設備重量、支承點反力、接觸壓、1:1 分布壓與水平力初估。',
-      fit: '機電設備、基座協調與荷重整理。',
-      limit: '不含樓板梁、基礎、錨栓正式設計。',
-      capabilities: ['初估 / 簡化', 'JSON']
+      state: 'formal',
+      output: '支承反力/接觸壓/分布壓、混凝土承壓、穿孔剪力、鋼板分散、示意圖、兩段式計算書與 JSON',
+      summary: '設備重量、支承點反力、1:1 接觸/分布壓，含混凝土承壓、RC 穿孔剪力與鋼板分散厚度檢核，附支承示意圖與詳算式/簡易結果計算書。',
+      fit: '設備基座支承局部荷重與承壓正式檢核。',
+      limit: '錨栓、樓板梁配筋、振動與疲勞不在範圍；錨栓請用錨栓檢討工具。',
+      capabilities: ['正式核算', '計算書', '示意圖']
     },
     {
       title: '擋土土壓局部快算',

@@ -997,10 +997,10 @@ for (const tool of tools) {
     'function downloadResultJson',
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));
   // 已正式化的工具（report standard）不再以「初估」標示；尚未正式化者仍須保留
-  if (tool.key !== 'foundation-local') {
+  if (!['foundation-local', 'equipment-load'].includes(tool.key)) {
     assertIncludes(html, '初估', `${tool.key} html estimate label`);
   }
-  if (!['foundation-local', 'earth-pressure'].includes(tool.key)) {
+  if (!['foundation-local', 'earth-pressure', 'equipment-load'].includes(tool.key)) {
     [
       '工具與責任邊界',
       '輸入格式',

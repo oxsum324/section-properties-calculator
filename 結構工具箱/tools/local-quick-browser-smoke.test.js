@@ -690,6 +690,12 @@ function assertReportState(state, tool, label) {
     removedFromLocalReport.forEach(needle => {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
     });
+  } else if (tool.key === 'equipment-load') {
+    // 已正式化：兩段式計算書（預設詳算式）含計算內容與示意圖
+    requiredNeedles.push('計算內容', '計算示意圖', '單點反力');
+    removedFromLocalReport.forEach(needle => {
+      assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
+    });
   } else {
     requiredNeedles.push('初估', '計算核心', '輸入格式', '計算指紋', '適用範圍', '不適用範圍');
   }
