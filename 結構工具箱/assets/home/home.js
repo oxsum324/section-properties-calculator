@@ -58,15 +58,15 @@
     },
     {
       title: '平面剛架分析',
-      version: 'V0.1',
+      version: 'V0.2',
       href: '/鋼架/平面剛架分析.html',
       categories: ['analysis'],
       state: 'assist',
-      output: '節點位移、反力與桿件內力圖',
-      summary: '2D 剛架節點、桿件與荷重輸入，以直接勁度法輸出位移、反力與內力圖。',
-      fit: '簡化剛架模型與手算前後校核。',
+      output: '位移、反力、M/V/N 內力圖、計算書與 JSON',
+      summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，輸出位移、反力、內力圖與計算書。',
+      fit: '簡化剛架模型、連續梁與手算前後校核。',
       limit: '複雜工程模型仍應回正式分析軟體。',
-      capabilities: ['靜態工具', '初版']
+      capabilities: ['鉸接釋放', '集中載重', '計算書']
     },
     {
       title: 'struct.dx 解題套件',
