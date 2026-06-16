@@ -686,7 +686,8 @@ function assertReportState(state, tool, label) {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
     });
   } else if (tool.key === 'earth-pressure') {
-    requiredNeedles.push('初估', '計算依據', '檢核結果', 'Rankine', '擋土牆型式', '牆型工作輸出', '土壓模式', '牆體位移條件', '被動抵抗採用', '計算示意圖');
+    // 已正式化：兩段式計算書（預設詳算式）含計算內容、Rankine 公式、示意圖與牆型工作輸出
+    requiredNeedles.push('計算內容', '計算示意圖', 'Rankine', '牆型工作輸出');
     removedFromLocalReport.forEach(needle => {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report removes ${needle}`);
     });

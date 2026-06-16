@@ -1076,7 +1076,8 @@ for (const tool of tools) {
       '牆型工作輸出',
       '計算示意圖',
       '④ 計算與輸出',
-      '<h2>計算依據</h2>',
+      '<h2>設計條件</h2>',
+      '<h2>計算內容</h2>',
       'Rankine 水平背填土壓初估',
     ].forEach(needle => assertIncludes(html, needle, `${tool.key} action and report layout`));
     assert.ok(html.indexOf('id="btnReset"') < html.indexOf('class="main-layout earth-shell"'), `${tool.key} reset action stays in top case-management area`);

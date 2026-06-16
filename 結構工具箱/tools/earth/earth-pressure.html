@@ -125,7 +125,7 @@
 </head>
 <body>
 <header>
-  <h1>擋土土壓局部快算 <span class="badge-v">V0.4 初估 / 局部</span></h1>
+  <h1>擋土土壓局部快算 <span class="badge-v">V0.4 局部正式檢核</span></h1>
   <p>擋土牆型式、牆體位移條件、Rankine 主動 / 靜止土壓、均佈超載、水壓與簡化穩定檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="/platform" class="back">← 回工具箱</a>
@@ -165,7 +165,7 @@
           <div class="tool-meta" aria-label="工具版本與責任邊界">
             <span>頁面 V0.4</span>
             <span id="coreVersion">Core v—</span>
-            <span>初估 / 土壓</span>
+            <span>正式核算 / 局部</span>
           </div>
         </div>
       </div>
@@ -307,6 +307,15 @@
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
         <div class="scope-box">所有模型假設、土壓、地下水與穩定參數確認後，再執行計算、列印計算書或下載本案 JSON。</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>計算書模式</label>
+            <select id="reportMode">
+              <option value="detailed">詳算式（公式逐步）</option>
+              <option value="summary">簡易結果（摘要）</option>
+            </select>
+          </div>
+        </div>
         <div class="output-actions" aria-label="計算與輸出">
           <button class="btn-calc" id="btnCalc" type="button">計算土壓初估</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
@@ -457,7 +466,7 @@
   function renderBanner(r) {
     const banner = $('bannerStatus');
     banner.className = `banner-status ${r.overallOk ? 'ok' : 'fail'}`;
-    banner.textContent = r.overallOk ? '土壓局部穩定初估通過' : '土壓或穩定條件需修正 / 詳算';
+    banner.textContent = r.overallOk ? '土壓局部穩定檢核通過' : '土壓或穩定條件需修正 / 詳算';
     const items = [
       ['牆型', r.wallTypeLabel, true],
       ['K', `${r.mode === 'atRest' ? 'K0' : 'Ka'} = ${fmt(r.K, 3)}`, true],
@@ -578,7 +587,7 @@
     const contactNote = r.fullContact ? '全壓縮' : '偏心超出核心或有拉力';
 
     return `
-<svg class="pressure-diagram" viewBox="0 0 760 460" role="img" aria-label="擋土土壓與基底壓計算示意圖">
+<svg class="pressure-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" role="img" aria-label="擋土土壓與基底壓計算示意圖">
   <defs>
     <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f172a"></path>
@@ -783,7 +792,7 @@
       ['μ / Rp 原始 / Rp 採用', `${fmt(r.mu)} / ${fmt(r.passive)} tf/m / ${fmt(r.effectivePassive)} tf/m`]
     ];
     const resultRows = [
-      ['綜合結論', r.overallOk ? '土壓局部穩定初估通過' : '需修正尺寸 / 載重，或改採正式詳算'],
+      ['綜合結論', r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'],
       ['牆型控制項', r.wallTypeOutput.primaryResult],
       ['K / Ptotal', `${fmt(r.K, 4)} / ${fmt(r.totalForce)} tf/m`],
       ['Mo / 作用高度', `${fmt(r.overturningMoment)} tf·m/m / ${fmt(r.resultantHeight)} m`],
@@ -797,6 +806,36 @@
       ['主要摘要', r.wallTypeOutput.primaryResult],
       ...r.wallTypeOutput.outputGroups.map(group => [group.label, group.detail])
     ];
+    const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
+    const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
+    const diagramHtml = buildPressureDiagramSvg(r);
+    const forceRows = [
+      ['土壓', fmt(r.soilForce), fmt(r.soilMoment)],
+      ['均佈超載', fmt(r.surchargeForce), fmt(r.surchargeMoment)],
+      ['水壓', fmt(r.waterForce), fmt(r.waterMoment)],
+      ['合計', fmt(r.totalForce), fmt(r.overturningMoment)]
+    ].map(row => `<tr><td>${row[0]}</td><td>${row[1]}</td><td>${row[2]}</td></tr>`).join('');
+    const detailedBodyHtml = `
+<h2>計算示意圖</h2><div class="report-diagram">${diagramHtml}</div>
+<h2>計算內容</h2>
+<h3>1. 擋土牆型式與 Rankine 土壓係數</h3>
+<p>擋土牆型式：${escapeHtml(r.wallTypeLabel)}；${escapeHtml(r.wallConditionLabel)}；${escapeHtml(r.selectedModeReason)}。${escapeHtml(r.backfillModelLabel)}；${escapeHtml(r.waterModelLabel)}。</p>
+<p><code>Ka = (1−sinφ)/(1+sinφ) = ${fmt(r.Ka, 4)}；K0 = 1−sinφ = ${fmt(r.K0, 4)}；採用 ${escapeHtml(r.modeLabel)} = ${fmt(r.K, 4)}</code></p>
+<h3>2. 側向力與傾覆力矩</h3>
+<p><code>Pa = ½·K·γ·H² = ${fmt(r.soilForce)}；Pq = K·q·H = ${fmt(r.surchargeForce)}；Pw = ½·γw·hw² = ${fmt(r.waterForce)} tf/m</code></p>
+<table><thead><tr><th>來源</th><th>P (tf/m)</th><th>M (tf·m/m)</th></tr></thead><tbody>${forceRows}</tbody></table>
+<h3>3. 簡化穩定（每公尺牆長）</h3>
+<p><code>Rp採用 = ${fmt(r.passive)} × ${fmt(r.passiveFactor, 2)} = ${fmt(r.effectivePassive)} tf/m（${escapeHtml(r.passiveModeLabel)}）</code></p>
+<p><code>FS_slide = (μV + Rp)/Ptotal = (${fmt(r.mu)}×${fmt(r.verticalLoad)} + ${fmt(r.effectivePassive)})/${fmt(r.totalForce)} = ${fmt(r.fsSlide, 2)}</code></p>
+<p><code>FS_over = Mr/Mo = ${fmt(r.resistingMoment)}/${fmt(r.overturningMoment)} = ${fmt(r.fsOver, 2)}；e = Mo/V = ${fmt(r.e, 4)} m；qmax/min = ${fmt(r.qmax)}/${fmt(r.qmin)} tf/m²</code></p>
+<h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
+<div class="note">本頁以 Rankine 水平背填土壓、每公尺牆長做局部穩定檢核。地震土壓、背填坡度、牆背摩擦、分層土、滲流與結構配筋不在本頁範圍，應另行正式詳算。</div>`;
+    const summaryBodyHtml = `
+<h2>設計條件</h2><table>${reportRows(basisRows.concat([inputRows[1], inputRows[3], inputRows[4]]))}</table>
+<h2>計算示意圖</h2><div class="report-diagram">${diagramHtml}</div>
+<h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
+<h2>控制結果</h2><table>${reportRows(resultRows)}</table>`;
+    const body = mode === 'summary' ? summaryBodyHtml : detailedBodyHtml;
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>擋土土壓局部快算計算書</title>
 <style>
@@ -804,7 +843,10 @@ body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:
 .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:10px 16px;display:flex;gap:8px;z-index:2;}
 .toolbar button{padding:8px 12px;border:0;border-radius:6px;font-weight:700;cursor:pointer;}
 .paper{max-width:860px;margin:20px auto;background:#fff;padding:30px 34px;box-shadow:0 2px 12px rgba(15,23,42,.12);}
-h1{font-size:1.45rem;margin:0 0 6px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:24px;color:#92400e;}
+h1{font-size:1.4rem;margin:0 0 8px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:22px;color:#92400e;}
+h3{font-size:0.96rem;margin:14px 0 4px;color:#92400e;}
+.case-head{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.9rem;color:#334155;border-bottom:1px solid #e5e7eb;padding-bottom:8px;margin-bottom:4px;}
+code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-radius:4px;} p{margin:4px 0;}
 table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:32%;}
 .conclusion{padding:12px 14px;border-radius:8px;border:2px solid ${r.overallOk ? '#10b981' : '#ef4444'};background:${r.overallOk ? '#ecfdf5' : '#fef2f2'};font-weight:800;}
 .note{margin-top:14px;padding:10px 12px;border-left:4px solid #f59e0b;background:#fffbeb;color:#78350f;font-size:.9rem;}
@@ -835,14 +877,10 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 </style></head><body>
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
-<h1>擋土土壓局部快算計算書（初估）</h1>
-<div>計畫名稱：${escapeHtml(proj.name)}　編號：${escapeHtml(proj.no)}　整理人：${escapeHtml(proj.designer)}</div>
-<div class="conclusion">${r.overallOk ? '土壓局部穩定初估通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
-<h2>計算依據</h2><table>${reportRows(basisRows)}</table>
-<h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
-<h2>計算示意圖</h2><div class="report-diagram">${buildPressureDiagramSvg(r)}</div>
-<h2>輸入資料</h2><table>${reportRows(inputRows)}</table>
-<h2>檢核結果</h2><table>${reportRows(resultRows)}</table>
+<h1>擋土土壓局部穩定檢核計算書</h1>
+<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>整理人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.4</span></div>
+<div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
+${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
     if (!win) return;

@@ -514,15 +514,15 @@
     },
     {
       title: '擋土土壓局部快算',
-      version: 'V0.1',
+      version: 'V0.4',
       href: '/earth-pressure',
       categories: ['temporary'],
-      state: 'estimate',
-      output: '簡化土壓、水壓、穩定檢核與 JSON',
-      summary: 'Rankine 主動或靜止土壓、均佈超載、地下水壓與每公尺牆長簡化穩定檢核。',
-      fit: '擋土或圍牆土壓初步判斷。',
-      limit: '不含配筋、地震土壓、分層土、Coulomb 或完整擋土牆詳算。',
-      capabilities: ['初估 / 簡化', 'JSON']
+      state: 'formal',
+      output: 'Rankine 土壓、水壓、抗滑/抗傾覆/基底壓檢核、牆型示意圖、兩段式計算書與 JSON',
+      summary: 'Rankine 主動/靜止土壓、均佈超載與地下水壓，每公尺牆長之抗滑、抗傾覆與基底壓局部穩定檢核；含牆型示意圖與詳算式/簡易結果計算書。',
+      fit: '懸臂式/重力式擋土牆與圍牆之局部土壓與穩定正式檢核。',
+      limit: '地震土壓、背填坡度、牆背摩擦、分層土、滲流與結構配筋需另行正式詳算。',
+      capabilities: ['正式核算', '計算書', '示意圖']
     },
     {
       title: '覆工板系統計算',
