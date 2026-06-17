@@ -148,6 +148,7 @@
       "reportButton": "btnReport",
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
@@ -222,6 +223,7 @@
       "reportButton": "btnReport",
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
@@ -240,6 +242,35 @@
           "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
         }
       },
+      "goldenCases": [
+        {
+          "id": "default-porous-frame-table-2-11",
+          "description": "預設中空式 / 格子式案例，鎖定表 2.11 圓形斷面低 D√q(z) 路線與控制結果。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "C",
+            "impClass": "IV",
+            "Kzt": "1.0",
+            "pz": "15",
+            "pA": "8",
+            "phi": "0.20",
+            "memberD": "0.15",
+            "memberType": "circular",
+            "chkDetail": false
+          },
+          "expectedSelectors": {
+            "#r-type .value": "中空式 / 圓形斷面構材",
+            "#r-cf .value": "1.800",
+            "#r-qz .value": "122.4",
+            "#r-g .value": "1.850",
+            "#r-force .value": "3260.7",
+            "#r-shear .value": "3260.7",
+            "#r-moment .value": "48910.8",
+            "#r-extra .value": "φ=0.20；D√q(z)=1.66"
+          },
+          "expectedTextNeedles": ["表 2.11 圓斷面，D√q(z) ≤ 1.70", "F = q(z) · G · C_f · A", "F = 122.38 × 1.850 × 1.800 × 8.00 = 3260.72 kgf"]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,

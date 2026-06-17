@@ -543,6 +543,128 @@ function exportCaptureExpression(tool) {
   })()`;
 }
 
+function jsonRoundTripExpression(tool, sourcePayload) {
+  return `(async () => {
+    const payload = ${JSON.stringify(sourcePayload || null)};
+    if (!payload || typeof payload !== 'object') {
+      return { missingPayload: true, mismatches: [], resultSelectors: {} };
+    }
+
+    const valueIds = Object.keys(payload.values || {});
+    const projectIds = {
+      name: 'projName',
+      no: 'projNo',
+      designer: 'projDesigner'
+    };
+    const expected = {};
+    const actual = {};
+    const mismatches = [];
+    const mutated = [];
+    const readValue = id => {
+      const el = document.getElementById(id);
+      if (!el) return undefined;
+      return el.type === 'checkbox' ? el.checked : el.value;
+    };
+    const writeValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return false;
+      if (el.type === 'checkbox') {
+        el.checked = Boolean(value);
+      } else {
+        el.value = value == null ? '' : String(value);
+      }
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    };
+    const expectedFor = (id, value) => {
+      const el = document.getElementById(id);
+      return el && el.type === 'checkbox' ? Boolean(value) : String(value ?? '');
+    };
+    const mutate = id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      let next;
+      if (el.type === 'checkbox') {
+        next = !el.checked;
+      } else if (el.tagName === 'SELECT') {
+        const alternate = Array.from(el.options).map(option => option.value).find(value => value !== el.value);
+        next = alternate ?? el.value;
+      } else if (el.type === 'number') {
+        next = String((Number(el.value) || 0) + 7.25);
+      } else {
+        next = 'roundtrip-mutated';
+      }
+      if (writeValue(id, next)) mutated.push(id);
+    };
+
+    for (const [key, id] of Object.entries(projectIds)) {
+      expected['project.' + key] = expectedFor(id, payload.project?.[key]);
+      mutate(id);
+    }
+    for (const id of valueIds) {
+      expected['values.' + id] = expectedFor(id, payload.values[id]);
+      mutate(id);
+    }
+
+    const fileInput = document.getElementById('caseJsonFile');
+    const file = new File([JSON.stringify(payload)], ${JSON.stringify(tool.key)} + '-roundtrip.json', { type: 'application/json' });
+    let usedFileInput = false;
+    let usedDirectImport = false;
+    let importError = '';
+    if (fileInput && typeof DataTransfer === 'function') {
+      try {
+        const transfer = new DataTransfer();
+        transfer.items.add(file);
+        fileInput.files = transfer.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        usedFileInput = true;
+      } catch (err) {
+        importError = err && err.message ? err.message : String(err);
+      }
+    }
+    if (!usedFileInput && typeof importCaseJsonFile === 'function') {
+      importCaseJsonFile(file);
+      usedDirectImport = true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 260));
+
+    for (const [key, id] of Object.entries(projectIds)) {
+      actual['project.' + key] = readValue(id);
+    }
+    for (const id of valueIds) {
+      actual['values.' + id] = readValue(id);
+    }
+    for (const [key, expectedValue] of Object.entries(expected)) {
+      const actualValue = actual[key];
+      const matches = typeof expectedValue === 'boolean'
+        ? actualValue === expectedValue
+        : String(actualValue ?? '') === String(expectedValue);
+      if (!matches) mismatches.push({ key, expected: expectedValue, actual: actualValue });
+    }
+
+    const text = selector => (document.querySelector(selector)?.textContent || '').replace(/\\s+/g, ' ').trim();
+    return {
+      missingPayload: false,
+      missingFileInput: !fileInput,
+      usedFileInput,
+      usedDirectImport,
+      importError,
+      mutatedCount: mutated.length,
+      expectedCount: Object.keys(expected).length,
+      mismatches,
+      caseStatus: text('#caseStatus'),
+      resultSelectors: {
+        '#r-cf .value': text('#r-cf .value'),
+        '#r-qz .value': text('#r-qz .value'),
+        '#r-force .value': text('#r-force .value')
+      },
+      payloadSchema: payload.schema || '',
+      payloadToolId: payload.tool?.id || ''
+    };
+  })()`;
+}
+
 function goldenCaseExpression(tool, goldenCase) {
   const inputs = goldenCase.inputs || {};
   const expectedSelectors = Object.keys(goldenCase.expectedSelectors || {});
@@ -721,6 +843,33 @@ function assertExportState(state, tool, label) {
   );
 }
 
+function assertJsonRoundTripState(state, tool, label) {
+  if (!tool.jsonRoundTrip) return;
+  assert.ok(state && typeof state === 'object', `${label} ${tool.key} JSON round-trip state`);
+  assert.equal(state.missingPayload, false, `${label} ${tool.key} JSON round-trip source payload`);
+  assert.equal(state.missingFileInput, false, `${label} ${tool.key} JSON round-trip file input`);
+  assert.ok(
+    state.usedFileInput || state.usedDirectImport,
+    `${label} ${tool.key} JSON round-trip import path: ${state.importError || 'not invoked'}`
+  );
+  assert.ok(state.mutatedCount >= 3, `${label} ${tool.key} JSON round-trip mutates page before import`);
+  assert.deepEqual(
+    state.mismatches,
+    [],
+    `${label} ${tool.key} JSON round-trip restores inputs`
+  );
+  assert.ok(
+    state.caseStatus.includes('已匯入案件 JSON'),
+    `${label} ${tool.key} JSON round-trip status: ${state.caseStatus}`
+  );
+  assert.equal(state.payloadToolId, tool.key, `${label} ${tool.key} JSON round-trip payload tool`);
+  assert.ok(state.payloadSchema, `${label} ${tool.key} JSON round-trip payload schema`);
+  assert.ok(
+    Object.values(state.resultSelectors || {}).some(value => value && value !== '—'),
+    `${label} ${tool.key} JSON round-trip recalculates result`
+  );
+}
+
 function assertGoldenCaseState(state, tool, goldenCase, label) {
   assert.equal(state.missingCalc, false, `${label} ${tool.key} ${goldenCase.id} calc button exists`);
   assert.deepEqual(state.missingInputs, [], `${label} ${tool.key} ${goldenCase.id} input ids`);
@@ -815,6 +964,9 @@ async function main() {
       const exportState = tool.exportButton
         ? await evaluate(client, sessionId, exportCaptureExpression(tool))
         : null;
+      const roundTripState = tool.jsonRoundTrip
+        ? await evaluate(client, sessionId, jsonRoundTripExpression(tool, exportState?.payload))
+        : null;
       const goldenStates = [];
       for (const goldenCase of tool.goldenCases || []) {
         goldenStates.push({
@@ -833,6 +985,7 @@ async function main() {
       pageErrors.unsubscribe();
       assertNoPageErrors(pageErrors.errors, `${label} ${tool.key}`);
       assertExportState(exportState, tool, label);
+      assertJsonRoundTripState(roundTripState, tool, label);
       for (const { goldenCase, state } of goldenStates) {
         assertGoldenCaseState(state, tool, goldenCase, label);
       }
