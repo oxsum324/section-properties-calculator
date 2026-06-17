@@ -295,6 +295,7 @@
       "reportButton": "btnReport",
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
@@ -313,6 +314,38 @@
           "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
         }
       },
+      "goldenCases": [
+        {
+          "id": "default-square-lattice-tower-table-2-15",
+          "description": "預設方形桁架高塔案例，鎖定表 2.15 Cf、分段風力與底部作用。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "C",
+            "impClass": "IV",
+            "Kzt": "1.0",
+            "lzBase": "0",
+            "lHeight": "45",
+            "faceWidth": "4.0",
+            "towerPhi": "0.20",
+            "towerShape": "square",
+            "towerMemberShape": "angle_flat",
+            "lSegments": "8",
+            "skewWind": false,
+            "chkDetail": false
+          },
+          "expectedSelectors": {
+            "#r-type .value": "方形高塔",
+            "#r-cf .value": "3.060",
+            "#r-qz .value": "166.9",
+            "#r-g .value": "1.819",
+            "#r-force .value": "26625.7",
+            "#r-shear .value": "26625.7",
+            "#r-moment .value": "666861.7",
+            "#r-extra .value": "基本=3.060；構材=1.000；斜風向=1.000"
+          },
+          "expectedTextNeedles": ["桁架高塔採表 2.15", "未採斜風向修正", "最高段示例：F_i = 166.90 × 1.819 × 3.060 × 4.50 = 4179.92 kgf"]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
