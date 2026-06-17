@@ -370,6 +370,7 @@
       "reportButton": "btnReport",
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
@@ -388,6 +389,40 @@
           "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
         }
       },
+      "goldenCases": [
+        {
+          "id": "default-chimney-table-2-12",
+          "description": "預設煙囪案例，鎖定表 2.12 圓形中度光滑路線、分段風力與底部作用。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "C",
+            "impClass": "IV",
+            "Kzt": "1.0",
+            "objectType": "chimney",
+            "zBase": "0",
+            "height": "40",
+            "D": "2.5",
+            "segments": "8",
+            "sectionType": "circular_auto",
+            "shapeFactor": "1.00",
+            "topArea": "0",
+            "topCf": "",
+            "chkDetail": false
+          },
+          "expectedSelectors": {
+            "#r-shape .value": "圓形（中度光滑，D√q(z) > 1.70）",
+            "#r-hd .value": "16.00",
+            "#r-qd .value": "32.04",
+            "#r-cf .value": "0.650",
+            "#r-g .value": "1.824",
+            "#r-shear .value": "15255.6",
+            "#r-moment .value": "338766.9",
+            "#r-zr .value": "22.21",
+            "#r-topf .value": "0.0"
+          },
+          "expectedTextNeedles": ["煙囪 / 水塔採表 2.12", "C_f,eff = 0.650 × 1.000 = 0.650", "最高段示例：161.10 × 1.824 × 0.650 × 12.50 = 2388.06 kgf"]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
