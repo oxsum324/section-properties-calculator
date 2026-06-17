@@ -329,7 +329,9 @@ flowchart TD
 - 圖面箭頭、文字、遮罩、結果框不重疊。
 - 圖面箭頭、箭頭頭部、力值標籤與標的物比例合理；箭頭不得因 marker 放大而成為主視覺。
 - 同一張圖至少檢查一組小值與一組大值，確認數值長度改變時不會造成文字溢出、箭頭遮字或結果框壓圖。
-- JSON 匯出 payload 可回讀。
+- JSON 匯出 payload 可回讀；有匯入功能的工具應在 browser smoke 內做匯出 -> 污染欄位 -> 匯入 -> 重新計算 round-trip。
+- 正式工具若尚未拆 core regression，至少先在 `formal-tools.manifest.json` 建立 pilot golden case，鎖定頁面輸出的關鍵數值與規範路線文字。
+- 工具成熟度矩陣需能看出 `goldenCaseRegression`、`jsonRoundTrip`、`referenceTraceability` 是否已補齊；缺漏應作為下一輪品質清單。
 - 報告 HTML 可由瀏覽器 smoke 產生，不依賴手動列印。
 
 建議測試命令：
@@ -357,7 +359,9 @@ node .\結構工具箱\tests\wind.test.js
 - 是否需要示意圖，以及示意圖要呈現哪些幾何與外力。
 - 是否需要詳算式與簡易結果兩種計算書模式。
 - JSON 匯出是否需要匯入與恢復預設。
-- 是否已有 golden case 或可建立固定範例。
+- 是否已有 golden case 或可建立固定範例，且 expected value 來自頁面輸出或核心函式，不另開一套平行公式。
+- JSON 匯出匯入是否需要 round-trip smoke，而不是只檢查按鈕存在。
+- 規範表號、公式、專案指定或風洞 / 專案文件來源是否能在報表與矩陣中追溯。
 - 是否要納入 `local-quick-tools` manifest、`formal-tools.manifest.json`、contract test、工具成熟度矩陣或 preflight。
 
 ## 最常見踩坑

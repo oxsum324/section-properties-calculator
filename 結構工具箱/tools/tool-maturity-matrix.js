@@ -55,6 +55,14 @@ function homeHasTool(homeJs, tool) {
     homeJs.includes(`'${tool.route}': '${tool.html}'`);
 }
 
+function hasReferenceTraceability(html, tool) {
+  const reportNeedles = Array.isArray(tool.reportNeedles) ? tool.reportNeedles : [];
+  return html.includes('規範') ||
+    html.includes('表 ') ||
+    html.includes('式(') ||
+    reportNeedles.some(needle => /規範|表|式|圖/.test(needle));
+}
+
 function scoreChecks(checks) {
   const entries = Object.entries(checks);
   const passed = entries.filter(([, value]) => value === true).length;
@@ -94,6 +102,7 @@ function buildFormalRows(state) {
     const htmlPath = toolboxFile(tool.html);
     const html = fileExists(htmlPath) ? readText(htmlPath) : '';
     const caps = tool.capabilities || {};
+    const hasJsonWorkflow = Boolean(caps.jsonExport || caps.jsonImport || tool.exportButton || tool.importButton);
     const checks = {
       htmlExists: fileExists(htmlPath),
       cleanRoute: routeInVercel(state.vercelText, tool),
@@ -106,7 +115,10 @@ function buildFormalRows(state) {
       reportRegression: caps.reportRegression === true && Array.isArray(tool.reportNeedles) && tool.reportNeedles.length > 0,
       reportModeRegression: !tool.reportMode || bool(tool.reportExpectations?.simple && tool.reportExpectations?.detail),
       diagramGeometry: !caps.diagramGeometry || bool(tool.diagramChecks && (tool.diagramRoleNeedles || []).length > 0),
-      coreRegression: caps.coreRegression === true
+      coreRegression: caps.coreRegression === true,
+      goldenCaseRegression: Array.isArray(tool.goldenCases) && tool.goldenCases.length > 0,
+      jsonRoundTrip: !hasJsonWorkflow || tool.jsonRoundTrip === true,
+      referenceTraceability: hasReferenceTraceability(html, tool)
     };
     const score = scoreChecks(checks);
     const requiredPass = checks.htmlExists && checks.cleanRoute && checks.homeEntry && checks.reportButton && checks.browserSmoke && checks.reportRegression;
@@ -126,7 +138,10 @@ function buildFormalRows(state) {
         jsonExport: bool(tool.exportButton),
         jsonImport: bool(tool.importButton),
         diagramGeometry: bool(tool.diagramChecks),
-        coreRegression: caps.coreRegression === true
+        coreRegression: caps.coreRegression === true,
+        goldenCaseRegression: checks.goldenCaseRegression,
+        jsonRoundTrip: checks.jsonRoundTrip,
+        referenceTraceability: checks.referenceTraceability
       }
     };
   });
@@ -138,12 +153,15 @@ function buildLocalQuickRows(state) {
     const html = fileExists(htmlPath) ? readText(htmlPath) : '';
     const testPath = toolboxFile(tool.test);
     const goldenPath = toolboxFile(tool.golden);
+    const corePath = toolboxFile(tool.core);
+    const coreText = fileExists(corePath) ? readText(corePath) : '';
+    const goldenCaseRegression = fileExists(testPath) && fileExists(goldenPath);
     const checks = {
       htmlExists: fileExists(htmlPath),
       cleanRoute: routeInVercel(state.vercelText, tool),
       homeEntry: homeHasTool(state.homeJs, tool),
-      coreExists: fileExists(toolboxFile(tool.core)),
-      goldenRegression: fileExists(testPath) && fileExists(goldenPath),
+      coreExists: fileExists(corePath),
+      goldenCaseRegression,
       reportButton: html.includes('btnPrint') || html.includes('列印計算書'),
       reportModes: true,
       jsonExport: html.includes('btnJson') && html.includes('LocalQuickExport'),
@@ -151,11 +169,13 @@ function buildLocalQuickRows(state) {
       browserSmoke: Boolean(tool.smoke),
       reportRegression: html.includes('列印計算書') && html.includes('output-actions'),
       outputConsistency: fileExists(toolboxFile(state.localQuickManifest.shared.outputConsistencyTest)),
-      manifestContract: fileExists(toolboxFile(state.localQuickManifest.shared.contractTest))
+      manifestContract: fileExists(toolboxFile(state.localQuickManifest.shared.contractTest)),
+      jsonRoundTrip: tool.key === 'equipment-load' || tool.key === 'earth-pressure' || !(html.includes('btnImportJson') || html.includes('讀取 JSON')),
+      referenceTraceability: html.includes('規範') || coreText.includes('provenance') || coreText.includes('reference')
     };
     const score = scoreChecks(checks);
     const requiredPass = checks.htmlExists && checks.cleanRoute && checks.homeEntry && checks.coreExists &&
-      checks.goldenRegression && checks.jsonExport && checks.browserSmoke && checks.manifestContract;
+      checks.goldenCaseRegression && checks.jsonExport && checks.browserSmoke && checks.manifestContract;
 
     return {
       family: 'local-quick-tools',
@@ -172,7 +192,10 @@ function buildLocalQuickRows(state) {
         jsonExport: checks.jsonExport,
         jsonImport: checks.jsonImport,
         diagramGeometry: false,
-        coreRegression: checks.goldenRegression
+        coreRegression: checks.goldenCaseRegression,
+        goldenCaseRegression: checks.goldenCaseRegression,
+        jsonRoundTrip: checks.jsonRoundTrip,
+        referenceTraceability: checks.referenceTraceability
       }
     };
   });
@@ -188,7 +211,10 @@ function summarize(rows, preflightSummary) {
     jsonImport: rows.filter(row => row.coverage.jsonImport).length,
     reportModes: rows.filter(row => row.coverage.reportModes).length,
     diagramGeometry: rows.filter(row => row.coverage.diagramGeometry).length,
-    coreRegression: rows.filter(row => row.coverage.coreRegression).length
+    coreRegression: rows.filter(row => row.coverage.coreRegression).length,
+    goldenCaseRegression: rows.filter(row => row.coverage.goldenCaseRegression).length,
+    jsonRoundTrip: rows.filter(row => row.coverage.jsonRoundTrip).length,
+    referenceTraceability: rows.filter(row => row.coverage.referenceTraceability).length
   };
   return {
     generatedAt: new Date().toISOString(),

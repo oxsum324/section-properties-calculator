@@ -543,6 +543,60 @@ function exportCaptureExpression(tool) {
   })()`;
 }
 
+function goldenCaseExpression(tool, goldenCase) {
+  const inputs = goldenCase.inputs || {};
+  const expectedSelectors = Object.keys(goldenCase.expectedSelectors || {});
+  return `(async () => {
+    const inputs = ${JSON.stringify(inputs)};
+    const expectedSelectors = ${JSON.stringify(expectedSelectors)};
+    const calc = document.getElementById(${JSON.stringify(tool.calcButton)});
+    const applied = [];
+    const missingInputs = [];
+    const setInput = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) {
+        missingInputs.push(id);
+        return;
+      }
+      if (el.type === 'checkbox') {
+        el.checked = Boolean(value);
+      } else {
+        el.value = value == null ? '' : String(value);
+      }
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      applied.push(id);
+    };
+    for (const [id, value] of Object.entries(inputs)) setInput(id, value);
+    if (calc) {
+      calc.click();
+      await new Promise(resolve => setTimeout(resolve, 180));
+    }
+    const normalizedText = node => (node?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const selectorValues = {};
+    const missingSelectors = [];
+    for (const selector of expectedSelectors) {
+      const node = document.querySelector(selector);
+      if (!node) {
+        missingSelectors.push(selector);
+        selectorValues[selector] = '';
+      } else {
+        selectorValues[selector] = normalizedText(node);
+      }
+    }
+    const resultPanel = document.getElementById('resultPanel');
+    return {
+      missingCalc: !calc,
+      applied,
+      missingInputs,
+      selectorValues,
+      missingSelectors,
+      bodyText: normalizedText(document.body),
+      resultText: normalizedText(resultPanel || document.body)
+    };
+  })()`;
+}
+
 function assertPageState(state, tool, label) {
   assert.equal(state.hasFamily, true, `${label} ${tool.key} family label`);
   assert.equal(state.hasTitleNeedle, true, `${label} ${tool.key} title label`);
@@ -667,6 +721,28 @@ function assertExportState(state, tool, label) {
   );
 }
 
+function assertGoldenCaseState(state, tool, goldenCase, label) {
+  assert.equal(state.missingCalc, false, `${label} ${tool.key} ${goldenCase.id} calc button exists`);
+  assert.deepEqual(state.missingInputs, [], `${label} ${tool.key} ${goldenCase.id} input ids`);
+  assert.deepEqual(state.missingSelectors, [], `${label} ${tool.key} ${goldenCase.id} result selectors`);
+
+  for (const [selector, expected] of Object.entries(goldenCase.expectedSelectors || {})) {
+    assert.equal(
+      state.selectorValues[selector],
+      expected,
+      `${label} ${tool.key} ${goldenCase.id} ${selector}`
+    );
+  }
+
+  for (const needle of goldenCase.expectedTextNeedles || []) {
+    const normalizedNeedle = String(needle).replace(/\s+/g, ' ').trim();
+    assert.ok(
+      state.resultText.includes(normalizedNeedle) || state.bodyText.includes(normalizedNeedle),
+      `${label} ${tool.key} ${goldenCase.id} text includes ${needle}`
+    );
+  }
+}
+
 function assertNoPageErrors(errors, label) {
   const relevantErrors = errors.filter(error => {
     const url = error.url || '';
@@ -739,6 +815,13 @@ async function main() {
       const exportState = tool.exportButton
         ? await evaluate(client, sessionId, exportCaptureExpression(tool))
         : null;
+      const goldenStates = [];
+      for (const goldenCase of tool.goldenCases || []) {
+        goldenStates.push({
+          goldenCase,
+          state: await evaluate(client, sessionId, goldenCaseExpression(tool, goldenCase)),
+        });
+      }
       const reportStates = tool.reportMode
         ? {
           simple: await evaluate(client, sessionId, reportCaptureExpression(tool, 'simple')),
@@ -750,6 +833,9 @@ async function main() {
       pageErrors.unsubscribe();
       assertNoPageErrors(pageErrors.errors, `${label} ${tool.key}`);
       assertExportState(exportState, tool, label);
+      for (const { goldenCase, state } of goldenStates) {
+        assertGoldenCaseState(state, tool, goldenCase, label);
+      }
       for (const [mode, reportState] of Object.entries(reportStates)) {
         assertReportState(reportState, tool, label, mode);
       }

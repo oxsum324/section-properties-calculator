@@ -166,6 +166,38 @@
           "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
         }
       },
+      "goldenCases": [
+        {
+          "id": "default-solid-sign-table-2-10",
+          "description": "預設實體標示物案例，鎖定表 2.10 兩條 Cf 查表路徑與控制結果。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "B",
+            "impClass": "IV",
+            "Kzt": "1.0",
+            "objectHeight": "3.0",
+            "sectionMajor": "2.0",
+            "sectionMinor": "0.1",
+            "windWidthMode": "major",
+            "windWidthCustom": "",
+            "bottomClearance": "0.0",
+            "openingRatio": "0",
+            "cfSource": "code",
+            "cfOverride": ""
+          },
+          "expectedSelectors": {
+            "#r-route .value": "控制：M/N",
+            "#r-cf .value": "1.500",
+            "#r-qz .value": "45.1",
+            "#r-g .value": "1.881",
+            "#r-force .value": "763.5",
+            "#r-shear .value": "763.5",
+            "#r-moment .value": "1145.2",
+            "#r-ecc .value": "0.60"
+          },
+          "expectedTextNeedles": ["C_f(ν) = 1.200", "C_f(M/N) = 1.500", "規範判定取較大 C_f = 1.500"]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
@@ -334,6 +366,36 @@
           "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
         }
       },
+      "goldenCases": [
+        {
+          "id": "default-ground-fence-table-2-10",
+          "description": "預設座地圍籬牆案例，鎖定表 2.10 Cf、速度壓、陣風因子與基底作用。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "C",
+            "impClass": "IV",
+            "Kzt": "1.0",
+            "objType": "fence",
+            "h": "2.0",
+            "B": "6.0",
+            "s": "0",
+            "phi": "1.00",
+            "cfOverride": ""
+          },
+          "expectedSelectors": {
+            "#r-zr .value": "1.00",
+            "#r-aspect .value": "3.00",
+            "#r-cf .value": "1.200",
+            "#r-qz .value": "85.3",
+            "#r-g .value": "1.872",
+            "#r-area .value": "12.00",
+            "#r-force .value": "2298.6",
+            "#r-shear .value": "2298.6",
+            "#r-moment .value": "2298.6"
+          },
+          "expectedTextNeedles": ["依表 2.10 判定 C_f = 1.200", "F = 2298.6 kgf", "M = 2298.6 kgf·m"]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
@@ -444,6 +506,30 @@
           "mustExclude": ["<h3>工址與建物條件</h3>", "<h3>結果摘要</h3>", "適用性檢查", "適用性與採用提醒"]
         }
       },
+      "goldenCases": [
+        {
+          "id": "default-unreinforced-masonry-appendage",
+          "description": "預設無筋磚造內部非結構牆案例，鎖定第四章式(4-1)控制值與式(4-3)垂直力。",
+          "inputs": {
+            "SsD": "0.6",
+            "S1D": "0.35",
+            "SsM": "0.8",
+            "S1M": "0.5",
+            "siteClass": "2",
+            "hn": "17.2",
+            "chkTaipei": false,
+            "chkNearFault": false,
+            "apType": "T1_0",
+            "apWp": "1.0",
+            "apIp": "1.0",
+            "apHx": "0",
+            "apCustom": "",
+            "rpCustom": "",
+            "apRemark": ""
+          },
+          "expectedTextNeedles": ["Fph = 0.226 tf", "Fpv = 0.113 tf", "Cph = 0.2263", "Rpa 1.167", "SDS 0.6600g", "採式(4-1a)計算值"]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,

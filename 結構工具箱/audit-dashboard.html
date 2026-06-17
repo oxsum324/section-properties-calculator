@@ -413,7 +413,7 @@
       <div class="kpi-card">
         <div class="kpi-label">治理完成</div>
         <div class="kpi-value ok" id="maturityGovernedCount">讀取中</div>
-        <div class="kpi-hint">clean route、首頁入口、smoke、報表與核心 regression 皆納入檢查。</div>
+        <div class="kpi-hint">clean route、首頁入口、smoke、報表、golden case 與 round-trip 會共同影響成熟度。</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">需補強</div>
@@ -616,7 +616,7 @@
       const rows = payload.rows.map((row) => {
         const checks = row.checks || {};
         const missing = Object.entries(checks).filter(([, value]) => value !== true).map(([key]) => key);
-        const keyChecks = ['cleanRoute', 'homeEntry', 'browserSmoke', 'reportRegression', 'jsonExport', 'jsonImport', 'diagramGeometry', 'coreRegression']
+        const keyChecks = ['cleanRoute', 'homeEntry', 'browserSmoke', 'reportRegression', 'goldenCaseRegression', 'jsonRoundTrip', 'referenceTraceability', 'jsonExport', 'jsonImport', 'diagramGeometry', 'coreRegression']
           .filter((key) => Object.prototype.hasOwnProperty.call(checks, key))
           .map((key) => `<span class="maturity-chip ${checks[key] ? 'ok' : 'miss'}">${escapeHtml(key)}</span>`)
           .join('');

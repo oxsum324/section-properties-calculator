@@ -66,7 +66,9 @@ const repoDocs = {
   'reportExpectations',
   'diagramChecks',
   'roleBoxesNonZero',
-  'rolesInsideDiagram'
+  'rolesInsideDiagram',
+  'goldenCaseExpression',
+  'assertGoldenCaseState'
 ].forEach(needle => assertIncludes(repoDocs.smoke, needle, 'formal browser smoke manifest contract'));
 
 [
@@ -84,7 +86,10 @@ const repoDocs = {
   '--write',
   '--check',
   'tool-maturity-matrix.json',
-  'tool-maturity-matrix.md'
+  'tool-maturity-matrix.md',
+  'goldenCaseRegression',
+  'jsonRoundTrip',
+  'referenceTraceability'
 ].forEach(needle => assertIncludes(repoDocs.maturity, needle, 'tool maturity matrix generator'));
 
 [
@@ -166,6 +171,24 @@ for (const tool of tools) {
     assert.ok(tool.reportExpectations.simple.mustExclude.length >= 2, `${tool.key} simple report mustExclude`);
     assert.ok(tool.reportExpectations.detail.mustExclude.length >= 2, `${tool.key} detail report mustExclude`);
   }
+
+  for (const goldenCase of tool.goldenCases || []) {
+    assert.ok(goldenCase.id, `${tool.key} golden case id`);
+    assert.ok(goldenCase.description, `${tool.key} golden case description`);
+    assert.ok(goldenCase.inputs && typeof goldenCase.inputs === 'object', `${tool.key} golden case inputs`);
+    assert.ok(
+      Object.keys(goldenCase.expectedSelectors || {}).length > 0 ||
+        (goldenCase.expectedTextNeedles || []).length > 0,
+      `${tool.key} golden case expected outputs`
+    );
+  }
 }
+
+const goldenToolKeys = tools.filter(tool => (tool.goldenCases || []).length > 0).map(tool => tool.key);
+assert.deepEqual(
+  goldenToolKeys,
+  ['wind-object-solid', 'wind-fence-sign', 'seismic-appendage'],
+  'formal golden case pilot tool set'
+);
 
 console.log(`formal tools contract OK (${tools.length} tools)`);

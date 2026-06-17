@@ -478,26 +478,48 @@ function earthWallTypeExpression() {
   })()`;
 }
 
-function jsonImportExpression(payload) {
+function jsonImportExpression(tool, payload) {
   return `(async () => {
+    const tool = ${JSON.stringify({ key: tool.key })};
     const payload = ${JSON.stringify(payload)};
     payload.project = Object.assign({}, payload.project, { name: '回讀測試案' });
-    document.getElementById('equipmentWeight').value = '99';
-    document.getElementById('fluidWeight').value = '9';
     document.getElementById('projName').value = '';
+    if (tool.key === 'equipment-load') {
+      document.getElementById('equipmentWeight').value = '99';
+      document.getElementById('fluidWeight').value = '9';
+    }
+    if (tool.key === 'earth-pressure') {
+      document.getElementById('H').value = '9.99';
+      document.getElementById('surcharge').value = '8.88';
+      document.getElementById('wallType').value = 'gravity';
+    }
     const fileInput = document.getElementById('jsonFile');
-    const file = new File([JSON.stringify(payload)], 'equipment-load-import.json', { type: 'application/json' });
+    const file = new File([JSON.stringify(payload)], tool.key + '-import.json', { type: 'application/json' });
     const transfer = new DataTransfer();
     transfer.items.add(file);
     fileInput.files = transfer.files;
     fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 180));
+    if (tool.key === 'equipment-load') {
+      return {
+        tool: tool.key,
+        equipmentWeight: document.getElementById('equipmentWeight').value,
+        fluidWeight: document.getElementById('fluidWeight').value,
+        projectName: document.getElementById('projName').value,
+        jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
+        banner: document.getElementById('bannerStatus')?.textContent || ''
+      };
+    }
     return {
-      equipmentWeight: document.getElementById('equipmentWeight').value,
-      fluidWeight: document.getElementById('fluidWeight').value,
+      tool: tool.key,
+      H: document.getElementById('H').value,
+      surcharge: document.getElementById('surcharge').value,
+      wallType: document.getElementById('wallType').value,
       projectName: document.getElementById('projName').value,
-      jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
-      banner: document.getElementById('bannerStatus')?.textContent || ''
+      banner: document.getElementById('bannerStatus')?.textContent || '',
+      metricText: document.getElementById('metricGrid')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      wallTypeOutput: document.getElementById('wallTypeOutputBody')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      diagramText: document.getElementById('diagramBody')?.textContent?.replace(/\\s+/g, ' ').trim() || ''
     };
   })()`;
 }
@@ -660,12 +682,23 @@ function assertJsonExportState(state, tool, label) {
   }
 }
 
-function assertJsonImportState(state, label) {
+function assertEquipmentJsonImportState(state, label) {
   assert.equal(state.equipmentWeight, '12', `${label} equipment import weight`);
   assert.equal(state.fluidWeight, '2', `${label} equipment import fluid weight`);
   assert.equal(state.projectName, '回讀測試案', `${label} equipment import project`);
   assert.ok(state.jsonStatus.includes('已讀取 JSON'), `${label} equipment import status`);
   assert.ok(state.banner && state.banner !== '尚未計算', `${label} equipment import recalculates`);
+}
+
+function assertEarthJsonImportState(state, label) {
+  assert.equal(state.H, '2.5', `${label} earth import height`);
+  assert.equal(state.surcharge, '1', `${label} earth import surcharge`);
+  assert.equal(state.wallType, 'cantilever', `${label} earth import wall type`);
+  assert.equal(state.projectName, '回讀測試案', `${label} earth import project`);
+  assert.ok(state.banner.includes('已讀取 JSON'), `${label} earth import banner`);
+  assert.ok(state.metricText.includes('側向合力'), `${label} earth import recalculates metrics`);
+  assert.ok(state.wallTypeOutput.includes('懸臂式工作輸出'), `${label} earth import wall output`);
+  assert.ok(state.diagramText.includes('懸臂式擋土牆'), `${label} earth import diagram`);
 }
 
 function assertReportState(state, tool, label) {
@@ -788,9 +821,10 @@ async function main() {
           if (toolCase.key === 'route-tool') {
             const exportState = await evaluate(client, sessionId, jsonExportExpression());
             assertJsonExportState(exportState, tool, label);
-            if (tool.key === 'equipment-load') {
-              const importState = await evaluate(client, sessionId, jsonImportExpression(exportState.payload));
-              assertJsonImportState(importState, label);
+            if (tool.key === 'equipment-load' || tool.key === 'earth-pressure') {
+              const importState = await evaluate(client, sessionId, jsonImportExpression(tool, exportState.payload));
+              if (tool.key === 'equipment-load') assertEquipmentJsonImportState(importState, label);
+              if (tool.key === 'earth-pressure') assertEarthJsonImportState(importState, label);
             }
             if (tool.key === 'earth-pressure') {
               const wallTypeState = await evaluate(client, sessionId, earthWallTypeExpression());
