@@ -20,209 +20,15 @@ const viewports = [
   { key: 'mobile', width: 390, height: 844, mobile: true },
 ];
 
-const formalTools = [
-  {
-    key: 'wind-force',
-    route: '/wind-force',
-    titleNeedle: '矩形建物 MWFRS',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButtonSelector: '.btn-print',
-    exportButton: null,
-    reportMode: false,
-    diagramSelector: null,
-    diagramRoleNeedles: [],
-    reportNeedles: ['矩形建物', 'MWFRS', '設計風力'],
-  },
-  {
-    key: 'wind-cc',
-    route: '/wind-cc',
-    titleNeedle: '區域風壓',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButtonSelector: '.btn-print',
-    exportButton: null,
-    reportMode: false,
-    diagramSelector: '#refSvgWrap',
-    diagramRoleNeedles: [],
-    reportNeedles: ['區域風壓', 'C&amp;C', '設計採用表'],
-  },
-  {
-    key: 'wind-open-roof',
-    route: '/wind-open-roof',
-    titleNeedle: '開放式建築屋面風壓',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButtonSelector: '.btn-print',
-    exportButton: null,
-    reportMode: false,
-    diagramSelector: null,
-    diagramRoleNeedles: [],
-    reportNeedles: ['開放式建築屋面', '圖 3.3', '設計採用表'],
-  },
-  {
-    key: 'wind-parapet',
-    route: '/wind-parapet',
-    titleNeedle: '女兒牆風壓',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButtonSelector: '.btn-print',
-    exportButton: null,
-    reportMode: false,
-    diagramSelector: '#refSvgWrap',
-    diagramRoleNeedles: [],
-    reportNeedles: ['女兒牆', '圖 3.4', '設計採用表'],
-  },
-  {
-    key: 'wind-object-solid',
-    route: '/wind-object-solid',
-    titleNeedle: '實體標示物風力',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCase',
-    reportMode: true,
-    diagramSelector: '#schemaSvg',
-    diagramRoleNeedles: ['force-arrow-zone', 'force-label-zone', 'height-arrow-zone'],
-    reportNeedles: ['表 2.10', '實體標示物', 'C<sub>f</sub>(ν)', 'C<sub>f</sub>(M/N)'],
-  },
-  {
-    key: 'wind-object-frame',
-    route: '/wind-object-frame',
-    titleNeedle: '中空式 / 格子式風力',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCase',
-    reportMode: true,
-    diagramSelector: '#schemaSvg',
-    diagramRoleNeedles: ['force-arrow-zone', 'force-label-zone', 'height-arrow-zone'],
-    reportNeedles: ['表 2.11', '中空式', '格子式'],
-  },
-  {
-    key: 'wind-lattice-tower',
-    route: '/wind-lattice-tower',
-    titleNeedle: '桁架高塔風力',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCase',
-    reportMode: true,
-    diagramSelector: '#schemaSvg',
-    diagramRoleNeedles: ['force-arrow-zone', 'force-label-zone', 'height-arrow-zone'],
-    reportNeedles: ['表 2.15', '桁架高塔', '分段'],
-  },
-  {
-    key: 'wind-object-tower',
-    route: '/wind-object-tower',
-    titleNeedle: '煙囪 / 水塔風力',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCase',
-    reportMode: true,
-    diagramSelector: '#schemaSvg',
-    diagramRoleNeedles: ['force-arrow-zone', 'force-label-zone', 'height-arrow-zone'],
-    reportNeedles: ['表 2.12', '煙囪', '水塔'],
-  },
-  {
-    key: 'wind-fence-sign',
-    route: '/wind-fence-sign',
-    titleNeedle: '圍籬牆 / 獨立招牌風力',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCase',
-    reportMode: true,
-    diagramSelector: '#schemaSvg',
-    diagramRoleNeedles: ['wind-arrows', 'force-panel'],
-    reportNeedles: ['圍籬牆', '獨立招牌', '表 2.10'],
-  },
-  {
-    key: 'wind-sign-pole',
-    route: '/wind-sign-pole',
-    titleNeedle: '招牌 / 燈桿組合風力',
-    familyNeedle: '建築物耐風設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCase',
-    reportMode: true,
-    diagramSelector: '#schemaSvg',
-    diagramRoleNeedles: ['panel-force-zone', 'support-load-zone', 'result-panel'],
-    reportNeedles: ['表 2.10', '表 2.14', '表 2.13', '元件合計'],
-  },
-  {
-    key: 'seismic-force',
-    route: '/seismic-force',
-    titleNeedle: '等值靜力分析',
-    familyNeedle: '建築物耐震設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: null,
-    reportMode: false,
-    diagramSelector: '#spectrumChart',
-    diagramRoleNeedles: [],
-    reportNeedles: ['等值靜力分析', '主要組成一：地震力分配', '反應譜'],
-  },
-  {
-    key: 'seismic-appendage',
-    route: '/seismic-appendage',
-    titleNeedle: '附屬構造物地震力',
-    familyNeedle: '建築物耐震設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCaseJson',
-    reportMode: true,
-    diagramSelector: '.line-h2-diagram',
-    diagramRoleNeedles: ['fph-arrow-zone', 'fpv-arrow-zone', 'force-panel'],
-    reportNeedles: ['附屬構造物', 'Fph', 'Fpv'],
-  },
-  {
-    key: 'seismic-misc',
-    route: '/seismic-misc',
-    titleNeedle: '雜項工作物地震力',
-    familyNeedle: '建築物耐震設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCaseJson',
-    reportMode: true,
-    diagramSelector: '.line-h2-diagram',
-    diagramRoleNeedles: ['vh-arrow-zone', 'vv-arrow-zone', 'force-panel'],
-    reportNeedles: ['雜項工作物', 'Vh', 'Vv'],
-  },
-  {
-    key: 'seismic-dynamic',
-    route: '/seismic-dynamic',
-    titleNeedle: '反應譜動力分析',
-    familyNeedle: '建築物耐震設計',
-    calcButton: 'btnCalc',
-    reportButton: 'btnReport',
-    exportButton: 'btnExportCaseJson',
-    reportMode: false,
-    diagramSelector: null,
-    diagramRoleNeedles: [],
-    reportNeedles: ['反應譜', '總橫力調整', '動力分析'],
-  },
-];
-
-const requiredFormalRoutes = [
-  '/wind-force',
-  '/wind-cc',
-  '/wind-open-roof',
-  '/wind-parapet',
-  '/wind-object-solid',
-  '/wind-object-frame',
-  '/wind-lattice-tower',
-  '/wind-object-tower',
-  '/wind-fence-sign',
-  '/wind-sign-pole',
-  '/seismic-force',
-  '/seismic-appendage',
-  '/seismic-misc',
-  '/seismic-dynamic',
-];
+const formalManifest = readRootJson('結構工具箱/tools/formal-tools.manifest.json');
+const formalTools = formalManifest.tools;
+const requiredFormalRoutes = formalManifest.requiredRoutes;
 
 function assertFormalToolCoverage() {
+  assert.equal(formalManifest.family, 'formal-tools', 'formal browser smoke manifest family');
+  assert.equal(formalManifest.version, '0.1.0', 'formal browser smoke manifest version');
+  assert.ok(Array.isArray(formalTools), 'formal browser smoke manifest tools');
+  assert.ok(Array.isArray(requiredFormalRoutes), 'formal browser smoke manifest required routes');
   const coveredRoutes = new Set(formalTools.map(tool => tool.route));
   for (const route of requiredFormalRoutes) {
     assert.ok(coveredRoutes.has(route), `formal browser smoke missing route: ${route}`);
@@ -525,6 +331,75 @@ function pageStateExpression(tool) {
     const diagramBox = diagram ? diagram.getBoundingClientRect() : null;
     const diagramRoles = Array.from(document.querySelectorAll('[data-diagram-role]'))
       .map(node => node.getAttribute('data-diagram-role') || '');
+    const boxPayload = box => box ? ({
+      left: Math.round(box.left * 10) / 10,
+      top: Math.round(box.top * 10) / 10,
+      right: Math.round(box.right * 10) / 10,
+      bottom: Math.round(box.bottom * 10) / 10,
+      width: Math.round(box.width * 10) / 10,
+      height: Math.round(box.height * 10) / 10
+    }) : null;
+    const svgClientBox = node => {
+      try {
+        if (!node.ownerSVGElement || typeof node.getBBox !== 'function' || typeof node.getScreenCTM !== 'function') return null;
+        const bbox = node.getBBox();
+        const matrix = node.getScreenCTM();
+        if (!matrix || (bbox.width <= 0 && bbox.height <= 0)) return null;
+        const makePoint = (x, y) => {
+          const point = node.ownerSVGElement.createSVGPoint();
+          point.x = x;
+          point.y = y;
+          return point.matrixTransform(matrix);
+        };
+        const points = [
+          makePoint(bbox.x, bbox.y),
+          makePoint(bbox.x + bbox.width, bbox.y),
+          makePoint(bbox.x, bbox.y + bbox.height),
+          makePoint(bbox.x + bbox.width, bbox.y + bbox.height)
+        ];
+        const xs = points.map(point => point.x);
+        const ys = points.map(point => point.y);
+        let left = Math.min(...xs);
+        let right = Math.max(...xs);
+        let top = Math.min(...ys);
+        let bottom = Math.max(...ys);
+        const strokeWidth = Number.parseFloat(getComputedStyle(node).strokeWidth || '1') || 1;
+        if (right - left <= 0.5) {
+          left -= strokeWidth / 2;
+          right += strokeWidth / 2;
+        }
+        if (bottom - top <= 0.5) {
+          top -= strokeWidth / 2;
+          bottom += strokeWidth / 2;
+        }
+        return { left, top, right, bottom, width: right - left, height: bottom - top };
+      } catch (_) {
+        return null;
+      }
+    };
+    const mergeBoxes = boxes => {
+      const usable = boxes.filter(Boolean).filter(box => box.width > 0.5 && box.height > 0.5);
+      if (!usable.length) return null;
+      const left = Math.min(...usable.map(box => box.left));
+      const top = Math.min(...usable.map(box => box.top));
+      const right = Math.max(...usable.map(box => box.right));
+      const bottom = Math.max(...usable.map(box => box.bottom));
+      return { left, top, right, bottom, width: right - left, height: bottom - top };
+    };
+    const childClientBox = node => {
+      const boxes = Array.from(node.querySelectorAll('*')).map(child => {
+        const rect = child.getBoundingClientRect();
+        return rect.width > 0.5 && rect.height > 0.5 ? rect : svgClientBox(child);
+      });
+      return mergeBoxes(boxes);
+    };
+    const roleBoxes = Array.from(document.querySelectorAll('[data-diagram-role]'))
+      .map(node => {
+        const role = node.getAttribute('data-diagram-role') || '';
+        const rect = node.getBoundingClientRect();
+        const box = rect.width > 0.5 && rect.height > 0.5 ? rect : svgClientBox(node) || childClientBox(node);
+        return { role, box: boxPayload(box) };
+      });
     const overflowing = Array.from(document.querySelectorAll('body *'))
       .filter(node => node.scrollWidth > node.clientWidth + 2 || node.getBoundingClientRect().right > document.documentElement.clientWidth + 2)
       .slice(0, 12)
@@ -550,7 +425,9 @@ function pageStateExpression(tool) {
       diagramExists: ${JSON.stringify(tool.diagramSelector)} ? !!diagram : true,
       diagramWidth: diagramBox ? diagramBox.width : 0,
       diagramHeight: diagramBox ? diagramBox.height : 0,
+      diagramBounds: boxPayload(diagramBox),
       diagramRoles,
+      roleBoxes,
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
@@ -560,11 +437,12 @@ function pageStateExpression(tool) {
   })()`;
 }
 
-function reportCaptureExpression(tool) {
+function reportCaptureExpression(tool, mode = null) {
   return `(async () => {
     const originalOpen = window.open;
     const reportId = ${JSON.stringify(tool.reportButton || null)};
     const reportSelector = ${JSON.stringify(tool.reportButtonSelector || null)};
+    const reportMode = ${JSON.stringify(mode)};
     const opened = [];
     const writes = [];
     let openedDocument = false;
@@ -582,15 +460,24 @@ function reportCaptureExpression(tool) {
     };
 
     try {
-      const detail = document.querySelector('[data-report-mode="detail"]');
-      if (detail) detail.click();
-      await new Promise(resolve => setTimeout(resolve, 30));
+      if (reportMode) {
+        const modeButton = document.querySelector('[data-report-mode="' + reportMode + '"]');
+        if (modeButton) {
+          modeButton.click();
+          await new Promise(resolve => setTimeout(resolve, 30));
+        }
+      } else {
+        const detail = document.querySelector('[data-report-mode="detail"]');
+        if (detail) detail.click();
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
       const button = reportId ? document.getElementById(reportId) : document.querySelector(reportSelector);
       if (!button) return { missingButton: true, html: '' };
       button.click();
       await new Promise(resolve => setTimeout(resolve, 50));
       const html = writes.join('');
       return {
+        mode: reportMode || 'default',
         missingButton: false,
         openCount: opened.length,
         opened,
@@ -683,6 +570,8 @@ function assertPageState(state, tool, label) {
     }
   }
 
+  assertDiagramGeometry(state, tool, label);
+
   [
     '工具內建',
     '工具建議',
@@ -694,28 +583,71 @@ function assertPageState(state, tool, label) {
   });
 }
 
-function assertReportState(state, tool, label) {
+function assertDiagramGeometry(state, tool, label) {
+  const checks = tool.diagramChecks || {};
+  if (!tool.diagramSelector || !checks.roleBoxesNonZero && !checks.rolesInsideDiagram) return;
+  assert.ok(state.diagramBounds, `${label} ${tool.key} diagram bounds`);
+
+  const roleBoxes = state.roleBoxes || [];
+  const roles = tool.diagramRoleNeedles || [];
+  for (const role of roles) {
+    const candidates = roleBoxes.filter(item => item.role === role && item.box);
+    assert.ok(candidates.length > 0, `${label} ${tool.key} geometry role exists: ${role}`);
+    const usable = candidates.find(item => item.box.width > 0.5 && item.box.height > 0.5);
+    assert.ok(usable, `${label} ${tool.key} geometry role has non-zero box: ${role}`);
+
+    if (checks.rolesInsideDiagram) {
+      const box = usable.box;
+      const diagram = state.diagramBounds;
+      const tolerance = 3;
+      assert.ok(box.left >= diagram.left - tolerance, `${label} ${tool.key} ${role} left inside diagram`);
+      assert.ok(box.top >= diagram.top - tolerance, `${label} ${tool.key} ${role} top inside diagram`);
+      assert.ok(box.right <= diagram.right + tolerance, `${label} ${tool.key} ${role} right inside diagram`);
+      assert.ok(box.bottom <= diagram.bottom + tolerance, `${label} ${tool.key} ${role} bottom inside diagram`);
+    }
+  }
+}
+
+function assertReportExpectations(state, tool, label, mode) {
+  const expectations = tool.reportExpectations?.[mode];
+  if (!expectations) return;
+  const auditHtml = state.auditHtml || state.html || '';
+  for (const needle of expectations.mustInclude || []) {
+    assert.ok(auditHtml.includes(needle), `${label} ${tool.key} ${mode} report includes ${needle}`);
+  }
+  for (const needle of expectations.mustExclude || []) {
+    const index = auditHtml.indexOf(needle);
+    const context = index >= 0 ? auditHtml.slice(Math.max(0, index - 160), index + 160) : '';
+    assert.equal(index >= 0, false, `${label} ${tool.key} ${mode} report excludes ${needle}: ${context}`);
+  }
+}
+
+function assertReportState(state, tool, label, mode = 'default') {
   assert.equal(state.missingButton, false, `${label} ${tool.key} report button exists`);
   assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
   assert.equal(state.openedDocument, true, `${label} ${tool.key} report document open`);
   assert.equal(state.closedDocument, true, `${label} ${tool.key} report document close`);
   assert.ok(state.html.length > 1800, `${label} ${tool.key} report length`);
   assert.ok(state.html.includes('計算書'), `${label} ${tool.key} report title`);
-  for (const needle of tool.reportNeedles) {
-    assert.ok(state.html.includes(needle), `${label} ${tool.key} report includes ${needle}`);
+  if (mode === 'default' || mode === 'detail') {
+    for (const needle of tool.reportNeedles) {
+      assert.ok(state.html.includes(needle), `${label} ${tool.key} ${mode} report includes ${needle}`);
+    }
   }
-  [
+  const forbiddenNeedles = formalManifest.reportForbiddenNeedles || [
     '工具內建',
     '工具建議',
     '專業版',
     'undefined',
     'NaN',
-  ].forEach(needle => {
+  ];
+  forbiddenNeedles.forEach(needle => {
     const auditHtml = state.auditHtml || state.html;
     const index = auditHtml.indexOf(needle);
     const context = index >= 0 ? auditHtml.slice(Math.max(0, index - 160), index + 160) : '';
-    assert.equal(index >= 0, false, `${label} ${tool.key} report avoids ${needle}: ${context}`);
+    assert.equal(index >= 0, false, `${label} ${tool.key} ${mode} report avoids ${needle}: ${context}`);
   });
+  assertReportExpectations(state, tool, label, mode);
 }
 
 function assertExportState(state, tool, label) {
@@ -807,17 +739,36 @@ async function main() {
       const exportState = tool.exportButton
         ? await evaluate(client, sessionId, exportCaptureExpression(tool))
         : null;
-      const reportState = await evaluate(client, sessionId, reportCaptureExpression(tool));
+      const reportStates = tool.reportMode
+        ? {
+          simple: await evaluate(client, sessionId, reportCaptureExpression(tool, 'simple')),
+          detail: await evaluate(client, sessionId, reportCaptureExpression(tool, 'detail')),
+        }
+        : {
+          default: await evaluate(client, sessionId, reportCaptureExpression(tool)),
+        };
       pageErrors.unsubscribe();
       assertNoPageErrors(pageErrors.errors, `${label} ${tool.key}`);
       assertExportState(exportState, tool, label);
-      assertReportState(reportState, tool, label);
+      for (const [mode, reportState] of Object.entries(reportStates)) {
+        assertReportState(reportState, tool, label, mode);
+      }
     }
 
+    await client.send('Browser.close').catch(() => {});
     console.log(`formal browser smoke OK (${formalTools.length} tools, ${viewports.length} viewports)`);
   } finally {
     if (client) client.close();
-    if (edge && !edge.killed) edge.kill();
+    if (edge && edge.exitCode === null) {
+      edge.kill();
+      await new Promise(resolve => {
+        const timer = setTimeout(resolve, 1500);
+        edge.once('exit', () => {
+          clearTimeout(timer);
+          resolve();
+        });
+      });
+    }
     if (server) {
       await new Promise(resolve => server.close(resolve));
     }

@@ -155,13 +155,13 @@ node $runnerPath
 exit $LASTEXITCODE
 '@
 
-$formalBrowserSmokeCommand = @'
-$smokePath = '結構工具箱\tools\formal-browser-smoke.test.js'
-if (-not (Test-Path -LiteralPath $smokePath)) {
-  Write-Error "missing $smokePath"
+$formalToolsRunnerCommand = @'
+$runnerPath = '結構工具箱\tools\formal-tools.run.js'
+if (-not (Test-Path -LiteralPath $runnerPath)) {
+  Write-Error "missing $runnerPath"
   exit 1
 }
-node $smokePath
+node $runnerPath
 exit $LASTEXITCODE
 '@
 
@@ -355,9 +355,9 @@ $checks = @(
   },
   [pscustomobject]@{
     key = "formal-browser-smoke"
-    label = "Formal wind and seismic browser smoke"
+    label = "Formal wind and seismic manifest runner"
     workdir = $root
-    command = $formalBrowserSmokeCommand
+    command = $formalToolsRunnerCommand
     slow = $false
   }
 )
@@ -416,6 +416,39 @@ $payload = [ordered]@{
 }
 $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $summaryJsonPath -Encoding UTF8
 $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $historySummaryJsonPath -Encoding UTF8
+
+$maturityMatrixScript = Join-Path $root "結構工具箱\tools\tool-maturity-matrix.js"
+if ($overallPass -and (Test-Path -LiteralPath $maturityMatrixScript)) {
+  $matrixProc = Start-Process -FilePath node -ArgumentList @(
+    $maturityMatrixScript,
+    "--write",
+    "--check"
+  ) -WorkingDirectory $root -RedirectStandardOutput (Join-Path $runDir "tool-maturity-matrix.stdout.txt") -RedirectStandardError (Join-Path $runDir "tool-maturity-matrix.stderr.txt") -PassThru -Wait -WindowStyle Hidden
+  if ($matrixProc.ExitCode -ne 0) {
+    $overallPass = $false
+    $matrixLog = Join-Path $runDir "tool-maturity-matrix.stderr.txt"
+    $failures.Add("tool-maturity-matrix-refresh: exitCode=$($matrixProc.ExitCode), log=$matrixLog")
+    $summaryContent = @(
+      "# Tool Preflight Summary"
+      ""
+      "- generatedAt: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+      "- root: $root"
+      "- runId: $runStamp"
+      "- quick: $([bool]$Quick)"
+      "- pass: $overallPass"
+      ""
+      $summaryLines
+      "- Tool maturity matrix refresh: pass=False, exitCode=$($matrixProc.ExitCode), log=$matrixLog"
+    )
+    Set-Content -Path $summaryPath -Value $summaryContent -Encoding UTF8
+    Set-Content -Path $historySummaryPath -Value $summaryContent -Encoding UTF8
+    $payload["pass"] = $overallPass
+    $payload["failureCount"] = $failures.Count
+    $payload["failures"] = @($failures.ToArray())
+    $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $summaryJsonPath -Encoding UTF8
+    $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $historySummaryJsonPath -Encoding UTF8
+  }
+}
 
 if ($overallPass) {
   Write-Status "Tool preflight completed cleanly. runId=$runStamp" "Green" -Force

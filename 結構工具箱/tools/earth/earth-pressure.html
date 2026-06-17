@@ -150,6 +150,8 @@
       <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
     </div>
     <div class="case-actions" aria-label="案例管理">
+      <button class="btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
+      <input type="file" id="jsonFile" accept=".json,application/json" style="display:none">
       <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
     </div>
   </div>
@@ -752,6 +754,54 @@
     };
   }
 
+  function applyProjectInfo(project) {
+    if (!project || typeof project !== 'object') return;
+    $('projName').value = project.name && project.name !== '未填' ? project.name : '';
+    $('projNo').value = project.no && project.no !== '未填' ? project.no : '';
+    $('projDesigner').value = project.designer && project.designer !== '未填' ? project.designer : '';
+    saveProjectInfo();
+  }
+
+  function extractImportedInput(payload) {
+    if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
+    const toolId = payload.tool && payload.tool.id;
+    if (toolId && toolId !== 'earth-pressure') {
+      throw new Error(`此 JSON 屬於 ${toolId}，不是擋土土壓局部快算案例。`);
+    }
+    return payload.input || (payload.result && payload.result.input) || payload.result || payload;
+  }
+
+  function applyImportedCase(payload, fileName) {
+    const importedInput = extractImportedInput(payload);
+    const normalized = Core.normalizeInput(importedInput);
+    const errors = Core.validateInput(normalized);
+    if (errors.length) throw new Error(errors.join(' '));
+    Object.keys(DEFAULTS).forEach(function (id) {
+      if (normalized[id] !== undefined && normalized[id] !== null && $(id)) {
+        $(id).value = normalized[id];
+      }
+    });
+    applyProjectInfo(payload.project);
+    syncModeFromWallCondition();
+    updateConditionalInputs();
+    calculateEarthPressure();
+    $('bannerStatus').className = 'banner-status ok';
+    $('bannerStatus').textContent = `已讀取 JSON：${fileName || '案例檔'}。`;
+  }
+
+  async function importJsonFile(file) {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      applyImportedCase(JSON.parse(text), file.name);
+    } catch (err) {
+      $('bannerStatus').className = 'banner-status fail';
+      $('bannerStatus').textContent = `讀取 JSON 失敗：${err.message || err}`;
+    } finally {
+      $('jsonFile').value = '';
+    }
+  }
+
   function downloadResultJson() {
     const r = lastResult || calculateEarthPressure();
     if (!r) return;
@@ -762,6 +812,7 @@
         pageVersion: 'V0.4'
       },
       project: gatherProjectInfo(),
+      input: gatherInputs(),
       result: r
     });
   }
@@ -916,6 +967,12 @@ ${body}
   document.getElementById('btnCalc').addEventListener('click', calculateEarthPressure);
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnJson').addEventListener('click', downloadResultJson);
+  document.getElementById('btnImportJson').addEventListener('click', function () {
+    $('jsonFile').click();
+  });
+  document.getElementById('jsonFile').addEventListener('change', function (event) {
+    importJsonFile(event.target.files && event.target.files[0]);
+  });
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
   $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
   ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));

@@ -70,7 +70,7 @@
     <span class="report-mode-label">計算書模式</span>
     <button class="mode-segment active" id="btnReportModeDetail" type="button" data-report-mode="detail" aria-pressed="true">詳算式</button>
     <button class="mode-segment" id="btnReportModeSimple" type="button" data-report-mode="simple" aria-pressed="false">簡易結果</button>
-    <span class="report-mode-hint">詳算式輸出示意圖與公式過程；簡易結果只整理條件、適用性與控制值。</span>
+    <span class="report-mode-hint">詳算式輸出示意圖與公式過程；簡易結果只整理條件與控制值。</span>
   </div>
   <input type="hidden" id="printReportMode" value="detail">
   <div class="case-actions">
@@ -715,10 +715,6 @@ function buildFenceSignReportHtml() {
       ])}
     </section>
     <section class="rep-block">
-      <h3>適用性檢查</h3>
-      <ul class="rep-list">${data.applic.map(item => `<li class="${item.level}"><strong>${escHtml(item.label)}：</strong>${escHtml(item.message)}</li>`).join('')}</ul>
-    </section>
-    <section class="rep-block">
       <h3>控制結果</h3>
       ${buildReportTable([
         ['作用形心高度 z_r', `${fmt(data.zr, 2)} m`],
@@ -740,7 +736,7 @@ function buildFenceSignReportHtml() {
       <div class="rep-diagram">${diagramHtml}</div>
     </section>
     <section class="rep-block">
-      <h3>詳列計算式</h3>
+      <h3>計算內容</h3>
       ${data.steps.map(s => `
         <div class="rep-step">
           <h4>${s.title}</h4>
@@ -748,10 +744,7 @@ function buildFenceSignReportHtml() {
         </div>
       `).join('')}
     </section>
-    <section class="rep-block">
-      <h3>適用性與採用提醒</h3>
-      <ul class="rep-list">${data.applic.map(item => `<li class="${item.level}"><strong>${escHtml(item.label)}：</strong>${escHtml(item.message)}</li>`).join('')}</ul>
-    </section>`;
+  `;
   return `<!doctype html>
 <html lang="zh-TW">
 <head>

@@ -1,0 +1,530 @@
+{
+  "version": "0.1.0",
+  "family": "formal-tools",
+  "description": "風力 / 地震正式工具清冊。此檔集中記錄正式頁入口、乾淨路由、瀏覽器 smoke、報表 regression 與示意圖幾何檢查，避免首頁、路由、preflight 與 smoke coverage 漂移。",
+  "shared": {
+    "runner": "tools/formal-tools.run.js",
+    "contractTest": "tools/formal-tools.contract.test.js",
+    "browserSmokeTest": "tools/formal-browser-smoke.test.js",
+    "maturityMatrix": "tools/tool-maturity-matrix.js"
+  },
+  "requiredRoutes": [
+    "/wind-force",
+    "/wind-cc",
+    "/wind-open-roof",
+    "/wind-parapet",
+    "/wind-object-solid",
+    "/wind-object-frame",
+    "/wind-lattice-tower",
+    "/wind-object-tower",
+    "/wind-fence-sign",
+    "/wind-sign-pole",
+    "/seismic-force",
+    "/seismic-appendage",
+    "/seismic-misc",
+    "/seismic-dynamic"
+  ],
+  "reportForbiddenNeedles": [
+    "工具內建",
+    "工具建議",
+    "專業版",
+    "undefined",
+    "NaN"
+  ],
+  "tools": [
+    {
+      "key": "wind-force",
+      "label": "矩形建物 MWFRS",
+      "discipline": "wind",
+      "route": "/wind-force",
+      "html": "tools/風力/wind-force.html",
+      "titleNeedle": "矩形建物 MWFRS",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButtonSelector": ".btn-print",
+      "reportMode": false,
+      "diagramSelector": null,
+      "diagramRoleNeedles": [],
+      "reportNeedles": ["矩形建物", "MWFRS", "設計風力"],
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": false,
+        "jsonExport": false,
+        "jsonImport": false,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": false,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-cc",
+      "label": "區域風壓 C&C",
+      "discipline": "wind",
+      "route": "/wind-cc",
+      "html": "tools/風力/wind-cc.html",
+      "titleNeedle": "區域風壓",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButtonSelector": ".btn-print",
+      "reportMode": false,
+      "diagramSelector": "#refSvgWrap",
+      "diagramRoleNeedles": [],
+      "reportNeedles": ["區域風壓", "C&amp;C", "設計採用表"],
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": false,
+        "jsonExport": false,
+        "jsonImport": false,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": false,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-open-roof",
+      "label": "開放式建築屋面風壓",
+      "discipline": "wind",
+      "route": "/wind-open-roof",
+      "html": "tools/風力/wind-open-roof.html",
+      "titleNeedle": "開放式建築屋面風壓",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButtonSelector": ".btn-print",
+      "reportMode": false,
+      "diagramSelector": null,
+      "diagramRoleNeedles": [],
+      "reportNeedles": ["開放式建築屋面", "圖 3.3", "設計採用表"],
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": false,
+        "jsonExport": false,
+        "jsonImport": false,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": false,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-parapet",
+      "label": "女兒牆風壓",
+      "discipline": "wind",
+      "route": "/wind-parapet",
+      "html": "tools/風力/wind-parapet.html",
+      "titleNeedle": "女兒牆風壓",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButtonSelector": ".btn-print",
+      "reportMode": false,
+      "diagramSelector": "#refSvgWrap",
+      "diagramRoleNeedles": [],
+      "reportNeedles": ["女兒牆", "圖 3.4", "設計採用表"],
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": false,
+        "jsonExport": false,
+        "jsonImport": false,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": false,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-object-solid",
+      "label": "實體標示物風力",
+      "discipline": "wind",
+      "route": "/wind-object-solid",
+      "html": "tools/風力/wind-object-solid.html",
+      "titleNeedle": "實體標示物風力",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "reportMode": true,
+      "diagramSelector": "#schemaSvg",
+      "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": ["表 2.10", "實體標示物", "C<sub>f</sub>(ν)", "C<sub>f</sub>(M/N)"],
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
+          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+        },
+        "detail": {
+          "mustInclude": ["計算示意圖", "計算內容"],
+          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+        }
+      },
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": true,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-object-frame",
+      "label": "中空式 / 格子式風力",
+      "discipline": "wind",
+      "route": "/wind-object-frame",
+      "html": "tools/風力/wind-object-frame.html",
+      "titleNeedle": "中空式 / 格子式風力",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "reportMode": true,
+      "diagramSelector": "#schemaSvg",
+      "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": ["表 2.11", "中空式", "格子式"],
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
+          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+        },
+        "detail": {
+          "mustInclude": ["計算示意圖", "計算內容"],
+          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+        }
+      },
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": true,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-lattice-tower",
+      "label": "桁架高塔風力",
+      "discipline": "wind",
+      "route": "/wind-lattice-tower",
+      "html": "tools/風力/wind-lattice-tower.html",
+      "titleNeedle": "桁架高塔風力",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "reportMode": true,
+      "diagramSelector": "#schemaSvg",
+      "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": ["表 2.15", "桁架高塔", "分段"],
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
+          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+        },
+        "detail": {
+          "mustInclude": ["計算示意圖", "計算內容", "分段剪力表"],
+          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+        }
+      },
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": true,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-object-tower",
+      "label": "煙囪 / 水塔風力",
+      "discipline": "wind",
+      "route": "/wind-object-tower",
+      "html": "tools/風力/wind-object-tower.html",
+      "titleNeedle": "煙囪 / 水塔風力",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "reportMode": true,
+      "diagramSelector": "#schemaSvg",
+      "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": ["表 2.12", "煙囪", "水塔"],
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
+          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+        },
+        "detail": {
+          "mustInclude": ["計算示意圖", "計算內容", "分段剪力表"],
+          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+        }
+      },
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": true,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-fence-sign",
+      "label": "圍籬牆 / 獨立招牌風力",
+      "discipline": "wind",
+      "route": "/wind-fence-sign",
+      "html": "tools/風力/wind-fence-sign.html",
+      "titleNeedle": "圍籬牆 / 獨立招牌風力",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "reportMode": true,
+      "diagramSelector": "#schemaSvg",
+      "diagramRoleNeedles": ["wind-arrows", "force-panel"],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": ["圍籬牆", "獨立招牌", "表 2.10"],
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
+          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+        },
+        "detail": {
+          "mustInclude": ["計算示意圖", "計算內容"],
+          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+        }
+      },
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": true,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "wind-sign-pole",
+      "label": "招牌 / 燈桿組合風力",
+      "discipline": "wind",
+      "route": "/wind-sign-pole",
+      "html": "tools/風力/wind-sign-pole.html",
+      "titleNeedle": "招牌 / 燈桿組合風力",
+      "familyNeedle": "建築物耐風設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "reportMode": true,
+      "diagramSelector": "#schemaSvg",
+      "diagramRoleNeedles": ["panel-force-zone", "support-load-zone", "result-panel"],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": ["表 2.10", "表 2.14", "表 2.13", "元件合計"],
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": ["設計條件", "計算示意圖", "控制結果", "元件合計表"],
+          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+        },
+        "detail": {
+          "mustInclude": ["計算示意圖", "計算內容", "支撐分段風力表", "元件合計表"],
+          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+        }
+      },
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": true,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "seismic-force",
+      "label": "等值靜力分析",
+      "discipline": "seismic",
+      "route": "/seismic-force",
+      "html": "tools/地震力/seismic-force.html",
+      "titleNeedle": "等值靜力分析",
+      "familyNeedle": "建築物耐震設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "reportMode": false,
+      "diagramSelector": "#spectrumChart",
+      "diagramRoleNeedles": [],
+      "reportNeedles": ["等值靜力分析", "主要組成一：地震力分配", "反應譜"],
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": false,
+        "jsonExport": false,
+        "jsonImport": false,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": false,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "seismic-appendage",
+      "label": "附屬構造物地震力",
+      "discipline": "seismic",
+      "route": "/seismic-appendage",
+      "html": "tools/地震力/seismic-appendage.html",
+      "titleNeedle": "附屬構造物地震力",
+      "familyNeedle": "建築物耐震設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCaseJson",
+      "importButton": "btnImportCaseJson",
+      "reportMode": true,
+      "diagramSelector": ".line-h2-diagram",
+      "diagramRoleNeedles": ["fph-arrow-zone", "fpv-arrow-zone", "force-panel"],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": ["附屬構造物", "Fph", "Fpv"],
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": ["工址與建物條件", "附屬構造物資料", "結果摘要", "計算示意圖"],
+          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+        },
+        "detail": {
+          "mustInclude": ["計算示意圖", "計算內容"],
+          "mustExclude": ["<h3>工址與建物條件</h3>", "<h3>結果摘要</h3>", "適用性檢查", "適用性與採用提醒"]
+        }
+      },
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": true,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "seismic-misc",
+      "label": "雜項工作物地震力",
+      "discipline": "seismic",
+      "route": "/seismic-misc",
+      "html": "tools/地震力/seismic-misc.html",
+      "titleNeedle": "雜項工作物地震力",
+      "familyNeedle": "建築物耐震設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCaseJson",
+      "importButton": "btnImportCaseJson",
+      "reportMode": true,
+      "diagramSelector": ".line-h2-diagram",
+      "diagramRoleNeedles": ["vh-arrow-zone", "vv-arrow-zone", "force-panel"],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": ["雜項工作物", "Vh", "Vv"],
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": ["工址條件", "雜項工作物資料", "結果摘要", "計算示意圖"],
+          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+        },
+        "detail": {
+          "mustInclude": ["計算示意圖", "計算內容"],
+          "mustExclude": ["<h3>工址條件</h3>", "<h3>結果摘要</h3>", "適用性檢查", "適用性與採用提醒"]
+        }
+      },
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": true,
+        "coreRegression": true
+      }
+    },
+    {
+      "key": "seismic-dynamic",
+      "label": "反應譜動力分析",
+      "discipline": "seismic",
+      "route": "/seismic-dynamic",
+      "html": "tools/地震力/seismic-dynamic.html",
+      "titleNeedle": "反應譜動力分析",
+      "familyNeedle": "建築物耐震設計",
+      "calcButton": "btnCalc",
+      "reportButton": "btnReport",
+      "exportButton": "btnExportCaseJson",
+      "importButton": "btnImportCaseJson",
+      "reportMode": false,
+      "diagramSelector": null,
+      "diagramRoleNeedles": [],
+      "reportNeedles": ["反應譜", "總橫力調整", "動力分析"],
+      "capabilities": {
+        "cleanRoute": true,
+        "report": true,
+        "reportModes": false,
+        "jsonExport": true,
+        "jsonImport": true,
+        "browserSmoke": true,
+        "reportRegression": true,
+        "diagramGeometry": false,
+        "coreRegression": true
+      }
+    }
+  ]
+}

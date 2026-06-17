@@ -337,6 +337,8 @@ flowchart TD
 ```powershell
 node .\結構工具箱\tools\local-quick-tools.contract.test.js
 node .\結構工具箱\tools\local-quick-tools.run.js
+node .\結構工具箱\tools\formal-tools.run.js
+node .\結構工具箱\tools\tool-maturity-matrix.js --write --check
 powershell -ExecutionPolicy Bypass -File .\preflight-tools.ps1 -Quick
 ```
 
@@ -356,7 +358,7 @@ node .\結構工具箱\tests\wind.test.js
 - 是否需要詳算式與簡易結果兩種計算書模式。
 - JSON 匯出是否需要匯入與恢復預設。
 - 是否已有 golden case 或可建立固定範例。
-- 是否要納入 `local-quick-tools` manifest、contract test 或 preflight。
+- 是否要納入 `local-quick-tools` manifest、`formal-tools.manifest.json`、contract test、工具成熟度矩陣或 preflight。
 
 ## 最常見踩坑
 

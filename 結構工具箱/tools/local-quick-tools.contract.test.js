@@ -43,11 +43,23 @@ const manifestPath = assertFile('tools/local-quick-tools.manifest.json');
 const manifestText = readText(manifestPath);
 const manifest = JSON.parse(manifestText);
 const tools = manifest.tools;
+const formalManifestPath = assertFile('tools/formal-tools.manifest.json');
+const formalManifestText = readText(formalManifestPath);
+const formalManifest = JSON.parse(formalManifestText);
 
 assert.equal(manifest.version, '0.1.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
+assert.equal(formalManifest.version, '0.1.0', 'formal tools manifest version');
+assert.equal(formalManifest.family, 'formal-tools', 'formal tools manifest family');
+assert.ok(Array.isArray(formalManifest.tools), 'formal tools manifest tools');
+assert.ok(Array.isArray(formalManifest.requiredRoutes), 'formal tools manifest required routes');
+assert.ok(formalManifest.tools.length >= 14, 'formal tools manifest tool count');
+const formalManifestRoutes = new Set(formalManifest.tools.map(tool => tool.route));
+formalManifest.requiredRoutes.forEach(route => {
+  assert.ok(formalManifestRoutes.has(route), `formal tools manifest missing route: ${route}`);
+});
 
 const repoDocs = {
   index: readText(path.join(toolboxRoot, 'index.html')),
@@ -137,30 +149,52 @@ const ExportHelper = require(exportHelperPath);
 [
   'formal browser smoke OK',
   'Microsoft Edge',
+  'formal-tools.manifest.json',
+  'assertFormalToolCoverage',
   'formalTools',
   'requiredFormalRoutes',
-  'wind-force',
-  'wind-cc',
-  'wind-open-roof',
-  'wind-parapet',
-  'wind-object-solid',
-  'wind-lattice-tower',
-  'wind-sign-pole',
-  'seismic-force',
-  'seismic-appendage',
-  'seismic-misc',
-  'seismic-dynamic',
-  'reportButtonSelector',
-  'exportButton: null',
+  'tool.reportButtonSelector',
+  'tool.exportButton',
   'Emulation.setDeviceMetricsOverride',
   'horizontalOverflow',
   'btnReportModeDetail',
   'exportCaptureExpression',
   'reportCaptureExpression',
   'data-diagram-role',
+  'diagramRoleNeedles',
+  'reportForbiddenNeedles',
   '工具內建',
   '專業版',
 ].forEach(needle => assertIncludes(formalBrowserSmokeTestText, needle, 'formal browser smoke test'));
+
+[
+  '"version": "0.1.0"',
+  '"family": "formal-tools"',
+  '"shared"',
+  '"runner"',
+  '"contractTest"',
+  '"browserSmokeTest"',
+  '"maturityMatrix"',
+  '"requiredRoutes"',
+  '"reportForbiddenNeedles"',
+  '"tools"',
+  '"wind-force"',
+  '"wind-cc"',
+  '"wind-open-roof"',
+  '"wind-parapet"',
+  '"wind-object-solid"',
+  '"wind-lattice-tower"',
+  '"wind-sign-pole"',
+  '"seismic-force"',
+  '"seismic-appendage"',
+  '"seismic-misc"',
+  '"seismic-dynamic"',
+  '"reportButtonSelector"',
+  '"exportButton"',
+  '"diagramRoleNeedles"',
+  '"工具內建"',
+  '"專業版"',
+].forEach(needle => assertIncludes(formalManifestText, needle, 'formal tools manifest'));
 
 [
   'LocalQuickExport',
@@ -1058,6 +1092,9 @@ for (const tool of tools) {
     [
       'class="case-actions"',
       'class="output-actions"',
+      'id="btnImportJson"',
+      'id="jsonFile"',
+      '讀取 JSON',
       '① 土壓模型與假設',
       'id="designReference"',
       'id="wallType"',
@@ -1069,6 +1106,9 @@ for (const tool of tools) {
       'id="wallTypeOutputBody"',
       'id="diagramBody"',
       'function syncModeFromWallCondition',
+      'function extractImportedInput',
+      'function applyImportedCase',
+      'function importJsonFile',
       'function renderModelSummary',
       'function renderWallTypeOutput',
       'function buildPressureDiagramSvg',
@@ -1080,6 +1120,7 @@ for (const tool of tools) {
       '<h2>計算內容</h2>',
       'Rankine 水平背填土壓初估',
     ].forEach(needle => assertIncludes(html, needle, `${tool.key} action and report layout`));
+    assert.ok(html.indexOf('id="btnImportJson"') < html.indexOf('class="main-layout earth-shell"'), `${tool.key} import action stays in top case-management area`);
     assert.ok(html.indexOf('id="btnReset"') < html.indexOf('class="main-layout earth-shell"'), `${tool.key} reset action stays in top case-management area`);
     assert.ok(html.indexOf('id="btnCalc"') > html.indexOf('③ 簡化穩定參數'), `${tool.key} calculate action stays after full input basis`);
     assert.ok(html.indexOf('id="btnJson"') > html.indexOf('③ 簡化穩定參數'), `${tool.key} JSON download stays after full input basis`);

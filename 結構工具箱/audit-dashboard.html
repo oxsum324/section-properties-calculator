@@ -200,6 +200,64 @@
     font-size: 0.86em;
     line-height: 1.8;
   }
+  .maturity-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-top: 14px;
+  }
+  .maturity-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 980px;
+    font-size: 0.82em;
+  }
+  .maturity-table th,
+  .maturity-table td {
+    border: 1px solid #e2e8f0;
+    padding: 9px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .maturity-table th {
+    background: #f8fafc;
+    color: var(--primary);
+    font-weight: 800;
+  }
+  .maturity-score {
+    font-family: Consolas, "Courier New", monospace;
+    font-weight: 800;
+    color: var(--primary);
+  }
+  .maturity-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .maturity-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 0.74em;
+    font-weight: 800;
+    background: #e8f1f7;
+    color: #29506d;
+  }
+  .maturity-chip.ok { background: #dcfce7; color: #166534; }
+  .maturity-chip.miss { background: #fee2e2; color: #991b1b; }
+  .maturity-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 0.74em;
+    font-weight: 800;
+  }
+  .maturity-status.governed { background: #dcfce7; color: #166534; }
+  .maturity-status.maturing { background: #fef3c7; color: #92400e; }
+  .maturity-status.needs-attention { background: #fee2e2; color: #991b1b; }
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -297,6 +355,7 @@
       <a href="../鋼構工具/output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟鋼構摘要</a>
       <a href="../鋼筋混凝土/output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟 RC 摘要</a>
       <a href="./output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟核心摘要</a>
+      <a href="../output/audit/tool-maturity-matrix.md" target="_blank" rel="noreferrer">開啟工具成熟度矩陣</a>
     </div>
     <div class="toolbar-status">
       <span id="pageLoadedAt">頁面尚未更新</span>
@@ -340,6 +399,35 @@
       <div class="status-card" id="steelPlatformStatus"></div>
       <div class="status-card" id="rcPlatformStatus"></div>
       <div class="status-card" id="corePlatformStatus"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>工具成熟度矩陣</h2>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">納管工具</div>
+        <div class="kpi-value" id="maturityToolCount">讀取中</div>
+        <div class="kpi-hint">正式風 / 震工具與局部快算工具的 manifest 合計。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">治理完成</div>
+        <div class="kpi-value ok" id="maturityGovernedCount">讀取中</div>
+        <div class="kpi-hint">clean route、首頁入口、smoke、報表與核心 regression 皆納入檢查。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">需補強</div>
+        <div class="kpi-value" id="maturityAttentionCount">讀取中</div>
+        <div class="kpi-hint">若不為 0，優先查看缺漏欄位並補測試或 manifest。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">最新 Preflight</div>
+        <div class="kpi-value" id="maturityPreflight">讀取中</div>
+        <div class="kpi-hint" id="maturityPreflightHint">成熟度矩陣會同步標示最近一次 preflight 結果。</div>
+      </div>
+    </div>
+    <div class="maturity-table-wrap" id="maturityWrap">
+      <div class="history-empty">讀取工具成熟度矩陣中。</div>
     </div>
   </div>
 
@@ -471,6 +559,93 @@
               <th>模組結果</th>
               <th>異常內容</th>
               <th>連結</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function statusText(status) {
+      if (status === 'governed') return '治理完成';
+      if (status === 'maturing') return '補強中';
+      return '需補強';
+    }
+
+    function renderMaturityMatrix(payload) {
+      const wrap = document.getElementById('maturityWrap');
+      const toolCountNode = document.getElementById('maturityToolCount');
+      const governedNode = document.getElementById('maturityGovernedCount');
+      const attentionNode = document.getElementById('maturityAttentionCount');
+      const preflightNode = document.getElementById('maturityPreflight');
+      const preflightHintNode = document.getElementById('maturityPreflightHint');
+      if (!wrap) return;
+
+      if (!payload || !Array.isArray(payload.rows)) {
+        wrap.innerHTML = '<div class="history-empty">目前尚無工具成熟度矩陣。請重新執行 preflight 產生最新矩陣。</div>';
+        if (toolCountNode) toolCountNode.textContent = '未讀取';
+        if (governedNode) governedNode.textContent = '未讀取';
+        if (attentionNode) attentionNode.textContent = '未讀取';
+        if (preflightNode) preflightNode.textContent = '未讀取';
+        return;
+      }
+
+      const totals = payload.totals || {};
+      if (toolCountNode) toolCountNode.textContent = `${totals.tools || payload.rows.length}`;
+      if (governedNode) governedNode.textContent = `${totals.governed || 0}`;
+      if (attentionNode) {
+        const count = totals.needsAttention || 0;
+        attentionNode.textContent = `${count}`;
+        attentionNode.className = `kpi-value ${count === 0 ? 'ok' : 'fail'}`;
+      }
+      if (preflightNode) {
+        if (payload.latestPreflight) {
+          preflightNode.textContent = payload.latestPreflight.pass ? '通過' : '異常';
+          preflightNode.className = `kpi-value ${payload.latestPreflight.pass ? 'ok' : 'fail'}`;
+        } else {
+          preflightNode.textContent = '無資料';
+          preflightNode.className = 'kpi-value warn';
+        }
+      }
+      if (preflightHintNode) {
+        preflightHintNode.textContent = payload.latestPreflight
+          ? `runId ${payload.latestPreflight.runId || '-'}，時間 ${payload.latestPreflight.generatedAt || '-'}。`
+          : '目前尚未讀到 preflight-summary.json。';
+      }
+
+      const rows = payload.rows.map((row) => {
+        const checks = row.checks || {};
+        const missing = Object.entries(checks).filter(([, value]) => value !== true).map(([key]) => key);
+        const keyChecks = ['cleanRoute', 'homeEntry', 'browserSmoke', 'reportRegression', 'jsonExport', 'jsonImport', 'diagramGeometry', 'coreRegression']
+          .filter((key) => Object.prototype.hasOwnProperty.call(checks, key))
+          .map((key) => `<span class="maturity-chip ${checks[key] ? 'ok' : 'miss'}">${escapeHtml(key)}</span>`)
+          .join('');
+        return `
+          <tr>
+            <td>${escapeHtml(row.family || '-')}</td>
+            <td><code>${escapeHtml(row.key || '-')}</code></td>
+            <td>${escapeHtml(row.label || '-')}</td>
+            <td><a href="${escapeHtml(row.route || '#')}" target="_blank" rel="noreferrer">${escapeHtml(row.route || '-')}</a></td>
+            <td><span class="maturity-status ${escapeHtml(row.status || 'needs-attention')}">${escapeHtml(statusText(row.status))}</span></td>
+            <td><span class="maturity-score">${escapeHtml(`${row.score?.passed ?? 0}/${row.score?.total ?? 0}`)}</span></td>
+            <td><div class="maturity-checks">${keyChecks}</div></td>
+            <td>${escapeHtml(missing.length ? missing.join(', ') : '無')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      wrap.innerHTML = `
+        <table class="maturity-table">
+          <thead>
+            <tr>
+              <th>族群</th>
+              <th>key</th>
+              <th>工具</th>
+              <th>路由</th>
+              <th>狀態</th>
+              <th>分數</th>
+              <th>重點覆蓋</th>
+              <th>缺漏</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -660,8 +835,15 @@
         } catch (error) {
           renderHistory(null);
         }
+        try {
+          const maturityMatrix = await fetchJson('../output/audit/tool-maturity-matrix.json');
+          renderMaturityMatrix(maturityMatrix);
+        } catch (error) {
+          renderMaturityMatrix(null);
+        }
       } else {
         renderHistory(null);
+        renderMaturityMatrix(null);
       }
       updateLoadedAtLabel();
       scheduleAutoRefresh();
