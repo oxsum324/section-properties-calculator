@@ -178,9 +178,19 @@ for (const tool of tools) {
     assert.ok(goldenCase.inputs && typeof goldenCase.inputs === 'object', `${tool.key} golden case inputs`);
     assert.ok(
       Object.keys(goldenCase.expectedSelectors || {}).length > 0 ||
-        (goldenCase.expectedTextNeedles || []).length > 0,
+        (goldenCase.expectedTextNeedles || []).length > 0 ||
+        Object.keys(goldenCase.expectedMetrics || {}).length > 0,
       `${tool.key} golden case expected outputs`
     );
+    for (const [metricPath, expectation] of Object.entries(goldenCase.expectedMetrics || {})) {
+      assert.ok(metricPath.includes('.'), `${tool.key} ${goldenCase.id} metric path`);
+      if (typeof expectation === 'number') continue;
+      assert.equal(typeof expectation, 'object', `${tool.key} ${goldenCase.id} metric expectation object`);
+      assert.equal(typeof expectation.value, 'number', `${tool.key} ${goldenCase.id} metric value`);
+      if (expectation.tolerance != null) {
+        assert.equal(typeof expectation.tolerance, 'number', `${tool.key} ${goldenCase.id} metric tolerance`);
+      }
+    }
   }
 }
 

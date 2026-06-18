@@ -698,12 +698,21 @@ function jsonRoundTripExpression(tool, sourcePayload) {
 function goldenCaseExpression(tool, goldenCase) {
   const inputs = goldenCase.inputs || {};
   const expectedSelectors = Object.keys(goldenCase.expectedSelectors || {});
+  const expectedMetricPaths = Object.keys(goldenCase.expectedMetrics || {});
+  const clearLocalStorageKeys = goldenCase.clearLocalStorageKeys || [];
   return `(async () => {
     const inputs = ${JSON.stringify(inputs)};
     const expectedSelectors = ${JSON.stringify(expectedSelectors)};
+    const expectedMetricPaths = ${JSON.stringify(expectedMetricPaths)};
+    const clearLocalStorageKeys = ${JSON.stringify(clearLocalStorageKeys)};
     const calc = document.getElementById(${JSON.stringify(tool.calcButton)});
     const applied = [];
     const missingInputs = [];
+    for (const key of clearLocalStorageKeys) {
+      try {
+        localStorage.removeItem(key);
+      } catch (_) {}
+    }
     const setInput = (id, value) => {
       const el = document.getElementById(id);
       if (!el) {
@@ -736,6 +745,31 @@ function goldenCaseExpression(tool, goldenCase) {
         selectorValues[selector] = normalizedText(node);
       }
     }
+    const metricValues = {};
+    const missingMetrics = [];
+    const readMetric = path => {
+      const parts = String(path || '').split('.').filter(Boolean);
+      if (!parts.length) return undefined;
+      const rootName = parts.shift();
+      let value;
+      try {
+        value = eval(rootName);
+      } catch (_) {
+        missingMetrics.push(path);
+        return undefined;
+      }
+      for (const part of parts) {
+        if (value == null || !(part in Object(value))) {
+          missingMetrics.push(path);
+          return undefined;
+        }
+        value = value[part];
+      }
+      return value;
+    };
+    for (const path of expectedMetricPaths) {
+      metricValues[path] = readMetric(path);
+    }
     const resultPanel = document.getElementById('resultPanel');
     return {
       missingCalc: !calc,
@@ -743,6 +777,8 @@ function goldenCaseExpression(tool, goldenCase) {
       missingInputs,
       selectorValues,
       missingSelectors,
+      metricValues,
+      missingMetrics,
       bodyText: normalizedText(document.body),
       resultText: normalizedText(resultPanel || document.body)
     };
@@ -908,6 +944,7 @@ function assertGoldenCaseState(state, tool, goldenCase, label) {
   assert.equal(state.missingCalc, false, `${label} ${tool.key} ${goldenCase.id} calc button exists`);
   assert.deepEqual(state.missingInputs, [], `${label} ${tool.key} ${goldenCase.id} input ids`);
   assert.deepEqual(state.missingSelectors, [], `${label} ${tool.key} ${goldenCase.id} result selectors`);
+  assert.deepEqual(state.missingMetrics || [], [], `${label} ${tool.key} ${goldenCase.id} metric paths`);
 
   for (const [selector, expected] of Object.entries(goldenCase.expectedSelectors || {})) {
     assert.equal(
@@ -922,6 +959,17 @@ function assertGoldenCaseState(state, tool, goldenCase, label) {
     assert.ok(
       state.resultText.includes(normalizedNeedle) || state.bodyText.includes(normalizedNeedle),
       `${label} ${tool.key} ${goldenCase.id} text includes ${needle}; resultText=${state.resultText.slice(0, 900)}`
+    );
+  }
+
+  for (const [path, expectation] of Object.entries(goldenCase.expectedMetrics || {})) {
+    const expected = typeof expectation === 'number' ? expectation : expectation.value;
+    const tolerance = typeof expectation === 'number' ? 1e-9 : (expectation.tolerance ?? 1e-9);
+    const actual = state.metricValues?.[path];
+    assert.equal(typeof actual, 'number', `${label} ${tool.key} ${goldenCase.id} ${path} metric type`);
+    assert.ok(
+      Number.isFinite(actual) && Math.abs(actual - expected) <= tolerance,
+      `${label} ${tool.key} ${goldenCase.id} ${path} expected ${expected} +/- ${tolerance}, got ${actual}`
     );
   }
 }

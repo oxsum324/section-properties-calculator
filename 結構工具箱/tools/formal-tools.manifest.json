@@ -735,7 +735,15 @@
             "miscRemark": "",
             "chkNearFaultMisc": false
           },
-          "expectedTextNeedles": ["第五章 5.3 鋼造儲物架", "Vh = 1.89 tf", "Vv = 0.94 tf", "SDS = 0.6600 g", "水平係數 Ch = [1/(1.4×1)] × 0.2640 = 0.1886", "垂直係數 Cv = Vv / W = 0.0943", "採用公式 式(2-3)"]
+          "expectedTextNeedles": ["第五章 5.3 鋼造儲物架", "Vh = 1.89 tf", "Vv = 0.94 tf", "SDS = 0.6600 g", "水平係數 Ch = [1/(1.4×1)] × 0.2640 = 0.1886", "垂直係數 Cv = Vv / W = 0.0943", "採用公式 式(2-3)"],
+          "expectedMetrics": {
+            "lastMiscResult.Vh": { "value": 1.885714285714286, "tolerance": 1e-9 },
+            "lastMiscResult.VhCoeff": { "value": 0.18857142857142858, "tolerance": 1e-12 },
+            "lastMiscResult.Vv": { "value": 0.942857142857143, "tolerance": 1e-9 },
+            "lastMiscResult.VvCoeff": { "value": 0.09428571428571429, "tolerance": 1e-12 },
+            "lastMiscResult.site.SDS": { "value": 0.66, "tolerance": 1e-12 },
+            "lastMiscResult.ratio_m": { "value": 0.264, "tolerance": 1e-12 }
+          }
         }
       ],
       "capabilities": {
@@ -771,6 +779,7 @@
         {
           "id": "default-response-spectrum-summary",
           "description": "預設反應譜動力分析摘要案例，鎖定第 3.3 節總橫力調整比與第 3.2 節反應譜摘要。",
+          "clearLocalStorageKeys": ["seismic-static-summary", "seismic-dynamic-summary"],
           "inputs": {
             "zoneCity": "",
             "zoneDist": "",
@@ -821,7 +830,16 @@
             "printModelCheckSection": true,
             "modelCheckNote": ""
           },
-          "expectedTextNeedles": ["X 向動力 / 調整要求 = 0.51", "Y 向動力 / 調整要求 = 0.43", "X 向總橫力調整要求352.38 tf", "Y 向總橫力調整要求392.86 tf", "SDS / SD10.660 / 0.490 g", "T1 採用設計輸入譜0.1735 g", "中小度下限控制比例0%", "X 向動力基底剪力小於第 3.3 節總橫力調整要求，比值 = 0.51"]
+          "expectedTextNeedles": ["X 向動力 / 調整要求 = 0.46", "Y 向動力 / 調整要求 = 0.43", "X 向總橫力調整要求388.89 tf", "Y 向總橫力調整要求392.86 tf", "SDS / SD10.660 / 0.490 g", "T1 採用設計輸入譜0.1735 g", "中小度下限控制比例0%", "X 向動力基底剪力小於第 3.3 節總橫力調整要求，比值 = 0.46"],
+          "expectedMetrics": {
+            "lastDynamicResult.result.x.ratio": { "value": 0.462857142857143, "tolerance": 1e-12 },
+            "lastDynamicResult.result.y.ratio": { "value": 0.43272727272727274, "tolerance": 1e-12 },
+            "lastDynamicResult.result.x.staticRef": { "value": 388.88888888888874, "tolerance": 1e-9 },
+            "lastDynamicResult.result.y.staticRef": { "value": 392.85714285714283, "tolerance": 1e-9 },
+            "lastDynamicResult.result.site.SDS": { "value": 0.66, "tolerance": 1e-12 },
+            "lastDynamicResult.result.responseSpectrum.summary.t1.designAccel": { "value": 0.173481854197383, "tolerance": 1e-12 },
+            "lastDynamicResult.result.responseSpectrum.summary.lowerControlShare": { "value": 0, "tolerance": 1e-12 }
+          }
         }
       ],
       "capabilities": {
