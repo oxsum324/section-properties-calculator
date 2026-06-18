@@ -623,6 +623,7 @@
       "reportButton": "btnReport",
       "exportButton": "btnExportCaseJson",
       "importButton": "btnImportCaseJson",
+      "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": ".line-h2-diagram",
       "diagramRoleNeedles": ["fph-arrow-zone", "fpv-arrow-zone", "force-panel"],
@@ -689,6 +690,7 @@
       "reportButton": "btnReport",
       "exportButton": "btnExportCaseJson",
       "importButton": "btnImportCaseJson",
+      "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": ".line-h2-diagram",
       "diagramRoleNeedles": ["vh-arrow-zone", "vv-arrow-zone", "force-panel"],
@@ -707,6 +709,35 @@
           "mustExclude": ["<h3>工址條件</h3>", "<h3>結果摘要</h3>", "適用性檢查", "適用性與採用提醒"]
         }
       },
+      "goldenCases": [
+        {
+          "id": "default-similar-misc-storage-rack",
+          "description": "預設 5.3 鋼造儲物架案例，鎖定式(2-3)水平力與 2.18 節垂直力。",
+          "inputs": {
+            "printReportMode": "detail",
+            "zoneCity": "",
+            "zoneDist": "",
+            "SsD": "0.6",
+            "S1D": "0.35",
+            "SsM": "0.8",
+            "S1M": "0.5",
+            "siteClass": "2",
+            "miscI": "1.0",
+            "chkTaipei": false,
+            "miscChapterMode": "similar",
+            "miscCategory": "all",
+            "miscType": "0",
+            "miscR": "1.5",
+            "miscAY": "1.0",
+            "miscW": "10",
+            "miscH": "5",
+            "miscT": "0",
+            "miscRemark": "",
+            "chkNearFaultMisc": false
+          },
+          "expectedTextNeedles": ["第五章 5.3 鋼造儲物架", "Vh = 1.89 tf", "Vv = 0.94 tf", "SDS = 0.6600 g", "水平係數 Ch = [1/(1.4×1)] × 0.2640 = 0.1886", "垂直係數 Cv = Vv / W = 0.0943", "採用公式 式(2-3)"]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,

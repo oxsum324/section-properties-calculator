@@ -550,7 +550,12 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       return { missingPayload: true, mismatches: [], resultSelectors: {} };
     }
 
-    const valueIds = Object.keys(payload.values || {});
+    const payloadValues = payload.values || payload.inputs?.values || {};
+    const payloadChecks = payload.inputs?.checks || {};
+    const valueIds = Object.keys(payloadValues);
+    const checkIds = Object.keys(payloadChecks);
+    const payloadSchema = payload.schema || payload.schemaVersion || '';
+    const payloadToolId = payload.tool?.id || String(payloadSchema).split('.case.')[0] || '';
     const projectIds = {
       name: 'projName',
       no: 'projNo',
@@ -581,6 +586,9 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       const el = document.getElementById(id);
       return el && el.type === 'checkbox' ? Boolean(value) : String(value ?? '');
     };
+    const collectResultValues = () => Array.from(document.querySelectorAll('.result-item .value'))
+      .map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim())
+      .filter(Boolean);
     const mutate = id => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -603,7 +611,11 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       mutate(id);
     }
     for (const id of valueIds) {
-      expected['values.' + id] = expectedFor(id, payload.values[id]);
+      expected['values.' + id] = expectedFor(id, payloadValues[id]);
+      mutate(id);
+    }
+    for (const id of checkIds) {
+      expected['checks.' + id] = expectedFor(id, payloadChecks[id]);
       mutate(id);
     }
 
@@ -629,11 +641,26 @@ function jsonRoundTripExpression(tool, sourcePayload) {
     }
     await new Promise(resolve => setTimeout(resolve, 260));
 
+    let recalculatedAfterImport = false;
+    let resultValues = collectResultValues();
+    if (!resultValues.some(value => value !== '—')) {
+      const calc = document.getElementById(${JSON.stringify(tool.calcButton)});
+      if (calc) {
+        calc.click();
+        recalculatedAfterImport = true;
+        await new Promise(resolve => setTimeout(resolve, 220));
+        resultValues = collectResultValues();
+      }
+    }
+
     for (const [key, id] of Object.entries(projectIds)) {
       actual['project.' + key] = readValue(id);
     }
     for (const id of valueIds) {
       actual['values.' + id] = readValue(id);
+    }
+    for (const id of checkIds) {
+      actual['checks.' + id] = readValue(id);
     }
     for (const [key, expectedValue] of Object.entries(expected)) {
       const actualValue = actual[key];
@@ -644,9 +671,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
     }
 
     const text = selector => (document.querySelector(selector)?.textContent || '').replace(/\\s+/g, ' ').trim();
-    const resultValues = Array.from(document.querySelectorAll('.result-item .value'))
-      .map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim())
-      .filter(Boolean);
+    const caseStatus = text('#caseStatus') || text('#caseJsonStatus');
     return {
       missingPayload: false,
       missingFileInput: !fileInput,
@@ -655,16 +680,17 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       importError,
       mutatedCount: mutated.length,
       expectedCount: Object.keys(expected).length,
+      recalculatedAfterImport,
       mismatches,
-      caseStatus: text('#caseStatus'),
+      caseStatus,
       resultSelectors: {
         '#r-cf .value': text('#r-cf .value'),
         '#r-qz .value': text('#r-qz .value'),
         '#r-force .value': text('#r-force .value')
       },
       resultValues,
-      payloadSchema: payload.schema || '',
-      payloadToolId: payload.tool?.id || ''
+      payloadSchema,
+      payloadToolId
     };
   })()`;
 }
@@ -860,7 +886,7 @@ function assertJsonRoundTripState(state, tool, label) {
   assert.deepEqual(
     state.mismatches,
     [],
-    `${label} ${tool.key} JSON round-trip restores inputs`
+    `${label} ${tool.key} JSON round-trip restores inputs: ${JSON.stringify(state.mismatches, null, 2)}`
   );
   assert.ok(
     state.caseStatus.includes('已匯入案件 JSON'),

@@ -187,7 +187,7 @@ for (const tool of tools) {
 const goldenToolKeys = tools.filter(tool => (tool.goldenCases || []).length > 0).map(tool => tool.key);
 assert.deepEqual(
   goldenToolKeys,
-  ['wind-object-solid', 'wind-object-frame', 'wind-lattice-tower', 'wind-object-tower', 'wind-fence-sign', 'wind-sign-pole', 'seismic-appendage'],
+  ['wind-object-solid', 'wind-object-frame', 'wind-lattice-tower', 'wind-object-tower', 'wind-fence-sign', 'wind-sign-pole', 'seismic-appendage', 'seismic-misc'],
   'formal golden case pilot tool set'
 );
 
