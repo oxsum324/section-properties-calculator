@@ -586,7 +586,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       const el = document.getElementById(id);
       return el && el.type === 'checkbox' ? Boolean(value) : String(value ?? '');
     };
-    const collectResultValues = () => Array.from(document.querySelectorAll('.result-item .value'))
+    const collectResultValues = () => Array.from(document.querySelectorAll('.result-item .value, .mini-card .value'))
       .map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim())
       .filter(Boolean);
     const mutate = id => {
@@ -671,7 +671,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
     }
 
     const text = selector => (document.querySelector(selector)?.textContent || '').replace(/\\s+/g, ' ').trim();
-    const caseStatus = text('#caseStatus') || text('#caseJsonStatus');
+    const caseStatus = text('#caseStatus') || text('#caseJsonStatus') || text('#staticImportStatus');
     return {
       missingPayload: false,
       missingFileInput: !fileInput,
@@ -921,7 +921,7 @@ function assertGoldenCaseState(state, tool, goldenCase, label) {
     const normalizedNeedle = String(needle).replace(/\s+/g, ' ').trim();
     assert.ok(
       state.resultText.includes(normalizedNeedle) || state.bodyText.includes(normalizedNeedle),
-      `${label} ${tool.key} ${goldenCase.id} text includes ${needle}`
+      `${label} ${tool.key} ${goldenCase.id} text includes ${needle}; resultText=${state.resultText.slice(0, 900)}`
     );
   }
 }
