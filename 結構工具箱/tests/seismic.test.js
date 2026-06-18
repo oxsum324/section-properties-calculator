@@ -209,6 +209,82 @@ function run() {
   approx(towerFlexible.VhCoeff, towerFlexible.Vh / towerFlexible.W, 1e-9, 'non-similar misc Vh coefficient');
   approx(towerFlexible.VvCoeff, towerFlexible.Vv / towerFlexible.W, 1e-9, 'non-similar misc Vv coefficient');
 
+  const dynamicSite = S.resolveSpectrumSite('zone', 2, 0.6, 0.35, 0.8, 0.5);
+  approx(dynamicSite.SDS, 0.66, 1e-12, 'dynamic spectrum site SDS');
+  assert.strictEqual(dynamicSite.modeLabel, '震區係數經 Fa / Fv 放大', 'dynamic spectrum site label');
+  const directSpectrumSite = S.resolveSpectrumSite('direct', 2, 0.6, 0.35, 0.8, 0.5);
+  approx(directSpectrumSite.SDS, 0.6, 1e-12, 'direct dynamic spectrum site SDS');
+  approx(directSpectrumSite.FaD, 1, 1e-12, 'direct dynamic spectrum site FaD');
+
+  const dynamicSpectrum = S.buildCodeResponseSpectrum({
+    siteInputMode: 'zone',
+    I: 1,
+    site: dynamicSite,
+    lowerSite: dynamicSite,
+    R: 2,
+    Ra: 1.6667,
+    alphaY: 1.5,
+    T1: 0.51,
+    damping: 5,
+    BS: 1,
+    B1: 1,
+    Tx: 0.75,
+    Ty: 0.65,
+    range: { plotMode: 'auto', exportTmax: 4 }
+  });
+  approx(dynamicSpectrum.basis.ToD, 0.7424242424242423, 1e-12, 'dynamic spectrum ToD');
+  approx(dynamicSpectrum.summary.t1.designAccel, 0.173481854197383, 1e-12, 'dynamic spectrum T1 adopted design input spectrum');
+  approx(dynamicSpectrum.summary.lowerControlShare, 0, 1e-12, 'dynamic spectrum lower control share');
+  approx(dynamicSpectrum.ranges.plotTmax, 2, 1e-12, 'dynamic spectrum auto plot range');
+  approx(dynamicSpectrum.ranges.exportTmax, 4, 1e-12, 'dynamic spectrum export range');
+  assert.ok(dynamicSpectrum.previewRows.length > 5, 'dynamic spectrum preview rows');
+  assert.ok(dynamicSpectrum.chartRows.length > 50, 'dynamic spectrum chart rows');
+  assert.ok(dynamicSpectrum.exportRows.length > dynamicSpectrum.chartRows.length - 1, 'dynamic spectrum export rows');
+
+  const dynamicStaticX = S.calcDynamicStaticReference({
+    systemKey: 'SMRF_RC',
+    hn: 17.2,
+    W: 2500,
+    siteClass: 2,
+    SsD: 0.6,
+    S1D: 0.35,
+    SsM: 0.8,
+    S1M: 0.5,
+    I: 1,
+    Tdyna: 0.75,
+    siteInputMode: 'zone'
+  });
+  const dynamicStaticY = S.calcDynamicStaticReference({
+    systemKey: 'SMRF_RC',
+    hn: 17.2,
+    W: 2500,
+    siteClass: 2,
+    SsD: 0.6,
+    S1D: 0.35,
+    SsM: 0.8,
+    S1M: 0.5,
+    I: 1,
+    Tdyna: 0.65,
+    siteInputMode: 'zone'
+  });
+  approx(dynamicStaticX.Vdesign, 388.88888888888874, 1e-9, 'dynamic static X reference');
+  approx(dynamicStaticY.Vdesign, 392.85714285714283, 1e-9, 'dynamic static Y reference');
+  assert.strictEqual(dynamicStaticX.controlledBy, 'V*', 'dynamic static X control');
+  assert.strictEqual(dynamicStaticY.controlledBy, 'V*', 'dynamic static Y control');
+
+  const directionX = S.buildDynamicDirectionResult('X', 180, NaN, dynamicStaticX, null, 1, '第 3.3 節');
+  const directionY = S.buildDynamicDirectionResult('Y', 170, NaN, dynamicStaticY, null, 1, '第 3.3 節');
+  approx(directionX.ratio, 0.462857142857143, 1e-12, 'dynamic X ratio');
+  approx(directionY.ratio, 0.43272727272727274, 1e-12, 'dynamic Y ratio');
+  assert.strictEqual(directionX.status, '動力小於總橫力調整要求', 'dynamic X direction status');
+  const designActions = S.buildDynamicDesignActions({
+    x: { ...directionX, staticRef: directionX.adoptedStatic },
+    y: { ...directionY, staticRef: directionY.adoptedStatic }
+  });
+  approx(designActions[0].requiredScale, 2.160493827160493, 1e-12, 'dynamic X required scale');
+  approx(designActions[1].requiredScale, 2.310924369747899, 1e-12, 'dynamic Y required scale');
+  assert.equal(designActions[0].hasAdopted, false, 'dynamic design action without adopted shear');
+
   console.log('seismic.js tests passed');
 }
 

@@ -820,9 +820,12 @@ function resetCaseDefaults() {
   window.location.reload();
 }
 
-function roundUpToHalf(value) {
-  return Math.ceil(value * 2) / 2;
-}
+const resolveSpectrumSite = S.resolveSpectrumSite;
+const buildCodeResponseSpectrum = S.buildCodeResponseSpectrum;
+const buildSpectrumSeries = S.buildSpectrumSeries;
+const buildDirectionResult = S.buildDynamicDirectionResult;
+const buildDesignAction = S.buildDynamicDesignAction;
+const buildDesignActions = S.buildDynamicDesignActions;
 
 function readSpectrumRangeInputs() {
   const plotMode = document.getElementById('spectrumPlotRangeMode')?.value || 'auto';
@@ -849,150 +852,6 @@ function saveProjectInfo() {
 
 function num(id) {
   return parseFloat(document.getElementById(id)?.value);
-}
-
-function resolveSpectrumSite(mode, siteClass, SsD, S1D, SsM, S1M) {
-  if (mode === 'direct') {
-    return {
-      FaD: 1,
-      FvD: 1,
-      FaM: 1,
-      FvM: 1,
-      SDS: SsD,
-      SD1: S1D,
-      SMS: SsM,
-      SM1: S1M,
-      mode: 'direct',
-      modeLabel: '直接採用輸入譜值'
-    };
-  }
-  return {
-    ...S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M),
-    mode: 'zone',
-    modeLabel: '震區係數經 Fa / Fv 放大'
-  };
-}
-
-function calcSpectrumSa(T, Sshort, Sone, BS, B1) {
-  const shortCoeff = Sshort / BS;
-  const oneSecCoeff = Sone / B1;
-  const To = oneSecCoeff / shortCoeff;
-  if (T <= 0.2 * To) return shortCoeff * (0.4 + 3.0 * T / To);
-  if (T <= To) return shortCoeff;
-  if (T <= 2.5 * To) return oneSecCoeff / T;
-  return Math.max(0.4 * shortCoeff, oneSecCoeff / T);
-}
-
-function buildPreviewPeriods(ToD, ToLower, ToM, T1) {
-  const values = [0, 0.2 * ToD, T1, ToD, 2.5 * ToD, 0.2 * ToLower, ToLower, 2.5 * ToLower, 0.2 * ToM, ToM, 2.5 * ToM, 4];
-  return Array.from(new Set(values.filter(v => isFinite(v) && v >= 0).map(v => Number(v.toFixed(4))))).sort((a, b) => a - b);
-}
-
-function buildChartPeriods(Tmax, steps = 100) {
-  const limit = Math.max(0.5, Tmax || 0);
-  const rows = [];
-  for (let i = 0; i <= steps; i += 1) rows.push(limit * i / steps);
-  return rows;
-}
-
-function resolveSpectrumRanges(p, ToD, ToLower, ToM) {
-  const controllingPeriod = Math.max(p.Tx || 0, p.Ty || 0, p.T1 || 0);
-  const controlTmax = Math.max(2.5 * ToD, 2.5 * ToLower, 2.5 * ToM, 1.5 * controllingPeriod);
-  const recommendedPlotTmax = Math.min(4, Math.max(2, roundUpToHalf(controlTmax)));
-  let plotTmax = recommendedPlotTmax;
-  if (p.range?.plotMode === 'custom') plotTmax = p.range.customPlotTmax || recommendedPlotTmax;
-  if (['2', '3', '4'].includes(p.range?.plotMode)) plotTmax = Number(p.range.plotMode);
-  plotTmax = Math.max(0.5, plotTmax);
-  const exportTmax = Math.max(0.5, p.range?.exportTmax || 4);
-  return {
-    plotMode: p.range?.plotMode || 'auto',
-    recommendedPlotTmax,
-    plotTmax,
-    exportTmax,
-    controllingPeriod,
-    controlTmax,
-    isPlotShort: plotTmax < 1.5 * controllingPeriod
-  };
-}
-
-function buildCodeResponseSpectrum(p) {
-  const ToD = (p.site.SD1 * p.BS) / (p.site.SDS * p.B1);
-  const ToLower = (p.lowerSite.SD1 * p.BS) / (p.lowerSite.SDS * p.B1);
-  const ToM = (p.site.SM1 * p.BS) / (p.site.SMS * p.B1);
-  const SaD_T1 = calcSpectrumSa(p.T1, p.site.SDS, p.site.SD1, p.BS, p.B1);
-  const SaM_T1 = calcSpectrumSa(p.T1, p.site.SMS, p.site.SM1, p.BS, p.B1);
-  const Fu = S.calcFu(p.Ra, p.T1, ToD);
-  const FuM = S.calcFuM(p.R, p.T1, ToM);
-  const SaFuM = S.calcSaFuM(SaD_T1 / Fu);
-  const SaMFuMM = S.calcSaFuM(SaM_T1 / FuM);
-  const designFactor = p.I / (1.4 * p.alphaY * SaD_T1) * SaFuM;
-  const lowerFactor = p.I * Fu / (4.2 * p.alphaY * SaD_T1) * SaFuM;
-  const mceFactor = p.I / (1.4 * p.alphaY * SaM_T1) * SaMFuMM;
-  const ranges = resolveSpectrumRanges(p, ToD, ToLower, ToM);
-
-  function row(T) {
-    const SaD = calcSpectrumSa(T, p.site.SDS, p.site.SD1, p.BS, p.B1);
-    const SaLower = calcSpectrumSa(T, p.lowerSite.SDS, p.lowerSite.SD1, p.BS, p.B1);
-    const SaM = calcSpectrumSa(T, p.site.SMS, p.site.SM1, p.BS, p.B1);
-    const designAccelRaw = SaD * designFactor;
-    const lowerAccel = SaLower * lowerFactor;
-    const designAccel = Math.max(designAccelRaw, lowerAccel);
-    const mceAccel = SaM * mceFactor;
-    return {
-      T,
-      SaD,
-      SaLower,
-      SaM,
-      designAccelRaw,
-      lowerAccel,
-      designAccel,
-      mceAccel,
-      control: lowerAccel > designAccelRaw ? '中小度下限' : '設計地震'
-    };
-  }
-
-  const previewRows = buildPreviewPeriods(ToD, ToLower, ToM, p.T1).map(row);
-  const chartRows = buildChartPeriods(ranges.plotTmax).map(row);
-  const exportRows = buildChartPeriods(ranges.exportTmax, Math.max(100, Math.ceil(ranges.exportTmax * 25))).map(row);
-  const t1Row = row(p.T1);
-  const peakRows = exportRows.length ? exportRows : chartRows;
-  const peakBy = prop => peakRows.reduce((best, current) => current[prop] > best[prop] ? current : best, peakRows[0] || t1Row);
-  const lowerControlCount = peakRows.filter(item => item.control === '中小度下限').length;
-  return {
-    params: {
-      siteInputMode: p.siteInputMode,
-      siteModeLabel: p.site.modeLabel,
-      I: p.I,
-      R: p.R,
-      Ra: p.Ra,
-      alphaY: p.alphaY,
-      T1: p.T1,
-      damping: p.damping,
-      BS: p.BS,
-      B1: p.B1
-    },
-    site: {
-      SDS: p.site.SDS,
-      SD1: p.site.SD1,
-      SMS: p.site.SMS,
-      SM1: p.site.SM1,
-      lowerSDS: p.lowerSite.SDS,
-      lowerSD1: p.lowerSite.SD1
-    },
-    basis: { ToD, ToLower, ToM, SaD_T1, SaM_T1, Fu, FuM, SaFuM, SaMFuMM, designFactor, lowerFactor, mceFactor },
-    ranges,
-    summary: {
-      t1: t1Row,
-      adoptedPeak: peakBy('designAccel'),
-      lowerPeak: peakBy('lowerAccel'),
-      mcePeak: peakBy('mceAccel'),
-      lowerControlCount,
-      lowerControlShare: peakRows.length ? lowerControlCount / peakRows.length : 0
-    },
-    previewRows,
-    chartRows,
-    exportRows
-  };
 }
 
 function readCodeSpectrumInputs(base) {
@@ -1091,39 +950,19 @@ function getProjectInfo() {
 }
 
 function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tdyna, siteInputMode) {
-  const sys = S.SYSTEMS[systemKey] || S.SYSTEMS.OTHER;
-  const site = resolveSpectrumSite(siteInputMode, siteClass, SsD, S1D, SsM, S1M);
-  const to = S.calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
-  const Tcode = S.calcPeriod(systemKey, hn);
-  const Tdesign = S.calcTdesign(Tcode, Tdyna, 1.4);
-  const Ra = S.calcRa(sys.R, false);
-  const Fu = S.calcFu(Ra, Tdesign, to.ToD);
-  const FuM = S.calcFuM(sys.R, Tdesign, to.ToM);
-  const SaD = S.calcSa(Tdesign, site.SDS, site.SD1);
-  const SaM = S.calcSa(Tdesign, site.SMS, site.SM1);
-  const vd = S.calcVD(Ifactor, sys.alphaY, SaD, Fu, W);
-  const vs = S.calcVstar(Ifactor, sys.alphaY, Fu, SaD, W, false);
-  const vm = S.calcVM(Ifactor, sys.alphaY, SaM, FuM, W);
-  const Vdesign = Math.max(vd.VD, vs.Vstar, vm.VM);
-  let controlledBy = 'VD';
-  if (Vdesign === vs.Vstar) controlledBy = 'V*';
-  if (Vdesign === vm.VM) controlledBy = 'VM';
-  return { Vdesign, Tdesign, coeff: W > 0 ? Vdesign / W : 0, controlledBy, site, sys, ToD: to.ToD, ToM: to.ToM, SaD, SaM, Fu, FuM };
-}
-
-function buildSpectrumSeries(site, Tmax) {
-  const limit = Math.max(0.5, Tmax || 0);
-  const points = [];
-  const steps = 120;
-  for (let i = 0; i <= steps; i++) {
-    const T = limit * i / steps;
-    points.push({
-      T,
-      dbe: S.calcSa(T, site.SDS, site.SD1),
-      mce: S.calcSa(T, site.SMS, site.SM1)
-    });
-  }
-  return points;
+  return S.calcDynamicStaticReference({
+    systemKey,
+    hn,
+    W,
+    siteClass,
+    SsD,
+    S1D,
+    SsM,
+    S1M,
+    I: Ifactor,
+    Tdyna,
+    siteInputMode
+  });
 }
 
 function renderSpectrumChart(result) {
@@ -1274,68 +1113,6 @@ function renderSpectrumChart(result) {
   });
   const ranges = result.responseSpectrum?.ranges || {};
   legend.innerHTML = `圖中依工址條件繪出設計地震反應譜、最大考量地震反應譜，以及依規範第 3.2 節換算之分析輸入譜；中小度下限譜以灰色虛線表示，用來判斷採用設計輸入譜是否由下限控制。圖表週期上限 T<sub>plot</sub> = <b>${fmt(ranges.plotTmax,1)}</b> sec，匯出週期上限 T<sub>export</sub> = <b>${fmt(ranges.exportTmax,1)}</b> sec。X 向主模態週期 T<sub>x</sub> = <b>${fmt(tx,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(txSa,3)}</b> g；Y 向主模態週期 T<sub>y</sub> = <b>${fmt(ty,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(tySa,3)}</b> g。${ranges.isPlotShort ? '<br><strong>提醒：</strong>目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍再判讀。' : ''}`;
-}
-
-function buildDirectionResult(dir, dynBaseShear, adoptedInput, staticRef, staticImported, floorRatio = 1, floorLabel = '') {
-  const staticFull = staticImported?.Vdesign || staticRef.Vdesign;
-  const ref = staticFull * floorRatio;
-  const ratio = ref > 0 ? dynBaseShear / ref : null;
-  const adoptedShear = isFinite(adoptedInput) && adoptedInput > 0 ? adoptedInput : null;
-  return {
-    dir,
-    baseShear: dynBaseShear,
-    adoptedShear,
-    ratio,
-    staticRef,
-    staticImported,
-    staticFull,
-    adoptedStatic: ref,
-    floorRatio,
-    floorLabel,
-    adoptedStaticText: `${staticImported ? '沿用等值靜力摘要' : '依本頁條件反算等值靜力結果'}，調整比例 ${fmt(floorRatio * 100, 0)}%`,
-    status: ratio == null ? '—' : ratio >= 1 ? '動力不小於總橫力調整要求' : '動力小於總橫力調整要求'
-  };
-}
-
-function buildDesignAction(dir, directionResult) {
-  const dyn = Number(directionResult?.baseShear || 0);
-  const stat = Number(directionResult?.staticRef || 0);
-  const staticFull = Number(directionResult?.staticFull || stat);
-  const floorRatio = Number(directionResult?.floorRatio || 1);
-  const ratio = stat > 0 ? dyn / stat : null;
-  const requiredScale = dyn > 0 && stat > 0 ? stat / dyn : null;
-  const adoptedShear = isFinite(directionResult?.adoptedShear) && directionResult.adoptedShear > 0 ? Number(directionResult.adoptedShear) : null;
-  const adoptedScale = adoptedShear != null && dyn > 0 ? adoptedShear / dyn : null;
-  const hasAdopted = adoptedShear != null;
-  const adoptedPass = hasAdopted && adoptedShear >= stat;
-  const needsScale = ratio != null && ratio < 1;
-  return {
-    dir,
-    dyn,
-    stat,
-    staticFull,
-    floorRatio,
-    ratio,
-    needsScale,
-    requiredScale,
-    scaleFactor: requiredScale,
-    hasAdopted,
-    adoptedShear,
-    adoptedScale,
-    adoptedPass,
-    status: !hasAdopted
-      ? '尚未輸入採用總橫力，僅列示規範調整要求。'
-      : adoptedPass
-        ? '輸入採用總橫力已滿足第 3.3 節調整要求。'
-        : '輸入採用總橫力低於第 3.3 節調整要求，需提高或重新縮放。'
-  };
-}
-
-function buildDesignActions(result) {
-  return [
-    buildDesignAction('X', result.x),
-    buildDesignAction('Y', result.y)
-  ];
 }
 
 function renderDesignActionCards(actions) {

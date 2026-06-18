@@ -338,6 +338,258 @@
   }
 
   // ══════════════════════════════
+  //  第三章 — 反應譜動力分析整理
+  // ══════════════════════════════
+
+  function roundUpToHalf(value) {
+    return Math.ceil(value * 2) / 2;
+  }
+
+  function resolveSpectrumSite(mode, siteClass, SsD, S1D, SsM, S1M) {
+    if (mode === 'direct') {
+      return {
+        FaD: 1,
+        FvD: 1,
+        FaM: 1,
+        FvM: 1,
+        SDS: SsD,
+        SD1: S1D,
+        SMS: SsM,
+        SM1: S1M,
+        mode: 'direct',
+        modeLabel: '直接採用輸入譜值'
+      };
+    }
+    return {
+      ...calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M),
+      mode: 'zone',
+      modeLabel: '震區係數經 Fa / Fv 放大'
+    };
+  }
+
+  function calcResponseSpectrumSa(T, Sshort, Sone, BS, B1) {
+    const shortCoeff = Sshort / (BS || 1);
+    const oneSecCoeff = Sone / (B1 || 1);
+    const To = oneSecCoeff / shortCoeff;
+    if (T <= 0.2 * To) return shortCoeff * (0.4 + 3.0 * T / To);
+    if (T <= To) return shortCoeff;
+    if (T <= 2.5 * To) return oneSecCoeff / T;
+    return Math.max(0.4 * shortCoeff, oneSecCoeff / T);
+  }
+
+  function buildResponseSpectrumPreviewPeriods(ToD, ToLower, ToM, T1) {
+    const values = [0, 0.2 * ToD, T1, ToD, 2.5 * ToD, 0.2 * ToLower, ToLower, 2.5 * ToLower, 0.2 * ToM, ToM, 2.5 * ToM, 4];
+    return Array.from(new Set(values.filter(v => isFinite(v) && v >= 0).map(v => Number(v.toFixed(4))))).sort((a, b) => a - b);
+  }
+
+  function buildResponseSpectrumPeriods(Tmax, steps) {
+    const limit = Math.max(0.5, Tmax || 0);
+    const count = steps == null ? 100 : steps;
+    const rows = [];
+    for (let i = 0; i <= count; i += 1) rows.push(limit * i / count);
+    return rows;
+  }
+
+  function resolveResponseSpectrumRanges(p, ToD, ToLower, ToM) {
+    const controllingPeriod = Math.max(p.Tx || 0, p.Ty || 0, p.T1 || 0);
+    const controlTmax = Math.max(2.5 * ToD, 2.5 * ToLower, 2.5 * ToM, 1.5 * controllingPeriod);
+    const recommendedPlotTmax = Math.min(4, Math.max(2, roundUpToHalf(controlTmax)));
+    let plotTmax = recommendedPlotTmax;
+    if (p.range?.plotMode === 'custom') plotTmax = p.range.customPlotTmax || recommendedPlotTmax;
+    if (['2', '3', '4'].includes(p.range?.plotMode)) plotTmax = Number(p.range.plotMode);
+    plotTmax = Math.max(0.5, plotTmax);
+    const exportTmax = Math.max(0.5, p.range?.exportTmax || 4);
+    return {
+      plotMode: p.range?.plotMode || 'auto',
+      recommendedPlotTmax,
+      plotTmax,
+      exportTmax,
+      controllingPeriod,
+      controlTmax,
+      isPlotShort: plotTmax < 1.5 * controllingPeriod
+    };
+  }
+
+  function buildCodeResponseSpectrum(p) {
+    const ToD = (p.site.SD1 * p.BS) / (p.site.SDS * p.B1);
+    const ToLower = (p.lowerSite.SD1 * p.BS) / (p.lowerSite.SDS * p.B1);
+    const ToM = (p.site.SM1 * p.BS) / (p.site.SMS * p.B1);
+    const SaD_T1 = calcResponseSpectrumSa(p.T1, p.site.SDS, p.site.SD1, p.BS, p.B1);
+    const SaM_T1 = calcResponseSpectrumSa(p.T1, p.site.SMS, p.site.SM1, p.BS, p.B1);
+    const Fu = calcFu(p.Ra, p.T1, ToD);
+    const FuM = calcFuM(p.R, p.T1, ToM);
+    const SaFuM = calcSaFuM(SaD_T1 / Fu);
+    const SaMFuMM = calcSaFuM(SaM_T1 / FuM);
+    const designFactor = p.I / (1.4 * p.alphaY * SaD_T1) * SaFuM;
+    const lowerFactor = p.I * Fu / (4.2 * p.alphaY * SaD_T1) * SaFuM;
+    const mceFactor = p.I / (1.4 * p.alphaY * SaM_T1) * SaMFuMM;
+    const ranges = resolveResponseSpectrumRanges(p, ToD, ToLower, ToM);
+
+    function row(T) {
+      const SaD = calcResponseSpectrumSa(T, p.site.SDS, p.site.SD1, p.BS, p.B1);
+      const SaLower = calcResponseSpectrumSa(T, p.lowerSite.SDS, p.lowerSite.SD1, p.BS, p.B1);
+      const SaM = calcResponseSpectrumSa(T, p.site.SMS, p.site.SM1, p.BS, p.B1);
+      const designAccelRaw = SaD * designFactor;
+      const lowerAccel = SaLower * lowerFactor;
+      const designAccel = Math.max(designAccelRaw, lowerAccel);
+      const mceAccel = SaM * mceFactor;
+      return {
+        T,
+        SaD,
+        SaLower,
+        SaM,
+        designAccelRaw,
+        lowerAccel,
+        designAccel,
+        mceAccel,
+        control: lowerAccel > designAccelRaw ? '中小度下限' : '設計地震'
+      };
+    }
+
+    const previewRows = buildResponseSpectrumPreviewPeriods(ToD, ToLower, ToM, p.T1).map(row);
+    const chartRows = buildResponseSpectrumPeriods(ranges.plotTmax).map(row);
+    const exportRows = buildResponseSpectrumPeriods(ranges.exportTmax, Math.max(100, Math.ceil(ranges.exportTmax * 25))).map(row);
+    const t1Row = row(p.T1);
+    const peakRows = exportRows.length ? exportRows : chartRows;
+    const peakBy = prop => peakRows.reduce((best, current) => current[prop] > best[prop] ? current : best, peakRows[0] || t1Row);
+    const lowerControlCount = peakRows.filter(item => item.control === '中小度下限').length;
+    return {
+      params: {
+        siteInputMode: p.siteInputMode,
+        siteModeLabel: p.site.modeLabel,
+        I: p.I,
+        R: p.R,
+        Ra: p.Ra,
+        alphaY: p.alphaY,
+        T1: p.T1,
+        damping: p.damping,
+        BS: p.BS,
+        B1: p.B1
+      },
+      site: {
+        SDS: p.site.SDS,
+        SD1: p.site.SD1,
+        SMS: p.site.SMS,
+        SM1: p.site.SM1,
+        lowerSDS: p.lowerSite.SDS,
+        lowerSD1: p.lowerSite.SD1
+      },
+      basis: { ToD, ToLower, ToM, SaD_T1, SaM_T1, Fu, FuM, SaFuM, SaMFuMM, designFactor, lowerFactor, mceFactor },
+      ranges,
+      summary: {
+        t1: t1Row,
+        adoptedPeak: peakBy('designAccel'),
+        lowerPeak: peakBy('lowerAccel'),
+        mcePeak: peakBy('mceAccel'),
+        lowerControlCount,
+        lowerControlShare: peakRows.length ? lowerControlCount / peakRows.length : 0
+      },
+      previewRows,
+      chartRows,
+      exportRows
+    };
+  }
+
+  function calcDynamicStaticReference(p) {
+    const sys = SYSTEMS[p.systemKey] || SYSTEMS.OTHER;
+    const site = resolveSpectrumSite(p.siteInputMode, p.siteClass, p.SsD, p.S1D, p.SsM, p.S1M);
+    const to = calcTo(site.SDS, site.SD1, site.SMS, site.SM1);
+    const Tcode = calcPeriod(p.systemKey, p.hn);
+    const Tdesign = calcTdesign(Tcode, p.Tdyna, p.CU || 1.4);
+    const Ra = calcRa(sys.R, p.isTaipeiBasin || false);
+    const Fu = calcFu(Ra, Tdesign, to.ToD);
+    const FuM = calcFuM(sys.R, Tdesign, to.ToM);
+    const SaD = calcSa(Tdesign, site.SDS, site.SD1);
+    const SaM = calcSa(Tdesign, site.SMS, site.SM1);
+    const vd = calcVD(p.I || 1, sys.alphaY, SaD, Fu, p.W);
+    const vs = calcVstar(p.I || 1, sys.alphaY, Fu, SaD, p.W, p.isTaipeiBasin || false);
+    const vm = calcVM(p.I || 1, sys.alphaY, SaM, FuM, p.W);
+    const Vdesign = Math.max(vd.VD, vs.Vstar, vm.VM);
+    let controlledBy = 'VD';
+    if (Vdesign === vs.Vstar) controlledBy = 'V*';
+    if (Vdesign === vm.VM) controlledBy = 'VM';
+    return { Vdesign, Tdesign, coeff: p.W > 0 ? Vdesign / p.W : 0, controlledBy, site, sys, ToD: to.ToD, ToM: to.ToM, SaD, SaM, Fu, FuM };
+  }
+
+  function buildSpectrumSeries(site, Tmax) {
+    const limit = Math.max(0.5, Tmax || 0);
+    const points = [];
+    const steps = 120;
+    for (let i = 0; i <= steps; i++) {
+      const T = limit * i / steps;
+      points.push({
+        T,
+        dbe: calcSa(T, site.SDS, site.SD1),
+        mce: calcSa(T, site.SMS, site.SM1)
+      });
+    }
+    return points;
+  }
+
+  function buildDynamicDirectionResult(dir, dynBaseShear, adoptedInput, staticRef, staticImported, floorRatio, floorLabel) {
+    const ratioFloor = floorRatio || 1;
+    const staticFull = staticImported?.Vdesign || staticRef.Vdesign;
+    const ref = staticFull * ratioFloor;
+    const ratio = ref > 0 ? dynBaseShear / ref : null;
+    const adoptedShear = isFinite(adoptedInput) && adoptedInput > 0 ? adoptedInput : null;
+    return {
+      dir,
+      baseShear: dynBaseShear,
+      adoptedShear,
+      ratio,
+      staticRef,
+      staticImported,
+      staticFull,
+      adoptedStatic: ref,
+      floorRatio: ratioFloor,
+      floorLabel: floorLabel || '',
+      adoptedStaticText: `${staticImported ? '沿用等值靜力摘要' : '依本頁條件反算等值靜力結果'}，調整比例 ${Math.round(ratioFloor * 100)}%`,
+      status: ratio == null ? '—' : ratio >= 1 ? '動力不小於總橫力調整要求' : '動力小於總橫力調整要求'
+    };
+  }
+
+  function buildDynamicDesignAction(dir, directionResult) {
+    const dyn = Number(directionResult?.baseShear || 0);
+    const stat = Number(directionResult?.staticRef || 0);
+    const staticFull = Number(directionResult?.staticFull || stat);
+    const floorRatio = Number(directionResult?.floorRatio || 1);
+    const ratio = stat > 0 ? dyn / stat : null;
+    const requiredScale = dyn > 0 && stat > 0 ? stat / dyn : null;
+    const adoptedShear = isFinite(directionResult?.adoptedShear) && directionResult.adoptedShear > 0 ? Number(directionResult.adoptedShear) : null;
+    const adoptedScale = adoptedShear != null && dyn > 0 ? adoptedShear / dyn : null;
+    const hasAdopted = adoptedShear != null;
+    const adoptedPass = hasAdopted && adoptedShear >= stat;
+    const needsScale = ratio != null && ratio < 1;
+    return {
+      dir,
+      dyn,
+      stat,
+      staticFull,
+      floorRatio,
+      ratio,
+      needsScale,
+      requiredScale,
+      scaleFactor: requiredScale,
+      hasAdopted,
+      adoptedShear,
+      adoptedScale,
+      adoptedPass,
+      status: !hasAdopted
+        ? '尚未輸入採用總橫力，僅列示規範調整要求。'
+        : adoptedPass
+          ? '輸入採用總橫力已滿足第 3.3 節調整要求。'
+          : '輸入採用總橫力低於第 3.3 節調整要求，需提高或重新縮放。'
+    };
+  }
+
+  function buildDynamicDesignActions(result) {
+    return [
+      buildDynamicDesignAction('X', result.x),
+      buildDynamicDesignAction('Y', result.y)
+    ];
+  }
+
+  // ══════════════════════════════
   //  全流程整合
   // ══════════════════════════════
 
@@ -819,6 +1071,18 @@
     calcFt,
     calcVerticalDist,
     calcSubK,
+    // 第三章 — 反應譜動力分析整理
+    resolveSpectrumSite,
+    calcResponseSpectrumSa,
+    buildResponseSpectrumPreviewPeriods,
+    buildResponseSpectrumPeriods,
+    resolveResponseSpectrumRanges,
+    buildCodeResponseSpectrum,
+    calcDynamicStaticReference,
+    buildSpectrumSeries,
+    buildDynamicDirectionResult,
+    buildDynamicDesignAction,
+    buildDynamicDesignActions,
     calcFullSeismic,
     // 第四章 — 附屬構造物
     TABLE_4_1,

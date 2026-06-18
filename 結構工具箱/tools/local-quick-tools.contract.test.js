@@ -67,6 +67,7 @@ const repoDocs = {
   indexClassic: readText(toolboxFile('index-classic.html')),
   homeCss: readText(toolboxFile('assets/home/home.css')),
   homeJs: readText(toolboxFile('assets/home/home.js')),
+  seismicCore: readText(toolboxFile('core/loads/seismic.js')),
   seismicDynamic: readText(toolboxFile('tools/地震力/seismic-dynamic.html')),
   seismicAppendage: readText(toolboxFile('tools/地震力/seismic-appendage.html')),
   seismicMisc: readText(toolboxFile('tools/地震力/seismic-misc.html')),
@@ -449,8 +450,8 @@ assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home 
   'id="VxAdopted"',
   'id="VyAdopted"',
   'Accel./g',
-  'function buildDesignAction',
-  'function buildCodeResponseSpectrum',
+  'S.buildDynamicDesignActions',
+  'S.buildCodeResponseSpectrum',
   '最低縮放倍率',
   '輸入採用總橫力',
   '匯出反應譜 CSV',
@@ -472,6 +473,13 @@ assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home 
   'function exportResponseSpectrumCsv',
   'function readModelCheckInputs',
 ].forEach(needle => assertIncludes(repoDocs.seismicDynamic, needle, 'seismic dynamic work output'));
+[
+  'function buildCodeResponseSpectrum',
+  'function calcDynamicStaticReference',
+  'function buildDynamicDirectionResult',
+  'function buildDynamicDesignAction',
+  'function buildDynamicDesignActions'
+].forEach(needle => assertIncludes(repoDocs.seismicCore, needle, 'seismic dynamic core output'));
 [
   '<title>附屬構造物地震力 V2.5</title>',
   'CASE_SCHEMA_VERSION',
