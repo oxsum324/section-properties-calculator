@@ -644,6 +644,9 @@ function jsonRoundTripExpression(tool, sourcePayload) {
     }
 
     const text = selector => (document.querySelector(selector)?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const resultValues = Array.from(document.querySelectorAll('.result-item .value'))
+      .map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim())
+      .filter(Boolean);
     return {
       missingPayload: false,
       missingFileInput: !fileInput,
@@ -659,6 +662,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
         '#r-qz .value': text('#r-qz .value'),
         '#r-force .value': text('#r-force .value')
       },
+      resultValues,
       payloadSchema: payload.schema || '',
       payloadToolId: payload.tool?.id || ''
     };
@@ -864,8 +868,12 @@ function assertJsonRoundTripState(state, tool, label) {
   );
   assert.equal(state.payloadToolId, tool.key, `${label} ${tool.key} JSON round-trip payload tool`);
   assert.ok(state.payloadSchema, `${label} ${tool.key} JSON round-trip payload schema`);
+  const recalculatedValues = [
+    ...Object.values(state.resultSelectors || {}),
+    ...(state.resultValues || []),
+  ].filter(Boolean);
   assert.ok(
-    Object.values(state.resultSelectors || {}).some(value => value && value !== '—'),
+    recalculatedValues.some(value => value !== '—'),
     `${label} ${tool.key} JSON round-trip recalculates result`
   );
 }

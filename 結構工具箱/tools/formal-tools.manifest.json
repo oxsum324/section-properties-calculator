@@ -447,6 +447,7 @@
       "reportButton": "btnReport",
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": ["wind-arrows", "force-panel"],
@@ -519,6 +520,7 @@
       "reportButton": "btnReport",
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
       "diagramRoleNeedles": ["panel-force-zone", "support-load-zone", "result-panel"],
@@ -537,6 +539,40 @@
           "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
         }
       },
+      "goldenCases": [
+        {
+          "id": "default-sign-panel-pipe-support",
+          "description": "預設招牌面板與單支管材支撐案例，鎖定表 2.10 面板與表 2.14 支撐合成結果。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "C",
+            "impClass": "IV",
+            "Kzt": "1.0",
+            "panelWidth": "4.0",
+            "panelHeight": "2.0",
+            "panelBottom": "5.0",
+            "openingRatio": "0",
+            "panelCfOverride": "",
+            "supportType": "pipe",
+            "supportCount": "1",
+            "supportSegments": "6",
+            "pipeDiameter": "0.216",
+            "pipeRoughness": "moderate",
+            "prismWidth": "0.30",
+            "prismShape": "rect_long",
+            "chkDetail": true
+          },
+          "expectedSelectors": {
+            "#r-totalV .value": "1782.1",
+            "#r-totalM .value": "10267.5",
+            "#r-zbar .value": "5.76",
+            "#r-panelF .value": "1660.6",
+            "#r-supportF .value": "121.6",
+            "#r-lineLoad .value": "24.3"
+          },
+          "expectedTextNeedles": ["表 2.10 實體標示物", "表 2.14 繩、竿、管", "V = Fp + Fs = 1782.1 kgf"]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
