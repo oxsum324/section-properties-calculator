@@ -144,6 +144,77 @@
       ]
     },
     {
+      "key": "deflection_needs_exact_manual_review",
+      "label": "跨深比未達免算條件需嚴謹撓度複核例",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "enableTorsion": false,
+        "enableDefl": true,
+        "enableExactDefl": false,
+        "autoD": true
+      },
+      "selects": {
+        "sectionType": "rect",
+        "support": "simple",
+        "sensitive": "no",
+        "torsionDesignStatus": "pending"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "fyt": 2800,
+        "bw": 40,
+        "h": 30,
+        "ln": 600,
+        "cover": 4,
+        "layerSv": 2.5,
+        "barShMin": 4,
+        "MuPos": 3,
+        "MuNeg": 3,
+        "Vu": 5,
+        "Pu": 0,
+        "botBar1No": "#8",
+        "botBar1N": 4,
+        "botBar2No": "#8",
+        "botBar2N": 0,
+        "botBar3No": "#8",
+        "botBar3N": 0,
+        "topBar1No": "#8",
+        "topBar1N": 4,
+        "topBar2No": "#8",
+        "topBar2N": 0,
+        "topBar3No": "#8",
+        "topBar3N": 0,
+        "stirrup": "#4",
+        "legs": 2,
+        "stirS": 15,
+        "nSkin": 0,
+        "smrfMnMin": "",
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
+      },
+      "expected": {
+        "mode": "check",
+        "sectionType": "rect",
+        "enableDefl": true,
+        "enableExactDefl": false,
+        "h": 30,
+        "hmin": 37.5,
+        "okHmin": false,
+        "okDeflOverall": null,
+        "deflNeedsExact": true,
+        "deflManualReview": true,
+        "deflStatusText": "h=30.0 < hmin=37.5 cm，需做 Bischoff Ie 嚴謹撓度計算"
+      },
+      "reportExpectedIncludes": [
+        "嚴謹撓度計算",
+        "跨深比僅作免算條件",
+        "h=30.0 &lt; hmin=37.5 cm，需做 Bischoff Ie 嚴謹撓度計算"
+      ]
+    },
+    {
       "key": "t_beam_seismic_vc0",
       "label": "T 梁 SMRF 梁端 Vc 歸零例",
       "mode": "check",

@@ -190,6 +190,7 @@ async function captureBeamSnapshot(page) {
       seismic: r.seismic ?? null,
       enableTorsion: r.enableTorsion ?? null,
       enableDefl: r.enableDefl ?? null,
+      enableExactDefl: r.enableExactDefl ?? null,
       fc: r.fc ?? null,
       fy: r.fy ?? null,
       fyt: r.fyt ?? null,
@@ -308,12 +309,17 @@ async function captureBeamSnapshot(page) {
       Tu_th_tfm: r.Tu_th != null ? r.Tu_th / 1e5 : null,
       hmin: r.hmin ?? null,
       okHmin: r.okHmin ?? null,
+      okDeflOverall: r.okDeflOverall ?? null,
+      deflNeedsExact: r.deflNeedsExact ?? null,
+      deflManualReview: r.deflManualReview ?? null,
+      deflStatusText: r.deflStatusText ?? null,
       reportBasisVisible: document.body.textContent.includes('112 年混凝土結構設計規範'),
       cShearMin: text('c-shearMin'),
       cShearSpacing: text('c-shearSpacing'),
       cAsMinBot: text('c-AsMinBot'),
       cAsMinTop: text('c-AsMinTop'),
       cSkin: text('c-skin'),
+      cHmin: text('c-hmin'),
       cDevLeft: text('c-devLeft'),
       cDevRight: text('c-devRight'),
       cLapLength: text('c-lapLength'),
@@ -469,6 +475,7 @@ async function main() {
   section('Source Helpers');
   assert(beamHtml.includes('function calcSmrfSpacingDbFactor'), 'beam.html has calcSmrfSpacingDbFactor', 'helper exists in source');
   assert(beamHtml.includes('function calcBischoffIe'), 'beam.html has calcBischoffIe', 'helper exists in source');
+  assert(beamHtml.includes('deflManualReview'), 'beam.html has deflection manual-review status', 'span-depth non-exemption is not treated as automatic NG');
   assert(beamHtml.includes('function calcSmrfSpacingLimit'), 'beam.html has calcSmrfSpacingLimit', 'helper exists in source');
   assert(beamHtml.includes('function getCrackingStateText'), 'beam.html has getCrackingStateText', 'helper exists in source');
   assert(beamHtml.includes('function calcAsMinInfo'), 'beam.html has calcAsMinInfo', 'T/L beam As,min width helper exists in source');

@@ -1605,6 +1605,7 @@
     const sectionType = $('sectionType').value;       // rect / T / L
     const enableTorsion = $('enableTorsion').checked;
     const enableDefl    = $('enableDefl').checked;
+    const exactDeflEnabled = !!($('enableExactDefl') && $('enableExactDefl').checked);
     const torsionDesignStatus = $('torsionDesignStatus')?.value || 'pending';
     const torsionAtPerS = optNum('torsionAtPerS');
     const torsionAl = optNum('torsionAl');
@@ -1777,12 +1778,18 @@
     const okAsMin = okAsMinBot && okAsMinTop;
     // φMn ≥ 1.2 Mcr (兩方向各用對應 Mcr)
     const okMcr = (phiMnPos >= Mcr12_pos) && (phiMnNeg >= Mcr12_neg);
-    // okHmin = 跨深比是否免算撓度 (不代表撓度合格與否)
-    // sensitive 時不能用跨深比免算，但不等於撓度不合格
+    // okHmin = 跨深比是否可免算撓度；未達 hmin 或連接易損時，需嚴謹撓度計算，不直接判 NG。
     const okHmin = enableDefl ? (!sensitive && (h >= hmin)) : true;
-    // okDeflOverall = 綜合撓度判定：跨深比通過可免算，或嚴謹撓度通過
-    // (在嚴謹撓度計算後才更新；此處先設初值)
-    let okDeflOverall = okHmin;
+    const deflNeedsExact = enableDefl && !okHmin;
+    let okDeflOverall = enableDefl ? (okHmin ? true : null) : true;
+    let deflManualReview = enableDefl && deflNeedsExact && !exactDeflEnabled;
+    let deflStatusText = !enableDefl
+      ? '未啟用撓度檢核'
+      : okHmin
+        ? `跨深比可免算：h=${h.toFixed(1)} ≥ hmin=${hmin.toFixed(1)} cm`
+        : sensitive
+          ? '連接易損構造，需做 Bischoff Ie 嚴謹撓度計算'
+          : `h=${h.toFixed(1)} < hmin=${hmin.toFixed(1)} cm，需做 Bischoff Ie 嚴謹撓度計算`;
     const okFlexPos = phiMnPos >= num('MuPos');
     const okFlexNeg = phiMnNeg >= num('MuNeg');
     const okFlex = okFlexPos && okFlexNeg;
@@ -1833,8 +1840,10 @@
       // sensitive 時跨深比不適用，但這是資訊提示而非 NG
       if (sensitive) {
         setCheck('c-hmin', null, '⚠ 連接易損構造，需做嚴謹撓度');
+      } else if (okHmin) {
+        setCheck('c-hmin', true, `h=${h} / hmin=${hmin.toFixed(1)}，可免算撓度`);
       } else {
-        setCheck('c-hmin', okHmin, `h=${h} / hmin=${hmin.toFixed(1)}`);
+        setCheck('c-hmin', null, `h=${h} / hmin=${hmin.toFixed(1)}，未達免算條件；需嚴謹撓度`);
       }
     }
     setCheck('c-shear', okShearStrength, `φVn=${(phiVn_eff/1000).toFixed(1)} / Vu=${(Vu/1000).toFixed(1)}`);
@@ -1986,7 +1995,7 @@
     $('heroStirS').textContent = `${sFinal.toFixed(1)} cm`;
     // === 嚴謹撓度計算 (Bischoff Ie) ===
     const deflResult = calcDeflectionData({
-      enabled: $('enableExactDefl') && $('enableExactDefl').checked,
+      enabled: exactDeflEnabled,
       fc, bw, ln, support, AsBot, AsTop, d_pos, d_neg, topSum, botSum, cover, tieDb, Ig,
       Mcr_pos_kgcm, Mcr_neg_kgcm,
       MaPos_tf: num('MaPos'), MaNeg_tf: num('MaNeg'),
@@ -2029,13 +2038,17 @@
       setResult('d-defLong', deflResult.deltaLT, 'cm', 3);
       setResult('d-defAllow', deflResult.deltaAllow, 'cm', 3);
       setCheck('d-defOk', deflResult.okDefl, `Δlt=${deflResult.deltaLT.toFixed(3)} / Δa=${deflResult.deltaAllow.toFixed(3)}`);
-      okDeflOverall = okHmin || deflResult.okDefl;
+      okDeflOverall = deflResult.okDefl;
+      deflManualReview = false;
+      deflStatusText = deflResult.okDefl
+        ? `嚴謹撓度 OK：Δlt=${deflResult.deltaLT.toFixed(3)} ≤ Δa=${deflResult.deltaAllow.toFixed(3)} cm`
+        : `嚴謹撓度 NG：Δlt=${deflResult.deltaLT.toFixed(3)} > Δa=${deflResult.deltaAllow.toFixed(3)} cm`;
     }
 
     // === 綜合結論 banner (依當前分頁) ===
     const bannerData = {
       okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
-      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin, okHmin, okDeflOverall, needSkin, okSkin,
+      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin, okHmin, okDeflOverall, deflNeedsExact, deflManualReview, deflStatusText, needSkin, okSkin,
       phiMnPos, phiMnNeg,
       MuPos: num('MuPos'), MuNeg: num('MuNeg'),
       phiVn: phiVn_eff/1000, Vu: num('Vu'),
@@ -2186,7 +2199,7 @@ ${layerBars.map(L => {
 `【1】跨深比免算撓度 (規範 9.3.1.1)
   支承狀況: ${supName}    係數 = ${fac}
   hmin = ℓn/${fac} = ${ln}/${fac} = ${fmt(hmin,2)} cm
-  h = ${h} cm    ${sensitive ? '⚠ 連接易損構造 → 必須做完整撓度' : (h>=hmin ? '✓ h ≥ hmin，免算撓度' : '✗ h < hmin，需做完整撓度')}`;
+  h = ${h} cm    ${sensitive ? '⚠ 連接易損構造 → 必須做完整撓度' : (h>=hmin ? '✓ h ≥ hmin，免算撓度' : '⚠ h < hmin，未達免算條件，需做完整撓度')}`;
       }
       if (deflResult) {
         const r = deflResult;
@@ -2282,7 +2295,7 @@ ${layerBars.map(L => {
     // === 儲存所有計算明細供計算書產生器使用 ===
     window.beamLast = {
       // 輸入
-      sectionType, support, seismic, enableTorsion, enableDefl, sensitive,
+      sectionType, support, seismic, enableTorsion, enableDefl, enableExactDefl: exactDeflEnabled, sensitive,
       fc, fy, fyt, bw, h, ln, bf, hf, cover, sv, d, d_pos, d_neg, tieDb,
       MuPos_in: num('MuPos'), MuNeg_in: num('MuNeg'),
       Vu_in: num('Vu'), Pu_in: num('Pu'), Tu_in: num('Tu'), Ve_in: num('Ve'),
@@ -2298,7 +2311,7 @@ ${layerBars.map(L => {
       okShearStrength, okShearMin, okShearSpacing,
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       Tu_th, torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk,
-      hmin, factorMap, seismicData, okMnQuarter, hasMnQuarterInput, mnQuarterReq, okFirstHoop, hasFirstHoopInput,
+      hmin, factorMap, deflNeedsExact, deflManualReview, deflStatusText, seismicData, okMnQuarter, hasMnQuarterInput, mnQuarterReq, okFirstHoop, hasFirstHoopInput,
       svMin, okLayerSpacing,
       shMin, okBarsPerLayer, barsPerLayerDetail, needSkin, okSkin, nSkin, skinNo,
       skinSpacing, skinSpacingLimit, skinZone, skinRequiredPerTensionFace, skinZoneText, skinZoneCount,
@@ -2553,10 +2566,10 @@ ${layerBars.map(L => {
           sub:`ℓn = ${r.ln}    4d = ${(4*r.d).toFixed(1)}`,
           value:`${r.ln}`, unit:'cm', ok:r.seismic ? r.okLnRaw : null },
         ...(r.enableDefl?[{
-          label:'h ≥ hmin (跨深比)',
+          label:'h ≥ hmin (跨深比免算條件)',
           formula:`hmin = ℓn/${r.factorMap[r.support]}`,
-          sub:`hmin = ${r.ln}/${r.factorMap[r.support]} = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm`,
-          value:`${r.h}`, unit:'cm', ok:r.okHmin }]:[])
+          sub:`hmin = ${r.ln}/${r.factorMap[r.support]} = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm；${r.deflStatusText}`,
+          value:`${r.h}`, unit:'cm', ok:r.okHmin ? true : null }]:[])
       ]},
       ...(isDesignMode ? [{ group:'設計建議 (反算)', items:[
         { label:'底層 As 需求',
@@ -2654,6 +2667,7 @@ ${layerBars.map(L => {
     if (r.developmentData && (!r.developmentData.hasCompleteAnchorageInput || r.developmentData.developmentManualReview)) manualReviewItems.push('梁端錨定');
     if (r.developmentData?.lapManualReview) manualReviewItems.push('搭接 / 施工圖');
     if (r.enableTorsion && r.torsionNeedsDesign && r.torsionDetailOk == null) manualReviewItems.push('扭力鋼筋詳算');
+    if (r.enableDefl && r.deflManualReview) manualReviewItems.push('嚴謹撓度計算');
     if (r.seismic && !r.hasMnQuarterInput) manualReviewItems.push('SMRF 跨內 Mn 比對');
     if (r.seismic && !r.hasFirstHoopInput) manualReviewItems.push('首支箍筋位置');
     const pendingManualReview = manualReviewItems.length > 0;
@@ -2740,6 +2754,7 @@ ${layerBars.map(L => {
         '檢核邊界：跨內 Mn,min 與首支箍筋距柱面若未輸入，列為人工複核；柱梁接頭區與塑鉸區實際範圍仍須由設計者依專案文件與配筋圖確認。',
         '握裹／搭接：直線錨定可自動比對 ℓd；彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。',
         '扭力：本頁自動判定 Tu 是否可忽略；Tu 超過門檻時承接專案 22.7 詳算結論，未輸入時列為人工複核；本頁不自動反算 At/Al。',
+        '撓度：跨深比僅作免算條件；連接易損構造或 h < hmin 時，需以 Bischoff Ie 嚴謹撓度計算確認，未計算時列為人工複核。',
         ...(pendingManualReview ? ['人工複核項目：' + manualReviewItems.join('、') + '；需以配筋圖、產品認可資料或專案文件確認後，方可作為最終判定。'] : []),
         '本計算書僅供初步設計檢核參考。',
         ...(r.seismic && r.beamColumnJoint
