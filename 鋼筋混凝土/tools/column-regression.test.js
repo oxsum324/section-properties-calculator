@@ -1,0 +1,230 @@
+const fs = require('fs');
+const path = require('path');
+const http = require('http');
+const { chromium } = require('playwright');
+
+const ROOT = path.resolve(__dirname, '..', '..');
+const PORT = Number(process.env.RC_TEST_PORT || 8123);
+const TOOL_URL = `http://127.0.0.1:${PORT}/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/tools/column.html`;
+const htmlPath = path.join(__dirname, 'column.html');
+const casesPath = path.join(__dirname, 'column-regression-cases.json');
+const toleranceDefault = 0.001;
+const CHROME_CANDIDATES = [
+  process.env.CHROME_PATH,
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
+].filter(Boolean);
+
+function assert(pass, title, detail) {
+  if (!pass) throw new Error(`${title} :: ${detail}`);
+  console.log(`PASS | ${title} | ${detail}`);
+}
+
+function serveStatic(rootDir, port = PORT) {
+  const mime = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'application/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.svg': 'image/svg+xml'
+  };
+  const server = http.createServer((req, res) => {
+    const reqPath = decodeURIComponent((req.url || '/').split('?')[0]);
+    const safePath = path.normalize(path.join(rootDir, reqPath === '/' ? 'index.html' : reqPath));
+    if (!safePath.startsWith(rootDir)) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+    fs.readFile(safePath, (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('Not found');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': mime[path.extname(safePath).toLowerCase()] || 'application/octet-stream' });
+      res.end(data);
+    });
+  });
+  return new Promise(resolve => server.listen(port, '127.0.0.1', () => resolve(server)));
+}
+
+function nearlyEqual(a, b, tolerance) {
+  if (a == null && b == null) return true;
+  if (typeof a === 'boolean' || typeof b === 'boolean') return a === b;
+  if (typeof a === 'string' || typeof b === 'string') return String(a) === String(b);
+  if (!isFinite(a) || !isFinite(b)) return a === b;
+  return Math.abs(a - b) <= tolerance;
+}
+
+async function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function sanitizeMetric(v) {
+  return (v == null || (typeof v === 'number' && !isFinite(v))) ? null : v;
+}
+
+async function main() {
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
+  const tolerance = pack.tolerance ?? toleranceDefault;
+
+  assert(html.includes('id="bannerStatus"'), 'column.html has banner', 'summary banner exists');
+  assert(html.includes('window.colLast'), 'column.html exports colLast', 'result snapshot exists for regression capture');
+  assert(html.includes('data-tab="summary"'), 'column.html has summary tab', 'summary banner can be stabilized for regression checks');
+
+  const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
+  assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for column regression test');
+
+  const server = await serveStatic(ROOT, PORT);
+  const browser = await chromium.launch({ headless: true, executablePath: chromePath });
+  const page = await browser.newPage();
+  const pageErrors = [];
+  const failedResponses = [];
+  page.on('pageerror', err => pageErrors.push(err.message));
+  page.on('response', res => {
+    if (res.status() >= 400) failedResponses.push(`${res.status()} ${res.url()}`);
+  });
+
+  try {
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    await wait(300);
+    assert(pageErrors.length === 0, 'column page boot', 'no page errors during initial load');
+    assert(failedResponses.length === 0, 'column page resources', 'no missing static resources during initial load');
+
+    for (const tc of pack.cases) {
+      await page.evaluate(tcCase => {
+        const setCheckbox = (id, desired) => {
+          const el = document.getElementById(id);
+          if (!el || el.checked === !!desired) return;
+          el.click();
+        };
+        const setValue = (id, value) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.value = String(value);
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+
+        document.querySelector(`.mode-btn[data-mode="${tcCase.mode}"]`)?.click();
+        Object.entries(tcCase.checkboxes || {}).forEach(([id, desired]) => setCheckbox(id, desired));
+        Object.entries(tcCase.selects || {}).forEach(([id, value]) => setValue(id, value));
+        Object.entries(tcCase.values || {}).forEach(([id, value]) => setValue(id, value));
+
+        if (typeof window.calcColumn === 'function') window.calcColumn();
+        document.querySelector('.section-tabs button[data-tab="summary"]')?.click();
+      }, tc);
+      await wait(500);
+
+      const actual = JSON.parse(await page.evaluate(() => JSON.stringify((() => {
+        const r = window.colLast || {};
+        return {
+          mode: document.querySelector('.mode-btn.active')?.dataset.mode ?? null,
+          banner: document.getElementById('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() ?? null,
+          colType: r.colType ?? null,
+          seismic: r.seismic ?? null,
+          Pu: r.Pu ?? null,
+          Mux: r.Mux ?? null,
+          Muy: r.Muy ?? null,
+          Vu_in: r.Vu_in ?? null,
+          Vuy_in: r.Vuy_in ?? null,
+          tieS: r.tieS ?? null,
+          crossTieS: r.crossTieS ?? null,
+          spiralS: r.spiralS ?? null,
+          sSugg: r.sSugg ?? null,
+          sSuggReason: r.sSuggReason ?? null,
+          shearSpacingLimitAuto: Number.isFinite(r.shearSpacingLimitAuto) ? r.shearSpacingLimitAuto : null,
+          codeTieSpacingLimit: Number.isFinite(r.codeTieSpacingLimit) ? r.codeTieSpacingLimit : null,
+          adoptedTieSpacing: r.adoptedTieSpacing ?? null,
+          okSeismicTieSpacing: r.okSeismicTieSpacing ?? null,
+          seismicHx: Number.isFinite(r.seismicHx) ? r.seismicHx : null,
+          seismicSoLimit: Number.isFinite(r.seismicTieSpacing?.so?.limit) ? r.seismicTieSpacing.so.limit : null,
+          seismicSoRaw: Number.isFinite(r.seismicTieSpacing?.so?.raw) ? r.seismicTieSpacing.so.raw : null,
+          seismicLongBarFactor: r.seismicTieSpacing?.dbLimit?.factor ?? null,
+          seismicLongBarLimit: Number.isFinite(r.seismicTieSpacing?.dbLimit?.limit) ? r.seismicTieSpacing.dbLimit.limit : null,
+          firstHoopDist: r.firstHoopDist ?? null,
+          seismicFirstHoopLimit: Number.isFinite(r.seismicFirstHoopLimit) ? r.seismicFirstHoopLimit : null,
+          okFirstHoop: r.okFirstHoop ?? null,
+          outsideTieS: r.outsideTieS ?? null,
+          outsideTieSInput: r.outsideTieSInput ?? null,
+          seismicMidSpacingLimit: Number.isFinite(r.seismicMidSpacingLimit) ? r.seismicMidSpacingLimit : null,
+          okOutsideTieSpacing: r.okOutsideTieSpacing ?? null,
+          Ast: r.Ast ?? null,
+          rhog: r.rhog ?? null,
+          phiPnMax: r.phiPnMax ?? null,
+          phiMnAtPu: r.phiMnAtPu ?? null,
+          phiMnyAtPu: r.phiMnyAtPu ?? null,
+          breslerRatio: r.breslerRatio ?? null,
+          breslerMethod: r.breslerMethod ?? null,
+          breslerOk: r.breslerOk ?? null,
+          biaxialSurfaceRatio: r.biaxialSurfaceRatio ?? null,
+          biaxialSurfaceOk: r.biaxialSurfaceOk ?? null,
+          phiVn_tf: r.phiVn_kgf != null ? r.phiVn_kgf / 1000 : null,
+          phiVnY_tf: r.phiVn_y_kgf != null ? r.phiVn_y_kgf / 1000 : null,
+          Ve: r.Ve ?? null,
+          autoVeOn: r.autoVeOn ?? null,
+          designVxTf: r.designVxTf ?? null,
+          designVyTf: r.designVyTf ?? null,
+          veAutoX: r.veDemand?.autoX ?? null,
+          veAutoY: r.veDemand?.autoY ?? null,
+          hasPuRange: r.veDemand?.hasPuRange ?? null,
+          PuAtMprX: r.veDemand?.PuAtMprX ?? null,
+          PuAtMprY: r.veDemand?.PuAtMprY ?? null,
+          forceVc0X: r.forceVc0X ?? null,
+          forceVc0Y: r.forceVc0Y ?? null,
+          lowAxialCol: r.lowAxialCol ?? null,
+          okShearStrength: r.okShearStrength ?? null,
+          okShearAvMin: r.okShearAvMin ?? null,
+          avMinRequiredX: r.avMinRequiredX ?? null,
+          avMinRequiredY: r.avMinRequiredY ?? null,
+          avMinProvidedFytPerLenX: r.avMinProvidedFytPerLenX ?? null,
+          avMinProvidedFytPerLenY: r.avMinProvidedFytPerLenY ?? null,
+          avMinDemandFytPerLenX: r.avMinDemandFytPerLenX ?? null,
+          avMinDemandFytPerLenY: r.avMinDemandFytPerLenY ?? null,
+          okShearSize: r.okShearSize ?? null,
+          shearSectionLimitX_tf: r.shearSectionLimitX != null ? r.shearSectionLimitX / 1000 : null,
+          shearSectionLimitY_tf: r.shearSectionLimitY != null ? r.shearSectionLimitY / 1000 : null,
+          vcStress: r.vcStress ?? null,
+          okRhog: r.okRhog ?? null,
+          pmOk: r.pmOk ?? null,
+          okShear: r.okShear ?? null,
+          confinementOk: r.confinementOk ?? null,
+          scwbOk: r.scwb?.ok ?? null,
+          okNbar: r.okNbar ?? null,
+          isShort: r.isShort ?? null,
+          deltaNS: r.deltaNS ?? null,
+          AstReq: r.AstReq ?? null
+        };
+      })())));
+
+      [
+        'Pu', 'Mux', 'Muy', 'Vu_in', 'Vuy_in', 'tieS', 'crossTieS', 'spiralS', 'sSugg', 'shearSpacingLimitAuto', 'codeTieSpacingLimit', 'adoptedTieSpacing', 'seismicHx', 'seismicSoLimit', 'seismicSoRaw', 'seismicLongBarFactor', 'seismicLongBarLimit', 'firstHoopDist', 'seismicFirstHoopLimit', 'outsideTieS', 'outsideTieSInput', 'seismicMidSpacingLimit', 'Ast', 'rhog', 'phiPnMax', 'phiMnAtPu',
+        'phiMnyAtPu', 'breslerRatio', 'biaxialSurfaceRatio', 'phiVn_tf', 'phiVnY_tf',
+        'Ve', 'designVxTf', 'designVyTf', 'veAutoX', 'veAutoY', 'PuAtMprX', 'PuAtMprY',
+        'avMinProvidedFytPerLenX', 'avMinProvidedFytPerLenY',
+        'avMinDemandFytPerLenX', 'avMinDemandFytPerLenY',
+        'shearSectionLimitX_tf', 'shearSectionLimitY_tf', 'vcStress', 'deltaNS', 'AstReq'
+      ].forEach(key => {
+        actual[key] = sanitizeMetric(actual[key]);
+      });
+
+      Object.entries(tc.expected).forEach(([key, expected]) => {
+        const pass = nearlyEqual(actual[key], expected, tolerance);
+        assert(pass, `${tc.key} :: ${key}`, `expected=${expected} actual=${actual[key]}`);
+      });
+    }
+
+    console.log('\nAll column regression checks passed.');
+  } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+}
+
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
