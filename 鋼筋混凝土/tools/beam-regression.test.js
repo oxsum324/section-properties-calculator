@@ -203,6 +203,8 @@ async function captureBeamSnapshot(page) {
       AsTop: r.AsTop ?? null,
       AsReqPos: r.AsReqPos ?? null,
       AsReqNeg: r.AsReqNeg ?? null,
+      AsFlexReqPos: r.AsFlexReqPos ?? null,
+      AsFlexReqNeg: r.AsFlexReqNeg ?? null,
       AsMinPos: r.AsMinPos ?? null,
       AsMinNeg: r.AsMinNeg ?? null,
       AsMinPosB: r.AsMinPosInfo?.bAsMin ?? null,
@@ -278,6 +280,12 @@ async function captureBeamSnapshot(page) {
       okFirstHoop: r.okFirstHoop ?? null,
       okRhoMax: r.okRhoMax ?? null,
       okAsMin: r.okAsMin ?? null,
+      okAsMinBot: r.okAsMinBot ?? null,
+      okAsMinTop: r.okAsMinTop ?? null,
+      AsMinPosMode: r.asMinCheckPos?.mode ?? null,
+      AsMinNegMode: r.asMinCheckNeg?.mode ?? null,
+      AsMinPosWaiverReq: r.asMinCheckPos?.waiverReq ?? null,
+      AsMinNegWaiverReq: r.asMinCheckNeg?.waiverReq ?? null,
       needSkin: r.needSkin ?? null,
       okSkin: r.okSkin ?? null,
       skinSpacing: r.skinSpacing ?? null,
@@ -299,6 +307,8 @@ async function captureBeamSnapshot(page) {
       reportBasisVisible: document.body.textContent.includes('112 年混凝土結構設計規範'),
       cShearMin: text('c-shearMin'),
       cShearSpacing: text('c-shearSpacing'),
+      cAsMinBot: text('c-AsMinBot'),
+      cAsMinTop: text('c-AsMinTop'),
       cSkin: text('c-skin'),
       cDevLeft: text('c-devLeft'),
       cDevRight: text('c-devRight'),
@@ -458,6 +468,7 @@ async function main() {
   assert(beamHtml.includes('function calcSmrfSpacingLimit'), 'beam.html has calcSmrfSpacingLimit', 'helper exists in source');
   assert(beamHtml.includes('function getCrackingStateText'), 'beam.html has getCrackingStateText', 'helper exists in source');
   assert(beamHtml.includes('function calcAsMinInfo'), 'beam.html has calcAsMinInfo', 'T/L beam As,min width helper exists in source');
+  assert(beamHtml.includes('function calcAsMinCheck'), 'beam.html has calcAsMinCheck', 'As,min waiver source is explicit');
   assert(beamHtml.includes('function calcShearSizeFactor'), 'beam.html has calcShearSizeFactor', 'shear size-effect helper exists in source');
   assert(beamHtml.includes('function calcCrackSpacingLimit'), 'beam.html has calcCrackSpacingLimit', 'surface reinforcement spacing helper exists in source');
   assert(beamHtml.includes('function calcSkinReinforcementData'), 'beam.html has calcSkinReinforcementData', 'skin reinforcement zone helper exists in source');

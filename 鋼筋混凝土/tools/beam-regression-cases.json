@@ -79,6 +79,71 @@
       ]
     },
     {
+      "key": "asmin_waiver_by_133_req",
+      "label": "As,min 依 1.33As需求寬限通過例",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "enableTorsion": false,
+        "enableDefl": false,
+        "autoD": true
+      },
+      "selects": {
+        "sectionType": "rect",
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "fyt": 2800,
+        "bw": 40,
+        "h": 70,
+        "ln": 600,
+        "cover": 4,
+        "layerSv": 2.5,
+        "barShMin": 4,
+        "MuPos": 5,
+        "MuNeg": 5,
+        "Vu": 5,
+        "Pu": 0,
+        "botBar1No": "#6",
+        "botBar1N": 2,
+        "botBar2No": "#6",
+        "botBar2N": 0,
+        "botBar3No": "#6",
+        "botBar3N": 0,
+        "topBar1No": "#6",
+        "topBar1N": 2,
+        "topBar2No": "#6",
+        "topBar2N": 0,
+        "topBar3No": "#6",
+        "topBar3N": 0,
+        "stirrup": "#4",
+        "legs": 2,
+        "stirS": 15,
+        "nSkin": 0,
+        "smrfMnMin": "",
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
+      },
+      "expected": {
+        "mode": "check",
+        "sectionType": "rect",
+        "okAsMin": true,
+        "okAsMinBot": true,
+        "okAsMinTop": true,
+        "AsMinPosMode": "waiver",
+        "AsMinNegMode": "waiver"
+      },
+      "reportExpectedIncludes": [
+        "若 As ≥ 1.33As需求，可免 As,min",
+        "cm²；判定",
+        "1.33As需求"
+      ]
+    },
+    {
       "key": "t_beam_seismic_vc0",
       "label": "T 梁 SMRF 梁端 Vc 歸零例",
       "mode": "check",
