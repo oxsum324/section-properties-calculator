@@ -269,6 +269,13 @@ async function captureBeamSnapshot(page) {
       okLn: r.okLn ?? null,
       okBwRaw: r.okBwRaw ?? null,
       okLnRaw: r.okLnRaw ?? null,
+      smrfMnMin: r.smrfMnMin ?? null,
+      mnQuarterReq: r.mnQuarterReq ?? null,
+      hasMnQuarterInput: r.hasMnQuarterInput ?? null,
+      okMnQuarter: r.okMnQuarter ?? null,
+      firstHoopDist: r.firstHoopDist ?? null,
+      hasFirstHoopInput: r.hasFirstHoopInput ?? null,
+      okFirstHoop: r.okFirstHoop ?? null,
       okRhoMax: r.okRhoMax ?? null,
       okAsMin: r.okAsMin ?? null,
       needSkin: r.needSkin ?? null,
@@ -477,6 +484,8 @@ async function main() {
   assert(beamHtml.includes('id="beamLapLength"'), 'beam.html has lap length input', 'splice length input is user-visible');
   assert(beamHtml.includes('id="c-devLeft"'), 'beam.html has anchorage check result', 'anchorage check result is visible');
   assert(beamHtml.includes('torsionNeedsDesign'), 'beam.html has torsion manual-review status', 'torsion beyond threshold is not treated as automatic NG');
+  assert(beamHtml.includes('id="smrfMnMin"'), 'beam.html has SMRF span Mn input', 'span strength check can be entered instead of only reminded');
+  assert(beamHtml.includes('id="firstHoopDist"'), 'beam.html has first hoop distance input', 'SMRF first hoop check can be entered instead of only reminded');
   assert(beamHtml.includes('column.html?beamJoint=1'), 'beam.html links to column joint import', 'column import URL exists');
 
   const libs = bootLibs();

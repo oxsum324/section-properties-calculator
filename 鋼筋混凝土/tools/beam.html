@@ -501,6 +501,11 @@
         <h2>耐震輸入</h2>
         <p class="hint">需先勾選「套用特殊抗彎矩構架耐震規定」；Ve 請至「載重」分頁輸入。</p>
         <div class="form-group"><label>支承柱寬 (cm)</label><input type="number" id="colW" value="50"></div>
+        <div class="form-row">
+          <div class="form-group"><label>跨內最小標稱彎矩 Mn,min (tf·m，可選)</label><input type="number" id="smrfMnMin" placeholder="未輸入則人工複核" step="any"></div>
+          <div class="form-group"><label>首支箍筋距柱面 (cm，可選)</label><input type="number" id="firstHoopDist" placeholder="未輸入則人工複核" step="any"></div>
+        </div>
+        <p class="hint">Mn,min 用於 18.3.3.2 跨內任一斷面 ≥ Mn,max/4；首支箍筋距柱面用於 18.3.4 梁端圍束細節。</p>
         <hr style="margin:14px 0; border:none; border-top:1px dashed #cbd5e1;">
         <h3 style="font-size:0.95em; color:var(--primary); margin:6px 0 8px;">梁柱接頭整合</h3>
         <p class="hint">將本梁端標稱彎矩 Mnb 與由 Mpr 推得之梁剪力上限送至柱工具，供強柱弱梁與柱設計剪力檢核使用。</p>
@@ -1261,7 +1266,7 @@
     };
   }
 
-  function calcSeismicData({ seismic, rhoPos, rhoNeg, botNs, topNs, okBw, bw, colW, d, fy, botStack, topStack, MnPos_raw, MnNeg_raw, h, ln }) {
+  function calcSeismicData({ seismic, rhoPos, rhoNeg, botNs, topNs, okBw, bw, colW, d, fy, botStack, topStack, MnPos_raw, MnNeg_raw, h, ln, smrfMnMin, firstHoopDist }) {
     if (!seismic) return null;
     const totBot = botNs.reduce((a, b) => a + b, 0);
     const totTop = topNs.reduce((a, b) => a + b, 0);
@@ -1269,6 +1274,11 @@
     const dbMinAll = Math.min(...[...botStack, ...topStack].filter(L => L.n > 0).map(L => L.db).filter(Boolean), 999);
     const dbFactor = calcSmrfSpacingDbFactor(fy);
     const sLimit = calcSmrfSpacingLimit(d, dbMinAll, fy);
+    const mnQuarterReq = Math.max(MnPos_raw, MnNeg_raw) / 4;
+    const hasMnQuarterInput = smrfMnMin != null;
+    const okMnQuarter = hasMnQuarterInput ? smrfMnMin + 1e-6 >= mnQuarterReq : null;
+    const hasFirstHoopInput = firstHoopDist != null;
+    const okFirstHoop = hasFirstHoopInput ? firstHoopDist <= 5 + 1e-6 : null;
     return {
       okSRhoPos: rhoPos <= 0.025,
       okSRhoNeg: rhoNeg <= 0.025,
@@ -1279,7 +1289,9 @@
       okBwCol: overhang <= 0.75 * colW,
       dbMinAll, dbFactor, sLimit,
       okMnRatio: MnPos_raw >= MnNeg_raw / 2,
-      MnMax: Math.max(MnPos_raw, MnNeg_raw),
+      MnMax: Math.max(MnPos_raw, MnNeg_raw), mnQuarterReq,
+      smrfMnMin, hasMnQuarterInput, okMnQuarter,
+      firstHoopDist, hasFirstHoopInput, okFirstHoop,
       lo: 2 * h,
       sMid: d / 2,
       lapStart: 2 * h,
@@ -1471,7 +1483,7 @@
       botBar1No: '#8', botBar2No: '#8', botBar3No: '#8',
       topBar1No: '#7', topBar2No: '#7', topBar3No: '#7',
       stirrup: '#4', legs: 2, stirS: 15, autoD: true, autoMa: true, sensitive: 'no',
-      nSkin: 0, skinNo: '#4', colW: 50
+      nSkin: 0, skinNo: '#4', colW: 50, smrfMnMin: '', firstHoopDist: ''
     },
     't-seismic': {
       sectionType: 'T', support: 'bothEnd', fc: 280, fy: 5000, fyt: 2800,
@@ -1482,7 +1494,7 @@
       botBar1No: '#8', botBar2No: '#8', botBar3No: '#8',
       topBar1No: '#8', topBar2No: '#8', topBar3No: '#8',
       stirrup: '#4', legs: 4, stirS: 10, autoD: true, autoMa: false, sensitive: 'no',
-      nSkin: 0, skinNo: '#4', colW: 55
+      nSkin: 0, skinNo: '#4', colW: 55, smrfMnMin: '', firstHoopDist: ''
     },
     'l-deflection': {
       sectionType: 'L', support: 'oneEnd', fc: 280, fy: 4200, fyt: 2800,
@@ -1493,7 +1505,7 @@
       botBar1No: '#8', botBar2No: '#8', botBar3No: '#8',
       topBar1No: '#7', topBar2No: '#7', topBar3No: '#7',
       stirrup: '#4', legs: 2, stirS: 15, autoD: true, autoMa: false, sensitive: 'yes',
-      nSkin: 0, skinNo: '#4', colW: 50
+      nSkin: 0, skinNo: '#4', colW: 50, smrfMnMin: '', firstHoopDist: ''
     }
   };
 
@@ -1632,6 +1644,8 @@
     const legs = num('legs');
     const s = num('stirS');
     const colW = num('colW');
+    const smrfMnMin = optNum('smrfMnMin');
+    const firstHoopDist = optNum('firstHoopDist');
     const sensitive = $('sensitive').value === 'yes';
 
     const tieDb = REBAR_TABLE[stirrup].db;
@@ -1808,9 +1822,9 @@
     }
 
     // === 耐震檢核 ===
-    const seismicData = calcSeismicData({ seismic, rhoPos, rhoNeg, botNs, topNs, okBw, bw, colW, d, fy, botStack, topStack, MnPos_raw, MnNeg_raw, h, ln });
+    const seismicData = calcSeismicData({ seismic, rhoPos, rhoNeg, botNs, topNs, okBw, bw, colW, d, fy, botStack, topStack, MnPos_raw, MnNeg_raw, h, ln, smrfMnMin, firstHoopDist });
     if (seismicData) {
-      const { okSRhoPos, okSRhoNeg, totBot, totTop, ok2Bar, okSBw, overhang, okBwCol, dbMinAll, dbFactor, sLimit, okMnRatio, MnMax, lo, sMid } = seismicData;
+      const { okSRhoPos, okSRhoNeg, totBot, totTop, ok2Bar, okSBw, overhang, okBwCol, dbMinAll, dbFactor, sLimit, okMnRatio, MnMax, mnQuarterReq, smrfMnMin, hasMnQuarterInput, okMnQuarter, firstHoopDist, hasFirstHoopInput, okFirstHoop, lo, sMid } = seismicData;
 
       setCheck('s-rhoPos', okSRhoPos, `${rhoPos.toFixed(4)} / 0.025`);
       setCheck('s-rhoNeg', okSRhoNeg, `${rhoNeg.toFixed(4)} / 0.025`);
@@ -1822,13 +1836,13 @@
       setCheck('s-vc0', forceVc0 ? null : true, forceVc0 ? '⚠ Vc=0 (規範要求)' : '一般 (Vc 可計入)');
       // 規範 18.3.4：塑鉸區長度 ℓo = 2h；首支箍筋 ≤ 5cm
       setResult('s-lo', lo, 'cm', 1);
-      setCheck('s-firstHoop', null, '須距柱面 ≤ 5 cm');
+      setCheck('s-firstHoop', okFirstHoop, hasFirstHoopInput ? `距柱面 ${firstHoopDist.toFixed(1)} / 5.0 cm` : '未輸入；需人工複核 ≤ 5 cm');
       setCheck('s-lapZone', developmentData.okLapZone, developmentData.okLapZone == null
         ? `禁區 0~${lo.toFixed(0)} cm 及 ${developmentData.lapZoneEnd.toFixed(0)}~${ln.toFixed(0)} cm；未輸入搭接位置`
         : `搭接 ${developmentData.lapStart.toFixed(1)}~${developmentData.lapEnd.toFixed(1)} cm；允許 ${lo.toFixed(0)}~${developmentData.lapZoneEnd.toFixed(0)} cm`);
       setResult('s-midSpacing', sMid, 'cm', 1, s <= sMid ? 'ok' : 'fail');
       setCheck('s-MnRatio', okMnRatio, `Mn⁺=${MnPos_raw.toFixed(1)} / (Mn⁻/2)=${(MnNeg_raw/2).toFixed(1)}`);
-      setCheck('s-MnQuarter', null, `跨內任一處 ≥ ${(MnMax/4).toFixed(1)} tf·m (請逐斷面比對)`);
+      setCheck('s-MnQuarter', okMnQuarter, hasMnQuarterInput ? `Mn,min=${smrfMnMin.toFixed(1)} / 需求 ${mnQuarterReq.toFixed(1)} tf·m` : `需求 ≥ ${mnQuarterReq.toFixed(1)} tf·m；未輸入跨內 Mn,min`);
     } else {
       ['s-rhoPos','s-rhoNeg','s-2bar','s-bw','s-bwCol','s-spacing','s-vc0','s-lo','s-firstHoop','s-lapZone','s-midSpacing','s-MnRatio','s-MnQuarter'].forEach(id => {
         const el = $(id); if (!el) return;
@@ -1836,6 +1850,12 @@
         el.classList.remove('ok','warn','fail');
       });
     }
+
+    const okMnQuarter = seismicData?.okMnQuarter ?? null;
+    const hasMnQuarterInput = seismicData?.hasMnQuarterInput ?? false;
+    const mnQuarterReq = seismicData?.mnQuarterReq ?? Math.max(MnPos_raw, MnNeg_raw) / 4;
+    const okFirstHoop = seismicData?.okFirstHoop ?? null;
+    const hasFirstHoopInput = seismicData?.hasFirstHoopInput ?? false;
 
     const beamColumnJoint = calcBeamColumnJointData({
       sectionType, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop,
@@ -1955,7 +1975,8 @@
       phiVn: phiVn_eff/1000, Vu: num('Vu'),
       AsBot, AsTop, AsReqPos, AsReqNeg, rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg,
       AvProvidedPerS, AvMinPerS,
-      torNegligible, torsionNeedsDesign, torsionStatusOk, enableTorsion, enableDefl, seismic, developmentData
+      torNegligible, torsionNeedsDesign, torsionStatusOk, enableTorsion, enableDefl, seismic, developmentData,
+      okMnQuarter, okFirstHoop
     };
     updateBanner(bannerData);
 
@@ -2132,6 +2153,11 @@ ${layerBars.map(L => {
         const dbMinAll = Math.min(...[...botStack, ...topStack].filter(L=>L.n>0).map(L=>L.db).filter(Boolean), 999);
         const dbFactor = calcSmrfSpacingDbFactor(fy);
         const sLimit = calcSmrfSpacingLimit(d, dbMinAll, fy);
+    const mnQuarterReq = Math.max(MnPos_raw, MnNeg_raw) / 4;
+    const hasMnQuarterInput = smrfMnMin != null;
+    const okMnQuarter = hasMnQuarterInput ? smrfMnMin + 1e-6 >= mnQuarterReq : null;
+    const hasFirstHoopInput = firstHoopDist != null;
+    const okFirstHoop = hasFirstHoopInput ? firstHoopDist <= 5 + 1e-6 : null;
         const lo = 2 * h, sMid = d / 2;
         const stepsSm =
 `【1】縱向鋼筋限值 (規範 18.3.3)
@@ -2143,7 +2169,8 @@ ${layerBars.map(L => {
   Mn⁺ = ${fmt(MnPos_raw,2)} tf·m
   Mn⁻ = ${fmt(MnNeg_raw,2)} tf·m  →  Mn⁻/2 = ${fmt(MnNeg_raw/2,2)} tf·m
   Mn⁺ ≥ Mn⁻/2 → ${MnPos_raw>=MnNeg_raw/2?'✓':'✗'}
-  跨內任一斷面 Mn ≥ Mn,max/4 = ${fmt(Math.max(MnPos_raw,MnNeg_raw)/4,2)} tf·m  (請另對跨中斷面比對)
+  跨內任一斷面 Mn ≥ Mn,max/4 = ${fmt(mnQuarterReq,2)} tf·m
+  ${hasMnQuarterInput ? `輸入 Mn,min = ${fmt(smrfMnMin,2)} tf·m → ${okMnQuarter?'✓':'✗'}` : '未輸入 Mn,min → 人工複核'}
 
 【3】幾何 (規範 18.3.2)
   bw ≥ max(0.3h, 25) : ${bw} ≥ ${fmt(Math.max(0.3*h,25),1)} → ${okBwRaw?'✓':'✗'}
@@ -2157,7 +2184,8 @@ ${layerBars.map(L => {
     = min(${fmt(d/4,2)}, 15, ${fmt(dbFactor*dbMinAll,2)})
     = ${fmt(sLimit,2)} cm
   目前 s = ${s} cm → ${s<=sLimit?'✓':'✗'}
-  首支箍筋距柱面 ≤ 5 cm    搭接禁區: 0~${fmt(lo,0)} cm
+  首支箍筋距柱面 ≤ 5 cm → ${hasFirstHoopInput ? `${fmt(firstHoopDist,1)} cm ${okFirstHoop?'✓':'✗'}` : '未輸入，人工複核'}
+  搭接禁區: 0~${fmt(lo,0)} cm
   中央區 s ≤ d/2 = ${fmt(sMid,2)} cm
 
 【5】Vc 是否歸零 (規範 18.3.5)
@@ -2178,7 +2206,7 @@ ${layerBars.map(L => {
       MuPos_in: num('MuPos'), MuNeg_in: num('MuNeg'),
       Vu_in: num('Vu'), Pu_in: num('Pu'), Tu_in: num('Tu'), Ve_in: num('Ve'),
       botStack, topStack, AsBot, AsTop,
-      stirrup, legs, s, Av, colW,
+      stirrup, legs, s, Av, colW, smrfMnMin, firstHoopDist,
       // 計算結果
       beta1, b_eff, aPos, aNeg, phiMnPos, phiMnNeg, MnPos_raw, MnNeg_raw,
       rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
@@ -2188,7 +2216,7 @@ ${layerBars.map(L => {
       okShearStrength, okShearMin, okShearSpacing,
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       Tu_th, torNegligible, torsionNeedsDesign, torsionStatusOk,
-      hmin, factorMap,
+      hmin, factorMap, seismicData, okMnQuarter, hasMnQuarterInput, mnQuarterReq, okFirstHoop, hasFirstHoopInput,
       svMin, okLayerSpacing,
       shMin, okBarsPerLayer, barsPerLayerDetail, needSkin, okSkin, nSkin, skinNo,
       skinSpacing, skinSpacingLimit, skinZone, skinRequiredPerTensionFace, skinZoneText, skinZoneCount,
@@ -2471,8 +2499,18 @@ ${layerBars.map(L => {
           value: r.MnPos_raw>=r.MnNeg_raw/2 ? '符合' : '不符', unit:'', ok: r.MnPos_raw>=r.MnNeg_raw/2 },
         { label:'跨內任一斷面 Mn ≥ Mn,max/4',
           formula:'規範 18.3.3.2 — 跨內任一斷面正/負標稱彎矩 ≥ 兩端最大標稱彎矩 1/4',
-          sub:`需 ≥ ${(Math.max(r.MnPos_raw,r.MnNeg_raw)/4).toFixed(2)} tf·m (請另行對跨中斷面比對)`,
-          value:'須跨斷面比對', unit:'', ok: null }
+          sub: r.hasMnQuarterInput
+            ? `Mn,min = ${r.smrfMnMin.toFixed(2)} tf·m    需求 ≥ ${r.mnQuarterReq.toFixed(2)} tf·m`
+            : `需求 ≥ ${r.mnQuarterReq.toFixed(2)} tf·m；未輸入跨內 Mn,min，列為人工複核`,
+          value: r.hasMnQuarterInput ? (r.okMnQuarter ? '符合' : '不符') : '人工複核', unit:'', ok: r.okMnQuarter }
+      ]}] : []),
+      ...(r.seismic ? [{ group:'SMRF 18.3.4 梁端圍束細節', items:[
+        { label:'首支箍筋距柱面 ≤ 5 cm',
+          formula:'規範 18.3.4：梁端塑鉸區首支箍筋應靠近柱面配置',
+          sub: r.hasFirstHoopInput
+            ? `首支箍筋距柱面 = ${r.firstHoopDist.toFixed(1)} cm    需求 ≤ 5.0 cm`
+            : '未輸入首支箍筋距柱面，列為人工複核',
+          value: r.hasFirstHoopInput ? (r.okFirstHoop ? '符合' : '不符') : '人工複核', unit:'', ok: r.okFirstHoop }
       ]}] : []),
       ...(r.seismic && r.beamColumnJoint ? [{ group:'梁柱接頭資料輸出 (供柱工具)', items:[
         { label:'柱頁接頭欄位',
@@ -2528,6 +2566,8 @@ ${layerBars.map(L => {
     if (r.developmentData && (!r.developmentData.hasCompleteAnchorageInput || r.developmentData.developmentManualReview)) manualReviewItems.push('梁端錨定');
     if (r.developmentData?.lapManualReview) manualReviewItems.push('搭接 / 施工圖');
     if (r.enableTorsion && r.torsionNeedsDesign) manualReviewItems.push('扭力鋼筋詳算');
+    if (r.seismic && !r.hasMnQuarterInput) manualReviewItems.push('SMRF 跨內 Mn 比對');
+    if (r.seismic && !r.hasFirstHoopInput) manualReviewItems.push('首支箍筋位置');
     const pendingManualReview = manualReviewItems.length > 0;
     const reportSummaryOk = anyFail ? false : (pendingManualReview ? null : (allOk ? true : null));
     const reportSummaryText = anyFail ? '✗ NG — 不符合規範' : (pendingManualReview ? `⚠ 部分項目需人工複核：${manualReviewItems.join('、')}` : (allOk ? '✓ OK — 符合規範' : '部分檢核未完成'));
@@ -2609,7 +2649,7 @@ ${layerBars.map(L => {
       notes: [
         `作業模式：${isDesignMode ? '設計 (依 +Mu/−Mu 反算配筋)' : '檢核 (使用者自訂配筋與規範比對)'}`,
         '規範依據：112 年混凝土結構設計規範；耐震模式採特殊抗彎矩構架 (SMRF) 梁 18.3 系列。',
-        '檢核邊界：跨內任一斷面 Mn ≥ Mn,max/4、柱梁接頭區與塑鉸區實際範圍，仍須由設計者依專案文件與配筋圖確認。',
+        '檢核邊界：跨內 Mn,min 與首支箍筋距柱面若未輸入，列為人工複核；柱梁接頭區與塑鉸區實際範圍仍須由設計者依專案文件與配筋圖確認。',
         '握裹／搭接：直線錨定可自動比對 ℓd；彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。',
         '扭力：本頁自動判定 Tu 是否可忽略；Tu 超過門檻時列為人工複核，需依規範 22.7 另行詳算扭力鋼筋。',
         ...(pendingManualReview ? ['人工複核項目：' + manualReviewItems.join('、') + '；需以配筋圖、產品認可資料或專案文件確認後，方可作為最終判定。'] : []),
@@ -2703,6 +2743,8 @@ ${layerBars.map(L => {
       checks.push(['ρ⁺ ≤ 0.025', r.rhoPos <= 0.025]);
       checks.push(['ρ⁻ ≤ 0.025', r.rhoNeg <= 0.025]);
       checks.push(['SMRF 幾何', r.okBw && r.okLn]);
+      checks.push(['跨內 Mn', r.okMnQuarter]);
+      checks.push(['首支箍筋', r.okFirstHoop]);
       if (r.developmentData?.okLapZone !== null) checks.push(['搭接避開塑鉸區', r.developmentData.okLapZone]);
     } else { // summary
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
@@ -2712,6 +2754,8 @@ ${layerBars.map(L => {
       checks.push(['As ≥ As,min', r.okAsMin]);
       if (r.needSkin) checks.push(['表層筋', r.okSkin]);
       if (r.enableTorsion) checks.push([r.torsionNeedsDesign ? '扭力詳算人工複核' : '扭力門檻', r.torsionStatusOk]);
+      if (r.seismic) checks.push(['跨內 Mn', r.okMnQuarter]);
+      if (r.seismic) checks.push(['首支箍筋', r.okFirstHoop]);
       if (r.developmentData?.okExplicit !== null) checks.push(['錨定/搭接', r.developmentData.okExplicit]);
       if (r.developmentData?.developmentManualReview) checks.push(['錨定人工複核', null]);
       if (r.seismic) checks.push(['SMRF 幾何', r.okBw && r.okLn]);
