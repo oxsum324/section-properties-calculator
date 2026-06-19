@@ -40,7 +40,7 @@
         ‧ 排間淨距 sv (規範 25.2.2)：sv ≥ max(2.5 cm, db_outer)
             ⚠ 只在「該側實際配 ≥ 2 排」才檢核；單排免檢
         ‧ ρ ≤ ρmax / As ≥ As,min
-        ‧ 構件特有幾何規範 (例如梁 bw≥0.3h、ℓn≥4d；柱另有 18.7 系列)
+        ‧ 耐震幾何規範 (SMRF 梁 18.3.2：bw≥0.3h、ℓn≥4d)
 
   (5) 設計模式自動配筋 (fillStack 三排配置)
         ‧ 每排根數受「排內最大根數」限制 (cap)
@@ -368,14 +368,14 @@
           </div>
         </div>
 
-        <h3 style="font-size:0.9em; color:var(--primary); margin:8px 0 6px;">腰筋 (skin reinforcement)</h3>
+        <h3 style="font-size:0.9em; color:var(--primary); margin:8px 0 6px;">表層筋 (skin reinforcement)</h3>
         <div class="form-row">
           <div class="form-group"><label>號數</label>
             <select id="skinNo"><option>#3</option><option selected>#4</option><option>#5</option><option>#6</option><option>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
           </div>
           <div class="form-group"><label>每側根數</label><input type="number" id="nSkin" value="0"></div>
         </div>
-        <p class="hint">當 h > 90 cm 時，每側應依規範配置腰筋以控制裂縫。</p>
+        <p class="hint">當 h > 90 cm 時，每側應於距受拉面 h/2 範圍內配置表層筋；間距依規範 24.3.2 控制。</p>
 
         <h3 style="font-size:0.9em; color:var(--primary); margin:8px 0 6px;">箍筋</h3>
         <div class="form-row">
@@ -558,8 +558,8 @@
       <div class="card" data-shows="flex shear torsion defl summary">
         <h2>規範檢核</h2>
         <div class="results-grid">
-          <div class="result-item" data-topic="geom-shared" id="c-bw"><span class="label">bw ≥ max(0.3h, 25)</span><span class="value">—</span></div>
-          <div class="result-item" data-topic="geom-shared" id="c-ln"><span class="label">ℓn ≥ 4d (耐震)</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="geom-shared" id="c-bw"><span class="label">SMRF: bw ≥ max(0.3h, 25)</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="geom-shared" id="c-ln"><span class="label">SMRF: ℓn ≥ 4d</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-rhoMaxPos"><span class="label">ρ⁺ ≤ ρmax</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-rhoMaxNeg"><span class="label">ρ⁻ ≤ ρmax</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-AsMinBot"><span class="label">底 As ≥ As,min</span><span class="value">—</span></div>
@@ -567,11 +567,13 @@
           <div class="result-item" data-topic="flex" id="c-Mcr"><span class="label">φMn ≥ 1.2 Mcr</span><span class="value">—</span></div>
           <div class="result-item" data-topic="defl" id="c-hmin"><span class="label">跨深比 h ≥ hmin</span><span class="value">—</span></div>
           <div class="result-item" data-topic="shear" id="c-shear"><span class="label">φVn ≥ Vu</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="shear" id="c-shearMin"><span class="label">Av/s ≥ Av,min/s</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="shear" id="c-shearSpacing"><span class="label">剪力筋最大間距</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-flexPos"><span class="label">φMn⁺ ≥ +Mu</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-flexNeg"><span class="label">φMn⁻ ≥ −Mu</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-layerSpacing"><span class="label">排間淨距 ≥ max(2.5, db)</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-barsPerLayer"><span class="label">每排根數 ≤ 排內最大根數 (bw 限制)</span><span class="value">—</span></div>
-          <div class="result-item" data-topic="flex" id="c-skin"><span class="label">腰筋 (h > 90 cm)</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-skin"><span class="label">表層筋 (h > 90 cm)</span><span class="value">—</span></div>
           <div class="result-item" data-topic="torsion" id="c-tor"><span class="label">扭力 (門檻)</span><span class="value">—</span></div>
         </div>
       </div>
@@ -582,7 +584,7 @@
           <div class="result-item" id="s-rhoPos"><span class="label">ρ⁺ ≤ 0.025</span><span class="value">—</span></div>
           <div class="result-item" id="s-rhoNeg"><span class="label">ρ⁻ ≤ 0.025</span><span class="value">—</span></div>
           <div class="result-item" id="s-2bar"><span class="label">上下各 ≥ 2 根</span><span class="value">—</span></div>
-          <div class="result-item" id="s-MnRatio"><span class="label">Mn⁺ ≥ Mn⁻/2 (18.6.3.2)</span><span class="value">—</span></div>
+          <div class="result-item" id="s-MnRatio"><span class="label">Mn⁺ ≥ Mn⁻/2 (18.3.3.2)</span><span class="value">—</span></div>
           <div class="result-item" id="s-MnQuarter"><span class="label">跨內任一斷面 ≥ Mn,max/4</span><span class="value">—</span></div>
           <div class="result-item" id="s-bw"><span class="label">bw ≥ max(0.3h, 25)</span><span class="value">—</span></div>
           <div class="result-item" id="s-bwCol"><span class="label">梁寬突出 ≤ 0.75 柱寬</span><span class="value">—</span></div>
@@ -840,6 +842,29 @@
     return (Ma <= (2 / 3) * McrDir) ? '未開裂 (Ig)' : '已開裂 (Bischoff Ie)';
   }
 
+  function calcCrackSpacingLimit(fy, cover) {
+    // 24.3.2 permits fs = 2/3 fy for deformed bars when service stress is not computed.
+    const fs = Math.max((2 / 3) * fy, 1);
+    const cc = Math.max(cover || 0, 0);
+    return Math.max(0, Math.min((2800 / fs) * (38 - 2.5 * cc), 30 * (2800 / fs)));
+  }
+
+  function calcAsMinInfo(sectionType, direction, bw, bf, d, fc, fy) {
+    const flangeInTension = sectionType !== 'rect' && direction === 'neg';
+    const bAsMin = flangeInTension ? Math.min(bf, 2 * bw) : bw;
+    const coef = Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy);
+    return {
+      AsMin: coef * bAsMin * d,
+      bAsMin,
+      coef,
+      flangeInTension
+    };
+  }
+
+  function calcShearSizeFactor(d) {
+    return Math.min(1, Math.sqrt(2 / (1 + Math.max(d, 0) / 25)));
+  }
+
   function calcFlexureData({ sectionType, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop, d_pos, d_neg }) {
     const computeDir = (direction) => {
       const layers = [];
@@ -865,9 +890,10 @@
     const rhoPos = AsBot / (bw * d_pos);
     const rhoNeg = AsTop / (bw * d_neg);
     const rhoMax = 0.85 * beta1 * (fc / fy) * (0.003 / (0.003 + 0.005));
-    const AsMinFn = (dd) => Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy) * bw * dd;
-    const AsMinPos = AsMinFn(d_pos);
-    const AsMinNeg = AsMinFn(d_neg);
+    const AsMinPosInfo = calcAsMinInfo(sectionType, 'pos', bw, bf, d_pos, fc, fy);
+    const AsMinNegInfo = calcAsMinInfo(sectionType, 'neg', bw, bf, d_neg, fc, fy);
+    const AsMinPos = AsMinPosInfo.AsMin;
+    const AsMinNeg = AsMinNegInfo.AsMin;
     const fr = 2 * Math.sqrt(fc);
 
     let Ig, yt_pos, yt_neg;
@@ -893,20 +919,36 @@
       MnPos_raw: resPos.Mn_kgcm / 1e5,
       MnNeg_raw: resNeg.Mn_kgcm / 1e5,
       aPos: resPos.a, aNeg: resNeg.a,
-      rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg,
+      rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
       fr, Ig, yt_pos, yt_neg,
       Mcr_pos_kgcm, Mcr_neg_kgcm,
       Mcr_pos: Mcr_pos_kgcm / 1e5, Mcr_neg: Mcr_neg_kgcm / 1e5
     };
   }
 
-  function calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion }) {
+  function calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, rhoShear, cover, tieDb }) {
     const lambda = LAMBDA_NORMAL;
-    const Vc = 0.53 * lambda * Math.sqrt(fc) * bw * d;
-    const phiVc = PHI.shear * Vc;
     const stirrupAb = REBAR_TABLE[stirrup].area;
     const Av = legs * stirrupAb;
-    const Vs_provided = (Av * fyt * d) / s;
+    const AvProvidedPerS = (s > 0) ? (Av / s) : 0;
+    const AvMinPerS = Math.max(0.2 * Math.sqrt(fc) * bw / fyt, 3.5 * bw / fyt);
+    const hasMinStir = AvProvidedPerS >= AvMinPerS;
+    const rhoForVc = Math.max(rhoShear || 0, 0.0001);
+    const sqrtFc = Math.sqrt(fc);
+    const vcBaseStress = 0.53 * lambda * sqrtFc;
+    const axialStressRaw = (Ag > 0) ? (Pu / (6 * Ag)) : 0;
+    const axialStress = Math.min(Math.max(axialStressRaw, -vcBaseStress), 0.05 * fc);
+    const vcSimpleStress = Math.max(0, vcBaseStress + axialStress);
+    const vcRhoStress = Math.max(0, 2.12 * lambda * Math.cbrt(rhoForVc) * sqrtFc + axialStress);
+    const axialFactor = vcBaseStress > 0 ? vcSimpleStress / vcBaseStress : 1;
+    const lambdaS = calcShearSizeFactor(d);
+    const VcSimple = vcSimpleStress * bw * d;
+    const VcRho = vcRhoStress * bw * d;
+    const VcRaw = hasMinStir ? Math.max(VcSimple, VcRho) : lambdaS * VcRho;
+    const VcMax = 1.33 * lambda * sqrtFc * bw * d;
+    const Vc = Math.max(0, Math.min(VcRaw, VcMax));
+    const phiVc = PHI.shear * Vc;
+    const Vs_provided = (s > 0) ? (Av * fyt * d) / s : 0;
     const phiVs = PHI.shear * Vs_provided;
     const phiVn = phiVc + phiVs;
     let forceVc0 = false;
@@ -916,20 +958,33 @@
       forceVc0 = halfVu && lowAxial;
     }
     const phiVn_eff = forceVc0 ? phiVs : phiVn;
-    const VuLimit_minStir = 0.265 * lambda * Math.sqrt(fc) * bw * d;
+    const VuLimit_minStir = PHI.shear * 0.265 * lambda * Math.sqrt(fc) * bw * d;
     const needsMinStir = Vu > VuLimit_minStir;
-    const AvMinPerS = Math.max(0.2 * Math.sqrt(fc) * bw / fyt, 3.5 * bw / fyt);
+    const needsShearRebar = needsMinStir || Vu > (forceVc0 ? 0 : phiVc);
+    const okShearMin = !needsMinStir || hasMinStir;
+    const highShearVs = Vs_provided > 1.06 * lambda * sqrtFc * bw * d;
+    const shearSpacingLimit = highShearVs ? Math.min(d / 4, 30) : Math.min(d / 2, 60);
+    const clearWidth = Math.max(0, bw - 2 * (cover || 0) - 2 * (tieDb || 0));
+    const legSpacing = legs > 1 ? clearWidth / (legs - 1) : Infinity;
+    const shearLegSpacingLimit = highShearVs ? d / 2 : d;
+    const okShearSpacing = !needsShearRebar || (s > 0 && s <= shearSpacingLimit && legSpacing <= shearLegSpacingLimit);
 
     let torNegligible = true, Tu_th = 0;
     if (enableTorsion) {
       const b_eff = (sectionType === 'rect') ? bw : bf;
       const Acp = (sectionType === 'rect') ? bw * h : (bw * h + (b_eff - bw) * hf);
       const pcp = (sectionType === 'rect') ? 2 * (bw + h) : 2 * (b_eff + h);
-      Tu_th = PHI.shear * lambda * Math.sqrt(fc) * (Acp * Acp / pcp) / 4;
+      Tu_th = PHI.shear * 0.265 * lambda * Math.sqrt(fc) * (Acp * Acp / pcp);
       torNegligible = Tu < Tu_th;
     }
 
-    return { lambda, Vc, phiVc, Av, Vs_provided, phiVs, phiVn, forceVc0, phiVn_eff, VuLimit_minStir, needsMinStir, AvMinPerS, torNegligible, Tu_th };
+    return {
+      lambda, Vc, phiVc, Av, AvProvidedPerS, Vs_provided, phiVs, phiVn,
+      forceVc0, phiVn_eff, VuLimit_minStir, needsMinStir, AvMinPerS, hasMinStir,
+      needsShearRebar, okShearMin, lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress,
+      shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit, okShearSpacing,
+      torNegligible, Tu_th
+    };
   }
 
   function calcDeflectionData({ enabled, fc, bw, ln, support, AsBot, AsTop, d_pos, d_neg, topSum, botSum, cover, tieDb, Ig, Mcr_pos_kgcm, Mcr_neg_kgcm, MaPos_tf, MaNeg_tf, xi, limitDiv }) {
@@ -1323,8 +1378,8 @@
         let n3 = Math.max(2, Math.ceil(remain / ab3));
         NsArr[2] = Math.min(n3, cap3);
       };
-      const AsMinEstPos = Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy) * bw * d_est_pos;
-      const AsMinEstNeg = Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy) * bw * d_est_neg;
+      const AsMinEstPos = calcAsMinInfo(sectionType, 'pos', bw, bf, d_est_pos, fc, fy).AsMin;
+      const AsMinEstNeg = calcAsMinInfo(sectionType, 'neg', bw, bf, d_est_neg, fc, fy).AsMin;
       const AsReqPosEst = calcRequiredAsByAnalysis({
         Mu_kgcm: MuPos,
         sectionType, direction:'pos', h, bw, bf, hf, fc, fy, beta1,
@@ -1370,8 +1425,7 @@
     // === 撓曲 (純計算模組) ===
     const b_eff = (sectionType === 'rect') ? bw : bf;
     const flex = calcFlexureData({ sectionType, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop, d_pos, d_neg });
-    const { resPos, resNeg, phiMnPos, phiMnNeg, aPos, aNeg, MnPos_raw, MnNeg_raw, rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, fr, Ig, yt_pos, yt_neg, Mcr_pos_kgcm, Mcr_neg_kgcm, Mcr_pos, Mcr_neg } = flex;
-    const AsMinFn = (dd) => Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy) * bw * dd;
+    const { resPos, resNeg, phiMnPos, phiMnNeg, aPos, aNeg, MnPos_raw, MnNeg_raw, rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo, fr, Ig, yt_pos, yt_neg, Mcr_pos_kgcm, Mcr_neg_kgcm, Mcr_pos, Mcr_neg } = flex;
     const rho = Math.max(rhoPos, rhoNeg);     // 代表值 (給 banner / 耐震)
     const AsMin = AsMinPos;  // banner 顯示用
     const Mcr = Mcr_pos;                   // 顯示用 (正彎矩方向)
@@ -1381,16 +1435,25 @@
     const Mcr12 = Mcr12_pos;              // 顯示用
 
     // === 剪力 / 扭力 (純計算模組) ===
-    const shearData = calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion });
-    const { lambda, Vc, phiVc, Av, Vs_provided, phiVs, phiVn, forceVc0, phiVn_eff, VuLimit_minStir, needsMinStir, AvMinPerS, torNegligible, Tu_th } = shearData;
+    const rhoShearCandidates = [rhoPos, rhoNeg].filter(v => Number.isFinite(v) && v > 0);
+    const rhoShear = Math.max(0.0001, rhoShearCandidates.length ? Math.min(...rhoShearCandidates) : 0.0001);
+    const shearData = calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, rhoShear, cover, tieDb });
+    const {
+      lambda, Vc, phiVc, Av, AvProvidedPerS, Vs_provided, phiVs, phiVn, forceVc0, phiVn_eff,
+      VuLimit_minStir, needsMinStir, AvMinPerS, hasMinStir, needsShearRebar, okShearMin,
+      lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
+      okShearSpacing, torNegligible, Tu_th
+    } = shearData;
 
     // === 跨深比 hmin (僅在啟用時計算) ===
     const factorMap = { simple: 16, oneEnd: 18.5, bothEnd: 21, cantilever: 8 };
     const hmin = ln / factorMap[support];
 
     // === 規範檢核 (一般) ===
-    const okBw = bw >= Math.max(0.3 * h, 25);
-    const okLn = ln >= 4 * d;            // 耐震規定
+    const okBwRaw = bw >= Math.max(0.3 * h, 25);
+    const okLnRaw = ln >= 4 * d;            // 耐震規定
+    const okBw = seismic ? okBwRaw : true;
+    const okLn = seismic ? okLnRaw : true;
     const okRhoMaxPos = rhoPos <= rhoMax;
     const okRhoMaxNeg = rhoNeg <= rhoMax;
     const okRhoMax = okRhoMaxPos && okRhoMaxNeg;
@@ -1411,7 +1474,8 @@
     const okFlexPos = phiMnPos >= num('MuPos');
     const okFlexNeg = phiMnNeg >= num('MuNeg');
     const okFlex = okFlexPos && okFlexNeg;
-    const okShear = (phiVn_eff / 1000) >= (Vu / 1000);
+    const okShearStrength = (phiVn_eff / 1000) >= (Vu / 1000);
+    const okShear = okShearStrength && okShearMin && okShearSpacing;
     // 排間淨距檢核 (規範 25.2.2)：sv ≥ max(2.5, db)
     // 僅在「實際有 2 排以上」的那一側才需要檢核 sv；單排不存在排間距
     const botActive = botStack.filter(L => L.n > 0);
@@ -1440,8 +1504,14 @@
     setResult('r-Vs', phiVs / 1000, 'tf', 2);
 
     // === 規範檢核 ===
-    setCheck('c-bw', okBw, okBw ? `✓ ${bw} ≥ ${Math.max(0.3*h,25).toFixed(1)}` : `✗ ${bw} < ${Math.max(0.3*h,25).toFixed(1)}`);
-    setCheck('c-ln', okLn, okLn ? `✓ ${ln} ≥ ${(4*d).toFixed(0)}` : `✗ ${ln} < ${(4*d).toFixed(0)}`);
+    setCheck('c-bw', seismic ? okBwRaw : null,
+      seismic
+        ? (okBwRaw ? `✓ ${bw} ≥ ${Math.max(0.3*h,25).toFixed(1)}` : `✗ ${bw} < ${Math.max(0.3*h,25).toFixed(1)}`)
+        : '一般梁不列為強制檢核；SMRF 才適用 18.3.2');
+    setCheck('c-ln', seismic ? okLnRaw : null,
+      seismic
+        ? (okLnRaw ? `✓ ${ln} ≥ ${(4*d).toFixed(0)}` : `✗ ${ln} < ${(4*d).toFixed(0)}`)
+        : '一般梁不列為強制檢核；SMRF 才適用 18.3.2');
     setCheck('c-rhoMaxPos', okRhoMaxPos, `${rhoPos.toFixed(4)} / ${rhoMax.toFixed(4)}`);
     setCheck('c-rhoMaxNeg', okRhoMaxNeg, `${rhoNeg.toFixed(4)} / ${rhoMax.toFixed(4)}`);
     setCheck('c-AsMinBot', okAsMinBot, (AsBot >= AsMinPos) ? `${AsBot.toFixed(2)} / ${AsMinPos.toFixed(2)}` : `${AsBot.toFixed(2)} (1.33 寬限)`);
@@ -1455,7 +1525,15 @@
         setCheck('c-hmin', okHmin, `h=${h} / hmin=${hmin.toFixed(1)}`);
       }
     }
-    setCheck('c-shear', okShear, `φVn=${(phiVn_eff/1000).toFixed(1)} / Vu=${(Vu/1000).toFixed(1)}`);
+    setCheck('c-shear', okShearStrength, `φVn=${(phiVn_eff/1000).toFixed(1)} / Vu=${(Vu/1000).toFixed(1)}`);
+    setCheck('c-shearMin', okShearMin,
+      needsMinStir
+        ? `Av/s=${AvProvidedPerS.toFixed(4)} / ${AvMinPerS.toFixed(4)} cm²/cm`
+        : `Vu ≤ φ·0.265λ√fc'bwd，Av,min 未強制`);
+    setCheck('c-shearSpacing', okShearSpacing,
+      needsShearRebar
+        ? `長向 s=${s} / ${shearSpacingLimit.toFixed(1)} cm；寬向肢距=${Number.isFinite(legSpacing)?legSpacing.toFixed(1):'∞'} / ${shearLegSpacingLimit.toFixed(1)} cm`
+        : '未達必配剪力筋門檻');
     setCheck('c-flexPos', okFlexPos, `φMn⁺=${phiMnPos.toFixed(1)} / +Mu=${num('MuPos').toFixed(1)}`);
     setCheck('c-flexNeg', okFlexNeg, `φMn⁻=${phiMnNeg.toFixed(1)} / −Mu=${num('MuNeg').toFixed(1)}`);
     setCheck('c-layerSpacing', okLayerSpacing, hasMultiLayer
@@ -1478,11 +1556,16 @@
       : '—';
     setCheck('c-barsPerLayer', okBarsPerLayer, barsPerLayerDetail);
 
-    // 腰筋檢核 (規範 9.7.2.3)：h > 90 cm 時須配置腰筋
+    // 表層筋檢核 (規範 9.7.2.3)：h > 90 cm 時須依裂縫間距限制配置
     const needSkin = h > 90;
-    const okSkin = needSkin ? (nSkin >= 1) : true;
+    const skinSpacingLimit = calcCrackSpacingLimit(fy, cover);
+    const skinZone = h / 2;
+    const skinSpacing = nSkin > 0 ? skinZone / (nSkin + 1) : Infinity;
+    const okSkin = needSkin ? (nSkin >= 1 && skinSpacing <= skinSpacingLimit) : true;
     if (needSkin) {
-      setCheck('c-skin', okSkin, okSkin ? `✓ 每側 ${nSkin} 根 ${skinNo}` : '✗ h > 90 cm，需配置腰筋');
+      setCheck('c-skin', okSkin, okSkin
+        ? `✓ 每側 ${nSkin} 根 ${skinNo}，估計間距 ${skinSpacing.toFixed(1)} ≤ ${skinSpacingLimit.toFixed(1)} cm`
+        : `✗ 每側 ${nSkin} 根，估計間距 ${Number.isFinite(skinSpacing)?skinSpacing.toFixed(1):'∞'} > ${skinSpacingLimit.toFixed(1)} cm`);
     } else {
       setCheck('c-skin', true, 'h ≤ 90 cm，免配');
     }
@@ -1504,7 +1587,7 @@
       setResult('s-spacing', sLimit, 'cm', 1, s <= sLimit ? 'ok' : 'fail');
       // Vc=0 是規範設計要求，非不合格；用 warn(資訊) 而非 fail
       setCheck('s-vc0', forceVc0 ? null : true, forceVc0 ? '⚠ Vc=0 (規範要求)' : '一般 (Vc 可計入)');
-      // 規範 18.6.4：塑鉸區長度 ℓo = 2h；首支箍筋 ≤ 5cm
+      // 規範 18.3.4：塑鉸區長度 ℓo = 2h；首支箍筋 ≤ 5cm
       setResult('s-lo', lo, 'cm', 1);
       setCheck('s-firstHoop', null, '須距柱面 ≤ 5 cm');
       setCheck('s-lapZone', null, `禁區 0~${lo.toFixed(0)} cm；中央 ${lo.toFixed(0)}~${(ln-lo).toFixed(0)} cm 才可搭接`);
@@ -1555,9 +1638,12 @@
     const bestComboNeg = (currentMode === 'design')
       ? (designInfeasible ? '⚠ 斷面不足，需加大梁寬或改號數' : layerComboStr(topStack))
       : findCombo(AsReqNeg);
-    const VsReq = Math.max(0, num('Vu') * 1000 / PHI.shear - 0.53 * Math.sqrt(fc) * bw * d);
-    const sSugg = VsReq > 0 ? (Av * fyt * d / VsReq) : Math.min(d / 2, 60);
-    const sFinal = Math.min(sSugg, d / 2, 60);
+    const VcForDesign = forceVc0 ? 0 : Vc;
+    const VsReq = Math.max(0, num('Vu') * 1000 / PHI.shear - VcForDesign);
+    const sByStrength = VsReq > 0 ? (Av * fyt * d / VsReq) : Infinity;
+    const sByAvMin = needsMinStir ? (Av / AvMinPerS) : Infinity;
+    const sSugg = Math.min(sByStrength, sByAvMin, shearSpacingLimit);
+    const sFinal = Number.isFinite(sSugg) ? sSugg : shearSpacingLimit;
 
     // === 設計建議 hero 顯示 ===
     const ratioPos = AsBot / AsReqPos;
@@ -1618,11 +1704,13 @@
 
     // === 綜合結論 banner (依當前分頁) ===
     const bannerData = {
-      okFlex, okFlexPos, okFlexNeg, okShear, okBw, okLn, okRhoMax, okAsMin, okHmin, okDeflOverall,
+      okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
+      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin, okHmin, okDeflOverall, needSkin, okSkin,
       phiMnPos, phiMnNeg,
       MuPos: num('MuPos'), MuNeg: num('MuNeg'),
       phiVn: phiVn_eff/1000, Vu: num('Vu'),
       AsBot, AsTop, AsReqPos, AsReqNeg, rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg,
+      AvProvidedPerS, AvMinPerS,
       torNegligible, enableTorsion, enableDefl, seismic
     };
     updateBanner(bannerData);
@@ -1653,8 +1741,8 @@
   d⁺ = h − 底層拉力筋形心 = ${fmt(h,1)} − ${fmt(botSum.dCentroid,2)} = ${fmt(d_pos,2)} cm
   AsBot = ${fmt(AsBot,2)} cm²
   ρ⁺ = AsBot/(bw·d⁺) = ${fmt(AsBot,2)}/(${bw}·${fmt(d_pos,2)}) = ${fmt(rhoPos,4)}
-  As,min⁺ = max(0.8·√fc'/fy, 14/fy)·bw·d⁺
-          = max(${fmt(0.8*Math.sqrt(fc)/fy,5)}, ${fmt(14/fy,5)})·${bw}·${fmt(d_pos,2)} = ${fmt(AsMinPos,2)} cm²
+  As,min⁺ = max(0.8·√fc'/fy, 14/fy)·b·d⁺
+          = ${fmt(AsMinPosInfo.coef,5)}·${fmt(AsMinPosInfo.bAsMin,1)}·${fmt(d_pos,2)} = ${fmt(AsMinPos,2)} cm²
   a⁺ = ${fmt(aPos,2)} cm   (應變相容解)
   Mn⁺ = ${fmt(MnPos_raw,2)} tf·m    φMn⁺ = ${fmt(phiMnPos,2)} tf·m
   檢核 φMn⁺ (${fmt(phiMnPos,2)}) ≥ +Mu (${fmt(Mu_p,2)}) → ${okFlexPos?'✓ OK':'✗ NG'}
@@ -1663,7 +1751,7 @@
   d⁻ = h − 頂層拉力筋形心 = ${fmt(h,1)} − ${fmt(topSum.dCentroid,2)} = ${fmt(d_neg,2)} cm
   AsTop = ${fmt(AsTop,2)} cm²
   ρ⁻ = AsTop/(bw·d⁻) = ${fmt(AsTop,2)}/(${bw}·${fmt(d_neg,2)}) = ${fmt(rhoNeg,4)}
-  As,min⁻ = ${fmt(AsMinNeg,2)} cm²
+  As,min⁻ = max(0.8·√fc'/fy, 14/fy)·${fmt(AsMinNegInfo.bAsMin,1)}·d⁻ = ${fmt(AsMinNeg,2)} cm²${AsMinNegInfo.flangeInTension ? '  (翼板受拉，b 取 min(bf, 2bw))' : ''}
   a⁻ = ${fmt(aNeg,2)} cm    Mn⁻ = ${fmt(MnNeg_raw,2)} tf·m    φMn⁻ = ${fmt(phiMnNeg,2)} tf·m
   檢核 φMn⁻ (${fmt(phiMnNeg,2)}) ≥ −Mu (${fmt(Mu_n,2)}) → ${okFlexNeg?'✓ OK':'✗ NG'}
 
@@ -1672,6 +1760,7 @@
   ρ⁻ ≤ ρmax : ${fmt(rhoNeg,4)} ≤ ${fmt(rhoMax,4)} → ${okRhoMaxNeg?'✓':'✗'}
   AsBot ≥ As,min⁺ : ${fmt(AsBot,2)} ≥ ${fmt(AsMinPos,2)} → ${okAsMinBot?'✓':'✗'}
   AsTop ≥ As,min⁻ : ${fmt(AsTop,2)} ≥ ${fmt(AsMinNeg,2)} → ${okAsMinTop?'✓':'✗'}
+  表層筋: ${needSkin ? `每側 ${nSkin} 根，估計間距 ${fmt(skinSpacing,1)} ≤ ${fmt(skinSpacingLimit,1)} cm → ${okSkin?'✓':'✗'}` : 'h ≤ 90 cm，免檢核'}
   φMn ≥ 1.2 Mcr : φMn⁺=${fmt(phiMnPos,2)} ≥ 1.2Mcr⁺=${fmt(Mcr12_pos,2)} → ${phiMnPos>=Mcr12_pos?'✓':'✗'}
                    φMn⁻=${fmt(phiMnNeg,2)} ≥ 1.2Mcr⁻=${fmt(Mcr12_neg,2)} → ${phiMnNeg>=Mcr12_neg?'✓':'✗'}
   排間淨距 sv ≥ max(2.5, db) : ${hasMultiLayer ? `${fmt(sv,2)} ≥ ${fmt(svMin,2)} → ${okLayerSpacing?'✓':'✗'}` : '單排配筋，免檢核'}
@@ -1693,9 +1782,9 @@ ${layerBars.map(L => {
       const stepsShear = [
 `【1】混凝土剪力強度 Vc (規範 22.5.5.1)
   λ = 1.0 (常重混凝土)
-  Vc = 0.53·λ·√fc'·bw·d
-     = 0.53·1·√${fc}·${bw}·${fmt(d,2)}
-     = ${fmt(Vc,0)} kgf = ${fmt(Vc/1000,2)} tf
+  Av/s = ${fmt(AvProvidedPerS,4)} cm²/cm    Av,min/s = ${fmt(AvMinPerS,4)} cm²/cm → ${hasMinStir?'採 Av ≥ Av,min 路徑':'採 Av < Av,min 路徑，含尺寸效應 λs'}
+  ρw = ${fmt(rhoForVc,4)}    λs = ${fmt(lambdaS,3)}    Nu/(6Ag) = ${fmt(axialStress,2)} kgf/cm²
+  Vc = ${fmt(Vc,0)} kgf = ${fmt(Vc/1000,2)} tf
   φVc = 0.75·Vc = ${fmt(phiVc/1000,2)} tf${forceVc0?'  ⚠ 耐震塑鉸區強制 Vc=0':''}
 
 【2】箍筋剪力強度 Vs (規範 22.5.10)
@@ -1713,10 +1802,11 @@ ${layerBars.map(L => {
 【4】檢核
   φVn (${fmt(phiVn_eff/1000,2)}) ≥ Vu (${fmt(Vu/1000,2)}) → ${okShear?'✓ OK':'✗ NG'}
 
-【5】最少剪力筋觸發
-  Vu,limit = 0.265·λ·√fc'·bw·d = ${fmt(VuLimit_minStir/1000,2)} tf
-  ${needsMinStir ? '⚠ Vu 已超過最少剪力筋門檻，需配置剪力筋' : '可不配置剪力筋 (但建議仍配置)'}
-  Av,min/s ≥ max(0.2·√fc'·bw/fyt, 3.5·bw/fyt) = ${fmt(AvMinPerS,4)} cm²/cm`
+【5】最少剪力筋與間距
+  Vu,limit = φ·0.265·λ·√fc'·bw·d = ${fmt(VuLimit_minStir/1000,2)} tf
+  ${needsMinStir ? 'Vu 超過最少剪力筋門檻，需配置 Av,min' : '未超過最少剪力筋門檻'}
+  Av,min/s ≥ max(0.2·√fc'·bw/fyt, 3.5·bw/fyt) = ${fmt(AvMinPerS,4)} cm²/cm → ${okShearMin?'✓':'✗'}
+  長向 s ≤ ${fmt(shearSpacingLimit,1)} cm；寬向肢距 ≤ ${fmt(shearLegSpacingLimit,1)} cm → ${okShearSpacing?'✓':'✗'}`
       ].join('\n\n');
       const ss = $('stepsShearBody'); if (ss) ss.textContent = isFullSteps ? stepsShear : summarizeStepText(stepsShear);
 
@@ -1727,8 +1817,8 @@ ${layerBars.map(L => {
         const stepsTor =
 `【1】扭力門檻值 Tu,th (規範 22.7.4.1)
   Acp = ${fmt(Acp,1)} cm²    pcp = ${fmt(pcp,1)} cm
-  Tu,th = φ·λ·√fc'·(Acp²/pcp)/4
-        = 0.75·1·√${fc}·(${fmt(Acp,1)}²/${fmt(pcp,1)})/4
+  φTth = φ·0.265·λ·√fc'·(Acp²/pcp)
+        = 0.75·0.265·1·√${fc}·(${fmt(Acp,1)}²/${fmt(pcp,1)})
         = ${fmt(Tu_th,0)} kgf·cm = ${fmt(Tu_th/1e5,2)} tf·m
 
 【2】判斷
@@ -1800,23 +1890,23 @@ ${layerBars.map(L => {
         const sLimit = calcSmrfSpacingLimit(d, dbMinAll, fy);
         const lo = 2 * h, sMid = d / 2;
         const stepsSm =
-`【1】縱向鋼筋限值 (規範 18.6.3)
+`【1】縱向鋼筋限值 (規範 18.3.3)
   ρ⁺ = ${fmt(rhoPos,4)} ≤ 0.025 → ${rhoPos<=0.025?'✓':'✗'}
   ρ⁻ = ${fmt(rhoNeg,4)} ≤ 0.025 → ${rhoNeg<=0.025?'✓':'✗'}
   上下各 ≥ 2 根：底 ${totBot} 根 / 頂 ${totTop} 根 → ${(totBot>=2&&totTop>=2)?'✓':'✗'}
 
-【2】支承斷面強度比 (規範 18.6.3.2)
+【2】支承斷面強度比 (規範 18.3.3.2)
   Mn⁺ = ${fmt(MnPos_raw,2)} tf·m
   Mn⁻ = ${fmt(MnNeg_raw,2)} tf·m  →  Mn⁻/2 = ${fmt(MnNeg_raw/2,2)} tf·m
   Mn⁺ ≥ Mn⁻/2 → ${MnPos_raw>=MnNeg_raw/2?'✓':'✗'}
   跨內任一斷面 Mn ≥ Mn,max/4 = ${fmt(Math.max(MnPos_raw,MnNeg_raw)/4,2)} tf·m  (請另對跨中斷面比對)
 
-【3】幾何 (規範 18.6.2)
-  bw ≥ max(0.3h, 25) : ${bw} ≥ ${fmt(Math.max(0.3*h,25),1)} → ${okBw?'✓':'✗'}
-  ℓn ≥ 4d : ${ln} ≥ ${fmt(4*d,1)} → ${okLn?'✓':'✗'}
+【3】幾何 (規範 18.3.2)
+  bw ≥ max(0.3h, 25) : ${bw} ≥ ${fmt(Math.max(0.3*h,25),1)} → ${okBwRaw?'✓':'✗'}
+  ℓn ≥ 4d : ${ln} ≥ ${fmt(4*d,1)} → ${okLnRaw?'✓':'✗'}
   梁寬突出柱寬 ≤ 0.75·柱寬 : 突出 ${fmt(overhang,2)} ≤ ${fmt(0.75*colW,1)} → ${(overhang<=0.75*colW)?'✓':'✗'}
 
-【4】塑鉸區圍束 (規範 18.6.4)
+【4】塑鉸區圍束 (規範 18.3.4)
   ℓo = 2h = ${fmt(lo,0)} cm
   最小縱筋 db,min = ${fmt(dbMinAll,2)} cm
   s ≤ min(d/4, 15, ${dbFactor}·db,min)
@@ -1826,7 +1916,7 @@ ${layerBars.map(L => {
   首支箍筋距柱面 ≤ 5 cm    搭接禁區: 0~${fmt(lo,0)} cm
   中央區 s ≤ d/2 = ${fmt(sMid,2)} cm
 
-【5】Vc 是否歸零 (規範 18.6.5)
+【5】Vc 是否歸零 (規範 18.3.5)
   條件: Ve > 0.5·Vu  且  Pu < Ag·fc'/20
   Pu = ${fmt(num('Pu'),2)} tf    Ag·fc'/20 = ${fmt(Ag*fc/20/1000,2)} tf
   → ${forceVc0?'⚠ Vc 強制 = 0':'一般 (Vc 仍可計入)'}`;
@@ -1847,20 +1937,24 @@ ${layerBars.map(L => {
       stirrup, legs, s, Av, colW,
       // 計算結果
       beta1, b_eff, aPos, aNeg, phiMnPos, phiMnNeg, MnPos_raw, MnNeg_raw,
-      rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg,
+      rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
       Mcr, Mcr_pos, Mcr_neg, Mcr12, Mcr12_pos, Mcr12_neg, fr, Ig, yt_pos, yt_neg, okMcr,
       Vc_kgf: Vc, phiVc_kgf: phiVc, phiVs_kgf: phiVs, phiVn_kgf: phiVn_eff,
-      forceVc0, needsMinStir, AvMinPerS,
+      forceVc0, needsMinStir, AvMinPerS, AvProvidedPerS, hasMinStir, needsShearRebar,
+      okShearStrength, okShearMin, okShearSpacing,
+      lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       Tu_th, torNegligible,
       hmin, factorMap,
       svMin, okLayerSpacing,
       shMin, okBarsPerLayer, barsPerLayerDetail, needSkin, okSkin, nSkin, skinNo,
+      skinSpacing, skinSpacingLimit,
       // 設計建議
       designInfeasible: (currentMode === 'design') ? designInfeasible : false,
       AsReqPos, AsReqNeg, bestComboPos, bestComboNeg, VsReq, sFinal,
       warnings, stepsVerbosity: $('stepsVerbosity')?.value || 'full',
       // 檢核
-      okFlex, okFlexPos, okFlexNeg, okShear, okBw, okLn, okRhoMax, okAsMin,
+      okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
+      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin,
       okAsMinBot, okAsMinTop, okHmin, okDeflOverall,
       // 撓度 (可選)
       defl: deflResult
@@ -1945,8 +2039,8 @@ ${layerBars.map(L => {
           sub:`ρ⁺ = AsBot/(bw·d⁺) = ${r.AsBot.toFixed(2)}/(${r.bw}·${r.d_pos.toFixed(1)}) = ${r.rhoPos.toFixed(4)}    ρmax = ${r.rhoMax.toFixed(4)}`,
           value:`${r.rhoPos.toFixed(4)}`, ok:(r.rhoPos<=r.rhoMax) },
         { label:'底層 As ≥ As,min',
-          formula:'As,min = max(0.8√fc/fy, 14/fy)·bw·d  (As ≥ 1.33As需求 可免)',
-          sub:`As,min = ${r.AsMinPos.toFixed(2)} cm²    AsBot = ${r.AsBot.toFixed(2)} cm²`,
+          formula:'As,min = max(0.8√fc/fy, 14/fy)·b·d  (As ≥ 1.33As需求 可免)',
+          sub:`b = ${r.AsMinPosInfo.bAsMin.toFixed(1)} cm    As,min = ${r.AsMinPos.toFixed(2)} cm²    AsBot = ${r.AsBot.toFixed(2)} cm²`,
           value:`${r.AsBot.toFixed(2)}`, unit:'cm²', ok:r.okAsMinBot }
       ]},
       { group: '撓曲檢核 (負彎矩 −Mu，頂拉)', items: [
@@ -1959,8 +2053,8 @@ ${layerBars.map(L => {
           sub:`ρ⁻ = AsTop/(bw·d⁻) = ${r.AsTop.toFixed(2)}/(${r.bw}·${r.d_neg.toFixed(1)}) = ${r.rhoNeg.toFixed(4)}    ρmax = ${r.rhoMax.toFixed(4)}`,
           value:`${r.rhoNeg.toFixed(4)}`, ok:(r.rhoNeg<=r.rhoMax) },
         { label:'頂層 As ≥ As,min',
-          formula:'As,min = max(0.8√fc/fy, 14/fy)·bw·d',
-          sub:`As,min = ${r.AsMinNeg.toFixed(2)} cm²    AsTop = ${r.AsTop.toFixed(2)} cm²`,
+          formula:'As,min = max(0.8√fc/fy, 14/fy)·b·d',
+          sub:`b = ${r.AsMinNegInfo.bAsMin.toFixed(1)} cm${r.AsMinNegInfo.flangeInTension ? ' (翼板受拉取 min(bf,2bw))' : ''}    As,min = ${r.AsMinNeg.toFixed(2)} cm²    AsTop = ${r.AsTop.toFixed(2)} cm²`,
           value:`${r.AsTop.toFixed(2)}`, unit:'cm²', ok:r.okAsMinTop },
         { label:'φMn ≥ 1.2 Mcr (兩向)',
           formula:"Mcr = fr·Ig/yt    fr = 2√fc'",
@@ -1976,15 +2070,15 @@ ${layerBars.map(L => {
           formula:`n_max = floor((bw−2c−2dt−db)/(db+max(db,${r.shMin}))) + 1`,
           sub: r.barsPerLayerDetail || '—',
           value: r.okBarsPerLayer ? '符合' : '不符', unit:'', ok: r.okBarsPerLayer },
-        ...(r.needSkin ? [{ label:'腰筋 (h > 90 cm)',
-          formula:'規範 9.7.2.3：h > 90 cm 時須配腰筋',
-          sub: r.okSkin ? `每側 ${r.nSkin} 根 ${r.skinNo}` : '未配置',
+        ...(r.needSkin ? [{ label:'表層筋 (h > 90 cm)',
+          formula:'規範 9.7.2.3：距受拉面 h/2 範圍內配置表層筋，間距依 24.3.2',
+          sub: `每側 ${r.nSkin} 根 ${r.skinNo}；估計間距 ${Number.isFinite(r.skinSpacing)?r.skinSpacing.toFixed(1):'∞'} / ${r.skinSpacingLimit.toFixed(1)} cm`,
           value: r.okSkin ? '符合' : '不符', unit:'', ok: r.okSkin }] : [])
       ]},
       { group: '剪力檢核', items: [
         { label:'φVc',
-          formula:'φVc = 0.75·0.53·λ·√fc·bw·d',
-          sub:`= 0.75·0.53·1·√${r.fc}·${r.bw}·${r.d.toFixed(1)} = ${(r.phiVc_kgf/1000).toFixed(2)} tf${r.forceVc0?'  (耐震 Vc=0)':''}`,
+          formula:'Vc 依 22.5.5.1；Av < Av,min 時納入 λs 尺寸效應，Av ≥ Av,min 時可採簡化式或 ρw 式',
+          sub:`ρw=${r.rhoForVc.toFixed(4)}，λs=${r.lambdaS.toFixed(3)}，Nu/(6Ag)=${r.axialStress.toFixed(2)} kgf/cm²；φVc=${(r.phiVc_kgf/1000).toFixed(2)} tf${r.forceVc0?'  (耐震 Vc=0)':''}`,
           value:`${(r.forceVc0?0:r.phiVc_kgf/1000).toFixed(2)}`, unit:'tf', ok:null },
         { label:'φVs',
           formula:'φVs = 0.75·Av·fyt·d/s',
@@ -1993,23 +2087,31 @@ ${layerBars.map(L => {
         { label:'φVn ≥ Vu',
           formula:'φVn = φVc + φVs',
           sub:`φVn = ${(r.phiVn_kgf/1000).toFixed(2)} tf    Vu = ${r.Vu_in.toFixed(2)} tf`,
-          value:`${(r.phiVn_kgf/1000).toFixed(2)} / ${r.Vu_in.toFixed(2)}`, unit:'tf', ok:r.okShear }
+          value:`${(r.phiVn_kgf/1000).toFixed(2)} / ${r.Vu_in.toFixed(2)}`, unit:'tf', ok:r.okShearStrength },
+        { label:'Av/s ≥ Av,min/s',
+          formula:'Av,min/s = max(0.2√fc bw/fyt, 3.5 bw/fyt)',
+          sub:`Av/s = ${r.AvProvidedPerS.toFixed(4)} cm²/cm    Av,min/s = ${r.AvMinPerS.toFixed(4)} cm²/cm`,
+          value:`${r.AvProvidedPerS.toFixed(4)} / ${r.AvMinPerS.toFixed(4)}`, unit:'cm²/cm', ok:r.okShearMin },
+        { label:'剪力筋最大間距',
+          formula:'9.7.6.2.2：長向 s ≤ d/2 或 d/4；寬向肢距 ≤ d 或 d/2',
+          sub:`長向 s=${r.s} / ${r.shearSpacingLimit.toFixed(1)} cm；寬向肢距=${Number.isFinite(r.legSpacing)?r.legSpacing.toFixed(1):'∞'} / ${r.shearLegSpacingLimit.toFixed(1)} cm`,
+          value: r.okShearSpacing ? '符合' : '不符', unit:'', ok:r.okShearSpacing }
       ]},
       ...(r.enableTorsion?[{ group:'扭力檢核', items:[
         { label:'扭力門檻',
-          formula:'Tu,th = φ·λ·√fc·(Acp²/pcp)/4',
+          formula:'φTth = φ·0.265·λ·√fc·(Acp²/pcp)',
           sub:`Tu,th = ${(r.Tu_th/1e5).toFixed(2)} tf·m    Tu = ${r.Tu_in.toFixed(2)} tf·m`,
           value: r.torNegligible?'可忽略':'需詳算', unit:'', ok: r.torNegligible }
       ]}]:[]),
       { group:'幾何規範', items:[
-        { label:'bw ≥ max(0.3h, 25)',
-          formula:'規範 9.5.2',
+        { label:'SMRF: bw ≥ max(0.3h, 25)',
+          formula:'規範 18.3.2，僅耐震模式列為強制檢核',
           sub:`bw = ${r.bw}    max(0.3·${r.h}, 25) = ${Math.max(0.3*r.h,25).toFixed(1)}`,
-          value:`${r.bw}`, unit:'cm', ok:r.okBw },
-        { label:'ℓn ≥ 4d',
-          formula:'規範 18.6.2',
+          value:`${r.bw}`, unit:'cm', ok:r.seismic ? r.okBwRaw : null },
+        { label:'SMRF: ℓn ≥ 4d',
+          formula:'規範 18.3.2，僅耐震模式列為強制檢核',
           sub:`ℓn = ${r.ln}    4d = ${(4*r.d).toFixed(1)}`,
-          value:`${r.ln}`, unit:'cm', ok:r.okLn },
+          value:`${r.ln}`, unit:'cm', ok:r.seismic ? r.okLnRaw : null },
         ...(r.enableDefl?[{
           label:'h ≥ hmin (跨深比)',
           formula:`hmin = ℓn/${r.factorMap[r.support]}`,
@@ -2027,7 +2129,7 @@ ${layerBars.map(L => {
           sub:`輸入 −Mu = ${r.MuNeg_in.toFixed(2)} tf·m`,
           value: r.AsReqNeg.toFixed(2), unit:'cm²', ok:(r.AsTop>=r.AsReqNeg) },
         { label:'頂層自動配置', formula:'外排優先；超過 maxBarsPerLayer(db) 才開下一排', sub:'', value: layerStr(r.topStack), unit:`(As=${r.AsTop.toFixed(2)} cm²)`, ok:(r.AsTop>=r.AsReqNeg) },
-        { label:'箍筋建議間距', formula:'min(d/2, 60, Av·fyt·d/Vs需)', sub:'', value: r.sFinal.toFixed(1), unit:'cm', ok:null }
+        { label:'箍筋建議間距', formula:'min(強度需求, Av,min 需求, 9.7.6.2.2 間距上限)', sub:'', value: r.sFinal.toFixed(1), unit:'cm', ok:null }
       ]}] : [{ group:'檢核對比 (使用者輸入 vs. 反算需求)', items:[
         { label:'底層 As 提供 / 需求',
           formula:'反算 +Mu 所需之 As',
@@ -2038,13 +2140,13 @@ ${layerBars.map(L => {
           sub:`−Mu = ${r.MuNeg_in.toFixed(2)} tf·m    需求 As = ${r.AsReqNeg.toFixed(2)} cm²    提供 = ${r.AsTop.toFixed(2)} cm²`,
           value: `${r.AsTop.toFixed(2)} / ${r.AsReqNeg.toFixed(2)}`, unit:'cm²', ok:(r.AsTop>=r.AsReqNeg) }
       ]}]),
-      ...(r.seismic ? [{ group:'SMRF 18.6.3.2 強度比 (耐震)', items:[
+      ...(r.seismic ? [{ group:'SMRF 18.3.3.2 強度比 (耐震)', items:[
         { label:'Mn⁺ ≥ Mn⁻ / 2 (支承)',
-          formula:'規範 18.6.3.2 — 支承斷面正彎矩標稱強度 ≥ 負彎矩標稱強度 1/2',
+          formula:'規範 18.3.3.2 — 支承斷面正彎矩標稱強度 ≥ 負彎矩標稱強度 1/2',
           sub:`Mn⁺ = ${r.MnPos_raw.toFixed(2)} tf·m    Mn⁻/2 = ${(r.MnNeg_raw/2).toFixed(2)} tf·m`,
           value: r.MnPos_raw>=r.MnNeg_raw/2 ? '符合' : '不符', unit:'', ok: r.MnPos_raw>=r.MnNeg_raw/2 },
         { label:'跨內任一斷面 Mn ≥ Mn,max/4',
-          formula:'規範 18.6.3.2 — 跨內任一斷面正/負標稱彎矩 ≥ 兩端最大標稱彎矩 1/4',
+          formula:'規範 18.3.3.2 — 跨內任一斷面正/負標稱彎矩 ≥ 兩端最大標稱彎矩 1/4',
           sub:`需 ≥ ${(Math.max(r.MnPos_raw,r.MnNeg_raw)/4).toFixed(2)} tf·m (請另行對跨中斷面比對)`,
           value:'須跨斷面比對', unit:'', ok: null }
       ]}] : []),
@@ -2167,13 +2269,14 @@ ${layerBars.map(L => {
       ],
       notes: [
         `作業模式：${isDesignMode ? '設計 (依 +Mu/−Mu 反算配筋)' : '檢核 (使用者自訂配筋與規範比對)'}`,
+        '規範依據：112 年混凝土結構設計規範；耐震模式採特殊抗彎矩構架 (SMRF) 梁 18.3 系列。',
+        '檢核邊界：跨內任一斷面 Mn ≥ Mn,max/4、搭接位置、柱梁接頭區與塑鉸區實際範圍，仍須由設計者依專案文件與配筋圖確認。',
         '本計算書由 RC 工具箱自動產生，僅供初步設計參考',
         ...(window.lastLoadCombo && window.lastLoadCombo[lcBeamCfg.prefix]?.detail
           ? [`載重組合圖採 ${window.lastLoadCombo[lcBeamCfg.prefix].detail.comboName} 封包。`]
           : ['若需載重包絡線，請先使用載重組合產生器套用後再輸出計算書。']),
         ...(reportDetail ? [
           `計算過程等級：${getStepsVerbosity('full') === 'summary' ? '摘要步驟' : '完整步驟與公式'}`,
-          '規範依據：112 年混凝土結構設計規範',
           r.seismic ? '已套用特殊抗彎矩構架 (SMRF) 耐震規定' : '未套用耐震規定',
           r.forceVc0 ? '耐震塑鉸區 Vc 強制歸零' : ''
         ] : [])
@@ -2215,6 +2318,7 @@ ${layerBars.map(L => {
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
       checks.push(['ρ ≤ ρmax (兩向)', r.okRhoMax]);
       checks.push(['As ≥ As,min (兩向)', r.okAsMin]);
+      if (r.needSkin) checks.push(['表層筋', r.okSkin]);
       kv.push(kfmt('φMn⁺', r.phiMnPos, 'tf·m', r.okFlexPos));
       kv.push(kfmt('+Mu', r.MuPos, 'tf·m', null));
       kv.push(kfmt('φMn⁻', r.phiMnNeg, 'tf·m', r.okFlexNeg));
@@ -2223,8 +2327,11 @@ ${layerBars.map(L => {
       kv.push({ label:'頂 As/需', val:`${r.AsTop.toFixed(2)}/${r.AsReqNeg.toFixed(2)}`, ok:(r.AsTop>=r.AsReqNeg) });
     } else if (tab === 'shear') {
       checks.push(['φVn ≥ Vu', r.okShear]);
+      checks.push(['Av,min', r.okShearMin]);
+      checks.push(['剪力筋間距', r.okShearSpacing]);
       kv.push(kfmt('φVn', r.phiVn, 'tf', null));
       kv.push(kfmt('Vu', r.Vu, 'tf', null));
+      kv.push({ label:'Av/s', val:`${r.AvProvidedPerS.toFixed(4)}/${r.AvMinPerS.toFixed(4)}`, ok:r.okShearMin });
     } else if (tab === 'torsion') {
       if (r.enableTorsion) checks.push(['扭力門檻', r.torNegligible]);
       else checks.push(['未啟用扭力', true]);
@@ -2240,15 +2347,18 @@ ${layerBars.map(L => {
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
       checks.push(['φVn ≥ Vu', r.okShear]);
+      checks.push(['剪力筋細則', r.okShearMin && r.okShearSpacing]);
       checks.push(['ρ⁺ ≤ 0.025', r.rhoPos <= 0.025]);
       checks.push(['ρ⁻ ≤ 0.025', r.rhoNeg <= 0.025]);
+      checks.push(['SMRF 幾何', r.okBw && r.okLn]);
     } else { // summary
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
       checks.push(['φVn ≥ Vu', r.okShear]);
       checks.push(['ρ ≤ ρmax', r.okRhoMax]);
       checks.push(['As ≥ As,min', r.okAsMin]);
-      checks.push(['bw ≥ max(0.3h,25)', r.okBw]);
+      if (r.needSkin) checks.push(['表層筋', r.okSkin]);
+      if (r.seismic) checks.push(['SMRF 幾何', r.okBw && r.okLn]);
       if (r.enableDefl) checks.push(['撓度', r.okDeflOverall]);
       kv.push(kfmt('φMn⁺', r.phiMnPos, 'tf·m', r.okFlexPos));
       kv.push(kfmt('+Mu', r.MuPos, 'tf·m', null));
@@ -2365,7 +2475,7 @@ ${layerBars.map(L => {
       drawRow(yPx, L.n, L.db, i === 0 ? '#9333ea' : i === 1 ? '#a855f7' : '#c084fc');
     });
 
-    // 腰筋 (skin)
+    // 表層筋 (skin)
     const nSkin = num('nSkin');
     const skinNo = $('skinNo').value;
     if (nSkin > 0) {
@@ -2379,7 +2489,7 @@ ${layerBars.map(L => {
       const yTopSkin = oy + topMost * scale + rSkin * 2;
       const yBotSkin = oy + drawH - botMost * scale - rSkin * 2;
       const span = yBotSkin - yTopSkin;
-      const perSide = Math.max(1, Math.floor(nSkin / 2));
+      const perSide = Math.max(1, nSkin);
       ctx.fillStyle = '#f59e0b';
       for (let i = 0; i < perSide; i++) {
         const y = yTopSkin + (perSide > 1 ? span * i / (perSide - 1) : span / 2);
@@ -2465,17 +2575,17 @@ ${layerBars.map(L => {
       'r-dNeg':      'd⁻ = h − Σ(As·y)/ΣAs (頂層筋形心到底面距離)',
       'r-rhoPos':    'ρ⁺ = AsBot / (bw·d⁺)',
       'r-rhoNeg':    'ρ⁻ = AsTop / (bw·d⁻)',
-      'r-AsMin':     'As,min = max(14/fy·bw·d, 0.8·√fc/fy·bw·d)',
+      'r-AsMin':     'As,min = max(14/fy, 0.8·√fc/fy)·b·d\nT/L 梁翼板受拉時 b 取 min(bf, 2bw)',
       'r-Mcr':       '開裂彎矩 Mcr = fr·Ig / yt\nfr = 2·√fc\n規範要求 φMn ≥ 1.2·Mcr (兩向)',
       'r-aPos':      '正彎矩應力方塊深 a⁺ = β1·c⁺',
       'r-aNeg':      '負彎矩應力方塊深 a⁻ = β1·c⁻',
-      'r-phiVn':     'φVn = φ(Vc + Vs)\nVc = 0.53·λ·√fc·bw·d\nVs = Av·fyt·d / s',
+      'r-phiVn':     'φVn = φ(Vc + Vs)\nVc 依 22.5.5.1：Av < Av,min 時納入 λs，Av ≥ Av,min 時可採簡化式或 ρw 式\nVs = Av·fyt·d / s',
       's-spacing':   '塑鉸區箍筋間距上限\nmin(d/4, 15 cm, 6db / 5.5db / 5db)\n對應 fy = 4200 / 5000 / 5600',
-      's-lo':        '塑鉸區長度 ℓo = 2h (規範 18.6.4)',
-      's-midSpacing':'中央區箍筋 ≤ d/2 (規範 18.6.4.6)',
+      's-lo':        '塑鉸區長度 ℓo = 2h (規範 18.3.4)',
+      's-midSpacing':'中央區箍筋 ≤ d/2 (規範 18.3.4.6)',
       's-lapZone':   '搭接禁區：距柱面 0~2h\n搭接需置於梁中央且圍束',
-      's-MnRatio':   '規範 18.6.3.2\n支承斷面 Mn⁺ ≥ Mn⁻ / 2',
-      's-MnQuarter': '規範 18.6.3.2\n沿梁長任一斷面 Mn ≥ max(Mn⁺,Mn⁻) / 4',
+      's-MnRatio':   '規範 18.3.3.2\n支承斷面 Mn⁺ ≥ Mn⁻ / 2',
+      's-MnQuarter': '規範 18.3.3.2\n沿梁長任一斷面 Mn ≥ max(Mn⁺,Mn⁻) / 4',
       'c-layerSpacing':'排間淨距 sv ≥ max(2.5 cm, db_outer)\n規範 25.2.2',
       'd-Ec':         "彈性模數 Ec = 12000·√fc' (規範 19.2.2 常重混凝土)",
       'd-Mcr':        '開裂彎矩 Mcr = fr·Ig/yt\nMa ≤ (2/3)Mcr → 未開裂 (用 Ig)\nMa > (2/3)Mcr → 改用 Bischoff Ie',

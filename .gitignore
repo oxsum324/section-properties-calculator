@@ -53,6 +53,9 @@ _參考資料/
 鋼筋混凝土/tools/*-regression.test.js
 鋼筋混凝土/tools/*-regression-cases.json
 鋼筋混凝土/tools/test-*.ps1
+!鋼筋混凝土/tools/beam-regression.test.js
+!鋼筋混凝土/tools/beam-regression-cases.json
+!鋼筋混凝土/tools/test-beam.ps1
 鋼筋混凝土/注意事項.txt
 
 # 鋼構接頭工具開發資料
