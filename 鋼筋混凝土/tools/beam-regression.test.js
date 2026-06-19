@@ -280,6 +280,8 @@ async function captureBeamSnapshot(page) {
       skinAreaEachSidePerZone: r.skinAreaEachSidePerZone ?? null,
       skinAreaTotalBothSides: r.skinAreaTotalBothSides ?? null,
       torNegligible: r.torNegligible ?? null,
+      torsionNeedsDesign: r.torsionNeedsDesign ?? null,
+      torsionStatusOk: r.torsionStatusOk ?? null,
       Tu_th_tfm: r.Tu_th != null ? r.Tu_th / 1e5 : null,
       hmin: r.hmin ?? null,
       okHmin: r.okHmin ?? null,
@@ -474,6 +476,7 @@ async function main() {
   assert(beamHtml.includes('id="anchorageLeft"'), 'beam.html has left anchorage input', 'available anchorage length is user-visible');
   assert(beamHtml.includes('id="beamLapLength"'), 'beam.html has lap length input', 'splice length input is user-visible');
   assert(beamHtml.includes('id="c-devLeft"'), 'beam.html has anchorage check result', 'anchorage check result is visible');
+  assert(beamHtml.includes('torsionNeedsDesign'), 'beam.html has torsion manual-review status', 'torsion beyond threshold is not treated as automatic NG');
   assert(beamHtml.includes('column.html?beamJoint=1'), 'beam.html links to column joint import', 'column import URL exists');
 
   const libs = bootLibs();

@@ -413,8 +413,66 @@
         "okShear": true,
         "torNegligible": true,
         "Tu_th_tfm": 1.1851669575867243,
-        "reportBasisVisible": true
+        "reportBasisVisible": true,
+        "torsionNeedsDesign": false,
+        "torsionStatusOk": true,
+        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 扭力門檻"
       }
+    },
+    {
+      "key": "torsion_threshold_manual_review",
+      "label": "扭力超門檻列人工複核例",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "enableTorsion": true,
+        "enableDefl": false,
+        "autoD": true
+      },
+      "selects": {
+        "sectionType": "rect",
+        "support": "bothEnd"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "fyt": 2800,
+        "bw": 40,
+        "h": 70,
+        "ln": 600,
+        "cover": 4,
+        "MuPos": 30,
+        "MuNeg": 30,
+        "Vu": 15,
+        "Tu": 2,
+        "botBar1No": "#8",
+        "botBar1N": 4,
+        "topBar1No": "#8",
+        "topBar1N": 4,
+        "stirrup": "#4",
+        "legs": 2,
+        "stirS": 15,
+        "nSkin": 0,
+        "Pu": 0
+      },
+      "expected": {
+        "mode": "check",
+        "sectionType": "rect",
+        "enableTorsion": true,
+        "phiVn_tf": 38.25065949961654,
+        "okShear": true,
+        "torNegligible": false,
+        "Tu_th_tfm": 1.1851669575867243,
+        "reportBasisVisible": true,
+        "torsionNeedsDesign": true,
+        "torsionStatusOk": null,
+        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ · 扭力詳算人工複核"
+      },
+      "reportExpectedIncludes": [
+        "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖、扭力鋼筋詳算",
+        "扭力鋼筋需依規範 22.7 另行詳算",
+        "扭力：本頁自動判定 Tu 是否可忽略"
+      ]
     },
     {
       "key": "development_lap_ng",
