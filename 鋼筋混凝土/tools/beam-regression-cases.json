@@ -415,6 +415,74 @@
         "reportBasisVisible": true,
         "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✗ 錨定/搭接 ｜ ✓ SMRF 幾何"
       }
+    },
+    {
+      "key": "development_manual_review",
+      "label": "梁端彎鉤與機械錨定列人工複核例",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "enableTorsion": false,
+        "enableDefl": false,
+        "autoD": true
+      },
+      "selects": {
+        "sectionType": "rect",
+        "support": "bothEnd",
+        "beamDevLeftType": "hook",
+        "beamDevRightType": "mechanical"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "fyt": 2800,
+        "bw": 40,
+        "h": 70,
+        "ln": 600,
+        "cover": 4,
+        "MuPos": 30,
+        "MuNeg": 30,
+        "Vu": 20,
+        "Pu": 0,
+        "botBar1No": "#8",
+        "botBar1N": 4,
+        "topBar1No": "#8",
+        "topBar1N": 4,
+        "stirrup": "#4",
+        "legs": 2,
+        "stirS": 15,
+        "nSkin": 0,
+        "anchorageLeft": "",
+        "anchorageRight": "",
+        "beamLapStart": "",
+        "beamLapEnd": "",
+        "beamLapLength": ""
+      },
+      "expected": {
+        "mode": "check",
+        "sectionType": "rect",
+        "seismic": false,
+        "ldReq": 197.33224340110837,
+        "ldBot": 151.794033385468,
+        "ldTop": 197.33224340110837,
+        "lapReq": 256.5319164214409,
+        "leftAnchorage": null,
+        "rightAnchorage": null,
+        "leftAnchorageType": "hook",
+        "rightAnchorageType": "mechanical",
+        "leftAnchorageTypeLabel": "標準彎鉤",
+        "rightAnchorageTypeLabel": "機械錨定",
+        "developmentManualReview": true,
+        "developmentHasInput": true,
+        "okAnchorageLeft": null,
+        "okAnchorageRight": null,
+        "okLapLength": null,
+        "okBeamLapZone": null,
+        "okFlex": true,
+        "okShear": true,
+        "reportBasisVisible": true,
+        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ · 錨定人工複核"
+      }
     }
   ]
 }

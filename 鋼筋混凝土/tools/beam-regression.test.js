@@ -222,6 +222,12 @@ async function captureBeamSnapshot(page) {
       lapReq: r.developmentData?.lapReq ?? null,
       leftAnchorage: r.developmentData?.leftAnchorage ?? null,
       rightAnchorage: r.developmentData?.rightAnchorage ?? null,
+      leftAnchorageType: r.developmentData?.leftType ?? null,
+      rightAnchorageType: r.developmentData?.rightType ?? null,
+      leftAnchorageTypeLabel: r.developmentData?.leftTypeLabel ?? null,
+      rightAnchorageTypeLabel: r.developmentData?.rightTypeLabel ?? null,
+      developmentManualReview: r.developmentData?.developmentManualReview ?? null,
+      developmentHasInput: r.developmentData?.hasAnchorageInput ?? null,
       lapStart: r.developmentData?.lapStart ?? null,
       lapEnd: r.developmentData?.lapEnd ?? null,
       lapLength: r.developmentData?.lapLength ?? null,
@@ -425,6 +431,8 @@ async function main() {
   assert(beamHtml.includes('id="beamJointTarget"'), 'beam.html has beam joint target selector', 'target selector exists');
   assert(beamHtml.includes('id="btnSendToColumn"'), 'beam.html has send-to-column button', 'column handoff command exists');
   assert(beamHtml.includes('function calcBeamDevelopmentData'), 'beam.html has development length helper', 'beam anchorage and splice helper exists');
+  assert(beamHtml.includes('id="beamDevLeftType"'), 'beam.html has left anchorage type selector', 'anchorage type workflow is visible');
+  assert(beamHtml.includes('BEAM_DEV_TYPE_LABELS'), 'beam.html has anchorage type labels', 'non-straight anchorage is classified for manual review');
   assert(beamHtml.includes('id="anchorageLeft"'), 'beam.html has left anchorage input', 'available anchorage length is user-visible');
   assert(beamHtml.includes('id="beamLapLength"'), 'beam.html has lap length input', 'splice length input is user-visible');
   assert(beamHtml.includes('id="c-devLeft"'), 'beam.html has anchorage check result', 'anchorage check result is visible');
