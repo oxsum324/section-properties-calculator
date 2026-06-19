@@ -1098,13 +1098,25 @@
 
   function calcAsMinInfo(sectionType, direction, bw, bf, d, fc, fy) {
     const flangeInTension = sectionType !== 'rect' && direction === 'neg';
+    const flangeInCompression = sectionType !== 'rect' && direction === 'pos';
     const bAsMin = flangeInTension ? Math.min(bf, 2 * bw) : bw;
     const coef = Math.max(0.8 * Math.sqrt(fc) / fy, 14 / fy);
+    const tensionFace = direction === 'pos' ? '底拉' : '頂拉';
+    const bSource = flangeInTension ? 'flange-tension' : flangeInCompression ? 'web-tension' : 'rect';
+    const bSourceText = flangeInTension
+      ? `T/L 梁 ${tensionFace}，翼板受拉，b 取 min(bf, 2bw) = min(${bf}, ${2*bw})`
+      : flangeInCompression
+        ? `T/L 梁 ${tensionFace}，翼板受壓，受拉區在腹板，b 取 bw`
+        : `矩形梁 ${tensionFace}，b 取 bw`;
     return {
       AsMin: coef * bAsMin * d,
       bAsMin,
       coef,
-      flangeInTension
+      flangeInTension,
+      flangeInCompression,
+      tensionFace,
+      bSource,
+      bSourceText
     };
   }
 
@@ -1814,8 +1826,8 @@
         : '一般梁不列為強制檢核；SMRF 才適用 18.3.2');
     setCheck('c-rhoMaxPos', okRhoMaxPos, `${rhoPos.toFixed(4)} / ${rhoMax.toFixed(4)}`);
     setCheck('c-rhoMaxNeg', okRhoMaxNeg, `${rhoNeg.toFixed(4)} / ${rhoMax.toFixed(4)}`);
-    setCheck('c-AsMinBot', okAsMinBot, asMinCheckPos.text);
-    setCheck('c-AsMinTop', okAsMinTop, asMinCheckNeg.text);
+    setCheck('c-AsMinBot', okAsMinBot, `b=${AsMinPosInfo.bAsMin.toFixed(1)} cm (${AsMinPosInfo.bSourceText})；${asMinCheckPos.text}`);
+    setCheck('c-AsMinTop', okAsMinTop, `b=${AsMinNegInfo.bAsMin.toFixed(1)} cm (${AsMinNegInfo.bSourceText})；${asMinCheckNeg.text}`);
     setCheck('c-Mcr', okMcr, `φMn⁺=${phiMnPos.toFixed(1)}/${Mcr12_pos.toFixed(1)}, φMn⁻=${phiMnNeg.toFixed(1)}/${Mcr12_neg.toFixed(1)}`);
     if (enableDefl) {
       // sensitive 時跨深比不適用，但這是資訊提示而非 NG
@@ -2062,6 +2074,7 @@
   ρ⁺ = AsBot/(bw·d⁺) = ${fmt(AsBot,2)}/(${bw}·${fmt(d_pos,2)}) = ${fmt(rhoPos,4)}
   As,min⁺ = max(0.8·√fc'/fy, 14/fy)·b·d⁺
           = ${fmt(AsMinPosInfo.coef,5)}·${fmt(AsMinPosInfo.bAsMin,1)}·${fmt(d_pos,2)} = ${fmt(AsMinPos,2)} cm²
+  b 取值來源：${AsMinPosInfo.bSourceText}
   a⁺ = ${fmt(aPos,2)} cm   (應變相容解)
   Mn⁺ = ${fmt(MnPos_raw,2)} tf·m    φMn⁺ = ${fmt(phiMnPos,2)} tf·m
   檢核 φMn⁺ (${fmt(phiMnPos,2)}) ≥ +Mu (${fmt(Mu_p,2)}) → ${okFlexPos?'✓ OK':'✗ NG'}
@@ -2070,7 +2083,8 @@
   d⁻ = h − 頂層拉力筋形心 = ${fmt(h,1)} − ${fmt(topSum.dCentroid,2)} = ${fmt(d_neg,2)} cm
   AsTop = ${fmt(AsTop,2)} cm²
   ρ⁻ = AsTop/(bw·d⁻) = ${fmt(AsTop,2)}/(${bw}·${fmt(d_neg,2)}) = ${fmt(rhoNeg,4)}
-  As,min⁻ = max(0.8·√fc'/fy, 14/fy)·${fmt(AsMinNegInfo.bAsMin,1)}·d⁻ = ${fmt(AsMinNeg,2)} cm²${AsMinNegInfo.flangeInTension ? '  (翼板受拉，b 取 min(bf, 2bw))' : ''}
+  As,min⁻ = max(0.8·√fc'/fy, 14/fy)·${fmt(AsMinNegInfo.bAsMin,1)}·d⁻ = ${fmt(AsMinNeg,2)} cm²
+  b 取值來源：${AsMinNegInfo.bSourceText}
   a⁻ = ${fmt(aNeg,2)} cm    Mn⁻ = ${fmt(MnNeg_raw,2)} tf·m    φMn⁻ = ${fmt(phiMnNeg,2)} tf·m
   檢核 φMn⁻ (${fmt(phiMnNeg,2)}) ≥ −Mu (${fmt(Mu_n,2)}) → ${okFlexNeg?'✓ OK':'✗ NG'}
 
@@ -2459,7 +2473,7 @@ ${layerBars.map(L => {
           value:`${r.rhoPos.toFixed(4)}`, ok:(r.rhoPos<=r.rhoMax) },
         { label:'底層 As ≥ As,min',
           formula:'As,min = max(0.8√fc/fy, 14/fy)·b·d；若 As ≥ 1.33As需求，可免 As,min',
-          sub:`b = ${r.AsMinPosInfo.bAsMin.toFixed(1)} cm    As,min = ${r.AsMinPos.toFixed(2)} cm²    1.33As需求 = ${r.asMinCheckPos.waiverReq.toFixed(2)} cm²；判定：${r.asMinCheckPos.text}`,
+          sub:`b = ${r.AsMinPosInfo.bAsMin.toFixed(1)} cm (${r.AsMinPosInfo.bSourceText})    As,min = ${r.AsMinPos.toFixed(2)} cm²    1.33As需求 = ${r.asMinCheckPos.waiverReq.toFixed(2)} cm²；判定：${r.asMinCheckPos.text}`,
           value:`${r.AsBot.toFixed(2)}`, unit:'cm²', ok:r.okAsMinBot }
       ]},
       { group: '撓曲檢核 (負彎矩 −Mu，頂拉)', items: [
@@ -2473,7 +2487,7 @@ ${layerBars.map(L => {
           value:`${r.rhoNeg.toFixed(4)}`, ok:(r.rhoNeg<=r.rhoMax) },
         { label:'頂層 As ≥ As,min',
           formula:'As,min = max(0.8√fc/fy, 14/fy)·b·d；若 As ≥ 1.33As需求，可免 As,min',
-          sub:`b = ${r.AsMinNegInfo.bAsMin.toFixed(1)} cm${r.AsMinNegInfo.flangeInTension ? ' (翼板受拉取 min(bf,2bw))' : ''}    As,min = ${r.AsMinNeg.toFixed(2)} cm²    1.33As需求 = ${r.asMinCheckNeg.waiverReq.toFixed(2)} cm²；判定：${r.asMinCheckNeg.text}`,
+          sub:`b = ${r.AsMinNegInfo.bAsMin.toFixed(1)} cm (${r.AsMinNegInfo.bSourceText})    As,min = ${r.AsMinNeg.toFixed(2)} cm²    1.33As需求 = ${r.asMinCheckNeg.waiverReq.toFixed(2)} cm²；判定：${r.asMinCheckNeg.text}`,
           value:`${r.AsTop.toFixed(2)}`, unit:'cm²', ok:r.okAsMinTop },
         { label:'φMn ≥ 1.2 Mcr (兩向)',
           formula:"Mcr = fr·Ig/yt    fr = 2√fc'",
@@ -3053,7 +3067,7 @@ ${layerBars.map(L => {
       'r-dNeg':      'd⁻ = h − Σ(As·y)/ΣAs (頂層筋形心到底面距離)',
       'r-rhoPos':    'ρ⁺ = AsBot / (bw·d⁺)',
       'r-rhoNeg':    'ρ⁻ = AsTop / (bw·d⁻)',
-      'r-AsMin':     'As,min = max(14/fy, 0.8·√fc/fy)·b·d\nT/L 梁翼板受拉時 b 取 min(bf, 2bw)\n若 As ≥ 1.33As需求，可免 As,min',
+      'r-AsMin':     'As,min = max(14/fy, 0.8·√fc/fy)·b·d\n矩形梁與 T/L 梁翼板受壓時 b 取 bw；T/L 梁翼板受拉時 b 取 min(bf, 2bw)\n若 As ≥ 1.33As需求，可免 As,min',
       'r-Mcr':       '開裂彎矩 Mcr = fr·Ig / yt\nfr = 2·√fc\n規範要求 φMn ≥ 1.2·Mcr (兩向)',
       'r-aPos':      '正彎矩應力方塊深 a⁺ = β1·c⁺',
       'r-aNeg':      '負彎矩應力方塊深 a⁻ = β1·c⁻',

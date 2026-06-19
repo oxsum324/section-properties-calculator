@@ -218,8 +218,16 @@
         "okLnRaw": true,
         "shearSpacingLimit": 16.719285714285714,
         "legSpacing": 9.82,
-        "reportBasisVisible": true
-      }
+        "reportBasisVisible": true,
+        "AsMinPosBSource": "web-tension",
+        "AsMinNegBSource": "flange-tension",
+        "AsMinPosBSourceText": "T/L 梁 底拉，翼板受壓，受拉區在腹板，b 取 bw",
+        "AsMinNegBSourceText": "T/L 梁 頂拉，翼板受拉，b 取 min(bf, 2bw) = min(120, 80)"
+      },
+      "reportExpectedIncludes": [
+        "T/L 梁 底拉，翼板受壓，受拉區在腹板，b 取 bw",
+        "T/L 梁 頂拉，翼板受拉，b 取 min(bf, 2bw) = min(120, 80)"
+      ]
     },
     {
       "key": "shear_avmin_spacing_ng",

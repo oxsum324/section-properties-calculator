@@ -209,6 +209,10 @@ async function captureBeamSnapshot(page) {
       AsMinNeg: r.AsMinNeg ?? null,
       AsMinPosB: r.AsMinPosInfo?.bAsMin ?? null,
       AsMinNegB: r.AsMinNegInfo?.bAsMin ?? null,
+      AsMinPosBSource: r.AsMinPosInfo?.bSource ?? null,
+      AsMinNegBSource: r.AsMinNegInfo?.bSource ?? null,
+      AsMinPosBSourceText: r.AsMinPosInfo?.bSourceText ?? null,
+      AsMinNegBSourceText: r.AsMinNegInfo?.bSourceText ?? null,
       AsMinNegFlangeInTension: r.AsMinNegInfo?.flangeInTension ?? null,
       phiMnPos: r.phiMnPos ?? null,
       phiMnNeg: r.phiMnNeg ?? null,
@@ -468,6 +472,7 @@ async function main() {
   assert(beamHtml.includes('function calcSmrfSpacingLimit'), 'beam.html has calcSmrfSpacingLimit', 'helper exists in source');
   assert(beamHtml.includes('function getCrackingStateText'), 'beam.html has getCrackingStateText', 'helper exists in source');
   assert(beamHtml.includes('function calcAsMinInfo'), 'beam.html has calcAsMinInfo', 'T/L beam As,min width helper exists in source');
+  assert(beamHtml.includes('bSourceText'), 'beam.html exposes As.min width source text', 'T/L beam As.min b source is report-visible');
   assert(beamHtml.includes('function calcAsMinCheck'), 'beam.html has calcAsMinCheck', 'As,min waiver source is explicit');
   assert(beamHtml.includes('function calcShearSizeFactor'), 'beam.html has calcShearSizeFactor', 'shear size-effect helper exists in source');
   assert(beamHtml.includes('function calcCrackSpacingLimit'), 'beam.html has calcCrackSpacingLimit', 'surface reinforcement spacing helper exists in source');
