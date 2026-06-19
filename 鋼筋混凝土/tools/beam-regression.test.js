@@ -216,6 +216,19 @@ async function captureBeamSnapshot(page) {
       beamJointMnb: r.beamColumnJoint?.values?.mnbControl ?? null,
       beamJointMprSum: r.beamColumnJoint?.values?.mprSum ?? null,
       beamJointVeCap: r.beamColumnJoint?.values?.veCap ?? null,
+      ldReq: r.developmentData?.ldReq ?? null,
+      ldBot: r.developmentData?.ldBot ?? null,
+      ldTop: r.developmentData?.ldTop ?? null,
+      lapReq: r.developmentData?.lapReq ?? null,
+      leftAnchorage: r.developmentData?.leftAnchorage ?? null,
+      rightAnchorage: r.developmentData?.rightAnchorage ?? null,
+      lapStart: r.developmentData?.lapStart ?? null,
+      lapEnd: r.developmentData?.lapEnd ?? null,
+      lapLength: r.developmentData?.lapLength ?? null,
+      okAnchorageLeft: r.developmentData?.okLeftAnchorage ?? null,
+      okAnchorageRight: r.developmentData?.okRightAnchorage ?? null,
+      okLapLength: r.developmentData?.okLapLength ?? null,
+      okBeamLapZone: r.developmentData?.okLapZone ?? null,
       okFlex: r.okFlex ?? null,
       okFlexPos: r.okFlexPos ?? null,
       okFlexNeg: r.okFlexNeg ?? null,
@@ -260,7 +273,11 @@ async function captureBeamSnapshot(page) {
       reportBasisVisible: document.body.textContent.includes('112 年混凝土結構設計規範'),
       cShearMin: text('c-shearMin'),
       cShearSpacing: text('c-shearSpacing'),
-      cSkin: text('c-skin')
+      cSkin: text('c-skin'),
+      cDevLeft: text('c-devLeft'),
+      cDevRight: text('c-devRight'),
+      cLapLength: text('c-lapLength'),
+      sLapZone: text('s-lapZone')
     };
   });
   return sanitizeSnapshot(raw);
@@ -407,6 +424,10 @@ async function main() {
   assert(beamHtml.includes('function calcBeamColumnJointData'), 'beam.html has beam-column joint payload builder', 'Mnb/Mpr handoff helper exists');
   assert(beamHtml.includes('id="beamJointTarget"'), 'beam.html has beam joint target selector', 'target selector exists');
   assert(beamHtml.includes('id="btnSendToColumn"'), 'beam.html has send-to-column button', 'column handoff command exists');
+  assert(beamHtml.includes('function calcBeamDevelopmentData'), 'beam.html has development length helper', 'beam anchorage and splice helper exists');
+  assert(beamHtml.includes('id="anchorageLeft"'), 'beam.html has left anchorage input', 'available anchorage length is user-visible');
+  assert(beamHtml.includes('id="beamLapLength"'), 'beam.html has lap length input', 'splice length input is user-visible');
+  assert(beamHtml.includes('id="c-devLeft"'), 'beam.html has anchorage check result', 'anchorage check result is visible');
   assert(beamHtml.includes('column.html?beamJoint=1'), 'beam.html links to column joint import', 'column import URL exists');
 
   const libs = bootLibs();

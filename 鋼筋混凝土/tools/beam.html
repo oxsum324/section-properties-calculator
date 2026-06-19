@@ -318,6 +318,25 @@
         </div>
         <p class="hint">排內淨距 sh：規範 25.2.1 為 max(db, 2.5 cm, 4/3·骨材)；台灣實務常用 4 cm。將用於「每排最多根數」限制。</p>
 
+        <h3 style="font-size:0.9em; color:var(--primary); margin:10px 0 6px;">握裹／搭接檢核</h3>
+        <div class="form-row">
+          <div class="form-group"><label>頂層筋 ψt</label><select id="devTopPsi"><option value="1.3" selected>1.3 (上層筋)</option><option value="1.0">1.0</option></select></div>
+          <div class="form-group"><label>環氧係數 ψe</label><select id="devEpoxyPsi"><option value="1.0" selected>1.0 (未塗布)</option><option value="1.2">1.2</option><option value="1.5">1.5</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>左端可用錨定長度 (cm，可選)</label><input type="number" id="anchorageLeft" placeholder="未輸入則人工複核" step="any"></div>
+          <div class="form-group"><label>右端可用錨定長度 (cm，可選)</label><input type="number" id="anchorageRight" placeholder="未輸入則人工複核" step="any"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>搭接起點距左柱面 (cm，可選)</label><input type="number" id="beamLapStart" placeholder="未輸入則人工複核" step="any"></div>
+          <div class="form-group"><label>搭接終點距左柱面 (cm，可選)</label><input type="number" id="beamLapEnd" placeholder="未輸入則人工複核" step="any"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>實際搭接長度 ℓs (cm，可選)</label><input type="number" id="beamLapLength" placeholder="空白時取終點−起點" step="any"></div>
+          <div class="form-group"><label>搭接等級</label><select id="beamLapClass"><option value="B" selected>Class B (1.3ℓd)</option><option value="A">Class A (1.0ℓd)</option></select></div>
+        </div>
+        <p class="hint">ℓd 採 shared/devlength.js 的 25.4.2 簡化式；SMRF 梁搭接位置需避開距柱面 2h 內塑鉸區。彎鉤、節點核心區實際錨定構造仍需配筋圖確認。</p>
+
         <h3 style="font-size:0.85em; color:var(--primary); margin:10px 0 4px;">底層主筋（最多 3 排，外排為第 1 排）</h3>
         <div class="rebar-stack" style="font-size:0.78em;">
           <div class="form-row3" style="gap:6px; margin-bottom:4px;">
@@ -590,6 +609,9 @@
           <div class="result-item" data-topic="flex" id="c-flexNeg"><span class="label">φMn⁻ ≥ −Mu</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-layerSpacing"><span class="label">排間淨距 ≥ max(2.5, db)</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-barsPerLayer"><span class="label">每排根數 ≤ 排內最大根數 (bw 限制)</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-devLeft"><span class="label">左端錨定長度 ≥ ℓd,req</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-devRight"><span class="label">右端錨定長度 ≥ ℓd,req</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-lapLength"><span class="label">搭接長度 ≥ ℓs,req</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-skin"><span class="label">表層筋 (h > 90 cm)</span><span class="value">—</span></div>
           <div class="result-item" data-topic="torsion" id="c-tor"><span class="label">扭力 (門檻)</span><span class="value">—</span></div>
         </div>
@@ -768,6 +790,12 @@
   // ========== 梁計算邏輯 ==========
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
+  const optNum = id => {
+    const el = $(id);
+    if (!el || String(el.value).trim() === '') return null;
+    const v = parseFloat(el.value);
+    return Number.isFinite(v) ? v : null;
+  };
 
   const BEAM_COLUMN_JOINT_SCHEMA = 'rc-beam-column-joint-v1';
   const BEAM_COLUMN_JOINT_STORAGE_KEY = 'rc.pendingBeamColumnJoint';
@@ -827,6 +855,46 @@
         bw: roundJointValue(opt.bw, 3), fc: roundJointValue(opt.fc, 2), fy: roundJointValue(opt.fy, 2), sectionType: opt.sectionType
       },
       columnFields
+    };
+  }
+
+
+  function maxActiveDb(stack) {
+    const dbs = (stack || []).filter(L => L.n > 0 && Number.isFinite(L.db)).map(L => L.db);
+    return dbs.length ? Math.max(...dbs) : 0;
+  }
+
+  function calcBeamDevelopmentData({ fc, fy, botStack, topStack, h, ln, seismic }) {
+    const topPsi = Math.max(parseFloat($('devTopPsi')?.value) || 1.3, 1.0);
+    const epoxyPsi = Math.max(parseFloat($('devEpoxyPsi')?.value) || 1.0, 1.0);
+    const lapClass = $('beamLapClass')?.value === 'A' ? 'A' : 'B';
+    const botDb = maxActiveDb(botStack);
+    const topDb = maxActiveDb(topStack);
+    const ldBot = botDb > 0 ? DevLength.ldTension({ fc, fy, db: botDb, lambda: 1.0, psit: 1.0, psie: epoxyPsi }) : 0;
+    const ldTop = topDb > 0 ? DevLength.ldTension({ fc, fy, db: topDb, lambda: 1.0, psit: topPsi, psie: epoxyPsi }) : 0;
+    const ldReq = Math.max(ldBot, ldTop);
+    const lapReq = DevLength.lapSplice({ ld: ldReq, classB: lapClass !== 'A' });
+    const leftAnchorage = optNum('anchorageLeft');
+    const rightAnchorage = optNum('anchorageRight');
+    const lapStart = optNum('beamLapStart');
+    const lapEnd = optNum('beamLapEnd');
+    const lapLengthInput = optNum('beamLapLength');
+    const lapLengthFromRange = (lapStart != null && lapEnd != null && lapEnd >= lapStart) ? (lapEnd - lapStart) : null;
+    const lapLength = lapLengthInput != null ? lapLengthInput : lapLengthFromRange;
+    const okLeftAnchorage = leftAnchorage == null ? null : leftAnchorage + 1e-6 >= ldReq;
+    const okRightAnchorage = rightAnchorage == null ? null : rightAnchorage + 1e-6 >= ldReq;
+    const okLapLength = lapLength == null ? null : lapLength + 1e-6 >= lapReq;
+    const lapZoneStart = seismic ? 2 * h : 0;
+    const lapZoneEnd = seismic ? Math.max(0, ln - 2 * h) : ln;
+    const hasLapRange = lapStart != null && lapEnd != null && lapEnd >= lapStart;
+    const okLapZone = !hasLapRange ? null : (!seismic || (lapStart + 1e-6 >= lapZoneStart && lapEnd <= lapZoneEnd + 1e-6));
+    const explicit = [okLeftAnchorage, okRightAnchorage, okLapLength, okLapZone].filter(v => v === true || v === false);
+    return {
+      topPsi, epoxyPsi, lapClass, botDb, topDb, ldBot, ldTop, ldReq, lapReq,
+      leftAnchorage, rightAnchorage, lapStart, lapEnd, lapLengthInput, lapLengthFromRange, lapLength,
+      lapZoneStart, lapZoneEnd, hasLapRange,
+      okLeftAnchorage, okRightAnchorage, okLapLength, okLapZone,
+      okExplicit: explicit.length ? explicit.every(Boolean) : null
     };
   }
 
@@ -1512,6 +1580,8 @@
     // 用於剪力與規範檢核的代表 d：自動模式取較小值，避免高估 Vc 與 Vs
     const d = $('autoD').checked ? Math.min(d_pos, d_neg) : num('dManual');
 
+    const developmentData = calcBeamDevelopmentData({ fc, fy, botStack, topStack, h, ln, seismic });
+
     // === 撓曲 (純計算模組) ===
     const b_eff = (sectionType === 'rect') ? bw : bf;
     const flex = calcFlexureData({ sectionType, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop, d_pos, d_neg });
@@ -1646,6 +1716,16 @@
       : '—';
     setCheck('c-barsPerLayer', okBarsPerLayer, barsPerLayerDetail);
 
+    setCheck('c-devLeft', developmentData.okLeftAnchorage, developmentData.leftAnchorage == null
+      ? `未輸入；ℓd,req=${developmentData.ldReq.toFixed(1)} cm`
+      : `左端 ${developmentData.leftAnchorage.toFixed(1)} / ℓd,req ${developmentData.ldReq.toFixed(1)} cm`);
+    setCheck('c-devRight', developmentData.okRightAnchorage, developmentData.rightAnchorage == null
+      ? `未輸入；ℓd,req=${developmentData.ldReq.toFixed(1)} cm`
+      : `右端 ${developmentData.rightAnchorage.toFixed(1)} / ℓd,req ${developmentData.ldReq.toFixed(1)} cm`);
+    setCheck('c-lapLength', developmentData.okLapLength, developmentData.lapLength == null
+      ? `未輸入；${developmentData.lapClass} 類 ℓs,req=${developmentData.lapReq.toFixed(1)} cm`
+      : `ℓs=${developmentData.lapLength.toFixed(1)} / ${developmentData.lapClass} 類需求 ${developmentData.lapReq.toFixed(1)} cm`);
+
     // 表層筋檢核 (規範 9.7.2.3)：h > 90 cm 時須依裂縫間距限制配置
     const needSkin = h > 90;
     const skinSpacingLimit = calcCrackSpacingLimit(fy, cover);
@@ -1680,7 +1760,9 @@
       // 規範 18.3.4：塑鉸區長度 ℓo = 2h；首支箍筋 ≤ 5cm
       setResult('s-lo', lo, 'cm', 1);
       setCheck('s-firstHoop', null, '須距柱面 ≤ 5 cm');
-      setCheck('s-lapZone', null, `禁區 0~${lo.toFixed(0)} cm；中央 ${lo.toFixed(0)}~${(ln-lo).toFixed(0)} cm 才可搭接`);
+      setCheck('s-lapZone', developmentData.okLapZone, developmentData.okLapZone == null
+        ? `禁區 0~${lo.toFixed(0)} cm 及 ${developmentData.lapZoneEnd.toFixed(0)}~${ln.toFixed(0)} cm；未輸入搭接位置`
+        : `搭接 ${developmentData.lapStart.toFixed(1)}~${developmentData.lapEnd.toFixed(1)} cm；允許 ${lo.toFixed(0)}~${developmentData.lapZoneEnd.toFixed(0)} cm`);
       setResult('s-midSpacing', sMid, 'cm', 1, s <= sMid ? 'ok' : 'fail');
       setCheck('s-MnRatio', okMnRatio, `Mn⁺=${MnPos_raw.toFixed(1)} / (Mn⁻/2)=${(MnNeg_raw/2).toFixed(1)}`);
       setCheck('s-MnQuarter', null, `跨內任一處 ≥ ${(MnMax/4).toFixed(1)} tf·m (請逐斷面比對)`);
@@ -1810,7 +1892,7 @@
       phiVn: phiVn_eff/1000, Vu: num('Vu'),
       AsBot, AsTop, AsReqPos, AsReqNeg, rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg,
       AvProvidedPerS, AvMinPerS,
-      torNegligible, enableTorsion, enableDefl, seismic
+      torNegligible, enableTorsion, enableDefl, seismic, developmentData
     };
     updateBanner(bannerData);
 
@@ -2055,6 +2137,8 @@ ${layerBars.map(L => {
       okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
       okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin,
       okAsMinBot, okAsMinTop, okHmin, okDeflOverall,
+      // 握裹 / 搭接
+      developmentData,
       // 梁柱接頭輸出
       beamColumnJoint,
       // 撓度 (可選)
@@ -2092,6 +2176,40 @@ ${layerBars.map(L => {
 
   window.buildBeamColumnJointPayload = buildBeamColumnJointPayload;
   window.sendBeamJointToColumn = sendBeamJointToColumn;
+
+  function buildDevelopmentReportItems(r) {
+    const d = r.developmentData;
+    if (!d) return [];
+    const fmtOpt = v => v == null ? '未輸入' : `${v.toFixed(1)} cm`;
+    const okText = ok => ok === true ? '符合' : ok === false ? '不符' : '人工複核';
+    const lapRangeText = (d.lapStart != null && d.lapEnd != null)
+      ? `${d.lapStart.toFixed(1)}~${d.lapEnd.toFixed(1)} cm`
+      : '未輸入';
+    return [
+      { label:'拉力錨定長度 ℓd,req',
+        formula:"規範 25.4.2 簡化式；底層採 ψt=1.0，頂層採使用者指定 ψt，控制值取 max(ℓd,bottom, ℓd,top)",
+        sub:`底層最大 db=${d.botDb.toFixed(2)} cm → ℓd=${d.ldBot.toFixed(1)} cm；頂層最大 db=${d.topDb.toFixed(2)} cm、ψt=${d.topPsi.toFixed(2)}、ψe=${d.epoxyPsi.toFixed(2)} → ℓd=${d.ldTop.toFixed(1)} cm`,
+        value:d.ldReq.toFixed(1), unit:'cm', ok:null },
+      { label:'左端可用錨定長度',
+        formula:'可用直線錨定長度 ≥ ℓd,req；若採彎鉤或機械錨定，須依配筋詳圖另行確認',
+        sub:d.leftAnchorage == null ? '未輸入；列為人工複核' : `左端可用 ${d.leftAnchorage.toFixed(1)} cm，需求 ${d.ldReq.toFixed(1)} cm`,
+        value:fmtOpt(d.leftAnchorage), unit:'', ok:d.okLeftAnchorage },
+      { label:'右端可用錨定長度',
+        formula:'可用直線錨定長度 ≥ ℓd,req；若採彎鉤或機械錨定，須依配筋詳圖另行確認',
+        sub:d.rightAnchorage == null ? '未輸入；列為人工複核' : `右端可用 ${d.rightAnchorage.toFixed(1)} cm，需求 ${d.ldReq.toFixed(1)} cm`,
+        value:fmtOpt(d.rightAnchorage), unit:'', ok:d.okRightAnchorage },
+      { label:`搭接長度 ℓs (${d.lapClass} 類)`,
+        formula:`規範 25.5.2：Class A = 1.0ℓd，Class B = 1.3ℓd；本列採 ${d.lapClass} 類`,
+        sub:d.lapLength == null ? '未輸入實際搭接長度；列為人工複核' : `實際 ℓs=${d.lapLength.toFixed(1)} cm，需求 ${d.lapReq.toFixed(1)} cm`,
+        value:fmtOpt(d.lapLength), unit:'', ok:d.okLapLength },
+      { label:'SMRF 搭接位置避開塑鉸區',
+        formula:'規範 18.3.4：梁端塑鉸區取距柱面 2h；搭接應避開兩端塑鉸區並配置圍束',
+        sub:r.seismic
+          ? `搭接範圍 ${lapRangeText}；允許約 ${d.lapZoneStart.toFixed(1)}~${d.lapZoneEnd.toFixed(1)} cm`
+          : '非耐震模式不列為 SMRF 強制檢核',
+        value:r.seismic ? okText(d.okLapZone) : '非 SMRF', unit:'', ok:r.seismic ? d.okLapZone : null }
+    ];
+  }
 
   // === 計算書產生 ===
   function buildBeamReport() {
@@ -2333,9 +2451,7 @@ ${layerBars.map(L => {
           sub:`Δa = ${r.ln}/${r.defl.limitDiv} = ${r.defl.deltaAllow.toFixed(3)} cm    Δlt = ${r.defl.deltaLT.toFixed(3)} cm`,
           value:`${r.defl.deltaLT.toFixed(3)} / ${r.defl.deltaAllow.toFixed(3)}`, unit:'cm', ok: r.defl.okDefl }
       ]}] : []),
-      { group:'握裹 / 搭接長度 (規範 25 章)', items:
-        DevLength.reportItems({ fc:r.fc, fy:r.fy, db:r.botStack[0]?.db || 2.54, lambda:1.0, psit:1.0, psie:1.0 }, '底層第 1 排 ℓd')
-      }
+      { group:'握裹 / 搭接長度 (規範 25 章)', items: buildDevelopmentReportItems(r) }
     ];
 
     const allChecks = checks.flatMap(g => g.items.map(i => i.ok)).filter(v => v===true||v===false);
@@ -2419,8 +2535,9 @@ ${layerBars.map(L => {
       notes: [
         `作業模式：${isDesignMode ? '設計 (依 +Mu/−Mu 反算配筋)' : '檢核 (使用者自訂配筋與規範比對)'}`,
         '規範依據：112 年混凝土結構設計規範；耐震模式採特殊抗彎矩構架 (SMRF) 梁 18.3 系列。',
-        '檢核邊界：跨內任一斷面 Mn ≥ Mn,max/4、搭接位置、柱梁接頭區與塑鉸區實際範圍，仍須由設計者依專案文件與配筋圖確認。',
-        '本計算書由 RC 工具箱自動產生，僅供初步設計參考',
+        '檢核邊界：跨內任一斷面 Mn ≥ Mn,max/4、柱梁接頭區與塑鉸區實際範圍，仍須由設計者依專案文件與配筋圖確認。',
+        '握裹／搭接：未輸入可用錨定長度或搭接資料時列為人工複核；彎鉤、機械錨定與節點核心區構造仍須依配筋圖確認。',
+        '本計算書僅供初步設計檢核參考。',
         ...(r.seismic && r.beamColumnJoint
           ? [`梁柱接頭輸出：${r.beamColumnJoint.targetLabel}，Mnb=${r.beamColumnJoint.values.mnbControl.toFixed(2)} tf·m，梁 Mpr 控制剪力=${r.beamColumnJoint.values.veCap.toFixed(2)} tf。`]
           : []),
@@ -2471,12 +2588,17 @@ ${layerBars.map(L => {
       checks.push(['ρ ≤ ρmax (兩向)', r.okRhoMax]);
       checks.push(['As ≥ As,min (兩向)', r.okAsMin]);
       if (r.needSkin) checks.push(['表層筋', r.okSkin]);
+      if (r.developmentData?.okExplicit !== null) checks.push(['錨定/搭接', r.developmentData.okExplicit]);
       kv.push(kfmt('φMn⁺', r.phiMnPos, 'tf·m', r.okFlexPos));
       kv.push(kfmt('+Mu', r.MuPos, 'tf·m', null));
       kv.push(kfmt('φMn⁻', r.phiMnNeg, 'tf·m', r.okFlexNeg));
       kv.push(kfmt('−Mu', r.MuNeg, 'tf·m', null));
       kv.push({ label:'底 As/需', val:`${r.AsBot.toFixed(2)}/${r.AsReqPos.toFixed(2)}`, ok:(r.AsBot>=r.AsReqPos) });
       kv.push({ label:'頂 As/需', val:`${r.AsTop.toFixed(2)}/${r.AsReqNeg.toFixed(2)}`, ok:(r.AsTop>=r.AsReqNeg) });
+      if (r.developmentData) {
+        kv.push({ label:'ℓd,req', val:`${r.developmentData.ldReq.toFixed(1)} cm`, ok:null });
+        kv.push({ label:'ℓs,req', val:`${r.developmentData.lapReq.toFixed(1)} cm`, ok:null });
+      }
     } else if (tab === 'shear') {
       checks.push(['φVn ≥ Vu', r.okShear]);
       checks.push(['Av,min', r.okShearMin]);
@@ -2503,6 +2625,7 @@ ${layerBars.map(L => {
       checks.push(['ρ⁺ ≤ 0.025', r.rhoPos <= 0.025]);
       checks.push(['ρ⁻ ≤ 0.025', r.rhoNeg <= 0.025]);
       checks.push(['SMRF 幾何', r.okBw && r.okLn]);
+      if (r.developmentData?.okLapZone !== null) checks.push(['搭接避開塑鉸區', r.developmentData.okLapZone]);
     } else { // summary
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
@@ -2510,6 +2633,7 @@ ${layerBars.map(L => {
       checks.push(['ρ ≤ ρmax', r.okRhoMax]);
       checks.push(['As ≥ As,min', r.okAsMin]);
       if (r.needSkin) checks.push(['表層筋', r.okSkin]);
+      if (r.developmentData?.okExplicit !== null) checks.push(['錨定/搭接', r.developmentData.okExplicit]);
       if (r.seismic) checks.push(['SMRF 幾何', r.okBw && r.okLn]);
       if (r.enableDefl) checks.push(['撓度', r.okDeflOverall]);
       kv.push(kfmt('φMn⁺', r.phiMnPos, 'tf·m', r.okFlexPos));
@@ -2736,13 +2860,16 @@ ${layerBars.map(L => {
       's-spacing':   '塑鉸區箍筋間距上限\nmin(d/4, 15 cm, 6db / 5.5db / 5db)\n對應 fy = 4200 / 5000 / 5600',
       's-lo':        '塑鉸區長度 ℓo = 2h (規範 18.3.4)',
       's-midSpacing':'中央區箍筋 ≤ d/2 (規範 18.3.4.6)',
-      's-lapZone':   '搭接禁區：距柱面 0~2h\n搭接需置於梁中央且圍束',
+      's-lapZone':   'SMRF 梁端塑鉸區取 2h\n搭接範圍須完全落在 2h 至 ℓn−2h 之間，並配置圍束',
       's-MnRatio':   '規範 18.3.3.2\n支承斷面 Mn⁺ ≥ Mn⁻ / 2',
       's-MnQuarter': '規範 18.3.3.2\n沿梁長任一斷面 Mn ≥ max(Mn⁺,Mn⁻) / 4',
       'r-jointMnb':  '送至柱工具之梁端標稱彎矩\nMnb = max(Mn⁺, Mn⁻)，供柱頁強柱弱梁 ΣMnb 使用',
       'r-jointMpr':  '以指定 Mpr 鋼筋強度倍率放大 fy 後重新計算 Mn⁺、Mn⁻\nMpr,total = Mpr⁺ + Mpr⁻',
       'r-jointVeCap':'梁控制柱剪力上限\nVe,cap = (Mpr⁺ + Mpr⁻) / ℓn，送至柱頁對應 X/Y 向梁 Mpr 控制剪力上限',
       'c-layerSpacing':'排間淨距 sv ≥ max(2.5 cm, db_outer)\n規範 25.2.2',
+      'c-devLeft':    '左端可用直線錨定長度 ≥ ℓd,req\nℓd,req 取底層與頂層主筋開發長度控制值\n彎鉤或機械錨定須依配筋圖另核',
+      'c-devRight':   '右端可用直線錨定長度 ≥ ℓd,req\nℓd,req 取底層與頂層主筋開發長度控制值\n彎鉤或機械錨定須依配筋圖另核',
+      'c-lapLength':  '搭接長度 ℓs ≥ 規範 25.5.2 需求\nClass A = 1.0ℓd；Class B = 1.3ℓd',
       'd-Ec':         "彈性模數 Ec = 12000·√fc' (規範 19.2.2 常重混凝土)",
       'd-Mcr':        '開裂彎矩 Mcr = fr·Ig/yt\nMa ≤ (2/3)Mcr → 未開裂 (用 Ig)\nMa > (2/3)Mcr → 改用 Bischoff Ie',
       'd-IcrPos':     '開裂後 Icr (雙筋換算斷面)\nbw·kd²/2 + ((n−1)As\' + nAs)·kd − ((n−1)As\'·d\' + nAs·d) = 0\nIcr = bw·kd³/3 + (n−1)As\'(kd−d\')² + nAs(d−kd)²',

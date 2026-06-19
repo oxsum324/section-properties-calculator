@@ -345,6 +345,76 @@
         "Tu_th_tfm": 1.1851669575867243,
         "reportBasisVisible": true
       }
+    },
+    {
+      "key": "development_lap_ng",
+      "label": "錨定搭接長度與 SMRF 搭接位置不合格例",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": true,
+        "enableTorsion": false,
+        "enableDefl": false,
+        "autoD": true
+      },
+      "selects": {
+        "sectionType": "rect",
+        "support": "bothEnd",
+        "devTopPsi": "1.3",
+        "devEpoxyPsi": "1.0",
+        "beamLapClass": "B"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "fyt": 2800,
+        "bw": 40,
+        "h": 70,
+        "ln": 600,
+        "cover": 4,
+        "MuPos": 30,
+        "MuNeg": 30,
+        "Vu": 20,
+        "Pu": 0,
+        "Ve": 20,
+        "botBar1No": "#8",
+        "botBar1N": 4,
+        "topBar1No": "#8",
+        "topBar1N": 4,
+        "stirrup": "#4",
+        "legs": 2,
+        "stirS": 10,
+        "nSkin": 0,
+        "colW": 60,
+        "anchorageLeft": 40,
+        "anchorageRight": 120,
+        "beamLapStart": 20,
+        "beamLapEnd": 80,
+        "beamLapLength": 60
+      },
+      "expected": {
+        "mode": "check",
+        "sectionType": "rect",
+        "seismic": true,
+        "ldReq": 197.33224340110837,
+        "ldBot": 151.794033385468,
+        "ldTop": 197.33224340110837,
+        "lapReq": 256.5319164214409,
+        "leftAnchorage": 40,
+        "rightAnchorage": 120,
+        "lapStart": 20,
+        "lapEnd": 80,
+        "lapLength": 60,
+        "okAnchorageLeft": false,
+        "okAnchorageRight": false,
+        "okLapLength": false,
+        "okBeamLapZone": false,
+        "okShear": true,
+        "forceVc0": true,
+        "okBwRaw": true,
+        "okLnRaw": true,
+        "reportBasisVisible": true,
+        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✗ 錨定/搭接 ｜ ✓ SMRF 幾何"
+      }
     }
   ]
 }
