@@ -228,6 +228,9 @@ async function captureBeamSnapshot(page) {
       rightAnchorageTypeLabel: r.developmentData?.rightTypeLabel ?? null,
       developmentManualReview: r.developmentData?.developmentManualReview ?? null,
       developmentHasInput: r.developmentData?.hasAnchorageInput ?? null,
+      developmentHasCompleteInput: r.developmentData?.hasCompleteAnchorageInput ?? null,
+      lapHasAnyInput: r.developmentData?.lapHasAnyInput ?? null,
+      lapManualReview: r.developmentData?.lapManualReview ?? null,
       lapStart: r.developmentData?.lapStart ?? null,
       lapEnd: r.developmentData?.lapEnd ?? null,
       lapLength: r.developmentData?.lapLength ?? null,
@@ -272,6 +275,10 @@ async function captureBeamSnapshot(page) {
       okSkin: r.okSkin ?? null,
       skinSpacing: r.skinSpacing ?? null,
       skinSpacingLimit: r.skinSpacingLimit ?? null,
+      skinRequiredPerTensionFace: r.skinRequiredPerTensionFace ?? null,
+      skinZoneText: r.skinZoneText ?? null,
+      skinAreaEachSidePerZone: r.skinAreaEachSidePerZone ?? null,
+      skinAreaTotalBothSides: r.skinAreaTotalBothSides ?? null,
       torNegligible: r.torNegligible ?? null,
       Tu_th_tfm: r.Tu_th != null ? r.Tu_th / 1e5 : null,
       hmin: r.hmin ?? null,
@@ -287,6 +294,28 @@ async function captureBeamSnapshot(page) {
     };
   });
   return sanitizeSnapshot(raw);
+}
+
+async function captureBeamReportHtml(page) {
+  return page.evaluate(() => {
+    let html = '';
+    const previousOpen = window.open;
+    window.open = () => ({
+      document: {
+        open() {},
+        write(chunk) { html += String(chunk); },
+        close() {}
+      },
+      close() {},
+      closed: false
+    });
+    try {
+      window.buildBeamReport();
+    } finally {
+      window.open = previousOpen;
+    }
+    return html;
+  });
 }
 
 async function runBeamColumnHandoffCase(page) {
@@ -385,6 +414,14 @@ async function runBrowserCases() {
         const pass = nearlyEqual(actual[key], expected, tolerance);
         assert(pass, `${tc.key} :: ${key}`, `expected=${expected} actual=${actual[key]}`);
       });
+
+      if (tc.reportExpectedIncludes) {
+        const reportHtml = await captureBeamReportHtml(page);
+        const fragments = Array.isArray(tc.reportExpectedIncludes) ? tc.reportExpectedIncludes : [tc.reportExpectedIncludes];
+        fragments.forEach(fragment => {
+          assert(reportHtml.includes(fragment), `${tc.key} :: report includes`, `expected fragment=${fragment}`);
+        });
+      }
     }
 
 
@@ -409,6 +446,7 @@ async function main() {
   assert(beamHtml.includes('function calcAsMinInfo'), 'beam.html has calcAsMinInfo', 'T/L beam As,min width helper exists in source');
   assert(beamHtml.includes('function calcShearSizeFactor'), 'beam.html has calcShearSizeFactor', 'shear size-effect helper exists in source');
   assert(beamHtml.includes('function calcCrackSpacingLimit'), 'beam.html has calcCrackSpacingLimit', 'surface reinforcement spacing helper exists in source');
+  assert(beamHtml.includes('function calcSkinReinforcementData'), 'beam.html has calcSkinReinforcementData', 'skin reinforcement zone helper exists in source');
   assert(beamHtml.includes('id="c-shearMin"'), 'beam.html has Av,min check result', 'minimum shear reinforcement is visible');
   assert(beamHtml.includes('id="c-shearSpacing"'), 'beam.html has shear spacing check result', 'shear reinforcement spacing is visible');
   assert(beamHtml.includes('表層筋 (h > 90 cm)'), 'beam.html labels surface reinforcement', 'skin reinforcement wording is report-safe');

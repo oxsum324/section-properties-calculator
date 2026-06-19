@@ -60,8 +60,18 @@
         "forceVc0": false,
         "needSkin": false,
         "okSkin": true,
-        "reportBasisVisible": true
-      }
+        "reportBasisVisible": true,
+        "developmentHasInput": false,
+        "developmentHasCompleteInput": false,
+        "lapHasAnyInput": false,
+        "lapManualReview": true
+      },
+      "reportExpectedIncludes": [
+        "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖",
+        "人工複核項目：梁端錨定、搭接 / 施工圖",
+        "未輸入時不作通過判定。",
+        "搭接長度 ℓs"
+      ]
     },
     {
       "key": "t_beam_seismic_vc0",
@@ -296,7 +306,67 @@
         "skinSpacing": null,
         "skinSpacingLimit": 28,
         "reportBasisVisible": true,
-        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✗ 表層筋"
+        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✗ 表層筋",
+        "skinRequiredPerTensionFace": 2,
+        "skinZoneText": "底受拉區、頂受拉區",
+        "skinAreaEachSidePerZone": 0,
+        "skinAreaTotalBothSides": 0
+      }
+    },
+    {
+      "key": "deep_beam_skin_ok",
+      "label": "深梁表層筋配置合格例",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "enableTorsion": false,
+        "enableDefl": false,
+        "autoD": true
+      },
+      "selects": {
+        "sectionType": "rect",
+        "support": "bothEnd"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "fyt": 2800,
+        "bw": 40,
+        "h": 120,
+        "ln": 800,
+        "cover": 4,
+        "MuPos": 30,
+        "MuNeg": 30,
+        "Vu": 20,
+        "botBar1No": "#8",
+        "botBar1N": 4,
+        "topBar1No": "#8",
+        "topBar1N": 4,
+        "stirrup": "#4",
+        "legs": 2,
+        "stirS": 20,
+        "nSkin": 2,
+        "Pu": 0,
+        "skinNo": "#4"
+      },
+      "expected": {
+        "mode": "check",
+        "sectionType": "rect",
+        "h": 120,
+        "AsMinPos": 14.881777777777778,
+        "AsMinNeg": 14.881777777777778,
+        "okFlex": true,
+        "okShear": true,
+        "needSkin": true,
+        "okSkin": true,
+        "skinSpacing": 20,
+        "skinSpacingLimit": 28,
+        "reportBasisVisible": true,
+        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 表層筋",
+        "skinRequiredPerTensionFace": 2,
+        "skinZoneText": "底受拉區、頂受拉區",
+        "skinAreaEachSidePerZone": 2.534,
+        "skinAreaTotalBothSides": 10.136
       }
     },
     {
@@ -413,7 +483,11 @@
         "okBwRaw": true,
         "okLnRaw": true,
         "reportBasisVisible": true,
-        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✗ 錨定/搭接 ｜ ✓ SMRF 幾何"
+        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✗ 錨定/搭接 ｜ ✓ SMRF 幾何",
+        "developmentHasInput": true,
+        "developmentHasCompleteInput": true,
+        "lapHasAnyInput": true,
+        "lapManualReview": false
       }
     },
     {
@@ -481,8 +555,18 @@
         "okFlex": true,
         "okShear": true,
         "reportBasisVisible": true,
-        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ · 錨定人工複核"
-      }
+        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ · 錨定人工複核",
+        "developmentHasCompleteInput": true,
+        "lapHasAnyInput": false,
+        "lapManualReview": true
+      },
+      "reportExpectedIncludes": [
+        "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖",
+        "人工複核項目：梁端錨定、搭接 / 施工圖",
+        "標準彎鉤",
+        "機械錨定",
+        "人工複核項，不納入自動 OK 判定。"
+      ]
     }
   ]
 }
