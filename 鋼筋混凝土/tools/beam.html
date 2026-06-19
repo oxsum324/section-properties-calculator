@@ -631,6 +631,7 @@
           <div class="result-item" data-topic="flex" id="c-flexNeg"><span class="label">φMn⁻ ≥ −Mu</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-layerSpacing"><span class="label">排間淨距 ≥ max(2.5, db)</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-barsPerLayer"><span class="label">每排根數 ≤ 排內最大根數 (bw 限制)</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="flex" id="c-crackSpacing"><span class="label">主筋裂縫控制間距</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-devLeft"><span class="label">左端錨定長度 ≥ ℓd,req</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-devRight"><span class="label">右端錨定長度 ≥ ℓd,req</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-lapLength"><span class="label">搭接長度 ≥ ℓs,req</span><span class="value">—</span></div>
@@ -1061,6 +1062,45 @@
     const fs = Math.max((2 / 3) * fy, 1);
     const cc = Math.max(cover || 0, 0);
     return Math.max(0, Math.min((2800 / fs) * (38 - 2.5 * cc), 30 * (2800 / fs)));
+  }
+
+  function calcMainBarCrackControlData({ bw, cover, tieDb, fy, botStack, topStack, MuPos, MuNeg }) {
+    const crackSpacingLimit = calcCrackSpacingLimit(fy, cover);
+    const calcFace = (faceLabel, stack, active) => {
+      const outer = (stack || []).find(L => L.n > 0);
+      if (!active) {
+        return { faceLabel, active:false, ok:true, n:0, barNo:'—', db:0, spacing:null, spacingText:'—', text:`${faceLabel}未受拉，免檢核` };
+      }
+      if (!outer) {
+        return { faceLabel, active:true, ok:false, n:0, barNo:'—', db:0, spacing:Infinity, spacingText:'∞', text:`${faceLabel}受拉但未配置主筋` };
+      }
+      const centerSpan = Math.max(0, bw - 2 * (cover || 0) - 2 * (tieDb || 0) - outer.db);
+      const spacing = outer.n > 1 ? centerSpan / (outer.n - 1) : Infinity;
+      const spacingText = Number.isFinite(spacing) ? spacing.toFixed(1) : '∞';
+      const ok = outer.n > 1 ? spacing <= crackSpacingLimit + 1e-6 : null;
+      const base = `${faceLabel}外排 ${outer.n}-${outer.barNo}`;
+      const text = ok === null
+        ? `${base}，單支無法判讀間距，需人工複核`
+        : `${base}，s=${spacingText} ${ok ? '≤' : '>'} smax=${crackSpacingLimit.toFixed(1)} cm`;
+      return { faceLabel, active:true, ok, n:outer.n, barNo:outer.barNo, db:outer.db, spacing, spacingText, text };
+    };
+    const crackFaces = [
+      calcFace('底受拉', botStack, MuPos > 0),
+      calcFace('頂受拉', topStack, MuNeg > 0)
+    ];
+    const activeFaces = crackFaces.filter(f => f.active);
+    const activeResults = activeFaces.map(f => f.ok);
+    const okCrackSpacing = activeResults.length === 0
+      ? true
+      : activeResults.some(v => v === false)
+        ? false
+        : activeResults.some(v => v == null)
+          ? null
+          : true;
+    const crackSpacingText = activeFaces.length
+      ? activeFaces.map(f => f.text).join('；')
+      : '未輸入受拉彎矩，主筋裂縫間距不列控制';
+    return { okCrackSpacing, crackSpacingLimit, crackFaces, crackSpacingText };
   }
 
   function calcSkinReinforcementData({ h, fy, cover, nSkin, skinNo, MuPos, MuNeg }) {
@@ -1804,6 +1844,8 @@
     const hasMultiLayer = (botActive.length >= 2) || (topActive.length >= 2);
     const svMin = hasMultiLayer ? Math.max(2.5, dbBotForSv, dbTopForSv) : 0;
     const okLayerSpacing = hasMultiLayer ? (sv >= svMin) : true;
+    const crackData = calcMainBarCrackControlData({ bw, cover, tieDb, fy, botStack, topStack, MuPos: num('MuPos'), MuNeg: num('MuNeg') });
+    const { okCrackSpacing, crackSpacingLimit, crackFaces, crackSpacingText } = crackData;
 
     // === 顯示主結果 ===
     setResult('r-phiMnPos', phiMnPos, 'tf·m', 2);
@@ -1876,6 +1918,7 @@
       ? layerBars.map(L => `${L.side}${L.i}排 ${L.n}-${L.barNo}/${L.cap}${L.ok?'':' ✗'}`).join('，')
       : '—';
     setCheck('c-barsPerLayer', okBarsPerLayer, barsPerLayerDetail);
+    setCheck('c-crackSpacing', okCrackSpacing, crackSpacingText);
 
     setCheck('c-devLeft', developmentData.okLeftAnchorage, developmentData.leftCheck.text);
     setCheck('c-devRight', developmentData.okRightAnchorage, developmentData.rightCheck.text);
@@ -2048,7 +2091,7 @@
     // === 綜合結論 banner (依當前分頁) ===
     const bannerData = {
       okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
-      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin, okHmin, okDeflOverall, deflNeedsExact, deflManualReview, deflStatusText, needSkin, okSkin,
+      okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin, okHmin, okDeflOverall, deflNeedsExact, deflManualReview, deflStatusText, okCrackSpacing, needSkin, okSkin,
       phiMnPos, phiMnNeg,
       MuPos: num('MuPos'), MuNeg: num('MuNeg'),
       phiVn: phiVn_eff/1000, Vu: num('Vu'),
@@ -2106,6 +2149,7 @@
   ρ⁻ ≤ ρmax : ${fmt(rhoNeg,4)} ≤ ${fmt(rhoMax,4)} → ${okRhoMaxNeg?'✓':'✗'}
   AsBot ≥ As,min⁺ 或 1.33As需求⁺ : ${asMinCheckPos.text} → ${okAsMinBot?'✓':'✗'}
   AsTop ≥ As,min⁻ 或 1.33As需求⁻ : ${asMinCheckNeg.text} → ${okAsMinTop?'✓':'✗'}
+  主筋裂縫控制 (24.3.2): smax=${fmt(crackSpacingLimit,1)} cm；${crackSpacingText} → ${okCrackSpacing === true ? '✓' : okCrackSpacing === false ? '✗' : '⚠'}
   表層筋: ${needSkin ? `${skinZoneText}；每側每區 ${nSkin} 根，需求 ≥ ${skinRequiredPerTensionFace} 根；估計間距 ${Number.isFinite(skinSpacing)?fmt(skinSpacing,1):'∞'} ≤ ${fmt(skinSpacingLimit,1)} cm → ${okSkin?'✓':'✗'}` : 'h ≤ 90 cm，免檢核'}
   φMn ≥ 1.2 Mcr : φMn⁺=${fmt(phiMnPos,2)} ≥ 1.2Mcr⁺=${fmt(Mcr12_pos,2)} → ${phiMnPos>=Mcr12_pos?'✓':'✗'}
                    φMn⁻=${fmt(phiMnNeg,2)} ≥ 1.2Mcr⁻=${fmt(Mcr12_neg,2)} → ${phiMnNeg>=Mcr12_neg?'✓':'✗'}
@@ -2312,7 +2356,7 @@ ${layerBars.map(L => {
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       Tu_th, torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk,
       hmin, factorMap, deflNeedsExact, deflManualReview, deflStatusText, seismicData, okMnQuarter, hasMnQuarterInput, mnQuarterReq, okFirstHoop, hasFirstHoopInput,
-      svMin, okLayerSpacing,
+      svMin, okLayerSpacing, okCrackSpacing, crackSpacingLimit, crackFaces, crackSpacingText,
       shMin, okBarsPerLayer, barsPerLayerDetail, needSkin, okSkin, nSkin, skinNo,
       skinSpacing, skinSpacingLimit, skinZone, skinRequiredPerTensionFace, skinZoneText, skinZoneCount,
       skinAreaEachSidePerZone, skinAreaTotalBothSides,
@@ -2516,6 +2560,10 @@ ${layerBars.map(L => {
           formula:`n_max = floor((bw−2c−2dt−db)/(db+max(db,${r.shMin}))) + 1`,
           sub: r.barsPerLayerDetail || '—',
           value: r.okBarsPerLayer ? '符合' : '不符', unit:'', ok: r.okBarsPerLayer },
+        { label:'主筋裂縫控制間距',
+          formula:'規範 24.3.2；未另算使用應力時 fs=2/3fy，smax = min[(2800/fs)(38−2.5cc), 30(2800/fs)]',
+          sub:`smax = ${r.crackSpacingLimit.toFixed(1)} cm；${r.crackSpacingText}`,
+          value: r.okCrackSpacing === true ? '符合' : r.okCrackSpacing === false ? '不符' : '人工複核', unit:'', ok:r.okCrackSpacing },
         ...(r.needSkin ? [{ label:'表層筋 (h > 90 cm)',
           formula:'規範 9.7.2.3：正彎矩檢底受拉區、負彎矩檢頂受拉區；距受拉面 h/2 範圍內配置，間距依 24.3.2',
           sub: `${r.skinZoneText}；每側每區 ${r.nSkin} 根 ${r.skinNo}，需求 ≥ ${r.skinRequiredPerTensionFace} 根；估計間距 ${Number.isFinite(r.skinSpacing)?r.skinSpacing.toFixed(1):'∞'} / ${r.skinSpacingLimit.toFixed(1)} cm；雙側面 As=${r.skinAreaTotalBothSides.toFixed(2)} cm²`,
@@ -2668,6 +2716,7 @@ ${layerBars.map(L => {
     if (r.developmentData?.lapManualReview) manualReviewItems.push('搭接 / 施工圖');
     if (r.enableTorsion && r.torsionNeedsDesign && r.torsionDetailOk == null) manualReviewItems.push('扭力鋼筋詳算');
     if (r.enableDefl && r.deflManualReview) manualReviewItems.push('嚴謹撓度計算');
+    if (r.okCrackSpacing == null) manualReviewItems.push('主筋裂縫控制間距');
     if (r.seismic && !r.hasMnQuarterInput) manualReviewItems.push('SMRF 跨內 Mn 比對');
     if (r.seismic && !r.hasFirstHoopInput) manualReviewItems.push('首支箍筋位置');
     const pendingManualReview = manualReviewItems.length > 0;
@@ -2755,6 +2804,7 @@ ${layerBars.map(L => {
         '握裹／搭接：直線錨定可自動比對 ℓd；彎鉤、機械錨定與其他端部構造列為人工複核，須依配筋圖、產品資料或專案文件確認。',
         '扭力：本頁自動判定 Tu 是否可忽略；Tu 超過門檻時承接專案 22.7 詳算結論，未輸入時列為人工複核；本頁不自動反算 At/Al。',
         '撓度：跨深比僅作免算條件；連接易損構造或 h < hmin 時，需以 Bischoff Ie 嚴謹撓度計算確認，未計算時列為人工複核。',
+        '裂縫控制：主筋間距採最外排受拉鋼筋中心間距估算；未另算使用應力時，依 24.3.2 採 fs=2/3fy 的簡化上限，完整裂縫寬度或特殊暴露條件仍須由專案文件確認。',
         ...(pendingManualReview ? ['人工複核項目：' + manualReviewItems.join('、') + '；需以配筋圖、產品認可資料或專案文件確認後，方可作為最終判定。'] : []),
         '本計算書僅供初步設計檢核參考。',
         ...(r.seismic && r.beamColumnJoint
@@ -2806,6 +2856,7 @@ ${layerBars.map(L => {
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
       checks.push(['ρ ≤ ρmax (兩向)', r.okRhoMax]);
       checks.push(['As ≥ As,min (兩向)', r.okAsMin]);
+      checks.push(['主筋裂縫間距', r.okCrackSpacing]);
       if (r.needSkin) checks.push(['表層筋', r.okSkin]);
       if (r.developmentData?.okExplicit !== null) checks.push(['錨定/搭接', r.developmentData.okExplicit]);
       if (r.developmentData?.developmentManualReview) checks.push(['錨定人工複核', null]);
@@ -2855,6 +2906,7 @@ ${layerBars.map(L => {
       checks.push(['φVn ≥ Vu', r.okShear]);
       checks.push(['ρ ≤ ρmax', r.okRhoMax]);
       checks.push(['As ≥ As,min', r.okAsMin]);
+      checks.push(['主筋裂縫間距', r.okCrackSpacing]);
       if (r.needSkin) checks.push(['表層筋', r.okSkin]);
       if (r.enableTorsion) checks.push([r.torsionNeedsDesign ? (r.torsionDetailOk == null ? '扭力詳算人工複核' : '22.7 扭力詳算') : '扭力門檻', r.torsionStatusOk]);
       if (r.seismic) checks.push(['跨內 Mn', r.okMnQuarter]);

@@ -299,6 +299,17 @@ async function captureBeamSnapshot(page) {
       skinZoneText: r.skinZoneText ?? null,
       skinAreaEachSidePerZone: r.skinAreaEachSidePerZone ?? null,
       skinAreaTotalBothSides: r.skinAreaTotalBothSides ?? null,
+      okCrackSpacing: r.okCrackSpacing ?? null,
+      crackSpacingLimit: r.crackSpacingLimit ?? null,
+      crackSpacingText: r.crackSpacingText ?? null,
+      crackFaces: (r.crackFaces || []).filter(f => f.active).map(f => ({
+        faceLabel: f.faceLabel,
+        n: f.n,
+        barNo: f.barNo,
+        spacing: f.spacing,
+        ok: f.ok,
+        text: f.text
+      })),
       torNegligible: r.torNegligible ?? null,
       torsionNeedsDesign: r.torsionNeedsDesign ?? null,
       torsionStatusOk: r.torsionStatusOk ?? null,
@@ -319,6 +330,7 @@ async function captureBeamSnapshot(page) {
       cAsMinBot: text('c-AsMinBot'),
       cAsMinTop: text('c-AsMinTop'),
       cSkin: text('c-skin'),
+      cCrackSpacing: text('c-crackSpacing'),
       cHmin: text('c-hmin'),
       cDevLeft: text('c-devLeft'),
       cDevRight: text('c-devRight'),
@@ -475,6 +487,7 @@ async function main() {
   section('Source Helpers');
   assert(beamHtml.includes('function calcSmrfSpacingDbFactor'), 'beam.html has calcSmrfSpacingDbFactor', 'helper exists in source');
   assert(beamHtml.includes('function calcBischoffIe'), 'beam.html has calcBischoffIe', 'helper exists in source');
+  assert(beamHtml.includes('function calcMainBarCrackControlData'), 'beam.html has main-bar crack-control check', '24.3.2 spacing is applied to primary tension reinforcement');
   assert(beamHtml.includes('deflManualReview'), 'beam.html has deflection manual-review status', 'span-depth non-exemption is not treated as automatic NG');
   assert(beamHtml.includes('function calcSmrfSpacingLimit'), 'beam.html has calcSmrfSpacingLimit', 'helper exists in source');
   assert(beamHtml.includes('function getCrackingStateText'), 'beam.html has getCrackingStateText', 'helper exists in source');
