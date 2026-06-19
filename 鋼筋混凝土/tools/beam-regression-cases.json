@@ -16,7 +16,8 @@
       },
       "selects": {
         "sectionType": "rect",
-        "support": "bothEnd"
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -37,7 +38,9 @@
         "stirS": 15,
         "nSkin": 0,
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "design",
@@ -88,7 +91,8 @@
       },
       "selects": {
         "sectionType": "T",
-        "support": "bothEnd"
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -121,7 +125,9 @@
         "nSkin": 0,
         "colW": 55,
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -162,7 +168,8 @@
       },
       "selects": {
         "sectionType": "rect",
-        "support": "bothEnd"
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -185,7 +192,9 @@
         "nSkin": 0,
         "Pu": 0,
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -218,7 +227,8 @@
       },
       "selects": {
         "sectionType": "rect",
-        "support": "bothEnd"
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -241,7 +251,9 @@
         "stirS": 15,
         "nSkin": 0,
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -278,7 +290,8 @@
       },
       "selects": {
         "sectionType": "rect",
-        "support": "bothEnd"
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -301,7 +314,9 @@
         "nSkin": 0,
         "Pu": 0,
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -335,7 +350,8 @@
       },
       "selects": {
         "sectionType": "rect",
-        "support": "bothEnd"
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -359,7 +375,9 @@
         "Pu": 0,
         "skinNo": "#4",
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -393,7 +411,8 @@
       },
       "selects": {
         "sectionType": "rect",
-        "support": "bothEnd"
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -417,7 +436,9 @@
         "nSkin": 0,
         "Pu": 0,
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -430,7 +451,9 @@
         "reportBasisVisible": true,
         "torsionNeedsDesign": false,
         "torsionStatusOk": true,
-        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 扭力門檻"
+        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 扭力門檻",
+        "torsionDetailOk": true,
+        "torsionDesignStatus": "pending"
       }
     },
     {
@@ -445,7 +468,8 @@
       },
       "selects": {
         "sectionType": "rect",
-        "support": "bothEnd"
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -469,7 +493,9 @@
         "nSkin": 0,
         "Pu": 0,
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -482,12 +508,79 @@
         "reportBasisVisible": true,
         "torsionNeedsDesign": true,
         "torsionStatusOk": null,
-        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ · 扭力詳算人工複核"
+        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ · 扭力詳算人工複核",
+        "torsionDetailOk": null,
+        "torsionDesignStatus": "pending"
       },
       "reportExpectedIncludes": [
         "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖、扭力鋼筋詳算",
-        "扭力鋼筋需依規範 22.7 另行詳算",
-        "扭力：本頁自動判定 Tu 是否可忽略"
+        "22.7 扭力詳算結論",
+        "未輸入時列為人工複核",
+        "本頁不自動反算 At/Al"
+      ]
+    },
+    {
+      "key": "torsion_detail_project_ok",
+      "label": "扭力超門檻且專案詳算符合例",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "enableTorsion": true,
+        "enableDefl": false,
+        "autoD": true
+      },
+      "selects": {
+        "sectionType": "rect",
+        "support": "bothEnd",
+        "torsionDesignStatus": "ok"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "fyt": 2800,
+        "bw": 40,
+        "h": 70,
+        "ln": 600,
+        "cover": 4,
+        "MuPos": 30,
+        "MuNeg": 30,
+        "Vu": 15,
+        "Tu": 2,
+        "botBar1No": "#8",
+        "botBar1N": 4,
+        "topBar1No": "#8",
+        "topBar1N": 4,
+        "stirrup": "#4",
+        "legs": 2,
+        "stirS": 15,
+        "nSkin": 0,
+        "Pu": 0,
+        "smrfMnMin": "",
+        "firstHoopDist": "",
+        "torsionAtPerS": 0.08,
+        "torsionAl": 8
+      },
+      "expected": {
+        "mode": "check",
+        "sectionType": "rect",
+        "enableTorsion": true,
+        "phiVn_tf": 38.25065949961654,
+        "okShear": true,
+        "torNegligible": false,
+        "Tu_th_tfm": 1.1851669575867243,
+        "reportBasisVisible": true,
+        "torsionNeedsDesign": true,
+        "torsionStatusOk": true,
+        "torsionDetailOk": true,
+        "torsionDesignStatus": "ok",
+        "torsionAtPerS": 0.08,
+        "torsionAl": 8,
+        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 22.7 扭力詳算"
+      },
+      "reportExpectedIncludes": [
+        "22.7 扭力詳算結論",
+        "At/s = 0.0800 cm²/cm；Al = 8.00 cm²",
+        "本頁不自動反算 At/Al"
       ]
     },
     {
@@ -505,7 +598,8 @@
         "support": "bothEnd",
         "devTopPsi": "1.3",
         "devEpoxyPsi": "1.0",
-        "beamLapClass": "B"
+        "beamLapClass": "B",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -535,7 +629,9 @@
         "beamLapEnd": 80,
         "beamLapLength": 60,
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -585,7 +681,8 @@
         "support": "bothEnd",
         "devTopPsi": "1.3",
         "devEpoxyPsi": "1.0",
-        "beamLapClass": "B"
+        "beamLapClass": "B",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -615,7 +712,9 @@
         "beamLapEnd": 460,
         "beamLapLength": 300,
         "smrfMnMin": 50,
-        "firstHoopDist": 4
+        "firstHoopDist": 4,
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",
@@ -666,7 +765,8 @@
         "sectionType": "rect",
         "support": "bothEnd",
         "beamDevLeftType": "hook",
-        "beamDevRightType": "mechanical"
+        "beamDevRightType": "mechanical",
+        "torsionDesignStatus": "pending"
       },
       "values": {
         "fc": 280,
@@ -694,7 +794,9 @@
         "beamLapEnd": "",
         "beamLapLength": "",
         "smrfMnMin": "",
-        "firstHoopDist": ""
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
       },
       "expected": {
         "mode": "check",

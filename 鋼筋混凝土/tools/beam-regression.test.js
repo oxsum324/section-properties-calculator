@@ -289,6 +289,10 @@ async function captureBeamSnapshot(page) {
       torNegligible: r.torNegligible ?? null,
       torsionNeedsDesign: r.torsionNeedsDesign ?? null,
       torsionStatusOk: r.torsionStatusOk ?? null,
+      torsionDetailOk: r.torsionDetailOk ?? null,
+      torsionDesignStatus: r.torsionDesignStatus ?? null,
+      torsionAtPerS: r.torsionAtPerS ?? null,
+      torsionAl: r.torsionAl ?? null,
       Tu_th_tfm: r.Tu_th != null ? r.Tu_th / 1e5 : null,
       hmin: r.hmin ?? null,
       okHmin: r.okHmin ?? null,
@@ -299,6 +303,7 @@ async function captureBeamSnapshot(page) {
       cDevLeft: text('c-devLeft'),
       cDevRight: text('c-devRight'),
       cLapLength: text('c-lapLength'),
+      cTorDetail: text('c-torDetail'),
       sLapZone: text('s-lapZone')
     };
   });
@@ -484,6 +489,9 @@ async function main() {
   assert(beamHtml.includes('id="beamLapLength"'), 'beam.html has lap length input', 'splice length input is user-visible');
   assert(beamHtml.includes('id="c-devLeft"'), 'beam.html has anchorage check result', 'anchorage check result is visible');
   assert(beamHtml.includes('torsionNeedsDesign'), 'beam.html has torsion manual-review status', 'torsion beyond threshold is not treated as automatic NG');
+  assert(beamHtml.includes('id="torsionDesignStatus"'), 'beam.html has torsion design status input', '22.7 torsion design conclusion can be entered');
+  assert(beamHtml.includes('id="torsionAtPerS"'), 'beam.html has torsion transverse steel input', 'At/s can be disclosed in report');
+  assert(beamHtml.includes('id="torsionAl"'), 'beam.html has torsion longitudinal steel input', 'Al can be disclosed in report');
   assert(beamHtml.includes('id="smrfMnMin"'), 'beam.html has SMRF span Mn input', 'span strength check can be entered instead of only reminded');
   assert(beamHtml.includes('id="firstHoopDist"'), 'beam.html has first hoop distance input', 'SMRF first hoop check can be entered instead of only reminded');
   assert(beamHtml.includes('column.html?beamJoint=1'), 'beam.html links to column joint import', 'column import URL exists');
