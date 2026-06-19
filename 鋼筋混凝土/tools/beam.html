@@ -478,6 +478,23 @@
         <h2>耐震輸入</h2>
         <p class="hint">需先勾選「套用特殊抗彎矩構架耐震規定」；Ve 請至「載重」分頁輸入。</p>
         <div class="form-group"><label>支承柱寬 (cm)</label><input type="number" id="colW" value="50"></div>
+        <hr style="margin:14px 0; border:none; border-top:1px dashed #cbd5e1;">
+        <h3 style="font-size:0.95em; color:var(--primary); margin:6px 0 8px;">梁柱接頭整合</h3>
+        <p class="hint">將本梁端標稱彎矩 Mnb 與由 Mpr 推得之梁剪力上限送至柱工具，供強柱弱梁與柱設計剪力檢核使用。</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>送入柱頁位置</label>
+            <select id="beamJointTarget">
+              <option value="scwbBeamXLeft" selected>X 向左梁</option>
+              <option value="scwbBeamXRight">X 向右梁</option>
+              <option value="scwbBeamYFront">Y 向前梁</option>
+              <option value="scwbBeamYBack">Y 向後梁</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Mpr 鋼筋強度倍率</label><input type="number" id="beamJointMprFactor" value="1.25" min="1" step="0.05"></div>
+        </div>
+        <button id="btnSendToColumn" class="btn-secondary" type="button">送至柱工具</button>
+        <p class="hint" id="beamJointSendStatus">送出後柱頁會啟用耐震模式，並填入對應梁端 Mnb 與該方向梁 Mpr 控制剪力上限。</p>
       </div>
 
       <div class="card subpanel" data-panel="summary">
@@ -596,6 +613,16 @@
           <div class="result-item" id="s-midSpacing"><span class="label">中央區箍筋間距 ≤ d/2</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
         </div>
       </div>
+      <div class="card" id="beamJointCard" data-shows="seismic summary">
+        <h2><span>梁柱接頭輸出</span><span class="badge-seismic">SCWB</span></h2>
+        <div class="results-grid">
+          <div class="result-item" id="r-jointMnb"><span class="label">送出 Mnb</span><span><span class="value">—</span><span class="unit">tf·m</span></span></div>
+          <div class="result-item" id="r-jointMpr"><span class="label">Mpr⁺ + Mpr⁻</span><span><span class="value">—</span><span class="unit">tf·m</span></span></div>
+          <div class="result-item" id="r-jointVeCap"><span class="label">梁 Mpr 控制剪力</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="r-jointTarget"><span class="label">柱頁欄位</span><span class="value">—</span></div>
+        </div>
+        <p class="hint">Mnb 預設取本梁端 Mn⁺、Mn⁻ 較大值；Mpr 以指定倍率放大 fy 重新計算。實際左/右或前/後歸屬仍應依接頭配置圖確認。</p>
+      </div>
 
       <div class="card" id="deflCard" data-shows="defl summary" style="display:none;">
 <h2>撓度計算 (Bischoff Ie)</h2>
@@ -702,9 +729,11 @@
       // 細項：扭力 / 撓度 topic 未啟用就隱藏
       if (!torsionOn) document.querySelectorAll('[data-topic="torsion"]').forEach(el => el.style.display = 'none');
       if (!deflOn)    document.querySelectorAll('[data-topic="defl"]').forEach(el => el.style.display = 'none');
-      // 整張卡：耐震檢核（含 SMRF badge 的卡）
-      const seismicCard = document.querySelector('.badge-seismic')?.closest('.card');
-      if (seismicCard) seismicCard.style.display = seismicOn ? '' : 'none';
+      // 整張卡：耐震檢核與梁柱接頭輸出（含 seismic badge 的卡）
+      document.querySelectorAll('.badge-seismic').forEach(badge => {
+        const card = badge.closest('.card');
+        if (card) card.style.display = seismicOn ? '' : 'none';
+      });
       // 撓度計算卡：未啟用嚴謹撓度就隱藏
       const dCard = $('deflCard');
       if (dCard) dCard.style.display = exactDeflOn ? '' : 'none';
@@ -739,6 +768,67 @@
   // ========== 梁計算邏輯 ==========
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
+
+  const BEAM_COLUMN_JOINT_SCHEMA = 'rc-beam-column-joint-v1';
+  const BEAM_COLUMN_JOINT_STORAGE_KEY = 'rc.pendingBeamColumnJoint';
+  const BEAM_JOINT_TARGETS = {
+    scwbBeamXLeft:  { label: 'X 向左梁', direction: 'X', veCapId: 'VeBeamCapX' },
+    scwbBeamXRight: { label: 'X 向右梁', direction: 'X', veCapId: 'VeBeamCapX' },
+    scwbBeamYFront: { label: 'Y 向前梁', direction: 'Y', veCapId: 'VeBeamCapY' },
+    scwbBeamYBack:  { label: 'Y 向後梁', direction: 'Y', veCapId: 'VeBeamCapY' }
+  };
+
+  function getBeamJointTargetInfo(targetId) {
+    return BEAM_JOINT_TARGETS[targetId] ? { id: targetId, ...BEAM_JOINT_TARGETS[targetId] } : { id: 'scwbBeamXLeft', ...BEAM_JOINT_TARGETS.scwbBeamXLeft };
+  }
+
+  function roundJointValue(value, digits = 4) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Number(n.toFixed(digits)) : 0;
+  }
+
+  function setResultText(id, text, status = null) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.remove('rc-pending', 'ok', 'warn', 'fail');
+    const valSpan = el.querySelector('.value');
+    if (valSpan) valSpan.textContent = text || '—';
+    if (status) el.classList.add(status);
+  }
+
+  function calcBeamColumnJointData(opt) {
+    const target = getBeamJointTargetInfo($('beamJointTarget')?.value);
+    const mprFactor = Math.max(1, parseFloat($('beamJointMprFactor')?.value) || 1.25);
+    const fyProb = opt.fy * mprFactor;
+    const flexProb = calcFlexureData({
+      sectionType: opt.sectionType, bw: opt.bw, bf: opt.bf, hf: opt.hf, h: opt.h, fc: opt.fc,
+      fy: fyProb, beta1: opt.beta1, botStack: opt.botStack, topStack: opt.topStack,
+      AsBot: opt.AsBot, AsTop: opt.AsTop, d_pos: opt.d_pos, d_neg: opt.d_neg
+    });
+    const mnbPos = roundJointValue(opt.MnPos_raw, 4);
+    const mnbNeg = roundJointValue(opt.MnNeg_raw, 4);
+    const mnbControl = roundJointValue(Math.max(mnbPos, mnbNeg), 4);
+    const mprPos = roundJointValue(Math.max(0, flexProb.MnPos_raw || 0), 4);
+    const mprNeg = roundJointValue(Math.max(0, flexProb.MnNeg_raw || 0), 4);
+    const mprSum = roundJointValue(mprPos + mprNeg, 4);
+    const spanM = Math.max((opt.ln || 0) / 100, 0);
+    const veCap = roundJointValue(spanM > 0 ? mprSum / spanM : 0, 4);
+    const columnFields = { [target.id]: mnbControl, [target.veCapId]: veCap };
+    return {
+      schema: BEAM_COLUMN_JOINT_SCHEMA,
+      source: 'beam.html',
+      timestamp: new Date().toISOString(),
+      targetId: target.id,
+      targetLabel: target.label,
+      direction: target.direction,
+      values: {
+        mnbPos, mnbNeg, mnbControl, mprFactor: roundJointValue(mprFactor, 4), fyProb: roundJointValue(fyProb, 2),
+        mprPos, mprNeg, mprSum, veCap, ln: roundJointValue(opt.ln, 3), h: roundJointValue(opt.h, 3),
+        bw: roundJointValue(opt.bw, 3), fc: roundJointValue(opt.fc, 2), fy: roundJointValue(opt.fy, 2), sectionType: opt.sectionType
+      },
+      columnFields
+    };
+  }
 
   function setResult(id, val, unit, digits = 2, status = null) {
     const el = $(id);
@@ -1602,6 +1692,15 @@
       });
     }
 
+    const beamColumnJoint = calcBeamColumnJointData({
+      sectionType, bw, bf, hf, h, fc, fy, beta1, botStack, topStack, AsBot, AsTop,
+      d_pos, d_neg, ln, MnPos_raw, MnNeg_raw
+    });
+    setResult('r-jointMnb', beamColumnJoint.values.mnbControl, 'tf·m', 2);
+    setResult('r-jointMpr', beamColumnJoint.values.mprSum, 'tf·m', 2);
+    setResult('r-jointVeCap', beamColumnJoint.values.veCap, 'tf', 2);
+    setResultText('r-jointTarget', beamColumnJoint.targetLabel);
+
     // === 設計建議 (反算 As 需求 — 兩個方向各算一次) ===
     const AsReqPos = calcRequiredAsByAnalysis({
       Mu_kgcm: MuPos,
@@ -1956,10 +2055,43 @@ ${layerBars.map(L => {
       okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
       okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin,
       okAsMinBot, okAsMinTop, okHmin, okDeflOverall,
+      // 梁柱接頭輸出
+      beamColumnJoint,
       // 撓度 (可選)
       defl: deflResult
     };
   }
+
+  function showBeamJointStatus(message, status = null) {
+    const el = $('beamJointSendStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.style.color = status === 'fail' ? '#b91c1c' : status === 'ok' ? '#166534' : '';
+  }
+
+  function buildBeamColumnJointPayload() {
+    calcBeam();
+    return window.beamLast?.beamColumnJoint || null;
+  }
+
+  function sendBeamJointToColumn() {
+    const payload = buildBeamColumnJointPayload();
+    if (!payload || !payload.schema) {
+      showBeamJointStatus('尚無可送出的梁柱接頭資料，請先完成梁設計檢核。', 'fail');
+      return;
+    }
+    try {
+      localStorage.setItem(BEAM_COLUMN_JOINT_STORAGE_KEY, JSON.stringify(payload));
+      showBeamJointStatus(`已送出 ${payload.targetLabel}：Mnb=${payload.values.mnbControl.toFixed(2)} tf·m，梁 Mpr 控制剪力=${payload.values.veCap.toFixed(2)} tf。`, 'ok');
+      location.href = 'column.html?beamJoint=1';
+    } catch (err) {
+      console.error('beam-column joint handoff failed', err);
+      showBeamJointStatus('無法寫入瀏覽器暫存資料，請改用「複製輸入 JSON」人工轉錄。', 'fail');
+    }
+  }
+
+  window.buildBeamColumnJointPayload = buildBeamColumnJointPayload;
+  window.sendBeamJointToColumn = sendBeamJointToColumn;
 
   // === 計算書產生 ===
   function buildBeamReport() {
@@ -2013,6 +2145,13 @@ ${layerBars.map(L => {
         ...(r.seismic?[{ label:'Ve (耐震)', value:r.Ve_in.toFixed(2), unit:'tf' }]:[]),
         { label:'軸力 Pu', value:r.Pu_in.toFixed(2), unit:'tf' }
       ]},
+      ...(r.seismic && r.beamColumnJoint ? [{ group: '梁柱接頭輸出', items: [
+        { label:'送入柱頁位置', value:r.beamColumnJoint.targetLabel },
+        { label:'送出 Mnb', value:r.beamColumnJoint.values.mnbControl.toFixed(2), unit:'tf·m' },
+        { label:'Mpr⁺ + Mpr⁻', value:r.beamColumnJoint.values.mprSum.toFixed(2), unit:'tf·m' },
+        { label:'梁 Mpr 控制剪力', value:r.beamColumnJoint.values.veCap.toFixed(2), unit:'tf' },
+        { label:'Mpr 鋼筋強度倍率', value:r.beamColumnJoint.values.mprFactor.toFixed(2) }
+      ]}] : []),
       ...(() => {
         const envStored = window.lastLoadCombo && window.lastLoadCombo[lcBeamCfg.prefix];
         const envDetail = envStored?.detail;
@@ -2150,6 +2289,16 @@ ${layerBars.map(L => {
           sub:`需 ≥ ${(Math.max(r.MnPos_raw,r.MnNeg_raw)/4).toFixed(2)} tf·m (請另行對跨中斷面比對)`,
           value:'須跨斷面比對', unit:'', ok: null }
       ]}] : []),
+      ...(r.seismic && r.beamColumnJoint ? [{ group:'梁柱接頭資料輸出 (供柱工具)', items:[
+        { label:'柱頁接頭欄位',
+          formula:'梁端 Mnb 供柱頁 18.4.3.2 強柱弱梁 ΣMnb 使用',
+          sub:`目標 ${r.beamColumnJoint.targetLabel}；Mnb 取 max(Mn⁺, Mn⁻) = ${r.beamColumnJoint.values.mnbControl.toFixed(2)} tf·m`,
+          value:r.beamColumnJoint.targetLabel, ok:null },
+        { label:'梁 Mpr 控制剪力上限',
+          formula:'Ve,cap = (Mpr⁺ + Mpr⁻) / ℓn；供柱頁 18.4.6.1 設計剪力上限參考',
+          sub:`Mpr⁺=${r.beamColumnJoint.values.mprPos.toFixed(2)}，Mpr⁻=${r.beamColumnJoint.values.mprNeg.toFixed(2)}，ℓn=${r.beamColumnJoint.values.ln.toFixed(1)} cm`,
+          value:r.beamColumnJoint.values.veCap.toFixed(2), unit:'tf', ok:null }
+      ]}] : []),
       ...(r.defl ? [{ group:'撓度檢核 (Bischoff Ie)', items:[
         { label:'Ec',
           formula:"Ec = 12000·√fc' (規範 19.2.2 常重)",
@@ -2272,6 +2421,9 @@ ${layerBars.map(L => {
         '規範依據：112 年混凝土結構設計規範；耐震模式採特殊抗彎矩構架 (SMRF) 梁 18.3 系列。',
         '檢核邊界：跨內任一斷面 Mn ≥ Mn,max/4、搭接位置、柱梁接頭區與塑鉸區實際範圍，仍須由設計者依專案文件與配筋圖確認。',
         '本計算書由 RC 工具箱自動產生，僅供初步設計參考',
+        ...(r.seismic && r.beamColumnJoint
+          ? [`梁柱接頭輸出：${r.beamColumnJoint.targetLabel}，Mnb=${r.beamColumnJoint.values.mnbControl.toFixed(2)} tf·m，梁 Mpr 控制剪力=${r.beamColumnJoint.values.veCap.toFixed(2)} tf。`]
+          : []),
         ...(window.lastLoadCombo && window.lastLoadCombo[lcBeamCfg.prefix]?.detail
           ? [`載重組合圖採 ${window.lastLoadCombo[lcBeamCfg.prefix].detail.comboName} 封包。`]
           : ['若需載重包絡線，請先使用載重組合產生器套用後再輸出計算書。']),
@@ -2526,6 +2678,7 @@ ${layerBars.map(L => {
       setTimeout(() => note.remove(), 2500);
     });
   });
+  document.getElementById('btnSendToColumn')?.addEventListener('click', sendBeamJointToColumn);
   // 任何輸入欄位變動即重算
   document.querySelectorAll('input, select').forEach(el => {
     el.addEventListener('input', calcBeam);
@@ -2586,6 +2739,9 @@ ${layerBars.map(L => {
       's-lapZone':   '搭接禁區：距柱面 0~2h\n搭接需置於梁中央且圍束',
       's-MnRatio':   '規範 18.3.3.2\n支承斷面 Mn⁺ ≥ Mn⁻ / 2',
       's-MnQuarter': '規範 18.3.3.2\n沿梁長任一斷面 Mn ≥ max(Mn⁺,Mn⁻) / 4',
+      'r-jointMnb':  '送至柱工具之梁端標稱彎矩\nMnb = max(Mn⁺, Mn⁻)，供柱頁強柱弱梁 ΣMnb 使用',
+      'r-jointMpr':  '以指定 Mpr 鋼筋強度倍率放大 fy 後重新計算 Mn⁺、Mn⁻\nMpr,total = Mpr⁺ + Mpr⁻',
+      'r-jointVeCap':'梁控制柱剪力上限\nVe,cap = (Mpr⁺ + Mpr⁻) / ℓn，送至柱頁對應 X/Y 向梁 Mpr 控制剪力上限',
       'c-layerSpacing':'排間淨距 sv ≥ max(2.5 cm, db_outer)\n規範 25.2.2',
       'd-Ec':         "彈性模數 Ec = 12000·√fc' (規範 19.2.2 常重混凝土)",
       'd-Mcr':        '開裂彎矩 Mcr = fr·Ig/yt\nMa ≤ (2/3)Mcr → 未開裂 (用 Ig)\nMa > (2/3)Mcr → 改用 Bischoff Ie',

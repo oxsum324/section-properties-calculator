@@ -8,6 +8,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const RC_ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.RC_TEST_PORT || 8124);
 const TOOL_URL = `http://127.0.0.1:${PORT}/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/tools/beam.html`;
+const COLUMN_URL = `http://127.0.0.1:${PORT}/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/tools/column.html`;
 const beamPath = path.join(__dirname, 'beam.html');
 const casesPath = path.join(__dirname, 'beam-regression-cases.json');
 const concretePath = path.join(ROOT, '結構工具箱', 'core', 'materials', 'concrete.js');
@@ -211,6 +212,10 @@ async function captureBeamSnapshot(page) {
       phiMnNeg: r.phiMnNeg ?? null,
       MnPos_raw: r.MnPos_raw ?? null,
       MnNeg_raw: r.MnNeg_raw ?? null,
+      beamJointTarget: r.beamColumnJoint?.targetId ?? null,
+      beamJointMnb: r.beamColumnJoint?.values?.mnbControl ?? null,
+      beamJointMprSum: r.beamColumnJoint?.values?.mprSum ?? null,
+      beamJointVeCap: r.beamColumnJoint?.values?.veCap ?? null,
       okFlex: r.okFlex ?? null,
       okFlexPos: r.okFlexPos ?? null,
       okFlexNeg: r.okFlexNeg ?? null,
@@ -261,6 +266,66 @@ async function captureBeamSnapshot(page) {
   return sanitizeSnapshot(raw);
 }
 
+async function runBeamColumnHandoffCase(page) {
+  section('Beam Column Joint Handoff');
+  await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+  await applyCase(page, {
+    key: 'beam_column_joint_handoff',
+    mode: 'check',
+    checkboxes: { seismicMode: true },
+    values: {
+      fc: 280, fy: 4200, fyt: 4200, bw: 40, h: 70, ln: 600, colW: 60,
+      MuPos: 85, MuNeg: 125, Vu: 35, Ve: 42, stirS: 10, legs: 4,
+      botBar1N: 4, botBar1No: '#8', topBar1N: 5, topBar1No: '#8'
+    }
+  });
+  const payload = await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setField('beamJointTarget', 'scwbBeamXLeft');
+    setField('beamJointMprFactor', 1.25);
+    window.calcBeam();
+    const p = window.buildBeamColumnJointPayload();
+    window.localStorage.setItem('rc.pendingBeamColumnJoint', JSON.stringify(p));
+    return p;
+  });
+  assert(payload?.schema === 'rc-beam-column-joint-v1', 'beam joint payload schema', `schema=${payload?.schema}`);
+  assert(payload.columnFields.scwbBeamXLeft > 0, 'beam joint Mnb payload', `Mnb=${payload.columnFields.scwbBeamXLeft}`);
+  assert(payload.columnFields.VeBeamCapX > 0, 'beam joint Ve cap payload', `VeCap=${payload.columnFields.VeBeamCapX}`);
+
+  await page.goto(COLUMN_URL + '?beamJoint=1', { waitUntil: 'networkidle' });
+  await wait(600);
+  const actual = await page.evaluate(() => {
+    const num = id => parseFloat(document.getElementById(id)?.value) || 0;
+    const r = window.colLast || {};
+    return {
+      seismicMode: document.getElementById('seismicMode')?.checked ?? false,
+      scwbBeamXLeft: num('scwbBeamXLeft'),
+      VeBeamCapX: num('VeBeamCapX'),
+      importSchema: r.beamJointImport?.schema ?? null,
+      importTarget: r.beamJointImport?.targetId ?? null,
+      scwbBeamA: r.scwb?.x?.beamA ?? null,
+      scwbActive: r.scwb?.x?.active ?? null,
+      veCapX: r.veDemand?.capX ?? null,
+      storageCleared: window.localStorage.getItem('rc.pendingBeamColumnJoint') == null
+    };
+  });
+  assert(actual.seismicMode === true, 'column import enables seismic mode', `seismicMode=${actual.seismicMode}`);
+  assert(nearlyEqual(actual.scwbBeamXLeft, payload.columnFields.scwbBeamXLeft, 0.01), 'column import writes SCWB beam field', `expected=${payload.columnFields.scwbBeamXLeft} actual=${actual.scwbBeamXLeft}`);
+  assert(nearlyEqual(actual.VeBeamCapX, payload.columnFields.VeBeamCapX, 0.01), 'column import writes Ve cap field', `expected=${payload.columnFields.VeBeamCapX} actual=${actual.VeBeamCapX}`);
+  assert(actual.importSchema === 'rc-beam-column-joint-v1', 'column snapshot keeps import schema', `schema=${actual.importSchema}`);
+  assert(actual.importTarget === 'scwbBeamXLeft', 'column snapshot keeps import target', `target=${actual.importTarget}`);
+  assert(actual.scwbActive === true, 'column SCWB X active after import', `active=${actual.scwbActive}`);
+  assert(nearlyEqual(actual.scwbBeamA, payload.columnFields.scwbBeamXLeft, 0.01), 'column SCWB uses imported Mnb', `expected=${payload.columnFields.scwbBeamXLeft} actual=${actual.scwbBeamA}`);
+  assert(nearlyEqual(actual.veCapX, payload.columnFields.VeBeamCapX, 0.01), 'column Ve demand uses imported beam cap', `expected=${payload.columnFields.VeBeamCapX} actual=${actual.veCapX}`);
+  assert(actual.storageCleared === true, 'column import clears pending storage', `storageCleared=${actual.storageCleared}`);
+}
+
 async function runBrowserCases() {
   section('Browser Regression Cases');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
@@ -299,6 +364,8 @@ async function runBrowserCases() {
       });
     }
 
+
+    await runBeamColumnHandoffCase(page);
     if (process.env.BEAM_PRINT_ACTUAL === '1') {
       console.log(JSON.stringify(captured, null, 2));
     }
@@ -336,6 +403,11 @@ async function main() {
   assert(sharedCommon.includes('window.RCUI.getStepsVerbosity'), 'shared/common.js exposes getStepsVerbosity', 'shared RCUI helper exists');
   assert(sharedCommon.includes('window.RCUI.renderWarningList'), 'shared/common.js exposes renderWarningList', 'shared warning renderer exists');
   assert(beamHtml.indexOf('const deflResult = calcDeflectionData(') < beamHtml.indexOf('const warnings = collectDesignWarnings('), 'beam.html computes deflection before warnings', 'avoids deflResult runtime reference error');
+  assert(beamHtml.includes('rc.pendingBeamColumnJoint'), 'beam.html has beam-column joint storage key', 'handoff storage key exists');
+  assert(beamHtml.includes('function calcBeamColumnJointData'), 'beam.html has beam-column joint payload builder', 'Mnb/Mpr handoff helper exists');
+  assert(beamHtml.includes('id="beamJointTarget"'), 'beam.html has beam joint target selector', 'target selector exists');
+  assert(beamHtml.includes('id="btnSendToColumn"'), 'beam.html has send-to-column button', 'column handoff command exists');
+  assert(beamHtml.includes('column.html?beamJoint=1'), 'beam.html links to column joint import', 'column import URL exists');
 
   const libs = bootLibs();
   const { Flexure, Concrete, Rebar } = libs;

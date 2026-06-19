@@ -394,7 +394,7 @@
         "confinementOk": false,
         "scwbOk": null,
         "pmOk": true,
-        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✗ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✗ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✗ 表 18.4.5.4 圍束筋量"
+        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✗ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 18.4.5.2 側撐 ｜ ✗ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✗ 表 18.4.5.4 圍束筋量"
       }
     },
     {
@@ -460,7 +460,7 @@
         "confinementOk": false,
         "scwbOk": null,
         "pmOk": true,
-        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✗ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✗ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✗ 表 18.4.5.4 圍束筋量"
+        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✗ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 18.4.5.2 側撐 ｜ ✗ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✗ 表 18.4.5.4 圍束筋量"
       }
     },
     {
@@ -630,7 +630,151 @@
         "okShearStrength": true,
         "okShear": true,
         "confinementOk": false,
-        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✗ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✗ 表 18.4.5.4 圍束筋量"
+        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 18.4.5.2 側撐 ｜ ✗ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✗ 表 18.4.5.4 圍束筋量"
+      }
+    },
+    {
+      "key": "seismic_high_axial_hx20_ng",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": true,
+        "swayMode": false,
+        "manualLayout": true,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "rect",
+        "cornerBundle": "3",
+        "interiorBundle": "3"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 100,
+        "h": 100,
+        "lu": 300,
+        "k": 1,
+        "cover": 4,
+        "Pu": 900,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu": 5,
+        "Vuy": 0,
+        "tieS": 3,
+        "crossTieS": 3,
+        "tieFy": 7000,
+        "crossTieFy": 7000,
+        "Ve": 0,
+        "SMnb": 0,
+        "firstHoopDist": 3,
+        "nFaceB": 3,
+        "nFaceH": 3
+      },
+      "expected": {
+        "mode": "check",
+        "colType": "rect",
+        "seismic": true,
+        "Pu": 900,
+        "tieS": 3,
+        "crossTieS": 3,
+        "codeTieSpacingLimit": 10,
+        "adoptedTieSpacing": 3,
+        "okSeismicTieSpacing": true,
+        "seismicHx": 42.53029547438752,
+        "seismicHighHxTrigger": true,
+        "seismicHxLimit": 20,
+        "okLateralSupport": false,
+        "firstHoopDist": 3,
+        "seismicFirstHoopLimit": 5,
+        "okFirstHoop": true,
+        "outsideTieS": 3,
+        "outsideTieSInput": null,
+        "seismicMidSpacingLimit": 15,
+        "okOutsideTieSpacing": true,
+        "okShearStrength": true,
+        "okShear": true,
+        "confinementOk": true,
+        "okRhog": true,
+        "pmOk": true,
+        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✗ 18.4.5.2 側撐 ｜ ✓ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✓ 表 18.4.5.4 圍束筋量"
+      },
+      "expectedIncludes": {
+        "lateralSupportDetail": [
+          "hx 42.5 > 20",
+          "18.4.5.2(f)"
+        ]
+      }
+    },
+    {
+      "key": "seismic_lap_zone_ng",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": true,
+        "swayMode": false,
+        "manualLayout": false,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "rect"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 60,
+        "h": 60,
+        "lu": 300,
+        "k": 1,
+        "cover": 4,
+        "Pu": 200,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu": 20,
+        "Vuy": 0,
+        "tieS": 5,
+        "crossTieS": 5,
+        "Ve": 0,
+        "SMnb": 0,
+        "firstHoopDist": 5,
+        "lapSpliceStart": 20,
+        "lapSpliceEnd": 100,
+        "tieFy": 7000,
+        "crossTieFy": 7000
+      },
+      "expected": {
+        "mode": "check",
+        "colType": "rect",
+        "seismic": true,
+        "Pu": 200,
+        "tieS": 5,
+        "crossTieS": 5,
+        "codeTieSpacingLimit": 13.846666666666666,
+        "adoptedTieSpacing": 5,
+        "okSeismicTieSpacing": true,
+        "seismicHx": 23.46,
+        "seismicHighHxTrigger": false,
+        "seismicHxLimit": 35,
+        "okLateralSupport": true,
+        "firstHoopDist": 5,
+        "seismicFirstHoopLimit": 6.923333333333333,
+        "okFirstHoop": true,
+        "outsideTieS": 5,
+        "outsideTieSInput": null,
+        "seismicMidSpacingLimit": 15,
+        "okOutsideTieSpacing": true,
+        "lapSpliceStart": 20,
+        "lapSpliceEnd": 100,
+        "lapMiddleStart": 75,
+        "lapMiddleEnd": 225,
+        "okLapZone": false,
+        "okShearStrength": true,
+        "okShear": true,
+        "confinementOk": true,
+        "okRhog": true,
+        "pmOk": true,
+        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 18.4.5.2 側撐 ｜ ✓ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✗ 18.4.4.3 搭接 ｜ ✓ 18.4.5.5 外間距 ｜ ✓ 表 18.4.5.4 圍束筋量"
+      },
+      "expectedIncludes": {
+        "banner": "✗ 18.4.4.3 搭接"
       }
     },
     {
@@ -663,7 +807,9 @@
         "Ve": 0,
         "SMnb": 0,
         "firstHoopDist": 8,
-        "outsideTieS": 18
+        "outsideTieS": 18,
+        "tieFy": 2800,
+        "crossTieFy": 2800
       },
       "expected": {
         "mode": "check",

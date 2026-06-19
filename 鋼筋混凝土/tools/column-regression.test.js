@@ -74,6 +74,9 @@ async function main() {
   assert(html.includes('id="bannerStatus"'), 'column.html has banner', 'summary banner exists');
   assert(html.includes('window.colLast'), 'column.html exports colLast', 'result snapshot exists for regression capture');
   assert(html.includes('data-tab="summary"'), 'column.html has summary tab', 'summary banner can be stabilized for regression checks');
+  assert(html.includes('rc.pendingBeamColumnJoint'), 'column.html has beam-column joint storage key', 'handoff storage key exists');
+  assert(html.includes('function applyBeamColumnJointImport'), 'column.html has beam-column joint importer', 'column import helper exists');
+  assert(html.includes('beamJointImport: window.lastBeamColumnJointImport'), 'column.html stores imported beam joint payload', 'colLast keeps import source');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for column regression test');
@@ -95,6 +98,8 @@ async function main() {
     assert(failedResponses.length === 0, 'column page resources', 'no missing static resources during initial load');
 
     for (const tc of pack.cases) {
+      await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+      await wait(100);
       await page.evaluate(tcCase => {
         const setCheckbox = (id, desired) => {
           const el = document.getElementById(id);
@@ -145,6 +150,10 @@ async function main() {
           seismicSoRaw: Number.isFinite(r.seismicTieSpacing?.so?.raw) ? r.seismicTieSpacing.so.raw : null,
           seismicLongBarFactor: r.seismicTieSpacing?.dbLimit?.factor ?? null,
           seismicLongBarLimit: Number.isFinite(r.seismicTieSpacing?.dbLimit?.limit) ? r.seismicTieSpacing.dbLimit.limit : null,
+          seismicHighHxTrigger: r.seismicHighHxTrigger ?? null,
+          seismicHxLimit: Number.isFinite(r.seismicHxLimit) ? r.seismicHxLimit : null,
+          okLateralSupport: r.okLateralSupport ?? null,
+          lateralSupportDetail: r.lateralSupportDetail ?? null,
           firstHoopDist: r.firstHoopDist ?? null,
           seismicFirstHoopLimit: Number.isFinite(r.seismicFirstHoopLimit) ? r.seismicFirstHoopLimit : null,
           okFirstHoop: r.okFirstHoop ?? null,
@@ -152,6 +161,16 @@ async function main() {
           outsideTieSInput: r.outsideTieSInput ?? null,
           seismicMidSpacingLimit: Number.isFinite(r.seismicMidSpacingLimit) ? r.seismicMidSpacingLimit : null,
           okOutsideTieSpacing: r.okOutsideTieSpacing ?? null,
+          lapSpliceStart: r.lapSpliceStart ?? null,
+          lapSpliceEnd: r.lapSpliceEnd ?? null,
+          lapMiddleStart: Number.isFinite(r.lapMiddleStart) ? r.lapMiddleStart : null,
+          lapMiddleEnd: Number.isFinite(r.lapMiddleEnd) ? r.lapMiddleEnd : null,
+          okLapZone: r.okLapZone ?? null,
+          lapSpliceLength: r.lapSpliceLength ?? null,
+          lapSpliceClass: r.lapSpliceClass ?? null,
+          lapLdTension: Number.isFinite(r.lapLdTension) ? r.lapLdTension : null,
+          lapLengthReq: Number.isFinite(r.lapLengthReq) ? r.lapLengthReq : null,
+          okLapLength: r.okLapLength ?? null,
           Ast: r.Ast ?? null,
           rhog: r.rhog ?? null,
           phiPnMax: r.phiPnMax ?? null,
@@ -201,7 +220,7 @@ async function main() {
       })())));
 
       [
-        'Pu', 'Mux', 'Muy', 'Vu_in', 'Vuy_in', 'tieS', 'crossTieS', 'spiralS', 'sSugg', 'shearSpacingLimitAuto', 'codeTieSpacingLimit', 'adoptedTieSpacing', 'seismicHx', 'seismicSoLimit', 'seismicSoRaw', 'seismicLongBarFactor', 'seismicLongBarLimit', 'firstHoopDist', 'seismicFirstHoopLimit', 'outsideTieS', 'outsideTieSInput', 'seismicMidSpacingLimit', 'Ast', 'rhog', 'phiPnMax', 'phiMnAtPu',
+        'Pu', 'Mux', 'Muy', 'Vu_in', 'Vuy_in', 'tieS', 'crossTieS', 'spiralS', 'sSugg', 'shearSpacingLimitAuto', 'codeTieSpacingLimit', 'adoptedTieSpacing', 'seismicHx', 'seismicHxLimit', 'seismicSoLimit', 'seismicSoRaw', 'seismicLongBarFactor', 'seismicLongBarLimit', 'firstHoopDist', 'seismicFirstHoopLimit', 'outsideTieS', 'outsideTieSInput', 'seismicMidSpacingLimit', 'lapSpliceStart', 'lapSpliceEnd', 'lapMiddleStart', 'lapMiddleEnd', 'lapSpliceLength', 'lapLdTension', 'lapLengthReq', 'Ast', 'rhog', 'phiPnMax', 'phiMnAtPu',
         'phiMnyAtPu', 'breslerRatio', 'biaxialSurfaceRatio', 'phiVn_tf', 'phiVnY_tf',
         'Ve', 'designVxTf', 'designVyTf', 'veAutoX', 'veAutoY', 'PuAtMprX', 'PuAtMprY',
         'avMinProvidedFytPerLenX', 'avMinProvidedFytPerLenY',
@@ -214,6 +233,13 @@ async function main() {
       Object.entries(tc.expected).forEach(([key, expected]) => {
         const pass = nearlyEqual(actual[key], expected, tolerance);
         assert(pass, `${tc.key} :: ${key}`, `expected=${expected} actual=${actual[key]}`);
+      });
+      Object.entries(tc.expectedIncludes || {}).forEach(([key, fragments]) => {
+        const text = String(actual[key] ?? '');
+        const list = Array.isArray(fragments) ? fragments : [fragments];
+        list.forEach(fragment => {
+          assert(text.includes(fragment), `${tc.key} :: ${key} includes`, `expected fragment=${fragment} actual=${text}`);
+        });
       });
     }
 
