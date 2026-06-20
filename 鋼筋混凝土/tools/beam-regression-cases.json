@@ -352,7 +352,77 @@
         "Ma = 30.00 tf·m",
         "ρ′ = AsBot/(bw·d⁻)"
       ]
-    },    {
+    },
+    {
+      "key": "smrf_ve_controls_shear_demand",
+      "label": "SMRF 剪力需求由 Ve 控制例",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": true,
+        "enableTorsion": false,
+        "enableDefl": false,
+        "autoD": true
+      },
+      "selects": {
+        "sectionType": "rect",
+        "support": "bothEnd",
+        "torsionDesignStatus": "pending"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "fyt": 2800,
+        "bw": 40,
+        "h": 70,
+        "ln": 600,
+        "cover": 4,
+        "layerSv": 2.5,
+        "barShMin": 4,
+        "MuPos": 20,
+        "MuNeg": 20,
+        "Vu": 5,
+        "Ve": 45,
+        "Pu": 0,
+        "botBar1No": "#8",
+        "botBar1N": 4,
+        "botBar2No": "#8",
+        "botBar2N": 0,
+        "botBar3No": "#8",
+        "botBar3N": 0,
+        "topBar1No": "#8",
+        "topBar1N": 4,
+        "topBar2No": "#8",
+        "topBar2N": 0,
+        "topBar3No": "#8",
+        "topBar3N": 0,
+        "stirrup": "#4",
+        "legs": 2,
+        "stirS": 15,
+        "nSkin": 0,
+        "smrfMnMin": "",
+        "firstHoopDist": "",
+        "torsionAtPerS": "",
+        "torsionAl": ""
+      },
+      "expected": {
+        "mode": "check",
+        "sectionType": "rect",
+        "seismic": true,
+        "Vu_in": 5,
+        "Ve_in": 45,
+        "shearDemandTf": 45,
+        "shearDemandSource": "Ve",
+        "okShear": false,
+        "okShearStrength": false,
+        "forceVc0": true
+      },
+      "reportExpectedIncludes": [
+        "φVn ≥ Vd",
+        "Vd = max(Vu, Ve) when SMRF is enabled; otherwise Vd = Vu",
+        "Vd = 45.00 tf (Ve)"
+      ]
+    },
+    {
       "key": "t_beam_seismic_vc0",
       "label": "T 梁 SMRF 梁端 Vc 歸零例",
       "mode": "check",
@@ -419,6 +489,10 @@
         "okFlexPos": true,
         "okFlexNeg": false,
         "phiVn_tf": 71.1760056,
+        "Vu_in": 42,
+        "Ve_in": 60,
+        "shearDemandTf": 60,
+        "shearDemandSource": "Ve",
         "okShear": true,
         "okShearMin": true,
         "okShearSpacing": true,
@@ -613,7 +687,7 @@
         "skinSpacing": null,
         "skinSpacingLimit": 28,
         "reportBasisVisible": true,
-        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✗ 表層筋",
+        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✗ 表層筋",
         "skinRequiredPerTensionFace": 2,
         "skinZoneText": "底受拉區、頂受拉區",
         "skinAreaEachSidePerZone": 0,
@@ -674,7 +748,7 @@
         "skinSpacing": 20,
         "skinSpacingLimit": 28,
         "reportBasisVisible": true,
-        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 表層筋",
+        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 表層筋",
         "skinRequiredPerTensionFace": 2,
         "skinZoneText": "底受拉區、頂受拉區",
         "skinAreaEachSidePerZone": 2.534,
@@ -733,7 +807,7 @@
         "reportBasisVisible": true,
         "torsionNeedsDesign": false,
         "torsionStatusOk": true,
-        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 扭力門檻",
+        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 扭力門檻",
         "torsionDetailOk": true,
         "torsionDesignStatus": "pending"
       }
@@ -790,7 +864,7 @@
         "reportBasisVisible": true,
         "torsionNeedsDesign": true,
         "torsionStatusOk": null,
-        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 扭力詳算人工複核",
+        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 扭力詳算人工複核",
         "torsionDetailOk": null,
         "torsionDesignStatus": "pending"
       },
@@ -857,7 +931,7 @@
         "torsionDesignStatus": "ok",
         "torsionAtPerS": 0.08,
         "torsionAl": 8,
-        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 22.7 扭力詳算"
+        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 22.7 扭力詳算"
       },
       "reportExpectedIncludes": [
         "22.7 扭力詳算結論",
@@ -937,7 +1011,7 @@
         "okBwRaw": true,
         "okLnRaw": true,
         "reportBasisVisible": true,
-        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 跨內 Mn ｜ · 首支箍筋 ｜ ✗ 錨定/搭接 ｜ ✓ SMRF 幾何",
+        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 跨內 Mn ｜ · 首支箍筋 ｜ ✗ 錨定/搭接 ｜ ✓ SMRF 幾何",
         "developmentHasInput": true,
         "developmentHasCompleteInput": true,
         "lapHasAnyInput": true,
@@ -1020,7 +1094,7 @@
         "okBwRaw": true,
         "okLnRaw": true,
         "reportBasisVisible": true,
-        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 跨內 Mn ｜ ✓ 首支箍筋 ｜ ✓ 錨定/搭接 ｜ ✓ SMRF 幾何",
+        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 跨內 Mn ｜ ✓ 首支箍筋 ｜ ✓ 錨定/搭接 ｜ ✓ SMRF 幾何",
         "developmentHasInput": true,
         "developmentHasCompleteInput": true,
         "lapHasAnyInput": true,
@@ -1103,7 +1177,7 @@
         "okFlex": true,
         "okShear": true,
         "reportBasisVisible": true,
-        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vu ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 錨定人工複核",
+        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 錨定人工複核",
         "developmentHasCompleteInput": true,
         "lapHasAnyInput": false,
         "lapManualReview": true
