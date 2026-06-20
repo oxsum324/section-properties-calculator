@@ -338,7 +338,7 @@ assertIncludes(repoDocs.homeHtml, 'id="memberSystemPanel"', 'new home member sys
   'HOME_DATA_UPDATED',
   'tool-updated',
 ].forEach(needle => assertIncludes(repoDocs.homeJs, needle, 'new home logic category data'));
-const homeToolObjectCount = (repoDocs.homeJs.match(/\n\s*{\n\s*title: '/g) || []).length;
+const homeToolObjectCount = (repoDocs.homeJs.match(/\r?\n\s*{\r?\n\s*title: '/g) || []).length;
 assert.ok(homeToolObjectCount >= 35, 'new home governed tool object count');
 assert.equal((repoDocs.homeJs.match(/\n\s*state: '/g) || []).length, homeToolObjectCount, 'every new home tool has a governed state');
 assert.equal((repoDocs.homeJs.match(/\n\s*output: '/g) || []).length, homeToolObjectCount, 'every new home tool has an output field');
