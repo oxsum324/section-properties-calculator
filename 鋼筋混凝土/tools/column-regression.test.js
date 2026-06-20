@@ -131,9 +131,17 @@ async function main() {
 
       const actual = JSON.parse(await page.evaluate(() => JSON.stringify((() => {
         const r = window.colLast || {};
+        const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
+        const textOf = id => { const el = document.getElementById(id); return clean(el?.innerText || el?.textContent); };
+        const classOf = id => clean(document.getElementById(id)?.className);
         return {
           mode: document.querySelector('.mode-btn.active')?.dataset.mode ?? null,
           banner: document.getElementById('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() ?? null,
+          inputRiskText: textOf('inputRiskCard'),
+          inputRiskTransverseClass: classOf('i-transverseFy'),
+          inputRiskAnchorageClass: classOf('i-anchorageInput'),
+          inputRiskDetailClass: classOf('i-seismicDetailInput'),
+          inputRiskLapClass: classOf('i-lapInput'),
           colType: r.colType ?? null,
           seismic: r.seismic ?? null,
           Pu: r.Pu ?? null,

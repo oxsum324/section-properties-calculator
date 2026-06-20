@@ -469,6 +469,17 @@
         </div>
       </div>
 
+      <div class="card" data-shows="rebar summary" id="inputRiskCard">
+        <h2>高風險輸入摘要</h2>
+        <div class="results-grid">
+          <div class="result-item" id="i-transverseFy"><span class="label">橫向筋 fyt 來源</span><span class="value">—</span></div>
+          <div class="result-item" id="i-seismicMode"><span class="label">耐震細部狀態</span><span class="value">—</span></div>
+          <div class="result-item" id="i-anchorageInput"><span class="label">柱端錨定輸入</span><span class="value">—</span></div>
+          <div class="result-item" id="i-seismicDetailInput"><span class="label">首支 / 外區間距</span><span class="value">—</span></div>
+          <div class="result-item" id="i-lapInput"><span class="label">耐震搭接輸入</span><span class="value">—</span></div>
+        </div>
+        <p class="hint" id="inputRiskHint" style="margin:8px 0 0;">尚未計算。</p>
+      </div>
       <!-- 載重摘要 (loads + summary) -->
       <div class="card" data-shows="loads summary">
         <h2>載重摘要</h2>
@@ -804,6 +815,14 @@
     el.querySelector('.value').textContent = text || (pass ? '✓ OK' : '✗ NG');
     el.classList.remove('ok','warn','fail');
     el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
+  }
+  function setStatusItem(id, text, status = null) {
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    const v = el.querySelector('.value');
+    if (v) v.textContent = text || '—';
+    el.classList.remove('ok','warn','fail');
+    if (status) el.classList.add(status);
   }
   function markAllResultsPending() {
     document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
@@ -2767,6 +2786,88 @@
         ? `未輸入；${lapSpliceClass} 需求 ℓs,req=${lapLengthNeedFinal} cm，需人工確認${classNote}`
         : `ℓs=${lapSpliceLength.toFixed(1)} cm ${okLapLength ? '≥' : '<'} ${lapLengthNeedFinal} cm (${lapSpliceClass})${classNote}`;
       setCheck('s-lapLength', okLapLength, lapLengthTextFinal);
+    }
+
+    {
+      const fytLimitText = seismic && !fytLimitOk ? '；超過上限' : '';
+      if (colType === 'circle') {
+        setStatusItem('i-transverseFy', `螺箍 ${spiralFy}${fytLimitText}`, seismic && !fytLimitOk ? 'fail' : 'ok');
+      } else if (colType === 'rect') {
+        setStatusItem('i-transverseFy', `箍筋 ${tieFy} / 繫筋 ${crossTieFy}${fytLimitText}`, seismic && !fytLimitOk ? 'fail' : 'ok');
+      } else {
+        setStatusItem('i-transverseFy', `箍筋 ${tieFy}${fytLimitText}`, seismic && !fytLimitOk ? 'fail' : 'ok');
+      }
+
+      setStatusItem('i-seismicMode', seismic ? 'SMRF 已啟用' : '一般柱', seismic ? 'ok' : null);
+
+      const anchorageStatus = okColumnDevelopment === true ? 'ok' : okColumnDevelopment === false ? 'fail' : 'warn';
+      const anchorageText = !columnDevelopmentHasInput
+        ? '未輸入，人工複核'
+        : (columnDevelopmentManual ? '非直線/人工複核' : '已輸入並符合');
+      setStatusItem('i-anchorageInput', anchorageText, anchorageStatus);
+
+      let detailStatus = null;
+      let detailText = '未啟用';
+      if (seismic) {
+        const detailFails = [];
+        const detailWarns = [];
+        if (okFirstHoop === false) detailFails.push('首支不符');
+        else if (okFirstHoop === null) detailWarns.push('首支未輸入');
+        if (okOutsideTieSpacing === false) detailFails.push('外區不符');
+        if (detailFails.length) {
+          detailStatus = 'fail';
+          detailText = detailFails.join('、');
+        } else if (detailWarns.length) {
+          detailStatus = 'warn';
+          detailText = detailWarns.join('、');
+        } else {
+          detailStatus = 'ok';
+          detailText = outsideTieSInput == null ? '已檢核，外區採ℓo內s' : '已輸入並符合';
+        }
+      }
+      setStatusItem('i-seismicDetailInput', detailText, detailStatus);
+
+      let lapStatus = null;
+      let lapText = '未啟用';
+      if (seismic) {
+        const lapFail = [okLapZone, okLapLength, okLapClassA].some(v => v === false);
+        const lapCompleteForReview = lapSpliceHasInput && lapSpliceComplete && lapSpliceLength != null;
+        if (!lapSpliceHasInput && lapSpliceLength == null) {
+          lapStatus = 'warn';
+          lapText = '未輸入，人工複核';
+        } else if (lapFail) {
+          lapStatus = 'fail';
+          lapText = '不符，需修正';
+        } else if (!lapCompleteForReview) {
+          lapStatus = 'warn';
+          lapText = '未完整，人工複核';
+        } else {
+          lapStatus = 'ok';
+          lapText = `已檢核 (${lapSpliceClass})`;
+        }
+      }
+      setStatusItem('i-lapInput', lapText, lapStatus);
+
+      const riskNotes = [];
+      if (seismic && !fytLimitOk) riskNotes.push('耐震橫向筋 fyt 超過 7000 kgf/cm² 上限');
+      if (!columnDevelopmentHasInput) riskNotes.push('柱端錨定長度未輸入，報告僅列需求');
+      else if (columnDevelopmentManual) riskNotes.push('柱端採非直線或人工複核型式，須以配筋圖或產品資料確認');
+      if (seismic) {
+        if (okFirstHoop === null) riskNotes.push(`首支箍筋距離未輸入，需確認 ≤ ${seismicFirstHoopLimit.toFixed(1)} cm`);
+        if (okFirstHoop === false) riskNotes.push('首支箍筋距離不符');
+        if (okOutsideTieSpacing === false) riskNotes.push('ℓo 外橫向筋間距不符');
+        if (!lapSpliceHasInput && lapSpliceLength == null) riskNotes.push('耐震搭接位置與長度未輸入');
+        else if (lapSpliceHasInput && !lapSpliceComplete) riskNotes.push('搭接起終點需成對輸入');
+        if (okLapZone === false) riskNotes.push('搭接位置不在柱淨高中段 1/2');
+        if (okLapLength === false) riskNotes.push('搭接長度小於規範需求');
+        if (lapSpliceClassRequested === 'A' && okLapClassA !== true) riskNotes.push('Class A 條件未成立，已按 Class B 需求檢核');
+      }
+      const hint = $('inputRiskHint');
+      if (hint) {
+        hint.textContent = riskNotes.length
+          ? riskNotes.join('；')
+          : '目前高風險輸入已可進入規範檢核；仍需與施工圖、材料規格及專案文件一致。';
+      }
     }
     // 依使用者選定號數 (角隅 + 面筋) 反算根數
     let bestCombo = '—';

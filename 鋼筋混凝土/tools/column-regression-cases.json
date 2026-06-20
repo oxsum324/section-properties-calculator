@@ -72,6 +72,16 @@
         "pmEngine": "shared-pmsection",
         "pmEngineY": "shared-pmsection"
       },
+      "expectedIncludes": {
+        "inputRiskText": [
+          "高風險輸入摘要",
+          "箍筋 2800 / 繫筋 2800",
+          "柱端錨定輸入 未輸入，人工複核",
+          "耐震搭接輸入 未啟用",
+          "柱端錨定長度未輸入，報告僅列需求"
+        ],
+        "inputRiskAnchorageClass": "warn"
+      },
       "reportExpectedIncludes": [
         "規範覆蓋矩陣",
         "幾何與主筋配置",
@@ -251,6 +261,16 @@
         "banner": "✓ OK — 符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ P-Mx-My 角度掃描 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 強柱弱梁 ｜ ✓ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✓ 表 18.4.5.4 圍束筋量",
         "pmEngine": "shared-pmsection",
         "pmEngineY": "shared-pmsection"
+      },
+      "expectedIncludes": {
+        "inputRiskText": [
+          "SMRF 已啟用",
+          "柱端錨定輸入 未輸入，人工複核",
+          "耐震搭接輸入 未輸入，人工複核",
+          "耐震搭接位置與長度未輸入"
+        ],
+        "inputRiskAnchorageClass": "warn",
+        "inputRiskLapClass": "warn"
       },
       "reportExpectedIncludes": [
         "⚠ 部分項目需人工複核：柱端錨定、搭接 / 施工圖",
@@ -1186,7 +1206,12 @@
         "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 18.4.5.2 側撐 ｜ ✓ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.4.3 搭接 ｜ ✗ 25.5.2 搭接長度 ｜ ✓ 18.4.5.5 外間距 ｜ ✓ 表 18.4.5.4 圍束筋量"
       },
       "expectedIncludes": {
-        "banner": "✗ 25.5.2 搭接長度"
+        "banner": "✗ 25.5.2 搭接長度",
+        "inputRiskText": [
+          "耐震搭接輸入 不符，需修正",
+          "搭接長度小於規範需求"
+        ],
+        "inputRiskLapClass": "fail"
       },
       "reportCoverageExpected": {
         "耐震搭接": {
@@ -1289,7 +1314,12 @@
       },
       "expectedIncludes": {
         "banner": "✗ 25.5.2 搭接長度",
-        "lapClassANote": "搭接比例=60% > 50%"
+        "lapClassANote": "搭接比例=60% > 50%",
+        "inputRiskText": [
+          "耐震搭接輸入 不符，需修正",
+          "Class A 條件未成立，已按 Class B 需求檢核"
+        ],
+        "inputRiskLapClass": "fail"
       },
       "reportCoverageExpected": {
         "耐震搭接": {
@@ -1369,6 +1399,14 @@
         "okOutsideTieSpacing": false,
         "okShearStrength": true,
         "okShear": true
+      },
+      "expectedIncludes": {
+        "inputRiskText": [
+          "首支 / 外區間距 首支不符、外區不符",
+          "首支箍筋距離不符",
+          "ℓo 外橫向筋間距不符"
+        ],
+        "inputRiskDetailClass": "fail"
       },
       "reportCoverageExpected": {
         "橫向鋼筋間距與圍束": {
