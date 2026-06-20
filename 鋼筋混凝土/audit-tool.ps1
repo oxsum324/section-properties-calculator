@@ -197,6 +197,7 @@ function Run-AuditPass {
     @{ Label = "Column report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\column-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Column regression"; Command = "`$env:RC_TEST_PORT='8131'; & '$toolsDir\test-column.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
     @{ Label = "Slab regression"; Command = "`$env:RC_TEST_PORT='8132'; & '$toolsDir\test-slab.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Shear wall regression"; Command = "Set-Location '$toolsDir'; node '.\shear-wall-regression.test.js'"; Workdir = $toolsDir },
     @{ Label = "Wall regression"; Command = "Set-Location '$toolsDir'; node '.\wall-regression.test.js'"; Workdir = $toolsDir },
     @{ Label = "Foundation regression"; Command = "`$env:RC_TEST_PORT='8133'; & '$toolsDir\test-foundation.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
     @{ Label = "Single pile regression"; Command = "`$env:RC_TEST_PORT='8134'; & '$toolsDir\test-single-pile.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir }
