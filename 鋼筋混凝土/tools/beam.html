@@ -585,7 +585,7 @@
 
       <!-- 設計建議 (剪力) -->
       <div class="card" id="designSuggestShear" data-shows="shear summary">
-        <h2>設計建議 — 剪力 <span class="hint" style="margin-left:auto; font-style:normal;">由 Vu 反算</span></h2>
+        <h2>設計建議 — 剪力 <span class="hint" style="margin-left:auto; font-style:normal;">由 Vd 反算</span></h2>
         <div id="rebarHeroShear" class="rebar-hero">
           <div class="line"><span class="lbl">箍筋需求 Vs</span><span class="big" id="heroVsReq">—</span></div>
           <div class="line"><span class="lbl">建議間距 s</span><span class="combo" id="heroStirS">—</span></div>
@@ -624,7 +624,7 @@
           <div class="result-item" data-topic="flex" id="c-AsMinTop"><span class="label">頂 As ≥ As,min</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-Mcr"><span class="label">φMn ≥ 1.2 Mcr</span><span class="value">—</span></div>
           <div class="result-item" data-topic="defl" id="c-hmin"><span class="label">跨深比 h ≥ hmin</span><span class="value">—</span></div>
-          <div class="result-item" data-topic="shear" id="c-shear"><span class="label">φVn ≥ Vu</span><span class="value">—</span></div>
+          <div class="result-item" data-topic="shear" id="c-shear"><span class="label">φVn ≥ Vd</span><span class="value">—</span></div>
           <div class="result-item" data-topic="shear" id="c-shearMin"><span class="label">Av/s ≥ Av,min/s</span><span class="value">—</span></div>
           <div class="result-item" data-topic="shear" id="c-shearSpacing"><span class="label">剪力筋最大間距</span><span class="value">—</span></div>
           <div class="result-item" data-topic="flex" id="c-flexPos"><span class="label">φMn⁺ ≥ +Mu</span><span class="value">—</span></div>
@@ -1265,16 +1265,18 @@
     const Vs_provided = (s > 0) ? (Av * fyt * d) / s : 0;
     const phiVs = PHI.shear * Vs_provided;
     const phiVn = phiVc + phiVs;
+    const shearDemand = seismic ? Math.max(Vu, Ve || 0) : Vu;
+    const shearDemandSource = seismic && Ve > Vu ? 'Ve' : 'Vu';
     let forceVc0 = false;
     if (seismic) {
-      const halfVu = Ve > 0.5 * Vu;
+      const halfEarthquakeShear = Ve > 0.5 * shearDemand;
       const lowAxial = Pu < (Ag * fc / 20);
-      forceVc0 = halfVu && lowAxial;
+      forceVc0 = halfEarthquakeShear && lowAxial;
     }
     const phiVn_eff = forceVc0 ? phiVs : phiVn;
     const VuLimit_minStir = PHI.shear * 0.265 * lambda * Math.sqrt(fc) * bw * d;
-    const needsMinStir = Vu > VuLimit_minStir;
-    const needsShearRebar = needsMinStir || Vu > (forceVc0 ? 0 : phiVc);
+    const needsMinStir = shearDemand > VuLimit_minStir;
+    const needsShearRebar = needsMinStir || shearDemand > (forceVc0 ? 0 : phiVc);
     const okShearMin = !needsMinStir || hasMinStir;
     const highShearVs = Vs_provided > 1.06 * lambda * sqrtFc * bw * d;
     const shearSpacingLimit = highShearVs ? Math.min(d / 4, 30) : Math.min(d / 2, 60);
@@ -1308,7 +1310,7 @@
 
     return {
       lambda, Vc, phiVc, Av, AvProvidedPerS, Vs_provided, phiVs, phiVn,
-      forceVc0, phiVn_eff, VuLimit_minStir, needsMinStir, AvMinPerS, hasMinStir,
+      forceVc0, phiVn_eff, shearDemand, shearDemandSource, VuLimit_minStir, needsMinStir, AvMinPerS, hasMinStir,
       needsShearRebar, okShearMin, lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress,
       shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit, okShearSpacing,
       torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, torsionDesignStatus, Tu_th
@@ -1792,7 +1794,7 @@
     const shearData = calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, torsionDesignStatus, rhoShear, cover, tieDb });
     const {
       lambda, Vc, phiVc, Av, AvProvidedPerS, Vs_provided, phiVs, phiVn, forceVc0, phiVn_eff,
-      VuLimit_minStir, needsMinStir, AvMinPerS, hasMinStir, needsShearRebar, okShearMin,
+      shearDemand, shearDemandSource, VuLimit_minStir, needsMinStir, AvMinPerS, hasMinStir, needsShearRebar, okShearMin,
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       okShearSpacing, torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, Tu_th
     } = shearData;
@@ -1842,7 +1844,7 @@
     const okFlexPos = phiMnPos >= num('MuPos');
     const okFlexNeg = phiMnNeg >= num('MuNeg');
     const okFlex = okFlexPos && okFlexNeg;
-    const okShearStrength = (phiVn_eff / 1000) >= (Vu / 1000);
+    const okShearStrength = (phiVn_eff / 1000) >= (shearDemand / 1000);
     const okShear = okShearStrength && okShearMin && okShearSpacing;
     // 排間淨距檢核 (規範 25.2.2)：sv ≥ max(2.5, db)
     // 僅在「實際有 2 排以上」的那一側才需要檢核 sv；單排不存在排間距
@@ -1897,11 +1899,11 @@
         setCheck('c-hmin', null, `h=${h} / hmin=${hmin.toFixed(1)}，未達免算條件；需嚴謹撓度`);
       }
     }
-    setCheck('c-shear', okShearStrength, `φVn=${(phiVn_eff/1000).toFixed(1)} / Vu=${(Vu/1000).toFixed(1)}`);
+    setCheck('c-shear', okShearStrength, `φVn=${(phiVn_eff/1000).toFixed(1)} / Vd=${(shearDemand/1000).toFixed(1)} (${shearDemandSource})`);
     setCheck('c-shearMin', okShearMin,
       needsMinStir
         ? `Av/s=${AvProvidedPerS.toFixed(4)} / ${AvMinPerS.toFixed(4)} cm²/cm`
-        : `Vu ≤ φ·0.265λ√fc'bwd，Av,min 未強制`);
+        : `Vd ≤ φ·0.265λ√fc'bwd，Av,min 未強制`);
     setCheck('c-shearSpacing', okShearSpacing,
       needsShearRebar
         ? `長向 s=${s} / ${shearSpacingLimit.toFixed(1)} cm；寬向肢距=${Number.isFinite(legSpacing)?legSpacing.toFixed(1):'∞'} / ${shearLegSpacingLimit.toFixed(1)} cm`
@@ -2030,7 +2032,7 @@
       ? (designInfeasible ? '⚠ 斷面不足，需加大梁寬或改號數' : layerComboStr(topStack))
       : findCombo(AsReqNeg);
     const VcForDesign = forceVc0 ? 0 : Vc;
-    const VsReq = Math.max(0, num('Vu') * 1000 / PHI.shear - VcForDesign);
+    const VsReq = Math.max(0, shearDemand / PHI.shear - VcForDesign);
     const sByStrength = VsReq > 0 ? (Av * fyt * d / VsReq) : Infinity;
     const sByAvMin = needsMinStir ? (Av / AvMinPerS) : Infinity;
     const sSugg = Math.min(sByStrength, sByAvMin, shearSpacingLimit);
@@ -2099,7 +2101,7 @@
 
     // === 綜合結論 banner (依當前分頁) ===
     const bannerData = {
-      okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
+      okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing, shearDemand, shearDemandSource,
       okBw, okLn, okBwRaw, okLnRaw, okRhoMax, okAsMin, okHmin, okDeflOverall, deflNeedsExact, deflManualReview, deflStatusText, okCrackSpacing, needSkin, okSkin,
       phiMnPos, phiMnNeg,
       MuPos: num('MuPos'), MuNeg: num('MuNeg'),
@@ -2199,11 +2201,12 @@ ${layerBars.map(L => {
       = ${fmt(phiVn_eff/1000,2)} tf
 
 【4】檢核
-  φVn (${fmt(phiVn_eff/1000,2)}) ≥ Vu (${fmt(Vu/1000,2)}) → ${okShear?'✓ OK':'✗ NG'}
+  Vd = ${fmt(shearDemand/1000,2)} tf (${shearDemandSource} 控制)
+  φVn (${fmt(phiVn_eff/1000,2)}) ≥ Vd (${fmt(shearDemand/1000,2)}) → ${okShear?'✓ OK':'✗ NG'}
 
 【5】最少剪力筋與間距
-  Vu,limit = φ·0.265·λ·√fc'·bw·d = ${fmt(VuLimit_minStir/1000,2)} tf
-  ${needsMinStir ? 'Vu 超過最少剪力筋門檻，需配置 Av,min' : '未超過最少剪力筋門檻'}
+  Vlimit = φ·0.265·λ·√fc'·bw·d = ${fmt(VuLimit_minStir/1000,2)} tf
+  ${needsMinStir ? 'Vd 超過最少剪力筋門檻，需配置 Av,min' : '未超過最少剪力筋門檻'}
   Av,min/s ≥ max(0.2·√fc'·bw/fyt, 3.5·bw/fyt) = ${fmt(AvMinPerS,4)} cm²/cm → ${okShearMin?'✓':'✗'}
   長向 s ≤ ${fmt(shearSpacingLimit,1)} cm；寬向肢距 ≤ ${fmt(shearLegSpacingLimit,1)} cm → ${okShearSpacing?'✓':'✗'}`
       ].join('\n\n');
@@ -2360,7 +2363,7 @@ ${layerBars.map(L => {
       rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg, AsMinPosInfo, AsMinNegInfo,
       Mcr, Mcr_pos, Mcr_neg, Mcr12, Mcr12_pos, Mcr12_neg, fr, Ig, yt_pos, yt_neg, okMcr,
       Vc_kgf: Vc, phiVc_kgf: phiVc, phiVs_kgf: phiVs, phiVn_kgf: phiVn_eff,
-      forceVc0, needsMinStir, AvMinPerS, AvProvidedPerS, hasMinStir, needsShearRebar,
+      forceVc0, shearDemand, shearDemandSource, needsMinStir, AvMinPerS, AvProvidedPerS, hasMinStir, needsShearRebar,
       okShearStrength, okShearMin, okShearSpacing,
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       Tu_th, torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk,
@@ -2587,10 +2590,10 @@ ${layerBars.map(L => {
           formula:'φVs = 0.75·Av·fyt·d/s',
           sub:`= 0.75·${r.Av.toFixed(2)}·${r.fyt}·${r.d.toFixed(1)}/${r.s} = ${(r.phiVs_kgf/1000).toFixed(2)} tf`,
           value:`${(r.phiVs_kgf/1000).toFixed(2)}`, unit:'tf', ok:null },
-        { label:'φVn ≥ Vu',
-          formula:'φVn = φVc + φVs',
-          sub:`φVn = ${(r.phiVn_kgf/1000).toFixed(2)} tf    Vu = ${r.Vu_in.toFixed(2)} tf`,
-          value:`${(r.phiVn_kgf/1000).toFixed(2)} / ${r.Vu_in.toFixed(2)}`, unit:'tf', ok:r.okShearStrength },
+        { label:'φVn ≥ Vd',
+          formula:'Vd = max(Vu, Ve) when SMRF is enabled; otherwise Vd = Vu',
+          sub:`φVn = ${(r.phiVn_kgf/1000).toFixed(2)} tf    Vd = ${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`,
+          value:`${(r.phiVn_kgf/1000).toFixed(2)} / ${(r.shearDemand/1000).toFixed(2)}`, unit:'tf', ok:r.okShearStrength },
         { label:'Av/s ≥ Av,min/s',
           formula:'Av,min/s = max(0.2√fc bw/fyt, 3.5 bw/fyt)',
           sub:`Av/s = ${r.AvProvidedPerS.toFixed(4)} cm²/cm    Av,min/s = ${r.AvMinPerS.toFixed(4)} cm²/cm`,
@@ -2853,10 +2856,11 @@ ${layerBars.map(L => {
     } else if (tab === 'loads') {
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
-      checks.push(['φVn ≥ Vu', r.okShear]);
+      checks.push(['φVn ≥ Vd', r.okShear]);
       kv.push(kfmt('+Mu', r.MuPos, 'tf·m', null));
       kv.push(kfmt('−Mu', r.MuNeg, 'tf·m', null));
       kv.push(kfmt('Vu', r.Vu, 'tf', null));
+      if (r.seismic) kv.push({ label:'Vd', val:`${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`, ok:r.okShear });
       kv.push(kfmt('φMn⁺', r.phiMnPos, 'tf·m', r.okFlexPos));
       kv.push(kfmt('φMn⁻', r.phiMnNeg, 'tf·m', r.okFlexNeg));
       kv.push(kfmt('φVn', r.phiVn, 'tf', r.okShear));
@@ -2881,11 +2885,12 @@ ${layerBars.map(L => {
         kv.push({ label:'端部錨定', val:`${r.developmentData.leftTypeLabel}/${r.developmentData.rightTypeLabel}`, ok:r.developmentData.developmentManualReview ? null : r.developmentData.okExplicit });
       }
     } else if (tab === 'shear') {
-      checks.push(['φVn ≥ Vu', r.okShear]);
+      checks.push(['φVn ≥ Vd', r.okShear]);
       checks.push(['Av,min', r.okShearMin]);
       checks.push(['剪力筋間距', r.okShearSpacing]);
       kv.push(kfmt('φVn', r.phiVn, 'tf', null));
       kv.push(kfmt('Vu', r.Vu, 'tf', null));
+      if (r.seismic) kv.push({ label:'Vd', val:`${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`, ok:r.okShear });
       kv.push({ label:'Av/s', val:`${r.AvProvidedPerS.toFixed(4)}/${r.AvMinPerS.toFixed(4)}`, ok:r.okShearMin });
     } else if (tab === 'torsion') {
       if (r.enableTorsion) checks.push([r.torsionNeedsDesign ? (r.torsionDetailOk == null ? '扭力詳算人工複核' : '22.7 扭力詳算') : '扭力門檻', r.torsionStatusOk]);
@@ -2901,7 +2906,7 @@ ${layerBars.map(L => {
       }
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
-      checks.push(['φVn ≥ Vu', r.okShear]);
+      checks.push(['φVn ≥ Vd', r.okShear]);
       checks.push(['剪力筋細則', r.okShearMin && r.okShearSpacing]);
       checks.push(['ρ⁺ ≤ 0.025', r.rhoPos <= 0.025]);
       checks.push(['ρ⁻ ≤ 0.025', r.rhoNeg <= 0.025]);
@@ -2912,7 +2917,7 @@ ${layerBars.map(L => {
     } else { // summary
       checks.push(['φMn⁺ ≥ +Mu', r.okFlexPos]);
       checks.push(['φMn⁻ ≥ −Mu', r.okFlexNeg]);
-      checks.push(['φVn ≥ Vu', r.okShear]);
+      checks.push(['φVn ≥ Vd', r.okShear]);
       checks.push(['ρ ≤ ρmax', r.okRhoMax]);
       checks.push(['As ≥ As,min', r.okAsMin]);
       checks.push(['主筋裂縫間距', r.okCrackSpacing]);
@@ -2930,6 +2935,7 @@ ${layerBars.map(L => {
       kv.push(kfmt('−Mu', r.MuNeg, 'tf·m', null));
       kv.push(kfmt('φVn', r.phiVn, 'tf', r.okShear));
       kv.push(kfmt('Vu', r.Vu, 'tf', null));
+      if (r.seismic) kv.push({ label:'Vd', val:`${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`, ok:r.okShear });
     }
 
     const allOk = checks.length > 0 && checks.every(c => c[1] === true);

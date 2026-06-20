@@ -253,6 +253,9 @@ async function captureBeamSnapshot(page) {
       phiVc_tf: r.phiVc_kgf != null ? r.phiVc_kgf / 1000 : null,
       phiVs_tf: r.phiVs_kgf != null ? r.phiVs_kgf / 1000 : null,
       Vu_in: r.Vu_in ?? null,
+      Ve_in: r.Ve_in ?? null,
+      shearDemandTf: r.shearDemand != null ? r.shearDemand / 1000 : null,
+      shearDemandSource: r.shearDemandSource ?? null,
       okShear: r.okShear ?? null,
       okShearStrength: r.okShearStrength ?? null,
       okShearMin: r.okShearMin ?? null,
@@ -514,6 +517,7 @@ async function main() {
   assert(beamHtml.includes('表層筋 (h > 90 cm)'), 'beam.html labels surface reinforcement', 'skin reinforcement wording is report-safe');
   assert(beamHtml.includes('規範依據：112 年混凝土結構設計規範'), 'beam report declares code basis', 'report exposes code version');
   assert(beamHtml.includes('Nu/(6Ag)'), 'beam shear axial term is displayed as stress', 'avoids treating axial stress as a multiplier');
+  assert(beamHtml.includes('shearDemand = seismic ? Math.max(Vu, Ve || 0) : Vu'), 'beam.html has SMRF shear demand control', 'seismic shear demand uses max(Vu, Ve)');
   const oldSmrfBeamClause = ['18', '6', '3', '2'].join('.');
   assert(!beamHtml.includes(oldSmrfBeamClause), 'beam.html does not use old SMRF beam clause label', 'uses 18.3.3.2 for beam moment ratio');
   assert(beamHtml.includes('id="stepsVerbosity"'), 'beam.html has steps verbosity selector', 'summary/full selector exists in source');
