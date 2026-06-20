@@ -68,8 +68,46 @@
         "isShort": true,
         "deltaNS": 1,
         "AstReq": 36,
-        "banner": "✓ OK — 符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限"
-      }
+        "banner": "✓ OK — 符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限",
+        "pmEngine": "shared-pmsection",
+        "pmEngineY": "shared-pmsection"
+      },
+      "reportExpectedIncludes": [
+        "規範覆蓋矩陣",
+        "幾何與主筋配置",
+        "單軸 / 雙軸 P-M 強度",
+        "未納入扭矩、剪扭耦合與特殊節點核心剪力",
+        "缺漏 / 複核摘要"
+      ],
+      "reportCoverageExpected": {
+        "幾何與主筋配置": {
+          "level": "規範判定",
+          "status": "符合",
+          "ok": true
+        },
+        "單軸 / 雙軸 P-M 強度": {
+          "ref": "21.2.2 / 22.2 / 22.4.2",
+          "status": "符合",
+          "ok": true
+        },
+        "耐震搭接": {
+          "level": "未適用",
+          "status": "未適用"
+        },
+        "細長效應與二階邊界": {
+          "level": "工程近似",
+          "status": "短柱，δns=1"
+        }
+      },
+      "reportCoverageSummaryIncludes": [
+        "人工複核 / 未輸入",
+        "柱端錨定 (25.4.2)",
+        "報告不作通過判定",
+        "工程近似 / 未納入",
+        "剪力強度與 Av,min",
+        "未納入扭矩、剪扭耦合與特殊節點核心剪力",
+        "細長效應與二階邊界"
+      ]
     },
     {
       "key": "biaxial_rect_check",
@@ -210,8 +248,59 @@
         "isShort": true,
         "deltaNS": 1,
         "AstReq": 38.48451000647497,
-        "banner": "✓ OK — 符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ P-Mx-My 角度掃描 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 強柱弱梁 ｜ ✓ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✓ 表 18.4.5.4 圍束筋量"
-      }
+        "banner": "✓ OK — 符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ P-Mx-My 角度掃描 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 強柱弱梁 ｜ ✓ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✓ 表 18.4.5.4 圍束筋量",
+        "pmEngine": "shared-pmsection",
+        "pmEngineY": "shared-pmsection"
+      },
+      "reportExpectedIncludes": [
+        "⚠ 部分項目需人工複核：柱端錨定、搭接 / 施工圖",
+        "人工複核項目：柱端錨定、搭接 / 施工圖",
+        "搭接位置或搭接長度未完整輸入，須由施工圖確認。",
+        "耐震搭接",
+        "缺漏 / 複核摘要"
+      ],
+      "reportCoverageExpected": {
+        "單軸 / 雙軸 P-M 強度": {
+          "level": "規範判定",
+          "status": "符合",
+          "ok": true
+        },
+        "橫向鋼筋間距與圍束": {
+          "status": "符合",
+          "ok": true
+        },
+        "強柱弱梁": {
+          "level": "規範判定 / 梁值需指定",
+          "status": "符合",
+          "ok": true
+        },
+        "柱端錨定": {
+          "level": "人工複核",
+          "status": "未輸入"
+        },
+        "耐震搭接": {
+          "level": "人工複核",
+          "status": "待複核"
+        }
+      },
+      "reportCoverageIncludes": {
+        "耐震設計剪力與 Vc 歸零": {
+          "evidence": "Ve,x/y=54.58/54.58",
+          "gap": "梁端 Mpr"
+        },
+        "耐震搭接": {
+          "gap": "搭接位置或長度未完整輸入"
+        }
+      },
+      "reportCoverageSummaryIncludes": [
+        "人工複核 / 未輸入",
+        "柱端錨定",
+        "耐震搭接",
+        "搭接位置或長度未完整輸入",
+        "工程近似 / 未納入",
+        "梁端 Mpr 控制上限",
+        "細長效應與二階邊界"
+      ]
     },
     {
       "key": "ng_heavy_check",
@@ -280,7 +369,26 @@
         "deltaNS": 1,
         "AstReq": 151.39666202003056,
         "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✗ (Pu, Mc) 在封包內 ｜ ✗ P-Mx-My 角度掃描 ｜ ✗ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限"
-      }
+      },
+      "reportCoverageExpected": {
+        "單軸 / 雙軸 P-M 強度": {
+          "status": "不符",
+          "ok": false
+        },
+        "剪力強度與 Av,min": {
+          "status": "不符",
+          "ok": false
+        }
+      },
+      "reportExpectedIncludes": [
+        "缺漏 / 複核摘要"
+      ],
+      "reportCoverageSummaryIncludes": [
+        "不符項目",
+        "單軸 / 雙軸 P-M 強度",
+        "剪力強度與 Av,min",
+        "狀態：不符"
+      ]
     },
     {
       "key": "y_shear_ng_check",
@@ -464,6 +572,175 @@
       }
     },
     {
+      "key": "development_top_anchor_ng",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "swayMode": false,
+        "manualLayout": false,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "rect"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 60,
+        "h": 60,
+        "lu": 300,
+        "k": 1,
+        "cover": 4,
+        "Pu": 200,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu": 20,
+        "Vuy": 0,
+        "tieS": 10,
+        "crossTieS": 10,
+        "columnDevTop": 100,
+        "columnDevBottom": 200
+      },
+      "expected": {
+        "mode": "check",
+        "colType": "rect",
+        "seismic": false,
+        "Pu": 200,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu_in": 20,
+        "Vuy_in": 0,
+        "tieS": 10,
+        "crossTieS": 10,
+        "columnDevTop": 100,
+        "columnDevBottom": 200,
+        "columnLdTension": 151.794033385468,
+        "columnLdCompression": 458.724,
+        "columnDevReq": 151.794033385468,
+        "okColumnDevTop": false,
+        "okColumnDevBottom": true,
+        "okColumnDevelopment": false,
+        "okShearStrength": true,
+        "okShearAvMin": true,
+        "okShearSize": true,
+        "okShear": true,
+        "okRhog": true,
+        "pmOk": true,
+        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✗ 25.4.2 錨定 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限"
+      },
+      "expectedIncludes": {
+        "banner": "✗ 25.4.2 錨定"
+      }
+    },
+    {
+      "key": "development_anchor_manual_review",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": false,
+        "swayMode": false,
+        "manualLayout": false,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "rect",
+        "columnDevTopType": "hook",
+        "columnDevBottomType": "mechanical"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 60,
+        "h": 60,
+        "lu": 300,
+        "k": 1,
+        "cover": 4,
+        "Pu": 200,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu": 20,
+        "Vuy": 0,
+        "tieS": 10,
+        "crossTieS": 10
+      },
+      "expected": {
+        "mode": "check",
+        "colType": "rect",
+        "seismic": false,
+        "Pu": 200,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu_in": 20,
+        "Vuy_in": 0,
+        "tieS": 10,
+        "crossTieS": 10,
+        "columnDevTop": null,
+        "columnDevBottom": null,
+        "columnDevTopType": "hook",
+        "columnDevBottomType": "mechanical",
+        "columnDevTopTypeLabel": "彎鉤錨定",
+        "columnDevBottomTypeLabel": "機械錨定",
+        "columnDevTopText": "柱頂彎鉤錨定；非直線 ℓd 自動檢核，須依配筋圖與相對應錨定構造規定人工複核",
+        "columnDevBottomText": "柱底機械錨定；非直線 ℓd 自動檢核，須依產品認可資料、專案文件與配筋圖人工複核",
+        "columnLdTension": 151.794033385468,
+        "columnLdCompression": 458.724,
+        "columnDevReq": 151.794033385468,
+        "okColumnDevTop": null,
+        "okColumnDevBottom": null,
+        "okColumnDevelopment": null,
+        "columnDevelopmentHasInput": true,
+        "columnDevelopmentManual": true,
+        "okShearStrength": true,
+        "okShearAvMin": true,
+        "okShearSize": true,
+        "okShear": true,
+        "okRhog": true,
+        "pmOk": true,
+        "banner": "⚠ 部分項目待檢核✓ ρg 範圍 ｜ · 25章錨定人工複核 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限"
+      },
+      "expectedIncludes": {
+        "banner": "· 25章錨定人工複核",
+        "columnDevTopText": "彎鉤錨定",
+        "columnDevBottomText": "機械錨定"
+      },
+      "reportExpectedIncludes": [
+        "⚠ 部分項目需人工複核：柱端錨定",
+        "柱端錨定",
+        "25章 / 配筋圖 / 產品資料",
+        "彎鉤、機械錨定或其他端部構造未以直線 ℓd 自動判定",
+        "人工複核項目：柱端錨定",
+        "人工複核項，不納入自動 OK 判定",
+        "工程檢核總表",
+        "配筋與幾何",
+        "P-M 強度",
+        "剪力檢核",
+        "報告邊界",
+        "規範判定 / 工程近似 / 人工複核分流",
+        "缺漏 / 複核摘要"
+      ],
+      "reportCoverageExpected": {
+        "柱端錨定": {
+          "ref": "25章 / 配筋圖 / 產品資料",
+          "level": "人工複核",
+          "status": "人工複核",
+          "ok": null
+        }
+      },
+      "reportCoverageIncludes": {
+        "柱端錨定": {
+          "evidence": [
+            "彎鉤錨定",
+            "機械錨定"
+          ],
+          "gap": "非直線錨定"
+        }
+      },
+      "reportCoverageSummaryIncludes": [
+        "人工複核 / 未輸入",
+        "柱端錨定 (25章 / 配筋圖 / 產品資料)",
+        "非直線錨定須由配筋圖、產品認可資料或專案文件判定"
+      ]
+    },
+    {
       "key": "av_min_ng_check",
       "mode": "check",
       "checkboxes": {
@@ -631,6 +908,20 @@
         "okShear": true,
         "confinementOk": false,
         "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 18.4.5.2 側撐 ｜ ✗ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.5.5 外間距 ｜ ✗ 表 18.4.5.4 圍束筋量"
+      },
+      "reportCoverageExpected": {
+        "橫向鋼筋間距與圍束": {
+          "status": "不符",
+          "ok": false
+        }
+      },
+      "reportCoverageIncludes": {
+        "橫向鋼筋間距與圍束": {
+          "evidence": [
+            "間距=不符",
+            "圍束=不符"
+          ]
+        }
       }
     },
     {
@@ -703,7 +994,36 @@
           "hx 42.5 > 20",
           "18.4.5.2(f)"
         ]
-      }
+      },
+      "reportCoverageExpected": {
+        "幾何與主筋配置": {
+          "status": "不符",
+          "ok": false
+        },
+        "橫向鋼筋間距與圍束": {
+          "status": "不符",
+          "ok": false
+        }
+      },
+      "reportCoverageIncludes": {
+        "橫向鋼筋間距與圍束": {
+          "evidence": [
+            "側撐=不符",
+            "hx=42.5 cm > 20 cm"
+          ],
+          "gap": "18.4.5.2 側撐未滿足"
+        }
+      },
+      "reportExpectedIncludes": [
+        "缺漏 / 複核摘要"
+      ],
+      "reportCoverageSummaryIncludes": [
+        "不符項目",
+        "幾何與主筋配置",
+        "橫向鋼筋間距與圍束",
+        "18.4.5.2 側撐未滿足",
+        "hx=42.5 cm > 20 cm"
+      ]
     },
     {
       "key": "seismic_lap_zone_ng",
@@ -775,7 +1095,225 @@
       },
       "expectedIncludes": {
         "banner": "✗ 18.4.4.3 搭接"
+      },
+      "reportCoverageExpected": {
+        "耐震搭接": {
+          "level": "人工複核",
+          "status": "不符",
+          "ok": false
+        }
+      },
+      "reportCoverageIncludes": {
+        "耐震搭接": {
+          "evidence": "位置=不符",
+          "gap": "搭接位置或長度未完整輸入"
+        }
       }
+    },
+    {
+      "key": "seismic_lap_length_ng",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": true,
+        "swayMode": false,
+        "manualLayout": false,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "rect"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 60,
+        "h": 60,
+        "lu": 300,
+        "k": 1,
+        "cover": 4,
+        "Pu": 200,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu": 20,
+        "Vuy": 0,
+        "tieS": 5,
+        "crossTieS": 5,
+        "Ve": 0,
+        "SMnb": 0,
+        "firstHoopDist": 5,
+        "lapSpliceStart": 80,
+        "lapSpliceEnd": 180,
+        "lapSpliceLength": 120,
+        "lapSpliceClass": "B",
+        "tieFy": 7000,
+        "crossTieFy": 7000
+      },
+      "expected": {
+        "mode": "check",
+        "colType": "rect",
+        "seismic": true,
+        "Pu": 200,
+        "tieS": 5,
+        "crossTieS": 5,
+        "codeTieSpacingLimit": 13.846666666666666,
+        "adoptedTieSpacing": 5,
+        "okSeismicTieSpacing": true,
+        "seismicHx": 23.46,
+        "seismicHighHxTrigger": false,
+        "seismicHxLimit": 35,
+        "okLateralSupport": true,
+        "firstHoopDist": 5,
+        "seismicFirstHoopLimit": 6.923333333333333,
+        "okFirstHoop": true,
+        "outsideTieS": 5,
+        "outsideTieSInput": null,
+        "seismicMidSpacingLimit": 15,
+        "okOutsideTieSpacing": true,
+        "lapSpliceStart": 80,
+        "lapSpliceEnd": 180,
+        "lapMiddleStart": 75,
+        "lapMiddleEnd": 225,
+        "okLapZone": true,
+        "lapSpliceLength": 120,
+        "lapSpliceClass": "B",
+        "lapLdTension": 151.794033385468,
+        "lapLengthReq": 197.3322434011084,
+        "okLapLength": false,
+        "okShearStrength": true,
+        "okShear": true,
+        "confinementOk": true,
+        "okRhog": true,
+        "pmOk": true,
+        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 18.4.5.2 側撐 ｜ ✓ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.4.3 搭接 ｜ ✗ 25.5.2 搭接長度 ｜ ✓ 18.4.5.5 外間距 ｜ ✓ 表 18.4.5.4 圍束筋量"
+      },
+      "expectedIncludes": {
+        "banner": "✗ 25.5.2 搭接長度"
+      },
+      "reportCoverageExpected": {
+        "耐震搭接": {
+          "level": "規範判定 / 施工圖複核",
+          "status": "不符",
+          "ok": false
+        }
+      },
+      "reportCoverageIncludes": {
+        "耐震搭接": {
+          "evidence": "長度=不符",
+          "gap": "仍須與施工圖實際搭接區段一致"
+        }
+      }
+    },
+    {
+      "key": "seismic_lap_class_a_ineligible_uses_b",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": true,
+        "swayMode": false,
+        "manualLayout": false,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "rect"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 60,
+        "h": 60,
+        "lu": 300,
+        "k": 1,
+        "cover": 4,
+        "Pu": 200,
+        "Mux": 20,
+        "Muy": 0,
+        "Vu": 20,
+        "Vuy": 0,
+        "tieS": 5,
+        "crossTieS": 5,
+        "Ve": 0,
+        "SMnb": 0,
+        "firstHoopDist": 5,
+        "lapSpliceStart": 80,
+        "lapSpliceEnd": 180,
+        "lapSpliceLength": 160,
+        "lapSpliceClass": "A",
+        "lapSpliceRatio": 60,
+        "tieFy": 7000,
+        "crossTieFy": 7000
+      },
+      "expected": {
+        "mode": "check",
+        "colType": "rect",
+        "seismic": true,
+        "Pu": 200,
+        "tieS": 5,
+        "crossTieS": 5,
+        "codeTieSpacingLimit": 13.846666666666666,
+        "adoptedTieSpacing": 5,
+        "okSeismicTieSpacing": true,
+        "seismicHx": 23.46,
+        "seismicHighHxTrigger": false,
+        "seismicHxLimit": 35,
+        "okLateralSupport": true,
+        "firstHoopDist": 5,
+        "seismicFirstHoopLimit": 6.923333333333333,
+        "okFirstHoop": true,
+        "outsideTieS": 5,
+        "outsideTieSInput": null,
+        "seismicMidSpacingLimit": 15,
+        "okOutsideTieSpacing": true,
+        "lapSpliceStart": 80,
+        "lapSpliceEnd": 180,
+        "lapMiddleStart": 75,
+        "lapMiddleEnd": 225,
+        "okLapZone": true,
+        "lapSpliceLength": 160,
+        "lapSpliceRatio": 60,
+        "lapSpliceClassRequested": "A",
+        "lapSpliceClass": "B",
+        "lapLdTension": 151.794033385468,
+        "lapLengthReqA": 151.794033385468,
+        "lapLengthReqB": 197.3322434011084,
+        "lapLengthReq": 197.3322434011084,
+        "okLapLength": false,
+        "lapClassAAstRatio": 1.1260000000000001,
+        "lapClassAAstOk": false,
+        "lapClassASpliceOk": false,
+        "okLapClassA": false,
+        "lapClassANote": "Ast/Ast,req=1.13 < 2.00；搭接比例=60% > 50%",
+        "okShearStrength": true,
+        "okShear": true,
+        "confinementOk": true,
+        "okRhog": true,
+        "pmOk": true,
+        "banner": "✗ NG — 不符合規範✓ ρg 範圍 ｜ ✓ (Pu, Mc) 在封包內 ｜ ✓ φVn ≥ Vd,x/Vd,y ｜ ✓ 10.6.2 Av,min ｜ ✓ 22.5.1.2 斷面上限 ｜ ✓ 18.4.5.2 側撐 ｜ ✓ 18.4.5.3 間距 ｜ ✓ 18.4.5.3 首支 ｜ ✓ 18.4.4.3 搭接 ｜ ✗ 25.5.2 搭接長度 ｜ ✓ 18.4.5.5 外間距 ｜ ✓ 表 18.4.5.4 圍束筋量"
+      },
+      "expectedIncludes": {
+        "banner": "✗ 25.5.2 搭接長度",
+        "lapClassANote": "搭接比例=60% > 50%"
+      },
+      "reportCoverageExpected": {
+        "耐震搭接": {
+          "level": "規範判定 / 施工圖複核",
+          "status": "不符",
+          "ok": false
+        }
+      },
+      "reportCoverageIncludes": {
+        "耐震搭接": {
+          "evidence": [
+            "等級=B",
+            "搭接比例=60% > 50%"
+          ]
+        }
+      },
+      "reportExpectedIncludes": [
+        "缺漏 / 複核摘要"
+      ],
+      "reportCoverageSummaryIncludes": [
+        "不符項目",
+        "耐震搭接",
+        "等級=B"
+      ]
     },
     {
       "key": "seismic_detail_first_outside_spacing_ng",
@@ -831,6 +1369,20 @@
         "okOutsideTieSpacing": false,
         "okShearStrength": true,
         "okShear": true
+      },
+      "reportCoverageExpected": {
+        "橫向鋼筋間距與圍束": {
+          "status": "不符",
+          "ok": false
+        }
+      },
+      "reportCoverageIncludes": {
+        "橫向鋼筋間距與圍束": {
+          "evidence": [
+            "首支=不符",
+            "外區=不符"
+          ]
+        }
       }
     }
   ]

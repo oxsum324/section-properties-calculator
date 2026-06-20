@@ -11,6 +11,8 @@
  *     summary:  { ok: true|false, text: '✓ OK / ✗ NG' },
  *     symbols:  [{ sym, desc }, ...],
  *     methods:  [{ item, level, ref, note }, ...],
+ *     coverage: [{ item, ref, applies, level, evidence, status, ok, gap }, ...],
+ *     coverageSummary: [{ title, kind, items:[{ label, detail }] }, ...],
  *     notes:    ['依據 112 年混凝土結構設計規範', ...]
  *   });
  *
@@ -98,6 +100,45 @@ function openReport(cfg) {
       </table>
     </section>` : '';
 
+  const coverageHtml = (cfg.coverage && cfg.coverage.length) ? `
+    <section class="rep-block">
+      <h3>規範覆蓋矩陣</h3>
+      <table class="rep-coverage">
+        <thead>
+          <tr><th>檢核項</th><th>條文 / 依據</th><th>適用條件</th><th>層級</th><th>判定證據</th><th>狀態</th><th>未納入 / 待複核</th></tr>
+        </thead>
+        <tbody>
+          ${cfg.coverage.map(c => {
+            const cls = c.ok===true?'ok':c.ok===false?'ng':'na';
+            return `<tr class="${cls}">
+              <td class="lbl">${esc(c.item)}</td>
+              <td class="ref">${esc(c.ref || '—')}</td>
+              <td>${esc(c.applies || '—')}</td>
+              <td class="level">${esc(c.level || '—')}</td>
+              <td>${esc(c.evidence || '—')}</td>
+              <td class="status">${esc(c.status || '—')}</td>
+              <td>${esc(c.gap || '—')}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </section>` : '';
+  const coverageSummaryHtml = (cfg.coverageSummary && cfg.coverageSummary.length) ? `
+    <section class="rep-block rep-coverage-summary-wrap">
+      <h3>缺漏 / 複核摘要</h3>
+      <div class="rep-coverage-summary">
+        ${cfg.coverageSummary.map(g => {
+          const cls = g.kind || 'info';
+          const items = g.items || [];
+          return `<div class="rep-coverage-summary-card ${esc(cls)}">
+            <div class="rep-coverage-summary-title">${esc(g.title)}<span>${items.length}</span></div>
+            ${items.length ? `<ul>${items.map(it => `<li><b>${esc(it.label || '')}</b>${it.detail ? `<em>${esc(it.detail)}</em>` : ''}</li>`).join('')}</ul>` : '<div class="empty">無</div>'}
+          </div>`;
+        }).join('')}
+      </div>
+    </section>` : '';
+
+
   const notesHtml = (cfg.notes && cfg.notes.length) ? `
     <section class="rep-block">
       <h3>備註</h3>
@@ -180,6 +221,27 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-method th { background:#eef2f6; font-weight:600; text-align:center; font-size:11px; }
   .rep-method td.level { width:12%; text-align:center; font-weight:700; }
   .rep-method td.ref { width:16%; font-family:"Consolas",monospace; font-size:11px; }
+  .rep-coverage th, .rep-coverage td { border:1px solid #888; padding:4px 5px; vertical-align:top; font-size:10.5px; }
+  .rep-coverage th { background:#eef2f6; font-weight:600; text-align:center; }
+  .rep-coverage td.lbl { width:13%; font-weight:700; }
+  .rep-coverage td.ref { width:13%; font-family:"Consolas",monospace; font-size:10px; }
+  .rep-coverage td.level { width:10%; text-align:center; font-weight:700; }
+  .rep-coverage td.status { width:9%; text-align:center; font-weight:700; }
+  .rep-coverage tr.ok td.status { color:#1b8a3a; }
+  .rep-coverage tr.ng td.status { color:#c0392b; }
+  .rep-coverage tr.ng td.lbl { color:#c0392b; }
+  .rep-coverage-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .rep-coverage-summary-card { border:1px solid #cbd5e1; border-left:4px solid #64748b; padding:6px 8px; font-size:10.5px; background:#fafbfc; page-break-inside:avoid; }
+  .rep-coverage-summary-card.ng { border-left-color:#c0392b; background:#fff7f7; }
+  .rep-coverage-summary-card.warn { border-left-color:#b45309; background:#fffaf0; }
+  .rep-coverage-summary-card.info { border-left-color:#2563eb; background:#f8fbff; }
+  .rep-coverage-summary-title { display:flex; justify-content:space-between; gap:8px; font-weight:700; margin-bottom:4px; color:#1f2937; }
+  .rep-coverage-summary-title span { min-width:20px; text-align:center; border-radius:10px; background:#e5e7eb; padding:0 5px; }
+  .rep-coverage-summary ul { margin:0; padding-left:16px; }
+  .rep-coverage-summary li { margin:2px 0 4px; }
+  .rep-coverage-summary li b { display:block; }
+  .rep-coverage-summary li em { display:block; margin-top:1px; color:#555; font-style:normal; line-height:1.3; }
+  .rep-coverage-summary .empty { color:#667085; }
   .rep-notes { padding-left:20px; font-size:12px; }
 .rep-notes li { margin:3px 0; }
 .rep-step { margin:10px 0 14px; page-break-inside: avoid; }
@@ -232,12 +294,14 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 
   <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
 
+  ${coverageSummaryHtml}
   ${diagramsHtml}
   ${inputsHtml}
   ${checksHtml}
   ${stepsHtml}
   ${symHtml}
   ${methodsHtml}
+  ${coverageHtml}
   ${notesHtml}
 
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>

@@ -1,0 +1,52 @@
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+
+const toolsDir = __dirname;
+const visualPath = path.join(toolsDir, 'column-report-visual.test.js');
+const testColumnPath = path.join(toolsDir, 'test-column.ps1');
+const casesPath = path.join(toolsDir, 'column-regression-cases.json');
+
+function read(file) {
+  assert.ok(fs.existsSync(file), `missing required file: ${file}`);
+  return fs.readFileSync(file, 'utf8');
+}
+
+function assertIncludes(text, needle, label) {
+  assert.ok(text.includes(needle), `${label} should include: ${needle}`);
+}
+
+const visual = read(visualPath);
+const testColumn = read(testColumnPath);
+const cases = JSON.parse(read(casesPath));
+
+[
+  'default_rect_design',
+  'seismic_lap_class_a_ineligible_uses_b',
+  'seismic_detail_first_outside_spacing_ng'
+].forEach(key => {
+  assert.ok(cases.cases.some(tc => tc.key === key), `visual smoke case missing from regression cases: ${key}`);
+  assertIncludes(visual, key, 'column report visual smoke case list');
+});
+
+[
+  'Column report visual smoke',
+  'column-report-visual.test.js',
+  'node $visualTestFile'
+].forEach(needle => assertIncludes(testColumn, needle, 'test-column visual smoke wiring'));
+
+[
+  'process.env.RC_VISUAL_PORT || 0',
+  'server.address().port',
+  'summaryOrderOk',
+  'print toolbar hidden',
+  'summaryHasDuplicateUnset',
+  'summaryHasBrokenLapNote',
+  'assertArtifact(screenshotPath',
+  'assertArtifact(pdfPath',
+  '0x89, 0x50, 0x4e, 0x47',
+  '0x25, 0x50, 0x44, 0x46',
+  'column-report-visual-audit.json'
+].forEach(needle => assertIncludes(visual, needle, 'column report visual smoke quality gate'));
+
+console.log('column report visual contract OK');

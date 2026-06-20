@@ -77,6 +77,11 @@ async function main() {
   assert(html.includes('rc.pendingBeamColumnJoint'), 'column.html has beam-column joint storage key', 'handoff storage key exists');
   assert(html.includes('function applyBeamColumnJointImport'), 'column.html has beam-column joint importer', 'column import helper exists');
   assert(html.includes('beamJointImport: window.lastBeamColumnJointImport'), 'column.html stores imported beam joint payload', 'colLast keeps import source');
+  assert(html.includes('../shared/pmsection.js'), 'column.html loads shared PM section engine', 'single-axis P-M core is shared and testable');
+  assert(html.includes('pmCore.curve'), 'column.html calls shared PM section engine', 'rectangular column P-M uses shared core');
+  assert(html.includes('reportCoverage'), 'column.html builds report coverage matrix', 'code-clause coverage matrix exists');
+  assert(html.includes('reportCoverageSummary'), 'column.html builds report coverage summary', 'front-page gap summary exists');
+  assert(html.includes('lastColumnReportConfig'), 'column.html exposes last report config', 'report coverage can be regression tested');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for column regression test');
@@ -153,6 +158,22 @@ async function main() {
           seismicHighHxTrigger: r.seismicHighHxTrigger ?? null,
           seismicHxLimit: Number.isFinite(r.seismicHxLimit) ? r.seismicHxLimit : null,
           okLateralSupport: r.okLateralSupport ?? null,
+          columnDevTop: r.columnDevTop ?? null,
+          columnDevBottom: r.columnDevBottom ?? null,
+          columnDevTopType: r.columnDevTopType ?? null,
+          columnDevBottomType: r.columnDevBottomType ?? null,
+          columnDevTopTypeLabel: r.columnDevTopTypeLabel ?? null,
+          columnDevBottomTypeLabel: r.columnDevBottomTypeLabel ?? null,
+          columnDevTopText: r.columnDevTopText ?? null,
+          columnDevBottomText: r.columnDevBottomText ?? null,
+          columnLdTension: Number.isFinite(r.columnLdTension) ? r.columnLdTension : null,
+          columnLdCompression: Number.isFinite(r.columnLdCompression) ? r.columnLdCompression : null,
+          columnDevReq: Number.isFinite(r.columnDevReq) ? r.columnDevReq : null,
+          okColumnDevTop: r.okColumnDevTop ?? null,
+          okColumnDevBottom: r.okColumnDevBottom ?? null,
+          okColumnDevelopment: r.okColumnDevelopment ?? null,
+          columnDevelopmentHasInput: r.columnDevelopmentHasInput ?? null,
+          columnDevelopmentManual: r.columnDevelopmentManual ?? null,
           lateralSupportDetail: r.lateralSupportDetail ?? null,
           firstHoopDist: r.firstHoopDist ?? null,
           seismicFirstHoopLimit: Number.isFinite(r.seismicFirstHoopLimit) ? r.seismicFirstHoopLimit : null,
@@ -167,13 +188,24 @@ async function main() {
           lapMiddleEnd: Number.isFinite(r.lapMiddleEnd) ? r.lapMiddleEnd : null,
           okLapZone: r.okLapZone ?? null,
           lapSpliceLength: r.lapSpliceLength ?? null,
+          lapSpliceRatio: r.lapSpliceRatio ?? null,
+          lapSpliceClassRequested: r.lapSpliceClassRequested ?? null,
           lapSpliceClass: r.lapSpliceClass ?? null,
           lapLdTension: Number.isFinite(r.lapLdTension) ? r.lapLdTension : null,
+          lapLengthReqA: Number.isFinite(r.lapLengthReqA) ? r.lapLengthReqA : null,
+          lapLengthReqB: Number.isFinite(r.lapLengthReqB) ? r.lapLengthReqB : null,
           lapLengthReq: Number.isFinite(r.lapLengthReq) ? r.lapLengthReq : null,
           okLapLength: r.okLapLength ?? null,
+          lapClassAAstRatio: Number.isFinite(r.lapClassAAstRatio) ? r.lapClassAAstRatio : null,
+          lapClassAAstOk: r.lapClassAAstOk ?? null,
+          lapClassASpliceOk: r.lapClassASpliceOk ?? null,
+          okLapClassA: r.okLapClassA ?? null,
+          lapClassANote: r.lapClassANote ?? null,
           Ast: r.Ast ?? null,
           rhog: r.rhog ?? null,
           phiPnMax: r.phiPnMax ?? null,
+          pmEngine: r.pmEngine ?? null,
+          pmEngineY: r.pmEngineY ?? null,
           phiMnAtPu: r.phiMnAtPu ?? null,
           phiMnyAtPu: r.phiMnyAtPu ?? null,
           breslerRatio: r.breslerRatio ?? null,
@@ -220,7 +252,7 @@ async function main() {
       })())));
 
       [
-        'Pu', 'Mux', 'Muy', 'Vu_in', 'Vuy_in', 'tieS', 'crossTieS', 'spiralS', 'sSugg', 'shearSpacingLimitAuto', 'codeTieSpacingLimit', 'adoptedTieSpacing', 'seismicHx', 'seismicHxLimit', 'seismicSoLimit', 'seismicSoRaw', 'seismicLongBarFactor', 'seismicLongBarLimit', 'firstHoopDist', 'seismicFirstHoopLimit', 'outsideTieS', 'outsideTieSInput', 'seismicMidSpacingLimit', 'lapSpliceStart', 'lapSpliceEnd', 'lapMiddleStart', 'lapMiddleEnd', 'lapSpliceLength', 'lapLdTension', 'lapLengthReq', 'Ast', 'rhog', 'phiPnMax', 'phiMnAtPu',
+        'Pu', 'Mux', 'Muy', 'Vu_in', 'Vuy_in', 'tieS', 'crossTieS', 'spiralS', 'sSugg', 'shearSpacingLimitAuto', 'codeTieSpacingLimit', 'adoptedTieSpacing', 'seismicHx', 'seismicHxLimit', 'columnDevTop', 'columnDevBottom', 'columnLdTension', 'columnLdCompression', 'columnDevReq', 'seismicSoLimit', 'seismicSoRaw', 'seismicLongBarFactor', 'seismicLongBarLimit', 'firstHoopDist', 'seismicFirstHoopLimit', 'outsideTieS', 'outsideTieSInput', 'seismicMidSpacingLimit', 'lapSpliceStart', 'lapSpliceEnd', 'lapMiddleStart', 'lapMiddleEnd', 'lapSpliceLength', 'lapSpliceRatio', 'lapLdTension', 'lapLengthReqA', 'lapLengthReqB', 'lapLengthReq', 'lapClassAAstRatio', 'Ast', 'rhog', 'phiPnMax', 'phiMnAtPu',
         'phiMnyAtPu', 'breslerRatio', 'biaxialSurfaceRatio', 'phiVn_tf', 'phiVnY_tf',
         'Ve', 'designVxTf', 'designVyTf', 'veAutoX', 'veAutoY', 'PuAtMprX', 'PuAtMprY',
         'avMinProvidedFytPerLenX', 'avMinProvidedFytPerLenY',
@@ -241,6 +273,70 @@ async function main() {
           assert(text.includes(fragment), `${tc.key} :: ${key} includes`, `expected fragment=${fragment} actual=${text}`);
         });
       });
+
+      if (tc.reportExpectedIncludes || tc.reportCoverageExpected || tc.reportCoverageIncludes || tc.reportCoverageSummaryIncludes) {
+        const reportPayload = await page.evaluate(() => {
+          let html = '';
+          const previousOpen = window.open;
+          window.open = () => ({
+            document: {
+              open() {},
+              write(chunk) { html += String(chunk); },
+              close() {}
+            },
+            close() {},
+            closed: false
+          });
+          try {
+            window.buildColumnReport();
+          } finally {
+            window.open = previousOpen;
+          }
+          return {
+            html,
+            coverage: (window.lastColumnReportConfig && window.lastColumnReportConfig.coverage) || [],
+            coverageSummary: (window.lastColumnReportConfig && window.lastColumnReportConfig.coverageSummary) || []
+          };
+        });
+        if (tc.reportExpectedIncludes) {
+          const fragments = Array.isArray(tc.reportExpectedIncludes) ? tc.reportExpectedIncludes : [tc.reportExpectedIncludes];
+          fragments.forEach(fragment => {
+            assert(reportPayload.html.includes(fragment), `${tc.key} :: report includes`, `expected fragment=${fragment}`);
+          });
+        }
+        if (tc.reportCoverageExpected) {
+          const byItem = new Map(reportPayload.coverage.map(row => [row.item, row]));
+          Object.entries(tc.reportCoverageExpected).forEach(([item, expectedFields]) => {
+            const row = byItem.get(item);
+            assert(!!row, `${tc.key} :: coverage item exists`, `${item}; available=${reportPayload.coverage.map(r => r.item).join('、')}`);
+            Object.entries(expectedFields).forEach(([field, expectedValue]) => {
+              const actualValue = row[field];
+              assert(nearlyEqual(actualValue, expectedValue, tolerance), `${tc.key} :: coverage ${item}.${field}`, `expected=${expectedValue} actual=${actualValue}`);
+            });
+          });
+        }
+        if (tc.reportCoverageIncludes) {
+          const byItem = new Map(reportPayload.coverage.map(row => [row.item, row]));
+          Object.entries(tc.reportCoverageIncludes).forEach(([item, expectedFields]) => {
+            const row = byItem.get(item);
+            assert(!!row, `${tc.key} :: coverage item exists`, `${item}; available=${reportPayload.coverage.map(r => r.item).join('、')}`);
+            Object.entries(expectedFields).forEach(([field, fragments]) => {
+              const actualText = String(row[field] ?? '');
+              const list = Array.isArray(fragments) ? fragments : [fragments];
+              list.forEach(fragment => {
+                assert(actualText.includes(fragment), `${tc.key} :: coverage ${item}.${field} includes`, `expected fragment=${fragment} actual=${actualText}`);
+              });
+            });
+          });
+        }
+        if (tc.reportCoverageSummaryIncludes) {
+          const summaryText = JSON.stringify(reportPayload.coverageSummary);
+          const fragments = Array.isArray(tc.reportCoverageSummaryIncludes) ? tc.reportCoverageSummaryIncludes : [tc.reportCoverageSummaryIncludes];
+          fragments.forEach(fragment => {
+            assert(summaryText.includes(fragment), `${tc.key} :: coverage summary includes`, `expected fragment=${fragment} actual=${summaryText}`);
+          });
+        }
+      }
     }
 
     console.log('\nAll column regression checks passed.');
