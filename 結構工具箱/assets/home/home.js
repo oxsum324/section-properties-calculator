@@ -157,6 +157,19 @@
       capabilities: ['正式核算', '耐震構件']
     },
     {
+      title: 'RC 剪力牆',
+      version: 'V0.2',
+      href: '/rc-shear-wall',
+      categories: ['member'],
+      memberSystem: 'rc',
+      state: 'formal',
+      output: '面內 P-M 互制、面內剪力與特殊邊界構材檢核摘要',
+      summary: '結構牆面內撓曲 P-M 互制 (應變相容纖維法)、面內剪力 (φ 0.60/0.75 判定) 與特殊邊界構材含圍束筋 Ash，依 112 規範第 11 與 18.10 章。',
+      fit: '剪力牆面內撓曲與剪力正式檢核。',
+      limit: '連肢牆、連接梁與整體耐震牆系統需完整模型分析。',
+      capabilities: ['正式核算', 'P-M 互制', '耐震構件']
+    },
+    {
       title: 'RC 基礎',
       version: 'V3.0',
       href: '/rc-foundation',
@@ -569,6 +582,7 @@
     '/rc-column': '../鋼筋混凝土/tools/column.html',
     '/rc-slab': '../鋼筋混凝土/tools/slab.html',
     '/rc-wall': '../鋼筋混凝土/tools/wall.html',
+    '/rc-shear-wall': '../鋼筋混凝土/tools/shear-wall.html',
     '/rc-foundation': '../鋼筋混凝土/tools/foundation.html',
     '/rc-pile': '../鋼筋混凝土/tools/single-pile-designer.html',
     '/wind-force': 'tools/風力/wind-force.html',

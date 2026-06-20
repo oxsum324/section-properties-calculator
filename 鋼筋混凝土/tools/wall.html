@@ -28,6 +28,7 @@
   .advanced-tools details + details { margin-top:10px; }
   .advanced-body { margin-top:8px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
   .mono-box { width:100%; font-family:Consolas, monospace; font-size:0.82em; }
+  .mobile-summary-card { display:none; }
   @media (max-width: 768px) {
     .mode-bar__proj {
       display:grid !important; grid-template-columns:1fr 1fr; gap:8px; width:100%;
@@ -53,7 +54,6 @@
     .mobile-fold.mobile-collapsed h2::after { content:'展開'; }
     .mobile-fold:not(.mobile-collapsed) h2::after { content:'收合'; }
   }
-  .mobile-summary-card { display:none; }
   .quick-summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .quick-pill {
     padding:10px 12px; background:#f8fafc; border:1px solid #dbe4ee; border-radius:8px;
