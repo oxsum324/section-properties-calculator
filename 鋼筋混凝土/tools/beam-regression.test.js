@@ -187,6 +187,7 @@ async function captureBeamSnapshot(page) {
       mode: document.querySelector('.mode-btn.active')?.dataset.mode ?? null,
       banner: text('bannerStatus'),
       sectionType: r.sectionType ?? null,
+      support: r.support ?? null,
       seismic: r.seismic ?? null,
       enableTorsion: r.enableTorsion ?? null,
       enableDefl: r.enableDefl ?? null,
@@ -324,6 +325,16 @@ async function captureBeamSnapshot(page) {
       deflNeedsExact: r.deflNeedsExact ?? null,
       deflManualReview: r.deflManualReview ?? null,
       deflStatusText: r.deflStatusText ?? null,
+      deflDirection: r.defl?.deflDirection ?? null,
+      deflMaUseTf: r.defl?.Ma_use_tf ?? null,
+      deflIeUse: r.defl?.IeUse ?? r.defl?.IeAvg ?? null,
+      deflIeUseSource: r.defl?.ieUseSource ?? null,
+      deflRhoPrime: r.defl?.rhoPrime ?? null,
+      deflRhoPrimeSource: r.defl?.rhoPrimeSource ?? null,
+      deflLambdaLT: r.defl?.lambdaLT ?? null,
+      deflDeltaImm: r.defl?.deltaImm ?? null,
+      deflDeltaLT: r.defl?.deltaLT ?? null,
+      deflOk: r.defl?.okDefl ?? null,
       reportBasisVisible: document.body.textContent.includes('112 年混凝土結構設計規範'),
       cShearMin: text('c-shearMin'),
       cShearSpacing: text('c-shearSpacing'),
@@ -489,6 +500,7 @@ async function main() {
   assert(beamHtml.includes('function calcBischoffIe'), 'beam.html has calcBischoffIe', 'helper exists in source');
   assert(beamHtml.includes('function calcMainBarCrackControlData'), 'beam.html has main-bar crack-control check', '24.3.2 spacing is applied to primary tension reinforcement');
   assert(beamHtml.includes('deflManualReview'), 'beam.html has deflection manual-review status', 'span-depth non-exemption is not treated as automatic NG');
+  assert(beamHtml.includes("support === 'cantilever'") && beamHtml.includes('Ma_use_tf'), 'beam.html has cantilever deflection direction logic', 'cantilever exact deflection uses negative-moment critical section');
   assert(beamHtml.includes('function calcSmrfSpacingLimit'), 'beam.html has calcSmrfSpacingLimit', 'helper exists in source');
   assert(beamHtml.includes('function getCrackingStateText'), 'beam.html has getCrackingStateText', 'helper exists in source');
   assert(beamHtml.includes('function calcAsMinInfo'), 'beam.html has calcAsMinInfo', 'T/L beam As,min width helper exists in source');

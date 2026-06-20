@@ -1343,19 +1343,28 @@
     const K_map = { simple: 5/48, oneEnd: 0.073, bothEnd: 1/16, cantilever: 1/4 };
     const K = K_map[support] || (5/48);
     const continuous = (support === 'oneEnd' || support === 'bothEnd');
-    const IeAvg = continuous ? (IePos + IeNeg) / 2 : IePos;
-    const Ma_use = Math.max(Ma_pos_kgcm, 1);
-    const deltaImm = K * Ma_use * Math.pow(ln, 2) / (Ec * IeAvg);
-    const rhoPrime = AsTop / (bw * d_pos);
+    const isCantilever = support === 'cantilever';
+    const IeUse = isCantilever ? IeNeg : (continuous ? (IePos + IeNeg) / 2 : IePos);
+    const ieUseSource = isCantilever
+      ? '懸臂固定端負彎矩臨界斷面'
+      : (continuous ? '正負臨界斷面平均' : '跨中正彎矩臨界斷面');
+    const Ma_use_tf = isCantilever ? MaNeg_tf : MaPos_tf;
+    const Ma_use = Math.max((isCantilever ? Ma_neg_kgcm : Ma_pos_kgcm), 1);
+    const rhoPrimeAs = isCantilever ? AsBot : AsTop;
+    const rhoPrimeD = isCantilever ? d_neg : d_pos;
+    const rhoPrimeSource = isCantilever ? 'AsBot/(bw·d⁻)' : 'AsTop/(bw·d⁺)';
+    const rhoPrime = (rhoPrimeAs > 0 && rhoPrimeD > 0 && bw > 0) ? rhoPrimeAs / (bw * rhoPrimeD) : 0;
     const lambdaLT = xi / (1 + 50 * rhoPrime);
+    const deltaImm = K * Ma_use * Math.pow(ln, 2) / (Ec * IeUse);
     const deltaLT = (1 + lambdaLT) * deltaImm;
     const deltaAllow = ln / limitDiv;
     return {
-      Ec, n_ratio, IcrPos, IcrNeg, IePos, IeNeg, IeAvg,
+      Ec, n_ratio, IcrPos, IcrNeg, IePos, IeNeg, IeAvg: IeUse, IeUse, ieUseSource,
       statePos: getCrackingStateText(Ma_pos_kgcm, Mcr_pos_kgcm),
       stateNeg: getCrackingStateText(Ma_neg_kgcm, Mcr_neg_kgcm),
       deltaImm, deltaLT, deltaAllow, okDefl: deltaLT <= deltaAllow,
-      lambdaLT, K, support, Ma_pos: MaPos_tf, Ma_neg: MaNeg_tf, xi, limitDiv
+      lambdaLT, rhoPrime, rhoPrimeAs, rhoPrimeD, rhoPrimeSource,
+      K, support, deflDirection: isCantilever ? 'neg' : 'pos', Ma_pos: MaPos_tf, Ma_neg: MaNeg_tf, Ma_use, Ma_use_tf, xi, limitDiv
     };
   }
 
@@ -2262,18 +2271,18 @@ ${layerBars.map(L => {
   若 Ma > (2/3)Mcr，1/Ie = 1/Icr − ((2Mcr/3Ma)²)·(1/Icr − 1/Ig)
   +M: Ma⁺ = ${fmt(r.Ma_pos,2)} tf·m → ${r.statePos}    Ie⁺ = ${fmt(r.IePos,0)} cm⁴
   −M: Ma⁻ = ${fmt(r.Ma_neg,2)} tf·m → ${r.stateNeg}    Ie⁻ = ${fmt(r.IeNeg,0)} cm⁴
-  Ie 用於撓度 = ${fmt(r.IeAvg,0)} cm⁴   ${(support==='oneEnd'||support==='bothEnd')?'(依 24.2.3.6 取正負臨界斷面平均)':'(單一臨界斷面)'}
+  Ie 用於撓度 = ${fmt(r.IeAvg,0)} cm⁴   (${r.ieUseSource})
 
 【5】瞬時撓度 Δi
   K(${support}) = ${fmt(r.K,4)}
   Δi = K·Ma·ℓn²/(Ec·Ie)
-     = ${fmt(r.K,4)}·${fmt(r.Ma_pos*1e5,0)}·${ln}²/(${fmt(r.Ec,0)}·${fmt(r.IeAvg,0)})
+     = ${fmt(r.K,4)}·${fmt(r.Ma_use,0)}·${ln}²/(${fmt(r.Ec,0)}·${fmt(r.IeAvg,0)})
      = ${fmt(r.deltaImm,4)} cm
 
 【6】長期撓度 Δlt (規範 24.2.4)
-  ρ′ = AsTop/(bw·d⁺) = ${fmt(AsTop,2)}/(${bw}·${fmt(d_pos,2)}) = ${fmt(AsTop/(bw*d_pos),4)}
+  ρ′ = ${r.rhoPrimeSource} = ${fmt(r.rhoPrimeAs,2)}/(${bw}·${fmt(r.rhoPrimeD,2)}) = ${fmt(r.rhoPrime,4)}
   ξ (持時) = ${r.xi}
-  λΔ = ξ/(1+50ρ′) = ${r.xi}/(1+50·${fmt(AsTop/(bw*d_pos),4)}) = ${fmt(r.lambdaLT,3)}
+  λΔ = ξ/(1+50ρ′) = ${r.xi}/(1+50·${fmt(r.rhoPrime,4)}) = ${fmt(r.lambdaLT,3)}
   Δlt = (1+λΔ)·Δi = (1+${fmt(r.lambdaLT,3)})·${fmt(r.deltaImm,4)} = ${fmt(r.deltaLT,4)} cm
 
 【7】容許撓度 (規範 9.3.2)
@@ -2690,15 +2699,15 @@ ${layerBars.map(L => {
           value:`${r.defl.IcrPos.toFixed(0)} / ${r.defl.IcrNeg.toFixed(0)}`, unit:'cm⁴', ok:null },
         { label:'Ie⁺ / Ie⁻ (Bischoff)',
           formula:'1/Ie = 1/Icr − ((2Mcr/3Ma)²)·(1/Icr − 1/Ig)，且 Ie ≤ Ig',
-          sub:`Ig = ${r.Ig.toFixed(0)} cm⁴    Ie⁺ = ${r.defl.IePos.toFixed(0)}    Ie⁻ = ${r.defl.IeNeg.toFixed(0)}    平均 Ie = ${r.defl.IeAvg.toFixed(0)}`,
+          sub:`Ig = ${r.Ig.toFixed(0)} cm⁴    Ie⁺ = ${r.defl.IePos.toFixed(0)}    Ie⁻ = ${r.defl.IeNeg.toFixed(0)}    使用 Ie = ${r.defl.IeAvg.toFixed(0)} (${r.defl.ieUseSource})`,
           value:`${r.defl.IeAvg.toFixed(0)}`, unit:'cm⁴', ok:null },
         { label:'瞬時撓度 Δi',
           formula:`Δi = K·Ma·ℓn²/(Ec·Ie)，K(${r.defl.support}) = ${r.defl.K.toFixed(4)}`,
-          sub:`= ${r.defl.K.toFixed(4)}·${(r.defl.Ma_pos*1e5).toExponential(2)}·${r.ln}²/(${r.defl.Ec.toFixed(0)}·${r.defl.IeAvg.toFixed(0)})`,
+          sub:`Ma = ${r.defl.Ma_use_tf.toFixed(2)} tf·m；= ${r.defl.K.toFixed(4)}·${r.defl.Ma_use.toExponential(2)}·${r.ln}²/(${r.defl.Ec.toFixed(0)}·${r.defl.IeAvg.toFixed(0)})`,
           value: r.defl.deltaImm.toFixed(3), unit:'cm', ok:null },
         { label:'長期撓度 Δlt',
           formula:'Δlt = (1+λΔ)·Δi，λΔ = ξ/(1+50ρ′)',
-          sub:`ξ = ${r.defl.xi}    ρ′ = ${(r.AsTop/(r.bw*r.d_pos)).toFixed(4)}    λΔ = ${r.defl.lambdaLT.toFixed(3)}`,
+          sub:`ξ = ${r.defl.xi}    ρ′ = ${r.defl.rhoPrimeSource} = ${r.defl.rhoPrime.toFixed(4)}    λΔ = ${r.defl.lambdaLT.toFixed(3)}`,
           value: r.defl.deltaLT.toFixed(3), unit:'cm', ok:null },
         { label:`Δlt ≤ ℓn/${r.defl.limitDiv}`,
           formula:'規範 9.3.2 容許撓度',
