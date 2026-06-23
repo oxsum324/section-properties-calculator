@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>板設計 — RC 工具箱 V3.0</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/style.css">
 <style>
   .moment-table { width:100%; border-collapse:collapse; font-size:0.9em; margin-top:8px; }
@@ -91,6 +92,7 @@
           <option value="one_basic">單向板基本例</option>
           <option value="two_basic">雙向有梁板基本例</option>
           <option value="flat_interior">無梁板內柱初估例</option>
+          <option value="flat_interior_pass_warn">無梁板內柱數值通過待確認例</option>
           <option value="flat_edge_cons">無梁板邊柱保守例</option>
         </select>
       </div>
@@ -411,7 +413,8 @@
         <div class="results-grid">
           <div class="result-item" id="r-VuX"><span class="label">短向 Vu</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
           <div class="result-item" id="r-VuY"><span class="label">長向 Vu</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
-          <div class="result-item" id="r-phiVc1"><span class="label">φVc (1m 寬)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="r-phiVc1"><span class="label">短向 φVc (Vs=0)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="r-phiVc1Y"><span class="label">長向 φVc (Vs=0)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
           <div class="result-item" id="c-v1X"><span class="label">短向 φVc ≥ Vu</span><span class="value">—</span></div>
           <div class="result-item" id="c-v1Y"><span class="label">長向 φVc ≥ Vu</span><span class="value">—</span></div>
           <div class="result-item" id="r-VuPunch"><span class="label">柱衝剪 Vu</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
@@ -591,6 +594,17 @@
       },
       note: '無梁板內柱初估例：觀察平版初估與衝剪初估結果。'
     },
+    flat_interior_pass_warn: {
+      label: '無梁板內柱數值通過待確認例',
+      mode: 'combo',
+      values: {
+        slabType:'flat', Lx:650, Ly:650, h:28, cover:2.5, fc:350, fy:4200, fyT:'4200',
+        supportX:'bothEnd', supportY:'bothEnd', supW:55, panelPos:'interior',
+        c1:55, c2:55, colPos:'interior', punchMode:'prelim', wuCombo:1.10,
+        layerMode:'thick', barNoXBot:'#5', barNoYBot:'#5', barNoXTop:'#5', barNoYTop:'#5'
+      },
+      note: '無梁板內柱數值通過待確認例：數值檢核可通過，但報告仍須標示非完整 DDM / 衝剪分布待正式分析。'
+    },
     flat_edge_cons: {
       label: '無梁板邊柱保守例',
       mode: 'combo',
@@ -646,6 +660,7 @@
         VuX: snap.VuX ?? null,
         VuY: snap.VuY ?? null,
         phiVc1: snap.phiVc1 ?? null,
+        phiVc1Y: snap.phiVc1Y ?? null,
         punchVu: snap.punchData?.VuPunch ?? null,
         punchPhiVc: snap.punchData?.phiVc2 ?? null,
         punchAmp: snap.punchData?.punchAmp ?? 1,
@@ -721,7 +736,8 @@
         ['hmin', 'hmin'],
         ['VuX', 'VuX'],
         ['VuY', 'VuY'],
-        ['φVc(1m)', 'phiVc1'],
+        ['短向 φVc', 'phiVc1'],
+        ['長向 φVc', 'phiVc1Y'],
         ['衝剪 Vu', 'punchVu'],
         ['衝剪 φVc', 'punchPhiVc'],
         ['衝剪放大係數', 'punchAmp']
@@ -773,7 +789,8 @@
     lines.push(`hmin = ${fmtCaseVal(s.hmin)}`);
     lines.push(`VuX = ${fmtCaseVal(s.VuX)}`);
     lines.push(`VuY = ${fmtCaseVal(s.VuY)}`);
-    lines.push(`phiVc1 = ${fmtCaseVal(s.phiVc1)}`);
+    lines.push(`phiVcX = ${fmtCaseVal(s.phiVc1)}`);
+    lines.push(`phiVcY = ${fmtCaseVal(s.phiVc1Y)}`);
     lines.push(`punchVu = ${fmtCaseVal(s.punchVu)}`);
     lines.push(`punchPhiVc = ${fmtCaseVal(s.punchPhiVc)}`);
     lines.push(`punchAmp = ${fmtCaseVal(s.punchAmp)}`);
@@ -889,6 +906,27 @@
     if (support === 'bothEnd') return '以內跨代表該方向條帶；兩端皆視為連續支承，適合規則多跨中間跨之初估。';
     if (support === 'cantilever') return '以懸臂條帶代表該方向受力；自由端與固定端行為需另外確認局部細節。';
     return '代表跨模型。';
+  }
+  function sizeEffectLambda(dCm) {
+    if (!isFinite(dCm) || dCm <= 0) return 1;
+    return Math.min(1, Math.sqrt(2 / (1 + dCm / 25)));
+  }
+  function calcOneWayVcNoShearReinf({ fc, lambda, b, d, rhoW }) {
+    const lambdaS = sizeEffectLambda(d);
+    const rho = Math.max(0, rhoW || 0);
+    const vc = rho > 0 ? 2.12 * lambdaS * lambda * Math.cbrt(rho) * Math.sqrt(fc) : 0;
+    const Vc = vc * b * d / 1000;
+    const phiVc = PHI.shear * Vc;
+    return { lambdaS, rhoW: rho, vc, Vc, phiVc, phiVn: phiVc, Vs: 0 };
+  }
+  function calcPunchVcNoShearReinf({ fc, lambda, d, bo, beta_c, alpha_s }) {
+    const lambdaS = sizeEffectLambda(d);
+    const vc = Math.min(
+      1.06 * lambdaS * lambda * Math.sqrt(fc),
+      0.27 * (2 + 4 / beta_c) * lambdaS * lambda * Math.sqrt(fc),
+      0.27 * (alpha_s * d / bo + 2) * lambdaS * lambda * Math.sqrt(fc)
+    );
+    return { lambdaS, vc };
   }
   function renderSupportSketch(targetId, support, axisLabel) {
     const left = (support === 'simple' || support === 'cantilever') ? 'pin' : 'cont';
@@ -1494,15 +1532,54 @@
     const _aY = isOneWay ? 0 : (window.__slab_alphaY ?? 0);
     const VuX = (wuKgM2 * _aX) * lnX / 2 / 1000;
     const VuY = isOneWay ? NaN : ((wuKgM2 * _aY) * lnY / 2 / 1000);
-    const phiVc1 = PHI.shear * 0.53 * lambda * Math.sqrt(fc) * b * Math.min(dX, dY) / 1000;  // tf/m
+    function shearLongitudinal(axis, support) {
+      const bot = slots.find(s => s.key === `bot${axis}`);
+      const top = slots.find(s => s.key === `top${axis}`);
+      const dBot = axis === 'X' ? dXBot : dYBot;
+      const dTop = axis === 'X' ? dXTop : dYTop;
+      let AsEff, dEff, source;
+      if (!isThick) {
+        AsEff = bot?.As || 0;
+        dEff = dBot;
+        source = '單層同向筋';
+      } else if (support === 'simple') {
+        AsEff = bot?.As || 0;
+        dEff = dBot;
+        source = '簡支代表跨取底層同向筋';
+      } else if (support === 'cantilever') {
+        AsEff = top?.As || 0;
+        dEff = dTop;
+        source = '懸臂代表跨取頂層同向筋';
+      } else {
+        const botAs = bot?.As || 0;
+        const topAs = top?.As || 0;
+        if (botAs <= topAs) {
+          AsEff = botAs;
+          dEff = dBot;
+        } else {
+          AsEff = topAs;
+          dEff = dTop;
+        }
+        source = '連續代表跨取頂/底同向筋較小者';
+      }
+      const rhoW = (b > 0 && dEff > 0) ? AsEff / (b * dEff) : 0;
+      return { axis, AsEff, dEff, rhoW, source };
+    }
+    const shearLongX = shearLongitudinal('X', supX);
+    const shearX = calcOneWayVcNoShearReinf({ fc, lambda, b, d: shearLongX.dEff, rhoW: shearLongX.rhoW });
+    const shearLongY = isOneWay ? null : shearLongitudinal('Y', supY);
+    const shearY = isOneWay ? null : calcOneWayVcNoShearReinf({ fc, lambda, b, d: shearLongY.dEff, rhoW: shearLongY.rhoW });
+    const phiVc1 = shearX.phiVc;  // backward-compatible short-direction value
+    const phiVc1Y = shearY ? shearY.phiVc : NaN;
     setResult('r-VuX', VuX, 'tf/m', 3);
     setResult('r-VuY', VuY, 'tf/m', 3);
     setResult('r-phiVc1', phiVc1, 'tf/m', 3);
-    setCheck('c-v1X', phiVc1 >= VuX, `${phiVc1.toFixed(2)} / ${VuX.toFixed(2)}`);
+    setResult('r-phiVc1Y', phiVc1Y, 'tf/m', 3);
+    setCheck('c-v1X', shearX.phiVn >= VuX, `${shearX.phiVn.toFixed(2)} / ${VuX.toFixed(2)}`);
     if (isOneWay) {
       setCheck('c-v1Y', null, '—');
     } else {
-      setCheck('c-v1Y', phiVc1 >= VuY, `${phiVc1.toFixed(2)} / ${VuY.toFixed(2)}`);
+      setCheck('c-v1Y', shearY.phiVn >= VuY, `${shearY.phiVn.toFixed(2)} / ${VuY.toFixed(2)}`);
     }
 
     // 衝剪 (僅 flat)
@@ -1515,11 +1592,8 @@
       const beta_c = Math.max(c1,c2) / Math.max(Math.min(c1,c2), 0.01);
       const colPos = $('colPos').value;
       const alpha_s = ({ interior:40, edge:30, corner:20 })[colPos] || 40;
-      const vc = Math.min(
-        1.06*lambda*Math.sqrt(fc),
-        0.27*(2 + 4/beta_c)*lambda*Math.sqrt(fc),
-        0.27*(alpha_s*dPunch/bo + 2)*lambda*Math.sqrt(fc)
-      );
+      const punchVc = calcPunchVcNoShearReinf({ fc, lambda, d: dPunch, bo, beta_c, alpha_s });
+      const vc = punchVc.vc;
       const phiVc2 = PHI.shear * vc * bo * dPunch / 1000;
       const punchArea = (c1 + dPunch) * (c2 + dPunch) / 1e4;
       const tribArea = lnX * lnY;
@@ -1534,6 +1608,7 @@
       $('punchCard').style.display = '';
       punchData = {
         c1, c2, bo, vc, phiVc2, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
+        lambdaS: punchVc.lambdaS, dPunch,
         warning: punchMode === 'conservative'
           ? `Vu 先以 tributary-area 初估，再依柱位保守放大 ${punchAmp.toFixed(2)} 倍；仍未納入 unbalanced moment transfer，僅供偏安全初估。`
           : 'Vu 目前採 tributary-area 初估，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局不可直接視為正式衝剪檢核。',
@@ -1630,17 +1705,41 @@
 
     // — banner
     const allFlexOk = flexRows.length === 0 || flexRows.every(r => r.ok);
-    const shearOk = (phiVc1 >= VuX) && (isOneWay || phiVc1 >= VuY);
+    const shearOk = (shearX.phiVn >= VuX) && (isOneWay || shearY.phiVn >= VuY);
     const punchOk = !punchData || punchData.ok;
-    const allOk = (h >= hmin) && allFlexOk && shearOk && punchOk && clearOk;
+    const numericalOk = (h >= hmin) && allFlexOk && shearOk && punchOk && clearOk;
+    const reviewWarnings = [];
+    if (!shearOk) {
+      reviewWarnings.push('樓板剪力檢核目前採無剪力補強假設 (Vn=Vc, Vs=0)；若要靠剪力鋼筋或剪力補強通過，需另行設計並確認錨定、間距與施工細節。');
+    }
+    if (stype === 'two') {
+      reviewWarnings.push('雙向有梁板目前採簡化二向條帶法與 Rankine-Grashof 載重分配，尚未執行完整雙向板分析或專案樓板模型，不可列為最終 OK 結論。');
+    }
+    if (isFlat) {
+      reviewWarnings.push('無梁板主體採簡化二向條帶初估，尚未執行完整 8.10 DDM / EFM 分析，不可列為正式 OK 結論。');
+    }
+    if (punchData) {
+      reviewWarnings.push('柱衝剪 Vu 採 tributary-area 初估或保守放大，尚未納入 unbalanced moment transfer 與偏心剪力正式分布。');
+      if (punchData.colPos !== 'interior') {
+        reviewWarnings.push('邊柱 / 角柱衝剪與邊界條件需以專案樓板模型或正式手算補充確認。');
+      }
+    }
+    const hasReviewWarnings = reviewWarnings.length > 0;
+    const summaryOk = numericalOk ? (hasReviewWarnings ? null : true) : false;
+    const summaryText = summaryOk === true
+      ? '✓ OK — 初步檢查通過'
+      : (summaryOk === false ? '✗ NG — 部分項目未通過' : `⚠ 待確認 — ${reviewWarnings.length} 項需正式分析確認`);
     const banner = $('bannerStatus');
-    banner.className = 'banner-status ' + (allOk ? 'ok' : 'fail');
-    banner.innerHTML = (allOk ? '✓ OK — 初步檢查通過' : '✗ NG — 部分項目未通過')
+    banner.className = 'banner-status ' + (summaryOk === true ? 'ok' : summaryOk === false ? 'fail' : 'warn');
+    banner.innerHTML = summaryText
       + `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">`
       + `${h>=hmin?'✓':'✗'} 板厚 ｜ ${allFlexOk?'✓':'✗'} 撓曲 ｜ ${shearOk?'✓':'✗'} ${isOneWay ? '剪力' : '剪力初估'}`
       + (punchData ? ` ｜ ${punchOk?'✓':'✗'} 雙向衝剪` : '')
       + ` ｜ ${clearOk?'✓':'✗'} 鋼筋淨距`
       + `</div>`;
+    if (summaryOk === null) {
+      banner.innerHTML += `<div style="font-size:0.72em; font-weight:600; margin-top:6px; padding:6px 10px; background:#fef3c7; color:#a16207; border-left:3px solid #f59e0b; border-radius:4px;">⚠ 數值檢核通過，但仍須正式二向板 / DDM / 衝剪分布複核，不可列為最終 OK。</div>`;
+    }
     if (upgrades.length) {
       const upTxt = upgrades.map(u =>
         `${u.spId.replace('barSp','')}: ${u.from}→${u.to}` + (u.fail?' (仍不足!)':'')
@@ -1665,7 +1764,8 @@
       punchMode: (isFlat ? $('punchMode').value : ''),
       testCaseKey: $('testCaseSelect')?.value || '',
       moments, flexRows,
-      VuX, VuY, phiVc1, AsMin, sMaxF, sMaxT, sMaxFlexFormula,
+      VuX, VuY, phiVc1, phiVc1Y, shearX, shearY, shearLongX, shearLongY,
+      AsMin, sMaxF, sMaxT, sMaxFlexFormula,
       fyT, rhoT, rhoTFormula,
       methodLabel, alphaX: _aXdisp, alphaY: _aYdisp, m_ratio: (isOneWay ? NaN : (window.__slab_m ?? NaN)),
       rigorousDL, dl_val, ll_val, wuFormula,
@@ -1675,7 +1775,7 @@
       clearAll, clearOk,
       mode: currentMode,
       showSteps: !!$('showSteps')?.checked,
-      punchData, allOk
+      punchData, numericalOk, reviewWarnings, summaryOk, summaryText, allOk: summaryOk
     };
   }
 
@@ -1754,6 +1854,28 @@
       ]},
     ];
 
+    const shearFormulaNoShearReinf = 'φVn = φVc = 0.75·2.12·λs·λ·ρw^(1/3)·√fc·b·d，Vs=0';
+    function shearReportItem(label, shear, longData, Vu, note) {
+      const baseSub = `As,eff = ${longData.AsEff.toFixed(2)} cm²/m (${longData.source})`
+        + `\nd = ${longData.dEff.toFixed(2)} cm，ρw = As/(b·d) = ${longData.rhoW.toFixed(5)}`
+        + `\nλs = ${shear.lambdaS.toFixed(3)}，vc = ${shear.vc.toFixed(2)} kgf/cm²`
+        + `\nφVc = ${shear.phiVc.toFixed(3)} tf/m，Vu = ${Vu.toFixed(3)} tf/m`
+        + (note ? `\n${note}` : '');
+      const stepSub = r.showSteps
+        ? `φVc = 0.75 × 2.12 × ${shear.lambdaS.toFixed(3)} × ${Math.cbrt(longData.rhoW).toFixed(4)} × √${r.fc} × 100 × ${longData.dEff.toFixed(2)} / 1000`
+          + `\n     = ${shear.phiVc.toFixed(3)} tf/m，Vu=${Vu.toFixed(3)} tf/m`
+          + `\n${baseSub}`
+        : baseSub;
+      return {
+        label,
+        formula: shearFormulaNoShearReinf,
+        sub: stepSub,
+        value: `${shear.phiVn.toFixed(3)} / ${Vu.toFixed(3)}`,
+        unit: 'tf/m',
+        ok: shear.phiVn >= Vu
+      };
+    }
+
     const checks = [
       { group:`板厚最小值檢核 (${r.hminRef})`, items:[
         { label:'h ≥ hmin',
@@ -1808,27 +1930,28 @@
         }) : [{ label:'(無撓曲位置)', formula:'—', sub:'—', value:'—', ok:null }]
       },
       { group:r.isOneWay ? '剪力檢核' : '剪力初估', items:[
-        { label:'短向 φVc ≥ Vu', formula:'φVc = 0.75·0.53·√fc·b·d',
-          sub: r.showSteps
-            ? `φVc = 0.75 × 0.53 × √${r.fc} × 100 × ${Math.min(r.dXBot,r.dYBot).toFixed(2)} / 1000\n     = ${r.phiVc1.toFixed(3)} tf/m，Vu=${r.VuX.toFixed(3)} tf/m`
-            : `= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuX.toFixed(3)}`,
-          value:`${r.phiVc1.toFixed(3)} / ${r.VuX.toFixed(3)}`, unit:'tf/m', ok:r.phiVc1>=r.VuX },
-        ...(r.isOneWay ? [] : [{ label:'長向 φVc ≥ Vu', formula:'同上',
-          sub:`= ${r.phiVc1.toFixed(3)} tf/m, Vu=${r.VuY.toFixed(3)}\n本 Vu 為簡化條帶反力估算，供初步比較用。`,
-          value:`${r.phiVc1.toFixed(3)} / ${r.VuY.toFixed(3)}`, unit:'tf/m', ok:r.phiVc1>=r.VuY }])
+        shearReportItem('短向 φVn=φVc (Vs=0) ≥ Vu', r.shearX, r.shearLongX, r.VuX),
+        ...(r.isOneWay ? [] : [
+          shearReportItem('長向 φVn=φVc (Vs=0) ≥ Vu', r.shearY, r.shearLongY, r.VuY, '本 Vu 為簡化條帶反力估算，供初步比較用。')
+        ])
       ]},
       ...(r.punchData ? [{ group:'雙向衝剪', items:[
         { label:'臨界周長 bo', formula:'bo = 2(c1+c2+2d)',
           sub:`bo = ${r.punchData.bo.toFixed(1)} cm`,
           value:`${r.punchData.bo.toFixed(1)}`, unit:'cm', ok:null },
-        { label:'φVc ≥ Vu (衝剪)', formula:'min(1.06√fc, 0.27(2+4/βc)√fc, 0.27(αs·d/bo+2)√fc)',
-          sub:`vc = ${r.punchData.vc.toFixed(2)} kgf/cm²`
+        { label:'φVc ≥ Vu (衝剪)', formula:'vc = min(1.06λs√fc, 0.27(2+4/βc)λs√fc, 0.27(αs·d/bo+2)λs√fc)',
+          sub:`d = ${r.punchData.dPunch.toFixed(2)} cm，λs = ${r.punchData.lambdaS.toFixed(3)}`
+            + `\nvc = ${r.punchData.vc.toFixed(2)} kgf/cm²`
             + `\nVu,base = ${r.punchData.VuPunchBase.toFixed(2)} tf`
             + (r.punchData.punchAmp > 1 ? `\n保守放大 = ${r.punchData.punchAmp.toFixed(2)} × Vu,base = ${r.punchData.VuPunch.toFixed(2)} tf` : '')
             + `\n${r.punchData.warning}`,
           value:`${r.punchData.phiVc2.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
           unit:'tf', ok:r.punchData.ok }
       ]}] : []),
+      ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
+        group:'待確認 / 正式分析需求',
+        value:'需正式分析確認'
+      })] : []),
       // ─── 溫度收縮筋檢核 (規範 24.4.3) ───
       // 對每一層 × 每一向比較實際 As 與 As,min,t；單向板長向僅靠此檢核
       { group:'溫度收縮筋檢核 (規範 24.4.3)', items: (() => {
@@ -1878,14 +2001,84 @@
 
     const isDesignMode = (r.mode === 'design');
     const reportGrade = r.isOneWay ? '單向板係數法 + 其他項目初步檢核' : '簡化條帶法初步設計';
+    const diagrams = [];
+    const sectionData = svgToDataURL($('sectionSVG')?.querySelector('svg'));
+    if (sectionData) {
+      diagrams.push({
+        title:'板 1 m 寬條帶斷面配筋示意',
+        dataURL: sectionData,
+        caption:`${r.isThick ? '雙層' : '單層'}配筋；藍色為 X 向短向筋，綠色為 Y 向長向筋。`,
+        width:520
+      });
+    }
+
+    const fmtStep = (v, d=3) => (v == null || !isFinite(v)) ? '—' : Number(v).toFixed(d);
+    const stepsArr = [];
+    if (r.showSteps) {
+      stepsArr.push({
+        group:'分析方法與載重',
+        body:[
+          `採用方法：${r.methodLabel}`,
+          `板型：${({one:'單向板', two:'雙向板 (有梁)', flat:'無梁版', flatDrop:'無梁版+柱頭板'})[r.stype] || r.stype}`,
+          `代表跨：X=${getSupportName(r.supX)}；Y=${getSupportName(r.supY)}`,
+          `淨跨：ℓnx=${fmtStep(r.lnX_cm,1)} cm；ℓny=${fmtStep(r.lnY_cm,1)} cm`,
+          `載重來源：${({manual:'手動輸入 wu_manual', dlll:'DL + LL 計算值 wu_dlll', combo:'完整載重組合結果 wu_combo'})[r.wuSource] || '—'}`,
+          `wu_used=${fmtStep(r.wu,3)} tf/m²`,
+          `計算式：${r.wuFormula}`,
+        ].join('\n')
+      });
+      stepsArr.push({
+        group:'板厚與內力',
+        body:[
+          `hmin 依據：${r.hminRef}`,
+          r.hminFormula,
+          `檢核：h=${fmtStep(r.h,1)} cm；hmin=${fmtStep(r.hmin,1)} cm → ${r.h >= r.hmin ? 'OK' : 'NG'}`,
+          '',
+          ...r.moments.map(m => {
+            const result = m.M > 0
+              ? `Mu=${fmtStep(m.M,3)} tf·m/m`
+              : (m.V > 0 ? `Vu=${fmtStep(m.V,3)} tf/m` : '僅配溫度收縮筋');
+            return `${m.dir} ${m.loc}: ${m.coef}；${m.step || m.ref || ''}；${result}`;
+          })
+        ].join('\n')
+      });
+      if (r.flexRows.length) {
+        stepsArr.push({
+          group:'撓曲鋼筋',
+          body: r.flexRows.map(f => [
+            `${f.loc}`,
+            `Mu=${fmtStep(f.Mu,3)} tf·m/m；d=${fmtStep(f.d,2)} cm；${f.barNo} @ ${fmtStep(f.sp,1)} cm`,
+            `As 需求=${fmtStep(f.AsReq,2)} cm²/m；As 配置=${fmtStep(f.As,2)} cm²/m`,
+            `φ=${fmtStep(f.phi,3)}；φMn=${fmtStep(f.phiMn,3)} tf·m/m → ${f.ok ? 'OK' : 'NG'}`,
+          ].join('\n')).join('\n\n')
+        });
+      }
+      const shearLines = [
+        '一向剪力：無剪力補強假設 Vn=Vc, Vs=0',
+        `短向：As,eff=${fmtStep(r.shearLongX.AsEff,2)} cm²/m，ρw=${fmtStep(r.shearLongX.rhoW,5)}，λs=${fmtStep(r.shearX.lambdaS,3)}`,
+        `短向 φVc = ${fmtStep(r.shearX.phiVc,3)} tf/m；VuX = ${fmtStep(r.VuX,3)} tf/m → ${r.shearX.phiVn >= r.VuX ? 'OK' : 'NG'}`,
+      ];
+      if (!r.isOneWay) {
+        shearLines.push(`長向：As,eff=${fmtStep(r.shearLongY.AsEff,2)} cm²/m，ρw=${fmtStep(r.shearLongY.rhoW,5)}，λs=${fmtStep(r.shearY.lambdaS,3)}`);
+        shearLines.push(`長向 φVc = ${fmtStep(r.shearY.phiVc,3)} tf/m；VuY = ${fmtStep(r.VuY,3)} tf/m → ${r.shearY.phiVn >= r.VuY ? 'OK' : 'NG'}`);
+      }
+      if (r.punchData) {
+        shearLines.push('');
+        shearLines.push(`衝剪 bo=${fmtStep(r.punchData.bo,1)} cm；λs=${fmtStep(r.punchData.lambdaS,3)}；vc=${fmtStep(r.punchData.vc,2)} kgf/cm²`);
+        shearLines.push(`Vu,base=${fmtStep(r.punchData.VuPunchBase,2)} tf；放大係數=${fmtStep(r.punchData.punchAmp,2)}`);
+        shearLines.push(`φVc=${fmtStep(r.punchData.phiVc2,2)} tf；Vu=${fmtStep(r.punchData.VuPunch,2)} tf → ${r.punchData.ok ? 'OK' : 'NG'}`);
+        shearLines.push(r.punchData.warning);
+      }
+      stepsArr.push({ group:'剪力與衝剪', body:shearLines.join('\n') });
+    }
     openReport({
       title: isDesignMode ? '板初步設計計算書' : '板初步檢核計算書',
       subtitle: isDesignMode
         ? `RC Slab Preliminary Design Report — ${reportGrade}`
         : `RC Slab Preliminary Verification Report — ${reportGrade}`,
       project: proj,
-      summary:{ ok:r.allOk, text: r.allOk?'✓ OK — 初步檢查通過':'✗ NG — 部分項目未通過' },
-      inputs, checks,
+      summary:{ ok:r.summaryOk, text: r.summaryText },
+      inputs, checks, diagrams, steps:stepsArr,
       symbols:[
         { sym:"fc'", desc:'混凝土抗壓強度' },
         { sym:'fy',  desc:'鋼筋降伏強度' },
@@ -1900,13 +2093,22 @@
       ],
       notes:[
         '本報表屬初步設計 / 初步檢核等級，供配置比較、尺寸篩選與方案討論使用。',
-        '依據 112 年混凝土結構設計規範 6.5、22.6 及相關最小厚度與配筋條文；雙向 / 無梁板主體目前為簡化二向條帶初估，非完整 8.10 DDM。',
+        '依據 112 年混凝土結構設計規範 6.5、22.5、22.6 及相關最小厚度與配筋條文；雙向 / 無梁板主體目前為簡化二向條帶初估，非完整 8.10 DDM。',
+        '一向剪力目前採無剪力補強假設：Vn=Vc、Vs=0；縱向主筋只作為 ρw 影響 Vc，不自動視為剪力鋼筋。',
         '本工具未納入 DDM 之總靜力矩分配、column strip / middle strip 細分配、邊柱列與角柱列處理；無梁板結果僅供初步配置與方案比較。',
         '無梁板衝剪 Vu 目前採 tributary-area 初估或柱位保守放大估算，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局應另作正式檢核。',
         '未來擴充：等值構架法 (EFM, 規範 8.11)，適用不規則柱距與複雜邊界',
         '計算結果僅供初步設計參考，實際設計仍應由執業技師簽證'
       ]
     });
+  }
+
+  function svgToDataURL(svg) {
+    if (!svg) return '';
+    const clone = svg.cloneNode(true);
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    const serialized = new XMLSerializer().serializeToString(clone);
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(serialized);
   }
 
   // ─── LoadCombo (完整模式) ─────────────────────────
