@@ -417,9 +417,63 @@
           <div class="result-item" id="r-phiVc1Y"><span class="label">長向 φVc (Vs=0)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
           <div class="result-item" id="c-v1X"><span class="label">短向 φVc ≥ Vu</span><span class="value">—</span></div>
           <div class="result-item" id="c-v1Y"><span class="label">長向 φVc ≥ Vu</span><span class="value">—</span></div>
+          <div class="result-item" id="r-Vs1X"><span class="label">短向 Vs (剪力鋼筋)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="r-phiVn1X"><span class="label">短向 φVn=φ(Vc+Vs)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="c-vn1X"><span class="label">短向 φVn ≥ Vu (含Vs)</span><span class="value">—</span></div>
+          <div class="result-item" id="r-Vs1Y"><span class="label">長向 Vs (剪力鋼筋)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="r-phiVn1Y"><span class="label">長向 φVn=φ(Vc+Vs)</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item" id="c-vn1Y"><span class="label">長向 φVn ≥ Vu (含Vs)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-vsLim"><span class="label">Vs ≤ 2.12√fc·b·d</span><span class="value">—</span></div>
+          <div class="result-item" id="c-swSp"><span class="label">箍筋間距 ≤ 上限</span><span class="value">—</span></div>
           <div class="result-item" id="r-VuPunch"><span class="label">柱衝剪 Vu</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
-          <div class="result-item" id="r-phiVc2"><span class="label">φVc (衝剪)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
-          <div class="result-item" id="c-v2"><span class="label">φVc ≥ Vu (衝剪)</span><span class="value">—</span></div>
+          <div class="result-item" id="r-phiVc2"><span class="label">φVc 衝剪 (Vs=0)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="r-vsPunch"><span class="label">衝剪 vs (剪力鋼筋)</span><span><span class="value">—</span><span class="unit">kgf/cm²</span></span></div>
+          <div class="result-item" id="r-phiVn2"><span class="label">φVn=φ(Vc+Vs) 衝剪</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="c-v2"><span class="label">φVn ≥ Vu (衝剪)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-vn2Max"><span class="label">vn ≤ 上限 (衝剪)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-puSp"><span class="label">衝剪筋徑向間距 ≤ 上限</span><span class="value">—</span></div>
+        </div>
+      </div>
+
+      <!-- 5b. 剪力鋼筋補強 (Vs，選用) -->
+      <div class="card">
+        <h2>5b. 剪力鋼筋補強 (Vs，選用)</h2>
+        <p class="hint detail-help">板依規範以混凝土單獨抵抗剪力為原則，不足時首選加厚；若確需以剪力鋼筋通過，依規範 22.5(單向)／22.6(衝剪) 計入 Vs，並把關 Vs 上限、間距與板厚錨定條件。薄板(h&lt;25cm)箍筋難有效錨定，不建議。</p>
+        <div class="checkbox-row">
+          <input type="checkbox" id="swEnable">
+          <label for="swEnable">配置單向剪力鋼筋（計入 Vs，規範 22.5）</label>
+        </div>
+        <div id="swInputs" style="display:none;">
+          <div class="form-row">
+            <div class="form-group"><label>箍筋號數</label>
+              <select id="swBar"><option>#3</option><option selected>#4</option><option>#5</option></select>
+            </div>
+            <div class="form-group"><label>fyt (kgf/cm²)</label><input type="number" id="swFyt" value="2800"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>沿跨間距 s (cm)</label><input type="number" id="swS" value="15"></div>
+            <div class="form-group"><label>橫向間距 st (cm)</label><input type="number" id="swSt" value="20"></div>
+          </div>
+          <div class="form-group"><label>每組肢數 nLeg</label><input type="number" id="swLeg" value="2"></div>
+        </div>
+        <div class="checkbox-row" style="margin-top:10px;">
+          <input type="checkbox" id="puEnable">
+          <label for="puEnable">配置衝剪鋼筋（平版柱位，計入 Vs，規範 22.6）</label>
+        </div>
+        <div id="puInputs" style="display:none;">
+          <div class="form-row">
+            <div class="form-group"><label>型式</label>
+              <select id="puType"><option value="stirrup" selected>閉合箍 (vc=0.53λs√fc, vn≤1.59√fc)</option><option value="stud">剪力釘 stud (vc=0.79λs√fc, vn≤2.12√fc)</option></select>
+            </div>
+            <div class="form-group"><label>箍筋／釘 號數</label>
+              <select id="puBar"><option>#3</option><option selected>#4</option><option>#5</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>每周長線肢數／釘數</label><input type="number" id="puLeg" value="8"></div>
+            <div class="form-group"><label>徑向間距 s (cm)</label><input type="number" id="puS" value="8"></div>
+          </div>
+          <div class="form-group"><label>fyt (kgf/cm²)</label><input type="number" id="puFyt" value="2800"></div>
         </div>
       </div>
 
@@ -887,6 +941,12 @@
   });
   $('punchMode').addEventListener('change', () => { updatePunchModeHint(); scheduleCalc(); });
   $('colPos').addEventListener('change', () => { updatePunchModeHint(); scheduleCalc(); });
+  function syncVsInputs() {
+    if ($('swInputs')) $('swInputs').style.display = $('swEnable')?.checked ? '' : 'none';
+    if ($('puInputs')) $('puInputs').style.display = $('puEnable')?.checked ? '' : 'none';
+  }
+  $('swEnable')?.addEventListener('change', syncVsInputs);
+  $('puEnable')?.addEventListener('change', syncVsInputs);
 
   // ─── 規範 6.5 連續板係數 ────────────────────────
   // 回傳分母 x：M = wu·ℓn²/x
@@ -927,6 +987,36 @@
       0.27 * (alpha_s * d / bo + 2) * lambdaS * lambda * Math.sqrt(fc)
     );
     return { lambdaS, vc };
+  }
+  // === 單向板剪力鋼筋 Vs (規範 22.5) — 選用 ===
+  // 板條帶 b=100cm；Av = (b/st)·nLeg·Ab (一向間距 s 內、橫向間距 st、每組 nLeg 肢)
+  function calcOneWayVs({ fc, b, d, fyt, Ab, nLeg, s, st }) {
+    if (!(s > 0) || !(st > 0) || !(Ab > 0) || !(d > 0) || !(fyt > 0)) {
+      return { Vs: 0, VsMax: 0, Av: 0, sMax: 0, sOk: false, vsMaxOk: false, valid: false };
+    }
+    const Av = (b / st) * nLeg * Ab;                       // cm² (b=100cm 寬內)
+    const Vs = Av * fyt * d / s / 1000;                    // tf/m
+    const VsMax = 2.12 * Math.sqrt(fc) * b * d / 1000;     // tf/m，Vs 上限 (規範 22.5.1.2)
+    const sThresh = 1.06 * Math.sqrt(fc) * b * d / 1000;   // 超過則間距上限減半 (22.5.10.5.5)
+    const sMax = (Vs > sThresh) ? Math.min(d / 4, 30) : Math.min(d / 2, 60);
+    return { Av, Vs, VsMax, sThresh, sMax, vsMaxOk: Vs <= VsMax + 1e-9, sOk: s <= sMax + 1e-9, valid: true };
+  }
+  // === 雙向衝剪鋼筋 Vs (規範 22.6) — 選用 ===
+  // type: 'stirrup'(閉合箍) | 'stud'(剪力釘)；Av_line = nLeg·Ab (一周長線上剪力鋼筋面積)
+  function calcPunchVs({ type, fc, lambda, lambdaS, d, bo, fyt, Ab, nLeg, s }) {
+    const isStud = type === 'stud';
+    const vc = (isStud ? 0.79 : 0.53) * lambdaS * lambda * Math.sqrt(fc);  // 折減後混凝土項 (22.6.6.2/.3)
+    const vnMax = (isStud ? 2.12 : 1.59) * lambda * Math.sqrt(fc);          // vn 上限 (22.6.6.3)
+    const sMax = (isStud ? 0.75 : 0.5) * d;                                 // 徑向間距上限 (8.7.7)
+    if (!(s > 0) || !(Ab > 0) || !(bo > 0) || !(d > 0) || !(fyt > 0)) {
+      return { type, vc, vs: 0, vnRaw: vc, vn: vc, vnMax, sMax, AvLine: 0, phiVn: 0, vnMaxOk: true, sOk: false, valid: false };
+    }
+    const AvLine = nLeg * Ab;
+    const vs = AvLine * fyt / (bo * s);
+    const vnRaw = vc + vs;
+    const vn = Math.min(vnRaw, vnMax);
+    const phiVn = PHI.shear * vn * bo * d / 1000;                           // tf
+    return { type, vc, vs, vnRaw, vn, vnMax, sMax, AvLine, phiVn, vnMaxOk: vnRaw <= vnMax + 1e-9, sOk: s <= sMax + 1e-9, valid: true };
   }
   function renderSupportSketch(targetId, support, axisLabel) {
     const left = (support === 'simple' || support === 'cantilever') ? 'pin' : 'cont';
@@ -1571,15 +1661,47 @@
     const shearY = isOneWay ? null : calcOneWayVcNoShearReinf({ fc, lambda, b, d: shearLongY.dEff, rhoW: shearLongY.rhoW });
     const phiVc1 = shearX.phiVc;  // backward-compatible short-direction value
     const phiVc1Y = shearY ? shearY.phiVc : NaN;
+    // 單向剪力鋼筋 Vs (規範 22.5，選用；預設關閉時 phiVn=phiVc 與既有行為相同)
+    const swOn = $('swEnable')?.checked;
+    let vsX = null, vsY = null;
+    if (swOn) {
+      const AbSw = (window.REBAR_TABLE && REBAR_TABLE[$('swBar').value]) ? REBAR_TABLE[$('swBar').value].area : 1.267;
+      const fytSw = num('swFyt') || 2800;
+      const nLegSw = Math.max(1, Math.round(num('swLeg')) || 2);
+      const sSw = num('swS'), stSw = num('swSt');
+      vsX = calcOneWayVs({ fc, b, d: shearLongX.dEff, fyt: fytSw, Ab: AbSw, nLeg: nLegSw, s: sSw, st: stSw });
+      shearX.Vs = vsX.Vs; shearX.phiVn = PHI.shear * (shearX.Vc + vsX.Vs);
+      if (!isOneWay && shearY) {
+        vsY = calcOneWayVs({ fc, b, d: shearLongY.dEff, fyt: fytSw, Ab: AbSw, nLeg: nLegSw, s: sSw, st: stSw });
+        shearY.Vs = vsY.Vs; shearY.phiVn = PHI.shear * (shearY.Vc + vsY.Vs);
+      }
+    }
     setResult('r-VuX', VuX, 'tf/m', 3);
     setResult('r-VuY', VuY, 'tf/m', 3);
     setResult('r-phiVc1', phiVc1, 'tf/m', 3);
     setResult('r-phiVc1Y', phiVc1Y, 'tf/m', 3);
-    setCheck('c-v1X', shearX.phiVn >= VuX, `${shearX.phiVn.toFixed(2)} / ${VuX.toFixed(2)}`);
+    // c-v1X/Y：混凝土單獨 (Vs=0) 基準檢核
+    setCheck('c-v1X', shearX.phiVc >= VuX, `${shearX.phiVc.toFixed(2)} / ${VuX.toFixed(2)}`);
     if (isOneWay) {
       setCheck('c-v1Y', null, '—');
     } else {
-      setCheck('c-v1Y', shearY.phiVn >= VuY, `${shearY.phiVn.toFixed(2)} / ${VuY.toFixed(2)}`);
+      setCheck('c-v1Y', shearY.phiVc >= VuY, `${shearY.phiVc.toFixed(2)} / ${VuY.toFixed(2)}`);
+    }
+    // 含 Vs 之檢核 (僅啟用時顯示；否則維持 rc-pending 隱藏)
+    if (swOn) {
+      setResult('r-Vs1X', vsX.Vs, 'tf/m', 3);
+      setResult('r-phiVn1X', shearX.phiVn, 'tf/m', 3);
+      setCheck('c-vn1X', shearX.phiVn >= VuX, `${shearX.phiVn.toFixed(2)} / ${VuX.toFixed(2)}`);
+      let vsMaxOk = vsX.vsMaxOk, sOk = vsX.sOk, VsShow = vsX.Vs, VsMaxShow = vsX.VsMax;
+      if (!isOneWay && vsY) {
+        setResult('r-Vs1Y', vsY.Vs, 'tf/m', 3);
+        setResult('r-phiVn1Y', shearY.phiVn, 'tf/m', 3);
+        setCheck('c-vn1Y', shearY.phiVn >= VuY, `${shearY.phiVn.toFixed(2)} / ${VuY.toFixed(2)}`);
+        vsMaxOk = vsMaxOk && vsY.vsMaxOk; sOk = sOk && vsY.sOk;
+        VsShow = Math.max(vsX.Vs, vsY.Vs); VsMaxShow = Math.min(vsX.VsMax, vsY.VsMax);
+      }
+      setCheck('c-vsLim', vsMaxOk, `${VsShow.toFixed(2)} / ${VsMaxShow.toFixed(2)} tf/m`);
+      setCheck('c-swSp', sOk, `s=${num('swS')} ≤ ${vsX.sMax.toFixed(0)} cm`);
     }
 
     // 衝剪 (僅 flat)
@@ -1602,17 +1724,31 @@
         ? ({ interior:1.15, edge:1.30, corner:1.50 })[colPos] || 1.15
         : 1.0;
       const VuPunch = VuPunchBase * punchAmp;
+      // 衝剪鋼筋 Vs (規範 22.6，選用；停用時 phiVnPunch=phiVc2 與既有行為相同)
+      const puOn = $('puEnable')?.checked;
+      let punchVs = null, phiVnPunch = phiVc2;
+      if (puOn) {
+        const AbPu = (window.REBAR_TABLE && REBAR_TABLE[$('puBar').value]) ? REBAR_TABLE[$('puBar').value].area : 1.267;
+        punchVs = calcPunchVs({ type: $('puType').value, fc, lambda, lambdaS: punchVc.lambdaS, d: dPunch, bo, fyt: num('puFyt') || 2800, Ab: AbPu, nLeg: Math.max(1, Math.round(num('puLeg')) || 8), s: num('puS') });
+        phiVnPunch = punchVs.phiVn;
+      }
       setResult('r-VuPunch', VuPunch, 'tf', 2);
       setResult('r-phiVc2', phiVc2, 'tf', 2);
-      setCheck('c-v2', phiVc2 >= VuPunch, `${phiVc2.toFixed(1)} / ${VuPunch.toFixed(1)}`);
+      setCheck('c-v2', phiVnPunch >= VuPunch, `${phiVnPunch.toFixed(1)} / ${VuPunch.toFixed(1)}`);
+      if (puOn) {
+        setResult('r-vsPunch', punchVs.vs, 'kgf/cm²', 2);
+        setResult('r-phiVn2', phiVnPunch, 'tf', 2);
+        setCheck('c-vn2Max', punchVs.vnMaxOk, `vn=${punchVs.vnRaw.toFixed(1)} ≤ ${punchVs.vnMax.toFixed(1)}`);
+        setCheck('c-puSp', punchVs.sOk, `s=${num('puS')} ≤ ${punchVs.sMax.toFixed(1)} cm`);
+      }
       $('punchCard').style.display = '';
       punchData = {
-        c1, c2, bo, vc, phiVc2, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
+        c1, c2, bo, vc, phiVc2, phiVnPunch, punchVs, puOn, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
         lambdaS: punchVc.lambdaS, dPunch,
         warning: punchMode === 'conservative'
           ? `Vu 先以 tributary-area 初估，再依柱位保守放大 ${punchAmp.toFixed(2)} 倍；仍未納入 unbalanced moment transfer，僅供偏安全初估。`
           : 'Vu 目前採 tributary-area 初估，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局不可直接視為正式衝剪檢核。',
-        ok: phiVc2 >= VuPunch
+        ok: phiVnPunch >= VuPunch
       };
     } else {
       $('punchCard').style.display = 'none';
@@ -1710,7 +1846,11 @@
     const numericalOk = (h >= hmin) && allFlexOk && shearOk && punchOk && clearOk;
     const reviewWarnings = [];
     if (!shearOk) {
-      reviewWarnings.push('樓板剪力檢核目前採無剪力補強假設 (Vn=Vc, Vs=0)；若要靠剪力鋼筋或剪力補強通過，需另行設計並確認錨定、間距與施工細節。');
+      reviewWarnings.push(swOn
+        ? '即使計入單向剪力鋼筋 Vs，φVn 仍 < Vu；須加厚或加大剪力鋼筋（注意 Vs ≤ 2.12√fc·b·d 上限與深度錨定）。'
+        : '一向剪力以混凝土單獨抵抗 (Vn=Vc, Vs=0) 未通過；可加厚，或於「5b. 剪力鋼筋補強」勾選計入 Vs（規範 22.5，須確認板厚、錨定、間距）。');
+    } else if (swOn) {
+      reviewWarnings.push('一向剪力已計入剪力鋼筋 Vs（規範 22.5）：請確認箍筋確實勾住上下層主筋有效錨定、間距上限與板厚足以容置箍筋；薄板 (h<25cm) 不建議，宜改加厚。');
     }
     if (stype === 'two') {
       reviewWarnings.push('雙向有梁板目前採簡化二向條帶法與 Rankine-Grashof 載重分配，尚未執行完整雙向板分析或專案樓板模型，不可列為最終 OK 結論。');
@@ -1720,6 +1860,9 @@
     }
     if (punchData) {
       reviewWarnings.push('柱衝剪 Vu 採 tributary-area 初估或保守放大，尚未納入 unbalanced moment transfer 與偏心剪力正式分布。');
+      if (punchData.puOn) {
+        reviewWarnings.push('已計入衝剪鋼筋 Vs（規範 22.6）：混凝土項已折減、vn 上限已套用；配置須延伸至 vu ≤ φ·0.53λs√fc′ 之外圍臨界面，首排距柱面 ≤ d/2、徑向間距 ≤（閉合箍 0.5d／剪力釘 0.75d），並確認端部錨定。');
+      }
       if (punchData.colPos !== 'interior') {
         reviewWarnings.push('邊柱 / 角柱衝剪與邊界條件需以專案樓板模型或正式手算補充確認。');
       }
@@ -1856,10 +1999,13 @@
 
     const shearFormulaNoShearReinf = 'φVn = φVc = 0.75·2.12·λs·λ·ρw^(1/3)·√fc·b·d，Vs=0';
     function shearReportItem(label, shear, longData, Vu, note) {
+      const hasVs = (shear.Vs || 0) > 0;
       const baseSub = `As,eff = ${longData.AsEff.toFixed(2)} cm²/m (${longData.source})`
         + `\nd = ${longData.dEff.toFixed(2)} cm，ρw = As/(b·d) = ${longData.rhoW.toFixed(5)}`
         + `\nλs = ${shear.lambdaS.toFixed(3)}，vc = ${shear.vc.toFixed(2)} kgf/cm²`
-        + `\nφVc = ${shear.phiVc.toFixed(3)} tf/m，Vu = ${Vu.toFixed(3)} tf/m`
+        + `\nφVc = ${shear.phiVc.toFixed(3)} tf/m`
+        + (hasVs ? `\nVs = ${shear.Vs.toFixed(3)} tf/m（規範 22.5 剪力鋼筋）→ φVn = φ(Vc+Vs) = ${shear.phiVn.toFixed(3)} tf/m` : '')
+        + `\nVu = ${Vu.toFixed(3)} tf/m`
         + (note ? `\n${note}` : '');
       const stepSub = r.showSteps
         ? `φVc = 0.75 × 2.12 × ${shear.lambdaS.toFixed(3)} × ${Math.cbrt(longData.rhoW).toFixed(4)} × √${r.fc} × 100 × ${longData.dEff.toFixed(2)} / 1000`
@@ -1868,7 +2014,7 @@
         : baseSub;
       return {
         label,
-        formula: shearFormulaNoShearReinf,
+        formula: hasVs ? 'φVn = φ(Vc + Vs)，Vs = Av·fyt·d/s（規範 22.5）' : shearFormulaNoShearReinf,
         sub: stepSub,
         value: `${shear.phiVn.toFixed(3)} / ${Vu.toFixed(3)}`,
         unit: 'tf/m',
@@ -1930,22 +2076,28 @@
         }) : [{ label:'(無撓曲位置)', formula:'—', sub:'—', value:'—', ok:null }]
       },
       { group:r.isOneWay ? '剪力檢核' : '剪力初估', items:[
-        shearReportItem('短向 φVn=φVc (Vs=0) ≥ Vu', r.shearX, r.shearLongX, r.VuX),
+        shearReportItem(`短向 φVn ≥ Vu${(r.shearX.Vs||0)>0?'（含 Vs）':'（Vs=0）'}`, r.shearX, r.shearLongX, r.VuX),
         ...(r.isOneWay ? [] : [
-          shearReportItem('長向 φVn=φVc (Vs=0) ≥ Vu', r.shearY, r.shearLongY, r.VuY, '本 Vu 為簡化條帶反力估算，供初步比較用。')
+          shearReportItem(`長向 φVn ≥ Vu${(r.shearY&&r.shearY.Vs>0)?'（含 Vs）':'（Vs=0）'}`, r.shearY, r.shearLongY, r.VuY, '本 Vu 為簡化條帶反力估算，供初步比較用。')
         ])
       ]},
       ...(r.punchData ? [{ group:'雙向衝剪', items:[
         { label:'臨界周長 bo', formula:'bo = 2(c1+c2+2d)',
           sub:`bo = ${r.punchData.bo.toFixed(1)} cm`,
           value:`${r.punchData.bo.toFixed(1)}`, unit:'cm', ok:null },
-        { label:'φVc ≥ Vu (衝剪)', formula:'vc = min(1.06λs√fc, 0.27(2+4/βc)λs√fc, 0.27(αs·d/bo+2)λs√fc)',
+        { label:`φVn ≥ Vu (衝剪)${r.punchData.puOn?'（含 Vs，規範 22.6）':'（Vs=0）'}`,
+          formula: r.punchData.puOn
+            ? 'vn = vc(折減) + vs，vs = Av·fyt/(bo·s)，vn ≤ 上限'
+            : 'vc = min(1.06λs√fc, 0.27(2+4/βc)λs√fc, 0.27(αs·d/bo+2)λs√fc)',
           sub:`d = ${r.punchData.dPunch.toFixed(2)} cm，λs = ${r.punchData.lambdaS.toFixed(3)}`
-            + `\nvc = ${r.punchData.vc.toFixed(2)} kgf/cm²`
+            + `\nφVc（混凝土單獨）= ${r.punchData.phiVc2.toFixed(2)} tf`
+            + (r.punchData.puOn && r.punchData.punchVs
+                ? `\n衝剪鋼筋(${r.punchData.punchVs.type==='stud'?'剪力釘':'閉合箍'})：vc折減=${r.punchData.punchVs.vc.toFixed(2)}、vs=${r.punchData.punchVs.vs.toFixed(2)}、vn=${r.punchData.punchVs.vn.toFixed(2)} ≤ 上限 ${r.punchData.punchVs.vnMax.toFixed(2)} kgf/cm²`
+                  + `\n→ φVn = φ(Vc+Vs) = ${r.punchData.phiVnPunch.toFixed(2)} tf` : '')
             + `\nVu,base = ${r.punchData.VuPunchBase.toFixed(2)} tf`
             + (r.punchData.punchAmp > 1 ? `\n保守放大 = ${r.punchData.punchAmp.toFixed(2)} × Vu,base = ${r.punchData.VuPunch.toFixed(2)} tf` : '')
             + `\n${r.punchData.warning}`,
-          value:`${r.punchData.phiVc2.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
+          value:`${r.punchData.phiVnPunch.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
           unit:'tf', ok:r.punchData.ok }
       ]}] : []),
       ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
@@ -2053,20 +2205,28 @@
           ].join('\n')).join('\n\n')
         });
       }
+      const swUsed = (r.shearX.Vs || 0) > 0;
       const shearLines = [
-        '一向剪力：無剪力補強假設 Vn=Vc, Vs=0',
+        swUsed ? '一向剪力：計入剪力鋼筋 Vs（規範 22.5），φVn=φ(Vc+Vs)' : '一向剪力：無剪力補強假設 Vn=Vc, Vs=0',
         `短向：As,eff=${fmtStep(r.shearLongX.AsEff,2)} cm²/m，ρw=${fmtStep(r.shearLongX.rhoW,5)}，λs=${fmtStep(r.shearX.lambdaS,3)}`,
-        `短向 φVc = ${fmtStep(r.shearX.phiVc,3)} tf/m；VuX = ${fmtStep(r.VuX,3)} tf/m → ${r.shearX.phiVn >= r.VuX ? 'OK' : 'NG'}`,
+        `短向 φVc = ${fmtStep(r.shearX.phiVc,3)} tf/m`
+          + (swUsed ? `；Vs=${fmtStep(r.shearX.Vs,3)} → φVn=${fmtStep(r.shearX.phiVn,3)} tf/m` : '')
+          + `；VuX = ${fmtStep(r.VuX,3)} tf/m → ${r.shearX.phiVn >= r.VuX ? 'OK' : 'NG'}`,
       ];
       if (!r.isOneWay) {
         shearLines.push(`長向：As,eff=${fmtStep(r.shearLongY.AsEff,2)} cm²/m，ρw=${fmtStep(r.shearLongY.rhoW,5)}，λs=${fmtStep(r.shearY.lambdaS,3)}`);
-        shearLines.push(`長向 φVc = ${fmtStep(r.shearY.phiVc,3)} tf/m；VuY = ${fmtStep(r.VuY,3)} tf/m → ${r.shearY.phiVn >= r.VuY ? 'OK' : 'NG'}`);
+        shearLines.push(`長向 φVc = ${fmtStep(r.shearY.phiVc,3)} tf/m`
+          + ((r.shearY.Vs||0)>0 ? `；Vs=${fmtStep(r.shearY.Vs,3)} → φVn=${fmtStep(r.shearY.phiVn,3)} tf/m` : '')
+          + `；VuY = ${fmtStep(r.VuY,3)} tf/m → ${r.shearY.phiVn >= r.VuY ? 'OK' : 'NG'}`);
       }
       if (r.punchData) {
         shearLines.push('');
-        shearLines.push(`衝剪 bo=${fmtStep(r.punchData.bo,1)} cm；λs=${fmtStep(r.punchData.lambdaS,3)}；vc=${fmtStep(r.punchData.vc,2)} kgf/cm²`);
+        shearLines.push(`衝剪 bo=${fmtStep(r.punchData.bo,1)} cm；λs=${fmtStep(r.punchData.lambdaS,3)}；φVc(混凝土單獨)=${fmtStep(r.punchData.phiVc2,2)} tf`);
+        if (r.punchData.puOn && r.punchData.punchVs) {
+          shearLines.push(`衝剪鋼筋(${r.punchData.punchVs.type==='stud'?'剪力釘':'閉合箍'})：vc折減=${fmtStep(r.punchData.punchVs.vc,2)}、vs=${fmtStep(r.punchData.punchVs.vs,2)}、vn=${fmtStep(r.punchData.punchVs.vn,2)} ≤ 上限 ${fmtStep(r.punchData.punchVs.vnMax,2)} kgf/cm²`);
+        }
         shearLines.push(`Vu,base=${fmtStep(r.punchData.VuPunchBase,2)} tf；放大係數=${fmtStep(r.punchData.punchAmp,2)}`);
-        shearLines.push(`φVc=${fmtStep(r.punchData.phiVc2,2)} tf；Vu=${fmtStep(r.punchData.VuPunch,2)} tf → ${r.punchData.ok ? 'OK' : 'NG'}`);
+        shearLines.push(`φVn=${fmtStep(r.punchData.phiVnPunch,2)} tf；Vu=${fmtStep(r.punchData.VuPunch,2)} tf → ${r.punchData.ok ? 'OK' : 'NG'}`);
         shearLines.push(r.punchData.warning);
       }
       stepsArr.push({ group:'剪力與衝剪', body:shearLines.join('\n') });
@@ -2094,7 +2254,9 @@
       notes:[
         '本報表屬初步設計 / 初步檢核等級，供配置比較、尺寸篩選與方案討論使用。',
         '依據 112 年混凝土結構設計規範 6.5、22.5、22.6 及相關最小厚度與配筋條文；雙向 / 無梁板主體目前為簡化二向條帶初估，非完整 8.10 DDM。',
-        '一向剪力目前採無剪力補強假設：Vn=Vc、Vs=0；縱向主筋只作為 ρw 影響 Vc，不自動視為剪力鋼筋。',
+        ((r.shearX.Vs||0)>0 || (r.punchData && r.punchData.puOn))
+          ? '本案剪力已計入剪力鋼筋 Vs（規範 22.5 單向／22.6 衝剪）：請確認箍筋錨定、間距上限、Vs 與 vn 上限及板厚容置條件；薄板 (h<25cm) 不建議配箍，宜改加厚。'
+          : '一向剪力目前採無剪力補強假設：Vn=Vc、Vs=0；縱向主筋只作為 ρw 影響 Vc，不自動視為剪力鋼筋。',
         '本工具未納入 DDM 之總靜力矩分配、column strip / middle strip 細分配、邊柱列與角柱列處理；無梁板結果僅供初步配置與方案比較。',
         '無梁板衝剪 Vu 目前採 tributary-area 初估或柱位保守放大估算，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局應另作正式檢核。',
         '未來擴充：等值構架法 (EFM, 規範 8.11)，適用不規則柱距與複雜邊界',
@@ -2127,7 +2289,7 @@
     el.addEventListener('change', scheduleCalc);
   });
   $('btnReport').addEventListener('click', buildSlabReport);
-  window.addEventListener('load', () => { updateSelfWt(); updatePunchModeHint(); syncDesignFields(); syncDetailHelp(); syncAdvancedCaseTools(); calcSlab(); });
+  window.addEventListener('load', () => { updateSelfWt(); updatePunchModeHint(); syncVsInputs(); syncDesignFields(); syncDetailHelp(); syncAdvancedCaseTools(); calcSlab(); });
 </script>
 </body>
 </html>
