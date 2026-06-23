@@ -1,0 +1,197 @@
+{
+  "schema": "foundation-regression-pack-v1",
+  "description": "Baseline regression cases for RC foundation tool.",
+  "tolerance": 0.001,
+  "cases": [
+    {
+      "key": "iso_default",
+      "label": "獨立基腳預設例",
+      "tab": "iso",
+      "expected": {
+        "tab": "iso",
+        "qmax": 22.4,
+        "qmin": 22.4,
+        "Mu_tfm": 33.212,
+        "phiMn_tfm": 98.51759273382352,
+        "Vu1_tf": 32.915392,
+        "phiVc1_tf": 83.6053657179845,
+        "Vu2_tf": 148.19731743590398,
+        "phiVc2_tf": 295.0346406607326,
+        "okQ": false,
+        "okV1": true,
+        "okV2": true,
+        "okFlex": true,
+        "okAsMin": true,
+        "okDev": false,
+        "okSettle": true,
+        "banner": "✗ NG — 不符合規範✗ qmax ≤ qa ｜ ✓ φVc ≥ Vu (單向) ｜ ✓ φVc ≥ Vu (衝剪) ｜ ✓ φMn ≥ Mu ｜ ✓ As ≥ As,min ｜ ✗ ℓd ｜ ✓ d ≥ 15 ｜ ✓ 沉陷"
+      }
+    },
+    {
+      "key": "combined_default",
+      "label": "聯合基腳預設例",
+      "tab": "combined",
+      "expected": {
+        "tab": "combined",
+        "qmax": 41.6,
+        "qmin": -1.6000000000000014,
+        "H_total": 0,
+        "N_total": 227,
+        "okSlide": null,
+        "Mu_tfm": 337.9999999999999,
+        "phiMn_tfm": 95.10587418705884,
+        "Vu1_tf": 87.67462112048608,
+        "phiVc1_tf": 80.1871869962794,
+        "Vu2_tf": 98.48578799956456,
+        "phiVc2_tf": 385.7901791015397,
+        "okQ": false,
+        "okV1": false,
+        "okV2": true,
+        "okFlex": false,
+        "okAs": true,
+        "controlPunchName": "柱2",
+        "banner": "✗ NG — 不符合規範✗ qmax ≤ qa ｜ · 抗滑 FS ≥ 1.5 ｜ ✗ φVc ≥ Vu (單向) ｜ ✓ φVc ≥ Vu (衝剪) ｜ ✗ φMn ≥ Mu ｜ ✓ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax"
+      }
+    },
+    {
+      "key": "combined_pass_warn",
+      "label": "聯合基腳數值通過待確認例",
+      "tab": "combined",
+      "values": {
+        "cB": 400,
+        "cL": 500,
+        "cHf": 160,
+        "cQa": 80,
+        "cColDist": 500,
+        "cBarNoX": "#11",
+        "cBarSpX": 10,
+        "cBarNoY": "#11",
+        "cBarSpY": 10
+      },
+      "expected": {
+        "tab": "combined",
+        "okQ": true,
+        "okSlide": null,
+        "okV1": true,
+        "okV2": true,
+        "okFlex": true,
+        "okAs": true,
+        "numericalOk": true,
+        "summaryOk": null,
+        "summaryText": "⚠ 待確認 — 2 項需正式聯合基腳分析確認",
+        "reviewWarningCount": 2,
+        "banner": "⚠ 待確認 — 2 項需正式聯合基腳分析確認✓ qmax ≤ qa ｜ · 抗滑 FS ≥ 1.5 ｜ ✓ φVc ≥ Vu (單向) ｜ ✓ φVc ≥ Vu (衝剪) ｜ ✓ φMn ≥ Mu ｜ ✓ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax⚠ 數值檢核通過，但聯合基腳仍採近似包絡與代表柱檢核，報告不列為最終 OK。"
+      }
+    },
+    {
+      "key": "mat_default",
+      "label": "筏式基礎預設例",
+      "tab": "mat",
+      "expected": {
+        "tab": "mat",
+        "q": 5,
+        "qu": 6.5,
+        "As_per_m": 14.25,
+        "AsMin_per_m": 14.399999999999999,
+        "Vu1_tf": 77.76795,
+        "phiVc1_tf": 46.95589158567259,
+        "Vu2_tf": 196.91421488375,
+        "phiVc2_tf": 490.57637293047287,
+        "okQ": true,
+        "okAs": false,
+        "okFlex": true,
+        "okV1": false,
+        "okV2": true,
+        "mcDdmText": "DDM / EFM 分析待確認 — 本工具未提供",
+        "mcDdmWarn": true,
+        "banner": "✗ NG — 不符合規範✓ q ≤ qa ｜ ✗ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax ｜ ✓ 各點 φMn ≥ Mu (柱帶) ｜ ✗ 各點 φVc ≥ Vu (單向) ｜ ✓ 各點 φVc ≥ Vu (衝剪)"
+      }
+    },
+    {
+      "key": "mat_pass_warn",
+      "label": "筏式基礎數值通過待確認例",
+      "tab": "mat",
+      "values": {
+        "mHf": 180,
+        "mBarNoX": "#11",
+        "mBarSpX": 10,
+        "mBarNoY": "#11",
+        "mBarSpY": 10
+      },
+      "expected": {
+        "tab": "mat",
+        "okQ": true,
+        "okAs": true,
+        "okFlex": true,
+        "okV1": true,
+        "okV2": true,
+        "numericalOk": true,
+        "summaryOk": null,
+        "summaryText": "⚠ 待確認 — 2 項需正式筏基分析確認",
+        "reviewWarningCount": 2,
+        "mcDdmText": "DDM / EFM 分析待確認 — 本工具未提供",
+        "mcDdmWarn": true,
+        "banner": "⚠ 待確認 — 2 項需正式筏基分析確認✓ q ≤ qa ｜ ✓ X/Y As ≥ As,min ｜ ✓ X/Y 間距 ≤ smax ｜ ✓ 各點 φMn ≥ Mu (柱帶) ｜ ✓ 各點 φVc ≥ Vu (單向) ｜ ✓ 各點 φVc ≥ Vu (衝剪)⚠ 數值檢核通過，但筏基仍採多代表柱近似與條帶檢核，報告不列為最終 OK。"
+      }
+    },
+    {
+      "key": "pile_default",
+      "label": "樁基預設例",
+      "tab": "pile",
+      "expected": {
+        "tab": "pile",
+        "Qs": 137.95501908654353,
+        "Qb": 166.02661498144596,
+        "Qult": 303.9816340679895,
+        "Qall": 121.5926536271958,
+        "Vu2_tf": 327.1111111111111,
+        "phiVc2_tf": 721.9106876490418,
+        "okR": true,
+        "okV2": true,
+        "soilOk": true,
+        "structuralOk": true,
+        "capApplied": false,
+        "tipLayerLabel": "gravel @ 15.0-24.0 m",
+        "recommendationDia": 40,
+        "recommendationDepth": 12.5,
+        "okSettlement": false,
+        "okPileStress": false,
+        "okCapFlex": true,
+        "okCapShear": true,
+        "banner": "✗ NG — 不符合規範✓ Rmax ≤ Qa·η ｜ ✓ |Rmin| ≤ Qt ｜ ✓ 樁距 ≥ 2.5Dp ｜ ✓ d ≥ 30 cm ｜ ✓ φVc ≥ Vu (衝剪) ｜ ✓ 土層資料有效 ｜ ✓ 斷面/配筋限制 ｜ ✗ Wo ≤ 容許沉陷 ｜ ✗ 樁身壓應力 ｜ ✓ 樁帽 φMn ≥ Mu ｜ ✓ 樁帽 φ(Vc+Vs) ≥ Vu,max ｜ ✓ Qall ≥ 服務需求"
+      }
+    },
+    {
+      "key": "retain_counterfort_warn",
+      "label": "扶壁式擋土牆數值通過待確認例",
+      "tab": "retain",
+      "values": {
+        "retainType": "counterfort",
+        "rHw": 300,
+        "rTw": 45,
+        "rLt": 150,
+        "rLh": 300,
+        "rHb": 70,
+        "rMu": 0.8,
+        "rQa": 30,
+        "rBarNo": "#8",
+        "rNBar": 10,
+        "rSf": 300
+      },
+      "expected": {
+        "tab": "retain",
+        "retainType": "counterfort",
+        "okSlide": true,
+        "okOver": true,
+        "okQr": true,
+        "okFlex": true,
+        "okShear": true,
+        "numericalOk": true,
+        "summaryOk": null,
+        "summaryText": "⚠ 待確認 — 2 項需正式扶壁系統分析確認",
+        "reviewWarningCount": 2,
+        "banner": "⚠ 待確認 — 2 項需正式扶壁系統分析確認✓ 抗滑 FS ≥ 1.5 ｜ ✓ 抗傾覆 FS ≥ 2.0 ｜ ✓ qmax ≤ qa ｜ ✓ φMn ≥ Mu ｜ ✓ φVc ≥ Vu⚠ 數值檢核通過，但扶壁式仍須正式雙向板 / 扶壁系統分析，不可列為最終 OK。"
+      }
+    }
+  ]
+}
