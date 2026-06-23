@@ -30,7 +30,7 @@
                      showSteps 勾選且該檢核啟用時)
         ‧ summary  : anyFail→NG, allOk→OK, 否則 partial
         ‧ notes    : 第一條即「作業模式：設計／檢核」
-        ‧ openReport() 共用模組 (../shared/report.js?v=2) 統一輸出
+        ‧ openReport() 共用模組 (../shared/report.js?v=4) 統一輸出
         ‧ window.xxxLast 必須包含所有 r.* 欄位 (含 svMin/okBarsPerLayer 等)
 
   (4) 規範附加檢核 (依各構件規範對照)
@@ -65,7 +65,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>梁設計 — RC 工具箱 V3.0</title>
+<title>梁設計 — RC 工具箱 V3.1</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/style.css">
 <style>
@@ -170,7 +170,7 @@
 </head>
 <body>
 <header>
-  <h1>梁 Beam 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.0</span></h1>
+  <h1>梁 Beam 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
 </header>
 
@@ -733,9 +733,9 @@
 <script src="../../結構工具箱/core/utils/common.js"></script>
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
-<script src="../shared/common.js?v=3"></script>
+<script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/report.js?v=3"></script>
+<script src="../shared/report.js?v=4"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>

@@ -125,7 +125,7 @@
     },
     {
       title: 'RC 梁',
-      version: 'V3.0',
+      version: 'V3.1',
       href: '/rc-beam',
       categories: ['member'],
       memberSystem: 'rc',
@@ -139,7 +139,7 @@
     },
     {
       title: 'RC 柱',
-      version: 'V3.0',
+      version: 'V3.1',
       href: '/rc-column',
       categories: ['member'],
       memberSystem: 'rc',
@@ -153,7 +153,7 @@
     },
     {
       title: 'RC 板',
-      version: 'V3.0',
+      version: 'V3.1',
       href: '/rc-slab',
       categories: ['member'],
       memberSystem: 'rc',
@@ -167,7 +167,7 @@
     },
     {
       title: 'RC 牆',
-      version: 'V3.0',
+      version: 'V3.1',
       href: '/rc-wall',
       categories: ['member'],
       memberSystem: 'rc',
@@ -195,7 +195,7 @@
     },
     {
       title: 'RC 基礎',
-      version: 'V3.0',
+      version: 'V3.1',
       href: '/rc-foundation',
       categories: ['member'],
       memberSystem: 'rc',
@@ -209,7 +209,7 @@
     },
     {
       title: '單樁承載力設計器',
-      version: 'V3.0',
+      version: 'V3.1',
       href: '/rc-pile',
       categories: ['member'],
       memberSystem: 'rc',
