@@ -56,7 +56,8 @@ const repoDocs = {
   homeJs: readText(toolboxFile('assets/home/home.js')),
   smoke: readText(toolboxFile('tools/formal-browser-smoke.test.js')),
   runner: readText(toolboxFile(manifest.shared.runner)),
-  maturity: readText(toolboxFile(manifest.shared.maturityMatrix))
+  maturity: readText(toolboxFile(manifest.shared.maturityMatrix)),
+  goldenHarvest: readText(toolboxFile(manifest.shared.goldenHarvest))
 };
 
 [
@@ -64,11 +65,19 @@ const repoDocs = {
   'formalTools = formalManifest.tools',
   'requiredFormalRoutes = formalManifest.requiredRoutes',
   'reportExpectations',
+  'reportDisclosureNeedles',
   'diagramChecks',
   'roleBoxesNonZero',
   'rolesInsideDiagram',
   'goldenCaseExpression',
-  'assertGoldenCaseState'
+  'assertGoldenCaseState',
+  'settlePage',
+  'waitForImportStatus',
+  'Page.javascriptDialogOpening',
+  'inlineValidationExpression',
+  'assertInlineValidationState',
+  "viewport.key === 'desktop'",
+  'desktop interaction'
 ].forEach(needle => assertIncludes(repoDocs.smoke, needle, 'formal browser smoke manifest contract'));
 
 [
@@ -93,6 +102,18 @@ const repoDocs = {
 ].forEach(needle => assertIncludes(repoDocs.maturity, needle, 'tool maturity matrix generator'));
 
 [
+  'formal-golden-harvest',
+  '--tool=<key>',
+  '--inputs64=<base64-json>',
+  'startStaticServer',
+  'selectorValues',
+  'resultItems',
+  'metricValues',
+  'dialogs',
+  'bodyTextPreview'
+].forEach(needle => assertIncludes(repoDocs.goldenHarvest, needle, 'formal golden harvest helper'));
+
+[
   '結構工具箱/tools/formal-tools.manifest.json',
   '結構工具箱/tools/formal-tools.run.js',
   '結構工具箱/tools/formal-tools.contract.test.js',
@@ -104,11 +125,15 @@ const repoDocs = {
   assertIncludes(repoDocs.staging, needle, 'STAGING_GROUPS formal tools governance');
 });
 assertIncludes(repoDocs.reportGuide, 'formal-tools.manifest.json', 'TOOL_REPORT_GUIDE formal manifest');
+assertIncludes(repoDocs.reportGuide, 'reportDisclosureNeedles', 'TOOL_REPORT_GUIDE report disclosure needles');
+assertIncludes(repoDocs.reportGuide, '建築物耐風設計規範及解說', 'TOOL_REPORT_GUIDE wind report disclosure');
+assertIncludes(repoDocs.reportGuide, '建築物耐震設計規範及解說', 'TOOL_REPORT_GUIDE seismic report disclosure');
 assertIncludes(repoDocs.reportGuide, '工具成熟度矩陣', 'TOOL_REPORT_GUIDE maturity matrix');
 
 const routeSet = new Set();
 const keySet = new Set();
 const reportForbidden = manifest.reportForbiddenNeedles || [];
+const reportDisclosureNeedles = manifest.reportDisclosureNeedles || {};
 
 for (const tool of tools) {
   assert.ok(tool.key, 'formal tool key');
@@ -130,8 +155,18 @@ for (const tool of tools) {
   if (tool.exportButton) assertIncludes(html, tool.exportButton, `${tool.key} export button in HTML`);
   if (tool.importButton) assertIncludes(html, tool.importButton, `${tool.key} import button in HTML`);
   if (tool.reportMode) {
-    assertIncludes(html, 'btnReportModeDetail', `${tool.key} report detail mode`);
-    assertIncludes(html, 'btnReportModeSimple', `${tool.key} report simple mode`);
+    const controls = tool.reportModeControls || {};
+    if (controls.simpleButton || controls.detailButton) {
+      assertIncludes(html, controls.simpleButton, `${tool.key} report simple mode button`);
+      assertIncludes(html, controls.detailButton, `${tool.key} report detail mode button`);
+    } else if (controls.selectId || controls.simpleValue || controls.detailValue) {
+      assertIncludes(html, `id="${controls.selectId || 'reportMode'}"`, `${tool.key} report mode select`);
+      assertIncludes(html, controls.simpleValue || 'summary', `${tool.key} report simple mode option`);
+      assertIncludes(html, controls.detailValue || 'detailed', `${tool.key} report detail mode option`);
+    } else {
+      assertIncludes(html, 'btnReportModeDetail', `${tool.key} report detail mode`);
+      assertIncludes(html, 'btnReportModeSimple', `${tool.key} report simple mode`);
+    }
   }
   for (const role of tool.diagramRoleNeedles || []) {
     assertIncludes(html, `data-diagram-role="${role}"`, `${tool.key} diagram role`);
@@ -140,6 +175,11 @@ for (const tool of tools) {
   for (const needle of reportForbidden) {
     if (['undefined', 'NaN'].includes(needle)) continue;
     assertNoIncludes(html, needle, `${tool.key} source wording`);
+  }
+  const disclosureNeedles = reportDisclosureNeedles[tool.discipline] || [];
+  assert.ok(disclosureNeedles.length >= 2, `${tool.key} report disclosure needles`);
+  for (const needle of disclosureNeedles) {
+    assertIncludes(html, needle, `${tool.key} source report disclosure`);
   }
 
   assertIncludes(repoDocs.homeJs, `href: '${tool.route}'`, `${tool.key} home clean route card`);
@@ -197,8 +237,74 @@ for (const tool of tools) {
 const goldenToolKeys = tools.filter(tool => (tool.goldenCases || []).length > 0).map(tool => tool.key);
 assert.deepEqual(
   goldenToolKeys,
-  ['wind-object-solid', 'wind-object-frame', 'wind-lattice-tower', 'wind-object-tower', 'wind-fence-sign', 'wind-sign-pole', 'seismic-appendage', 'seismic-misc', 'seismic-dynamic'],
+  ['wind-force', 'wind-cc', 'wind-open-roof', 'wind-parapet', 'wind-object-solid', 'wind-object-frame', 'wind-lattice-tower', 'wind-object-tower', 'wind-fence-sign', 'wind-sign-pole', 'seismic-force', 'seismic-appendage', 'seismic-misc', 'seismic-dynamic'],
   'formal golden case pilot tool set'
 );
+
+for (const tool of tools) {
+  const html = readText(toolboxFile(tool.html));
+  assertNoIncludes(html, 'alert(', `${tool.key} user feedback must be inline, not blocking alerts`);
+}
+
+for (const inlineValidationPage of [
+  'tools/風力/wind-force.html',
+  'tools/風力/wind-cc.html',
+  'tools/風力/wind-open-roof.html',
+  'tools/風力/wind-parapet.html'
+]) {
+  const html = readText(toolboxFile(inlineValidationPage));
+  assertIncludes(html, 'id="inputStatus"', `${inlineValidationPage} inline input status element`);
+  assertIncludes(html, 'aria-live="polite"', `${inlineValidationPage} inline input status live region`);
+  assertIncludes(html, 'function setInputStatus', `${inlineValidationPage} inline input status helper`);
+  assertIncludes(html, 'return false;', `${inlineValidationPage} invalid calc return`);
+  assertIncludes(html, 'if (calc() === false) return;', `${inlineValidationPage} export guard`);
+  assertNoIncludes(html, 'alert(', `${inlineValidationPage} input validation must be inline`);
+}
+
+{
+  const html = readText(toolboxFile('tools/地震力/seismic-force.html'));
+  assertIncludes(html, 'id="inputStatus"', 'seismic-force inline input status element');
+  assertIncludes(html, 'id="apStatus"', 'seismic-force appendage input status element');
+  assertIncludes(html, 'id="vStatus"', 'seismic-force vertical input status element');
+  assertIncludes(html, 'id="miscStatus"', 'seismic-force misc input status element');
+  assertIncludes(html, 'function setInputStatus', 'seismic-force inline input status helper');
+  assertIncludes(html, 'if (calc() === false) return;', 'seismic-force export guard');
+  [
+    "alert('請完整填入有效的震區參數",
+    'alert(floorMsg)',
+    "alert('請先執行主結構地震力計算",
+    "alert('請填入自訂 ap 與 Rp')",
+    "alert('請先在左側②面板填入有效的震區參數",
+    "alert('請輸入有效的工作物重量與高度')"
+  ].forEach(needle => assertNoIncludes(html, needle, 'seismic-force input validation alert'));
+}
+
+{
+  const html = readText(toolboxFile('tools/地震力/seismic-dynamic.html'));
+  assertIncludes(html, 'id="inputStatus"', 'seismic-dynamic inline input status element');
+  assertIncludes(html, 'function setInputStatus', 'seismic-dynamic inline input status helper');
+  assertIncludes(html, 'function showResetCaseConfirmation', 'seismic-dynamic inline reset confirmation helper');
+  assertIncludes(html, 'function confirmResetCaseDefaults', 'seismic-dynamic reset confirmation apply helper');
+  assertIncludes(html, 'function cancelResetCaseDefaults', 'seismic-dynamic reset confirmation cancel helper');
+  assertIncludes(html, 'if (calcDynamic() === false) return null;', 'seismic-dynamic case payload guard');
+  assertNoIncludes(html, 'confirm(', 'seismic-dynamic reset confirmation must be inline');
+  [
+    "alert('這不是本頁支援的動力分析案件 JSON。')",
+    'alert(`案件 JSON 讀取失敗：${err.message}`)',
+    "alert('請完整填入有效的規範反應譜參數。')",
+    "alert('請完整填入有效的工址條件與動力分析結果。')"
+  ].forEach(needle => assertNoIncludes(html, needle, 'seismic-dynamic input validation alert'));
+}
+
+for (const seismicBlockingPage of [
+  'tools/地震力/seismic-appendage.html',
+  'tools/地震力/seismic-misc.html'
+]) {
+  const html = readText(toolboxFile(seismicBlockingPage));
+  assertIncludes(html, 'id="inputStatus"', `${seismicBlockingPage} inline input status element`);
+  assertIncludes(html, 'function setInputStatus', `${seismicBlockingPage} inline input status helper`);
+  assertIncludes(html, 'return false;', `${seismicBlockingPage} blocking validation return`);
+  assertNoIncludes(html, 'alert(blockingMessages', `${seismicBlockingPage} blocking validation alert`);
+}
 
 console.log(`formal tools contract OK (${tools.length} tools)`);

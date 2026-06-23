@@ -28,6 +28,8 @@
   .btn-print { display:inline-block; margin-top:8px; padding:8px 18px; background:#0891b2; color:#fff;
     border:0; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.88em; }
   .btn-print:hover { background:#0e7490; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.85em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
 
   @media (max-width:900px) { .two-col { grid-template-columns:1fr; } }
 
@@ -181,6 +183,7 @@
     </div>
 
     <button class="btn-calc" onclick="runCheck()">檢 核</button>
+    <div class="input-status" id="inputStatus" aria-live="polite"></div>
     <div class="chk-detail">
       <input type="checkbox" id="chkDetail">
       <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
@@ -261,6 +264,17 @@ function setMethod(m) {
 function ri(label, value, unit, status) {
   const cls = status ? ` ${status}` : '';
   return `<div class="result-item${cls}"><span class="label">${label}</span><span><span class="value">${value}</span><span class="unit">${unit||''}</span></span></div>`;
+}
+function setInputStatus(message) {
+  const el = $('inputStatus');
+  if (el) el.textContent = message || '';
+}
+function clearInputStatus() {
+  setInputStatus('');
+}
+function inputFail(message) {
+  setInputStatus(message);
+  return null;
 }
 
 // ── 斷面下拉 ──
@@ -359,6 +373,7 @@ function renderColumnEnvelope() {
 //  主 檢 核
 // ══════════════════════════════════
 function runCheck() {
+  clearInputStatus();
   // ── 取得輸入 ──
   const mm = { n:'自訂', H:num('inH'), B:num('inB'), tw:num('inTw'), tf:num('inTf'), R:num('inR') };
   const selV = $('secSelect').value;
@@ -367,8 +382,8 @@ function runCheck() {
     const grp = Steel.H_SECTIONS_MM.find(g => g.g === gn);
     if (grp) mm.n = grp.s[parseInt(idx)].n;
   }
-  if (mm.H <= 0 || mm.B <= 0 || mm.tw <= 0 || mm.tf <= 0) { alert('斷面尺寸 (H, B, tw, tf) 須為正值'); return null; }
-  if (mm.tf * 2 >= mm.H) { alert('翼板厚 tf×2 不得大於或等於全高 H'); return null; }
+  if (mm.H <= 0 || mm.B <= 0 || mm.tw <= 0 || mm.tf <= 0) { return inputFail('斷面尺寸 (H, B, tw, tf) 須為正值。'); }
+  if (mm.tf * 2 >= mm.H) { return inputFail('翼板厚 tf×2 不得大於或等於全高 H。'); }
 
   const sec = Steel.calcProps(mm);
   const Fy  = num('inFy');
@@ -381,11 +396,11 @@ function runCheck() {
   const Cmx = num('inCmx') || 0.85, Cmy = num('inCmy') || 0.85;
   const isLRFD = designMethod === 'LRFD';
 
-  if (Fy <= 0) { alert('Fy 須為正值'); return null; }
-  if (Lx <= 0 || Ly <= 0) { alert('Lx 與 Ly 無支撐長度須為正值'); return null; }
-  if (Kx <= 0 || Ky <= 0) { alert('Kx 與 Ky 有效長度因數須為正值'); return null; }
-  if (Lbx <= 0) { alert('Lbx 側撐間距須為正值'); return null; }
-  if (Cbx <= 0) { alert('Cbx 彎矩梯度修正係數須為正值'); return null; }
+  if (Fy <= 0) { return inputFail('Fy 須為正值。'); }
+  if (Lx <= 0 || Ly <= 0) { return inputFail('Lx 與 Ly 無支撐長度須為正值。'); }
+  if (Kx <= 0 || Ky <= 0) { return inputFail('Kx 與 Ky 有效長度因數須為正值。'); }
+  if (Lbx <= 0) { return inputFail('Lbx 側撐間距須為正值。'); }
+  if (Cbx <= 0) { return inputFail('Cbx 彎矩梯度修正係數須為正值。'); }
 
   const KLr_x = Kx * Lx / sec.rx;
   const KLr_y = Ky * Ly / sec.ry;

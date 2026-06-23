@@ -173,6 +173,9 @@ textarea::placeholder,input::placeholder{color:var(--text3)}
 .next-btn{margin-top:10px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:10px;font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;display:none;align-items:center;justify-content:center;gap:6px;transition:background .14s;width:100%}
 .next-btn:hover{background:rgba(212,240,85,.07)}
 .next-btn.show{display:flex}
+.action-status{display:none;border-bottom:1px solid var(--border);padding:8px 16px;font-size:11px;line-height:1.6}
+.action-status.warn{display:block;color:var(--warn);background:var(--warn-bg)}
+.action-status.error{display:block;color:var(--fail);background:var(--fail-bg)}
 
 /* ── Tooltip pill ── */
 .tpill{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;border:1px solid var(--border2);color:var(--text3);margin-left:4px}
@@ -211,6 +214,7 @@ textarea::placeholder,input::placeholder{color:var(--text3)}
     </div>
   </div>
 </nav>
+<div class="action-status" id="actionStatus" role="status" aria-live="polite"></div>
 
 <!-- ══════════════ PAGE 1: DIAGNOSIS ══════════════ -->
 <div class="page active" id="page-diag">
@@ -412,6 +416,12 @@ let diagResult = null;
 let stepHistory = [];
 let gateStatus = {};
 let img64 = null, imgType = null;
+function setActionStatus(message, tone = 'warn') {
+  const el = document.getElementById('actionStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `action-status${message ? ` ${tone}` : ''}`;
+}
 
 const PRESETS = {
   portal: { extra: 'EI為定值，忽略軸向變形\n傾角變位法求各桿端彎矩及支承反力' },
@@ -501,7 +511,8 @@ function isAcceptedFile(f) {
 }
 fi.addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
-  if (!isAcceptedFile(f)) { alert('僅支援圖片（PNG/JPG）或 PDF'); return; }
+  if (!isAcceptedFile(f)) { setActionStatus('僅支援圖片（PNG/JPG）或 PDF', 'error'); return; }
+  setActionStatus('');
   const r = new FileReader();
   r.onload = ev => {
     img64 = ev.target.result.split(',')[1];
@@ -538,7 +549,7 @@ uz.addEventListener('drop', e => {
     fi.files = dt.files;
     fi.dispatchEvent(new Event('change'));
   } else {
-    alert('僅支援圖片（PNG/JPG）或 PDF');
+    setActionStatus('僅支援圖片（PNG/JPG）或 PDF', 'error');
   }
 });
 
@@ -654,7 +665,8 @@ function renderDiag(r) {
 async function runSolve() {
   const gate = document.getElementById('gate-sel').value;
   const cond = document.getElementById('step-cond').value.trim();
-  if (!cond) { alert('請確認「原始條件」已填入（可先執行前置診斷自動帶入）'); return; }
+  if (!cond) { setActionStatus('請確認「原始條件」已填入（可先執行前置診斷自動帶入）', 'warn'); return; }
+  setActionStatus('');
 
   setLoading('solve-btn','ssp','sico',true);
 
@@ -695,7 +707,8 @@ async function runVerify() {
   const gate = document.getElementById('gate-sel').value;
   const calc = document.getElementById('step-calc').value.trim();
   const cond = document.getElementById('step-cond').value.trim();
-  if (!calc || !cond) { alert('請填入計算結果與原始條件'); return; }
+  if (!calc || !cond) { setActionStatus('請填入計算結果與原始條件', 'warn'); return; }
+  setActionStatus('');
 
   setLoading('verify-btn','vsp','vico',true);
 
@@ -839,7 +852,8 @@ function updateProgressDots(gate, status) {
 /* ──────────── Page 3: BMD ──────────── */
 async function drawBMD() {
   const input = document.getElementById('bmd-input').value.trim();
-  if (!input) { alert('請輸入桿端彎矩'); return; }
+  if (!input) { setActionStatus('請輸入桿端彎矩', 'warn'); return; }
+  setActionStatus('');
   setLoading('bmd-btn','bsp','bico',true);
 
   const sys = `你是結構工程 AI，根據桿端彎矩數值繪製彎矩圖。

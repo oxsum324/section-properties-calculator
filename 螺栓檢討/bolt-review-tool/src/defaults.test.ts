@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  defaultProducts,
   defaultProject,
   defaultReportSettings,
   normalizeReportSettings,
@@ -25,5 +26,16 @@ describe('report defaults', () => {
 
   it('uses the Chapter 17 side-face breakout constant from the 112 code profile', () => {
     expect(twRc112AnchorProfile.constants.sideFaceBlowoutConstant).toBe(13)
+  })
+
+  it('labels starter product data as examples or templates instead of tool authority', () => {
+    const defaultProductText = defaultProducts
+      .map((product) => `${product.source}\n${product.notes}`)
+      .join('\n')
+
+    expect(defaultProductText).not.toMatch(/工具內建|工具建議|專業版/)
+    expect(defaultProducts[0].source).toContain('通用預埋錨栓範例')
+    expect(defaultProducts[1].source).toContain('後置膨脹錨栓起始模板')
+    expect(defaultProducts[2].source).toContain('後置黏結式錨栓起始模板')
   })
 })

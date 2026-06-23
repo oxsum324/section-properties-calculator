@@ -10,6 +10,16 @@ function assert(pass, title, detail) {
   console.log(`PASS | ${title} | ${detail}`);
 }
 
+assert(html.includes('id="saveStatus"'), 'save status outlet exists', 'cloud save uses inline page status');
+assert(html.includes('id="saveModalStatus"'), 'save modal status outlet exists', 'save validation/errors stay in the modal');
+assert(html.includes('id="loadModalStatus"'), 'load modal status outlet exists', 'load/delete errors stay in the modal');
+assert(html.includes('function setInlineStatus'), 'inline status helper exists', 'shared helper drives non-blocking feedback');
+assert(!html.includes('alert('), 'blocking alerts removed', 'continuous beam page reports recoverable issues inline');
+assert(!html.includes('confirm('), 'blocking confirmations removed', 'cloud save/delete choices stay in the modal');
+assert(html.includes('function setInlineChoice'), 'inline choice helper exists', 'save/load modal confirmations use real buttons');
+assert(html.includes('function showSaveOverwriteChoice'), 'save overwrite choice exists', 'loaded cloud save can be overwritten or saved as new inline');
+assert(html.includes('function showDeleteChoice'), 'delete choice exists', 'cloud delete confirmation stays in the load modal');
+
 function assertNear(actual, expected, tol, title, detail) {
   assert(Math.abs(actual - expected) <= tol, title, `${detail}; actual=${actual}, expected=${expected}, tol=${tol}`);
 }
@@ -131,6 +141,7 @@ function buildDocument() {
     'projName', 'projNo', 'projDesigner', 'projNote',
     'spanInputs', 'loadSpanSelect', 'loadInputs', 'ilEnabled', 'ilControls', 'ilType', 'ilParam',
     'ilParamLabel', 'errorMsg', 'reactionTable', 'extremeTable', 'designBtns', 'currentFileLabel',
+    'saveStatus', 'saveModalStatus', 'loadModalStatus',
     'sfdCard', 'bmdCard', 'deflCard', 'ilCard', 'resultsCard',
     'schematicCanvas', 'sfdCanvas', 'bmdCanvas', 'deflCanvas', 'ilCanvas',
     'saveModal', 'loadModal', 'saveDateInput', 'saveProjectInput', 'saveNoteInput', 'loadList',

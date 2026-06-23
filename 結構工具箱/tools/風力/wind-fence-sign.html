@@ -53,7 +53,7 @@
 <body>
 <header>
   <h1>建築物耐風設計 — 圍籬牆 / 獨立招牌風力 <span class="badge-v">V2.1</span></h1>
-  <p>依規範表 2.10 招牌物 Cf 路線整合 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
+  <p>依「建築物耐風設計規範及解說」107 年版表 2.10 招牌物 Cf 路線整合 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
@@ -813,9 +813,10 @@ function openFenceSignReport() {
   const html = buildFenceSignReportHtml();
   const w = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
   if (!w) {
-    alert('請允許彈出視窗以開啟計算書');
+    setCaseStatus('計算書視窗已被瀏覽器封鎖，請允許本站彈出視窗後再試一次。', 'warn');
     return;
   }
+  setCaseStatus('');
   w.document.open();
   w.document.write(html);
   w.document.close();

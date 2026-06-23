@@ -33,6 +33,35 @@ function Write-Status {
   Write-Host $Message -ForegroundColor $Color
 }
 
+function Test-AuditTransientRuntimeFailure {
+  param([string]$LogPath)
+
+  if ([string]::IsNullOrWhiteSpace($LogPath) -or -not (Test-Path -LiteralPath $LogPath)) { return $false }
+  $text = Get-Content -LiteralPath $LogPath -Raw -Encoding UTF8
+  return ($text -match 'spawn(?:Sync)? .*EPERM|spawn EPERM|WinError 5|access is denied|Permission denied|browserType\.launch: spawn EPERM')
+}
+
+function Clear-AuditRuntimeProcesses {
+  param(
+    [datetime]$Since,
+    [string]$Reason,
+    [string[]]$ProcessNames = @("node", "chrome", "msedge")
+  )
+
+  $cutoff = $Since.AddSeconds(-5)
+  $stopped = New-Object System.Collections.Generic.List[string]
+  foreach ($proc in @(Get-Process $ProcessNames -ErrorAction SilentlyContinue)) {
+    try {
+      if ($proc.StartTime -lt $cutoff) { continue }
+      $stopped.Add("$($proc.ProcessName):$($proc.Id)")
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+    } catch {}
+  }
+  if ($stopped.Count -gt 0) {
+    Write-Status "[platform-audit] cleared runtime processes after ${Reason}: $($stopped -join ', ')" "DarkGray"
+    Start-Sleep -Seconds 5
+  }
+}
 function Acquire-Lock {
   if (Test-Path $lockPath) {
     try {
@@ -76,25 +105,77 @@ function Invoke-Audit {
     [string]$Label,
     [string]$Workdir,
     [string]$Command,
-    [string]$RunDir
+    [string]$RunDir,
+    [int]$TimeoutSeconds = 300
   )
+
+  if (-not (Test-Path -LiteralPath $Workdir)) {
+    throw "missing audit workdir: $Workdir"
+  }
 
   $safeLabel = ($Label -replace '[^A-Za-z0-9\-]+', '-').Trim('-').ToLowerInvariant()
   $latestLog = Join-Path $auditOutputDir "$safeLabel.txt"
   $historyLog = Join-Path $RunDir "$safeLabel.txt"
   $stdoutPath = Join-Path $RunDir "$safeLabel.stdout.txt"
   $stderrPath = Join-Path $RunDir "$safeLabel.stderr.txt"
+  $scriptPath = Join-Path $RunDir "$safeLabel.ps1"
+
+  $escapedWorkdir = $Workdir.Replace("'", "''")
+  $scriptLines = @(
+    '$ErrorActionPreference = "Stop"',
+    '$utf8NoBom = [System.Text.UTF8Encoding]::new($false)',
+    '[Console]::InputEncoding = $utf8NoBom',
+    '[Console]::OutputEncoding = $utf8NoBom',
+    '$OutputEncoding = $utf8NoBom',
+    '$env:PYTHONUTF8 = "1"',
+    '$env:PYTHONIOENCODING = "utf-8"',
+    '$env:NO_COLOR = "1"',
+    '$env:FORCE_COLOR = "0"',
+    '$env:CI = "1"',
+    "Set-Location -LiteralPath '$escapedWorkdir'",
+    $Command
+  )
+  [System.IO.File]::WriteAllText($scriptPath, ($scriptLines -join [Environment]::NewLine) + [Environment]::NewLine, [System.Text.Encoding]::Unicode)
 
   Write-Status "=== $Label ===" "Cyan"
-  $proc = Start-Process -FilePath powershell -ArgumentList @(
-    "-NoProfile",
-    "-Command",
-    $Command
-  ) -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath -PassThru -Wait -WindowStyle Hidden
-  $stdout = if (Test-Path $stdoutPath) { Get-Content -Path $stdoutPath -Raw } else { "" }
-  $stderr = if (Test-Path $stderrPath) { Get-Content -Path $stderrPath -Raw } else { "" }
+  $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $processInfo.FileName = "powershell"
+  $processInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
+  $processInfo.WorkingDirectory = $Workdir
+  $processInfo.UseShellExecute = $false
+  $processInfo.RedirectStandardOutput = $true
+  $processInfo.RedirectStandardError = $true
+  $processInfo.CreateNoWindow = $true
+
+  $startedAt = Get-Date
+  $process = [System.Diagnostics.Process]::Start($processInfo)
+  $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+  $stderrTask = $process.StandardError.ReadToEndAsync()
+  $timedOut = $false
+  $timeoutMs = [Math]::Max(1, $TimeoutSeconds) * 1000
+  if (-not $process.WaitForExit($timeoutMs)) {
+    $timedOut = $true
+    try {
+      taskkill.exe /PID $process.Id /T /F | Out-Null
+    } catch {
+      try { $process.Kill() } catch {}
+    }
+    try { [void]$process.WaitForExit(5000) } catch {}
+  }
+  [void]$stdoutTask.Wait(5000)
+  [void]$stderrTask.Wait(5000)
+  $exitCode = if ($timedOut) { 124 } else { [int]$process.ExitCode }
+  $stdout = if ($stdoutTask.IsCompleted) { [string]$stdoutTask.Result } else { "`n[platform-audit] stdout read timed out after process termination.`n" }
+  $stderr = if ($stderrTask.IsCompleted) { [string]$stderrTask.Result } else { "`n[platform-audit] stderr read timed out after process termination.`n" }
+  if ($timedOut) {
+    $stderr = $stderr + "`n[platform-audit] command timed out after $TimeoutSeconds seconds; process tree was terminated. script=$scriptPath`n"
+  }
+  $seconds = [Math]::Round(((Get-Date) - $startedAt).TotalSeconds, 1)
+  $process.Dispose()
+
+  [System.IO.File]::WriteAllText($stdoutPath, $stdout, [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText($stderrPath, $stderr, [System.Text.UTF8Encoding]::new($false))
   $output = @($stdout, $stderr) -join [Environment]::NewLine
-  $exitCode = $proc.ExitCode
 
   Set-Content -Path $latestLog -Value $output -Encoding UTF8
   Set-Content -Path $historyLog -Value $output -Encoding UTF8
@@ -103,6 +184,7 @@ function Invoke-Audit {
     label = $Label
     log = $latestLog
     exitCode = $exitCode
+    seconds = $seconds
   }
 }
 
@@ -147,6 +229,8 @@ function Update-HistoryManifest {
 
 function Run-PlatformAuditPass {
   $runStamp = Get-Date -Format "yyyyMMdd-HHmmss"
+  $auditPassStartedAt = Get-Date
+  Clear-AuditRuntimeProcesses -Since ((Get-Date).AddHours(-2)) -Reason "platform audit startup existing node cleanup" -ProcessNames @("node")
   $runDir = Join-Path $historyDir $runStamp
   New-Item -Path $runDir -ItemType Directory -Force | Out-Null
 
@@ -175,6 +259,7 @@ function Run-PlatformAuditPass {
       command = "& '$steelAuditScript' -Quiet"
       statusPath = (Join-Path $steelDir "output\audit\audit-status.json")
       summaryPath = (Join-Path $steelDir "output\audit\audit-summary.md")
+      timeoutSeconds = 360
     },
     @{
       key = "rc"
@@ -183,6 +268,7 @@ function Run-PlatformAuditPass {
       command = "& '$rcAuditScript' -Quiet"
       statusPath = (Join-Path $rcDir "output\audit\audit-status.json")
       summaryPath = (Join-Path $rcDir "output\audit\audit-summary.md")
+      timeoutSeconds = 420
     },
     @{
       key = "core"
@@ -191,6 +277,7 @@ function Run-PlatformAuditPass {
       command = "& '$coreAuditScript' -Quiet"
       statusPath = (Join-Path $coreDir "output\audit\audit-status.json")
       summaryPath = (Join-Path $coreDir "output\audit\audit-summary.md")
+      timeoutSeconds = 240
     }
   )
 
@@ -199,7 +286,20 @@ function Run-PlatformAuditPass {
   $failures = New-Object System.Collections.Generic.List[string]
 
   foreach ($job in $jobs) {
-    $record = Invoke-Audit -Label $job.label -Workdir $job.workdir -Command $job.command -RunDir $runDir
+    if ($records.Count -gt 0) {
+      Write-Status "Cooling down 8s before next platform audit module..." "DarkGray"
+      Start-Sleep -Seconds 8
+    }
+    $jobTimeoutSeconds = if ($job.ContainsKey('timeoutSeconds')) { [int]$job.timeoutSeconds } else { 300 }
+    $record = Invoke-Audit -Label $job.label -Workdir $job.workdir -Command $job.command -RunDir $runDir -TimeoutSeconds $jobTimeoutSeconds
+    $auditRetryCount = 0
+    while ($record.exitCode -ne 0 -and $auditRetryCount -lt 2 -and (Test-AuditTransientRuntimeFailure -LogPath ([string]$record.log))) {
+      $auditRetryCount += 1
+      Clear-AuditRuntimeProcesses -Since $auditPassStartedAt -Reason "transient failure in $($job.key)"
+      Write-Status "Retrying $($job.key) audit after transient runtime failure ($auditRetryCount/2)..." "DarkGray"
+      Start-Sleep -Seconds 60
+      $record = Invoke-Audit -Label $job.label -Workdir $job.workdir -Command $job.command -RunDir $runDir -TimeoutSeconds $jobTimeoutSeconds
+    }
     $status = $null
     if (Test-Path $job.statusPath) {
       $status = Get-Content -Path $job.statusPath -Raw | ConvertFrom-Json

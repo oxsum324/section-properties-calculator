@@ -11,6 +11,14 @@
   table.zone th { background:#f1f5f9; color:var(--primary); font-weight:600; font-family:inherit; }
   textarea.reduction-basis { width:100%; min-height:84px; padding:10px 12px; border:2px solid var(--border);
                              border-radius:8px; font-size:0.92em; font-family:inherit; resize:vertical; }
+  .case-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  .case-actions button { border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; background:#e2e8f0; color:#0f172a; }
+  .case-actions button.primary { background:var(--primary); color:#fff; }
+  .case-actions button:hover { filter:brightness(0.96); }
+  .case-status { min-height:22px; margin-top:8px; color:#166534; font-size:0.82em; line-height:1.6; }
+  .case-status.warn { color:#92400e; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
              font-size:0.6em; font-weight:700; vertical-align:middle; background:#0f766e; color:#fff; }
   .step { margin-bottom:14px; }
@@ -19,6 +27,8 @@
   .step-body { font-size:0.86em; line-height:1.8; padding:0 4px; }
   .step-body .val { font-weight:700; color:var(--primary); font-family:'Consolas',monospace; }
   .step-body .val.hl { font-size:1.05em; color:#0f766e; }
+  .diagram-wrap { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px; }
+  .diagram-wrap svg { width:100%; max-width:560px; height:auto; display:block; margin:0 auto; }
   @media (max-width: 768px) {
     .form-row { grid-template-columns: 1fr; }
   }
@@ -27,7 +37,7 @@
 <body>
 <header>
   <h1>建築物耐風設計 — 開放式建築屋面風壓 <span class="badge-v">V3</span></h1>
-  <p>依「建築物耐風設計規範」(107 年版) 第三章式 (3.4)、圖 3.3 ｜ 單位：kgf/m²</p>
+  <p>依「建築物耐風設計規範及解說」107 年版 第三章式 (3.4)、圖 3.3 ｜ 單位：kgf/m²</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
@@ -40,6 +50,12 @@
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
     <button class="mode-bar__report" type="button">📄 列印計算書</button>
   </div>
+  <div class="case-actions">
+    <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
+    <button type="button" id="btnImportCase">匯入案件 JSON</button>
+    <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
+  </div>
+  <div class="case-status" id="caseStatus" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 <div>
@@ -159,9 +175,17 @@
       </div>
     </div>
     <button class="btn-calc" id="btnCalc">計算開放式屋面風壓</button>
+    <div class="input-status" id="inputStatus" aria-live="polite"></div>
     <div class="chk-detail">
       <input type="checkbox" id="chkDetail">
       <label for="chkDetail">顯示詳列計算式</label>
+    </div>
+    <div class="form-group">
+      <label for="reportMode">計算書模式</label>
+      <select id="reportMode">
+        <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
+        <option value="summary">簡易結果（摘要與採用表）</option>
+      </select>
     </div>
     <button class="btn-print" type="button">列印計算書</button>
   </details>
@@ -204,6 +228,42 @@
       <div class="result-item" id="r-cpn-pos"><span class="label">Cpn (正)</span><span><span class="value">—</span></span></div>
       <div class="result-item" id="r-cpn-neg"><span class="label">Cpn (負)</span><span><span class="value">—</span></span></div>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>計算示意圖</h2>
+    <div class="diagram-wrap">
+      <svg id="openRoofDiagram" data-diagram-role="open-roof-diagram" viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="開放式屋面圖 3.3 區域示意">
+        <defs>
+          <marker id="openRoofArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#0f766e"/></marker>
+        </defs>
+        <rect x="18" y="18" width="524" height="264" rx="12" fill="#fff" stroke="#e2e8f0"/>
+        <g data-diagram-role="open-roof-plan">
+          <text x="174" y="48" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">屋面平面分區</text>
+          <rect x="62" y="70" width="224" height="126" rx="6" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+          <rect x="62" y="70" width="42" height="126" fill="#fecaca" opacity="0.9"/>
+          <rect x="244" y="70" width="42" height="126" fill="#fecaca" opacity="0.9"/>
+          <rect x="104" y="70" width="140" height="32" fill="#fed7aa" opacity="0.75"/>
+          <rect x="104" y="164" width="140" height="32" fill="#fed7aa" opacity="0.75"/>
+          <rect x="104" y="102" width="140" height="62" fill="#dbeafe" stroke="#60a5fa"/>
+          <text x="174" y="137" text-anchor="middle" font-size="13" font-weight="800" fill="#1e3a8a">1</text>
+          <text x="174" y="94" text-anchor="middle" font-size="12" fill="#9a3412">2</text>
+          <text x="84" y="137" text-anchor="middle" font-size="12" fill="#991b1b">3</text>
+          <line x1="36" y1="133" x2="62" y2="133" stroke="#0f766e" stroke-width="3" marker-end="url(#openRoofArrow)"/>
+        </g>
+        <g data-diagram-role="open-roof-slope">
+          <text x="414" y="48" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">剖面與坡度</text>
+          <polyline points="330,176 412,100 498,176" fill="none" stroke="#334155" stroke-width="3"/>
+          <line x1="330" y1="176" x2="498" y2="176" stroke="#94a3b8" stroke-width="2"/>
+          <path d="M 380 176 A 52 52 0 0 1 418 140" fill="none" stroke="#0f766e" stroke-width="2"/>
+          <text x="402" y="158" font-size="12" fill="#0f766e">θ</text>
+          <line x1="370" y1="218" x2="370" y2="176" stroke="#64748b" stroke-width="1.4"/>
+          <text x="382" y="201" font-size="12" fill="#475569">h</text>
+          <text x="414" y="238" text-anchor="middle" font-size="11" fill="#64748b">圖 3.3 依屋頂型式、坡度與區域取 Cpn</text>
+        </g>
+      </svg>
+    </div>
+    <div class="legend">示意圖整理圖 3.3 區域 1 / 2 / 3 與坡度 θ；控制值仍以設計採用表與各區域總覽為準。</div>
   </div>
 
   <details class="card fold-card" open>
@@ -272,6 +332,13 @@
 <script src="../../core/wind-report.js"></script>
 <script>
 const W = Wind;
+const TOOL_VERSION = 'wind-open-roof.v1';
+const CASE_SCHEMA_VERSION = 'wind-open-roof.case.v1';
+const CASE_VALUE_IDS = [
+  'city', 'terrain', 'impClass', 'h', 'he', 'Kzt', 'roofType', 'blockage',
+  'B', 'L', 'theta', 'A', 'enableReduce', 'reduceMode', 'reducePos', 'reduceNeg',
+  'reduceBasis', 'chkDetail', 'reportMode'
+];
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function setR(id, v, d) {
@@ -284,6 +351,120 @@ function signedReduce(v, posFactor, negFactor) {
 function reduceModeName(v) {
   return v === 'shielding' ? '遮蔽折減' : '人工指定修正';
 }
+function setCaseStatus(message, isWarn) {
+  const el = document.getElementById('caseStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.classList.toggle('warn', !!isWarn);
+}
+function setInputStatus(message) {
+  const el = document.getElementById('inputStatus');
+  if (!el) return;
+  el.textContent = message || '';
+}
+function clearInputStatus() {
+  setInputStatus('');
+}
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return undefined;
+  if (el.type === 'checkbox') return !!el.checked;
+  return el.value;
+}
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  if (el.type === 'checkbox') {
+    el.checked = !!value;
+  } else {
+    el.value = String(value);
+  }
+}
+function normalizedText(selector) {
+  const el = document.querySelector(selector);
+  return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+}
+function readCaseInputs() {
+  const values = {};
+  CASE_VALUE_IDS.forEach(id => {
+    const value = readInputValue(id);
+    if (value !== undefined) values[id] = value;
+  });
+  return {
+    project: {
+      name: document.getElementById('projName').value,
+      no: document.getElementById('projNo').value,
+      designer: document.getElementById('projDesigner').value
+    },
+    values
+  };
+}
+function readExportResultSummary() {
+  return {
+    applicStatus: normalizedText('#applicStatus'),
+    designAdoptTable: normalizedText('#designAdoptTable tbody'),
+    zoneSummaryTable: normalizedText('#zoneSummaryTable tbody'),
+    steps: normalizedText('#steps')
+  };
+}
+function refreshCaseDependentUi() {
+  const city = document.getElementById('city');
+  document.getElementById('vHint').textContent = `V = ${W.CITY_QUICK[city.value]} m/s`;
+  document.getElementById('reduceBox').style.display = document.getElementById('enableReduce').checked ? '' : 'none';
+  document.getElementById('stepsCard').classList.toggle('show-detail', document.getElementById('chkDetail').checked);
+}
+function applyCaseInputs(payload) {
+  const inputBlock = payload?.inputs || {};
+  const project = payload?.project || inputBlock.project || {};
+  const values = { ...(inputBlock.values || {}), ...(payload?.values || {}) };
+  if (project.name != null) document.getElementById('projName').value = project.name;
+  if (project.no != null) document.getElementById('projNo').value = project.no;
+  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  CASE_VALUE_IDS.forEach(id => {
+    if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
+  });
+  refreshCaseDependentUi();
+  calc();
+}
+function exportCaseJson() {
+  if (calc() === false) return;
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'wind-open-roof', name: '開放式建築屋面風壓', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: readExportResultSummary()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CATII-WindOpenRoof-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出開放式建築屋面案件 JSON；可回讀輸入、折減設定與計算摘要。');
+}
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已匯入案件 JSON；schema ${payload.schema} 與目前 ${CASE_SCHEMA_VERSION} 不同，已盡量套用可辨識欄位。`, true);
+      } else {
+        setCaseStatus('已匯入案件 JSON，並重新計算開放式屋面風壓結果。');
+      }
+      applyCaseInputs(payload);
+    } catch (err) {
+      setCaseStatus('匯入失敗：JSON 格式無法解析。', true);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
 
 (function init() {
   const city = document.getElementById('city');
@@ -352,9 +533,9 @@ function calc() {
   const reduceBasis = document.getElementById('reduceBasis').value.trim();
   const hUse = theta <= 10 ? hEave : hAvg;
   const sourceFigure = roofType === 'monoslope' ? '圖 3.3(a) p.82' : '圖 3.3(b) p.83';
-  if (hAvg <= 0 || hEave <= 0 || B <= 0 || L <= 0 || A <= 0) { alert('請輸入有效之 h / h_e / B / L / A'); return; }
-  if (enableReduce && (!isFinite(reducePos) || !isFinite(reduceNeg) || reducePos <= 0 || reduceNeg <= 0)) { alert('啟用修正時，請輸入有效之修正係數'); return; }
-  if (enableReduce && !reduceBasis) { alert('啟用修正時，請填寫依據說明'); return; }
+  if (hAvg <= 0 || hEave <= 0 || B <= 0 || L <= 0 || A <= 0) { setInputStatus('請輸入有效之 h / h_e / B / L / A'); return false; }
+  if (enableReduce && (!isFinite(reducePos) || !isFinite(reduceNeg) || reducePos <= 0 || reduceNeg <= 0)) { setInputStatus('啟用修正時，請輸入有效之修正係數'); return false; }
+  if (enableReduce && !reduceBasis) { setInputStatus('啟用修正時，請填寫依據說明'); return false; }
   const hOverL = hUse / L;
   const zoneResults = ['zone1', 'zone2', 'zone3'].map(zone => ({
     key: zone,
@@ -498,6 +679,8 @@ function calc() {
     `);
   }
   document.getElementById('steps').innerHTML = html;
+  clearInputStatus();
+  return true;
 }
 
 document.getElementById('chkDetail').addEventListener('change', function() {
@@ -505,6 +688,12 @@ document.getElementById('chkDetail').addEventListener('change', function() {
 });
 document.getElementById('enableReduce').addEventListener('change', function() {
   document.getElementById('reduceBox').style.display = this.checked ? '' : 'none';
+});
+document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('caseJsonFile').addEventListener('change', e => {
+  importCaseJsonFile(e.target.files?.[0]);
+  e.target.value = '';
 });
 document.getElementById('btnCalc').addEventListener('click', calc);
 calc();

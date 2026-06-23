@@ -287,6 +287,17 @@ main {
 .pending .gate-dot { background: var(--border2); }
 .gate-name { flex: 1; }
 .gate-status { font-family: var(--mono); font-size: 10px; }
+.action-status {
+  display: none;
+  margin-top: 10px;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.action-status.warn { display: block; color: var(--warn); background: var(--warn-bg); border-color: var(--warn-b); }
+.action-status.error { display: block; color: var(--fail); background: var(--fail-bg); border-color: var(--fail-b); }
 
 .score-block {
   padding: 14px;
@@ -386,6 +397,7 @@ A鉸支, C滾支, D固定端"></textarea>
         <svg id="vi" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 8l4 4 8-8"/></svg>
         執行驗算
       </button>
+      <div class="action-status" id="actionStatus" role="status" aria-live="polite"></div>
 
       <div>
         <div class="eg-label">快速載入範例</div>
@@ -460,6 +472,13 @@ const EXAMPLES = {
     cond: '水平力P向右施加於柱頂→柱受彎\nD為固定端應有殘餘彎矩\n節點B為剛接，彎矩需平衡'
   }
 };
+
+function setActionStatus(message, tone = 'warn') {
+  const el = document.getElementById('actionStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `action-status${message ? ` ${tone}` : ''}`;
+}
 
 function loadEx(key) {
   const e = EXAMPLES[key];
@@ -564,7 +583,8 @@ async function verify() {
   const struct = document.getElementById('struct-type').value;
   const calc = document.getElementById('calc-input').value.trim();
   const cond = document.getElementById('cond-input').value.trim();
-  if (!calc || !cond) { alert('請填入計算結果與原始條件'); return; }
+  if (!calc || !cond) { setActionStatus('請填入計算結果與原始條件', 'warn'); return; }
+  setActionStatus('');
 
   const btn = document.getElementById('vbtn');
   btn.disabled = true;

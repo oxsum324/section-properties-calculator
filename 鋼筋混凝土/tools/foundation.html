@@ -19,6 +19,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>基礎設計 — RC 工具箱 V3.0</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/style.css">
 <style>
   .steps-card h2 { color:#5b21b6; }
@@ -401,7 +402,11 @@
         </div>
         <div class="form-row">
           <div class="form-group"><label>柱距 s (cm)</label><input type="number" id="cColDist" value="400"></div>
-          <div class="form-group"><label>土摩擦係數 μ（預留，尚未做抗滑檢核）</label><input type="number" id="cMu" value="0.4" step="0.05"></div>
+          <div class="form-group"><label>土摩擦係數 μ（抗滑）</label><input type="number" id="cMu" value="0.4" step="0.05"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>服務水平力 HDL (tf)</label><input type="number" id="cHDL" value="0" step="any"></div>
+          <div class="form-group"><label>服務水平力 HE (tf)</label><input type="number" id="cHE" value="0" step="any"></div>
         </div>
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">板式配筋</h3>
         <div class="form-row">
@@ -806,6 +811,7 @@
           <div class="result-item rc-pending" id="cr-qmax"><span class="label">qmax</span><span><span class="value">—</span><span class="unit">tf/m²</span></span></div>
           <div class="result-item rc-pending" id="cr-qmin"><span class="label">qmin</span><span><span class="value">—</span><span class="unit">tf/m²</span></span></div>
           <div class="result-item rc-pending" id="cr-ecc"><span class="label">偏心 e</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
+          <div class="result-item rc-pending" id="cr-FSslide"><span class="label">抗滑 FS</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="cr-Mu"><span class="label">Mu (控制方向)</span><span><span class="value">—</span><span class="unit">tf·m</span></span></div>
           <div class="result-item rc-pending" id="cr-phiMn"><span class="label">φMn</span><span><span class="value">—</span><span class="unit">tf·m</span></span></div>
           <div class="result-item rc-pending" id="cr-Vu1"><span class="label">Vu (單向)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
@@ -825,6 +831,7 @@
         <div class="results-grid">
           <div class="result-item rc-pending" id="cc-q"><span class="label">qmax ≤ qa</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="cc-ecc"><span class="label">合力位於中央 1/3</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="cc-slide"><span class="label">抗滑 FS ≥ 1.5</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="cc-v1"><span class="label">φVc ≥ Vu (單向)</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="cc-v2"><span class="label">各柱 φVc ≥ Vu (衝剪)</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="cc-flex"><span class="label">φMn ≥ Mu</span><span class="value">—</span></div>
@@ -863,7 +870,7 @@
           <div class="result-item rc-pending" id="mc-flex"><span class="label">各點 φMn ≥ Mu (柱帶)</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="mc-v1"><span class="label">各點 φVc ≥ Vu (單向)</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="mc-v2"><span class="label">各點 φVc ≥ Vu (衝剪)</span><span class="value">—</span></div>
-          <div class="result-item rc-pending" id="mc-ddm"><span class="label">未提供 DDM 分析</span><span class="value">✓ OK</span></div>
+          <div class="result-item rc-pending" id="mc-ddm"><span class="label">DDM / EFM 分析</span><span class="value">待確認</span></div>
         </div>
       </div>
       <div class="card advanced-card" data-shows="mat">
@@ -2235,6 +2242,7 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
     const P2D = num('cP2D'), P2L = num('cP2L'), P2E = num('cP2E');
     const colDist = num('cColDist');
     const mu = num('cMu');
+    const HDL = num('cHDL'), HE = num('cHE');
     const barNoX = $('cBarNoX').value;
     const barNoY = $('cBarNoY').value;
     const spX = Math.max(0.1, num('cBarSpX'));
@@ -2270,6 +2278,12 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
     const qmax = qAvg + dqx;
     const qmin = qAvg - dqx;
     const okQ = qmax <= qa;
+
+    const W_soil = (Df / 100) * Ag_m2 * gamma_s;
+    const N_total = Ptot + W_soil;
+    const H_total = Math.max(Math.abs(HDL), Math.abs(HDL + HE));
+    const FS_slide = H_total > 0 ? (mu * N_total) / H_total : Infinity;
+    const okSlide = H_total > 0 ? FS_slide >= 1.5 : null;
 
     const qu = Pu_tf / Ag_m2;
     const qu_kgf = qu / 10;
@@ -2347,6 +2361,14 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
     setResult('cr-qmax', qmax, 'tf/m²', 2);
     setResult('cr-qmin', qmin, 'tf/m²', 2, qmin < 0 ? 'fail' : null);
     setResult('cr-ecc', ecc_cm, 'cm', 1, eccOk ? 'ok' : 'fail');
+    {
+      const el = $('cr-FSslide');
+      if (el) {
+        el.classList.remove('rc-pending', 'ok', 'warn', 'fail');
+        el.classList.add(okSlide === true ? 'ok' : okSlide === false ? 'fail' : 'warn');
+        el.querySelector('.value').textContent = H_total > 0 ? FS_slide.toFixed(2) : '未控制';
+      }
+    }
     setResult('cr-Mu', Mu_tfm, 'tf·m', 2);
     setResult('cr-phiMn', phiMn_tfm, 'tf·m', 2);
     setResult('cr-Vu1', Vu1/1000, 'tf', 2);
@@ -2362,6 +2384,7 @@ Si = q·B·(1−ν²)·Iw/Es = ${Si_cm.toFixed(2)} cm  ${okSettle?'≤':'>'} Sa=
 
     setCheck('cc-q', okQ, `${qmax.toFixed(2)} / ${qa}`);
     setCheck('cc-ecc', eccOk, `e=${ecc_cm.toFixed(1)} cm (L/6=${(L/6).toFixed(1)})`);
+    setCheck('cc-slide', okSlide, H_total > 0 ? `FS=${FS_slide.toFixed(2)} ${okSlide ? '≥' : '<'} 1.5` : '無水平力輸入，未控制');
     setCheck('cc-v1', okV1, `${(phiVc1/1000).toFixed(1)} / ${(Vu1/1000).toFixed(1)}`);
     setCheck('cc-v2', okV2, `${controlPunch.name}: ${(phiVc2/1000).toFixed(1)} / ${(Vu2/1000).toFixed(1)}`);
     setCheck('cc-flex', okFlex, `${phiMn_tfm.toFixed(2)} / ${Mu_tfm.toFixed(2)}`);
@@ -2394,6 +2417,10 @@ P2,service = ${P2D} + ${P2L} = ${P2service.toFixed(2)} tf
 Ptot,service = ${Ptot.toFixed(2)} tf
 合力位置距柱1 = P2,service·s/Ptot = ${xR.toFixed(1)} cm; L/2 = ${(L/2).toFixed(1)} cm → e = ${ecc_cm.toFixed(1)} cm
 qmax = ${qmax.toFixed(2)} tf/m²  ${okQ ? '≤' : '>'} qa = ${qa} → ${okQ ? '✓' : '✗'}
+W_soil = Df·B·L·γs = ${(Df/100).toFixed(2)}×${B_m.toFixed(2)}×${L_m.toFixed(2)}×${gamma_s} = ${W_soil.toFixed(2)} tf
+N = Ptot,service + W_soil = ${Ptot.toFixed(2)} + ${W_soil.toFixed(2)} = ${N_total.toFixed(2)} tf
+H = max(|HDL|, |HDL+HE|) = max(|${HDL.toFixed(2)}|, |${(HDL+HE).toFixed(2)}|) = ${H_total.toFixed(2)} tf
+FS_slide = ${H_total > 0 ? `μN/H = ${mu}×${N_total.toFixed(2)}/${H_total.toFixed(2)} = ${FS_slide.toFixed(2)} ${okSlide ? '≥' : '<'} 1.5 → ${okSlide ? '✓' : '✗'}` : '無水平力輸入，未控制'}
 P1u = 1.2×${P1D} + 1.6×${P1L} + 1.0×${P1E} = ${P1u.toFixed(2)} tf
 P2u = 1.2×${P2D} + 1.6×${P2L} + 1.0×${P2E} = ${P2u.toFixed(2)} tf
 Pu = P1u + P2u = ${Pu_tf.toFixed(2)} tf
@@ -2413,12 +2440,23 @@ Vu,long @ ${beamEnv.maxShear.name} = ${(Vu1/1000).toFixed(2)} tf; φVc = ${(phiV
 ⚠ 長向反力、剪力與彎矩包絡仍未建立完整連續分布分析；結果請視為初步近似`;
     }
 
-    updateBannerSimple([
-      ['qmax ≤ qa', okQ], ['φVc ≥ Vu (單向)', okV1],
+    const reviewWarnings = [
+      '聯合基腳長向反力、剪力與彎矩目前採梁化包絡與線性土反力近似，尚未建立完整連續分布、有限元素或剛性基礎分析。',
+      '橫向懸臂與柱衝剪為代表控制檢核，柱間局部效應、施工圖配筋分布與地盤彈簧互制仍須專案分析確認。'
+    ];
+    const numericalOk = okQ && eccOk && okV1 && okV2 && okFlex && okAs && okSpacing && okClear && okSlide !== false;
+    const summaryOk = numericalOk ? null : false;
+    const summaryText = summaryOk === false
+      ? '✗ NG — 不符合規範'
+      : `⚠ 待確認 — ${reviewWarnings.length} 項需正式聯合基腳分析確認`;
+
+    updateBannerReview([
+      ['qmax ≤ qa', okQ], ['抗滑 FS ≥ 1.5', okSlide], ['φVc ≥ Vu (單向)', okV1],
       ['φVc ≥ Vu (衝剪)', okV2], ['φMn ≥ Mu', okFlex], ['X/Y As ≥ As,min', okAs], ['X/Y 間距 ≤ smax', okSpacing]
-    ]);
+    ], summaryOk, summaryText, '⚠ 數值檢核通過，但聯合基腳仍採近似包絡與代表柱檢核，報告不列為最終 OK。');
 
     window.ftLast = { tab:'combined', fc, fy, c1, c2, B, L, hf, cover, qa, Df, gamma_s, mu, colDist,
+      HDL, HE, W_soil, N_total, H_total, FS_slide, okSlide,
       P1D, P1L, P1E, P2D, P2L, P2E, P1service, P2service, P1u, P2u, Ptot,
       col1, col2, ecc_cm, eccOk, xRu, ecc_u_cm, ecc_u_ok, qLeft_u, qRight_u, qmax, qmin, okQ, Pu_tf, qu, Mu_tfm, phiMn_tfm,
       Mu_long_tfm, Mu_trans_tfm, MuMode,
@@ -2434,7 +2472,8 @@ Vu,long @ ${beamEnv.maxShear.name} = ${(Vu1/1000).toFixed(2)} tf; φVc = ${(phiV
       AsX_per_m, AsY_per_m, AsMin_per_m, AsReq, okV1, okV2, okFlex, okAs, okAsX, okAsY,
       barNoX, barNoY, spX, spY, abX, abY, dbX, dbY, dX, dY, d,
       sMax, clearX, clearY, clearMinX, clearMinY, okSpacing, okClear,
-      phiMnLong_tfm, phiMnTrans_tfm };
+      phiMnLong_tfm, phiMnTrans_tfm,
+      numericalOk, reviewWarnings, summaryOk, summaryText };
   }
 
   // ============================================================
@@ -2591,7 +2630,14 @@ Vu,long @ ${beamEnv.maxShear.name} = ${(Vu1/1000).toFixed(2)} tf; φVc = ${(phiV
     setCheck('mc-flex', okFlex, `${controlFlex.label}: ${controlFlex.phiMn_tfm.toFixed(2)} / ${controlFlex.Mu_tfm.toFixed(2)}`);
     setCheck('mc-v1', okV1, `${controlV1.label}: ${phiVc1_tf.toFixed(2)} / ${controlV1.Vu1_tf.toFixed(2)}`);
     setCheck('mc-v2', okV2, `${controlV2.label}: ${phiVc2_tf.toFixed(2)} / ${controlV2.Vu2_tf.toFixed(2)}`);
-    { const el = $('mc-ddm'); if (el) { el.classList.remove('rc-pending'); el.querySelector('.value').textContent = '✓ 本工具未提供'; el.classList.add('ok'); } }
+    {
+      const el = $('mc-ddm');
+      if (el) {
+        el.classList.remove('rc-pending', 'ok', 'fail');
+        el.classList.add('warn');
+        el.querySelector('.value').textContent = '待確認 — 本工具未提供';
+      }
+    }
     drawMatCheck({ B, L, c1, c2, d, trib:activeCase.trib, q, qu, caseLabel:activeCase.label, slabRect:activeCase.slabRect });
     const ms = $('matSummaryBody');
     if (ms) {
@@ -2636,14 +2682,26 @@ ${caseDefs.map(c => `${c.label}: Pu=${c.colPu.toFixed(2)} tf, tributary=${c.trib
 ⚠ 多代表柱檢核仍屬近似，未包含柱帶/中間帶、完整板分析、局部彎矩與彈簧床分析`;
     }
 
-    updateBannerSimple([['q ≤ qa', okQ], ['X/Y As ≥ As,min', okAs], ['X/Y 間距 ≤ smax', okSpacing], ['各點 φMn ≥ Mu (柱帶)', okFlex], ['各點 φVc ≥ Vu (單向)', okV1], ['各點 φVc ≥ Vu (衝剪)', okV2]]);
+    const reviewWarnings = [
+      '筏式基礎目前採多代表柱 tributary 區與條帶近似，尚未建立完整 DDM、EFM、有限元素或彈簧床分析。',
+      '柱帶 / 中間帶分配、局部彎矩、開口與邊界條件未完整自動化，數值通過時仍需正式樓板或筏基模型確認。'
+    ];
+    const numericalOk = okQ && okAs && okSpacing && okClear && okFlex && okV1 && okV2;
+    const summaryOk = numericalOk ? null : false;
+    const summaryText = summaryOk === false
+      ? '✗ NG — 不符合規範'
+      : `⚠ 待確認 — ${reviewWarnings.length} 項需正式筏基分析確認`;
+
+    updateBannerReview([['q ≤ qa', okQ], ['X/Y As ≥ As,min', okAs], ['X/Y 間距 ≤ smax', okSpacing], ['各點 φMn ≥ Mu (柱帶)', okFlex], ['各點 φVc ≥ Vu (單向)', okV1], ['各點 φVc ≥ Vu (衝剪)', okV2]],
+      summaryOk, summaryText, '⚠ 數值檢核通過，但筏基仍採多代表柱近似與條帶檢核，報告不列為最終 OK。');
 
     window.ftLast = { tab:'mat', fc, fy, B, L, hf, qa, PD, PL, PE, P, Pu_tf, cover,
       barNoX, barNoY, spX, spY, abX, abY, dbX, dbY, dX, dY, d,
       q, qu, okQ, AsX_per_m, AsY_per_m, AsMin_per_m, okAsX, okAsY, okAs,
       sMaxFlex, sMaxTemp, clearX, clearY, clearMinX, clearMinY, okSpacing, okClear,
       c1, c2, caseView, caseDefs, activeCase,
-      controlFlex, controlV1, controlV2, phiMnStripX_tfm, phiMnStripY_tfm, phiVc1_tf, phiVc2_tf, okFlex, okV1, okV2 };
+      controlFlex, controlV1, controlV2, phiMnStripX_tfm, phiMnStripY_tfm, phiVc1_tf, phiVc2_tf, okFlex, okV1, okV2,
+      numericalOk, reviewWarnings, summaryOk, summaryText };
   }
 
   // ============================================================
@@ -3181,6 +3239,16 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const phiVc_wall = PHI.shear * 0.53 * lambda * Math.sqrt(fc) * b_unit * d_wall;
     const phiVc_wall_tfm = phiVc_wall / 1000; // kgf → tf
     const okShear = phiVc_wall_tfm >= Vu_stem;
+    const numericalOk = okSlide && okOver && okQr && okFlex && okShear;
+    const reviewWarnings = [];
+    if (retainType === 'counterfort') {
+      reviewWarnings.push('扶壁式擋土牆目前仍以 1 m 條帶近似檢核牆身，尚未建立扶壁、牆板與底版之雙向板 / T 梁系統分析。');
+      reviewWarnings.push('扶壁間距 sf 尚未納入彎矩、剪力、配筋分布與扶壁連接細部檢核，不可列為最終 OK 結論。');
+    }
+    const summaryOk = numericalOk ? (reviewWarnings.length ? null : true) : false;
+    const summaryText = summaryOk === true
+      ? '✓ OK — 符合規範'
+      : (summaryOk === false ? '✗ NG — 不符合規範' : `⚠ 待確認 — ${reviewWarnings.length} 項需正式扶壁系統分析確認`);
 
     // 顯示
     setResult('rr-Pa', Pa, 'tf/m', 2);
@@ -3230,17 +3298,30 @@ Vu_stem = ${Vu_stem.toFixed(2)} tf/m
 φVc = ${phiVc_wall_tfm.toFixed(2)} tf/m → ${okShear?'✓':'✗'}${retainType === 'counterfort' ? '\n⚠ 扶壁間距 sf 尚未納入雙向板與扶壁系統分析' : ''}`;
     }
 
-    updateBannerSimple([
-      ['抗滑 FS ≥ 1.5', okSlide], ['抗傾覆 FS ≥ 2.0', okOver],
-      ['qmax ≤ qa', okQr], ['φMn ≥ Mu', okFlex], ['φVc ≥ Vu', okShear]
-    ]);
+    {
+      const checks = [
+        ['抗滑 FS ≥ 1.5', okSlide], ['抗傾覆 FS ≥ 2.0', okOver],
+        ['qmax ≤ qa', okQr], ['φMn ≥ Mu', okFlex], ['φVc ≥ Vu', okShear]
+      ];
+      const banner = $('bannerStatus'), key = $('bannerKey');
+      if (banner) {
+        banner.className = 'banner-status ' + (summaryOk === true ? 'ok' : summaryOk === false ? 'fail' : 'warn');
+        banner.innerHTML = summaryText
+          + `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>`;
+        if (summaryOk === null) {
+          banner.innerHTML += `<div style="font-size:0.72em; font-weight:600; margin-top:6px; padding:6px 10px; background:#fef3c7; color:#a16207; border-left:3px solid #f59e0b; border-radius:4px;">⚠ 數值檢核通過，但扶壁式仍須正式雙向板 / 扶壁系統分析，不可列為最終 OK。</div>`;
+        }
+      }
+      if (key) key.innerHTML = '';
+    }
 
     window.ftLast = { tab:'retain', fc, fy, cover, retainType, Hw, tw, Lt, Lh, hb,
       Ka, Kp, gamma, qs, mu, qa, gammaC, barNo, nBarPerM, sf,
       Pa, Pp, W_total, FS_slide, FS_over, okSlide, okOver,
       qmax_r, qmin_r, okQr, Mu_wall_tfm, phiMn_wall_tfm, okFlex,
       Vu_stem, phiVc_wall_tfm: phiVc_wall_tfm, okShear,
-      ab, db, As_m, d_wall, d_base, Btot, H_total, Mr, Mo };
+      ab, db, As_m, d_wall, d_base, Btot, H_total, Mr, Mo,
+      numericalOk, reviewWarnings, summaryOk, summaryText };
   }
 
   // ============================================================
@@ -3368,6 +3449,18 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     const txt = anyFail ? 'NG — 不符合規範' : allOk ? 'OK — 符合規範' : '部分項目待檢核';
     banner.innerHTML = `${icon} ${txt}<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>`;
     key.innerHTML = '';
+  }
+
+  function updateBannerReview(checks, summaryOk, summaryText, reviewNote) {
+    const banner = $('bannerStatus'), key = $('bannerKey');
+    if (!banner) return;
+    banner.className = 'banner-status ' + (summaryOk === true ? 'ok' : summaryOk === false ? 'fail' : 'warn');
+    banner.innerHTML = summaryText
+      + `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>`;
+    if (summaryOk === null && reviewNote) {
+      banner.innerHTML += `<div style="font-size:0.72em; font-weight:600; margin-top:6px; padding:6px 10px; background:#fef3c7; color:#a16207; border-left:3px solid #f59e0b; border-radius:4px;">${reviewNote}</div>`;
+    }
+    if (key) key.innerHTML = '';
   }
 
   // ============================================================
@@ -3793,8 +3886,8 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         { group:'容許土壓 / 偏心 / 抗滑 / 抗傾覆', items:[
           { label:'qmax ≤ qa', value:`${r.qmax.toFixed(2)} / ${r.qa}`, unit:'tf/m²', ok:r.okQ },
           { label:'偏心 e ≤ L/6', value:`kern=${r.kernUtil.toFixed(4)} / ${(1/6).toFixed(4)}`, ok:r.eccOk },
-          { label:'抗滑 FS ≥ 1.5', value:isFinite(r.FS_slide)?r.FS_slide.toFixed(2):'∞', ok:r.okSlide },
-          { label:'抗傾覆 FS ≥ 1.5', value:isFinite(r.FS_over)?r.FS_over.toFixed(2):'∞', ok:r.okOver }
+          { label:'抗滑 FS ≥ 1.5', value:isFinite(r.FS_slide)?r.FS_slide.toFixed(2):'未控制', ok:r.okSlide },
+          { label:'抗傾覆 FS ≥ 1.5', value:isFinite(r.FS_over)?r.FS_over.toFixed(2):'未控制', ok:r.okOver }
         ]},
         { group:'板式配筋', items:[
           { label:'X/Y As ≥ As,min', value:`X ${r.AsX_per_m.toFixed(2)}；Y ${r.AsY_per_m.toFixed(2)} / ${r.AsMin_per_m.toFixed(2)}`, unit:'cm²/m', ok:r.okAsMin },
@@ -3833,6 +3926,8 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'柱1 Pu', value:r.P1u.toFixed(2), unit:'tf' },
           { label:'柱2 Pu', value:r.P2u.toFixed(2), unit:'tf' },
           { label:'Pu,tot', value:r.Pu_tf.toFixed(2), unit:'tf' },
+          { label:'HDL / HE', value:`${r.HDL.toFixed(2)} / ${r.HE.toFixed(2)}`, unit:'tf' },
+          { label:'抗滑 N / H', value:`${r.N_total.toFixed(2)} / ${r.H_total.toFixed(2)}`, unit:'tf' },
           { label:'q_u,left/right', value:`${r.qLeft_u.toFixed(2)} / ${r.qRight_u.toFixed(2)}`, unit:'tf/m²' },
           { label:'接觸長度', value:r.beamEnv?.contactLength ? (r.beamEnv.contactLength * 100).toFixed(1) : `${r.L}`, unit:'cm' }
         ]},
@@ -3844,9 +3939,10 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         ]}
       ];
       checks = [
-        { group:'土壓 / 偏心', items:[
+        { group:'土壓 / 偏心 / 抗滑', items:[
           { label:'qmax ≤ qa', value:`${r.qmax.toFixed(2)} / ${r.qa}`, unit:'tf/m²', ok:r.okQ },
-          { label:'合力位於中央 1/3', value:`e=${r.ecc_cm.toFixed(1)} / ${(r.L/6).toFixed(1)}`, unit:'cm', ok:r.eccOk }
+          { label:'合力位於中央 1/3', value:`e=${r.ecc_cm.toFixed(1)} / ${(r.L/6).toFixed(1)}`, unit:'cm', ok:r.eccOk },
+          { label:'抗滑 FS ≥ 1.5', value:r.H_total > 0 ? r.FS_slide.toFixed(2) : '未控制', ok:r.okSlide }
         ]},
         { group:'板式配筋', items:[
           { label:'X/Y As ≥ As,min', value:`X ${r.AsX_per_m.toFixed(2)}；Y ${r.AsY_per_m.toFixed(2)} / ${r.AsMin_per_m.toFixed(2)}`, unit:'cm²/m', ok:r.okAs },
@@ -3857,7 +3953,11 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'φVc ≥ Vu (單向)', value:`${r.phiVc1.toFixed(2)} / ${r.Vu1.toFixed(2)}`, unit:'tf', ok:r.okV1 },
           { label:'各柱 φVc ≥ Vu (衝剪)', value:`${r.controlPunch?.name || '控制柱'} ${r.controlPunch?.phiVc2?.toFixed(2) || '—'} / ${r.controlPunch?.Vu2?.toFixed(2) || '—'}`, unit:'tf', ok:r.okV2 },
           { label:'φMn ≥ Mu', value:`${r.phiMn_tfm.toFixed(2)} / ${r.Mu_tfm.toFixed(2)} (${r.MuMode || '控制'})`, unit:'tf·m', ok:r.okFlex }
-        ]}
+        ]},
+        ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
+          group:'待確認 / 正式聯合基腳分析需求',
+          value:'需正式分析確認'
+        })] : [])
       ];
     }
     else if (r.tab === 'mat') {
@@ -3895,7 +3995,11 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'各點 φMn ≥ Mu (柱帶)', value:`${r.controlFlex.label} ${r.controlFlex.phiMn_tfm.toFixed(2)} / ${r.controlFlex.Mu_tfm.toFixed(2)}`, unit:'tf·m/m', ok:r.okFlex },
           { label:'各點 φVc ≥ Vu (單向)', value:`${r.controlV1.label} ${r.phiVc1_tf.toFixed(2)} / ${r.controlV1.Vu1_tf.toFixed(2)}`, unit:'tf', ok:r.okV1 },
           { label:'各點 φVc ≥ Vu (衝剪)', value:`${r.controlV2.label} ${r.phiVc2_tf.toFixed(2)} / ${r.controlV2.Vu2_tf.toFixed(2)}`, unit:'tf', ok:r.okV2 }
-        ]}
+        ]},
+        ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
+          group:'待確認 / 正式筏基分析需求',
+          value:'需正式分析確認'
+        })] : [])
       ];
     }
     else if (r.tab === 'pile') {
@@ -3927,14 +4031,23 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         ]}
       ];
       checks = [
-        { group:'承載與構造', items:[
+        { group:'土層與單樁承載', items:[
           { label:'土層資料有效', value:r.soilOk ? `共 ${r.soilLayers.length} 層` : r.soilErrors.join('；'), ok:r.soilOk },
           { label:'Rmax ≤ Qallow,eff', value:`${r.rMax.toFixed(2)} / ${Math.min(r.QaEff, r.Qall * r.pileEta).toFixed(2)}`, unit:'tf', ok:r.okR },
+          { label:'|Rmin| ≤ Qt', value:`${Math.abs(r.rMin).toFixed(2)} / ${r.pileQt.toFixed(2)}`, unit:'tf', ok:r.okT },
+          { label:'Qall ≥ 服務需求', value:`${r.Qall.toFixed(2)} / ${r.serviceDemandPerPile.toFixed(2)}`, unit:'tf', ok:r.Qall >= r.serviceDemandPerPile }
+        ]},
+        { group:'群樁構造', items:[
           { label:'樁距 ≥ 規範下限', value:`${r.minSpacing.toFixed(0)} / ${r.spacingLimit.toFixed(0)}`, unit:'cm', ok:r.okSp },
           { label:'斷面/配筋限制', value:r.pileType === 'cast-in-place' ? `${r.nBar} 支，As ${r.castInPlaceAreaProv.toFixed(2)} / ${r.castInPlaceAreaReq.toFixed(2)}` : `OD ${r.pileD} cm；t ${r.pileSteelThickness} mm`, ok:r.structuralOk },
-          { label:'φVc ≥ Vu (衝剪)', value:`${r.phiVc2.toFixed(2)} / ${r.Vu2_tf.toFixed(2)}`, unit:'tf', ok:r.okV2 },
+          { label:'有效深 d ≥ 30 cm', value:`${r.d.toFixed(1)} / 30`, unit:'cm', ok:r.okDMin }
+        ]},
+        { group:'服務性與樁身', items:[
           { label:'Wo ≤ 容許沉陷', value:r.settlement ? `${r.settlement.Wo_cm.toFixed(2)} / ${(r.pileSettlementAllow || r.soilSa || 2.5).toFixed(2)}` : '—', unit:'cm', ok:r.okSettlement },
-          { label:'樁身壓應力', value:`${r.pileStressKgCm2.toFixed(2)} / ${r.pileStressAllow.toFixed(2)}`, unit:'kgf/cm²', ok:r.okPileStress },
+          { label:'樁身壓應力', value:`${r.pileStressKgCm2.toFixed(2)} / ${r.pileStressAllow.toFixed(2)}`, unit:'kgf/cm²', ok:r.okPileStress }
+        ]},
+        { group:'樁帽結構', items:[
+          { label:'φVc ≥ Vu (衝剪)', value:`${r.phiVc2.toFixed(2)} / ${r.Vu2_tf.toFixed(2)}`, unit:'tf', ok:r.okV2 },
           { label:'樁帽 φMn ≥ Mu', value:`${r.capPhiMn_tfm.toFixed(2)} / ${r.capMu_tfm.toFixed(2)}`, unit:'tf·m', ok:r.okCapFlex },
           { label:'樁帽 φ(Vc+Vs) ≥ Vu,max', value:`${r.capPhiVn_tfm.toFixed(2)} / ${r.capVu_tfm.toFixed(2)}`, unit:'tf', ok:r.okCapShear }
         ]}
@@ -3944,6 +4057,47 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       if (r.pileSiteCompareTableText) steps.push({ group:'多鑽孔比較表', body:r.pileSiteCompareTableText });
       if (r.pileCapacityTableText) steps.push({ group:'逐層承載力表', body:r.pileCapacityTableText });
     }
+    else if (r.tab === 'retain') {
+      inputs = [
+        { group:'幾何', items:[
+          { label:'型式', value:r.retainType === 'counterfort' ? '扶壁式（目前為近似檢核）' : '懸臂式' },
+          { label:'牆身高度 Hw', value:r.Hw, unit:'cm' },
+          { label:'牆厚 tw', value:r.tw, unit:'cm' },
+          { label:'趾版 Lt / 踵版 Lh', value:`${r.Lt} / ${r.Lh}`, unit:'cm' },
+          { label:'基腳厚 hb', value:r.hb, unit:'cm' },
+          { label:'總底寬 B', value:r.Btot.toFixed(1), unit:'cm' },
+          ...(r.retainType === 'counterfort' ? [{ label:'扶壁間距 sf', value:r.sf, unit:'cm' }] : [])
+        ]},
+        { group:'材料與配筋', items:[
+          { label:"fc'", value:r.fc, unit:'kgf/cm²' },
+          { label:'fy', value:r.fy, unit:'kgf/cm²' },
+          { label:'牆身主筋', value:`${r.nBarPerM} 支/m ${r.barNo}`, unit:`As=${r.As_m.toFixed(2)} cm²/m` },
+          { label:'有效深 d_wall', value:r.d_wall.toFixed(1), unit:'cm' }
+        ]},
+        { group:'土壓與穩定參數', items:[
+          { label:'Ka / Kp', value:`${r.Ka} / ${r.Kp}` },
+          { label:'γ / qs', value:`${r.gamma} / ${r.qs}`, unit:'tf/m³ / tf/m²' },
+          { label:'μ / qa', value:`${r.mu} / ${r.qa}`, unit:'/ tf/m²' },
+          { label:'Pa / Pp', value:`${r.Pa.toFixed(2)} / ${r.Pp.toFixed(2)}`, unit:'tf/m' },
+          { label:'W_total', value:r.W_total.toFixed(2), unit:'tf/m' }
+        ]}
+      ];
+      checks = [
+        { group:'穩定檢核', items:[
+          { label:'抗滑 FS ≥ 1.5', value:r.FS_slide.toFixed(2), ok:r.okSlide },
+          { label:'抗傾覆 FS ≥ 2.0', value:r.FS_over.toFixed(2), ok:r.okOver },
+          { label:'qmax ≤ qa', value:`${r.qmax_r.toFixed(2)} / ${r.qa}`, unit:'tf/m²', ok:r.okQr }
+        ]},
+        { group:'牆身強度檢核', items:[
+          { label:'φMn ≥ Mu', value:`${r.phiMn_wall_tfm.toFixed(3)} / ${r.Mu_wall_tfm.toFixed(3)}`, unit:'tf·m/m', ok:r.okFlex },
+          { label:'φVc ≥ Vu', value:`${r.phiVc_wall_tfm.toFixed(2)} / ${r.Vu_stem.toFixed(2)}`, unit:'tf/m', ok:r.okShear }
+        ]},
+        ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
+          group:'待確認 / 正式扶壁系統分析需求',
+          value:'需正式分析確認'
+        })] : [])
+      ];
+    }
 
     const showStepsOn = $('showSteps')?.checked;
     if (showStepsOn) {
@@ -3952,9 +4106,9 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     }
 
     const anyFail = checks.some(g => g.items?.some(i => i.ok === false));
-    const allOk = checks.every(g => g.items?.every(i => i.ok !== false));
-
-    const summaryText = anyFail ? '✗ NG' : allOk ? '✓ OK' : '△ 部分通過';
+    const allOk = checks.length > 0 && checks.every(g => g.items?.every(i => i.ok !== false));
+    const summaryOk = r.summaryOk !== undefined ? r.summaryOk : (anyFail ? false : allOk ? true : null);
+    const summaryText = r.summaryText || (summaryOk === false ? '✗ NG' : summaryOk === true ? '✓ OK' : '△ 部分通過');
 
     openReport({
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
@@ -3963,7 +4117,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       inputs,
       checks,
       steps,
-      summary: { ok: anyFail ? false : allOk ? true : null, text: summaryText },
+      summary: { ok: summaryOk, text: summaryText },
       symbols:[
         { sym:"fc'", desc:'混凝土規定抗壓強度' },
         { sym:'fy', desc:'鋼筋規定降伏強度' },
@@ -4017,6 +4171,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       'r-AsMin':      'As,min = 0.0018·b·h (溫度收縮)',
       'r-dMin':       '有效深度 d ≥ 15 cm (規範)',
       'r-cbRatio':    '矩形基腳中央帶配筋比 = 2/(β+1)',
+      'cr-FSslide':   '聯合基腳抗滑 FS = μ·N / H；H = max(|HDL|, |HDL+HE|)',
       'pr-Rmax':      'R_i = P/n ± Mx·y/Σy² ± My·x/Σx²',
       'pr-spacing':   '最小樁間距 ≥ 2.5·Dp',
       'rr-Pa':        'Pa = 0.5·Ka·γ·H² + Ka·qs·H',

@@ -163,7 +163,7 @@
   .history-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 760px;
+    min-width: 1320px;
     font-size: 0.84em;
   }
   .history-table th,
@@ -195,10 +195,51 @@
     font-weight: 700;
   }
   .history-links a:hover { text-decoration: underline; }
+  .subsection-title {
+    margin: 18px 0 10px;
+    color: var(--primary);
+    font-size: 0.92em;
+  }
   .history-empty {
     color: var(--text-light);
     font-size: 0.86em;
     line-height: 1.8;
+  }
+  .run-timeline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 14px 0;
+  }
+  .run-tick {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 34px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.72em;
+    font-weight: 800;
+    color: #334155;
+    background: #f8fafc;
+  }
+  .run-tick.ok {
+    border-color: #86efac;
+    background: #dcfce7;
+    color: #166534;
+  }
+  .run-tick.fail {
+    border-color: #fecaca;
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .run-tick.full {
+    box-shadow: inset 0 -4px 0 rgba(37, 99, 235, 0.24);
+  }
+  .run-tick.quick {
+    box-shadow: inset 0 -4px 0 rgba(71, 85, 105, 0.18);
   }
   .maturity-table-wrap {
     overflow-x: auto;
@@ -246,6 +287,8 @@
   }
   .maturity-chip.ok { background: #dcfce7; color: #166534; }
   .maturity-chip.miss { background: #fee2e2; color: #991b1b; }
+  .maturity-chip.na { background: #f1f5f9; color: #64748b; }
+  .maturity-chip.upgrade { background: #e0f2fe; color: #075985; }
   .maturity-status {
     display: inline-flex;
     align-items: center;
@@ -258,6 +301,85 @@
   .maturity-status.governed { background: #dcfce7; color: #166534; }
   .maturity-status.maturing { background: #fef3c7; color: #92400e; }
   .maturity-status.needs-attention { background: #fee2e2; color: #991b1b; }
+  .upgrade-targets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .upgrade-target {
+    border: 1px solid #bae6fd;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #f0f9ff;
+    color: #0f172a;
+    font-size: 0.84em;
+  }
+  .upgrade-target strong {
+    display: block;
+    color: #075985;
+    margin-bottom: 4px;
+  }
+  .upgrade-target code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.94em;
+  }
+  .coverage-totals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .coverage-total {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 0.82em;
+  }
+  .coverage-total strong {
+    display: block;
+    color: #334155;
+    margin-bottom: 6px;
+  }
+  .coverage-total span {
+    display: inline-flex;
+    min-height: 24px;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-family: Consolas, "Courier New", monospace;
+    font-weight: 800;
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .coverage-total.ok span {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .source-trace {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .source-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 4px 8px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 0.78em;
+  }
+  .source-pill code {
+    font-family: Consolas, "Courier New", monospace;
+    color: #0f172a;
+  }
   .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -356,6 +478,8 @@
       <a href="../鋼筋混凝土/output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟 RC 摘要</a>
       <a href="./output/audit/audit-summary.md" target="_blank" rel="noreferrer">開啟核心摘要</a>
       <a href="../output/audit/tool-maturity-matrix.md" target="_blank" rel="noreferrer">開啟工具成熟度矩陣</a>
+      <a href="../output/preflight/preflight-summary.md" target="_blank" rel="noreferrer">開啟 Preflight 摘要</a>
+      <a href="../output/preflight/preflight-history.md" target="_blank" rel="noreferrer">開啟 Preflight 歷程</a>
     </div>
     <div class="toolbar-status">
       <span id="pageLoadedAt">頁面尚未更新</span>
@@ -411,9 +535,29 @@
         <div class="kpi-hint">正式風 / 震工具與局部快算工具的 manifest 合計。</div>
       </div>
       <div class="kpi-card">
+        <div class="kpi-label">首頁入口覆蓋</div>
+        <div class="kpi-value" id="maturityEntrypointCoverage">讀取中</div>
+        <div class="kpi-hint" id="maturityEntrypointHint">成熟度矩陣、其他 audit governance 與非正式入口分開標示。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">其他治理來源</div>
+        <div class="kpi-value" id="maturityOtherGovernanceCoverage">讀取中</div>
+        <div class="kpi-hint" id="maturityOtherGovernanceHint">矩陣外正式入口必須連到對應 audit governance 與 preflight key。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">矩陣外邊界</div>
+        <div class="kpi-value" id="maturityBoundaryCoverage">讀取中</div>
+        <div class="kpi-hint" id="maturityBoundaryHint">非正式、輔助、查詢、工作流與本機服務入口必須標示 output / fit / limit。</div>
+      </div>
+      <div class="kpi-card">
         <div class="kpi-label">治理完成</div>
         <div class="kpi-value ok" id="maturityGovernedCount">讀取中</div>
         <div class="kpi-hint">clean route、首頁入口、smoke、報表、golden case 與 round-trip 會共同影響成熟度。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">多案例門檻</div>
+        <div class="kpi-value" id="maturityMultiGoldenCount">讀取中</div>
+        <div class="kpi-hint" id="maturityMultiGoldenHint">每個納管工具至少 2 筆 golden case 才算達標。</div>
       </div>
       <div class="kpi-card">
         <div class="kpi-label">需補強</div>
@@ -421,13 +565,71 @@
         <div class="kpi-hint">若不為 0，優先查看缺漏欄位並補測試或 manifest。</div>
       </div>
       <div class="kpi-card">
+        <div class="kpi-label">升級缺口</div>
+        <div class="kpi-value" id="maturityUpgradeGapCount">讀取中</div>
+        <div class="kpi-hint" id="maturityUpgradeGapHint">治理已過但仍值得補強的報告、JSON 與圖面驗證缺口。</div>
+      </div>
+      <div class="kpi-card">
         <div class="kpi-label">最新 Preflight</div>
         <div class="kpi-value" id="maturityPreflight">讀取中</div>
         <div class="kpi-hint" id="maturityPreflightHint">成熟度矩陣會同步標示最近一次 preflight 結果。</div>
       </div>
     </div>
+    <div class="upgrade-targets" id="maturityUpgradeTargets"></div>
+    <div class="history-table-wrap" id="maturityOtherGovernanceWrap" aria-label="Other Governance Sources">
+      <div class="history-empty">讀取其他治理來源中。</div>
+    </div>
+    <div class="history-table-wrap" id="maturityBoundaryWrap" aria-label="Non-Matrix Boundary Checks">
+      <div class="history-empty">讀取矩陣外邊界檢查中。</div>
+    </div>
+    <div class="coverage-totals" id="maturityCoverageTotals" aria-label="Coverage Totals">
+      <div class="history-empty">讀取 coverage totals 中。</div>
+    </div>
+    <div class="source-trace" id="maturitySourceTrace" aria-label="Maturity Source Trace">
+      <div class="history-empty">讀取來源追蹤中。</div>
+    </div>
     <div class="maturity-table-wrap" id="maturityWrap">
       <div class="history-empty">讀取工具成熟度矩陣中。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>交付前檢查歷程</h2>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">最近 Preflight</div>
+        <div class="kpi-value" id="preflightLatestStatus">讀取中</div>
+        <div class="kpi-hint" id="preflightLatestHint">讀取最近一次 quick 或 full preflight。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">最近 Full</div>
+        <div class="kpi-value" id="preflightFullStatus">讀取中</div>
+        <div class="kpi-hint" id="preflightFullHint">full preflight 會涵蓋慢速與完整巡檢。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">最近 Quick</div>
+        <div class="kpi-value" id="preflightQuickStatus">讀取中</div>
+        <div class="kpi-hint" id="preflightQuickHint">quick preflight 適合小改後快速確認。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">近期異常</div>
+        <div class="kpi-value" id="preflightFailureStatus">讀取中</div>
+        <div class="kpi-hint" id="preflightFailureHint">統計目前 history manifest 保留的異常 run。</div>
+      </div>
+    </div>
+    <div class="run-timeline" id="preflightTimeline" aria-label="最近 preflight run 趨勢">
+      <div class="history-empty">讀取 preflight 趨勢中。</div>
+    </div>
+    <div class="history-table-wrap" id="preflightHistoryWrap">
+      <div class="history-empty">讀取最近 preflight 歷程中。</div>
+    </div>
+    <h3 class="subsection-title">最近一次檢查細項</h3>
+    <div class="history-table-wrap" id="preflightLatestRecordsWrap">
+      <div class="history-empty">讀取最新 preflight log 中。</div>
+    </div>
+    <h3 class="subsection-title">最近一次 Post-Check 細項</h3>
+    <div class="history-table-wrap" id="preflightPostChecksWrap">
+      <div class="history-empty">讀取最新 post-checks 中。</div>
     </div>
   </div>
 
@@ -507,6 +709,10 @@
         .replace(/>/g, '&gt;');
     }
 
+    function escapeAttr(text) {
+      return escapeHtml(text).replace(/"/g, '&quot;');
+    }
+
     function deriveHistoryUrl(summaryUrl, historyPath) {
       if (!summaryUrl || !historyPath) return '';
       const normalizedHistory = String(historyPath).replace(/\\/g, '/');
@@ -533,12 +739,14 @@
           ? item.records.map((record) => `${record.key}:${record.pass ? 'OK' : 'NG'}`).join(' / ')
           : '-';
         const failures = Array.isArray(item.failures) && item.failures.length ? item.failures.join('; ') : '無';
+        const summaryHash = formatCommandHash(item.summaryJsonHash || item.summaryHash || '');
         return `
           <tr>
             <td><code>${escapeHtml(item.runId || '-')}</code></td>
             <td>${escapeHtml(item.generatedAt || '-')}</td>
             <td><span class="${statusClass}">${escapeHtml(statusText)}</span></td>
             <td>${escapeHtml(moduleSummary)}</td>
+            <td><code>${escapeHtml(summaryHash)}</code></td>
             <td>${escapeHtml(failures)}</td>
             <td>
               <div class="history-links">
@@ -557,6 +765,7 @@
               <th>時間</th>
               <th>整體狀態</th>
               <th>模組結果</th>
+              <th>摘要 hash</th>
               <th>異常內容</th>
               <th>連結</th>
             </tr>
@@ -565,6 +774,350 @@
         </table>
       `;
     }
+
+    function setKpiValue(id, text, tone) {
+      const node = document.getElementById(id);
+      if (!node) return;
+      node.textContent = text;
+      node.className = `kpi-value ${tone || ''}`.trim();
+    }
+
+    function setHint(id, text) {
+      const node = document.getElementById(id);
+      if (node) node.textContent = text;
+    }
+
+    function preflightModeText(item) {
+      return item && item.quick ? 'Quick' : 'Full';
+    }
+
+    function preflightStatusText(item) {
+      if (!item) return '無資料';
+      return item.pass ? '通過' : `異常 ${item.failureCount || 0} 項`;
+    }
+
+    function formatSeconds(value) {
+      const seconds = Number(value);
+      if (!Number.isFinite(seconds) || seconds <= 0) return '-';
+      if (seconds >= 60) {
+        return `${(seconds / 60).toFixed(seconds >= 600 ? 0 : 1)} 分`;
+      }
+      return `${seconds.toFixed(seconds % 1 ? 1 : 0)} 秒`;
+    }
+
+    function formatSlowest(item) {
+      if (!item) return '-';
+      const slowest = Array.isArray(item.slowestRecords) && item.slowestRecords.length
+        ? item.slowestRecords[0]
+        : null;
+      const key = slowest?.key || item.slowestKey || '';
+      const seconds = slowest?.seconds ?? item.slowestSeconds;
+      return key ? `${key} (${formatSeconds(seconds)})` : '-';
+    }
+
+    function formatPassedChecks(item) {
+      if (!item) return '-';
+      const total = Number(item.recordsCount) || 0;
+      const passed = Number(item.passedCount);
+      return Number.isFinite(passed) ? `${passed} / ${total}` : `${total}`;
+    }
+
+    function formatFailedKeys(item) {
+      if (!item || !Array.isArray(item.failedKeys) || !item.failedKeys.length) return '無';
+      return item.failedKeys.join(', ');
+    }
+
+    function formatPlatformAuditMode(item) {
+      if (item && item.platformAuditReused === true) return '重用狀態';
+      if (item && item.platformAuditReused === false && item.platformAuditMode) return '重跑 audit-all';
+      if (!item || !item.platformAuditMode) return item && item.quick ? '-' : '未標示';
+      if (item.platformAuditMode === 'reuse-status') return '重用狀態';
+      if (item.platformAuditMode === 'run-audit-all') return '重跑 audit-all';
+      return item.platformAuditMode;
+    }
+
+    function formatSlowReuse(item) {
+      const count = Number(item?.slowReuseCount) || 0;
+      if (!count) return '0';
+      const keys = Array.isArray(item.slowReuseKeys) ? item.slowReuseKeys.join(', ') : '';
+      return keys ? `${count} (${keys})` : `${count}`;
+    }
+
+    function formatCommandHash(value) {
+      const text = String(value || '').trim();
+      return text ? text.slice(0, 12) : '-';
+    }
+
+    function formatPreflightSource(item) {
+      const sourcePath = String(item?.sourcePath || '').trim();
+      const sourceHash = formatCommandHash(item?.sourceHash || '');
+      const parts = [];
+      if (sourcePath) parts.push(`來源 ${sourcePath}`);
+      if (sourceHash !== '-') parts.push(`hash ${sourceHash}`);
+      return parts.length ? `，${parts.join('，')}` : '';
+    }
+
+    function formatPostChecks(item) {
+      const total = Number(item?.postCheckCount) || 0;
+      if (!total) return '-';
+      const passed = Number(item?.postChecksPassedCount) || 0;
+      const failures = Array.isArray(item?.postCheckFailures) && item.postCheckFailures.length
+        ? ` (${item.postCheckFailures.join(', ')})`
+        : '';
+      return `${passed} / ${total}${failures}`;
+    }
+
+    function formatRecordMode(record) {
+      if (!record) return '-';
+      if (record.reused === true) return '重用狀態';
+      if (record.mode === 'reuse-status') return '重用狀態';
+      if (record.mode === 'run-command') return '執行命令';
+      if (record.mode === 'workdir-missing') return '工作目錄缺失';
+      return record.mode || '-';
+    }
+
+    function formatRecordWorkdir(record) {
+      if (!record) return '-';
+      const text = String(record.workdirRelative || record.workdir || '').trim();
+      return text || '-';
+    }
+
+    function formatRecordStatusAge(record) {
+      if (!record) return '-';
+      const age = Number(record.statusAgeHours);
+      if (!Number.isFinite(age)) return record.reused === true ? '未標示' : '-';
+      const maxAge = Number(record.statusMaxAgeHours);
+      const maxText = Number.isFinite(maxAge) ? ` / ${maxAge} 小時上限` : '';
+      return `${age} 小時${maxText}`;
+    }
+
+    function renderRunKpi(item, valueId, hintId, emptyHint) {
+      if (!item) {
+        setKpiValue(valueId, '無資料', 'warn');
+        setHint(hintId, emptyHint);
+        return;
+      }
+      setKpiValue(valueId, preflightStatusText(item), item.pass ? 'ok' : 'fail');
+      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}。`);
+    }
+
+    function renderPreflightRecordLinks(summary) {
+      const wrap = document.getElementById('preflightLatestRecordsWrap');
+      if (!wrap) return;
+      if (!summary || !Array.isArray(summary.records) || !summary.records.length) {
+        wrap.innerHTML = '<div class="history-empty">目前尚無可讀取的 latest preflight records。</div>';
+        return;
+      }
+      const rows = summary.records.map((record) => {
+        const latestHref = deriveHistoryUrl('../output/preflight/preflight-summary.md', record.log || '');
+        const historyHref = deriveHistoryUrl('../output/preflight/preflight-summary.md', record.historyLog || '');
+        const statusClass = record.pass ? 'history-pass' : 'history-fail';
+        const statusText = record.pass ? '通過' : `異常 ${record.exitCode ?? '-'}`;
+        const modeText = formatRecordMode(record);
+        const workdirText = formatRecordWorkdir(record);
+        const statusAgeText = formatRecordStatusAge(record);
+        const commandHash = formatCommandHash(record.commandHash);
+        return `
+          <tr>
+            <td><code>${escapeHtml(record.key || '-')}</code></td>
+            <td>${escapeHtml(record.label || '-')}</td>
+            <td><span class="${statusClass}">${escapeHtml(statusText)}</span></td>
+            <td>${escapeHtml(formatSeconds(record.seconds))}</td>
+            <td>${escapeHtml(record.exitCode ?? '-')}</td>
+            <td>${escapeHtml(modeText)}</td>
+            <td>${escapeHtml(statusAgeText)}</td>
+            <td><code title="${escapeAttr(record.workdir || workdirText)}">${escapeHtml(workdirText)}</code></td>
+            <td><code title="${escapeAttr(record.commandHash || '')}">${escapeHtml(commandHash)}</code></td>
+            <td>
+              <div class="history-links">
+                ${latestHref ? `<a href="${escapeAttr(latestHref)}" target="_blank" rel="noreferrer">latest log</a>` : ''}
+                ${historyHref ? `<a href="${escapeAttr(historyHref)}" target="_blank" rel="noreferrer">history log</a>` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      wrap.innerHTML = `
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>key</th>
+              <th>檢查</th>
+              <th>狀態</th>
+              <th>耗時</th>
+              <th>exitCode</th>
+              <th>模式</th>
+              <th>狀態年齡</th>
+              <th>cwd</th>
+              <th>commandHash</th>
+              <th>log</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function normalizePostChecks(payload) {
+      if (!payload) return [];
+      if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload.postChecks)) return payload.postChecks;
+      return [payload];
+    }
+
+    function renderPreflightPostChecks(payload) {
+      const wrap = document.getElementById('preflightPostChecksWrap');
+      if (!wrap) return;
+      const checks = normalizePostChecks(payload).filter(Boolean);
+      if (!checks.length) {
+        wrap.innerHTML = '<div class="history-empty">目前尚無可讀取的 post-checks。</div>';
+        return;
+      }
+      const rows = checks.map((check) => {
+        const latestHref = deriveHistoryUrl('../output/preflight/preflight-summary.md', check.log || '');
+        const historyHref = deriveHistoryUrl('../output/preflight/preflight-summary.md', check.historyLog || '');
+        const statusClass = check.pass ? 'history-pass' : 'history-fail';
+        const statusText = check.pass ? '通過' : `異常 ${check.exitCode ?? '-'}`;
+        return `
+          <tr>
+            <td><code>${escapeHtml(check.key || '-')}</code></td>
+            <td>${escapeHtml(check.label || '-')}</td>
+            <td><span class="${statusClass}">${escapeHtml(statusText)}</span></td>
+            <td>${escapeHtml(formatSeconds(check.seconds))}</td>
+            <td>${escapeHtml(check.exitCode ?? '-')}</td>
+            <td>${escapeHtml(formatRecordMode(check))}</td>
+            <td><code>${escapeHtml(formatRecordWorkdir(check))}</code></td>
+            <td><code title="${escapeAttr(check.commandHash || '')}">${escapeHtml(formatCommandHash(check.commandHash))}</code></td>
+            <td>
+              <div class="history-links">
+                ${latestHref ? `<a href="${escapeAttr(latestHref)}" target="_blank" rel="noreferrer">latest log</a>` : ''}
+                ${historyHref ? `<a href="${escapeAttr(historyHref)}" target="_blank" rel="noreferrer">history log</a>` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      wrap.innerHTML = `
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>key</th>
+              <th>post-check</th>
+              <th>狀態</th>
+              <th>耗時</th>
+              <th>exitCode</th>
+              <th>模式</th>
+              <th>cwd</th>
+              <th>commandHash</th>
+              <th>log</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+    function renderPreflightHistory(manifest) {
+      const wrap = document.getElementById('preflightHistoryWrap');
+      const timeline = document.getElementById('preflightTimeline');
+      if (!wrap || !timeline) return;
+
+      if (!manifest || !Array.isArray(manifest.items) || !manifest.items.length) {
+        renderRunKpi(null, 'preflightLatestStatus', 'preflightLatestHint', '目前尚無 preflight-history.json 可讀取。');
+        renderRunKpi(null, 'preflightFullStatus', 'preflightFullHint', '目前尚未讀到 full preflight 紀錄。');
+        renderRunKpi(null, 'preflightQuickStatus', 'preflightQuickHint', '目前尚未讀到 quick preflight 紀錄。');
+        setKpiValue('preflightFailureStatus', '未讀取', 'warn');
+        setHint('preflightFailureHint', '請先執行 preflight-tools.ps1 產生歷程。');
+        timeline.innerHTML = '<div class="history-empty">目前尚無 preflight 趨勢可顯示。</div>';
+        wrap.innerHTML = '<div class="history-empty">目前尚無可讀取的 preflight 歷程。</div>';
+        return;
+      }
+
+      const items = manifest.items;
+      const latest = items[0];
+      const latestFull = items.find((item) => item && item.quick === false);
+      const latestQuick = items.find((item) => item && item.quick === true);
+      const failedRuns = items.filter((item) => item && !item.pass);
+
+      renderRunKpi(latest, 'preflightLatestStatus', 'preflightLatestHint', '目前尚無 preflight 紀錄。');
+      renderRunKpi(latestFull, 'preflightFullStatus', 'preflightFullHint', '目前尚未讀到 full preflight 紀錄。');
+      renderRunKpi(latestQuick, 'preflightQuickStatus', 'preflightQuickHint', '目前尚未讀到 quick preflight 紀錄。');
+      setKpiValue('preflightFailureStatus', `${failedRuns.length} / ${items.length}`, failedRuns.length ? 'fail' : 'ok');
+      setHint('preflightFailureHint', failedRuns.length
+        ? `最近異常 run：${failedRuns[0].runId || '-'}，失敗 key：${formatFailedKeys(failedRuns[0])}。`
+        : `目前保留的 ${items.length} 筆 preflight history 皆為通過。`);
+
+      timeline.innerHTML = items.slice(0, 20).reverse().map((item) => {
+        const mode = preflightModeText(item);
+        const label = `${mode} ${item.runId || '-'}｜${preflightStatusText(item)}｜${item.generatedAt || '-'}｜通過 ${formatPassedChecks(item)}｜耗時 ${formatSeconds(item.totalSeconds)}｜平台 audit ${formatPlatformAuditMode(item)}｜慢測重用 ${formatSlowReuse(item)}｜最慢 ${formatSlowest(item)}`;
+        const statusClass = item.pass ? 'ok' : 'fail';
+        const modeClass = item.quick ? 'quick' : 'full';
+        const glyph = item.quick ? 'Q' : 'F';
+        return `<span class="run-tick ${statusClass} ${modeClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">${escapeHtml(glyph)}</span>`;
+      }).join('');
+
+      const rows = items.slice(0, 8).map((item) => {
+        const summaryHref = deriveHistoryUrl('../output/preflight/preflight-summary.md', item.summaryPath || '');
+        const statusClass = item.pass ? 'history-pass' : 'history-fail';
+        const failures = Array.isArray(item.failures) && item.failures.length ? item.failures.join('; ') : `失敗 key：${formatFailedKeys(item)}`;
+        const summaryHash = formatCommandHash(item.summaryJsonHash || item.summaryHash || item.sourceHash || '');
+        const postChecks = formatPostChecks(item);
+        return `
+          <tr>
+            <td><code>${escapeHtml(item.runId || '-')}</code></td>
+            <td>${escapeHtml(item.generatedAt || '-')}</td>
+            <td>${escapeHtml(preflightModeText(item))}</td>
+            <td><span class="${statusClass}">${escapeHtml(preflightStatusText(item))}</span></td>
+            <td>${escapeHtml(formatPassedChecks(item))}</td>
+            <td>${escapeHtml(formatSeconds(item.totalSeconds))}</td>
+            <td>${escapeHtml(formatPlatformAuditMode(item))}</td>
+            <td>${escapeHtml(formatSlowReuse(item))}</td>
+            <td>${escapeHtml(formatSlowest(item))}</td>
+            <td><code>${escapeHtml(summaryHash)}</code></td>
+            <td>${escapeHtml(postChecks)}</td>
+            <td>${escapeHtml(failures)}</td>
+            <td>
+              <div class="history-links">
+                ${summaryHref ? `<a href="${escapeAttr(summaryHref)}" target="_blank" rel="noreferrer">摘要</a>` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      wrap.innerHTML = `
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>runId</th>
+              <th>時間</th>
+              <th>模式</th>
+              <th>狀態</th>
+              <th>通過 / 檢查</th>
+              <th>耗時</th>
+              <th>平台 audit</th>
+              <th>慢測重用</th>
+              <th>最慢檢查</th>
+              <th>摘要 hash</th>
+              <th>post checks</th>
+              <th>異常內容</th>
+              <th>連結</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    const MATURITY_COVERAGE_TOTALS = [
+      ['reportModes', '報告模式'],
+      ['jsonExport', 'JSON 匯出'],
+      ['jsonImport', 'JSON 匯入'],
+      ['diagramGeometry', '圖面幾何驗證'],
+      ['coreRegression', '核心 / golden regression'],
+      ['goldenCaseRegression', 'Golden case regression'],
+      ['jsonRoundTrip', 'JSON round-trip'],
+      ['referenceTraceability', '工程依據追蹤']
+    ];
 
     function statusText(status) {
       if (status === 'governed') return '治理完成';
@@ -575,8 +1128,23 @@
     function renderMaturityMatrix(payload) {
       const wrap = document.getElementById('maturityWrap');
       const toolCountNode = document.getElementById('maturityToolCount');
+      const entrypointNode = document.getElementById('maturityEntrypointCoverage');
+      const entrypointHintNode = document.getElementById('maturityEntrypointHint');
+      const otherGovernanceNode = document.getElementById('maturityOtherGovernanceCoverage');
+      const otherGovernanceHintNode = document.getElementById('maturityOtherGovernanceHint');
+      const boundaryNode = document.getElementById('maturityBoundaryCoverage');
+      const boundaryHintNode = document.getElementById('maturityBoundaryHint');
       const governedNode = document.getElementById('maturityGovernedCount');
+      const multiGoldenNode = document.getElementById('maturityMultiGoldenCount');
+      const multiGoldenHintNode = document.getElementById('maturityMultiGoldenHint');
       const attentionNode = document.getElementById('maturityAttentionCount');
+      const upgradeGapNode = document.getElementById('maturityUpgradeGapCount');
+      const upgradeGapHintNode = document.getElementById('maturityUpgradeGapHint');
+      const upgradeTargetsNode = document.getElementById('maturityUpgradeTargets');
+      const otherGovernanceWrap = document.getElementById('maturityOtherGovernanceWrap');
+      const boundaryWrap = document.getElementById('maturityBoundaryWrap');
+      const coverageTotalsNode = document.getElementById('maturityCoverageTotals');
+      const sourceTraceNode = document.getElementById('maturitySourceTrace');
       const preflightNode = document.getElementById('maturityPreflight');
       const preflightHintNode = document.getElementById('maturityPreflightHint');
       if (!wrap) return;
@@ -584,19 +1152,234 @@
       if (!payload || !Array.isArray(payload.rows)) {
         wrap.innerHTML = '<div class="history-empty">目前尚無工具成熟度矩陣。請重新執行 preflight 產生最新矩陣。</div>';
         if (toolCountNode) toolCountNode.textContent = '未讀取';
+        if (entrypointNode) entrypointNode.textContent = '未讀取';
+        if (entrypointHintNode) entrypointHintNode.textContent = '目前尚未讀到首頁入口覆蓋。';
+        if (otherGovernanceNode) otherGovernanceNode.textContent = '未讀取';
+        if (otherGovernanceHintNode) otherGovernanceHintNode.textContent = '目前尚未讀到其他治理來源。';
+        if (boundaryNode) boundaryNode.textContent = '未讀取';
+        if (boundaryHintNode) boundaryHintNode.textContent = '目前尚未讀到矩陣外入口邊界。';
         if (governedNode) governedNode.textContent = '未讀取';
+        if (multiGoldenNode) multiGoldenNode.textContent = '未讀取';
+        if (multiGoldenHintNode) multiGoldenHintNode.textContent = '目前尚未讀到 golden case 門檻統計。';
         if (attentionNode) attentionNode.textContent = '未讀取';
+        if (upgradeGapNode) upgradeGapNode.textContent = '未讀取';
+        if (upgradeGapHintNode) upgradeGapHintNode.textContent = '目前尚未讀到升級缺口。';
+        if (upgradeTargetsNode) upgradeTargetsNode.innerHTML = '';
+        if (otherGovernanceWrap) otherGovernanceWrap.innerHTML = '<div class="history-empty">目前尚無其他治理來源。</div>';
+        if (boundaryWrap) boundaryWrap.innerHTML = '<div class="history-empty">目前尚無矩陣外邊界檢查。</div>';
+        if (coverageTotalsNode) coverageTotalsNode.innerHTML = '<div class="history-empty">目前尚無 coverage totals。</div>';
+        if (sourceTraceNode) sourceTraceNode.innerHTML = '<div class="history-empty">目前尚無來源追蹤。</div>';
         if (preflightNode) preflightNode.textContent = '未讀取';
         return;
       }
 
       const totals = payload.totals || {};
+      const entrypointCoverage = payload.entrypointCoverage || {};
       if (toolCountNode) toolCountNode.textContent = `${totals.tools || payload.rows.length}`;
+      if (entrypointNode) {
+        const totalEntrypoints = Number(entrypointCoverage.total || 0);
+        const matrixCovered = Number(entrypointCoverage.matrixCovered || 0);
+        const totalTools = Number(totals.tools || payload.rows.length || 0);
+        const uncoveredFormal = Number(entrypointCoverage.formalOutsideCoverage || 0);
+        entrypointNode.textContent = totalEntrypoints ? `${matrixCovered} / ${totalEntrypoints}` : '未讀取';
+        entrypointNode.className = `kpi-value ${matrixCovered >= totalTools && uncoveredFormal === 0 ? 'ok' : 'warn'}`;
+      }
+      if (entrypointHintNode) {
+        const totalEntrypoints = Number(entrypointCoverage.total || 0);
+        const matrixCovered = Number(entrypointCoverage.matrixCovered || 0);
+        const otherGoverned = Number(entrypointCoverage.otherGoverned || 0);
+        const nonFormal = Number(entrypointCoverage.nonFormalOutsideCoverage || 0);
+        const uncoveredFormal = Number(entrypointCoverage.formalOutsideCoverage || 0);
+        entrypointHintNode.textContent = totalEntrypoints
+          ? `首頁 ${totalEntrypoints} 個入口；成熟度矩陣 ${matrixCovered} 個，其他 audit governance ${otherGoverned} 個，非正式 / 工作流 ${nonFormal} 個，未納管正式入口 ${uncoveredFormal} 個。`
+          : '目前尚未讀到首頁入口覆蓋。';
+      }
+      const otherGovernanceRequired = Number(entrypointCoverage.otherGovernanceRequired || 0);
+      const otherGovernanceComplete = Number(entrypointCoverage.otherGovernanceComplete || 0);
+      const otherGovernanceIssueCount = Number(entrypointCoverage.otherGovernanceIssueCount || 0);
+      if (otherGovernanceNode) {
+        otherGovernanceNode.textContent = otherGovernanceRequired ? `${otherGovernanceComplete} / ${otherGovernanceRequired}` : '未讀取';
+        otherGovernanceNode.className = `kpi-value ${otherGovernanceRequired && otherGovernanceComplete >= otherGovernanceRequired && otherGovernanceIssueCount === 0 ? 'ok' : 'warn'}`;
+      }
+      if (otherGovernanceHintNode) {
+        otherGovernanceHintNode.textContent = otherGovernanceRequired
+          ? `矩陣外 ${otherGovernanceRequired} 個正式入口已連到治理來源與通過 preflight，問題 ${otherGovernanceIssueCount} 個。`
+          : '目前尚未讀到其他治理來源。';
+      }
+      const boundaryRequired = Number(entrypointCoverage.boundaryRequired || 0);
+      const boundaryComplete = Number(entrypointCoverage.boundaryComplete || 0);
+      const boundaryIssueCount = Number(entrypointCoverage.boundaryIssueCount || 0);
+      if (boundaryNode) {
+        boundaryNode.textContent = boundaryRequired ? `${boundaryComplete} / ${boundaryRequired}` : '未讀取';
+        boundaryNode.className = `kpi-value ${boundaryRequired && boundaryComplete >= boundaryRequired && boundaryIssueCount === 0 ? 'ok' : 'warn'}`;
+      }
+      if (boundaryHintNode) {
+        boundaryHintNode.textContent = boundaryRequired
+          ? `矩陣外 ${boundaryRequired} 個非正式 / 輔助入口已完成 ${boundaryComplete} 個邊界檢查，問題 ${boundaryIssueCount} 個。`
+          : '目前尚未讀到矩陣外入口邊界。';
+      }
       if (governedNode) governedNode.textContent = `${totals.governed || 0}`;
+      if (multiGoldenNode) {
+        const totalTools = Number(totals.tools || payload.rows.length || 0);
+        const multipleCount = Number(totals.toolsWithMultipleGoldenCases || 0);
+        const reached = totalTools > 0 && multipleCount >= totalTools;
+        multiGoldenNode.textContent = `${multipleCount} / ${totalTools}`;
+        multiGoldenNode.className = `kpi-value ${reached ? 'ok' : 'warn'}`;
+      }
+      if (multiGoldenHintNode) {
+        const goldenTotal = Number(totals.goldenCases || 0);
+        const totalTools = Number(totals.tools || payload.rows.length || 0);
+        const multipleCount = Number(totals.toolsWithMultipleGoldenCases || 0);
+        multiGoldenHintNode.textContent = multipleCount >= totalTools && totalTools > 0
+          ? `全部納管工具已達多案例門檻，golden case 合計 ${goldenTotal} 筆。`
+          : `尚有 ${Math.max(0, totalTools - multipleCount)} 個工具未達 2 筆 golden case。`;
+      }
       if (attentionNode) {
         const count = totals.needsAttention || 0;
         attentionNode.textContent = `${count}`;
         attentionNode.className = `kpi-value ${count === 0 ? 'ok' : 'fail'}`;
+      }
+      if (upgradeGapNode) {
+        const count = totals.upgradeGapCount || 0;
+        upgradeGapNode.textContent = `${count}`;
+        upgradeGapNode.className = `kpi-value ${count === 0 ? 'ok' : 'warn'}`;
+      }
+      if (upgradeGapHintNode) {
+        const affected = totals.toolsWithUpgradeGaps || 0;
+        upgradeGapHintNode.textContent = affected
+          ? `${affected} 個工具已有治理基線，但仍有可排程的升級缺口。`
+          : '目前沒有升級缺口。';
+      }
+      if (upgradeTargetsNode) {
+        const targets = Array.isArray(payload.topUpgradeTargets) ? payload.topUpgradeTargets : [];
+        if (targets.length === 0) {
+          upgradeTargetsNode.innerHTML = '<div class="history-empty">目前沒有升級目標。</div>';
+        } else {
+          upgradeTargetsNode.innerHTML = targets.map((target) => {
+            const tools = Array.isArray(target.tools) ? target.tools : [];
+            const preview = tools.slice(0, 6).map((key) => `<code>${escapeHtml(key)}</code>`).join(', ');
+            const suffix = tools.length > 6 ? ` 等 ${tools.length} 項` : '';
+            return `
+              <div class="upgrade-target">
+                <strong>${escapeHtml(target.priority || '-')} ${escapeHtml(target.label || target.key || '-')}：${escapeHtml(`${target.count || 0}`)} 項</strong>
+                <span>${preview}${escapeHtml(suffix)}</span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+      if (otherGovernanceWrap) {
+        const routes = Array.isArray(entrypointCoverage.otherGovernanceRoutes) ? entrypointCoverage.otherGovernanceRoutes : [];
+        if (routes.length === 0) {
+          otherGovernanceWrap.innerHTML = '<div class="history-empty">目前沒有矩陣外正式入口治理來源。</div>';
+        } else {
+          const renderKeys = (keys) => {
+            const list = Array.isArray(keys) ? keys.filter(Boolean) : [];
+            return list.length ? list.map((key) => `<code>${escapeHtml(key)}</code>`).join(', ') : '-';
+          };
+          const renderIssues = (route) => {
+            const failed = Array.isArray(route.failedKeys) ? route.failedKeys.map((key) => `failed:${key}`) : [];
+            const missing = Array.isArray(route.missingKeys) ? route.missingKeys.map((key) => `missing:${key}`) : [];
+            const governanceIssues = Array.isArray(route.governanceIssues) ? route.governanceIssues : [];
+            const issues = failed.concat(missing, governanceIssues).filter(Boolean);
+            return issues.length ? issues.map((issue) => `<code>${escapeHtml(issue)}</code>`).join(', ') : '無';
+          };
+          otherGovernanceWrap.innerHTML = `
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>route</th>
+                  <th>工具</th>
+                  <th>governance</th>
+                  <th>preflight keys</th>
+                  <th>通過</th>
+                  <th>異常 / 缺漏</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${routes.map((route) => `
+                  <tr>
+                    <td><a href="${escapeAttr(route.route || '#')}" target="_blank" rel="noreferrer">${escapeHtml(route.route || '-')}</a></td>
+                    <td>${escapeHtml(route.title || '-')}</td>
+                    <td><code>${escapeHtml(route.governanceLabel || route.governance || '-')}</code></td>
+                    <td>${renderKeys(route.preflightKeys)}</td>
+                    <td><span class="maturity-status ${route.pass ? 'governed' : 'needs-attention'}">${renderKeys(route.passedKeys)}</span></td>
+                    <td>${renderIssues(route)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      }
+      if (boundaryWrap) {
+        const routes = Array.isArray(entrypointCoverage.boundaryRoutes) ? entrypointCoverage.boundaryRoutes : [];
+        if (routes.length === 0) {
+          boundaryWrap.innerHTML = '<div class="history-empty">目前沒有矩陣外邊界檢查。</div>';
+        } else {
+          const renderBoundaryList = (values) => {
+            const list = Array.isArray(values) ? values.filter(Boolean) : [];
+            return list.length ? list.map((value) => `<code>${escapeHtml(value)}</code>`).join(', ') : '-';
+          };
+          const renderBoundaryIssues = (route) => {
+            const issues = Array.isArray(route.boundaryIssues) ? route.boundaryIssues.filter(Boolean) : [];
+            return issues.length ? issues.map((issue) => `<code>${escapeHtml(issue)}</code>`).join(', ') : '無';
+          };
+          boundaryWrap.innerHTML = `
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>route</th>
+                  <th>工具</th>
+                  <th>state</th>
+                  <th>output</th>
+                  <th>fit</th>
+                  <th>limit</th>
+                  <th>capabilities</th>
+                  <th>異常 / 缺漏</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${routes.map((route) => `
+                  <tr>
+                    <td><a href="${escapeAttr(route.route || '#')}" target="_blank" rel="noreferrer">${escapeHtml(route.route || '-')}</a></td>
+                    <td>${escapeHtml(route.title || '-')}</td>
+                    <td><code>${escapeHtml(route.state || '-')}</code></td>
+                    <td>${escapeHtml(route.output || '-')}</td>
+                    <td>${escapeHtml(route.fit || '-')}</td>
+                    <td>${escapeHtml(route.limit || '-')}</td>
+                    <td>${renderBoundaryList(route.capabilities)}</td>
+                    <td>${renderBoundaryIssues(route)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+        }
+      }
+      if (coverageTotalsNode) {
+        const totalTools = Number(totals.tools || payload.rows.length || 0);
+        coverageTotalsNode.innerHTML = MATURITY_COVERAGE_TOTALS.map(([key, label]) => {
+          const count = Number(totals[key] || 0);
+          const reached = totalTools > 0 && count >= totalTools;
+          return `
+            <div class="coverage-total ${reached ? 'ok' : 'warn'}" data-coverage-key="${escapeAttr(key)}">
+              <strong>${escapeHtml(label)}</strong>
+              <span>${escapeHtml(`${count} / ${totalTools}`)}</span>
+            </div>
+          `;
+        }).join('');
+      }
+      if (sourceTraceNode) {
+        const inputs = Array.isArray(payload.sourceTrace?.inputs) ? payload.sourceTrace.inputs : [];
+        sourceTraceNode.innerHTML = inputs.length
+          ? inputs.map((input) => `
+            <span class="source-pill" title="${escapeAttr(input.sourcePath || '-')}">
+              <code>${escapeHtml(input.key || '-')}</code>
+              <span>${escapeHtml(formatCommandHash(input.sourceHash))}</span>
+            </span>
+          `).join('')
+          : '<div class="history-empty">目前尚無來源追蹤。</div>';
       }
       if (preflightNode) {
         if (payload.latestPreflight) {
@@ -609,17 +1392,26 @@
       }
       if (preflightHintNode) {
         preflightHintNode.textContent = payload.latestPreflight
-          ? `runId ${payload.latestPreflight.runId || '-'}，時間 ${payload.latestPreflight.generatedAt || '-'}。`
+          ? `runId ${payload.latestPreflight.runId || '-'}，時間 ${payload.latestPreflight.generatedAt || '-'}，通過 ${formatPassedChecks(payload.latestPreflight)}，耗時 ${formatSeconds(payload.latestPreflight.totalSeconds)}，平台 audit ${formatPlatformAuditMode(payload.latestPreflight)}，慢測重用 ${formatSlowReuse(payload.latestPreflight)}，最慢 ${formatSlowest(payload.latestPreflight)}${formatPreflightSource(payload.latestPreflight)}。`
           : '目前尚未讀到 preflight-summary.json。';
       }
 
       const rows = payload.rows.map((row) => {
         const checks = row.checks || {};
-        const missing = Object.entries(checks).filter(([, value]) => value !== true).map(([key]) => key);
+        const missing = Object.entries(checks).filter(([, value]) => value === false).map(([key]) => key);
+        const upgradeGaps = Array.isArray(row.upgradeGaps) ? row.upgradeGaps : [];
+        const upgradeGapText = upgradeGaps.length
+          ? upgradeGaps.map((gap) => `${gap.priority || '-'} ${gap.label || gap.key}`).join(', ')
+          : '無';
         const keyChecks = ['cleanRoute', 'homeEntry', 'browserSmoke', 'reportRegression', 'goldenCaseRegression', 'jsonRoundTrip', 'referenceTraceability', 'jsonExport', 'jsonImport', 'diagramGeometry', 'coreRegression']
           .filter((key) => Object.prototype.hasOwnProperty.call(checks, key))
-          .map((key) => `<span class="maturity-chip ${checks[key] ? 'ok' : 'miss'}">${escapeHtml(key)}</span>`)
+          .map((key) => {
+            const value = checks[key];
+            const state = value === true ? 'ok' : (value === 'n/a' ? 'na' : 'miss');
+            return `<span class="maturity-chip ${state}">${escapeHtml(key)}</span>`;
+          })
           .join('');
+        const rowSourceHash = formatCommandHash(row.sourceTrace?.sourceHash || '');
         return `
           <tr>
             <td>${escapeHtml(row.family || '-')}</td>
@@ -628,8 +1420,12 @@
             <td><a href="${escapeHtml(row.route || '#')}" target="_blank" rel="noreferrer">${escapeHtml(row.route || '-')}</a></td>
             <td><span class="maturity-status ${escapeHtml(row.status || 'needs-attention')}">${escapeHtml(statusText(row.status))}</span></td>
             <td><span class="maturity-score">${escapeHtml(`${row.score?.passed ?? 0}/${row.score?.total ?? 0}`)}</span></td>
+            <td>${escapeHtml(`${row.goldenCaseCount ?? 0}`)}</td>
+            <td><span class="maturity-chip ${upgradeGaps.length ? 'upgrade' : 'ok'}">${escapeHtml(row.upgradePriority && row.upgradePriority !== 'none' ? row.upgradePriority : '無')}</span></td>
             <td><div class="maturity-checks">${keyChecks}</div></td>
+            <td>${escapeHtml(upgradeGapText)}</td>
             <td>${escapeHtml(missing.length ? missing.join(', ') : '無')}</td>
+            <td><code>${escapeHtml(rowSourceHash)}</code></td>
           </tr>
         `;
       }).join('');
@@ -644,8 +1440,12 @@
               <th>路由</th>
               <th>狀態</th>
               <th>分數</th>
+              <th>golden cases</th>
+              <th>升級優先</th>
               <th>重點覆蓋</th>
+              <th>升級缺口</th>
               <th>缺漏</th>
+              <th>source hash</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -752,6 +1552,8 @@
         payload.runId ? `runId｜${payload.runId}` : '',
         payload.loop ? '模式｜循環' : '模式｜單次',
         Array.isArray(payload.modules) && payload.modules.length ? `模組｜${payload.modules.join(' / ')}` : '',
+        payload.lastSummaryHash ? `摘要 hash｜${formatCommandHash(payload.lastSummaryHash)}` : '',
+        payload.lastSummaryJsonHash ? `JSON hash｜${formatCommandHash(payload.lastSummaryJsonHash)}` : '',
         `結果｜${payload.failureCount || 0} 項異常`
       ].filter(Boolean);
       const links = [
@@ -836,6 +1638,24 @@
           renderHistory(null);
         }
         try {
+          const preflightHistoryManifest = await fetchJson('../output/preflight/preflight-history.json');
+          renderPreflightHistory(preflightHistoryManifest);
+        } catch (error) {
+          renderPreflightHistory(null);
+        }
+        try {
+          const latestPreflightSummary = await fetchJson('../output/preflight/preflight-summary.json');
+          renderPreflightRecordLinks(latestPreflightSummary);
+        } catch (error) {
+          renderPreflightRecordLinks(null);
+        }
+        try {
+          const latestPostChecks = await fetchJson('../output/preflight/post-checks.json');
+          renderPreflightPostChecks(latestPostChecks);
+        } catch (error) {
+          renderPreflightPostChecks(null);
+        }
+        try {
           const maturityMatrix = await fetchJson('../output/audit/tool-maturity-matrix.json');
           renderMaturityMatrix(maturityMatrix);
         } catch (error) {
@@ -843,6 +1663,9 @@
         }
       } else {
         renderHistory(null);
+        renderPreflightHistory(null);
+        renderPreflightRecordLinks(null);
+        renderPreflightPostChecks(null);
         renderMaturityMatrix(null);
       }
       updateLoadedAtLabel();

@@ -123,10 +123,14 @@ def load_reference_data() -> ReferenceData:
         payload = json.loads(override_path.read_text(encoding="utf-8"))
         return _sanitize_reference_data(ReferenceData.model_validate(payload))
 
-    _, value_wb = _workbooks()
-    sections = _load_sections(value_wb)
-    bolts = _load_bolts(value_wb)
-    basic_defaults = _load_basic_defaults(value_wb)
+    formula_wb, value_wb = _workbooks()
+    try:
+        sections = _load_sections(value_wb)
+        bolts = _load_bolts(value_wb)
+        basic_defaults = _load_basic_defaults(value_wb)
+    finally:
+        formula_wb.close()
+        value_wb.close()
     return ReferenceData(sections=sections, bolts=bolts, basic_defaults=basic_defaults)
 
 
@@ -235,110 +239,114 @@ def find_section(name: str) -> SectionProperty:
 
 @lru_cache(maxsize=1)
 def load_default_project() -> ProjectState:
-    _, wb = _workbooks()
-    design_ws = wb["各項設計參數"]
-    middle_ws = wb["中間柱"]
-    normal_ws = wb["共構柱 (一般)"]
-    crane_ws = wb["共構柱 (大吊車)"]
+    formula_wb, wb = _workbooks()
+    try:
+        design_ws = wb["各項設計參數"]
+        middle_ws = wb["中間柱"]
+        normal_ws = wb["共構柱 (一般)"]
+        crane_ws = wb["共構柱 (大吊車)"]
 
-    top_supports = [
-        SupportRow(
-            level_label=str(design_ws.cell(row, 1).value),
-            support_count=int(design_ws.cell(row, 2).value or 0),
-            section_name=_normalize_section_name(design_ws.cell(row, 3).value),
-            axial_force_t=float(design_ws.cell(row, 4).value or 0),
-            temp_force_t=float(design_ws.cell(row, 5).value or 0),
-            spacing_m=float(design_ws.cell(row, 6).value or 0),
-        )
-        for row in range(5, 13)
-        if design_ws.cell(row, 3).value
-    ]
-    bottom_supports = [
-        SupportRow(
-            level_label=str(design_ws.cell(row, 1).value),
-            support_count=int(design_ws.cell(row, 2).value or 0),
-            section_name=_normalize_section_name(design_ws.cell(row, 3).value),
-            axial_force_t=float(design_ws.cell(row, 4).value or 0),
-            temp_force_t=float(design_ws.cell(row, 5).value or 0),
-            spacing_m=float(design_ws.cell(row, 6).value or 0),
-        )
-        for row in range(19, 27)
-        if design_ws.cell(row, 3).value
-    ]
-    top_wales: list[WaleRow] = []
-    top_braces: list[BraceRow] = []
-    for row in range(33, 39):
-        if design_ws.cell(row, 3).value:
-            top_wales.append(
-                WaleRow(
-                    level_label=str(design_ws.cell(row, 1).value),
-                    wale_count=int(design_ws.cell(row, 2).value or 0),
-                    section_name=_normalize_section_name(design_ws.cell(row, 3).value),
-                    span_m=float(design_ws.cell(row, 6).value or 0)
-                    + float(design_ws.cell(row, 7).value or 0),
-                    support_spacing_m=float(top_supports[row - 33].spacing_m if row - 33 < len(top_supports) else 0),
-                    line_load_tf_per_m=0.0,
-                )
+        top_supports = [
+            SupportRow(
+                level_label=str(design_ws.cell(row, 1).value),
+                support_count=int(design_ws.cell(row, 2).value or 0),
+                section_name=_normalize_section_name(design_ws.cell(row, 3).value),
+                axial_force_t=float(design_ws.cell(row, 4).value or 0),
+                temp_force_t=float(design_ws.cell(row, 5).value or 0),
+                spacing_m=float(design_ws.cell(row, 6).value or 0),
             )
-        if design_ws.cell(row, 5).value:
-            top_braces.append(
-                BraceRow(
-                    level_label=str(design_ws.cell(row, 1).value),
-                    section_name=_normalize_section_name(design_ws.cell(row, 5).value),
-                    l1_m=float(design_ws.cell(row, 6).value or 0),
-                    l2_m=float(design_ws.cell(row, 7).value or 0),
-                    angle_deg=float(design_ws.cell(row, 8).value or 45),
-                    tributary_line_load_tf_per_m=0.0,
-                )
+            for row in range(5, 13)
+            if design_ws.cell(row, 3).value
+        ]
+        bottom_supports = [
+            SupportRow(
+                level_label=str(design_ws.cell(row, 1).value),
+                support_count=int(design_ws.cell(row, 2).value or 0),
+                section_name=_normalize_section_name(design_ws.cell(row, 3).value),
+                axial_force_t=float(design_ws.cell(row, 4).value or 0),
+                temp_force_t=float(design_ws.cell(row, 5).value or 0),
+                spacing_m=float(design_ws.cell(row, 6).value or 0),
             )
-    bottom_wales: list[WaleRow] = []
-    bottom_braces: list[BraceRow] = []
-    for row in range(48, 54):
-        if design_ws.cell(row, 3).value:
-            support_row = bottom_supports[row - 48] if row - 48 < len(bottom_supports) else None
-            bottom_wales.append(
-                WaleRow(
-                    level_label=str(design_ws.cell(row, 1).value),
-                    wale_count=int(design_ws.cell(row, 2).value or 0),
-                    section_name=_normalize_section_name(design_ws.cell(row, 3).value),
-                    span_m=float(design_ws.cell(row, 6).value or 0)
-                    + float(design_ws.cell(row, 7).value or 0),
-                    support_spacing_m=float(support_row.spacing_m if support_row else 0),
-                    line_load_tf_per_m=0.0,
+            for row in range(19, 27)
+            if design_ws.cell(row, 3).value
+        ]
+        top_wales: list[WaleRow] = []
+        top_braces: list[BraceRow] = []
+        for row in range(33, 39):
+            if design_ws.cell(row, 3).value:
+                top_wales.append(
+                    WaleRow(
+                        level_label=str(design_ws.cell(row, 1).value),
+                        wale_count=int(design_ws.cell(row, 2).value or 0),
+                        section_name=_normalize_section_name(design_ws.cell(row, 3).value),
+                        span_m=float(design_ws.cell(row, 6).value or 0)
+                        + float(design_ws.cell(row, 7).value or 0),
+                        support_spacing_m=float(top_supports[row - 33].spacing_m if row - 33 < len(top_supports) else 0),
+                        line_load_tf_per_m=0.0,
+                    )
                 )
-            )
-        if design_ws.cell(row, 5).value:
-            bottom_braces.append(
-                BraceRow(
-                    level_label=str(design_ws.cell(row, 1).value),
-                    section_name=_normalize_section_name(design_ws.cell(row, 5).value),
-                    l1_m=float(design_ws.cell(row, 6).value or 0),
-                    l2_m=float(design_ws.cell(row, 7).value or 0),
-                    angle_deg=float(design_ws.cell(row, 8).value or 45),
-                    tributary_line_load_tf_per_m=0.0,
+            if design_ws.cell(row, 5).value:
+                top_braces.append(
+                    BraceRow(
+                        level_label=str(design_ws.cell(row, 1).value),
+                        section_name=_normalize_section_name(design_ws.cell(row, 5).value),
+                        l1_m=float(design_ws.cell(row, 6).value or 0),
+                        l2_m=float(design_ws.cell(row, 7).value or 0),
+                        angle_deg=float(design_ws.cell(row, 8).value or 45),
+                        tributary_line_load_tf_per_m=0.0,
+                    )
                 )
+        bottom_wales: list[WaleRow] = []
+        bottom_braces: list[BraceRow] = []
+        for row in range(48, 54):
+            if design_ws.cell(row, 3).value:
+                support_row = bottom_supports[row - 48] if row - 48 < len(bottom_supports) else None
+                bottom_wales.append(
+                    WaleRow(
+                        level_label=str(design_ws.cell(row, 1).value),
+                        wale_count=int(design_ws.cell(row, 2).value or 0),
+                        section_name=_normalize_section_name(design_ws.cell(row, 3).value),
+                        span_m=float(design_ws.cell(row, 6).value or 0)
+                        + float(design_ws.cell(row, 7).value or 0),
+                        support_spacing_m=float(support_row.spacing_m if support_row else 0),
+                        line_load_tf_per_m=0.0,
+                    )
+                )
+            if design_ws.cell(row, 5).value:
+                bottom_braces.append(
+                    BraceRow(
+                        level_label=str(design_ws.cell(row, 1).value),
+                        section_name=_normalize_section_name(design_ws.cell(row, 5).value),
+                        l1_m=float(design_ws.cell(row, 6).value or 0),
+                        l2_m=float(design_ws.cell(row, 7).value or 0),
+                        angle_deg=float(design_ws.cell(row, 8).value or 45),
+                        tributary_line_load_tf_per_m=0.0,
+                    )
+                )
+        corner_ws = wb["大角撐"]
+        corner_braces = [
+            CornerBraceRow(
+                level_label=str(corner_ws.cell(row, 1).value),
+                section_name=_normalize_section_name(corner_ws.cell(row, 2).value),
+                length_m=float(corner_ws.cell(row, 3).value or 0),
+                axial_force_t=float(corner_ws.cell(row, 4).value or 0),
             )
-    corner_ws = wb["大角撐"]
-    corner_braces = [
-        CornerBraceRow(
-            level_label=str(corner_ws.cell(row, 1).value),
-            section_name=_normalize_section_name(corner_ws.cell(row, 2).value),
-            length_m=float(corner_ws.cell(row, 3).value or 0),
-            axial_force_t=float(corner_ws.cell(row, 4).value or 0),
-        )
-        for row in range(5, 13)
-        if corner_ws.cell(row, 2).value
-    ]
-    default_soils = _load_default_soils(wb)
-    all_supports = [*top_supports, *bottom_supports]
-    columns = [
-        _column_from_sheet("中間柱", middle_ws, all_supports, default_soils, "middle"),
-        _column_from_sheet("共構柱 (一般)", normal_ws, all_supports, default_soils, "composite_normal"),
-        _column_from_sheet("共構柱 (大吊車)", crane_ws, all_supports, default_soils, "composite_crane"),
-    ]
-    basic_params = _load_basic_defaults(wb)
-    _backfill_line_loads(top_supports, top_wales, top_braces, basic_params)
-    _backfill_line_loads(bottom_supports, bottom_wales, bottom_braces, basic_params)
+            for row in range(5, 13)
+            if corner_ws.cell(row, 2).value
+        ]
+        default_soils = _load_default_soils(wb)
+        all_supports = [*top_supports, *bottom_supports]
+        columns = [
+            _column_from_sheet("中間柱", middle_ws, all_supports, default_soils, "middle"),
+            _column_from_sheet("共構柱 (一般)", normal_ws, all_supports, default_soils, "composite_normal"),
+            _column_from_sheet("共構柱 (大吊車)", crane_ws, all_supports, default_soils, "composite_crane"),
+        ]
+        basic_params = _load_basic_defaults(wb)
+        _backfill_line_loads(top_supports, top_wales, top_braces, basic_params)
+        _backfill_line_loads(bottom_supports, bottom_wales, bottom_braces, basic_params)
+    finally:
+        formula_wb.close()
+        wb.close()
     return ProjectState(
         metadata=ProjectMetadata(name="Excel 轉換範例專案", location="本地工作區"),
         basic_parameters=basic_params,

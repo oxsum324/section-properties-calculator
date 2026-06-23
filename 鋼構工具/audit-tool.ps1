@@ -1,4 +1,4 @@
-param(
+﻿param(
   [switch]$Quiet,
   [switch]$Loop,
   [int]$IntervalSeconds = 60,
@@ -8,7 +8,6 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$playwrightWorkdir = $root
 $serverPort = 8123
 $baseUrl = "http://127.0.0.1:$serverPort"
 $auditOutputDir = Join-Path $root "output\audit"
@@ -118,136 +117,60 @@ function Ensure-Server {
   return $process
 }
 
-function Invoke-OptionalPlaywrightCommand {
-  param(
-    [string]$CommandName
+function Invoke-BrowserAuditRunner {
+  param([string]$RunDir)
+
+  $runnerPath = Join-Path $root "steel-audit-browser-runner.js"
+  if (-not (Test-Path -LiteralPath $runnerPath)) {
+    throw "Missing steel browser audit runner: $runnerPath"
+  }
+
+  $runnerSummaryPath = Join-Path $RunDir "steel-browser-runner-summary.json"
+  $runnerArgs = @(
+    $runnerPath,
+    "--base-url", $baseUrl,
+    "--output-dir", $auditOutputDir,
+    "--history-dir", $RunDir,
+    "--summary-json", $runnerSummaryPath
   )
+  if ($Quiet) {
+    $runnerArgs += "--quiet"
+  }
 
   $previousErrorActionPreference = $ErrorActionPreference
   $ErrorActionPreference = "Continue"
   try {
-    $output = & npx --yes @playwright/cli $CommandName 2>&1
+    $runnerOutput = & node @runnerArgs 2>&1
     $exitCode = $LASTEXITCODE
   } finally {
     $ErrorActionPreference = $previousErrorActionPreference
   }
 
+  foreach ($line in @($runnerOutput)) {
+    Write-Status ([string]$line) "DarkGray"
+  }
+
+  if (-not (Test-Path -LiteralPath $runnerSummaryPath)) {
+    $details = (@($runnerOutput) | ForEach-Object { [string]$_ }) -join "`n"
+    throw "Steel browser audit runner did not write summary JSON. exitCode=$exitCode`n$details"
+  }
+
+  $runnerSummary = Get-Content -LiteralPath $runnerSummaryPath -Raw -Encoding UTF8 | ConvertFrom-Json
+  foreach ($line in @($runnerSummary.summaryLines)) {
+    $summaryLines.Add([string]$line)
+  }
+  foreach ($record in @($runnerSummary.records)) {
+    $auditRecords.Add($record)
+  }
+  foreach ($failure in @($runnerSummary.failures)) {
+    $auditFailures.Add([string]$failure)
+  }
+
   if ($exitCode -ne 0) {
-    $lines = New-Object System.Collections.Generic.List[string]
-    $lines.Add("[WARN] Playwright CLI command '$CommandName' failed or is unavailable. exitCode=$exitCode")
-    foreach ($line in @($output)) {
-      $lines.Add([string]$line)
-    }
-    return $lines.ToArray()
-  }
-
-  return @($output)
-}
-
-function Run-PlaywrightSnapshot {
-  param(
-    [string]$Url,
-    [int]$Width,
-    [int]$Height,
-    [string]$Label,
-    [string]$SetupCode = "",
-    [string]$RunDir
-  )
-
-  Write-Status "Playwright snapshot [$Label] ${Width}x${Height}" "DarkCyan"
-  npx --yes @playwright/cli open $Url | Out-Null
-  npx --yes @playwright/cli resize $Width $Height | Out-Null
-  if ($SetupCode) {
-    npx --yes @playwright/cli run-code $SetupCode | Out-Null
-  }
-  $snapshot = npx --yes @playwright/cli snapshot
-  if (-not ($snapshot -match "Page URL")) {
-    throw "Playwright snapshot failed for $Label."
-  }
-
-  $snapshotName = "playwright-$Label.txt"
-  $screenshotName = "playwright-$Label.png"
-  $consoleName = "playwright-$Label-console.txt"
-  $networkName = "playwright-$Label-network.txt"
-
-  $snapshotPath = Join-Path $auditOutputDir $snapshotName
-  $snapshotHistoryPath = Join-Path $RunDir $snapshotName
-  $screenshotPath = Join-Path $auditOutputDir $screenshotName
-  $screenshotHistoryPath = Join-Path $RunDir $screenshotName
-  $consolePath = Join-Path $auditOutputDir $consoleName
-  $consoleHistoryPath = Join-Path $RunDir $consoleName
-  $networkPath = Join-Path $auditOutputDir $networkName
-  $networkHistoryPath = Join-Path $RunDir $networkName
-
-  Set-Content -Path $snapshotPath -Value $snapshot -Encoding UTF8
-  Set-Content -Path $snapshotHistoryPath -Value $snapshot -Encoding UTF8
-  npx --yes @playwright/cli screenshot --filename $screenshotPath --full-page | Out-Null
-  Copy-Item -Path $screenshotPath -Destination $screenshotHistoryPath -Force
-
-  $consoleOutput = Invoke-OptionalPlaywrightCommand -CommandName "console"
-  $networkOutput = Invoke-OptionalPlaywrightCommand -CommandName "network"
-
-  Set-Content -Path $consolePath -Value $consoleOutput -Encoding UTF8
-  Set-Content -Path $consoleHistoryPath -Value $consoleOutput -Encoding UTF8
-  Set-Content -Path $networkPath -Value $networkOutput -Encoding UTF8
-  Set-Content -Path $networkHistoryPath -Value $networkOutput -Encoding UTF8
-
-  $consoleJoined = ($consoleOutput -join "`n")
-  $networkJoined = ($networkOutput -join "`n")
-  $consoleErrors = if ($consoleJoined -match "Errors:\s*(\d+)") { [int]$matches[1] } else { 0 }
-  $networkUnavailable = $networkJoined -match "Unknown command:\s*network" -or $networkJoined -match "command 'network' failed or is unavailable"
-  $networkErrors = if ($networkUnavailable) { 0 } else { @($networkOutput | Where-Object { $_ -match "^\s*(GET|POST|PUT|PATCH|DELETE).*( 4\d\d | 5\d\d )" }).Count }
-
-  $summaryLines.Add("- ${Label}: snapshot=$snapshotPath")
-  $summaryLines.Add("  screenshot=$screenshotPath")
-  $summaryLines.Add("  console=$consolePath")
-  $summaryLines.Add("  network=$networkPath")
-  $summaryLines.Add("  consoleErrors=$consoleErrors, networkAlerts=$networkErrors")
-
-  $auditRecords.Add([pscustomobject]@{
-    label = $Label
-    snapshot = $snapshotPath
-    screenshot = $screenshotPath
-    console = $consolePath
-    network = $networkPath
-    consoleErrors = $consoleErrors
-    networkAlerts = $networkErrors
-  })
-
-  if ($consoleErrors -gt 0 -or $networkErrors -gt 0) {
-    $auditFailures.Add("${Label}: consoleErrors=$consoleErrors, networkAlerts=$networkErrors")
-  }
-
-  npx --yes @playwright/cli close | Out-Null
-}
-
-function Run-PlaywrightScenario {
-  param(
-    [string]$ScenarioName,
-    [string]$Url,
-    [string]$RunDir,
-    [string]$SetupCode = ""
-  )
-
-  $sizes = @(
-    @{ Label = "desktop"; Width = 1440; Height = 1100 },
-    @{ Label = "tablet"; Width = 834; Height = 1112 },
-    @{ Label = "mobile"; Width = 390; Height = 844 }
-  )
-
-  foreach ($size in $sizes) {
-    Invoke-Step "Playwright $ScenarioName $($size.Label) audit" {
-      Run-PlaywrightSnapshot `
-        -Url $Url `
-        -Width $size.Width `
-        -Height $size.Height `
-        -Label "$ScenarioName-$($size.Label)" `
-        -SetupCode $SetupCode `
-        -RunDir $RunDir
-    }
+    $details = (@($runnerOutput) | ForEach-Object { [string]$_ }) -join "`n"
+    throw "Steel browser audit runner failed. exitCode=$exitCode`n$details"
   }
 }
-
 function Save-AuditOutputs {
   param(
     [string]$RunDir,
@@ -309,6 +232,8 @@ function Run-AuditPass {
   New-Item -Path $runDir -ItemType Directory -Force | Out-Null
   Reset-AuditState
 
+  try {
+
   Invoke-Step "Node syntax check: app.js" {
     node --check "$root\app.js"
   }
@@ -357,24 +282,11 @@ function Run-AuditPass {
     })
   }
 
-  Push-Location $playwrightWorkdir
-  try {
-    $tensionScenarioCode = @"
-await page.selectOption('select[name="connectionType"]', 'tension_member');
-await page.dispatchEvent('select[name="connectionType"]', 'change');
-await page.selectOption('#examplePresetSelect', 'tension_bolted_plate');
-await page.click('#loadExampleBtn');
-"@
-
-    Run-PlaywrightScenario -ScenarioName "main-plate" -Url "$baseUrl/index.html" -RunDir $runDir
-    Run-PlaywrightScenario -ScenarioName "main-tension" -Url "$baseUrl/index.html" -RunDir $runDir -SetupCode $tensionScenarioCode
-    Run-PlaywrightScenario -ScenarioName "standalone-plate" -Url "$baseUrl/plate-check.html" -RunDir $runDir
-    Run-PlaywrightScenario -ScenarioName "formal-beam" -Url "$baseUrl/steel-beam-formal.html" -RunDir $runDir
-    Run-PlaywrightScenario -ScenarioName "formal-column" -Url "$baseUrl/steel-column-formal.html" -RunDir $runDir
-  } finally {
-    if ((Get-Location).Path -eq $playwrightWorkdir) {
-      Pop-Location
-    }
+  Invoke-Step "Edge CDP browser audit" {
+    Invoke-BrowserAuditRunner -RunDir $runDir
+  }
+  } catch {
+    $auditFailures.Add("audit-aborted: $($_.Exception.Message)")
   }
 
   $paths = Save-AuditOutputs -RunDir $runDir -RunStamp $runStamp

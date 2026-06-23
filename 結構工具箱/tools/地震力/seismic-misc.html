@@ -48,6 +48,8 @@
   .case-actions .primary:hover { background:#115e59; }
   .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
   .case-status:empty { display:none; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
   .print-option-row { margin-top:10px; display:flex; flex-wrap:wrap; gap:10px; }
   .report-mode-control { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #99f6e4; border-radius:10px; background:#f0fdfa; color:#334155; font-size:0.84em; line-height:1.6; }
   .report-mode-label { font-weight:700; color:#0f766e; margin-right:2px; }
@@ -283,6 +285,7 @@
         <div class="inline-actions">
           <button class="btn-calc" id="btnCalc">計算雜項工作物地震力</button>
         </div>
+        <div class="input-status" id="inputStatus" aria-live="polite"></div>
       </div>
     </div>
 
@@ -521,6 +524,14 @@ function setCaseStatus(message, type = 'info') {
     return;
   }
   el.innerHTML = `<span class="check-msg ${type}">${escHtml(message)}</span>`;
+}
+function setInputStatus(message) {
+  const el = document.getElementById('inputStatus');
+  if (!el) return;
+  el.textContent = message || '';
+}
+function clearInputStatus() {
+  setInputStatus('');
 }
 
 function getPrintReportMode() {
@@ -1031,8 +1042,8 @@ function calcMiscPage() {
   renderInputChecks(validationMessages);
   const blockingMessages = validationMessages.filter(message => message.type === 'error');
   if (blockingMessages.length) {
-    alert(blockingMessages.map(message => message.text).join('\n'));
-    return;
+    setInputStatus(blockingMessages.map(message => message.text).join('；'));
+    return false;
   }
 
   const r = calcMiscSeismicFull({
@@ -1177,6 +1188,8 @@ function calcMiscPage() {
       </div>
     </div>
   `;
+  clearInputStatus();
+  return true;
 }
 
 function openMiscReport() {
@@ -1337,7 +1350,8 @@ function openMiscReport() {
   <body>
     <div class="rep-toolbar">
       <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
-      <button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button>
+      <button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){var hint=document.getElementById('closeHint');if(hint){hint.textContent='瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。';}}},150);})()">✕ 關閉</button>
+      <span id="closeHint" style="display:block;margin-top:8px;color:#92400e;font-size:12px;"></span>
     </div>
     <div class="rep-paper">
       <div class="rep-header">
@@ -1364,7 +1378,8 @@ function openMiscReport() {
   </body>
   </html>`;
   const w = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
-  if (!w) { alert('請允許彈出視窗以開啟計算書'); return; }
+  if (!w) { setInputStatus('計算書視窗已被瀏覽器封鎖，請允許本站彈出視窗後再試一次。'); return; }
+  clearInputStatus();
   w.document.open();
   w.document.write(html);
   w.document.close();

@@ -7,6 +7,7 @@ import {
   findProjectTemplateById,
   type ProjectTemplate,
 } from './projectTemplates'
+import type { RequestConfirm } from './confirmDialog'
 
 const projectIdSeed = Date.now()
 let projectIdSequence = 0
@@ -64,6 +65,7 @@ export function useProjectLibrary(deps: {
     projects: ProjectCase[],
     next: ProjectCase,
   ) => ProjectCase[]
+  requestConfirm: RequestConfirm
 }) {
   const {
     project,
@@ -81,6 +83,7 @@ export function useProjectLibrary(deps: {
     cloneProject,
     normalizeProjectSelection,
     replaceProjectInList,
+    requestConfirm,
   } = deps
 
   const importInputRef = useRef<HTMLInputElement | null>(null)
@@ -140,10 +143,14 @@ export function useProjectLibrary(deps: {
     })
   }
 
-  function resetCurrentProjectToDefaults() {
-    const confirmed = window.confirm(
-      `將把目前案例「${project.name}」的所有輸入還原為預設值，但保留案例 ID、名稱、UI 偏好與報表設定。此操作不可復原（可先匯出 JSON 備份）。確定繼續？`,
-    )
+  async function resetCurrentProjectToDefaults() {
+    const confirmed = await requestConfirm({
+      title: '還原案例預設值',
+      message: `將把目前案例「${project.name}」的所有輸入還原為預設值，但保留案例 ID、名稱、UI 偏好與報表設定。此操作不可復原（可先匯出 JSON 備份）。確定繼續？`,
+      confirmLabel: '還原預設',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!confirmed) {
       return
     }

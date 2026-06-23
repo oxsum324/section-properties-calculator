@@ -66,6 +66,14 @@
   .report-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.82em; color:#334155; line-height:1.7; }
   .report-status strong { color:#0f172a; }
   .report-status.warn { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
+  .case-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  .case-actions button { border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; background:#e2e8f0; color:#0f172a; }
+  .case-actions button.primary { background:var(--seismic); color:#fff; }
+  .case-actions button:hover { filter:brightness(0.96); }
+  .case-status { min-height:22px; margin-top:8px; color:#166534; font-size:0.82em; line-height:1.6; }
+  .case-status.warn { color:#92400e; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
   .compare-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
   .compare-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
   .compare-actions a,
@@ -123,6 +131,12 @@
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
     <button class="mode-bar__report" id="btnReport" type="button">📄 列印計算書</button>
   </div>
+  <div class="case-actions">
+    <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
+    <button type="button" id="btnImportCase">匯入案件 JSON</button>
+    <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
+  </div>
+  <div class="case-status" id="caseStatus" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 
@@ -304,6 +318,7 @@
 
     <div class="divider"></div>
       <button class="btn-calc" id="btnCalc">計算等值靜力結果</button>
+    <div class="input-status" id="inputStatus" aria-live="polite"></div>
     <div class="chk-detail">
       <input type="checkbox" id="chkDetail">
       <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
@@ -360,7 +375,7 @@
   <div class="card" id="spectrumCard">
     <h2>設計反應譜 S<sub>a</sub>(T)</h2>
     <div class="canvas-wrap" style="min-height:280px;">
-      <canvas id="spectrumChart"></canvas>
+      <canvas id="spectrumChart" data-diagram-role="spectrum-chart"></canvas>
     </div>
     <div class="legend" id="spectrumLegend"></div>
   </div>
@@ -445,6 +460,7 @@
         </div>
       </div>
       <button class="btn-calc" style="background:var(--seismic);" onclick="calcAppendage()">計算附屬構造物地震力</button>
+      <div class="input-status" id="apStatus" aria-live="polite"></div>
       <div id="apResult" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -468,6 +484,7 @@
         </div>
       </div>
       <button class="btn-calc" style="background:var(--seismic);" onclick="calcVertical()">計算垂直地震力</button>
+      <div class="input-status" id="vStatus" aria-live="polite"></div>
       <div id="vResult" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -535,6 +552,7 @@
       <div class="hint" style="margin-bottom:8px;">⬆ 震區參數及地盤分類沿用左側②面板的輸入值</div>
       <div class="hint" style="margin-bottom:8px; color:#0f766e;">本卡定位為主頁內的第五章快速摘要；若要正式局部計算書、完整輸入或獨立列印，建議改用獨立頁。</div>
       <button class="btn-calc" style="background:#0891b2;" onclick="calcMisc()">計算雜項工作物地震力</button>
+      <div class="input-status" id="miscStatus" aria-live="polite"></div>
       <div id="miscResult" style="margin-top:12px;"></div>
     </div>
   </div>
@@ -621,6 +639,16 @@
  *  seismic-force.html V3  —  UI script
  * ════════════════════════════════════════ */
 const S = Seismic;
+const TOOL_VERSION = 'seismic-force.v1';
+const CASE_SCHEMA_VERSION = 'seismic-force.case.v1';
+const CASE_ZONE_VALUE_IDS = ['zoneCity', 'zoneDist', 'zoneVillage', 'faultDist'];
+const CASE_VALUE_IDS = [
+  'chkAssist', 'sys', 'Rcustom', 'aYcustom', 'impClass', 'chkXY', 'sysY', 'TdynaY',
+  'chkTaipei', ...CASE_ZONE_VALUE_IDS, 'SsD', 'S1D', 'SsM', 'S1M', 'siteClass',
+  'N', 'hn', 'B', 'Bh', 'wUniform', 'Tdyna', 'chkDetail',
+  'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum', 'rep_story', 'rep_sub',
+  'rep_appendage', 'rep_vertical', 'rep_misc', 'rep_steps', 'rep_inputs', 'rep_symbols', 'rep_notes'
+];
 function fmt(v, d) { return v == null ? '—' : Number(v).toFixed(d); }
 function fmtCoeff(v) { return fmt(v, 4); }
 const STATIC_STORAGE_KEY = 'seismic-static-summary';
@@ -784,6 +812,164 @@ function setNearFaultOverride(city, dist, userDist, values) {
 function getNearFaultOverride() {
   return window._nearFaultOverride;
 }
+
+function setCaseStatus(message, isWarn) {
+  const el = document.getElementById('caseStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.classList.toggle('warn', !!isWarn);
+}
+function setInputStatus(message, targetId = 'inputStatus') {
+  const ids = new Set(['inputStatus']);
+  if (targetId) ids.add(targetId);
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = message || '';
+  });
+}
+function clearInputStatus(targetId) {
+  if (targetId) {
+    setInputStatus('', targetId);
+    return;
+  }
+  document.querySelectorAll('.input-status').forEach(el => {
+    el.textContent = '';
+  });
+}
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return undefined;
+  if (el.type === 'checkbox') return !!el.checked;
+  return el.value;
+}
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  if (el.type === 'checkbox') {
+    el.checked = !!value;
+  } else {
+    el.value = String(value);
+  }
+}
+function normalizedText(selector) {
+  const el = document.querySelector(selector);
+  return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+}
+function readCaseInputs() {
+  const values = {};
+  CASE_VALUE_IDS.forEach(id => {
+    const value = readInputValue(id);
+    if (value !== undefined) values[id] = value;
+  });
+  return {
+    project: {
+      name: document.getElementById('projName').value,
+      no: document.getElementById('projNo').value,
+      designer: document.getElementById('projDesigner').value
+    },
+    values,
+    floors: floorData.map(f => ({ label: f.label, dH: f.dH, W: f.W }))
+  };
+}
+function readExportResultSummary() {
+  return {
+    banner: normalizedText('#banner'),
+    bannerKey: normalizedText('#bannerKey'),
+    comparisonTable: normalizedText('#resultPanel table.cmp'),
+    storyTable: normalizedText('#storyTable'),
+    steps: normalizedText('#steps')
+  };
+}
+function applyZoneCaseValues(values) {
+  if (Object.prototype.hasOwnProperty.call(values, 'zoneCity')) {
+    setInputValue('zoneCity', values.zoneCity);
+    document.getElementById('zoneCity').dispatchEvent(new Event('change'));
+  }
+  if (Object.prototype.hasOwnProperty.call(values, 'zoneDist')) {
+    setInputValue('zoneDist', values.zoneDist);
+    document.getElementById('zoneDist').dispatchEvent(new Event('change'));
+  }
+  if (Object.prototype.hasOwnProperty.call(values, 'zoneVillage')) {
+    setInputValue('zoneVillage', values.zoneVillage);
+    document.getElementById('zoneVillage').dispatchEvent(new Event('change'));
+  }
+  if (Object.prototype.hasOwnProperty.call(values, 'faultDist')) {
+    setInputValue('faultDist', values.faultDist);
+    document.getElementById('faultDist').dispatchEvent(new Event('change'));
+  }
+}
+function refreshCaseDependentUi() {
+  document.getElementById('sys').dispatchEvent(new Event('change'));
+  document.getElementById('sysY').dispatchEvent(new Event('change'));
+  document.getElementById('chkXY').dispatchEvent(new Event('change'));
+  setAssistVisibility(document.getElementById('chkAssist').checked);
+  document.getElementById('stepsCard').classList.toggle('show-detail', document.getElementById('chkDetail').checked);
+  persistReportOptions();
+  updateReportStatus();
+}
+function applyCaseInputs(payload) {
+  const inputBlock = payload?.inputs || {};
+  const project = payload?.project || inputBlock.project || {};
+  const values = { ...(inputBlock.values || {}), ...(payload?.values || {}) };
+  const importedFloors = payload?.floors || inputBlock.floors;
+  if (project.name != null) document.getElementById('projName').value = project.name;
+  if (project.no != null) document.getElementById('projNo').value = project.no;
+  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  CASE_VALUE_IDS.forEach(id => {
+    if (CASE_ZONE_VALUE_IDS.includes(id)) return;
+    if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
+  });
+  applyZoneCaseValues(values);
+  if (Array.isArray(importedFloors) && importedFloors.length) {
+    floorData = importedFloors.map((f, i) => ({
+      label: f.label || `${i + 1}F`,
+      dH: Number(f.dH),
+      W: Number(f.W)
+    })).filter(f => Number.isFinite(f.dH) && Number.isFinite(f.W));
+    renderFloorTable();
+  }
+  refreshCaseDependentUi();
+  calc();
+}
+function exportCaseJson() {
+  if (calc() === false) return;
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'seismic-force', name: '等值靜力分析', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: readExportResultSummary()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CATII-SeismicForce-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出等值靜力分析案件 JSON；可回讀主輸入、樓層資料、列印勾選與計算摘要。');
+}
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已匯入案件 JSON；schema ${payload.schema} 與目前 ${CASE_SCHEMA_VERSION} 不同，已盡量套用可辨識欄位。`, true);
+      } else {
+        setCaseStatus('已匯入案件 JSON，並重新計算等值靜力分析結果。');
+      }
+      applyCaseInputs(payload);
+    } catch (err) {
+      setCaseStatus('匯入失敗：JSON 格式無法解析。', true);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
 
 // ── 結構系統選單 ──
 (function initSys() {
@@ -1819,7 +2005,8 @@ function openSeismicReport() {
   <body>
     <div class="rep-toolbar">
       <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
-      <button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button>
+      <button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){var hint=document.getElementById('closeHint');if(hint){hint.textContent='瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。';}}},150);})()">✕ 關閉</button>
+      <span id="closeHint" style="display:block;margin-top:8px;color:#92400e;font-size:12px;"></span>
     </div>
     <div class="rep-paper">
       <div class="rep-header">
@@ -1853,7 +2040,17 @@ function openSeismicReport() {
   </body>
   </html>`;
   const w = window.open('', '_blank', 'width=980,height=1100,scrollbars=yes');
-  if (!w) { alert('請允許彈出視窗以開啟計算書'); return; }
+  if (!w) {
+    const box = document.getElementById('repStatus');
+    if (box) {
+      box.classList.add('warn');
+      box.innerHTML = '<strong>計算書未開啟：</strong>瀏覽器封鎖了彈出視窗，請允許本站彈出視窗後再試一次。';
+    } else {
+      setInputStatus('計算書視窗已被瀏覽器封鎖，請允許本站彈出視窗後再試一次。');
+    }
+    return;
+  }
+  updateReportStatus();
   w.document.open();
   w.document.write(html);
   w.document.close();
@@ -1862,6 +2059,12 @@ function openSeismicReport() {
 // ══════════════════════════════
 //  主計算
 // ══════════════════════════════
+document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('caseJsonFile').addEventListener('change', e => {
+  importCaseJsonFile(e.target.files?.[0]);
+  e.target.value = '';
+});
 document.getElementById('btnCalc').addEventListener('click', calc);
 document.getElementById('chkAssist').addEventListener('change', function() {
   setAssistVisibility(this.checked);
@@ -1917,11 +2120,13 @@ function calc() {
 
   // 驗證
   if (![SsD, S1D, SsM, S1M].every(v => isFinite(v) && v > 0)) {
-    alert('請完整填入有效的震區參數 (SsD, S1D, SsM, S1M)'); return;
+    setInputStatus('請完整填入有效的震區參數 (SsD, S1D, SsM, S1M)');
+    return false;
   }
   const floorMsg = validateFloorData(hn);
   if (floorMsg) {
-    alert(floorMsg); return;
+    setInputStatus(floorMsg);
+    return false;
   }
 
   // 組裝 floors
@@ -2210,6 +2415,8 @@ F<sub>vM</sub>：S<sub>1M</sub>=${r.S1M} → 查表內插得 <b>${fmt(site.FvM,3
 
   // ── 反應譜圖 ──
   drawSpectrum(r, rY);
+  clearInputStatus();
+  return true;
 }
 
 let specChart = null;
@@ -2318,18 +2525,25 @@ function calcAppendage() {
   // 需要先有主計算的 SDS
   const sdsEl = document.getElementById('banner');
   if (!sdsEl || sdsEl.textContent === '尚未計算') {
-    alert('請先執行主結構地震力計算，以取得 SDS 值'); return;
+    setInputStatus('請先執行主結構地震力計算，以取得 SDS 值', 'apStatus');
+    return false;
   }
   // 取得 SDS from last calc
   const lastSDS = window._lastSeismicSDS;
-  if (!lastSDS) { alert('請先執行主結構地震力計算'); return; }
+  if (!lastSDS) {
+    setInputStatus('請先執行主結構地震力計算', 'apStatus');
+    return false;
+  }
 
   const typeVal = document.getElementById('apType').value;
   let ap, Rp;
   if (typeVal === 'CUSTOM') {
     ap = parseFloat(document.getElementById('apCustom').value);
     Rp = parseFloat(document.getElementById('rpCustom').value);
-    if (!ap || !Rp) { alert('請填入自訂 ap 與 Rp'); return; }
+    if (!ap || !Rp) {
+      setInputStatus('請填入自訂 ap 與 Rp', 'apStatus');
+      return false;
+    }
   } else {
     const [tbl, idx] = typeVal.split('_');
     const item = tbl === 'T1' ? S.TABLE_4_1[+idx] : S.TABLE_4_2[+idx];
@@ -2427,6 +2641,8 @@ function calcAppendage() {
         &emsp;= <span class="val hl">${fmt(Fpv,3)}</span> tf
       </div>
     </div>`;
+  clearInputStatus('apStatus');
+  return true;
 }
 
 // ═══════════════════════════════
@@ -2435,10 +2651,14 @@ function calcAppendage() {
 function calcVertical() {
   // 需要先有主計算結果
   if (!window._lastSeismicSDS) {
-    alert('請先執行主結構地震力計算，以取得 SDS / SD1 等參數'); return;
+    setInputStatus('請先執行主結構地震力計算，以取得 SDS / SD1 等參數', 'vStatus');
+    return false;
   }
   const lastR = window._lastSeismicResult;
-  if (!lastR) { alert('請先執行主結構地震力計算'); return; }
+  if (!lastR) {
+    setInputStatus('請先執行主結構地震力計算', 'vStatus');
+    return false;
+  }
 
   const W_slab = parseFloat(document.getElementById('vW').value) || 0;
   const isNF   = document.getElementById('vNearFault').value === '1';
@@ -2507,6 +2727,8 @@ function calcVertical() {
         = <span class="val">${fmt(r.col_coeff,4)}</span> × W<sub>col</sub>
       </div>
     </div>`;
+  clearInputStatus('vStatus');
+  return true;
 }
 
 // ═══════════════════════════════
@@ -2681,7 +2903,8 @@ function calcMisc() {
   const isTB = document.getElementById('chkTaipei').checked;
 
   if (![SsD, S1D, SsM, S1M].every(v => isFinite(v) && v > 0)) {
-    alert('請先在左側②面板填入有效的震區參數 (SsD, S1D, SsM, S1M)'); return;
+    setInputStatus('請先在左側②面板填入有效的震區參數 (SsD, S1D, SsM, S1M)', 'miscStatus');
+    return false;
   }
 
   const W  = parseFloat(document.getElementById('miscW').value) || 0;
@@ -2694,7 +2917,8 @@ function calcMisc() {
   const aY_custom = typeIdx === -1 ? parseFloat(document.getElementById('miscAY').value) || 1.0 : preset.alphaY;
 
   if (!isFinite(W) || W <= 0 || !isFinite(hn) || hn <= 0) {
-    alert('請輸入有效的工作物重量與高度'); return;
+    setInputStatus('請輸入有效的工作物重量與高度', 'miscStatus');
+    return false;
   }
 
   const r = calcMiscSeismicFull({
@@ -2805,6 +3029,8 @@ function calcMisc() {
         ${limitWarning ? `<br><br><span style="color:#b45309;">${limitWarning}</span>` : ''}
       </div>
     </div>`;
+  clearInputStatus('miscStatus');
+  return true;
 }
 
 (function initPageScopeCard() {

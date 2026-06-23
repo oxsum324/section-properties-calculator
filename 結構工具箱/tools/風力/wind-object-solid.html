@@ -62,7 +62,7 @@
 <body>
 <header>
   <h1>建築物耐風設計 — 實體標示物風力 <span class="badge-v">V4.0</span></h1>
-  <p>依規範表 2.10 實體標示物 Cf 路線 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
+  <p>依「建築物耐風設計規範及解說」107 年版表 2.10 實體標示物 Cf 路線 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
@@ -219,7 +219,7 @@
       </div>
       <div class="form-group">
         <label>C<sub>f</sub> 採用依據 / 備註</label>
-        <textarea id="cfBasis" placeholder="例：依風洞報告第 3.2 節；或依專案文件採用 C_f = ..."></textarea>
+        <textarea id="cfBasis" placeholder="例：建風洞報告第 3.2 節；或建專案文件採用 C_f = ..."></textarea>
       </div>
     </div>
     <div class="form-error" id="formError"></div>
@@ -896,7 +896,7 @@ body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,s
 <div class="rep-paper">
   <div class="rep-header">
     <h1>實體標示物風力計算書</h1>
-    <div class="sub">建築物耐風設計｜表 2.10 實體標示物 Cf 路線｜${TOOL_VERSION}｜${includeDetail ? '詳算式' : '簡易結果'}</div>
+    <div class="sub">依建築物耐風設計規範及解說 107 年版｜表 2.10 實體標示物 Cf 路線｜${TOOL_VERSION}｜${includeDetail ? '詳算式' : '簡易結果'}</div>
   </div>
   <div class="rep-meta">
     <div><b>計畫名稱</b>${escHtml(project.name) || '—'}</div>
@@ -915,9 +915,10 @@ function openSolidObjectReport() {
   if (!html) return;
   const win = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
   if (!win) {
-    alert('瀏覽器封鎖了列印視窗，請允許彈出視窗後再試一次。');
+    setCaseStatus('計算書視窗已被瀏覽器封鎖，請允許本站彈出視窗後再試一次。', 'warn');
     return;
   }
+  setCaseStatus('');
   win.document.open();
   win.document.write(html);
   win.document.close();

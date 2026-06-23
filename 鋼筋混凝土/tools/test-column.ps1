@@ -4,19 +4,8 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $testFile = Join-Path $root 'column-regression.test.js'
 $visualTestFile = Join-Path $root 'column-report-visual.test.js'
 $pmSectionTest = Join-Path (Split-Path -Parent $root) 'shared\pmsection.test.js'
-$depRoot = Join-Path $root '.column-testdeps'
-
-if (!(Test-Path $depRoot)) {
-  New-Item -ItemType Directory -Path $depRoot | Out-Null
-}
-
-Write-Host '== Ensure Playwright dependency ==' -ForegroundColor Cyan
-if (!(Test-Path (Join-Path $depRoot 'node_modules\\playwright'))) {
-  npm init -y --prefix $depRoot | Out-Null
-  npm install --prefix $depRoot playwright --silent
-}
-
-$env:NODE_PATH = Join-Path $depRoot 'node_modules'
+$playwrightDepsScript = Join-Path $root 'ensure-playwright-deps.ps1'
+. $playwrightDepsScript -Root $root -PreferredDirName '.column-testdeps'
 
 Write-Host "`n== Shared PM section unit tests ==" -ForegroundColor Cyan
 node $pmSectionTest

@@ -72,3 +72,32 @@ window.RCUI.renderWarningList = function(cardId, listId, warnings) {
     .map((msg, idx) => `<div style="margin:6px 0; color:#92400e;">${idx + 1}. ${msg}</div>`)
     .join('');
 };
+
+window.RCUI.buildReviewCheckGroup = function(entries, options = {}) {
+  const source = Array.isArray(entries) ? entries : [];
+  const normalized = source
+    .map(entry => typeof entry === 'string' ? { sub: entry } : (entry || null))
+    .filter(entry => {
+      if (!entry) return false;
+      const text = entry.sub ?? entry.text ?? entry.detail ?? entry.value ?? entry.label;
+      return String(text ?? '').trim().length > 0;
+    });
+  if (!normalized.length) return null;
+  const defined = (value, fallback) => value === undefined ? fallback : value;
+  const labelPrefix = options.labelPrefix || '待確認事項';
+  const formula = options.formula || '不列為 OK 結論';
+  const value = defined(options.value, '待確認');
+  const unit = defined(options.unit, '');
+  return {
+    group: options.group || '待確認事項',
+    items: normalized.map((entry, index) => ({
+      label: entry.label || `${labelPrefix} ${index + 1}`,
+      formula: defined(entry.formula, formula),
+      sub: defined(entry.sub, entry.text || entry.detail || ''),
+      value: defined(entry.value, value),
+      unit: defined(entry.unit, unit),
+      ok: defined(entry.ok, null),
+      note: entry.note
+    }))
+  };
+};

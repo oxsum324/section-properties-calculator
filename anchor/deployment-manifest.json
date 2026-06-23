@@ -1,0 +1,26 @@
+﻿{
+    "generatedAt":  "2026-06-21T18:08:35",
+    "basePath":  "/anchor/",
+    "sourceFingerprint":  "1858c0d831f84be02a09a87cbde0e269f3672a02a03d115e6855de0fdd6c32eb",
+    "sourceRoots":  [
+                        "螺栓檢討\\bolt-review-tool\\src",
+                        "螺栓檢討\\bolt-review-tool\\public",
+                        "螺栓檢討\\bolt-review-tool\\package.json",
+                        "螺栓檢討\\bolt-review-tool\\package-lock.json",
+                        "螺栓檢討\\bolt-review-tool\\vite.config.ts",
+                        "螺栓檢討\\bolt-review-tool\\tsconfig.json",
+                        "螺栓檢討\\bolt-review-tool\\tsconfig.app.json",
+                        "螺栓檢討\\bolt-review-tool\\tsconfig.node.json",
+                        "螺栓檢討\\bolt-review-tool\\eslint.config.js"
+                    ],
+    "referencedAssets":  [
+                             "appMeta-BwgaBXh0.js",
+                             "basePlateStressState-wYduPT6T.js",
+                             "chunk-62oNxeRG.js",
+                             "defaults-DU8Bl6AR.js",
+                             "index--AlVwQO-.js",
+                             "index-DQ73hF9w.css",
+                             "loadCasePresetInput-CpGAIu5j.js",
+                             "units-m4ngsLPL.js"
+                         ]
+}

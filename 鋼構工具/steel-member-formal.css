@@ -44,6 +44,20 @@
   font-weight: 800;
 }
 
+.member-input-status {
+  min-height: 22px;
+  margin: 0 0 10px;
+  padding: 0 2px;
+  color: #991b1b;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.member-input-status:empty {
+  display: none;
+}
+
 .member-summary-card {
   border: 1px solid #d9e4ec;
   border-radius: 12px;

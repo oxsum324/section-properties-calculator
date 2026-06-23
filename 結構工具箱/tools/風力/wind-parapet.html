@@ -27,6 +27,14 @@
   }
   textarea.reduction-basis { width:100%; min-height:84px; padding:10px 12px; border:2px solid var(--border);
                              border-radius:8px; font-size:0.92em; font-family:inherit; resize:vertical; }
+  .case-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  .case-actions button { border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; background:#e2e8f0; color:#0f172a; }
+  .case-actions button.primary { background:var(--primary); color:#fff; }
+  .case-actions button:hover { filter:brightness(0.96); }
+  .case-status { min-height:22px; margin-top:8px; color:#166534; font-size:0.82em; line-height:1.6; }
+  .case-status.warn { color:#92400e; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
              font-size:0.6em; font-weight:700; vertical-align:middle; background:#a16207; color:#fff; }
   .step { margin-bottom:14px; }
@@ -57,7 +65,7 @@
 <body>
 <header>
   <h1>建築物耐風設計 — 女兒牆風壓 <span class="badge-v">V3</span></h1>
-  <p>依「建築物耐風設計規範」(107 年版) 第三章式 (3.3)、圖 3.4 / 圖 3.5 ｜ 單位：kgf/m²</p>
+  <p>依「建築物耐風設計規範及解說」107 年版 第三章式 (3.3)、圖 3.4 / 圖 3.5 ｜ 單位：kgf/m²</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
@@ -70,6 +78,12 @@
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
     <button class="mode-bar__report" type="button">📄 列印計算書</button>
   </div>
+  <div class="case-actions">
+    <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
+    <button type="button" id="btnImportCase">匯入案件 JSON</button>
+    <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
+  </div>
+  <div class="case-status" id="caseStatus" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 
@@ -191,9 +205,17 @@
       </div>
     </div>
     <button class="btn-calc" id="btnCalc">計算女兒牆風壓</button>
+    <div class="input-status" id="inputStatus" aria-live="polite"></div>
     <div class="chk-detail">
       <input type="checkbox" id="chkDetail">
       <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
+    </div>
+    <div class="form-group">
+      <label for="reportMode">計算書模式</label>
+      <select id="reportMode">
+        <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
+        <option value="summary">簡易結果（摘要與採用表）</option>
+      </select>
     </div>
     <button class="btn-print" type="button">列印計算書</button>
   </details>
@@ -351,6 +373,13 @@
 <script src="../../core/wind-report.js"></script>
 <script>
 const W = Wind;
+const TOOL_VERSION = 'wind-parapet.v1';
+const CASE_SCHEMA_VERSION = 'wind-parapet.case.v1';
+const CASE_VALUE_IDS = [
+  'city', 'terrain', 'impClass', 'h', 'hp', 'Kzt', 'parapetEncl', 'mode', 'face',
+  'A', 'ccType', 'gcpiOverride', 'enableReduce', 'reduceMode', 'reducePos',
+  'reduceNeg', 'reduceBasis', 'chkDetail', 'reportMode'
+];
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function setR(id, v, d) {
@@ -363,6 +392,122 @@ function signedReduce(v, posFactor, negFactor) {
 function reduceModeName(v) {
   return v === 'shielding' ? '遮蔽折減' : v === 'porous' ? '透氣外牆折減' : '人工指定修正';
 }
+function setCaseStatus(message, isWarn) {
+  const el = document.getElementById('caseStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.classList.toggle('warn', !!isWarn);
+}
+function setInputStatus(message) {
+  const el = document.getElementById('inputStatus');
+  if (!el) return;
+  el.textContent = message || '';
+}
+function clearInputStatus() {
+  setInputStatus('');
+}
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return undefined;
+  if (el.type === 'checkbox') return !!el.checked;
+  return el.value;
+}
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  if (el.type === 'checkbox') {
+    el.checked = !!value;
+  } else {
+    el.value = String(value);
+  }
+}
+function normalizedText(selector) {
+  const el = document.querySelector(selector);
+  return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+}
+function readCaseInputs() {
+  const values = {};
+  CASE_VALUE_IDS.forEach(id => {
+    const value = readInputValue(id);
+    if (value !== undefined) values[id] = value;
+  });
+  return {
+    project: {
+      name: document.getElementById('projName').value,
+      no: document.getElementById('projNo').value,
+      designer: document.getElementById('projDesigner').value
+    },
+    values
+  };
+}
+function readExportResultSummary() {
+  return {
+    applicStatus: normalizedText('#applicStatus'),
+    designRouteTag: normalizedText('#designRouteTag'),
+    controlRouteTag: normalizedText('#controlRouteTag'),
+    designAdoptTable: normalizedText('#designAdoptTable tbody'),
+    ccSummaryTable: normalizedText('#ccSummaryTable tbody'),
+    steps: normalizedText('#steps')
+  };
+}
+function refreshCaseDependentUi() {
+  refreshV();
+  refreshModeUI();
+  document.getElementById('reduceBox').style.display = document.getElementById('enableReduce').checked ? '' : 'none';
+  document.getElementById('stepsCard').classList.toggle('show-detail', document.getElementById('chkDetail').checked);
+}
+function applyCaseInputs(payload) {
+  const inputBlock = payload?.inputs || {};
+  const project = payload?.project || inputBlock.project || {};
+  const values = { ...(inputBlock.values || {}), ...(payload?.values || {}) };
+  if (project.name != null) document.getElementById('projName').value = project.name;
+  if (project.no != null) document.getElementById('projNo').value = project.no;
+  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  CASE_VALUE_IDS.forEach(id => {
+    if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
+  });
+  refreshCaseDependentUi();
+  calc();
+}
+function exportCaseJson() {
+  if (calc() === false) return;
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'wind-parapet', name: '女兒牆風壓', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: readExportResultSummary()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CATII-WindParapet-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出女兒牆風壓案件 JSON；可回讀輸入、路線標籤、折減設定與計算摘要。');
+}
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已匯入案件 JSON；schema ${payload.schema} 與目前 ${CASE_SCHEMA_VERSION} 不同，已盡量套用可辨識欄位。`, true);
+      } else {
+        setCaseStatus('已匯入案件 JSON，並重新計算女兒牆風壓結果。');
+      }
+      applyCaseInputs(payload);
+    } catch (err) {
+      setCaseStatus('匯入失敗：JSON 格式無法解析。', true);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
 function parapetRefText(ref) {
   const typeName = ref.type === 'wall' ? '外牆' : '屋面';
   const signName = ref.sign === 'pos' ? '正壓' : '負壓';
@@ -375,13 +520,13 @@ function parapetRefSvg(face, edgeKey) {
   const backFill = isWindward ? '#fee2e2' : '#dbeafe';
   const activeEdge = isCorner ? '角隅' : '一般邊緣';
   return `
-  <svg class="ref-svg" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="女兒牆受壓方向示意">
+  <svg class="ref-svg" data-diagram-role="parapet-reference-diagram" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="女兒牆受壓方向示意">
     <defs>
       <marker id="arrGold" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
         <path d="M0,0 L8,4 L0,8 z" fill="#a16207"/>
       </marker>
     </defs>
-    <rect x="46" y="78" width="268" height="96" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+    <rect data-diagram-role="parapet-body" x="46" y="78" width="268" height="96" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
     <rect x="46" y="58" width="268" height="20" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2"/>
     <rect class="ref-zone is-active" x="${isWindward ? 60 : 250}" y="24" width="50" height="34" rx="6" fill="${frontFill}" stroke="#1d4ed8" stroke-width="2" opacity="0.95"/>
     <text x="${isWindward ? 85 : 275}" y="45" text-anchor="middle" font-size="12" fill="#0f172a">正面</text>
@@ -399,13 +544,13 @@ function singleRoofParapetRefSvg(edgeKey, dirKey) {
   const leftActive = dirKey === 'left';
   const activeEdge = isCorner ? '角隅' : '一般邊緣';
   return `
-  <svg class="ref-svg" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="單一屋頂女兒牆受壓方向示意">
+  <svg class="ref-svg" data-diagram-role="parapet-reference-diagram" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="單一屋頂女兒牆受壓方向示意">
     <defs>
       <marker id="arrBlue" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
         <path d="M0,0 L8,4 L0,8 z" fill="#1d4ed8"/>
       </marker>
     </defs>
-    <rect x="155" y="28" width="50" height="140" fill="#fff" stroke="#0f172a" stroke-width="3"/>
+    <rect data-diagram-role="parapet-body" x="155" y="28" width="50" height="140" fill="#fff" stroke="#0f172a" stroke-width="3"/>
     <line x1="120" y1="168" x2="250" y2="168" stroke="#94a3b8" stroke-width="2"/>
     <line x1="135" y1="176" x2="255" y2="152" stroke="#cbd5e1" stroke-width="2"/>
     <text x="180" y="20" text-anchor="middle" font-size="16" fill="#0f172a">單一屋頂女兒牆</text>
@@ -552,11 +697,11 @@ function calc() {
   const reduceNeg = val('reduceNeg');
   const reduceBasis = document.getElementById('reduceBasis').value.trim();
 
-  if (h <= 0 || hp <= 0) { alert('請輸入有效之 h / h_p'); return; }
-  if (mode === 'cc' && A <= 0) { alert('C&C 模式請輸入有效之 A'); return; }
-  if (mode === 'cc' && gcpiOverrideVal !== '' && !isFinite(gcpiOverride)) { alert('GCpi 覆寫值格式不正確'); return; }
-  if (enableReduce && (!isFinite(reducePos) || !isFinite(reduceNeg) || reducePos <= 0 || reduceNeg <= 0)) { alert('啟用修正時，請輸入有效之修正係數'); return; }
-  if (enableReduce && !reduceBasis) { alert('啟用修正時，請填寫依據說明'); return; }
+  if (h <= 0 || hp <= 0) { setInputStatus('請輸入有效之 h / h_p'); return false; }
+  if (mode === 'cc' && A <= 0) { setInputStatus('C&C 模式請輸入有效之 A'); return false; }
+  if (mode === 'cc' && gcpiOverrideVal !== '' && !isFinite(gcpiOverride)) { setInputStatus('GCpi 覆寫值格式不正確'); return false; }
+  if (enableReduce && (!isFinite(reducePos) || !isFinite(reduceNeg) || reducePos <= 0 || reduceNeg <= 0)) { setInputStatus('啟用修正時，請輸入有效之修正係數'); return false; }
+  if (enableReduce && !reduceBasis) { setInputStatus('啟用修正時，請填寫依據說明'); return false; }
 
   let r;
   if (mode === 'mwfrs') {
@@ -581,6 +726,8 @@ function calc() {
       </tr>
     `;
     document.getElementById('designAdoptNote').textContent = 'MWFRS 模式不區分一般邊緣與角隅，本表直接列出本次採用之女兒牆設計風壓。';
+    document.querySelector('#ccSummaryTable tbody').innerHTML = '';
+    document.getElementById('ccSummaryNote').textContent = 'MWFRS 模式不產生 C&C 條件總覽；本次設計風壓依第二章 Eq 2.3 直接採 GCpn。';
     if (enableReduce) {
       const redP = signedReduce(r.p, reducePos, reduceNeg);
       document.querySelector('#designAdoptTable tbody').innerHTML += `
@@ -820,6 +967,8 @@ function calc() {
   }
 
   document.getElementById('steps').innerHTML = html;
+  clearInputStatus();
+  return true;
 }
 
 document.getElementById('chkDetail').addEventListener('change', function() {
@@ -835,6 +984,12 @@ document.getElementById('ccType').addEventListener('change', function() {
 });
 document.getElementById('enableReduce').addEventListener('change', function() {
   document.getElementById('reduceBox').style.display = this.checked ? '' : 'none';
+});
+document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('caseJsonFile').addEventListener('change', e => {
+  importCaseJsonFile(e.target.files?.[0]);
+  e.target.value = '';
 });
 document.getElementById('btnCalc').addEventListener('click', calc);
 refreshModeUI();

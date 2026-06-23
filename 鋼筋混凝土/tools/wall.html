@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>牆設計 — RC 工具箱 V3.0</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/style.css">
 <style>
   .steps-card h2 { color:#5b21b6; }
@@ -95,6 +96,7 @@
           <option value="bearing_basic">承重牆基本例</option>
           <option value="shear_seismic">結構牆耐震例</option>
           <option value="basement_oop">地下室外牆面外例</option>
+          <option value="basement_pass_warn">地下室外牆通過待確認例</option>
         </select>
       </div>
       <div class="form-group" style="align-self:end;">
@@ -273,7 +275,7 @@
           <div class="form-group"><label>BE 長度 c (cm, 中性軸)</label><input type="number" id="cBE" value="80"></div>
           <div class="form-group"><label>BE 縱筋 fyt (kgf/cm²)</label><input type="number" id="fytBE" value="4200"></div>
         </div>
-        <p class="hint detail-help">依規範 18.10.6.4 — 若 c ≥ ℓw/(600·(1.5·δu/hw)) 須設置邊界構材, 並沿高度延伸 max(ℓw, Mu/(4Vu))。</p>
+        <p class="hint detail-help">依規範 18.7.6.2 / 18.7.6.4 — 若 c ≥ ℓw/(600·(1.5·δu/hw)) 須設置邊界構材，沿高延伸 max(ℓw, Mu/(4Vu))，並檢核水平長度 max(c−0.1ℓw, c/2)。</p>
       </div>
 
       <div class="card subpanel" data-panel="methods">
@@ -290,7 +292,7 @@
         </div>
 
         <hr style="margin:14px 0; border:0; border-top:1px dashed #cbd5e1;">
-        <h3 style="font-size:0.95em; margin:8px 0;">SBE 沿水平延伸 (壓應力 ≤0.15fc' 終止, 規範 18.10.6.2)</h3>
+        <h3 style="font-size:0.95em; margin:8px 0;">SBE 沿水平延伸 (壓應力 ≤0.15fc' 終止, 規範 18.7.6.3)</h3>
         <div class="form-group">
           <label>延伸計算方法</label>
           <select id="sbeExtMethod">
@@ -334,7 +336,7 @@
 
       <div class="card subpanel" data-panel="load">
         <h2>多片牆聚合檢核</h2>
-        <p class="hint detail-help">輸入同層各片牆段，檢核 ΣVn ≤ 2.12·λ·√fc'·ΣAcv (規範 18.10.4.4) 並警示力集中。</p>
+        <p class="hint detail-help">輸入同層各片牆段，檢核 ΣVn ≤ 2.12·λ·√fc'·ΣAcv (規範 18.7.4.4) 並警示力集中。</p>
         <table id="aggTable" style="width:100%; border-collapse:collapse; font-size:0.88em;">
           <thead>
             <tr style="background:#e2e8f0;">
@@ -560,7 +562,7 @@
       <div class="card mobile-fold" data-shows="load summary">
         <h2>邊界構材 (BE) 詳細設計</h2>
         <div class="results-grid">
-          <div class="result-item" id="be-trigger"><span class="label">應變法觸發 (18.10.6.2)</span><span class="value">—</span></div>
+          <div class="result-item" id="be-trigger"><span class="label">應變法觸發 (18.7.6.2)</span><span class="value">—</span></div>
           <div class="result-item" id="be-cLimit"><span class="label">c 上限 ℓw/[600·(1.5δu/hw)]</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
           <div class="result-item" id="be-cActual"><span class="label">輸入 c</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
           <div class="result-item" id="be-extLen"><span class="label">BE 沿高延伸長度</span><span><span class="value">—</span><span class="unit">cm</span></span></div>
@@ -786,6 +788,24 @@
         sigmaMax: 35, MuW: 600, duhw: 0.01, cBE: 50, fytBE: 4200
       },
       note: '地下室外牆案例：適合檢查面外 slender wall 與土壓概算模型切換。'
+    },
+    basement_pass_warn: {
+      label: '地下室外牆數值通過但需確認例',
+      mode: 'check',
+      values: {
+        seismicMode: false,
+        wallType: 'basement',
+        showSteps: false,
+        fc: 280, fy: 4200, lambdaSel: '1.00',
+        h: 45, lw: 520, lc: 250, k: 1.0, hw: 300,
+        Pu: 25, e: 1, Vu: 8,
+        vBar: '#5', vSp: 12, hBar: '#5', hSp: 12, layers: '2',
+        Mua: 0, PuOop: 8,
+        basementWall: true, bwSupport: 'simple',
+        bwH: 1.8, bwGamma: 1.7, bwKa: 0.28, bwSurch: 0.2, bwHw: 0, bwGw: 1.0,
+        sigmaMax: 25, MuW: 300, duhw: 0.008, cBE: 35, fytBE: 4200
+      },
+      note: '地下室外牆保守通過案例：用來確認數值 OK 時仍標示土壓概算與面外分析待確認。'
     }
   };
 
@@ -857,7 +877,11 @@
         phiPn_tf: snap.phiPn_kgf != null ? snap.phiPn_kgf / 1000 : null,
         phiVn_tf: snap.phiVn_kgf != null ? snap.phiVn_kgf / 1000 : null,
         phiMn_oop_tfm: snap.phiMn_oop_kgcm != null ? snap.phiMn_oop_kgcm / 1e5 : null,
-        allOk: [snap.okH, snap.okAxial, snap.okShear, snap.okRhol, snap.okRhot, snap.okLayers].every(v => v === true),
+        numericalOk: snap.numericalOk ?? [snap.okH, snap.okAxial, snap.okShear, snap.okRhol, snap.okRhot, snap.okLayers].every(v => v === true),
+        allOk: snap.summaryOk === true,
+        summaryOk: snap.summaryOk ?? null,
+        summaryText: snap.summaryText || '',
+        reviewWarnings: Array.isArray(snap.reviewWarnings) ? snap.reviewWarnings.slice() : [],
       }
     };
   }
@@ -1062,6 +1086,81 @@
     return rows;
   }
 
+  function collectWallReviewWarnings(r) {
+    const warnings = [];
+    if (!r) return warnings;
+    if (r.slenderMethod || r.okOopFlex !== undefined || r.okDeltaLim !== undefined) {
+      warnings.push('面外 Slender Wall / P-Delta 目前採單位寬條帶、固定保護層與簡化邊界假設，數值通過仍須以正式面外分析與配筋位置確認。');
+    }
+    if (r.bwModelLabel || r.bwSupport || r.wallType === 'basement') {
+      warnings.push('地下室外牆土壓自動計算目前為三角形土壓、矩形超載與水壓之簡化概算，正式設計仍須依實際支承、側壓分布與整體模型確認。');
+    }
+    if (r.seismic || r.isShearWall || r.wallType === 'shear') {
+      warnings.push('SBE 沿水平延伸與 BE 詳細設計屬快速估算；邊界構材範圍、圍束筋與搭接禁區仍須配合完整應力分析與施工圖確認。');
+    }
+    if ((r.aggCount || 0) > 0 || (Array.isArray(r.aggRows) && r.aggRows.length > 0)) {
+      warnings.push('多片牆聚合檢核未取代整體分析模型與實際力分配，數值通過時仍須由專案模型確認。');
+    }
+    return [...new Set(warnings)];
+  }
+
+  function collectWallSummaryChecks(r) {
+    if (!r) return [];
+    const isShear = !!(r.seismic || r.isShearWall || r.wallType === 'shear');
+    const okSpacing = r.okSpacing ?? (r.okVSp === undefined ? null : !!(r.okVSp && r.okHSp && r.okVSpInplane && r.okHSpInplane));
+    const okShearFric = r.okShearFric ?? (r.needShearFric === undefined ? null : !r.needShearFric);
+    const okSswSigma = r.okSswSigma ?? (!isShear || r.sigmaMax <= 0.2 * r.fc);
+    const okSswVnLimit = r.okSswVnLimit ?? (!isShear || r.Vu_kgf <= r.VnLimit_kgf);
+    const aggCount = r.aggCount ?? (Array.isArray(r.aggRows) ? r.aggRows.length : 0);
+    const checks = [
+      ['Wall Pier', !r.isWallPier],
+      ["fc' 上限", r.fcLimitOk],
+      ['牆厚', r.okH],
+      ['e ≤ h/6', r.eOk],
+      ['φPn ≥ Pu', r.okAxial],
+      ['φVn ≥ Vu', r.okShear],
+      ['ρℓ', r.okRhol],
+      ['ρt', r.okRhot],
+      ['層數', r.okLayers],
+      ['面外 Δs', r.okDeltaLim],
+      ['面外 φMn', r.okOopFlex],
+      ['筋距細部', okSpacing],
+      ['施工縫剪摩擦', okShearFric],
+    ];
+    if (isShear) {
+      checks.push(['σmax/SBE', okSswSigma]);
+      checks.push(['Vn 上限', okSswVnLimit]);
+    }
+    if (aggCount > 0) {
+      checks.push(['ΣVn 上限', r.aggTotalOk]);
+      checks.push(['單段 Vn 上限', r.aggSingleOk ?? r.singleOk]);
+      checks.push(['力分布', r.aggConcentratedOk ?? !r.concentrated]);
+    }
+    return checks;
+  }
+
+  function summarizeWallResult(r, checks = collectWallSummaryChecks(r)) {
+    const values = checks.map(c => c[1]).filter(v => v === true || v === false);
+    const anyFail = values.some(v => v === false);
+    const numericalOk = values.length > 0 && values.every(v => v === true);
+    const reviewWarnings = Array.isArray(r?.reviewWarnings) ? r.reviewWarnings : collectWallReviewWarnings(r);
+    let ok = null;
+    let text = '部分檢核未完成';
+    if (anyFail) {
+      ok = false;
+      text = '✗ NG — 不符合規範';
+    } else if (numericalOk && reviewWarnings.length) {
+      ok = null;
+      text = `⚠ 待確認 — ${reviewWarnings.length} 項需正式分析確認`;
+    } else if (numericalOk) {
+      ok = true;
+      text = '✓ OK — 符合規範';
+    } else if (reviewWarnings.length) {
+      text = `⚠ 待確認 — ${reviewWarnings.length} 項需正式分析確認`;
+    }
+    return { ok, text, numericalOk, anyFail, reviewWarnings, checks };
+  }
+
   let _wallState = {};
   function calcWall() {
     markAllResultsPending();
@@ -1240,7 +1339,7 @@
     const oopApplicable = okOopApp_klh && okOopApp_Pu && okOopApp_rho;
     const okOopFlex = (phiMn_oop / 1e5) >= (Mua_total / 1e5);
 
-    // === 邊界構材詳細 (規範 18.10.6) ===
+    // === 邊界構材詳細 (規範 18.7.6) ===
     const cLimitBE = Wall.beStrainTrigger(lw, duhw);
     const beTrigger = cBE >= cLimitBE;
     const beHorizLen = Wall.beHorizontalLength(cBE, lw);
@@ -1438,20 +1537,13 @@
       $('inlineLayerSugg').textContent = `層數  ${layersSuggN} 層  (${needTwoLayer ? '剪力／hw·ℓw 要求雙層' : '單層可'})`;
     }
 
-    // 綜合結論 banner
+    // 綜合結論基礎判定；完整 summary banner 於細部與聚合檢核完成後更新。
     const okH = h >= hmin;
     const okRhol = rhol >= rholMin;
     const okRhot = rhot >= rhotMin;
     const okLayers = !needTwoLayer || layers >= 2;
     const okAxial = eOk ? (phiPn >= Pu) : null;
     const okShearChk = phiVn >= Vu;
-    updateBanner({
-      okH, eOk, okRhol, okRhot, okLayers, okAxial, okShear: okShearChk,
-      h, hmin, e, eLimit, rhol, rhot, rholMin, rhotMin,
-      phiPn: phiPn/1000, Pu: Pu/1000,
-      phiVn: phiVn/1000, Vu: Vu/1000,
-      seismic, sigmaMax, fc
-    });
 
     // === 有效翼版寬 (Phase C) ===
     const flangeShape = $('flangeShape')?.value || 'rect';
@@ -1601,13 +1693,13 @@
   Ag = h·ℓw = ${h}·${lw} = ${fmt(Ag,0)} cm²
   Acv = h·ℓw = ${fmt(Acv,0)} cm²
 
-【2】Wall Pier 判定 (規範 18.10.1)
+【2】Wall Pier 判定 (規範 18.7.1)
   Hw/ℓw = ${hw}/${lw} = ${fmt(hwlw_pier,2)}
   ℓw/bw = ${lw}/${h} = ${fmt(lwbw,2)}
   條件: Hw/ℓw ≥ 2.0 且 ℓw/bw ≤ 2.5 → 應改依柱設計
   → ${isWallPier ? '⚠ 是 Wall Pier，建議改用柱工具' : '牆設計'}
 
-【3】SSW fc' 上限 (規範 18.10.2.4)
+【3】SSW fc' 上限 (規範 18.7.2.4)
   ${(seismic||isShearWall) ? `套用 SSW 限制: fc' = ${fc} ≤ 350 → ${fcLimitOk?'✓':'✗'}` : '非結構牆，不受 fc'+"'"+' 上限限制'}
 
 【4】最小厚度 (規範 11.3)
@@ -1642,7 +1734,7 @@ ${axialCheckTxt}
   檢核: φVn ${phiVn>=Vu?'≥':'<'} Vu = ${fmt(Vu/1000,1)} → ${phiVn>=Vu?'✓':'✗'}
   單段上限: Vn ≤ 2.65·√fc'·Acv = ${fmt(VnLimit/1000,1)} tf
 
-【3】雙層鋼筋網判定 (規範 11.7.2.3 / 18.10.2.2)
+【3】雙層鋼筋網判定 (規範 11.7.2.3 / 18.7.2.2)
   觸發條件: Vu > 0.5·φVc 或 hw/ℓw ≥ 2.0
   → ${needTwoLayer ? '需雙層' : '單層可'}
   目前配筋層數 = ${layers} → ${(!needTwoLayer || layers>=2) ? '✓' : '✗'}
@@ -1652,7 +1744,7 @@ ${(seismic||isShearWall) ? `【4】耐震 SSW 檢核
   Vu ≤ 2.65·√fc'·Acv: ${fmt(Vu/1000,1)} / ${fmt(VnLimit/1000,1)} → ${Vu<=VnLimit?'✓':'✗'}` : '【4】非特殊結構牆，SSW 檢核略過'}`;
 
       stepsRebarTxt =
-`【1】鋼筋最小量 (規範 11.6.1 / 11.6.2 / 18.10.2.1)
+`【1】鋼筋最小量 (規範 11.6.1 / 11.6.2 / 18.7.2.1)
   ρℓ,min = ${fmt(rholMin,4)}    ρt,min = ${fmt(rhotMin,4)}
   目前  ρℓ = (${layers}·${fmt(REBAR_TABLE[vBar].area,2)})/(${h}·${vSp}) = ${fmt(rhol,4)} → ${rhol>=rholMin?'✓':'✗'}
   目前  ρt = (${layers}·${fmt(REBAR_TABLE[hBar].area,2)})/(${h}·${hSp}) = ${fmt(rhot,4)} → ${rhot>=rhotMin?'✓':'✗'}
@@ -1714,7 +1806,7 @@ ${isShearWall?`  面內附加: 縱 ≤ ℓw/3 = ${fmt(vSpInplaneLim,0)} → ${ok
 
 ${basementStepTxt}
 
-【5】SBE 沿水平延伸 (規範 18.10.6.2)
+【5】SBE 沿水平延伸 (規範 18.7.6.3)
   方法 = ${sbeMethodLabel}
   終止應力 = 0.15·fc' = ${fmt(sigmaStop,1)} kgf/cm²
   ${sbeMethod==='linear' ? `線性內插: σmax=${sigmaMax} → 0 ， c' = ℓw·(1 − 0.15fc'/σmax) = ${fmt(sbeExtX,1)} cm` : `由輸入應力分布搜尋交點: c' = ${fmt(sbeExtX,1)} cm`}
@@ -1727,12 +1819,14 @@ ${basementStepTxt}
     }
 
     // === 儲存供計算書 ===
-    window.wallLast = {
+    const wallResult = {
       testCaseKey: $('testCaseSelect')?.value || '',
       stepsGeomTxt, stepsLoadTxt, stepsRebarTxt, stepsMethodsTxt,
       showSteps: !!$('showSteps')?.checked,
       seismic, wallType, fc, fy, lambda, h, lw, lc, k, hw,
       Pu_kgf:Pu, e, eLimit, eOk, Vu_kgf:Vu,
+      phiPn: phiPn/1000, Pu: Pu/1000,
+      phiVn: phiVn/1000, Vu: Vu/1000,
       vBar, vSp, hBar, hSp, layers, sigmaMax,
       dbV: REBAR_TABLE[vBar]?.db,
       hmin, Ag, Pn_kgf:Pn, phiPn_kgf:phiPn,
@@ -1741,13 +1835,14 @@ ${basementStepTxt}
       hSugg, layerSugg,
       okH, okRhol, okRhot, okLayers, okAxial, okShear:okShearChk,
       // gates
-      isWallPier, hwlw_pier, lwbw, fcLimitOk,
+      isWallPier, hwlw_pier, lwbw, fcLimitOk, isShearWall,
       // 翼版
       flangeShape, bEff, bEffCtrl, sectionTotalB, IgFull,
       // 聚合
       aggRows: aggRows.slice(),
       sumAcv, sumVu_kgf:sumVu, sumVn_kgf:sumVn,
       VnLimitTotal_kgf:VnLimitTotal, aggTotalOk, singleOk, concentrated,
+      aggCount: N, aggSingleOk: singleOk, aggConcentratedOk: !concentrated,
       // 地下室外牆概算
       bwModelLabel: bwBreakdown?.bwModelLabel || '',
       bwSupport: bwBreakdown?.bwSupport || '',
@@ -1760,8 +1855,19 @@ ${basementStepTxt}
       // Slender Wall
       slenderMethod, iterCount, iterConverged,
       delta_s, deltaLim, okDeltaLim,
-      Mua_total_kgcm:Mua_total, phiMn_oop_kgcm:phiMn_oop, okOopFlex
+      Mua_total_kgcm:Mua_total, phiMn_oop_kgcm:phiMn_oop, okOopFlex,
+      okSpacing: okVSp && okHSp && okVSpInplane && okHSpInplane,
+      okShearFric: !needShearFric,
+      okSswSigma: !(seismic || isShearWall) || sigmaMax <= 0.2 * fc,
+      okSswVnLimit: !(seismic || isShearWall) || Vu <= VnLimit
     };
+    wallResult.reviewWarnings = collectWallReviewWarnings(wallResult);
+    const wallSummary = summarizeWallResult(wallResult);
+    wallResult.summaryOk = wallSummary.ok;
+    wallResult.summaryText = wallSummary.text;
+    wallResult.numericalOk = wallSummary.numericalOk;
+    window.wallLast = wallResult;
+    updateBanner(window.wallLast);
     updateQuickSummaryWall();
     if (typeof buildSummaryTable === 'function') buildSummaryTable();
     if (typeof buildMethodAuditTable === 'function') buildMethodAuditTable();
@@ -1924,12 +2030,19 @@ ${basementStepTxt}
     const allCheckBools = [r.okH, r.eOk, r.okAxial, r.okShear, r.okRhol, r.okRhot, r.okLayers, r.okOopFlex, r.okDeltaLim, r.okVSp, r.okHSp];
     const failCount = allCheckBools.filter(b => b === false).length;
     const totalCount = allCheckBools.filter(b => b === true || b === false).length;
-    const overall = failCount === 0
-      ? `<div style="padding:10px 14px;background:#dcfce7;color:#166534;border:2px solid #16a34a;border-radius:6px;font-weight:600;">✓ 全部 ${totalCount} 項主要檢核通過</div>`
-      : `<div style="padding:10px 14px;background:#fee2e2;color:#991b1b;border:2px solid #dc2626;border-radius:6px;font-weight:600;">✗ ${failCount} / ${totalCount} 項主要檢核未通過</div>`;
+    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : collectWallReviewWarnings(r);
+    const overall = failCount > 0
+      ? `<div style="padding:10px 14px;background:#fee2e2;color:#991b1b;border:2px solid #dc2626;border-radius:6px;font-weight:600;">✗ ${failCount} / ${totalCount} 項主要檢核未通過</div>`
+      : reviewWarnings.length
+        ? `<div style="padding:10px 14px;background:#fef3c7;color:#92400e;border:2px solid #d97706;border-radius:6px;font-weight:600;">⚠ ${totalCount} 項主要檢核數值通過；${reviewWarnings.length} 項仍須正式分析確認</div>`
+        : `<div style="padding:10px 14px;background:#dcfce7;color:#166534;border:2px solid #16a34a;border-radius:6px;font-weight:600;">✓ 全部 ${totalCount} 項主要檢核通過</div>`;
+    const reviewBox = reviewWarnings.length
+      ? `<div style="margin-top:8px;padding:10px 14px;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;color:#9a3412;font-size:0.88em;"><strong>待確認 / 正式分析需求</strong><ul style="margin:6px 0 0 18px;padding:0;">${reviewWarnings.map(w=>`<li>${w}</li>`).join('')}</ul></div>`
+      : '';
 
     host.innerHTML = `
       ${overall}
+      ${reviewBox}
       <table style="width:100%;border-collapse:collapse;font-size:0.88em;margin-top:10px;border:1px solid #cbd5e1;">
         <thead><tr style="background:#e2e8f0;"><th style="padding:6px 10px;text-align:left;border-bottom:2px solid #cbd5e1;">項目</th><th style="padding:6px 10px;text-align:right;border-bottom:2px solid #cbd5e1;">數值 / 比較</th><th style="padding:6px 10px;text-align:center;border-bottom:2px solid #cbd5e1;">狀態</th></tr></thead>
         <tbody>${rows.join('')}</tbody>
@@ -1947,7 +2060,7 @@ ${basementStepTxt}
       {
         item: '面內剪力 φVn 與上限 Vn,max',
         kind: 'code',
-        ref: '11.5 / 18.10.4',
+        ref: '11.5 / 18.7.4.4',
         note: '以目前牆段 Acv、ρt、αc 計算，屬規範檢核。'
       },
       {
@@ -1971,7 +2084,7 @@ ${basementStepTxt}
       {
         item: 'SBE 沿水平延伸',
         kind: 'approx',
-        ref: '18.10.6.2',
+        ref: '18.7.6.3',
         note: r.sbeMethod === 'custom'
           ? '依使用者輸入應力分布插值，屬工程判讀。'
           : '線性應力分布是假設模型，適合快速抓範圍，不宜直接取代正式應力分析。'
@@ -1979,13 +2092,13 @@ ${basementStepTxt}
       {
         item: '多片牆聚合檢核',
         kind: 'approx',
-        ref: '18.10.4.4',
+        ref: '18.7.4.4',
         note: '可作為同層牆群的快速檢查，但未取代整體分析模型與實際力分配。'
       },
       {
         item: 'BE 詳細設計',
         kind: 'approx',
-        ref: '18.10.6',
+        ref: '18.7.6',
         note: '目前提供觸發、延伸與圍束比的快速估算，正式設計仍需配合完整邊界構材細部配置。'
       },
     ];
@@ -2096,7 +2209,7 @@ ${basementStepTxt}
         { label:'Wall Pier 判定', formula:'Hw/ℓw ≥ 2.0 且 ℓw/bw ≤ 2.5 → 應依柱設計',
           sub:`Hw/ℓw=${r.hwlw_pier.toFixed(2)}, ℓw/bw=${r.lwbw.toFixed(2)}`,
           value: r.isWallPier ? '⚠ 改用柱工具' : '牆設計', ok: !r.isWallPier },
-        { label:"SSW fc' ≤ 350", formula:'規範 18.10.2.4',
+        { label:"SSW fc' ≤ 350", formula:'規範 18.7.2.4',
           sub: r.seismic||r.wallType==='shear' ? `fc'=${r.fc} kgf/cm²` : '非結構牆免檢',
           value:`${r.fc}`, unit:'kgf/cm²', ok: r.fcLimitOk },
         { label:'h ≥ hmin', formula: ({bearing:'min(lc,lw)/25',nonbearing:'min(lc,lw)/30',basement:'≥20cm',shear:'max(lc/25, lw/25, 10)'})[r.wallType],
@@ -2153,7 +2266,7 @@ ${basementStepTxt}
           sub:`= ${r.IgFull.toExponential(2)} cm⁴`,
           value: r.IgFull.toExponential(2), unit:'cm⁴', ok:null }
       ]}]:[]),
-      ...(r.aggRows && r.aggRows.length ? [{ group:'多片牆聚合 (規範 18.10.4.4)', items:[
+      ...(r.aggRows && r.aggRows.length ? [{ group:'多片牆聚合 (規範 18.7.4.4)', items:[
         { label:'牆段數', formula:'同層平行牆群', sub: r.aggRows.map(w=>w.tag).join(', '),
           value:`${r.aggRows.length}`, ok:null },
         { label:'ΣAcv', formula:'總抗剪面積', sub:'',
@@ -2161,7 +2274,7 @@ ${basementStepTxt}
         { label:'ΣφVn ≤ 總上限', formula:'總上限 = 2.12·λ·√fc·ΣAcv',
           sub:`ΣφVn=${(r.sumVn_kgf/1000).toFixed(1)}    上限=${(r.VnLimitTotal_kgf/1000).toFixed(1)} tf`,
           value:`${(r.sumVn_kgf/1000).toFixed(1)} / ${(r.VnLimitTotal_kgf/1000).toFixed(1)}`, unit:'tf', ok:r.aggTotalOk },
-        { label:'單段 Vn ≤ 2.65√fc·Acv', formula:'規範 18.10.4.4',
+        { label:'單段 Vn ≤ 2.65√fc·Acv', formula:'規範 18.7.4.4',
           sub: r.singleOk?'各段均符合':'有單段超上限',
           value: r.singleOk?'OK':'NG', ok:r.singleOk },
         { label:'力分布', formula:'單段 Vu/ΣVu > 65% 視為集中',
@@ -2194,7 +2307,7 @@ ${basementStepTxt}
         { label:'開口補強', formula: r.layers>=2?'雙層: 四邊各 2·D16':'單層: 四邊各 1·D16',
           sub: r.hasOpening?'有開口 → 須補強':'無開口',
           value: r.hasOpening?'須補強':'無', ok:null },
-        { label:'SBE 搭接禁區 hsx', formula:'規範 18.10.6.5: ≤ min(610, ℓw) cm 上不得搭接',
+        { label:'SBE 搭接禁區 hsx', formula:'規範 18.7.6.5: ≤ min(610, ℓw) cm 上不得搭接',
           sub: r.seismic||r.wallType==='shear' ? `禁區 ≤ ${r.hsxNoSplice} cm 上` : '非結構牆',
           value: r.seismic||r.wallType==='shear' ? `${r.hsxNoSplice} cm` : '—', ok:null },
         { label:'施工縫粗糙', formula:'規範 22.9: ≥ 0.6 cm 振幅',
@@ -2217,9 +2330,18 @@ ${basementStepTxt}
       ]}]:[])
     ];
 
-    const allChecks = checks.flatMap(g=>g.items.map(i=>i.ok)).filter(v=>v===true||v===false);
-    const allOk = allChecks.length>0 && allChecks.every(v=>v===true);
-    const anyFail = allChecks.some(v=>v===false);
+    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : collectWallReviewWarnings(r);
+    if (reviewWarnings.length) {
+      checks.push(RCUI.buildReviewCheckGroup(reviewWarnings, {
+        group:'待確認 / 正式分析需求',
+        labelPrefix:'待確認事項',
+        formula:'不列為 OK 結論',
+        value:'需正式分析確認'
+      }));
+    }
+    const reportSummary = r.summaryText
+      ? { ok:r.summaryOk, text:r.summaryText }
+      : summarizeWallResult({ ...r, reviewWarnings });
 
     const stepsArr = [];
     if ($('showSteps') && $('showSteps').checked) {
@@ -2234,11 +2356,22 @@ ${basementStepTxt}
       grab('stepsMethodsBody', '面外 P-Δ ＆ SBE 延伸');
     }
 
+    const diagrams = [];
+    const rebarData = svgToDataURL($('wallRebarSvg'));
+    if (rebarData) {
+      diagrams.push({
+        title:'牆水平斷面配筋示意',
+        dataURL: rebarData,
+        caption:$('wallRebarSvgNote')?.textContent || '',
+        width:520
+      });
+    }
+
     openReport({
       title:'牆設計計算書', subtitle:'RC Wall Design Report',
       project:proj,
-      summary:{ ok:anyFail?false:allOk?true:null, text:anyFail?'✗ NG — 不符合規範':allOk?'✓ OK — 符合規範':'部分檢核未完成' },
-      inputs, checks,
+      summary:reportSummary,
+      inputs, checks, diagrams,
       steps: stepsArr,
       methods,
       symbols:[
@@ -2258,9 +2391,18 @@ ${basementStepTxt}
         '本計算書由 RC 工具箱自動產生，僅供初步設計參考',
         r.seismic?'已套用特殊結構牆 (SSW) 耐震規定':'未套用耐震規定',
         `面外撓曲採 ${r.slenderMethod==='simple'?'簡版 (1 次 P-δ)':'完整 P-Δ 迭代'} (Ec = 12000·√fc′, 規範 19.2.2)`,
-        r.aggRows && r.aggRows.length ? `多片牆聚合：${r.aggRows.length} 段，ΣφVn=${(r.sumVn_kgf/1000).toFixed(1)} tf` : '未啟用多片牆聚合'
+        r.aggRows && r.aggRows.length ? `多片牆聚合：${r.aggRows.length} 段，ΣφVn=${(r.sumVn_kgf/1000).toFixed(1)} tf` : '未啟用多片牆聚合',
+        ...reviewWarnings.map(text => `待確認：${text}`)
       ]
     });
+  }
+
+  function svgToDataURL(svg) {
+    if (!svg) return '';
+    const clone = svg.cloneNode(true);
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    const serialized = new XMLSerializer().serializeToString(clone);
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(serialized);
   }
 
 
@@ -2293,19 +2435,23 @@ ${basementStepTxt}
       kv.push({ label:'P-Δ', val: ($('slenderMethod')?.value === 'iter') ? '迭代' : '簡版', ok:null });
       kv.push({ label:'SBE 延伸', val: ($('sbeExtMethod')?.value === 'custom') ? '應力分布' : '線性', ok:null });
     } else if (tab === 'summary') {
-      checks.push(['牆厚', r.okH]);
-      checks.push(['φPn ≥ Pu', r.okAxial]);
-      checks.push(['φVn ≥ Vu', r.okShear]);
-      checks.push(['ρℓ', r.okRhol]);
-      checks.push(['ρt', r.okRhot]);
-      checks.push(['層數', r.okLayers]);
+      checks = collectWallSummaryChecks(r);
     }
     const allOk = checks.length > 0 && checks.every(c => c[1] === true);
     const anyFail = checks.some(c => c[1] === false);
-    banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
-    const icon = anyFail ? '✗' : allOk ? '✓' : '⚠';
-    const txt = anyFail ? 'NG — 不符合規範' : allOk ? 'OK — 符合規範' : '部分項目待檢核';
-    banner.innerHTML = `${icon} ${txt}` + (checks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
+    if (tab === 'summary') {
+      const summary = summarizeWallResult(r, checks);
+      banner.className = 'banner-status ' + (summary.ok === false ? 'fail' : summary.ok === true ? 'ok' : 'warn');
+      const reviewText = summary.reviewWarnings.length
+        ? `<div style="font-size:0.68em; font-weight:500; opacity:0.9; margin-top:6px;">待確認：${summary.reviewWarnings.join(' ｜ ')}</div>`
+        : '';
+      banner.innerHTML = summary.text + (checks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '') + reviewText;
+    } else {
+      banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
+      const icon = anyFail ? '✗' : allOk ? '✓' : '⚠';
+      const txt = anyFail ? 'NG — 不符合規範' : allOk ? 'OK — 符合規範' : '部分項目待檢核';
+      banner.innerHTML = `${icon} ${txt}` + (checks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
+    }
     key.innerHTML = kv.map(item => {
       const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';
       return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;
@@ -2383,22 +2529,22 @@ ${basementStepTxt}
       'be-extLen':   'BE 沿高延伸 = max(ℓw, Mu/(4Vu))',
       'be-horizLen': 'BE 水平長度 ≥ max(c−0.1ℓw, c/2)',
       // Phase C/D 新增
-      'r-pierGate':  'Wall Pier 判定 (規範 18.10.1)\nHw/ℓw ≥ 2.0 且 ℓw/bw ≤ 2.5 → 應依柱設計',
-      'r-fcLim':     'SSW fc′ 上限 (規範 18.10.2.4)\n特殊結構牆 fc′ ≤ 350 kgf/cm²',
-      'r-bEff':      '有效翼版寬 (規範 18.10.5.2)\nb_eff = min(s/2, 0.25·hw, bf,act)',
+      'r-pierGate':  'Wall Pier 判定 (規範 18.7.1)\nHw/ℓw ≥ 2.0 且 ℓw/bw ≤ 2.5 → 應依柱設計',
+      'r-fcLim':     'SSW fc′ 上限 (規範 18.7.2.4)\n特殊結構牆 fc′ ≤ 350 kgf/cm²',
+      'r-bEff':      '有效翼版寬 (規範 18.7.5.2)\nb_eff = min(s/2, 0.25·hw, bf,act)',
       'r-bSection':  '總有效寬度 = h + sides·b_eff\n(L 形 sides=1, T/C/I 形 sides=2)',
       'r-Ig':        'Ig (含翼版近似) = Iweb + Σ(b_eff·tf)·(ℓw/2)²',
-      'r-aggVnLimitTot': '全牆段 ΣVn 上限 = 2.12·λ·√fc′·ΣAcv (規範 18.10.4.4)',
-      'c-aggSingle': '單段上限 Vn ≤ 2.65·√fc′·Acv (規範 18.10.4.4)',
+      'r-aggVnLimitTot': '全牆段 ΣVn 上限 = 2.12·λ·√fc′·ΣAcv (規範 18.7.4.4)',
+      'c-aggSingle': '單段上限 Vn ≤ 2.65·√fc′·Acv (規範 18.7.4.4)',
       'c-aggConc':   '力集中警示：任一段 Vu/ΣVu > 65%',
-      'sbe-extLen':  'SBE 沿水平延伸：壓應力降至 0.15·fc′ 處終止 (規範 18.10.6.2)',
+      'sbe-extLen':  'SBE 沿水平延伸：壓應力降至 0.15·fc′ 處終止 (規範 18.7.6.3)',
       'r-oopIter':   'P-Δ 收斂法：M_(k+1) = Mu + Pu·Δs(M_k) 直到 |ΔM| < tol',
       'r-oopDeflLim':'規範 11.8.4: 服務載重撓度 Δs ≤ ℓc/150',
       'd-spMax':     '筋距上限 = min(3h, 45 cm) (規範 11.7.2)',
       'd-vSpInplane':'結構牆面內剪力：縱筋間距 ≤ ℓw/3',
       'd-hSpInplane':'結構牆面內剪力：橫筋間距 ≤ ℓw/5',
       'd-shearFric': '施工縫剪摩擦觸發 Vu > 1.1·λ·√fc′·Acv (規範 22.9)',
-      'd-spliceBE':  'SBE 內鋼筋搭接禁區：min(610, ℓw) cm 以上 (規範 18.10.6.5)'
+      'd-spliceBE':  'SBE 內鋼筋搭接禁區：min(610, ℓw) cm 以上 (規範 18.7.6.5)'
     });
   }
   window.addEventListener('resize', syncMobileFoldCards);

@@ -825,6 +825,7 @@
   const overallMessage = document.getElementById("overallMessage");
   const reportHealthBar = document.getElementById("reportHealthBar");
   const reportAuditStatus = document.getElementById("reportAuditStatus");
+  const exportReportStatus = document.getElementById("exportReportStatus");
   const governingMode = document.getElementById("governingMode");
   const approvalStamp = document.getElementById("approvalStamp");
   const approvalDecision = document.getElementById("approvalDecision");
@@ -1146,6 +1147,12 @@
       badgeNode.className = `section-tab-badge ${tone}${badgeText ? "" : " is-empty"}`;
     }
     button.setAttribute("aria-label", badgeText ? `${baseLabel}，${badgeText}` : baseLabel);
+  }
+
+  function setExportReportStatus(message) {
+    if (!exportReportStatus) return;
+    exportReportStatus.textContent = message || "";
+    exportReportStatus.hidden = !message;
   }
 
   function prepareReportSectionStatuses() {
@@ -2280,9 +2287,10 @@ ${referenceToolsHtml}
 
   function exportReport() {
     const result = window.latestSteelConnectionResult || calculateConnection(collectFormState());
+    setExportReportStatus("");
     const reportWindow = window.open("", "_blank", "width=980,height=1100,scrollbars=yes");
     if (!reportWindow) {
-      window.alert("請允許彈出視窗以輸出報表。");
+      setExportReportStatus("請允許彈出視窗以輸出報表。");
       return;
     }
     reportWindow.document.open();

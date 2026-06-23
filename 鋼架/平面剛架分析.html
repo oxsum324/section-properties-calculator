@@ -71,6 +71,8 @@
 
   .error-msg { background: #fef2f2; color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
   .warn-msg { background: #fef3c7; color: var(--warn); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
+  .report-status { min-height: 20px; flex-basis: 100%; color: var(--warn); font-size: 0.8em; line-height: 1.5; }
+  .report-status:empty { display: none; }
 
   .diag-card .canvas-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
   .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -129,6 +131,7 @@
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none" onchange="importJSONFile(this)">
           <button class="btn btn-ghost btn-sm" onclick="printReport()">列印計算書</button>
+          <span id="reportStatus" class="report-status" role="status" aria-live="polite"></span>
         </div>
       </div>
 
@@ -1342,6 +1345,7 @@ function printReport() {
   if (!state.solution) runAnalysis();
   const sol = state.solution;
   if (!sol) return;
+  setReportStatus('');
   const today = new Date().toISOString().slice(0, 10);
   const nodesRows = state.nodes.map(n =>
     `<tr><td>N${n.id}</td><td>${n.x}</td><td>${n.y}</td><td>${((n.cx?'X':'')+(n.cy?'Y':'')+(n.crz?'θ':''))||'自由'}</td></tr>`).join('');
@@ -1390,8 +1394,13 @@ th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0
 <p class="meta">本計算書由平面剛架分析工具產生，僅供結構分析校核參考；最終設計與圖說仍應由執業技師簽證。</p>
 </body></html>`;
   const win = window.open('', '_blank');
-  if (!win) { alert('請允許彈出視窗以開啟計算書'); return; }
+  if (!win) { setReportStatus('請允許彈出視窗以開啟計算書。'); return; }
   win.document.write(html); win.document.close();
+}
+
+function setReportStatus(message) {
+  const node = document.getElementById('reportStatus');
+  if (node) node.textContent = message || '';
 }
 
 function loadExample(kind) {

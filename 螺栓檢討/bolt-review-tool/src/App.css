@@ -2527,6 +2527,75 @@ details.fold-panel[data-shows~='member'] .switch-grid {
   box-shadow: 0 20px 48px rgba(11, 30, 34, 0.35);
 }
 
+.app-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(11, 30, 34, 0.55);
+}
+
+.app-confirm-modal {
+  width: min(460px, 100%);
+  background: #fff;
+  border: 1px solid rgba(15, 58, 69, 0.14);
+  border-radius: 8px;
+  box-shadow: 0 20px 48px rgba(11, 30, 34, 0.35);
+  padding: 20px 22px;
+}
+
+.app-confirm-modal h2 {
+  margin: 0 0 10px;
+  color: #0b4b56;
+  font-size: 1.12rem;
+  line-height: 1.35;
+}
+
+.app-confirm-modal p {
+  margin: 0;
+  color: #334b53;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.app-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.app-confirm-button {
+  min-height: 38px;
+  border: 1px solid #0b7285;
+  border-radius: 6px;
+  background: #0b7285;
+  color: #fff;
+  padding: 8px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.app-confirm-button:hover,
+.app-confirm-button:focus-visible {
+  background: #095d6c;
+  border-color: #095d6c;
+}
+
+.app-confirm-danger {
+  border-color: #b42318;
+  background: #b42318;
+}
+
+.app-confirm-danger:hover,
+.app-confirm-danger:focus-visible {
+  border-color: #8f1c13;
+  background: #8f1c13;
+}
+
 .shortcut-help-header {
   display: flex;
   align-items: center;
@@ -2829,6 +2898,7 @@ label.field-has-warning > input {
 
 @media print {
   .toast,
+  .app-confirm-backdrop,
   .drop-overlay {
     display: none !important;
   }

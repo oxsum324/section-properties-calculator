@@ -85,6 +85,9 @@ textarea::placeholder{color:var(--text3)}
 .ppv.acc{color:var(--accent);font-weight:500}
 .procbtn{width:100%;margin-top:12px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;padding:10px;font-size:12px;font-family:var(--sans);cursor:pointer;transition:background .14s;display:none;align-items:center;justify-content:center;gap:6px}
 .procbtn:hover{background:rgba(200,240,74,.06)}
+.action-status{display:none;border:1px solid var(--border2);border-radius:4px;padding:8px 10px;font-size:11px;line-height:1.6}
+.action-status.warn{display:block;color:var(--amber);background:rgba(240,168,74,.06);border-color:rgba(240,168,74,.22)}
+.action-status.error{display:block;color:var(--red);background:rgba(240,74,74,.06);border-color:rgba(240,74,74,.22)}
 @media(max-width:640px){main{grid-template-columns:1fr}.left{border-right:none;border-bottom:1px solid var(--border)}}
 </style>
 </head>
@@ -119,6 +122,7 @@ textarea::placeholder{color:var(--text3)}
         <svg id="bi" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
         開始前置診斷
       </button>
+      <div class="action-status" id="actionStatus" role="status" aria-live="polite"></div>
     </div>
   </div>
   <div class="right">
@@ -156,11 +160,18 @@ const fi=document.getElementById('fi');
 const pimg=document.getElementById('pimg');
 const uph=document.getElementById('uph');
 const gbtn=document.getElementById('gbtn');
+function setActionStatus(message,tone='warn'){
+  const el=document.getElementById('actionStatus');
+  if(!el)return;
+  el.textContent=message||'';
+  el.className=`action-status${message?` ${tone}`:''}`;
+}
 
 function isAcc(f){return f&&(f.type.startsWith('image/')||f.type==='application/pdf'||/\.pdf$/i.test(f.name||''))}
 fi.addEventListener('change',e=>{
   const f=e.target.files[0];if(!f)return;
-  if(!isAcc(f)){alert('僅支援圖片（PNG/JPG）或 PDF');return}
+  if(!isAcc(f)){setActionStatus('僅支援圖片（PNG/JPG）或 PDF','error');return}
+  setActionStatus('');
   const r=new FileReader();
   r.onload=ev=>{
     i64=ev.target.result.split(',')[1];
@@ -187,7 +198,7 @@ uz.addEventListener('drop',e=>{
   e.preventDefault();uz.style.background='';
   const f=e.dataTransfer.files[0];
   if(isAcc(f)){const dt=new DataTransfer();dt.items.add(f);fi.files=dt.files;fi.dispatchEvent(new Event('change'))}
-  else alert('僅支援圖片（PNG/JPG）或 PDF');
+  else setActionStatus('僅支援圖片（PNG/JPG）或 PDF','error');
 });
 
 function pill(t,c){const p=document.getElementById('pill');p.textContent=t;p.className='pill '+(c||'')}
@@ -276,7 +287,7 @@ function render(r){
 }
 function selM(el){document.querySelectorAll('.mc').forEach(c=>c.classList.remove('sel'));el.classList.add('sel')}
 function proceed(){
-  if(!res){alert('尚未完成診斷');return}
+  if(!res){setActionStatus('尚未完成診斷','warn');return}
   // 把整份診斷存到 localStorage，讓 verify_engine.html 讀取自動帶入
   try{
     localStorage.setItem('structdx_pending_diag', JSON.stringify({

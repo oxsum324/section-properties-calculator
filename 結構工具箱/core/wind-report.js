@@ -33,6 +33,72 @@
     return el ? !!el.checked : !!fallback;
   }
 
+  function currentReportMode() {
+    return document.getElementById('reportMode')?.value === 'summary' ? 'summary' : 'detailed';
+  }
+
+  function reportModeLabel(mode) {
+    return mode === 'summary' ? '簡易結果' : '詳算式';
+  }
+
+  function showWindReportIssue(message) {
+    if (typeof document === 'undefined' || !document.body) {
+      if (typeof console !== 'undefined' && console.warn) console.warn(message);
+      return;
+    }
+    let status = document.getElementById('windReportStatus');
+    if (!status) {
+      status = document.createElement('div');
+      status.id = 'windReportStatus';
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      status.style.cssText = [
+        'position:fixed',
+        'right:18px',
+        'bottom:18px',
+        'z-index:9999',
+        'max-width:min(420px, calc(100vw - 36px))',
+        'padding:10px 12px',
+        'border:1px solid #f59e0b',
+        'border-radius:6px',
+        'background:#fffbeb',
+        'color:#7c2d12',
+        'font:13px/1.5 "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif',
+        'box-shadow:0 8px 24px rgba(15, 23, 42, .16)'
+      ].join(';');
+      document.body.appendChild(status);
+    }
+    status.textContent = message;
+  }
+
+  function reportToolbarHtml() {
+    return `
+<div class="rep-toolbar">
+  <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
+  <button onclick="closeReportWindow()">✕ 關閉</button>
+  <span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span>
+</div>`;
+  }
+
+  function reportWindowScriptHtml() {
+    return `
+<script>
+function showReportWindowStatus(message) {
+  var status = document.getElementById('repWindowStatus');
+  if (status) status.textContent = message;
+}
+function closeReportWindow() {
+  try { window.close(); } catch (e) {}
+  try { window.open('', '_self', ''); window.close(); } catch (e) {}
+  setTimeout(function() {
+    if (!window.closed) {
+      showReportWindowStatus('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W 或 Command+W 關閉分頁。');
+    }
+  }, 150);
+}
+</script>`;
+  }
+
   function fieldValue(el) {
     if (!el) return '—';
     if (el.tagName === 'SELECT') return cleanText(el.selectedOptions[0]?.textContent || el.value);
@@ -267,7 +333,7 @@
   }
 
   function buildInputSectionsHtml(groups) {
-    return (groups || []).map(g => `
+    const blocks = (groups || []).map(g => `
       <section class="rep-block">
         <h3>${esc(g.group)}</h3>
         <table class="rep-input">
@@ -282,6 +348,13 @@
         </table>
       </section>
     `).join('');
+    return blocks ? `
+      <section class="rep-block">
+        <h3>輸入資料表</h3>
+        <div class="rep-text">以下整理本次計算採用之輸入條件。</div>
+      </section>
+      ${blocks}
+    ` : '';
   }
 
   function isVisible(el) {
@@ -507,9 +580,12 @@
     const subtitle = textFrom(document.querySelector('header p'));
     const summary = collectSummary();
     const summaryCls = summary.ok === true ? 'ok' : summary.ok === false ? 'ng' : 'na';
-    const inputsHtml = reportOpt('rep_inputs', false) ? buildInputSectionsHtml(collectInputGroups()) : '';
+    const mode = currentReportMode();
+    const isSummaryReport = mode === 'summary';
+    const modeLabel = reportModeLabel(mode);
+    const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(collectInputGroups()) : '';
     const notes = collectNotes();
-    const notesHtml = reportOpt('rep_notes', false) && notes.length ? `
+    const notesHtml = !isSummaryReport && reportOpt('rep_notes', false) && notes.length ? `
       <section class="rep-block">
         <h3>備註</h3>
         <ol class="rep-notes">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ol>
@@ -562,6 +638,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-toolbar { max-width:980px; margin:0 auto 12px; text-align:right; }
 .rep-toolbar button { background:#1a3d5c; color:#fff; border:0; padding:8px 18px; font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
 .rep-toolbar button:hover { background:#27567c; }
+.rep-window-status { display:block; margin-top:8px; color:#7c2d12; font-size:12px; line-height:1.45; min-height:18px; }
 .rep-footer { position:fixed; right:14mm; bottom:8mm; font-size:10px; color:#666; text-align:right; }
 @media print {
   body { background:#fff; padding:0; }
@@ -571,10 +648,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 </style>
 </head>
 <body>
-<div class="rep-toolbar">
-  <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
-  <button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button>
-</div>
+${reportToolbarHtml()}
 <div class="rep-paper">
   <div class="rep-header">
     <h1>${esc(title)} 計算書</h1>
@@ -585,32 +659,34 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
     <div><b>設計人員</b>${esc(proj.designer) || '—'}</div>
     <div><b>製表日期</b>${esc(proj.date)}</div>
+    <div><b>計算書模式</b>${esc(modeLabel)}</div>
   </div>
   ${reportOpt('rep_summary', true) ? `<div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>` : ''}
   ${reportOpt('rep_summary', true) ? buildBannerKeySection() : ''}
   ${reportOpt('rep_applicability', true) ? buildNarrativeSection('適用性檢查', document.getElementById('applicability')) : ''}
   ${reportOpt('rep_combo', true) ? buildNarrativeSection('設計風力組合', document.getElementById('comboSummary')) : ''}
   ${reportOpt('rep_control', true) ? buildTableSection('採用控制表', document.getElementById('controlTable'), document.getElementById('controlNote')) : ''}
-  ${reportOpt('rep_dir_combo', true) ? buildTableSection('雙主風向設計風力組合', document.getElementById('dirComboTable'), document.getElementById('dirComboNote')) : ''}
-  ${reportOpt('rep_accel_formal', true) ? buildNarrativeSection('第四章正式檢核', document.getElementById('accelFormalSummary')) : ''}
-  ${reportOpt('rep_accel_estimate', true) ? buildNarrativeSection('簡化推估附錄', document.getElementById('accelEstimateSummary')) : ''}
-  ${reportOpt('rep_floor_combo', true) ? buildTableSection('逐層設計風力組合', document.getElementById('comboTable'), document.getElementById('comboNote')) : ''}
-  ${reportOpt('rep_story', true) ? buildTableSection('逐層風壓與設計風力', document.getElementById('storyTable'), document.getElementById('storyNote')) : ''}
-  ${reportOpt('rep_case', false) ? buildNarrativeSection('MWFRS 內外壓組合', document.getElementById('caseSummary')) : ''}
-  ${reportOpt('rep_roof', false) ? buildNarrativeSection('屋面主結構壓力', document.getElementById('roofSummary')) : ''}
-  ${reportOpt('rep_lateral', false) ? buildNarrativeSection('橫風向與扭轉向設計風力', document.getElementById('lateralSummary')) : ''}
-  ${reportOpt('rep_parapet', false) ? buildNarrativeSection('MWFRS 女兒牆', document.getElementById('parapetSummary')) : ''}
-  ${reportOpt('rep_route', false) ? buildNarrativeSection('適用分流', document.getElementById('routeSummary')) : ''}
+  ${!isSummaryReport && reportOpt('rep_dir_combo', true) ? buildTableSection('雙主風向設計風力組合', document.getElementById('dirComboTable'), document.getElementById('dirComboNote')) : ''}
+  ${!isSummaryReport && reportOpt('rep_accel_formal', true) ? buildNarrativeSection('第四章正式檢核', document.getElementById('accelFormalSummary')) : ''}
+  ${!isSummaryReport && reportOpt('rep_accel_estimate', true) ? buildNarrativeSection('簡化推估附錄', document.getElementById('accelEstimateSummary')) : ''}
+  ${!isSummaryReport && reportOpt('rep_floor_combo', true) ? buildTableSection('逐層設計風力組合', document.getElementById('comboTable'), document.getElementById('comboNote')) : ''}
+  ${!isSummaryReport && reportOpt('rep_story', true) ? buildTableSection('逐層風壓與設計風力', document.getElementById('storyTable'), document.getElementById('storyNote')) : ''}
+  ${!isSummaryReport && reportOpt('rep_case', false) ? buildNarrativeSection('MWFRS 內外壓組合', document.getElementById('caseSummary')) : ''}
+  ${!isSummaryReport && reportOpt('rep_roof', false) ? buildNarrativeSection('屋面主結構壓力', document.getElementById('roofSummary')) : ''}
+  ${!isSummaryReport && reportOpt('rep_lateral', false) ? buildNarrativeSection('橫風向與扭轉向設計風力', document.getElementById('lateralSummary')) : ''}
+  ${!isSummaryReport && reportOpt('rep_parapet', false) ? buildNarrativeSection('MWFRS 女兒牆', document.getElementById('parapetSummary')) : ''}
+  ${!isSummaryReport && reportOpt('rep_route', false) ? buildNarrativeSection('適用分流', document.getElementById('routeSummary')) : ''}
   ${inputsHtml}
-  ${reportOpt('rep_steps', false) ? buildStepsHtml() : ''}
+  ${!isSummaryReport ? buildStepsHtml() : ''}
   ${notesHtml}
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </div>
+${reportWindowScriptHtml()}
 </body>
 </html>`;
     const w = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
     if (!w) {
-      alert('請允許彈出視窗以開啟計算書');
+      showWindReportIssue('請允許彈出視窗以開啟計算書。');
       return;
     }
     w.document.open();
@@ -627,17 +703,23 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     const subtitle = textFrom(document.querySelector('header p'));
     const summary = collectSummary();
     const summaryCls = summary.ok === true ? 'ok' : summary.ok === false ? 'ng' : 'na';
-    const inputsHtml = buildInputSectionsHtml(collectInputGroups());
+    const mode = currentReportMode();
+    const isSummaryReport = mode === 'summary';
+    const modeLabel = reportModeLabel(mode);
+    const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(collectInputGroups()) : '';
     const notes = Array.from(document.querySelectorAll('.main-layout > div:first-child .note'))
       .map(el => cleanText(el.textContent))
       .filter(Boolean);
-    const notesHtml = notes.length ? `
+    const notesHtml = !isSummaryReport && notes.length ? `
       <section class="rep-block">
         <h3>備註</h3>
         <ol class="rep-notes">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ol>
       </section>
     ` : '';
     const sections = collectWindGenericSections();
+    const reportSections = isSummaryReport
+      ? sections.filter(section => !section.includes('rep-steps-wrap'))
+      : sections;
 
     const html = `<!doctype html>
 <html lang="zh-TW">
@@ -682,6 +764,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-toolbar { max-width:980px; margin:0 auto 12px; text-align:right; }
 .rep-toolbar button { background:#1a3d5c; color:#fff; border:0; padding:8px 18px; font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
 .rep-toolbar button:hover { background:#27567c; }
+.rep-window-status { display:block; margin-top:8px; color:#7c2d12; font-size:12px; line-height:1.45; min-height:18px; }
 .rep-footer { position:fixed; right:14mm; bottom:8mm; font-size:10px; color:#666; text-align:right; }
 @media print {
   body { background:#fff; padding:0; }
@@ -691,10 +774,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 </style>
 </head>
 <body>
-<div class="rep-toolbar">
-  <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
-  <button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button>
-</div>
+${reportToolbarHtml()}
 <div class="rep-paper">
   <div class="rep-header">
     <h1>${esc(title)} 計算書</h1>
@@ -705,19 +785,21 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
     <div><b>設計人員</b>${esc(proj.designer) || '—'}</div>
     <div><b>製表日期</b>${esc(proj.date)}</div>
+    <div><b>計算書模式</b>${esc(modeLabel)}</div>
   </div>
   <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
-  ${sections.filter(Boolean).join('')}
+  ${reportSections.filter(Boolean).join('')}
   ${inputsHtml}
-  ${buildStepsHtml()}
+  ${!isSummaryReport ? buildStepsHtml() : ''}
   ${notesHtml}
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </div>
+${reportWindowScriptHtml()}
 </body>
 </html>`;
     const w = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
     if (!w) {
-      alert('請允許彈出視窗以開啟計算書');
+      showWindReportIssue('請允許彈出視窗以開啟計算書。');
       return;
     }
     w.document.open();

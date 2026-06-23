@@ -49,6 +49,10 @@
   .hint { font-size: 0.8em; color: var(--text-light); margin-top: 4px; font-style: italic; }
   .right-panel { display: flex; flex-direction: column; gap: 20px; }
   .sub-select { margin-bottom: 14px; }
+  .status-msg { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
+  .status-msg.ok { display: block; background: #ecfdf5; color: #047857; }
+  .status-msg.warn { display: block; background: #fffbeb; color: #92400e; }
+  .status-msg.error { display: block; background: #fef2f2; color: #dc2626; }
   @media (max-width: 900px) {
     .main-layout { grid-template-columns: 1fr; }
   }
@@ -101,6 +105,7 @@
           </div>
         </div>
         <div class="results-grid" id="results"><div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div></div>
+        <div class="status-msg" id="exportStatus" role="status" aria-live="polite"></div>
       </div>
     </div>
   </div>
@@ -109,6 +114,12 @@
 const PI = Math.PI;
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function fmt(v) { if (v === 0) return '0'; if (Math.abs(v) < 0.001 && v !== 0) return v.toExponential(4); return parseFloat(v.toPrecision(6)); }
+function setStatus(message, tone = 'warn') {
+  const el = document.getElementById('exportStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `status-msg${message ? ` ${tone}` : ''}`;
+}
 
 let lastResults = [];
 let lastTitle = '';
@@ -157,9 +168,9 @@ function extractSection() {
 }
 
 function sendIxToOpener() {
-  if (!window.opener || window.opener.closed) { alert('找不到連續梁工具視窗，請重新從該工具開啟'); return; }
+  if (!window.opener || window.opener.closed) { setStatus('找不到連續梁工具視窗，請重新從該工具開啟', 'error'); return; }
   const ix = extractIx();
-  if (!ix || !isFinite(ix.value)) { alert('尚未計算出 Ix，請先完成斷面計算'); return; }
+  if (!ix || !isFinite(ix.value)) { setStatus('尚未計算出 Ix，請先完成斷面計算', 'warn'); return; }
   const section = extractSection();
   try {
     window.opener.postMessage({
@@ -168,12 +179,14 @@ function sendIxToOpener() {
       title: lastTitle,
       section,           // {shape, b, h, D} (cm)
     }, '*');
-  } catch (e) { alert('傳送失敗: ' + e.message); return; }
+  } catch (e) { setStatus('傳送失敗: ' + e.message, 'error'); return; }
+  setStatus('已導入至連續梁工具', 'ok');
   // 延遲關閉讓訊息送達
   setTimeout(() => window.close(), 120);
 }
 
 function showResults(items) {
+  setStatus('');
   lastResults = items;
   const tabObj = tabs.find(t => t.id === currentTab);
   const tabName = tabObj ? tabObj.name : '';
@@ -204,7 +217,7 @@ function toggleAllResults() {
 
 function exportJPG() {
   const checked = getCheckedResults();
-  if (!checked.length) { alert('請至少勾選一個計算項目'); return; }
+  if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
   const srcCanvas = document.getElementById('sectionCanvas');
   const pad = 20, titleH = 48, sectionH = srcCanvas.height + 16;
   const rowH = 30, cols = 2, colW = 260;
@@ -258,7 +271,7 @@ function exportJPG() {
 
 function exportPDF() {
   const checked = getCheckedResults();
-  if (!checked.length) { alert('請至少勾選一個計算項目'); return; }
+  if (!checked.length) { setStatus('請至少勾選一個計算項目', 'warn'); return; }
   const imgData = document.getElementById('sectionCanvas').toDataURL('image/png');
   const rows = checked.map(([l,v,u]) =>
     `<tr><td>${l}</td><td class="val">${fmt(v)}</td><td class="unit">${u}</td></tr>`).join('');
@@ -287,7 +300,7 @@ function exportPDF() {
 <script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script>
 </body></html>`;
   const w = window.open('', '_blank');
-  if (!w) { alert('請允許彈出視窗以匯出 PDF'); return; }
+  if (!w) { setStatus('請允許彈出視窗以匯出 PDF', 'error'); return; }
   w.document.write(html); w.document.close();
 }
 

@@ -139,10 +139,23 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function waitForProcessExit(child, timeoutMs = 5000) {
+  if (!child || child.exitCode !== null) return Promise.resolve();
+  return new Promise(resolve => {
+    const timer = setTimeout(resolve, timeoutMs);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
 async function removeDirectoryBestEffort(directoryPath) {
-  for (let attempt = 0; attempt < 6; attempt += 1) {
+  const resolved = path.resolve(directoryPath);
+  assert.ok(resolved.startsWith(path.resolve(os.tmpdir())), 'refusing to remove non-temp directory: ' + resolved);
+  for (let attempt = 0; attempt < 12; attempt += 1) {
     try {
-      fs.rmSync(directoryPath, {
+      fs.rmSync(resolved, {
         recursive: true,
         force: true,
         maxRetries: 5,
@@ -151,10 +164,10 @@ async function removeDirectoryBestEffort(directoryPath) {
       return;
     } catch (err) {
       if (!['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(err.code)) throw err;
-      await delay(250 * (attempt + 1));
+      await delay(Math.min(1000, 250 * (attempt + 1)));
     }
   }
-  console.warn(`Warning: could not remove temporary Edge profile: ${directoryPath}`);
+  console.warn(`Warning: could not remove temporary Edge profile: ${resolved}`);
 }
 
 async function waitForJson(url, timeoutMs = 10000) {
@@ -171,6 +184,45 @@ async function waitForJson(url, timeoutMs = 10000) {
     await delay(100);
   }
   throw lastError || new Error(`Timed out waiting for ${url}`);
+}
+
+function isTransientEdgeLaunchError(error) {
+  if (!error) return false;
+  if (['EPERM', 'EACCES', 'EBUSY', 'ECONNREFUSED'].includes(error.code)) return true;
+  return /spawn EPERM|WinError 5|access is denied|Permission denied|Timed out waiting|fetch failed/i.test(error.message || '');
+}
+
+async function waitForEdgeVersion(child, versionUrl, timeoutMs = 15000) {
+  return Promise.race([
+    waitForJson(versionUrl, timeoutMs),
+    new Promise((_, reject) => child.once('error', reject)),
+    new Promise((_, reject) => child.once('exit', code => reject(new Error(`Edge exited before CDP was ready. exitCode=${code}`)))),
+  ]);
+}
+
+async function launchEdgeCdpWithRetry(edgePath, browserArgs, options, versionUrl, label) {
+  const retryDelaysMs = [0, 5000, 15000, 30000, 60000];
+  let lastError;
+  for (let attempt = 0; attempt < retryDelaysMs.length; attempt += 1) {
+    let edge;
+    try {
+      edge = spawn(edgePath, browserArgs, options);
+      const version = await waitForEdgeVersion(edge, versionUrl, 15000);
+      return { edge, version };
+    } catch (error) {
+      lastError = error;
+      if (edge && edge.exitCode === null) {
+        edge.kill();
+        await waitForProcessExit(edge, 5000);
+      }
+      const canRetry = attempt < retryDelaysMs.length - 1 && isTransientEdgeLaunchError(error);
+      if (!canRetry) throw error;
+      const delayMs = retryDelaysMs[attempt + 1];
+      console.error(`[${label}] transient Edge launch failure on attempt ${attempt + 1}: ${error.message}; retrying in ${delayMs}ms`);
+      await delay(delayMs);
+    }
+  }
+  throw lastError;
 }
 
 function createCdpClient(webSocketUrl) {
@@ -243,14 +295,21 @@ function collectPageErrors(client, sessionId) {
   const unsubscribe = client.on(message => {
     if (message.sessionId !== sessionId) return;
     if (message.method === 'Runtime.exceptionThrown') {
-      errors.push(message.params.exceptionDetails?.text || 'Runtime exception');
+      const detail = message.params.exceptionDetails || {};
+      errors.push([detail.text || 'Runtime exception', detail.url || ''].filter(Boolean).join(' @ '));
     }
     if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') {
       const args = message.params.args || [];
       errors.push(args.map(arg => arg.value || arg.description || arg.type).join(' '));
     }
     if (message.method === 'Log.entryAdded' && message.params.entry?.level === 'error') {
-      errors.push(message.params.entry.text || 'Log error');
+      const entry = message.params.entry || {};
+      if ((entry.url || '').endsWith('/favicon.ico')) return;
+      errors.push([entry.text || 'Log error', entry.url || ''].filter(Boolean).join(' @ '));
+    }
+    if (message.method === 'Page.javascriptDialogOpening') {
+      errors.push(`JavaScript dialog opened: ${message.params.message || ''}`.trim());
+      client.send('Page.handleJavaScriptDialog', { accept: true }, sessionId).catch(() => {});
     }
   });
   return { errors, unsubscribe };
@@ -269,6 +328,39 @@ async function evaluate(client, sessionId, expression) {
   return result.result.value;
 }
 
+async function settlePage(client, sessionId, frames = 2) {
+  await evaluate(client, sessionId, `(async () => {
+    let remaining = ${JSON.stringify(frames)};
+    await new Promise(resolve => {
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    return true;
+  })()`);
+}
+
+async function waitForPageReady(client, sessionId, timeoutMs = 15000) {
+  const startedAt = Date.now();
+  let lastError;
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const state = await evaluate(client, sessionId, `(() => ({
+        readyState: document.readyState,
+        bodyLength: document.body ? document.body.innerText.length : 0
+      }))()`);
+      if (['interactive', 'complete'].includes(state.readyState) && state.bodyLength > 0) return state;
+    } catch (err) {
+      lastError = err;
+    }
+    await delay(100);
+  }
+  throw new Error(`Timed out waiting for document readiness${lastError ? `: ${lastError.message}` : ''}`);
+}
+
 async function navigateAndInspect(client, sessionId, url, viewport, expression) {
   await client.send('Emulation.setDeviceMetricsOverride', {
     width: viewport.width,
@@ -280,8 +372,8 @@ async function navigateAndInspect(client, sessionId, url, viewport, expression) 
   const pageErrors = collectPageErrors(client, sessionId);
   const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
   await client.send('Page.navigate', { url }, sessionId);
-  await loaded;
-  await delay(250);
+  await loaded.catch(() => waitForPageReady(client, sessionId, 15000));
+  await settlePage(client, sessionId, 2);
   const state = await evaluate(client, sessionId, expression);
   pageErrors.unsubscribe();
   return { state, errors: pageErrors.errors };
@@ -390,6 +482,47 @@ function toolExpression(tool) {
   return `(() => {
     const text = (id) => document.getElementById(id)?.textContent?.replace(/\\s+/g, ' ').trim() || '';
     const scripts = Array.from(document.querySelectorAll('script[src]')).map(s => s.getAttribute('src'));
+    const diagramSelector = ${JSON.stringify(tool.diagramSelector || null)};
+    const boxPayload = box => box ? ({
+      left: Math.round(box.left * 10) / 10,
+      top: Math.round(box.top * 10) / 10,
+      right: Math.round(box.right * 10) / 10,
+      bottom: Math.round(box.bottom * 10) / 10,
+      width: Math.round(box.width * 10) / 10,
+      height: Math.round(box.height * 10) / 10
+    }) : null;
+    const svgClientBox = node => {
+      try {
+        if (!node.ownerSVGElement || typeof node.getBBox !== 'function' || typeof node.getScreenCTM !== 'function') return null;
+        const bbox = node.getBBox();
+        const matrix = node.getScreenCTM();
+        if (!matrix || (bbox.width <= 0 && bbox.height <= 0)) return null;
+        const makePoint = (x, y) => {
+          const point = node.ownerSVGElement.createSVGPoint();
+          point.x = x;
+          point.y = y;
+          return point.matrixTransform(matrix);
+        };
+        const points = [makePoint(bbox.x, bbox.y), makePoint(bbox.x + bbox.width, bbox.y), makePoint(bbox.x, bbox.y + bbox.height), makePoint(bbox.x + bbox.width, bbox.y + bbox.height)];
+        let left = Math.min(...points.map(point => point.x));
+        let right = Math.max(...points.map(point => point.x));
+        let top = Math.min(...points.map(point => point.y));
+        let bottom = Math.max(...points.map(point => point.y));
+        const strokeWidth = Number.parseFloat(getComputedStyle(node).strokeWidth || '1') || 1;
+        if (right - left <= 0.5) { left -= strokeWidth / 2; right += strokeWidth / 2; }
+        if (bottom - top <= 0.5) { top -= strokeWidth / 2; bottom += strokeWidth / 2; }
+        return { left, top, right, bottom, width: right - left, height: bottom - top };
+      } catch (_) {
+        return null;
+      }
+    };
+    const diagram = diagramSelector ? document.querySelector(diagramSelector) : null;
+    const diagramBox = diagram ? diagram.getBoundingClientRect() : null;
+    const roleBoxes = Array.from(document.querySelectorAll('[data-diagram-role]')).map(node => {
+      const rect = node.getBoundingClientRect();
+      const box = rect.width > 0.5 && rect.height > 0.5 ? rect : svgClientBox(node);
+      return { role: node.getAttribute('data-diagram-role') || '', box: boxPayload(box) };
+    });
     return {
       title: document.title,
       hasLabel: document.body.innerText.includes(${JSON.stringify(tool.label)}),
@@ -410,6 +543,12 @@ function toolExpression(tool) {
       wallTypeOutputText: text('wallTypeOutputBody'),
       diagramText: text('diagramBody'),
       diagramSvgCount: document.querySelectorAll('#diagramBody svg.pressure-diagram').length,
+      diagramExists: diagramSelector ? !!diagram : true,
+      diagramWidth: diagramBox ? diagramBox.width : 0,
+      diagramHeight: diagramBox ? diagramBox.height : 0,
+      diagramBounds: boxPayload(diagramBox),
+      diagramRoles: roleBoxes.map(item => item.role),
+      roleBoxes,
       checkText: text('checkList'),
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
@@ -420,6 +559,15 @@ function toolExpression(tool) {
 
 function jsonExportExpression() {
   return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
     const originalCreateObjectURL = URL.createObjectURL.bind(URL);
     const originalRevokeObjectURL = URL.revokeObjectURL.bind(URL);
     const originalAnchorClick = HTMLAnchorElement.prototype.click;
@@ -445,7 +593,7 @@ function jsonExportExpression() {
 
     try {
       document.getElementById('btnJson').click();
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await settle(1);
       const texts = await Promise.all(objectUrls.map(item => item.blob.text()));
       return {
         downloadCount: downloads.length,
@@ -478,8 +626,80 @@ function earthWallTypeExpression() {
   })()`;
 }
 
+function legacyInlineValidationExpression(testCase) {
+  return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    const target = document.getElementById(${JSON.stringify(testCase.invalidField)});
+    if (target) {
+      target.value = ${JSON.stringify(testCase.invalidValue)};
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    document.querySelector('.btn-calc')?.click();
+    await settle(2);
+    return {
+      title: document.title,
+      inputStatus: document.getElementById('inputStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      hasInputStatus: !!document.getElementById('inputStatus'),
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+    };
+  })()`;
+}
+
+function forcePickerStatusExpression() {
+  return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    document.querySelector('.target-card:not(.disabled)')?.click();
+    await settle(2);
+    return {
+      title: document.title,
+      hasTargetStatus: !!document.getElementById('targetStatus'),
+      targetStatus: document.getElementById('targetStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+    };
+  })()`;
+}
+
 function jsonImportExpression(tool, payload) {
   return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    const readStatus = () => document.getElementById('jsonStatus')?.textContent || '';
+    const waitForImportStatus = async () => {
+      const started = Date.now();
+      while (Date.now() - started < 1000) {
+        if (readStatus().includes('已匯入') || readStatus().includes('回讀')) return true;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      return readStatus().includes('已匯入') || readStatus().includes('回讀');
+    };
     const tool = ${JSON.stringify({ key: tool.key })};
     const payload = ${JSON.stringify(payload)};
     payload.project = Object.assign({}, payload.project, { name: '回讀測試案' });
@@ -487,6 +707,10 @@ function jsonImportExpression(tool, payload) {
     if (tool.key === 'equipment-load') {
       document.getElementById('equipmentWeight').value = '99';
       document.getElementById('fluidWeight').value = '9';
+    }
+    if (tool.key === 'foundation-local') {
+      document.getElementById('B').value = '9.99';
+      document.getElementById('P').value = '999';
     }
     if (tool.key === 'earth-pressure') {
       document.getElementById('H').value = '9.99';
@@ -499,7 +723,8 @@ function jsonImportExpression(tool, payload) {
     transfer.items.add(file);
     fileInput.files = transfer.files;
     fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise(resolve => setTimeout(resolve, 180));
+    await waitForImportStatus();
+    await settle(2);
     if (tool.key === 'equipment-load') {
       return {
         tool: tool.key,
@@ -508,6 +733,18 @@ function jsonImportExpression(tool, payload) {
         projectName: document.getElementById('projName').value,
         jsonStatus: document.getElementById('jsonStatus')?.textContent || '',
         banner: document.getElementById('bannerStatus')?.textContent || ''
+      };
+    }
+    if (tool.key === 'foundation-local') {
+      return {
+        tool: tool.key,
+        B: document.getElementById('B').value,
+        L: document.getElementById('L').value,
+        P: document.getElementById('P').value,
+        projectName: document.getElementById('projName').value,
+        banner: document.getElementById('bannerStatus')?.textContent || '',
+        metricText: document.getElementById('metricGrid')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        checkText: document.getElementById('checkList')?.textContent?.replace(/\\s+/g, ' ').trim() || ''
       };
     }
     return {
@@ -524,7 +761,7 @@ function jsonImportExpression(tool, payload) {
   })()`;
 }
 
-function reportExpression() {
+function reportExpression(mode = null) {
   return `(() => {
     const originalOpen = window.open;
     const opened = [];
@@ -554,9 +791,18 @@ function reportExpression() {
     };
 
     try {
+      const requestedMode = ${JSON.stringify(mode)};
+      const select = document.getElementById('reportMode');
+      if (requestedMode && select) {
+        select.value = requestedMode;
+        select.dispatchEvent(new Event('input', { bubbles: true }));
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
       document.getElementById('btnPrint').click();
       const html = writes.join('');
       return {
+        mode: requestedMode || (select ? select.value : 'default'),
+        selectedMode: select ? select.value : '',
         openCount: opened.length,
         opened,
         documentOpened,
@@ -619,6 +865,30 @@ function assertNewHomeState(state, tools, label) {
   }
 }
 
+function assertDiagramGeometry(state, tool, label) {
+  const checks = tool.diagramChecks || null;
+  if (!checks) return;
+  assert.equal(state.diagramExists, true, `${label} ${tool.key} diagram exists`);
+  assert.ok(state.diagramWidth > 120, `${label} ${tool.key} diagram width`);
+  assert.ok(state.diagramHeight > 80, `${label} ${tool.key} diagram height`);
+  assert.ok(state.diagramBounds, `${label} ${tool.key} diagram bounds`);
+  for (const role of tool.diagramRoleNeedles || []) {
+    assert.ok(state.diagramRoles.includes(role), `${label} ${tool.key} diagram role: ${role}`);
+    const candidates = (state.roleBoxes || []).filter(item => item.role === role && item.box);
+    assert.ok(candidates.length > 0, `${label} ${tool.key} geometry role exists: ${role}`);
+    const usable = candidates.find(item => item.box.width > 0.5 && item.box.height > 0.5);
+    assert.ok(usable, `${label} ${tool.key} geometry role has non-zero box: ${role}`);
+    if (checks.rolesInsideDiagram) {
+      const box = usable.box;
+      const diagram = state.diagramBounds;
+      const tolerance = 3;
+      assert.ok(box.left >= diagram.left - tolerance, `${label} ${tool.key} ${role} left inside diagram`);
+      assert.ok(box.top >= diagram.top - tolerance, `${label} ${tool.key} ${role} top inside diagram`);
+      assert.ok(box.right <= diagram.right + tolerance, `${label} ${tool.key} ${role} right inside diagram`);
+      assert.ok(box.bottom <= diagram.bottom + tolerance, `${label} ${tool.key} ${role} bottom inside diagram`);
+    }
+  }
+}
 function assertToolState(state, tool, label) {
   assert.equal(state.title, tool.title.replace('<title>', '').replace('</title>', ''), `${label} ${tool.key} title`);
   assert.ok(state.hasLabel, `${label} ${tool.key} label`);
@@ -629,9 +899,11 @@ function assertToolState(state, tool, label) {
   assert.ok(state.hasExportScript, `${label} ${tool.key} export script`);
   assert.ok(state.hasCoreScript, `${label} ${tool.key} core script`);
   assert.match(state.coreVersion, /^Core v0\.\d+\.0$/, `${label} ${tool.key} core version`);
-  if (tool.key === 'equipment-load') {
+  if (tool.jsonRoundTrip === true) {
     assert.equal(state.hasJsonImportButton, true, `${label} ${tool.key} JSON import button`);
     assert.equal(state.hasJsonFileInput, true, `${label} ${tool.key} JSON file input`);
+  }
+  if (tool.key === 'equipment-load') {
     assert.ok(state.jsonStatus.includes('JSON'), `${label} ${tool.key} JSON status`);
     assert.ok(state.checkText.includes('混凝土承壓'), `${label} ${tool.key} concrete bearing check`);
     assert.ok(state.checkText.includes('穿孔剪力'), `${label} ${tool.key} punching shear check`);
@@ -648,6 +920,7 @@ function assertToolState(state, tool, label) {
     assert.ok(state.diagramText.includes('圖例'), `${label} ${tool.key} diagram legend`);
     assert.ok(state.diagramText.includes('趾版 toe'), `${label} ${tool.key} cantilever toe label`);
   }
+  assertDiagramGeometry(state, tool, label);
   assert.ok(state.banner && state.banner !== '尚未計算', `${label} ${tool.key} initial calculation banner`);
   assert.ok(state.metricText.length > 20, `${label} ${tool.key} initial metrics`);
   assert.ok(state.checkText.length > 20, `${label} ${tool.key} initial checks`);
@@ -676,6 +949,10 @@ function assertJsonExportState(state, tool, label) {
   if (tool.key === 'equipment-load') {
     assert.equal(state.payload.input.equipmentWeight, 12, `${label} ${tool.key} payload input`);
   }
+  if (tool.key === 'foundation-local') {
+    assert.equal(state.payload.input.B, 2.5, `${label} ${tool.key} payload input B`);
+    assert.equal(state.payload.input.P, 80, `${label} ${tool.key} payload input P`);
+  }
   if (tool.key === 'earth-pressure') {
     assert.equal(state.payload.result.wallType, 'cantilever', `${label} ${tool.key} payload wall type`);
     assert.equal(state.payload.result.wallTypeOutput.headline, '懸臂式工作輸出', `${label} ${tool.key} payload wall output`);
@@ -690,6 +967,16 @@ function assertEquipmentJsonImportState(state, label) {
   assert.ok(state.banner && state.banner !== '尚未計算', `${label} equipment import recalculates`);
 }
 
+function assertFoundationJsonImportState(state, label) {
+  assert.equal(state.B, '2.5', `${label} foundation import B`);
+  assert.equal(state.L, '3', `${label} foundation import L`);
+  assert.equal(state.P, '80', `${label} foundation import service load`);
+  assert.equal(state.projectName, '回讀測試案', `${label} foundation import project`);
+  assert.ok(state.banner.includes('已讀取 JSON'), `${label} foundation import banner`);
+  assert.ok(state.metricText.includes('Ptotal'), `${label} foundation import recalculates metrics`);
+  assert.ok(state.checkText.includes('容許地耐力'), `${label} foundation import recalculates checks`);
+}
+
 function assertEarthJsonImportState(state, label) {
   assert.equal(state.H, '2.5', `${label} earth import height`);
   assert.equal(state.surcharge, '1', `${label} earth import surcharge`);
@@ -701,7 +988,7 @@ function assertEarthJsonImportState(state, label) {
   assert.ok(state.diagramText.includes('懸臂式擋土牆'), `${label} earth import diagram`);
 }
 
-function assertReportState(state, tool, label) {
+function assertReportState(state, tool, label, mode = 'detailed') {
   assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
   assert.equal(state.opened[0].target, '_blank', `${label} ${tool.key} report target`);
   assert.equal(state.documentOpened, true, `${label} ${tool.key} report document open`);
@@ -712,6 +999,18 @@ function assertReportState(state, tool, label) {
     '計算書',
   ];
   const removedFromLocalReport = ['工具與責任邊界', '適用範圍', '不適用範圍', '計算核心', '輸入格式', '計算指紋'];
+  requiredNeedles.push(...(tool.reportNeedles || []));
+  if (mode === 'summary') {
+    requiredNeedles.push('簡易結果', '控制結果', '計算示意圖');
+    assert.equal(state.html.includes('計算內容'), false, `${label} ${tool.key} summary report excludes 計算內容`);
+    removedFromLocalReport.forEach(needle => {
+      assert.equal(state.html.includes(needle), false, `${label} ${tool.key} summary report removes ${needle}`);
+    });
+    requiredNeedles.forEach(needle => {
+      assert.ok(state.html.includes(needle), `${label} ${tool.key} summary report includes ${needle}`);
+    });
+    return;
+  }
   if (tool.key === 'foundation-local') {
     // 已正式化：兩段式計算書（預設詳算式）含計算內容與示意圖，不再以「初估」標示
     requiredNeedles.push('計算內容', '計算示意圖', '載重情況');
@@ -754,7 +1053,7 @@ async function main() {
 
   try {
     server = await startStaticServer(serverPort, vercelConfig);
-    edge = spawn(edgePath, [
+    const launch = await launchEdgeCdpWithRetry(edgePath, [
       '--headless=new',
       `--remote-debugging-port=${debugPort}`,
       `--user-data-dir=${userDataDir}`,
@@ -766,9 +1065,9 @@ async function main() {
     ], {
       stdio: 'ignore',
       windowsHide: true,
-    });
-
-    const version = await waitForJson(`http://127.0.0.1:${debugPort}/json/version`, 15000);
+    }, `http://127.0.0.1:${debugPort}/json/version`, 'local-quick');
+    edge = launch.edge;
+    const version = launch.version;
     client = createCdpClient(version.webSocketDebuggerUrl);
     await client.open();
 
@@ -794,6 +1093,22 @@ async function main() {
       { key: 'route-toolbox-home', url: `http://127.0.0.1:${serverPort}/toolbox-home` },
       { key: 'file-url-new-home', url: pathToFileURL(toolboxFile('index.html')).href },
     ];
+    const legacyInlineValidationCases = [
+      {
+        key: 'steel-beam',
+        route: '/steel-beam',
+        invalidField: 'inH',
+        invalidValue: '0',
+        expectedStatus: '請完整輸入斷面尺寸',
+      },
+      {
+        key: 'steel-column',
+        route: '/steel-column',
+        invalidField: 'inH',
+        invalidValue: '0',
+        expectedStatus: '斷面尺寸',
+      },
+    ];
     for (const viewport of viewports) {
       for (const homeCase of homeCases) {
         const label = `${viewport.key} ${homeCase.key}`;
@@ -808,6 +1123,36 @@ async function main() {
         assertNewHomeState(home.state, manifest.tools, label);
       }
 
+      for (const validationCase of legacyInlineValidationCases) {
+        const label = `${viewport.key} ${validationCase.key} inline validation`;
+        const result = await navigateAndInspect(
+          client,
+          sessionId,
+          `http://127.0.0.1:${serverPort}${validationCase.route}`,
+          viewport,
+          legacyInlineValidationExpression(validationCase)
+        );
+        assert.deepEqual(result.errors, [], `${label} console/dialog errors: ${result.errors.join(' | ')}`);
+        assert.equal(result.state.hasInputStatus, true, `${label} has input status`);
+        assert.ok(result.state.inputStatus.includes(validationCase.expectedStatus), `${label} status text`);
+        assert.equal(result.state.horizontalOverflow, false, `${label} horizontal overflow`);
+      }
+
+      {
+        const label = `${viewport.key} force-picker inline target status`;
+        const result = await navigateAndInspect(
+          client,
+          sessionId,
+          `http://127.0.0.1:${serverPort}/force-picker`,
+          viewport,
+          forcePickerStatusExpression()
+        );
+        assert.deepEqual(result.errors, [], `${label} console/dialog errors: ${result.errors.join(' | ')}`);
+        assert.equal(result.state.hasTargetStatus, true, `${label} has target status`);
+        assert.ok(result.state.targetStatus.includes('目前沒有'), `${label} status text`);
+        assert.equal(result.state.horizontalOverflow, false, `${label} horizontal overflow`);
+      }
+
       for (const tool of manifest.tools) {
         const toolCases = [
           { key: 'file-tool', url: `http://127.0.0.1:${serverPort}/${encodeURI(`結構工具箱/${tool.html}`)}` },
@@ -818,43 +1163,47 @@ async function main() {
           const result = await navigateAndInspect(client, sessionId, toolCase.url, viewport, toolExpression(tool));
           assert.deepEqual(result.errors, [], `${label} ${tool.key} console errors: ${result.errors.join(' | ')}`);
           assertToolState(result.state, tool, label);
-          if (toolCase.key === 'route-tool') {
+          if (toolCase.key === 'route-tool' && viewport.key === 'desktop') {
+            const interactionLabel = 'desktop route-tool interaction';
             const exportState = await evaluate(client, sessionId, jsonExportExpression());
-            assertJsonExportState(exportState, tool, label);
-            if (tool.key === 'equipment-load' || tool.key === 'earth-pressure') {
+            assertJsonExportState(exportState, tool, interactionLabel);
+            if (tool.jsonRoundTrip === true) {
               const importState = await evaluate(client, sessionId, jsonImportExpression(tool, exportState.payload));
-              if (tool.key === 'equipment-load') assertEquipmentJsonImportState(importState, label);
-              if (tool.key === 'earth-pressure') assertEarthJsonImportState(importState, label);
+              if (tool.key === 'foundation-local') assertFoundationJsonImportState(importState, interactionLabel);
+              if (tool.key === 'equipment-load') assertEquipmentJsonImportState(importState, interactionLabel);
+              if (tool.key === 'earth-pressure') assertEarthJsonImportState(importState, interactionLabel);
             }
             if (tool.key === 'earth-pressure') {
               const wallTypeState = await evaluate(client, sessionId, earthWallTypeExpression());
-              assert.equal(wallTypeState.value, 'gravity', `${label} ${tool.key} gravity wall type selection`);
-              assert.ok(wallTypeState.outputText.includes('重力式工作輸出'), `${label} ${tool.key} gravity output`);
-              assert.ok(wallTypeState.outputText.includes('自重與抗傾覆'), `${label} ${tool.key} gravity output groups`);
-              assert.ok(wallTypeState.diagramText.includes('重力式擋土牆'), `${label} ${tool.key} gravity diagram label`);
-              assert.ok(wallTypeState.diagramText.includes('重力式塊體'), `${label} ${tool.key} gravity wall body`);
-              assert.ok(wallTypeState.modelSummary.includes('重力式擋土牆'), `${label} ${tool.key} gravity model summary`);
+              assert.equal(wallTypeState.value, 'gravity', `${interactionLabel} ${tool.key} gravity wall type selection`);
+              assert.ok(wallTypeState.outputText.includes('重力式工作輸出'), `${interactionLabel} ${tool.key} gravity output`);
+              assert.ok(wallTypeState.outputText.includes('自重與抗傾覆'), `${interactionLabel} ${tool.key} gravity output groups`);
+              assert.ok(wallTypeState.diagramText.includes('重力式擋土牆'), `${interactionLabel} ${tool.key} gravity diagram label`);
+              assert.ok(wallTypeState.diagramText.includes('重力式塊體'), `${interactionLabel} ${tool.key} gravity wall body`);
+              assert.ok(wallTypeState.modelSummary.includes('重力式擋土牆'), `${interactionLabel} ${tool.key} gravity model summary`);
             }
-            const reportState = await evaluate(client, sessionId, reportExpression());
-            assertReportState(reportState, tool, label);
+            if (tool.reportMode === true) {
+              const detailedReportState = await evaluate(client, sessionId, reportExpression('detailed'));
+              assertReportState(detailedReportState, tool, interactionLabel, 'detailed');
+              const summaryReportState = await evaluate(client, sessionId, reportExpression('summary'));
+              assertReportState(summaryReportState, tool, interactionLabel, 'summary');
+            } else {
+              const reportState = await evaluate(client, sessionId, reportExpression());
+              assertReportState(reportState, tool, interactionLabel);
+            }
           }
         }
       }
     }
 
     await client.send('Browser.close').catch(() => {});
+    await waitForProcessExit(edge, 5000);
     console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports, clean routes)`);
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {
       edge.kill();
-      await new Promise(resolve => {
-        const timer = setTimeout(resolve, 1500);
-        edge.once('exit', () => {
-          clearTimeout(timer);
-          resolve();
-        });
-      });
+      await waitForProcessExit(edge, 5000);
     }
     if (server) await new Promise(resolve => server.close(resolve));
     await removeDirectoryBestEffort(userDataDir);

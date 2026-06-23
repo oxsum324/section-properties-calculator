@@ -2,6 +2,7 @@ import {
   Suspense,
   lazy,
   startTransition,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -21,6 +22,7 @@ import {
 } from './basePlateGeometry'
 // getBasePlateBearingOverlay 已下放至 ./GeometrySketch
 import { assessProductCompleteness } from './calc'
+import type { ConfirmOptions } from './confirmDialog'
 // db 已下放至各 hook
 import {
   normalizeReportSettings,
@@ -401,6 +403,10 @@ interface WorkspaceTabDefinition {
   hint: string
 }
 
+type AppConfirmRequest = ConfirmOptions & {
+  id: number
+}
+
 const WORKSPACE_TABS: WorkspaceTabDefinition[] = [
   { id: 'member', label: '構件／配置', hint: '混凝土基材 fc′ / 裂縫 / hef / 陣列 / 間距 / 邊距' },
   { id: 'product', label: '產品', hint: '產品選擇 / 候選比選 / 評估值 / 證據' },
@@ -449,6 +455,54 @@ function App() {
   )
   // 啟動水合 5 個 state + 2 個 callback 已下放至 useWorkspaceHydration（hook 呼叫於下方）
   const [saveMessage, setSaveMessage] = useState('尚未同步到本機資料庫')
+  const [confirmRequest, setConfirmRequest] =
+    useState<AppConfirmRequest | null>(null)
+  const confirmResolverRef = useRef<((confirmed: boolean) => void) | null>(null)
+  const confirmActionRef = useRef<HTMLButtonElement | null>(null)
+  const requestConfirm = useCallback((options: ConfirmOptions) => {
+    return new Promise<boolean>((resolve) => {
+      confirmResolverRef.current?.(false)
+      confirmResolverRef.current = resolve
+      setConfirmRequest({
+        ...options,
+        id: Date.now(),
+        tone: options.tone ?? 'default',
+      })
+    })
+  }, [])
+  const settleConfirm = useCallback((confirmed: boolean) => {
+    const resolver = confirmResolverRef.current
+    confirmResolverRef.current = null
+    setConfirmRequest(null)
+    resolver?.(confirmed)
+  }, [])
+  useEffect(() => {
+    return () => {
+      confirmResolverRef.current?.(false)
+      confirmResolverRef.current = null
+    }
+  }, [])
+  useEffect(() => {
+    if (!confirmRequest) {
+      return undefined
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        settleConfirm(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [confirmRequest, settleConfirm])
+  useEffect(() => {
+    if (!confirmRequest) {
+      return
+    }
+    const focusTimer = window.setTimeout(() => {
+      confirmActionRef.current?.focus()
+    }, 0)
+    return () => window.clearTimeout(focusTimer)
+  }, [confirmRequest])
   // toast state 已下放至 useAutoSave
   const [projectTemplateFilter, setProjectTemplateFilter] = useState<
     'all' | ProjectTemplateCategory
@@ -528,6 +582,7 @@ function App() {
     setProject,
     cloneProject,
     normalizeProjectSelection,
+    requestConfirm,
   })
 
   const selectedProduct =
@@ -1200,6 +1255,7 @@ function App() {
     cloneProject,
     normalizeProjectSelection,
     replaceProjectInList,
+    requestConfirm,
   })
 
   // 文件管理 8 個動作 + 4 個 preview state + ref 已下放至 useDocumentLibrary（hook 呼叫於上方）
@@ -1223,6 +1279,7 @@ function App() {
     commitProject,
     patchProject,
     setSaveMessage,
+    requestConfirm,
   })
 
   // 報表匯出（HTML / XLSX / DOCX / 獨立預覽 / 列印）已抽至 useReportExports
@@ -1296,6 +1353,48 @@ function App() {
     setShowShortcutHelp,
   })
 
+  const appConfirmDialog = confirmRequest ? (
+    <div
+      key={confirmRequest.id}
+      className="app-confirm-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="app-confirm-title"
+      aria-describedby="app-confirm-message"
+      onClick={() => settleConfirm(false)}
+    >
+      <div
+        className="app-confirm-modal"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="app-confirm-title">{confirmRequest.title}</h2>
+        <p id="app-confirm-message">{confirmRequest.message}</p>
+        <div className="app-confirm-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => settleConfirm(false)}
+          >
+            {confirmRequest.cancelLabel ?? '取消'}
+          </button>
+          <button
+            type="button"
+            ref={confirmActionRef}
+            className={[
+              'app-confirm-button',
+              confirmRequest.tone === 'danger' ? 'app-confirm-danger' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => settleConfirm(true)}
+          >
+            {confirmRequest.confirmLabel ?? '確定'}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
+
   if (loading) {
     return (
       <main className="loading-screen" aria-busy="true" role="status">
@@ -1314,35 +1413,38 @@ function App() {
 
   if (hydrationError && !hydrated) {
     return (
-      <main className="loading-screen hydration-error" role="alert">
-        <div className="hydration-error-card">
-          <h2>離線資料庫讀取失敗</h2>
-          <p className="hydration-error-message">錯誤訊息：{hydrationError}</p>
-          <p className="helper-text">
-            可能原因：瀏覽器處於無痕/隱私模式、IndexedDB 配額已滿、或資料庫版本不相容。
-            可先嘗試重新載入；若持續失敗，可清空本機資料後以預設值重建。
-          </p>
-          <div className="hydration-error-actions">
-            <button type="button" onClick={retryHydration} disabled={isResetting}>
-              重新嘗試載入
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => {
-                void resetLocalDatabaseAndReload()
-              }}
-              disabled={isResetting}
-            >
-              {isResetting ? '清空中…' : '清空本機資料後重建'}
-            </button>
+      <>
+        <main className="loading-screen hydration-error" role="alert">
+          <div className="hydration-error-card">
+            <h2>離線資料庫讀取失敗</h2>
+            <p className="hydration-error-message">錯誤訊息：{hydrationError}</p>
+            <p className="helper-text">
+              可能原因：瀏覽器處於無痕/隱私模式、IndexedDB 配額已滿、或資料庫版本不相容。
+              可先嘗試重新載入；若持續失敗，可清空本機資料後以預設值重建。
+            </p>
+            <div className="hydration-error-actions">
+              <button type="button" onClick={retryHydration} disabled={isResetting}>
+                重新嘗試載入
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  void resetLocalDatabaseAndReload()
+                }}
+                disabled={isResetting}
+              >
+                {isResetting ? '清空中…' : '清空本機資料後重建'}
+              </button>
+            </div>
+            <p className="helper-text">
+              注意：清空會移除本機案例、產品、文件附件，且不可復原。
+              建議先於正常狀態下匯出 JSON 備份。
+            </p>
           </div>
-          <p className="helper-text">
-            注意：清空會移除本機案例、產品、文件附件，且不可復原。
-            建議先於正常狀態下匯出 JSON 備份。
-          </p>
-        </div>
-      </main>
+        </main>
+        {appConfirmDialog}
+      </>
     )
   }
 
@@ -3553,6 +3655,7 @@ function App() {
           {toast.message}
         </div>
       ) : null}
+      {appConfirmDialog}
       {showCommandPalette ? (
         <CommandPalette
           query={paletteQuery}

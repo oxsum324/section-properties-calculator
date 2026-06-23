@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>單樁承載力設計器 V3.0</title>
+<link rel="icon" href="data:,">
 <style>
   :root {
     --bg: #f4efe6;
@@ -136,6 +137,14 @@
   .good { color: var(--good); }
   .bad { color: var(--bad); }
   .warn { color: var(--warn); }
+  .report-status {
+    grid-column: 1 / -1;
+    min-height: 22px;
+    color: var(--warn);
+    font-size: 0.86rem;
+    line-height: 1.45;
+  }
+  .report-status[hidden] { display: none; }
   .banner {
     border-radius: 12px;
     padding: 12px 14px;
@@ -406,7 +415,7 @@
             <input id="upliftSafetyFactor" type="number" value="3.0" step="0.1">
           </div>
         </div>
-        <p class="hint">規範模式下，垂直承載與抗拔安全係數固定依規範表值計算，不讀取上方整體 FS 與此區簡化 FS。此區可調者主要供一般工程模式與簡化模式使用；若專案規範、顧問設計準則或地工報告另有指定，應以專案文件覆核後再修改。</p>
+        <p class="hint">規範模式下，垂直承載與抗拔安全係數固定依規範表值計算，不讀取上方整體 FS 與此區簡化 FS。此區可調者主要供一般工程模式與簡化模式使用；若專案規範、顧問設計準則或地工報告另有指定，應以專案文件複核後再修改。</p>
       </div>
 
       <div class="card">
@@ -423,6 +432,8 @@
         <div class="form-grid">
           <button id="btnCalc" type="button">重新試算</button>
           <button id="btnSample" type="button" class="secondary">載入示範資料</button>
+          <button id="btnReport" type="button" class="secondary">產生計算書</button>
+          <span id="reportStatus" class="report-status" role="status" aria-live="polite" hidden></span>
         </div>
       </div>
     </section>
@@ -502,6 +513,8 @@
   </div>
 </div>
 
+<script src="../shared/common.js?v=3"></script>
+<script src="../shared/report.js?v=2"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -891,6 +904,12 @@
     return { ok: warnings.length === 0, notes, warnings };
   }
 
+  function collectSinglePileReviewWarnings(params, compliance, safetyFactorOrderWarning = false) {
+    const warnings = Array.isArray(compliance?.warnings) ? compliance.warnings.slice() : [];
+    if (safetyFactorOrderWarning) warnings.push('長期安全係數小於短期安全係數，請確認是否符合專案指定設計準則。');
+    return warnings;
+  }
+
   function calcSimplifiedResistance(layers, pileLength, pileD_m, pileArea_m2, pilePerimeter_m, pileInstall, params) {
     let Qs = 0;
     let Qb = 0;
@@ -1243,7 +1262,7 @@
 2. 改用打入樁或提高持力層嵌入深度。
 3. 放寬容許沉陷前，請先確認實際使用需求。
 4. 目前最大可達 Qall(長期/短期) 約 ${maxQallLong.toFixed(2)} / ${maxQallShort.toFixed(2)} tf。
-5. ${compliance.ok ? '細部折減仍在本工具預設保守範圍內。' : '細部折減已有自訂值，請人工覆核。'}`;
+5. ${compliance.ok ? '細部折減仍在本工具預設保守範圍內。' : '細部折減已有自訂值，請人工複核。'}`;
     }
     const tipName = best.tip.tipLayer ? (best.tip.tipLayer.label || best.tip.tipLayer.type) : '—';
     const shareQs = best.Qult > 0 ? best.skin.Qs / best.Qult : 0;
@@ -1264,8 +1283,263 @@
 ${best.tip.capApplied ? `端承已套用上限 ${best.tip.capValue} tf/m²。` : '端承未觸發上限。'}
 安全係數：${params.calcMode === 'regulation'
       ? '規範模式固定採常時 Qs/2.5 + Qb/3.5、短期 Qs/1.8 + Qb/2.5，抗拔常時 Ra = Wp + Qs/5.0。'
-      : `長期 FS=${params.safetyFactorLong.toFixed(2)}，短期 FS=${params.safetyFactorShort.toFixed(2)}。${params.calcMode === 'code' ? '此模式為工程推估模式，非 112 規範表 5.3-1 的 FS1/FS2 分項模式。' : ''}`}${compliance.ok ? '折減參數仍在預設保守範圍。' : '折減參數已有調整，請依專案規範覆核。'}
+      : `長期 FS=${params.safetyFactorLong.toFixed(2)}，短期 FS=${params.safetyFactorShort.toFixed(2)}。${params.calcMode === 'code' ? '此模式為工程推估模式，非 112 規範表 5.3-1 的 FS1/FS2 分項模式。' : ''}`}${compliance.ok ? '折減參數仍在預設保守範圍。' : '折減參數已有調整，請依專案規範複核。'}
 ${gainText}`;
+  }
+
+  function fmt(value, digits = 2, fallback = '—') {
+    return Number.isFinite(value) ? Number(value).toFixed(digits) : fallback;
+  }
+
+  function layerLabel(layer) {
+    return layer ? (layer.label || layer.type || '—') : '—';
+  }
+
+  function serializeLayer(layer) {
+    if (!layer) return null;
+    return {
+      from: layer.from,
+      to: layer.to,
+      N: layer.N,
+      c: layer.c,
+      phi: layer.phi,
+      gammaEff: layer.gammaEff,
+      label: layer.label,
+      type: layer.type
+    };
+  }
+
+  function serializeCandidate(candidate) {
+    if (!candidate) return null;
+    return {
+      diaCm: candidate.diaCm,
+      depthM: candidate.depthM,
+      Qult: candidate.Qult,
+      QallLong: candidate.QallLong,
+      QallShort: candidate.QallShort,
+      upliftRa: candidate.upliftRa,
+      upliftWp: candidate.upliftWp,
+      stress: candidate.stress,
+      stressAllow: candidate.stressAllow,
+      okBearingLong: candidate.okBearingLong,
+      okBearingShort: candidate.okBearingShort,
+      okSettlement: candidate.okSettlement,
+      okStress: candidate.okStress,
+      pass: candidate.pass,
+      reasons: candidate.reasons || [],
+      structural: candidate.structural,
+      settlement: candidate.settlement,
+      skin: {
+        Qs: candidate.skin.Qs,
+        segments: (candidate.skin.segments || []).map(seg => ({
+          ...serializeLayer(seg),
+          segLen: seg.segLen,
+          fs: seg.fs,
+          dQs: seg.dQs,
+          accumQs: seg.accumQs
+        }))
+      },
+      tip: {
+        Qb: candidate.tip.Qb,
+        qbUlt: candidate.tip.qbUlt,
+        tipLayer: serializeLayer(candidate.tip.tipLayer),
+        capApplied: candidate.tip.capApplied,
+        capValue: candidate.tip.capValue,
+        criticalDepth: candidate.tip.criticalDepth,
+        sigmaCrit: candidate.tip.sigmaCrit
+      }
+    };
+  }
+
+  function candidateRowsForReport(candidates, best, limit = 18) {
+    const rows = [...candidates].sort((a, b) => {
+      if (best) {
+        const aBest = a.diaCm === best.diaCm && Math.abs(a.depthM - best.depthM) < 1e-9;
+        const bBest = b.diaCm === best.diaCm && Math.abs(b.depthM - best.depthM) < 1e-9;
+        if (aBest !== bBest) return aBest ? -1 : 1;
+      }
+      if (a.pass !== b.pass) return a.pass ? -1 : 1;
+      if (a.diaCm !== b.diaCm) return a.diaCm - b.diaCm;
+      return a.depthM - b.depthM;
+    }).slice(0, limit);
+    return [
+      '狀態 | D(cm) | L(m) | Qs(tf) | Qb(tf) | Qall 長/短(tf) | Wo(cm) | 控制層 | 判讀',
+      ...rows.map(item => {
+        const isBest = best && item.diaCm === best.diaCm && Math.abs(item.depthM - best.depthM) < 1e-9;
+        const status = isBest ? '採用' : item.pass ? '通過' : '未通過';
+        return `${status} | ${item.diaCm} | ${fmt(item.depthM, 1)} | ${fmt(item.skin.Qs)} | ${fmt(item.tip.Qb)} | ${fmt(item.QallLong)} / ${fmt(item.QallShort)} | ${fmt(item.settlement.Wo_cm)} | ${layerLabel(item.tip.tipLayer)} | ${(item.reasons || []).join('、')}`;
+      })
+    ].join('\n');
+  }
+
+  function layerRowsForReport(candidate) {
+    if (!candidate) return '無可列出之逐層資料';
+    const rows = [
+      '層次 | 深度(m) | 土層 | N | c | φ | γ\' | fs(tf/m²) | ΔQs(tf) | 累計Qs(tf)'
+    ];
+    (candidate.skin.segments || []).forEach((seg, idx) => {
+      rows.push(`L${idx + 1} | ${fmt(seg.from, 1)}-${fmt(Math.min(seg.to, candidate.depthM), 1)} | ${layerLabel(seg)} | ${fmt(seg.N, 0)} | ${fmt(seg.c)} | ${fmt(seg.phi, 1)} | ${fmt(seg.gammaEff)} | ${fmt(seg.fs)} | ${fmt(seg.dQs)} | ${fmt(seg.accumQs)}`);
+    });
+    if (candidate.tip.tipLayer) {
+      rows.push(`Tip | ${fmt(candidate.depthM, 1)} | ${layerLabel(candidate.tip.tipLayer)} | ${fmt(candidate.tip.tipLayer.N, 0)} | ${fmt(candidate.tip.tipLayer.c)} | ${fmt(candidate.tip.tipLayer.phi, 1)} | ${fmt(candidate.tip.tipLayer.gammaEff)} | qb=${fmt(candidate.tip.qbUlt, 1)} | Qb=${fmt(candidate.tip.Qb)} | Qult=${fmt(candidate.Qult)}`);
+    }
+    return rows.join('\n');
+  }
+
+  function buildPileProfileDiagram(candidate, layers) {
+    if (!candidate || !layers || !layers.length) return null;
+    const width = 720;
+    const height = 360;
+    const top = 44;
+    const bottom = 32;
+    const left = 86;
+    const layerW = 190;
+    const pileX = 380;
+    const legendX = 500;
+    const maxDepth = Math.max(candidate.depthM, ...layers.map(layer => layer.to), 1);
+    const y = depth => top + (depth / maxDepth) * (height - top - bottom);
+    const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const colors = ['#fef3c7', '#dbeafe', '#dcfce7', '#fee2e2', '#e0e7ff', '#f3e8ff', '#ecfccb'];
+    const layerSvg = layers.map((layer, idx) => {
+      const y1 = y(layer.from);
+      const y2 = y(layer.to);
+      const h = Math.max(8, y2 - y1);
+      const depthLabel = h >= 18 ? `<text x="${left + 8}" y="${(y1 + 12).toFixed(1)}" font-size="10" fill="#475569">${fmt(layer.from, 1)}m</text>` : '';
+      return `<rect x="${left}" y="${y1.toFixed(1)}" width="${layerW}" height="${h.toFixed(1)}" fill="${colors[idx % colors.length]}" stroke="#94a3b8"/>
+        ${depthLabel}`;
+    }).join('');
+    const legendSvg = layers.map((layer, idx) => {
+      const ly = 68 + idx * 36;
+      return `<rect x="${legendX}" y="${ly - 10}" width="12" height="12" fill="${colors[idx % colors.length]}" stroke="#94a3b8"/>
+        <text x="${legendX + 18}" y="${ly}" font-size="11" font-weight="700" fill="#1f2937">${esc(layerLabel(layer)).slice(0, 18)}</text>
+        <text x="${legendX + 18}" y="${ly + 14}" font-size="10" fill="#475569">z=${fmt(layer.from, 1)}-${fmt(layer.to, 1)}m, N=${fmt(layer.N, 0)}, c=${fmt(layer.c, 1)}, φ=${fmt(layer.phi, 0)}</text>`;
+    }).join('');
+    const pileTop = y(0);
+    const pileBottom = y(candidate.depthM);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect width="100%" height="100%" fill="#ffffff"/>
+      <text x="${left}" y="24" font-size="16" font-weight="700" fill="#111827">單樁土層與採用深度示意</text>
+      <line x1="${left - 28}" y1="${top}" x2="${left - 28}" y2="${height - bottom}" stroke="#334155" stroke-width="1"/>
+      <text x="${left - 64}" y="${top + 4}" font-size="11" fill="#475569">GL 0m</text>
+      <text x="${left - 78}" y="${height - bottom}" font-size="11" fill="#475569">${fmt(maxDepth, 1)}m</text>
+      ${layerSvg}
+      ${legendSvg}
+      <line x1="${pileX}" y1="${pileTop}" x2="${pileX}" y2="${pileBottom}" stroke="#0f172a" stroke-width="18" stroke-linecap="round"/>
+      <line x1="${pileX - 28}" y1="${pileBottom}" x2="${pileX + 28}" y2="${pileBottom}" stroke="#0f172a" stroke-width="5" stroke-linecap="round"/>
+      <text x="${pileX + 42}" y="${pileTop + 18}" font-size="13" font-weight="700" fill="#111827">D ${candidate.diaCm} cm</text>
+      <text x="${pileX + 42}" y="${pileBottom - 6}" font-size="13" fill="#111827">L ${fmt(candidate.depthM, 1)} m</text>
+      <text x="${pileX + 42}" y="${pileBottom + 16}" font-size="12" fill="#475569">Tip: ${esc(layerLabel(candidate.tip.tipLayer))}</text>
+      <text x="${pileX + 42}" y="${pileBottom + 34}" font-size="12" fill="#475569">Qs/Qb = ${fmt(candidate.skin.Qs)} / ${fmt(candidate.tip.Qb)} tf</text>
+    </svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  function setReportStatus(message) {
+    const node = $('reportStatus');
+    if (!node) return;
+    node.textContent = message || '';
+    node.hidden = !message;
+  }
+
+  function buildSinglePileReport() {
+    calc();
+    const r = window.singlePileLast;
+    if (!r || (!r.bestCandidate && !r.displayCandidate)) {
+      setReportStatus('目前沒有可產生計算書的單樁試算結果。');
+      return;
+    }
+    if (typeof openReport !== 'function') {
+      setReportStatus('共用計算書模組尚未載入，請重新開啟頁面後再試。');
+      return;
+    }
+    setReportStatus('');
+    const params = r.params;
+    const candidate = r.bestCandidate || r.displayCandidate;
+    const tipName = layerLabel(candidate.tip.tipLayer);
+    const designFail = !r.ok || !candidate.pass;
+    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : collectSinglePileReviewWarnings(r.params, r.compliance);
+    const summaryOk = designFail ? false : reviewWarnings.length ? null : true;
+    const summaryText = designFail ? '✗ NG' : reviewWarnings.length ? '⚠ 需人工複核' : '✓ OK';
+    const diagram = buildPileProfileDiagram(candidate, r.soilLayers);
+
+    openReport({
+      title: '單樁承載力設計計算書',
+      subtitle: 'RC 工具箱 · 單樁承載力、沉陷與樁身初步檢核',
+      inputs: [
+        { group: '載重與材料', items: [
+          { label: '長期 / 短期服務載重', value: `${fmt(params.longTermLoad)} / ${fmt(params.shortTermLoad)}`, unit: 'tf' },
+          { label: '樁身設計載重 Pu', value: fmt(params.factoredLoad), unit: 'tf' },
+          { label: "fc'", value: fmt(params.fc, 0), unit: 'kgf/cm²' },
+          { label: '樁型式 / 施工法', value: `${params.pileType === 'cast-in-place' ? '場鑄混凝土樁' : '鋼管樁'} / ${params.pileInstall === 'driven' ? '打入樁' : '鑽掘樁'}`, unit: '' }
+        ]},
+        { group: '計算模式', items: [
+          { label: '模式', value: `${getModeLabel(params.calcMode)}${params.calcMode === 'regulation' ? ` / ${getRegulationMethodLabel(params.regulationMethod)}` : ''}`, unit: '' },
+          { label: '安全係數', value: params.calcMode === 'regulation' ? '常時 Qs/2.5 + Qb/3.5；短期 Qs/1.8 + Qb/2.5' : `長期 FS=${fmt(params.safetyFactorLong)}；短期 FS=${fmt(params.safetyFactorShort)}`, unit: '' },
+          { label: '沉陷模式 / 容許沉陷', value: `${params.settlementMode === 'manual' ? '手動係數' : '自動係數'} / ${fmt(params.allowSettlement)}`, unit: 'cm' },
+          { label: '搜尋範圍 D / L', value: `${fmt(params.diameterMin, 0)}-${fmt(params.diameterMax, 0)} cm；${fmt(params.depthMin, 1)}-${fmt(params.depthMax, 1)} m`, unit: '' }
+        ]},
+        { group: r.bestCandidate ? '採用方案' : '最接近控制方案', items: [
+          { label: 'D / L', value: `${candidate.diaCm} / ${fmt(candidate.depthM, 1)}`, unit: 'cm / m' },
+          { label: '控制端點層', value: tipName, unit: '' },
+          { label: 'Qs / Qb / Qult', value: `${fmt(candidate.skin.Qs)} / ${fmt(candidate.tip.Qb)} / ${fmt(candidate.Qult)}`, unit: 'tf' },
+          { label: 'Qall 長期 / 短期', value: `${fmt(candidate.QallLong)} / ${fmt(candidate.QallShort)}`, unit: 'tf' },
+          { label: 'Ra / Wp', value: `${fmt(candidate.upliftRa)} / ${fmt(candidate.upliftWp)}`, unit: 'tf' },
+          { label: 'Wo', value: fmt(candidate.settlement.Wo_cm), unit: 'cm' }
+        ]}
+      ],
+      checks: [
+        { group: '土層與單樁承載', items: [
+          { label: '土層資料有效', value: `共 ${r.soilLayers.length} 層`, ok: true },
+          { label: 'Qall 長期 ≥ 服務需求', formula: 'Qall,long ≥ P,long', sub: `${fmt(candidate.QallLong)} ≥ ${fmt(params.longTermLoad)}`, value: `${fmt(candidate.QallLong)} / ${fmt(params.longTermLoad)}`, unit: 'tf', ok: candidate.okBearingLong },
+          { label: 'Qall 短期 ≥ 服務需求', formula: 'Qall,short ≥ P,short', sub: `${fmt(candidate.QallShort)} ≥ ${fmt(params.shortTermLoad)}`, value: `${fmt(candidate.QallShort)} / ${fmt(params.shortTermLoad)}`, unit: 'tf', ok: candidate.okBearingShort },
+          { label: '抗拔承載力 Ra', formula: params.calcMode === 'regulation' ? 'Ra = Wp + Qs / 5.0' : 'Ra = Wp + Qs / FS', sub: `Wp=${fmt(candidate.upliftWp)}, Qs=${fmt(candidate.skin.Qs)}`, value: fmt(candidate.upliftRa), unit: 'tf', ok: null },
+          { label: '端承上限', value: candidate.tip.capApplied ? `已套用 ${fmt(candidate.tip.capValue, 0)} tf/m²` : '未觸發上限', ok: null }
+        ]},
+        { group: '服務性與樁身', items: [
+          { label: 'Wo ≤ 容許沉陷', formula: 'Ws + Wpp + Wps ≤ Sa', sub: `${fmt(candidate.settlement.Ws_cm)} + ${fmt(candidate.settlement.Wpp_cm)} + ${fmt(candidate.settlement.Wps_cm)} = ${fmt(candidate.settlement.Wo_cm)}`, value: `${fmt(candidate.settlement.Wo_cm)} / ${fmt(params.allowSettlement)}`, unit: 'cm', ok: candidate.okSettlement },
+          { label: '樁身壓應力', formula: 'Pu / Ag ≤ 0.7·0.85·0.85·fc′', sub: `${fmt(candidate.stress)} ≤ ${fmt(candidate.stressAllow)}`, value: `${fmt(candidate.stress)} / ${fmt(candidate.stressAllow)}`, unit: 'kgf/cm²', ok: candidate.okStress },
+          { label: '構造限制', value: candidate.structural.text, ok: candidate.structural.ok }
+        ]},
+        { group: '規範假設檢核', items: [
+          { label: '細部折減參數', value: reviewWarnings.length ? '需人工複核' : '預設保守值內', ok: reviewWarnings.length ? null : true },
+          { label: '計算模式揭露', value: getModeLabel(params.calcMode), ok: true },
+          { label: 'N 值經驗式適用性', value: params.calcMode === 'regulation' && params.regulationMethod === 'nvalue' ? '僅適用砂性土，特殊地層需人工複核' : '未採 N 值經驗式', ok: null }
+        ]},
+        ...(reviewWarnings.length ? [RCUI.buildReviewCheckGroup(reviewWarnings.map(text => ({
+          sub:`人工複核項目：${text}`
+        })), {
+          group:'人工複核 / 補充資料需求',
+          labelPrefix:'人工複核項目',
+          formula:'不列為 OK 結論；補齊資料後方可作為完整檢核',
+          unit:'需補充資料確認'
+        })] : [])
+      ],
+      diagrams: diagram ? [{ title: '土層與單樁採用深度', dataURL: diagram, caption: `D ${candidate.diaCm} cm、L ${fmt(candidate.depthM, 1)} m；控制端點層：${tipName}`, width: 680 }] : [],
+      steps: [
+        { group: '設計判讀', body: r.summaryText || $('summary').textContent.trim() },
+        { group: '規範假設檢核', body: r.complianceText || $('complianceSummary').textContent.trim() },
+        { group: '逐層承載力表', body: layerRowsForReport(candidate) },
+        { group: '候選方案矩陣', body: candidateRowsForReport(r.candidates || [], r.bestCandidate) }
+      ],
+      methods: [
+        { item: '單樁承載力', level: getModeLabel(params.calcMode), ref: params.calcMode === 'regulation' ? '規範分項 FS' : '工程初估', note: params.calcMode === 'regulation' ? `支承力法：${getRegulationMethodLabel(params.regulationMethod)}` : '依頁面輸入之 FS 與工程參數計算' },
+        { item: '砂層端承', level: '規範判定', ref: '20D 臨界深度', note: 'N>50 極緊密砂或卵礫石依輸入上限控制' },
+        { item: '沉陷估算', level: '工程估算', ref: 'Ws + Wpp + Wps', note: params.settlementMode === 'manual' ? '採手動係數' : '採自動係數' }
+      ],
+      symbols: [
+        { sym: 'Qs', desc: '樁周摩擦力' },
+        { sym: 'Qb', desc: '樁端承載力' },
+        { sym: 'Qall', desc: '容許單樁承載力' },
+        { sym: 'Ra', desc: '抗拔容許承載力' },
+        { sym: 'Wo', desc: '總沉陷估算值' }
+      ],
+      summary: { ok: summaryOk, text: summaryText },
+      notes: [
+        '本計算書為單樁承載力、沉陷與樁身壓應力初步檢核；群樁、樁帽與側向反應請另依專案分析。',
+        '若地工報告、試樁結果或專案規範提供更保守參數，應以專案指定值複核。',
+        'N 值、c、φ、γ′ 與地下水條件需由地工資料確認；特殊地層不得只依預設經驗式定案。'
+      ]
+    });
   }
 
   function updateModeUi() {
@@ -1320,20 +1594,27 @@ ${gainText}`;
       banner.className = 'banner bad';
       return;
     }
-    if (params.calcMode !== 'regulation' && params.safetyFactorLong < params.safetyFactorShort) {
-      banner.textContent = '安全係數設定提醒：長期 FS 通常不應小於短期 FS，已依你的輸入繼續試算，但請人工覆核。';
-      banner.className = 'banner warn';
-    }
+    const safetyFactorOrderWarning = params.calcMode !== 'regulation' && params.safetyFactorLong < params.safetyFactorShort;
     const candidates = buildCandidates(parsed.layers, params);
     const best = chooseBest(candidates);
     const displayCandidate = chooseDisplayCandidate(candidates, best, params);
     const compliance = buildCompliance(params.rules, params);
     const bannerOk = !!best;
-    if (banner.className !== 'banner warn') {
+    const reviewWarnings = collectSinglePileReviewWarnings(params, compliance, safetyFactorOrderWarning);
+    const complianceWarningCount = reviewWarnings.length;
+    const summaryOk = bannerOk ? (complianceWarningCount ? null : true) : false;
+    const summaryText = summaryOk === true ? '✓ OK' : (summaryOk === false ? '✗ NG' : '⚠ 需人工複核');
+    if (!bannerOk) {
+      banner.textContent = '目前搜尋範圍內沒有完全通過的方案';
+      banner.className = 'banner bad';
+    } else if (complianceWarningCount) {
       banner.textContent = bannerOk
-        ? `已找到建議方案：D ${best.diaCm} cm，L ${best.depthM.toFixed(1)} m`
+        ? `已找到候選方案：D ${best.diaCm} cm，L ${best.depthM.toFixed(1)} m；但 ${complianceWarningCount} 項參數需人工複核，報告不列為自動 OK。`
         : '目前搜尋範圍內沒有完全通過的方案';
-      banner.className = `banner ${bannerOk ? 'good' : 'bad'}`;
+      banner.className = 'banner warn';
+    } else {
+      banner.textContent = `已找到建議方案：D ${best.diaCm} cm，L ${best.depthM.toFixed(1)} m`;
+      banner.className = 'banner good';
     }
 
     setText('rDia', best ? `${best.diaCm} cm` : '—', bannerOk ? 'good' : 'bad');
@@ -1344,11 +1625,11 @@ ${gainText}`;
     setText('rRa', best ? `${best.upliftRa.toFixed(2)} tf` : '—', best ? 'good' : 'bad');
     setText('rWo', best ? `${best.settlement.Wo_cm.toFixed(2)} cm` : '—', best && best.okSettlement ? 'good' : 'bad');
     setText('rSplit', best ? `${best.skin.Qs.toFixed(1)} / ${best.tip.Qb.toFixed(1)} tf` : '—');
-    setText('rCode', compliance.ok ? '預設保守值內' : '需人工覆核', compliance.ok ? 'good' : 'warn');
+    setText('rCode', reviewWarnings.length ? '需人工複核' : '預設保守值內', reviewWarnings.length ? 'warn' : 'good');
     $('summary').textContent = buildSummary(best, params, parsed, candidates, compliance);
-    $('complianceSummary').textContent = `${compliance.ok ? '目前細部參數仍在本工具預設保守值範圍內。' : '目前至少有一項細部參數偏離本工具預設保守值，請人工確認是否符合專案規範。'}
+    $('complianceSummary').textContent = `${reviewWarnings.length ? '目前至少有一項細部參數或安全係數配置需人工確認是否符合專案規範。' : '目前細部參數仍在本工具預設保守值範圍內。'}
 ${compliance.notes.join('\n')}
-${compliance.warnings.length ? `\n需要覆核：\n- ${compliance.warnings.join('\n- ')}` : '\n需要覆核：\n- 目前未發現超出本工具預設保守值的細部參數。'}`;
+${reviewWarnings.length ? `\n需要複核：\n- ${reviewWarnings.join('\n- ')}` : '\n需要複核：\n- 目前未發現超出本工具預設保守值的細部參數。'}`;
     renderLayerTable(displayCandidate);
     renderCandidateTable(candidates, best);
 
@@ -1364,7 +1645,22 @@ ${compliance.warnings.length ? `\n需要覆核：\n- ${compliance.warnings.join(
       safetyFactorLong: params.safetyFactorLong,
       safetyFactorShort: params.safetyFactorShort,
       complianceOk: compliance.ok,
+      complianceWarningCount,
+      reviewWarnings,
+      summaryOk,
+      summaryStatusText: summaryText,
+      params: {
+        ...params,
+        rules: { ...params.rules }
+      },
       layers: parsed.layers.length,
+      soilLayers: parsed.layers.map(serializeLayer),
+      compliance,
+      summaryText: $('summary').textContent,
+      complianceText: $('complianceSummary').textContent,
+      bestCandidate: serializeCandidate(best),
+      displayCandidate: serializeCandidate(displayCandidate),
+      candidates: candidates.map(serializeCandidate),
       recommendation: best ? {
         diaCm: best.diaCm,
         depthM: best.depthM,
@@ -1450,6 +1746,7 @@ ${preset.note}
 
   $('btnCalc').addEventListener('click', calc);
   $('btnSample').addEventListener('click', loadSample);
+  $('btnReport').addEventListener('click', buildSinglePileReport);
   $('btnPresetBh5').addEventListener('click', () => applyPreset('bh-5'));
   $('btnPresetB031').addEventListener('click', () => applyPreset('b-031'));
   $('btnPresetCh2830').addEventListener('click', () => applyPreset('ch-28-30'));

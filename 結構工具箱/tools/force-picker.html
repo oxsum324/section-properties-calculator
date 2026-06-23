@@ -27,6 +27,8 @@
   .target-card .icon { font-size:1.8em; margin-bottom:6px; color:var(--primary); }
   .target-card .name { font-weight:700; color:var(--text); margin-bottom:4px; }
   .target-card .keys { font-size:0.78em; color:var(--text-light); font-family:'Consolas',monospace; }
+  .input-status { min-height:22px; margin:8px 0; color:#991b1b; font-size:0.85em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
 
   .preview { background:#f8fafc; border-radius:10px; padding:14px; font-family:'Consolas',monospace; font-size:0.85em; color:var(--text); margin-top:12px; white-space:pre-wrap; max-height:240px; overflow:auto; border:1px solid var(--border); }
   .meta-row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px; }
@@ -149,6 +151,7 @@
     <div class="hint" style="margin-bottom:8px;">點擊目標 → 自動暫存到 localStorage 並開新分頁進入該工具 (URL 加上 <code>?import=1</code>)。
       目標工具須含 <code>&lt;script src="../core/ui/forces-receive.js"&gt;&lt;/script&gt;</code> 與
       <code>data-force="M|V|T|P|Mx|My|Vx|Vy"</code> 之輸入欄位才能自動填入。</div>
+    <div class="input-status" id="targetStatus" aria-live="polite"></div>
     <div class="target-grid" id="targets"></div>
   </div>
 
@@ -264,6 +267,9 @@ document.querySelectorAll('input, select').forEach(el => {
 
 // ─── 目標卡片 ───
 const targetGrid = document.getElementById('targets');
+function setTargetStatus(message) {
+  document.getElementById('targetStatus').textContent = message || '';
+}
 const TARGETS = [
   { key: 'beam',        icon: '▭', name: '梁設計 (beam.html)',         disabled: false },
   { key: 'column-rect', icon: '▮', name: '矩形柱設計 (column.html)',   disabled: false },
@@ -283,9 +289,10 @@ TARGETS.forEach(t => {
       const payload = refreshPreview();
       const filtered = ForcePicker.filterForTarget(payload.forces, t.key);
       if (Object.keys(filtered).length === 0) {
-        alert(`目前沒有 ${t.name} 需要的內力 (${keys})`);
+        setTargetStatus(`目前沒有 ${t.name} 需要的內力 (${keys})。`);
         return;
       }
+      setTargetStatus('');
       ForcePicker.sendTo(t.key, { ...payload, forces: filtered });
     });
   }

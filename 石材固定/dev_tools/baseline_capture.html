@@ -179,6 +179,23 @@ input[type=file]{font-size:12px}
 <script>
 let fileAData = null, fileBData = null;
 
+function devNotify(message, kind='warn'){
+  const text = String(message || '');
+  if(!text) return;
+  (kind === 'error' ? console.error : console.warn)(text);
+  let box = document.getElementById('dev_notification');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'dev_notification';
+    box.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:10000;max-width:min(440px,calc(100vw - 32px));padding:10px 12px;border-radius:6px;background:#1f2937;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.25);white-space:pre-wrap;font-size:14px;line-height:1.5';
+    document.body.appendChild(box);
+  }
+  box.style.background = kind === 'error' ? '#9b1c1c' : '#1f2937';
+  box.textContent = text;
+  clearTimeout(devNotify._timer);
+  devNotify._timer = setTimeout(()=>box.remove(), 8000);
+}
+
 function loadFile(input, slot){
   const file = input.files[0];
   if(!file) return;
@@ -190,7 +207,7 @@ function loadFile(input, slot){
       else fileBData = obj;
       document.getElementById('drop'+slot).style.borderColor = '#196019';
       document.getElementById('drop'+slot).style.background = '#f0fff0';
-    }catch(err){ alert('JSON 解析失敗：' + err.message); }
+    }catch(err){ devNotify('JSON 解析失敗：' + err.message, 'error'); }
   };
   reader.readAsText(file, 'UTF-8');
 }
@@ -211,7 +228,7 @@ document.getElementById('fileB').addEventListener('change', e => loadFile(e.targ
 });
 
 function runDiff(){
-  if(!fileAData || !fileBData){ alert('請先載入兩個檔案'); return; }
+  if(!fileAData || !fileBData){ devNotify('請先載入兩個檔案', 'warn'); return; }
   const out = [];
   const a = fileAData, b = fileBData;
   out.push('=== Baseline Diff Report ===\n');

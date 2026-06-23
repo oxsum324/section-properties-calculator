@@ -293,6 +293,32 @@
     align-items: center;
   }
   .preset-bar b { color: var(--c-primary); font-size: 13px; }
+  .action-status {
+    display: none;
+    margin: 8px 24px 0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .action-status.ok { display: block; background: #d4edda; color: var(--c-ok); }
+  .action-status.warn { display: block; background: #fff3cd; color: #856404; }
+  .action-status.error { display: block; background: #f8d7da; color: var(--c-ng); }
+  .action-status .inline-action {
+    margin-left: 8px;
+    border: 1px solid currentColor;
+    border-radius: 4px;
+    background: rgba(255,255,255,.65);
+    color: inherit;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 3px 8px;
+  }
+  .action-status .inline-action.danger {
+    background: #8f1d1d;
+    border-color: #8f1d1d;
+    color: #fff;
+  }
 
   /* 自動連動標示 */
   .field input.linked {
@@ -309,7 +335,7 @@
   }
 
   @media print {
-    nav.tabs, .btn, .statusbar, .preset-bar, .auto-link-toggle, header .home-link { display: none !important; }
+    nav.tabs, .btn, .statusbar, .preset-bar, .action-status, .auto-link-toggle, header .home-link { display: none !important; }
     section.tab-panel { display: block !important; page-break-after: always; }
     header { background: var(--c-primary) !important; -webkit-print-color-adjust: exact; }
     body { background: #fff; font-size: 11px; }
@@ -343,6 +369,7 @@
   <div class="group"><b>大梁</b><span class="pill na" id="st-g-fb">fb —</span><span class="pill na" id="st-g-fv">fv —</span><span class="pill na" id="st-g-d">δ —</span><span class="pill na" id="st-g-pu">Pu —</span></div>
   <div class="group"><b>柱</b><span class="pill na" id="st-c-int">交互式 —</span><span class="pill na" id="st-c-bond">握裹 —</span><span class="pill na" id="st-c-pile">樁 —</span></div>
 </div>
+<div class="action-status" id="actionStatus" role="status" aria-live="polite"></div>
 
 <main>
 
@@ -750,6 +777,12 @@ const G = () => ({
 
 const fmt = (v, d=3) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : '—';
 const checkTag = (ok) => `<span class="check ${ok?'ok':'ng'}">${ok?'OK':'NG'}</span>`;
+function setActionStatus(message, tone = 'ok') {
+  const el = document.getElementById('actionStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `action-status${message ? ` ${tone}` : ''}`;
+}
 
 //============================================================
 // 共用：H 型鋼斷面 helper
@@ -1406,7 +1439,7 @@ function applyPreset(key) {
     if (el) el.value = v;
   });
   recalcAll();
-  alert(`已套用：${p.name}`);
+  setActionStatus(`已套用：${p.name}`, 'ok');
 }
 
 //============================================================
@@ -1474,9 +1507,19 @@ function restoreState() {
   } catch(e) { console.warn(e); }
 }
 function resetAll() {
-  if (!confirm('確定清空所有輸入並重置為預設值？')) return;
+  const el = document.getElementById('actionStatus');
+  if (!el) return;
+  el.className = 'action-status warn';
+  el.innerHTML = '確定清空所有輸入並重置為預設值？'
+    + '<button type="button" class="inline-action" onclick="cancelResetAll()">取消</button>'
+    + '<button type="button" class="inline-action danger" onclick="confirmResetAll()">確認重置</button>';
+}
+function confirmResetAll() {
   localStorage.removeItem(LS_KEY);
   location.reload();
+}
+function cancelResetAll() {
+  setActionStatus('已取消重置', 'warn');
 }
 
 //============================================================
@@ -1527,7 +1570,7 @@ function exportJSON() {
   a.href = url; a.download = fname;
   a.click();
   URL.revokeObjectURL(url);
-  setTimeout(() => alert(`已下載：${fname}\n\n請將檔案放到本工具資料夾，雙擊「產生計算書.bat」即可產出 Word 報告。`), 100);
+  setActionStatus(`已下載：${fname}。請將檔案放到本工具資料夾，雙擊「產生計算書.bat」即可產出 Word 報告。`, 'ok');
 }
 
 //============================================================

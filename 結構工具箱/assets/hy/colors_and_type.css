@@ -5,12 +5,9 @@
    ========================================================================= */
 
 /* -- Webfonts ------------------------------------------------------------- */
-/* Noto Sans TC (繁體中文 UI / body) + Noto Serif TC (印章/標題) +
-   JetBrains Mono (refined, slightly rounded mono — for case nos & numerics).
-   Imported from Google Fonts
-   (closest match for this authoritative Taiwanese engineering aesthetic).
-   Substitute with licensed locals if desired. */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Noto+Serif+TC:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* Use local/system fonts only. Browser smoke and field use must work offline;
+   the font stacks below keep Noto / JetBrains names as optional local fonts
+   and fall back to Windows/macOS system families. */
 
 :root {
   /* =========================================================================

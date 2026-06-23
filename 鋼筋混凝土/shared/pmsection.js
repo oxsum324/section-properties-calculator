@@ -190,8 +190,22 @@
     return best == null ? 0 : best;
   }
 
+  function pRange(points) {
+    let min = Infinity, max = -Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i].P;
+      if (!isFinite(p)) continue;
+      if (p < min) min = p;
+      if (p > max) max = p;
+    }
+    return {
+      min: min === Infinity ? NaN : min,
+      max: max === -Infinity ? NaN : max,
+    };
+  }
+
   /* 在給定標稱軸力 P (tf) 下, 由標稱曲線內插中性軸深度 c (cm)。
-   * 供特殊邊界構材應變法 (規範 18.10.6.2) 取用對應 Mn 之中性軸。 */
+   * 供特殊邊界構材應變法 (規範 18.7.6.2) 取用對應 Mn 之中性軸。 */
   function cAtP(nominal, P) {
     for (let i = 0; i < nominal.length - 1; i++) {
       const A = nominal[i], B = nominal[i + 1];
@@ -204,12 +218,24 @@
   }
 
   /* 檢核需求點 (Mu, Pu) 是否落於設計封包內。
-   * 回傳 { phiMn, util, ok }；util = Mu / φMn (利用率)。 */
+   * 回傳 { phiMn, util, ok, axialOk, pMin, pMax, outOfRange }；
+   * util = Mu / φMn (利用率)。 */
   function checkDemand(design, Pu, Mu) {
+    const range = pRange(design);
+    const tol = 1e-9;
+    const axialOk = isFinite(range.min) && isFinite(range.max) && Pu >= range.min - tol && Pu <= range.max + tol;
     const phiMn = phiMnAtPu(design, Pu);
     const m = Math.abs(Mu);
     const util = phiMn > 0 ? m / phiMn : (m > 0 ? Infinity : 0);
-    return { phiMn: phiMn, util: util, ok: m <= phiMn + 1e-9 };
+    return {
+      phiMn: phiMn,
+      util: util,
+      ok: axialOk && m <= phiMn + tol,
+      axialOk: axialOk,
+      pMin: range.min,
+      pMax: range.max,
+      outOfRange: !axialOk,
+    };
   }
 
   return {
@@ -221,6 +247,7 @@
     pointCircle: pointCircle,
     curve: curve,
     phiMnAtPu: phiMnAtPu,
+    pRange: pRange,
     cAtP: cAtP,
     checkDemand: checkDemand,
   };

@@ -105,7 +105,7 @@ def main() -> int:
                 timeout=15000,
             )
             data = page.evaluate(
-                """() => ({
+                """async () => ({
                   dashboard: document.querySelector('#review-dashboard')?.innerText || '',
                   header: document.querySelector('#tool-header')?.innerText || '',
                   cards: document.querySelectorAll('#review-dashboard .dash-card').length,
@@ -291,11 +291,11 @@ def main() -> int:
                       && !html.includes('<b>cert-proj</b>')
                       && !html.includes('<script>cert-cap</script>');
                   })(),
-                  validationAndTemplateEscapes: (() => {
+                  validationAndTemplateEscapes: await (async () => {
                     const oldTpl = localStorage.getItem(V2_USER_TPL_KEY);
                     const oldRefs = localStorage.getItem(V2_VALIDATION_KEY);
-                    const oldConfirm = window.confirm;
-                    window.confirm = () => true;
+                    const originalConfirmAction = window.v2ConfirmAction;
+                    window.v2ConfirmAction = async () => true;
                     localStorage.setItem(V2_USER_TPL_KEY, JSON.stringify([{
                       name:'<b>tpl</b>',
                       method:'bad"] .missing, [data-method="bk_4h',
@@ -306,7 +306,7 @@ def main() -> int:
                     const tplHtml = document.querySelector('#v2_tpl_list')?.innerHTML || '';
                     let selectorGuardOk = false;
                     try{
-                      window.v2LoadTemplate('__user__:0');
+                      await window.v2LoadTemplate('__user__:0');
                       selectorGuardOk = v2MethodCardByKey('bad"] .missing, [data-method="bk_4h') === null
                         && v2TemplateOptionLabel('bad"]') === 'bad"]';
                     }catch(_err){
@@ -325,7 +325,7 @@ def main() -> int:
                     else localStorage.setItem(V2_USER_TPL_KEY, oldTpl);
                     if(oldRefs === null) localStorage.removeItem(V2_VALIDATION_KEY);
                     else localStorage.setItem(V2_VALIDATION_KEY, oldRefs);
-                    window.confirm = oldConfirm;
+                    window.v2ConfirmAction = originalConfirmAction;
                     v2RenderTemplateList();
                     return tplHtml.includes('&lt;b&gt;tpl&lt;/b&gt;')
                       && tplHtml.includes('bad"] .missing, [data-method="bk_4h')
@@ -631,7 +631,7 @@ def main() -> int:
                       && good.includes('<img')
                       && good.includes('data:image/png;base64,AA==');
                   })(),
-                  projectJsonImportGuards: (() => {
+                  projectJsonImportGuards: await (async () => {
                     const json = new File(['{}'], 'project.json', { type: 'application/json' });
                     const jsonNoType = new File(['{}'], 'project.JSON', { type: '' });
                     const txt = new File(['{}'], 'project.txt', { type: 'text/plain' });
@@ -642,7 +642,7 @@ def main() -> int:
                     const originalSetItem = Storage.prototype.setItem;
                     const originalRemoveItem = Storage.prototype.removeItem;
                     const originalAlert = window.alert;
-                    const originalConfirm = window.confirm;
+                    const originalConfirmAction = window.v2ConfirmAction;
                     const originalDownloadBlob = window.downloadBlob;
                     let storageErrorOk = false;
                     let storageAlertOk = false;
@@ -797,21 +797,21 @@ def main() -> int:
                         return originalSetItem.call(this, key, value);
                       };
                       let restoreConfirmMessage = '';
-                      window.confirm = msg => { restoreConfirmMessage = String(msg || ''); return false; };
-                      const restoreCanceled = restoreRecoveryBackup() === false
+                      window.v2ConfirmAction = async msg => { restoreConfirmMessage = String(msg || ''); return false; };
+                      const restoreCanceled = (await restoreRecoveryBackup()) === false
                         && localStorage.getItem(STORAGE_KEY)?.includes('CURRENT');
                       recoveryRestoreConfirmShowsContext = restoreCanceled
                         && restoreConfirmMessage.includes('RECOVERED')
                         && restoreConfirmMessage.includes('備份原因')
                         && restoreConfirmMessage.includes('匯入新專案前')
                         && restoreConfirmMessage.includes('目前專案會先備份');
-                      window.confirm = () => true;
-                      restoreRecoveryBackup({confirm:false});
+                      window.v2ConfirmAction = async () => true;
+                      await restoreRecoveryBackup({confirm:false});
                       recoveryRestoreFailurePreservesCurrent = localStorage.getItem(STORAGE_KEY)?.includes('CURRENT');
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
                       window.alert = originalAlert;
-                      window.confirm = originalConfirm;
+                      window.v2ConfirmAction = originalConfirmAction;
                     }
                     try{
                       window.alert = () => {};
@@ -831,7 +831,7 @@ def main() -> int:
                         }
                         return originalSetItem.call(this, key, value);
                       };
-                      recoveryRestoreApplyFailurePreservesRecovery = restoreRecoveryBackup({confirm:false}) === false
+                      recoveryRestoreApplyFailurePreservesRecovery = (await restoreRecoveryBackup({confirm:false})) === false
                         && localStorage.getItem(STORAGE_KEY)?.includes('CURRENT_RESTORE_APPLY')
                         && localStorage.getItem(STORAGE_RECOVERY_KEY) === recoveryBeforeApply;
                     }finally{
@@ -857,18 +857,18 @@ def main() -> int:
                         return originalRemoveItem.call(this, key);
                       };
                       let noCurrentRestoreConfirm = '';
-                      window.confirm = msg => { noCurrentRestoreConfirm = String(msg || ''); return false; };
-                      restoreRecoveryBackup();
+                      window.v2ConfirmAction = async msg => { noCurrentRestoreConfirm = String(msg || ''); return false; };
+                      await restoreRecoveryBackup();
                       recoveryRestoreConfirmReflectsCurrentState = noCurrentRestoreConfirm.includes('目前沒有可辨識的專案可先備份')
                         && !noCurrentRestoreConfirm.includes('目前專案會先備份');
-                      window.confirm = () => true;
-                      restoreRecoveryBackup({confirm:false});
+                      window.v2ConfirmAction = async () => true;
+                      await restoreRecoveryBackup({confirm:false});
                       recoveryRestoreCleanupFailurePreservesRecovery = localStorage.getItem(STORAGE_RECOVERY_KEY)?.includes('RECOVERED_CLEANUP')
                         && !localStorage.getItem(STORAGE_KEY)?.includes('RECOVERED_CLEANUP');
                     }finally{
                       Storage.prototype.removeItem = originalRemoveItem;
                       window.alert = originalAlert;
-                      window.confirm = originalConfirm;
+                      window.v2ConfirmAction = originalConfirmAction;
                     }
                     try{
                       window.alert = () => {};
@@ -1081,16 +1081,16 @@ def main() -> int:
                         && recoveryReasonLabel('recovery_metadata_parse_error').includes('索引資料已損壞')
                         && recoveryReasonLabel('recovery_payload_type_invalid').includes('內容型別不符');
                       let confirmMessage = '';
-                      window.confirm = msg => { confirmMessage = String(msg || ''); return false; };
-                      const canceled = clearRecoveryBackup() === false && localStorage.getItem(STORAGE_RECOVERY_KEY) !== null;
+                      window.v2ConfirmAction = async msg => { confirmMessage = String(msg || ''); return false; };
+                      const canceled = (await clearRecoveryBackup()) === false && localStorage.getItem(STORAGE_RECOVERY_KEY) !== null;
                       clearRecoveryConfirmShowsContext = confirmMessage.includes('RECOVERY_EXPORT')
                         && confirmMessage.includes('備份原因')
                         && confirmMessage.includes('匯入新專案前');
-                      window.confirm = () => true;
-                      const cleared = clearRecoveryBackup() === true && localStorage.getItem(STORAGE_RECOVERY_KEY) === null;
+                      window.v2ConfirmAction = async () => true;
+                      const cleared = (await clearRecoveryBackup()) === true && localStorage.getItem(STORAGE_RECOVERY_KEY) === null;
                       clearRecoveryRequiresConfirm = canceled && cleared;
                     }finally{
-                      window.confirm = originalConfirm;
+                      window.v2ConfirmAction = originalConfirmAction;
                       window.downloadBlob = originalDownloadBlob;
                       Storage.prototype.setItem = originalSetItem;
                       window.alert = originalAlert;

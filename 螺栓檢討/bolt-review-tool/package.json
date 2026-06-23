@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "build:bundle": "vite build",
+    "lint": "eslint . --cache --cache-location node_modules/.cache/eslint/",
     "preview": "vite preview",
     "test": "vitest --run",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build:bundle"
   },
   "dependencies": {
     "dexie": "^4.4.2",

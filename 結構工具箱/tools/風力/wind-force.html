@@ -20,12 +20,22 @@
   .step-body .val.hl { font-size:1.05em; color:#0369a1; }
   .legend { font-size:0.78em; color:var(--text-light); margin-top:6px; line-height:1.7; }
   .legend code { background:#f1f5f9; padding:1px 5px; border-radius:3px; }
+  .diagram-wrap { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:10px; }
+  .diagram-wrap svg { width:100%; max-width:560px; height:auto; display:block; margin:0 auto; }
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
              font-size:0.6em; font-weight:700; vertical-align:middle; background:var(--primary); color:#fff; }
   .inline-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
   .inline-actions.compact { margin-top:6px; }
   .btn-secondary { background:#e2e8f0; color:#0f172a; border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; }
   .btn-secondary:hover { background:#cbd5e1; }
+  .case-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  .case-actions button { border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; background:#e2e8f0; color:#0f172a; }
+  .case-actions button.primary { background:var(--primary); color:#fff; }
+  .case-actions button:hover { filter:brightness(0.96); }
+  .case-status { min-height:22px; margin-top:8px; color:#166534; font-size:0.82em; line-height:1.6; }
+  .case-status.warn { color:#92400e; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
   .story-height-summary { margin-top:8px; font-size:0.82em; color:var(--text-light); line-height:1.7; }
   .result-primary h2 { color:#0f766e; }
   #controlTable td:first-child,
@@ -59,7 +69,7 @@
 <body>
 <header>
   <h1>建築物耐風設計 — 矩形建物 MWFRS <span class="badge-v">V3</span></h1>
-  <p>依「建築物耐風設計規範」(107 年版) ｜ 矩形建物牆面 + 一般屋面 MWFRS ｜ 單位：m, kgf/m²</p>
+  <p>依「建築物耐風設計規範及解說」107 年版 ｜ 矩形建物牆面 + 一般屋面 MWFRS ｜ 單位：m, kgf/m²</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
@@ -72,6 +82,12 @@
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
     <button class="mode-bar__report" type="button">📄 列印計算書</button>
   </div>
+  <div class="case-actions">
+    <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
+    <button type="button" id="btnImportCase">匯入案件 JSON</button>
+    <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
+  </div>
+  <div class="case-status" id="caseStatus" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 
@@ -401,9 +417,17 @@
 
   <div class="card">
     <button class="btn-calc" id="btnCalc">計算風力</button>
+    <div class="input-status" id="inputStatus" aria-live="polite"></div>
     <div class="chk-detail">
       <input type="checkbox" id="chkDetail">
       <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
+    </div>
+    <div class="form-group">
+      <label for="reportMode">計算書模式</label>
+      <select id="reportMode">
+        <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
+        <option value="summary">簡易結果（摘要與採用表）</option>
+      </select>
     </div>
     <button class="btn-print" type="button">列印計算書</button>
   </div>
@@ -466,6 +490,40 @@
       <tbody></tbody>
     </table>
     <div class="legend" id="controlNote"></div>
+  </div>
+
+  <div class="card">
+    <h2>計算示意圖</h2>
+    <div class="diagram-wrap">
+      <svg id="mwfrsDiagram" data-diagram-role="mwfrs-diagram" viewBox="0 0 560 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="矩形建物 MWFRS 平面與立面示意">
+        <defs>
+          <marker id="mwfrsArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#0f766e"/></marker>
+        </defs>
+        <rect x="18" y="18" width="524" height="264" rx="12" fill="#fff" stroke="#e2e8f0"/>
+        <g data-diagram-role="mwfrs-plan">
+          <text x="146" y="48" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">平面：B × L</text>
+          <rect x="58" y="66" width="176" height="118" rx="6" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
+          <line x1="36" y1="126" x2="58" y2="126" stroke="#0f766e" stroke-width="3" marker-end="url(#mwfrsArrow)"/>
+          <line x1="256" y1="126" x2="234" y2="126" stroke="#0f766e" stroke-width="3" marker-end="url(#mwfrsArrow)"/>
+          <text x="146" y="129" text-anchor="middle" font-size="12" fill="#0f172a">迎風寬 B / 順風長 L</text>
+          <text x="146" y="205" text-anchor="middle" font-size="11" fill="#64748b">X / Y 兩主風向分別組合 W_D、W_L、W_T</text>
+        </g>
+        <g data-diagram-role="mwfrs-elevation">
+          <text x="414" y="48" text-anchor="middle" font-size="13" font-weight="800" fill="#0f172a">立面：樓層風力</text>
+          <rect x="346" y="70" width="88" height="146" fill="#f8fafc" stroke="#334155" stroke-width="2"/>
+          <line x1="346" y1="106" x2="434" y2="106" stroke="#cbd5e1"/>
+          <line x1="346" y1="142" x2="434" y2="142" stroke="#cbd5e1"/>
+          <line x1="346" y1="178" x2="434" y2="178" stroke="#cbd5e1"/>
+          <line x1="470" y1="214" x2="470" y2="70" stroke="#64748b" stroke-width="1.4"/>
+          <text x="482" y="146" font-size="12" fill="#475569">h</text>
+          <line x1="312" y1="96" x2="344" y2="96" stroke="#0f766e" stroke-width="3" marker-end="url(#mwfrsArrow)"/>
+          <line x1="302" y1="142" x2="344" y2="142" stroke="#0f766e" stroke-width="3" marker-end="url(#mwfrsArrow)"/>
+          <line x1="292" y1="188" x2="344" y2="188" stroke="#0f766e" stroke-width="3" marker-end="url(#mwfrsArrow)"/>
+          <text x="390" y="238" text-anchor="middle" font-size="11" fill="#64748b">逐層 q(z) × G × C_p × A</text>
+        </g>
+      </svg>
+    </div>
+    <div class="legend">示意圖僅整理本頁 MWFRS 載重路線；實際採用值仍以控制採用表與逐層風力表為準。</div>
   </div>
 
   <div class="card result-primary">
@@ -594,6 +652,18 @@
 <script src="../../core/wind-report.js"></script>
 <script>
 const W = Wind;
+const TOOL_VERSION = 'wind-force.v1';
+const CASE_SCHEMA_VERSION = 'wind-force.case.v1';
+const CASE_VALUE_IDS = [
+  'city', 'Vcustom', 'terrain', 'impClass', 'encl', 'roofSlope', 'roofType', 'ridgeAxis',
+  'archMode', 'archRiseRatio', 'sawtoothFaceCode', 'Kzt', 'B', 'L', 'N', 'h', 'he', 'hp',
+  'flex', 'dampingType', 'fn', 'beta', 'faY', 'ftY', 'chkAccel', 'accelMode', 'occFloor',
+  'occupancy', 'fa', 'ft', 'Dstar', 'Lstar', 'thetaStar', 'structType', 'massDensity',
+  'chkDetail', 'reportMode', 'rep_summary', 'rep_applicability', 'rep_combo', 'rep_control',
+  'rep_accel_formal', 'rep_accel_estimate', 'rep_dir_combo', 'rep_floor_combo', 'rep_story',
+  'rep_case', 'rep_roof', 'rep_lateral', 'rep_parapet', 'rep_route', 'rep_steps',
+  'rep_inputs', 'rep_notes'
+];
 let storyHeightDraft = [];
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
@@ -618,6 +688,137 @@ function directionWindToRidge(axis, dir) {
 }
 function windToRidgeLabel(v) {
   return v === 'parallel' ? '平行於屋脊' : '垂直於屋脊';
+}
+function setCaseStatus(message, tone = 'ok') {
+  const node = document.getElementById('caseStatus');
+  if (!node) return;
+  node.textContent = message || '';
+  node.className = tone === 'warn' ? 'case-status warn' : 'case-status';
+}
+function setInputStatus(message) {
+  const node = document.getElementById('inputStatus');
+  if (!node) return;
+  node.textContent = message || '';
+}
+function clearInputStatus() {
+  setInputStatus('');
+}
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return undefined;
+  return el.type === 'checkbox' ? el.checked : el.value;
+}
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  if (el.type === 'checkbox') {
+    el.checked = Boolean(value);
+  } else {
+    el.value = value == null ? '' : String(value);
+  }
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+function readCaseInputs() {
+  const values = {};
+  CASE_VALUE_IDS.forEach(id => {
+    const value = readInputValue(id);
+    if (value !== undefined) values[id] = value;
+  });
+  const storyHeights = Array.isArray(storyHeightDraft) && storyHeightDraft.length
+    ? storyHeightDraft.slice()
+    : resolveStoryHeights();
+  return {
+    project: {
+      name: document.getElementById('projName').value,
+      no: document.getElementById('projNo').value,
+      designer: document.getElementById('projDesigner').value
+    },
+    values,
+    storyHeights
+  };
+}
+function readExportResultSummary() {
+  const readText = selector => (document.querySelector(selector)?.textContent || '').replace(/\s+/g, ' ').trim();
+  return {
+    banner: readText('#banner'),
+    comboSummary: readText('#comboSummary'),
+    controlTable: readText('#controlTable tbody'),
+    directionTable: readText('#dirComboTable tbody')
+  };
+}
+function applyCaseInputs(payload) {
+  const project = payload?.project || {};
+  const values = {
+    ...(payload?.inputs?.values || {}),
+    ...(payload?.values || {})
+  };
+  if (project.name != null) document.getElementById('projName').value = project.name;
+  if (project.no != null) document.getElementById('projNo').value = project.no;
+  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+
+  CASE_VALUE_IDS.forEach(id => {
+    if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
+  });
+
+  syncRoofInputs();
+  syncAccelInputs();
+  if (Object.prototype.hasOwnProperty.call(values, 'structType')) syncStructDensity();
+  if (Object.prototype.hasOwnProperty.call(values, 'dampingType')) syncRecommendedDamping();
+  if (Object.prototype.hasOwnProperty.call(values, 'beta')) setInputValue('beta', values.beta);
+  if (Object.prototype.hasOwnProperty.call(values, 'massDensity')) setInputValue('massDensity', values.massDensity);
+
+  const importedHeightSource = values.storyHeights || payload?.storyHeights || payload?.inputs?.storyHeights;
+  const importedHeights = Array.isArray(importedHeightSource)
+    ? importedHeightSource.map(Number).filter(v => isFinite(v) && v > 0)
+    : null;
+  if (importedHeights && importedHeights.length === getStoryCount()) {
+    storyHeightDraft = importedHeights.slice();
+    renderStoryHeightEditor(storyHeightDraft);
+    calc(storyHeightDraft);
+  } else {
+    calc();
+  }
+}
+function exportCaseJson() {
+  if (calc() === false) return;
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'wind-force', name: '矩形建物 MWFRS', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: readExportResultSummary()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CATII-WindForce-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出矩形建物 MWFRS 案件 JSON；可回讀輸入、逐層樓高與計算摘要。');
+}
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已讀取不同版本案件 JSON (${payload.schema})，將盡量依現有欄位套用。`, 'warn');
+      }
+      applyCaseInputs(payload);
+      setCaseStatus('已匯入案件 JSON，並依目前頁面重新計算。');
+    } catch (err) {
+      setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
+    } finally {
+      document.getElementById('caseJsonFile').value = '';
+    }
+  };
+  reader.readAsText(file);
 }
 function getStoryCount() { return Math.max(1, Math.round(val('N'))); }
 function getInitialStoryHeight() { return val('h'); }
@@ -779,20 +980,25 @@ document.getElementById('h').addEventListener('input', () => refreshFnHint(build
 document.getElementById('btnStoryReset').addEventListener('click', () => {
   document.getElementById('storyHeightCard').open = true;
   const heights = buildUniformStoryHeights();
-  if (heights.some(v => !isFinite(v) || v <= 0)) { alert('請先輸入有效之樓層數 N 與初始樓高 h'); return; }
+  if (heights.some(v => !isFinite(v) || v <= 0)) { setInputStatus('請先輸入有效之樓層數 N 與初始樓高 h'); return; }
   storyHeightDraft = heights.slice();
   renderStoryHeightEditor(storyHeightDraft);
   refreshFnHint(storyHeightDraft);
+  clearInputStatus();
 });
 document.getElementById('btnStoryApply').addEventListener('click', () => {
   document.getElementById('storyHeightCard').open = true;
   const heights = readStoryHeightEditor();
-  if (!heights || heights.length !== getStoryCount()) { alert('逐層樓高資料無效，請確認各層樓高皆大於 0，且層數與 N 一致。'); return; }
+  if (!heights || heights.length !== getStoryCount()) { setInputStatus('逐層樓高資料無效，請確認各層樓高皆大於 0，且層數與 N 一致。'); return; }
   storyHeightDraft = heights.slice();
   updateStoryHeightSummary(storyHeightDraft);
   refreshFnHint(storyHeightDraft);
   calc(storyHeightDraft);
 });
+
+document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('caseJsonFile').addEventListener('change', e => importCaseJsonFile(e.target.files?.[0]));
 
 // ═══════════════════════════════
 //  計算
@@ -842,12 +1048,12 @@ function calc(forcedStoryHeights) {
   const faY = isFinite(faYInput) && faYInput > 0 ? faYInput : fa;
   const ftY = isFinite(ftYInput) && ftYInput > 0 ? ftYInput : ft;
 
-  if (B <= 0 || L <= 0 || h <= 0 || he <= 0) { alert('請輸入有效之 B / L / h / h_e'); return; }
-  if (storyH.length !== N || storyH.some(v => !isFinite(v) || v <= 0)) { alert('逐層樓高資料無效，請確認各層樓高皆大於 0，且層數與 N 一致。'); return; }
-  if (roofSlope < 0) { alert('屋面坡度 θ 不可小於 0'); return; }
-  if (hp < 0) { alert('女兒牆高度 h_p 不可小於 0'); return; }
-  if (roofType === 'arched' && (archRiseRatio <= 0 || archRiseRatio > 0.6)) { alert('拱形屋頂之 r 應介於 0 ~ 0.6'); return; }
-  if (doAccelCheck && accelMode === 'estimate' && (!isFinite(massDensity) || massDensity <= 0)) { alert('簡化推估模式下，平均密度應大於 0。'); return; }
+  if (B <= 0 || L <= 0 || h <= 0 || he <= 0) { setInputStatus('請輸入有效之 B / L / h / h_e'); return false; }
+  if (storyH.length !== N || storyH.some(v => !isFinite(v) || v <= 0)) { setInputStatus('逐層樓高資料無效，請確認各層樓高皆大於 0，且層數與 N 一致。'); return false; }
+  if (roofSlope < 0) { setInputStatus('屋面坡度 θ 不可小於 0'); return false; }
+  if (hp < 0) { setInputStatus('女兒牆高度 h_p 不可小於 0'); return false; }
+  if (roofType === 'arched' && (archRiseRatio <= 0 || archRiseRatio > 0.6)) { setInputStatus('拱形屋頂之 r 應介於 0 ~ 0.6'); return false; }
+  if (doAccelCheck && accelMode === 'estimate' && (!isFinite(massDensity) || massDensity <= 0)) { setInputStatus('簡化推估模式下，平均密度應大於 0。'); return false; }
   storyHeightDraft = storyH.slice();
   renderStoryHeightEditor(storyHeightDraft);
   refreshFnHint(storyHeightDraft);
@@ -875,8 +1081,8 @@ function calc(forcedStoryHeights) {
   const occupancy = document.getElementById('occupancy')?.value || 'residence';
   if (doAccelCheck) {
     if (accelMode === 'manual') {
-      if (fa <= 0 || ft <= 0 || fn <= 0) { alert('啟用角隅加速度檢核時，f_n、f_a、f_t 均須大於 0。'); return; }
-      if (Dstar < 0 || Lstar < 0 || thetaStar < 0) { alert('D*、L*、θ* 應輸入非負值。'); return; }
+      if (fa <= 0 || ft <= 0 || fn <= 0) { setInputStatus('啟用角隅加速度檢核時，f_n、f_a、f_t 均須大於 0。'); return false; }
+      if (Dstar < 0 || Lstar < 0 || thetaStar < 0) { setInputStatus('D*、L*、θ* 應輸入非負值。'); return false; }
       accel = W.calcCornerPeakAcceleration({ fn, fa, ft, Dstar, Lstar, thetaStar, B, L, occupancy });
       accelY = W.calcCornerPeakAcceleration({ fn, fa: faY, ft: ftY, Dstar, Lstar, thetaStar, B: L, L: B, occupancy });
     } else {
@@ -1393,6 +1599,8 @@ Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
   });
   document.getElementById('comboNote').innerHTML =
     `本表同步列出 X / Y 兩主風向之逐層設計風力。W<sub>D,z</sub> 為順風向樓層風力，W<sub>L,z</sub> 為橫風向樓層風力，M<sub>T,z</sub> 為該層扭轉向風力。構件設計若需依 2.12 組合結構效應，應於結構分析模型中對 X / Y 兩風向分別建立載重組合。`;
+  clearInputStatus();
+  return true;
 }
 
 function step(t, b, d) {

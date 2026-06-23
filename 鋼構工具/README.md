@@ -138,7 +138,7 @@ run-sync-formal-core.bat
 ```
 
 `audit-tool.ps1` 目前也會自動檢查 `鋼構工具/core` 是否仍與 `結構工具箱/core` 保持同步。
-巡檢情境已包含首頁、獨立連接板頁，以及鋼梁 / 鋼柱正式頁的實頁快照。
+巡檢情境已包含首頁、獨立連接板頁，以及鋼梁 / 鋼柱正式頁的實頁快照。瀏覽器段落由單一 Edge CDP browser runner 執行，不需額外 npm 套件，並逐情境設定 timeout。
 
 或直接執行：
 

@@ -4,6 +4,7 @@ import json
 import shutil
 import sqlite3
 import uuid
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 
@@ -56,7 +57,7 @@ class ProjectStore:
         return connection
 
     def _init_db(self) -> None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS projects (
@@ -71,7 +72,7 @@ class ProjectStore:
             connection.commit()
 
     def list_projects(self) -> list[ProjectListItem]:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             rows = connection.execute(
                 "SELECT id, name, updated_at FROM projects ORDER BY updated_at DESC"
             ).fetchall()
@@ -96,7 +97,7 @@ class ProjectStore:
         project_dir.mkdir(parents=True, exist_ok=True)
         state_path = project_dir / "state.json"
         state_path.write_text(project.model_dump_json(indent=2), encoding="utf-8")
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             connection.execute(
                 "INSERT INTO projects (id, name, file_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
                 (project_id, name, str(state_path), now.isoformat(), now.isoformat()),
@@ -105,7 +106,7 @@ class ProjectStore:
         return project
 
     def get_project(self, project_id: str) -> ProjectState:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             row = connection.execute(
                 "SELECT file_path FROM projects WHERE id = ?", (project_id,)
             ).fetchone()
@@ -120,7 +121,7 @@ class ProjectStore:
             raise ValueError("專案尚未建立 ID")
         project = _normalize_project_sources(project)
         project.metadata.updated_at = datetime.now()
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             row = connection.execute(
                 "SELECT file_path FROM projects WHERE id = ?", (project.metadata.id,)
             ).fetchone()
@@ -128,7 +129,7 @@ class ProjectStore:
             raise KeyError(project.metadata.id)
         state_path = Path(row["file_path"])
         state_path.write_text(project.model_dump_json(indent=2), encoding="utf-8")
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             connection.execute(
                 "UPDATE projects SET name = ?, updated_at = ? WHERE id = ?",
                 (project.metadata.name, project.metadata.updated_at.isoformat(), project.metadata.id),

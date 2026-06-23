@@ -555,6 +555,21 @@
     node.textContent = text;
   }
 
+  function setInputStatus(message) {
+    const inputStatus = $("beamInputStatus");
+    if (inputStatus) inputStatus.textContent = message || "";
+    if (message && $("reportStatus")) $("reportStatus").textContent = message;
+  }
+
+  function clearInputStatus() {
+    setInputStatus("");
+  }
+
+  function inputFail(message) {
+    setInputStatus(message);
+    return null;
+  }
+
   function pairRow(label, value) {
     return `<tr><td data-label="項目">${label}</td><td data-label="內容">${value}</td></tr>`;
   }
@@ -1490,6 +1505,7 @@
 
   function runCheck() {
     renderFillStatus();
+    clearInputStatus();
     const sectionType = getSectionType();
     const Fy = getLegacyInputValue("inFy", "stress");
     const L = getLegacyInputValue("inL", "memberLength");
@@ -1508,8 +1524,7 @@
       const selected = getGroupedSection(Steel.H_SECTIONS_MM, $("secSelect").value);
       if (selected) mm.n = selected.n;
       if (!mm.H || !mm.B || !mm.tw || !mm.tf || mm.tf * 2 >= mm.H) {
-        alert("請確認 H 型鋼尺寸輸入完整且合理。");
-        return null;
+        return inputFail("請確認 H 型鋼尺寸輸入完整且合理。");
       }
       sec = Steel.calcProps(mm);
       sec.shape = "h";
@@ -1522,8 +1537,7 @@
       const selected = getGroupedSection(Steel.SHS_SECTIONS_MM, $("shsSelect").value);
       sec = Steel.calcSquareHssProps({ n: selected?.n || `SHS ${f0(Bmm)}×${f0(Bmm)}×${f1(tmm)}`, B: Bmm, t: tmm });
       if (!sec) {
-        alert("請確認方管尺寸輸入完整且合理。");
-        return null;
+        return inputFail("請確認方管尺寸輸入完整且合理。");
       }
       cls = Steel.classifySquareHssFlexure(sec, Fy);
       flex = Steel.calcMnSquareHss(sec, Fy);
@@ -1534,19 +1548,16 @@
       const tmm = num("inRhsT");
       const selected = getGroupedSection(Steel.RHS_SECTIONS_MM, $("rhsSelect").value);
       if (Hmm < Bmm) {
-        alert("矩形管請以 H ≥ B 輸入，讓本頁主軸彎曲對應強軸。");
-        return null;
+        return inputFail("矩形管請以 H ≥ B 輸入，讓本頁主軸彎曲對應強軸。");
       }
       sec = Steel.calcRectHssProps({ n: selected?.n || `RHS ${f0(Hmm)}×${f0(Bmm)}×${f1(tmm)}`, H: Hmm, B: Bmm, t: tmm });
       if (!sec) {
-        alert("請確認矩形管尺寸輸入完整且合理。");
-        return null;
+        return inputFail("請確認矩形管尺寸輸入完整且合理。");
       }
       cls = Steel.classifyRectHssFlexure(sec, Fy, "x");
       flex = Steel.calcMnRectHss(sec, Fy, "x", getLegacyInputValue("inLb", "memberLength"), num("inCb") || 1.0);
       if (flex.outOfScope || cls.web === "slender") {
-        alert("目前矩形管梁正式檢核不支援腹板細長 RHS；請調整 H/t、B/t 或改用其他條文檢核。");
-        return null;
+        return inputFail("目前矩形管梁正式檢核不支援腹板細長 RHS；請調整 H/t、B/t 或改用其他條文檢核。");
       }
       shear = Steel.calcRectHssShear(sec, Fy, "x");
     } else {
@@ -1555,14 +1566,12 @@
       const selected = getGroupedSection(Steel.CHS_SECTIONS_MM, $("chsSelect").value);
       sec = Steel.calcRoundHssProps({ n: selected?.n || `CHS ${f1(Dmm)}×${f1(tmm)}`, D: Dmm, t: tmm });
       if (!sec) {
-        alert("請確認圓管尺寸輸入完整且合理。");
-        return null;
+        return inputFail("請確認圓管尺寸輸入完整且合理。");
       }
       cls = Steel.classifyRoundHssFlexure(sec, Fy);
       flex = Steel.calcMnRoundHss(sec, Fy);
       if (flex.outOfScope || cls.outOfScope) {
-        alert("目前圓管梁正式檢核僅支援 D/t < 0.45E/Fy 的適用範圍；請調整 D/t 或改用其他條文檢核。");
-        return null;
+        return inputFail("目前圓管梁正式檢核僅支援 D/t < 0.45E/Fy 的適用範圍；請調整 D/t 或改用其他條文檢核。");
       }
       shear = Steel.calcRoundHssShear(sec, Fy, getLegacyInputValue("inLv", "memberLength") || L / 2);
     }

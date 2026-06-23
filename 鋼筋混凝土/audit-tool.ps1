@@ -97,7 +97,8 @@ function Invoke-AuditCommand {
     [string]$Label,
     [string]$Command,
     [string]$Workdir,
-    [string]$RunDir
+    [string]$RunDir,
+    [int]$TimeoutSeconds = 180
   )
 
   $safeLabel = ($Label -replace '[^A-Za-z0-9\-]+', '-').Trim('-').ToLowerInvariant()
@@ -105,13 +106,71 @@ function Invoke-AuditCommand {
     $safeLabel = "step"
   }
 
+  if (-not (Test-Path -LiteralPath $Workdir)) {
+    throw "missing audit workdir: $Workdir"
+  }
+
   $logName = "$safeLabel.txt"
   $latestLog = Join-Path $auditOutputDir $logName
   $historyLog = Join-Path $RunDir $logName
+  $stdoutPath = Join-Path $RunDir "$safeLabel.stdout.txt"
+  $stderrPath = Join-Path $RunDir "$safeLabel.stderr.txt"
+  $scriptPath = Join-Path $RunDir "$safeLabel.ps1"
 
   Invoke-Step $Label {
-    $output = & powershell -NoProfile -Command $Command 2>&1 | Out-String
-    $exitCode = $LASTEXITCODE
+    $escapedWorkdir = $Workdir.Replace("'", "''")
+    $scriptLines = @(
+      '$ErrorActionPreference = "Stop"'
+      '$utf8NoBom = [System.Text.UTF8Encoding]::new($false)'
+      '[Console]::InputEncoding = $utf8NoBom'
+      '[Console]::OutputEncoding = $utf8NoBom'
+      '$OutputEncoding = $utf8NoBom'
+      '$env:PYTHONUTF8 = "1"'
+      '$env:PYTHONIOENCODING = "utf-8"'
+      '$env:NO_COLOR = "1"'
+      '$env:FORCE_COLOR = "0"'
+      '$env:CI = "1"'
+      "Set-Location -LiteralPath '$escapedWorkdir'",
+      $Command
+    )
+    [System.IO.File]::WriteAllText($scriptPath, ($scriptLines -join [Environment]::NewLine) + [Environment]::NewLine, [System.Text.Encoding]::Unicode)
+
+    $processInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $processInfo.FileName = "powershell"
+    $processInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
+    $processInfo.WorkingDirectory = $Workdir
+    $processInfo.UseShellExecute = $false
+    $processInfo.RedirectStandardOutput = $true
+    $processInfo.RedirectStandardError = $true
+    $processInfo.CreateNoWindow = $true
+
+    $process = [System.Diagnostics.Process]::Start($processInfo)
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    $timedOut = $false
+    $timeoutMs = [Math]::Max(1, $TimeoutSeconds) * 1000
+    if (-not $process.WaitForExit($timeoutMs)) {
+      $timedOut = $true
+      try {
+        taskkill.exe /PID $process.Id /T /F | Out-Null
+      } catch {
+        try { $process.Kill() } catch {}
+      }
+      try { [void]$process.WaitForExit(5000) } catch {}
+    }
+    [void]$stdoutTask.Wait(5000)
+    [void]$stderrTask.Wait(5000)
+    $exitCode = if ($timedOut) { 124 } else { $process.ExitCode }
+    $stdout = if ($stdoutTask.IsCompleted) { [string]$stdoutTask.Result } else { "`n[rc-audit] stdout read timed out after process termination.`n" }
+    $stderr = if ($stderrTask.IsCompleted) { [string]$stderrTask.Result } else { "`n[rc-audit] stderr read timed out after process termination.`n" }
+    if ($timedOut) {
+      $stderr = $stderr + "`n[rc-audit] command timed out after $TimeoutSeconds seconds; process tree was terminated. script=$scriptPath`n"
+    }
+    $process.Dispose()
+
+    [System.IO.File]::WriteAllText($stdoutPath, $stdout, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText($stderrPath, $stderr, [System.Text.UTF8Encoding]::new($false))
+    $output = @($stdout, $stderr) -join [Environment]::NewLine
     Set-Content -Path $latestLog -Value $output -Encoding UTF8
     Set-Content -Path $historyLog -Value $output -Encoding UTF8
 
@@ -129,7 +188,6 @@ function Invoke-AuditCommand {
     }
   }
 }
-
 function Save-AuditOutputs {
   param(
     [string]$RunDir,
@@ -172,7 +230,7 @@ function Save-AuditOutputs {
     loop = [bool]$Loop
     pass = ($auditFailures.Count -eq 0)
     failureCount = $auditFailures.Count
-    modules = @("beam", "column", "slab", "wall", "foundation", "single-pile")
+    modules = @("beam", "column", "slab", "wall", "shear-wall", "foundation", "single-pile")
     lastSummary = $summaryPath
     lastHistorySummary = $historySummaryPath
   }
@@ -193,14 +251,18 @@ function Run-AuditPass {
   Reset-AuditState
 
   $commands = @(
-    @{ Label = "Beam regression"; Command = "& '$toolsDir\test-beam.ps1'"; Workdir = $toolsDir },
+    @{ Label = "Shared common helper unit tests"; Command = "Set-Location '$root'; node '.\shared\common.test.js'"; Workdir = $root },
+    @{ Label = "Audit status metadata contract"; Command = "Set-Location '$toolsDir'; node '.\audit-status.contract.test.js'"; Workdir = $toolsDir },
+    @{ Label = "RC index menu browser smoke"; Command = "& '$toolsDir\test-rc-index-menu.ps1'"; Workdir = $toolsDir },
+    @{ Label = "Beam regression and report visual smoke"; Command = "& '$toolsDir\test-beam.ps1'"; Workdir = $toolsDir },
     @{ Label = "Column report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\column-report-visual.contract.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Column regression"; Command = "`$env:RC_TEST_PORT='8131'; & '$toolsDir\test-column.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
-    @{ Label = "Slab regression"; Command = "`$env:RC_TEST_PORT='8132'; & '$toolsDir\test-slab.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
-    @{ Label = "Shear wall regression"; Command = "Set-Location '$toolsDir'; node '.\shear-wall-regression.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Wall regression"; Command = "Set-Location '$toolsDir'; node '.\wall-regression.test.js'"; Workdir = $toolsDir },
-    @{ Label = "Foundation regression"; Command = "`$env:RC_TEST_PORT='8133'; & '$toolsDir\test-foundation.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
-    @{ Label = "Single pile regression"; Command = "`$env:RC_TEST_PORT='8134'; & '$toolsDir\test-single-pile.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir }
+    @{ Label = "Column regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8131'; & '$toolsDir\test-column.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Slab regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8132'; & '$toolsDir\test-slab.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Wall regression and report visual smoke"; Command = "& '$toolsDir\test-wall.ps1'"; Workdir = $toolsDir },
+    @{ Label = "Shear wall suite"; Command = "& '$toolsDir\test-shear-wall.ps1'"; Workdir = $toolsDir },
+    @{ Label = "Shear wall report visual smoke"; Command = "& '$toolsDir\test-shear-wall-report.ps1'"; Workdir = $toolsDir },
+    @{ Label = "Foundation regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8133'; & '$toolsDir\test-foundation.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Single pile regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8134'; & '$toolsDir\test-single-pile.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir }
   )
 
   foreach ($item in $commands) {

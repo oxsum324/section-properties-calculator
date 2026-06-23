@@ -51,6 +51,9 @@
   .mode-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 10px; font-size: 0.7em; font-weight: 700; background: #eef2f6; color: #374151; }
   .mode-tag.active { background: #dbeafe; color: #1d4ed8; }
   .note-box { background: #fef3c7; border: 1px solid #fcd34d; border-left: 4px solid #ea580c; border-radius: 6px; padding: 8px 12px; font-size: 0.82em; color: #78350f; margin-top: 10px; }
+  .report-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
+  .report-status.warn { display: block; background: #fffbeb; color: #92400e; }
+  .report-status.error { display: block; background: #fef2f2; color: #dc2626; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; }
@@ -177,6 +180,7 @@
           <div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div>
         </div>
         <div class="note-box" id="noteBox" style="display:none;"></div>
+        <div class="report-status" id="reportStatus" role="status" aria-live="polite"></div>
       </div>
     </div>
   </div>
@@ -189,6 +193,12 @@ function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function valOrNull(id) { const v = document.getElementById(id).value.trim(); return v==='' ? null : parseFloat(v); }
 function fmt(v) { if (!isFinite(v)) return '—'; if (v===0) return '0'; if (Math.abs(v) < 0.001) return v.toExponential(4); return parseFloat(v.toPrecision(6)).toString(); }
 function pct(cur, base) { if (!base || !isFinite(base) || base===0) return ''; return ((cur-base)/base*100); }
+function setReportStatus(message, tone = 'warn') {
+  const el = document.getElementById('reportStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `report-status${message ? ` ${tone}` : ''}`;
+}
 
 // ===== Standard RH型鋼 Database =====
 const hSections = [
@@ -370,6 +380,7 @@ let lastData = null;
 
 function calcAll() {
   document.getElementById('calcMsg').textContent = '';
+  setReportStatus('');
   const Hmm = val('h-H'), Bmm = val('h-B'), tw = val('h-tw'), tf = val('h-tf'), R = val('h-R');
   if (!Hmm || !Bmm || !tw || !tf) { document.getElementById('calcMsg').textContent = '請填寫 H、B、tw、tf'; return; }
 
@@ -573,8 +584,8 @@ function drawSection() {
 
 // ================= 匯出計算書 =================
 function exportReport() {
-  if (!lastData) { alert('請先執行計算'); return; }
-  if (typeof openReport !== 'function') { alert('計算書模組尚未載入'); return; }
+  if (!lastData) { setReportStatus('請先執行計算', 'warn'); return; }
+  if (typeof openReport !== 'function') { setReportStatus('計算書模組尚未載入', 'error'); return; }
 
   const d = lastData, g = d.geom, t = d.total, b = d.baseH;
   const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆（A + B）' }[g.mode];

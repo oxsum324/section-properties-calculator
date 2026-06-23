@@ -66,8 +66,10 @@ const repoDocs = {
   homeHtml: readText(toolboxFile('index.html')),
   indexClassic: readText(toolboxFile('index-classic.html')),
   homeCss: readText(toolboxFile('assets/home/home.css')),
+  homeTokens: readText(toolboxFile('assets/hy/colors_and_type.css')),
   homeJs: readText(toolboxFile('assets/home/home.js')),
   seismicCore: readText(toolboxFile('core/loads/seismic.js')),
+  windReport: readText(toolboxFile('core/wind-report.js')),
   seismicDynamic: readText(toolboxFile('tools/地震力/seismic-dynamic.html')),
   seismicAppendage: readText(toolboxFile('tools/地震力/seismic-appendage.html')),
   seismicMisc: readText(toolboxFile('tools/地震力/seismic-misc.html')),
@@ -77,6 +79,9 @@ const repoDocs = {
   windObjectTower: readText(toolboxFile('tools/風力/wind-object-tower.html')),
   windFenceSign: readText(toolboxFile('tools/風力/wind-fence-sign.html')),
   windSignPole: readText(toolboxFile('tools/風力/wind-sign-pole.html')),
+  steelBeam: readText(toolboxFile('tools/鋼構/steel-beam.html')),
+  steelColumn: readText(toolboxFile('tools/鋼構/steel-column.html')),
+  forcePicker: readText(toolboxFile('tools/force-picker.html')),
   readme: readText(repoFile('README.md')),
   toolReportGuide: readText(repoFile('TOOL_REPORT_GUIDE.md')),
   boundaries: readText(repoFile('TOOL_BOUNDARIES.md')),
@@ -84,6 +89,10 @@ const repoDocs = {
   vercel: readText(repoFile('vercel.json')),
 };
 repoDocs.homeSource = `${repoDocs.index}\n${repoDocs.homeHtml}\n${repoDocs.homeJs}`;
+
+assertIncludes(repoDocs.windReport, 'showWindReportIssue', 'shared wind report inline status helper');
+assertIncludes(repoDocs.windReport, 'repWindowStatus', 'shared wind report window status helper');
+assert.equal(repoDocs.windReport.includes('alert('), false, 'shared wind report core uses inline status instead of alerts');
 
 const runnerPath = assertFile(manifest.shared.runner);
 const exportHelperPath = assertFile(manifest.shared.exportHelper);
@@ -110,6 +119,7 @@ const ExportHelper = require(exportHelperPath);
   '"foundation-local"',
   '"equipment-load"',
   '"earth-pressure"',
+  '"jsonRoundTrip"',
 ].forEach(needle => assertIncludes(manifestText, needle, 'local quick tools manifest'));
 
 [
@@ -142,13 +152,27 @@ const ExportHelper = require(exportHelperPath);
   'blob.text()',
   'assertJsonExportState',
   'jsonImportExpression(tool, exportState.payload)',
+  'tool.jsonRoundTrip === true',
+  'assertFoundationJsonImportState',
   'assertEquipmentJsonImportState',
   'assertEarthJsonImportState',
+  'foundation import service load',
   'earth import wall output',
   'btnPrint',
   'assertReportState',
+  "reportExpression('summary')",
+  "reportExpression('detailed')",
+  "viewport.key === 'desktop'",
+  'desktop route-tool interaction',
   'relativeLinks',
   'horizontalOverflow',
+  'Page.javascriptDialogOpening',
+  'legacyInlineValidationCases',
+  'steel-beam',
+  'steel-column',
+  'forcePickerStatusExpression',
+  '/force-picker',
+  'targetStatus',
 ].forEach(needle => assertIncludes(browserSmokeTestText, needle, 'local quick browser smoke test'));
 
 [
@@ -162,14 +186,21 @@ const ExportHelper = require(exportHelperPath);
   'tool.exportButton',
   'Emulation.setDeviceMetricsOverride',
   'horizontalOverflow',
-  'btnReportModeDetail',
+  'reportModeControls',
+  'selectId',
   'exportCaptureExpression',
   'reportCaptureExpression',
   'data-diagram-role',
   'diagramRoleNeedles',
   'reportForbiddenNeedles',
+  'reportDisclosureNeedles',
   'goldenCaseExpression',
   'assertGoldenCaseState',
+  'settlePage',
+  'waitForImportStatus',
+  "viewport.key === 'desktop'",
+  'desktop interaction',
+
   '工具內建',
   '專業版',
 ].forEach(needle => assertIncludes(formalBrowserSmokeTestText, needle, 'formal browser smoke test'));
@@ -184,6 +215,7 @@ const ExportHelper = require(exportHelperPath);
   '"maturityMatrix"',
   '"requiredRoutes"',
   '"reportForbiddenNeedles"',
+  '"reportDisclosureNeedles"',
   '"tools"',
   '"wind-force"',
   '"wind-cc"',
@@ -235,15 +267,8 @@ const helperPayload = ExportHelper.buildPayload({
 });
 assert.equal(helperPayload.tool.id, 'helper-smoke', 'local quick export helper payload tool');
 assert.equal(JSON.stringify(helperPayload, ExportHelper.jsonReplacer).includes('"Infinity"'), true, 'local quick export helper non-finite number serialization');
-const helperTestRun = spawnSync(process.execPath, [exportHelperTestPath], {
-  cwd: repoRoot,
-  encoding: 'utf8',
-});
-assert.strictEqual(
-  helperTestRun.status,
-  0,
-  `local quick export helper test failed\nSTDOUT:\n${helperTestRun.stdout}\nSTDERR:\n${helperTestRun.stderr}`
-);
+delete require.cache[require.resolve(exportHelperTestPath)];
+require(exportHelperTestPath);
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.js', 'local quick export README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test README');
@@ -271,6 +296,9 @@ assertIncludes(repoDocs.readme, 'TOOL_REPORT_GUIDE.md', 'tool report guide READM
   '適用性檢核、限制提醒、操作防呆屬於輸入輔助',
   '不列入送審或簽認用列印計算書',
   '規範表格路線應由用途、構造型式、幾何條件與規範適用條件判定',
+  'reportNeedles',
+  'local-quick-tools.manifest.json',
+  '簡易結果與詳算式都要保留精簡限制說明',
   '表格邊界不得混用',
   '表 2.10 實體標示物應只處理開口率',
   '物體高度、斷面尺寸與底緣離地三者不得混用',
@@ -299,6 +327,8 @@ assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-browser-smok
 assertIncludes(repoDocs.staging, '結構工具箱/tools/formal-browser-smoke.test.js', 'formal browser smoke test staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.manifest.json', 'local quick manifest staging group');
 assertIncludes(repoDocs.staging, '結構工具箱/tools/local-quick-tools.run.js', 'local quick runner staging group');
+assertIncludes(repoDocs.boundaries, '結構工具箱/assets/hy/colors_and_type.css', 'home design tokens boundary');
+assertIncludes(repoDocs.staging, '結構工具箱/assets/hy/colors_and_type.css', 'home design tokens staging group');
 assertIncludes(repoDocs.homeHtml, '<title>結構工具箱</title>', 'new home title');
 assertIncludes(repoDocs.homeHtml, 'assets/home/home.css', 'new home stylesheet');
 assertIncludes(repoDocs.homeHtml, 'assets/home/home.js', 'new home script');
@@ -367,7 +397,22 @@ assert.equal(repoDocs.homeJs.includes('renderStateFilters'), false, 'new home do
 assert.equal(repoDocs.homeJs.includes('tool-boundary'), false, 'new home does not render fit/limit on dashboard');
 assert.equal(repoDocs.homeCss.includes('.tool-ribbon'), false, 'new home does not keep tool ribbon CSS');
 assert.equal(repoDocs.homeCss.includes('.tool-boundary'), false, 'new home does not keep fit/limit CSS');
+assertIncludes(repoDocs.homeTokens, 'Use local/system fonts only', 'home design tokens offline font note');
+assert.equal(repoDocs.homeTokens.includes('fonts.googleapis.com'), false, 'home design tokens avoid remote Google Fonts');
+assert.equal(repoDocs.homeTokens.includes('fonts.gstatic.com'), false, 'home design tokens avoid remote font binaries');
 assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), false, 'dynamic seismic summary is not mixed into structural analysis');
+[
+  [repoDocs.steelBeam, 'steel beam legacy page'],
+  [repoDocs.steelColumn, 'steel column legacy page'],
+].forEach(([html, label]) => {
+  assertIncludes(html, 'id="inputStatus"', `${label} inline input status`);
+  assertIncludes(html, 'function setInputStatus', `${label} inline input status helper`);
+  assertIncludes(html, 'return inputFail(', `${label} validation returns inline failure`);
+  assert.equal(html.includes('alert('), false, `${label} uses inline validation instead of alerts`);
+});
+assertIncludes(repoDocs.forcePicker, 'id="targetStatus"', 'force picker inline target status');
+assertIncludes(repoDocs.forcePicker, 'function setTargetStatus', 'force picker inline target status helper');
+assert.equal(repoDocs.forcePicker.includes('alert('), false, 'force picker uses inline status instead of alerts');
 assertHomeToolCategories('連續梁分析', ['analysis'], 'continuous beam stays in analysis category');
 assertHomeToolCategories('struct.dx 解題套件', ['analysis'], 'struct dx stays in analysis category');
 assertHomeToolCategories('合成斷面性質', ['reference'], 'composite section stays in reference category');
@@ -408,6 +453,8 @@ assert.equal(repoDocs.vercel.includes('/wind-shape-factor'), false, 'shape facto
   ['/seismic-appendage', 'tools/地震力/seismic-appendage.html', '/結構工具箱/tools/地震力/seismic-appendage'],
   ['/seismic-misc', 'tools/地震力/seismic-misc.html', '/結構工具箱/tools/地震力/seismic-misc'],
   ['/seismic-dynamic', 'tools/地震力/seismic-dynamic.html', '/結構工具箱/tools/地震力/seismic-dynamic'],
+  ['/steel-beam-formal', '../鋼構工具/steel-beam-formal.html', '/鋼構工具/steel-beam-formal'],
+  ['/steel-column-formal', '../鋼構工具/steel-column-formal.html', '/鋼構工具/steel-column-formal'],
 ].forEach(([route, homeTarget, vercelTarget]) => {
   assertIncludes(repoDocs.homeJs, `href: '${route}'`, `${route} clean route card`);
   assertIncludes(repoDocs.homeJs, `'${route}': '${homeTarget}'`, `${route} clean route map`);
@@ -1026,6 +1073,11 @@ for (const tool of tools) {
   const core = readText(corePath);
   const test = readText(testPath);
   const golden = readText(goldenPath);
+  const hasJsonImportWorkflow = html.includes('id="btnImportJson"') || html.includes('讀取 JSON');
+  if (hasJsonImportWorkflow) {
+    assert.equal(tool.jsonRoundTrip, true, `${tool.key} manifest declares JSON round-trip smoke`);
+  }
+  assert.ok(Array.isArray(tool.reportNeedles) && tool.reportNeedles.length >= 2, `${tool.key} manifest report needles`);
 
   [
     tool.smoke,
@@ -1048,6 +1100,7 @@ for (const tool of tools) {
     'LocalQuickExport',
     'function downloadResultJson',
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));
+  tool.reportNeedles.forEach(needle => assertIncludes(html, needle, `${tool.key} report needle source`));
   // 已正式化的工具（report standard）不再以「初估」標示；尚未正式化者仍須保留
   if (!['foundation-local', 'equipment-load'].includes(tool.key)) {
     assertIncludes(html, '初估', `${tool.key} html estimate label`);
@@ -1088,6 +1141,9 @@ for (const tool of tools) {
     [
       'class="case-actions"',
       'class="output-actions"',
+      'id="btnImportJson"',
+      'id="jsonFile"',
+      '讀取 JSON',
       '① 規範與安全係數設定',
       '台灣基礎構造設計規範 112',
       'id="designCode"',
@@ -1099,6 +1155,10 @@ for (const tool of tools) {
       'id="basisSummary"',
       'function applyCriteriaPreset',
       'function renderBasisSummary',
+      'function extractImportedInput',
+      'function applyImportedCase',
+      'function importJson',
+      'input: gatherInputs()',
       '④ 計算與輸出',
     ].forEach(needle => assertIncludes(html, needle, `${tool.key} action layout`));
     assert.ok(html.indexOf('id="btnReset"') < html.indexOf('class="main-layout foundation-shell"'), `${tool.key} reset action stays in top case-management area`);
@@ -1218,16 +1278,8 @@ for (const tool of tools) {
       repoDocs.vercel.includes(`"destination": "${cleanDestination}"`),
     `${tool.key} vercel destination missing: /結構工具箱/${tool.html} or ${cleanDestination}`
   );
-
-  const run = spawnSync(process.execPath, [testPath], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  });
-  assert.strictEqual(
-    run.status,
-    0,
-    `${tool.key} regression failed\nSTDOUT:\n${run.stdout}\nSTDERR:\n${run.stderr}`
-  );
+  delete require.cache[require.resolve(testPath)];
+  require(testPath);
 }
 
 console.log(`local quick tools contract OK (${tools.length} tools)`);

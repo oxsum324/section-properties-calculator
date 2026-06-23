@@ -45,7 +45,11 @@ _參考資料/
 
 # 鋼筋混凝土開發資料
 鋼筋混凝土/.claude/
+鋼筋混凝土/tools/.rc-index-testdeps/
+鋼筋混凝土/tools/.shear-wall-report-testdeps/
+鋼筋混凝土/tools/.beam-testdeps/
 鋼筋混凝土/tools/.column-testdeps/
+鋼筋混凝土/tools/.wall-testdeps/
 鋼筋混凝土/tools/.foundation-testdeps/
 鋼筋混凝土/tools/.slab-testdeps/
 鋼筋混凝土/tools/.single-pile-testdeps/
@@ -53,13 +57,35 @@ _參考資料/
 鋼筋混凝土/tools/*-regression.test.js
 鋼筋混凝土/tools/*-regression-cases.json
 鋼筋混凝土/tools/test-*.ps1
+!鋼筋混凝土/tools/audit-status.contract.test.js
 !鋼筋混凝土/tools/beam-regression.test.js
 !鋼筋混凝土/tools/beam-regression-cases.json
+!鋼筋混凝土/tools/beam-report-visual.test.js
 !鋼筋混凝土/tools/test-beam.ps1
 !鋼筋混凝土/tools/column-regression.test.js
 !鋼筋混凝土/tools/column-regression-cases.json
+!鋼筋混凝土/tools/column-report-visual.test.js
+!鋼筋混凝土/tools/column-report-visual.contract.test.js
 !鋼筋混凝土/tools/test-column.ps1
+!鋼筋混凝土/tools/slab-regression.test.js
+!鋼筋混凝土/tools/slab-regression-cases.json
+!鋼筋混凝土/tools/slab-report-visual.test.js
+!鋼筋混凝土/tools/test-slab.ps1
+!鋼筋混凝土/tools/wall-report-visual.test.js
+!鋼筋混凝土/tools/test-wall.ps1
+!鋼筋混凝土/tools/rc-index-menu-browser-smoke.test.js
+!鋼筋混凝土/tools/test-rc-index-menu.ps1
 !鋼筋混凝土/tools/shear-wall-regression.test.js
+!鋼筋混凝土/tools/shear-wall-report-visual.test.js
+!鋼筋混凝土/tools/test-shear-wall.ps1
+!鋼筋混凝土/tools/test-shear-wall-report.ps1
+!鋼筋混凝土/tools/foundation-regression.test.js
+!鋼筋混凝土/tools/foundation-regression-cases.json
+!鋼筋混凝土/tools/foundation-report-visual.test.js
+!鋼筋混凝土/tools/test-foundation.ps1
+!鋼筋混凝土/tools/single-pile-regression.test.js
+!鋼筋混凝土/tools/single-pile-report-visual.test.js
+!鋼筋混凝土/tools/test-single-pile.ps1
 鋼筋混凝土/注意事項.txt
 
 # 鋼構接頭工具開發資料

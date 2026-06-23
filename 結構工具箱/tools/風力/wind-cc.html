@@ -59,6 +59,14 @@
   .applic-item .v { font-size:0.84em; font-weight:700; text-align:right; }
   textarea.reduction-basis { width:100%; min-height:84px; padding:10px 12px; border:2px solid var(--border);
                              border-radius:8px; font-size:0.92em; font-family:inherit; resize:vertical; }
+  .case-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
+  .case-actions button { border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; background:#e2e8f0; color:#0f172a; }
+  .case-actions button.primary { background:var(--primary); color:#fff; }
+  .case-actions button:hover { filter:brightness(0.96); }
+  .case-status { min-height:22px; margin-top:8px; color:#166534; font-size:0.82em; line-height:1.6; }
+  .case-status.warn { color:#92400e; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
 
   @media (max-width: 768px) {
     table.zone { font-size: 0.78em; }
@@ -78,7 +86,7 @@
 <body>
 <header>
   <h1>建築物耐風設計 — 區域風壓 (C&amp;C) <span class="badge-v">V3</span></h1>
-  <p>依「建築物耐風設計規範」(107 年版) 第三章 ｜ 局部構材與外部被覆物設計用 ｜ 單位：kgf/m²</p>
+  <p>依「建築物耐風設計規範及解說」107 年版 第三章 ｜ 局部構材與外部被覆物設計用 ｜ 單位：kgf/m²</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
@@ -91,6 +99,12 @@
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
     <button class="mode-bar__report" type="button">📄 列印計算書</button>
   </div>
+  <div class="case-actions">
+    <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
+    <button type="button" id="btnImportCase">匯入案件 JSON</button>
+    <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
+  </div>
+  <div class="case-status" id="caseStatus" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 
@@ -203,9 +217,17 @@
       </div>
     </div>
     <button class="btn-calc" id="btnCalc">計算區域風壓</button>
+    <div class="input-status" id="inputStatus" aria-live="polite"></div>
     <div class="chk-detail">
       <input type="checkbox" id="chkDetail">
       <label for="chkDetail">顯示詳列計算式 (含數值代入)</label>
+    </div>
+    <div class="form-group">
+      <label for="reportMode">計算書模式</label>
+      <select id="reportMode">
+        <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
+        <option value="summary">簡易結果（摘要與採用表）</option>
+      </select>
     </div>
     <button class="btn-print" type="button">列印計算書</button>
   </details>
@@ -368,6 +390,14 @@
 <script src="../../../鋼筋混凝土/shared/report.js"></script>
 <script src="../../core/wind-report.js"></script>
 <script>
+const TOOL_VERSION = 'wind-cc.v1';
+const CASE_SCHEMA_VERSION = 'wind-cc.case.v1';
+const CASE_VALUE_IDS = [
+  'city', 'terrain', 'impClass', 'h', 'z', 'Kzt', 'surface', 'roofSlope',
+  'A', 'encl', 'zh0', 'enableReduce', 'reduceMode', 'reducePos', 'reduceNeg',
+  'reduceBasis', 'chkDetail', 'reportMode'
+];
+
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function setR(id, v, d) {
@@ -380,6 +410,117 @@ function signedReduce(v, posFactor, negFactor) {
 function reduceModeName(v) {
   return v === 'shielding' ? '遮蔽折減' : v === 'porous' ? '透氣外牆折減' : '人工指定修正';
 }
+function setCaseStatus(message, isWarn) {
+  const el = document.getElementById('caseStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.classList.toggle('warn', !!isWarn);
+}
+function setInputStatus(message) {
+  const el = document.getElementById('inputStatus');
+  if (!el) return;
+  el.textContent = message || '';
+}
+function clearInputStatus() {
+  setInputStatus('');
+}
+function readInputValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return undefined;
+  if (el.type === 'checkbox') return !!el.checked;
+  return el.value;
+}
+function setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el || value === undefined || value === null) return;
+  if (el.type === 'checkbox') {
+    el.checked = !!value;
+  } else {
+    el.value = String(value);
+  }
+}
+function normalizedText(selector) {
+  const el = document.querySelector(selector);
+  return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+}
+function readCaseInputs() {
+  const values = {};
+  CASE_VALUE_IDS.forEach(id => {
+    const value = readInputValue(id);
+    if (value !== undefined) values[id] = value;
+  });
+  return {
+    project: {
+      name: document.getElementById('projName').value,
+      no: document.getElementById('projNo').value,
+      designer: document.getElementById('projDesigner').value
+    },
+    values
+  };
+}
+function readExportResultSummary() {
+  return {
+    applicStatus: normalizedText('#applicStatus'),
+    designAdoptTable: normalizedText('#designAdoptTable tbody'),
+    zoneSummaryTable: normalizedText('#zoneSummaryTable tbody'),
+    steps: normalizedText('#steps')
+  };
+}
+function applyCaseInputs(payload) {
+  const inputBlock = payload?.inputs || {};
+  const project = payload?.project || inputBlock.project || {};
+  const values = { ...(inputBlock.values || {}), ...(payload?.values || {}) };
+  if (project.name != null) document.getElementById('projName').value = project.name;
+  if (project.no != null) document.getElementById('projNo').value = project.no;
+  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  CASE_VALUE_IDS.forEach(id => {
+    if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
+  });
+  refreshZHint();
+  refreshZh0State();
+  document.getElementById('reduceBox').style.display = document.getElementById('enableReduce').checked ? '' : 'none';
+  document.getElementById('stepsCard').classList.toggle('show-detail', document.getElementById('chkDetail').checked);
+  calc();
+}
+function exportCaseJson() {
+  if (calc() === false) return;
+  const payload = {
+    schema: CASE_SCHEMA_VERSION,
+    tool: { id: 'wind-cc', name: '區域風壓 C&C', version: TOOL_VERSION },
+    generatedAt: new Date().toISOString(),
+    ...readCaseInputs(),
+    result: readExportResultSummary()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CATII-WindCC-${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  setCaseStatus('已匯出區域風壓 C&C 案件 JSON；可回讀輸入、折減設定與計算摘要。');
+}
+function importCaseJsonFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function() {
+    try {
+      const payload = JSON.parse(String(reader.result || '{}'));
+      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
+        setCaseStatus(`已匯入案件 JSON；schema ${payload.schema} 與目前 ${CASE_SCHEMA_VERSION} 不同，已盡量套用可辨識欄位。`, true);
+      } else {
+        setCaseStatus('已匯入案件 JSON，並重新計算區域風壓結果。');
+      }
+      applyCaseInputs(payload);
+    } catch (err) {
+      setCaseStatus('匯入失敗：JSON 格式無法解析。', true);
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
 
 // 城市選單
 const citySel = document.getElementById('city');
@@ -481,13 +622,13 @@ function calc() {
   const reduceNeg = val('reduceNeg');
   const reduceBasis = document.getElementById('reduceBasis').value.trim();
 
-  if (h <= 0 || A <= 0) { alert('請輸入有效之 h / A'); return; }
-  if (surface === 'wall' && z <= 0) { alert('請輸入有效之外牆構材標高 z'); return; }
-  if (surface === 'wall' && z > h) { alert('外牆構材標高 z 不可大於屋頂高 h'); return; }
-  if (encl === 'partial' && h > 18 && (zh0 <= 0 || zh0 > h)) { alert('部分封閉且 h > 18 m 時，請輸入有效之 z_h0（0 < z_h0 ≤ h）'); return; }
-  if (surface === 'roof' && roofSlope < 0) { alert('屋面坡度 θ 不可為負值'); return; }
-  if (enableReduce && (!isFinite(reducePos) || !isFinite(reduceNeg) || reducePos <= 0 || reduceNeg <= 0)) { alert('啟用修正時，請輸入有效之修正係數'); return; }
-  if (enableReduce && !reduceBasis) { alert('啟用修正時，請填寫依據說明'); return; }
+  if (h <= 0 || A <= 0) { setInputStatus('請輸入有效之 h / A'); return false; }
+  if (surface === 'wall' && z <= 0) { setInputStatus('請輸入有效之外牆構材標高 z'); return false; }
+  if (surface === 'wall' && z > h) { setInputStatus('外牆構材標高 z 不可大於屋頂高 h'); return false; }
+  if (encl === 'partial' && h > 18 && (zh0 <= 0 || zh0 > h)) { setInputStatus('部分封閉且 h > 18 m 時，請輸入有效之 z_h0（0 < z_h0 ≤ h）'); return false; }
+  if (surface === 'roof' && roofSlope < 0) { setInputStatus('屋面坡度 θ 不可為負值'); return false; }
+  if (enableReduce && (!isFinite(reducePos) || !isFinite(reduceNeg) || reducePos <= 0 || reduceNeg <= 0)) { setInputStatus('啟用修正時，請輸入有效之修正係數'); return false; }
+  if (enableReduce && !reduceBasis) { setInputStatus('啟用修正時，請填寫依據說明'); return false; }
 
   const zoneEntries = getZoneList();
   const zoneResults = zoneEntries.map(([zKey, label]) => ({
@@ -727,6 +868,8 @@ p<sub>−</sub> = ${fmt(r.qNeg,2)}×${r.GCp.neg.toFixed(3)} − ${fmt(r.qiPos,2)
   }
 
   document.getElementById('steps').innerHTML = html;
+  clearInputStatus();
+  return true;
 }
 
 function step(t, b, d) {
@@ -738,13 +881,13 @@ function step(t, b, d) {
 
 function wallRefSvg(figLabel) {
   return `
-    <svg class="ref-svg" viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${figLabel} 外牆區域示意">
+    <svg class="ref-svg" data-diagram-role="cc-reference-diagram" viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${figLabel} 外牆區域示意">
       <rect x="46" y="26" width="268" height="176" rx="4" fill="#ffffff" stroke="#334155" stroke-width="2"/>
       <rect class="ref-zone" data-zone="5" x="46" y="26" width="38" height="176" fill="#fde68a" opacity="0.85"/>
       <rect class="ref-zone" data-zone="5" x="276" y="26" width="38" height="176" fill="#fde68a" opacity="0.85"/>
       <rect class="ref-zone" data-zone="5" x="46" y="26" width="268" height="32" fill="#fde68a" opacity="0.55"/>
       <rect class="ref-zone" data-zone="5" x="46" y="170" width="268" height="32" fill="#fde68a" opacity="0.55"/>
-      <rect class="ref-zone" data-zone="4" x="84" y="58" width="192" height="112" fill="#dbeafe" stroke="#60a5fa"/>
+      <rect class="ref-zone" data-diagram-role="cc-zone-primary" data-zone="4" x="84" y="58" width="192" height="112" fill="#dbeafe" stroke="#60a5fa"/>
       <text x="180" y="120" text-anchor="middle" font-size="30" font-weight="700" fill="#0f172a">4</text>
       <text x="65" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">5</text>
       <text x="295" y="48" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">5</text>
@@ -761,13 +904,13 @@ function wallRefSvg(figLabel) {
 
 function roofRefSvg(figLabel) {
   return `
-    <svg class="ref-svg" viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${figLabel} 屋面區域示意">
+    <svg class="ref-svg" data-diagram-role="cc-reference-diagram" viewBox="0 0 360 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${figLabel} 屋面區域示意">
       <rect x="42" y="30" width="276" height="170" rx="4" fill="#ffffff" stroke="#334155" stroke-width="2"/>
       <rect class="ref-zone" data-zone="3" x="42" y="30" width="40" height="170" fill="#fecaca" opacity="0.9"/>
       <rect class="ref-zone" data-zone="3" x="278" y="30" width="40" height="170" fill="#fecaca" opacity="0.9"/>
       <rect class="ref-zone" data-zone="2" x="82" y="30" width="196" height="34" fill="#fecaca" opacity="0.55"/>
       <rect class="ref-zone" data-zone="2" x="82" y="166" width="196" height="34" fill="#fecaca" opacity="0.55"/>
-      <rect class="ref-zone" data-zone="1" x="82" y="64" width="196" height="102" fill="#dbeafe" stroke="#60a5fa"/>
+      <rect class="ref-zone" data-diagram-role="cc-zone-primary" data-zone="1" x="82" y="64" width="196" height="102" fill="#dbeafe" stroke="#60a5fa"/>
       <text x="180" y="121" text-anchor="middle" font-size="30" font-weight="700" fill="#0f172a">1</text>
       <text x="180" y="54" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">2</text>
       <text x="180" y="190" text-anchor="middle" font-size="22" font-weight="700" fill="#92400e">2</text>
@@ -829,6 +972,12 @@ document.getElementById('chkDetail').addEventListener('change', function() {
   document.getElementById('stepsCard').classList.toggle('show-detail', this.checked);
 });
 
+document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
+document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('caseJsonFile').addEventListener('change', e => {
+  importCaseJsonFile(e.target.files?.[0]);
+  e.target.value = '';
+});
 document.getElementById('btnCalc').addEventListener('click', calc);
 calc();
 </script>

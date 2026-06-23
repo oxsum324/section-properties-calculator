@@ -589,7 +589,7 @@
     const contactNote = r.fullContact ? '全壓縮' : '偏心超出核心或有拉力';
 
     return `
-<svg class="pressure-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" role="img" aria-label="擋土土壓與基底壓計算示意圖">
+<svg class="pressure-diagram" data-diagram-role="pressure-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" role="img" aria-label="擋土土壓與基底壓計算示意圖">
   <defs>
     <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f172a"></path>
@@ -620,7 +620,7 @@
   ${surchargeShape}
   ${waterShape}
   <text class="tiny" x="${pressureX + soilW + 8}" y="${bottom - 46}">Pa=${fmt(r.soilForce)} tf/m</text>
-  <line class="arrow" x1="${arrowStartX}" y1="${resultantY}" x2="${pressureX + 8}" y2="${resultantY}"></line>
+  <line class="arrow" data-diagram-role="earth-pressure-arrow" x1="${arrowStartX}" y1="${resultantY}" x2="${pressureX + 8}" y2="${resultantY}"></line>
   <text class="label-strong" x="${arrowStartX - 8}" y="${resultantY - 8}" text-anchor="end">P=${fmt(r.totalForce)} tf/m</text>
   <text class="small" x="${arrowStartX - 8}" y="${resultantY + 12}" text-anchor="end">h=${fmt(r.resultantHeight)} m</text>
   <line class="load-arrow" x1="${wallX + wallW + 8}" y1="${top - 28}" x2="${wallX + wallW + 8}" y2="${top + 6}"></line>
@@ -642,7 +642,7 @@
 
   <text class="label-strong" x="38" y="348">基底反力示意</text>
   <line class="datum" x1="${baseX}" y1="${qBaseY}" x2="${baseX + baseW}" y2="${qBaseY}"></line>
-  <polygon class="reaction-fill" points="${baseX},${qBaseY} ${baseX},${qMaxY} ${baseX + baseW},${qMinY} ${baseX + baseW},${qBaseY}" fill="${qFill}" stroke="none"></polygon>
+  <polygon class="reaction-fill" data-diagram-role="base-reaction" points="${baseX},${qBaseY} ${baseX},${qMaxY} ${baseX + baseW},${qMinY} ${baseX + baseW},${qBaseY}" fill="${qFill}" stroke="none"></polygon>
   <line class="${qStatusClass}" x1="${baseX}" y1="${qMaxY}" x2="${baseX + baseW}" y2="${qMinY}"></line>
   <text class="small" x="${baseX - 4}" y="${qMaxY - 8}">qmax=${fmt(r.qmax)} tf/m²</text>
   <text class="small" x="${baseX + baseW - 8}" y="${qMinY - 8}" text-anchor="end">qmin=${fmt(r.qmin)} tf/m²</text>
@@ -885,7 +885,8 @@
 <h2>設計條件</h2><table>${reportRows(basisRows.concat([inputRows[1], inputRows[3], inputRows[4]]))}</table>
 <h2>計算示意圖</h2><div class="report-diagram">${diagramHtml}</div>
 <h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
-<h2>控制結果</h2><table>${reportRows(resultRows)}</table>`;
+<h2>控制結果</h2><table>${reportRows(resultRows)}</table>
+<div class="note">本頁以 Rankine 水平背填土壓、每公尺牆長做局部穩定檢核；地震土壓、背填坡度、牆背摩擦、分層土、滲流與結構配筋不在本頁範圍，應另行正式詳算。</div>`;
     const body = mode === 'summary' ? summaryBodyHtml : detailedBodyHtml;
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>擋土土壓局部快算計算書</title>

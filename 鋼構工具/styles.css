@@ -654,6 +654,19 @@ body {
   touch-action: manipulation;
 }
 
+.mode-bar__status {
+  flex: 1 1 100%;
+  min-height: 22px;
+  padding: 4px 2px 0;
+  color: #92400e;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.mode-bar__status[hidden] {
+  display: none;
+}
+
 .mode-bar__report.secondary,
 .btn-secondary {
   background: #fff;

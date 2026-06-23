@@ -6,7 +6,8 @@
     "runner": "tools/formal-tools.run.js",
     "contractTest": "tools/formal-tools.contract.test.js",
     "browserSmokeTest": "tools/formal-browser-smoke.test.js",
-    "maturityMatrix": "tools/tool-maturity-matrix.js"
+    "maturityMatrix": "tools/tool-maturity-matrix.js",
+    "goldenHarvest": "tools/formal-golden-harvest.js"
   },
   "requiredRoutes": [
     "/wind-force",
@@ -31,6 +32,16 @@
     "undefined",
     "NaN"
   ],
+  "reportDisclosureNeedles": {
+    "wind": [
+      "建築物耐風設計規範及解說",
+      "107 年版"
+    ],
+    "seismic": [
+      "建築物耐震設計規範及解說",
+      "113 年版"
+    ]
+  },
   "tools": [
     {
       "key": "wind-force",
@@ -42,20 +53,130 @@
       "familyNeedle": "建築物耐風設計",
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
-      "reportMode": false,
-      "diagramSelector": null,
-      "diagramRoleNeedles": [],
-      "reportNeedles": ["矩形建物", "MWFRS", "設計風力"],
+      "reportMode": true,
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
+      "diagramSelector": "#mwfrsDiagram",
+      "diagramRoleNeedles": [
+        "mwfrs-diagram",
+        "mwfrs-plan",
+        "mwfrs-elevation"
+      ],
+      "reportNeedles": [
+        "矩形建物",
+        "MWFRS",
+        "設計風力"
+      ],
+      "goldenCases": [
+        {
+          "id": "default-mwfrs-rigid-flat-roof",
+          "description": "預設矩形建物剛性平屋頂案例，鎖定 MWFRS 雙主風向設計風力組合摘要。",
+          "inputs": {
+            "Vcustom": "",
+            "terrain": "C",
+            "encl": "enclosed",
+            "roofSlope": "0",
+            "roofType": "flat",
+            "ridgeAxis": "parallelB",
+            "Kzt": "1.0",
+            "B": "20",
+            "L": "30",
+            "N": "6",
+            "h": "3.5",
+            "he": "21",
+            "hp": "0",
+            "flex": false,
+            "chkAccel": false
+          },
+          "expectedSelectors": {
+            "#comboSummary": "依第二章 2.12，本頁詳算以 X 風向 為主，應以 { WD,x, WL,x, WT,x } 輸入結構分析。 X 風向：WD = 107249 kgf， WL = 114277 kgf， WT = 600595 kgf·m。 橫風向 / 扭矩採用路徑：Eq 2.21 / Eq 2.23。 Y 風向結果已於下表同步整理；若 X / Y 方向動力特性不同，應於 fa,y、ft,y 分別輸入。",
+            "#controlTable tbody": "順風向設計風力 W_D 107249 175006 Y 風向 175006 kgf 橫風向設計風力 W_L 114277 124316 Y 風向 124316 kgf 扭轉向設計扭矩 W_T 600595 1470052 Y 風向 1470052 kgf·m",
+            "#dirComboTable tbody": "X 風向 20.0 / 30.0 垂直於屋脊 107249 114277 600595 Eq 2.21 / Eq 2.23 Y 風向 30.0 / 20.0 平行於屋脊 175006 124316 1470052 Eq 2.21 / Eq 2.23"
+          },
+          "expectedTextNeedles": [
+            "Eq 2.21 / Eq 2.23",
+            "控制 WD = Y 風向，控制值 = 175006 kgf",
+            "Vb = Σ Fi = 107249 kgf = 107.2 tf"
+          ]
+        },
+        {
+          "id": "custom-gable-partial-enclosure-parapet",
+          "description": "自訂風速、部分封閉雙斜屋頂與 MWFRS 女兒牆案例，鎖定屋脊方向切換、2.12 雙主風向組合與 Eq 2.3 女兒牆輸出。",
+          "inputs": {
+            "Vcustom": "50",
+            "terrain": "B",
+            "encl": "partial",
+            "roofSlope": "15",
+            "roofType": "gable",
+            "ridgeAxis": "parallelL",
+            "Kzt": "1.1",
+            "B": "18",
+            "L": "24",
+            "N": "5",
+            "h": "4",
+            "he": "18",
+            "hp": "1.2",
+            "flex": false,
+            "chkAccel": false
+          },
+          "expectedSelectors": {
+            "#comboSummary": "依第二章 2.12，本頁詳算以 X 風向 為主，應以 { WD,x, WL,x, WT,x } 輸入結構分析。 X 風向：WD = 68068 kgf， WL = 68381 kgf， WT = 343064 kgf·m。 橫風向 / 扭矩採用路徑：Eq 2.21 / Eq 2.23。 Y 風向結果已於下表同步整理；若 X / Y 方向動力特性不同，應於 fa,y、ft,y 分別輸入。",
+            "#controlTable tbody": "順風向設計風力 W_D 68068 95857 Y 風向 95857 kgf 橫風向設計風力 W_L 68381 72223 Y 風向 72223 kgf 扭轉向設計扭矩 W_T 343064 644157 Y 風向 644157 kgf·m",
+            "#dirComboTable tbody": "X 風向 18.0 / 24.0 平行於屋脊 68068 68381 343064 Eq 2.21 / Eq 2.23 Y 風向 24.0 / 18.0 垂直於屋脊 95857 72223 644157 Eq 2.21 / Eq 2.23"
+          },
+          "expectedTextNeedles": [
+            "封閉型式：部分封閉式 (GCpi = ±1.145)",
+            "屋頂型式：雙斜屋頂；屋脊方向：屋脊平行 L 向。",
+            "已計入 MWFRS 女兒牆：h_p = 1.20 m，依 Eq 2.3 另列迎風/背風壓力。",
+            "MWFRS 女兒牆 女兒牆頂標高 z = h + hp = 21.20 m， qp = 105.4 kgf/m²。"
+          ]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
-        "reportModes": false,
-        "jsonExport": false,
-        "jsonImport": false,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
         "browserSmoke": true,
         "reportRegression": true,
-        "diagramGeometry": false,
+        "diagramGeometry": true,
         "coreRegression": true
+      },
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": [
+            "計算書模式",
+            "設計風力組合",
+            "採用控制表"
+          ],
+          "mustExclude": [
+            "逐步計算",
+            "雙主風向設計風力組合",
+            "輸入資料表"
+          ]
+        },
+        "detail": {
+          "mustInclude": [
+            "逐步計算",
+            "雙主風向設計風力組合",
+            "輸入資料表"
+          ],
+          "mustExclude": [
+            "工具內建",
+            "專業版"
+          ]
+        }
+      },
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
       }
     },
     {
@@ -68,20 +189,135 @@
       "familyNeedle": "建築物耐風設計",
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
-      "reportMode": false,
-      "diagramSelector": "#refSvgWrap",
-      "diagramRoleNeedles": [],
-      "reportNeedles": ["區域風壓", "C&amp;C", "設計採用表"],
+      "reportMode": true,
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
+      "diagramSelector": "#refSvgWrap .ref-svg",
+      "diagramRoleNeedles": [
+        "cc-reference-diagram",
+        "cc-zone-primary"
+      ],
+      "reportNeedles": [
+        "區域風壓",
+        "C&amp;C",
+        "設計採用表"
+      ],
+      "goldenCases": [
+        {
+          "id": "default-wall-zone5-fig-3-2",
+          "description": "預設外牆 C&C 高樓案例，鎖定圖 3.2 外牆控制區域、速度壓與設計採用值。",
+          "inputs": {
+            "terrain": "C",
+            "h": "20",
+            "z": "20",
+            "Kzt": "1.0",
+            "surface": "wall",
+            "A": "2",
+            "encl": "enclosed",
+            "zh0": "20",
+            "enableReduce": false
+          },
+          "expectedSelectors": {
+            "#r-zone-name .value": "區域 5 — 牆面角隅",
+            "#r-p-abs .value": "496.0",
+            "#r-p-pos .value": "288.8",
+            "#r-p-neg .value": "-496.0",
+            "#r-gcp-pos .value": "1.79",
+            "#r-gcp-neg .value": "-3.34",
+            "#r-gcpi .value": "±0.375",
+            "#r-qh .value": "133.4",
+            "#r-qz .value": "133.42",
+            "#r-qh0 .value": "—",
+            "#designAdoptTable tbody": "控制正壓 288.8 區域 4 — 牆面內部 各區域 p+ 取最大值 控制負壓 -496.0 區域 5 — 牆面角隅 各區域 p− 取最不利吸力 控制絕對值 496.0 區域 5 — 牆面角隅 便於快速抓取控制設計值",
+            "#zoneSummaryTable tbody": "區域 4 — 牆面內部 1.79 -1.84 288.8 -295.4 區域 5 — 牆面角隅 (控制絕對值) 1.79 -3.34 288.8 -496.0"
+          },
+          "expectedTextNeedles": [
+            "封閉式 → h > 18m → 使用 圖 3.2",
+            "q(z=20.0m)·GCp,pos + q(h)·GCpi",
+            "p− = q(h)·GCp,neg − q(h)·GCpi"
+          ]
+        },
+        {
+          "id": "roof-zone3-partial-enclosure-fig-3-1",
+          "description": "低坡度屋面 C&C 部分封閉案例，鎖定圖 3.1 屋面區域 1/2/3、區域 3 角隅控制與部分封閉內壓。",
+          "inputs": {
+            "terrain": "B",
+            "h": "12",
+            "z": "12",
+            "Kzt": "1.05",
+            "surface": "roof",
+            "roofSlope": "5",
+            "A": "5",
+            "encl": "partial",
+            "zh0": "12",
+            "enableReduce": false
+          },
+          "expectedSelectors": {
+            "#r-zone-name .value": "區域 3 — 屋面角隅",
+            "#r-p-abs .value": "231.6",
+            "#r-p-pos .value": "91.8",
+            "#r-p-neg .value": "-231.6",
+            "#r-gcp-pos .value": "0.53",
+            "#r-gcp-neg .value": "-3.09",
+            "#r-gcpi .value": "±1.145",
+            "#r-qh .value": "54.7",
+            "#r-qz .value": "—",
+            "#r-qh0 .value": "—",
+            "#designAdoptTable tbody": "控制正壓 91.8 區域 1 — 屋面內部 各區域 p+ 取最大值 控制負壓 -231.6 區域 3 — 屋面角隅 各區域 p− 取最不利吸力 控制絕對值 231.6 區域 3 — 屋面角隅 便於快速抓取控制設計值",
+            "#zoneSummaryTable tbody": "區域 1 — 屋面內部 0.53 -1.81 91.8 -161.8 區域 2 — 屋面邊緣 0.53 -2.86 91.8 -218.7 區域 3 — 屋面角隅 (控制絕對值) 0.53 -3.09 91.8 -231.6"
+          },
+          "expectedTextNeedles": [
+            "部分封閉 → h ≤ 18m → 使用 圖 3.1",
+            "圖 3.1 屋面區域示意",
+            "區域 3 — 屋面角隅",
+            "p− = q(h)·GCp,neg − q(h)·GCpi"
+          ]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
-        "reportModes": false,
-        "jsonExport": false,
-        "jsonImport": false,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
         "browserSmoke": true,
         "reportRegression": true,
-        "diagramGeometry": false,
+        "diagramGeometry": true,
         "coreRegression": true
+      },
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": [
+            "計算書模式",
+            "設計採用表",
+            "控制區域明細"
+          ],
+          "mustExclude": [
+            "逐步計算",
+            "輸入資料表"
+          ]
+        },
+        "detail": {
+          "mustInclude": [
+            "逐步計算",
+            "設計採用表",
+            "輸入資料表"
+          ],
+          "mustExclude": [
+            "工具內建",
+            "專業版"
+          ]
+        }
+      },
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
       }
     },
     {
@@ -94,20 +330,146 @@
       "familyNeedle": "建築物耐風設計",
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
-      "reportMode": false,
-      "diagramSelector": null,
-      "diagramRoleNeedles": [],
-      "reportNeedles": ["開放式建築屋面", "圖 3.3", "設計採用表"],
+      "reportMode": true,
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
+      "diagramSelector": "#openRoofDiagram",
+      "diagramRoleNeedles": [
+        "open-roof-diagram",
+        "open-roof-plan",
+        "open-roof-slope"
+      ],
+      "reportNeedles": [
+        "開放式建築屋面",
+        "圖 3.3",
+        "設計採用表"
+      ],
+      "goldenCases": [
+        {
+          "id": "default-open-monoslope-zone2-fig-3-3a",
+          "description": "預設開放式單斜屋面案例，鎖定圖 3.3(a) 區域 2 控制風壓、陣風因子與採用表。",
+          "inputs": {
+            "terrain": "C",
+            "h": "8",
+            "he": "8",
+            "Kzt": "1.0",
+            "roofType": "monoslope",
+            "blockage": "unblocked",
+            "B": "12",
+            "L": "18",
+            "theta": "7.5",
+            "A": "1.5",
+            "enableReduce": false
+          },
+          "expectedSelectors": {
+            "#applicStatus": "依規範條件概算如下",
+            "#r-zone-name .value": "區域 2",
+            "#r-p-abs .value": "446.3",
+            "#r-p-pos .value": "446.3",
+            "#r-p-neg .value": "-390.6",
+            "#r-qh .value": "101.4",
+            "#r-huse .value": "8.00",
+            "#r-g .value": "1.835",
+            "#r-a .value": "1.20",
+            "#r-cpn-pos .value": "2.40",
+            "#r-cpn-neg .value": "-2.10",
+            "#designAdoptTable tbody": "控制正壓 446.3 區域 2 各區域 p+ 取最大值 控制負壓 -390.6 區域 2 各區域 p− 取最不利吸力 控制絕對值 446.3 區域 2 便於快速抓取控制設計值",
+            "#zoneSummaryTable tbody": "區域 1 1.60 -1.40 297.6 -260.4 區域 2 (控制絕對值) 2.40 -2.10 446.3 -390.6 區域 3 2.40 -2.10 446.3 -390.6",
+            "#zoneSummaryNote": "本頁同時計算區域 1 / 2 / 3；表中加粗列為控制絕對值之區域。Cpn 採 圖 3.3(a) p.82。",
+            "#designAdoptNote": "本表彙整開放式建築屋面區域 1 / 2 / 3 的控制設計值，可直接作為屋面設計採用摘要；本次採 圖 3.3(a) p.82。"
+          },
+          "expectedTextNeedles": [
+            "採用圖表 = 圖 3.3(a) p.82",
+            "h/L = 0.444（圖表條件 0.25~1.00）",
+            "Eq 3.4: p = q(h) × G × Cpn",
+            "p+ = 101.35 × 1.835 × 2.400 = 446.35 kgf/m²"
+          ]
+        },
+        {
+          "id": "gable-blocked-fig-3-3b-interpolated",
+          "description": "開放式雙斜屋頂且屋頂下有阻擋案例，鎖定圖 3.3(b)、中間坡度內插與區域 2 控制風壓。",
+          "inputs": {
+            "terrain": "A",
+            "h": "10",
+            "he": "9",
+            "Kzt": "1.2",
+            "roofType": "gable",
+            "blockage": "blocked",
+            "B": "16",
+            "L": "20",
+            "theta": "12",
+            "A": "3",
+            "enableReduce": false
+          },
+          "expectedSelectors": {
+            "#applicStatus": "依規範條件概算如下",
+            "#r-zone-name .value": "區域 2",
+            "#r-p-abs .value": "186.4",
+            "#r-p-pos .value": "60.1",
+            "#r-p-neg .value": "-186.4",
+            "#r-qh .value": "43.0",
+            "#r-huse .value": "10.00",
+            "#r-g .value": "1.749",
+            "#r-a .value": "1.60",
+            "#r-cpn-pos .value": "0.80",
+            "#r-cpn-neg .value": "-2.48",
+            "#designAdoptTable tbody": "控制正壓 60.1 區域 2 各區域 p+ 取最大值 控制負壓 -186.4 區域 2 各區域 p− 取最不利吸力 控制絕對值 186.4 區域 2 便於快速抓取控制設計值",
+            "#zoneSummaryTable tbody": "區域 1 0.50 -1.64 37.6 -123.3 區域 2 (控制絕對值) 0.80 -2.48 60.1 -186.4 區域 3 0.80 -2.48 60.1 -186.4",
+            "#zoneSummaryNote": "本頁同時計算區域 1 / 2 / 3；表中加粗列為控制絕對值之區域。Cpn 採 圖 3.3(b) p.83。",
+            "#designAdoptNote": "本表彙整開放式建築屋面區域 1 / 2 / 3 的控制設計值，可直接作為屋面設計採用摘要；本次採 圖 3.3(b) p.83。"
+          },
+          "expectedTextNeedles": [
+            "屋頂形式 雙斜屋頂",
+            "阻擋 = 有阻擋",
+            "採用圖表 = 圖 3.3(b) p.83",
+            "角度取值 θ 在 7.5° ~ 15.0° 間線性內插"
+          ]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
-        "reportModes": false,
-        "jsonExport": false,
-        "jsonImport": false,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
         "browserSmoke": true,
         "reportRegression": true,
-        "diagramGeometry": false,
+        "diagramGeometry": true,
         "coreRegression": true
+      },
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": [
+            "計算書模式",
+            "設計採用表",
+            "控制區域明細"
+          ],
+          "mustExclude": [
+            "逐步計算",
+            "輸入資料表"
+          ]
+        },
+        "detail": {
+          "mustInclude": [
+            "逐步計算",
+            "設計採用表",
+            "輸入資料表"
+          ],
+          "mustExclude": [
+            "工具內建",
+            "專業版"
+          ]
+        }
+      },
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
       }
     },
     {
@@ -120,20 +482,151 @@
       "familyNeedle": "建築物耐風設計",
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
-      "reportMode": false,
-      "diagramSelector": "#refSvgWrap",
-      "diagramRoleNeedles": [],
-      "reportNeedles": ["女兒牆", "圖 3.4", "設計採用表"],
+      "reportMode": true,
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
+      "diagramSelector": "#refSvgWrap .ref-svg",
+      "diagramRoleNeedles": [
+        "parapet-reference-diagram",
+        "parapet-body"
+      ],
+      "reportNeedles": [
+        "女兒牆",
+        "圖 3.4",
+        "設計採用表"
+      ],
+      "goldenCases": [
+        {
+          "id": "default-cc-building-roof-parapet-fig-3-4",
+          "description": "預設 C&C 建築物屋頂女兒牆案例，鎖定圖 3.4 四條件比較、控制壓差與圖 3.2 GCp 來源。",
+          "inputs": {
+            "terrain": "C",
+            "h": "20",
+            "hp": "1.5",
+            "Kzt": "1.0",
+            "parapetEncl": "enclosed",
+            "mode": "cc",
+            "face": "windward",
+            "A": "2",
+            "ccType": "building_roof",
+            "gcpiOverride": "",
+            "enableReduce": false
+          },
+          "expectedSelectors": {
+            "#applicStatus": "依規範條件計算如下",
+            "#designRouteTag": "目前路線：圖 3.4 建築物屋頂女兒牆（第三章 Eq 3.3）",
+            "#controlRouteTag": "目前控制條件：迎風面 / 角隅 / 圖 3.4 建築物屋頂女兒牆",
+            "#r-control-name .value": "迎風面 / 角隅",
+            "#r-qp .value": "136.3",
+            "#r-gcpi .value": "±0.375",
+            "#r-gcpn .value": "—",
+            "#r-front-gcp .value": "1.79",
+            "#r-back-gcp .value": "-4.65",
+            "#r-front-p .value": "295.1",
+            "#r-back-p .value": "-685.5",
+            "#r-diff-p .value": "980.6",
+            "#designAdoptTable tbody": "控制正面設計壓力 -506.9 背風面 / 角隅 正面設計壓力取絕對值最大者；來源 = 外牆 zone5 負壓 控制背面設計壓力 -685.5 迎風面 / 角隅 背面設計壓力取絕對值最大者；來源 = 屋面 zone3 負壓 控制前後面壓差 980.6 迎風面 / 角隅 前後面壓差取絕對值最大者；正面 = 外牆 zone5 正壓，背面 = 屋面 zone3 負壓",
+            "#ccSummaryTable tbody": "迎風面 / 一般邊緣 外牆 zone4 正壓 屋面 zone2 負壓 1.79 -3.46 295.1 -523.4 818.6 迎風面 / 角隅 (控制壓差) 外牆 zone5 正壓 屋面 zone3 負壓 1.79 -4.65 295.1 -685.5 980.6 背風面 / 一般邊緣 外牆 zone4 負壓 外牆 zone4 正壓 -1.84 1.79 -301.8 295.1 -597.0 背風面 / 角隅 外牆 zone5 負壓 外牆 zone5 正壓 -3.34 1.79 -506.9 295.1 -802.1",
+            "#ccSummaryNote": "C&C 模式同時計算圖 3.4 之迎風面 / 背風面與一般邊緣 / 角隅；GCp 取值依 圖 3.2。 ★ 標示為主控值（橘框：控制 p_front / p_back / p_diff；橘色左框：控制壓差之條件列）。",
+            "#designAdoptNote": "本表彙整圖 3.4 建築物屋頂女兒牆四個條件之控制值，可直接作為女兒牆設計採用摘要；GCp 取值依 圖 3.2。",
+            "#refTitle": "圖 3.4 受壓方向示意",
+            "#refDesc": "受壓方向依 圖 3.4 判定；外壓係數取值依 圖 3.2。正面來源：外牆 zone5 正壓 ｜ 背面來源：屋面 zone3 負壓"
+          },
+          "expectedTextNeedles": [
+            "設計模式 = C&C (第三章 Eq 3.3 / 圖 3.4)",
+            "女兒牆頂端高度 z = h + hp = 21.5 m",
+            "p_front = 136.34 × (1.790 + 0.375) = 295.15 kgf/m²",
+            "本頁已將圖 3.4 的迎風 / 背風與一般邊緣 / 角隅全部條件列入比較"
+          ]
+        },
+        {
+          "id": "mwfrs-leeward-eq-2-3-clears-cc-summary",
+          "description": "MWFRS 背風面女兒牆案例，鎖定第二章 Eq 2.3 路線，並確認不殘留 C&C 條件總覽。",
+          "inputs": {
+            "terrain": "B",
+            "h": "18",
+            "hp": "1.0",
+            "Kzt": "1.1",
+            "parapetEncl": "open",
+            "mode": "mwfrs",
+            "face": "leeward",
+            "A": "4",
+            "ccType": "single_roof",
+            "gcpiOverride": "0",
+            "enableReduce": false
+          },
+          "expectedSelectors": {
+            "#applicStatus": "依規範條件計算如下",
+            "#designRouteTag": "目前路線：MWFRS 女兒牆（第二章 Eq 2.3）",
+            "#controlRouteTag": "目前控制條件：背風面 / MWFRS",
+            "#r-control-name .value": "背風面 MWFRS 女兒牆",
+            "#r-qp .value": "72.1",
+            "#r-gcpi .value": "—",
+            "#r-gcpn .value": "-1.10",
+            "#r-front-gcp .value": "—",
+            "#r-back-gcp .value": "—",
+            "#r-front-p .value": "-79.3",
+            "#r-back-p .value": "—",
+            "#r-diff-p .value": "—",
+            "#designAdoptTable tbody": "MWFRS 女兒牆風壓 -79.3 背風面 第二章 Eq 2.3 直接採 GCpn",
+            "#ccSummaryTable tbody": "",
+            "#ccSummaryNote": "MWFRS 模式不產生 C&C 條件總覽；本次設計風壓依第二章 Eq 2.3 直接採 GCpn。",
+            "#designAdoptNote": "MWFRS 模式不區分一般邊緣與角隅，本表直接列出本次採用之女兒牆設計風壓。",
+            "#refTitle": "MWFRS 女兒牆規範圖面",
+            "#refDesc": "MWFRS 模式依第二章式 (2.3) 直接採 GCpn，不再組合 C&C 的正、背面外壓。"
+          },
+          "expectedTextNeedles": [
+            "設計模式 = MWFRS (第二章 Eq 2.3)",
+            "女兒牆頂端高度 z = h + hp = 19.0 m",
+            "pp = qp × GCpn = -79.3 kgf/m²",
+            "MWFRS 模式不產生 C&C 條件總覽；本次設計風壓依第二章 Eq 2.3 直接採 GCpn。"
+          ]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
-        "reportModes": false,
-        "jsonExport": false,
-        "jsonImport": false,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
         "browserSmoke": true,
         "reportRegression": true,
-        "diagramGeometry": false,
+        "diagramGeometry": true,
         "coreRegression": true
+      },
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": [
+            "計算書模式",
+            "設計採用表",
+            "控制條件明細"
+          ],
+          "mustExclude": [
+            "逐步計算",
+            "輸入資料表"
+          ]
+        },
+        "detail": {
+          "mustInclude": [
+            "逐步計算",
+            "設計採用表",
+            "輸入資料表"
+          ],
+          "mustExclude": [
+            "工具內建",
+            "專業版"
+          ]
+        }
+      },
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
       }
     },
     {
@@ -151,20 +644,46 @@
       "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
-      "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
+      "diagramRoleNeedles": [
+        "force-arrow-zone",
+        "force-label-zone",
+        "height-arrow-zone"
+      ],
       "diagramChecks": {
         "roleBoxesNonZero": true,
         "rolesInsideDiagram": true
       },
-      "reportNeedles": ["表 2.10", "實體標示物", "C<sub>f</sub>(ν)", "C<sub>f</sub>(M/N)"],
+      "reportNeedles": [
+        "表 2.10",
+        "實體標示物",
+        "C<sub>f</sub>(ν)",
+        "C<sub>f</sub>(M/N)"
+      ],
       "reportExpectations": {
         "simple": {
-          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
-          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "設計條件",
+            "計算示意圖",
+            "控制結果"
+          ],
+          "mustExclude": [
+            "計算內容",
+            "詳列計算式",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         },
         "detail": {
-          "mustInclude": ["計算示意圖", "計算內容"],
-          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "計算示意圖",
+            "計算內容"
+          ],
+          "mustExclude": [
+            "<h3>設計條件</h3>",
+            "<h3>控制結果</h3>",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         }
       },
       "goldenCases": [
@@ -196,7 +715,47 @@
             "#r-moment .value": "1145.2",
             "#r-ecc .value": "0.60"
           },
-          "expectedTextNeedles": ["C_f(ν) = 1.200", "C_f(M/N) = 1.500", "規範判定取較大 C_f = 1.500"]
+          "expectedTextNeedles": [
+            "C_f(ν) = 1.200",
+            "C_f(M/N) = 1.500",
+            "規範判定取較大 C_f = 1.500"
+          ]
+        },
+        {
+          "id": "custom-width-project-cf-nu-control",
+          "description": "自訂受風投影寬與專案指定 Cf 案例，鎖定 H_o、M/N、b_w 分離，以及規範判定參考值仍保留於結果。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "B",
+            "impClass": "IV",
+            "Kzt": "1.0",
+            "objectHeight": "4.8",
+            "sectionMajor": "1.2",
+            "sectionMinor": "0.8",
+            "windWidthMode": "custom",
+            "windWidthCustom": "0.6",
+            "bottomClearance": "1.4",
+            "openingRatio": "20",
+            "cfSource": "project",
+            "cfOverride": "1.35",
+            "cfBasis": "專案文件採用 C_f = 1.35"
+          },
+          "expectedSelectors": {
+            "#r-route .value": "控制：ν",
+            "#r-cf .value": "1.350",
+            "#r-qz .value": "45.1",
+            "#r-g .value": "1.872",
+            "#r-force .value": "328.2",
+            "#r-shear .value": "328.2",
+            "#r-moment .value": "1247.0",
+            "#r-ecc .value": "0.18"
+          },
+          "expectedTextNeedles": [
+            "H_o = 4.80 m；M = 1.20 m，N = 0.80 m。H_o 不代入 M/N。",
+            "b_w = 0.60 m；自訂投影寬度",
+            "C_f(ν) = 1.400；C_f(M/N) = 1.200；取較大值 1.400",
+            "專案指定值；規範判定參考：表 2.10：ν = 8.000，C_f(ν) = 1.400；M/N = 1.500，C_f(M/N) = 1.200；規範判定取較大 C_f = 1.400"
+          ]
         }
       ],
       "capabilities": {
@@ -226,20 +785,45 @@
       "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
-      "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
+      "diagramRoleNeedles": [
+        "force-arrow-zone",
+        "force-label-zone",
+        "height-arrow-zone"
+      ],
       "diagramChecks": {
         "roleBoxesNonZero": true,
         "rolesInsideDiagram": true
       },
-      "reportNeedles": ["表 2.11", "中空式", "格子式"],
+      "reportNeedles": [
+        "表 2.11",
+        "中空式",
+        "格子式"
+      ],
       "reportExpectations": {
         "simple": {
-          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
-          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "設計條件",
+            "計算示意圖",
+            "控制結果"
+          ],
+          "mustExclude": [
+            "計算內容",
+            "詳列計算式",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         },
         "detail": {
-          "mustInclude": ["計算示意圖", "計算內容"],
-          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "計算示意圖",
+            "計算內容"
+          ],
+          "mustExclude": [
+            "<h3>設計條件</h3>",
+            "<h3>控制結果</h3>",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         }
       },
       "goldenCases": [
@@ -268,7 +852,37 @@
             "#r-moment .value": "48910.8",
             "#r-extra .value": "φ=0.20；D√q(z)=1.66"
           },
-          "expectedTextNeedles": ["表 2.11 圓斷面，D√q(z) ≤ 1.70", "F = q(z) · G · C_f · A", "F = 122.38 × 1.850 × 1.800 × 8.00 = 3260.72 kgf"]
+          "expectedTextNeedles": [
+            "表 2.11 圓斷面，D√q(z) ≤ 1.70",
+            "F = q(z) · G · C_f · A",
+            "F = 122.38 × 1.850 × 1.800 × 8.00 = 3260.72 kgf"
+          ]
+        },
+        {
+          "id": "flat-member-high-solidity-frame",
+          "description": "平邊構材且較高實面率案例，鎖定表 2.11 非圓形構材路線、φ 變化與基底作用。",
+          "inputs": {
+            "city": "高雄市",
+            "terrain": "B",
+            "impClass": "III",
+            "Kzt": "1.05",
+            "pz": "25",
+            "pA": "12",
+            "phi": "0.45",
+            "memberD": "0.20",
+            "memberType": "flat",
+            "chkDetail": true
+          },
+          "expectedSelectors": {
+            "#r-type .value": "中空式 / 平邊構材",
+            "#r-cf .value": "1.100",
+            "#r-qz .value": "74.3",
+            "#r-g .value": "1.795",
+            "#r-force .value": "1761.0",
+            "#r-shear .value": "1761.0",
+            "#r-moment .value": "44025.2",
+            "#r-extra .value": "φ=0.45；平邊構材"
+          }
         }
       ],
       "capabilities": {
@@ -298,20 +912,46 @@
       "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
-      "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
+      "diagramRoleNeedles": [
+        "force-arrow-zone",
+        "force-label-zone",
+        "height-arrow-zone"
+      ],
       "diagramChecks": {
         "roleBoxesNonZero": true,
         "rolesInsideDiagram": true
       },
-      "reportNeedles": ["表 2.15", "桁架高塔", "分段"],
+      "reportNeedles": [
+        "表 2.15",
+        "桁架高塔",
+        "分段"
+      ],
       "reportExpectations": {
         "simple": {
-          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
-          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "設計條件",
+            "計算示意圖",
+            "控制結果"
+          ],
+          "mustExclude": [
+            "計算內容",
+            "詳列計算式",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         },
         "detail": {
-          "mustInclude": ["計算示意圖", "計算內容", "分段剪力表"],
-          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "計算示意圖",
+            "計算內容",
+            "分段剪力表"
+          ],
+          "mustExclude": [
+            "<h3>設計條件</h3>",
+            "<h3>控制結果</h3>",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         }
       },
       "goldenCases": [
@@ -343,7 +983,40 @@
             "#r-moment .value": "666861.7",
             "#r-extra .value": "基本=3.060；構材=1.000；斜風向=1.000"
           },
-          "expectedTextNeedles": ["桁架高塔採表 2.15", "未採斜風向修正", "最高段示例：F_i = 166.90 × 1.819 × 3.060 × 4.50 = 4179.92 kgf"]
+          "expectedTextNeedles": [
+            "桁架高塔採表 2.15",
+            "未採斜風向修正",
+            "最高段示例：F_i = 166.90 × 1.819 × 3.060 × 4.50 = 4179.92 kgf"
+          ]
+        },
+        {
+          "id": "triangular-circular-member-skew-wind",
+          "description": "三角形桁架高塔、圓斷面構材與斜風向案例，鎖定表 2.15 形狀、構材與斜風向修正組合。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "A",
+            "impClass": "IV",
+            "Kzt": "1.15",
+            "lzBase": "5",
+            "lHeight": "60",
+            "faceWidth": "5.0",
+            "towerPhi": "0.35",
+            "towerShape": "triangular",
+            "towerMemberShape": "circular",
+            "lSegments": "6",
+            "skewWind": true,
+            "chkDetail": true
+          },
+          "expectedSelectors": {
+            "#r-type .value": "三角形高塔",
+            "#r-cf .value": "1.497",
+            "#r-qz .value": "89.0",
+            "#r-g .value": "1.696",
+            "#r-force .value": "16854.6",
+            "#r-shear .value": "16854.6",
+            "#r-moment .value": "669033.8",
+            "#r-extra .value": "基本=2.125；構材=0.704；斜風向=1.000"
+          }
         }
       ],
       "capabilities": {
@@ -373,20 +1046,46 @@
       "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
-      "diagramRoleNeedles": ["force-arrow-zone", "force-label-zone", "height-arrow-zone"],
+      "diagramRoleNeedles": [
+        "force-arrow-zone",
+        "force-label-zone",
+        "height-arrow-zone"
+      ],
       "diagramChecks": {
         "roleBoxesNonZero": true,
         "rolesInsideDiagram": true
       },
-      "reportNeedles": ["表 2.12", "煙囪", "水塔"],
+      "reportNeedles": [
+        "表 2.12",
+        "煙囪",
+        "水塔"
+      ],
       "reportExpectations": {
         "simple": {
-          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
-          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "設計條件",
+            "計算示意圖",
+            "控制結果"
+          ],
+          "mustExclude": [
+            "計算內容",
+            "詳列計算式",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         },
         "detail": {
-          "mustInclude": ["計算示意圖", "計算內容", "分段剪力表"],
-          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "計算示意圖",
+            "計算內容",
+            "分段剪力表"
+          ],
+          "mustExclude": [
+            "<h3>設計條件</h3>",
+            "<h3>控制結果</h3>",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         }
       },
       "goldenCases": [
@@ -420,7 +1119,42 @@
             "#r-zr .value": "22.21",
             "#r-topf .value": "0.0"
           },
-          "expectedTextNeedles": ["煙囪 / 水塔採表 2.12", "C_f,eff = 0.650 × 1.000 = 0.650", "最高段示例：161.10 × 1.824 × 0.650 × 12.50 = 2388.06 kgf"]
+          "expectedTextNeedles": [
+            "煙囪 / 水塔採表 2.12",
+            "C_f,eff = 0.650 × 1.000 = 0.650",
+            "最高段示例：161.10 × 1.824 × 0.650 × 12.50 = 2388.06 kgf"
+          ]
+        },
+        {
+          "id": "water-tower-square-diagonal-top-load",
+          "description": "水塔、方形對角風向與頂部附加面積案例，鎖定表 2.12 非圓形斷面、形狀係數與頂部風力合成。",
+          "inputs": {
+            "city": "高雄市",
+            "terrain": "B",
+            "impClass": "III",
+            "Kzt": "1.10",
+            "objectType": "water_tower",
+            "zBase": "8",
+            "height": "25",
+            "D": "4.0",
+            "segments": "5",
+            "sectionType": "square_diagonal",
+            "shapeFactor": "1.05",
+            "topArea": "25",
+            "topCf": "1.20",
+            "chkDetail": true
+          },
+          "expectedSelectors": {
+            "#r-shape .value": "方形（風向沿對角線）",
+            "#r-hd .value": "6.25",
+            "#r-qd .value": "37.84",
+            "#r-cf .value": "1.142",
+            "#r-g .value": "1.785",
+            "#r-shear .value": "19173.7",
+            "#r-moment .value": "473963.3",
+            "#r-zr .value": "24.72",
+            "#r-topf .value": "5030.41"
+          }
         }
       ],
       "capabilities": {
@@ -450,20 +1184,44 @@
       "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
-      "diagramRoleNeedles": ["wind-arrows", "force-panel"],
+      "diagramRoleNeedles": [
+        "wind-arrows",
+        "force-panel"
+      ],
       "diagramChecks": {
         "roleBoxesNonZero": true,
         "rolesInsideDiagram": true
       },
-      "reportNeedles": ["圍籬牆", "獨立招牌", "表 2.10"],
+      "reportNeedles": [
+        "圍籬牆",
+        "獨立招牌",
+        "表 2.10"
+      ],
       "reportExpectations": {
         "simple": {
-          "mustInclude": ["設計條件", "計算示意圖", "控制結果"],
-          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "設計條件",
+            "計算示意圖",
+            "控制結果"
+          ],
+          "mustExclude": [
+            "計算內容",
+            "詳列計算式",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         },
         "detail": {
-          "mustInclude": ["計算示意圖", "計算內容"],
-          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "計算示意圖",
+            "計算內容"
+          ],
+          "mustExclude": [
+            "<h3>設計條件</h3>",
+            "<h3>控制結果</h3>",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         }
       },
       "goldenCases": [
@@ -493,7 +1251,38 @@
             "#r-shear .value": "2298.6",
             "#r-moment .value": "2298.6"
           },
-          "expectedTextNeedles": ["依表 2.10 判定 C_f = 1.200", "F = 2298.6 kgf", "M = 2298.6 kgf·m"]
+          "expectedTextNeedles": [
+            "依表 2.10 判定 C_f = 1.200",
+            "F = 2298.6 kgf",
+            "M = 2298.6 kgf·m"
+          ]
+        },
+        {
+          "id": "elevated-sign-manual-cf-porous-panel",
+          "description": "架高獨立招牌與人工指定 Cf 案例，鎖定離地形心高度、孔隙率有效面積與表 2.10 以外採用值。",
+          "inputs": {
+            "city": "臺北市",
+            "terrain": "B",
+            "impClass": "IV",
+            "Kzt": "1.05",
+            "objType": "elevated",
+            "h": "3.0",
+            "B": "8.0",
+            "s": "2.0",
+            "phi": "0.65",
+            "cfOverride": "1.80"
+          },
+          "expectedSelectors": {
+            "#r-zr .value": "3.50",
+            "#r-aspect .value": "2.67",
+            "#r-cf .value": "1.170",
+            "#r-qz .value": "47.3",
+            "#r-g .value": "1.829",
+            "#r-area .value": "24.00",
+            "#r-force .value": "2432.0",
+            "#r-shear .value": "2432.0",
+            "#r-moment .value": "8511.9"
+          }
         }
       ],
       "capabilities": {
@@ -523,20 +1312,49 @@
       "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": "#schemaSvg",
-      "diagramRoleNeedles": ["panel-force-zone", "support-load-zone", "result-panel"],
+      "diagramRoleNeedles": [
+        "panel-force-zone",
+        "support-load-zone",
+        "result-panel"
+      ],
       "diagramChecks": {
         "roleBoxesNonZero": true,
         "rolesInsideDiagram": true
       },
-      "reportNeedles": ["表 2.10", "表 2.14", "表 2.13", "元件合計"],
+      "reportNeedles": [
+        "表 2.10",
+        "表 2.14",
+        "表 2.13",
+        "元件合計"
+      ],
       "reportExpectations": {
         "simple": {
-          "mustInclude": ["設計條件", "計算示意圖", "控制結果", "元件合計表"],
-          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "設計條件",
+            "計算示意圖",
+            "控制結果",
+            "元件合計表"
+          ],
+          "mustExclude": [
+            "計算內容",
+            "詳列計算式",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         },
         "detail": {
-          "mustInclude": ["計算示意圖", "計算內容", "支撐分段風力表", "元件合計表"],
-          "mustExclude": ["<h3>設計條件</h3>", "<h3>控制結果</h3>", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "計算示意圖",
+            "計算內容",
+            "支撐分段風力表",
+            "元件合計表"
+          ],
+          "mustExclude": [
+            "<h3>設計條件</h3>",
+            "<h3>控制結果</h3>",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         }
       },
       "goldenCases": [
@@ -570,7 +1388,42 @@
             "#r-supportF .value": "121.6",
             "#r-lineLoad .value": "24.3"
           },
-          "expectedTextNeedles": ["表 2.10 實體標示物", "表 2.14 繩、竿、管", "V = Fp + Fs = 1782.1 kgf"]
+          "expectedTextNeedles": [
+            "表 2.10 實體標示物",
+            "表 2.14 繩、竿、管",
+            "V = Fp + Fs = 1782.1 kgf"
+          ]
+        },
+        {
+          "id": "two-angular-supports-open-panel",
+          "description": "開孔面板、雙支角柱體支撐案例，鎖定表 2.10 面板指定 Cf 與表 2.13 支撐合成結果。",
+          "inputs": {
+            "city": "高雄市",
+            "terrain": "B",
+            "impClass": "III",
+            "Kzt": "1.10",
+            "panelWidth": "5.0",
+            "panelHeight": "2.5",
+            "panelBottom": "4.0",
+            "openingRatio": "25",
+            "panelCfOverride": "1.40",
+            "supportType": "angular",
+            "supportCount": "2",
+            "supportSegments": "5",
+            "pipeDiameter": "0.216",
+            "pipeRoughness": "moderate",
+            "prismWidth": "0.35",
+            "prismShape": "tri_face",
+            "chkDetail": true
+          },
+          "expectedSelectors": {
+            "#r-totalV .value": "1518.3",
+            "#r-totalM .value": "6695.6",
+            "#r-zbar .value": "4.41",
+            "#r-panelF .value": "1125.8",
+            "#r-supportF .value": "392.5",
+            "#r-lineLoad .value": "98.1"
+          }
         }
       ],
       "capabilities": {
@@ -595,20 +1448,129 @@
       "familyNeedle": "建築物耐震設計",
       "calcButton": "btnCalc",
       "reportButton": "btnReport",
-      "reportMode": false,
+      "reportMode": true,
+      "exportButton": "btnExportCase",
+      "importButton": "btnImportCase",
+      "jsonRoundTrip": true,
       "diagramSelector": "#spectrumChart",
-      "diagramRoleNeedles": [],
-      "reportNeedles": ["等值靜力分析", "主要組成一：地震力分配", "反應譜"],
+      "diagramRoleNeedles": [
+        "spectrum-chart"
+      ],
+      "reportNeedles": [
+        "等值靜力分析",
+        "主要組成一：地震力分配",
+        "反應譜"
+      ],
+      "goldenCases": [
+        {
+          "id": "default-five-story-static-vstar-control",
+          "description": "預設五層 RC 特殊抗彎矩構架等值靜力案例，鎖定 V* 控制、底部剪力比較與樓層力分配。",
+          "inputs": {
+            "sys": "SMRF_RC",
+            "impClass": "IV",
+            "chkXY": false,
+            "chkTaipei": false,
+            "SsD": "0.6",
+            "S1D": "0.35",
+            "SsM": "0.8",
+            "S1M": "0.5",
+            "siteClass": "2",
+            "N": "5",
+            "hn": "17.2",
+            "B": "2",
+            "Tdyna": ""
+          },
+          "expectedSelectors": {
+            "#banner": "設計水平總橫力 Vdesign = 352.38 tf ( = 14.10% W ) V* 控制",
+            "#bannerKey": "VD/W11.97% V*/W14.10% W2500 tf Tdesign0.828 secFt20.42 tf譜來源一般工址",
+            "#resultPanel table.cmp": "VDV*VM 力 (tf) 299.19 352.38 247.21 V/W 11.97% 14.10% 9.89%",
+            "#storyTable": "樓層hi (m)Wi (tf) Wi·hiFi (tf)Vstory (tf) 5F 17.20 500 8600 131.07 131.07 4F 13.76 500 6880 88.52 219.60 3F 10.32 500 5160 66.39 285.99 2F 6.88 500 3440 44.26 330.25 1F 3.44 500 1720 22.13 352.38"
+          },
+          "expectedTextNeedles": [
+            "SDS = FaD × SsD = 1.10 × 0.6 = 0.6600 g",
+            "Tdesign = CU × Tcode = 1.4 × 0.5912 = 0.8277 sec",
+            "V* = [I·Fu/(4.2·αy)] × (SaD/Fu)m × W = [1×3.53/(4.2×1)] × 0.1675 × 2500 = 352.38 tf",
+            "Ft = 20.42 tf"
+          ]
+        },
+        {
+          "id": "dual-direction-site-class-3-static",
+          "description": "X/Y 向採不同結構系統與動力週期之等值靜力案例，鎖定第 3 類地盤、雙向摘要與樓層力分配。",
+          "inputs": {
+            "sys": "DUAL",
+            "impClass": "III",
+            "chkXY": true,
+            "sysY": "SHEAR_RC",
+            "chkTaipei": false,
+            "SsD": "0.72",
+            "S1D": "0.42",
+            "SsM": "0.90",
+            "S1M": "0.55",
+            "siteClass": "3",
+            "N": "5",
+            "hn": "17.2",
+            "B": "2",
+            "Tdyna": "0.95",
+            "TdynaY": "0.82",
+            "chkDetail": true
+          },
+          "expectedSelectors": {
+            "#banner": "X 向設計水平總橫力 Vdesign = 578.57 tf (23.14%W) V*Y 向設計水平總橫力 Vdesign = 661.82 tf (26.47%W) VD",
+            "#bannerKey": "VD,X/W19.20% V*X/W23.14% W2500 tf TX0.828 sec Vdesign,Y661.8 tf TY0.591 secFt33.52 tf譜來源一般工址",
+            "#resultPanel table.cmp": "VDV*VM 力 (tf) 480.03 578.57 415.31 V/W 19.20% 23.14% 16.61%",
+            "#storyTable": "樓層hi (m)Wi (tf) Wi·hiFi (tf)Vstory (tf) 5F 17.20 500 8600 215.21 215.21 4F 13.76 500 6880 145.35 360.55 3F 10.32 500 5160 109.01 469.56 2F 6.88 500 3440 72.67 542.23 1F 3.44 500 1720 36.34 578.57"
+          },
+          "expectedTextNeedles": [
+            "SDS = FaD × SsD = 1.08 × 0.72 = 0.7776 g",
+            "Tdesign = min(CU×Tcode, Tdyna) = min(0.8277, 0.950) = 0.8277 sec",
+            "TY = 0.591 sec",
+            "SaD/Fu,Y = 0.2965 g"
+          ]
+        }
+      ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
-        "reportModes": false,
-        "jsonExport": false,
-        "jsonImport": false,
+        "reportModes": true,
+        "jsonExport": true,
+        "jsonImport": true,
         "browserSmoke": true,
         "reportRegression": true,
-        "diagramGeometry": false,
+        "diagramGeometry": true,
         "coreRegression": true
+      },
+      "reportModeControls": {
+        "simpleButton": "repPresetResults",
+        "detailButton": "repPresetFull"
+      },
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": [
+            "綜合結論",
+            "設計採用摘要",
+            "設計反應譜"
+          ],
+          "mustExclude": [
+            "輸入資料表",
+            "符號說明",
+            "附註 / 說明"
+          ]
+        },
+        "detail": {
+          "mustInclude": [
+            "主要組成一：地震力分配",
+            "符號說明",
+            "附註 / 說明"
+          ],
+          "mustExclude": [
+            "工具內建",
+            "專業版"
+          ]
+        }
+      },
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
       }
     },
     {
@@ -626,20 +1588,46 @@
       "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": ".line-h2-diagram",
-      "diagramRoleNeedles": ["fph-arrow-zone", "fpv-arrow-zone", "force-panel"],
+      "diagramRoleNeedles": [
+        "fph-arrow-zone",
+        "fpv-arrow-zone",
+        "force-panel"
+      ],
       "diagramChecks": {
         "roleBoxesNonZero": true,
         "rolesInsideDiagram": true
       },
-      "reportNeedles": ["附屬構造物", "Fph", "Fpv"],
+      "reportNeedles": [
+        "附屬構造物",
+        "Fph",
+        "Fpv"
+      ],
       "reportExpectations": {
         "simple": {
-          "mustInclude": ["工址與建物條件", "附屬構造物資料", "結果摘要", "計算示意圖"],
-          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "工址與建物條件",
+            "附屬構造物資料",
+            "結果摘要",
+            "計算示意圖"
+          ],
+          "mustExclude": [
+            "計算內容",
+            "詳列計算式",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         },
         "detail": {
-          "mustInclude": ["計算示意圖", "計算內容"],
-          "mustExclude": ["<h3>工址與建物條件</h3>", "<h3>結果摘要</h3>", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "計算示意圖",
+            "計算內容"
+          ],
+          "mustExclude": [
+            "<h3>工址與建物條件</h3>",
+            "<h3>結果摘要</h3>",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         }
       },
       "goldenCases": [
@@ -663,7 +1651,72 @@
             "rpCustom": "",
             "apRemark": ""
           },
-          "expectedTextNeedles": ["Fph = 0.226 tf", "Fpv = 0.113 tf", "Cph = 0.2263", "Rpa 1.167", "SDS 0.6600g", "採式(4-1a)計算值"]
+          "expectedTextNeedles": [
+            "Fph = 0.226 tf",
+            "Fpv = 0.113 tf",
+            "Cph = 0.2263",
+            "Rpa 1.167",
+            "SDS 0.6600g",
+            "採式(4-1a)計算值"
+          ]
+        },
+        {
+          "id": "table-4-2-rooftop-boiler-near-fault",
+          "description": "表 4-2 機電設備、重要度 Ip=1.5 且近斷層垂直力採 2/3 Fph 之屋頂附屬構造物案例。",
+          "inputs": {
+            "SsD": "0.72",
+            "S1D": "0.42",
+            "SsM": "0.90",
+            "S1M": "0.55",
+            "siteClass": "3",
+            "hn": "24.0",
+            "chkTaipei": true,
+            "chkNearFault": true,
+            "apType": "T2_0",
+            "apWp": "2.4",
+            "apIp": "1.5",
+            "apHx": "22.0",
+            "apCustom": "",
+            "rpCustom": "",
+            "apRemark": "屋頂機電設備近斷層案例",
+            "printReportMode": "detail"
+          },
+          "expectedSelectors": {
+            "#banner": "附屬構造物 鍋爐及熱水器 Fph = 1.813 tf ｜ Fpv = 1.209 tf",
+            "#appendOverview": "構材類型鍋爐及熱水器 ap / Rp1 / 2.5 Rpa1.750 控制條件採式(4-1a)計算值",
+            "#appendResult": "水平地震力 Fph 1.813tf 水平係數 Fph / Wp 0.7554Wp 垂直地震力 Fpv 1.209tf 垂直係數 Fpv / Wp 0.5036Wp Rpa 1.750 SDS 0.7776g hx / hn 0.917 控制條件 採式(4-1a)計算值 第四章 — 鍋爐及熱水器 地震力計算 ① 工址與構材條件 SDS = 0.7776 g， ap = 1， Rp = 2.5， Ip = 1.5， Wp = 2.4 tf hx = 22 m， hn = 24 m， hx/hn = 0.917 ② 式(4-2) 容許耐震韌性容量 Rpa Rpa = 1 + (Rp − 1) / 2.0 = 1 + (2.5 − 1) / 2.0 = 1.750 ③ 式(4-1a) 附屬構造物水平地震力計算值 Fph,a = 0.4 × SDS × Ip × (ap / Rpa) × (1 + 2hx/hn) × Wp 水平計算係數 Cph,a = 0.4 × 0.7776 × 1.5 × (1 / 1.750) × (1 + 2 × 0.917) = 0.7554 Fph,a = Cph,aWp = 0.7554Wp = 0.7554 × 2.400 = 1.8129 tf ④ 式(4-1b) 上限值 Fph,max = 1.6 × SDS × Ip × Wp Cph,max = 1.6 × 0.7776 × 1.5 = 1.8662 Fph,max = Cph,maxWp = 1.8662Wp = 1.8662 × 2.400 = 4.4790 tf ⑤ 式(4-1c) 下限值 Fph,min = 0.3 × SDS × Ip × Wp Cph,min = 0.3 × 0.7776 × 1.5 = 0.3499 Fph,min = Cph,minWp = 0.3499Wp = 0.3499 × 2.400 = 0.8398 tf ⑥ 水平設計地震力採用 Fph = CphWp = 0.7554Wp = 0.7554 × 2.400 = 1.813 tf (採式(4-1a)計算值) ⑦ 式(4-3) 垂直地震力 Fpv = 2/3 × Fph 垂直係數 Cpv = 2/3 × Cph = 0.5036 Fpv = CpvWp = 0.5036Wp = 0.5036 × 2.400 = 1.209 tf"
+          },
+          "expectedTextNeedles": [
+            "第四章 — 鍋爐及熱水器 地震力計算",
+            "Fpv = 2/3 × Fph",
+            "hx/hn = 0.917"
+          ],
+          "expectedMetrics": {
+            "lastAppendResult.Fph": {
+              "value": 1.8129188571428574,
+              "tolerance": 1e-12
+            },
+            "lastAppendResult.Fpv": {
+              "value": 1.2086125714285716,
+              "tolerance": 1e-12
+            },
+            "lastAppendResult.Cph": {
+              "value": 0.7553828571428572,
+              "tolerance": 1e-12
+            },
+            "lastAppendResult.Cpv": {
+              "value": 0.5035885714285715,
+              "tolerance": 1e-12
+            },
+            "lastAppendResult.Rpa": {
+              "value": 1.75,
+              "tolerance": 1e-12
+            },
+            "lastAppendResult.site.SDS": {
+              "value": 0.7776000000000001,
+              "tolerance": 1e-12
+            }
+          }
         }
       ],
       "capabilities": {
@@ -693,20 +1746,46 @@
       "jsonRoundTrip": true,
       "reportMode": true,
       "diagramSelector": ".line-h2-diagram",
-      "diagramRoleNeedles": ["vh-arrow-zone", "vv-arrow-zone", "force-panel"],
+      "diagramRoleNeedles": [
+        "vh-arrow-zone",
+        "vv-arrow-zone",
+        "force-panel"
+      ],
       "diagramChecks": {
         "roleBoxesNonZero": true,
         "rolesInsideDiagram": true
       },
-      "reportNeedles": ["雜項工作物", "Vh", "Vv"],
+      "reportNeedles": [
+        "雜項工作物",
+        "Vh",
+        "Vv"
+      ],
       "reportExpectations": {
         "simple": {
-          "mustInclude": ["工址條件", "雜項工作物資料", "結果摘要", "計算示意圖"],
-          "mustExclude": ["計算內容", "詳列計算式", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "工址條件",
+            "雜項工作物資料",
+            "結果摘要",
+            "計算示意圖"
+          ],
+          "mustExclude": [
+            "計算內容",
+            "詳列計算式",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         },
         "detail": {
-          "mustInclude": ["計算示意圖", "計算內容"],
-          "mustExclude": ["<h3>工址條件</h3>", "<h3>結果摘要</h3>", "適用性檢查", "適用性與採用提醒"]
+          "mustInclude": [
+            "計算示意圖",
+            "計算內容"
+          ],
+          "mustExclude": [
+            "<h3>工址條件</h3>",
+            "<h3>結果摘要</h3>",
+            "適用性檢查",
+            "適用性與採用提醒"
+          ]
         }
       },
       "goldenCases": [
@@ -735,14 +1814,102 @@
             "miscRemark": "",
             "chkNearFaultMisc": false
           },
-          "expectedTextNeedles": ["第五章 5.3 鋼造儲物架", "Vh = 1.89 tf", "Vv = 0.94 tf", "SDS = 0.6600 g", "水平係數 Ch = [1/(1.4×1)] × 0.2640 = 0.1886", "垂直係數 Cv = Vv / W = 0.0943", "採用公式 式(2-3)"],
+          "expectedTextNeedles": [
+            "第五章 5.3 鋼造儲物架",
+            "Vh = 1.89 tf",
+            "Vv = 0.94 tf",
+            "SDS = 0.6600 g",
+            "水平係數 Ch = [1/(1.4×1)] × 0.2640 = 0.1886",
+            "垂直係數 Cv = Vv / W = 0.0943",
+            "採用公式 式(2-3)"
+          ],
           "expectedMetrics": {
-            "lastMiscResult.Vh": { "value": 1.885714285714286, "tolerance": 1e-9 },
-            "lastMiscResult.VhCoeff": { "value": 0.18857142857142858, "tolerance": 1e-12 },
-            "lastMiscResult.Vv": { "value": 0.942857142857143, "tolerance": 1e-9 },
-            "lastMiscResult.VvCoeff": { "value": 0.09428571428571429, "tolerance": 1e-12 },
-            "lastMiscResult.site.SDS": { "value": 0.66, "tolerance": 1e-12 },
-            "lastMiscResult.ratio_m": { "value": 0.264, "tolerance": 1e-12 }
+            "lastMiscResult.Vh": {
+              "value": 1.885714285714286,
+              "tolerance": 1e-9
+            },
+            "lastMiscResult.VhCoeff": {
+              "value": 0.18857142857142858,
+              "tolerance": 1e-12
+            },
+            "lastMiscResult.Vv": {
+              "value": 0.942857142857143,
+              "tolerance": 1e-9
+            },
+            "lastMiscResult.VvCoeff": {
+              "value": 0.09428571428571429,
+              "tolerance": 1e-12
+            },
+            "lastMiscResult.site.SDS": {
+              "value": 0.66,
+              "tolerance": 1e-12
+            },
+            "lastMiscResult.ratio_m": {
+              "value": 0.264,
+              "tolerance": 1e-12
+            }
+          }
+        },
+        {
+          "id": "nonsimilar-sign-near-fault-5-4",
+          "description": "第五章 5.4 非相似於建築結構之招牌及廣告版案例，鎖定式(5-2)與近斷層 2/3 垂直力。",
+          "inputs": {
+            "printReportMode": "detail",
+            "zoneCity": "",
+            "zoneDist": "",
+            "SsD": "0.72",
+            "S1D": "0.42",
+            "SsM": "0.90",
+            "S1M": "0.55",
+            "siteClass": "3",
+            "miscI": "1.25",
+            "chkTaipei": false,
+            "miscChapterMode": "nonsimilar",
+            "miscCategory": "sign",
+            "miscType": "29",
+            "miscR": "1.5",
+            "miscAY": "1.0",
+            "miscW": "6.5",
+            "miscH": "12.0",
+            "miscT": "0.08",
+            "miscRemark": "非相似於建築招牌案例",
+            "chkNearFaultMisc": true
+          },
+          "expectedSelectors": {
+            "#banner": "第五章 5.4 招牌及廣告版 最小設計水平總橫力 Vh = 2.47 tf 最小設計垂直地震力 Vv = 1.65 tf (式(5-2))",
+            "#miscOverview": "第五章分類 5.4 非相似於建築 工作物類型 招牌及廣告版 採用公式 式(5-2) 控制機制 式(5-2) R / αy 2 / 1",
+            "#miscResult": "最小設計水平總橫力 Vh 2.47tf 水平係數 Vh / W 0.3807W 最小設計垂直地震力 Vv 1.65tf 垂直係數 Vv / W 0.2538W 採用公式 式(5-2) R / αy 2 / 1 高度上限 不限 第五章 — 招牌及廣告版 地震力計算 ① 工址係數 SDS = 0.7776 g， SD1 = 0.6552 g， SMS = 0.9000 g， SM1 = 0.7700 g ToD = 0.8426 sec， ToM = 0.8556 sec ② 週期與韌性 T = 0.080 sec， R = 2， Ra = 1.67 Fu = 1.2504， FuM = 1.3423 SaD = 0.5325 g， SaM = 0.6125 g ③ 5.4 非相似於建築結構：最小設計水平總橫力 T = 0.080 sec ≥ 0.06 sec，採式(5-2)。 SaD/Fu = 0.5325 / 1.2504 = 0.4259 (SaD/Fu)m = 0.3655 水平係數 Ch = [1.25/(1.2×1)] × 0.3655 = 0.3807 主公式 Vh = ChW = 0.3807W = 0.3807 × 6.5 = 2.47 tf 採用 Vh = 2.47 tf (式(5-2)) ④ 5.4 非相似於建築結構：最小設計垂直地震力 垂直係數 Cv = 2/3 × Ch = 0.2538 Vv = 2/3 × Vh = CvW = 0.2538W = 0.2538 × 6.5 = 1.65 tf"
+          },
+          "expectedTextNeedles": [
+            "第五章 5.4 招牌及廣告版",
+            "T = 0.080 sec ≥ 0.06 sec，採式(5-2)。",
+            "Vv = 2/3 × Vh"
+          ],
+          "expectedMetrics": {
+            "lastMiscResult.Vh": {
+              "value": 2.4744380919028184,
+              "tolerance": 1e-12
+            },
+            "lastMiscResult.VhCoeff": {
+              "value": 0.3806827833696644,
+              "tolerance": 1e-12
+            },
+            "lastMiscResult.Vv": {
+              "value": 1.6496253946018788,
+              "tolerance": 1e-12
+            },
+            "lastMiscResult.VvCoeff": {
+              "value": 0.2537885222464429,
+              "tolerance": 1e-12
+            },
+            "lastMiscResult.site.SDS": {
+              "value": 0.7776000000000001,
+              "tolerance": 1e-12
+            },
+            "lastMiscResult.ratio_m": {
+              "value": 0.36545547203487777,
+              "tolerance": 1e-12
+            }
           }
         }
       ],
@@ -771,15 +1938,24 @@
       "exportButton": "btnExportCaseJson",
       "importButton": "btnImportCaseJson",
       "jsonRoundTrip": true,
-      "reportMode": false,
-      "diagramSelector": null,
-      "diagramRoleNeedles": [],
-      "reportNeedles": ["反應譜", "總橫力調整", "動力分析"],
+      "reportMode": true,
+      "diagramSelector": "#dynamicSpectrumChart",
+      "diagramRoleNeedles": [
+        "dynamic-spectrum-chart"
+      ],
+      "reportNeedles": [
+        "反應譜",
+        "總橫力調整",
+        "動力分析"
+      ],
       "goldenCases": [
         {
           "id": "default-response-spectrum-summary",
           "description": "預設反應譜動力分析摘要案例，鎖定第 3.3 節總橫力調整比與第 3.2 節反應譜摘要。",
-          "clearLocalStorageKeys": ["seismic-static-summary", "seismic-dynamic-summary"],
+          "clearLocalStorageKeys": [
+            "seismic-static-summary",
+            "seismic-dynamic-summary"
+          ],
           "inputs": {
             "zoneCity": "",
             "zoneDist": "",
@@ -830,28 +2006,194 @@
             "printModelCheckSection": true,
             "modelCheckNote": ""
           },
-          "expectedTextNeedles": ["X 向動力 / 調整要求 = 0.46", "Y 向動力 / 調整要求 = 0.43", "X 向總橫力調整要求388.89 tf", "Y 向總橫力調整要求392.86 tf", "SDS / SD10.660 / 0.490 g", "T1 採用設計輸入譜0.1735 g", "中小度下限控制比例0%", "X 向動力基底剪力小於第 3.3 節總橫力調整要求，比值 = 0.46"],
+          "expectedTextNeedles": [
+            "X 向動力 / 調整要求 = 0.46",
+            "Y 向動力 / 調整要求 = 0.43",
+            "X 向總橫力調整要求388.89 tf",
+            "Y 向總橫力調整要求392.86 tf",
+            "SDS / SD10.660 / 0.490 g",
+            "T1 採用設計輸入譜0.1735 g",
+            "中小度下限控制比例0%",
+            "X 向動力基底剪力小於第 3.3 節總橫力調整要求，比值 = 0.46"
+          ],
           "expectedMetrics": {
-            "lastDynamicResult.result.x.ratio": { "value": 0.462857142857143, "tolerance": 1e-12 },
-            "lastDynamicResult.result.y.ratio": { "value": 0.43272727272727274, "tolerance": 1e-12 },
-            "lastDynamicResult.result.x.staticRef": { "value": 388.88888888888874, "tolerance": 1e-9 },
-            "lastDynamicResult.result.y.staticRef": { "value": 392.85714285714283, "tolerance": 1e-9 },
-            "lastDynamicResult.result.site.SDS": { "value": 0.66, "tolerance": 1e-12 },
-            "lastDynamicResult.result.responseSpectrum.summary.t1.designAccel": { "value": 0.173481854197383, "tolerance": 1e-12 },
-            "lastDynamicResult.result.responseSpectrum.summary.lowerControlShare": { "value": 0, "tolerance": 1e-12 }
+            "lastDynamicResult.result.x.ratio": {
+              "value": 0.462857142857143,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.y.ratio": {
+              "value": 0.43272727272727274,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.x.staticRef": {
+              "value": 388.88888888888874,
+              "tolerance": 1e-9
+            },
+            "lastDynamicResult.result.y.staticRef": {
+              "value": 392.85714285714283,
+              "tolerance": 1e-9
+            },
+            "lastDynamicResult.result.site.SDS": {
+              "value": 0.66,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.responseSpectrum.summary.t1.designAccel": {
+              "value": 0.173481854197383,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.responseSpectrum.summary.lowerControlShare": {
+              "value": 0,
+              "tolerance": 1e-12
+            }
+          }
+        },
+        {
+          "id": "direct-spectrum-90-percent-lower-bound",
+          "description": "直接採用輸入譜值、規則建築 90% 總橫力調整與中小度下限譜局部控制之反應譜動力分析案例。",
+          "clearLocalStorageKeys": [
+            "seismic-static-summary",
+            "seismic-dynamic-summary"
+          ],
+          "inputs": {
+            "zoneCity": "",
+            "zoneDist": "",
+            "SsD": "0.55",
+            "S1D": "0.32",
+            "SsM": "0.80",
+            "S1M": "0.50",
+            "siteInputMode": "direct",
+            "SsDLower": "0.70",
+            "S1DLower": "0.45",
+            "siteClass": "3",
+            "impClass": "III",
+            "sysX": "DUAL",
+            "sysY": "SHEAR_RC",
+            "hn": "32",
+            "W": "3200",
+            "software": "ETABS",
+            "remark": "direct spectrum 90 percent test",
+            "Tx": "1.10",
+            "Ty": "0.85",
+            "VxDyn": "280",
+            "VyDyn": "260",
+            "VxAdopted": "430",
+            "VyAdopted": "420",
+            "codeT1": "0.95",
+            "codeDamping": "5",
+            "codeR": "3",
+            "codeRa": "2.3333",
+            "codeAlphaY": "1",
+            "codeBS": "1",
+            "codeB1": "1",
+            "baseShearFloorRatio": "0.9",
+            "spectrumExportTarget": "Generic",
+            "spectrumExportName": "DIRECT_RSA_90",
+            "spectrumPlotRangeMode": "2",
+            "spectrumPlotTmaxCustom": "",
+            "spectrumExportTmax": "3",
+            "modelModeCount": "18",
+            "modalCombination": "SRSS",
+            "massParticipationX": "88",
+            "massParticipationY": "91",
+            "massParticipationRz": "86",
+            "checkMassParticipation": false,
+            "checkModalCombination": true,
+            "checkAccidentalTorsion": true,
+            "checkStoryShearScale": true,
+            "checkDirectionAngle": false,
+            "printModelCheckSection": true,
+            "modelCheckNote": "第二案例：直接輸入譜與90%底剪調整。"
+          },
+          "expectedSelectors": {
+            "#dynamicSpectrumLegend": "圖中依工址條件繪出設計地震反應譜、最大考量地震反應譜，以及依規範第 3.2 節換算之分析輸入譜；中小度下限譜以灰色虛線表示，用來判斷採用設計輸入譜是否由下限控制。圖表週期上限 Tplot = 2.0 sec，匯出週期上限 Texport = 3.0 sec。X 向主模態週期 Tx = 1.100 sec，對應 SaD = 0.291 g；Y 向主模態週期 Ty = 0.850 sec，對應 SaD = 0.376 g。",
+            "#modelCheckPanel": "有效質量和X=88.0%，Y=91.0%，Rz=86.0%，模態數=18 待確認 振態疊加方法採用 SRSS；週期相近時宜確認 CQC，週期不甚相近可採 SRSS。 已確認 扭轉偶然偏心確認模型或載重組合是否已納入案件要求之偶然偏心。 已納入 樓層剪力縮放確認樓層剪力、構件內力與設計輸出是否已依總橫力調整後採用。 已確認 地震輸入方向不規則建築物宜確認多角度輸入或方向組合是否符合案件設定。 待確認 備註：第二案例：直接輸入譜與90%底剪調整。"
+          },
+          "expectedTextNeedles": [
+            "動力分析摘要已整理 X 向動力 / 調整要求 = 1.12 ｜ Y 向動力 / 調整要求 = 0.77",
+            "第 3.3 節調整比例90%",
+            "設計譜值來源直接採用輸入譜值",
+            "中小度下限控制比例34%"
+          ],
+          "expectedMetrics": {
+            "lastDynamicResult.result.x.ratio": {
+              "value": 1.1229166666666668,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.y.ratio": {
+              "value": 0.7734999999999999,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.x.staticRef": {
+              "value": 249.35064935064935,
+              "tolerance": 1e-9
+            },
+            "lastDynamicResult.result.y.staticRef": {
+              "value": 336.13445378151266,
+              "tolerance": 1e-9
+            },
+            "lastDynamicResult.result.site.SDS": {
+              "value": 0.55,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.responseSpectrum.summary.t1.designAccel": {
+              "value": 0.14097744360902253,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.responseSpectrum.summary.lowerControlShare": {
+              "value": 0.33663366336633666,
+              "tolerance": 1e-12
+            },
+            "lastDynamicResult.result.baseShearFloorRatio": {
+              "value": 0.9,
+              "tolerance": 1e-12
+            }
           }
         }
       ],
       "capabilities": {
         "cleanRoute": true,
         "report": true,
-        "reportModes": false,
+        "reportModes": true,
         "jsonExport": true,
         "jsonImport": true,
         "browserSmoke": true,
         "reportRegression": true,
-        "diagramGeometry": false,
+        "diagramGeometry": true,
         "coreRegression": true
+      },
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "reportExpectations": {
+        "simple": {
+          "mustInclude": [
+            "第 3.3 節總橫力調整檢核",
+            "工址與設計譜參考",
+            "計算書模式"
+          ],
+          "mustExclude": [
+            "第 3.2 節反應譜輸出表",
+            "反應譜圖形化檢核",
+            "動力模型檢核表"
+          ]
+        },
+        "detail": {
+          "mustInclude": [
+            "第 3.2 節反應譜輸出表",
+            "反應譜圖形化檢核",
+            "動力模型檢核表"
+          ],
+          "mustExclude": [
+            "工具內建",
+            "專業版"
+          ]
+        }
+      },
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
       }
     }
   ]

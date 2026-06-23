@@ -17,6 +17,36 @@
  * checks[].formula 顯示原式, sub 顯示代入值, value 顯示計算結果
  */
 
+function showReportIssue(message) {
+  if (typeof document === 'undefined' || !document.body) {
+    if (typeof console !== 'undefined' && console.warn) console.warn(message);
+    return;
+  }
+  let status = document.getElementById('sharedReportStatus');
+  if (!status) {
+    status = document.createElement('div');
+    status.id = 'sharedReportStatus';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.style.cssText = [
+      'position:fixed',
+      'right:18px',
+      'bottom:18px',
+      'z-index:9999',
+      'max-width:min(420px, calc(100vw - 36px))',
+      'padding:10px 12px',
+      'border:1px solid #f59e0b',
+      'border-radius:6px',
+      'background:#fffbeb',
+      'color:#7c2d12',
+      'font:13px/1.5 "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif',
+      'box-shadow:0 8px 24px rgba(15, 23, 42, .16)',
+    ].join(';');
+    document.body.appendChild(status);
+  }
+  status.textContent = message;
+}
+
 function openReport(cfg) {
   const today = new Date();
   const todayStr = today.getFullYear() + '/' +
@@ -224,6 +254,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-toolbar button { background:#1a3d5c; color:#fff; border:0; padding:8px 18px;
                       font-size:13px; border-radius:4px; cursor:pointer; margin-left:6px; }
 .rep-toolbar button:hover { background:#27567c; }
+.rep-window-status { display:block; margin-top:8px; color:#7c2d12; font-size:12px; line-height:1.45; min-height:18px; }
 .rep-footer { position:fixed; right:14mm; bottom:8mm;
               font-size:10px; color:#666; text-align:right; }
 @media (max-width: 600px) {
@@ -242,7 +273,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 <body>
 <div class="rep-toolbar">
   <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
-  <button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button>
+  <button onclick="closeReportWindow()">✕ 關閉</button>
+  <span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span>
 </div>
 <div class="rep-paper">
   <div class="rep-header">
@@ -270,11 +302,29 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </div>
+<script>
+function showReportWindowStatus(message) {
+  var status = document.getElementById('repWindowStatus');
+  if (status) status.textContent = message;
+}
+function closeReportWindow() {
+  try { window.close(); } catch (e) {}
+  try { window.open('', '_self', ''); window.close(); } catch (e) {}
+  setTimeout(function() {
+    if (!window.closed) {
+      showReportWindowStatus('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W 或 Command+W 關閉分頁。');
+    }
+  }, 150);
+}
+</script>
 </body>
 </html>`;
 
   const w = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
-  if (!w) { alert('請允許彈出視窗以開啟計算書'); return; }
+  if (!w) {
+    showReportIssue('請允許彈出視窗以開啟計算書。');
+    return;
+  }
   w.document.open(); w.document.write(html); w.document.close();
 }
 

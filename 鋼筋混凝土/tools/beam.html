@@ -66,6 +66,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>梁設計 — RC 工具箱 V3.0</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/style.css">
 <style>
   .steps-card h2 { color:#5b21b6; }
@@ -2109,7 +2110,7 @@
       AsBot, AsTop, AsReqPos, AsReqNeg, AsFlexReqPos, AsFlexReqNeg, rhoPos, rhoNeg, rhoMax, AsMinPos, AsMinNeg,
       AvProvidedPerS, AvMinPerS,
       torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, torsionDesignStatus, enableTorsion, enableDefl, seismic, developmentData,
-      okMnQuarter, okFirstHoop
+      okMnQuarter, hasMnQuarterInput, okFirstHoop, hasFirstHoopInput
     };
     updateBanner(bannerData);
 
@@ -2456,6 +2457,33 @@ ${layerBars.map(L => {
     ];
   }
 
+  function collectBeamManualReviewItems(r) {
+    const items = [];
+    if (r.developmentData) {
+      if (!r.developmentData.hasCompleteAnchorageInput || r.developmentData.developmentManualReview) items.push('梁端錨定');
+      if (r.developmentData.lapManualReview) items.push('搭接 / 施工圖');
+    }
+    if (r.enableTorsion && r.torsionNeedsDesign && r.torsionDetailOk == null) items.push('扭力鋼筋詳算');
+    if (r.enableDefl && r.deflManualReview) items.push('嚴謹撓度計算');
+    if (r.okCrackSpacing == null) items.push('主筋裂縫控制間距');
+    if (r.seismic && !r.hasMnQuarterInput) items.push('SMRF 跨內 Mn 比對');
+    if (r.seismic && !r.hasFirstHoopInput) items.push('首支箍筋位置');
+    return [...new Set(items)];
+  }
+
+  function describeBeamManualReviewItem(item) {
+    const map = {
+      '梁端錨定': '需輸入兩端可用直線錨定長度；若採彎鉤、機械錨定或其他端部構造，應依配筋圖、產品資料或專案文件確認。',
+      '搭接 / 施工圖': '需提供實際搭接長度與位置；SMRF 梁另須確認搭接避開距柱面 2h 內塑鉸區並配置圍束。',
+      '扭力鋼筋詳算': 'Tu 超過可忽略門檻時，需補充規範 22.7 扭力詳算結論與 At/s、Al 配筋資料。',
+      '嚴謹撓度計算': '跨深比未滿足免算條件或連接易損構造時，須以 Bischoff Ie 或專案指定方法完成撓度檢核。',
+      '主筋裂縫控制間距': '主筋中心間距、保護層或使用應力資訊不足時，須依規範 24.3.2 與專案暴露條件確認裂縫控制。',
+      'SMRF 跨內 Mn 比對': '需輸入跨內最小標稱彎矩 Mn,min，以確認跨內任一斷面強度不小於兩端最大標稱彎矩之 1/4。',
+      '首支箍筋位置': '需輸入第一支箍筋距柱面距離，以確認梁端塑鉸區首支箍筋位置符合 18.3.4 要求。'
+    };
+    return map[item] || '需補充專案文件或配筋圖確認後，方可作為完整檢核結論。';
+  }
+
   // === 計算書產生 ===
   function buildBeamReport() {
     // 永遠先以最新輸入跑一次計算，確保 beamLast 與 DOM 同步
@@ -2720,18 +2748,22 @@ ${layerBars.map(L => {
       { group:'握裹 / 搭接長度 (規範 25 章)', items: buildDevelopmentReportItems(r) }
     ];
 
+    const manualReviewItems = collectBeamManualReviewItems(r);
+    const pendingManualReview = manualReviewItems.length > 0;
+    if (pendingManualReview) {
+      checks.push(RCUI.buildReviewCheckGroup(manualReviewItems.map(item => ({
+        sub:describeBeamManualReviewItem(item),
+        value:item
+      })), {
+        group:'人工複核 / 補充資料需求',
+        labelPrefix:'人工複核項目',
+        formula:'不列為 OK 結論；補齊資料後方可作為完整檢核',
+        unit:'需補充資料確認'
+      }));
+    }
     const allChecks = checks.flatMap(g => g.items.map(i => i.ok)).filter(v => v===true||v===false);
     const allOk = allChecks.length>0 && allChecks.every(v => v===true);
     const anyFail = allChecks.some(v => v===false);
-    const manualReviewItems = [];
-    if (r.developmentData && (!r.developmentData.hasCompleteAnchorageInput || r.developmentData.developmentManualReview)) manualReviewItems.push('梁端錨定');
-    if (r.developmentData?.lapManualReview) manualReviewItems.push('搭接 / 施工圖');
-    if (r.enableTorsion && r.torsionNeedsDesign && r.torsionDetailOk == null) manualReviewItems.push('扭力鋼筋詳算');
-    if (r.enableDefl && r.deflManualReview) manualReviewItems.push('嚴謹撓度計算');
-    if (r.okCrackSpacing == null) manualReviewItems.push('主筋裂縫控制間距');
-    if (r.seismic && !r.hasMnQuarterInput) manualReviewItems.push('SMRF 跨內 Mn 比對');
-    if (r.seismic && !r.hasFirstHoopInput) manualReviewItems.push('首支箍筋位置');
-    const pendingManualReview = manualReviewItems.length > 0;
     const reportSummaryOk = anyFail ? false : (pendingManualReview ? null : (allOk ? true : null));
     const reportSummaryText = anyFail ? '✗ NG — 不符合規範' : (pendingManualReview ? `⚠ 部分項目需人工複核：${manualReviewItems.join('、')}` : (allOk ? '✓ OK — 符合規範' : '部分檢核未完成'));
 
@@ -2840,6 +2872,7 @@ ${layerBars.map(L => {
     const key = $('bannerKey');
     let checks = [];
     let kv = [];
+    const manualReviewItems = collectBeamManualReviewItems(r);
     const kfmt = (label, val, unit, ok) => ({ label, val: `${Number(val).toFixed(2)} ${unit||''}`, ok });
 
     if (tab === 'geom') {
@@ -2938,12 +2971,16 @@ ${layerBars.map(L => {
       if (r.seismic) kv.push({ label:'Vd', val:`${(r.shearDemand/1000).toFixed(2)} tf (${r.shearDemandSource})`, ok:r.okShear });
     }
 
-    const allOk = checks.length > 0 && checks.every(c => c[1] === true);
-    const anyFail = checks.some(c => c[1] === false);
+    const pendingManualReview = tab === 'summary' && manualReviewItems.length > 0;
+    const bannerChecks = pendingManualReview
+      ? [...checks, [`人工複核：${manualReviewItems.join('、')}`, null]]
+      : checks;
+    const allOk = bannerChecks.length > 0 && bannerChecks.every(c => c[1] === true);
+    const anyFail = bannerChecks.some(c => c[1] === false);
     banner.className = 'banner-status ' + (anyFail ? 'fail' : allOk ? 'ok' : 'warn');
     const icon = anyFail ? '✗' : allOk ? '✓' : '⚠';
-    const txt = anyFail ? 'NG — 不符合規範' : allOk ? 'OK — 符合規範' : '部分項目待檢核';
-    banner.innerHTML = `${icon} ${txt}` + (checks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
+    const txt = anyFail ? 'NG — 不符合規範' : pendingManualReview ? `部分項目需人工複核：${manualReviewItems.join('、')}` : allOk ? 'OK — 符合規範' : '部分項目待檢核';
+    banner.innerHTML = `${icon} ${txt}` + (bannerChecks.length ? `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${bannerChecks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>` : '');
     key.innerHTML = kv.map(item => {
       const cls = item.ok === true ? 'ok' : item.ok === false ? 'fail' : '';
       return `<div class="k ${cls}"><span class="k-label">${item.label}</span><span class="k-val">${item.val}</span></div>`;

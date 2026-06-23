@@ -41,7 +41,26 @@
     external: { label: '外部套件', tone: 'external', summary: '外部或獨立套件，送審前需回正式工具與專案流程確認。' }
   };
 
-  const HOME_DATA_UPDATED = '2026-05-21';
+  const stateBoundaryRules = {
+    assist: { limitAny: ['不取代', '仍應回正式', '不是完整'], forbiddenCapabilities: ['正式核算'] },
+    reference: { limitAny: ['不取代', '不處理', '仍需回', '需由', '支持'], forbiddenCapabilities: ['正式核算'] },
+    workflow: { limitAny: ['需專案判斷', '另行', '特殊'], forbiddenCapabilities: ['正式核算'] },
+    estimate: { limitAny: ['初步', '後續', '需回', '簡化'], forbiddenCapabilities: ['正式核算'] },
+    report: { limitAny: ['不是', '不取代', '由案件'], forbiddenCapabilities: ['正式核算'] },
+    service: { limitAny: ['需先啟動', '本機'], forbiddenCapabilities: ['正式核算'] },
+    legacy: { limitAny: ['尚未完全', '建議逐步'], requiredCapabilities: ['舊版保留'], forbiddenCapabilities: ['正式核算'] },
+    external: { limitAny: ['外部', '送審前'], forbiddenCapabilities: ['正式核算'] }
+  };
+
+  const governanceSources = {
+    'rc-audit': { label: 'RC audit', preflightKeys: ['rc-audit-status'] },
+    'steel-audit': { label: 'Steel audit', preflightKeys: ['steel-audit-status'] },
+    'anchor-deployment': { label: 'Anchor deployment', preflightKeys: ['anchor-verify', 'anchor-route'] },
+    'stone-v2': { label: 'Stone V2', preflightKeys: ['stone-feedback-contract', 'stone-self-check', 'stone-quick-check'] },
+    'decking-contract': { label: 'Decking contract', preflightKeys: ['decking-tools-contract'] }
+  };
+
+  const HOME_DATA_UPDATED = '2026-06-21';
 
   const tools = [
     {
@@ -111,6 +130,7 @@
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
+      governance: 'rc-audit',
       output: 'RC 梁檢核摘要與計算書',
       summary: '撓曲、剪力、扭力、撓度與特殊抗彎矩構架耐震檢核。',
       fit: 'RC 梁構件正式檢核。',
@@ -124,6 +144,7 @@
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
+      governance: 'rc-audit',
       output: 'P-M 互制圖、圍束與柱構件檢核摘要',
       summary: 'P-M 互制圖、軸壓上限、橫向圍束與強柱弱梁檢核。',
       fit: 'RC 柱構件正式檢核。',
@@ -137,6 +158,7 @@
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
+      governance: 'rc-audit',
       output: 'RC 板設計、配筋與檢核摘要',
       summary: '連續板係數法、直接設計法與自動配筋。',
       fit: '常規 RC 板設計與配筋檢核。',
@@ -150,6 +172,7 @@
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
+      governance: 'rc-audit',
       output: 'RC 牆厚度、邊界構材與耐震檢核摘要',
       summary: '承重牆、結構牆厚度、簡易軸力公式與特殊結構牆邊界構材。',
       fit: 'RC 牆構件檢核與局部設計。',
@@ -158,13 +181,14 @@
     },
     {
       title: 'RC 剪力牆',
-      version: 'V0.2',
+      version: 'V0.3',
       href: '/rc-shear-wall',
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
+      governance: 'rc-audit',
       output: '面內 P-M 互制、面內剪力與特殊邊界構材檢核摘要',
-      summary: '結構牆面內撓曲 P-M 互制 (應變相容纖維法)、面內剪力 (φ 0.60/0.75 判定) 與特殊邊界構材含圍束筋 Ash，依 112 規範第 11 與 18.10 章。',
+      summary: '結構牆面內撓曲 P-M 互制 (應變相容纖維法)、18.7.3 設計剪力、面內剪力 (φ 0.60/0.75 判定) 與特殊邊界構材含圍束筋 Ash，依 112 規範第 11 與 18.7 章。',
       fit: '剪力牆面內撓曲與剪力正式檢核。',
       limit: '連肢牆、連接梁與整體耐震牆系統需完整模型分析。',
       capabilities: ['正式核算', 'P-M 互制', '耐震構件']
@@ -176,6 +200,7 @@
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
+      governance: 'rc-audit',
       output: '基礎剪力、撓曲、配筋與檢核摘要',
       summary: '獨立、聯合、筏式、樁基與擋土牆基礎，含單向雙向剪力、撓曲、設計與檢核。',
       fit: '正式基礎配筋與強度檢核。',
@@ -189,6 +214,7 @@
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
+      governance: 'rc-audit',
       output: '單樁承載力、沉陷與抗拔檢核摘要',
       summary: '樁軸向承載力、沉陷檢核與抗拔安全係數，對齊 112 年基礎構造設計規範。',
       fit: '單樁軸向與抗拔檢核。',
@@ -202,6 +228,7 @@
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
+      governance: 'rc-audit',
       output: '補強斷面、P-M 互制與剪力檢核摘要',
       summary: '梁柱補強、鋼板、CFRP、P-M 互制與剪力檢核，對齊 112 規範與 ACI 440.2R-17。',
       fit: '補強斷面評估與送審前整理。',
@@ -215,6 +242,7 @@
       categories: ['member'],
       memberSystem: 'steel',
       state: 'formal',
+      governance: 'steel-audit',
       output: '鋼構正式子工具入口與審查摘要',
       summary: '連接板、拉力構件、鋼梁正式頁與鋼柱正式頁，整合審查摘要、流程與參數詞典。',
       fit: '鋼構構件與接合正式核算主入口。',
@@ -224,10 +252,11 @@
     {
       title: '鋼梁正式頁',
       version: '新版',
-      href: '/鋼構工具/steel-beam-formal.html',
+      href: '/steel-beam-formal',
       categories: ['member'],
       memberSystem: 'steel',
       state: 'formal',
+      governance: 'steel-audit',
       output: '鋼梁正式檢核、流程與報表',
       summary: '保留既有鋼梁檢算核心，補上左輸入、右報表、計算流程與參數詞典。',
       fit: '鋼梁正式檢核。',
@@ -237,10 +266,11 @@
     {
       title: '鋼柱正式頁',
       version: '新版',
-      href: '/鋼構工具/steel-column-formal.html',
+      href: '/steel-column-formal',
       categories: ['member'],
       memberSystem: 'steel',
       state: 'formal',
+      governance: 'steel-audit',
       output: '鋼柱正式檢核、流程與報表',
       summary: '保留既有鋼柱檢算核心，補上正式頁面與報表流程。',
       fit: '鋼柱軸力、彎矩與穩定檢核。',
@@ -253,6 +283,7 @@
       href: '/steel-plate',
       categories: ['attachments'],
       state: 'formal',
+      governance: 'steel-audit',
       output: '連接板降伏、斷裂與區塊剪力檢核摘要',
       summary: '矩形連接板全斷面降伏、有效淨斷面斷裂與區塊剪力破壞檢核。',
       fit: '鋼構連接板正式檢核。',
@@ -288,7 +319,7 @@
     {
       title: '耐風案件總覽',
       version: 'V1',
-      href: '/結構工具箱/tools/風力/wind-overview.html',
+      href: '/wind-overview',
       categories: ['wind'],
       state: 'workflow',
       output: '耐風案件參數摘要與子工具入口',
@@ -300,7 +331,7 @@
     {
       title: 'Kzt 地形係數',
       version: 'V1',
-      href: '/結構工具箱/tools/風力/wind-kzt.html',
+      href: '/wind-kzt',
       categories: ['wind'],
       state: 'reference',
       output: 'K1、K2、K3 與 Kzt 係數',
@@ -308,6 +339,18 @@
       fit: '耐風參數查詢與回填。',
       limit: '不取代完整耐風設計流程。',
       capabilities: ['輔助查詢', '耐風']
+    },
+    {
+      title: '特殊修正 / 折減',
+      version: 'V3',
+      href: '/wind-special',
+      categories: ['wind'],
+      state: 'reference',
+      output: '遮蔽折減、透氣外牆折減、採用依據與整理結果',
+      summary: '整理遮蔽折減、透氣外牆折減與風洞 / 專案文件指定修正。',
+      fit: '特殊耐風修正依據彙整與送審前檢核。',
+      limit: '修正值需由規範解說、風洞報告、專案文件或設計判斷支持。',
+      capabilities: ['輔助查詢', '耐風', '專案依據']
     },
     {
       title: '矩形建物 MWFRS',
@@ -443,7 +486,7 @@
     },
     {
       title: '動力分析摘要',
-      version: 'V3.1',
+      version: 'V3.8',
       href: '/seismic-dynamic',
       categories: ['seismic'],
       state: 'report',
@@ -455,7 +498,7 @@
     },
     {
       title: '附屬構造物地震力',
-      version: 'V1',
+      version: 'V2.5',
       href: '/seismic-appendage',
       categories: ['seismic'],
       state: 'formal',
@@ -467,7 +510,7 @@
     },
     {
       title: '雜項工作物地震力',
-      version: 'V3',
+      version: 'V3.3',
       href: '/seismic-misc',
       categories: ['seismic'],
       state: 'formal',
@@ -483,6 +526,7 @@
       href: '/anchor',
       categories: ['attachments'],
       state: 'formal',
+      governance: 'anchor-deployment',
       output: '錨栓破壞模式、互制與 HTML/xlsx 摘要',
       summary: '規範第 17 章錨栓鋼材、混凝土破壞、拉拔、剪力、互制與耐震路徑。',
       fit: '設備基座、底板錨栓與產品比選。',
@@ -491,10 +535,11 @@
     },
     {
       title: '石材固定構件計算書',
-      version: 'V2.9',
+      version: 'V3.0.2',
       href: '/石材固定/石材計算書產生器_規範版V2.html',
       categories: ['attachments'],
       state: 'formal',
+      governance: 'stone-v2',
       output: '石材固定計算書、Word/PDF 與治理指紋',
       summary: '外牆石材固定構件檢核與計算書產生器，含治理指紋、稽核比對與 Word/PDF 匯出。',
       fit: '石材固定送審計算書。',
@@ -543,6 +588,7 @@
       href: '/覆工板/index.html',
       categories: ['temporary'],
       state: 'formal',
+      governance: 'decking-contract',
       output: '覆工板系統構件檢核與 Word 報表',
       summary: '覆工板面、小梁、大梁、共構柱、握裹與樁基承載檢核。',
       fit: '施工覆工板計算書。',
@@ -575,6 +621,8 @@
     '/section': '../index.html',
     '/steel-formal': '../鋼構工具/index.html',
     '/steel-plate': '../鋼構工具/plate-check.html',
+    '/steel-beam-formal': '../鋼構工具/steel-beam-formal.html',
+    '/steel-column-formal': '../鋼構工具/steel-column-formal.html',
     '/steel-beam': 'tools/鋼構/steel-beam.html',
     '/steel-column': 'tools/鋼構/steel-column.html',
     '/rc': '../鋼筋混凝土/index.html',
@@ -585,6 +633,8 @@
     '/rc-shear-wall': '../鋼筋混凝土/tools/shear-wall.html',
     '/rc-foundation': '../鋼筋混凝土/tools/foundation.html',
     '/rc-pile': '../鋼筋混凝土/tools/single-pile-designer.html',
+    '/wind-overview': 'tools/風力/wind-overview.html',
+    '/wind-kzt': 'tools/風力/wind-kzt.html',
     '/wind-force': 'tools/風力/wind-force.html',
     '/wind-cc': 'tools/風力/wind-cc.html',
     '/wind-open-roof': 'tools/風力/wind-open-roof.html',
@@ -595,6 +645,7 @@
     '/wind-object-tower': 'tools/風力/wind-object-tower.html',
     '/wind-fence-sign': 'tools/風力/wind-fence-sign.html',
     '/wind-sign-pole': 'tools/風力/wind-sign-pole.html',
+    '/wind-special': 'tools/風力/wind-special.html',
     '/seismic-force': 'tools/地震力/seismic-force.html',
     '/seismic-dynamic': 'tools/地震力/seismic-dynamic.html',
     '/seismic-appendage': 'tools/地震力/seismic-appendage.html',

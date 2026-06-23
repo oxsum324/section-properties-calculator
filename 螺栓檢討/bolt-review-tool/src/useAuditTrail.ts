@@ -14,6 +14,7 @@ import {
 } from './calc'
 import { createProjectAuditEntry, formatAuditHash } from './evaluationAudit'
 import { auditSourceLabel, getGoverningDcr } from './formatHelpers'
+import type { RequestConfirm } from './confirmDialog'
 
 type BatchReviewResult = ReturnType<typeof evaluateProjectBatch>
 
@@ -49,6 +50,7 @@ export function useAuditTrail(deps: {
   commitProject: (project: ProjectCase) => void
   patchProject: (patch: Partial<ProjectCase>) => void
   setSaveMessage: (message: string) => void
+  requestConfirm: RequestConfirm
 }) {
   const {
     project,
@@ -60,6 +62,7 @@ export function useAuditTrail(deps: {
     commitProject,
     patchProject,
     setSaveMessage,
+    requestConfirm,
   } = deps
 
   async function ensureProjectAudit(
@@ -118,15 +121,19 @@ export function useAuditTrail(deps: {
     )
   }
 
-  function deleteAuditEntry(entryId: string) {
+  async function deleteAuditEntry(entryId: string) {
     const trail = project.auditTrail ?? []
     const target = trail.find((entry) => entry.id === entryId)
     if (!target) {
       return
     }
-    const confirmed = window.confirm(
-      `確定刪除留痕「${formatAuditHash(target.hash)}」？此操作不可復原。`,
-    )
+    const confirmed = await requestConfirm({
+      title: '刪除留痕',
+      message: `確定刪除留痕「${formatAuditHash(target.hash)}」？此操作不可復原。`,
+      confirmLabel: '刪除',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!confirmed) {
       return
     }

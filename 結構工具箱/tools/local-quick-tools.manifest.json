@@ -25,7 +25,27 @@
       "calcFunction": "function calculateFoundationLocal",
       "coreGlobal": "FoundationLocalCore",
       "indexHref": "/foundation-local",
-      "boundaryPath": "結構工具箱/tools/foundation/"
+      "boundaryPath": "結構工具箱/tools/foundation/",
+      "jsonRoundTrip": true,
+      "reportMode": true,
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "diagramSelector": "#foundationDiagram",
+      "diagramRoleNeedles": [
+        "plan",
+        "pressure"
+      ],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": [
+        "不在本頁範圍",
+        "正式詳算"
+      ]
     },
     {
       "key": "equipment-load",
@@ -41,7 +61,27 @@
       "calcFunction": "function calculateEquipmentLoad",
       "coreGlobal": "EquipmentLoadCore",
       "indexHref": "/equipment-load",
-      "boundaryPath": "結構工具箱/tools/equipment/"
+      "boundaryPath": "結構工具箱/tools/equipment/",
+      "jsonRoundTrip": true,
+      "reportMode": true,
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "diagramSelector": "#equipmentDiagram",
+      "diagramRoleNeedles": [
+        "plan",
+        "elevation"
+      ],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": [
+        "不在本頁範圍",
+        "錨栓檢討工具"
+      ]
     },
     {
       "key": "earth-pressure",
@@ -57,7 +97,28 @@
       "calcFunction": "function calculateEarthPressure",
       "coreGlobal": "EarthPressureCore",
       "indexHref": "/earth-pressure",
-      "boundaryPath": "結構工具箱/tools/earth/"
+      "boundaryPath": "結構工具箱/tools/earth/",
+      "jsonRoundTrip": true,
+      "reportMode": true,
+      "reportModeControls": {
+        "selectId": "reportMode",
+        "simpleValue": "summary",
+        "detailValue": "detailed"
+      },
+      "diagramSelector": "#diagramBody svg.pressure-diagram",
+      "diagramRoleNeedles": [
+        "pressure-diagram",
+        "earth-pressure-arrow",
+        "base-reaction"
+      ],
+      "diagramChecks": {
+        "roleBoxesNonZero": true,
+        "rolesInsideDiagram": true
+      },
+      "reportNeedles": [
+        "不在本頁範圍",
+        "正式詳算"
+      ]
     }
   ]
 }

@@ -69,7 +69,7 @@
 <body>
 <header>
   <h1>建築物耐風設計 — 招牌 / 燈桿組合風力 <span class="badge-v">V1.0</span></h1>
-  <p>面板採表 2.10；支撐構件依型式採表 2.14 或表 2.13 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
+  <p>面板採表 2.10；支撐構件建型式採表 2.14 或表 2.13 ｜ 單位：m, kgf/m², kgf, kgf·m</p>
   <p style="margin-top:4px;"><a class="back" href="../../index.html">← 回主選單</a></p>
 </header>
 
@@ -824,7 +824,7 @@ function buildStepsHtml(r) {
     支撐分段 q(z) 範圍：<span class="val">${fmt(first.qz, 1)}</span> 至 <span class="val">${fmt(last.qz, 1)}</span> kgf/m²。
   ` : '';
   const supportBasis = r.input.supportType === 'pipe'
-    ? `支撐構件採表 2.14 繩、竿、管；表面分類為 <span class="val">${escHtml(r.support.basis.roughnessName || '')}</span>，各段依 D√q(z) 判定 C<sub>f</sub>。`
+    ? `支撐構件採表 2.14 繩、竿、管；表面分類為 <span class="val">${escHtml(r.support.basis.roughnessName || '')}</span>，各段建 D√q(z) 判定 C<sub>f</sub>。`
     : `支撐構件採表 2.13 角柱體；${escHtml(r.support.basis.shape?.name || '')}，細長比 h/b = <span class="val">${fmt(r.support.basis.rData?.slenderRatio, 2)}</span>，R = <span class="val">${fmt(r.support.basis.rData?.r, 2)}</span>。`;
   return `
     <div class="step">
@@ -1100,7 +1100,7 @@ body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,s
 <main class="rep-paper">
   <div class="rep-header">
     <h1>招牌 / 燈桿組合風力計算書</h1>
-    <div class="sub">建築物耐風設計｜表 2.10 + 表 2.14 / 表 2.13 元件組合｜${TOOL_VERSION}｜${includeDetail ? '詳算式' : '簡易結果'}</div>
+    <div class="sub">依建築物耐風設計規範及解說 107 年版｜表 2.10 + 表 2.14 / 表 2.13 元件組合｜${TOOL_VERSION}｜${includeDetail ? '詳算式' : '簡易結果'}</div>
   </div>
   <div class="rep-meta">
     <div><b>計畫名稱</b>${escHtml(project.name) || '—'}</div>
@@ -1122,9 +1122,10 @@ function openSignPoleReport() {
   }
   const w = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
   if (!w) {
-    alert('請允許彈出視窗以開啟計算書');
+    setCaseStatus('計算書視窗已被瀏覽器封鎖，請允許本站彈出視窗後再試一次。', 'warn');
     return;
   }
+  setCaseStatus('');
   w.document.open();
   w.document.write(html);
   w.document.close();

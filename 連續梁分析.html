@@ -136,6 +136,14 @@
   .save-bar .btn { display: inline-flex; align-items: center; gap: 4px; }
   .save-bar .current-file { font-size: 0.82em; color: var(--text-light); margin-left: 8px; }
   .save-bar .current-file strong { color: var(--text); }
+  .save-bar .status-msg { flex-basis: 100%; }
+  .status-msg { display: none; border-radius: 8px; padding: 6px 10px; font-size: 0.82em; line-height: 1.45; }
+  .status-msg.ok { display: block; background: #ecfdf5; color: #047857; }
+  .status-msg.warn { display: block; background: #fffbeb; color: #92400e; }
+  .status-msg.error { display: block; background: #fef2f2; color: var(--danger); }
+  .status-msg .status-inline-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: 8px; vertical-align: middle; }
+  .status-msg .status-inline-actions .btn { margin: 2px 0; }
+  .modal-status { margin-top: 10px; }
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9999; justify-content: center; align-items: center; }
   .modal-overlay.active { display: flex; }
   .modal-box { background: var(--card); border-radius: 14px; padding: 24px; width: 94vw; max-width: 520px; max-height: 85vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
@@ -170,6 +178,7 @@
   <button class="btn btn-primary btn-sm" onclick="window._fbSave()">💾 儲存</button>
   <button class="btn btn-accent btn-sm" onclick="window._fbLoad()">📂 載入</button>
   <span class="current-file" id="currentFileLabel"></span>
+  <span class="status-msg" id="saveStatus" role="status" aria-live="polite"></span>
 </div>
 
 <!-- Save Modal -->
@@ -192,6 +201,7 @@
       <button class="btn btn-primary" onclick="window._fbDoSave()">確認儲存</button>
       <button class="btn" style="background:var(--border);" onclick="document.getElementById('saveModal').classList.remove('active')">取消</button>
     </div>
+    <div class="status-msg modal-status" id="saveModalStatus" role="status" aria-live="polite"></div>
   </div>
 </div>
 
@@ -202,6 +212,7 @@
     <ul class="load-list" id="loadList">
       <li class="empty-msg">讀取中...</li>
     </ul>
+    <div class="status-msg modal-status" id="loadModalStatus" role="status" aria-live="polite"></div>
     <div class="modal-actions">
       <button class="btn" style="background:var(--border);" onclick="document.getElementById('loadModal').classList.remove('active')">關閉</button>
     </div>
@@ -1553,6 +1564,40 @@ function showResults(sol, diag) {
 // ==================== MAIN ====================
 function showError(msg) { const el=document.getElementById('errorMsg'); el.textContent=msg; el.style.display=msg?'block':'none'; }
 
+function setInlineStatus(id, message, tone = 'warn') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = message || '';
+  const modalClass = id === 'saveModalStatus' || id === 'loadModalStatus' ? ' modal-status' : '';
+  el.className = `status-msg${message ? ` ${tone}` : ''}${modalClass}`;
+}
+
+function setInlineChoice(id, message, actions, tone = 'warn') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const modalClass = id === 'saveModalStatus' || id === 'loadModalStatus' ? ' modal-status' : '';
+  el.className = `status-msg ${tone}${modalClass}`;
+  el.textContent = '';
+  const text = document.createElement('span');
+  text.textContent = message || '';
+  el.appendChild(text);
+  const actionWrap = document.createElement('span');
+  actionWrap.className = 'status-inline-actions';
+  (actions || []).forEach(action => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `btn btn-sm ${action.className || ''}`.trim();
+    btn.textContent = action.label || '確定';
+    btn.addEventListener('click', action.onClick);
+    actionWrap.appendChild(btn);
+  });
+  el.appendChild(actionWrap);
+}
+
+window.setSaveStatus = (message, tone = 'warn') => setInlineStatus('saveStatus', message, tone);
+window.setSaveModalStatus = (message, tone = 'warn') => setInlineStatus('saveModalStatus', message, tone);
+window.setLoadModalStatus = (message, tone = 'warn') => setInlineStatus('loadModalStatus', message, tone);
+
 function validateModelInputs(mdl) {
   const u = getUnit();
   const E = parseFloat(document.getElementById('eVal').value);
@@ -1729,14 +1774,14 @@ function _materialAndSection() {
 function dispatchDesign(target) {
   if (!diagrams) { showError('請先執行分析'); return; }
   if (typeof ForcePicker === 'undefined') {
-    alert('找不到 ForcePicker 模組'); return;
+    showError('找不到 ForcePicker 模組'); return;
   }
   // 找路由
   const mat = _currentMatType();
   const routes = DESIGN_ROUTES[mat];
   const route = routes && Object.values(routes).find(r => r.target === target);
   if (!route || !route.url) {
-    alert(`${route?.label || target}　尚未實作`); return;
+    showError(`${route?.label || target} 尚未實作`); return;
   }
   const env = _envelopeForDesign();
   const { material, section } = _materialAndSection();
@@ -1783,8 +1828,8 @@ function exportJPG() {
 }
 
 function exportPDF() {
-  if (!diagrams) { alert('請先執行計算再產生計算書'); return; }
-  if (typeof openReport !== 'function') { alert('計算書模組尚未載入，請稍後再試或重新整理頁面'); return; }
+  if (!diagrams) { showError('請先執行計算再產生計算書'); return; }
+  if (typeof openReport !== 'function') { showError('計算書模組尚未載入，請稍後再試或重新整理頁面'); return; }
   const u = getUnit(), uk = getUnitKey(), n = model.numSpans;
   const suppMap = { pin:'鉸支', roller:'滾支', fixed:'固定端', free:'自由端' };
 
@@ -2035,6 +2080,8 @@ function todayStr() {
 
 // === Open Save Modal ===
 window._fbSave = function() {
+  window.setSaveStatus('');
+  window.setSaveModalStatus('');
   document.getElementById('saveDateInput').value = todayStr();
   document.getElementById('saveProjectInput').value = '';
   document.getElementById('saveNoteInput').value = '';
@@ -2046,7 +2093,8 @@ window._fbDoSave = async function() {
   const dateStr = document.getElementById('saveDateInput').value.trim() || todayStr();
   const project = document.getElementById('saveProjectInput').value.trim();
   const note = document.getElementById('saveNoteInput').value.trim();
-  if (!project) { alert('請輸入工程名稱'); return; }
+  if (!project) { window.setSaveModalStatus('請輸入工程名稱', 'error'); return; }
+  window.setSaveModalStatus('');
   const name = dateStr + '_' + project;
   const saveData = {
     name: name,
@@ -2057,46 +2105,65 @@ window._fbDoSave = async function() {
 
   try {
     if (currentSaveId) {
-      const choice = confirm('目前已載入「' + currentSaveName + '」\n\n按「確定」覆蓋此檔案\n按「取消」另存新檔');
-      if (choice) {
-        // overwrite
-        await updateDoc(doc(db, COLL, currentSaveId), {
-          ...saveData,
-          updated_at: serverTimestamp()
-        });
-        currentSaveName = name;
-        updateFileLabel();
-        alert('已覆蓋儲存：' + name);
-      } else {
-        // save as new
-        saveData.created_at = serverTimestamp();
-        saveData.updated_at = serverTimestamp();
-        const ref = await addDoc(collection(db, COLL), saveData);
-        currentSaveId = ref.id;
-        currentSaveName = name;
-        updateFileLabel();
-        alert('已另存新檔：' + name);
-      }
+      showSaveOverwriteChoice(saveData, name);
+      return;
     } else {
-      saveData.created_at = serverTimestamp();
-      saveData.updated_at = serverTimestamp();
-      const ref = await addDoc(collection(db, COLL), saveData);
-      currentSaveId = ref.id;
-      currentSaveName = name;
-      updateFileLabel();
-      alert('已儲存：' + name);
+      await runSaveAction(() => saveAsNewFile(saveData, name, '已儲存：'));
     }
-    document.getElementById('saveModal').classList.remove('active');
   } catch(e) {
-    alert('儲存失敗：' + e.message);
+    window.setSaveModalStatus('儲存失敗：' + e.message, 'error');
     console.error(e);
   }
 };
+
+async function runSaveAction(action) {
+  try {
+    window.setSaveModalStatus('');
+    await action();
+    document.getElementById('saveModal').classList.remove('active');
+  } catch(e) {
+    window.setSaveModalStatus('儲存失敗：' + e.message, 'error');
+    console.error(e);
+  }
+}
+
+async function overwriteCurrentFile(saveData, name) {
+  if (!currentSaveId) {
+    await saveAsNewFile(saveData, name, '已儲存：');
+    return;
+  }
+  await updateDoc(doc(db, COLL, currentSaveId), {
+    ...saveData,
+    updated_at: serverTimestamp()
+  });
+  currentSaveName = name;
+  updateFileLabel();
+  window.setSaveStatus('已覆蓋儲存：' + name, 'ok');
+}
+
+async function saveAsNewFile(saveData, name, statusPrefix) {
+  saveData.created_at = serverTimestamp();
+  saveData.updated_at = serverTimestamp();
+  const ref = await addDoc(collection(db, COLL), saveData);
+  currentSaveId = ref.id;
+  currentSaveName = name;
+  updateFileLabel();
+  window.setSaveStatus((statusPrefix || '已另存新檔：') + name, 'ok');
+}
+
+function showSaveOverwriteChoice(saveData, name) {
+  setInlineChoice('saveModalStatus', '目前已載入「' + (currentSaveName || '此檔案') + '」；請選擇覆蓋原檔或另存新檔。', [
+    { label: '另存新檔', className: 'btn-accent', onClick: () => runSaveAction(() => saveAsNewFile(saveData, name, '已另存新檔：')) },
+    { label: '覆蓋原檔', className: 'btn-danger', onClick: () => runSaveAction(() => overwriteCurrentFile(saveData, name)) },
+    { label: '取消', className: '', onClick: () => window.setSaveModalStatus('已取消儲存', 'warn') }
+  ], 'warn');
+}
 
 // === Open Load Modal ===
 window._fbLoad = async function() {
   const listEl = document.getElementById('loadList');
   listEl.innerHTML = '<li class="empty-msg">讀取中...</li>';
+  window.setLoadModalStatus('');
   document.getElementById('loadModal').classList.add('active');
   try {
     const q = query(collection(db, COLL), orderBy('created_at', 'desc'));
@@ -2133,30 +2200,44 @@ window._fbLoad = async function() {
     };
   } catch(e) {
     listEl.innerHTML = '<li class="empty-msg">載入失敗：' + e.message + '</li>';
+    window.setLoadModalStatus('載入失敗：' + e.message, 'error');
     console.error(e);
   }
 };
 
 async function doLoad(docId) {
   try {
+    window.setLoadModalStatus('');
     const snap = await getDoc(doc(db, COLL, docId));
-    if (!snap.exists()) { alert('檔案不存在'); return; }
+    if (!snap.exists()) { window.setLoadModalStatus('檔案不存在', 'error'); return; }
     const d = snap.data();
     const parsed = typeof d.data === 'string' ? JSON.parse(d.data) : d.data;
     restoreFromData(parsed);
     currentSaveId = docId;
     currentSaveName = d.name || '(未命名)';
     updateFileLabel();
+    window.setSaveStatus('已載入：' + currentSaveName, 'ok');
     document.getElementById('loadModal').classList.remove('active');
   } catch(e) {
-    alert('載入失敗：' + e.message);
+    window.setLoadModalStatus('載入失敗：' + e.message, 'error');
     console.error(e);
   }
 }
 
 async function doDelete(docId, name) {
-  if (!confirm('確定刪除「' + (name||'此檔案') + '」？')) return;
+  showDeleteChoice(docId, name);
+}
+
+function showDeleteChoice(docId, name) {
+  setInlineChoice('loadModalStatus', '確定刪除「' + (name || '此檔案') + '」？', [
+    { label: '取消', className: '', onClick: () => window.setLoadModalStatus('已取消刪除', 'warn') },
+    { label: '刪除', className: 'btn-danger', onClick: () => runDeleteAction(docId, name) }
+  ], 'warn');
+}
+
+async function runDeleteAction(docId, name) {
   try {
+    window.setLoadModalStatus('');
     await deleteDoc(doc(db, COLL, docId));
     if (currentSaveId === docId) {
       currentSaveId = null;
@@ -2164,9 +2245,10 @@ async function doDelete(docId, name) {
       updateFileLabel();
     }
     // refresh list
-    window._fbLoad();
+    await window._fbLoad();
+    window.setLoadModalStatus('已刪除：' + (name || docId), 'ok');
   } catch(e) {
-    alert('刪除失敗：' + e.message);
+    window.setLoadModalStatus('刪除失敗：' + e.message, 'error');
     console.error(e);
   }
 }

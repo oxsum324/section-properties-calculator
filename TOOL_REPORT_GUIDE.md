@@ -182,6 +182,14 @@ flowchart TD
 - 規範表號與構造名稱是否一致，例如表 2.11 對應中空式標示物 / 格子式構架，表 2.15 對應桁架高塔。
 - JSON 匯出名稱、案件狀態訊息與列印報告是否沒有殘留舊稱或內部口語。
 
+### 規範版本揭露
+
+正式工具的畫面與列印計算書都要明確揭露採用規範全名與年版。風力工具目前以「建築物耐風設計規範及解說」與「107 年版」為必要字串；地震工具以「建築物耐震設計規範及解說」與「113 年版」為必要字串。
+
+這些字串集中登記於 `formal-tools.manifest.json` 的 `reportDisclosureNeedles`。`formal-tools.contract.test.js` 檢查原始頁面，`formal-browser-smoke.test.js` 檢查實際開出的計算書；若日後規範版本更新，應同步更新頁面、計算書副標、manifest 與 golden / browser smoke，不得只改首頁文案。
+
+高頻 quick 工具若已有列印計算書，簡易結果與詳算式都要保留精簡限制說明，例如「不在本頁範圍」、「正式詳算」或需轉往其他正式工具的提示。這些必要字串集中登記於 `local-quick-tools.manifest.json` 的 `reportNeedles`，由 `local-quick-tools.contract.test.js` 檢查來源頁面，並由 `local-quick-browser-smoke.test.js` 檢查實際開出的兩種報告模式。
+
 ### 採用依據文字
 
 應使用：

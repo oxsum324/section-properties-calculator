@@ -27,6 +27,8 @@
     font-family: inherit;
     resize: vertical;
   }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
   @media (max-width: 768px) {
     .form-row { grid-template-columns: 1fr; }
   }
@@ -98,6 +100,7 @@
       <textarea id="basis">請填寫試驗報告、文獻來源、風洞結果、公司標準或專案設計說明。</textarea>
     </div>
     <button class="btn-calc" id="btnCalc">套用修正</button>
+    <div class="input-status" id="inputStatus" aria-live="polite"></div>
     <button class="btn-print" onclick="window.print()">列印整理結果</button>
   </div>
 </div>
@@ -148,6 +151,14 @@ function setR(id, v, d) {
   const el = document.querySelector('#' + id + ' .value');
   if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
 }
+function setInputStatus(message) {
+  const el = document.getElementById('inputStatus');
+  if (!el) return;
+  el.textContent = message || '';
+}
+function clearInputStatus() {
+  setInputStatus('');
+}
 
 function setApplicability(items) {
   const rank = { ok: 0, warn: 1, fail: 2 };
@@ -167,15 +178,15 @@ el.textContent = worst === 'ok' ? '依整理條件輸出如下' : worst === 'war
 function calc() {
   const calcType = document.getElementById('calcType').value;
   const mode = document.getElementById('mode').value;
-  const basePos = val('basePos');
-  const baseNeg = val('baseNeg');
-  const factorPos = val('factorPos');
-  const factorNeg = val('factorNeg');
+  const basePos = parseFloat(document.getElementById('basePos').value);
+  const baseNeg = parseFloat(document.getElementById('baseNeg').value);
+  const factorPos = parseFloat(document.getElementById('factorPos').value);
+  const factorNeg = parseFloat(document.getElementById('factorNeg').value);
   const unit = document.getElementById('unit').value;
   const basis = document.getElementById('basis').value.trim();
 
-  if (!isFinite(basePos) || !isFinite(baseNeg)) { alert('請輸入有效之原始正負值'); return; }
-  if (factorPos <= 0 || factorNeg <= 0) { alert('修正係數需大於 0'); return; }
+  if (!isFinite(basePos) || !isFinite(baseNeg)) { setInputStatus('請輸入有效之原始正負值'); return false; }
+  if (!isFinite(factorPos) || !isFinite(factorNeg) || factorPos <= 0 || factorNeg <= 0) { setInputStatus('修正係數需大於 0'); return false; }
 
   const adjPos = basePos * factorPos;
   const adjNeg = baseNeg * factorNeg;
@@ -215,6 +226,8 @@ function calc() {
     <strong>採用係數：</strong>λ<sub>+</sub> = ${fmt(factorPos,3)}；λ<sub>−</sub> = ${fmt(factorNeg,3)}<br>
     <strong>依據：</strong>${basis || '未填寫'}
   `;
+  clearInputStatus();
+  return true;
 }
 
 document.getElementById('btnCalc').addEventListener('click', calc);

@@ -88,8 +88,12 @@ const stylesPath = path.join(__dirname, "styles.css");
 const stylesSource = fs.readFileSync(stylesPath, "utf8");
 const appPath = path.join(__dirname, "app.js");
 const appSource = fs.readFileSync(appPath, "utf8");
+const indexPath = path.join(__dirname, "index.html");
+const indexSource = fs.readFileSync(indexPath, "utf8");
 const auditToolPath = path.join(__dirname, "audit-tool.ps1");
 const auditToolSource = fs.readFileSync(auditToolPath, "utf8");
+const browserRunnerPath = path.join(__dirname, "steel-audit-browser-runner.js");
+const browserRunnerSource = fs.readFileSync(browserRunnerPath, "utf8");
 const syncFormalCorePath = path.join(__dirname, "sync-formal-core.ps1");
 const syncFormalCoreSource = fs.readFileSync(syncFormalCorePath, "utf8");
 const runSyncFormalCoreBatPath = path.join(__dirname, "run-sync-formal-core.bat");
@@ -143,6 +147,21 @@ assert.match(
 );
 assert.match(
   columnFormalHtmlSource,
+  /id="columnInputStatus"[\s\S]*aria-live="polite"/,
+  "steel-column-formal.html should expose an inline input validation status region",
+);
+assert.match(
+  columnFormalSource,
+  /function setInputStatus\(message\)[\s\S]*function inputFail\(message\)[\s\S]*return inputFail\(/,
+  "steel-column-formal.js should route validation failures to inline status text",
+);
+assert.doesNotMatch(
+  columnFormalSource,
+  /alert\(/,
+  "steel-column-formal.js should not use blocking alerts for validation",
+);
+assert.match(
+  columnFormalHtmlSource,
   /\.\/core\/materials\/steel\.js[\s\S]*\.\/core\/ui\/report\.js/s,
   "steel-column-formal.html should load the local vendored core scripts for standalone deployment",
 );
@@ -190,6 +209,21 @@ assert.match(
   beamFormalHtmlSource,
   /id="shsFilterInput"|id="rhsFilterInput"|id="chsFilterInput"|id="shsSelect"|id="rhsSelect"|id="chsSelect"|id="inRhsH"|id="inRhsB"|id="inRhsT"|unit-system-card|SI 常用換算|beamUnitModeLegacyBtn|beamUnitModeSiBtn|beamUnitModeBadge/,
   "steel-beam-formal.html should expose HSS filter inputs, the unit-system reminder card, and the legacy/SI toggle hooks",
+);
+assert.match(
+  beamFormalHtmlSource,
+  /id="beamInputStatus"[\s\S]*aria-live="polite"/,
+  "steel-beam-formal.html should expose an inline input validation status region",
+);
+assert.match(
+  beamFormalSource,
+  /function setInputStatus\(message\)[\s\S]*function inputFail\(message\)[\s\S]*return inputFail\(/,
+  "steel-beam-formal.js should route validation failures to inline status text",
+);
+assert.doesNotMatch(
+  beamFormalSource,
+  /alert\(/,
+  "steel-beam-formal.js should not use blocking alerts for validation",
 );
 assert.match(
   beamFormalHtmlSource,
@@ -302,9 +336,24 @@ assert.match(
   "app.js report export should use the unified font stacks",
 );
 assert.match(
+  `${indexSource}\n${stylesSource}\n${appSource}`,
+  /exportReportStatus[\s\S]*mode-bar__status[\s\S]*setExportReportStatus/s,
+  "steel main app should surface blocked report export through inline toolbar status",
+);
+assert.doesNotMatch(
+  appSource,
+  /alert\(/,
+  "steel main app should not use blocking alerts for report export",
+);
+assert.match(
   sharedReportSource,
-  /"Segoe UI", "Noto Sans TC", "Microsoft JhengHei"|Cascadia Code|cfg\.highlights|rep-highlights|rep-highlight-value|cfg\.summaryFacts|rep-summary-facts|rep-summary-fact-value/s,
-  "shared report generator should use the unified font stacks and support highlight cards plus summary facts",
+  /"Segoe UI", "Noto Sans TC", "Microsoft JhengHei"|Cascadia Code|cfg\.highlights|rep-highlights|rep-highlight-value|cfg\.summaryFacts|rep-summary-facts|rep-summary-fact-value|showReportIssue|repWindowStatus/s,
+  "shared report generator should use the unified font stacks, support highlight cards plus summary facts, and surface report-window issues inline",
+);
+assert.doesNotMatch(
+  sharedReportSource,
+  /alert\(/,
+  "shared report generator should not use blocking alerts for report-window issues",
 );
 assert.match(
   syncFormalCoreSource,
@@ -318,8 +367,28 @@ assert.match(
 );
 assert.match(
   auditToolSource,
-  /Run-PlaywrightScenario -ScenarioName "formal-beam"[\s\S]*Run-PlaywrightScenario -ScenarioName "formal-column"/s,
-  "audit-tool.ps1 should cover the standalone steel beam and column formal pages in the Playwright audit",
+  /steel-audit-browser-runner\.js[\s\S]*Edge CDP browser audit[\s\S]*Invoke-BrowserAuditRunner/s,
+  "audit-tool.ps1 should delegate browser coverage to the single Edge CDP runner",
+);
+assert.match(
+  browserRunnerSource,
+  /main-plate[\s\S]*main-tension[\s\S]*standalone-plate[\s\S]*formal-beam[\s\S]*formal-column/s,
+  "steel-audit-browser-runner.js should cover homepage, standalone plate, and steel formal pages",
+);
+assert.match(
+  browserRunnerSource,
+  /scenarioTimeoutMs[\s\S]*withTimeout[\s\S]*runSnapshot/s,
+  "steel-audit-browser-runner.js should bound each browser scenario instead of allowing hangs",
+);
+assert.match(
+  browserRunnerSource,
+  /setupFormalBeamInvalid[\s\S]*beamInputStatus[\s\S]*setupFormalColumnInvalid[\s\S]*columnInputStatus/s,
+  "steel-audit-browser-runner.js should define browser assertions for steel formal inline validation states",
+);
+assert.match(
+  browserRunnerSource,
+  /formal-beam-invalid[\s\S]*setup: setupFormalBeamInvalid[\s\S]*formal-column-invalid[\s\S]*setup: setupFormalColumnInvalid/s,
+  "steel-audit-browser-runner.js should run the steel formal inline validation scenarios",
 );
 assert.match(
   runSyncFormalCoreBatSource,

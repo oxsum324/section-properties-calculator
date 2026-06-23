@@ -69,7 +69,8 @@
         "developmentHasInput": false,
         "developmentHasCompleteInput": false,
         "lapHasAnyInput": false,
-        "lapManualReview": true
+        "lapManualReview": true,
+        "banner": "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 撓度 ｜ · 人工複核：梁端錨定、搭接 / 施工圖"
       },
       "reportExpectedIncludes": [
         "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖",
@@ -687,7 +688,7 @@
         "skinSpacing": null,
         "skinSpacingLimit": 28,
         "reportBasisVisible": true,
-        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✗ 表層筋",
+        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✗ 表層筋 ｜ · 人工複核：梁端錨定、搭接 / 施工圖",
         "skinRequiredPerTensionFace": 2,
         "skinZoneText": "底受拉區、頂受拉區",
         "skinAreaEachSidePerZone": 0,
@@ -748,7 +749,7 @@
         "skinSpacing": 20,
         "skinSpacingLimit": 28,
         "reportBasisVisible": true,
-        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 表層筋",
+        "banner": "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 表層筋 ｜ · 人工複核：梁端錨定、搭接 / 施工圖",
         "skinRequiredPerTensionFace": 2,
         "skinZoneText": "底受拉區、頂受拉區",
         "skinAreaEachSidePerZone": 2.534,
@@ -807,7 +808,7 @@
         "reportBasisVisible": true,
         "torsionNeedsDesign": false,
         "torsionStatusOk": true,
-        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 扭力門檻",
+        "banner": "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 扭力門檻 ｜ · 人工複核：梁端錨定、搭接 / 施工圖",
         "torsionDetailOk": true,
         "torsionDesignStatus": "pending"
       }
@@ -864,7 +865,7 @@
         "reportBasisVisible": true,
         "torsionNeedsDesign": true,
         "torsionStatusOk": null,
-        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 扭力詳算人工複核",
+        "banner": "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖、扭力鋼筋詳算✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 扭力詳算人工複核 ｜ · 人工複核：梁端錨定、搭接 / 施工圖、扭力鋼筋詳算",
         "torsionDetailOk": null,
         "torsionDesignStatus": "pending"
       },
@@ -931,7 +932,7 @@
         "torsionDesignStatus": "ok",
         "torsionAtPerS": 0.08,
         "torsionAl": 8,
-        "banner": "✓ OK — 符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 22.7 扭力詳算"
+        "banner": "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ ✓ 22.7 扭力詳算 ｜ · 人工複核：梁端錨定、搭接 / 施工圖"
       },
       "reportExpectedIncludes": [
         "22.7 扭力詳算結論",
@@ -1011,7 +1012,7 @@
         "okBwRaw": true,
         "okLnRaw": true,
         "reportBasisVisible": true,
-        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 跨內 Mn ｜ · 首支箍筋 ｜ ✗ 錨定/搭接 ｜ ✓ SMRF 幾何",
+        "banner": "✗ NG — 不符合規範✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 跨內 Mn ｜ · 首支箍筋 ｜ ✗ 錨定/搭接 ｜ ✓ SMRF 幾何 ｜ · 人工複核：SMRF 跨內 Mn 比對、首支箍筋位置",
         "developmentHasInput": true,
         "developmentHasCompleteInput": true,
         "lapHasAnyInput": true,
@@ -1177,7 +1178,7 @@
         "okFlex": true,
         "okShear": true,
         "reportBasisVisible": true,
-        "banner": "⚠ 部分項目待檢核✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 錨定人工複核",
+        "banner": "⚠ 部分項目需人工複核：梁端錨定、搭接 / 施工圖✓ φMn⁺ ≥ +Mu ｜ ✓ φMn⁻ ≥ −Mu ｜ ✓ φVn ≥ Vd ｜ ✓ ρ ≤ ρmax ｜ ✓ As ≥ As,min ｜ ✓ 主筋裂縫間距 ｜ · 錨定人工複核 ｜ · 人工複核：梁端錨定、搭接 / 施工圖",
         "developmentHasCompleteInput": true,
         "lapHasAnyInput": false,
         "lapManualReview": true

@@ -292,7 +292,7 @@
           <button class="btn-calc" id="btnCalc" type="button">計算局部檢核</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
           <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
-          <button class="btn-secondary" id="btnImport" type="button">讀取 JSON</button>
+          <button class="btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none">
         </div>
       </div>
@@ -668,6 +668,7 @@
         pageVersion: 'V0.2'
       },
       project: gatherProjectInfo(),
+      input: gatherInputs(),
       result: r
     });
   }
@@ -730,7 +731,8 @@
 <h2>控制結果</h2>
 <div class="conclusion">${r.overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
 <table>${reportRows(ctrlRows)}</table>
-<table><tr><th>檢核項目</th><th>結果</th></tr>${checkRows}</table>`;
+<table><tr><th>檢核項目</th><th>結果</th></tr>${checkRows}</table>
+<div class="note">本頁為矩形淺基礎服務載重之局部穩定檢核；衝剪、單向剪力、配筋、沉陷、液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。</div>`;
   }
 
   function openReport() {
@@ -771,27 +773,47 @@ ${body}
     win.document.close();
   }
 
-  function applyImported(data) {
-    const src = (data && (data.input || data.result)) || data || {};
-    ['designCode', 'loadCondition', 'bearingMode'].forEach(id => { if (src[id] && $(id)) $(id).value = src[id]; });
-    ['bearingSafetyFactor', 'qult', 'B', 'L', 't', 'Df', 'gammaC', 'gammaS', 'P', 'qa', 'Mx', 'My', 'Hx', 'Hy', 'mu', 'passive', 'fsSlideReq', 'fsOverReq']
-      .forEach(id => { if (src[id] !== undefined && src[id] !== null && $(id)) $(id).value = src[id]; });
-    if (typeof src.includeSelfWeight === 'boolean') $('includeSelfWeight').checked = src.includeSelfWeight;
-    const proj = data && data.project;
-    if (proj) {
-      if (proj.name && proj.name !== '未填') $('projName').value = proj.name;
-      if (proj.no && proj.no !== '未填') $('projNo').value = proj.no;
-      if (proj.designer && proj.designer !== '未填') $('projDesigner').value = proj.designer;
+  function applyProjectInfo(project) {
+    if (!project || typeof project !== 'object') return;
+    $('projName').value = project.name && project.name !== '未填' ? project.name : '';
+    $('projNo').value = project.no && project.no !== '未填' ? project.no : '';
+    $('projDesigner').value = project.designer && project.designer !== '未填' ? project.designer : '';
+    saveProjectInfo();
+  }
+
+  function extractImportedInput(payload) {
+    if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
+    const toolId = payload.tool && payload.tool.id;
+    if (toolId && toolId !== 'foundation-local') {
+      throw new Error(`此 JSON 屬於 ${toolId}，不是基礎局部檢核案例。`);
     }
+    return payload.input || (payload.result && payload.result.input) || payload.result || payload;
+  }
+
+  function applyImportedCase(payload, fileName) {
+    const importedInput = extractImportedInput(payload);
+    const normalized = Core.normalizeInput(importedInput);
+    const errors = Core.validateInput(normalized);
+    if (errors.length) throw new Error(errors.join(' '));
+    ['designCode', 'loadCondition', 'bearingMode'].forEach(id => { if (normalized[id] && $(id)) $(id).value = normalized[id]; });
+    Object.keys(DEFAULTS).forEach(id => {
+      if (normalized[id] !== undefined && normalized[id] !== null && $(id)) $(id).value = normalized[id];
+    });
+    $('includeSelfWeight').checked = normalized.includeSelfWeight;
+    applyProjectInfo(payload.project);
     updateCriteriaPreview();
-    calculateFoundationLocal();
+    const result = calculateFoundationLocal();
+    if (result) {
+      $('bannerStatus').className = `banner-status ${result.overallOk ? 'ok' : 'fail'}`;
+      $('bannerStatus').textContent = `已讀取 JSON：${fileName || '案例檔'}。${result.summary && result.summary.headline ? result.summary.headline : ''}`;
+    }
   }
   function importJson(input) {
     const file = input.files && input.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      try { applyImported(JSON.parse(ev.target.result)); }
+      try { applyImportedCase(JSON.parse(ev.target.result), file.name); }
       catch (e) {
         $('bannerStatus').className = 'banner-status fail';
         $('bannerStatus').textContent = '讀取 JSON 失敗：' + e.message;
@@ -828,7 +850,7 @@ ${body}
   document.getElementById('btnCalc').addEventListener('click', calculateFoundationLocal);
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnJson').addEventListener('click', downloadResultJson);
-  document.getElementById('btnImport').addEventListener('click', () => document.getElementById('jsonFile').click());
+  document.getElementById('btnImportJson').addEventListener('click', () => document.getElementById('jsonFile').click());
   document.getElementById('jsonFile').addEventListener('change', function () { importJson(this); });
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
   ['designCode', 'loadCondition'].forEach(id => $(id).addEventListener('change', applyCriteriaPreset));

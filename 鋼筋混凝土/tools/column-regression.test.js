@@ -7,6 +7,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_TEST_PORT || 8123);
 const TOOL_URL = `http://127.0.0.1:${PORT}/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/tools/column.html`;
 const htmlPath = path.join(__dirname, 'column.html');
+const commonPath = path.join(__dirname, '..', 'shared', 'common.js');
 const casesPath = path.join(__dirname, 'column-regression-cases.json');
 const toleranceDefault = 0.001;
 const CHROME_CANDIDATES = [
@@ -68,6 +69,7 @@ function sanitizeMetric(v) {
 
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
+  const common = fs.readFileSync(commonPath, 'utf8');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
   const tolerance = pack.tolerance ?? toleranceDefault;
 
@@ -82,6 +84,9 @@ async function main() {
   assert(html.includes('reportCoverage'), 'column.html builds report coverage matrix', 'code-clause coverage matrix exists');
   assert(html.includes('reportCoverageSummary'), 'column.html builds report coverage summary', 'front-page gap summary exists');
   assert(html.includes('lastColumnReportConfig'), 'column.html exposes last report config', 'report coverage can be regression tested');
+  assert(html.includes('function collectColumnManualReviewItems'), 'column.html centralizes manual-review items', 'banner and report share pending-review boundaries');
+  assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
+  assert(html.includes('RCUI.buildReviewCheckGroup'), 'column report uses shared review check group builder', 'manual-review rows use shared helper');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for column regression test');

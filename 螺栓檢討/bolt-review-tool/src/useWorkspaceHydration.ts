@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { db, ensureSeedData, resetLocalDatabase } from './db'
 import { defaultProducts, defaultProject } from './defaults'
 import type { AnchorProduct, ProjectCase } from './domain'
+import type { RequestConfirm } from './confirmDialog'
 
 /**
  * 工作區水合（hydration）hook：應用啟動時從 IndexedDB 讀取產品 / 案例 / 附件，
@@ -20,6 +21,7 @@ export function useWorkspaceHydration(deps: {
     project: ProjectCase,
     products: AnchorProduct[],
   ) => ProjectCase
+  requestConfirm: RequestConfirm
 }) {
   const {
     setProducts,
@@ -28,6 +30,7 @@ export function useWorkspaceHydration(deps: {
     setProject,
     cloneProject,
     normalizeProjectSelection,
+    requestConfirm,
   } = deps
 
   const [hydrated, setHydrated] = useState(false)
@@ -110,9 +113,14 @@ export function useWorkspaceHydration(deps: {
     if (isResetting) {
       return
     }
-    const confirmed = window.confirm(
-      '將清除本機所有案例、產品與文件附件並重建預設資料。此操作不可復原，是否繼續？',
-    )
+    const confirmed = await requestConfirm({
+      title: '清空本機資料',
+      message:
+        '將清除本機所有案例、產品與文件附件並重建預設資料。此操作不可復原，是否繼續？',
+      confirmLabel: '清空並重建',
+      cancelLabel: '取消',
+      tone: 'danger',
+    })
     if (!confirmed) {
       return
     }
@@ -128,7 +136,7 @@ export function useWorkspaceHydration(deps: {
     } finally {
       setIsResetting(false)
     }
-  }, [isResetting])
+  }, [isResetting, requestConfirm])
 
   return {
     hydrated,

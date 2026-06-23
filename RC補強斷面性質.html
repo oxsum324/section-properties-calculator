@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RC 補強斷面性質計算 V1.6</title>
+<link rel="icon" href="data:,">
 <style>
   :root {
     --primary: #2563eb;
@@ -58,6 +59,9 @@
   .hint { font-size: 0.78em; color: var(--text-light); margin-top: 4px; font-style: italic; }
   .note-box { background: #fef3c7; border: 1px solid #fcd34d; border-left: 4px solid #ea580c; border-radius: 6px; padding: 8px 12px; font-size: 0.82em; color: #78350f; margin-top: 10px; line-height: 1.7; }
   .warn-box  { background: #fee2e2; border: 1px solid #fecaca; border-left: 4px solid #dc2626; border-radius: 6px; padding: 8px 12px; font-size: 0.82em; color: #7f1d1d; margin-top: 10px; line-height: 1.7; }
+  .report-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
+  .report-status.warn { display: block; background: #fffbeb; color: #92400e; }
+  .report-status.error { display: block; background: #fef2f2; color: #dc2626; }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; }
@@ -277,6 +281,7 @@
           </div>
           <div class="note-box" id="b-note" style="display:none;"></div>
           <div class="warn-box" id="b-warn" style="display:none;"></div>
+          <div class="report-status" id="b-report-status" role="status" aria-live="polite"></div>
         </div>
       </div>
     </div>
@@ -483,6 +488,7 @@
           </div>
           <div class="note-box" id="c-note" style="display:none;"></div>
           <div class="warn-box" id="c-warn" style="display:none;"></div>
+          <div class="report-status" id="c-report-status" role="status" aria-live="polite"></div>
         </div>
       </div>
     </div>
@@ -497,6 +503,12 @@ function val(id) { const el=document.getElementById(id); return el? (parseFloat(
 function valOrNull(id) { const el=document.getElementById(id); if(!el) return null; const s=el.value.trim(); return s===''?null:parseFloat(s); }
 function fmt(v, d) { if (!isFinite(v)) return '—'; if (v===0) return '0'; if (Math.abs(v) < 0.001) return v.toExponential(3); const p = d||5; return parseFloat(v.toPrecision(p)).toString(); }
 function pct(c, b) { if (!b || !isFinite(b) || b===0) return ''; return ((c-b)/b*100); }
+function setReportStatus(id, message, tone = 'warn') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `report-status${message ? ` ${tone}` : ''}`;
+}
 
 // ============ Tab switch ============
 function switchTab(which) {
@@ -1021,6 +1033,7 @@ let lastBeam = null;
 
 function calcBeam() {
   document.getElementById('b-msg').textContent = '';
+  setReportStatus('b-report-status', '');
   // 讀取（mm → cm，材料 kgf/cm²）
   const b_mm = val('b-b'), h_mm = val('b-h'), d_mm = val('b-d'), dp_mm = val('b-dp');
   if (!b_mm || !h_mm || !d_mm) { document.getElementById('b-msg').textContent = '請填寫 b, h, d'; return; }
@@ -1454,6 +1467,7 @@ let lastCol = null;
 
 function calcCol() {
   document.getElementById('c-msg').textContent = '';
+  setReportStatus('c-report-status', '');
   const b_mm = val('c-b'), h_mm = val('c-h');
   if (!b_mm || !h_mm) { document.getElementById('c-msg').textContent = '請填寫 b, h'; return; }
   const b = b_mm/10, h = h_mm/10;
@@ -1894,8 +1908,8 @@ function drawPMCurve() {
 
 // ============ 匯出計算書 ============
 function exportBeamReport() {
-  if (!lastBeam) { alert('請先執行計算'); return; }
-  if (typeof openReport !== 'function') { alert('計算書模組尚未載入'); return; }
+  if (!lastBeam) { setReportStatus('b-report-status', '請先執行計算', 'warn'); return; }
+  if (typeof openReport !== 'function') { setReportStatus('b-report-status', '計算書模組尚未載入', 'error'); return; }
   const d = lastBeam, g = d.geom, e = d.elastic, u = d.ult;
   const modeTxt = { none:'無補強', plate:'底貼鋼板', frp:'底貼 CFRP' }[g.mode];
 
@@ -2007,8 +2021,8 @@ function exportBeamReport() {
 }
 
 function exportColReport() {
-  if (!lastCol) { alert('請先執行計算'); return; }
-  if (typeof openReport !== 'function') { alert('計算書模組尚未載入'); return; }
+  if (!lastCol) { setReportStatus('c-report-status', '請先執行計算', 'warn'); return; }
+  if (typeof openReport !== 'function') { setReportStatus('c-report-status', '計算書模組尚未載入', 'error'); return; }
   const d = lastCol, g = d.geom;
   const modeTxt = { none:'無補強', jacket:'全包覆鋼板', frp:'全包覆 CFRP' }[g.mode];
 

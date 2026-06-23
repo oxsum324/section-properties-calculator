@@ -18,6 +18,11 @@
   .dynamic-result-stack { position:sticky; top:18px; overflow:hidden; }
   .status-box { padding:12px 14px; border-radius:10px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.84em; line-height:1.7; color:#334155; }
   .status-box strong { color:#0f172a; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
+  .input-status.confirm { padding:8px 10px; border-radius:8px; background:#fffbeb; border:1px solid #fcd34d; color:#92400e; }
+  .input-status .inline-action { margin-left:8px; padding:3px 8px; border-radius:6px; border:1px solid currentColor; background:#fff; color:inherit; cursor:pointer; font:inherit; font-size:0.92em; }
+  .input-status .inline-action.danger { background:#991b1b; border-color:#991b1b; color:#fff; }
   .fold-summary { cursor:pointer; font-weight:700; color:var(--primary); }
   .fold-summary::-webkit-details-marker { display:none; }
   .fold-summary::before { content:'▸ '; color:#0f766e; }
@@ -106,7 +111,7 @@
 <body>
 <header>
   <h1>建築物耐震設計 — 反應譜動力分析規範整理 <span class="badge-v">V3.8</span></h1>
-  <p>依規範精神整理反應譜動力分析、總橫力調整、輸入譜判讀與列印 ｜ 單位：m, tf, sec</p>
+  <p>依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析、總橫力調整、輸入譜判讀與列印 ｜ 單位：m, tf, sec</p>
   <p class="header-links">
     <a href="https://www.nlma.gov.tw/ch/legislation/law%26regusw/175" target="_blank" rel="noopener noreferrer">官方規範頁</a>
     <span class="sep">｜</span>
@@ -348,10 +353,20 @@
           <div class="code-step"><span>3.3</span><strong>總橫力調整</strong><small>依規則性選取 90% 或 100% 調整比例。</small></div>
           <div class="code-step"><span>3.5</span><strong>模型確認</strong><small>確認有效質量、振態疊加與方向輸入。</small></div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>計算書模式</label>
+            <select id="reportMode">
+              <option value="detailed" selected>詳算式（含反應譜表與模型檢核）</option>
+              <option value="summary">簡易結果（總橫力摘要）</option>
+            </select>
+          </div>
+        </div>
         <div class="inline-actions">
           <button class="btn-calc" id="btnCalc">整理動力摘要</button>
           <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
         </div>
+        <div class="input-status" id="inputStatus" aria-live="polite"></div>
       </div>
 
       <div class="card">
@@ -483,7 +498,7 @@
       <div class="card">
         <h2>反應譜圖形化檢核</h2>
         <div class="canvas-wrap" style="min-height:280px;">
-          <canvas id="dynamicSpectrumChart"></canvas>
+          <canvas id="dynamicSpectrumChart" data-diagram-role="dynamic-spectrum-chart"></canvas>
         </div>
         <div class="legend" id="dynamicSpectrumLegend"></div>
       </div>
@@ -723,6 +738,17 @@ function ensureDynamicResult() {
   return lastDynamicResult?.result || null;
 }
 
+function setInputStatus(message) {
+  const el = document.getElementById('inputStatus');
+  if (!el) return;
+  el.className = 'input-status';
+  el.textContent = message || '';
+}
+
+function clearInputStatus() {
+  setInputStatus('');
+}
+
 function collectCaseInputs() {
   const values = {};
   CASE_VALUE_FIELDS.forEach(id => {
@@ -769,7 +795,7 @@ function applyCaseInputs(inputs) {
 
 function buildCasePayload() {
   if (!lastDynamicResult) {
-    try { calcDynamic(); } catch (err) {}
+    if (calcDynamic() === false) return null;
   }
   return {
     schemaVersion: CASE_SCHEMA_VERSION,
@@ -783,6 +809,7 @@ function buildCasePayload() {
 
 function exportCaseJson() {
   const payload = buildCasePayload();
+  if (!payload) return;
   const base = payload.project.no || payload.project.name || 'seismic-dynamic-case';
   downloadTextFile(`${safeFileName(base)}-case.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
 }
@@ -794,15 +821,17 @@ function importCaseJsonFile(file) {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
       if (!payload?.schemaVersion || !payload.schemaVersion.startsWith('seismic-dynamic.case.')) {
-        alert('這不是本頁支援的動力分析案件 JSON。');
+        setInputStatus('這不是本頁支援的動力分析案件 JSON。');
         return;
       }
       applyCaseInputs(payload.inputs);
       lastDynamicResult = null;
-      calcDynamic();
-      document.getElementById('staticImportStatus').innerHTML = `已匯入案件 JSON：${escapeHtml(file.name)}。`;
+      const ok = calcDynamic();
+      document.getElementById('staticImportStatus').innerHTML = ok === false
+        ? `已匯入案件 JSON：${escapeHtml(file.name)}，但輸入尚未通過檢核。`
+        : `已匯入案件 JSON：${escapeHtml(file.name)}。`;
     } catch (err) {
-      alert(`案件 JSON 讀取失敗：${err.message}`);
+      setInputStatus(`案件 JSON 讀取失敗：${err.message}`);
     } finally {
       const input = document.getElementById('caseJsonFile');
       if (input) input.value = '';
@@ -812,12 +841,37 @@ function importCaseJsonFile(file) {
 }
 
 function resetCaseDefaults() {
-  if (!confirm('確定要恢復本頁預設值？目前暫存的案件資料會清除。')) return;
+  showResetCaseConfirmation();
+}
+
+function showResetCaseConfirmation() {
+  const el = document.getElementById('inputStatus');
+  if (!el) return;
+  el.className = 'input-status confirm';
+  el.textContent = '確定要恢復本頁預設值？目前暫存的案件資料會清除。';
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'inline-action';
+  cancel.textContent = '取消';
+  cancel.addEventListener('click', cancelResetCaseDefaults);
+  const proceed = document.createElement('button');
+  proceed.type = 'button';
+  proceed.className = 'inline-action danger';
+  proceed.textContent = '恢復預設';
+  proceed.addEventListener('click', confirmResetCaseDefaults);
+  el.append(cancel, proceed);
+}
+
+function confirmResetCaseDefaults() {
   try {
     localStorage.removeItem(DYNAMIC_STORAGE_KEY);
     localStorage.removeItem(PROJECT_INFO_STORAGE_KEY);
   } catch (err) {}
   window.location.reload();
+}
+
+function cancelResetCaseDefaults() {
+  setInputStatus('已取消恢復預設。');
 }
 
 const resolveSpectrumSite = S.resolveSpectrumSite;
@@ -874,7 +928,7 @@ function readCodeSpectrumInputs(base) {
     range: readSpectrumRangeInputs()
   };
   if (![p.I, p.site.SDS, p.site.SD1, p.site.SMS, p.site.SM1, p.lowerSite.SDS, p.lowerSite.SD1, p.R, p.Ra, p.alphaY, p.T1, p.damping, p.BS, p.B1].every(v => isFinite(v) && v > 0)) {
-    alert('請完整填入有效的規範反應譜參數。');
+    setInputStatus('請完整填入有效的規範反應譜參數。');
     return null;
   }
   return p;
@@ -1259,11 +1313,11 @@ function calcDynamic() {
   const baseShearFloorRatio = parseFloat(floorSelect?.value || '1') || 1;
   const baseShearFloorLabel = floorSelect?.selectedOptions?.[0]?.textContent || '第 3.3 節總橫力調整要求';
   if (![hn, W, SsD, S1D, SsM, S1M, Tx, Ty, VxDyn, VyDyn].every(v => isFinite(v) && v > 0)) {
-    alert('請完整填入有效的工址條件與動力分析結果。');
-    return;
+    setInputStatus('請完整填入有效的工址條件與動力分析結果。');
+    return false;
   }
   const responseSpectrumInputs = readCodeSpectrumInputs({ I: Ifactor, siteClass, SsD, S1D, SsM, S1M, Tx, Ty });
-  if (!responseSpectrumInputs) return;
+  if (!responseSpectrumInputs) return false;
   const responseSpectrum = buildCodeResponseSpectrum(responseSpectrumInputs);
   const imported = getStorageJson(STATIC_STORAGE_KEY);
   const staticX = calcStaticReference(sysX, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tx, siteInputMode);
@@ -1398,6 +1452,8 @@ function restoreDynamicSummary() {
     imported: getStorageJson(STATIC_STORAGE_KEY)
   };
   renderDynamicResult();
+  clearInputStatus();
+  return true;
 }
 
 function renderDynamicResult() {
@@ -1495,6 +1551,9 @@ function openDynamicReport() {
   const modelCheck = normalizeModelCheck(result.modelCheck || readModelCheckInputs());
   const modelCheckItems = evaluateModelCheck(modelCheck);
   const includeModelCheck = Boolean(document.getElementById('printModelCheckSection')?.checked);
+  const reportMode = document.getElementById('reportMode')?.value === 'summary' ? 'summary' : 'detailed';
+  const isSummaryReport = reportMode === 'summary';
+  const modeLabel = isSummaryReport ? '簡易結果' : '詳算式';
   const spectrumCanvas = document.getElementById('dynamicSpectrumChart');
   const spectrumImage = spectrumCanvas ? spectrumCanvas.toDataURL('image/png') : '';
   const html = `<!doctype html>
@@ -1523,15 +1582,16 @@ function openDynamicReport() {
     @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .paper { box-shadow:none; padding:0; max-width:none; } }
   </style></head>
   <body>
-    <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){alert('瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。');}},150);})()">✕ 關閉</button></div>
+    <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){var hint=document.getElementById('closeHint');if(hint){hint.textContent='瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。';}}},150);})()">✕ 關閉</button><span id="closeHint" style="display:block;margin-top:8px;color:#92400e;font-size:12px;"></span></div>
     <div class="paper">
       <h1>反應譜動力分析規範整理計算書</h1>
-      <div class="sub">依規範第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求</div>
+      <div class="sub">依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求</div>
       <div class="meta">
         <div><b>計畫名稱</b>${esc(proj.name || '—')}</div>
         <div><b>計畫編號</b>${esc(proj.no || '—')}</div>
         <div><b>設計人員</b>${esc(proj.designer || '—')}</div>
         <div><b>製表日期</b>${esc(today)}</div>
+        <div><b>計算書模式</b>${esc(modeLabel)}</div>
       </div>
       <div class="summary">X 向動力 / 調整要求 = ${esc(fmt(result.x.ratio,2))} ｜ Y 向動力 / 調整要求 = ${esc(fmt(result.y.ratio,2))}</div>
       <section class="block">
@@ -1566,6 +1626,7 @@ function openDynamicReport() {
           </tbody>
         </table>
       </section>
+      ${!isSummaryReport ? `
       <section class="block">
         <h3>第 3.2 節反應譜輸出表</h3>
         <table style="margin-bottom:8px;">
@@ -1597,7 +1658,8 @@ function openDynamicReport() {
           </tbody>
         </table>
       </section>
-      ${includeModelCheck ? `
+      ` : ''}
+      ${includeModelCheck && !isSummaryReport ? `
         <section class="block">
           <h3>動力模型檢核表</h3>
           <table>
@@ -1619,7 +1681,8 @@ function openDynamicReport() {
     </div>
   </body></html>`;
   const w = window.open('', '_blank', 'width=960,height=1100,scrollbars=yes');
-  if (!w) { alert('請允許彈出視窗以開啟計算書'); return; }
+  if (!w) { setInputStatus('計算書視窗已被瀏覽器封鎖，請允許本站彈出視窗後再試一次。'); return; }
+  clearInputStatus();
   w.document.open();
   w.document.write(html);
   w.document.close();

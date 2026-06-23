@@ -140,7 +140,7 @@ export const defaultProducts: AnchorProduct[] = [
     steelUltimateStrengthMpa: 620,
     headBearingAreaMm2: 804,
     evaluation: {},
-    source: '工具內建通用範例',
+    source: '通用預埋錨栓範例（請依專案材料單或施工圖覆寫）',
     notes: '預埋錨栓不依賴後置產品評估資料，可直接做正式規範檢核。',
   },
   {
@@ -159,7 +159,7 @@ export const defaultProducts: AnchorProduct[] = [
     evaluation: {
       qualificationStandard: undefined,
     },
-    source: '工具內建模板',
+    source: '後置膨脹錨栓起始模板（請以產品評估報告覆寫）',
     notes: '未填入產品評估值前，工具只提供初篩與幾何檢核，不顯示正式通過。',
   },
   {
@@ -178,7 +178,7 @@ export const defaultProducts: AnchorProduct[] = [
     evaluation: {
       qualificationStandard: undefined,
     },
-    source: '工具內建模板',
+    source: '後置黏結式錨栓起始模板（請以產品評估報告覆寫）',
     notes: '未填入產品評估值前，黏結式錨栓只能做流程驗證與初篩。',
   },
 ]

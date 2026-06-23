@@ -23,6 +23,40 @@ const viewports = [
 const formalManifest = readRootJson('結構工具箱/tools/formal-tools.manifest.json');
 const formalTools = formalManifest.tools;
 const requiredFormalRoutes = formalManifest.requiredRoutes;
+const inlineValidationCases = {
+  'wind-force': {
+    inputs: { h: '0' },
+    expectedMessage: '請輸入有效之 B / L / h / h_e'
+  },
+  'wind-cc': {
+    inputs: { h: '0' },
+    expectedMessage: '請輸入有效之 h / A'
+  },
+  'wind-open-roof': {
+    inputs: { h: '0' },
+    expectedMessage: '請輸入有效之 h / h_e / B / L / A'
+  },
+  'wind-parapet': {
+    inputs: { h: '0' },
+    expectedMessage: '請輸入有效之 h / h_p'
+  },
+  'seismic-force': {
+    inputs: { SsD: '0' },
+    expectedMessage: '請完整填入有效的震區參數'
+  },
+  'seismic-appendage': {
+    inputs: { SsD: '0' },
+    expectedMessage: 'SsD 必須為大於 0 的數值'
+  },
+  'seismic-misc': {
+    inputs: { SsD: '0' },
+    expectedMessage: 'SsD 必須為大於 0 的數值'
+  },
+  'seismic-dynamic': {
+    inputs: { hn: '0' },
+    expectedMessage: '請完整填入有效的工址條件'
+  }
+};
 
 function assertFormalToolCoverage() {
   assert.equal(formalManifest.family, 'formal-tools', 'formal browser smoke manifest family');
@@ -146,16 +180,27 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function waitForProcessExit(child, timeoutMs = 5000) {
+  if (!child || child.exitCode !== null) return Promise.resolve();
+  return new Promise(resolve => {
+    const timer = setTimeout(resolve, timeoutMs);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
 async function removeDirectoryBestEffort(directoryPath) {
   const resolved = path.resolve(directoryPath);
   assert.ok(resolved.startsWith(path.resolve(os.tmpdir())), `refusing to remove non-temp directory: ${resolved}`);
-  for (let attempt = 0; attempt < 6; attempt += 1) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
     try {
       fs.rmSync(resolved, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
       return;
     } catch (err) {
       if (!['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(err.code)) throw err;
-      await delay(250 * (attempt + 1));
+      await delay(Math.min(1000, 250 * (attempt + 1)));
     }
   }
   console.warn(`Warning: could not remove temporary Edge profile: ${resolved}`);
@@ -175,6 +220,45 @@ async function waitForJson(url, timeoutMs = 10000) {
     await delay(100);
   }
   throw lastError || new Error(`Timed out waiting for ${url}`);
+}
+
+function isTransientEdgeLaunchError(error) {
+  if (!error) return false;
+  if (['EPERM', 'EACCES', 'EBUSY', 'ECONNREFUSED'].includes(error.code)) return true;
+  return /spawn EPERM|WinError 5|access is denied|Permission denied|Timed out waiting|fetch failed/i.test(error.message || '');
+}
+
+async function waitForEdgeVersion(child, versionUrl, timeoutMs = 15000) {
+  return Promise.race([
+    waitForJson(versionUrl, timeoutMs),
+    new Promise((_, reject) => child.once('error', reject)),
+    new Promise((_, reject) => child.once('exit', code => reject(new Error(`Edge exited before CDP was ready. exitCode=${code}`)))),
+  ]);
+}
+
+async function launchEdgeCdpWithRetry(edgePath, browserArgs, options, versionUrl, label) {
+  const retryDelaysMs = [0, 5000, 15000, 30000, 60000];
+  let lastError;
+  for (let attempt = 0; attempt < retryDelaysMs.length; attempt += 1) {
+    let edge;
+    try {
+      edge = spawn(edgePath, browserArgs, options);
+      const version = await waitForEdgeVersion(edge, versionUrl, 15000);
+      return { edge, version };
+    } catch (error) {
+      lastError = error;
+      if (edge && edge.exitCode === null) {
+        edge.kill();
+        await waitForProcessExit(edge, 5000);
+      }
+      const canRetry = attempt < retryDelaysMs.length - 1 && isTransientEdgeLaunchError(error);
+      if (!canRetry) throw error;
+      const delayMs = retryDelaysMs[attempt + 1];
+      console.error(`[${label}] transient Edge launch failure on attempt ${attempt + 1}: ${error.message}; retrying in ${delayMs}ms`);
+      await delay(delayMs);
+    }
+  }
+  throw lastError;
 }
 
 function createCdpClient(webSocketUrl) {
@@ -268,6 +352,14 @@ function collectPageErrors(client, sessionId) {
         url: message.params.entry.url || '',
       });
     }
+    if (message.method === 'Page.javascriptDialogOpening') {
+      errors.push({
+        source: 'dialog',
+        text: message.params.message || 'JavaScript dialog opened',
+        url: message.params.url || '',
+      });
+      client.send('Page.handleJavaScriptDialog', { accept: true }, sessionId).catch(() => {});
+    }
   });
   return { errors, unsubscribe };
 }
@@ -285,6 +377,21 @@ async function evaluate(client, sessionId, expression) {
   return result.result.value;
 }
 
+async function settlePage(client, sessionId, frames = 2) {
+  await evaluate(client, sessionId, `(async () => {
+    let remaining = ${JSON.stringify(frames)};
+    await new Promise(resolve => {
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    return true;
+  })()`);
+}
+
 async function navigate(client, sessionId, url, viewport) {
   await client.send('Emulation.setDeviceMetricsOverride', {
     width: viewport.width,
@@ -296,12 +403,21 @@ async function navigate(client, sessionId, url, viewport) {
   const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired');
   await client.send('Page.navigate', { url }, sessionId);
   await loaded;
-  await delay(300);
+  await settlePage(client, sessionId, 2);
   return pageErrors;
 }
 
 function pageStateExpression(tool) {
   return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
     const text = document.body.innerText;
     const byId = id => document.getElementById(id);
     const calc = ${JSON.stringify(tool.calcButton)};
@@ -310,20 +426,41 @@ function pageStateExpression(tool) {
     const exportId = ${JSON.stringify(tool.exportButton || null)};
     if (calc && byId(calc)) {
       byId(calc).click();
-      await new Promise(resolve => setTimeout(resolve, 120));
+      await settle(2);
     }
-    const modeStates = [];
-    for (const mode of ['simple', 'detail']) {
-      const button = document.querySelector('[data-report-mode="' + mode + '"]');
+    const reportModeControls = ${JSON.stringify(tool.reportModeControls || null)};
+    const chooseReportMode = async mode => {
+      const customButtonId = reportModeControls && reportModeControls[mode + 'Button'];
+      const button = customButtonId
+        ? byId(customButtonId)
+        : document.querySelector('[data-report-mode="' + mode + '"]');
       if (button) {
         button.click();
-        await new Promise(resolve => setTimeout(resolve, 30));
-        modeStates.push({
+        await settle(1);
+        return {
           mode,
-          hiddenValue: byId('printReportMode')?.value || '',
-          pressed: button.getAttribute('aria-pressed') || ''
-        });
+          hiddenValue: byId('printReportMode')?.value || button.dataset.reportMode || customButtonId || mode,
+          pressed: button.getAttribute('aria-pressed') || 'true'
+        };
       }
+      const select = byId((reportModeControls && reportModeControls.selectId) || 'reportMode');
+      if (select) {
+        const selectValue = (reportModeControls && reportModeControls[mode + 'Value']) || (mode === 'simple' ? 'summary' : 'detailed');
+        const hasOption = Array.from(select.options || []).some(option => option.value === selectValue);
+        if (hasOption) {
+          select.value = selectValue;
+          select.dispatchEvent(new Event('input', { bubbles: true }));
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          await settle(1);
+          return { mode, hiddenValue: mode, pressed: 'true' };
+        }
+      }
+      return null;
+    };
+    const modeStates = [];
+    for (const mode of ['simple', 'detail']) {
+      const state = await chooseReportMode(mode);
+      if (state) modeStates.push(state);
     }
     const diagram = ${JSON.stringify(tool.diagramSelector)}
       ? document.querySelector(${JSON.stringify(tool.diagramSelector)})
@@ -420,7 +557,7 @@ function pageStateExpression(tool) {
       hasCalc: !calc || !!byId(calc),
       hasReport: reportId ? !!byId(reportId) : !!document.querySelector(reportSelector),
       hasExport: !exportId || !!byId(exportId),
-      hasReportMode: !!byId('btnReportModeDetail') && !!byId('btnReportModeSimple'),
+      hasReportMode: modeStates.length === 2,
       modeStates,
       diagramExists: ${JSON.stringify(tool.diagramSelector)} ? !!diagram : true,
       diagramWidth: diagramBox ? diagramBox.width : 0,
@@ -439,6 +576,15 @@ function pageStateExpression(tool) {
 
 function reportCaptureExpression(tool, mode = null) {
   return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
     const originalOpen = window.open;
     const reportId = ${JSON.stringify(tool.reportButton || null)};
     const reportSelector = ${JSON.stringify(tool.reportButtonSelector || null)};
@@ -460,21 +606,35 @@ function reportCaptureExpression(tool, mode = null) {
     };
 
     try {
-      if (reportMode) {
-        const modeButton = document.querySelector('[data-report-mode="' + reportMode + '"]');
+      const reportModeControls = ${JSON.stringify(tool.reportModeControls || null)};
+      const chooseReportMode = async mode => {
+        const customButtonId = reportModeControls && reportModeControls[mode + 'Button'];
+        const modeButton = customButtonId
+          ? document.getElementById(customButtonId)
+          : document.querySelector('[data-report-mode="' + mode + '"]');
         if (modeButton) {
           modeButton.click();
-          await new Promise(resolve => setTimeout(resolve, 30));
+          await settle(1);
+          return true;
         }
-      } else {
-        const detail = document.querySelector('[data-report-mode="detail"]');
-        if (detail) detail.click();
-        await new Promise(resolve => setTimeout(resolve, 30));
-      }
+        const select = document.getElementById((reportModeControls && reportModeControls.selectId) || 'reportMode');
+        if (select) {
+          const selectValue = (reportModeControls && reportModeControls[mode + 'Value']) || (mode === 'simple' ? 'summary' : 'detailed');
+          if (Array.from(select.options || []).some(option => option.value === selectValue)) {
+            select.value = selectValue;
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            await settle(1);
+            return true;
+          }
+        }
+        return false;
+      };
+      await chooseReportMode(reportMode || 'detail');
       const button = reportId ? document.getElementById(reportId) : document.querySelector(reportSelector);
       if (!button) return { missingButton: true, html: '' };
       button.click();
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await settle(2);
       const html = writes.join('');
       return {
         mode: reportMode || 'default',
@@ -494,6 +654,15 @@ function reportCaptureExpression(tool, mode = null) {
 
 function exportCaptureExpression(tool) {
   return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
     const originalCreateObjectURL = URL.createObjectURL.bind(URL);
     const originalRevokeObjectURL = URL.revokeObjectURL.bind(URL);
     const originalClick = HTMLAnchorElement.prototype.click;
@@ -521,7 +690,7 @@ function exportCaptureExpression(tool) {
       const button = document.getElementById(${JSON.stringify(tool.exportButton)});
       if (!button) return { missingButton: true, downloads: [], payload: null, textLength: 0 };
       button.click();
-      await new Promise(resolve => setTimeout(resolve, 80));
+      await settle(2);
       const text = objectUrls[0] ? await objectUrls[0].blob.text() : '';
       let payload = null;
       try { payload = text ? JSON.parse(text) : null; } catch (_) {}
@@ -545,6 +714,15 @@ function exportCaptureExpression(tool) {
 
 function jsonRoundTripExpression(tool, sourcePayload) {
   return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
     const payload = ${JSON.stringify(sourcePayload || null)};
     if (!payload || typeof payload !== 'object') {
       return { missingPayload: true, mismatches: [], resultSelectors: {} };
@@ -586,9 +764,19 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       const el = document.getElementById(id);
       return el && el.type === 'checkbox' ? Boolean(value) : String(value ?? '');
     };
-    const collectResultValues = () => Array.from(document.querySelectorAll('.result-item .value, .mini-card .value'))
+    const collectResultValues = () => Array.from(document.querySelectorAll('.result-item .value, .mini-card .value, .banner-key .v, .banner-key .k-val, #banner strong, #controlTable tbody td, #dirComboTable tbody td'))
       .map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim())
       .filter(Boolean);
+    const readText = selector => (document.querySelector(selector)?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const readCaseStatus = () => readText('#caseStatus') || readText('#caseJsonStatus') || readText('#staticImportStatus');
+    const waitForImportStatus = async () => {
+      const started = Date.now();
+      while (Date.now() - started < 1000) {
+        if (readCaseStatus().includes('已匯入案件 JSON')) return true;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      return readCaseStatus().includes('已匯入案件 JSON');
+    };
     const mutate = id => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -639,7 +827,8 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       importCaseJsonFile(file);
       usedDirectImport = true;
     }
-    await new Promise(resolve => setTimeout(resolve, 260));
+    await waitForImportStatus();
+    await settle(2);
 
     let recalculatedAfterImport = false;
     let resultValues = collectResultValues();
@@ -648,7 +837,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       if (calc) {
         calc.click();
         recalculatedAfterImport = true;
-        await new Promise(resolve => setTimeout(resolve, 220));
+        await settle(2);
         resultValues = collectResultValues();
       }
     }
@@ -670,8 +859,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       if (!matches) mismatches.push({ key, expected: expectedValue, actual: actualValue });
     }
 
-    const text = selector => (document.querySelector(selector)?.textContent || '').replace(/\\s+/g, ' ').trim();
-    const caseStatus = text('#caseStatus') || text('#caseJsonStatus') || text('#staticImportStatus');
+    const caseStatus = readCaseStatus();
     return {
       missingPayload: false,
       missingFileInput: !fileInput,
@@ -684,9 +872,9 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       mismatches,
       caseStatus,
       resultSelectors: {
-        '#r-cf .value': text('#r-cf .value'),
-        '#r-qz .value': text('#r-qz .value'),
-        '#r-force .value': text('#r-force .value')
+        '#r-cf .value': readText('#r-cf .value'),
+        '#r-qz .value': readText('#r-qz .value'),
+        '#r-force .value': readText('#r-force .value')
       },
       resultValues,
       payloadSchema,
@@ -701,6 +889,15 @@ function goldenCaseExpression(tool, goldenCase) {
   const expectedMetricPaths = Object.keys(goldenCase.expectedMetrics || {});
   const clearLocalStorageKeys = goldenCase.clearLocalStorageKeys || [];
   return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
     const inputs = ${JSON.stringify(inputs)};
     const expectedSelectors = ${JSON.stringify(expectedSelectors)};
     const expectedMetricPaths = ${JSON.stringify(expectedMetricPaths)};
@@ -713,7 +910,13 @@ function goldenCaseExpression(tool, goldenCase) {
         localStorage.removeItem(key);
       } catch (_) {}
     }
+    const prepareDynamicInput = (id, value) => {
+      if (id === 'apType' && typeof syncTypeGroupFromValue === 'function') {
+        syncTypeGroupFromValue(value);
+      }
+    };
     const setInput = (id, value) => {
+      prepareDynamicInput(id, value);
       const el = document.getElementById(id);
       if (!el) {
         missingInputs.push(id);
@@ -731,7 +934,7 @@ function goldenCaseExpression(tool, goldenCase) {
     for (const [id, value] of Object.entries(inputs)) setInput(id, value);
     if (calc) {
       calc.click();
-      await new Promise(resolve => setTimeout(resolve, 180));
+      await settle(2);
     }
     const normalizedText = node => (node?.textContent || '').replace(/\\s+/g, ' ').trim();
     const selectorValues = {};
@@ -785,6 +988,51 @@ function goldenCaseExpression(tool, goldenCase) {
   })()`;
 }
 
+function inlineValidationExpression(tool) {
+  const validationCase = inlineValidationCases[tool.key];
+  if (!validationCase) return null;
+  return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    const inputs = ${JSON.stringify(validationCase.inputs)};
+    const calc = document.getElementById(${JSON.stringify(tool.calcButton)});
+    const status = document.getElementById('inputStatus');
+    const missingInputs = [];
+    const setInput = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) {
+        missingInputs.push(id);
+        return;
+      }
+      if (el.type === 'checkbox') {
+        el.checked = Boolean(value);
+      } else {
+        el.value = String(value);
+      }
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    for (const [id, value] of Object.entries(inputs)) setInput(id, value);
+    if (calc) {
+      calc.click();
+      await settle(2);
+    }
+    return {
+      missingCalc: !calc,
+      missingStatus: !status,
+      missingInputs,
+      statusText: (status?.textContent || '').replace(/\\s+/g, ' ').trim()
+    };
+  })()`;
+}
+
 function assertPageState(state, tool, label) {
   assert.equal(state.hasFamily, true, `${label} ${tool.key} family label`);
   assert.equal(state.hasTitleNeedle, true, `${label} ${tool.key} title label`);
@@ -797,9 +1045,14 @@ function assertPageState(state, tool, label) {
   if (tool.reportMode) {
     assert.equal(state.hasReportMode, true, `${label} ${tool.key} report mode controls`);
     assert.deepEqual(
-      state.modeStates.map(mode => `${mode.mode}:${mode.hiddenValue}:${mode.pressed}`),
-      ['simple:simple:true', 'detail:detail:true'],
+      state.modeStates.map(mode => mode.mode),
+      ['simple', 'detail'],
       `${label} ${tool.key} report mode toggles`
+    );
+    assert.equal(
+      state.modeStates.every(mode => mode.pressed === 'true'),
+      true,
+      `${label} ${tool.key} report mode active states`
     );
   }
 
@@ -889,6 +1142,11 @@ function assertReportState(state, tool, label, mode = 'default') {
     const context = index >= 0 ? auditHtml.slice(Math.max(0, index - 160), index + 160) : '';
     assert.equal(index >= 0, false, `${label} ${tool.key} ${mode} report avoids ${needle}: ${context}`);
   });
+  const disclosureNeedles = formalManifest.reportDisclosureNeedles?.[tool.discipline] || [];
+  for (const needle of disclosureNeedles) {
+    const auditHtml = state.auditHtml || state.html;
+    assert.ok(auditHtml.includes(needle), `${label} ${tool.key} ${mode} report discloses ${needle}`);
+  }
   assertReportExpectations(state, tool, label, mode);
 }
 
@@ -974,6 +1232,19 @@ function assertGoldenCaseState(state, tool, goldenCase, label) {
   }
 }
 
+function assertInlineValidationState(state, tool, label) {
+  const validationCase = inlineValidationCases[tool.key];
+  if (!validationCase) return;
+  assert.ok(state && typeof state === 'object', `${label} ${tool.key} inline validation state`);
+  assert.equal(state.missingCalc, false, `${label} ${tool.key} inline validation calc button`);
+  assert.equal(state.missingStatus, false, `${label} ${tool.key} inline validation status element`);
+  assert.deepEqual(state.missingInputs, [], `${label} ${tool.key} inline validation input ids`);
+  assert.ok(
+    state.statusText.includes(validationCase.expectedMessage),
+    `${label} ${tool.key} inline validation message: ${state.statusText}`
+  );
+}
+
 function assertNoPageErrors(errors, label) {
   const relevantErrors = errors.filter(error => {
     const url = error.url || '';
@@ -999,7 +1270,7 @@ async function main() {
 
   try {
     server = await startStaticServer(serverPort, vercelConfig);
-    edge = spawn(edgePath, [
+    const launch = await launchEdgeCdpWithRetry(edgePath, [
       '--headless=new',
       `--remote-debugging-port=${debugPort}`,
       `--user-data-dir=${userDataDir}`,
@@ -1011,9 +1282,9 @@ async function main() {
     ], {
       stdio: 'ignore',
       windowsHide: true,
-    });
-
-    const version = await waitForJson(`http://127.0.0.1:${debugPort}/json/version`, 15000);
+    }, `http://127.0.0.1:${debugPort}/json/version`, 'formal-tools');
+    edge = launch.edge;
+    const version = launch.version;
     client = createCdpClient(version.webSocketDebuggerUrl);
     await client.open();
     const target = await client.send('Target.createTarget', { url: 'about:blank' });
@@ -1032,63 +1303,58 @@ async function main() {
         const url = `http://127.0.0.1:${serverPort}${tool.route}`;
         const pageErrors = await navigate(client, sessionId, url, viewport);
         const state = await evaluate(client, sessionId, pageStateExpression(tool));
+        assertPageState(state, tool, label);
+
+        if (viewport.key === 'desktop') {
+          const interactionLabel = 'desktop interaction';
+          const exportState = tool.exportButton
+            ? await evaluate(client, sessionId, exportCaptureExpression(tool))
+            : null;
+          const roundTripState = tool.jsonRoundTrip
+            ? await evaluate(client, sessionId, jsonRoundTripExpression(tool, exportState?.payload))
+            : null;
+          const goldenStates = [];
+          for (const goldenCase of tool.goldenCases || []) {
+            goldenStates.push({
+              goldenCase,
+              state: await evaluate(client, sessionId, goldenCaseExpression(tool, goldenCase)),
+            });
+          }
+          const reportStates = tool.reportMode
+            ? {
+              simple: await evaluate(client, sessionId, reportCaptureExpression(tool, 'simple')),
+              detail: await evaluate(client, sessionId, reportCaptureExpression(tool, 'detail')),
+            }
+            : {
+              default: await evaluate(client, sessionId, reportCaptureExpression(tool)),
+            };
+          assertExportState(exportState, tool, interactionLabel);
+          assertJsonRoundTripState(roundTripState, tool, interactionLabel);
+          for (const { goldenCase, state: goldenState } of goldenStates) {
+            assertGoldenCaseState(goldenState, tool, goldenCase, interactionLabel);
+          }
+          for (const [mode, reportState] of Object.entries(reportStates)) {
+            assertReportState(reportState, tool, interactionLabel, mode);
+          }
+          const inlineValidationState = inlineValidationCases[tool.key]
+            ? await evaluate(client, sessionId, inlineValidationExpression(tool))
+            : null;
+          assertInlineValidationState(inlineValidationState, tool, interactionLabel);
+        };
+
         pageErrors.unsubscribe();
         assertNoPageErrors(pageErrors.errors, `${label} ${tool.key}`);
-        assertPageState(state, tool, label);
-      }
-    }
-
-    for (const tool of formalTools) {
-      const label = 'desktop interaction';
-      const url = `http://127.0.0.1:${serverPort}${tool.route}`;
-      const pageErrors = await navigate(client, sessionId, url, viewports[0]);
-      await evaluate(client, sessionId, pageStateExpression(tool));
-      const exportState = tool.exportButton
-        ? await evaluate(client, sessionId, exportCaptureExpression(tool))
-        : null;
-      const roundTripState = tool.jsonRoundTrip
-        ? await evaluate(client, sessionId, jsonRoundTripExpression(tool, exportState?.payload))
-        : null;
-      const goldenStates = [];
-      for (const goldenCase of tool.goldenCases || []) {
-        goldenStates.push({
-          goldenCase,
-          state: await evaluate(client, sessionId, goldenCaseExpression(tool, goldenCase)),
-        });
-      }
-      const reportStates = tool.reportMode
-        ? {
-          simple: await evaluate(client, sessionId, reportCaptureExpression(tool, 'simple')),
-          detail: await evaluate(client, sessionId, reportCaptureExpression(tool, 'detail')),
-        }
-        : {
-          default: await evaluate(client, sessionId, reportCaptureExpression(tool)),
-        };
-      pageErrors.unsubscribe();
-      assertNoPageErrors(pageErrors.errors, `${label} ${tool.key}`);
-      assertExportState(exportState, tool, label);
-      assertJsonRoundTripState(roundTripState, tool, label);
-      for (const { goldenCase, state } of goldenStates) {
-        assertGoldenCaseState(state, tool, goldenCase, label);
-      }
-      for (const [mode, reportState] of Object.entries(reportStates)) {
-        assertReportState(reportState, tool, label, mode);
       }
     }
 
     await client.send('Browser.close').catch(() => {});
+    await waitForProcessExit(edge, 5000);
     console.log(`formal browser smoke OK (${formalTools.length} tools, ${viewports.length} viewports)`);
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {
       edge.kill();
-      await new Promise(resolve => {
-        const timer = setTimeout(resolve, 1500);
-        edge.once('exit', () => {
-          clearTimeout(timer);
-          resolve();
-        });
-      });
+      await waitForProcessExit(edge, 5000);
     }
     if (server) {
       await new Promise(resolve => server.close(resolve));
