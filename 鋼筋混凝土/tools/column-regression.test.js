@@ -67,6 +67,143 @@ function sanitizeMetric(v) {
   return (v == null || (typeof v === 'number' && !isFinite(v))) ? null : v;
 }
 
+async function exerciseProjectStorage(page) {
+  await page.evaluate(() => {
+    const setCheckbox = (id, desired) => {
+      const el = document.getElementById(id);
+      if (!el || el.checked === !!desired) return;
+      el.click();
+    };
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    document.querySelector('.mode-btn[data-mode="check"]')?.click();
+    setCheckbox('seismicMode', true);
+    setCheckbox('showSteps', true);
+    setCheckbox('manualLayout', true);
+    setCheckbox('tieOverride', true);
+    setCheckbox('autoVe', false);
+    setValue('projName', '柱專案存讀檔測試');
+    setValue('projNo', 'RC-COL-001');
+    setValue('projDesigner', 'QA');
+    setValue('colType', 'rect');
+    setValue('fc', 350);
+    setValue('fy', 4200);
+    setValue('b', 70);
+    setValue('h', 65);
+    setValue('lu', 360);
+    setValue('Pu', 321);
+    setValue('Mux', 45);
+    setValue('Muy', 12);
+    setValue('Vu', 35);
+    setValue('Vuy', 9);
+    setValue('Ve', 18);
+    setValue('tieS', 9);
+    setValue('crossTieS', 9);
+    setValue('columnDevTop', 180);
+    setValue('columnDevBottom', 190);
+    setValue('firstHoopDist', 6);
+    document.querySelector('.section-tabs button[data-tab="summary"]')?.click();
+    if (typeof window.calcColumn === 'function') window.calcColumn();
+  });
+
+  const saved = await page.evaluate(() => window.collectColumnProjectData());
+  assert(saved.schema === 'rc-column-project-v1', 'column project schema', saved.schema);
+  assert(saved.tool === 'rc-column', 'column project tool id', saved.tool);
+  assert(saved.mode === 'check', 'column project stores mode', saved.mode);
+  assert(saved.activeTab === 'summary', 'column project stores active tab', saved.activeTab);
+  assert(saved.metadata.projectName === '柱專案存讀檔測試', 'column project metadata', saved.metadata.projectName);
+  assert(saved.fields.Pu.value === '321', 'column project stores numeric input as editable value', saved.fields.Pu.value);
+  assert(saved.fields.seismicMode.checked === true, 'column project stores checkbox state', saved.fields.seismicMode.checked);
+  assert(saved.fields.columnProjectFile == null, 'column project excludes file input', 'file input excluded');
+
+  const restored = await page.evaluate(payload => {
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    document.querySelector('.mode-btn[data-mode="design"]')?.click();
+    setValue('projName', '已清除');
+    setValue('Pu', 1);
+    setValue('b', 40);
+    document.querySelector('.section-tabs button[data-tab="geom"]')?.click();
+    const result = window.applyColumnProjectData(payload, { silent: true });
+    return {
+      applied: result.applied,
+      mode: document.querySelector('.mode-btn.active')?.dataset.mode,
+      activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab,
+      projectName: document.getElementById('projName')?.value,
+      projectNo: document.getElementById('projNo')?.value,
+      Pu: document.getElementById('Pu')?.value,
+      b: document.getElementById('b')?.value,
+      seismic: document.getElementById('seismicMode')?.checked,
+      autoVe: document.getElementById('autoVe')?.checked,
+      banner: document.getElementById('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim()
+    };
+  }, saved);
+  assert(restored.applied > 40, 'column project restore applies fields', restored.applied);
+  assert(restored.mode === 'check', 'column project restore mode', restored.mode);
+  assert(restored.activeTab === 'summary', 'column project restore active tab', restored.activeTab);
+  assert(restored.projectName === '柱專案存讀檔測試', 'column project restore project name', restored.projectName);
+  assert(restored.projectNo === 'RC-COL-001', 'column project restore project number', restored.projectNo);
+  assert(restored.Pu === '321', 'column project restore Pu', restored.Pu);
+  assert(restored.b === '70', 'column project restore geometry', restored.b);
+  assert(restored.seismic === true, 'column project restore seismic checkbox', restored.seismic);
+  assert(restored.autoVe === false, 'column project restore autoVe checkbox', restored.autoVe);
+  assert(restored.banner && restored.banner.length > 0, 'column project restore recalculates', restored.banner);
+
+  await page.evaluate(() => {
+    document.getElementById('projName').value = '檔案匯入前';
+    document.getElementById('Pu').value = '2';
+  });
+  await page.setInputFiles('#columnProjectFile', {
+    name: 'rc-column-project.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(saved), 'utf8')
+  });
+  await page.waitForFunction(() => document.getElementById('projName')?.value === '柱專案存讀檔測試');
+  const imported = await page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    Pu: document.getElementById('Pu')?.value,
+    status: document.getElementById('projectFileStatus')?.textContent || ''
+  }));
+  assert(imported.projectName === '柱專案存讀檔測試', 'column project file input import project name', imported.projectName);
+  assert(imported.Pu === '321', 'column project file input import Pu', imported.Pu);
+  assert(imported.status.includes('已讀取柱專案檔'), 'column project file input status', imported.status);
+
+  const draft = await page.evaluate(() => {
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    window.saveColumnProjectDraft();
+    setValue('projName', '暫存讀取前');
+    setValue('Pu', 3);
+    window.loadColumnProjectDraft();
+    return {
+      projectName: document.getElementById('projName')?.value,
+      Pu: document.getElementById('Pu')?.value,
+      status: document.getElementById('projectFileStatus')?.textContent || '',
+      raw: localStorage.getItem('rc.column.project.draft')
+    };
+  });
+  assert(draft.projectName === '柱專案存讀檔測試', 'column project draft restores project name', draft.projectName);
+  assert(draft.Pu === '321', 'column project draft restores Pu', draft.Pu);
+  assert(draft.status.includes('已讀取瀏覽器暫存'), 'column project draft status', draft.status);
+  assert(draft.raw && draft.raw.includes('rc-column-project-v1'), 'column project draft localStorage payload', 'draft saved');
+}
+
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -85,6 +222,10 @@ async function main() {
   assert(html.includes('reportCoverageSummary'), 'column.html builds report coverage summary', 'front-page gap summary exists');
   assert(html.includes('lastColumnReportConfig'), 'column.html exposes last report config', 'report coverage can be regression tested');
   assert(html.includes('function collectColumnManualReviewItems'), 'column.html centralizes manual-review items', 'banner and report share pending-review boundaries');
+  assert(html.includes('COLUMN_PROJECT_SCHEMA'), 'column.html has project file schema', 'versioned column project file exists');
+  assert(html.includes('btnSaveProject'), 'column.html has save project button', 'local JSON export control exists');
+  assert(html.includes('btnLoadProject'), 'column.html has load project button', 'local JSON import control exists');
+  assert(html.includes('rc.column.project.draft'), 'column.html has browser draft storage key', 'browser-local draft storage exists');
   assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
   assert(html.includes('RCUI.buildReviewCheckGroup'), 'column report uses shared review check group builder', 'manual-review rows use shared helper');
 
@@ -106,6 +247,8 @@ async function main() {
     await wait(300);
     assert(pageErrors.length === 0, 'column page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'column page resources', 'no missing static resources during initial load');
+    await exerciseProjectStorage(page);
+    assert(pageErrors.length === 0, 'column project storage workflow', 'no page errors during project save/load checks');
 
     for (const tc of pack.cases) {
       await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
