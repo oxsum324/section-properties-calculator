@@ -66,6 +66,151 @@ function sanitizeMetric(v) {
   return (v == null || (typeof v === 'number' && !isFinite(v))) ? null : v;
 }
 
+async function exerciseSlabProjectStorage(page) {
+  await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    document.querySelector('.mode-bar__btn[data-mode="check"]')?.click();
+    if (typeof window.setLoadMode === 'function') window.setLoadMode('combo');
+    setField('projName', '板專案存讀檔測試');
+    setField('projNo', 'RC-SLAB-001');
+    setField('projDesigner', 'QA');
+    setField('showSteps', true);
+    setField('showDetailHelp', true);
+    setField('showCaseTools', false);
+    setField('slabType', 'flat');
+    setField('Lx', 620);
+    setField('Ly', 690);
+    setField('h', 24);
+    setField('cover', 2.5);
+    setField('fc', 350);
+    setField('fy', 4200);
+    setField('fyT', 4200);
+    setField('supportX', 'bothEnd');
+    setField('supportY', 'bothEnd');
+    setField('supW', 55);
+    setField('autoSelfWt', false);
+    setField('wuCombo', 1.42);
+    setField('panelPos', 'interior');
+    setField('c1', 55);
+    setField('c2', 55);
+    setField('colPos', 'interior');
+    setField('punchMode', 'prelim');
+    setField('layerMode', 'thick');
+    setField('barNoXBot', '#5');
+    setField('barNoYBot', '#5');
+    setField('barNoXTop', '#5');
+    setField('barNoYTop', '#5');
+    setField('barSpXBot', 12);
+    setField('barSpYBot', 13);
+    if (typeof window.updateSelfWt === 'function') window.updateSelfWt();
+    if (typeof window.updatePunchModeHint === 'function') window.updatePunchModeHint();
+    if (typeof window.syncVsInputs === 'function') window.syncVsInputs();
+    if (typeof window.syncDesignFields === 'function') window.syncDesignFields();
+    if (typeof window.calcSlab === 'function') window.calcSlab();
+  });
+  await wait(250);
+
+  const saved = await page.evaluate(() => window.collectSlabProjectData());
+  assert(saved.schema === 'rc-slab-project-v1', 'slab project schema', saved.schema);
+  assert(saved.tool === 'rc-slab', 'slab project tool id', saved.tool);
+  assert(saved.mode === 'check', 'slab project stores mode', saved.mode);
+  assert(saved.loadMode === 'combo', 'slab project stores load mode', saved.loadMode);
+  assert(saved.metadata.projectName === '板專案存讀檔測試', 'slab project metadata', saved.metadata.projectName);
+  assert(saved.fields.wuCombo.value === '1.42', 'slab project stores numeric input as editable value', saved.fields.wuCombo.value);
+  assert(saved.fields.showSteps.checked === true, 'slab project stores checkbox state', saved.fields.showSteps.checked);
+  assert(saved.fields.slabProjectFile == null, 'slab project excludes file input', 'file input excluded');
+  assert(saved.fields.caseJson == null, 'slab project excludes case JSON textarea', 'case textarea excluded');
+  assert(saved.fields.baselineReport == null, 'slab project excludes baseline textarea', 'baseline textarea excluded');
+
+  const restored = await page.evaluate(payload => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    document.querySelector('.mode-bar__btn[data-mode="design"]')?.click();
+    if (typeof window.setLoadMode === 'function') window.setLoadMode('simple');
+    setField('projName', '已清除');
+    setField('Lx', 100);
+    setField('wuCombo', 0.1);
+    const result = window.applySlabProjectData(payload, { silent: true });
+    return {
+      applied: result.applied,
+      mode: document.querySelector('.mode-bar__btn.active')?.dataset.mode,
+      loadMode: document.querySelector('.load-mode-btn.active')?.dataset.load,
+      projectName: document.getElementById('projName')?.value,
+      projectNo: document.getElementById('projNo')?.value,
+      Lx: document.getElementById('Lx')?.value,
+      wuCombo: document.getElementById('wuCombo')?.value,
+      showSteps: document.getElementById('showSteps')?.checked,
+      banner: document.getElementById('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim()
+    };
+  }, saved);
+  assert(restored.applied > 40, 'slab project restore applies fields', restored.applied);
+  assert(restored.mode === 'check', 'slab project restore mode', restored.mode);
+  assert(restored.loadMode === 'combo', 'slab project restore load mode', restored.loadMode);
+  assert(restored.projectName === '板專案存讀檔測試', 'slab project restore project name', restored.projectName);
+  assert(restored.projectNo === 'RC-SLAB-001', 'slab project restore project number', restored.projectNo);
+  assert(restored.Lx === '620', 'slab project restore Lx', restored.Lx);
+  assert(restored.wuCombo === '1.42', 'slab project restore wuCombo', restored.wuCombo);
+  assert(restored.showSteps === true, 'slab project restore showSteps checkbox', restored.showSteps);
+  assert(restored.banner && restored.banner.length > 0, 'slab project restore recalculates', restored.banner);
+
+  await page.evaluate(() => {
+    document.getElementById('projName').value = '檔案匯入前';
+    document.getElementById('Lx').value = '101';
+  });
+  await page.setInputFiles('#slabProjectFile', {
+    name: 'rc-slab-project.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(saved), 'utf8')
+  });
+  await page.waitForFunction(() => document.getElementById('projName')?.value === '板專案存讀檔測試');
+  const imported = await page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    Lx: document.getElementById('Lx')?.value,
+    status: document.getElementById('slabProjectStatus')?.textContent || ''
+  }));
+  assert(imported.projectName === '板專案存讀檔測試', 'slab project file input import project name', imported.projectName);
+  assert(imported.Lx === '620', 'slab project file input import Lx', imported.Lx);
+  assert(imported.status.includes('已讀取板專案檔'), 'slab project file input status', imported.status);
+
+  const draft = await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    window.saveSlabProjectDraft();
+    setField('projName', '暫存讀取前');
+    setField('Lx', 102);
+    window.loadSlabProjectDraft();
+    return {
+      projectName: document.getElementById('projName')?.value,
+      Lx: document.getElementById('Lx')?.value,
+      status: document.getElementById('slabProjectStatus')?.textContent || '',
+      raw: localStorage.getItem('rc.slab.project.draft')
+    };
+  });
+  assert(draft.projectName === '板專案存讀檔測試', 'slab project draft restores project name', draft.projectName);
+  assert(draft.Lx === '620', 'slab project draft restores Lx', draft.Lx);
+  assert(draft.status.includes('已讀取瀏覽器暫存'), 'slab project draft status', draft.status);
+  assert(draft.raw && draft.raw.includes('rc-slab-project-v1'), 'slab project draft localStorage payload', 'draft saved');
+}
+
 async function main() {
   const slabHtml = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -76,6 +221,11 @@ async function main() {
   assert(slabHtml.includes('id="caseJson"'), 'slab.html has case JSON textarea', 'JSON import/export UI exists');
   assert(slabHtml.includes('id="caseCompareResult"'), 'slab.html has compare panel', 'case compare output exists');
   assert(slabHtml.includes('id="baselineReport"'), 'slab.html has baseline report area', 'baseline report output exists');
+  assert(slabHtml.includes('SLAB_PROJECT_SCHEMA'), 'slab.html has project file schema', 'versioned slab project file exists');
+  assert(slabHtml.includes('btnSaveSlabProject'), 'slab.html has save project button', 'local JSON export control exists');
+  assert(slabHtml.includes('btnLoadSlabProject'), 'slab.html has load project button', 'local JSON import control exists');
+  assert(slabHtml.includes('rc.slab.project.draft'), 'slab.html has browser draft storage key', 'browser-local draft storage exists');
+  assert(slabHtml.includes('caseJson') && slabHtml.includes('SLAB_PROJECT_EXCLUDED_IDS'), 'slab.html excludes case-tool textareas from project files', 'case-tool scratch text is not project data');
   assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
   assert(slabHtml.includes('RCUI.buildReviewCheckGroup'), 'slab report uses shared review check group builder', 'formal-analysis warning rows use shared helper');
 
@@ -96,6 +246,8 @@ async function main() {
     await wait(250);
     assert(pageErrors.length === 0, 'slab page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'slab page resources', 'no missing static resources during initial load');
+    await exerciseSlabProjectStorage(page);
+    assert(pageErrors.length === 0, 'slab project storage workflow', 'no page errors during project save/load checks');
 
     for (const tc of pack.cases) {
       await page.evaluate(({ mode, values }) => {

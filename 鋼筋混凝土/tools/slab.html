@@ -39,6 +39,20 @@
   .advanced-body { margin-top:8px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
   .advanced-grid { display:grid; grid-template-columns:1fr; gap:10px; }
   .mono-box { width:100%; font-family:Consolas, monospace; font-size:0.82em; }
+  .mode-bar__actions {
+    display:flex; gap:6px; align-items:center; flex-wrap:wrap;
+  }
+  .mode-bar__action {
+    padding:9px 12px; min-height:38px; border-radius:6px;
+    border:1px solid var(--primary); background:#fff; color:var(--primary);
+    cursor:pointer; font-family:inherit; font-size:0.86em; font-weight:700;
+  }
+  .mode-bar__action:hover { background:#ecfeff; }
+  .mode-bar__file { display:none; }
+  .mode-bar__project-status {
+    flex:1 1 100%; min-height:1.2em; text-align:right;
+    color:var(--text-light); font-size:0.76em; font-style:italic;
+  }
   @media (min-width: 900px) {
     .advanced-grid.two-col { grid-template-columns:1fr 1fr; }
   }
@@ -48,10 +62,13 @@
     }
     .mode-bar__proj .w-name,
     .mode-bar__proj .w-des,
+    .mode-bar__proj .mode-bar__actions,
     .mode-bar__proj .mode-bar__report {
       grid-column:1 / -1;
     }
     .mode-bar__hint { display:block; width:100%; margin-top:8px; line-height:1.45; }
+    .mode-bar__action { flex:1 1 calc(50% - 4px); }
+    .mode-bar__project-status { text-align:left; }
     .tool-toggle { font-size:0.88em; }
   }
   .future-note { margin-top:14px; padding:10px 14px; background:#f1f5f9;
@@ -82,7 +99,15 @@
       <label style="display:flex; align-items:center; gap:4px; margin-right:8px; font-size:0.85em; white-space:nowrap;">
         <input type="checkbox" id="showSteps"> 顯示計算過程
       </label>
+      <div class="mode-bar__actions" aria-label="板專案存讀檔">
+        <button id="btnSaveSlabProject" class="mode-bar__action" type="button" title="下載板專案 JSON 檔">存檔</button>
+        <button id="btnLoadSlabProject" class="mode-bar__action" type="button" title="讀取板專案 JSON 檔">讀檔</button>
+        <button id="btnSaveSlabDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
+        <button id="btnLoadSlabDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
+        <input id="slabProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
+      </div>
       <button class="mode-bar__report" id="btnReport" type="button">📄 計算書</button>
+      <span id="slabProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
     <div class="form-row" style="margin-top:10px;">
       <div class="form-group">
@@ -583,6 +608,9 @@
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id)?.value) || 0;
   let currentMode = 'design', loadMode = 'simple';
+  const SLAB_PROJECT_SCHEMA = 'rc-slab-project-v1';
+  const SLAB_PROJECT_STORAGE_KEY = 'rc.slab.project.draft';
+  const SLAB_PROJECT_EXCLUDED_IDS = new Set(['slabProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
 
   // ─── helpers ────────────────────────────────────
   function setResult(id, val, unit, digits=2, status=null) {
@@ -609,6 +637,195 @@
     document.querySelectorAll('.load-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.load === loadMode));
     document.querySelectorAll('.load-mode-panel').forEach(p => p.classList.toggle('active', p.dataset.load === loadMode));
   }
+  function showSlabProjectStatus(message, status = 'ok') {
+    const el = $('slabProjectStatus');
+    if (el) {
+      el.textContent = message || '';
+      el.style.color = status === 'fail' ? 'var(--danger)' : (status === 'warn' ? 'var(--warn)' : 'var(--text-light)');
+    }
+    if (!message) return;
+    const note = document.createElement('div');
+    note.textContent = message;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    document.body.appendChild(note);
+    setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
+  }
+  function slabProjectControls() {
+    return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
+      if (!el.id || SLAB_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
+      return (el.type || '').toLowerCase() !== 'file';
+    });
+  }
+  function readSlabControl(el) {
+    if ((el.type || '').toLowerCase() === 'checkbox') {
+      return { kind: 'checkbox', checked: !!el.checked };
+    }
+    return {
+      kind: el.tagName.toLowerCase(),
+      inputType: (el.type || '').toLowerCase(),
+      value: el.value
+    };
+  }
+  function collectSlabProjectData() {
+    if (typeof calcSlab === 'function') calcSlab();
+    const fields = {};
+    slabProjectControls().forEach(el => {
+      fields[el.id] = readSlabControl(el);
+    });
+    const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
+    return {
+      schema: SLAB_PROJECT_SCHEMA,
+      tool: 'rc-slab',
+      toolTitle: '板 Slab 設計／檢核',
+      appVersion: 'V3.1',
+      savedAt: new Date().toISOString(),
+      mode: currentMode,
+      loadMode,
+      metadata: {
+        projectName: $('projName')?.value?.trim() || '',
+        projectNo: $('projNo')?.value?.trim() || '',
+        designer: $('projDesigner')?.value?.trim() || ''
+      },
+      fields,
+      summary: {
+        banner: bannerText,
+        reviewWarningCount: window.slabLast?.reviewWarnings?.length ?? 0
+      }
+    };
+  }
+  function slabProjectFilename(payload) {
+    const meta = payload?.metadata || {};
+    const base = [meta.projectNo, meta.projectName].filter(Boolean).join('_') || 'RC板專案';
+    const safeBase = base.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 80);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    return `${safeBase}_${stamp}.json`;
+  }
+  function downloadSlabProjectFile() {
+    try {
+      const payload = collectSlabProjectData();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = slabProjectFilename(payload);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showSlabProjectStatus(`已下載板專案檔：${a.download}`);
+      return payload;
+    } catch (err) {
+      console.error('slab project save failed', err);
+      showSlabProjectStatus('板專案檔存檔失敗，請查看瀏覽器主控台。', 'fail');
+      return null;
+    }
+  }
+  function normalizeSlabProjectPayload(raw) {
+    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!payload || payload.schema !== SLAB_PROJECT_SCHEMA || payload.tool !== 'rc-slab' || !payload.fields) {
+      throw new Error('unsupported slab project schema');
+    }
+    return payload;
+  }
+  function setSlabProjectControl(id, saved) {
+    const el = $(id);
+    if (!el || (el.type || '').toLowerCase() === 'file') return false;
+    const type = (el.type || '').toLowerCase();
+    if (type === 'checkbox') {
+      const checked = (saved && typeof saved === 'object' && 'checked' in saved)
+        ? saved.checked
+        : !!saved;
+      el.checked = !!checked;
+    } else {
+      const value = (saved && typeof saved === 'object' && 'value' in saved)
+        ? saved.value
+        : saved;
+      if (el.tagName === 'SELECT') {
+        const exists = Array.from(el.options).some(option => option.value === String(value));
+        if (!exists) return false;
+      }
+      el.value = value == null ? '' : String(value);
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+  function applySlabProjectData(raw, options = {}) {
+    const payload = normalizeSlabProjectPayload(raw);
+    setSlabMode(payload.mode, { recalculate: false });
+    if (payload.loadMode) setLoadMode(payload.loadMode);
+    let applied = 0;
+    Object.entries(payload.fields).forEach(([id, saved]) => {
+      if (setSlabProjectControl(id, saved)) applied += 1;
+    });
+    if (payload.loadMode) setLoadMode(payload.loadMode);
+    updateSelfWt();
+    updatePunchModeHint();
+    syncVsInputs();
+    syncDesignFields();
+    syncDetailHelp();
+    syncAdvancedCaseTools();
+    if (typeof calcSlab === 'function') calcSlab();
+    if (!options.silent) {
+      const source = options.sourceLabel || '板專案檔';
+      const name = payload.metadata?.projectName || payload.metadata?.projectNo || '未命名專案';
+      showSlabProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+    }
+    return { payload, applied };
+  }
+  async function loadSlabProjectFile(file) {
+    if (!file) return null;
+    try {
+      const text = await file.text();
+      return applySlabProjectData(text, { sourceLabel: '板專案檔' });
+    } catch (err) {
+      console.error('slab project load failed', err);
+      showSlabProjectStatus('板專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      return null;
+    }
+  }
+  function saveSlabProjectDraft() {
+    try {
+      const payload = collectSlabProjectData();
+      localStorage.setItem(SLAB_PROJECT_STORAGE_KEY, JSON.stringify(payload));
+      const name = payload.metadata.projectName || payload.metadata.projectNo || '未命名專案';
+      showSlabProjectStatus(`已暫存到此瀏覽器：${name}`);
+      return payload;
+    } catch (err) {
+      console.error('slab project draft save failed', err);
+      showSlabProjectStatus('瀏覽器暫存失敗，可能是儲存空間或隱私模式限制。', 'fail');
+      return null;
+    }
+  }
+  function loadSlabProjectDraft() {
+    try {
+      const raw = localStorage.getItem(SLAB_PROJECT_STORAGE_KEY);
+      if (!raw) {
+        showSlabProjectStatus('此瀏覽器目前沒有板專案暫存。', 'fail');
+        return null;
+      }
+      return applySlabProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+    } catch (err) {
+      console.error('slab project draft load failed', err);
+      showSlabProjectStatus('瀏覽器暫存讀取失敗，請重新存檔。', 'fail');
+      return null;
+    }
+  }
+  function bindSlabProjectStorage() {
+    $('btnSaveSlabProject')?.addEventListener('click', downloadSlabProjectFile);
+    $('btnLoadSlabProject')?.addEventListener('click', () => $('slabProjectFile')?.click());
+    $('btnSaveSlabDraft')?.addEventListener('click', saveSlabProjectDraft);
+    $('btnLoadSlabDraft')?.addEventListener('click', loadSlabProjectDraft);
+    $('slabProjectFile')?.addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      loadSlabProjectFile(file).finally(() => { event.target.value = ''; });
+    });
+  }
+  window.collectSlabProjectData = collectSlabProjectData;
+  window.applySlabProjectData = applySlabProjectData;
+  window.saveSlabProjectDraft = saveSlabProjectDraft;
+  window.loadSlabProjectDraft = loadSlabProjectDraft;
+  window.downloadSlabProjectFile = downloadSlabProjectFile;
   function syncDetailHelp() {
     document.body.classList.toggle('show-detail-help', !!$('showDetailHelp')?.checked);
   }
@@ -883,16 +1100,17 @@
       fmh.textContent = isDesign ? '設計模式：給號數→反算間距' : '檢核模式：給號數與間距→檢核容量';
     }
   }
+  function setSlabMode(mode, options = {}) {
+    currentMode = mode === 'check' ? 'check' : 'design';
+    document.querySelectorAll('.mode-bar__btn').forEach(b => b.classList.toggle('active', b.dataset.mode === currentMode));
+    $('modeHint').textContent = currentMode==='design'
+      ? '設計模式：給定載重與跨距，反算需求並建議鋼筋配置。'
+      : '檢核模式：給定配筋與載重，檢核是否合於規範。';
+    syncDesignFields();
+    if (options.recalculate !== false) calcSlab();
+  }
   document.querySelectorAll('.mode-bar__btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentMode = btn.dataset.mode;
-      document.querySelectorAll('.mode-bar__btn').forEach(b => b.classList.toggle('active', b === btn));
-      $('modeHint').textContent = currentMode==='design'
-        ? '設計模式：給定載重與跨距，反算需求並建議鋼筋配置。'
-        : '檢核模式：給定配筋與載重，檢核是否合於規範。';
-      syncDesignFields();
-      calcSlab();
-    });
+    btn.addEventListener('click', () => setSlabMode(btn.dataset.mode));
   });
 
   // ─── 載重模式切換 ───────────────────────────────
@@ -928,6 +1146,7 @@
     if (v > 0) $('llVal').value = v.toFixed(2);
     scheduleCalc();
   });
+  bindSlabProjectStorage();
   $('btnApplyCase').addEventListener('click', () => applySlabTestCase($('testCaseSelect').value));
   $('btnExportCase').addEventListener('click', exportCurrentSlabCase);
   $('btnImportCase').addEventListener('click', importSlabCaseFromJson);

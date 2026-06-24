@@ -378,6 +378,150 @@ async function captureBeamReportHtml(page) {
   });
 }
 
+async function exerciseBeamProjectStorage(page) {
+  await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    document.querySelector('.mode-btn[data-mode="check"]')?.click();
+    setField('projName', '梁專案存讀檔測試');
+    setField('projNo', 'RC-BEAM-001');
+    setField('projDesigner', 'QA');
+    setField('sectionType', 'T');
+    setField('support', 'bothEnd');
+    setField('seismicMode', true);
+    setField('enableTorsion', true);
+    setField('enableDefl', true);
+    setField('enableExactDefl', true);
+    setField('showSteps', true);
+    setField('autoD', false);
+    setField('autoMa', false);
+    setField('fc', 350);
+    setField('fy', 4200);
+    setField('fyt', 4200);
+    setField('bw', 42);
+    setField('h', 72);
+    setField('bf', 125);
+    setField('hf', 16);
+    setField('ln', 640);
+    setField('dManual', 63);
+    setField('MuPos', 88);
+    setField('MuNeg', 126);
+    setField('Vu', 44);
+    setField('Tu', 8);
+    setField('Ve', 52);
+    setField('botBar1N', 4);
+    setField('botBar1No', '#8');
+    setField('topBar1N', 5);
+    setField('topBar1No', '#8');
+    setField('stirS', 9);
+    setField('legs', 4);
+    setField('torsionDesignStatus', 'ok');
+    setField('torsionAtPerS', 0.8);
+    setField('torsionAl', 6.5);
+    document.querySelector('.section-tabs button[data-tab="summary"]')?.click();
+    if (typeof window.syncToggles === 'function') window.syncToggles();
+    if (typeof window.calcBeam === 'function') window.calcBeam();
+  });
+
+  const saved = await page.evaluate(() => window.collectBeamProjectData());
+  assert(saved.schema === 'rc-beam-project-v1', 'beam project schema', saved.schema);
+  assert(saved.tool === 'rc-beam', 'beam project tool id', saved.tool);
+  assert(saved.mode === 'check', 'beam project stores mode', saved.mode);
+  assert(saved.activeTab === 'summary', 'beam project stores active tab', saved.activeTab);
+  assert(saved.metadata.projectName === '梁專案存讀檔測試', 'beam project metadata', saved.metadata.projectName);
+  assert(saved.fields.MuPos.value === '88', 'beam project stores numeric input as editable value', saved.fields.MuPos.value);
+  assert(saved.fields.enableTorsion.checked === true, 'beam project stores checkbox state', saved.fields.enableTorsion.checked);
+  assert(saved.fields.beamProjectFile == null, 'beam project excludes file input', 'file input excluded');
+
+  const restored = await page.evaluate(payload => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    document.querySelector('.mode-btn[data-mode="design"]')?.click();
+    setField('projName', '已清除');
+    setField('MuPos', 1);
+    setField('bw', 20);
+    setField('enableTorsion', false);
+    document.querySelector('.section-tabs button[data-tab="geom"]')?.click();
+    const result = window.applyBeamProjectData(payload, { silent: true });
+    return {
+      applied: result.applied,
+      mode: document.querySelector('.mode-btn.active')?.dataset.mode,
+      activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab,
+      projectName: document.getElementById('projName')?.value,
+      projectNo: document.getElementById('projNo')?.value,
+      MuPos: document.getElementById('MuPos')?.value,
+      bw: document.getElementById('bw')?.value,
+      enableTorsion: document.getElementById('enableTorsion')?.checked,
+      banner: document.getElementById('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim()
+    };
+  }, saved);
+  assert(restored.applied > 50, 'beam project restore applies fields', restored.applied);
+  assert(restored.mode === 'check', 'beam project restore mode', restored.mode);
+  assert(restored.activeTab === 'summary', 'beam project restore active tab', restored.activeTab);
+  assert(restored.projectName === '梁專案存讀檔測試', 'beam project restore project name', restored.projectName);
+  assert(restored.projectNo === 'RC-BEAM-001', 'beam project restore project number', restored.projectNo);
+  assert(restored.MuPos === '88', 'beam project restore MuPos', restored.MuPos);
+  assert(restored.bw === '42', 'beam project restore geometry', restored.bw);
+  assert(restored.enableTorsion === true, 'beam project restore torsion checkbox', restored.enableTorsion);
+  assert(restored.banner && restored.banner.length > 0, 'beam project restore recalculates', restored.banner);
+
+  await page.evaluate(() => {
+    document.getElementById('projName').value = '檔案匯入前';
+    document.getElementById('MuPos').value = '2';
+  });
+  await page.setInputFiles('#beamProjectFile', {
+    name: 'rc-beam-project.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(saved), 'utf8')
+  });
+  await page.waitForFunction(() => document.getElementById('projName')?.value === '梁專案存讀檔測試');
+  const imported = await page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    MuPos: document.getElementById('MuPos')?.value,
+    status: document.getElementById('beamProjectStatus')?.textContent || ''
+  }));
+  assert(imported.projectName === '梁專案存讀檔測試', 'beam project file input import project name', imported.projectName);
+  assert(imported.MuPos === '88', 'beam project file input import MuPos', imported.MuPos);
+  assert(imported.status.includes('已讀取梁專案檔'), 'beam project file input status', imported.status);
+
+  const draft = await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    window.saveBeamProjectDraft();
+    setField('projName', '暫存讀取前');
+    setField('MuPos', 3);
+    window.loadBeamProjectDraft();
+    return {
+      projectName: document.getElementById('projName')?.value,
+      MuPos: document.getElementById('MuPos')?.value,
+      status: document.getElementById('beamProjectStatus')?.textContent || '',
+      raw: localStorage.getItem('rc.beam.project.draft')
+    };
+  });
+  assert(draft.projectName === '梁專案存讀檔測試', 'beam project draft restores project name', draft.projectName);
+  assert(draft.MuPos === '88', 'beam project draft restores MuPos', draft.MuPos);
+  assert(draft.status.includes('已讀取瀏覽器暫存'), 'beam project draft status', draft.status);
+  assert(draft.raw && draft.raw.includes('rc-beam-project-v1'), 'beam project draft localStorage payload', 'draft saved');
+}
+
 async function runBeamColumnHandoffCase(page) {
   section('Beam Column Joint Handoff');
   await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
@@ -461,6 +605,10 @@ async function runBrowserCases() {
     await wait(300);
     assert(pageErrors.length === 0, 'beam page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'beam page resources', 'no missing static resources during initial load');
+    await exerciseBeamProjectStorage(page);
+    assert(pageErrors.length === 0, 'beam project storage workflow', 'no page errors during project save/load checks');
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    await wait(300);
 
     for (const tc of pack.cases) {
       await applyCase(page, tc);
@@ -553,6 +701,10 @@ async function main() {
   assert(beamHtml.includes('id="smrfMnMin"'), 'beam.html has SMRF span Mn input', 'span strength check can be entered instead of only reminded');
   assert(beamHtml.includes('id="firstHoopDist"'), 'beam.html has first hoop distance input', 'SMRF first hoop check can be entered instead of only reminded');
   assert(beamHtml.includes('column.html?beamJoint=1'), 'beam.html links to column joint import', 'column import URL exists');
+  assert(beamHtml.includes('BEAM_PROJECT_SCHEMA'), 'beam.html has project file schema', 'versioned beam project file exists');
+  assert(beamHtml.includes('btnSaveBeamProject'), 'beam.html has save project button', 'local JSON export control exists');
+  assert(beamHtml.includes('btnLoadBeamProject'), 'beam.html has load project button', 'local JSON import control exists');
+  assert(beamHtml.includes('rc.beam.project.draft'), 'beam.html has browser draft storage key', 'browser-local draft storage exists');
 
   const libs = bootLibs();
   const { Flexure, Concrete, Rebar } = libs;
