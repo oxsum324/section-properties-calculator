@@ -359,6 +359,11 @@
   <button data-tab="girder">④ 覆工大梁</button>
   <button data-tab="column">⑤ 共構柱</button>
   <button data-tab="report">⑥ 📑 彙整報告</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="saveProjectJSON()" title="下載可回讀的專案 JSON">存檔 JSON</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="document.getElementById('projectJsonFile').click()" title="讀取專案 JSON">讀取 JSON</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="saveDraft()" title="暫存目前輸入">暫存</button>
+  <button class="btn btn-ghost" style="align-self:center;" onclick="loadDraft()" title="讀取瀏覽器暫存">讀取暫存</button>
+  <input type="file" id="projectJsonFile" accept=".json,application/json" style="display:none" onchange="importProjectJSON(this)">
   <button class="btn" style="margin-left:auto; align-self:center;" onclick="window.print()" title="列印 / 匯出 PDF">🖨 列印</button>
   <button class="btn btn-ghost" style="align-self:center;" onclick="resetAll()" title="清空所有輸入">↺ 重置</button>
 </nav>
@@ -919,9 +924,9 @@ function deflThreeCases({w_self_kgf_m, P_HS_tf, P_crane_tf, Wc_tf_m, trackLen_m,
 //============================================================
 // Tab 切換
 //============================================================
-document.querySelectorAll('nav.tabs button').forEach(btn => {
+document.querySelectorAll('nav.tabs button[data-tab]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('nav.tabs button[data-tab]').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('section.tab-panel').forEach(s => s.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
@@ -1449,12 +1454,19 @@ function autolinkApply() {
   if (!document.getElementById('autolink').checked) return;
   const dL = parseFloat(document.getElementById('d_L').value);
   const sL = parseFloat(document.getElementById('s_L').value);
+  const sBEl = document.getElementById('s_B');
+  const g4BEl = document.getElementById('g4_B');
+  const g4W2El = document.getElementById('g4_W2');
   // 板跨 → 小梁間距 B (因小梁在板正下方)
-  document.getElementById('s_B').value = dL;
-  document.getElementById('s_B').classList.add('linked');
+  if (sBEl) {
+    sBEl.value = dL;
+    sBEl.classList.add('linked');
+  }
   // 小梁跨 → 大梁間距 B
-  document.getElementById('g4_B').value = sL;
-  document.getElementById('g4_B').classList.add('linked');
+  if (g4BEl) {
+    g4BEl.value = sL;
+    g4BEl.classList.add('linked');
+  }
 
   // 自動算 W2：小梁 WT × 小梁跨 / 大梁跨 (估算傳遞)
   const sec_s = getSec(document.getElementById('s_section').value);
@@ -1462,14 +1474,14 @@ function autolinkApply() {
   const g = G();
   const sB = parseFloat(document.getElementById('s_B').value);
   const g4L = parseFloat(document.getElementById('g4_L').value);
-  if (sec_s && g4L > 0) {
+  if (sec_s && g4L > 0 && g4W2El) {
     const Wb_s = sec_s.Wb * s_n;
     const sWT = (g.Wp * sB + g.Wl * sB + Wb_s); // kgf/m
     // 估算：每根小梁傳兩端反力 R = sWT × sL / 2，沿大梁長 L_g 上若有 m 支小梁交點，等效線載 ≈ Σ2R/L_g
     // 簡化：W2 ≈ sWT × sL / g4L  (反映「小梁總荷除以大梁支距」)
     const W2 = sWT * sL / g4L;
-    document.getElementById('g4_W2').value = Math.round(W2);
-    document.getElementById('g4_W2').classList.add('linked');
+    g4W2El.value = Math.round(W2);
+    g4W2El.classList.add('linked');
   }
 }
 function autolinkPuToColumn(puMax) {
@@ -1477,34 +1489,108 @@ function autolinkPuToColumn(puMax) {
   const cN = document.getElementById('c_N');
   const bP = document.getElementById('b_P');
   const pP = document.getElementById('p_P');
-  cN.value = puMax.toFixed(2); cN.classList.add('linked');
-  bP.value = puMax.toFixed(2); bP.classList.add('linked');
-  pP.value = puMax.toFixed(2); pP.classList.add('linked');
+  if (cN) { cN.value = puMax.toFixed(2); cN.classList.add('linked'); }
+  if (bP) { bP.value = puMax.toFixed(2); bP.classList.add('linked'); }
+  if (pP) { pP.value = puMax.toFixed(2); pP.classList.add('linked'); }
 }
 
 //============================================================
 // localStorage 持久化
 //============================================================
 const LS_KEY = 'fugongban_v1';
-function saveState() {
+const LS_DRAFT_KEY = 'fugongban_project_draft_v1';
+function collectFormState() {
   const data = {};
   document.querySelectorAll('input, select').forEach(el => {
+    if (!el.id || el.type === 'file') return;
     if (el.id) data[el.id] = el.type === 'checkbox' ? el.checked : el.value;
   });
+  return data;
+}
+function applyFormState(data) {
+  Object.entries(data || {}).forEach(([id, v]) => {
+    const el = document.getElementById(id);
+    if (!el || el.type === 'file') return;
+    if (el.type === 'checkbox') el.checked = v;
+    else el.value = v;
+  });
+}
+function saveState() {
+  const data = collectFormState();
   localStorage.setItem(LS_KEY, JSON.stringify(data));
 }
 function restoreState() {
   const raw = localStorage.getItem(LS_KEY);
   if (!raw) return;
   try {
-    const data = JSON.parse(raw);
-    Object.entries(data).forEach(([id, v]) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (el.type === 'checkbox') el.checked = v;
-      else el.value = v;
-    });
+    applyFormState(JSON.parse(raw));
   } catch(e) { console.warn(e); }
+}
+function buildProjectPayload() {
+  return {
+    schema: 'fugongban.project.v1',
+    tool: { id: 'fugongban', name: '覆工板系統計算工具', pageVersion: 'v1.0' },
+    savedAt: new Date().toISOString(),
+    state: collectFormState()
+  };
+}
+function downloadJSON(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function applyProjectPayload(payload, label = '案例檔') {
+  if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
+  if (payload.tool && payload.tool.id && payload.tool.id !== 'fugongban') {
+    throw new Error(`此 JSON 屬於 ${payload.tool.id}，不是覆工板工具案例。`);
+  }
+  if (!payload.state) {
+    throw new Error('此檔不是可回讀的覆工板專案 JSON；請使用「存檔 JSON」產生的檔案。');
+  }
+  applyFormState(payload.state);
+  recalcAll();
+  setActionStatus(`已讀取：${label}。`, 'ok');
+}
+function saveProjectJSON() {
+  const payload = buildProjectPayload();
+  downloadJSON(`覆工板專案_${payload.savedAt.slice(0, 10)}.json`, payload);
+  setActionStatus('已存檔 JSON；可用「讀取 JSON」回復目前案例。', 'ok');
+}
+async function importProjectJSON(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  try {
+    applyProjectPayload(JSON.parse(await file.text()), file.name);
+  } catch(e) {
+    setActionStatus(`讀取 JSON 失敗：${e.message}`, 'error');
+  } finally {
+    input.value = '';
+  }
+}
+function saveDraft() {
+  try {
+    localStorage.setItem(LS_DRAFT_KEY, JSON.stringify(collectFormState()));
+    setActionStatus('已暫存目前案例到此瀏覽器。', 'ok');
+  } catch(e) {
+    setActionStatus(`暫存失敗：${e.message}`, 'error');
+  }
+}
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(LS_DRAFT_KEY);
+    if (!raw) {
+      setActionStatus('尚無可讀取的瀏覽器暫存。', 'warn');
+      return;
+    }
+    applyProjectPayload({ tool: { id: 'fugongban' }, state: JSON.parse(raw) }, '瀏覽器暫存');
+  } catch(e) {
+    setActionStatus(`讀取暫存失敗：${e.message}`, 'error');
+  }
 }
 function resetAll() {
   const el = document.getElementById('actionStatus');

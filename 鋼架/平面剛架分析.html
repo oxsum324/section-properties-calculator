@@ -130,6 +130,8 @@
           <button class="btn btn-accent btn-sm" onclick="exportJSON()">存檔 JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none" onchange="importJSONFile(this)">
+          <button class="btn btn-ghost btn-sm" onclick="saveDraft()">暫存</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadDraft()">讀取暫存</button>
           <button class="btn btn-ghost btn-sm" onclick="printReport()">列印計算書</button>
           <span id="reportStatus" class="report-status" role="status" aria-live="polite"></span>
         </div>
@@ -1279,8 +1281,10 @@ function resetAll() {
 // ============================================================
 // JSON 存檔 / 讀取
 // ============================================================
-function exportJSON() {
-  const data = {
+const FRAME_DRAFT_KEY = 'planeFrame.projectDraft.v1';
+
+function collectProjectData() {
+  return {
     tool: '平面剛架分析', version: 'V0.2', unit: 'tf-m',
     defaults: {
       E: parseFloat(document.getElementById('defE').value) || 0,
@@ -1295,6 +1299,10 @@ function exportJSON() {
     memberLoads: state.memberLoads,
     memberPointLoads: state.memberPointLoads
   };
+}
+
+function exportJSON() {
+  const data = collectProjectData();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1302,6 +1310,7 @@ function exportJSON() {
   a.href = url; a.download = 'frame-' + stamp + '.json';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  setReportStatus('已存檔 JSON，可用「讀取 JSON」回復。');
 }
 function importJSONFile(input) {
   const file = input.files && input.files[0];
@@ -1316,6 +1325,27 @@ function importJSONFile(input) {
     input.value = '';
   };
   reader.readAsText(file);
+}
+function saveDraft() {
+  try {
+    localStorage.setItem(FRAME_DRAFT_KEY, JSON.stringify(collectProjectData()));
+    setReportStatus('已暫存目前案例到此瀏覽器。');
+  } catch (e) {
+    setReportStatus('暫存失敗: ' + e.message);
+  }
+}
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(FRAME_DRAFT_KEY);
+    if (!raw) {
+      setReportStatus('尚無可讀取的瀏覽器暫存。');
+      return;
+    }
+    loadFromData(JSON.parse(raw));
+    setReportStatus('已讀取瀏覽器暫存。');
+  } catch (e) {
+    setReportStatus('讀取暫存失敗: ' + e.message);
+  }
 }
 function loadFromData(data) {
   resetAll();

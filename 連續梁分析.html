@@ -177,6 +177,11 @@
 <div class="save-bar">
   <button class="btn btn-primary btn-sm" onclick="window._fbSave()">💾 儲存</button>
   <button class="btn btn-accent btn-sm" onclick="window._fbLoad()">📂 載入</button>
+  <button class="btn btn-sm" onclick="window._localSave()">本地存檔</button>
+  <button class="btn btn-sm" onclick="window._localLoad()">本地讀檔</button>
+  <button class="btn btn-sm" onclick="window._localSaveDraft()">暫存</button>
+  <button class="btn btn-sm" onclick="window._localLoadDraft()">讀取暫存</button>
+  <input type="file" id="localJsonFile" accept=".json,application/json" style="display:none" onchange="window._localImportFile(this)">
   <span class="current-file" id="currentFileLabel"></span>
   <span class="status-msg" id="saveStatus" role="status" aria-live="polite"></span>
 </div>
@@ -1999,6 +2004,7 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
 const COLL = 'beam_saves';
+const LOCAL_DRAFT_KEY = 'continuousBeam.localDraft.v1';
 
 let currentSaveId = null;
 let currentSaveName = null;
@@ -2030,6 +2036,43 @@ function collectSaveData() {
     projDesigner: document.getElementById('projDesigner').value,
     projNote: document.getElementById('projNote').value
   };
+}
+
+function buildLocalPayload() {
+  return {
+    schema: 'continuous-beam.project.v1',
+    tool: {
+      id: 'continuous-beam',
+      name: '連續梁分析工具',
+      pageVersion: 'V1.2'
+    },
+    savedAt: new Date().toISOString(),
+    data: collectSaveData()
+  };
+}
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function restoreLocalPayload(payload, label) {
+  if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
+  if (payload.tool && payload.tool.id && payload.tool.id !== 'continuous-beam') {
+    throw new Error('此 JSON 屬於 ' + payload.tool.id + '，不是連續梁分析案例。');
+  }
+  restoreFromData(payload.data || payload);
+  currentSaveId = null;
+  currentSaveName = null;
+  updateFileLabel();
+  window.setSaveStatus('已讀取本地檔：' + (label || '案例檔'), 'ok');
 }
 
 function restoreFromData(d) {
@@ -2072,6 +2115,54 @@ function restoreFromData(d) {
   window.drawSchematic();
   window.invalidateAnalysis({ keepError: true });
 }
+
+window._localSave = function() {
+  try {
+    const payload = buildLocalPayload();
+    downloadJson('continuous-beam-project-' + payload.savedAt.slice(0, 10) + '.json', payload);
+    window.setSaveStatus('已下載本地 JSON，可用「本地讀檔」回復。', 'ok');
+  } catch(e) {
+    window.setSaveStatus('本地存檔失敗：' + e.message, 'error');
+  }
+};
+
+window._localLoad = function() {
+  document.getElementById('localJsonFile').click();
+};
+
+window._localImportFile = async function(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  try {
+    restoreLocalPayload(JSON.parse(await file.text()), file.name);
+  } catch(e) {
+    window.setSaveStatus('本地讀檔失敗：' + e.message, 'error');
+  } finally {
+    input.value = '';
+  }
+};
+
+window._localSaveDraft = function() {
+  try {
+    localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify(buildLocalPayload()));
+    window.setSaveStatus('已暫存目前案例到此瀏覽器。', 'ok');
+  } catch(e) {
+    window.setSaveStatus('暫存失敗：' + e.message, 'error');
+  }
+};
+
+window._localLoadDraft = function() {
+  try {
+    const raw = localStorage.getItem(LOCAL_DRAFT_KEY);
+    if (!raw) {
+      window.setSaveStatus('尚無可讀取的瀏覽器暫存。', 'warn');
+      return;
+    }
+    restoreLocalPayload(JSON.parse(raw), '瀏覽器暫存');
+  } catch(e) {
+    window.setSaveStatus('讀取暫存失敗：' + e.message, 'error');
+  }
+};
 
 function todayStr() {
   const d = new Date();
