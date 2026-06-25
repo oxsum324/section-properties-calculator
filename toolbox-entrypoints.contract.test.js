@@ -313,10 +313,11 @@ assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity mat
 assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');
-assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v5'), 'Pages deploy workflow configures Pages');
+assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v6'), 'Pages deploy workflow configures Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/upload-pages-artifact@v4'), 'Pages deploy workflow uploads artifact');
-assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v4'), 'Pages deploy workflow deploys Pages');
+assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v5'), 'Pages deploy workflow deploys Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/checkout@v6'), 'Pages deploy workflow uses current checkout action');
+assert.ok(pagesDeployWorkflow.includes('actions: read'), 'Pages deploy workflow has actions read permission for deploy-pages v5');
 assert.ok(pagesDeployWorkflow.includes('pages: write'), 'Pages deploy workflow has pages write permission');
 assert.ok(pagesDeployWorkflow.includes('id-token: write'), 'Pages deploy workflow has id-token write permission');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
