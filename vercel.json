@@ -54,6 +54,14 @@
     { "source": "/force-picker", "destination": "/結構工具箱/tools/force-picker", "permanent": true },
     { "source": "/test-dashboard", "destination": "/結構工具箱/tools/test-dashboard", "permanent": true },
 
+    { "source": "/frame-analysis", "destination": "/鋼架/平面剛架分析", "permanent": true },
+    { "source": "/struct-dx", "destination": "/解題/struct_dx/frontend/struct_suite", "permanent": true },
+    { "source": "/composite-section", "destination": "/合成斷面性質", "permanent": true },
+    { "source": "/rc-retrofit-section", "destination": "/RC補強斷面性質", "permanent": true },
+    { "source": "/stone-fixing", "destination": "/石材固定/石材計算書產生器_規範版V2", "permanent": true },
+    { "source": "/decking", "destination": "/覆工板/index", "permanent": true },
+    { "source": "/excavation-support", "destination": "/開挖擋土支撐/index", "permanent": true },
+
     { "source": "/anchor", "destination": "/anchor/", "permanent": true },
     { "source": "/anchor-review", "destination": "/anchor/", "permanent": true },
     { "source": "/anchor-review/", "destination": "/anchor/", "permanent": true }
