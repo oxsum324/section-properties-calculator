@@ -1,0 +1,119 @@
+{
+  "version": "0.1.0",
+  "family": "stone-traceability",
+  "description": "石材固定 V2 計算書工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因自我檢查或匯出成功就誤判為所有工程依據都已可追溯。",
+  "tools": [
+    {
+      "key": "stone-load-demand",
+      "label": "石材外牆風力與耐震需求",
+      "scope": "石材外牆固定點的風壓、地震水平力、垂直地震分量、方向性風壓與規範 profile 指紋。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "stone-load-wind-seismic-demand",
+          "clause": "建築物耐風設計規範及解說（107 年版）與建築物耐震設計規範及解說（113 年版）非結構組件需求",
+          "purpose": "風力與耐震需求需分開追蹤來源，並揭露 Ip 外牆最小值、Fph、PEV、正負風壓與方向性包絡，不把單一控制力當成完整載重依據。",
+          "inputs": ["w_src", "w_manual_mode", "w_pos", "w_neg", "w_cf", "w_qref", "w_cpe_pos", "w_cpe_neg", "w_gcpi", "s_sds", "s_ip_raw", "sp_ip15_on", "sp_seis_ap", "sp_seis_rp", "sp_seis_zh_ratio", "sp_pev_conservative_on", "case width / height / point count"],
+          "calculation": ["GCp wind pressure", "positive / negative wind envelope", "Ip facade minimum", "Fph", "PEV", "horizontal pull / push", "effective fixing point count", "D + W / D + E vertical basis"],
+          "report": ["主要計算依據", "荷重計算", "風壓方向性", "地震水平力", "PEV 採用方式", "控制檢核摘要"],
+          "evidence": ["js/calculator.spec.js", "js/formula-registry.spec.js", "js/code-profiles-registry.spec.js", "js/regression-smoke.test.js", "石材計算書產生器_規範版V2.html"],
+          "manualReview": ["風洞報告、專案指定風壓、建築物重要性、非結構組件類別、樓層高度比與正負風壓區位須由設計者依專案文件人工複核。"]
+        },
+        {
+          "id": "stone-load-profile-governance",
+          "clause": "耐風 107 年版、耐震 113 年版、ACI 318 Appendix D、鋼構容許應力與 CNS / JASS 石材 profile 治理",
+          "purpose": "規範參數需以 active profile 與指紋綁定到計算結果，讓改版、保守 profile 或人工 ack 不會只停留在 UI 選項。",
+          "inputs": ["code_profiles", "governance_ack", "calc_source_hash", "input_hash", "normalized_input_hash", "result_hash", "active profile ids"],
+          "calculation": ["resolveActiveProfiles", "getParam", "profile params hash", "governance_fingerprint", "governance_ack_hash", "profile changelog"],
+          "report": ["主要計算依據", "profile 名稱與版本", "governance fingerprint", "audit JSON", "審查儀表板"],
+          "evidence": ["js/code-profiles-registry.spec.js", "js/code-profiles-registry-smoke.test.js", "js/review-dashboard.js", "audit_schema_test.py", "audit_compare_test.py"],
+          "manualReview": ["採用非預設 profile、保守對照參數或專案指定規範版本時，須由設計者在專案文件或覆核註記中說明採用理由。"]
+        }
+      ]
+    },
+    {
+      "key": "stone-anchor-connection",
+      "label": "石材固定錨栓與連接件",
+      "scope": "膨脹螺栓、背扣螺絲、馬車螺栓、插銷、伸縮片、角鋼與錨栓群組 / 邊距折減。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "stone-anchor-expansion-interaction",
+          "clause": "混凝土結構設計規範附篇 D「混凝土結構用錨栓」、ACI 355.2 Category 與廠商試驗資料",
+          "purpose": "膨脹螺栓需分出 Tu1、Tu2、剪力、拉剪交互、附篇 D 等效服務值與廠商 SF 法，不讓錨栓型號表取代產品評估報告。",
+          "inputs": ["m_anc_type", "m_anc_fc", "m_anc_sf", "m_anc_ta", "sp_anchor_design_mode", "sp_anchor_phi", "sp_anchor_service_factor", "sp_concrete_crack", "sp_rebar_support", "sp_anchor_aci_category", "anchor_spacing_mm", "anchor_edge_mm"],
+          "calculation": ["anchorCapacity", "psiFactors", "vendor SF method", "Appendix D equivalent service value", "anchorGroupReduction", "Tu1", "Tu2", "Vanc", "interaction exponent 5/3"],
+          "report": ["膨脹螺栓 Tu1（垂直力）", "膨脹螺栓 Tu2（水平力）", "膨脹螺栓 剪力", "膨脹螺栓 拉剪交互", "群組/邊距折減", "錨栓資料來源"],
+          "evidence": ["js/calculator.spec.js", "js/constants.spec.js", "js/formula-registry.spec.js", "js/regression-smoke.test.js"],
+          "manualReview": ["錨栓產品評估報告、有效埋深、鑽孔公差、裂縫狀態、施工扭力、群組間距與自由邊判讀須由設計者依施工圖與廠商資料人工複核。"]
+        },
+        {
+          "id": "stone-connection-back-pin-steel",
+          "clause": "CNS 14448、CNS 6300 A1028、JASS 9、鋼構造建築物鋼結構設計技術規範與台北市石材外牆作業規範",
+          "purpose": "背扣、馬車螺栓、插銷、伸縮片與角鋼需各自保留受力路徑和容許值來源，避免把固定型式切換誤當成同一條公式。",
+          "inputs": ["case type", "hasMC", "hasSlipPlate", "m_screw_ta", "m_mc_va", "m_mc_ta", "m_pin_d", "m_pin_fy", "m_fy", "m_fya36", "LL", "Lt", "H1", "d0", "slip_plate_b", "slip_plate_t", "angle_section_mode"],
+          "calculation": ["back anchor pullout", "carriage bolt shear / tension", "pin shear", "slip plate shear / bending", "angle net shear", "angle section modulus", "allowable stress factor"],
+          "report": ["背扣螺絲 抗拔", "馬車螺栓 剪力", "馬車螺栓 拉力 T1", "插銷 剪力", "伸縮片 剪力", "角鋼 剪力", "角鋼 彎矩"],
+          "evidence": ["js/calculator.spec.js", "js/constants.spec.js", "js/formula-registry.spec.js", "js/regression-smoke.test.js"],
+          "manualReview": ["背扣產品容量、插銷孔實際受力、伸縮片細部、角鋼截面、焊道、偏心與現場可施工性須由施工圖、材料證明或外部設計人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "stone-panel-local",
+      "label": "石材板塊、孔位與材料邊界",
+      "scope": "石材板彎曲、孔周剪應力、背擴孔錐形拉出、孔位幾何、厚度、面積、材質與自訂錨栓 / 插銷尺寸。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "stone-panel-bending-local-failure",
+          "clause": "CNS 14448、CNS 6300 A1028、JASS 9 與石材外牆規範研擬本石材板塊強度要求",
+          "purpose": "石材板塊需同時揭露面外彎曲、孔周剪應力與背擴孔錐形拉出模式，避免只以面板彎曲 OK 取代局部破壞檢核。",
+          "inputs": ["stone thickness", "stone grade", "sp_stone_fb", "sp_stone_ft", "panel_mode", "sp_panel_local_mode", "sp_panel_cone_angle", "hole_diameter_mm", "hole_depth_mm", "case width / height / fixing layout"],
+          "calculation": ["panelCheck", "two-way Rankine-Grashof", "one-way short / long span", "ring shear", "cone pullout", "stone grade allowables", "panel local mode auto selection"],
+          "report": ["石材板彎曲應力", "石材孔周剪應力 / 石板衝切（簡化）", "石材背擴孔錐形拉出 / 石板衝切（30°簡化）", "panel mode", "DCR"],
+          "evidence": ["js/calculator.spec.js", "js/constants.spec.js", "js/formula-registry.spec.js", "js/regression-smoke.test.js"],
+          "manualReview": ["石材試驗值、天然缺陷、紋理方向、背擴孔加工品質、孔周裂縫、支承條件與板塊實際跨度須由材料試驗與施工圖人工複核。"]
+        },
+        {
+          "id": "stone-geometry-material-dimensions",
+          "clause": "石材外牆規範研擬本 2.1.5 / 2.1.8 / 3.2.4、台北市石材外牆作業規範 2.1.6 / 2.1.7 / 2.2.3 / 2.2.4 與 CNS / JASS 材料要求",
+          "purpose": "孔位、厚度、單片面積、金屬材質與自訂錨栓 / 插銷尺寸屬高風險人工輸入，報告需保留規則來源與不符合原因。",
+          "inputs": ["sp_geometry_source", "hole_edge_mm", "hole_spacing_mm", "hole_depth_mm", "st_t", "panel area", "mat_grade", "mat_other", "sp_custom_anchor_length_mm", "sp_custom_anchor_embed_mm", "sp_custom_anchor_edge_mm", "sp_custom_anchor_d_mm", "sp_custom_pin_length_mm", "sp_custom_pin_embed_mm", "sp_custom_pin_edge_mm", "sp_custom_pin_d_mm"],
+          "calculation": ["geometryCheck", "materialCheck", "dimensionCheck", "customAnchorCheck", "edge distance range", "hole depth range", "thickness minimum", "panel area maximum", "approved material guard"],
+          "report": ["插梢孔邊距", "插梢孔深度", "背擴孔邊距", "背擴孔間距", "背擴孔深度", "石材厚度限制", "單片面積限制", "金屬支撐材質", "錨栓／插梢尺寸"],
+          "evidence": ["js/calculator.spec.js", "js/constants.spec.js", "js/input-schema.spec.js", "js/formula-registry.spec.js"],
+          "manualReview": ["孔位尺寸、加工容許差、材料證明、非標準石材、特殊固定件、單片板面分割與立面排版須由施工圖與專案規範人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "stone-serviceability-report",
+      "label": "石材使用性、匯出與稽核報告",
+      "scope": "層間變位、掛件轉角、溫度伸縮縫、審查儀表板、稽核 JSON、公式來源覆蓋與 golden sample 治理。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "stone-serviceability-drift-thermal",
+          "clause": "建築物耐震設計規範及解說（113 年版）§13.5.2 非結構組件層間變位要求與石材伸縮縫配置實務估算",
+          "purpose": "層間變位、掛件轉角與溫度伸縮不可只當作提醒；需被納入檢核列、DCR 與報告，使不符合項目可被交付品質門檻攔截。",
+          "inputs": ["sp_drift_on", "sp_drift_theta", "sp_story_height_mm", "drift_span_mode", "movement_allow_mm", "rotation_allow_deg", "sp_thermal_on", "sp_thermal_alpha", "sp_thermal_delta_t", "sp_thermal_reserve_mm", "joint_width_mm"],
+          "calculation": ["driftCheck", "thermalCheck", "relative displacement", "rotation demand", "required joint width", "minimum requirement DCR"],
+          "report": ["掛件相對位移容許", "掛件轉角容許", "伸縮縫淨寬估算", "審查摘要", "交付品質分級"],
+          "evidence": ["js/calculator.spec.js", "js/formula-registry.spec.js", "js/review-dashboard.js", "js/review-dashboard-smoke.test.js", "js/regression-smoke.test.js"],
+          "manualReview": ["跨層板塊、層間變位角、掛件允許變形、封膠型式、溫差、分縫配置與外牆系統變形能力須由設計者依專案設計人工複核。"]
+        },
+        {
+          "id": "stone-report-audit-golden-governance",
+          "clause": "正式計算書交付治理規範、公式來源覆蓋、稽核 JSON schema 與 golden sample drift 管理",
+          "purpose": "Word / PDF / JSON 匯出需能追到同一份結構化計算結果與公式來源，並用 golden samples 與 audit compare 阻止計算核心或報告欄位靜默漂移。",
+          "inputs": ["getCalculationResults", "template catalog version", "created_by", "checked_by", "approved_by", "revision history", "review notes", "output audit report", "golden samples", "calc_source_hash"],
+          "calculation": ["result_hash", "formula coverage", "audit schema validation", "audit compare regression", "release bundle manifest", "golden sample drift detection", "delivery quality grade"],
+          "report": ["審查儀表板", "稽核報告 JSON", "Word 計算書", "PDF 預覽", "交付前檢查", "release manifest"],
+          "evidence": ["README.md", "tests/golden/README.md", "js/formula-registry-smoke.test.js", "audit_schema_test.py", "audit_compare_test.py", "release_bundle_smoke_test.py", "ui_smoke_test.py"],
+          "manualReview": ["稽核 JSON 與 golden sample 只能證明工具輸出一致；最終送審仍須確認專案圖說、材料證明、簽章流程、附件版本與技師覆核註記完整。"]
+        }
+      ]
+    }
+  ]
+}

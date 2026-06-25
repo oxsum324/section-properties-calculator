@@ -260,6 +260,15 @@ function Run-AuditPass {
     })
   }
 
+  Invoke-Step "Steel traceability catalog contract" {
+    node "$root\steel-traceability.contract.test.js"
+    $summaryLines.Add("- steel-traceability-contract: pass")
+    $auditRecords.Add([pscustomobject]@{
+      label = "steel-traceability-contract"
+      status = "pass"
+    })
+  }
+
   Invoke-Step "Formal core sync check" {
     & "$root\sync-formal-core.ps1" -Check -Quiet:$Quiet
     $summaryLines.Add("- formal-core-sync-check: pass")

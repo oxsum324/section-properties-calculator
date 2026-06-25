@@ -56,11 +56,12 @@
     'rc-audit': { label: 'RC audit', preflightKeys: ['rc-audit-status'] },
     'steel-audit': { label: 'Steel audit', preflightKeys: ['steel-audit-status'] },
     'anchor-deployment': { label: 'Anchor deployment', preflightKeys: ['anchor-verify', 'anchor-route'] },
-    'stone-v2': { label: 'Stone V2', preflightKeys: ['stone-feedback-contract', 'stone-self-check', 'stone-quick-check'] },
-    'decking-contract': { label: 'Decking contract', preflightKeys: ['decking-tools-contract'] }
+    'stone-v2': { label: 'Stone V2', preflightKeys: ['stone-feedback-contract', 'stone-traceability-contract', 'stone-self-check', 'stone-quick-check'] },
+    'decking-contract': { label: 'Decking governance', preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'deck-python'] },
+    'excavation-service': { label: 'Excavation service governance', preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-backend', 'excavation-frontend'] }
   };
 
-  const HOME_DATA_UPDATED = '2026-06-21';
+  const HOME_DATA_UPDATED = '2026-06-26';
 
   const tools = [
     {
@@ -78,7 +79,7 @@
     {
       title: '平面剛架分析',
       version: 'V0.2',
-      href: '/鋼架/平面剛架分析.html',
+      href: '/frame-analysis',
       categories: ['analysis'],
       state: 'assist',
       output: '位移、反力、M/V/N 內力圖、計算書與 JSON',
@@ -90,7 +91,7 @@
     {
       title: 'struct.dx 解題套件',
       version: '外部',
-      href: '/解題/struct_dx/frontend/struct_suite.html',
+      href: '/struct-dx',
       categories: ['analysis'],
       state: 'external',
       output: '解題推導、分析方法檢核與 AI 輔助說明',
@@ -114,7 +115,7 @@
     {
       title: '合成斷面性質',
       version: 'V1.1',
-      href: '/合成斷面性質.html',
+      href: '/composite-section',
       categories: ['reference'],
       state: 'reference',
       output: '組合斷面性質、J、翹曲常數與增益比較',
@@ -224,7 +225,7 @@
     {
       title: 'RC 補強斷面',
       version: 'V1.6',
-      href: '/RC補強斷面性質.html',
+      href: '/rc-retrofit-section',
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
@@ -536,7 +537,7 @@
     {
       title: '石材固定構件計算書',
       version: 'V3.0.2',
-      href: '/石材固定/石材計算書產生器_規範版V2.html',
+      href: '/stone-fixing',
       categories: ['attachments'],
       state: 'formal',
       governance: 'stone-v2',
@@ -585,7 +586,7 @@
     {
       title: '覆工板系統計算',
       version: 'V1.0',
-      href: '/覆工板/index.html',
+      href: '/decking',
       categories: ['temporary'],
       state: 'formal',
       governance: 'decking-contract',
@@ -598,9 +599,10 @@
     {
       title: '開挖擋土支撐',
       version: '服務型',
-      href: '/開挖擋土支撐/index.html',
+      href: '/excavation-support',
       categories: ['temporary'],
       state: 'service',
+      governance: 'excavation-service',
       output: '支撐構件檢核、PDF/DOCX 報表與案件資料庫',
       summary: 'FastAPI + React + SQLite 工作流，匯入分析檔、構件檢核與 PDF/DOCX 報表。',
       fit: '支撐、橫擋、斜撐、大角撐與分析輸出匯入。',
@@ -618,7 +620,10 @@
   const memberSystemMap = new Map(memberSystems.map(system => [system.id, system]));
   const routeFileMap = {
     '/beam-analysis': '../連續梁分析.html',
+    '/frame-analysis': '../鋼架/平面剛架分析.html',
+    '/struct-dx': '../解題/struct_dx/frontend/struct_suite.html',
     '/section': '../index.html',
+    '/composite-section': '../合成斷面性質.html',
     '/steel-formal': '../鋼構工具/index.html',
     '/steel-plate': '../鋼構工具/plate-check.html',
     '/steel-beam-formal': '../鋼構工具/steel-beam-formal.html',
@@ -633,6 +638,7 @@
     '/rc-shear-wall': '../鋼筋混凝土/tools/shear-wall.html',
     '/rc-foundation': '../鋼筋混凝土/tools/foundation.html',
     '/rc-pile': '../鋼筋混凝土/tools/single-pile-designer.html',
+    '/rc-retrofit-section': '../RC補強斷面性質.html',
     '/wind-overview': 'tools/風力/wind-overview.html',
     '/wind-kzt': 'tools/風力/wind-kzt.html',
     '/wind-force': 'tools/風力/wind-force.html',
@@ -651,9 +657,12 @@
     '/seismic-appendage': 'tools/地震力/seismic-appendage.html',
     '/seismic-misc': 'tools/地震力/seismic-misc.html',
     '/anchor': '../anchor/index.html',
+    '/stone-fixing': '../石材固定/石材計算書產生器_規範版V2.html',
     '/foundation-local': 'tools/foundation/foundation-local.html',
     '/equipment-load': 'tools/equipment/equipment-load.html',
-    '/earth-pressure': 'tools/earth/earth-pressure.html'
+    '/earth-pressure': 'tools/earth/earth-pressure.html',
+    '/decking': '../覆工板/index.html',
+    '/excavation-support': '../開挖擋土支撐/index.html'
   };
   const isFileMode = window.location.protocol === 'file:';
   const elements = {

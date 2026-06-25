@@ -183,6 +183,7 @@
     font-size: 0.95em;
   }
   .history-pass { color: #166534; font-weight: 800; }
+  .history-warn { color: #92400e; font-weight: 800; }
   .history-fail { color: #991b1b; font-weight: 800; }
   .history-links {
     display: flex;
@@ -234,6 +235,11 @@
     border-color: #fecaca;
     background: #fee2e2;
     color: #991b1b;
+  }
+  .run-tick.warn {
+    border-color: #fde68a;
+    background: #fef3c7;
+    color: #92400e;
   }
   .run-tick.full {
     box-shadow: inset 0 -4px 0 rgba(37, 99, 235, 0.24);
@@ -585,6 +591,9 @@
     <div class="coverage-totals" id="maturityCoverageTotals" aria-label="Coverage Totals">
       <div class="history-empty">讀取 coverage totals 中。</div>
     </div>
+    <div class="coverage-totals" id="traceabilityCatalogCoverage" aria-label="Traceability Catalog Coverage">
+      <div class="history-empty">讀取 traceability catalog 覆蓋中。</div>
+    </div>
     <div class="source-trace" id="maturitySourceTrace" aria-label="Maturity Source Trace">
       <div class="history-empty">讀取來源追蹤中。</div>
     </div>
@@ -733,7 +742,8 @@
       }
       const rows = manifest.items.slice(0, 8).map((item) => {
         const summaryHref = deriveHistoryUrl('../output/audit/platform-summary.md', item.summaryPath || '');
-        const statusClass = item.pass ? 'history-pass' : 'history-fail';
+        const tone = preflightTone(item);
+        const statusClass = tone === 'ok' ? 'history-pass' : (tone === 'warn' ? 'history-warn' : 'history-fail');
         const statusText = item.pass ? '通過' : `異常 ${item.failureCount || 0} 項`;
         const moduleSummary = Array.isArray(item.records)
           ? item.records.map((record) => `${record.key}:${record.pass ? 'OK' : 'NG'}`).join(' / ')
@@ -788,12 +798,36 @@
     }
 
     function preflightModeText(item) {
+      if (item && item.complete === false) return '未完成';
       return item && item.quick ? 'Quick' : 'Full';
     }
 
     function preflightStatusText(item) {
       if (!item) return '無資料';
+      if (item.inProgress === true) return '進行中';
+      if (item.incomplete === true) return `未完成 ${item.failureCount || 1} 項`;
+      if (item.state === 'invalid-summary') return '摘要異常';
       return item.pass ? '通過' : `異常 ${item.failureCount || 0} 項`;
+    }
+
+    function preflightStateText(item) {
+      if (!item) return '無資料';
+      if (item.inProgress === true) return '進行中';
+      if (item.incomplete === true) {
+        if (item.state === 'invalid-summary') return '摘要異常';
+        return '未完成';
+      }
+      return item.state === 'completed' || !item.state ? '完成' : item.state;
+    }
+
+    function preflightTone(item) {
+      if (!item) return 'warn';
+      if (item.inProgress === true) return 'warn';
+      return item.pass ? 'ok' : 'fail';
+    }
+
+    function isAbnormalPreflightRun(item) {
+      return Boolean(item && item.pass !== true && item.inProgress !== true);
     }
 
     function formatSeconds(value) {
@@ -897,8 +931,9 @@
         setHint(hintId, emptyHint);
         return;
       }
-      setKpiValue(valueId, preflightStatusText(item), item.pass ? 'ok' : 'fail');
-      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}。`);
+      setKpiValue(valueId, preflightStatusText(item), preflightTone(item));
+      const reason = item.incompleteReason ? `，原因 ${item.incompleteReason}` : '';
+      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，狀態 ${preflightStateText(item)}${reason}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}。`);
     }
 
     function renderPreflightRecordLinks(summary) {
@@ -1036,22 +1071,23 @@
       const latest = items[0];
       const latestFull = items.find((item) => item && item.quick === false);
       const latestQuick = items.find((item) => item && item.quick === true);
-      const failedRuns = items.filter((item) => item && !item.pass);
+      const failedRuns = items.filter(isAbnormalPreflightRun);
+      const incompleteRuns = items.filter((item) => item && item.incomplete === true);
 
       renderRunKpi(latest, 'preflightLatestStatus', 'preflightLatestHint', '目前尚無 preflight 紀錄。');
       renderRunKpi(latestFull, 'preflightFullStatus', 'preflightFullHint', '目前尚未讀到 full preflight 紀錄。');
       renderRunKpi(latestQuick, 'preflightQuickStatus', 'preflightQuickHint', '目前尚未讀到 quick preflight 紀錄。');
       setKpiValue('preflightFailureStatus', `${failedRuns.length} / ${items.length}`, failedRuns.length ? 'fail' : 'ok');
       setHint('preflightFailureHint', failedRuns.length
-        ? `最近異常 run：${failedRuns[0].runId || '-'}，失敗 key：${formatFailedKeys(failedRuns[0])}。`
+        ? `最近異常 run：${failedRuns[0].runId || '-'}，狀態 ${preflightStateText(failedRuns[0])}，失敗 key：${formatFailedKeys(failedRuns[0])}；未完成 run ${incompleteRuns.length} 筆。`
         : `目前保留的 ${items.length} 筆 preflight history 皆為通過。`);
 
       timeline.innerHTML = items.slice(0, 20).reverse().map((item) => {
         const mode = preflightModeText(item);
-        const label = `${mode} ${item.runId || '-'}｜${preflightStatusText(item)}｜${item.generatedAt || '-'}｜通過 ${formatPassedChecks(item)}｜耗時 ${formatSeconds(item.totalSeconds)}｜平台 audit ${formatPlatformAuditMode(item)}｜慢測重用 ${formatSlowReuse(item)}｜最慢 ${formatSlowest(item)}`;
-        const statusClass = item.pass ? 'ok' : 'fail';
+        const label = `${mode} ${item.runId || '-'}｜${preflightStateText(item)}｜${preflightStatusText(item)}｜${item.generatedAt || '-'}｜通過 ${formatPassedChecks(item)}｜耗時 ${formatSeconds(item.totalSeconds)}｜平台 audit ${formatPlatformAuditMode(item)}｜慢測重用 ${formatSlowReuse(item)}｜最慢 ${formatSlowest(item)}`;
+        const statusClass = preflightTone(item);
         const modeClass = item.quick ? 'quick' : 'full';
-        const glyph = item.quick ? 'Q' : 'F';
+        const glyph = item.complete === false ? '!' : (item.quick ? 'Q' : 'F');
         return `<span class="run-tick ${statusClass} ${modeClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">${escapeHtml(glyph)}</span>`;
       }).join('');
 
@@ -1066,6 +1102,7 @@
             <td><code>${escapeHtml(item.runId || '-')}</code></td>
             <td>${escapeHtml(item.generatedAt || '-')}</td>
             <td>${escapeHtml(preflightModeText(item))}</td>
+            <td>${escapeHtml(preflightStateText(item))}</td>
             <td><span class="${statusClass}">${escapeHtml(preflightStatusText(item))}</span></td>
             <td>${escapeHtml(formatPassedChecks(item))}</td>
             <td>${escapeHtml(formatSeconds(item.totalSeconds))}</td>
@@ -1091,6 +1128,7 @@
               <th>runId</th>
               <th>時間</th>
               <th>模式</th>
+              <th>完成狀態</th>
               <th>狀態</th>
               <th>通過 / 檢查</th>
               <th>耗時</th>
@@ -1144,6 +1182,7 @@
       const otherGovernanceWrap = document.getElementById('maturityOtherGovernanceWrap');
       const boundaryWrap = document.getElementById('maturityBoundaryWrap');
       const coverageTotalsNode = document.getElementById('maturityCoverageTotals');
+      const traceabilityCatalogNode = document.getElementById('traceabilityCatalogCoverage');
       const sourceTraceNode = document.getElementById('maturitySourceTrace');
       const preflightNode = document.getElementById('maturityPreflight');
       const preflightHintNode = document.getElementById('maturityPreflightHint');
@@ -1168,6 +1207,7 @@
         if (otherGovernanceWrap) otherGovernanceWrap.innerHTML = '<div class="history-empty">目前尚無其他治理來源。</div>';
         if (boundaryWrap) boundaryWrap.innerHTML = '<div class="history-empty">目前尚無矩陣外邊界檢查。</div>';
         if (coverageTotalsNode) coverageTotalsNode.innerHTML = '<div class="history-empty">目前尚無 coverage totals。</div>';
+        if (traceabilityCatalogNode) traceabilityCatalogNode.innerHTML = '<div class="history-empty">目前尚無 traceability catalog 覆蓋。</div>';
         if (sourceTraceNode) sourceTraceNode.innerHTML = '<div class="history-empty">目前尚無來源追蹤。</div>';
         if (preflightNode) preflightNode.textContent = '未讀取';
         return;
@@ -1369,6 +1409,25 @@
             </div>
           `;
         }).join('');
+      }
+      if (traceabilityCatalogNode) {
+        const catalogs = Array.isArray(payload.traceabilityCatalogCoverage) ? payload.traceabilityCatalogCoverage : [];
+        traceabilityCatalogNode.innerHTML = catalogs.length
+          ? catalogs.map((catalog) => {
+            const total = Number(catalog.tools || 0);
+            const covered = Number(catalog.covered || 0);
+            const reached = total > 0 && covered >= total;
+            const uncovered = Array.isArray(catalog.uncoveredKeys) && catalog.uncoveredKeys.length
+              ? `；缺口 ${catalog.uncoveredKeys.join(', ')}`
+              : '';
+            return `
+              <div class="coverage-total ${reached ? 'ok' : 'warn'}" data-catalog-family="${escapeAttr(catalog.family || '-')}">
+                <strong>${escapeHtml(catalog.family || '-')}</strong>
+                <span>${escapeHtml(`${covered} / ${total} tools；${catalog.traceCount || 0} traces；${catalog.manualReviewCount || 0} manual-review items${uncovered}`)}</span>
+              </div>
+            `;
+          }).join('')
+          : '<div class="history-empty">目前尚無 traceability catalog 覆蓋。</div>';
       }
       if (sourceTraceNode) {
         const inputs = Array.isArray(payload.sourceTrace?.inputs) ? payload.sourceTrace.inputs : [];

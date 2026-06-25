@@ -8,8 +8,9 @@
 - Excel `Fa / Fbx / Fby / LdaB / LdaC / Ratio` 對應的計算核心
 - 支撐、橫擋、斜撐、大角撐、柱構件的檢核流程
 - React + TypeScript 單頁 workflow 介面
-- PDF 計算書輸出
+- PDF 計算書與 Word 編修版輸出
 - 後端基礎單元測試
+- `excavation-traceability.catalog.json` 規範語意追蹤與 contract test
 
 ## 專案結構
 
@@ -75,14 +76,26 @@ npm run build
 C:\Users\USER\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe -m unittest discover -s backend\tests
 ```
 
+治理追蹤契約測試：
+
+```powershell
+node excavation-traceability.contract.test.js
+```
+
 ## 目前實作重點
 
 - 參考資料直接讀取 `2_開挖擋土支撐-v95000.xlsm` 的型鋼、螺栓與預設案例
 - 匯入分析檔後會保存原檔到 `app_data/projects/<id>/`
-- 計算結果會寫回專案狀態，PDF 則輸出到 `app_data/reports/` 與專案資料夾
+- 計算結果會寫回專案狀態，PDF / DOCX 則輸出到 `app_data/reports/` 與專案資料夾
+
+## 規範語意追蹤
+
+`excavation-traceability.catalog.json` 將本工具拆成 5 個可稽核面向：分析輸出匯入、支撐 / 橫擋 / 斜撐 / 大角撐檢核、柱構件與基礎承載、PDF / DOCX 報表治理、本機服務與資料治理。每一筆 trace 都需列明規範或工程判讀來源、輸入欄位、計算路線、報表落點、測試證據與人工複核邊界。
+
+新增或修改 `.LST/.RIO/.o` parser、構件公式、柱腳 / 基礎估算、報表段落、下載 API、Excel / JSON 參考資料或啟停腳本時，請同步更新 catalog 並執行 `node excavation-traceability.contract.test.js`。若輸出依賴外部分析模型、施工圖、地質資料或專案指定值，報表與前端文字仍需保留設計者人工複核責任。
 
 ## 目前限制
 
 - 柱構件檢核已可用，但仍屬第一版規範化移植，複雜案例仍建議和既有 Excel/計算書交叉比對
 - `.RIO` 的支援目前以 LST 類文字格式最佳努力解析為主
-- PDF 版面先以穩定輸出為優先，尚未完全複刻既有 Word 計算書版型
+- PDF / DOCX 版面先以穩定輸出為優先，尚未完全複刻既有 Word 計算書版型

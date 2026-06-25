@@ -168,6 +168,9 @@ dashboardScripts.forEach((match, index) => {
   'preflightHistoryWrap',
   'preflightLatestRecordsWrap',
   'preflightPostChecksWrap',
+  'preflightStateText',
+  'preflightTone',
+  'incompleteReason',
   'renderPreflightPostChecks',
   'normalizePostChecks',
   '../output/preflight/post-checks.json',
@@ -194,10 +197,16 @@ dashboardScripts.forEach((match, index) => {
   'slowReuseCount',
   'slowReuseKeys',
   'formatSlowReuse',
+  '完成狀態',
+  '未完成',
   'maturityUpgradeGapCount',
   'maturityUpgradeGapHint',
   'maturityUpgradeTargets',
   'maturityCoverageTotals',
+  'traceabilityCatalogCoverage',
+  'Traceability Catalog Coverage',
+  'payload.traceabilityCatalogCoverage',
+  'data-catalog-family',
   'maturityEntrypointCoverage',
   'maturityEntrypointHint',
   'maturityOtherGovernanceCoverage',
@@ -308,6 +317,12 @@ const preflightTools = readText(repoFile('preflight-tools.ps1'));
   'command = [string]$Check.command',
   'commandHash = Get-CommandHash ([string]$Check.command)',
   'commandHash=$($record.commandHash)',
+  'Get-PreflightRunTextLogs',
+  'Add-PreflightIncompleteHistoryItem',
+  'completedCount = $completedCount',
+  'inProgressCount = $inProgressCount',
+  'incompleteCount = $incompleteCount',
+  'incompleteReason = $Reason',
   'historyLog = [string]$record.historyLog',
   'failedKeys = @($runFailedKeys.ToArray())',
   'slowReuseCount = $runSlowReuseKeys.Count',
@@ -379,7 +394,7 @@ const preflightTools = readText(repoFile('preflight-tools.ps1'));
   '[System.Text.UTF8Encoding]::new($false)'
 ].forEach(needle => assertIncludes(preflightTools, needle, 'preflight markdown history log traceability'));
 [
-  '| runId | generatedAt | quick | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |',
+  '| runId | state | generatedAt | quick | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |',
   '$($item.passedCount) / $($item.recordsCount)',
   '$failedKeyText = Format-HistoryMarkdownListCell @($item.failedKeys)',
   '$slowReuseKeyText = Format-HistoryMarkdownListCell @($item.slowReuseKeys)',
@@ -541,7 +556,26 @@ assertUtf8NoBomWhenFresh(platformHistoryPath, repoFile('refresh-platform-status.
 if (fs.existsSync(preflightHistoryPath)) {
   const preflightHistory = readJson(preflightHistoryPath);
   assertHistoryManifestShape(preflightHistory, 'preflight history');
+  assert.equal(Number.isInteger(preflightHistory.completedCount), true, 'preflight history completedCount integer');
+  assert.equal(Number.isInteger(preflightHistory.inProgressCount), true, 'preflight history inProgressCount integer');
+  assert.equal(Number.isInteger(preflightHistory.incompleteCount), true, 'preflight history incompleteCount integer');
+  assert.equal(preflightHistory.completedCount, preflightHistory.items.filter(item => item.complete !== false).length, 'preflight history completedCount matches items');
+  assert.equal(preflightHistory.inProgressCount, preflightHistory.items.filter(item => item.inProgress === true).length, 'preflight history inProgressCount matches items');
+  assert.equal(preflightHistory.incompleteCount, preflightHistory.items.filter(item => item.incomplete === true).length, 'preflight history incompleteCount matches items');
   for (const [index, item] of preflightHistory.items.entries()) {
+    assert.equal(typeof item.state, 'string', `preflight history item ${index} state string`);
+    assert.equal(typeof item.complete, 'boolean', `preflight history item ${index} complete boolean`);
+    assert.equal(typeof item.inProgress, 'boolean', `preflight history item ${index} inProgress boolean`);
+    assert.equal(typeof item.incomplete, 'boolean', `preflight history item ${index} incomplete boolean`);
+    assert.equal(typeof item.incompleteReason, 'string', `preflight history item ${index} incompleteReason string`);
+    if (item.complete === false) {
+      assert.ok(['in-progress', 'incomplete', 'invalid-summary'].includes(item.state), `preflight history item ${index} incomplete state`);
+      assert.ok(Array.isArray(item.logFiles), `preflight history item ${index} logFiles array`);
+      if (item.incomplete === true) {
+        assert.ok(item.incompleteReason, `preflight history item ${index} incomplete reason`);
+        assert.deepEqual(item.failedKeys, [item.incompleteReason], `preflight history item ${index} incomplete failedKeys`);
+      }
+    }
     assert.equal(Number.isInteger(item.postCheckCount), true, `preflight history item ${index} postCheckCount integer`);
     assert.equal(Number.isInteger(item.postChecksPassedCount), true, `preflight history item ${index} postChecksPassedCount integer`);
     assert.ok(Array.isArray(item.postCheckFailures), `preflight history item ${index} postCheckFailures array`);
@@ -553,7 +587,11 @@ if (fs.existsSync(preflightHistoryPath)) {
     assert.deepEqual(wrappedPostChecks, [], `preflight history item ${index} postChecks must not contain PowerShell value/Count wrappers`);
   }
   if (preflightHistory.items.length) {
-    const latest = preflightHistory.items[0];
+    const latestHistoryItem = preflightHistory.items[0];
+    if (latestHistoryItem.complete === false) {
+      assert.ok(['in-progress', 'incomplete', 'invalid-summary'].includes(latestHistoryItem.state), `preflight latest history incomplete state: ${latestHistoryItem.state}`);
+    }
+    const latest = preflightHistory.items.find(item => item.complete !== false) || latestHistoryItem;
     assert.equal(typeof latest.quick, 'boolean', 'preflight quick boolean');
     assert.equal(Number.isInteger(latest.recordsCount), true, 'preflight recordsCount integer');
     assert.equal(Number.isInteger(latest.passedCount), true, 'preflight passedCount integer');
@@ -722,6 +760,16 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   '鋼筋混凝土/output/audit/audit-summary.md',
   '結構工具箱/output/audit/audit-summary.md',
   'summary preview includes source snippet',
+  'expectedTraceabilityCatalogs',
+  'traceabilityCatalogCoverage',
+  '#traceabilityCatalogCoverage .coverage-total',
+  'rc-traceability-catalog',
+  'steel-traceability-catalog',
+  'anchor-traceability-catalog',
+  'stone-traceability-catalog',
+  'decking-traceability-catalog',
+  'excavation-traceability-catalog',
+  'traceabilityCatalogs=',
   'livePostChecks=',
   'liveHistoryPostChecks=',
   'livePostCheckHistoryRuns=',
@@ -731,12 +779,32 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
 [
   "const crypto = require('crypto');",
   'function hashText',
+  'hasValidTraceabilityEntry',
   'preflightSummarySource',
   'sourcePath: preflightSummarySource?.path',
   'sourceMtime: preflightSummarySource?.mtime',
   'sourceHash: preflightSummarySource?.hash',
   'preflightEvidenceSummaries',
+  'formalTraceabilityCatalog',
+  'formal-traceability-catalog',
+  'rcTraceabilityCatalog',
+  'rc-traceability-catalog',
+  'steelTraceabilityCatalog',
+  'steel-traceability-catalog',
+  'anchorTraceabilityCatalog',
+  'anchor-traceability-catalog',
+  'stoneTraceabilityCatalog',
+  'stone-traceability-catalog',
+  'deckingTraceabilityCatalog',
+  'decking-traceability-catalog',
+  'excavationTraceabilityCatalog',
+  'excavation-traceability-catalog',
+  'summarizeTraceabilityCatalog',
+  'buildTraceabilityCatalogCoverage',
+  'traceabilityCatalogCoverage',
+  '## Traceability Catalog Coverage',
   'latestFullPreflightSummary',
+  'preflightHistoryHealth',
   'preflight-history',
   'latest-full-preflight-summary',
   'sourceInput(',
@@ -796,6 +864,14 @@ if (fs.existsSync(maturityMatrixPath)) {
   }
   assert.ok(Array.isArray(matrix.topUpgradeTargets), 'maturity top upgrade targets array');
   if (maturityFresh) {
+    assert.ok(matrix.preflightHistoryHealth && typeof matrix.preflightHistoryHealth === 'object', 'maturity preflightHistoryHealth object');
+    assert.equal(Number.isInteger(matrix.preflightHistoryHealth.count), true, 'maturity preflightHistoryHealth count integer');
+    assert.equal(Number.isInteger(matrix.preflightHistoryHealth.completedCount), true, 'maturity preflightHistoryHealth completedCount integer');
+    assert.equal(Number.isInteger(matrix.preflightHistoryHealth.inProgressCount), true, 'maturity preflightHistoryHealth inProgressCount integer');
+    assert.equal(Number.isInteger(matrix.preflightHistoryHealth.incompleteCount), true, 'maturity preflightHistoryHealth incompleteCount integer');
+    assert.equal(typeof matrix.preflightHistoryHealth.latestState, 'string', 'maturity preflightHistoryHealth latestState string');
+  }
+  if (maturityFresh) {
     assert.ok(matrix.entrypointCoverage && typeof matrix.entrypointCoverage === 'object', 'maturity entrypointCoverage object');
     assert.equal(Number.isInteger(matrix.entrypointCoverage.total), true, 'maturity entrypointCoverage total integer');
     assert.equal(Number.isInteger(matrix.entrypointCoverage.matrixCovered), true, 'maturity entrypointCoverage matrixCovered integer');
@@ -846,6 +922,13 @@ if (fs.existsSync(maturityMatrixPath)) {
     assert.ok(Array.isArray(matrix.sourceTrace.inputs), 'maturity sourceTrace inputs array');
     const expectedSourceInputs = [
       'formal-tools-manifest',
+      'formal-traceability-catalog',
+      'rc-traceability-catalog',
+      'steel-traceability-catalog',
+      'anchor-traceability-catalog',
+      'stone-traceability-catalog',
+      'decking-traceability-catalog',
+      'excavation-traceability-catalog',
       'local-quick-tools-manifest',
       'vercel-routes',
       'home-entrypoints',

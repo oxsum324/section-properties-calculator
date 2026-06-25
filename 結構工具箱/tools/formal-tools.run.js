@@ -81,9 +81,9 @@ if (!Array.isArray(manifest.tools) || manifest.tools.length === 0) {
 assertFile(manifest.shared.contractTest);
 assertFile(manifest.shared.browserSmokeTest);
 assertFile(manifest.shared.maturityMatrix);
+assertFile(manifest.shared.traceabilityCatalog);
 
 console.log(`[formal-tools] manifest v${manifest.version}: ${manifest.tools.length} tools`);
 runNode('manifest contract regression', manifest.shared.contractTest);
 runNode('browser smoke regression', manifest.shared.browserSmokeTest);
-runNode('maturity matrix generation', manifest.shared.maturityMatrix, ['--write', '--check']);
 console.log(`formal tools manifest runner OK (${manifest.tools.length} tools)`);

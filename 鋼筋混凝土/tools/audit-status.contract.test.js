@@ -16,6 +16,7 @@ const testRcIndexPath = path.join(ROOT, 'tools', 'test-rc-index-menu.ps1');
 const testShearWallReportPath = path.join(ROOT, 'tools', 'test-shear-wall-report.ps1');
 const ensurePlaywrightDepsPath = path.join(ROOT, 'tools', 'ensure-playwright-deps.ps1');
 const sharedReportPath = path.join(ROOT, 'shared', 'report.js');
+const rcTraceCatalogPath = path.join(ROOT, 'tools', 'rc-traceability.catalog.json');
 
 let failed = 0;
 function assert(pass, label, detail = '') {
@@ -83,6 +84,51 @@ function sameArray(a, b) {
   return a.length === b.length && a.every((item, index) => item === b[index]);
 }
 
+function assertString(value, label) {
+  assert(typeof value === 'string' && value.trim().length > 0, label, value);
+}
+
+function assertStringArray(value, label) {
+  assert(Array.isArray(value) && value.length > 0, label, Array.isArray(value) ? `count=${value.length}` : typeof value);
+  if (!Array.isArray(value)) return;
+  value.forEach((item, index) => assertString(item, `${label}[${index}]`));
+}
+
+function validateRcTraceabilityCatalog(catalog, sourceText) {
+  assert(catalog.version === '0.1.0', 'RC traceability catalog version', catalog.version);
+  assert(catalog.family === 'rc-traceability', 'RC traceability catalog family', catalog.family);
+  assertString(catalog.description, 'RC traceability catalog description');
+  assert(!sourceText.includes('18.10'), 'RC traceability catalog has no stale 18.10 references', 'uses current RC clause refs');
+
+  const tools = Array.isArray(catalog.tools) ? catalog.tools : [];
+  assert(sameArray(tools.map(tool => tool.key), expectedModules), 'RC traceability catalog tool order', JSON.stringify(tools.map(tool => tool.key)));
+
+  for (const tool of tools) {
+    assertString(tool.label, `${tool.key} traceability label`);
+    assertString(tool.scope, `${tool.key} traceability scope`);
+    assert(tool.status === 'covered', `${tool.key} traceability status`, tool.status);
+    assert(Array.isArray(tool.traces) && tool.traces.length >= 3, `${tool.key} traceability trace count`, `count=${tool.traces?.length || 0}`);
+
+    const seenTraceIds = new Set();
+    for (const [index, trace] of tool.traces.entries()) {
+      assertString(trace.id, `${tool.key} trace ${index} id`);
+      assert(!seenTraceIds.has(trace.id), `${tool.key} trace id unique`, trace.id);
+      seenTraceIds.add(trace.id);
+      assertString(trace.clause, `${tool.key} trace ${trace.id} clause`);
+      assert(/規範|章|節|式/.test(trace.clause), `${tool.key} trace ${trace.id} names formal source`, trace.clause);
+      assertString(trace.purpose, `${tool.key} trace ${trace.id} purpose`);
+      for (const field of ['inputs', 'calculation', 'report', 'evidence', 'manualReview']) {
+        assertStringArray(trace[field], `${tool.key} trace ${trace.id} ${field}`);
+      }
+      assert(trace.manualReview.some(item => /人工複核|正式分析|施工圖|設計者|專案|模型|圖說/.test(item)), `${tool.key} trace ${trace.id} manual review wording`, trace.manualReview.join(' / '));
+      for (const evidence of trace.evidence) {
+        const evidencePath = path.join(ROOT, ...evidence.split('/'));
+        assert(fs.existsSync(evidencePath), `${tool.key} trace ${trace.id} evidence exists`, evidence);
+      }
+    }
+  }
+}
+
 const audit = fs.readFileSync(auditPath, 'utf8');
 const index = fs.readFileSync(indexPath, 'utf8');
 const readme = fs.readFileSync(readmePath, 'utf8');
@@ -96,6 +142,8 @@ const testRcIndex = fs.readFileSync(testRcIndexPath, 'utf8');
 const testShearWallReport = fs.readFileSync(testShearWallReportPath, 'utf8');
 const ensurePlaywrightDeps = fs.readFileSync(ensurePlaywrightDepsPath, 'utf8');
 const sharedReport = fs.readFileSync(sharedReportPath, 'utf8');
+const rcTraceCatalogText = fs.readFileSync(rcTraceCatalogPath, 'utf8');
+const rcTraceCatalog = JSON.parse(rcTraceCatalogText);
 
 const expectedModules = ['beam', 'column', 'slab', 'wall', 'shear-wall', 'foundation', 'single-pile'];
 const expectedLabels = ['梁', '柱', '板', '牆', '剪力牆', '基礎', '單樁'];
@@ -132,6 +180,7 @@ const requiredQaArtifacts = [
   'tools/test-slab.ps1',
   'tools/wall-report-visual.test.js',
   'tools/test-wall.ps1',
+  'tools/rc-traceability.catalog.json',
   'tools/shear-wall-regression.test.js',
   'tools/shear-wall-report-visual.test.js',
   'tools/test-shear-wall.ps1',
@@ -237,6 +286,7 @@ assertIncludes(audit, 'RC index menu browser smoke', 'audit runs index menu brow
 assertIncludes(sharedReport, 'showRcReportIssue', 'shared report exposes inline popup-block status helper');
 assertIncludes(sharedReport, 'repWindowStatus', 'shared report exposes inline report-window status helper');
 assert(!sharedReport.includes('alert('), 'shared report uses inline status instead of blocking alerts');
+validateRcTraceabilityCatalog(rcTraceCatalog, rcTraceCatalogText);
 assertIncludes(testBeam, 'Beam report visual smoke', 'test-beam runs beam report visual smoke');
 assertIncludes(testBeam, 'beam-report-visual.test.js', 'test-beam wires beam report visual script');
 assertIncludes(testSlab, 'Slab report visual smoke', 'test-slab runs slab report visual smoke');
@@ -255,6 +305,8 @@ assertIncludes(readme, '梁回歸測試與報告視覺 smoke', 'README documents
 assertIncludes(readme, '柱回歸測試與報告視覺 smoke', 'README documents column suite label');
 assertIncludes(readme, '板回歸測試與報告視覺 smoke', 'README documents slab suite label');
 assertIncludes(readme, '牆回歸測試與報告視覺 smoke', 'README documents wall suite label');
+assertIncludes(readme, 'RC 條文語意追蹤 catalog', 'README documents RC traceability catalog');
+assertIncludes(readme, 'tools/rc-traceability.catalog.json', 'README documents RC traceability catalog path');
 assertIncludes(readme, '基礎回歸測試與報告視覺 smoke', 'README documents foundation suite label');
 assertIncludes(readme, '單樁回歸測試與報告視覺 smoke', 'README documents single pile suite label');
 [

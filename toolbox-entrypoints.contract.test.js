@@ -303,16 +303,21 @@ assert.ok(maturityMatrix.includes('formal-tools.manifest.json'), 'maturity matri
 assert.ok(maturityMatrix.includes('local-quick-tools.manifest.json'), 'maturity matrix reads local quick manifest');
 assert.ok(maturityMatrix.includes('homeEntry'), 'maturity matrix checks home entries');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
-assert.ok(preflight.includes('key = "tool-maturity-matrix-refresh"'), 'preflight includes maturity matrix pre-dashboard refresh gate');
-assert.ok(preflight.includes('command = $toolMaturityMatrixRefreshCommand'), 'preflight wires maturity matrix refresh command');
+assert.ok(preflight.includes('$maturityMatrixScript = Join-Path $root "結構工具箱\\tools\\tool-maturity-matrix.js"'), 'preflight resolves maturity matrix after summary');
+assert.ok(preflight.includes('$matrixProc = Start-Process -FilePath node'), 'preflight refreshes maturity matrix from summary');
+assert.ok(preflight.includes('tool-maturity-matrix-refresh: exitCode=$($matrixProc.ExitCode)'), 'preflight reports maturity matrix refresh failures');
 assert.ok(
-  preflight.indexOf('key = "tool-maturity-matrix-refresh"') < preflight.indexOf('key = "audit-dashboard-contract"'),
-  'preflight refreshes maturity matrix before audit dashboard contract'
+  preflight.indexOf('Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6') < preflight.indexOf('$matrixProc = Start-Process -FilePath node'),
+  'preflight writes summary before maturity matrix refresh'
 );
-assert.ok(readme.includes('tool-maturity-matrix-refresh'), 'README documents maturity matrix pre-dashboard refresh');
+assert.ok(
+  preflight.indexOf('$matrixProc = Start-Process -FilePath node') < preflight.indexOf('$finalContractRecord = Invoke-PreflightCheck'),
+  'preflight refreshes maturity matrix before final audit dashboard contract'
+);
+assert.ok(readme.includes('summary 寫出後先重產工具成熟度矩陣'), 'README documents maturity matrix post-summary refresh');
 assert.ok(readme.includes('sourceHash stale'), 'README documents maturity sourceHash stale failure mode');
-assert.ok(boundaries.includes('tool-maturity-matrix-refresh'), 'TOOL_BOUNDARIES documents maturity matrix pre-dashboard refresh');
-assert.ok(boundaries.includes('audit-dashboard-contract'), 'TOOL_BOUNDARIES documents dashboard contract dependency');
+assert.ok(boundaries.includes('summary 寫出後先重產矩陣'), 'TOOL_BOUNDARIES documents maturity matrix post-summary refresh');
+assert.ok(boundaries.includes('audit-dashboard-contract-final'), 'TOOL_BOUNDARIES documents dashboard final contract dependency');
 assert.ok(readme.includes('UTF-8 BOM'), 'README documents PowerShell UTF-8 BOM requirement');
 assert.ok(boundaries.includes('UTF-8 BOM'), 'TOOL_BOUNDARIES documents PowerShell UTF-8 BOM requirement');
 assert.ok(readme.includes('Windows PowerShell 5.1'), 'README documents Windows PowerShell encoding risk');

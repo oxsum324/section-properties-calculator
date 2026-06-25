@@ -45,6 +45,8 @@
 - `calculator.js`：多接頭、連接板與拉力構件的檢核公式
 - `app.js`：互動、報表、參數字典與輸出
 - `calculator.smoke-test.js`：快速回歸檢查
+- `steel-traceability.catalog.json`：鋼構條文語意追蹤 catalog，集中登記規範來源、輸入、計算路線、報告落點、測試證據與人工複核邊界
+- `steel-traceability.contract.test.js`：檢查 traceability catalog schema、證據檔案、人工複核文字與開發中接頭邊界
 - `audit-tool.ps1`：自動巡檢腳本，支援單次靜默檢查與循環巡檢
 - `run-audit.bat`：可直接雙擊啟動單次靜默巡檢
 - `run-audit-loop.bat`：可直接雙擊啟動循環靜默巡檢
@@ -85,6 +87,17 @@ http://127.0.0.1:4173/index.html
 - 拉力構件之幾何模式目前以規則孔群與常用銲接配置為主，特殊交錯孔群宜改採面積輸入
 - 銲接模組目前以單一銲道型式之靜力設計為主；若同一受力面存在組合銲道，仍應另依 10.2.5 整理後確認
 - 耐震特別規定、continuity plate、panel doubler 仍需另行補充
+
+## 條文語意追蹤
+
+鋼構條文語意追蹤 catalog 位於 [steel-traceability.catalog.json](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/steel-traceability.catalog.json:1)，目前覆蓋：
+
+- 鋼構正式規範主工具：連接板、拉力構件與開發中接頭邊界。
+- 獨立連接板：standalone 入口與主工具連接板路線一致性。
+- 鋼梁正式頁：第七章撓曲、剪力、HSS 與使用性邊界。
+- 鋼柱正式頁：第八章軸壓、互制、HSS 與有效長度邊界。
+
+這份 catalog 不取代規範或設計者判定；它用來確保每個正式鋼構工具都能追到規範來源、輸入欄位、計算核心、報告落點、測試證據與人工複核事項。`audit-tool.ps1` 會執行 `steel-traceability.contract.test.js`，避免新增或修改鋼構工具時只補頁面、不補 traceability。
 
 ## 網路參考工具
 
@@ -138,6 +151,7 @@ run-sync-formal-core.bat
 ```
 
 `audit-tool.ps1` 目前也會自動檢查 `鋼構工具/core` 是否仍與 `結構工具箱/core` 保持同步。
+巡檢同時會檢查 `steel-traceability.catalog.json`，確認正式鋼構工具的條文語意追蹤與人工複核邊界仍完整。
 巡檢情境已包含首頁、獨立連接板頁，以及鋼梁 / 鋼柱正式頁的實頁快照。瀏覽器段落由單一 Edge CDP browser runner 執行，不需額外 npm 套件，並逐情境設定 timeout。
 
 或直接執行：
