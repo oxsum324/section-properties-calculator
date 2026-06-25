@@ -276,7 +276,7 @@ const preflight = readText(path.join(repoRoot, 'preflight-tools.ps1'));
 const auditAll = readText(path.join(repoRoot, 'audit-all.ps1'));
 const maturityMatrix = readText(path.join(toolboxRoot, 'tools/tool-maturity-matrix.js'));
 const pagesLiveSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-smoke.js'));
-const pagesLiveSmokeWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-live-smoke.yml'));
+const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
 
 assert.equal(vercel.cleanUrls, true, 'Vercel cleanUrls must stay enabled');
 assert.ok(Array.isArray(vercel.redirects), 'vercel redirects array');
@@ -313,9 +313,15 @@ assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity mat
 assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');
-assert.ok(pagesLiveSmokeWorkflow.includes('pages-build-deployment'), 'Pages live smoke workflow waits for Pages build');
-assert.ok(pagesLiveSmokeWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages live smoke workflow runs smoke script');
-assert.ok(pagesLiveSmokeWorkflow.includes('github.event_name =='), 'Pages live smoke workflow only waits on push events');
+assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v5'), 'Pages deploy workflow configures Pages');
+assert.ok(pagesDeployWorkflow.includes('actions/upload-pages-artifact@v4'), 'Pages deploy workflow uploads artifact');
+assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v4'), 'Pages deploy workflow deploys Pages');
+assert.ok(pagesDeployWorkflow.includes('actions/checkout@v6'), 'Pages deploy workflow uses current checkout action');
+assert.ok(pagesDeployWorkflow.includes('pages: write'), 'Pages deploy workflow has pages write permission');
+assert.ok(pagesDeployWorkflow.includes('id-token: write'), 'Pages deploy workflow has id-token write permission');
+assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
+assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages deploy workflow runs smoke script after deployment');
+assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}'), 'Pages live smoke uses deployed page URL');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
 assert.ok(preflight.includes('$maturityMatrixScript = Join-Path $root "結構工具箱\\tools\\tool-maturity-matrix.js"'), 'preflight resolves maturity matrix after summary');
 assert.ok(preflight.includes('$matrixProc = Start-Process -FilePath node'), 'preflight refreshes maturity matrix from summary');
@@ -509,9 +515,10 @@ for (const tool of manifestTools) {
   'HOME_DATA_UPDATED',
   'TOOL_VERSION',
   'APP_VERSION',
-  'Pages live smoke',
+  'Pages deploy',
+  'Pages deploy / live smoke',
   'pages-live-smoke.js',
-  '.github/workflows/pages-live-smoke.yml',
+  '.github/workflows/pages-deploy.yml',
   'preflight contract 文件化',
   'preflight JS 執行檔清冊',
   'preflight helper script 清冊',
