@@ -36,6 +36,7 @@ const expectedCoverageTotals = [
 const expectedTraceabilityCatalogs = [
   { family: 'formal-traceability', value: '1 / 1 tools；2 traces；2 manual-review items' },
   { family: 'rc-traceability', value: '2 / 2 tools；5 traces；5 manual-review items' },
+  { family: 'steel-traceability', value: '2 / 2 tools；4 traces；4 manual-review items' },
 ];
 
 function fixtureOutputPath(relativePath) {
@@ -244,6 +245,20 @@ const fixtures = new Map(Object.entries({
           { key: 'column', label: '柱', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
         ],
       },
+      {
+        family: 'steel-traceability',
+        version: '0.1.0',
+        tools: 2,
+        covered: 2,
+        traceCount: 4,
+        manualReviewCount: 4,
+        uncoveredKeys: [],
+        toolKeys: ['steel-main', 'steel-beam-formal'],
+        rows: [
+          { key: 'steel-main', label: '鋼構正式規範主工具', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'steel-beam-formal', label: '鋼梁正式頁', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+        ],
+      },
     ],
     entrypointCoverage: {
       total: 3,
@@ -314,6 +329,13 @@ const fixtures = new Map(Object.entries({
           sourcePath: '鋼筋混凝土/tools/rc-traceability.catalog.json',
           sourceMtime: fixtureGeneratedAt,
           sourceHash: '34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12',
+          exists: true,
+        },
+        {
+          key: 'steel-traceability-catalog',
+          sourcePath: '鋼構工具/steel-traceability.catalog.json',
+          sourceMtime: fixtureGeneratedAt,
+          sourceHash: '4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123',
           exists: true,
         },
         {
@@ -1094,7 +1116,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     expectedTraceabilityCatalogs.map((item) => ({ ...item, label: item.family, ok: true })),
     `${label} traceability catalog coverage rendered`
   );
-  assert.equal(state.maturitySourceTrace.length, 4, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
+  assert.equal(state.maturitySourceTrace.length, 5, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('formal-tools-manifest') && item.includes('1234567890ab')),
     `${label} maturity formal manifest source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
@@ -1106,6 +1128,10 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('rc-traceability-catalog') && item.includes('34567890abcd')),
     `${label} maturity RC traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
+  );
+  assert.ok(
+    state.maturitySourceTrace.some((item) => item.includes('steel-traceability-catalog') && item.includes('4567890abcde')),
+    `${label} maturity steel traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
   );
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('latest-preflight-summary') && item.includes('abcdef012345')),

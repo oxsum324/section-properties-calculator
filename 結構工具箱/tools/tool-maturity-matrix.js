@@ -450,7 +450,8 @@ function summarizeTraceabilityCatalog(catalog) {
 function buildTraceabilityCatalogCoverage(state) {
   return [
     summarizeTraceabilityCatalog(state.formalTraceabilityCatalog),
-    summarizeTraceabilityCatalog(state.rcTraceabilityCatalog)
+    summarizeTraceabilityCatalog(state.rcTraceabilityCatalog),
+    summarizeTraceabilityCatalog(state.steelTraceabilityCatalog)
   ];
 }
 
@@ -458,6 +459,7 @@ function loadSourceState() {
   const formalManifestRelativePath = '結構工具箱/tools/formal-tools.manifest.json';
   const formalTraceabilityRelativePath = '結構工具箱/tools/formal-traceability.catalog.json';
   const rcTraceabilityRelativePath = '鋼筋混凝土/tools/rc-traceability.catalog.json';
+  const steelTraceabilityRelativePath = '鋼構工具/steel-traceability.catalog.json';
   const localQuickManifestRelativePath = '結構工具箱/tools/local-quick-tools.manifest.json';
   const vercelRelativePath = 'vercel.json';
   const homeRelativePath = '結構工具箱/assets/home/home.js';
@@ -466,6 +468,7 @@ function loadSourceState() {
   const formalManifestPath = toolboxFile('tools/formal-tools.manifest.json');
   const formalTraceabilityPath = toolboxFile('tools/formal-traceability.catalog.json');
   const rcTraceabilityPath = repoFile('鋼筋混凝土/tools/rc-traceability.catalog.json');
+  const steelTraceabilityPath = repoFile('鋼構工具/steel-traceability.catalog.json');
   const localQuickManifestPath = toolboxFile('tools/local-quick-tools.manifest.json');
   const vercelPath = repoFile(vercelRelativePath);
   const homePath = toolboxFile('assets/home/home.js');
@@ -474,6 +477,7 @@ function loadSourceState() {
   const formalManifest = readJson(formalManifestPath);
   const formalTraceabilityCatalog = readJson(formalTraceabilityPath);
   const rcTraceabilityCatalog = readJson(rcTraceabilityPath);
+  const steelTraceabilityCatalog = readJson(steelTraceabilityPath);
   const localQuickManifest = readJson(localQuickManifestPath);
   const vercelText = readText(vercelPath);
   const homeJs = readText(homePath);
@@ -524,6 +528,7 @@ function loadSourceState() {
     sourceInput('formal-tools-manifest', formalManifestRelativePath, formalManifestPath),
     sourceInput('formal-traceability-catalog', formalTraceabilityRelativePath, formalTraceabilityPath),
     sourceInput('rc-traceability-catalog', rcTraceabilityRelativePath, rcTraceabilityPath),
+    sourceInput('steel-traceability-catalog', steelTraceabilityRelativePath, steelTraceabilityPath),
     sourceInput('local-quick-tools-manifest', localQuickManifestRelativePath, localQuickManifestPath),
     sourceInput('vercel-routes', vercelRelativePath, vercelPath),
     sourceInput('home-entrypoints', homeRelativePath, homePath),
@@ -540,6 +545,7 @@ function loadSourceState() {
     formalManifest,
     formalTraceabilityCatalog,
     rcTraceabilityCatalog,
+    steelTraceabilityCatalog,
     localQuickManifest,
     vercelText,
     homeJs,
@@ -736,6 +742,7 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
       '結構工具箱/tools/formal-tools.manifest.json',
       '結構工具箱/tools/formal-traceability.catalog.json',
       '鋼筋混凝土/tools/rc-traceability.catalog.json',
+      '鋼構工具/steel-traceability.catalog.json',
       '結構工具箱/tools/local-quick-tools.manifest.json'
     ],
     sourceTrace: sourceTrace || { inputs: [] },
@@ -1060,6 +1067,11 @@ function checkMatrix(payload, markdown) {
   assert.equal(rcTraceabilityCoverage.covered, rcTraceabilityCoverage.tools, 'tool maturity matrix RC traceability catalog fully covered');
   assert.ok(rcTraceabilityCoverage.traceCount >= rcTraceabilityCoverage.tools, 'tool maturity matrix RC traceability catalog has traces');
   assert.deepEqual(rcTraceabilityCoverage.uncoveredKeys, [], 'tool maturity matrix RC traceability catalog has no uncovered tools');
+  const steelTraceabilityCoverage = payload.traceabilityCatalogCoverage.find(item => item.family === 'steel-traceability');
+  assert.ok(steelTraceabilityCoverage, 'tool maturity matrix includes steel traceability catalog coverage');
+  assert.equal(steelTraceabilityCoverage.covered, steelTraceabilityCoverage.tools, 'tool maturity matrix steel traceability catalog fully covered');
+  assert.ok(steelTraceabilityCoverage.traceCount >= steelTraceabilityCoverage.tools, 'tool maturity matrix steel traceability catalog has traces');
+  assert.deepEqual(steelTraceabilityCoverage.uncoveredKeys, [], 'tool maturity matrix steel traceability catalog has no uncovered tools');
   assert.ok(markdown.includes('## Homepage Entrypoint Coverage'), 'tool maturity matrix exposes homepage entrypoint coverage');
   assert.ok(markdown.includes('### Other Governance Sources'), 'tool maturity matrix exposes other governance sources');
   assert.ok(markdown.includes('### Non-Matrix Boundary Checks'), 'tool maturity matrix exposes non-matrix boundary checks');
@@ -1068,7 +1080,7 @@ function checkMatrix(payload, markdown) {
   assert.ok(markdown.includes('sourceManifests:'), 'tool maturity matrix markdown exposes source manifests');
   assert.ok(payload.sourceTrace && typeof payload.sourceTrace === 'object', 'tool maturity matrix sourceTrace object');
   assert.ok(Array.isArray(payload.sourceTrace.inputs), 'tool maturity matrix sourceTrace inputs array');
-  const requiredSourceKeys = ['formal-tools-manifest', 'formal-traceability-catalog', 'rc-traceability-catalog', 'local-quick-tools-manifest', 'vercel-routes', 'home-entrypoints'];
+  const requiredSourceKeys = ['formal-tools-manifest', 'formal-traceability-catalog', 'rc-traceability-catalog', 'steel-traceability-catalog', 'local-quick-tools-manifest', 'vercel-routes', 'home-entrypoints'];
   for (const key of requiredSourceKeys) {
     const input = payload.sourceTrace.inputs.find(item => item.key === key);
     assert.ok(input, `tool maturity matrix sourceTrace includes ${key}`);

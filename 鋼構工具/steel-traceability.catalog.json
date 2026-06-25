@@ -1,0 +1,149 @@
+{
+  "version": "0.1.0",
+  "family": "steel-traceability",
+  "description": "鋼構正式工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因 audit gate 通過就誤判為所有工程依據都已可追溯。",
+  "tools": [
+    {
+      "key": "steel-main",
+      "label": "鋼構正式規範主工具",
+      "scope": "主工具中已收斂為正式核算的連接板與拉力構件流程；剪力板、柱續接、Gusset 與梁柱彎矩接頭仍列為開發中邊界。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "steel-main-plate-gross-net-block",
+          "clause": "鋼構造建築物鋼結構設計技術規範第 4.1 / 4.2 / 4.3 / 5.2 / 10.4 節",
+          "purpose": "連接板以全斷面降伏、有效淨斷面斷裂與區塊剪力三條路線決定可用拉力，並保留 LRFD / ASD 係數來源。",
+          "inputs": ["connectionType", "designMethod", "requiredTension", "plateWidth", "plateThickness", "holeDiameter", "boltRows", "boltSpacing", "edgeDistance", "manualAgv", "manualAnv", "manualAgt", "manualAnt"],
+          "calculation": ["Ag", "An", "Ae = min(An, 0.85Ag)", "Tn(gross yield)", "Tn(net rupture)", "Rn(block shear)", "LRFD φ / ASD Ω"],
+          "report": ["連接板全斷面降伏", "連接板有效淨斷面斷裂", "連接板區塊剪力破壞", "控制檢核", "計算書"],
+          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["非矩形板、交錯孔、特殊孔型、偏心受力與非 U 型區塊剪力路徑須由設計者依施工圖或正式手算人工複核。"]
+        },
+        {
+          "id": "steel-main-tension-member",
+          "clause": "鋼構造建築物鋼結構設計技術規範第 4.1 / 4.2 / 4.3 / 4.4 / 5.2 / 10.2 / 10.3 / 10.4 節",
+          "purpose": "拉力構件整合全斷面降伏、有效淨斷面、長細比、螺栓 / 銲接傳力與區塊剪力，不把接合型式的人工輸入值當成工具權威。",
+          "inputs": ["connectionType", "tensionConnectionMode", "memberAg", "memberAn", "tensionShearLagCase", "tensionShearLagFactor", "tensionEffectiveNetArea", "tensionWeldCase", "tensionWeldLengthLongitudinal", "requiredTension"],
+          "calculation": ["Ag", "An", "U", "Ae", "L/r", "bolt shear / tension", "weld strength", "block shear", "available strength"],
+          "report": ["拉力構件全斷面降伏", "拉力構件有效淨斷面斷裂", "受拉構材長細比", "螺栓 / 銲接檢核", "區塊剪力破壞強度"],
+          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["手動 U、有效淨斷面、銲接有效面積、特殊交錯孔群與組合銲道須由試驗、學理分析、施工圖或專案文件人工複核。"]
+        },
+        {
+          "id": "steel-main-scope-boundary",
+          "clause": "鋼構造建築物鋼結構設計技術規範正式核算範圍管理與第 10 章接合規定",
+          "purpose": "主工具保留開發中接頭表單，但 audit 與報告需阻止其被誤用為正式規範覆核結果。",
+          "inputs": ["connectionType", "validations", "complianceReady", "passes", "moduleBoundary"],
+          "calculation": ["development-module guard", "complianceReady=false", "blocked formal report export", "inline status message"],
+          "report": ["此模組尚未收斂到完整規範覆核範圍", "現階段不提供正式規範核算", "inline toolbar status"],
+          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-formal.regression-test.js"],
+          "manualReview": ["單剪力板、柱續接、Gusset 與梁柱彎矩接頭若需送審，須另以正式設計流程、施工圖與專案模型完成檢核。"]
+        }
+      ]
+    },
+    {
+      "key": "steel-plate",
+      "label": "獨立連接板",
+      "scope": "獨立入口的矩形連接板拉力、有效淨斷面與區塊剪力檢核。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "steel-plate-standalone-strength",
+          "clause": "鋼構造建築物鋼結構設計技術規範第 4.1 / 4.2 / 4.3 / 5.2 / 10.4 節",
+          "purpose": "獨立連接板頁需與主工具的連接板強度路線一致，避免 standalone 與主入口同案輸出不同結論。",
+          "inputs": ["designMethod", "requiredTension", "plateWidth", "plateThickness", "boltRows", "boltSpacing", "edgeDistance", "holeDiameter"],
+          "calculation": ["gross yielding", "net rupture", "block shear", "available strength", "governing check"],
+          "report": ["連接板檢核計算書", "控制項目", "需求比", "規範檢核"],
+          "evidence": ["plate-check.html", "calculator.js", "calculator.smoke-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["獨立入口僅處理矩形連接板與規則孔群；板件實際邊界、傳力路徑與偏心效應仍須依施工圖人工複核。"]
+        },
+        {
+          "id": "steel-plate-geometry-manual-boundary",
+          "clause": "鋼構造建築物鋼結構設計技術規範第 4.3 / 10.4 節",
+          "purpose": "面積直輸與手動區塊剪力覆寫可用於特殊幾何，但報告需保留輸入來源與人工複核責任。",
+          "inputs": ["plateInputMode", "useManualBlockShearPath", "manualAgv", "manualAnv", "manualAgt", "manualAnt", "effectiveNetArea"],
+          "calculation": ["manual area validation", "manual block-shear path", "Ae consistency", "Agv / Anv / Agt / Ant completeness"],
+          "report": ["面積直輸模式", "區塊剪力採手動覆寫路徑", "人工輸入", "幾何模式假設"],
+          "evidence": ["calculator.js", "calculator.smoke-test.js", "app.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["手動面積與區塊剪力覆寫值不得只由工具自行採用，須由設計者依正式手算、施工圖或外部分析確認。"]
+        }
+      ]
+    },
+    {
+      "key": "steel-beam-formal",
+      "label": "鋼梁正式頁",
+      "scope": "H 型鋼、SHS、RHS 與 CHS 鋼梁撓曲、剪力、撓度與報告輸出。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "steel-beam-flexure-ch7",
+          "clause": "鋼構造建築物鋼結構設計技術規範第七章撓曲構材 F2 / F3 / F4 / F5 / F7 / F8 節",
+          "purpose": "鋼梁頁以斷面分類、側向扭轉挫屈、局部挫屈與塑性彎矩路線決定 Mn，並在報告揭露控制模式。",
+          "inputs": ["sectionType", "Fy", "Mu", "Lb", "Cb", "Sx", "Zx", "ry", "rts", "shape dimensions"],
+          "calculation": ["λf", "λw", "Lp", "Lr", "Mp", "Mn", "LTB", "FLB", "WLB", "φMn / MnΩ"],
+          "report": ["撓曲強度檢核", "控制模式", "條文分類", "φMn ≥ Mu", "規範檢核摘要"],
+          "evidence": ["steel-beam-formal.js", "steel-beam-formal.html", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["未側撐長度、Cb、支承條件、局部開孔、複合梁效應與非標準斷面須由專案模型與施工圖人工複核。"]
+        },
+        {
+          "id": "steel-beam-shear-serviceability",
+          "clause": "鋼構造建築物鋼結構設計技術規範第七章剪力構材與第 11.3 節使用性規定",
+          "purpose": "剪力與撓度分開檢核；撓度限值由專案需求輸入，不被工具包裝成規範固定結論。",
+          "inputs": ["Vu", "Lv", "Aw", "Cv1", "Cv2", "Fcr", "L", "WD", "WL", "deflectionLimitLive", "deflectionLimitTotal"],
+          "calculation": ["Vn", "φVn / VnΩ", "round HSS Fcr", "live deflection", "total deflection", "limit ratio"],
+          "report": ["剪力強度檢核", "撓度與使用性檢核", "φVn ≥ Vu", "撓度限值由設計者依使用性需求輸入"],
+          "evidence": ["steel-beam-formal.js", "steel-beam-formal.html", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["撓度限值、積水載重、振動舒適性、樓版組合作用與施工階段狀態須由設計者依專案需求人工複核。"]
+        },
+        {
+          "id": "steel-beam-hss-boundary",
+          "clause": "鋼構造建築物鋼結構設計技術規範第七章 F7 / F8 與 HSS 剪力條文",
+          "purpose": "SHS / RHS / CHS 的名義厚度、0.93 設計壁厚與 HSS 適用範圍需明確留在報告與 regression 中。",
+          "inputs": ["sectionType", "SHS/RHS/CHS size", "tnom", "D/t", "H/t", "B/t", "Lb", "Cb", "Lv"],
+          "calculation": ["design wall thickness = 0.93tnom", "HSS local buckling limit", "F7 / F8 classification", "out-of-scope guard"],
+          "report": ["HSS 斷面採名義厚度輸入", "設計壁厚 t = 0.93 tnom", "超出本版適用範圍", "局部挫屈區"],
+          "evidence": ["steel-beam-formal.js", "steel-beam-formal.html", "steel-formal.regression-test.js", "core/materials/steel.js"],
+          "manualReview": ["HSS 製造規格、設計壁厚、彎曲軸向、端部連接與超出 F7 / F8 適用範圍者須依材料證明與專案設計人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "steel-column-formal",
+      "label": "鋼柱正式頁",
+      "scope": "H 型鋼、SHS、RHS 與 CHS 鋼柱軸壓、KL/r、雙軸彎矩與互制檢核。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "steel-column-compression-ch8",
+          "clause": "鋼構造建築物鋼結構設計技術規範第八章壓力構材與局部挫屈規定",
+          "purpose": "鋼柱頁以 KxLx/rx、KyLy/ry、Fcr 與 Pn 計算軸壓可用強度，並把 KL/r 上限納入整體判定。",
+          "inputs": ["sectionType", "Fy", "Kx", "Ky", "Lx", "Ly", "Pu", "rx", "ry", "shape dimensions"],
+          "calculation": ["KL/r", "Fe", "Fcr", "Pn", "φPn / Pa", "compression local buckling classification"],
+          "report": ["壓力構材板件分類", "軸壓強度", "φPn ≥ Pu", "控制 KL/r", "整體判定"],
+          "evidence": ["steel-column-formal.js", "steel-column-formal.html", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["有效長度係數 K、側撐條件、節點轉動拘束、二階效應與實際柱系統穩定性須由分析模型人工複核。"]
+        },
+        {
+          "id": "steel-column-interaction-ch8",
+          "clause": "鋼構造建築物鋼結構設計技術規範第八章軸力與彎矩互制式",
+          "purpose": "軸力與 X/Y 向彎矩互制需揭露 LRFD / ASD 路線、控制軸向與互制比，不只顯示單一 OK。",
+          "inputs": ["Pu", "Mux", "Muy", "Lbx", "Cbx", "Cmx", "Cmy", "Fex", "Fey", "designMethod"],
+          "calculation": ["Mnx", "Mny", "φMnx / MnxΩ", "φMny / MnyΩ", "interaction equation", "control axis"],
+          "report": ["主軸 / 弱軸彎矩強度", "軸力—彎矩互制", "互制狀態", "控制軸向", "primary issue"],
+          "evidence": ["steel-column-formal.js", "steel-column-formal.html", "steel-formal.regression-test.js", "steel-audit-browser-runner.js"],
+          "manualReview": ["Cmx/Cmy、彎矩分布、節點側移、二階放大與雙軸受力組合須依完整分析模型與設計假設人工複核。"]
+        },
+        {
+          "id": "steel-column-hss-boundary",
+          "clause": "鋼構造建築物鋼結構設計技術規範第八章 HSS 壓力構材與第七章 HSS 撓曲條文",
+          "purpose": "SHS / RHS / CHS 僅在非細長與本版支援範圍內作正式判定，超出條件時應停用正式 OK。",
+          "inputs": ["sectionType", "SHS/RHS/CHS size", "B/t", "H/t", "D/t", "Fy", "KL/r", "Mux", "Muy"],
+          "calculation": ["nonslender HSS guard", "Q = 1", "HSS compression limit", "F7/F8 flexure branch", "out-of-scope guard"],
+          "report": ["目前方管正式檢核僅支援非細長 SHS", "目前矩形管正式檢核僅支援非細長 RHS", "目前圓管正式檢核僅支援非細長 CHS", "inline validation"],
+          "evidence": ["steel-column-formal.js", "steel-column-formal.html", "steel-formal.regression-test.js", "core/materials/steel.js"],
+          "manualReview": ["HSS 細長板件、冷成型材料規格、局部補強、端板或接頭對柱端邊界影響須由專案設計與材料資料人工複核。"]
+        }
+      ]
+    }
+  ]
+}
