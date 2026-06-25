@@ -9,6 +9,12 @@ const repoRoot = path.resolve(toolboxRoot, '..');
 const outputDir = path.join(repoRoot, 'output', 'audit');
 const jsonOutputPath = path.join(outputDir, 'tool-maturity-matrix.json');
 const markdownOutputPath = path.join(outputDir, 'tool-maturity-matrix.md');
+const homepageStatusDir = path.join(toolboxRoot, 'assets', 'status');
+const homepagePlatformStatusPath = path.join(homepageStatusDir, 'platform-status.json');
+const homepagePreflightStatusPath = path.join(homepageStatusDir, 'preflight-summary.json');
+const platformStatusSourcePath = path.join(repoRoot, 'output', 'audit', 'platform-status.json');
+const preflightSummarySourcePath = path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json');
+const preflightHistorySourcePath = path.join(repoRoot, 'output', 'preflight', 'preflight-history.json');
 const NA = 'n/a';
 const UPGRADE_TARGETS = [
   { key: 'reportModes', label: '報告簡版 / 詳版模式', priority: 'P1' },
@@ -72,6 +78,10 @@ function sourceTraceFor(inputs) {
 
 function readJson(filePath) {
   return JSON.parse(readText(filePath).replace(/^\uFEFF/, ''));
+}
+
+function readJsonIfExists(filePath) {
+  return fileExists(filePath) ? readJson(filePath) : null;
 }
 
 function readJsArrayCount(filePath) {
@@ -1026,14 +1036,136 @@ function buildMatrix() {
   };
 }
 
+function sourceHashIfExists(filePath) {
+  if (!fileExists(filePath)) return '';
+  return hashText(readText(filePath).replace(/^\uFEFF/, ''));
+}
+
+function compactStringArray(value) {
+  return Array.isArray(value) ? value.filter(item => typeof item === 'string') : [];
+}
+
+function compactNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function buildHomepagePlatformStatus(payload) {
+  if (!payload) return null;
+  return {
+    snapshotVersion: 1,
+    kind: 'platform-status',
+    generatedAt: String(payload.generatedAt || ''),
+    runId: String(payload.runId || ''),
+    pass: Boolean(payload.pass),
+    failureCount: compactNumber(payload.failureCount),
+    source: String(payload.source || ''),
+    modules: compactStringArray(payload.modules),
+    sourcePath: 'output/audit/platform-status.json',
+    sourceHash: sourceHashIfExists(platformStatusSourcePath)
+  };
+}
+
+function resolveHomepagePreflightSource() {
+  const latestSummary = readJsonIfExists(preflightSummarySourcePath);
+  const history = readJsonIfExists(preflightHistorySourcePath);
+  const completedItems = Array.isArray(history?.items)
+    ? history.items.filter(item => item && item.complete !== false)
+    : [];
+  const latestFull = completedItems.find(item => item && item.quick === false && item.summaryJsonPath);
+  if (latestFull) {
+    const fullPath = path.isAbsolute(latestFull.summaryJsonPath)
+      ? latestFull.summaryJsonPath
+      : repoFile(String(latestFull.summaryJsonPath).replace(/\\/g, '/'));
+    if (fileExists(fullPath)) {
+      return {
+        payload: readJson(fullPath),
+        filePath: fullPath,
+        sourcePath: displayPath(fullPath)
+      };
+    }
+  }
+  return {
+    payload: latestSummary,
+    filePath: preflightSummarySourcePath,
+    sourcePath: 'output/preflight/preflight-summary.json'
+  };
+}
+
+function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
+  if (!payload) return null;
+  return {
+    snapshotVersion: 1,
+    kind: 'preflight-summary',
+    generatedAt: String(payload.generatedAt || ''),
+    runId: String(payload.runId || ''),
+    quick: Boolean(payload.quick),
+    forcePlatformAudit: Boolean(payload.forcePlatformAudit),
+    forceSlowChecks: Boolean(payload.forceSlowChecks),
+    pass: Boolean(payload.pass),
+    failureCount: compactNumber(payload.failureCount),
+    failedKeys: compactStringArray(payload.failedKeys),
+    slowReuseCount: compactNumber(payload.slowReuseCount),
+    slowReuseKeys: compactStringArray(payload.slowReuseKeys),
+    recordsCount: compactNumber(payload.recordsCount),
+    passedCount: compactNumber(payload.passedCount),
+    totalSeconds: compactNumber(payload.totalSeconds),
+    slowestKey: String(payload.slowestKey || ''),
+    slowestSeconds: compactNumber(payload.slowestSeconds),
+    postCheckCount: compactNumber(payload.postCheckCount),
+    postChecksPassedCount: compactNumber(payload.postChecksPassedCount),
+    postCheckFailures: compactStringArray(payload.postCheckFailures),
+    sourcePath,
+    sourceHash: sourceHashIfExists(sourceFilePath)
+  };
+}
+
+function writeHomepageStatusSnapshots() {
+  const platformStatus = buildHomepagePlatformStatus(readJsonIfExists(platformStatusSourcePath));
+  const preflightSource = resolveHomepagePreflightSource();
+  const preflightStatus = buildHomepagePreflightStatus(preflightSource.payload, preflightSource.filePath, preflightSource.sourcePath);
+  fs.mkdirSync(homepageStatusDir, { recursive: true });
+  if (platformStatus) {
+    fs.writeFileSync(homepagePlatformStatusPath, `${JSON.stringify(platformStatus, null, 2)}\n`, 'utf8');
+  }
+  if (preflightStatus) {
+    fs.writeFileSync(homepagePreflightStatusPath, `${JSON.stringify(preflightStatus, null, 2)}\n`, 'utf8');
+  }
+}
+
 function writeMatrix(matrix) {
   fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(jsonOutputPath, `${JSON.stringify(matrix.payload, null, 2)}\n`, 'utf8');
   fs.writeFileSync(markdownOutputPath, matrix.markdown, 'utf8');
+  writeHomepageStatusSnapshots();
 }
 
 function displayPath(filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, '/');
+}
+
+function assertHomepageStatusSnapshot(filePath, expectedKind, expectedSourcePath, sourcePath) {
+  assert.ok(fileExists(filePath), `homepage status snapshot exists: ${displayPath(filePath)}`);
+  const payload = readJson(filePath);
+  assert.equal(payload.snapshotVersion, 1, `${expectedKind} snapshot version`);
+  assert.equal(payload.kind, expectedKind, `${expectedKind} snapshot kind`);
+  assert.equal(typeof payload.generatedAt, 'string', `${expectedKind} generatedAt string`);
+  assert.equal(typeof payload.runId, 'string', `${expectedKind} runId string`);
+  assert.equal(typeof payload.pass, 'boolean', `${expectedKind} pass boolean`);
+  assert.equal(Number.isInteger(payload.failureCount), true, `${expectedKind} failureCount integer`);
+  if (expectedSourcePath instanceof RegExp) {
+    assert.match(payload.sourcePath, expectedSourcePath, `${expectedKind} sourcePath`);
+  } else {
+    assert.equal(payload.sourcePath, expectedSourcePath, `${expectedKind} sourcePath`);
+  }
+  assert.match(payload.sourceHash, /^[0-9a-f]{64}$/i, `${expectedKind} sourceHash sha256`);
+  assert.equal(Object.prototype.hasOwnProperty.call(payload, 'root'), false, `${expectedKind} must not publish local root`);
+  assert.equal(JSON.stringify(payload).includes(repoRoot), false, `${expectedKind} must not publish local absolute paths`);
+  const currentSourcePath = sourcePath || repoFile(String(payload.sourcePath || '').replace(/\\/g, '/'));
+  if (fileExists(currentSourcePath)) {
+    assert.equal(payload.sourceHash, sourceHashIfExists(currentSourcePath), `${expectedKind} sourceHash current`);
+  }
+  return payload;
 }
 
 function checkMatrix(payload, markdown) {
@@ -1126,6 +1258,13 @@ function checkMatrix(payload, markdown) {
   assert.ok(markdown.indexOf('## Top Upgrade Targets') < markdown.indexOf('## Source Trace'), 'tool maturity matrix top upgrade section precedes source trace');
   assert.ok(markdown.includes('## Source Trace'), 'tool maturity matrix markdown exposes source trace section');
   assert.ok(markdown.includes('sourceManifests:'), 'tool maturity matrix markdown exposes source manifests');
+  const homepagePlatformStatus = assertHomepageStatusSnapshot(homepagePlatformStatusPath, 'platform-status', 'output/audit/platform-status.json', platformStatusSourcePath);
+  const homepagePreflightStatus = assertHomepageStatusSnapshot(homepagePreflightStatusPath, 'preflight-summary', /^output\/preflight\/(?:history\/[^/]+\/)?preflight-summary\.json$/, null);
+  assert.ok(Array.isArray(homepagePlatformStatus.modules), 'homepage platform status modules array');
+  assert.equal(typeof homepagePreflightStatus.quick, 'boolean', 'homepage preflight status quick boolean');
+  assert.equal(Number.isInteger(homepagePreflightStatus.recordsCount), true, 'homepage preflight status recordsCount integer');
+  assert.equal(Number.isInteger(homepagePreflightStatus.passedCount), true, 'homepage preflight status passedCount integer');
+  assert.ok(Array.isArray(homepagePreflightStatus.failedKeys), 'homepage preflight status failedKeys array');
   assert.ok(payload.sourceTrace && typeof payload.sourceTrace === 'object', 'tool maturity matrix sourceTrace object');
   assert.ok(Array.isArray(payload.sourceTrace.inputs), 'tool maturity matrix sourceTrace inputs array');
   const requiredSourceKeys = ['formal-tools-manifest', 'formal-traceability-catalog', 'rc-traceability-catalog', 'steel-traceability-catalog', 'anchor-traceability-catalog', 'stone-traceability-catalog', 'decking-traceability-catalog', 'excavation-traceability-catalog', 'local-quick-tools-manifest', 'vercel-routes', 'home-entrypoints'];

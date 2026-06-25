@@ -1,0 +1,16 @@
+{
+  "snapshotVersion": 1,
+  "kind": "platform-status",
+  "generatedAt": "2026-06-26 03:37:18",
+  "runId": "20260626-033717",
+  "pass": true,
+  "failureCount": 0,
+  "source": "component-status-refresh",
+  "modules": [
+    "steel",
+    "rc",
+    "core"
+  ],
+  "sourcePath": "output/audit/platform-status.json",
+  "sourceHash": "00d1dc9738f7fa50e1a104e3aa72f9fe7a1771e5dc053f7e6258288a9a892053"
+}

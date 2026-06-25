@@ -302,6 +302,12 @@ for (const [sourceKey, source] of Object.entries(governanceSources)) {
 assert.ok(maturityMatrix.includes('formal-tools.manifest.json'), 'maturity matrix reads formal manifest');
 assert.ok(maturityMatrix.includes('local-quick-tools.manifest.json'), 'maturity matrix reads local quick manifest');
 assert.ok(maturityMatrix.includes('homeEntry'), 'maturity matrix checks home entries');
+assert.equal(/fetch\(\s*[`'"]\/output\//.test(homeSource), false, 'home status fetches must not use domain-root /output paths');
+assert.ok(homeSource.includes("homeAssetHref('assets/status/platform-status.json')"), 'home status fetch uses tracked platform status asset');
+assert.ok(homeSource.includes("homeAssetHref('assets/status/preflight-summary.json')"), 'home status fetch uses tracked preflight status asset');
+assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/platform-status.json')), 'homepage platform status asset exists');
+assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/preflight-summary.json')), 'homepage preflight status asset exists');
+assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity matrix publishes homepage status snapshots');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
 assert.ok(preflight.includes('$maturityMatrixScript = Join-Path $root "結構工具箱\\tools\\tool-maturity-matrix.js"'), 'preflight resolves maturity matrix after summary');
 assert.ok(preflight.includes('$matrixProc = Start-Process -FilePath node'), 'preflight refreshes maturity matrix from summary');
