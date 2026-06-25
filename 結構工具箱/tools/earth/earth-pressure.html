@@ -150,8 +150,11 @@
       <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
     </div>
     <div class="case-actions" aria-label="案例管理">
+      <button class="btn-secondary" id="btnSaveProject" type="button">存檔 JSON</button>
       <button class="btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
       <input type="file" id="jsonFile" accept=".json,application/json" style="display:none">
+      <button class="btn-secondary" id="btnSaveDraft" type="button">暫存</button>
+      <button class="btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
       <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
     </div>
   </div>
@@ -367,6 +370,7 @@
 <script>
 (function () {
   const STORAGE_KEY = 'earthPressureProjectInfo';
+  const PROJECT_DRAFT_KEY = 'earthPressureProjectDraft.v1';
   const DEFAULTS = {
     designReference: 'taiwanFoundation2023',
     wallType: 'cantilever',
@@ -817,6 +821,51 @@
     });
   }
 
+  function buildProjectPayload() {
+    const r = lastResult || calculateEarthPressure();
+    return Exporter.buildPayload({
+      tool: {
+        id: 'earth-pressure',
+        name: '擋土土壓局部快算',
+        pageVersion: 'V0.4'
+      },
+      project: gatherProjectInfo(),
+      input: gatherInputs(),
+      result: r,
+      generatedAt: new Date().toISOString()
+    });
+  }
+
+  function downloadProjectJson() {
+    const payload = buildProjectPayload();
+    Exporter.downloadProjectJson({
+      tool: payload.tool,
+      project: payload.project,
+      input: payload.input,
+      result: payload.result,
+      generatedAt: payload.generatedAt,
+      filename: `earth-pressure-project-${payload.generatedAt.slice(0, 10)}.json`
+    });
+    $('bannerStatus').className = 'banner-status ok';
+    $('bannerStatus').textContent = '已存檔 JSON；可用「讀取 JSON」回復本頁案例。';
+  }
+
+  function saveProjectDraft() {
+    Exporter.saveDraft(PROJECT_DRAFT_KEY, buildProjectPayload());
+    $('bannerStatus').className = 'banner-status ok';
+    $('bannerStatus').textContent = '已暫存目前案例到此瀏覽器。';
+  }
+
+  function loadProjectDraft() {
+    const payload = Exporter.loadDraft(PROJECT_DRAFT_KEY);
+    if (!payload) {
+      $('bannerStatus').className = 'banner-status fail';
+      $('bannerStatus').textContent = '尚無可讀取的瀏覽器暫存。';
+      return;
+    }
+    applyImportedCase(payload, '瀏覽器暫存');
+  }
+
   function openReport() {
     const r = lastResult || calculateEarthPressure();
     if (!r) return;
@@ -968,6 +1017,9 @@ ${body}
   document.getElementById('btnCalc').addEventListener('click', calculateEarthPressure);
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnJson').addEventListener('click', downloadResultJson);
+  document.getElementById('btnSaveProject').addEventListener('click', downloadProjectJson);
+  document.getElementById('btnSaveDraft').addEventListener('click', saveProjectDraft);
+  document.getElementById('btnLoadDraft').addEventListener('click', loadProjectDraft);
   document.getElementById('btnImportJson').addEventListener('click', function () {
     $('jsonFile').click();
   });

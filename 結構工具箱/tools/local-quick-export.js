@@ -50,11 +50,46 @@
     return payload;
   }
 
+  function downloadProjectJson(options) {
+    const generatedAt = options.generatedAt || new Date().toISOString();
+    const payload = buildPayload({
+      tool: options.tool,
+      project: options.project,
+      generatedAt,
+      input: options.input,
+      result: options.result
+    });
+    const filename = options.filename || `${options.tool.id}-project-${generatedAt.slice(0, 10)}.json`;
+    downloadJson(filename, payload);
+    return payload;
+  }
+
+  function getStorage(storage) {
+    if (storage) return storage;
+    if (typeof localStorage !== 'undefined') return localStorage;
+    throw new Error('此環境無法使用瀏覽器暫存。');
+  }
+
+  function saveDraft(storageKey, payload, storage) {
+    if (!storageKey) throw new Error('缺少暫存鍵值。');
+    getStorage(storage).setItem(storageKey, JSON.stringify(payload, jsonReplacer));
+    return payload;
+  }
+
+  function loadDraft(storageKey, storage) {
+    if (!storageKey) throw new Error('缺少暫存鍵值。');
+    const raw = getStorage(storage).getItem(storageKey);
+    return raw ? JSON.parse(raw) : null;
+  }
+
   return {
     version: '0.1.0',
     jsonReplacer,
     buildPayload,
     downloadJson,
-    downloadResultJson
+    downloadResultJson,
+    downloadProjectJson,
+    saveDraft,
+    loadDraft
   };
 });

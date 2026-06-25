@@ -118,8 +118,11 @@
       <input type="text" id="projDesigner" class="w-des" placeholder="整理人">
     </div>
     <div class="case-actions" aria-label="案例管理">
+      <button class="btn-secondary" id="btnSaveProject" type="button">存檔 JSON</button>
       <button class="btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
       <input class="json-file-input" id="jsonFile" type="file" accept="application/json,.json">
+      <button class="btn-secondary" id="btnSaveDraft" type="button">暫存</button>
+      <button class="btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
       <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
       <div class="muted json-status" id="jsonStatus">JSON 可用於保存與回讀本頁案例。</div>
     </div>
@@ -332,6 +335,7 @@
 <script>
 (function () {
   const STORAGE_KEY = 'equipmentLoadProjectInfo';
+  const PROJECT_DRAFT_KEY = 'equipmentLoadProjectDraft.v1';
   const DEFAULTS = {
     equipmentWeight: '12',
     fluidWeight: '2',
@@ -692,6 +696,48 @@
     setJsonStatus('已產生 JSON，可用「讀取 JSON」回復本頁案例。', false);
   }
 
+  function buildProjectPayload() {
+    const r = lastResult || calculateEquipmentLoad();
+    return Exporter.buildPayload({
+      tool: {
+        id: 'equipment-load',
+        name: '設備局部荷重',
+        pageVersion: 'V0.2'
+      },
+      project: gatherProjectInfo(),
+      input: gatherInputs(),
+      result: r,
+      generatedAt: new Date().toISOString()
+    });
+  }
+
+  function downloadProjectJson() {
+    const payload = buildProjectPayload();
+    Exporter.downloadProjectJson({
+      tool: payload.tool,
+      project: payload.project,
+      input: payload.input,
+      result: payload.result,
+      generatedAt: payload.generatedAt,
+      filename: `equipment-load-project-${payload.generatedAt.slice(0, 10)}.json`
+    });
+    setJsonStatus('已存檔 JSON；可用「讀取 JSON」回復本頁案例。', false);
+  }
+
+  function saveProjectDraft() {
+    Exporter.saveDraft(PROJECT_DRAFT_KEY, buildProjectPayload());
+    setJsonStatus('已暫存目前案例到此瀏覽器。', false);
+  }
+
+  function loadProjectDraft() {
+    const payload = Exporter.loadDraft(PROJECT_DRAFT_KEY);
+    if (!payload) {
+      setJsonStatus('尚無可讀取的瀏覽器暫存。', true);
+      return;
+    }
+    applyImportedCase(payload, '瀏覽器暫存');
+  }
+
   async function importJsonFile(file) {
     if (!file) return;
     try {
@@ -838,6 +884,9 @@ ${body}
   document.getElementById('btnCalc').addEventListener('click', calculateEquipmentLoad);
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnJson').addEventListener('click', downloadResultJson);
+  document.getElementById('btnSaveProject').addEventListener('click', downloadProjectJson);
+  document.getElementById('btnSaveDraft').addEventListener('click', saveProjectDraft);
+  document.getElementById('btnLoadDraft').addEventListener('click', loadProjectDraft);
   document.getElementById('btnImportJson').addEventListener('click', function () {
     $('jsonFile').click();
   });

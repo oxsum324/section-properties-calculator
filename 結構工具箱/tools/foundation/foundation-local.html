@@ -120,6 +120,10 @@
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
     </div>
     <div class="case-actions" aria-label="案例管理">
+      <button class="btn-secondary" id="btnSaveProject" type="button">存檔 JSON</button>
+      <button class="btn-secondary" id="btnImportProjectTop" type="button">讀取 JSON</button>
+      <button class="btn-secondary" id="btnSaveDraft" type="button">暫存</button>
+      <button class="btn-secondary" id="btnLoadDraft" type="button">讀取暫存</button>
       <button class="btn-secondary" id="btnReset" type="button">恢復預設值</button>
     </div>
   </div>
@@ -341,6 +345,7 @@
 <script>
 (function () {
   const STORAGE_KEY = 'foundationLocalProjectInfo';
+  const PROJECT_DRAFT_KEY = 'foundationLocalProjectDraft.v1';
   const DEFAULTS = {
     designCode: 'tw-foundation-112',
     loadCondition: 'long-term',
@@ -673,6 +678,53 @@
     });
   }
 
+  function buildProjectPayload() {
+    const r = lastResult || calculateFoundationLocal();
+    return Exporter.buildPayload({
+      tool: {
+        id: 'foundation-local',
+        name: '基礎局部檢核',
+        pageVersion: 'V0.2'
+      },
+      project: gatherProjectInfo(),
+      input: gatherInputs(),
+      result: r,
+      generatedAt: new Date().toISOString()
+    });
+  }
+
+  function setStorageStatus(message, ok) {
+    $('bannerStatus').className = `banner-status ${ok ? 'ok' : 'fail'}`;
+    $('bannerStatus').textContent = message;
+  }
+
+  function downloadProjectJson() {
+    const payload = buildProjectPayload();
+    Exporter.downloadProjectJson({
+      tool: payload.tool,
+      project: payload.project,
+      input: payload.input,
+      result: payload.result,
+      generatedAt: payload.generatedAt,
+      filename: `foundation-local-project-${payload.generatedAt.slice(0, 10)}.json`
+    });
+    setStorageStatus('已存檔 JSON；可用「讀取 JSON」回復本頁案例。', true);
+  }
+
+  function saveProjectDraft() {
+    Exporter.saveDraft(PROJECT_DRAFT_KEY, buildProjectPayload());
+    setStorageStatus('已暫存目前案例到此瀏覽器。', true);
+  }
+
+  function loadProjectDraft() {
+    const payload = Exporter.loadDraft(PROJECT_DRAFT_KEY);
+    if (!payload) {
+      setStorageStatus('尚無可讀取的瀏覽器暫存。', false);
+      return;
+    }
+    applyImportedCase(payload, '瀏覽器暫存');
+  }
+
   function svgForReport(r) {
     drawDiagram(r);
     const svg = document.getElementById('foundationDiagram');
@@ -850,6 +902,10 @@ ${body}
   document.getElementById('btnCalc').addEventListener('click', calculateFoundationLocal);
   document.getElementById('btnPrint').addEventListener('click', openReport);
   document.getElementById('btnJson').addEventListener('click', downloadResultJson);
+  document.getElementById('btnSaveProject').addEventListener('click', downloadProjectJson);
+  document.getElementById('btnSaveDraft').addEventListener('click', saveProjectDraft);
+  document.getElementById('btnLoadDraft').addEventListener('click', loadProjectDraft);
+  document.getElementById('btnImportProjectTop').addEventListener('click', () => document.getElementById('jsonFile').click());
   document.getElementById('btnImportJson').addEventListener('click', () => document.getElementById('jsonFile').click());
   document.getElementById('jsonFile').addEventListener('change', function () { importJson(this); });
   document.getElementById('btnReset').addEventListener('click', resetDefaults);

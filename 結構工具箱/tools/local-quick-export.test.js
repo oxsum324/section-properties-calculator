@@ -118,4 +118,28 @@ withDownloadStubs((captured) => {
   assert.equal(JSON.parse(captured.blobParts[0]).value, '-Infinity');
 });
 
+withDownloadStubs((captured) => {
+  const returnedPayload = Exporter.downloadProjectJson({
+    tool: { id: 'equipment-load', name: '設備局部荷重', pageVersion: 'V0.2' },
+    project: { name: '暫存案' },
+    generatedAt: '2026-05-20T08:00:00.000Z',
+    input: { supportCount: 4 },
+    result: { utilization: 0.72 },
+  });
+
+  assert.equal(captured.download, 'equipment-load-project-2026-05-20.json');
+  assert.equal(JSON.parse(captured.blobParts[0]).tool.id, 'equipment-load');
+  assert.equal(returnedPayload.input.supportCount, 4);
+});
+
+const fakeStorage = {
+  data: Object.create(null),
+  setItem(key, value) { this.data[key] = value; },
+  getItem(key) { return this.data[key] || null; },
+};
+Exporter.saveDraft('draft-key', { input: { H: 2.5 }, result: { fs: Infinity } }, fakeStorage);
+const loadedDraft = Exporter.loadDraft('draft-key', fakeStorage);
+assert.deepEqual(loadedDraft.input, { H: 2.5 });
+assert.equal(loadedDraft.result.fs, 'Infinity');
+
 console.log('local quick export helper OK');
