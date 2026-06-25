@@ -40,13 +40,14 @@
 | `結構工具箱/tools/tool-maturity-matrix.js` | 納入 | 工具成熟度矩陣產生器；合併正式工具與局部快算 manifest，輸出治理覆蓋率與下一步品質欄位 JSON / Markdown 給巡檢儀表板讀取。preflight 以 `tool-maturity-matrix-refresh` 在 `audit-dashboard-contract` 前先重產矩陣，避免 sourceHash stale 假失敗。 |
 | `結構工具箱/tools/local-quick-tools.contract.test.js` | 納入 | 高頻局部快算共同契約測試；集中確認工具檔案、首頁入口、乾淨路由、README、邊界文件、staging 建議、頁面責任邊界與各工具 golden regression。 |
 | `鋼構工具/steel-traceability.catalog.json`、`鋼構工具/steel-traceability.contract.test.js` | 納入 | 鋼構條文語意追蹤 catalog 與契約測試；集中確認鋼構正式入口、連接板、拉力構件、鋼梁與鋼柱的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
+| `螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json`、`螺栓檢討/bolt-review-tool/src/anchorTraceabilityCatalog.test.ts` | 納入 | 錨栓條文語意追蹤 catalog 與契約測試；集中確認第17章主強度、後置錨栓產品評估、17.10 耐震路徑、22.8.3 基板承壓與補強鋼筋替代 breakout 的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
 | `toolbox-entrypoints.contract.test.js` | 納入 | 工具箱入口合約；集中確認首頁入口、`routeFileMap`、`vercel.json`、`formal-tools.manifest.json`、`local-quick-tools.manifest.json` 與實際 HTML 檔案存在性；執行首頁正式狀態治理、首頁版本治理、preflight contract 文件化、preflight JS 執行檔清冊、preflight helper script 清冊、staging 指引可執行性、目前工作樹覆蓋率與非 formal 責任邊界檢查。maturity matrix 外的 `formal` 卡片需在 `governanceSources` 標明 RC / Steel / Anchor / Stone / Decking 等 preflight gate；`HOME_DATA_UPDATED` 必須為 ISO 日期，首頁版本需對齊工具頁 `APP_VERSION` / `TOOL_VERSION`；`preflight-tools.ps1` 執行的 `*.contract.test.js` 必須列入 `STAGING_GROUPS.md` 與本表；preflight JS 執行檔清冊要求具體 `.test.js` / `.run.js` 也列入 `STAGING_GROUPS.md` 與本表，preflight helper script 清冊要求 `.ps1` / `.bat` 入口也列入 staging 與本表；含非 ASCII 文字的 `.ps1` 必須保留 UTF-8 BOM，避免 Windows PowerShell 5.1 讀取中文路徑時 mojibake；`STAGING_GROUPS.md` 的 `git add` 路徑必須在 checkout 中存在；git-aware 的 tracked deletion、未追蹤 ignored path 與目前 `git status` 變更覆蓋率由 preflight `staging-groups-coverage` gate 檢查；assist / reference / estimate / workflow / report / service / legacy / external 卡片需符合 `stateBoundaryRules`，避免首頁、manifest、`tool-maturity-matrix.js` 與部署路由漂移。 |
 | `結構工具箱/tools/audit-dashboard.contract.test.js` | 納入 | 巡檢儀表板歷程合約；確認 latest preflight summary 與 preflight history 的耗時 / 最慢檢查、quick/full/failure 狀態、慢測重用、每筆 latest record 的 latest/history log 追蹤、通過檢查 log hygiene、成熟度升級缺口與多案例門檻欄位都能被 dashboard 讀取。 |
 | `結構工具箱/tools/audit-dashboard-browser-smoke.test.js` | 納入 | 巡檢儀表板瀏覽器 smoke；用 fixture 驅動 dashboard，並拒絕任何未列入 fixture map 的 `output/` 請求，確認 latest record 表格、pass/fail 狀態、exitCode、latest/history log 連結、preflight history 與成熟度矩陣在真實 Edge/CDP 渲染下可用。 |
 | `結構工具箱/index.html` | 納入 | 正式工具箱首頁（弘一設計系統新版，依 `home.js` 單一資料源）；原公文版主選單保留為 `結構工具箱/index-classic.html` 可回退，clean route `/toolbox-home` 導向首頁。 |
 | `結構工具箱/assets/home/` | 納入 | 首頁 Web App 的資料驅動工具清單、分類樣式與 inline SVG 小圖示；不再使用分類圖片資產。 |
 | `結構工具箱/assets/hy/colors_and_type.css` | 納入 | 弘一首頁設計 token；只使用本機 / 系統字型，不載入遠端 Google Fonts，確保離線 preflight 與現場瀏覽器可用。 |
-| `螺栓檢討/bolt-review-tool/` | 保持原工具碼與 deploy 輸出分流 | 原始 React 工具用 npm verify；`anchor/` 是部署鏡像。修改原始碼後先跑 `sync-anchor-deployment.ps1`，再跑 preflight。 |
+| `螺栓檢討/bolt-review-tool/` | 保持原工具碼與 deploy 輸出分流 | 原始 React 工具用 npm verify；`anchor/` 是部署鏡像。修改原始碼後先跑 `sync-anchor-deployment.ps1`，再跑 preflight。新增規範路線時同步更新 `src/anchor-traceability.catalog.json` 與 `src/anchorTraceabilityCatalog.test.ts`。 |
 
 ## 不進 repo 的類型
 

@@ -1,0 +1,167 @@
+{
+  "version": "0.1.0",
+  "family": "anchor-traceability",
+  "description": "錨栓 React 工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因 /anchor/ 部署與 preflight 通過就誤判為所有錨栓設計依據都已可追溯。",
+  "tools": [
+    {
+      "key": "anchor-strength",
+      "label": "錨栓第17章主強度檢核",
+      "scope": "混凝土結構用錨栓第17章拉力、剪力、互制與最小尺寸檢核；包含預埋、後置膨脹與黏著錨栓的主要破壞模式。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "anchor-strength-tension-modes",
+          "clause": "建築物混凝土結構設計規範第 17.6.1 / 17.6.2 / 17.6.3 / 17.6.4 / 17.6.5 節",
+          "purpose": "拉力檢核需分別追蹤鋼材拉力、混凝土拉破、拉出、側面破裂與黏著錨栓握裹路徑，不把單一控制 DCR 當成完整條文覆核。",
+          "inputs": ["selectedProductId", "family", "diameterMm", "effectiveAreaMm2", "steelYieldStrengthMpa", "steelUltimateStrengthMpa", "effectiveEmbedmentMm", "edge distances", "crackedConcrete", "pullout / bond evaluation data", "loads.tensionKn", "moments"],
+          "calculation": ["Nsa", "A_Nc / A_Nco", "psi_ed,N", "psi_ec,N", "psi_c,N", "Npn", "side-face blowout", "bond stress tau", "phi selection", "governing tension mode"],
+          "report": ["鋼材拉力強度", "混凝土拉破強度", "拉出破壞強度", "側面破裂強度", "握裹強度", "控制檢核", "列印報告"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/defaults.ts", "src/ReportDocument.tsx", "src/validation/validation.test.ts", "src/validation/aci-318-19/R17-cast-in-2x2-baseline.json"],
+          "manualReview": ["後置錨栓產品評估報告、裂縫狀態、有效埋置深度適用範圍、特殊錨栓群受拉分配與施工圖實際邊距須由設計者人工複核。"]
+        },
+        {
+          "id": "anchor-strength-shear-modes",
+          "clause": "建築物混凝土結構設計規範第 17.7.1 / 17.7.2 / 17.7.3 節",
+          "purpose": "剪力檢核需分離鋼材剪力、混凝土剪破與撬出強度，並保留 X/Y 自由邊、剪力偏心與正交合向量控制來源。",
+          "inputs": ["loads.shearXKn", "loads.shearYKn", "shearEccentricityXmm", "shearEccentricityYmm", "edge distances", "spacingXmm", "spacingYmm", "shearSleeve", "shearHairpinReinforcement"],
+          "calculation": ["Vsa", "A_Vc / A_Vco", "psi_ed,V", "psi_ec,V", "psi_c,V", "orthogonal vector DCR", "corner vector DCR", "kcp pryout", "governing shear mode"],
+          "report": ["鋼材剪力強度", "混凝土剪破強度", "撬出強度", "剪力自由邊", "正交向量互制", "列印報告"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/resultPresentation.test.ts", "src/ReportDocument.tsx", "src/validation/validation.test.ts"],
+          "manualReview": ["剪力方向、自由邊判讀、U 型剪力補強、剪力榫、基板孔隙與錨栓實際受剪分配仍須依施工圖與專案力學模型人工複核。"]
+        },
+        {
+          "id": "anchor-strength-interaction-dimensions",
+          "clause": "建築物混凝土結構設計規範第 17.8 / 17.9 節",
+          "purpose": "拉剪互制與最小尺寸檢核需保留 0.2 例外、17.8.3 方程選擇、cmin / smin / hmin 來源與幾何閉合檢查。",
+          "inputs": ["interactionEquation", "evaluation.minSpacingMm", "evaluation.minEdgeDistanceMm", "evaluation.minThicknessMm", "spacingXmm", "spacingYmm", "edge distances", "concreteWidthMm", "concreteHeightMm"],
+          "calculation": ["17.8.1 / 17.8.2 exception", "17.8.3 linear <= 1.2", "17.8.3 power 5/3", "code fallback cmin / smin / hmin", "product minimums", "plan closure checks"],
+          "report": ["拉力與剪力互制", "最小間距 smin", "最小邊距 cmin", "最小厚度 hmin", "幾何閉合警示"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/domain.ts", "src/ReportDocument.tsx"],
+          "manualReview": ["產品最小尺寸、鑽孔公差、邊距與構材厚度若由施工圖或評估報告控制，應由設計者確認工具 fallback 未被誤當成專案最終依據。"]
+        }
+      ]
+    },
+    {
+      "key": "anchor-product-evaluation",
+      "label": "後置錨栓產品評估與證據鏈",
+      "scope": "ACI 355.2 / 355.4、ETA、ICC-ES ESR 或同等產品評估資料的欄位完整性、文件連結與人工輸入來源揭露。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "anchor-product-qualified-data",
+          "clause": "建築物混凝土結構設計規範第17章後置式錨栓評估資料需求與 ACI 355.2 / ACI 355.4",
+          "purpose": "後置錨栓不得只用直徑與材料強度完成正式判定；產品最小邊距、最小間距、拉出或握裹強度與裂縫狀態需可追到評估資料。",
+          "inputs": ["qualificationStandard", "anchorCategory", "minEdgeDistanceMm", "minSpacingMm", "minThicknessMm", "crackedPulloutStrengthKn", "uncrackedPulloutStrengthKn", "crackedBondStressMpa", "uncrackedBondStressMpa", "criticalEdgeDistanceMm"],
+          "calculation": ["product completeness", "formal vs screening", "product minimum dimensions", "pullout / bond strength source", "uncracked qualification guard"],
+          "report": ["產品評估標準", "產品資料完整性", "正式規範判定", "初篩提醒", "評估欄位摘要"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/evaluationCatalog.ts", "src/evaluationCatalog.test.ts", "src/productTemplates.test.ts", "src/ReportDocument.tsx"],
+          "manualReview": ["評估報告版本、適用混凝土強度、裂縫狀態、溫度、施工方式與耐震認證不得由工具自行推定，需由設計者依產品文件人工複核。"]
+        },
+        {
+          "id": "anchor-product-evidence-links",
+          "clause": "建築物混凝土結構設計規範第17章評估資料留存與專案文件追溯",
+          "purpose": "人工輸入的產品資料需能連到專案文件或掃描資料，報告與 audit trail 應保留欄位來源，不讓使用者失去證據鏈。",
+          "inputs": ["documents", "linkedDocument", "verifiedFields", "evaluation.notes", "auditTrail", "source"],
+          "calculation": ["evaluation field catalog", "document link resolution", "verified field summary", "project audit entry", "workspace backup"],
+          "report": ["產品評估資料", "已驗證欄位", "文件連結", "備註", "audit trail"],
+          "evidence": ["src/evidenceLinks.test.ts", "src/evaluationAudit.ts", "src/evaluationAudit.test.ts", "src/backup.test.ts", "src/useAuditTrail.ts", "src/useReportExports.ts"],
+          "manualReview": ["文件連結只能證明資料來源已留存；欄位正確性、產品有效期限、專案適用條件與文件真偽仍須由設計者或審查者人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "anchor-seismic",
+      "label": "錨栓第17.10耐震路徑",
+      "scope": "地震分量入口比值、一般路徑、韌性鋼材、附掛物降伏、非降伏附掛物與 overstrength 路徑。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "anchor-seismic-entry-and-amplification",
+          "clause": "建築物混凝土結構設計規範第 17.10 節",
+          "purpose": "耐震入口需區分總設計力與靜載加地震分量模式，並在地震分量超過 20% 時升級到指定耐震路徑，而非單純標示 fail。",
+          "inputs": ["considerSeismic", "seismicInputMode", "designEarthquakeTensionKn", "designEarthquakeShearXKn", "designEarthquakeShearYKn", "seismicDesignMethod", "overstrengthFactor", "attachmentOverstrengthFactor"],
+          "calculation": ["N_eq / N_u", "V_eq / V_u", "20% entry ratio", "static_plus_earthquake", "Omega amplification", "route diagnostics"],
+          "report": ["耐震設計入口", "20% 入口比值", "route", "Omega factor", "analysisNote", "耐震路徑建議"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/seismicRouteGuidance.ts", "src/seismicRouteGuidance.test.ts", "src/ReportDocument.tsx"],
+          "manualReview": ["地震分量是否已包含於總因數化載重、Omega 值、載重組合來源與專案耐震設計路徑需由設計者依結構分析模型人工複核。"]
+        },
+        {
+          "id": "anchor-seismic-upgraded-routes",
+          "clause": "建築物混凝土結構設計規範第 17.10.5.3(a) / 17.10.5.3(b) / 17.10.5.3(c) / 17.10.6.3 節",
+          "purpose": "升級耐震路徑需列出韌性鋼材 fu/fy、延性長度、附掛物降伏容量、非降伏附掛物放大與 overstrength 條件，避免只顯示單一耐震通過字樣。",
+          "inputs": ["ductileStretchLengthMm", "ductileBucklingRestrained", "ductileAttachmentMechanismVerified", "attachmentYieldTensionKn", "attachmentYieldShearKn", "attachmentYieldInteractionEquation", "attachmentOverstrengthFactor", "overstrengthFactor", "seismicQualified"],
+          "calculation": ["fu/fy >= 1.3", "l_du >= 8da", "1.2Nsa comparison", "1.2 attachment yield comparison", "attachment interaction", "Omega attachment", "Omega o"],
+          "report": ["韌性鋼材路徑", "附掛物降伏路徑", "非降伏附掛物路徑", "Omega 放大路徑", "missing inputs", "route matrix"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/seismicRouteGuidance.ts", "src/seismicRouteGuidance.test.ts"],
+          "manualReview": ["附掛物降伏機制、反覆載重挫屈防止、產品耐震認證、Omega 採用值與非線性路徑不能由工具自動證明，需由專案設計與審查人工確認。"]
+        }
+      ]
+    },
+    {
+      "key": "base-plate-bearing",
+      "label": "基板承壓與抗彎延伸檢核",
+      "scope": "第22.8.3支承承壓、偏心承壓 stress state、uplift 邊界與 AISC DG1 基板抗彎工程擴充。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "base-plate-bearing-22-8-3",
+          "clause": "建築物混凝土結構設計規範第 22.8.3 節",
+          "purpose": "基板下混凝土承壓需揭露 A1、A2、圍束放大、phi 與平均壓力 demand，並在輸入面積不一致時維持初篩或警示。",
+          "inputs": ["basePlateBearingEnabled", "basePlateLoadedAreaMm2", "basePlateLoadedWidthMm", "basePlateLoadedHeightMm", "basePlateSupportAreaMm2", "basePlateConfinementMode", "concreteStrengthMpa", "loads.tensionKn"],
+          "calculation": ["A1", "A2", "0.85fcA1", "sqrt(A2/A1)", "confinement limit", "phi = 0.65", "bearing DCR"],
+          "report": ["基板下混凝土承壓", "A1", "A2", "支承圍束放大", "22.8.3.2", "平均軸壓承壓"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/basePlateStressState.ts", "src/basePlateStressState.test.ts", "src/basePlateGeometry.test.ts", "src/ReportDocument.tsx"],
+          "manualReview": ["支承面積 A2、局部承壓區、圍束條件、基板與混凝土接觸狀態須依施工圖、柱腳細部與專案設計人工複核。"]
+        },
+        {
+          "id": "base-plate-eccentric-uplift-boundary",
+          "clause": "建築物混凝土結構設計規範第 22.8.3 節與基板偏心承壓工程判讀",
+          "purpose": "存在 Mx / My 時，工具需清楚分出矩形或自訂斷面模數、kern、三角壓力分佈與 major uplift 警示，不把平均軸壓承壓誤報為完整偏心分析。",
+          "inputs": ["basePlateSectionType", "basePlateSectionModulusXmm3", "basePlateSectionModulusYmm3", "basePlateBearingMomentExternallyVerified", "momentXKnM", "momentYKnM", "column offset", "loaded width / height"],
+          "calculation": ["effective base plate moments", "section modulus readiness", "kern limit", "contact length", "uplift stress", "major uplift guard", "externally verified path"],
+          "report": ["偏心承壓應力檢核", "uplift", "自訂斷面模數", "另行驗算聲明", "major uplift warning"],
+          "evidence": ["src/basePlateStressState.ts", "src/basePlateStressState.test.ts", "src/basePlateGeometry.ts", "src/bearingOverlay.test.ts", "src/calc.test.ts"],
+          "manualReview": ["雙向偏心、接觸區迭代、有限元素分析、柱腳錨栓拉壓互制與基板局部變形須由專案模型或外部分析人工複核。"]
+        },
+        {
+          "id": "base-plate-bending-extension",
+          "clause": "AISC Design Guide 1 基板抗彎工程擴充與建築物混凝土結構設計規範第 22.8.3 支承需求銜接",
+          "purpose": "基板抗彎厚度檢核屬工程擴充，需明確揭露 AISC DG1 路線、控制懸臂與本工具非正式規範主判定的邊界。",
+          "inputs": ["basePlateBendingEnabled", "basePlateThicknessMm", "basePlateSteelYieldMpa", "basePlateCantileverXmm", "basePlateCantileverYmm", "basePlate plan dimensions", "bearing stress state"],
+          "calculation": ["AISC DG1 tp,min", "critical cantilever", "contact length", "uplift guard", "auto cantilever estimate"],
+          "report": ["基板抗彎厚度", "tp", "tp,min", "AISC DG1", "請切換 Loadcase 再核"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/basePlateGeometry.ts", "src/basePlateGeometry.test.ts", "src/ReportDocument.tsx"],
+          "manualReview": ["基板抗彎只是柱腳設計的一部分；焊道、剪力鍵、錨栓群拉力、柱腳整體剛度、局部屈曲與施工偏心須由正式柱腳設計人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "anchor-reinforcement",
+      "label": "錨栓補強鋼筋替代 breakout 路徑",
+      "scope": "17.5.2.1(d) / 17.5.2.1.1 的錨栓補強鋼筋面積、位置、相交與伸展覆核條件，並銜接拉破與剪破 breakout 路徑。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "anchor-reinforcement-breakout-replacement",
+          "clause": "建築物混凝土結構設計規範第 17.5.2.1(d) / 17.5.2.1.1 / 17.7.2.5.1 節",
+          "purpose": "補強鋼筋只有在面積、fy、0.5ca1、每支錨栓相交與第25章伸展條件成立時，才能取代混凝土拉破或剪破 breakout 強度。",
+          "inputs": ["anchorReinforcementEnabled", "anchorReinforcementAreaMm2", "anchorReinforcementYieldMpa", "anchorReinforcementWithinHalfCa1", "anchorReinforcementIntersectsEachAnchor", "anchorReinforcementDevelopedForTension", "anchorReinforcementDevelopedForShear"],
+          "calculation": ["phi As fy", "formal checklist", "tension breakout replacement", "shear breakout replacement", "screening until development confirmed"],
+          "report": ["補強鋼筋路徑", "phi As fy", "取代混凝土拉破強度", "取代混凝土剪破強度", "第25章伸展覆核"],
+          "evidence": ["src/calc.ts", "src/calc.test.ts", "src/AnchorReinforcementPanel.tsx", "src/anchorReinforcementOverlay.ts", "src/anchorReinforcementOverlay.test.ts", "src/ReportDocument.tsx"],
+          "manualReview": ["補強鋼筋實際位置、跨越破壞面、錨定長度、第25章伸展、箍筋封閉與施工圖配筋細節必須由設計者人工複核。"]
+        },
+        {
+          "id": "anchor-reinforcement-visual-report-boundary",
+          "clause": "建築物混凝土結構設計規範第 17.5.2.1(d) 節與第25章伸展需求",
+          "purpose": "UI 與圖面 overlay 需把補強鋼筋路徑明確標示為人工確認條件，不讓使用者以為勾選 checkbox 就完成配筋細部設計。",
+          "inputs": ["simpleMode", "anchorReinforcementEnabled", "anchor group geometry", "overlay label", "manual checklist"],
+          "calculation": ["reinforcement overlay bounds", "checklist visibility", "report note propagation", "formal flag propagation"],
+          "report": ["錨栓補強鋼筋路徑", "17.5.2.1(d) / phi = 0.75", "補強鋼筋 As", "人工條件 checkbox", "報告註記"],
+          "evidence": ["src/AnchorReinforcementPanel.tsx", "src/anchorReinforcementOverlay.ts", "src/anchorReinforcementOverlay.test.ts", "src/calc.test.ts", "src/ReportDocument.tsx"],
+          "manualReview": ["圖面 overlay 只是範圍提醒，不能取代施工圖配筋、鋼筋彎鉤、錨定、間距、保護層與現場可施工性檢核。"]
+        }
+      ]
+    }
+  ]
+}

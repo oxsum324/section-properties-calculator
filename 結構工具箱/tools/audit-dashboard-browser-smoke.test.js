@@ -37,6 +37,7 @@ const expectedTraceabilityCatalogs = [
   { family: 'formal-traceability', value: '1 / 1 tools；2 traces；2 manual-review items' },
   { family: 'rc-traceability', value: '2 / 2 tools；5 traces；5 manual-review items' },
   { family: 'steel-traceability', value: '2 / 2 tools；4 traces；4 manual-review items' },
+  { family: 'anchor-traceability', value: '5 / 5 tools；12 traces；12 manual-review items' },
 ];
 
 function fixtureOutputPath(relativePath) {
@@ -259,6 +260,23 @@ const fixtures = new Map(Object.entries({
           { key: 'steel-beam-formal', label: '鋼梁正式頁', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
         ],
       },
+      {
+        family: 'anchor-traceability',
+        version: '0.1.0',
+        tools: 5,
+        covered: 5,
+        traceCount: 12,
+        manualReviewCount: 12,
+        uncoveredKeys: [],
+        toolKeys: ['anchor-strength', 'anchor-product-evaluation', 'anchor-seismic', 'base-plate-bearing', 'anchor-reinforcement'],
+        rows: [
+          { key: 'anchor-strength', label: '錨栓第17章主強度檢核', status: 'covered', traceCount: 3, manualReviewCount: 3, covered: true },
+          { key: 'anchor-product-evaluation', label: '後置錨栓產品評估與證據鏈', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'anchor-seismic', label: '錨栓第17.10耐震路徑', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'base-plate-bearing', label: '基板承壓與抗彎延伸檢核', status: 'covered', traceCount: 3, manualReviewCount: 3, covered: true },
+          { key: 'anchor-reinforcement', label: '錨栓補強鋼筋替代 breakout 路徑', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+        ],
+      },
     ],
     entrypointCoverage: {
       total: 3,
@@ -336,6 +354,13 @@ const fixtures = new Map(Object.entries({
           sourcePath: '鋼構工具/steel-traceability.catalog.json',
           sourceMtime: fixtureGeneratedAt,
           sourceHash: '4567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef123',
+          exists: true,
+        },
+        {
+          key: 'anchor-traceability-catalog',
+          sourcePath: '螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json',
+          sourceMtime: fixtureGeneratedAt,
+          sourceHash: '567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234',
           exists: true,
         },
         {
@@ -1116,7 +1141,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     expectedTraceabilityCatalogs.map((item) => ({ ...item, label: item.family, ok: true })),
     `${label} traceability catalog coverage rendered`
   );
-  assert.equal(state.maturitySourceTrace.length, 5, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
+  assert.equal(state.maturitySourceTrace.length, 6, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('formal-tools-manifest') && item.includes('1234567890ab')),
     `${label} maturity formal manifest source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
@@ -1132,6 +1157,10 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('steel-traceability-catalog') && item.includes('4567890abcde')),
     `${label} maturity steel traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
+  );
+  assert.ok(
+    state.maturitySourceTrace.some((item) => item.includes('anchor-traceability-catalog') && item.includes('567890abcdef')),
+    `${label} maturity anchor traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
   );
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('latest-preflight-summary') && item.includes('abcdef012345')),
