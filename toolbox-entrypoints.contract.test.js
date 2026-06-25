@@ -275,6 +275,8 @@ const staging = readText(path.join(repoRoot, 'STAGING_GROUPS.md'));
 const preflight = readText(path.join(repoRoot, 'preflight-tools.ps1'));
 const auditAll = readText(path.join(repoRoot, 'audit-all.ps1'));
 const maturityMatrix = readText(path.join(toolboxRoot, 'tools/tool-maturity-matrix.js'));
+const pagesLiveSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-smoke.js'));
+const pagesLiveSmokeWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-live-smoke.yml'));
 
 assert.equal(vercel.cleanUrls, true, 'Vercel cleanUrls must stay enabled');
 assert.ok(Array.isArray(vercel.redirects), 'vercel redirects array');
@@ -308,6 +310,12 @@ assert.ok(homeSource.includes("homeAssetHref('assets/status/preflight-summary.js
 assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/platform-status.json')), 'homepage platform status asset exists');
 assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/preflight-summary.json')), 'homepage preflight status asset exists');
 assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity matrix publishes homepage status snapshots');
+assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
+assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
+assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');
+assert.ok(pagesLiveSmokeWorkflow.includes('pages-build-deployment'), 'Pages live smoke workflow waits for Pages build');
+assert.ok(pagesLiveSmokeWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages live smoke workflow runs smoke script');
+assert.ok(pagesLiveSmokeWorkflow.includes('github.event_name =='), 'Pages live smoke workflow only waits on push events');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
 assert.ok(preflight.includes('$maturityMatrixScript = Join-Path $root "結構工具箱\\tools\\tool-maturity-matrix.js"'), 'preflight resolves maturity matrix after summary');
 assert.ok(preflight.includes('$matrixProc = Start-Process -FilePath node'), 'preflight refreshes maturity matrix from summary');
@@ -501,6 +509,9 @@ for (const tool of manifestTools) {
   'HOME_DATA_UPDATED',
   'TOOL_VERSION',
   'APP_VERSION',
+  'Pages live smoke',
+  'pages-live-smoke.js',
+  '.github/workflows/pages-live-smoke.yml',
   'preflight contract 文件化',
   'preflight JS 執行檔清冊',
   'preflight helper script 清冊',
