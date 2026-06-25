@@ -85,6 +85,8 @@
     <div class="case-actions">
       <button type="button" class="primary" id="btnExportCase">匯出案件 JSON</button>
       <button type="button" id="btnImportCase">匯入案件 JSON</button>
+      <button type="button" id="btnSaveCaseDraft">暫存</button>
+      <button type="button" id="btnLoadCaseDraft">讀取暫存</button>
       <button type="button" id="btnResetCase">恢復預設</button>
       <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
     </div>
@@ -449,6 +451,75 @@ function exportCaseJson() {
   URL.revokeObjectURL(url);
   setCaseStatus('已匯出實體標示物風力案件 JSON；可回讀本頁輸入、Cf 來源與計算結果。');
 }
+
+const CASE_BROWSER_DRAFT_KEY = 'toolCaseDraft:' + location.pathname + ':' + (typeof CASE_SCHEMA_VERSION !== 'undefined' ? CASE_SCHEMA_VERSION : 'v1');
+function setCaseDraftStatus(message, tone = 'ok') {
+  if (typeof setCaseStatus === 'function') {
+    setCaseStatus(message, tone === 'warn' ? 'warn' : '');
+    return;
+  }
+  const node = document.getElementById('caseStatus') || document.getElementById('staticImportStatus') || document.getElementById('inputStatus');
+  if (node) {
+    node.textContent = message;
+    node.classList.toggle('warn', tone === 'warn');
+    return;
+  }
+  if (typeof setInputStatus === 'function') setInputStatus(message);
+}
+function buildCaseDraftPayload() {
+  let payload = null;
+  if (typeof buildCasePayload === 'function') payload = buildCasePayload();
+  if (!payload && typeof readCaseInputs === 'function') {
+    payload = {
+      schema: typeof CASE_SCHEMA_VERSION !== 'undefined' ? CASE_SCHEMA_VERSION : 'case-draft.v1',
+      tool: { id: location.pathname.split('/').pop().replace(/\.html$/i, '') },
+      generatedAt: new Date().toISOString(),
+      ...readCaseInputs(),
+      result: typeof readExportResultSummary === 'function'
+        ? readExportResultSummary()
+        : (typeof lastResult !== 'undefined' ? lastResult : null)
+    };
+  }
+  if (!payload) throw new Error('目前輸入尚未通過檢核，無法暫存。');
+  return payload;
+}
+function refreshCaseAfterDraftLoad() {
+  const refreshers = [
+    'calc', 'calcDynamic', 'calcAppendagePage', 'calcMiscPage',
+    'calcMiscSeismicFull', 'runCheck', 'renderSummary'
+  ];
+  for (const name of refreshers) {
+    if (typeof window[name] === 'function') {
+      try { window[name](); } catch (err) {}
+      return;
+    }
+  }
+}
+function saveCaseDraft() {
+  try {
+    const payload = buildCaseDraftPayload();
+    localStorage.setItem(CASE_BROWSER_DRAFT_KEY, JSON.stringify(payload));
+    setCaseDraftStatus('已暫存目前案件到此瀏覽器。');
+  } catch (err) {
+    setCaseDraftStatus('暫存失敗：' + (err.message || err), 'warn');
+  }
+}
+function loadCaseDraft() {
+  try {
+    const raw = localStorage.getItem(CASE_BROWSER_DRAFT_KEY);
+    if (!raw) {
+      setCaseDraftStatus('尚無可讀取的瀏覽器暫存。', 'warn');
+      return;
+    }
+    const payload = JSON.parse(raw);
+    applyCaseInputs(payload.inputs || payload);
+    refreshCaseAfterDraftLoad();
+    setCaseDraftStatus('已讀取瀏覽器暫存，並依目前頁面重新整理。');
+  } catch (err) {
+    setCaseDraftStatus('讀取暫存失敗：' + (err.message || err), 'warn');
+  }
+}
+
 function importCaseJsonFile(file) {
   if (!file) return;
   const reader = new FileReader();
@@ -969,6 +1040,8 @@ document.getElementById('btnCalc').addEventListener('click', calc);
 document.getElementById('btnReport').addEventListener('click', openSolidObjectReport);
 document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
 document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
+document.getElementById('btnSaveCaseDraft').addEventListener('click', saveCaseDraft);
+document.getElementById('btnLoadCaseDraft').addEventListener('click', loadCaseDraft);
 document.getElementById('caseJsonFile').addEventListener('change', e => importCaseJsonFile(e.target.files?.[0]));
 document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
 syncPrintReportMode('detail');
