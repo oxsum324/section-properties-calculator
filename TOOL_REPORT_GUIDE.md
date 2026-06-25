@@ -203,7 +203,7 @@ flowchart TD
 
 工具成熟度矩陣的 `referenceTraceability` 應以這份 catalog 作為結構化依據；不得只因頁面含有「規範」、「表」、「式」或「圖」等字樣就判定為工程依據已可追蹤。
 
-RC、鋼構、錨栓、石材或其他正式家族若已有獨立 audit，可採同一模式建立家族 catalog，例如 `鋼筋混凝土/tools/rc-traceability.catalog.json`、`鋼構工具/steel-traceability.catalog.json`、`螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json` 與 `石材固定/stone-traceability.catalog.json`。這類 catalog 至少要能追到規範來源、輸入、計算核心、報告落點、回歸證據與人工複核邊界，並由該家族的 contract test 納入巡檢。
+RC、鋼構、錨栓、石材、覆工板或其他正式 / 施工臨設家族若已有獨立 audit，可採同一模式建立家族 catalog，例如 `鋼筋混凝土/tools/rc-traceability.catalog.json`、`鋼構工具/steel-traceability.catalog.json`、`螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json`、`石材固定/stone-traceability.catalog.json` 與 `覆工板/decking-traceability.catalog.json`。這類 catalog 至少要能追到規範來源、輸入、計算核心、報告落點、回歸證據與人工複核邊界，並由該家族的 contract test 納入巡檢。
 
 ### 採用依據文字
 

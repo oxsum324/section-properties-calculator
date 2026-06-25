@@ -57,7 +57,7 @@
     'steel-audit': { label: 'Steel audit', preflightKeys: ['steel-audit-status'] },
     'anchor-deployment': { label: 'Anchor deployment', preflightKeys: ['anchor-verify', 'anchor-route'] },
     'stone-v2': { label: 'Stone V2', preflightKeys: ['stone-feedback-contract', 'stone-traceability-contract', 'stone-self-check', 'stone-quick-check'] },
-    'decking-contract': { label: 'Decking contract', preflightKeys: ['decking-tools-contract'] }
+    'decking-contract': { label: 'Decking governance', preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'deck-python'] }
   };
 
   const HOME_DATA_UPDATED = '2026-06-21';

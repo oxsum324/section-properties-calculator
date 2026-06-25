@@ -39,6 +39,7 @@ const expectedTraceabilityCatalogs = [
   { family: 'steel-traceability', value: '2 / 2 tools；4 traces；4 manual-review items' },
   { family: 'anchor-traceability', value: '5 / 5 tools；12 traces；12 manual-review items' },
   { family: 'stone-traceability', value: '4 / 4 tools；8 traces；8 manual-review items' },
+  { family: 'decking-traceability', value: '4 / 4 tools；8 traces；8 manual-review items' },
 ];
 
 function fixtureOutputPath(relativePath) {
@@ -294,6 +295,22 @@ const fixtures = new Map(Object.entries({
           { key: 'stone-serviceability-report', label: '石材使用性、匯出與稽核報告', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
         ],
       },
+      {
+        family: 'decking-traceability',
+        version: '0.1.0',
+        tools: 4,
+        covered: 4,
+        traceCount: 8,
+        manualReviewCount: 8,
+        uncoveredKeys: [],
+        toolKeys: ['decking-load-member-strength', 'decking-column-load-path', 'decking-foundation-support', 'decking-report-governance'],
+        rows: [
+          { key: 'decking-load-member-strength', label: '覆工板面、小梁與大梁強度使用性檢核', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'decking-column-load-path', label: '大梁柱頂 Pu 與共構柱互制檢核', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'decking-foundation-support', label: 'H 型鋼握裹與樁基承載', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'decking-report-governance', label: '覆工板 JSON、Word 報表與交付邊界', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+        ],
+      },
     ],
     entrypointCoverage: {
       total: 3,
@@ -385,6 +402,13 @@ const fixtures = new Map(Object.entries({
           sourcePath: '石材固定/stone-traceability.catalog.json',
           sourceMtime: fixtureGeneratedAt,
           sourceHash: '6789012345678901234567890123456789012345678901234567890123456789',
+          exists: true,
+        },
+        {
+          key: 'decking-traceability-catalog',
+          sourcePath: '覆工板/decking-traceability.catalog.json',
+          sourceMtime: fixtureGeneratedAt,
+          sourceHash: '7890123456789012345678901234567890123456789012345678901234567890',
           exists: true,
         },
         {
@@ -1165,7 +1189,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     expectedTraceabilityCatalogs.map((item) => ({ ...item, label: item.family, ok: true })),
     `${label} traceability catalog coverage rendered`
   );
-  assert.equal(state.maturitySourceTrace.length, 7, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
+  assert.equal(state.maturitySourceTrace.length, 8, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('formal-tools-manifest') && item.includes('1234567890ab')),
     `${label} maturity formal manifest source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
@@ -1189,6 +1213,10 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('stone-traceability-catalog') && item.includes('678901234567')),
     `${label} maturity stone traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
+  );
+  assert.ok(
+    state.maturitySourceTrace.some((item) => item.includes('decking-traceability-catalog') && item.includes('789012345678')),
+    `${label} maturity decking traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
   );
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('latest-preflight-summary') && item.includes('abcdef012345')),

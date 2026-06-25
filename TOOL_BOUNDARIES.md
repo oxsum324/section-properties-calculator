@@ -15,6 +15,7 @@
 | `石材固定/stone-traceability.catalog.json`、`石材固定/stone-traceability.contract.test.js` | 納入 | 石材 V2 條文語意追蹤 catalog 與契約測試；集中確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
 | `struct-dx.contract.test.js` | 納入 | struct.dx 前端 feedback 合約；確認 diagnosis、verify engine、struct suite 三頁都有 action status outlet 與 helper。 |
 | `decking-tools.contract.test.js` | 納入 | 覆工板前端 feedback 合約；確認套用、匯出與 reset 確認維持頁內狀態與受控確認流程。 |
+| `覆工板/decking-traceability.catalog.json`、`覆工板/decking-traceability.contract.test.js` | 納入 | 覆工板條文語意追蹤 catalog 與契約測試；集中確認 HS20 / PC400 / 吊車載重、覆工板面 / 小梁 / 大梁彎剪撓度、大梁 Pu、共構柱、握裹、樁基、JSON / Word 報表與施工臨設邊界的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
 | `section-tools.contract.test.js` | 納入 | 根目錄斷面工具 feedback 合約；確認斷面性質、合成斷面與 RC 補強報表維持 inline status，不回退原生 alert。 |
 | `browser-dialogs.contract.test.js` | 納入 | 全專案瀏覽器原生 dialog 合約；掃描 HTML/JS/TS/TSX，要求正式工具不回退 `alert` / `prompt`，並讓 `confirm` 只能經審核路徑保留。 |
 | `anchor/` | 納入部署資產 | Vercel `/anchor/` 乾淨路由直接使用此輸出；hash asset 更新時舊檔刪除與新檔新增需一起提交，並同步 `anchor/deployment-manifest.json` 的 source fingerprint。 |
@@ -23,7 +24,7 @@
 | `鋼構工具/audit-tool.ps1`、`鋼構工具/steel-audit-browser-runner.js` | 納入 | 鋼構自巡檢改由單一 Edge CDP browser runner 執行 21 個實頁快照，減少 Playwright CLI 往返；runner 逐情境 timeout，且 abort 會落 `audit-status.json` 供 preflight 判斷。 |
 | `石材固定/` | 納入程式碼與必要離線 vendor，排除參考資料與輸出 | 已有 self_check、quick smoke、版本治理、golden samples、條文語意追蹤與交付流程；納入正式 V2 工具、測試、治理文件、必要 vendor，PDF/XLS/Word 範例、圖片、專案報告與舊版 HTML 不進 repo。 |
 | `開挖擋土支撐/` | 納入程式碼，排除工程資料 | Backend tests、frontend build 與 launcher 靜態 smoke 已納入 preflight；只提交 `index.html`、backend/frontend 原始碼、設定、README、啟停腳本與本目錄 `.gitignore`，不提交工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`。 |
-| `覆工板/` | 納入程式碼，排除工程資料與輸出 | 已有 `index.html`、Python 報告產生器、固定 smoke fixture 與 preflight 產報檢查；Excel、PDF、doc/docx、抽圖、dump 與吊車參考資料不進 repo。 |
+| `覆工板/` | 納入程式碼，排除工程資料與輸出 | 已有 `index.html`、Python 報告產生器、固定 smoke fixture、條文語意追蹤與 preflight 產報檢查；Excel、PDF、doc/docx、抽圖、dump 與吊車參考資料不進 repo。 |
 | `鋼架/` | 可納入 | 目前只有單一 HTML 靜態工具，preflight 已做基本 smoke。 |
 | `結構工具箱/tools/foundation/` | 納入 | 基礎局部檢核為靜態快算工具，已拆 `foundation-local-core.js`、`foundation-local-golden-cases.js` 與 `foundation-local-core.test.js`，preflight 會跑 golden regression。注意不要改放到 `tools/基礎/`，會被根目錄 `基礎/` ignore 規則誤排除。 |
 | `結構工具箱/tools/equipment/` | 納入 | 設備局部荷重為靜態快算工具，已拆 `equipment-load-core.js`、`equipment-load-golden-cases.js` 與 `equipment-load-core.test.js`，preflight 會跑接觸壓 / 分布壓 / 單點反力 regression。 |

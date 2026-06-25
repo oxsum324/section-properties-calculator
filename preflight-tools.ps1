@@ -1156,6 +1156,11 @@ node decking-tools.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$deckingTraceabilityContractCommand = @'
+node 覆工板/decking-traceability.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $structDxContractCommand = @'
 node struct-dx.contract.test.js
 exit $LASTEXITCODE
@@ -1837,6 +1842,13 @@ $checks = @(
     label = "Decking tool feedback contract"
     workdir = $root
     command = $deckingToolsContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "decking-traceability-contract"
+    label = "Decking traceability catalog contract"
+    workdir = $root
+    command = $deckingTraceabilityContractCommand
     slow = $false
   },
   [pscustomobject]@{

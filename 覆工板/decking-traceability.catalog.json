@@ -1,0 +1,119 @@
+{
+  "version": "0.1.0",
+  "family": "decking-traceability",
+  "description": "覆工板系統計算工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因前端能匯出 JSON 或 Word 報表產生成功就誤判為施工臨設檢核依據已完整可追溯。",
+  "tools": [
+    {
+      "key": "decking-load-member-strength",
+      "label": "覆工板面、小梁與大梁強度使用性檢核",
+      "scope": "覆工板面、覆工小梁與覆工大梁在 HS 20-44、PC400 履帶車與指定吊車三組工況下的彎矩、剪力、撓度與容許應力檢核。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "decking-load-envelope-hs-pc-crane",
+          "clause": "AASHTO Standard Specifications for Highway Bridges HS 20-44 載重、施工吊車工況與覆工板系統設計載重假設",
+          "purpose": "覆工板、覆工小梁與覆工大梁需分別追蹤 HS20 集中載重、PC400 履帶分佈與吊車集中載重，不把單一控制 M / V / δ 結果當成完整載重依據。",
+          "inputs": ["g_imp", "g_Wp", "g_Wl", "d_Pcrane", "s_Pcrane", "g4_Pcrane", "deck span", "stringer span", "girder span", "trackLen", "autolink"],
+          "calculation": ["loadCombo", "deflThreeCases", "HS20 P = 7.3(1+i)", "PC400 Wc = 8.244(1+i)", "crane concentrated load", "WT", "WT2", "max M / V / deflection"],
+          "report": ["設計載重規格", "三組載重組合", "構件檢核彙整表", "Mmax", "Vmax", "δmax"],
+          "evidence": ["index.html", "report/gen_report.py", "test-fixtures/report-smoke.json", "shared/h-section-table.js"],
+          "manualReview": ["實際施工機具、吊車型號、支腿配置、履帶接地長度、行車動線、衝擊採用值、堆料活載與施工階段載重組合須由設計者依施工計畫與現場條件人工複核。"]
+        },
+        {
+          "id": "decking-member-asd-strength-serviceability",
+          "clause": "鋼構造建築物鋼結構設計技術規範、AISC ASD 容許應力設計法與 CNS / JIS H 型鋼斷面資料",
+          "purpose": "板面、小梁與大梁的 fb、fv 與撓度需保留容許應力、斷面分類、側撐長度與 H 型鋼斷面資料來源，不讓 shared table 取代工程判讀。",
+          "inputs": ["g_Fy", "g_E", "g_beta", "g_defl", "section", "n", "Sx", "Ix", "Aw", "Lt", "fa", "H section dimensions"],
+          "calculation": ["classifyFlange", "classifyWeb", "braceInfo", "calcFb", "Fb = 0.6Fy beta / 0.66Fy beta", "Fv = 0.4Fy beta", "fb = M/S", "fv = V/Aw", "deflection limit L/n"],
+          "report": ["彎矩 fb", "剪力 fv", "撓度 δmax", "翼板分類", "腹板分類", "側撐 Lc / Lu", "OK / NG"],
+          "evidence": ["index.html", "report/gen_report.py", "shared/h-section-table.js", "test-fixtures/report-smoke.json"],
+          "manualReview": ["H 型鋼實際規格、材料證明、舊料折減、側撐條件、續接、局部開孔、焊接補強、覆工板拼接與臨時支撐邊界須依施工圖與材料資料人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "decking-column-load-path",
+      "label": "大梁柱頂 Pu 與共構柱互制檢核",
+      "scope": "覆工大梁傳至共構柱的 Pu 三情境、軸壓與雙軸彎矩 AISC 交互式、KL/r、Fa、Fbx / Fby 與舊料折減。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "decking-girder-pu-transfer",
+          "clause": "施工覆工系統支承反力與吊車支腿位置工程判讀",
+          "purpose": "覆工大梁需把 PC400 支座壓柱、吊車距柱 0.5 m 與相鄰跨支腿三種 Pu 情境分開列出，避免只把 Vmax 自動送入柱檢核。",
+          "inputs": ["g4_L", "g4_W2", "g4_Pcrane", "WT2", "Pu1", "Pu2", "Pu3", "autolink", "c_N", "b_P", "p_P"],
+          "calculation": ["Pu1 = Vmax", "Pu2 = 0.5 WT2 L + P(L-0.5)/L", "Pu3 = 0.5 WT2 L + 2P(L-4)/L", "PuMax", "autolinkPuToColumn"],
+          "report": ["柱頂軸力 Pu", "傳至共構柱之軸力 Pu（三情境）", "控制 PuMax", "Tab5 軸力 N"],
+          "evidence": ["index.html", "report/gen_report.py", "test-fixtures/report-smoke.json"],
+          "manualReview": ["支腿位置、支承反力分配、跨距配置、共構柱實際位置、連續梁效應與臨時支撐路徑須由施工圖、吊裝計畫或外部分析人工複核。"]
+        },
+        {
+          "id": "decking-column-aisc-interaction",
+          "clause": "AISC ASD 軸壓與雙軸彎矩交互式、鋼構柱 KL/r 與容許壓應力規定",
+          "purpose": "共構柱不應只以軸力 N 檢核；需同時追蹤偏心 ex / ey、KL/r、Cc、Fa、二次彎矩放大與兩條交互式。",
+          "inputs": ["c_section", "c_L", "c_K", "c_N", "c_ex", "c_ey", "c_old", "g_Fy", "g_E", "g_beta"],
+          "calculation": ["KL/rx", "KL/ry", "Cc", "Fa", "Fa1", "Fex / Fey", "Fbx / Fby", "fa / Fa", "AISC interaction equation 1", "AISC interaction equation 2"],
+          "report": ["共構柱檢核", "KL/rx / KL/ry", "Fa / Fa1", "Fbx / Fby", "交互式 1", "交互式 2", "整體結論"],
+          "evidence": ["index.html", "report/gen_report.py", "shared/h-section-table.js", "test-fixtures/report-smoke.json"],
+          "manualReview": ["K 值、有效長度、柱端拘束、偏心方向、二階效應、柱腳接合、局部補強與舊料狀態須由完整臨設模型與施工圖人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "decking-foundation-support",
+      "label": "H 型鋼握裹與樁基承載",
+      "scope": "H 型鋼貫入 PC 的拉拔 / 壓入握裹力與砂層簡化樁基端點承載、側摩擦與安全係數。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "decking-h-section-pc-bond",
+          "clause": "H 型鋼貫入 PC 握裹力工程估算與混凝土抗壓強度相關經驗式",
+          "purpose": "握裹檢核需分出 τ、周長 ls、貫入深度 L、拉拔 F 與壓入 Nc，不把單一 OK 當成完整支承條件證明。",
+          "inputs": ["b_fc", "b_L", "b_P", "b_T", "column section H / B"],
+          "calculation": ["tau = 0.03 fc'", "ls = 2(B+H)", "F = tau L ls", "Nc = tau L ls + 0.35 fc' As'", "pullout check", "compression check"],
+          "report": ["H 型鋼貫入 PC 之握裹力", "拉拔 F > T", "壓入 N > P", "握裹力檢核"],
+          "evidence": ["index.html", "report/gen_report.py", "test-fixtures/report-smoke.json"],
+          "manualReview": ["PC 構件強度、貫入深度、混凝土裂縫、鋼材表面狀況、實際接觸長度、施工容許差與局部壓碎須由專案細部與現場施工條件人工複核。"]
+        },
+        {
+          "id": "decking-pile-bearing-simplified",
+          "clause": "砂層簡化樁基承載估算、端點承載 qb = 7.5N、側摩擦 fs = N/3 與安全係數設計假設",
+          "purpose": "樁基承載需明確標示為簡化分層估算，保留 Ab、Qb、Qs、FS_b、FS_s 與 Qa 路徑，不得取代正式地工分析。",
+          "inputs": ["p_D", "p_Lb", "p_Nb", "p_Ns", "p_FSb", "p_FSs", "p_P"],
+          "calculation": ["Ab = pi D^2 / 4", "qb = 7.5N", "fs = N/3", "Qb = qb Ab", "Qs = fs pi D Lb", "Qa = Qb/FSb + Qs/FSs", "Qa > P"],
+          "report": ["樁基承載", "Qb / Qs", "Qa", "承載 Qa > P", "結論與建議"],
+          "evidence": ["index.html", "report/gen_report.py", "test-fixtures/report-smoke.json"],
+          "manualReview": ["地層分布、地下水、負摩擦、群樁效應、樁施工品質、樁長、樁徑與安全係數須由地質資料、正式地工設計或專案文件人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "decking-report-governance",
+      "label": "覆工板 JSON、Word 報表與交付邊界",
+      "scope": "前端 JSON 匯出、Python Word 產報、固定 smoke fixture、報表適用規範段落與施工臨設人工複核聲明。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "decking-json-report-schema",
+          "clause": "覆工板系統計算書交付治理、JSON schema 與 Word 報告輸出流程",
+          "purpose": "前端計算結果與 Word 報表需走同一份 JSON 結構，避免 HTML 顯示、JSON 匯出與 Word 計算書三者欄位漂移。",
+          "inputs": ["exportJSON payload", "project", "global", "inputs", "results", "exportedAt", "report-smoke.json"],
+          "calculation": ["buildProjectPayload", "exportJSON", "gen_report.generate", "python-docx tables", "smoke docx output"],
+          "report": ["覆工板系統結構計算書", "計算結果總表", "適用規範", "各章節檢核", "結論與建議"],
+          "evidence": ["index.html", "report/gen_report.py", "test-fixtures/report-smoke.json", "產生計算書.bat"],
+          "manualReview": ["JSON 與 Word 報表只能證明工具輸出一致；簽章、附件、施工圖、材料規格、吊車資料與現場載重仍須由設計者或審查者人工確認。"]
+        },
+        {
+          "id": "decking-boundary-and-feedback",
+          "clause": "施工臨設與局部構件初步檢核工具邊界、前端受控確認與 repo 納管規則",
+          "purpose": "覆工板屬施工臨設工具，首頁、README、前端狀態列與 contract 需持續揭露其適用範圍與受控互動，不讓使用者把輸出誤認為完整正式設計模型。",
+          "inputs": ["tool category", "governance source", "actionStatus", "reset confirmation", "README boundary", "TOOL_BOUNDARIES", "STAGING_GROUPS"],
+          "calculation": ["decking-tools.contract.test.js", "inline feedback guard", "generated artifact boundary", "preflight report smoke", "staging coverage"],
+          "report": ["首頁施工臨設分類", "使用提醒", "action status", "preflight summary", "TOOL_BOUNDARIES"],
+          "evidence": ["README.md", "index.html", "../decking-tools.contract.test.js", "report/gen_report.py", "test-fixtures/report-smoke.json"],
+          "manualReview": ["超出工具假設的施工階段、臨時支撐、連續系統、吊車作業半徑、偏載、地盤條件與工地配置須回到正式施工計畫、結構模型或專案文件人工複核。"]
+        }
+      ]
+    }
+  ]
+}

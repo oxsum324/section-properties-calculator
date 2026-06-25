@@ -21,6 +21,8 @@
 
 覆工板檢查會執行 Python 語法編譯，並使用 `test-fixtures/report-smoke.json` 產生一份 smoke `.docx` 到 `output/preflight/`。這可同時確認 `report/gen_report.py`、`python-docx` 與固定 JSON schema 的基本相容性。
 
+`decking-traceability.contract.test.js` 會檢查 `decking-traceability.catalog.json` 的條文語意追蹤，確認覆工板面 / 小梁 / 大梁、Pu 傳力與共構柱、握裹 / 樁基、JSON / Word 報表與施工臨設邊界各自追得到規範來源、輸入、計算核心、報告落點、測試證據與人工複核邊界。
+
 ## 納管邊界
 
 納入 repo：
@@ -37,6 +39,18 @@
 - `吊車/` 參考資料。
 - `_extracted/` 抽圖與 OLE 物件。
 - dump 文字檔、pycache 與本機產出。
+
+## 條文語意追蹤
+
+`decking-traceability.catalog.json` 是覆工板系統計算工具的條文語意追蹤 catalog，涵蓋：
+
+- HS 20-44、PC400、吊車集中載重與覆工板面 / 小梁 / 大梁三組工況包絡。
+- 鋼構容許應力、斷面分類、側撐、彎矩、剪力與撓度檢核。
+- 大梁柱頂 Pu 三情境與共構柱 AISC 軸壓加雙軸彎矩交互式。
+- H 型鋼貫入 PC 握裹力與砂層簡化樁基承載估算。
+- 前端 JSON、Python Word 計算書、固定 smoke fixture 與施工臨設邊界。
+
+新增或修改載重假設、公式路線、斷面表、報告段落、JSON 欄位或人工複核邊界時，請同步更新 `decking-traceability.catalog.json` 並執行 `node decking-traceability.contract.test.js`。此 catalog 用來讓審查者看得出每個判定追到哪裡，不取代施工圖、吊裝計畫、地質資料、材料證明、正式臨設模型或設計者判斷。
 
 ## 使用提醒
 
