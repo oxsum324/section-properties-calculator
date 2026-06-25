@@ -39,7 +39,7 @@
 | `結構工具箱/tools/formal-tools.run.js` | 納入 | 正式工具 manifest runner；由清冊呼叫共同契約、正式頁 Edge 瀏覽器 smoke 與工具成熟度矩陣產生器，preflight 以此作為正式工具總閘門。 |
 | `結構工具箱/tools/formal-tools.contract.test.js` | 納入 | 正式工具共同契約測試；集中確認 14 個正式工具檔案、首頁入口、乾淨路由、文件邊界、報表分流、示意圖角色與 golden case 欄位。 |
 | `結構工具箱/tools/formal-browser-smoke.test.js` | 納入 | 風力 / 地震正式頁 Edge/CDP 瀏覽器 smoke；覆蓋 14 個正式 / 報表頁，包含 MWFRS、C&C、開放式屋面、女兒牆、表 2.10、2.11、2.12、2.15、招牌 / 燈桿、等值靜力、附屬構造物、雜項工作物與動力摘要頁的乾淨路由、桌機 / 手機橫向溢出、詳算式 / 簡易結果切換、具備者的 JSON 匯出、列印計算書與示意圖角色。 |
-| `結構工具箱/tools/tool-maturity-matrix.js` | 納入 | 工具成熟度矩陣產生器；合併正式工具與局部快算 manifest，輸出治理覆蓋率與下一步品質欄位 JSON / Markdown 給巡檢儀表板讀取。preflight 以 `tool-maturity-matrix-refresh` 在 `audit-dashboard-contract` 前先重產矩陣，避免 sourceHash stale 假失敗。 |
+| `結構工具箱/tools/tool-maturity-matrix.js` | 納入 | 工具成熟度矩陣產生器；合併正式工具與局部快算 manifest，輸出治理覆蓋率與下一步品質欄位 JSON / Markdown 給巡檢儀表板讀取。preflight 會在主檢查 summary 寫出後先重產矩陣，再執行 `audit-dashboard-contract-final`、browser smoke 與 live-output post-check，避免新增 governance key 時讀到舊 summary 或 sourceHash stale 假失敗。 |
 | `結構工具箱/tools/local-quick-tools.contract.test.js` | 納入 | 高頻局部快算共同契約測試；集中確認工具檔案、首頁入口、乾淨路由、README、邊界文件、staging 建議、頁面責任邊界與各工具 golden regression。 |
 | `鋼構工具/steel-traceability.catalog.json`、`鋼構工具/steel-traceability.contract.test.js` | 納入 | 鋼構條文語意追蹤 catalog 與契約測試；集中確認鋼構正式入口、連接板、拉力構件、鋼梁與鋼柱的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
 | `螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json`、`螺栓檢討/bolt-review-tool/src/anchorTraceabilityCatalog.test.ts` | 納入 | 錨栓條文語意追蹤 catalog 與契約測試；集中確認第17章主強度、後置錨栓產品評估、17.10 耐震路徑、22.8.3 基板承壓與補強鋼筋替代 breakout 的規範來源、輸入、計算、報告、證據與人工複核邊界。 |

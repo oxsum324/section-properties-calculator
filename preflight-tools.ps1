@@ -1943,28 +1943,6 @@ $checks = @(
     slow = $false
   },
   [pscustomobject]@{
-    key = "tool-maturity-matrix-refresh"
-    label = "Tool maturity matrix pre-dashboard refresh"
-    workdir = $root
-    command = $toolMaturityMatrixRefreshCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "audit-dashboard-contract"
-    label = "Audit dashboard history contract"
-    workdir = $root
-    command = $auditDashboardContractCommand
-    slow = $false
-  },
-  [pscustomobject]@{
-    key = "audit-dashboard-browser-smoke"
-    label = "Audit dashboard browser smoke"
-    workdir = $root
-    command = $auditDashboardBrowserSmokeCommand
-    slow = $true
-    timeoutSeconds = 300
-  },
-  [pscustomobject]@{
     key = "anchor-verify"
     label = "Anchor bolt review verify"
     workdir = (Join-Path $root "螺栓檢討\bolt-review-tool")
