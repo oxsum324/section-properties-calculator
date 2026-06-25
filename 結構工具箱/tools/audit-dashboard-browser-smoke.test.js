@@ -40,6 +40,7 @@ const expectedTraceabilityCatalogs = [
   { family: 'anchor-traceability', value: '5 / 5 tools；12 traces；12 manual-review items' },
   { family: 'stone-traceability', value: '4 / 4 tools；8 traces；8 manual-review items' },
   { family: 'decking-traceability', value: '4 / 4 tools；8 traces；8 manual-review items' },
+  { family: 'excavation-traceability', value: '5 / 5 tools；10 traces；10 manual-review items' },
 ];
 
 function fixtureOutputPath(relativePath) {
@@ -311,6 +312,23 @@ const fixtures = new Map(Object.entries({
           { key: 'decking-report-governance', label: '覆工板 JSON、Word 報表與交付邊界', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
         ],
       },
+      {
+        family: 'excavation-traceability',
+        version: '0.1.0',
+        tools: 5,
+        covered: 5,
+        traceCount: 10,
+        manualReviewCount: 10,
+        uncoveredKeys: [],
+        toolKeys: ['excavation-analysis-import', 'excavation-member-strength', 'excavation-column-foundation', 'excavation-report-governance', 'excavation-service-data-governance'],
+        rows: [
+          { key: 'excavation-analysis-import', label: '分析輸出匯入與上下側工作流', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'excavation-member-strength', label: '支撐、橫擋、斜撐與大角撐檢核', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'excavation-column-foundation', label: '柱構件與基礎承載檢核', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'excavation-report-governance', label: 'PDF / DOCX 計算書與下載邊界', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'excavation-service-data-governance', label: '本機服務、專案資料與參考資料治理', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+        ],
+      },
     ],
     entrypointCoverage: {
       total: 3,
@@ -409,6 +427,13 @@ const fixtures = new Map(Object.entries({
           sourcePath: '覆工板/decking-traceability.catalog.json',
           sourceMtime: fixtureGeneratedAt,
           sourceHash: '7890123456789012345678901234567890123456789012345678901234567890',
+          exists: true,
+        },
+        {
+          key: 'excavation-traceability-catalog',
+          sourcePath: '開挖擋土支撐/excavation-traceability.catalog.json',
+          sourceMtime: fixtureGeneratedAt,
+          sourceHash: '8901234567890123456789012345678901234567890123456789012345678901',
           exists: true,
         },
         {
@@ -1189,7 +1214,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     expectedTraceabilityCatalogs.map((item) => ({ ...item, label: item.family, ok: true })),
     `${label} traceability catalog coverage rendered`
   );
-  assert.equal(state.maturitySourceTrace.length, 8, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
+  assert.equal(state.maturitySourceTrace.length, 9, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('formal-tools-manifest') && item.includes('1234567890ab')),
     `${label} maturity formal manifest source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
@@ -1217,6 +1242,10 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('decking-traceability-catalog') && item.includes('789012345678')),
     `${label} maturity decking traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
+  );
+  assert.ok(
+    state.maturitySourceTrace.some((item) => item.includes('excavation-traceability-catalog') && item.includes('890123456789')),
+    `${label} maturity excavation traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
   );
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('latest-preflight-summary') && item.includes('abcdef012345')),

@@ -10,6 +10,7 @@
 | `audit-all.ps1`、`refresh-platform-status.ps1`、`platform-audit-preflight.ps1`、`run-audit-all.bat`、`run-audit-all-loop.bat` | 納入 | 平台 audit orchestration 與 preflight 重用判定入口；`audit-all.ps1` 子 audit 採 `ProcessStartInfo` 執行，避免 Windows `Path` / `PATH` 環境鍵重複時 `Start-Process` 失敗，也避免子系統 audit 狀態新鮮但整體摘要或 dashboard decision hash 未刷新。 |
 | `鋼構工具/run-audit.bat`、`鋼筋混凝土/run-audit.bat`、`結構工具箱/audit-core.ps1`、`結構工具箱/run-audit-core.bat` | 納入 | 子系統 audit wrapper 與規範核心 audit 入口；preflight helper script 清冊會檢查這些入口存在並列入 staging 文件。 |
 | `開挖擋土支撐/start_html_mode.ps1`、`開挖擋土支撐/stop_html_mode.ps1` | 納入 | 開挖擋土支撐本機服務邊界 smoke 需要的啟停入口；工程資料仍排除。 |
+| `開挖擋土支撐/excavation-traceability.catalog.json`、`開挖擋土支撐/excavation-traceability.contract.test.js` | 納入 | 開挖擋土支撐服務型工具的規範語意追蹤 catalog 與契約測試；集中確認分析輸出匯入、支撐 / 橫擋 / 斜撐 / 大角撐、柱與基礎、PDF / DOCX 報表、本機服務資料治理的來源、輸入、計算、報告、證據與人工複核邊界。 |
 | `continuous-beam-regression.test.js`、`test-continuous-beam.ps1` | 納入 | 補齊根目錄連續梁回歸檢查。 |
 | `stone-feedback.contract.test.js` | 納入 | 石材 V2、舊版與 baseline capture feedback 合約；確認通知、確認、範本管理與錯誤提示不回退原生 dialog。 |
 | `石材固定/stone-traceability.catalog.json`、`石材固定/stone-traceability.contract.test.js` | 納入 | 石材 V2 條文語意追蹤 catalog 與契約測試；集中確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
@@ -23,7 +24,7 @@
 | `結構工具箱/tools/風力/*.html` | 納入 | 風力頁面共用報告路徑屬於平台可用性修正。 |
 | `鋼構工具/audit-tool.ps1`、`鋼構工具/steel-audit-browser-runner.js` | 納入 | 鋼構自巡檢改由單一 Edge CDP browser runner 執行 21 個實頁快照，減少 Playwright CLI 往返；runner 逐情境 timeout，且 abort 會落 `audit-status.json` 供 preflight 判斷。 |
 | `石材固定/` | 納入程式碼與必要離線 vendor，排除參考資料與輸出 | 已有 self_check、quick smoke、版本治理、golden samples、條文語意追蹤與交付流程；納入正式 V2 工具、測試、治理文件、必要 vendor，PDF/XLS/Word 範例、圖片、專案報告與舊版 HTML 不進 repo。 |
-| `開挖擋土支撐/` | 納入程式碼，排除工程資料 | Backend tests、frontend build 與 launcher 靜態 smoke 已納入 preflight；只提交 `index.html`、backend/frontend 原始碼、設定、README、啟停腳本與本目錄 `.gitignore`，不提交工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`。 |
+| `開挖擋土支撐/` | 納入程式碼，排除工程資料 | Backend tests、frontend build、launcher 靜態 smoke 與 traceability contract 已納入 preflight；只提交 `index.html`、backend/frontend 原始碼、設定、README、啟停腳本、traceability catalog / contract 與本目錄 `.gitignore`，不提交工程案例、Office/PDF、分析輸出、`app_data/`、`tmp/`、`frontend/dist/`。 |
 | `覆工板/` | 納入程式碼，排除工程資料與輸出 | 已有 `index.html`、Python 報告產生器、固定 smoke fixture、條文語意追蹤與 preflight 產報檢查；Excel、PDF、doc/docx、抽圖、dump 與吊車參考資料不進 repo。 |
 | `鋼架/` | 可納入 | 目前只有單一 HTML 靜態工具，preflight 已做基本 smoke。 |
 | `結構工具箱/tools/foundation/` | 納入 | 基礎局部檢核為靜態快算工具，已拆 `foundation-local-core.js`、`foundation-local-golden-cases.js` 與 `foundation-local-core.test.js`，preflight 會跑 golden regression。注意不要改放到 `tools/基礎/`，會被根目錄 `基礎/` ignore 規則誤排除。 |
@@ -36,7 +37,7 @@
 | `結構工具箱/tools/local-quick-output-consistency.test.js` | 納入 | 局部快算跨輸出一致性 regression；以 manifest + golden cases 驗證 core result、JSON payload、summary/checks、schema、provenance 與 HTML 匯出/report metadata 的工具身份一致。 |
 | `結構工具箱/tools/local-quick-browser-smoke.test.js` | 納入 | 局部快算 Edge/CDP 瀏覽器 smoke；啟動臨時靜態 server 並模擬 `vercel.json` rewrites，在 desktop/mobile viewport 載入首頁、乾淨路由與三個工具頁，檢查初始計算、JSON 匯出按鈕 payload、設備 / 土壓 JSON round-trip、列印計算書 metadata、script、console error 與橫向溢出。 |
 | `結構工具箱/tools/formal-tools.manifest.json` | 納入 | 風力 / 地震正式工具清冊；集中記錄 14 個正式頁的路由、報表、JSON、示意圖、pilot golden cases 與 regression 期望，避免首頁、`vercel.json`、smoke 與文件漂移。 |
-| `結構工具箱/tools/formal-tools.run.js` | 納入 | 正式工具 manifest runner；由清冊呼叫共同契約、正式頁 Edge 瀏覽器 smoke 與工具成熟度矩陣產生器，preflight 以此作為正式工具總閘門。 |
+| `結構工具箱/tools/formal-tools.run.js` | 納入 | 正式工具 manifest runner；由清冊呼叫共同契約與正式頁 Edge 瀏覽器 smoke。工具成熟度矩陣由 `preflight-tools.ps1` 在主檢查 summary 寫出後統一重產與檢查，避免新增 governance key 時讀到舊 summary。 |
 | `結構工具箱/tools/formal-tools.contract.test.js` | 納入 | 正式工具共同契約測試；集中確認 14 個正式工具檔案、首頁入口、乾淨路由、文件邊界、報表分流、示意圖角色與 golden case 欄位。 |
 | `結構工具箱/tools/formal-browser-smoke.test.js` | 納入 | 風力 / 地震正式頁 Edge/CDP 瀏覽器 smoke；覆蓋 14 個正式 / 報表頁，包含 MWFRS、C&C、開放式屋面、女兒牆、表 2.10、2.11、2.12、2.15、招牌 / 燈桿、等值靜力、附屬構造物、雜項工作物與動力摘要頁的乾淨路由、桌機 / 手機橫向溢出、詳算式 / 簡易結果切換、具備者的 JSON 匯出、列印計算書與示意圖角色。 |
 | `結構工具箱/tools/tool-maturity-matrix.js` | 納入 | 工具成熟度矩陣產生器；合併正式工具與局部快算 manifest，輸出治理覆蓋率與下一步品質欄位 JSON / Markdown 給巡檢儀表板讀取。preflight 會在主檢查 summary 寫出後先重產矩陣，再執行 `audit-dashboard-contract-final`、browser smoke 與 live-output post-check，避免新增 governance key 時讀到舊 summary 或 sourceHash stale 假失敗。 |

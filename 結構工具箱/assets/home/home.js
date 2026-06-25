@@ -57,7 +57,8 @@
     'steel-audit': { label: 'Steel audit', preflightKeys: ['steel-audit-status'] },
     'anchor-deployment': { label: 'Anchor deployment', preflightKeys: ['anchor-verify', 'anchor-route'] },
     'stone-v2': { label: 'Stone V2', preflightKeys: ['stone-feedback-contract', 'stone-traceability-contract', 'stone-self-check', 'stone-quick-check'] },
-    'decking-contract': { label: 'Decking governance', preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'deck-python'] }
+    'decking-contract': { label: 'Decking governance', preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'deck-python'] },
+    'excavation-service': { label: 'Excavation service governance', preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-backend', 'excavation-frontend'] }
   };
 
   const HOME_DATA_UPDATED = '2026-06-21';
@@ -601,6 +602,7 @@
       href: '/開挖擋土支撐/index.html',
       categories: ['temporary'],
       state: 'service',
+      governance: 'excavation-service',
       output: '支撐構件檢核、PDF/DOCX 報表與案件資料庫',
       summary: 'FastAPI + React + SQLite 工作流，匯入分析檔、構件檢核與 PDF/DOCX 報表。',
       fit: '支撐、橫擋、斜撐、大角撐與分析輸出匯入。',

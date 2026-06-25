@@ -1,0 +1,147 @@
+{
+  "version": "0.1.0",
+  "family": "excavation-traceability",
+  "description": "開挖擋土支撐服務型工具的規範語意追蹤表。每筆 trace 將分析檔匯入、輸入欄位、構件檢核、報表落點、測試證據與人工複核邊界對齊，避免只因 FastAPI / React 流程可產出 PDF 或 DOCX 就誤判為支撐系統檢核依據已完整可追溯。",
+  "tools": [
+    {
+      "key": "excavation-analysis-import",
+      "label": "分析輸出匯入與上下側工作流",
+      "scope": ".LST、.RIO 與 .o 分析文字檔解析，含土層、水位、開挖階段、壁體 EI、BUT 設置 / 拆除事件與上側 / 下側匯入配置。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "excavation-lst-rio-o-parser",
+          "clause": "開挖支撐分析輸出檔工程判讀、LST / RIO / .o 文字格式解析規則與專案分析模型輸入假設",
+          "purpose": "分析檔匯入需保留 parser 判讀來源與警告，不把單一匯入成功視為完整外部模型查核。",
+          "inputs": ["filename", "content", "project_title", "soil_layers", "ground_water_level_m", "stages", "wall_ei_t_m2_per_m", "setup/remove events", "BUT forces"],
+          "calculation": ["parse_analysis_file", "_parse_lst_like", "_parse_o_file", "_extract_stage_header", "_classify_setup_event", "_append_event", "_apply_o_but_force_summary"],
+          "report": ["分析匯入資訊", "支撐階段", "土層資料", "匯入警告", "待判讀事件"],
+          "evidence": ["backend/app/parsers.py", "backend/app/schemas.py", "backend/tests/test_parsers.py", "backend/tests/test_import_flow.py", "frontend/src/App.tsx"],
+          "manualReview": ["分析模型、施工階段、BUT 標示、支撐角度、拆撐事件、樓版或非支撐事件與外部軟體輸出完整性須由設計者依原分析檔、施工圖與專案文件人工複核。"]
+        },
+        {
+          "id": "excavation-top-bottom-assignment",
+          "clause": "單側 / 雙側 / 混合匯入工作流與支撐構件人工配置邊界",
+          "purpose": "上側與下側匯入需分開追蹤，且只自動套用支撐與斜撐候選資料，避免覆寫另一側或把待判讀事件誤作正式構件。",
+          "inputs": ["analysis_workflow_mode", "top_analysis_source", "bottom_analysis_source", "import side", "manual support rows", "manual brace rows", "pending events"],
+          "calculation": ["handleImportAnalysis", "_apply_import_to_side", "_merge_analysis_sources", "_summarize_import_events", "analysisWorkflowOptions"],
+          "report": ["輸入基本資料", "分析匯入資訊", "上側 / 下側資料來源", "未套用事件提醒"],
+          "evidence": ["backend/app/main.py", "backend/app/project_store.py", "frontend/src/App.tsx", "frontend/src/api.ts", "backend/tests/test_import_flow.py"],
+          "manualReview": ["上下側支撐系統、橫擋、大角撐、構件斷面、未辨識事件與單側分析對另一側不適用的情況，需由設計者按施工圖與模型分側人工確認。"]
+        }
+      ]
+    },
+    {
+      "key": "excavation-member-strength",
+      "label": "支撐、橫擋、斜撐與大角撐檢核",
+      "scope": "支撐、橫擋、斜撐、大角撐的容許應力、KL/r、Fa、Fbx / Fby、彎剪與互制比檢核，含橫擋扣除連續壁抵抗力選項。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "excavation-support-brace-interaction",
+          "clause": "鋼結構容許應力設計法規範及解說，第六章受壓構材與第八章構材承受組合力及扭矩相關條文",
+          "purpose": "支撐、斜撐與大角撐需保留軸力、彎矩、有效長度、斷面性質與容許應力互制式來源，不把單一 Ratio 當成完整檢核說明。",
+          "inputs": ["section_name", "axial_force_t", "mx_t_m", "my_t_m", "length_m", "kx", "ky", "unbraced_length_m", "Fy", "E", "LdaB", "LdaC"],
+          "calculation": ["calculate_horizontal_support", "calculate_brace", "calculate_corner_brace", "allowable_axial_stress", "allowable_fbx", "allowable_fby", "interaction_ratio", "support_interaction", "brace_interaction", "corner_brace_interaction"],
+          "report": ["支撐構件檢核", "斜撐檢核", "大角撐檢核", "Fa", "Fbx / Fby", "Ratio", "公式來源"],
+          "evidence": ["backend/app/calculations.py", "backend/app/reporting.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py", "frontend/src/App.tsx"],
+          "manualReview": ["斷面實品、材料強度、接合、端部拘束、側撐條件、偏心、施工階段臨時荷重與分析內力來源須由施工圖、材料資料與設計者人工複核。"]
+        },
+        {
+          "id": "excavation-wale-wall-deduction",
+          "clause": "鋼結構容許應力設計法規範及解說，第七章撓曲構材與剪力條文；連續壁 Mwc / Vwc 抵抗力扣除為專案檢核假設",
+          "purpose": "橫擋檢核需分開追蹤彎矩、剪力、容許彎應力、容許剪應力與牆體扣抵，不讓扣除連續壁抵抗力成為未揭露的隱含假設。",
+          "inputs": ["line_load_t_per_m", "span_m", "section_name", "consider_wall_deduction_for_wales", "wall_thickness_cm", "wall_fc_kg_cm2", "wall_rebar", "Fy", "E"],
+          "calculation": ["calculate_wale", "wall_moment_strength", "wall_shear_strength", "wale_bending_shear", "bending_ratio", "shear_ratio"],
+          "report": ["橫擋檢核", "Mwc / Vwc", "彎矩比", "剪力比", "牆體扣底說明", "公式來源"],
+          "evidence": ["backend/app/calculations.py", "backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py"],
+          "manualReview": ["連續壁配筋、混凝土強度、實際可扣抵區段、開口或接頭、外部分析彎剪分配與是否允許扣底，需由專案文件、施工圖與設計者人工判斷。"]
+        }
+      ]
+    },
+    {
+      "key": "excavation-column-foundation",
+      "label": "柱構件與基礎承載檢核",
+      "scope": "柱構件軸壓雙軸彎互制、Beta / l0 / KL/r、N1-N4 控制軸力，以及壓入 / 拉拔基礎承載估算。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "excavation-column-interaction",
+          "clause": "鋼結構容許應力設計法規範及解說，第六章受壓構材、第八章組合力條文與既有 Excel 柱構件檢核流程",
+          "purpose": "柱構件需保留軸力組合、偏心、有效長度、Fex / Fey、Fa / Fbx / Fby 與互制式，不讓簡化欄位摘要取代完整柱檢核。",
+          "inputs": ["column_section_name", "N1", "N2", "N3", "N4", "Mx", "My", "beta_x", "beta_y", "l0_x", "l0_y", "K", "Fy", "E"],
+          "calculation": ["calculate_column_scenario", "classify_column_section", "allowable_axial_stress", "allowable_fbx", "allowable_fby", "interaction_ratio", "column_interaction"],
+          "report": ["柱構件檢核", "控制軸力", "KL/r", "Fa", "Fbx / Fby", "互制比", "計算細節"],
+          "evidence": ["backend/app/calculations.py", "backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py"],
+          "manualReview": ["柱端拘束、施工階段有效長度、偏心方向、二階效應、局部屈曲、接頭、續接與分析內力組合須由正式模型、施工圖與設計者人工複核。"]
+        },
+        {
+          "id": "excavation-pile-compression-tension",
+          "clause": "既有柱腳 / 基礎承載檢核公式、土層 N 值與壓入 / 拉拔安全係數專案假設",
+          "purpose": "基礎承載需清楚標示為既有公式移植與分層估算，保留土層、樁型、端點 / 周面、壓入 / 拉拔安全係數與控制值。",
+          "inputs": ["soil_layers", "pile_width_m", "pile_depth_m", "pile_shape", "pile_type", "fs_compression", "fs_tension", "compression_demand_t", "tension_demand_t"],
+          "calculation": ["_foundation_dimensions", "_compression_breakdown", "_tension_breakdown", "compression_capacity_t", "tension_capacity_t", "safety_factor"],
+          "report": ["基礎壓入檢核", "基礎拉拔檢核", "土層分段", "安全係數", "OK / NG"],
+          "evidence": ["backend/app/calculations.py", "backend/app/reporting.py", "backend/tests/test_calculations.py", "backend/tests/test_reporting.py", "README.md"],
+          "manualReview": ["地質柱狀圖、地下水、負摩擦、群樁效應、施工方法、樁材、樁長、樁徑、承載力公式適用性與安全係數須由地工設計或專案審查者人工確認。"]
+        }
+      ]
+    },
+    {
+      "key": "excavation-report-governance",
+      "label": "PDF / DOCX 計算書與下載邊界",
+      "scope": "PDF 正式版與 Word 編修版輸出，含簡版 / 詳版模式、設計依據、分析程式描述、公式來源、附錄明細與安全下載路徑。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "excavation-pdf-word-report-parity",
+          "clause": "擋土支撐檢核計算書交付治理、設計依據段落與 PDF / DOCX 報表一致性",
+          "purpose": "PDF 與 DOCX 需引用同一份 ProjectState 與公式來源文字，避免前端結果、PDF 報表與 Word 編修版說法漂移。",
+          "inputs": ["ProjectState", "ReportPayload", "concise_mode", "calculation_results", "analysis_sources", "project metadata"],
+          "calculation": ["build_report", "build_word_report", "_report_scope_lines", "_design_basis_lines", "_analysis_program_description", "_formula_source_text"],
+          "report": ["擋土支撐檢核計算書", "設計依據", "結構分析使用之電腦程式", "構件檢核彙整", "計算明細附錄"],
+          "evidence": ["backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_reporting.py", "frontend/src/App.tsx", "frontend/src/api.ts"],
+          "manualReview": ["PDF / DOCX 報表只能證明工具輸出一致；簽章、設計依據版本、圖說、分析模型、附件、專案指定值與送審文字仍須由設計者或審查者人工確認。"]
+        },
+        {
+          "id": "excavation-report-download-boundary",
+          "clause": "本機服務報表檔案輸出、latest report 管理與下載路徑安全邊界",
+          "purpose": "報表下載需限制在專案檔案命名與 PDF / DOCX 媒體型別內，避免本機服務把任意檔案暴露為報表。",
+          "inputs": ["project_id", "filename", "latest-report.pdf", "latest-report.docx", "report directory", "media_type"],
+          "calculation": ["generate_report", "generate_word_report", "get_latest_report", "get_latest_word_report", "get_report_file", "Path(filename).name", "save_report"],
+          "report": ["latest_download_url", "report_filename", "Cache-Control", "PDF 正式版", "Word 編修版"],
+          "evidence": ["backend/app/main.py", "backend/app/project_store.py", "backend/tests/test_reporting.py", "frontend/src/App.tsx", "frontend/src/api.ts"],
+          "manualReview": ["本機報表檔案、附件版本、專案目錄清理、對外交付副本與是否包含最新計算結果，需由使用者在送審前人工確認。"]
+        }
+      ]
+    },
+    {
+      "key": "excavation-service-data-governance",
+      "label": "本機服務、專案資料與參考資料治理",
+      "scope": "FastAPI + SQLite + 本地專案資料夾、Excel / override 參考資料、啟停腳本、app_data 產物排除與 preflight 服務邊界。",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "excavation-project-store-reference",
+          "clause": "本機案件資料庫、專案 JSON 狀態與 Excel / JSON override 參考資料來源治理",
+          "purpose": "案件狀態、匯入檔、報表與斷面參考資料需分清楚程式碼、使用者輸入與本機產物，避免把 app_data 當成可提交設計依據。",
+          "inputs": ["SQLite projects table", "state.json", "reference-data override", "2_開挖擋土支撐-v95000.xlsm", "imported files", "report outputs"],
+          "calculation": ["ProjectStore", "save_project", "save_imported_file", "save_report", "load_reference_data", "save_reference_data", "_sanitize_reference_data", "load_default_project"],
+          "report": ["專案清單", "案件狀態", "參考資料", "匯入檔保存", "latest report"],
+          "evidence": ["backend/app/project_store.py", "backend/app/workbook_loader.py", "backend/app/main.py", "backend/tests/test_project_store.py", "backend/tests/test_reference_data.py", "README.md"],
+          "manualReview": ["Excel 來源版本、斷面資料、螺栓資料、專案 override、工程案例檔與 app_data 本機產物是否適合留存或交付，須由專案負責人人工控管。"]
+        },
+        {
+          "id": "excavation-local-service-boundary",
+          "clause": "本機服務型工具啟停、前端建置、工程資料排除與 preflight 邊界",
+          "purpose": "開挖擋土支撐不是純靜態頁，首頁、README、啟停腳本與 preflight 必須揭露需啟動本機服務與資料庫的邊界。",
+          "inputs": ["start_html_mode.ps1", "stop_html_mode.ps1", "index.html", "backend/app/main.py", "frontend build", "app_data", "tmp", "frontend/dist"],
+          "calculation": ["excavation launcher smoke", "backend unittest", "frontend npm run build", "traceability contract", "generated artifact boundary"],
+          "report": ["首頁本機服務狀態", "服務邊界", "preflight summary", "TOOL_BOUNDARIES", "STAGING_GROUPS"],
+          "evidence": ["index.html", "README.md", "start_html_mode.ps1", "stop_html_mode.ps1", "frontend/package.json", "../preflight-tools.ps1"],
+          "manualReview": ["服務是否已啟動、port 衝突、Python / Node 環境、資料庫狀態、工程資料排除、部署型態與使用者機器環境仍須由使用者人工確認。"]
+        }
+      ]
+    }
+  ]
+}

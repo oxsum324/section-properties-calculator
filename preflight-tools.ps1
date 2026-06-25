@@ -1161,6 +1161,11 @@ node 覆工板/decking-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$excavationTraceabilityContractCommand = @'
+node 開挖擋土支撐/excavation-traceability.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $structDxContractCommand = @'
 node struct-dx.contract.test.js
 exit $LASTEXITCODE
@@ -1976,6 +1981,13 @@ $checks = @(
     label = "Excavation launcher service-boundary smoke"
     workdir = $root
     command = $excavationLauncherCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "excavation-traceability-contract"
+    label = "Excavation traceability catalog contract"
+    workdir = $root
+    command = $excavationTraceabilityContractCommand
     slow = $false
   },
   [pscustomobject]@{
