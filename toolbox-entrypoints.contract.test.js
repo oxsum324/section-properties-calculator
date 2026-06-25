@@ -314,12 +314,14 @@ assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages 
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');
 assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v6'), 'Pages deploy workflow configures Pages');
-assert.ok(pagesDeployWorkflow.includes('actions/upload-pages-artifact@v4'), 'Pages deploy workflow uploads artifact');
+assert.ok(pagesDeployWorkflow.includes('actions/upload-artifact@v6'), 'Pages deploy workflow uploads artifact');
 assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v5'), 'Pages deploy workflow deploys Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/checkout@v6'), 'Pages deploy workflow uses current checkout action');
 assert.ok(pagesDeployWorkflow.includes('actions: read'), 'Pages deploy workflow has actions read permission for deploy-pages v5');
 assert.ok(pagesDeployWorkflow.includes('pages: write'), 'Pages deploy workflow has pages write permission');
 assert.ok(pagesDeployWorkflow.includes('id-token: write'), 'Pages deploy workflow has id-token write permission');
+assert.ok(pagesDeployWorkflow.includes('artifact.tar'), 'Pages deploy workflow creates deployable tar artifact');
+assert.ok(pagesDeployWorkflow.includes('name: github-pages'), 'Pages deploy workflow uploads the expected github-pages artifact');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
 assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages deploy workflow runs smoke script after deployment');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}'), 'Pages live smoke uses deployed page URL');
