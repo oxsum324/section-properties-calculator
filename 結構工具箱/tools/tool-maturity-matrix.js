@@ -339,12 +339,27 @@ function markdownCell(value) {
   const text = Array.isArray(value) ? value.join(', ') : String(value || '-');
   return text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
 }
-function hasReferenceTraceability(html, tool) {
+function hasValidTraceabilityEntry(tool, traceEntry) {
+  if (!traceEntry || traceEntry.key !== tool.key || !Array.isArray(traceEntry.traces) || traceEntry.traces.length === 0) return false;
+  const goldenIds = new Set((tool.goldenCases || []).map(goldenCase => goldenCase.id));
+  return traceEntry.traces.every(trace => {
+    if (!trace || typeof trace.clause !== 'string' || !/規範|表|圖|式|章|節/.test(trace.clause)) return false;
+    if (typeof trace.purpose !== 'string' || !trace.purpose.trim()) return false;
+    for (const field of ['inputs', 'calculation', 'report', 'goldenCases', 'manualReview']) {
+      if (!Array.isArray(trace[field]) || trace[field].length === 0) return false;
+      if (!trace[field].every(item => typeof item === 'string' && item.trim())) return false;
+    }
+    return trace.goldenCases.every(goldenId => goldenIds.has(goldenId));
+  });
+}
+
+function hasReferenceTraceability(html, tool, traceEntry) {
   const reportNeedles = Array.isArray(tool.reportNeedles) ? tool.reportNeedles : [];
-  return html.includes('規範') ||
+  const textTrace = html.includes('規範') ||
     html.includes('表 ') ||
     html.includes('式(') ||
     reportNeedles.some(needle => /規範|表|式|圖/.test(needle));
+  return textTrace && hasValidTraceabilityEntry(tool, traceEntry);
 }
 
 function hasReportModeControls(html, tool) {
@@ -401,20 +416,64 @@ function withUpgradeGaps(row) {
   };
 }
 
+function summarizeTraceabilityCatalog(catalog) {
+  const tools = Array.isArray(catalog?.tools) ? catalog.tools : [];
+  const toolRows = tools.map(tool => {
+    const traces = Array.isArray(tool.traces) ? tool.traces : [];
+    const manualReviewCount = traces.reduce((sum, trace) => {
+      return sum + (Array.isArray(trace.manualReview) ? trace.manualReview.length : 0);
+    }, 0);
+    const covered = traces.length > 0 && (!tool.status || tool.status === 'covered');
+    return {
+      key: tool.key || '',
+      label: tool.label || tool.scope || tool.key || '',
+      status: tool.status || (covered ? 'covered' : 'missing'),
+      traceCount: traces.length,
+      manualReviewCount,
+      covered
+    };
+  });
+  return {
+    family: catalog?.family || '',
+    version: catalog?.version || '',
+    description: catalog?.description || '',
+    tools: toolRows.length,
+    covered: toolRows.filter(row => row.covered).length,
+    traceCount: toolRows.reduce((sum, row) => sum + row.traceCount, 0),
+    manualReviewCount: toolRows.reduce((sum, row) => sum + row.manualReviewCount, 0),
+    uncoveredKeys: toolRows.filter(row => !row.covered).map(row => row.key),
+    toolKeys: toolRows.map(row => row.key).filter(Boolean),
+    rows: toolRows
+  };
+}
+
+function buildTraceabilityCatalogCoverage(state) {
+  return [
+    summarizeTraceabilityCatalog(state.formalTraceabilityCatalog),
+    summarizeTraceabilityCatalog(state.rcTraceabilityCatalog)
+  ];
+}
+
 function loadSourceState() {
   const formalManifestRelativePath = '結構工具箱/tools/formal-tools.manifest.json';
+  const formalTraceabilityRelativePath = '結構工具箱/tools/formal-traceability.catalog.json';
+  const rcTraceabilityRelativePath = '鋼筋混凝土/tools/rc-traceability.catalog.json';
   const localQuickManifestRelativePath = '結構工具箱/tools/local-quick-tools.manifest.json';
   const vercelRelativePath = 'vercel.json';
   const homeRelativePath = '結構工具箱/assets/home/home.js';
   const preflightSummaryRelativePath = 'output/preflight/preflight-summary.json';
   const preflightHistoryRelativePath = 'output/preflight/preflight-history.json';
   const formalManifestPath = toolboxFile('tools/formal-tools.manifest.json');
+  const formalTraceabilityPath = toolboxFile('tools/formal-traceability.catalog.json');
+  const rcTraceabilityPath = repoFile('鋼筋混凝土/tools/rc-traceability.catalog.json');
   const localQuickManifestPath = toolboxFile('tools/local-quick-tools.manifest.json');
   const vercelPath = repoFile(vercelRelativePath);
   const homePath = toolboxFile('assets/home/home.js');
   const preflightSummaryPath = repoFile(preflightSummaryRelativePath);
   const preflightHistoryPath = repoFile(preflightHistoryRelativePath);
   const formalManifest = readJson(formalManifestPath);
+  const formalTraceabilityCatalog = readJson(formalTraceabilityPath);
+  const rcTraceabilityCatalog = readJson(rcTraceabilityPath);
   const localQuickManifest = readJson(localQuickManifestPath);
   const vercelText = readText(vercelPath);
   const homeJs = readText(homePath);
@@ -423,11 +482,14 @@ function loadSourceState() {
   const preflightSummaryStat = fileExists(preflightSummaryPath) ? fs.statSync(preflightSummaryPath) : null;
   const preflightHistoryText = fileExists(preflightHistoryPath) ? readText(preflightHistoryPath).replace(/^\uFEFF/, '') : '';
   const preflightHistory = preflightHistoryText ? JSON.parse(preflightHistoryText) : null;
-  const latestFullPreflightItem = Array.isArray(preflightHistory?.items)
-    ? preflightHistory.items.find(item => item && item.quick === false && item.summaryJsonPath)
+  const completedPreflightItems = Array.isArray(preflightHistory?.items)
+    ? preflightHistory.items.filter(item => item && item.complete !== false)
+    : [];
+  const latestFullPreflightItem = completedPreflightItems
+    ? completedPreflightItems.find(item => item && item.quick === false && item.summaryJsonPath)
     : null;
-  const latestPassingFullPreflightItem = Array.isArray(preflightHistory?.items)
-    ? preflightHistory.items.find(item => item && item.quick === false && item.pass === true && item.summaryJsonPath)
+  const latestPassingFullPreflightItem = completedPreflightItems
+    ? completedPreflightItems.find(item => item && item.quick === false && item.pass === true && item.summaryJsonPath)
     : null;
   const latestFullPreflightSummaryPath = latestFullPreflightItem
     ? (path.isAbsolute(latestFullPreflightItem.summaryJsonPath) ? latestFullPreflightItem.summaryJsonPath : repoFile(latestFullPreflightItem.summaryJsonPath))
@@ -460,6 +522,8 @@ function loadSourceState() {
     .filter((summary, index, array) => array.findIndex(item => item.runId === summary.runId) === index);
   const sourceInputs = [
     sourceInput('formal-tools-manifest', formalManifestRelativePath, formalManifestPath),
+    sourceInput('formal-traceability-catalog', formalTraceabilityRelativePath, formalTraceabilityPath),
+    sourceInput('rc-traceability-catalog', rcTraceabilityRelativePath, rcTraceabilityPath),
     sourceInput('local-quick-tools-manifest', localQuickManifestRelativePath, localQuickManifestPath),
     sourceInput('vercel-routes', vercelRelativePath, vercelPath),
     sourceInput('home-entrypoints', homeRelativePath, homePath),
@@ -474,6 +538,8 @@ function loadSourceState() {
 
   return {
     formalManifest,
+    formalTraceabilityCatalog,
+    rcTraceabilityCatalog,
     localQuickManifest,
     vercelText,
     homeJs,
@@ -482,6 +548,16 @@ function loadSourceState() {
     preflightSummary,
     latestFullPreflightSummary,
     latestPassingFullPreflightSummary,
+    preflightHistoryHealth: {
+      count: Number(preflightHistory?.count) || 0,
+      completedCount: Number(preflightHistory?.completedCount) || completedPreflightItems.length,
+      inProgressCount: Number(preflightHistory?.inProgressCount) || 0,
+      incompleteCount: Number(preflightHistory?.incompleteCount) || 0,
+      latestRunId: preflightHistory?.items?.[0]?.runId || '',
+      latestState: preflightHistory?.items?.[0]?.state || '',
+      latestCompletedRunId: completedPreflightItems[0]?.runId || '',
+      latestCompletedFullRunId: latestFullPreflightItem?.runId || ''
+    },
     preflightEvidenceSummaries,
     preflightSummarySource: {
       path: preflightSummaryRelativePath,
@@ -495,6 +571,7 @@ function loadSourceState() {
 }
 
 function buildFormalRows(state) {
+  const traceByKey = new Map((state.formalTraceabilityCatalog.tools || []).map(entry => [entry.key, entry]));
   return state.formalManifest.tools.map((tool) => {
     const htmlPath = toolboxFile(tool.html);
     const html = fileExists(htmlPath) ? readText(htmlPath) : '';
@@ -502,8 +579,10 @@ function buildFormalRows(state) {
     const hasJsonWorkflow = Boolean(caps.jsonExport || caps.jsonImport || tool.exportButton || tool.importButton);
     const goldenCaseCount = Array.isArray(tool.goldenCases) ? tool.goldenCases.length : 0;
     const rowSourceTrace = sourceTraceFor([
-      toolboxSourceInput('html', tool.html)
+      toolboxSourceInput('html', tool.html),
+      toolboxSourceInput('traceability-catalog', 'tools/formal-traceability.catalog.json')
     ]);
+    const traceEntry = traceByKey.get(tool.key);
     const checks = {
       htmlExists: fileExists(htmlPath),
       cleanRoute: routeInVercel(state.vercelText, tool),
@@ -519,7 +598,7 @@ function buildFormalRows(state) {
       coreRegression: caps.coreRegression === true,
       goldenCaseRegression: Array.isArray(tool.goldenCases) && tool.goldenCases.length > 0,
       jsonRoundTrip: hasJsonWorkflow ? tool.jsonRoundTrip === true : NA,
-      referenceTraceability: hasReferenceTraceability(html, tool)
+      referenceTraceability: hasReferenceTraceability(html, tool, traceEntry)
     };
     const score = scoreChecks(checks);
     const requiredPass = checks.htmlExists && checks.cleanRoute && checks.homeEntry && checks.reportButton && checks.browserSmoke && checks.reportRegression;
@@ -617,7 +696,7 @@ function buildLocalQuickRows(state) {
   });
 }
 
-function summarize(rows, preflightSummary, preflightSummarySource = null, sourceTrace = null, entrypointCoverage = null) {
+function summarize(rows, preflightSummary, preflightSummarySource = null, sourceTrace = null, entrypointCoverage = null, preflightHistoryHealth = null, traceabilityCatalogCoverage = []) {
   const topUpgradeTargets = UPGRADE_TARGETS
     .map(target => {
       const tools = rows
@@ -655,9 +734,22 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
     generatedAt: new Date().toISOString(),
     sourceManifests: [
       '結構工具箱/tools/formal-tools.manifest.json',
+      '結構工具箱/tools/formal-traceability.catalog.json',
+      '鋼筋混凝土/tools/rc-traceability.catalog.json',
       '結構工具箱/tools/local-quick-tools.manifest.json'
     ],
     sourceTrace: sourceTrace || { inputs: [] },
+    traceabilityCatalogCoverage,
+    preflightHistoryHealth: preflightHistoryHealth || {
+      count: 0,
+      completedCount: 0,
+      inProgressCount: 0,
+      incompleteCount: 0,
+      latestRunId: '',
+      latestState: '',
+      latestCompletedRunId: '',
+      latestCompletedFullRunId: ''
+    },
     entrypointCoverage: entrypointCoverage || {
       total: 0,
       matrixCovered: 0,
@@ -728,6 +820,7 @@ function buildMarkdown(payload) {
     `- homeEntrypoints: total=${entrypoint.total || 0}, maturityMatrix=${entrypoint.matrixCovered || 0}, otherGoverned=${entrypoint.otherGoverned || 0}, formalOutsideCoverage=${entrypoint.formalOutsideCoverage || 0}`,
     `- otherGovernance: complete=${entrypoint.otherGovernanceComplete || 0}/${entrypoint.otherGovernanceRequired || 0}, issues=${entrypoint.otherGovernanceIssueCount || 0}`,
     `- nonMatrixBoundary: complete=${entrypoint.boundaryComplete || 0}/${entrypoint.boundaryRequired || 0}, issues=${entrypoint.boundaryIssueCount || 0}`,
+    `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
       ? `- latestPreflight: ${payload.latestPreflight.runId}, pass=${payload.latestPreflight.pass}, quick=${payload.latestPreflight.quick}, source=${payload.latestPreflight.sourcePath || '-'}, hash=${(payload.latestPreflight.sourceHash || '').slice(0, 12) || '-'}`
       : '- latestPreflight: unavailable',
@@ -737,6 +830,23 @@ function buildMarkdown(payload) {
     '| coverage | tools | total |',
     '|---|---:|---:|',
     ...COVERAGE_TOTALS.map(item => `| ${item.label} (${item.key}) | ${payload.totals[item.key] || 0} | ${payload.totals.tools} |`),
+    '',
+    '## Traceability Catalog Coverage',
+    '',
+    '| catalog | covered tools | traces | manual review items | uncovered |',
+    '|---|---:|---:|---:|---|'
+  ];
+  const traceabilityCatalogCoverage = Array.isArray(payload.traceabilityCatalogCoverage) ? payload.traceabilityCatalogCoverage : [];
+  if (traceabilityCatalogCoverage.length === 0) {
+    lines.push('| - | 0 / 0 | 0 | 0 | - |');
+  } else {
+    for (const item of traceabilityCatalogCoverage) {
+      const uncovered = Array.isArray(item.uncoveredKeys) && item.uncoveredKeys.length ? item.uncoveredKeys.join(', ') : '-';
+      lines.push(`| ${markdownCell(item.family)} | ${item.covered || 0} / ${item.tools || 0} | ${item.traceCount || 0} | ${item.manualReviewCount || 0} | ${markdownCell(uncovered)} |`);
+    }
+  }
+
+  lines.push(
     '',
     '## Homepage Entrypoint Coverage',
     '',
@@ -757,7 +867,7 @@ function buildMarkdown(payload) {
     '',
     '| route | title | state | governance | clean route |',
     '|---|---|---|---|---|'
-  ];
+  );
 
   const outsideRoutes = Array.isArray(entrypoint.outsideMatrixRoutes) ? entrypoint.outsideMatrixRoutes : [];
   if (outsideRoutes.length === 0) {
@@ -869,8 +979,9 @@ function buildMatrix() {
     ...buildLocalQuickRows(state)
   ];
   const entrypointCoverage = buildEntrypointCoverage(state.homeEntrypoints, rows, state.vercelText, state.governanceSources, state.preflightEvidenceSummaries);
+  const traceabilityCatalogCoverage = buildTraceabilityCatalogCoverage(state);
   const payload = {
-    ...summarize(rows, state.preflightSummary, state.preflightSummarySource, state.sourceTrace, entrypointCoverage),
+    ...summarize(rows, state.preflightSummary, state.preflightSummarySource, state.sourceTrace, entrypointCoverage, state.preflightHistoryHealth, traceabilityCatalogCoverage),
     rows
   };
 
@@ -904,6 +1015,13 @@ function checkMatrix(payload, markdown) {
     'tool maturity matrix requires at least two golden cases for every governed tool'
   );
   assert.ok(Array.isArray(payload.topUpgradeTargets), 'tool maturity matrix exposes top upgrade targets');
+  assert.ok(payload.preflightHistoryHealth && typeof payload.preflightHistoryHealth === 'object', 'tool maturity matrix preflightHistoryHealth object');
+  assert.equal(Number.isInteger(payload.preflightHistoryHealth.count), true, 'tool maturity matrix preflightHistoryHealth count integer');
+  assert.equal(Number.isInteger(payload.preflightHistoryHealth.completedCount), true, 'tool maturity matrix preflightHistoryHealth completedCount integer');
+  assert.equal(Number.isInteger(payload.preflightHistoryHealth.inProgressCount), true, 'tool maturity matrix preflightHistoryHealth inProgressCount integer');
+  assert.equal(Number.isInteger(payload.preflightHistoryHealth.incompleteCount), true, 'tool maturity matrix preflightHistoryHealth incompleteCount integer');
+  assert.equal(typeof payload.preflightHistoryHealth.latestState, 'string', 'tool maturity matrix preflightHistoryHealth latestState string');
+  assert.ok(markdown.includes('preflightHistoryHealth:'), 'tool maturity matrix markdown exposes preflight history health');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
@@ -935,6 +1053,13 @@ function checkMatrix(payload, markdown) {
     assert.equal(route.pass, true, `tool maturity matrix other governance route pass: ${route.route}`);
   }
   assert.ok(markdown.includes('## Coverage Totals'), 'tool maturity matrix markdown exposes coverage totals');
+  assert.ok(markdown.includes('## Traceability Catalog Coverage'), 'tool maturity matrix markdown exposes traceability catalog coverage');
+  assert.ok(Array.isArray(payload.traceabilityCatalogCoverage), 'tool maturity matrix traceability catalog coverage array');
+  const rcTraceabilityCoverage = payload.traceabilityCatalogCoverage.find(item => item.family === 'rc-traceability');
+  assert.ok(rcTraceabilityCoverage, 'tool maturity matrix includes RC traceability catalog coverage');
+  assert.equal(rcTraceabilityCoverage.covered, rcTraceabilityCoverage.tools, 'tool maturity matrix RC traceability catalog fully covered');
+  assert.ok(rcTraceabilityCoverage.traceCount >= rcTraceabilityCoverage.tools, 'tool maturity matrix RC traceability catalog has traces');
+  assert.deepEqual(rcTraceabilityCoverage.uncoveredKeys, [], 'tool maturity matrix RC traceability catalog has no uncovered tools');
   assert.ok(markdown.includes('## Homepage Entrypoint Coverage'), 'tool maturity matrix exposes homepage entrypoint coverage');
   assert.ok(markdown.includes('### Other Governance Sources'), 'tool maturity matrix exposes other governance sources');
   assert.ok(markdown.includes('### Non-Matrix Boundary Checks'), 'tool maturity matrix exposes non-matrix boundary checks');
@@ -943,7 +1068,7 @@ function checkMatrix(payload, markdown) {
   assert.ok(markdown.includes('sourceManifests:'), 'tool maturity matrix markdown exposes source manifests');
   assert.ok(payload.sourceTrace && typeof payload.sourceTrace === 'object', 'tool maturity matrix sourceTrace object');
   assert.ok(Array.isArray(payload.sourceTrace.inputs), 'tool maturity matrix sourceTrace inputs array');
-  const requiredSourceKeys = ['formal-tools-manifest', 'local-quick-tools-manifest', 'vercel-routes', 'home-entrypoints'];
+  const requiredSourceKeys = ['formal-tools-manifest', 'formal-traceability-catalog', 'rc-traceability-catalog', 'local-quick-tools-manifest', 'vercel-routes', 'home-entrypoints'];
   for (const key of requiredSourceKeys) {
     const input = payload.sourceTrace.inputs.find(item => item.key === key);
     assert.ok(input, `tool maturity matrix sourceTrace includes ${key}`);

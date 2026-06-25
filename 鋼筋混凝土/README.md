@@ -30,6 +30,7 @@
 - 柱回歸測試與報告視覺 smoke
 - 板回歸測試與報告視覺 smoke
 - 牆回歸測試與報告視覺 smoke
+- RC 條文語意追蹤 catalog
 - 剪力牆完整 suite
 - 剪力牆報告視覺 smoke
 - 基礎回歸測試與報告視覺 smoke
@@ -40,6 +41,13 @@
 - menu card 目標頁皆回傳 HTTP 200。
 - browser console / page error / 4xx 或 5xx response 皆不得出現。
 - 各工具頁需有 title 與基本可見內容，並輸出首頁截圖與 JSON 稽核紀錄。
+
+RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-traceability.catalog.json:1)，目前覆蓋梁、柱、板、牆、剪力牆、基礎與單樁，集中登記：
+
+- 採用的規範章節與條文路線。
+- 對應輸入欄位、計算核心與報告落點。
+- 覆蓋該路線的 regression / browser smoke 證據檔。
+- 仍須依施工圖、專案模型或設計者判定人工複核的項目。
 
 梁報告視覺 smoke 已接在 [tools/test-beam.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-beam.ps1:1)，會以瀏覽器產生計算書，檢查：
 

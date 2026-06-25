@@ -33,6 +33,10 @@ const expectedCoverageTotals = [
   { key: 'jsonRoundTrip', label: 'JSON round-trip', value: '1 / 1' },
   { key: 'referenceTraceability', label: '工程依據追蹤', value: '1 / 1' },
 ];
+const expectedTraceabilityCatalogs = [
+  { family: 'formal-traceability', value: '1 / 1 tools；2 traces；2 manual-review items' },
+  { family: 'rc-traceability', value: '2 / 2 tools；5 traces；5 manual-review items' },
+];
 
 function fixtureOutputPath(relativePath) {
   return fixtureRoot + '/output/' + relativePath;
@@ -95,6 +99,12 @@ function preflightHistoryItem(overrides = {}) {
     generatedAt: fixtureGeneratedAt,
     quick: false,
     pass: false,
+    state: 'completed',
+    complete: true,
+    inProgress: false,
+    incomplete: false,
+    incompleteReason: '',
+    logFiles: [],
     failureCount: 1,
     failures: ['dashboard-fixture-failure'],
     recordsCount: preflightRecords.length,
@@ -179,6 +189,16 @@ const fixtures = new Map(Object.entries({
   'output/audit/tool-maturity-matrix.json': {
     generatedAt: fixtureGeneratedAt,
     latestPreflight: preflightHistoryItem(),
+    preflightHistoryHealth: {
+      count: 2,
+      completedCount: 2,
+      inProgressCount: 0,
+      incompleteCount: 0,
+      latestRunId: 'fixture-full',
+      latestState: 'completed',
+      latestCompletedRunId: 'fixture-full',
+      latestCompletedFullRunId: 'fixture-full',
+    },
     totals: {
       tools: 1,
       governed: 1,
@@ -198,6 +218,33 @@ const fixtures = new Map(Object.entries({
       referenceTraceability: 1,
     },
     topUpgradeTargets: [],
+    traceabilityCatalogCoverage: [
+      {
+        family: 'formal-traceability',
+        version: '0.1.0',
+        tools: 1,
+        covered: 1,
+        traceCount: 2,
+        manualReviewCount: 2,
+        uncoveredKeys: [],
+        toolKeys: ['fixture-tool'],
+        rows: [{ key: 'fixture-tool', label: 'Fixture tool', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true }],
+      },
+      {
+        family: 'rc-traceability',
+        version: '0.1.0',
+        tools: 2,
+        covered: 2,
+        traceCount: 5,
+        manualReviewCount: 5,
+        uncoveredKeys: [],
+        toolKeys: ['beam', 'column'],
+        rows: [
+          { key: 'beam', label: '梁', status: 'covered', traceCount: 3, manualReviewCount: 3, covered: true },
+          { key: 'column', label: '柱', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+        ],
+      },
+    ],
     entrypointCoverage: {
       total: 3,
       matrixCovered: 1,
@@ -253,6 +300,20 @@ const fixtures = new Map(Object.entries({
           sourcePath: '結構工具箱/tools/formal-tools.manifest.json',
           sourceMtime: fixtureGeneratedAt,
           sourceHash: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+          exists: true,
+        },
+        {
+          key: 'formal-traceability-catalog',
+          sourcePath: '結構工具箱/tools/formal-traceability.catalog.json',
+          sourceMtime: fixtureGeneratedAt,
+          sourceHash: '234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1',
+          exists: true,
+        },
+        {
+          key: 'rc-traceability-catalog',
+          sourcePath: '鋼筋混凝土/tools/rc-traceability.catalog.json',
+          sourceMtime: fixtureGeneratedAt,
+          sourceHash: '34567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12',
           exists: true,
         },
         {
@@ -312,6 +373,9 @@ const fixtures = new Map(Object.entries({
   },
   'output/preflight/preflight-history.json': {
     count: 2,
+    completedCount: 2,
+    inProgressCount: 0,
+    incompleteCount: 0,
     items: [
       preflightHistoryItem(),
       preflightHistoryItem({ runId: 'fixture-quick', quick: true, pass: true, failureCount: 0, failures: [], failedKeys: [], passedCount: 2 }),
@@ -721,6 +785,12 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         value: node.querySelector('span')?.textContent?.trim() || '',
         ok: node.classList.contains('ok'),
       }));
+      const traceabilityCatalogCoverage = Array.from(document.querySelectorAll('#traceabilityCatalogCoverage .coverage-total')).map((node) => ({
+        family: node.getAttribute('data-catalog-family') || '',
+        label: node.querySelector('strong')?.textContent?.trim() || '',
+        value: node.querySelector('span')?.textContent?.trim() || '',
+        ok: node.classList.contains('ok'),
+      }));
       const records = rows.map((row) => {
         const links = Array.from(row.querySelectorAll('a'));
         return {
@@ -748,6 +818,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         quickRunText,
         failureText,
         coverageTotals,
+        traceabilityCatalogCoverage,
         hasHistoryTable: !!document.querySelector('#preflightHistoryWrap table'),
         hasMaturityTable: !!document.querySelector('#maturityWrap table'),
         latestTime: document.getElementById('kpiLatestTime')?.textContent?.trim() || '',
@@ -811,8 +882,8 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
           historyHref: row.querySelector('td:nth-child(9) a:nth-child(2)')?.getAttribute('href') || '',
         })),
         platformHistoryHashes: Array.from(document.querySelectorAll('#historyWrap tbody tr')).map((row) => row.querySelector('td:nth-child(5)')?.textContent?.trim() || ''),
-        preflightHistoryHashes: Array.from(document.querySelectorAll('#preflightHistoryWrap tbody tr')).map((row) => row.querySelector('td:nth-child(10)')?.textContent?.trim() || ''),
-        preflightPostChecks: Array.from(document.querySelectorAll('#preflightHistoryWrap tbody tr')).map((row) => row.querySelector('td:nth-child(11)')?.textContent?.trim() || ''),
+        preflightHistoryHashes: Array.from(document.querySelectorAll('#preflightHistoryWrap tbody tr')).map((row) => row.querySelector('td:nth-child(11)')?.textContent?.trim() || ''),
+        preflightPostChecks: Array.from(document.querySelectorAll('#preflightHistoryWrap tbody tr')).map((row) => row.querySelector('td:nth-child(12)')?.textContent?.trim() || ''),
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
@@ -830,6 +901,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
       lastState.hasHistoryTable &&
       lastState.hasMaturityTable &&
       lastState.coverageTotals.length === expectedCoverageTotals.length &&
+      lastState.traceabilityCatalogCoverage.length >= (expectedLive ? (expectedLive.matrix.traceabilityCatalogCoverage || []).length : expectedTraceabilityCatalogs.length) &&
       lastState.maturityOtherGovernanceRows.length >= 1 &&
       lastState.maturityBoundaryRows.length >= 1 &&
       lastState.latestPostCheckRows.length === expectedPostCheckRows &&
@@ -885,6 +957,16 @@ function assertDashboardLiveState(state, label, expected) {
   assert.equal(state.hasMaturityTable, true, `${label} live maturity table rendered`);
   assert.deepEqual(state.coverageTotals.map(item => item.key), expectedCoverageTotals.map(item => item.key), `${label} live maturity coverage keys`);
   assert.equal(state.coverageTotals.every(item => item.ok), true, `${label} live maturity coverage all OK: ${JSON.stringify(state.coverageTotals)}`);
+  const expectedCatalogs = Array.isArray(matrix.traceabilityCatalogCoverage) ? matrix.traceabilityCatalogCoverage : [];
+  assert.equal(state.traceabilityCatalogCoverage.length, expectedCatalogs.length, `${label} live traceability catalog coverage count`);
+  for (const catalog of expectedCatalogs) {
+    const rendered = state.traceabilityCatalogCoverage.find(item => item.family === catalog.family);
+    assert.ok(rendered, `${label} live traceability catalog rendered: ${catalog.family}`);
+    assert.equal(rendered.ok, true, `${label} live traceability catalog OK: ${catalog.family} ${JSON.stringify(rendered)}`);
+    assert.ok(rendered.value.includes(`${catalog.covered} / ${catalog.tools} tools`), `${label} live traceability catalog tool coverage ${catalog.family}: ${rendered.value}`);
+    assert.ok(rendered.value.includes(`${catalog.traceCount} traces`), `${label} live traceability catalog trace count ${catalog.family}: ${rendered.value}`);
+    assert.ok(rendered.value.includes(`${catalog.manualReviewCount} manual-review items`), `${label} live traceability catalog review count ${catalog.family}: ${rendered.value}`);
+  }
   assert.ok(state.maturityPreflightHint.includes(`runId ${summary.runId}`), `${label} live maturity hint runId: ${state.maturityPreflightHint}`);
   assert.ok(state.maturityPreflightHint.includes(`通過 ${summary.passedCount} / ${summary.recordsCount}`), `${label} live maturity hint pass count: ${state.maturityPreflightHint}`);
   assert.deepEqual(state.latestPostCheckRows.map(row => row.key), postChecks.map(check => check.key), `${label} live latest post-check keys`);
@@ -1007,10 +1089,23 @@ function assertDashboardState(state, label, expectedLive = null) {
     expectedCoverageTotals.map((item) => ({ ...item, ok: true })),
     `${label} maturity coverage totals rendered`
   );
-  assert.equal(state.maturitySourceTrace.length, 2, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
+  assert.deepEqual(
+    state.traceabilityCatalogCoverage,
+    expectedTraceabilityCatalogs.map((item) => ({ ...item, label: item.family, ok: true })),
+    `${label} traceability catalog coverage rendered`
+  );
+  assert.equal(state.maturitySourceTrace.length, 4, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('formal-tools-manifest') && item.includes('1234567890ab')),
     `${label} maturity formal manifest source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
+  );
+  assert.ok(
+    state.maturitySourceTrace.some((item) => item.includes('formal-traceability-catalog') && item.includes('234567890abc')),
+    `${label} maturity formal traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
+  );
+  assert.ok(
+    state.maturitySourceTrace.some((item) => item.includes('rc-traceability-catalog') && item.includes('34567890abcd')),
+    `${label} maturity RC traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
   );
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('latest-preflight-summary') && item.includes('abcdef012345')),
@@ -1086,7 +1181,7 @@ async function main() {
       const historyRuns = Array.from(new Set(liveExpected.postChecks.map(check => String(check.historyLog || '').match(/history[\\/](\d{8}-\d{6})[\\/]/)?.[1]).filter(Boolean)));
       return ', liveRunId=' + liveExpected.summary.runId + ', livePostChecks=' + livePostChecksPassed + '/' + liveExpected.postChecks.length + ', liveHistoryPostChecks=' + (historyLatest.postChecksPassedCount ?? '-') + '/' + (historyLatest.postCheckCount ?? '-') + ', livePostCheckHistoryRuns=' + (historyRuns.join('|') || '-');
     })() : '';
-    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
+    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {

@@ -644,6 +644,87 @@ function Format-HistoryHashCell {
   return $Value.Substring(0, [Math]::Min(12, $Value.Length))
 }
 
+function Get-PreflightRunTextLogs {
+  param([string]$RunDirPath)
+
+  if ([string]::IsNullOrWhiteSpace($RunDirPath) -or -not (Test-Path -LiteralPath $RunDirPath)) {
+    return @()
+  }
+
+  return @(
+    Get-ChildItem -LiteralPath $RunDirPath -File -Filter "*.txt" -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -notmatch '\.(stdout|stderr)\.txt$' } |
+      Sort-Object Name |
+      Select-Object -First 20 |
+      ForEach-Object {
+        [pscustomobject]@{
+          name = $_.Name
+          path = $_.FullName
+          mtime = $_.LastWriteTime.ToString("o")
+          bytes = [int64]$_.Length
+        }
+      }
+  )
+}
+
+function Add-PreflightIncompleteHistoryItem {
+  param(
+    [System.Collections.Generic.List[object]]$Items,
+    [System.IO.DirectoryInfo]$Directory,
+    [string]$State,
+    [string]$Reason,
+    [string]$SummaryPath,
+    [string]$SummaryJsonPath
+  )
+
+  $logFiles = @(Get-PreflightRunTextLogs -RunDirPath $Directory.FullName)
+  $inProgress = ($State -eq "in-progress")
+  $failureCount = if ($inProgress) { 0 } else { 1 }
+  $failedKeys = if ($inProgress) { @() } else { @($Reason) }
+  $failures = if ($inProgress) { @() } else { @("${Reason}: run directory has no completed preflight summary") }
+
+  $Items.Add([pscustomobject]@{
+    runId = [string]$Directory.Name
+    generatedAt = $Directory.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+    quick = $false
+    forcePlatformAudit = $false
+    forceSlowChecks = $false
+    pass = $false
+    state = $State
+    complete = $false
+    inProgress = $inProgress
+    incomplete = (-not $inProgress)
+    failureCount = $failureCount
+    recordsCount = $logFiles.Count
+    passedCount = 0
+    failedKeys = @($failedKeys)
+    slowReuseCount = 0
+    slowReuseKeys = @()
+    platformAuditMode = ""
+    platformAuditReused = $null
+    platformAuditDecisionPath = ""
+    totalSeconds = 0.0
+    slowestKey = ""
+    slowestSeconds = 0.0
+    slowestText = "-"
+    slowestRecords = @()
+    postCheckCount = 0
+    postChecksPassedCount = 0
+    postCheckFailures = @()
+    postChecks = @()
+    failures = @($failures)
+    incompleteReason = $Reason
+    runDir = [string]$Directory.FullName
+    logFiles = @($logFiles)
+    summaryPath = $SummaryPath
+    summaryJsonPath = $SummaryJsonPath
+    summaryHash = Get-FileTextHash -Path $SummaryPath
+    summaryJsonHash = Get-FileTextHash -Path $SummaryJsonPath
+    summaryMtime = Get-FileMtimeIso -Path $SummaryPath
+    summaryJsonMtime = Get-FileMtimeIso -Path $SummaryJsonPath
+  })
+}
+
 function Update-PreflightHistoryManifest {
   $historyManifestPath = Join-Path $outputDir "preflight-history.json"
   $historyMarkdownPath = Join-Path $outputDir "preflight-history.md"
@@ -657,7 +738,12 @@ function Update-PreflightHistoryManifest {
   foreach ($dir in $runDirs) {
     $jsonPath = Join-Path $dir.FullName "preflight-summary.json"
     $markdownPath = Join-Path $dir.FullName "preflight-summary.md"
-    if (-not (Test-Path -LiteralPath $jsonPath)) { continue }
+    if (-not (Test-Path -LiteralPath $jsonPath)) {
+      $ageMinutes = ((Get-Date) - $dir.LastWriteTime).TotalMinutes
+      $runState = if ($ageMinutes -lt 10) { "in-progress" } else { "incomplete" }
+      Add-PreflightIncompleteHistoryItem -Items $historyItems -Directory $dir -State $runState -Reason "missing-summary" -SummaryPath $markdownPath -SummaryJsonPath $jsonPath
+      continue
+    }
     try {
       $payload = Get-Content -LiteralPath $jsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
       $records = @($payload.records)
@@ -785,6 +871,10 @@ function Update-PreflightHistoryManifest {
         forcePlatformAudit = [bool]$payload.forcePlatformAudit
         forceSlowChecks = [bool]$payload.forceSlowChecks
         pass = [bool]$payload.pass
+        state = "completed"
+        complete = $true
+        inProgress = $false
+        incomplete = $false
         failureCount = [int]$payload.failureCount
         recordsCount = $records.Count
         passedCount = $passedCount
@@ -804,6 +894,9 @@ function Update-PreflightHistoryManifest {
         postCheckFailures = $postCheckFailures
         postChecks = @($postChecks)
         failures = @($payload.failures)
+        incompleteReason = ""
+        runDir = [string]$dir.FullName
+        logFiles = @()
         summaryPath = $markdownPath
         summaryJsonPath = $jsonPath
         summaryHash = $summaryHash
@@ -812,18 +905,26 @@ function Update-PreflightHistoryManifest {
         summaryJsonMtime = $summaryJsonMtime
       })
     } catch {
+      Add-PreflightIncompleteHistoryItem -Items $historyItems -Directory $dir -State "invalid-summary" -Reason "invalid-summary" -SummaryPath $markdownPath -SummaryJsonPath $jsonPath
       continue
     }
   }
+
+  $completedCount = @($historyItems | Where-Object { $_.complete }).Count
+  $inProgressCount = @($historyItems | Where-Object { $_.inProgress }).Count
+  $incompleteCount = @($historyItems | Where-Object { $_.incomplete }).Count
 
   $historyLines.Add("# Tool Preflight History")
   $historyLines.Add("")
   $historyLines.Add("- generatedAt: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
   $historyLines.Add("- root: $root")
   $historyLines.Add("- count: $($historyItems.Count)")
+  $historyLines.Add("- completedCount: $completedCount")
+  $historyLines.Add("- inProgressCount: $inProgressCount")
+  $historyLines.Add("- incompleteCount: $incompleteCount")
   $historyLines.Add("")
-  $historyLines.Add("| runId | generatedAt | quick | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |")
-  $historyLines.Add("|---|---|---:|---:|---:|---|---:|---:|---|---:|---|---|---|---|---|---|---|")
+  $historyLines.Add("| runId | state | generatedAt | quick | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |")
+  $historyLines.Add("|---|---|---|---:|---:|---:|---|---:|---:|---|---:|---|---|---|---|---|---|---|")
   foreach ($item in $historyItems) {
     $platformMode = if ($item.platformAuditMode) { $item.platformAuditMode } else { "-" }
     $failedKeyText = Format-HistoryMarkdownListCell @($item.failedKeys)
@@ -833,13 +934,16 @@ function Update-PreflightHistoryManifest {
     $summaryHashText = Format-HistoryHashCell $item.summaryHash
     $summaryJsonHashText = Format-HistoryHashCell $item.summaryJsonHash
     $postCheckText = if ($item.postCheckCount -gt 0) { "$($item.postChecksPassedCount) / $($item.postCheckCount)" } else { "-" }
-    $historyLines.Add("| $($item.runId) | $($item.generatedAt) | $($item.quick) | $($item.pass) | $($item.failureCount) | $failedKeyText | $($item.passedCount) / $($item.recordsCount) | $($item.totalSeconds) | $platformMode | $($item.slowReuseCount) | $slowReuseKeyText | $($item.slowestText) | $summaryPathText | $summaryJsonPathText | $summaryHashText | $postCheckText | $summaryJsonHashText |")
+    $historyLines.Add("| $($item.runId) | $($item.state) | $($item.generatedAt) | $($item.quick) | $($item.pass) | $($item.failureCount) | $failedKeyText | $($item.passedCount) / $($item.recordsCount) | $($item.totalSeconds) | $platformMode | $($item.slowReuseCount) | $slowReuseKeyText | $($item.slowestText) | $summaryPathText | $summaryJsonPathText | $summaryHashText | $postCheckText | $summaryJsonHashText |")
   }
 
   [ordered]@{
     generatedAt = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
     root = $root
     count = $historyItems.Count
+    completedCount = $completedCount
+    inProgressCount = $inProgressCount
+    incompleteCount = $incompleteCount
     items = @($historyItems.ToArray())
   } | ForEach-Object { Write-JsonFile -Path $historyManifestPath -Value $_ -Depth 8 }
   Write-TextFile -Path $historyMarkdownPath -Value $historyLines

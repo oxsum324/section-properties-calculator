@@ -190,6 +190,21 @@ flowchart TD
 
 高頻 quick 工具若已有列印計算書，簡易結果與詳算式都要保留精簡限制說明，例如「不在本頁範圍」、「正式詳算」或需轉往其他正式工具的提示。這些必要字串集中登記於 `local-quick-tools.manifest.json` 的 `reportNeedles`，由 `local-quick-tools.contract.test.js` 檢查來源頁面，並由 `local-quick-browser-smoke.test.js` 檢查實際開出的兩種報告模式。
 
+### 條文語意追蹤
+
+正式風力 / 地震工具除了 `reportNeedles` 與 golden case 之外，還需在 `formal-traceability.catalog.json` 登記條文語意追蹤。每一個正式工具至少要有一筆 trace，並列出：
+
+- 規範條文、表、圖或公式。
+- 對應輸入欄位。
+- 計算路線或控制值判定。
+- 報告落點或 selector。
+- 覆蓋該路線的 golden case。
+- 仍須由設計者依施工圖、專案文件、風洞資料或分析模型確認的人工複核事項。
+
+工具成熟度矩陣的 `referenceTraceability` 應以這份 catalog 作為結構化依據；不得只因頁面含有「規範」、「表」、「式」或「圖」等字樣就判定為工程依據已可追蹤。
+
+RC、鋼構或其他正式家族若已有獨立 audit，可採同一模式建立家族 catalog，例如 `鋼筋混凝土/tools/rc-traceability.catalog.json`。這類 catalog 至少要能追到規範來源、輸入、計算核心、報告落點、回歸證據與人工複核邊界，並由該家族的 contract test 納入巡檢。
+
 ### 採用依據文字
 
 應使用：

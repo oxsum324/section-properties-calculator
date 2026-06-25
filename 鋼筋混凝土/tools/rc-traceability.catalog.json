@@ -1,0 +1,323 @@
+{
+  "version": "0.1.0",
+  "family": "rc-traceability",
+  "description": "RC 正式工具的條文語意追蹤表。每筆 trace 將規範依據、輸入欄位、計算路線、報告落點、測試證據與人工複核事項對齊，避免只因頁面含有條文關鍵字就誤判為工程依據已可追溯。",
+  "tools": [
+    {
+      "key": "beam",
+      "label": "梁",
+      "scope": "RC 梁撓曲、剪力、扭力、SMRF 細部與握裹 / 搭接檢核",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "beam-flexure-21-22",
+          "clause": "混凝土結構設計規範 112 年版 21.2.2 / 22.2",
+          "purpose": "正負彎矩與 T 梁 / 矩形梁撓曲強度以同一應變相容路線輸出 φMn 與最少鋼筋判定。",
+          "inputs": ["sectionType", "bw", "bf", "hf", "h", "fc", "fy", "AsTop", "AsBot", "MuPos", "MuNeg"],
+          "calculation": ["β1", "εt", "φMn+", "φMn-", "As,min", "ρmax"],
+          "report": ["撓曲檢核", "φMn⁺ ≥ +Mu", "φMn⁻ ≥ −Mu", "梁斷面 (含底/頂主筋與箍筋)"],
+          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js"],
+          "manualReview": ["T 梁有效翼寬、端部負筋截斷、開孔或集中載重造成之局部應力仍須依施工圖與專案模型人工複核。"]
+        },
+        {
+          "id": "beam-shear-torsion-22-5-22-7",
+          "clause": "混凝土結構設計規範 112 年版 22.5 / 22.7",
+          "purpose": "剪力採 Vc + Vs 判定，扭力只自動判定 Tu 是否可忽略；超過門檻時承接專案 22.7 詳算結論。",
+          "inputs": ["Vu", "Ve", "Tu", "enableTorsion", "torsionDesignStatus", "torsionAtPerS", "torsionAl", "stirrup", "legs", "s"],
+          "calculation": ["Vd = max(Vu, Ve)", "Vc", "Vs", "φVn", "Tu,th", "22.7 詳算結論"],
+          "report": ["剪力檢核", "φVn ≥ Vd", "22.7 扭力詳算結論", "扭力詳算人工複核"],
+          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js"],
+          "manualReview": ["Tu 超過可忽略門檻時，At/s、Al 與扭力箍筋細部須由專案 22.7 詳算與施工圖人工複核。"]
+        },
+        {
+          "id": "beam-smrf-18-3",
+          "clause": "混凝土結構設計規範 112 年版 18.3.2 / 18.3.3.2 / 18.3.4 / 18.3.5",
+          "purpose": "SMRF 梁幾何、支承斷面強度比、塑鉸區圍束、首支箍筋與 Vc 歸零語意分開呈現。",
+          "inputs": ["seismic", "ln", "h", "smrfMnMin", "firstHoopDist", "lapStart", "lapEnd", "Ve", "Pu", "Ag"],
+          "calculation": ["支承斷面 Mn⁺ / Mn⁻ 比", "跨內 Mn ≥ 端部 Mn / 4", "塑鉸區 ℓo = 2h", "首支箍筋 ≤ 5 cm", "耐震 Vc=0"],
+          "report": ["SMRF 18.3.3.2 強度比", "SMRF 18.3.4 梁端圍束細節", "跨內 Mn", "首支箍筋位置", "耐震 Vc=0"],
+          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js"],
+          "manualReview": ["跨內 Mn、首支箍筋距柱面、塑鉸區搭接位置與柱梁接頭範圍須依配筋圖與專案文件確認。"]
+        },
+        {
+          "id": "beam-development-25",
+          "clause": "混凝土結構設計規範 112 年版第 25 章",
+          "purpose": "直線錨定可自動比對 ℓd，彎鉤、機械錨定、端部構造與搭接位置列為人工複核。",
+          "inputs": ["leftAnchorage", "rightAnchorage", "leftType", "rightType", "lapClass", "lapLength", "lapStart", "lapEnd"],
+          "calculation": ["ℓd,req", "左端錨定長度", "右端錨定長度", "搭接長度 ℓs", "SMRF 搭接避開塑鉸區"],
+          "report": ["握裹 / 搭接長度", "人工複核 / 補充資料需求", "梁端錨定", "搭接 / 施工圖", "不列為 OK 結論"],
+          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js"],
+          "manualReview": ["彎鉤、機械錨定、搭接區段、產品認可資料與實際鋼筋配置須由設計者依施工圖人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "column",
+      "label": "柱",
+      "scope": "RC 柱 P-M、雙軸彎矩、剪力、耐震細部、錨定與搭接檢核",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "column-pm-21-22",
+          "clause": "混凝土結構設計規範 112 年版 21.2.2 / 22.2 / 22.4.2",
+          "purpose": "單軸 P-M 與雙軸 P-Mx-My 容量以應變相容核心為主，Bresler 僅作傳統近似對照。",
+          "inputs": ["Pu", "Mux", "Muy", "fc", "fy", "colType", "b", "h", "D", "barNo", "barCount"],
+          "calculation": ["PMSection.curve", "φPn,max", "φMn@Pu", "雙向 P-Mx-My 角度掃描", "Bresler reciprocal"],
+          "report": ["P-M 互制檢核", "單軸 / 雙軸 P-M 強度", "P-Mx-My 角度掃描", "Bresler 參考值"],
+          "evidence": ["tools/column-regression.test.js", "tools/column-regression-cases.json", "tools/column-report-visual.test.js"],
+          "manualReview": ["雙軸彎矩、非標準鋼筋排列、開孔或不規則柱斷面須依完整分析模型與配筋圖人工複核。"]
+        },
+        {
+          "id": "column-shear-10-6-22-5",
+          "clause": "混凝土結構設計規範 112 年版 10.6.2 / 22.5 / 22.5.1.2",
+          "purpose": "X/Y 向剪力同時檢核 φVn、Av,min 與斷面尺度上限，避免只看單一剪力通過值。",
+          "inputs": ["Vu", "Vuy", "autoVe", "tieS", "crossTieS", "fyt", "Pu", "Ag", "fc", "lambda"],
+          "calculation": ["Vc", "Vs", "φVn", "10.6.2 Av,min", "22.5.1.2 斷面上限", "箍筋建議間距"],
+          "report": ["剪力檢核 (X / Y 向)", "φVn ≥ Vd,x/Vd,y", "10.6.2 Av,min", "22.5.1.2 斷面上限"],
+          "evidence": ["tools/column-regression.test.js", "tools/column-regression-cases.json", "tools/column-report-visual.test.js"],
+          "manualReview": ["扭矩、剪扭耦合、特殊節點核心剪力與梁柱接頭區剪力須由專案模型另行確認。"]
+        },
+        {
+          "id": "column-smrf-18-4",
+          "clause": "混凝土結構設計規範 112 年版 18.4.3.2 / 18.4.5.2 / 18.4.5.3 / 表 18.4.5.4 / 18.4.5.5 / 18.4.6",
+          "purpose": "SMRF 柱強柱弱梁、橫向鋼筋間距與圍束、設計剪力 Ve 與 Vc 歸零狀態分項揭露。",
+          "inputs": ["seismic", "scwbBeamXLeft", "scwbBeamXRight", "VeBeamCapX", "seismicHx", "firstHoopDist", "outsideTieS", "sTie", "nLegTie"],
+          "calculation": ["ΣMnc ≥ 1.2ΣMnb", "Ve = Mpr 控制剪力", "18.4.5.2 側撐", "18.4.5.3 間距 / 首支", "表 18.4.5.4 圍束筋量", "18.4.6.2.1 Vc 歸零"],
+          "report": ["強柱弱梁", "耐震設計剪力 Ve", "橫向鋼筋間距與圍束", "18.4.5.3 首支", "表 18.4.5.4 圍束筋量"],
+          "evidence": ["tools/column-regression.test.js", "tools/column-regression-cases.json", "tools/column-report-visual.test.js"],
+          "manualReview": ["梁端 Mnb / Mpr 來源、柱端塑鉸區、繫筋轉角與外區間距須依梁頁輸出、接頭設計資料與施工詳圖人工複核。"]
+        },
+        {
+          "id": "column-development-lap-25-18-4",
+          "clause": "混凝土結構設計規範 112 年版 25.4.2 / 25.5.2 / 18.4.4.3",
+          "purpose": "柱端直線錨定、非直線錨定、耐震搭接位置與 Class A/B 需求分開判定，缺資料時不列為 OK。",
+          "inputs": ["columnDevTop", "columnDevBottom", "columnDevTopType", "columnDevBottomType", "lapSpliceStart", "lapSpliceEnd", "lapSpliceLength", "lapSpliceClassRequested"],
+          "calculation": ["25.4.2 ℓd", "非直線錨定人工複核", "18.4.4.3 搭接位置", "25.5.2 搭接長度", "Class A 條件"],
+          "report": ["握裹 / 搭接長度 (規範 25 章)", "柱端錨定", "耐震搭接", "缺漏 / 複核摘要", "人工複核 / 未輸入"],
+          "evidence": ["tools/column-regression.test.js", "tools/column-regression-cases.json", "tools/column-report-visual.test.js", "tools/column-report-visual.contract.test.js"],
+          "manualReview": ["彎鉤錨定、機械錨定、搭接實際區段、產品認可資料與施工圖仍須由設計者人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "slab",
+      "label": "板",
+      "scope": "單向板、雙向有梁板與無梁版初步設計、剪力 / 衝剪與配筋細部",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "slab-one-way-6-5",
+          "clause": "混凝土結構設計規範 112 年版 6.5 / 9.3.1.1 / 21.2.2 / 24.4.3",
+          "purpose": "單向板以連續板係數法建立 1 m 條帶撓曲、溫度收縮筋與最小厚度檢核。",
+          "inputs": ["stype", "Lx", "Ly", "h", "fc", "fy", "fyT", "wu", "supportType", "barX", "sX", "barY", "sY"],
+          "calculation": ["6.5 連續板係數", "φMn = φAsfy(d-a/2)", "9.3.1.1 最小厚度", "24.4.3 溫度收縮筋", "7.7.2.3 間距"],
+          "report": ["單向板：規範 6.5 連續板係數法", "板 1 m 寬條帶斷面配筋示意", "溫度收縮筋檢核", "單向板長向：此方向僅配溫度收縮筋"],
+          "evidence": ["tools/slab-regression.test.js", "tools/slab-regression-cases.json", "tools/slab-report-visual.test.js"],
+          "manualReview": ["開口、局部集中載重、支承拘束與施工階段載重須依專案樓板模型與施工圖人工複核。"]
+        },
+        {
+          "id": "slab-two-way-flat-boundary",
+          "clause": "混凝土結構設計規範 112 年版 8.3.1.1 / 8.3.1.2 / 8.10 / 8.11",
+          "purpose": "雙向有梁板與無梁版目前為簡化條帶初估，需明確揭露不等於完整 DDM / EFM。",
+          "inputs": ["stype", "alpha_fm", "panelPos", "hasDrop", "Lx", "Ly", "wu", "punchMode", "colPos"],
+          "calculation": ["最小厚度 hmin", "Rankine-Grashof 載重分配", "規範 6.5 條帶係數", "DDM / EFM 缺口提示", "待確認事項匯總"],
+          "report": ["雙向板 (有梁)", "簡化二向條帶法", "完整 8.10 DDM / EFM", "待確認 / 正式分析需求", "不列為 OK 結論"],
+          "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js"],
+          "manualReview": ["總靜力矩分配、column strip / middle strip、邊柱列與角柱列處理須以 DDM / EFM 或專案模型正式分析確認。"]
+        },
+        {
+          "id": "slab-shear-punching-22-5-22-6",
+          "clause": "混凝土結構設計規範 112 年版 22.5 / 22.6 / 25.2.1",
+          "purpose": "一向剪力與雙向衝剪可選擇是否計入剪力補強，並把 unbalanced moment transfer 與偏心剪力列為正式分析邊界。",
+          "inputs": ["VuX", "VuY", "enableShearReinf", "puOn", "puType", "puFyt", "puLeg", "puS", "c1", "c2", "punchAmp"],
+          "calculation": ["φVc", "φVn = φ(Vc + Vs)", "衝剪 bo / βc / αs", "22.6 衝剪鋼筋", "25.2.1 淨距"],
+          "report": ["剪力與衝剪", "雙向衝剪", "φVn ≥ Vu (衝剪)", "unbalanced moment transfer", "待確認事項 1"],
+          "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js"],
+          "manualReview": ["衝剪鋼筋錨定、配置延伸範圍、邊柱 / 角柱偏心剪力與不平衡彎矩轉移須由專案樓板模型或正式手算人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "wall",
+      "label": "牆",
+      "scope": "一般結構牆、地下室外牆與特殊結構牆快速檢核",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "wall-18-7-method-boundary",
+          "clause": "混凝土結構設計規範 112 年版第 11 章與第 18.7 章",
+          "purpose": "區分規範檢核、工程近似與概算，避免把初步判定誤列為完整正式分析。",
+          "inputs": ["wallType", "seismic", "fc", "fy", "tw", "lw", "hw", "Vu", "Mu", "Pu", "rhoL", "rhoT"],
+          "calculation": ["牆幾何與最小配筋檢核", "18.7.2.4 材料限制", "18.7.4.4 剪力上限", "總判定合併待確認事項"],
+          "report": ["條文對照 ＆ 方法分級", "規範檢核", "待確認 / 正式分析需求"],
+          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js"],
+          "manualReview": ["開口牆、連肢牆、多片牆耦合效應與力流分配須依施工圖及分析模型人工複核。"]
+        },
+        {
+          "id": "wall-sbe-extension-18-7-6",
+          "clause": "混凝土結構設計規範 112 年版 18.7.6.2 / 18.7.6.3 / 18.7.6.4",
+          "purpose": "揭露特殊邊界構材觸發、水平延伸與圍束細部的採用路線。",
+          "inputs": ["duhw", "sigmaMax", "fc", "lw", "c", "sbeExtMethod", "sbeStressData", "lbe", "bComp", "hx", "sTie"],
+          "calculation": ["應變法 c 上限", "應力法 0.2fc' 觸發", "0.15fc' 水平延伸終止", "SBE 細部與圍束檢核"],
+          "report": ["SBE 沿水平延伸", "應變法觸發 (18.7.6.2)", "SBE 搭接禁區 hsx", "正式分析需求"],
+          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js"],
+          "manualReview": ["SBE 範圍、搭接禁區、圍束筋配置與實際施工縫位置仍須依施工圖正式分析確認。"]
+        },
+        {
+          "id": "wall-out-of-plane-11-8",
+          "clause": "混凝土結構設計規範 112 年版 11.8 與 19.2.2",
+          "purpose": "地下室外牆面外 P-Delta 與材料彈性模數路線分開揭露，不與面內耐震牆判定混用。",
+          "inputs": ["lc", "h", "soilPressure", "surcharge", "fc", "Ec", "serviceLoad", "outOfPlaneMethod"],
+          "calculation": ["Ec = 12000√fc'", "面外 P-Delta 迭代", "服務載重撓度上限", "地下室外牆土壓概算"],
+          "report": ["面外撓曲 P-Δ 求解法", "地下室外牆土壓概算", "計算過程 — 面外 P-Δ ＆ SBE 延伸"],
+          "evidence": ["tools/wall-report-visual.test.js"],
+          "manualReview": ["土壓係數、支承條件、開口與實際背填排水條件須由設計者依專案資料複核。"]
+        },
+        {
+          "id": "wall-detailing-22-9",
+          "clause": "混凝土結構設計規範 112 年版 22.9 與第 18.7 章細部規定",
+          "purpose": "施工縫剪摩擦、開口補強與細部警示列為待確認，不併入無條件 OK。",
+          "inputs": ["hasConstrJoint", "jointSurface", "fy_sf", "Avf", "opening", "spliceZone", "reviewWarnings"],
+          "calculation": ["剪摩擦需求 Avf", "剪摩擦 Vn 上限", "開口補強提醒", "待確認事項匯總"],
+          "report": ["施工縫剪摩擦", "待確認 / 正式分析需求", "不列為 OK 結論"],
+          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js"],
+          "manualReview": ["施工縫粗糙度、穿縫鋼筋、開口補強與搭接位置須依施工圖人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "shear-wall",
+      "label": "剪力牆",
+      "scope": "特殊結構牆面內 P-M、剪力、SBE 與多工況檢核",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "shear-wall-pm-18-7-5",
+          "clause": "混凝土結構設計規範 112 年版 18.7.5 與 21.2.2",
+          "purpose": "以應變相容 P-M 互制判定 Pu / Mu 是否落於設計封包，並在 Pu 軸力越界時停用 c@Pu 與 φMn 採用。",
+          "inputs": ["Pu", "Mu", "fc", "fy", "tw", "lw", "cover", "nBE", "dBE", "lbe", "dV", "sV", "nLayer"],
+          "calculation": ["WallBase.buildBase", "PMSection.curve", "φPn,max = φc x 0.80 x Po", "c@Pu 內插", "|Mu| / φMn"],
+          "report": ["面內 P-M 互制圖", "φPn,max 上限", "Pu 超出 P-M 封包，c@Pu 不採用", "不適用"],
+          "evidence": ["shared/pmsection.test.js", "shared/wall-base.test.js", "tools/shear-wall-regression.test.js", "tools/shear-wall-report-visual.test.js"],
+          "manualReview": ["非單一實牆、開口牆、連肢牆與邊界集中配筋假設須由完整分析模型及施工圖人工複核。"]
+        },
+        {
+          "id": "shear-wall-shear-18-7-3-4",
+          "clause": "混凝土結構設計規範 112 年版 18.7.3 / 18.7.4 / 21.2.4.1",
+          "purpose": "設計剪力 Ve、標稱剪力 Vn、剪力 φ 與多工況控制值統一由共用 evaluator 判定。",
+          "inputs": ["shearDemandMode", "Vu", "Vuns", "VuEh", "omegaV", "omegaW", "lambda", "rhot", "fy", "loadCasesText"],
+          "calculation": ["Ve = Vuns + Ωv x ωv x VuEh", "Vn = Acv(αcλ√fc' + ρt fy)", "Vmn = Ve x Mn / |Mu|", "LoadCases.pickControls"],
+          "report": ["面內剪力 (規範 18.7.3 / 18.7.4)", "18.7.3 剪力放大", "多組載重工況控制", "剪力 φ"],
+          "evidence": ["shared/loadcases.test.js", "shared/wall-evaluator.test.js", "tools/shear-wall-regression.test.js"],
+          "manualReview": ["地震力放大來源、載重組合、牆段耦合與模型內力分配須由設計者依專案分析模型確認。"]
+        },
+        {
+          "id": "shear-wall-sbe-18-7-6",
+          "clause": "混凝土結構設計規範 112 年版 18.7.6.2 / 18.7.6.3 / 18.7.6.4 / 18.7.6.5",
+          "purpose": "SBE 需求是觸發設計與待確認事項，不是單純合格或不合格狀態。",
+          "inputs": ["duhw", "sigmaFiber", "cAtPu", "cLimit", "sbeReq", "lbe", "bComp", "hx", "sTie", "AshProv", "AshReq"],
+          "calculation": ["應變法 c >= cLimit", "應力法 sigma > 0.2fc'", "水平長度 max(c - 0.1lw, c/2)", "圍束筋間距與 Ash 需求"],
+          "report": ["特殊邊界構材", "應變法", "應力法", "SBE 提供量", "待確認事項"],
+          "evidence": ["shared/wall-evaluator.test.js", "tools/shear-wall-regression.test.js", "tools/shear-wall-report-visual.test.js"],
+          "manualReview": ["SBE 端區實際範圍、U 型筋或端部彎鉤、橫向束制與搭接區須配合施工圖正式分析確認。"]
+        },
+        {
+          "id": "shear-wall-scope-review-boundary",
+          "clause": "混凝土結構設計規範 112 年版第 11 章與第 18.7 章適用範圍",
+          "purpose": "將單一牆段、無開口與分析模型已完成等前提寫入計算書，並把超出假設者列為待確認。",
+          "inputs": ["scopeSingleWall", "scopeNoOpening", "scopeAnalysisReady", "geomModelOk", "reviewWarnings"],
+          "calculation": ["WallEvaluator.reviewWarnings", "幾何模型退化硬檢核", "summary banner 合併 pending-review count"],
+          "report": ["適用範圍與模型邊界", "開口牆", "連肢牆", "不列為 OK 結論"],
+          "evidence": ["shared/wall-base.test.js", "shared/wall-evaluator.test.js", "tools/shear-wall-regression.test.js", "tools/shear-wall-report-visual.test.js"],
+          "manualReview": ["開口、連梁、樓版約束、基礎邊界與整體模型假設須由專案模型及圖說人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "foundation",
+      "label": "基礎",
+      "scope": "獨立基腳、聯合基腳、筏式基礎、樁基 / 樁帽與擋土牆初步檢核",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "foundation-isolated-spread-structural",
+          "clause": "混凝土結構設計規範 112 年版基礎設計、單向剪力、雙向衝剪與撓曲強度規定",
+          "purpose": "獨立基腳同步揭露土壓 / 偏心 / 穩定、單向剪力、衝剪、撓曲與握裹判定。",
+          "inputs": ["B", "L", "hf", "Pu", "Mx", "My", "qa", "fc", "fy", "AsX", "AsY"],
+          "calculation": ["qmax / qmin", "抗滑 FS", "抗傾覆 FS", "φVc 單向", "φVc 衝剪", "φMn", "ℓd 可用"],
+          "report": ["基礎設計計算書 — 獨立基腳", "容許土壓 / 偏心 / 抗滑 / 抗傾覆", "φVc ≥ Vu (單向)", "φVc ≥ Vu (衝剪)", "φMn ≥ Mu", "握裹"],
+          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-regression-cases.json", "tools/foundation-report-visual.test.js"],
+          "manualReview": ["基底土壓分布、地盤承載、地下水、地震土壓與施工偏心須依地工報告與專案模型人工複核。"]
+        },
+        {
+          "id": "foundation-combined-mat-review-boundary",
+          "clause": "混凝土結構設計規範 112 年版聯合基腳、筏式基礎與樓板分析相關規定",
+          "purpose": "聯合基腳與筏基目前為代表控制或 tributary 初步檢核，數值通過仍須列為正式分析待確認。",
+          "inputs": ["tab", "columnLoads", "B", "L", "hf", "soilSpring", "tributaryColumns", "ddmAvailable"],
+          "calculation": ["長向梁化包絡", "各柱衝剪", "多代表柱 tributary", "DDM / EFM 缺口", "彈簧床分析邊界"],
+          "report": ["基礎設計計算書 — 聯合基腳", "待確認 / 正式聯合基腳分析需求", "基礎設計計算書 — 筏式基礎", "待確認 / 正式筏基分析需求", "不列為 OK 結論"],
+          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js"],
+          "manualReview": ["聯合基腳長向反力、筏基 DDM / EFM、彈簧床互制、柱間局部效應與配筋分布須由正式基礎模型人工複核。"]
+        },
+        {
+          "id": "foundation-pile-cap",
+          "clause": "混凝土結構設計規範 112 年版樁基、樁帽、衝剪與樁身檢核規定",
+          "purpose": "樁基 / 樁帽把群樁反力、單樁承載、服務性、樁身壓應力、樁帽撓曲 / 剪力 / 衝剪分區呈現。",
+          "inputs": ["pileLayout", "pileSpacing", "pileLoads", "soilProfile", "Qallow", "settlementAllow", "capDepth", "capRebar"],
+          "calculation": ["Ri = P/n ± Mx yi / Σy² ± My xi / Σx²", "Rmax ≤ Qallow,eff", "Wo ≤ 容許沉陷", "樁身壓應力", "樁帽 φMn / φVc / φVn", "逐層承載力表"],
+          "report": ["基礎設計計算書 — 樁基／樁帽", "土層與單樁承載", "群樁構造", "服務性與樁身", "樁帽結構", "逐層承載力表"],
+          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js"],
+          "manualReview": ["群樁效率、側向反應、負摩擦、試樁結果、樁帽力流與樁位偏差須依地工報告與專案模型人工複核。"]
+        },
+        {
+          "id": "foundation-retaining-wall-boundary",
+          "clause": "混凝土結構設計規範 112 年版擋土牆穩定、牆身撓曲與剪力檢核規定",
+          "purpose": "擋土牆穩定與牆身強度可列初步結果，扶壁式雙向板 / T 梁系統不足須明確列為待確認。",
+          "inputs": ["wallType", "H", "soilPressure", "surcharge", "baseWidth", "stemRebar", "sf", "fc", "fy"],
+          "calculation": ["抗滑 FS", "抗傾覆 FS", "牆身 φMn", "牆身 φVc", "扶壁間距 sf 缺口"],
+          "report": ["基礎設計計算書 — 擋土牆", "穩定檢核", "牆身強度檢核", "待確認 / 正式扶壁系統分析需求", "雙向板 / T 梁系統分析"],
+          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js"],
+          "manualReview": ["扶壁式擋土牆、土壓型態、排水、地震土壓、基底滑動與牆踵牆趾配筋須由正式分析與施工圖人工複核。"]
+        }
+      ]
+    },
+    {
+      "key": "single-pile",
+      "label": "單樁",
+      "scope": "單樁承載力、沉陷、樁身壓應力與規範假設檢核",
+      "status": "covered",
+      "traces": [
+        {
+          "id": "single-pile-bearing-regulation",
+          "clause": "112 年版基礎規範支承力推估公式與規範分項 FS",
+          "purpose": "規範模式下以 Qs + Qb 與分項安全係數計算長期 / 短期容許承載，並停用整體 FS 自由輸入。",
+          "inputs": ["calcMode", "regulationMethod", "pileType", "pileInstall", "longTermLoad", "shortTermLoad", "soilProfile", "diameterRange", "depthRange"],
+          "calculation": ["黏土樁周摩擦 αc", "砂層 Kσ'v tanδ", "砂層端承 Nq* 與 20D 臨界深度", "常時 Qs/2.5 + Qb/3.5", "短期 Qs/1.8 + Qb/2.5", "候選方案矩陣"],
+          "report": ["單樁承載力設計計算書", "規範模式", "規範靜力學公式", "規範分項 FS", "土層與單樁承載", "候選方案矩陣"],
+          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js"],
+          "manualReview": ["N 值、c、φ、γ'、地下水位、礫石或岩盤特殊地層須由地工報告、試樁結果或專案規範人工複核。"]
+        },
+        {
+          "id": "single-pile-service-stress",
+          "clause": "112 年版基礎規範單樁服務性、樁身壓應力與承載檢核規定",
+          "purpose": "同一候選方案需同時滿足 Qall、沉陷與樁身壓應力，不只以承載力排序。",
+          "inputs": ["factoredLoad", "allowSettlement", "settlementMode", "fc", "pileDiameter", "pileDepth", "unitWeightPile"],
+          "calculation": ["Qall 長期 / 短期", "Ws + Wpp + Wps", "Wo ≤ 容許沉陷", "Pu / Ag ≤ 0.7 x 0.85 x 0.85 x fc'", "控制候選方案"],
+          "report": ["服務性與樁身", "Qall 長期 ≥ 服務需求", "Wo ≤ 容許沉陷", "樁身壓應力", "土層與單樁採用深度"],
+          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js"],
+          "manualReview": ["沉陷係數、長期荷重、施工法、樁材強度與樁身完整性須由地工資料、材料規格與專案條件人工複核。"]
+        },
+        {
+          "id": "single-pile-manual-review-boundary",
+          "clause": "112 年版基礎規範假設檢核與專案地工資料複核要求",
+          "purpose": "自訂細部折減、安全係數或 N 值經驗式適用性超出預設保守邊界時，報告不得列為自動 OK。",
+          "inputs": ["alphaSoft", "alphaMedium", "alphaStiff", "deltaRatio", "sandKDriven", "sandKBored", "sandFsCap", "denseSandFsCap", "regulationMethod"],
+          "calculation": ["規範假設檢核", "reviewWarnings", "complianceWarningCount", "summaryOk = null"],
+          "report": ["規範假設檢核", "人工複核 / 補充資料需求", "人工複核項目 1", "不列為 OK 結論", "細部折減參數"],
+          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js"],
+          "manualReview": ["α、K、δ/φ、fs 上限、安全係數、N 值經驗式適用性與特殊地層不得只依預設值定案，須依地工報告或試樁結果人工複核。"]
+        }
+      ]
+    }
+  ]
+}

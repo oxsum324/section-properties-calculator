@@ -36,6 +36,8 @@ const manifestPath = assertFile('tools/formal-tools.manifest.json');
 const manifestText = readText(manifestPath);
 const manifest = JSON.parse(manifestText);
 const tools = manifest.tools;
+const traceCatalogPath = assertFile(manifest.shared.traceabilityCatalog);
+const traceCatalog = JSON.parse(readText(traceCatalogPath));
 
 assert.equal(manifest.version, '0.1.0', 'formal tools manifest version');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
@@ -85,6 +87,7 @@ const repoDocs = {
   'manifest.shared.contractTest',
   'manifest.shared.browserSmokeTest',
   'manifest.shared.maturityMatrix',
+  'manifest.shared.traceabilityCatalog',
   'runNode'
 ].forEach(needle => assertIncludes(repoDocs.runner, needle, 'formal tools runner'));
 
@@ -125,6 +128,8 @@ const repoDocs = {
   assertIncludes(repoDocs.staging, needle, 'STAGING_GROUPS formal tools governance');
 });
 assertIncludes(repoDocs.reportGuide, 'formal-tools.manifest.json', 'TOOL_REPORT_GUIDE formal manifest');
+assertIncludes(repoDocs.reportGuide, 'formal-traceability.catalog.json', 'TOOL_REPORT_GUIDE formal traceability catalog');
+assertIncludes(repoDocs.reportGuide, '條文語意追蹤', 'TOOL_REPORT_GUIDE traceability section');
 assertIncludes(repoDocs.reportGuide, 'reportDisclosureNeedles', 'TOOL_REPORT_GUIDE report disclosure needles');
 assertIncludes(repoDocs.reportGuide, '建築物耐風設計規範及解說', 'TOOL_REPORT_GUIDE wind report disclosure');
 assertIncludes(repoDocs.reportGuide, '建築物耐震設計規範及解說', 'TOOL_REPORT_GUIDE seismic report disclosure');
@@ -134,6 +139,16 @@ const routeSet = new Set();
 const keySet = new Set();
 const reportForbidden = manifest.reportForbiddenNeedles || [];
 const reportDisclosureNeedles = manifest.reportDisclosureNeedles || {};
+const traceTools = Array.isArray(traceCatalog.tools) ? traceCatalog.tools : [];
+const traceByKey = new Map(traceTools.map(tool => [tool.key, tool]));
+
+assert.equal(traceCatalog.version, '0.1.0', 'formal traceability catalog version');
+assert.equal(traceCatalog.family, 'formal-traceability', 'formal traceability catalog family');
+assert.deepEqual(
+  traceTools.map(tool => tool.key),
+  tools.map(tool => tool.key),
+  'formal traceability catalog must match formal tool order'
+);
 
 for (const tool of tools) {
   assert.ok(tool.key, 'formal tool key');
@@ -210,6 +225,32 @@ for (const tool of tools) {
     assert.ok(tool.reportExpectations.detail.mustInclude.length >= 2, `${tool.key} detail report mustInclude`);
     assert.ok(tool.reportExpectations.simple.mustExclude.length >= 2, `${tool.key} simple report mustExclude`);
     assert.ok(tool.reportExpectations.detail.mustExclude.length >= 2, `${tool.key} detail report mustExclude`);
+  }
+
+  const traceEntry = traceByKey.get(tool.key);
+  assert.ok(traceEntry, `${tool.key} traceability entry`);
+  assert.equal(typeof traceEntry.scope, 'string', `${tool.key} traceability scope`);
+  assert.ok(traceEntry.scope.length > 0, `${tool.key} traceability scope populated`);
+  assert.ok(Array.isArray(traceEntry.traces) && traceEntry.traces.length > 0, `${tool.key} traceability traces`);
+  const goldenIds = new Set((tool.goldenCases || []).map(goldenCase => goldenCase.id));
+  for (const [traceIndex, trace] of traceEntry.traces.entries()) {
+    assert.equal(typeof trace.clause, 'string', `${tool.key} trace ${traceIndex} clause`);
+    assert.ok(/規範|表|圖|式|章|節/.test(trace.clause), `${tool.key} trace ${traceIndex} clause names a formal source`);
+    assert.equal(typeof trace.purpose, 'string', `${tool.key} trace ${traceIndex} purpose`);
+    for (const field of ['inputs', 'calculation', 'report', 'goldenCases', 'manualReview']) {
+      assert.ok(Array.isArray(trace[field]) && trace[field].length > 0, `${tool.key} trace ${traceIndex} ${field}`);
+      for (const item of trace[field]) {
+        assert.equal(typeof item, 'string', `${tool.key} trace ${traceIndex} ${field} string`);
+        assert.ok(item.trim().length > 0, `${tool.key} trace ${traceIndex} ${field} populated`);
+        for (const forbidden of reportForbidden) {
+          if (['undefined', 'NaN'].includes(forbidden)) continue;
+          assertNoIncludes(item, forbidden, `${tool.key} trace ${traceIndex} wording`);
+        }
+      }
+    }
+    for (const goldenId of trace.goldenCases) {
+      assert.ok(goldenIds.has(goldenId), `${tool.key} trace ${traceIndex} golden case exists: ${goldenId}`);
+    }
   }
 
   for (const goldenCase of tool.goldenCases || []) {
