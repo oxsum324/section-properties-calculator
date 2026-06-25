@@ -62,6 +62,7 @@
 `env_check.py` 會檢查 Python、Node、python-docx、lxml、pdf2docx、playwright 與 Chromium 是否可用。
 其中 `js/regression-smoke.test.js` 會檢查標準插銷式、背扣式與方向性風壓三組代表案例，避免計算核心回到舊版假設。
 `js/formula-registry-smoke.test.js` 會檢查實際計算項目都有對應的公式、單位與規範來源登錄；V2 審查儀表板、審查明細與輸出檢核表會引用同一份來源表。
+`stone-traceability.contract.test.js` 會檢查 `stone-traceability.catalog.json` 的條文語意追蹤，確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核各自追得到規範來源、輸入、計算核心、報告落點、測試證據與人工複核邊界。
 `js/version-sync-smoke.test.js` 會用 mock DOM 檢查側欄版本標示 helper。
 `js/review-dashboard-smoke.test.js` 會檢查審查儀表板伺服器狀態文字、交付品質分級、匯出前品質提醒、匯出前檢查 HTML 與確認門檻 helper。
 `self_check.py` 會檢查 V2 HTML 檔名、前端版本、後端版本、啟動批次檔、自動 Word URL、README、CHANGELOG 與正式輸出清單是否一致，並避免 smoke test 硬寫目前版本。
@@ -76,6 +77,17 @@
 雙擊 `清理暫存檔.bat` 可列出已知測試暫存檔。此批次檔只做 dry-run；確認清單後，可執行 `python cleanup_temp.py --apply` 並輸入 `YES` 進行清理。
 
 `.gitignore` 已忽略可再生的暫存檔、測試輸出、快取與 `output` 匯出資料夾；正式交付檔仍請依 `RELEASE_CHECKLIST.md` 另行歸檔。
+
+## 條文語意追蹤
+
+`stone-traceability.catalog.json` 是 V2 正式計算書的條文語意追蹤 catalog，涵蓋：
+
+- 風力、耐震需求與 code profile 指紋。
+- 膨脹螺栓、背扣、馬車螺栓、插銷、伸縮片與角鋼檢核。
+- 石材板彎曲、孔周剪應力、背擴孔錐形拉出、孔位幾何、厚度、面積、材料與自訂尺寸檢核。
+- 層間變位、掛件轉角、溫度伸縮縫、稽核 JSON、公式來源覆蓋與 golden sample drift 管理。
+
+新增或修改規範來源、公式路線、報告段落、輸入欄位或人工複核邊界時，請同步更新 `stone-traceability.catalog.json` 並執行 `node stone-traceability.contract.test.js`。此 catalog 的定位是讓審查者看得出每個判定追到哪裡，不取代施工圖、材料證明、專案文件或設計者判斷。
 
 ## 交接與備份
 

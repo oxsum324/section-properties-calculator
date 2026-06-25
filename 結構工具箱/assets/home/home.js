@@ -56,7 +56,7 @@
     'rc-audit': { label: 'RC audit', preflightKeys: ['rc-audit-status'] },
     'steel-audit': { label: 'Steel audit', preflightKeys: ['steel-audit-status'] },
     'anchor-deployment': { label: 'Anchor deployment', preflightKeys: ['anchor-verify', 'anchor-route'] },
-    'stone-v2': { label: 'Stone V2', preflightKeys: ['stone-feedback-contract', 'stone-self-check', 'stone-quick-check'] },
+    'stone-v2': { label: 'Stone V2', preflightKeys: ['stone-feedback-contract', 'stone-traceability-contract', 'stone-self-check', 'stone-quick-check'] },
     'decking-contract': { label: 'Decking contract', preflightKeys: ['decking-tools-contract'] }
   };
 

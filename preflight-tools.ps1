@@ -1166,6 +1166,11 @@ node stone-feedback.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$stoneTraceabilityContractCommand = @'
+node 石材固定/stone-traceability.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $browserDialogsContractCommand = @'
 node browser-dialogs.contract.test.js
 exit $LASTEXITCODE
@@ -1846,6 +1851,13 @@ $checks = @(
     label = "Stone feedback contract"
     workdir = $root
     command = $stoneFeedbackContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "stone-traceability-contract"
+    label = "Stone traceability catalog contract"
+    workdir = $root
+    command = $stoneTraceabilityContractCommand
     slow = $false
   },
   [pscustomobject]@{

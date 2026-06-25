@@ -38,6 +38,7 @@ const expectedTraceabilityCatalogs = [
   { family: 'rc-traceability', value: '2 / 2 tools；5 traces；5 manual-review items' },
   { family: 'steel-traceability', value: '2 / 2 tools；4 traces；4 manual-review items' },
   { family: 'anchor-traceability', value: '5 / 5 tools；12 traces；12 manual-review items' },
+  { family: 'stone-traceability', value: '4 / 4 tools；8 traces；8 manual-review items' },
 ];
 
 function fixtureOutputPath(relativePath) {
@@ -277,6 +278,22 @@ const fixtures = new Map(Object.entries({
           { key: 'anchor-reinforcement', label: '錨栓補強鋼筋替代 breakout 路徑', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
         ],
       },
+      {
+        family: 'stone-traceability',
+        version: '0.1.0',
+        tools: 4,
+        covered: 4,
+        traceCount: 8,
+        manualReviewCount: 8,
+        uncoveredKeys: [],
+        toolKeys: ['stone-load-demand', 'stone-anchor-connection', 'stone-panel-local', 'stone-serviceability-report'],
+        rows: [
+          { key: 'stone-load-demand', label: '石材外牆風力與耐震需求', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'stone-anchor-connection', label: '石材固定錨栓與連接件', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'stone-panel-local', label: '石材板塊、孔位與材料邊界', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+          { key: 'stone-serviceability-report', label: '石材使用性、匯出與稽核報告', status: 'covered', traceCount: 2, manualReviewCount: 2, covered: true },
+        ],
+      },
     ],
     entrypointCoverage: {
       total: 3,
@@ -361,6 +378,13 @@ const fixtures = new Map(Object.entries({
           sourcePath: '螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json',
           sourceMtime: fixtureGeneratedAt,
           sourceHash: '567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234',
+          exists: true,
+        },
+        {
+          key: 'stone-traceability-catalog',
+          sourcePath: '石材固定/stone-traceability.catalog.json',
+          sourceMtime: fixtureGeneratedAt,
+          sourceHash: '6789012345678901234567890123456789012345678901234567890123456789',
           exists: true,
         },
         {
@@ -1141,7 +1165,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     expectedTraceabilityCatalogs.map((item) => ({ ...item, label: item.family, ok: true })),
     `${label} traceability catalog coverage rendered`
   );
-  assert.equal(state.maturitySourceTrace.length, 6, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
+  assert.equal(state.maturitySourceTrace.length, 7, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('formal-tools-manifest') && item.includes('1234567890ab')),
     `${label} maturity formal manifest source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
@@ -1161,6 +1185,10 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('anchor-traceability-catalog') && item.includes('567890abcdef')),
     `${label} maturity anchor traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
+  );
+  assert.ok(
+    state.maturitySourceTrace.some((item) => item.includes('stone-traceability-catalog') && item.includes('678901234567')),
+    `${label} maturity stone traceability source hash rendered: ${JSON.stringify(state.maturitySourceTrace)}`
   );
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('latest-preflight-summary') && item.includes('abcdef012345')),
