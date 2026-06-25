@@ -713,6 +713,14 @@
     return `../${href.replace(/^\/+/, '')}`;
   }
 
+  function homeAssetHref(relativePath) {
+    return String(relativePath || '').replace(/^\/+/, '');
+  }
+
+  function cacheBustedHref(href) {
+    return `${href}?ts=${Date.now()}`;
+  }
+
   function matchesState(tool) {
     return matchesCategoryAndMember(tool);
   }
@@ -982,7 +990,7 @@
       return;
     }
     try {
-      const response = await fetch(`/output/audit/platform-status.json?ts=${Date.now()}`, { cache: 'no-store' });
+      const response = await fetch(cacheBustedHref(homeAssetHref('assets/status/platform-status.json')), { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       renderStatus(
@@ -995,7 +1003,7 @@
       renderStatus(document.getElementById('platformStatus'), '平台巡檢', null, '目前無法讀取平台巡檢結果。');
     }
     try {
-      const response = await fetch(`/output/preflight/preflight-summary.json?ts=${Date.now()}`, { cache: 'no-store' });
+      const response = await fetch(cacheBustedHref(homeAssetHref('assets/status/preflight-summary.json')), { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       renderStatus(

@@ -406,6 +406,8 @@ function newHomeExpression(tools) {
       routeHref: card.getAttribute('data-route-href') || ''
     }));
     const statusLinks = Array.from(document.querySelectorAll('[data-file-href]')).map(a => a.getAttribute('href'));
+    const platformStatusText = document.getElementById('platformStatus')?.innerText.replace(/\\s+/g, ' ').trim() || '';
+    const preflightStatusText = document.getElementById('preflightStatus')?.innerText.replace(/\\s+/g, ' ').trim() || '';
     const required = ${JSON.stringify(tools.map(tool => tool.indexHref))};
     const text = document.body.innerText;
     const categoryMarks = Array.from(document.querySelectorAll('.category-card .icon-mark')).map(node => node.textContent.trim()).sort();
@@ -471,6 +473,8 @@ function newHomeExpression(tools) {
       })),
       absoluteCardLinks: cardStates.filter(card => /^\\//.test(card.href || '')).map(card => card.href),
       absoluteStatusLinks: statusLinks.filter(href => /^\\//.test(href || '')),
+      platformStatusText,
+      preflightStatusText,
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
@@ -862,6 +866,11 @@ function assertNewHomeState(state, tools, label) {
   if (state.protocol === 'file:') {
     assert.deepEqual(state.absoluteCardLinks, [], `${label} new home file-mode card links`);
     assert.deepEqual(state.absoluteStatusLinks, [], `${label} new home file-mode status links`);
+  } else {
+    assert.ok(state.platformStatusText.includes('通過'), `${label} new home platform status loaded`);
+    assert.ok(state.preflightStatusText.includes('通過'), `${label} new home preflight status loaded`);
+    assert.equal(state.platformStatusText.includes('目前無法讀取'), false, `${label} new home platform status not failed`);
+    assert.equal(state.preflightStatusText.includes('目前無法讀取'), false, `${label} new home preflight status not failed`);
   }
 }
 
