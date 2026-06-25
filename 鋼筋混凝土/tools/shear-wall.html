@@ -62,9 +62,21 @@
     .control-kpi span { display:block; color:#64748b; font-size:0.78em; }
     .control-kpi strong { display:block; color:#123; margin-top:2px; }
   .mobile-summary-card { display:none; }
+  .mode-bar__actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .mode-bar__action {
+    padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px;
+    background:#f8fafc; color:#1f2937; cursor:pointer; font-family:inherit; font-weight:600;
+  }
+  .mode-bar__action:hover { background:#eef2ff; border-color:#93c5fd; }
+  .mode-bar__file { display:none; }
+  .mode-bar__project-status { font-size:0.82em; color:var(--text-light); min-height:1.3em; }
   @media (max-width: 768px) {
     .mode-bar__proj { display:grid !important; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
-    .mode-bar__proj .w-name, .mode-bar__proj .w-des, .mode-bar__proj .mode-bar__report { grid-column:1 / -1; }
+    .mode-bar__proj .w-name,
+    .mode-bar__proj .w-des,
+    .mode-bar__proj .mode-bar__actions,
+    .mode-bar__proj .mode-bar__project-status,
+    .mode-bar__proj .mode-bar__report { grid-column:1 / -1; }
     .mode-bar__hint { display:block; width:100%; margin-top:8px; line-height:1.45; }
     .section-tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scroll-snap-type:x proximity; }
     .section-tabs button { flex:0 0 auto; min-width:120px; white-space:nowrap; scroll-snap-align:start; }
@@ -106,7 +118,15 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo"   class="w-no"   placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <div class="mode-bar__actions" aria-label="剪力牆專案存讀檔">
+        <button id="btnSaveShearWallProject" class="mode-bar__action" type="button" title="下載剪力牆專案 JSON 檔">存檔</button>
+        <button id="btnLoadShearWallProject" class="mode-bar__action" type="button" title="讀取剪力牆專案 JSON 檔">讀檔</button>
+        <button id="btnSaveShearWallDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
+        <button id="btnLoadShearWallDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
+        <input id="shearWallProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
+      </div>
       <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <span id="shearWallProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
 
@@ -505,6 +525,9 @@
   const num = id => parseFloat($(id)?.value) || 0;
   let currentMode = 'design';
   let lastFlexApplyNote = '';
+  const SHEAR_WALL_PROJECT_SCHEMA = 'rc-shear-wall-project-v1';
+  const SHEAR_WALL_PROJECT_STORAGE_KEY = 'rc.shearWall.project.draft';
+  const SHEAR_WALL_PROJECT_EXCLUDED_IDS = new Set(['shearWallProjectFile', 'caseJson']);
 
   // ---- UI helpers ----
   function syncDetailHelp() {
@@ -573,6 +596,225 @@
       ? '【設計模式】依當前載重 (Pu/Mu/Vu) 給出建議配筋與邊界構材；可切換「檢核」模式核對既有配筋。'
       : '【檢核模式】依完整鋼筋輸入逐項核對面內撓曲、剪力、邊界構材與細部規定。';
   }
+
+  function setShearWallMode(mode, options = {}) {
+    currentMode = mode === 'check' ? 'check' : 'design';
+    document.querySelectorAll('.mode-btn').forEach(b => {
+      const active = b.dataset.mode === currentMode;
+      b.classList.toggle('active', active);
+      b.style.background = active ? 'var(--primary)' : '#fff';
+      b.style.color = active ? '#fff' : 'var(--primary)';
+    });
+    $('modeHint').textContent = (currentMode === 'design')
+      ? '設計模式：給定載重，建議配筋與邊界構材。'
+      : '檢核模式：給定配筋與載重，逐項核對是否合於規範。';
+    applyDesignCheckMode();
+    if (options.recalculate !== false) calcShearWall();
+    if (options.applyPanel !== false) applyPanel(document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom');
+  }
+
+  function showShearWallProjectStatus(message, status = 'ok') {
+    const el = $('shearWallProjectStatus');
+    if (el) {
+      el.textContent = message || '';
+      el.style.color = status === 'fail' ? 'var(--danger)' : (status === 'warn' ? 'var(--warn)' : 'var(--text-light)');
+    }
+    if (!message) return;
+    const note = document.createElement('div');
+    note.textContent = message;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    document.body.appendChild(note);
+    setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
+  }
+
+  function shearWallProjectControls() {
+    return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
+      if (!el.id || SHEAR_WALL_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
+      return (el.type || '').toLowerCase() !== 'file';
+    });
+  }
+
+  function readShearWallControl(el) {
+    if ((el.type || '').toLowerCase() === 'checkbox') {
+      return { kind: 'checkbox', checked: !!el.checked };
+    }
+    return {
+      kind: el.tagName.toLowerCase(),
+      inputType: (el.type || '').toLowerCase(),
+      value: el.value
+    };
+  }
+
+  function collectShearWallProjectData() {
+    if (typeof calcShearWall === 'function') calcShearWall();
+    const fields = {};
+    shearWallProjectControls().forEach(el => {
+      fields[el.id] = readShearWallControl(el);
+    });
+    const snap = window.swLast || {};
+    const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
+    return {
+      schema: SHEAR_WALL_PROJECT_SCHEMA,
+      tool: 'rc-shear-wall',
+      toolTitle: '剪力牆 Shear Wall 設計／檢核',
+      appVersion: 'V0.3',
+      savedAt: new Date().toISOString(),
+      mode: currentMode,
+      activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
+      metadata: {
+        projectName: $('projName')?.value?.trim() || '',
+        projectNo: $('projNo')?.value?.trim() || '',
+        designer: $('projDesigner')?.value?.trim() || ''
+      },
+      fields,
+      summary: {
+        banner: bannerText,
+        reviewWarningCount: Array.isArray(snap.reviewWarnings) ? snap.reviewWarnings.length : 0,
+        controllingLoadCase: snap.controlLoadCase?.name || ''
+      }
+    };
+  }
+
+  function shearWallProjectFilename(payload) {
+    const meta = payload?.metadata || {};
+    const base = [meta.projectNo, meta.projectName].filter(Boolean).join('_') || 'RC剪力牆專案';
+    const safeBase = base.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 80);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    return `${safeBase}_${stamp}.json`;
+  }
+
+  function downloadShearWallProjectFile() {
+    try {
+      const payload = collectShearWallProjectData();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = shearWallProjectFilename(payload);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showShearWallProjectStatus(`已下載剪力牆專案檔：${a.download}`);
+      return payload;
+    } catch (err) {
+      console.error('shear wall project save failed', err);
+      showShearWallProjectStatus('剪力牆專案檔存檔失敗，請查看瀏覽器主控台。', 'fail');
+      return null;
+    }
+  }
+
+  function normalizeShearWallProjectPayload(raw) {
+    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!payload || payload.schema !== SHEAR_WALL_PROJECT_SCHEMA || payload.tool !== 'rc-shear-wall' || !payload.fields) {
+      throw new Error('unsupported shear wall project schema');
+    }
+    return payload;
+  }
+
+  function setShearWallProjectControl(id, saved) {
+    const el = $(id);
+    if (!el || (el.type || '').toLowerCase() === 'file') return false;
+    const type = (el.type || '').toLowerCase();
+    if (type === 'checkbox') {
+      const checked = (saved && typeof saved === 'object' && 'checked' in saved)
+        ? saved.checked
+        : !!saved;
+      el.checked = !!checked;
+    } else {
+      const value = (saved && typeof saved === 'object' && 'value' in saved)
+        ? saved.value
+        : saved;
+      if (el.tagName === 'SELECT') {
+        const exists = Array.from(el.options).some(option => option.value === String(value));
+        if (!exists) return false;
+      }
+      el.value = value == null ? '' : String(value);
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  function applyShearWallProjectData(raw, options = {}) {
+    const payload = normalizeShearWallProjectPayload(raw);
+    setShearWallMode(payload.mode, { recalculate: false, applyPanel: false });
+    let applied = 0;
+    Object.entries(payload.fields).forEach(([id, saved]) => {
+      if (setShearWallProjectControl(id, saved)) applied += 1;
+    });
+    syncDetailHelp();
+    syncAdvancedCaseTools();
+    applyDesignCheckMode();
+    if (typeof refreshLoadCaseEditorFromText === 'function') refreshLoadCaseEditorFromText();
+    if (typeof calcShearWall === 'function') calcShearWall();
+    const tab = ['geom','load','rebar','pm','shear','detail','summary'].includes(payload.activeTab) ? payload.activeTab : 'geom';
+    applyPanel(tab);
+    if (!options.silent) {
+      const source = options.sourceLabel || '剪力牆專案檔';
+      const name = payload.metadata?.projectName || payload.metadata?.projectNo || '未命名專案';
+      showShearWallProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+    }
+    return { payload, applied };
+  }
+
+  async function loadShearWallProjectFile(file) {
+    if (!file) return null;
+    try {
+      const text = await file.text();
+      return applyShearWallProjectData(text, { sourceLabel: '剪力牆專案檔' });
+    } catch (err) {
+      console.error('shear wall project load failed', err);
+      showShearWallProjectStatus('剪力牆專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      return null;
+    }
+  }
+
+  function saveShearWallProjectDraft() {
+    try {
+      const payload = collectShearWallProjectData();
+      localStorage.setItem(SHEAR_WALL_PROJECT_STORAGE_KEY, JSON.stringify(payload));
+      const name = payload.metadata.projectName || payload.metadata.projectNo || '未命名專案';
+      showShearWallProjectStatus(`已暫存到此瀏覽器：${name}`);
+      return payload;
+    } catch (err) {
+      console.error('shear wall project draft save failed', err);
+      showShearWallProjectStatus('瀏覽器暫存失敗，可能是儲存空間或隱私模式限制。', 'fail');
+      return null;
+    }
+  }
+
+  function loadShearWallProjectDraft() {
+    try {
+      const raw = localStorage.getItem(SHEAR_WALL_PROJECT_STORAGE_KEY);
+      if (!raw) {
+        showShearWallProjectStatus('此瀏覽器目前沒有剪力牆專案暫存。', 'fail');
+        return null;
+      }
+      return applyShearWallProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+    } catch (err) {
+      console.error('shear wall project draft load failed', err);
+      showShearWallProjectStatus('瀏覽器暫存讀取失敗，請重新存檔。', 'fail');
+      return null;
+    }
+  }
+
+  function bindShearWallProjectStorage() {
+    $('btnSaveShearWallProject')?.addEventListener('click', downloadShearWallProjectFile);
+    $('btnLoadShearWallProject')?.addEventListener('click', () => $('shearWallProjectFile')?.click());
+    $('btnSaveShearWallDraft')?.addEventListener('click', saveShearWallProjectDraft);
+    $('btnLoadShearWallDraft')?.addEventListener('click', loadShearWallProjectDraft);
+    $('shearWallProjectFile')?.addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      loadShearWallProjectFile(file).finally(() => { event.target.value = ''; });
+    });
+  }
+
+  window.collectShearWallProjectData = collectShearWallProjectData;
+  window.applyShearWallProjectData = applyShearWallProjectData;
+  window.saveShearWallProjectDraft = saveShearWallProjectDraft;
+  window.loadShearWallProjectDraft = loadShearWallProjectDraft;
+  window.downloadShearWallProjectFile = downloadShearWallProjectFile;
 
   // ---- result helpers (rc-pending) ----
   function setResult(id, val, unit, digits = 2, status = null) {
@@ -1673,6 +1915,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
   }
 
   // ===================== 綁定 =====================
+  bindShearWallProjectStorage();
   document.querySelectorAll('input, select').forEach(el => {
     const recalcFromInput = () => { lastFlexApplyNote = ''; calcShearWall(); };
     el.addEventListener('input', recalcFromInput);

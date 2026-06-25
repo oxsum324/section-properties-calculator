@@ -30,12 +30,22 @@
   .advanced-body { margin-top:8px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
   .mono-box { width:100%; font-family:Consolas, monospace; font-size:0.82em; }
   .mobile-summary-card { display:none; }
+  .mode-bar__actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .mode-bar__action {
+    padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px;
+    background:#f8fafc; color:#1f2937; cursor:pointer; font-family:inherit; font-weight:600;
+  }
+  .mode-bar__action:hover { background:#eef2ff; border-color:#93c5fd; }
+  .mode-bar__file { display:none; }
+  .mode-bar__project-status { font-size:0.82em; color:var(--text-light); min-height:1.3em; }
   @media (max-width: 768px) {
     .mode-bar__proj {
       display:grid !important; grid-template-columns:1fr 1fr; gap:8px; width:100%;
     }
     .mode-bar__proj .w-name,
     .mode-bar__proj .w-des,
+    .mode-bar__proj .mode-bar__actions,
+    .mode-bar__proj .mode-bar__project-status,
     .mode-bar__proj .mode-bar__report {
       grid-column:1 / -1;
     }
@@ -83,7 +93,15 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo"   class="w-no"   placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <div class="mode-bar__actions" aria-label="牆專案存讀檔">
+        <button id="btnSaveWallProject" class="mode-bar__action" type="button" title="下載牆專案 JSON 檔">存檔</button>
+        <button id="btnLoadWallProject" class="mode-bar__action" type="button" title="讀取牆專案 JSON 檔">讀檔</button>
+        <button id="btnSaveWallDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
+        <button id="btnLoadWallDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
+        <input id="wallProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
+      </div>
       <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <span id="wallProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
 
@@ -812,6 +830,217 @@
   // ========== 牆計算邏輯 ==========
   const $ = id => document.getElementById(id);
   const num = id => parseFloat($(id).value) || 0;
+  const WALL_PROJECT_SCHEMA = 'rc-wall-project-v1';
+  const WALL_PROJECT_STORAGE_KEY = 'rc.wall.project.draft';
+  const WALL_PROJECT_EXCLUDED_IDS = new Set(['wallProjectFile', 'caseJson', 'compareCaseJson', 'baselineReport']);
+
+  function showWallProjectStatus(message, status = 'ok') {
+    const el = $('wallProjectStatus');
+    if (el) {
+      el.textContent = message || '';
+      el.style.color = status === 'fail' ? 'var(--danger)' : (status === 'warn' ? 'var(--warn)' : 'var(--text-light)');
+    }
+    if (!message) return;
+    const note = document.createElement('div');
+    note.textContent = message;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    document.body.appendChild(note);
+    setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
+  }
+
+  function wallProjectControls() {
+    return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
+      if (!el.id || WALL_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
+      return (el.type || '').toLowerCase() !== 'file';
+    });
+  }
+
+  function readWallControl(el) {
+    if ((el.type || '').toLowerCase() === 'checkbox') {
+      return { kind: 'checkbox', checked: !!el.checked };
+    }
+    return {
+      kind: el.tagName.toLowerCase(),
+      inputType: (el.type || '').toLowerCase(),
+      value: el.value
+    };
+  }
+
+  function collectWallProjectData() {
+    if (typeof calcWall === 'function') calcWall();
+    const fields = {};
+    wallProjectControls().forEach(el => {
+      fields[el.id] = readWallControl(el);
+    });
+    const snap = window.wallLast || {};
+    const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
+    return {
+      schema: WALL_PROJECT_SCHEMA,
+      tool: 'rc-wall',
+      toolTitle: '牆 Wall 設計／檢核',
+      appVersion: 'V3.1',
+      savedAt: new Date().toISOString(),
+      mode: currentMode,
+      activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
+      metadata: {
+        projectName: $('projName')?.value?.trim() || '',
+        projectNo: $('projNo')?.value?.trim() || '',
+        designer: $('projDesigner')?.value?.trim() || ''
+      },
+      fields,
+      aggRows: typeof collectAggRows === 'function' ? collectAggRows() : [],
+      summary: {
+        banner: bannerText,
+        reviewWarningCount: Array.isArray(snap.reviewWarnings) ? snap.reviewWarnings.length : 0
+      }
+    };
+  }
+
+  function wallProjectFilename(payload) {
+    const meta = payload?.metadata || {};
+    const base = [meta.projectNo, meta.projectName].filter(Boolean).join('_') || 'RC牆專案';
+    const safeBase = base.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 80);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    return `${safeBase}_${stamp}.json`;
+  }
+
+  function downloadWallProjectFile() {
+    try {
+      const payload = collectWallProjectData();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = wallProjectFilename(payload);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showWallProjectStatus(`已下載牆專案檔：${a.download}`);
+      return payload;
+    } catch (err) {
+      console.error('wall project save failed', err);
+      showWallProjectStatus('牆專案檔存檔失敗，請查看瀏覽器主控台。', 'fail');
+      return null;
+    }
+  }
+
+  function normalizeWallProjectPayload(raw) {
+    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!payload || payload.schema !== WALL_PROJECT_SCHEMA || payload.tool !== 'rc-wall' || !payload.fields) {
+      throw new Error('unsupported wall project schema');
+    }
+    return payload;
+  }
+
+  function setWallProjectControl(id, saved) {
+    const el = $(id);
+    if (!el || (el.type || '').toLowerCase() === 'file') return false;
+    const type = (el.type || '').toLowerCase();
+    if (type === 'checkbox') {
+      const checked = (saved && typeof saved === 'object' && 'checked' in saved)
+        ? saved.checked
+        : !!saved;
+      el.checked = !!checked;
+    } else {
+      const value = (saved && typeof saved === 'object' && 'value' in saved)
+        ? saved.value
+        : saved;
+      if (el.tagName === 'SELECT') {
+        const exists = Array.from(el.options).some(option => option.value === String(value));
+        if (!exists) return false;
+      }
+      el.value = value == null ? '' : String(value);
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  function applyWallProjectData(raw, options = {}) {
+    const payload = normalizeWallProjectPayload(raw);
+    setWallMode(payload.mode || 'design');
+    let applied = 0;
+    Object.entries(payload.fields).forEach(([id, saved]) => {
+      if (setWallProjectControl(id, saved)) applied += 1;
+    });
+    if (Array.isArray(payload.aggRows)) {
+      const body = $('aggBody');
+      if (body) body.innerHTML = '';
+      _aggRowSeq = 0;
+      payload.aggRows.forEach(row => addAggRow(row));
+    }
+    syncDetailHelp();
+    syncAdvancedCaseTools();
+    if (typeof applyDesignCheckMode === 'function') applyDesignCheckMode();
+    if (typeof calcWall === 'function') calcWall();
+    const tab = ['geom','load','rebar','methods','summary'].includes(payload.activeTab) ? payload.activeTab : 'geom';
+    applyPanel(tab);
+    if (!options.silent) {
+      const source = options.sourceLabel || '牆專案檔';
+      const name = payload.metadata?.projectName || payload.metadata?.projectNo || '未命名專案';
+      showWallProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+    }
+    return { payload, applied };
+  }
+
+  async function loadWallProjectFile(file) {
+    if (!file) return null;
+    try {
+      const text = await file.text();
+      return applyWallProjectData(text, { sourceLabel: '牆專案檔' });
+    } catch (err) {
+      console.error('wall project load failed', err);
+      showWallProjectStatus('牆專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      return null;
+    }
+  }
+
+  function saveWallProjectDraft() {
+    try {
+      const payload = collectWallProjectData();
+      localStorage.setItem(WALL_PROJECT_STORAGE_KEY, JSON.stringify(payload));
+      const name = payload.metadata.projectName || payload.metadata.projectNo || '未命名專案';
+      showWallProjectStatus(`已暫存到此瀏覽器：${name}`);
+      return payload;
+    } catch (err) {
+      console.error('wall project draft save failed', err);
+      showWallProjectStatus('瀏覽器暫存失敗，可能是儲存空間或隱私模式限制。', 'fail');
+      return null;
+    }
+  }
+
+  function loadWallProjectDraft() {
+    try {
+      const raw = localStorage.getItem(WALL_PROJECT_STORAGE_KEY);
+      if (!raw) {
+        showWallProjectStatus('此瀏覽器目前沒有牆專案暫存。', 'fail');
+        return null;
+      }
+      return applyWallProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+    } catch (err) {
+      console.error('wall project draft load failed', err);
+      showWallProjectStatus('瀏覽器暫存讀取失敗，請重新存檔。', 'fail');
+      return null;
+    }
+  }
+
+  function bindWallProjectStorage() {
+    $('btnSaveWallProject')?.addEventListener('click', downloadWallProjectFile);
+    $('btnLoadWallProject')?.addEventListener('click', () => $('wallProjectFile')?.click());
+    $('btnSaveWallDraft')?.addEventListener('click', saveWallProjectDraft);
+    $('btnLoadWallDraft')?.addEventListener('click', loadWallProjectDraft);
+    $('wallProjectFile')?.addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      loadWallProjectFile(file).finally(() => { event.target.value = ''; });
+    });
+  }
+
+  window.collectWallProjectData = collectWallProjectData;
+  window.applyWallProjectData = applyWallProjectData;
+  window.saveWallProjectDraft = saveWallProjectDraft;
+  window.loadWallProjectDraft = loadWallProjectDraft;
+  window.downloadWallProjectFile = downloadWallProjectFile;
 
   function setWallMode(mode) {
     const btn = document.querySelector(`.mode-btn[data-mode="${mode}"]`);
@@ -2458,6 +2687,7 @@ ${basementStepTxt}
     }).join('');
   }
 
+  bindWallProjectStorage();
   document.querySelectorAll('.btn-calc').forEach(b => b.addEventListener('click', calcWall));
   document.querySelectorAll('input, select').forEach(el => {
     el.addEventListener('input', calcWall);

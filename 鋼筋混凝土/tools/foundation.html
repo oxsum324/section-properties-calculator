@@ -112,6 +112,34 @@
     max-width: 100%;
     height: auto;
   }
+  .mode-bar__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .mode-bar__action {
+    padding: 7px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #1f2937;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+  }
+  .mode-bar__action:hover {
+    background: #eef2ff;
+    border-color: #93c5fd;
+  }
+  .mode-bar__file {
+    display: none;
+  }
+  .mode-bar__project-status {
+    font-size: 0.82em;
+    color: var(--text-light);
+    min-height: 1.3em;
+  }
 
   /* ── 響應式 ── */
   @media (max-width: 1024px) {
@@ -129,6 +157,10 @@
       gap: 8px;
     }
     .mode-bar__report {
+      grid-column: 1 / -1;
+    }
+    .mode-bar__actions,
+    .mode-bar__project-status {
       grid-column: 1 / -1;
     }
     .section-tabs {
@@ -247,7 +279,15 @@
       <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
       <input type="text" id="projNo"   class="w-no"   placeholder="編號">
       <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
+      <div class="mode-bar__actions" aria-label="基礎專案存讀檔">
+        <button id="btnSaveFoundationProject" class="mode-bar__action" type="button" title="下載基礎專案 JSON 檔">存檔</button>
+        <button id="btnLoadFoundationProject" class="mode-bar__action" type="button" title="讀取基礎專案 JSON 檔">讀檔</button>
+        <button id="btnSaveFoundationDraft" class="mode-bar__action" type="button" title="存到此瀏覽器的暫存">暫存</button>
+        <button id="btnLoadFoundationDraft" class="mode-bar__action" type="button" title="讀取此瀏覽器的暫存">讀暫存</button>
+        <input id="foundationProjectFile" class="mode-bar__file" type="file" accept=".json,application/json">
+      </div>
       <button id="btnReport" class="mode-bar__report" type="button">📄 計算書</button>
+      <span id="foundationProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
   </div>
 
@@ -1050,6 +1090,9 @@
   const $ = id => document.getElementById(id);
   const num = id => { const v = parseFloat($(id)?.value); return isNaN(v) ? 0 : v; };
   const lambda = LAMBDA_NORMAL;
+  const FOUNDATION_PROJECT_SCHEMA = 'rc-foundation-project-v1';
+  const FOUNDATION_PROJECT_STORAGE_KEY = 'rc.foundation.project.draft';
+  const FOUNDATION_PROJECT_EXCLUDED_IDS = new Set(['foundationProjectFile']);
   const PILE_SITE_GROUPS = window.PILE_SITE_GROUPS || {};
   const PILE_SITE_PRESETS = window.PILE_SITE_PRESETS || {};
 
@@ -1840,17 +1883,226 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       if (e) e.disabled = false;
     });
   }
+  function setFoundationMode(mode, options = {}) {
+    currentMode = mode === 'check' ? 'check' : 'design';
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === currentMode));
+    $('modeHint').textContent = (currentMode === 'design')
+      ? '設計模式：給定載重，系統提供建議尺寸與配筋；你仍可手動調整尺寸。'
+      : '檢核模式：給定尺寸與配筋，檢核是否合於規範。';
+    syncDesignFields();
+    if (options.recalculate !== false) calcFdtn();
+  }
   document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentMode = btn.dataset.mode;
-      document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b === btn));
-      $('modeHint').textContent = (currentMode === 'design')
-        ? '設計模式：給定載重，系統提供建議尺寸與配筋；你仍可手動調整尺寸。'
-        : '檢核模式：給定尺寸與配筋，檢核是否合於規範。';
-      syncDesignFields();
-      calcFdtn();
-    });
+    btn.addEventListener('click', () => setFoundationMode(btn.dataset.mode));
   });
+
+  function showFoundationProjectStatus(message, status = 'ok') {
+    const el = $('foundationProjectStatus');
+    if (el) {
+      el.textContent = message || '';
+      el.style.color = status === 'fail' ? 'var(--danger)' : (status === 'warn' ? 'var(--warn)' : 'var(--text-light)');
+    }
+    if (!message) return;
+    const note = document.createElement('div');
+    note.textContent = message;
+    note.style.cssText = `position:fixed;top:10px;right:10px;z-index:9999;background:${status === 'fail' ? '#fee2e2' : '#dcfce7'};color:${status === 'fail' ? '#991b1b' : '#166534'};border:1px solid ${status === 'fail' ? '#fecaca' : '#86efac'};padding:10px 14px;border-radius:6px;font-size:0.9em;box-shadow:0 4px 12px rgba(0,0,0,0.1);max-width:420px;`;
+    document.body.appendChild(note);
+    setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
+  }
+
+  function foundationProjectControls() {
+    return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
+      if (!el.id || FOUNDATION_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
+      return (el.type || '').toLowerCase() !== 'file';
+    });
+  }
+
+  function readFoundationControl(el) {
+    if ((el.type || '').toLowerCase() === 'checkbox') {
+      return { kind: 'checkbox', checked: !!el.checked };
+    }
+    return {
+      kind: el.tagName.toLowerCase(),
+      inputType: (el.type || '').toLowerCase(),
+      value: el.value
+    };
+  }
+
+  function collectFoundationProjectData() {
+    if (typeof calcFdtn === 'function') calcFdtn();
+    const fields = {};
+    foundationProjectControls().forEach(el => {
+      fields[el.id] = readFoundationControl(el);
+    });
+    const snap = window.ftLast || {};
+    const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
+    return {
+      schema: FOUNDATION_PROJECT_SCHEMA,
+      tool: 'rc-foundation',
+      toolTitle: '基礎 Foundation 設計／檢核',
+      appVersion: 'V3.1',
+      savedAt: new Date().toISOString(),
+      mode: currentMode,
+      activeTab: currentTab,
+      metadata: {
+        projectName: $('projName')?.value?.trim() || '',
+        projectNo: $('projNo')?.value?.trim() || '',
+        designer: $('projDesigner')?.value?.trim() || ''
+      },
+      fields,
+      summary: {
+        banner: bannerText,
+        tab: snap.tab || currentTab,
+        reviewWarningCount: Array.isArray(snap.reviewWarnings) ? snap.reviewWarnings.length : 0
+      }
+    };
+  }
+
+  function foundationProjectFilename(payload) {
+    const meta = payload?.metadata || {};
+    const base = [meta.projectNo, meta.projectName].filter(Boolean).join('_') || 'RC基礎專案';
+    const safeBase = base.replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_').slice(0, 80);
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, '');
+    return `${safeBase}_${stamp}.json`;
+  }
+
+  function downloadFoundationProjectFile() {
+    try {
+      const payload = collectFoundationProjectData();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = foundationProjectFilename(payload);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showFoundationProjectStatus(`已下載基礎專案檔：${a.download}`);
+      return payload;
+    } catch (err) {
+      console.error('foundation project save failed', err);
+      showFoundationProjectStatus('基礎專案檔存檔失敗，請查看瀏覽器主控台。', 'fail');
+      return null;
+    }
+  }
+
+  function normalizeFoundationProjectPayload(raw) {
+    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!payload || payload.schema !== FOUNDATION_PROJECT_SCHEMA || payload.tool !== 'rc-foundation' || !payload.fields) {
+      throw new Error('unsupported foundation project schema');
+    }
+    return payload;
+  }
+
+  function setFoundationProjectControl(id, saved) {
+    const el = $(id);
+    if (!el || (el.type || '').toLowerCase() === 'file') return false;
+    const type = (el.type || '').toLowerCase();
+    if (type === 'checkbox') {
+      const checked = (saved && typeof saved === 'object' && 'checked' in saved)
+        ? saved.checked
+        : !!saved;
+      el.checked = !!checked;
+    } else {
+      const value = (saved && typeof saved === 'object' && 'value' in saved)
+        ? saved.value
+        : saved;
+      if (el.tagName === 'SELECT') {
+        const exists = Array.from(el.options).some(option => option.value === String(value));
+        if (!exists) return false;
+      }
+      el.value = value == null ? '' : String(value);
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  function applyFoundationProjectData(raw, options = {}) {
+    const payload = normalizeFoundationProjectPayload(raw);
+    setFoundationMode(payload.mode, { recalculate: false });
+    let applied = 0;
+    Object.entries(payload.fields).forEach(([id, saved]) => {
+      if (setFoundationProjectControl(id, saved)) applied += 1;
+    });
+    syncDesignFields();
+    if (typeof populatePileSiteGroups === 'function') populatePileSiteGroups();
+    if (typeof populatePileBoreholes === 'function') populatePileBoreholes($('pileSiteGroup')?.value || '');
+    if (payload.fields.pileSitePreset) setFoundationProjectControl('pileSitePreset', payload.fields.pileSitePreset);
+    if (typeof updatePilePresetSummary === 'function') updatePilePresetSummary();
+    if ($('retainType')) {
+      const ci = $('counterfortInputs');
+      if (ci) ci.style.display = $('retainType').value === 'counterfort' ? '' : 'none';
+    }
+    if (typeof calcFdtn === 'function') calcFdtn();
+    const tab = ['iso','combined','mat','pile','retain','seismic'].includes(payload.activeTab) ? payload.activeTab : 'iso';
+    applyPanel(tab);
+    if (!options.silent) {
+      const source = options.sourceLabel || '基礎專案檔';
+      const name = payload.metadata?.projectName || payload.metadata?.projectNo || '未命名專案';
+      showFoundationProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+    }
+    return { payload, applied };
+  }
+
+  async function loadFoundationProjectFile(file) {
+    if (!file) return null;
+    try {
+      const text = await file.text();
+      return applyFoundationProjectData(text, { sourceLabel: '基礎專案檔' });
+    } catch (err) {
+      console.error('foundation project load failed', err);
+      showFoundationProjectStatus('基礎專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      return null;
+    }
+  }
+
+  function saveFoundationProjectDraft() {
+    try {
+      const payload = collectFoundationProjectData();
+      localStorage.setItem(FOUNDATION_PROJECT_STORAGE_KEY, JSON.stringify(payload));
+      const name = payload.metadata.projectName || payload.metadata.projectNo || '未命名專案';
+      showFoundationProjectStatus(`已暫存到此瀏覽器：${name}`);
+      return payload;
+    } catch (err) {
+      console.error('foundation project draft save failed', err);
+      showFoundationProjectStatus('瀏覽器暫存失敗，可能是儲存空間或隱私模式限制。', 'fail');
+      return null;
+    }
+  }
+
+  function loadFoundationProjectDraft() {
+    try {
+      const raw = localStorage.getItem(FOUNDATION_PROJECT_STORAGE_KEY);
+      if (!raw) {
+        showFoundationProjectStatus('此瀏覽器目前沒有基礎專案暫存。', 'fail');
+        return null;
+      }
+      return applyFoundationProjectData(raw, { sourceLabel: '瀏覽器暫存' });
+    } catch (err) {
+      console.error('foundation project draft load failed', err);
+      showFoundationProjectStatus('瀏覽器暫存讀取失敗，請重新存檔。', 'fail');
+      return null;
+    }
+  }
+
+  function bindFoundationProjectStorage() {
+    $('btnSaveFoundationProject')?.addEventListener('click', downloadFoundationProjectFile);
+    $('btnLoadFoundationProject')?.addEventListener('click', () => $('foundationProjectFile')?.click());
+    $('btnSaveFoundationDraft')?.addEventListener('click', saveFoundationProjectDraft);
+    $('btnLoadFoundationDraft')?.addEventListener('click', loadFoundationProjectDraft);
+    $('foundationProjectFile')?.addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      loadFoundationProjectFile(file).finally(() => { event.target.value = ''; });
+    });
+  }
+
+  window.collectFoundationProjectData = collectFoundationProjectData;
+  window.applyFoundationProjectData = applyFoundationProjectData;
+  window.saveFoundationProjectDraft = saveFoundationProjectDraft;
+  window.loadFoundationProjectDraft = loadFoundationProjectDraft;
+  window.downloadFoundationProjectFile = downloadFoundationProjectFile;
 
   // ============================================================
   //  主計算分派
@@ -4137,6 +4389,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
   // ============================================================
   //  事件綁定
   // ============================================================
+  bindFoundationProjectStorage();
   document.querySelectorAll('input, select').forEach(el => {
     el.addEventListener('input', () => calcFdtn());
     el.addEventListener('change', () => {

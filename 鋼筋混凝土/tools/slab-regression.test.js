@@ -248,6 +248,8 @@ async function main() {
     assert(failedResponses.length === 0, 'slab page resources', 'no missing static resources during initial load');
     await exerciseSlabProjectStorage(page);
     assert(pageErrors.length === 0, 'slab project storage workflow', 'no page errors during project save/load checks');
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    await wait(250);
 
     for (const tc of pack.cases) {
       await page.evaluate(({ mode, values }) => {

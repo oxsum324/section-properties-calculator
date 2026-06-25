@@ -318,6 +318,13 @@
           <button id="btnSaveDefaults" type="button" class="preset-btn">設為目前預設值<small>保存目前載重、搜尋範圍、細部參數與土層</small></button>
           <button id="btnResetDefaults" type="button" class="preset-btn secondary">還原內建預設值<small>清除自訂預設，回到系統示範值</small></button>
         </div>
+        <div class="preset-grid" style="margin-top:10px;">
+          <button id="btnSaveProject" type="button" class="preset-btn secondary">存檔 JSON<small>下載目前整組輸入，可帶到其他瀏覽器回讀</small></button>
+          <button id="btnLoadProject" type="button" class="preset-btn secondary">讀取 JSON<small>回復先前下載的單樁案例檔</small></button>
+          <button id="btnSaveDraft" type="button" class="preset-btn secondary">暫存<small>保存目前案例到此瀏覽器</small></button>
+          <button id="btnLoadDraft" type="button" class="preset-btn secondary">讀取暫存<small>回復此瀏覽器最近暫存案例</small></button>
+          <input id="projectFile" type="file" accept=".json,application/json" hidden>
+        </div>
         <p class="hint">快捷鍵現在只會帶入土層資料，不會覆蓋你已輸入的載重、樁徑、搜尋範圍與細部設定；如需固定目前整組數值，可按「設為目前預設值」。</p>
         <pre id="presetSummary">尚未選擇場址快捷資料</pre>
       </div>
@@ -519,6 +526,8 @@
 (() => {
   const $ = id => document.getElementById(id);
   const STORAGE_KEY = 'singlePileDesigner.userDefaults.v1';
+  const PROJECT_DRAFT_KEY = 'singlePileDesigner.projectDraft.v1';
+  const PROJECT_SCHEMA = 'single-pile-designer.project.v1';
   const num = id => {
     const v = parseFloat($(id)?.value);
     return Number.isFinite(v) ? v : 0;
@@ -688,6 +697,83 @@
     }
     loadSample();
     $('presetSummary').textContent = '已清除自訂預設，並恢復為內建示範案例。';
+  }
+
+  function buildProjectPayload() {
+    return {
+      schema: PROJECT_SCHEMA,
+      tool: {
+        id: 'single-pile-designer',
+        name: '單樁承載力設計器',
+        pageVersion: 'V3.1'
+      },
+      savedAt: new Date().toISOString(),
+      state: captureCurrentState()
+    };
+  }
+
+  function downloadJson(filename, payload) {
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function applyProjectPayload(payload, label = '案例檔') {
+    if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
+    if (payload.tool && payload.tool.id && payload.tool.id !== 'single-pile-designer') {
+      throw new Error(`此 JSON 屬於 ${payload.tool.id}，不是單樁承載力設計器案例。`);
+    }
+    const state = payload.state || payload.input || payload;
+    applyState(state);
+    updateModeUi();
+    calc();
+    $('presetSummary').textContent = `已讀取 ${label}。`;
+  }
+
+  function saveProjectJson() {
+    const payload = buildProjectPayload();
+    downloadJson(`single-pile-project-${payload.savedAt.slice(0, 10)}.json`, payload);
+    $('presetSummary').textContent = '已存檔 JSON；可用「讀取 JSON」回復目前案例。';
+  }
+
+  async function importProjectJson(file) {
+    if (!file) return;
+    try {
+      const payload = JSON.parse(await file.text());
+      applyProjectPayload(payload, file.name || '案例檔');
+    } catch (err) {
+      $('presetSummary').textContent = `讀取 JSON 失敗：${err && err.message ? err.message : err}`;
+    } finally {
+      $('projectFile').value = '';
+    }
+  }
+
+  function saveProjectDraft() {
+    try {
+      window.localStorage.setItem(PROJECT_DRAFT_KEY, JSON.stringify(buildProjectPayload()));
+      $('presetSummary').textContent = '已暫存目前案例到此瀏覽器。';
+    } catch (err) {
+      $('presetSummary').textContent = `暫存失敗：${err && err.message ? err.message : err}`;
+    }
+  }
+
+  function loadProjectDraft() {
+    try {
+      const raw = window.localStorage.getItem(PROJECT_DRAFT_KEY);
+      if (!raw) {
+        $('presetSummary').textContent = '尚無可讀取的瀏覽器暫存。';
+        return;
+      }
+      applyProjectPayload(JSON.parse(raw), '瀏覽器暫存');
+    } catch (err) {
+      $('presetSummary').textContent = `讀取暫存失敗：${err && err.message ? err.message : err}`;
+    }
   }
 
   function inferSoilType(label, c, phi, N) {
@@ -1756,6 +1842,13 @@ ${preset.note}
     calc();
   });
   $('btnResetDefaults').addEventListener('click', resetUserDefaults);
+  $('btnSaveProject').addEventListener('click', saveProjectJson);
+  $('btnLoadProject').addEventListener('click', () => $('projectFile').click());
+  $('projectFile').addEventListener('change', event => {
+    importProjectJson(event.target.files && event.target.files[0]);
+  });
+  $('btnSaveDraft').addEventListener('click', saveProjectDraft);
+  $('btnLoadDraft').addEventListener('click', loadProjectDraft);
   document.querySelectorAll('input, select, textarea').forEach(el => {
     el.addEventListener('change', calc);
   });

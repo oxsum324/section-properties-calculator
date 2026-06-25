@@ -101,6 +101,13 @@ function main() {
   assert(html.includes('待確認事項'), '計算書列出待確認事項', 'report warning group present');
   assert(html.includes('不列為 OK 結論'), '待確認事項不得列為 OK 結論', 'warning summary guard present');
   assert(html.includes('RCUI.buildReviewCheckGroup'), '計算書待確認事項使用共用 helper', 'review warning rows use shared helper');
+  assert(html.includes('const SHEAR_WALL_PROJECT_SCHEMA = \'rc-shear-wall-project-v1\''), '剪力牆專案存檔 schema 存在', 'rc-shear-wall-project-v1');
+  assert(html.includes('id="btnSaveShearWallProject"') && html.includes('id="btnLoadShearWallProject"'), '剪力牆具專案檔案存讀按鈕', 'save/load buttons present');
+  assert(html.includes('id="btnSaveShearWallDraft"') && html.includes('id="btnLoadShearWallDraft"'), '剪力牆具瀏覽器暫存按鈕', 'draft buttons present');
+  assert(html.includes('rc.shearWall.project.draft'), '剪力牆具 localStorage 暫存 key', 'draft key present');
+  assert(html.includes('function collectShearWallProjectData()'), '剪力牆可收集專案 payload', 'collect helper exists');
+  assert(html.includes('function applyShearWallProjectData(raw'), '剪力牆可套用專案 payload', 'apply helper exists');
+  assert(html.includes('SHEAR_WALL_PROJECT_EXCLUDED_IDS') && html.includes('caseJson'), '剪力牆專案排除案例 JSON 工作區', 'case textarea excluded');
   assert(html.includes('待確認 — ${reviewWarnings.length} 項需補充設計或圖說確認'), '摘要 banner 顯示待確認數量', 'summary banner pending-review count present');
   assert(html.includes('id="summaryWarnings"') && html.includes('function updateSummaryPanel') && html.includes('待確認事項 ${index + 1}'), '摘要頁直接列出待確認事項明細', 'summary warning details present');
   assert(html.includes('scopeSingleWall') && html.includes('scopeNoOpening') && html.includes('scopeAnalysisReady'), '適用範圍假設可輸入與匯出', 'scope assumptions present');

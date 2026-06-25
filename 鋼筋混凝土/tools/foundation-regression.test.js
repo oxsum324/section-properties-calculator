@@ -67,6 +67,87 @@ function toTfMaybe(v) {
   return Math.abs(v) > 1000 ? v / 1000 : v;
 }
 
+async function exerciseFoundationProjectStorage(page) {
+  await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    document.querySelector('.mode-btn[data-mode="check"]')?.click();
+    document.querySelector('#mainTabs button[data-tab="pile"]')?.click();
+    setField('projName', '基礎專案存讀檔測試');
+    setField('projNo', 'RC-FDTN-001');
+    setField('projDesigner', 'QA');
+    setField('showSteps', true);
+    setField('showAdvanced', true);
+    setField('fc', 350);
+    setField('fy', 4200);
+    setField('pc1', 55);
+    setField('pc2', 55);
+    setField('pileD', 45);
+    setField('pileQa', 82);
+    setField('pileQt', 42);
+    setField('pileCount', 4);
+    setField('pileSpacing', 140);
+    setField('pileSoilProfile', '0, 4, 12, 0, 30, 0.95, sand\n4, 16, 32, 0, 36, 1.05, gravel');
+    if (typeof window.calcFdtn === 'function') window.calcFdtn();
+  });
+  await wait(300);
+
+  const saved = await page.evaluate(() => window.collectFoundationProjectData());
+  assert(saved.schema === 'rc-foundation-project-v1', 'foundation project schema', saved.schema);
+  assert(saved.tool === 'rc-foundation', 'foundation project tool id', saved.tool);
+  assert(saved.mode === 'check', 'foundation project stores mode', saved.mode);
+  assert(saved.activeTab === 'pile', 'foundation project stores active tab', saved.activeTab);
+  assert(saved.metadata.projectName === '基礎專案存讀檔測試', 'foundation project metadata', saved.metadata.projectName);
+  assert(saved.fields.pileD.value === '45', 'foundation project stores numeric input as editable value', saved.fields.pileD.value);
+  assert(saved.fields.showSteps.checked === true, 'foundation project stores checkbox state', saved.fields.showSteps.checked);
+  assert(saved.fields.pileSoilProfile.value.includes('gravel'), 'foundation project stores soil profile textarea', saved.fields.pileSoilProfile.value);
+  assert(saved.fields.foundationProjectFile == null, 'foundation project excludes file input', 'file input excluded');
+
+  const restored = await page.evaluate(payload => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setField('projName', '已覆寫');
+    setField('pileD', 60);
+    setField('showSteps', false);
+    setField('pileSoilProfile', '0, 1, 1, 0, 20, 1.0, clay');
+    window.applyFoundationProjectData(payload, { silent: true });
+    window.saveFoundationProjectDraft();
+    setField('projName', '再次覆寫');
+    window.loadFoundationProjectDraft();
+    return {
+      projectName: document.getElementById('projName')?.value,
+      pileD: document.getElementById('pileD')?.value,
+      showSteps: document.getElementById('showSteps')?.checked,
+      soilProfile: document.getElementById('pileSoilProfile')?.value,
+      mode: document.querySelector('.mode-btn.active')?.dataset.mode,
+      activeTab: document.querySelector('#mainTabs button.active')?.dataset.tab,
+      draftRaw: localStorage.getItem('rc.foundation.project.draft'),
+      ftLastOk: !!window.ftLast && window.ftLast.tab === 'pile',
+    };
+  }, saved);
+  assert(restored.projectName === '基礎專案存讀檔測試', 'foundation project restores project name', restored.projectName);
+  assert(restored.pileD === '45', 'foundation project restores numeric field', restored.pileD);
+  assert(restored.showSteps === true, 'foundation project restores checkbox', restored.showSteps);
+  assert(restored.soilProfile.includes('gravel'), 'foundation project restores soil profile textarea', restored.soilProfile);
+  assert(restored.mode === 'check', 'foundation project restores mode', restored.mode);
+  assert(restored.activeTab === 'pile', 'foundation project restores active tab', restored.activeTab);
+  assert(!!restored.draftRaw, 'foundation project draft saved to localStorage', 'rc.foundation.project.draft');
+  assert(restored.ftLastOk, 'foundation project recalculates after restore', 'ftLast pile present');
+}
+
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -84,6 +165,12 @@ async function main() {
   assert(html.includes('待確認 — 本工具未提供'), 'mat DDM unavailable state has warning text', 'runtime label is待確認');
   assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
   assert(reviewHelperUses >= 3, 'foundation report uses shared review check group builder', 'all foundation warning report branches use shared helper');
+  assert(html.includes('const FOUNDATION_PROJECT_SCHEMA = \'rc-foundation-project-v1\''), 'foundation project schema present', 'rc-foundation-project-v1');
+  assert(html.includes('id="btnSaveFoundationProject"') && html.includes('id="btnLoadFoundationProject"'), 'foundation project file controls present', 'save/load buttons present');
+  assert(html.includes('id="btnSaveFoundationDraft"') && html.includes('id="btnLoadFoundationDraft"'), 'foundation draft controls present', 'draft buttons present');
+  assert(html.includes('rc.foundation.project.draft'), 'foundation localStorage draft key present', 'draft key present');
+  assert(html.includes('function collectFoundationProjectData()'), 'foundation can collect project payload', 'collect helper exists');
+  assert(html.includes('function applyFoundationProjectData(raw'), 'foundation can apply project payload', 'apply helper exists');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for foundation regression test');
@@ -103,6 +190,9 @@ async function main() {
     await wait(300);
     assert(pageErrors.length === 0, 'foundation page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'foundation page resources', 'no missing static resources during initial load');
+    await exerciseFoundationProjectStorage(page);
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    await wait(300);
 
     for (const tc of pack.cases) {
       await page.click(`#mainTabs button[data-tab="${tc.tab}"]`);

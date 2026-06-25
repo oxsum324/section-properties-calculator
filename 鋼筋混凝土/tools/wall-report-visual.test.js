@@ -165,6 +165,99 @@ async function applyCase(page, key) {
   ), key, { timeout: 10000 });
 }
 
+async function exerciseWallProjectStorage(page) {
+  await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    document.querySelector('.mode-btn[data-mode="check"]')?.click();
+    setField('projName', '牆專案存讀檔測試');
+    setField('projNo', 'RC-WALL-001');
+    setField('projDesigner', 'QA');
+    setField('showSteps', true);
+    setField('showDetailHelp', true);
+    setField('showCaseTools', false);
+    setField('wallType', 'shear');
+    setField('seismicMode', true);
+    setField('fc', 350);
+    setField('fy', 4200);
+    setField('h', 28);
+    setField('lw', 520);
+    setField('hw', 1600);
+    setField('Pu', 180);
+    setField('Vu', 145);
+    setField('vBar', '#5');
+    setField('vSp', 16);
+    setField('hBar', '#5');
+    setField('hSp', 18);
+    const body = document.getElementById('aggBody');
+    if (body) body.innerHTML = '';
+    if (typeof window.addAggRow === 'function') {
+      window.addAggRow({ tag: 'W-save', h: 28, lw: 520, hwlw: 3.1, rhot: 0.0034, Vu: 145 });
+    }
+    if (typeof window.calcWall === 'function') window.calcWall();
+    document.querySelector('.section-tabs button[data-tab="summary"]')?.click();
+  });
+  await page.waitForTimeout(250);
+
+  const saved = await page.evaluate(() => window.collectWallProjectData());
+  assert(saved.schema === 'rc-wall-project-v1', 'wall project schema', saved.schema);
+  assert(saved.tool === 'rc-wall', 'wall project tool id', saved.tool);
+  assert(saved.mode === 'check', 'wall project stores mode', saved.mode);
+  assert(saved.activeTab === 'summary', 'wall project stores active tab', saved.activeTab);
+  assert(saved.metadata.projectName === '牆專案存讀檔測試', 'wall project metadata', saved.metadata.projectName);
+  assert(saved.fields.fc.value === '350', 'wall project stores numeric input as editable value', saved.fields.fc.value);
+  assert(saved.fields.showSteps.checked === true, 'wall project stores checkbox state', saved.fields.showSteps.checked);
+  assert(saved.fields.wallProjectFile == null, 'wall project excludes file input', 'file input excluded');
+  assert(saved.fields.caseJson == null, 'wall project excludes case JSON textarea', 'case textarea excluded');
+  assert(saved.fields.baselineReport == null, 'wall project excludes baseline textarea', 'baseline textarea excluded');
+  assert(Array.isArray(saved.aggRows) && saved.aggRows.length === 1 && saved.aggRows[0].tag === 'W-save', 'wall project stores aggregate rows', JSON.stringify(saved.aggRows));
+
+  const restored = await page.evaluate(payload => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setField('projName', '已覆寫');
+    setField('fc', 280);
+    setField('showSteps', false);
+    const body = document.getElementById('aggBody');
+    if (body) body.innerHTML = '';
+    window.applyWallProjectData(payload, { silent: true });
+    window.saveWallProjectDraft();
+    setField('projName', '再次覆寫');
+    window.loadWallProjectDraft();
+    return {
+      projectName: document.getElementById('projName')?.value,
+      fc: document.getElementById('fc')?.value,
+      showSteps: document.getElementById('showSteps')?.checked,
+      mode: document.querySelector('.mode-btn.active')?.dataset.mode,
+      activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab,
+      aggRows: window.collectWallProjectData().aggRows,
+      draftRaw: localStorage.getItem('rc.wall.project.draft'),
+      wallLastOk: !!window.wallLast,
+    };
+  }, saved);
+  assert(restored.projectName === '牆專案存讀檔測試', 'wall project restores project name', restored.projectName);
+  assert(restored.fc === '350', 'wall project restores numeric field', restored.fc);
+  assert(restored.showSteps === true, 'wall project restores checkbox', restored.showSteps);
+  assert(restored.mode === 'check', 'wall project restores mode', restored.mode);
+  assert(restored.activeTab === 'summary', 'wall project restores active tab', restored.activeTab);
+  assert(restored.aggRows.length === 1 && restored.aggRows[0].tag === 'W-save', 'wall project restores aggregate rows', JSON.stringify(restored.aggRows));
+  assert(!!restored.draftRaw, 'wall project draft saved to localStorage', 'rc.wall.project.draft');
+  assert(restored.wallLastOk, 'wall project recalculates after restore', 'wallLast present');
+}
+
 async function reportMetrics(report) {
   return report.evaluate(() => {
     const clean = s => String(s || '').replace(/\s+/g, ' ').trim();
@@ -221,6 +314,13 @@ async function main() {
   const results = [];
 
   try {
+    const storagePage = await browser.newPage({ viewport: { width: 1320, height: 980 }, deviceScaleFactor: 1 });
+    attachPageGuards(storagePage, guard, 'project-storage:tool');
+    const storageResponse = await storagePage.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    assert(storageResponse && storageResponse.status() === 200, 'wall project storage page loads', `status=${storageResponse && storageResponse.status()}`);
+    await exerciseWallProjectStorage(storagePage);
+    await storagePage.close();
+
     for (const key of CASE_KEYS) {
       const expected = EXPECTED[key];
       assert(!!expected, `${key} expected contract exists`, 'wall report visual case');
