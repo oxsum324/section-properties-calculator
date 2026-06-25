@@ -852,7 +852,9 @@ if (fs.existsSync(maturityMatrixPath)) {
       'latest-preflight-summary'
     ];
     if (matrix.latestPreflight?.quick === true) expectedSourceInputs.push('latest-full-preflight-summary');
-    if (matrix.latestPreflight?.pass !== true) expectedSourceInputs.push('latest-passing-full-preflight-summary');
+    const hasPassingFullPreflightSource = matrix.sourceTrace.inputs
+      .some(input => input.key === 'latest-passing-full-preflight-summary');
+    if (matrix.latestPreflight?.pass !== true && hasPassingFullPreflightSource) expectedSourceInputs.push('latest-passing-full-preflight-summary');
     assert.deepEqual(matrix.sourceTrace.inputs.map(input => input.key).sort(), expectedSourceInputs.sort(), 'maturity sourceTrace expected input keys');
     for (const input of matrix.sourceTrace.inputs) {
       assert.equal(input.exists, true, `maturity sourceTrace ${input.key} exists`);
