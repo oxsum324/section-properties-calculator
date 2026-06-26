@@ -312,10 +312,18 @@ assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/preflight-summary.
 assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity matrix publishes homepage status snapshots');
 assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
+assert.ok(pagesLiveSmoke.includes('PUBLIC_ROUTE_SAMPLES'), 'Pages live smoke has public route sample inventory');
+assert.ok(pagesLiveSmoke.includes('assertPublicRouteSamples'), 'Pages live smoke checks representative public routes');
+assert.ok(pagesLiveSmoke.includes('assertNoLocalWorkspaceLeak'), 'Pages live smoke rejects local workspace path leaks from public pages');
+assert.ok(pagesLiveSmoke.includes('鋼筋混凝土/tools/beam.html'), 'Pages live smoke samples RC tool page');
+assert.ok(pagesLiveSmoke.includes('鋼構工具/steel-beam-formal.html'), 'Pages live smoke samples steel formal page');
+assert.ok(pagesLiveSmoke.includes('石材固定/石材計算書產生器_規範版V2.html'), 'Pages live smoke samples stone V2 page');
+assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/index.html'), 'Pages live smoke samples excavation launcher');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');
 assert.ok(pagesLiveSmoke.includes('assertPrivateBoundary'), 'Pages live smoke checks private artifact boundary');
 assert.ok(pagesLiveSmoke.includes('preflight-tools.ps1'), 'Pages live smoke blocks preflight script publication');
 assert.ok(pagesLiveSmoke.includes('toolbox-entrypoints.contract.test.js'), 'Pages live smoke blocks contract publication');
+assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
 assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v6'), 'Pages deploy workflow configures Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/upload-artifact@v6'), 'Pages deploy workflow uploads artifact');
 assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v5'), 'Pages deploy workflow deploys Pages');
@@ -330,6 +338,7 @@ assert.ok(pagesDeployWorkflow.includes("--exclude='*.test.js'"), 'Pages deploy w
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.contract.test.js'"), 'Pages deploy workflow excludes contract tests');
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.md'"), 'Pages deploy workflow excludes markdown docs');
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/pages-live-smoke.js'"), 'Pages deploy workflow excludes live smoke script');
+assert.ok(pagesDeployWorkflow.includes("--exclude='**/dev_tools/'"), 'Pages deploy workflow excludes dev_tools directories');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
 assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages deploy workflow runs smoke script after deployment');
 assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');
