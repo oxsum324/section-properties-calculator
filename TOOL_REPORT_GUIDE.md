@@ -209,6 +209,8 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 
 `結構工具箱/tools/report-disclosure.contract.test.js` 是跨家族報告揭露契約；它會讀取上述 traceability catalog，要求每筆 trace 的 `report` 至少有一個人可讀落點，`manualReview` 明確指出設計者、施工圖、專案文件、模型或審查者等人工複核責任，並拒絕 `工具內建`、`工具建議`、`專業版` 等工具權威措辭。新增或調整 catalog 時，需讓平台 preflight 的 `report-disclosure-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板也會在 Global Governance Gates 顯示這個跨家族 gate 的 runId、涵蓋 catalog 數與異常狀態。
 
+`結構工具箱/tools/delivery-artifacts.contract.test.js` 是交付物一致性契約；它鎖住覆工板 JSON 匯出 / Word 計算書與開挖擋土支撐 PDF / DOCX / latest download API 的 traceability、README、smoke fixture、報表產生器、前端產出狀態與下載邊界。新增或修改正式交付檔、報表 schema、下載端點或本機 app_data 邊界時，需同步更新 catalog 與文件，並讓平台 preflight 的 `delivery-artifacts-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板會在 Global Governance Gates 顯示這個 gate。
+
 ### 採用依據文字
 
 應使用：

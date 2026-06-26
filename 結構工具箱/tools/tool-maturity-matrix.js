@@ -38,7 +38,15 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'report-disclosure-contract',
     label: '跨家族報告揭露',
     contract: '結構工具箱/tools/report-disclosure.contract.test.js',
-    scope: 'formal、RC、鋼構、錨栓、石材、覆工板與開挖擋土支撐 traceability catalog'
+    scope: 'formal、RC、鋼構、錨栓、石材、覆工板與開挖擋土支撐 traceability catalog',
+    minCatalogs: 7
+  },
+  {
+    key: 'delivery-artifacts-contract',
+    label: '交付物一致性',
+    contract: '結構工具箱/tools/delivery-artifacts.contract.test.js',
+    scope: '覆工板 JSON / Word 報表與開挖 PDF / DOCX / 下載 API 交付邊界',
+    minCatalogs: 2
   }
 ];
 
@@ -505,7 +513,7 @@ function buildGlobalGovernance(preflightEvidenceSummaries, traceabilityCatalogCo
     const issues = [];
     if (missing) issues.push('missing-preflight-record');
     if (failed) issues.push('failed-preflight-record');
-    if (catalogFamilies.length < 7) issues.push('missing-traceability-catalog-coverage');
+    if (catalogFamilies.length < (gate.minCatalogs || 1)) issues.push('missing-traceability-catalog-coverage');
     return {
       ...gate,
       pass: Boolean(record && record.pass === true && issues.length === 0),
@@ -1281,8 +1289,14 @@ function checkMatrix(payload, markdown) {
   assert.equal(reportDisclosureGate.pass, true, 'tool maturity matrix report disclosure gate passed');
   assert.equal(reportDisclosureGate.coveredCatalogs >= 7, true, 'tool maturity matrix report disclosure gate covers traceability catalogs');
   assert.deepEqual(reportDisclosureGate.issues, [], 'tool maturity matrix report disclosure gate issues empty');
+  const deliveryArtifactsGate = payload.globalGovernance.gates.find(item => item.key === 'delivery-artifacts-contract');
+  assert.ok(deliveryArtifactsGate, 'tool maturity matrix globalGovernance includes delivery artifacts gate');
+  assert.equal(deliveryArtifactsGate.pass, true, 'tool maturity matrix delivery artifacts gate passed');
+  assert.equal(deliveryArtifactsGate.coveredCatalogs >= 2, true, 'tool maturity matrix delivery artifacts gate covers traceability catalogs');
+  assert.deepEqual(deliveryArtifactsGate.issues, [], 'tool maturity matrix delivery artifacts gate issues empty');
   assert.ok(markdown.includes('## Global Governance Gates'), 'tool maturity matrix markdown exposes global governance gates');
   assert.ok(markdown.includes('report-disclosure-contract'), 'tool maturity matrix markdown exposes report disclosure gate');
+  assert.ok(markdown.includes('delivery-artifacts-contract'), 'tool maturity matrix markdown exposes delivery artifacts gate');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
