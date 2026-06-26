@@ -1,6 +1,42 @@
 const assert = require('assert');
 
 const DEFAULT_BASE_URL = 'https://oxsum324.github.io/section-properties-calculator/';
+const PUBLIC_ROUTE_SAMPLES = [
+  { path: '鋼筋混凝土/', needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢'] },
+  { path: '鋼筋混凝土/tools/beam.html', needles: ['梁 Beam 設計', 'RC 工具箱'] },
+  { path: '鋼筋混凝土/tools/shear-wall.html', needles: ['剪力牆 Shear Wall', '18.7'] },
+  { path: '鋼構工具/', needles: ['鋼構正式規範核算工具'] },
+  { path: '鋼構工具/steel-beam-formal.html', needles: ['鋼梁正式規範核算工具'] },
+  { path: 'anchor/', needles: ['錨栓檢討工具'] },
+  { path: '石材固定/石材計算書產生器_規範版V2.html', needles: ['石材外牆固定構件計算書產生器', '規範版'] },
+  { path: '覆工板/index.html', needles: ['覆工板系統計算工具'] },
+  { path: '開挖擋土支撐/index.html', needles: ['開挖擋土支撐計算工具', '本機服務工具'] },
+  { path: '連續梁分析.html', needles: ['連續梁分析工具'] },
+  { path: '合成斷面性質.html', needles: ['合成斷面性質計算'] },
+  { path: 'RC補強斷面性質.html', needles: ['RC 補強斷面性質計算'] },
+  { path: '結構工具箱/tools/風力/wind-force.html', needles: ['矩形建物 MWFRS', '建築物耐風設計'] },
+  { path: '結構工具箱/tools/風力/wind-object-solid.html', needles: ['實體標示物風力', '表 2.10'] },
+  { path: '結構工具箱/tools/地震力/seismic-force.html', needles: ['等值靜力分析', '建築物耐震設計'] },
+  { path: '結構工具箱/tools/foundation/foundation-local.html', needles: ['基礎局部檢核'] },
+  { path: '結構工具箱/tools/equipment/equipment-load.html', needles: ['設備局部荷重'] },
+  { path: '結構工具箱/tools/earth/earth-pressure.html', needles: ['擋土土壓局部快算'] }
+];
+const PRIVATE_PATHS = [
+  'README.md',
+  'TOOL_BOUNDARIES.md',
+  'STAGING_GROUPS.md',
+  'TOOL_REPORT_GUIDE.md',
+  'preflight-tools.ps1',
+  'run-preflight-tools.bat',
+  'toolbox-entrypoints.contract.test.js',
+  '結構工具箱/tools/pages-live-smoke.js',
+  '結構工具箱/tools/local-quick-browser-smoke.test.js',
+  '石材固定/dev_tools/baseline_capture.html',
+  '石材固定/dev_tools/diagnostics.html',
+  '石材固定/dev_tools/gov_filename_diff.py',
+  '石材固定/dev_tools/verifier.config.json',
+  '.github/workflows/pages-deploy.yml'
+];
 
 function argValue(name) {
   const index = process.argv.indexOf(name);
@@ -56,20 +92,22 @@ async function assertOldOutputNotRequired(base) {
   }
 }
 
+function assertNoLocalWorkspaceLeak(text, label) {
+  assert.equal(/C:\\Users\\|Desktop\\AI\\|小工具製作/.test(text), false, `${label} must not expose local workspace paths`);
+}
+
+async function assertPublicRouteSamples(base) {
+  for (const sample of PUBLIC_ROUTE_SAMPLES) {
+    const html = await fetchText(liveUrl(base, sample.path));
+    for (const needle of sample.needles) {
+      assert.ok(html.includes(needle), `${sample.path} missing public page marker: ${needle}`);
+    }
+    assertNoLocalWorkspaceLeak(html, sample.path);
+  }
+}
+
 async function assertPrivateBoundary(base) {
-  const privatePaths = [
-    'README.md',
-    'TOOL_BOUNDARIES.md',
-    'STAGING_GROUPS.md',
-    'TOOL_REPORT_GUIDE.md',
-    'preflight-tools.ps1',
-    'run-preflight-tools.bat',
-    'toolbox-entrypoints.contract.test.js',
-    '結構工具箱/tools/pages-live-smoke.js',
-    '結構工具箱/tools/local-quick-browser-smoke.test.js',
-    '.github/workflows/pages-deploy.yml'
-  ];
-  for (const path of privatePaths) {
+  for (const path of PRIVATE_PATHS) {
     const url = liveUrl(base, path);
     const response = await fetch(url, { redirect: 'manual', cache: 'no-store' });
     assert.notEqual(response.status, 200, `${path} should not be published to Pages`);
@@ -104,6 +142,7 @@ async function main() {
   assert.equal(Number.isInteger(preflightStatus.recordsCount), true, 'preflight recordsCount integer');
   assert.equal(preflightStatus.recordsCount, preflightStatus.passedCount, 'preflight records all passed');
 
+  await assertPublicRouteSamples(base);
   await assertOldOutputNotRequired(base);
   if (hasArg('--check-private-boundary') || process.env.PAGES_CHECK_PRIVATE_BOUNDARY === '1') {
     await assertPrivateBoundary(base);

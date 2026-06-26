@@ -39,6 +39,8 @@ jobs:
             --exclude='TOOL_BOUNDARIES.md' \
             --exclude='TOOL_REPORT_GUIDE.md' \
             --exclude='結構工具箱/tools/pages-live-smoke.js' \
+            --exclude='石材固定/dev_tools/' \
+            --exclude='**/dev_tools/' \
             --exclude='*.ps1' \
             --exclude='*.bat' \
             --exclude='*.test.js' \
