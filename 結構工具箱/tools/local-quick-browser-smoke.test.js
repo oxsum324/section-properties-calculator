@@ -343,6 +343,31 @@ async function settlePage(client, sessionId, frames = 2) {
   })()`);
 }
 
+async function waitForHomeStatusSettled(client, sessionId, timeoutMs = 8000) {
+  const startedAt = Date.now();
+  let lastState = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    const state = await evaluate(client, sessionId, `(() => {
+      const compact = node => node?.innerText?.replace(/\\s+/g, ' ').trim() || '';
+      const platform = document.getElementById('platformStatus');
+      const preflight = document.getElementById('preflightStatus');
+      return {
+        protocol: window.location.protocol,
+        hasStatusCards: Boolean(platform || preflight),
+        platformStatusText: compact(platform),
+        preflightStatusText: compact(preflight)
+      };
+    })()`);
+    lastState = state;
+    if (!state.hasStatusCards || !/^https?:$/i.test(state.protocol)) return state;
+    const platformReady = state.platformStatusText && !state.platformStatusText.includes('未讀取');
+    const preflightReady = state.preflightStatusText && !state.preflightStatusText.includes('未讀取');
+    if (platformReady && preflightReady) return state;
+    await delay(100);
+  }
+  throw new Error(`Timed out waiting for home status cards: ${JSON.stringify(lastState)}`);
+}
+
 async function waitForPageReady(client, sessionId, timeoutMs = 15000) {
   const startedAt = Date.now();
   let lastError;
@@ -374,6 +399,7 @@ async function navigateAndInspect(client, sessionId, url, viewport, expression) 
   await client.send('Page.navigate', { url }, sessionId);
   await loaded.catch(() => waitForPageReady(client, sessionId, 15000));
   await settlePage(client, sessionId, 2);
+  await waitForHomeStatusSettled(client, sessionId);
   const state = await evaluate(client, sessionId, expression);
   pageErrors.unsubscribe();
   return { state, errors: pageErrors.errors };
