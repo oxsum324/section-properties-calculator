@@ -207,7 +207,7 @@ flowchart TD
 
 RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 施工臨設 / 服務型家族若已有獨立 audit，可採同一模式建立家族 catalog，例如 `鋼筋混凝土/tools/rc-traceability.catalog.json`、`鋼構工具/steel-traceability.catalog.json`、`螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json`、`石材固定/stone-traceability.catalog.json`、`覆工板/decking-traceability.catalog.json` 與 `開挖擋土支撐/excavation-traceability.catalog.json`。這類 catalog 至少要能追到規範來源、輸入、計算核心、報告落點、回歸證據與人工複核邊界；服務型工具另需追到 API、資料儲存、下載路徑與本機執行邊界，並由該家族的 contract test 納入巡檢。錨栓工具需同時保留 package 內 `anchorTraceabilityCatalog.test.ts` 與平台層 `螺栓檢討/anchor-traceability.contract.test.js`，讓 preflight 的 `anchor-traceability-contract` 可獨立證明條文語意追溯完整。
 
-`結構工具箱/tools/report-disclosure.contract.test.js` 是跨家族報告揭露契約；它會讀取上述 traceability catalog，要求每筆 trace 的 `report` 至少有一個人可讀落點，`manualReview` 明確指出設計者、施工圖、專案文件、模型或審查者等人工複核責任，並拒絕 `工具內建`、`工具建議`、`專業版` 等工具權威措辭。新增或調整 catalog 時，需讓平台 preflight 的 `report-disclosure-contract` 留下獨立通過紀錄。
+`結構工具箱/tools/report-disclosure.contract.test.js` 是跨家族報告揭露契約；它會讀取上述 traceability catalog，要求每筆 trace 的 `report` 至少有一個人可讀落點，`manualReview` 明確指出設計者、施工圖、專案文件、模型或審查者等人工複核責任，並拒絕 `工具內建`、`工具建議`、`專業版` 等工具權威措辭。新增或調整 catalog 時，需讓平台 preflight 的 `report-disclosure-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板也會在 Global Governance Gates 顯示這個跨家族 gate 的 runId、涵蓋 catalog 數與異常狀態。
 
 ### 採用依據文字
 

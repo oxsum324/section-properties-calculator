@@ -594,6 +594,9 @@
     <div class="coverage-totals" id="traceabilityCatalogCoverage" aria-label="Traceability Catalog Coverage">
       <div class="history-empty">讀取 traceability catalog 覆蓋中。</div>
     </div>
+    <div class="coverage-totals" id="maturityGlobalGovernance" aria-label="Global Governance Gates">
+      <div class="history-empty">讀取全域治理 gate 中。</div>
+    </div>
     <div class="source-trace" id="maturitySourceTrace" aria-label="Maturity Source Trace">
       <div class="history-empty">讀取來源追蹤中。</div>
     </div>
@@ -1183,6 +1186,7 @@
       const boundaryWrap = document.getElementById('maturityBoundaryWrap');
       const coverageTotalsNode = document.getElementById('maturityCoverageTotals');
       const traceabilityCatalogNode = document.getElementById('traceabilityCatalogCoverage');
+      const globalGovernanceNode = document.getElementById('maturityGlobalGovernance');
       const sourceTraceNode = document.getElementById('maturitySourceTrace');
       const preflightNode = document.getElementById('maturityPreflight');
       const preflightHintNode = document.getElementById('maturityPreflightHint');
@@ -1208,6 +1212,7 @@
         if (boundaryWrap) boundaryWrap.innerHTML = '<div class="history-empty">目前尚無矩陣外邊界檢查。</div>';
         if (coverageTotalsNode) coverageTotalsNode.innerHTML = '<div class="history-empty">目前尚無 coverage totals。</div>';
         if (traceabilityCatalogNode) traceabilityCatalogNode.innerHTML = '<div class="history-empty">目前尚無 traceability catalog 覆蓋。</div>';
+        if (globalGovernanceNode) globalGovernanceNode.innerHTML = '<div class="history-empty">目前尚無全域治理 gate。</div>';
         if (sourceTraceNode) sourceTraceNode.innerHTML = '<div class="history-empty">目前尚無來源追蹤。</div>';
         if (preflightNode) preflightNode.textContent = '未讀取';
         return;
@@ -1428,6 +1433,25 @@
             `;
           }).join('')
           : '<div class="history-empty">目前尚無 traceability catalog 覆蓋。</div>';
+      }
+      if (globalGovernanceNode) {
+        const gates = Array.isArray(payload.globalGovernance?.gates) ? payload.globalGovernance.gates : [];
+        globalGovernanceNode.innerHTML = gates.length
+          ? gates.map((gate) => {
+            const issues = Array.isArray(gate.issues) && gate.issues.length
+              ? `；異常 ${gate.issues.join(', ')}`
+              : '';
+            const status = gate.pass ? '通過' : '異常';
+            const runId = gate.runId ? `；runId ${gate.runId}` : '';
+            const catalogs = Number(gate.coveredCatalogs || 0);
+            return `
+              <div class="coverage-total ${gate.pass ? 'ok' : 'warn'}" data-governance-key="${escapeAttr(gate.key || '-')}">
+                <strong>${escapeHtml(gate.label || gate.key || '-')}</strong>
+                <span>${escapeHtml(`${status}${runId}；${catalogs} catalogs；${gate.key || '-'}${issues}`)}</span>
+              </div>
+            `;
+          }).join('')
+          : '<div class="history-empty">目前尚無全域治理 gate。</div>';
       }
       if (sourceTraceNode) {
         const inputs = Array.isArray(payload.sourceTrace?.inputs) ? payload.sourceTrace.inputs : [];

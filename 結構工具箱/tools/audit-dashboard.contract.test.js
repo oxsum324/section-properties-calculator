@@ -204,6 +204,10 @@ dashboardScripts.forEach((match, index) => {
   'maturityUpgradeTargets',
   'maturityCoverageTotals',
   'traceabilityCatalogCoverage',
+  'maturityGlobalGovernance',
+  'Global Governance Gates',
+  'data-governance-key',
+  'payload.globalGovernance?.gates',
   'Traceability Catalog Coverage',
   'payload.traceabilityCatalogCoverage',
   'data-catalog-family',
@@ -803,6 +807,11 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'buildTraceabilityCatalogCoverage',
   'traceabilityCatalogCoverage',
   '## Traceability Catalog Coverage',
+  'GLOBAL_GOVERNANCE_GATES',
+  'buildGlobalGovernance',
+  'globalGovernance',
+  'report-disclosure-contract',
+  '## Global Governance Gates',
   'latestFullPreflightSummary',
   'preflightHistoryHealth',
   'preflight-history',
@@ -863,6 +872,18 @@ if (fs.existsSync(maturityMatrixPath)) {
     assert.equal(matrix.totals[key], matrix.totals.tools, `maturity coverage total ${key} complete`);
   }
   assert.ok(Array.isArray(matrix.topUpgradeTargets), 'maturity top upgrade targets array');
+  assert.ok(matrix.globalGovernance && typeof matrix.globalGovernance === 'object', 'maturity globalGovernance object');
+  assert.equal(Number.isInteger(matrix.globalGovernance.required), true, 'maturity globalGovernance required integer');
+  assert.equal(Number.isInteger(matrix.globalGovernance.passed), true, 'maturity globalGovernance passed integer');
+  assert.equal(Number.isInteger(matrix.globalGovernance.issueCount), true, 'maturity globalGovernance issue count integer');
+  assert.ok(Array.isArray(matrix.globalGovernance.gates), 'maturity globalGovernance gates array');
+  const reportDisclosureGate = matrix.globalGovernance.gates.find(gate => gate.key === 'report-disclosure-contract');
+  assert.ok(reportDisclosureGate, 'maturity globalGovernance report disclosure gate exists');
+  assert.equal(reportDisclosureGate.pass, true, 'maturity globalGovernance report disclosure gate passes');
+  assert.equal(reportDisclosureGate.coveredCatalogs >= 7, true, 'maturity globalGovernance report disclosure catalog count');
+  assert.deepEqual(reportDisclosureGate.issues, [], 'maturity globalGovernance report disclosure issues empty');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Global Governance Gates'), 'maturity markdown exposes global governance gates');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('report-disclosure-contract'), 'maturity markdown exposes report disclosure gate');
   if (maturityFresh) {
     assert.ok(matrix.preflightHistoryHealth && typeof matrix.preflightHistoryHealth === 'object', 'maturity preflightHistoryHealth object');
     assert.equal(Number.isInteger(matrix.preflightHistoryHealth.count), true, 'maturity preflightHistoryHealth count integer');
