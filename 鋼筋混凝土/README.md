@@ -31,6 +31,7 @@
 - 板回歸測試與報告視覺 smoke
 - 牆回歸測試與報告視覺 smoke
 - RC 條文語意追蹤 catalog
+- RC 條文語意追蹤 contract
 - 剪力牆完整 suite
 - 剪力牆報告視覺 smoke
 - 基礎回歸測試與報告視覺 smoke
@@ -48,6 +49,8 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 對應輸入欄位、計算核心與報告落點。
 - 覆蓋該路線的 regression / browser smoke 證據檔。
 - 仍須依施工圖、專案模型或設計者判定人工複核的項目。
+
+獨立契約測試位於 [tools/rc-traceability.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-traceability.contract.test.js:1)，會確認每個 RC 模組的 trace 數量、規範來源、報告落點、證據檔存在與人工複核措辭，並由 RC audit 與平台 preflight 直接執行。
 
 梁報告視覺 smoke 已接在 [tools/test-beam.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-beam.ps1:1)，會以瀏覽器產生計算書，檢查：
 

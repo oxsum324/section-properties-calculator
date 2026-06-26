@@ -162,6 +162,7 @@ const menuCards = parseMenuCards(index);
 const fallbackText = expectedLabels.join('、');
 const requiredQaArtifacts = [
   'tools/audit-status.contract.test.js',
+  'tools/rc-traceability.contract.test.js',
   'tools/rc-index-menu-browser-smoke.test.js',
   'tools/test-rc-index-menu.ps1',
   'tools/beam-regression.test.js',
@@ -275,6 +276,7 @@ for (const rel of localDependencyDirs) {
 
 assertIncludes(audit, 'Shear wall suite', 'audit runs shear wall suite');
 assertIncludes(audit, 'Shared common helper unit tests', 'audit runs shared common helper unit tests');
+assertIncludes(audit, 'RC traceability catalog contract', 'audit runs RC traceability catalog contract');
 assertIncludes(audit, 'Shear wall report visual smoke', 'audit runs shear wall report visual smoke');
 assertIncludes(audit, 'Beam regression and report visual smoke', 'audit runs beam regression and report visual smoke');
 assertIncludes(audit, 'Foundation regression and report visual smoke', 'audit runs foundation regression and report visual smoke');

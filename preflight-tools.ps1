@@ -1161,6 +1161,11 @@ node 覆工板/decking-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$rcTraceabilityContractCommand = @'
+node 鋼筋混凝土/tools/rc-traceability.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $excavationTraceabilityContractCommand = @'
 node 開挖擋土支撐/excavation-traceability.contract.test.js
 exit $LASTEXITCODE
@@ -1854,6 +1859,13 @@ $checks = @(
     label = "Decking traceability catalog contract"
     workdir = $root
     command = $deckingTraceabilityContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "rc-traceability-contract"
+    label = "RC traceability catalog contract"
+    workdir = $root
+    command = $rcTraceabilityContractCommand
     slow = $false
   },
   [pscustomobject]@{
