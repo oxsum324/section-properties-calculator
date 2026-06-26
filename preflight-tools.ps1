@@ -1181,6 +1181,11 @@ node 螺栓檢討/anchor-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$reportDisclosureContractCommand = @'
+node 結構工具箱/tools/report-disclosure.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $excavationTraceabilityContractCommand = @'
 node 開挖擋土支撐/excavation-traceability.contract.test.js
 exit $LASTEXITCODE
@@ -1902,6 +1907,13 @@ $checks = @(
     label = "Anchor traceability catalog contract"
     workdir = $root
     command = $anchorTraceabilityContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "report-disclosure-contract"
+    label = "Cross-family report disclosure contract"
+    workdir = $root
+    command = $reportDisclosureContractCommand
     slow = $false
   },
   [pscustomobject]@{
