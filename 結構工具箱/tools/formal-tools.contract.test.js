@@ -88,6 +88,7 @@ const repoDocs = {
   'manifest.shared.browserSmokeTest',
   'manifest.shared.maturityMatrix',
   'manifest.shared.traceabilityCatalog',
+  'manifest.shared.traceabilityContract',
   'runNode'
 ].forEach(needle => assertIncludes(repoDocs.runner, needle, 'formal tools runner'));
 
@@ -118,6 +119,7 @@ const repoDocs = {
 
 [
   '結構工具箱/tools/formal-tools.manifest.json',
+  '結構工具箱/tools/formal-traceability.contract.test.js',
   '結構工具箱/tools/formal-tools.run.js',
   '結構工具箱/tools/formal-tools.contract.test.js',
   '結構工具箱/tools/tool-maturity-matrix.js',
@@ -129,6 +131,7 @@ const repoDocs = {
 });
 assertIncludes(repoDocs.reportGuide, 'formal-tools.manifest.json', 'TOOL_REPORT_GUIDE formal manifest');
 assertIncludes(repoDocs.reportGuide, 'formal-traceability.catalog.json', 'TOOL_REPORT_GUIDE formal traceability catalog');
+assertIncludes(repoDocs.reportGuide, 'formal-traceability.contract.test.js', 'TOOL_REPORT_GUIDE formal traceability contract');
 assertIncludes(repoDocs.reportGuide, '條文語意追蹤', 'TOOL_REPORT_GUIDE traceability section');
 assertIncludes(repoDocs.reportGuide, 'reportDisclosureNeedles', 'TOOL_REPORT_GUIDE report disclosure needles');
 assertIncludes(repoDocs.reportGuide, '建築物耐風設計規範及解說', 'TOOL_REPORT_GUIDE wind report disclosure');
@@ -144,6 +147,8 @@ const traceByKey = new Map(traceTools.map(tool => [tool.key, tool]));
 
 assert.equal(traceCatalog.version, '0.1.0', 'formal traceability catalog version');
 assert.equal(traceCatalog.family, 'formal-traceability', 'formal traceability catalog family');
+assert.equal(manifest.shared.traceabilityContract, 'tools/formal-traceability.contract.test.js', 'formal traceability contract path');
+assertFile(manifest.shared.traceabilityContract);
 assert.deepEqual(
   traceTools.map(tool => tool.key),
   tools.map(tool => tool.key),
@@ -232,8 +237,13 @@ for (const tool of tools) {
   assert.equal(typeof traceEntry.scope, 'string', `${tool.key} traceability scope`);
   assert.ok(traceEntry.scope.length > 0, `${tool.key} traceability scope populated`);
   assert.ok(Array.isArray(traceEntry.traces) && traceEntry.traces.length > 0, `${tool.key} traceability traces`);
+  const seenTraceIds = new Set();
   const goldenIds = new Set((tool.goldenCases || []).map(goldenCase => goldenCase.id));
   for (const [traceIndex, trace] of traceEntry.traces.entries()) {
+    assert.equal(typeof trace.id, 'string', `${tool.key} trace ${traceIndex} id`);
+    assert.ok(trace.id.trim().length > 0, `${tool.key} trace ${traceIndex} id populated`);
+    assert.ok(!seenTraceIds.has(trace.id), `${tool.key} trace ${traceIndex} id unique`);
+    seenTraceIds.add(trace.id);
     assert.equal(typeof trace.clause, 'string', `${tool.key} trace ${traceIndex} clause`);
     assert.ok(/規範|表|圖|式|章|節/.test(trace.clause), `${tool.key} trace ${traceIndex} clause names a formal source`);
     assert.equal(typeof trace.purpose, 'string', `${tool.key} trace ${traceIndex} purpose`);

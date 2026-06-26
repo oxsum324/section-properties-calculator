@@ -1222,6 +1222,11 @@ function checkMatrix(payload, markdown) {
   assert.ok(markdown.includes('## Coverage Totals'), 'tool maturity matrix markdown exposes coverage totals');
   assert.ok(markdown.includes('## Traceability Catalog Coverage'), 'tool maturity matrix markdown exposes traceability catalog coverage');
   assert.ok(Array.isArray(payload.traceabilityCatalogCoverage), 'tool maturity matrix traceability catalog coverage array');
+  const formalTraceabilityCoverage = payload.traceabilityCatalogCoverage.find(item => item.family === 'formal-traceability');
+  assert.ok(formalTraceabilityCoverage, 'tool maturity matrix includes formal traceability catalog coverage');
+  assert.equal(formalTraceabilityCoverage.covered, formalTraceabilityCoverage.tools, 'tool maturity matrix formal traceability catalog fully covered');
+  assert.ok(formalTraceabilityCoverage.traceCount >= formalTraceabilityCoverage.tools, 'tool maturity matrix formal traceability catalog has traces');
+  assert.deepEqual(formalTraceabilityCoverage.uncoveredKeys, [], 'tool maturity matrix formal traceability catalog has no uncovered tools');
   const rcTraceabilityCoverage = payload.traceabilityCatalogCoverage.find(item => item.family === 'rc-traceability');
   assert.ok(rcTraceabilityCoverage, 'tool maturity matrix includes RC traceability catalog coverage');
   assert.equal(rcTraceabilityCoverage.covered, rcTraceabilityCoverage.tools, 'tool maturity matrix RC traceability catalog fully covered');

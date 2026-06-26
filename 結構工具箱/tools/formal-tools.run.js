@@ -82,8 +82,10 @@ assertFile(manifest.shared.contractTest);
 assertFile(manifest.shared.browserSmokeTest);
 assertFile(manifest.shared.maturityMatrix);
 assertFile(manifest.shared.traceabilityCatalog);
+assertFile(manifest.shared.traceabilityContract);
 
 console.log(`[formal-tools] manifest v${manifest.version}: ${manifest.tools.length} tools`);
 runNode('manifest contract regression', manifest.shared.contractTest);
+runNode('traceability catalog contract', manifest.shared.traceabilityContract);
 runNode('browser smoke regression', manifest.shared.browserSmokeTest);
 console.log(`formal tools manifest runner OK (${manifest.tools.length} tools)`);
