@@ -252,6 +252,7 @@ function Run-AuditPass {
 
   $commands = @(
     @{ Label = "Shared common helper unit tests"; Command = "Set-Location '$root'; node '.\shared\common.test.js'"; Workdir = $root },
+    @{ Label = "RC traceability catalog contract"; Command = "Set-Location '$toolsDir'; node '.\rc-traceability.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Audit status metadata contract"; Command = "Set-Location '$toolsDir'; node '.\audit-status.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "RC index menu browser smoke"; Command = "& '$toolsDir\test-rc-index-menu.ps1'"; Workdir = $toolsDir },
     @{ Label = "Beam regression and report visual smoke"; Command = "& '$toolsDir\test-beam.ps1'"; Workdir = $toolsDir },
