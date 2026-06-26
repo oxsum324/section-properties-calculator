@@ -324,6 +324,10 @@ assert.ok(pagesLiveSmoke.includes('assertPrivateBoundary'), 'Pages live smoke ch
 assert.ok(pagesLiveSmoke.includes('preflight-tools.ps1'), 'Pages live smoke blocks preflight script publication');
 assert.ok(pagesLiveSmoke.includes('toolbox-entrypoints.contract.test.js'), 'Pages live smoke blocks contract publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
+assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke blocks stone backend helper publication');
+assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/backend/app/main.py'), 'Pages live smoke blocks excavation backend publication');
+assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/frontend/src/App.tsx'), 'Pages live smoke blocks excavation frontend source publication');
+assert.ok(pagesLiveSmoke.includes('螺栓檢討/bolt-review-tool/src/App.tsx'), 'Pages live smoke blocks anchor source publication');
 assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v6'), 'Pages deploy workflow configures Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/upload-artifact@v6'), 'Pages deploy workflow uploads artifact');
 assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v5'), 'Pages deploy workflow deploys Pages');
@@ -339,6 +343,14 @@ assert.ok(pagesDeployWorkflow.includes("--exclude='*.contract.test.js'"), 'Pages
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.md'"), 'Pages deploy workflow excludes markdown docs');
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/pages-live-smoke.js'"), 'Pages deploy workflow excludes live smoke script');
 assert.ok(pagesDeployWorkflow.includes("--exclude='**/dev_tools/'"), 'Pages deploy workflow excludes dev_tools directories');
+assert.ok(pagesDeployWorkflow.includes("--exclude='螺栓檢討/bolt-review-tool/'"), 'Pages deploy workflow excludes anchor source project');
+assert.ok(pagesDeployWorkflow.includes("--exclude='開挖擋土支撐/backend/'"), 'Pages deploy workflow excludes excavation backend');
+assert.ok(pagesDeployWorkflow.includes("--exclude='開挖擋土支撐/frontend/'"), 'Pages deploy workflow excludes excavation frontend source');
+assert.ok(pagesDeployWorkflow.includes("--exclude='**/tests/'"), 'Pages deploy workflow excludes tests directories');
+assert.ok(pagesDeployWorkflow.includes("--exclude='**/*.py'"), 'Pages deploy workflow excludes Python helpers');
+assert.ok(pagesDeployWorkflow.includes("--exclude='**/*.ts'"), 'Pages deploy workflow excludes TypeScript source');
+assert.ok(pagesDeployWorkflow.includes("--exclude='**/*.tsx'"), 'Pages deploy workflow excludes TSX source');
+assert.ok(pagesDeployWorkflow.includes("--exclude='**/package.json'"), 'Pages deploy workflow excludes package manifests');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
 assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages deploy workflow runs smoke script after deployment');
 assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');

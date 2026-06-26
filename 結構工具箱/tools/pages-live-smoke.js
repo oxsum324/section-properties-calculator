@@ -35,6 +35,16 @@ const PRIVATE_PATHS = [
   '石材固定/dev_tools/diagnostics.html',
   '石材固定/dev_tools/gov_filename_diff.py',
   '石材固定/dev_tools/verifier.config.json',
+  '石材固定/server.py',
+  '石材固定/tests/golden/case_01_standard_safe.json',
+  '石材固定/註冊快速啟動.reg',
+  '開挖擋土支撐/backend/app/main.py',
+  '開挖擋土支撐/frontend/package.json',
+  '開挖擋土支撐/frontend/src/App.tsx',
+  '開挖擋土支撐/frontend/dist/index.html',
+  '螺栓檢討/bolt-review-tool/package.json',
+  '螺栓檢討/bolt-review-tool/src/App.tsx',
+  '覆工板/dump_xls.py',
   '.github/workflows/pages-deploy.yml'
 ];
 
