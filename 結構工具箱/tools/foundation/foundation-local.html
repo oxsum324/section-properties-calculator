@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基礎局部檢核 V0.2</title>
+<title>基礎局部檢核 V0.3</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <style>
@@ -97,7 +97,7 @@
 </head>
 <body>
 <header>
-  <h1>基礎局部檢核 <span class="badge-v">V0.2 局部正式檢核</span></h1>
+  <h1>基礎局部檢核 <span class="badge-v">V0.3 局部正式檢核</span></h1>
   <p>淺基礎服務載重底壓、偏心、抗滑、抗傾覆快速檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="../../index.html" class="back">← 回工具箱</a>
@@ -137,7 +137,7 @@
           適用於矩形獨立基礎或設備基座的初步穩定檢核：服務載重底壓、合力偏心、抗滑與抗傾覆。
           若有樁基、筏基、聯合基腳、衝剪、配筋、沉陷或土壤互制問題，應回 RC 基礎完整工具或正式計算書處理。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.2</span>
+            <span>頁面 V0.3</span>
             <span id="coreVersion">Core v—</span>
             <span>正式核算 / 局部</span>
           </div>
@@ -280,6 +280,35 @@
         </div>
       </div>
 
+      <div class="card">
+        <h2>③b 沉陷與有效面積（選用）</h2>
+        <div class="checkbox-row">
+          <input type="checkbox" id="effectiveAreaCheck">
+          <label for="effectiveAreaCheck">納入 Meyerhof 有效面積承壓（B′=B−2e）為通過條件</label>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>土壤彈性模數 Es (tf/m²，0＝不算沉陷)</label>
+            <input type="number" id="Es" value="0" step="100" min="0">
+          </div>
+          <div class="form-group">
+            <label>柏松比 ν</label>
+            <input type="number" id="nu" value="0.30" step="0.05" min="0" max="0.5">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>沉陷影響係數 I<sub>w</sub>（剛性≈0.88）</label>
+            <input type="number" id="settlementInfluence" value="0.88" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>容許沉陷 (cm)</label>
+            <input type="number" id="allowableSettlementCm" value="2.50" step="0.5" min="0">
+          </div>
+        </div>
+        <div class="scope-box">有效面積承壓 q′ = P / [(B−2e<sub>B</sub>)(L−2e<sub>L</sub>)] 反映偏心折減。立即彈性沉陷 Se = q·B·(1−ν²)·I<sub>w</sub>/Es 為初估，僅供量級判斷；壓密沉陷、分層土與時間效應仍需另行詳算。</div>
+      </div>
+
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
         <div class="scope-box">所有幾何、載重與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
@@ -354,7 +383,8 @@
     qult: '60',
     B: '2.50', L: '3.00', t: '0.60', Df: '1.20', gammaC: '2.40', gammaS: '1.80',
     P: '80', qa: '20', Mx: '12', My: '8', Hx: '4', Hy: '3', mu: '0.45',
-    passive: '0', fsSlideReq: '1.50', fsOverReq: '1.50'
+    passive: '0', fsSlideReq: '1.50', fsOverReq: '1.50',
+    Es: '0', nu: '0.30', settlementInfluence: '0.88', allowableSettlementCm: '2.50'
   };
   let lastResult = null;
   const Core = window.FoundationLocalCore;
@@ -444,7 +474,11 @@
       P: num('P'), qa: num('qa'), Mx: num('Mx'), My: num('My'),
       Hx: num('Hx'), Hy: num('Hy'), mu: num('mu'), passive: num('passive'),
       fsSlideReq: num('fsSlideReq'), fsOverReq: num('fsOverReq'),
-      includeSelfWeight
+      includeSelfWeight,
+      effectiveAreaCheck: $('effectiveAreaCheck').checked,
+      Es: num('Es'), nu: num('nu'),
+      settlementInfluence: num('settlementInfluence'),
+      allowableSettlementCm: num('allowableSettlementCm')
     };
   }
 
@@ -488,6 +522,12 @@
       ['抗滑 FS', fmt(r.fsSlide, 2), `R=${fmt(r.slideResistance)} tf，H=${fmt(r.H)} tf`, r.slideOk],
       ['抗傾覆 FS', fmt(r.fsOver, 2), `B向 ${fmt(r.fsOverB, 2)}；L向 ${fmt(r.fsOverL, 2)}`, r.overOk]
     ];
+    if (r.effectiveAreaCheck) {
+      metrics.push(['有效面積承壓 q′', `${fmt(r.qEff)} tf/m²`, `B′=${fmt(r.effWidthB, 3)}、L′=${fmt(r.effWidthL, 3)} m`, r.qEffOk]);
+    }
+    if (r.hasSettlement) {
+      metrics.push(['彈性沉陷 Se', `${fmt(r.settlementCm)} cm`, `容許 ${fmt(r.allowableSettlementCm)} cm`, r.settlementOk]);
+    }
     $('metricGrid').innerHTML = metrics.map(function (m) {
       return `<div class="metric ${statusClass(m[3])}">
         <span class="label">${m[0]}</span>
@@ -507,6 +547,12 @@
     ];
     if (!r.fullContact) {
       checks.push(['部分受壓警示', false, 'qmin < 0 或偏心超出中央核；本頁線性全接觸公式不得作為正式採用值。']);
+    }
+    if (r.effectiveAreaCheck) {
+      checks.push(['Meyerhof 有效面積承壓', r.qEffOk, `q′ = P/[(B−2e_B)(L−2e_L)] = ${fmt(r.qEff)} tf/m² ${r.qEffOk ? '≤' : '>'} qa = ${fmt(r.qa)} tf/m²（B′=${fmt(r.effWidthB, 3)}、L′=${fmt(r.effWidthL, 3)} m）`]);
+    }
+    if (r.hasSettlement) {
+      checks.push(['彈性沉陷初估', r.settlementOk, `Se = q·B·(1−ν²)·Iw/Es = ${fmt(r.settlementCm)} cm ${r.settlementOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm`]);
     }
     $('checkList').innerHTML = checks.map(function (c) {
       return `<div class="check-item ${statusClass(c[1])}">
@@ -670,7 +716,7 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.2'
+        pageVersion: 'V0.3'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -684,7 +730,7 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.2'
+        pageVersion: 'V0.3'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -755,7 +801,10 @@
 <p><code>H = √(Hx²+Hy²) = √(${fmt(r.Hx)}²+${fmt(r.Hy)}²) = ${fmt(r.H)} tf</code></p>
 <p><code>FS_slide = (μ·Ptotal + Rp)/H = (${fmt(r.mu)}×${fmt(r.Ptotal)} + ${fmt(r.passive)})/${fmt(r.H)} = ${fmt(r.fsSlide, 2)}</code></p>
 <p><code>FS_over,B = Ptotal·(B/2)/|My| = ${fmt(r.fsOverB, 2)}；FS_over,L = Ptotal·(L/2)/|Mx| = ${fmt(r.fsOverL, 2)}</code></p>
-<div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆）。衝剪、單向剪力、配筋、沉陷、液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>`;
+${(r.effectiveAreaCheck || r.hasSettlement) ? `<h3>6. 有效面積承壓與沉陷初估</h3>
+${r.effectiveAreaCheck ? `<p><code>B′ = B−2|ex| = ${fmt(r.effWidthB, 3)} m；L′ = L−2|ey| = ${fmt(r.effWidthL, 3)} m；q′ = Ptotal/(B′·L′) = ${fmt(r.qEff)} tf/m² ${r.qEffOk ? '≤' : '>'} qa = ${fmt(r.qa)} tf/m²（Meyerhof 有效面積）</code></p>` : ''}
+${r.hasSettlement ? `<p><code>Se = q·B·(1−ν²)·Iw/Es = ${fmt(r.qAvg)}×${fmt(r.B)}×(1−${fmt(r.nu)}²)×${fmt(r.settlementInfluence)}/${fmt(r.Es)} = ${fmt(r.settlementCm)} cm ${r.settlementOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm（立即彈性沉陷初估）</code></p>` : ''}` : ''}
+<div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆${r.effectiveAreaCheck ? '、有效面積承壓' : ''}${r.hasSettlement ? '、彈性沉陷初估' : ''}）。衝剪、單向剪力、配筋、${r.hasSettlement ? '壓密沉陷、' : '沉陷、'}液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>`;
   }
 
   function summaryBody(r, svgHtml) {
@@ -776,6 +825,8 @@
       ['抗滑 FS', `${fmt(r.fsSlide, 2)} / ${fmt(r.fsSlideReq, 2)}`],
       ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`]
     ];
+    if (r.effectiveAreaCheck) ctrlRows.push(['有效面積承壓 q′', `${fmt(r.qEff)} tf/m²（B′=${fmt(r.effWidthB, 3)}、L′=${fmt(r.effWidthL, 3)} m）`]);
+    if (r.hasSettlement) ctrlRows.push(['彈性沉陷 Se', `${fmt(r.settlementCm)} cm / 容許 ${fmt(r.allowableSettlementCm)} cm`]);
     const checkRows = r.checks.map(c => `<tr><th>${escapeHtml(c.label)}</th><td>${c.passed ? '通過' : '不通過'}</td></tr>`).join('');
     return `
 <h2>設計條件</h2><table>${reportRows(condRows)}</table>
@@ -815,7 +866,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>基礎局部穩定檢核計算書</h1>
-<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>設計人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.2</span></div>
+<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>設計人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.3</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
@@ -852,6 +903,7 @@ ${body}
       if (normalized[id] !== undefined && normalized[id] !== null && $(id)) $(id).value = normalized[id];
     });
     $('includeSelfWeight').checked = normalized.includeSelfWeight;
+    $('effectiveAreaCheck').checked = Boolean(normalized.effectiveAreaCheck);
     applyProjectInfo(payload.project);
     updateCriteriaPreview();
     const result = calculateFoundationLocal();
@@ -895,6 +947,7 @@ ${body}
   function resetDefaults() {
     Object.keys(DEFAULTS).forEach(id => { $(id).value = DEFAULTS[id]; });
     $('includeSelfWeight').checked = true;
+    $('effectiveAreaCheck').checked = false;
     updateCriteriaPreview();
     calculateFoundationLocal();
   }

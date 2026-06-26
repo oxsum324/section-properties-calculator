@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>擋土土壓局部快算 V0.4</title>
+<title>擋土土壓局部快算 V0.5</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <style>
@@ -125,7 +125,7 @@
 </head>
 <body>
 <header>
-  <h1>擋土土壓局部快算 <span class="badge-v">V0.4 局部正式檢核</span></h1>
+  <h1>擋土土壓局部快算 <span class="badge-v">V0.5 局部正式檢核</span></h1>
   <p>擋土牆型式、牆體位移條件、Rankine 主動 / 靜止土壓、均佈超載、水壓與簡化穩定檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="../../index.html" class="back">← 回工具箱</a>
@@ -168,7 +168,7 @@
           適用水平背填、垂直牆背、無黏性土之 Rankine 主動 / 靜止土壓；可加入均佈超載與地下水壓。
           不處理斜背填、Coulomb 牆摩擦、地震土壓、分層土、排水細節、結構配筋與正式施工支撐設計。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.4</span>
+            <span>頁面 V0.5</span>
             <span id="coreVersion">Core v—</span>
             <span>正式核算 / 局部</span>
           </div>
@@ -255,6 +255,61 @@
             <input type="number" id="gammaWater" value="1.00" step="0.01" min="0">
           </div>
         </div>
+      </div>
+
+      <div class="card">
+        <h2>②b 進階土壓理論（選用）</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>土壓理論</label>
+            <select id="pressureTheory">
+              <option value="rankine">Rankine（水平背填、垂直光滑牆背）</option>
+              <option value="coulomb">Coulomb（含牆摩擦 δ、牆背傾角 θ、背填傾角 β）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>牆摩擦角 δ (deg)</label>
+            <input type="number" id="deltaDeg" value="0" step="1" min="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>背填傾角 β，自水平 (deg)</label>
+            <input type="number" id="betaDeg" value="0" step="1" min="0">
+          </div>
+          <div class="form-group">
+            <label>牆背傾角 θ，自鉛直 (deg)</label>
+            <input type="number" id="thetaDeg" value="0" step="1" min="-30" max="30">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex-basis:100%;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+              <input type="checkbox" id="seismicEnable" style="width:auto;"> 加做地震時主動土壓（Mononobe-Okabe）
+            </label>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>地震水平係數 k<sub>h</sub></label>
+            <input type="number" id="kh" value="0.15" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label>地震垂直係數 k<sub>v</sub></label>
+            <input type="number" id="kv" value="0.00" step="0.01">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>地震抗滑需求 FS</label>
+            <input type="number" id="fsSlideReqSeismic" value="1.20" step="0.05" min="0.1">
+          </div>
+          <div class="form-group">
+            <label>地震抗傾覆需求 FS</label>
+            <input type="number" id="fsOverReqSeismic" value="1.20" step="0.05" min="0.1">
+          </div>
+        </div>
+        <div class="scope-box">Coulomb 僅適用主動狀態（受約束 / 靜止仍採 Rankine K<sub>0</sub>），水平分量計入穩定。地震採 Mononobe-Okabe：靜態土壓作用於 H/3、動態增量作用於 0.6H（Seed-Whitman），kh=kv=0 時退化為靜態 Coulomb。</div>
       </div>
 
       <div class="card">
@@ -391,7 +446,16 @@
     passiveReductionFactor: '0.50',
     passive: '0.00',
     fsSlideReq: '1.50',
-    fsOverReq: '1.50'
+    fsOverReq: '1.50',
+    pressureTheory: 'rankine',
+    deltaDeg: '0',
+    betaDeg: '0',
+    thetaDeg: '0',
+    seismicEnable: false,
+    kh: '0.15',
+    kv: '0.00',
+    fsSlideReqSeismic: '1.20',
+    fsOverReqSeismic: '1.20'
   };
   let lastResult = null;
   const Core = window.EarthPressureCore;
@@ -440,7 +504,16 @@
       passiveReductionFactor: num('passiveReductionFactor'),
       passive: num('passive'),
       fsSlideReq: num('fsSlideReq'),
-      fsOverReq: num('fsOverReq')
+      fsOverReq: num('fsOverReq'),
+      pressureTheory: val('pressureTheory'),
+      deltaDeg: num('deltaDeg'),
+      betaDeg: num('betaDeg'),
+      thetaDeg: num('thetaDeg'),
+      seismicEnable: $('seismicEnable').checked,
+      kh: num('kh'),
+      kv: num('kv'),
+      fsSlideReqSeismic: num('fsSlideReqSeismic'),
+      fsOverReqSeismic: num('fsOverReqSeismic')
     };
   }
 
@@ -458,6 +531,12 @@
     const passiveMode = val('passiveMode');
     $('passive').disabled = passiveMode === 'ignore';
     $('passiveReductionFactor').disabled = passiveMode !== 'reduced';
+    const coulombOff = val('pressureTheory') !== 'coulomb';
+    $('deltaDeg').disabled = coulombOff;
+    $('betaDeg').disabled = coulombOff;
+    $('thetaDeg').disabled = coulombOff;
+    const seismicOff = !$('seismicEnable').checked;
+    ['kh', 'kv', 'fsSlideReqSeismic', 'fsOverReqSeismic'].forEach(function (id) { $(id).disabled = seismicOff; });
   }
 
   function renderModelSummary(r) {
@@ -518,6 +597,12 @@
       ['基底壓', `${fmt(r.qmax)} / ${fmt(r.qmin)} tf/m²`, `e=${fmt(r.e, 3)} m；B/6=${fmt(r.kernLimit, 3)} m`, r.bearingOk],
       ['抗傾覆 FS', fmt(r.fsOver, 2), `Mr=${fmt(r.resistingMoment)} tf·m/m`, r.overOk]
     ];
+    if (r.useCoulomb && r.coulombValid) {
+      metrics.push(['Coulomb Ka', fmt(r.effectiveSoilCoef, 4), `δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°`, true]);
+    }
+    if (r.seismic && r.seismic.valid) {
+      metrics.push(['地震 Kae (M-O)', fmt(r.seismic.Kae, 4), `ΔPae=${fmt(r.seismic.deltaPae)} tf/m`, r.seismic.seismicSlideOk && r.seismic.seismicOverOk]);
+    }
     $('metricGrid').innerHTML = metrics.map(function (m) {
       return `<div class="metric ${statusClass(m[3])}">
         <span class="label">${m[0]}</span>
@@ -671,6 +756,19 @@
     } else if (r.waterModel === 'none') {
       checks.push(['地下水壓提示', true, '本次不納入地下水壓；須確認排水條件或設計水位。']);
     }
+    if (r.useCoulomb) {
+      checks.push(['Coulomb 土壓', r.coulombValid, r.coulombValid
+        ? `Ka(Coulomb)=${fmt(r.effectiveSoilCoef, 4)}；δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°；水平分量係數 cos(δ+θ)=${fmt(r.horizontalFactor, 3)}`
+        : (r.theoryNote || 'Coulomb 主動解不成立，已暫退回 Rankine')]);
+    }
+    if (r.seismicEnable) {
+      if (r.seismic && r.seismic.valid) {
+        checks.push(['地震時抗滑 (M-O)', r.seismic.seismicSlideOk, `Kae=${fmt(r.seismic.Kae, 4)}（ψ=${fmt(r.seismic.psiDeg, 1)}°）；ΔPae=${fmt(r.seismic.deltaPae)} tf/m；FS=${fmt(r.seismic.seismicFsSlide, 2)} ${r.seismic.seismicSlideOk ? '≥' : '<'} ${fmt(r.seismic.fsSlideReqSeismic, 2)}`]);
+        checks.push(['地震時抗傾覆 (M-O)', r.seismic.seismicOverOk, `FS=${fmt(r.seismic.seismicFsOver, 2)} ${r.seismic.seismicOverOk ? '≥' : '<'} ${fmt(r.seismic.fsOverReqSeismic, 2)}；地震土壓作用高 ${fmt(r.seismic.seismicSoilHeight)} m`]);
+      } else {
+        checks.push(['地震時主動土壓 (M-O)', false, r.seismic ? r.seismic.reason : 'Mononobe-Okabe 解不成立']);
+      }
+    }
     $('checkList').innerHTML = checks.map(function (c) {
       return `<div class="check-item ${statusClass(c[1])}">
         <span class="k">${c[0]}</span>
@@ -694,6 +792,7 @@
         <code>Ka = (1 - sinφ) / (1 + sinφ) = ${fmt(r.Ka, 4)}</code><br>
         <code>K0 = 1 - sinφ = ${fmt(r.K0, 4)}</code><br>
         <code>本次採用 ${escapeHtml(r.modeLabel)} = ${fmt(r.K, 4)}</code>
+        ${r.useCoulomb ? `<br><code>Coulomb Ka = cos²(φ−θ) / [cos²θ·cos(δ+θ)·(1+√(sin(φ+δ)·sin(φ−β)/(cos(δ+θ)·cos(θ−β))))²] = ${fmt(r.effectiveSoilCoef, 4)}</code><br><code>（δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°；水平分量 ×cos(δ+θ)=${fmt(r.horizontalFactor, 4)}）</code>${r.coulombValid ? '' : `<br><code style="color:#b91c1c;">${escapeHtml(r.theoryNote)}</code>`}` : ''}
       </div>
       <div class="step-title">2. 側向力與傾覆力矩</div>
       <div>
@@ -709,8 +808,17 @@
         <code>FSover = V·B/2 / Mo = ${fmt(r.resistingMoment)} / ${fmt(r.overturningMoment)} = ${fmt(r.fsOver, 2)}</code><br>
         <code>e = Mo / V = ${fmt(r.e, 4)} m；qmax/min = V/B · (1 ± 6e/B)</code>
       </div>
+      ${r.seismic ? `<div class="step-title">4. 地震時主動土壓（Mononobe-Okabe）</div>
+      <div>
+        ${r.seismic.valid ? `<code>ψ = atan(kh/(1−kv)) = atan(${fmt(r.kh, 3)}/${fmt(1 - r.kv, 3)}) = ${fmt(r.seismic.psiDeg, 2)}°</code><br>
+        <code>Kae = ${fmt(r.seismic.Kae, 4)}（M-O，含 1−kv）</code><br>
+        <code>Pae(水平) = 1/2·Kae·γ·H²·(1−kv)·cos(δ+θ) = ${fmt(r.seismic.seismicSoilForce)} tf/m</code><br>
+        <code>ΔPae = Pae − Pa(靜態) = ${fmt(r.seismic.deltaPae)} tf/m（增量作用於 0.6H）</code><br>
+        <code>FSslide(地震) = ${fmt(r.seismic.seismicFsSlide, 2)} ${r.seismic.seismicSlideOk ? '≥' : '<'} ${fmt(r.seismic.fsSlideReqSeismic, 2)}；FSover(地震) = ${fmt(r.seismic.seismicFsOver, 2)} ${r.seismic.seismicOverOk ? '≥' : '<'} ${fmt(r.seismic.fsOverReqSeismic, 2)}</code>`
+        : `<code style="color:#b91c1c;">${escapeHtml(r.seismic.reason)}</code>`}
+      </div>` : ''}
       <div class="scope-box" style="margin-top:12px;">
-        本頁以每公尺牆長做初估。若有地震土壓、背填坡度、牆背摩擦、分層土、基礎埋置、滲流或結構配筋，應另行正式詳算。
+        本頁以每公尺牆長做初估。${r.useCoulomb ? '已採 Coulomb 含牆背 / 背填傾角與牆摩擦；' : ''}${r.seismic ? '已加做地震時 M-O 土壓；' : ''}分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。
       </div>`;
   }
 
@@ -781,8 +889,10 @@
     const errors = Core.validateInput(normalized);
     if (errors.length) throw new Error(errors.join(' '));
     Object.keys(DEFAULTS).forEach(function (id) {
-      if (normalized[id] !== undefined && normalized[id] !== null && $(id)) {
-        $(id).value = normalized[id];
+      const el = $(id);
+      if (normalized[id] !== undefined && normalized[id] !== null && el) {
+        if (el.type === 'checkbox') el.checked = Boolean(normalized[id]);
+        else el.value = normalized[id];
       }
     });
     applyProjectInfo(payload.project);
@@ -813,7 +923,7 @@
       tool: {
         id: 'earth-pressure',
         name: '擋土土壓局部快算',
-        pageVersion: 'V0.4'
+        pageVersion: 'V0.5'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -827,7 +937,7 @@
       tool: {
         id: 'earth-pressure',
         name: '擋土土壓局部快算',
-        pageVersion: 'V0.4'
+        pageVersion: 'V0.5'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -873,7 +983,7 @@
     const basisRows = [
       ['採用準則', r.designReferenceLabel],
       ['擋土牆型式', r.wallTypeLabel],
-      ['計算方式', 'Rankine 水平背填土壓初估'],
+      ['計算方式', r.useCoulomb ? (r.coulombValid ? `Coulomb 主動土壓（δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°）` : 'Coulomb 解不成立，已退回 Rankine') : 'Rankine 水平背填土壓初估'],
       ['牆體位移條件', r.wallConditionLabel],
       ['背填與牆背假設', r.backfillModelLabel],
       ['土壓模式', r.modeLabel],
@@ -891,6 +1001,8 @@
       ['B / V / qa', `${fmt(r.baseB)} m / ${fmt(r.verticalLoad)} tf/m / ${fmt(r.qa)} tf/m²`],
       ['μ / Rp 原始 / Rp 採用', `${fmt(r.mu)} / ${fmt(r.passive)} tf/m / ${fmt(r.effectivePassive)} tf/m`]
     ];
+    if (r.useCoulomb) inputRows.push(['Coulomb δ / β / θ', `${fmt(r.deltaDeg, 0)}° / ${fmt(r.betaDeg, 0)}° / ${fmt(r.thetaDeg, 0)}°`]);
+    if (r.seismicEnable) inputRows.push(['地震 kh / kv', `${fmt(r.kh, 3)} / ${fmt(r.kv, 3)}`]);
     const resultRows = [
       ['綜合結論', r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'],
       ['牆型控制項', r.wallTypeOutput.primaryResult],
@@ -900,6 +1012,16 @@
       ['抗傾覆 FS', `${fmt(r.fsOver, 2)} / ${fmt(r.fsOverReq, 2)}`],
       ['qmax / qmin', `${fmt(r.qmax)} / ${fmt(r.qmin)} tf/m²`]
     ];
+    if (r.useCoulomb && r.coulombValid) {
+      resultRows.push(['Coulomb Ka', `${fmt(r.effectiveSoilCoef, 4)}（水平分量 ×cos(δ+θ)=${fmt(r.horizontalFactor, 3)}）`]);
+    }
+    if (r.seismic && r.seismic.valid) {
+      resultRows.push(['地震 Kae (M-O)', `${fmt(r.seismic.Kae, 4)}；ψ=${fmt(r.seismic.psiDeg, 1)}°`]);
+      resultRows.push(['地震 ΔPae / 作用高', `${fmt(r.seismic.deltaPae)} tf/m / ${fmt(r.seismic.seismicSoilHeight)} m`]);
+      resultRows.push(['地震抗滑 / 抗傾覆 FS', `${fmt(r.seismic.seismicFsSlide, 2)} / ${fmt(r.seismic.seismicFsOver, 2)}（需求 ${fmt(r.seismic.fsSlideReqSeismic, 2)} / ${fmt(r.seismic.fsOverReqSeismic, 2)}）`]);
+    } else if (r.seismic) {
+      resultRows.push(['地震時主動土壓 (M-O)', r.seismic.reason]);
+    }
     const wallTypeRows = [
       ['工作輸出', r.wallTypeOutput.headline],
       ['判讀重點', r.wallTypeOutput.focus],
@@ -918,9 +1040,10 @@
     const detailedBodyHtml = `
 <h2>計算示意圖</h2><div class="report-diagram">${diagramHtml}</div>
 <h2>計算內容</h2>
-<h3>1. 擋土牆型式與 Rankine 土壓係數</h3>
+<h3>1. 擋土牆型式與土壓係數（${r.useCoulomb ? 'Coulomb' : 'Rankine'}）</h3>
 <p>擋土牆型式：${escapeHtml(r.wallTypeLabel)}；${escapeHtml(r.wallConditionLabel)}；${escapeHtml(r.selectedModeReason)}。${escapeHtml(r.backfillModelLabel)}；${escapeHtml(r.waterModelLabel)}。</p>
 <p><code>Ka = (1−sinφ)/(1+sinφ) = ${fmt(r.Ka, 4)}；K0 = 1−sinφ = ${fmt(r.K0, 4)}；採用 ${escapeHtml(r.modeLabel)} = ${fmt(r.K, 4)}</code></p>
+${r.useCoulomb ? `<p><code>Coulomb Ka = cos²(φ−θ)/[cos²θ·cos(δ+θ)·(1+√(sin(φ+δ)·sin(φ−β)/(cos(δ+θ)·cos(θ−β))))²] = ${fmt(r.effectiveSoilCoef, 4)}</code><br><code>（δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°；側向採水平分量 ×cos(δ+θ)=${fmt(r.horizontalFactor, 4)}）</code>${r.coulombValid ? '' : `<br><code style="color:#b91c1c;">${escapeHtml(r.theoryNote)}</code>`}</p>` : ''}
 <h3>2. 側向力與傾覆力矩</h3>
 <p><code>Pa = ½·K·γ·H² = ${fmt(r.soilForce)}；Pq = K·q·H = ${fmt(r.surchargeForce)}；Pw = ½·γw·hw² = ${fmt(r.waterForce)} tf/m</code></p>
 <table><thead><tr><th>來源</th><th>P (tf/m)</th><th>M (tf·m/m)</th></tr></thead><tbody>${forceRows}</tbody></table>
@@ -928,14 +1051,19 @@
 <p><code>Rp採用 = ${fmt(r.passive)} × ${fmt(r.passiveFactor, 2)} = ${fmt(r.effectivePassive)} tf/m（${escapeHtml(r.passiveModeLabel)}）</code></p>
 <p><code>FS_slide = (μV + Rp)/Ptotal = (${fmt(r.mu)}×${fmt(r.verticalLoad)} + ${fmt(r.effectivePassive)})/${fmt(r.totalForce)} = ${fmt(r.fsSlide, 2)}</code></p>
 <p><code>FS_over = Mr/Mo = ${fmt(r.resistingMoment)}/${fmt(r.overturningMoment)} = ${fmt(r.fsOver, 2)}；e = Mo/V = ${fmt(r.e, 4)} m；qmax/min = ${fmt(r.qmax)}/${fmt(r.qmin)} tf/m²</code></p>
+${r.seismic ? `<h3>4. 地震時主動土壓（Mononobe-Okabe）</h3>
+${r.seismic.valid ? `<p><code>ψ = atan(kh/(1−kv)) = atan(${fmt(r.kh, 3)}/${fmt(1 - r.kv, 3)}) = ${fmt(r.seismic.psiDeg, 2)}°；Kae = ${fmt(r.seismic.Kae, 4)}</code></p>
+<p><code>Pae(水平) = ½·Kae·γ·H²·(1−kv)·cos(δ+θ) = ${fmt(r.seismic.seismicSoilForce)} tf/m；ΔPae = Pae − Pa(靜態) = ${fmt(r.seismic.deltaPae)} tf/m（增量作用於 0.6H，土壓合力作用高 ${fmt(r.seismic.seismicSoilHeight)} m）</code></p>
+<p><code>FS_slide(地震) = ${fmt(r.seismic.seismicFsSlide, 2)} / 需求 ${fmt(r.seismic.fsSlideReqSeismic, 2)}；FS_over(地震) = ${fmt(r.seismic.seismicFsOver, 2)} / 需求 ${fmt(r.seismic.fsOverReqSeismic, 2)}</code></p>`
+: `<p><code style="color:#b91c1c;">${escapeHtml(r.seismic.reason)}</code></p>`}` : ''}
 <h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
-<div class="note">本頁以 Rankine 水平背填土壓、每公尺牆長做局部穩定檢核。地震土壓、背填坡度、牆背摩擦、分層土、滲流與結構配筋不在本頁範圍，應另行正式詳算。</div>`;
+<div class="note">本頁以每公尺牆長做局部穩定檢核${r.useCoulomb ? '（採 Coulomb 含牆摩擦 δ 與背填 / 牆背傾角）' : '（Rankine 水平背填土壓）'}${r.seismic ? '，並加做地震時 Mononobe-Okabe 土壓' : '；地震土壓、背填坡度、牆背摩擦不在本頁範圍'}。分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。</div>`;
     const summaryBodyHtml = `
 <h2>設計條件</h2><table>${reportRows(basisRows.concat([inputRows[1], inputRows[3], inputRows[4]]))}</table>
 <h2>計算示意圖</h2><div class="report-diagram">${diagramHtml}</div>
 <h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
 <h2>控制結果</h2><table>${reportRows(resultRows)}</table>
-<div class="note">本頁以 Rankine 水平背填土壓、每公尺牆長做局部穩定檢核；地震土壓、背填坡度、牆背摩擦、分層土、滲流與結構配筋不在本頁範圍，應另行正式詳算。</div>`;
+<div class="note">本頁以每公尺牆長做局部穩定檢核${r.useCoulomb ? '（採 Coulomb 含牆摩擦 δ 與背填 / 牆背傾角）' : '（Rankine 水平背填土壓）'}${r.seismic ? '，並加做地震時 Mononobe-Okabe 土壓' : '；地震土壓、背填坡度、牆背摩擦不在本頁範圍'}。分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。</div>`;
     const body = mode === 'summary' ? summaryBodyHtml : detailedBodyHtml;
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>擋土土壓局部快算計算書</title>
@@ -979,7 +1107,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>擋土土壓局部穩定檢核計算書</h1>
-<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>整理人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.4</span></div>
+<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>整理人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.5</span></div>
 <div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
 ${body}
 </main></body></html>`;
@@ -1008,7 +1136,12 @@ ${body}
     } catch (err) {}
   }
   function resetDefaults() {
-    Object.keys(DEFAULTS).forEach(id => { $(id).value = DEFAULTS[id]; });
+    Object.keys(DEFAULTS).forEach(id => {
+      const el = $(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = Boolean(DEFAULTS[id]);
+      else el.value = DEFAULTS[id];
+    });
     syncModeFromWallCondition();
     updateConditionalInputs();
     calculateEarthPressure();

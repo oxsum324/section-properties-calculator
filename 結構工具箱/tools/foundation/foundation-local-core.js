@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'FoundationLocalCore';
-  const CORE_VERSION = '0.2.0';
-  const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.2';
-  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.2';
-  const LOGIC_SIGNATURE = 'foundation-local-core:v0.2:design-basis-service-stability:qmax-qmin-sliding-overturning';
+  const CORE_VERSION = '0.3.0';
+  const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.3';
+  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.3';
+  const LOGIC_SIGNATURE = 'foundation-local-core:v0.3:design-basis-service-stability:qmax-qmin-sliding-overturning-effective-area-elastic-settlement';
 
   const DESIGN_CODE_PRESETS = {
     'tw-foundation-112': {
@@ -178,7 +178,12 @@
       Hy: numberValue(input.Hy),
       mu: numberValue(input.mu),
       passive: numberValue(input.passive),
-      includeSelfWeight: Boolean(input.includeSelfWeight)
+      includeSelfWeight: Boolean(input.includeSelfWeight),
+      effectiveAreaCheck: Boolean(input.effectiveAreaCheck),
+      Es: numberValue(input.Es),
+      nu: Object.prototype.hasOwnProperty.call(input, 'nu') ? numberValue(input.nu) : 0.3,
+      settlementInfluence: Object.prototype.hasOwnProperty.call(input, 'settlementInfluence') ? numberValue(input.settlementInfluence) : 0.88,
+      allowableSettlementCm: Object.prototype.hasOwnProperty.call(input, 'allowableSettlementCm') ? numberValue(input.allowableSettlementCm) : 2.5
     };
   }
 
@@ -229,7 +234,24 @@
     const fsOver = Math.min(fsOverB, fsOverL);
     const overOk = fsOver >= i.fsOverReq;
     const compressionOk = Ptotal > 0;
-    const overallOk = compressionOk && bearingOk && slideOk && overOk;
+
+    // ── Meyerhof 有效面積承壓（偏心折減；報告恆算，opt-in 才納入 pass/fail）──
+    const exAbs = Number.isFinite(ex) ? Math.abs(ex) : Infinity;
+    const eyAbs = Number.isFinite(ey) ? Math.abs(ey) : Infinity;
+    const effWidthB = i.B - 2 * exAbs;
+    const effWidthL = i.L - 2 * eyAbs;
+    const effArea = (effWidthB > 0 && effWidthL > 0) ? effWidthB * effWidthL : 0;
+    const qEff = effArea > 0 ? Ptotal / effArea : Infinity;
+    const qEffOk = effArea > 0 && qEff <= i.qa;
+    const effectiveAreaOk = !i.effectiveAreaCheck || qEffOk;
+
+    // ── 立即彈性沉陷初估（opt-in：提供 Es 才計算）Se = q·B·(1−ν²)·Iw / Es ──
+    const hasSettlement = i.Es > 0;
+    const settlementM = hasSettlement ? (qAvg * i.B * (1 - i.nu * i.nu) * i.settlementInfluence) / i.Es : null;
+    const settlementCm = hasSettlement ? settlementM * 100 : null;
+    const settlementOk = !hasSettlement || settlementCm <= i.allowableSettlementCm;
+
+    const overallOk = compressionOk && bearingOk && slideOk && overOk && effectiveAreaOk && settlementOk;
     const summary = {
       status: overallOk ? 'pass' : 'fail',
       headline: overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算',
@@ -247,8 +269,24 @@
       checkItem('sliding', '抗滑', slideOk, `fsSlide = ${fsSlide}, fsSlideReq = ${i.fsSlideReq}`, fsSlide, i.fsSlideReq, ''),
       checkItem('overturning', '抗傾覆', overOk, `fsOver = ${fsOver}, fsOverReq = ${i.fsOverReq}`, fsOver, i.fsOverReq, '')
     ];
+    if (i.effectiveAreaCheck) {
+      checks.push(checkItem('bearing-effective', 'Meyerhof 有效面積承壓', qEffOk, `qEff = ${qEff}, qa = ${i.qa}, B' = ${effWidthB}, L' = ${effWidthL}`, qEff, i.qa, 'tf/m2'));
+    }
+    if (hasSettlement) {
+      checks.push(checkItem('settlement', '彈性沉陷初估', settlementOk, `Se = ${settlementCm} cm, 容許 = ${i.allowableSettlementCm} cm`, settlementCm, i.allowableSettlementCm, 'cm'));
+    }
 
     return Object.assign({}, i, {
+      effWidthB,
+      effWidthL,
+      effArea,
+      qEff,
+      qEffOk,
+      effectiveAreaOk,
+      hasSettlement,
+      settlementM,
+      settlementCm,
+      settlementOk,
       resultSchemaVersion: RESULT_SCHEMA_VERSION,
       designCode: i.designCode,
       loadCondition: i.loadCondition,

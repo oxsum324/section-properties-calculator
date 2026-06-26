@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'EarthPressureCore';
-  const CORE_VERSION = '0.4.0';
-  const INPUT_SCHEMA_VERSION = 'earth-pressure.input.v0.4';
-  const RESULT_SCHEMA_VERSION = 'earth-pressure.result.v0.4';
-  const LOGIC_SIGNATURE = 'earth-pressure-core:v0.4:wall-type-output-rankine-model-assumptions-passive-policy-water-stability';
+  const CORE_VERSION = '0.5.0';
+  const INPUT_SCHEMA_VERSION = 'earth-pressure.input.v0.5';
+  const RESULT_SCHEMA_VERSION = 'earth-pressure.result.v0.5';
+  const LOGIC_SIGNATURE = 'earth-pressure-core:v0.5:rankine-coulomb-theory-surcharge-mononobe-okabe-seismic-passive-policy-water-stability';
 
   const DESIGN_REFERENCE_LABELS = {
     taiwanFoundation2023: '台灣《建築物基礎構造設計規範》112 年版（穩定檢核初估）',
@@ -40,6 +40,51 @@
     reduced: '折減採計被動抵抗',
     includeFull: '全額採計被動抵抗'
   };
+
+  const PRESSURE_THEORY_LABELS = {
+    rankine: 'Rankine 土壓（水平背填、垂直光滑牆背初估）',
+    coulomb: 'Coulomb 土壓（含牆摩擦 δ、牆背傾角 θ、背填傾角 β）'
+  };
+
+  // Coulomb 主動土壓係數 Ka（角度單位：弧度）。
+  // φ 內摩擦角、δ 牆摩擦角、β 背填傾角(自水平)、θ 牆背傾角(自鉛直)。
+  // 當 δ=β=θ=0 時退化為 Rankine Ka=(1-sinφ)/(1+sinφ)。
+  function coulombActiveKa(phi, delta, beta, theta) {
+    const num = Math.cos(phi - theta) * Math.cos(phi - theta);
+    const denomLead = Math.cos(theta) * Math.cos(theta) * Math.cos(delta + theta);
+    const sinTermNum = Math.sin(phi + delta) * Math.sin(phi - beta);
+    const sinTermDen = Math.cos(delta + theta) * Math.cos(theta - beta);
+    if (denomLead === 0 || sinTermDen === 0) {
+      return { Ka: Infinity, valid: false, reason: '牆背/牆摩擦幾何使分母為零，無法計算。' };
+    }
+    const ratio = sinTermNum / sinTermDen;
+    if (ratio < 0) {
+      return { Ka: Infinity, valid: false, reason: '背填傾角 β 接近或超過內摩擦角 φ，Coulomb 主動解不成立。' };
+    }
+    const bracket = 1 + Math.sqrt(ratio);
+    const Ka = num / (denomLead * bracket * bracket);
+    return { Ka, valid: Number.isFinite(Ka) && Ka > 0, reason: '' };
+  }
+
+  // Mononobe-Okabe 地震主動土壓係數 Kae（角度單位：弧度）。
+  // ψ = atan(kh/(1-kv))；當 kh=kv=0 時退化為 Coulomb Ka。
+  function mononobeOkabeKae(phi, delta, beta, theta, psi) {
+    const a = phi - theta - psi;
+    const num = Math.cos(a) * Math.cos(a);
+    const denomLead = Math.cos(psi) * Math.cos(theta) * Math.cos(theta) * Math.cos(delta + theta + psi);
+    const sinTermNum = Math.sin(phi + delta) * Math.sin(phi - beta - psi);
+    const sinTermDen = Math.cos(delta + theta + psi) * Math.cos(theta - beta);
+    if (denomLead === 0 || sinTermDen === 0) {
+      return { Kae: Infinity, valid: false, reason: '地震慣性角使分母為零，無法計算。' };
+    }
+    const ratio = sinTermNum / sinTermDen;
+    if (ratio < 0) {
+      return { Kae: Infinity, valid: false, reason: 'φ < β + ψ，地震時主動楔形不成立（邊坡或地震係數過大）。' };
+    }
+    const bracket = 1 + Math.sqrt(ratio);
+    const Kae = num / (denomLead * bracket * bracket);
+    return { Kae, valid: Number.isFinite(Kae) && Kae > 0, reason: '' };
+  }
 
   function provenance() {
     return {
@@ -106,6 +151,13 @@
     const passiveFactor = passiveMode === 'ignore'
       ? 0
       : (passiveMode === 'reduced' ? passiveReductionFactor : 1);
+    const pressureTheory = choice(input.pressureTheory, PRESSURE_THEORY_LABELS, 'rankine');
+    const deltaDeg = numberValue(input.deltaDeg);
+    const betaDeg = numberValue(input.betaDeg);
+    const thetaDeg = numberValue(input.thetaDeg);
+    const seismicEnable = Boolean(input.seismicEnable);
+    const kh = numberValue(input.kh);
+    const kv = numberValue(input.kv);
     return {
       designReference,
       wallType,
@@ -114,6 +166,13 @@
       gammaSoil: numberValue(input.gammaSoil),
       phiDeg: numberValue(input.phiDeg),
       mode,
+      pressureTheory,
+      deltaDeg,
+      betaDeg,
+      thetaDeg,
+      seismicEnable,
+      kh,
+      kv,
       surcharge: numberValue(input.surcharge),
       waterModel,
       waterDepth,
@@ -128,7 +187,9 @@
       passiveFactor,
       effectivePassive: passive * passiveFactor,
       fsSlideReq: numberValue(input.fsSlideReq),
-      fsOverReq: numberValue(input.fsOverReq)
+      fsOverReq: numberValue(input.fsOverReq),
+      fsSlideReqSeismic: Object.prototype.hasOwnProperty.call(input, 'fsSlideReqSeismic') ? numberValue(input.fsSlideReqSeismic) : 1.2,
+      fsOverReqSeismic: Object.prototype.hasOwnProperty.call(input, 'fsOverReqSeismic') ? numberValue(input.fsOverReqSeismic) : 1.2
     };
   }
 
@@ -147,6 +208,16 @@
     if (i.mu < 0 || i.passive < 0) errors.push('摩擦係數與被動抵抗不得為負。');
     if (i.passiveMode === 'reduced' && (i.passiveReductionFactor <= 0 || i.passiveReductionFactor > 1)) errors.push('被動抵抗折減係數應大於 0 且不大於 1。');
     if (i.fsSlideReq <= 0 || i.fsOverReq <= 0) errors.push('安全係數需求值必須大於 0。');
+    if (i.pressureTheory === 'coulomb') {
+      if (i.deltaDeg < 0 || i.deltaDeg > i.phiDeg) errors.push('Coulomb 牆摩擦角 δ 應介於 0° 與內摩擦角 φ 之間。');
+      if (i.betaDeg < 0 || i.betaDeg >= i.phiDeg) errors.push('Coulomb 背填傾角 β 應介於 0° 且小於內摩擦角 φ。');
+      if (i.thetaDeg < -30 || i.thetaDeg > 30) errors.push('Coulomb 牆背傾角 θ 建議介於 -30° 與 30° 之間。');
+    }
+    if (i.seismicEnable) {
+      if (i.kh < 0) errors.push('地震水平係數 kh 不得為負。');
+      if (i.kv <= -1 || i.kv >= 1) errors.push('地震垂直係數 kv 應介於 -1 與 1 之間。');
+      if (i.fsSlideReqSeismic <= 0 || i.fsOverReqSeismic <= 0) errors.push('地震時安全係數需求值必須大於 0。');
+    }
     return errors;
   }
 
@@ -163,17 +234,80 @@
       : (i.wallCondition === 'restrained'
         ? '牆體受約束或近地下室外牆，採 Rankine 靜止土壓。'
         : '由使用者手動指定本次土壓模式。');
-    const backfillModelLabel = '水平背填、垂直牆背、無黏性土 Rankine 初估';
+    const deltaRad = i.deltaDeg * Math.PI / 180;
+    const betaRad = i.betaDeg * Math.PI / 180;
+    const thetaRad = i.thetaDeg * Math.PI / 180;
+    // Coulomb 僅適用主動狀態；靜止(受約束)仍採 Rankine K0。
+    const useCoulomb = i.pressureTheory === 'coulomb' && i.mode === 'active';
+    const coulomb = useCoulomb ? coulombActiveKa(phiRad, deltaRad, betaRad, thetaRad) : null;
+    const coulombValid = useCoulomb && coulomb.valid;
+    const horizontalFactor = Math.cos(deltaRad + thetaRad); // 主動推力水平分量係數
+    const effectiveSoilCoef = coulombValid ? coulomb.Ka : K;
+    const theoryLabel = useCoulomb
+      ? (coulombValid ? 'Coulomb 主動土壓 Ka' : 'Coulomb 解不成立，暫退回 Rankine')
+      : modeLabel;
+    const theoryNote = useCoulomb && !coulombValid ? coulomb.reason : '';
+    const backfillModelLabel = useCoulomb
+      ? 'Coulomb：可含牆摩擦 δ、牆背傾角 θ、背填傾角 β（水平分量計入穩定）'
+      : '水平背填、垂直牆背、無黏性土 Rankine 初估';
 
-    const soilForce = 0.5 * K * i.gammaSoil * i.H * i.H;
+    const soilForce = coulombValid
+      ? 0.5 * coulomb.Ka * i.gammaSoil * i.H * i.H * horizontalFactor
+      : 0.5 * K * i.gammaSoil * i.H * i.H;
     const soilMoment = soilForce * i.H / 3;
-    const surchargeForce = K * i.surcharge * i.H;
+    const surchargeForce = coulombValid
+      ? coulomb.Ka * i.surcharge * i.H * horizontalFactor
+      : K * i.surcharge * i.H;
     const surchargeMoment = surchargeForce * i.H / 2;
     const waterForce = 0.5 * i.gammaWater * i.waterDepth * i.waterDepth;
     const waterMoment = waterForce * i.waterDepth / 3;
     const totalForce = soilForce + surchargeForce + waterForce;
     const overturningMoment = soilMoment + surchargeMoment + waterMoment;
     const resultantHeight = totalForce > 0 ? overturningMoment / totalForce : 0;
+
+    // ── 地震時主動土壓（Mononobe-Okabe，opt-in，水平分量計入；報告與檢核並陳）──
+    let seismic = null;
+    if (i.seismicEnable) {
+      const oneMinusKv = 1 - i.kv;
+      const psi = oneMinusKv !== 0 ? Math.atan(i.kh / oneMinusKv) : Infinity;
+      const mo = Number.isFinite(psi)
+        ? mononobeOkabeKae(phiRad, deltaRad, betaRad, thetaRad, psi)
+        : { Kae: Infinity, valid: false, reason: 'kv = 1，地震慣性角無法定義。' };
+      const seismicValid = mo.valid && Number.isFinite(psi);
+      const seismicSoilForce = seismicValid
+        ? 0.5 * mo.Kae * i.gammaSoil * i.H * i.H * oneMinusKv * horizontalFactor
+        : Infinity;
+      const deltaPae = seismicValid ? seismicSoilForce - soilForce : Infinity; // Seed-Whitman 動態增量
+      // 靜態土壓作用於 H/3，動態增量作用於 0.6H
+      const seismicSoilMoment = seismicValid
+        ? soilForce * (i.H / 3) + deltaPae * (0.6 * i.H)
+        : Infinity;
+      const seismicTotalForce = seismicValid ? seismicSoilForce + surchargeForce + waterForce : Infinity;
+      const seismicOverMoment = seismicValid ? seismicSoilMoment + surchargeMoment + waterMoment : Infinity;
+      const seismicSoilHeight = seismicValid && seismicSoilForce > 0 ? seismicSoilMoment / seismicSoilForce : 0;
+      const seismicResistance = i.mu * i.verticalLoad + i.effectivePassive;
+      const seismicFsSlide = seismicValid && seismicTotalForce > 0 ? seismicResistance / seismicTotalForce : Infinity;
+      const seismicFsOver = seismicValid && seismicOverMoment > 0 ? (i.verticalLoad * i.baseB / 2) / seismicOverMoment : Infinity;
+      const seismicSlideOk = seismicValid && seismicFsSlide >= i.fsSlideReqSeismic;
+      const seismicOverOk = seismicValid && seismicFsOver >= i.fsOverReqSeismic;
+      seismic = {
+        valid: seismicValid,
+        reason: mo.reason,
+        psiDeg: Number.isFinite(psi) ? psi * 180 / Math.PI : Infinity,
+        Kae: mo.Kae,
+        seismicSoilForce,
+        deltaPae,
+        seismicSoilHeight,
+        seismicTotalForce,
+        seismicOverMoment,
+        seismicFsSlide,
+        seismicFsOver,
+        fsSlideReqSeismic: i.fsSlideReqSeismic,
+        fsOverReqSeismic: i.fsOverReqSeismic,
+        seismicSlideOk,
+        seismicOverOk
+      };
+    }
 
     const slideResistance = i.mu * i.verticalLoad + i.effectivePassive;
     const fsSlide = totalForce > 0 ? slideResistance / totalForce : Infinity;
@@ -190,7 +324,8 @@
     const kernUtil = i.baseB > 0 ? e / i.baseB : Infinity;
     const fullContact = qmin >= -1e-9 && e <= kernLimit + 1e-9;
     const bearingOk = fullContact && qmax <= i.qa;
-    const overallOk = bearingOk && slideOk && overOk;
+    const seismicOk = !i.seismicEnable || Boolean(seismic && seismic.valid && seismic.seismicSlideOk && seismic.seismicOverOk);
+    const overallOk = bearingOk && slideOk && overOk && seismicOk;
     const bearingUtilization = i.qa > 0 ? qmax / i.qa : Infinity;
     const slidingUtilization = Number.isFinite(fsSlide) && fsSlide > 0 ? i.fsSlideReq / fsSlide : Infinity;
     const overturningUtilization = Number.isFinite(fsOver) && fsOver > 0 ? i.fsOverReq / fsOver : Infinity;
@@ -238,8 +373,25 @@
       checkItem('sliding', '抗滑', slideOk, `fsSlide = ${fsSlide}, fsSlideReq = ${i.fsSlideReq}, effectivePassive = ${i.effectivePassive}`, fsSlide, i.fsSlideReq, ''),
       checkItem('overturning', '抗傾覆', overOk, `fsOver = ${fsOver}, fsOverReq = ${i.fsOverReq}`, fsOver, i.fsOverReq, '')
     ];
+    if (i.seismicEnable) {
+      if (seismic && seismic.valid) {
+        checks.push(checkItem('seismic-sliding', '地震時抗滑 (M-O)', seismic.seismicSlideOk, `fsSlide = ${seismic.seismicFsSlide}, req = ${seismic.fsSlideReqSeismic}`, seismic.seismicFsSlide, seismic.fsSlideReqSeismic, ''));
+        checks.push(checkItem('seismic-overturning', '地震時抗傾覆 (M-O)', seismic.seismicOverOk, `fsOver = ${seismic.seismicFsOver}, req = ${seismic.fsOverReqSeismic}`, seismic.seismicFsOver, seismic.fsOverReqSeismic, ''));
+      } else {
+        checks.push(checkItem('seismic-validity', '地震時主動土壓可解性', false, seismic ? seismic.reason : 'Mononobe-Okabe 解不成立', 0, 0, ''));
+      }
+    }
 
     return Object.assign({}, i, {
+      pressureTheoryLabel: PRESSURE_THEORY_LABELS[i.pressureTheory],
+      theoryLabel,
+      theoryNote,
+      useCoulomb,
+      coulombValid,
+      effectiveSoilCoef,
+      coulombKa: useCoulomb && coulomb ? coulomb.Ka : null,
+      horizontalFactor,
+      seismic,
       resultSchemaVersion: RESULT_SCHEMA_VERSION,
       phiRad,
       sinPhi,
@@ -296,6 +448,9 @@
     inputSchemaVersion: INPUT_SCHEMA_VERSION,
     resultSchemaVersion: RESULT_SCHEMA_VERSION,
     logicSignature: LOGIC_SIGNATURE,
+    pressureTheoryLabels: PRESSURE_THEORY_LABELS,
+    coulombActiveKa,
+    mononobeOkabeKae,
     provenance,
     normalizeInput,
     validateInput,

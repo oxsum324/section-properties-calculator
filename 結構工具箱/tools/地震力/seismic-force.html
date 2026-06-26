@@ -312,7 +312,7 @@
 
     <div class="floor-scroll">
       <table class="floor-edit" id="floorTable">
-        <thead><tr><th>#</th><th>標籤</th><th>層高 dH (m)</th><th>層重 W (tf)</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>標籤</th><th>層高 dH (m)</th><th>層重 W (tf)</th><th>δ<sub>xe</sub> (cm)</th><th></th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -344,6 +344,7 @@
     <div class="checkbox-row"><input type="checkbox" id="rep_spectrum" checked><label for="rep_spectrum">4. 反應譜圖與說明</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_story" checked><label for="rep_story">5. 逐層水平地震力分配</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_sub" checked><label for="rep_sub">6. 地下層水平震度</label></div>
+    <div class="checkbox-row"><input type="checkbox" id="rep_drift" checked><label for="rep_drift">7. 層間變位角檢核</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_appendage"><label for="rep_appendage">附屬構造物地震力</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_vertical"><label for="rep_vertical">垂直地震力</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_misc"><label for="rep_misc">雜項工作物地震力</label></div>
@@ -399,6 +400,26 @@
       <tbody></tbody>
     </table>
     <div id="distNote" class="legend"></div>
+  </div>
+
+  <!-- 層間變位角檢核 -->
+  <div class="card" id="driftCard" style="display:none;">
+    <h2>層間變位角檢核（耐震規範）</h2>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
+      <input type="checkbox" id="driftEnable" style="width:auto;"> 啟用：依各層彈性側向位移 δ<sub>xe</sub> 檢核層間變位角
+    </label>
+    <div id="driftInputs" style="display:none;">
+      <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px;">
+        <label style="font-size:0.85em;">位移放大係數 C<sub>d</sub>　<input type="number" id="driftCd" value="1.0" step="0.1" min="1" style="width:80px;"></label>
+        <label style="font-size:0.85em;">容許層間變位角 Δ<sub>a</sub>/h　<input type="number" id="driftAllow" value="0.005" step="0.001" min="0.0001" style="width:90px;"></label>
+      </div>
+      <table class="story" id="driftTable">
+        <thead><tr><th>樓層</th><th>dH (m)</th><th>δ<sub>xe</sub> (cm)</th><th>δ=C<sub>d</sub>δ<sub>xe</sub> (cm)</th><th>Δ (cm)</th><th>Δ/h</th><th>判定</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="driftNote" class="legend"></div>
+      <div class="legend" style="margin-top:6px;line-height:1.6;">δ<sub>xe</sub>＝設計地震力作用下、由結構分析所得之彈性側向位移；C<sub>d</sub> 與容許 Δ<sub>a</sub>/h 依採用之耐震規範版本與韌性需求設定（如 0.005、0.010）。本表僅檢核層間變位角，未含 P-Δ 效應與韌性容量詳核。</div>
+    </div>
   </div>
 
   <!-- 地下層 -->
@@ -648,7 +669,7 @@ const CASE_VALUE_IDS = [
   'chkAssist', 'sys', 'Rcustom', 'aYcustom', 'impClass', 'chkXY', 'sysY', 'TdynaY',
   'chkTaipei', ...CASE_ZONE_VALUE_IDS, 'SsD', 'S1D', 'SsM', 'S1M', 'siteClass',
   'N', 'hn', 'B', 'Bh', 'wUniform', 'Tdyna', 'chkDetail',
-  'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum', 'rep_story', 'rep_sub',
+  'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum', 'rep_story', 'rep_sub', 'rep_drift',
   'rep_appendage', 'rep_vertical', 'rep_misc', 'rep_steps', 'rep_inputs', 'rep_symbols', 'rep_notes'
 ];
 function fmt(v, d) { return v == null ? '—' : Number(v).toFixed(d); }
@@ -870,7 +891,7 @@ function readCaseInputs() {
       designer: document.getElementById('projDesigner').value
     },
     values,
-    floors: floorData.map(f => ({ label: f.label, dH: f.dH, W: f.W }))
+    floors: floorData.map(f => ({ label: f.label, dH: f.dH, W: f.W, disp: Number.isFinite(Number(f.disp)) ? Number(f.disp) : null }))
   };
 }
 function readExportResultSummary() {
@@ -926,7 +947,8 @@ function applyCaseInputs(payload) {
     floorData = importedFloors.map((f, i) => ({
       label: f.label || `${i + 1}F`,
       dH: Number(f.dH),
-      W: Number(f.W)
+      W: Number(f.W),
+      disp: Number.isFinite(Number(f.disp)) ? Number(f.disp) : NaN
     })).filter(f => Number.isFinite(f.dH) && Number.isFinite(f.W));
     renderFloorTable();
   }
@@ -1273,6 +1295,7 @@ function renderFloorTable() {
       <td><input value="${f.label}" data-i="${i}" data-f="label" style="width:50px;text-align:center;"></td>
       <td><input type="number" value="${f.dH}" data-i="${i}" data-f="dH" step="0.1" min="0.1"></td>
       <td><input type="number" value="${f.W}"  data-i="${i}" data-f="W"  step="10"  min="0"></td>
+      <td><input type="number" value="${f.disp ?? ''}" data-i="${i}" data-f="disp" step="0.01" min="0" placeholder="選填"></td>
       <td><button class="btn-del" data-i="${i}" title="刪除">✕</button></td>`;
     tb.appendChild(tr);
   });
@@ -1281,6 +1304,7 @@ function renderFloorTable() {
     inp.addEventListener('change', () => {
       const i = +inp.dataset.i, f = inp.dataset.f;
       floorData[i][f] = f === 'label' ? inp.value : (inp.value === '' ? NaN : parseFloat(inp.value));
+      if (document.getElementById('driftEnable') && document.getElementById('driftEnable').checked) renderDriftCheck();
     });
   });
   tb.querySelectorAll('.btn-del').forEach(btn => {
@@ -1309,6 +1333,69 @@ function genUniform() {
   renderFloorTable();
 }
 genUniform(); // 初始化
+
+// ── 層間變位角檢核（耐震規範）──────────────────────────────
+function escSeis(text) {
+  return String(text).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+function computeStoryDrift() {
+  const Cd = parseFloat(document.getElementById('driftCd').value) || 1;
+  const allow = parseFloat(document.getElementById('driftAllow').value) || 0.005;
+  let prevDisp = 0;
+  let anyDisp = false;
+  let governing = { ratio: 0, label: '—' };
+  const rows = floorData.map(f => {
+    const dH = Number(f.dH);
+    const dispRaw = Number(f.disp);
+    const hasDisp = Number.isFinite(dispRaw);
+    if (hasDisp) anyDisp = true;
+    const dispDesign = hasDisp ? Cd * dispRaw : NaN;            // 設計位移 (cm)
+    const delta = hasDisp ? dispDesign - prevDisp : NaN;        // 層間相對位移 (cm)
+    const ratio = (hasDisp && Number.isFinite(dH) && dH > 0) ? (delta / 100) / dH : NaN; // Δ(m)/h(m)
+    const ok = Number.isFinite(ratio) ? Math.abs(ratio) <= allow : null;
+    if (hasDisp) prevDisp = dispDesign;
+    if (Number.isFinite(ratio) && Math.abs(ratio) > governing.ratio) governing = { ratio: Math.abs(ratio), label: f.label };
+    return { label: f.label, dH, dispRaw, dispDesign, delta, ratio, ok };
+  });
+  const govOk = anyDisp ? governing.ratio <= allow : null;
+  return { Cd, allow, rows, anyDisp, governing, govOk };
+}
+function renderDriftCheck() {
+  const card = document.getElementById('driftCard');
+  const enable = document.getElementById('driftEnable');
+  const inputs = document.getElementById('driftInputs');
+  if (!card || !enable) return;
+  card.style.display = floorData.length > 0 ? '' : 'none';
+  inputs.style.display = enable.checked ? '' : 'none';
+  if (!enable.checked) return;
+  const d = computeStoryDrift();
+  const tbody = document.querySelector('#driftTable tbody');
+  let html = '';
+  for (let i = d.rows.length - 1; i >= 0; i--) {
+    const r = d.rows[i];
+    const cls = r.ok === false ? ' style="color:#b91c1c;font-weight:700;"' : '';
+    html += `<tr${cls}>
+      <td class="idx">${escSeis(r.label)}</td>
+      <td>${fmt(r.dH, 2)}</td>
+      <td>${Number.isFinite(r.dispRaw) ? fmt(r.dispRaw, 3) : '—'}</td>
+      <td>${Number.isFinite(r.dispDesign) ? fmt(r.dispDesign, 3) : '—'}</td>
+      <td>${Number.isFinite(r.delta) ? fmt(r.delta, 3) : '—'}</td>
+      <td>${Number.isFinite(r.ratio) ? fmt(r.ratio, 4) : '—'}</td>
+      <td>${r.ok === null ? '—' : (r.ok ? 'OK' : 'NG')}</td>`;
+  }
+  tbody.innerHTML = html;
+  const note = document.getElementById('driftNote');
+  if (!d.anyDisp) {
+    note.innerHTML = '⚠ 尚未於樓層表輸入各層彈性側向位移 δ<sub>xe</sub>，無法檢核。';
+  } else {
+    note.innerHTML = `控制樓層：${escSeis(d.governing.label)}，最大 Δ/h = ${fmt(d.governing.ratio, 4)} ${d.govOk ? '≤' : '>'} 容許 ${fmt(d.allow, 4)} → <strong style="color:${d.govOk ? '#047857' : '#b91c1c'};">${d.govOk ? '層間變位角檢核通過' : '層間變位角超過容許值'}</strong>`;
+  }
+}
+
+['driftEnable', 'driftCd', 'driftAllow'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', renderDriftCheck);
+});
 
 function validateFloorData(hn) {
   if (!isFinite(hn) || hn <= 0) return '建物總高 h_n 必須大於 0';
@@ -1520,7 +1607,7 @@ function reportOpt(id, fallback) {
 
 const SEISMIC_REPORT_OPTION_IDS = [
   'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum',
-  'rep_story', 'rep_sub', 'rep_appendage', 'rep_vertical',
+  'rep_story', 'rep_sub', 'rep_drift', 'rep_appendage', 'rep_vertical',
   'rep_misc', 'rep_steps', 'rep_inputs', 'rep_symbols', 'rep_notes'
 ];
 
@@ -1532,6 +1619,7 @@ const SEISMIC_REPORT_PRESETS = {
     rep_spectrum: true,
     rep_story: true,
     rep_sub: true,
+    rep_drift: true,
     rep_appendage: false,
     rep_vertical: false,
     rep_misc: false,
@@ -1547,6 +1635,7 @@ const SEISMIC_REPORT_PRESETS = {
     rep_spectrum: true,
     rep_story: true,
     rep_sub: true,
+    rep_drift: true,
     rep_appendage: false,
     rep_vertical: false,
     rep_misc: false,
@@ -1562,6 +1651,7 @@ const SEISMIC_REPORT_PRESETS = {
     rep_spectrum: true,
     rep_story: true,
     rep_sub: true,
+    rep_drift: true,
     rep_appendage: true,
     rep_vertical: true,
     rep_misc: true,
@@ -1800,6 +1890,7 @@ function collectSeismicChecks() {
   if (reportOpt('rep_spectrum', true)) appendGroup(groups, textGroupToChecks('反應譜說明', document.getElementById('spectrumLegend')?.textContent));
   if (reportOpt('rep_story', true)) appendGroup(groups, tableToChecks(document.getElementById('storyTable'), '逐層水平地震力分配'));
   if (reportOpt('rep_sub', true)) appendGroup(groups, tableToChecks(document.getElementById('subTable'), '地下層水平震度'));
+  if (reportOpt('rep_drift', true) && document.getElementById('driftEnable') && document.getElementById('driftEnable').checked) appendGroup(groups, tableToChecks(document.getElementById('driftTable'), '層間變位角檢核'));
   if (reportOpt('rep_appendage', false)) appendGroup(groups, textGroupToChecks('附屬構造物地震力', document.getElementById('apResult')?.textContent));
   if (reportOpt('rep_vertical', false)) appendGroup(groups, textGroupToChecks('垂直地震力', document.getElementById('vResult')?.textContent));
   if (reportOpt('rep_misc', false)) appendGroup(groups, textGroupToChecks('雜項工作物地震力', document.getElementById('miscResult')?.textContent));
@@ -2097,6 +2188,7 @@ function openSeismicReport() {
       ` : ''}
       ${reportOpt('rep_story', true) ? buildOriginalBlockHtml('主要組成一：地震力分配', document.getElementById('storyTable')?.outerHTML || '' ) : ''}
       ${reportOpt('rep_sub', true) ? buildOriginalBlockHtml('主要組成二：地下水平震度', document.getElementById('subTable')?.outerHTML || '' ) : ''}
+      ${(reportOpt('rep_drift', true) && document.getElementById('driftEnable') && document.getElementById('driftEnable').checked) ? buildOriginalBlockHtml('層間變位角檢核', (document.getElementById('driftTable')?.outerHTML || '') + `<div class="legend">${document.getElementById('driftNote')?.innerHTML || ''}</div>`) : ''}
       ${reportOpt('rep_appendage', false) ? buildOriginalBlockHtml('附屬構造物地震力', document.getElementById('apResult')?.innerHTML || '') : ''}
       ${reportOpt('rep_vertical', false) ? buildOriginalBlockHtml('垂直地震力', document.getElementById('vResult')?.innerHTML || '') : ''}
       ${reportOpt('rep_misc', false) ? buildOriginalBlockHtml('雜項工作物地震力', document.getElementById('miscResult')?.innerHTML || '') : ''}
@@ -2464,6 +2556,9 @@ F<sub>vM</sub>：S<sub>1M</sub>=${r.S1M} → 查表內插得 <b>${fmt(site.FvM,3
   }
   document.getElementById('distNote').innerHTML =
     `ΣW<sub>i</sub>·h<sub>i</sub> = ${fmt(r.dist.sumWh,0)}　|　F<sub>t</sub> = ${fmt(r.Ft,2)} tf　|　OTM = ${fmt(r.dist.OTM,1)} tf·m`;
+
+  // ── 層間變位角檢核 ──
+  renderDriftCheck();
 
   // ── 地下層 ──
   const B = Math.max(0, Math.round(parseFloat(document.getElementById('B').value) || 0));

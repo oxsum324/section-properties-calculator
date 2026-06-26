@@ -116,4 +116,76 @@ for (const goldenCase of goldenCases) {
   assert.ok(errors[0].includes('折減係數'));
 }
 
-console.log('earth pressure core regression OK');
+// ── Coulomb 土壓理論 ──
+const DEG = Math.PI / 180;
+{
+  // δ=β=θ=0 時，Coulomb Ka 必須退化為 Rankine Ka=(1-sinφ)/(1+sinφ)
+  const phi = 30 * DEG;
+  const rankineKa = (1 - Math.sin(phi)) / (1 + Math.sin(phi));
+  const c = EarthPressureCore.coulombActiveKa(phi, 0, 0, 0);
+  assert.ok(c.valid);
+  approx(c.Ka, rankineKa, 1e-12);
+}
+{
+  // 牆摩擦 δ=20° 應降低主動土壓係數（< Rankine），且對齊手算基準
+  const phi = 30 * DEG;
+  const c = EarthPressureCore.coulombActiveKa(phi, 20 * DEG, 0, 0);
+  assert.ok(c.valid && c.Ka < 0.3333333333333333, 'wall friction reduces Ka');
+  approx(c.Ka, 0.29731385720545095, 1e-9);
+}
+{
+  // 背填傾角 β 接近 φ 時 Coulomb 主動解不成立
+  const phi = 30 * DEG;
+  const c = EarthPressureCore.coulombActiveKa(phi, 0, 35 * DEG, 0);
+  assert.equal(c.valid, false);
+}
+{
+  // calculate() 使用 Coulomb 時，靜態土壓水平分量計入穩定，預設 Rankine 不受影響
+  const base = goldenCases[0].input;
+  const rankine = EarthPressureCore.calculate(base);
+  const coulomb = EarthPressureCore.calculate({ ...base, pressureTheory: 'coulomb', deltaDeg: 20, betaDeg: 0, thetaDeg: 0 });
+  assert.equal(coulomb.useCoulomb, true);
+  assert.equal(coulomb.coulombValid, true);
+  assert.ok(coulomb.soilForce < rankine.soilForce, 'Coulomb 含牆摩擦時水平土壓較小');
+  assert.ok(coulomb.theoryLabel.includes('Coulomb'));
+}
+
+// ── Mononobe-Okabe 地震主動土壓 ──
+{
+  // kh=kv=0 時 M-O Kae 必須退化為 Coulomb Ka
+  const phi = 30 * DEG, delta = 15 * DEG;
+  const c = EarthPressureCore.coulombActiveKa(phi, delta, 0, 0);
+  const mo = EarthPressureCore.mononobeOkabeKae(phi, delta, 0, 0, 0);
+  assert.ok(mo.valid);
+  approx(mo.Kae, c.Ka, 1e-12);
+}
+{
+  // kh>0 時 Kae 應大於靜態 Ka，並對齊手算基準
+  const phi = 30 * DEG, delta = 20 * DEG;
+  const psi = Math.atan(0.15 / 1);
+  const mo = EarthPressureCore.mononobeOkabeKae(phi, delta, 0, 0, psi);
+  assert.ok(mo.valid);
+  approx(mo.Kae, 0.4070222210484143, 1e-9);
+}
+{
+  // calculate() 開啟地震時，新增地震檢核項並反映於 overallOk
+  const base = goldenCases[0].input;
+  const r = EarthPressureCore.calculate({ ...base, pressureTheory: 'coulomb', deltaDeg: 20, seismicEnable: true, kh: 0.15, kv: 0 });
+  assert.ok(r.seismic && r.seismic.valid, 'seismic block valid');
+  assert.ok(r.seismic.Kae > r.effectiveSoilCoef, '地震 Kae > 靜態 Ka');
+  assert.ok(r.seismic.deltaPae > 0, '動態增量為正');
+  assert.ok(r.checks.some(c => c.key === 'seismic-sliding'), '含地震抗滑檢核');
+  assert.ok(r.checks.some(c => c.key === 'seismic-overturning'), '含地震抗傾覆檢核');
+  // 未開啟地震時不得出現地震檢核項
+  const r0 = EarthPressureCore.calculate(base);
+  assert.ok(!r0.checks.some(c => c.key && c.key.startsWith('seismic')), '預設無地震檢核項');
+  assert.equal(r0.seismic, null);
+}
+{
+  // 地震輸入驗證：kv 超界、kh 為負
+  const errors = EarthPressureCore.validateInput({ ...goldenCases[0].input, seismicEnable: true, kh: -0.1, kv: 1.2 });
+  assert.ok(errors.some(m => m.includes('kh')));
+  assert.ok(errors.some(m => m.includes('kv')));
+}
+
+console.log('earth pressure core regression OK (incl. Coulomb + Mononobe-Okabe)');
