@@ -329,6 +329,7 @@ assert.ok(pagesDeployWorkflow.includes("--exclude='*.ps1'"), 'Pages deploy workf
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.test.js'"), 'Pages deploy workflow excludes test files');
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.contract.test.js'"), 'Pages deploy workflow excludes contract tests');
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.md'"), 'Pages deploy workflow excludes markdown docs');
+assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/pages-live-smoke.js'"), 'Pages deploy workflow excludes live smoke script');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
 assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages deploy workflow runs smoke script after deployment');
 assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');
