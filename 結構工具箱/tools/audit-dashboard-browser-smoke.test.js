@@ -42,6 +42,9 @@ const expectedTraceabilityCatalogs = [
   { family: 'decking-traceability', value: '4 / 4 tools；8 traces；8 manual-review items' },
   { family: 'excavation-traceability', value: '5 / 5 tools；10 traces；10 manual-review items' },
 ];
+const expectedGlobalGovernance = [
+  { key: 'report-disclosure-contract', label: '跨家族報告揭露', value: '通過；runId fixture-full；7 catalogs；report-disclosure-contract' },
+];
 
 function fixtureOutputPath(relativePath) {
   return fixtureRoot + '/output/' + relativePath;
@@ -330,6 +333,33 @@ const fixtures = new Map(Object.entries({
         ],
       },
     ],
+    globalGovernance: {
+      required: 1,
+      passed: 1,
+      issueCount: 0,
+      gates: [{
+        key: 'report-disclosure-contract',
+        label: '跨家族報告揭露',
+        contract: '結構工具箱/tools/report-disclosure.contract.test.js',
+        scope: 'fixture traceability catalog report disclosure',
+        pass: true,
+        runId: 'fixture-full',
+        quick: false,
+        seconds: 0.5,
+        exitCode: 0,
+        coveredCatalogs: 7,
+        catalogFamilies: [
+          'formal-traceability',
+          'rc-traceability',
+          'steel-traceability',
+          'anchor-traceability',
+          'stone-traceability',
+          'decking-traceability',
+          'excavation-traceability',
+        ],
+        issues: [],
+      }],
+    },
     entrypointCoverage: {
       total: 3,
       matrixCovered: 1,
@@ -911,6 +941,12 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         value: node.querySelector('span')?.textContent?.trim() || '',
         ok: node.classList.contains('ok'),
       }));
+      const globalGovernance = Array.from(document.querySelectorAll('#maturityGlobalGovernance .coverage-total')).map((node) => ({
+        key: node.getAttribute('data-governance-key') || '',
+        label: node.querySelector('strong')?.textContent?.trim() || '',
+        value: node.querySelector('span')?.textContent?.trim() || '',
+        ok: node.classList.contains('ok'),
+      }));
       const records = rows.map((row) => {
         const links = Array.from(row.querySelectorAll('a'));
         return {
@@ -939,6 +975,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         failureText,
         coverageTotals,
         traceabilityCatalogCoverage,
+        globalGovernance,
         hasHistoryTable: !!document.querySelector('#preflightHistoryWrap table'),
         hasMaturityTable: !!document.querySelector('#maturityWrap table'),
         latestTime: document.getElementById('kpiLatestTime')?.textContent?.trim() || '',
@@ -1087,6 +1124,16 @@ function assertDashboardLiveState(state, label, expected) {
     assert.ok(rendered.value.includes(`${catalog.traceCount} traces`), `${label} live traceability catalog trace count ${catalog.family}: ${rendered.value}`);
     assert.ok(rendered.value.includes(`${catalog.manualReviewCount} manual-review items`), `${label} live traceability catalog review count ${catalog.family}: ${rendered.value}`);
   }
+  const expectedGlobalGates = Array.isArray(matrix.globalGovernance?.gates) ? matrix.globalGovernance.gates : [];
+  assert.equal(state.globalGovernance.length, expectedGlobalGates.length, `${label} live global governance gate count`);
+  for (const gate of expectedGlobalGates) {
+    const rendered = state.globalGovernance.find(item => item.key === gate.key);
+    assert.ok(rendered, `${label} live global governance gate rendered: ${gate.key}`);
+    assert.equal(rendered.ok, gate.pass === true, `${label} live global governance gate state: ${gate.key} ${JSON.stringify(rendered)}`);
+    assert.ok(rendered.value.includes(gate.pass ? '通過' : '異常'), `${label} live global governance status ${gate.key}: ${rendered.value}`);
+    assert.ok(rendered.value.includes(`${gate.coveredCatalogs || 0} catalogs`), `${label} live global governance catalog count ${gate.key}: ${rendered.value}`);
+    assert.ok(rendered.value.includes(gate.key), `${label} live global governance preflight key ${gate.key}: ${rendered.value}`);
+  }
   assert.ok(state.maturityPreflightHint.includes(`runId ${summary.runId}`), `${label} live maturity hint runId: ${state.maturityPreflightHint}`);
   assert.ok(state.maturityPreflightHint.includes(`通過 ${summary.passedCount} / ${summary.recordsCount}`), `${label} live maturity hint pass count: ${state.maturityPreflightHint}`);
   assert.deepEqual(state.latestPostCheckRows.map(row => row.key), postChecks.map(check => check.key), `${label} live latest post-check keys`);
@@ -1213,6 +1260,11 @@ function assertDashboardState(state, label, expectedLive = null) {
     state.traceabilityCatalogCoverage,
     expectedTraceabilityCatalogs.map((item) => ({ ...item, label: item.family, ok: true })),
     `${label} traceability catalog coverage rendered`
+  );
+  assert.deepEqual(
+    state.globalGovernance,
+    expectedGlobalGovernance.map((item) => ({ ...item, ok: true })),
+    `${label} global governance gates rendered`
   );
   assert.equal(state.maturitySourceTrace.length, 9, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(

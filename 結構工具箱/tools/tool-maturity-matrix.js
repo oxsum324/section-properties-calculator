@@ -33,6 +33,14 @@ const COVERAGE_TOTALS = [
   { key: 'jsonRoundTrip', label: 'JSON round-trip' },
   { key: 'referenceTraceability', label: '工程依據追蹤' }
 ];
+const GLOBAL_GOVERNANCE_GATES = [
+  {
+    key: 'report-disclosure-contract',
+    label: '跨家族報告揭露',
+    contract: '結構工具箱/tools/report-disclosure.contract.test.js',
+    scope: 'formal、RC、鋼構、錨栓、石材、覆工板與開挖擋土支撐 traceability catalog'
+  }
+];
 
 function hasArg(name) {
   return process.argv.includes(name);
@@ -469,6 +477,55 @@ function buildTraceabilityCatalogCoverage(state) {
   ];
 }
 
+function findPreflightRecord(preflightEvidenceSummaries, key) {
+  const summaries = Array.isArray(preflightEvidenceSummaries) ? preflightEvidenceSummaries.filter(Boolean) : [];
+  for (const summary of summaries) {
+    const record = Array.isArray(summary.records)
+      ? summary.records.find(item => item && item.key === key)
+      : null;
+    if (record) {
+      return {
+        ...record,
+        evidenceRunId: summary.runId || '',
+        evidenceQuick: summary.quick === true
+      };
+    }
+  }
+  return null;
+}
+
+function buildGlobalGovernance(preflightEvidenceSummaries, traceabilityCatalogCoverage) {
+  const catalogFamilies = (Array.isArray(traceabilityCatalogCoverage) ? traceabilityCatalogCoverage : [])
+    .map(item => item.family)
+    .filter(Boolean);
+  const gates = GLOBAL_GOVERNANCE_GATES.map((gate) => {
+    const record = findPreflightRecord(preflightEvidenceSummaries, gate.key);
+    const missing = !record;
+    const failed = Boolean(record && record.pass !== true);
+    const issues = [];
+    if (missing) issues.push('missing-preflight-record');
+    if (failed) issues.push('failed-preflight-record');
+    if (catalogFamilies.length < 7) issues.push('missing-traceability-catalog-coverage');
+    return {
+      ...gate,
+      pass: Boolean(record && record.pass === true && issues.length === 0),
+      runId: record?.evidenceRunId || '',
+      quick: record?.evidenceQuick === true,
+      seconds: Number.isFinite(Number(record?.seconds)) ? Number(record.seconds) : 0,
+      exitCode: Number.isFinite(Number(record?.exitCode)) ? Number(record.exitCode) : null,
+      coveredCatalogs: catalogFamilies.length,
+      catalogFamilies,
+      issues
+    };
+  });
+  return {
+    required: gates.length,
+    passed: gates.filter(gate => gate.pass).length,
+    issueCount: gates.reduce((sum, gate) => sum + gate.issues.length, 0),
+    gates
+  };
+}
+
 function loadSourceState() {
   const formalManifestRelativePath = '結構工具箱/tools/formal-tools.manifest.json';
   const formalTraceabilityRelativePath = '結構工具箱/tools/formal-traceability.catalog.json';
@@ -736,7 +793,7 @@ function buildLocalQuickRows(state) {
   });
 }
 
-function summarize(rows, preflightSummary, preflightSummarySource = null, sourceTrace = null, entrypointCoverage = null, preflightHistoryHealth = null, traceabilityCatalogCoverage = []) {
+function summarize(rows, preflightSummary, preflightSummarySource = null, sourceTrace = null, entrypointCoverage = null, preflightHistoryHealth = null, traceabilityCatalogCoverage = [], globalGovernance = null) {
   const topUpgradeTargets = UPGRADE_TARGETS
     .map(target => {
       const tools = rows
@@ -785,6 +842,12 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
     ],
     sourceTrace: sourceTrace || { inputs: [] },
     traceabilityCatalogCoverage,
+    globalGovernance: globalGovernance || {
+      required: 0,
+      passed: 0,
+      issueCount: 0,
+      gates: []
+    },
     preflightHistoryHealth: preflightHistoryHealth || {
       count: 0,
       completedCount: 0,
@@ -865,6 +928,7 @@ function buildMarkdown(payload) {
     `- homeEntrypoints: total=${entrypoint.total || 0}, maturityMatrix=${entrypoint.matrixCovered || 0}, otherGoverned=${entrypoint.otherGoverned || 0}, formalOutsideCoverage=${entrypoint.formalOutsideCoverage || 0}`,
     `- otherGovernance: complete=${entrypoint.otherGovernanceComplete || 0}/${entrypoint.otherGovernanceRequired || 0}, issues=${entrypoint.otherGovernanceIssueCount || 0}`,
     `- nonMatrixBoundary: complete=${entrypoint.boundaryComplete || 0}/${entrypoint.boundaryRequired || 0}, issues=${entrypoint.boundaryIssueCount || 0}`,
+    `- globalGovernance: complete=${payload.globalGovernance?.passed || 0}/${payload.globalGovernance?.required || 0}, issues=${payload.globalGovernance?.issueCount || 0}`,
     `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
       ? `- latestPreflight: ${payload.latestPreflight.runId}, pass=${payload.latestPreflight.pass}, quick=${payload.latestPreflight.quick}, source=${payload.latestPreflight.sourcePath || '-'}, hash=${(payload.latestPreflight.sourceHash || '').slice(0, 12) || '-'}`
@@ -888,6 +952,23 @@ function buildMarkdown(payload) {
     for (const item of traceabilityCatalogCoverage) {
       const uncovered = Array.isArray(item.uncoveredKeys) && item.uncoveredKeys.length ? item.uncoveredKeys.join(', ') : '-';
       lines.push(`| ${markdownCell(item.family)} | ${item.covered || 0} / ${item.tools || 0} | ${item.traceCount || 0} | ${item.manualReviewCount || 0} | ${markdownCell(uncovered)} |`);
+    }
+  }
+
+  lines.push(
+    '',
+    '## Global Governance Gates',
+    '',
+    '| gate | preflight key | status | runId | catalogs | scope | issues |',
+    '|---|---|---|---|---:|---|---|'
+  );
+  const globalGates = Array.isArray(payload.globalGovernance?.gates) ? payload.globalGovernance.gates : [];
+  if (globalGates.length === 0) {
+    lines.push('| - | - | - | - | 0 | - | - |');
+  } else {
+    for (const gate of globalGates) {
+      const issues = Array.isArray(gate.issues) && gate.issues.length ? gate.issues.join(', ') : '-';
+      lines.push(`| ${markdownCell(gate.label)} | ${markdownCell(gate.key)} | ${gate.pass ? 'pass' : 'fail'} | ${markdownCell(gate.runId)} | ${gate.coveredCatalogs || 0} | ${markdownCell(gate.scope)} | ${markdownCell(issues)} |`);
     }
   }
 
@@ -1025,8 +1106,9 @@ function buildMatrix() {
   ];
   const entrypointCoverage = buildEntrypointCoverage(state.homeEntrypoints, rows, state.vercelText, state.governanceSources, state.preflightEvidenceSummaries);
   const traceabilityCatalogCoverage = buildTraceabilityCatalogCoverage(state);
+  const globalGovernance = buildGlobalGovernance(state.preflightEvidenceSummaries, traceabilityCatalogCoverage);
   const payload = {
-    ...summarize(rows, state.preflightSummary, state.preflightSummarySource, state.sourceTrace, entrypointCoverage, state.preflightHistoryHealth, traceabilityCatalogCoverage),
+    ...summarize(rows, state.preflightSummary, state.preflightSummarySource, state.sourceTrace, entrypointCoverage, state.preflightHistoryHealth, traceabilityCatalogCoverage, globalGovernance),
     rows
   };
 
@@ -1189,6 +1271,18 @@ function checkMatrix(payload, markdown) {
   assert.equal(Number.isInteger(payload.preflightHistoryHealth.incompleteCount), true, 'tool maturity matrix preflightHistoryHealth incompleteCount integer');
   assert.equal(typeof payload.preflightHistoryHealth.latestState, 'string', 'tool maturity matrix preflightHistoryHealth latestState string');
   assert.ok(markdown.includes('preflightHistoryHealth:'), 'tool maturity matrix markdown exposes preflight history health');
+  assert.ok(payload.globalGovernance && typeof payload.globalGovernance === 'object', 'tool maturity matrix globalGovernance object');
+  assert.equal(Number.isInteger(payload.globalGovernance.required), true, 'tool maturity matrix globalGovernance required integer');
+  assert.equal(Number.isInteger(payload.globalGovernance.passed), true, 'tool maturity matrix globalGovernance passed integer');
+  assert.equal(Number.isInteger(payload.globalGovernance.issueCount), true, 'tool maturity matrix globalGovernance issueCount integer');
+  assert.ok(Array.isArray(payload.globalGovernance.gates), 'tool maturity matrix globalGovernance gates array');
+  const reportDisclosureGate = payload.globalGovernance.gates.find(item => item.key === 'report-disclosure-contract');
+  assert.ok(reportDisclosureGate, 'tool maturity matrix globalGovernance includes report disclosure gate');
+  assert.equal(reportDisclosureGate.pass, true, 'tool maturity matrix report disclosure gate passed');
+  assert.equal(reportDisclosureGate.coveredCatalogs >= 7, true, 'tool maturity matrix report disclosure gate covers traceability catalogs');
+  assert.deepEqual(reportDisclosureGate.issues, [], 'tool maturity matrix report disclosure gate issues empty');
+  assert.ok(markdown.includes('## Global Governance Gates'), 'tool maturity matrix markdown exposes global governance gates');
+  assert.ok(markdown.includes('report-disclosure-contract'), 'tool maturity matrix markdown exposes report disclosure gate');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
