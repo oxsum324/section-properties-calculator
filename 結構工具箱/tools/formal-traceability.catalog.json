@@ -13,7 +13,7 @@
           "purpose": "雙主風向設計風力組合與控制方向判定。",
           "inputs": ["B", "L", "N", "h", "he", "roofType", "ridgeAxis", "encl"],
           "calculation": ["順風向 W_D", "橫風向 W_L", "扭轉向 W_T", "Eq 2.21 / Eq 2.23 路徑"],
-          "report": ["#comboSummary", "#controlTable", "#dirComboTable"],
+          "report": ["MWFRS 風力組合摘要", "控制方向表", "X / Y 雙主風向組合表", "#comboSummary", "#controlTable", "#dirComboTable"],
           "goldenCases": ["default-mwfrs-rigid-flat-roof", "custom-gable-partial-enclosure-parapet"],
           "manualReview": ["X / Y 方向動力特性不同時，fa,y 與 ft,y 應由設計者依專案模型分別確認。"]
         },
@@ -39,7 +39,7 @@
           "purpose": "依高度、構面與區域判定 C&C 外壓區域與控制設計值。",
           "inputs": ["surface", "h", "z", "A", "encl", "roofSlope", "enableReduce"],
           "calculation": ["GCp 正負壓", "GCpi", "q(z) / q(h)", "控制正壓 / 負壓 / 絕對值"],
-          "report": ["#designAdoptTable", "#zoneSummaryTable", "#r-zone-name"],
+          "report": ["C&C 設計採用表", "外壓區域摘要表", "控制區域名稱", "#designAdoptTable", "#zoneSummaryTable", "#r-zone-name"],
           "goldenCases": ["default-wall-zone5-fig-3-2", "roof-zone3-partial-enclosure-fig-3-1"],
           "manualReview": ["特殊局部構材、轉角幾何與有效受風面積仍須由設計者依施工圖確認。"]
         }
@@ -55,7 +55,7 @@
           "purpose": "依屋頂型式、阻擋狀態與坡度判定 Cpn 與控制區域。",
           "inputs": ["roofType", "blockage", "theta", "h", "he", "B", "L", "A"],
           "calculation": ["q(h)", "G", "Cpn 正負值", "p = q(h) x G x Cpn"],
-          "report": ["#designAdoptTable", "#zoneSummaryTable", "#zoneSummaryNote"],
+          "report": ["開放式屋面設計採用表", "屋面區域摘要表", "控制區域與圖 3.3 說明", "#designAdoptTable", "#zoneSummaryTable", "#zoneSummaryNote"],
           "goldenCases": ["default-open-monoslope-zone2-fig-3-3a", "gable-blocked-fig-3-3b-interpolated"],
           "manualReview": ["開放式屋面若有非典型遮蔽、局部高差或施工階段狀態，需另由專案文件確認。"]
         }
@@ -71,7 +71,7 @@
           "purpose": "C&C 女兒牆控制條件、角隅條件與壓差設計值判定。",
           "inputs": ["mode", "face", "hp", "h", "A", "parapetEncl", "ccType"],
           "calculation": ["圖 3.4 四條件比較", "GCp 來源", "控制壓差"],
-          "report": ["#designRouteTag", "#controlRouteTag", "#r-control-name"],
+          "report": ["女兒牆規範路線", "控制條件標籤", "控制壓差名稱", "#designRouteTag", "#controlRouteTag", "#r-control-name"],
           "goldenCases": ["default-cc-building-roof-parapet-fig-3-4"],
           "manualReview": ["女兒牆實際連接、轉角長度與單一屋頂情境需依施工圖確認。"]
         },
