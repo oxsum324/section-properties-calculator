@@ -20,7 +20,7 @@
 - 測試或程式證據
 - 人工複核邊界
 
-`src/anchorTraceabilityCatalog.test.ts` 會檢查 catalog 結構、證據檔存在、README 說明，以及核心原始碼仍保留 17.6、17.7、17.8、17.9、17.10、22.8.3 與補強鋼筋路線。新增計算路徑、報告段落或人工判斷邊界時，需同步更新 catalog 與 contract test。
+`src/anchorTraceabilityCatalog.test.ts` 會檢查 catalog 結構、證據檔存在、README 說明，以及核心原始碼仍保留 17.6、17.7、17.8、17.9、17.10、22.8.3 與補強鋼筋路線。repo 根層級的 `螺栓檢討/anchor-traceability.contract.test.js` 另會檢查平台 preflight、首頁 governance 與 staging / boundary 文件是否同步，讓 `anchor-traceability-contract` 成為獨立可追溯 gate。新增計算路徑、報告段落或人工判斷邊界時，需同步更新 catalog 與 contract test。
 
 ## 常用指令
 
