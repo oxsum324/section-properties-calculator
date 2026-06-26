@@ -1161,8 +1161,18 @@ node 覆工板/decking-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$formalTraceabilityContractCommand = @'
+node 結構工具箱/tools/formal-traceability.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $rcTraceabilityContractCommand = @'
 node 鋼筋混凝土/tools/rc-traceability.contract.test.js
+exit $LASTEXITCODE
+'@
+
+$steelTraceabilityContractCommand = @'
+node 鋼構工具/steel-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
@@ -1862,10 +1872,24 @@ $checks = @(
     slow = $false
   },
   [pscustomobject]@{
+    key = "formal-traceability-contract"
+    label = "Formal wind and seismic traceability catalog contract"
+    workdir = $root
+    command = $formalTraceabilityContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
     key = "rc-traceability-contract"
     label = "RC traceability catalog contract"
     workdir = $root
     command = $rcTraceabilityContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "steel-traceability-contract"
+    label = "Steel traceability catalog contract"
+    workdir = $root
+    command = $steelTraceabilityContractCommand
     slow = $false
   },
   [pscustomobject]@{

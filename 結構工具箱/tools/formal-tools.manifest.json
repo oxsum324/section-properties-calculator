@@ -8,7 +8,8 @@
     "browserSmokeTest": "tools/formal-browser-smoke.test.js",
     "maturityMatrix": "tools/tool-maturity-matrix.js",
     "goldenHarvest": "tools/formal-golden-harvest.js",
-    "traceabilityCatalog": "tools/formal-traceability.catalog.json"
+    "traceabilityCatalog": "tools/formal-traceability.catalog.json",
+    "traceabilityContract": "tools/formal-traceability.contract.test.js"
   },
   "requiredRoutes": [
     "/wind-force",

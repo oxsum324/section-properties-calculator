@@ -8,6 +8,7 @@
       "scope": "矩形建物 MWFRS",
       "traces": [
         {
+          "id": "wind-force-2-12-dual-direction",
           "clause": "耐風規範第二章 2.12",
           "purpose": "雙主風向設計風力組合與控制方向判定。",
           "inputs": ["B", "L", "N", "h", "he", "roofType", "ridgeAxis", "encl"],
@@ -17,6 +18,7 @@
           "manualReview": ["X / Y 方向動力特性不同時，fa,y 與 ft,y 應由設計者依專案模型分別確認。"]
         },
         {
+          "id": "wind-force-parapet-eq-2-3",
           "clause": "耐風規範第二章 Eq 2.3",
           "purpose": "MWFRS 女兒牆附加壓力與主系統風力分開呈現。",
           "inputs": ["hp", "h", "Kzt", "terrain", "Vcustom"],
@@ -32,6 +34,7 @@
       "scope": "區域風壓 C&C",
       "traces": [
         {
+          "id": "wind-cc-fig-3-1-3-2-control",
           "clause": "耐風規範第三章 圖 3.1 / 圖 3.2",
           "purpose": "依高度、構面與區域判定 C&C 外壓區域與控制設計值。",
           "inputs": ["surface", "h", "z", "A", "encl", "roofSlope", "enableReduce"],
@@ -47,6 +50,7 @@
       "scope": "開放式建築屋面風壓",
       "traces": [
         {
+          "id": "wind-open-roof-fig-3-3-eq-3-4",
           "clause": "耐風規範第三章 圖 3.3(a) / 圖 3.3(b) 與 Eq 3.4",
           "purpose": "依屋頂型式、阻擋狀態與坡度判定 Cpn 與控制區域。",
           "inputs": ["roofType", "blockage", "theta", "h", "he", "B", "L", "A"],
@@ -62,6 +66,7 @@
       "scope": "女兒牆風壓",
       "traces": [
         {
+          "id": "wind-parapet-fig-3-4-3-5",
           "clause": "耐風規範第三章 圖 3.4 / 圖 3.5 與 Eq 3.3",
           "purpose": "C&C 女兒牆控制條件、角隅條件與壓差設計值判定。",
           "inputs": ["mode", "face", "hp", "h", "A", "parapetEncl", "ccType"],
@@ -71,6 +76,7 @@
           "manualReview": ["女兒牆實際連接、轉角長度與單一屋頂情境需依施工圖確認。"]
         },
         {
+          "id": "wind-parapet-mwfrs-eq-2-3",
           "clause": "耐風規範第二章 Eq 2.3",
           "purpose": "MWFRS 女兒牆背風面路線不得殘留 C&C 條件總覽。",
           "inputs": ["mode", "face", "hp", "h", "terrain", "Kzt"],
@@ -86,6 +92,7 @@
       "scope": "實體標示物風力",
       "traces": [
         {
+          "id": "wind-object-solid-table-2-10-dual-cf",
           "clause": "耐風規範第二章 表 2.10",
           "purpose": "開口率小於 30% 之實體標示物，分別由 nu 與 M/N 查表並取較大 C_f。",
           "inputs": ["H_o", "M", "N", "b_w", "z_b", "openingRatio"],
@@ -95,13 +102,14 @@
           "manualReview": ["H_o、M、N、b_w 與 z_b 不得混用；專案指定或風洞資料須與規範判定值分列。"]
         },
         {
+          "id": "wind-object-solid-skew-eccentricity",
           "clause": "耐風規範第二章 表 2.10 斜風向偏心",
           "purpose": "斜風向偏心採 0.3b_w，與斷面小邊、支承高度或底緣離地分開。",
           "inputs": ["b_w", "F", "z_r"],
           "calculation": ["e = 0.3b_w", "M_base = F x z_r", "T = F x e"],
           "report": ["設計力", "偏心", "基底作用"],
           "goldenCases": ["default-solid-sign-table-2-10"],
-          "manualReview": ["圓柱、球體、角柱體、煙囪、水塔與格子式構架應改用各自規範表格路線。"]
+          "manualReview": ["圓柱、球體、角柱體、煙囪、水塔與格子式構架應改用各自規範表格路線，並由設計者依專案條件確認。"]
         }
       ]
     },
@@ -110,13 +118,14 @@
       "scope": "中空式標示物 / 格子式構架風力",
       "traces": [
         {
+          "id": "wind-object-frame-table-2-11",
           "clause": "耐風規範第二章 表 2.11",
           "purpose": "依構件形狀、實面率與 Dsqrt(qz) 路線判定中空式 / 格子式構架 C_f。",
           "inputs": ["memberShape", "solidRatio", "D", "qz", "height", "width"],
           "calculation": ["Dsqrt(qz)", "C_f 查表", "受風面積", "基底剪力與彎矩"],
           "report": ["表 2.11", "中空式", "格子式"],
           "goldenCases": ["default-porous-frame-table-2-11", "flat-member-high-solidity-frame"],
-          "manualReview": ["桁架高塔、實體標示物、煙囪或水塔不得在本頁套用。"]
+          "manualReview": ["桁架高塔、實體標示物、煙囪或水塔不得在本頁套用，須依專用工具或專案模型確認。"]
         }
       ]
     },
@@ -125,6 +134,7 @@
       "scope": "桁架高塔風力",
       "traces": [
         {
+          "id": "wind-lattice-tower-table-2-15",
           "clause": "耐風規範第二章 表 2.15",
           "purpose": "依塔形、構材形狀、實體率與風向修正判定分段風力。",
           "inputs": ["towerShape", "memberShape", "solidRatio", "segmentHeights", "windDirection"],
@@ -140,13 +150,14 @@
       "scope": "煙囪 / 水塔風力",
       "traces": [
         {
+          "id": "wind-object-tower-table-2-12",
           "clause": "耐風規範第二章 表 2.12",
           "purpose": "依煙囪、水塔與斷面形狀判定 C_f，並整合分段與頂部附加風力。",
           "inputs": ["objectType", "sectionShape", "h", "D", "segments", "topArea"],
           "calculation": ["h/D", "C_f 查表或內插", "分段 F_i", "頂部附加風力", "底部作用"],
           "report": ["表 2.12", "煙囪", "水塔"],
           "goldenCases": ["default-chimney-table-2-12", "water-tower-square-diagonal-top-load"],
-          "manualReview": ["特殊附屬平台、流固耦合或渦激振動需求不由本頁自動判定。"]
+          "manualReview": ["特殊附屬平台、流固耦合或渦激振動需求不由本頁自動判定，須由專案模型或風洞資料人工複核。"]
         }
       ]
     },
@@ -155,6 +166,7 @@
       "scope": "圍籬牆 / 獨立招牌風力",
       "traces": [
         {
+          "id": "wind-fence-sign-table-2-10",
           "clause": "耐風規範第二章 表 2.10",
           "purpose": "座地圍籬牆與架高獨立招牌依表 2.10 或專案指定 C_f 產生設計採用值。",
           "inputs": ["mode", "panelHeight", "panelWidth", "bottomClearance", "openingRatio", "manualCf"],
@@ -170,6 +182,7 @@
       "scope": "招牌 / 燈桿組合風力",
       "traces": [
         {
+          "id": "wind-sign-pole-composite-tables",
           "clause": "耐風規範第二章 表 2.10 / 表 2.13 / 表 2.14",
           "purpose": "面板與支撐元件分別查表後合成底部作用。",
           "inputs": ["panelGeometry", "supportCount", "supportShape", "supportHeight", "openingRatio", "manualPanelCf"],
@@ -185,6 +198,7 @@
       "scope": "等值靜力分析",
       "traces": [
         {
+          "id": "seismic-force-static-story-forces",
           "clause": "耐震規範第三章等值靜力與樓層力分配",
           "purpose": "以工址反應譜、結構系統與週期判定設計基底剪力與樓層地震力。",
           "inputs": ["SsD", "S1D", "siteClass", "impClass", "sysX", "sysY", "hn", "W", "Tx", "Ty"],
@@ -200,6 +214,7 @@
       "scope": "附屬構造物地震力",
       "traces": [
         {
+          "id": "seismic-appendage-4-1-4-3",
           "clause": "耐震規範第四章式(4-1)與式(4-3)",
           "purpose": "依附屬構造物類型、高度位置與 Ip 判定 Fph 與 Fpv。",
           "inputs": ["appendageType", "Wp", "hx", "hn", "Ip", "ap", "Rpa", "nearFault"],
@@ -215,6 +230,7 @@
       "scope": "雜項工作物地震力",
       "traces": [
         {
+          "id": "seismic-misc-5-3-5-4",
           "clause": "耐震規範第五章 5.3 / 5.4 與式(2-3)、式(5-2)",
           "purpose": "依相似 / 非相似工作物分類、週期與 R/alpha_y 判定 Vh 與 Vv。",
           "inputs": ["miscChapterMode", "miscType", "miscR", "miscAY", "miscW", "miscH", "miscT", "nearFault"],
@@ -230,6 +246,7 @@
       "scope": "反應譜動力分析",
       "traces": [
         {
+          "id": "seismic-dynamic-spectrum-base-shear",
           "clause": "耐震規範第 3.2 節與第 3.3 節",
           "purpose": "建立設計反應譜、檢查動力基底剪力與總橫力調整比例。",
           "inputs": ["SsD", "S1D", "SsDLower", "S1DLower", "Tx", "Ty", "VxDyn", "VyDyn", "baseShearFloorRatio"],
