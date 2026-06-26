@@ -244,6 +244,9 @@
   .run-tick.full {
     box-shadow: inset 0 -4px 0 rgba(37, 99, 235, 0.24);
   }
+  .run-tick.release {
+    box-shadow: inset 0 -4px 0 rgba(5, 150, 105, 0.34);
+  }
   .run-tick.quick {
     box-shadow: inset 0 -4px 0 rgba(71, 85, 105, 0.18);
   }
@@ -800,8 +803,13 @@
       if (node) node.textContent = text;
     }
 
+    function isReleasePreflightRun(item) {
+      return item && item.quick === false && item.forcePlatformAudit === true && item.forceSlowChecks === true;
+    }
+
     function preflightModeText(item) {
       if (item && item.complete === false) return '未完成';
+      if (isReleasePreflightRun(item)) return 'Release';
       return item && item.quick ? 'Quick' : 'Full';
     }
 
@@ -936,7 +944,8 @@
       }
       setKpiValue(valueId, preflightStatusText(item), preflightTone(item));
       const reason = item.incompleteReason ? `，原因 ${item.incompleteReason}` : '';
-      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，狀態 ${preflightStateText(item)}${reason}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}。`);
+      const releaseNote = isReleasePreflightRun(item) ? '，強制慢測與平台 audit' : '';
+      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，狀態 ${preflightStateText(item)}${reason}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}${releaseNote}。`);
     }
 
     function renderPreflightRecordLinks(summary) {
@@ -1089,8 +1098,9 @@
         const mode = preflightModeText(item);
         const label = `${mode} ${item.runId || '-'}｜${preflightStateText(item)}｜${preflightStatusText(item)}｜${item.generatedAt || '-'}｜通過 ${formatPassedChecks(item)}｜耗時 ${formatSeconds(item.totalSeconds)}｜平台 audit ${formatPlatformAuditMode(item)}｜慢測重用 ${formatSlowReuse(item)}｜最慢 ${formatSlowest(item)}`;
         const statusClass = preflightTone(item);
-        const modeClass = item.quick ? 'quick' : 'full';
-        const glyph = item.complete === false ? '!' : (item.quick ? 'Q' : 'F');
+        const releaseRun = isReleasePreflightRun(item);
+        const modeClass = releaseRun ? 'release' : (item.quick ? 'quick' : 'full');
+        const glyph = item.complete === false ? '!' : (releaseRun ? 'R' : (item.quick ? 'Q' : 'F'));
         return `<span class="run-tick ${statusClass} ${modeClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}">${escapeHtml(glyph)}</span>`;
       }).join('');
 
