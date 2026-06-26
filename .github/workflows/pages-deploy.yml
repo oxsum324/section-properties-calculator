@@ -34,6 +34,20 @@ jobs:
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='_site/' \
+            --exclude='README.md' \
+            --exclude='STAGING_GROUPS.md' \
+            --exclude='TOOL_BOUNDARIES.md' \
+            --exclude='TOOL_REPORT_GUIDE.md' \
+            --exclude='*.ps1' \
+            --exclude='*.bat' \
+            --exclude='*.test.js' \
+            --exclude='*.contract.test.js' \
+            --exclude='*.md' \
+            --exclude='**/*.ps1' \
+            --exclude='**/*.bat' \
+            --exclude='**/*.test.js' \
+            --exclude='**/*.contract.test.js' \
+            --exclude='**/*.md' \
             ./ _site/
           touch _site/.nojekyll
 
@@ -80,4 +94,4 @@ jobs:
       - name: Run live Pages smoke
         env:
           PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}
-        run: node "結構工具箱/tools/pages-live-smoke.js"
+        run: node "結構工具箱/tools/pages-live-smoke.js" --check-private-boundary
