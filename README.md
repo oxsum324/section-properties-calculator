@@ -58,7 +58,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/tool-maturity-matrix.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/tool-maturity-matrix.js:1)
 - GitHub Pages deploy / live smoke：
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)
-  - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact，deploy 成功後再檢查公開首頁、`home.js` 與 `結構工具箱/assets/status/*.json` 是否可讀，避免首頁狀態卡再次依賴未部署的 `output/`。
+  - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact，deploy 成功後再檢查公開首頁、`home.js` 與 `結構工具箱/assets/status/*.json` 是否可讀，並以 `--check-private-boundary` 確認 Markdown、PowerShell / batch、測試檔與合約檔未被發布，避免首頁狀態卡再次依賴未部署的 `output/`。
 - 局部快算工具 manifest：
   [結構工具箱/tools/local-quick-tools.manifest.json](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.manifest.json:1)
 - 局部快算 manifest runner：

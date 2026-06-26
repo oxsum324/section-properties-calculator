@@ -7,6 +7,10 @@ function argValue(name) {
   return index === -1 ? '' : process.argv[index + 1] || '';
 }
 
+function hasArg(name) {
+  return process.argv.includes(name);
+}
+
 function baseUrl() {
   const raw = argValue('--base-url') || process.env.PAGES_BASE_URL || DEFAULT_BASE_URL;
   return raw.endsWith('/') ? raw : `${raw}/`;
@@ -52,6 +56,26 @@ async function assertOldOutputNotRequired(base) {
   }
 }
 
+async function assertPrivateBoundary(base) {
+  const privatePaths = [
+    'README.md',
+    'TOOL_BOUNDARIES.md',
+    'STAGING_GROUPS.md',
+    'TOOL_REPORT_GUIDE.md',
+    'preflight-tools.ps1',
+    'run-preflight-tools.bat',
+    'toolbox-entrypoints.contract.test.js',
+    '結構工具箱/tools/pages-live-smoke.js',
+    '結構工具箱/tools/local-quick-browser-smoke.test.js',
+    '.github/workflows/pages-deploy.yml'
+  ];
+  for (const path of privatePaths) {
+    const url = liveUrl(base, path);
+    const response = await fetch(url, { redirect: 'manual', cache: 'no-store' });
+    assert.notEqual(response.status, 200, `${path} should not be published to Pages`);
+  }
+}
+
 async function main() {
   const base = baseUrl();
   const homeUrl = liveUrl(base, '結構工具箱/');
@@ -81,6 +105,9 @@ async function main() {
   assert.equal(preflightStatus.recordsCount, preflightStatus.passedCount, 'preflight records all passed');
 
   await assertOldOutputNotRequired(base);
+  if (hasArg('--check-private-boundary') || process.env.PAGES_CHECK_PRIVATE_BOUNDARY === '1') {
+    await assertPrivateBoundary(base);
+  }
 
   console.log(`pages live smoke OK (${base})`);
   console.log(`platform runId=${platformStatus.runId}, preflight runId=${preflightStatus.runId}`);

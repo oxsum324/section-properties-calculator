@@ -313,6 +313,9 @@ assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity mat
 assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');
+assert.ok(pagesLiveSmoke.includes('assertPrivateBoundary'), 'Pages live smoke checks private artifact boundary');
+assert.ok(pagesLiveSmoke.includes('preflight-tools.ps1'), 'Pages live smoke blocks preflight script publication');
+assert.ok(pagesLiveSmoke.includes('toolbox-entrypoints.contract.test.js'), 'Pages live smoke blocks contract publication');
 assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v6'), 'Pages deploy workflow configures Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/upload-artifact@v6'), 'Pages deploy workflow uploads artifact');
 assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v5'), 'Pages deploy workflow deploys Pages');
@@ -322,8 +325,13 @@ assert.ok(pagesDeployWorkflow.includes('pages: write'), 'Pages deploy workflow h
 assert.ok(pagesDeployWorkflow.includes('id-token: write'), 'Pages deploy workflow has id-token write permission');
 assert.ok(pagesDeployWorkflow.includes('artifact.tar'), 'Pages deploy workflow creates deployable tar artifact');
 assert.ok(pagesDeployWorkflow.includes('name: github-pages'), 'Pages deploy workflow uploads the expected github-pages artifact');
+assert.ok(pagesDeployWorkflow.includes("--exclude='*.ps1'"), 'Pages deploy workflow excludes PowerShell helpers');
+assert.ok(pagesDeployWorkflow.includes("--exclude='*.test.js'"), 'Pages deploy workflow excludes test files');
+assert.ok(pagesDeployWorkflow.includes("--exclude='*.contract.test.js'"), 'Pages deploy workflow excludes contract tests');
+assert.ok(pagesDeployWorkflow.includes("--exclude='*.md'"), 'Pages deploy workflow excludes markdown docs');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
 assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages deploy workflow runs smoke script after deployment');
+assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}'), 'Pages live smoke uses deployed page URL');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
 assert.ok(preflight.includes('$maturityMatrixScript = Join-Path $root "結構工具箱\\tools\\tool-maturity-matrix.js"'), 'preflight resolves maturity matrix after summary');
