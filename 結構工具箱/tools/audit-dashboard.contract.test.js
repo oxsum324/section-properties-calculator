@@ -812,8 +812,11 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'globalGovernance',
   'report-disclosure-contract',
   'delivery-artifacts-contract',
+  'release-readiness-contract',
   '交付物一致性',
+  '正式放行證據',
   '結構工具箱/tools/delivery-artifacts.contract.test.js',
+  '結構工具箱/tools/release-readiness.contract.test.js',
   '## Global Governance Gates',
   'latestFullPreflightSummary',
   'preflightHistoryHealth',
@@ -890,9 +893,14 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.equal(deliveryArtifactsGate.pass, true, 'maturity globalGovernance delivery artifacts gate passes');
   assert.equal(deliveryArtifactsGate.coveredCatalogs >= 2, true, 'maturity globalGovernance delivery artifacts catalog count');
   assert.deepEqual(deliveryArtifactsGate.issues, [], 'maturity globalGovernance delivery artifacts issues empty');
+  const releaseReadinessGate = matrix.globalGovernance.gates.find(gate => gate.key === 'release-readiness-contract');
+  assert.ok(releaseReadinessGate, 'maturity globalGovernance release readiness gate exists');
+  assert.equal(releaseReadinessGate.pass, true, 'maturity globalGovernance release readiness gate passes');
+  assert.deepEqual(releaseReadinessGate.issues, [], 'maturity globalGovernance release readiness issues empty');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Global Governance Gates'), 'maturity markdown exposes global governance gates');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('report-disclosure-contract'), 'maturity markdown exposes report disclosure gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('delivery-artifacts-contract'), 'maturity markdown exposes delivery artifacts gate');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('release-readiness-contract'), 'maturity markdown exposes release readiness gate');
   if (maturityFresh) {
     assert.ok(matrix.preflightHistoryHealth && typeof matrix.preflightHistoryHealth === 'object', 'maturity preflightHistoryHealth object');
     assert.equal(Number.isInteger(matrix.preflightHistoryHealth.count), true, 'maturity preflightHistoryHealth count integer');
@@ -985,6 +993,8 @@ if (fs.existsSync(maturityMatrixPath)) {
   }
   if (maturityFresh && matrix.latestPreflight) {
     assert.equal(typeof matrix.latestPreflight.totalSeconds, 'number', 'maturity latest preflight totalSeconds number');
+    assert.equal(typeof matrix.latestPreflight.forcePlatformAudit, 'boolean', 'maturity latest preflight forcePlatformAudit boolean');
+    assert.equal(typeof matrix.latestPreflight.forceSlowChecks, 'boolean', 'maturity latest preflight forceSlowChecks boolean');
     assert.equal(Number.isInteger(matrix.latestPreflight.recordsCount), true, 'maturity latest preflight recordsCount integer');
     assert.equal(Number.isInteger(matrix.latestPreflight.passedCount), true, 'maturity latest preflight passedCount integer');
     assert.equal(Number.isInteger(matrix.latestPreflight.slowReuseCount), true, 'maturity latest preflight slowReuseCount integer');
@@ -1000,7 +1010,8 @@ if (fs.existsSync(maturityMatrixPath)) {
       const scalarFields = [
         'generatedAt', 'runId', 'quick', 'pass', 'failureCount', 'recordsCount', 'passedCount',
         'totalSeconds', 'slowestKey', 'slowestSeconds', 'slowestText', 'slowReuseCount',
-        'platformAuditMode', 'platformAuditReused', 'platformAuditDecisionPath'
+        'platformAuditMode', 'platformAuditReused', 'platformAuditDecisionPath',
+        'forcePlatformAudit', 'forceSlowChecks'
       ];
       for (const field of scalarFields) {
         assert.deepEqual(matrix.latestPreflight[field], latestSummaryForMatrix[field], `maturity latest preflight ${field} matches summary`);

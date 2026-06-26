@@ -45,6 +45,7 @@ const expectedTraceabilityCatalogs = [
 const expectedGlobalGovernance = [
   { key: 'report-disclosure-contract', label: '跨家族報告揭露', value: '通過；runId fixture-full；7 catalogs；report-disclosure-contract' },
   { key: 'delivery-artifacts-contract', label: '交付物一致性', value: '通過；runId fixture-full；7 catalogs；delivery-artifacts-contract' },
+  { key: 'release-readiness-contract', label: '正式放行證據', value: '通過；runId fixture-full；7 catalogs；release-readiness-contract' },
 ];
 
 function fixtureOutputPath(relativePath) {
@@ -335,8 +336,8 @@ const fixtures = new Map(Object.entries({
       },
     ],
     globalGovernance: {
-      required: 2,
-      passed: 2,
+      required: 3,
+      passed: 3,
       issueCount: 0,
       gates: [
         {
@@ -370,6 +371,28 @@ const fixtures = new Map(Object.entries({
           runId: 'fixture-full',
           quick: false,
           seconds: 0.4,
+          exitCode: 0,
+          coveredCatalogs: 7,
+          catalogFamilies: [
+            'formal-traceability',
+            'rc-traceability',
+            'steel-traceability',
+            'anchor-traceability',
+            'stone-traceability',
+            'decking-traceability',
+            'excavation-traceability',
+          ],
+          issues: [],
+        },
+        {
+          key: 'release-readiness-contract',
+          label: '正式放行證據',
+          contract: '結構工具箱/tools/release-readiness.contract.test.js',
+          scope: 'fixture release readiness',
+          pass: true,
+          runId: 'fixture-full',
+          quick: false,
+          seconds: 0.3,
           exitCode: 0,
           coveredCatalogs: 7,
           catalogFamilies: [
@@ -547,12 +570,26 @@ const fixtures = new Map(Object.entries({
     records: preflightRecords,
   },
   'output/preflight/preflight-history.json': {
-    count: 2,
-    completedCount: 2,
+    count: 3,
+    completedCount: 3,
     inProgressCount: 0,
     incompleteCount: 0,
     items: [
       preflightHistoryItem(),
+      preflightHistoryItem({
+        runId: 'fixture-release',
+        pass: true,
+        failureCount: 0,
+        failures: [],
+        failedKeys: [],
+        passedCount: 2,
+        forcePlatformAudit: true,
+        forceSlowChecks: true,
+        platformAuditMode: 'run-audit-all',
+        platformAuditReused: false,
+        slowReuseCount: 0,
+        slowReuseKeys: [],
+      }),
       preflightHistoryItem({ runId: 'fixture-quick', quick: true, pass: true, failureCount: 0, failures: [], failedKeys: [], passedCount: 2 }),
     ],
   },
@@ -954,6 +991,11 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
       const fullRunText = document.getElementById('preflightFullStatus')?.textContent?.trim() || '';
       const quickRunText = document.getElementById('preflightQuickStatus')?.textContent?.trim() || '';
       const failureText = document.getElementById('preflightFailureStatus')?.textContent?.trim() || '';
+      const preflightTimelineLabels = Array.from(document.querySelectorAll('#preflightTimeline .run-tick')).map((node) => ({
+        text: node.textContent.trim(),
+        title: node.getAttribute('title') || '',
+        release: node.classList.contains('release'),
+      }));
       const coverageTotals = Array.from(document.querySelectorAll('#maturityCoverageTotals .coverage-total')).map((node) => ({
         key: node.getAttribute('data-coverage-key') || '',
         label: node.querySelector('strong')?.textContent?.trim() || '',
@@ -998,6 +1040,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         fullRunText,
         quickRunText,
         failureText,
+        preflightTimelineLabels,
         coverageTotals,
         traceabilityCatalogCoverage,
         globalGovernance,
@@ -1213,7 +1256,11 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.latestRunText.includes('異常'), `${label} latest KPI reflects fixture failure`);
   assert.ok(state.fullRunText.includes('異常'), `${label} full KPI reflects fixture failure`);
   assert.ok(state.quickRunText.includes('通過'), `${label} quick KPI reflects fixture quick pass`);
-  assert.equal(state.failureText, '1 / 2', `${label} failure KPI count`);
+  assert.ok(
+    state.preflightTimelineLabels.some((item) => item.text === 'R' && item.release && item.title.includes('Release fixture-release')),
+    `${label} release preflight timeline tick rendered: ${JSON.stringify(state.preflightTimelineLabels)}`
+  );
+  assert.equal(state.failureText, '1 / 3', `${label} failure KPI count`);
   assert.equal(state.hasHistoryTable, true, `${label} preflight history table rendered`);
   assert.equal(state.hasMaturityTable, true, `${label} maturity table rendered`);
   assert.ok(state.latestTime && state.latestTime !== '讀取中', `${label} overview latest timestamp rendered`);
@@ -1332,8 +1379,8 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.platformMeta.includes('摘要 hash｜1234567890ab'), `${label} platform status card summary hash rendered: ${state.platformMeta.join(' | ')}`);
   assert.ok(state.platformMeta.includes('JSON hash｜abcdef012345'), `${label} platform status card JSON hash rendered: ${state.platformMeta.join(' | ')}`);
   assert.deepEqual(state.platformHistoryHashes, ['abcdef012345'], `${label} platform history summary hash rendered`);
-  assert.deepEqual(state.preflightHistoryHashes, ['abcdef012345', 'abcdef012345'], `${label} preflight history summary hash rendered`);
-  assert.deepEqual(state.preflightPostChecks, ['2 / 2', '2 / 2'], `${label} preflight post checks rendered`);
+  assert.deepEqual(state.preflightHistoryHashes, ['abcdef012345', 'abcdef012345', 'abcdef012345'], `${label} preflight history summary hash rendered`);
+  assert.deepEqual(state.preflightPostChecks, ['2 / 2', '2 / 2', '2 / 2'], `${label} preflight post checks rendered`);
   assert.ok(state.loadedAt.includes('頁面更新'), `${label} loaded timestamp rendered`);
 }
 

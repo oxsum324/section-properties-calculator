@@ -1191,6 +1191,11 @@ node 結構工具箱/tools/delivery-artifacts.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$releaseReadinessContractCommand = @'
+node 結構工具箱/tools/release-readiness.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $excavationTraceabilityContractCommand = @'
 node 開挖擋土支撐/excavation-traceability.contract.test.js
 exit $LASTEXITCODE
@@ -1926,6 +1931,13 @@ $checks = @(
     label = "Delivery artifact governance contract"
     workdir = $root
     command = $deliveryArtifactsContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "release-readiness-contract"
+    label = "Release readiness governance contract"
+    workdir = $root
+    command = $releaseReadinessContractCommand
     slow = $false
   },
   [pscustomobject]@{

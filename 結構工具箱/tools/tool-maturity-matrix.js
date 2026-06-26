@@ -47,6 +47,13 @@ const GLOBAL_GOVERNANCE_GATES = [
     contract: '結構工具箱/tools/delivery-artifacts.contract.test.js',
     scope: '覆工板 JSON / Word 報表與開挖 PDF / DOCX / 下載 API 交付邊界',
     minCatalogs: 2
+  },
+  {
+    key: 'release-readiness-contract',
+    label: '正式放行證據',
+    contract: '結構工具箱/tools/release-readiness.contract.test.js',
+    scope: 'release wrapper、force flags、慢測重用揭露與 dashboard 放行模式顯示',
+    minCatalogs: 0
   }
 ];
 
@@ -513,7 +520,8 @@ function buildGlobalGovernance(preflightEvidenceSummaries, traceabilityCatalogCo
     const issues = [];
     if (missing) issues.push('missing-preflight-record');
     if (failed) issues.push('failed-preflight-record');
-    if (catalogFamilies.length < (gate.minCatalogs || 1)) issues.push('missing-traceability-catalog-coverage');
+    const minCatalogs = Number.isFinite(Number(gate.minCatalogs)) ? Number(gate.minCatalogs) : 1;
+    if (catalogFamilies.length < minCatalogs) issues.push('missing-traceability-catalog-coverage');
     return {
       ...gate,
       pass: Boolean(record && record.pass === true && issues.length === 0),
@@ -893,6 +901,8 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
       generatedAt: preflightSummary.generatedAt,
       runId: preflightSummary.runId,
       quick: preflightSummary.quick,
+      forcePlatformAudit: preflightSummary.forcePlatformAudit,
+      forceSlowChecks: preflightSummary.forceSlowChecks,
       pass: preflightSummary.pass,
       failureCount: preflightSummary.failureCount,
       failedKeys: Array.isArray(preflightSummary.failedKeys) ? preflightSummary.failedKeys : [],
@@ -1294,9 +1304,14 @@ function checkMatrix(payload, markdown) {
   assert.equal(deliveryArtifactsGate.pass, true, 'tool maturity matrix delivery artifacts gate passed');
   assert.equal(deliveryArtifactsGate.coveredCatalogs >= 2, true, 'tool maturity matrix delivery artifacts gate covers traceability catalogs');
   assert.deepEqual(deliveryArtifactsGate.issues, [], 'tool maturity matrix delivery artifacts gate issues empty');
+  const releaseReadinessGate = payload.globalGovernance.gates.find(item => item.key === 'release-readiness-contract');
+  assert.ok(releaseReadinessGate, 'tool maturity matrix globalGovernance includes release readiness gate');
+  assert.equal(releaseReadinessGate.pass, true, 'tool maturity matrix release readiness gate passed');
+  assert.deepEqual(releaseReadinessGate.issues, [], 'tool maturity matrix release readiness gate issues empty');
   assert.ok(markdown.includes('## Global Governance Gates'), 'tool maturity matrix markdown exposes global governance gates');
   assert.ok(markdown.includes('report-disclosure-contract'), 'tool maturity matrix markdown exposes report disclosure gate');
   assert.ok(markdown.includes('delivery-artifacts-contract'), 'tool maturity matrix markdown exposes delivery artifacts gate');
+  assert.ok(markdown.includes('release-readiness-contract'), 'tool maturity matrix markdown exposes release readiness gate');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
@@ -1392,6 +1407,8 @@ function checkMatrix(payload, markdown) {
   if (payload.latestPreflight) {
     assert.equal(typeof payload.latestPreflight.runId, 'string', 'tool maturity matrix latest preflight runId string');
     assert.equal(typeof payload.latestPreflight.pass, 'boolean', 'tool maturity matrix latest preflight pass boolean');
+    assert.equal(typeof payload.latestPreflight.forcePlatformAudit, 'boolean', 'tool maturity matrix latest preflight forcePlatformAudit boolean');
+    assert.equal(typeof payload.latestPreflight.forceSlowChecks, 'boolean', 'tool maturity matrix latest preflight forceSlowChecks boolean');
     assert.equal(typeof payload.latestPreflight.totalSeconds, 'number', 'tool maturity matrix latest preflight totalSeconds number');
     assert.equal(Number.isInteger(payload.latestPreflight.recordsCount), true, 'tool maturity matrix latest preflight recordsCount integer');
     assert.equal(Number.isInteger(payload.latestPreflight.passedCount), true, 'tool maturity matrix latest preflight passedCount integer');
