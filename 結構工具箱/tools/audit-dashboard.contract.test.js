@@ -811,6 +811,9 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'buildGlobalGovernance',
   'globalGovernance',
   'report-disclosure-contract',
+  'delivery-artifacts-contract',
+  '交付物一致性',
+  '結構工具箱/tools/delivery-artifacts.contract.test.js',
   '## Global Governance Gates',
   'latestFullPreflightSummary',
   'preflightHistoryHealth',
@@ -882,8 +885,14 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.equal(reportDisclosureGate.pass, true, 'maturity globalGovernance report disclosure gate passes');
   assert.equal(reportDisclosureGate.coveredCatalogs >= 7, true, 'maturity globalGovernance report disclosure catalog count');
   assert.deepEqual(reportDisclosureGate.issues, [], 'maturity globalGovernance report disclosure issues empty');
+  const deliveryArtifactsGate = matrix.globalGovernance.gates.find(gate => gate.key === 'delivery-artifacts-contract');
+  assert.ok(deliveryArtifactsGate, 'maturity globalGovernance delivery artifacts gate exists');
+  assert.equal(deliveryArtifactsGate.pass, true, 'maturity globalGovernance delivery artifacts gate passes');
+  assert.equal(deliveryArtifactsGate.coveredCatalogs >= 2, true, 'maturity globalGovernance delivery artifacts catalog count');
+  assert.deepEqual(deliveryArtifactsGate.issues, [], 'maturity globalGovernance delivery artifacts issues empty');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Global Governance Gates'), 'maturity markdown exposes global governance gates');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('report-disclosure-contract'), 'maturity markdown exposes report disclosure gate');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('delivery-artifacts-contract'), 'maturity markdown exposes delivery artifacts gate');
   if (maturityFresh) {
     assert.ok(matrix.preflightHistoryHealth && typeof matrix.preflightHistoryHealth === 'object', 'maturity preflightHistoryHealth object');
     assert.equal(Number.isInteger(matrix.preflightHistoryHealth.count), true, 'maturity preflightHistoryHealth count integer');

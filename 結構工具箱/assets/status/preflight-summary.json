@@ -1,8 +1,8 @@
 {
   "snapshotVersion": 1,
   "kind": "preflight-summary",
-  "generatedAt": "2026-06-26 11:59:44",
-  "runId": "20260626-115826",
+  "generatedAt": "2026-06-26 12:14:30",
+  "runId": "20260626-121309",
   "quick": false,
   "forcePlatformAudit": false,
   "forceSlowChecks": false,
@@ -16,14 +16,14 @@
     "excavation-frontend",
     "local-quick-tools-runner"
   ],
-  "recordsCount": 40,
-  "passedCount": 40,
-  "totalSeconds": 61.9,
+  "recordsCount": 41,
+  "passedCount": 41,
+  "totalSeconds": 63.7,
   "slowestKey": "formal-browser-smoke",
-  "slowestSeconds": 13.2,
+  "slowestSeconds": 14.7,
   "postCheckCount": 3,
   "postChecksPassedCount": 3,
   "postCheckFailures": [],
-  "sourcePath": "output/preflight/history/20260626-115826/preflight-summary.json",
-  "sourceHash": "7eeb0214b64027af847790cefb4fdcaa2288176c19765e207a1da204a32e60af"
+  "sourcePath": "output/preflight/history/20260626-121309/preflight-summary.json",
+  "sourceHash": "7fa1d5f2be096bd2e6fbf0ebb530e5aae33a7d3cfd22a30f8d026b50d90607fc"
 }

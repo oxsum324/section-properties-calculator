@@ -110,7 +110,7 @@
           "inputs": ["project_id", "filename", "latest-report.pdf", "latest-report.docx", "report directory", "media_type"],
           "calculation": ["generate_report", "generate_word_report", "get_latest_report", "get_latest_word_report", "get_report_file", "Path(filename).name", "save_report"],
           "report": ["latest_download_url", "report_filename", "Cache-Control", "PDF 正式版", "Word 編修版"],
-          "evidence": ["backend/app/main.py", "backend/app/project_store.py", "backend/tests/test_reporting.py", "frontend/src/App.tsx", "frontend/src/api.ts"],
+          "evidence": ["backend/app/main.py", "backend/app/project_store.py", "backend/tests/test_reporting.py", "backend/tests/test_project_store.py", "frontend/src/App.tsx", "frontend/src/api.ts"],
           "manualReview": ["本機報表檔案、附件版本、專案目錄清理、對外交付副本與是否包含最新計算結果，需由使用者在送審前人工確認。"]
         }
       ]

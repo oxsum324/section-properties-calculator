@@ -1186,6 +1186,11 @@ node 結構工具箱/tools/report-disclosure.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$deliveryArtifactsContractCommand = @'
+node 結構工具箱/tools/delivery-artifacts.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $excavationTraceabilityContractCommand = @'
 node 開挖擋土支撐/excavation-traceability.contract.test.js
 exit $LASTEXITCODE
@@ -1914,6 +1919,13 @@ $checks = @(
     label = "Cross-family report disclosure contract"
     workdir = $root
     command = $reportDisclosureContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "delivery-artifacts-contract"
+    label = "Delivery artifact governance contract"
+    workdir = $root
+    command = $deliveryArtifactsContractCommand
     slow = $false
   },
   [pscustomobject]@{
