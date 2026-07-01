@@ -67,12 +67,28 @@
   .case-status.warn { color:#92400e; }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
   .input-status:empty { display:none; }
+  .report-readiness { margin-top:10px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; padding:12px 14px; color:#1e3a8a; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
 
+  @media print {
+    .page-only-report-status { display:none !important; }
+  }
   @media (max-width: 768px) {
     table.zone { font-size: 0.78em; }
     table.zone th, table.zone td { padding: 4px 5px; }
     .form-row { grid-template-columns: 1fr; }
     .ref-grid { grid-template-columns:1fr; }
+    .report-readiness-grid { grid-template-columns:1fr; }
     .step-title { font-size: 0.85em; }
     .step-body { font-size: 0.82em; }
   }
@@ -107,6 +123,7 @@
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus" aria-live="polite"></div>
+  <div class="report-readiness page-only-report-status blocked" id="windCcReportReadiness" role="status" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 
@@ -399,9 +416,18 @@ const CASE_VALUE_IDS = [
   'A', 'encl', 'zh0', 'enableReduce', 'reduceMode', 'reducePos', 'reduceNeg',
   'reduceBasis', 'chkDetail', 'reportMode'
 ];
+let lastWindCcReportState = null;
+let lastWindCcReportValidationMessage = '';
+let windCcReportInputsChanged = false;
 
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+const escHtml = s => (s === null || s === undefined ? '' : String(s))
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
 function setR(id, v, d) {
   const el = document.querySelector('#' + id + ' .value');
   if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
@@ -422,9 +448,116 @@ function setInputStatus(message) {
   const el = document.getElementById('inputStatus');
   if (!el) return;
   el.textContent = message || '';
+  lastWindCcReportValidationMessage = message || '';
+  if (message) lastWindCcReportState = null;
+  renderWindCcReportReadiness(lastWindCcReportValidationMessage);
 }
 function clearInputStatus() {
   setInputStatus('');
+}
+function getProjectInfo() {
+  return {
+    name: document.getElementById('projName')?.value.trim() || '',
+    no: document.getElementById('projNo')?.value.trim() || '',
+    designer: document.getElementById('projDesigner')?.value.trim() || ''
+  };
+}
+function isProjectMetaMissing() {
+  const project = getProjectInfo();
+  return !project.name || !project.no || !project.designer;
+}
+function windCcReportModeLabel() {
+  return document.getElementById('reportMode')?.value === 'summary' ? '簡易結果' : '詳算式';
+}
+function windCcInputChangedLabel() {
+  return windCcReportInputsChanged ? '目前輸入已變更；請重算後再整理附件，列印計算書時也會重新計算。' : '';
+}
+function buildWindCcReportReadinessModel(validationMessage = lastWindCcReportValidationMessage) {
+  const blockedItems = [];
+  const reviewItems = [];
+  const readyItems = [];
+
+  if (validationMessage) {
+    blockedItems.push({ label: '輸入檢核', value: validationMessage });
+  }
+  if (!lastWindCcReportState && !validationMessage) {
+    blockedItems.push({ label: '計算狀態', value: '尚未完成 C&C 區域風壓計算。' });
+  }
+  if (blockedItems.length) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過，暫勿產生計算書附件。',
+      items: blockedItems
+    };
+  }
+
+  const r = lastWindCcReportState;
+  const staleMessage = windCcInputChangedLabel();
+  if (staleMessage) {
+    reviewItems.push({ label: '輸入已變更', value: staleMessage });
+  }
+  if (isProjectMetaMissing()) {
+    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
+  }
+  if (r.applicabilityLevel === 'fail') {
+    reviewItems.push({ label: '規範適用性', value: '頁面已標示規範條件局部不適用，產報前應改用適當路線或補人工說明。' });
+  }
+  if (r.A > 65) {
+    reviewItems.push({ label: '有效受風面積', value: `A = ${fmt(r.A, 1)} m²，超過本圖表快速讀值上限，應另檢核是否改依 2.2 節公式辦理。` });
+  }
+  if (r.surface === 'roof') {
+    reviewItems.push({ label: '屋面區域', value: `${r.figLabel} 屋面區域 1/2/3；θ = ${fmt(r.roofSlope, 1)}°，請確認低坡度屋面條件。` });
+  }
+  if (r.surface === 'wall' && !r.isLE18) {
+    reviewItems.push({ label: '高樓外牆路線', value: `h = ${fmt(r.h, 1)} m，外牆正壓採 q(z=${fmt(r.z, 1)}m)，負壓採 q(h)。` });
+  }
+  if (r.encl === 'partial') {
+    reviewItems.push({ label: '部分封閉式', value: !r.isLE18 ? `正內壓採 q(z_h0=${fmt(r.zh0, 1)}m)，請確認開口高度與圖說一致。` : '內壓採部分封閉式，請確認開口條件與施工圖一致。' });
+  }
+  if (r.enableReduce) {
+    reviewItems.push({ label: '特殊修正 / 折減', value: `${r.reduceModeLabel}；λ+ = ${fmt(r.reducePos, 3)}、λ- = ${fmt(r.reduceNeg, 3)}，需保留專案依據。` });
+  }
+
+  readyItems.push({ label: '控制正壓', value: `${r.maxPosLabel}：p+ = ${fmt(r.maxPos, 1)} kgf/m²。` });
+  readyItems.push({ label: '控制負壓', value: `${r.maxNegLabel}：p- = ${fmt(r.maxNeg, 1)} kgf/m²。` });
+  readyItems.push({ label: '控制絕對值', value: `${r.maxAbsLabel}：|p| = ${fmt(r.maxAbs, 1)} kgf/m²；${r.figLabel}。` });
+  readyItems.push({ label: '速度壓與模式', value: `q_h = ${fmt(r.qh, 1)} kgf/m²；${windCcReportModeLabel()}。` });
+
+  return {
+    level: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    items: reviewItems.concat(readyItems)
+  };
+}
+function renderWindCcReportReadiness(validationMessage = lastWindCcReportValidationMessage) {
+  const el = document.getElementById('windCcReportReadiness');
+  if (!el) return;
+  const model = buildWindCcReportReadinessModel(validationMessage);
+  el.className = `report-readiness page-only-report-status ${model.level}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
+        <p class="report-readiness-title">${escHtml(model.title)}</p>
+      </div>
+      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
+    </div>
+    <div class="report-readiness-grid">
+      ${model.items.map(item => `
+        <div class="report-readiness-item">
+          <strong>${escHtml(item.label)}</strong>
+          <span>${escHtml(item.value)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認圖 3.1 / 圖 3.2、有效受風面積 A、角隅區域、內壓分類、特殊修正依據與送審圖說一致性。</div>`;
+}
+function markWindCcReportInputsChanged() {
+  if (!lastWindCcReportState) return;
+  windCcReportInputsChanged = true;
+  renderWindCcReportReadiness();
 }
 function readInputValue(id) {
   const el = document.getElementById(id);
@@ -939,6 +1072,43 @@ p<sub>−</sub> = ${fmt(r.qNeg,2)}×${r.GCp.neg.toFixed(3)} − ${fmt(r.qiPos,2)
   }
 
   document.getElementById('steps').innerHTML = html;
+  const rank = { ok: 0, warn: 1, fail: 2 };
+  const applicabilityLevel = applicability.reduce((worst, item) => rank[item.level] > rank[worst] ? item.level : worst, 'ok');
+  const reducedAbs = enableReduce
+    ? Math.max(Math.abs(maxPos.data.p_pos * reducePos), Math.abs(maxNeg.data.p_neg * reduceNeg))
+    : null;
+  lastWindCcReportState = {
+    V,
+    terrain,
+    I,
+    Kzt,
+    h,
+    z: surface === 'wall' ? r.zUse : h,
+    zh0: r.zh0Use,
+    roofSlope,
+    A,
+    surface,
+    encl,
+    isLE18: r.isLE18,
+    figLabel,
+    qh: r.qh,
+    qz: r.qz,
+    qh0: r.qh0,
+    applicabilityLevel,
+    maxPos: maxPos.data.p_pos,
+    maxPosLabel: maxPos.label,
+    maxNeg: maxNeg.data.p_neg,
+    maxNegLabel: maxNeg.label,
+    maxAbs: Math.max(Math.abs(maxAbs.data.p_pos), Math.abs(maxAbs.data.p_neg)),
+    maxAbsLabel: maxAbs.label,
+    enableReduce,
+    reduceMode,
+    reduceModeLabel: reduceModeName(reduceMode),
+    reducePos,
+    reduceNeg,
+    reducedAbs
+  };
+  windCcReportInputsChanged = false;
   clearInputStatus();
   return true;
 }
@@ -1051,6 +1221,19 @@ document.getElementById('caseJsonFile').addEventListener('change', e => {
   importCaseJsonFile(e.target.files?.[0]);
   e.target.value = '';
 });
+['projName', 'projNo', 'projDesigner'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => renderWindCcReportReadiness());
+  document.getElementById(id).addEventListener('change', () => renderWindCcReportReadiness());
+});
+CASE_VALUE_IDS
+  .filter(id => id !== 'chkDetail' && id !== 'reportMode')
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', markWindCcReportInputsChanged);
+    el.addEventListener('change', markWindCcReportInputsChanged);
+  });
+document.getElementById('reportMode').addEventListener('change', () => renderWindCcReportReadiness());
 document.getElementById('btnCalc').addEventListener('click', calc);
 calc();
 </script>
