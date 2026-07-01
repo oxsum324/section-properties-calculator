@@ -38,7 +38,11 @@ const inlineValidationCases = {
   },
   'wind-parapet': {
     inputs: { h: '0' },
-    expectedMessage: '請輸入有效之 h / h_p'
+    expectedMessage: '請輸入有效之 h / h_p',
+    reportRecovery: {
+      recoveryInputs: { h: '18' },
+      expectedReportIssue: '輸入條件尚未通過，無法產生計算書。'
+    }
   },
   'seismic-force': {
     inputs: { SsD: '0' },
@@ -1024,12 +1028,29 @@ function inlineValidationExpression(tool) {
       calc.click();
       await settle(2);
     }
-    return {
+    const result = {
       missingCalc: !calc,
       missingStatus: !status,
       missingInputs,
       statusText: (status?.textContent || '').replace(/\\s+/g, ' ').trim()
     };
+    const recovery = ${JSON.stringify(validationCase.reportRecovery || null)};
+    if (recovery) {
+      const reportBtn = document.querySelector(${JSON.stringify(tool.reportButtonSelector || '.btn-print')});
+      if (reportBtn) {
+        reportBtn.click();
+        await settle(2);
+      }
+      result.missingReportButton = !reportBtn;
+      result.reportStatusAfterInvalidPrint = (document.getElementById('windReportStatus')?.textContent || '').replace(/\\s+/g, ' ').trim();
+      for (const [id, value] of Object.entries(recovery.recoveryInputs || {})) setInput(id, value);
+      if (calc) {
+        calc.click();
+        await settle(2);
+      }
+      result.reportStatusAfterRecovery = (document.getElementById('windReportStatus')?.textContent || '').replace(/\\s+/g, ' ').trim();
+    }
+    return result;
   })()`;
 }
 
@@ -1250,6 +1271,18 @@ function assertInlineValidationState(state, tool, label) {
     state.statusText.includes(validationCase.expectedMessage),
     `${label} ${tool.key} inline validation message: ${state.statusText}`
   );
+  if (validationCase.reportRecovery) {
+    assert.equal(state.missingReportButton, false, `${label} ${tool.key} inline validation report button`);
+    assert.ok(
+      state.reportStatusAfterInvalidPrint.includes(validationCase.reportRecovery.expectedReportIssue),
+      `${label} ${tool.key} invalid print report status: ${state.reportStatusAfterInvalidPrint}`
+    );
+    assert.equal(
+      state.reportStatusAfterRecovery,
+      '',
+      `${label} ${tool.key} recovery should clear report status: ${state.reportStatusAfterRecovery}`
+    );
+  }
 }
 
 function assertNoPageErrors(errors, label) {

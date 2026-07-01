@@ -41,10 +41,9 @@
     return mode === 'summary' ? '簡易結果' : '詳算式';
   }
 
-  function showWindReportIssue(message) {
+  function ensureWindReportStatus() {
     if (typeof document === 'undefined' || !document.body) {
-      if (typeof console !== 'undefined' && console.warn) console.warn(message);
-      return;
+      return null;
     }
     let status = document.getElementById('windReportStatus');
     if (!status) {
@@ -66,8 +65,31 @@
         'font:13px/1.5 "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif',
         'box-shadow:0 8px 24px rgba(15, 23, 42, .16)'
       ].join(';');
+      status.hidden = true;
       document.body.appendChild(status);
     }
+    return status;
+  }
+
+  function clearWindReportIssue() {
+    const status = ensureWindReportStatus();
+    if (!status) return;
+    status.textContent = '';
+    status.hidden = true;
+  }
+
+  function showWindReportIssue(message) {
+    if (typeof document === 'undefined' || !document.body) {
+      if (typeof console !== 'undefined' && console.warn) console.warn(message);
+      return;
+    }
+    if (!message) {
+      clearWindReportIssue();
+      return;
+    }
+    const status = ensureWindReportStatus();
+    if (!status) return;
+    status.hidden = false;
     status.textContent = message;
   }
 
@@ -577,6 +599,7 @@ function closeReportWindow() {
       showWindReportIssue('輸入條件尚未通過，無法產生計算書。');
       return;
     }
+    clearWindReportIssue();
     const today = new Date();
     const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
     const proj = Object.assign({ name: '', no: '', designer: '', date: todayStr }, project());
@@ -704,6 +727,7 @@ ${reportWindowScriptHtml()}
       showWindReportIssue('輸入條件尚未通過，無法產生計算書。');
       return;
     }
+    clearWindReportIssue();
     const today = new Date();
     const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
     const proj = Object.assign({ name: '', no: '', designer: '', date: todayStr }, project());
@@ -825,6 +849,14 @@ ${reportWindowScriptHtml()}
   }
 
   function bind() {
+    const clearOnInput = event => {
+      const target = event.target;
+      if (!target) return;
+      const tag = String(target.tagName || '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') clearWindReportIssue();
+    };
+    document.addEventListener('input', clearOnInput, true);
+    document.addEventListener('change', clearOnInput, true);
     document.querySelectorAll('.btn-print, .mode-bar__report').forEach(btn => {
       btn.addEventListener('click', function (e) {
         e.preventDefault();
@@ -833,7 +865,7 @@ ${reportWindowScriptHtml()}
     });
   }
 
-  global.WindReport = { openWindReport, bind };
+  global.WindReport = { openWindReport, bind, clearWindReportIssue };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })(window);

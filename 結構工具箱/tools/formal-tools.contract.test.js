@@ -398,6 +398,30 @@ for (const inlineValidationPage of [
 }
 
 {
+  const html = readText(toolboxFile('tools/風力/wind-parapet.html'));
+  [
+    'id="parapetReportReadiness"',
+    'function buildParapetReportReadinessModel',
+    'function renderParapetReportReadiness',
+    'function markParapetReportInputsChanged',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'wind-parapet page-only report readiness'));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-parapet page-only report readiness hidden from print');
+
+  const windReport = readText(toolboxFile('core/wind-report.js'));
+  [
+    'parapetReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(windReport, needle, 'wind report excludes wind-parapet page-only readiness wording'));
+}
+
+{
   const html = readText(toolboxFile('tools/風力/wind-object-solid.html'));
   [
     'id="solidReportReadiness"',

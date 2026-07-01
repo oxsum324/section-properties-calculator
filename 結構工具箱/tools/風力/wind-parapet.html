@@ -35,6 +35,18 @@
   .case-status.warn { color:#92400e; }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
   .input-status:empty { display:none; }
+  .report-readiness { margin-top:10px; border:1px solid #fde68a; border-radius:10px; background:#fffbeb; padding:12px 14px; color:#92400e; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
              font-size:0.6em; font-weight:700; vertical-align:middle; background:#a16207; color:#fff; }
   .step { margin-bottom:14px; }
@@ -59,6 +71,10 @@
     .step-title { font-size: 0.85em; }
     .step-body { font-size: 0.82em; }
     .ref-grid { grid-template-columns:1fr; }
+    .report-readiness-grid { grid-template-columns:1fr; }
+  }
+  @media print {
+    .page-only-report-status { display:none !important; }
   }
 </style>
 </head>
@@ -86,6 +102,7 @@
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus" aria-live="polite"></div>
+  <div class="report-readiness page-only-report-status blocked" id="parapetReportReadiness" role="status" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 
@@ -382,8 +399,19 @@ const CASE_VALUE_IDS = [
   'A', 'ccType', 'gcpiOverride', 'enableReduce', 'reduceMode', 'reducePos',
   'reduceNeg', 'reduceBasis', 'chkDetail', 'reportMode'
 ];
+let lastParapetReportState = null;
+let lastParapetReportValidationMessage = '';
+let parapetReportInputsChanged = false;
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function escHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 function setR(id, v, d) {
   const el = document.querySelector('#' + id + ' .value');
   if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
@@ -404,9 +432,137 @@ function setInputStatus(message) {
   const el = document.getElementById('inputStatus');
   if (!el) return;
   el.textContent = message || '';
+  lastParapetReportValidationMessage = message || '';
+  if (message) lastParapetReportState = null;
+  renderParapetReportReadiness(lastParapetReportValidationMessage);
 }
 function clearInputStatus() {
   setInputStatus('');
+}
+function getProjectInfo() {
+  return {
+    name: document.getElementById('projName')?.value.trim() || '',
+    no: document.getElementById('projNo')?.value.trim() || '',
+    designer: document.getElementById('projDesigner')?.value.trim() || ''
+  };
+}
+function isProjectMetaMissing() {
+  const project = getProjectInfo();
+  return !project.name || !project.no || !project.designer;
+}
+function parapetReportModeLabel() {
+  return document.getElementById('reportMode')?.value === 'summary' ? '簡易結果' : '詳算式';
+}
+function parapetInputChangedLabel() {
+  return parapetReportInputsChanged ? '目前輸入已變更；請重算後再整理附件，列印計算書時也會重新計算。' : '';
+}
+function buildParapetReportReadinessModel(validationMessage = lastParapetReportValidationMessage) {
+  const blockedItems = [];
+  const reviewItems = [];
+  const readyItems = [];
+
+  if (validationMessage) {
+    blockedItems.push({ label: '輸入檢核', value: validationMessage });
+  }
+  if (!lastParapetReportState && !validationMessage) {
+    blockedItems.push({ label: '計算狀態', value: '尚未完成女兒牆風壓計算。' });
+  }
+  if (blockedItems.length) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過，暫勿產生計算書附件。',
+      items: blockedItems
+    };
+  }
+
+  const r = lastParapetReportState;
+  const staleMessage = parapetInputChangedLabel();
+  if (staleMessage) {
+    reviewItems.push({ label: '輸入已變更', value: staleMessage });
+  }
+  if (isProjectMetaMissing()) {
+    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
+  }
+  if (r.applicabilityLevel === 'fail') {
+    reviewItems.push({ label: '規範適用性', value: '頁面已標示規範條件局部不適用，產報前應改用適當路線或補人工說明。' });
+  }
+  if (r.mode === 'cc' && !r.isLE18) {
+    reviewItems.push({ label: '高樓路線', value: `h = ${fmt(r.h, 1)} m，C&C 外壓係數採圖 3.2；請確認高樓外牆 / 屋面區域對應。` });
+  }
+  if (r.mode === 'cc' && r.ccType === 'single_roof') {
+    reviewItems.push({ label: '單一屋頂路線', value: '採圖 3.5 左右外壓主控條件，請確認單一屋頂女兒牆受壓方向與角隅定義。' });
+  }
+  if (r.mode === 'cc' && r.parapetEncl === 'partial') {
+    reviewItems.push({ label: '部分封閉 GCpi', value: `依女兒牆體開口狀態採 GCpi = ±${fmt(r.GCpi, 3)}；請確認開口率與構造細節。` });
+  }
+  if (r.mode === 'cc' && r.gcpiOverride != null) {
+    reviewItems.push({ label: 'GCpi 覆寫', value: `GCpi 覆寫 = ±${fmt(Math.abs(r.gcpiOverride), 3)}；需保留專案判定依據。` });
+  }
+  if (r.mode === 'cc' && r.A > 65) {
+    reviewItems.push({ label: '有效面積', value: `A = ${fmt(r.A, 1)} m²，超過快速面積路線上限，應另檢核是否改依一般公式辦理。` });
+  }
+  if (r.enableReduce) {
+    reviewItems.push({ label: '特殊修正 / 折減', value: `${r.reduceModeLabel}；λ+ = ${fmt(r.reducePos, 3)}、λ- = ${fmt(r.reduceNeg, 3)}，需保留專案依據。` });
+  }
+
+  readyItems.push({ label: '規範路線', value: r.routeTag });
+  if (r.mode === 'mwfrs') {
+    readyItems.push({ label: '控制風壓', value: `${r.controlName}：p = ${fmt(r.controlPressure, 1)} kgf/m²。` });
+    readyItems.push({ label: '速度壓與 GCpn', value: `q_p = ${fmt(r.qp, 1)} kgf/m²；GCpn = ${fmt(r.GCpn, 2)}。` });
+  } else {
+    readyItems.push({ label: '控制正面設計壓力', value: `${r.controlFrontLabel}：p_front = ${fmt(r.controlFront, 1)} kgf/m²。` });
+    readyItems.push({ label: '控制背面設計壓力', value: `${r.controlBackLabel}：p_back = ${fmt(r.controlBack, 1)} kgf/m²。` });
+    readyItems.push({ label: '控制前後面壓差', value: `${r.controlDiffLabel}：p_front - p_back = ${fmt(r.controlDiff, 1)} kgf/m²。` });
+    readyItems.push({ label: '速度壓與 GCpi', value: `q_p = ${fmt(r.qp, 1)} kgf/m²；GCpi = ±${fmt(r.GCpi, 3)}。` });
+  }
+  readyItems.push({ label: '計算書模式', value: parapetReportModeLabel() });
+
+  return {
+    level: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    items: reviewItems.concat(readyItems)
+  };
+}
+function renderParapetReportReadiness(validationMessage = lastParapetReportValidationMessage) {
+  const el = document.getElementById('parapetReportReadiness');
+  if (!el) return;
+  const model = buildParapetReportReadinessModel(validationMessage);
+  el.className = `report-readiness page-only-report-status ${model.level}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
+        <p class="report-readiness-title">${escHtml(model.title)}</p>
+      </div>
+      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
+    </div>
+    <div class="report-readiness-grid">
+      ${model.items.map(item => `
+        <div class="report-readiness-item">
+          <strong>${escHtml(item.label)}</strong>
+          <span>${escHtml(item.value)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認 Eq 2.3 或 Eq 3.3、圖 3.4 / 圖 3.5、GCpi 採用、前後面壓差責任邊界、女兒牆體開口狀態、角隅條件與送審圖說一致性。</div>`;
+}
+function clearParapetReportIssue() {
+  if (window.WindReport && typeof window.WindReport.clearWindReportIssue === 'function') {
+    window.WindReport.clearWindReportIssue();
+    return;
+  }
+  const status = document.getElementById('windReportStatus');
+  if (!status) return;
+  status.textContent = '';
+  status.hidden = true;
+}
+function markParapetReportInputsChanged() {
+  if (!lastParapetReportState) return;
+  parapetReportInputsChanged = true;
+  clearParapetReportIssue();
+  renderParapetReportReadiness();
 }
 function readInputValue(id) {
   const el = document.getElementById(id);
@@ -775,6 +931,9 @@ function calc() {
   if (enableReduce && !reduceBasis) { setInputStatus('啟用修正時，請填寫依據說明'); return false; }
 
   let r;
+  let controlFront = null;
+  let controlBack = null;
+  let controlDiff = null;
   if (mode === 'mwfrs') {
     document.getElementById('designRouteTag').textContent = '目前路線：MWFRS 女兒牆（第二章 Eq 2.3）';
     document.getElementById('controlRouteTag').textContent = `目前控制條件：${face === 'windward' ? '迎風面' : '背風面'} / MWFRS`;
@@ -829,9 +988,9 @@ function calc() {
       encl: parapetEncl,
       GCpiOverride: gcpiOverride
     });
-    const controlFront = caseList.reduce((best, item) => Math.abs(item.data.pFront) > Math.abs(best.data.pFront) ? item : best, caseList[0]);
-    const controlBack = caseList.reduce((best, item) => Math.abs(item.data.pBack) > Math.abs(best.data.pBack) ? item : best, caseList[0]);
-    const controlDiff = caseList.reduce((best, item) => Math.abs(item.data.pDiff) > Math.abs(best.data.pDiff) ? item : best, caseList[0]);
+    controlFront = caseList.reduce((best, item) => Math.abs(item.data.pFront) > Math.abs(best.data.pFront) ? item : best, caseList[0]);
+    controlBack = caseList.reduce((best, item) => Math.abs(item.data.pBack) > Math.abs(best.data.pBack) ? item : best, caseList[0]);
+    controlDiff = caseList.reduce((best, item) => Math.abs(item.data.pDiff) > Math.abs(best.data.pDiff) ? item : best, caseList[0]);
     const controlOverall = controlDiff;
     r = controlOverall.data;
     document.getElementById('controlRouteTag').textContent = `目前控制條件：${controlOverall.label} / ${ccTypeLabel}`;
@@ -1038,6 +1197,52 @@ function calc() {
   }
 
   document.getElementById('steps').innerHTML = html;
+  const rank = { ok: 0, warn: 1, fail: 2 };
+  const applicabilityLevel = slopeCheck.reduce((worst, item) => rank[item.level] > rank[worst] ? item.level : worst, 'ok');
+  lastParapetReportState = {
+    mode,
+    ccType,
+    ccTypeLabel,
+    face,
+    faceText,
+    parapetEncl,
+    gcpiOverride,
+    A,
+    h,
+    hp,
+    topZ,
+    Kzt,
+    terrain,
+    I,
+    V,
+    applicabilityLevel,
+    routeTag: document.getElementById('designRouteTag').textContent.trim(),
+    controlRouteTag: document.getElementById('controlRouteTag').textContent.trim(),
+    controlName: document.querySelector('#r-control-name .value')?.textContent || '—',
+    qp: r.qp,
+    isLE18: mode === 'cc' ? r.isLE18 : (h <= 18),
+    enableReduce,
+    reduceMode,
+    reduceModeLabel: reduceModeName(reduceMode),
+    reducePos,
+    reduceNeg,
+    ...(mode === 'mwfrs'
+      ? {
+          GCpn: r.GCpn,
+          controlPressure: r.p
+        }
+      : {
+          GCpi: r.GCpi,
+          controlFront: controlFront?.data?.pFront,
+          controlFrontLabel: controlFront?.label || '—',
+          controlBack: controlBack?.data?.pBack,
+          controlBackLabel: controlBack?.label || '—',
+          controlDiff: controlDiff?.data?.pDiff,
+          controlDiffLabel: controlDiff?.label || '—'
+        })
+  };
+  parapetReportInputsChanged = false;
+  clearParapetReportIssue();
   clearInputStatus();
   return true;
 }
@@ -1064,6 +1269,19 @@ document.getElementById('caseJsonFile').addEventListener('change', e => {
   importCaseJsonFile(e.target.files?.[0]);
   e.target.value = '';
 });
+['projName', 'projNo', 'projDesigner'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => renderParapetReportReadiness());
+  document.getElementById(id).addEventListener('change', () => renderParapetReportReadiness());
+});
+CASE_VALUE_IDS
+  .filter(id => id !== 'chkDetail' && id !== 'reportMode')
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', markParapetReportInputsChanged);
+    el.addEventListener('change', markParapetReportInputsChanged);
+  });
+document.getElementById('reportMode').addEventListener('change', () => renderParapetReportReadiness());
 document.getElementById('btnCalc').addEventListener('click', calc);
 refreshModeUI();
 calc();
