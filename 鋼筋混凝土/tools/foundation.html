@@ -783,6 +783,11 @@
         <div id="bannerKey" class="banner-key"></div>
       </div>
 
+      <div class="card report-readiness-card" id="foundationAttachmentReadinessCard">
+        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
+        <div id="foundationAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+      </div>
+
       <!-- 設計建議 hero (淺基礎) -->
       <div class="card" id="designSuggestCard" data-shows="iso combined">
         <h2>設計建議 <span class="hint" style="margin-left:auto; font-style:normal;">由載重反算</span></h2>
@@ -2116,6 +2121,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     else if (tab === 'pile') calcPileCap();
     else if (tab === 'retain') calcRetain();
     else if (tab === 'seismic') calcSeismicFdtn();
+    updateFoundationAttachmentReadiness(window.ftLast);
   }
 
   // ============================================================
@@ -3667,6 +3673,110 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       tieReq, intReq, okInterface, ld_seismic, ldAvail, okLd, isSoft, barNo, db };
   }
 
+  function collectFoundationAttachmentChecks(r) {
+    if (!r) return [];
+    if (r.tab === 'iso') {
+      return [
+        ['qmax ≤ qa', r.okQ],
+        ['φVc ≥ Vu (單向)', r.okV1],
+        ['φVc ≥ Vu (衝剪)', r.okV2],
+        ['φMn ≥ Mu', r.okFlex],
+        ['As ≥ As,min', r.okAsMin],
+        ['ℓd', r.okDev],
+        ['d ≥ 15', r.okDMin],
+        ['沉陷', r.okSettle],
+      ];
+    }
+    if (r.tab === 'combined') {
+      return [
+        ['qmax ≤ qa', r.okQ],
+        ['合力位於中央 1/3', r.eccOk],
+        ['抗滑 FS ≥ 1.5', r.okSlide],
+        ['φVc ≥ Vu (單向)', r.okV1],
+        ['各柱 φVc ≥ Vu (衝剪)', r.okV2],
+        ['φMn ≥ Mu', r.okFlex],
+        ['X/Y As ≥ As,min', r.okAs],
+        ['X/Y 間距 ≤ smax', r.okSpacing],
+        ['X/Y 淨距', r.okClear],
+      ];
+    }
+    if (r.tab === 'mat') {
+      return [
+        ['q ≤ qa', r.okQ],
+        ['X/Y As ≥ As,min', r.okAs],
+        ['X/Y 間距 ≤ smax', r.okSpacing],
+        ['X/Y 淨距', r.okClear],
+        ['各點 φMn ≥ Mu', r.okFlex],
+        ['各點 φVc ≥ Vu (單向)', r.okV1],
+        ['各點 φVc ≥ Vu (衝剪)', r.okV2],
+      ];
+    }
+    if (r.tab === 'pile') {
+      return [
+        ['土層資料有效', r.soilOk],
+        ['Rmax ≤ Qallow,eff', r.okR],
+        ['|Rmin| ≤ Qt', r.okT],
+        ['樁距 ≥ 規範下限', r.okSp],
+        ['有效深 d ≥ 30', r.okDMin],
+        ['Wo ≤ 容許沉陷', r.okSettlement],
+        ['樁身壓應力', r.okPileStress],
+        ['φVc ≥ Vu (衝剪)', r.okV2],
+        ['樁帽 φMn ≥ Mu', r.okCapFlex],
+        ['樁帽 φ(Vc+Vs) ≥ Vu,max', r.okCapShear],
+        ['斷面/配筋限制', r.structuralOk],
+      ];
+    }
+    if (r.tab === 'retain') {
+      return [
+        ['抗滑 FS ≥ 1.5', r.okSlide],
+        ['抗傾覆 FS ≥ 2.0', r.okOver],
+        ['qmax ≤ qa', r.okQr],
+        ['φMn ≥ Mu', r.okFlex],
+        ['φVc ≥ Vu', r.okShear],
+      ];
+    }
+    if (r.tab === 'seismic') {
+      return [
+        ['As,v ≥ 0.005Ag', r.okInterface],
+        ['ℓd ≥ 1.25ℓd', r.okLd],
+      ];
+    }
+    return [];
+  }
+
+  function updateFoundationAttachmentReadiness(r) {
+    if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
+    const hostId = 'foundationAttachmentReadiness';
+    const boundaryNote = '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。';
+    if (!r) {
+      RCUI.renderAttachmentReadiness(hostId, {
+        status: 'neutral',
+        title: '尚未計算',
+        items: [{ label: '計算結果', value: '尚未建立', tone: 'neutral' }],
+        notes: [boundaryNote]
+      });
+      return;
+    }
+    const checks = collectFoundationAttachmentChecks(r);
+    const failed = checks.filter(([, ok]) => ok === false).map(([label]) => label);
+    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
+    const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
+    const title = failed.length ? '暫勿作附件' : reviewWarnings.length ? '可作附件，需人工複核' : '可作附件';
+    const items = [
+      { label: '分頁', value: ({ iso:'獨立基腳', combined:'聯合基腳', mat:'筏式基礎', pile:'樁基／樁帽', retain:'擋土牆', seismic:'耐震' })[r.tab] || r.tab || '未指定', tone: 'neutral' },
+      { label: '主要檢核', value: failed.length ? `${failed.length} 項未通過` : '數值通過', tone: failed.length ? 'fail' : 'ok' },
+      { label: '正式分析需求', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
+      ...failed.map((label, index) => ({ label: `阻擋 ${index + 1}`, value: label, tone: 'fail' })),
+      ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' }))
+    ];
+    RCUI.renderAttachmentReadiness(hostId, {
+      status,
+      title,
+      items,
+      notes: [boundaryNote, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
+    });
+  }
+
   // ============================================================
   //  Banner 更新
   // ============================================================
@@ -4205,11 +4315,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'φVc ≥ Vu (單向)', value:`${r.phiVc1.toFixed(2)} / ${r.Vu1.toFixed(2)}`, unit:'tf', ok:r.okV1 },
           { label:'各柱 φVc ≥ Vu (衝剪)', value:`${r.controlPunch?.name || '控制柱'} ${r.controlPunch?.phiVc2?.toFixed(2) || '—'} / ${r.controlPunch?.Vu2?.toFixed(2) || '—'}`, unit:'tf', ok:r.okV2 },
           { label:'φMn ≥ Mu', value:`${r.phiMn_tfm.toFixed(2)} / ${r.Mu_tfm.toFixed(2)} (${r.MuMode || '控制'})`, unit:'tf·m', ok:r.okFlex }
-        ]},
-        ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
-          group:'待確認 / 正式聯合基腳分析需求',
-          value:'需正式分析確認'
-        })] : [])
+        ]}
       ];
     }
     else if (r.tab === 'mat') {
@@ -4247,11 +4353,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'各點 φMn ≥ Mu (柱帶)', value:`${r.controlFlex.label} ${r.controlFlex.phiMn_tfm.toFixed(2)} / ${r.controlFlex.Mu_tfm.toFixed(2)}`, unit:'tf·m/m', ok:r.okFlex },
           { label:'各點 φVc ≥ Vu (單向)', value:`${r.controlV1.label} ${r.phiVc1_tf.toFixed(2)} / ${r.controlV1.Vu1_tf.toFixed(2)}`, unit:'tf', ok:r.okV1 },
           { label:'各點 φVc ≥ Vu (衝剪)', value:`${r.controlV2.label} ${r.phiVc2_tf.toFixed(2)} / ${r.controlV2.Vu2_tf.toFixed(2)}`, unit:'tf', ok:r.okV2 }
-        ]},
-        ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
-          group:'待確認 / 正式筏基分析需求',
-          value:'需正式分析確認'
-        })] : [])
+        ]}
       ];
     }
     else if (r.tab === 'pile') {
@@ -4343,11 +4445,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         { group:'牆身強度檢核', items:[
           { label:'φMn ≥ Mu', value:`${r.phiMn_wall_tfm.toFixed(3)} / ${r.Mu_wall_tfm.toFixed(3)}`, unit:'tf·m/m', ok:r.okFlex },
           { label:'φVc ≥ Vu', value:`${r.phiVc_wall_tfm.toFixed(2)} / ${r.Vu_stem.toFixed(2)}`, unit:'tf/m', ok:r.okShear }
-        ]},
-        ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
-          group:'待確認 / 正式扶壁系統分析需求',
-          value:'需正式分析確認'
-        })] : [])
+        ]}
       ];
     }
 
@@ -4357,11 +4455,6 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       if (s) steps.push(s);
     }
 
-    const anyFail = checks.some(g => g.items?.some(i => i.ok === false));
-    const allOk = checks.length > 0 && checks.every(g => g.items?.every(i => i.ok !== false));
-    const summaryOk = r.summaryOk !== undefined ? r.summaryOk : (anyFail ? false : allOk ? true : null);
-    const summaryText = r.summaryText || (summaryOk === false ? '✗ NG' : summaryOk === true ? '✓ OK' : '△ 部分通過');
-
     openReport({
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
       subtitle: `RC 工具箱 · 112 年混凝土結構設計規範`,
@@ -4369,7 +4462,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       inputs,
       checks,
       steps,
-      summary: { ok: summaryOk, text: summaryText },
+      summary: false,
       symbols:[
         { sym:"fc'", desc:'混凝土規定抗壓強度' },
         { sym:'fy', desc:'鋼筋規定降伏強度' },

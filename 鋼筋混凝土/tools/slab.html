@@ -389,6 +389,10 @@
         <div id="bannerStatus" class="banner-status">尚未計算</div>
         <div id="bannerKey" class="banner-key"></div>
       </div>
+      <div class="card report-readiness-card" id="slabAttachmentReadinessCard">
+        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
+        <div id="slabAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+      </div>
 
       <!-- 1. 載重 → wu -->
       <div class="card">
@@ -631,6 +635,57 @@
   }
   function markAllResultsPending() {
     document.querySelectorAll('.result-item').forEach(el => el.classList.add('rc-pending'));
+  }
+  function updateSlabAttachmentReadiness(r) {
+    if (!window.RCUI?.renderAttachmentReadiness) return;
+    if (!r || !Number.isFinite(r.h)) {
+      window.RCUI.renderAttachmentReadiness('slabAttachmentReadiness', {
+        status: 'neutral',
+        summary: '完成計算後顯示是否適合作為公司計算附件。'
+      });
+      return;
+    }
+    const failedItems = Array.isArray(r.attachmentFailures) ? r.attachmentFailures : [];
+    const reviewItems = Array.isArray(r.attachmentReviewItems) ? r.attachmentReviewItems : [];
+    const hasSimplifiedFormalLimit = reviewItems.some(text =>
+      /簡化|初估|DDM|EFM|unbalanced moment transfer|正式/.test(String(text || ''))
+    );
+    const status = failedItems.length
+      ? 'blocked'
+      : (hasSimplifiedFormalLimit ? 'estimate' : (reviewItems.length ? 'review' : 'ready'));
+    const summary = failedItems.length
+      ? `尚有 ${failedItems.length} 項不符，先不要作為附件輸出。`
+      : (status === 'estimate'
+          ? `數值檢核通過，但 ${reviewItems.length} 項屬簡化或初估限制。`
+          : (reviewItems.length
+              ? `數值檢核通過，但 ${reviewItems.length} 項需人工複核。`
+              : '數值檢核與方法限制已通過，可作為公司計算附件。'));
+    const methodValue = r.isOneWay
+      ? '單向板係數法'
+      : (r.isFlat ? '無梁板簡化初估' : '雙向條帶簡化初估');
+    const firstFailures = failedItems.slice(0, 4).join('、');
+    const moreFailures = failedItems.length > 4 ? `等 ${failedItems.length} 項` : '';
+    const reviewPreview = reviewItems
+      .slice(0, 2)
+      .map(text => String(text || '').replace(/[。；;.\s]+$/g, ''))
+      .join('；');
+    const reviewMore = reviewItems.length > 2 ? `等 ${reviewItems.length} 項` : '';
+
+    window.RCUI.renderAttachmentReadiness('slabAttachmentReadiness', {
+      status,
+      summary,
+      items: [
+        { label: '不符項目', value: `${failedItems.length} 項`, tone: failedItems.length ? 'fail' : 'ok' },
+        { label: '人工 / 正式分析', value: `${reviewItems.length} 項`, tone: reviewItems.length ? 'warn' : 'ok' },
+        { label: '方法狀態', value: methodValue, tone: r.isOneWay ? 'ok' : 'warn' },
+        { label: '輸出邊界', value: '頁面顯示，不進 PDF', tone: 'neutral' }
+      ],
+      notes: [
+        '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。',
+        failedItems.length ? `優先處理：${firstFailures}${moreFailures}。` : '',
+        reviewItems.length ? `需確認：${reviewPreview}${reviewMore}。` : ''
+      ]
+    });
   }
   function setLoadMode(mode) {
     loadMode = mode;
@@ -2086,6 +2141,13 @@
         reviewWarnings.push('邊柱 / 角柱衝剪與邊界條件需以專案樓板模型或正式手算補充確認。');
       }
     }
+    const attachmentFailures = [];
+    if (h < hmin) attachmentFailures.push('板厚 h < hmin');
+    if (!allFlexOk) attachmentFailures.push('撓曲鋼筋不足');
+    if (!shearOk) attachmentFailures.push(isOneWay ? '單向剪力不足' : '剪力初估不足');
+    if (punchData && !punchOk) attachmentFailures.push('雙向衝剪不足');
+    if (!clearOk) attachmentFailures.push('鋼筋淨距不足');
+    const attachmentReviewItems = [...reviewWarnings];
     const hasReviewWarnings = reviewWarnings.length > 0;
     const summaryOk = numericalOk ? (hasReviewWarnings ? null : true) : false;
     const summaryText = summaryOk === true
@@ -2137,8 +2199,9 @@
       clearAll, clearOk,
       mode: currentMode,
       showSteps: !!$('showSteps')?.checked,
-      punchData, numericalOk, reviewWarnings, summaryOk, summaryText, allOk: summaryOk
+      punchData, numericalOk, reviewWarnings, attachmentFailures, attachmentReviewItems, summaryOk, summaryText, allOk: summaryOk
     };
+    updateSlabAttachmentReadiness(window.slabLast);
   }
 
   // ─── 計算書 ────────────────────────────────────
@@ -2319,10 +2382,6 @@
           value:`${r.punchData.phiVnPunch.toFixed(2)} / ${r.punchData.VuPunch.toFixed(2)}`,
           unit:'tf', ok:r.punchData.ok }
       ]}] : []),
-      ...(r.reviewWarnings?.length ? [RCUI.buildReviewCheckGroup(r.reviewWarnings, {
-        group:'待確認 / 正式分析需求',
-        value:'需正式分析確認'
-      })] : []),
       // ─── 溫度收縮筋檢核 (規範 24.4.3) ───
       // 對每一層 × 每一向比較實際 As 與 As,min,t；單向板長向僅靠此檢核
       { group:'溫度收縮筋檢核 (規範 24.4.3)', items: (() => {
@@ -2456,7 +2515,7 @@
         ? `RC Slab Preliminary Design Report — ${reportGrade}`
         : `RC Slab Preliminary Verification Report — ${reportGrade}`,
       project: proj,
-      summary:{ ok:r.summaryOk, text: r.summaryText },
+      summary:false,
       inputs, checks, diagrams, steps:stepsArr,
       symbols:[
         { sym:"fc'", desc:'混凝土抗壓強度' },

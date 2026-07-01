@@ -1079,7 +1079,38 @@ $needles = @(
   'id="momCanvas"',
   'id="dispTbl"',
   'id="reportStatus"',
-  'function setReportStatus'
+  'function setReportStatus',
+  'grid-template-columns: minmax(560px, 0.9fr) minmax(0, 1.1fr)',
+  '.main-layout > * { min-width: 0; }',
+  '.row2 input, .row2 select, .row3 input, .row3 select { width: 100%; min-width: 0; }',
+  'canvas { display: block; max-width: 100%; height: auto; margin: 0 auto; }',
+  '@media (max-width: 1180px)',
+  'function drawBoundedCanvasText',
+  'const boundsX =',
+  'boundsX.push(bx, px)',
+  'fitToCanvas(cv, boundsX, boundsY, 74)',
+  'function makeNode',
+  'function activeSpring',
+  'kX/kY (tf/m)',
+  'kθ (tf·m/rad)',
+  '+= kx',
+  '-activeSpring(nodes',
+  'springForces',
+  "loadExample('springPortal')",
+  '載重案例 / 分析組合',
+  'function validateModel',
+  'function computeAppliedResultant',
+  'function renderModelChecks',
+  'function syncLoadCaseTableFromDom',
+  'function setReportLink',
+  'id="reportLink"',
+  'lastReportObjectUrl',
+  'URL.createObjectURL(new Blob',
+  'overflow-x: auto',
+  'equilibrium',
+  'formatActiveCombination',
+  'comboFactors',
+  'caseId: normalizeLoadCaseId'
 )
 foreach ($needle in $needles) {
   if ($html -notlike "*$needle*") {
@@ -1765,6 +1796,43 @@ if ($code -ne 0) { exit $code }
 if (-not (Test-Path -LiteralPath $out)) {
   Write-Error "missing cover slab smoke report: $out"
   exit 1
+}
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $out).Path)
+try {
+  $entry = $zip.GetEntry('word/document.xml')
+  if ($null -eq $entry) {
+    Write-Error "cover slab smoke report missing word/document.xml: $out"
+    exit 1
+  }
+  $reader = [System.IO.StreamReader]::new($entry.Open(), [System.Text.Encoding]::UTF8)
+  try {
+    $documentXml = $reader.ReadToEnd()
+  } finally {
+    $reader.Dispose()
+  }
+} finally {
+  $zip.Dispose()
+}
+
+$pageOnlyReportStatusNeedles = @(
+  '產報前檢查',
+  '附件適用狀態',
+  '優先建議報告閱讀狀態',
+  '報告閱讀狀態',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF'
+)
+foreach ($needle in $pageOnlyReportStatusNeedles) {
+  if ($documentXml.Contains($needle)) {
+    Write-Error "cover slab smoke report leaked page-only report status wording: $needle"
+    exit 1
+  }
 }
 
 Write-Output "cover slab report smoke OK: $out"

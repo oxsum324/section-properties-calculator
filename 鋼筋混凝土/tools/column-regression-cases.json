@@ -86,8 +86,7 @@
         "規範覆蓋矩陣",
         "幾何與主筋配置",
         "單軸 / 雙軸 P-M 強度",
-        "未納入扭矩、剪扭耦合與特殊節點核心剪力",
-        "缺漏 / 複核摘要"
+        "未納入扭矩、剪扭耦合與特殊節點核心剪力"
       ],
       "reportCoverageExpected": {
         "幾何與主筋配置": {
@@ -109,14 +108,10 @@
           "status": "短柱，δns=1"
         }
       },
-      "reportCoverageSummaryIncludes": [
-        "人工複核 / 未輸入",
-        "柱端錨定 (25.4.2)",
-        "報告不作通過判定",
-        "工程近似 / 未納入",
-        "剪力強度與 Av,min",
-        "未納入扭矩、剪扭耦合與特殊節點核心剪力",
-        "細長效應與二階邊界"
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
       ]
     },
     {
@@ -273,11 +268,8 @@
         "inputRiskLapClass": "warn"
       },
       "reportExpectedIncludes": [
-        "⚠ 部分項目需人工複核：柱端錨定、搭接 / 施工圖",
-        "人工複核項目：柱端錨定、搭接 / 施工圖",
         "搭接位置或搭接長度未完整輸入，須由施工圖確認。",
-        "耐震搭接",
-        "缺漏 / 複核摘要"
+        "耐震搭接"
       ],
       "reportCoverageExpected": {
         "單軸 / 雙軸 P-M 強度": {
@@ -312,14 +304,10 @@
           "gap": "搭接位置或長度未完整輸入"
         }
       },
-      "reportCoverageSummaryIncludes": [
-        "人工複核 / 未輸入",
-        "柱端錨定",
-        "耐震搭接",
-        "搭接位置或長度未完整輸入",
-        "工程近似 / 未納入",
-        "梁端 Mpr 控制上限",
-        "細長效應與二階邊界"
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
       ]
     },
     {
@@ -400,14 +388,10 @@
           "ok": false
         }
       },
-      "reportExpectedIncludes": [
-        "缺漏 / 複核摘要"
-      ],
-      "reportCoverageSummaryIncludes": [
-        "不符項目",
-        "單軸 / 雙軸 P-M 強度",
-        "剪力強度與 Av,min",
-        "狀態：不符"
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
       ]
     },
     {
@@ -723,19 +707,14 @@
         "columnDevBottomText": "機械錨定"
       },
       "reportExpectedIncludes": [
-        "⚠ 部分項目需人工複核：柱端錨定",
         "柱端錨定",
         "25章 / 配筋圖 / 產品資料",
         "彎鉤、機械錨定或其他端部構造未以直線 ℓd 自動判定",
-        "人工複核項目：柱端錨定",
         "人工複核項，不納入自動 OK 判定",
         "工程檢核總表",
         "配筋與幾何",
         "P-M 強度",
-        "剪力檢核",
-        "報告邊界",
-        "規範判定 / 工程近似 / 人工複核分流",
-        "缺漏 / 複核摘要"
+        "剪力檢核"
       ],
       "reportCoverageExpected": {
         "柱端錨定": {
@@ -754,10 +733,10 @@
           "gap": "非直線錨定"
         }
       },
-      "reportCoverageSummaryIncludes": [
-        "人工複核 / 未輸入",
-        "柱端錨定 (25章 / 配筋圖 / 產品資料)",
-        "非直線錨定須由配筋圖、產品認可資料或專案文件判定"
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
       ]
     },
     {
@@ -942,7 +921,12 @@
             "圍束=不符"
           ]
         }
-      }
+      },
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
+      ]
     },
     {
       "key": "seismic_high_axial_hx20_ng",
@@ -1034,15 +1018,10 @@
           "gap": "18.4.5.2 側撐未滿足"
         }
       },
-      "reportExpectedIncludes": [
-        "缺漏 / 複核摘要"
-      ],
-      "reportCoverageSummaryIncludes": [
-        "不符項目",
-        "幾何與主筋配置",
-        "橫向鋼筋間距與圍束",
-        "18.4.5.2 側撐未滿足",
-        "hx=42.5 cm > 20 cm"
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
       ]
     },
     {
@@ -1128,7 +1107,12 @@
           "evidence": "位置=不符",
           "gap": "搭接位置或長度未完整輸入"
         }
-      }
+      },
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
+      ]
     },
     {
       "key": "seismic_lap_length_ng",
@@ -1225,7 +1209,12 @@
           "evidence": "長度=不符",
           "gap": "仍須與施工圖實際搭接區段一致"
         }
-      }
+      },
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
+      ]
     },
     {
       "key": "seismic_lap_class_a_ineligible_uses_b",
@@ -1336,13 +1325,10 @@
           ]
         }
       },
-      "reportExpectedIncludes": [
-        "缺漏 / 複核摘要"
-      ],
-      "reportCoverageSummaryIncludes": [
-        "不符項目",
-        "耐震搭接",
-        "等級=B"
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
       ]
     },
     {
@@ -1421,7 +1407,12 @@
             "外區=不符"
           ]
         }
-      }
+      },
+      "reportExpectedExcludes": [
+        "缺漏 / 複核摘要",
+        "⚠ 部分項目需人工複核",
+        "人工複核項目："
+      ]
     }
   ]
 }

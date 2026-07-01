@@ -8,6 +8,7 @@ const PORT = Number(process.env.RC_TEST_PORT || 8123);
 const TOOL_URL = `http://127.0.0.1:${PORT}/%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/tools/slab.html`;
 const htmlPath = path.join(__dirname, 'slab.html');
 const commonPath = path.join(__dirname, '..', 'shared', 'common.js');
+const stylePath = path.join(__dirname, '..', 'shared', 'style.css');
 const casesPath = path.join(__dirname, 'slab-regression-cases.json');
 const toleranceDefault = 0.001;
 const CHROME_CANDIDATES = [
@@ -214,6 +215,7 @@ async function exerciseSlabProjectStorage(page) {
 async function main() {
   const slabHtml = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
+  const style = fs.readFileSync(stylePath, 'utf8');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
   const tolerance = pack.tolerance ?? toleranceDefault;
 
@@ -227,7 +229,12 @@ async function main() {
   assert(slabHtml.includes('rc.slab.project.draft'), 'slab.html has browser draft storage key', 'browser-local draft storage exists');
   assert(slabHtml.includes('caseJson') && slabHtml.includes('SLAB_PROJECT_EXCLUDED_IDS'), 'slab.html excludes case-tool textareas from project files', 'case-tool scratch text is not project data');
   assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
-  assert(slabHtml.includes('RCUI.buildReviewCheckGroup'), 'slab report uses shared review check group builder', 'formal-analysis warning rows use shared helper');
+  assert(common.includes('window.RCUI.renderAttachmentReadiness'), 'shared/common.js exposes attachment readiness renderer', 'page-only attachment status has shared helper');
+  assert(slabHtml.includes('id="slabAttachmentReadiness"'), 'slab.html has page-only attachment readiness target', 'pre-export status stays on tool page');
+  assert(slabHtml.includes('attachmentFailures'), 'slab.html stores attachment failure summary', 'page status can distinguish blocked attachment cases');
+  assert(style.includes('.report-readiness-card') && style.includes('@media print'), 'shared/style.css hides readiness card from print', 'page-only readiness is print-hidden');
+  assert(slabHtml.includes('summary:false'), 'slab report hides top status banner', 'page-only review status stays out of the report');
+  assert(!slabHtml.includes('RCUI.buildReviewCheckGroup'), 'slab report omits formal-analysis warning group', 'review warnings remain page-only');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for slab regression test');

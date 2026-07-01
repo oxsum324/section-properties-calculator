@@ -629,6 +629,17 @@ async function runBrowserCases() {
         fragments.forEach(fragment => {
           assert(reportHtml.includes(fragment), `${tc.key} :: report includes`, `expected fragment=${fragment}`);
         });
+        [
+          '<div class="rep-summary',
+          '人工複核 / 補充資料需求',
+          '人工複核項目：',
+          '產報前檢查',
+          '可作附件，需人工複核',
+          '暫勿作附件',
+          '不會寫入計算書或列印 PDF'
+        ].forEach(fragment => {
+          assert(!reportHtml.includes(fragment), `${tc.key} :: report excludes page-only readiness`, `unexpected fragment=${fragment}`);
+        });
       }
     }
 
@@ -684,11 +695,14 @@ async function main() {
   assert(beamHtml.includes('id="btnSendToColumn"'), 'beam.html has send-to-column button', 'column handoff command exists');
   assert(beamHtml.includes('function calcBeamDevelopmentData'), 'beam.html has development length helper', 'beam anchorage and splice helper exists');
   assert(beamHtml.includes('function collectBeamManualReviewItems'), 'beam.html centralizes manual-review items', 'banner and report share pending-review boundaries');
-  assert(beamHtml.includes('function describeBeamManualReviewItem'), 'beam.html explains manual-review items', 'manual-review report rows have actionable detail');
-  assert(beamHtml.includes('人工複核 / 補充資料需求'), 'beam report has manual-review group', 'manual-review items are explicit report rows');
-  assert(beamHtml.includes('不列為 OK 結論；補齊資料後方可作為完整檢核'), 'beam report prevents manual-review OK verdict', 'manual-review boundary is report-visible');
+  assert(sharedCommon.includes('window.RCUI.renderAttachmentReadiness'), 'shared/common.js exposes attachment readiness renderer', 'page-only attachment status has shared helper');
+  assert(beamHtml.includes('id="beamAttachmentReadiness"'), 'beam.html has page-only attachment readiness target', 'pre-export status stays on tool page');
+  assert(beamHtml.includes('function updateBeamAttachmentReadiness'), 'beam.html updates page-only attachment readiness', 'attachment status is calculated on the tool page');
+  assert(beamHtml.includes('summary:false'), 'beam report hides top status banner', 'page-only review status stays out of the report');
+  assert(!beamHtml.includes('人工複核 / 補充資料需求'), 'beam report omits manual-review summary group', 'manual-review aggregate remains page-only');
+  assert(!beamHtml.includes('不列為 OK 結論；補齊資料後方可作為完整檢核'), 'beam report omits manual-review aggregate formula', 'report keeps technical rows only');
   assert(sharedCommon.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
-  assert(beamHtml.includes('RCUI.buildReviewCheckGroup'), 'beam report uses shared review check group builder', 'manual-review rows use shared helper');
+  assert(!beamHtml.includes('RCUI.buildReviewCheckGroup'), 'beam report does not use shared review check group builder', 'manual-review summary rows stay page-only');
   assert(beamHtml.includes('id="beamDevLeftType"'), 'beam.html has left anchorage type selector', 'anchorage type workflow is visible');
   assert(beamHtml.includes('BEAM_DEV_TYPE_LABELS'), 'beam.html has anchorage type labels', 'non-straight anchorage is classified for manual review');
   assert(beamHtml.includes('id="anchorageLeft"'), 'beam.html has left anchorage input', 'available anchorage length is user-visible');

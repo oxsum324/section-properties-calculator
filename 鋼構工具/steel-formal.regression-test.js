@@ -104,6 +104,32 @@ const sharedReportPath = path.join(__dirname, "..", "結構工具箱", "core", "
 const sharedReportSource = fs.readFileSync(sharedReportPath, "utf8");
 const localSteelCorePath = path.join(__dirname, "core", "materials", "steel.js");
 const localReportCorePath = path.join(__dirname, "core", "ui", "report.js");
+const localReportCoreSource = fs.readFileSync(localReportCorePath, "utf8");
+const pageOnlyReportStatusNeedles = [
+  "產報前檢查",
+  "附件適用狀態",
+  "優先建議報告閱讀狀態",
+  "報告閱讀狀態",
+  "可作附件",
+  "暫勿作附件",
+  "頁面輔助",
+  "公司內部整理計算附件",
+  "不會寫入計算書",
+  "不會寫入計算書或列印 PDF",
+];
+
+for (const needle of pageOnlyReportStatusNeedles) {
+  assert.equal(
+    sharedReportSource.includes(needle),
+    false,
+    `shared report generator should exclude page-only report status wording: ${needle}`,
+  );
+  assert.equal(
+    localReportCoreSource.includes(needle),
+    false,
+    `steel local report generator should exclude page-only report status wording: ${needle}`,
+  );
+}
 
 assert.match(
   columnFormalSource,

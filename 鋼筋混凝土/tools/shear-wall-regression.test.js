@@ -98,9 +98,13 @@ function main() {
   assert(wallEvaluatorSrc.includes('WallEvaluator.evaluateLoadCase') && wallEvaluatorSrc.includes('WallEvaluator.nominalMomentAtPu') && wallEvaluatorSrc.includes('WallEvaluator.reviewWarnings'), '共用剪力牆工況檢核模組提供工況判定、Mn 內插與待確認事項', 'WallEvaluator shared present');
   assert(!/18\.10\s*章|18\.10\.6/.test(`${html}\n${wallSrc}`), '剪力牆頁面與共用模組不再誤用基礎章作為牆章', 'no stale foundation clause');
   assert(html.includes('reviewWarnings'), '待確認事項納入整體結論', 'reviewWarnings present');
-  assert(html.includes('待確認事項'), '計算書列出待確認事項', 'report warning group present');
-  assert(html.includes('不列為 OK 結論'), '待確認事項不得列為 OK 結論', 'warning summary guard present');
-  assert(html.includes('RCUI.buildReviewCheckGroup'), '計算書待確認事項使用共用 helper', 'review warning rows use shared helper');
+  assert(html.includes('function updateShearWallAttachmentReadiness'), '剪力牆頁面列出附件 readiness', 'page-only readiness helper present');
+  assert(html.includes('id="shearWallAttachmentReadiness"'), '剪力牆具附件 readiness 目標', 'readiness target present');
+  assert(html.includes('RCUI.renderAttachmentReadiness'), '剪力牆使用共用 readiness renderer', 'shared readiness helper present');
+  const buildReportSrc = html.slice(html.indexOf('function buildReport'), html.indexOf('function svgToDataURL'));
+  assert(buildReportSrc.includes('summary:false'), '剪力牆計算書關閉頂部狀態 summary', 'report summary false');
+  assert(!buildReportSrc.includes('RCUI.buildReviewCheckGroup'), '剪力牆計算書不輸出待確認總覽群組', 'review overview stays page-only');
+  assert(!buildReportSrc.includes('不列為 OK 結論'), '剪力牆計算書排除總覽判定文案', 'no page-only verdict wording in report');
   assert(html.includes('const SHEAR_WALL_PROJECT_SCHEMA = \'rc-shear-wall-project-v1\''), '剪力牆專案存檔 schema 存在', 'rc-shear-wall-project-v1');
   assert(html.includes('id="btnSaveShearWallProject"') && html.includes('id="btnLoadShearWallProject"'), '剪力牆具專案檔案存讀按鈕', 'save/load buttons present');
   assert(html.includes('id="btnSaveShearWallDraft"') && html.includes('id="btnLoadShearWallDraft"'), '剪力牆具瀏覽器暫存按鈕', 'draft buttons present');

@@ -21,7 +21,7 @@ const CHROME_CANDIDATES = [
 const EXPECTED = {
   shear_seismic: {
     title: '牆設計計算書',
-    summary: 'NG',
+    expectedSnapshot: 'NG',
     minCheckGroups: 8,
     fragments: [
       '結構剪力牆',
@@ -37,7 +37,7 @@ const EXPECTED = {
   },
   basement_oop: {
     title: '牆設計計算書',
-    summary: 'NG',
+    expectedSnapshot: 'NG',
     minCheckGroups: 7,
     fragments: [
       '地下室外牆',
@@ -52,19 +52,13 @@ const EXPECTED = {
   },
   basement_pass_warn: {
     title: '牆設計計算書',
-    summary: '待確認',
+    expectedSnapshot: '待確認',
     minCheckGroups: 8,
     fragments: [
       '地下室外牆',
       '地下室外牆模型',
       '簡支條帶',
       '地下室外牆土壓自動計算',
-      '待確認 / 正式分析需求',
-      '待確認事項 1',
-      '不列為 OK 結論',
-      '需正式分析確認',
-      '正式設計仍須依實際支承',
-      '面外 Slender Wall / P-Delta',
       '牆水平斷面配筋示意',
     ],
   },
@@ -277,6 +271,7 @@ async function reportMetrics(report) {
       title: clean(document.querySelector('h1')?.textContent),
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
+      hasReportSummary: Boolean(document.querySelector('.rep-summary')),
       bodyText: clean(document.body.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       methodRowCount: document.querySelectorAll('.rep-method tbody tr').length,
@@ -342,15 +337,19 @@ async function main() {
         summaryText: window.wallLast?.summaryText,
         reviewWarningCount: window.wallLast?.reviewWarnings?.length || 0,
         methodRows: window.getWallMethodAuditRows ? window.getWallMethodAuditRows(window.wallLast).length : 0,
+        readinessText: document.getElementById('wallAttachmentReadinessCard')?.innerText?.replace(/\s+/g, ' ').trim() || '',
       }));
       assert(state.wallLastOk, `${key} calculation state exists`, state.banner);
       assert(state.methodRows >= 6, `${key} method audit rows`, `rows=${state.methodRows}`);
-      if (expected.summary === 'NG' || expected.summary === '待確認') {
+      assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
+      assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
+      if (expected.expectedSnapshot === 'NG' || expected.expectedSnapshot === '待確認') {
         assert(!state.banner.includes('OK — 符合規範'), `${key} no misleading summary banner`, state.banner);
       }
-      if (expected.summary === '待確認') {
+      if (expected.expectedSnapshot === '待確認') {
         assert(state.summaryOk === null, `${key} summary is manual review`, `summaryOk=${state.summaryOk}, text=${state.summaryText}`);
         assert(state.reviewWarningCount >= 1, `${key} review warnings captured`, `count=${state.reviewWarningCount}`);
+        assert(state.readinessText.includes('可作附件，需人工複核'), `${key} page readiness flags review`, state.readinessText);
       }
 
       const popupPromise = page.waitForEvent('popup', { timeout: 10000 });
@@ -380,7 +379,7 @@ async function main() {
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
-      assert(metrics.summary.includes(expected.summary), `${key} summary status`, metrics.summary);
+      assert(!metrics.hasReportSummary, `${key} report status banner hidden`, 'no .rep-summary');
       assert(metrics.checkGroupCount >= expected.minCheckGroups, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.methodRowCount >= 6, `${key} method audit table rows`, `count=${metrics.methodRowCount}`);
       assert(metrics.stepCount >= 4, `${key} report detailed steps`, `count=${metrics.stepCount}`);
@@ -390,6 +389,18 @@ async function main() {
       }
       for (const fragment of expected.fragments || []) {
         assert(metrics.bodyText.includes(fragment), `${key} report includes`, fragment);
+      }
+      for (const forbidden of [
+        '產報前檢查',
+        '可作附件，需人工複核',
+        '暫勿作附件',
+        '不會寫入計算書或列印 PDF',
+        '待確認 / 正式分析需求',
+        '待確認事項 1',
+        '不列為 OK 結論',
+        '需正式分析確認',
+      ]) {
+        assert(!metrics.bodyText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
       }
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
       assert(!metrics.bodyText.includes('18.10'), `${key} report has no stale 18.10 clause refs`, 'uses 112 18.7 wall clauses');

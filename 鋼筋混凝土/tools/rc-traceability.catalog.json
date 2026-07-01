@@ -93,7 +93,7 @@
           "purpose": "柱端直線錨定、非直線錨定、耐震搭接位置與 Class A/B 需求分開判定，缺資料時不列為 OK。",
           "inputs": ["columnDevTop", "columnDevBottom", "columnDevTopType", "columnDevBottomType", "lapSpliceStart", "lapSpliceEnd", "lapSpliceLength", "lapSpliceClassRequested"],
           "calculation": ["25.4.2 ℓd", "非直線錨定人工複核", "18.4.4.3 搭接位置", "25.5.2 搭接長度", "Class A 條件"],
-          "report": ["握裹 / 搭接長度 (規範 25 章)", "柱端錨定", "耐震搭接", "缺漏 / 複核摘要", "人工複核 / 未輸入"],
+          "report": ["握裹 / 搭接長度 (規範 25 章)", "柱端錨定", "耐震搭接", "工程檢核總表", "規範覆蓋矩陣"],
           "evidence": ["tools/column-regression.test.js", "tools/column-regression-cases.json", "tools/column-report-visual.test.js", "tools/column-report-visual.contract.test.js"],
           "manualReview": ["彎鉤錨定、機械錨定、搭接實際區段、產品認可資料與施工圖仍須由設計者人工複核。"]
         }
@@ -120,8 +120,8 @@
           "clause": "混凝土結構設計規範 112 年版 8.3.1.1 / 8.3.1.2 / 8.10 / 8.11",
           "purpose": "雙向有梁板與無梁版目前為簡化條帶初估，需明確揭露不等於完整 DDM / EFM。",
           "inputs": ["stype", "alpha_fm", "panelPos", "hasDrop", "Lx", "Ly", "wu", "punchMode", "colPos"],
-          "calculation": ["最小厚度 hmin", "Rankine-Grashof 載重分配", "規範 6.5 條帶係數", "DDM / EFM 缺口提示", "待確認事項匯總"],
-          "report": ["雙向板 (有梁)", "簡化二向條帶法", "完整 8.10 DDM / EFM", "待確認 / 正式分析需求", "不列為 OK 結論"],
+          "calculation": ["最小厚度 hmin", "Rankine-Grashof 載重分配", "規範 6.5 條帶係數", "DDM / EFM 缺口提示", "方法限制說明"],
+          "report": ["雙向板 (有梁)", "簡化二向條帶法", "完整 8.10 DDM / EFM", "計算層級說明", "方法限制說明"],
           "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js"],
           "manualReview": ["總靜力矩分配、column strip / middle strip、邊柱列與角柱列處理須以 DDM / EFM 或專案模型正式分析確認。"]
         },
@@ -131,7 +131,7 @@
           "purpose": "一向剪力與雙向衝剪可選擇是否計入剪力補強，並把 unbalanced moment transfer 與偏心剪力列為正式分析邊界。",
           "inputs": ["VuX", "VuY", "enableShearReinf", "puOn", "puType", "puFyt", "puLeg", "puS", "c1", "c2", "punchAmp"],
           "calculation": ["φVc", "φVn = φ(Vc + Vs)", "衝剪 bo / βc / αs", "22.6 衝剪鋼筋", "25.2.1 淨距"],
-          "report": ["剪力與衝剪", "雙向衝剪", "φVn ≥ Vu (衝剪)", "unbalanced moment transfer", "待確認事項 1"],
+          "report": ["剪力與衝剪", "雙向衝剪", "φVn ≥ Vu (衝剪)", "unbalanced moment transfer", "方法限制說明"],
           "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js"],
           "manualReview": ["衝剪鋼筋錨定、配置延伸範圍、邊柱 / 角柱偏心剪力與不平衡彎矩轉移須由專案樓板模型或正式手算人工複核。"]
         }

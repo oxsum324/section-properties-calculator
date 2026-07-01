@@ -15,6 +15,25 @@ import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildStandaloneReportHtml } from './reportExport'
 import { normalizeUnitPreferences } from './units'
 
+const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
+  '產報前檢查',
+  '附件適用狀態',
+  '優先建議報告閱讀狀態',
+  '報告閱讀狀態',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+]
+
+function expectNoPageOnlyReportStatus(text: string) {
+  for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES) {
+    expect(text).not.toContain(needle)
+  }
+}
+
 describe('buildStandaloneReportHtml', () => {
   it('renders a standalone HTML report with core sections', () => {
     const product = defaultProducts.find(
@@ -45,6 +64,7 @@ describe('buildStandaloneReportHtml', () => {
     expect(html).toContain(CURRENT_CALC_ENGINE_VERSION)
     expect(html).toContain(ENGINEERING_USE_DISCLAIMER)
     expect(html).not.toContain('離線狀態')
+    expectNoPageOnlyReportStatus(html)
   })
 
   it('renders audit trail metadata when provided', () => {

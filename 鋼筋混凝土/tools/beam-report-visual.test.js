@@ -22,24 +22,17 @@ const CHROME_CANDIDATES = [
 const EXPECTED = {
   default_rect_design: {
     title: '梁設計計算書',
-    summary: '人工複核',
     fragments: [
       '梁設計計算書',
       '梁斷面 (含底/頂主筋與箍筋)',
       '撓曲檢核',
       '剪力檢核',
       '握裹 / 搭接長度',
-      '人工複核 / 補充資料需求',
-      '人工複核項目 1',
-      '不列為 OK 結論',
-      '需補充資料確認',
-      '人工複核項目：梁端錨定、搭接 / 施工圖',
       '未輸入時不作通過判定。',
     ],
   },
   smrf_ve_controls_shear_demand: {
     title: '梁檢核計算書',
-    summary: 'NG',
     fragments: [
       '梁檢核計算書',
       'SMRF 18.3.3.2 強度比',
@@ -47,7 +40,7 @@ const EXPECTED = {
       'φVn ≥ Vd',
       'Vd = 45.00 tf (Ve)',
       '耐震 Vc=0',
-      '首支箍筋位置',
+      '首支箍筋距柱面',
       '跨內 Mn',
     ],
   },
@@ -170,6 +163,7 @@ async function reportMetrics(report) {
       title: clean(document.querySelector('h1')?.textContent),
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
+      hasReportSummary: Boolean(document.querySelector('.rep-summary')),
       bodyText: clean(document.body.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       diagramCount: document.querySelectorAll('.rep-diagram img').length,
@@ -230,8 +224,15 @@ async function main() {
           window.beamLast?.developmentData?.lapManualReview,
           window.beamLast?.deflManualReview,
         ].some(Boolean),
+        readinessText: document.getElementById('beamAttachmentReadinessCard')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        readinessStatus: document.getElementById('beamAttachmentReadiness')?.dataset.attachmentStatus || '',
+        readinessDisplay: getComputedStyle(document.getElementById('beamAttachmentReadinessCard')).display,
       }));
       assert(state.beamLastOk, `${tc.key} calculation state exists`, state.banner);
+      assert(state.readinessText.includes('產報前檢查'), `${tc.key} page attachment readiness card`, state.readinessText);
+      assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${tc.key} page attachment readiness boundary`, state.readinessText);
+      assert(['ready', 'review', 'blocked'].includes(state.readinessStatus), `${tc.key} page attachment readiness status`, state.readinessStatus);
+      assert(state.readinessDisplay !== 'none', `${tc.key} page attachment readiness visible`, state.readinessDisplay);
 
       const popupPromise = page.waitForEvent('popup', { timeout: 10000 });
       await page.click('#btnReport');
@@ -261,10 +262,7 @@ async function main() {
       results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, printMetrics });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
-      assert(metrics.summary.includes(expected.summary), `${tc.key} summary status`, metrics.summary);
-      if (expected.summary === '人工複核' || expected.summary === 'NG') {
-        assert(!metrics.summary.includes('OK — 符合規範'), `${tc.key} no misleading OK verdict`, metrics.summary);
-      }
+      assert(!metrics.hasReportSummary, `${tc.key} report status banner hidden`, 'no .rep-summary');
       assert(metrics.checkGroupCount >= 6, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 1, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
@@ -273,6 +271,19 @@ async function main() {
       for (const fragment of expected.fragments || []) {
         assert(metrics.bodyText.includes(fragment), `${tc.key} report includes`, fragment);
       }
+      [
+        '人工複核 / 補充資料需求',
+        '人工複核項目 1',
+        '不列為 OK 結論',
+        '需補充資料確認',
+        '人工複核項目：',
+        '產報前檢查',
+        '可作附件，需人工複核',
+        '暫勿作附件',
+        '不會寫入計算書或列印 PDF',
+      ].forEach(fragment => {
+        assert(!metrics.bodyText.includes(fragment), `${tc.key} report excludes page-only attachment readiness`, fragment);
+      });
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${tc.key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
       assert(metrics.overflowSample.length === 0, `${tc.key} report element overflow`, metrics.overflowSample.map(o => `${o.tag}.${o.cls}`).join(', ') || 'none');
       assert(metrics.documentScrollWidth <= metrics.viewportWidth + 2, `${tc.key} report horizontal overflow`, `scroll=${metrics.documentScrollWidth}, viewport=${metrics.viewportWidth}`);

@@ -141,6 +141,7 @@ assertIncludes(repoDocs.reportGuide, '工具成熟度矩陣', 'TOOL_REPORT_GUIDE
 const routeSet = new Set();
 const keySet = new Set();
 const reportForbidden = manifest.reportForbiddenNeedles || [];
+const reportPageOnlyForbidden = manifest.reportPageOnlyForbiddenNeedles || [];
 const reportDisclosureNeedles = manifest.reportDisclosureNeedles || {};
 const traceTools = Array.isArray(traceCatalog.tools) ? traceCatalog.tools : [];
 const traceByKey = new Map(traceTools.map(tool => [tool.key, tool]));
@@ -149,6 +150,16 @@ assert.equal(traceCatalog.version, '0.1.0', 'formal traceability catalog version
 assert.equal(traceCatalog.family, 'formal-traceability', 'formal traceability catalog family');
 assert.equal(manifest.shared.traceabilityContract, 'tools/formal-traceability.contract.test.js', 'formal traceability contract path');
 assertFile(manifest.shared.traceabilityContract);
+assert.ok(reportPageOnlyForbidden.length >= 8, 'formal report page-only forbidden needles');
+[
+  '產報前檢查',
+  '附件適用狀態',
+  '報告閱讀狀態',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '不會寫入計算書'
+].forEach(needle => assertIncludes(manifestText, needle, 'formal report page-only boundary manifest'));
 assert.deepEqual(
   traceTools.map(tool => tool.key),
   tools.map(tool => tool.key),

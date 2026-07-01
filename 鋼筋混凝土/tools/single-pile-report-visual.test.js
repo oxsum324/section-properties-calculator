@@ -20,7 +20,7 @@ const CHROME_CANDIDATES = [
 
 const CASES = {
   default_code: {
-    expectedSummary: 'OK',
+    expectedSnapshot: 'OK',
     fragments: [
       '單樁承載力設計計算書',
       '採用方案',
@@ -51,7 +51,7 @@ const CASES = {
     ],
   },
   optimistic_params_review: {
-    expectedSummary: '複核',
+    expectedSnapshot: '複核',
     setup: async page => {
       await page.fill('#alphaSoft', '1.20');
       await page.evaluate(() => {
@@ -62,14 +62,8 @@ const CASES = {
       await page.waitForFunction(() => window.singlePileLast?.complianceOk === false, null, { timeout: 10000 });
     },
     fragments: [
-      '⚠ 需人工複核',
-      '人工複核 / 補充資料需求',
-      '人工複核項目 1',
-      '不列為 OK 結論',
-      '需補充資料確認',
       '規範假設檢核',
       '細部折減參數',
-      '黏土/軟岩 α 係數高於預設值',
       '候選方案矩陣',
     ],
   },
@@ -175,6 +169,7 @@ async function reportMetrics(report) {
     return {
       title: clean(document.querySelector('h1')?.textContent),
       summary: clean(document.querySelector('.rep-summary')?.textContent),
+      hasReportSummary: Boolean(document.querySelector('.rep-summary')),
       bodyText: clean(document.body.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       stepCount: document.querySelectorAll('.rep-step').length,
@@ -239,18 +234,22 @@ async function main() {
         best: window.singlePileLast?.recommendation,
         control: window.singlePileLast?.recommendation || window.singlePileLast?.displayCandidate,
         mode: window.singlePileLast?.calcMode,
+        readinessText: document.getElementById('singlePileAttachmentReadinessCard')?.innerText?.replace(/\s+/g, ' ').trim() || '',
       }));
       assert(state.hasReportButton, `${key} report button exists`, 'btnReport');
       assert(state.hasOpenReport, `${key} shared report module loaded`, 'openReport');
       assert(state.candidateCount > 10, `${key} candidate matrix populated`, `count=${state.candidateCount}`);
-      if (expected.expectedSummary === 'OK') {
+      assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
+      assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
+      if (expected.expectedSnapshot === 'OK') {
         assert(state.best && state.best.diaCm >= 40, `${key} recommendation exists`, `D=${state.best?.diaCm}`);
         assert(state.summaryOk === true, `${key} summary snapshot OK`, state.summaryStatusText);
-      } else if (expected.expectedSummary && expected.expectedSummary.includes('複核')) {
+      } else if (expected.expectedSnapshot && expected.expectedSnapshot.includes('複核')) {
         assert(state.best && state.best.diaCm >= 40, `${key} review candidate exists`, `D=${state.best?.diaCm}`);
         assert(state.summaryOk === null, `${key} summary snapshot needs review`, state.summaryStatusText);
         assert(state.complianceOk === false && state.complianceWarningCount > 0, `${key} compliance warnings surfaced`, `count=${state.complianceWarningCount}`);
         assert(state.banner.includes('需人工複核') && state.bannerClass.includes('warn'), `${key} no misleading green banner`, state.banner);
+        assert(state.readinessText.includes('可作附件，需人工複核'), `${key} page readiness flags review`, state.readinessText);
       } else {
         assert(state.control && state.control.diaCm >= 40, `${key} control candidate exists`, `D=${state.control?.diaCm}`);
       }
@@ -282,11 +281,7 @@ async function main() {
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics });
 
       assert(metrics.title === '單樁承載力設計計算書', `${key} report title`, metrics.title);
-      if (expected.expectedSummary) {
-        assert(metrics.summary.includes(expected.expectedSummary), `${key} summary status`, metrics.summary);
-      } else {
-        assert(/OK|NG|複核/.test(metrics.summary), `${key} summary status`, metrics.summary);
-      }
+      assert(!metrics.hasReportSummary, `${key} report status summary hidden`, 'no .rep-summary');
       assert(metrics.checkGroupCount >= 3, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.stepCount >= 4, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagram`, `count=${metrics.diagramCount}`);
@@ -295,6 +290,18 @@ async function main() {
       }
       for (const fragment of expected.fragments || []) {
         assert(metrics.bodyText.includes(fragment), `${key} report includes`, fragment);
+      }
+      for (const forbidden of [
+        '產報前檢查',
+        '可作附件，需人工複核',
+        '暫勿作附件',
+        '不會寫入計算書或列印 PDF',
+        '人工複核 / 補充資料需求',
+        '人工複核項目 1',
+        '不列為 OK 結論',
+        '需補充資料確認',
+      ]) {
+        assert(!metrics.bodyText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
       }
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
       assert(metrics.overflowSample.length === 0, `${key} report element overflow`, metrics.overflowSample.map(o => `${o.tag}.${o.cls}`).join(', ') || 'none');

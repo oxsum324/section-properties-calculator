@@ -19,24 +19,22 @@ const CHROME_CANDIDATES = [
   'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
 ].filter(Boolean);
 
-const EXPECTED_SUMMARY = {
+const EXPECTED_REPORT_TEXT = {
   default_rect_design: [
-    '缺漏 / 複核摘要',
-    '人工複核 / 未輸入',
+    '規範覆蓋矩陣',
     '柱端錨定',
     '報告不作通過判定',
-    '工程近似 / 未納入'
+    '細長效應與二階邊界'
   ],
   seismic_lap_class_a_ineligible_uses_b: [
-    '缺漏 / 複核摘要',
-    '不符項目',
+    '規範覆蓋矩陣',
     '耐震搭接',
     '長度=不符',
     '等級=B',
     '報告不作通過判定'
   ],
   seismic_detail_first_outside_spacing_ng: [
-    '缺漏 / 複核摘要',
+    '規範覆蓋矩陣',
     '橫向鋼筋間距與圍束',
     '首支=不符',
     '外區=不符',
@@ -127,14 +125,8 @@ async function extractReportMetrics(report) {
     const paperRect = document.querySelector('.rep-paper')?.getBoundingClientRect();
     const coverageRect = document.querySelector('.rep-coverage')?.getBoundingClientRect();
     const reportSummary = document.querySelector('.rep-summary');
-    const firstDetailBlock = document.querySelector('.rep-diagrams, .rep-input, .rep-check, .rep-steps-wrap, .rep-sym, .rep-method, .rep-coverage');
-    const followsBanner = reportSummary && summary
-      ? Boolean(reportSummary.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING)
-      : false;
-    const precedesDetails = summary && firstDetailBlock
-      ? Boolean(summary.compareDocumentPosition(firstDetailBlock) & Node.DOCUMENT_POSITION_FOLLOWING)
-      : false;
-    const overflowing = [...document.querySelectorAll('.rep-paper table, .rep-paper th, .rep-paper td, .rep-paper .rep-coverage-summary-card, .rep-paper pre')]
+    const bodyText = clean(document.querySelector('.rep-paper')?.innerText);
+    const overflowing = [...document.querySelectorAll('.rep-paper table, .rep-paper th, .rep-paper td, .rep-paper pre')]
       .filter(el => el.scrollWidth > el.clientWidth + 2)
       .slice(0, 12)
       .map(el => ({
@@ -146,14 +138,16 @@ async function extractReportMetrics(report) {
       }));
     return {
       title: clean(document.querySelector('h1')?.textContent),
+      bodyText,
       summaryText,
+      hasReportSummary: Boolean(reportSummary),
+      hasCoverageSummary: Boolean(summary),
       cardCount: cards.length,
       cards,
       viewportWidth: window.innerWidth,
       documentScrollWidth: document.documentElement.scrollWidth,
       paperWidth: paperRect ? Math.round(paperRect.width) : null,
       coverageWidth: coverageRect ? Math.round(coverageRect.width) : null,
-      summaryOrderOk: followsBanner && precedesDetails,
       hasHorizontalPageOverflow: document.documentElement.scrollWidth > window.innerWidth + 2,
       summaryHasDuplicateUnset: summaryText.includes('未輸入；未輸入'),
       summaryHasBrokenLapNote: /等級=[AB]\s*\(/.test(summaryText),
@@ -192,6 +186,19 @@ async function main() {
       await page.goto(toolUrl, { waitUntil: 'networkidle' });
       await applyCase(page, tc);
       await page.waitForTimeout(250);
+      await page.click('.section-tabs button[data-tab="summary"]');
+      const pageReadiness = await page.evaluate(() => {
+        const card = document.getElementById('columnAttachmentReadinessCard');
+        const target = document.getElementById('columnAttachmentReadiness');
+        const rect = card?.getBoundingClientRect();
+        return {
+          text: card?.textContent?.replace(/\s+/g, ' ').trim() || '',
+          status: target?.dataset.attachmentStatus || '',
+          display: card ? getComputedStyle(card).display : '',
+          width: rect ? Math.round(rect.width) : 0,
+          height: rect ? Math.round(rect.height) : 0
+        };
+      });
 
       const popupPromise = page.waitForEvent('popup');
       await page.click('#btnReport');
@@ -215,16 +222,29 @@ async function main() {
 
       assert(pageErrors.length === 0, `${tc.key} report page errors`, 'none');
       assert(failedResponses.length === 0, `${tc.key} report failed responses`, 'none');
-      assert(metrics.cardCount === 3, `${tc.key} coverage summary cards`, `count=${metrics.cardCount}`);
-      assert(metrics.summaryOrderOk, `${tc.key} coverage summary order`, 'after verdict and before detail blocks');
+      assert(pageReadiness.text.includes('產報前檢查'), `${tc.key} page attachment readiness card`, pageReadiness.text);
+      assert(pageReadiness.text.includes('不會寫入計算書或列印 PDF'), `${tc.key} page attachment readiness boundary`, pageReadiness.text);
+      assert(['ready', 'review', 'blocked'].includes(pageReadiness.status), `${tc.key} page attachment readiness status`, pageReadiness.status);
+      assert(pageReadiness.display !== 'none' && pageReadiness.width > 0 && pageReadiness.height > 0, `${tc.key} page attachment readiness visible`, `${pageReadiness.display} ${pageReadiness.width}x${pageReadiness.height}`);
+      assert(!metrics.hasReportSummary, `${tc.key} report top reminder hidden`, 'no .rep-summary');
+      assert(!metrics.hasCoverageSummary, `${tc.key} coverage summary hidden`, 'no .rep-coverage-summary-wrap');
+      assert(metrics.cardCount === 0, `${tc.key} coverage summary cards hidden`, `count=${metrics.cardCount}`);
       assert(printMetrics.toolbarDisplay === 'none', `${tc.key} print toolbar hidden`, `display=${printMetrics.toolbarDisplay}`);
       assert(!metrics.hasHorizontalPageOverflow, `${tc.key} report horizontal overflow`, `scroll=${metrics.documentScrollWidth}, viewport=${metrics.viewportWidth}`);
       assert(metrics.overflowSample.length === 0, `${tc.key} report element overflow`, 'none');
-      assert(!metrics.summaryHasDuplicateUnset, `${tc.key} summary duplicate wording`, 'no 未輸入；未輸入');
-      assert(!metrics.summaryHasBrokenLapNote, `${tc.key} summary lap note`, 'no cut class-A/B detail');
+      assert(!metrics.bodyText.includes('缺漏 / 複核摘要'), `${tc.key} no gap-summary title`, 'hidden from calculation report');
+      assert(!metrics.bodyText.includes('⚠ 部分項目需人工複核'), `${tc.key} no top manual-review reminder`, 'hidden from calculation report');
+      [
+        '產報前檢查',
+        '可作附件，需人工複核',
+        '暫勿作附件',
+        '不會寫入計算書或列印 PDF',
+      ].forEach(fragment => {
+        assert(!metrics.bodyText.includes(fragment), `${tc.key} report excludes page-only attachment readiness`, fragment);
+      });
       assert(metrics.coverageWidth == null || metrics.coverageWidth <= metrics.paperWidth, `${tc.key} coverage table width`, `coverage=${metrics.coverageWidth}, paper=${metrics.paperWidth}`);
-      (EXPECTED_SUMMARY[tc.key] || []).forEach(fragment => {
-        assert(metrics.summaryText.includes(fragment), `${tc.key} summary includes`, fragment);
+      (EXPECTED_REPORT_TEXT[tc.key] || []).forEach(fragment => {
+        assert(metrics.bodyText.includes(fragment), `${tc.key} report includes`, fragment);
       });
       assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], `${tc.key} screenshot written`);
       assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} pdf written`);

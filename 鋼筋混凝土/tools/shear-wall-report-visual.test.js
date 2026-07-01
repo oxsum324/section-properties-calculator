@@ -27,8 +27,6 @@ const CASES = [
       '牆斷面配筋示意',
       '特殊邊界構材',
       '施工縫剪摩擦',
-      '待確認事項',
-      '不列為 OK 結論',
     ],
     summaryMustInclude: '待確認',
   },
@@ -56,8 +54,6 @@ const CASES = [
       'Pu 超出軸力封包，φMn 與 c@Pu 不採用',
       'c@Pu 不採用，需求長度須另行確認',
       '水平長度須另行確認',
-      '待確認事項',
-      '不列為 OK 結論',
       '不適用',
     ],
     summaryMustInclude: 'NG',
@@ -158,6 +154,7 @@ async function reportMetrics(report) {
       title: clean(document.querySelector('h1')?.textContent),
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
+      hasReportSummary: Boolean(document.querySelector('.rep-summary')),
       bodyText: clean(document.body.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       diagramCount: document.querySelectorAll('.rep-diagram img').length,
@@ -210,12 +207,16 @@ async function main() {
         reviewWarnings: window.swLast?.reviewWarnings || [],
         pmAxialOk: window.swLast?.pmAxialOk,
         pmOk: window.swLast?.pmOk,
+        readinessText: document.getElementById('shearWallAttachmentReadinessCard')?.innerText?.replace(/\s+/g, ' ').trim() || '',
       }));
       assert(state.swLastOk, `${tc.key} calculation state exists`, state.banner);
       assert(state.reviewWarnings.length > 0, `${tc.key} has review warning coverage`, `${state.reviewWarnings.length} warnings`);
       assert(!state.banner.includes('OK — 符合規範'), `${tc.key} no misleading summary banner`, state.banner);
+      assert(state.readinessText.includes('產報前檢查'), `${tc.key} page attachment readiness card`, state.readinessText);
+      assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${tc.key} page attachment readiness boundary`, state.readinessText);
       if (tc.summaryMustInclude === '待確認') {
         assert(state.banner.includes('待確認 —'), `${tc.key} banner uses pending-review count`, state.banner);
+        assert(state.readinessText.includes('可作附件，需人工複核'), `${tc.key} page readiness flags review`, state.readinessText);
       }
 
       const popupPromise = page.waitForEvent('popup', { timeout: 10000 });
@@ -246,7 +247,7 @@ async function main() {
       results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics });
 
       assert(metrics.title === '剪力牆設計計算書', `${tc.key} report title`, metrics.title);
-      assert(metrics.summary.includes(tc.summaryMustInclude), `${tc.key} summary status`, metrics.summary);
+      assert(!metrics.hasReportSummary, `${tc.key} report status summary hidden`, 'no .rep-summary');
       assert(metrics.checkGroupCount >= 7, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 2, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
@@ -255,8 +256,17 @@ async function main() {
       for (const fragment of tc.expected) {
         assert(metrics.bodyText.includes(fragment), `${tc.key} report includes`, fragment);
       }
+      for (const forbidden of [
+        '產報前檢查',
+        '可作附件，需人工複核',
+        '暫勿作附件',
+        '不會寫入計算書或列印 PDF',
+        '待確認事項 1',
+        '不列為 OK 結論',
+      ]) {
+        assert(!metrics.bodyText.includes(forbidden), `${tc.key} report excludes page-only status`, forbidden);
+      }
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${tc.key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
-      assert(!metrics.summary.includes('OK — 符合規範'), `${tc.key} no misleading OK verdict`, metrics.summary);
       assert(metrics.overflowSample.length === 0, `${tc.key} report element overflow`, metrics.overflowSample.map(o => `${o.tag}.${o.cls}`).join(', ') || 'none');
       assert(metrics.documentScrollWidth <= metrics.viewportWidth + 2, `${tc.key} report horizontal overflow`, `scroll=${metrics.documentScrollWidth}, viewport=${metrics.viewportWidth}`);
       assert(metrics.toolbarDisplayPrint === 'none', `${tc.key} print toolbar hidden`, `display=${metrics.toolbarDisplayPrint}`);

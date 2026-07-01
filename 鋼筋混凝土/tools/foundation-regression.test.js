@@ -153,7 +153,7 @@ async function main() {
   const common = fs.readFileSync(commonPath, 'utf8');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
   const tolerance = pack.tolerance ?? toleranceDefault;
-  const reviewHelperUses = (html.match(/RCUI\.buildReviewCheckGroup/g) || []).length;
+  const reportSrc = html.slice(html.indexOf('function buildFtReport'), html.indexOf('// ============================================================\n  //  事件綁定'));
 
   assert(html.includes('id="mainTabs"'), 'foundation.html has section tabs', 'multi-foundation tab UI exists');
   assert(html.includes('id="bannerStatus"'), 'foundation.html has banner', 'summary banner exists');
@@ -163,8 +163,12 @@ async function main() {
   assert(!html.includes('預留，尚未做抗滑檢核'), 'combined footing sliding input is not stale placeholder text', 'cMu is active');
   assert(!html.includes('未提供 DDM 分析</span><span class="value">✓ OK'), 'mat DDM unavailable state is not shown as OK', 'DDM/EFM gap must stay warning');
   assert(html.includes('待確認 — 本工具未提供'), 'mat DDM unavailable state has warning text', 'runtime label is待確認');
-  assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
-  assert(reviewHelperUses >= 3, 'foundation report uses shared review check group builder', 'all foundation warning report branches use shared helper');
+  assert(common.includes('window.RCUI.renderAttachmentReadiness'), 'shared/common.js exposes attachment readiness renderer', 'page-only readiness helper exists');
+  assert(html.includes('function updateFoundationAttachmentReadiness'), 'foundation page renders attachment readiness', 'readiness helper present');
+  assert(html.includes('id="foundationAttachmentReadiness"'), 'foundation page has attachment readiness target', 'readiness target present');
+  assert(reportSrc.includes('summary: false'), 'foundation report disables top status summary', 'attachment status is not printed');
+  assert(!reportSrc.includes('RCUI.buildReviewCheckGroup'), 'foundation report excludes review overview helper', 'review overview stays page-only');
+  assert(!reportSrc.includes('待確認 / 正式'), 'foundation report excludes formal-analysis overview groups', 'report has no page-only review group');
   assert(html.includes('const FOUNDATION_PROJECT_SCHEMA = \'rc-foundation-project-v1\''), 'foundation project schema present', 'rc-foundation-project-v1');
   assert(html.includes('id="btnSaveFoundationProject"') && html.includes('id="btnLoadFoundationProject"'), 'foundation project file controls present', 'save/load buttons present');
   assert(html.includes('id="btnSaveFoundationDraft"') && html.includes('id="btnLoadFoundationDraft"'), 'foundation draft controls present', 'draft buttons present');

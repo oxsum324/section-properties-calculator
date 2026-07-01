@@ -13,6 +13,19 @@ import generate_docx
 import server
 from audit_schema import REQUIRED_AUDIT_PATHS, nested
 
+PAGE_ONLY_REPORT_STATUS_NEEDLES = (
+    '產報前檢查',
+    '附件適用狀態',
+    '優先建議報告閱讀狀態',
+    '報告閱讀狀態',
+    '可作附件',
+    '暫勿作附件',
+    '頁面輔助',
+    '公司內部整理計算附件',
+    '不會寫入計算書',
+    '不會寫入計算書或列印 PDF',
+)
+
 
 def fake_handler(*, method: str = 'GET', path: str = '/status', origin: str | None = None):
     handler = object.__new__(server.Handler)
@@ -114,6 +127,10 @@ def v2_payload(include_results: bool = True) -> dict:
     return payload
 
 
+def report_text(value) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
 class ServerSmokeTests(unittest.TestCase):
     def assertAuditSchema(self, report: dict) -> None:
         for path in REQUIRED_AUDIT_PATHS:
@@ -125,6 +142,9 @@ class ServerSmokeTests(unittest.TestCase):
         self.assertIsInstance(report['review']['server_evaluation']['tool_html_match'], bool)
         self.assertGreater(len(str(report['trace']['payload_sha256'])), 16)
         self.assertGreaterEqual(report['output']['size_bytes'], 0)
+        text = report_text(report)
+        for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
+            self.assertNotIn(needle, text)
 
     def test_cors_allows_only_local_http_and_status_file_origin(self) -> None:
         self.assertTrue(fake_handler(origin='http://127.0.0.1:8765')._is_allowed_cors_origin())
@@ -203,6 +223,27 @@ class ServerSmokeTests(unittest.TestCase):
         self.assertEqual(report['review']['formula_source']['missing'], 0)
         self.assertFalse(report['review']['server_status_not_evaluated'])
         self.assertTrue(report['review']['server_evaluation']['tool_html_match'])
+
+    def test_export_audit_strips_page_only_report_reading_status(self) -> None:
+        payload = v2_payload()
+        review_summary = payload['meta']['review_summary']
+        review_summary['priority_report_reading_status'] = {
+            'title': '優先建議報告閱讀狀態',
+            'decision': '暫勿作附件',
+            'note': '頁面輔助，不會寫入計算書或列印 PDF。',
+        }
+        review_summary['delivery_quality']['reasons'].append('報告閱讀狀態：暫勿作附件')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = Path(tmp) / 'smoke.docx'
+            out_path.write_bytes(b'smoke-docx')
+            audit_path = server.write_export_audit(payload, out_path, 'auto_word', result_source='frontend_results')
+            report = json.loads(audit_path.read_text(encoding='utf-8'))
+
+        self.assertAuditSchema(report)
+        self.assertNotIn('priority_report_reading_status', report['review'])
+        self.assertEqual(report['review']['delivery_quality']['code'], 'C')
+        self.assertEqual(report['review']['formula_source']['missing'], 0)
 
     def test_export_audit_forces_quality_c_when_payload_html_differs(self) -> None:
         payload = v2_payload()

@@ -28,7 +28,7 @@
         ‧ checks[] : 各檢核項目，含 formula / sub (代入值) / value / unit / ok
         ‧ steps[]  : 由 grab(id, label, gate) 從 DOM .steps-body 蒐集 (僅在
                      showSteps 勾選且該檢核啟用時)
-        ‧ summary  : anyFail→NG, allOk→OK, 否則 partial
+        ‧ summary  : false；附件適用狀態留在頁面產報前檢查，不寫入計算書
         ‧ notes    : 第一條即「作業模式：設計／檢核」
         ‧ openReport() 共用模組 (../shared/report.js?v=4) 統一輸出
         ‧ window.xxxLast 必須包含所有 r.* 欄位 (含 svMin/okBarsPerLayer 等)
@@ -600,6 +600,10 @@
         <h2>綜合結論 <span id="conclusionScope" class="hint" style="margin-left:auto; font-style:normal;">—</span></h2>
         <div id="bannerStatus" class="banner-status">尚未計算</div>
         <div id="bannerKey" class="banner-key"></div>
+      </div>
+      <div class="card report-readiness-card" data-shows="summary" id="beamAttachmentReadinessCard">
+        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
+        <div id="beamAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
       </div>
       <div class="card" id="warningCard">
         <h2>設計警示</h2>
@@ -2635,6 +2639,7 @@ ${layerBars.map(L => {
       // 撓度 (可選)
       defl: deflResult
     };
+    updateBeamAttachmentReadiness(window.beamLast);
   }
 
   function showBeamJointStatus(message, status = null) {
@@ -2718,17 +2723,58 @@ ${layerBars.map(L => {
     return [...new Set(items)];
   }
 
-  function describeBeamManualReviewItem(item) {
-    const map = {
-      '梁端錨定': '需輸入兩端可用直線錨定長度；若採彎鉤、機械錨定或其他端部構造，應依配筋圖、產品資料或專案文件確認。',
-      '搭接 / 施工圖': '需提供實際搭接長度與位置；SMRF 梁另須確認搭接避開距柱面 2h 內塑鉸區並配置圍束。',
-      '扭力鋼筋詳算': 'Tu 超過可忽略門檻時，需補充規範 22.7 扭力詳算結論與 At/s、Al 配筋資料。',
-      '嚴謹撓度計算': '跨深比未滿足免算條件或連接易損構造時，須以 Bischoff Ie 或專案指定方法完成撓度檢核。',
-      '主筋裂縫控制間距': '主筋中心間距、保護層或使用應力資訊不足時，須依規範 24.3.2 與專案暴露條件確認裂縫控制。',
-      'SMRF 跨內 Mn 比對': '需輸入跨內最小標稱彎矩 Mn,min，以確認跨內任一斷面強度不小於兩端最大標稱彎矩之 1/4。',
-      '首支箍筋位置': '需輸入第一支箍筋距柱面距離，以確認梁端塑鉸區首支箍筋位置符合 18.3.4 要求。'
-    };
-    return map[item] || '需補充專案文件或配筋圖確認後，方可作為完整檢核結論。';
+  function updateBeamAttachmentReadiness(r) {
+    if (!window.RCUI?.renderAttachmentReadiness) return;
+    if (!r || !Number.isFinite(r.bw)) {
+      window.RCUI.renderAttachmentReadiness('beamAttachmentReadiness', {
+        status: 'neutral',
+        summary: '完成計算後顯示是否適合作為公司計算附件。'
+      });
+      return;
+    }
+    const checks = [
+      ['正彎矩強度', r.okFlexPos],
+      ['負彎矩強度', r.okFlexNeg],
+      ['剪力強度', r.okShear],
+      ['剪力 Av,min', r.okShearMin],
+      ['剪力筋間距', r.okShearSpacing],
+      ['ρ ≤ ρmax', r.okRhoMax],
+      ['As ≥ As,min', r.okAsMin],
+      ['主筋裂縫間距', r.okCrackSpacing],
+      ['握裹 / 搭接', r.developmentData?.okExplicit],
+      ['梁幾何', r.okBw && r.okLn],
+      ...(r.needSkin ? [['表層筋', r.okSkin]] : []),
+      ...(r.enableTorsion ? [[r.torsionNeedsDesign ? '22.7 扭力詳算' : '扭力門檻', r.torsionStatusOk]] : []),
+      ...(r.enableDefl ? [['撓度', r.okDeflOverall]] : []),
+      ...(r.seismic ? [['SMRF 跨內 Mn', r.okMnQuarter], ['首支箍筋位置', r.okFirstHoop]] : [])
+    ];
+    const failedItems = checks
+      .filter(([, ok]) => ok === false)
+      .map(([label]) => label);
+    const manualReviewItems = collectBeamManualReviewItems(r);
+    const status = failedItems.length ? 'blocked' : (manualReviewItems.length ? 'review' : 'ready');
+    const summary = failedItems.length
+      ? `尚有 ${failedItems.length} 項不符，先不要作為附件輸出。`
+      : (manualReviewItems.length
+          ? `數值檢核未見不符，但 ${manualReviewItems.length} 項需人工複核。`
+          : '數值檢核與必要輸入已通過，可作為公司計算附件。');
+    const firstFailures = failedItems.slice(0, 4).join('、');
+    const moreFailures = failedItems.length > 4 ? `等 ${failedItems.length} 項` : '';
+
+    window.RCUI.renderAttachmentReadiness('beamAttachmentReadiness', {
+      status,
+      summary,
+      items: [
+        { label: '不符項目', value: `${failedItems.length} 項`, tone: failedItems.length ? 'fail' : 'ok' },
+        { label: '人工複核', value: `${manualReviewItems.length} 項`, tone: manualReviewItems.length ? 'warn' : 'ok' },
+        { label: '輸出邊界', value: '頁面顯示，不進 PDF', tone: 'neutral' }
+      ],
+      notes: [
+        '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。',
+        failedItems.length ? `優先處理：${firstFailures}${moreFailures}。` : '',
+        manualReviewItems.length ? `需人工確認：${manualReviewItems.join('、')}。` : ''
+      ]
+    });
   }
 
   // === 計算書產生 ===
@@ -2995,25 +3041,6 @@ ${layerBars.map(L => {
       { group:'握裹 / 搭接長度 (規範 25 章)', items: buildDevelopmentReportItems(r) }
     ];
 
-    const manualReviewItems = collectBeamManualReviewItems(r);
-    const pendingManualReview = manualReviewItems.length > 0;
-    if (pendingManualReview) {
-      checks.push(RCUI.buildReviewCheckGroup(manualReviewItems.map(item => ({
-        sub:describeBeamManualReviewItem(item),
-        value:item
-      })), {
-        group:'人工複核 / 補充資料需求',
-        labelPrefix:'人工複核項目',
-        formula:'不列為 OK 結論；補齊資料後方可作為完整檢核',
-        unit:'需補充資料確認'
-      }));
-    }
-    const allChecks = checks.flatMap(g => g.items.map(i => i.ok)).filter(v => v===true||v===false);
-    const allOk = allChecks.length>0 && allChecks.every(v => v===true);
-    const anyFail = allChecks.some(v => v===false);
-    const reportSummaryOk = anyFail ? false : (pendingManualReview ? null : (allOk ? true : null));
-    const reportSummaryText = anyFail ? '✗ NG — 不符合規範' : (pendingManualReview ? `⚠ 部分項目需人工複核：${manualReviewItems.join('、')}` : (allOk ? '✓ OK — 符合規範' : '部分檢核未完成'));
-
     // 計算過程 (依 showSteps 勾選；只收集有內容的卡)
     const stepsArr = [];
     if ($('showSteps') && $('showSteps').checked) {
@@ -3070,10 +3097,7 @@ ${layerBars.map(L => {
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',
       project: proj,
-      summary: {
-        ok: reportSummaryOk,
-        text: reportSummaryText
-      },
+      summary:false,
       inputs, checks, steps: stepsArr, diagrams,
       symbols: [
         { sym:"fc'", desc:'混凝土抗壓強度' },
@@ -3096,7 +3120,6 @@ ${layerBars.map(L => {
         '扭力：本頁自動判定 Tu 是否可忽略；Tu 超過門檻時承接專案 22.7 詳算結論，未輸入時列為人工複核；本頁不自動反算 At/Al。',
         '撓度：跨深比僅作免算條件；連接易損構造或 h < hmin 時，需以 Bischoff Ie 嚴謹撓度計算確認，未計算時列為人工複核。',
         '裂縫控制：主筋間距採最外排受拉鋼筋中心間距估算；未另算使用應力時，依 24.3.2 採 fs=2/3fy 的簡化上限，完整裂縫寬度或特殊暴露條件仍須由專案文件確認。',
-        ...(pendingManualReview ? ['人工複核項目：' + manualReviewItems.join('、') + '；需以配筋圖、產品認可資料或專案文件確認後，方可作為最終判定。'] : []),
         '本計算書僅供初步設計檢核參考。',
         ...(r.seismic && r.beamColumnJoint
           ? [`梁柱接頭輸出：${r.beamColumnJoint.targetLabel}，Mnb=${r.beamColumnJoint.values.mnbControl.toFixed(2)} tf·m，梁 Mpr 控制剪力=${r.beamColumnJoint.values.veCap.toFixed(2)} tf。`]

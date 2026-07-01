@@ -202,8 +202,12 @@ function openReport(cfg) {
       `).join('')}
     </section>` : '';
 
-  const summary = cfg.summary || {};
+  const hasSummary = cfg.summary !== false;
+  const summary = hasSummary ? (cfg.summary || {}) : {};
   const summaryCls = summary.ok===true?'ok':summary.ok===false?'ng':'na';
+  const summaryHtml = hasSummary
+    ? `<div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>`
+    : '';
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -324,7 +328,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <div><b>製表日期</b>${esc(proj.date)}</div>
   </div>
 
-  <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
+  ${summaryHtml}
 
   ${coverageSummaryHtml}
   ${diagramsHtml}

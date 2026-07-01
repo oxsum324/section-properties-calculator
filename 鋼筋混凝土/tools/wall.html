@@ -396,6 +396,11 @@
         <div id="bannerKey" class="banner-key"></div>
       </div>
 
+      <div class="card report-readiness-card" data-shows="summary" id="wallAttachmentReadinessCard">
+        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
+        <div id="wallAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+      </div>
+
       <div class="card mobile-summary-card" id="quickSummaryCard">
         <h2>快速摘要</h2>
         <div class="quick-summary-grid">
@@ -1390,6 +1395,38 @@
     return { ok, text, numericalOk, anyFail, reviewWarnings, checks };
   }
 
+  function updateWallAttachmentReadiness(r) {
+    if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
+    const hostId = 'wallAttachmentReadiness';
+    const boundaryNote = '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。';
+    if (!r) {
+      RCUI.renderAttachmentReadiness(hostId, {
+        status: 'neutral',
+        title: '尚未計算',
+        items: [{ label: '計算結果', value: '尚未建立', tone: 'neutral' }],
+        notes: [boundaryNote]
+      });
+      return;
+    }
+    const summary = summarizeWallResult(r);
+    const failed = summary.checks.filter(([, ok]) => ok === false).map(([label]) => label);
+    const reviewWarnings = Array.isArray(summary.reviewWarnings) ? summary.reviewWarnings : [];
+    const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
+    const title = failed.length ? '暫勿作附件' : reviewWarnings.length ? '可作附件，需人工複核' : '可作附件';
+    const items = [
+      { label: '主要檢核', value: failed.length ? `${failed.length} 項未通過` : '數值通過', tone: failed.length ? 'fail' : 'ok' },
+      { label: '正式分析需求', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
+      ...failed.map((label, index) => ({ label: `阻擋 ${index + 1}`, value: label, tone: 'fail' })),
+      ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' }))
+    ];
+    RCUI.renderAttachmentReadiness(hostId, {
+      status,
+      title,
+      items,
+      notes: [boundaryNote, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
+    });
+  }
+
   let _wallState = {};
   function calcWall() {
     markAllResultsPending();
@@ -2097,6 +2134,7 @@ ${basementStepTxt}
     wallResult.numericalOk = wallSummary.numericalOk;
     window.wallLast = wallResult;
     updateBanner(window.wallLast);
+    updateWallAttachmentReadiness(window.wallLast);
     updateQuickSummaryWall();
     if (typeof buildSummaryTable === 'function') buildSummaryTable();
     if (typeof buildMethodAuditTable === 'function') buildMethodAuditTable();
@@ -2559,19 +2597,6 @@ ${basementStepTxt}
       ]}]:[])
     ];
 
-    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : collectWallReviewWarnings(r);
-    if (reviewWarnings.length) {
-      checks.push(RCUI.buildReviewCheckGroup(reviewWarnings, {
-        group:'待確認 / 正式分析需求',
-        labelPrefix:'待確認事項',
-        formula:'不列為 OK 結論',
-        value:'需正式分析確認'
-      }));
-    }
-    const reportSummary = r.summaryText
-      ? { ok:r.summaryOk, text:r.summaryText }
-      : summarizeWallResult({ ...r, reviewWarnings });
-
     const stepsArr = [];
     if ($('showSteps') && $('showSteps').checked) {
       const grab = (id, label) => {
@@ -2599,7 +2624,7 @@ ${basementStepTxt}
     openReport({
       title:'牆設計計算書', subtitle:'RC Wall Design Report',
       project:proj,
-      summary:reportSummary,
+      summary:false,
       inputs, checks, diagrams,
       steps: stepsArr,
       methods,
@@ -2620,8 +2645,7 @@ ${basementStepTxt}
         '本計算書由 RC 工具箱自動產生，僅供初步設計參考',
         r.seismic?'已套用特殊結構牆 (SSW) 耐震規定':'未套用耐震規定',
         `面外撓曲採 ${r.slenderMethod==='simple'?'簡版 (1 次 P-δ)':'完整 P-Δ 迭代'} (Ec = 12000·√fc′, 規範 19.2.2)`,
-        r.aggRows && r.aggRows.length ? `多片牆聚合：${r.aggRows.length} 段，ΣφVn=${(r.sumVn_kgf/1000).toFixed(1)} tf` : '未啟用多片牆聚合',
-        ...reviewWarnings.map(text => `待確認：${text}`)
+        r.aggRows && r.aggRows.length ? `多片牆聚合：${r.aggRows.length} 段，ΣφVn=${(r.sumVn_kgf/1000).toFixed(1)} tf` : '未啟用多片牆聚合'
       ]
     });
   }

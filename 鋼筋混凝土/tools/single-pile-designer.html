@@ -145,6 +145,76 @@
     line-height: 1.45;
   }
   .report-status[hidden] { display: none; }
+  .report-readiness-card { border-top: 3px solid var(--accent); }
+  .report-readiness-card h2 .scope-badge {
+    font-size: 0.68em;
+    background: #dcfce7;
+    color: #166534;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .report-readiness-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    background: #f8fafc;
+    font-size: 0.88em;
+  }
+  .report-readiness-summary.ok { border-left-color: var(--good); background: #ecfdf5; color: #065f46; }
+  .report-readiness-summary.warn { border-left-color: var(--warn); background: #fffbeb; color: #92400e; }
+  .report-readiness-summary.fail { border-left-color: var(--bad); background: #fef2f2; color: #991b1b; }
+  .report-readiness-summary.neutral { color: var(--muted); }
+  .report-readiness-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.82em;
+    font-weight: 800;
+    background: #e5e7eb;
+    color: #374151;
+    white-space: nowrap;
+  }
+  .report-readiness-badge.ok { background: #bbf7d0; color: #166534; }
+  .report-readiness-badge.warn { background: #fde68a; color: #92400e; }
+  .report-readiness-badge.fail { background: #fecaca; color: #991b1b; }
+  .report-readiness-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .report-readiness-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    background: #fffaf2;
+    font-size: 0.84em;
+  }
+  .report-readiness-item.ok { border-left-color: var(--good); }
+  .report-readiness-item.warn { border-left-color: var(--warn); }
+  .report-readiness-item.fail { border-left-color: var(--bad); }
+  .report-readiness-item.neutral { border-left-color: var(--line); }
+  .report-readiness-item .label { color: var(--muted); font-weight: 600; }
+  .report-readiness-item .value { color: var(--ink); font-weight: 800; text-align: right; }
+  .report-readiness-notes {
+    margin: 10px 0 0 18px;
+    color: var(--muted);
+    font-size: 0.8em;
+    line-height: 1.5;
+  }
+  .report-readiness-notes li { margin: 4px 0; }
   .banner {
     border-radius: 12px;
     padding: 12px 14px;
@@ -199,6 +269,9 @@
   @media (max-width: 720px) {
     .page { padding: 14px; }
     .form-grid, .result-grid { grid-template-columns: 1fr; }
+  }
+  @media print {
+    .report-readiness-card { display: none !important; }
   }
 </style>
 </head>
@@ -459,6 +532,11 @@
           <div class="result"><span class="k">Qs / Qb</span><span class="v" id="rSplit">—</span></div>
           <div class="result"><span class="k">規範檢核</span><span class="v" id="rCode">—</span></div>
         </div>
+      </div>
+
+      <div class="card report-readiness-card" id="singlePileAttachmentReadinessCard">
+        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
+        <div id="singlePileAttachmentReadiness" role="status" aria-live="polite">尚未試算。</div>
       </div>
 
       <div class="card">
@@ -1527,6 +1605,52 @@ ${gainText}`;
     node.hidden = !message;
   }
 
+  function updateSinglePileAttachmentReadiness(r) {
+    const hostId = 'singlePileAttachmentReadiness';
+    if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
+    const boundaryNote = '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。';
+    if (!r || (!r.bestCandidate && !r.displayCandidate && !r.errors)) {
+      RCUI.renderAttachmentReadiness(hostId, {
+        status: 'neutral',
+        title: '尚未試算',
+        items: [{ label: '計算結果', value: '尚未建立', tone: 'neutral' }],
+        notes: [boundaryNote]
+      });
+      return;
+    }
+    if (Array.isArray(r.errors) && r.errors.length) {
+      RCUI.renderAttachmentReadiness(hostId, {
+        status: 'blocked',
+        title: '暫勿作附件',
+        items: r.errors.map(text => ({ label: '輸入資料', value: text, tone: 'fail' })),
+        notes: ['請先修正土層或搜尋範圍輸入，再產生計算書。', boundaryNote]
+      });
+      return;
+    }
+    const candidate = r.bestCandidate || r.displayCandidate;
+    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
+    const failed = [];
+    if (!r.ok) failed.push('搜尋範圍內沒有完全通過的單樁方案。');
+    if (candidate && candidate.pass === false) {
+      (candidate.reasons || []).forEach(reason => failed.push(reason));
+    }
+    const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
+    const title = failed.length ? '暫勿作附件' : reviewWarnings.length ? '可作附件，需人工複核' : '可作附件';
+    const items = [
+      { label: '候選方案', value: candidate ? `D ${candidate.diaCm} cm / L ${Number(candidate.depthM).toFixed(1)} m` : '未建立', tone: candidate ? (failed.length ? 'fail' : 'ok') : 'fail' },
+      { label: '承載 / 沉陷 / 樁身', value: failed.length ? '未完整通過' : '數值通過', tone: failed.length ? 'fail' : 'ok' },
+      { label: '人工複核', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
+      ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' })),
+      ...failed.map((text, index) => ({ label: `阻擋 ${index + 1}`, value: text, tone: 'fail' }))
+    ];
+    RCUI.renderAttachmentReadiness(hostId, {
+      status,
+      title,
+      items,
+      notes: [boundaryNote, '人工複核項目仍須由地工資料、專案規範或設計者判斷補齊。']
+    });
+  }
+
   function buildSinglePileReport() {
     calc();
     const r = window.singlePileLast;
@@ -1542,10 +1666,7 @@ ${gainText}`;
     const params = r.params;
     const candidate = r.bestCandidate || r.displayCandidate;
     const tipName = layerLabel(candidate.tip.tipLayer);
-    const designFail = !r.ok || !candidate.pass;
     const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : collectSinglePileReviewWarnings(r.params, r.compliance);
-    const summaryOk = designFail ? false : reviewWarnings.length ? null : true;
-    const summaryText = designFail ? '✗ NG' : reviewWarnings.length ? '⚠ 需人工複核' : '✓ OK';
     const diagram = buildPileProfileDiagram(candidate, r.soilLayers);
 
     openReport({
@@ -1590,15 +1711,7 @@ ${gainText}`;
           { label: '細部折減參數', value: reviewWarnings.length ? '需人工複核' : '預設保守值內', ok: reviewWarnings.length ? null : true },
           { label: '計算模式揭露', value: getModeLabel(params.calcMode), ok: true },
           { label: 'N 值經驗式適用性', value: params.calcMode === 'regulation' && params.regulationMethod === 'nvalue' ? '僅適用砂性土，特殊地層需人工複核' : '未採 N 值經驗式', ok: null }
-        ]},
-        ...(reviewWarnings.length ? [RCUI.buildReviewCheckGroup(reviewWarnings.map(text => ({
-          sub:`人工複核項目：${text}`
-        })), {
-          group:'人工複核 / 補充資料需求',
-          labelPrefix:'人工複核項目',
-          formula:'不列為 OK 結論；補齊資料後方可作為完整檢核',
-          unit:'需補充資料確認'
-        })] : [])
+        ]}
       ],
       diagrams: diagram ? [{ title: '土層與單樁採用深度', dataURL: diagram, caption: `D ${candidate.diaCm} cm、L ${fmt(candidate.depthM, 1)} m；控制端點層：${tipName}`, width: 680 }] : [],
       steps: [
@@ -1619,7 +1732,7 @@ ${gainText}`;
         { sym: 'Ra', desc: '抗拔容許承載力' },
         { sym: 'Wo', desc: '總沉陷估算值' }
       ],
-      summary: { ok: summaryOk, text: summaryText },
+      summary: false,
       notes: [
         '本計算書為單樁承載力、沉陷與樁身壓應力初步檢核；群樁、樁帽與側向反應請另依專案分析。',
         '若地工報告、試樁結果或專案規範提供更保守參數，應以專案指定值複核。',
@@ -1647,6 +1760,7 @@ ${gainText}`;
       renderLayerTable(null);
       renderCandidateTable([], null);
       window.singlePileLast = { ok: false, errors: parsed.errors };
+      updateSinglePileAttachmentReadiness(window.singlePileLast);
       return;
     }
 
@@ -1678,6 +1792,8 @@ ${gainText}`;
     if (params.diameterMax < params.diameterMin || params.depthMax < params.depthMin) {
       banner.textContent = '搜尋範圍設定錯誤：最大值不可小於最小值。';
       banner.className = 'banner bad';
+      window.singlePileLast = { ok: false, errors: ['搜尋範圍設定錯誤：最大值不可小於最小值。'] };
+      updateSinglePileAttachmentReadiness(window.singlePileLast);
       return;
     }
     const safetyFactorOrderWarning = params.calcMode !== 'regulation' && params.safetyFactorLong < params.safetyFactorShort;
@@ -1763,6 +1879,7 @@ ${reviewWarnings.length ? `\n需要複核：\n- ${reviewWarnings.join('\n- ')}` 
       } : null,
       candidateCount: candidates.length
     };
+    updateSinglePileAttachmentReadiness(window.singlePileLast);
   }
 
   function applyPreset(key) {

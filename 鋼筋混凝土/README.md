@@ -63,16 +63,17 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 柱報告視覺 smoke 已接在 [tools/test-column.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-column.ps1:1)，並由 [tools/column-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/column-report-visual.contract.test.js:1) 固定測試案例與品質門檻，會以瀏覽器產生計算書，檢查：
 
 - 一般矩形柱、耐震搭接 Class A 不適用改列 B、首支箍筋/外區間距 NG 三種代表報告情境。
-- 缺漏 / 複核摘要需位於總判定之後、細部檢核之前，並維持三張摘要卡。
-- 耐震搭接、柱端錨定、橫向鋼筋間距與圍束等人工複核或不符項目需明確出現在報告中。
-- 報告表格、摘要卡與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
+- 計算書不得輸出頁面用的「提醒」或「缺漏 / 複核摘要」卡；相關缺漏提示保留在工具頁面。
+- 耐震搭接、柱端錨定、橫向鋼筋間距與圍束等技術判定仍需保留在檢核表與規範覆蓋矩陣中。
+- 報告表格、規範覆蓋矩陣與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
 - 輸出 PNG、PDF 與 JSON 稽核紀錄。
 
 板報告視覺 smoke 已接在 [tools/test-slab.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-slab.ps1:1)，會以瀏覽器產生計算書，檢查：
 
-- 單向板基本例與無梁板邊柱保守例兩種代表報告情境。
+- 單向板基本例、雙向有梁板、無梁板內柱待頁面確認例與無梁板邊柱保守例四種代表報告情境。
 - 板 1 m 寬條帶斷面配筋示意圖需實際進入計算書並完成渲染。
 - 單向板係數法、簡化二向條帶初估、雙向衝剪與保守放大警語需出現在報告中。
+- 計算書不得輸出頁面用的「待確認」狀態 banner 或「待確認 / 正式分析需求」提示群組。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格、圖示與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
 - 輸出 PNG、PDF 與 JSON 稽核紀錄。

@@ -21,7 +21,6 @@ const CHROME_CANDIDATES = [
 const EXPECTED = {
   one_basic: {
     title: '板初步設計計算書',
-    summary: 'OK',
     minCheckGroups: 6,
     fragments: [
       '單向板',
@@ -34,7 +33,6 @@ const EXPECTED = {
   },
   flat_edge_cons: {
     title: '板初步設計計算書',
-    summary: 'NG',
     minCheckGroups: 7,
     fragments: [
       '無梁版',
@@ -49,33 +47,23 @@ const EXPECTED = {
   },
   two_basic: {
     title: '板初步設計計算書',
-    summary: '待確認',
-    minCheckGroups: 7,
+    minCheckGroups: 6,
     fragments: [
       '雙向板 (有梁)',
       '簡化二向條帶法',
       'Rankine-Grashof',
-      '待確認 / 正式分析需求',
-      '待確認事項 1',
-      '不列為 OK 結論',
-      '需正式分析確認',
-      '完整雙向板分析',
+      '非完整 8.10 DDM',
       '板 1 m 寬條帶斷面配筋示意',
     ],
   },
   flat_interior_pass_warn: {
     title: '板初步設計計算書',
-    summary: '待確認',
-    minCheckGroups: 8,
+    minCheckGroups: 7,
     fragments: [
       '無梁版',
       '內版',
       '初估模式',
-      '待確認 / 正式分析需求',
-      '待確認事項 1',
-      '不列為 OK 結論',
-      '需正式分析確認',
-      '完整 8.10 DDM / EFM',
+      '非完整 8.10 DDM',
       'unbalanced moment transfer',
       '板 1 m 寬條帶斷面配筋示意',
     ],
@@ -195,6 +183,7 @@ async function reportMetrics(report) {
       title: clean(document.querySelector('h1')?.textContent),
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
+      hasReportSummary: Boolean(document.querySelector('.rep-summary')),
       bodyText: clean(document.body.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       stepCount: document.querySelectorAll('.rep-step').length,
@@ -247,13 +236,21 @@ async function main() {
         slabLastOk: !!window.slabLast,
         stype: window.slabLast?.stype,
         allOk: window.slabLast?.allOk,
+        reviewWarningCount: window.slabLast?.reviewWarnings?.length ?? 0,
         methodLabel: window.slabLast?.methodLabel,
         hasSectionSvg: !!document.querySelector('#sectionSVG svg'),
+        readinessText: document.getElementById('slabAttachmentReadinessCard')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        readinessStatus: document.getElementById('slabAttachmentReadiness')?.dataset.attachmentStatus || '',
+        readinessDisplay: getComputedStyle(document.getElementById('slabAttachmentReadinessCard')).display,
       }));
       assert(state.slabLastOk, `${key} calculation state exists`, state.banner);
       assert(state.hasSectionSvg, `${key} section SVG exists`, state.methodLabel);
-      if (expected.summary === 'NG' || expected.summary === '待確認') {
-        assert(!state.banner.includes('OK — 初步檢查通過'), `${key} no misleading summary banner`, state.banner);
+      assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
+      assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
+      assert(['ready', 'review', 'estimate', 'blocked'].includes(state.readinessStatus), `${key} page attachment readiness status`, state.readinessStatus);
+      assert(state.readinessDisplay !== 'none', `${key} page attachment readiness visible`, state.readinessDisplay);
+      if (state.reviewWarningCount > 0 || state.allOk === false) {
+        assert(!state.banner.includes('OK — 初步檢查通過'), `${key} no misleading page banner`, state.banner);
       }
 
       const popupPromise = page.waitForEvent('popup', { timeout: 10000 });
@@ -283,7 +280,7 @@ async function main() {
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
-      assert(metrics.summary.includes(expected.summary), `${key} summary status`, metrics.summary);
+      assert(!metrics.hasReportSummary, `${key} report status banner hidden`, 'no .rep-summary');
       assert(metrics.checkGroupCount >= expected.minCheckGroups, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.stepCount >= 1, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagrams`, `count=${metrics.diagramCount}`);
@@ -293,6 +290,19 @@ async function main() {
       for (const fragment of expected.fragments || []) {
         assert(metrics.bodyText.includes(fragment), `${key} report includes`, fragment);
       }
+      [
+        '待確認 / 正式分析需求',
+        '待確認事項',
+        '需正式分析確認',
+        '⚠ 待確認',
+        '產報前檢查',
+        '可作附件，需人工複核',
+        '僅供初估，不建議直接作附件',
+        '暫勿作附件',
+        '不會寫入計算書或列印 PDF',
+      ].forEach(fragment => {
+        assert(!metrics.bodyText.includes(fragment), `${key} report excludes page-only review prompt`, fragment);
+      });
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
       assert(metrics.overflowSample.length === 0, `${key} report element overflow`, metrics.overflowSample.map(o => `${o.tag}.${o.cls}`).join(', ') || 'none');
       assert(metrics.documentScrollWidth <= metrics.viewportWidth + 2, `${key} report horizontal overflow`, `scroll=${metrics.documentScrollWidth}, viewport=${metrics.viewportWidth}`);

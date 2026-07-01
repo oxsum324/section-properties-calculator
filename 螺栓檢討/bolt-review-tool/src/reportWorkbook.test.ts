@@ -17,6 +17,19 @@ import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildReportWorkbook, serializeReportWorkbook } from './reportWorkbook'
 import { normalizeUnitPreferences } from './units'
 
+const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
+  '產報前檢查',
+  '附件適用狀態',
+  '優先建議報告閱讀狀態',
+  '報告閱讀狀態',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+]
+
 function buildParams() {
   const product = defaultProducts.find(
     (item) => item.id === defaultProject.selectedProductId,
@@ -127,6 +140,23 @@ function worksheetToObjects(workbook: ExcelJS.Workbook, name: string) {
   })
 }
 
+function workbookText(workbook: ExcelJS.Workbook) {
+  const chunks: string[] = []
+  for (const worksheet of workbook.worksheets) {
+    chunks.push(worksheet.name)
+    worksheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        if (cell.text) {
+          chunks.push(cell.text)
+          return
+        }
+        chunks.push(String(cell.value ?? ''))
+      })
+    })
+  }
+  return chunks.join('\n')
+}
+
 describe('reportWorkbook', () => {
   it('builds a workbook with the core review sheets', () => {
     const workbook = buildReportWorkbook(buildParams())
@@ -157,6 +187,10 @@ describe('reportWorkbook', () => {
     expect(
       summaryRows.some((row) => row.項目 === '使用邊界 / 簽證責任'),
     ).toBe(true)
+    const text = workbookText(workbook)
+    for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES) {
+      expect(text).not.toContain(needle)
+    }
 
     const summarySheet = workbook.getWorksheet('Summary')
     expect(summarySheet).toBeDefined()

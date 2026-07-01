@@ -20,6 +20,27 @@ LOCAL_HTTP_ORIGINS = {
     f'http://localhost:{PORT}',
 }
 MAX_POST_BYTES = 50 * 1024 * 1024
+PAGE_ONLY_REVIEW_STATUS_NEEDLES = (
+    '產報前檢查',
+    '附件適用狀態',
+    '優先建議報告閱讀狀態',
+    '報告閱讀狀態',
+    '可作附件',
+    '暫勿作附件',
+    '頁面輔助',
+    '公司內部整理計算附件',
+    '不會寫入計算書',
+    '不會寫入計算書或列印 PDF',
+)
+PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS = (
+    'page_only',
+    'report_reading_status',
+    'priority_report_reading_status',
+    'attachment_status',
+    'calc_attachment_status',
+    'reader_status',
+)
+_DROP_PAGE_ONLY_REVIEW_STATUS = object()
 
 # ── 閒置自動關閉 ──────────────────────────────────────────
 # 背景 pythonw 啟動時，超過 N 分鐘無任何請求則結束，避免長駐占記憶體。
@@ -190,7 +211,9 @@ def summarize_results(data):
 
 def _server_review_summary(meta, server_info):
     raw_review = meta.get('review_summary', {})
-    review = dict(raw_review) if isinstance(raw_review, dict) else {}
+    review = _strip_page_only_review_status(raw_review) if isinstance(raw_review, dict) else {}
+    if not isinstance(review, dict):
+        review = {}
     app_tool_html = str(meta.get('tool_html') or '')
     html_match = (app_tool_html == TOOL_HTML)
     server_eval = {
@@ -225,6 +248,41 @@ def infer_result_source(data, mode):
     if results and len(results) == len(cases):
         return 'frontend_results'
     return 'legacy_python_fallback'
+
+
+def _contains_page_only_review_status(value):
+    text = str(value or '')
+    return any(needle in text for needle in PAGE_ONLY_REVIEW_STATUS_NEEDLES)
+
+
+def _is_page_only_review_status_key(key):
+    normalized = str(key or '').replace('-', '_').lower()
+    return (
+        any(marker in normalized for marker in PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS)
+        or _contains_page_only_review_status(key)
+    )
+
+
+def _strip_page_only_review_status(value):
+    if isinstance(value, dict):
+        cleaned = {}
+        for key, item in value.items():
+            if _is_page_only_review_status_key(key):
+                continue
+            cleaned_item = _strip_page_only_review_status(item)
+            if cleaned_item is not _DROP_PAGE_ONLY_REVIEW_STATUS:
+                cleaned[key] = cleaned_item
+        return cleaned
+    if isinstance(value, list):
+        cleaned = []
+        for item in value:
+            cleaned_item = _strip_page_only_review_status(item)
+            if cleaned_item is not _DROP_PAGE_ONLY_REVIEW_STATUS:
+                cleaned.append(cleaned_item)
+        return cleaned
+    if isinstance(value, str) and _contains_page_only_review_status(value):
+        return _DROP_PAGE_ONLY_REVIEW_STATUS
+    return value
 
 
 def write_export_audit(data, out_path, mode, result_source=None):

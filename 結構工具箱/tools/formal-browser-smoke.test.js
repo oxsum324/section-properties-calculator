@@ -225,7 +225,7 @@ async function waitForJson(url, timeoutMs = 10000) {
 function isTransientEdgeLaunchError(error) {
   if (!error) return false;
   if (['EPERM', 'EACCES', 'EBUSY', 'ECONNREFUSED'].includes(error.code)) return true;
-  return /spawn EPERM|WinError 5|access is denied|Permission denied|Timed out waiting|fetch failed/i.test(error.message || '');
+  return /spawn EPERM|WinError 5|access is denied|Permission denied|Timed out waiting|fetch failed|Edge exited before CDP was ready/i.test(error.message || '');
 }
 
 async function waitForEdgeVersion(child, versionUrl, timeoutMs = 15000) {
@@ -1141,6 +1141,13 @@ function assertReportState(state, tool, label, mode = 'default') {
     const index = auditHtml.indexOf(needle);
     const context = index >= 0 ? auditHtml.slice(Math.max(0, index - 160), index + 160) : '';
     assert.equal(index >= 0, false, `${label} ${tool.key} ${mode} report avoids ${needle}: ${context}`);
+  });
+  const pageOnlyNeedles = formalManifest.reportPageOnlyForbiddenNeedles || [];
+  pageOnlyNeedles.forEach(needle => {
+    const auditHtml = state.auditHtml || state.html;
+    const index = auditHtml.indexOf(needle);
+    const context = index >= 0 ? auditHtml.slice(Math.max(0, index - 160), index + 160) : '';
+    assert.equal(index >= 0, false, `${label} ${tool.key} ${mode} report excludes page-only status ${needle}: ${context}`);
   });
   const disclosureNeedles = formalManifest.reportDisclosureNeedles?.[tool.discipline] || [];
   for (const needle of disclosureNeedles) {

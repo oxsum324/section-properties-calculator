@@ -36,6 +36,15 @@ function makeResult(label, value, unit, status) {
 
 window.RCUI = window.RCUI || {};
 
+window.RCUI.escapeHtml = window.RCUI.escapeHtml || function(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
 window.RCUI.getStepsVerbosity = function(defaultMode = 'full') {
   return document.getElementById('stepsVerbosity')?.value || defaultMode;
 };
@@ -100,4 +109,50 @@ window.RCUI.buildReviewCheckGroup = function(entries, options = {}) {
       note: entry.note
     }))
   };
+};
+
+window.RCUI.renderAttachmentReadiness = function(targetId, state = {}) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  const escape = window.RCUI.escapeHtml;
+  const statusTone = {
+    ready: 'ok',
+    review: 'warn',
+    estimate: 'warn',
+    blocked: 'fail',
+    neutral: 'neutral'
+  };
+  const statusLabel = {
+    ready: '可作附件',
+    review: '可作附件，需人工複核',
+    estimate: '僅供初估，不建議直接作附件',
+    blocked: '暫勿作附件',
+    neutral: '尚未計算'
+  };
+  const status = statusTone[state.status] ? state.status : 'neutral';
+  const tone = statusTone[status];
+  const label = state.label || statusLabel[status];
+  const summary = state.summary || '輸入後自動更新附件適用狀態。';
+  const items = Array.isArray(state.items) ? state.items.filter(Boolean) : [];
+  const notes = Array.isArray(state.notes)
+    ? state.notes.map(note => String(note || '').trim()).filter(Boolean)
+    : [];
+  const toneClass = value => ['ok', 'warn', 'fail', 'neutral'].includes(value) ? value : 'neutral';
+
+  target.dataset.attachmentStatus = status;
+  target.innerHTML = `
+    <div class="report-readiness-summary ${tone}">
+      <span class="report-readiness-badge ${tone}">${escape(label)}</span>
+      <span>${escape(summary)}</span>
+    </div>
+    ${items.length ? `<div class="report-readiness-list">
+      ${items.map(item => `<div class="report-readiness-item ${toneClass(item.tone)}">
+        <span class="label">${escape(item.label)}</span>
+        <span class="value">${escape(item.value)}</span>
+      </div>`).join('')}
+    </div>` : ''}
+    ${notes.length ? `<ul class="report-readiness-notes">
+      ${notes.map(note => `<li>${escape(note)}</li>`).join('')}
+    </ul>` : ''}
+  `;
 };

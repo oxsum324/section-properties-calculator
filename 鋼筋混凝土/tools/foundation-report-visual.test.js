@@ -22,7 +22,7 @@ const CHROME_CANDIDATES = [
 const EXPECTED = {
   iso_default: {
     title: '基礎設計計算書 — 獨立基腳',
-    summary: 'NG',
+    expectedSnapshot: 'NG',
     minCheckGroups: 4,
     fragments: [
       '基礎設計計算書 — 獨立基腳',
@@ -37,7 +37,7 @@ const EXPECTED = {
   },
   combined_default: {
     title: '基礎設計計算書 — 聯合基腳',
-    summary: 'NG',
+    expectedSnapshot: 'NG',
     minCheckGroups: 3,
     fragments: [
       '基礎設計計算書 — 聯合基腳',
@@ -52,36 +52,23 @@ const EXPECTED = {
   },
   combined_pass_warn: {
     title: '基礎設計計算書 — 聯合基腳',
-    summary: '待確認',
-    minCheckGroups: 4,
+    expectedSnapshot: '待確認',
+    minCheckGroups: 3,
     fragments: [
       '基礎設計計算書 — 聯合基腳',
-      '待確認 / 正式聯合基腳分析需求',
-      '待確認事項 1',
-      '不列為 OK 結論',
-      '需正式分析確認',
-      '聯合基腳長向反力',
-      '代表控制檢核',
     ],
   },
   mat_pass_warn: {
     title: '基礎設計計算書 — 筏式基礎',
-    summary: '待確認',
-    minCheckGroups: 3,
+    expectedSnapshot: '待確認',
+    minCheckGroups: 2,
     fragments: [
       '基礎設計計算書 — 筏式基礎',
-      '待確認 / 正式筏基分析需求',
-      '待確認事項 1',
-      '不列為 OK 結論',
-      '需正式分析確認',
-      '多代表柱 tributary',
-      'DDM',
-      '彈簧床分析',
     ],
   },
   pile_default: {
     title: '基礎設計計算書 — 樁基／樁帽',
-    summary: 'NG',
+    expectedSnapshot: 'NG',
     minCheckGroups: 4,
     fragments: [
       '基礎設計計算書 — 樁基／樁帽',
@@ -101,19 +88,13 @@ const EXPECTED = {
   },
   retain_counterfort_warn: {
     title: '基礎設計計算書 — 擋土牆',
-    summary: '待確認',
-    minCheckGroups: 3,
+    expectedSnapshot: '待確認',
+    minCheckGroups: 2,
     fragments: [
       '基礎設計計算書 — 擋土牆',
       '扶壁式（目前為近似檢核）',
       '穩定檢核',
       '牆身強度檢核',
-      '待確認 / 正式扶壁系統分析需求',
-      '待確認事項 1',
-      '不列為 OK 結論',
-      '需正式分析確認',
-      '雙向板 / T 梁系統分析',
-      '扶壁間距 sf 尚未納入',
     ],
   },
 };
@@ -229,6 +210,7 @@ async function reportMetrics(report) {
       title: clean(document.querySelector('h1')?.textContent),
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
+      hasReportSummary: Boolean(document.querySelector('.rep-summary')),
       bodyText: clean(document.body.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       viewportWidth: window.innerWidth,
@@ -284,10 +266,16 @@ async function main() {
         okSettlement: window.ftLast?.okSettlement,
         okPileStress: window.ftLast?.okPileStress,
         summaryOk: window.ftLast?.summaryOk,
+        reviewWarningCount: window.ftLast?.reviewWarnings?.length || 0,
+        readinessText: document.getElementById('foundationAttachmentReadinessCard')?.innerText?.replace(/\s+/g, ' ').trim() || '',
       }));
       assert(state.ftLastOk && state.tab === tc.tab, `${tc.key} calculation state exists`, state.banner);
-      if (EXPECTED[tc.key]?.summary === '待確認') {
+      assert(state.readinessText.includes('產報前檢查'), `${tc.key} page attachment readiness card`, state.readinessText);
+      assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${tc.key} page attachment readiness boundary`, state.readinessText);
+      if (EXPECTED[tc.key]?.expectedSnapshot === '待確認') {
         assert(!state.banner.includes('OK — 符合規範') && !state.banner.includes('✓ OK'), `${tc.key} no misleading OK banner`, state.banner);
+        assert(state.reviewWarningCount >= 1, `${tc.key} review warnings captured`, `count=${state.reviewWarningCount}`);
+        assert(state.readinessText.includes('可作附件，需人工複核'), `${tc.key} page readiness flags review`, state.readinessText);
       }
       if (tc.tab === 'mat') {
         assert(state.mcDdmText.includes('待確認') && state.mcDdmWarn, `${tc.key} DDM unavailable UI is warning`, state.mcDdmText);
@@ -321,10 +309,24 @@ async function main() {
       results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, printMetrics });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
-      assert(metrics.summary.includes(expected.summary), `${tc.key} summary status`, metrics.summary);
+      assert(!metrics.hasReportSummary, `${tc.key} report status summary hidden`, 'no .rep-summary');
       assert(metrics.checkGroupCount >= (expected.minCheckGroups || 4), `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       for (const fragment of expected.fragments || []) {
         assert(metrics.bodyText.includes(fragment), `${tc.key} report includes`, fragment);
+      }
+      for (const forbidden of [
+        '產報前檢查',
+        '可作附件，需人工複核',
+        '暫勿作附件',
+        '不會寫入計算書或列印 PDF',
+        '待確認 / 正式聯合基腳分析需求',
+        '待確認 / 正式筏基分析需求',
+        '待確認 / 正式扶壁系統分析需求',
+        '待確認事項 1',
+        '不列為 OK 結論',
+        '需正式分析確認',
+      ]) {
+        assert(!metrics.bodyText.includes(forbidden), `${tc.key} report excludes page-only status`, forbidden);
       }
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${tc.key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
       assert(metrics.overflowSample.length === 0, `${tc.key} report element overflow`, metrics.overflowSample.map(o => `${o.tag}.${o.cls}`).join(', ') || 'none');

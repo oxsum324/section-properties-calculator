@@ -11,6 +11,20 @@ from backend.app.reporting import _concise_metric_text, build_report, build_word
 from backend.app.workbook_loader import load_default_project
 
 
+PAGE_ONLY_REPORT_STATUS_NEEDLES = (
+    "產報前檢查",
+    "附件適用狀態",
+    "優先建議報告閱讀狀態",
+    "報告閱讀狀態",
+    "可作附件",
+    "暫勿作附件",
+    "頁面輔助",
+    "公司內部整理計算附件",
+    "不會寫入計算書",
+    "不會寫入計算書或列印 PDF",
+)
+
+
 class ReportingTests(unittest.TestCase):
     _default_word_artifact: dict[str, object] | None = None
 
@@ -74,6 +88,12 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("報告說明", combined_text)
         self.assertIn("六、結構計算結果", combined_text)
 
+    def test_word_report_excludes_page_only_status_overview(self) -> None:
+        combined_text = self.default_word_artifact()["combined_text"]
+
+        for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
+            self.assertNotIn(needle, combined_text)
+
     def test_pdf_report_uses_formal_section_structure(self) -> None:
         project = load_default_project().model_copy(deep=True)
         project.calculation_results = calculate_project(project)
@@ -94,6 +114,18 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("附件一", text)
         self.assertIn("主要控制項目彙整", text)
         self.assertEqual(first_page_text.count("擋土支撐檢核計算書"), 1)
+        report_path.unlink(missing_ok=True)
+
+    def test_pdf_report_excludes_page_only_status_overview(self) -> None:
+        project = load_default_project().model_copy(deep=True)
+        project.calculation_results = calculate_project(project)
+
+        report_path = build_report(project)
+        reader = PdfReader(str(report_path))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+
+        for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
+            self.assertNotIn(needle, text)
         report_path.unlink(missing_ok=True)
 
     def test_word_report_adds_header_footer_page_number_and_appendix_page_breaks(self) -> None:

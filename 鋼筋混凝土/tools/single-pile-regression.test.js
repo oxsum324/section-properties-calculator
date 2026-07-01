@@ -56,9 +56,12 @@ async function main() {
   assert(html.includes('id="calcMode"'), 'single-pile calc mode', 'calc mode selector exists');
   assert(html.includes('btnSaveDefaults'), 'single-pile save defaults control', 'save default button exists');
   assert(html.includes('../shared/common.js'), 'single-pile page loads shared common helper', 'RCUI helper is available');
-  assert(html.includes('RCUI.buildReviewCheckGroup'), 'single-pile report uses shared review check group builder', 'manual-review report rows use shared helper');
-  assert(html.includes('人工複核 / 補充資料需求'), 'single-pile report has manual-review group', 'review items are explicit report rows');
-  assert(html.includes('不列為 OK 結論；補齊資料後方可作為完整檢核'), 'single-pile report prevents manual-review OK verdict', 'manual-review boundary is report-visible');
+  assert(html.includes('RCUI.renderAttachmentReadiness'), 'single-pile page uses shared attachment readiness renderer', 'page-only readiness helper is used');
+  assert(html.includes('id="singlePileAttachmentReadiness"'), 'single-pile page has attachment readiness card', 'page-only readiness target exists');
+  assert(html.includes('summary: false'), 'single-pile report disables top status summary', 'attachment status is not printed');
+  assert(!html.includes('人工複核 / 補充資料需求'), 'single-pile report excludes manual-review group', 'manual-review overview stays page-only');
+  assert(!html.includes('不列為 OK 結論；補齊資料後方可作為完整檢核'), 'single-pile report excludes manual-review verdict banner', 'report has no overview verdict text');
+  assert(html.includes('不會寫入計算書或列印 PDF'), 'single-pile readiness boundary copy', 'page says readiness is not printed');
   assert(html.includes('id="reportStatus"'), 'single-pile report status', 'blocked report generation is shown inline');
   assert(!html.includes('alert('), 'single-pile report feedback', 'no blocking alerts in single-pile page');
 

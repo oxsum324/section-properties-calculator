@@ -23,8 +23,9 @@
   header h1 { font-size: 1.45em; }
   header p { font-size: 0.83em; opacity: 0.85; margin-top: 3px; }
   .container { max-width: 1500px; margin: 16px auto; padding: 0 16px; }
-  .main-layout { display: grid; grid-template-columns: 420px 1fr; gap: 18px; align-items: start; }
-  .card { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; }
+  .main-layout { display: grid; grid-template-columns: minmax(560px, 0.9fr) minmax(0, 1.1fr); gap: 18px; align-items: start; min-width: 0; }
+  .main-layout > * { min-width: 0; }
+  .card { background: var(--card); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 14px; min-width: 0; overflow-x: auto; }
   .card h2 { font-size: 1em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--border); color: var(--primary); display: flex; justify-content: space-between; align-items: center; }
   .card h3 { font-size: 0.9em; margin: 10px 0 6px; color: var(--text); }
   .hint { font-size: 0.75em; color: var(--text-light); margin-top: 2px; font-style: italic; }
@@ -56,9 +57,15 @@
   .support-check { display: inline-flex; gap: 4px; justify-content: center; }
   .support-check label { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72em; }
   .support-check input[type=checkbox] { width: 14px; height: 14px; cursor: pointer; }
+  .support-cell { min-width: 250px; text-align: left; }
+  .support-fixed { display: flex; gap: 8px; align-items: center; justify-content: center; margin-bottom: 4px; }
+  .support-springs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .support-springs label { display: flex; flex-direction: column; gap: 2px; font-size: 0.68em; }
+  .support-springs input { min-width: 0; padding: 3px 4px; font-size: 0.78em; }
+  .support-springs input:disabled { background: #f1f5f9; color: #94a3b8; }
 
   .canvas-wrap { background: #fafbfc; border-radius: 8px; border: 1px dashed var(--border); padding: 8px; overflow: auto; }
-  canvas { display: block; margin: 0 auto; }
+  canvas { display: block; max-width: 100%; height: auto; margin: 0 auto; }
 
   .results-table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
   .results-table th, .results-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); text-align: center; }
@@ -67,18 +74,30 @@
 
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .row2 > *, .row3 > * { min-width: 0; }
+  .row2 input, .row2 select, .row3 input, .row3 select { width: 100%; min-width: 0; }
   .flex-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 
   .error-msg { background: #fef2f2; color: var(--danger); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
   .warn-msg { background: #fef3c7; color: var(--warn); padding: 8px 12px; border-radius: 8px; font-size: 0.85em; margin-top: 8px; display: none; }
   .report-status { min-height: 20px; flex-basis: 100%; color: var(--warn); font-size: 0.8em; line-height: 1.5; }
   .report-status:empty { display: none; }
+  .report-link { display: none; color: var(--primary); font-size: 0.8em; font-weight: 700; text-decoration: none; }
+  .check-panel { display: grid; gap: 6px; font-size: 0.8em; }
+  .check-line { border-left: 3px solid var(--border); background: #f8fafc; padding: 6px 8px; border-radius: 4px; }
+  .check-line.ok { border-color: var(--accent); }
+  .check-line.warn { border-color: var(--warn); background: #fffbeb; }
+  .check-line.error { border-color: var(--danger); background: #fef2f2; }
+  .summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+  .summary-grid div { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+  .summary-grid b { display: block; font-size: 0.72em; color: var(--text-light); }
+  .summary-grid span { font-family: Consolas, monospace; font-size: 0.86em; }
 
   .diag-card .canvas-wrap { min-height: 120px; display: flex; align-items: center; justify-content: center; }
   .diag-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .diag-title .legend { font-size: 0.75em; color: var(--text-light); }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1180px) {
     .main-layout { grid-template-columns: 1fr; }
   }
 </style>
@@ -113,6 +132,7 @@
         <div class="flex-row" style="margin-top:8px;">
           <button class="btn btn-ghost btn-sm" onclick="loadExample('portal')">門型剛架</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('portalHinge')">門型剛架(梁端鉸接)</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadExample('springPortal')">彈性支承</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('cantilever')">懸臂驗證</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('ss')">簡支梁(均布)</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('ssP')">簡支梁(集中)</button>
@@ -134,7 +154,24 @@
           <button class="btn btn-ghost btn-sm" onclick="loadDraft()">讀取暫存</button>
           <button class="btn btn-ghost btn-sm" onclick="printReport()">列印計算書</button>
           <span id="reportStatus" class="report-status" role="status" aria-live="polite"></span>
+          <a id="reportLink" class="report-link" href="#" target="_blank" rel="noopener">開啟計算書</a>
         </div>
+      </div>
+
+      <div class="card">
+        <h2>載重案例 / 分析組合 <button class="btn btn-primary btn-sm" onclick="addLoadCaseRow()">+ 案例</button></h2>
+        <table class="data-tbl">
+          <thead>
+            <tr>
+              <th style="width:38px;">#</th>
+              <th>案例名稱</th>
+              <th style="width:90px;">組合因子</th>
+              <th style="width:30px;"></th>
+            </tr>
+          </thead>
+          <tbody id="loadCaseTbody"></tbody>
+        </table>
+        <div class="hint">目前分析組合 = Σ(各案例載重 × 組合因子)。自重併入第一個載重案例；因子 0 可暫時排除該案例。</div>
       </div>
 
       <div class="card">
@@ -145,13 +182,13 @@
               <th style="width:38px;">#</th>
               <th>X (m)</th>
               <th>Y (m)</th>
-              <th style="width:110px;">支承 (uX uY θ)</th>
+              <th style="width:250px;">支承 / 彈簧</th>
               <th style="width:30px;"></th>
             </tr>
           </thead>
           <tbody id="nodeTbody"></tbody>
         </table>
-        <div class="hint">勾選對應自由度 = 該方向被固定。未勾選 = 自由。</div>
+        <div class="hint">勾選 = 該自由度固定；未勾選時可輸入彈簧剛度 kX/kY (tf/m)、kθ (tf·m/rad)。固定自由度的彈簧不參與分析。</div>
       </div>
 
       <div class="card">
@@ -178,6 +215,7 @@
         <table class="data-tbl">
           <thead>
             <tr>
+              <th style="width:72px;">案例</th>
               <th style="width:38px;">節點</th>
               <th>Fx (tf)</th>
               <th>Fy (tf)</th>
@@ -195,6 +233,7 @@
         <table class="data-tbl">
           <thead>
             <tr>
+              <th style="width:72px;">案例</th>
               <th style="width:38px;">桿件</th>
               <th>w (tf/m)</th>
               <th>方向</th>
@@ -211,6 +250,7 @@
         <table class="data-tbl">
           <thead>
             <tr>
+              <th style="width:72px;">案例</th>
               <th style="width:38px;">桿件</th>
               <th>P (tf)</th>
               <th>a (m)</th>
@@ -230,6 +270,13 @@
 
     <!-- ============== RIGHT PANEL ============== -->
     <div>
+      <div class="card">
+        <h2>模型自檢 / 平衡檢核</h2>
+        <div id="modelCheckPanel" class="check-panel">
+          <div class="check-line warn">尚未執行分析。</div>
+        </div>
+      </div>
+
       <div class="card diag-card">
         <div class="diag-title"><h2 style="border:none;padding:0;margin:0;">幾何 / 變形圖</h2><span class="legend">灰 = 原始, 藍 = 變形 (放大顯示)</span></div>
         <div class="canvas-wrap"><canvas id="geomCanvas" width="800" height="500"></canvas></div>
@@ -281,23 +328,266 @@
 // 資料模型
 // ============================================================
 const state = {
-  nodes: [],        // {id, x, y, cx, cy, crz}  // cx/cy/crz = 被約束旗標
+  nodes: [],        // {id, x, y, cx, cy, crz, kx, ky, krz}
   members: [],      // {id, i, j, E, A, I, relI, relJ}  // relI/relJ = i/j 端彎矩釋放(鉸接)
+  loadCases: [],    // {id, name}
+  comboFactors: {}, // {loadCaseId: factor}
   nodalLoads: [],   // {node, Fx, Fy, M}        // tf, tf, tf·m
   memberLoads: [],  // {member, w, dir}         // w (tf/m), dir: 'globalY'|'localY'
   memberPointLoads: [], // {member, P, a, dir}  // P(tf), a(m 從 i 端沿桿件), dir
   solution: null
 };
 
-let nodeIdCnt = 0, memberIdCnt = 0;
+let nodeIdCnt = 0, memberIdCnt = 0, loadCaseIdCnt = 0;
+
+function asNonNegativeNumber(value) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function makeNode(data) {
+  const d = data || {};
+  return {
+    x: +d.x || 0,
+    y: +d.y || 0,
+    cx: !!d.cx,
+    cy: !!d.cy,
+    crz: !!d.crz,
+    kx: asNonNegativeNumber(d.kx),
+    ky: asNonNegativeNumber(d.ky),
+    krz: asNonNegativeNumber(d.krz)
+  };
+}
+
+function springValue(n, key) {
+  return asNonNegativeNumber(n && n[key]);
+}
+
+function activeSpring(n, fixedKey, springKey) {
+  return n && !n[fixedKey] ? springValue(n, springKey) : 0;
+}
+
+function hasAnySpring(n) {
+  return activeSpring(n, 'cx', 'kx') > 0 || activeSpring(n, 'cy', 'ky') > 0 || activeSpring(n, 'crz', 'krz') > 0;
+}
+
+function hasSupportDof(n, fixedKey, springKey) {
+  return !!(n && (n[fixedKey] || activeSpring(n, fixedKey, springKey) > 0));
+}
+
+function formatSupportValue(label, value, unit) {
+  return `${label}=${(+value).toFixed(3).replace(/\.?0+$/, '')} ${unit}`;
+}
+
+function formatNodeSupport(n) {
+  const fixed = [];
+  if (n.cx) fixed.push('X');
+  if (n.cy) fixed.push('Y');
+  if (n.crz) fixed.push('θ');
+  const springs = [];
+  if (!n.cx && springValue(n, 'kx') > 0) springs.push(formatSupportValue('kX', n.kx, 'tf/m'));
+  if (!n.cy && springValue(n, 'ky') > 0) springs.push(formatSupportValue('kY', n.ky, 'tf/m'));
+  if (!n.crz && springValue(n, 'krz') > 0) springs.push(formatSupportValue('kθ', n.krz, 'tf·m/rad'));
+  const parts = [];
+  if (fixed.length) parts.push(`固定 ${fixed.join(' ')}`);
+  if (springs.length) parts.push(`彈簧 ${springs.join('、')}`);
+  return parts.join('；') || '自由';
+}
+
+function ensureLoadCases() {
+  if (!state.loadCases.length) {
+    const id = ++loadCaseIdCnt;
+    state.loadCases.push({ id, name: 'D' });
+    state.comboFactors[id] = 1;
+  }
+  for (const lc of state.loadCases) {
+    if (state.comboFactors[lc.id] == null) state.comboFactors[lc.id] = lc.id === state.loadCases[0].id ? 1 : 0;
+  }
+}
+
+function firstLoadCaseId() {
+  ensureLoadCases();
+  return state.loadCases[0].id;
+}
+
+function normalizeLoadCaseId(id) {
+  ensureLoadCases();
+  const n = parseInt(id);
+  return state.loadCases.some(lc => lc.id === n) ? n : firstLoadCaseId();
+}
+
+function comboFactor(caseId) {
+  ensureLoadCases();
+  const v = parseFloat(state.comboFactors[caseId]);
+  return Number.isFinite(v) ? v : 0;
+}
+
+function loadCaseOptions(selectedId) {
+  ensureLoadCases();
+  return state.loadCases.map(lc => `<option value="${lc.id}" ${lc.id === selectedId ? 'selected' : ''}>${escapeHtml(lc.name || ('LC' + lc.id))}</option>`).join('');
+}
+
+function formatActiveCombination() {
+  ensureLoadCases();
+  return state.loadCases
+    .map(lc => ({ name: lc.name || ('LC' + lc.id), factor: comboFactor(lc.id) }))
+    .filter(item => Math.abs(item.factor) > 1e-12)
+    .map(item => `${item.factor.toFixed(3).replace(/\.?0+$/, '')}${item.name}`)
+    .join(' + ') || '全部因子為 0';
+}
+
+function activeLoadFactors() {
+  ensureLoadCases();
+  const out = {};
+  for (const lc of state.loadCases) out[lc.id] = comboFactor(lc.id);
+  return out;
+}
+
+function loadCaseName(caseId) {
+  ensureLoadCases();
+  const lc = state.loadCases.find(item => item.id === caseId);
+  return lc ? (lc.name || `LC${lc.id}`) : `LC${caseId}`;
+}
+
+function momentAboutOrigin(x, y, fx, fy, m = 0) {
+  return x * fy - y * fx + m;
+}
+
+function computeAppliedResultant(factors = activeLoadFactors()) {
+  const idToNode = new Map(state.nodes.map(n => [n.id, n]));
+  const idToMember = new Map(state.members.map(m => [m.id, m]));
+  const result = { Fx: 0, Fy: 0, M: 0 };
+  for (const ld of state.nodalLoads) {
+    const n = idToNode.get(ld.node);
+    const factor = factors[normalizeLoadCaseId(ld.caseId)] ?? 0;
+    if (!n || Math.abs(factor) < 1e-12) continue;
+    const fx = (ld.Fx || 0) * factor;
+    const fy = (ld.Fy || 0) * factor;
+    const mm = (ld.M || 0) * factor;
+    result.Fx += fx;
+    result.Fy += fy;
+    result.M += momentAboutOrigin(n.x, n.y, fx, fy, mm);
+  }
+  const addMemberLoadResult = (m, fxPerM, fyPerM, factor) => {
+    const ni = idToNode.get(m.i), nj = idToNode.get(m.j);
+    if (!ni || !nj) return;
+    const L = Math.hypot(nj.x - ni.x, nj.y - ni.y);
+    const fx = fxPerM * L * factor;
+    const fy = fyPerM * L * factor;
+    const mx = (ni.x + nj.x) / 2;
+    const my = (ni.y + nj.y) / 2;
+    result.Fx += fx;
+    result.Fy += fy;
+    result.M += momentAboutOrigin(mx, my, fx, fy);
+  };
+  for (const ml of state.memberLoads) {
+    const m = idToMember.get(ml.member);
+    if (!m) continue;
+    const ni = idToNode.get(m.i), nj = idToNode.get(m.j);
+    if (!ni || !nj) continue;
+    const L = Math.hypot(nj.x - ni.x, nj.y - ni.y) || 1;
+    const c = (nj.x - ni.x) / L, s = (nj.y - ni.y) / L;
+    const factor = factors[normalizeLoadCaseId(ml.caseId)] ?? 0;
+    if (ml.dir === 'localY') addMemberLoadResult(m, -(ml.w || 0) * s, (ml.w || 0) * c, factor);
+    else addMemberLoadResult(m, 0, -(ml.w || 0), factor);
+  }
+  if (document.getElementById('selfWeight')?.checked) {
+    const density = parseFloat(document.getElementById('density')?.value) || 0;
+    const factor = factors[firstLoadCaseId()] ?? 0;
+    if (density > 0 && Math.abs(factor) > 1e-12) {
+      for (const m of state.members) {
+        const w = density * (m.A || 0) * 1e-4;
+        addMemberLoadResult(m, 0, -w, factor);
+      }
+    }
+  }
+  for (const pl of state.memberPointLoads) {
+    const m = idToMember.get(pl.member);
+    if (!m) continue;
+    const ni = idToNode.get(m.i), nj = idToNode.get(m.j);
+    if (!ni || !nj) continue;
+    const L = Math.hypot(nj.x - ni.x, nj.y - ni.y);
+    if (L < 1e-12) continue;
+    const c = (nj.x - ni.x) / L, s = (nj.y - ni.y) / L;
+    const a = Math.max(0, Math.min(L, pl.a || 0));
+    const x = ni.x + (a / L) * (nj.x - ni.x);
+    const y = ni.y + (a / L) * (nj.y - ni.y);
+    const P = (pl.P || 0) * ((factors[normalizeLoadCaseId(pl.caseId)] ?? 0));
+    let fx = 0, fy = 0;
+    if (pl.dir === 'localY') { fx = -P * s; fy = P * c; }
+    else if (pl.dir === 'localX') { fx = P * c; fy = P * s; }
+    else if (pl.dir === 'globalX') fx = P;
+    else fy = -P;
+    result.Fx += fx;
+    result.Fy += fy;
+    result.M += momentAboutOrigin(x, y, fx, fy);
+  }
+  return result;
+}
+
+function validateModel() {
+  const checks = [];
+  const add = (level, text) => checks.push({ level, text });
+  if (state.nodes.length < 2) add('error', '至少需要 2 個節點。');
+  if (state.members.length < 1) add('error', '至少需要 1 支桿件。');
+  ensureLoadCases();
+  const nodeIds = new Set(state.nodes.map(n => n.id));
+  const memberIds = new Set(state.members.map(m => m.id));
+  const connected = new Set();
+  for (const m of state.members) {
+    if (!nodeIds.has(m.i) || !nodeIds.has(m.j)) add('error', `桿件 M${m.id} 參考不存在的節點。`);
+    const ni = state.nodes.find(n => n.id === m.i), nj = state.nodes.find(n => n.id === m.j);
+    if (ni && nj) {
+      const L = Math.hypot(nj.x - ni.x, nj.y - ni.y);
+      if (L < 1e-9) add('error', `桿件 M${m.id} 長度為 0。`);
+      connected.add(m.i); connected.add(m.j);
+    }
+    if (!(m.E > 0) || !(m.A > 0) || !(m.I > 0)) add('error', `桿件 M${m.id} 的 E/A/I 必須大於 0。`);
+  }
+  for (const n of state.nodes) {
+    if (!connected.has(n.id)) add('warn', `節點 N${n.id} 未連接任何桿件。`);
+  }
+  for (let i = 0; i < state.nodes.length; i++) {
+    for (let j = i + 1; j < state.nodes.length; j++) {
+      const a = state.nodes[i], b = state.nodes[j];
+      if (Math.hypot(a.x - b.x, a.y - b.y) < 1e-9) add('warn', `節點 N${a.id} 與 N${b.id} 座標重合。`);
+    }
+  }
+  const supportX = state.nodes.some(n => hasSupportDof(n, 'cx', 'kx'));
+  const supportY = state.nodes.some(n => hasSupportDof(n, 'cy', 'ky'));
+  const supportR = state.nodes.some(n => hasSupportDof(n, 'crz', 'krz'));
+  if (!supportX) add('error', '全域 X 方向沒有固定或彈簧支承，模型可能剛體平移。');
+  if (!supportY) add('error', '全域 Y 方向沒有固定或彈簧支承，模型可能剛體平移。');
+  if (!supportR && state.nodes.filter(n => hasSupportDof(n, 'cx', 'kx') || hasSupportDof(n, 'cy', 'ky')).length < 2) {
+    add('warn', '缺少直接旋轉 restraint，請確認平移支承位置足以防止剛體轉動。');
+  }
+  if (!state.loadCases.some(lc => Math.abs(comboFactor(lc.id)) > 1e-12)) {
+    add('warn', '目前所有載重案例組合因子皆為 0，分析結果不含外力。');
+  }
+  for (const l of state.nodalLoads) {
+    if (!nodeIds.has(l.node)) add('error', `節點載重參考不存在的節點 N${l.node}。`);
+  }
+  for (const l of state.memberLoads) {
+    if (!memberIds.has(l.member)) add('error', `均布載重參考不存在的桿件 M${l.member}。`);
+  }
+  for (const l of state.memberPointLoads) {
+    const m = state.members.find(mm => mm.id === l.member);
+    if (!m) { add('error', `集中載重參考不存在的桿件 M${l.member}。`); continue; }
+    const ni = state.nodes.find(n => n.id === m.i), nj = state.nodes.find(n => n.id === m.j);
+    const L = ni && nj ? Math.hypot(nj.x - ni.x, nj.y - ni.y) : 0;
+    if (l.a < 0 || l.a > L) add('warn', `桿件 M${l.member} 的集中載重 a=${l.a} m 超出桿長，分析時會夾限至桿件範圍。`);
+  }
+  if (!checks.some(c => c.level === 'error' || c.level === 'warn')) add('ok', '模型基本自檢通過。');
+  return { checks, hasErrors: checks.some(c => c.level === 'error') };
+}
 
 // ============================================================
 // UI: 資料表格
 // ============================================================
 function addNodeRow(data) {
-  const d = data || { x: 0, y: 0, cx: false, cy: false, crz: false };
+  const d = makeNode(data);
   const id = ++nodeIdCnt;
-  state.nodes.push({ id, x: d.x, y: d.y, cx: d.cx, cy: d.cy, crz: d.crz });
+  state.nodes.push({ id, ...d });
   renderNodeTable();
   refreshNodeSelectors();
 }
@@ -310,11 +600,20 @@ function renderNodeTable() {
       <td class="id-col">${n.id}</td>
       <td><input type="number" step="0.1" value="${n.x}" onchange="updateNode(${idx},'x',this.value)"></td>
       <td><input type="number" step="0.1" value="${n.y}" onchange="updateNode(${idx},'y',this.value)"></td>
-      <td><span class="support-check">
-        <label><input type="checkbox" ${n.cx?'checked':''} onchange="updateNode(${idx},'cx',this.checked)">X</label>
-        <label><input type="checkbox" ${n.cy?'checked':''} onchange="updateNode(${idx},'cy',this.checked)">Y</label>
-        <label><input type="checkbox" ${n.crz?'checked':''} onchange="updateNode(${idx},'crz',this.checked)">θ</label>
-      </span></td>
+      <td class="support-cell">
+        <div class="support-fixed">
+          <span class="support-check">
+            <label><input type="checkbox" ${n.cx?'checked':''} onchange="updateNode(${idx},'cx',this.checked)">X</label>
+            <label><input type="checkbox" ${n.cy?'checked':''} onchange="updateNode(${idx},'cy',this.checked)">Y</label>
+            <label><input type="checkbox" ${n.crz?'checked':''} onchange="updateNode(${idx},'crz',this.checked)">θ</label>
+          </span>
+        </div>
+        <div class="support-springs">
+          <label>kX<input type="number" min="0" step="10" value="${n.kx || 0}" ${n.cx?'disabled':''} onchange="updateNode(${idx},'kx',this.value)"></label>
+          <label>kY<input type="number" min="0" step="10" value="${n.ky || 0}" ${n.cy?'disabled':''} onchange="updateNode(${idx},'ky',this.value)"></label>
+          <label>kθ<input type="number" min="0" step="10" value="${n.krz || 0}" ${n.crz?'disabled':''} onchange="updateNode(${idx},'krz',this.value)"></label>
+        </div>
+      </td>
       <td><button class="del-btn" onclick="delNode(${idx})">✕</button></td>`;
     tb.appendChild(tr);
   });
@@ -322,9 +621,13 @@ function renderNodeTable() {
 function updateNode(idx, key, val) {
   if (key === 'cx' || key === 'cy' || key === 'crz') {
     state.nodes[idx][key] = !!val;
+    renderNodeTable();
   } else {
-    state.nodes[idx][key] = parseFloat(val) || 0;
+    state.nodes[idx][key] = key === 'kx' || key === 'ky' || key === 'krz'
+      ? asNonNegativeNumber(val)
+      : (parseFloat(val) || 0);
   }
+  state.solution = null;
 }
 function delNode(idx) {
   const nid = state.nodes[idx].id;
@@ -398,9 +701,78 @@ function delMember(idx) {
   renderMemberPointLoadTable();
 }
 
+function addLoadCaseRow(data) {
+  const d = data || {};
+  const id = d.id != null ? parseInt(d.id) : ++loadCaseIdCnt;
+  if (id > loadCaseIdCnt) loadCaseIdCnt = id;
+  state.loadCases.push({ id, name: d.name || `LC${id}` });
+  state.comboFactors[id] = d.factor != null ? parseFloat(d.factor) || 0 : 0;
+  renderLoadCaseTable();
+  renderNodalLoadTable();
+  renderMemberLoadTable();
+  renderMemberPointLoadTable();
+}
+
+function renderLoadCaseTable() {
+  ensureLoadCases();
+  const tb = document.getElementById('loadCaseTbody');
+  if (!tb) return;
+  tb.innerHTML = '';
+  state.loadCases.forEach((lc, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="id-col">${lc.id}</td>
+      <td><input type="text" value="${escapeHtml(lc.name || '')}" oninput="updateLoadCase(${idx},'name',this.value)" onchange="updateLoadCase(${idx},'name',this.value)"></td>
+      <td><input type="number" step="0.1" value="${comboFactor(lc.id)}" oninput="updateLoadCase(${idx},'factor',this.value)" onchange="updateLoadCase(${idx},'factor',this.value)"></td>
+      <td><button class="del-btn" onclick="delLoadCase(${idx})" ${state.loadCases.length <= 1 ? 'disabled' : ''}>✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function syncLoadCaseTableFromDom() {
+  const tb = document.getElementById('loadCaseTbody');
+  if (!tb) return;
+  Array.from(tb.querySelectorAll('tr')).forEach((tr, idx) => {
+    const lc = state.loadCases[idx];
+    if (!lc) return;
+    const nameInput = tr.querySelector('td:nth-child(2) input');
+    const factorInput = tr.querySelector('td:nth-child(3) input');
+    const name = String(nameInput && nameInput.value || '').trim();
+    lc.name = name || `LC${lc.id}`;
+    state.comboFactors[lc.id] = parseFloat(factorInput && factorInput.value) || 0;
+  });
+}
+
+function updateLoadCase(idx, key, value) {
+  const lc = state.loadCases[idx];
+  if (!lc) return;
+  if (key === 'name') lc.name = String(value || '').trim() || `LC${lc.id}`;
+  if (key === 'factor') state.comboFactors[lc.id] = parseFloat(value) || 0;
+  renderNodalLoadTable();
+  renderMemberLoadTable();
+  renderMemberPointLoadTable();
+  state.solution = null;
+}
+
+function delLoadCase(idx) {
+  if (state.loadCases.length <= 1) return;
+  const removed = state.loadCases[idx];
+  state.loadCases.splice(idx, 1);
+  delete state.comboFactors[removed.id];
+  const fallback = firstLoadCaseId();
+  for (const l of state.nodalLoads) if (l.caseId === removed.id) l.caseId = fallback;
+  for (const l of state.memberLoads) if (l.caseId === removed.id) l.caseId = fallback;
+  for (const l of state.memberPointLoads) if (l.caseId === removed.id) l.caseId = fallback;
+  renderLoadCaseTable();
+  renderNodalLoadTable();
+  renderMemberLoadTable();
+  renderMemberPointLoadTable();
+}
+
 function addNodalLoadRow(data) {
   const d = data || {};
   state.nodalLoads.push({
+    caseId: normalizeLoadCaseId(d.caseId),
     node: d.node ?? (state.nodes[0]?.id || 0),
     Fx: d.Fx ?? 0,
     Fy: d.Fy ?? 0,
@@ -413,26 +785,30 @@ function renderNodalLoadTable() {
   tb.innerHTML = '';
   const opts = state.nodes.map(n => `<option value="${n.id}">N${n.id}</option>`).join('');
   state.nodalLoads.forEach((l, idx) => {
+    l.caseId = normalizeLoadCaseId(l.caseId);
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td><select onchange="updateNodalLoad(${idx},'caseId',this.value)">${loadCaseOptions(l.caseId)}</select></td>
       <td><select onchange="updateNodalLoad(${idx},'node',this.value)">${opts}</select></td>
       <td><input type="number" step="0.1" value="${l.Fx}" onchange="updateNodalLoad(${idx},'Fx',this.value)"></td>
       <td><input type="number" step="0.1" value="${l.Fy}" onchange="updateNodalLoad(${idx},'Fy',this.value)"></td>
       <td><input type="number" step="0.1" value="${l.M}"  onchange="updateNodalLoad(${idx},'M',this.value)"></td>
       <td><button class="del-btn" onclick="delNodalLoad(${idx})">✕</button></td>`;
     tb.appendChild(tr);
-    tr.children[0].firstChild.value = l.node;
+    tr.children[1].firstChild.value = l.node;
   });
 }
 function updateNodalLoad(idx, key, val) {
-  if (key === 'node') state.nodalLoads[idx][key] = parseInt(val);
+  if (key === 'node' || key === 'caseId') state.nodalLoads[idx][key] = parseInt(val);
   else state.nodalLoads[idx][key] = parseFloat(val) || 0;
+  state.solution = null;
 }
-function delNodalLoad(idx) { state.nodalLoads.splice(idx, 1); renderNodalLoadTable(); }
+function delNodalLoad(idx) { state.nodalLoads.splice(idx, 1); state.solution = null; renderNodalLoadTable(); }
 
 function addMemberLoadRow(data) {
   const d = data || {};
   state.memberLoads.push({
+    caseId: normalizeLoadCaseId(d.caseId),
     member: d.member ?? (state.members[0]?.id || 0),
     w: d.w ?? 0,
     dir: d.dir ?? 'globalY'
@@ -444,8 +820,10 @@ function renderMemberLoadTable() {
   tb.innerHTML = '';
   const opts = state.members.map(m => `<option value="${m.id}">M${m.id}</option>`).join('');
   state.memberLoads.forEach((l, idx) => {
+    l.caseId = normalizeLoadCaseId(l.caseId);
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td><select onchange="updateMemberLoad(${idx},'caseId',this.value)">${loadCaseOptions(l.caseId)}</select></td>
       <td><select onchange="updateMemberLoad(${idx},'member',this.value)">${opts}</select></td>
       <td><input type="number" step="0.1" value="${l.w}" onchange="updateMemberLoad(${idx},'w',this.value)"></td>
       <td><select onchange="updateMemberLoad(${idx},'dir',this.value)">
@@ -454,20 +832,22 @@ function renderMemberLoadTable() {
       </select></td>
       <td><button class="del-btn" onclick="delMemberLoad(${idx})">✕</button></td>`;
     tb.appendChild(tr);
-    tr.children[0].firstChild.value = l.member;
-    tr.children[2].firstChild.value = l.dir;
+    tr.children[1].firstChild.value = l.member;
+    tr.children[3].firstChild.value = l.dir;
   });
 }
 function updateMemberLoad(idx, key, val) {
-  if (key === 'member') state.memberLoads[idx][key] = parseInt(val);
+  if (key === 'member' || key === 'caseId') state.memberLoads[idx][key] = parseInt(val);
   else if (key === 'dir') state.memberLoads[idx][key] = val;
   else state.memberLoads[idx][key] = parseFloat(val) || 0;
+  state.solution = null;
 }
-function delMemberLoad(idx) { state.memberLoads.splice(idx, 1); renderMemberLoadTable(); }
+function delMemberLoad(idx) { state.memberLoads.splice(idx, 1); state.solution = null; renderMemberLoadTable(); }
 
 function addMemberPointLoadRow(data) {
   const d = data || {};
   state.memberPointLoads.push({
+    caseId: normalizeLoadCaseId(d.caseId),
     member: d.member ?? (state.members[0]?.id || 0),
     P: d.P ?? 0,
     a: d.a ?? 0,
@@ -480,8 +860,10 @@ function renderMemberPointLoadTable() {
   tb.innerHTML = '';
   const opts = state.members.map(m => `<option value="${m.id}">M${m.id}</option>`).join('');
   state.memberPointLoads.forEach((l, idx) => {
+    l.caseId = normalizeLoadCaseId(l.caseId);
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td><select onchange="updateMemberPointLoad(${idx},'caseId',this.value)">${loadCaseOptions(l.caseId)}</select></td>
       <td><select onchange="updateMemberPointLoad(${idx},'member',this.value)">${opts}</select></td>
       <td><input type="number" step="0.1" value="${l.P}" onchange="updateMemberPointLoad(${idx},'P',this.value)"></td>
       <td><input type="number" step="0.1" value="${l.a}" onchange="updateMemberPointLoad(${idx},'a',this.value)"></td>
@@ -493,18 +875,20 @@ function renderMemberPointLoadTable() {
       </select></td>
       <td><button class="del-btn" onclick="delMemberPointLoad(${idx})">✕</button></td>`;
     tb.appendChild(tr);
-    tr.children[0].firstChild.value = l.member;
-    tr.children[3].firstChild.value = l.dir;
+    tr.children[1].firstChild.value = l.member;
+    tr.children[4].firstChild.value = l.dir;
   });
 }
 function updateMemberPointLoad(idx, key, val) {
-  if (key === 'member') state.memberPointLoads[idx][key] = parseInt(val);
+  if (key === 'member' || key === 'caseId') state.memberPointLoads[idx][key] = parseInt(val);
   else if (key === 'dir') state.memberPointLoads[idx][key] = val;
   else state.memberPointLoads[idx][key] = parseFloat(val) || 0;
+  state.solution = null;
 }
-function delMemberPointLoad(idx) { state.memberPointLoads.splice(idx, 1); renderMemberPointLoadTable(); }
+function delMemberPointLoad(idx) { state.memberPointLoads.splice(idx, 1); state.solution = null; renderMemberPointLoadTable(); }
 
 function refreshNodeSelectors() {
+  renderLoadCaseTable();
   renderMemberTable();
   renderNodalLoadTable();
   renderMemberLoadTable();
@@ -612,10 +996,16 @@ function solveLinear(Ain, bin) {
 //   EA (tf)  = E(tf/cm²) × A(cm²)
 //   EI (tf·m²) = E(tf/cm²) × I(cm⁴) × 1e-4
 function analyze() {
+  syncLoadCaseTableFromDom();
   const nodes = state.nodes;
   const members = state.members;
   if (nodes.length < 2) throw new Error('至少需要 2 個節點');
   if (members.length < 1) throw new Error('至少需要 1 支桿件');
+  const validation = validateModel();
+  if (validation.hasErrors) {
+    throw new Error(validation.checks.filter(c => c.level === 'error').map(c => c.text).join('；'));
+  }
+  const loadFactors = activeLoadFactors();
 
   const selfWeightOn = !!(document.getElementById('selfWeight') && document.getElementById('selfWeight').checked);
   const density = parseFloat(document.getElementById('density') && document.getElementById('density').value) || 0;
@@ -632,9 +1022,10 @@ function analyze() {
   for (const ld of state.nodalLoads) {
     const i = idToIdx.get(ld.node);
     if (i === undefined) continue;
-    F[i * 3 + 0] += ld.Fx;
-    F[i * 3 + 1] += ld.Fy;
-    F[i * 3 + 2] += ld.M;
+    const factor = loadFactors[normalizeLoadCaseId(ld.caseId)] ?? 0;
+    F[i * 3 + 0] += ld.Fx * factor;
+    F[i * 3 + 1] += ld.Fy * factor;
+    F[i * 3 + 2] += ld.M * factor;
   }
 
   // 桿件組裝
@@ -680,10 +1071,11 @@ function analyze() {
     let wLocal = 0;
     for (const ml of state.memberLoads) {
       if (ml.member !== m.id) continue;
-      if (ml.dir === 'localY') wLocal += ml.w;
-      else wLocal += -ml.w * c;   // globalY 向下 (0,-w) 投影到局部 +y = -w·c
+      const w = ml.w * (loadFactors[normalizeLoadCaseId(ml.caseId)] ?? 0);
+      if (ml.dir === 'localY') wLocal += w;
+      else wLocal += -w * c;   // globalY 向下 (0,-w) 投影到局部 +y = -w·c
     }
-    if (selfWeightOn && density > 0) wLocal += -(density * m.A * 1e-4) * c;  // 自重 g=γ·A → globalY 向下
+    if (selfWeightOn && density > 0) wLocal += -(density * m.A * 1e-4) * c * (loadFactors[firstLoadCaseId()] ?? 0);  // 自重 g=γ·A → globalY 向下
     // 均布固端力 f_FEM_local = [0, -wL/2, -wL²/12, 0, -wL/2, +wL²/12]
     const fFEMlocal = [
       0, -wLocal * L / 2, -wLocal * L * L / 12,
@@ -696,11 +1088,12 @@ function analyze() {
       if (pl.member !== m.id) continue;
       let a = pl.a; if (a < 0) a = 0; if (a > L) a = L;
       const b = L - a;
+      const P = pl.P * (loadFactors[normalizeLoadCaseId(pl.caseId)] ?? 0);
       let Pxl = 0, Pyl = 0;
-      if (pl.dir === 'localY') Pyl = pl.P;
-      else if (pl.dir === 'localX') Pxl = pl.P;
-      else if (pl.dir === 'globalX') { Pxl = pl.P * c; Pyl = -pl.P * s; }
-      else { Pxl = -pl.P * s; Pyl = -pl.P * c; }   // globalY 向下 (0,-P)
+      if (pl.dir === 'localY') Pyl = P;
+      else if (pl.dir === 'localX') Pxl = P;
+      else if (pl.dir === 'globalX') { Pxl = P * c; Pyl = -P * s; }
+      else { Pxl = -P * s; Pyl = -P * c; }   // globalY 向下 (0,-P)
       ptLocal.push({ a, Pxl, Pyl });
       if (Math.abs(Pyl) > 1e-12) {   // 橫向集中載重固端力
         fFEMlocal[1] += -Pyl * b * b * (L + 2 * a) / (L * L * L);
@@ -737,9 +1130,20 @@ function analyze() {
     elemResults.push({ m, L, c, s, T, kL, fFEMlocal, dofs, wLocal, ptLocal, condInfo });
   }
 
-  // 保存原始 K 以便計算反力
+  // 保存桿件原始 K 以便計算固定支承反力；彈簧支承另以 -k·d 顯示。
   const Korig = K.map(r => r.slice());
   const Forig = F.slice();
+
+  // 套用支承彈簧：kX/kY 單位 tf/m，kθ 單位 tf·m/rad。固定自由度不重複加入彈簧。
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    const kx = activeSpring(n, 'cx', 'kx');
+    const ky = activeSpring(n, 'cy', 'ky');
+    const krz = activeSpring(n, 'crz', 'krz');
+    if (kx > 0) K[i * 3 + 0][i * 3 + 0] += kx;
+    if (ky > 0) K[i * 3 + 1][i * 3 + 1] += ky;
+    if (krz > 0) K[i * 3 + 2][i * 3 + 2] += krz;
+  }
 
   // 套用支承 (大數法)
   const PEN = 1e20;
@@ -751,14 +1155,48 @@ function analyze() {
 
   const d = solveLinear(K, F);
 
-  // 反力: R = K_orig · d − F_orig, 只在被約束 DOF 有意義
+  // 反力: 固定 DOF 取 K_member·d − F；彈簧 DOF 取支承作用於結構的 -k·d。
   const KdOrig = matvec(Korig, d);
   const reactions = zeros(nDof);
+  const springForces = zeros(nDof);
   for (let i = 0; i < nodes.length; i++) {
     if (nodes[i].cx) reactions[i * 3 + 0] = KdOrig[i * 3 + 0] - Forig[i * 3 + 0];
+    else if (activeSpring(nodes[i], 'cx', 'kx') > 0) {
+      springForces[i * 3 + 0] = -activeSpring(nodes[i], 'cx', 'kx') * d[i * 3 + 0];
+      reactions[i * 3 + 0] = springForces[i * 3 + 0];
+    }
     if (nodes[i].cy) reactions[i * 3 + 1] = KdOrig[i * 3 + 1] - Forig[i * 3 + 1];
+    else if (activeSpring(nodes[i], 'cy', 'ky') > 0) {
+      springForces[i * 3 + 1] = -activeSpring(nodes[i], 'cy', 'ky') * d[i * 3 + 1];
+      reactions[i * 3 + 1] = springForces[i * 3 + 1];
+    }
     if (nodes[i].crz) reactions[i * 3 + 2] = KdOrig[i * 3 + 2] - Forig[i * 3 + 2];
+    else if (activeSpring(nodes[i], 'crz', 'krz') > 0) {
+      springForces[i * 3 + 2] = -activeSpring(nodes[i], 'crz', 'krz') * d[i * 3 + 2];
+      reactions[i * 3 + 2] = springForces[i * 3 + 2];
+    }
   }
+  const applied = computeAppliedResultant(loadFactors);
+  const support = { Fx: 0, Fy: 0, M: 0 };
+  for (let i = 0; i < nodes.length; i++) {
+    const rx = reactions[i * 3 + 0] || 0;
+    const ry = reactions[i * 3 + 1] || 0;
+    const mz = reactions[i * 3 + 2] || 0;
+    support.Fx += rx;
+    support.Fy += ry;
+    support.M += momentAboutOrigin(nodes[i].x, nodes[i].y, rx, ry, mz);
+  }
+  const residual = {
+    Fx: applied.Fx + support.Fx,
+    Fy: applied.Fy + support.Fy,
+    M: applied.M + support.M
+  };
+  const residualAbs = Math.max(Math.abs(residual.Fx), Math.abs(residual.Fy), Math.abs(residual.M));
+  const referenceAbs = Math.max(1, Math.abs(applied.Fx), Math.abs(applied.Fy), Math.abs(applied.M));
+  const equilibrium = {
+    applied, support, residual,
+    ok: residualAbs <= Math.max(1e-5, referenceAbs * 1e-5)
+  };
 
   // 各桿件端力 (局部座標) + 內力沿桿件離散化
   for (const e of elemResults) {
@@ -817,7 +1255,7 @@ function analyze() {
     e.diag = { xs, Ns, Vs, Ms };
   }
 
-  return { d, reactions, elems: elemResults };
+  return { d, reactions, springForces, elems: elemResults, validation, equilibrium, loadFactors, comboText: formatActiveCombination() };
 }
 
 // ============================================================
@@ -901,7 +1339,7 @@ function drawGeometry() {
   // 節點 + 編號
   for (const n of state.nodes) {
     const px = tr.x(n.x), py = tr.y(n.y);
-    ctx.fillStyle = (n.cx || n.cy || n.crz) ? '#dc2626' : '#1e293b';
+    ctx.fillStyle = (n.cx || n.cy || n.crz) ? '#dc2626' : (hasAnySpring(n) ? '#059669' : '#1e293b');
     ctx.beginPath();
     ctx.arc(px, py, 4.5, 0, Math.PI * 2);
     ctx.fill();
@@ -909,7 +1347,7 @@ function drawGeometry() {
     ctx.font = 'bold 12px Consolas';
     ctx.fillText('N' + n.id, px + 7, py - 7);
     // 支承符號
-    drawSupport(ctx, px, py, n.cx, n.cy, n.crz);
+    drawSupport(ctx, px, py, n);
   }
 
   // 桿件編號
@@ -1019,7 +1457,33 @@ function drawArrow(ctx, x0, y0, x1, y1, label) {
   }
 }
 
-function drawSupport(ctx, px, py, cx, cy, crz) {
+function drawLinearSpring(ctx, x0, y0, horizontal) {
+  const pts = [];
+  const pitch = 4;
+  const amp = 4;
+  for (let i = 0; i <= 6; i++) {
+    const along = i * pitch;
+    const off = i === 0 || i === 6 ? 0 : (i % 2 ? -amp : amp);
+    pts.push(horizontal ? [x0 - along, y0 + off] : [x0 + off, y0 + along]);
+  }
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+  ctx.stroke();
+}
+
+function drawRotationalSpring(ctx, px, py) {
+  ctx.beginPath();
+  ctx.arc(px + 18, py - 2, 8, 0.35 * Math.PI, 1.7 * Math.PI);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(px + 12, py + 5);
+  ctx.lineTo(px + 8, py + 1);
+  ctx.lineTo(px + 13, py);
+  ctx.stroke();
+}
+
+function drawSupport(ctx, px, py, node) {
+  const cx = !!node.cx, cy = !!node.cy, crz = !!node.crz;
   ctx.save();
   ctx.strokeStyle = '#dc2626';
   ctx.fillStyle = '#fecaca';
@@ -1062,7 +1526,28 @@ function drawSupport(ctx, px, py, cx, cy, crz) {
     ctx.closePath();
     ctx.stroke();
   }
+  if (hasAnySpring(node)) {
+    ctx.strokeStyle = '#059669';
+    ctx.fillStyle = '#059669';
+    ctx.lineWidth = 1.4;
+    if (activeSpring(node, 'cx', 'kx') > 0) drawLinearSpring(ctx, px - 8, py, true);
+    if (activeSpring(node, 'cy', 'ky') > 0) drawLinearSpring(ctx, px, py + 8, false);
+    if (activeSpring(node, 'crz', 'krz') > 0) drawRotationalSpring(ctx, px, py);
+  }
   ctx.restore();
+}
+
+function drawBoundedCanvasText(ctx, text, x, y, options = {}) {
+  const margin = options.margin ?? 14;
+  const fontSizeMatch = /(\d+(?:\.\d+)?)px/.exec(ctx.font);
+  const fontSize = fontSizeMatch ? parseFloat(fontSizeMatch[1]) : 11;
+  const textWidth = ctx.measureText(text).width;
+  const maxX = Math.max(margin, ctx.canvas.width - margin - textWidth);
+  const maxY = Math.max(margin + fontSize, ctx.canvas.height - margin);
+  const tx = Math.max(margin, Math.min(maxX, x));
+  const ty = Math.max(margin + fontSize, Math.min(maxY, y));
+  if (options.color) ctx.fillStyle = options.color;
+  ctx.fillText(text, tx, ty);
 }
 
 // 沿桿件法線方向繪製內力圖的通用函式
@@ -1073,12 +1558,8 @@ function drawDiagram(canvasId, getter, posColor, negColor, labelUnit) {
   const sol = state.solution;
   if (!sol) return;
 
-  const xs = state.nodes.map(n => n.x);
-  const ys = state.nodes.map(n => n.y);
-  const pad = 50;
-
-  // 先決定比例 (以幾何)
-  const tr = fitToCanvas(cv, xs, ys, pad);
+  const geomXs = state.nodes.map(n => n.x);
+  const geomYs = state.nodes.map(n => n.y);
 
   // 求最大絕對值
   let maxAbs = 0;
@@ -1088,27 +1569,16 @@ function drawDiagram(canvasId, getter, posColor, negColor, labelUnit) {
   if (maxAbs < 1e-9) maxAbs = 1;
 
   // 圖形放大 (以幾何對角線 15%)
-  const diagSize = Math.hypot(Math.max(...xs) - Math.min(...xs) || 1, Math.max(...ys) - Math.min(...ys) || 1);
+  const diagSize = Math.hypot(Math.max(...geomXs) - Math.min(...geomXs) || 1, Math.max(...geomYs) - Math.min(...geomYs) || 1);
   const diagScale = (diagSize * 0.18) / maxAbs;
 
-  // 畫桿件
-  ctx.strokeStyle = '#cbd5e1';
-  ctx.lineWidth = 1.5;
-  for (const e of sol.elems) {
-    const ni = state.nodes.find(n => n.id === e.m.i);
-    const nj = state.nodes.find(n => n.id === e.m.j);
-    ctx.beginPath();
-    ctx.moveTo(tr.x(ni.x), tr.y(ni.y));
-    ctx.lineTo(tr.x(nj.x), tr.y(nj.y));
-    ctx.stroke();
-  }
-
-  // 畫內力圖
+  const boundsX = [...geomXs];
+  const boundsY = [...geomYs];
+  const diagramElems = [];
   for (const e of sol.elems) {
     const ni = state.nodes.find(n => n.id === e.m.i);
     const nj = state.nodes.find(n => n.id === e.m.j);
     const c = e.c, s = e.s;
-    // 局部 +y 在全域 = (-s, c), 局部 -y = (s, -c); 圖形繪於桿件外側 (+y_local)
     const nx = -s, ny = c;
     const vals = getter(e.diag);
     const positions = [];
@@ -1120,7 +1590,29 @@ function drawDiagram(canvasId, getter, posColor, negColor, labelUnit) {
       const px = bx + nx * mag;
       const py = by + ny * mag;
       positions.push({ bx, by, px, py, v: vals[k] });
+      boundsX.push(bx, px);
+      boundsY.push(by, py);
     }
+    diagramElems.push({ e, ni, nj, vals, positions });
+  }
+
+  // 以幾何 + 內力圖外擴後的總邊界縮放，避免受力圖或數值貼到 canvas 邊緣。
+  const tr = fitToCanvas(cv, boundsX, boundsY, 74);
+
+  // 畫桿件
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1.5;
+  for (const item of diagramElems) {
+    const { ni, nj } = item;
+    ctx.beginPath();
+    ctx.moveTo(tr.x(ni.x), tr.y(ni.y));
+    ctx.lineTo(tr.x(nj.x), tr.y(nj.y));
+    ctx.stroke();
+  }
+
+  // 畫內力圖
+  for (const item of diagramElems) {
+    const { vals, positions } = item;
     // 填充區塊 (分正負上色)
     for (let k = 0; k < positions.length - 1; k++) {
       const a = positions[k], b = positions[k + 1];
@@ -1148,8 +1640,8 @@ function drawDiagram(canvasId, getter, posColor, negColor, labelUnit) {
     ctx.font = 'bold 10.5px Consolas';
     const v0 = vals[0], vN = vals[vals.length - 1];
     const p0 = positions[0], pN = positions[positions.length - 1];
-    ctx.fillText(v0.toFixed(2), tr.x(p0.px) + 3, tr.y(p0.py) - 3);
-    ctx.fillText(vN.toFixed(2), tr.x(pN.px) + 3, tr.y(pN.py) - 3);
+    drawBoundedCanvasText(ctx, v0.toFixed(2), tr.x(p0.px) + 5, tr.y(p0.py) - 5);
+    drawBoundedCanvasText(ctx, vN.toFixed(2), tr.x(pN.px) + 5, tr.y(pN.py) - 5);
     // 極值標註 (最大絕對值, 不含端點)
     let maxK = 0, maxV = 0;
     for (let k = 1; k < vals.length - 1; k++) {
@@ -1157,8 +1649,7 @@ function drawDiagram(canvasId, getter, posColor, negColor, labelUnit) {
     }
     if (Math.abs(maxV) > Math.max(Math.abs(v0), Math.abs(vN)) * 1.02) {
       const pm = positions[maxK];
-      ctx.fillStyle = '#dc2626';
-      ctx.fillText(maxV.toFixed(2), tr.x(pm.px) + 3, tr.y(pm.py) - 3);
+      drawBoundedCanvasText(ctx, maxV.toFixed(2), tr.x(pm.px) + 5, tr.y(pm.py) - 5, { color: '#dc2626' });
     }
   }
 
@@ -1174,7 +1665,7 @@ function drawDiagram(canvasId, getter, posColor, negColor, labelUnit) {
   // 圖例
   ctx.fillStyle = '#64748b';
   ctx.font = '11px Consolas';
-  ctx.fillText('max |v| = ' + maxAbs.toFixed(3) + ' ' + labelUnit, 10, 18);
+  drawBoundedCanvasText(ctx, 'max |v| = ' + maxAbs.toFixed(3) + ' ' + labelUnit, 12, 18, { color: '#64748b' });
 }
 
 // ============================================================
@@ -1199,9 +1690,9 @@ function renderResults() {
       <td>${(u * 1000).toFixed(3)}</td>
       <td>${(v * 1000).toFixed(3)}</td>
       <td>${(r * 1000).toFixed(3)}</td>
-      <td>${cell(Rx, n.cx)}</td>
-      <td>${cell(Ry, n.cy)}</td>
-      <td>${cell(Mz, n.crz)}</td>`;
+      <td>${cell(Rx, hasSupportDof(n, 'cx', 'kx'))}</td>
+      <td>${cell(Ry, hasSupportDof(n, 'cy', 'ky'))}</td>
+      <td>${cell(Mz, hasSupportDof(n, 'crz', 'krz'))}</td>`;
     tbD.appendChild(tr);
   }
 
@@ -1244,6 +1735,40 @@ function renderResults() {
   }
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+function fmtCheck(value, digits = 4) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return n.toFixed(digits).replace(/\.?0+$/, '') || '0';
+}
+
+function renderModelChecks(sol, fallbackValidation) {
+  const panel = document.getElementById('modelCheckPanel');
+  if (!panel) return;
+  const validation = sol?.validation || fallbackValidation || validateModel();
+  const lines = [];
+  for (const item of validation.checks) {
+    lines.push(`<div class="check-line ${item.level}">${escapeHtml(item.text)}</div>`);
+  }
+  if (sol?.equilibrium) {
+    const eq = sol.equilibrium;
+    lines.push(`<div class="check-line ${eq.ok ? 'ok' : 'warn'}">平衡檢核 ${eq.ok ? '通過' : '需檢查'}：Σ外力 + Σ支承反力 = (${fmtCheck(eq.residual.Fx)}, ${fmtCheck(eq.residual.Fy)}, ${fmtCheck(eq.residual.M)})</div>`);
+    lines.push(`<div class="summary-grid">
+      <div><b>分析組合</b><span>${escapeHtml(sol.comboText)}</span></div>
+      <div><b>Σ外力 Fx/Fy/M</b><span>${fmtCheck(eq.applied.Fx)} / ${fmtCheck(eq.applied.Fy)} / ${fmtCheck(eq.applied.M)}</span></div>
+      <div><b>Σ支承 Fx/Fy/M</b><span>${fmtCheck(eq.support.Fx)} / ${fmtCheck(eq.support.Fy)} / ${fmtCheck(eq.support.M)}</span></div>
+    </div>`);
+  } else if (!validation.hasErrors) {
+    lines.push('<div class="check-line warn">尚未完成分析，平衡檢核待執行。</div>');
+  }
+  panel.innerHTML = lines.join('');
+}
+
 // ============================================================
 // 執行分析
 // ============================================================
@@ -1253,15 +1778,22 @@ function runAnalysis() {
   err.style.display = 'none';
   warn.style.display = 'none';
   try {
+    syncLoadCaseTableFromDom();
+    const validation = validateModel();
+    renderModelChecks(null, validation);
+    if (validation.hasErrors) throw new Error(validation.checks.filter(c => c.level === 'error').map(c => c.text).join('；'));
     state.solution = analyze();
     drawGeometry();
     drawDiagram('momCanvas',   d => d.Ms.map(v => -v), '#fecaca', '#bfdbfe', 'tf·m');
     drawDiagram('shearCanvas', d => d.Vs, '#fed7aa', '#ddd6fe', 'tf');
     drawDiagram('axialCanvas', d => d.Ns, '#fecaca', '#bfdbfe', 'tf');
     renderResults();
+    renderModelChecks(state.solution);
   } catch (e) {
+    state.solution = null;
     err.textContent = '錯誤: ' + e.message;
     err.style.display = 'block';
+    renderModelChecks(null, { checks: [{ level: 'error', text: e.message }], hasErrors: true });
     console.error(e);
   }
 }
@@ -1274,16 +1806,21 @@ function runAnalysis() {
 function resetAll() {
   state.nodes = []; state.members = []; state.nodalLoads = [];
   state.memberLoads = []; state.memberPointLoads = [];
+  state.loadCases = []; state.comboFactors = {};
   state.solution = null;
-  nodeIdCnt = 0; memberIdCnt = 0;
+  nodeIdCnt = 0; memberIdCnt = 0; loadCaseIdCnt = 0;
+  ensureLoadCases();
+  renderLoadCaseTable();
 }
 
 // ============================================================
 // JSON 存檔 / 讀取
 // ============================================================
 const FRAME_DRAFT_KEY = 'planeFrame.projectDraft.v1';
+let lastReportObjectUrl = null;
 
 function collectProjectData() {
+  syncLoadCaseTableFromDom();
   return {
     tool: '平面剛架分析', version: 'V0.2', unit: 'tf-m',
     defaults: {
@@ -1293,6 +1830,8 @@ function collectProjectData() {
     },
     selfWeight: !!document.getElementById('selfWeight').checked,
     density: parseFloat(document.getElementById('density').value) || 0,
+    loadCases: state.loadCases,
+    comboFactors: state.comboFactors,
     nodes: state.nodes,
     members: state.members,
     nodalLoads: state.nodalLoads,
@@ -1357,14 +1896,21 @@ function loadFromData(data) {
   document.getElementById('selfWeight').checked = !!data.selfWeight;
   if (data.density != null) document.getElementById('density').value = data.density;
   // 直接還原(保留原 id, 避免桿件參照錯位)
-  state.nodes = (data.nodes || []).map(n => ({ id: n.id, x: +n.x || 0, y: +n.y || 0, cx: !!n.cx, cy: !!n.cy, crz: !!n.crz }));
+  state.loadCases = (data.loadCases || []).map(lc => ({ id: parseInt(lc.id), name: lc.name || `LC${lc.id}` })).filter(lc => Number.isFinite(lc.id));
+  loadCaseIdCnt = state.loadCases.reduce((mx, lc) => Math.max(mx, lc.id), 0);
+  state.comboFactors = {};
+  if (data.comboFactors) {
+    for (const [key, value] of Object.entries(data.comboFactors)) state.comboFactors[parseInt(key)] = parseFloat(value) || 0;
+  }
+  ensureLoadCases();
+  state.nodes = (data.nodes || []).map(n => ({ id: n.id, ...makeNode(n) }));
   state.members = (data.members || []).map(m => ({ id: m.id, i: m.i, j: m.j, E: +m.E || 0, A: +m.A || 0, I: +m.I || 0, relI: !!m.relI, relJ: !!m.relJ }));
-  state.nodalLoads = (data.nodalLoads || []).map(l => ({ node: l.node, Fx: +l.Fx || 0, Fy: +l.Fy || 0, M: +l.M || 0 }));
-  state.memberLoads = (data.memberLoads || []).map(l => ({ member: l.member, w: +l.w || 0, dir: l.dir || 'globalY' }));
-  state.memberPointLoads = (data.memberPointLoads || []).map(l => ({ member: l.member, P: +l.P || 0, a: +l.a || 0, dir: l.dir || 'globalY' }));
+  state.nodalLoads = (data.nodalLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), node: l.node, Fx: +l.Fx || 0, Fy: +l.Fy || 0, M: +l.M || 0 }));
+  state.memberLoads = (data.memberLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: l.member, w: +l.w || 0, dir: l.dir || 'globalY' }));
+  state.memberPointLoads = (data.memberPointLoads || []).map(l => ({ caseId: normalizeLoadCaseId(l.caseId), member: l.member, P: +l.P || 0, a: +l.a || 0, dir: l.dir || 'globalY' }));
   nodeIdCnt = state.nodes.reduce((mx, n) => Math.max(mx, n.id), 0);
   memberIdCnt = state.members.reduce((mx, m) => Math.max(mx, m.id), 0);
-  renderNodeTable(); refreshNodeSelectors();
+  renderLoadCaseTable(); renderNodeTable(); refreshNodeSelectors();
   runAnalysis();
 }
 
@@ -1372,25 +1918,35 @@ function loadFromData(data) {
 // 列印計算書
 // ============================================================
 function printReport() {
-  if (!state.solution) runAnalysis();
+  syncLoadCaseTableFromDom();
+  runAnalysis();
   const sol = state.solution;
   if (!sol) return;
   setReportStatus('');
   const today = new Date().toISOString().slice(0, 10);
   const nodesRows = state.nodes.map(n =>
-    `<tr><td>N${n.id}</td><td>${n.x}</td><td>${n.y}</td><td>${((n.cx?'X':'')+(n.cy?'Y':'')+(n.crz?'θ':''))||'自由'}</td></tr>`).join('');
+    `<tr><td>N${n.id}</td><td>${n.x}</td><td>${n.y}</td><td>${formatNodeSupport(n)}</td></tr>`).join('');
   const memRows = state.members.map(m =>
     `<tr><td>M${m.id}</td><td>N${m.i}→N${m.j}</td><td>${m.E}</td><td>${m.A}</td><td>${m.I}</td><td>${((m.relI?'i':'')+(m.relJ?(m.relI?',j':'j'):''))||'剛接'}</td></tr>`).join('');
+  const comboRows = state.loadCases.map(lc =>
+    `<tr><td>${escapeHtml(lc.name || ('LC' + lc.id))}</td><td>${comboFactor(lc.id)}</td></tr>`).join('');
   const loadRows = []
-    .concat(state.nodalLoads.map(l => `<tr><td>節點 N${l.node}</td><td>Fx=${l.Fx}, Fy=${l.Fy}, M=${l.M}</td></tr>`))
-    .concat(state.memberLoads.map(l => `<tr><td>桿件 M${l.member} 均布</td><td>w=${l.w} (${l.dir})</td></tr>`))
-    .concat(state.memberPointLoads.map(l => `<tr><td>桿件 M${l.member} 集中</td><td>P=${l.P} @ a=${l.a} (${l.dir})</td></tr>`))
-    .join('') || '<tr><td colspan="2">無</td></tr>';
+    .concat(state.nodalLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>節點 N${l.node}</td><td>Fx=${l.Fx}, Fy=${l.Fy}, M=${l.M}</td></tr>`))
+    .concat(state.memberLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>桿件 M${l.member} 均布</td><td>w=${l.w} (${l.dir})</td></tr>`))
+    .concat(state.memberPointLoads.map(l => `<tr><td>${escapeHtml(loadCaseName(l.caseId))}</td><td>桿件 M${l.member} 集中</td><td>P=${l.P} @ a=${l.a} (${l.dir})</td></tr>`))
+    .join('') || '<tr><td colspan="3">無</td></tr>';
+  const checkRows = (sol.validation?.checks || []).map(item =>
+    `<tr><td>${item.level}</td><td>${escapeHtml(item.text)}</td></tr>`).join('');
+  const eq = sol.equilibrium;
+  const eqRows = eq ? `
+    <tr><td>Σ外力</td><td>${fmtCheck(eq.applied.Fx)}</td><td>${fmtCheck(eq.applied.Fy)}</td><td>${fmtCheck(eq.applied.M)}</td></tr>
+    <tr><td>Σ支承</td><td>${fmtCheck(eq.support.Fx)}</td><td>${fmtCheck(eq.support.Fy)}</td><td>${fmtCheck(eq.support.M)}</td></tr>
+    <tr><td>殘差</td><td>${fmtCheck(eq.residual.Fx)}</td><td>${fmtCheck(eq.residual.Fy)}</td><td>${fmtCheck(eq.residual.M)}</td></tr>` : '';
   const dispRows = state.nodes.map((n, i) => {
     const u = sol.d[i*3]*1000, v = sol.d[i*3+1]*1000, r = sol.d[i*3+2]*1000;
-    const Rx = n.cx ? sol.reactions[i*3].toFixed(3) : '—';
-    const Ry = n.cy ? sol.reactions[i*3+1].toFixed(3) : '—';
-    const Mz = n.crz ? sol.reactions[i*3+2].toFixed(3) : '—';
+    const Rx = hasSupportDof(n, 'cx', 'kx') ? sol.reactions[i*3].toFixed(3) : '—';
+    const Ry = hasSupportDof(n, 'cy', 'ky') ? sol.reactions[i*3+1].toFixed(3) : '—';
+    const Mz = hasSupportDof(n, 'crz', 'krz') ? sol.reactions[i*3+2].toFixed(3) : '—';
     return `<tr><td>N${n.id}</td><td>${u.toFixed(3)}</td><td>${v.toFixed(3)}</td><td>${r.toFixed(3)}</td><td>${Rx}</td><td>${Ry}</td><td>${Mz}</td></tr>`;
   }).join('');
   const extrRows = sol.elems.map(e => {
@@ -1412,9 +1968,12 @@ th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0
 <h1>平面剛架分析 計算書</h1>
 <p class="meta">直接勁度法 (Direct Stiffness Method) ‧ 單位 tf-m ‧ 產生日期 ${today}</p>
 <button onclick="window.print()">列印 / 另存 PDF</button>
+<h2>分析組合</h2><table><tr><th>載重案例</th><th>因子</th></tr>${comboRows}</table>
 <h2>節點</h2><table><tr><th>節點</th><th>X(m)</th><th>Y(m)</th><th>支承</th></tr>${nodesRows}</table>
 <h2>桿件</h2><table><tr><th>桿件</th><th>i→j</th><th>E(tf/cm²)</th><th>A(cm²)</th><th>I(cm⁴)</th><th>端鉸接</th></tr>${memRows}</table>
-<h2>載重</h2><table><tr><th>項目</th><th>內容</th></tr>${loadRows}</table>
+<h2>載重</h2><table><tr><th>案例</th><th>項目</th><th>內容</th></tr>${loadRows}</table>
+<h2>模型自檢</h2><table><tr><th>層級</th><th>內容</th></tr>${checkRows}</table>
+<h2>平衡檢核</h2><table><tr><th>項目</th><th>Fx(tf)</th><th>Fy(tf)</th><th>M(tf·m)</th></tr>${eqRows}</table>
 <h2>幾何 / 變形圖</h2><img src="${img('geomCanvas')}">
 <h2>彎矩圖 M (tf·m)</h2><img src="${img('momCanvas')}">
 <h2>剪力圖 V (tf)</h2><img src="${img('shearCanvas')}">
@@ -1423,14 +1982,30 @@ th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0
 <h2>桿件極值</h2><table><tr><th>桿件</th><th>L(m)</th><th>|M|max(tf·m)</th><th>|V|max(tf)</th><th>|N|max(tf)</th></tr>${extrRows}</table>
 <p class="meta">本計算書由平面剛架分析工具產生，僅供結構分析校核參考；最終設計與圖說仍應由執業技師簽證。</p>
 </body></html>`;
-  const win = window.open('', '_blank');
-  if (!win) { setReportStatus('請允許彈出視窗以開啟計算書。'); return; }
-  win.document.write(html); win.document.close();
+  if (lastReportObjectUrl) URL.revokeObjectURL(lastReportObjectUrl);
+  lastReportObjectUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+  setReportLink(lastReportObjectUrl);
+  const win = window.open(lastReportObjectUrl, '_blank');
+  if (!win) { setReportStatus('已產生計算書；請點「開啟計算書」。'); return; }
+  setReportStatus('已產生計算書；若未自動開啟，請點「開啟計算書」。');
 }
 
 function setReportStatus(message) {
   const node = document.getElementById('reportStatus');
   if (node) node.textContent = message || '';
+  if (!message) setReportLink('');
+}
+
+function setReportLink(url) {
+  const link = document.getElementById('reportLink');
+  if (!link) return;
+  if (!url) {
+    link.removeAttribute('href');
+    link.style.display = 'none';
+    return;
+  }
+  link.href = url;
+  link.style.display = 'inline-flex';
 }
 
 function loadExample(kind) {
@@ -1472,6 +2047,16 @@ function loadExample(kind) {
     addNodeRow({ x: 8, y: 0, cx: true, cy: true, crz: true });
     addMemberRow({ i: 1, j: 2, E, A, I });
     addMemberRow({ i: 2, j: 3, E, A, I, relI: true });
+    addMemberRow({ i: 3, j: 4, E, A, I });
+    addMemberLoadRow({ member: 2, w: 2.0, dir: 'globalY' });
+  } else if (kind === 'springPortal') {
+    // 門型剛架彈性基礎: 底節點以線性彈簧與旋轉彈簧連接地盤。
+    addNodeRow({ x: 0, y: 0, kx: 6000, ky: 12000, krz: 8000 });
+    addNodeRow({ x: 0, y: 6, cx: false, cy: false, crz: false });
+    addNodeRow({ x: 8, y: 6, cx: false, cy: false, crz: false });
+    addNodeRow({ x: 8, y: 0, kx: 6000, ky: 12000, krz: 8000 });
+    addMemberRow({ i: 1, j: 2, E, A, I });
+    addMemberRow({ i: 2, j: 3, E, A, I });
     addMemberRow({ i: 3, j: 4, E, A, I });
     addMemberLoadRow({ member: 2, w: 2.0, dir: 'globalY' });
   }

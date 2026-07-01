@@ -357,6 +357,11 @@
         <div id="bannerKey" class="banner-key"></div>
       </div>
 
+      <div class="card report-readiness-card" data-shows="summary" id="shearWallAttachmentReadinessCard">
+        <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
+        <div id="shearWallAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
+      </div>
+
       <div class="card mobile-summary-card" id="quickSummaryCard">
         <h2>快速摘要</h2>
         <div class="quick-summary-grid">
@@ -1388,8 +1393,58 @@
 
     window.swLast = r;
     updateBanner(r);
+    updateShearWallAttachmentReadiness(r);
     updateQuickSummary(r);
     updateSummaryPanel(r);
+  }
+
+  function updateShearWallAttachmentReadiness(r) {
+    if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
+    const hostId = 'shearWallAttachmentReadiness';
+    const boundaryNote = '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。';
+    if (!r) {
+      RCUI.renderAttachmentReadiness(hostId, {
+        status: 'neutral',
+        title: '尚未計算',
+        items: [{ label: '計算結果', value: '尚未建立', tone: 'neutral' }],
+        notes: [boundaryNote]
+      });
+      return;
+    }
+    const checks = [
+      ['適用範圍', r.scopeOk ? true : null],
+      ['幾何模型', r.geomModelOk],
+      ['P-M 軸力範圍', r.pmAxialOk],
+      ['Mu ≤ φMn', r.pmOk],
+      ['φVn ≥ Ve', r.shearOk],
+      ['Ve ≤ 剪力上限', r.vnMaxOk],
+      ['ρℓ', r.rholOk],
+      ['ρt', r.rhotOk],
+      ['筋距細部', r.spVOk && r.spHOk],
+    ];
+    if (r.seismic) {
+      checks.push(["fc'≤350", r.fcOk]);
+      checks.push(['SBE 提供量', r.sbeReq && !isFinite(r.sbeHoriz) ? null : r.sbeDesignOk]);
+    }
+    if (r.loadCasesActive || r.loadCaseParseErrors?.length) {
+      checks.push(['多工況封包', !r.loadCaseFailures]);
+    }
+    const failed = checks.filter(([, ok]) => ok === false).map(([label]) => label);
+    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
+    const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
+    const title = failed.length ? '暫勿作附件' : reviewWarnings.length ? '可作附件，需人工複核' : '可作附件';
+    const items = [
+      { label: '主要檢核', value: failed.length ? `${failed.length} 項未通過` : '數值通過', tone: failed.length ? 'fail' : 'ok' },
+      { label: '補充設計或圖說確認', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
+      ...failed.map((label, index) => ({ label: `阻擋 ${index + 1}`, value: label, tone: 'fail' })),
+      ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' }))
+    ];
+    RCUI.renderAttachmentReadiness(hostId, {
+      status,
+      title,
+      items,
+      notes: [boundaryNote, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
+    });
   }
 
   // ---- 計算過程文字 ----
@@ -1813,22 +1868,6 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
       ]},
     ];
 
-    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
-    if (reviewWarnings.length) {
-      checks.push(RCUI.buildReviewCheckGroup(reviewWarnings.map(text => ({
-        label:'需補充設計或圖說確認',
-        sub:text
-      })), {
-        group:'待確認事項',
-        formula:'不列為 OK 結論；完成補充後方可作為完整檢核',
-        value:'待確認',
-      }));
-    }
-    const allChecks = checks.flatMap(g=>g.items.map(i=>i.ok)).filter(v=>v===true||v===false);
-    const anyFail = allChecks.some(v=>v===false);
-    const allOk = allChecks.length>0 && allChecks.every(v=>v===true) && reviewWarnings.length === 0;
-    const summaryText = anyFail ? '✗ NG — 不符合規範' : (reviewWarnings.length ? `⚠ 待確認 — ${reviewWarnings.length} 項需補充設計或圖說確認` : (allOk ? '✓ OK — 符合規範' : '部分檢核未完成'));
-
     const diagrams = [];
     const pmData = svgToDataURL($('pmSvg'));
     if (pmData) diagrams.push({ title:'面內 P-M 互制圖', dataURL:pmData, caption:`藍線=設計封包；水平虛線=φPn,max=${fmt(r.pm.phiPnMax,0)} tf；P範圍=${fmt(r.pmPMin,0)}~${fmt(r.pmPMax,0)} tf；標記=需求點 (|Mu|, Pu)`, width:380 });
@@ -1845,7 +1884,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
     openReport({
       title:'剪力牆設計計算書', subtitle:'RC Shear Wall Design Report (依 112 規範 11 / 18.7 章)',
       project:proj,
-      summary:{ ok:anyFail?false:allOk?true:null, text:summaryText },
+      summary:false,
       inputs, checks, diagrams, steps:stepsArr,
       symbols:[
         { sym:"fc'", desc:'混凝土抗壓強度' }, { sym:'fy/fyt', desc:'縱筋/橫筋降伏強度' },
