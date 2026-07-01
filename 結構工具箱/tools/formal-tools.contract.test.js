@@ -324,6 +324,32 @@ for (const inlineValidationPage of [
 }
 
 {
+  const html = readText(toolboxFile('tools/風力/wind-force.html'));
+  [
+    'id="windForceReportReadiness"',
+    'function buildWindForceReportReadinessModel',
+    'function renderWindForceReportReadiness',
+    'function markWindForceReportInputsChanged',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'wind-force page-only report readiness'));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-force page-only report readiness hidden from print');
+
+  const windReport = readText(toolboxFile('core/wind-report.js'));
+  assertIncludes(windReport, 'const calcResult = typeof global.calc', 'wind report recalculates before report generation');
+  assertIncludes(windReport, 'if (calcResult === false)', 'wind report blocks invalid calc output');
+  [
+    'windForceReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(windReport, needle, 'wind report excludes page-only readiness wording'));
+}
+
+{
   const html = readText(toolboxFile('tools/風力/wind-object-solid.html'));
   [
     'id="solidReportReadiness"',

@@ -36,6 +36,18 @@
   .case-status.warn { color:#92400e; }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
   .input-status:empty { display:none; }
+  .report-readiness { margin-top:10px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; padding:12px 14px; color:#1e3a8a; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .story-height-summary { margin-top:8px; font-size:0.82em; color:var(--text-light); line-height:1.7; }
   .result-primary h2 { color:#0f766e; }
   #controlTable td:first-child,
@@ -50,12 +62,14 @@
     table.story { font-size:0.76em; }
     table.story th, table.story td { padding:4px 5px; }
     #controlTable, #dirComboTable, #comboTable, #storyTable { table-layout:fixed; }
+    .page-only-report-status { display:none !important; }
   }
 
   @media (max-width: 768px) {
     table.story { font-size: 0.78em; }
     table.story th, table.story td { padding: 4px 5px; }
     .form-row { grid-template-columns: 1fr; }
+    .report-readiness-grid { grid-template-columns:1fr; }
     .step-title { font-size: 0.85em; }
     .step-body { font-size: 0.82em; }
   }
@@ -90,6 +104,7 @@
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus" aria-live="polite"></div>
+  <div class="report-readiness page-only-report-status blocked" id="windForceReportReadiness" role="status" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 
@@ -667,8 +682,17 @@ const CASE_VALUE_IDS = [
   'rep_inputs', 'rep_notes'
 ];
 let storyHeightDraft = [];
+let lastWindForceReportState = null;
+let lastWindForceReportValidationMessage = '';
+let windForceReportInputsChanged = false;
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+const escHtml = s => (s === null || s === undefined ? '' : String(s))
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
 function fmtSigned(v, d) {
   if (v == null || !isFinite(v)) return '—';
   const n = Number(v).toFixed(d);
@@ -701,9 +725,122 @@ function setInputStatus(message) {
   const node = document.getElementById('inputStatus');
   if (!node) return;
   node.textContent = message || '';
+  lastWindForceReportValidationMessage = message || '';
+  if (message) lastWindForceReportState = null;
+  renderWindForceReportReadiness(lastWindForceReportValidationMessage);
 }
 function clearInputStatus() {
   setInputStatus('');
+}
+function getProjectInfo() {
+  return {
+    name: document.getElementById('projName')?.value.trim() || '',
+    no: document.getElementById('projNo')?.value.trim() || '',
+    designer: document.getElementById('projDesigner')?.value.trim() || ''
+  };
+}
+function isProjectMetaMissing() {
+  const project = getProjectInfo();
+  return !project.name || !project.no || !project.designer;
+}
+function windForceReportModeLabel() {
+  return document.getElementById('reportMode')?.value === 'summary' ? '簡易結果' : '詳算式';
+}
+function windForceInputChangedLabel() {
+  return windForceReportInputsChanged ? '目前輸入已變更；請重算後再整理附件，列印計算書時也會重新計算。' : '';
+}
+function buildWindForceReportReadinessModel(validationMessage = lastWindForceReportValidationMessage) {
+  const blockedItems = [];
+  const reviewItems = [];
+  const readyItems = [];
+
+  if (validationMessage) {
+    blockedItems.push({ label: '輸入檢核', value: validationMessage });
+  }
+  if (!lastWindForceReportState && !validationMessage) {
+    blockedItems.push({ label: '計算狀態', value: '尚未完成矩形建物 MWFRS 風力計算。' });
+  }
+  if (blockedItems.length) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過，暫勿產生計算書附件。',
+      items: blockedItems
+    };
+  }
+
+  const r = lastWindForceReportState;
+  const staleMessage = windForceInputChangedLabel();
+  if (staleMessage) {
+    reviewItems.push({ label: '輸入已變更', value: staleMessage });
+  }
+  if (isProjectMetaMissing()) {
+    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
+  }
+  if (r.customWindSpeed) {
+    reviewItems.push({ label: '自訂風速', value: `V = ${fmt(r.V, 1)} m/s 採自訂值，請確認專案文件或設計判斷來源。` });
+  }
+  if (r.enclosure === 'partial') {
+    reviewItems.push({ label: '部分封閉式', value: '內壓採部分封閉式組合，產報前應確認開口條件與施工圖一致。' });
+  }
+  if (r.roofType !== 'flat' || r.roofSlope > 0) {
+    reviewItems.push({ label: '屋面路線', value: `${r.roofTypeLabel}；θ = ${fmt(r.roofSlope, 1)}°，請確認表 2.5/2.6/2.7/2.8 適用性。` });
+  }
+  if (r.hasParapet) {
+    reviewItems.push({ label: '女兒牆邊界', value: `已計入 MWFRS 女兒牆 h_p = ${fmt(r.hp, 2)} m；第三章 C&C 女兒牆需另用專頁。` });
+  }
+  if (r.isFlexible) {
+    reviewItems.push({ label: '柔性結構', value: `f_n = ${fmt(r.fn, 3)} Hz；β = ${fmt(r.beta, 3)}，請確認動力特性來源。` });
+  }
+  if (!r.doAccelCheck && (r.isFlexible || r.totalH >= 60 || r.storyCount >= 15)) {
+    reviewItems.push({ label: '第四章加速度', value: '高層或柔性情境未啟用角隅加速度檢核，若需舒適度檢核應補輸入結構分析位移。' });
+  }
+  if (r.doAccelCheck && r.accelMode === 'estimate') {
+    reviewItems.push({ label: '加速度附錄', value: '目前為簡化推估附錄，正式第四章檢核仍應輸入 D* / L* / θ*。' });
+  }
+  if (!Number.isFinite(r.wlControlValue) || !Number.isFinite(r.wtControlValue)) {
+    reviewItems.push({ label: '橫風 / 扭矩', value: '部分 WL 或 WT 未形成本頁可採用值，產報前應確認是否超出第二章矩形建物路線。' });
+  }
+
+  readyItems.push({ label: '雙主風向', value: `W_D 控制：${r.wdControlDir} = ${fmt(r.wdControlValue, 0)} kgf。` });
+  readyItems.push({ label: '橫風 / 扭矩', value: `W_L：${r.wlControlDir} = ${Number.isFinite(r.wlControlValue) ? fmt(r.wlControlValue, 0) : '—'} kgf；W_T：${r.wtControlDir} = ${Number.isFinite(r.wtControlValue) ? fmt(r.wtControlValue, 0) : '—'} kgf·m。` });
+  readyItems.push({ label: '逐層與屋面', value: `${r.storyCount} 層，H = ${fmt(r.totalH, 2)} m；${r.roofTypeLabel}；q_h = ${fmt(r.qH, 1)} kgf/m²。` });
+  readyItems.push({ label: '報告模式', value: `${windForceReportModeLabel()}；報告會重新計算目前輸入。` });
+
+  return {
+    level: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    items: reviewItems.concat(readyItems)
+  };
+}
+function renderWindForceReportReadiness(validationMessage = lastWindForceReportValidationMessage) {
+  const el = document.getElementById('windForceReportReadiness');
+  if (!el) return;
+  const model = buildWindForceReportReadinessModel(validationMessage);
+  el.className = `report-readiness page-only-report-status ${model.level}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
+        <p class="report-readiness-title">${escHtml(model.title)}</p>
+      </div>
+      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
+    </div>
+    <div class="report-readiness-grid">
+      ${model.items.map(item => `
+        <div class="report-readiness-item">
+          <strong>${escHtml(item.label)}</strong>
+          <span>${escHtml(item.value)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認第二章 2.12、表 2.5/2.6/2.7/2.8、女兒牆 Eq 2.3、X/Y 風向動力特性、第四章加速度需求與送審圖說一致性。</div>`;
+}
+function markWindForceReportInputsChanged() {
+  if (!lastWindForceReportState) return;
+  windForceReportInputsChanged = true;
+  renderWindForceReportReadiness();
 }
 function readInputValue(id) {
   const el = document.getElementById(id);
@@ -1072,6 +1209,20 @@ document.getElementById('btnImportCase').addEventListener('click', () => documen
 document.getElementById('btnSaveCaseDraft').addEventListener('click', saveCaseDraft);
 document.getElementById('btnLoadCaseDraft').addEventListener('click', loadCaseDraft);
 document.getElementById('caseJsonFile').addEventListener('change', e => importCaseJsonFile(e.target.files?.[0]));
+['projName', 'projNo', 'projDesigner'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => renderWindForceReportReadiness());
+  document.getElementById(id).addEventListener('change', () => renderWindForceReportReadiness());
+});
+CASE_VALUE_IDS
+  .filter(id => id !== 'chkDetail' && id !== 'reportMode' && !id.startsWith('rep_'))
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', markWindForceReportInputsChanged);
+    el.addEventListener('change', markWindForceReportInputsChanged);
+  });
+document.getElementById('storyHeightTable').addEventListener('input', markWindForceReportInputsChanged);
+document.getElementById('reportMode').addEventListener('change', () => renderWindForceReportReadiness());
 
 // ═══════════════════════════════
 //  計算
@@ -1672,6 +1823,37 @@ Eq 2.6: q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup><br>
   });
   document.getElementById('comboNote').innerHTML =
     `本表同步列出 X / Y 兩主風向之逐層設計風力。W<sub>D,z</sub> 為順風向樓層風力，W<sub>L,z</sub> 為橫風向樓層風力，M<sub>T,z</sub> 為該層扭轉向風力。構件設計若需依 2.12 組合結構效應，應於結構分析模型中對 X / Y 兩風向分別建立載重組合。`;
+  lastWindForceReportState = {
+    V,
+    customWindSpeed: isFinite(Vcustom) && Vcustom > 0,
+    terrain,
+    I,
+    Kzt,
+    B,
+    L,
+    storyCount: storyH.length,
+    totalH: r.totalH,
+    qH: r.qH,
+    G: r.G,
+    roofType,
+    roofTypeLabel: document.getElementById('roofType').selectedOptions[0]?.textContent || roofType,
+    roofSlope,
+    enclosure: encl,
+    isFlexible,
+    fn,
+    beta,
+    doAccelCheck,
+    accelMode,
+    hp,
+    hasParapet: hp > 0,
+    wdControlDir: wdControl.dir,
+    wdControlValue: wdControl.value,
+    wlControlDir: wlControl.dir,
+    wlControlValue: wlControl.value,
+    wtControlDir: wtControl.dir,
+    wtControlValue: wtControl.value
+  };
+  windForceReportInputsChanged = false;
   clearInputStatus();
   return true;
 }

@@ -572,7 +572,11 @@ function closeReportWindow() {
   }
 
   function openWindForceReport() {
-    if (typeof global.calc === 'function') global.calc();
+    const calcResult = typeof global.calc === 'function' ? global.calc() : true;
+    if (calcResult === false) {
+      showWindReportIssue('輸入條件尚未通過，無法產生計算書。');
+      return;
+    }
     const today = new Date();
     const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
     const proj = Object.assign({ name: '', no: '', designer: '', date: todayStr }, project());
@@ -695,7 +699,11 @@ ${reportWindowScriptHtml()}
   }
 
   function openWindGenericReport() {
-    if (typeof global.calc === 'function') global.calc();
+    const calcResult = typeof global.calc === 'function' ? global.calc() : true;
+    if (calcResult === false) {
+      showWindReportIssue('輸入條件尚未通過，無法產生計算書。');
+      return;
+    }
     const today = new Date();
     const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
     const proj = Object.assign({ name: '', no: '', designer: '', date: todayStr }, project());
