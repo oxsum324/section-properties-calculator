@@ -18,6 +18,18 @@
   .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
   .case-status.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
   .case-status:empty { display:none; }
+  .report-readiness { margin-top:10px; border:1px solid #ddd6fe; border-radius:10px; background:#f5f3ff; padding:12px 14px; color:#4c1d95; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .report-mode-control { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #ddd6fe; border-radius:10px; background:#f5f3ff; color:#334155; font-size:0.84em; line-height:1.6; }
   .report-mode-label { font-weight:700; color:#5b21b6; margin-right:2px; }
   .mode-segment { border:1px solid #c4b5fd; background:#fff; color:#5b21b6; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
@@ -44,12 +56,13 @@
   .detail-formula { margin-top:6px; padding:6px 8px; background:#f8fafc; border-left:3px solid #94a3b8; color:#475569; font-size:0.84em; }
   #resultPanel { min-width:0; }
   @media (max-width:768px) {
+    .report-readiness-grid { grid-template-columns:1fr; }
     .inline-actions { flex-direction:column; }
     .inline-actions .btn-calc { width:100%; flex-basis:auto; }
     .case-actions button { flex:1 1 120px; }
   }
   @media print {
-    header, .btn-calc, .back, .case-actions, .report-mode-control { display:none; }
+    header, .btn-calc, .back, .case-actions, .report-mode-control, .page-only-report-status { display:none !important; }
     .container { max-width:none; padding:0; }
     .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
   }
@@ -87,6 +100,7 @@
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus"></div>
+  <div class="report-readiness page-only-report-status blocked" id="frameObjectReportReadiness" role="status" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 <div>
@@ -237,6 +251,7 @@ const TOOL_VERSION = '3.3';
 const CASE_SCHEMA_VERSION = 'wind-object-frame.case.v2';
 let lastResult = null;
 let lastStepsHtml = '';
+let lastFrameObjectReportValidationMessage = '';
 const DEFAULT_CASE_INPUTS = {
   project: { name: '', no: '', designer: '' },
   values: {
@@ -271,6 +286,8 @@ function showFormError(message, focusId) {
   const el = document.getElementById('formError');
   el.textContent = message;
   el.classList.add('show');
+  lastFrameObjectReportValidationMessage = message;
+  renderFrameObjectReportReadiness(message);
   if (focusId) document.getElementById(focusId)?.focus();
   return null;
 }
@@ -278,6 +295,7 @@ function clearFormError() {
   const el = document.getElementById('formError');
   el.textContent = '';
   el.classList.remove('show');
+  lastFrameObjectReportValidationMessage = '';
 }
 function getProjectInfo() {
   return { name: textVal('projName'), no: textVal('projNo'), designer: textVal('projDesigner') };
@@ -293,6 +311,7 @@ function syncPrintReportMode(mode) {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+  renderFrameObjectReportReadiness();
 }
 function setCaseStatus(message, tone = '') {
   const el = document.getElementById('caseStatus');
@@ -465,6 +484,79 @@ function setApplicability(items) {
     </div>
   `).join('');
 }
+function reportModeLabel() {
+  return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
+}
+function isProjectMetaMissing() {
+  const project = getProjectInfo();
+  return !project.name.trim() || !project.no.trim() || !project.designer.trim();
+}
+function buildFrameObjectReportReadinessModel(validationMessage = lastFrameObjectReportValidationMessage) {
+  const blockedItems = [];
+  const reviewItems = [];
+  const readyItems = [];
+
+  if (validationMessage) {
+    blockedItems.push({ label: '輸入檢核', value: validationMessage });
+  }
+  if (!lastResult && !validationMessage) {
+    blockedItems.push({ label: '計算狀態', value: '尚未完成中空式 / 格子式風力計算。' });
+  }
+  if (blockedItems.length) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過，暫勿產生計算書附件。',
+      items: blockedItems
+    };
+  }
+
+  const r = lastResult;
+  readyItems.push({ label: '表 2.11 路線', value: `${r.cfRoute}；實體率 φ = ${fmt(r.phi,2)}。` });
+  readyItems.push({ label: '控制 C_f', value: `${fmt(r.cfData.cf,3)}；表列區間 ${r.cfData.band}。` });
+  readyItems.push({ label: '控制結果', value: `F = ${fmt(r.force,1)} kgf；M = ${fmt(r.baseMoment,1)} kgf·m。` });
+  readyItems.push({ label: '計算書模式', value: `${reportModeLabel()}；報告會重新計算目前輸入。` });
+
+  if (isProjectMetaMissing()) {
+    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
+  }
+  if (r.memberType === 'circular') {
+    reviewItems.push({ label: 'D√q(z) 分類', value: `D√q(z) = ${fmt(r.dSqrtQz,2)}，請確認圓形構材直徑 D 與風壓高度 z。` });
+  }
+  if (r.phi >= 0.6) {
+    reviewItems.push({ label: '實體率上限', value: 'φ 已接近表 2.11 整理上限，產報前需人工確認是否仍屬中空式 / 格子式路線。' });
+  }
+
+  return {
+    level: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    items: reviewItems.concat(readyItems)
+  };
+}
+function renderFrameObjectReportReadiness(validationMessage = lastFrameObjectReportValidationMessage) {
+  const el = document.getElementById('frameObjectReportReadiness');
+  if (!el) return;
+  const model = buildFrameObjectReportReadinessModel(validationMessage);
+  el.className = `report-readiness page-only-report-status ${model.level}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
+        <p class="report-readiness-title">${escHtml(model.title)}</p>
+      </div>
+      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
+    </div>
+    <div class="report-readiness-grid">
+      ${model.items.map(item => `
+        <div class="report-readiness-item">
+          <strong>${escHtml(item.label)}</strong>
+          <span>${escHtml(item.value)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認表 2.11 適用性、實體率、構材型式、作用高度與送審圖說一致性。</div>`;
+}
 function memberTypeLabel(value) {
   return value === 'flat' ? '平邊構材' : '圓形斷面構材';
 }
@@ -635,6 +727,7 @@ function calc() {
   document.getElementById('steps').innerHTML = html;
   drawFrameDiagram(r);
   updateStepsVisibility();
+  renderFrameObjectReportReadiness();
   return r;
 }
 function buildReportTable(rows) {
@@ -802,6 +895,9 @@ function bindRecalc(id) {
   document.getElementById('btnReport').addEventListener('click', openFrameObjectReport);
   document.getElementById('btnReportModeDetail').addEventListener('click', () => syncPrintReportMode('detail'));
   document.getElementById('btnReportModeSimple').addEventListener('click', () => syncPrintReportMode('simple'));
+  ['projName','projNo','projDesigner'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => renderFrameObjectReportReadiness());
+  });
   document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
   document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());
   document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
