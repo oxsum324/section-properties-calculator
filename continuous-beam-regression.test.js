@@ -19,6 +19,10 @@ assert(!html.includes('confirm('), 'blocking confirmations removed', 'cloud save
 assert(html.includes('function setInlineChoice'), 'inline choice helper exists', 'save/load modal confirmations use real buttons');
 assert(html.includes('function showSaveOverwriteChoice'), 'save overwrite choice exists', 'loaded cloud save can be overwritten or saved as new inline');
 assert(html.includes('function showDeleteChoice'), 'delete choice exists', 'cloud delete confirmation stays in the load modal');
+assert(html.includes('id="reportReadiness"'), 'attachment readiness outlet exists', 'continuous beam page-only readiness');
+assert(html.includes('function continuousBeamReportReadinessModel'), 'attachment readiness model exists', 'continuous beam report readiness model');
+assert(html.includes('page-only-report-status'), 'attachment readiness is page-only', 'print/PDF boundary class');
+assert(html.includes('不會寫入計算書或列印 PDF'), 'attachment readiness boundary copy exists', 'page-only wording');
 
 function assertNear(actual, expected, tol, title, detail) {
   assert(Math.abs(actual - expected) <= tol, title, `${detail}; actual=${actual}, expected=${expected}, tol=${tol}`);
@@ -132,6 +136,21 @@ function extractFunctionBlock(source, name) {
   throw new Error(`Unclosed function: ${name}`);
 }
 
+const pageOnlyNeedles = [
+  '產報前檢查',
+  '優先閱讀',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+];
+const exportPdfSource = extractFunctionBlock(html, 'exportPDF');
+for (const needle of pageOnlyNeedles) {
+  assert(!exportPdfSource.includes(needle), 'exportPDF excludes page-only readiness wording', needle);
+}
+
 function buildDocument() {
   const elements = new Map();
 
@@ -142,6 +161,7 @@ function buildDocument() {
     'spanInputs', 'loadSpanSelect', 'loadInputs', 'ilEnabled', 'ilControls', 'ilType', 'ilParam',
     'ilParamLabel', 'errorMsg', 'reactionTable', 'extremeTable', 'designBtns', 'currentFileLabel',
     'saveStatus', 'saveModalStatus', 'loadModalStatus',
+    'reportReadiness',
     'sfdCard', 'bmdCard', 'deflCard', 'ilCard', 'resultsCard',
     'schematicCanvas', 'sfdCanvas', 'bmdCanvas', 'deflCanvas', 'ilCanvas',
     'saveModal', 'loadModal', 'saveDateInput', 'saveProjectInput', 'saveNoteInput', 'loadList',
@@ -268,11 +288,15 @@ function resetToSingleSpan(ctx) {
 
 function main() {
   const ctx = bootPage();
+  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('產報前檢查'), 'initial readiness card renders', ctx.document.getElementById('reportReadiness').innerHTML);
+  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('暫勿作附件'), 'initial readiness blocks report attachment', ctx.document.getElementById('reportReadiness').innerHTML);
 
   resetToSingleSpan(ctx);
   ctx.model.loads[0] = [{ type: 'udl', w: 10 }];
   ctx.renderLoadInputs();
   ctx.runAnalysis();
+  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('可作附件，需人工複核'), 'analysis readiness asks for manual review when project fields are missing', ctx.document.getElementById('reportReadiness').innerHTML);
+  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('不會寫入計算書或列印 PDF'), 'analysis readiness keeps page-only boundary', ctx.document.getElementById('reportReadiness').innerHTML);
   assertNear(ctx.solution.reactions[0].Ry, 30, 1e-9, 'simple span UDL left reaction', 'Ry0 = wL/2');
   assertNear(ctx.solution.reactions[1].Ry, 30, 1e-9, 'simple span UDL right reaction', 'Ry1 = wL/2');
   assertNear(Math.max(...ctx.diagrams.spans[0].ms), 45, 1e-9, 'simple span UDL max moment', 'Mmax = wL^2/8');
@@ -297,6 +321,7 @@ function main() {
     'out-of-span point load rejected',
     ctx.document.getElementById('errorMsg').textContent
   );
+  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('暫勿作附件'), 'invalid load blocks attachment readiness', ctx.document.getElementById('reportReadiness').innerHTML);
   assert(ctx.document.getElementById('resultsCard').style.display === 'none', 'invalid load keeps results hidden', 'results card stays hidden after validation failure');
 
   resetToSingleSpan(ctx);
