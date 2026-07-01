@@ -4705,6 +4705,134 @@ label.field-has-warning > input {
   margin: 0;
 }
 
+.attachment-readiness-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(30, 41, 59, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.app-shell[data-active-tab='report'] .attachment-readiness-panel[data-shows~='report'] {
+  display: grid;
+}
+
+.attachment-readiness-panel[data-visible='false'] {
+  display: none;
+}
+
+.attachment-readiness-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.attachment-readiness-header h3 {
+  margin: 3px 0 0;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.attachment-readiness-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.attachment-readiness-summary {
+  margin: 0;
+  color: #334155;
+  line-height: 1.7;
+}
+
+.attachment-readiness-priority {
+  display: grid;
+  gap: 4px;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid rgba(30, 41, 59, 0.12);
+}
+
+.attachment-readiness-priority span {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.attachment-readiness-priority strong {
+  font-size: 0.98rem;
+  letter-spacing: 0;
+}
+
+.attachment-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.attachment-readiness-item {
+  min-height: 76px;
+  border: 1px solid rgba(30, 41, 59, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.attachment-readiness-item dt {
+  margin: 0 0 5px;
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.attachment-readiness-item dd {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.attachment-readiness-notes {
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  line-height: 1.65;
+}
+
+.attachment-readiness-tone-ok,
+.attachment-readiness-tone-ready {
+  color: #166534;
+  border-color: rgba(22, 101, 52, 0.24);
+  background: #f0fdf4;
+}
+
+.attachment-readiness-tone-warn,
+.attachment-readiness-tone-review {
+  color: #92400e;
+  border-color: rgba(146, 64, 14, 0.24);
+  background: #fffbeb;
+}
+
+.attachment-readiness-tone-fail,
+.attachment-readiness-tone-blocked {
+  color: #991b1b;
+  border-color: rgba(153, 27, 27, 0.24);
+  background: #fef2f2;
+}
+
+.attachment-readiness-tone-neutral {
+  color: #334155;
+  border-color: rgba(51, 65, 85, 0.16);
+  background: #f8fafc;
+}
+
 /* 列印封面 LOGO */
 .report-cover-logo {
   display: block;

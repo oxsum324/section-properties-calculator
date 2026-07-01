@@ -77,6 +77,7 @@ import { SensitivityPanel } from './SensitivityPanel'
 import { CommandPalette } from './CommandPalette'
 import { AnalysisLoadsCard } from './AnalysisLoadsCard'
 import { AnchorReinforcementPanel } from './AnchorReinforcementPanel'
+import { AttachmentReadinessPanel } from './AttachmentReadinessPanel'
 import { AuditHistoryPanel } from './AuditHistoryPanel'
 import { BasePlateBearingPanel } from './BasePlateBearingPanel'
 import { CaseDocumentsPanel } from './CaseDocumentsPanel'
@@ -1747,6 +1748,11 @@ function App() {
           </em>
         </span>
       </div>
+      <AttachmentReadinessPanel
+        review={review}
+        completeness={completeness}
+        reportSettings={reportSettings}
+      />
       <LandingHubGrid
         caseCards={caseCards}
         project={project}
