@@ -1782,6 +1782,26 @@ if (-not (Test-Path -LiteralPath $sample)) {
   exit 1
 }
 
+$htmlPath = 'index.html'
+$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
+$reportReadinessNeedles = @(
+  'id="report-readiness"',
+  'function reportReadinessModel',
+  'page-only-report-status',
+  '產報前檢查',
+  '優先閱讀'
+)
+foreach ($needle in $reportReadinessNeedles) {
+  if (-not $html.Contains($needle)) {
+    Write-Error "cover slab report page-only readiness missing: $needle"
+    exit 1
+  }
+}
+if ($html -notmatch '@media\s+print[\s\S]*\.page-only-report-status') {
+  Write-Error "cover slab report page-only readiness is not hidden from print"
+  exit 1
+}
+
 $outDir = '..\output\preflight'
 if (-not (Test-Path -LiteralPath $outDir)) {
   New-Item -Path $outDir -ItemType Directory | Out-Null

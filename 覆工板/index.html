@@ -319,6 +319,109 @@
     border-color: #8f1d1d;
     color: #fff;
   }
+  .report-readiness {
+    display: grid;
+    gap: 12px;
+    margin: 12px 0 16px;
+    padding: 14px;
+    border: 1px solid #cfd8e3;
+    border-radius: 6px;
+    background: #f8fbff;
+  }
+  .report-readiness-head {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .report-readiness-kicker {
+    margin: 0 0 3px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .report-readiness h3 {
+    margin: 0;
+    color: var(--c-primary);
+    font-size: 15px;
+  }
+  .report-readiness-badge {
+    flex: 0 0 auto;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .report-readiness-summary {
+    margin: 0;
+    color: #334155;
+  }
+  .report-readiness-priority {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid rgba(26,68,128,.16);
+    border-radius: 6px;
+    background: #fff;
+  }
+  .report-readiness-priority span {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .report-readiness-priority strong {
+    color: #17324d;
+    font-size: 14px;
+  }
+  .report-readiness-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  }
+  .report-readiness-item {
+    min-height: 64px;
+    padding: 9px 10px;
+    border: 1px solid rgba(26,68,128,.14);
+    border-radius: 6px;
+    background: #fff;
+  }
+  .report-readiness-item span {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .report-readiness-item strong {
+    display: block;
+    margin-top: 3px;
+    color: #111827;
+    font-size: 14px;
+  }
+  .report-readiness-notes {
+    margin: 0;
+    padding-left: 18px;
+    color: #475569;
+    font-size: 13px;
+  }
+  .report-readiness.ready,
+  .report-readiness.ready .report-readiness-badge {
+    border-color: #b7e1c2;
+    background: #f0fff4;
+    color: var(--c-ok);
+  }
+  .report-readiness.review,
+  .report-readiness.review .report-readiness-badge {
+    border-color: #f3d39b;
+    background: #fff8e6;
+    color: #8a5a00;
+  }
+  .report-readiness.blocked,
+  .report-readiness.blocked .report-readiness-badge {
+    border-color: #e9a4a4;
+    background: #fff1f1;
+    color: var(--c-ng);
+  }
 
   /* 自動連動標示 */
   .field input.linked {
@@ -335,7 +438,7 @@
   }
 
   @media print {
-    nav.tabs, .btn, .statusbar, .preset-bar, .action-status, .auto-link-toggle, header .home-link { display: none !important; }
+    nav.tabs, .btn, .statusbar, .preset-bar, .action-status, .auto-link-toggle, .page-only-report-status, header .home-link { display: none !important; }
     section.tab-panel { display: block !important; page-break-after: always; }
     header { background: var(--c-primary) !important; -webkit-print-color-adjust: exact; }
     body { background: #fff; font-size: 11px; }
@@ -754,6 +857,7 @@
       <span style="font-size:12px; color:#555;">→ 雙擊本資料夾內「<b>產生計算書.bat</b>」→ 生成 Word 檔</span>
     </div>
 
+    <div id="report-readiness" class="report-readiness page-only-report-status" role="status" aria-live="polite"></div>
     <div id="report-output"></div>
   </div>
 </section>
@@ -782,6 +886,7 @@ const G = () => ({
 
 const fmt = (v, d=3) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : '—';
 const checkTag = (ok) => `<span class="check ${ok?'ok':'ng'}">${ok?'OK':'NG'}</span>`;
+const textOrBlank = (v) => String(v || '').trim();
 function setActionStatus(message, tone = 'ok') {
   const el = document.getElementById('actionStatus');
   if (!el) return;
@@ -1401,6 +1506,115 @@ function calcPile() {
   setStatus('st-c-pile', '樁', (Qa/P).toFixed(2)+'×', Qa>P);
 }
 
+function resultFailures(R) {
+  const failures = [];
+  if (!R.deck) failures.push('覆工版面尚未計算');
+  else {
+    if (!R.deck.ok_fb) failures.push('覆工版面彎矩應力');
+    if (!R.deck.ok_fv) failures.push('覆工版面剪應力');
+    if (!R.deck.ok_d) failures.push('覆工版面撓度');
+  }
+  if (!R.stringer) failures.push('覆工小梁尚未計算');
+  else {
+    if (!R.stringer.ok_fb) failures.push('覆工小梁彎矩應力');
+    if (!R.stringer.ok_fv) failures.push('覆工小梁剪應力');
+    if (!R.stringer.ok_d) failures.push('覆工小梁撓度');
+  }
+  if (!R.girder) failures.push('覆工大梁尚未計算');
+  else {
+    if (!R.girder.ok_fb) failures.push('覆工大梁彎矩應力');
+    if (!R.girder.ok_fv) failures.push('覆工大梁剪應力');
+    if (!R.girder.ok_d) failures.push('覆工大梁撓度');
+  }
+  if (R.column && !R.column.ok) failures.push('共構柱交互式');
+  if (R.bond && !R.bond.ok) failures.push('H 型鋼貫入 PC 握裹力');
+  if (R.pile && !R.pile.ok) failures.push('樁基承載');
+  return failures;
+}
+
+function reportReadinessModel(R, projectInfo) {
+  const failures = resultFailures(R);
+  const requiredDone = Boolean(R.deck && R.stringer && R.girder);
+  const optionalDone = [R.column, R.bond, R.pile].filter(Boolean).length;
+  const missingProjectInfo = [];
+  if (!textOrBlank(projectInfo.name) || projectInfo.name === '(未填)') missingProjectInfo.push('案名');
+  if (!textOrBlank(projectInfo.no) || projectInfo.no === '(未填)') missingProjectInfo.push('案件編號');
+  if (!textOrBlank(projectInfo.date)) missingProjectInfo.push('日期');
+
+  if (failures.length > 0) {
+    return {
+      tone: 'blocked',
+      label: '暫勿作附件',
+      summary: '目前仍有不通過或尚未完成項目，先不要作為正式計算書附件。',
+      priority: `先處理：${failures[0]}`,
+      items: [
+        ['整體判定', '不通過'],
+        ['主構件', requiredDone ? '已計算' : '未完整'],
+        ['附加檢核', `${optionalDone} / 3 項`],
+        ['專案資料', missingProjectInfo.length ? `缺 ${missingProjectInfo.join('、')}` : '完整'],
+        ['輸出邊界', '頁面顯示，不進報告'],
+      ],
+    };
+  }
+
+  if (missingProjectInfo.length > 0) {
+    return {
+      tone: 'review',
+      label: '可作附件，需人工複核',
+      summary: '主要檢核通過，但專案資料尚未完整，送審前需補齊。',
+      priority: `先補齊：${missingProjectInfo.join('、')}`,
+      items: [
+        ['整體判定', '通過'],
+        ['主構件', requiredDone ? '已計算' : '未完整'],
+        ['附加檢核', `${optionalDone} / 3 項`],
+        ['專案資料', `缺 ${missingProjectInfo.join('、')}`],
+        ['輸出邊界', '頁面顯示，不進報告'],
+      ],
+    };
+  }
+
+  return {
+    tone: 'ready',
+    label: '可作附件',
+    summary: '主要檢核與專案資料已可支援產出；送出前仍需確認人工留痕與附件版本。',
+    priority: '先確認 JSON / Word 檔與列印 PDF 均由本次計算輸出，再歸檔。',
+    items: [
+      ['整體判定', '通過'],
+      ['主構件', requiredDone ? '已計算' : '未完整'],
+      ['附加檢核', `${optionalDone} / 3 項`],
+      ['專案資料', '完整'],
+      ['輸出邊界', '頁面顯示，不進報告'],
+    ],
+  };
+}
+
+function renderReportReadiness(model) {
+  const el = document.getElementById('report-readiness');
+  if (!el) return;
+  el.className = `report-readiness page-only-report-status ${model.tone}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助</p>
+        <h3>產報前檢查</h3>
+      </div>
+      <span class="report-readiness-badge">${model.label}</span>
+    </div>
+    <p class="report-readiness-summary">${model.summary}</p>
+    <div class="report-readiness-priority">
+      <span>優先閱讀</span>
+      <strong>${model.priority}</strong>
+    </div>
+    <div class="report-readiness-grid">
+      ${model.items.map(([label, value]) => `<div class="report-readiness-item"><span>${label}</span><strong>${value}</strong></div>`).join('')}
+    </div>
+    <ul class="report-readiness-notes">
+      <li>此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。</li>
+      <li>吊車資料、施工圖、材料規格、附件版本與簽章仍須由設計者或審查者確認。</li>
+    </ul>
+  `;
+}
+
 //============================================================
 // 狀態列更新
 //============================================================
@@ -1676,6 +1890,7 @@ function buildReport() {
                  && (!R.column || R.column.ok)
                  && (!R.bond   || R.bond.ok)
                  && (!R.pile   || R.pile.ok);
+  renderReportReadiness(reportReadinessModel(R, { name, no, date }));
 
   const deckRow = R.deck ? `
     <tr><td>覆工版面</td><td>${R.deck.n}片×(${R.deck.Sx/R.deck.n} cm³/片)</td>
