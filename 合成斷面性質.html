@@ -54,6 +54,25 @@
   .report-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
   .report-status.warn { display: block; background: #fffbeb; color: #92400e; }
   .report-status.error { display: block; background: #fef2f2; color: #dc2626; }
+  .report-readiness { display: grid; gap: 10px; margin-top: 12px; padding: 12px; border: 1px solid #fde68a; border-radius: 8px; background: #fffbeb; color: #78350f; }
+  .report-readiness.blocked { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+  .report-readiness.ready { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+  .report-readiness-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .report-readiness-kicker { margin: 0 0 2px; font-size: 0.74em; color: var(--text-light); font-weight: 700; }
+  .report-readiness h3 { margin: 0; font-size: 0.94em; color: inherit; }
+  .report-readiness-badge { flex: 0 0 auto; border: 1px solid currentColor; border-radius: 999px; padding: 3px 8px; font-size: 0.74em; font-weight: 700; white-space: nowrap; }
+  .report-readiness-summary { margin: 0; font-size: 0.84em; line-height: 1.65; }
+  .report-readiness-priority { display: grid; gap: 2px; padding: 9px 10px; border-radius: 8px; background: rgba(255,255,255,0.72); border: 1px solid rgba(120,53,15,0.18); }
+  .report-readiness-priority span { font-size: 0.74em; font-weight: 700; color: var(--text-light); }
+  .report-readiness-priority strong { font-size: 0.9em; color: inherit; }
+  .report-readiness-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+  .report-readiness-item { min-height: 58px; padding: 8px 9px; border-radius: 8px; background: rgba(255,255,255,0.7); border: 1px solid rgba(120,53,15,0.14); }
+  .report-readiness-item span { display: block; font-size: 0.72em; font-weight: 700; color: var(--text-light); }
+  .report-readiness-item strong { display: block; margin-top: 2px; font-size: 0.84em; color: var(--text); line-height: 1.35; }
+  .report-readiness-notes { margin: 0; padding-left: 18px; font-size: 0.78em; color: #57534e; line-height: 1.65; }
+  @media print {
+    .page-only-report-status { display: none !important; }
+  }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; }
@@ -180,6 +199,7 @@
           <div class="result-item"><span class="label">請輸入尺寸後點擊計算</span></div>
         </div>
         <div class="note-box" id="noteBox" style="display:none;"></div>
+        <div class="report-readiness page-only-report-status" id="reportReadiness" role="status" aria-live="polite"></div>
         <div class="report-status" id="reportStatus" role="status" aria-live="polite"></div>
       </div>
     </div>
@@ -198,6 +218,73 @@ function setReportStatus(message, tone = 'warn') {
   if (!el) return;
   el.textContent = message || '';
   el.className = `report-status${message ? ` ${tone}` : ''}`;
+}
+function missingProjectFields() {
+  const fields = [
+    ['計畫名稱', 'projName'],
+    ['計畫編號', 'projNo'],
+  ];
+  return fields
+    .filter(([, id]) => !(document.getElementById(id)?.value || '').trim())
+    .map(([label]) => label);
+}
+function compositeReportReadinessModel(data) {
+  if (!data) {
+    return {
+      tone: 'blocked',
+      label: '暫勿作附件',
+      summary: '尚未完成斷面計算，先不要產出計算書。',
+      priority: '先執行計算，再確認斷面圖與輸入尺寸。',
+      items: [
+        ['計算狀態', '未完成'],
+        ['補強型式', '未判定'],
+        ['專案資料', '待確認'],
+        ['輸出邊界', '頁面顯示，不進報告'],
+      ],
+    };
+  }
+  const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[data.geom.mode];
+  const missing = missingProjectFields();
+  return {
+    tone: missing.length ? 'review' : 'ready',
+    label: missing.length ? '可作附件，需人工複核' : '可作附件',
+    summary: missing.length
+      ? '斷面性質已可閱讀，但計算書表頭仍需補齊。'
+      : '斷面性質已可支援計算書附件；送出前仍需人工確認補強假設。',
+    priority: missing.length
+      ? `先補齊：${missing.join('、')}`
+      : '先確認補強型式、板件尺寸與圖面版本，再產出計算書。',
+    items: [
+      ['計算狀態', '已計算'],
+      ['補強型式', modeText],
+      ['專案資料', missing.length ? `缺 ${missing.join('、')}` : '完整'],
+      ['輸出邊界', '頁面顯示，不進報告'],
+    ],
+  };
+}
+function renderCompositeReportReadiness() {
+  const el = document.getElementById('reportReadiness');
+  if (!el) return;
+  const model = compositeReportReadinessModel(lastData);
+  el.className = `report-readiness page-only-report-status ${model.tone}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助</p>
+        <h3>產報前檢查</h3>
+      </div>
+      <span class="report-readiness-badge">${model.label}</span>
+    </div>
+    <p class="report-readiness-summary">${model.summary}</p>
+    <div class="report-readiness-priority"><span>優先閱讀</span><strong>${model.priority}</strong></div>
+    <div class="report-readiness-grid">
+      ${model.items.map(([label, value]) => `<div class="report-readiness-item"><span>${label}</span><strong>${value}</strong></div>`).join('')}
+    </div>
+    <ul class="report-readiness-notes">
+      <li>此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。</li>
+      <li>斷面採用、補強板施工細節與圖面版本仍須由設計者或審查者確認。</li>
+    </ul>
+  `;
 }
 
 // ===== Standard RH型鋼 Database =====
@@ -382,7 +469,7 @@ function calcAll() {
   document.getElementById('calcMsg').textContent = '';
   setReportStatus('');
   const Hmm = val('h-H'), Bmm = val('h-B'), tw = val('h-tw'), tf = val('h-tf'), R = val('h-R');
-  if (!Hmm || !Bmm || !tw || !tf) { document.getElementById('calcMsg').textContent = '請填寫 H、B、tw、tf'; return; }
+  if (!Hmm || !Bmm || !tw || !tf) { document.getElementById('calcMsg').textContent = '請填寫 H、B、tw、tf'; lastData = null; renderCompositeReportReadiness(); return; }
 
   // 轉為 cm
   const H = Hmm/10, B = Bmm/10, twc = tw/10, tfc = tf/10, Rc = R/10;
@@ -394,13 +481,13 @@ function calcAll() {
     tspMm = val('tsp');
     const hspUser = valOrNull('hsp');
     hspMm = (hspUser===null || hspUser<=0) ? Hmm : hspUser;
-    if (!tspMm) { document.getElementById('calcMsg').textContent = '請填寫側板厚度 tsp'; return; }
+    if (!tspMm) { document.getElementById('calcMsg').textContent = '請填寫側板厚度 tsp'; lastData = null; renderCompositeReportReadiness(); return; }
   }
   if (mode==='cover' || mode==='both') {
     tcpMm = val('tcp');
     const wcpUser = valOrNull('wcp');
     wcpMm = (wcpUser===null || wcpUser<=0) ? Bmm : wcpUser;
-    if (!tcpMm) { document.getElementById('calcMsg').textContent = '請填寫蓋板厚度 tcp'; return; }
+    if (!tcpMm) { document.getElementById('calcMsg').textContent = '請填寫蓋板厚度 tcp'; lastData = null; renderCompositeReportReadiness(); return; }
   }
   const tspc = tspMm/10, hspc = hspMm/10, tcpc = tcpMm/10, wcpc = wcpMm/10;
 
@@ -439,6 +526,7 @@ function calcAll() {
 
   renderResults();
   drawSection();
+  renderCompositeReportReadiness();
 }
 
 function renderResults() {

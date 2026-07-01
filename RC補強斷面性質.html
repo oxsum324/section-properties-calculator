@@ -62,6 +62,25 @@
   .report-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.84em; line-height: 1.45; }
   .report-status.warn { display: block; background: #fffbeb; color: #92400e; }
   .report-status.error { display: block; background: #fef2f2; color: #dc2626; }
+  .report-readiness { display: grid; gap: 10px; margin-top: 12px; padding: 12px; border: 1px solid #fde68a; border-radius: 8px; background: #fffbeb; color: #78350f; }
+  .report-readiness.blocked { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+  .report-readiness.ready { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+  .report-readiness-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .report-readiness-kicker { margin: 0 0 2px; font-size: 0.74em; color: var(--text-light); font-weight: 700; }
+  .report-readiness h3 { margin: 0; font-size: 0.94em; color: inherit; }
+  .report-readiness-badge { flex: 0 0 auto; border: 1px solid currentColor; border-radius: 999px; padding: 3px 8px; font-size: 0.74em; font-weight: 700; white-space: nowrap; }
+  .report-readiness-summary { margin: 0; font-size: 0.84em; line-height: 1.65; }
+  .report-readiness-priority { display: grid; gap: 2px; padding: 9px 10px; border-radius: 8px; background: rgba(255,255,255,0.72); border: 1px solid rgba(120,53,15,0.18); }
+  .report-readiness-priority span { font-size: 0.74em; font-weight: 700; color: var(--text-light); }
+  .report-readiness-priority strong { font-size: 0.9em; color: inherit; }
+  .report-readiness-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+  .report-readiness-item { min-height: 58px; padding: 8px 9px; border-radius: 8px; background: rgba(255,255,255,0.7); border: 1px solid rgba(120,53,15,0.14); }
+  .report-readiness-item span { display: block; font-size: 0.72em; font-weight: 700; color: var(--text-light); }
+  .report-readiness-item strong { display: block; margin-top: 2px; font-size: 0.84em; color: var(--text); line-height: 1.35; }
+  .report-readiness-notes { margin: 0; padding-left: 18px; font-size: 0.78em; color: #57534e; line-height: 1.65; }
+  @media print {
+    .page-only-report-status { display: none !important; }
+  }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
   .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid; }
@@ -281,6 +300,7 @@
           </div>
           <div class="note-box" id="b-note" style="display:none;"></div>
           <div class="warn-box" id="b-warn" style="display:none;"></div>
+          <div class="report-readiness page-only-report-status" id="b-report-readiness" role="status" aria-live="polite"></div>
           <div class="report-status" id="b-report-status" role="status" aria-live="polite"></div>
         </div>
       </div>
@@ -488,6 +508,7 @@
           </div>
           <div class="note-box" id="c-note" style="display:none;"></div>
           <div class="warn-box" id="c-warn" style="display:none;"></div>
+          <div class="report-readiness page-only-report-status" id="c-report-readiness" role="status" aria-live="polite"></div>
           <div class="report-status" id="c-report-status" role="status" aria-live="polite"></div>
         </div>
       </div>
@@ -508,6 +529,142 @@ function setReportStatus(id, message, tone = 'warn') {
   if (!el) return;
   el.textContent = message || '';
   el.className = `report-status${message ? ` ${tone}` : ''}`;
+}
+function missingProjectFields() {
+  const fields = [
+    ['計畫名稱', 'projName'],
+    ['計畫編號', 'projNo'],
+  ];
+  return fields
+    .filter(([, id]) => !(document.getElementById(id)?.value || '').trim())
+    .map(([label]) => label);
+}
+function readinessBase(kind, data) {
+  if (!data) {
+    return {
+      tone: 'blocked',
+      label: '暫勿作附件',
+      summary: `${kind}尚未完成計算，先不要產出計算書。`,
+      priority: '先執行計算，確認輸入值與斷面示意圖。',
+      items: [
+        ['計算狀態', '未完成'],
+        ['檢核結果', '未判定'],
+        ['專案資料', '待確認'],
+        ['輸出邊界', '頁面顯示，不進報告'],
+      ],
+    };
+  }
+  return null;
+}
+function buildBeamReadinessModel(data) {
+  const empty = readinessBase('RC 梁', data);
+  if (empty) return empty;
+  const missing = missingProjectFields();
+  const issues = [];
+  if (data.shear.shearRatio !== null && data.shear.shearRatio > 1) issues.push('剪力需求 Vu/φVn > 1.0');
+  if (data.shear.Vs_Vf_capped) issues.push('剪力補強貢獻達規範上限');
+  const modeText = { none:'無補強', plate:'底貼鋼板', frp:'底貼 CFRP' }[data.geom.mode];
+  if (issues.some((item) => item.includes('> 1.0'))) {
+    return {
+      tone: 'blocked',
+      label: '暫勿作附件',
+      summary: '目前仍有不通過項目，先不要作為正式計算書附件。',
+      priority: `先處理：${issues[0]}`,
+      items: [
+        ['檢核結果', '不通過'],
+        ['補強型式', modeText],
+        ['剪力比', data.shear.shearRatio === null ? '未輸入 Vu' : fmt(data.shear.shearRatio, 3)],
+        ['專案資料', missing.length ? `缺 ${missing.join('、')}` : '完整'],
+        ['輸出邊界', '頁面顯示，不進報告'],
+      ],
+    };
+  }
+  const reviewItems = [...issues];
+  if (missing.length) reviewItems.unshift(`缺 ${missing.join('、')}`);
+  if (data.shear.shearRatio === null) reviewItems.push('尚未輸入 Vu，剪力需求需人工確認');
+  return {
+    tone: reviewItems.length ? 'review' : 'ready',
+    label: reviewItems.length ? '可作附件，需人工複核' : '可作附件',
+    summary: reviewItems.length
+      ? '主要計算已完成，但仍有資料或需求條件需人工複核。'
+      : '主要計算與專案資料已完成；送出前仍需確認補強詳圖與錨固條件。',
+    priority: reviewItems.length
+      ? `先確認：${reviewItems[0]}`
+      : '先確認補強型式、錨固細節與圖面版本，再產出計算書。',
+    items: [
+      ['檢核結果', reviewItems.length ? '需複核' : '可閱讀'],
+      ['補強型式', modeText],
+      ['剪力比', data.shear.shearRatio === null ? '未輸入 Vu' : fmt(data.shear.shearRatio, 3)],
+      ['專案資料', missing.length ? `缺 ${missing.join('、')}` : '完整'],
+      ['輸出邊界', '頁面顯示，不進報告'],
+    ],
+  };
+}
+function buildColumnReadinessModel(data) {
+  const empty = readinessBase('RC 柱', data);
+  if (empty) return empty;
+  const missing = missingProjectFields();
+  const issues = [];
+  if (data.pm.checkRatio_conf !== null && data.pm.checkRatio_conf > 1) issues.push('P-M 需求 Mu/φMn > 1.0');
+  if (data.shear.Vs_Vj_capped) issues.push('剪力補強貢獻達規範上限');
+  const modeText = { none:'無補強', jacket:'全包覆鋼板', frp:'全包覆 CFRP' }[data.geom.mode];
+  if (issues.some((item) => item.includes('> 1.0'))) {
+    return {
+      tone: 'blocked',
+      label: '暫勿作附件',
+      summary: '目前仍有不通過項目，先不要作為正式計算書附件。',
+      priority: `先處理：${issues[0]}`,
+      items: [
+        ['檢核結果', '不通過'],
+        ['補強型式', modeText],
+        ['P-M 比', data.pm.checkRatio_conf === null ? '未判定' : fmt(data.pm.checkRatio_conf, 3)],
+        ['專案資料', missing.length ? `缺 ${missing.join('、')}` : '完整'],
+        ['輸出邊界', '頁面顯示，不進報告'],
+      ],
+    };
+  }
+  const reviewItems = [...issues];
+  if (missing.length) reviewItems.unshift(`缺 ${missing.join('、')}`);
+  return {
+    tone: reviewItems.length ? 'review' : 'ready',
+    label: reviewItems.length ? '可作附件，需人工複核' : '可作附件',
+    summary: reviewItems.length
+      ? '主要計算已完成，但仍有資料或需求條件需人工複核。'
+      : '主要計算與專案資料已完成；送出前仍需確認施工詳圖與圍束效率採用。',
+    priority: reviewItems.length
+      ? `先確認：${reviewItems[0]}`
+      : '先確認 P-M 需求點、圍束效率與圖面版本，再產出計算書。',
+    items: [
+      ['檢核結果', reviewItems.length ? '需複核' : '可閱讀'],
+      ['補強型式', modeText],
+      ['P-M 比', data.pm.checkRatio_conf === null ? '未判定' : fmt(data.pm.checkRatio_conf, 3)],
+      ['專案資料', missing.length ? `缺 ${missing.join('、')}` : '完整'],
+      ['輸出邊界', '頁面顯示，不進報告'],
+    ],
+  };
+}
+function renderReportReadiness(targetId, model) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.className = `report-readiness page-only-report-status ${model.tone}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助</p>
+        <h3>產報前檢查</h3>
+      </div>
+      <span class="report-readiness-badge">${model.label}</span>
+    </div>
+    <p class="report-readiness-summary">${model.summary}</p>
+    <div class="report-readiness-priority"><span>優先閱讀</span><strong>${model.priority}</strong></div>
+    <div class="report-readiness-grid">
+      ${model.items.map(([label, value]) => `<div class="report-readiness-item"><span>${label}</span><strong>${value}</strong></div>`).join('')}
+    </div>
+    <ul class="report-readiness-notes">
+      <li>此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。</li>
+      <li>補強錨固、接著面剪力、施工圖與現場條件仍須由設計者或審查者確認。</li>
+    </ul>
+  `;
 }
 
 // ============ Tab switch ============
@@ -1036,7 +1193,7 @@ function calcBeam() {
   setReportStatus('b-report-status', '');
   // 讀取（mm → cm，材料 kgf/cm²）
   const b_mm = val('b-b'), h_mm = val('b-h'), d_mm = val('b-d'), dp_mm = val('b-dp');
-  if (!b_mm || !h_mm || !d_mm) { document.getElementById('b-msg').textContent = '請填寫 b, h, d'; return; }
+  if (!b_mm || !h_mm || !d_mm) { document.getElementById('b-msg').textContent = '請填寫 b, h, d'; lastBeam = null; renderReportReadiness('b-report-readiness', buildBeamReadinessModel(lastBeam)); return; }
   const b = b_mm/10, h = h_mm/10, d = d_mm/10, dp = dp_mm/10;
   const fc = val('b-fc'), fy = val('b-fy');
   const Es = 2.04e6;
@@ -1218,6 +1375,7 @@ function calcBeam() {
 
   renderBeamResults();
   drawBeam();
+  renderReportReadiness('b-report-readiness', buildBeamReadinessModel(lastBeam));
 }
 
 function renderBeamResults() {
@@ -1469,7 +1627,7 @@ function calcCol() {
   document.getElementById('c-msg').textContent = '';
   setReportStatus('c-report-status', '');
   const b_mm = val('c-b'), h_mm = val('c-h');
-  if (!b_mm || !h_mm) { document.getElementById('c-msg').textContent = '請填寫 b, h'; return; }
+  if (!b_mm || !h_mm) { document.getElementById('c-msg').textContent = '請填寫 b, h'; lastCol = null; renderReportReadiness('c-report-readiness', buildColumnReadinessModel(lastCol)); return; }
   const b = b_mm/10, h = h_mm/10;
   const fc = val('c-fc'), fy = val('c-fy');
   const Es = 2.04e6;
@@ -1612,6 +1770,7 @@ function calcCol() {
   renderColResults();
   drawCol();
   drawPMCurve();
+  renderReportReadiness('c-report-readiness', buildColumnReadinessModel(lastCol));
 }
 
 function renderColResults() {
