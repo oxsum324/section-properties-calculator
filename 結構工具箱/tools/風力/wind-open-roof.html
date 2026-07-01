@@ -19,6 +19,18 @@
   .case-status.warn { color:#92400e; }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
   .input-status:empty { display:none; }
+  .report-readiness { margin-top:10px; border:1px solid #ddd6fe; border-radius:10px; background:#f5f3ff; padding:12px 14px; color:#4c1d95; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .badge-v { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:10px;
              font-size:0.6em; font-weight:700; vertical-align:middle; background:#0f766e; color:#fff; }
   .step { margin-bottom:14px; }
@@ -31,6 +43,10 @@
   .diagram-wrap svg { width:100%; max-width:560px; height:auto; display:block; margin:0 auto; }
   @media (max-width: 768px) {
     .form-row { grid-template-columns: 1fr; }
+    .report-readiness-grid { grid-template-columns:1fr; }
+  }
+  @media print {
+    .page-only-report-status { display:none !important; }
   }
 </style>
 </head>
@@ -58,6 +74,7 @@
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus" aria-live="polite"></div>
+  <div class="report-readiness page-only-report-status blocked" id="openRoofReportReadiness" role="status" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 <div>
@@ -341,8 +358,19 @@ const CASE_VALUE_IDS = [
   'B', 'L', 'theta', 'A', 'enableReduce', 'reduceMode', 'reducePos', 'reduceNeg',
   'reduceBasis', 'chkDetail', 'reportMode'
 ];
+let lastOpenRoofReportState = null;
+let lastOpenRoofReportValidationMessage = '';
+let openRoofReportInputsChanged = false;
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function escHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 function setR(id, v, d) {
   const el = document.querySelector('#' + id + ' .value');
   if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
@@ -363,9 +391,123 @@ function setInputStatus(message) {
   const el = document.getElementById('inputStatus');
   if (!el) return;
   el.textContent = message || '';
+  lastOpenRoofReportValidationMessage = message || '';
+  if (message) lastOpenRoofReportState = null;
+  renderOpenRoofReportReadiness(lastOpenRoofReportValidationMessage);
 }
 function clearInputStatus() {
   setInputStatus('');
+}
+function getProjectInfo() {
+  return {
+    name: document.getElementById('projName')?.value.trim() || '',
+    no: document.getElementById('projNo')?.value.trim() || '',
+    designer: document.getElementById('projDesigner')?.value.trim() || ''
+  };
+}
+function isProjectMetaMissing() {
+  const project = getProjectInfo();
+  return !project.name || !project.no || !project.designer;
+}
+function openRoofReportModeLabel() {
+  return document.getElementById('reportMode')?.value === 'summary' ? '簡易結果' : '詳算式';
+}
+function openRoofAreaBandLabel(band) {
+  if (band === 'small') return 'A < a²';
+  if (band === 'medium') return 'a² ≤ A ≤ 4a²';
+  if (band === 'large') return 'A > 4a²';
+  return band || '—';
+}
+function openRoofInputChangedLabel() {
+  return openRoofReportInputsChanged ? '目前輸入已變更；請重算後再整理附件，列印計算書時也會重新計算。' : '';
+}
+function buildOpenRoofReportReadinessModel(validationMessage = lastOpenRoofReportValidationMessage) {
+  const blockedItems = [];
+  const reviewItems = [];
+  const readyItems = [];
+
+  if (validationMessage) {
+    blockedItems.push({ label: '輸入檢核', value: validationMessage });
+  }
+  if (!lastOpenRoofReportState && !validationMessage) {
+    blockedItems.push({ label: '計算狀態', value: '尚未完成開放式建築屋面風壓計算。' });
+  }
+  if (blockedItems.length) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過，暫勿產生計算書附件。',
+      items: blockedItems
+    };
+  }
+
+  const r = lastOpenRoofReportState;
+  const staleMessage = openRoofInputChangedLabel();
+  if (staleMessage) {
+    reviewItems.push({ label: '輸入已變更', value: staleMessage });
+  }
+  if (isProjectMetaMissing()) {
+    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
+  }
+  if (r.applicabilityLevel === 'fail') {
+    reviewItems.push({ label: '規範適用性', value: `θ = ${fmt(r.theta, 1)}°、h/L = ${fmt(r.hOverL, 3)}；圖 3.3 註 1 條件應於附件採用前人工確認。` });
+  }
+  if (r.theta <= 10) {
+    reviewItems.push({ label: '高度採用', value: `θ ≤ 10°，本頁採屋簷高度 h_e = ${fmt(r.hUse, 2)} m；請確認圖說高度定義。` });
+  }
+  if (r.thetaLow !== r.thetaHigh) {
+    reviewItems.push({ label: '角度內插', value: `θ = ${fmt(r.theta, 1)}°，Cpn 由 ${fmt(r.thetaLow, 1)}° ~ ${fmt(r.thetaHigh, 1)}° 線性內插。` });
+  }
+  if (r.blockage === 'blocked') {
+    reviewItems.push({ label: '屋頂下阻擋', value: '採有阻擋路線，請確認阻擋面積達 50% 以上且與送審圖說一致。' });
+  }
+  if (r.roofType === 'gable') {
+    reviewItems.push({ label: '雙斜屋頂', value: '採圖 3.3(b) 雙斜屋頂路線，請確認風向、屋脊與區域分配。' });
+  }
+  if (r.enableReduce) {
+    reviewItems.push({ label: '特殊修正 / 折減', value: `${r.reduceModeLabel}；λ+ = ${fmt(r.reducePos, 3)}、λ- = ${fmt(r.reduceNeg, 3)}，需保留專案依據。` });
+  }
+
+  readyItems.push({ label: '圖表來源', value: `${r.sourceFigure}；${openRoofAreaBandLabel(r.areaBand)}（a = ${fmt(r.a, 2)} m）。` });
+  readyItems.push({ label: '控制正壓', value: `${r.maxPosLabel}：p+ = ${fmt(r.maxPos, 1)} kgf/m²。` });
+  readyItems.push({ label: '控制負壓', value: `${r.maxNegLabel}：p- = ${fmt(r.maxNeg, 1)} kgf/m²。` });
+  readyItems.push({ label: '控制絕對值', value: `${r.maxAbsLabel}：|p| = ${fmt(r.maxAbs, 1)} kgf/m²；q(h) = ${fmt(r.qh, 1)} kgf/m²，G = ${fmt(r.G, 3)}。` });
+  readyItems.push({ label: '計算書模式', value: openRoofReportModeLabel() });
+
+  return {
+    level: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    items: reviewItems.concat(readyItems)
+  };
+}
+function renderOpenRoofReportReadiness(validationMessage = lastOpenRoofReportValidationMessage) {
+  const el = document.getElementById('openRoofReportReadiness');
+  if (!el) return;
+  const model = buildOpenRoofReportReadinessModel(validationMessage);
+  el.className = `report-readiness page-only-report-status ${model.level}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
+        <p class="report-readiness-title">${escHtml(model.title)}</p>
+      </div>
+      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
+    </div>
+    <div class="report-readiness-grid">
+      ${model.items.map(item => `
+        <div class="report-readiness-item">
+          <strong>${escHtml(item.label)}</strong>
+          <span>${escHtml(item.value)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認圖 3.3(a) / 圖 3.3(b)、h/L、坡度 θ、阻擋狀態、區域 1 / 2 / 3、有效受風面積 A、特殊修正依據與送審圖說一致性。</div>`;
+}
+function markOpenRoofReportInputsChanged() {
+  if (!lastOpenRoofReportState) return;
+  openRoofReportInputsChanged = true;
+  renderOpenRoofReportReadiness();
 }
 function readInputValue(id) {
   const el = document.getElementById(id);
@@ -703,7 +845,7 @@ function calc() {
     document.getElementById('reduceSummary').innerHTML = '';
   }
 
-  setApplicability([
+  const applicabilityItems = [
     { label: '建築型式', level: 'ok', message: '開放式建築斜屋頂' },
     { label: '屋頂形式', level: 'ok', message: roofType === 'monoslope' ? '單斜屋頂' : '雙斜屋頂' },
     { label: '坡度', level: theta >= 0 && theta <= 45 ? 'ok' : 'fail', message: `θ = ${fmt(theta,1)}°（圖表範圍 0°~45°）` },
@@ -712,7 +854,8 @@ function calc() {
     { label: '有效面積區間', level: 'ok', message: `${r.areaBand}（a = ${fmt(r.a,2)} m）` },
     { label: '表格來源', level: 'ok', message: `${sourceFigure}` },
     { label: '角度取值', level: 'warn', message: `θ 在 ${fmt(r.thetaLow,1)}° ~ ${fmt(r.thetaHigh,1)}° 間${r.thetaLow !== r.thetaHigh ? '線性內插' : '直接取值'}` },
-  ]);
+  ];
+  setApplicability(applicabilityItems);
 
   let html = '';
   html += step('① 基本參數', `
@@ -750,6 +893,49 @@ function calc() {
     `);
   }
   document.getElementById('steps').innerHTML = html;
+  const rank = { ok: 0, warn: 1, fail: 2 };
+  const applicabilityLevel = applicabilityItems.reduce((worst, item) => rank[item.level] > rank[worst] ? item.level : worst, 'ok');
+  const reducedAbs = enableReduce
+    ? Math.max(Math.abs(maxPos.data.p_pos * reducePos), Math.abs(maxNeg.data.p_neg * reduceNeg))
+    : null;
+  lastOpenRoofReportState = {
+    V,
+    terrain,
+    I,
+    Kzt,
+    hAvg,
+    hEave,
+    hUse,
+    B,
+    L,
+    theta,
+    A,
+    roofType,
+    blockage,
+    hOverL,
+    sourceFigure,
+    qh: r.qh,
+    G: r.G,
+    a: r.a,
+    areaBand: r.areaBand,
+    thetaUse: r.thetaUse,
+    thetaLow: r.thetaLow,
+    thetaHigh: r.thetaHigh,
+    applicabilityLevel,
+    maxPos: maxPos.data.p_pos,
+    maxPosLabel: maxPos.label,
+    maxNeg: maxNeg.data.p_neg,
+    maxNegLabel: maxNeg.label,
+    maxAbs: Math.max(Math.abs(maxAbs.data.p_pos), Math.abs(maxAbs.data.p_neg)),
+    maxAbsLabel: maxAbs.label,
+    enableReduce,
+    reduceMode,
+    reduceModeLabel: reduceModeName(reduceMode),
+    reducePos,
+    reduceNeg,
+    reducedAbs
+  };
+  openRoofReportInputsChanged = false;
   clearInputStatus();
   return true;
 }
@@ -768,6 +954,19 @@ document.getElementById('caseJsonFile').addEventListener('change', e => {
   importCaseJsonFile(e.target.files?.[0]);
   e.target.value = '';
 });
+['projName', 'projNo', 'projDesigner'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => renderOpenRoofReportReadiness());
+  document.getElementById(id).addEventListener('change', () => renderOpenRoofReportReadiness());
+});
+CASE_VALUE_IDS
+  .filter(id => id !== 'chkDetail' && id !== 'reportMode')
+  .forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', markOpenRoofReportInputsChanged);
+    el.addEventListener('change', markOpenRoofReportInputsChanged);
+  });
+document.getElementById('reportMode').addEventListener('change', () => renderOpenRoofReportReadiness());
 document.getElementById('btnCalc').addEventListener('click', calc);
 calc();
 </script>
