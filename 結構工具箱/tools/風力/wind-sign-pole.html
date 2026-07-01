@@ -21,6 +21,18 @@
   .mode-segment { border:1px solid #5eead4; background:#fff; color:#0f766e; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
   .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#0f766e; color:#fff; border-color:#0f766e; box-shadow:0 4px 10px rgba(15,118,110,.18); }
   .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
+  .report-readiness { margin-top:10px; border:1px solid #99f6e4; border-radius:10px; background:#f0fdfa; padding:12px 14px; color:#115e59; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .form-error { display:none; margin-top:10px; padding:9px 11px; border:1px solid #fca5a5; border-radius:9px; background:#fef2f2; color:#991b1b; font-size:0.84em; line-height:1.6; }
   .form-error.show { display:block; }
   .hint-panel { margin-top:8px; padding:9px 11px; border-radius:9px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e3a8a; font-size:0.82em; line-height:1.65; }
@@ -50,6 +62,7 @@
   .form-group input, .form-group select { min-width:0; }
   @media (max-width:768px) {
     .main-layout { grid-template-columns:1fr; }
+    .report-readiness-grid { grid-template-columns:1fr; }
     .case-actions button { flex:1 1 120px; }
     .inline-actions { flex-direction:column; }
     .inline-actions .btn-calc { width:100%; flex:1 1 auto; }
@@ -60,7 +73,7 @@
     .case-actions button { flex:1 1 100%; }
   }
   @media print {
-    header, .back, .case-actions, .report-mode-control, .btn-calc, .form-error, .hint-panel { display:none; }
+    header, .back, .case-actions, .report-mode-control, .btn-calc, .form-error, .hint-panel, .page-only-report-status { display:none !important; }
     .container { max-width:none; padding:0; }
     .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
   }
@@ -98,6 +111,7 @@
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus"></div>
+  <div class="report-readiness page-only-report-status blocked" id="signPoleReportReadiness" role="status" aria-live="polite"></div>
 </div>
 
 <div class="main-layout">
@@ -286,6 +300,7 @@ const TOOL_VERSION = '1.0';
 const CASE_SCHEMA_VERSION = 'wind-sign-pole.case.v1';
 let lastResult = null;
 let lastStepsHtml = '';
+let lastSignPoleReportValidationMessage = '';
 
 const DEFAULT_CASE_INPUTS = {
   project: { name: '', no: '', designer: '' },
@@ -345,6 +360,7 @@ function setPrintReportMode(mode) {
     btn.classList.toggle('active', active);
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+  renderSignPoleReportReadiness();
 }
 
 function setCaseStatus(message, level='info') {
@@ -357,6 +373,100 @@ function showFormError(message) {
   const box = document.getElementById('formError');
   box.textContent = message || '';
   box.classList.toggle('show', !!message);
+  lastSignPoleReportValidationMessage = message || '';
+  renderSignPoleReportReadiness(lastSignPoleReportValidationMessage);
+}
+
+function reportModeLabel() {
+  return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
+}
+
+function isProjectMetaMissing() {
+  const project = getProjectInfo();
+  return !project.name.trim() || !project.no.trim() || !project.designer.trim();
+}
+
+function supportRouteLabel(r) {
+  return r.input.supportType === 'pipe' ? '表 2.14 繩、竿、管' : '表 2.13 角柱體';
+}
+
+function buildSignPoleReportReadinessModel(validationMessage = lastSignPoleReportValidationMessage) {
+  const blockedItems = [];
+  const reviewItems = [];
+  const readyItems = [];
+
+  if (validationMessage) {
+    blockedItems.push({ label: '輸入檢核', value: validationMessage });
+  }
+  if (!lastResult && !validationMessage) {
+    blockedItems.push({ label: '計算狀態', value: '尚未完成招牌 / 燈桿組合風力計算。' });
+  }
+  if (blockedItems.length) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過，暫勿產生計算書附件。',
+      items: blockedItems
+    };
+  }
+
+  const r = lastResult;
+  const supportShare = r.total.shear > 0 ? r.support.shear / r.total.shear : 0;
+  readyItems.push({ label: '表 2.10 面板路線', value: `${r.panel.atGround ? '座地' : '架高'}；B_p/H_p = ${fmt(r.panel.aspectRatio, 3)}；C_f = ${fmt(r.panel.cf, 3)}。` });
+  readyItems.push({ label: '支撐構件路線', value: `${supportRouteLabel(r)}；${r.support.cfSummary}。` });
+  readyItems.push({ label: '元件分流', value: `F_p = ${fmt(r.panel.force, 1)} kgf；F_s = ${fmt(r.support.shear, 1)} kgf；支撐占比 ${fmt(supportShare * 100, 1)}%。` });
+  readyItems.push({ label: '控制結果', value: `V = ${fmt(r.total.shear, 1)} kgf；M = ${fmt(r.total.moment, 1)} kgf·m；z_r = ${fmt(r.total.resultantHeight, 2)} m。` });
+  readyItems.push({ label: '計算書模式', value: `${reportModeLabel()}；報告會重新計算目前輸入。` });
+
+  if (isProjectMetaMissing()) {
+    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
+  }
+  if (r.panel.cfSource === '專案指定值') {
+    reviewItems.push({ label: '專案指定 C_f', value: `面板 C_f = ${fmt(r.panel.cf, 3)}，請確認採用來源已記入專案文件或設計判斷。` });
+  }
+  if (r.input.supportType === 'angular') {
+    reviewItems.push({ label: '角柱體等效', value: '支撐構件採表 2.13 角柱體路線，請確認型鋼迎風投影寬與形狀等效方式。' });
+  }
+  if (r.input.supportCount > 1) {
+    reviewItems.push({ label: '多支撐分配', value: `支撐數量 n = ${r.input.supportCount}，請確認面板反力、支撐配置與送審圖說一致。` });
+  }
+  if (r.input.supportSegments < 4 && r.input.panelBottom > 0) {
+    reviewItems.push({ label: '支撐分段數', value: `分段數 = ${r.input.supportSegments}，產報前建議確認高度分布足以代表 q(z) 變化。` });
+  }
+  if (supportShare >= 0.25) {
+    reviewItems.push({ label: '支撐風力占比', value: `支撐構件占總剪力 ${fmt(supportShare * 100, 1)}%，請優先確認支撐尺寸與表 2.13/2.14 路線。` });
+  }
+
+  return {
+    level: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    items: reviewItems.concat(readyItems)
+  };
+}
+
+function renderSignPoleReportReadiness(validationMessage = lastSignPoleReportValidationMessage) {
+  const el = document.getElementById('signPoleReportReadiness');
+  if (!el) return;
+  const model = buildSignPoleReportReadinessModel(validationMessage);
+  el.className = `report-readiness page-only-report-status ${model.level}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
+        <p class="report-readiness-title">${escHtml(model.title)}</p>
+      </div>
+      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
+    </div>
+    <div class="report-readiness-grid">
+      ${model.items.map(item => `
+        <div class="report-readiness-item">
+          <strong>${escHtml(item.label)}</strong>
+          <span>${escHtml(item.value)}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認表 2.10、表 2.13/2.14、開口率、支撐數量、面板與支撐構件責任邊界及送審圖說一致性。</div>`;
 }
 
 function setInputValue(id, value) {
@@ -778,6 +888,7 @@ function calc() {
   lastStepsHtml = buildStepsHtml(lastResult);
   document.getElementById('steps').innerHTML = checked('chkDetail') ? lastStepsHtml : '<div class="legend">已隱藏畫面詳列計算式；列印輸出可由上方「計算書模式」控制。</div>';
   drawSignPoleDiagram(lastResult);
+  renderSignPoleReportReadiness();
   return lastResult;
 }
 
@@ -1204,6 +1315,10 @@ function openSignPoleReport() {
 
 function bindEvents() {
   document.getElementById('city').addEventListener('change', () => { refreshWindHint(); calc(); });
+  ['projName', 'projNo', 'projDesigner'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => renderSignPoleReportReadiness());
+    document.getElementById(id).addEventListener('change', () => renderSignPoleReportReadiness());
+  });
   ['terrain', 'impClass', 'Kzt', 'panelWidth', 'panelHeight', 'panelBottom', 'openingRatio', 'panelCfOverride', 'supportCount', 'supportSegments', 'pipeDiameter', 'pipeRoughness', 'prismWidth', 'prismShape'].forEach(id => {
     document.getElementById(id).addEventListener('input', calc);
     document.getElementById(id).addEventListener('change', calc);
