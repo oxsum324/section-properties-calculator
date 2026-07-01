@@ -1080,6 +1080,14 @@ $needles = @(
   'id="dispTbl"',
   'id="reportStatus"',
   'function setReportStatus',
+  'id="frameReportReadiness"',
+  'function frameReportReadinessModel',
+  'function renderFrameReportReadiness',
+  'function invalidateAnalysisState',
+  'page-only-report-status',
+  '產報前檢查',
+  '優先閱讀',
+  '不會寫入計算書或列印 PDF',
   'grid-template-columns: minmax(560px, 0.9fr) minmax(0, 1.1fr)',
   '.main-layout > * { min-width: 0; }',
   '.row2 input, .row2 select, .row3 input, .row3 select { width: 100%; min-width: 0; }',
@@ -1121,6 +1129,25 @@ foreach ($needle in $needles) {
 if ($html -like "*alert(*") {
   Write-Error "frame analysis static smoke found blocking alert"
   exit 1
+}
+$reportMatch = [regex]::Match($html, 'function printReport\(\) \{[\s\S]*?\r?\n\}\r?\n\r?\nfunction setReportStatus')
+if (-not $reportMatch.Success) {
+  Write-Error "frame analysis static smoke cannot isolate printReport body"
+  exit 1
+}
+$reportBody = $reportMatch.Value
+$pageOnlyReportNeedles = @(
+  'frameReportReadiness',
+  'page-only-report-status',
+  '產報前檢查',
+  '優先閱讀',
+  '不會寫入計算書或列印 PDF'
+)
+foreach ($needle in $pageOnlyReportNeedles) {
+  if ($reportBody -like "*$needle*") {
+    Write-Error "frame analysis report body must not include page-only readiness text: $needle"
+    exit 1
+  }
 }
 Write-Output 'frame analysis static smoke OK'
 exit 0

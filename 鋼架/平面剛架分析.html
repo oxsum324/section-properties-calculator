@@ -83,6 +83,20 @@
   .report-status { min-height: 20px; flex-basis: 100%; color: var(--warn); font-size: 0.8em; line-height: 1.5; }
   .report-status:empty { display: none; }
   .report-link { display: none; color: var(--primary); font-size: 0.8em; font-weight: 700; text-decoration: none; }
+  .report-readiness { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--border); border-left: 4px solid var(--warn); border-radius: 8px; background: #fff; font-size: 0.82em; box-shadow: 0 1px 2px rgba(15,23,42,0.06); }
+  .report-readiness.ready { border-left-color: var(--accent); background: #f0fdf4; }
+  .report-readiness.review { border-left-color: var(--warn); background: #fffbeb; }
+  .report-readiness.blocked { border-left-color: var(--danger); background: #fef2f2; }
+  .report-readiness-head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+  .report-readiness-eyebrow { color: var(--text-light); font-size: 0.75em; font-weight: 700; }
+  .report-readiness-title { font-weight: 700; color: var(--text); }
+  .report-readiness-badge { flex: 0 0 auto; border: 1px solid currentColor; border-radius: 999px; padding: 2px 8px; font-size: 0.72em; font-weight: 700; }
+  .report-readiness.ready .report-readiness-badge { color: var(--accent); background: #dcfce7; }
+  .report-readiness.review .report-readiness-badge { color: var(--warn); background: #fef3c7; }
+  .report-readiness.blocked .report-readiness-badge { color: var(--danger); background: #fee2e2; }
+  .report-readiness ul { margin: 6px 0 0 18px; padding: 0; }
+  .report-readiness li { margin: 2px 0; }
+  .report-readiness-note { margin-top: 6px; color: var(--text-light); font-size: 0.76em; }
   .check-panel { display: grid; gap: 6px; font-size: 0.8em; }
   .check-line { border-left: 3px solid var(--border); background: #f8fafc; padding: 6px 8px; border-radius: 4px; }
   .check-line.ok { border-color: var(--accent); }
@@ -99,6 +113,9 @@
 
   @media (max-width: 1180px) {
     .main-layout { grid-template-columns: 1fr; }
+  }
+  @media print {
+    .page-only-report-status { display: none !important; }
   }
 </style>
 </head>
@@ -266,6 +283,7 @@
       <button class="btn-calc" onclick="runAnalysis()">▶ 執行分析</button>
       <div class="error-msg" id="errorMsg"></div>
       <div class="warn-msg" id="warnMsg"></div>
+      <div class="report-readiness page-only-report-status blocked" id="frameReportReadiness" role="status" aria-live="polite"></div>
     </div>
 
     <!-- ============== RIGHT PANEL ============== -->
@@ -590,6 +608,7 @@ function addNodeRow(data) {
   state.nodes.push({ id, ...d });
   renderNodeTable();
   refreshNodeSelectors();
+  invalidateAnalysisState();
 }
 function renderNodeTable() {
   const tb = document.getElementById('nodeTbody');
@@ -627,7 +646,7 @@ function updateNode(idx, key, val) {
       ? asNonNegativeNumber(val)
       : (parseFloat(val) || 0);
   }
-  state.solution = null;
+  invalidateAnalysisState();
 }
 function delNode(idx) {
   const nid = state.nodes[idx].id;
@@ -640,6 +659,7 @@ function delNode(idx) {
   renderNodalLoadTable();
   renderMemberLoadTable();
   refreshNodeSelectors();
+  invalidateAnalysisState();
 }
 
 function addMemberRow(data) {
@@ -661,6 +681,7 @@ function addMemberRow(data) {
     relJ: d.relJ ?? false
   });
   renderMemberTable();
+  invalidateAnalysisState();
 }
 function renderMemberTable() {
   const tb = document.getElementById('memberTbody');
@@ -690,6 +711,7 @@ function updateMember(idx, key, val) {
   if (key === 'i' || key === 'j') state.members[idx][key] = parseInt(val);
   else if (key === 'relI' || key === 'relJ') state.members[idx][key] = !!val;
   else state.members[idx][key] = parseFloat(val) || 0;
+  invalidateAnalysisState();
 }
 function delMember(idx) {
   const mid = state.members[idx].id;
@@ -699,6 +721,7 @@ function delMember(idx) {
   renderMemberTable();
   renderMemberLoadTable();
   renderMemberPointLoadTable();
+  invalidateAnalysisState();
 }
 
 function addLoadCaseRow(data) {
@@ -711,6 +734,7 @@ function addLoadCaseRow(data) {
   renderNodalLoadTable();
   renderMemberLoadTable();
   renderMemberPointLoadTable();
+  invalidateAnalysisState();
 }
 
 function renderLoadCaseTable() {
@@ -751,7 +775,7 @@ function updateLoadCase(idx, key, value) {
   renderNodalLoadTable();
   renderMemberLoadTable();
   renderMemberPointLoadTable();
-  state.solution = null;
+  invalidateAnalysisState();
 }
 
 function delLoadCase(idx) {
@@ -767,6 +791,7 @@ function delLoadCase(idx) {
   renderNodalLoadTable();
   renderMemberLoadTable();
   renderMemberPointLoadTable();
+  invalidateAnalysisState();
 }
 
 function addNodalLoadRow(data) {
@@ -779,6 +804,7 @@ function addNodalLoadRow(data) {
     M:  d.M  ?? 0
   });
   renderNodalLoadTable();
+  invalidateAnalysisState();
 }
 function renderNodalLoadTable() {
   const tb = document.getElementById('nodalLoadTbody');
@@ -801,9 +827,9 @@ function renderNodalLoadTable() {
 function updateNodalLoad(idx, key, val) {
   if (key === 'node' || key === 'caseId') state.nodalLoads[idx][key] = parseInt(val);
   else state.nodalLoads[idx][key] = parseFloat(val) || 0;
-  state.solution = null;
+  invalidateAnalysisState();
 }
-function delNodalLoad(idx) { state.nodalLoads.splice(idx, 1); state.solution = null; renderNodalLoadTable(); }
+function delNodalLoad(idx) { state.nodalLoads.splice(idx, 1); invalidateAnalysisState(); renderNodalLoadTable(); }
 
 function addMemberLoadRow(data) {
   const d = data || {};
@@ -814,6 +840,7 @@ function addMemberLoadRow(data) {
     dir: d.dir ?? 'globalY'
   });
   renderMemberLoadTable();
+  invalidateAnalysisState();
 }
 function renderMemberLoadTable() {
   const tb = document.getElementById('memberLoadTbody');
@@ -840,9 +867,9 @@ function updateMemberLoad(idx, key, val) {
   if (key === 'member' || key === 'caseId') state.memberLoads[idx][key] = parseInt(val);
   else if (key === 'dir') state.memberLoads[idx][key] = val;
   else state.memberLoads[idx][key] = parseFloat(val) || 0;
-  state.solution = null;
+  invalidateAnalysisState();
 }
-function delMemberLoad(idx) { state.memberLoads.splice(idx, 1); state.solution = null; renderMemberLoadTable(); }
+function delMemberLoad(idx) { state.memberLoads.splice(idx, 1); invalidateAnalysisState(); renderMemberLoadTable(); }
 
 function addMemberPointLoadRow(data) {
   const d = data || {};
@@ -854,6 +881,7 @@ function addMemberPointLoadRow(data) {
     dir: d.dir ?? 'globalY'
   });
   renderMemberPointLoadTable();
+  invalidateAnalysisState();
 }
 function renderMemberPointLoadTable() {
   const tb = document.getElementById('memberPointLoadTbody');
@@ -883,9 +911,9 @@ function updateMemberPointLoad(idx, key, val) {
   if (key === 'member' || key === 'caseId') state.memberPointLoads[idx][key] = parseInt(val);
   else if (key === 'dir') state.memberPointLoads[idx][key] = val;
   else state.memberPointLoads[idx][key] = parseFloat(val) || 0;
-  state.solution = null;
+  invalidateAnalysisState();
 }
-function delMemberPointLoad(idx) { state.memberPointLoads.splice(idx, 1); state.solution = null; renderMemberPointLoadTable(); }
+function delMemberPointLoad(idx) { state.memberPointLoads.splice(idx, 1); invalidateAnalysisState(); renderMemberPointLoadTable(); }
 
 function refreshNodeSelectors() {
   renderLoadCaseTable();
@@ -1769,6 +1797,89 @@ function renderModelChecks(sol, fallbackValidation) {
   panel.innerHTML = lines.join('');
 }
 
+function activeFrameLoadCount() {
+  const activeCases = new Set(state.loadCases.filter(lc => Math.abs(comboFactor(lc.id)) > 1e-12).map(lc => lc.id));
+  const nodal = state.nodalLoads.filter(l => activeCases.has(normalizeLoadCaseId(l.caseId)) && ((+l.Fx || 0) || (+l.Fy || 0) || (+l.M || 0))).length;
+  const member = state.memberLoads.filter(l => activeCases.has(normalizeLoadCaseId(l.caseId)) && Math.abs(+l.w || 0) > 1e-12).length;
+  const point = state.memberPointLoads.filter(l => activeCases.has(normalizeLoadCaseId(l.caseId)) && Math.abs(+l.P || 0) > 1e-12).length;
+  const selfWeight = document.getElementById('selfWeight')?.checked && activeCases.has(firstLoadCaseId()) && state.members.some(m => (+m.A || 0) > 0) ? 1 : 0;
+  return nodal + member + point + selfWeight;
+}
+
+function frameReportReadinessModel(validationOverride) {
+  const sol = state.solution;
+  const errorNode = document.getElementById('errorMsg');
+  const errorText = errorNode && errorNode.style.display !== 'none'
+    ? String(errorNode.textContent || '').replace(/^錯誤:\s*/, '').trim()
+    : '';
+  if (!sol) {
+    const errorItems = (validationOverride?.checks || []).filter(item => item.level === 'error').map(item => item.text);
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '模型尚未完成可供附件使用的分析。',
+      items: errorItems.length ? errorItems : [errorText || '模型已變更或尚未執行分析，請先重新執行分析。']
+    };
+  }
+
+  const validation = validationOverride || sol.validation || { checks: [], hasErrors: false };
+  if (validation.hasErrors) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '模型自檢仍有錯誤，請先修正後再產生計算書。',
+      items: validation.checks.filter(item => item.level === 'error').map(item => item.text)
+    };
+  }
+
+  const activeCases = state.loadCases.filter(lc => Math.abs(comboFactor(lc.id)) > 1e-12).length;
+  const reviewItems = [];
+  const warnings = (validation.checks || []).filter(item => item.level === 'warn');
+  if (warnings.length) reviewItems.push(`模型自檢有 ${warnings.length} 項警示：${warnings.slice(0, 2).map(item => item.text).join('；')}`);
+  if (activeCases === 0) reviewItems.push('所有載重案例因子為 0，請確認分析組合。');
+  if (activeFrameLoadCount() === 0) reviewItems.push('沒有啟用的外力或自重，附件可能只代表空載模型。');
+  if (state.members.some(m => m.relI || m.relJ)) reviewItems.push('存在端部釋放，請確認鉸接位置與設計假設。');
+  if (state.nodes.some(hasAnySpring)) reviewItems.push('存在彈性支承，請確認彈簧剛度來源與適用性。');
+  if (sol.equilibrium && !sol.equilibrium.ok) reviewItems.push(`平衡檢核需檢查：殘差 Fx/Fy/M = ${fmtCheck(sol.equilibrium.residual.Fx)} / ${fmtCheck(sol.equilibrium.residual.Fy)} / ${fmtCheck(sol.equilibrium.residual.M)}。`);
+
+  return {
+    level: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    items: reviewItems.length ? reviewItems : ['模型自檢與平衡檢核未顯示需優先處理事項。'],
+    meta: [
+      `節點 / 桿件：${state.nodes.length} / ${state.members.length}`,
+      `載重案例：${activeCases}/${state.loadCases.length} 啟用`,
+      `分析組合：${sol.comboText || formatActiveCombination()}`
+    ]
+  };
+}
+
+function renderFrameReportReadiness(validationOverride) {
+  const panel = document.getElementById('frameReportReadiness');
+  if (!panel) return;
+  const model = frameReportReadinessModel(validationOverride);
+  panel.className = `report-readiness page-only-report-status ${model.level}`;
+  const items = model.items.map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  const meta = (model.meta || []).map(item => `<li>${escapeHtml(item)}</li>`).join('');
+  panel.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <div class="report-readiness-eyebrow">頁面輔助｜產報前檢查｜優先閱讀</div>
+        <div class="report-readiness-title">${escapeHtml(model.title)}</div>
+      </div>
+      <span class="report-readiness-badge">${escapeHtml(model.badge)}</span>
+    </div>
+    <ul>${items}</ul>
+    ${meta ? `<ul>${meta}</ul>` : ''}
+    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；支承模型、端部釋放、彈簧設定、載重組合與後續規範設計仍須由設計者確認。</div>`;
+}
+
+function invalidateAnalysisState() {
+  state.solution = null;
+  renderFrameReportReadiness();
+}
+
 // ============================================================
 // 執行分析
 // ============================================================
@@ -1789,11 +1900,14 @@ function runAnalysis() {
     drawDiagram('axialCanvas', d => d.Ns, '#fecaca', '#bfdbfe', 'tf');
     renderResults();
     renderModelChecks(state.solution);
+    renderFrameReportReadiness(state.solution.validation);
   } catch (e) {
     state.solution = null;
     err.textContent = '錯誤: ' + e.message;
     err.style.display = 'block';
-    renderModelChecks(null, { checks: [{ level: 'error', text: e.message }], hasErrors: true });
+    const validation = { checks: [{ level: 'error', text: e.message }], hasErrors: true };
+    renderModelChecks(null, validation);
+    renderFrameReportReadiness(validation);
     console.error(e);
   }
 }
@@ -1807,7 +1921,7 @@ function resetAll() {
   state.nodes = []; state.members = []; state.nodalLoads = [];
   state.memberLoads = []; state.memberPointLoads = [];
   state.loadCases = []; state.comboFactors = {};
-  state.solution = null;
+  invalidateAnalysisState();
   nodeIdCnt = 0; memberIdCnt = 0; loadCaseIdCnt = 0;
   ensureLoadCases();
   renderLoadCaseTable();
