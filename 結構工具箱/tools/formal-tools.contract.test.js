@@ -324,6 +324,31 @@ for (const inlineValidationPage of [
 }
 
 {
+  const html = readText(toolboxFile('tools/風力/wind-object-solid.html'));
+  [
+    'id="solidReportReadiness"',
+    'function buildSolidReportReadinessModel',
+    'function renderSolidReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'wind-object-solid page-only report readiness'));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-object-solid page-only report readiness hidden from print');
+  const reportStart = html.indexOf('function buildSolidObjectReportHtml()');
+  const reportEnd = html.indexOf('function openSolidObjectReport()', reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-object-solid report body isolated');
+  const reportBody = html.slice(reportStart, reportEnd);
+  [
+    'solidReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(reportBody, needle, 'wind-object-solid report excludes page-only readiness wording'));
+}
+
+{
   const html = readText(toolboxFile('tools/地震力/seismic-force.html'));
   assertIncludes(html, 'id="inputStatus"', 'seismic-force inline input status element');
   assertIncludes(html, 'id="apStatus"', 'seismic-force appendage input status element');
