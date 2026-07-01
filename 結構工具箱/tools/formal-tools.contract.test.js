@@ -331,6 +331,29 @@ for (const inlineValidationPage of [
   assertIncludes(html, 'id="miscStatus"', 'seismic-force misc input status element');
   assertIncludes(html, 'function setInputStatus', 'seismic-force inline input status helper');
   assertIncludes(html, 'if (calc() === false) return;', 'seismic-force export guard');
+  assertIncludes(html, "document.getElementById('resultPanel').style.display === 'none' || window._lastSeismicReportStale", 'seismic-force stale report recalculation guard');
+  [
+    'id="seismicReportReadiness"',
+    'function buildSeismicReportReadinessModel',
+    'function renderSeismicReportReadiness',
+    'function markSeismicReportInputsChanged',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'seismic-force page-only report readiness'));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-force page-only report readiness hidden from print');
+  const reportStart = html.indexOf('function openSeismicReport()');
+  const reportEnd = html.indexOf("document.getElementById('btnExportCase')", reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-force report body isolated');
+  const reportBody = html.slice(reportStart, reportEnd);
+  [
+    'seismicReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(reportBody, needle, 'seismic-force report excludes page-only readiness wording'));
   [
     "alert('請完整填入有效的震區參數",
     'alert(floorMsg)',

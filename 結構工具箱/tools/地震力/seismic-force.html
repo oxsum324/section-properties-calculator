@@ -66,6 +66,20 @@
   .report-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #dbeafe; font-size:0.82em; color:#334155; line-height:1.7; }
   .report-status strong { color:#0f172a; }
   .report-status.warn { background:#fff7ed; border-color:#fdba74; color:#9a3412; }
+  .report-readiness { display:grid; gap:10px; padding:12px; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; background:#fffbeb; color:#78350f; font-size:0.84em; line-height:1.65; }
+  .report-readiness.ready { border-color:#bbf7d0; border-left-color:#059669; background:#f0fdf4; color:#166534; }
+  .report-readiness.blocked { border-color:#fecaca; border-left-color:#dc2626; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .report-readiness-kicker { margin:0 0 2px; color:#64748b; font-size:0.74em; font-weight:700; }
+  .report-readiness-title { margin:0; color:inherit; font-size:0.96em; font-weight:800; }
+  .report-readiness-badge { flex:0 0 auto; border:1px solid currentColor; border-radius:999px; padding:3px 8px; background:rgba(255,255,255,0.72); font-size:0.74em; font-weight:800; white-space:nowrap; }
+  .report-readiness ul { margin:0; padding-left:18px; }
+  .report-readiness li { margin:2px 0; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; }
+  .report-readiness-item { min-height:54px; padding:8px 9px; border:1px solid rgba(120,53,15,0.14); border-radius:8px; background:rgba(255,255,255,0.68); }
+  .report-readiness-item span { display:block; color:#64748b; font-size:0.72em; font-weight:700; }
+  .report-readiness-item strong { display:block; margin-top:2px; color:#0f172a; font-size:0.86em; line-height:1.35; }
+  .report-readiness-note { color:#64748b; font-size:0.78em; }
   .case-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; align-items:center; }
   .case-actions button { border:none; border-radius:8px; padding:9px 14px; font-weight:700; cursor:pointer; background:#e2e8f0; color:#0f172a; }
   .case-actions button.primary { background:var(--seismic); color:#fff; }
@@ -87,6 +101,7 @@
 
   @media print {
     .card { break-inside: avoid; page-break-inside: avoid; }
+    .page-only-report-status { display:none !important; }
     table.cmp, table.story { font-size:0.76em; }
     table.cmp th, table.cmp td,
     table.story th, table.story td { padding:4px 5px; }
@@ -358,6 +373,10 @@
     </div>
     <div class="report-status" id="repStatus"></div>
   </details>
+
+  <div class="card page-only-report-status">
+    <div class="report-readiness blocked" id="seismicReportReadiness" role="status" aria-live="polite"></div>
+  </div>
 </div>
 
 <!-- ═══════════ 右：結果面板 ═══════════ -->
@@ -1305,12 +1324,14 @@ function renderFloorTable() {
       const i = +inp.dataset.i, f = inp.dataset.f;
       floorData[i][f] = f === 'label' ? inp.value : (inp.value === '' ? NaN : parseFloat(inp.value));
       if (document.getElementById('driftEnable') && document.getElementById('driftEnable').checked) renderDriftCheck();
+      if (window._seismicReportReadinessReady) markSeismicReportInputsChanged();
     });
   });
   tb.querySelectorAll('.btn-del').forEach(btn => {
     btn.addEventListener('click', () => {
       floorData.splice(+btn.dataset.i, 1);
       renderFloorTable();
+      if (window._seismicReportReadinessReady) markSeismicReportInputsChanged();
     });
   });
 }
@@ -1319,6 +1340,7 @@ function addFloorRow() {
   const last = floorData.length > 0 ? floorData[floorData.length-1] : { dH:3.5, W:500 };
   floorData.push({ label: `${floorData.length+1}F`, dH: last.dH, W: last.W });
   renderFloorTable();
+  if (window._seismicReportReadinessReady) markSeismicReportInputsChanged();
 }
 
 function genUniform() {
@@ -1331,6 +1353,7 @@ function genUniform() {
     floorData.push({ label: `${i+1}F`, dH, W: w });
   }
   renderFloorTable();
+  if (window._seismicReportReadinessReady) markSeismicReportInputsChanged();
 }
 genUniform(); // 初始化
 
@@ -1690,6 +1713,128 @@ function updateReportStatus() {
     `<strong>目前模式：</strong>${presetLabel} ｜ <strong>輸出項目：</strong>${enabled.length} 項` +
     `<br><strong>主內容：</strong>${enabled.map(id => document.querySelector('label[for="' + id + '"]')?.textContent || id).slice(0, 4).join('、')}${enabled.length > 4 ? '…' : ''}` +
     `<br><strong>逐步計算：</strong>${includeSteps ? '會列入計算書' : waitingSteps ? '已勾選，但需再開啟上方「顯示詳列計算式」' : '未列入計算書'}`;
+  renderSeismicReportReadiness();
+}
+
+function enabledReportLabels(snapshot = snapshotReportOptions()) {
+  return SEISMIC_REPORT_OPTION_IDS
+    .filter(id => snapshot[id])
+    .map(id => document.querySelector(`label[for="${id}"]`)?.textContent || id);
+}
+
+function hasVisibleText(id) {
+  const el = document.getElementById(id);
+  return !!cleanSeismicText(el?.textContent || el?.innerText || '');
+}
+
+function buildSeismicReportReadinessModel(validationMessage = '') {
+  const result = window._lastSeismicReport;
+  const stale = !!window._lastSeismicReportStale;
+  if (validationMessage) {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過檢查，先不要產生計算書。',
+      priority: [validationMessage],
+      items: [
+        ['分析狀態', '未完成'],
+        ['報告模式', getPresetLabel(snapshotReportOptions())],
+        ['輸出邊界', '頁面顯示，不進報告']
+      ]
+    };
+  }
+  if (!result?.x || document.getElementById('resultPanel')?.style.display === 'none') {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '尚未完成等值靜力分析。',
+      priority: ['請先執行「計算等值靜力結果」，再整理計算書附件。'],
+      items: [
+        ['分析狀態', '待計算'],
+        ['報告模式', getPresetLabel(snapshotReportOptions())],
+        ['輸出邊界', '頁面顯示，不進報告']
+      ]
+    };
+  }
+  if (stale) {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入已變更，頁面結果可能不是最新。',
+      priority: ['請重新計算後再產出計算書附件。'],
+      items: [
+        ['分析狀態', '需重算'],
+        ['報告模式', getPresetLabel(snapshotReportOptions())],
+        ['輸出邊界', '頁面顯示，不進報告']
+      ]
+    };
+  }
+
+  const snapshot = snapshotReportOptions();
+  const x = result.x;
+  const y = result.y;
+  const project = getProjectInfo();
+  const hn = parseFloat(document.getElementById('hn')?.value);
+  const storyCount = Math.max(floorData.length, Math.round(parseFloat(document.getElementById('N')?.value) || floorData.length || 0));
+  const isTB = document.getElementById('chkTaipei')?.checked;
+  const reviewItems = [];
+  if (!project.name || !project.no || !project.designer) reviewItems.push('計算書表頭尚未填齊計畫名稱、編號或設計人。');
+  const applicabilityNotes = buildApplicabilityNotes(hn, storyCount, isTB, window._basinSelection);
+  reviewItems.push(...applicabilityNotes);
+  if (getNearFaultOverride()) reviewItems.push('已採近斷層控制譜值，請確認斷層距離與譜值來源。');
+  if (snapshot.rep_steps && !document.getElementById('chkDetail')?.checked) reviewItems.push('已勾選逐步計算，但尚未開啟「顯示詳列計算式」。');
+  if (snapshot.rep_appendage && !hasVisibleText('apResult')) reviewItems.push('已勾選附屬構造物地震力，但頁面尚無對應計算結果。');
+  if (snapshot.rep_vertical && !hasVisibleText('vResult')) reviewItems.push('已勾選垂直地震力，但頁面尚無對應計算結果。');
+  if (snapshot.rep_misc && !hasVisibleText('miscResult')) reviewItems.push('已勾選雜項工作物地震力，但頁面尚無對應計算結果。');
+  if (snapshot.rep_drift && document.getElementById('driftEnable')?.checked) {
+    const drift = computeStoryDrift();
+    if (!drift.anyDisp) reviewItems.push('層間變位角已啟用但尚未輸入各層彈性位移。');
+    else if (drift.govOk === false) reviewItems.push(`層間變位角控制樓層 ${drift.governing.label} 超過容許值，需先複核。`);
+  }
+
+  const enabledLabels = enabledReportLabels(snapshot);
+  const governing = y && y.Vdesign > x.Vdesign ? `Y 向 ${fmt(y.Vdesign, 1)} tf` : `X 向 ${fmt(x.Vdesign, 1)} tf`;
+  return {
+    tone: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    priority: reviewItems.length ? reviewItems : ['等值靜力分析、設計採用摘要與報告輸出勾選已可供附件整理。'],
+    items: [
+      ['分析狀態', y ? 'X/Y 雙向完成' : 'X 向完成'],
+      ['控制結果', governing],
+      ['報告模式', getPresetLabel(snapshot)],
+      ['輸出項目', `${enabledLabels.length} 項`],
+      ['樓層 / 總重', `${floorData.length} 層 / ${fmt(x.W, 0)} tf`],
+      ['輸出邊界', '頁面顯示，不進報告']
+    ]
+  };
+}
+
+function renderSeismicReportReadiness(validationMessage = '') {
+  const el = document.getElementById('seismicReportReadiness');
+  if (!el) return;
+  const model = buildSeismicReportReadinessModel(validationMessage);
+  el.className = `report-readiness ${model.tone}`;
+  el.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
+        <p class="report-readiness-title">${escSeis(model.title)}</p>
+      </div>
+      <span class="report-readiness-badge">${escSeis(model.badge)}</span>
+    </div>
+    <ul>${model.priority.map(item => `<li>${escSeis(item)}</li>`).join('')}</ul>
+    <div class="report-readiness-grid">
+      ${model.items.map(([label, value]) => `<div class="report-readiness-item"><span>${escSeis(label)}</span><strong>${escSeis(value)}</strong></div>`).join('')}
+    </div>
+    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認規範適用條件、工址譜值來源、分析模型與送審圖說一致性。</div>`;
+}
+
+function markSeismicReportInputsChanged() {
+  if (window._lastSeismicReport?.x) {
+    window._lastSeismicReportStale = true;
+  }
+  renderSeismicReportReadiness();
 }
 
 function applyReportPreset(presetName) {
@@ -2079,8 +2224,8 @@ function buildOriginalBlockHtml(title, innerHtml, extraClass='') {
 }
 
 function openSeismicReport() {
-  if (document.getElementById('resultPanel').style.display === 'none') {
-    calc();
+  if (document.getElementById('resultPanel').style.display === 'none' || window._lastSeismicReportStale) {
+    if (calc() === false) return;
   }
   const project = getProjectInfo();
   const spectrumImage = collectSeismicDiagrams()[0];
@@ -2255,9 +2400,35 @@ document.getElementById('repRemember')?.addEventListener('change', function() {
   updateReportStatus();
 });
 document.getElementById('chkDetail')?.addEventListener('change', updateReportStatus);
+document.addEventListener('input', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.matches('input, select, textarea')) return;
+  if (target.closest('.print-meta')) {
+    renderSeismicReportReadiness();
+    return;
+  }
+  if (target.id === 'chkAssist' || target.id === 'chkDetail' || target.id === 'repRemember' || target.id === 'caseJsonFile') return;
+  if (SEISMIC_REPORT_OPTION_IDS.includes(target.id)) return;
+  if (target.closest('.main-layout > div:first-child')) markSeismicReportInputsChanged();
+});
+document.addEventListener('change', event => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.matches('input, select, textarea')) return;
+  if (target.closest('.print-meta')) {
+    renderSeismicReportReadiness();
+    return;
+  }
+  if (target.id === 'chkAssist' || target.id === 'chkDetail' || target.id === 'repRemember' || target.id === 'caseJsonFile') return;
+  if (SEISMIC_REPORT_OPTION_IDS.includes(target.id)) return;
+  if (target.closest('.main-layout > div:first-child')) markSeismicReportInputsChanged();
+});
 setAssistVisibility(false);
 restoreReportOptions();
 updateReportStatus();
+window._seismicReportReadinessReady = true;
+renderSeismicReportReadiness();
 renderDynamicCompareCard();
 
 function calc() {
@@ -2285,12 +2456,15 @@ function calc() {
 
   // 驗證
   if (![SsD, S1D, SsM, S1M].every(v => isFinite(v) && v > 0)) {
-    setInputStatus('請完整填入有效的震區參數 (SsD, S1D, SsM, S1M)');
+    const message = '請完整填入有效的震區參數 (SsD, S1D, SsM, S1M)';
+    setInputStatus(message);
+    renderSeismicReportReadiness(message);
     return false;
   }
   const floorMsg = validateFloorData(hn);
   if (floorMsg) {
     setInputStatus(floorMsg);
+    renderSeismicReportReadiness(floorMsg);
     return false;
   }
 
@@ -2584,6 +2758,8 @@ F<sub>vM</sub>：S<sub>1M</sub>=${r.S1M} → 查表內插得 <b>${fmt(site.FvM,3
   // ── 反應譜圖 ──
   drawSpectrum(r, rY);
   clearInputStatus();
+  window._lastSeismicReportStale = false;
+  renderSeismicReportReadiness();
   return true;
 }
 
