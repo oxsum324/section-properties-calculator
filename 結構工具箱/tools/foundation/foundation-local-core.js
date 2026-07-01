@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'FoundationLocalCore';
-  const CORE_VERSION = '0.3.0';
-  const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.3';
-  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.3';
-  const LOGIC_SIGNATURE = 'foundation-local-core:v0.3:design-basis-service-stability:qmax-qmin-sliding-overturning-effective-area-elastic-settlement';
+  const CORE_VERSION = '0.4.0';
+  const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.4';
+  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.4';
+  const LOGIC_SIGNATURE = 'foundation-local-core:v0.4:design-basis-service-stability:qmax-qmin-sliding-overturning-effective-area-elastic-settlement-consolidation-boussinesq-2to1';
 
   const DESIGN_CODE_PRESETS = {
     'tw-foundation-112': {
@@ -109,6 +109,72 @@
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
   }
 
+  // Boussinesq 矩形載重角點應力影響係數 Iσ(m,n)（Newmark 解）；m=B'/z、n=L'/z。
+  function boussinesqCornerFactor(m, n) {
+    if (!(m > 0) || !(n > 0)) return 0;
+    const m2 = m * m, n2 = n * n;
+    const A = m2 + n2 + 1;
+    const sqrtA = Math.sqrt(A);
+    const term1 = (2 * m * n * sqrtA / (A + m2 * n2)) * ((A + 1) / A);
+    const term2 = Math.atan2(2 * m * n * sqrtA, A - m2 * n2);
+    return (term1 + term2) / (4 * Math.PI);
+  }
+  // 矩形基礎中心點下方深度 z 之應力影響係數（4 個象限角點疊加）。
+  function boussinesqCenterFactor(B, L, z) {
+    if (!(z > 0) || !(B > 0) || !(L > 0)) return 0;
+    return 4 * boussinesqCornerFactor((B / 2) / z, (L / 2) / z);
+  }
+  // 2:1 應力分散法：Δσ = q·B·L / [(B+z)(L+z)]，回傳影響係數（乘以 q 即為 Δσ）。
+  function twoToOneFactor(B, L, z) {
+    if (!(z >= 0) || !(B > 0) || !(L > 0)) return 0;
+    return (B * L) / ((B + z) * (L + z));
+  }
+  function stressInfluenceFactor(method, B, L, z) {
+    return method === 'boussinesq' ? boussinesqCenterFactor(B, L, z) : twoToOneFactor(B, L, z);
+  }
+
+  // 一維壓密沉陷（NC / OC 判別）：sigma0=初始有效覆土應力，sigmaP=前期壓密應力（≤sigma0 視為 NC）。
+  function consolidationSettlementLayer(h, e0, Cc, Cr, sigma0, sigmaP, deltaSigma) {
+    if (!(h > 0) || !(e0 > -1) || !(sigma0 > 0)) {
+      return { Sc: NaN, regime: 'invalid', sigmaFinal: NaN };
+    }
+    const sigmaFinal = sigma0 + Math.max(deltaSigma, 0);
+    const isOC = sigmaP > sigma0 * (1 + 1e-9);
+    let Sc, regime;
+    if (!isOC) {
+      Sc = Cc * h / (1 + e0) * Math.log10(sigmaFinal / sigma0);
+      regime = 'normally-consolidated';
+    } else if (sigmaFinal <= sigmaP * (1 + 1e-9)) {
+      Sc = Cr * h / (1 + e0) * Math.log10(sigmaFinal / sigma0);
+      regime = 'overconsolidated-recompression';
+    } else {
+      Sc = Cr * h / (1 + e0) * Math.log10(sigmaP / sigma0) + Cc * h / (1 + e0) * Math.log10(sigmaFinal / sigmaP);
+      regime = 'overconsolidated-straddling';
+    }
+    return { Sc, regime, sigmaFinal };
+  }
+  const CONSOLIDATION_REGIME_LABELS = {
+    'normally-consolidated': '正常壓密（NC）',
+    'overconsolidated-recompression': '過壓密（OC，再壓縮範圍內）',
+    'overconsolidated-straddling': '過壓密（OC，跨越 σp′ 進入處女壓縮線）',
+    'invalid': '輸入不足或不合理'
+  };
+  function sanitizeConsolidationLayers(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map(function (Ly) {
+      Ly = Ly || {};
+      return {
+        h: numberValue(Ly.h),
+        zMid: numberValue(Ly.zMid),
+        sigma0: numberValue(Ly.sigma0),
+        e0: numberValue(Ly.e0),
+        Cc: numberValue(Ly.Cc),
+        Cr: numberValue(Ly.Cr),
+        sigmaP: numberValue(Ly.sigmaP)
+      };
+    });
+  }
+
   function getDesignBasis(designCode, loadCondition) {
     const preset = DESIGN_CODE_PRESETS[designCode] || DESIGN_CODE_PRESETS['tw-foundation-112'];
     const fallback = LOAD_CASE_FALLBACK[loadCondition] || LOAD_CASE_FALLBACK['long-term'];
@@ -183,7 +249,10 @@
       Es: numberValue(input.Es),
       nu: Object.prototype.hasOwnProperty.call(input, 'nu') ? numberValue(input.nu) : 0.3,
       settlementInfluence: Object.prototype.hasOwnProperty.call(input, 'settlementInfluence') ? numberValue(input.settlementInfluence) : 0.88,
-      allowableSettlementCm: Object.prototype.hasOwnProperty.call(input, 'allowableSettlementCm') ? numberValue(input.allowableSettlementCm) : 2.5
+      allowableSettlementCm: Object.prototype.hasOwnProperty.call(input, 'allowableSettlementCm') ? numberValue(input.allowableSettlementCm) : 2.5,
+      consolidationEnable: Boolean(input.consolidationEnable),
+      consolidationMethod: input.consolidationMethod === 'boussinesq' ? 'boussinesq' : '2:1',
+      consolidationLayers: sanitizeConsolidationLayers(input.consolidationLayers)
     };
   }
 
@@ -197,6 +266,17 @@
     if (i.P <= 0 && !i.includeSelfWeight) errors.push('未納入自重時，外加垂直力 P 應大於 0。');
     if (i.fsSlideReq <= 0 || i.fsOverReq <= 0) errors.push('安全係數需求值必須大於 0。');
     if (i.mu < 0 || i.passive < 0) errors.push('摩擦係數與被動抵抗不得為負。');
+    if (i.consolidationEnable) {
+      if (i.consolidationLayers.length < 1) errors.push('壓密沉陷至少需輸入 1 層黏土層。');
+      i.consolidationLayers.forEach(function (Ly, idx) {
+        const n = idx + 1;
+        if (!(Ly.h > 0)) errors.push(`第 ${n} 層壓密層厚度必須大於 0。`);
+        if (!(Ly.zMid >= 0)) errors.push(`第 ${n} 層中點深度不得為負。`);
+        if (!(Ly.sigma0 > 0)) errors.push(`第 ${n} 層初始有效覆土應力 σ0′ 必須大於 0。`);
+        if (!(Ly.e0 > -1)) errors.push(`第 ${n} 層初始孔隙比 e0 必須大於 -1。`);
+        if (Ly.Cc < 0 || Ly.Cr < 0) errors.push(`第 ${n} 層壓縮指數 Cc / 再壓縮指數 Cr 不得為負。`);
+      });
+    }
     return errors;
   }
 
@@ -251,7 +331,26 @@
     const settlementCm = hasSettlement ? settlementM * 100 : null;
     const settlementOk = !hasSettlement || settlementCm <= i.allowableSettlementCm;
 
-    const overallOk = compressionOk && bearingOk && slideOk && overOk && effectiveAreaOk && settlementOk;
+    // ── 壓密沉陷（opt-in：Boussinesq / 2:1 應力增量 + Cc/Cr 一維壓密）──
+    // 淨壓力＝平均底壓扣除基礎面原有效覆土應力（近似，不含水位修正）。
+    const qNet = Math.max(qAvg - i.gammaS * i.Df, 0);
+    const hasConsolidation = i.consolidationEnable && i.consolidationLayers.length > 0;
+    const consolidationLayerResults = hasConsolidation ? i.consolidationLayers.map(function (Ly) {
+      const influenceFactor = stressInfluenceFactor(i.consolidationMethod, i.B, i.L, Ly.zMid);
+      const deltaSigma = qNet * influenceFactor;
+      const r = consolidationSettlementLayer(Ly.h, Ly.e0, Ly.Cc, Ly.Cr, Ly.sigma0, Ly.sigmaP, deltaSigma);
+      return Object.assign({}, Ly, {
+        influenceFactor, deltaSigma,
+        sigmaFinal: r.sigmaFinal, Sc: r.Sc, regime: r.regime, regimeLabel: CONSOLIDATION_REGIME_LABELS[r.regime]
+      });
+    }) : [];
+    const consolidationValid = hasConsolidation && consolidationLayerResults.every(function (r) { return Number.isFinite(r.Sc); });
+    const consolidationSettlementM = hasConsolidation ? consolidationLayerResults.reduce(function (sum, r) { return sum + (Number.isFinite(r.Sc) ? r.Sc : 0); }, 0) : null;
+    const consolidationSettlementCm = hasConsolidation ? consolidationSettlementM * 100 : null;
+    const consolidationOk = !hasConsolidation || (consolidationValid && consolidationSettlementCm <= i.allowableSettlementCm);
+    const combinedSettlementCm = (hasSettlement ? settlementCm : 0) + (hasConsolidation && consolidationValid ? consolidationSettlementCm : 0);
+
+    const overallOk = compressionOk && bearingOk && slideOk && overOk && effectiveAreaOk && settlementOk && consolidationOk;
     const summary = {
       status: overallOk ? 'pass' : 'fail',
       headline: overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算',
@@ -275,6 +374,15 @@
     if (hasSettlement) {
       checks.push(checkItem('settlement', '彈性沉陷初估', settlementOk, `Se = ${settlementCm} cm, 容許 = ${i.allowableSettlementCm} cm`, settlementCm, i.allowableSettlementCm, 'cm'));
     }
+    if (hasConsolidation) {
+      if (consolidationValid) {
+        checks.push(checkItem('consolidation-settlement', '壓密沉陷初估', consolidationOk,
+          `Sc(總) = ${consolidationSettlementCm} cm, 容許 = ${i.allowableSettlementCm} cm, 方法 = ${i.consolidationMethod}`,
+          consolidationSettlementCm, i.allowableSettlementCm, 'cm'));
+      } else {
+        checks.push(checkItem('consolidation-settlement', '壓密沉陷初估', false, '部分壓密層輸入不足或不合理，無法計算', NaN, i.allowableSettlementCm, 'cm'));
+      }
+    }
 
     return Object.assign({}, i, {
       effWidthB,
@@ -287,6 +395,14 @@
       settlementM,
       settlementCm,
       settlementOk,
+      qNet,
+      hasConsolidation,
+      consolidationValid,
+      consolidationLayerResults,
+      consolidationSettlementM,
+      consolidationSettlementCm,
+      consolidationOk,
+      combinedSettlementCm,
       resultSchemaVersion: RESULT_SCHEMA_VERSION,
       designCode: i.designCode,
       loadCondition: i.loadCondition,
@@ -335,6 +451,12 @@
     resultSchemaVersion: RESULT_SCHEMA_VERSION,
     logicSignature: LOGIC_SIGNATURE,
     designCodePresets: DESIGN_CODE_PRESETS,
+    consolidationRegimeLabels: CONSOLIDATION_REGIME_LABELS,
+    boussinesqCornerFactor,
+    boussinesqCenterFactor,
+    twoToOneFactor,
+    stressInfluenceFactor,
+    consolidationSettlementLayer,
     getDesignBasis,
     provenance,
     normalizeInput,

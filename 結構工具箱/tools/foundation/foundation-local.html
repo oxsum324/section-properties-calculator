@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基礎局部檢核 V0.3</title>
+<title>基礎局部檢核 V0.4</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <style>
@@ -97,7 +97,7 @@
 </head>
 <body>
 <header>
-  <h1>基礎局部檢核 <span class="badge-v">V0.3 局部正式檢核</span></h1>
+  <h1>基礎局部檢核 <span class="badge-v">V0.4 局部正式檢核</span></h1>
   <p>淺基礎服務載重底壓、偏心、抗滑、抗傾覆快速檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="../../index.html" class="back">← 回工具箱</a>
@@ -137,7 +137,7 @@
           適用於矩形獨立基礎或設備基座的初步穩定檢核：服務載重底壓、合力偏心、抗滑與抗傾覆。
           若有樁基、筏基、聯合基腳、衝剪、配筋、沉陷或土壤互制問題，應回 RC 基礎完整工具或正式計算書處理。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.3</span>
+            <span>頁面 V0.4</span>
             <span id="coreVersion">Core v—</span>
             <span>正式核算 / 局部</span>
           </div>
@@ -306,7 +306,32 @@
             <input type="number" id="allowableSettlementCm" value="2.50" step="0.5" min="0">
           </div>
         </div>
-        <div class="scope-box">有效面積承壓 q′ = P / [(B−2e<sub>B</sub>)(L−2e<sub>L</sub>)] 反映偏心折減。立即彈性沉陷 Se = q·B·(1−ν²)·I<sub>w</sub>/Es 為初估，僅供量級判斷；壓密沉陷、分層土與時間效應仍需另行詳算。</div>
+        <div class="scope-box">有效面積承壓 q′ = P / [(B−2e<sub>B</sub>)(L−2e<sub>L</sub>)] 反映偏心折減。立即彈性沉陷 Se = q·B·(1−ν²)·I<sub>w</sub>/Es 為初估，僅供量級判斷；壓密沉陷可於下方③c 選用計算，分層土工況仍建議另行正式詳算。</div>
+      </div>
+
+      <div class="card">
+        <style>#consolLayerTable th,#consolLayerTable td{border:1px solid #cbd5e1;padding:4px 5px;text-align:center;font-size:0.8em;}#consolLayerTable input{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#consolLayerTable .cly-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
+        <h2>③c 壓密沉陷（選用）</h2>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
+          <input type="checkbox" id="consolidationEnable" style="width:auto;"> 啟用：一維壓密沉陷估算（Cc/Cr + Boussinesq / 2:1 應力增量）
+        </label>
+        <div id="consolidationInputs" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>應力增量計算方法</label>
+              <select id="consolidationMethod">
+                <option value="2:1">2:1 應力分散法</option>
+                <option value="boussinesq">Boussinesq（矩形基礎中心點）</option>
+              </select>
+            </div>
+          </div>
+          <table id="consolLayerTable" style="width:100%;border-collapse:collapse;margin-top:4px;">
+            <thead><tr><th>#</th><th>層厚 h (m)</th><th>中點深度 z (m)</th><th>σ0′ (tf/m²)</th><th>e0</th><th>Cc</th><th>Cr（選填）</th><th>σp′（選填）</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <button type="button" id="btnAddConsolLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一層</button>
+          <div class="scope-box" style="margin-top:8px;">z 為壓密層中點深度（自基礎底面往下算），用於計算 Δσ；σ0′ 為該深度之初始有效覆土應力，須由使用者依地質資料輸入。σp′ 留空或 ≤ σ0′ 視為正常壓密（NC）；σp′ 大於 σ0′ 時依過壓密（OC）判別，必要時跨越 σp′ 分段計算。Sc = Cc·h/(1+e0)·log10((σ0′+Δσ)/σ0′)（NC）；Δσ 由 2:1 或 Boussinesq 法，以淨壓力 q<sub>net</sub>=qAvg−γs·Df 計算。多層壓密量加總；不含時間-沉陷歷程、次壓縮與分層土非均質效應。</div>
+        </div>
       </div>
 
       <div class="card action-card">
@@ -384,7 +409,8 @@
     B: '2.50', L: '3.00', t: '0.60', Df: '1.20', gammaC: '2.40', gammaS: '1.80',
     P: '80', qa: '20', Mx: '12', My: '8', Hx: '4', Hy: '3', mu: '0.45',
     passive: '0', fsSlideReq: '1.50', fsOverReq: '1.50',
-    Es: '0', nu: '0.30', settlementInfluence: '0.88', allowableSettlementCm: '2.50'
+    Es: '0', nu: '0.30', settlementInfluence: '0.88', allowableSettlementCm: '2.50',
+    consolidationMethod: '2:1'
   };
   let lastResult = null;
   const Core = window.FoundationLocalCore;
@@ -417,6 +443,47 @@
   }
   function selected(id) {
     return $(id).value;
+  }
+  // ── 壓密沉陷層表 ──
+  let consolLayerData = [{ h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0' }];
+  function renderConsolLayerTable() {
+    const tb = $('consolLayerTable').querySelector('tbody');
+    tb.innerHTML = consolLayerData.map(function (Ly, i) {
+      const fields = ['h', 'zMid', 'sigma0', 'e0', 'Cc', 'Cr', 'sigmaP'];
+      return `<tr>
+        <td style="font-weight:700;color:#0369a1;">${i + 1}</td>
+        ${fields.map(function (f) { return `<td><input type="number" data-i="${i}" data-f="${f}" value="${Ly[f]}" step="0.01" min="0" placeholder="—"></td>`; }).join('')}
+        <td><button type="button" class="cly-del" data-i="${i}" title="刪除此層">✕</button></td>
+      </tr>`;
+    }).join('');
+    tb.querySelectorAll('input').forEach(function (el) {
+      el.addEventListener('change', function () {
+        const i = +el.dataset.i, f = el.dataset.f;
+        consolLayerData[i][f] = el.value;
+        calculateFoundationLocal();
+      });
+    });
+    tb.querySelectorAll('.cly-del').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        consolLayerData.splice(+btn.dataset.i, 1);
+        if (consolLayerData.length === 0) consolLayerData.push({ h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0' });
+        renderConsolLayerTable();
+        calculateFoundationLocal();
+      });
+    });
+  }
+  function addConsolLayerRow() {
+    consolLayerData.push({ h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0' });
+    renderConsolLayerTable();
+    calculateFoundationLocal();
+  }
+  function consolLayersForCore() {
+    return consolLayerData.map(function (Ly) {
+      return {
+        h: parseFloat(Ly.h) || 0, zMid: parseFloat(Ly.zMid) || 0, sigma0: parseFloat(Ly.sigma0) || 0,
+        e0: parseFloat(Ly.e0) || 0, Cc: parseFloat(Ly.Cc) || 0, Cr: parseFloat(Ly.Cr) || 0, sigmaP: parseFloat(Ly.sigmaP) || 0
+      };
+    });
   }
   function getBasisFromUi() {
     return Core.getDesignBasis
@@ -478,7 +545,10 @@
       effectiveAreaCheck: $('effectiveAreaCheck').checked,
       Es: num('Es'), nu: num('nu'),
       settlementInfluence: num('settlementInfluence'),
-      allowableSettlementCm: num('allowableSettlementCm')
+      allowableSettlementCm: num('allowableSettlementCm'),
+      consolidationEnable: $('consolidationEnable').checked,
+      consolidationMethod: selected('consolidationMethod'),
+      consolidationLayers: consolLayersForCore()
     };
   }
 
@@ -528,6 +598,9 @@
     if (r.hasSettlement) {
       metrics.push(['彈性沉陷 Se', `${fmt(r.settlementCm)} cm`, `容許 ${fmt(r.allowableSettlementCm)} cm`, r.settlementOk]);
     }
+    if (r.hasConsolidation && r.consolidationValid) {
+      metrics.push(['壓密沉陷 Sc', `${fmt(r.consolidationSettlementCm)} cm`, `${r.consolidationLayerResults.length} 層，容許 ${fmt(r.allowableSettlementCm)} cm`, r.consolidationOk]);
+    }
     $('metricGrid').innerHTML = metrics.map(function (m) {
       return `<div class="metric ${statusClass(m[3])}">
         <span class="label">${m[0]}</span>
@@ -553,6 +626,16 @@
     }
     if (r.hasSettlement) {
       checks.push(['彈性沉陷初估', r.settlementOk, `Se = q·B·(1−ν²)·Iw/Es = ${fmt(r.settlementCm)} cm ${r.settlementOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm`]);
+    }
+    if (r.hasConsolidation) {
+      if (r.consolidationValid) {
+        const layerLines = r.consolidationLayerResults.map(function (ly, idx) {
+          return `第${idx + 1}層 Δσ=${fmt(ly.deltaSigma, 2)}、${escapeHtml(ly.regimeLabel)}、Sc=${fmt(ly.Sc * 100, 2)}cm`;
+        }).join('；');
+        checks.push(['壓密沉陷初估', r.consolidationOk, `Sc(總) = ${fmt(r.consolidationSettlementCm, 2)} cm ${r.consolidationOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm（q<sub>net</sub>=${fmt(r.qNet)} tf/m²，${r.consolidationMethod === 'boussinesq' ? 'Boussinesq' : '2:1'} 法）。${layerLines}`]);
+      } else {
+        checks.push(['壓密沉陷初估', false, '部分壓密層輸入不足或不合理（層厚、σ0′ 或 e0），無法計算。']);
+      }
     }
     $('checkList').innerHTML = checks.map(function (c) {
       return `<div class="check-item ${statusClass(c[1])}">
@@ -668,6 +751,7 @@
   }
 
   function calculateFoundationLocal() {
+    $('consolidationInputs').style.display = $('consolidationEnable').checked ? '' : 'none';
     const input = gatherInputs();
     const errors = Core.validateInput(input);
     if (errors.length) {
@@ -716,7 +800,7 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.3'
+        pageVersion: 'V0.4'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -730,7 +814,7 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.3'
+        pageVersion: 'V0.4'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -804,7 +888,14 @@
 ${(r.effectiveAreaCheck || r.hasSettlement) ? `<h3>6. 有效面積承壓與沉陷初估</h3>
 ${r.effectiveAreaCheck ? `<p><code>B′ = B−2|ex| = ${fmt(r.effWidthB, 3)} m；L′ = L−2|ey| = ${fmt(r.effWidthL, 3)} m；q′ = Ptotal/(B′·L′) = ${fmt(r.qEff)} tf/m² ${r.qEffOk ? '≤' : '>'} qa = ${fmt(r.qa)} tf/m²（Meyerhof 有效面積）</code></p>` : ''}
 ${r.hasSettlement ? `<p><code>Se = q·B·(1−ν²)·Iw/Es = ${fmt(r.qAvg)}×${fmt(r.B)}×(1−${fmt(r.nu)}²)×${fmt(r.settlementInfluence)}/${fmt(r.Es)} = ${fmt(r.settlementCm)} cm ${r.settlementOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm（立即彈性沉陷初估）</code></p>` : ''}` : ''}
-<div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆${r.effectiveAreaCheck ? '、有效面積承壓' : ''}${r.hasSettlement ? '、彈性沉陷初估' : ''}）。衝剪、單向剪力、配筋、${r.hasSettlement ? '壓密沉陷、' : '沉陷、'}液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>`;
+${r.hasConsolidation ? `<h3>7. 壓密沉陷（${r.consolidationMethod === 'boussinesq' ? 'Boussinesq' : '2:1'} 應力增量）</h3>
+<p><code>q<sub>net</sub> = qAvg − γs·Df = ${fmt(r.qAvg)} − ${fmt(r.gammaS)}×${fmt(r.Df)} = ${fmt(r.qNet)} tf/m²</code></p>
+${r.consolidationValid ? r.consolidationLayerResults.map(function (ly, idx) {
+  return `<p><code>第${idx + 1}層：h=${fmt(ly.h)}m、z=${fmt(ly.zMid)}m、I=${fmt(ly.influenceFactor, 4)}、Δσ=q<sub>net</sub>·I=${fmt(ly.deltaSigma)} tf/m²；σ0′=${fmt(ly.sigma0)}、σf′=${fmt(ly.sigmaFinal)}（${escapeHtml(ly.regimeLabel)}）</code><br>
+  <code>Sc = ${fmt(ly.Sc * 100, 2)} cm</code></p>`;
+}).join('') : '<p><code style="color:#b91c1c;">部分壓密層輸入不足或不合理，無法計算。</code></p>'}
+${r.consolidationValid ? `<p><code>Sc(總) = Σ Sc = ${fmt(r.consolidationSettlementCm, 2)} cm ${r.consolidationOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm</code>${r.hasSettlement ? `<br><code>合計沉陷（立即+壓密）≈ ${fmt(r.combinedSettlementCm, 2)} cm</code>` : ''}</p>` : ''}` : ''}
+<div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆${r.effectiveAreaCheck ? '、有效面積承壓' : ''}${r.hasSettlement ? '、彈性沉陷初估' : ''}${r.hasConsolidation ? '、壓密沉陷初估' : ''}）。衝剪、單向剪力、配筋、${r.hasConsolidation ? '' : '壓密沉陷、'}液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>`;
   }
 
   function summaryBody(r, svgHtml) {
@@ -827,6 +918,7 @@ ${r.hasSettlement ? `<p><code>Se = q·B·(1−ν²)·Iw/Es = ${fmt(r.qAvg)}×${f
     ];
     if (r.effectiveAreaCheck) ctrlRows.push(['有效面積承壓 q′', `${fmt(r.qEff)} tf/m²（B′=${fmt(r.effWidthB, 3)}、L′=${fmt(r.effWidthL, 3)} m）`]);
     if (r.hasSettlement) ctrlRows.push(['彈性沉陷 Se', `${fmt(r.settlementCm)} cm / 容許 ${fmt(r.allowableSettlementCm)} cm`]);
+    if (r.hasConsolidation && r.consolidationValid) ctrlRows.push(['壓密沉陷 Sc(總)', `${fmt(r.consolidationSettlementCm, 2)} cm / 容許 ${fmt(r.allowableSettlementCm)} cm（${r.consolidationLayerResults.length} 層）`]);
     const checkRows = r.checks.map(c => `<tr><th>${escapeHtml(c.label)}</th><td>${c.passed ? '通過' : '不通過'}</td></tr>`).join('');
     return `
 <h2>設計條件</h2><table>${reportRows(condRows)}</table>
@@ -866,7 +958,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>基礎局部穩定檢核計算書</h1>
-<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>設計人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.3</span></div>
+<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>設計人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.4</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
@@ -904,6 +996,13 @@ ${body}
     });
     $('includeSelfWeight').checked = normalized.includeSelfWeight;
     $('effectiveAreaCheck').checked = Boolean(normalized.effectiveAreaCheck);
+    $('consolidationEnable').checked = Boolean(normalized.consolidationEnable);
+    if (Array.isArray(normalized.consolidationLayers) && normalized.consolidationLayers.length) {
+      consolLayerData = normalized.consolidationLayers.map(function (Ly) {
+        return { h: String(Ly.h || ''), zMid: String(Ly.zMid || ''), sigma0: String(Ly.sigma0 || ''), e0: String(Ly.e0 || ''), Cc: String(Ly.Cc || ''), Cr: String(Ly.Cr || 0), sigmaP: String(Ly.sigmaP || 0) };
+      });
+      renderConsolLayerTable();
+    }
     applyProjectInfo(payload.project);
     updateCriteriaPreview();
     const result = calculateFoundationLocal();
@@ -948,6 +1047,9 @@ ${body}
     Object.keys(DEFAULTS).forEach(id => { $(id).value = DEFAULTS[id]; });
     $('includeSelfWeight').checked = true;
     $('effectiveAreaCheck').checked = false;
+    $('consolidationEnable').checked = false;
+    consolLayerData = [{ h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0' }];
+    renderConsolLayerTable();
     updateCriteriaPreview();
     calculateFoundationLocal();
   }
@@ -962,6 +1064,8 @@ ${body}
   document.getElementById('btnImportJson').addEventListener('click', () => document.getElementById('jsonFile').click());
   document.getElementById('jsonFile').addEventListener('change', function () { importJson(this); });
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
+  document.getElementById('btnAddConsolLayer').addEventListener('click', addConsolLayerRow);
+  $('consolidationMethod').addEventListener('change', calculateFoundationLocal);
   ['designCode', 'loadCondition'].forEach(id => $(id).addEventListener('change', applyCriteriaPreset));
   $('bearingMode').addEventListener('change', function () {
     updateCriteriaPreview();
@@ -974,6 +1078,7 @@ ${body}
     input.addEventListener('input', calculateFoundationLocal);
     input.addEventListener('change', calculateFoundationLocal);
   });
+  renderConsolLayerTable();
   loadProjectInfo();
   updateCriteriaPreview();
   calculateFoundationLocal();
