@@ -399,6 +399,31 @@ for (const inlineValidationPage of [
 }
 
 {
+  const html = readText(toolboxFile('tools/風力/wind-lattice-tower.html'));
+  [
+    'id="latticeTowerReportReadiness"',
+    'function buildLatticeTowerReportReadinessModel',
+    'function renderLatticeTowerReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'wind-lattice-tower page-only report readiness'));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-lattice-tower page-only report readiness hidden from print');
+  const reportStart = html.indexOf('function buildLatticeTowerReportHtml()');
+  const reportEnd = html.indexOf('function openLatticeTowerReport()', reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-lattice-tower report body isolated');
+  const reportBody = html.slice(reportStart, reportEnd);
+  [
+    'latticeTowerReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(reportBody, needle, 'wind-lattice-tower report excludes page-only readiness wording'));
+}
+
+{
   const html = readText(toolboxFile('tools/地震力/seismic-force.html'));
   assertIncludes(html, 'id="inputStatus"', 'seismic-force inline input status element');
   assertIncludes(html, 'id="apStatus"', 'seismic-force appendage input status element');
