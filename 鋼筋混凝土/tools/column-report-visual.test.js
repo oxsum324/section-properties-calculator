@@ -224,6 +224,7 @@ async function main() {
       assert(failedResponses.length === 0, `${tc.key} report failed responses`, 'none');
       assert(pageReadiness.text.includes('產報前檢查'), `${tc.key} page attachment readiness card`, pageReadiness.text);
       assert(pageReadiness.text.includes('不會寫入計算書或列印 PDF'), `${tc.key} page attachment readiness boundary`, pageReadiness.text);
+      assert(pageReadiness.text.includes('優先閱讀'), `${tc.key} page attachment readiness priority`, pageReadiness.text);
       assert(['ready', 'review', 'blocked'].includes(pageReadiness.status), `${tc.key} page attachment readiness status`, pageReadiness.status);
       assert(pageReadiness.display !== 'none' && pageReadiness.width > 0 && pageReadiness.height > 0, `${tc.key} page attachment readiness visible`, `${pageReadiness.display} ${pageReadiness.width}x${pageReadiness.height}`);
       assert(!metrics.hasReportSummary, `${tc.key} report top reminder hidden`, 'no .rep-summary');
@@ -236,6 +237,7 @@ async function main() {
       assert(!metrics.bodyText.includes('⚠ 部分項目需人工複核'), `${tc.key} no top manual-review reminder`, 'hidden from calculation report');
       [
         '產報前檢查',
+        '優先閱讀',
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',

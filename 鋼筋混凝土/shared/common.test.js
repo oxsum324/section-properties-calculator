@@ -76,6 +76,44 @@ function main() {
   assert(row.ok === false, 'entry ok override preserves false', String(row.ok));
   assert(row.note === '自訂註記', 'entry note preserved', row.note);
 
+  assert(typeof RCUI.getAttachmentReadinessPriority === 'function', 'attachment readiness priority helper exported', typeof RCUI.getAttachmentReadinessPriority);
+  const blockedPriority = RCUI.getAttachmentReadinessPriority({
+    status: 'blocked',
+    items: [
+      { label: '不符項目', value: '2 項', tone: 'fail' },
+      { label: '輸出邊界', value: '頁面顯示，不進 PDF', tone: 'neutral' },
+    ],
+    notes: ['此面板僅供頁面輔助。', '優先處理：剪力強度、配筋比。']
+  });
+  assert(blockedPriority.label === '優先閱讀', 'blocked priority label', blockedPriority.label);
+  assert(blockedPriority.tone === 'fail', 'blocked priority tone', blockedPriority.tone);
+  assert(blockedPriority.value.includes('剪力強度'), 'blocked priority uses explicit note', blockedPriority.value);
+  assert(blockedPriority.sourceNote.includes('優先處理'), 'blocked priority source note tracked', blockedPriority.sourceNote);
+
+  const reviewPriority = RCUI.getAttachmentReadinessPriority({
+    status: 'review',
+    items: [{ label: '人工複核', value: '1 項', tone: 'warn' }],
+    notes: ['需人工確認：施工圖搭接區。']
+  });
+  assert(reviewPriority.tone === 'warn', 'review priority tone', reviewPriority.tone);
+  assert(reviewPriority.value.includes('施工圖搭接區'), 'review priority uses manual-review note', reviewPriority.value);
+
+  const fallbackPriority = RCUI.getAttachmentReadinessPriority({
+    status: 'blocked',
+    items: [
+      { label: '主要檢核', value: '2 項未通過', tone: 'fail' },
+      { label: '阻擋 1', value: '衝剪', tone: 'fail' },
+    ]
+  });
+  assert(fallbackPriority.value.includes('阻擋 1'), 'blocked priority prefers concrete blocker rows', fallbackPriority.value);
+
+  const readyPriority = RCUI.getAttachmentReadinessPriority({
+    status: 'ready',
+    items: [{ label: '輸出邊界', value: '頁面顯示，不進 PDF', tone: 'neutral' }]
+  });
+  assert(readyPriority.tone === 'ok', 'ready priority tone', readyPriority.tone);
+  assert(readyPriority.value.includes('輸出邊界'), 'ready priority mentions output boundary', readyPriority.value);
+
   if (failed) {
     console.error(`\n${failed} common helper tests failed.`);
     process.exit(1);

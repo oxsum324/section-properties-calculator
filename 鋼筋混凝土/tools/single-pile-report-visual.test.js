@@ -241,6 +241,7 @@ async function main() {
       assert(state.candidateCount > 10, `${key} candidate matrix populated`, `count=${state.candidateCount}`);
       assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
       assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
+      assert(state.readinessText.includes('優先閱讀'), `${key} page attachment readiness priority`, state.readinessText);
       if (expected.expectedSnapshot === 'OK') {
         assert(state.best && state.best.diaCm >= 40, `${key} recommendation exists`, `D=${state.best?.diaCm}`);
         assert(state.summaryOk === true, `${key} summary snapshot OK`, state.summaryStatusText);
@@ -293,6 +294,7 @@ async function main() {
       }
       for (const forbidden of [
         '產報前檢查',
+        '優先閱讀',
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',

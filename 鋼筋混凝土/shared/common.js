@@ -111,6 +111,70 @@ window.RCUI.buildReviewCheckGroup = function(entries, options = {}) {
   };
 };
 
+window.RCUI.getAttachmentReadinessPriority = function(state = {}, itemsInput, notesInput) {
+  const statusTone = {
+    ready: 'ok',
+    review: 'warn',
+    estimate: 'warn',
+    blocked: 'fail',
+    neutral: 'neutral'
+  };
+  const toneClass = value => ['ok', 'warn', 'fail', 'neutral'].includes(value) ? value : 'neutral';
+  const status = statusTone[state.status] ? state.status : 'neutral';
+  const items = Array.isArray(itemsInput ?? state.items) ? (itemsInput ?? state.items).filter(Boolean) : [];
+  const notes = Array.isArray(notesInput ?? state.notes)
+    ? (notesInput ?? state.notes).map(note => String(note || '').trim()).filter(Boolean)
+    : [];
+  const explicit = state.priority || state.priorityAction;
+  if (explicit) {
+    if (typeof explicit === 'string') {
+      return { label: '優先閱讀', value: explicit, tone: statusTone[status] || 'neutral' };
+    }
+    const value = String(explicit.value || explicit.text || '').trim();
+    if (value) {
+      return {
+        label: explicit.label || '優先閱讀',
+        value,
+        tone: toneClass(explicit.tone || statusTone[status])
+      };
+    }
+  }
+  const cleanPriorityNote = note => String(note || '')
+    .replace(/^(優先處理|需人工確認|需確認)[：:]\s*/u, '')
+    .trim();
+  const noteByPrefix = prefixes => notes.find(note => prefixes.some(prefix => note.startsWith(prefix)));
+  const priorityNote = noteByPrefix(['優先處理：', '優先處理:']);
+  const reviewNote = noteByPrefix(['需人工確認：', '需人工確認:', '需確認：', '需確認:']);
+  const nonZero = value => !/^(0\s*項|無|0)$/u.test(String(value || '').trim());
+  const preferredItem = tone => {
+    const candidates = items.filter(item => toneClass(item.tone) === tone && nonZero(item.value));
+    if (!candidates.length) return null;
+    return candidates.find(item => /^(阻擋|不符|人工複核|正式分析|人工)/u.test(String(item.label || ''))) || candidates[0];
+  };
+  if (status === 'blocked') {
+    if (priorityNote) {
+      return { label: '優先閱讀', value: `先處理：${cleanPriorityNote(priorityNote)}`, tone: 'fail', sourceNote: priorityNote };
+    }
+    const failItem = preferredItem('fail');
+    if (failItem) {
+      return { label: '優先閱讀', value: `先看「${failItem.label}」：${failItem.value}`, tone: 'fail' };
+    }
+  }
+  if (status === 'review' || status === 'estimate') {
+    if (reviewNote) {
+      return { label: '優先閱讀', value: `先確認：${cleanPriorityNote(reviewNote)}`, tone: 'warn', sourceNote: reviewNote };
+    }
+    const warnItem = preferredItem('warn');
+    if (warnItem) {
+      return { label: '優先閱讀', value: `先看「${warnItem.label}」：${warnItem.value}`, tone: 'warn' };
+    }
+  }
+  if (status === 'ready') {
+    return { label: '優先閱讀', value: '先確認輸出邊界，再產出公司計算附件。', tone: 'ok' };
+  }
+  return null;
+};
+
 window.RCUI.renderAttachmentReadiness = function(targetId, state = {}) {
   const target = document.getElementById(targetId);
   if (!target) return;
@@ -138,6 +202,10 @@ window.RCUI.renderAttachmentReadiness = function(targetId, state = {}) {
     ? state.notes.map(note => String(note || '').trim()).filter(Boolean)
     : [];
   const toneClass = value => ['ok', 'warn', 'fail', 'neutral'].includes(value) ? value : 'neutral';
+  const priority = window.RCUI.getAttachmentReadinessPriority(state, items, notes);
+  const renderNotes = priority?.sourceNote
+    ? notes.filter(note => note !== priority.sourceNote)
+    : notes;
 
   target.dataset.attachmentStatus = status;
   target.innerHTML = `
@@ -145,14 +213,18 @@ window.RCUI.renderAttachmentReadiness = function(targetId, state = {}) {
       <span class="report-readiness-badge ${tone}">${escape(label)}</span>
       <span>${escape(summary)}</span>
     </div>
+    ${priority ? `<div class="report-readiness-priority ${toneClass(priority.tone)}" data-readiness-priority="${toneClass(priority.tone)}">
+      <span class="label">${escape(priority.label)}</span>
+      <span class="value">${escape(priority.value)}</span>
+    </div>` : ''}
     ${items.length ? `<div class="report-readiness-list">
       ${items.map(item => `<div class="report-readiness-item ${toneClass(item.tone)}">
         <span class="label">${escape(item.label)}</span>
         <span class="value">${escape(item.value)}</span>
       </div>`).join('')}
     </div>` : ''}
-    ${notes.length ? `<ul class="report-readiness-notes">
-      ${notes.map(note => `<li>${escape(note)}</li>`).join('')}
+    ${renderNotes.length ? `<ul class="report-readiness-notes">
+      ${renderNotes.map(note => `<li>${escape(note)}</li>`).join('')}
     </ul>` : ''}
   `;
 };

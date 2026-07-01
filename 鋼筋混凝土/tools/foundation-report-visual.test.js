@@ -272,6 +272,7 @@ async function main() {
       assert(state.ftLastOk && state.tab === tc.tab, `${tc.key} calculation state exists`, state.banner);
       assert(state.readinessText.includes('產報前檢查'), `${tc.key} page attachment readiness card`, state.readinessText);
       assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${tc.key} page attachment readiness boundary`, state.readinessText);
+      assert(state.readinessText.includes('優先閱讀'), `${tc.key} page attachment readiness priority`, state.readinessText);
       if (EXPECTED[tc.key]?.expectedSnapshot === '待確認') {
         assert(!state.banner.includes('OK — 符合規範') && !state.banner.includes('✓ OK'), `${tc.key} no misleading OK banner`, state.banner);
         assert(state.reviewWarningCount >= 1, `${tc.key} review warnings captured`, `count=${state.reviewWarningCount}`);
@@ -316,6 +317,7 @@ async function main() {
       }
       for (const forbidden of [
         '產報前檢查',
+        '優先閱讀',
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',

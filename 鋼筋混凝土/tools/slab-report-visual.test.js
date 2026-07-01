@@ -247,6 +247,7 @@ async function main() {
       assert(state.hasSectionSvg, `${key} section SVG exists`, state.methodLabel);
       assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
       assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
+      assert(state.readinessText.includes('優先閱讀'), `${key} page attachment readiness priority`, state.readinessText);
       assert(['ready', 'review', 'estimate', 'blocked'].includes(state.readinessStatus), `${key} page attachment readiness status`, state.readinessStatus);
       assert(state.readinessDisplay !== 'none', `${key} page attachment readiness visible`, state.readinessDisplay);
       if (state.reviewWarningCount > 0 || state.allOk === false) {
@@ -296,6 +297,7 @@ async function main() {
         '需正式分析確認',
         '⚠ 待確認',
         '產報前檢查',
+        '優先閱讀',
         '可作附件，需人工複核',
         '僅供初估，不建議直接作附件',
         '暫勿作附件',

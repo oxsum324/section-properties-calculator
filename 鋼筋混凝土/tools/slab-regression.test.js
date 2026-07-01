@@ -230,9 +230,11 @@ async function main() {
   assert(slabHtml.includes('caseJson') && slabHtml.includes('SLAB_PROJECT_EXCLUDED_IDS'), 'slab.html excludes case-tool textareas from project files', 'case-tool scratch text is not project data');
   assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
   assert(common.includes('window.RCUI.renderAttachmentReadiness'), 'shared/common.js exposes attachment readiness renderer', 'page-only attachment status has shared helper');
+  assert(common.includes('window.RCUI.getAttachmentReadinessPriority'), 'shared/common.js exposes attachment priority helper', 'page readiness has prioritized reading cue');
   assert(slabHtml.includes('id="slabAttachmentReadiness"'), 'slab.html has page-only attachment readiness target', 'pre-export status stays on tool page');
   assert(slabHtml.includes('attachmentFailures'), 'slab.html stores attachment failure summary', 'page status can distinguish blocked attachment cases');
   assert(style.includes('.report-readiness-card') && style.includes('@media print'), 'shared/style.css hides readiness card from print', 'page-only readiness is print-hidden');
+  assert(style.includes('.report-readiness-priority'), 'shared/style.css styles prioritized readiness cue', 'page-only priority cue has stable layout');
   assert(slabHtml.includes('summary:false'), 'slab report hides top status banner', 'page-only review status stays out of the report');
   assert(!slabHtml.includes('RCUI.buildReviewCheckGroup'), 'slab report omits formal-analysis warning group', 'review warnings remain page-only');
 

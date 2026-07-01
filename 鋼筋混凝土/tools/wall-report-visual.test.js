@@ -343,6 +343,7 @@ async function main() {
       assert(state.methodRows >= 6, `${key} method audit rows`, `rows=${state.methodRows}`);
       assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
       assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
+      assert(state.readinessText.includes('優先閱讀'), `${key} page attachment readiness priority`, state.readinessText);
       if (expected.expectedSnapshot === 'NG' || expected.expectedSnapshot === '待確認') {
         assert(!state.banner.includes('OK — 符合規範'), `${key} no misleading summary banner`, state.banner);
       }
@@ -392,6 +393,7 @@ async function main() {
       }
       for (const forbidden of [
         '產報前檢查',
+        '優先閱讀',
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',

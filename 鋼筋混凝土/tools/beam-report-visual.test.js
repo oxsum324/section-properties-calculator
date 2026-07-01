@@ -231,6 +231,7 @@ async function main() {
       assert(state.beamLastOk, `${tc.key} calculation state exists`, state.banner);
       assert(state.readinessText.includes('產報前檢查'), `${tc.key} page attachment readiness card`, state.readinessText);
       assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${tc.key} page attachment readiness boundary`, state.readinessText);
+      assert(state.readinessText.includes('優先閱讀'), `${tc.key} page attachment readiness priority`, state.readinessText);
       assert(['ready', 'review', 'blocked'].includes(state.readinessStatus), `${tc.key} page attachment readiness status`, state.readinessStatus);
       assert(state.readinessDisplay !== 'none', `${tc.key} page attachment readiness visible`, state.readinessDisplay);
 
@@ -278,6 +279,7 @@ async function main() {
         '需補充資料確認',
         '人工複核項目：',
         '產報前檢查',
+        '優先閱讀',
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',
