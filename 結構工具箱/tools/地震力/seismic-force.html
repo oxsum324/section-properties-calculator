@@ -431,13 +431,14 @@
       <div style="display:flex;gap:18px;flex-wrap:wrap;margin-bottom:8px;">
         <label style="font-size:0.85em;">位移放大係數 C<sub>d</sub>　<input type="number" id="driftCd" value="1.0" step="0.1" min="1" style="width:80px;"></label>
         <label style="font-size:0.85em;">容許層間變位角 Δ<sub>a</sub>/h　<input type="number" id="driftAllow" value="0.005" step="0.001" min="0.0001" style="width:90px;"></label>
+        <label style="font-size:0.85em;">P-Δ 可忽略上限 θ<sub>a</sub>　<input type="number" id="driftThetaLimit" value="0.10" step="0.01" min="0.01" style="width:80px;"></label>
       </div>
       <table class="story" id="driftTable">
-        <thead><tr><th>樓層</th><th>dH (m)</th><th>δ<sub>xe</sub> (cm)</th><th>δ=C<sub>d</sub>δ<sub>xe</sub> (cm)</th><th>Δ (cm)</th><th>Δ/h</th><th>判定</th></tr></thead>
+        <thead><tr><th>樓層</th><th>dH (m)</th><th>δ<sub>xe</sub> (cm)</th><th>δ=C<sub>d</sub>δ<sub>xe</sub> (cm)</th><th>Δ (cm)</th><th>Δ/h</th><th>判定</th><th>P<sub>x</sub> (tf)</th><th>V<sub>x</sub> (tf)</th><th>θ</th><th>二次效應</th></tr></thead>
         <tbody></tbody>
       </table>
       <div id="driftNote" class="legend"></div>
-      <div class="legend" style="margin-top:6px;line-height:1.6;">δ<sub>xe</sub>＝設計地震力作用下、由結構分析所得之彈性側向位移；C<sub>d</sub> 與容許 Δ<sub>a</sub>/h 依採用之耐震規範版本與韌性需求設定（如 0.005、0.010）。本表僅檢核層間變位角，未含 P-Δ 效應與韌性容量詳核。</div>
+      <div class="legend" style="margin-top:6px;line-height:1.6;">δ<sub>xe</sub>＝設計地震力作用下、由結構分析所得之彈性側向位移；C<sub>d</sub> 與容許 Δ<sub>a</sub>/h 依採用之耐震規範版本與韌性需求設定（如 0.005、0.010）。P-Δ 穩定係數 θ=P<sub>x</sub>·δ<sub>e</sub>/(V<sub>x</sub>·h<sub>sx</sub>)（用彈性層間位移）：θ≤θ<sub>a</sub> 可忽略二次效應，否則內力/位移須以 1/(1−θ) 放大或加勁。P<sub>x</sub> 為該層以上累計重量、V<sub>x</sub> 為該層地震剪力（皆取自本頁計算）。韌性容量詳核仍需回構材設計。</div>
     </div>
   </div>
 
@@ -1302,7 +1303,8 @@ document.getElementById('chkXY').addEventListener('change', function() {
 })();
 
 // ── 樓層表 ──
-let floorData = [];  // [{label, dH, W}]
+let floorData = [];  // [{label, dH, W, disp}]
+let driftStoryData = [];  // [{Vstory, W}]，計算時由 r.dist.floors 暫存供 P-Δ 使用
 
 function renderFloorTable() {
   const tb = document.querySelector('#floorTable tbody');
@@ -1364,24 +1366,45 @@ function escSeis(text) {
 function computeStoryDrift() {
   const Cd = parseFloat(document.getElementById('driftCd').value) || 1;
   const allow = parseFloat(document.getElementById('driftAllow').value) || 0.005;
-  let prevDisp = 0;
+  const thetaLimitEl = document.getElementById('driftThetaLimit');
+  const thetaLimit = thetaLimitEl ? (parseFloat(thetaLimitEl.value) || 0.10) : 0.10;
+  // P-Δ 需樓層剪力與累計重量；僅在計算後樓層數對齊時可用
+  const pdReady = driftStoryData.length === floorData.length && floorData.length > 0;
+  // 各層之上累計重量 Px（含該層）
+  const pxAtOrAbove = floorData.map((_, i) =>
+    pdReady ? driftStoryData.slice(i).reduce((s, d) => s + (Number(d.W) || 0), 0) : NaN);
+  let prevDisp = 0, prevDispRaw = 0;
   let anyDisp = false;
+  let anyTheta = false;
   let governing = { ratio: 0, label: '—' };
-  const rows = floorData.map(f => {
+  let governingTheta = { theta: 0, label: '—' };
+  const rows = floorData.map((f, i) => {
     const dH = Number(f.dH);
     const dispRaw = Number(f.disp);
     const hasDisp = Number.isFinite(dispRaw);
     if (hasDisp) anyDisp = true;
     const dispDesign = hasDisp ? Cd * dispRaw : NaN;            // 設計位移 (cm)
-    const delta = hasDisp ? dispDesign - prevDisp : NaN;        // 層間相對位移 (cm)
+    const delta = hasDisp ? dispDesign - prevDisp : NaN;        // 設計層間相對位移 (cm)
+    const deltaElastic = hasDisp ? dispRaw - prevDispRaw : NaN; // 彈性層間相對位移 (cm)
     const ratio = (hasDisp && Number.isFinite(dH) && dH > 0) ? (delta / 100) / dH : NaN; // Δ(m)/h(m)
     const ok = Number.isFinite(ratio) ? Math.abs(ratio) <= allow : null;
-    if (hasDisp) prevDisp = dispDesign;
+    // P-Δ 穩定係數 θ = Px·δe / (Vx·hsx)（用彈性層間位移，Cd 與 Ie 相消）
+    const Vx = pdReady ? Number(driftStoryData[i].Vstory) : NaN;
+    const Px = pxAtOrAbove[i];
+    const theta = (hasDisp && Number.isFinite(Vx) && Vx > 0 && Number.isFinite(dH) && dH > 0 && Number.isFinite(Px))
+      ? Px * (deltaElastic / 100) / (Vx * dH) : NaN;
+    const thetaAbs = Math.abs(theta);
+    const thetaOk = Number.isFinite(theta) ? thetaAbs <= thetaLimit : null;
+    const amp = Number.isFinite(theta) && thetaAbs < 1 ? 1 / (1 - thetaAbs) : NaN; // 二次效應放大 1/(1−θ)
+    if (Number.isFinite(theta)) anyTheta = true;
+    if (hasDisp) { prevDisp = dispDesign; prevDispRaw = dispRaw; }
     if (Number.isFinite(ratio) && Math.abs(ratio) > governing.ratio) governing = { ratio: Math.abs(ratio), label: f.label };
-    return { label: f.label, dH, dispRaw, dispDesign, delta, ratio, ok };
+    if (Number.isFinite(theta) && thetaAbs > governingTheta.theta) governingTheta = { theta: thetaAbs, label: f.label };
+    return { label: f.label, dH, dispRaw, dispDesign, delta, deltaElastic, ratio, ok, Px, Vx, theta: thetaAbs, thetaOk, amp };
   });
   const govOk = anyDisp ? governing.ratio <= allow : null;
-  return { Cd, allow, rows, anyDisp, governing, govOk };
+  const govThetaOk = anyTheta ? governingTheta.theta <= thetaLimit : null;
+  return { Cd, allow, thetaLimit, pdReady, rows, anyDisp, anyTheta, governing, govOk, governingTheta, govThetaOk };
 }
 function renderDriftCheck() {
   const card = document.getElementById('driftCard');
@@ -1396,7 +1419,8 @@ function renderDriftCheck() {
   let html = '';
   for (let i = d.rows.length - 1; i >= 0; i--) {
     const r = d.rows[i];
-    const cls = r.ok === false ? ' style="color:#b91c1c;font-weight:700;"' : '';
+    const rowNg = r.ok === false || r.thetaOk === false;
+    const cls = rowNg ? ' style="color:#b91c1c;font-weight:700;"' : '';
     html += `<tr${cls}>
       <td class="idx">${escSeis(r.label)}</td>
       <td>${fmt(r.dH, 2)}</td>
@@ -1404,18 +1428,31 @@ function renderDriftCheck() {
       <td>${Number.isFinite(r.dispDesign) ? fmt(r.dispDesign, 3) : '—'}</td>
       <td>${Number.isFinite(r.delta) ? fmt(r.delta, 3) : '—'}</td>
       <td>${Number.isFinite(r.ratio) ? fmt(r.ratio, 4) : '—'}</td>
-      <td>${r.ok === null ? '—' : (r.ok ? 'OK' : 'NG')}</td>`;
+      <td>${r.ok === null ? '—' : (r.ok ? 'OK' : 'NG')}</td>
+      <td>${Number.isFinite(r.Px) ? fmt(r.Px, 0) : '—'}</td>
+      <td>${Number.isFinite(r.Vx) ? fmt(r.Vx, 1) : '—'}</td>
+      <td>${Number.isFinite(r.theta) ? fmt(r.theta, 3) : '—'}</td>
+      <td>${Number.isFinite(r.theta) ? (r.thetaOk ? '可忽略' : '×' + fmt(r.amp, 2)) : '—'}</td>`;
   }
   tbody.innerHTML = html;
   const note = document.getElementById('driftNote');
   if (!d.anyDisp) {
     note.innerHTML = '⚠ 尚未於樓層表輸入各層彈性側向位移 δ<sub>xe</sub>，無法檢核。';
   } else {
-    note.innerHTML = `控制樓層：${escSeis(d.governing.label)}，最大 Δ/h = ${fmt(d.governing.ratio, 4)} ${d.govOk ? '≤' : '>'} 容許 ${fmt(d.allow, 4)} → <strong style="color:${d.govOk ? '#047857' : '#b91c1c'};">${d.govOk ? '層間變位角檢核通過' : '層間變位角超過容許值'}</strong>`;
+    const driftLine = `層間變位角：控制 ${escSeis(d.governing.label)}，最大 Δ/h = ${fmt(d.governing.ratio, 4)} ${d.govOk ? '≤' : '>'} 容許 ${fmt(d.allow, 4)} → <strong style="color:${d.govOk ? '#047857' : '#b91c1c'};">${d.govOk ? '通過' : '超過容許值'}</strong>`;
+    let pdLine;
+    if (!d.pdReady) {
+      pdLine = '<br>P-Δ：請先執行「計算等值靜力結果」取得樓層剪力後再檢核。';
+    } else if (!d.anyTheta) {
+      pdLine = '<br>P-Δ：樓層剪力或位移不足，暫無法計算 θ。';
+    } else {
+      pdLine = `<br>P-Δ 二次效應：控制 ${escSeis(d.governingTheta.label)}，最大 θ = ${fmt(d.governingTheta.theta, 3)} ${d.govThetaOk ? '≤' : '>'} θ<sub>a</sub> = ${fmt(d.thetaLimit, 2)} → <strong style="color:${d.govThetaOk ? '#047857' : '#b91c1c'};">${d.govThetaOk ? '可忽略二次效應' : '須計入二次效應（放大或加勁）'}</strong>`;
+    }
+    note.innerHTML = driftLine + pdLine;
   }
 }
 
-['driftEnable', 'driftCd', 'driftAllow'].forEach(id => {
+['driftEnable', 'driftCd', 'driftAllow', 'driftThetaLimit'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('change', renderDriftCheck);
 });
@@ -2731,7 +2768,8 @@ F<sub>vM</sub>：S<sub>1M</sub>=${r.S1M} → 查表內插得 <b>${fmt(site.FvM,3
   document.getElementById('distNote').innerHTML =
     `ΣW<sub>i</sub>·h<sub>i</sub> = ${fmt(r.dist.sumWh,0)}　|　F<sub>t</sub> = ${fmt(r.Ft,2)} tf　|　OTM = ${fmt(r.dist.OTM,1)} tf·m`;
 
-  // ── 層間變位角檢核 ──
+  // ── 層間變位角檢核 + P-Δ ──
+  driftStoryData = r.dist.floors.map(f => ({ Vstory: Number(f.Vstory), W: Number(f.W) }));
   renderDriftCheck();
 
   // ── 地下層 ──

@@ -573,14 +573,14 @@
     },
     {
       title: '擋土土壓局部快算',
-      version: 'V0.5',
+      version: 'V0.6',
       href: '/earth-pressure',
       categories: ['temporary'],
       state: 'formal',
-      output: 'Rankine/Coulomb 土壓、地震 Mononobe-Okabe、水壓、抗滑/抗傾覆/基底壓檢核、牆型示意圖、兩段式計算書與 JSON',
-      summary: 'Rankine 主動/靜止土壓、均佈超載與地下水壓之抗滑、抗傾覆與基底壓局部穩定檢核；可選用 Coulomb（牆摩擦 δ、牆背傾角 θ、背填傾角 β）與地震時 Mononobe-Okabe 主動土壓，含牆型示意圖與詳算式/簡易結果計算書。',
+      output: 'Rankine/Coulomb 土壓、地震 Mononobe-Okabe、分層土(砂/黏)、水壓、抗滑/抗傾覆/基底壓檢核、牆型示意圖、兩段式計算書與 JSON',
+      summary: 'Rankine 主動/靜止土壓、均佈超載與地下水壓之抗滑、抗傾覆與基底壓局部穩定檢核；可選用 Coulomb（牆摩擦 δ、牆背傾角 θ、背填傾角 β）、地震時 Mononobe-Okabe，以及可自訂層數之分層土（砂土/黏土，含黏土張力裂縫與有效應力水壓），含牆型示意圖與詳算式/簡易結果計算書。',
       fit: '懸臂式/重力式擋土牆與圍牆之局部土壓與穩定正式檢核。',
-      limit: '分層土、基礎埋置、滲流、被動土壓動員位移與牆身/趾踵版結構配筋需另行正式詳算。',
+      limit: '基礎埋置、被動土壓動員位移與牆身/趾踵版結構配筋需另行正式詳算。',
       capabilities: ['正式核算', '計算書', '示意圖']
     },
     {

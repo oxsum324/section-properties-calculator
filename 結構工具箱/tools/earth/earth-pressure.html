@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>擋土土壓局部快算 V0.5</title>
+<title>擋土土壓局部快算 V0.6</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <style>
@@ -125,7 +125,7 @@
 </head>
 <body>
 <header>
-  <h1>擋土土壓局部快算 <span class="badge-v">V0.5 局部正式檢核</span></h1>
+  <h1>擋土土壓局部快算 <span class="badge-v">V0.6 局部正式檢核</span></h1>
   <p>擋土牆型式、牆體位移條件、Rankine 主動 / 靜止土壓、均佈超載、水壓與簡化穩定檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="../../index.html" class="back">← 回工具箱</a>
@@ -168,7 +168,7 @@
           適用水平背填、垂直牆背、無黏性土之 Rankine 主動 / 靜止土壓；可加入均佈超載與地下水壓。
           不處理斜背填、Coulomb 牆摩擦、地震土壓、分層土、排水細節、結構配筋與正式施工支撐設計。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.5</span>
+            <span>頁面 V0.6</span>
             <span id="coreVersion">Core v—</span>
             <span>正式核算 / 局部</span>
           </div>
@@ -310,6 +310,22 @@
           </div>
         </div>
         <div class="scope-box">Coulomb 僅適用主動狀態（受約束 / 靜止仍採 Rankine K<sub>0</sub>），水平分量計入穩定。地震採 Mononobe-Okabe：靜態土壓作用於 H/3、動態增量作用於 0.6H（Seed-Whitman），kh=kv=0 時退化為靜態 Coulomb。</div>
+      </div>
+
+      <div class="card">
+        <style>#layerTable th,#layerTable td{border:1px solid #cbd5e1;padding:4px 6px;text-align:center;font-size:0.82em;}#layerTable input,#layerTable select{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#layerTable .lyr-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
+        <h2>②c 分層土（選用）</h2>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
+          <input type="checkbox" id="layeredMode" style="width:auto;"> 啟用分層土：逐層砂 / 黏土 Rankine 主動土壓（覆蓋單層與 Coulomb / 地震）
+        </label>
+        <div id="layeredInputs" style="display:none;">
+          <table id="layerTable" style="width:100%;border-collapse:collapse;">
+            <thead><tr><th>#</th><th>土性</th><th>層厚 h (m)</th><th>γ (tf/m³)</th><th>φ (°)</th><th>c (tf/m²)</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <button type="button" id="btnAddLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一層</button>
+          <div class="scope-box" style="margin-top:8px;">由頂面往下逐層輸入；各層厚度總和須等於擋土高度 H。砂土 c=0；黏土可填 c（φ 可為 0 代表不排水）。超載併入各層 σ<sub>v</sub>，地下水以有效應力＋靜水壓處理，黏土頂部張力自動截斷為裂縫。分層模式不套用 Coulomb 與地震 M-O。</div>
+        </div>
       </div>
 
       <div class="card">
@@ -455,7 +471,8 @@
     kh: '0.15',
     kv: '0.00',
     fsSlideReqSeismic: '1.20',
-    fsOverReqSeismic: '1.20'
+    fsOverReqSeismic: '1.20',
+    layeredMode: false
   };
   let lastResult = null;
   const Core = window.EarthPressureCore;
@@ -481,6 +498,52 @@
   function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, function (ch) {
       return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
+    });
+  }
+  // ── 分層土層表 ──
+  let layerData = [{ type: 'sand', h: '', gamma: '1.80', phi: '30', c: '0' }];
+  function renderLayerTable() {
+    const tb = $('layerTable').querySelector('tbody');
+    tb.innerHTML = layerData.map(function (L, i) {
+      return `<tr>
+        <td style="font-weight:700;color:#0369a1;">${i + 1}</td>
+        <td><select data-i="${i}" data-f="type">
+          <option value="sand"${L.type === 'sand' ? ' selected' : ''}>砂土</option>
+          <option value="clay"${L.type === 'clay' ? ' selected' : ''}>黏土</option>
+        </select></td>
+        <td><input type="number" data-i="${i}" data-f="h" value="${L.h}" step="0.1" min="0.1" placeholder="—"></td>
+        <td><input type="number" data-i="${i}" data-f="gamma" value="${L.gamma}" step="0.05" min="0.1"></td>
+        <td><input type="number" data-i="${i}" data-f="phi" value="${L.phi}" step="1" min="0" max="59"></td>
+        <td><input type="number" data-i="${i}" data-f="c" value="${L.c}" step="0.1" min="0"${L.type === 'sand' ? ' disabled' : ''}></td>
+        <td><button type="button" class="lyr-del" data-i="${i}" title="刪除此層">✕</button></td>
+      </tr>`;
+    }).join('');
+    tb.querySelectorAll('input,select').forEach(function (el) {
+      el.addEventListener('change', function () {
+        const i = +el.dataset.i, f = el.dataset.f;
+        layerData[i][f] = el.value;
+        if (f === 'type') renderLayerTable();
+        calculateEarthPressure();
+      });
+    });
+    tb.querySelectorAll('.lyr-del').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        layerData.splice(+btn.dataset.i, 1);
+        if (layerData.length === 0) layerData.push({ type: 'sand', h: '', gamma: '1.80', phi: '30', c: '0' });
+        renderLayerTable();
+        calculateEarthPressure();
+      });
+    });
+  }
+  function addLayerRow() {
+    const last = layerData[layerData.length - 1] || { type: 'sand', gamma: '1.80', phi: '30', c: '0' };
+    layerData.push({ type: last.type, h: '', gamma: last.gamma, phi: last.phi, c: last.c });
+    renderLayerTable();
+    calculateEarthPressure();
+  }
+  function layersForCore() {
+    return layerData.map(function (L) {
+      return { type: L.type, h: parseFloat(L.h) || 0, gamma: parseFloat(L.gamma) || 0, phi: parseFloat(L.phi) || 0, c: parseFloat(L.c) || 0 };
     });
   }
   function gatherInputs() {
@@ -513,7 +576,9 @@
       kh: num('kh'),
       kv: num('kv'),
       fsSlideReqSeismic: num('fsSlideReqSeismic'),
-      fsOverReqSeismic: num('fsOverReqSeismic')
+      fsOverReqSeismic: num('fsOverReqSeismic'),
+      layeredMode: $('layeredMode').checked,
+      layers: layersForCore()
     };
   }
 
@@ -537,6 +602,8 @@
     $('thetaDeg').disabled = coulombOff;
     const seismicOff = !$('seismicEnable').checked;
     ['kh', 'kv', 'fsSlideReqSeismic', 'fsOverReqSeismic'].forEach(function (id) { $(id).disabled = seismicOff; });
+    const layeredOn = $('layeredMode').checked;
+    $('layeredInputs').style.display = layeredOn ? '' : 'none';
   }
 
   function renderModelSummary(r) {
@@ -751,6 +818,16 @@
       ['抗滑', r.slideOk, `FS = (μV + Rp採用) / P = ${fmt(r.fsSlide, 2)} ${r.slideOk ? '≥' : '<'} ${fmt(r.fsSlideReq, 2)}；${r.passiveModeLabel}，Rp採用=${fmt(r.effectivePassive)} tf/m`],
       ['抗傾覆', r.overOk, `FS = Mr / Mo = ${fmt(r.fsOver, 2)} ${r.overOk ? '≥' : '<'} ${fmt(r.fsOverReq, 2)}`]
     ];
+    if (r.useLayered && r.layered) {
+      const L = r.layered;
+      const layerLines = L.byLayer.map(function (ly, idx) {
+        return `第${idx + 1}層 ${ly.typeLabel.split('（')[0]}：h=${fmt(ly.h, 2)}m、Ka=${fmt(ly.Ka, 3)}、Pa=${fmt(ly.force, 2)} tf/m`;
+      }).join('；');
+      checks.push(['分層土主動土壓', true, `${L.layerCount} 層，Σ有效土壓 = ${fmt(L.soilForce, 2)} tf/m${L.waterForce > 0 ? `、靜水壓 = ${fmt(L.waterForce, 2)} tf/m` : ''}。${layerLines}`]);
+      if (L.tensionCrackDepth > 0) {
+        checks.push(['黏土張力裂縫', true, `頂部張力裂縫深 ≈ ${fmt(L.tensionCrackDepth, 2)} m（該深度以上不計主動土壓；裂縫若積水須另計水壓）。`]);
+      }
+    }
     if (r.waterModel === 'hydrostatic' && r.waterDepth > 0) {
       checks.push(['地下水壓提示', true, `已加入 hw=${fmt(r.waterDepth)} m 之靜水壓；排水與滲流仍需另行判斷。`]);
     } else if (r.waterModel === 'none') {
@@ -895,6 +972,12 @@
         else el.value = normalized[id];
       }
     });
+    if (Array.isArray(normalized.layers) && normalized.layers.length) {
+      layerData = normalized.layers.map(function (L) {
+        return { type: L.type === 'clay' ? 'clay' : 'sand', h: String(L.h || ''), gamma: String(L.gamma || ''), phi: String(L.phi || ''), c: String(L.c || 0) };
+      });
+      renderLayerTable();
+    }
     applyProjectInfo(payload.project);
     syncModeFromWallCondition();
     updateConditionalInputs();
@@ -923,7 +1006,7 @@
       tool: {
         id: 'earth-pressure',
         name: '擋土土壓局部快算',
-        pageVersion: 'V0.5'
+        pageVersion: 'V0.6'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -937,7 +1020,7 @@
       tool: {
         id: 'earth-pressure',
         name: '擋土土壓局部快算',
-        pageVersion: 'V0.5'
+        pageVersion: 'V0.6'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -983,7 +1066,7 @@
     const basisRows = [
       ['採用準則', r.designReferenceLabel],
       ['擋土牆型式', r.wallTypeLabel],
-      ['計算方式', r.useCoulomb ? (r.coulombValid ? `Coulomb 主動土壓（δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°）` : 'Coulomb 解不成立，已退回 Rankine') : 'Rankine 水平背填土壓初估'],
+      ['計算方式', r.useLayered ? `分層土 Rankine 主動土壓（${r.layered.layerCount} 層砂 / 黏土，有效應力）` : (r.useCoulomb ? (r.coulombValid ? `Coulomb 主動土壓（δ=${fmt(r.deltaDeg, 0)}°、β=${fmt(r.betaDeg, 0)}°、θ=${fmt(r.thetaDeg, 0)}°）` : 'Coulomb 解不成立，已退回 Rankine') : 'Rankine 水平背填土壓初估')],
       ['牆體位移條件', r.wallConditionLabel],
       ['背填與牆背假設', r.backfillModelLabel],
       ['土壓模式', r.modeLabel],
@@ -1014,6 +1097,13 @@
     ];
     if (r.useCoulomb && r.coulombValid) {
       resultRows.push(['Coulomb Ka', `${fmt(r.effectiveSoilCoef, 4)}（水平分量 ×cos(δ+θ)=${fmt(r.horizontalFactor, 3)}）`]);
+    }
+    if (r.useLayered && r.layered) {
+      resultRows.push(['分層土', `${r.layered.layerCount} 層；Σ有效土壓 ${fmt(r.layered.soilForce, 2)} tf/m${r.layered.waterForce > 0 ? `、靜水壓 ${fmt(r.layered.waterForce, 2)} tf/m` : ''}`]);
+      r.layered.byLayer.forEach(function (ly, idx) {
+        resultRows.push([`第${idx + 1}層 ${ly.typeLabel.split('（')[0]}`, `h=${fmt(ly.h, 2)}m、γ=${fmt(ly.gamma, 2)}、φ=${fmt(ly.phiDeg, 0)}°${ly.type === 'clay' ? `、c=${fmt(ly.c, 2)}` : ''}、Ka=${fmt(ly.Ka, 3)}、Pa=${fmt(ly.force, 2)} tf/m`]);
+      });
+      if (r.layered.tensionCrackDepth > 0) resultRows.push(['黏土張力裂縫深', `${fmt(r.layered.tensionCrackDepth, 2)} m`]);
     }
     if (r.seismic && r.seismic.valid) {
       resultRows.push(['地震 Kae (M-O)', `${fmt(r.seismic.Kae, 4)}；ψ=${fmt(r.seismic.psiDeg, 1)}°`]);
@@ -1107,7 +1197,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>擋土土壓局部穩定檢核計算書</h1>
-<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>整理人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.5</span></div>
+<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>整理人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.6</span></div>
 <div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
 ${body}
 </main></body></html>`;
@@ -1142,6 +1232,8 @@ ${body}
       if (el.type === 'checkbox') el.checked = Boolean(DEFAULTS[id]);
       else el.value = DEFAULTS[id];
     });
+    layerData = [{ type: 'sand', h: '', gamma: '1.80', phi: '30', c: '0' }];
+    renderLayerTable();
     syncModeFromWallCondition();
     updateConditionalInputs();
     calculateEarthPressure();
@@ -1160,6 +1252,7 @@ ${body}
     importJsonFile(event.target.files && event.target.files[0]);
   });
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
+  document.getElementById('btnAddLayer').addEventListener('click', addLayerRow);
   $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
   ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
   Array.from(document.querySelectorAll('input, select')).forEach(function (input) {
@@ -1167,6 +1260,7 @@ ${body}
     input.addEventListener('input', calculateEarthPressure);
     input.addEventListener('change', calculateEarthPressure);
   });
+  renderLayerTable();
   loadProjectInfo();
   calculateEarthPressure();
 })();

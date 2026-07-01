@@ -188,4 +188,57 @@ const DEG = Math.PI / 180;
   assert.ok(errors.some(m => m.includes('kv')));
 }
 
-console.log('earth pressure core regression OK (incl. Coulomb + Mononobe-Okabe)');
+// ── 分層土主動土壓（砂土 / 黏土）──
+{
+  // 單一砂層必須退化為單層 Rankine（0.5·Ka·γ·H²），作用高 H/3
+  const a = EarthPressureCore.computeLayeredActive([{ type: 'sand', h: 2.5, gamma: 1.8, phi: 30, c: 0 }], 0, 2.5, 2.5, 1);
+  approx(a.soilForce, 1.875, 1e-9);
+  approx(a.resultantHeight, 2.5 / 3, 1e-9);
+  approx(a.waterForce, 0, 1e-12);
+}
+{
+  // 黏土張力裂縫：φ=0、c=2、γ=1.8、H=3 → 裂縫深 2.222 m、有效推力 0.5444
+  const b = EarthPressureCore.computeLayeredActive([{ type: 'clay', h: 3, gamma: 1.8, phi: 0, c: 2 }], 0, 3, 3, 1);
+  approx(b.tensionCrackDepth, 20 / 9, 1e-9);
+  approx(b.soilForce, 0.5444444444444445, 1e-9);
+}
+{
+  // 兩層砂上黏下：calculate() 分層模式，層內張力自動截斷
+  const c = EarthPressureCore.calculate({
+    H: 5, waterModel: 'none', surcharge: 0, gammaWater: 1, baseB: 3, verticalLoad: 40, qa: 25,
+    mu: 0.5, passive: 0, fsSlideReq: 1.5, fsOverReq: 1.5,
+    layeredMode: true, layers: [{ type: 'sand', h: 2, gamma: 1.8, phi: 32, c: 0 }, { type: 'clay', h: 3, gamma: 1.9, phi: 0, c: 3 }]
+  });
+  assert.equal(c.useLayered, true);
+  assert.equal(c.layered.byLayer.length, 2);
+  assert.equal(c.surchargeForce, 0, '分層模式超載併入 σv');
+  approx(c.layered.byLayer[1].Ka, 1, 1e-9); // 黏土 φ=0 → Ka=1
+  approx(c.layered.byLayer[1].force, 2.865789473684209, 1e-6); // 黏土層內張力截斷後之推力
+  approx(c.totalForce, c.soilForce, 1e-12); // 無水無超載時 total=soil
+}
+{
+  // 分層 + 地下水 + 超載：水壓與有效土壓分離
+  const d = EarthPressureCore.calculate({
+    H: 4, waterModel: 'hydrostatic', waterDepth: 2, surcharge: 1, gammaWater: 1, baseB: 2.5, verticalLoad: 30, qa: 20,
+    mu: 0.5, passive: 0, fsSlideReq: 1.5, fsOverReq: 1.5,
+    layeredMode: true, layers: [{ type: 'sand', h: 4, gamma: 1.9, phi: 30, c: 0 }]
+  });
+  approx(d.waterForce, 2, 1e-9); // 0.5·1·2²
+  assert.ok(d.soilForce > 0 && d.totalForce > d.waterForce);
+}
+{
+  // 預設（未開分層）不受影響
+  const r = EarthPressureCore.calculate(goldenCases[0].input);
+  assert.equal(r.useLayered, false);
+  assert.equal(r.layered, null);
+}
+{
+  // 分層驗證：層厚總和與 H 不符
+  const errors = EarthPressureCore.validateInput({
+    ...goldenCases[0].input, layeredMode: true,
+    layers: [{ type: 'sand', h: 1, gamma: 1.8, phi: 30 }]
+  });
+  assert.ok(errors.some(m => m.includes('厚度總和')));
+}
+
+console.log('earth pressure core regression OK (incl. Coulomb + Mononobe-Okabe + layered sand/clay)');

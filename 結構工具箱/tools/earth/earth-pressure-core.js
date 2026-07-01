@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'EarthPressureCore';
-  const CORE_VERSION = '0.5.0';
-  const INPUT_SCHEMA_VERSION = 'earth-pressure.input.v0.5';
-  const RESULT_SCHEMA_VERSION = 'earth-pressure.result.v0.5';
-  const LOGIC_SIGNATURE = 'earth-pressure-core:v0.5:rankine-coulomb-theory-surcharge-mononobe-okabe-seismic-passive-policy-water-stability';
+  const CORE_VERSION = '0.6.0';
+  const INPUT_SCHEMA_VERSION = 'earth-pressure.input.v0.6';
+  const RESULT_SCHEMA_VERSION = 'earth-pressure.result.v0.6';
+  const LOGIC_SIGNATURE = 'earth-pressure-core:v0.6:rankine-coulomb-mononobe-okabe-layered-sand-clay-seepage-passive-policy-water-stability';
 
   const DESIGN_REFERENCE_LABELS = {
     taiwanFoundation2023: '台灣《建築物基礎構造設計規範》112 年版（穩定檢核初估）',
@@ -86,6 +86,80 @@
     return { Kae, valid: Number.isFinite(Kae) && Kae > 0, reason: '' };
   }
 
+  const SOIL_TYPE_LABELS = {
+    sand: '砂土（無黏聚力，c=0）',
+    clay: '黏土（含黏聚力 c；可含張力裂縫）'
+  };
+
+  // 線性壓力段（pTop@zTop → pBot@zBot，深度 z 自頂面向下）之水平力與對牆底力矩；
+  // 有效主動壓力小於 0（張力）者截斷為 0（張力裂縫不推牆）。回傳 {force, moment, crackDepth}。
+  function segForceMoment(pTop, pBot, zTop, zBot, H) {
+    const L = zBot - zTop;
+    if (L <= 0) return { force: 0, moment: 0, crackDepth: null };
+    let a = pTop, b = pBot, za = zTop, zb = zBot, crackDepth = null;
+    if (a <= 0 && b <= 0) return { force: 0, moment: 0, crackDepth: zBot };
+    if (a < 0 && b > 0) { const t = -a / (b - a); za = zTop + t * L; crackDepth = za; a = 0; }
+    else if (a > 0 && b < 0) { const t = a / (a - b); zb = zTop + t * L; b = 0; }
+    const Ls = zb - za;
+    const force = (a + b) / 2 * Ls;
+    const zc = (a + b) !== 0 ? za + Ls * (a + 2 * b) / (3 * (a + b)) : (za + zb) / 2; // 形心深度
+    const moment = force * (H - zc); // 對牆底
+    return { force, moment, crackDepth };
+  }
+
+  // 分層土主動土壓（Rankine 逐層，含黏土張力裂縫、超載併入 σv、地下水以有效應力＋靜水壓處理）。
+  // layers: [{type,h,gamma,phi,c}] 自頂面向下；zw = 地下水位自頂面之深度。
+  function computeLayeredActive(layers, surcharge, H, zw, gammaWater) {
+    let z = 0, sigmaV = surcharge; // 頂面總垂直應力＝超載
+    let soilForce = 0, soilMoment = 0;
+    let tensionCrackDepth = 0;
+    let crackOpen = true; // 自頂面延伸之張力裂縫是否仍開放（可跨層）
+    const byLayer = [];
+    for (const Ly of layers) {
+      const h = Math.max(numberValue(Ly.h), 0);
+      const gamma = numberValue(Ly.gamma);
+      const isClay = Ly.type === 'clay';
+      const phiRad = numberValue(Ly.phi) * Math.PI / 180;
+      const c = isClay ? Math.max(numberValue(Ly.c), 0) : 0;
+      const sinPhi = Math.sin(phiRad);
+      const Ka = (1 - sinPhi) / (1 + sinPhi);
+      const twoCsqrtKa = 2 * c * Math.sqrt(Ka);
+      const zTop = z, zBot = z + h;
+      const uTop = gammaWater * Math.max(zTop - zw, 0);
+      const uBot = gammaWater * Math.max(zBot - zw, 0);
+      const svTop = sigmaV, svBot = sigmaV + gamma * h;
+      const saTop = Ka * (svTop - uTop) - twoCsqrtKa; // 有效主動壓力
+      const saBot = Ka * (svBot - uBot) - twoCsqrtKa;
+      const seg = segForceMoment(saTop, saBot, zTop, zBot, H);
+      soilForce += seg.force;
+      soilMoment += seg.moment;
+      // 自頂面延伸之張力裂縫深度（可跨層累計，直到有效主動壓力轉為正值）
+      if (crackOpen) {
+        if (saTop <= 0 && saBot <= 0) { tensionCrackDepth = zBot; }
+        else if (saTop <= 0 && saBot > 0) { tensionCrackDepth = zTop + (-saTop / (saBot - saTop)) * h; crackOpen = false; }
+        else { crackOpen = false; }
+      }
+      byLayer.push({
+        type: Ly.type, typeLabel: SOIL_TYPE_LABELS[isClay ? 'clay' : 'sand'],
+        h, gamma, phiDeg: numberValue(Ly.phi), c, Ka,
+        zTop, zBot, saTop, saBot, force: seg.force
+      });
+      sigmaV = svBot; z = zBot;
+    }
+    const hw = Math.max(H - zw, 0);
+    const waterForce = 0.5 * gammaWater * hw * hw;
+    const waterMoment = waterForce * (hw / 3);
+    const totalForce = soilForce + waterForce;
+    const totalMoment = soilMoment + waterMoment;
+    return {
+      soilForce, soilMoment, waterForce, waterMoment,
+      totalForce, totalMoment,
+      resultantHeight: totalForce > 0 ? totalMoment / totalForce : 0,
+      tensionCrackDepth, byLayer,
+      layerCount: layers.length, totalThickness: z
+    };
+  }
+
   function provenance() {
     return {
       core: CORE_NAME,
@@ -129,6 +203,21 @@
     return input.mode === 'atRest' ? 'atRest' : 'active';
   }
 
+  function sanitizeLayers(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map(function (Ly) {
+      Ly = Ly || {};
+      const type = Ly.type === 'clay' ? 'clay' : 'sand';
+      return {
+        type,
+        h: numberValue(Ly.h),
+        gamma: numberValue(Ly.gamma),
+        phi: numberValue(Ly.phi),
+        c: type === 'clay' ? numberValue(Ly.c) : 0
+      };
+    });
+  }
+
   function normalizeInput(input) {
     const H = numberValue(input.H);
     const rawWaterDepth = Math.min(Math.max(numberValue(input.waterDepth), 0), Math.max(H, 0));
@@ -158,6 +247,8 @@
     const seismicEnable = Boolean(input.seismicEnable);
     const kh = numberValue(input.kh);
     const kv = numberValue(input.kv);
+    const layeredMode = Boolean(input.layeredMode);
+    const layers = sanitizeLayers(input.layers);
     return {
       designReference,
       wallType,
@@ -173,6 +264,8 @@
       seismicEnable,
       kh,
       kv,
+      layeredMode,
+      layers,
       surcharge: numberValue(input.surcharge),
       waterModel,
       waterDepth,
@@ -218,6 +311,19 @@
       if (i.kv <= -1 || i.kv >= 1) errors.push('地震垂直係數 kv 應介於 -1 與 1 之間。');
       if (i.fsSlideReqSeismic <= 0 || i.fsOverReqSeismic <= 0) errors.push('地震時安全係數需求值必須大於 0。');
     }
+    if (i.layeredMode) {
+      if (i.layers.length < 1) errors.push('分層模式至少需輸入 1 層土壤。');
+      let sumH = 0;
+      i.layers.forEach(function (L, idx) {
+        const n = idx + 1;
+        if (!(L.h > 0)) errors.push(`第 ${n} 層厚度必須大於 0。`);
+        if (!(L.gamma > 0)) errors.push(`第 ${n} 層單位重必須大於 0。`);
+        if (L.phi < 0 || L.phi >= 60) errors.push(`第 ${n} 層內摩擦角 φ 應介於 0° 與 60° 之間。`);
+        if (L.type === 'clay' && L.c < 0) errors.push(`第 ${n} 層黏聚力 c 不得為負。`);
+        sumH += L.h > 0 ? L.h : 0;
+      });
+      if (i.layers.length >= 1 && Math.abs(sumH - i.H) > 0.05) errors.push(`各層厚度總和 ${sumH.toFixed(2)} m 與擋土高度 H ${i.H.toFixed(2)} m 不一致。`);
+    }
     return errors;
   }
 
@@ -243,31 +349,40 @@
     const coulombValid = useCoulomb && coulomb.valid;
     const horizontalFactor = Math.cos(deltaRad + thetaRad); // 主動推力水平分量係數
     const effectiveSoilCoef = coulombValid ? coulomb.Ka : K;
-    const theoryLabel = useCoulomb
-      ? (coulombValid ? 'Coulomb 主動土壓 Ka' : 'Coulomb 解不成立，暫退回 Rankine')
-      : modeLabel;
+    // 分層土模式（opt-in）優先於單層 Rankine / Coulomb；採有效應力逐層 Rankine 主動土壓。
+    const useLayered = i.layeredMode && i.layers.length > 0;
+    const zwForLayered = i.waterModel === 'none' ? i.H : (i.H - i.waterDepth);
+    const layered = useLayered
+      ? computeLayeredActive(i.layers, i.surcharge, i.H, zwForLayered, i.gammaWater)
+      : null;
+    const theoryLabel = useLayered ? '分層土 Rankine 主動土壓（逐層）'
+      : (useCoulomb ? (coulombValid ? 'Coulomb 主動土壓 Ka' : 'Coulomb 解不成立，暫退回 Rankine') : modeLabel);
     const theoryNote = useCoulomb && !coulombValid ? coulomb.reason : '';
-    const backfillModelLabel = useCoulomb
-      ? 'Coulomb：可含牆摩擦 δ、牆背傾角 θ、背填傾角 β（水平分量計入穩定）'
-      : '水平背填、垂直牆背、無黏性土 Rankine 初估';
+    const backfillModelLabel = useLayered
+      ? `分層土：${layered.layerCount} 層，砂/黏土逐層 Rankine 主動土壓（有效應力，含黏土張力裂縫與靜水壓）`
+      : (useCoulomb
+        ? 'Coulomb：可含牆摩擦 δ、牆背傾角 θ、背填傾角 β（水平分量計入穩定）'
+        : '水平背填、垂直牆背、無黏性土 Rankine 初估');
 
-    const soilForce = coulombValid
-      ? 0.5 * coulomb.Ka * i.gammaSoil * i.H * i.H * horizontalFactor
-      : 0.5 * K * i.gammaSoil * i.H * i.H;
-    const soilMoment = soilForce * i.H / 3;
-    const surchargeForce = coulombValid
-      ? coulomb.Ka * i.surcharge * i.H * horizontalFactor
-      : K * i.surcharge * i.H;
-    const surchargeMoment = surchargeForce * i.H / 2;
-    const waterForce = 0.5 * i.gammaWater * i.waterDepth * i.waterDepth;
-    const waterMoment = waterForce * i.waterDepth / 3;
+    const soilForce = useLayered ? layered.soilForce
+      : (coulombValid ? 0.5 * coulomb.Ka * i.gammaSoil * i.H * i.H * horizontalFactor
+                      : 0.5 * K * i.gammaSoil * i.H * i.H);
+    const soilMoment = useLayered ? layered.soilMoment : soilForce * i.H / 3;
+    // 分層模式：超載已併入各層 σv，不另計 surchargeForce
+    const surchargeForce = useLayered ? 0
+      : (coulombValid ? coulomb.Ka * i.surcharge * i.H * horizontalFactor
+                      : K * i.surcharge * i.H);
+    const surchargeMoment = useLayered ? 0 : surchargeForce * i.H / 2;
+    const waterForce = useLayered ? layered.waterForce : 0.5 * i.gammaWater * i.waterDepth * i.waterDepth;
+    const waterMoment = useLayered ? layered.waterMoment : waterForce * i.waterDepth / 3;
     const totalForce = soilForce + surchargeForce + waterForce;
     const overturningMoment = soilMoment + surchargeMoment + waterMoment;
     const resultantHeight = totalForce > 0 ? overturningMoment / totalForce : 0;
 
     // ── 地震時主動土壓（Mononobe-Okabe，opt-in，水平分量計入；報告與檢核並陳）──
+    // 分層模式不套用 M-O（單一楔形假設不適用分層），如需地震土壓請用單層模式。
     let seismic = null;
-    if (i.seismicEnable) {
+    if (i.seismicEnable && !useLayered) {
       const oneMinusKv = 1 - i.kv;
       const psi = oneMinusKv !== 0 ? Math.atan(i.kh / oneMinusKv) : Infinity;
       const mo = Number.isFinite(psi)
@@ -392,6 +507,8 @@
       coulombKa: useCoulomb && coulomb ? coulomb.Ka : null,
       horizontalFactor,
       seismic,
+      useLayered,
+      layered,
       resultSchemaVersion: RESULT_SCHEMA_VERSION,
       phiRad,
       sinPhi,
@@ -451,6 +568,8 @@
     pressureTheoryLabels: PRESSURE_THEORY_LABELS,
     coulombActiveKa,
     mononobeOkabeKae,
+    computeLayeredActive,
+    soilTypeLabels: SOIL_TYPE_LABELS,
     provenance,
     normalizeInput,
     validateInput,
