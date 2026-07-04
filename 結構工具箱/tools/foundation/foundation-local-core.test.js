@@ -14,7 +14,7 @@ function approx(actual, expected, tolerance = 1e-6) {
 }
 
 assert.equal(goldenCases.length, 4);
-assert.equal(FoundationLocalCore.version, '0.5.0');
+assert.equal(FoundationLocalCore.version, '0.6.0');
 
 for (const goldenCase of goldenCases) {
   const r = FoundationLocalCore.calculate(goldenCase.input);
@@ -271,4 +271,83 @@ for (const goldenCase of goldenCases) {
   assert.ok(errors.some(m => m.includes('cv')));
 }
 
-console.log('foundation local core regression OK (incl. effective area + elastic settlement + consolidation Boussinesq/2:1 + Terzaghi time-rate)');
+// ── 液化初判（簡化法，NCEER/Youd et al. 2001 + Idriss 1999 MSF）──
+{
+  // MSF 於基準地震規模 Mw=7.5 應近似 1.0（Idriss 1999 公式特性，非恰為 1.000）
+  approx(FoundationLocalCore.magnitudeScalingFactor(7.5), 0.9996389409159898, 1e-9);
+}
+{
+  // rd 分段公式：z=0 為 1.0；z>30 收斂常數 0.50
+  approx(FoundationLocalCore.stressReductionFactor(0), 1.0, 1e-12);
+  approx(FoundationLocalCore.stressReductionFactor(35), 0.5, 1e-12);
+  approx(FoundationLocalCore.stressReductionFactor(30), 0.744 - 0.008 * 30, 1e-12);
+}
+{
+  // CN 上限 1.7（Liao & Whitman）；σv′=1 atm 時 CN=1.0
+  approx(FoundationLocalCore.overburdenCorrectionCN(10.34), 1.0, 1e-6);
+  approx(FoundationLocalCore.overburdenCorrectionCN(1), 1.7, 1e-9);
+  approx(FoundationLocalCore.overburdenCorrectionCN(41.36), 0.5, 1e-6);
+}
+{
+  // 細料含量修正：FC≤5% 不修正；FC≥35% 封頂（FC=50 與 FC=35 同值）
+  approx(FoundationLocalCore.finesContentCorrection(0), 0, 1e-12);
+  approx(FoundationLocalCore.finesContentCorrection(5), 0, 1e-12);
+  approx(FoundationLocalCore.finesContentCorrection(50), FoundationLocalCore.finesContentCorrection(35), 1e-12);
+}
+{
+  // CRR7.5：N160cs≥30 視為過密實（非液化，Infinity）
+  assert.equal(FoundationLocalCore.cyclicResistanceRatio(30), Infinity);
+  approx(FoundationLocalCore.cyclicResistanceRatio(15), 1 / (34 - 15) + 15 / 135 + 50 / Math.pow(10 * 15 + 45, 2) - 1 / 200, 1e-12);
+}
+{
+  // 單點液化初判整合：對齊獨立手算
+  const p = FoundationLocalCore.liquefactionScreeningPoint(5, 12, 5, 9, 6, 0.24, 7.5);
+  assert.equal(p.valid, true);
+  approx(p.rd, 0.96175, 1e-9);
+  approx(p.CN, 1.312757911167681, 1e-9);
+  approx(p.N160cs, 15.753094934012172, 1e-9);
+  approx(p.CSR, 0.22504949999999999, 1e-9);
+  approx(p.FSliq, 0.744955248520285, 1e-6);
+  assert.equal(p.likelyNonLiquefiable, false);
+}
+{
+  // calculate() 整合：兩點（一淺層可能液化、一深層過密實），控制點須為較不利者
+  const base = { B: 2.5, L: 3, t: 0.6, Df: 1.2, gammaC: 2.4, gammaS: 1.8, P: 80, qa: 20, Mx: 12, My: 8, Hx: 4, Hy: 3, mu: 0.45, passive: 0, fsSlideReq: 1.5, fsOverReq: 1.5, includeSelfWeight: true };
+  const r = FoundationLocalCore.calculate(Object.assign({}, base, {
+    liquefactionEnable: true, liquefactionAmaxG: 0.24, liquefactionMw: 7.5, liquefactionFsReq: 1.2,
+    liquefactionPoints: [
+      { z: 5, N: 12, FC: 5, sigmaV: 9, sigmaVEff: 6 },
+      { z: 10, N: 35, FC: 5, sigmaV: 18, sigmaVEff: 11 }
+    ]
+  }));
+  assert.equal(r.hasLiquefaction, true);
+  assert.equal(r.liquefactionValid, true);
+  approx(r.liquefactionGoverningFS, 0.744955248520285, 1e-6);
+  assert.equal(r.liquefactionGoverningPoint.z, 5, '控制點應為淺層可能液化點，非深層過密實點');
+  assert.equal(r.liquefactionPointResults[1].likelyNonLiquefiable, true);
+  assert.equal(r.liquefactionPointResults[1].FSliq, Infinity);
+  assert.equal(r.liquefactionOk, false, 'FS=0.745 < 要求 1.2 應不通過');
+  assert.equal(r.overallOk, false, '液化不通過須反映於總結論');
+  assert.ok(r.checks.some(c => c.key === 'liquefaction-screening'));
+}
+{
+  // 預設（未啟用）：不受影響，與既有 golden 案結果逐位一致
+  const r = FoundationLocalCore.calculate(goldenCases[0].input);
+  assert.equal(r.hasLiquefaction, false);
+  assert.equal(r.liquefactionPointResults.length, 0);
+  assert.equal(r.liquefactionGoverningFS, null);
+  assert.equal(r.liquefactionGoverningPoint, null);
+  assert.ok(!r.checks.some(c => c.key === 'liquefaction-screening'));
+}
+{
+  // 驗證：有效應力大於總應力、必要欄位缺漏應報錯
+  const errors = FoundationLocalCore.validateInput(Object.assign({}, goldenCases[0].input, {
+    liquefactionEnable: true, liquefactionAmaxG: 0, liquefactionMw: 0,
+    liquefactionPoints: [{ z: 5, N: 12, FC: 5, sigmaV: 6, sigmaVEff: 9 }]
+  }));
+  assert.ok(errors.some(m => m.includes('amax')));
+  assert.ok(errors.some(m => m.includes('Mw')));
+  assert.ok(errors.some(m => m.includes('不得大於總覆土應力')));
+}
+
+console.log('foundation local core regression OK (incl. effective area + elastic settlement + consolidation Boussinesq/2:1 + Terzaghi time-rate + liquefaction NCEER simplified)');

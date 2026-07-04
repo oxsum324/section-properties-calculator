@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'FoundationLocalCore';
-  const CORE_VERSION = '0.5.0';
-  const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.5';
-  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.5';
-  const LOGIC_SIGNATURE = 'foundation-local-core:v0.5:design-basis-service-stability:qmax-qmin-sliding-overturning-effective-area-elastic-settlement-consolidation-boussinesq-2to1-terzaghi-time-rate';
+  const CORE_VERSION = '0.6.0';
+  const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.6';
+  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.6';
+  const LOGIC_SIGNATURE = 'foundation-local-core:v0.6:design-basis-service-stability:qmax-qmin-sliding-overturning-effective-area-elastic-settlement-consolidation-boussinesq-2to1-terzaghi-time-rate-liquefaction-ncee-simplified';
 
   const DESIGN_CODE_PRESETS = {
     'tw-foundation-112': {
@@ -220,6 +220,80 @@
     });
   }
 
+  // ── 液化初判（簡化法，依 Youd et al. 2001 NCEER 工作坊架構 + Idriss 1999 地震規模比例係數）──
+  const LIQUEFACTION_ATM_PA = 10.34; // 1 atm ≈ 10.34 tf/m²
+
+  // 應力折減係數 rd（Liao & Whitman 簡化式，NCEER 建議之分段延伸）。
+  function stressReductionFactor(z) {
+    if (!(z >= 0)) return NaN;
+    if (z <= 9.15) return 1.0 - 0.00765 * z;
+    if (z <= 23) return 1.174 - 0.0267 * z;
+    if (z <= 30) return 0.744 - 0.008 * z;
+    return 0.50;
+  }
+
+  // 覆土應力修正係數 CN = sqrt(Pa/σv′)，上限 1.7（Liao & Whitman）。
+  function overburdenCorrectionCN(sigmaVEff) {
+    if (!(sigmaVEff > 0)) return NaN;
+    return Math.min(Math.sqrt(LIQUEFACTION_ATM_PA / sigmaVEff), 1.7);
+  }
+
+  // 細料含量修正 ΔN160（NCEER，FC 以百分比輸入；FC≤5% 不修正，FC≥35% 以 35% 計）。
+  function finesContentCorrection(FC) {
+    const fc = Math.min(Math.max(numberValue(FC), 0), 35);
+    if (fc <= 5) return 0;
+    return Math.exp(1.63 + 9.7 / (fc + 0.01) - Math.pow(15.7 / (fc + 0.01), 2));
+  }
+
+  // CRR7.5（NCEER 簡化式；(N1)60cs≥30 視為過密實、不判為可能液化）。
+  function cyclicResistanceRatio(N160cs) {
+    if (!(N160cs >= 0)) return NaN;
+    if (N160cs >= 30) return Infinity;
+    return 1 / (34 - N160cs) + N160cs / 135 + 50 / Math.pow(10 * N160cs + 45, 2) - 1 / 200;
+  }
+
+  // 地震規模比例係數 MSF（Idriss 1999，以 Mw=7.5 為基準，MSF(7.5)≈1.0）。
+  function magnitudeScalingFactor(Mw) {
+    if (!(Mw > 0)) return NaN;
+    return Math.pow(10, 2.24) / Math.pow(Mw, 2.56);
+  }
+
+  // 單一深度點液化初判：回傳 rd、CN、(N1)60、ΔN160、(N1)60cs、CRR7.5、MSF、CSR、FSliq。
+  function liquefactionScreeningPoint(z, N, FC, sigmaV, sigmaVEff, amaxG, Mw) {
+    if (!(z >= 0) || !(N >= 0) || !(sigmaV > 0) || !(sigmaVEff > 0) || !(amaxG > 0) || !(Mw > 0)) {
+      return { valid: false };
+    }
+    const rd = stressReductionFactor(z);
+    const CN = overburdenCorrectionCN(sigmaVEff);
+    const N160 = N * CN;
+    const deltaN160 = finesContentCorrection(FC);
+    const N160cs = N160 + deltaN160;
+    const CRR75 = cyclicResistanceRatio(N160cs);
+    const MSF = magnitudeScalingFactor(Mw);
+    const CRR = CRR75 * MSF;
+    const CSR = 0.65 * amaxG * (sigmaV / sigmaVEff) * rd;
+    const FSliq = CSR > 0 ? CRR / CSR : Infinity;
+    return {
+      valid: true, z, N, FC, sigmaV, sigmaVEff, amaxG, Mw,
+      rd, CN, N160, deltaN160, N160cs, CRR75, MSF, CRR, CSR, FSliq,
+      likelyNonLiquefiable: N160cs >= 30
+    };
+  }
+
+  function sanitizeLiquefactionPoints(raw) {
+    if (!Array.isArray(raw)) return [];
+    return raw.map(function (P) {
+      P = P || {};
+      return {
+        z: numberValue(P.z),
+        N: numberValue(P.N),
+        FC: numberValue(P.FC),
+        sigmaV: numberValue(P.sigmaV),
+        sigmaVEff: numberValue(P.sigmaVEff)
+      };
+    });
+  }
+
   function getDesignBasis(designCode, loadCondition) {
     const preset = DESIGN_CODE_PRESETS[designCode] || DESIGN_CODE_PRESETS['tw-foundation-112'];
     const fallback = LOAD_CASE_FALLBACK[loadCondition] || LOAD_CASE_FALLBACK['long-term'];
@@ -298,7 +372,12 @@
       consolidationEnable: Boolean(input.consolidationEnable),
       consolidationMethod: input.consolidationMethod === 'boussinesq' ? 'boussinesq' : '2:1',
       consolidationLayers: sanitizeConsolidationLayers(input.consolidationLayers),
-      evaluationYears: numberValue(input.evaluationYears)
+      evaluationYears: numberValue(input.evaluationYears),
+      liquefactionEnable: Boolean(input.liquefactionEnable),
+      liquefactionAmaxG: numberValue(input.liquefactionAmaxG),
+      liquefactionMw: numberValue(input.liquefactionMw),
+      liquefactionFsReq: Object.prototype.hasOwnProperty.call(input, 'liquefactionFsReq') ? numberValue(input.liquefactionFsReq) : 1.2,
+      liquefactionPoints: sanitizeLiquefactionPoints(input.liquefactionPoints)
     };
   }
 
@@ -324,6 +403,21 @@
         if (Ly.cv < 0) errors.push(`第 ${n} 層壓密係數 cv 不得為負。`);
       });
       if (i.evaluationYears < 0) errors.push('評估年限不得為負。');
+    }
+    if (i.liquefactionEnable) {
+      if (i.liquefactionPoints.length < 1) errors.push('液化初判至少需輸入 1 個深度點。');
+      if (!(i.liquefactionAmaxG > 0)) errors.push('液化初判設計地表加速度 amax/g 必須大於 0。');
+      if (!(i.liquefactionMw > 0)) errors.push('液化初判地震矩規模 Mw 必須大於 0。');
+      if (!(i.liquefactionFsReq > 0)) errors.push('液化初判要求安全係數必須大於 0。');
+      i.liquefactionPoints.forEach(function (P, idx) {
+        const n = idx + 1;
+        if (!(P.z >= 0)) errors.push(`液化第 ${n} 點深度 z 不得為負。`);
+        if (!(P.N >= 0)) errors.push(`液化第 ${n} 點 SPT N 值不得為負。`);
+        if (P.FC < 0) errors.push(`液化第 ${n} 點細料含量 FC 不得為負。`);
+        if (!(P.sigmaV > 0)) errors.push(`液化第 ${n} 點總覆土應力 σv 必須大於 0。`);
+        if (!(P.sigmaVEff > 0)) errors.push(`液化第 ${n} 點有效覆土應力 σv′ 必須大於 0。`);
+        if (P.sigmaVEff > P.sigmaV + 1e-9) errors.push(`液化第 ${n} 點有效覆土應力 σv′ 不得大於總覆土應力 σv。`);
+      });
     }
     return errors;
   }
@@ -412,7 +506,22 @@
       ? Math.max.apply(null, consolidationLayerResults.map(function (r) { return r.timeRate.t90; }))
       : null;
 
-    const overallOk = compressionOk && bearingOk && slideOk && overOk && effectiveAreaOk && settlementOk && consolidationOk;
+    // ── 液化初判（opt-in：簡化法 NCEER/Idriss，逐深度點評估 FSliq）──
+    const hasLiquefaction = i.liquefactionEnable && i.liquefactionPoints.length > 0;
+    const liquefactionPointResults = hasLiquefaction ? i.liquefactionPoints.map(function (P) {
+      const r = liquefactionScreeningPoint(P.z, P.N, P.FC, P.sigmaV, P.sigmaVEff, i.liquefactionAmaxG, i.liquefactionMw);
+      return Object.assign({}, P, r, { pointOk: !r.valid ? false : (r.FSliq >= i.liquefactionFsReq) });
+    }) : [];
+    const liquefactionValid = hasLiquefaction && liquefactionPointResults.every(function (r) { return r.valid; });
+    const liquefactionGoverningFS = liquefactionValid
+      ? Math.min.apply(null, liquefactionPointResults.map(function (r) { return r.FSliq; }))
+      : null;
+    const liquefactionGoverningPoint = liquefactionValid
+      ? liquefactionPointResults.reduce(function (a, b) { return b.FSliq < a.FSliq ? b : a; }, liquefactionPointResults[0])
+      : null;
+    const liquefactionOk = !hasLiquefaction || (liquefactionValid && liquefactionGoverningFS >= i.liquefactionFsReq);
+
+    const overallOk = compressionOk && bearingOk && slideOk && overOk && effectiveAreaOk && settlementOk && consolidationOk && liquefactionOk;
     const summary = {
       status: overallOk ? 'pass' : 'fail',
       headline: overallOk ? '局部穩定檢核初步通過' : '需修正尺寸 / 載重，或改採正式詳算',
@@ -445,6 +554,15 @@
         checks.push(checkItem('consolidation-settlement', '壓密沉陷初估', false, '部分壓密層輸入不足或不合理，無法計算', NaN, i.allowableSettlementCm, 'cm'));
       }
     }
+    if (hasLiquefaction) {
+      if (liquefactionValid) {
+        checks.push(checkItem('liquefaction-screening', '液化初判 (簡化法)', liquefactionOk,
+          `控制點 FSliq = ${liquefactionGoverningFS}, 要求 = ${i.liquefactionFsReq}`,
+          liquefactionGoverningFS, i.liquefactionFsReq, ''));
+      } else {
+        checks.push(checkItem('liquefaction-screening', '液化初判 (簡化法)', false, '部分深度點輸入不足或不合理，無法計算', NaN, i.liquefactionFsReq, ''));
+      }
+    }
 
     return Object.assign({}, i, {
       effWidthB,
@@ -469,6 +587,12 @@
       hasTimeRateEvaluation,
       settlementAtEvaluationCm,
       governingT90Years,
+      hasLiquefaction,
+      liquefactionValid,
+      liquefactionPointResults,
+      liquefactionGoverningFS,
+      liquefactionGoverningPoint,
+      liquefactionOk,
       resultSchemaVersion: RESULT_SCHEMA_VERSION,
       designCode: i.designCode,
       loadCondition: i.loadCondition,
@@ -527,6 +651,12 @@
     timeFactorFromDegree,
     degreeFromTimeFactor,
     consolidationTimeRate,
+    stressReductionFactor,
+    overburdenCorrectionCN,
+    finesContentCorrection,
+    cyclicResistanceRatio,
+    magnitudeScalingFactor,
+    liquefactionScreeningPoint,
     getDesignBasis,
     provenance,
     normalizeInput,

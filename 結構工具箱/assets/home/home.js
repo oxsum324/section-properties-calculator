@@ -631,15 +631,15 @@
     },
     {
       title: '基礎局部檢核',
-      version: 'V0.5',
+      version: 'V0.6',
       href: '/foundation-local',
       categories: ['temporary'],
       state: 'formal',
       governance: 'local-quick-contract',
-      output: '底壓/偏心/抗滑/抗傾覆、Meyerhof 有效面積承壓、立即彈性沉陷、壓密沉陷(Boussinesq/2:1)、Terzaghi 時間-沉陷歷程、中央核示意圖、兩段式計算書與 JSON',
-      summary: '矩形淺基礎服務載重底壓、合力偏心、抗滑與抗傾覆檢核，依台灣 112 基礎構造設計規範安全係數；可選用 Meyerhof 有效面積承壓、立即彈性沉陷，以及可自訂層數之一維壓密沉陷（Cc/Cr、NC/OC 判別、Boussinesq 或 2:1 應力增量），並可選填 cv 與排水條件估算 Terzaghi t50/t90 與指定年限之壓密度沉陷量，含中央核示意圖與詳算式/簡易結果計算書。',
+      output: '底壓/偏心/抗滑/抗傾覆、Meyerhof 有效面積承壓、立即彈性沉陷、壓密沉陷(Boussinesq/2:1)、Terzaghi 時間-沉陷歷程、SPT 液化初判、中央核示意圖、兩段式計算書與 JSON',
+      summary: '矩形淺基礎服務載重底壓、合力偏心、抗滑與抗傾覆檢核，依台灣 112 基礎構造設計規範安全係數；可選用 Meyerhof 有效面積承壓、立即彈性沉陷，以及可自訂層數之一維壓密沉陷（Cc/Cr、NC/OC 判別、Boussinesq 或 2:1 應力增量、Terzaghi t50/t90 與指定年限沉陷量），並可選用 SPT 液化初判（NCEER/Youd et al. 2001 簡化法 + Idriss 1999 地震規模比例係數），含中央核示意圖與詳算式/簡易結果計算書。',
       fit: '矩形獨立基礎與設備基座之局部穩定正式檢核。',
-      limit: '衝剪、配筋、液化、樁基與土壤互制不在本頁範圍，需回 RC 基礎完整工具。',
+      limit: '衝剪、配筋、樁基與土壤互制不在本頁範圍，需回 RC 基礎完整工具；液化初判為簡化篩選，正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準。',
       capabilities: ['正式核算', '計算書', '示意圖']
     },
     {

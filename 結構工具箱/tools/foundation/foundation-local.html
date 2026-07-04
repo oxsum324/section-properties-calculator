@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基礎局部檢核 V0.5</title>
+<title>基礎局部檢核 V0.6</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <style>
@@ -113,7 +113,7 @@
 </head>
 <body>
 <header>
-  <h1>基礎局部檢核 <span class="badge-v">V0.5 局部正式檢核</span></h1>
+  <h1>基礎局部檢核 <span class="badge-v">V0.6 局部正式檢核</span></h1>
   <p>淺基礎服務載重底壓、偏心、抗滑、抗傾覆快速檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="../../index.html" class="back">← 回工具箱</a>
@@ -153,7 +153,7 @@
           適用於矩形獨立基礎或設備基座的初步穩定檢核：服務載重底壓、合力偏心、抗滑與抗傾覆。
           若有樁基、筏基、聯合基腳、衝剪、配筋、沉陷或土壤互制問題，應回 RC 基礎完整工具或正式計算書處理。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.5</span>
+            <span>頁面 V0.6</span>
             <span id="coreVersion">Core v—</span>
             <span>正式核算 / 局部</span>
           </div>
@@ -354,6 +354,36 @@
         </div>
       </div>
 
+      <div class="card">
+        <style>#liqPointTable th,#liqPointTable td{border:1px solid #cbd5e1;padding:4px 5px;text-align:center;font-size:0.8em;}#liqPointTable input{width:100%;box-sizing:border-box;font-size:0.95em;padding:2px 3px;}#liqPointTable .liq-del{cursor:pointer;color:#b91c1c;background:none;border:none;font-weight:700;}</style>
+        <h2>③d 液化初判（選用，簡化法）</h2>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;margin-bottom:8px;">
+          <input type="checkbox" id="liquefactionEnable" style="width:auto;"> 啟用：SPT 液化初判（NCEER/Youd et al. 2001 簡化法 + Idriss 1999 地震規模比例係數）
+        </label>
+        <div id="liquefactionInputs" style="display:none;">
+          <div class="form-row">
+            <div class="form-group">
+              <label>設計地表加速度 amax/g</label>
+              <input type="number" id="liquefactionAmaxG" value="0.24" step="0.01" min="0.01">
+            </div>
+            <div class="form-group">
+              <label>地震矩規模 Mw</label>
+              <input type="number" id="liquefactionMw" value="7.5" step="0.1" min="4">
+            </div>
+            <div class="form-group">
+              <label>要求安全係數 FSliq,req</label>
+              <input type="number" id="liquefactionFsReq" value="1.20" step="0.05" min="0.1">
+            </div>
+          </div>
+          <table id="liqPointTable" style="width:100%;border-collapse:collapse;margin-top:4px;">
+            <thead><tr><th>#</th><th>深度 z (m)</th><th>SPT N</th><th>FC (%)</th><th>σv (tf/m²)</th><th>σv′ (tf/m²)</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <button type="button" id="btnAddLiqPoint" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一個深度點</button>
+          <div class="scope-box" style="margin-top:8px;">z 為鑽孔深度；σv、σv′ 為該深度之總覆土應力與有效覆土應力，須由使用者依地質剖面（含地下水位）自行計算後輸入。FC 為細料含量百分比（黏土/粉土含量），留空或 0 表示乾淨砂。FSliq = CRR<sub>7.5</sub>×MSF / CSR；(N1)60cs≥30 視為過密實、不判為可能液化。本頁僅提供簡化篩選（NCEER/Youd et al. 2001 架構、Idriss 1999 MSF，未含 Kσ 覆土壓力修正），屬初步篩選層級，正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準；本方法未必等同台灣現行基礎構造設計規範或耐震設計規範指定之液化評估程序，請併同專案地質技師意見複核。</div>
+        </div>
+      </div>
+
       <div class="card action-card">
         <h2>④ 計算與輸出</h2>
         <div class="scope-box">所有幾何、載重與檢核基準確認後，再執行計算、列印計算書或下載本案 JSON。</div>
@@ -418,7 +448,7 @@
 </div>
 
 <script src="../local-quick-export.js?v=1"></script>
-<script src="foundation-local-core.js?v=2"></script>
+<script src="foundation-local-core.js?v=3"></script>
 <script>
 (function () {
   const STORAGE_KEY = 'foundationLocalProjectInfo';
@@ -433,7 +463,8 @@
     P: '80', qa: '20', Mx: '12', My: '8', Hx: '4', Hy: '3', mu: '0.45',
     passive: '0', fsSlideReq: '1.50', fsOverReq: '1.50',
     Es: '0', nu: '0.30', settlementInfluence: '0.88', allowableSettlementCm: '2.50',
-    consolidationMethod: '2:1', evaluationYears: ''
+    consolidationMethod: '2:1', evaluationYears: '',
+    liquefactionAmaxG: '0.24', liquefactionMw: '7.5', liquefactionFsReq: '1.20'
   };
   let lastResult = null;
   let lastFoundationReportValidationMessage = '';
@@ -592,6 +623,50 @@
       };
     });
   }
+
+  // ── 液化初判深度點表 ──
+  const LIQ_POINT_DEFAULTS = { z: '', N: '', FC: '0', sigmaV: '', sigmaVEff: '' };
+  let liqPointData = [Object.assign({}, LIQ_POINT_DEFAULTS)];
+  function renderLiqPointTable() {
+    const tb = $('liqPointTable').querySelector('tbody');
+    tb.innerHTML = liqPointData.map(function (P, i) {
+      const fields = ['z', 'N', 'FC', 'sigmaV', 'sigmaVEff'];
+      return `<tr>
+        <td style="font-weight:700;color:#0369a1;">${i + 1}</td>
+        ${fields.map(function (f) { return `<td><input type="number" data-i="${i}" data-f="${f}" value="${P[f]}" step="0.1" min="0" placeholder="—"></td>`; }).join('')}
+        <td><button type="button" class="liq-del" data-i="${i}" title="刪除此點">✕</button></td>
+      </tr>`;
+    }).join('');
+    tb.querySelectorAll('input').forEach(function (el) {
+      el.addEventListener('change', function () {
+        const i = +el.dataset.i, f = el.dataset.f;
+        liqPointData[i][f] = el.value;
+        calculateFoundationLocal();
+      });
+    });
+    tb.querySelectorAll('.liq-del').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        liqPointData.splice(+btn.dataset.i, 1);
+        if (liqPointData.length === 0) liqPointData.push(Object.assign({}, LIQ_POINT_DEFAULTS));
+        renderLiqPointTable();
+        calculateFoundationLocal();
+      });
+    });
+  }
+  function addLiqPointRow() {
+    liqPointData.push(Object.assign({}, LIQ_POINT_DEFAULTS));
+    renderLiqPointTable();
+    calculateFoundationLocal();
+  }
+  function liqPointsForCore() {
+    return liqPointData.map(function (P) {
+      return {
+        z: parseFloat(P.z) || 0, N: parseFloat(P.N) || 0, FC: parseFloat(P.FC) || 0,
+        sigmaV: parseFloat(P.sigmaV) || 0, sigmaVEff: parseFloat(P.sigmaVEff) || 0
+      };
+    });
+  }
+
   function getBasisFromUi() {
     return Core.getDesignBasis
       ? Core.getDesignBasis(selected('designCode'), selected('loadCondition'))
@@ -656,7 +731,12 @@
       consolidationEnable: $('consolidationEnable').checked,
       consolidationMethod: selected('consolidationMethod'),
       consolidationLayers: consolLayersForCore(),
-      evaluationYears: num('evaluationYears')
+      evaluationYears: num('evaluationYears'),
+      liquefactionEnable: $('liquefactionEnable').checked,
+      liquefactionAmaxG: num('liquefactionAmaxG'),
+      liquefactionMw: num('liquefactionMw'),
+      liquefactionFsReq: num('liquefactionFsReq'),
+      liquefactionPoints: liqPointsForCore()
     };
   }
 
@@ -715,6 +795,9 @@
     if (r.hasTimeRateEvaluation) {
       metrics.push([`t=${fmt(r.evaluationYears, 1)}年 沉陷量`, `${fmt(r.settlementAtEvaluationCm, 2)} cm`, `／最終 Sc=${fmt(r.consolidationSettlementCm, 2)} cm`, true]);
     }
+    if (r.hasLiquefaction && r.liquefactionValid) {
+      metrics.push(['液化 FSliq（控制點）', fmt(r.liquefactionGoverningFS, 2), `z=${fmt(r.liquefactionGoverningPoint.z, 1)}m，要求 ${fmt(r.liquefactionFsReq, 2)}`, r.liquefactionOk]);
+    }
     $('metricGrid').innerHTML = metrics.map(function (m) {
       return `<div class="metric ${statusClass(m[3])}">
         <span class="label">${m[0]}</span>
@@ -760,6 +843,18 @@
     }
     if (r.hasTimeRateEvaluation) {
       checks.push([`t=${fmt(r.evaluationYears, 1)} 年壓密度估算`, true, `依控制層估算之合計沉陷量 ≈ ${fmt(r.settlementAtEvaluationCm, 2)} cm（最終 Sc=${fmt(r.consolidationSettlementCm, 2)} cm 之 ${fmt(r.settlementAtEvaluationCm / r.consolidationSettlementCm * 100, 1)}%）`]);
+    }
+    if (r.hasLiquefaction) {
+      if (r.liquefactionValid) {
+        const ptLines = r.liquefactionPointResults.map(function (P, idx) {
+          return P.likelyNonLiquefiable
+            ? `第${idx + 1}點 z=${fmt(P.z, 1)}m：(N1)60cs=${fmt(P.N160cs, 1)}≥30，判為過密實（非液化）`
+            : `第${idx + 1}點 z=${fmt(P.z, 1)}m：FSliq=${fmt(P.FSliq, 2)}${P.pointOk ? '≥' : '<'}${fmt(r.liquefactionFsReq, 2)}`;
+        }).join('；');
+        checks.push(['液化初判 (簡化法)', r.liquefactionOk, `控制點 FSliq=${fmt(r.liquefactionGoverningFS, 2)}（z=${fmt(r.liquefactionGoverningPoint.z, 1)}m）${r.liquefactionOk ? '≥' : '<'}要求 ${fmt(r.liquefactionFsReq, 2)}。${ptLines}`]);
+      } else {
+        checks.push(['液化初判 (簡化法)', false, '部分深度點輸入不足或不合理（σv、σv′ 或 amax/g、Mw），無法計算。']);
+      }
     }
     $('checkList').innerHTML = checks.map(function (c) {
       return `<div class="check-item ${statusClass(c[1])}">
@@ -876,6 +971,7 @@
 
   function calculateFoundationLocal() {
     $('consolidationInputs').style.display = $('consolidationEnable').checked ? '' : 'none';
+    $('liquefactionInputs').style.display = $('liquefactionEnable').checked ? '' : 'none';
     const input = gatherInputs();
     const errors = Core.validateInput(input);
     if (errors.length) {
@@ -926,7 +1022,7 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.5'
+        pageVersion: 'V0.6'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -940,7 +1036,7 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.5'
+        pageVersion: 'V0.6'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -1024,7 +1120,18 @@ ${r.consolidationValid ? r.consolidationLayerResults.map(function (ly, idx) {
   <code>Sc = ${fmt(ly.Sc * 100, 2)} cm</code>${timeLine}</p>`;
 }).join('') : '<p><code style="color:#b91c1c;">部分壓密層輸入不足或不合理，無法計算。</code></p>'}
 ${r.consolidationValid ? `<p><code>Sc(總) = Σ Sc = ${fmt(r.consolidationSettlementCm, 2)} cm ${r.consolidationOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm</code>${r.hasSettlement ? `<br><code>合計沉陷（立即+壓密）≈ ${fmt(r.combinedSettlementCm, 2)} cm</code>` : ''}${r.hasTimeRateEvaluation ? `<br><code>t=${fmt(r.evaluationYears, 1)} 年時合計壓密沉陷 ≈ ${fmt(r.settlementAtEvaluationCm, 2)} cm（控制層 t90=${fmt(r.governingT90Years, 2)} 年）</code>` : ''}</p>` : ''}` : ''}
-<div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆${r.effectiveAreaCheck ? '、有效面積承壓' : ''}${r.hasSettlement ? '、彈性沉陷初估' : ''}${r.hasConsolidation ? '、壓密沉陷初估' : ''}）。衝剪、單向剪力、配筋、${r.hasConsolidation ? '' : '壓密沉陷、'}液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>`;
+${r.hasLiquefaction ? `<h3>8. 液化初判（簡化法，NCEER/Youd et al. 2001 + Idriss 1999 MSF）</h3>
+<p><code>amax/g = ${fmt(r.liquefactionAmaxG, 2)}；Mw = ${fmt(r.liquefactionMw, 1)}；MSF = ${r.liquefactionValid ? fmt(r.liquefactionPointResults[0].MSF, 4) : '—'}；要求 FSliq ≥ ${fmt(r.liquefactionFsReq, 2)}</code></p>
+${r.liquefactionValid ? r.liquefactionPointResults.map(function (P, idx) {
+  return P.likelyNonLiquefiable
+    ? `<p><code>第${idx + 1}點：z=${fmt(P.z, 1)}m、N=${fmt(P.N, 0)}、rd=${fmt(P.rd, 3)}、CN=${fmt(P.CN, 3)}、(N1)60cs=${fmt(P.N160cs, 1)}≥30 → 判為過密實，不視為可能液化</code></p>`
+    : `<p><code>第${idx + 1}點：z=${fmt(P.z, 1)}m、N=${fmt(P.N, 0)}、FC=${fmt(P.FC, 0)}%；rd=${fmt(P.rd, 3)}、CN=${fmt(P.CN, 3)}、(N1)60cs=${fmt(P.N160cs, 1)}</code><br>
+    <code>CRR7.5=${fmt(P.CRR75, 4)}、CRR=CRR7.5×MSF=${fmt(P.CRR, 4)}；CSR=0.65×(amax/g)×(σv/σv′)×rd=${fmt(P.CSR, 4)}</code><br>
+    <code>FSliq = CRR/CSR = ${fmt(P.FSliq, 2)} ${P.pointOk ? '≥' : '<'} ${fmt(r.liquefactionFsReq, 2)}</code></p>`;
+}).join('') : '<p><code style="color:#b91c1c;">部分深度點輸入不足或不合理，無法計算。</code></p>'}
+${r.liquefactionValid ? `<p><code>控制點：z=${fmt(r.liquefactionGoverningPoint.z, 1)}m，FSliq=${fmt(r.liquefactionGoverningFS, 2)} ${r.liquefactionOk ? '≥' : '<'} 要求 ${fmt(r.liquefactionFsReq, 2)} → ${r.liquefactionOk ? '初判通過' : '初判不通過'}</code></p>` : ''}
+<div class="note" style="margin-bottom:10px;">本液化初判為簡化篩選（未含 Kσ 覆土壓力修正），屬初步層級；正式設計仍應以完整地質鑽探報告與液化潛能詳細評估為準，且未必等同台灣現行規範指定程序，請併同地質技師意見複核。</div>` : ''}
+<div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆${r.effectiveAreaCheck ? '、有效面積承壓' : ''}${r.hasSettlement ? '、彈性沉陷初估' : ''}${r.hasConsolidation ? '、壓密沉陷初估' : ''}${r.hasLiquefaction ? '、液化初判' : ''}）。衝剪、單向剪力、配筋、${r.hasConsolidation ? '' : '壓密沉陷、'}${r.hasLiquefaction ? '' : '液化、'}樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>`;
   }
 
   function summaryBody(r, svgHtml) {
@@ -1050,6 +1157,7 @@ ${r.consolidationValid ? `<p><code>Sc(總) = Σ Sc = ${fmt(r.consolidationSettle
     if (r.hasConsolidation && r.consolidationValid) ctrlRows.push(['壓密沉陷 Sc(總)', `${fmt(r.consolidationSettlementCm, 2)} cm / 容許 ${fmt(r.allowableSettlementCm)} cm（${r.consolidationLayerResults.length} 層）`]);
     if (r.allLayersHaveTimeRate) ctrlRows.push(['壓密 t90（控制層）', `${fmt(r.governingT90Years, 2)} 年`]);
     if (r.hasTimeRateEvaluation) ctrlRows.push([`t=${fmt(r.evaluationYears, 1)}年 沉陷量`, `${fmt(r.settlementAtEvaluationCm, 2)} cm`]);
+    if (r.hasLiquefaction && r.liquefactionValid) ctrlRows.push(['液化 FSliq（控制點）', `${fmt(r.liquefactionGoverningFS, 2)}（z=${fmt(r.liquefactionGoverningPoint.z, 1)}m）/ 要求 ${fmt(r.liquefactionFsReq, 2)}`]);
     const checkRows = r.checks.map(c => `<tr><th>${escapeHtml(c.label)}</th><td>${c.passed ? '通過' : '不通過'}</td></tr>`).join('');
     return `
 <h2>設計條件</h2><table>${reportRows(condRows)}</table>
@@ -1093,7 +1201,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>基礎局部穩定檢核計算書</h1>
-<div class="case-head"><span>計畫：${escapeHtml(reportProjectMetaValue(proj.name))}</span><span>編號：${escapeHtml(reportProjectMetaValue(proj.no))}</span><span>設計人：${escapeHtml(reportProjectMetaValue(proj.designer))}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.5</span></div>
+<div class="case-head"><span>計畫：${escapeHtml(reportProjectMetaValue(proj.name))}</span><span>編號：${escapeHtml(reportProjectMetaValue(proj.no))}</span><span>設計人：${escapeHtml(reportProjectMetaValue(proj.designer))}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.6</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
@@ -1137,6 +1245,13 @@ ${body}
         return { h: String(Ly.h || ''), zMid: String(Ly.zMid || ''), sigma0: String(Ly.sigma0 || ''), e0: String(Ly.e0 || ''), Cc: String(Ly.Cc || ''), Cr: String(Ly.Cr || 0), sigmaP: String(Ly.sigmaP || 0), cv: String(Ly.cv || ''), drainageType: Ly.drainageType === 'single' ? 'single' : 'double' };
       });
       renderConsolLayerTable();
+    }
+    $('liquefactionEnable').checked = Boolean(normalized.liquefactionEnable);
+    if (Array.isArray(normalized.liquefactionPoints) && normalized.liquefactionPoints.length) {
+      liqPointData = normalized.liquefactionPoints.map(function (P) {
+        return { z: String(P.z || ''), N: String(P.N || ''), FC: String(P.FC || 0), sigmaV: String(P.sigmaV || ''), sigmaVEff: String(P.sigmaVEff || '') };
+      });
+      renderLiqPointTable();
     }
     applyProjectInfo(payload.project);
     updateCriteriaPreview();
@@ -1185,6 +1300,9 @@ ${body}
     $('consolidationEnable').checked = false;
     consolLayerData = [Object.assign({}, CONSOL_LAYER_DEFAULTS)];
     renderConsolLayerTable();
+    $('liquefactionEnable').checked = false;
+    liqPointData = [Object.assign({}, LIQ_POINT_DEFAULTS)];
+    renderLiqPointTable();
     updateCriteriaPreview();
     calculateFoundationLocal();
   }
@@ -1201,6 +1319,7 @@ ${body}
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
   document.getElementById('btnAddConsolLayer').addEventListener('click', addConsolLayerRow);
   $('consolidationMethod').addEventListener('change', calculateFoundationLocal);
+  document.getElementById('btnAddLiqPoint').addEventListener('click', addLiqPointRow);
   ['designCode', 'loadCondition'].forEach(id => $(id).addEventListener('change', applyCriteriaPreset));
   $('bearingMode').addEventListener('change', function () {
     updateCriteriaPreview();
@@ -1218,6 +1337,7 @@ ${body}
     input.addEventListener('change', calculateFoundationLocal);
   });
   renderConsolLayerTable();
+  renderLiqPointTable();
   loadProjectInfo();
   updateCriteriaPreview();
   calculateFoundationLocal();
