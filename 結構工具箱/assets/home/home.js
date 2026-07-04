@@ -53,15 +53,79 @@
   };
 
   const governanceSources = {
-    'rc-audit': { label: 'RC audit', preflightKeys: ['rc-traceability-contract', 'rc-audit-status'] },
-    'steel-audit': { label: 'Steel audit', preflightKeys: ['steel-traceability-contract', 'steel-audit-status'] },
-    'anchor-deployment': { label: 'Anchor deployment', preflightKeys: ['anchor-traceability-contract', 'anchor-verify', 'anchor-route'] },
-    'stone-v2': { label: 'Stone V2', preflightKeys: ['stone-feedback-contract', 'stone-traceability-contract', 'stone-self-check', 'stone-quick-check'] },
-    'decking-contract': { label: 'Decking governance', preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'deck-python'] },
-    'excavation-service': { label: 'Excavation service governance', preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-backend', 'excavation-frontend'] }
+    'formal-tools': {
+      label: 'Formal wind/seismic report boundary',
+      preflightKeys: ['formal-traceability-contract', 'formal-tools-static'],
+      fullPreflightKeys: ['formal-browser-smoke'],
+      cardTag: '報告邊界'
+    },
+    'rc-audit': {
+      label: 'RC audit / report boundary',
+      preflightKeys: ['rc-traceability-contract', 'rc-audit-status', 'rc-column-report-contract', 'rc-shear-wall-report-contract'],
+      cardTag: '報告邊界'
+    },
+    'steel-audit': {
+      label: 'Steel audit / report boundary',
+      preflightKeys: ['steel-traceability-contract', 'steel-formal-regression', 'steel-audit-status'],
+      cardTag: '報告邊界'
+    },
+    'anchor-deployment': {
+      label: 'Anchor deployment',
+      preflightKeys: ['anchor-traceability-contract', 'anchor-route', 'anchor-report-contract'],
+      fullPreflightKeys: ['anchor-verify'],
+      cardTag: '輸出邊界'
+    },
+    'stone-v2': {
+      label: 'Stone V2',
+      preflightKeys: ['stone-feedback-contract', 'stone-traceability-contract', 'stone-report-contract', 'stone-self-check', 'stone-quick-check'],
+      cardTag: 'Word/PDF 邊界'
+    },
+    'decking-contract': {
+      label: 'Decking governance',
+      preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'decking-report-contract'],
+      cardTag: 'Word 邊界'
+    },
+    'excavation-service': {
+      label: 'Excavation service governance',
+      preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract'],
+      fullPreflightKeys: ['excavation-backend', 'excavation-frontend'],
+      cardTag: 'PDF/DOCX 邊界'
+    },
+    'continuous-beam': {
+      label: 'Continuous beam boundary',
+      preflightKeys: ['continuous-beam'],
+      cardTag: '計算書邊界'
+    },
+    'frame-analysis': {
+      label: 'Frame analysis boundary',
+      preflightKeys: ['frame-analysis-contract'],
+      cardTag: '計算書邊界'
+    },
+    'section-tools': {
+      label: 'Section tools boundary',
+      preflightKeys: ['section-tools-contract'],
+      cardTag: '報表邊界'
+    },
+    'local-quick-contract': {
+      label: 'Local quick governance',
+      preflightKeys: ['local-quick-tools-static'],
+      fullPreflightKeys: ['local-quick-tools-runner'],
+      cardTag: 'JSON/計算書 邊界'
+    }
   };
 
-  const HOME_DATA_UPDATED = '2026-06-26';
+  const reportReadinessOverview = {
+    badge: '頁面專用',
+    label: '報告閱讀狀態總覽',
+    summary: '頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。',
+    details: [
+      '已治理家族涵蓋風力 / 地震 / 鋼構正式工具、RC 正式工具、連續梁 / 斷面與補強頁、平面剛架、錨栓、石材、覆工板、開挖擋土支撐與局部快算。',
+      '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書 邊界，避免把 page-only 提醒誤當正式交付內容。',
+      '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
+    ]
+  };
+
+  const HOME_DATA_UPDATED = '2026-07-03';
 
   const tools = [
     {
@@ -70,6 +134,7 @@
       href: '/beam-analysis',
       categories: ['analysis'],
       state: 'assist',
+      governance: 'continuous-beam',
       output: '內力圖、撓度與共用計算書',
       summary: '多跨連續梁彎矩、剪力與撓度，可導入斷面 I 值並輸出共用計算書。',
       fit: '模型前後快速校核、梁系初步內力整理。',
@@ -82,6 +147,7 @@
       href: '/frame-analysis',
       categories: ['analysis'],
       state: 'assist',
+      governance: 'frame-analysis',
       output: '位移、反力、M/V/N 內力圖、計算書與 JSON',
       summary: '2D 剛架直接勁度法：節點／集中／均布／自重載重、端部鉸接釋放，輸出位移、反力、內力圖與計算書。',
       fit: '簡化剛架模型、連續梁與手算前後校核。',
@@ -106,6 +172,7 @@
       href: '/section',
       categories: ['reference'],
       state: 'reference',
+      governance: 'section-tools',
       output: 'A、I、S、r、Z 等斷面性質',
       summary: '基本幾何斷面 A、I、S、r、Z 計算，支援導入連續梁工具。',
       fit: '鋼構與 RC 補算前的斷面資料整理。',
@@ -118,6 +185,7 @@
       href: '/composite-section',
       categories: ['reference'],
       state: 'reference',
+      governance: 'section-tools',
       output: '組合斷面性質、J、翹曲常數與增益比較',
       summary: 'H 型鋼加側板、蓋板、四面包覆，含封閉箱型 J、翹曲常數與基礎型鋼增益比較。',
       fit: '補強或組合斷面初步整理。',
@@ -359,6 +427,7 @@
       href: '/wind-force',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: 'MWFRS 風力、風壓與計算書',
       summary: '矩形建物外牆、側牆、屋頂與 MWFRS 女兒牆風力計算。',
       fit: '常規建築物主要抗風系統計算。',
@@ -371,6 +440,7 @@
       href: '/wind-cc',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: 'C&C 正負風壓與局部計算書',
       summary: '外牆與屋面構材、包覆物設計風壓，含正負壓組合。',
       fit: 'C&C 局部風壓計算書。',
@@ -383,6 +453,7 @@
       href: '/wind-parapet',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '女兒牆 MWFRS / C&C 風壓計算書',
       summary: 'MWFRS 女兒牆與 C&C 女兒牆風壓。',
       fit: '女兒牆局部風壓檢核。',
@@ -395,6 +466,7 @@
       href: '/wind-open-roof',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '開放式屋面淨風壓係數與計算書',
       summary: '依第三章圖表計算開放式單斜與雙斜屋頂淨風壓係數。',
       fit: '開放式屋面局部風壓。',
@@ -407,6 +479,7 @@
       href: '/wind-object-solid',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '表 2.10 C_f(ν)、C_f(M/N)、控制 C_f、0.3b_w、示意圖、案件 JSON 與簡易 / 詳算計算書',
       summary: '回歸規範表 2.10 實體標示物：分離物體高度 H_o、平面斷面 M/N 與受風寬度 b_w，依開口率與雙路內插取較大 C_f。',
       fit: '實體標示物、板狀標示物、圍籬牆、自立看板等表 2.10 情境。',
@@ -419,6 +492,7 @@
       href: '/wind-object-frame',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '表 2.11 Cf、D√q(z) 分類、示意圖、案件 JSON 與簡易 / 詳算計算書',
       summary: '中空式標示物、格子式構架採表 2.11，依實體率、構材斷面與 D√q(z) 查 C_f。',
       fit: '中空式標示物與格子式構架之表 2.11 風力整理。',
@@ -431,6 +505,7 @@
       href: '/wind-lattice-tower',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '表 2.15 Cf、塔身分段風力、總剪力、底部彎矩、案件 JSON 與簡易 / 詳算計算書',
       summary: '桁架高塔採表 2.15，依塔型、構材、實體率與分段高度輸出塔身風力與底部作用。',
       fit: '方形或三角形桁架高塔之分段風力整理。',
@@ -443,6 +518,7 @@
       href: '/wind-object-tower',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '表 2.12 Cf、h/D 內插、G 詳算、分段剪力、頂部附加風力、案件 JSON 與簡易 / 詳算計算書',
       summary: '煙囪、水塔等採表 2.12，依 h/D、斷面形狀與圓形 D√q(z) 分類輸出底部作用。',
       fit: '煙囪、水塔等表 2.12 構造物耐風檢核。',
@@ -455,6 +531,7 @@
       href: '/wind-fence-sign',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '圍籬、招牌與板狀物風力計算書',
       summary: '規範表 2.10 招牌物 Cf 路線，座地與架高雙模式，支援案件 JSON 與簡易 / 詳算計算書。',
       fit: '圍籬、招牌與獨立板狀物風力。',
@@ -467,6 +544,7 @@
       href: '/wind-sign-pole',
       categories: ['wind'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '表 2.10 面板、表 2.14 管材或表 2.13 角柱體支撐、分段風力、案件 JSON 與簡易 / 詳算計算書',
       summary: '常見獨立招牌、路燈與燈桿附掛招牌情境；上方面板與下方支撐分別依規範表格計算後合成底部作用。',
       fit: '上方為實體招牌面板、下方為管材燈桿或型鋼支撐之組合式風力整理。',
@@ -479,6 +557,7 @@
       href: '/seismic-force',
       categories: ['seismic'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '等值靜力法地震力與逐層分配計算書',
       summary: 'Fa/Fv 內插、VD/V*/VM 比較、Fu 分段、逐層分配與地下層 K。',
       fit: '耐震等值靜力法主流程。',
@@ -491,6 +570,7 @@
       href: '/seismic-dynamic',
       categories: ['seismic'],
       state: 'report',
+      governance: 'formal-tools',
       output: '動力分析比對、縮放倍率與摘要計算書',
       summary: '整理反應譜動力分析結果，比對等值靜力結果，提示縮放倍率與採用剪力候選。',
       fit: '承接 ETABS、SAP2000、MIDAS 等模型結果。',
@@ -503,6 +583,7 @@
       href: '/seismic-appendage',
       categories: ['seismic'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '附屬構造物 Fph / Fpv / Rpa 計算摘要',
       summary: '第四章局部計算，整理 Fph、Fpv、Rpa 與控制條件。',
       fit: '機電設備、管線、吊架與非結構構件地震力。',
@@ -515,6 +596,7 @@
       href: '/seismic-misc',
       categories: ['seismic'],
       state: 'formal',
+      governance: 'formal-tools',
       output: '雜項工作物地震力計算書',
       summary: '第五章快速分流，輸出雜項工作物地震力計算書。',
       fit: '雜項工作物局部地震力。',
@@ -549,12 +631,13 @@
     },
     {
       title: '基礎局部檢核',
-      version: 'V0.4',
+      version: 'V0.5',
       href: '/foundation-local',
       categories: ['temporary'],
       state: 'formal',
-      output: '底壓/偏心/抗滑/抗傾覆、Meyerhof 有效面積承壓、立即彈性沉陷、壓密沉陷(Boussinesq/2:1)、中央核示意圖、兩段式計算書與 JSON',
-      summary: '矩形淺基礎服務載重底壓、合力偏心、抗滑與抗傾覆檢核，依台灣 112 基礎構造設計規範安全係數；可選用 Meyerhof 有效面積承壓、立即彈性沉陷，以及可自訂層數之一維壓密沉陷（Cc/Cr、NC/OC 判別、Boussinesq 或 2:1 應力增量），含中央核示意圖與詳算式/簡易結果計算書。',
+      governance: 'local-quick-contract',
+      output: '底壓/偏心/抗滑/抗傾覆、Meyerhof 有效面積承壓、立即彈性沉陷、壓密沉陷(Boussinesq/2:1)、Terzaghi 時間-沉陷歷程、中央核示意圖、兩段式計算書與 JSON',
+      summary: '矩形淺基礎服務載重底壓、合力偏心、抗滑與抗傾覆檢核，依台灣 112 基礎構造設計規範安全係數；可選用 Meyerhof 有效面積承壓、立即彈性沉陷，以及可自訂層數之一維壓密沉陷（Cc/Cr、NC/OC 判別、Boussinesq 或 2:1 應力增量），並可選填 cv 與排水條件估算 Terzaghi t50/t90 與指定年限之壓密度沉陷量，含中央核示意圖與詳算式/簡易結果計算書。',
       fit: '矩形獨立基礎與設備基座之局部穩定正式檢核。',
       limit: '衝剪、配筋、液化、樁基與土壤互制不在本頁範圍，需回 RC 基礎完整工具。',
       capabilities: ['正式核算', '計算書', '示意圖']
@@ -565,6 +648,7 @@
       href: '/equipment-load',
       categories: ['temporary'],
       state: 'formal',
+      governance: 'local-quick-contract',
       output: '支承反力/接觸壓/分布壓、混凝土承壓、穿孔剪力、鋼板分散、示意圖、兩段式計算書與 JSON',
       summary: '設備重量、支承點反力、1:1 接觸/分布壓，含混凝土承壓、RC 穿孔剪力與鋼板分散厚度檢核，附支承示意圖與詳算式/簡易結果計算書。',
       fit: '設備基座支承局部荷重與承壓正式檢核。',
@@ -577,6 +661,7 @@
       href: '/earth-pressure',
       categories: ['temporary'],
       state: 'formal',
+      governance: 'local-quick-contract',
       output: 'Rankine/Coulomb 土壓、地震 Mononobe-Okabe、分層土(砂/黏)、水壓、抗滑/抗傾覆/基底壓檢核、牆型示意圖、兩段式計算書與 JSON',
       summary: 'Rankine 主動/靜止土壓、均佈超載與地下水壓之抗滑、抗傾覆與基底壓局部穩定檢核；可選用 Coulomb（牆摩擦 δ、牆背傾角 θ、背填傾角 β）、地震時 Mononobe-Okabe，以及可自訂層數之分層土（砂土/黏土，含黏土張力裂縫與有效應力水壓），含牆型示意圖與詳算式/簡易結果計算書。',
       fit: '懸臂式/重力式擋土牆與圍牆之局部土壓與穩定正式檢核。',
@@ -673,7 +758,8 @@
     memberSystemHint: document.getElementById('memberSystemHint'),
     grid: document.getElementById('toolGrid'),
     count: document.getElementById('resultCount'),
-    empty: document.getElementById('emptyState')
+    empty: document.getElementById('emptyState'),
+    reportReadinessStatus: document.getElementById('reportReadinessStatus')
   };
 
   function countByCategory(categoryId) {
@@ -702,6 +788,10 @@
 
   function stateInfo(tool) {
     return toolStates[tool.state] || { label: '未分類', tone: 'unknown' };
+  }
+
+  function governanceInfo(tool) {
+    return tool?.governance ? (governanceSources[tool.governance] || null) : null;
   }
 
   function toFileHref(href) {
@@ -841,6 +931,7 @@
     const primary = primaryCategory(tool);
     const category = categoryMap.get(primary);
     const currentState = stateInfo(tool);
+    const governance = governanceInfo(tool);
     const card = document.createElement('a');
     card.className = `tool-card tool-card--${primary} tool-card--state-${currentState.tone}`;
     card.href = toFileHref(tool.href);
@@ -879,7 +970,8 @@
     profile.className = 'tool-profile';
     profile.append(
       profileItem('定位', tool.summary),
-      profileItem('輸出', tool.output)
+      profileItem('輸出', tool.output),
+      profileItem('閱讀狀態', currentState.summary)
     );
 
     const meta = document.createElement('div');
@@ -899,6 +991,9 @@
         memberSystemMap.get(tool.memberSystem)?.label || tool.memberSystem,
         label => tag(label, 'system')
       );
+    }
+    if (governance?.cardTag) {
+      appendUniqueMeta(meta, seenMetaLabels, governance.cardTag, label => tag(label, 'governance'));
     }
     tool.capabilities.slice(0, 3).forEach(capability => {
       appendUniqueMeta(meta, seenMetaLabels, capability, label => tag(label));
@@ -966,7 +1061,60 @@
     elements.empty.hidden = false;
   }
 
-  function renderStatus(node, label, payload, summaryText) {
+  function buildStatusMeta(metaItems) {
+    const items = Array.isArray(metaItems) ? metaItems.filter(item => item && item.text) : [];
+    if (items.length === 0) return null;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'status-card__meta';
+    items.forEach(item => {
+      const chip = document.createElement('span');
+      const tone = item.tone || 'neutral';
+      chip.className = `status-card__meta-item status-card__meta-item--${tone}`;
+      chip.textContent = item.text;
+      wrapper.appendChild(chip);
+    });
+    return wrapper;
+  }
+
+  function preflightModeMeta(payload) {
+    if (!payload) return null;
+    if (payload.quick) {
+      return { key: 'quick', label: '快速檢查', tone: 'warn' };
+    }
+    if (payload.forceSlowChecks && payload.forcePlatformAudit) {
+      return { key: 'release', label: '正式放行', tone: 'ok' };
+    }
+    return { key: 'full', label: '完整檢查', tone: 'ok' };
+  }
+
+  function preflightEvidenceSummary(payload) {
+    if (!payload) return '';
+    if (payload.pass !== true) {
+      if (payload.quick) return '快速檢查發現異常，不能作為正式交付證據。';
+      return '本輪仍有異常，修正後才可作為正式交付證據。';
+    }
+    const mode = preflightModeMeta(payload);
+    if (!mode) return '';
+    if (mode.key === 'quick') return '僅供快速巡查，不作為正式交付證據。';
+    if (mode.key === 'release') return '已強制平台巡檢與慢測，可作為正式放行證據。';
+    return '正式交付請以完整檢查或正式放行結果為準。';
+  }
+
+  function platformStatusMeta(payload) {
+    if (!payload || !payload.runId) return [];
+    return [{ text: `runId ${payload.runId}`, tone: 'trace' }];
+  }
+
+  function preflightStatusMeta(payload) {
+    if (!payload) return [];
+    const items = [];
+    const mode = preflightModeMeta(payload);
+    if (mode) items.push({ text: mode.label, tone: mode.tone });
+    if (payload.runId) items.push({ text: `runId ${payload.runId}`, tone: 'trace' });
+    return items;
+  }
+
+  function renderStatus(node, label, payload, summaryText, metaItems) {
     if (!node) return;
     const pass = Boolean(payload && payload.pass);
     const badge = document.createElement('span');
@@ -976,7 +1124,49 @@
     title.textContent = label;
     const summary = document.createElement('p');
     summary.textContent = summaryText;
+    const meta = buildStatusMeta(metaItems);
+    node.replaceChildren(...[badge, title, summary, meta].filter(Boolean));
+  }
+
+  function renderStaticStatusCard(node, badgeText, badgeClassName, label, summaryText) {
+    if (!node) return;
+    const badge = document.createElement('span');
+    badge.className = `status-card__badge ${badgeClassName || 'neutral'}`;
+    badge.textContent = badgeText;
+    const title = document.createElement('strong');
+    title.textContent = label;
+    const summary = document.createElement('p');
+    summary.textContent = summaryText;
     node.replaceChildren(badge, title, summary);
+  }
+
+  function reportReadinessCardData(payload) {
+    if (!payload || payload.kind !== 'report-readiness-status') {
+      return reportReadinessOverview;
+    }
+    return {
+      badge: payload.badge || reportReadinessOverview.badge,
+      label: payload.label || reportReadinessOverview.label,
+      summary: payload.summary || reportReadinessOverview.summary,
+      details: Array.isArray(payload.details) && payload.details.length
+        ? payload.details
+        : reportReadinessOverview.details,
+      pass: payload.pass !== false
+    };
+  }
+
+  function renderReportReadinessStatus(payload = null) {
+    if (!elements.reportReadinessStatus) return;
+    const card = reportReadinessCardData(payload);
+    const detailText = `${card.summary} ${(card.details || []).join(' ')}`;
+    renderStaticStatusCard(
+      elements.reportReadinessStatus,
+      card.badge,
+      card.pass === false ? 'warn' : 'ok',
+      card.label,
+      detailText
+    );
+    elements.reportReadinessStatus.dataset.statusSource = payload && payload.kind === 'report-readiness-status' ? 'snapshot' : 'static';
   }
 
   async function loadStatus() {
@@ -997,7 +1187,8 @@
         document.getElementById('platformStatus'),
         '平台巡檢',
         payload,
-        `${payload.generatedAt || '最近一輪'}，${payload.failureCount || 0} 項異常。`
+        `${payload.generatedAt || '最近一輪'}，${payload.failureCount || 0} 項異常。`,
+        platformStatusMeta(payload)
       );
     } catch (error) {
       renderStatus(document.getElementById('platformStatus'), '平台巡檢', null, '目前無法讀取平台巡檢結果。');
@@ -1010,10 +1201,19 @@
         document.getElementById('preflightStatus'),
         '交付前檢查',
         payload,
-        `${payload.generatedAt || '最近一輪'}，${payload.failureCount || 0} 項異常。`
+        `${payload.generatedAt || '最近一輪'}，${payload.failureCount || 0} 項異常。 ${preflightEvidenceSummary(payload)}`,
+        preflightStatusMeta(payload)
       );
     } catch (error) {
       renderStatus(document.getElementById('preflightStatus'), '交付前檢查', null, '目前無法讀取 preflight 結果。');
+    }
+    try {
+      const response = await fetch(cacheBustedHref(homeAssetHref('assets/status/report-readiness-status.json')), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      renderReportReadinessStatus(payload);
+    } catch (error) {
+      renderReportReadinessStatus();
     }
   }
 
@@ -1026,6 +1226,7 @@
   function init() {
     renderCategoryOverview();
     render();
+    renderReportReadinessStatus();
     loadStatus();
   }
 

@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>基礎局部檢核 V0.4</title>
+<title>基礎局部檢核 V0.5</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../../core/style.css">
 <style>
@@ -43,6 +43,18 @@
   .output-actions .btn-secondary { flex:1 1 150px; }
   .scope-box { padding:12px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fcd34d; color:#78350f; font-size:0.84em; line-height:1.75; }
   .scope-box strong { color:#92400e; }
+  .report-readiness { margin-top:10px; border:1px solid #fde68a; border-radius:10px; background:#fffbeb; padding:12px 14px; color:#92400e; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#fef3c7; color:#92400e; font-size:0.78em; font-weight:800; }
   .basis-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-top:10px; }
@@ -84,7 +96,7 @@
     .header-links .sep { display:none; }
     .hero-chip { font-size:0.76em; padding:5px 10px; }
     .foundation-shell, .foundation-form-stack, .foundation-result-stack { gap:14px; }
-    .form-row, .metric-grid, .basis-grid { grid-template-columns:1fr; }
+    .form-row, .metric-grid, .basis-grid, .report-readiness-grid { grid-template-columns:1fr; }
     .case-actions,
     .output-actions { flex-direction:column; align-items:stretch; width:100%; }
     .case-actions { margin-left:0; }
@@ -93,11 +105,15 @@
     .output-actions .btn-print,
     .output-actions .btn-secondary { width:100%; flex:1 1 auto; }
   }
+  @media print {
+    .page-only-report-status,
+    .case-actions { display:none !important; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>基礎局部檢核 <span class="badge-v">V0.4 局部正式檢核</span></h1>
+  <h1>基礎局部檢核 <span class="badge-v">V0.5 局部正式檢核</span></h1>
   <p>淺基礎服務載重底壓、偏心、抗滑、抗傾覆快速檢核 ｜ 單位：m, tf, tf/m²</p>
   <p class="header-links">
     <a href="../../index.html" class="back">← 回工具箱</a>
@@ -137,7 +153,7 @@
           適用於矩形獨立基礎或設備基座的初步穩定檢核：服務載重底壓、合力偏心、抗滑與抗傾覆。
           若有樁基、筏基、聯合基腳、衝剪、配筋、沉陷或土壤互制問題，應回 RC 基礎完整工具或正式計算書處理。
           <div class="tool-meta" aria-label="工具版本與責任邊界">
-            <span>頁面 V0.4</span>
+            <span>頁面 V0.5</span>
             <span id="coreVersion">Core v—</span>
             <span>正式核算 / 局部</span>
           </div>
@@ -324,13 +340,17 @@
                 <option value="boussinesq">Boussinesq（矩形基礎中心點）</option>
               </select>
             </div>
+            <div class="form-group">
+              <label>評估年限（年，選填；供估算 t 年後之壓密度與沉陷量）</label>
+              <input type="number" id="evaluationYears" value="" step="0.5" min="0" placeholder="留空僅算 t50/t90">
+            </div>
           </div>
           <table id="consolLayerTable" style="width:100%;border-collapse:collapse;margin-top:4px;">
-            <thead><tr><th>#</th><th>層厚 h (m)</th><th>中點深度 z (m)</th><th>σ0′ (tf/m²)</th><th>e0</th><th>Cc</th><th>Cr（選填）</th><th>σp′（選填）</th><th></th></tr></thead>
+            <thead><tr><th>#</th><th>層厚 h (m)</th><th>中點深度 z (m)</th><th>σ0′ (tf/m²)</th><th>e0</th><th>Cc</th><th>Cr（選填）</th><th>σp′（選填）</th><th>cv（選填，m²/年）</th><th>排水</th><th></th></tr></thead>
             <tbody></tbody>
           </table>
           <button type="button" id="btnAddConsolLayer" style="margin-top:8px;font-size:0.82em;padding:6px 12px;cursor:pointer;border:1px solid #94a3b8;border-radius:6px;background:#f1f5f9;">＋ 增加一層</button>
-          <div class="scope-box" style="margin-top:8px;">z 為壓密層中點深度（自基礎底面往下算），用於計算 Δσ；σ0′ 為該深度之初始有效覆土應力，須由使用者依地質資料輸入。σp′ 留空或 ≤ σ0′ 視為正常壓密（NC）；σp′ 大於 σ0′ 時依過壓密（OC）判別，必要時跨越 σp′ 分段計算。Sc = Cc·h/(1+e0)·log10((σ0′+Δσ)/σ0′)（NC）；Δσ 由 2:1 或 Boussinesq 法，以淨壓力 q<sub>net</sub>=qAvg−γs·Df 計算。多層壓密量加總；不含時間-沉陷歷程、次壓縮與分層土非均質效應。</div>
+          <div class="scope-box" style="margin-top:8px;">z 為壓密層中點深度（自基礎底面往下算），用於計算 Δσ；σ0′ 為該深度之初始有效覆土應力，須由使用者依地質資料輸入。σp′ 留空或 ≤ σ0′ 視為正常壓密（NC）；σp′ 大於 σ0′ 時依過壓密（OC）判別，必要時跨越 σp′ 分段計算。Sc = Cc·h/(1+e0)·log10((σ0′+Δσ)/σ0′)（NC）；Δσ 由 2:1 或 Boussinesq 法，以淨壓力 q<sub>net</sub>=qAvg−γs·Df 計算。多層壓密量加總；不含次壓縮與分層土非均質效應。<br>時間-沉陷歷程（選填）：提供 cv 與排水條件（單面 Hdr=h、雙面 Hdr=h/2）後，依 Terzaghi Tv-U 關係估算 t50、t90；填入評估年限可另估該時刻壓密度 U(t) 與對應沉陷量。僅當「所有」壓密層皆提供 cv 時才合計評估年限沉陷量，避免混雜已知/未知速率層。</div>
         </div>
       </div>
 
@@ -353,6 +373,9 @@
           <button class="btn-secondary" id="btnImportJson" type="button">讀取 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none">
         </div>
+      </div>
+      <div class="card page-only-report-status">
+        <div class="report-readiness blocked" id="foundationReportReadiness" role="status" aria-live="polite"></div>
       </div>
     </div>
 
@@ -394,8 +417,8 @@
   </div>
 </div>
 
-<script src="../local-quick-export.js"></script>
-<script src="foundation-local-core.js"></script>
+<script src="../local-quick-export.js?v=1"></script>
+<script src="foundation-local-core.js?v=2"></script>
 <script>
 (function () {
   const STORAGE_KEY = 'foundationLocalProjectInfo';
@@ -410,9 +433,10 @@
     P: '80', qa: '20', Mx: '12', My: '8', Hx: '4', Hy: '3', mu: '0.45',
     passive: '0', fsSlideReq: '1.50', fsOverReq: '1.50',
     Es: '0', nu: '0.30', settlementInfluence: '0.88', allowableSettlementCm: '2.50',
-    consolidationMethod: '2:1'
+    consolidationMethod: '2:1', evaluationYears: ''
   };
   let lastResult = null;
+  let lastFoundationReportValidationMessage = '';
   const Core = window.FoundationLocalCore;
   if (!Core) throw new Error('FoundationLocalCore is not loaded.');
   const Exporter = window.LocalQuickExport;
@@ -441,22 +465,104 @@
       return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
     });
   }
+  function isProjectMetaMissing() {
+    return Exporter.isProjectMetaMissing(gatherProjectInfo());
+  }
+  function foundationReportModeLabel() {
+    return ($('reportMode') && $('reportMode').value === 'summary') ? '簡易結果' : '詳算式';
+  }
+  function setFoundationReportValidationMessage(message) {
+    lastFoundationReportValidationMessage = message || '';
+    renderFoundationReportReadiness(lastFoundationReportValidationMessage);
+  }
+  function buildFoundationReportReadinessModel(validationMessage) {
+    if (validationMessage) {
+      return {
+        level: 'blocked',
+        badge: '暫勿作附件',
+        title: '輸入尚未通過檢查，先不要產生計算書。',
+        items: [
+          { label: '輸入檢核', value: validationMessage },
+          { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+        ]
+      };
+    }
+    if (!lastResult) {
+      return {
+        level: 'blocked',
+        badge: '暫勿作附件',
+        title: '尚未完成計算，先不要產生計算書。',
+        items: [
+          { label: '計算狀態', value: '尚未建立基礎局部檢核結果' },
+          { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+        ]
+      };
+    }
+    const reviewItems = [];
+    if (isProjectMetaMissing()) reviewItems.push('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
+    if (!lastResult.overallOk) {
+      if (!lastResult.fullContact) reviewItems.push('目前偏心已超出中央核，全接觸假設不宜直接作為正式採用值。');
+      else if (!lastResult.bearingOk) reviewItems.push('容許地耐力未通過，應先修正尺寸、載重或地盤假設。');
+      else if (!lastResult.slideOk) reviewItems.push('抗滑安全係數未通過，應先修正水平力、摩擦或被動抵抗採用。');
+      else if (!lastResult.overOk) reviewItems.push('抗傾覆安全係數未通過，應先修正尺寸、載重或改採正式詳算。');
+      else reviewItems.push('局部穩定檢核尚未通過，應先修正或改採正式詳算。');
+    }
+    if (lastResult.hasConsolidation && !lastResult.consolidationValid) reviewItems.push('壓密沉陷選用資料尚未完整，若納入附件應先補齊層資料。');
+    if (lastResult.hasSettlement && !lastResult.settlementOk) reviewItems.push('沉陷初估超過容許值，應先回正式地盤與基礎設計流程複核。');
+    const items = reviewItems.slice(0, 2).map(function (message, index) {
+      return { label: `優先處理 ${index + 1}`, value: message };
+    });
+    items.push(
+      { label: '控制狀態', value: lastResult.overallOk ? '局部穩定初步通過' : '需先複核' },
+      { label: 'qmax / qa', value: `${fmt(lastResult.qmax)} / ${fmt(lastResult.qa)} tf/m²` },
+      { label: '抗滑 / 抗傾覆', value: `${fmt(lastResult.fsSlide, 2)} / ${fmt(lastResult.fsOver, 2)}` },
+      { label: '偏心核', value: `${fmt(lastResult.kernUtil, 4)} / ${fmt(1 / 6, 4)}` },
+      { label: '計算書模式', value: foundationReportModeLabel() },
+      { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+    );
+    return {
+      level: reviewItems.length ? 'review' : 'ready',
+      badge: reviewItems.length ? '優先複核' : '可作附件',
+      title: reviewItems.length ? '計算已完成，但產報前建議優先閱讀下列項目。' : '計算已完成，可產生計算書附件。',
+      items: items
+    };
+  }
+  function renderFoundationReportReadiness(validationMessage) {
+    const el = document.getElementById('foundationReportReadiness');
+    if (!el) return;
+    const message = typeof validationMessage === 'string' ? validationMessage : lastFoundationReportValidationMessage;
+    const model = buildFoundationReportReadinessModel(message);
+    Exporter.renderStatusGridPanel({
+      target: el,
+      level: model.level,
+      eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+      title: model.title,
+      badge: model.badge,
+      items: model.items,
+      note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認基礎型式、地耐力與沉陷假設、荷重來源、中央核適用性與送審圖說一致性。'
+    });
+  }
   function selected(id) {
     return $(id).value;
   }
   // ── 壓密沉陷層表 ──
-  let consolLayerData = [{ h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0' }];
+  const CONSOL_LAYER_DEFAULTS = { h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0', cv: '', drainageType: 'double' };
+  let consolLayerData = [Object.assign({}, CONSOL_LAYER_DEFAULTS)];
   function renderConsolLayerTable() {
     const tb = $('consolLayerTable').querySelector('tbody');
     tb.innerHTML = consolLayerData.map(function (Ly, i) {
-      const fields = ['h', 'zMid', 'sigma0', 'e0', 'Cc', 'Cr', 'sigmaP'];
+      const numFields = ['h', 'zMid', 'sigma0', 'e0', 'Cc', 'Cr', 'sigmaP', 'cv'];
       return `<tr>
         <td style="font-weight:700;color:#0369a1;">${i + 1}</td>
-        ${fields.map(function (f) { return `<td><input type="number" data-i="${i}" data-f="${f}" value="${Ly[f]}" step="0.01" min="0" placeholder="—"></td>`; }).join('')}
+        ${numFields.map(function (f) { return `<td><input type="number" data-i="${i}" data-f="${f}" value="${Ly[f]}" step="0.01" min="0" placeholder="—"></td>`; }).join('')}
+        <td><select data-i="${i}" data-f="drainageType">
+          <option value="double"${Ly.drainageType === 'double' ? ' selected' : ''}>雙面</option>
+          <option value="single"${Ly.drainageType === 'single' ? ' selected' : ''}>單面</option>
+        </select></td>
         <td><button type="button" class="cly-del" data-i="${i}" title="刪除此層">✕</button></td>
       </tr>`;
     }).join('');
-    tb.querySelectorAll('input').forEach(function (el) {
+    tb.querySelectorAll('input, select').forEach(function (el) {
       el.addEventListener('change', function () {
         const i = +el.dataset.i, f = el.dataset.f;
         consolLayerData[i][f] = el.value;
@@ -466,14 +572,14 @@
     tb.querySelectorAll('.cly-del').forEach(function (btn) {
       btn.addEventListener('click', function () {
         consolLayerData.splice(+btn.dataset.i, 1);
-        if (consolLayerData.length === 0) consolLayerData.push({ h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0' });
+        if (consolLayerData.length === 0) consolLayerData.push(Object.assign({}, CONSOL_LAYER_DEFAULTS));
         renderConsolLayerTable();
         calculateFoundationLocal();
       });
     });
   }
   function addConsolLayerRow() {
-    consolLayerData.push({ h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0' });
+    consolLayerData.push(Object.assign({}, CONSOL_LAYER_DEFAULTS));
     renderConsolLayerTable();
     calculateFoundationLocal();
   }
@@ -481,7 +587,8 @@
     return consolLayerData.map(function (Ly) {
       return {
         h: parseFloat(Ly.h) || 0, zMid: parseFloat(Ly.zMid) || 0, sigma0: parseFloat(Ly.sigma0) || 0,
-        e0: parseFloat(Ly.e0) || 0, Cc: parseFloat(Ly.Cc) || 0, Cr: parseFloat(Ly.Cr) || 0, sigmaP: parseFloat(Ly.sigmaP) || 0
+        e0: parseFloat(Ly.e0) || 0, Cc: parseFloat(Ly.Cc) || 0, Cr: parseFloat(Ly.Cr) || 0, sigmaP: parseFloat(Ly.sigmaP) || 0,
+        cv: parseFloat(Ly.cv) || 0, drainageType: Ly.drainageType === 'single' ? 'single' : 'double'
       };
     });
   }
@@ -548,7 +655,8 @@
       allowableSettlementCm: num('allowableSettlementCm'),
       consolidationEnable: $('consolidationEnable').checked,
       consolidationMethod: selected('consolidationMethod'),
-      consolidationLayers: consolLayersForCore()
+      consolidationLayers: consolLayersForCore(),
+      evaluationYears: num('evaluationYears')
     };
   }
 
@@ -601,6 +709,12 @@
     if (r.hasConsolidation && r.consolidationValid) {
       metrics.push(['壓密沉陷 Sc', `${fmt(r.consolidationSettlementCm)} cm`, `${r.consolidationLayerResults.length} 層，容許 ${fmt(r.allowableSettlementCm)} cm`, r.consolidationOk]);
     }
+    if (r.allLayersHaveTimeRate) {
+      metrics.push(['壓密 t90（控制層）', `${fmt(r.governingT90Years, 2)} 年`, '達 90% 壓密度所需時間', true]);
+    }
+    if (r.hasTimeRateEvaluation) {
+      metrics.push([`t=${fmt(r.evaluationYears, 1)}年 沉陷量`, `${fmt(r.settlementAtEvaluationCm, 2)} cm`, `／最終 Sc=${fmt(r.consolidationSettlementCm, 2)} cm`, true]);
+    }
     $('metricGrid').innerHTML = metrics.map(function (m) {
       return `<div class="metric ${statusClass(m[3])}">
         <span class="label">${m[0]}</span>
@@ -636,6 +750,16 @@
       } else {
         checks.push(['壓密沉陷初估', false, '部分壓密層輸入不足或不合理（層厚、σ0′ 或 e0），無法計算。']);
       }
+    }
+    if (r.allLayersHaveTimeRate) {
+      const rateLines = r.consolidationLayerResults.map(function (ly, idx) {
+        const tr = ly.timeRate;
+        return `第${idx + 1}層（${escapeHtml(ly.drainageTypeLabel)}、Hdr=${fmt(tr.Hdr, 2)}m）t50=${fmt(tr.t50, 2)}年、t90=${fmt(tr.t90, 2)}年`;
+      }).join('；');
+      checks.push(['壓密時間-沉陷歷程 (Terzaghi)', true, rateLines]);
+    }
+    if (r.hasTimeRateEvaluation) {
+      checks.push([`t=${fmt(r.evaluationYears, 1)} 年壓密度估算`, true, `依控制層估算之合計沉陷量 ≈ ${fmt(r.settlementAtEvaluationCm, 2)} cm（最終 Sc=${fmt(r.consolidationSettlementCm, 2)} cm 之 ${fmt(r.settlementAtEvaluationCm / r.consolidationSettlementCm * 100, 1)}%）`]);
     }
     $('checkList').innerHTML = checks.map(function (c) {
       return `<div class="check-item ${statusClass(c[1])}">
@@ -763,6 +887,7 @@
       $('stepBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
       drawDiagram(null);
       lastResult = null;
+      setFoundationReportValidationMessage(errors.join(' '));
       return null;
     }
     const result = Core.calculate(input);
@@ -774,6 +899,7 @@
     renderChecks(result);
     renderSteps(result);
     drawDiagram(result);
+    setFoundationReportValidationMessage('');
     return result;
   }
 
@@ -787,9 +913,9 @@
 
   function gatherProjectInfo() {
     return {
-      name: $('projName').value.trim() || '未填',
-      no: $('projNo').value.trim() || '未填',
-      designer: $('projDesigner').value.trim() || '未填'
+      name: Exporter.normalizeProjectFieldValue($('projName').value),
+      no: Exporter.normalizeProjectFieldValue($('projNo').value),
+      designer: Exporter.normalizeProjectFieldValue($('projDesigner').value)
     };
   }
 
@@ -800,7 +926,7 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.4'
+        pageVersion: 'V0.5'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -814,7 +940,7 @@
       tool: {
         id: 'foundation-local',
         name: '基礎局部檢核',
-        pageVersion: 'V0.4'
+        pageVersion: 'V0.5'
       },
       project: gatherProjectInfo(),
       input: gatherInputs(),
@@ -891,10 +1017,13 @@ ${r.hasSettlement ? `<p><code>Se = q·B·(1−ν²)·Iw/Es = ${fmt(r.qAvg)}×${f
 ${r.hasConsolidation ? `<h3>7. 壓密沉陷（${r.consolidationMethod === 'boussinesq' ? 'Boussinesq' : '2:1'} 應力增量）</h3>
 <p><code>q<sub>net</sub> = qAvg − γs·Df = ${fmt(r.qAvg)} − ${fmt(r.gammaS)}×${fmt(r.Df)} = ${fmt(r.qNet)} tf/m²</code></p>
 ${r.consolidationValid ? r.consolidationLayerResults.map(function (ly, idx) {
+  const timeLine = ly.hasTimeRate
+    ? `<br><code>${escapeHtml(ly.drainageTypeLabel)}、Hdr=${fmt(ly.timeRate.Hdr, 2)}m：t50=${fmt(ly.timeRate.t50, 2)} 年、t90=${fmt(ly.timeRate.t90, 2)} 年${ly.timeRate.atTarget ? `；t=${fmt(ly.timeRate.atTarget.evaluationYears, 1)}年時 U=${fmt(ly.timeRate.atTarget.Upercent, 1)}%、S(t)=${fmt(ly.timeRate.atTarget.settlementAtT * 100, 2)}cm` : ''}</code>`
+    : '';
   return `<p><code>第${idx + 1}層：h=${fmt(ly.h)}m、z=${fmt(ly.zMid)}m、I=${fmt(ly.influenceFactor, 4)}、Δσ=q<sub>net</sub>·I=${fmt(ly.deltaSigma)} tf/m²；σ0′=${fmt(ly.sigma0)}、σf′=${fmt(ly.sigmaFinal)}（${escapeHtml(ly.regimeLabel)}）</code><br>
-  <code>Sc = ${fmt(ly.Sc * 100, 2)} cm</code></p>`;
+  <code>Sc = ${fmt(ly.Sc * 100, 2)} cm</code>${timeLine}</p>`;
 }).join('') : '<p><code style="color:#b91c1c;">部分壓密層輸入不足或不合理，無法計算。</code></p>'}
-${r.consolidationValid ? `<p><code>Sc(總) = Σ Sc = ${fmt(r.consolidationSettlementCm, 2)} cm ${r.consolidationOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm</code>${r.hasSettlement ? `<br><code>合計沉陷（立即+壓密）≈ ${fmt(r.combinedSettlementCm, 2)} cm</code>` : ''}</p>` : ''}` : ''}
+${r.consolidationValid ? `<p><code>Sc(總) = Σ Sc = ${fmt(r.consolidationSettlementCm, 2)} cm ${r.consolidationOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm</code>${r.hasSettlement ? `<br><code>合計沉陷（立即+壓密）≈ ${fmt(r.combinedSettlementCm, 2)} cm</code>` : ''}${r.hasTimeRateEvaluation ? `<br><code>t=${fmt(r.evaluationYears, 1)} 年時合計壓密沉陷 ≈ ${fmt(r.settlementAtEvaluationCm, 2)} cm（控制層 t90=${fmt(r.governingT90Years, 2)} 年）</code>` : ''}</p>` : ''}` : ''}
 <div class="note">本頁為矩形淺基礎服務載重之<strong>局部穩定檢核</strong>（底壓、偏心、抗滑、抗傾覆${r.effectiveAreaCheck ? '、有效面積承壓' : ''}${r.hasSettlement ? '、彈性沉陷初估' : ''}${r.hasConsolidation ? '、壓密沉陷初估' : ''}）。衝剪、單向剪力、配筋、${r.hasConsolidation ? '' : '壓密沉陷、'}液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。${r.fullContact ? '' : '目前合力已超出中央核，線性全接觸公式僅供參考，須改採非線性接觸或正式土壓分布。'}</div>`;
   }
 
@@ -919,6 +1048,8 @@ ${r.consolidationValid ? `<p><code>Sc(總) = Σ Sc = ${fmt(r.consolidationSettle
     if (r.effectiveAreaCheck) ctrlRows.push(['有效面積承壓 q′', `${fmt(r.qEff)} tf/m²（B′=${fmt(r.effWidthB, 3)}、L′=${fmt(r.effWidthL, 3)} m）`]);
     if (r.hasSettlement) ctrlRows.push(['彈性沉陷 Se', `${fmt(r.settlementCm)} cm / 容許 ${fmt(r.allowableSettlementCm)} cm`]);
     if (r.hasConsolidation && r.consolidationValid) ctrlRows.push(['壓密沉陷 Sc(總)', `${fmt(r.consolidationSettlementCm, 2)} cm / 容許 ${fmt(r.allowableSettlementCm)} cm（${r.consolidationLayerResults.length} 層）`]);
+    if (r.allLayersHaveTimeRate) ctrlRows.push(['壓密 t90（控制層）', `${fmt(r.governingT90Years, 2)} 年`]);
+    if (r.hasTimeRateEvaluation) ctrlRows.push([`t=${fmt(r.evaluationYears, 1)}年 沉陷量`, `${fmt(r.settlementAtEvaluationCm, 2)} cm`]);
     const checkRows = r.checks.map(c => `<tr><th>${escapeHtml(c.label)}</th><td>${c.passed ? '通過' : '不通過'}</td></tr>`).join('');
     return `
 <h2>設計條件</h2><table>${reportRows(condRows)}</table>
@@ -928,6 +1059,10 @@ ${r.consolidationValid ? `<p><code>Sc(總) = Σ Sc = ${fmt(r.consolidationSettle
 <table>${reportRows(ctrlRows)}</table>
 <table><tr><th>檢核項目</th><th>結果</th></tr>${checkRows}</table>
 <div class="note">本頁為矩形淺基礎服務載重之局部穩定檢核；衝剪、單向剪力、配筋、沉陷、液化、樁基與土壤互制不在本頁範圍，應回 RC 基礎完整工具或正式詳算。</div>`;
+  }
+
+  function reportProjectMetaValue(value) {
+    return Exporter.normalizeProjectFieldValue(value) || '—';
   }
 
   function openReport() {
@@ -958,7 +1093,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>基礎局部穩定檢核計算書</h1>
-<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>設計人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.4</span></div>
+<div class="case-head"><span>計畫：${escapeHtml(reportProjectMetaValue(proj.name))}</span><span>編號：${escapeHtml(reportProjectMetaValue(proj.no))}</span><span>設計人：${escapeHtml(reportProjectMetaValue(proj.designer))}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.5</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
@@ -970,9 +1105,9 @@ ${body}
 
   function applyProjectInfo(project) {
     if (!project || typeof project !== 'object') return;
-    $('projName').value = project.name && project.name !== '未填' ? project.name : '';
-    $('projNo').value = project.no && project.no !== '未填' ? project.no : '';
-    $('projDesigner').value = project.designer && project.designer !== '未填' ? project.designer : '';
+    $('projName').value = Exporter.normalizeProjectFieldValue(project.name);
+    $('projNo').value = Exporter.normalizeProjectFieldValue(project.no);
+    $('projDesigner').value = Exporter.normalizeProjectFieldValue(project.designer);
     saveProjectInfo();
   }
 
@@ -999,7 +1134,7 @@ ${body}
     $('consolidationEnable').checked = Boolean(normalized.consolidationEnable);
     if (Array.isArray(normalized.consolidationLayers) && normalized.consolidationLayers.length) {
       consolLayerData = normalized.consolidationLayers.map(function (Ly) {
-        return { h: String(Ly.h || ''), zMid: String(Ly.zMid || ''), sigma0: String(Ly.sigma0 || ''), e0: String(Ly.e0 || ''), Cc: String(Ly.Cc || ''), Cr: String(Ly.Cr || 0), sigmaP: String(Ly.sigmaP || 0) };
+        return { h: String(Ly.h || ''), zMid: String(Ly.zMid || ''), sigma0: String(Ly.sigma0 || ''), e0: String(Ly.e0 || ''), Cc: String(Ly.Cc || ''), Cr: String(Ly.Cr || 0), sigmaP: String(Ly.sigmaP || 0), cv: String(Ly.cv || ''), drainageType: Ly.drainageType === 'single' ? 'single' : 'double' };
       });
       renderConsolLayerTable();
     }
@@ -1029,18 +1164,18 @@ ${body}
   function saveProjectInfo() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        name: $('projName').value,
-        no: $('projNo').value,
-        designer: $('projDesigner').value
+        name: Exporter.normalizeProjectFieldValue($('projName').value),
+        no: Exporter.normalizeProjectFieldValue($('projNo').value),
+        designer: Exporter.normalizeProjectFieldValue($('projDesigner').value)
       }));
     } catch (err) {}
   }
   function loadProjectInfo() {
     try {
       const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      if (data.name) $('projName').value = data.name;
-      if (data.no) $('projNo').value = data.no;
-      if (data.designer) $('projDesigner').value = data.designer;
+      if (data.name != null) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);
+      if (data.no != null) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);
+      if (data.designer != null) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);
     } catch (err) {}
   }
   function resetDefaults() {
@@ -1048,7 +1183,7 @@ ${body}
     $('includeSelfWeight').checked = true;
     $('effectiveAreaCheck').checked = false;
     $('consolidationEnable').checked = false;
-    consolLayerData = [{ h: '', zMid: '', sigma0: '', e0: '', Cc: '', Cr: '0', sigmaP: '0' }];
+    consolLayerData = [Object.assign({}, CONSOL_LAYER_DEFAULTS)];
     renderConsolLayerTable();
     updateCriteriaPreview();
     calculateFoundationLocal();
@@ -1072,7 +1207,11 @@ ${body}
     calculateFoundationLocal();
   });
   $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
-  ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
+  ['projName', 'projNo', 'projDesigner'].forEach(function (id) {
+    $(id).addEventListener('input', saveProjectInfo);
+    $(id).addEventListener('input', function () { renderFoundationReportReadiness(); });
+    $(id).addEventListener('change', function () { renderFoundationReportReadiness(); });
+  });
   Array.from(document.querySelectorAll('input')).forEach(function (input) {
     if (['projName', 'projNo', 'projDesigner', 'jsonFile'].includes(input.id)) return;
     input.addEventListener('input', calculateFoundationLocal);

@@ -46,6 +46,18 @@
   .form-group select { width:100%; min-height:42px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:0.95rem; }
   .scope-box { padding:12px 14px; border-radius:10px; background:#ecfeff; border:1px solid #67e8f9; color:#155e75; font-size:0.84em; line-height:1.75; }
   .scope-box strong { color:#0e7490; }
+  .report-readiness { margin-top:10px; border:1px solid #99f6e4; border-radius:10px; background:#f0fdfa; padding:12px 14px; color:#115e59; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
   .tool-meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
   .tool-meta span { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:#cffafe; color:#155e75; font-size:0.78em; font-weight:800; }
   .metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
@@ -78,7 +90,7 @@
     .header-links .sep { display:none; }
     .hero-chip { font-size:0.76em; padding:5px 10px; }
     .equipment-shell, .equipment-form-stack, .equipment-result-stack { gap:14px; }
-    .form-row, .metric-grid { grid-template-columns:1fr; }
+    .form-row, .metric-grid, .report-readiness-grid { grid-template-columns:1fr; }
     .case-actions,
     .output-actions { flex-direction:column; align-items:stretch; width:100%; }
     .case-actions { margin-left:0; }
@@ -86,6 +98,10 @@
     .output-actions .btn-calc,
     .output-actions .btn-print,
     .output-actions .btn-secondary { width:100%; flex:1 1 auto; }
+  }
+  @media print {
+    .page-only-report-status,
+    .case-actions { display:none !important; }
   }
 </style>
 </head>
@@ -299,6 +315,9 @@
           <button class="btn-secondary" id="btnJson" type="button">下載 JSON</button>
         </div>
       </div>
+      <div class="card page-only-report-status">
+        <div class="report-readiness blocked" id="equipmentReportReadiness" role="status" aria-live="polite"></div>
+      </div>
     </div>
 
     <div class="equipment-result-stack">
@@ -330,8 +349,8 @@
   </div>
 </div>
 
-<script src="../local-quick-export.js"></script>
-<script src="equipment-load-core.js"></script>
+<script src="../local-quick-export.js?v=1"></script>
+<script src="equipment-load-core.js?v=1"></script>
 <script>
 (function () {
   const STORAGE_KEY = 'equipmentLoadProjectInfo';
@@ -367,6 +386,7 @@
   };
   const FORM_FIELD_IDS = Object.keys(DEFAULTS);
   let lastResult = null;
+  let lastEquipmentReportValidationMessage = '';
   const Core = window.EquipmentLoadCore;
   if (!Core) throw new Error('EquipmentLoadCore is not loaded.');
   const Exporter = window.LocalQuickExport;
@@ -394,6 +414,78 @@
   function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, function (ch) {
       return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
+    });
+  }
+  function isProjectMetaMissing() {
+    return Exporter.isProjectMetaMissing(gatherProjectInfo());
+  }
+  function equipmentReportModeLabel() {
+    return ($('reportMode') && $('reportMode').value === 'summary') ? '簡易結果' : '詳算式';
+  }
+  function setEquipmentReportValidationMessage(message) {
+    lastEquipmentReportValidationMessage = message || '';
+    renderEquipmentReportReadiness(lastEquipmentReportValidationMessage);
+  }
+  function buildEquipmentReportReadinessModel(validationMessage) {
+    if (validationMessage) {
+      return {
+        level: 'blocked',
+        badge: '暫勿作附件',
+        title: '輸入尚未通過檢查，先不要產生計算書。',
+        items: [
+          { label: '輸入檢核', value: validationMessage },
+          { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+        ]
+      };
+    }
+    if (!lastResult) {
+      return {
+        level: 'blocked',
+        badge: '暫勿作附件',
+        title: '尚未完成計算，先不要產生計算書。',
+        items: [
+          { label: '計算狀態', value: '尚未建立設備局部荷重結果' },
+          { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+        ]
+      };
+    }
+    const reviewItems = [];
+    if (isProjectMetaMissing()) reviewItems.push('計畫名稱 / 編號 / 整理人尚未完整，附件識別不足。');
+    if (!lastResult.overallOk) {
+      const failed = (lastResult.checks || []).find(function (check) { return check && check.passed === false; });
+      reviewItems.push(failed ? `控制項「${failed.label}」未通過，應先修正或改採正式詳算。` : '局部荷重檢核尚未通過，應先修正或改採正式詳算。');
+    }
+    if (lastResult.horizontalTotal > 0) reviewItems.push('水平力與錨栓責任邊界仍須另回錨栓檢討工具確認。');
+    const items = reviewItems.slice(0, 2).map(function (message, index) {
+      return { label: `優先處理 ${index + 1}`, value: message };
+    });
+    items.push(
+      { label: '控制狀態', value: lastResult.overallOk ? '局部荷重初步通過' : '需先複核' },
+      { label: '控制項目', value: lastResult.governingCheck ? `${lastResult.governingCheck.label} / util=${fmt(lastResult.governingCheck.utilization, 2)}` : '未形成控制項目' },
+      { label: '設計重量 / 單點反力', value: `${fmt(lastResult.designWeight)} / ${fmt(lastResult.pointLoad)} tf` },
+      { label: '計算書模式', value: equipmentReportModeLabel() },
+      { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+    );
+    return {
+      level: reviewItems.length ? 'review' : 'ready',
+      badge: reviewItems.length ? '優先複核' : '可作附件',
+      title: reviewItems.length ? '計算已完成，但產報前建議優先閱讀下列項目。' : '計算已完成，可產生計算書附件。',
+      items: items
+    };
+  }
+  function renderEquipmentReportReadiness(validationMessage) {
+    const el = document.getElementById('equipmentReportReadiness');
+    if (!el) return;
+    const message = typeof validationMessage === 'string' ? validationMessage : lastEquipmentReportValidationMessage;
+    const model = buildEquipmentReportReadinessModel(message);
+    Exporter.renderStatusGridPanel({
+      target: el,
+      level: model.level,
+      eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+      title: model.title,
+      badge: model.badge,
+      items: model.items,
+      note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認設備荷重來源、水平力假設、錨栓責任邊界、RC / 鋼板基準與送審圖說一致性。'
     });
   }
   function gatherInputs() {
@@ -453,9 +545,9 @@
 
   function applyProjectInfo(project) {
     if (!project || typeof project !== 'object') return;
-    $('projName').value = project.name && project.name !== '未填' ? project.name : '';
-    $('projNo').value = project.no && project.no !== '未填' ? project.no : '';
-    $('projDesigner').value = project.designer && project.designer !== '未填' ? project.designer : '';
+    $('projName').value = Exporter.normalizeProjectFieldValue(project.name);
+    $('projNo').value = Exporter.normalizeProjectFieldValue(project.no);
+    $('projDesigner').value = Exporter.normalizeProjectFieldValue(project.designer);
     saveProjectInfo();
   }
 
@@ -651,6 +743,7 @@
       $('stepBody').innerHTML = '<div class="scope-box">' + escapeHtml(errors.join(' ')) + '</div>';
       drawDiagram(null);
       lastResult = null;
+      setEquipmentReportValidationMessage(errors.join(' '));
       return null;
     }
     const result = Core.calculate(input);
@@ -660,6 +753,7 @@
     renderChecks(result);
     renderSteps(result);
     drawDiagram(result);
+    setEquipmentReportValidationMessage('');
     return result;
   }
 
@@ -673,9 +767,9 @@
 
   function gatherProjectInfo() {
     return {
-      name: $('projName').value.trim() || '未填',
-      no: $('projNo').value.trim() || '未填',
-      designer: $('projDesigner').value.trim() || '未填'
+      name: Exporter.normalizeProjectFieldValue($('projName').value),
+      no: Exporter.normalizeProjectFieldValue($('projNo').value),
+      designer: Exporter.normalizeProjectFieldValue($('projDesigner').value)
     };
   }
 
@@ -754,6 +848,10 @@
     drawDiagram(r);
     const svg = document.getElementById('equipmentDiagram');
     return svg ? svg.outerHTML : '';
+  }
+
+  function reportProjectMetaValue(value) {
+    return Exporter.normalizeProjectFieldValue(value) || '—';
   }
 
   function detailedBody(r, svgHtml) {
@@ -849,7 +947,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>設備局部荷重計算書</h1>
-<div class="case-head"><span>計畫：${escapeHtml(proj.name)}</span><span>編號：${escapeHtml(proj.no)}</span><span>整理人：${escapeHtml(proj.designer)}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：設備局部荷重 V0.2</span></div>
+<div class="case-head"><span>計畫：${escapeHtml(reportProjectMetaValue(proj.name))}</span><span>編號：${escapeHtml(reportProjectMetaValue(proj.no))}</span><span>整理人：${escapeHtml(reportProjectMetaValue(proj.designer))}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：設備局部荷重 V0.2</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
@@ -862,18 +960,18 @@ ${body}
   function saveProjectInfo() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        name: $('projName').value,
-        no: $('projNo').value,
-        designer: $('projDesigner').value
+        name: Exporter.normalizeProjectFieldValue($('projName').value),
+        no: Exporter.normalizeProjectFieldValue($('projNo').value),
+        designer: Exporter.normalizeProjectFieldValue($('projDesigner').value)
       }));
     } catch (err) {}
   }
   function loadProjectInfo() {
     try {
       const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      if (data.name) $('projName').value = data.name;
-      if (data.no) $('projNo').value = data.no;
-      if (data.designer) $('projDesigner').value = data.designer;
+      if (data.name != null) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);
+      if (data.no != null) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);
+      if (data.designer != null) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);
     } catch (err) {}
   }
   function resetDefaults() {
@@ -895,7 +993,11 @@ ${body}
   });
   document.getElementById('btnReset').addEventListener('click', resetDefaults);
   $('coreVersion').textContent = `Core v${Core.version || 'unknown'}`;
-  ['projName', 'projNo', 'projDesigner'].forEach(id => $(id).addEventListener('input', saveProjectInfo));
+  ['projName', 'projNo', 'projDesigner'].forEach(function (id) {
+    $(id).addEventListener('input', saveProjectInfo);
+    $(id).addEventListener('input', function () { renderEquipmentReportReadiness(); });
+    $(id).addEventListener('change', function () { renderEquipmentReportReadiness(); });
+  });
   Array.from(document.querySelectorAll('input, select')).forEach(function (input) {
     if (['projName', 'projNo', 'projDesigner', 'jsonFile'].includes(input.id)) return;
     input.addEventListener('input', calculateEquipmentLoad);

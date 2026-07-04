@@ -29,6 +29,47 @@ function assertIncludes(text, needle, label) {
   assert.ok(text.includes(needle), `${label} missing: ${needle}`);
 }
 
+function assertNoIncludes(text, needle, label) {
+  assert.equal(text.includes(needle), false, `${label} should not include: ${needle}`);
+}
+
+function functionSource(source, functionName) {
+  const start = source.indexOf(`function ${functionName}`);
+  assert.ok(start >= 0, `${functionName} missing`);
+  const next = source.indexOf('\nfunction ', start + 1);
+  return next >= 0 ? source.slice(start, next) : source.slice(start);
+}
+
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertPrintHidesSelectors(text, selectors, label) {
+  selectors.forEach(selector => {
+    const pattern = new RegExp(`@media\\s+print[\\s\\S]*${escapeRegex(selector)}[\\s\\S]*display:none\\s*!important`);
+    assert.ok(pattern.test(text), `${label} print hides ${selector}`);
+  });
+}
+
+function assertFunctionTemplateExcludes(source, functionName, startNeedle, needles, label) {
+  const body = functionSource(source, functionName);
+  const start = body.indexOf(startNeedle);
+  assert.ok(start >= 0, `${label} missing template start: ${startNeedle}`);
+  const template = body.slice(start);
+  needles.forEach(needle => assertNoIncludes(template, needle, label));
+}
+
+const pageOnlyReportStatusNeedles = [
+  '產報前檢查',
+  '優先閱讀',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+];
+
 function assertHomeToolCategories(title, categories, label) {
   const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const expectedCategories = categories.map(category => `'${category}'`).join(', ');
@@ -73,6 +114,8 @@ const repoDocs = {
   seismicDynamic: readText(toolboxFile('tools/地震力/seismic-dynamic.html')),
   seismicAppendage: readText(toolboxFile('tools/地震力/seismic-appendage.html')),
   seismicMisc: readText(toolboxFile('tools/地震力/seismic-misc.html')),
+  windKzt: readText(toolboxFile('tools/風力/wind-kzt.html')),
+  windSpecial: readText(toolboxFile('tools/風力/wind-special.html')),
   windObjectSolid: readText(toolboxFile('tools/風力/wind-object-solid.html')),
   windObjectFrame: readText(toolboxFile('tools/風力/wind-object-frame.html')),
   windLatticeTower: readText(toolboxFile('tools/風力/wind-lattice-tower.html')),
@@ -151,6 +194,7 @@ const ExportHelper = require(exportHelperPath);
   'btnJson',
   'blob.text()',
   'assertJsonExportState',
+  'assertPlaceholderJsonExportState',
   'jsonImportExpression(tool, exportState.payload)',
   'tool.jsonRoundTrip === true',
   'assertFoundationJsonImportState',
@@ -160,8 +204,12 @@ const ExportHelper = require(exportHelperPath);
   'earth import wall output',
   'btnPrint',
   'assertReportState',
+  'assertPlaceholderReportState',
   "reportExpression('summary')",
   "reportExpression('detailed')",
+  "jsonExportExpression('placeholder')",
+  "reportExpression('summary', 'placeholder')",
+  "reportExpression('detailed', 'placeholder')",
   "viewport.key === 'desktop'",
   'desktop route-tool interaction',
   'relativeLinks',
@@ -170,6 +218,11 @@ const ExportHelper = require(exportHelperPath);
   'legacyInlineValidationCases',
   'steel-beam',
   'steel-column',
+  'referenceReadinessExpression',
+  'referenceReadinessCases',
+  'assertReferenceReadinessState',
+  'wind-kzt',
+  'wind-special',
   'forcePickerStatusExpression',
   '/force-picker',
   'targetStatus',
@@ -241,6 +294,11 @@ const ExportHelper = require(exportHelperPath);
 
 [
   'LocalQuickExport',
+  'function escapeHtml',
+  'function normalizeProjectFieldValue',
+  'function normalizeProjectMeta',
+  'function isProjectMetaMissing',
+  'function renderStatusGridPanel',
   'function jsonReplacer',
   'function buildPayload',
   'function downloadJson',
@@ -252,23 +310,77 @@ const ExportHelper = require(exportHelperPath);
 
 [
   'withDownloadStubs',
+  'normalizeProjectMeta',
   'downloadResultJson',
   'foundation-local-2026-05-19.json',
   'application/json;charset=utf-8',
   'local quick export helper OK',
 ].forEach(needle => assertIncludes(exportHelperTestText, needle, 'local quick export helper test'));
 
-assert.equal(ExportHelper.version, '0.1.0', 'local quick export helper version');
+assert.equal(ExportHelper.version, '0.2.0', 'local quick export helper version');
+assert.equal(ExportHelper.normalizeProjectFieldValue('未填'), '', 'local quick export helper clears placeholder project metadata');
 const helperPayload = ExportHelper.buildPayload({
   tool: { id: 'helper-smoke', name: 'Helper Smoke' },
-  project: { name: '未填' },
+  project: { name: '未填', no: 'LOCAL-VERIFY-001', designer: 'Codex QA' },
   generatedAt: '2026-05-19T00:00:00.000Z',
   result: { value: Infinity }
 });
 assert.equal(helperPayload.tool.id, 'helper-smoke', 'local quick export helper payload tool');
+assert.equal(helperPayload.project.name, '', 'local quick export helper payload scrubs placeholder project name');
+assert.equal(helperPayload.project.no, 'LOCAL-VERIFY-001', 'local quick export helper payload keeps project number');
+assert.equal(helperPayload.project.designer, 'Codex QA', 'local quick export helper payload keeps project designer');
 assert.equal(JSON.stringify(helperPayload, ExportHelper.jsonReplacer).includes('"Infinity"'), true, 'local quick export helper non-finite number serialization');
+assert.equal(ExportHelper.isProjectMetaMissing({ name: '案名', no: 'A-1', designer: 'QA' }), false, 'local quick export helper complete project metadata');
+assert.equal(ExportHelper.isProjectMetaMissing({ name: '未填', no: 'A-1', designer: 'QA' }), true, 'local quick export helper placeholder metadata');
 delete require.cache[require.resolve(exportHelperTestPath)];
 require(exportHelperTestPath);
+[
+  ['tools/equipment/equipment-load.html', 'Exporter.normalizeProjectFieldValue(project.name)'],
+  ['tools/earth/earth-pressure.html', 'Exporter.normalizeProjectFieldValue(project.name)'],
+  ['tools/foundation/foundation-local.html', 'Exporter.normalizeProjectFieldValue(project.name)'],
+  ['tools/equipment/equipment-load.html', 'reportProjectMetaValue(proj.name)'],
+  ['tools/earth/earth-pressure.html', 'reportProjectMetaValue(proj.name)'],
+  ['tools/foundation/foundation-local.html', 'reportProjectMetaValue(proj.name)'],
+  ['tools/equipment/equipment-load.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],
+  ['tools/earth/earth-pressure.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],
+  ['tools/foundation/foundation-local.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],
+  ['tools/鋼構/steel-beam.html', "window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projName')?.value)"],
+  ['tools/鋼構/steel-column.html', "window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projName')?.value)"],
+].forEach(([relativePath, needle]) => {
+  assertIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} project metadata normalization`);
+});
+[
+  ['tools/equipment/equipment-load.html', "if (data.name != null) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);"],
+  ['tools/equipment/equipment-load.html', "if (data.no != null) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);"],
+  ['tools/equipment/equipment-load.html', "if (data.designer != null) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);"],
+  ['tools/earth/earth-pressure.html', "if (data.name != null) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);"],
+  ['tools/earth/earth-pressure.html', "if (data.no != null) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);"],
+  ['tools/earth/earth-pressure.html', "if (data.designer != null) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);"],
+  ['tools/foundation/foundation-local.html', "if (data.name != null) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);"],
+  ['tools/foundation/foundation-local.html', "if (data.no != null) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);"],
+  ['tools/foundation/foundation-local.html', "if (data.designer != null) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);"],
+].forEach(([relativePath, needle]) => {
+  assertIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} project metadata restore clears stale blank values`);
+});
+[
+  ['tools/鋼構/steel-beam.html', "name: (document.getElementById('projName')?.value || '').trim()"],
+  ['tools/鋼構/steel-column.html', "name: (document.getElementById('projName')?.value || '').trim()"],
+].forEach(([relativePath, needle]) => {
+  assertNoIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} should not use raw project metadata trim in report header`);
+});
+[
+  ['tools/equipment/equipment-load.html', "if (data.name) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);"],
+  ['tools/equipment/equipment-load.html', "if (data.no) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);"],
+  ['tools/equipment/equipment-load.html', "if (data.designer) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);"],
+  ['tools/earth/earth-pressure.html', "if (data.name) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);"],
+  ['tools/earth/earth-pressure.html', "if (data.no) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);"],
+  ['tools/earth/earth-pressure.html', "if (data.designer) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);"],
+  ['tools/foundation/foundation-local.html', "if (data.name) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);"],
+  ['tools/foundation/foundation-local.html', "if (data.no) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);"],
+  ['tools/foundation/foundation-local.html', "if (data.designer) $('projDesigner').value = Exporter.normalizeProjectFieldValue(data.designer);"],
+].forEach(([relativePath, needle]) => {
+  assertNoIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} should not keep stale project metadata when saved blank values are restored`);
+});
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.js', 'local quick export README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-export.test.js', 'local quick export test README');
 assertIncludes(repoDocs.readme, '結構工具箱/tools/local-quick-output-consistency.test.js', 'local quick output consistency test README');
@@ -372,6 +484,7 @@ const homeToolObjectCount = (repoDocs.homeJs.match(/\r?\n\s*{\r?\n\s*title: '/g)
 assert.ok(homeToolObjectCount >= 35, 'new home governed tool object count');
 assert.equal((repoDocs.homeJs.match(/\n\s*state: '/g) || []).length, homeToolObjectCount, 'every new home tool has a governed state');
 assert.equal((repoDocs.homeJs.match(/\n\s*output: '/g) || []).length, homeToolObjectCount, 'every new home tool has an output field');
+assertIncludes(repoDocs.homeJs, "profileItem('閱讀狀態', currentState.summary)", 'new home readiness profile item');
 [
   "formal: { label: '正式核算'",
   "reference: { label: '輔助查詢'",
@@ -402,14 +515,39 @@ assert.equal(repoDocs.homeTokens.includes('fonts.googleapis.com'), false, 'home 
 assert.equal(repoDocs.homeTokens.includes('fonts.gstatic.com'), false, 'home design tokens avoid remote font binaries');
 assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), false, 'dynamic seismic summary is not mixed into structural analysis');
 [
-  [repoDocs.steelBeam, 'steel beam legacy page'],
+[repoDocs.steelBeam, 'steel beam legacy page'],
   [repoDocs.steelColumn, 'steel column legacy page'],
 ].forEach(([html, label]) => {
   assertIncludes(html, 'id="inputStatus"', `${label} inline input status`);
   assertIncludes(html, 'function setInputStatus', `${label} inline input status helper`);
   assertIncludes(html, 'return inputFail(', `${label} validation returns inline failure`);
   assert.equal(html.includes('alert('), false, `${label} uses inline validation instead of alerts`);
+  [
+    'page-only-report-status',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF',
+  ].forEach(needle => assertIncludes(html, needle, `${label} page-only readiness copy`));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${label} page-only readiness hidden from print`);
+  assertIncludes(html, 'renderStatusGridPanel', `${label} readiness shared renderer usage`);
 });
+assertFunctionTemplateExcludes(repoDocs.steelBeam, 'buildBeamReport', 'openReport({', pageOnlyReportStatusNeedles, 'steel beam legacy report excludes page-only readiness wording');
+assertFunctionTemplateExcludes(repoDocs.steelColumn, 'buildColumnReport', 'openReport({', pageOnlyReportStatusNeedles, 'steel column legacy report excludes page-only readiness wording');
+[
+  [repoDocs.windKzt, 'wind kzt reference page', 'kztReportReadiness'],
+  [repoDocs.windSpecial, 'wind special reference page', 'specialReportReadiness'],
+].forEach(([html, label, targetId]) => {
+  [
+    'page-only-report-status',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF',
+    'renderStatusGridPanel',
+    `id="${targetId}"`,
+  ].forEach(needle => assertIncludes(html, needle, `${label} page-only readiness copy`));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${label} page-only readiness hidden from print`);
+});
+assertIncludes(repoDocs.windKzt, '列印頁面結果', 'wind kzt reference page print wording');
+assertIncludes(repoDocs.windSpecial, 'const DEFAULT_BASIS_PROMPT', 'wind special reference page default basis guard');
+assertIncludes(repoDocs.windSpecial, 'function normalizeBasisText', 'wind special reference page basis normalization helper');
 assertIncludes(repoDocs.forcePicker, 'id="targetStatus"', 'force picker inline target status');
 assertIncludes(repoDocs.forcePicker, 'function setTargetStatus', 'force picker inline target status helper');
 assert.equal(repoDocs.forcePicker.includes('alert('), false, 'force picker uses inline status instead of alerts');
@@ -1085,8 +1223,8 @@ for (const tool of tools) {
     `pageVersion: '${tool.pageVersion}'`,
     tool.calcFunction,
     'href="../../core/style.css"',
-    'src="../local-quick-export.js"',
-    `src="${tool.core.split('/').pop()}"`,
+    'src="../local-quick-export.js',
+    `src="${tool.core.split('/').pop()}`,
     'id="btnCalc"',
     'id="btnJson"',
     tool.key === 'equipment-load' ? 'id="btnImportJson"' : 'id="btnJson"',
@@ -1101,6 +1239,31 @@ for (const tool of tools) {
     'function downloadResultJson',
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));
   tool.reportNeedles.forEach(needle => assertIncludes(html, needle, `${tool.key} report needle source`));
+  [
+    'page-only-report-status',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, `${tool.key} page-only readiness copy`));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${tool.key} page-only readiness hidden from print`);
+  if (['foundation-local', 'earth-pressure', 'equipment-load'].includes(tool.key)) {
+    assertPrintHidesSelectors(html, ['.case-actions'], `${tool.key} print-only case helper boundary`);
+  }
+  if (['foundation-local', 'earth-pressure', 'equipment-load'].includes(tool.key)) {
+    [
+      'Exporter.isProjectMetaMissing',
+      'Exporter.renderStatusGridPanel',
+    ].forEach(needle => assertIncludes(html, needle, `${tool.key} readiness helper usage`));
+    assertFunctionTemplateExcludes(
+      html,
+      'openReport',
+      'const reportHtml = `',
+      pageOnlyReportStatusNeedles,
+      `${tool.key} report excludes page-only readiness wording`
+    );
+  }
+  if (tool.key === 'equipment-load') assertIncludes(html, 'id="equipmentReportReadiness"', `${tool.key} page-only readiness target`);
+  if (tool.key === 'earth-pressure') assertIncludes(html, 'id="earthReportReadiness"', `${tool.key} page-only readiness target`);
+  if (tool.key === 'foundation-local') assertIncludes(html, 'id="foundationReportReadiness"', `${tool.key} page-only readiness target`);
   // 已正式化的工具（report standard）不再以「初估」標示；尚未正式化者仍須保留
   if (!['foundation-local', 'equipment-load'].includes(tool.key)) {
     assertIncludes(html, '初估', `${tool.key} html estimate label`);

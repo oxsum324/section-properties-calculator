@@ -14,7 +14,7 @@ function approx(actual, expected, tolerance = 1e-6) {
 }
 
 assert.equal(goldenCases.length, 4);
-assert.equal(FoundationLocalCore.version, '0.4.0');
+assert.equal(FoundationLocalCore.version, '0.5.0');
 
 for (const goldenCase of goldenCases) {
   const r = FoundationLocalCore.calculate(goldenCase.input);
@@ -188,4 +188,87 @@ for (const goldenCase of goldenCases) {
   assert.ok(errors.some(m => m.includes('Cc')));
 }
 
-console.log('foundation local core regression OK (incl. effective area + elastic settlement + consolidation Boussinesq/2:1)');
+// ── 壓密沉陷時間-沉陷歷程（Terzaghi Tv/U）──
+{
+  // Tv50/Tv90 對齊教科書標準值
+  approx(FoundationLocalCore.timeFactorFromDegree(50), 0.19634954084936207, 1e-12);
+  approx(FoundationLocalCore.timeFactorFromDegree(90), 0.8479999999999999, 1e-12);
+}
+{
+  // 反函數一致性：U≤60% 拋物線段與 U>60% 對數段皆可還原
+  approx(FoundationLocalCore.degreeFromTimeFactor(0.19634954084936207), 50, 1e-6);
+  approx(FoundationLocalCore.degreeFromTimeFactor(0.8479999999999999), 90, 1e-3);
+}
+{
+  // 雙面排水 Hdr=h/2；單面排水 Hdr=h（t50/t90 因 Hdr² 差 4 倍）
+  const dbl = FoundationLocalCore.consolidationTimeRate(3, 2, 'double', 0.05, 0);
+  const sgl = FoundationLocalCore.consolidationTimeRate(3, 2, 'single', 0.05, 0);
+  approx(dbl.Hdr, 1.5, 1e-12);
+  approx(sgl.Hdr, 3, 1e-12);
+  approx(dbl.t50, 0.22089323345553233, 1e-9);
+  approx(dbl.t90, 0.9539999999999998, 1e-9);
+  approx(sgl.t50, dbl.t50 * 4, 1e-9);
+  approx(sgl.t90, dbl.t90 * 4, 1e-9);
+  assert.equal(dbl.atTarget, null, '未提供評估年限時不計算 atTarget');
+}
+{
+  // 指定評估年限（落於 U≤60% 內插段）：U(t) 與對應沉陷量
+  const tr = FoundationLocalCore.consolidationTimeRate(3, 2, 'double', 0.05, 0.3);
+  approx(tr.atTarget.Tv, 0.26666666666666666, 1e-9);
+  approx(tr.atTarget.Upercent, 58.269249631577544, 1e-6);
+  approx(tr.atTarget.settlementAtT, 0.029134624815788775, 1e-9);
+}
+{
+  // 超長年限：壓密度截於 99.9% 上限，不因對數發散而失控
+  const tr = FoundationLocalCore.consolidationTimeRate(3, 2, 'double', 0.05, 5);
+  approx(tr.atTarget.Upercent, 99.9, 1e-9);
+  approx(tr.atTarget.settlementAtT, 0.05 * 0.999, 1e-9);
+}
+{
+  // calculate() 整合：單層提供 cv，含評估年限 → 合計壓密度沉陷量
+  const base = { B: 2.5, L: 3, t: 0.6, Df: 1.2, gammaC: 2.4, gammaS: 1.8, P: 80, qa: 20, Mx: 12, My: 8, Hx: 4, Hy: 3, mu: 0.45, passive: 0, fsSlideReq: 1.5, fsOverReq: 1.5, includeSelfWeight: true };
+  const r = FoundationLocalCore.calculate(Object.assign({}, base, {
+    consolidationEnable: true, consolidationMethod: '2:1', evaluationYears: 0.3,
+    consolidationLayers: [{ h: 3, zMid: 2, sigma0: 12, e0: 0.85, Cc: 0.28, Cr: 0, sigmaP: 0, cv: 2, drainageType: 'double' }]
+  }));
+  assert.equal(r.allLayersHaveTimeRate, true);
+  assert.equal(r.hasTimeRateEvaluation, true);
+  approx(r.settlementAtEvaluationCm, 3.0701602808299477, 1e-6);
+  approx(r.governingT90Years, 0.9539999999999998, 1e-9);
+  assert.ok(r.consolidationLayerResults[0].hasTimeRate);
+  assert.equal(r.consolidationLayerResults[0].drainageTypeLabel, '雙面排水');
+}
+{
+  // 混合層（一層有 cv、一層無）：不得合計評估年限沉陷量，避免混雜已知/未知速率層
+  const base = { B: 2.5, L: 3, t: 0.6, Df: 1.2, gammaC: 2.4, gammaS: 1.8, P: 80, qa: 20, Mx: 12, My: 8, Hx: 4, Hy: 3, mu: 0.45, passive: 0, fsSlideReq: 1.5, fsOverReq: 1.5, includeSelfWeight: true };
+  const r = FoundationLocalCore.calculate(Object.assign({}, base, {
+    consolidationEnable: true, consolidationMethod: '2:1', evaluationYears: 0.3,
+    consolidationLayers: [
+      { h: 3, zMid: 2, sigma0: 12, e0: 0.85, Cc: 0.28, Cr: 0, sigmaP: 0, cv: 2, drainageType: 'double' },
+      { h: 2, zMid: 6, sigma0: 20, e0: 0.7, Cc: 0.15, Cr: 0, sigmaP: 0, cv: 0 }
+    ]
+  }));
+  assert.equal(r.allLayersHaveTimeRate, false);
+  assert.equal(r.hasTimeRateEvaluation, false);
+  assert.equal(r.settlementAtEvaluationCm, null);
+  assert.equal(r.consolidationLayerResults[0].hasTimeRate, true);
+  assert.equal(r.consolidationLayerResults[1].hasTimeRate, false);
+}
+{
+  // 未提供 cv（既有 B3 用法）：時間率相關欄位不出現、既有 Sc 不受影響
+  const r = FoundationLocalCore.calculate(goldenCases[0].input);
+  assert.equal(r.allLayersHaveTimeRate, false);
+  assert.equal(r.hasTimeRateEvaluation, false);
+  assert.equal(r.settlementAtEvaluationCm, null);
+  assert.equal(r.governingT90Years, null);
+}
+{
+  // 驗證：cv 為負時應報錯
+  const errors = FoundationLocalCore.validateInput(Object.assign({}, goldenCases[0].input, {
+    consolidationEnable: true,
+    consolidationLayers: [{ h: 3, zMid: 2, sigma0: 12, e0: 0.85, Cc: 0.28, cv: -1 }]
+  }));
+  assert.ok(errors.some(m => m.includes('cv')));
+}
+
+console.log('foundation local core regression OK (incl. effective area + elastic settlement + consolidation Boussinesq/2:1 + Terzaghi time-rate)');

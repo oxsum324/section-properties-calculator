@@ -8,10 +8,10 @@
   'use strict';
 
   const CORE_NAME = 'FoundationLocalCore';
-  const CORE_VERSION = '0.4.0';
-  const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.4';
-  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.4';
-  const LOGIC_SIGNATURE = 'foundation-local-core:v0.4:design-basis-service-stability:qmax-qmin-sliding-overturning-effective-area-elastic-settlement-consolidation-boussinesq-2to1';
+  const CORE_VERSION = '0.5.0';
+  const INPUT_SCHEMA_VERSION = 'foundation-local.input.v0.5';
+  const RESULT_SCHEMA_VERSION = 'foundation-local.result.v0.5';
+  const LOGIC_SIGNATURE = 'foundation-local-core:v0.5:design-basis-service-stability:qmax-qmin-sliding-overturning-effective-area-elastic-settlement-consolidation-boussinesq-2to1-terzaghi-time-rate';
 
   const DESIGN_CODE_PRESETS = {
     'tw-foundation-112': {
@@ -159,6 +159,49 @@
     'overconsolidated-straddling': '過壓密（OC，跨越 σp′ 進入處女壓縮線）',
     'invalid': '輸入不足或不合理'
   };
+  const DRAINAGE_LABELS = {
+    single: '單面排水',
+    double: '雙面排水'
+  };
+
+  // Terzaghi 壓密度 U(%) → 時間因數 Tv（標準近似式；U≤60% 拋物線、U>60% 對數擬合）。
+  function timeFactorFromDegree(Upercent) {
+    if (!(Upercent >= 0)) return NaN;
+    const u = Upercent / 100;
+    if (Upercent <= 60) return (Math.PI / 4) * u * u;
+    return 1.781 - 0.933 * Math.log10(100 - Upercent);
+  }
+  const TV_50 = timeFactorFromDegree(50);
+  const TV_90 = timeFactorFromDegree(90);
+  const TV_AT_U60 = (Math.PI / 4) * 0.36; // U=60% 為兩段公式交界之 Tv
+
+  // 時間因數 Tv → 壓密度 U(%)（上式反函數）；U 上限截於 99.9% 避免對數項發散。
+  function degreeFromTimeFactor(Tv) {
+    if (!(Tv >= 0)) return NaN;
+    if (Tv <= TV_AT_U60) {
+      return Math.min(100 * Math.sqrt(4 * Tv / Math.PI), 60);
+    }
+    const U = 100 - Math.pow(10, (1.781 - Tv) / 0.933);
+    return Math.min(Math.max(U, 60), 99.9);
+  }
+
+  // 單層壓密時間率：Hdr=排水路徑長，t50/t90=達 50%/90% 壓密所需時間（年，與 cv 單位 m²/年一致）；
+  // 若提供 evaluationYears，另計該時刻壓密度 U(t) 與對應沉陷量（Sc 為該層最終壓密沉陷量，m）。
+  function consolidationTimeRate(h, cv, drainageType, Sc, evaluationYears) {
+    if (!(h > 0) || !(cv > 0)) return null;
+    const Hdr = drainageType === 'single' ? h : h / 2;
+    const t50 = TV_50 * Hdr * Hdr / cv;
+    const t90 = TV_90 * Hdr * Hdr / cv;
+    let atTarget = null;
+    if (evaluationYears > 0) {
+      const Tv = cv * evaluationYears / (Hdr * Hdr);
+      const Upercent = degreeFromTimeFactor(Tv);
+      const settlementAtT = Number.isFinite(Sc) ? (Upercent / 100) * Sc : NaN;
+      atTarget = { evaluationYears, Tv, Upercent, settlementAtT };
+    }
+    return { Hdr, t50, t90, atTarget };
+  }
+
   function sanitizeConsolidationLayers(raw) {
     if (!Array.isArray(raw)) return [];
     return raw.map(function (Ly) {
@@ -170,7 +213,9 @@
         e0: numberValue(Ly.e0),
         Cc: numberValue(Ly.Cc),
         Cr: numberValue(Ly.Cr),
-        sigmaP: numberValue(Ly.sigmaP)
+        sigmaP: numberValue(Ly.sigmaP),
+        cv: numberValue(Ly.cv),
+        drainageType: Ly.drainageType === 'single' ? 'single' : 'double'
       };
     });
   }
@@ -252,7 +297,8 @@
       allowableSettlementCm: Object.prototype.hasOwnProperty.call(input, 'allowableSettlementCm') ? numberValue(input.allowableSettlementCm) : 2.5,
       consolidationEnable: Boolean(input.consolidationEnable),
       consolidationMethod: input.consolidationMethod === 'boussinesq' ? 'boussinesq' : '2:1',
-      consolidationLayers: sanitizeConsolidationLayers(input.consolidationLayers)
+      consolidationLayers: sanitizeConsolidationLayers(input.consolidationLayers),
+      evaluationYears: numberValue(input.evaluationYears)
     };
   }
 
@@ -275,7 +321,9 @@
         if (!(Ly.sigma0 > 0)) errors.push(`第 ${n} 層初始有效覆土應力 σ0′ 必須大於 0。`);
         if (!(Ly.e0 > -1)) errors.push(`第 ${n} 層初始孔隙比 e0 必須大於 -1。`);
         if (Ly.Cc < 0 || Ly.Cr < 0) errors.push(`第 ${n} 層壓縮指數 Cc / 再壓縮指數 Cr 不得為負。`);
+        if (Ly.cv < 0) errors.push(`第 ${n} 層壓密係數 cv 不得為負。`);
       });
+      if (i.evaluationYears < 0) errors.push('評估年限不得為負。');
     }
     return errors;
   }
@@ -339,9 +387,13 @@
       const influenceFactor = stressInfluenceFactor(i.consolidationMethod, i.B, i.L, Ly.zMid);
       const deltaSigma = qNet * influenceFactor;
       const r = consolidationSettlementLayer(Ly.h, Ly.e0, Ly.Cc, Ly.Cr, Ly.sigma0, Ly.sigmaP, deltaSigma);
+      const timeRate = consolidationTimeRate(Ly.h, Ly.cv, Ly.drainageType, r.Sc, i.evaluationYears);
       return Object.assign({}, Ly, {
         influenceFactor, deltaSigma,
-        sigmaFinal: r.sigmaFinal, Sc: r.Sc, regime: r.regime, regimeLabel: CONSOLIDATION_REGIME_LABELS[r.regime]
+        sigmaFinal: r.sigmaFinal, Sc: r.Sc, regime: r.regime, regimeLabel: CONSOLIDATION_REGIME_LABELS[r.regime],
+        drainageTypeLabel: DRAINAGE_LABELS[Ly.drainageType],
+        hasTimeRate: Boolean(timeRate),
+        timeRate
       });
     }) : [];
     const consolidationValid = hasConsolidation && consolidationLayerResults.every(function (r) { return Number.isFinite(r.Sc); });
@@ -349,6 +401,16 @@
     const consolidationSettlementCm = hasConsolidation ? consolidationSettlementM * 100 : null;
     const consolidationOk = !hasConsolidation || (consolidationValid && consolidationSettlementCm <= i.allowableSettlementCm);
     const combinedSettlementCm = (hasSettlement ? settlementCm : 0) + (hasConsolidation && consolidationValid ? consolidationSettlementCm : 0);
+
+    // 僅當「所有」壓密層皆提供 cv 時，才合計評估年限之壓密度沉陷量（避免混雜已知/未知速率層）。
+    const allLayersHaveTimeRate = hasConsolidation && consolidationLayerResults.every(function (r) { return r.hasTimeRate; });
+    const hasTimeRateEvaluation = allLayersHaveTimeRate && i.evaluationYears > 0;
+    const settlementAtEvaluationCm = hasTimeRateEvaluation
+      ? consolidationLayerResults.reduce(function (sum, r) { return sum + (r.timeRate.atTarget ? r.timeRate.atTarget.settlementAtT * 100 : 0); }, 0)
+      : null;
+    const governingT90Years = allLayersHaveTimeRate
+      ? Math.max.apply(null, consolidationLayerResults.map(function (r) { return r.timeRate.t90; }))
+      : null;
 
     const overallOk = compressionOk && bearingOk && slideOk && overOk && effectiveAreaOk && settlementOk && consolidationOk;
     const summary = {
@@ -403,6 +465,10 @@
       consolidationSettlementCm,
       consolidationOk,
       combinedSettlementCm,
+      allLayersHaveTimeRate,
+      hasTimeRateEvaluation,
+      settlementAtEvaluationCm,
+      governingT90Years,
       resultSchemaVersion: RESULT_SCHEMA_VERSION,
       designCode: i.designCode,
       loadCondition: i.loadCondition,
@@ -452,11 +518,15 @@
     logicSignature: LOGIC_SIGNATURE,
     designCodePresets: DESIGN_CODE_PRESETS,
     consolidationRegimeLabels: CONSOLIDATION_REGIME_LABELS,
+    drainageLabels: DRAINAGE_LABELS,
     boussinesqCornerFactor,
     boussinesqCenterFactor,
     twoToOneFactor,
     stressInfluenceFactor,
     consolidationSettlementLayer,
+    timeFactorFromDegree,
+    degreeFromTimeFactor,
+    consolidationTimeRate,
     getDesignBasis,
     provenance,
     normalizeInput,
