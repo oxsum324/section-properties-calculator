@@ -358,6 +358,49 @@ function run() {
   assert.ok(!('臺東縣－綠島鄉' in W.CITY_QUICK), '綠島鄉屬外島地區，不應重複列入臺東縣本島清單');
   assert.ok(!('臺東縣－蘭嶼鄉' in W.CITY_QUICK), '蘭嶼鄉屬外島地區，不應重複列入臺東縣本島清單');
 
+  // ── 地點選單依縣市分組 (groupCityQuickByCounty / populateCityQuickSelect) ──
+  {
+    const groups = W.groupCityQuickByCounty();
+    const totalItems = groups.reduce((n, g) => n + g.items.length, 0);
+    assert.strictEqual(totalItems, 308, '分組後總筆數須與 CITY_QUICK 一致');
+
+    const countyNames = groups.map(g => g.county);
+    assert.strictEqual(new Set(countyNames).size, countyNames.length, '縣市分組名稱不得重複');
+    assert.strictEqual(countyNames.length, 20, '應為 20 組（19 本島縣市 + 外島地區；澎湖縣併入外島地區不另立組）');
+    assert.strictEqual(countyNames[0], '臺北市', '分組順序：直轄市優先，臺北市在前');
+    assert.strictEqual(countyNames[countyNames.length - 1], '外島地區', '外島地區固定排在最後');
+    assert.ok(!countyNames.includes('澎湖縣'), '澎湖縣併入外島地區，不應另立獨立分組');
+
+    const byCounty = Object.fromEntries(groups.map(g => [g.county, g.items]));
+
+    // 每個 item 的 key 必須能還原查回 CITY_QUICK 的原值
+    groups.forEach(g => g.items.forEach(({ key, v }) => {
+      assert.strictEqual(W.CITY_QUICK[key], v, `${key} 分組後的值須與 CITY_QUICK 一致`);
+    }));
+
+    // 無「－」的全縣單一值（非外島）：獨立一組、label 為「全區」
+    assert.strictEqual(byCounty['臺北市'].length, 1, '臺北市全市單一值，僅一筆');
+    assert.strictEqual(byCounty['臺北市'][0].label, '全區', '全縣單一值 label 應為「全區」');
+    assert.strictEqual(byCounty['臺北市'][0].key, '臺北市');
+
+    // 縣市轄下鄉鎮市區數與實際行政區數一致（迴歸點：確認分組沒有漏鄉鎮）
+    assert.strictEqual(byCounty['新北市'].length, 29, '新北市應有29區');
+    assert.strictEqual(byCounty['高雄市'].length, 38, '高雄市應有38區');
+    assert.strictEqual(byCounty['彰化縣'].length, 26, '彰化縣應有26鄉鎮市');
+
+    // 外島地區彙整 8 筆，且 label 為地名本身（非「全區」）
+    assert.strictEqual(byCounty['外島地區'].length, 8, '外島地區應有8筆');
+    const islandLabels = byCounty['外島地區'].map(i => i.label).sort().join(',');
+    assert.strictEqual(islandLabels, ['東吉島', '澎湖縣', '琉球', '綠島', '蘭嶼', '金門', '彭佳嶼', '馬祖'].sort().join(','), '外島地區地名須完整');
+
+    // 鹿港鎮分組後 label 只留鄉鎮名（縣市名已是 optgroup 標籤，不重複顯示）
+    const lukang = byCounty['彰化縣'].find(i => i.key === '彰化縣－鹿港鎮');
+    assert.ok(lukang, '彰化縣分組須含鹿港鎮');
+    assert.strictEqual(lukang.label, '鹿港鎮');
+    assert.strictEqual(lukang.v, 27.5);
+  }
+  assert.strictEqual(typeof W.populateCityQuickSelect, 'function', 'populateCityQuickSelect 須匯出供頁面呼叫');
+
   console.log('wind.js tests passed');
 }
 

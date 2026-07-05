@@ -728,13 +728,7 @@ function importCaseJsonFile(file) {
 
 // 城市選單
 const citySel = document.getElementById('city');
-Object.entries(Wind.CITY_QUICK).forEach(([name, v]) => {
-  const o = document.createElement('option');
-  o.value = name;
-  o.textContent = `${name}　(V = ${v} m/s)`;
-  if (name === '臺北市') o.selected = true;
-  citySel.appendChild(o);
-});
+Wind.populateCityQuickSelect(citySel, '臺北市');
 function refreshV() {
   document.getElementById('vHint').textContent = `V = ${Wind.CITY_QUICK[citySel.value]} m/s`;
 }

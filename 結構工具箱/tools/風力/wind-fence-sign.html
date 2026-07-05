@@ -481,12 +481,7 @@ function resetCaseDefaults() {
 // ── 城市選單 ──
 (function() {
   const sel = document.getElementById('city');
-  Object.entries(W.CITY_QUICK).forEach(([name, v]) => {
-    const o = document.createElement('option');
-    o.value = name; o.textContent = `${name}　(V = ${v} m/s)`;
-    if (name === '臺北市') o.selected = true;
-    sel.appendChild(o);
-  });
+  W.populateCityQuickSelect(sel, '臺北市');
   sel.addEventListener('change', refreshV);
   refreshV();
 })();

@@ -1108,13 +1108,7 @@ function bindRecalc(id) {
 }
 (function init() {
   const city = document.getElementById('city');
-  Object.entries(W.CITY_QUICK).forEach(([name, v]) => {
-    const o = document.createElement('option');
-    o.value = name;
-    o.textContent = `${name}　(V = ${v} m/s)`;
-    if (name === '臺北市') o.selected = true;
-    city.appendChild(o);
-  });
+  W.populateCityQuickSelect(city, '臺北市');
   city.addEventListener('change', () => {
     document.getElementById('vHint').textContent = `V = ${W.CITY_QUICK[city.value]} m/s`;
   });

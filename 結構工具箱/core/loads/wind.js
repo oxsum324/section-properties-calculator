@@ -354,6 +354,60 @@
   };
 
   // ═══════════════════════════════
+  //  地點下拉選單建置 — CITY_QUICK 依縣市分組 (optgroup)，供各風力工具頁面共用
+  //  （308 筆逐鄉鎮市區扁平清單過長，改依縣市分組並保留原生 <select> 行為）
+  // ═══════════════════════════════
+  const OUTLYING_ISLANDS = new Set(['金門', '馬祖', '彭佳嶼', '澎湖縣', '東吉島', '蘭嶼', '綠島', '琉球']);
+  const COUNTY_GROUP_ORDER = [
+    '臺北市', '新北市', '桃園市', '臺中市', '臺南市', '高雄市',
+    '基隆市', '新竹市', '嘉義市',
+    '新竹縣', '苗栗縣', '彰化縣', '南投縣', '雲林縣', '嘉義縣',
+    '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣',
+    '外島地區', // 含澎湖縣（規範原文列於外島地區，非本島縣市清單）
+  ];
+
+  function groupCityQuickByCounty() {
+    const groups = new Map();
+    Object.entries(CITY_QUICK).forEach(([key, v]) => {
+      const dashIdx = key.indexOf('－');
+      let county, label;
+      if (dashIdx > -1) {
+        county = key.slice(0, dashIdx);
+        label = key.slice(dashIdx + 1);
+      } else if (OUTLYING_ISLANDS.has(key)) {
+        county = '外島地區';
+        label = key;
+      } else {
+        county = key;
+        label = '全區';
+      }
+      if (!groups.has(county)) groups.set(county, []);
+      groups.get(county).push({ key, label, v });
+    });
+
+    const order = COUNTY_GROUP_ORDER.filter(c => groups.has(c));
+    groups.forEach((_, c) => { if (!order.includes(c)) order.push(c); });
+    return order.map(county => ({ county, items: groups.get(county) }));
+  }
+
+  function populateCityQuickSelect(selectEl, selectedKey) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '';
+    groupCityQuickByCounty().forEach(({ county, items }) => {
+      const og = document.createElement('optgroup');
+      og.label = county;
+      items.forEach(({ key, label, v }) => {
+        const o = document.createElement('option');
+        o.value = key;
+        o.textContent = `${label}　(V = ${v} m/s)`;
+        if (key === selectedKey) o.selected = true;
+        og.appendChild(o);
+      });
+      selectEl.appendChild(og);
+    });
+  }
+
+  // ═══════════════════════════════
   //  表 2.2 地況參數 (10 分鐘平均)
   // ═══════════════════════════════
   const TERRAIN = {
@@ -2277,6 +2331,8 @@
   // ═══════════════════════════════
   global.Wind = {
     CITY_QUICK,
+    groupCityQuickByCounty,
+    populateCityQuickSelect,
     TERRAIN,
     IMPORTANCE,
     GCPI,

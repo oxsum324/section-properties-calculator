@@ -642,13 +642,7 @@ function resetCaseDefaults() {
 
 function populateSelectors() {
   const citySel = document.getElementById('city');
-  Object.entries(W.CITY_QUICK).forEach(([name, speed]) => {
-    const o = document.createElement('option');
-    o.value = name;
-    o.textContent = `${name}　(V = ${speed} m/s)`;
-    if (name === DEFAULT_CASE_INPUTS.values.city) o.selected = true;
-    citySel.appendChild(o);
-  });
+  W.populateCityQuickSelect(citySel, DEFAULT_CASE_INPUTS.values.city);
   const impSel = document.getElementById('impClass');
   Object.entries(W.IMPORTANCE).forEach(([key, data]) => {
     const o = document.createElement('option');
