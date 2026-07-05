@@ -318,6 +318,46 @@ function run() {
   const cable = W.lookupCableCf({ roughness: 'rough_cable', dSqrtQz: 2.0 });
   approx(cable.cf, 1.1, 1e-12, 'cable Cf high D sqrt(qz)');
 
+  // ── CITY_QUICK 基本設計風速：依 §2.4 逐鄉鎮市區，不得使用簡化沿海/內陸/北區/南區分類 ──
+  assert.strictEqual(W.BASIC_WIND_SPEED, undefined, 'legacy mislabeled BASIC_WIND_SPEED table must be removed');
+  assert.strictEqual(Object.keys(W.CITY_QUICK).length, 308, 'CITY_QUICK entry count must match §2.4 township tally');
+  {
+    const keys = Object.keys(W.CITY_QUICK);
+    const seen = new Set();
+    keys.forEach(k => {
+      assert.ok(!seen.has(k), `CITY_QUICK duplicate key: ${k}`);
+      seen.add(k);
+    });
+  }
+  // 關鍵回歸點：使用者原始回報的錯誤——彰化縣沿海鄉鎮(鹿港/芳苑/大城)實為 27.5，
+  // 與彰化市同組，並非簡化標籤所暗示的 32.5（沿海）。
+  approx(W.CITY_QUICK['彰化縣－鹿港鎮'], 27.5, 1e-9, '彰化縣鹿港鎮 (沿海但屬27.5區，非32.5)');
+  approx(W.CITY_QUICK['彰化縣－芳苑鄉'], 27.5, 1e-9, '彰化縣芳苑鄉');
+  approx(W.CITY_QUICK['彰化縣－大城鄉'], 27.5, 1e-9, '彰化縣大城鄉');
+  approx(W.CITY_QUICK['彰化縣－彰化市'], 27.5, 1e-9, '彰化縣彰化市 (與沿海鄉鎮同組)');
+  approx(W.CITY_QUICK['彰化縣－伸港鄉'], 32.5, 1e-9, '彰化縣伸港鄉 (北彰化，32.5)');
+  approx(W.CITY_QUICK['雲林縣－麥寮鄉'], 27.5, 1e-9, '雲林縣麥寮鄉 (沿海但屬27.5區，非32.5)');
+  approx(W.CITY_QUICK['雲林縣－口湖鄉'], 32.5, 1e-9, '雲林縣口湖鄉 (32.5)');
+  approx(W.CITY_QUICK['臺南市－佳里區'], 32.5, 1e-9, '臺南市佳里區 (沿海但屬32.5區，非37.5)');
+  approx(W.CITY_QUICK['臺南市－安平區'], 37.5, 1e-9, '臺南市安平區 (37.5)');
+  // 新北市：東北角/山區 42.5，西南都會區 37.5
+  approx(W.CITY_QUICK['新北市－淡水區'], 42.5, 1e-9, '新北市淡水區');
+  approx(W.CITY_QUICK['新北市－板橋區'], 37.5, 1e-9, '新北市板橋區');
+  // 南投縣跨四個風速區
+  approx(W.CITY_QUICK['南投縣－信義鄉'], 37.5, 1e-9, '南投縣信義鄉');
+  approx(W.CITY_QUICK['南投縣－仁愛鄉'], 32.5, 1e-9, '南投縣仁愛鄉');
+  approx(W.CITY_QUICK['南投縣－南投市'], 27.5, 1e-9, '南投縣南投市');
+  approx(W.CITY_QUICK['南投縣－竹山鎮'], 22.5, 1e-9, '南投縣竹山鎮');
+  // 桃園（原桃園縣「各鄉鎮市」）現制桃園市，全市單一值
+  approx(W.CITY_QUICK['桃園市'], 37.5, 1e-9, '桃園市 (原桃園縣全縣單一值)');
+  // 外島：蘭嶼/綠島/琉球雖行政隸屬臺東/屏東，規範獨立列於外島地區
+  approx(W.CITY_QUICK['蘭嶼'], 65.0, 1e-9, '蘭嶼 (外島獨立列出，不與臺東縣本島同列)');
+  approx(W.CITY_QUICK['綠島'], 65.0, 1e-9, '綠島');
+  approx(W.CITY_QUICK['琉球'], 40.0, 1e-9, '琉球 (小琉球，不與屏東縣本島同列)');
+  assert.ok(!('屏東縣－琉球鄉' in W.CITY_QUICK), '琉球鄉屬外島地區，不應重複列入屏東縣本島清單');
+  assert.ok(!('臺東縣－綠島鄉' in W.CITY_QUICK), '綠島鄉屬外島地區，不應重複列入臺東縣本島清單');
+  assert.ok(!('臺東縣－蘭嶼鄉' in W.CITY_QUICK), '蘭嶼鄉屬外島地區，不應重複列入臺東縣本島清單');
+
   console.log('wind.js tests passed');
 }
 
