@@ -45,17 +45,17 @@
         <div class="status-panel">
           <p class="home-kicker">Health</p>
           <h2>平台狀態</h2>
-          <div id="platformStatus" class="status-card" data-status-card>
+          <div id="platformStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
             <span class="status-card__badge neutral">讀取中</span>
             <strong>平台巡檢</strong>
             <p>正在讀取最近一次平台巡檢結果。</p>
           </div>
-          <div id="preflightStatus" class="status-card" data-status-card>
+          <div id="preflightStatus" class="status-card" data-status-card role="status" aria-live="polite" aria-atomic="true">
             <span class="status-card__badge neutral">讀取中</span>
             <strong>交付前檢查</strong>
             <p>正在讀取最近一次 preflight 結果。</p>
           </div>
-          <div id="reportReadinessStatus" class="status-card status-card--ok">
+          <div id="reportReadinessStatus" class="status-card status-card--ok" role="status" aria-live="polite" aria-atomic="true">
             <span class="status-card__badge ok">頁面專用</span>
             <strong>報告閱讀狀態總覽</strong>
             <p>頁面上的「優先建議報告閱讀狀態」只供公司內部整理附件前檢查，不會寫入計算書、列印或 PDF。</p>

@@ -482,6 +482,14 @@ function newHomeExpression(tools) {
     const reportReadinessStatusText = document.getElementById('reportReadinessStatus')?.innerText.replace(/\\s+/g, ' ').trim() || '';
     const reportReadinessStatusBadge = document.querySelector('#reportReadinessStatus .status-card__badge')?.textContent?.trim() || '';
     const reportReadinessStatusSource = document.getElementById('reportReadinessStatus')?.dataset?.statusSource || '';
+    const statusRegion = id => {
+      const node = document.getElementById(id);
+      return {
+        role: node?.getAttribute('role') || '',
+        ariaLive: node?.getAttribute('aria-live') || '',
+        ariaAtomic: node?.getAttribute('aria-atomic') || ''
+      };
+    };
     const required = ${JSON.stringify(tools.map(tool => tool.indexHref))};
     const text = document.body.innerText;
     const categoryMarks = Array.from(document.querySelectorAll('.category-card .icon-mark')).map(node => node.textContent.trim()).sort();
@@ -565,6 +573,11 @@ function newHomeExpression(tools) {
       reportReadinessStatusText,
       reportReadinessStatusBadge,
       reportReadinessStatusSource,
+      statusRegions: {
+        platformStatus: statusRegion('platformStatus'),
+        preflightStatus: statusRegion('preflightStatus'),
+        reportReadinessStatus: statusRegion('reportReadinessStatus')
+      },
       rcBeamMeta,
       rcBeamReadiness,
       legacySteelReadiness,
@@ -1123,6 +1136,14 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
   assert.ok(state.reportReadinessStatusText.includes('優先建議報告閱讀狀態'), `${label} new home report readiness wording`);
   assert.ok(state.reportReadinessStatusText.includes('不會寫入計算書、列印或 PDF'), `${label} new home report readiness export boundary`);
   assert.ok(state.reportReadinessStatusText.includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), `${label} new home report readiness delivery boundary`);
+  for (const statusId of ['platformStatus', 'preflightStatus', 'reportReadinessStatus']) {
+    assert.ok(state.statusRegions?.[statusId], `${label} new home ${statusId} live-region metadata`);
+  }
+  for (const [statusId, region] of Object.entries(state.statusRegions || {})) {
+    assert.equal(region.role, 'status', `${label} new home ${statusId} live-region role`);
+    assert.equal(region.ariaLive, 'polite', `${label} new home ${statusId} live-region politeness`);
+    assert.equal(region.ariaAtomic, 'true', `${label} new home ${statusId} live-region atomic updates`);
+  }
   if (state.protocol === 'file:') {
     assert.equal(state.reportReadinessStatusSource, 'static', `${label} new home report readiness static fallback source`);
   } else {

@@ -174,6 +174,15 @@ function assertHomeDate(value, label) {
   assert.ok(parsed <= tomorrow, `${label} must not be future dated: ${value}`);
 }
 
+function assertHomeStatusRegion(source, id, label) {
+  const match = source.match(new RegExp(`<div\\s+[^>]*id="${id}"[^>]*>`));
+  assert.ok(match, `${label} status region exists`);
+  const tag = match[0];
+  assert.ok(tag.includes('role="status"'), `${label} status region exposes role=status`);
+  assert.ok(tag.includes('aria-live="polite"'), `${label} status region uses polite live updates`);
+  assert.ok(tag.includes('aria-atomic="true"'), `${label} status region updates atomically`);
+}
+
 function extractStagingPaths(source) {
   const paths = [];
   for (const line of source.split(/\r?\n/)) {
@@ -371,6 +380,9 @@ for (const [sourceKey, expected] of Object.entries(EXPECTED_GOVERNANCE_SOURCE_KE
   assert.deepEqual(source.fullPreflightKeys || [], expected.fullPreflightKeys || [], `${sourceKey} full preflight keys drifted`);
 }
 assert.ok(homeIndex.includes('id="reportReadinessStatus"'), 'home index exposes report readiness status card');
+assertHomeStatusRegion(homeIndex, 'platformStatus', 'home platform');
+assertHomeStatusRegion(homeIndex, 'preflightStatus', 'home preflight');
+assertHomeStatusRegion(homeIndex, 'reportReadinessStatus', 'home report readiness');
 assert.ok(homeSource.includes('function renderReportReadinessStatus('), 'home.js renders report readiness status card');
 assert.ok(homeSource.includes('function renderStaticStatusCard('), 'home.js exposes reusable static status card renderer');
 assert.equal(reportReadinessOverview.badge, '頁面專用', 'report readiness overview uses page-only badge');
