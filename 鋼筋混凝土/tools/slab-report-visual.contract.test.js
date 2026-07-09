@@ -45,6 +45,7 @@ const cases = JSON.parse(read(casesPath));
   'page attachment readiness priority',
   'report excludes page-only review prompt',
   'assertReportScreenshotQuality(screenshotPath',
+  'screenshotQuality',
   'assertArtifact(screenshotPath',
   'assertArtifact(pdfPath',
   'slab-report-visual-audit.json',

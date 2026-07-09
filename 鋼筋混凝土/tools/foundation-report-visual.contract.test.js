@@ -48,6 +48,7 @@ const cases = JSON.parse(read(casesPath));
   'report excludes page-only status',
   '不列為 OK 結論',
   'assertReportScreenshotQuality(screenshotPath',
+  'screenshotQuality',
   'assertArtifact(screenshotPath',
   'assertArtifact(pdfPath',
   'foundation-report-visual-audit.json',

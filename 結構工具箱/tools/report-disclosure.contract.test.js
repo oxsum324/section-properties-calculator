@@ -309,6 +309,7 @@ assert(rcBeamReportVisualTest.includes('page attachment readiness boundary'), 'R
 assert(rcBeamReportVisualTest.includes('report excludes page-only attachment readiness'), 'RC beam report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only attachment readiness');
 assert(rcBeamReportVisualTest.includes('beamAttachmentReadinessCard'), 'RC beam report visual smoke targets attachment readiness outlet', 'beamAttachmentReadinessCard');
 assert(rcBeamReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC beam report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
+assert(rcBeamReportVisualTest.includes('screenshotQuality'), 'RC beam report visual smoke records screenshot quality in audit payload', 'screenshotQuality');
 assert(rcBeamReportVisualTest.includes('beam-report-visual-audit.json'), 'RC beam report visual smoke writes audit evidence', 'beam-report-visual-audit.json');
 assert(rcReportScreenshotQualityHelper.includes('function readPngVisualQuality'), 'RC shared screenshot helper parses PNG pixels', 'function readPngVisualQuality');
 assert(rcReportScreenshotQualityHelper.includes('nonWhitePixelCount'), 'RC shared screenshot helper records nonblank screenshot evidence', 'nonWhitePixelCount');
@@ -319,6 +320,7 @@ assert(rcColumnReportVisualTest.includes('page attachment readiness boundary'), 
 assert(rcColumnReportVisualTest.includes('report excludes page-only attachment readiness'), 'RC column report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only attachment readiness');
 assert(rcColumnReportVisualTest.includes('columnAttachmentReadiness'), 'RC column report visual smoke targets attachment readiness outlet', 'columnAttachmentReadiness');
 assert(rcColumnReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC column report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
+assert(rcColumnReportVisualTest.includes('screenshotQuality'), 'RC column report visual smoke records screenshot quality in audit payload', 'screenshotQuality');
 assert(rcColumnReportVisualTest.includes('column-report-visual-audit.json'), 'RC column report visual smoke writes audit evidence', 'column-report-visual-audit.json');
 assert(rcTestSlabScript.includes('slab-report-visual.test.js'), 'RC slab wrapper runs report visual smoke', 'slab-report-visual.test.js');
 assert(rcTestSlabScript.includes('Slab report visual smoke'), 'RC slab wrapper labels report visual smoke clearly', 'Slab report visual smoke');
@@ -326,6 +328,7 @@ assert(rcSlabReportVisualTest.includes('page attachment readiness boundary'), 'R
 assert(rcSlabReportVisualTest.includes('report excludes page-only review prompt'), 'RC slab report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only review prompt');
 assert(rcSlabReportVisualTest.includes('slabAttachmentReadinessCard'), 'RC slab report visual smoke targets attachment readiness outlet', 'slabAttachmentReadinessCard');
 assert(rcSlabReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC slab report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
+assert(rcSlabReportVisualTest.includes('screenshotQuality'), 'RC slab report visual smoke records screenshot quality in audit payload', 'screenshotQuality');
 assert(rcSlabReportVisualTest.includes('slab-report-visual-audit.json'), 'RC slab report visual smoke writes audit evidence', 'slab-report-visual-audit.json');
 assert(rcTestWallScript.includes('wall-report-visual.test.js'), 'RC wall wrapper runs report visual smoke', 'wall-report-visual.test.js');
 assert(rcTestWallScript.includes('Wall report visual smoke'), 'RC wall wrapper labels report visual smoke clearly', 'Wall report visual smoke');
@@ -333,6 +336,7 @@ assert(rcWallReportVisualTest.includes('page attachment readiness boundary'), 'R
 assert(rcWallReportVisualTest.includes('report excludes page-only status'), 'RC wall report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
 assert(rcWallReportVisualTest.includes('wallAttachmentReadinessCard'), 'RC wall report visual smoke targets attachment readiness outlet', 'wallAttachmentReadinessCard');
 assert(rcWallReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC wall report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
+assert(rcWallReportVisualTest.includes('screenshotQuality'), 'RC wall report visual smoke records screenshot quality in audit payload', 'screenshotQuality');
 assert(rcWallReportVisualTest.includes('wall-report-visual-audit.json'), 'RC wall report visual smoke writes audit evidence', 'wall-report-visual-audit.json');
 assert(rcTestFoundationScript.includes('foundation-report-visual.test.js'), 'RC foundation wrapper runs report visual smoke', 'foundation-report-visual.test.js');
 assert(rcTestFoundationScript.includes('Foundation report visual smoke'), 'RC foundation wrapper labels report visual smoke clearly', 'Foundation report visual smoke');
@@ -340,6 +344,7 @@ assert(rcFoundationReportVisualTest.includes('page attachment readiness boundary
 assert(rcFoundationReportVisualTest.includes('report excludes page-only status'), 'RC foundation report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
 assert(rcFoundationReportVisualTest.includes('foundationAttachmentReadinessCard'), 'RC foundation report visual smoke targets attachment readiness outlet', 'foundationAttachmentReadinessCard');
 assert(rcFoundationReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC foundation report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
+assert(rcFoundationReportVisualTest.includes('screenshotQuality'), 'RC foundation report visual smoke records screenshot quality in audit payload', 'screenshotQuality');
 assert(rcFoundationReportVisualTest.includes('foundation-report-visual-audit.json'), 'RC foundation report visual smoke writes audit evidence', 'foundation-report-visual-audit.json');
 assert(rcTestShearWallReportScript.includes('shear-wall-report-visual.test.js'), 'RC shear wall wrapper runs report visual smoke', 'shear-wall-report-visual.test.js');
 assert(rcTestShearWallReportScript.includes('Shear wall report visual smoke'), 'RC shear wall wrapper labels report visual smoke clearly', 'Shear wall report visual smoke');
@@ -347,6 +352,7 @@ assert(rcShearWallReportVisualTest.includes('page attachment readiness boundary'
 assert(rcShearWallReportVisualTest.includes('report excludes page-only status'), 'RC shear wall report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
 assert(rcShearWallReportVisualTest.includes('shearWallAttachmentReadinessCard'), 'RC shear wall report visual smoke targets attachment readiness outlet', 'shearWallAttachmentReadinessCard');
 assert(rcShearWallReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC shear wall report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
+assert(rcShearWallReportVisualTest.includes('screenshotQuality'), 'RC shear wall report visual smoke records screenshot quality in audit payload', 'screenshotQuality');
 assert(rcShearWallReportVisualTest.includes('shear-wall-report-visual-audit.json'), 'RC shear wall report visual smoke writes audit evidence', 'shear-wall-report-visual-audit.json');
 assert(rcTestSinglePileScript.includes('single-pile-report-visual.test.js'), 'RC single pile wrapper runs report visual smoke', 'single-pile-report-visual.test.js');
 assert(rcTestSinglePileScript.includes('Single pile report visual smoke'), 'RC single pile wrapper labels report visual smoke clearly', 'Single pile report visual smoke');
@@ -354,6 +360,7 @@ assert(rcSinglePileReportVisualTest.includes('page attachment readiness boundary
 assert(rcSinglePileReportVisualTest.includes('report excludes page-only status'), 'RC single pile report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
 assert(rcSinglePileReportVisualTest.includes('singlePileAttachmentReadinessCard'), 'RC single pile report visual smoke targets attachment readiness outlet', 'singlePileAttachmentReadinessCard');
 assert(rcSinglePileReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC single pile report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
+assert(rcSinglePileReportVisualTest.includes('screenshotQuality'), 'RC single pile report visual smoke records screenshot quality in audit payload', 'screenshotQuality');
 assert(rcSinglePileReportVisualTest.includes('single-pile-report-visual-audit.json'), 'RC single pile report visual smoke writes audit evidence', 'single-pile-report-visual-audit.json');
 
 for (const relativePath of formalReportRendererFiles) {

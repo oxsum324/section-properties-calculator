@@ -40,6 +40,7 @@ const testWall = read(testWallPath);
   'report excludes page-only status',
   '不列為 OK 結論',
   'assertReportScreenshotQuality(screenshotPath',
+  'screenshotQuality',
   'assertArtifact(screenshotPath',
   'assertArtifact(pdfPath',
   'wall-report-visual-audit.json',

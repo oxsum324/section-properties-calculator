@@ -41,6 +41,7 @@ const testSinglePile = read(testSinglePilePath);
   '不列為 OK 結論',
   'report excludes page-only status',
   'assertReportScreenshotQuality(screenshotPath',
+  'screenshotQuality',
   'assertArtifact(screenshotPath',
   'assertArtifact(pdfPath',
   'single-pile-report-visual-audit.json',

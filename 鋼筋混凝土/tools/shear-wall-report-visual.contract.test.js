@@ -40,6 +40,7 @@ const testShearWallReport = read(testShearWallReportPath);
   'c@Pu 不採用',
   'toolbarDisplayPrint',
   'assertReportScreenshotQuality(screenshotPath',
+  'screenshotQuality',
   'assertArtifact(screenshotPath',
   'assertArtifact(pdfPath',
   'shear-wall-report-visual-audit.json',

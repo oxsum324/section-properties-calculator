@@ -53,6 +53,7 @@ const cases = JSON.parse(read(casesPath));
   'print toolbar hidden',
   'assertArtifact(screenshotPath',
   'assertReportScreenshotQuality(screenshotPath',
+  'screenshotQuality',
   'assertArtifact(pdfPath',
   '0x89, 0x50, 0x4e, 0x47',
   '0x25, 0x50, 0x44, 0x46',

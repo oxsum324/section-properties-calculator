@@ -48,6 +48,7 @@ const cases = JSON.parse(read(casesPath));
   '不列為 OK 結論',
   'assertArtifact(screenshotPath',
   'assertReportScreenshotQuality(screenshotPath',
+  'screenshotQuality',
   'assertArtifact(pdfPath',
   'beam-report-visual-audit.json',
 ].forEach(needle => assertIncludes(visual, needle, 'beam report visual smoke quality gate'));
