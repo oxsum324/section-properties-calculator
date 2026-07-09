@@ -325,30 +325,35 @@ assert(rcTestSlabScript.includes('Slab report visual smoke'), 'RC slab wrapper l
 assert(rcSlabReportVisualTest.includes('page attachment readiness boundary'), 'RC slab report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
 assert(rcSlabReportVisualTest.includes('report excludes page-only review prompt'), 'RC slab report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only review prompt');
 assert(rcSlabReportVisualTest.includes('slabAttachmentReadinessCard'), 'RC slab report visual smoke targets attachment readiness outlet', 'slabAttachmentReadinessCard');
+assert(rcSlabReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC slab report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
 assert(rcSlabReportVisualTest.includes('slab-report-visual-audit.json'), 'RC slab report visual smoke writes audit evidence', 'slab-report-visual-audit.json');
 assert(rcTestWallScript.includes('wall-report-visual.test.js'), 'RC wall wrapper runs report visual smoke', 'wall-report-visual.test.js');
 assert(rcTestWallScript.includes('Wall report visual smoke'), 'RC wall wrapper labels report visual smoke clearly', 'Wall report visual smoke');
 assert(rcWallReportVisualTest.includes('page attachment readiness boundary'), 'RC wall report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
 assert(rcWallReportVisualTest.includes('report excludes page-only status'), 'RC wall report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
 assert(rcWallReportVisualTest.includes('wallAttachmentReadinessCard'), 'RC wall report visual smoke targets attachment readiness outlet', 'wallAttachmentReadinessCard');
+assert(rcWallReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC wall report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
 assert(rcWallReportVisualTest.includes('wall-report-visual-audit.json'), 'RC wall report visual smoke writes audit evidence', 'wall-report-visual-audit.json');
 assert(rcTestFoundationScript.includes('foundation-report-visual.test.js'), 'RC foundation wrapper runs report visual smoke', 'foundation-report-visual.test.js');
 assert(rcTestFoundationScript.includes('Foundation report visual smoke'), 'RC foundation wrapper labels report visual smoke clearly', 'Foundation report visual smoke');
 assert(rcFoundationReportVisualTest.includes('page attachment readiness boundary'), 'RC foundation report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
 assert(rcFoundationReportVisualTest.includes('report excludes page-only status'), 'RC foundation report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
 assert(rcFoundationReportVisualTest.includes('foundationAttachmentReadinessCard'), 'RC foundation report visual smoke targets attachment readiness outlet', 'foundationAttachmentReadinessCard');
+assert(rcFoundationReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC foundation report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
 assert(rcFoundationReportVisualTest.includes('foundation-report-visual-audit.json'), 'RC foundation report visual smoke writes audit evidence', 'foundation-report-visual-audit.json');
 assert(rcTestShearWallReportScript.includes('shear-wall-report-visual.test.js'), 'RC shear wall wrapper runs report visual smoke', 'shear-wall-report-visual.test.js');
 assert(rcTestShearWallReportScript.includes('Shear wall report visual smoke'), 'RC shear wall wrapper labels report visual smoke clearly', 'Shear wall report visual smoke');
 assert(rcShearWallReportVisualTest.includes('page attachment readiness boundary'), 'RC shear wall report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
 assert(rcShearWallReportVisualTest.includes('report excludes page-only status'), 'RC shear wall report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
 assert(rcShearWallReportVisualTest.includes('shearWallAttachmentReadinessCard'), 'RC shear wall report visual smoke targets attachment readiness outlet', 'shearWallAttachmentReadinessCard');
+assert(rcShearWallReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC shear wall report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
 assert(rcShearWallReportVisualTest.includes('shear-wall-report-visual-audit.json'), 'RC shear wall report visual smoke writes audit evidence', 'shear-wall-report-visual-audit.json');
 assert(rcTestSinglePileScript.includes('single-pile-report-visual.test.js'), 'RC single pile wrapper runs report visual smoke', 'single-pile-report-visual.test.js');
 assert(rcTestSinglePileScript.includes('Single pile report visual smoke'), 'RC single pile wrapper labels report visual smoke clearly', 'Single pile report visual smoke');
 assert(rcSinglePileReportVisualTest.includes('page attachment readiness boundary'), 'RC single pile report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
 assert(rcSinglePileReportVisualTest.includes('report excludes page-only status'), 'RC single pile report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
 assert(rcSinglePileReportVisualTest.includes('singlePileAttachmentReadinessCard'), 'RC single pile report visual smoke targets attachment readiness outlet', 'singlePileAttachmentReadinessCard');
+assert(rcSinglePileReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC single pile report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
 assert(rcSinglePileReportVisualTest.includes('single-pile-report-visual-audit.json'), 'RC single pile report visual smoke writes audit evidence', 'single-pile-report-visual-audit.json');
 
 for (const relativePath of formalReportRendererFiles) {

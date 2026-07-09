@@ -39,6 +39,7 @@ const testShearWallReport = read(testShearWallReportPath);
   'report excludes page-only status',
   'c@Pu 不採用',
   'toolbarDisplayPrint',
+  'assertReportScreenshotQuality(screenshotPath',
   'assertArtifact(screenshotPath',
   'assertArtifact(pdfPath',
   'shear-wall-report-visual-audit.json',

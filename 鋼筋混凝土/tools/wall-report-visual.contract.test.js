@@ -39,6 +39,7 @@ const testWall = read(testWallPath);
   'page attachment readiness priority',
   'report excludes page-only status',
   '不列為 OK 結論',
+  'assertReportScreenshotQuality(screenshotPath',
   'assertArtifact(screenshotPath',
   'assertArtifact(pdfPath',
   'wall-report-visual-audit.json',

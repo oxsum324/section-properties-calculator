@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
+const { assertReportScreenshotQuality } = require('./report-screenshot-quality');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.SHEAR_WALL_REPORT_PORT || 0);
@@ -258,7 +259,8 @@ async function main() {
 
       const metrics = await reportMetrics(report);
       metrics.toolbarDisplayPrint = printMetrics.toolbarDisplay;
-      results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics });
+      const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
+      results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics, screenshotQuality });
 
       assert(metrics.title === '剪力牆設計計算書', `${tc.key} report title`, metrics.title);
       assert(!metrics.hasReportSummary, `${tc.key} report status summary hidden`, 'no .rep-summary');

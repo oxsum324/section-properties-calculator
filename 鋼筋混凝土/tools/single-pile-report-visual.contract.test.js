@@ -40,6 +40,7 @@ const testSinglePile = read(testSinglePilePath);
   '人工複核 / 補充資料需求',
   '不列為 OK 結論',
   'report excludes page-only status',
+  'assertReportScreenshotQuality(screenshotPath',
   'assertArtifact(screenshotPath',
   'assertArtifact(pdfPath',
   'single-pile-report-visual-audit.json',
