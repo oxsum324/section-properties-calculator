@@ -307,6 +307,8 @@ assert(rcTestBeamScript.includes('Beam report visual smoke'), 'RC beam wrapper l
 assert(rcBeamReportVisualTest.includes('page attachment readiness boundary'), 'RC beam report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
 assert(rcBeamReportVisualTest.includes('report excludes page-only attachment readiness'), 'RC beam report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only attachment readiness');
 assert(rcBeamReportVisualTest.includes('beamAttachmentReadinessCard'), 'RC beam report visual smoke targets attachment readiness outlet', 'beamAttachmentReadinessCard');
+assert(rcBeamReportVisualTest.includes('assertReportScreenshotQuality(screenshotPath'), 'RC beam report visual smoke asserts screenshot dimensions and nonblank pixels', 'assertReportScreenshotQuality(screenshotPath');
+assert(rcBeamReportVisualTest.includes('nonWhitePixelCount'), 'RC beam report visual smoke records nonblank screenshot evidence', 'nonWhitePixelCount');
 assert(rcBeamReportVisualTest.includes('beam-report-visual-audit.json'), 'RC beam report visual smoke writes audit evidence', 'beam-report-visual-audit.json');
 assert(rcTestColumnScript.includes('column-report-visual.test.js'), 'RC column wrapper runs report visual smoke', 'column-report-visual.test.js');
 assert(rcTestColumnScript.includes('Column report visual smoke'), 'RC column wrapper labels report visual smoke clearly', 'Column report visual smoke');

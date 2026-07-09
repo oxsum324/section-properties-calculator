@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const zlib = require('zlib');
 const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -70,6 +71,122 @@ function assertArtifact(file, expectedSignature, title) {
   const header = fs.readFileSync(file).subarray(0, expectedSignature.length);
   assert(st.size > 1024, title, `${path.basename(file)} ${st.size} bytes`);
   assert(header.equals(Buffer.from(expectedSignature)), `${title} signature`, path.basename(file));
+}
+
+function paethPredictor(left, up, upperLeft) {
+  const p = left + up - upperLeft;
+  const pa = Math.abs(p - left);
+  const pb = Math.abs(p - up);
+  const pc = Math.abs(p - upperLeft);
+  if (pa <= pb && pa <= pc) return left;
+  return pb <= pc ? up : upperLeft;
+}
+
+function readPngVisualQuality(file) {
+  const buffer = fs.readFileSync(file);
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!buffer.subarray(0, signature.length).equals(signature)) {
+    throw new Error('not a PNG file');
+  }
+
+  let offset = signature.length;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  const idat = [];
+
+  while (offset + 8 <= buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString('ascii', offset + 4, offset + 8);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+    const data = buffer.subarray(dataStart, dataEnd);
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+    } else if (type === 'IDAT') {
+      idat.push(data);
+    } else if (type === 'IEND') {
+      break;
+    }
+    offset = dataEnd + 4;
+  }
+
+  const channelsByColorType = { 0: 1, 2: 3, 4: 2, 6: 4 };
+  const channels = channelsByColorType[colorType];
+  if (bitDepth !== 8 || !channels || !width || !height || idat.length === 0) {
+    throw new Error(`unsupported PNG format: ${width}x${height}, bitDepth=${bitDepth}, colorType=${colorType}`);
+  }
+
+  const inflated = zlib.inflateSync(Buffer.concat(idat));
+  const stride = width * channels;
+  const rows = Buffer.alloc(height * stride);
+  let sourceOffset = 0;
+  let previous = Buffer.alloc(stride);
+
+  for (let y = 0; y < height; y += 1) {
+    const filter = inflated[sourceOffset];
+    sourceOffset += 1;
+    const row = rows.subarray(y * stride, (y + 1) * stride);
+    for (let x = 0; x < stride; x += 1) {
+      const raw = inflated[sourceOffset + x];
+      const left = x >= channels ? row[x - channels] : 0;
+      const up = previous[x] || 0;
+      const upperLeft = x >= channels ? previous[x - channels] || 0 : 0;
+      let value;
+      if (filter === 0) value = raw;
+      else if (filter === 1) value = raw + left;
+      else if (filter === 2) value = raw + up;
+      else if (filter === 3) value = raw + Math.floor((left + up) / 2);
+      else if (filter === 4) value = raw + paethPredictor(left, up, upperLeft);
+      else throw new Error(`unsupported PNG filter: ${filter}`);
+      row[x] = value & 0xff;
+    }
+    sourceOffset += stride;
+    previous = Buffer.from(row);
+  }
+
+  let nonWhitePixelCount = 0;
+  const colors = new Set();
+  for (let offset = 0; offset < rows.length; offset += channels) {
+    const r = rows[offset];
+    const g = colorType === 0 ? r : rows[offset + 1];
+    const b = colorType === 0 ? r : rows[offset + 2];
+    const a = colorType === 4 ? rows[offset + 1] : colorType === 6 ? rows[offset + 3] : 255;
+    if (a > 16 && (r < 245 || g < 245 || b < 245)) nonWhitePixelCount += 1;
+    if (colors.size < 512) colors.add(`${r >> 4},${g >> 4},${b >> 4},${a > 127 ? 1 : 0}`);
+  }
+
+  return {
+    width,
+    height,
+    bitDepth,
+    colorType,
+    nonWhitePixelCount,
+    uniqueColorCount: colors.size,
+  };
+}
+
+function assertReportScreenshotQuality(file, title, expected = {}) {
+  let stats = null;
+  try {
+    stats = readPngVisualQuality(file);
+  } catch (err) {
+    assert(false, `${title} PNG visual quality`, err.message);
+    return null;
+  }
+  const minWidth = expected.minWidth || 900;
+  const minHeight = expected.minHeight || 1000;
+  const minNonWhitePixels = expected.minNonWhitePixels || 5000;
+  const minUniqueColors = expected.minUniqueColors || 8;
+  assert(stats.width >= minWidth, `${title} screenshot width`, `${stats.width}px >= ${minWidth}px`);
+  assert(stats.height >= minHeight, `${title} screenshot height`, `${stats.height}px >= ${minHeight}px`);
+  assert(stats.nonWhitePixelCount >= minNonWhitePixels, `${title} screenshot non-white pixels`, `${stats.nonWhitePixelCount} >= ${minNonWhitePixels}`);
+  assert(stats.uniqueColorCount >= minUniqueColors, `${title} screenshot color diversity`, `${stats.uniqueColorCount} >= ${minUniqueColors}`);
+  return stats;
 }
 
 async function openReportPopup(page, options = {}) {
@@ -272,8 +389,9 @@ async function main() {
       await report.emulateMedia({ media: 'screen' });
 
       const metrics = await reportMetrics(report);
+      const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`);
       const expected = EXPECTED[tc.key] || {};
-      results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, printMetrics });
+      results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
       assert(!metrics.hasReportSummary, `${tc.key} report status banner hidden`, 'no .rep-summary');
