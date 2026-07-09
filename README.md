@@ -75,7 +75,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 追蹤石材 audit JSON / Word / PDF、覆工板 JSON 匯出 / Word 計算書與開挖擋土支撐 PDF / DOCX / latest download API 的輸出邊界，要求 traceability catalog、README、smoke fixture、報表產生器、下載端點與前端產出狀態一致，並以 `delivery-artifacts-contract` 納入 preflight 與 Global Governance Gates。
 - 正式放行證據契約測試：
   [結構工具箱/tools/release-readiness.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/release-readiness.contract.test.js:1)
-  - 確認 `run-preflight-tools-release.bat` 固定帶 `-ForceSlowChecks` 與 `-ForcePlatformAudit`，preflight summary / history / homepage status 保留 force flags、慢測重用與平台 audit 重用資訊，並以 `release-readiness-contract` 納入 preflight 與 Global Governance Gates，避免把一般 full run 誤當正式放行證據。
+  - 確認 `run-preflight-tools-release.bat` 固定帶 `-ForceSlowChecks` 與 `-ForcePlatformAudit` 且不透傳任意參數，preflight 本體也會拒絕 `-Quick` 與 release force flags 同時使用；preflight summary / history / homepage status 保留 force flags、慢測重用與平台 audit 重用資訊，並以 `release-readiness-contract` 納入 preflight 與 Global Governance Gates，避免把一般 full run 或 quick run 誤當正式放行證據。
 - 工具成熟度矩陣產生器：
   [結構工具箱/tools/tool-maturity-matrix.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/tool-maturity-matrix.js:1)
 - GitHub Pages deploy / live smoke：
@@ -145,7 +145,7 @@ RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke
   [run-preflight-tools.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-preflight-tools.bat:1)
 - 高價值工具 release preflight：
   [run-preflight-tools-release.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-preflight-tools-release.bat:1)
-  - 固定以 `-ForceSlowChecks -ForcePlatformAudit` 執行；儀表板會將同時具備這兩個 force flags 的 full run 標示為 Release。
+  - 固定以 `-ForceSlowChecks -ForcePlatformAudit` 執行且不接受 `%*` 任意參數透傳；儀表板會將同時具備這兩個 force flags 的 full run 標示為 Release。
 - 高價值工具 quick preflight：
   [run-preflight-tools-quick.bat](/C:/Users/USER/Desktop/AI/小工具製作/run-preflight-tools-quick.bat:1)
 

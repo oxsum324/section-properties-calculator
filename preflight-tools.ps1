@@ -25,6 +25,10 @@ if (-not (Test-Path $slowStatusDir)) {
   New-Item -Path $slowStatusDir -ItemType Directory | Out-Null
 }
 
+if ($Quick -and ($ForcePlatformAudit -or $ForceSlowChecks)) {
+  throw "Quick preflight cannot be combined with release force flags. Use run-preflight-tools-quick.bat for quick checks or run-preflight-tools-release.bat for release evidence."
+}
+
 function Write-Status {
   param(
     [string]$Message,
@@ -1418,7 +1422,7 @@ $checks = @(
   },
   @{
     Path = 'run-preflight-tools-release.bat'
-    Needles = @('preflight-tools.ps1', '-Quiet', '-ForceSlowChecks', '-ForcePlatformAudit', '%*')
+    Needles = @('preflight-tools.ps1', '-Quiet', '-ForceSlowChecks', '-ForcePlatformAudit')
   },
   @{
     Path = 'run-preflight-tools-quick.bat'

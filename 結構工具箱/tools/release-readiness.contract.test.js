@@ -43,15 +43,16 @@ const boundaries = readText('TOOL_BOUNDARIES.md');
   '-Quiet',
   '-ForceSlowChecks',
   '-ForcePlatformAudit',
-  '%*',
 ].forEach(needle => assertIncludes(releaseWrapper, needle, `release wrapper keeps ${needle}`));
 assert(!releaseWrapper.includes('-Quick'), 'release wrapper does not run quick mode', 'run-preflight-tools-release.bat');
+assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through arbitrary arguments', 'prevents -Quick override');
 
 [
   '[switch]$ForcePlatformAudit',
   '[switch]$ForceSlowChecks',
   'forcePlatformAudit = [bool]$ForcePlatformAudit',
   'forceSlowChecks = [bool]$ForceSlowChecks',
+  'Quick preflight cannot be combined with release force flags',
   '$ForceSlowChecks -or $ForcePlatformAudit',
   'release startup existing node cleanup',
   'release slow checks startup',
@@ -59,7 +60,7 @@ assert(!releaseWrapper.includes('-Quick'), 'release wrapper does not run quick m
   'slowReuseKeys = @($runSlowReuseKeys.ToArray())',
   'platformAuditReused = $runPlatformAuditReused',
   'Path = \'run-preflight-tools-release.bat\'',
-  'Needles = @(\'preflight-tools.ps1\', \'-Quiet\', \'-ForceSlowChecks\', \'-ForcePlatformAudit\', \'%*\')',
+  'Needles = @(\'preflight-tools.ps1\', \'-Quiet\', \'-ForceSlowChecks\', \'-ForcePlatformAudit\')',
   'release-readiness-contract',
   'node 結構工具箱/tools/release-readiness.contract.test.js',
   'Release readiness governance contract',
