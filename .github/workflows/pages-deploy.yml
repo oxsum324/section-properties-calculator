@@ -34,6 +34,7 @@ jobs:
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='_site/' \
+            --exclude='output/' \
             --exclude='README.md' \
             --exclude='STAGING_GROUPS.md' \
             --exclude='TOOL_BOUNDARIES.md' \

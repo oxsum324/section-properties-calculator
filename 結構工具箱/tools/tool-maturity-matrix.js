@@ -12,9 +12,11 @@ const markdownOutputPath = path.join(outputDir, 'tool-maturity-matrix.md');
 const homepageStatusDir = path.join(toolboxRoot, 'assets', 'status');
 const homepagePlatformStatusPath = path.join(homepageStatusDir, 'platform-status.json');
 const homepagePreflightStatusPath = path.join(homepageStatusDir, 'preflight-summary.json');
+const homepageReportReadinessStatusPath = path.join(homepageStatusDir, 'report-readiness-status.json');
 const platformStatusSourcePath = path.join(repoRoot, 'output', 'audit', 'platform-status.json');
 const preflightSummarySourcePath = path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json');
 const preflightHistorySourcePath = path.join(repoRoot, 'output', 'preflight', 'preflight-history.json');
+const preflightHistoryDir = path.join(repoRoot, 'output', 'preflight', 'history');
 const NA = 'n/a';
 const UPGRADE_TARGETS = [
   { key: 'reportModes', label: '報告簡版 / 詳版模式', priority: 'P1' },
@@ -39,20 +41,23 @@ const GLOBAL_GOVERNANCE_GATES = [
     label: '跨家族報告揭露',
     contract: '結構工具箱/tools/report-disclosure.contract.test.js',
     scope: 'formal、RC、鋼構、錨栓、石材、覆工板與開挖擋土支撐 traceability catalog',
+    catalogFamilies: ['formal-traceability', 'rc-traceability', 'steel-traceability', 'anchor-traceability', 'stone-traceability', 'decking-traceability', 'excavation-traceability'],
     minCatalogs: 7
   },
   {
     key: 'delivery-artifacts-contract',
     label: '交付物一致性',
     contract: '結構工具箱/tools/delivery-artifacts.contract.test.js',
-    scope: '覆工板 JSON / Word 報表與開挖 PDF / DOCX / 下載 API 交付邊界',
-    minCatalogs: 2
+    scope: '石材 audit JSON / Word / PDF、覆工板 JSON / Word 報表與開挖 PDF / DOCX / 下載 API 交付邊界',
+    catalogFamilies: ['stone-traceability', 'decking-traceability', 'excavation-traceability'],
+    minCatalogs: 3
   },
   {
     key: 'release-readiness-contract',
     label: '正式放行證據',
     contract: '結構工具箱/tools/release-readiness.contract.test.js',
     scope: 'release wrapper、force flags、慢測重用揭露與 dashboard 放行模式顯示',
+    catalogFamilies: [],
     minCatalogs: 0
   }
 ];
@@ -105,6 +110,73 @@ function readJson(filePath) {
 
 function readJsonIfExists(filePath) {
   return fileExists(filePath) ? readJson(filePath) : null;
+}
+
+function tryReadJsonIfExists(filePath) {
+  if (!fileExists(filePath)) return null;
+  try {
+    return readJson(filePath);
+  } catch (_) {
+    return null;
+  }
+}
+
+function normalizePreflightSummaryPath(summaryJsonPath) {
+  if (!summaryJsonPath) return '';
+  return path.isAbsolute(summaryJsonPath)
+    ? summaryJsonPath
+    : repoFile(String(summaryJsonPath).replace(/\\/g, '/'));
+}
+
+function listPreflightHistoryRunIds() {
+  if (!fileExists(preflightHistoryDir)) return [];
+  return fs.readdirSync(preflightHistoryDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .sort()
+    .reverse();
+}
+
+// The history manifest trims to recent runs only, so homepage full-run fallback
+// must still be able to recover an older completed full summary from disk.
+function findLatestPreflightHistorySummary(predicate, historyItems) {
+  const completedItems = Array.isArray(historyItems)
+    ? historyItems.filter(item => item && item.complete !== false)
+    : [];
+  const seenRunIds = new Set();
+
+  for (const item of completedItems) {
+    if (!item || !item.summaryJsonPath) continue;
+    const fullPath = normalizePreflightSummaryPath(item.summaryJsonPath);
+    if (!fullPath || !fileExists(fullPath)) continue;
+    const payload = tryReadJsonIfExists(fullPath);
+    if (!payload) continue;
+    const runId = String(item.runId || payload.runId || path.basename(path.dirname(fullPath)) || '');
+    if (runId) seenRunIds.add(runId);
+    if (predicate(payload, item)) {
+      return {
+        payload,
+        filePath: fullPath,
+        sourcePath: displayPath(fullPath)
+      };
+    }
+  }
+
+  for (const runId of listPreflightHistoryRunIds()) {
+    if (seenRunIds.has(runId)) continue;
+    const fullPath = path.join(preflightHistoryDir, runId, 'preflight-summary.json');
+    const payload = tryReadJsonIfExists(fullPath);
+    if (!payload) continue;
+    if (predicate(payload, { runId, summaryJsonPath: fullPath, complete: true })) {
+      return {
+        payload,
+        filePath: fullPath,
+        sourcePath: displayPath(fullPath)
+      };
+    }
+  }
+
+  return null;
 }
 
 function readJsArrayCount(filePath) {
@@ -166,7 +238,32 @@ function readHomeArrayField(block, name) {
     .filter(Boolean);
 }
 
-function extractHomeEntrypoints(homeJs) {
+function parseQuotedList(listText) {
+  return String(listText || '')
+    .split(',')
+    .map(item => item.trim().replace(/^['"]|['"]$/g, ''))
+    .filter(Boolean);
+}
+
+function normalizeSlash(relativePath) {
+  return String(relativePath || '').replace(/\\/g, '/');
+}
+
+function extractRouteFileMap(homeJs) {
+  const routeFileMap = {};
+  const start = homeJs.indexOf('const routeFileMap = {');
+  if (start === -1) return routeFileMap;
+  const end = homeJs.indexOf('\n  };', start);
+  const body = end === -1 ? homeJs.slice(start) : homeJs.slice(start, end);
+  const pattern = /'([^']+)':\s*'([^']+)'/g;
+  let match;
+  while ((match = pattern.exec(body))) {
+    routeFileMap[match[1]] = match[2];
+  }
+  return routeFileMap;
+}
+
+function extractHomeEntrypoints(homeJs, routeFileMap = {}) {
   const start = homeJs.indexOf('const tools = [');
   if (start === -1) return [];
   const end = homeJs.indexOf('\n  ];', start);
@@ -183,6 +280,7 @@ function extractHomeEntrypoints(homeJs) {
       route,
       state: readHomeStringField(block, 'state'),
       governance: readHomeStringField(block, 'governance'),
+      routeFile: routeFileMap[route] || '',
       output: readHomeStringField(block, 'output'),
       fit: readHomeStringField(block, 'fit'),
       limit: readHomeStringField(block, 'limit'),
@@ -192,9 +290,47 @@ function extractHomeEntrypoints(homeJs) {
   return entries;
 }
 
+function extractToolStates(homeJs) {
+  const states = {};
+  const start = homeJs.indexOf('const toolStates = {');
+  if (start === -1) return states;
+  const end = homeJs.indexOf('\n  };', start);
+  const body = end === -1 ? homeJs.slice(start) : homeJs.slice(start, end);
+  const pattern = /(\w+):\s*\{\s*label:\s*'([^']+)',\s*tone:\s*'([^']+)',\s*summary:\s*'([^']+)'/g;
+  let match;
+  while ((match = pattern.exec(body))) {
+    states[match[1]] = {
+      key: match[1],
+      label: match[2],
+      tone: match[3],
+      summary: match[4]
+    };
+  }
+  return states;
+}
+
+function extractStateBoundaryRules(homeJs) {
+  const rules = {};
+  const start = homeJs.indexOf('const stateBoundaryRules = {');
+  if (start === -1) return rules;
+  const end = homeJs.indexOf('\n  };', start);
+  const body = end === -1 ? homeJs.slice(start) : homeJs.slice(start, end);
+  const pattern = /(\w+):\s*\{\s*limitAny:\s*\[([^\]]*)\](?:,\s*requiredCapabilities:\s*\[([^\]]*)\])?(?:,\s*forbiddenCapabilities:\s*\[([^\]]*)\])?\s*\}/g;
+  let match;
+  while ((match = pattern.exec(body))) {
+    rules[match[1]] = {
+      key: match[1],
+      limitAny: parseQuotedList(match[2]),
+      requiredCapabilities: parseQuotedList(match[3]),
+      forbiddenCapabilities: parseQuotedList(match[4])
+    };
+  }
+  return rules;
+}
+
 function extractGovernanceSources(homeJs) {
   const sources = {};
-  const sourcePattern = /'([^']+)':\s*\{\s*label:\s*'([^']+)',\s*preflightKeys:\s*\[([^\]]*)\]/g;
+  const sourcePattern = /'([^']+)':\s*\{\s*label:\s*'([^']+)',\s*preflightKeys:\s*\[([^\]]*)\](?:,\s*fullPreflightKeys:\s*\[([^\]]*)\])?,\s*cardTag:\s*'([^']+)'/g;
   let match;
   while ((match = sourcePattern.exec(homeJs))) {
     sources[match[1]] = {
@@ -203,7 +339,12 @@ function extractGovernanceSources(homeJs) {
       preflightKeys: match[3]
         .split(',')
         .map(item => item.trim().replace(/^['"]|['"]$/g, ''))
-        .filter(Boolean)
+        .filter(Boolean),
+      fullPreflightKeys: (match[4] || '')
+        .split(',')
+        .map(item => item.trim().replace(/^['"]|['"]$/g, ''))
+        .filter(Boolean),
+      cardTag: match[5] || ''
     };
   }
   return sources;
@@ -211,6 +352,43 @@ function extractGovernanceSources(homeJs) {
 
 function hasVercelSource(vercelText, route) {
   return Boolean(route && route.startsWith('/') && vercelText.includes(`"source": "${route}"`));
+}
+
+function resolveHomeEntrypointSource(item, routeFileMap = {}) {
+  const routeFile = item?.routeFile || routeFileMap[item?.route] || '';
+  if (!routeFile) {
+    return {
+      routeFile: '',
+      sourcePath: '',
+      absolutePath: '',
+      exists: false,
+      html: ''
+    };
+  }
+  const absolutePath = path.resolve(toolboxRoot, routeFile);
+  const exists = fileExists(absolutePath);
+  return {
+    routeFile,
+    sourcePath: normalizeSlash(path.relative(repoRoot, absolutePath)),
+    absolutePath,
+    exists,
+    html: exists ? readText(absolutePath) : ''
+  };
+}
+
+function hasPrintSurface(html) {
+  return /window\.print\(|btn-print|mode-bar__report|id="btnPrint"|列印計算書|列印頁面結果|列印整理結果/.test(String(html || ''));
+}
+
+function hasPageOnlyReadiness(html) {
+  const text = String(html || '');
+  return text.includes('page-only-report-status')
+    && text.includes('優先閱讀')
+    && text.includes('不會寫入計算書或列印 PDF');
+}
+
+function hidesPageOnlyReadinessInPrint(html) {
+  return /@media\s+print[\s\S]*\.page-only-report-status[\s\S]*display\s*:\s*none\s*!important/.test(String(html || ''));
 }
 
 function countByField(items, field) {
@@ -233,18 +411,11 @@ function entrypointList(items) {
     .sort((a, b) => a.route.localeCompare(b.route));
 }
 
-const BOUNDARY_LIMIT_NEEDLES = {
-  assist: ['不取代', '仍應回正式', '不是完整', '正式分析', '校核'],
-  reference: ['不取代', '不處理', '仍需回', '需由', '支持', '輔助'],
-  workflow: ['需專案判斷', '另行', '特殊', '入口'],
-  estimate: ['初步', '後續', '需回', '簡化'],
-  report: ['不是', '不取代', '由案件', '摘要'],
-  service: ['需先啟動', '本機', '服務'],
-  legacy: ['尚未完全', '建議逐步', '舊版'],
-  external: ['外部', '送審前']
-};
+function boundaryRuleForEntrypoint(item, stateBoundaryRules = {}) {
+  return item?.state ? (stateBoundaryRules[item.state] || {}) : {};
+}
 
-function boundaryIssuesForEntrypoint(item) {
+function boundaryIssuesForEntrypoint(item, stateBoundaryRules = {}) {
   const issues = [];
   if (!item.state) issues.push('missing-state');
   if (!item.output) issues.push('missing-output');
@@ -254,34 +425,78 @@ function boundaryIssuesForEntrypoint(item) {
     issues.push('formal-without-governance');
   }
   if (item.state && item.state !== 'formal') {
-    const needles = BOUNDARY_LIMIT_NEEDLES[item.state] || [];
+    const rule = boundaryRuleForEntrypoint(item, stateBoundaryRules);
+    const needles = Array.isArray(rule.limitAny) ? rule.limitAny : [];
     if (needles.length && !needles.some(needle => String(item.limit || '').includes(needle))) {
       issues.push('weak-limit-boundary');
     }
-    if ((item.capabilities || []).includes('正式核算')) {
+    const requiredCapabilities = Array.isArray(rule.requiredCapabilities) ? rule.requiredCapabilities : [];
+    if (requiredCapabilities.length > 0 && !requiredCapabilities.every(capability => (item.capabilities || []).includes(capability))) {
+      issues.push('missing-required-capability');
+    }
+    const forbiddenCapabilities = Array.isArray(rule.forbiddenCapabilities) ? rule.forbiddenCapabilities : [];
+    if (forbiddenCapabilities.some(capability => (item.capabilities || []).includes(capability))) {
       issues.push('non-formal-capability-claims-formal');
+    }
+  }
+  if (item.pageOnlyReadinessRequired) {
+    if (!item.sourceExists) {
+      issues.push('missing-home-route-source');
+    } else {
+      if (!item.pageOnlyReadinessPresent) issues.push('missing-page-only-readiness');
+      if (!item.pageOnlyReadinessHiddenInPrint) issues.push('page-only-readiness-print-leak');
     }
   }
   return issues;
 }
 
-function entrypointBoundaryList(items) {
+function entrypointBoundaryList(items, toolStates = {}, stateBoundaryRules = {}, routeFileMap = {}) {
   return items
-    .map(item => ({
-      route: item.route,
-      title: item.title,
-      state: item.state || '',
-      output: item.output || '',
-      fit: item.fit || '',
-      limit: item.limit || '',
-      capabilities: Array.isArray(item.capabilities) ? item.capabilities : [],
-      boundaryIssues: boundaryIssuesForEntrypoint(item)
-    }))
+    .map(item => {
+      const stateRule = boundaryRuleForEntrypoint(item, stateBoundaryRules);
+      const source = resolveHomeEntrypointSource(item, routeFileMap);
+      const reportSurface = hasPrintSurface(source.html);
+      const pageOnlyReadinessRequired = reportSurface;
+      const pageOnlyReadinessPresent = pageOnlyReadinessRequired ? hasPageOnlyReadiness(source.html) : false;
+      const pageOnlyReadinessHiddenInPrint = pageOnlyReadinessRequired ? hidesPageOnlyReadinessInPrint(source.html) : false;
+      const enrichedItem = {
+        ...item,
+        sourcePath: source.sourcePath,
+        sourceExists: source.exists,
+        reportSurface,
+        pageOnlyReadinessRequired,
+        pageOnlyReadinessPresent,
+        pageOnlyReadinessHiddenInPrint
+      };
+      const matchedLimitNeedles = (Array.isArray(stateRule.limitAny) ? stateRule.limitAny : [])
+        .filter(needle => String(item.limit || '').includes(needle));
+      return {
+        route: item.route,
+        title: item.title,
+        state: item.state || '',
+        stateLabel: toolStates[item.state]?.label || item.state || '',
+        stateSummary: toolStates[item.state]?.summary || '',
+        boundaryRule: toolStates[item.state]?.summary || '',
+        matchedLimitNeedles,
+        output: item.output || '',
+        fit: item.fit || '',
+        limit: item.limit || '',
+        capabilities: Array.isArray(item.capabilities) ? item.capabilities : [],
+        sourcePath: source.sourcePath,
+        sourceExists: source.exists,
+        reportSurface,
+        pageOnlyReadinessRequired,
+        pageOnlyReadinessPresent,
+        pageOnlyReadinessHiddenInPrint,
+        boundaryIssues: boundaryIssuesForEntrypoint(enrichedItem, stateBoundaryRules)
+      };
+    })
     .sort((a, b) => a.route.localeCompare(b.route));
 }
 
 function otherGovernanceList(items, governanceSources, preflightSummaries) {
   const summaries = Array.isArray(preflightSummaries) ? preflightSummaries.filter(Boolean) : [];
+  const quickMode = summaries[0]?.quick === true;
   const preflightRecords = new Map();
   for (const summary of summaries) {
     for (const record of summary.records || []) {
@@ -298,7 +513,9 @@ function otherGovernanceList(items, governanceSources, preflightSummaries) {
   return items
     .map(item => {
       const source = governanceSources[item.governance] || null;
-      const preflightKeys = Array.isArray(source?.preflightKeys) ? source.preflightKeys : [];
+      const quickPreflightKeys = Array.isArray(source?.preflightKeys) ? source.preflightKeys : [];
+      const fullPreflightKeys = Array.isArray(source?.fullPreflightKeys) ? source.fullPreflightKeys : [];
+      const preflightKeys = quickMode ? quickPreflightKeys : [...quickPreflightKeys, ...fullPreflightKeys];
       const missingKeys = preflightKeys.filter(key => !preflightRecords.has(key));
       const failedKeys = preflightKeys.filter(key => preflightRecords.has(key) && preflightRecords.get(key).pass !== true);
       const passedKeys = preflightKeys.filter(key => preflightRecords.has(key) && preflightRecords.get(key).pass === true);
@@ -314,7 +531,9 @@ function otherGovernanceList(items, governanceSources, preflightSummaries) {
         state: item.state || '',
         governance: item.governance || '',
         governanceLabel: source?.label || '',
+        governanceCardTag: source?.cardTag || '',
         preflightKeys,
+        fullPreflightKeys,
         passedKeys,
         failedKeys,
         missingKeys,
@@ -327,7 +546,7 @@ function otherGovernanceList(items, governanceSources, preflightSummaries) {
     .sort((a, b) => a.route.localeCompare(b.route));
 }
 
-function buildEntrypointCoverage(homeEntrypoints, rows, vercelText, governanceSources = {}, preflightSummaries = []) {
+function buildEntrypointCoverage(homeEntrypoints, rows, vercelText, governanceSources = {}, preflightSummaries = [], toolStates = {}, stateBoundaryRules = {}, routeFileMap = {}) {
   const matrixRoutes = new Set(rows.map(row => row.route).filter(Boolean));
   const entries = homeEntrypoints.map(item => ({
     ...item,
@@ -341,8 +560,12 @@ function buildEntrypointCoverage(homeEntrypoints, rows, vercelText, governanceSo
   const nonFormalOutsideCoverage = outsideMatrix.filter(item => item.state !== 'formal' && !item.governance);
   const otherGovernanceRows = otherGovernanceList(otherGoverned, governanceSources, preflightSummaries);
   const otherGovernanceIssueCount = otherGovernanceRows.reduce((sum, item) => sum + item.governanceIssues.length, 0);
-  const boundaryRows = entrypointBoundaryList(nonFormalOutsideCoverage);
+  const boundaryRows = entrypointBoundaryList(nonFormalOutsideCoverage, toolStates, stateBoundaryRules, routeFileMap);
   const boundaryIssueCount = boundaryRows.reduce((sum, item) => sum + item.boundaryIssues.length, 0);
+  const pageOnlyBoundaryRows = boundaryRows.filter(item => item.pageOnlyReadinessRequired);
+  const pageOnlyBoundaryIssueCount = pageOnlyBoundaryRows.reduce((sum, item) => {
+    return sum + item.boundaryIssues.filter(issue => issue === 'missing-page-only-readiness' || issue === 'page-only-readiness-print-leak' || issue === 'missing-home-route-source').length;
+  }, 0);
   return {
     total: entries.length,
     matrixCovered: matrixCovered.length,
@@ -355,6 +578,9 @@ function buildEntrypointCoverage(homeEntrypoints, rows, vercelText, governanceSo
     boundaryRequired: boundaryRows.length,
     boundaryComplete: boundaryRows.filter(item => item.boundaryIssues.length === 0).length,
     boundaryIssueCount,
+    pageOnlyBoundaryRequired: pageOnlyBoundaryRows.length,
+    pageOnlyBoundaryComplete: pageOnlyBoundaryRows.filter(item => item.pageOnlyReadinessPresent && item.pageOnlyReadinessHiddenInPrint).length,
+    pageOnlyBoundaryIssueCount,
     cleanRouteCount: entries.filter(item => item.cleanRoute).length,
     byState: countByField(entries, 'state'),
     outsideByState: countByField(outsideMatrix, 'state'),
@@ -510,18 +736,23 @@ function findPreflightRecord(preflightEvidenceSummaries, key) {
 }
 
 function buildGlobalGovernance(preflightEvidenceSummaries, traceabilityCatalogCoverage) {
-  const catalogFamilies = (Array.isArray(traceabilityCatalogCoverage) ? traceabilityCatalogCoverage : [])
+  const availableCatalogFamilies = (Array.isArray(traceabilityCatalogCoverage) ? traceabilityCatalogCoverage : [])
     .map(item => item.family)
     .filter(Boolean);
+  const availableCatalogFamilySet = new Set(availableCatalogFamilies);
   const gates = GLOBAL_GOVERNANCE_GATES.map((gate) => {
     const record = findPreflightRecord(preflightEvidenceSummaries, gate.key);
     const missing = !record;
     const failed = Boolean(record && record.pass !== true);
     const issues = [];
+    const requiredCatalogFamilies = Array.isArray(gate.catalogFamilies) ? gate.catalogFamilies.filter(Boolean) : [];
+    const coveredCatalogFamilies = requiredCatalogFamilies.filter(family => availableCatalogFamilySet.has(family));
+    const missingCatalogFamilies = requiredCatalogFamilies.filter(family => !availableCatalogFamilySet.has(family));
     if (missing) issues.push('missing-preflight-record');
     if (failed) issues.push('failed-preflight-record');
     const minCatalogs = Number.isFinite(Number(gate.minCatalogs)) ? Number(gate.minCatalogs) : 1;
-    if (catalogFamilies.length < minCatalogs) issues.push('missing-traceability-catalog-coverage');
+    if (coveredCatalogFamilies.length < minCatalogs) issues.push('missing-traceability-catalog-coverage');
+    if (missingCatalogFamilies.length > 0) issues.push('missing-specific-traceability-catalog');
     return {
       ...gate,
       pass: Boolean(record && record.pass === true && issues.length === 0),
@@ -529,8 +760,10 @@ function buildGlobalGovernance(preflightEvidenceSummaries, traceabilityCatalogCo
       quick: record?.evidenceQuick === true,
       seconds: Number.isFinite(Number(record?.seconds)) ? Number(record.seconds) : 0,
       exitCode: Number.isFinite(Number(record?.exitCode)) ? Number(record.exitCode) : null,
-      coveredCatalogs: catalogFamilies.length,
-      catalogFamilies,
+      coveredCatalogs: coveredCatalogFamilies.length,
+      catalogFamilies: coveredCatalogFamilies,
+      requiredCatalogFamilies,
+      missingCatalogFamilies,
       issues
     };
   });
@@ -580,40 +813,31 @@ function loadSourceState() {
   const localQuickManifest = readJson(localQuickManifestPath);
   const vercelText = readText(vercelPath);
   const homeJs = readText(homePath);
+  const routeFileMap = extractRouteFileMap(homeJs);
+  const homeEntrypoints = extractHomeEntrypoints(homeJs, routeFileMap);
   const preflightSummaryText = fileExists(preflightSummaryPath) ? readText(preflightSummaryPath).replace(/^\uFEFF/, '') : '';
   const preflightSummary = preflightSummaryText ? JSON.parse(preflightSummaryText) : null;
   const preflightSummaryStat = fileExists(preflightSummaryPath) ? fs.statSync(preflightSummaryPath) : null;
   const preflightHistoryText = fileExists(preflightHistoryPath) ? readText(preflightHistoryPath).replace(/^\uFEFF/, '') : '';
   const preflightHistory = preflightHistoryText ? JSON.parse(preflightHistoryText) : null;
+  const preflightHistoryItems = Array.isArray(preflightHistory?.items) ? preflightHistory.items : [];
   const completedPreflightItems = Array.isArray(preflightHistory?.items)
     ? preflightHistory.items.filter(item => item && item.complete !== false)
     : [];
-  const latestFullPreflightItem = completedPreflightItems
-    ? completedPreflightItems.find(item => item && item.quick === false && item.summaryJsonPath)
-    : null;
-  const latestPassingFullPreflightItem = completedPreflightItems
-    ? completedPreflightItems.find(item => item && item.quick === false && item.pass === true && item.summaryJsonPath)
-    : null;
-  const latestFullPreflightSummaryPath = latestFullPreflightItem
-    ? (path.isAbsolute(latestFullPreflightItem.summaryJsonPath) ? latestFullPreflightItem.summaryJsonPath : repoFile(latestFullPreflightItem.summaryJsonPath))
-    : '';
-  const latestPassingFullPreflightSummaryPath = latestPassingFullPreflightItem
-    ? (path.isAbsolute(latestPassingFullPreflightItem.summaryJsonPath) ? latestPassingFullPreflightItem.summaryJsonPath : repoFile(latestPassingFullPreflightItem.summaryJsonPath))
-    : '';
-  const latestFullPreflightSummaryRelativePath = latestFullPreflightSummaryPath
-    ? path.relative(repoRoot, latestFullPreflightSummaryPath).replace(/\\/g, '/')
-    : '';
-  const latestPassingFullPreflightSummaryRelativePath = latestPassingFullPreflightSummaryPath
-    ? path.relative(repoRoot, latestPassingFullPreflightSummaryPath).replace(/\\/g, '/')
-    : '';
-  const latestFullPreflightSummaryText = latestFullPreflightSummaryPath && fileExists(latestFullPreflightSummaryPath)
-    ? readText(latestFullPreflightSummaryPath).replace(/^\uFEFF/, '')
-    : '';
-  const latestPassingFullPreflightSummaryText = latestPassingFullPreflightSummaryPath && fileExists(latestPassingFullPreflightSummaryPath)
-    ? readText(latestPassingFullPreflightSummaryPath).replace(/^\uFEFF/, '')
-    : '';
-  const latestFullPreflightSummary = latestFullPreflightSummaryText ? JSON.parse(latestFullPreflightSummaryText) : null;
-  const latestPassingFullPreflightSummary = latestPassingFullPreflightSummaryText ? JSON.parse(latestPassingFullPreflightSummaryText) : null;
+  const latestFullPreflightSource = findLatestPreflightHistorySummary(
+    summary => summary && summary.quick === false,
+    preflightHistoryItems
+  );
+  const latestPassingFullPreflightSource = findLatestPreflightHistorySummary(
+    summary => summary && summary.quick === false && summary.pass === true,
+    preflightHistoryItems
+  );
+  const latestFullPreflightSummaryPath = latestFullPreflightSource?.filePath || '';
+  const latestPassingFullPreflightSummaryPath = latestPassingFullPreflightSource?.filePath || '';
+  const latestFullPreflightSummaryRelativePath = latestFullPreflightSource?.sourcePath || '';
+  const latestPassingFullPreflightSummaryRelativePath = latestPassingFullPreflightSource?.sourcePath || '';
+  const latestFullPreflightSummary = latestFullPreflightSource?.payload || null;
+  const latestPassingFullPreflightSummary = latestPassingFullPreflightSource?.payload || null;
   const needsFullPreflightFallback = preflightSummary?.quick === true;
   const needsPassingFullPreflightFallback = preflightSummary?.pass !== true;
   const preflightEvidenceSummaries = [
@@ -656,7 +880,10 @@ function loadSourceState() {
     localQuickManifest,
     vercelText,
     homeJs,
-    homeEntrypoints: extractHomeEntrypoints(homeJs),
+    routeFileMap,
+    homeEntrypoints,
+    toolStates: extractToolStates(homeJs),
+    stateBoundaryRules: extractStateBoundaryRules(homeJs),
     governanceSources: extractGovernanceSources(homeJs),
     preflightSummary,
     latestFullPreflightSummary,
@@ -669,7 +896,7 @@ function loadSourceState() {
       latestRunId: preflightHistory?.items?.[0]?.runId || '',
       latestState: preflightHistory?.items?.[0]?.state || '',
       latestCompletedRunId: completedPreflightItems[0]?.runId || '',
-      latestCompletedFullRunId: latestFullPreflightItem?.runId || ''
+      latestCompletedFullRunId: latestFullPreflightSource?.payload?.runId || ''
     },
     preflightEvidenceSummaries,
     preflightSummarySource: {
@@ -886,6 +1113,9 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
       boundaryRequired: 0,
       boundaryComplete: 0,
       boundaryIssueCount: 0,
+      pageOnlyBoundaryRequired: 0,
+      pageOnlyBoundaryComplete: 0,
+      pageOnlyBoundaryIssueCount: 0,
       cleanRouteCount: 0,
       byState: {},
       outsideByState: {},
@@ -946,6 +1176,7 @@ function buildMarkdown(payload) {
     `- homeEntrypoints: total=${entrypoint.total || 0}, maturityMatrix=${entrypoint.matrixCovered || 0}, otherGoverned=${entrypoint.otherGoverned || 0}, formalOutsideCoverage=${entrypoint.formalOutsideCoverage || 0}`,
     `- otherGovernance: complete=${entrypoint.otherGovernanceComplete || 0}/${entrypoint.otherGovernanceRequired || 0}, issues=${entrypoint.otherGovernanceIssueCount || 0}`,
     `- nonMatrixBoundary: complete=${entrypoint.boundaryComplete || 0}/${entrypoint.boundaryRequired || 0}, issues=${entrypoint.boundaryIssueCount || 0}`,
+    `- pageOnlyBoundary: complete=${entrypoint.pageOnlyBoundaryComplete || 0}/${entrypoint.pageOnlyBoundaryRequired || 0}, issues=${entrypoint.pageOnlyBoundaryIssueCount || 0}`,
     `- globalGovernance: complete=${payload.globalGovernance?.passed || 0}/${payload.globalGovernance?.required || 0}, issues=${payload.globalGovernance?.issueCount || 0}`,
     `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
@@ -1005,6 +1236,8 @@ function buildMarkdown(payload) {
     `| non-formal / workflow outside matrix | ${entrypoint.nonFormalOutsideCoverage || 0} |`,
     `| non-matrix boundary complete | ${(entrypoint.boundaryComplete || 0)} / ${(entrypoint.boundaryRequired || 0)} |`,
     `| non-matrix boundary issues | ${entrypoint.boundaryIssueCount || 0} |`,
+    `| page-only readiness complete | ${(entrypoint.pageOnlyBoundaryComplete || 0)} / ${(entrypoint.pageOnlyBoundaryRequired || 0)} |`,
+    `| page-only readiness issues | ${entrypoint.pageOnlyBoundaryIssueCount || 0} |`,
     `| clean route entries | ${entrypoint.cleanRouteCount || 0} |`,
     '',
     '### Outside Maturity Matrix',
@@ -1026,16 +1259,16 @@ function buildMarkdown(payload) {
     '',
     '### Other Governance Sources',
     '',
-    '| route | title | governance | source | preflight keys | passed | failed | missing | issues |',
-    '|---|---|---|---|---|---|---|---|---|'
+    '| route | title | governance | source | boundary tag | preflight keys | passed | failed | missing | issues |',
+    '|---|---|---|---|---|---|---|---|---|---|'
   );
   const otherGovernanceRoutes = Array.isArray(entrypoint.otherGovernanceRoutes) ? entrypoint.otherGovernanceRoutes : [];
   if (otherGovernanceRoutes.length === 0) {
-    lines.push('| - | - | - | - | - | - | - | - | - |');
+    lines.push('| - | - | - | - | - | - | - | - | - | - |');
   } else {
     for (const item of otherGovernanceRoutes) {
       const issues = Array.isArray(item.governanceIssues) && item.governanceIssues.length ? item.governanceIssues.join(', ') : '-';
-      lines.push(`| ${markdownCell(item.route)} | ${markdownCell(item.title)} | ${markdownCell(item.governance)} | ${markdownCell(item.governanceLabel)} | ${markdownCell(item.preflightKeys)} | ${markdownCell(item.passedKeys)} | ${markdownCell(item.failedKeys)} | ${markdownCell(item.missingKeys)} | ${markdownCell(issues)} |`);
+      lines.push(`| ${markdownCell(item.route)} | ${markdownCell(item.title)} | ${markdownCell(item.governance)} | ${markdownCell(item.governanceLabel)} | ${markdownCell(item.governanceCardTag)} | ${markdownCell(item.preflightKeys)} | ${markdownCell(item.passedKeys)} | ${markdownCell(item.failedKeys)} | ${markdownCell(item.missingKeys)} | ${markdownCell(issues)} |`);
     }
   }
 
@@ -1043,16 +1276,16 @@ function buildMarkdown(payload) {
     '',
     '### Non-Matrix Boundary Checks',
     '',
-    '| route | title | state | output | fit | limit | issues |',
-    '|---|---|---|---|---|---|---|'
+    '| route | title | state | source | boundary rule | matched needles | report surface | page-only readiness | print hidden | output | fit | limit | issues |',
+    '|---|---|---|---|---|---|---|---|---|---|---|---|---|'
   );
   const boundaryRoutes = Array.isArray(entrypoint.boundaryRoutes) ? entrypoint.boundaryRoutes : [];
   if (boundaryRoutes.length === 0) {
-    lines.push('| - | - | - | - | - | - | - |');
+    lines.push('| - | - | - | - | - | - | - | - | - | - | - | - | - |');
   } else {
     for (const item of boundaryRoutes) {
       const issues = Array.isArray(item.boundaryIssues) && item.boundaryIssues.length ? item.boundaryIssues.join(', ') : '-';
-      lines.push(`| ${markdownCell(item.route)} | ${markdownCell(item.title)} | ${markdownCell(item.state)} | ${markdownCell(item.output)} | ${markdownCell(item.fit)} | ${markdownCell(item.limit)} | ${markdownCell(issues)} |`);
+      lines.push(`| ${markdownCell(item.route)} | ${markdownCell(item.title)} | ${markdownCell(item.stateLabel || item.state)} | ${markdownCell(item.sourcePath || '-')} | ${markdownCell(item.boundaryRule)} | ${markdownCell(item.matchedLimitNeedles)} | ${item.reportSurface ? 'yes' : 'no'} | ${item.pageOnlyReadinessRequired ? (item.pageOnlyReadinessPresent ? 'yes' : 'no') : '-'} | ${item.pageOnlyReadinessRequired ? (item.pageOnlyReadinessHiddenInPrint ? 'yes' : 'no') : '-'} | ${markdownCell(item.output)} | ${markdownCell(item.fit)} | ${markdownCell(item.limit)} | ${markdownCell(issues)} |`);
     }
   }
 
@@ -1122,7 +1355,16 @@ function buildMatrix() {
     ...buildFormalRows(state),
     ...buildLocalQuickRows(state)
   ];
-  const entrypointCoverage = buildEntrypointCoverage(state.homeEntrypoints, rows, state.vercelText, state.governanceSources, state.preflightEvidenceSummaries);
+  const entrypointCoverage = buildEntrypointCoverage(
+    state.homeEntrypoints,
+    rows,
+    state.vercelText,
+    state.governanceSources,
+    state.preflightEvidenceSummaries,
+    state.toolStates,
+    state.stateBoundaryRules,
+    state.routeFileMap
+  );
   const traceabilityCatalogCoverage = buildTraceabilityCatalogCoverage(state);
   const globalGovernance = buildGlobalGovernance(state.preflightEvidenceSummaries, traceabilityCatalogCoverage);
   const payload = {
@@ -1169,21 +1411,12 @@ function buildHomepagePlatformStatus(payload) {
 function resolveHomepagePreflightSource() {
   const latestSummary = readJsonIfExists(preflightSummarySourcePath);
   const history = readJsonIfExists(preflightHistorySourcePath);
-  const completedItems = Array.isArray(history?.items)
-    ? history.items.filter(item => item && item.complete !== false)
-    : [];
-  const latestFull = completedItems.find(item => item && item.quick === false && item.summaryJsonPath);
+  const latestFull = findLatestPreflightHistorySummary(
+    summary => summary && summary.quick === false,
+    history?.items
+  );
   if (latestFull) {
-    const fullPath = path.isAbsolute(latestFull.summaryJsonPath)
-      ? latestFull.summaryJsonPath
-      : repoFile(String(latestFull.summaryJsonPath).replace(/\\/g, '/'));
-    if (fileExists(fullPath)) {
-      return {
-        payload: readJson(fullPath),
-        filePath: fullPath,
-        sourcePath: displayPath(fullPath)
-      };
-    }
+    return latestFull;
   }
   return {
     payload: latestSummary,
@@ -1220,10 +1453,55 @@ function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
   };
 }
 
-function writeHomepageStatusSnapshots() {
+function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflightStatus = null) {
+  if (!matrixPayload) return null;
+  const entrypointCoverage = matrixPayload.entrypointCoverage || {};
+  const boundaryRoutes = Array.isArray(entrypointCoverage.boundaryRoutes) ? entrypointCoverage.boundaryRoutes : [];
+  const pageOnlyRoutes = boundaryRoutes.filter(item => item.pageOnlyReadinessRequired);
+  const pageOnlyTitles = pageOnlyRoutes.map(item => String(item.title || '').trim()).filter(Boolean);
+  const pageOnlyStateLabels = Array.from(new Set(pageOnlyRoutes.map(item => String(item.stateLabel || item.state || '').trim()).filter(Boolean)));
+  const required = compactNumber(entrypointCoverage.pageOnlyBoundaryRequired);
+  const complete = compactNumber(entrypointCoverage.pageOnlyBoundaryComplete);
+  const issues = compactNumber(entrypointCoverage.pageOnlyBoundaryIssueCount);
+  const summary = `頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
+  const details = [
+    pageOnlyTitles.length
+      ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
+      : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
+    '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書 邊界，避免把 page-only 提醒誤當正式交付內容。',
+    '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
+  ];
+  return {
+    snapshotVersion: 1,
+    kind: 'report-readiness-status',
+    generatedAt: String(matrixPayload.generatedAt || ''),
+    runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
+    pass: issues === 0,
+    failureCount: issues,
+    badge: '頁面專用',
+    label: '報告閱讀狀態總覽',
+    summary,
+    details,
+    pageOnlyBoundaryRequired: required,
+    pageOnlyBoundaryComplete: complete,
+    pageOnlyBoundaryIssueCount: issues,
+    pageOnlyRoutes: pageOnlyRoutes.map(item => ({
+      route: String(item.route || ''),
+      title: String(item.title || ''),
+      state: String(item.stateLabel || item.state || ''),
+      sourcePath: String(item.sourcePath || '')
+    })),
+    sourcePath: 'output/audit/tool-maturity-matrix.json',
+    preflightStatusSourcePath: String(preflightStatus?.sourcePath || ''),
+    sourceHash: String(sourceHash || '')
+  };
+}
+
+function writeHomepageStatusSnapshots(matrixPayload = null, matrixSourceHash = '') {
   const platformStatus = buildHomepagePlatformStatus(readJsonIfExists(platformStatusSourcePath));
   const preflightSource = resolveHomepagePreflightSource();
   const preflightStatus = buildHomepagePreflightStatus(preflightSource.payload, preflightSource.filePath, preflightSource.sourcePath);
+  const reportReadinessStatus = buildHomepageReportReadinessStatus(matrixPayload, matrixSourceHash || sourceHashIfExists(jsonOutputPath), preflightStatus);
   fs.mkdirSync(homepageStatusDir, { recursive: true });
   if (platformStatus) {
     fs.writeFileSync(homepagePlatformStatusPath, `${JSON.stringify(platformStatus, null, 2)}\n`, 'utf8');
@@ -1231,13 +1509,17 @@ function writeHomepageStatusSnapshots() {
   if (preflightStatus) {
     fs.writeFileSync(homepagePreflightStatusPath, `${JSON.stringify(preflightStatus, null, 2)}\n`, 'utf8');
   }
+  if (reportReadinessStatus) {
+    fs.writeFileSync(homepageReportReadinessStatusPath, `${JSON.stringify(reportReadinessStatus, null, 2)}\n`, 'utf8');
+  }
 }
 
 function writeMatrix(matrix) {
   fs.mkdirSync(outputDir, { recursive: true });
-  fs.writeFileSync(jsonOutputPath, `${JSON.stringify(matrix.payload, null, 2)}\n`, 'utf8');
+  const jsonText = `${JSON.stringify(matrix.payload, null, 2)}\n`;
+  fs.writeFileSync(jsonOutputPath, jsonText, 'utf8');
   fs.writeFileSync(markdownOutputPath, matrix.markdown, 'utf8');
-  writeHomepageStatusSnapshots();
+  writeHomepageStatusSnapshots(matrix.payload, hashText(jsonText));
 }
 
 function displayPath(filePath) {
@@ -1297,16 +1579,20 @@ function checkMatrix(payload, markdown) {
   const reportDisclosureGate = payload.globalGovernance.gates.find(item => item.key === 'report-disclosure-contract');
   assert.ok(reportDisclosureGate, 'tool maturity matrix globalGovernance includes report disclosure gate');
   assert.equal(reportDisclosureGate.pass, true, 'tool maturity matrix report disclosure gate passed');
-  assert.equal(reportDisclosureGate.coveredCatalogs >= 7, true, 'tool maturity matrix report disclosure gate covers traceability catalogs');
+  assert.equal(reportDisclosureGate.coveredCatalogs, 7, 'tool maturity matrix report disclosure gate covers traceability catalogs');
+  assert.deepEqual(reportDisclosureGate.catalogFamilies, ['formal-traceability', 'rc-traceability', 'steel-traceability', 'anchor-traceability', 'stone-traceability', 'decking-traceability', 'excavation-traceability'], 'tool maturity matrix report disclosure gate relevant families');
   assert.deepEqual(reportDisclosureGate.issues, [], 'tool maturity matrix report disclosure gate issues empty');
   const deliveryArtifactsGate = payload.globalGovernance.gates.find(item => item.key === 'delivery-artifacts-contract');
   assert.ok(deliveryArtifactsGate, 'tool maturity matrix globalGovernance includes delivery artifacts gate');
   assert.equal(deliveryArtifactsGate.pass, true, 'tool maturity matrix delivery artifacts gate passed');
-  assert.equal(deliveryArtifactsGate.coveredCatalogs >= 2, true, 'tool maturity matrix delivery artifacts gate covers traceability catalogs');
+  assert.equal(deliveryArtifactsGate.coveredCatalogs, 3, 'tool maturity matrix delivery artifacts gate covers traceability catalogs');
+  assert.deepEqual(deliveryArtifactsGate.catalogFamilies, ['stone-traceability', 'decking-traceability', 'excavation-traceability'], 'tool maturity matrix delivery artifacts gate relevant families');
   assert.deepEqual(deliveryArtifactsGate.issues, [], 'tool maturity matrix delivery artifacts gate issues empty');
   const releaseReadinessGate = payload.globalGovernance.gates.find(item => item.key === 'release-readiness-contract');
   assert.ok(releaseReadinessGate, 'tool maturity matrix globalGovernance includes release readiness gate');
   assert.equal(releaseReadinessGate.pass, true, 'tool maturity matrix release readiness gate passed');
+  assert.equal(releaseReadinessGate.coveredCatalogs, 0, 'tool maturity matrix release readiness gate has no catalog dependency');
+  assert.deepEqual(releaseReadinessGate.catalogFamilies, [], 'tool maturity matrix release readiness gate relevant families empty');
   assert.deepEqual(releaseReadinessGate.issues, [], 'tool maturity matrix release readiness gate issues empty');
   assert.ok(markdown.includes('## Global Governance Gates'), 'tool maturity matrix markdown exposes global governance gates');
   assert.ok(markdown.includes('report-disclosure-contract'), 'tool maturity matrix markdown exposes report disclosure gate');
@@ -1329,21 +1615,50 @@ function checkMatrix(payload, markdown) {
   assert.equal(Number.isInteger(payload.entrypointCoverage.boundaryRequired), true, 'tool maturity matrix entrypointCoverage boundaryRequired integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.boundaryComplete), true, 'tool maturity matrix entrypointCoverage boundaryComplete integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.boundaryIssueCount), true, 'tool maturity matrix entrypointCoverage boundaryIssueCount integer');
+  assert.equal(Number.isInteger(payload.entrypointCoverage.pageOnlyBoundaryRequired), true, 'tool maturity matrix entrypointCoverage pageOnlyBoundaryRequired integer');
+  assert.equal(Number.isInteger(payload.entrypointCoverage.pageOnlyBoundaryComplete), true, 'tool maturity matrix entrypointCoverage pageOnlyBoundaryComplete integer');
+  assert.equal(Number.isInteger(payload.entrypointCoverage.pageOnlyBoundaryIssueCount), true, 'tool maturity matrix entrypointCoverage pageOnlyBoundaryIssueCount integer');
   assert.equal(payload.entrypointCoverage.boundaryComplete, payload.entrypointCoverage.boundaryRequired, 'tool maturity matrix entrypointCoverage boundary checks complete');
   assert.equal(payload.entrypointCoverage.boundaryIssueCount, 0, 'tool maturity matrix entrypointCoverage boundary issues empty');
+  assert.equal(payload.entrypointCoverage.pageOnlyBoundaryComplete, payload.entrypointCoverage.pageOnlyBoundaryRequired, 'tool maturity matrix entrypointCoverage page-only readiness checks complete');
+  assert.equal(payload.entrypointCoverage.pageOnlyBoundaryIssueCount, 0, 'tool maturity matrix entrypointCoverage page-only readiness issues empty');
   assert.ok(Array.isArray(payload.entrypointCoverage.outsideMatrixRoutes), 'tool maturity matrix entrypointCoverage outsideMatrixRoutes array');
   assert.ok(Array.isArray(payload.entrypointCoverage.boundaryRoutes), 'tool maturity matrix entrypointCoverage boundaryRoutes array');
+  assert.ok(payload.entrypointCoverage.boundaryRoutes.length > 0, 'tool maturity matrix entrypointCoverage boundaryRoutes populated');
   for (const route of payload.entrypointCoverage.otherGovernanceRoutes) {
     assert.ok(route.governance, `tool maturity matrix other governance route governance: ${route.route}`);
     assert.ok(route.governanceLabel, `tool maturity matrix other governance route label: ${route.route}`);
+    assert.ok(route.governanceCardTag, `tool maturity matrix other governance route boundary tag: ${route.route}`);
     assert.ok(Array.isArray(route.preflightKeys) && route.preflightKeys.length > 0, `tool maturity matrix other governance route preflight keys populated: ${route.route}`);
     assert.deepEqual(route.failedKeys, [], `tool maturity matrix other governance route failed keys empty: ${route.route}`);
     assert.deepEqual(route.missingKeys, [], `tool maturity matrix other governance route missing keys empty: ${route.route}`);
     assert.deepEqual(route.governanceIssues, [], `tool maturity matrix other governance route issues empty: ${route.route}`);
     assert.equal(route.pass, true, `tool maturity matrix other governance route pass: ${route.route}`);
   }
+  for (const route of payload.entrypointCoverage.boundaryRoutes) {
+    assert.ok(route.stateLabel, `tool maturity matrix boundary route state label: ${route.route}`);
+    assert.ok(route.boundaryRule, `tool maturity matrix boundary route rule: ${route.route}`);
+    assert.ok(Array.isArray(route.matchedLimitNeedles), `tool maturity matrix boundary route matched needles array: ${route.route}`);
+    assert.ok(route.matchedLimitNeedles.length > 0, `tool maturity matrix boundary route matched needles populated: ${route.route}`);
+    assert.ok(route.output, `tool maturity matrix boundary route output: ${route.route}`);
+    assert.ok(route.fit, `tool maturity matrix boundary route fit: ${route.route}`);
+    assert.ok(route.limit, `tool maturity matrix boundary route limit: ${route.route}`);
+    assert.ok(typeof route.sourcePath === 'string', `tool maturity matrix boundary route sourcePath string: ${route.route}`);
+    assert.equal(typeof route.reportSurface, 'boolean', `tool maturity matrix boundary route reportSurface boolean: ${route.route}`);
+    assert.equal(typeof route.pageOnlyReadinessRequired, 'boolean', `tool maturity matrix boundary route pageOnlyReadinessRequired boolean: ${route.route}`);
+    assert.equal(typeof route.pageOnlyReadinessPresent, 'boolean', `tool maturity matrix boundary route pageOnlyReadinessPresent boolean: ${route.route}`);
+    assert.equal(typeof route.pageOnlyReadinessHiddenInPrint, 'boolean', `tool maturity matrix boundary route pageOnlyReadinessHiddenInPrint boolean: ${route.route}`);
+    if (route.pageOnlyReadinessRequired) {
+      assert.ok(route.sourcePath, `tool maturity matrix boundary route page-only sourcePath: ${route.route}`);
+      assert.equal(route.pageOnlyReadinessPresent, true, `tool maturity matrix boundary route page-only readiness present: ${route.route}`);
+      assert.equal(route.pageOnlyReadinessHiddenInPrint, true, `tool maturity matrix boundary route page-only hidden in print: ${route.route}`);
+    }
+    assert.deepEqual(route.boundaryIssues, [], `tool maturity matrix boundary route issues empty: ${route.route}`);
+  }
   assert.ok(markdown.includes('## Coverage Totals'), 'tool maturity matrix markdown exposes coverage totals');
   assert.ok(markdown.includes('## Traceability Catalog Coverage'), 'tool maturity matrix markdown exposes traceability catalog coverage');
+  assert.ok(markdown.includes('pageOnlyBoundary:'), 'tool maturity matrix markdown exposes page-only boundary summary');
+  assert.ok(markdown.includes('page-only readiness complete'), 'tool maturity matrix markdown exposes page-only readiness metric');
   assert.ok(Array.isArray(payload.traceabilityCatalogCoverage), 'tool maturity matrix traceability catalog coverage array');
   const formalTraceabilityCoverage = payload.traceabilityCatalogCoverage.find(item => item.family === 'formal-traceability');
   assert.ok(formalTraceabilityCoverage, 'tool maturity matrix includes formal traceability catalog coverage');
@@ -1388,11 +1703,39 @@ function checkMatrix(payload, markdown) {
   assert.ok(markdown.includes('sourceManifests:'), 'tool maturity matrix markdown exposes source manifests');
   const homepagePlatformStatus = assertHomepageStatusSnapshot(homepagePlatformStatusPath, 'platform-status', 'output/audit/platform-status.json', platformStatusSourcePath);
   const homepagePreflightStatus = assertHomepageStatusSnapshot(homepagePreflightStatusPath, 'preflight-summary', /^output\/preflight\/(?:history\/[^/]+\/)?preflight-summary\.json$/, null);
+  const homepageReportReadinessStatus = assertHomepageStatusSnapshot(homepageReportReadinessStatusPath, 'report-readiness-status', 'output/audit/tool-maturity-matrix.json', jsonOutputPath);
+  const latestFullHomepagePreflight = findLatestPreflightHistorySummary(
+    summary => summary && summary.quick === false,
+    readJsonIfExists(preflightHistorySourcePath)?.items
+  );
   assert.ok(Array.isArray(homepagePlatformStatus.modules), 'homepage platform status modules array');
   assert.equal(typeof homepagePreflightStatus.quick, 'boolean', 'homepage preflight status quick boolean');
   assert.equal(Number.isInteger(homepagePreflightStatus.recordsCount), true, 'homepage preflight status recordsCount integer');
   assert.equal(Number.isInteger(homepagePreflightStatus.passedCount), true, 'homepage preflight status passedCount integer');
   assert.ok(Array.isArray(homepagePreflightStatus.failedKeys), 'homepage preflight status failedKeys array');
+  assert.equal(homepageReportReadinessStatus.badge, '頁面專用', 'homepage report readiness badge');
+  assert.equal(homepageReportReadinessStatus.label, '報告閱讀狀態總覽', 'homepage report readiness label');
+  assert.equal(homepageReportReadinessStatus.pass, true, 'homepage report readiness status is passing');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.pageOnlyBoundaryRequired), true, 'homepage report readiness required integer');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.pageOnlyBoundaryComplete), true, 'homepage report readiness complete integer');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.pageOnlyBoundaryIssueCount), true, 'homepage report readiness issue integer');
+  assert.equal(homepageReportReadinessStatus.pageOnlyBoundaryComplete, homepageReportReadinessStatus.pageOnlyBoundaryRequired, 'homepage report readiness coverage complete');
+  assert.equal(homepageReportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'homepage report readiness issues empty');
+  assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
+  assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');
+  assert.ok(String(homepageReportReadinessStatus.summary || '').includes('優先建議報告閱讀狀態'), 'homepage report readiness summary keeps boundary wording');
+  assert.ok(String(homepageReportReadinessStatus.summary || '').includes('頁面專用閱讀狀態治理'), 'homepage report readiness summary includes governance count');
+  assert.ok(Array.isArray(homepageReportReadinessStatus.details) && homepageReportReadinessStatus.details.length >= 3, 'homepage report readiness details array');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('Kzt 地形係數'), 'homepage report readiness details include wind kzt');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('特殊修正 / 折減'), 'homepage report readiness details include wind special');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊式頁面'), 'homepage report readiness details include steel beam legacy');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼柱舊式頁面'), 'homepage report readiness details include steel column legacy');
+  assert.ok(Array.isArray(homepageReportReadinessStatus.pageOnlyRoutes) && homepageReportReadinessStatus.pageOnlyRoutes.length >= 4, 'homepage report readiness routes array');
+  if (latestFullHomepagePreflight) {
+    assert.equal(homepagePreflightStatus.quick, false, 'homepage preflight status should prefer latest full run when history contains one');
+    assert.equal(homepagePreflightStatus.runId, String(latestFullHomepagePreflight.payload.runId || ''), 'homepage preflight status runId matches latest full history run');
+    assert.equal(homepagePreflightStatus.sourcePath, latestFullHomepagePreflight.sourcePath, 'homepage preflight status sourcePath matches latest full history summary');
+  }
   assert.ok(payload.sourceTrace && typeof payload.sourceTrace === 'object', 'tool maturity matrix sourceTrace object');
   assert.ok(Array.isArray(payload.sourceTrace.inputs), 'tool maturity matrix sourceTrace inputs array');
   const requiredSourceKeys = ['formal-tools-manifest', 'formal-traceability-catalog', 'rc-traceability-catalog', 'steel-traceability-catalog', 'anchor-traceability-catalog', 'stone-traceability-catalog', 'decking-traceability-catalog', 'excavation-traceability-catalog', 'local-quick-tools-manifest', 'vercel-routes', 'home-entrypoints'];

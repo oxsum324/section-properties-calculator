@@ -6,7 +6,7 @@
 
 | 區域 | 建議 | 理由 |
 |---|---|---|
-| `preflight-tools.ps1`、`run-preflight-tools.bat`、`run-preflight-tools-quick.bat`、`run-preflight-tools-release.bat` | 納入 | 已成為跨工具交付前檢查入口；quick / normal / release wrapper 需一起提交，release wrapper 固定強制慢檢查與平台 audit。 |
+| `preflight-tools.ps1`、`run-preflight-tools.bat`、`run-preflight-tools-quick.bat`、`run-preflight-tools-release.bat` | 納入 | 已成為跨工具交付前檢查入口；quick / normal / release wrapper 需一起提交，release wrapper 固定強制慢檢查與平台 audit；頁面專用 report-readiness / Pages artifact governance 需由 `pages-release-governance-contract` 納入同一輪 preflight 記錄。 |
 | `audit-all.ps1`、`refresh-platform-status.ps1`、`platform-audit-preflight.ps1`、`run-audit-all.bat`、`run-audit-all-loop.bat` | 納入 | 平台 audit orchestration 與 preflight 重用判定入口；`audit-all.ps1` 子 audit 採 `ProcessStartInfo` 執行，避免 Windows `Path` / `PATH` 環境鍵重複時 `Start-Process` 失敗，也避免子系統 audit 狀態新鮮但整體摘要或 dashboard decision hash 未刷新。 |
 | `鋼構工具/run-audit.bat`、`鋼筋混凝土/run-audit.bat`、`結構工具箱/audit-core.ps1`、`結構工具箱/run-audit-core.bat` | 納入 | 子系統 audit wrapper 與規範核心 audit 入口；preflight helper script 清冊會檢查這些入口存在並列入 staging 文件。 |
 | `開挖擋土支撐/start_html_mode.ps1`、`開挖擋土支撐/stop_html_mode.ps1` | 納入 | 開挖擋土支撐本機服務邊界 smoke 需要的啟停入口；工程資料仍排除。 |
@@ -46,7 +46,8 @@
 | `結構工具箱/tools/formal-browser-smoke.test.js` | 納入 | 風力 / 地震正式頁 Edge/CDP 瀏覽器 smoke；覆蓋 14 個正式 / 報表頁，包含 MWFRS、C&C、開放式屋面、女兒牆、表 2.10、2.11、2.12、2.15、招牌 / 燈桿、等值靜力、附屬構造物、雜項工作物與動力摘要頁的乾淨路由、桌機 / 手機橫向溢出、詳算式 / 簡易結果切換、具備者的 JSON 匯出、列印計算書與示意圖角色。 |
 | `鋼筋混凝土/tools/rc-traceability.catalog.json`、`鋼筋混凝土/tools/rc-traceability.contract.test.js` | 納入 | RC 梁、柱、板、牆、剪力牆、基礎與單樁的條文語意追蹤 catalog 與契約測試；集中確認規範來源、輸入、計算核心、報告落點、regression / browser smoke 證據與人工複核邊界，並由 RC audit 與平台 preflight 直接執行。 |
 | `結構工具箱/tools/tool-maturity-matrix.js` | 納入 | 工具成熟度矩陣產生器；合併正式工具與局部快算 manifest，輸出治理覆蓋率與下一步品質欄位 JSON / Markdown 給巡檢儀表板讀取，並將最新 `output/` 結果精簡成首頁公開狀態快照 `結構工具箱/assets/status/*.json`。preflight 會在主檢查 summary 寫出後先重產矩陣，再執行 `audit-dashboard-contract-final`、browser smoke 與 live-output post-check，避免新增 governance key 時讀到舊 summary 或 sourceHash stale 假失敗。 |
-| `結構工具箱/tools/pages-live-smoke.js`、`.github/workflows/pages-deploy.yml` | 納入 | GitHub Pages Actions 部署與上線後 smoke；workflow 在 `master` push 後 staging 靜態站台、以 `configure-pages@v6`、手動 tar、`upload-artifact@v6`、`deploy-pages@v5` 發布 Pages artifact，deploy 成功後再執行 live smoke，確認公開首頁、`home.js`、`結構工具箱/assets/status/*.json` 與代表性公開工具頁均可讀，且首頁不依賴 git ignored `output/` 路徑。公開工具頁不得洩漏本機工作目錄路徑。Pages artifact 需排除 Markdown 文件、PowerShell / batch helper、測試檔、合約檔、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔，live smoke 以 `--check-private-boundary` 驗證代表性非公開路徑不是 HTTP 200。`deploy-pages@v5` 需保留 `actions: read` 權限。 |
+| `結構工具箱/tools/pages-live-smoke.js`、`.github/workflows/pages-deploy.yml`、`run-pages-artifact-smoke.ps1` | 納入 | GitHub Pages Actions 部署與上線後 smoke；workflow 在 `master` push 後 staging 靜態站台、以 `configure-pages@v6`、手動 tar、`upload-artifact@v6`、`deploy-pages@v5` 發布 Pages artifact，deploy 成功後再執行 live smoke，確認公開首頁、`home.js`、`結構工具箱/assets/status/*.json` 與代表性公開工具頁均可讀，且首頁不依賴 git ignored `output/` 路徑。公開工具頁不得洩漏本機工作目錄路徑。Pages artifact 需排除 `output/`、Markdown 文件、`CONTEXT.md`、`docs/adr/`、PowerShell / batch helper、測試檔、合約檔、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔，live smoke 以 `--check-private-boundary` 驗證代表性非公開路徑不是 HTTP 200。`run-pages-artifact-smoke.ps1` 會在本機 temp 目錄建立接近 Pages artifact 的靜態站台、排除 `.claude`、`node_modules`、testdeps、`app_data`、tmp 等本機 checkout 才有的忽略資料，啟動短暫 HTTP server，並呼叫同一支 live smoke 做部署前預演；若只是在 repo root 臨時 HTTP server 上做本機預覽，可加 `--allow-local-output` 跳過本機 `/output/` 可讀性的假陽性，但不得用在公開站 smoke。`deploy-pages@v5` 需保留 `actions: read` 權限。 |
+| `pages-release-governance.contract.test.js` | 納入 | A0 專用契約；只鎖頁面專用閱讀狀態、Pages artifact 邊界、公開狀態快照、release force flags 與 report-readiness / preflight runId 對齊，避免為了提交 A0 而整檔 staging 大型入口契約。 |
 | `結構工具箱/tools/local-quick-tools.contract.test.js` | 納入 | 高頻局部快算共同契約測試；集中確認工具檔案、首頁入口、乾淨路由、README、邊界文件、staging 建議、頁面責任邊界與各工具 golden regression。 |
 | `鋼構工具/steel-traceability.catalog.json`、`鋼構工具/steel-traceability.contract.test.js` | 納入 | 鋼構條文語意追蹤 catalog 與契約測試；集中確認鋼構正式入口、連接板、拉力構件、鋼梁與鋼柱的規範來源、輸入、計算、報告、證據與人工複核邊界，並由鋼構 audit 與平台 preflight 直接執行。 |
 | `螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json`、`螺栓檢討/bolt-review-tool/src/anchorTraceabilityCatalog.test.ts`、`螺栓檢討/anchor-traceability.contract.test.js` | 納入 | 錨栓條文語意追蹤 catalog 與契約測試；集中確認第17章主強度、後置錨栓產品評估、17.10 耐震路徑、22.8.3 基板承壓與補強鋼筋替代 breakout 的規範來源、輸入、計算、報告、證據與人工複核邊界，並由平台 preflight 的 `anchor-traceability-contract` 直接執行。 |
@@ -73,8 +74,9 @@
 
 1. `.\run-preflight-tools-quick.bat`
 2. `.\run-preflight-tools-release.bat`
-3. `git status --short --untracked-files=normal`
-4. 修改錨栓原始碼後執行 `.\sync-anchor-deployment.ps1`。
-5. 確認 `anchor/assets` 舊 hash 刪除與新 hash 新增成對出現，且 `anchor/deployment-manifest.json` 已更新。
+3. `.\run-pages-artifact-smoke.ps1`
+4. `git status --short --untracked-files=normal`
+5. 修改錨栓原始碼後執行 `.\sync-anchor-deployment.ps1`。
+6. 確認 `anchor/assets` 舊 hash 刪除與新 hash 新增成對出現，且 `anchor/deployment-manifest.json` 已更新。
 
 實際 staging 分包請參考 [STAGING_GROUPS.md](/C:/Users/USER/Desktop/AI/小工具製作/STAGING_GROUPS.md:1)。

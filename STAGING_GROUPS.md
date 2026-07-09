@@ -2,9 +2,55 @@
 
 本檔把目前工作樹切成可審查的提交包。目的不是強制拆 commit，而是避免把平台修正、部署資產、候選工具目錄與既有使用者變更混在同一包。
 
+## A0. 報告閱讀狀態與 Pages release governance
+
+適合最先提交。這包只處理頁面專用「優先建議報告閱讀狀態」、公開首頁狀態快照、Pages artifact 邊界與正式放行證據，不納入錨栓 build hash 資產，也不納入 RC / Steel / 風力 / 地震工具頁本體的大量 UI 調整。
+
+低風險可整檔 staging 的檔案：
+
+```powershell
+git add -- CONTEXT.md docs/adr/0001-page-only-report-readiness.md
+git add -- ".github/workflows/pages-deploy.yml" "run-pages-artifact-smoke.ps1" "pages-release-governance.contract.test.js"
+git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-maturity-matrix.js"
+git add -- "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
+```
+
+需要人工 hunk review，或改隨後續「報告邊界 / 跨家族 contract」包一起 staging：
+
+- `STAGING_GROUPS.md`：目前新增 A0，也同步累積其他 package 的 report-boundary 分包調整；若只提交 A0，需只挑 A0 區塊與必要共同驗證 hunk。
+- `TOOL_BOUNDARIES.md`：目前同時補 Pages artifact wrapper，也補多家族 report-boundary / delivery contract rows；若只提交 A0，需只挑 Pages / status snapshot 相關 hunk。
+- `preflight-tools.ps1`：目前同時累積多家族 report-boundary contract wiring；若只提交 A0，需只挑 `pagesReleaseGovernanceContractCommand` 與 `pages-release-governance-contract` record hunk。
+- `README.md`：目前同時新增 Pages artifact 預演說明，也新增錨栓、石材、覆工板、開挖、剛架、斷面等報告邊界 contract 說明；若只提交 A0，需只挑 Pages / report-readiness 相關 hunk。
+- `TOOL_REPORT_GUIDE.md`：目前同時補頁面專用閱讀狀態規則，也補多家族 report contract / delivery artifact 說明；若只提交 A0，需只挑 glossary / ADR / page-only 邊界 hunk。
+- `toolbox-entrypoints.contract.test.js`：目前同時鎖 A0、首頁治理來源、報告邊界 contract 與 preflight helper 清冊；若整檔 staging，必須同步 staging 它引用的 contract / preflight / home source 變更。
+- `結構工具箱/tools/report-disclosure.contract.test.js`、`結構工具箱/tools/audit-dashboard-browser-smoke.test.js`：目前依賴跨家族 report-boundary 變更，除非 A0 同時擴成報告邊界大包，否則先不要整檔 staging。
+
+提交前驗證：
+
+```powershell
+node .\pages-release-governance.contract.test.js
+node .\toolbox-entrypoints.contract.test.js
+node .\結構工具箱\tools\report-disclosure.contract.test.js
+node .\結構工具箱\tools\tool-maturity-matrix.js --write --check
+.\run-preflight-tools-release.bat
+.\run-pages-artifact-smoke.ps1
+git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" "run-pages-artifact-smoke.ps1" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
+```
+
+不要混入本包：
+
+- `anchor/assets/` 舊 hash 刪除 / 新 hash 新增，改放 B 包。
+- `鋼筋混凝土/`、`鋼構工具/`、`結構工具箱/tools/風力/`、`結構工具箱/tools/地震力/` 的頁面本體變更，改放 E / F 或正式工具包。
+- `螺栓檢討/bolt-review-tool/` 原始碼與 `/anchor/` 部署鏡像，分別放 G / B 包。
+
+建議提交訊息：
+
+```text
+Harden page-only report readiness release evidence
+```
 ## A. 平台穩定化與驗證入口
 
-適合第一包提交。這包處理巡檢、preflight、ignore 與文件，不包含錨栓 build hash 資產。
+適合 A0 之後提交。這包處理巡檢、preflight、ignore 與文件，不包含錨栓 build hash 資產。
 
 可直接 staging 的檔案：
 

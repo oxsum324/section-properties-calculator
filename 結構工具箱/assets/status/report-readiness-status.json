@@ -1,0 +1,48 @@
+{
+  "snapshotVersion": 1,
+  "kind": "report-readiness-status",
+  "generatedAt": "2026-07-09T21:10:04.304Z",
+  "runId": "20260710-045723",
+  "pass": true,
+  "failureCount": 0,
+  "badge": "頁面專用",
+  "label": "報告閱讀狀態總覽",
+  "summary": "頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。目前首頁矩陣外 4 / 4 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。",
+  "details": [
+    "目前覆蓋 舊版保留 / 輔助查詢 入口：鋼梁舊式頁面、鋼柱舊式頁面、Kzt 地形係數、特殊修正 / 折減。",
+    "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書 邊界，避免把 page-only 提醒誤當正式交付內容。",
+    "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。"
+  ],
+  "pageOnlyBoundaryRequired": 4,
+  "pageOnlyBoundaryComplete": 4,
+  "pageOnlyBoundaryIssueCount": 0,
+  "pageOnlyRoutes": [
+    {
+      "route": "/steel-beam",
+      "title": "鋼梁舊式頁面",
+      "state": "舊版保留",
+      "sourcePath": "結構工具箱/tools/鋼構/steel-beam.html"
+    },
+    {
+      "route": "/steel-column",
+      "title": "鋼柱舊式頁面",
+      "state": "舊版保留",
+      "sourcePath": "結構工具箱/tools/鋼構/steel-column.html"
+    },
+    {
+      "route": "/wind-kzt",
+      "title": "Kzt 地形係數",
+      "state": "輔助查詢",
+      "sourcePath": "結構工具箱/tools/風力/wind-kzt.html"
+    },
+    {
+      "route": "/wind-special",
+      "title": "特殊修正 / 折減",
+      "state": "輔助查詢",
+      "sourcePath": "結構工具箱/tools/風力/wind-special.html"
+    }
+  ],
+  "sourcePath": "output/audit/tool-maturity-matrix.json",
+  "preflightStatusSourcePath": "output/preflight/history/20260710-045723/preflight-summary.json",
+  "sourceHash": "f1a508a89dd28be3b8059a263ec7cd6fb85e19243b62f7b4a93ec47022dda142"
+}

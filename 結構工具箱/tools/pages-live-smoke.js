@@ -23,6 +23,8 @@ const PUBLIC_ROUTE_SAMPLES = [
 ];
 const PRIVATE_PATHS = [
   'README.md',
+  'CONTEXT.md',
+  'docs/adr/0001-page-only-report-readiness.md',
   'TOOL_BOUNDARIES.md',
   'STAGING_GROUPS.md',
   'TOOL_REPORT_GUIDE.md',
@@ -55,6 +57,10 @@ function argValue(name) {
 
 function hasArg(name) {
   return process.argv.includes(name);
+}
+
+function allowLocalOutput() {
+  return hasArg('--allow-local-output') || process.env.PAGES_ALLOW_LOCAL_OUTPUT === '1';
 }
 
 function baseUrl() {
@@ -130,6 +136,7 @@ async function main() {
   const homeJsUrl = liveUrl(base, '結構工具箱/assets/home/home.js');
   const platformStatusUrl = liveUrl(base, '結構工具箱/assets/status/platform-status.json');
   const preflightStatusUrl = liveUrl(base, '結構工具箱/assets/status/preflight-summary.json');
+  const reportReadinessStatusUrl = liveUrl(base, '結構工具箱/assets/status/report-readiness-status.json');
 
   const homeHtml = await fetchText(homeUrl);
   assert.ok(homeHtml.includes('assets/home/home.js'), 'homepage references home.js');
@@ -137,7 +144,16 @@ async function main() {
   const homeJs = await fetchText(homeJsUrl);
   assert.ok(homeJs.includes("assets/status/platform-status.json"), 'home.js reads platform status asset');
   assert.ok(homeJs.includes("assets/status/preflight-summary.json"), 'home.js reads preflight status asset');
+  assert.ok(homeJs.includes("assets/status/report-readiness-status.json"), 'home.js reads report readiness status asset');
   assert.equal(/fetch\(\s*[`'"]\/output\//.test(homeJs), false, 'home.js must not fetch domain-root output paths');
+  assert.ok(homeJs.includes("label: '報告閱讀狀態總覽'"), 'home.js keeps report readiness overview label');
+  assert.ok(homeJs.includes("summary: '頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。'"), 'home.js keeps page-only report readiness boundary summary');
+  assert.ok(homeJs.includes('完整檢查'), 'home.js keeps full preflight mode label');
+  assert.ok(homeJs.includes('快速檢查'), 'home.js keeps quick preflight mode label');
+  assert.ok(homeJs.includes('正式放行'), 'home.js keeps release preflight mode label');
+  assert.ok(homeJs.includes('正式交付請以完整檢查或正式放行結果為準。'), 'home.js keeps full-run evidence summary');
+  assert.ok(homeJs.includes("cardTag: '報告邊界'"), 'home.js keeps RC report boundary card tag');
+  assert.ok(homeJs.includes("cardTag: '輸出邊界'"), 'home.js keeps anchor output boundary card tag');
 
   const platformStatus = await fetchJson(platformStatusUrl);
   assertStatusPayload(platformStatus, 'platform status');
@@ -152,14 +168,35 @@ async function main() {
   assert.equal(Number.isInteger(preflightStatus.recordsCount), true, 'preflight recordsCount integer');
   assert.equal(preflightStatus.recordsCount, preflightStatus.passedCount, 'preflight records all passed');
 
+  const reportReadinessStatus = await fetchJson(reportReadinessStatusUrl);
+  assertStatusPayload(reportReadinessStatus, 'report readiness status');
+  assert.equal(reportReadinessStatus.kind, 'report-readiness-status', 'report readiness status kind');
+  assert.equal(reportReadinessStatus.sourcePath, 'output/audit/tool-maturity-matrix.json', 'report readiness status sourcePath');
+  assert.equal(reportReadinessStatus.badge, '頁面專用', 'report readiness status badge');
+  assert.equal(reportReadinessStatus.label, '報告閱讀狀態總覽', 'report readiness status label');
+  assert.equal(reportReadinessStatus.pass, true, 'report readiness status pass');
+  assert.equal(Number.isInteger(reportReadinessStatus.pageOnlyBoundaryRequired), true, 'report readiness required integer');
+  assert.equal(reportReadinessStatus.pageOnlyBoundaryComplete, reportReadinessStatus.pageOnlyBoundaryRequired, 'report readiness status fully covered');
+  assert.equal(reportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'report readiness status issues empty');
+  assert.ok(String(reportReadinessStatus.summary || '').includes('頁面專用閱讀狀態治理'), 'report readiness status summary includes governance counts');
+  assert.ok(Array.isArray(reportReadinessStatus.details) && reportReadinessStatus.details.length >= 3, 'report readiness status details array');
+  assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight status');
+  assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness preflight source matches public preflight status');
+  assert.ok(
+    /^output\/preflight\/(?:history\/[^/]+\/)?preflight-summary\.json$/.test(reportReadinessStatus.preflightStatusSourcePath),
+    'report readiness preflight sourcePath'
+  );
+
   await assertPublicRouteSamples(base);
-  await assertOldOutputNotRequired(base);
+  if (!allowLocalOutput()) {
+    await assertOldOutputNotRequired(base);
+  }
   if (hasArg('--check-private-boundary') || process.env.PAGES_CHECK_PRIVATE_BOUNDARY === '1') {
     await assertPrivateBoundary(base);
   }
 
   console.log(`pages live smoke OK (${base})`);
-  console.log(`platform runId=${platformStatus.runId}, preflight runId=${preflightStatus.runId}`);
+  console.log(`platform runId=${platformStatus.runId}, preflight runId=${preflightStatus.runId}, reportReadiness runId=${reportReadinessStatus.runId}`);
 }
 
 main().catch(error => {
