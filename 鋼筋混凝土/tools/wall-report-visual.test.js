@@ -83,6 +83,27 @@ function safeRequestPath(reqUrl) {
   return decodeURIComponent(pathname);
 }
 
+function assertArtifact(file, expectedSignature, title) {
+  const st = fs.statSync(file);
+  const header = fs.readFileSync(file).subarray(0, expectedSignature.length);
+  assert(st.size > 1024, title, `${path.basename(file)} ${st.size} bytes`);
+  assert(header.equals(Buffer.from(expectedSignature)), `${title} signature`, path.basename(file));
+}
+
+async function openReportPopup(page, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 30000;
+  const triggerSelector = options.triggerSelector ?? '#btnReport';
+  const knownPages = new Set(page.context().pages());
+  await page.click(triggerSelector);
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const report = page.context().pages().find(candidate => candidate !== page && !candidate.isClosed() && !knownPages.has(candidate));
+    if (report) return report;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`report popup did not open within ${timeoutMs}ms`);
+}
+
 function serveStatic(rootDir, port = PORT) {
   const mime = {
     '.html': 'text/html; charset=utf-8',
@@ -122,12 +143,7 @@ function serveStatic(rootDir, port = PORT) {
   });
 }
 
-function assertArtifact(file, expectedSignature, title) {
-  const st = fs.statSync(file);
-  const header = fs.readFileSync(file).subarray(0, expectedSignature.length);
-  assert(st.size > 1024, title, `${path.basename(file)} ${st.size} bytes`);
-  assert(header.equals(Buffer.from(expectedSignature)), `${title} signature`, path.basename(file));
-}
+
 
 function attachPageGuards(page, bucket, label) {
   page.on('console', msg => {
@@ -213,6 +229,26 @@ async function exerciseWallProjectStorage(page) {
   assert(saved.fields.baselineReport == null, 'wall project excludes baseline textarea', 'baseline textarea excluded');
   assert(Array.isArray(saved.aggRows) && saved.aggRows.length === 1 && saved.aggRows[0].tag === 'W-save', 'wall project stores aggregate rows', JSON.stringify(saved.aggRows));
 
+  const placeholderSaved = await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setField('projName', '未填');
+    setField('projNo', 'RC-WALL-PLACEHOLDER');
+    setField('projDesigner', '未填');
+    return window.collectWallProjectData();
+  });
+  assert(placeholderSaved.metadata.projectName === '', 'wall placeholder project name is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.projectNo === 'RC-WALL-PLACEHOLDER', 'wall placeholder project number remains editable metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.designer === '', 'wall placeholder designer is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.fields.projName.value === '', 'wall placeholder project name is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projName));
+  assert(placeholderSaved.fields.projDesigner.value === '', 'wall placeholder designer is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projDesigner));
+
   const restored = await page.evaluate(payload => {
     const setField = (id, value) => {
       const el = document.getElementById(id);
@@ -292,6 +328,11 @@ async function reportMetrics(report) {
 
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  const wallHtml = fs.readFileSync(path.join(ROOT, '鋼筋混凝土', 'tools', 'wall.html'), 'utf8');
+  const sharedCommon = fs.readFileSync(path.join(ROOT, '鋼筋混凝土', 'shared', 'common.js'), 'utf8');
+  assert(sharedCommon.includes('window.RCUI.normalizeProjectFieldValue'), 'shared/common.js exposes project metadata normalizer', 'placeholder project text can be scrubbed once');
+  assert(wallHtml.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), 'wall project payload normalizes placeholder project name', 'project storage metadata uses shared normalizer');
+  assert(!wallHtml.includes("$('projName').value.trim()"), 'wall report/project metadata no longer uses raw trim on project name', 'shared normalizer handles placeholder cleanup');
   const chromePath = CHROME_CANDIDATES.find(candidate => fs.existsSync(candidate));
   assert(!!chromePath, 'browser executable', chromePath || 'not found');
   if (!chromePath) process.exit(1);
@@ -352,10 +393,7 @@ async function main() {
         assert(state.reviewWarningCount >= 1, `${key} review warnings captured`, `count=${state.reviewWarningCount}`);
         assert(state.readinessText.includes('可作附件，需人工複核'), `${key} page readiness flags review`, state.readinessText);
       }
-
-      const popupPromise = page.waitForEvent('popup', { timeout: 10000 });
-      await page.click('#btnReport');
-      const report = await popupPromise;
+      const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
       await report.setViewportSize({ width: 980, height: 1300 });

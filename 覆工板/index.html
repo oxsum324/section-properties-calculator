@@ -1552,7 +1552,7 @@ function reportReadinessModel(R, projectInfo) {
         ['主構件', requiredDone ? '已計算' : '未完整'],
         ['附加檢核', `${optionalDone} / 3 項`],
         ['專案資料', missingProjectInfo.length ? `缺 ${missingProjectInfo.join('、')}` : '完整'],
-        ['輸出邊界', '頁面顯示，不進報告'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF'],
       ],
     };
   }
@@ -1568,7 +1568,7 @@ function reportReadinessModel(R, projectInfo) {
         ['主構件', requiredDone ? '已計算' : '未完整'],
         ['附加檢核', `${optionalDone} / 3 項`],
         ['專案資料', `缺 ${missingProjectInfo.join('、')}`],
-        ['輸出邊界', '頁面顯示，不進報告'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF'],
       ],
     };
   }
@@ -1583,7 +1583,7 @@ function reportReadinessModel(R, projectInfo) {
       ['主構件', requiredDone ? '已計算' : '未完整'],
       ['附加檢核', `${optionalDone} / 3 項`],
       ['專案資料', '完整'],
-      ['輸出邊界', '頁面顯示，不進報告'],
+      ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF'],
     ],
   };
 }

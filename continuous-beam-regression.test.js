@@ -4,10 +4,23 @@ const vm = require('vm');
 
 const htmlPath = path.join(__dirname, '連續梁分析.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
+const sharedReportPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js');
+const sharedReportSource = fs.readFileSync(sharedReportPath, 'utf8');
 
 function assert(pass, title, detail) {
   if (!pass) throw new Error(`${title} :: ${detail}`);
   console.log(`PASS | ${title} | ${detail}`);
+}
+
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertPrintHidesSelectors(source, selectors, label) {
+  selectors.forEach(selector => {
+    const pattern = new RegExp(`@media\\s+print[\\s\\S]*${escapeRegex(selector)}[\\s\\S]*display:\\s*none\\s*!important`);
+    assert(pattern.test(source), `${label} print hides ${selector}`, selector);
+  });
 }
 
 assert(html.includes('id="saveStatus"'), 'save status outlet exists', 'cloud save uses inline page status');
@@ -23,6 +36,12 @@ assert(html.includes('id="reportReadiness"'), 'attachment readiness outlet exist
 assert(html.includes('function continuousBeamReportReadinessModel'), 'attachment readiness model exists', 'continuous beam report readiness model');
 assert(html.includes('page-only-report-status'), 'attachment readiness is page-only', 'print/PDF boundary class');
 assert(html.includes('不會寫入計算書或列印 PDF'), 'attachment readiness boundary copy exists', 'page-only wording');
+assert(html.includes('頁面顯示，不進計算書、列印或 PDF'), 'attachment readiness boundary row exists', 'page-only boundary row');
+assert(html.includes('window.ToolReportUI?.normalizeProjectFieldValue'), 'shared project meta normalization hook exists', 'continuous beam uses shared placeholder cleanup when available');
+assert(html.includes("['設計人員', 'projDesigner']"), 'designer participates in readiness completeness', 'continuous beam attachment readiness requires designer metadata');
+assert(html.includes("name:     getProjectFieldValue('projName')"), 'report export uses normalized project name', 'continuous beam report payload');
+assert(html.includes("designer: getProjectFieldValue('projDesigner')"), 'report export uses normalized designer', 'continuous beam report payload');
+assertPrintHidesSelectors(html, ['.page-only-report-status', '.save-bar', '.modal-overlay'], 'continuous beam page-only controls');
 
 function assertNear(actual, expected, tol, title, detail) {
   assert(Math.abs(actual - expected) <= tol, title, `${detail}; actual=${actual}, expected=${expected}, tol=${tol}`);
@@ -145,10 +164,35 @@ const pageOnlyNeedles = [
   '公司內部整理計算附件',
   '不會寫入計算書',
   '不會寫入計算書或列印 PDF',
+  '頁面顯示，不進計算書、列印或 PDF',
 ];
 const exportPdfSource = extractFunctionBlock(html, 'exportPDF');
 for (const needle of pageOnlyNeedles) {
   assert(!exportPdfSource.includes(needle), 'exportPDF excludes page-only readiness wording', needle);
+}
+
+function renderSharedReportPayload(payload) {
+  let reportHtml = '';
+  const context = {
+    window: {
+      open() {
+        return {
+          document: {
+            open() {},
+            write(nextHtml) { reportHtml += String(nextHtml || ''); },
+            close() {},
+          },
+        };
+      },
+    },
+    console,
+    Date,
+  };
+  vm.createContext(context);
+  vm.runInContext(sharedReportSource, context, { filename: sharedReportPath });
+  assert(typeof context.openReport === 'function', 'shared report renderer exposes openReport', sharedReportPath);
+  context.openReport(payload);
+  return reportHtml;
 }
 
 function buildDocument() {
@@ -229,7 +273,6 @@ function bootPage() {
     parseFloat,
     parseInt,
     isFinite,
-    openReport() {},
     alert() {},
     confirm() { return true; },
     getComputedStyle(el) { return el.style; },
@@ -248,6 +291,10 @@ function bootPage() {
     orderBy: () => ({}),
     serverTimestamp: () => ({ seconds: 0 }),
     document: doc,
+  };
+
+  context.openReport = (cfg) => {
+    context.__lastReportConfig = cfg;
   };
 
   context.window = context;
@@ -297,9 +344,31 @@ function main() {
   ctx.runAnalysis();
   assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('可作附件，需人工複核'), 'analysis readiness asks for manual review when project fields are missing', ctx.document.getElementById('reportReadiness').innerHTML);
   assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('不會寫入計算書或列印 PDF'), 'analysis readiness keeps page-only boundary', ctx.document.getElementById('reportReadiness').innerHTML);
+  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('頁面顯示，不進計算書、列印或 PDF'), 'analysis readiness keeps boundary row copy', ctx.document.getElementById('reportReadiness').innerHTML);
   assertNear(ctx.solution.reactions[0].Ry, 30, 1e-9, 'simple span UDL left reaction', 'Ry0 = wL/2');
   assertNear(ctx.solution.reactions[1].Ry, 30, 1e-9, 'simple span UDL right reaction', 'Ry1 = wL/2');
   assertNear(Math.max(...ctx.diagrams.spans[0].ms), 45, 1e-9, 'simple span UDL max moment', 'Mmax = wL^2/8');
+
+  ctx.document.getElementById('projName').value = '未填';
+  ctx.document.getElementById('projNo').value = 'CB-001';
+  ctx.document.getElementById('projDesigner').value = '未填';
+  ctx.renderContinuousBeamReadiness();
+  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('缺 計畫名稱、設計人員'), 'placeholder project text still counts as missing metadata', ctx.document.getElementById('reportReadiness').innerHTML);
+  const placeholderSave = ctx.collectSaveData();
+  assert(placeholderSave.projName === '', 'placeholder project name is normalized before local save', JSON.stringify(placeholderSave));
+  assert(placeholderSave.projDesigner === '', 'placeholder designer is normalized before local save', JSON.stringify(placeholderSave));
+  ctx.exportPDF();
+  assert(ctx.__lastReportConfig.project.name === '', 'placeholder project name is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
+  assert(ctx.__lastReportConfig.project.no === 'CB-001', 'project number remains in report export', JSON.stringify(ctx.__lastReportConfig.project));
+  assert(ctx.__lastReportConfig.project.designer === '', 'placeholder designer is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
+  const reportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
+  assert(reportHtml.includes('連續梁分析計算書'), 'continuous beam runtime report title', '連續梁分析計算書');
+  assert(reportHtml.includes('計畫名稱</b>—'), 'continuous beam runtime report placeholder project fallback', '計畫名稱 —');
+  assert(reportHtml.includes('CB-001'), 'continuous beam runtime report project number', 'CB-001');
+  assert(!reportHtml.includes('未填'), 'continuous beam runtime report excludes raw placeholder text', '未填');
+  for (const needle of pageOnlyNeedles) {
+    assert(!reportHtml.includes(needle), 'continuous beam runtime report excludes page-only readiness wording', needle);
+  }
 
   resetToSingleSpan(ctx);
   ctx.model.loads[0] = [{ type: 'point', P: 50, a: 3 }];

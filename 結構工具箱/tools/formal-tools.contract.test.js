@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -32,6 +33,55 @@ function assertNoIncludes(text, needle, label) {
   assert.equal(text.includes(needle), false, `${label} should not include: ${needle}`);
 }
 
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertPrintHidesSelectors(text, selectors, label) {
+  selectors.forEach(selector => {
+    const pattern = new RegExp(`@media\\s+print[\\s\\S]*${escapeRegex(selector)}[\\s\\S]*display:none\\s*!important`);
+    assert.ok(pattern.test(text), `${label} print hides ${selector}`);
+  });
+}
+
+function loadWindowScript(filePath) {
+  const context = { window: {}, console };
+  vm.createContext(context);
+  vm.runInContext(readText(filePath), context, { filename: filePath });
+  return context.window;
+}
+
+function renderReportHtml(filePath, project = {}) {
+  let html = '';
+  const context = {
+    window: {
+      open() {
+        return {
+          document: {
+            open() {},
+            write(nextHtml) { html += String(nextHtml || ''); },
+            close() {}
+          },
+          focus() {}
+        };
+      }
+    },
+    console,
+    Date,
+  };
+  vm.createContext(context);
+  vm.runInContext(readText(filePath), context, { filename: filePath });
+  assert.equal(typeof context.openReport, 'function', `${filePath} openReport exposed`);
+  context.openReport({
+    title: 'QA 計算書',
+    project,
+    inputs: [{ group: '輸入資料', items: [{ label: 'A', value: '1', unit: '' }] }],
+    checks: [{ group: '檢核結果', items: [{ label: 'A', formula: 'A', sub: '1', value: '1', unit: '', ok: true }] }],
+    summary: { ok: true, text: 'OK' }
+  });
+  return html;
+}
+
 const manifestPath = assertFile('tools/formal-tools.manifest.json');
 const manifestText = readText(manifestPath);
 const manifest = JSON.parse(manifestText);
@@ -54,6 +104,7 @@ const repoDocs = {
   boundaries: readText(repoFile('TOOL_BOUNDARIES.md')),
   staging: readText(repoFile('STAGING_GROUPS.md')),
   reportGuide: readText(repoFile('TOOL_REPORT_GUIDE.md')),
+  coreStyle: readText(toolboxFile('core/style.css')),
   vercel: readText(repoFile('vercel.json')),
   homeJs: readText(toolboxFile('assets/home/home.js')),
   smoke: readText(toolboxFile('tools/formal-browser-smoke.test.js')),
@@ -62,10 +113,171 @@ const repoDocs = {
   goldenHarvest: readText(toolboxFile(manifest.shared.goldenHarvest))
 };
 
+const sharedReportRuntime = loadWindowScript(toolboxFile('core/ui/report.js'));
+assert.ok(sharedReportRuntime.ToolReportUI, 'shared report runtime helper loaded');
+assertIncludes(repoDocs.coreStyle, '.case-actions, .case-status, .case-file-actions, .project-storage-bar', 'shared core print boundary hides page-only case helper UI');
+assert.equal(sharedReportRuntime.ToolReportUI, sharedReportRuntime.SteelFormalUI, 'shared report runtime aliases ToolReportUI and SteelFormalUI');
+assert.equal(
+  sharedReportRuntime.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'], (id) => ({ value: id === 'projName' ? '未填' : 'QA' })),
+  true,
+  'shared report runtime helper treats placeholder project name as missing'
+);
+assert.equal(sharedReportRuntime.ToolReportUI.normalizeProjectFieldValue('未填'), '', 'shared report runtime helper clears placeholder project text');
+assert.equal(
+  sharedReportRuntime.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'], () => ({ value: 'QA' })),
+  false,
+  'shared report runtime helper accepts complete project metadata'
+);
+const sharedReportHtml = renderReportHtml(toolboxFile('core/ui/report.js'), { name: '未填', no: 'FORMAL-VERIFY-001', designer: 'Codex QA' });
+assertNoIncludes(sharedReportHtml, '未填', 'shared report generator should scrub placeholder project metadata at render time');
+assertIncludes(sharedReportHtml, '計畫名稱</b>—', 'shared report generator should fallback blank project name to dash');
+assertIncludes(sharedReportHtml, 'FORMAL-VERIFY-001', 'shared report generator should keep project number');
+assertIncludes(sharedReportHtml, 'Codex QA', 'shared report generator should keep designer');
+const sharedCompatPanel = { className: '', innerHTML: '' };
+sharedReportRuntime.ToolReportUI.renderStatusGridPanel({
+  target: sharedCompatPanel,
+  containerClassName: 'report-readiness page-only-report-status',
+  level: 'review',
+  eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+  title: '分析已完成，但產報前建議優先閱讀下列項目。',
+  badge: '優先複核',
+  items: [
+    ['控制值', '風向 X'],
+    { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+  ],
+  priorityItems: ['先補計畫名稱'],
+  note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。'
+});
+assert.equal(sharedCompatPanel.className, 'report-readiness page-only-report-status review', 'shared report runtime helper supports shared readiness container class');
+assertIncludes(sharedCompatPanel.innerHTML, '先補計畫名稱', 'shared report runtime helper priority items');
+assertIncludes(sharedCompatPanel.innerHTML, '控制值', 'shared report runtime helper tuple item label');
+assertIncludes(sharedCompatPanel.innerHTML, '風向 X', 'shared report runtime helper tuple item value');
+
+const windReportRuntimePath = toolboxFile('core/wind-report.js');
+const originalWindReport = global.WindReport;
+delete require.cache[require.resolve(windReportRuntimePath)];
+require(windReportRuntimePath);
+assert.ok(global.WindReport, 'wind report runtime helper loaded');
+assert.equal(
+  global.WindReport.isProjectMetaMissing({ name: '未填', no: 'A-1', designer: 'QA' }),
+  true,
+  'wind report runtime helper treats placeholder project name as missing'
+);
+assert.equal(global.WindReport.normalizeProjectFieldValue('未填'), '', 'wind report runtime helper clears placeholder project text');
+const windCompatPanel = { className: '', innerHTML: '' };
+global.WindReport.renderStatusGridPanel({
+  container: windCompatPanel,
+  containerClassName: 'report-readiness page-only-report-status',
+  panelLabel: '頁面輔助｜產報前檢查｜優先閱讀',
+  model: {
+    level: 'review',
+    title: '分析已完成，但產報前建議優先閱讀下列項目。',
+    badge: '優先複核',
+    items: [
+      ['控制值', '風向 X'],
+      { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+    ]
+  },
+  priorityItems: ['先補計畫名稱'],
+  note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。'
+});
+assert.equal(windCompatPanel.className, 'report-readiness page-only-report-status review', 'wind report runtime helper supports shared readiness container class');
+assertIncludes(windCompatPanel.innerHTML, '先補計畫名稱', 'wind report runtime helper priority items');
+assertIncludes(windCompatPanel.innerHTML, '控制值', 'wind report runtime helper tuple item label');
+assertIncludes(windCompatPanel.innerHTML, '風向 X', 'wind report runtime helper tuple item value');
+if (originalWindReport === undefined) {
+  delete global.WindReport;
+} else {
+  global.WindReport = originalWindReport;
+}
+
+[
+  ['tools/風力/wind-force.html', "window.WindReport.normalizeProjectFieldValue(document.getElementById('projName').value)"],
+  ['tools/風力/wind-force.html', 'window.WindReport.normalizeProjectFieldValue(project.name)'],
+  ['tools/風力/wind-cc.html', "window.WindReport.normalizeProjectFieldValue(document.getElementById('projName').value)"],
+  ['tools/風力/wind-cc.html', 'window.WindReport.normalizeProjectFieldValue(project.name)'],
+  ['tools/風力/wind-open-roof.html', "window.WindReport.normalizeProjectFieldValue(document.getElementById('projName').value)"],
+  ['tools/風力/wind-open-roof.html', 'window.WindReport.normalizeProjectFieldValue(project.name)'],
+  ['tools/風力/wind-parapet.html', "window.WindReport.normalizeProjectFieldValue(document.getElementById('projName').value)"],
+  ['tools/風力/wind-parapet.html', 'window.WindReport.normalizeProjectFieldValue(project.name)'],
+  ['tools/風力/wind-object-frame.html', "window.ToolReportUI.normalizeProjectFieldValue(project.name)"],
+  ['tools/風力/wind-object-tower.html', "window.ToolReportUI.normalizeProjectFieldValue(project.name)"],
+  ['tools/風力/wind-lattice-tower.html', "window.ToolReportUI.normalizeProjectFieldValue(project.name)"],
+  ['tools/風力/wind-sign-pole.html', "window.ToolReportUI.normalizeProjectFieldValue(project.name)"],
+  ['tools/風力/wind-fence-sign.html', "window.ToolReportUI.normalizeProjectFieldValue(project.name)"],
+  ['tools/風力/wind-object-solid.html', "window.ToolReportUI.normalizeProjectFieldValue(project.name)"],
+  ['tools/地震力/seismic-force.html', "window.ToolReportUI.normalizeProjectFieldValue(saved.name)"],
+  ['tools/地震力/seismic-appendage.html', "window.ToolReportUI.normalizeProjectFieldValue(saved.name)"],
+  ['tools/地震力/seismic-appendage.html', 'const PROJECT_CASE_VALUE_FIELDS = new Set([\'projName\', \'projNo\', \'projDesigner\'])'],
+  ['tools/地震力/seismic-appendage.html', 'values[id] = PROJECT_CASE_VALUE_FIELDS.has(id)'],
+  ['tools/地震力/seismic-appendage.html', "if (proj.zoneCity != null) document.getElementById('zoneCity').value = proj.zoneCity;"],
+  ['tools/地震力/seismic-appendage.html', "if (proj.zoneDist != null) document.getElementById('zoneDist').value = proj.zoneDist;"],
+  ['tools/地震力/seismic-appendage.html', "if (proj.zoneDist != null) document.getElementById('zoneDist').dispatchEvent(new Event('change'));"],
+  ['tools/地震力/seismic-appendage.html', "if (proj.siteClass != null) document.getElementById('siteClass').value = proj.siteClass;"],
+  ['tools/地震力/seismic-dynamic.html', "window.ToolReportUI.normalizeProjectFieldValue(saved.name)"],
+  ['tools/地震力/seismic-dynamic.html', 'const PROJECT_CASE_VALUE_FIELDS = new Set([\'projName\', \'projNo\', \'projDesigner\'])'],
+  ['tools/地震力/seismic-dynamic.html', 'values[id] = PROJECT_CASE_VALUE_FIELDS.has(id)'],
+  ['tools/地震力/seismic-dynamic.html', 'project: syncProjectMeta(lastDynamicResult.result.project)'],
+  ['tools/地震力/seismic-dynamic.html', 'project: syncProjectMeta(result.project)'],
+  ['tools/formal-tools.manifest.json', '"extraExportButtons": ['],
+  ['tools/formal-tools.manifest.json', '"btnExportSpectrumJson"'],
+  ['tools/formal-tools.manifest.json', '"btnExportModelCheckJson"'],
+  ['tools/地震力/seismic-misc.html', "window.ToolReportUI.normalizeProjectFieldValue(saved.name)"],
+].forEach(([relativePath, needle]) => {
+  assertIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} project metadata normalization`);
+});
+[
+  ['tools/地震力/seismic-dynamic.html', "if (proj.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.zoneCity != null) {"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.zoneDist != null) {"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.siteInputMode != null) document.getElementById('siteInputMode').value = proj.siteInputMode;"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.siteClass != null) document.getElementById('siteClass').value = proj.siteClass;"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.importanceKey != null) document.getElementById('impClass').value = proj.importanceKey;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.x?.systemKey != null) document.getElementById('sysX').value = saved.x.systemKey;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.y?.systemKey != null) document.getElementById('sysY').value = saved.y.systemKey;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.name);"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.no);"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.designer);"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.software != null) document.getElementById('software').value = saved.project.software;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.remark != null) document.getElementById('remark').value = saved.project.remark;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.siteInputMode != null) document.getElementById('siteInputMode').value = saved.project.siteInputMode;"],
+  ['tools/地震力/seismic-dynamic.html', "if (savedRange.plotMode != null) document.getElementById('spectrumPlotRangeMode').value = savedRange.plotMode;"],
+].forEach(([relativePath, needle]) => {
+  assertIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} project metadata restore clears stale blank values`);
+});
+[
+  ['tools/地震力/seismic-dynamic.html', "if (proj.name) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.no) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.designer) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.zoneCity) {"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.zoneDist) {"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.siteInputMode) document.getElementById('siteInputMode').value = proj.siteInputMode;"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.siteClass) document.getElementById('siteClass').value = proj.siteClass;"],
+  ['tools/地震力/seismic-dynamic.html', "if (proj.importanceKey) document.getElementById('impClass').value = proj.importanceKey;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.x?.systemKey) document.getElementById('sysX').value = saved.x.systemKey;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.y?.systemKey) document.getElementById('sysY').value = saved.y.systemKey;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.name) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.name);"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.no) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.no);"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.designer) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.designer);"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.software) document.getElementById('software').value = saved.project.software;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.remark) document.getElementById('remark').value = saved.project.remark;"],
+  ['tools/地震力/seismic-dynamic.html', "if (saved.project?.siteInputMode) document.getElementById('siteInputMode').value = saved.project.siteInputMode;"],
+  ['tools/地震力/seismic-dynamic.html', "if (savedRange.plotMode) document.getElementById('spectrumPlotRangeMode').value = savedRange.plotMode;"],
+  ['tools/地震力/seismic-appendage.html', "if (proj.zoneCity) document.getElementById('zoneCity').value = proj.zoneCity;"],
+  ['tools/地震力/seismic-appendage.html', "if (proj.zoneDist) document.getElementById('zoneDist').value = proj.zoneDist;"],
+  ['tools/地震力/seismic-appendage.html', "if (proj.zoneDist) document.getElementById('zoneDist').dispatchEvent(new Event('change'));"],
+  ['tools/地震力/seismic-appendage.html', "if (proj.siteClass) document.getElementById('siteClass').value = proj.siteClass;"],
+].forEach(([relativePath, needle]) => {
+  assertNoIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} should not retain stale project metadata when restored blank values are present`);
+});
+
 [
   'tools/formal-tools.manifest.json',
   'formalTools = formalManifest.tools',
   'requiredFormalRoutes = formalManifest.requiredRoutes',
+  'popupReportModes',
   'reportExpectations',
   'reportDisclosureNeedles',
   'diagramChecks',
@@ -73,6 +285,21 @@ const repoDocs = {
   'rolesInsideDiagram',
   'goldenCaseExpression',
   'assertGoldenCaseState',
+  'reportPopupOpenExpression',
+  'waitForNewPageTarget',
+  'popupReportCaptureState',
+  'assertPopupReportState',
+  'assertPlaceholderPopupReportState',
+  'assertPlaceholderExportState',
+  'assertExtraExportState',
+  'assertExtraPlaceholderExportState',
+  'const popupModes = Array.isArray(tool.popupReportModes) && tool.popupReportModes.length > 0',
+  "tool.reportMode ? ['detail']",
+  "projectState === 'placeholder'",
+  'placeholderPopupReportStates',
+  "exportCaptureExpression(tool, 'placeholder')",
+  "exportCaptureExpression(tool, 'complete', extraExport.id)",
+  'tool.extraExportButtons || []',
   'settlePage',
   'waitForImportStatus',
   'Page.javascriptDialogOpening',
@@ -165,6 +392,14 @@ assert.deepEqual(
   tools.map(tool => tool.key),
   'formal traceability catalog must match formal tool order'
 );
+const popupAuditTools = tools.filter(tool => Array.isArray(tool.popupReportModes) && tool.popupReportModes.length > 0);
+assert.ok(popupAuditTools.length >= 2, 'formal tools manifest popup report audit coverage');
+assert.ok(popupAuditTools.some(tool => tool.discipline === 'wind'), 'formal tools manifest popup report audit should cover wind');
+assert.ok(popupAuditTools.some(tool => tool.discipline === 'seismic'), 'formal tools manifest popup report audit should cover seismic');
+popupAuditTools.forEach(tool => {
+  assert.ok(tool.popupReportModes.includes('simple'), `${tool.key} popup report audit should cover simple mode`);
+  assert.ok(tool.popupReportModes.includes('detail'), `${tool.key} popup report audit should cover detail mode`);
+});
 
 for (const tool of tools) {
   assert.ok(tool.key, 'formal tool key');
@@ -312,7 +547,8 @@ for (const inlineValidationPage of [
   'tools/風力/wind-force.html',
   'tools/風力/wind-cc.html',
   'tools/風力/wind-open-roof.html',
-  'tools/風力/wind-parapet.html'
+  'tools/風力/wind-parapet.html',
+  'tools/風力/wind-fence-sign.html'
 ]) {
   const html = readText(toolboxFile(inlineValidationPage));
   assertIncludes(html, 'id="inputStatus"', `${inlineValidationPage} inline input status element`);
@@ -330,6 +566,8 @@ for (const inlineValidationPage of [
     'function buildWindForceReportReadinessModel',
     'function renderWindForceReportReadiness',
     'function markWindForceReportInputsChanged',
+    'window.WindReport.isProjectMetaMissing()',
+    'window.WindReport.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -338,6 +576,8 @@ for (const inlineValidationPage of [
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-force page-only report readiness hidden from print');
 
   const windReport = readText(toolboxFile('core/wind-report.js'));
+  assertIncludes(windReport, 'function isProjectMetaMissing', 'wind report shared project meta helper');
+  assertIncludes(windReport, 'function renderStatusGridPanel', 'wind report shared readiness renderer');
   assertIncludes(windReport, 'const calcResult = typeof global.calc', 'wind report recalculates before report generation');
   assertIncludes(windReport, 'if (calcResult === false)', 'wind report blocks invalid calc output');
   [
@@ -356,6 +596,8 @@ for (const inlineValidationPage of [
     'function buildWindCcReportReadinessModel',
     'function renderWindCcReportReadiness',
     'function markWindCcReportInputsChanged',
+    'window.WindReport.isProjectMetaMissing()',
+    'window.WindReport.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -380,6 +622,8 @@ for (const inlineValidationPage of [
     'function buildOpenRoofReportReadinessModel',
     'function renderOpenRoofReportReadiness',
     'function markOpenRoofReportInputsChanged',
+    'window.WindReport.isProjectMetaMissing()',
+    'window.WindReport.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -404,6 +648,8 @@ for (const inlineValidationPage of [
     'function buildParapetReportReadinessModel',
     'function renderParapetReportReadiness',
     'function markParapetReportInputsChanged',
+    'window.WindReport.isProjectMetaMissing()',
+    'window.WindReport.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -424,14 +670,21 @@ for (const inlineValidationPage of [
 {
   const html = readText(toolboxFile('tools/風力/wind-object-solid.html'));
   [
+    '../../core/ui/report.js',
+    'value="" placeholder="計畫名稱"',
     'id="solidReportReadiness"',
+    "window.ToolReportUI.normalizeProjectFieldValue(project.name)",
     'function buildSolidReportReadinessModel',
     'function renderSolidReportReadiness',
+    'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-object-solid page-only report readiness'));
+  assertNoIncludes(html, 'value="未填" placeholder="計畫名稱"', 'wind-object-solid project name should start blank');
+  assertNoIncludes(html, "project: { name: '未填', no: '', designer: '' }", 'wind-object-solid default case project metadata should start blank');
+  assertNoIncludes(html, 'function normalizeProjectFieldValue(value)', 'wind-object-solid should reuse shared project metadata normalization helper');
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-object-solid page-only report readiness hidden from print');
   const reportStart = html.indexOf('function buildSolidObjectReportHtml()');
   const reportEnd = html.indexOf('function openSolidObjectReport()', reportStart);
@@ -449,9 +702,11 @@ for (const inlineValidationPage of [
 {
   const html = readText(toolboxFile('tools/風力/wind-object-frame.html'));
   [
+    '../../core/ui/report.js',
     'id="frameObjectReportReadiness"',
     'function buildFrameObjectReportReadinessModel',
     'function renderFrameObjectReportReadiness',
+    'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -474,9 +729,11 @@ for (const inlineValidationPage of [
 {
   const html = readText(toolboxFile('tools/風力/wind-object-tower.html'));
   [
+    '../../core/ui/report.js',
     'id="towerObjectReportReadiness"',
     'function buildTowerObjectReportReadinessModel',
     'function renderTowerObjectReportReadiness',
+    'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -499,9 +756,11 @@ for (const inlineValidationPage of [
 {
   const html = readText(toolboxFile('tools/風力/wind-lattice-tower.html'));
   [
+    '../../core/ui/report.js',
     'id="latticeTowerReportReadiness"',
     'function buildLatticeTowerReportReadinessModel',
     'function renderLatticeTowerReportReadiness',
+    'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -522,11 +781,47 @@ for (const inlineValidationPage of [
 }
 
 {
+  const html = readText(toolboxFile('tools/風力/wind-fence-sign.html'));
+  [
+    '../../core/ui/report.js',
+    'id="fenceSignReportReadiness"',
+    'function buildFenceSignReportReadinessModel',
+    'function renderFenceSignReportReadiness',
+    'function markFenceSignReportInputsChanged',
+    'window.ToolReportUI.renderStatusGridPanel({',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'wind-fence-sign page-only report readiness'));
+  assertIncludes(html, 'function setInputStatus', 'wind-fence-sign inline input status helper');
+  assertIncludes(html, "if (!lastResult || fenceSignReportInputsChanged)", 'wind-fence-sign stale report recalculation guard');
+  assertIncludes(html, "const Kzt = val('Kzt');", 'wind-fence-sign preserves raw Kzt for validation');
+  assertIncludes(html, "const phi = val('phi');", 'wind-fence-sign preserves raw phi for validation');
+  assertNoIncludes(html, "const Kzt = val('Kzt') || 1.0;", 'wind-fence-sign avoids defaulting invalid Kzt to 1.0');
+  assertNoIncludes(html, "const phi = val('phi') || 1.0;", 'wind-fence-sign avoids defaulting invalid phi to 1.0');
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-fence-sign page-only report readiness hidden from print');
+  const reportStart = html.indexOf('function buildFenceSignReportHtml()');
+  const reportEnd = html.indexOf('function openFenceSignReport()', reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'wind-fence-sign report body isolated');
+  const reportBody = html.slice(reportStart, reportEnd);
+  [
+    'fenceSignReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(reportBody, needle, 'wind-fence-sign report excludes page-only readiness wording'));
+}
+
+{
   const html = readText(toolboxFile('tools/風力/wind-sign-pole.html'));
   [
+    '../../core/ui/report.js',
     'id="signPoleReportReadiness"',
     'function buildSignPoleReportReadinessModel',
     'function renderSignPoleReportReadiness',
+    'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -556,10 +851,13 @@ for (const inlineValidationPage of [
   assertIncludes(html, 'if (calc() === false) return;', 'seismic-force export guard');
   assertIncludes(html, "document.getElementById('resultPanel').style.display === 'none' || window._lastSeismicReportStale", 'seismic-force stale report recalculation guard');
   [
+    '../../core/ui/report.js',
     'id="seismicReportReadiness"',
     'function buildSeismicReportReadinessModel',
     'function renderSeismicReportReadiness',
     'function markSeismicReportInputsChanged',
+    "window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])",
+    'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
@@ -588,6 +886,38 @@ for (const inlineValidationPage of [
 }
 
 {
+  const html = readText(toolboxFile('tools/地震力/seismic-appendage.html'));
+  assertIncludes(html, 'id="inputStatus"', 'seismic-appendage inline input status element');
+  assertIncludes(html, 'function setInputStatus', 'seismic-appendage inline input status helper');
+  [
+    '../../core/ui/report.js',
+    'id="appendageReportReadiness"',
+    'function buildAppendageReportReadinessModel',
+    'function renderAppendageReportReadiness',
+    'function markAppendageReportInputsChanged',
+    "window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])",
+    'window.ToolReportUI.renderStatusGridPanel({',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'seismic-appendage page-only report readiness'));
+  assertIncludes(html, "if (!lastAppendResult || appendageReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none')", 'seismic-appendage stale report recalculation guard');
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-appendage page-only report readiness hidden from print');
+  const reportStart = html.indexOf('function openAppendageReport()');
+  const reportEnd = html.indexOf('(function initPageScopeCard()', reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-appendage report body isolated');
+  const reportBody = html.slice(reportStart, reportEnd);
+  [
+    'appendageReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(reportBody, needle, 'seismic-appendage report excludes page-only readiness wording'));
+}
+
+{
   const html = readText(toolboxFile('tools/地震力/seismic-dynamic.html'));
   assertIncludes(html, 'id="inputStatus"', 'seismic-dynamic inline input status element');
   assertIncludes(html, 'function setInputStatus', 'seismic-dynamic inline input status helper');
@@ -595,6 +925,32 @@ for (const inlineValidationPage of [
   assertIncludes(html, 'function confirmResetCaseDefaults', 'seismic-dynamic reset confirmation apply helper');
   assertIncludes(html, 'function cancelResetCaseDefaults', 'seismic-dynamic reset confirmation cancel helper');
   assertIncludes(html, 'if (calcDynamic() === false) return null;', 'seismic-dynamic case payload guard');
+  assertIncludes(html, "if (!lastDynamicResult || dynamicReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none')", 'seismic-dynamic stale report recalculation guard');
+  [
+    '../../core/ui/report.js',
+    'id="dynamicReportReadiness"',
+    'function buildDynamicReportReadinessModel',
+    'function renderDynamicReportReadiness',
+    'function markDynamicReportInputsChanged',
+    "window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])",
+    'window.ToolReportUI.renderStatusGridPanel({',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'seismic-dynamic page-only report readiness'));
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-dynamic page-only report readiness hidden from print');
+  const reportStart = html.indexOf('function openDynamicReport()');
+  const reportEnd = html.indexOf('function exportResponseSpectrumCsv()', reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-dynamic report body isolated');
+  const reportBody = html.slice(reportStart, reportEnd);
+  [
+    'dynamicReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(reportBody, needle, 'seismic-dynamic report excludes page-only readiness wording'));
   assertNoIncludes(html, 'confirm(', 'seismic-dynamic reset confirmation must be inline');
   [
     "alert('這不是本頁支援的動力分析案件 JSON。')",
@@ -604,15 +960,84 @@ for (const inlineValidationPage of [
   ].forEach(needle => assertNoIncludes(html, needle, 'seismic-dynamic input validation alert'));
 }
 
-for (const seismicBlockingPage of [
+{
+  const html = readText(toolboxFile('tools/地震力/seismic-misc.html'));
+  assertIncludes(html, 'id="inputStatus"', 'seismic-misc inline input status element');
+  assertIncludes(html, 'function setInputStatus', 'seismic-misc inline input status helper');
+  assertIncludes(html, 'return false;', 'seismic-misc blocking validation return');
+  assertNoIncludes(html, 'alert(blockingMessages', 'seismic-misc blocking validation alert');
+  [
+    '../../core/ui/report.js',
+    'id="miscReportReadiness"',
+    'function buildMiscReportReadinessModel',
+    'function renderMiscReportReadiness',
+    'function markMiscReportInputsChanged',
+    "window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])",
+    'window.ToolReportUI.renderStatusGridPanel({',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertIncludes(html, needle, 'seismic-misc page-only report readiness'));
+  assertIncludes(html, "if (!lastMiscResult || miscReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none')", 'seismic-misc stale report recalculation guard');
+  assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-misc page-only report readiness hidden from print');
+  const reportStart = html.indexOf('function openMiscReport()');
+  const reportEnd = html.indexOf('(function initPageScopeCard()', reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-misc report body isolated');
+  const reportBody = html.slice(reportStart, reportEnd);
+  [
+    'miscReportReadiness',
+    'page-only-report-status',
+    '產報前檢查',
+    '優先閱讀',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => assertNoIncludes(reportBody, needle, 'seismic-misc report excludes page-only readiness wording'));
+}
+
+for (const relativePath of [
+  'tools/風力/wind-force.html',
+  'tools/風力/wind-cc.html',
+  'tools/風力/wind-open-roof.html',
+  'tools/風力/wind-parapet.html',
+  'tools/風力/wind-fence-sign.html',
+  'tools/風力/wind-object-solid.html',
+  'tools/風力/wind-object-frame.html',
+  'tools/風力/wind-object-tower.html',
+  'tools/風力/wind-lattice-tower.html',
+  'tools/風力/wind-sign-pole.html',
+  'tools/地震力/seismic-force.html',
   'tools/地震力/seismic-appendage.html',
-  'tools/地震力/seismic-misc.html'
+  'tools/地震力/seismic-misc.html',
 ]) {
-  const html = readText(toolboxFile(seismicBlockingPage));
-  assertIncludes(html, 'id="inputStatus"', `${seismicBlockingPage} inline input status element`);
-  assertIncludes(html, 'function setInputStatus', `${seismicBlockingPage} inline input status helper`);
-  assertIncludes(html, 'return false;', `${seismicBlockingPage} blocking validation return`);
-  assertNoIncludes(html, 'alert(blockingMessages', `${seismicBlockingPage} blocking validation alert`);
+  const html = readText(toolboxFile(relativePath));
+  assertPrintHidesSelectors(html, ['.case-actions', '.case-status'], `${relativePath} print-only case helper boundary`);
+}
+
+{
+  const html = readText(toolboxFile('tools/地震力/seismic-dynamic.html'));
+  assertPrintHidesSelectors(html, ['.case-file-actions'], 'seismic-dynamic print-only case helper boundary');
+}
+
+for (const relativePath of [
+  'tools/風力/wind-fence-sign.html',
+  'tools/風力/wind-object-solid.html',
+  'tools/風力/wind-object-frame.html',
+  'tools/風力/wind-object-tower.html',
+  'tools/風力/wind-lattice-tower.html',
+  'tools/風力/wind-sign-pole.html',
+  'tools/地震力/seismic-appendage.html',
+  'tools/地震力/seismic-misc.html',
+]) {
+  const html = readText(toolboxFile(relativePath));
+  assertPrintHidesSelectors(html, ['.report-mode-control'], `${relativePath} print-only report mode boundary`);
+}
+
+for (const relativePath of [
+  'tools/地震力/seismic-appendage.html',
+  'tools/地震力/seismic-misc.html',
+]) {
+  const html = readText(toolboxFile(relativePath));
+  assertPrintHidesSelectors(html, ['.print-option-row'], `${relativePath} print-only print option boundary`);
 }
 
 console.log(`formal tools contract OK (${tools.length} tools)`);

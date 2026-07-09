@@ -27,12 +27,24 @@
   .chk-detail { margin-top:6px; font-size:0.85em; color:var(--text-light); }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.85em; line-height:1.6; font-weight:700; }
   .input-status:empty { display:none; }
+  .report-readiness { margin-top:10px; border:1px solid #fde68a; border-radius:10px; background:#fffbeb; padding:12px 14px; color:#92400e; line-height:1.6; }
+  .report-readiness.ready { border-color:#bbf7d0; background:#f0fdf4; color:#166534; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
 
   @media (max-width:900px) { .two-col { grid-template-columns:1fr; } }
 
   @media (max-width: 768px) {
     .two-col > div:first-child .card { padding: 14px; }
-    .res-grid { grid-template-columns: 1fr; }
+    .res-grid, .report-readiness-grid { grid-template-columns: 1fr; }
     .form-row { grid-template-columns: 1fr; }
     .step-card .formula { font-size: 0.82em; overflow-x: auto; }
   }
@@ -51,6 +63,7 @@
     .mode-bar span { color:#000 !important; }
     .two-col { display:block !important; }
     .two-col > div:first-child { display:none !important; }
+    .page-only-report-status { display:none !important; }
     .btn-calc, .btn-secondary, .btn-print, .chk-detail, .btn { display:none !important; }
     .card { break-inside:avoid; box-shadow:none !important; border:1px solid #ccc; }
     .step-card { break-inside:avoid; }
@@ -170,6 +183,7 @@
 
   <!-- ===== 右側結果 ===== -->
   <div id="resultWrap">
+    <div class="card page-only-report-status report-readiness blocked" id="beamReportReadiness" role="status" aria-live="polite"></div>
     <div class="card" id="propsCard" style="display:none;">
       <h2>斷面性質 <span id="secName" style="font-weight:400;font-size:0.85em;color:#64748b;"></span></h2>
       <div class="res-grid" id="propsGrid"></div>
@@ -214,6 +228,8 @@ const num = id => parseFloat($(id)?.value) || 0;
 const f2 = v => v.toFixed(2);
 const f1 = v => v.toFixed(1);
 const f0 = v => Math.round(v).toLocaleString();
+let lastBeamResult = null;
+let lastBeamReportValidationMessage = '';
 
 // ── 設計方法切換 ──
 let designMethod = 'LRFD';  // 'LRFD' | 'ASD'
@@ -246,8 +262,93 @@ function clearInputStatus() {
   setInputStatus('');
 }
 function inputFail(message) {
+  setBeamReportValidationMessage(message);
   setInputStatus(message);
   return null;
+}
+
+function beamLegacyReportModeLabel() {
+  return $('chkDetail')?.checked ? '詳算式' : '簡易結果';
+}
+
+function isBeamProjectMetaMissing() {
+  return !!window.ToolReportUI?.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
+}
+
+function setBeamReportValidationMessage(message = '') {
+  lastBeamReportValidationMessage = message || '';
+  renderBeamReportReadiness(lastBeamReportValidationMessage);
+}
+
+function composeBeamReadinessModel(validationMessage = lastBeamReportValidationMessage) {
+  if (validationMessage) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過檢查，先不要產生計算書。',
+      items: [
+        { label: '輸入檢核', value: validationMessage },
+        { label: '工具定位', value: '舊版保留；優先供舊案延續或連續梁匯入對接' },
+        { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
+      ],
+    };
+  }
+  if (!lastBeamResult) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '尚未完成檢核，先不要產生計算書。',
+      items: [
+        { label: '檢核狀態', value: '尚未建立舊版鋼梁檢核結果' },
+        { label: '工具定位', value: '舊版保留；優先供舊案延續或連續梁匯入對接' },
+        { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
+      ],
+    };
+  }
+  const reviewItems = ['此頁為舊版保留流程；若非舊案延續或連續梁匯入，建議改用鋼梁正式頁面。'];
+  if (isBeamProjectMetaMissing()) reviewItems.unshift('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
+  if (!lastBeamResult.flexOk) reviewItems.unshift(`撓曲強度未通過，應先調整斷面或側撐；目前控制比 ${lastBeamResult.ratio_flex}%。`);
+  else if (!lastBeamResult.shearOk) reviewItems.unshift(`剪力強度未通過，應先調整腹板或加勁；目前控制比 ${lastBeamResult.ratio_shear}%。`);
+  else if (lastBeamResult.deflStatus === 'fail') reviewItems.unshift('撓度檢核未通過，應先調整斷面慣性矩或跨度。');
+  else if (lastBeamResult.deflStatus === 'skipped') reviewItems.unshift('撓度尚未檢核；若要整理正式附件，應先補足使用載重與限值判讀。');
+
+  const blocked = !lastBeamResult.allOk;
+  const items = reviewItems.slice(0, 2).map((message, index) => ({
+    label: `優先處理 ${index + 1}`,
+    value: message,
+  }));
+  items.push(
+    { label: '工具定位', value: '舊版保留 / 逐步回正式頁面' },
+    { label: '控制模式', value: lastBeamResult.flex?.governing || '未形成' },
+    { label: '計算書模式', value: beamLegacyReportModeLabel() },
+    { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
+  );
+  return {
+    level: blocked ? 'blocked' : 'review',
+    badge: blocked ? '暫勿作附件' : '優先複核',
+    title: blocked ? '舊版檢核結果尚未達附件整理條件。' : '舊版檢核已完成，但整理附件前建議優先閱讀下列項目。',
+    items,
+  };
+}
+
+function renderBeamReportReadiness(validationMessage = lastBeamReportValidationMessage) {
+  const el = $('beamReportReadiness');
+  if (!el || !window.ToolReportUI?.renderStatusGridPanel) return;
+  const model = composeBeamReadinessModel(validationMessage);
+  window.ToolReportUI.renderStatusGridPanel({
+    target: el,
+    containerClassName: 'card page-only-report-status report-readiness',
+    level: model.level,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    items: model.items,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；本頁仍屬舊版保留流程，設計者應確認是否改回鋼梁正式頁面、連續梁匯入來源、載重組合與送審圖說一致性。',
+  });
+}
+
+function syncBeamReportReadinessUi() {
+  renderBeamReportReadiness();
 }
 
 // ── 初始化斷面下拉 ──
@@ -573,7 +674,7 @@ function runCheck() {
     </div>
     <p class="hint" style="margin-top:12px;">斷面: ${sec.name} | ${designMethod} | Fy=${Fy} kgf/cm² | Lb=${Lb} cm | Cb=${Cb}</p>`;
   $('summaryCard').style.display = '';
-  return {
+  const resultState = {
     ok: true,
     sec, cls, flex, shear,
     Fy, Lb, Cb, L,
@@ -586,11 +687,15 @@ function runCheck() {
     allOk, summaryOk, hasUnchecked,
     secName: sec.name,
   };
+  lastBeamResult = resultState;
+  setBeamReportValidationMessage('');
+  return resultState;
 }
 
 // ── 詳列計算式 toggle ──
 $('chkDetail').addEventListener('change', function() {
   $('resultWrap').classList.toggle('show-detail', this.checked);
+  syncBeamReportReadinessUi();
 });
 
 // ── Init ──
@@ -634,9 +739,9 @@ function buildBeamReport() {
   }
 
   const proj = {
-    name: (document.getElementById('projName')?.value || '').trim(),
-    no: (document.getElementById('projNo')?.value || '').trim(),
-    designer: (document.getElementById('projDesigner')?.value || '').trim(),
+    name: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projName')?.value),
+    no: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projNo')?.value),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projDesigner')?.value),
   };
   const envStored = window.lastLoadCombo && window.lastLoadCombo[lcCfg.prefix];
   const envDetail = envStored && envStored.method === designMethod ? envStored.detail : null;
@@ -747,6 +852,15 @@ function buildBeamReport() {
 <!-- ForcePicker 接收器 -->
 <script src="../../core/ui/forces-receive.js"></script>
 <script src="../../core/ui/report.js"></script>
+<script>
+['projName', 'projNo', 'projDesigner'].forEach(function (id) {
+  const node = document.getElementById(id);
+  if (!node) return;
+  node.addEventListener('input', syncBeamReportReadinessUi);
+  node.addEventListener('change', syncBeamReportReadinessUi);
+});
+renderBeamReportReadiness();
+</script>
 <script src="../project-storage.js" data-tool-id="steel-beam" data-tool-name="鋼梁設計與檢核" data-tool-version="V3.1"></script>
 </body>
 </html>

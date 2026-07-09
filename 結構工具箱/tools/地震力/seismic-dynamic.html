@@ -85,6 +85,20 @@
   .status-actions .btn-secondary { flex:1 1 160px; width:auto; min-width:0; margin-top:0; white-space:normal; }
   .case-file-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; padding-top:10px; border-top:1px solid #e2e8f0; }
   .case-file-actions .btn-secondary { flex:1 1 150px; width:auto; min-width:0; margin-top:0; justify-content:center; white-space:normal; }
+  .report-readiness { display:grid; gap:10px; padding:12px; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; background:#fffbeb; color:#78350f; font-size:0.84em; line-height:1.65; }
+  .report-readiness.ready { border-color:#bbf7d0; border-left-color:#059669; background:#f0fdf4; color:#166534; }
+  .report-readiness.blocked { border-color:#fecaca; border-left-color:#dc2626; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .report-readiness-kicker { margin:0 0 2px; color:#64748b; font-size:0.74em; font-weight:700; }
+  .report-readiness-title { margin:0; color:inherit; font-size:0.96em; font-weight:800; }
+  .report-readiness-badge { flex:0 0 auto; border:1px solid currentColor; border-radius:999px; padding:3px 8px; background:rgba(255,255,255,0.72); font-size:0.74em; font-weight:800; white-space:nowrap; }
+  .report-readiness ul { margin:0; padding-left:18px; }
+  .report-readiness li { margin:2px 0; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; }
+  .report-readiness-item { min-height:54px; padding:8px 9px; border:1px solid rgba(120,53,15,0.14); border-radius:8px; background:rgba(255,255,255,0.68); }
+  .report-readiness-item span { display:block; color:#64748b; font-size:0.72em; font-weight:700; }
+  .report-readiness-item strong { display:block; margin-top:2px; color:#0f172a; font-size:0.86em; line-height:1.35; }
+  .report-readiness-note { color:#64748b; font-size:0.78em; }
   @media (max-width: 1080px) {
     .dynamic-shell { grid-template-columns:1fr; }
     .dynamic-result-stack { position:static; }
@@ -104,6 +118,7 @@
     .form-row { grid-template-columns:1fr; }
   }
   @media print {
+    .page-only-report-status, .case-file-actions { display:none !important; }
     .card { break-inside:avoid; page-break-inside:avoid; }
   }
 </style>
@@ -149,6 +164,9 @@
       <button class="btn-secondary" id="btnResetCase" type="button">恢復預設</button>
       <input id="caseJsonFile" type="file" accept="application/json,.json" hidden>
     </div>
+  </div>
+  <div class="card page-only-report-status">
+    <div class="report-readiness blocked" id="dynamicReportReadiness" role="status" aria-live="polite"></div>
   </div>
   <div class="main-layout dynamic-shell">
     <div class="dynamic-form-stack">
@@ -547,6 +565,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
+<script src="../../core/ui/report.js"></script>
 <script>
 const S = Seismic;
 const STATIC_STORAGE_KEY = 'seismic-static-summary';
@@ -556,6 +575,8 @@ const CASE_SCHEMA_VERSION = 'seismic-dynamic.case.v1';
 const TOOL_VERSION = '3.8';
 let lastDynamicResult = null;
 let dynamicSpectrumChart = null;
+let lastDynamicReportValidationMessage = '';
+let dynamicReportInputsChanged = false;
 
 const CASE_VALUE_FIELDS = [
   'projName', 'projNo', 'projDesigner',
@@ -577,6 +598,7 @@ const CASE_CHECK_FIELDS = [
   'checkDirectionAngle',
   'printModelCheckSection'
 ];
+const PROJECT_CASE_VALUE_FIELDS = new Set(['projName', 'projNo', 'projDesigner']);
 
 function fmt(v, d) {
   return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d);
@@ -716,6 +738,112 @@ function renderModelCheckPanel(modelCheck) {
   `;
 }
 
+function buildDynamicReportReadinessModel(validationMessage = lastDynamicReportValidationMessage) {
+  const result = lastDynamicResult?.result || null;
+  if (validationMessage) {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過檢查，先不要產生計算書。',
+      priority: [validationMessage],
+      items: [
+        ['分析狀態', '未完成'],
+        ['計算書模式', dynamicReportModeLabel()],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+  if (!result || document.getElementById('resultPanel')?.style.display === 'none') {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '尚未完成反應譜動力分析摘要。',
+      priority: ['請先執行「整理動力摘要」，再整理計算書附件。'],
+      items: [
+        ['分析狀態', '待計算'],
+        ['計算書模式', dynamicReportModeLabel()],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+  if (dynamicReportInputsChanged) {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入已變更，頁面結果可能不是最新。',
+      priority: ['請重新整理動力摘要後再產出計算書附件。'],
+      items: [
+        ['分析狀態', '需重算'],
+        ['計算書模式', dynamicReportModeLabel()],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+
+  const reviewItems = [];
+  const actions = result.designActions || buildDesignActions(result);
+  const modelCheckItems = evaluateModelCheck(result.modelCheck || readModelCheckInputs());
+  const missingAdopted = actions.filter(action => !action.hasAdopted).map(action => action.dir);
+  const underScaled = actions.filter(action => action.hasAdopted && !action.adoptedPass).map(action => action.dir);
+
+  if (window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])) reviewItems.push('計畫名稱、編號或設計人尚未完整，產報前建議補齊。');
+  if (missingAdopted.length) reviewItems.push(`${missingAdopted.join(' / ')} 向尚未輸入採用總橫力，請確認送審附件是否需要附採用值與縮放倍率。`);
+  if (underScaled.length) reviewItems.push(`${underScaled.join(' / ')} 向輸入採用總橫力仍低於第 3.3 節調整要求，需先複核縮放倍率。`);
+  if (modelCheckItems.some(item => item.status !== 'pass')) {
+    const pendingLabels = modelCheckItems.filter(item => item.status !== 'pass').map(item => item.label);
+    reviewItems.push(`動力模型檢核仍有待確認項目：${pendingLabels.join('、')}。`);
+  }
+  if (dynamicReportModeLabel() === '簡易結果' && Boolean(document.getElementById('printModelCheckSection')?.checked)) {
+    reviewItems.push('目前為簡易結果模式；模型檢核資料保留在頁面與 JSON，但計算書不輸出此表。');
+  } else if (!Boolean(document.getElementById('printModelCheckSection')?.checked)) {
+    reviewItems.push('已取消模型檢核表列印；如需正式附件，請確認是否另附模型檢核紀錄。');
+  }
+  if (result.responseSpectrum?.ranges?.isPlotShort) {
+    reviewItems.push('目前圖表週期上限短於建議長週期範圍，判讀長週期段前建議先加長圖表範圍。');
+  }
+  if ((result.project?.siteInputMode || '').toLowerCase() === 'direct') {
+    reviewItems.push(`本案譜值來源為「${result.site?.modeLabel || '直接輸入譜值'}」，請保留近斷層控制譜或外部查表依據。`);
+  }
+
+  return {
+    tone: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    priority: reviewItems.length ? reviewItems : ['動力摘要、反應譜輸出與總橫力調整檢核已可供附件整理。'],
+    items: [
+      ['分析狀態', 'X/Y 雙向完成'],
+      ['控制比值', `X ${fmt(actions[0]?.ratio, 2)} / Y ${fmt(actions[1]?.ratio, 2)}`],
+      ['計算書模式', dynamicReportModeLabel()],
+      ['模型檢核列印', dynamicModelCheckOutputLabel()],
+      ['工址譜值', `SDS ${fmt(result.site?.SDS, 3)} / SD1 ${fmt(result.site?.SD1, 3)} g`],
+      ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+    ]
+  };
+}
+
+function renderDynamicReportReadiness(validationMessage = lastDynamicReportValidationMessage) {
+  const el = document.getElementById('dynamicReportReadiness');
+  if (!el) return;
+  const message = typeof validationMessage === 'string' ? validationMessage : lastDynamicReportValidationMessage;
+  const model = buildDynamicReportReadinessModel(message);
+  window.ToolReportUI.renderStatusGridPanel({
+    target: el,
+    containerClassName: 'card page-only-report-status report-readiness',
+    level: model.tone,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    priorityItems: model.priority,
+    items: model.items,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認規範適用條件、工址譜值來源、分析模型、振態疊加方式與送審圖說一致性。'
+  });
+}
+
+function markDynamicReportInputsChanged() {
+  if (lastDynamicResult?.result) dynamicReportInputsChanged = true;
+  renderDynamicReportReadiness();
+}
+
 function buildSpectrumExportRows(result) {
   const rows = result?.responseSpectrum?.exportRows || result?.responseSpectrum?.chartRows || [];
   return rows.map(row => ({
@@ -740,6 +868,13 @@ function ensureDynamicResult() {
   return lastDynamicResult?.result || null;
 }
 
+function syncProjectMeta(project) {
+  return {
+    ...(project || {}),
+    ...getProjectInfo()
+  };
+}
+
 function setInputStatus(message) {
   const el = document.getElementById('inputStatus');
   if (!el) return;
@@ -751,12 +886,19 @@ function clearInputStatus() {
   setInputStatus('');
 }
 
+function setDynamicReportValidationMessage(message = '') {
+  lastDynamicReportValidationMessage = message || '';
+  renderDynamicReportReadiness(lastDynamicReportValidationMessage);
+}
+
 function collectCaseInputs() {
   const values = {};
   CASE_VALUE_FIELDS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    values[id] = el.value;
+    values[id] = PROJECT_CASE_VALUE_FIELDS.has(id)
+      ? window.ToolReportUI.normalizeProjectFieldValue(el.value)
+      : el.value;
   });
   const checks = {};
   CASE_CHECK_FIELDS.forEach(id => {
@@ -799,13 +941,19 @@ function buildCasePayload() {
   if (!lastDynamicResult) {
     if (calcDynamic() === false) return null;
   }
+  const result = lastDynamicResult?.result
+    ? {
+        ...lastDynamicResult.result,
+        project: syncProjectMeta(lastDynamicResult.result.project)
+      }
+    : null;
   return {
     schemaVersion: CASE_SCHEMA_VERSION,
     toolVersion: TOOL_VERSION,
     exportedAt: new Date().toISOString(),
     project: getProjectInfo(),
     inputs: collectCaseInputs(),
-    result: lastDynamicResult?.result || null
+    result
   };
 }
 
@@ -966,9 +1114,9 @@ function readSpectrumRangeInputs() {
 function restoreProjectInfo() {
   const saved = getStorageJson(PROJECT_INFO_STORAGE_KEY);
   if (!saved) return;
-  if (saved.name != null) document.getElementById('projName').value = saved.name;
-  if (saved.no != null) document.getElementById('projNo').value = saved.no;
-  if (saved.designer != null) document.getElementById('projDesigner').value = saved.designer;
+  if (saved.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.name);
+  if (saved.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.no);
+  if (saved.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(saved.designer);
 }
 
 function saveProjectInfo() {
@@ -999,7 +1147,9 @@ function readCodeSpectrumInputs(base) {
     range: readSpectrumRangeInputs()
   };
   if (![p.I, p.site.SDS, p.site.SD1, p.site.SMS, p.site.SM1, p.lowerSite.SDS, p.lowerSite.SD1, p.R, p.Ra, p.alphaY, p.T1, p.damping, p.BS, p.B1].every(v => isFinite(v) && v > 0)) {
-    setInputStatus('請完整填入有效的規範反應譜參數。');
+    const message = '請完整填入有效的規範反應譜參數。';
+    setInputStatus(message);
+    setDynamicReportValidationMessage(message);
     return null;
   }
   return p;
@@ -1068,10 +1218,20 @@ function initZoneLookup() {
 function getProjectInfo() {
   const val = id => (document.getElementById(id)?.value || '').trim();
   return {
-    name: val('projName'),
-    no: val('projNo'),
-    designer: val('projDesigner')
+    name: window.ToolReportUI.normalizeProjectFieldValue(val('projName')),
+    no: window.ToolReportUI.normalizeProjectFieldValue(val('projNo')),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(val('projDesigner'))
   };
+}
+
+function dynamicReportModeLabel() {
+  return document.getElementById('reportMode')?.value === 'summary' ? '簡易結果' : '詳算式';
+}
+
+function dynamicModelCheckOutputLabel() {
+  const includeModelCheck = Boolean(document.getElementById('printModelCheckSection')?.checked);
+  if (dynamicReportModeLabel() === '簡易結果') return '簡易結果模式不輸出模型檢核表';
+  return includeModelCheck ? '詳算式列印含模型檢核表' : '頁面保留，計算書不輸出';
 }
 
 function calcStaticReference(systemKey, hn, W, siteClass, SsD, S1D, SsM, S1M, Ifactor, Tdyna, siteInputMode) {
@@ -1322,14 +1482,14 @@ function loadStaticSummaryIntoPage() {
     return null;
   }
   const proj = saved.project || {};
-  if (proj.name) document.getElementById('projName').value = proj.name;
-  if (proj.no) document.getElementById('projNo').value = proj.no;
-  if (proj.designer) document.getElementById('projDesigner').value = proj.designer;
-  if (proj.zoneCity) {
+  if (proj.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);
+  if (proj.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);
+  if (proj.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);
+  if (proj.zoneCity != null) {
     document.getElementById('zoneCity').value = proj.zoneCity;
     document.getElementById('zoneCity').dispatchEvent(new Event('change'));
   }
-  if (proj.zoneDist) {
+  if (proj.zoneDist != null) {
     document.getElementById('zoneDist').value = proj.zoneDist;
     document.getElementById('zoneDist').dispatchEvent(new Event('change'));
   }
@@ -1337,15 +1497,15 @@ function loadStaticSummaryIntoPage() {
   if (isFinite(proj.S1D)) document.getElementById('S1D').value = proj.S1D;
   if (isFinite(proj.SsM)) document.getElementById('SsM').value = proj.SsM;
   if (isFinite(proj.S1M)) document.getElementById('S1M').value = proj.S1M;
-  if (proj.siteInputMode) document.getElementById('siteInputMode').value = proj.siteInputMode;
+  if (proj.siteInputMode != null) document.getElementById('siteInputMode').value = proj.siteInputMode;
   if (isFinite(proj.SsDLower)) document.getElementById('SsDLower').value = proj.SsDLower;
   if (isFinite(proj.S1DLower)) document.getElementById('S1DLower').value = proj.S1DLower;
-  if (proj.siteClass) document.getElementById('siteClass').value = proj.siteClass;
-  if (proj.importanceKey) document.getElementById('impClass').value = proj.importanceKey;
+  if (proj.siteClass != null) document.getElementById('siteClass').value = proj.siteClass;
+  if (proj.importanceKey != null) document.getElementById('impClass').value = proj.importanceKey;
   if (isFinite(proj.hn)) document.getElementById('hn').value = proj.hn;
   if (isFinite(proj.W)) document.getElementById('W').value = proj.W;
-  if (saved.x?.systemKey) document.getElementById('sysX').value = saved.x.systemKey;
-  if (saved.y?.systemKey) document.getElementById('sysY').value = saved.y.systemKey;
+  if (saved.x?.systemKey != null) document.getElementById('sysX').value = saved.x.systemKey;
+  if (saved.y?.systemKey != null) document.getElementById('sysY').value = saved.y.systemKey;
   if (isFinite(saved.x?.Tdesign)) document.getElementById('Tx').value = saved.x.Tdesign;
   if (isFinite(saved.y?.Tdesign)) document.getElementById('Ty').value = saved.y.Tdesign;
   box.innerHTML = `
@@ -1355,6 +1515,10 @@ function loadStaticSummaryIntoPage() {
     靜力摘要時間：${saved.savedAt ? new Date(saved.savedAt).toLocaleString('zh-TW') : '—'}<br>
     已同步帶入工址、系統、用途與建物量體條件。
   `;
+  if (lastDynamicResult?.result) {
+    dynamicReportInputsChanged = true;
+  }
+  renderDynamicReportReadiness();
   return saved;
 }
 
@@ -1384,7 +1548,9 @@ function calcDynamic() {
   const baseShearFloorRatio = parseFloat(floorSelect?.value || '1') || 1;
   const baseShearFloorLabel = floorSelect?.selectedOptions?.[0]?.textContent || '第 3.3 節總橫力調整要求';
   if (![hn, W, SsD, S1D, SsM, S1M, Tx, Ty, VxDyn, VyDyn].every(v => isFinite(v) && v > 0)) {
-    setInputStatus('請完整填入有效的工址條件與動力分析結果。');
+    const message = '請完整填入有效的工址條件與動力分析結果。';
+    setInputStatus(message);
+    setDynamicReportValidationMessage(message);
     return false;
   }
   const responseSpectrumInputs = readCodeSpectrumInputs({ I: Ifactor, siteClass, SsD, S1D, SsM, S1M, Tx, Ty });
@@ -1455,24 +1621,28 @@ function calcDynamic() {
   lastDynamicResult = { result, x, y, imported };
   setStorageJson(DYNAMIC_STORAGE_KEY, result);
   renderDynamicResult();
+  dynamicReportInputsChanged = false;
+  clearInputStatus();
+  setDynamicReportValidationMessage('');
+  return true;
 }
 
 function restoreDynamicSummary() {
   const saved = getStorageJson(DYNAMIC_STORAGE_KEY);
   if (!saved?.x || !saved?.y) return;
   saved.designActions = saved.designActions || buildDesignActions(saved);
-  if (saved.project?.name) document.getElementById('projName').value = saved.project.name;
-  if (saved.project?.no) document.getElementById('projNo').value = saved.project.no;
-  if (saved.project?.designer) document.getElementById('projDesigner').value = saved.project.designer;
-  if (saved.project?.software) document.getElementById('software').value = saved.project.software;
-  if (saved.project?.remark) document.getElementById('remark').value = saved.project.remark;
-  if (saved.project?.siteInputMode) document.getElementById('siteInputMode').value = saved.project.siteInputMode;
+  if (saved.project?.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.name);
+  if (saved.project?.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.no);
+  if (saved.project?.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(saved.project.designer);
+  if (saved.project?.software != null) document.getElementById('software').value = saved.project.software;
+  if (saved.project?.remark != null) document.getElementById('remark').value = saved.project.remark;
+  if (saved.project?.siteInputMode != null) document.getElementById('siteInputMode').value = saved.project.siteInputMode;
   if (isFinite(saved.project?.baseShearFloorRatio)) document.getElementById('baseShearFloorRatio').value = saved.project.baseShearFloorRatio;
   if (isFinite(saved.project?.SsDLower)) document.getElementById('SsDLower').value = saved.project.SsDLower;
   if (isFinite(saved.project?.S1DLower)) document.getElementById('S1DLower').value = saved.project.S1DLower;
   const savedRange = saved.project?.spectrumRange || saved.responseSpectrum?.ranges || null;
   if (savedRange) {
-    if (savedRange.plotMode) document.getElementById('spectrumPlotRangeMode').value = savedRange.plotMode;
+    if (savedRange.plotMode != null) document.getElementById('spectrumPlotRangeMode').value = savedRange.plotMode;
     if (isFinite(savedRange.customPlotTmax)) document.getElementById('spectrumPlotTmaxCustom').value = savedRange.customPlotTmax;
     if (isFinite(savedRange.exportTmax)) document.getElementById('spectrumExportTmax').value = savedRange.exportTmax;
   }
@@ -1523,7 +1693,9 @@ function restoreDynamicSummary() {
     imported: getStorageJson(STATIC_STORAGE_KEY)
   };
   renderDynamicResult();
+  dynamicReportInputsChanged = false;
   clearInputStatus();
+  setDynamicReportValidationMessage('');
   return true;
 }
 
@@ -1605,7 +1777,9 @@ function renderDynamicResult() {
 }
 
 function openDynamicReport() {
-  if (!lastDynamicResult) calcDynamic();
+  if (!lastDynamicResult || dynamicReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none') {
+    if (calcDynamic() === false) return;
+  }
   if (!lastDynamicResult) return;
   const { result, x, y } = lastDynamicResult;
   result.x.staticFull = result.x.staticFull || result.x.staticRef;
@@ -1793,7 +1967,7 @@ function exportResponseSpectrumJson() {
     spectrumName: name,
     unit: 'g',
     basis: '規範第 3.2 節反應譜輸出；週期單位 sec，加速度為 g。',
-    project: result.project || getProjectInfo(),
+    project: syncProjectMeta(result.project),
     params: result.responseSpectrum.params,
     site: result.responseSpectrum.site,
     basisValues: result.responseSpectrum.basis,
@@ -1812,7 +1986,7 @@ function exportModelCheckJson() {
   const payload = {
     exportedAt: new Date().toISOString(),
     basis: '規範第三章動力分析模型與總橫力調整自查。',
-    project: result.project || getProjectInfo(),
+    project: syncProjectMeta(result.project),
     modelCheck,
     evaluatedItems: evaluateModelCheck(modelCheck),
     baseShear: {
@@ -1830,8 +2004,11 @@ function clearDynamicSummary() {
     localStorage.removeItem(DYNAMIC_STORAGE_KEY);
   } catch (err) {}
   lastDynamicResult = null;
+  dynamicReportInputsChanged = false;
   document.getElementById('resultPanel').style.display = 'none';
   document.getElementById('staticImportStatus').innerHTML = '動力摘要已清除；如需延續同案，可重新載入等值靜力摘要。';
+  clearInputStatus();
+  setDynamicReportValidationMessage('');
 }
 
 (function initPageScopeCard() {
@@ -1883,9 +2060,38 @@ restoreProjectInfo();
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('input', saveProjectInfo);
+  el.addEventListener('input', function() { renderDynamicReportReadiness(); });
+  el.addEventListener('change', function() { renderDynamicReportReadiness(); });
+});
+CASE_VALUE_FIELDS
+  .filter(id => !['projName', 'projNo', 'projDesigner', 'spectrumExportTarget', 'spectrumExportName'].includes(id))
+  .forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (id === 'reportMode') {
+      el.addEventListener('input', function() { renderDynamicReportReadiness(); });
+      el.addEventListener('change', function() { renderDynamicReportReadiness(); });
+      return;
+    }
+    el.addEventListener('input', markDynamicReportInputsChanged);
+    el.addEventListener('change', markDynamicReportInputsChanged);
+  });
+CASE_CHECK_FIELDS.forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (id === 'printModelCheckSection') return;
+  el.addEventListener('input', markDynamicReportInputsChanged);
+  el.addEventListener('change', markDynamicReportInputsChanged);
+});
+['reportMode', 'printModelCheckSection'].forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', function() { renderDynamicReportReadiness(); });
+  el.addEventListener('change', function() { renderDynamicReportReadiness(); });
 });
 loadStaticSummaryIntoPage();
 restoreDynamicSummary();
+renderDynamicReportReadiness();
 </script>
 </body>
 </html>

@@ -23,6 +23,23 @@
     font-family:'Consolas',monospace;
   }
   .info-pill { display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.78em; background:#f0fdfa; color:#0f766e; font-weight:700; margin-right:6px; }
+  .report-readiness { margin-top:10px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; padding:12px 14px; color:#1e3a8a; line-height:1.6; }
+  .report-readiness.review { border-color:#fde68a; background:#fffbeb; color:#92400e; }
+  .report-readiness.blocked { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:8px; }
+  .report-readiness-kicker { margin:0 0 2px; font-size:0.76em; font-weight:700; color:#64748b; }
+  .report-readiness-title { margin:0; font-size:1em; font-weight:800; color:inherit; }
+  .report-readiness-badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.78); border:1px solid currentColor; font-size:0.78em; font-weight:800; white-space:nowrap; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .report-readiness-item { border:1px solid rgba(148,163,184,.45); border-radius:8px; background:rgba(255,255,255,.72); padding:8px 10px; font-size:0.82em; }
+  .report-readiness-item strong { display:block; margin-bottom:2px; color:#334155; }
+  .report-readiness-note { margin-top:8px; padding-top:8px; border-top:1px dashed rgba(100,116,139,.38); color:#475569; font-size:0.82em; }
+  @media print {
+    .page-only-report-status { display:none !important; }
+  }
+  @media (max-width: 768px) {
+    .report-readiness-grid { grid-template-columns:1fr; }
+  }
 </style>
 </head>
 <body>
@@ -39,8 +56,9 @@
     <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
     <input type="text" id="projNo" class="w-no" placeholder="編號">
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button class="mode-bar__report" type="button">📄 列印計算書</button>
+    <button class="mode-bar__report" type="button">📄 列印頁面結果</button>
   </div>
+  <div class="page-only-report-status report-readiness blocked" id="kztReportReadiness" role="status" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 <div>
@@ -101,7 +119,7 @@
       <input type="checkbox" id="chkDetail" checked>
       <label for="chkDetail">顯示逐步計算過程</label>
     </div>
-    <button class="btn-print" type="button">列印計算書</button>
+    <button class="btn-print" type="button">列印頁面結果</button>
   </div>
 </div>
 
@@ -152,10 +170,13 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
+<script src="../../core/ui/report.js"></script>
 <script>
 const W = window.Wind;
+const ReportUI = window.ToolReportUI;
 const fmt = (v, d=3) => isFinite(v) ? v.toFixed(d) : '—';
 const val = id => parseFloat(document.getElementById(id).value) || 0;
+let lastKztDetail = null;
 
 const TOPO_HINTS = {
   flat: '平地不需考慮地形效應，K_zt = 1.0。',
@@ -163,6 +184,65 @@ const TOPO_HINTS = {
   cliff: '單面陡崖：上風側陡降。表 2.3(a)：地況C K₁/(H/L) = 0.85，地況AB = 0.75。',
   hill:  '軸對稱孤立圓丘：四面對稱。表 2.3(a)：地況C K₁/(H/L) = 1.05，地況AB = 0.95。',
 };
+
+function isKztProjectMetaMissing() {
+  if (ReportUI && typeof ReportUI.hasBlankFieldValues === 'function') {
+    return ReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
+  }
+  return ['projName', 'projNo', 'projDesigner'].some((id) => {
+    const node = document.getElementById(id);
+    const text = (node?.value || '').trim();
+    return !text || text === '未填';
+  });
+}
+
+function composeKztReadinessModel() {
+  const detail = lastKztDetail;
+  const topoType = document.getElementById('topoType')?.value || 'flat';
+  const projectMetaMissing = isKztProjectMetaMissing();
+  const priorityItems = [];
+  if (projectMetaMissing) {
+    priorityItems.push('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
+  }
+  priorityItems.push('本頁僅整理 K1、K2、K3 與 Kzt，正式耐風附件仍須回填到 MWFRS、C&C、女兒牆或開放式屋面工具。');
+  if (topoType === 'flat') {
+    priorityItems.push('目前為平地條件，Kzt = 1.0；若屬山頂、丘陵或陡崖，需改填對應地形後再整理附件。');
+  } else {
+    priorityItems.push('若為多重山丘、谷地或專案指定特殊地形，應改依風洞或專案分析採用，不宜直接作附件結論。');
+  }
+  return {
+    level: projectMetaMissing ? 'blocked' : 'review',
+    title: projectMetaMissing
+      ? 'Kzt 係數已算出，但附件識別與適用邊界尚未齊備。'
+      : 'Kzt 係數已算出，但整理附件前建議優先閱讀下列項目。',
+    badge: projectMetaMissing ? '暫勿作附件' : '優先確認',
+    items: [
+      { label: '工具定位', value: '耐風參數查詢 / 回填，非完整耐風計算書' },
+      { label: '目前地形', value: topoTypeName(detail?.topoType || topoType) },
+      { label: '係數輸出', value: detail ? `K1=${fmt(detail.K1,4)}、K2=${fmt(detail.K2,4)}、K3=${fmt(detail.K3,4)}、Kzt=${fmt(detail.Kzt,4)}` : '尚未計算' },
+      { label: '附件識別', value: projectMetaMissing ? '計畫資訊未齊' : '計畫資訊已齊' },
+    ],
+    priorityItems,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認 §2.7 適用地形、Kzt 回填位置與送審圖說一致性。',
+  };
+}
+
+function renderKztReadiness() {
+  const target = document.getElementById('kztReportReadiness');
+  if (!target || !ReportUI || typeof ReportUI.renderStatusGridPanel !== 'function') return;
+  const model = composeKztReadinessModel();
+  ReportUI.renderStatusGridPanel({
+    target,
+    containerClassName: 'page-only-report-status report-readiness',
+    level: model.level,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    items: model.items,
+    priorityItems: model.priorityItems,
+    note: model.note,
+  });
+}
 
 document.getElementById('topoType').addEventListener('change', () => {
   document.getElementById('topoHint').textContent = TOPO_HINTS[document.getElementById('topoType').value];
@@ -175,6 +255,7 @@ function calc() {
   const terrainGrp = document.getElementById('terrainGrp').value;
   const H = val('H'), Lh = val('Lh'), x = val('x'), z = val('z');
   const detail = W.calcKztDetail(topoType, terrainGrp, H, Lh, x, z);
+  lastKztDetail = detail;
 
   document.getElementById('kztResult').textContent = `K_zt = ${fmt(detail.Kzt, 4)}`;
   document.getElementById('pK1').textContent = `K₁ = ${fmt(detail.K1, 4)}`;
@@ -240,6 +321,7 @@ function calc() {
     stepsEl.innerHTML = html;
   }
   drawTopo(topoType, H, Lh, x, z);
+  renderKztReadiness();
 }
 function step(title, body) {
   return `<div class="step"><div class="step-title">${title}</div><div class="step-body">${body}</div></div>`;
@@ -300,6 +382,15 @@ function pathYAt(path, xq, fallback) { return fallback; }
 document.getElementById('btnCalc').addEventListener('click', calc);
 document.getElementById('chkDetail').addEventListener('change', calc);
 ['terrainGrp','H','Lh','x','z'].forEach(id => document.getElementById(id).addEventListener('change', calc));
+['projName', 'projNo', 'projDesigner'].forEach(id => {
+  const node = document.getElementById(id);
+  if (!node) return;
+  node.addEventListener('input', renderKztReadiness);
+  node.addEventListener('change', renderKztReadiness);
+});
+document.querySelectorAll('.btn-print, .mode-bar__report').forEach((button) => {
+  button.addEventListener('click', () => window.print());
+});
 calc();
 </script>
 <script src="../project-storage.js" data-tool-id="wind-kzt" data-tool-name="Kzt 地形係數計算器" data-tool-version="V1"></script>

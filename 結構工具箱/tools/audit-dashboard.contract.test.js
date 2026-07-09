@@ -208,6 +208,8 @@ dashboardScripts.forEach((match, index) => {
   'Global Governance Gates',
   'data-governance-key',
   'payload.globalGovernance?.gates',
+  'requiredCatalogFamilies',
+  'missingCatalogFamilies',
   'Traceability Catalog Coverage',
   'payload.traceabilityCatalogCoverage',
   'data-catalog-family',
@@ -218,11 +220,14 @@ dashboardScripts.forEach((match, index) => {
   'maturityOtherGovernanceWrap',
   'otherGovernanceRoutes',
   '<th>governance</th>',
+  '<th>boundary tag</th>',
   '<th>preflight keys</th>',
   'maturityBoundaryCoverage',
   'maturityBoundaryHint',
   'maturityBoundaryWrap',
   'boundaryRoutes',
+  '<th>boundary rule</th>',
+  '<th>matched needles</th>',
   '<th>output</th>',
   '<th>fit</th>',
   '<th>limit</th>',
@@ -265,8 +270,14 @@ dashboardScripts.forEach((match, index) => {
   '平台 audit',
   '慢測重用',
   '最慢檢查',
-  'Quick',
-  'Full',
+  '完整檢查',
+  '快速檢查',
+  '正式放行',
+  'preflightTimelineLegend',
+  'reportReadinessBoundaryNote',
+  '報告閱讀狀態邊界',
+  '不會寫入計算書、列印或 PDF。',
+  '正式交付請以完整檢查或正式放行結果為準。',
   'kpiFreshness',
   'kpiFreshnessHint',
   'kpiLatestTime',
@@ -824,12 +835,21 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'latest-full-preflight-summary',
   'sourceInput(',
   'extractHomeEntrypoints',
+  'extractRouteFileMap',
   'extractGovernanceSources',
+  'resolveHomeEntrypointSource',
+  'hasPrintSurface',
+  'hasPageOnlyReadiness',
+  'hidesPageOnlyReadinessInPrint',
   'otherGovernanceList',
   'buildEntrypointCoverage',
   'boundaryIssuesForEntrypoint',
   'boundaryRoutes',
   'boundaryIssueCount',
+  'pageOnlyBoundaryRequired',
+  'pageOnlyBoundaryComplete',
+  'pageOnlyBoundaryIssueCount',
+  'page-only readiness complete',
   'otherGovernanceRoutes',
   'otherGovernanceIssueCount',
   '### Other Governance Sources',
@@ -886,16 +906,20 @@ if (fs.existsSync(maturityMatrixPath)) {
   const reportDisclosureGate = matrix.globalGovernance.gates.find(gate => gate.key === 'report-disclosure-contract');
   assert.ok(reportDisclosureGate, 'maturity globalGovernance report disclosure gate exists');
   assert.equal(reportDisclosureGate.pass, true, 'maturity globalGovernance report disclosure gate passes');
-  assert.equal(reportDisclosureGate.coveredCatalogs >= 7, true, 'maturity globalGovernance report disclosure catalog count');
+  assert.equal(reportDisclosureGate.coveredCatalogs, 7, 'maturity globalGovernance report disclosure catalog count');
+  assert.deepEqual(reportDisclosureGate.catalogFamilies, ['formal-traceability', 'rc-traceability', 'steel-traceability', 'anchor-traceability', 'stone-traceability', 'decking-traceability', 'excavation-traceability'], 'maturity globalGovernance report disclosure relevant families');
   assert.deepEqual(reportDisclosureGate.issues, [], 'maturity globalGovernance report disclosure issues empty');
   const deliveryArtifactsGate = matrix.globalGovernance.gates.find(gate => gate.key === 'delivery-artifacts-contract');
   assert.ok(deliveryArtifactsGate, 'maturity globalGovernance delivery artifacts gate exists');
   assert.equal(deliveryArtifactsGate.pass, true, 'maturity globalGovernance delivery artifacts gate passes');
-  assert.equal(deliveryArtifactsGate.coveredCatalogs >= 2, true, 'maturity globalGovernance delivery artifacts catalog count');
+  assert.equal(deliveryArtifactsGate.coveredCatalogs, 3, 'maturity globalGovernance delivery artifacts catalog count');
+  assert.deepEqual(deliveryArtifactsGate.catalogFamilies, ['stone-traceability', 'decking-traceability', 'excavation-traceability'], 'maturity globalGovernance delivery artifacts relevant families');
   assert.deepEqual(deliveryArtifactsGate.issues, [], 'maturity globalGovernance delivery artifacts issues empty');
   const releaseReadinessGate = matrix.globalGovernance.gates.find(gate => gate.key === 'release-readiness-contract');
   assert.ok(releaseReadinessGate, 'maturity globalGovernance release readiness gate exists');
   assert.equal(releaseReadinessGate.pass, true, 'maturity globalGovernance release readiness gate passes');
+  assert.equal(releaseReadinessGate.coveredCatalogs, 0, 'maturity globalGovernance release readiness catalog count');
+  assert.deepEqual(releaseReadinessGate.catalogFamilies, [], 'maturity globalGovernance release readiness relevant families empty');
   assert.deepEqual(releaseReadinessGate.issues, [], 'maturity globalGovernance release readiness issues empty');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Global Governance Gates'), 'maturity markdown exposes global governance gates');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('report-disclosure-contract'), 'maturity markdown exposes report disclosure gate');
@@ -928,6 +952,7 @@ if (fs.existsSync(maturityMatrixPath)) {
     for (const route of matrix.entrypointCoverage.otherGovernanceRoutes) {
       assert.ok(route.governance, `maturity other governance route governance: ${route.route}`);
       assert.ok(route.governanceLabel, `maturity other governance route label: ${route.route}`);
+      assert.ok(route.governanceCardTag, `maturity other governance route boundary tag: ${route.route}`);
       assert.ok(Array.isArray(route.preflightKeys) && route.preflightKeys.length > 0, `maturity other governance route preflight keys: ${route.route}`);
       assert.deepEqual(route.failedKeys, [], `maturity other governance route failed keys empty: ${route.route}`);
       assert.deepEqual(route.missingKeys, [], `maturity other governance route missing keys empty: ${route.route}`);
@@ -937,15 +962,34 @@ if (fs.existsSync(maturityMatrixPath)) {
     assert.equal(Number.isInteger(matrix.entrypointCoverage.boundaryRequired), true, 'maturity entrypointCoverage boundaryRequired integer');
     assert.equal(Number.isInteger(matrix.entrypointCoverage.boundaryComplete), true, 'maturity entrypointCoverage boundaryComplete integer');
     assert.equal(Number.isInteger(matrix.entrypointCoverage.boundaryIssueCount), true, 'maturity entrypointCoverage boundaryIssueCount integer');
+    assert.equal(Number.isInteger(matrix.entrypointCoverage.pageOnlyBoundaryRequired), true, 'maturity entrypointCoverage pageOnlyBoundaryRequired integer');
+    assert.equal(Number.isInteger(matrix.entrypointCoverage.pageOnlyBoundaryComplete), true, 'maturity entrypointCoverage pageOnlyBoundaryComplete integer');
+    assert.equal(Number.isInteger(matrix.entrypointCoverage.pageOnlyBoundaryIssueCount), true, 'maturity entrypointCoverage pageOnlyBoundaryIssueCount integer');
     assert.equal(matrix.entrypointCoverage.boundaryComplete, matrix.entrypointCoverage.boundaryRequired, 'maturity entrypointCoverage boundary checks complete');
     assert.equal(matrix.entrypointCoverage.boundaryIssueCount, 0, 'maturity entrypointCoverage boundary issues empty');
+    assert.equal(matrix.entrypointCoverage.pageOnlyBoundaryComplete, matrix.entrypointCoverage.pageOnlyBoundaryRequired, 'maturity entrypointCoverage page-only readiness checks complete');
+    assert.equal(matrix.entrypointCoverage.pageOnlyBoundaryIssueCount, 0, 'maturity entrypointCoverage page-only readiness issues empty');
     assert.ok(Array.isArray(matrix.entrypointCoverage.outsideMatrixRoutes), 'maturity entrypointCoverage outsideMatrixRoutes array');
     assert.ok(Array.isArray(matrix.entrypointCoverage.boundaryRoutes), 'maturity entrypointCoverage boundaryRoutes array');
     assert.ok(matrix.entrypointCoverage.boundaryRoutes.length > 0, 'maturity entrypointCoverage boundaryRoutes populated');
     for (const route of matrix.entrypointCoverage.boundaryRoutes) {
+      assert.ok(route.stateLabel, `maturity boundary route state label: ${route.route}`);
+      assert.ok(route.boundaryRule, `maturity boundary route boundary rule: ${route.route}`);
+      assert.ok(Array.isArray(route.matchedLimitNeedles), `maturity boundary route matched needles array: ${route.route}`);
+      assert.ok(route.matchedLimitNeedles.length > 0, `maturity boundary route matched needles populated: ${route.route}`);
+      assert.equal(typeof route.sourcePath, 'string', `maturity boundary route source path string: ${route.route}`);
+      assert.equal(typeof route.reportSurface, 'boolean', `maturity boundary route report surface boolean: ${route.route}`);
+      assert.equal(typeof route.pageOnlyReadinessRequired, 'boolean', `maturity boundary route page-only required boolean: ${route.route}`);
+      assert.equal(typeof route.pageOnlyReadinessPresent, 'boolean', `maturity boundary route page-only present boolean: ${route.route}`);
+      assert.equal(typeof route.pageOnlyReadinessHiddenInPrint, 'boolean', `maturity boundary route page-only hidden boolean: ${route.route}`);
       assert.ok(route.output, `maturity boundary route output: ${route.route}`);
       assert.ok(route.fit, `maturity boundary route fit: ${route.route}`);
       assert.ok(route.limit, `maturity boundary route limit: ${route.route}`);
+      if (route.pageOnlyReadinessRequired) {
+        assert.ok(route.sourcePath, `maturity boundary route page-only sourcePath populated: ${route.route}`);
+        assert.equal(route.pageOnlyReadinessPresent, true, `maturity boundary route page-only readiness present: ${route.route}`);
+        assert.equal(route.pageOnlyReadinessHiddenInPrint, true, `maturity boundary route page-only readiness hidden in print: ${route.route}`);
+      }
       assert.deepEqual(route.boundaryIssues, [], `maturity boundary route issues empty: ${route.route}`);
     }
     assert.ok(matrix.entrypointCoverage.total >= matrix.totals.tools, 'maturity entrypointCoverage total includes matrix tools');
@@ -953,6 +997,7 @@ if (fs.existsSync(maturityMatrixPath)) {
     assert.ok(maturityMarkdown.includes('## Homepage Entrypoint Coverage'), 'maturity markdown exposes homepage entrypoint coverage');
     assert.ok(maturityMarkdown.includes('### Other Governance Sources'), 'maturity markdown exposes other governance sources');
     assert.ok(maturityMarkdown.includes('### Non-Matrix Boundary Checks'), 'maturity markdown exposes non-matrix boundary checks');
+    assert.ok(maturityMarkdown.includes('page-only readiness complete'), 'maturity markdown exposes page-only readiness metric');
     assert.ok(maturityMarkdown.indexOf('## Top Upgrade Targets') < maturityMarkdown.indexOf('## Source Trace'), 'maturity markdown top upgrade section precedes source trace');
   }
   if (maturityFresh) {
@@ -972,7 +1017,9 @@ if (fs.existsSync(maturityMatrixPath)) {
       'home-entrypoints',
       'latest-preflight-summary'
     ];
-    if (matrix.latestPreflight?.quick === true) expectedSourceInputs.push('latest-full-preflight-summary');
+    const hasFullPreflightSource = matrix.sourceTrace.inputs
+      .some(input => input.key === 'latest-full-preflight-summary');
+    if (hasFullPreflightSource) expectedSourceInputs.push('latest-full-preflight-summary');
     const hasPassingFullPreflightSource = matrix.sourceTrace.inputs
       .some(input => input.key === 'latest-passing-full-preflight-summary');
     if (matrix.latestPreflight?.pass !== true && hasPassingFullPreflightSource) expectedSourceInputs.push('latest-passing-full-preflight-summary');

@@ -23,7 +23,7 @@ export function ReportSettingsPanel(props: {
 
   return (
     <details
-      className="fold-panel sub-panel"
+      className="fold-panel sub-panel report-settings-panel"
       data-shows="report"
       open={!simpleMode}
     >

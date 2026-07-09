@@ -687,6 +687,110 @@ body {
   touch-action: manipulation;
 }
 
+.report-readiness {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #d97706;
+  border-radius: 10px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.report-readiness.ready {
+  border-color: #bbf7d0;
+  border-left-color: #059669;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.report-readiness.review {
+  border-color: #fde68a;
+  border-left-color: #d97706;
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.report-readiness.blocked {
+  border-color: #fecaca;
+  border-left-color: #dc2626;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.report-readiness-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.report-readiness-kicker {
+  margin: 0 0 2px;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.report-readiness-title {
+  margin: 0;
+  color: inherit;
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.report-readiness-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.report-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.report-readiness-item {
+  min-height: 58px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.report-readiness-item span {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.report-readiness-item strong {
+  display: block;
+  margin-top: 2px;
+  color: #0f172a;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.report-readiness-note {
+  color: #475569;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
 .main-layout {
   display: grid;
   grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
@@ -1653,7 +1757,8 @@ body {
   .approval-grid,
   .banner-key,
   .flow-metrics,
-  .plate-extras-grid {
+  .plate-extras-grid,
+  .report-readiness-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1776,6 +1881,10 @@ body {
 
   .toolbar-actions > * {
     width: 100%;
+  }
+
+  .report-readiness-head {
+    flex-direction: column;
   }
 
   .report-jumpbar .btn-secondary {
@@ -1963,6 +2072,7 @@ body {
 
   .page-header,
   .mode-bar,
+  .page-only-report-status,
   .input-column,
   .section-tabs,
   .toolbar-actions,

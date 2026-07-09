@@ -231,6 +231,30 @@
 <script>
 const W = window.Wind;
 const fmt = (v, d=2) => isFinite(v) ? v.toFixed(d) : '—';
+const OVERVIEW_STORAGE_KEY = 'wind-overview-params';
+
+function normalizeProjectFieldValue(value) {
+  if (window.ToolProjectStorage?.normalizeProjectFieldValue) {
+    return window.ToolProjectStorage.normalizeProjectFieldValue(value);
+  }
+  const text = String(value == null ? '' : value).trim();
+  return text === '未填' ? '' : text;
+}
+
+function normalizeOverviewParams(params) {
+  const next = { ...(params || {}) };
+  next.projName = normalizeProjectFieldValue(next.projName);
+  next.projNo = normalizeProjectFieldValue(next.projNo);
+  next.projDesigner = normalizeProjectFieldValue(next.projDesigner);
+  return next;
+}
+
+function applyOverviewProjectMeta(params) {
+  const next = normalizeOverviewParams(params);
+  if (next.projName != null) document.getElementById('projName').value = next.projName;
+  if (next.projNo != null) document.getElementById('projNo').value = next.projNo;
+  if (next.projDesigner != null) document.getElementById('projDesigner').value = next.projDesigner;
+}
 
 // ── 城市選單 ──
 (function() {
@@ -258,9 +282,9 @@ function refreshV() {
 // ── 載入既有摘要 ──
 function loadOverview() {
   try {
-    const raw = localStorage.getItem('wind-overview-params');
+    const raw = localStorage.getItem(OVERVIEW_STORAGE_KEY);
     if (raw) {
-      const p = JSON.parse(raw);
+      const p = normalizeOverviewParams(JSON.parse(raw));
       if (p.city && document.querySelector(`#city option[value="${p.city}"]`)) document.getElementById('city').value = p.city;
       if (p.terrain) document.getElementById('terrain').value = p.terrain;
       if (p.impClass && document.querySelector(`#impClass option[value="${p.impClass}"]`)) document.getElementById('impClass').value = p.impClass;
@@ -269,9 +293,7 @@ function loadOverview() {
       if (p.floors != null) document.getElementById('floors').value = p.floors;
       if (p.Bx != null) document.getElementById('Bx').value = p.Bx;
       if (p.By != null) document.getElementById('By').value = p.By;
-      if (p.projName) document.getElementById('projName').value = p.projName;
-      if (p.projNo) document.getElementById('projNo').value = p.projNo;
-      if (p.projDesigner) document.getElementById('projDesigner').value = p.projDesigner;
+      applyOverviewProjectMeta(p);
       refreshV();
       renderSummary(p);
     }
@@ -281,7 +303,7 @@ function loadOverview() {
 }
 
 function gatherParams() {
-  return {
+  return normalizeOverviewParams({
     city: document.getElementById('city').value,
     terrain: document.getElementById('terrain').value,
     impClass: document.getElementById('impClass').value,
@@ -290,14 +312,15 @@ function gatherParams() {
     floors: parseInt(document.getElementById('floors').value) || 0,
     Bx: parseFloat(document.getElementById('Bx').value) || 0,
     By: parseFloat(document.getElementById('By').value) || 0,
-    projName: document.getElementById('projName').value || '',
-    projNo: document.getElementById('projNo').value || '',
-    projDesigner: document.getElementById('projDesigner').value || '',
+    projName: document.getElementById('projName').value,
+    projNo: document.getElementById('projNo').value,
+    projDesigner: document.getElementById('projDesigner').value,
     savedAt: new Date().toISOString(),
-  };
+  });
 }
 
 function renderSummary(p) {
+  p = normalizeOverviewParams(p);
   const V = W.CITY_QUICK[p.city] || 0;
   const t = W.TERRAIN[p.terrain];
   const I = W.IMPORTANCE[p.impClass]?.factor || 1.0;
@@ -327,6 +350,10 @@ function renderSummary(p) {
   `;
 }
 
+function renderSummaryFromFields() {
+  renderSummary(gatherParams());
+}
+
 document.getElementById('btnSave').addEventListener('click', () => {
   const p = gatherParams();
   if (p.H <= 0 || p.Bx <= 0 || p.By <= 0) {
@@ -334,7 +361,7 @@ document.getElementById('btnSave').addEventListener('click', () => {
     document.getElementById('saveMsg').style.color = '#dc2626';
     return;
   }
-  localStorage.setItem('wind-overview-params', JSON.stringify(p));
+  localStorage.setItem(OVERVIEW_STORAGE_KEY, JSON.stringify(p));
   renderSummary(p);
   const msg = document.getElementById('saveMsg');
   msg.style.color = '#059669';

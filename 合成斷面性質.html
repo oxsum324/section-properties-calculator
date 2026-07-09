@@ -219,13 +219,27 @@ function setReportStatus(message, tone = 'warn') {
   el.textContent = message || '';
   el.className = `report-status${message ? ` ${tone}` : ''}`;
 }
+
+function normalizeProjectFieldValue(value) {
+  if (window.ToolReportUI?.normalizeProjectFieldValue) {
+    return window.ToolReportUI.normalizeProjectFieldValue(value);
+  }
+  const text = (value === null || value === undefined ? '' : String(value)).trim();
+  return text === '未填' ? '' : text;
+}
+
+function getProjectFieldValue(id) {
+  return normalizeProjectFieldValue(document.getElementById(id)?.value);
+}
+
 function missingProjectFields() {
   const fields = [
     ['計畫名稱', 'projName'],
     ['計畫編號', 'projNo'],
+    ['設計人員', 'projDesigner'],
   ];
   return fields
-    .filter(([, id]) => !(document.getElementById(id)?.value || '').trim())
+    .filter(([, id]) => !getProjectFieldValue(id))
     .map(([label]) => label);
 }
 function compositeReportReadinessModel(data) {
@@ -239,7 +253,7 @@ function compositeReportReadinessModel(data) {
         ['計算狀態', '未完成'],
         ['補強型式', '未判定'],
         ['專案資料', '待確認'],
-        ['輸出邊界', '頁面顯示，不進報告'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF'],
       ],
     };
   }
@@ -258,7 +272,7 @@ function compositeReportReadinessModel(data) {
       ['計算狀態', '已計算'],
       ['補強型式', modeText],
       ['專案資料', missing.length ? `缺 ${missing.join('、')}` : '完整'],
-      ['輸出邊界', '頁面顯示，不進報告'],
+      ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF'],
     ],
   };
 }
@@ -738,9 +752,9 @@ function exportReport() {
     title: '合成斷面性質計算書',
     subtitle: `${currentHName()}　｜　${modeText}`,
     project: {
-      name:     document.getElementById('projName').value || '',
-      no:       document.getElementById('projNo').value   || '',
-      designer: document.getElementById('projDesigner').value || '',
+      name:     getProjectFieldValue('projName'),
+      no:       getProjectFieldValue('projNo'),
+      designer: getProjectFieldValue('projDesigner'),
     },
     summary: { ok: null, text: `合成斷面性質計算：${modeText}` },
     diagrams: [{ title:'合成斷面示意圖', dataURL, width: 500 }],

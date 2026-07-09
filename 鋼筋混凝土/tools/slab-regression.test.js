@@ -131,6 +131,26 @@ async function exerciseSlabProjectStorage(page) {
   assert(saved.fields.caseJson == null, 'slab project excludes case JSON textarea', 'case textarea excluded');
   assert(saved.fields.baselineReport == null, 'slab project excludes baseline textarea', 'baseline textarea excluded');
 
+  const placeholderSaved = await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setField('projName', '未填');
+    setField('projNo', 'RC-SLAB-PLACEHOLDER');
+    setField('projDesigner', '未填');
+    return window.collectSlabProjectData();
+  });
+  assert(placeholderSaved.metadata.projectName === '', 'slab placeholder project name is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.projectNo === 'RC-SLAB-PLACEHOLDER', 'slab placeholder project number remains editable metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.designer === '', 'slab placeholder designer is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.fields.projName.value === '', 'slab placeholder project name is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projName));
+  assert(placeholderSaved.fields.projDesigner.value === '', 'slab placeholder designer is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projDesigner));
+
   const restored = await page.evaluate(payload => {
     const setField = (id, value) => {
       const el = document.getElementById(id);
@@ -231,11 +251,14 @@ async function main() {
   assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
   assert(common.includes('window.RCUI.renderAttachmentReadiness'), 'shared/common.js exposes attachment readiness renderer', 'page-only attachment status has shared helper');
   assert(common.includes('window.RCUI.getAttachmentReadinessPriority'), 'shared/common.js exposes attachment priority helper', 'page readiness has prioritized reading cue');
+  assert(common.includes('window.RCUI.normalizeProjectFieldValue'), 'shared/common.js exposes project metadata normalizer', 'placeholder project text can be scrubbed once');
   assert(slabHtml.includes('id="slabAttachmentReadiness"'), 'slab.html has page-only attachment readiness target', 'pre-export status stays on tool page');
   assert(slabHtml.includes('attachmentFailures'), 'slab.html stores attachment failure summary', 'page status can distinguish blocked attachment cases');
   assert(style.includes('.report-readiness-card') && style.includes('@media print'), 'shared/style.css hides readiness card from print', 'page-only readiness is print-hidden');
   assert(style.includes('.report-readiness-priority'), 'shared/style.css styles prioritized readiness cue', 'page-only priority cue has stable layout');
   assert(slabHtml.includes('summary:false'), 'slab report hides top status banner', 'page-only review status stays out of the report');
+  assert(slabHtml.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), 'slab project payload normalizes placeholder project name', 'project storage metadata uses shared normalizer');
+  assert(!slabHtml.includes("$('projName').value.trim()"), 'slab report/project metadata no longer uses raw trim on project name', 'shared normalizer handles placeholder cleanup');
   assert(!slabHtml.includes('RCUI.buildReviewCheckGroup'), 'slab report omits formal-analysis warning group', 'review warnings remain page-only');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));

@@ -62,7 +62,7 @@
     table.story { font-size:0.76em; }
     table.story th, table.story td { padding:4px 5px; }
     #controlTable, #dirComboTable, #comboTable, #storyTable { table-layout:fixed; }
-    .page-only-report-status { display:none !important; }
+    .page-only-report-status, .case-actions, .case-status { display:none !important; }
   }
 
   @media (max-width: 768px) {
@@ -687,12 +687,6 @@ let lastWindForceReportValidationMessage = '';
 let windForceReportInputsChanged = false;
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
-const escHtml = s => (s === null || s === undefined ? '' : String(s))
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('"', '&quot;')
-  .replaceAll("'", '&#39;');
 function fmtSigned(v, d) {
   if (v == null || !isFinite(v)) return '—';
   const n = Number(v).toFixed(d);
@@ -732,17 +726,6 @@ function setInputStatus(message) {
 function clearInputStatus() {
   setInputStatus('');
 }
-function getProjectInfo() {
-  return {
-    name: document.getElementById('projName')?.value.trim() || '',
-    no: document.getElementById('projNo')?.value.trim() || '',
-    designer: document.getElementById('projDesigner')?.value.trim() || ''
-  };
-}
-function isProjectMetaMissing() {
-  const project = getProjectInfo();
-  return !project.name || !project.no || !project.designer;
-}
 function windForceReportModeLabel() {
   return document.getElementById('reportMode')?.value === 'summary' ? '簡易結果' : '詳算式';
 }
@@ -774,7 +757,7 @@ function buildWindForceReportReadinessModel(validationMessage = lastWindForceRep
   if (staleMessage) {
     reviewItems.push({ label: '輸入已變更', value: staleMessage });
   }
-  if (isProjectMetaMissing()) {
+  if (window.WindReport.isProjectMetaMissing()) {
     reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
   }
   if (r.customWindSpeed) {
@@ -818,24 +801,13 @@ function renderWindForceReportReadiness(validationMessage = lastWindForceReportV
   const el = document.getElementById('windForceReportReadiness');
   if (!el) return;
   const model = buildWindForceReportReadinessModel(validationMessage);
-  el.className = `report-readiness page-only-report-status ${model.level}`;
-  el.innerHTML = `
-    <div class="report-readiness-head">
-      <div>
-        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
-        <p class="report-readiness-title">${escHtml(model.title)}</p>
-      </div>
-      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
-    </div>
-    <div class="report-readiness-grid">
-      ${model.items.map(item => `
-        <div class="report-readiness-item">
-          <strong>${escHtml(item.label)}</strong>
-          <span>${escHtml(item.value)}</span>
-        </div>
-      `).join('')}
-    </div>
-    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認第二章 2.12、表 2.5/2.6/2.7/2.8、女兒牆 Eq 2.3、X/Y 風向動力特性、第四章加速度需求與送審圖說一致性。</div>`;
+  window.WindReport.renderStatusGridPanel({
+    container: el,
+    containerClassName: 'report-readiness page-only-report-status',
+    panelLabel: '頁面輔助｜產報前檢查｜優先閱讀',
+    model,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認第二章 2.12、表 2.5/2.6/2.7/2.8、女兒牆 Eq 2.3、X/Y 風向動力特性、第四章加速度需求與送審圖說一致性。'
+  });
 }
 function markWindForceReportInputsChanged() {
   if (!lastWindForceReportState) return;
@@ -870,9 +842,9 @@ function readCaseInputs() {
     : resolveStoryHeights();
   return {
     project: {
-      name: document.getElementById('projName').value,
-      no: document.getElementById('projNo').value,
-      designer: document.getElementById('projDesigner').value
+      name: window.WindReport.normalizeProjectFieldValue(document.getElementById('projName').value),
+      no: window.WindReport.normalizeProjectFieldValue(document.getElementById('projNo').value),
+      designer: window.WindReport.normalizeProjectFieldValue(document.getElementById('projDesigner').value)
     },
     values,
     storyHeights
@@ -893,9 +865,9 @@ function applyCaseInputs(payload) {
     ...(payload?.inputs?.values || {}),
     ...(payload?.values || {})
   };
-  if (project.name != null) document.getElementById('projName').value = project.name;
-  if (project.no != null) document.getElementById('projNo').value = project.no;
-  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  if (project.name != null) document.getElementById('projName').value = window.WindReport.normalizeProjectFieldValue(project.name);
+  if (project.no != null) document.getElementById('projNo').value = window.WindReport.normalizeProjectFieldValue(project.no);
+  if (project.designer != null) document.getElementById('projDesigner').value = window.WindReport.normalizeProjectFieldValue(project.designer);
 
   CASE_VALUE_IDS.forEach(id => {
     if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);

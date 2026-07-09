@@ -96,6 +96,10 @@
   .summary-warning-list[hidden] { display:none; }
   .summary-warning-list .result-item { align-items:flex-start; }
   .summary-warning-list .value { font-family:inherit; font-weight:600; line-height:1.5; text-align:right; white-space:normal; }
+  @media print {
+    .load-case-actions,
+    .design-sugg-actions { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -130,7 +134,7 @@
     </div>
   </div>
 
-  <div class="card" style="margin-top:10px;">
+  <div class="card page-only-case-tools" style="margin-top:10px;">
     <div class="form-row">
       <div class="form-group">
         <label>內建案例</label>
@@ -646,7 +650,9 @@
     return {
       kind: el.tagName.toLowerCase(),
       inputType: (el.type || '').toLowerCase(),
-      value: el.value
+      value: ['projName', 'projNo', 'projDesigner'].includes(el.id)
+        ? window.RCUI.normalizeProjectFieldValue(el.value)
+        : el.value
     };
   }
 
@@ -667,9 +673,9 @@
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
       metadata: {
-        projectName: $('projName')?.value?.trim() || '',
-        projectNo: $('projNo')?.value?.trim() || '',
-        designer: $('projDesigner')?.value?.trim() || ''
+        projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value),
+        projectNo: window.RCUI.normalizeProjectFieldValue($('projNo')?.value),
+        designer: window.RCUI.normalizeProjectFieldValue($('projDesigner')?.value)
       },
       fields,
       summary: {
@@ -734,7 +740,9 @@
         const exists = Array.from(el.options).some(option => option.value === String(value));
         if (!exists) return false;
       }
-      el.value = value == null ? '' : String(value);
+      el.value = ['projName', 'projNo', 'projDesigner'].includes(id)
+        ? window.RCUI.normalizeProjectFieldValue(value)
+        : (value == null ? '' : String(value));
     }
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -757,7 +765,9 @@
     applyPanel(tab);
     if (!options.silent) {
       const source = options.sourceLabel || '剪力牆專案檔';
-      const name = payload.metadata?.projectName || payload.metadata?.projectNo || '未命名專案';
+      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
+        || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
+        || '未命名專案';
       showShearWallProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
     }
     return { payload, applied };
@@ -779,7 +789,9 @@
     try {
       const payload = collectShearWallProjectData();
       localStorage.setItem(SHEAR_WALL_PROJECT_STORAGE_KEY, JSON.stringify(payload));
-      const name = payload.metadata.projectName || payload.metadata.projectNo || '未命名專案';
+      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata.projectName)
+        || window.RCUI.normalizeProjectFieldValue(payload.metadata.projectNo)
+        || '未命名專案';
       showShearWallProjectStatus(`已暫存到此瀏覽器：${name}`);
       return payload;
     } catch (err) {
@@ -1736,7 +1748,11 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
   function buildReport() {
     if (!window.swLast) calcShearWall();
     const r = window.swLast; if (!r) return;
-    const proj = { name:$('projName').value.trim(), no:$('projNo').value.trim(), designer:$('projDesigner').value.trim() };
+    const proj = {
+      name: window.RCUI.normalizeProjectFieldValue($('projName').value),
+      no: window.RCUI.normalizeProjectFieldValue($('projNo').value),
+      designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
+    };
     const fmt = (v, d=1) => (v==null||isNaN(v)) ? '—' : Number(v).toFixed(d);
     const lcControls = r.loadCaseControls || {};
     const loadCaseControlItems = r.loadCasesActive ? [

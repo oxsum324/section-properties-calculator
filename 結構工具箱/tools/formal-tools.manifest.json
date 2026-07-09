@@ -69,6 +69,10 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "popupReportModes": [
+        "simple",
+        "detail"
+      ],
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
@@ -1464,6 +1468,10 @@
       "calcButton": "btnCalc",
       "reportButton": "btnReport",
       "reportMode": true,
+      "popupReportModes": [
+        "simple",
+        "detail"
+      ],
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
@@ -1951,6 +1959,18 @@
       "calcButton": "btnCalc",
       "reportButton": "btnReport",
       "exportButton": "btnExportCaseJson",
+      "extraExportButtons": [
+        {
+          "id": "btnExportSpectrumJson",
+          "name": "response-spectrum",
+          "filenameNeedle": "spectrum.json"
+        },
+        {
+          "id": "btnExportModelCheckJson",
+          "name": "model-check",
+          "filenameNeedle": "model-check.json"
+        }
+      ],
       "importButton": "btnImportCaseJson",
       "jsonRoundTrip": true,
       "reportMode": true,

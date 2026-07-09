@@ -16,6 +16,14 @@
 
   const VERSION = '0.1.0';
   const CONTROL_CLASS = 'project-storage-bar';
+  const PROJECT_META_FIELD_IDS = new Set([
+    'projName',
+    'projNo',
+    'projDesigner',
+    'projectName',
+    'projectNo',
+    'projectDesigner',
+  ]);
 
   function safeFileName(text) {
     return String(text || 'tool-project')
@@ -24,6 +32,16 @@
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '') || 'tool-project';
+  }
+
+  function normalizeProjectFieldValue(value) {
+    const text = String(value == null ? '' : value).trim();
+    return text === '未填' ? '' : text;
+  }
+
+  function normalizeFieldValue(id, value) {
+    if (!PROJECT_META_FIELD_IDS.has(id)) return value;
+    return normalizeProjectFieldValue(value);
   }
 
   function fieldSelector(rootNode) {
@@ -38,7 +56,7 @@
     fieldSelector(rootNode).forEach(function (el) {
       fields[el.id] = el.type === 'checkbox' || el.type === 'radio'
         ? { type: el.type, checked: !!el.checked, value: el.value }
-        : { type: el.type || el.tagName.toLowerCase(), value: el.value };
+        : { type: el.type || el.tagName.toLowerCase(), value: normalizeFieldValue(el.id, el.value) };
     });
     return fields;
   }
@@ -51,7 +69,7 @@
       if (el.type === 'checkbox' || el.type === 'radio') {
         el.checked = !!item.checked;
       } else {
-        el.value = item.value == null ? '' : item.value;
+        el.value = normalizeFieldValue(id, item.value);
       }
       el.dispatchEvent(new Event('input', { bubbles: true }));
       el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -102,14 +120,14 @@
   }
 
   function refreshPage() {
-    const candidates = ['runCheck', 'calc', 'calculate', 'compute', 'renderSummary', 'loadOverview'];
+    const candidates = ['runCheck', 'calc', 'calculate', 'compute', 'renderSummaryFromFields', 'renderSummary', 'loadOverview'];
     for (const name of candidates) {
       if (typeof window[name] === 'function') {
         try {
           window[name]();
           return;
         } catch (err) {
-          return;
+          continue;
         }
       }
     }
@@ -146,7 +164,8 @@
       '.' + CONTROL_CLASS + ' button:hover{filter:brightness(.96);}',
       '.' + CONTROL_CLASS + ' .project-storage-status{font-size:.84em;color:#166534;line-height:1.5;}',
       '.' + CONTROL_CLASS + ' .project-storage-status[data-tone="warn"]{color:#92400e;}',
-      '.' + CONTROL_CLASS + ' .project-storage-status[data-tone="error"]{color:#991b1b;}'
+      '.' + CONTROL_CLASS + ' .project-storage-status[data-tone="error"]{color:#991b1b;}',
+      '@media print{.' + CONTROL_CLASS + '{display:none!important;}}'
     ].join('');
     document.head.appendChild(style);
     const file = bar.querySelector('[data-project-storage-file]');
@@ -213,6 +232,7 @@
   return {
     version: VERSION,
     safeFileName,
+    normalizeProjectFieldValue,
     collectFields,
     applyFields,
     buildPayload,

@@ -80,6 +80,7 @@ C:\Users\USER\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\py
 
 ```powershell
 node excavation-traceability.contract.test.js
+node excavation-report.contract.test.js
 ```
 
 ## 目前實作重點
@@ -92,7 +93,7 @@ node excavation-traceability.contract.test.js
 
 `excavation-traceability.catalog.json` 將本工具拆成 5 個可稽核面向：分析輸出匯入、支撐 / 橫擋 / 斜撐 / 大角撐檢核、柱構件與基礎承載、PDF / DOCX 報表治理、本機服務與資料治理。每一筆 trace 都需列明規範或工程判讀來源、輸入欄位、計算路線、報表落點、測試證據與人工複核邊界。
 
-新增或修改 `.LST/.RIO/.o` parser、構件公式、柱腳 / 基礎估算、報表段落、下載 API、Excel / JSON 參考資料或啟停腳本時，請同步更新 catalog 並執行 `node excavation-traceability.contract.test.js`。若輸出依賴外部分析模型、施工圖、地質資料或專案指定值，報表與前端文字仍需保留設計者人工複核責任。
+新增或修改 `.LST/.RIO/.o` parser、構件公式、柱腳 / 基礎估算、報表段落、下載 API、Excel / JSON 參考資料或啟停腳本時，請同步更新 catalog 並執行 `node excavation-traceability.contract.test.js`。若調整 PDF / DOCX 內容、latest download 流程或頁面專用閱讀狀態邊界，另需執行 `node excavation-report.contract.test.js`。若輸出依賴外部分析模型、施工圖、地質資料或專案指定值，報表與前端文字仍需保留設計者人工複核責任。
 
 ## 目前限制
 

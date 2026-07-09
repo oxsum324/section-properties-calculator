@@ -109,7 +109,7 @@
       <button class="mode-bar__report" id="btnReport" type="button">📄 計算書</button>
       <span id="slabProjectStatus" class="mode-bar__project-status" aria-live="polite"></span>
     </div>
-    <div class="form-row" style="margin-top:10px;">
+    <div class="form-row page-only-case-tools" style="margin-top:10px;">
       <div class="form-group">
         <label>內建案例</label>
         <select id="testCaseSelect">
@@ -125,19 +125,19 @@
         <button type="button" id="btnApplyCase" class="mode-bar__report">套用案例</button>
       </div>
     </div>
-    <div class="tool-toggle">
+    <div class="tool-toggle page-only-case-tools">
       <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
         <input type="checkbox" id="showDetailHelp">
         顯示詳細說明與假設
       </label>
     </div>
-    <div class="tool-toggle">
+    <div class="tool-toggle page-only-case-tools">
       <label style="display:flex; align-items:center; gap:8px; font-size:0.9em;">
         <input type="checkbox" id="showCaseTools">
         顯示進階案例工具（JSON / 比較 / 基準報告）
       </label>
     </div>
-    <div class="hint" id="testCaseHint">可一鍵帶入標準範例，用於自我檢查與改版比對。</div>
+    <div class="hint page-only-case-tools" id="testCaseHint">可一鍵帶入標準範例，用於自我檢查與改版比對。</div>
   </div>
 
   <div class="main-layout">
@@ -678,7 +678,7 @@
         { label: '不符項目', value: `${failedItems.length} 項`, tone: failedItems.length ? 'fail' : 'ok' },
         { label: '人工 / 正式分析', value: `${reviewItems.length} 項`, tone: reviewItems.length ? 'warn' : 'ok' },
         { label: '方法狀態', value: methodValue, tone: r.isOneWay ? 'ok' : 'warn' },
-        { label: '輸出邊界', value: '頁面顯示，不進 PDF', tone: 'neutral' }
+        { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF', tone: 'neutral' }
       ],
       notes: [
         '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。',
@@ -718,7 +718,9 @@
     return {
       kind: el.tagName.toLowerCase(),
       inputType: (el.type || '').toLowerCase(),
-      value: el.value
+      value: ['projName', 'projNo', 'projDesigner'].includes(el.id)
+        ? window.RCUI.normalizeProjectFieldValue(el.value)
+        : el.value
     };
   }
   function collectSlabProjectData() {
@@ -737,9 +739,9 @@
       mode: currentMode,
       loadMode,
       metadata: {
-        projectName: $('projName')?.value?.trim() || '',
-        projectNo: $('projNo')?.value?.trim() || '',
-        designer: $('projDesigner')?.value?.trim() || ''
+        projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value),
+        projectNo: window.RCUI.normalizeProjectFieldValue($('projNo')?.value),
+        designer: window.RCUI.normalizeProjectFieldValue($('projDesigner')?.value)
       },
       fields,
       summary: {
@@ -799,7 +801,9 @@
         const exists = Array.from(el.options).some(option => option.value === String(value));
         if (!exists) return false;
       }
-      el.value = value == null ? '' : String(value);
+      el.value = ['projName', 'projNo', 'projDesigner'].includes(id)
+        ? window.RCUI.normalizeProjectFieldValue(value)
+        : (value == null ? '' : String(value));
     }
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -823,7 +827,9 @@
     if (typeof calcSlab === 'function') calcSlab();
     if (!options.silent) {
       const source = options.sourceLabel || '板專案檔';
-      const name = payload.metadata?.projectName || payload.metadata?.projectNo || '未命名專案';
+      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
+        || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
+        || '未命名專案';
       showSlabProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
     }
     return { payload, applied };
@@ -843,7 +849,9 @@
     try {
       const payload = collectSlabProjectData();
       localStorage.setItem(SLAB_PROJECT_STORAGE_KEY, JSON.stringify(payload));
-      const name = payload.metadata.projectName || payload.metadata.projectNo || '未命名專案';
+      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata.projectName)
+        || window.RCUI.normalizeProjectFieldValue(payload.metadata.projectNo)
+        || '未命名專案';
       showSlabProjectStatus(`已暫存到此瀏覽器：${name}`);
       return payload;
     } catch (err) {
@@ -2208,7 +2216,11 @@
   function buildSlabReport() {
     if (!window.slabLast) calcSlab();
     const r = window.slabLast;
-    const proj = { name:$('projName').value.trim(), no:$('projNo').value.trim(), designer:$('projDesigner').value.trim() };
+    const proj = {
+      name: window.RCUI.normalizeProjectFieldValue($('projName').value),
+      no: window.RCUI.normalizeProjectFieldValue($('projNo').value),
+      designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
+    };
 
     const inputs = [
       { group:'幾何', items:[

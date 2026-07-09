@@ -4870,6 +4870,18 @@ strong svg {
   .workspace-tabs {
     display: none !important;
   }
+  .attachment-readiness-panel,
+  .resource-back-bar,
+  .report-settings-panel,
+  .legacy-panel[data-shows~='report'],
+  .case-library-toolbar,
+  .case-actions,
+  .document-upload-row,
+  .document-preview-panel,
+  .document-preview-panel .action-row,
+  .document-card .action-row {
+    display: none !important;
+  }
 }
 
 @media (max-width: 720px) {

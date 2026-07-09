@@ -61,6 +61,8 @@ const reportingTests = readUtf8('backend/tests/test_reporting.py');
 const referenceTests = readUtf8('backend/tests/test_reference_data.py');
 const storeTests = readUtf8('backend/tests/test_project_store.py');
 const preflight = readUtf8('../preflight-tools.ps1');
+const home = readUtf8('../結構工具箱/assets/home/home.js');
+const reportContract = readUtf8('excavation-report.contract.test.js');
 
 const expectedTools = [
   'excavation-analysis-import',
@@ -262,14 +264,36 @@ assert(manualReviewCount >= 10, 'excavation traceability catalog manual review v
 [
   'excavation-launcher',
   'excavation-backend-quick',
+  'excavation-report-contract',
   'excavation-backend',
   'excavation-frontend',
 ].forEach((needle) => {
   assert(preflight.includes(needle), `excavation preflight keeps existing gate ${needle}`, needle);
 });
 
+[
+  'backend.tests.test_reporting',
+  'Excavation report contract checks passed.',
+].forEach((needle) => {
+  assert(reportContract.includes(needle), `excavation report contract keeps ${needle}`, needle);
+});
+
+assert(home.includes("'excavation-service': {"), 'excavation home governance keeps service source', 'excavation-service');
+assert(home.includes("label: 'Excavation service governance'"), 'excavation home governance keeps service label', 'Excavation service governance');
+assert(
+  home.includes("preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract']"),
+  'excavation home governance includes report contract gate',
+  'excavation-service'
+);
+assert(
+  home.includes("fullPreflightKeys: ['excavation-backend', 'excavation-frontend']"),
+  'excavation home governance keeps full backend/frontend gates',
+  'excavation-service'
+);
+
 assert(readme.includes('excavation-traceability.catalog.json'), 'excavation README documents traceability catalog path', 'README.md');
 assert(readme.includes('規範語意追蹤'), 'excavation README documents traceability purpose', 'README.md');
+assert(readme.includes('excavation-report.contract.test.js'), 'excavation README documents report contract path', 'README.md');
 
 if (failed) {
   console.error(`\n${failed} excavation traceability contract checks failed.`);

@@ -10,6 +10,15 @@
     return (text || '').replace(/\s+/g, ' ').trim();
   }
 
+  function normalizeProjectFieldValue(value) {
+    const text = cleanText(value);
+    return text === '未填' ? '' : text;
+  }
+
+  function isBlankProjectMetaValue(value) {
+    return !normalizeProjectFieldValue(value);
+  }
+
   function textFrom(el) {
     return cleanText(el?.textContent || '');
   }
@@ -22,10 +31,16 @@
   function project() {
     const v = id => cleanText(document.getElementById(id)?.value || '');
     return {
-      name: v('projName'),
-      no: v('projNo'),
-      designer: v('projDesigner')
+      name: normalizeProjectFieldValue(v('projName')),
+      no: normalizeProjectFieldValue(v('projNo')),
+      designer: normalizeProjectFieldValue(v('projDesigner'))
     };
+  }
+
+  function isProjectMetaMissing(projectInfo = project()) {
+    return isBlankProjectMetaValue(projectInfo?.name)
+      || isBlankProjectMetaValue(projectInfo?.no)
+      || isBlankProjectMetaValue(projectInfo?.designer);
   }
 
   function reportOpt(id, fallback) {
@@ -91,6 +106,65 @@
     if (!status) return;
     status.hidden = false;
     status.textContent = message;
+  }
+
+  function normalizeStatusGridItem(item) {
+    if (Array.isArray(item)) {
+      return { label: item[0], value: item[1] };
+    }
+    if (item && typeof item === 'object') {
+      return { label: item.label, value: item.value };
+    }
+    return null;
+  }
+
+  function normalizeStatusGridOptions(options) {
+    const container = options?.container || options?.target;
+    if (!container) return null;
+
+    const model = options?.model && typeof options.model === 'object' ? options.model : {};
+    const itemsSource = Array.isArray(model.items) ? model.items : options?.items;
+    const panelLabel = options?.eyebrow != null
+      ? String(options.eyebrow)
+      : (options?.panelLabel == null ? '' : String(options.panelLabel));
+
+    return {
+      container,
+      containerClassName: cleanText(options?.containerClassName || 'report-readiness'),
+      level: cleanText(model.level || options?.level || 'blocked'),
+      panelLabel,
+      title: model.title == null ? String(options?.title || '') : String(model.title),
+      badge: model.badge == null ? String(options?.badge || '') : String(model.badge),
+      items: (Array.isArray(itemsSource) ? itemsSource : []).map(normalizeStatusGridItem).filter(Boolean),
+      priorityItems: Array.isArray(options?.priorityItems) ? options.priorityItems.filter(Boolean).map(item => String(item)) : [],
+      note: options?.note == null ? '' : String(options.note)
+    };
+  }
+
+  function renderStatusGridPanel(options) {
+    const normalized = normalizeStatusGridOptions(options);
+    if (!normalized) return;
+
+    normalized.container.className = [normalized.containerClassName, normalized.level].filter(Boolean).join(' ');
+    normalized.container.innerHTML = `
+      <div class="report-readiness-head">
+        <div>
+          ${normalized.panelLabel ? `<p class="report-readiness-kicker">${esc(normalized.panelLabel)}</p>` : ''}
+          <p class="report-readiness-title">${esc(normalized.title)}</p>
+        </div>
+        <span class="report-readiness-badge">${esc(normalized.badge)}</span>
+      </div>
+      ${normalized.priorityItems.length ? `<ul>${normalized.priorityItems.map(item => `<li>${esc(item)}</li>`).join('')}</ul>` : ''}
+      <div class="report-readiness-grid">
+        ${normalized.items.map(item => `
+          <div class="report-readiness-item">
+            <strong>${esc(item?.label || '')}</strong>
+            <span>${esc(item?.value || '')}</span>
+          </div>
+        `).join('')}
+      </div>
+      ${normalized.note ? `<div class="report-readiness-note">${esc(normalized.note)}</div>` : ''}
+    `;
   }
 
   function reportToolbarHtml() {
@@ -865,7 +939,16 @@ ${reportWindowScriptHtml()}
     });
   }
 
-  global.WindReport = { openWindReport, bind, clearWindReportIssue };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
-})(window);
+  global.WindReport = {
+    openWindReport,
+    bind,
+    clearWindReportIssue,
+    normalizeProjectFieldValue,
+    isProjectMetaMissing,
+    renderStatusGridPanel
+  };
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+    else bind();
+  }
+})(typeof window !== 'undefined' ? window : globalThis);

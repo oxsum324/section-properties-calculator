@@ -11,11 +11,92 @@
     return typeof value === 'number' && !Number.isFinite(value) ? String(value) : value;
   }
 
+  function escapeHtml(text) {
+    return String(text == null ? '' : text).replace(/[&<>"']/g, function (ch) {
+      return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
+    });
+  }
+
+  function cleanText(text) {
+    return String(text == null ? '' : text).trim();
+  }
+
+  function normalizeProjectFieldValue(value) {
+    const text = cleanText(value);
+    return text === '未填' ? '' : text;
+  }
+
+  function isBlankProjectMetaValue(value) {
+    return !normalizeProjectFieldValue(value);
+  }
+
+  function isProjectMetaMissing(project) {
+    const meta = project || {};
+    return ['name', 'no', 'designer'].some(function (key) {
+      return isBlankProjectMetaValue(meta[key]);
+    });
+  }
+
+  function normalizeProjectMeta(project) {
+    const meta = Object.assign({}, project);
+    if (Object.prototype.hasOwnProperty.call(meta, 'name')) meta.name = normalizeProjectFieldValue(meta.name);
+    if (Object.prototype.hasOwnProperty.call(meta, 'no')) meta.no = normalizeProjectFieldValue(meta.no);
+    if (Object.prototype.hasOwnProperty.call(meta, 'designer')) meta.designer = normalizeProjectFieldValue(meta.designer);
+    return meta;
+  }
+
+  function normalizeStatusGridItem(item) {
+    if (Array.isArray(item)) return { label: item[0], value: item[1] };
+    if (item && typeof item === 'object') return { label: item.label, value: item.value };
+    return null;
+  }
+
+  function normalizeStatusGridOptions(options) {
+    const target = options && (options.target || options.container);
+    if (!target) return null;
+    const model = options && options.model && typeof options.model === 'object' ? options.model : {};
+    const itemsSource = Array.isArray(model.items) ? model.items : options && options.items;
+    return {
+      target: target,
+      level: model.level || (options && options.level) || 'blocked',
+      eyebrow: options && options.eyebrow != null
+        ? options.eyebrow
+        : (options && options.panelLabel != null ? options.panelLabel : ''),
+      title: model.title || (options && options.title) || '',
+      badge: model.badge || (options && options.badge) || '',
+      items: (Array.isArray(itemsSource) ? itemsSource : []).map(normalizeStatusGridItem).filter(Boolean),
+      priorityItems: Array.isArray(options && options.priorityItems) ? options.priorityItems.filter(Boolean) : [],
+      note: options && options.note ? options.note : '',
+      containerClassName: cleanText(options && options.containerClassName ? options.containerClassName : 'report-readiness')
+    };
+  }
+
+  function renderStatusGridPanel(options) {
+    const normalized = normalizeStatusGridOptions(options);
+    if (!normalized) return;
+    normalized.target.className = `${normalized.containerClassName} ${normalized.level}`.trim();
+    normalized.target.innerHTML = `
+      <div class="report-readiness-head">
+        <div>
+          <p class="report-readiness-kicker">${escapeHtml(normalized.eyebrow)}</p>
+          <p class="report-readiness-title">${escapeHtml(normalized.title)}</p>
+        </div>
+        <span class="report-readiness-badge">${escapeHtml(normalized.badge)}</span>
+      </div>
+      ${normalized.priorityItems.length ? `<ul>${normalized.priorityItems.map(function (item) { return `<li>${escapeHtml(item)}</li>`; }).join('')}</ul>` : ''}
+      <div class="report-readiness-grid">
+        ${normalized.items.map(function (item) {
+          return `<div class="report-readiness-item"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.value)}</span></div>`;
+        }).join('')}
+      </div>
+      ${normalized.note ? `<div class="report-readiness-note">${escapeHtml(normalized.note)}</div>` : ''}`;
+  }
+
   function buildPayload(options) {
     const generatedAt = options.generatedAt || new Date().toISOString();
     const payload = {
       tool: Object.assign({}, options.tool),
-      project: Object.assign({}, options.project),
+      project: normalizeProjectMeta(options.project),
       generatedAt,
       result: options.result
     };
@@ -83,7 +164,12 @@
   }
 
   return {
-    version: '0.1.0',
+    version: '0.2.0',
+    escapeHtml,
+    normalizeProjectFieldValue,
+    normalizeProjectMeta,
+    isProjectMetaMissing,
+    renderStatusGridPanel,
     jsonReplacer,
     buildPayload,
     downloadJson,

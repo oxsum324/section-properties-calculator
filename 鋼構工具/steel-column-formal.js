@@ -4,6 +4,8 @@
   const f1 = (value) => Number(value || 0).toFixed(1);
   const f0 = (value) => Math.round(Number(value || 0)).toLocaleString();
   const num = (id) => parseFloat($(id)?.value) || 0;
+  const SteelFormalUI = window.SteelFormalUI;
+  if (!SteelFormalUI) throw new Error("SteelFormalUI is not loaded.");
   const UI_PREFS_KEY = "steel-column-formal-ui-v3";
   const TF_TO_KN = 9.80665;
   const KGFCM2_TO_MPA = 0.0980665;
@@ -22,6 +24,7 @@
     if (field.tagName === "SELECT") return field.value !== "";
     return String(field.value ?? "").trim() !== "";
   };
+  const getProjectMetaValue = (id) => SteelFormalUI.normalizeProjectFieldValue($(id)?.value);
 
   function formatInputValue(value, digits = 2) {
     if (!Number.isFinite(Number(value))) return "";
@@ -102,6 +105,7 @@
   let currentReportPreset = "focus";
   let currentPanel = "report";
   let resultState = null;
+  let lastColumnReportValidationMessage = "";
 
   const glossaryItems = [
     ["KL/r", "細長比", "-", "有效長度與迴轉半徑之比值。", "壓力構材挫屈控制。", "第六章受壓構材"],
@@ -570,8 +574,88 @@
   }
 
   function inputFail(message) {
+    setColumnReportValidationMessage(message);
     setInputStatus(message);
     return null;
+  }
+
+  function isProjectMetaMissing() {
+    return SteelFormalUI.hasBlankFieldValues(["projName", "projNo", "projDesigner"], $);
+  }
+
+  function setColumnReportValidationMessage(message = "") {
+    lastColumnReportValidationMessage = message || "";
+    renderColumnReportReadiness(lastColumnReportValidationMessage);
+  }
+
+  function buildColumnReportReadinessModel(validationMessage = lastColumnReportValidationMessage) {
+    if (validationMessage) {
+      return {
+        level: "blocked",
+        badge: "暫勿作附件",
+        title: "輸入尚未通過檢查，先不要產生計算書。",
+        items: [
+          { label: "輸入檢核", value: validationMessage },
+          { label: "報表內容", value: getReportContentSummaryText() },
+          { label: "輸出邊界", value: "頁面顯示，不進計算書、列印或 PDF" },
+        ],
+      };
+    }
+    if (!resultState) {
+      return {
+        level: "blocked",
+        badge: "暫勿作附件",
+        title: "尚未完成檢核，先不要產生計算書。",
+        items: [
+          { label: "檢核狀態", value: "尚未建立鋼柱正式檢核結果" },
+          { label: "報表內容", value: getReportContentSummaryText() },
+          { label: "輸出邊界", value: "頁面顯示，不進計算書、列印或 PDF" },
+        ],
+      };
+    }
+
+    const reviewItems = [];
+    const issue = getColumnPrimaryIssue(resultState);
+    if (isProjectMetaMissing()) reviewItems.push("計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。");
+    if (!isOverallOk(resultState)) reviewItems.push(`${issue.value}：${issue.note}`);
+    if (issue.value === "互制未啟動") reviewItems.push(issue.note);
+    const items = reviewItems.slice(0, 2).map((message, index) => ({
+      label: `優先處理 ${index + 1}`,
+      value: message,
+    }));
+    items.push(
+      { label: "控制軸向", value: getColumnControlSummary(resultState) },
+      { label: "控制 KL/r", value: f1(resultState.KLrMax) },
+      { label: "主控摘要", value: issue.value },
+      { label: "報表內容", value: getReportContentSummaryText() },
+      { label: "輸出邊界", value: "頁面顯示，不進計算書、列印或 PDF" },
+    );
+    return {
+      level: reviewItems.length ? "review" : "ready",
+      badge: reviewItems.length ? "優先複核" : "可作附件",
+      title: reviewItems.length ? "檢核已完成，但產報前建議優先閱讀下列項目。" : "檢核已完成，可產生計算書附件。",
+      items,
+    };
+  }
+
+  function renderColumnReportReadiness(validationMessage = lastColumnReportValidationMessage) {
+    const el = $("columnReportReadiness");
+    if (!el) return;
+    const model = buildColumnReportReadinessModel(validationMessage);
+    SteelFormalUI.renderStatusGridPanel({
+      target: el,
+      level: model.level,
+      eyebrow: "頁面輔助｜產報前檢查｜優先閱讀",
+      title: model.title,
+      badge: model.badge,
+      items: model.items,
+      note: "此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認有效長度、構架側移條件、軸力彎矩組合與送審圖說一致性。",
+    });
+  }
+
+  function syncColumnProjectMetaUi() {
+    renderColumnReportReadiness();
+    if (resultState) renderMeta(resultState);
   }
 
   function pairRow(label, value) {
@@ -1073,9 +1157,9 @@
   }
 
   function renderMeta(result) {
-    $("columnMetaProjectName").textContent = $("projName").value.trim() || "—";
-    $("columnMetaProjectNo").textContent = $("projNo").value.trim() || "—";
-    $("columnMetaDesigner").textContent = $("projDesigner").value.trim() || "—";
+    $("columnMetaProjectName").textContent = getProjectMetaValue("projName") || "—";
+    $("columnMetaProjectNo").textContent = getProjectMetaValue("projNo") || "—";
+    $("columnMetaDesigner").textContent = getProjectMetaValue("projDesigner") || "—";
     $("columnReportTimestamp").textContent = new Intl.DateTimeFormat("zh-TW", {
       year: "numeric",
       month: "2-digit",
@@ -1322,6 +1406,7 @@
     renderCardStatuses(result);
     applyReportAccordionPreset(result, currentReportPreset);
     requestReportJumpSync();
+    renderColumnReportReadiness();
   }
 
   function renderFlow(result) {
@@ -1376,6 +1461,7 @@
   function runCheck() {
     renderFillStatus();
     clearInputStatus();
+    setColumnReportValidationMessage("");
     const sectionType = getSectionType();
     const Fy = getLegacyInputValue("inFy", "stress");
     let sec;
@@ -1544,9 +1630,10 @@
     $("interCard").style.display = "";
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk(result) ? "本次鋼柱斷面於細長比、軸壓與互制檢核均通過。" : "本次鋼柱斷面至少有一項控制條件未通過，請優先檢視 KL/r、Fcr 與互制項目。"}</div>`;
     $("summaryCard").style.display = "";
+    resultState = result;
+    setColumnReportValidationMessage("");
     renderSummary(result);
     renderFlow(result);
-    resultState = result;
     return result;
   }
 
@@ -1561,10 +1648,10 @@
     openReport({
       title: "鋼柱正式規範核算計算書",
       subtitle: `Steel Column Formal Report (${designMethod}｜${getCurrentInputModeLabel()})`,
-        project: { name: $("projName").value.trim(), no: $("projNo").value.trim(), designer: $("projDesigner").value.trim() },
-        highlights: getUnitReportHighlights(),
-        summaryFacts: getColumnReportSummaryFacts(result),
-        inputs: [
+      project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
+      highlights: getUnitReportHighlights(),
+      summaryFacts: getColumnReportSummaryFacts(result),
+      inputs: [
           { group: "單位系統", items: [
             { label: "輸入模式", value: getFormalUnitSummaryText() },
             { label: "換算對照", value: getFormalUnitConversionText() },
@@ -1665,6 +1752,10 @@
         persistUiPrefs();
         if (resultState) renderSummary(resultState);
       });
+    });
+    ["projName", "projNo", "projDesigner"].forEach((id) => {
+      $(id).addEventListener("input", syncColumnProjectMetaUi);
+      $(id).addEventListener("change", syncColumnProjectMetaUi);
     });
     document.querySelectorAll("input, select").forEach((input) => {
       if (!["projName", "projNo", "projDesigner"].includes(input.id) && !input.dataset.filterInput) {

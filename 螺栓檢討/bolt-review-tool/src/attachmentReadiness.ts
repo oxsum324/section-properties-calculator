@@ -137,7 +137,11 @@ export function buildAttachmentReadinessModel({
       tone: excludedCount > 0 ? 'warn' : 'ok',
     },
     { label: '輸出模式', value: modeLabel, tone: 'neutral' },
-    { label: '輸出邊界', value: '頁面顯示，不進報告', tone: 'neutral' },
+    {
+      label: '輸出邊界',
+      value: '頁面顯示，不進計算書、列印或 PDF',
+      tone: 'neutral',
+    },
   ]
   const sharedNotes = [
     '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。',

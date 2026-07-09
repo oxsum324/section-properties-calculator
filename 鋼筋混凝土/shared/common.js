@@ -45,6 +45,11 @@ window.RCUI.escapeHtml = window.RCUI.escapeHtml || function(value) {
     .replace(/'/g, '&#39;');
 };
 
+window.RCUI.normalizeProjectFieldValue = window.RCUI.normalizeProjectFieldValue || function(value) {
+  const text = String(value ?? '').trim();
+  return text === '未填' ? '' : text;
+};
+
 window.RCUI.getStepsVerbosity = function(defaultMode = 'full') {
   return document.getElementById('stepsVerbosity')?.value || defaultMode;
 };

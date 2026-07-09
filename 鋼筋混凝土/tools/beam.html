@@ -329,7 +329,7 @@
             <option value="full" selected>完整步驟與公式</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group page-only-case-tools">
           <label>示例案例</label>
           <div class="preset-row">
             <select id="beamPreset">
@@ -929,7 +929,9 @@
     return {
       kind: el.tagName.toLowerCase(),
       inputType: (el.type || '').toLowerCase(),
-      value: el.value
+      value: ['projName', 'projNo', 'projDesigner'].includes(el.id)
+        ? window.RCUI.normalizeProjectFieldValue(el.value)
+        : el.value
     };
   }
 
@@ -949,9 +951,9 @@
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
       metadata: {
-        projectName: $('projName')?.value?.trim() || '',
-        projectNo: $('projNo')?.value?.trim() || '',
-        designer: $('projDesigner')?.value?.trim() || ''
+        projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value),
+        projectNo: window.RCUI.normalizeProjectFieldValue($('projNo')?.value),
+        designer: window.RCUI.normalizeProjectFieldValue($('projDesigner')?.value)
       },
       fields,
       summary: {
@@ -1015,7 +1017,9 @@
         const exists = Array.from(el.options).some(option => option.value === String(value));
         if (!exists) return false;
       }
-      el.value = value == null ? '' : String(value);
+      el.value = ['projName', 'projNo', 'projDesigner'].includes(id)
+        ? window.RCUI.normalizeProjectFieldValue(value)
+        : (value == null ? '' : String(value));
     }
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1036,7 +1040,9 @@
     applyPanel(tab);
     if (!options.silent) {
       const source = options.sourceLabel || '梁專案檔';
-      const name = payload.metadata?.projectName || payload.metadata?.projectNo || '未命名專案';
+      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
+        || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
+        || '未命名專案';
       showBeamProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
     }
     return { payload, applied };
@@ -1058,7 +1064,9 @@
     try {
       const payload = collectBeamProjectData();
       localStorage.setItem(BEAM_PROJECT_STORAGE_KEY, JSON.stringify(payload));
-      const name = payload.metadata.projectName || payload.metadata.projectNo || '未命名專案';
+      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata.projectName)
+        || window.RCUI.normalizeProjectFieldValue(payload.metadata.projectNo)
+        || '未命名專案';
       showBeamProjectStatus(`已暫存到此瀏覽器：${name}`);
       return payload;
     } catch (err) {
@@ -2767,7 +2775,7 @@ ${layerBars.map(L => {
       items: [
         { label: '不符項目', value: `${failedItems.length} 項`, tone: failedItems.length ? 'fail' : 'ok' },
         { label: '人工複核', value: `${manualReviewItems.length} 項`, tone: manualReviewItems.length ? 'warn' : 'ok' },
-        { label: '輸出邊界', value: '頁面顯示，不進 PDF', tone: 'neutral' }
+        { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF', tone: 'neutral' }
       ],
       notes: [
         '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。',
@@ -2785,9 +2793,9 @@ ${layerBars.map(L => {
     const isDesignMode = (currentMode === 'design');
     const reportDetail = $('showSteps')?.checked;
     const proj = {
-      name: $('projName').value.trim(),
-      no:   $('projNo').value.trim(),
-      designer: $('projDesigner').value.trim()
+      name: window.RCUI.normalizeProjectFieldValue($('projName').value),
+      no:   window.RCUI.normalizeProjectFieldValue($('projNo').value),
+      designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
     };
 
     const layerStr = (stack) => stack

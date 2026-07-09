@@ -27,6 +27,7 @@ const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
   '公司內部整理計算附件',
   '不會寫入計算書',
   '不會寫入計算書或列印 PDF',
+  '頁面顯示，不進計算書、列印或 PDF',
 ]
 
 function expectNoPageOnlyReportStatus(text: string) {

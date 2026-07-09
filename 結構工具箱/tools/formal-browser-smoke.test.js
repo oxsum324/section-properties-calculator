@@ -44,21 +44,45 @@ const inlineValidationCases = {
       expectedReportIssue: '輸入條件尚未通過，無法產生計算書。'
     }
   },
+  'wind-fence-sign': {
+    inputs: { h: '0' },
+    expectedMessage: '請輸入有效之 h / B',
+    reportRecovery: {
+      reportStatusSelector: '#inputStatus',
+      recoveryInputs: { h: '2.0' },
+      expectedReportIssue: '請輸入有效之 h / B。'
+    }
+  },
   'seismic-force': {
     inputs: { SsD: '0' },
     expectedMessage: '請完整填入有效的震區參數'
   },
   'seismic-appendage': {
     inputs: { SsD: '0' },
-    expectedMessage: 'SsD 必須為大於 0 的數值'
+    expectedMessage: 'SsD 必須為大於 0 的數值',
+    reportRecovery: {
+      reportStatusSelector: '#inputStatus',
+      recoveryInputs: { SsD: '0.6' },
+      expectedReportIssue: 'SsD 必須為大於 0 的數值。'
+    }
   },
   'seismic-misc': {
     inputs: { SsD: '0' },
-    expectedMessage: 'SsD 必須為大於 0 的數值'
+    expectedMessage: 'SsD 必須為大於 0 的數值',
+    reportRecovery: {
+      reportStatusSelector: '#inputStatus',
+      recoveryInputs: { SsD: '0.6' },
+      expectedReportIssue: 'SsD 必須為大於 0 的數值。'
+    }
   },
   'seismic-dynamic': {
     inputs: { hn: '0' },
-    expectedMessage: '請完整填入有效的工址條件'
+    expectedMessage: '請完整填入有效的工址條件',
+    reportRecovery: {
+      reportStatusSelector: '#inputStatus',
+      recoveryInputs: { hn: '17.2' },
+      expectedReportIssue: '請完整填入有效的工址條件與動力分析結果。'
+    }
   }
 };
 
@@ -233,11 +257,22 @@ function isTransientEdgeLaunchError(error) {
 }
 
 async function waitForEdgeVersion(child, versionUrl, timeoutMs = 15000) {
-  return Promise.race([
-    waitForJson(versionUrl, timeoutMs),
-    new Promise((_, reject) => child.once('error', reject)),
-    new Promise((_, reject) => child.once('exit', code => reject(new Error(`Edge exited before CDP was ready. exitCode=${code}`)))),
-  ]);
+  let exitCode = null;
+  const onExit = code => { exitCode = code; };
+  child.once('exit', onExit);
+  try {
+    return await Promise.race([
+      waitForJson(versionUrl, timeoutMs),
+      new Promise((_, reject) => child.once('error', reject)),
+    ]);
+  } catch (error) {
+    if (exitCode !== null && /Timed out waiting|fetch failed|HTTP \d+/i.test(error.message || '')) {
+      throw new Error(`Edge exited before CDP was ready. exitCode=${exitCode}`);
+    }
+    throw error;
+  } finally {
+    child.off('exit', onExit);
+  }
 }
 
 async function launchEdgeCdpWithRetry(edgePath, browserArgs, options, versionUrl, label) {
@@ -381,6 +416,20 @@ async function evaluate(client, sessionId, expression) {
   return result.result.value;
 }
 
+async function evaluateWithUserGesture(client, sessionId, expression) {
+  const result = await client.send('Runtime.evaluate', {
+    expression,
+    returnByValue: true,
+    awaitPromise: true,
+    userGesture: true,
+  }, sessionId);
+
+  if (result.exceptionDetails) {
+    throw new Error(result.exceptionDetails.text || 'Runtime evaluate with user gesture failed');
+  }
+  return result.result.value;
+}
+
 async function settlePage(client, sessionId, frames = 2) {
   await evaluate(client, sessionId, `(async () => {
     let remaining = ${JSON.stringify(frames)};
@@ -396,6 +445,11 @@ async function settlePage(client, sessionId, frames = 2) {
   })()`);
 }
 
+async function setMedia(client, sessionId, media = 'screen') {
+  await client.send('Emulation.setEmulatedMedia', { media }, sessionId);
+  await settlePage(client, sessionId, 1);
+}
+
 async function navigate(client, sessionId, url, viewport) {
   await client.send('Emulation.setDeviceMetricsOverride', {
     width: viewport.width,
@@ -409,6 +463,33 @@ async function navigate(client, sessionId, url, viewport) {
   await loaded;
   await settlePage(client, sessionId, 2);
   return pageErrors;
+}
+
+async function assertPageOnlyReadinessHiddenInPrint(client, sessionId, tool, label) {
+  await setMedia(client, sessionId, 'print');
+  try {
+    const printState = await evaluate(client, sessionId, `(() => {
+      const node = document.querySelector('.page-only-report-status');
+      if (!node) {
+        return { exists: false, display: '', visibility: '', text: '' };
+      }
+      const style = window.getComputedStyle(node);
+      return {
+        exists: true,
+        display: style.display || '',
+        visibility: style.visibility || '',
+        text: (node.textContent || '').replace(/\\s+/g, ' ').trim(),
+      };
+    })()`);
+    assert.equal(printState.exists, true, `${label} ${tool.key} print DOM keeps page-only readiness node`);
+    assert.equal(
+      printState.display,
+      'none',
+      `${label} ${tool.key} page-only readiness hidden in print: ${JSON.stringify(printState)}`
+    );
+  } finally {
+    await setMedia(client, sessionId, 'screen');
+  }
 }
 
 function pageStateExpression(tool) {
@@ -432,6 +513,21 @@ function pageStateExpression(tool) {
       byId(calc).click();
       await settle(2);
     }
+    const readPageOnlyReadinessText = () => (document.querySelector('.page-only-report-status')?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const setProjectField = (id, value) => {
+      const node = byId(id);
+      if (!node) return;
+      node.value = value;
+      node.dispatchEvent(new Event('input', { bubbles: true }));
+      node.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setProjectField('projName', '未填');
+    setProjectField('projNo', 'FORMAL-VERIFY-001');
+    setProjectField('projDesigner', 'Codex QA');
+    await settle(1);
+    const placeholderProjectMetaReadinessText = readPageOnlyReadinessText();
+    setProjectField('projName', '正式工具驗證案');
+    await settle(1);
     const reportModeControls = ${JSON.stringify(tool.reportModeControls || null)};
     const chooseReportMode = async mode => {
       const customButtonId = reportModeControls && reportModeControls[mode + 'Button'];
@@ -553,6 +649,7 @@ function pageStateExpression(tool) {
         right: Math.round(node.getBoundingClientRect().right),
         text: (node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 80)
       }));
+    const pageOnlyReadiness = document.querySelector('.page-only-report-status');
     return {
       title: document.title,
       bodyText: text.slice(0, 12000),
@@ -569,6 +666,9 @@ function pageStateExpression(tool) {
       diagramBounds: boxPayload(diagramBox),
       diagramRoles,
       roleBoxes,
+      hasPageOnlyReadiness: !!pageOnlyReadiness,
+      placeholderProjectMetaReadinessText,
+      pageOnlyReadinessText: (pageOnlyReadiness?.textContent || '').replace(/\\s+/g, ' ').trim(),
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
@@ -656,7 +756,7 @@ function reportCaptureExpression(tool, mode = null) {
   })()`;
 }
 
-function exportCaptureExpression(tool) {
+function exportCaptureExpression(tool, projectMetaState = 'complete', exportButtonId = null) {
   return `(async () => {
     const settle = (frames = 2) => new Promise(resolve => {
       let remaining = frames;
@@ -691,14 +791,36 @@ function exportCaptureExpression(tool) {
     };
 
     try {
-      const button = document.getElementById(${JSON.stringify(tool.exportButton)});
-      if (!button) return { missingButton: true, downloads: [], payload: null, textLength: 0 };
+      const projectState = ${JSON.stringify(projectMetaState)};
+      const setProjectField = (id, value) => {
+        const node = document.getElementById(id);
+        if (!node) return;
+        node.value = value;
+        node.dispatchEvent(new Event('input', { bubbles: true }));
+        node.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      if (projectState === 'placeholder') {
+        setProjectField('projName', '未填');
+        setProjectField('projNo', 'FORMAL-VERIFY-001');
+        setProjectField('projDesigner', 'Codex QA');
+        await settle(1);
+      } else if (projectState === 'complete') {
+        setProjectField('projName', '正式工具驗證案');
+        setProjectField('projNo', 'FORMAL-VERIFY-001');
+        setProjectField('projDesigner', 'Codex QA');
+        await settle(1);
+      }
+      const exportId = ${JSON.stringify(exportButtonId)} || ${JSON.stringify(tool.exportButton)};
+      const button = document.getElementById(exportId);
+      if (!button) return { missingButton: true, exportId, downloads: [], payload: null, textLength: 0 };
       button.click();
       await settle(2);
       const text = objectUrls[0] ? await objectUrls[0].blob.text() : '';
       let payload = null;
       try { payload = text ? JSON.parse(text) : null; } catch (_) {}
       return {
+        projectMetaState: projectState,
+        exportId,
         missingButton: false,
         downloadCount: downloads.length,
         downloads,
@@ -714,6 +836,118 @@ function exportCaptureExpression(tool) {
       HTMLAnchorElement.prototype.click = originalClick;
     }
   })()`;
+}
+
+async function listPageTargetIds(client) {
+  const result = await client.send('Target.getTargets');
+  return new Set(
+    (result.targetInfos || [])
+      .filter(info => info.type === 'page')
+      .map(info => info.targetId)
+  );
+}
+
+const POPUP_TARGET_TIMEOUT_MS = 30000;
+const POPUP_READY_TIMEOUT_MS = 30000;
+
+async function waitForNewPageTarget(client, existingTargetIds, label = 'popup', timeoutMs = POPUP_TARGET_TIMEOUT_MS) {
+  const startedAt = Date.now();
+  let lastPageTargetCount = 0;
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await client.send('Target.getTargets');
+    const pageTargets = (result.targetInfos || []).filter(info => info.type === 'page');
+    lastPageTargetCount = pageTargets.length;
+    const popupTarget = pageTargets.find(info => !existingTargetIds.has(info.targetId));
+    if (popupTarget) return popupTarget;
+    await delay(100);
+  }
+  throw new Error(`Timed out waiting for popup target after ${timeoutMs}ms: ${label} :: existing=${existingTargetIds.size}, lastPages=${lastPageTargetCount}`);
+}
+
+async function waitForPopupReady(client, sessionId, label, timeoutMs = POPUP_READY_TIMEOUT_MS) {
+  const startedAt = Date.now();
+  let lastState = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const state = await evaluate(client, sessionId, `(() => ({
+        readyState: document.readyState || '',
+        title: document.title || '',
+        heading: document.querySelector('h1')?.innerText?.trim() || '',
+        bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim()
+      }))()`);
+      lastState = state;
+      const reportMarker = state.heading.includes('計算書') || state.bodyText.includes('計算書') || state.title.includes('計算書');
+      if (state.readyState === 'complete' && reportMarker && state.bodyText.includes('計畫名稱')) {
+        return state;
+      }
+    } catch (_) {}
+    await delay(100);
+  }
+  throw new Error(`Timed out waiting for popup report content after ${timeoutMs}ms: ${label} :: ${JSON.stringify(lastState)}`);
+}
+
+async function popupReportCaptureState(client, pageSessionId, tool, mode = 'default', projectMetaState = 'complete') {
+  const existingTargetIds = await listPageTargetIds(client);
+  const openState = await evaluateWithUserGesture(client, pageSessionId, reportPopupOpenExpression(tool, mode, projectMetaState));
+  if (openState.missingButton) {
+    return {
+      mode: openState.mode || mode,
+      projectMetaState,
+      missingButton: true,
+      popupOpened: false,
+      popupErrors: [],
+      title: '',
+      heading: '',
+      bodyText: '',
+      html: '',
+      auditHtml: '',
+      projectMeta: [],
+    };
+  }
+
+  const popupLabel = `${tool.key}:${mode}:${projectMetaState}`;
+  const popupTarget = await waitForNewPageTarget(client, existingTargetIds, popupLabel);
+  const attached = await client.send('Target.attachToTarget', {
+    targetId: popupTarget.targetId,
+    flatten: true,
+  });
+  const popupSessionId = attached.sessionId;
+  await client.send('Page.enable', {}, popupSessionId);
+  await client.send('Runtime.enable', {}, popupSessionId);
+  await client.send('Log.enable', {}, popupSessionId);
+  const popupErrors = collectPageErrors(client, popupSessionId);
+
+  try {
+    await waitForPopupReady(client, popupSessionId, popupLabel);
+    const state = await evaluate(client, popupSessionId, `(() => {
+      const html = document.documentElement ? document.documentElement.outerHTML : '';
+      return {
+        title: document.title || '',
+        heading: document.querySelector('h1')?.innerText?.trim() || '',
+        bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+        html,
+        auditHtml: html.replace(/data:image\\/png;base64,[^"'\\s<>]+/g, 'data:image/png;base64,[omitted]'),
+        projectMeta: Array.from(document.querySelectorAll('.rep-meta div, .meta div')).map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim())
+      };
+    })()`);
+    return {
+      mode: openState.mode || mode,
+      projectMetaState,
+      missingButton: false,
+      popupOpened: true,
+      popupErrors: popupErrors.errors.slice(),
+      title: state.title,
+      heading: state.heading,
+      bodyText: state.bodyText,
+      html: state.html,
+      auditHtml: state.auditHtml,
+      projectMeta: state.projectMeta,
+    };
+  } finally {
+    popupErrors.unsubscribe();
+    await client.send('Target.closeTarget', { targetId: popupTarget.targetId }).catch(() => {});
+    await delay(250);
+  }
 }
 
 function jsonRoundTripExpression(tool, sourcePayload) {
@@ -992,6 +1226,211 @@ function goldenCaseExpression(tool, goldenCase) {
   })()`;
 }
 
+function seismicDynamicProjectRestoreExpression() {
+  return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    const byId = id => document.getElementById(id);
+    const readProjectMeta = () => ({
+      name: byId('projName')?.value || '',
+      no: byId('projNo')?.value || '',
+      designer: byId('projDesigner')?.value || ''
+    });
+    const setProjectMeta = meta => {
+      for (const [id, value] of Object.entries({
+        projName: meta.name,
+        projNo: meta.no,
+        projDesigner: meta.designer
+      })) {
+        const node = byId(id);
+        if (!node) continue;
+        node.value = value;
+        node.dispatchEvent(new Event('input', { bubbles: true }));
+        node.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    };
+    const readReadinessText = () => (document.querySelector('.page-only-report-status')?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const numericValue = id => {
+      const value = parseFloat(byId(id)?.value || '');
+      return Number.isFinite(value) ? value : null;
+    };
+    const staleMeta = { name: '殘留案名', no: 'STALE-001', designer: '舊設計人' };
+
+    setProjectMeta(staleMeta);
+    if (byId('software')) byId('software').value = 'STALE-SOFTWARE';
+    if (byId('remark')) byId('remark').value = 'STALE-REMARK';
+    setStorageJson(STATIC_STORAGE_KEY, {
+      savedAt: '2026-07-03T00:00:00.000Z',
+      project: {
+        name: '',
+        no: '',
+        designer: '',
+        zone: '測試工址',
+        zoneCity: byId('zoneCity')?.value || '',
+        zoneDist: byId('zoneDist')?.value || '',
+        SsD: numericValue('SsD') ?? 0.6,
+        S1D: numericValue('S1D') ?? 0.25,
+        SsM: numericValue('SsM') ?? 0.9,
+        S1M: numericValue('S1M') ?? 0.35,
+        siteInputMode: byId('siteInputMode')?.value || 'manual',
+        SsDLower: numericValue('SsDLower') ?? 0.4,
+        S1DLower: numericValue('S1DLower') ?? 0.15,
+        siteClass: byId('siteClass')?.value || '2',
+        importanceKey: byId('impClass')?.value || 'normal',
+        hn: numericValue('hn') ?? 17.2,
+        W: numericValue('W') ?? 2400
+      },
+      x: {
+        systemKey: byId('sysX')?.value || '',
+        Tdesign: numericValue('Tx') ?? 1.2,
+        Vdesign: 123.4
+      },
+      y: {
+        systemKey: byId('sysY')?.value || byId('sysX')?.value || '',
+        Tdesign: numericValue('Ty') ?? 1.1,
+        Vdesign: 118.2
+      }
+    });
+    loadStaticSummaryIntoPage();
+    await settle(2);
+    const afterStatic = {
+      ...readProjectMeta(),
+      readinessText: readReadinessText(),
+      staticImportStatus: (byId('staticImportStatus')?.textContent || '').replace(/\\s+/g, ' ').trim()
+    };
+
+    setProjectMeta({ name: '正式工具驗證案', no: 'FORMAL-VERIFY-001', designer: 'Codex QA' });
+    await settle(1);
+    const dynamicCalculated = calcDynamic();
+    const savedDynamic = getStorageJson(DYNAMIC_STORAGE_KEY);
+    if (savedDynamic?.project) {
+      savedDynamic.project = Object.assign({}, savedDynamic.project, {
+        name: '',
+        no: '',
+        designer: '',
+        software: '',
+        remark: ''
+      });
+      setStorageJson(DYNAMIC_STORAGE_KEY, savedDynamic);
+    }
+    setProjectMeta(staleMeta);
+    if (byId('software')) byId('software').value = 'STALE-SOFTWARE';
+    if (byId('remark')) byId('remark').value = 'STALE-REMARK';
+    const dynamicRestored = restoreDynamicSummary();
+    if (typeof renderDynamicReportReadiness === 'function') {
+      renderDynamicReportReadiness();
+    }
+    await settle(2);
+    const afterDynamic = {
+      ...readProjectMeta(),
+      software: byId('software')?.value || '',
+      remark: byId('remark')?.value || '',
+      readinessText: readReadinessText(),
+      resultText: (byId('summaryCard')?.textContent || document.body.textContent || '').replace(/\\s+/g, ' ').trim()
+    };
+
+    return {
+      dynamicCalculated,
+      dynamicRestored,
+      afterStatic,
+      afterDynamic
+    };
+  })()`;
+}
+
+function windOverviewProjectStorageExpression() {
+  return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    const normalizeText = value => String(value || '').replace(/\\s+/g, ' ').trim();
+    const waitFor = async (selector, timeoutMs = 1500) => {
+      const started = Date.now();
+      while (Date.now() - started < timeoutMs) {
+        const node = document.querySelector(selector);
+        if (node) return node;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      return document.querySelector(selector);
+    };
+    const overviewStorageKey = 'wind-overview-params';
+    const draftStorageKey = 'toolProjectStorage:wind-overview:draft.v1';
+    localStorage.setItem(overviewStorageKey, JSON.stringify({
+      city: '臺北市',
+      terrain: 'C',
+      impClass: 'IV',
+      Kzt: 1,
+      H: 30,
+      floors: 10,
+      Bx: 20,
+      By: 40,
+      projName: '舊案名',
+      projNo: 'OLD-001',
+      projDesigner: '舊設計人',
+      savedAt: '2026-07-03T00:00:00.000Z'
+    }));
+    if (typeof loadOverview === 'function') {
+      loadOverview();
+      await settle(2);
+    }
+    const beforeSummary = normalizeText(document.getElementById('summaryBox')?.textContent || '');
+    const draftPayload = {
+      schema: 'tool-project-storage.v1',
+      storageVersion: '0.1.0',
+      tool: { id: 'wind-overview', name: '耐風設計案件總覽', version: 'V1' },
+      savedAt: '2026-07-03T00:10:00.000Z',
+      fields: {
+        projName: { type: 'text', value: '' },
+        projNo: { type: 'text', value: 'OVERVIEW-001' },
+        projDesigner: { type: 'text', value: 'Codex QA' },
+        city: { type: 'select-one', value: '臺中市' },
+        terrain: { type: 'select-one', value: 'B' },
+        impClass: { type: 'select-one', value: 'IV' },
+        Kzt: { type: 'number', value: '1.10' },
+        H: { type: 'number', value: '42' },
+        floors: { type: 'number', value: '12' },
+        Bx: { type: 'number', value: '18' },
+        By: { type: 'number', value: '36' }
+      }
+    };
+    localStorage.setItem(draftStorageKey, JSON.stringify(draftPayload));
+    const loadDraftButton = await waitFor('[data-project-storage-draft-load]');
+    if (loadDraftButton) {
+      loadDraftButton.click();
+      await settle(3);
+    }
+    const summaryText = normalizeText(document.getElementById('summaryBox')?.textContent || '');
+    const statusText = normalizeText(document.querySelector('[data-project-storage-status]')?.textContent || '');
+    const storedOverview = JSON.parse(localStorage.getItem(overviewStorageKey) || '{}');
+    return {
+      hasProjectStorageBar: !!document.querySelector('.project-storage-bar'),
+      hasLoadDraftButton: !!loadDraftButton,
+      beforeSummary,
+      projectName: document.getElementById('projName')?.value || '',
+      projectNo: document.getElementById('projNo')?.value || '',
+      projectDesigner: document.getElementById('projDesigner')?.value || '',
+      summaryText,
+      statusText,
+      storedOverviewProjectName: storedOverview.projName || '',
+      storedOverviewProjectNo: storedOverview.projNo || '',
+      storedOverviewProjectDesigner: storedOverview.projDesigner || ''
+    };
+  })()`;
+}
+
 function inlineValidationExpression(tool) {
   const validationCase = inlineValidationCases[tool.key];
   if (!validationCase) return null;
@@ -1036,30 +1475,114 @@ function inlineValidationExpression(tool) {
     };
     const recovery = ${JSON.stringify(validationCase.reportRecovery || null)};
     if (recovery) {
-      const reportBtn = document.querySelector(${JSON.stringify(tool.reportButtonSelector || '.btn-print')});
+      const reportBtn = document.getElementById(${JSON.stringify(tool.reportButton || null)})
+        || document.querySelector(${JSON.stringify(tool.reportButtonSelector || '.btn-print')});
+      const reportStatusSelector = recovery.reportStatusSelector || '#windReportStatus';
       if (reportBtn) {
         reportBtn.click();
         await settle(2);
       }
       result.missingReportButton = !reportBtn;
-      result.reportStatusAfterInvalidPrint = (document.getElementById('windReportStatus')?.textContent || '').replace(/\\s+/g, ' ').trim();
+      result.reportStatusAfterInvalidPrint = (document.querySelector(reportStatusSelector)?.textContent || '').replace(/\\s+/g, ' ').trim();
       for (const [id, value] of Object.entries(recovery.recoveryInputs || {})) setInput(id, value);
       if (calc) {
         calc.click();
         await settle(2);
       }
-      result.reportStatusAfterRecovery = (document.getElementById('windReportStatus')?.textContent || '').replace(/\\s+/g, ' ').trim();
+      result.reportStatusAfterRecovery = (document.querySelector(reportStatusSelector)?.textContent || '').replace(/\\s+/g, ' ').trim();
     }
     return result;
   })()`;
 }
 
+function reportPopupOpenExpression(tool, mode = null, projectMetaState = 'current') {
+  return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    const byId = id => document.getElementById(id);
+    const reportId = ${JSON.stringify(tool.reportButton || null)};
+    const reportSelector = ${JSON.stringify(tool.reportButtonSelector || null)};
+    const reportMode = ${JSON.stringify(mode)};
+    const projectState = ${JSON.stringify(projectMetaState)};
+    const reportModeControls = ${JSON.stringify(tool.reportModeControls || null)};
+    const setProjectField = (id, value) => {
+      const node = byId(id);
+      if (!node) return;
+      node.value = value;
+      node.dispatchEvent(new Event('input', { bubbles: true }));
+      node.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const chooseReportMode = async nextMode => {
+      const customButtonId = reportModeControls && reportModeControls[nextMode + 'Button'];
+      const modeButton = customButtonId
+        ? byId(customButtonId)
+        : document.querySelector('[data-report-mode="' + nextMode + '"]');
+      if (modeButton) {
+        modeButton.click();
+        await settle(1);
+        return true;
+      }
+      const select = byId((reportModeControls && reportModeControls.selectId) || 'reportMode');
+      if (select) {
+        const selectValue = (reportModeControls && reportModeControls[nextMode + 'Value']) || (nextMode === 'simple' ? 'summary' : 'detailed');
+        if (Array.from(select.options || []).some(option => option.value === selectValue)) {
+          select.value = selectValue;
+          select.dispatchEvent(new Event('input', { bubbles: true }));
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          await settle(1);
+          return true;
+        }
+      }
+      return false;
+    };
+    if (projectState === 'placeholder') {
+      setProjectField('projName', '未填');
+      setProjectField('projNo', 'FORMAL-VERIFY-001');
+      setProjectField('projDesigner', 'Codex QA');
+      await settle(1);
+    } else if (projectState === 'complete') {
+      setProjectField('projName', '正式工具驗證案');
+      setProjectField('projNo', 'FORMAL-VERIFY-001');
+      setProjectField('projDesigner', 'Codex QA');
+      await settle(1);
+    }
+    if (reportMode) await chooseReportMode(reportMode);
+    const button = reportId ? byId(reportId) : document.querySelector(reportSelector);
+    if (!button) return { mode: reportMode || 'default', missingButton: true };
+    button.click();
+    await settle(2);
+    return { mode: reportMode || 'default', missingButton: false };
+  })()`;
+}
+
 function assertPageState(state, tool, label) {
+  const missingProjectMetaPattern = /計算書表頭尚未填齊計畫名稱、編號或設計人|計畫名稱、編號或設計人尚未完整，產報前建議補齊|計畫名稱 \/ 編號 \/ 設計人尚未完整，附件識別不足/;
   assert.equal(state.hasFamily, true, `${label} ${tool.key} family label`);
   assert.equal(state.hasTitleNeedle, true, `${label} ${tool.key} title label`);
   assert.equal(state.hasCalc, true, `${label} ${tool.key} calc button`);
   assert.equal(state.hasReport, true, `${label} ${tool.key} report button`);
   assert.equal(state.hasExport, true, `${label} ${tool.key} export button`);
+  assert.equal(state.hasPageOnlyReadiness, true, `${label} ${tool.key} page-only readiness exists`);
+  assert.ok(state.pageOnlyReadinessText.includes('不會寫入計算書或列印 PDF'), `${label} ${tool.key} page-only readiness boundary`);
+  assert.ok(/暫勿作附件|優先複核|可作附件/.test(state.pageOnlyReadinessText), `${label} ${tool.key} page-only readiness status: ${state.pageOnlyReadinessText}`);
+  assert.equal(state.pageOnlyReadinessText.includes('[object Event]'), false, `${label} ${tool.key} page-only readiness should not stringify DOM events: ${state.pageOnlyReadinessText}`);
+  assert.equal(
+    missingProjectMetaPattern.test(state.placeholderProjectMetaReadinessText),
+    true,
+    `${label} ${tool.key} page-only readiness should treat placeholder project metadata as missing: ${state.placeholderProjectMetaReadinessText}`
+  );
+  assert.equal(
+    missingProjectMetaPattern.test(state.pageOnlyReadinessText),
+    false,
+    `${label} ${tool.key} page-only readiness should refresh after project meta input: ${state.pageOnlyReadinessText}`
+  );
   assert.equal(state.horizontalOverflow, false, `${label} ${tool.key} horizontal overflow: ${JSON.stringify(state.overflowing, null, 2)}`);
   assert.ok(state.visibleTextLength > 500, `${label} ${tool.key} visible content`);
 
@@ -1138,11 +1661,7 @@ function assertReportExpectations(state, tool, label, mode) {
   }
 }
 
-function assertReportState(state, tool, label, mode = 'default') {
-  assert.equal(state.missingButton, false, `${label} ${tool.key} report button exists`);
-  assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
-  assert.equal(state.openedDocument, true, `${label} ${tool.key} report document open`);
-  assert.equal(state.closedDocument, true, `${label} ${tool.key} report document close`);
+function assertReportContentState(state, tool, label, mode = 'default') {
   assert.ok(state.html.length > 1800, `${label} ${tool.key} report length`);
   assert.ok(state.html.includes('計算書'), `${label} ${tool.key} report title`);
   if (mode === 'default' || mode === 'detail') {
@@ -1178,8 +1697,85 @@ function assertReportState(state, tool, label, mode = 'default') {
   assertReportExpectations(state, tool, label, mode);
 }
 
+function assertReportState(state, tool, label, mode = 'default') {
+  assert.equal(state.missingButton, false, `${label} ${tool.key} report button exists`);
+  assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
+  assert.equal(state.openedDocument, true, `${label} ${tool.key} report document open`);
+  assert.equal(state.closedDocument, true, `${label} ${tool.key} report document close`);
+  assertReportContentState(state, tool, label, mode);
+}
+
+function assertPopupReportState(state, tool, label, mode = 'default') {
+  const metaText = Array.isArray(state.projectMeta) ? state.projectMeta.join(' ') : '';
+  const reportTitleText = `${state.title || ''} ${state.heading || ''}`.trim();
+  assert.equal(state.projectMetaState, 'complete', `${label} ${tool.key} popup project state`);
+  assert.equal(state.missingButton, false, `${label} ${tool.key} popup report button exists`);
+  assert.equal(state.popupOpened, true, `${label} ${tool.key} popup report opened`);
+  assert.ok(reportTitleText.includes('計算書'), `${label} ${tool.key} popup report title`);
+  assert.ok(state.bodyText.includes('計畫名稱'), `${label} ${tool.key} popup report meta`);
+  assert.equal(state.bodyText.includes('[object Event]'), false, `${label} ${tool.key} popup report should not stringify DOM events`);
+  assert.ok(metaText.includes('正式工具驗證案') || state.bodyText.includes('正式工具驗證案'), `${label} ${tool.key} popup report project name`);
+  assert.ok(metaText.includes('FORMAL-VERIFY-001') || state.bodyText.includes('FORMAL-VERIFY-001'), `${label} ${tool.key} popup report project no`);
+  assert.ok(metaText.includes('Codex QA') || state.bodyText.includes('Codex QA'), `${label} ${tool.key} popup report project designer`);
+  assert.equal(state.bodyText.includes('未填'), false, `${label} ${tool.key} popup report should exclude placeholder project text`);
+  assertNoPageErrors(state.popupErrors || [], `${label} ${tool.key} popup report`);
+  assertReportContentState(state, tool, label, mode);
+}
+
+function assertPlaceholderPopupReportState(state, tool, label, mode = 'default') {
+  const metaText = Array.isArray(state.projectMeta) ? state.projectMeta.join(' ') : '';
+  const reportText = `${metaText} ${state.bodyText || ''}`.trim();
+  const reportTitleText = `${state.title || ''} ${state.heading || ''}`.trim();
+  assert.equal(state.projectMetaState, 'placeholder', `${label} ${tool.key} placeholder popup project state`);
+  assert.equal(state.missingButton, false, `${label} ${tool.key} placeholder popup report button exists`);
+  assert.equal(state.popupOpened, true, `${label} ${tool.key} placeholder popup report opened`);
+  assert.ok(reportTitleText.includes('計算書'), `${label} ${tool.key} placeholder popup report title`);
+  assert.ok(reportText.includes('FORMAL-VERIFY-001'), `${label} ${tool.key} placeholder popup report project no`);
+  assert.ok(reportText.includes('Codex QA'), `${label} ${tool.key} placeholder popup report project designer`);
+  assert.equal(reportText.includes('未填'), false, `${label} ${tool.key} placeholder popup report should exclude placeholder project text`);
+  assert.equal(reportText.includes('正式工具驗證案'), false, `${label} ${tool.key} placeholder popup report should not retain completed project name`);
+  assertNoPageErrors(state.popupErrors || [], `${label} ${tool.key} placeholder popup report`);
+  assertReportContentState(state, tool, label, mode);
+}
+
+function assertSeismicDynamicProjectRestoreState(state, label) {
+  assert.equal(state.dynamicCalculated, true, `${label} seismic-dynamic recalculates before restore test`);
+  assert.equal(state.dynamicRestored, true, `${label} seismic-dynamic restores saved summary`);
+  assert.equal(state.afterStatic.name, '', `${label} seismic-dynamic static restore clears project name`);
+  assert.equal(state.afterStatic.no, '', `${label} seismic-dynamic static restore clears project number`);
+  assert.equal(state.afterStatic.designer, '', `${label} seismic-dynamic static restore clears designer`);
+  assert.ok(state.afterStatic.staticImportStatus.includes('已讀到等值靜力分析摘要'), `${label} seismic-dynamic static summary status`);
+  assert.ok(state.afterStatic.staticImportStatus.includes('案件：—'), `${label} seismic-dynamic static restore summary clears project name`);
+  assert.equal(state.afterDynamic.name, '', `${label} seismic-dynamic dynamic restore clears project name`);
+  assert.equal(state.afterDynamic.no, '', `${label} seismic-dynamic dynamic restore clears project number`);
+  assert.equal(state.afterDynamic.designer, '', `${label} seismic-dynamic dynamic restore clears designer`);
+  assert.equal(state.afterDynamic.software, '', `${label} seismic-dynamic dynamic restore clears software`);
+  assert.equal(state.afterDynamic.remark, '', `${label} seismic-dynamic dynamic restore clears remark`);
+  assert.ok(state.afterDynamic.resultText.includes('動力分析'), `${label} seismic-dynamic restored result remains rendered`);
+  assert.equal(state.afterDynamic.resultText.includes('殘留案名'), false, `${label} seismic-dynamic restored result should not keep stale project name`);
+}
+
+function assertWindOverviewProjectStorageState(state, label) {
+  assert.equal(state.hasProjectStorageBar, true, `${label} wind-overview project storage bar exists`);
+  assert.equal(state.hasLoadDraftButton, true, `${label} wind-overview project storage draft load button exists`);
+  assert.ok(state.beforeSummary.includes('舊案名'), `${label} wind-overview baseline summary uses existing localStorage`);
+  assert.equal(state.projectName, '', `${label} wind-overview draft restore clears project name`);
+  assert.equal(state.projectNo, 'OVERVIEW-001', `${label} wind-overview draft restore keeps project number`);
+  assert.equal(state.projectDesigner, 'Codex QA', `${label} wind-overview draft restore keeps project designer`);
+  assert.ok(/案件\s*—/.test(state.summaryText), `${label} wind-overview summary falls back to blank project name: ${state.summaryText}`);
+  assert.ok(state.summaryText.includes('OVERVIEW-001'), `${label} wind-overview summary shows restored project number`);
+  assert.ok(state.summaryText.includes('Codex QA'), `${label} wind-overview summary shows restored project designer`);
+  assert.equal(state.summaryText.includes('舊案名'), false, `${label} wind-overview summary should not retain stale localStorage project name`);
+  assert.ok(state.statusText.includes('已讀取：瀏覽器暫存'), `${label} wind-overview draft load status`);
+  assert.equal(state.storedOverviewProjectName, '舊案名', `${label} wind-overview page summary should refresh from current fields, not mutate overview storage`);
+  assert.equal(state.storedOverviewProjectNo, 'OLD-001', `${label} wind-overview overview storage remains previous number`);
+  assert.equal(state.storedOverviewProjectDesigner, '舊設計人', `${label} wind-overview overview storage remains previous designer`);
+}
+
 function assertExportState(state, tool, label) {
   if (!tool.exportButton) return;
+  const serializedPayload = JSON.stringify(state.payload || {});
+  assert.equal(state.projectMetaState, 'complete', `${label} ${tool.key} export project state`);
   assert.equal(state.missingButton, false, `${label} ${tool.key} export button exists`);
   assert.equal(state.downloadCount, 1, `${label} ${tool.key} export download count`);
   assert.equal(state.blobCount, 1, `${label} ${tool.key} export blob count`);
@@ -1187,12 +1783,105 @@ function assertExportState(state, tool, label) {
   assert.ok(state.payload && typeof state.payload === 'object', `${label} ${tool.key} export JSON`);
   assert.ok(state.downloads[0].download.endsWith('.json'), `${label} ${tool.key} export filename`);
   assert.equal(state.downloads[0].attached, true, `${label} ${tool.key} export anchor attached`);
+  assert.ok(state.payload.project && typeof state.payload.project === 'object', `${label} ${tool.key} export project payload`);
+  assert.equal(state.payload.project.name, '正式工具驗證案', `${label} ${tool.key} export project name`);
+  assert.equal(state.payload.project.no, 'FORMAL-VERIFY-001', `${label} ${tool.key} export project no`);
+  assert.equal(state.payload.project.designer, 'Codex QA', `${label} ${tool.key} export project designer`);
+  assert.equal(serializedPayload.includes('未填'), false, `${label} ${tool.key} export excludes raw placeholder metadata`);
+  [
+    '產報前檢查',
+    '優先閱讀',
+    '頁面輔助',
+    '公司內部整理計算附件',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => {
+    assert.equal(serializedPayload.includes(needle), false, `${label} ${tool.key} export excludes page-only readiness ${needle}`);
+  });
   assert.ok(
-    JSON.stringify(state.payload).includes(tool.key.split('-')[0]) ||
-      JSON.stringify(state.payload).includes(tool.titleNeedle.slice(0, 2)) ||
-      JSON.stringify(state.payload).includes('project'),
+    serializedPayload.includes(tool.key.split('-')[0]) ||
+      serializedPayload.includes(tool.titleNeedle.slice(0, 2)) ||
+      serializedPayload.includes('project'),
     `${label} ${tool.key} export payload identity`
   );
+}
+
+function assertPlaceholderExportState(state, tool, label) {
+  if (!tool.exportButton) return;
+  const serializedPayload = JSON.stringify(state.payload || {});
+  assert.equal(state.projectMetaState, 'placeholder', `${label} ${tool.key} placeholder export project state`);
+  assert.equal(state.missingButton, false, `${label} ${tool.key} placeholder export button exists`);
+  assert.equal(state.downloadCount, 1, `${label} ${tool.key} placeholder export download count`);
+  assert.equal(state.blobCount, 1, `${label} ${tool.key} placeholder export blob count`);
+  assert.ok(state.payload && typeof state.payload === 'object', `${label} ${tool.key} placeholder export JSON`);
+  assert.ok(state.payload.project && typeof state.payload.project === 'object', `${label} ${tool.key} placeholder export project payload`);
+  assert.equal(state.payload.project.name, '', `${label} ${tool.key} placeholder export project name`);
+  assert.equal(state.payload.project.no, 'FORMAL-VERIFY-001', `${label} ${tool.key} placeholder export project no`);
+  assert.equal(state.payload.project.designer, 'Codex QA', `${label} ${tool.key} placeholder export project designer`);
+  assert.equal(serializedPayload.includes('未填'), false, `${label} ${tool.key} placeholder export excludes raw placeholder metadata`);
+  assert.equal(serializedPayload.includes('正式工具驗證案'), false, `${label} ${tool.key} placeholder export should not retain completed project name`);
+  [
+    '產報前檢查',
+    '優先閱讀',
+    '頁面輔助',
+    '公司內部整理計算附件',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => {
+    assert.equal(serializedPayload.includes(needle), false, `${label} ${tool.key} placeholder export excludes page-only readiness ${needle}`);
+  });
+}
+
+function assertExtraExportState(state, tool, extraExport, label) {
+  const exportLabel = extraExport.name || extraExport.id;
+  const serializedPayload = JSON.stringify(state.payload || {});
+  assert.equal(state.projectMetaState, 'complete', `${label} ${tool.key} ${exportLabel} export project state`);
+  assert.equal(state.missingButton, false, `${label} ${tool.key} ${exportLabel} export button exists`);
+  assert.equal(state.exportId, extraExport.id, `${label} ${tool.key} ${exportLabel} export target`);
+  assert.equal(state.downloadCount, 1, `${label} ${tool.key} ${exportLabel} export download count`);
+  assert.equal(state.blobCount, 1, `${label} ${tool.key} ${exportLabel} export blob count`);
+  assert.ok(state.textLength > 150, `${label} ${tool.key} ${exportLabel} export payload length`);
+  assert.ok(state.payload && typeof state.payload === 'object', `${label} ${tool.key} ${exportLabel} export JSON`);
+  assert.ok(state.downloads[0].download.includes(extraExport.filenameNeedle), `${label} ${tool.key} ${exportLabel} export filename`);
+  assert.equal(state.downloads[0].attached, true, `${label} ${tool.key} ${exportLabel} export anchor attached`);
+  assert.ok(state.payload.project && typeof state.payload.project === 'object', `${label} ${tool.key} ${exportLabel} export project payload`);
+  assert.equal(state.payload.project.name, '正式工具驗證案', `${label} ${tool.key} ${exportLabel} export project name`);
+  assert.equal(state.payload.project.no, 'FORMAL-VERIFY-001', `${label} ${tool.key} ${exportLabel} export project no`);
+  assert.equal(state.payload.project.designer, 'Codex QA', `${label} ${tool.key} ${exportLabel} export project designer`);
+  assert.equal(serializedPayload.includes('未填'), false, `${label} ${tool.key} ${exportLabel} export excludes raw placeholder metadata`);
+  [
+    '產報前檢查',
+    '優先閱讀',
+    '頁面輔助',
+    '公司內部整理計算附件',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => {
+    assert.equal(serializedPayload.includes(needle), false, `${label} ${tool.key} ${exportLabel} export excludes page-only readiness ${needle}`);
+  });
+}
+
+function assertExtraPlaceholderExportState(state, tool, extraExport, label) {
+  const exportLabel = extraExport.name || extraExport.id;
+  const serializedPayload = JSON.stringify(state.payload || {});
+  assert.equal(state.projectMetaState, 'placeholder', `${label} ${tool.key} ${exportLabel} placeholder export project state`);
+  assert.equal(state.missingButton, false, `${label} ${tool.key} ${exportLabel} placeholder export button exists`);
+  assert.equal(state.exportId, extraExport.id, `${label} ${tool.key} ${exportLabel} placeholder export target`);
+  assert.equal(state.downloadCount, 1, `${label} ${tool.key} ${exportLabel} placeholder export download count`);
+  assert.equal(state.blobCount, 1, `${label} ${tool.key} ${exportLabel} placeholder export blob count`);
+  assert.ok(state.payload && typeof state.payload === 'object', `${label} ${tool.key} ${exportLabel} placeholder export JSON`);
+  assert.ok(state.payload.project && typeof state.payload.project === 'object', `${label} ${tool.key} ${exportLabel} placeholder export project payload`);
+  assert.equal(state.payload.project.name, '', `${label} ${tool.key} ${exportLabel} placeholder export project name`);
+  assert.equal(state.payload.project.no, 'FORMAL-VERIFY-001', `${label} ${tool.key} ${exportLabel} placeholder export project no`);
+  assert.equal(state.payload.project.designer, 'Codex QA', `${label} ${tool.key} ${exportLabel} placeholder export project designer`);
+  assert.equal(serializedPayload.includes('未填'), false, `${label} ${tool.key} ${exportLabel} placeholder export excludes raw placeholder metadata`);
+  assert.equal(serializedPayload.includes('正式工具驗證案'), false, `${label} ${tool.key} ${exportLabel} placeholder export should not retain completed project name`);
+  [
+    '產報前檢查',
+    '優先閱讀',
+    '頁面輔助',
+    '公司內部整理計算附件',
+    '不會寫入計算書或列印 PDF'
+  ].forEach(needle => {
+    assert.equal(serializedPayload.includes(needle), false, `${label} ${tool.key} ${exportLabel} placeholder export excludes page-only readiness ${needle}`);
+  });
 }
 
 function assertJsonRoundTripState(state, tool, label) {
@@ -1338,18 +2027,42 @@ async function main() {
     await client.send('Log.enable', {}, sessionId);
 
     for (const viewport of viewports) {
+      {
+        const label = `${viewport.key} wind-overview project storage`;
+        const pageErrors = await navigate(client, sessionId, `http://127.0.0.1:${serverPort}/wind-overview`, viewport);
+        const state = await evaluate(client, sessionId, windOverviewProjectStorageExpression());
+        assertWindOverviewProjectStorageState(state, label);
+        pageErrors.unsubscribe();
+        assertNoPageErrors(pageErrors.errors, label);
+      }
       for (const tool of formalTools) {
         const label = `${viewport.key} route`;
         const url = `http://127.0.0.1:${serverPort}${tool.route}`;
         const pageErrors = await navigate(client, sessionId, url, viewport);
         const state = await evaluate(client, sessionId, pageStateExpression(tool));
         assertPageState(state, tool, label);
+        await assertPageOnlyReadinessHiddenInPrint(client, sessionId, tool, label);
 
         if (viewport.key === 'desktop') {
           const interactionLabel = 'desktop interaction';
           const exportState = tool.exportButton
             ? await evaluate(client, sessionId, exportCaptureExpression(tool))
             : null;
+          const placeholderExportState = tool.exportButton
+            ? await evaluate(client, sessionId, exportCaptureExpression(tool, 'placeholder'))
+            : null;
+          const extraExportStates = [];
+          const placeholderExtraExportStates = [];
+          for (const extraExport of tool.extraExportButtons || []) {
+            extraExportStates.push({
+              extraExport,
+              state: await evaluate(client, sessionId, exportCaptureExpression(tool, 'complete', extraExport.id))
+            });
+            placeholderExtraExportStates.push({
+              extraExport,
+              state: await evaluate(client, sessionId, exportCaptureExpression(tool, 'placeholder', extraExport.id))
+            });
+          }
           const roundTripState = tool.jsonRoundTrip
             ? await evaluate(client, sessionId, jsonRoundTripExpression(tool, exportState?.payload))
             : null;
@@ -1368,7 +2081,23 @@ async function main() {
             : {
               default: await evaluate(client, sessionId, reportCaptureExpression(tool)),
             };
+          const popupModes = Array.isArray(tool.popupReportModes) && tool.popupReportModes.length > 0
+            ? tool.popupReportModes
+            : (tool.reportMode ? ['detail'] : ((tool.reportButton || tool.reportButtonSelector) ? ['default'] : []));
+          const popupReportStates = {};
+          const placeholderPopupReportStates = {};
+          for (const mode of popupModes) {
+            popupReportStates[mode] = await popupReportCaptureState(client, sessionId, tool, mode, 'complete');
+            placeholderPopupReportStates[mode] = await popupReportCaptureState(client, sessionId, tool, mode, 'placeholder');
+          }
           assertExportState(exportState, tool, interactionLabel);
+          assertPlaceholderExportState(placeholderExportState, tool, `${interactionLabel} placeholder`);
+          for (const { extraExport, state } of extraExportStates) {
+            assertExtraExportState(state, tool, extraExport, interactionLabel);
+          }
+          for (const { extraExport, state } of placeholderExtraExportStates) {
+            assertExtraPlaceholderExportState(state, tool, extraExport, `${interactionLabel} placeholder`);
+          }
           assertJsonRoundTripState(roundTripState, tool, interactionLabel);
           for (const { goldenCase, state: goldenState } of goldenStates) {
             assertGoldenCaseState(goldenState, tool, goldenCase, interactionLabel);
@@ -1376,10 +2105,20 @@ async function main() {
           for (const [mode, reportState] of Object.entries(reportStates)) {
             assertReportState(reportState, tool, interactionLabel, mode);
           }
+          for (const [mode, popupReportState] of Object.entries(popupReportStates)) {
+            assertPopupReportState(popupReportState, tool, `${interactionLabel} popup`, mode);
+          }
+          for (const [mode, popupReportState] of Object.entries(placeholderPopupReportStates)) {
+            assertPlaceholderPopupReportState(popupReportState, tool, `${interactionLabel} popup placeholder`, mode);
+          }
           const inlineValidationState = inlineValidationCases[tool.key]
             ? await evaluate(client, sessionId, inlineValidationExpression(tool))
             : null;
           assertInlineValidationState(inlineValidationState, tool, interactionLabel);
+          if (tool.key === 'seismic-dynamic') {
+            const projectRestoreState = await evaluate(client, sessionId, seismicDynamicProjectRestoreExpression());
+            assertSeismicDynamicProjectRestoreState(projectRestoreState, interactionLabel);
+          }
         };
 
         pageErrors.unsubscribe();

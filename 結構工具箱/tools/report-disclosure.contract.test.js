@@ -42,6 +42,17 @@ function isSelectorOnly(value) {
   return /^[#.][A-Za-z0-9_-]+$/.test(String(value || '').trim());
 }
 
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertPrintHidesSelectors(text, selectors, label) {
+  selectors.forEach(selector => {
+    const pattern = new RegExp(`@media\\s+print[\\s\\S]*${escapeRegex(selector)}[\\s\\S]*display:\\s*none\\s*!important`);
+    assert(pattern.test(text), `${label} print hides ${selector}`, selector);
+  });
+}
+
 const contractRelativePath = '結構工具箱/tools/report-disclosure.contract.test.js';
 const catalogs = [
   {
@@ -177,13 +188,55 @@ const preflight = readText(repoFile('preflight-tools.ps1'));
   'report-disclosure-contract',
   'node 結構工具箱/tools/report-disclosure.contract.test.js',
   'Cross-family report disclosure contract',
+  'python server_smoke_test.py',
+  'node 石材固定/stone-report.contract.test.js',
+  'node 鋼構工具/steel-formal.regression-test.js',
+  'node 螺栓檢討/anchor-report.contract.test.js',
+  'node 開挖擋土支撐/excavation-report.contract.test.js',
+  'RC column report boundary contract',
+  'test-column.ps1',
+  'RC shear wall report boundary contract',
+  'test-shear-wall-report.ps1',
 ].forEach(needle => assert(preflight.includes(needle), 'platform preflight runs report disclosure contract', needle));
 
 const readme = readText(repoFile('README.md'));
 const boundaries = readText(repoFile('TOOL_BOUNDARIES.md'));
 const staging = readText(repoFile('STAGING_GROUPS.md'));
 const reportGuide = readText(repoFile('TOOL_REPORT_GUIDE.md'));
+const contextDoc = readText(repoFile('CONTEXT.md'));
+const pageOnlyReportReadinessAdr = readText(repoFile('docs/adr/0001-page-only-report-readiness.md'));
 const formalManifest = readJson(repoFile('結構工具箱/tools/formal-tools.manifest.json'));
+const rcSharedStyle = readText(repoFile('鋼筋混凝土/shared/style.css'));
+const rcBeamHtml = readText(repoFile('鋼筋混凝土/tools/beam.html'));
+const rcFoundationHtml = readText(repoFile('鋼筋混凝土/tools/foundation.html'));
+const rcShearWallHtml = readText(repoFile('鋼筋混凝土/tools/shear-wall.html'));
+const rcWallHtml = readText(repoFile('鋼筋混凝土/tools/wall.html'));
+const rcSlabHtml = readText(repoFile('鋼筋混凝土/tools/slab.html'));
+const rcSinglePileHtml = readText(repoFile('鋼筋混凝土/tools/single-pile-designer.html'));
+const rcTestBeamScript = readText(repoFile('鋼筋混凝土/tools/test-beam.ps1'));
+const rcBeamReportVisualTest = readText(repoFile('鋼筋混凝土/tools/beam-report-visual.test.js'));
+const rcTestColumnScript = readText(repoFile('鋼筋混凝土/tools/test-column.ps1'));
+const rcColumnReportVisualTest = readText(repoFile('鋼筋混凝土/tools/column-report-visual.test.js'));
+const rcTestSlabScript = readText(repoFile('鋼筋混凝土/tools/test-slab.ps1'));
+const rcSlabReportVisualTest = readText(repoFile('鋼筋混凝土/tools/slab-report-visual.test.js'));
+const rcTestWallScript = readText(repoFile('鋼筋混凝土/tools/test-wall.ps1'));
+const rcWallReportVisualTest = readText(repoFile('鋼筋混凝土/tools/wall-report-visual.test.js'));
+const rcTestFoundationScript = readText(repoFile('鋼筋混凝土/tools/test-foundation.ps1'));
+const rcFoundationReportVisualTest = readText(repoFile('鋼筋混凝土/tools/foundation-report-visual.test.js'));
+const rcTestShearWallReportScript = readText(repoFile('鋼筋混凝土/tools/test-shear-wall-report.ps1'));
+const rcShearWallReportVisualTest = readText(repoFile('鋼筋混凝土/tools/shear-wall-report-visual.test.js'));
+const rcTestSinglePileScript = readText(repoFile('鋼筋混凝土/tools/test-single-pile.ps1'));
+const rcSinglePileReportVisualTest = readText(repoFile('鋼筋混凝土/tools/single-pile-report-visual.test.js'));
+const stoneServer = readText(repoFile('石材固定/server.py'));
+const stoneServerSmoke = readText(repoFile('石材固定/server_smoke_test.py'));
+const stoneReportContract = readText(repoFile('石材固定/stone-report.contract.test.js'));
+const steelFormalRegressionTest = readText(repoFile('鋼構工具/steel-formal.regression-test.js'));
+const steelFormalStyles = readText(repoFile('鋼構工具/styles.css'));
+const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportExport.test.ts'));
+const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
+const anchorReportWorkbookTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts'));
+const anchorAttachmentReadinessTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts'));
+const excavationReportingTest = readText(repoFile('開挖擋土支撐/backend/tests/test_reporting.py'));
 
 [
   readme,
@@ -197,10 +250,100 @@ const formalManifest = readJson(repoFile('結構工具箱/tools/formal-tools.man
 });
 
 assert(reportGuide.includes('規範判定') && reportGuide.includes('初估 / 簡化') && reportGuide.includes('人工複核'), 'TOOL_REPORT_GUIDE keeps report disclosure vocabulary', '規範判定 / 初估 / 簡化 / 人工複核');
+assert(
+  contextDoc.includes('頁面專用閱讀狀態') && contextDoc.includes('列印與 PDF 匯出時應排除'),
+  'CONTEXT defines page-only report readiness boundary',
+  '頁面專用閱讀狀態',
+);
+assert(
+  pageOnlyReportReadinessAdr.includes('must not be attached to calculation books') && pageOnlyReportReadinessAdr.includes('formal calculation attachments'),
+  'ADR records page-only report readiness decision',
+  'docs/adr/0001-page-only-report-readiness.md',
+);
+assert(
+  reportGuide.includes('頁面專用閱讀狀態') &&
+    reportGuide.includes('CONTEXT.md') &&
+    reportGuide.includes('docs/adr/0001-page-only-report-readiness.md') &&
+    reportGuide.includes('Word / DOCX') &&
+    reportGuide.includes('workbook'),
+  'TOOL_REPORT_GUIDE links page-only readiness glossary, ADR, and delivery boundaries',
+  '頁面專用閱讀狀態 / Word / DOCX / workbook',
+);
 assert(Array.isArray(formalManifest.reportPageOnlyForbiddenNeedles) && formalManifest.reportPageOnlyForbiddenNeedles.length >= 8, 'formal manifest carries page-only report boundary needles', 'reportPageOnlyForbiddenNeedles');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(formalManifest.reportPageOnlyForbiddenNeedles.includes(needle), 'formal manifest page-only report boundary needle', needle);
 }
+assert(stoneServer.includes('PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS'), 'stone export server keeps page-only review key markers', 'PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS');
+assert(stoneServer.includes('def _strip_page_only_review_status'), 'stone export server keeps page-only review status stripper', '_strip_page_only_review_status');
+assert(stoneServerSmoke.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'stone export smoke keeps page-only report needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(stoneServerSmoke.includes('priority_report_reading_status'), 'stone export smoke covers stripped priority report reading status payload', 'priority_report_reading_status');
+assert(stoneServerSmoke.includes('報告閱讀狀態：暫勿作附件'), 'stone export smoke covers reason text cleanup', '報告閱讀狀態：暫勿作附件');
+assert(stoneServerSmoke.includes("self.assertNotIn('priority_report_reading_status', report['review'])"), 'stone export smoke asserts stripped page-only review key', 'priority_report_reading_status');
+assert(stoneServerSmoke.includes('for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:'), 'stone export smoke asserts report output excludes page-only wording', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(stoneReportContract.includes('server_smoke_test.ServerSmokeTests.test_export_audit_records_summary_and_trace'), 'stone report contract covers export audit summary path', 'test_export_audit_records_summary_and_trace');
+assert(stoneReportContract.includes('server_smoke_test.ServerSmokeTests.test_export_audit_strips_page_only_report_reading_status'), 'stone report contract covers stripped page-only review status path', 'test_export_audit_strips_page_only_report_reading_status');
+assert(stoneReportContract.includes('Stone report contract checks passed.'), 'stone report contract reports success clearly', 'Stone report contract checks passed.');
+assert(steelFormalRegressionTest.includes('pageOnlyReportStatusNeedles'), 'steel formal regression keeps page-only needle list', 'pageOnlyReportStatusNeedles');
+assert(steelFormalRegressionTest.includes('openFormalReportPopup'), 'steel formal regression covers formal report popup export path', 'openFormalReportPopup');
+assert(steelFormalRegressionTest.includes('優先建議報告閱讀狀態'), 'steel formal regression covers page-only readiness wording in popup assertions', '優先建議報告閱讀狀態');
+assert(steelFormalRegressionTest.includes('不會寫入計算書或列印 PDF'), 'steel formal regression covers print/PDF boundary wording', '不會寫入計算書或列印 PDF');
+assert(steelFormalRegressionTest.includes('FORMAL_PROJECT_META_PLACEHOLDER'), 'steel formal regression covers placeholder metadata export boundary fixtures', 'FORMAL_PROJECT_META_PLACEHOLDER');
+assert(steelFormalRegressionTest.includes('assertFormalProjectMetaPlaceholderRendered'), 'steel formal regression covers placeholder project metadata rendering checks', 'assertFormalProjectMetaPlaceholderRendered');
+assertPrintHidesSelectors(steelFormalStyles, ['.page-only-report-status'], 'steel formal shared styles');
+assert(anchorReportExportTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'anchor report HTML smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(anchorReportExportTest.includes('expectNoPageOnlyReportStatus(html)'), 'anchor report HTML smoke asserts standalone HTML excludes page-only wording', 'expectNoPageOnlyReportStatus(html)');
+assert(anchorReportDocxTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'anchor DOCX smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(anchorReportDocxTest.includes('for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES)'), 'anchor DOCX smoke asserts DOCX excludes page-only wording', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(anchorReportWorkbookTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'anchor workbook smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(anchorReportWorkbookTest.includes('for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES)'), 'anchor workbook smoke asserts XLSX excludes page-only wording', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(anchorAttachmentReadinessTest.includes("expect(model.notes.join('\\n')).toContain('不會寫入計算書或列印 PDF')"), 'anchor attachment readiness smoke keeps page-only boundary note', '不會寫入計算書或列印 PDF');
+assert(excavationReportingTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'excavation reporting smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(excavationReportingTest.includes('test_word_report_excludes_page_only_status_overview'), 'excavation reporting smoke covers DOCX export boundary', 'test_word_report_excludes_page_only_status_overview');
+assert(excavationReportingTest.includes('test_pdf_report_excludes_page_only_status_overview'), 'excavation reporting smoke covers PDF export boundary', 'test_pdf_report_excludes_page_only_status_overview');
+assert(excavationReportingTest.includes('self.assertNotIn(needle, combined_text)'), 'excavation reporting smoke asserts DOCX excludes page-only wording', 'self.assertNotIn(needle, combined_text)');
+assert(excavationReportingTest.includes('self.assertNotIn(needle, text)'), 'excavation reporting smoke asserts PDF excludes page-only wording', 'self.assertNotIn(needle, text)');
+assert(rcTestBeamScript.includes('beam-report-visual.test.js'), 'RC beam wrapper runs report visual smoke', 'beam-report-visual.test.js');
+assert(rcTestBeamScript.includes('Beam report visual smoke'), 'RC beam wrapper labels report visual smoke clearly', 'Beam report visual smoke');
+assert(rcBeamReportVisualTest.includes('page attachment readiness boundary'), 'RC beam report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
+assert(rcBeamReportVisualTest.includes('report excludes page-only attachment readiness'), 'RC beam report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only attachment readiness');
+assert(rcBeamReportVisualTest.includes('beamAttachmentReadinessCard'), 'RC beam report visual smoke targets attachment readiness outlet', 'beamAttachmentReadinessCard');
+assert(rcBeamReportVisualTest.includes('beam-report-visual-audit.json'), 'RC beam report visual smoke writes audit evidence', 'beam-report-visual-audit.json');
+assert(rcTestColumnScript.includes('column-report-visual.test.js'), 'RC column wrapper runs report visual smoke', 'column-report-visual.test.js');
+assert(rcTestColumnScript.includes('Column report visual smoke'), 'RC column wrapper labels report visual smoke clearly', 'Column report visual smoke');
+assert(rcColumnReportVisualTest.includes('page attachment readiness boundary'), 'RC column report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
+assert(rcColumnReportVisualTest.includes('report excludes page-only attachment readiness'), 'RC column report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only attachment readiness');
+assert(rcColumnReportVisualTest.includes('columnAttachmentReadiness'), 'RC column report visual smoke targets attachment readiness outlet', 'columnAttachmentReadiness');
+assert(rcColumnReportVisualTest.includes('column-report-visual-audit.json'), 'RC column report visual smoke writes audit evidence', 'column-report-visual-audit.json');
+assert(rcTestSlabScript.includes('slab-report-visual.test.js'), 'RC slab wrapper runs report visual smoke', 'slab-report-visual.test.js');
+assert(rcTestSlabScript.includes('Slab report visual smoke'), 'RC slab wrapper labels report visual smoke clearly', 'Slab report visual smoke');
+assert(rcSlabReportVisualTest.includes('page attachment readiness boundary'), 'RC slab report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
+assert(rcSlabReportVisualTest.includes('report excludes page-only review prompt'), 'RC slab report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only review prompt');
+assert(rcSlabReportVisualTest.includes('slabAttachmentReadinessCard'), 'RC slab report visual smoke targets attachment readiness outlet', 'slabAttachmentReadinessCard');
+assert(rcSlabReportVisualTest.includes('slab-report-visual-audit.json'), 'RC slab report visual smoke writes audit evidence', 'slab-report-visual-audit.json');
+assert(rcTestWallScript.includes('wall-report-visual.test.js'), 'RC wall wrapper runs report visual smoke', 'wall-report-visual.test.js');
+assert(rcTestWallScript.includes('Wall report visual smoke'), 'RC wall wrapper labels report visual smoke clearly', 'Wall report visual smoke');
+assert(rcWallReportVisualTest.includes('page attachment readiness boundary'), 'RC wall report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
+assert(rcWallReportVisualTest.includes('report excludes page-only status'), 'RC wall report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
+assert(rcWallReportVisualTest.includes('wallAttachmentReadinessCard'), 'RC wall report visual smoke targets attachment readiness outlet', 'wallAttachmentReadinessCard');
+assert(rcWallReportVisualTest.includes('wall-report-visual-audit.json'), 'RC wall report visual smoke writes audit evidence', 'wall-report-visual-audit.json');
+assert(rcTestFoundationScript.includes('foundation-report-visual.test.js'), 'RC foundation wrapper runs report visual smoke', 'foundation-report-visual.test.js');
+assert(rcTestFoundationScript.includes('Foundation report visual smoke'), 'RC foundation wrapper labels report visual smoke clearly', 'Foundation report visual smoke');
+assert(rcFoundationReportVisualTest.includes('page attachment readiness boundary'), 'RC foundation report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
+assert(rcFoundationReportVisualTest.includes('report excludes page-only status'), 'RC foundation report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
+assert(rcFoundationReportVisualTest.includes('foundationAttachmentReadinessCard'), 'RC foundation report visual smoke targets attachment readiness outlet', 'foundationAttachmentReadinessCard');
+assert(rcFoundationReportVisualTest.includes('foundation-report-visual-audit.json'), 'RC foundation report visual smoke writes audit evidence', 'foundation-report-visual-audit.json');
+assert(rcTestShearWallReportScript.includes('shear-wall-report-visual.test.js'), 'RC shear wall wrapper runs report visual smoke', 'shear-wall-report-visual.test.js');
+assert(rcTestShearWallReportScript.includes('Shear wall report visual smoke'), 'RC shear wall wrapper labels report visual smoke clearly', 'Shear wall report visual smoke');
+assert(rcShearWallReportVisualTest.includes('page attachment readiness boundary'), 'RC shear wall report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
+assert(rcShearWallReportVisualTest.includes('report excludes page-only status'), 'RC shear wall report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
+assert(rcShearWallReportVisualTest.includes('shearWallAttachmentReadinessCard'), 'RC shear wall report visual smoke targets attachment readiness outlet', 'shearWallAttachmentReadinessCard');
+assert(rcShearWallReportVisualTest.includes('shear-wall-report-visual-audit.json'), 'RC shear wall report visual smoke writes audit evidence', 'shear-wall-report-visual-audit.json');
+assert(rcTestSinglePileScript.includes('single-pile-report-visual.test.js'), 'RC single pile wrapper runs report visual smoke', 'single-pile-report-visual.test.js');
+assert(rcTestSinglePileScript.includes('Single pile report visual smoke'), 'RC single pile wrapper labels report visual smoke clearly', 'Single pile report visual smoke');
+assert(rcSinglePileReportVisualTest.includes('page attachment readiness boundary'), 'RC single pile report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
+assert(rcSinglePileReportVisualTest.includes('report excludes page-only status'), 'RC single pile report visual smoke asserts exported report excludes page-only wording', 'report excludes page-only status');
+assert(rcSinglePileReportVisualTest.includes('singlePileAttachmentReadinessCard'), 'RC single pile report visual smoke targets attachment readiness outlet', 'singlePileAttachmentReadinessCard');
+assert(rcSinglePileReportVisualTest.includes('single-pile-report-visual-audit.json'), 'RC single pile report visual smoke writes audit evidence', 'single-pile-report-visual-audit.json');
 
 for (const relativePath of formalReportRendererFiles) {
   const source = readText(repoFile(relativePath));
@@ -208,6 +351,40 @@ for (const relativePath of formalReportRendererFiles) {
     assert(!source.includes(needle), `${relativePath} excludes page-only report status wording`, needle);
   }
 }
+
+assertPrintHidesSelectors(
+  rcSharedStyle,
+  ['.report-readiness-card', '.advanced-tools', '.page-only-case-tools', '.mode-bar', '.mode-bar__report', '.mode-bar__action', '.mode-bar__project-status'],
+  'RC shared page-only controls'
+);
+[
+  ['RC beam case helper group', rcBeamHtml],
+  ['RC foundation site preset workflow group', rcFoundationHtml],
+  ['RC shear wall case helper card', rcShearWallHtml],
+  ['RC wall case helper card', rcWallHtml],
+  ['RC slab case helper group', rcSlabHtml],
+].forEach(([label, html]) => {
+  assert(html.includes('page-only-case-tools'), `${label} stays page-only`, 'page-only-case-tools');
+});
+[
+  ['RC shear wall advanced tools page-only card', rcShearWallHtml],
+  ['RC wall advanced tools page-only card', rcWallHtml],
+  ['RC slab advanced tools page-only card', rcSlabHtml],
+].forEach(([label, html]) => {
+  assert(html.includes('advanced-tools'), `${label} class exists`, 'advanced-tools');
+  assert(html.includes('advancedCaseCard'), `${label} card exists`, 'advancedCaseCard');
+});
+assertPrintHidesSelectors(
+  rcShearWallHtml,
+  ['.load-case-actions', '.design-sugg-actions'],
+  'RC shear wall page-only control groups'
+);
+assertPrintHidesSelectors(
+  rcSinglePileHtml,
+  ['.report-readiness-card', '.page-only-case-tools'],
+  'RC single pile page-only controls'
+);
+assert(rcSinglePileHtml.includes('page-only-case-tools'), 'RC single pile preset workflow card stays page-only', 'page-only-case-tools');
 
 if (failed) {
   console.error(`\n${failed} report disclosure contract checks failed.`);

@@ -4,6 +4,8 @@
   const f1 = (value) => Number(value || 0).toFixed(1);
   const f0 = (value) => Math.round(Number(value || 0)).toLocaleString();
   const num = (id) => parseFloat($(id)?.value) || 0;
+  const SteelFormalUI = window.SteelFormalUI;
+  if (!SteelFormalUI) throw new Error("SteelFormalUI is not loaded.");
   const UI_PREFS_KEY = "steel-beam-formal-ui-v3";
   const TF_TO_KN = 9.80665;
   const KGFCM2_TO_MPA = 0.0980665;
@@ -24,6 +26,7 @@
     if (field.tagName === "SELECT") return field.value !== "";
     return String(field.value ?? "").trim() !== "";
   };
+  const getProjectMetaValue = (id) => SteelFormalUI.normalizeProjectFieldValue($(id)?.value);
 
   function formatInputValue(value, digits = 2) {
     if (!Number.isFinite(Number(value))) return "";
@@ -111,6 +114,7 @@
   let currentReportPreset = "focus";
   let currentPanel = "report";
   let resultState = null;
+  let lastBeamReportValidationMessage = "";
 
   const glossaryItems = [
     ["Fy", "鋼材降伏強度", "kgf/cm²", "鋼材規定最小降伏強度。", "撓曲與剪力強度計算。", "第七章撓曲構材一般規定"],
@@ -566,8 +570,88 @@
   }
 
   function inputFail(message) {
+    setBeamReportValidationMessage(message);
     setInputStatus(message);
     return null;
+  }
+
+  function isProjectMetaMissing() {
+    return SteelFormalUI.hasBlankFieldValues(["projName", "projNo", "projDesigner"], $);
+  }
+
+  function setBeamReportValidationMessage(message = "") {
+    lastBeamReportValidationMessage = message || "";
+    renderBeamReportReadiness(lastBeamReportValidationMessage);
+  }
+
+  function buildBeamReportReadinessModel(validationMessage = lastBeamReportValidationMessage) {
+    if (validationMessage) {
+      return {
+        level: "blocked",
+        badge: "暫勿作附件",
+        title: "輸入尚未通過檢查，先不要產生計算書。",
+        items: [
+          { label: "輸入檢核", value: validationMessage },
+          { label: "報表內容", value: getReportContentSummaryText() },
+          { label: "輸出邊界", value: "頁面顯示，不進計算書、列印或 PDF" },
+        ],
+      };
+    }
+    if (!resultState) {
+      return {
+        level: "blocked",
+        badge: "暫勿作附件",
+        title: "尚未完成檢核，先不要產生計算書。",
+        items: [
+          { label: "檢核狀態", value: "尚未建立鋼梁正式檢核結果" },
+          { label: "報表內容", value: getReportContentSummaryText() },
+          { label: "輸出邊界", value: "頁面顯示，不進計算書、列印或 PDF" },
+        ],
+      };
+    }
+
+    const reviewItems = [];
+    const issue = getBeamPrimaryIssue(resultState);
+    const critical = getBeamCriticalDemandSummary(resultState);
+    if (isProjectMetaMissing()) reviewItems.push("計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。");
+    if (!isOverallOk(resultState)) reviewItems.push(`${issue.value}：${issue.note}`);
+    const items = reviewItems.slice(0, 2).map((message, index) => ({
+      label: `優先處理 ${index + 1}`,
+      value: message,
+    }));
+    items.push(
+      { label: "控制條文", value: getBeamClauseDisplay(resultState.flex.webSection) },
+      { label: "控制模式", value: getBeamGoverningDisplay(resultState.flex.governing) },
+      { label: "主控摘要", value: critical.value },
+      { label: "報表內容", value: getReportContentSummaryText() },
+      { label: "輸出邊界", value: "頁面顯示，不進計算書、列印或 PDF" },
+    );
+    return {
+      level: reviewItems.length ? "review" : "ready",
+      badge: reviewItems.length ? "優先複核" : "可作附件",
+      title: reviewItems.length ? "檢核已完成，但產報前建議優先閱讀下列項目。" : "檢核已完成，可產生計算書附件。",
+      items,
+    };
+  }
+
+  function renderBeamReportReadiness(validationMessage = lastBeamReportValidationMessage) {
+    const el = $("beamReportReadiness");
+    if (!el) return;
+    const model = buildBeamReportReadinessModel(validationMessage);
+    SteelFormalUI.renderStatusGridPanel({
+      target: el,
+      level: model.level,
+      eyebrow: "頁面輔助｜產報前檢查｜優先閱讀",
+      title: model.title,
+      badge: model.badge,
+      items: model.items,
+      note: "此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認構件方向、未支撐長度、載重組合、使用性需求與送審圖說一致性。",
+    });
+  }
+
+  function syncBeamProjectMetaUi() {
+    renderBeamReportReadiness();
+    if (resultState) renderMeta(resultState);
   }
 
   function pairRow(label, value) {
@@ -1229,9 +1313,9 @@
   }
 
   function renderMeta(result) {
-    $("beamMetaProjectName").textContent = $("projName").value.trim() || "—";
-    $("beamMetaProjectNo").textContent = $("projNo").value.trim() || "—";
-    $("beamMetaDesigner").textContent = $("projDesigner").value.trim() || "—";
+    $("beamMetaProjectName").textContent = getProjectMetaValue("projName") || "—";
+    $("beamMetaProjectNo").textContent = getProjectMetaValue("projNo") || "—";
+    $("beamMetaDesigner").textContent = getProjectMetaValue("projDesigner") || "—";
     $("beamReportTimestamp").textContent = new Intl.DateTimeFormat("zh-TW", {
       year: "numeric",
       month: "2-digit",
@@ -1492,6 +1576,7 @@
     renderCardStatuses(result);
     applyReportAccordionPreset(result, currentReportPreset);
     requestReportJumpSync();
+    renderBeamReportReadiness();
   }
 
   function renderFlow(result) {
@@ -1506,6 +1591,7 @@
   function runCheck() {
     renderFillStatus();
     clearInputStatus();
+    setBeamReportValidationMessage("");
     const sectionType = getSectionType();
     const Fy = getLegacyInputValue("inFy", "stress");
     const L = getLegacyInputValue("inL", "memberLength");
@@ -1664,9 +1750,10 @@
     $("summaryCard").style.display = "";
 
     const result = { sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear };
+    resultState = result;
+    setBeamReportValidationMessage("");
     renderSummary(result);
     renderFlow(result);
-    resultState = result;
     return result;
   }
 
@@ -1681,7 +1768,7 @@
     openReport({
       title: "鋼梁正式規範核算計算書",
       subtitle: `Steel Beam Formal Report (${designMethod}｜${getCurrentInputModeLabel()})`,
-      project: { name: $("projName").value.trim(), no: $("projNo").value.trim(), designer: $("projDesigner").value.trim() },
+      project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
       highlights: getUnitReportHighlights(),
       summaryFacts: getBeamReportSummaryFacts(result),
       inputs: [
@@ -1785,6 +1872,10 @@
         persistUiPrefs();
         if (resultState) renderSummary(resultState);
       });
+    });
+    ["projName", "projNo", "projDesigner"].forEach((id) => {
+      $(id).addEventListener("input", syncBeamProjectMetaUi);
+      $(id).addEventListener("change", syncBeamProjectMetaUi);
     });
     document.querySelectorAll("input, select").forEach((input) => {
       if (!["projName", "projNo", "projDesigner"].includes(input.id) && !input.dataset.filterInput) {

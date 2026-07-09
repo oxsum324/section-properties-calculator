@@ -81,10 +81,10 @@ assert(!releaseWrapper.includes('-Quick'), 'release wrapper does not run quick m
   '.run-tick.release',
   'function isReleasePreflightRun',
   'item.forcePlatformAudit === true && item.forceSlowChecks === true',
-  "return 'Release'",
+  "return '正式放行'",
   "releaseRun ? 'release'",
   "releaseRun ? 'R'",
-  '強制慢測與平台 audit',
+  '已強制平台巡檢與慢測，可作為正式放行證據。',
 ].forEach(needle => assertIncludes(dashboard, needle, `dashboard exposes release readiness ${needle}`));
 
 [
@@ -102,7 +102,7 @@ assert(!releaseWrapper.includes('-Quick'), 'release wrapper does not run quick m
   'release-readiness-contract',
   '正式放行證據',
   'fixture-release',
-  'Release',
+  '正式放行',
   'R',
 ].forEach(needle => assertIncludes(dashboardBrowserSmoke, needle, `dashboard browser smoke preserves release readiness ${needle}`));
 

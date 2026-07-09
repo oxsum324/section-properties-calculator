@@ -101,8 +101,11 @@ function main() {
   assert(html.includes('function updateShearWallAttachmentReadiness'), '剪力牆頁面列出附件 readiness', 'page-only readiness helper present');
   assert(html.includes('id="shearWallAttachmentReadiness"'), '剪力牆具附件 readiness 目標', 'readiness target present');
   assert(html.includes('RCUI.renderAttachmentReadiness'), '剪力牆使用共用 readiness renderer', 'shared readiness helper present');
+  assert(html.includes('window.RCUI.normalizeProjectFieldValue'), '剪力牆使用共用專案欄位正規化 helper', 'shared project normalizer present');
   const buildReportSrc = html.slice(html.indexOf('function buildReport'), html.indexOf('function svgToDataURL'));
   assert(buildReportSrc.includes('summary:false'), '剪力牆計算書關閉頂部狀態 summary', 'report summary false');
+  assert(html.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), '剪力牆專案 payload 會清除 placeholder 案名', 'project storage metadata normalized');
+  assert(!buildReportSrc.includes("$('projName').value.trim()"), '剪力牆計算書不直接輸出 placeholder 專案欄位', 'report project header normalized');
   assert(!buildReportSrc.includes('RCUI.buildReviewCheckGroup'), '剪力牆計算書不輸出待確認總覽群組', 'review overview stays page-only');
   assert(!buildReportSrc.includes('不列為 OK 結論'), '剪力牆計算書排除總覽判定文案', 'no page-only verdict wording in report');
   assert(html.includes('const SHEAR_WALL_PROJECT_SCHEMA = \'rc-shear-wall-project-v1\''), '剪力牆專案存檔 schema 存在', 'rc-shear-wall-project-v1');

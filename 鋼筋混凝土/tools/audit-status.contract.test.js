@@ -168,6 +168,7 @@ const requiredQaArtifacts = [
   'tools/beam-regression.test.js',
   'tools/beam-regression-cases.json',
   'tools/beam-report-visual.test.js',
+  'tools/beam-report-visual.contract.test.js',
   'tools/test-beam.ps1',
   'tools/ensure-playwright-deps.ps1',
   'tools/column-regression.test.js',
@@ -178,20 +179,25 @@ const requiredQaArtifacts = [
   'tools/slab-regression.test.js',
   'tools/slab-regression-cases.json',
   'tools/slab-report-visual.test.js',
+  'tools/slab-report-visual.contract.test.js',
   'tools/test-slab.ps1',
   'tools/wall-report-visual.test.js',
+  'tools/wall-report-visual.contract.test.js',
   'tools/test-wall.ps1',
   'tools/rc-traceability.catalog.json',
   'tools/shear-wall-regression.test.js',
   'tools/shear-wall-report-visual.test.js',
+  'tools/shear-wall-report-visual.contract.test.js',
   'tools/test-shear-wall.ps1',
   'tools/test-shear-wall-report.ps1',
   'tools/foundation-regression.test.js',
   'tools/foundation-regression-cases.json',
   'tools/foundation-report-visual.test.js',
+  'tools/foundation-report-visual.contract.test.js',
   'tools/test-foundation.ps1',
   'tools/single-pile-regression.test.js',
   'tools/single-pile-report-visual.test.js',
+  'tools/single-pile-report-visual.contract.test.js',
   'tools/test-single-pile.ps1',
   'shared/common.test.js',
   'shared/loadcases.test.js',
@@ -277,7 +283,13 @@ for (const rel of localDependencyDirs) {
 assertIncludes(audit, 'Shear wall suite', 'audit runs shear wall suite');
 assertIncludes(audit, 'Shared common helper unit tests', 'audit runs shared common helper unit tests');
 assertIncludes(audit, 'RC traceability catalog contract', 'audit runs RC traceability catalog contract');
+assertIncludes(audit, 'Beam report visual smoke contract', 'audit runs beam report visual smoke contract');
+assertIncludes(audit, 'Slab report visual smoke contract', 'audit runs slab report visual smoke contract');
+assertIncludes(audit, 'Wall report visual smoke contract', 'audit runs wall report visual smoke contract');
+assertIncludes(audit, 'Shear wall report visual smoke contract', 'audit runs shear wall report visual smoke contract');
 assertIncludes(audit, 'Shear wall report visual smoke', 'audit runs shear wall report visual smoke');
+assertIncludes(audit, 'Foundation report visual smoke contract', 'audit runs foundation report visual smoke contract');
+assertIncludes(audit, 'Single pile report visual smoke contract', 'audit runs single pile report visual smoke contract');
 assertIncludes(audit, 'Beam regression and report visual smoke', 'audit runs beam regression and report visual smoke');
 assertIncludes(audit, 'Foundation regression and report visual smoke', 'audit runs foundation regression and report visual smoke');
 assertIncludes(audit, 'Column regression and report visual smoke', 'audit runs column regression and report visual smoke');
@@ -324,11 +336,17 @@ assertIncludes(readme, '單樁回歸測試與報告視覺 smoke', 'README docume
   'node .\\shared\\common.test.js',
 ].forEach(command => assertIncludes(readme, command, `README documents direct command ${command}`));
 assertIncludes(readme, '剪力牆報告視覺 smoke', 'README documents shear wall report visual smoke');
+assertIncludes(readme, '剪力牆報告視覺 smoke contract', 'README documents shear wall report visual smoke contract');
 assertIncludes(readme, '梁報告視覺 smoke', 'README documents beam report visual smoke');
+assertIncludes(readme, '梁報告視覺 smoke contract', 'README documents beam report visual smoke contract');
 assertIncludes(readme, '柱報告視覺 smoke', 'README documents column report visual smoke');
+assertIncludes(readme, '板報告視覺 smoke contract', 'README documents slab report visual smoke contract');
 assertIncludes(readme, '板報告視覺 smoke', 'README documents slab report visual smoke');
+assertIncludes(readme, '牆報告視覺 smoke contract', 'README documents wall report visual smoke contract');
 assertIncludes(readme, '牆報告視覺 smoke', 'README documents wall report visual smoke');
+assertIncludes(readme, '基礎報告視覺 smoke contract', 'README documents foundation report visual smoke contract');
 assertIncludes(readme, '基礎報告視覺 smoke', 'README documents foundation report visual smoke');
+assertIncludes(readme, '單樁報告視覺 smoke contract', 'README documents single pile report visual smoke contract');
 assertIncludes(readme, '單樁報告視覺 smoke', 'README documents single pile report visual smoke');
 assertIncludes(readme, '人工複核 / 補充資料需求', 'README documents single pile manual-review report boundary');
 assertIncludes(readme, '首頁入口瀏覽器 smoke', 'README documents index menu browser smoke');

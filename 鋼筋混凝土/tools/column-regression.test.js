@@ -122,6 +122,25 @@ async function exerciseProjectStorage(page) {
   assert(saved.fields.seismicMode.checked === true, 'column project stores checkbox state', saved.fields.seismicMode.checked);
   assert(saved.fields.columnProjectFile == null, 'column project excludes file input', 'file input excluded');
 
+  const placeholderSaved = await page.evaluate(() => {
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setValue('projName', '未填');
+    setValue('projNo', 'RC-COL-PLACEHOLDER');
+    setValue('projDesigner', '未填');
+    return window.collectColumnProjectData();
+  });
+  assert(placeholderSaved.metadata.projectName === '', 'column placeholder project name is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.projectNo === 'RC-COL-PLACEHOLDER', 'column placeholder project number remains editable metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.designer === '', 'column placeholder designer is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.fields.projName.value === '', 'column placeholder project name is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projName));
+  assert(placeholderSaved.fields.projDesigner.value === '', 'column placeholder designer is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projDesigner));
+
   const restored = await page.evaluate(payload => {
     const setValue = (id, value) => {
       const el = document.getElementById(id);
@@ -227,6 +246,9 @@ async function main() {
   assert(html.includes('btnSaveProject'), 'column.html has save project button', 'local JSON export control exists');
   assert(html.includes('btnLoadProject'), 'column.html has load project button', 'local JSON import control exists');
   assert(html.includes('rc.column.project.draft'), 'column.html has browser draft storage key', 'browser-local draft storage exists');
+  assert(common.includes('window.RCUI.normalizeProjectFieldValue'), 'shared/common.js exposes project metadata normalizer', 'placeholder project text can be scrubbed once');
+  assert(html.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), 'column project payload normalizes placeholder project name', 'project storage metadata uses shared normalizer');
+  assert(!html.includes("$('projName').value.trim()"), 'column report/project metadata no longer uses raw trim on project name', 'shared normalizer handles placeholder cleanup');
   assert(common.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');
   assert(!html.includes('RCUI.buildReviewCheckGroup'), 'column report omits manual-review summary group', 'manual-review details remain in technical rows');
 

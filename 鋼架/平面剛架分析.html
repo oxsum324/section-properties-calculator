@@ -115,7 +115,8 @@
     .main-layout { grid-template-columns: 1fr; }
   }
   @media print {
-    .page-only-report-status { display: none !important; }
+    .page-only-report-status,
+    .page-only-tool-actions { display: none !important; }
   }
 </style>
 </head>
@@ -146,7 +147,7 @@
           </div>
         </div>
         <div class="hint">鋼材 E ≈ 2040 tf/cm² (200 GPa)。範例斷面：H350×175×7×11。</div>
-        <div class="flex-row" style="margin-top:8px;">
+        <div class="flex-row page-only-tool-actions" style="margin-top:8px;">
           <button class="btn btn-ghost btn-sm" onclick="loadExample('portal')">門型剛架</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('portalHinge')">門型剛架(梁端鉸接)</button>
           <button class="btn btn-ghost btn-sm" onclick="loadExample('springPortal')">彈性支承</button>
@@ -163,7 +164,7 @@
             <input type="number" id="density" value="7.85" step="0.05" style="width:60px;">
           </span>
         </div>
-        <div class="flex-row" style="margin-top:8px;">
+        <div class="flex-row page-only-tool-actions" style="margin-top:8px;">
           <button class="btn btn-accent btn-sm" onclick="exportJSON()">存檔 JSON</button>
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('jsonFile').click()">讀取 JSON</button>
           <input type="file" id="jsonFile" accept=".json,application/json" style="display:none" onchange="importJSONFile(this)">

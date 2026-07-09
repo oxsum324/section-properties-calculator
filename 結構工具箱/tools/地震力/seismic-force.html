@@ -101,7 +101,7 @@
 
   @media print {
     .card { break-inside: avoid; page-break-inside: avoid; }
-    .page-only-report-status { display:none !important; }
+    .page-only-report-status, .case-actions, .case-status { display:none !important; }
     table.cmp, table.story { font-size:0.76em; }
     table.cmp th, table.cmp td,
     table.story th, table.story td { padding:4px 5px; }
@@ -719,9 +719,9 @@ function setStorageJson(key, value) {
 function restoreProjectInfo() {
   const saved = getStorageJson(PROJECT_INFO_STORAGE_KEY);
   if (!saved) return;
-  if (saved.name != null) document.getElementById('projName').value = saved.name;
-  if (saved.no != null) document.getElementById('projNo').value = saved.no;
-  if (saved.designer != null) document.getElementById('projDesigner').value = saved.designer;
+  if (saved.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.name);
+  if (saved.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.no);
+  if (saved.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(saved.designer);
 }
 
 function saveProjectInfo() {
@@ -732,9 +732,9 @@ function getStaticProjectMeta() {
   const zoneCity = document.getElementById('zoneCity')?.value || '';
   const zoneDist = document.getElementById('zoneDist')?.value || '';
   return {
-    name: document.getElementById('projName')?.value?.trim() || '',
-    no: document.getElementById('projNo')?.value?.trim() || '',
-    designer: document.getElementById('projDesigner')?.value?.trim() || '',
+    name: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projName')?.value),
+    no: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projNo')?.value),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projDesigner')?.value),
     zone: [zoneCity, zoneDist].filter(Boolean).join(' '),
     siteClass: document.getElementById('siteClass')?.value || '',
     source: 'static'
@@ -906,9 +906,9 @@ function readCaseInputs() {
   });
   return {
     project: {
-      name: document.getElementById('projName').value,
-      no: document.getElementById('projNo').value,
-      designer: document.getElementById('projDesigner').value
+      name: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projName').value),
+      no: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projNo').value),
+      designer: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projDesigner').value)
     },
     values,
     floors: floorData.map(f => ({ label: f.label, dH: f.dH, W: f.W, disp: Number.isFinite(Number(f.disp)) ? Number(f.disp) : null }))
@@ -955,9 +955,9 @@ function applyCaseInputs(payload) {
   const project = payload?.project || inputBlock.project || {};
   const values = { ...(inputBlock.values || {}), ...(payload?.values || {}) };
   const importedFloors = payload?.floors || inputBlock.floors;
-  if (project.name != null) document.getElementById('projName').value = project.name;
-  if (project.no != null) document.getElementById('projNo').value = project.no;
-  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  if (project.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(project.name);
+  if (project.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(project.no);
+  if (project.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(project.designer);
   CASE_VALUE_IDS.forEach(id => {
     if (CASE_ZONE_VALUE_IDS.includes(id)) return;
     if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
@@ -1634,9 +1634,9 @@ function setAssistVisibility(show) {
 function getProjectInfo() {
   const v = id => (document.getElementById(id)?.value || '').trim();
   return {
-    name: v('projName'),
-    no: v('projNo'),
-    designer: v('projDesigner')
+    name: window.ToolReportUI.normalizeProjectFieldValue(v('projName')),
+    no: window.ToolReportUI.normalizeProjectFieldValue(v('projNo')),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(v('projDesigner'))
   };
 }
 
@@ -1776,7 +1776,7 @@ function buildSeismicReportReadinessModel(validationMessage = '') {
       items: [
         ['分析狀態', '未完成'],
         ['報告模式', getPresetLabel(snapshotReportOptions())],
-        ['輸出邊界', '頁面顯示，不進報告']
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
       ]
     };
   }
@@ -1789,7 +1789,7 @@ function buildSeismicReportReadinessModel(validationMessage = '') {
       items: [
         ['分析狀態', '待計算'],
         ['報告模式', getPresetLabel(snapshotReportOptions())],
-        ['輸出邊界', '頁面顯示，不進報告']
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
       ]
     };
   }
@@ -1802,7 +1802,7 @@ function buildSeismicReportReadinessModel(validationMessage = '') {
       items: [
         ['分析狀態', '需重算'],
         ['報告模式', getPresetLabel(snapshotReportOptions())],
-        ['輸出邊界', '頁面顯示，不進報告']
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
       ]
     };
   }
@@ -1810,12 +1810,11 @@ function buildSeismicReportReadinessModel(validationMessage = '') {
   const snapshot = snapshotReportOptions();
   const x = result.x;
   const y = result.y;
-  const project = getProjectInfo();
   const hn = parseFloat(document.getElementById('hn')?.value);
   const storyCount = Math.max(floorData.length, Math.round(parseFloat(document.getElementById('N')?.value) || floorData.length || 0));
   const isTB = document.getElementById('chkTaipei')?.checked;
   const reviewItems = [];
-  if (!project.name || !project.no || !project.designer) reviewItems.push('計算書表頭尚未填齊計畫名稱、編號或設計人。');
+  if (window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])) reviewItems.push('計算書表頭尚未填齊計畫名稱、編號或設計人。');
   const applicabilityNotes = buildApplicabilityNotes(hn, storyCount, isTB, window._basinSelection);
   reviewItems.push(...applicabilityNotes);
   if (getNearFaultOverride()) reviewItems.push('已採近斷層控制譜值，請確認斷層距離與譜值來源。');
@@ -1842,7 +1841,7 @@ function buildSeismicReportReadinessModel(validationMessage = '') {
       ['報告模式', getPresetLabel(snapshot)],
       ['輸出項目', `${enabledLabels.length} 項`],
       ['樓層 / 總重', `${floorData.length} 層 / ${fmt(x.W, 0)} tf`],
-      ['輸出邊界', '頁面顯示，不進報告']
+      ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
     ]
   };
 }
@@ -1851,20 +1850,17 @@ function renderSeismicReportReadiness(validationMessage = '') {
   const el = document.getElementById('seismicReportReadiness');
   if (!el) return;
   const model = buildSeismicReportReadinessModel(validationMessage);
-  el.className = `report-readiness ${model.tone}`;
-  el.innerHTML = `
-    <div class="report-readiness-head">
-      <div>
-        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
-        <p class="report-readiness-title">${escSeis(model.title)}</p>
-      </div>
-      <span class="report-readiness-badge">${escSeis(model.badge)}</span>
-    </div>
-    <ul>${model.priority.map(item => `<li>${escSeis(item)}</li>`).join('')}</ul>
-    <div class="report-readiness-grid">
-      ${model.items.map(([label, value]) => `<div class="report-readiness-item"><span>${escSeis(label)}</span><strong>${escSeis(value)}</strong></div>`).join('')}
-    </div>
-    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認規範適用條件、工址譜值來源、分析模型與送審圖說一致性。</div>`;
+  window.ToolReportUI.renderStatusGridPanel({
+    target: el,
+    containerClassName: 'card page-only-report-status report-readiness',
+    level: model.tone,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    priorityItems: model.priority,
+    items: model.items,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認規範適用條件、工址譜值來源、分析模型與送審圖說一致性。'
+  });
 }
 
 function markSeismicReportInputsChanged() {

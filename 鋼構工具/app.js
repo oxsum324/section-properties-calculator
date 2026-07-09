@@ -967,6 +967,15 @@
     return true;
   }
 
+  function normalizeProjectMetaValue(value) {
+    const normalized = String(value ?? "").trim();
+    return normalized === "未填" ? "" : normalized;
+  }
+
+  function getProjectMetaDisplayValue(value) {
+    return normalizeProjectMetaValue(value) || "—";
+  }
+
   function collectFormState() {
     return getAssociatedFields().reduce((state, field) => {
       if (!shouldSerializeField(field)) return state;
@@ -2092,9 +2101,9 @@
     document.title = result.pageTitle;
     reportTitle.textContent = result.reportTitle;
     reportSubtitle.textContent = result.reportSubtitle;
-    metaProjectName.textContent = result.state.projectName || "—";
-    metaConnectionTag.textContent = result.state.connectionTag || "—";
-    metaDesigner.textContent = result.state.designer || "—";
+    metaProjectName.textContent = getProjectMetaDisplayValue(result.state.projectName);
+    metaConnectionTag.textContent = getProjectMetaDisplayValue(result.state.connectionTag);
+    metaDesigner.textContent = getProjectMetaDisplayValue(result.state.designer);
     if (codeBasisDisplay) codeBasisDisplay.value = getCodeBasisText(result.state);
     reportTimestamp.textContent = nowLabel();
     reportBanner.classList.remove("ok", "warn", "fail");
@@ -2263,9 +2272,9 @@ ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-a
 <h1>${result.reportTitle}</h1>
 <div class="sub">${result.reportSubtitle}</div>
 <div class="meta">
-  <div><b>計畫名稱</b> ${result.state.projectName || "—"}</div>
-  <div><b>接頭編號</b> ${result.state.connectionTag || "—"}</div>
-  <div><b>設計人</b> ${result.state.designer || "—"}</div>
+  <div><b>計畫名稱</b> ${getProjectMetaDisplayValue(result.state.projectName)}</div>
+  <div><b>接頭編號</b> ${getProjectMetaDisplayValue(result.state.connectionTag)}</div>
+  <div><b>設計人</b> ${getProjectMetaDisplayValue(result.state.designer)}</div>
   <div><b>製表時間</b> ${nowLabel()}</div>
   <div><b>設計法</b> ${mapValue("designMethod", result.state.designMethod)}</div>
   <div><b>規範基準</b> ${getCodeBasisText(result.state)}</div>
@@ -2346,8 +2355,8 @@ ${referenceToolsHtml}
     const result = window.latestSteelConnectionResult || calculateConnection(collectFormState());
     const lines = [
       result.reportTitle,
-      `計畫：${result.state.projectName || "—"}`,
-      `接頭：${result.state.connectionTag || "—"}`,
+      `計畫：${getProjectMetaDisplayValue(result.state.projectName)}`,
+      `接頭：${getProjectMetaDisplayValue(result.state.connectionTag)}`,
       `判定：${reportBanner.textContent}`,
       `控制項：${result.governing.label}`,
       ...result.checks.map((check) => `${check.label}｜需求 ${formatNumber(check.demand)} kN｜容量 ${formatNumber(check.available)} kN｜DCR ${formatNumber(check.ratio, 3)}`),

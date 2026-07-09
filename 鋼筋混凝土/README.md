@@ -25,16 +25,22 @@
 - `shared/common.js` helper 單元測試
 - 稽核狀態與首頁選單 contract
 - 首頁入口瀏覽器 smoke
+- 梁報告視覺 smoke contract
 - 梁回歸測試與報告視覺 smoke
 - 柱報告視覺 smoke contract
 - 柱回歸測試與報告視覺 smoke
+- 板報告視覺 smoke contract
 - 板回歸測試與報告視覺 smoke
+- 牆報告視覺 smoke contract
 - 牆回歸測試與報告視覺 smoke
 - RC 條文語意追蹤 catalog
 - RC 條文語意追蹤 contract
 - 剪力牆完整 suite
+- 剪力牆報告視覺 smoke contract
 - 剪力牆報告視覺 smoke
+- 基礎報告視覺 smoke contract
 - 基礎回歸測試與報告視覺 smoke
+- 單樁報告視覺 smoke contract
 - 單樁回歸測試與報告視覺 smoke
 
 首頁入口瀏覽器 smoke 入口為 [tools/test-rc-index-menu.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-rc-index-menu.ps1:1)，會以本機 HTTP server 實際開啟首頁與各工具卡片，檢查：
@@ -52,6 +58,8 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 
 獨立契約測試位於 [tools/rc-traceability.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-traceability.contract.test.js:1)，會確認每個 RC 模組的 trace 數量、規範來源、報告落點、證據檔存在與人工複核措辭，並由 RC audit 與平台 preflight 直接執行。
 
+梁報告視覺 smoke contract 位於 [tools/beam-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/beam-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免頁面專用提醒或人工複核提示漂移進計算書。
+
 梁報告視覺 smoke 已接在 [tools/test-beam.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-beam.ps1:1)，會以瀏覽器產生計算書，檢查：
 
 - 一般設計與 SMRF 剪力控制兩種代表報告情境。
@@ -68,6 +76,8 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 報告表格、規範覆蓋矩陣與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
 - 輸出 PNG、PDF 與 JSON 稽核紀錄。
 
+板報告視覺 smoke contract 位於 [tools/slab-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/slab-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免待確認 / 正式分析需求等 page-only 提示漂移進計算書。
+
 板報告視覺 smoke 已接在 [tools/test-slab.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-slab.ps1:1)，會以瀏覽器產生計算書，檢查：
 
 - 單向板基本例、雙向有梁板、無梁板內柱待頁面確認例與無梁板邊柱保守例四種代表報告情境。
@@ -78,6 +88,8 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 報告表格、圖示與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
 - 輸出 PNG、PDF 與 JSON 稽核紀錄。
 
+基礎報告視覺 smoke contract 位於 [tools/foundation-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/foundation-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免聯合基腳 / 筏基待確認提示或 page-only 閱讀狀態漂移進計算書。
+
 基礎報告視覺 smoke 已接在 [tools/test-foundation.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-foundation.ps1:1)，會以瀏覽器產生計算書，檢查：
 
 - 獨立基腳與樁基／樁帽兩種代表報告情境。
@@ -85,6 +97,8 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格與逐層承載力表不得產生水平 overflow，並確認列印時 toolbar 隱藏。
 - 輸出 PNG、PDF 與 JSON 稽核紀錄。
+
+單樁報告視覺 smoke contract 位於 [tools/single-pile-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/single-pile-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界、人工複核段落與輸出證據檔名，避免頁面專用提醒或人工複核結論漂移。
 
 單樁報告視覺 smoke 已接在 [tools/test-single-pile.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-single-pile.ps1:1)，會以瀏覽器產生單樁計算書，檢查：
 
@@ -96,6 +110,8 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格、示意圖與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
 - 輸出 PNG、PDF 與 JSON 稽核紀錄。
+
+牆報告視覺 smoke contract 位於 [tools/wall-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/wall-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免地下室外牆或 SBE page-only 提示漂移進計算書。
 
 牆報告視覺 smoke 已接在 [tools/test-wall.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-wall.ps1:1)，會以瀏覽器產生計算書，檢查：
 
@@ -113,6 +129,8 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - `shared/wall-base.test.js`
 - `shared/wall-evaluator.test.js`
 - `tools/shear-wall-regression.test.js`
+
+剪力牆報告視覺 smoke contract 位於 [tools/shear-wall-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/shear-wall-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免案例清單或 page-only 邊界漂移。
 
 剪力牆報告視覺 smoke 入口為 [tools/test-shear-wall-report.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-shear-wall-report.ps1:1)，會以瀏覽器產生計算書，檢查：
 

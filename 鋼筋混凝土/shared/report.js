@@ -50,12 +50,23 @@ function showRcReportIssue(message) {
   status.textContent = message;
 }
 
+function normalizeProjectFieldValue(value) {
+  if (window.RCUI?.normalizeProjectFieldValue) {
+    return window.RCUI.normalizeProjectFieldValue(value);
+  }
+  const text = String(value ?? '').trim();
+  return text === '未填' ? '' : text;
+}
+
 function openReport(cfg) {
   const today = new Date();
   const todayStr = today.getFullYear() + '/' +
                    String(today.getMonth()+1).padStart(2,'0') + '/' +
                    String(today.getDate()).padStart(2,'0');
   const proj = Object.assign({ name:'', no:'', designer:'', date: todayStr }, cfg.project || {});
+  proj.name = normalizeProjectFieldValue(proj.name);
+  proj.no = normalizeProjectFieldValue(proj.no);
+  proj.designer = normalizeProjectFieldValue(proj.designer);
 
   const esc = s => (s===null||s===undefined?'':String(s))
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');

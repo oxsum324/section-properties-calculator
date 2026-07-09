@@ -19,13 +19,38 @@ const viewports = [
 
 const scenarios = [
   { name: 'main-plate', url: '/index.html' },
+  { name: 'main-plate-report-popup-placeholder', url: '/index.html', setup: setupMainPlateProjectMetaPlaceholder, assert: assertMainPlateReportPopupPlaceholder },
   { name: 'main-tension', url: '/index.html', setup: setupMainTension },
   { name: 'standalone-plate', url: '/plate-check.html' },
-  { name: 'formal-beam', url: '/steel-beam-formal.html' },
-  { name: 'formal-beam-invalid', url: '/steel-beam-formal.html', setup: setupFormalBeamInvalid },
-  { name: 'formal-column', url: '/steel-column-formal.html' },
-  { name: 'formal-column-invalid', url: '/steel-column-formal.html', setup: setupFormalColumnInvalid },
+  { name: 'formal-beam', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalBeamReadiness },
+  { name: 'formal-beam-meta-complete', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaComplete, assert: assertFormalBeamReadinessMetaComplete },
+  { name: 'formal-beam-report-popup', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaComplete, assert: assertFormalBeamReportPopupComplete },
+  { name: 'formal-beam-report-popup-placeholder', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalBeamReportPopupPlaceholder },
+  { name: 'formal-beam-invalid', url: '/steel-beam-formal.html', setup: setupFormalBeamInvalid, assert: assertFormalBeamReadinessBlocked },
+  { name: 'formal-column', url: '/steel-column-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalColumnReadiness },
+  { name: 'formal-column-meta-complete', url: '/steel-column-formal.html', setup: setupFormalProjectMetaComplete, assert: assertFormalColumnReadinessMetaComplete },
+  { name: 'formal-column-report-popup', url: '/steel-column-formal.html', setup: setupFormalProjectMetaComplete, assert: assertFormalColumnReportPopupComplete },
+  { name: 'formal-column-report-popup-placeholder', url: '/steel-column-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalColumnReportPopupPlaceholder },
+  { name: 'formal-column-invalid', url: '/steel-column-formal.html', setup: setupFormalColumnInvalid, assert: assertFormalColumnReadinessBlocked },
 ];
+
+const FORMAL_PROJECT_META = {
+  projName: '鋼構正式工具驗證案',
+  projNo: 'STEEL-VERIFY-001',
+  projDesigner: 'Codex QA',
+};
+
+const FORMAL_PROJECT_META_PLACEHOLDER = {
+  projName: '未填',
+  projNo: 'STEEL-VERIFY-001',
+  projDesigner: 'Codex QA',
+};
+
+const LEGACY_PROJECT_META_PLACEHOLDER = {
+  projectName: '未填',
+  connectionTag: 'PL-VERIFY-001',
+  designer: 'Codex QA',
+};
 
 function parseArgs(argv) {
   const parsed = {};
@@ -256,8 +281,61 @@ async function setupMainTension(cdp, sessionId) {
   await wait(300);
 }
 
+async function setupMainPlateProjectMetaPlaceholder(cdp, sessionId) {
+  await evaluate(cdp, sessionId, `(() => {
+    const connectionType = document.querySelector('select[name="connectionType"]');
+    if (!connectionType) throw new Error('missing connectionType select');
+    connectionType.value = 'plate_check';
+    connectionType.dispatchEvent(new Event('change', { bubbles: true }));
+    const preset = document.querySelector('#examplePresetSelect');
+    if (!preset) throw new Error('missing examplePresetSelect');
+    preset.value = 'plate_geometry';
+    preset.dispatchEvent(new Event('change', { bubbles: true }));
+    const button = document.querySelector('#loadExampleBtn');
+    if (!button) throw new Error('missing loadExampleBtn');
+    button.click();
+    return true;
+  })()`, 'main plate placeholder preset setup');
+  await wait(300);
+  await evaluate(cdp, sessionId, `(() => {
+    const fields = ${JSON.stringify(LEGACY_PROJECT_META_PLACEHOLDER)};
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.querySelector('[name="' + name + '"]');
+      if (!input) throw new Error('missing [name="' + name + '"]');
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    return true;
+  })()`, 'main plate placeholder project meta setup');
+  await wait(250);
+}
+
 async function setupFormalBeamInvalid(cdp, sessionId) {
   await setupFormalInvalid(cdp, sessionId, '#beamInputStatus', 'beam inline validation');
+}
+
+async function setupFormalProjectMeta(cdp, sessionId, fields, label) {
+  await evaluate(cdp, sessionId, `(() => {
+    const fields = ${JSON.stringify(fields)};
+    Object.entries(fields).forEach(([id, value]) => {
+      const input = document.getElementById(id);
+      if (!input) throw new Error('missing #' + id);
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    return true;
+  })()`, label);
+  await wait(250);
+}
+
+async function setupFormalProjectMetaPlaceholder(cdp, sessionId) {
+  await setupFormalProjectMeta(cdp, sessionId, FORMAL_PROJECT_META_PLACEHOLDER, 'formal project meta placeholder setup');
+}
+
+async function setupFormalProjectMetaComplete(cdp, sessionId) {
+  await setupFormalProjectMeta(cdp, sessionId, FORMAL_PROJECT_META, 'formal project meta setup');
 }
 
 async function setupFormalColumnInvalid(cdp, sessionId) {
@@ -283,19 +361,445 @@ async function setupFormalInvalid(cdp, sessionId, statusSelector, label) {
   })()`, label);
 }
 
+async function assertFormalBeamReadiness(cdp, sessionId) {
+  await assertFormalReportReadiness(cdp, sessionId, '#beamReportReadiness', 'beam report readiness');
+  await assertFormalReportReadinessText(cdp, sessionId, '#beamReportReadiness', '計畫名稱 / 編號 / 設計人尚未完整', 'beam missing project metadata note');
+  await assertFormalProjectMetaPlaceholderRendered(cdp, sessionId, {
+    nameId: '#beamMetaProjectName',
+    noId: '#beamMetaProjectNo',
+    designerId: '#beamMetaDesigner',
+  }, 'beam placeholder project meta render');
+}
+
+async function assertFormalBeamReadinessMetaComplete(cdp, sessionId) {
+  await assertFormalReportReadiness(cdp, sessionId, '#beamReportReadiness', 'beam report readiness after metadata');
+  await assertFormalReportReadinessTextAbsent(cdp, sessionId, '#beamReportReadiness', '計畫名稱 / 編號 / 設計人尚未完整', 'beam metadata warning should clear');
+  await assertFormalProjectMetaRendered(cdp, sessionId, {
+    nameId: '#beamMetaProjectName',
+    noId: '#beamMetaProjectNo',
+    designerId: '#beamMetaDesigner',
+  }, 'beam project meta render');
+}
+
+async function assertFormalBeamReadinessBlocked(cdp, sessionId) {
+  await assertFormalReportReadinessBlocked(cdp, sessionId, '#beamReportReadiness', 'beam report readiness');
+}
+
+async function assertFormalBeamReportPopupComplete(cdp, sessionId) {
+  return assertFormalReportPopup(cdp, sessionId, {
+    label: 'beam formal report popup',
+    titleNeedle: '鋼梁正式規範核算計算書',
+    expectedProject: {
+      name: FORMAL_PROJECT_META.projName,
+      no: FORMAL_PROJECT_META.projNo,
+      designer: FORMAL_PROJECT_META.projDesigner,
+    },
+  });
+}
+
+async function assertFormalBeamReportPopupPlaceholder(cdp, sessionId) {
+  return assertFormalReportPopup(cdp, sessionId, {
+    label: 'beam formal report popup placeholder',
+    titleNeedle: '鋼梁正式規範核算計算書',
+    expectedProject: {
+      name: '—',
+      no: FORMAL_PROJECT_META_PLACEHOLDER.projNo,
+      designer: FORMAL_PROJECT_META_PLACEHOLDER.projDesigner,
+    },
+    absentNeedles: ['未填'],
+  });
+}
+
+async function assertMainPlateProjectMetaPlaceholderRendered(cdp, sessionId) {
+  const meta = await evaluate(cdp, sessionId, `(() => ({
+    name: document.querySelector('#metaProjectName')?.innerText?.trim() || '',
+    tag: document.querySelector('#metaConnectionTag')?.innerText?.trim() || '',
+    designer: document.querySelector('#metaDesigner')?.innerText?.trim() || '',
+  }))()`, 'main plate placeholder project meta render');
+  if (meta.name !== '—' || meta.tag !== LEGACY_PROJECT_META_PLACEHOLDER.connectionTag || meta.designer !== LEGACY_PROJECT_META_PLACEHOLDER.designer) {
+    throw new Error(`main plate placeholder project meta render mismatch: ${JSON.stringify(meta)}`);
+  }
+}
+
+async function assertMainPlateSummaryCopyPlaceholder(cdp, sessionId) {
+  const snapshot = await evaluate(cdp, sessionId, `(async () => {
+    window.__copiedSummary = '';
+    const clipboardStub = { writeText: async (text) => { window.__copiedSummary = text; } };
+    try {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboardStub });
+    } catch (error) {
+      if (!navigator.clipboard) throw error;
+      navigator.clipboard.writeText = clipboardStub.writeText;
+    }
+    const button = document.querySelector('#copySummaryBtn');
+    if (!button) throw new Error('missing #copySummaryBtn');
+    button.click();
+    await new Promise(resolve => setTimeout(resolve, 150));
+    return {
+      text: window.__copiedSummary || '',
+      buttonText: button.textContent || '',
+    };
+  })()`, 'main plate summary copy placeholder');
+  if (!snapshot.text.includes('計畫：—')) {
+    throw new Error(`main plate copied summary should scrub placeholder project name: ${snapshot.text}`);
+  }
+  if (!snapshot.text.includes(`接頭：${LEGACY_PROJECT_META_PLACEHOLDER.connectionTag}`)) {
+    throw new Error(`main plate copied summary should keep connection tag: ${snapshot.text}`);
+  }
+  if (snapshot.text.includes('未填')) {
+    throw new Error(`main plate copied summary should exclude placeholder text: ${snapshot.text}`);
+  }
+}
+
+async function assertMainPlateReportPopupPlaceholder(cdp, sessionId) {
+  await assertMainPlateProjectMetaPlaceholderRendered(cdp, sessionId);
+  await assertMainPlateSummaryCopyPlaceholder(cdp, sessionId);
+  return assertLegacyReportPopup(cdp, sessionId, {
+    label: 'main plate report popup placeholder',
+    buttonSelector: '#exportReportBtn',
+    titleNeedle: '連接板檢核計算書',
+    expectedProject: {
+      name: '—',
+      tag: LEGACY_PROJECT_META_PLACEHOLDER.connectionTag,
+      designer: LEGACY_PROJECT_META_PLACEHOLDER.designer,
+    },
+    absentNeedles: ['未填'],
+  });
+}
+
+async function assertFormalColumnReadiness(cdp, sessionId) {
+  await assertFormalReportReadiness(cdp, sessionId, '#columnReportReadiness', 'column report readiness');
+  await assertFormalReportReadinessText(cdp, sessionId, '#columnReportReadiness', '計畫名稱 / 編號 / 設計人尚未完整', 'column missing project metadata note');
+  await assertFormalProjectMetaPlaceholderRendered(cdp, sessionId, {
+    nameId: '#columnMetaProjectName',
+    noId: '#columnMetaProjectNo',
+    designerId: '#columnMetaDesigner',
+  }, 'column placeholder project meta render');
+}
+
+async function assertFormalColumnReadinessMetaComplete(cdp, sessionId) {
+  await assertFormalReportReadiness(cdp, sessionId, '#columnReportReadiness', 'column report readiness after metadata');
+  await assertFormalReportReadinessTextAbsent(cdp, sessionId, '#columnReportReadiness', '計畫名稱 / 編號 / 設計人尚未完整', 'column metadata warning should clear');
+  await assertFormalProjectMetaRendered(cdp, sessionId, {
+    nameId: '#columnMetaProjectName',
+    noId: '#columnMetaProjectNo',
+    designerId: '#columnMetaDesigner',
+  }, 'column project meta render');
+}
+
+async function assertFormalColumnReadinessBlocked(cdp, sessionId) {
+  await assertFormalReportReadinessBlocked(cdp, sessionId, '#columnReportReadiness', 'column report readiness');
+}
+
+async function assertFormalColumnReportPopupComplete(cdp, sessionId) {
+  return assertFormalReportPopup(cdp, sessionId, {
+    label: 'column formal report popup',
+    titleNeedle: '鋼柱正式規範核算計算書',
+    expectedProject: {
+      name: FORMAL_PROJECT_META.projName,
+      no: FORMAL_PROJECT_META.projNo,
+      designer: FORMAL_PROJECT_META.projDesigner,
+    },
+  });
+}
+
+async function assertFormalColumnReportPopupPlaceholder(cdp, sessionId) {
+  return assertFormalReportPopup(cdp, sessionId, {
+    label: 'column formal report popup placeholder',
+    titleNeedle: '鋼柱正式規範核算計算書',
+    expectedProject: {
+      name: '—',
+      no: FORMAL_PROJECT_META_PLACEHOLDER.projNo,
+      designer: FORMAL_PROJECT_META_PLACEHOLDER.projDesigner,
+    },
+    absentNeedles: ['未填'],
+  });
+}
+
+async function assertFormalReportReadiness(cdp, sessionId, selector, label) {
+  const text = await evaluate(cdp, sessionId, `(() => {
+    const text = document.querySelector('${selector}')?.innerText || '';
+    if (!text.includes('優先閱讀')) {
+      throw new Error('${label} missing 優先閱讀: ' + text);
+    }
+    if (!text.includes('不會寫入計算書或列印 PDF')) {
+      throw new Error('${label} missing print boundary note: ' + text);
+    }
+    return text;
+  })()`, label);
+  if (text.includes('[object Event]')) {
+    throw new Error(`${label} should not stringify DOM events: ${text}`);
+  }
+  await assertPageOnlyReadinessHiddenInPrint(cdp, sessionId, selector, label);
+}
+
+async function assertFormalReportReadinessBlocked(cdp, sessionId, selector, label) {
+  const text = await evaluate(cdp, sessionId, `(() => {
+    const text = document.querySelector('${selector}')?.innerText || '';
+    if (!text.includes('暫勿作附件')) {
+      throw new Error('${label} missing blocked badge: ' + text);
+    }
+    if (!text.includes('不會寫入計算書或列印 PDF')) {
+      throw new Error('${label} missing print boundary note: ' + text);
+    }
+    return text;
+  })()`, `${label} blocked`);
+  if (text.includes('[object Event]')) {
+    throw new Error(`${label} should not stringify DOM events: ${text}`);
+  }
+  await assertPageOnlyReadinessHiddenInPrint(cdp, sessionId, selector, `${label} blocked`);
+}
+
+async function assertPageOnlyReadinessHiddenInPrint(cdp, sessionId, selector, label) {
+  await cdp.send('Emulation.setEmulatedMedia', { media: 'print' }, sessionId);
+  await wait(100);
+  try {
+    const printState = await evaluate(cdp, sessionId, `(() => {
+      const node = document.querySelector('${selector}');
+      if (!node) {
+        return { exists: false, targetDisplay: '', wrapperDisplay: '', visibility: '', text: '' };
+      }
+      const wrapper = node.closest('.page-only-report-status') || node;
+      const wrapperStyle = window.getComputedStyle(wrapper);
+      const targetStyle = window.getComputedStyle(node);
+      return {
+        exists: true,
+        targetDisplay: targetStyle.display || '',
+        wrapperDisplay: wrapperStyle.display || '',
+        visibility: wrapperStyle.visibility || '',
+        text: (wrapper.innerText || wrapper.textContent || '').replace(/\\s+/g, ' ').trim()
+      };
+    })()`);
+    if (!printState.exists) {
+      throw new Error(`${label} missing readiness node in print DOM`);
+    }
+    if (printState.wrapperDisplay !== 'none') {
+      throw new Error(`${label} page-only readiness still visible in print: ${JSON.stringify(printState)}`);
+    }
+  } finally {
+    await cdp.send('Emulation.setEmulatedMedia', { media: 'screen' }, sessionId).catch(() => {});
+    await wait(100);
+  }
+}
+
+async function assertFormalReportReadinessText(cdp, sessionId, selector, expectedText, label) {
+  await evaluate(cdp, sessionId, `(() => {
+    const text = document.querySelector('${selector}')?.innerText || '';
+    if (!text.includes('${expectedText}')) {
+      throw new Error('${label} missing: ' + text);
+    }
+    return text;
+  })()`, label);
+}
+
+async function assertFormalReportReadinessTextAbsent(cdp, sessionId, selector, unexpectedText, label) {
+  await evaluate(cdp, sessionId, `(() => {
+    const text = document.querySelector('${selector}')?.innerText || '';
+    if (text.includes('${unexpectedText}')) {
+      throw new Error('${label}: ' + text);
+    }
+    return text;
+  })()`, label);
+}
+
+async function assertFormalProjectMetaRendered(cdp, sessionId, selectors, label) {
+  const meta = await evaluate(cdp, sessionId, `(() => ({
+    name: document.querySelector(${JSON.stringify(selectors.nameId)})?.innerText?.trim() || '',
+    no: document.querySelector(${JSON.stringify(selectors.noId)})?.innerText?.trim() || '',
+    designer: document.querySelector(${JSON.stringify(selectors.designerId)})?.innerText?.trim() || '',
+  }))()`, label);
+  if (meta.name !== FORMAL_PROJECT_META.projName || meta.no !== FORMAL_PROJECT_META.projNo || meta.designer !== FORMAL_PROJECT_META.projDesigner) {
+    throw new Error(`${label} mismatch: ${JSON.stringify(meta)}`);
+  }
+}
+
+async function assertFormalProjectMetaPlaceholderRendered(cdp, sessionId, selectors, label) {
+  const meta = await evaluate(cdp, sessionId, `(() => ({
+    name: document.querySelector(${JSON.stringify(selectors.nameId)})?.innerText?.trim() || '',
+    no: document.querySelector(${JSON.stringify(selectors.noId)})?.innerText?.trim() || '',
+    designer: document.querySelector(${JSON.stringify(selectors.designerId)})?.innerText?.trim() || '',
+  }))()`, label);
+  if (meta.name !== '—' || meta.no !== FORMAL_PROJECT_META_PLACEHOLDER.projNo || meta.designer !== FORMAL_PROJECT_META_PLACEHOLDER.projDesigner) {
+    throw new Error(`${label} mismatch: ${JSON.stringify(meta)}`);
+  }
+}
+
+async function assertFormalReportPopup(cdp, sessionId, options) {
+  const popup = await openFormalReportPopup(cdp, sessionId, options.label);
+  const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
+    title: document.title || '',
+    header: document.querySelector('.rep-header h1')?.innerText?.trim() || '',
+    bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+    metaRows: Array.from(document.querySelectorAll('.rep-meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
+  }))()`, `${options.label} snapshot`);
+  if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
+    throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
+  }
+  const forbiddenNeedles = [
+    '優先建議報告閱讀狀態',
+    '報告閱讀狀態',
+    '頁面輔助',
+    '頁面顯示，不進計算書、列印或 PDF',
+    '不會寫入計算書或列印 PDF',
+    '計畫名稱 / 編號 / 設計人尚未完整',
+    ...(Array.isArray(options.absentNeedles) ? options.absentNeedles : []),
+  ];
+  for (const needle of forbiddenNeedles) {
+    if (snapshot.bodyText.includes(needle)) {
+      throw new Error(`${options.label} should exclude "${needle}": ${snapshot.bodyText}`);
+    }
+  }
+  const [nameRow = '', noRow = '', designerRow = ''] = snapshot.metaRows;
+  if (!nameRow.includes(options.expectedProject.name)) {
+    throw new Error(`${options.label} project name mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  }
+  if (!noRow.includes(options.expectedProject.no)) {
+    throw new Error(`${options.label} project no mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  }
+  if (!designerRow.includes(options.expectedProject.designer)) {
+    throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  }
+  return {
+    captureSessionId: popup.sessionId,
+    captureTargetId: popup.targetId,
+  };
+}
+
+async function assertLegacyReportPopup(cdp, sessionId, options) {
+  const popup = await openLegacyReportPopup(cdp, sessionId, options.label, options.buttonSelector);
+  const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
+    title: document.title || '',
+    header: document.querySelector('h1')?.innerText?.trim() || '',
+    bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+    metaRows: Array.from(document.querySelectorAll('.meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
+  }))()`, `${options.label} snapshot`);
+  if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
+    throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
+  }
+  const forbiddenNeedles = [
+    '優先建議報告閱讀狀態',
+    '報告閱讀狀態',
+    '頁面輔助',
+    '頁面顯示，不進計算書、列印或 PDF',
+    '不會寫入計算書或列印 PDF',
+    '計畫名稱 / 編號 / 設計人尚未完整',
+    ...(Array.isArray(options.absentNeedles) ? options.absentNeedles : []),
+  ];
+  for (const needle of forbiddenNeedles) {
+    if (snapshot.bodyText.includes(needle)) {
+      throw new Error(`${options.label} should exclude "${needle}": ${snapshot.bodyText}`);
+    }
+  }
+  const [nameRow = '', tagRow = '', designerRow = ''] = snapshot.metaRows;
+  if (!nameRow.includes(options.expectedProject.name)) {
+    throw new Error(`${options.label} project name mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  }
+  if (!tagRow.includes(options.expectedProject.tag)) {
+    throw new Error(`${options.label} connection tag mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  }
+  if (!designerRow.includes(options.expectedProject.designer)) {
+    throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  }
+  return {
+    captureSessionId: popup.sessionId,
+    captureTargetId: popup.targetId,
+  };
+}
+
+async function openFormalReportPopup(cdp, sessionId, label) {
+  const beforeTargets = await cdp.send('Target.getTargets');
+  const existingTargetIds = new Set(
+    (beforeTargets.targetInfos || [])
+      .filter((info) => info.type === 'page')
+      .map((info) => info.targetId)
+  );
+  await evaluate(cdp, sessionId, `(() => {
+    const button = document.querySelector('#btnReport');
+    if (!button) throw new Error('missing #btnReport');
+    button.click();
+    return true;
+  })()`, `${label} open report`);
+  const popupTarget = await waitForNewPageTarget(cdp, existingTargetIds, `${label} target`);
+  const attached = await cdp.send('Target.attachToTarget', { targetId: popupTarget.targetId, flatten: true });
+  const popupSessionId = attached.sessionId;
+  await cdp.send('Page.enable', {}, popupSessionId);
+  await cdp.send('Runtime.enable', {}, popupSessionId);
+  await waitForPopupReady(cdp, popupSessionId, `${label} ready`);
+  return {
+    targetId: popupTarget.targetId,
+    sessionId: popupSessionId,
+  };
+}
+
+async function openLegacyReportPopup(cdp, sessionId, label, buttonSelector) {
+  const beforeTargets = await cdp.send('Target.getTargets');
+  const existingTargetIds = new Set(
+    (beforeTargets.targetInfos || [])
+      .filter((info) => info.type === 'page')
+      .map((info) => info.targetId)
+  );
+  await evaluate(cdp, sessionId, `(() => {
+    const button = document.querySelector(${JSON.stringify(buttonSelector)});
+    if (!button) throw new Error('missing ${buttonSelector}');
+    button.click();
+    return true;
+  })()`, `${label} open report`);
+  const popupTarget = await waitForNewPageTarget(cdp, existingTargetIds, `${label} target`);
+  const attached = await cdp.send('Target.attachToTarget', { targetId: popupTarget.targetId, flatten: true });
+  const popupSessionId = attached.sessionId;
+  await cdp.send('Page.enable', {}, popupSessionId);
+  await cdp.send('Runtime.enable', {}, popupSessionId);
+  await waitForPopupReady(cdp, popupSessionId, `${label} ready`);
+  return {
+    targetId: popupTarget.targetId,
+    sessionId: popupSessionId,
+  };
+}
+
+async function waitForNewPageTarget(cdp, existingTargetIds, label, timeoutMs = 10000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await cdp.send('Target.getTargets');
+    const targetInfo = (result.targetInfos || []).find((info) => info.type === 'page' && !existingTargetIds.has(info.targetId));
+    if (targetInfo) return targetInfo;
+    await wait(100);
+  }
+  throw new Error(`${label} timed out after ${timeoutMs}ms`);
+}
+
+async function waitForPopupReady(cdp, sessionId, label, timeoutMs = 10000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const state = await evaluate(cdp, sessionId, `(() => ({
+        readyState: document.readyState || '',
+        title: document.title || '',
+        bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+      }))()`, label);
+      if (state.readyState === 'complete' && state.title && state.bodyText.includes('計畫名稱')) {
+        return state;
+      }
+    } catch (_) {}
+    await wait(100);
+  }
+  throw new Error(`${label} timed out after ${timeoutMs}ms`);
+}
+
 async function runSnapshot(cdp, scenario, viewport) {
   const label = `${scenario.name}-${viewport.label}`;
   log(`Edge CDP snapshot [${label}] ${viewport.width}x${viewport.height}`);
   const records = { consoleErrors: [], networkAlerts: [], requestMap: new Map() };
-  let targetId;
+  const targetIds = [];
+  const removeEventListeners = [];
   let sessionId;
-  let removeEvents = () => {};
+  let captureSessionId;
   try {
     const created = await cdp.send('Target.createTarget', { url: 'about:blank' });
-    targetId = created.targetId;
-    const attached = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
+    targetIds.push(created.targetId);
+    const attached = await cdp.send('Target.attachToTarget', { targetId: created.targetId, flatten: true });
     sessionId = attached.sessionId;
-    removeEvents = cdp.onEvent(message => collectPageEvent(records, message, sessionId));
+    captureSessionId = sessionId;
+    removeEventListeners.push(cdp.onEvent(message => collectPageEvent(records, message, sessionId)));
 
     await cdp.send('Page.enable', {}, sessionId);
     await cdp.send('Runtime.enable', {}, sessionId);
@@ -313,10 +817,15 @@ async function runSnapshot(cdp, scenario, viewport) {
     await loadEvent;
     await wait(300);
     if (scenario.setup) await scenario.setup(cdp, sessionId);
+    if (scenario.assert) {
+      const assertResult = await scenario.assert(cdp, sessionId);
+      if (assertResult?.captureSessionId) captureSessionId = assertResult.captureSessionId;
+      if (assertResult?.captureTargetId) targetIds.push(assertResult.captureTargetId);
+    }
     await wait(300);
 
-    const snapshotText = await makeSnapshot(cdp, sessionId, label, viewport);
-    const screenshotBuffer = await captureScreenshot(cdp, sessionId, viewport);
+    const snapshotText = await makeSnapshot(cdp, captureSessionId, label, viewport);
+    const screenshotBuffer = await captureScreenshot(cdp, captureSessionId, viewport);
     const output = writeScenarioArtifacts(label, snapshotText, screenshotBuffer, records);
     const consoleErrors = records.consoleErrors.length;
     const networkAlerts = records.networkAlerts.length;
@@ -346,8 +855,10 @@ async function runSnapshot(cdp, scenario, viewport) {
       failures: [`${label}: ${error.message}`],
     };
   } finally {
-    removeEvents();
-    if (targetId) {
+    for (const remove of removeEventListeners.reverse()) {
+      try { remove(); } catch (_) {}
+    }
+    for (const targetId of targetIds.reverse()) {
       await cdp.send('Target.closeTarget', { targetId }).catch(() => {});
     }
   }

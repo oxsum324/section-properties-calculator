@@ -440,6 +440,26 @@ async function exerciseBeamProjectStorage(page) {
   assert(saved.fields.enableTorsion.checked === true, 'beam project stores checkbox state', saved.fields.enableTorsion.checked);
   assert(saved.fields.beamProjectFile == null, 'beam project excludes file input', 'file input excluded');
 
+  const placeholderSaved = await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setField('projName', '未填');
+    setField('projNo', 'RC-BEAM-PLACEHOLDER');
+    setField('projDesigner', '未填');
+    return window.collectBeamProjectData();
+  });
+  assert(placeholderSaved.metadata.projectName === '', 'beam placeholder project name is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.projectNo === 'RC-BEAM-PLACEHOLDER', 'beam placeholder project number remains editable metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.designer === '', 'beam placeholder designer is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.fields.projName.value === '', 'beam placeholder project name is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projName));
+  assert(placeholderSaved.fields.projDesigner.value === '', 'beam placeholder designer is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projDesigner));
+
   const restored = await page.evaluate(payload => {
     const setField = (id, value) => {
       const el = document.getElementById(id);
@@ -689,6 +709,7 @@ async function main() {
   assert(beamHtml.includes('reportFullSteps ? txt : summarizeStepText(txt)'), 'beam report respects steps verbosity', 'report steps follow summary/full mode');
   assert(sharedCommon.includes('window.RCUI.getStepsVerbosity'), 'shared/common.js exposes getStepsVerbosity', 'shared RCUI helper exists');
   assert(sharedCommon.includes('window.RCUI.renderWarningList'), 'shared/common.js exposes renderWarningList', 'shared warning renderer exists');
+  assert(sharedCommon.includes('window.RCUI.normalizeProjectFieldValue'), 'shared/common.js exposes project metadata normalizer', 'placeholder project text can be scrubbed once');
   assert(beamHtml.indexOf('const deflResult = calcDeflectionData(') < beamHtml.indexOf('const warnings = collectDesignWarnings('), 'beam.html computes deflection before warnings', 'avoids deflResult runtime reference error');
   assert(beamHtml.includes('rc.pendingBeamColumnJoint'), 'beam.html has beam-column joint storage key', 'handoff storage key exists');
   assert(beamHtml.includes('function calcBeamColumnJointData'), 'beam.html has beam-column joint payload builder', 'Mnb/Mpr handoff helper exists');
@@ -700,6 +721,8 @@ async function main() {
   assert(beamHtml.includes('id="beamAttachmentReadiness"'), 'beam.html has page-only attachment readiness target', 'pre-export status stays on tool page');
   assert(beamHtml.includes('function updateBeamAttachmentReadiness'), 'beam.html updates page-only attachment readiness', 'attachment status is calculated on the tool page');
   assert(beamHtml.includes('summary:false'), 'beam report hides top status banner', 'page-only review status stays out of the report');
+  assert(beamHtml.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), 'beam project payload normalizes placeholder project name', 'project storage metadata uses shared normalizer');
+  assert(!beamHtml.includes("$('projName').value.trim()"), 'beam report/project metadata no longer uses raw trim on project name', 'shared normalizer handles placeholder cleanup');
   assert(!beamHtml.includes('人工複核 / 補充資料需求'), 'beam report omits manual-review summary group', 'manual-review aggregate remains page-only');
   assert(!beamHtml.includes('不列為 OK 結論；補齊資料後方可作為完整檢核'), 'beam report omits manual-review aggregate formula', 'report keeps technical rows only');
   assert(sharedCommon.includes('window.RCUI.buildReviewCheckGroup'), 'shared/common.js exposes review check group builder', 'review report rows have shared helper');

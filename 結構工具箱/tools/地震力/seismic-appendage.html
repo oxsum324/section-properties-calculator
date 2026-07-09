@@ -82,6 +82,20 @@
   .check-msg.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
   .check-msg.error { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
   .check-msg.info { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
+  .report-readiness { display:grid; gap:10px; padding:12px; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; background:#fffbeb; color:#78350f; font-size:0.84em; line-height:1.65; }
+  .report-readiness.ready { border-color:#bbf7d0; border-left-color:#059669; background:#f0fdf4; color:#166534; }
+  .report-readiness.blocked { border-color:#fecaca; border-left-color:#dc2626; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .report-readiness-kicker { margin:0 0 2px; color:#64748b; font-size:0.74em; font-weight:700; }
+  .report-readiness-title { margin:0; color:inherit; font-size:0.96em; font-weight:800; }
+  .report-readiness-badge { flex:0 0 auto; border:1px solid currentColor; border-radius:999px; padding:3px 8px; background:rgba(255,255,255,0.72); font-size:0.74em; font-weight:800; white-space:nowrap; }
+  .report-readiness ul { margin:0; padding-left:18px; }
+  .report-readiness li { margin:2px 0; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; }
+  .report-readiness-item { min-height:54px; padding:8px 9px; border:1px solid rgba(120,53,15,0.14); border-radius:8px; background:rgba(255,255,255,0.68); }
+  .report-readiness-item span { display:block; color:#64748b; font-size:0.72em; font-weight:700; }
+  .report-readiness-item strong { display:block; margin-top:2px; color:#0f172a; font-size:0.86em; line-height:1.35; }
+  .report-readiness-note { color:#64748b; font-size:0.78em; }
   .diagram-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
   .line-h2-diagram { display:block; width:100%; height:auto; max-height:360px; }
   .diagram-caption { margin-top:8px; color:#475569; font-size:0.82em; line-height:1.7; }
@@ -98,6 +112,9 @@
     .inline-actions { flex-direction:column; }
     .inline-actions .btn-calc, .inline-actions .btn-print, .inline-actions .btn-secondary { width:100%; flex:1 1 auto; }
     .results-grid .result-item { min-height:auto; }
+  }
+  @media print {
+    .page-only-report-status, .case-actions, .case-status, .print-option-row, .report-mode-control { display:none !important; }
   }
 </style>
 </head>
@@ -147,6 +164,9 @@
       </div>
     </div>
     <div id="caseJsonStatus" class="case-status"></div>
+  </div>
+  <div class="card page-only-report-status">
+    <div class="report-readiness blocked" id="appendageReportReadiness" role="status" aria-live="polite"></div>
   </div>
 
   <div class="main-layout append-shell">
@@ -315,6 +335,7 @@
 
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
+<script src="../../core/ui/report.js"></script>
 <script>
 const S = Seismic;
 const TOOL_VERSION = '2.5';
@@ -343,6 +364,7 @@ const CASE_VALUE_FIELDS = [
   'apRemark'
 ];
 const CASE_CHECK_FIELDS = ['chkTaipei', 'chkNearFault', 'printCalcDetailSection'];
+const PROJECT_CASE_VALUE_FIELDS = new Set(['projName', 'projNo', 'projDesigner']);
 const DEFAULT_CASE_INPUTS = {
   values: {
     projName: '',
@@ -372,6 +394,8 @@ const DEFAULT_CASE_INPUTS = {
   }
 };
 let lastAppendResult = null;
+let lastAppendReportValidationMessage = '';
+let appendageReportInputsChanged = false;
 
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function fmtCoeff(v) { return fmt(v, 4); }
@@ -384,8 +408,13 @@ function escHtml(text) {
 }
 function getProjectInfo() {
   const v = id => (document.getElementById(id)?.value || '').trim();
-  return { name: v('projName'), no: v('projNo'), designer: v('projDesigner') };
+  return {
+    name: window.ToolReportUI.normalizeProjectFieldValue(v('projName')),
+    no: window.ToolReportUI.normalizeProjectFieldValue(v('projNo')),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(v('projDesigner'))
+  };
 }
+
 function getStorageJson(key) {
   try {
     const raw = localStorage.getItem(key);
@@ -402,9 +431,9 @@ function saveProjectInfo() {
 function restoreProjectInfo() {
   const saved = getStorageJson(PROJECT_INFO_STORAGE_KEY);
   if (!saved) return;
-  if (saved.name != null) document.getElementById('projName').value = saved.name;
-  if (saved.no != null) document.getElementById('projNo').value = saved.no;
-  if (saved.designer != null) document.getElementById('projDesigner').value = saved.designer;
+  if (saved.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.name);
+  if (saved.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.no);
+  if (saved.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(saved.designer);
 }
 
 function getPrintReportMode() {
@@ -422,6 +451,7 @@ function syncPrintReportMode(mode) {
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+  renderAppendageReportReadiness();
 }
 
 function setCaseStatus(message, tone) {
@@ -439,6 +469,11 @@ function setInputStatus(message) {
 }
 function clearInputStatus() {
   setInputStatus('');
+}
+
+function setAppendageReportValidationMessage(message = '') {
+  lastAppendReportValidationMessage = message || '';
+  renderAppendageReportReadiness(lastAppendReportValidationMessage);
 }
 
 function safeFileName(value) {
@@ -466,7 +501,9 @@ function collectCaseInputs() {
   CASE_VALUE_FIELDS.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    values[id] = el.value;
+    values[id] = PROJECT_CASE_VALUE_FIELDS.has(id)
+      ? window.ToolReportUI.normalizeProjectFieldValue(el.value)
+      : el.value;
   });
   const checks = {};
   CASE_CHECK_FIELDS.forEach(id => {
@@ -608,8 +645,10 @@ function importCaseJsonFile(file) {
       }
       applyCaseInputs(payload.inputs || payload);
       lastAppendResult = null;
+      appendageReportInputsChanged = false;
       document.getElementById('resultPanel').style.display = 'none';
       setCaseStatus('已匯入案件 JSON；請按「計算附屬構造物地震力」重新整理結果。');
+      setAppendageReportValidationMessage('');
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
     } finally {
@@ -622,10 +661,13 @@ function importCaseJsonFile(file) {
 function resetCaseDefaults() {
   applyCaseInputs(DEFAULT_CASE_INPUTS);
   lastAppendResult = null;
+  appendageReportInputsChanged = false;
   document.getElementById('resultPanel').style.display = 'none';
   document.getElementById('zoneHint').textContent = '';
   document.getElementById('staticImportStatus').innerHTML = '尚未讀到等值靜力分析摘要；可直接手動輸入工址與建物條件。';
   setCaseStatus('已恢復本頁預設值。');
+  clearInputStatus();
+  setAppendageReportValidationMessage('');
 }
 
 function getAppendageTypeItem(typeVal) {
@@ -678,6 +720,8 @@ function setAppendageTypeGroup(group, selectedValue) {
   if (customRow) customRow.style.display = 'none';
   renderTypeMeta();
   updateInputChecks();
+  if (lastAppendResult) appendageReportInputsChanged = true;
+  renderAppendageReportReadiness();
 }
 
 function syncTypeGroupFromValue(typeVal) {
@@ -768,17 +812,17 @@ function loadStaticSummaryIntoPage() {
     return null;
   }
   const proj = saved.project;
-  if (proj.name != null) document.getElementById('projName').value = proj.name;
-  if (proj.no != null) document.getElementById('projNo').value = proj.no;
-  if (proj.designer != null) document.getElementById('projDesigner').value = proj.designer;
-  if (proj.zoneCity) document.getElementById('zoneCity').value = proj.zoneCity;
+  if (proj.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(proj.name);
+  if (proj.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(proj.no);
+  if (proj.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(proj.designer);
+  if (proj.zoneCity != null) document.getElementById('zoneCity').value = proj.zoneCity;
   document.getElementById('zoneCity').dispatchEvent(new Event('change'));
-  if (proj.zoneDist) document.getElementById('zoneDist').value = proj.zoneDist;
-  if (proj.zoneDist) document.getElementById('zoneDist').dispatchEvent(new Event('change'));
+  if (proj.zoneDist != null) document.getElementById('zoneDist').value = proj.zoneDist;
+  if (proj.zoneDist != null) document.getElementById('zoneDist').dispatchEvent(new Event('change'));
   ['SsD', 'S1D', 'SsM', 'S1M'].forEach(id => {
     if (isFinite(proj[id])) document.getElementById(id).value = proj[id];
   });
-  if (proj.siteClass) document.getElementById('siteClass').value = proj.siteClass;
+  if (proj.siteClass != null) document.getElementById('siteClass').value = proj.siteClass;
   if (isFinite(proj.hn)) document.getElementById('hn').value = proj.hn;
   box.innerHTML = `
     <strong>已讀到等值靜力分析摘要</strong><br>
@@ -786,6 +830,7 @@ function loadStaticSummaryIntoPage() {
     已同步帶入震區參數、地盤分類與建物總高度。
   `;
   saveProjectInfo();
+  if (lastAppendResult) appendageReportInputsChanged = true;
   updateInputChecks();
   return saved;
 }
@@ -843,6 +888,98 @@ function renderInputChecks(messages) {
 
 function updateInputChecks() {
   renderInputChecks(validateAppendageInputs());
+  renderAppendageReportReadiness();
+}
+
+function buildAppendageReportReadinessModel(validationMessage = lastAppendReportValidationMessage) {
+  if (validationMessage) {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過檢查，先不要產生計算書。',
+      priority: [validationMessage],
+      items: [
+        ['分析狀態', '未完成'],
+        ['計算書模式', getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+  if (!lastAppendResult || document.getElementById('resultPanel')?.style.display === 'none') {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '尚未完成附屬構造物地震力計算。',
+      priority: ['請先執行「計算附屬構造物地震力」，再整理計算書附件。'],
+      items: [
+        ['分析狀態', '待計算'],
+        ['計算書模式', getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+  if (appendageReportInputsChanged) {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入已變更，頁面結果可能不是最新。',
+      priority: ['請重新計算後再產出計算書附件。'],
+      items: [
+        ['分析狀態', '需重算'],
+        ['計算書模式', getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+
+  const reviewItems = [];
+  const messages = validateAppendageInputs().filter(message => message.type !== 'error');
+  if (window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])) reviewItems.push('計畫名稱、編號或設計人尚未完整，產報前建議補齊。');
+  messages.forEach(message => reviewItems.push(message.text));
+  if (lastAppendResult.typeGroup === 'CUSTOM') {
+    reviewItems.push('本案採自訂 a_p / R_p，請保留表 4-1 / 表 4-2 以外之專案依據。');
+  }
+  if (getPrintReportMode() === 'simple') {
+    reviewItems.push('目前為簡易結果模式；計算書只輸出條件表、摘要與示意圖，不含完整代入式。');
+  }
+
+  return {
+    tone: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    priority: reviewItems.length ? reviewItems : ['附屬構造物輸入條件、控制係數與水平 / 垂直地震力摘要已可供附件整理。'],
+    items: [
+      ['構材類型', lastAppendResult.typeName || '—'],
+      ['控制條件', lastAppendResult.ctrlLabel || '—'],
+      ['設計地震力', `Fph ${fmt(lastAppendResult.Fph, 3)} / Fpv ${fmt(lastAppendResult.Fpv, 3)} tf`],
+      ['計算書模式', getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式'],
+      ['用途係數 / 韌性', `Ip ${fmt(parseFloat(document.getElementById('apIp')?.value), 1)} / Rpa ${fmt(lastAppendResult.Rpa, 3)}`],
+      ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+    ]
+  };
+}
+
+function renderAppendageReportReadiness(validationMessage = lastAppendReportValidationMessage) {
+  const el = document.getElementById('appendageReportReadiness');
+  if (!el) return;
+  const message = typeof validationMessage === 'string' ? validationMessage : lastAppendReportValidationMessage;
+  const model = buildAppendageReportReadinessModel(message);
+  window.ToolReportUI.renderStatusGridPanel({
+    target: el,
+    containerClassName: 'card page-only-report-status report-readiness',
+    level: model.tone,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    priorityItems: model.priority,
+    items: model.items,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認表 4-1 / 表 4-2 適用條件、附著高度、用途係數與送審圖說一致性。'
+  });
+}
+
+function markAppendageReportInputsChanged() {
+  if (lastAppendResult) appendageReportInputsChanged = true;
+  renderAppendageReportReadiness();
 }
 
 function renderAppendageDiagram(r, options = {}) {
@@ -971,7 +1108,9 @@ function calcAppendagePage() {
   renderInputChecks(validationMessages);
   const blockingMessages = validationMessages.filter(message => message.type === 'error');
   if (blockingMessages.length) {
-    setInputStatus(blockingMessages.map(message => message.text).join('；'));
+    const message = blockingMessages.map(message => message.text).join('；');
+    setInputStatus(message);
+    setAppendageReportValidationMessage(message);
     return false;
   }
   const site = S.calcSiteCoeff(siteClass, SsD, S1D, SsM, S1M);
@@ -1078,12 +1217,16 @@ function calcAppendagePage() {
       </div>
     </div>
   `;
+  appendageReportInputsChanged = false;
   clearInputStatus();
+  setAppendageReportValidationMessage('');
   return true;
 }
 
 function openAppendageReport() {
-  if (!lastAppendResult) calcAppendagePage();
+  if (!lastAppendResult || appendageReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none') {
+    if (calcAppendagePage() === false) return;
+  }
   if (!lastAppendResult) return;
   const r = lastAppendResult;
   const proj = getProjectInfo();
@@ -1267,8 +1410,26 @@ restoreProjectInfo();
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('input', saveProjectInfo);
+  el.addEventListener('input', function() { renderAppendageReportReadiness(); });
+  el.addEventListener('change', function() { renderAppendageReportReadiness(); });
 });
+CASE_VALUE_FIELDS
+  .filter(id => !['projName', 'projNo', 'projDesigner', 'printReportMode'].includes(id))
+  .forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', markAppendageReportInputsChanged);
+    el.addEventListener('change', markAppendageReportInputsChanged);
+  });
+CASE_CHECK_FIELDS
+  .filter(id => id !== 'printCalcDetailSection')
+  .forEach(function(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', markAppendageReportInputsChanged);
+  });
 updateInputChecks();
+renderAppendageReportReadiness();
 </script>
 </body>
 </html>

@@ -46,6 +46,17 @@ function sameArray(a, b) {
   return a.length === b.length && a.every((item, index) => item === b[index]);
 }
 
+function escapeRegex(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function assertPrintHidesSelectors(text, selectors, label) {
+  selectors.forEach(selector => {
+    const pattern = new RegExp(`@media\\s+print[\\s\\S]*${escapeRegex(selector)}[\\s\\S]*display:\\s*none\\s*!important`);
+    assert(pattern.test(text), `${label} print hides ${selector}`, selector);
+  });
+}
+
 function arrayIncludesAll(items, required, label) {
   for (const item of required) {
     assert(items.includes(item), `${label} includes ${item}`, item);
@@ -66,6 +77,7 @@ function evidenceExists(relativePath) {
 
 const catalogRelativePath = '螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json';
 const contractRelativePath = '螺栓檢討/anchor-traceability.contract.test.js';
+const reportContractRelativePath = '螺栓檢討/anchor-report.contract.test.js';
 const vitestRelativePath = '螺栓檢討/bolt-review-tool/src/anchorTraceabilityCatalog.test.ts';
 const catalogPath = repoFile(catalogRelativePath);
 const catalogText = readText(catalogPath);
@@ -77,6 +89,12 @@ const calc = readText(packageFile('src/calc.ts'));
 const defaults = readText(packageFile('src/defaults.ts'));
 const reportDocument = readText(packageFile('src/ReportDocument.tsx'));
 const seismicGuidance = readText(packageFile('src/seismicRouteGuidance.ts'));
+const appCss = readText(packageFile('src/App.css'));
+const appSource = readText(packageFile('src/App.tsx'));
+const attachmentReadinessPanel = readText(packageFile('src/AttachmentReadinessPanel.tsx'));
+const reportSettingsPanel = readText(packageFile('src/ReportSettingsPanel.tsx'));
+const caseLibraryPanel = readText(packageFile('src/CaseLibraryPanel.tsx'));
+const caseDocumentsPanel = readText(packageFile('src/CaseDocumentsPanel.tsx'));
 const preflight = readText(repoFile('preflight-tools.ps1'));
 const homeJs = readText(repoFile('結構工具箱/assets/home/home.js'));
 const readme = readText(repoFile('README.md'));
@@ -84,6 +102,7 @@ const boundaries = readText(repoFile('TOOL_BOUNDARIES.md'));
 const staging = readText(repoFile('STAGING_GROUPS.md'));
 const reportGuide = readText(repoFile('TOOL_REPORT_GUIDE.md'));
 const syncAnchor = readText(repoFile('sync-anchor-deployment.ps1'));
+const reportContract = readText(repoFile(reportContractRelativePath));
 
 const expectedTools = [
   'anchor-strength',
@@ -216,6 +235,28 @@ assert(reportDocument.includes('Taiwan RC Anchor Review Report'), 'anchor report
 assert(packageJson.scripts?.verify === 'npm run typecheck && npm run lint && npm run test && npm run build:bundle', 'anchor package verify keeps full local gate', packageJson.scripts?.verify);
 assert(vitestContract.includes("import catalog from './anchor-traceability.catalog.json'"), 'anchor vitest contract imports catalog', vitestRelativePath);
 assert(vitestContract.includes('covers the high-risk clause routes surfaced by the source code'), 'anchor vitest contract keeps high-risk route coverage', vitestRelativePath);
+assert(attachmentReadinessPanel.includes('頁面輔助') && attachmentReadinessPanel.includes('產報前檢查'), 'anchor attachment readiness stays page-only on the workspace tab', 'AttachmentReadinessPanel.tsx');
+assert(reportSettingsPanel.includes('report-settings-panel') && reportSettingsPanel.includes('data-shows="report"'), 'anchor report settings stay on the page-only workspace tab', 'ReportSettingsPanel.tsx');
+assert(appSource.includes('resource-back-bar'), 'anchor report workspace keeps a back-bar navigation section', 'resource-back-bar');
+assert(appSource.includes('legacy-panel') && appSource.includes('data-shows="report"'), 'anchor report workspace keeps unit preview as a page-only panel', 'legacy-panel data-shows=\"report\"');
+assert(caseLibraryPanel.includes('case-actions') && caseLibraryPanel.includes('case-library-toolbar'), 'anchor case library keeps page-only action rows', 'CaseLibraryPanel.tsx');
+assert(caseDocumentsPanel.includes('document-upload-row') && caseDocumentsPanel.includes('document-preview-panel'), 'anchor case documents keep page-only upload and preview surfaces', 'CaseDocumentsPanel.tsx');
+assertPrintHidesSelectors(
+  appCss,
+  [
+    '.attachment-readiness-panel',
+    '.resource-back-bar',
+    '.report-settings-panel',
+    ".legacy-panel[data-shows~='report']",
+    '.case-library-toolbar',
+    '.case-actions',
+    '.document-upload-row',
+    '.document-preview-panel',
+    '.document-preview-panel .action-row',
+    '.document-card .action-row',
+  ],
+  'anchor report workspace page-only controls'
+);
 
 [
   'anchor-traceability-contract',
@@ -223,9 +264,29 @@ assert(vitestContract.includes('covers the high-risk clause routes surfaced by t
   'Anchor traceability catalog contract',
 ].forEach(needle => assert(preflight.includes(needle), 'platform preflight runs anchor traceability contract', needle));
 
+[
+  'anchor-report-contract',
+  'node 螺栓檢討/anchor-report.contract.test.js',
+  'Anchor report boundary contract',
+].forEach(needle => assert(preflight.includes(needle), 'platform preflight runs anchor report contract', needle));
+
+[
+  'src/reportExport.test.ts',
+  'src/reportDocx.test.ts',
+  'src/reportWorkbook.test.ts',
+  'src/attachmentReadiness.test.ts',
+].forEach(needle => assert(reportContract.includes(needle), 'anchor report contract keeps targeted report suites', needle));
+
+assert(homeJs.includes("'anchor-deployment': {"), 'home governance keeps anchor deployment source', 'anchor-deployment');
+assert(homeJs.includes("label: 'Anchor deployment'"), 'home governance keeps anchor deployment label', 'Anchor deployment');
 assert(
-  homeJs.includes("'anchor-deployment': { label: 'Anchor deployment', preflightKeys: ['anchor-traceability-contract', 'anchor-verify', 'anchor-route'] }"),
+  homeJs.includes("preflightKeys: ['anchor-traceability-contract', 'anchor-route', 'anchor-report-contract']"),
   'home governance exposes anchor traceability before deploy route keys',
+  'anchor-deployment'
+);
+assert(
+  homeJs.includes("fullPreflightKeys: ['anchor-verify']"),
+  'home governance keeps anchor verify full gate',
   'anchor-deployment'
 );
 
@@ -233,6 +294,7 @@ assert(
   catalogRelativePath,
   vitestRelativePath,
   contractRelativePath,
+  reportContractRelativePath,
 ].forEach(needle => {
   assert(readme.includes(needle), 'README documents anchor traceability governance', needle);
   assert(boundaries.includes(needle), 'TOOL_BOUNDARIES documents anchor traceability governance', needle);
@@ -241,6 +303,7 @@ assert(
 
 assert(reportGuide.includes(contractRelativePath), 'TOOL_REPORT_GUIDE documents anchor traceability contract', contractRelativePath);
 assert(packageReadme.includes(contractRelativePath), 'anchor README points to platform traceability contract', contractRelativePath);
+assert(packageReadme.includes(reportContractRelativePath), 'anchor README points to platform report contract', reportContractRelativePath);
 assert(syncAnchor.includes('sourceFingerprint') && syncAnchor.includes('ANCHOR_BASE_PATH'), 'anchor sync script preserves deployment fingerprint workflow', 'sync-anchor-deployment.ps1');
 
 if (failed) {

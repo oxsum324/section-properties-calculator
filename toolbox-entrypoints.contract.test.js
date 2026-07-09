@@ -260,12 +260,53 @@ function extractPreflightHelperPaths(source) {
     .filter(Boolean))].sort();
 }
 const homeSource = readText(homeJsPath);
+const homeIndex = readText(path.join(toolboxRoot, 'index.html'));
 const homeTools = evaluateLiteral(extractConstLiteral(homeSource, 'tools'), 'home-tools');
 const homeDataUpdated = extractConstString(homeSource, 'HOME_DATA_UPDATED');
 const toolStates = evaluateLiteral(extractConstLiteral(homeSource, 'toolStates'), 'tool-states');
 const stateBoundaryRules = evaluateLiteral(extractConstLiteral(homeSource, 'stateBoundaryRules'), 'state-boundary-rules');
 const governanceSources = evaluateLiteral(extractConstLiteral(homeSource, 'governanceSources'), 'governance-sources');
+const reportReadinessOverview = evaluateLiteral(extractConstLiteral(homeSource, 'reportReadinessOverview'), 'report-readiness-overview');
 const routeFileMap = evaluateLiteral(extractConstLiteral(homeSource, 'routeFileMap'), 'route-file-map');
+const EXPECTED_GOVERNANCE_SOURCE_KEYS = {
+  'formal-tools': {
+    preflightKeys: ['formal-traceability-contract', 'formal-tools-static'],
+    fullPreflightKeys: ['formal-browser-smoke']
+  },
+  'rc-audit': {
+    preflightKeys: ['rc-traceability-contract', 'rc-audit-status', 'rc-column-report-contract', 'rc-shear-wall-report-contract']
+  },
+  'steel-audit': {
+    preflightKeys: ['steel-traceability-contract', 'steel-formal-regression', 'steel-audit-status']
+  },
+  'anchor-deployment': {
+    preflightKeys: ['anchor-traceability-contract', 'anchor-route', 'anchor-report-contract'],
+    fullPreflightKeys: ['anchor-verify']
+  },
+  'stone-v2': {
+    preflightKeys: ['stone-feedback-contract', 'stone-traceability-contract', 'stone-report-contract', 'stone-self-check', 'stone-quick-check']
+  },
+  'decking-contract': {
+    preflightKeys: ['decking-tools-contract', 'decking-traceability-contract', 'decking-report-contract']
+  },
+  'excavation-service': {
+    preflightKeys: ['excavation-launcher', 'excavation-traceability-contract', 'excavation-backend-quick', 'excavation-report-contract'],
+    fullPreflightKeys: ['excavation-backend', 'excavation-frontend']
+  },
+  'continuous-beam': {
+    preflightKeys: ['continuous-beam']
+  },
+  'frame-analysis': {
+    preflightKeys: ['frame-analysis-contract']
+  },
+  'section-tools': {
+    preflightKeys: ['section-tools-contract']
+  },
+  'local-quick-contract': {
+    preflightKeys: ['local-quick-tools-static'],
+    fullPreflightKeys: ['local-quick-tools-runner']
+  }
+};
 const vercel = readJson('vercel.json');
 const formalManifest = readJson('結構工具箱/tools/formal-tools.manifest.json');
 const localQuickManifest = readJson('結構工具箱/tools/local-quick-tools.manifest.json');
@@ -277,6 +318,7 @@ const auditAll = readText(path.join(repoRoot, 'audit-all.ps1'));
 const maturityMatrix = readText(path.join(toolboxRoot, 'tools/tool-maturity-matrix.js'));
 const pagesLiveSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-smoke.js'));
 const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
+const pagesArtifactSmoke = readText(path.join(repoRoot, 'run-pages-artifact-smoke.ps1'));
 
 assert.equal(vercel.cleanUrls, true, 'Vercel cleanUrls must stay enabled');
 assert.ok(Array.isArray(vercel.redirects), 'vercel redirects array');
@@ -290,28 +332,92 @@ for (const stateKey of Object.keys(toolStates).filter(key => key !== 'formal')) 
   assert.ok(Array.isArray(stateBoundaryRules[stateKey].limitAny), `${stateKey} boundary has limit needles`);
   assert.ok(Array.isArray(stateBoundaryRules[stateKey].forbiddenCapabilities), `${stateKey} boundary has forbidden capabilities`);
 }
+assert.ok(governanceSources['formal-tools'], 'home governance sources include formal wind/seismic');
 assert.ok(governanceSources['rc-audit'], 'home governance sources include RC audit');
 assert.ok(governanceSources['steel-audit'], 'home governance sources include steel audit');
 assert.ok(governanceSources['anchor-deployment'], 'home governance sources include anchor deployment');
 assert.ok(governanceSources['stone-v2'], 'home governance sources include stone V2');
 assert.ok(governanceSources['decking-contract'], 'home governance sources include decking contract');
+assert.ok(governanceSources['excavation-service'], 'home governance sources include excavation service');
+assert.ok(governanceSources['continuous-beam'], 'home governance sources include continuous beam');
+assert.ok(governanceSources['frame-analysis'], 'home governance sources include frame analysis');
+assert.ok(governanceSources['section-tools'], 'home governance sources include section tools');
+assert.ok(governanceSources['local-quick-contract'], 'home governance sources include local quick tools');
+assert.equal(governanceSources['formal-tools'].cardTag, '報告邊界', 'formal wind/seismic governance source exposes report boundary chip');
+assert.equal(governanceSources['rc-audit'].cardTag, '報告邊界', 'RC governance source exposes report boundary chip');
+assert.equal(governanceSources['steel-audit'].cardTag, '報告邊界', 'steel governance source exposes report boundary chip');
+assert.equal(governanceSources['anchor-deployment'].cardTag, '輸出邊界', 'anchor governance source exposes output boundary chip');
+assert.equal(governanceSources['stone-v2'].cardTag, 'Word/PDF 邊界', 'stone governance source exposes report boundary chip');
+assert.equal(governanceSources['decking-contract'].cardTag, 'Word 邊界', 'decking governance source exposes Word boundary chip');
+assert.equal(governanceSources['excavation-service'].cardTag, 'PDF/DOCX 邊界', 'excavation governance source exposes PDF/DOCX boundary chip');
+assert.equal(governanceSources['continuous-beam'].cardTag, '計算書邊界', 'continuous beam governance source exposes calculation-book boundary chip');
+assert.equal(governanceSources['frame-analysis'].cardTag, '計算書邊界', 'frame analysis governance source exposes calculation-book boundary chip');
+assert.equal(governanceSources['section-tools'].cardTag, '報表邊界', 'section tools governance source exposes report boundary chip');
+assert.equal(governanceSources['local-quick-contract'].cardTag, 'JSON/計算書 邊界', 'local quick governance source exposes JSON/calculation-book boundary chip');
 for (const [sourceKey, source] of Object.entries(governanceSources)) {
   assert.ok(Array.isArray(source.preflightKeys) && source.preflightKeys.length > 0, `${sourceKey} governance source preflight keys`);
   for (const preflightKey of source.preflightKeys) {
     assert.ok(preflight.includes(`key = "${preflightKey}"`), `${sourceKey} preflight key missing: ${preflightKey}`);
   }
+  for (const preflightKey of source.fullPreflightKeys || []) {
+    assert.ok(preflight.includes(`key = "${preflightKey}"`), `${sourceKey} full preflight key missing: ${preflightKey}`);
+  }
 }
+for (const [sourceKey, expected] of Object.entries(EXPECTED_GOVERNANCE_SOURCE_KEYS)) {
+  const source = governanceSources[sourceKey];
+  assert.ok(source, `expected governance source missing: ${sourceKey}`);
+  assert.deepEqual(source.preflightKeys || [], expected.preflightKeys || [], `${sourceKey} preflight keys drifted`);
+  assert.deepEqual(source.fullPreflightKeys || [], expected.fullPreflightKeys || [], `${sourceKey} full preflight keys drifted`);
+}
+assert.ok(homeIndex.includes('id="reportReadinessStatus"'), 'home index exposes report readiness status card');
+assert.ok(homeSource.includes('function renderReportReadinessStatus('), 'home.js renders report readiness status card');
+assert.ok(homeSource.includes('function renderStaticStatusCard('), 'home.js exposes reusable static status card renderer');
+assert.equal(reportReadinessOverview.badge, '頁面專用', 'report readiness overview uses page-only badge');
+assert.equal(reportReadinessOverview.label, '報告閱讀狀態總覽', 'report readiness overview label');
+assert.ok(reportReadinessOverview.summary.includes('優先建議報告閱讀狀態'), 'report readiness overview summary mentions page-only readiness');
+assert.ok(reportReadinessOverview.summary.includes('不會寫入計算書、列印或 PDF'), 'report readiness overview summary keeps export boundary');
+assert.ok(Array.isArray(reportReadinessOverview.details) && reportReadinessOverview.details.length >= 2, 'report readiness overview details exist');
+assert.ok(reportReadinessOverview.details.join(' ').includes('RC 正式工具'), 'report readiness overview covers RC family');
+assert.ok(reportReadinessOverview.details.join(' ').includes('鋼構正式工具'), 'report readiness overview covers steel family');
+assert.ok(reportReadinessOverview.details.join(' ').includes('石材'), 'report readiness overview covers stone family');
+assert.ok(reportReadinessOverview.details.join(' ').includes('覆工板'), 'report readiness overview covers decking family');
+assert.ok(reportReadinessOverview.details.join(' ').includes('首頁卡片會標記'), 'report readiness overview covers per-card boundary chips');
+assert.ok(reportReadinessOverview.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'report readiness overview keeps delivery boundary');
 assert.ok(maturityMatrix.includes('formal-tools.manifest.json'), 'maturity matrix reads formal manifest');
 assert.ok(maturityMatrix.includes('local-quick-tools.manifest.json'), 'maturity matrix reads local quick manifest');
 assert.ok(maturityMatrix.includes('homeEntry'), 'maturity matrix checks home entries');
 assert.equal(/fetch\(\s*[`'"]\/output\//.test(homeSource), false, 'home status fetches must not use domain-root /output paths');
 assert.ok(homeSource.includes("homeAssetHref('assets/status/platform-status.json')"), 'home status fetch uses tracked platform status asset');
 assert.ok(homeSource.includes("homeAssetHref('assets/status/preflight-summary.json')"), 'home status fetch uses tracked preflight status asset');
+assert.ok(homeSource.includes("homeAssetHref('assets/status/report-readiness-status.json')"), 'home status fetch uses tracked report readiness asset');
+assert.ok(homeSource.includes("payload.kind === 'report-readiness-status'"), 'home status validates report readiness snapshot kind');
+assert.ok(homeSource.includes("dataset.statusSource = payload && payload.kind === 'report-readiness-status' ? 'snapshot' : 'static'"), 'home status exposes report readiness snapshot source flag');
+assert.ok(homeSource.includes('完整檢查'), 'home status exposes full preflight label');
+assert.ok(homeSource.includes('快速檢查'), 'home status exposes quick preflight label');
+assert.ok(homeSource.includes('正式放行'), 'home status exposes release preflight label');
+assert.ok(homeSource.includes('正式交付請以完整檢查或正式放行結果為準'), 'home status explains full-run evidence boundary');
 assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/platform-status.json')), 'homepage platform status asset exists');
 assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/preflight-summary.json')), 'homepage preflight status asset exists');
+assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/report-readiness-status.json')), 'homepage report readiness status asset exists');
+assert.ok(staging.includes('## A0. 報告閱讀狀態與 Pages release governance'), 'STAGING_GROUPS defines first page-only release governance package');
+assert.ok(staging.includes('低風險可整檔 staging 的檔案'), 'STAGING_GROUPS A0 separates low-risk whole-file staging');
+assert.ok(staging.includes('需要人工 hunk review'), 'STAGING_GROUPS A0 marks broad docs/contracts for hunk review');
+assert.ok(staging.includes('Harden page-only report readiness release evidence'), 'STAGING_GROUPS gives A0 a focused commit message');
+assert.ok(staging.includes('run-pages-artifact-smoke.ps1'), 'STAGING_GROUPS A0 includes local Pages artifact smoke wrapper');
+assert.ok(staging.includes('結構工具箱/assets/status/report-readiness-status.json'), 'STAGING_GROUPS A0 includes report readiness status snapshot');
+assert.ok(staging.includes('結構工具箱/assets/status/preflight-summary.json'), 'STAGING_GROUPS A0 includes preflight status snapshot');
+assert.ok(staging.includes('結構工具箱/assets/status/platform-status.json'), 'STAGING_GROUPS A0 includes platform status snapshot');
+assert.ok(staging.includes('README.md') && staging.includes('只挑 Pages / report-readiness 相關 hunk'), 'STAGING_GROUPS A0 keeps README hunk review scoped');
+assert.ok(staging.includes('toolbox-entrypoints.contract.test.js') && staging.includes('必須同步 staging 它引用的 contract / preflight / home source 變更'), 'STAGING_GROUPS A0 warns against isolated broad contract staging');
+assert.ok(staging.includes('不要混入本包'), 'STAGING_GROUPS A0 documents excluded neighboring work');
+assert.ok(staging.includes('anchor/assets/') && staging.includes('改放 B 包'), 'STAGING_GROUPS A0 keeps anchor deploy assets out of the first package');
 assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity matrix publishes homepage status snapshots');
 assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
+assert.ok(pagesLiveSmoke.includes('assets/status/report-readiness-status.json'), 'Pages live smoke checks report readiness status asset');
+assert.ok(pagesLiveSmoke.includes('reportReadinessStatus.runId, preflightStatus.runId'), 'Pages live smoke aligns report readiness runId with public preflight status');
+assert.ok(pagesLiveSmoke.includes('reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath'), 'Pages live smoke aligns report readiness source with public preflight status');
+assert.ok(pagesLiveSmoke.includes('--allow-local-output'), 'Pages live smoke supports local repo-root preview override');
 assert.ok(pagesLiveSmoke.includes('PUBLIC_ROUTE_SAMPLES'), 'Pages live smoke has public route sample inventory');
 assert.ok(pagesLiveSmoke.includes('assertPublicRouteSamples'), 'Pages live smoke checks representative public routes');
 assert.ok(pagesLiveSmoke.includes('assertNoLocalWorkspaceLeak'), 'Pages live smoke rejects local workspace path leaks from public pages');
@@ -321,6 +427,10 @@ assert.ok(pagesLiveSmoke.includes('石材固定/石材計算書產生器_規範�
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/index.html'), 'Pages live smoke samples excavation launcher');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');
 assert.ok(pagesLiveSmoke.includes('assertPrivateBoundary'), 'Pages live smoke checks private artifact boundary');
+assert.ok(pagesLiveSmoke.includes('CONTEXT.md'), 'Pages live smoke blocks context glossary publication');
+assert.ok(pagesLiveSmoke.includes('docs/adr/0001-page-only-report-readiness.md'), 'Pages live smoke blocks ADR publication');
+assert.ok(readme.includes('CONTEXT.md') && readme.includes('docs/adr/'), 'README documents context and ADR private boundary');
+assert.ok(boundaries.includes('CONTEXT.md') && boundaries.includes('docs/adr/'), 'TOOL_BOUNDARIES documents context and ADR private boundary');
 assert.ok(pagesLiveSmoke.includes('preflight-tools.ps1'), 'Pages live smoke blocks preflight script publication');
 assert.ok(pagesLiveSmoke.includes('toolbox-entrypoints.contract.test.js'), 'Pages live smoke blocks contract publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
@@ -328,6 +438,33 @@ assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke b
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/backend/app/main.py'), 'Pages live smoke blocks excavation backend publication');
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/frontend/src/App.tsx'), 'Pages live smoke blocks excavation frontend source publication');
 assert.ok(pagesLiveSmoke.includes('螺栓檢討/bolt-review-tool/src/App.tsx'), 'Pages live smoke blocks anchor source publication');
+assert.ok(fs.existsSync(path.join(repoRoot, 'run-pages-artifact-smoke.ps1')), 'local Pages artifact smoke wrapper exists');
+assert.ok(readme.includes('run-pages-artifact-smoke.ps1'), 'README documents local Pages artifact smoke wrapper');
+assert.ok(staging.includes('run-pages-artifact-smoke.ps1'), 'STAGING_GROUPS includes local Pages artifact smoke wrapper');
+assert.ok(boundaries.includes('run-pages-artifact-smoke.ps1'), 'TOOL_BOUNDARIES includes local Pages artifact smoke wrapper');
+assert.ok(pagesArtifactSmoke.includes('GetTempPath'), 'local Pages artifact smoke stages into temp');
+assert.ok(pagesArtifactSmoke.includes('robocopy'), 'local Pages artifact smoke uses filesystem staging');
+assert.ok(pagesArtifactSmoke.includes("'output'"), 'local Pages artifact smoke excludes generated output');
+assert.ok(pagesArtifactSmoke.includes("'.claude'"), 'local Pages artifact smoke excludes local agent worktrees');
+assert.ok(pagesArtifactSmoke.includes("'node_modules'"), 'local Pages artifact smoke excludes local node_modules');
+assert.ok(pagesArtifactSmoke.includes("'.column-testdeps'"), 'local Pages artifact smoke excludes RC column test dependencies');
+assert.ok(pagesArtifactSmoke.includes("'app_data'"), 'local Pages artifact smoke excludes local service data');
+assert.ok(pagesArtifactSmoke.includes("'tmp'"), 'local Pages artifact smoke excludes temp directories');
+assert.ok(pagesArtifactSmoke.includes("'*.md'"), 'local Pages artifact smoke excludes markdown docs');
+assert.ok(pagesArtifactSmoke.includes("'*.ps1'"), 'local Pages artifact smoke excludes PowerShell helpers');
+assert.ok(pagesArtifactSmoke.includes("'*.bat'"), 'local Pages artifact smoke excludes batch helpers');
+assert.ok(pagesArtifactSmoke.includes("'*.test.js'"), 'local Pages artifact smoke excludes JS tests');
+assert.ok(pagesArtifactSmoke.includes("'*.contract.test.js'"), 'local Pages artifact smoke excludes contract tests');
+assert.ok(pagesArtifactSmoke.includes("'bolt-review-tool'"), 'local Pages artifact smoke excludes anchor source project');
+assert.ok(pagesArtifactSmoke.includes("'backend'"), 'local Pages artifact smoke excludes service backends');
+assert.ok(pagesArtifactSmoke.includes("'frontend'"), 'local Pages artifact smoke excludes service frontends');
+assert.ok(pagesArtifactSmoke.includes('DynamicExcludeDirs'), 'local Pages artifact smoke dynamically narrows source-project directory exclusions');
+assert.ok(pagesArtifactSmoke.includes('pages-live-smoke.js'), 'local Pages artifact smoke calls shared live smoke');
+assert.ok(pagesArtifactSmoke.includes('--check-private-boundary'), 'local Pages artifact smoke verifies private boundary');
+assert.equal(pagesArtifactSmoke.includes('--allow-local-output'), false, 'local Pages artifact smoke must not allow repo-root output');
+assert.ok(pagesArtifactSmoke.includes('Start-Process'), 'local Pages artifact smoke starts a temporary server');
+assert.ok(pagesArtifactSmoke.includes('-WindowStyle Hidden'), 'local Pages artifact smoke hides temporary server window');
+assert.ok(pagesArtifactSmoke.includes('Stop-Process'), 'local Pages artifact smoke stops temporary server');
 assert.ok(pagesDeployWorkflow.includes('actions/configure-pages@v6'), 'Pages deploy workflow configures Pages');
 assert.ok(pagesDeployWorkflow.includes('actions/upload-artifact@v6'), 'Pages deploy workflow uploads artifact');
 assert.ok(pagesDeployWorkflow.includes('actions/deploy-pages@v5'), 'Pages deploy workflow deploys Pages');
@@ -337,6 +474,7 @@ assert.ok(pagesDeployWorkflow.includes('pages: write'), 'Pages deploy workflow h
 assert.ok(pagesDeployWorkflow.includes('id-token: write'), 'Pages deploy workflow has id-token write permission');
 assert.ok(pagesDeployWorkflow.includes('artifact.tar'), 'Pages deploy workflow creates deployable tar artifact');
 assert.ok(pagesDeployWorkflow.includes('name: github-pages'), 'Pages deploy workflow uploads the expected github-pages artifact');
+assert.ok(pagesDeployWorkflow.includes("--exclude='output/'"), 'Pages deploy workflow excludes generated output directory');
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.ps1'"), 'Pages deploy workflow excludes PowerShell helpers');
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.test.js'"), 'Pages deploy workflow excludes test files');
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.contract.test.js'"), 'Pages deploy workflow excludes contract tests');
@@ -448,6 +586,8 @@ for (const helperPath of preflightHelperPaths) {
   'run-preflight-tools-release.bat',
   'sync-anchor-deployment.ps1',
   '結構工具箱/run-audit-core.bat',
+  '鋼筋混凝土/tools/test-column.ps1',
+  '鋼筋混凝土/tools/test-shear-wall-report.ps1',
   '鋼筋混凝土/run-audit.bat',
   '鋼構工具/run-audit.bat'
 ].forEach(helperPath => {
@@ -510,6 +650,44 @@ for (const tool of homeTools) {
     assert.ok(deployedRoutes.has(tool.href), `${tool.href} clean route missing Vercel redirect/rewrite`);
   }
 }
+
+function assertHomeToolGovernance(href, governanceKey) {
+  const tool = homeTools.find(item => item.href === href);
+  assert.ok(tool, `home tool exists for governance check: ${href}`);
+  assert.equal(tool.governance, governanceKey, `${href} home governance source`);
+}
+
+[
+  '/wind-force',
+  '/wind-cc',
+  '/wind-parapet',
+  '/wind-open-roof',
+  '/wind-object-solid',
+  '/wind-object-frame',
+  '/wind-lattice-tower',
+  '/wind-object-tower',
+  '/wind-fence-sign',
+  '/wind-sign-pole',
+  '/seismic-force',
+  '/seismic-dynamic',
+  '/seismic-appendage',
+  '/seismic-misc'
+].forEach(href => assertHomeToolGovernance(href, 'formal-tools'));
+[
+  '/beam-analysis'
+].forEach(href => assertHomeToolGovernance(href, 'continuous-beam'));
+[
+  '/frame-analysis'
+].forEach(href => assertHomeToolGovernance(href, 'frame-analysis'));
+[
+  '/section',
+  '/composite-section'
+].forEach(href => assertHomeToolGovernance(href, 'section-tools'));
+[
+  '/foundation-local',
+  '/equipment-load',
+  '/earth-pressure'
+].forEach(href => assertHomeToolGovernance(href, 'local-quick-contract'));
 
 const homeRouteSet = new Set(cleanHomeRoutes);
 for (const [route, relativeFile] of Object.entries(routeFileMap)) {

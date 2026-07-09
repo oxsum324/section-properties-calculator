@@ -252,6 +252,21 @@ a { color: inherit; text-decoration: none; }
 }
 .status-card strong { font-size: var(--fs-sm); font-weight: var(--fw-bold); }
 .status-card p { margin: 0; font-size: var(--fs-xs); color: var(--fg-3); line-height: var(--lh-normal); }
+.status-card__meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.status-card__meta-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--hy-slate-100);
+  color: var(--fg-2);
+}
+.status-card__meta-item--ok { background: var(--hy-success-100); color: var(--hy-success); }
+.status-card__meta-item--warn { background: var(--hy-warning-100); color: var(--hy-warning); }
+.status-card__meta-item--trace { font-family: var(--font-mono); }
 .status-card__badge {
   align-self: flex-start;
   font-size: 10px;
@@ -393,6 +408,7 @@ a { color: inherit; text-decoration: none; }
   white-space: nowrap;
 }
 .tool-chip--system { background: var(--hy-navy-100); color: var(--hy-navy); font-weight: var(--fw-bold); }
+.tool-chip--governance { background: var(--hy-slate-100); color: var(--hy-navy); font-weight: var(--fw-bold); }
 .tool-chip--member,
 .tool-chip--analysis,
 .tool-chip--wind,

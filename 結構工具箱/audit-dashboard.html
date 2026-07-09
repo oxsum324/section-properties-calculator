@@ -212,6 +212,42 @@
     gap: 6px;
     margin: 14px 0;
   }
+  .run-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 14px;
+  }
+  .run-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid #dbe4ee;
+    color: #334155;
+    font-size: 0.76em;
+    font-weight: 700;
+  }
+  .run-legend code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.95em;
+    font-weight: 800;
+    color: var(--primary);
+  }
+  .boundary-note {
+    margin: 0 0 16px;
+    padding-left: 12px;
+    border-left: 3px solid #cbd5e1;
+    color: #475569;
+    font-size: 0.84em;
+    line-height: 1.8;
+  }
+  .boundary-note strong {
+    color: var(--text);
+  }
   .run-tick {
     display: inline-flex;
     align-items: center;
@@ -585,6 +621,7 @@
       </div>
     </div>
     <div class="upgrade-targets" id="maturityUpgradeTargets"></div>
+    <p class="boundary-note" id="reportReadinessBoundaryNote"><strong>報告閱讀狀態邊界：</strong>頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。</p>
     <div class="history-table-wrap" id="maturityOtherGovernanceWrap" aria-label="Other Governance Sources">
       <div class="history-empty">讀取其他治理來源中。</div>
     </div>
@@ -634,6 +671,12 @@
     </div>
     <div class="run-timeline" id="preflightTimeline" aria-label="最近 preflight run 趨勢">
       <div class="history-empty">讀取 preflight 趨勢中。</div>
+    </div>
+    <div class="run-legend" id="preflightTimelineLegend" aria-label="preflight mode legend">
+      <span><code>F</code> 完整檢查</span>
+      <span><code>Q</code> 快速檢查</span>
+      <span><code>R</code> 正式放行</span>
+      <span><code>!</code> 未完成 / 摘要異常</span>
     </div>
     <div class="history-table-wrap" id="preflightHistoryWrap">
       <div class="history-empty">讀取最近 preflight 歷程中。</div>
@@ -809,8 +852,8 @@
 
     function preflightModeText(item) {
       if (item && item.complete === false) return '未完成';
-      if (isReleasePreflightRun(item)) return 'Release';
-      return item && item.quick ? 'Quick' : 'Full';
+      if (isReleasePreflightRun(item)) return '正式放行';
+      return item && item.quick ? '快速檢查' : '完整檢查';
     }
 
     function preflightStatusText(item) {
@@ -835,6 +878,22 @@
       if (!item) return 'warn';
       if (item.inProgress === true) return 'warn';
       return item.pass ? 'ok' : 'fail';
+    }
+
+    function preflightEvidenceText(item) {
+      if (!item) return '目前尚無可判讀的 preflight 證據。';
+      if (item.pass !== true) {
+        if (item.quick) return '快速檢查發現異常，不能作為正式交付證據。';
+        return '本輪仍有異常，修正後才可作為正式交付證據。';
+      }
+      if (item.quick) return '僅供快速巡查，不作為正式交付證據。';
+      if (isReleasePreflightRun(item)) return '已強制平台巡檢與慢測，可作為正式放行證據。';
+      return '正式交付請以完整檢查或正式放行結果為準。';
+    }
+
+    function formatPreflightKpiValue(item) {
+      if (!item) return '無資料';
+      return `${preflightStatusText(item)} / ${preflightModeText(item)}`;
     }
 
     function isAbnormalPreflightRun(item) {
@@ -942,10 +1001,9 @@
         setHint(hintId, emptyHint);
         return;
       }
-      setKpiValue(valueId, preflightStatusText(item), preflightTone(item));
+      setKpiValue(valueId, formatPreflightKpiValue(item), preflightTone(item));
       const reason = item.incompleteReason ? `，原因 ${item.incompleteReason}` : '';
-      const releaseNote = isReleasePreflightRun(item) ? '，強制慢測與平台 audit' : '';
-      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，狀態 ${preflightStateText(item)}${reason}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}${releaseNote}。`);
+      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，狀態 ${preflightStateText(item)}${reason}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}，${preflightEvidenceText(item)}`);
     }
 
     function renderPreflightRecordLinks(summary) {
@@ -1264,13 +1322,16 @@
       const boundaryRequired = Number(entrypointCoverage.boundaryRequired || 0);
       const boundaryComplete = Number(entrypointCoverage.boundaryComplete || 0);
       const boundaryIssueCount = Number(entrypointCoverage.boundaryIssueCount || 0);
+      const pageOnlyBoundaryRequired = Number(entrypointCoverage.pageOnlyBoundaryRequired || 0);
+      const pageOnlyBoundaryComplete = Number(entrypointCoverage.pageOnlyBoundaryComplete || 0);
+      const pageOnlyBoundaryIssueCount = Number(entrypointCoverage.pageOnlyBoundaryIssueCount || 0);
       if (boundaryNode) {
         boundaryNode.textContent = boundaryRequired ? `${boundaryComplete} / ${boundaryRequired}` : '未讀取';
         boundaryNode.className = `kpi-value ${boundaryRequired && boundaryComplete >= boundaryRequired && boundaryIssueCount === 0 ? 'ok' : 'warn'}`;
       }
       if (boundaryHintNode) {
         boundaryHintNode.textContent = boundaryRequired
-          ? `矩陣外 ${boundaryRequired} 個非正式 / 輔助入口已完成 ${boundaryComplete} 個邊界檢查，問題 ${boundaryIssueCount} 個。`
+          ? `矩陣外 ${boundaryRequired} 個非正式 / 輔助入口已完成 ${boundaryComplete} 個邊界檢查，問題 ${boundaryIssueCount} 個；其中 ${pageOnlyBoundaryComplete} / ${pageOnlyBoundaryRequired} 個有列印 / 報表表面者已完成頁面專用閱讀狀態檢查，問題 ${pageOnlyBoundaryIssueCount} 個。`
           : '目前尚未讀到矩陣外入口邊界。';
       }
       if (governedNode) governedNode.textContent = `${totals.governed || 0}`;
@@ -1346,6 +1407,7 @@
                   <th>route</th>
                   <th>工具</th>
                   <th>governance</th>
+                  <th>boundary tag</th>
                   <th>preflight keys</th>
                   <th>通過</th>
                   <th>異常 / 缺漏</th>
@@ -1357,6 +1419,7 @@
                     <td><a href="${escapeAttr(route.route || '#')}" target="_blank" rel="noreferrer">${escapeHtml(route.route || '-')}</a></td>
                     <td>${escapeHtml(route.title || '-')}</td>
                     <td><code>${escapeHtml(route.governanceLabel || route.governance || '-')}</code></td>
+                    <td>${escapeHtml(route.governanceCardTag || '-')}</td>
                     <td>${renderKeys(route.preflightKeys)}</td>
                     <td><span class="maturity-status ${route.pass ? 'governed' : 'needs-attention'}">${renderKeys(route.passedKeys)}</span></td>
                     <td>${renderIssues(route)}</td>
@@ -1387,6 +1450,12 @@
                   <th>route</th>
                   <th>工具</th>
                   <th>state</th>
+                  <th>source</th>
+                  <th>boundary rule</th>
+                  <th>matched needles</th>
+                  <th>report surface</th>
+                  <th>page-only readiness</th>
+                  <th>print hidden</th>
                   <th>output</th>
                   <th>fit</th>
                   <th>limit</th>
@@ -1399,7 +1468,13 @@
                   <tr>
                     <td><a href="${escapeAttr(route.route || '#')}" target="_blank" rel="noreferrer">${escapeHtml(route.route || '-')}</a></td>
                     <td>${escapeHtml(route.title || '-')}</td>
-                    <td><code>${escapeHtml(route.state || '-')}</code></td>
+                    <td><code>${escapeHtml(route.stateLabel || route.state || '-')}</code></td>
+                    <td>${escapeHtml(route.sourcePath || '-')}</td>
+                    <td>${escapeHtml(route.boundaryRule || '-')}</td>
+                    <td>${renderBoundaryList(route.matchedLimitNeedles)}</td>
+                    <td>${route.reportSurface ? '<code>yes</code>' : '<code>no</code>'}</td>
+                    <td>${route.pageOnlyReadinessRequired ? (route.pageOnlyReadinessPresent ? '<code>yes</code>' : '<code>no</code>') : '-'}</td>
+                    <td>${route.pageOnlyReadinessRequired ? (route.pageOnlyReadinessHiddenInPrint ? '<code>yes</code>' : '<code>no</code>') : '-'}</td>
                     <td>${escapeHtml(route.output || '-')}</td>
                     <td>${escapeHtml(route.fit || '-')}</td>
                     <td>${escapeHtml(route.limit || '-')}</td>
@@ -1454,10 +1529,22 @@
             const status = gate.pass ? '通過' : '異常';
             const runId = gate.runId ? `；runId ${gate.runId}` : '';
             const catalogs = Number(gate.coveredCatalogs || 0);
+            const requiredCatalogFamilies = Array.isArray(gate.requiredCatalogFamilies)
+              ? gate.requiredCatalogFamilies.filter(Boolean)
+              : [];
+            const missingCatalogFamilies = Array.isArray(gate.missingCatalogFamilies)
+              ? gate.missingCatalogFamilies.filter(Boolean)
+              : [];
+            const requiredDetail = requiredCatalogFamilies.length
+              ? `；required ${requiredCatalogFamilies.join(', ')}`
+              : '';
+            const missingDetail = missingCatalogFamilies.length
+              ? `；missing ${missingCatalogFamilies.join(', ')}`
+              : '';
             return `
               <div class="coverage-total ${gate.pass ? 'ok' : 'warn'}" data-governance-key="${escapeAttr(gate.key || '-')}">
                 <strong>${escapeHtml(gate.label || gate.key || '-')}</strong>
-                <span>${escapeHtml(`${status}${runId}；${catalogs} catalogs；${gate.key || '-'}${issues}`)}</span>
+                <span>${escapeHtml(`${status}${runId}；${catalogs} catalogs${requiredDetail}${missingDetail}；${gate.key || '-'}${issues}`)}</span>
               </div>
             `;
           }).join('')
@@ -1476,7 +1563,7 @@
       }
       if (preflightNode) {
         if (payload.latestPreflight) {
-          preflightNode.textContent = payload.latestPreflight.pass ? '通過' : '異常';
+          preflightNode.textContent = formatPreflightKpiValue(payload.latestPreflight);
           preflightNode.className = `kpi-value ${payload.latestPreflight.pass ? 'ok' : 'fail'}`;
         } else {
           preflightNode.textContent = '無資料';
@@ -1485,7 +1572,7 @@
       }
       if (preflightHintNode) {
         preflightHintNode.textContent = payload.latestPreflight
-          ? `runId ${payload.latestPreflight.runId || '-'}，時間 ${payload.latestPreflight.generatedAt || '-'}，通過 ${formatPassedChecks(payload.latestPreflight)}，耗時 ${formatSeconds(payload.latestPreflight.totalSeconds)}，平台 audit ${formatPlatformAuditMode(payload.latestPreflight)}，慢測重用 ${formatSlowReuse(payload.latestPreflight)}，最慢 ${formatSlowest(payload.latestPreflight)}${formatPreflightSource(payload.latestPreflight)}。`
+          ? `${preflightModeText(payload.latestPreflight)} runId ${payload.latestPreflight.runId || '-'}，時間 ${payload.latestPreflight.generatedAt || '-'}，通過 ${formatPassedChecks(payload.latestPreflight)}，耗時 ${formatSeconds(payload.latestPreflight.totalSeconds)}，平台 audit ${formatPlatformAuditMode(payload.latestPreflight)}，慢測重用 ${formatSlowReuse(payload.latestPreflight)}，最慢 ${formatSlowest(payload.latestPreflight)}，${preflightEvidenceText(payload.latestPreflight)}${formatPreflightSource(payload.latestPreflight)}。`
           : '目前尚未讀到 preflight-summary.json。';
       }
 

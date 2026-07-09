@@ -74,7 +74,7 @@
     .report-readiness-grid { grid-template-columns:1fr; }
   }
   @media print {
-    .page-only-report-status { display:none !important; }
+    .page-only-report-status, .case-actions, .case-status { display:none !important; }
   }
 </style>
 </head>
@@ -404,14 +404,6 @@ let lastParapetReportValidationMessage = '';
 let parapetReportInputsChanged = false;
 function fmt(v, d) { return v == null || !isFinite(v) ? '—' : Number(v).toFixed(d); }
 function val(id) { return parseFloat(document.getElementById(id).value) || 0; }
-function escHtml(text) {
-  return String(text ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 function setR(id, v, d) {
   const el = document.querySelector('#' + id + ' .value');
   if (el) el.textContent = typeof v === 'string' ? v : fmt(v, d == null ? 2 : d);
@@ -438,17 +430,6 @@ function setInputStatus(message) {
 }
 function clearInputStatus() {
   setInputStatus('');
-}
-function getProjectInfo() {
-  return {
-    name: document.getElementById('projName')?.value.trim() || '',
-    no: document.getElementById('projNo')?.value.trim() || '',
-    designer: document.getElementById('projDesigner')?.value.trim() || ''
-  };
-}
-function isProjectMetaMissing() {
-  const project = getProjectInfo();
-  return !project.name || !project.no || !project.designer;
 }
 function parapetReportModeLabel() {
   return document.getElementById('reportMode')?.value === 'summary' ? '簡易結果' : '詳算式';
@@ -481,7 +462,7 @@ function buildParapetReportReadinessModel(validationMessage = lastParapetReportV
   if (staleMessage) {
     reviewItems.push({ label: '輸入已變更', value: staleMessage });
   }
-  if (isProjectMetaMissing()) {
+  if (window.WindReport.isProjectMetaMissing()) {
     reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
   }
   if (r.applicabilityLevel === 'fail') {
@@ -529,24 +510,13 @@ function renderParapetReportReadiness(validationMessage = lastParapetReportValid
   const el = document.getElementById('parapetReportReadiness');
   if (!el) return;
   const model = buildParapetReportReadinessModel(validationMessage);
-  el.className = `report-readiness page-only-report-status ${model.level}`;
-  el.innerHTML = `
-    <div class="report-readiness-head">
-      <div>
-        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
-        <p class="report-readiness-title">${escHtml(model.title)}</p>
-      </div>
-      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
-    </div>
-    <div class="report-readiness-grid">
-      ${model.items.map(item => `
-        <div class="report-readiness-item">
-          <strong>${escHtml(item.label)}</strong>
-          <span>${escHtml(item.value)}</span>
-        </div>
-      `).join('')}
-    </div>
-    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認 Eq 2.3 或 Eq 3.3、圖 3.4 / 圖 3.5、GCpi 採用、前後面壓差責任邊界、女兒牆體開口狀態、角隅條件與送審圖說一致性。</div>`;
+  window.WindReport.renderStatusGridPanel({
+    container: el,
+    containerClassName: 'report-readiness page-only-report-status',
+    panelLabel: '頁面輔助｜產報前檢查｜優先閱讀',
+    model,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認 Eq 2.3 或 Eq 3.3、圖 3.4 / 圖 3.5、GCpi 採用、前後面壓差責任邊界、女兒牆體開口狀態、角隅條件與送審圖說一致性。'
+  });
 }
 function clearParapetReportIssue() {
   if (window.WindReport && typeof window.WindReport.clearWindReportIssue === 'function') {
@@ -591,9 +561,9 @@ function readCaseInputs() {
   });
   return {
     project: {
-      name: document.getElementById('projName').value,
-      no: document.getElementById('projNo').value,
-      designer: document.getElementById('projDesigner').value
+      name: window.WindReport.normalizeProjectFieldValue(document.getElementById('projName').value),
+      no: window.WindReport.normalizeProjectFieldValue(document.getElementById('projNo').value),
+      designer: window.WindReport.normalizeProjectFieldValue(document.getElementById('projDesigner').value)
     },
     values
   };
@@ -618,9 +588,9 @@ function applyCaseInputs(payload) {
   const inputBlock = payload?.inputs || {};
   const project = payload?.project || inputBlock.project || {};
   const values = { ...(inputBlock.values || {}), ...(payload?.values || {}) };
-  if (project.name != null) document.getElementById('projName').value = project.name;
-  if (project.no != null) document.getElementById('projNo').value = project.no;
-  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  if (project.name != null) document.getElementById('projName').value = window.WindReport.normalizeProjectFieldValue(project.name);
+  if (project.no != null) document.getElementById('projNo').value = window.WindReport.normalizeProjectFieldValue(project.no);
+  if (project.designer != null) document.getElementById('projDesigner').value = window.WindReport.normalizeProjectFieldValue(project.designer);
   CASE_VALUE_IDS.forEach(id => {
     if (Object.prototype.hasOwnProperty.call(values, id)) setInputValue(id, values[id]);
   });

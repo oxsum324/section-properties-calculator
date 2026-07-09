@@ -160,7 +160,9 @@
   .report-readiness-item strong { display: block; margin-top: 2px; font-size: 0.84em; color: var(--text); line-height: 1.35; }
   .report-readiness-notes { margin: 0; padding-left: 18px; font-size: 0.78em; color: #57534e; line-height: 1.65; }
   @media print {
-    .page-only-report-status { display: none !important; }
+    .page-only-report-status,
+    .save-bar,
+    .modal-overlay { display: none !important; }
   }
   .modal-status { margin-top: 10px; }
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9999; justify-content: center; align-items: center; }
@@ -1620,18 +1622,31 @@ function setInlineChoice(id, message, actions, tone = 'warn') {
   el.appendChild(actionWrap);
 }
 
+function normalizeProjectFieldValue(value) {
+  if (window.ToolReportUI?.normalizeProjectFieldValue) {
+    return window.ToolReportUI.normalizeProjectFieldValue(value);
+  }
+  const text = (value === null || value === undefined ? '' : String(value)).trim();
+  return text === '未填' ? '' : text;
+}
+
+function getProjectFieldValue(id) {
+  return normalizeProjectFieldValue(document.getElementById(id)?.value);
+}
+
 function missingProjectFields() {
   const fields = [
     ['計畫名稱', 'projName'],
     ['計畫編號', 'projNo'],
+    ['設計人員', 'projDesigner'],
   ];
   return fields
-    .filter(([, id]) => !(document.getElementById(id)?.value || '').trim())
+    .filter(([, id]) => !getProjectFieldValue(id))
     .map(([label]) => label);
 }
 
 function continuousBeamReportReadinessModel() {
-  const boundary = '頁面顯示，不進報告';
+  const boundary = '頁面顯示，不進計算書、列印或 PDF';
   const currentError = (document.getElementById('errorMsg')?.textContent || '').trim();
   if (!solution || !diagrams) {
     return {
@@ -2033,9 +2048,9 @@ function exportPDF() {
     title: '連續梁分析計算書',
     subtitle: `${n} 跨連續梁　｜　單位：${uk}`,
     project: {
-      name:     document.getElementById('projName')?.value || '',
-      no:       document.getElementById('projNo')?.value || '',
-      designer: document.getElementById('projDesigner')?.value || '',
+      name:     getProjectFieldValue('projName'),
+      no:       getProjectFieldValue('projNo'),
+      designer: getProjectFieldValue('projDesigner'),
     },
     summary: { ok: null, text: '線彈性連續梁分析（Matrix Stiffness Method）' },
     inputs: [
@@ -2138,9 +2153,9 @@ function collectSaveData() {
     ilEnabled: document.getElementById('ilEnabled').checked,
     ilType: document.getElementById('ilType').value,
     ilParam: document.getElementById('ilParam').value,
-    projName: document.getElementById('projName').value,
-    projNo: document.getElementById('projNo').value,
-    projDesigner: document.getElementById('projDesigner').value,
+    projName: getProjectFieldValue('projName'),
+    projNo: getProjectFieldValue('projNo'),
+    projDesigner: getProjectFieldValue('projDesigner'),
     projNote: document.getElementById('projNote').value
   };
 }
@@ -2202,9 +2217,9 @@ function restoreFromData(d) {
   document.getElementById('ilType').value = d.ilType || 'reaction';
   window.onILTypeChange();
   document.getElementById('ilParam').value = d.ilParam || '0';
-  document.getElementById('projName').value = d.projName || '';
-  document.getElementById('projNo').value = d.projNo || '';
-  document.getElementById('projDesigner').value = d.projDesigner || '';
+  document.getElementById('projName').value = normalizeProjectFieldValue(d.projName);
+  document.getElementById('projNo').value = normalizeProjectFieldValue(d.projNo);
+  document.getElementById('projDesigner').value = normalizeProjectFieldValue(d.projDesigner);
   document.getElementById('projNote').value = d.projNote || '';
   pickedSection = d.pickedSection || null;
   renderPickedSection();

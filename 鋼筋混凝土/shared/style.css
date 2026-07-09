@@ -144,7 +144,13 @@ header a.back:hover { opacity:1; text-decoration:underline; }
 }
 .report-readiness-notes li { margin: 4px 0; }
 @media print {
-  .report-readiness-card { display: none !important; }
+  .report-readiness-card,
+  .advanced-tools,
+  .page-only-case-tools,
+  .mode-bar,
+  .mode-bar__report,
+  .mode-bar__action,
+  .mode-bar__project-status { display: none !important; }
 }
 
 /* ── 作業模式列 (設計／檢核 + 計畫資訊) ── */

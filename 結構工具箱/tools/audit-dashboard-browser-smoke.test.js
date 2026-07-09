@@ -43,9 +43,9 @@ const expectedTraceabilityCatalogs = [
   { family: 'excavation-traceability', value: '5 / 5 tools；10 traces；10 manual-review items' },
 ];
 const expectedGlobalGovernance = [
-  { key: 'report-disclosure-contract', label: '跨家族報告揭露', value: '通過；runId fixture-full；7 catalogs；report-disclosure-contract' },
-  { key: 'delivery-artifacts-contract', label: '交付物一致性', value: '通過；runId fixture-full；7 catalogs；delivery-artifacts-contract' },
-  { key: 'release-readiness-contract', label: '正式放行證據', value: '通過；runId fixture-full；7 catalogs；release-readiness-contract' },
+  { key: 'report-disclosure-contract', label: '跨家族報告揭露', value: '通過；runId fixture-full；7 catalogs；required formal-traceability, rc-traceability, steel-traceability, anchor-traceability, stone-traceability, decking-traceability, excavation-traceability；report-disclosure-contract' },
+  { key: 'delivery-artifacts-contract', label: '交付物一致性', value: '通過；runId fixture-full；3 catalogs；required stone-traceability, decking-traceability, excavation-traceability；delivery-artifacts-contract' },
+  { key: 'release-readiness-contract', label: '正式放行證據', value: '通過；runId fixture-full；0 catalogs；release-readiness-contract' },
 ];
 
 function fixtureOutputPath(relativePath) {
@@ -351,6 +351,15 @@ const fixtures = new Map(Object.entries({
           seconds: 0.5,
           exitCode: 0,
           coveredCatalogs: 7,
+          requiredCatalogFamilies: [
+            'formal-traceability',
+            'rc-traceability',
+            'steel-traceability',
+            'anchor-traceability',
+            'stone-traceability',
+            'decking-traceability',
+            'excavation-traceability',
+          ],
           catalogFamilies: [
             'formal-traceability',
             'rc-traceability',
@@ -360,6 +369,7 @@ const fixtures = new Map(Object.entries({
             'decking-traceability',
             'excavation-traceability',
           ],
+          missingCatalogFamilies: [],
           issues: [],
         },
         {
@@ -372,16 +382,18 @@ const fixtures = new Map(Object.entries({
           quick: false,
           seconds: 0.4,
           exitCode: 0,
-          coveredCatalogs: 7,
-          catalogFamilies: [
-            'formal-traceability',
-            'rc-traceability',
-            'steel-traceability',
-            'anchor-traceability',
+          coveredCatalogs: 3,
+          requiredCatalogFamilies: [
             'stone-traceability',
             'decking-traceability',
             'excavation-traceability',
           ],
+          catalogFamilies: [
+            'stone-traceability',
+            'decking-traceability',
+            'excavation-traceability',
+          ],
+          missingCatalogFamilies: [],
           issues: [],
         },
         {
@@ -394,16 +406,10 @@ const fixtures = new Map(Object.entries({
           quick: false,
           seconds: 0.3,
           exitCode: 0,
-          coveredCatalogs: 7,
-          catalogFamilies: [
-            'formal-traceability',
-            'rc-traceability',
-            'steel-traceability',
-            'anchor-traceability',
-            'stone-traceability',
-            'decking-traceability',
-            'excavation-traceability',
-          ],
+          coveredCatalogs: 0,
+          requiredCatalogFamilies: [],
+          catalogFamilies: [],
+          missingCatalogFamilies: [],
           issues: [],
         },
       ],
@@ -420,6 +426,9 @@ const fixtures = new Map(Object.entries({
       boundaryRequired: 1,
       boundaryComplete: 1,
       boundaryIssueCount: 0,
+      pageOnlyBoundaryRequired: 1,
+      pageOnlyBoundaryComplete: 1,
+      pageOnlyBoundaryIssueCount: 0,
       cleanRouteCount: 3,
       byState: { formal: 2, assist: 1 },
       outsideByState: { formal: 1, assist: 1 },
@@ -435,6 +444,7 @@ const fixtures = new Map(Object.entries({
         state: 'formal',
         governance: 'rc-audit',
         governanceLabel: 'RC audit',
+        governanceCardTag: '報告邊界',
         preflightKeys: ['rc-audit-status'],
         passedKeys: ['rc-audit-status'],
         failedKeys: [],
@@ -448,6 +458,14 @@ const fixtures = new Map(Object.entries({
         route: '/fixture-assist',
         title: 'Fixture Assist',
         state: 'assist',
+        stateLabel: '輔助判讀',
+        boundaryRule: '只能作為附件或判讀輔助，不得替代正式計算書判定。',
+        matchedLimitNeedles: ['不是完整正式工具'],
+        sourcePath: '結構工具箱/tools/fixture-assist.html',
+        reportSurface: true,
+        pageOnlyReadinessRequired: true,
+        pageOnlyReadinessPresent: true,
+        pageOnlyReadinessHiddenInPrint: true,
         output: 'Fixture output',
         fit: 'Fixture fit',
         limit: '不是完整正式工具。',
@@ -836,11 +854,22 @@ function isTransientEdgeLaunchError(error) {
 }
 
 async function waitForEdgeStartup(child, versionUrl, timeoutMs = 20000) {
-  return Promise.race([
-    waitForJson(versionUrl, timeoutMs),
-    new Promise((_, reject) => child.once('error', reject)),
-    new Promise((_, reject) => child.once('exit', code => reject(new Error(`Edge exited before CDP was ready. exitCode=${code}`)))),
-  ]);
+  let exitCode = null;
+  const onExit = code => { exitCode = code; };
+  child.once('exit', onExit);
+  try {
+    return await Promise.race([
+      waitForJson(versionUrl, timeoutMs),
+      new Promise((_, reject) => child.once('error', reject)),
+    ]);
+  } catch (error) {
+    if (exitCode !== null && /Timed out waiting|fetch failed|HTTP \d+/i.test(error.message || '')) {
+      throw new Error(`Edge exited before CDP was ready. exitCode=${exitCode}`);
+    }
+    throw error;
+  } finally {
+    child.off('exit', onExit);
+  }
 }
 
 async function launchEdgeForCdp(edgePath, debugPort, userDataRoot) {
@@ -848,22 +877,20 @@ async function launchEdgeForCdp(edgePath, debugPort, userDataRoot) {
   let lastError;
   for (let attempt = 0; attempt < retryDelaysMs.length; attempt += 1) {
     const attemptNumber = attempt + 1;
-    const attemptUserDataDir = path.join(userDataRoot, `attempt-${attemptNumber}`);
-    fs.mkdirSync(attemptUserDataDir, { recursive: true });
+    const attemptUserDataDir = userDataRoot;
     let stderr = '';
     let edge;
     try {
       edge = spawn(edgePath, [
         '--headless=new',
         `--remote-debugging-port=${debugPort}`,
-        '--remote-debugging-address=127.0.0.1',
         `--user-data-dir=${attemptUserDataDir}`,
         '--no-first-run',
         '--no-default-browser-check',
         '--disable-extensions',
         '--disable-gpu',
         'about:blank',
-      ], { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+      ], { stdio: 'ignore', windowsHide: true });
       const startup = waitForEdgeStartup(edge, `http://127.0.0.1:${debugPort}/json/version`, 20000);
       edge.stderr?.on('data', chunk => {
         stderr = truncateDiagnosticText(stderr + chunk.toString('utf8'));
@@ -991,6 +1018,8 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
       const fullRunText = document.getElementById('preflightFullStatus')?.textContent?.trim() || '';
       const quickRunText = document.getElementById('preflightQuickStatus')?.textContent?.trim() || '';
       const failureText = document.getElementById('preflightFailureStatus')?.textContent?.trim() || '';
+      const timelineLegendText = document.getElementById('preflightTimelineLegend')?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+      const reportReadinessBoundaryNoteText = document.getElementById('reportReadinessBoundaryNote')?.textContent?.replace(/\\s+/g, ' ').trim() || '';
       const preflightTimelineLabels = Array.from(document.querySelectorAll('#preflightTimeline .run-tick')).map((node) => ({
         text: node.textContent.trim(),
         title: node.getAttribute('title') || '',
@@ -1040,6 +1069,8 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         fullRunText,
         quickRunText,
         failureText,
+        timelineLegendText,
+        reportReadinessBoundaryNoteText,
         preflightTimelineLabels,
         coverageTotals,
         traceabilityCatalogCoverage,
@@ -1059,9 +1090,10 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
           route: row.querySelector('td:nth-child(1)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
           tool: row.querySelector('td:nth-child(2)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
           governance: row.querySelector('td:nth-child(3)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-          keys: row.querySelector('td:nth-child(4)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-          passed: row.querySelector('td:nth-child(5)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-          issues: row.querySelector('td:nth-child(6)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          boundaryTag: row.querySelector('td:nth-child(4)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          keys: row.querySelector('td:nth-child(5)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          passed: row.querySelector('td:nth-child(6)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          issues: row.querySelector('td:nth-child(7)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         })),
         maturityBoundaryCoverage: document.getElementById('maturityBoundaryCoverage')?.textContent?.trim() || '',
         maturityBoundaryHint: document.getElementById('maturityBoundaryHint')?.textContent?.trim() || '',
@@ -1069,11 +1101,17 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
           route: row.querySelector('td:nth-child(1)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
           tool: row.querySelector('td:nth-child(2)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
           state: row.querySelector('td:nth-child(3)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-          output: row.querySelector('td:nth-child(4)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-          fit: row.querySelector('td:nth-child(5)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-          limit: row.querySelector('td:nth-child(6)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-          capabilities: row.querySelector('td:nth-child(7)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
-          issues: row.querySelector('td:nth-child(8)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          sourcePath: row.querySelector('td:nth-child(4)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          boundaryRule: row.querySelector('td:nth-child(5)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          matchedNeedles: row.querySelector('td:nth-child(6)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          reportSurface: row.querySelector('td:nth-child(7)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          pageOnlyReadiness: row.querySelector('td:nth-child(8)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          printHidden: row.querySelector('td:nth-child(9)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          output: row.querySelector('td:nth-child(10)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          fit: row.querySelector('td:nth-child(11)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          limit: row.querySelector('td:nth-child(12)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          capabilities: row.querySelector('td:nth-child(13)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+          issues: row.querySelector('td:nth-child(14)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         })),
         maturitySourceTrace: Array.from(document.querySelectorAll('#maturitySourceTrace .source-pill')).map((node) => node.textContent.replace(/\\s+/g, ' ').trim()),
         maturityRowSourceHashes: Array.from(document.querySelectorAll('#maturityWrap tbody tr')).map((row) => row.querySelector('td:nth-child(12)')?.textContent?.trim() || ''),
@@ -1147,14 +1185,31 @@ function assertDashboardLiveState(state, label, expected) {
   const historyLatest = expected.history.items[0];
   const matrix = expected.matrix;
   const postChecks = expected.postChecks;
+  const latestFull = expected.history.items.find(item => item && item.quick === false);
+  const latestQuick = expected.history.items.find(item => item && item.quick === true);
   assert.equal(state.rows, summary.records.length, `${label} live latest record row count`);
   assert.equal(state.latestLinks, summary.records.length, `${label} live latest log link count`);
   assert.equal(state.historyLinks, summary.records.length, `${label} live history log link count`);
   assert.equal(state.horizontalOverflow, false, `${label} live horizontal overflow (${state.scrollWidth} > ${state.clientWidth})`);
   assert.deepEqual(state.records.map(record => record.key), summary.records.map(record => record.key), `${label} live latest record key order`);
   assert.ok(state.latestRunText.includes(summary.pass ? '通過' : '異常'), `${label} live latest KPI status: ${state.latestRunText}`);
-  assert.ok(state.fullRunText, `${label} live full KPI populated`);
-  assert.ok(state.quickRunText, `${label} live quick KPI populated`);
+  assert.ok(state.latestRunText.includes(summary.quick ? '快速檢查' : '完整檢查') || state.latestRunText.includes('正式放行'), `${label} live latest KPI mode: ${state.latestRunText}`);
+  if (latestFull) {
+    assert.ok(state.fullRunText.includes('完整檢查') || state.fullRunText.includes('正式放行'), `${label} live full KPI populated: ${state.fullRunText}`);
+  } else {
+    assert.equal(state.fullRunText, '無資料', `${label} live full KPI fallback: ${state.fullRunText}`);
+  }
+  if (latestQuick) {
+    assert.ok(state.quickRunText.includes('快速檢查'), `${label} live quick KPI populated: ${state.quickRunText}`);
+  } else {
+    assert.equal(state.quickRunText, '無資料', `${label} live quick KPI fallback: ${state.quickRunText}`);
+  }
+  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', '! 未完成 / 摘要異常'].forEach((needle) => {
+    assert.ok(state.timelineLegendText.includes(needle), `${label} live timeline legend includes ${needle}: ${state.timelineLegendText}`);
+  });
+  ['報告閱讀狀態邊界', '頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。'].forEach((needle) => {
+    assert.ok(state.reportReadinessBoundaryNoteText.includes(needle), `${label} live boundary note includes ${needle}: ${state.reportReadinessBoundaryNoteText}`);
+  });
   const platformCard = state.statusCards.find(card => card.id === 'platformOverallStatus');
   assert.ok(platformCard, `${label} live platform status card exists`);
   assert.equal(platformCard.title, '全平台總巡檢', `${label} live platform card title`);
@@ -1200,10 +1255,35 @@ function assertDashboardLiveState(state, label, expected) {
     assert.equal(rendered.ok, gate.pass === true, `${label} live global governance gate state: ${gate.key} ${JSON.stringify(rendered)}`);
     assert.ok(rendered.value.includes(gate.pass ? '通過' : '異常'), `${label} live global governance status ${gate.key}: ${rendered.value}`);
     assert.ok(rendered.value.includes(`${gate.coveredCatalogs || 0} catalogs`), `${label} live global governance catalog count ${gate.key}: ${rendered.value}`);
+    const requiredCatalogFamilies = Array.isArray(gate.requiredCatalogFamilies) ? gate.requiredCatalogFamilies.filter(Boolean) : [];
+    const missingCatalogFamilies = Array.isArray(gate.missingCatalogFamilies) ? gate.missingCatalogFamilies.filter(Boolean) : [];
+    if (requiredCatalogFamilies.length > 0) {
+      assert.ok(
+        rendered.value.includes(`required ${requiredCatalogFamilies.join(', ')}`),
+        `${label} live global governance required catalogs ${gate.key}: ${rendered.value}`
+      );
+    }
+    if (missingCatalogFamilies.length > 0) {
+      assert.ok(
+        rendered.value.includes(`missing ${missingCatalogFamilies.join(', ')}`),
+        `${label} live global governance missing catalogs ${gate.key}: ${rendered.value}`
+      );
+    }
     assert.ok(rendered.value.includes(gate.key), `${label} live global governance preflight key ${gate.key}: ${rendered.value}`);
   }
   assert.ok(state.maturityPreflightHint.includes(`runId ${summary.runId}`), `${label} live maturity hint runId: ${state.maturityPreflightHint}`);
   assert.ok(state.maturityPreflightHint.includes(`通過 ${summary.passedCount} / ${summary.recordsCount}`), `${label} live maturity hint pass count: ${state.maturityPreflightHint}`);
+  assert.ok(state.maturityPreflightText.includes(summary.quick ? '快速檢查' : '完整檢查') || state.maturityPreflightText.includes('正式放行'), `${label} live maturity preflight mode: ${state.maturityPreflightText}`);
+  assert.ok(state.maturityBoundaryHint.includes('頁面專用閱讀狀態檢查'), `${label} live maturity boundary page-only note: ${state.maturityBoundaryHint}`);
+  if (summary.quick) {
+    assert.ok(state.maturityPreflightHint.includes('僅供快速巡查，不作為正式交付證據。'), `${label} live maturity quick evidence note: ${state.maturityPreflightHint}`);
+  } else if (summary.pass === true && summary.forcePlatformAudit === true && summary.forceSlowChecks === true) {
+    assert.ok(state.maturityPreflightHint.includes('已強制平台巡檢與慢測，可作為正式放行證據。'), `${label} live maturity release evidence note: ${state.maturityPreflightHint}`);
+  } else if (summary.pass === true) {
+    assert.ok(state.maturityPreflightHint.includes('正式交付請以完整檢查或正式放行結果為準。'), `${label} live maturity full evidence note: ${state.maturityPreflightHint}`);
+  } else {
+    assert.ok(state.maturityPreflightHint.includes('本輪仍有異常，修正後才可作為正式交付證據。'), `${label} live maturity failure evidence note: ${state.maturityPreflightHint}`);
+  }
   assert.deepEqual(state.latestPostCheckRows.map(row => row.key), postChecks.map(check => check.key), `${label} live latest post-check keys`);
   let expectedHistoryPostChecks = historyLatest.postCheckCount > 0 ? `${historyLatest.postChecksPassedCount} / ${historyLatest.postCheckCount}` : '-';
   if (expectedHistoryPostChecks !== '-' && Array.isArray(historyLatest.postCheckFailures) && historyLatest.postCheckFailures.length) {
@@ -1254,10 +1334,17 @@ function assertDashboardState(state, label, expectedLive = null) {
     },
   ], `${label} latest record rows match fixture order, status, exitCode, and log links: ${JSON.stringify(state.records)}`);
   assert.ok(state.latestRunText.includes('異常'), `${label} latest KPI reflects fixture failure`);
-  assert.ok(state.fullRunText.includes('異常'), `${label} full KPI reflects fixture failure`);
-  assert.ok(state.quickRunText.includes('通過'), `${label} quick KPI reflects fixture quick pass`);
+  assert.ok(state.latestRunText.includes('完整檢查'), `${label} latest KPI exposes full mode`);
+  assert.ok(state.fullRunText.includes('異常') && state.fullRunText.includes('完整檢查'), `${label} full KPI reflects fixture failure`);
+  assert.ok(state.quickRunText.includes('通過') && state.quickRunText.includes('快速檢查'), `${label} quick KPI reflects fixture quick pass`);
+  ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', '! 未完成 / 摘要異常'].forEach((needle) => {
+    assert.ok(state.timelineLegendText.includes(needle), `${label} timeline legend includes ${needle}: ${state.timelineLegendText}`);
+  });
+  ['報告閱讀狀態邊界', '頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。'].forEach((needle) => {
+    assert.ok(state.reportReadinessBoundaryNoteText.includes(needle), `${label} boundary note includes ${needle}: ${state.reportReadinessBoundaryNoteText}`);
+  });
   assert.ok(
-    state.preflightTimelineLabels.some((item) => item.text === 'R' && item.release && item.title.includes('Release fixture-release')),
+    state.preflightTimelineLabels.some((item) => item.text === 'R' && item.release && item.title.includes('正式放行 fixture-release')),
     `${label} release preflight timeline tick rendered: ${JSON.stringify(state.preflightTimelineLabels)}`
   );
   assert.equal(state.failureText, '1 / 3', `${label} failure KPI count`);
@@ -1266,7 +1353,7 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.latestTime && state.latestTime !== '讀取中', `${label} overview latest timestamp rendered`);
   assert.ok(['新鮮', '可接受', '偏舊', '無法判讀'].includes(state.freshness), `${label} overview freshness rendered: ${state.freshness}`);
   assert.ok(state.freshnessHint && state.freshnessHint !== '讀取中', `${label} overview freshness hint rendered`);
-  assert.ok(state.maturityPreflightText.includes('異常'), `${label} maturity latest preflight status rendered: ${state.maturityPreflightText}`);
+  assert.ok(state.maturityPreflightText.includes('異常') && state.maturityPreflightText.includes('完整檢查'), `${label} maturity latest preflight status rendered: ${state.maturityPreflightText}`);
   assert.equal(state.maturityEntrypointCoverage, '1 / 3', `${label} maturity entrypoint coverage rendered`);
   ['首頁 3 個入口', '成熟度矩陣 1 個', '其他 audit governance 1 個', '非正式 / 工作流 1 個', '未納管正式入口 0 個'].forEach((needle) => {
     assert.ok(state.maturityEntrypointHint.includes(needle), `${label} maturity entrypoint hint includes ${needle}: ${state.maturityEntrypointHint}`);
@@ -1279,18 +1366,25 @@ function assertDashboardState(state, label, expectedLive = null) {
     route: '/fixture-rc',
     tool: 'Fixture RC',
     governance: 'RC audit',
+    boundaryTag: '報告邊界',
     keys: 'rc-audit-status',
     passed: 'rc-audit-status',
     issues: '無',
   }], `${label} maturity other governance detail rows rendered: ${JSON.stringify(state.maturityOtherGovernanceRows)}`);
   assert.equal(state.maturityBoundaryCoverage, '1 / 1', `${label} maturity boundary coverage rendered`);
-  ['矩陣外 1 個', '已完成 1 個', '問題 0 個'].forEach((needle) => {
+  ['矩陣外 1 個', '已完成 1 個', '問題 0 個', '頁面專用閱讀狀態檢查'].forEach((needle) => {
     assert.ok(state.maturityBoundaryHint.includes(needle), `${label} maturity boundary hint includes ${needle}: ${state.maturityBoundaryHint}`);
   });
   assert.deepEqual(state.maturityBoundaryRows, [{
     route: '/fixture-assist',
     tool: 'Fixture Assist',
-    state: 'assist',
+    state: '輔助判讀',
+    sourcePath: '結構工具箱/tools/fixture-assist.html',
+    boundaryRule: '只能作為附件或判讀輔助，不得替代正式計算書判定。',
+    matchedNeedles: '不是完整正式工具',
+    reportSurface: 'yes',
+    pageOnlyReadiness: 'yes',
+    printHidden: 'yes',
     output: 'Fixture output',
     fit: 'Fixture fit',
     limit: '不是完整正式工具。',
@@ -1320,7 +1414,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     latestHref: '../output/preflight/audit-dashboard-browser-smoke-final.txt',
     historyHref: '../output/preflight/history/fixture-full/audit-dashboard-browser-smoke-final.txt',
   }], `${label} latest post-check detail rows rendered: ${JSON.stringify(state.latestPostCheckRows)}`);
-  ['runId fixture-full', '通過 1 / 2', '耗時 2 秒', '平台 audit 重用狀態', '慢測重用 1 (formal-browser-smoke)', '最慢 platform-audit (1.6 秒)', '來源 output/preflight/preflight-summary.json', 'hash abcdef012345'].forEach((needle) => {
+  ['完整檢查 runId fixture-full', '通過 1 / 2', '耗時 2 秒', '平台 audit 重用狀態', '慢測重用 1 (formal-browser-smoke)', '最慢 platform-audit (1.6 秒)', '本輪仍有異常，修正後才可作為正式交付證據。', '來源 output/preflight/preflight-summary.json', 'hash abcdef012345'].forEach((needle) => {
     assert.ok(state.maturityPreflightHint.includes(needle), `${label} maturity latest preflight hint includes ${needle}: ${state.maturityPreflightHint}`);
   });
   assert.deepEqual(

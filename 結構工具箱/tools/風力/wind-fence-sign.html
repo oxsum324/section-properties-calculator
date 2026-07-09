@@ -22,11 +22,27 @@
   .case-actions .primary:hover { background:#7f1d1d; }
   .case-status { margin-top:10px; padding:8px 10px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; font-size:0.82em; color:#475569; line-height:1.7; }
   .case-status:empty { display:none; }
+  .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.82em; line-height:1.6; font-weight:700; }
+  .input-status:empty { display:none; }
   .report-mode-control { margin-top:10px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 10px; border:1px solid #fecaca; border-radius:10px; background:#fff7ed; color:#334155; font-size:0.84em; line-height:1.6; }
   .report-mode-label { font-weight:700; color:#991b1b; margin-right:2px; }
   .mode-segment { border:1px solid #fca5a5; background:#fff; color:#991b1b; border-radius:8px; padding:7px 12px; font-weight:700; cursor:pointer; min-width:86px; }
   .mode-segment.active, .mode-segment[aria-pressed="true"] { background:#991b1b; color:#fff; border-color:#991b1b; box-shadow:0 4px 10px rgba(153,27,27,.18); }
   .report-mode-hint { flex-basis:100%; color:#64748b; font-size:0.92em; }
+  .report-readiness { display:grid; gap:10px; padding:12px; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; background:#fffbeb; color:#78350f; font-size:0.84em; line-height:1.65; }
+  .report-readiness.ready { border-color:#bbf7d0; border-left-color:#059669; background:#f0fdf4; color:#166534; }
+  .report-readiness.blocked { border-color:#fecaca; border-left-color:#dc2626; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .report-readiness-kicker { margin:0 0 2px; color:#64748b; font-size:0.74em; font-weight:700; }
+  .report-readiness-title { margin:0; color:inherit; font-size:0.96em; font-weight:800; }
+  .report-readiness-badge { flex:0 0 auto; border:1px solid currentColor; border-radius:999px; padding:3px 8px; background:rgba(255,255,255,0.72); font-size:0.74em; font-weight:800; white-space:nowrap; }
+  .report-readiness ul { margin:0; padding-left:18px; }
+  .report-readiness li { margin:2px 0; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; }
+  .report-readiness-item { min-height:54px; padding:8px 9px; border:1px solid rgba(120,53,15,0.14); border-radius:8px; background:rgba(255,255,255,0.68); }
+  .report-readiness-item span { display:block; color:#64748b; font-size:0.72em; font-weight:700; }
+  .report-readiness-item strong { display:block; margin-top:2px; color:#0f172a; font-size:0.86em; line-height:1.35; }
+  .report-readiness-note { color:#64748b; font-size:0.78em; }
   .inline-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
   .inline-actions .btn-calc, .inline-actions .btn-print { flex:1 1 220px; width:auto; min-height:46px; margin-top:0; justify-content:center; }
   .check-msg { border:1px solid #cbd5e1; border-radius:9px; padding:8px 10px; font-size:0.82em; line-height:1.55; color:#334155; background:#f8fafc; }
@@ -47,6 +63,9 @@
     .inline-actions { flex-direction:column; }
     .inline-actions .btn-calc, .inline-actions .btn-print { width:100%; flex:1 1 auto; }
     .case-actions button { flex:1 1 120px; }
+  }
+  @media print {
+    .page-only-report-status, .case-actions, .case-status, .report-mode-control { display:none !important; }
   }
 </style>
 </head>
@@ -82,6 +101,9 @@
     <input type="file" id="caseJsonFile" accept="application/json,.json" style="display:none;">
   </div>
   <div class="case-status" id="caseStatus"></div>
+</div>
+<div class="card page-only-report-status">
+  <div class="report-readiness blocked" id="fenceSignReportReadiness" role="status" aria-live="polite"></div>
 </div>
 <div class="main-layout">
 <div>
@@ -167,6 +189,7 @@
       <button class="btn-calc" id="btnCalc" type="button">計算圍籬牆 / 招牌風力</button>
       <button class="btn-print" id="btnPrint" type="button">列印計算書</button>
     </div>
+    <div class="input-status" id="inputStatus" aria-live="polite"></div>
   </div>
 </div>
 
@@ -240,11 +263,14 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
+<script src="../../core/ui/report.js"></script>
 <script>
 const W = window.Wind;
 const TOOL_VERSION = '2.1';
 const CASE_SCHEMA_VERSION = 'wind-fence-sign.case.v1';
 let lastResult = null;
+let lastFenceSignReportValidationMessage = '';
+let fenceSignReportInputsChanged = false;
 const DEFAULT_CASE_INPUTS = {
   project: { name: '', no: '', designer: '' },
   values: {
@@ -293,6 +319,7 @@ function syncPrintReportMode(mode) {
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+  renderFenceSignReportReadiness();
 }
 
 function setCaseStatus(message, type = 'info') {
@@ -301,12 +328,35 @@ function setCaseStatus(message, type = 'info') {
   el.innerHTML = message ? `<span class="check-msg ${type}">${escHtml(message)}</span>` : '';
 }
 
+function setInputStatus(message) {
+  const el = document.getElementById('inputStatus');
+  if (!el) return;
+  el.textContent = message || '';
+}
+
+function clearInputStatus() {
+  setInputStatus('');
+}
+
 function getProjectInfo() {
   return {
-    name: text('projName'),
-    no: text('projNo'),
-    designer: text('projDesigner')
+    name: window.ToolReportUI.normalizeProjectFieldValue(text('projName')),
+    no: window.ToolReportUI.normalizeProjectFieldValue(text('projNo')),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(text('projDesigner'))
   };
+}
+
+function isProjectMetaMissing() {
+  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
+}
+
+function fenceSignReportModeLabel() {
+  return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
+}
+
+function setFenceSignReportValidationMessage(message = '') {
+  lastFenceSignReportValidationMessage = message || '';
+  renderFenceSignReportReadiness(lastFenceSignReportValidationMessage);
 }
 
 function readCaseInputs() {
@@ -348,9 +398,9 @@ function applyCaseInputs(data) {
   const input = data?.values ? data : { project: data?.project || {}, values: data || {} };
   const project = input.project || {};
   const values = { ...DEFAULT_CASE_INPUTS.values, ...(input.values || {}) };
-  if (project.name != null) document.getElementById('projName').value = project.name;
-  if (project.no != null) document.getElementById('projNo').value = project.no;
-  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  if (project.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(project.name);
+  if (project.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(project.no);
+  if (project.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(project.designer);
   syncPrintReportMode(values.printReportMode);
   ['city', 'terrain', 'impClass', 'objType'].forEach(id => setInputValue(id, values[id]));
   refreshType();
@@ -476,6 +526,114 @@ function importCaseJsonFile(file) {
 function resetCaseDefaults() {
   applyCaseInputs(DEFAULT_CASE_INPUTS);
   setCaseStatus('已恢復本頁預設值。');
+  fenceSignReportInputsChanged = false;
+  clearInputStatus();
+  setFenceSignReportValidationMessage('');
+}
+
+function clearFenceSignOutputs() {
+  document.querySelector('#adoptTable tbody').innerHTML = '';
+  document.getElementById('adoptNote').textContent = '';
+  ['r-zr', 'r-aspect', 'r-cf', 'r-qz', 'r-g', 'r-area', 'r-force', 'r-shear', 'r-moment'].forEach(id => setR(id, '—'));
+  document.getElementById('steps').innerHTML = '<div class="legend">輸入通過後會顯示逐步計算。</div>';
+  drawSchema(val('h') || 0, val('B') || 0, val('s') || 0, document.getElementById('objType')?.value || 'fence');
+}
+
+function validateFenceSignInputs(values) {
+  if (!(values.h > 0) || !(values.B > 0)) return '請輸入有效之 h / B。';
+  if (!(values.Kzt > 0)) return '請輸入有效之 Kzt。';
+  if (!(values.phi > 0)) return '請輸入有效之 φ。';
+  if (values.type === 'elevated' && !(values.s > 0)) return '離地架高模式請輸入有效之 s。';
+  if (values.type === 'fence' && values.s < 0) return '圍籬牆模式 s 不可為負值。';
+  if (values.cfOverrideText && !(Number.isFinite(values.cfOverride) && values.cfOverride > 0)) return '專案指定 Cf 請輸入有效正值，或留空改依表 2.10 判定。';
+  return '';
+}
+
+function buildFenceSignReportReadinessModel(validationMessage = lastFenceSignReportValidationMessage) {
+  if (validationMessage) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過檢查，先不要產生計算書。',
+      items: [
+        { label: '輸入檢核', value: validationMessage },
+        { label: '計算書模式', value: fenceSignReportModeLabel() },
+        { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+      ]
+    };
+  }
+  if (!lastResult) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '尚未完成圍籬牆 / 招牌風力計算。',
+      items: [
+        { label: '分析狀態', value: '待計算' },
+        { label: '計算書模式', value: fenceSignReportModeLabel() },
+        { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+      ]
+    };
+  }
+  if (fenceSignReportInputsChanged) {
+    return {
+      level: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入已變更，頁面結果可能不是最新。',
+      items: [
+        { label: '分析狀態', value: '需重算' },
+        { label: '提醒', value: '請重新計算後再整理計算書附件。' },
+        { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+      ]
+    };
+  }
+
+  const reviewItems = [];
+  if (isProjectMetaMissing()) reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
+  (lastResult.applic || []).filter(item => item.level !== 'ok').forEach(item => {
+    reviewItems.push({ label: item.label, value: item.message });
+  });
+  if (fenceSignReportModeLabel() === '簡易結果') {
+    reviewItems.push({ label: '計算書模式', value: '簡易結果不輸出逐步計算式，只整理條件、控制值與示意圖。' });
+  }
+
+  const readyItems = [
+    { label: '標的物類型', value: lastResult.typeLabel || '—' },
+    { label: '設計風力', value: `F ${fmt(lastResult.F, 1)} / M ${fmt(lastResult.Mbase, 1)}` },
+    { label: 'Cf 採用', value: `${fmt(lastResult.cfEff, 3)}（${lastResult.cfSource}）` },
+    { label: '計算書模式', value: fenceSignReportModeLabel() },
+    { label: '公式路線', value: '表 2.10 招牌物 Cf' },
+    { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
+  ];
+
+  return {
+    level: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    items: reviewItems.length ? reviewItems.concat(readyItems) : readyItems
+  };
+}
+
+function renderFenceSignReportReadiness(validationMessage = lastFenceSignReportValidationMessage) {
+  const el = document.getElementById('fenceSignReportReadiness');
+  if (!el) return;
+  const model = buildFenceSignReportReadinessModel(validationMessage);
+  window.ToolReportUI.renderStatusGridPanel({
+    target: el,
+    containerClassName: 'report-readiness',
+    level: model.level,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    items: model.items,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認表 2.10 適用條件、Cf 來源、形狀修正與送審圖說一致性。'
+  });
+}
+
+function markFenceSignReportInputsChanged() {
+  if (lastResult) {
+    fenceSignReportInputsChanged = true;
+  }
+  renderFenceSignReportReadiness();
 }
 
 // ── 城市選單 ──
@@ -530,16 +688,22 @@ function calc() {
   const terrain = document.getElementById('terrain').value;
   const t = W.TERRAIN[terrain];
   const I = W.IMPORTANCE[document.getElementById('impClass').value].factor;
-  const Kzt = val('Kzt') || 1.0;
+  const Kzt = val('Kzt');
   const h = val('h'), B = val('B'), s = val('s');
-  const phi = val('phi') || 1.0;
+  const phi = val('phi');
   const cfOv = parseFloat(document.getElementById('cfOverride').value);
+  const cfOverrideText = text('cfOverride');
   const type = objType.value;
-  if (h <= 0 || B <= 0) {
-    setApplicability([{ label: '幾何', level: 'fail', message: 'h 與 B 須大於 0' }]);
+  const validationMessage = validateFenceSignInputs({ h, B, s, Kzt, phi, cfOverride: cfOv, cfOverrideText, type });
+  if (validationMessage) {
+    setInputStatus(validationMessage);
+    setApplicability([{ label: '輸入檢核', level: 'fail', message: validationMessage }]);
     lastResult = null;
-    return;
+    clearFenceSignOutputs();
+    setFenceSignReportValidationMessage(validationMessage);
+    return false;
   }
+  clearInputStatus();
 
   // 形心高度 zr = s + h/2
   const zr = s + h / 2;
@@ -622,7 +786,9 @@ function calc() {
     typeLabel: type === 'fence' ? '圍籬牆 / 直接座地' : '獨立招牌 / 離地架高',
     formula: 'F = q(zr) · G · Cf,eff · A'
   };
+  fenceSignReportInputsChanged = false;
   drawSchema(h, B, s, type);
+  setFenceSignReportValidationMessage('');
   return lastResult;
 }
 
@@ -760,9 +926,8 @@ function buildReportTable(rows) {
 }
 
 function buildFenceSignReportHtml() {
-  const r = calc();
-  if (!r && !lastResult) return '';
-  const data = lastResult;
+  const data = lastResult || calc();
+  if (!data) return '';
   const includeDetail = getPrintReportMode() === 'detail';
   const today = new Date();
   const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
@@ -875,14 +1040,18 @@ body { font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,s
 }
 
 function openFenceSignReport() {
-  calc();
+  if (!lastResult || fenceSignReportInputsChanged) {
+    if (calc() === false) return;
+  }
   const html = buildFenceSignReportHtml();
+  if (!html) return;
   const w = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
   if (!w) {
-    setCaseStatus('計算書視窗已被瀏覽器封鎖，請允許本站彈出視窗後再試一次。', 'warn');
+    setInputStatus('計算書視窗已被瀏覽器封鎖，請允許本站彈出視窗後再試一次。');
     return;
   }
   setCaseStatus('');
+  clearInputStatus();
   w.document.open();
   w.document.write(html);
   w.document.close();
@@ -901,6 +1070,17 @@ document.getElementById('caseJsonFile').addEventListener('change', e => importCa
   document.getElementById('btnResetCase').addEventListener('click', resetCaseDefaults);
   document.querySelectorAll('.mode-segment').forEach(button => {
     button.addEventListener('click', () => syncPrintReportMode(button.dataset.reportMode));
+  });
+  ['projName', 'projNo', 'projDesigner'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => renderFenceSignReportReadiness());
+    el.addEventListener('change', () => renderFenceSignReportReadiness());
+  });
+  ['h', 'B', 's', 'Kzt', 'phi', 'cfOverride'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', markFenceSignReportInputsChanged);
   });
   ['city', 'terrain', 'impClass', 'Kzt', 'h', 'B', 's', 'phi', 'cfOverride'].forEach(id => {
     document.getElementById(id).addEventListener('change', calc);

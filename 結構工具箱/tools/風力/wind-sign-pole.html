@@ -73,7 +73,7 @@
     .case-actions button { flex:1 1 100%; }
   }
   @media print {
-    header, .back, .case-actions, .report-mode-control, .btn-calc, .form-error, .hint-panel, .page-only-report-status { display:none !important; }
+    header, .back, .case-actions, .case-status, .report-mode-control, .btn-calc, .form-error, .hint-panel, .page-only-report-status { display:none !important; }
     .container { max-width:none; padding:0; }
     .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
   }
@@ -294,6 +294,7 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
+<script src="../../core/ui/report.js"></script>
 <script>
 const W = window.Wind;
 const TOOL_VERSION = '1.0';
@@ -342,9 +343,9 @@ const escHtml = s => (s === null || s === undefined ? '' : String(s))
 
 function getProjectInfo() {
   return {
-    name: text('projName'),
-    no: text('projNo'),
-    designer: text('projDesigner')
+    name: window.ToolReportUI.normalizeProjectFieldValue(text('projName')),
+    no: window.ToolReportUI.normalizeProjectFieldValue(text('projNo')),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(text('projDesigner'))
   };
 }
 
@@ -382,8 +383,7 @@ function reportModeLabel() {
 }
 
 function isProjectMetaMissing() {
-  const project = getProjectInfo();
-  return !project.name.trim() || !project.no.trim() || !project.designer.trim();
+  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
 }
 
 function supportRouteLabel(r) {
@@ -449,24 +449,16 @@ function renderSignPoleReportReadiness(validationMessage = lastSignPoleReportVal
   const el = document.getElementById('signPoleReportReadiness');
   if (!el) return;
   const model = buildSignPoleReportReadinessModel(validationMessage);
-  el.className = `report-readiness page-only-report-status ${model.level}`;
-  el.innerHTML = `
-    <div class="report-readiness-head">
-      <div>
-        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
-        <p class="report-readiness-title">${escHtml(model.title)}</p>
-      </div>
-      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
-    </div>
-    <div class="report-readiness-grid">
-      ${model.items.map(item => `
-        <div class="report-readiness-item">
-          <strong>${escHtml(item.label)}</strong>
-          <span>${escHtml(item.value)}</span>
-        </div>
-      `).join('')}
-    </div>
-    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認表 2.10、表 2.13/2.14、開口率、支撐數量、面板與支撐構件責任邊界及送審圖說一致性。</div>`;
+  window.ToolReportUI.renderStatusGridPanel({
+    target: el,
+    containerClassName: 'report-readiness page-only-report-status',
+    level: model.level,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    items: model.items,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認表 2.10、表 2.13/2.14、開口率、支撐數量、面板與支撐構件責任邊界及送審圖說一致性。'
+  });
 }
 
 function setInputValue(id, value) {
@@ -512,9 +504,9 @@ function readCaseInputs() {
 function applyCaseInputs(payload) {
   const data = payload || DEFAULT_CASE_INPUTS;
   const project = data.project || {};
-  setInputValue('projName', project.name || '');
-  setInputValue('projNo', project.no || '');
-  setInputValue('projDesigner', project.designer || '');
+  setInputValue('projName', window.ToolReportUI.normalizeProjectFieldValue(project.name));
+  setInputValue('projNo', window.ToolReportUI.normalizeProjectFieldValue(project.no));
+  setInputValue('projDesigner', window.ToolReportUI.normalizeProjectFieldValue(project.designer));
   const values = { ...DEFAULT_CASE_INPUTS.values, ...(data.values || {}) };
   setPrintReportMode(values.printReportMode);
   ['city', 'terrain', 'impClass', 'supportType', 'pipeRoughness', 'prismShape'].forEach(id => setInputValue(id, values[id]));

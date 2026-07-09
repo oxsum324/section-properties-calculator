@@ -16,7 +16,7 @@
           "inputs": ["sectionType", "bw", "bf", "hf", "h", "fc", "fy", "AsTop", "AsBot", "MuPos", "MuNeg"],
           "calculation": ["β1", "εt", "φMn+", "φMn-", "As,min", "ρmax"],
           "report": ["撓曲檢核", "φMn⁺ ≥ +Mu", "φMn⁻ ≥ −Mu", "梁斷面 (含底/頂主筋與箍筋)"],
-          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js"],
+          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js", "tools/beam-report-visual.contract.test.js"],
           "manualReview": ["T 梁有效翼寬、端部負筋截斷、開孔或集中載重造成之局部應力仍須依施工圖與專案模型人工複核。"]
         },
         {
@@ -26,7 +26,7 @@
           "inputs": ["Vu", "Ve", "Tu", "enableTorsion", "torsionDesignStatus", "torsionAtPerS", "torsionAl", "stirrup", "legs", "s"],
           "calculation": ["Vd = max(Vu, Ve)", "Vc", "Vs", "φVn", "Tu,th", "22.7 詳算結論"],
           "report": ["剪力檢核", "φVn ≥ Vd", "22.7 扭力詳算結論", "扭力詳算人工複核"],
-          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js"],
+          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js", "tools/beam-report-visual.contract.test.js"],
           "manualReview": ["Tu 超過可忽略門檻時，At/s、Al 與扭力箍筋細部須由專案 22.7 詳算與施工圖人工複核。"]
         },
         {
@@ -36,7 +36,7 @@
           "inputs": ["seismic", "ln", "h", "smrfMnMin", "firstHoopDist", "lapStart", "lapEnd", "Ve", "Pu", "Ag"],
           "calculation": ["支承斷面 Mn⁺ / Mn⁻ 比", "跨內 Mn ≥ 端部 Mn / 4", "塑鉸區 ℓo = 2h", "首支箍筋 ≤ 5 cm", "耐震 Vc=0"],
           "report": ["SMRF 18.3.3.2 強度比", "SMRF 18.3.4 梁端圍束細節", "跨內 Mn", "首支箍筋位置", "耐震 Vc=0"],
-          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js"],
+          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js", "tools/beam-report-visual.contract.test.js"],
           "manualReview": ["跨內 Mn、首支箍筋距柱面、塑鉸區搭接位置與柱梁接頭範圍須依配筋圖與專案文件確認。"]
         },
         {
@@ -46,7 +46,7 @@
           "inputs": ["leftAnchorage", "rightAnchorage", "leftType", "rightType", "lapClass", "lapLength", "lapStart", "lapEnd"],
           "calculation": ["ℓd,req", "左端錨定長度", "右端錨定長度", "搭接長度 ℓs", "SMRF 搭接避開塑鉸區"],
           "report": ["握裹 / 搭接長度", "人工複核 / 補充資料需求", "梁端錨定", "搭接 / 施工圖", "不列為 OK 結論"],
-          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js"],
+          "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js", "tools/beam-report-visual.contract.test.js"],
           "manualReview": ["彎鉤、機械錨定、搭接區段、產品認可資料與實際鋼筋配置須由設計者依施工圖人工複核。"]
         }
       ]
@@ -112,7 +112,7 @@
           "inputs": ["stype", "Lx", "Ly", "h", "fc", "fy", "fyT", "wu", "supportType", "barX", "sX", "barY", "sY"],
           "calculation": ["6.5 連續板係數", "φMn = φAsfy(d-a/2)", "9.3.1.1 最小厚度", "24.4.3 溫度收縮筋", "7.7.2.3 間距"],
           "report": ["單向板：規範 6.5 連續板係數法", "板 1 m 寬條帶斷面配筋示意", "溫度收縮筋檢核", "單向板長向：此方向僅配溫度收縮筋"],
-          "evidence": ["tools/slab-regression.test.js", "tools/slab-regression-cases.json", "tools/slab-report-visual.test.js"],
+          "evidence": ["tools/slab-regression.test.js", "tools/slab-regression-cases.json", "tools/slab-report-visual.test.js", "tools/slab-report-visual.contract.test.js"],
           "manualReview": ["開口、局部集中載重、支承拘束與施工階段載重須依專案樓板模型與施工圖人工複核。"]
         },
         {
@@ -122,7 +122,7 @@
           "inputs": ["stype", "alpha_fm", "panelPos", "hasDrop", "Lx", "Ly", "wu", "punchMode", "colPos"],
           "calculation": ["最小厚度 hmin", "Rankine-Grashof 載重分配", "規範 6.5 條帶係數", "DDM / EFM 缺口提示", "方法限制說明"],
           "report": ["雙向板 (有梁)", "簡化二向條帶法", "完整 8.10 DDM / EFM", "計算層級說明", "方法限制說明"],
-          "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js"],
+          "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js", "tools/slab-report-visual.contract.test.js"],
           "manualReview": ["總靜力矩分配、column strip / middle strip、邊柱列與角柱列處理須以 DDM / EFM 或專案模型正式分析確認。"]
         },
         {
@@ -132,7 +132,7 @@
           "inputs": ["VuX", "VuY", "enableShearReinf", "puOn", "puType", "puFyt", "puLeg", "puS", "c1", "c2", "punchAmp"],
           "calculation": ["φVc", "φVn = φ(Vc + Vs)", "衝剪 bo / βc / αs", "22.6 衝剪鋼筋", "25.2.1 淨距"],
           "report": ["剪力與衝剪", "雙向衝剪", "φVn ≥ Vu (衝剪)", "unbalanced moment transfer", "方法限制說明"],
-          "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js"],
+          "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js", "tools/slab-report-visual.contract.test.js"],
           "manualReview": ["衝剪鋼筋錨定、配置延伸範圍、邊柱 / 角柱偏心剪力與不平衡彎矩轉移須由專案樓板模型或正式手算人工複核。"]
         }
       ]
@@ -150,7 +150,7 @@
           "inputs": ["wallType", "seismic", "fc", "fy", "tw", "lw", "hw", "Vu", "Mu", "Pu", "rhoL", "rhoT"],
           "calculation": ["牆幾何與最小配筋檢核", "18.7.2.4 材料限制", "18.7.4.4 剪力上限", "總判定合併待確認事項"],
           "report": ["條文對照 ＆ 方法分級", "規範檢核", "待確認 / 正式分析需求"],
-          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js"],
+          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js", "tools/wall-report-visual.contract.test.js"],
           "manualReview": ["開口牆、連肢牆、多片牆耦合效應與力流分配須依施工圖及分析模型人工複核。"]
         },
         {
@@ -160,7 +160,7 @@
           "inputs": ["duhw", "sigmaMax", "fc", "lw", "c", "sbeExtMethod", "sbeStressData", "lbe", "bComp", "hx", "sTie"],
           "calculation": ["應變法 c 上限", "應力法 0.2fc' 觸發", "0.15fc' 水平延伸終止", "SBE 細部與圍束檢核"],
           "report": ["SBE 沿水平延伸", "應變法觸發 (18.7.6.2)", "SBE 搭接禁區 hsx", "正式分析需求"],
-          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js"],
+          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js", "tools/wall-report-visual.contract.test.js"],
           "manualReview": ["SBE 範圍、搭接禁區、圍束筋配置與實際施工縫位置仍須依施工圖正式分析確認。"]
         },
         {
@@ -170,7 +170,7 @@
           "inputs": ["lc", "h", "soilPressure", "surcharge", "fc", "Ec", "serviceLoad", "outOfPlaneMethod"],
           "calculation": ["Ec = 12000√fc'", "面外 P-Delta 迭代", "服務載重撓度上限", "地下室外牆土壓概算"],
           "report": ["面外撓曲 P-Δ 求解法", "地下室外牆土壓概算", "計算過程 — 面外 P-Δ ＆ SBE 延伸"],
-          "evidence": ["tools/wall-report-visual.test.js"],
+          "evidence": ["tools/wall-report-visual.test.js", "tools/wall-report-visual.contract.test.js"],
           "manualReview": ["土壓係數、支承條件、開口與實際背填排水條件須由設計者依專案資料複核。"]
         },
         {
@@ -180,7 +180,7 @@
           "inputs": ["hasConstrJoint", "jointSurface", "fy_sf", "Avf", "opening", "spliceZone", "reviewWarnings"],
           "calculation": ["剪摩擦需求 Avf", "剪摩擦 Vn 上限", "開口補強提醒", "待確認事項匯總"],
           "report": ["施工縫剪摩擦", "待確認 / 正式分析需求", "不列為 OK 結論"],
-          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js"],
+          "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js", "tools/wall-report-visual.contract.test.js"],
           "manualReview": ["施工縫粗糙度、穿縫鋼筋、開口補強與搭接位置須依施工圖人工複核。"]
         }
       ]
@@ -246,7 +246,7 @@
           "inputs": ["B", "L", "hf", "Pu", "Mx", "My", "qa", "fc", "fy", "AsX", "AsY"],
           "calculation": ["qmax / qmin", "抗滑 FS", "抗傾覆 FS", "φVc 單向", "φVc 衝剪", "φMn", "ℓd 可用"],
           "report": ["基礎設計計算書 — 獨立基腳", "容許土壓 / 偏心 / 抗滑 / 抗傾覆", "φVc ≥ Vu (單向)", "φVc ≥ Vu (衝剪)", "φMn ≥ Mu", "握裹"],
-          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-regression-cases.json", "tools/foundation-report-visual.test.js"],
+          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-regression-cases.json", "tools/foundation-report-visual.test.js", "tools/foundation-report-visual.contract.test.js"],
           "manualReview": ["基底土壓分布、地盤承載、地下水、地震土壓與施工偏心須依地工報告與專案模型人工複核。"]
         },
         {
@@ -256,7 +256,7 @@
           "inputs": ["tab", "columnLoads", "B", "L", "hf", "soilSpring", "tributaryColumns", "ddmAvailable"],
           "calculation": ["長向梁化包絡", "各柱衝剪", "多代表柱 tributary", "DDM / EFM 缺口", "彈簧床分析邊界"],
           "report": ["基礎設計計算書 — 聯合基腳", "待確認 / 正式聯合基腳分析需求", "基礎設計計算書 — 筏式基礎", "待確認 / 正式筏基分析需求", "不列為 OK 結論"],
-          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js"],
+          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js", "tools/foundation-report-visual.contract.test.js"],
           "manualReview": ["聯合基腳長向反力、筏基 DDM / EFM、彈簧床互制、柱間局部效應與配筋分布須由正式基礎模型人工複核。"]
         },
         {
@@ -266,7 +266,7 @@
           "inputs": ["pileLayout", "pileSpacing", "pileLoads", "soilProfile", "Qallow", "settlementAllow", "capDepth", "capRebar"],
           "calculation": ["Ri = P/n ± Mx yi / Σy² ± My xi / Σx²", "Rmax ≤ Qallow,eff", "Wo ≤ 容許沉陷", "樁身壓應力", "樁帽 φMn / φVc / φVn", "逐層承載力表"],
           "report": ["基礎設計計算書 — 樁基／樁帽", "土層與單樁承載", "群樁構造", "服務性與樁身", "樁帽結構", "逐層承載力表"],
-          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js"],
+          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js", "tools/foundation-report-visual.contract.test.js"],
           "manualReview": ["群樁效率、側向反應、負摩擦、試樁結果、樁帽力流與樁位偏差須依地工報告與專案模型人工複核。"]
         },
         {
@@ -276,7 +276,7 @@
           "inputs": ["wallType", "H", "soilPressure", "surcharge", "baseWidth", "stemRebar", "sf", "fc", "fy"],
           "calculation": ["抗滑 FS", "抗傾覆 FS", "牆身 φMn", "牆身 φVc", "扶壁間距 sf 缺口"],
           "report": ["基礎設計計算書 — 擋土牆", "穩定檢核", "牆身強度檢核", "待確認 / 正式扶壁系統分析需求", "雙向板 / T 梁系統分析"],
-          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js"],
+          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js", "tools/foundation-report-visual.contract.test.js"],
           "manualReview": ["扶壁式擋土牆、土壓型態、排水、地震土壓、基底滑動與牆踵牆趾配筋須由正式分析與施工圖人工複核。"]
         }
       ]
@@ -294,7 +294,7 @@
           "inputs": ["calcMode", "regulationMethod", "pileType", "pileInstall", "longTermLoad", "shortTermLoad", "soilProfile", "diameterRange", "depthRange"],
           "calculation": ["黏土樁周摩擦 αc", "砂層 Kσ'v tanδ", "砂層端承 Nq* 與 20D 臨界深度", "常時 Qs/2.5 + Qb/3.5", "短期 Qs/1.8 + Qb/2.5", "候選方案矩陣"],
           "report": ["單樁承載力設計計算書", "規範模式", "規範靜力學公式", "規範分項 FS", "土層與單樁承載", "候選方案矩陣"],
-          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js"],
+          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js", "tools/single-pile-report-visual.contract.test.js"],
           "manualReview": ["N 值、c、φ、γ'、地下水位、礫石或岩盤特殊地層須由地工報告、試樁結果或專案規範人工複核。"]
         },
         {
@@ -304,7 +304,7 @@
           "inputs": ["factoredLoad", "allowSettlement", "settlementMode", "fc", "pileDiameter", "pileDepth", "unitWeightPile"],
           "calculation": ["Qall 長期 / 短期", "Ws + Wpp + Wps", "Wo ≤ 容許沉陷", "Pu / Ag ≤ 0.7 x 0.85 x 0.85 x fc'", "控制候選方案"],
           "report": ["服務性與樁身", "Qall 長期 ≥ 服務需求", "Wo ≤ 容許沉陷", "樁身壓應力", "土層與單樁採用深度"],
-          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js"],
+          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js", "tools/single-pile-report-visual.contract.test.js"],
           "manualReview": ["沉陷係數、長期荷重、施工法、樁材強度與樁身完整性須由地工資料、材料規格與專案條件人工複核。"]
         },
         {
@@ -314,7 +314,7 @@
           "inputs": ["alphaSoft", "alphaMedium", "alphaStiff", "deltaRatio", "sandKDriven", "sandKBored", "sandFsCap", "denseSandFsCap", "regulationMethod"],
           "calculation": ["規範假設檢核", "reviewWarnings", "complianceWarningCount", "summaryOk = null"],
           "report": ["規範假設檢核", "人工複核 / 補充資料需求", "人工複核項目 1", "不列為 OK 結論", "細部折減參數"],
-          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js"],
+          "evidence": ["tools/single-pile-regression.test.js", "tools/single-pile-report-visual.test.js", "tools/single-pile-report-visual.contract.test.js"],
           "manualReview": ["α、K、δ/φ、fs 上限、安全係數、N 值經驗式適用性與特殊地層不得只依預設值定案，須依地工報告或試樁結果人工複核。"]
         }
       ]

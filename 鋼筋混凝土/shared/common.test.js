@@ -81,7 +81,7 @@ function main() {
     status: 'blocked',
     items: [
       { label: '不符項目', value: '2 項', tone: 'fail' },
-      { label: '輸出邊界', value: '頁面顯示，不進 PDF', tone: 'neutral' },
+      { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF', tone: 'neutral' },
     ],
     notes: ['此面板僅供頁面輔助。', '優先處理：剪力強度、配筋比。']
   });
@@ -109,7 +109,7 @@ function main() {
 
   const readyPriority = RCUI.getAttachmentReadinessPriority({
     status: 'ready',
-    items: [{ label: '輸出邊界', value: '頁面顯示，不進 PDF', tone: 'neutral' }]
+    items: [{ label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF', tone: 'neutral' }]
   });
   assert(readyPriority.tone === 'ok', 'ready priority tone', readyPriority.tone);
   assert(readyPriority.value.includes('輸出邊界'), 'ready priority mentions output boundary', readyPriority.value);

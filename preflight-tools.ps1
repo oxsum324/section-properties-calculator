@@ -1067,90 +1067,9 @@ Write-Output "anchor route assets OK ($($assetNames.Count) referenced assets, so
 exit 0
 '@
 
-$frameStaticCommand = @'
-$htmlPath = '鋼架\平面剛架分析.html'
-if (-not (Test-Path -LiteralPath $htmlPath)) { Write-Error "missing $htmlPath"; exit 1 }
-$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
-$needles = @(
-  '<title>平面剛架分析',
-  'function solveLinear',
-  'function analyze',
-  'id="geomCanvas"',
-  'id="momCanvas"',
-  'id="dispTbl"',
-  'id="reportStatus"',
-  'function setReportStatus',
-  'id="frameReportReadiness"',
-  'function frameReportReadinessModel',
-  'function renderFrameReportReadiness',
-  'function invalidateAnalysisState',
-  'page-only-report-status',
-  '產報前檢查',
-  '優先閱讀',
-  '不會寫入計算書或列印 PDF',
-  'grid-template-columns: minmax(560px, 0.9fr) minmax(0, 1.1fr)',
-  '.main-layout > * { min-width: 0; }',
-  '.row2 input, .row2 select, .row3 input, .row3 select { width: 100%; min-width: 0; }',
-  'canvas { display: block; max-width: 100%; height: auto; margin: 0 auto; }',
-  '@media (max-width: 1180px)',
-  'function drawBoundedCanvasText',
-  'const boundsX =',
-  'boundsX.push(bx, px)',
-  'fitToCanvas(cv, boundsX, boundsY, 74)',
-  'function makeNode',
-  'function activeSpring',
-  'kX/kY (tf/m)',
-  'kθ (tf·m/rad)',
-  '+= kx',
-  '-activeSpring(nodes',
-  'springForces',
-  "loadExample('springPortal')",
-  '載重案例 / 分析組合',
-  'function validateModel',
-  'function computeAppliedResultant',
-  'function renderModelChecks',
-  'function syncLoadCaseTableFromDom',
-  'function setReportLink',
-  'id="reportLink"',
-  'lastReportObjectUrl',
-  'URL.createObjectURL(new Blob',
-  'overflow-x: auto',
-  'equilibrium',
-  'formatActiveCombination',
-  'comboFactors',
-  'caseId: normalizeLoadCaseId'
-)
-foreach ($needle in $needles) {
-  if ($html -notlike "*$needle*") {
-    Write-Error "frame analysis static smoke missing: $needle"
-    exit 1
-  }
-}
-if ($html -like "*alert(*") {
-  Write-Error "frame analysis static smoke found blocking alert"
-  exit 1
-}
-$reportMatch = [regex]::Match($html, 'function printReport\(\) \{[\s\S]*?\r?\n\}\r?\n\r?\nfunction setReportStatus')
-if (-not $reportMatch.Success) {
-  Write-Error "frame analysis static smoke cannot isolate printReport body"
-  exit 1
-}
-$reportBody = $reportMatch.Value
-$pageOnlyReportNeedles = @(
-  'frameReportReadiness',
-  'page-only-report-status',
-  '產報前檢查',
-  '優先閱讀',
-  '不會寫入計算書或列印 PDF'
-)
-foreach ($needle in $pageOnlyReportNeedles) {
-  if ($reportBody -like "*$needle*") {
-    Write-Error "frame analysis report body must not include page-only readiness text: $needle"
-    exit 1
-  }
-}
-Write-Output 'frame analysis static smoke OK'
-exit 0
+$frameAnalysisContractCommand = @'
+node frame-analysis.contract.test.js
+exit $LASTEXITCODE
 '@
 
 $generatedArtifactBoundaryCommand = @'
@@ -1229,13 +1148,33 @@ node 鋼筋混凝土/tools/rc-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$rcColumnReportContractCommand = @'
+& '.\鋼筋混凝土\tools\test-column.ps1'
+exit $LASTEXITCODE
+'@
+
+$rcShearWallReportContractCommand = @'
+& '.\鋼筋混凝土\tools\test-shear-wall-report.ps1'
+exit $LASTEXITCODE
+'@
+
 $steelTraceabilityContractCommand = @'
 node 鋼構工具/steel-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$steelFormalRegressionCommand = @'
+node 鋼構工具/steel-formal.regression-test.js
+exit $LASTEXITCODE
+'@
+
 $anchorTraceabilityContractCommand = @'
 node 螺栓檢討/anchor-traceability.contract.test.js
+exit $LASTEXITCODE
+'@
+
+$anchorReportContractCommand = @'
+node 螺栓檢討/anchor-report.contract.test.js
 exit $LASTEXITCODE
 '@
 
@@ -1264,6 +1203,11 @@ node 開挖擋土支撐/excavation-traceability.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$excavationReportContractCommand = @'
+node 開挖擋土支撐/excavation-report.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $structDxContractCommand = @'
 node struct-dx.contract.test.js
 exit $LASTEXITCODE
@@ -1271,6 +1215,11 @@ exit $LASTEXITCODE
 
 $stoneFeedbackContractCommand = @'
 node stone-feedback.contract.test.js
+exit $LASTEXITCODE
+'@
+
+$stoneReportContractCommand = @'
+node 石材固定/stone-report.contract.test.js
 exit $LASTEXITCODE
 '@
 
@@ -1408,6 +1357,7 @@ exit 0
 
 $localQuickToolsStaticCommand = @'
 $checks = @(
+  '結構工具箱\tools\project-storage.test.js',
   '結構工具箱\tools\local-quick-export.test.js',
   '結構工具箱\tools\local-quick-output-consistency.test.js',
   '結構工具箱\tools\local-quick-tools.contract.test.js'
@@ -1801,95 +1751,15 @@ foreach ($test in $tests) {
 }
 Write-Output 'node tests\syntax_check.js'
 node 'tests\syntax_check.js'
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Write-Output 'python server_smoke_test.py'
+python server_smoke_test.py
 exit $LASTEXITCODE
 '@
 
-$deckReportCommand = @'
-python -m py_compile dump_xls.py report\gen_report.py
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-$sample = 'test-fixtures\report-smoke.json'
-if (-not (Test-Path -LiteralPath $sample)) {
-  Write-Error "missing cover slab report smoke fixture: $sample"
-  exit 1
-}
-
-$htmlPath = 'index.html'
-$html = Get-Content -LiteralPath $htmlPath -Raw -Encoding UTF8
-$reportReadinessNeedles = @(
-  'id="report-readiness"',
-  'function reportReadinessModel',
-  'page-only-report-status',
-  '產報前檢查',
-  '優先閱讀'
-)
-foreach ($needle in $reportReadinessNeedles) {
-  if (-not $html.Contains($needle)) {
-    Write-Error "cover slab report page-only readiness missing: $needle"
-    exit 1
-  }
-}
-if ($html -notmatch '@media\s+print[\s\S]*\.page-only-report-status') {
-  Write-Error "cover slab report page-only readiness is not hidden from print"
-  exit 1
-}
-
-$outDir = '..\output\preflight'
-if (-not (Test-Path -LiteralPath $outDir)) {
-  New-Item -Path $outDir -ItemType Directory | Out-Null
-}
-
-$out = Join-Path $outDir 'cover-slab-report-smoke.docx'
-$env:COVER_SLAB_NO_OPEN = '1'
-python report\gen_report.py $sample $out
-$code = $LASTEXITCODE
-Remove-Item Env:\COVER_SLAB_NO_OPEN -ErrorAction SilentlyContinue
-if ($code -ne 0) { exit $code }
-if (-not (Test-Path -LiteralPath $out)) {
-  Write-Error "missing cover slab smoke report: $out"
-  exit 1
-}
-
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $out).Path)
-try {
-  $entry = $zip.GetEntry('word/document.xml')
-  if ($null -eq $entry) {
-    Write-Error "cover slab smoke report missing word/document.xml: $out"
-    exit 1
-  }
-  $reader = [System.IO.StreamReader]::new($entry.Open(), [System.Text.Encoding]::UTF8)
-  try {
-    $documentXml = $reader.ReadToEnd()
-  } finally {
-    $reader.Dispose()
-  }
-} finally {
-  $zip.Dispose()
-}
-
-$pageOnlyReportStatusNeedles = @(
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF'
-)
-foreach ($needle in $pageOnlyReportStatusNeedles) {
-  if ($documentXml.Contains($needle)) {
-    Write-Error "cover slab smoke report leaked page-only report status wording: $needle"
-    exit 1
-  }
-}
-
-Write-Output "cover slab report smoke OK: $out"
-exit 0
+$deckingReportContractCommand = @'
+node 覆工板/decking-report.contract.test.js
+exit $LASTEXITCODE
 '@
 
 $excavationBackendCache = [pscustomobject]@{
@@ -1931,6 +1801,8 @@ $anchorVerifyCache = [pscustomobject]@{
 
 $localQuickRunnerCache = [pscustomobject]@{
   roots = @(
+    '結構工具箱\tools\project-storage.js',
+    '結構工具箱\tools\project-storage.test.js',
     '結構工具箱\tools\local-quick-tools.manifest.json',
     '結構工具箱\tools\local-quick-tools.run.js',
     '結構工具箱\tools\local-quick-browser-smoke.test.js',
@@ -2027,10 +1899,31 @@ $checks = @(
     slow = $false
   },
   [pscustomobject]@{
+    key = "rc-column-report-contract"
+    label = "RC column report boundary contract"
+    workdir = $root
+    command = $rcColumnReportContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "rc-shear-wall-report-contract"
+    label = "RC shear wall report boundary contract"
+    workdir = $root
+    command = $rcShearWallReportContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
     key = "steel-traceability-contract"
     label = "Steel traceability catalog contract"
     workdir = $root
     command = $steelTraceabilityContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "steel-formal-regression"
+    label = "Steel formal report regression"
+    workdir = $root
+    command = $steelFormalRegressionCommand
     slow = $false
   },
   [pscustomobject]@{
@@ -2175,10 +2068,24 @@ $checks = @(
     slow = $false
   },
   [pscustomobject]@{
+    key = "anchor-report-contract"
+    label = "Anchor report boundary contract"
+    workdir = $root
+    command = $anchorReportContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
     key = "stone-self-check"
     label = "Stone fixing env and self check"
     workdir = (Join-Path $root "石材固定")
     command = 'python env_check.py; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; python self_check.py; exit $LASTEXITCODE'
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "stone-report-contract"
+    label = "Stone report boundary contract"
+    workdir = $root
+    command = $stoneReportContractCommand
     slow = $false
   },
   [pscustomobject]@{
@@ -2210,6 +2117,13 @@ $checks = @(
     slow = $false
   },
   [pscustomobject]@{
+    key = "excavation-report-contract"
+    label = "Excavation report boundary contract"
+    workdir = $root
+    command = $excavationReportContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
     key = "excavation-backend"
     label = "Excavation support backend tests"
     workdir = (Join-Path $root "開挖擋土支撐")
@@ -2226,17 +2140,17 @@ $checks = @(
     cache = $excavationFrontendCache
   },
   [pscustomobject]@{
-    key = "deck-python"
-    label = "Cover slab report smoke"
-    workdir = (Join-Path $root "覆工板")
-    command = $deckReportCommand
+    key = "decking-report-contract"
+    label = "Cover slab report boundary contract"
+    workdir = $root
+    command = $deckingReportContractCommand
     slow = $false
   },
   [pscustomobject]@{
-    key = "frame-static"
-    label = "Frame analysis static smoke"
+    key = "frame-analysis-contract"
+    label = "Frame analysis report boundary contract"
     workdir = $root
-    command = $frameStaticCommand
+    command = $frameAnalysisContractCommand
     slow = $false
   },
   [pscustomobject]@{

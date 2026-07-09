@@ -62,7 +62,7 @@
     .case-actions button { flex:1 1 120px; }
   }
   @media print {
-    header, .btn-calc, .back, .case-actions, .report-mode-control, .page-only-report-status { display:none !important; }
+    header, .btn-calc, .back, .case-actions, .case-status, .report-mode-control, .page-only-report-status { display:none !important; }
     .container { max-width:none; padding:0; }
     .card { break-inside:avoid; box-shadow:none; border:1px solid #ddd; }
   }
@@ -245,6 +245,7 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
+<script src="../../core/ui/report.js"></script>
 <script>
 const W = window.Wind;
 const TOOL_VERSION = '3.3';
@@ -298,7 +299,11 @@ function clearFormError() {
   lastFrameObjectReportValidationMessage = '';
 }
 function getProjectInfo() {
-  return { name: textVal('projName'), no: textVal('projNo'), designer: textVal('projDesigner') };
+  return {
+    name: window.ToolReportUI.normalizeProjectFieldValue(textVal('projName')),
+    no: window.ToolReportUI.normalizeProjectFieldValue(textVal('projNo')),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(textVal('projDesigner'))
+  };
 }
 function getPrintReportMode() {
   return document.getElementById('printReportMode').value || 'detail';
@@ -348,9 +353,9 @@ function readCaseInputs() {
 function applyCaseInputs(payload) {
   const project = payload.project || {};
   const values = payload.values || payload;
-  setInputValue('projName', project.name || '');
-  setInputValue('projNo', project.no || '');
-  setInputValue('projDesigner', project.designer || '');
+  setInputValue('projName', window.ToolReportUI.normalizeProjectFieldValue(project.name));
+  setInputValue('projNo', window.ToolReportUI.normalizeProjectFieldValue(project.no));
+  setInputValue('projDesigner', window.ToolReportUI.normalizeProjectFieldValue(project.designer));
   [
     'city','terrain','impClass','Kzt','pz','pA','phi','memberD','memberType'
   ].forEach(id => setInputValue(id, values[id]));
@@ -488,8 +493,7 @@ function reportModeLabel() {
   return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
 }
 function isProjectMetaMissing() {
-  const project = getProjectInfo();
-  return !project.name.trim() || !project.no.trim() || !project.designer.trim();
+  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
 }
 function buildFrameObjectReportReadinessModel(validationMessage = lastFrameObjectReportValidationMessage) {
   const blockedItems = [];
@@ -538,24 +542,16 @@ function renderFrameObjectReportReadiness(validationMessage = lastFrameObjectRep
   const el = document.getElementById('frameObjectReportReadiness');
   if (!el) return;
   const model = buildFrameObjectReportReadinessModel(validationMessage);
-  el.className = `report-readiness page-only-report-status ${model.level}`;
-  el.innerHTML = `
-    <div class="report-readiness-head">
-      <div>
-        <p class="report-readiness-kicker">頁面輔助｜產報前檢查｜優先閱讀</p>
-        <p class="report-readiness-title">${escHtml(model.title)}</p>
-      </div>
-      <span class="report-readiness-badge">${escHtml(model.badge)}</span>
-    </div>
-    <div class="report-readiness-grid">
-      ${model.items.map(item => `
-        <div class="report-readiness-item">
-          <strong>${escHtml(item.label)}</strong>
-          <span>${escHtml(item.value)}</span>
-        </div>
-      `).join('')}
-    </div>
-    <div class="report-readiness-note">此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認表 2.11 適用性、實體率、構材型式、作用高度與送審圖說一致性。</div>`;
+  window.ToolReportUI.renderStatusGridPanel({
+    target: el,
+    containerClassName: 'report-readiness page-only-report-status',
+    level: model.level,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    items: model.items,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認表 2.11 適用性、實體率、構材型式、作用高度與送審圖說一致性。'
+  });
 }
 function memberTypeLabel(value) {
   return value === 'flat' ? '平邊構材' : '圓形斷面構材';
@@ -890,7 +886,10 @@ function bindRecalc(id) {
   document.getElementById('btnReportModeDetail').addEventListener('click', () => syncPrintReportMode('detail'));
   document.getElementById('btnReportModeSimple').addEventListener('click', () => syncPrintReportMode('simple'));
   ['projName','projNo','projDesigner'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', () => renderFrameObjectReportReadiness());
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => renderFrameObjectReportReadiness());
+    el.addEventListener('change', () => renderFrameObjectReportReadiness());
   });
   document.getElementById('btnExportCase').addEventListener('click', exportCaseJson);
   document.getElementById('btnImportCase').addEventListener('click', () => document.getElementById('caseJsonFile').click());

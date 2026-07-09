@@ -100,7 +100,7 @@
           "inputs": ["ProjectState", "ReportPayload", "concise_mode", "calculation_results", "analysis_sources", "project metadata"],
           "calculation": ["build_report", "build_word_report", "_report_scope_lines", "_design_basis_lines", "_analysis_program_description", "_formula_source_text"],
           "report": ["擋土支撐檢核計算書", "設計依據", "結構分析使用之電腦程式", "構件檢核彙整", "計算明細附錄"],
-          "evidence": ["backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_reporting.py", "frontend/src/App.tsx", "frontend/src/api.ts"],
+          "evidence": ["backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_reporting.py", "excavation-report.contract.test.js", "frontend/src/App.tsx", "frontend/src/api.ts"],
           "manualReview": ["PDF / DOCX 報表只能證明工具輸出一致；簽章、設計依據版本、圖說、分析模型、附件、專案指定值與送審文字仍須由設計者或審查者人工確認。"]
         },
         {
@@ -110,7 +110,7 @@
           "inputs": ["project_id", "filename", "latest-report.pdf", "latest-report.docx", "report directory", "media_type"],
           "calculation": ["generate_report", "generate_word_report", "get_latest_report", "get_latest_word_report", "get_report_file", "Path(filename).name", "save_report"],
           "report": ["latest_download_url", "report_filename", "Cache-Control", "PDF 正式版", "Word 編修版"],
-          "evidence": ["backend/app/main.py", "backend/app/project_store.py", "backend/tests/test_reporting.py", "backend/tests/test_project_store.py", "frontend/src/App.tsx", "frontend/src/api.ts"],
+          "evidence": ["backend/app/main.py", "backend/app/project_store.py", "backend/tests/test_reporting.py", "backend/tests/test_project_store.py", "excavation-report.contract.test.js", "frontend/src/App.tsx", "frontend/src/api.ts"],
           "manualReview": ["本機報表檔案、附件版本、專案目錄清理、對外交付副本與是否包含最新計算結果，需由使用者在送審前人工確認。"]
         }
       ]

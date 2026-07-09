@@ -205,11 +205,11 @@ flowchart TD
 
 `formal-traceability.contract.test.js` 是這份 catalog 的固定契約；新增正式風力 / 地震頁、golden case 或規範路線時，需同步更新 catalog、manifest 與 contract，並讓平台 preflight 的 `formal-traceability-contract` 留下獨立通過紀錄。
 
-RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 施工臨設 / 服務型家族若已有獨立 audit，可採同一模式建立家族 catalog，例如 `鋼筋混凝土/tools/rc-traceability.catalog.json`、`鋼構工具/steel-traceability.catalog.json`、`螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json`、`石材固定/stone-traceability.catalog.json`、`覆工板/decking-traceability.catalog.json` 與 `開挖擋土支撐/excavation-traceability.catalog.json`。這類 catalog 至少要能追到規範來源、輸入、計算核心、報告落點、回歸證據與人工複核邊界；服務型工具另需追到 API、資料儲存、下載路徑與本機執行邊界，並由該家族的 contract test 納入巡檢。錨栓工具需同時保留 package 內 `anchorTraceabilityCatalog.test.ts` 與平台層 `螺栓檢討/anchor-traceability.contract.test.js`，讓 preflight 的 `anchor-traceability-contract` 可獨立證明條文語意追溯完整。
+RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 施工臨設 / 服務型家族若已有獨立 audit，可採同一模式建立家族 catalog，例如 `鋼筋混凝土/tools/rc-traceability.catalog.json`、`鋼構工具/steel-traceability.catalog.json`、`螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json`、`石材固定/stone-traceability.catalog.json`、`覆工板/decking-traceability.catalog.json` 與 `開挖擋土支撐/excavation-traceability.catalog.json`。這類 catalog 至少要能追到規範來源、輸入、計算核心、報告落點、回歸證據與人工複核邊界；服務型工具另需追到 API、資料儲存、下載路徑與本機執行邊界，並由該家族的 contract test 納入巡檢。錨栓工具需同時保留 package 內 `anchorTraceabilityCatalog.test.ts` 與平台層 `螺栓檢討/anchor-traceability.contract.test.js`，讓 preflight 的 `anchor-traceability-contract` 可獨立證明條文語意追溯完整；若家族另有 page-only 閱讀狀態或產報前檢查，應再建立專用報告邊界 gate，例如 `螺栓檢討/anchor-report.contract.test.js`、`石材固定/stone-report.contract.test.js`、`覆工板/decking-report.contract.test.js` 與 `開挖擋土支撐/excavation-report.contract.test.js`，直接驗證這些頁面輔助文字不進正式交付檔。
 
 `結構工具箱/tools/report-disclosure.contract.test.js` 是跨家族報告揭露契約；它會讀取上述 traceability catalog，要求每筆 trace 的 `report` 至少有一個人可讀落點，`manualReview` 明確指出設計者、施工圖、專案文件、模型或審查者等人工複核責任，並拒絕 `工具內建`、`工具建議`、`專業版` 等工具權威措辭。新增或調整 catalog 時，需讓平台 preflight 的 `report-disclosure-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板也會在 Global Governance Gates 顯示這個跨家族 gate 的 runId、涵蓋 catalog 數與異常狀態。
 
-`結構工具箱/tools/delivery-artifacts.contract.test.js` 是交付物一致性契約；它鎖住覆工板 JSON 匯出 / Word 計算書與開挖擋土支撐 PDF / DOCX / latest download API 的 traceability、README、smoke fixture、報表產生器、前端產出狀態與下載邊界。新增或修改正式交付檔、報表 schema、下載端點或本機 app_data 邊界時，需同步更新 catalog 與文件，並讓平台 preflight 的 `delivery-artifacts-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板會在 Global Governance Gates 顯示這個 gate。
+`結構工具箱/tools/delivery-artifacts.contract.test.js` 是交付物一致性契約；它鎖住石材 audit JSON / Word / PDF、覆工板 JSON 匯出 / Word 計算書與開挖擋土支撐 PDF / DOCX / latest download API 的 traceability、README、smoke fixture、報表產生器、前端產出狀態與下載邊界。新增或修改正式交付檔、報表 schema、下載端點或本機 app_data 邊界時，需同步更新 catalog 與文件，並讓平台 preflight 的 `delivery-artifacts-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板會在 Global Governance Gates 顯示這個 gate。
 
 ### 採用依據文字
 
@@ -313,18 +313,22 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 
 這類提醒主要服務輸入與檢核流程，預設只顯示在輸入表單、結果面板或畫面檢核區，不列入送審或簽認用列印計算書。若某一項內容屬於簽認必要資訊，應改寫為工程採用值、設計條件、規範來源或計算內容的一部分，而不是以「適用性提醒」章節輸出。
 
+若頁面提供「報告閱讀狀態」、「附件適用狀態」或「優先建議報告閱讀狀態」，依 `CONTEXT.md` 統稱為頁面專用閱讀狀態。它只允許出現在頁面、首頁或工具狀態，不得寫入計算書、列印 PDF、Word / DOCX、workbook 或正式附件；需要進入正式輸出的內容，應改寫為工程採用值、設計條件、規範來源、人工複核事項或計算內容。這個邊界的決策背景記錄於 `docs/adr/0001-page-only-report-readiness.md`。
+
 應做：
 
 - 說明本工具適用的標的物或構造類型。
 - 說明簡化假設。
 - 說明需要工程師或技師判斷的欄位。
 - 對非適用情境提供「參考流程」或「需另行檢核」。
+- 將報告閱讀狀態標成頁面輔助或頁面專用，並在 UI 文字中說明不會寫入計算書或列印 PDF。
 
 避免：
 
 - 把可使用的工具寫成不可用。
 - 用警告文字要求一定改用另一頁。
 - 在列印計算書中放操作提醒、畫面警告或與本模式無關的警告。
+- 把報告閱讀狀態、附件適用狀態或優先閱讀清單當成計算書章節、附件頁或簽認內容。
 - 顯示被隱藏、未啟用、未勾選的欄位。
 
 ## JSON 與報告輸出
@@ -352,6 +356,7 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 - 詳算式沒有 `設計條件`、`設計採用表`、`控制結果` 這類摘要重複區塊。
 - 簡易結果沒有 `計算內容` 或公式詳列。
 - 詳算式與簡易結果都不列印畫面用的 `適用性檢核`、`採用提醒`、`操作警告` 或防呆說明。
+- `報告閱讀狀態`、`附件適用狀態`、`優先建議報告閱讀狀態`、`頁面專用閱讀狀態` 等 page-only wording 不出現在計算書、列印 PDF、Word / DOCX、workbook 或正式附件。
 - 案件資訊只在頁首出現一次。
 - `設計條件` 不抓 `getProjectInfo()`。
 - 隱藏、停用或未勾選欄位不進列印報告。
@@ -392,6 +397,7 @@ node .\結構工具箱\tests\wind.test.js
 - JSON 匯出匯入是否需要 round-trip smoke，而不是只檢查按鈕存在。
 - 規範表號、公式、專案指定或風洞 / 專案文件來源是否能在報表與矩陣中追溯。
 - 是否要納入 `local-quick-tools` manifest、`formal-tools.manifest.json`、contract test、工具成熟度矩陣或 preflight。
+- 若有頁面專用閱讀狀態，是否已有對應 contract / smoke 明確驗證它不進計算書、列印 PDF、Word / DOCX、workbook 或正式附件。
 
 ## 最常見踩坑
 
@@ -405,5 +411,6 @@ node .\結構工具箱\tests\wind.test.js
 - SVG marker 預設隨線寬縮放，造成粗線箭頭頭部異常放大。
 - 長名稱撞到結果框。
 - 被隱藏或不適用的欄位仍出現在列印計算書。
+- 把頁面專用閱讀狀態輸出到計算書、列印 PDF、Word / DOCX、workbook 或正式附件。
 - 只有下載 JSON，沒有匯入 JSON。
 - 修改首頁或工具路由後沒有跑 clean route smoke。

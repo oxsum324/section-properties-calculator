@@ -19,7 +19,7 @@
 .\preflight-tools.ps1 -Quick
 ```
 
-覆工板檢查會執行 Python 語法編譯，並使用 `test-fixtures/report-smoke.json` 產生一份 smoke `.docx` 到 `output/preflight/`。這可同時確認 `report/gen_report.py`、`python-docx` 與固定 JSON schema 的基本相容性。
+`decking-report.contract.test.js` 會先做 Python 語法編譯，再用 `test-fixtures/report-smoke.json` 產生一份 smoke `.docx` 到 `output/preflight/`。它同時確認 `report/gen_report.py`、`python-docx`、固定 JSON schema、案名 / 編號 / 日期與章節輸出仍正常，且頁面上的附件閱讀狀態不會混入 Word 計算書。
 
 `decking-traceability.contract.test.js` 會檢查 `decking-traceability.catalog.json` 的條文語意追蹤，確認覆工板面 / 小梁 / 大梁、Pu 傳力與共構柱、握裹 / 樁基、JSON / Word 報表與施工臨設邊界各自追得到規範來源、輸入、計算核心、報告落點、測試證據與人工複核邊界。
 

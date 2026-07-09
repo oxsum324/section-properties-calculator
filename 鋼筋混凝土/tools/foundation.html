@@ -582,46 +582,48 @@
           <div class="form-group"><label>Cs</label><input type="number" id="pileCs" value="0.30" step="0.01"></div>
           <div class="form-group"><label>qo 覆土支承參考值 (tf/m²，0=自動)</label><input type="number" id="pileQo" value="0" step="1"></div>
         </div>
-        <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">場址/地址範例</h3>
-        <div class="form-row">
-      <div class="form-group">
-        <label>場址</label>
-        <select id="pileSiteGroup">
-          <option value="">自訂輸入</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>鑽孔 / 剖面</label>
-        <select id="pileSitePreset">
-          <option value="">請先選擇場址</option>
-        </select>
-      </div>
-          <div class="form-group" style="display:flex; align-items:flex-end;">
-            <button type="button" id="btnLoadPilePreset" style="width:100%;">載入場址參數</button>
+        <div class="page-only-case-tools">
+          <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">場址/地址範例</h3>
+          <div class="form-row">
+        <div class="form-group">
+          <label>場址</label>
+          <select id="pileSiteGroup">
+            <option value="">自訂輸入</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>鑽孔 / 剖面</label>
+          <select id="pileSitePreset">
+            <option value="">請先選擇場址</option>
+          </select>
+        </div>
+            <div class="form-group" style="display:flex; align-items:flex-end;">
+              <button type="button" id="btnLoadPilePreset" style="width:100%;">載入場址參數</button>
+            </div>
           </div>
+          <pre class="steps-body" id="pilePresetSummary">尚未載入場址範例</pre>
+          <div class="canvas-wrap" style="margin-top:10px;">
+            <table class="simple-table" id="pileSiteCompareTable">
+              <thead>
+                <tr>
+                  <th>鑽孔</th>
+                  <th>水位 (m)</th>
+                  <th>層數</th>
+                  <th>建議樁徑</th>
+                  <th>建議深度</th>
+                  <th>控制層</th>
+                  <th>Qall (tf)</th>
+                  <th>Wo (cm)</th>
+                  <th>摘要</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="9">請先選擇場址</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <pre class="steps-body" id="pileSiteSummary" style="margin-top:10px;">尚未建立場址總結</pre>
         </div>
-        <pre class="steps-body" id="pilePresetSummary">尚未載入場址範例</pre>
-        <div class="canvas-wrap" style="margin-top:10px;">
-          <table class="simple-table" id="pileSiteCompareTable">
-            <thead>
-              <tr>
-                <th>鑽孔</th>
-                <th>水位 (m)</th>
-                <th>層數</th>
-                <th>建議樁徑</th>
-                <th>建議深度</th>
-                <th>控制層</th>
-                <th>Qall (tf)</th>
-                <th>Wo (cm)</th>
-                <th>摘要</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td colspan="9">請先選擇場址</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <pre class="steps-body" id="pileSiteSummary" style="margin-top:10px;">尚未建立場址總結</pre>
         <h3 style="margin-top:12px; font-size:1em; color:#1a3d5c;">土層參數</h3>
         <div class="form-group">
           <label>土層表（每列：起深m, 迄深m, N, c(tf/m²), φ(度), γ'(tf/m³), 類型）</label>
@@ -1929,7 +1931,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     return {
       kind: el.tagName.toLowerCase(),
       inputType: (el.type || '').toLowerCase(),
-      value: el.value
+      value: ['projName', 'projNo', 'projDesigner'].includes(el.id)
+        ? window.RCUI.normalizeProjectFieldValue(el.value)
+        : el.value
     };
   }
 
@@ -1950,9 +1954,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       mode: currentMode,
       activeTab: currentTab,
       metadata: {
-        projectName: $('projName')?.value?.trim() || '',
-        projectNo: $('projNo')?.value?.trim() || '',
-        designer: $('projDesigner')?.value?.trim() || ''
+        projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value),
+        projectNo: window.RCUI.normalizeProjectFieldValue($('projNo')?.value),
+        designer: window.RCUI.normalizeProjectFieldValue($('projDesigner')?.value)
       },
       fields,
       summary: {
@@ -2017,7 +2021,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
         const exists = Array.from(el.options).some(option => option.value === String(value));
         if (!exists) return false;
       }
-      el.value = value == null ? '' : String(value);
+      el.value = ['projName', 'projNo', 'projDesigner'].includes(id)
+        ? window.RCUI.normalizeProjectFieldValue(value)
+        : (value == null ? '' : String(value));
     }
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -2045,7 +2051,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     applyPanel(tab);
     if (!options.silent) {
       const source = options.sourceLabel || '基礎專案檔';
-      const name = payload.metadata?.projectName || payload.metadata?.projectNo || '未命名專案';
+      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
+        || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
+        || '未命名專案';
       showFoundationProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
     }
     return { payload, applied };
@@ -2067,7 +2075,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     try {
       const payload = collectFoundationProjectData();
       localStorage.setItem(FOUNDATION_PROJECT_STORAGE_KEY, JSON.stringify(payload));
-      const name = payload.metadata.projectName || payload.metadata.projectNo || '未命名專案';
+      const name = window.RCUI.normalizeProjectFieldValue(payload.metadata.projectName)
+        || window.RCUI.normalizeProjectFieldValue(payload.metadata.projectNo)
+        || '未命名專案';
       showFoundationProjectStatus(`已暫存到此瀏覽器：${name}`);
       return payload;
     } catch (err) {
@@ -4206,7 +4216,11 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     calcFdtn();
     if (!window.ftLast) return;
     const r = window.ftLast;
-    const proj = { name:$('projName').value.trim(), no:$('projNo').value.trim(), designer:$('projDesigner').value.trim() };
+    const proj = {
+      name: window.RCUI.normalizeProjectFieldValue($('projName').value),
+      no: window.RCUI.normalizeProjectFieldValue($('projNo').value),
+      designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
+    };
     const tabNames = { iso:'獨立基腳', combined:'聯合基腳', mat:'筏式基礎', pile:'樁基／樁帽', retain:'擋土牆', seismic:'耐震' };
     const modeStr = currentMode === 'design' ? '設計' : '檢核';
 

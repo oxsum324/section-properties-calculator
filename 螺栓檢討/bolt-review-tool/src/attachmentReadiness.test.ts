@@ -38,6 +38,11 @@ describe('buildAttachmentReadinessModel', () => {
     expect(model.label).toBe('可作附件')
     expect(model.priority.label).toBe('優先閱讀')
     expect(model.priority.value).toContain('HTML / XLSX / DOCX')
+    expect(model.items).toContainEqual({
+      label: '輸出邊界',
+      value: '頁面顯示，不進計算書、列印或 PDF',
+      tone: 'neutral',
+    })
     expect(model.notes.join('\n')).toContain('不會寫入計算書或列印 PDF')
   })
 

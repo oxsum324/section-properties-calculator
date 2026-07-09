@@ -60,7 +60,56 @@ function withDownloadStubs(callback) {
   }
 }
 
-assert.equal(Exporter.version, '0.1.0', 'export helper version');
+assert.equal(Exporter.version, '0.2.0', 'export helper version');
+assert.equal(Exporter.escapeHtml('<tag>"x"&\'y\''), '&lt;tag&gt;&quot;x&quot;&amp;&#39;y&#39;', 'escapeHtml escapes critical characters');
+assert.equal(Exporter.normalizeProjectFieldValue('未填'), '', 'normalizeProjectFieldValue clears placeholder project text');
+assert.equal(Exporter.normalizeProjectFieldValue(' 案名 '), '案名', 'normalizeProjectFieldValue trims normal project text');
+assert.deepEqual(
+  Exporter.normalizeProjectMeta({ name: '未填', no: ' A-1 ', designer: ' Codex QA ', note: 'keep' }),
+  { name: '', no: 'A-1', designer: 'Codex QA', note: 'keep' },
+  'normalizeProjectMeta scrubs placeholder project text and keeps extra fields'
+);
+assert.equal(Exporter.isProjectMetaMissing({ name: '案名', no: 'A-1', designer: 'QA' }), false, 'complete project metadata passes');
+assert.equal(Exporter.isProjectMetaMissing({ name: '未填', no: 'A-1', designer: 'QA' }), true, 'placeholder project name counts as missing');
+
+const panel = { className: '', innerHTML: '' };
+Exporter.renderStatusGridPanel({
+  target: panel,
+  level: 'review',
+  eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+  title: '計算已完成，但產報前建議優先閱讀下列項目。',
+  badge: '優先複核',
+  items: [
+    { label: '優先處理 1', value: '計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。' },
+    { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
+  ],
+  note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。'
+});
+assert.equal(panel.className, 'report-readiness review', 'renderStatusGridPanel writes readiness class');
+assert.ok(panel.innerHTML.includes('優先處理 1'), 'renderStatusGridPanel includes item labels');
+assert.ok(panel.innerHTML.includes('不會寫入計算書或列印 PDF'), 'renderStatusGridPanel includes boundary note');
+
+const compatPanel = { className: '', innerHTML: '' };
+Exporter.renderStatusGridPanel({
+  container: compatPanel,
+  containerClassName: 'report-readiness page-only-report-status',
+  panelLabel: '頁面輔助｜產報前檢查｜優先閱讀',
+  model: {
+    level: 'review',
+    title: '計算已完成，但產報前建議優先閱讀下列項目。',
+    badge: '優先複核',
+    items: [
+      ['控制值', '由主案例控制'],
+      { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
+    ],
+  },
+  priorityItems: ['先補計畫名稱'],
+  note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。',
+});
+assert.equal(compatPanel.className, 'report-readiness page-only-report-status review', 'renderStatusGridPanel supports shared container class');
+assert.ok(compatPanel.innerHTML.includes('先補計畫名稱'), 'renderStatusGridPanel supports priorityItems');
+assert.ok(compatPanel.innerHTML.includes('控制值'), 'renderStatusGridPanel normalizes tuple items');
+assert.ok(compatPanel.innerHTML.includes('由主案例控制'), 'renderStatusGridPanel normalizes tuple item values');
 
 const payload = Exporter.buildPayload({
   tool: { id: 'foundation-local', name: '基礎局部檢核', pageVersion: 'V0.1' },
@@ -80,6 +129,18 @@ assert.equal(payload.generatedAt, '2026-05-19T12:34:56.000Z');
 assert.deepEqual(payload.input, { width: 1.2, length: 3.4 });
 assert.equal(payload.result.value, Infinity);
 
+const placeholderPayload = Exporter.buildPayload({
+  tool: { id: 'equipment-load', name: '設備局部荷重', pageVersion: 'V0.2' },
+  project: { name: '未填', no: 'LOCAL-VERIFY-001', designer: 'Codex QA' },
+  generatedAt: '2026-05-19T13:00:00.000Z',
+  result: { ok: true },
+});
+assert.deepEqual(
+  placeholderPayload.project,
+  { name: '', no: 'LOCAL-VERIFY-001', designer: 'Codex QA' },
+  'buildPayload should scrub placeholder project metadata before export'
+);
+
 const serialized = JSON.stringify(payload, Exporter.jsonReplacer);
 assert.ok(serialized.includes('"Infinity"'), 'serializes positive infinity as a string');
 assert.ok(serialized.includes('"-Infinity"'), 'serializes negative infinity as a string');
@@ -88,7 +149,7 @@ assert.ok(serialized.includes('"NaN"'), 'serializes NaN as a string');
 withDownloadStubs((captured) => {
   const returnedPayload = Exporter.downloadResultJson({
     tool: { id: 'foundation-local', name: '基礎局部檢核', pageVersion: 'V0.1' },
-    project: { name: '測試案' },
+    project: { name: '未填', no: 'LOCAL-VERIFY-001', designer: 'Codex QA' },
     generatedAt: '2026-05-19T12:34:56.000Z',
     input: { fs: 10 },
     result: { fs: Infinity },
@@ -106,6 +167,9 @@ withDownloadStubs((captured) => {
   const downloaded = JSON.parse(captured.blobParts[0]);
   assert.equal(downloaded.tool.id, 'foundation-local');
   assert.equal(downloaded.generatedAt, '2026-05-19T12:34:56.000Z');
+  assert.equal(downloaded.project.name, '', 'downloadResultJson should scrub placeholder project metadata');
+  assert.equal(downloaded.project.no, 'LOCAL-VERIFY-001', 'downloadResultJson should keep project number');
+  assert.equal(downloaded.project.designer, 'Codex QA', 'downloadResultJson should keep project designer');
   assert.equal(downloaded.input.fs, 10);
   assert.equal(downloaded.result.fs, 'Infinity');
   assert.equal(returnedPayload.input.fs, 10);

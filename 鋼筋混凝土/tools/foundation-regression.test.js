@@ -110,6 +110,26 @@ async function exerciseFoundationProjectStorage(page) {
   assert(saved.fields.pileSoilProfile.value.includes('gravel'), 'foundation project stores soil profile textarea', saved.fields.pileSoilProfile.value);
   assert(saved.fields.foundationProjectFile == null, 'foundation project excludes file input', 'file input excluded');
 
+  const placeholderSaved = await page.evaluate(() => {
+    const setField = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setField('projName', '未填');
+    setField('projNo', 'RC-FDTN-PLACEHOLDER');
+    setField('projDesigner', '未填');
+    return window.collectFoundationProjectData();
+  });
+  assert(placeholderSaved.metadata.projectName === '', 'foundation placeholder project name is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.projectNo === 'RC-FDTN-PLACEHOLDER', 'foundation placeholder project number remains editable metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.metadata.designer === '', 'foundation placeholder designer is scrubbed from metadata', JSON.stringify(placeholderSaved.metadata));
+  assert(placeholderSaved.fields.projName.value === '', 'foundation placeholder project name is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projName));
+  assert(placeholderSaved.fields.projDesigner.value === '', 'foundation placeholder designer is scrubbed from fields payload', JSON.stringify(placeholderSaved.fields.projDesigner));
+
   const restored = await page.evaluate(payload => {
     const setField = (id, value) => {
       const el = document.getElementById(id);
@@ -166,6 +186,7 @@ async function main() {
   assert(common.includes('window.RCUI.renderAttachmentReadiness'), 'shared/common.js exposes attachment readiness renderer', 'page-only readiness helper exists');
   assert(html.includes('function updateFoundationAttachmentReadiness'), 'foundation page renders attachment readiness', 'readiness helper present');
   assert(html.includes('id="foundationAttachmentReadiness"'), 'foundation page has attachment readiness target', 'readiness target present');
+  assert(html.includes('page-only-case-tools'), 'foundation site preset workflow page-only group', 'page-only-case-tools exists');
   assert(reportSrc.includes('summary: false'), 'foundation report disables top status summary', 'attachment status is not printed');
   assert(!reportSrc.includes('RCUI.buildReviewCheckGroup'), 'foundation report excludes review overview helper', 'review overview stays page-only');
   assert(!reportSrc.includes('待確認 / 正式'), 'foundation report excludes formal-analysis overview groups', 'report has no page-only review group');
@@ -173,7 +194,10 @@ async function main() {
   assert(html.includes('id="btnSaveFoundationProject"') && html.includes('id="btnLoadFoundationProject"'), 'foundation project file controls present', 'save/load buttons present');
   assert(html.includes('id="btnSaveFoundationDraft"') && html.includes('id="btnLoadFoundationDraft"'), 'foundation draft controls present', 'draft buttons present');
   assert(html.includes('rc.foundation.project.draft'), 'foundation localStorage draft key present', 'draft key present');
+  assert(common.includes('window.RCUI.normalizeProjectFieldValue'), 'shared/common.js exposes project metadata normalizer', 'placeholder project text can be scrubbed once');
   assert(html.includes('function collectFoundationProjectData()'), 'foundation can collect project payload', 'collect helper exists');
+  assert(html.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), 'foundation project payload normalizes placeholder project name', 'project storage metadata uses shared normalizer');
+  assert(!reportSrc.includes("$('projName').value.trim()"), 'foundation report no longer uses raw trim on project name', 'shared normalizer handles placeholder cleanup');
   assert(html.includes('function applyFoundationProjectData(raw'), 'foundation can apply project payload', 'apply helper exists');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));

@@ -98,9 +98,9 @@
           "clause": "覆工板系統計算書交付治理、JSON schema 與 Word 報告輸出流程",
           "purpose": "前端計算結果與 Word 報表需走同一份 JSON 結構，避免 HTML 顯示、JSON 匯出與 Word 計算書三者欄位漂移。",
           "inputs": ["exportJSON payload", "project", "global", "inputs", "results", "exportedAt", "report-smoke.json"],
-          "calculation": ["buildProjectPayload", "exportJSON", "gen_report.generate", "python-docx tables", "smoke docx output"],
+          "calculation": ["buildProjectPayload", "exportJSON", "gen_report.generate", "python-docx tables", "decking-report.contract.test.js", "smoke docx output"],
           "report": ["覆工板系統結構計算書", "計算結果總表", "適用規範", "各章節檢核", "結論與建議"],
-          "evidence": ["index.html", "report/gen_report.py", "test-fixtures/report-smoke.json", "產生計算書.bat"],
+          "evidence": ["index.html", "report/gen_report.py", "test-fixtures/report-smoke.json", "decking-report.contract.test.js", "產生計算書.bat"],
           "manualReview": ["JSON 與 Word 報表只能證明工具輸出一致；簽章、附件、施工圖、材料規格、吊車資料與現場載重仍須由設計者或審查者人工確認。"]
         },
         {
@@ -108,9 +108,9 @@
           "clause": "施工臨設與局部構件初步檢核工具邊界、前端受控確認與 repo 納管規則",
           "purpose": "覆工板屬施工臨設工具，首頁、README、前端狀態列與 contract 需持續揭露其適用範圍與受控互動，不讓使用者把輸出誤認為完整正式設計模型。",
           "inputs": ["tool category", "governance source", "actionStatus", "reset confirmation", "README boundary", "TOOL_BOUNDARIES", "STAGING_GROUPS"],
-          "calculation": ["decking-tools.contract.test.js", "inline feedback guard", "generated artifact boundary", "preflight report smoke", "staging coverage"],
+          "calculation": ["decking-tools.contract.test.js", "decking-report.contract.test.js", "inline feedback guard", "generated artifact boundary", "preflight report boundary contract", "staging coverage"],
           "report": ["首頁施工臨設分類", "使用提醒", "action status", "preflight summary", "TOOL_BOUNDARIES"],
-          "evidence": ["README.md", "index.html", "../decking-tools.contract.test.js", "report/gen_report.py", "test-fixtures/report-smoke.json"],
+          "evidence": ["README.md", "index.html", "../decking-tools.contract.test.js", "decking-report.contract.test.js", "report/gen_report.py", "test-fixtures/report-smoke.json"],
           "manualReview": ["超出工具假設的施工階段、臨時支撐、連續系統、吊車作業半徑、偏載、地盤條件與工地配置須回到正式施工計畫、結構模型或專案文件人工複核。"]
         }
       ]

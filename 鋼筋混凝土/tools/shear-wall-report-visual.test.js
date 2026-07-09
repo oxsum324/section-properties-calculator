@@ -79,6 +79,27 @@ function safeRequestPath(reqUrl) {
   return decodeURIComponent(pathname);
 }
 
+function assertArtifact(file, expectedSignature, title) {
+  const st = fs.statSync(file);
+  const header = fs.readFileSync(file).subarray(0, expectedSignature.length);
+  assert(st.size > 1024, title, `${path.basename(file)} ${st.size} bytes`);
+  assert(header.equals(Buffer.from(expectedSignature)), `${title} signature`, path.basename(file));
+}
+
+async function openReportPopup(page, options = {}) {
+  const timeoutMs = options.timeoutMs ?? 30000;
+  const triggerSelector = options.triggerSelector ?? '#btnReport';
+  const knownPages = new Set(page.context().pages());
+  await page.click(triggerSelector);
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const report = page.context().pages().find(candidate => candidate !== page && !candidate.isClosed() && !knownPages.has(candidate));
+    if (report) return report;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`report popup did not open within ${timeoutMs}ms`);
+}
+
 function serveStatic(rootDir, port = PORT) {
   const mime = {
     '.html': 'text/html; charset=utf-8',
@@ -118,12 +139,7 @@ function serveStatic(rootDir, port = PORT) {
   });
 }
 
-function assertArtifact(file, expectedSignature, title) {
-  const st = fs.statSync(file);
-  const header = fs.readFileSync(file).subarray(0, expectedSignature.length);
-  assert(st.size > 1024, title, `${path.basename(file)} ${st.size} bytes`);
-  assert(header.equals(Buffer.from(expectedSignature)), `${title} signature`, path.basename(file));
-}
+
 
 function attachPageGuards(page, bucket, label) {
   page.on('console', msg => {
@@ -219,10 +235,7 @@ async function main() {
         assert(state.banner.includes('待確認 —'), `${tc.key} banner uses pending-review count`, state.banner);
         assert(state.readinessText.includes('可作附件，需人工複核'), `${tc.key} page readiness flags review`, state.readinessText);
       }
-
-      const popupPromise = page.waitForEvent('popup', { timeout: 10000 });
-      await page.click('#btnReport');
-      const report = await popupPromise;
+      const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
       await report.setViewportSize({ width: 980, height: 1300 });

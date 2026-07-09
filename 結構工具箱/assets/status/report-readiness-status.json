@@ -1,8 +1,8 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-07-09T21:10:04.304Z",
-  "runId": "20260710-045723",
+  "generatedAt": "2026-07-09T21:29:47.691Z",
+  "runId": "20260710-051614",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -43,6 +43,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260710-045723/preflight-summary.json",
-  "sourceHash": "f1a508a89dd28be3b8059a263ec7cd6fb85e19243b62f7b4a93ec47022dda142"
+  "preflightStatusSourcePath": "output/preflight/history/20260710-051614/preflight-summary.json",
+  "sourceHash": "a1caafe2644fc0220e9ee3e325e91717f6df47fca47ab356b404bf03274378ad"
 }

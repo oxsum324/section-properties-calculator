@@ -62,6 +62,20 @@
   .check-msg.warn { border-color:#fcd34d; background:#fffbeb; color:#92400e; }
   .check-msg.error { border-color:#fca5a5; background:#fef2f2; color:#991b1b; }
   .check-msg.info { border-color:#bfdbfe; background:#eff6ff; color:#1d4ed8; }
+  .report-readiness { display:grid; gap:10px; padding:12px; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; background:#fffbeb; color:#78350f; font-size:0.84em; line-height:1.65; }
+  .report-readiness.ready { border-color:#bbf7d0; border-left-color:#059669; background:#f0fdf4; color:#166534; }
+  .report-readiness.blocked { border-color:#fecaca; border-left-color:#dc2626; background:#fef2f2; color:#991b1b; }
+  .report-readiness-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .report-readiness-kicker { margin:0 0 2px; color:#64748b; font-size:0.74em; font-weight:700; }
+  .report-readiness-title { margin:0; color:inherit; font-size:0.96em; font-weight:800; }
+  .report-readiness-badge { flex:0 0 auto; border:1px solid currentColor; border-radius:999px; padding:3px 8px; background:rgba(255,255,255,0.72); font-size:0.74em; font-weight:800; white-space:nowrap; }
+  .report-readiness ul { margin:0; padding-left:18px; }
+  .report-readiness li { margin:2px 0; }
+  .report-readiness-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; }
+  .report-readiness-item { min-height:54px; padding:8px 9px; border:1px solid rgba(120,53,15,0.14); border-radius:8px; background:rgba(255,255,255,0.68); }
+  .report-readiness-item span { display:block; color:#64748b; font-size:0.72em; font-weight:700; }
+  .report-readiness-item strong { display:block; margin-top:2px; color:#0f172a; font-size:0.86em; line-height:1.35; }
+  .report-readiness-note { color:#64748b; font-size:0.78em; }
   .diagram-wrap { border:1px solid #dbeafe; border-radius:12px; background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%); padding:10px; overflow:hidden; }
   .line-h2-diagram { display:block; width:100%; height:auto; max-height:340px; }
   .tag-ctrl { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.78em; font-weight:700; }
@@ -122,6 +136,9 @@
     .compact-item { padding:9px 10px; }
     .step-body { font-size:0.83em; line-height:1.75; }
   }
+  @media print {
+    .page-only-report-status, .case-actions, .case-status, .print-option-row, .report-mode-control { display:none !important; }
+  }
 </style>
 </head>
 <body>
@@ -169,6 +186,9 @@
       </div>
       <input type="hidden" id="printReportMode" value="detail">
     </div>
+  </div>
+  <div class="card page-only-report-status">
+    <div class="report-readiness blocked" id="miscReportReadiness" role="status" aria-live="polite"></div>
   </div>
   <div class="main-layout misc-shell">
     <div class="misc-form-stack">
@@ -352,9 +372,12 @@
 
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
+<script src="../../core/ui/report.js"></script>
 <script>
 const S = Seismic;
 let lastMiscResult = null;
+let lastMiscReportValidationMessage = '';
+let miscReportInputsChanged = false;
 const TOOL_VERSION = '3.3';
 const CASE_SCHEMA_VERSION = 'seismic-misc.case.v1';
 const PROJECT_INFO_STORAGE_KEY = 'seismic-project-meta';
@@ -492,7 +515,11 @@ function getHeightLimitWarning(item, h) {
 
 function getProjectInfo() {
   const v = id => (document.getElementById(id)?.value || '').trim();
-  return { name: v('projName'), no: v('projNo'), designer: v('projDesigner') };
+  return {
+    name: window.ToolReportUI.normalizeProjectFieldValue(v('projName')),
+    no: window.ToolReportUI.normalizeProjectFieldValue(v('projNo')),
+    designer: window.ToolReportUI.normalizeProjectFieldValue(v('projDesigner'))
+  };
 }
 
 function getStorageJson(key) {
@@ -507,9 +534,9 @@ function getStorageJson(key) {
 function restoreProjectInfo() {
   const saved = getStorageJson(PROJECT_INFO_STORAGE_KEY);
   if (!saved) return;
-  if (saved.name != null) document.getElementById('projName').value = saved.name;
-  if (saved.no != null) document.getElementById('projNo').value = saved.no;
-  if (saved.designer != null) document.getElementById('projDesigner').value = saved.designer;
+  if (saved.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(saved.name);
+  if (saved.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(saved.no);
+  if (saved.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(saved.designer);
 }
 
 function saveProjectInfo() {
@@ -536,6 +563,11 @@ function clearInputStatus() {
   setInputStatus('');
 }
 
+function setMiscReportValidationMessage(message = '') {
+  lastMiscReportValidationMessage = message || '';
+  renderMiscReportReadiness(lastMiscReportValidationMessage);
+}
+
 function getPrintReportMode() {
   return document.getElementById('printReportMode')?.value === 'simple' ? 'simple' : 'detail';
 }
@@ -549,6 +581,7 @@ function syncPrintReportMode(mode) {
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
+  renderMiscReportReadiness();
 }
 
 function readCaseInputs() {
@@ -600,9 +633,9 @@ function applyCaseInputs(data) {
   const input = data?.values ? data : { project: data?.project || {}, values: data || {} };
   const project = input.project || {};
   const values = { ...DEFAULT_CASE_INPUTS.values, ...(input.values || {}) };
-  if (project.name != null) document.getElementById('projName').value = project.name;
-  if (project.no != null) document.getElementById('projNo').value = project.no;
-  if (project.designer != null) document.getElementById('projDesigner').value = project.designer;
+  if (project.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(project.name);
+  if (project.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(project.no);
+  if (project.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(project.designer);
   syncPrintReportMode(values.printReportMode);
   setInputValue('zoneCity', values.zoneCity || '');
   document.getElementById('zoneCity').dispatchEvent(new Event('change'));
@@ -728,8 +761,10 @@ function importCaseJsonFile(file) {
       }
       applyCaseInputs(payload);
       lastMiscResult = null;
+      miscReportInputsChanged = false;
       document.getElementById('resultPanel').style.display = 'none';
       setCaseStatus('已匯入案件 JSON；請按「計算雜項工作物地震力」重新整理結果。');
+      setMiscReportValidationMessage('');
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
     } finally {
@@ -742,9 +777,12 @@ function importCaseJsonFile(file) {
 function resetCaseDefaults() {
   applyCaseInputs(DEFAULT_CASE_INPUTS);
   lastMiscResult = null;
+  miscReportInputsChanged = false;
   document.getElementById('resultPanel').style.display = 'none';
   document.getElementById('zoneHint').textContent = '';
   setCaseStatus('已恢復本頁預設值。');
+  clearInputStatus();
+  setMiscReportValidationMessage('');
 }
 
 function currentTypeTable() {
@@ -886,6 +924,98 @@ function renderInputChecks(messages) {
 
 function updateInputChecks() {
   renderInputChecks(validateMiscInputs());
+  renderMiscReportReadiness();
+}
+
+function buildMiscReportReadinessModel(validationMessage = lastMiscReportValidationMessage) {
+  if (validationMessage) {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入尚未通過檢查，先不要產生計算書。',
+      priority: [validationMessage],
+      items: [
+        ['分析狀態', '未完成'],
+        ['計算書模式', getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+  if (!lastMiscResult || document.getElementById('resultPanel')?.style.display === 'none') {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '尚未完成雜項工作物地震力計算。',
+      priority: ['請先執行「計算雜項工作物地震力」，再整理計算書附件。'],
+      items: [
+        ['分析狀態', '待計算'],
+        ['計算書模式', getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+  if (miscReportInputsChanged) {
+    return {
+      tone: 'blocked',
+      badge: '暫勿作附件',
+      title: '輸入已變更，頁面結果可能不是最新。',
+      priority: ['請重新計算後再產出計算書附件。'],
+      items: [
+        ['分析狀態', '需重算'],
+        ['計算書模式', getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式'],
+        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+      ]
+    };
+  }
+
+  const reviewItems = [];
+  const messages = validateMiscInputs().filter(message => message.type !== 'error');
+  if (window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])) reviewItems.push('計畫名稱、編號或設計人尚未完整，產報前建議補齊。');
+  messages.forEach(message => reviewItems.push(message.text));
+  if (String(document.getElementById('miscType')?.value) === '-1') {
+    reviewItems.push('本案採自訂 R / αy，請保留第五章表列或專案依據。');
+  }
+  if (getPrintReportMode() === 'simple') {
+    reviewItems.push('目前為簡易結果模式；計算書只輸出條件表、示意圖與摘要，不含完整代入式。');
+  }
+
+  return {
+    tone: reviewItems.length ? 'review' : 'ready',
+    badge: reviewItems.length ? '優先複核' : '可作附件',
+    title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
+    priority: reviewItems.length ? reviewItems : ['第五章分流、控制公式與 Vh / Vv 摘要已可供附件整理。'],
+    items: [
+      ['章節分類', lastMiscResult.mode === 'similar' ? '5.3 相似於建築結構' : '5.4 非相似於建築結構'],
+      ['工作物類型', lastMiscResult.typeName || '—'],
+      ['採用公式', lastMiscResult.formulaUsed || '—'],
+      ['設計地震力', `Vh ${fmt(lastMiscResult.Vh, 2)} / Vv ${fmt(lastMiscResult.Vv, 2)} tf`],
+      ['控制條件', lastMiscResult.controlledBy || '—'],
+      ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF']
+    ]
+  };
+}
+
+function renderMiscReportReadiness(validationMessage = lastMiscReportValidationMessage) {
+  const el = document.getElementById('miscReportReadiness');
+  if (!el) return;
+  const message = typeof validationMessage === 'string' ? validationMessage : lastMiscReportValidationMessage;
+  const model = buildMiscReportReadinessModel(message);
+  window.ToolReportUI.renderStatusGridPanel({
+    target: el,
+    containerClassName: 'card page-only-report-status report-readiness',
+    level: model.tone,
+    eyebrow: '頁面輔助｜產報前檢查｜優先閱讀',
+    title: model.title,
+    badge: model.badge,
+    priorityItems: model.priority,
+    items: model.items,
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認第五章分類、表列高度限制、R / αy 來源與送審圖說一致性。'
+  });
+}
+
+function markMiscReportInputsChanged() {
+  if (lastMiscResult) miscReportInputsChanged = true;
+  renderMiscReportReadiness();
 }
 
 function calcMiscSeismicFull(p) {
@@ -1113,7 +1243,9 @@ function calcMiscPage() {
   renderInputChecks(validationMessages);
   const blockingMessages = validationMessages.filter(message => message.type === 'error');
   if (blockingMessages.length) {
-    setInputStatus(blockingMessages.map(message => message.text).join('；'));
+    const message = blockingMessages.map(message => message.text).join('；');
+    setInputStatus(message);
+    setMiscReportValidationMessage(message);
     return false;
   }
 
@@ -1259,12 +1391,16 @@ function calcMiscPage() {
       </div>
     </div>
   `;
+  miscReportInputsChanged = false;
   clearInputStatus();
+  setMiscReportValidationMessage('');
   return true;
 }
 
 function openMiscReport() {
-  if (!lastMiscResult) calcMiscPage();
+  if (!lastMiscResult || miscReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none') {
+    if (calcMiscPage() === false) return;
+  }
   if (!lastMiscResult) return;
   const r = lastMiscResult;
   const note = (document.getElementById('miscRemark').value || '').trim();
@@ -1509,8 +1645,17 @@ restoreProjectInfo();
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('input', saveProjectInfo);
+  el.addEventListener('input', function() { renderMiscReportReadiness(); });
+  el.addEventListener('change', function() { renderMiscReportReadiness(); });
+});
+['zoneCity', 'zoneDist', 'SsD', 'S1D', 'SsM', 'S1M', 'siteClass', 'miscI', 'chkTaipei', 'miscChapterMode', 'miscCategory', 'miscType', 'miscR', 'miscAY', 'miscW', 'miscH', 'miscT', 'miscRemark', 'chkNearFaultMisc'].forEach(function(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', markMiscReportInputsChanged);
+  el.addEventListener('change', markMiscReportInputsChanged);
 });
 updateInputChecks();
+renderMiscReportReadiness();
 </script>
 </body>
 </html>

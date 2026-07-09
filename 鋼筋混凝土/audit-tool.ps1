@@ -255,14 +255,20 @@ function Run-AuditPass {
     @{ Label = "RC traceability catalog contract"; Command = "Set-Location '$toolsDir'; node '.\rc-traceability.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Audit status metadata contract"; Command = "Set-Location '$toolsDir'; node '.\audit-status.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "RC index menu browser smoke"; Command = "& '$toolsDir\test-rc-index-menu.ps1'"; Workdir = $toolsDir },
+    @{ Label = "Beam report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\beam-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Beam regression and report visual smoke"; Command = "& '$toolsDir\test-beam.ps1'"; Workdir = $toolsDir },
     @{ Label = "Column report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\column-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Column regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8131'; & '$toolsDir\test-column.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Slab report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\slab-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Slab regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8132'; & '$toolsDir\test-slab.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Wall report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\wall-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Wall regression and report visual smoke"; Command = "& '$toolsDir\test-wall.ps1'"; Workdir = $toolsDir },
     @{ Label = "Shear wall suite"; Command = "& '$toolsDir\test-shear-wall.ps1'"; Workdir = $toolsDir },
+    @{ Label = "Shear wall report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\shear-wall-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Shear wall report visual smoke"; Command = "& '$toolsDir\test-shear-wall-report.ps1'"; Workdir = $toolsDir },
+    @{ Label = "Foundation report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\foundation-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Foundation regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8133'; & '$toolsDir\test-foundation.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
+    @{ Label = "Single pile report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\single-pile-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Single pile regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8134'; & '$toolsDir\test-single-pile.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir }
   )
 

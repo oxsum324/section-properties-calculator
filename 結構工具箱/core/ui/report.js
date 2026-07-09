@@ -17,6 +17,74 @@
  * checks[].formula 顯示原式, sub 顯示代入值, value 顯示計算結果
  */
 
+function escapeReportHtml(value) {
+  return (value === null || value === undefined ? '' : String(value))
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeProjectFieldValue(value) {
+  const text = (value === null || value === undefined ? '' : String(value)).trim();
+  return text === '未填' ? '' : text;
+}
+
+function hasBlankFieldValues(ids, resolver) {
+  const getNode = typeof resolver === 'function'
+    ? resolver
+    : (id) => (typeof document !== 'undefined' ? document.getElementById(id) : null);
+  return (Array.isArray(ids) ? ids : []).some((id) => {
+    return !normalizeProjectFieldValue(getNode(id)?.value);
+  });
+}
+
+function normalizeStatusGridItem(item) {
+  if (Array.isArray(item)) {
+    return { label: item[0], value: item[1] };
+  }
+  if (item && typeof item === 'object') {
+    return { label: item.label, value: item.value };
+  }
+  return null;
+}
+
+function renderStatusGridPanel(options) {
+  const target = options?.target;
+  if (!target) return;
+  const items = (Array.isArray(options.items) ? options.items : [])
+    .map(normalizeStatusGridItem)
+    .filter(Boolean);
+  const priorityItems = Array.isArray(options.priorityItems) ? options.priorityItems.filter(Boolean) : [];
+  const containerClassName = String(options.containerClassName || 'report-readiness').trim();
+  target.className = `${containerClassName} ${options.level || 'blocked'}`.trim();
+  target.innerHTML = `
+    <div class="report-readiness-head">
+      <div>
+        <p class="report-readiness-kicker">${escapeReportHtml(options.eyebrow || '')}</p>
+        <p class="report-readiness-title">${escapeReportHtml(options.title || '')}</p>
+      </div>
+      <span class="report-readiness-badge">${escapeReportHtml(options.badge || '')}</span>
+    </div>
+    ${priorityItems.length ? `<ul>${priorityItems.map((item) => `<li>${escapeReportHtml(item)}</li>`).join('')}</ul>` : ''}
+    <div class="report-readiness-grid">
+      ${items.map((item) => `<div class="report-readiness-item"><span>${escapeReportHtml(item.label)}</span><strong>${escapeReportHtml(item.value)}</strong></div>`).join('')}
+    </div>
+    ${options.note ? `<div class="report-readiness-note">${escapeReportHtml(options.note)}</div>` : ''}`;
+}
+
+if (typeof window !== 'undefined') {
+  const sharedReportUI = Object.assign(window.ToolReportUI || window.SteelFormalUI || {}, {
+    escapeHtml: escapeReportHtml,
+    normalizeProjectFieldValue,
+    hasBlankFieldValues,
+    renderStatusGridPanel,
+  });
+  window.ToolReportUI = sharedReportUI;
+  window.SteelFormalUI = sharedReportUI;
+}
+
 function showReportIssue(message) {
   if (typeof document === 'undefined' || !document.body) {
     if (typeof console !== 'undefined' && console.warn) console.warn(message);
@@ -53,9 +121,11 @@ function openReport(cfg) {
                    String(today.getMonth()+1).padStart(2,'0') + '/' +
                    String(today.getDate()).padStart(2,'0');
   const proj = Object.assign({ name:'', no:'', designer:'', date: todayStr }, cfg.project || {});
+  proj.name = normalizeProjectFieldValue(proj.name);
+  proj.no = normalizeProjectFieldValue(proj.no);
+  proj.designer = normalizeProjectFieldValue(proj.designer);
 
-  const esc = s => (s===null||s===undefined?'':String(s))
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const esc = escapeReportHtml;
 
   const inputsHtml = (cfg.inputs || []).map(g => `
     <section class="rep-block">

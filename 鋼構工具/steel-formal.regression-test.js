@@ -12,6 +12,44 @@ function loadSteelCore() {
   return context.window.Steel;
 }
 
+function loadWindowScript(source, filename) {
+  const context = { window: {}, console };
+  vm.createContext(context);
+  vm.runInContext(source, context, { filename });
+  return context.window;
+}
+
+function renderReportHtml(source, filename, project = {}) {
+  let html = "";
+  const context = {
+    window: {
+      open() {
+        return {
+          document: {
+            open() {},
+            write(nextHtml) { html += String(nextHtml || ""); },
+            close() {},
+          },
+          focus() {},
+        };
+      },
+    },
+    console,
+    Date,
+  };
+  vm.createContext(context);
+  vm.runInContext(source, context, { filename });
+  assert.equal(typeof context.openReport, "function", `${filename} should expose openReport`);
+  context.openReport({
+    title: "QA 計算書",
+    project,
+    inputs: [{ group: "輸入資料", items: [{ label: "A", value: "1", unit: "" }] }],
+    checks: [{ group: "檢核結果", items: [{ label: "A", formula: "A", sub: "1", value: "1", unit: "", ok: true }] }],
+    summary: { ok: true, text: "OK" },
+  });
+  return html;
+}
+
 const Steel = loadSteelCore();
 
 assert.equal(Steel.calcB1(0.85, 8000, 10000), 4.250000000000001, "stable B1 case should keep the amplified moment");
@@ -105,6 +143,8 @@ const sharedReportSource = fs.readFileSync(sharedReportPath, "utf8");
 const localSteelCorePath = path.join(__dirname, "core", "materials", "steel.js");
 const localReportCorePath = path.join(__dirname, "core", "ui", "report.js");
 const localReportCoreSource = fs.readFileSync(localReportCorePath, "utf8");
+const sharedReportRuntime = loadWindowScript(sharedReportSource, sharedReportPath);
+const localReportRuntime = loadWindowScript(localReportCoreSource, localReportCorePath);
 const pageOnlyReportStatusNeedles = [
   "產報前檢查",
   "附件適用狀態",
@@ -130,6 +170,57 @@ for (const needle of pageOnlyReportStatusNeedles) {
     `steel local report generator should exclude page-only report status wording: ${needle}`,
   );
 }
+
+assert.match(
+  localReportCoreSource,
+  /window\.SteelFormalUI[\s\S]*escapeHtml:\s*escapeReportHtml[\s\S]*hasBlankFieldValues[\s\S]*renderStatusGridPanel/s,
+  "steel local report core should expose shared formal-page helpers without hardcoding page-only wording",
+);
+assert.match(
+  localReportCoreSource,
+  /function normalizeProjectFieldValue\(value\)[\s\S]*text === '未填' \? '' : text[\s\S]*return !normalizeProjectFieldValue\(getNode\(id\)\?\.value\);/s,
+  "steel local report core should treat placeholder project metadata as missing in shared blank-field checks",
+);
+assert.equal(sharedReportRuntime.ToolReportUI, sharedReportRuntime.SteelFormalUI, "shared report runtime should alias ToolReportUI and SteelFormalUI");
+assert.equal(localReportRuntime.ToolReportUI, localReportRuntime.SteelFormalUI, "steel local report runtime should alias ToolReportUI and SteelFormalUI");
+assert.equal(sharedReportRuntime.ToolReportUI.normalizeProjectFieldValue("未填"), "", "shared report runtime should clear placeholder project text");
+assert.equal(localReportRuntime.SteelFormalUI.normalizeProjectFieldValue("未填"), "", "steel local report runtime should clear placeholder project text");
+const sharedReportHtml = renderReportHtml(sharedReportSource, sharedReportPath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
+const localReportHtml = renderReportHtml(localReportCoreSource, localReportCorePath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
+assert.equal(sharedReportHtml.includes("未填"), false, "shared report generator should scrub placeholder project metadata in rendered output");
+assert.equal(localReportHtml.includes("未填"), false, "steel local report generator should scrub placeholder project metadata in rendered output");
+assert.match(sharedReportHtml, /計畫名稱<\/b>—/, "shared report generator should fallback blank project name to dash");
+assert.match(localReportHtml, /計畫名稱<\/b>—/, "steel local report generator should fallback blank project name to dash");
+assert.match(sharedReportHtml, /FORMAL-VERIFY-001/, "shared report generator should keep project number after placeholder scrub");
+assert.match(localReportHtml, /FORMAL-VERIFY-001/, "steel local report generator should keep project number after placeholder scrub");
+assert.equal(
+  localReportRuntime.SteelFormalUI.hasBlankFieldValues(["projName", "projNo", "projDesigner"], (id) => ({ value: id === "projName" ? "未填" : "QA" })),
+  true,
+  "steel local report runtime should treat placeholder project metadata as missing",
+);
+assert.equal(
+  localReportRuntime.SteelFormalUI.hasBlankFieldValues(["projName", "projNo", "projDesigner"], () => ({ value: "QA" })),
+  false,
+  "steel local report runtime should accept complete project metadata",
+);
+const steelReadinessPanel = { className: "", innerHTML: "" };
+localReportRuntime.SteelFormalUI.renderStatusGridPanel({
+  target: steelReadinessPanel,
+  containerClassName: "report-readiness page-only-report-status",
+  level: "review",
+  eyebrow: "頁面輔助｜產報前檢查｜優先閱讀",
+  title: "分析已完成，但產報前建議優先閱讀下列項目。",
+  badge: "優先複核",
+  items: [
+    ["控制值", "強軸控制"],
+    { label: "輸出邊界", value: "頁面顯示，不進計算書、列印或 PDF" },
+  ],
+  priorityItems: ["先補計畫名稱"],
+  note: "此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。",
+});
+assert.equal(steelReadinessPanel.className, "report-readiness page-only-report-status review", "steel local report runtime should support shared readiness container class");
+assert.match(steelReadinessPanel.innerHTML, /先補計畫名稱/, "steel local report runtime should render priority items");
+assert.match(steelReadinessPanel.innerHTML, /強軸控制/, "steel local report runtime should render normalized readiness values");
 
 assert.match(
   columnFormalSource,
@@ -278,6 +369,46 @@ assert.match(
 );
 assert.match(
   beamFormalHtmlSource,
+  /page-only-report-status[\s\S]*id="beamReportReadiness"/,
+  "steel-beam-formal.html should expose a page-only report readiness panel for on-page attachment review",
+);
+assert.match(
+  beamFormalSource,
+  /let lastBeamReportValidationMessage = ""[\s\S]*function buildBeamReportReadinessModel\(validationMessage = lastBeamReportValidationMessage\)[\s\S]*function renderBeamReportReadiness\(validationMessage = lastBeamReportValidationMessage\)[\s\S]*不會寫入計算書或列印 PDF/s,
+  "steel-beam-formal.js should render a page-only report readiness panel and keep it outside printed/exported reports",
+);
+assert.match(
+  beamFormalSource,
+  /const SteelFormalUI = window\.SteelFormalUI;[\s\S]*SteelFormalUI\.hasBlankFieldValues[\s\S]*SteelFormalUI\.renderStatusGridPanel/s,
+  "steel-beam-formal.js should reuse the shared formal-page helper for readiness rendering and blank-field checks",
+);
+assert.match(
+  beamFormalSource,
+  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*openReport\({[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
+  "steel-beam-formal.js should normalize placeholder project metadata before syncing report meta and exporting the formal report",
+);
+assert.doesNotMatch(
+  beamFormalSource,
+  /\$\("proj(?:Name|No|Designer)"\)\.value\.trim\(\)/,
+  "steel-beam-formal.js should not read raw trimmed project metadata outside the shared normalization path",
+);
+assert.doesNotMatch(
+  beamFormalSource,
+  /const escapeHtml =/,
+  "steel-beam-formal.js should not keep a duplicated local HTML escape helper",
+);
+assert.match(
+  beamFormalSource,
+  /function inputFail\(message\)\s*{[\s\S]*setBeamReportValidationMessage\(message\)[\s\S]*function runCheck\(\)[\s\S]*setBeamReportValidationMessage\(""\)/s,
+  "steel-beam-formal.js should route inline validation into the page-only report readiness state",
+);
+assert.match(
+  beamFormalSource,
+  /function syncBeamProjectMetaUi\(\)\s*{[\s\S]*renderBeamReportReadiness\(\)[\s\S]*renderMeta\(resultState\)[\s\S]*\["projName", "projNo", "projDesigner"\][\s\S]*syncBeamProjectMetaUi/s,
+  "steel-beam-formal.js should rerender readiness and sync report metadata when project metadata changes",
+);
+assert.match(
+  beamFormalHtmlSource,
   /id="beamRoundShearRow"|id="inLv"/,
   "steel-beam-formal.html should expose the round HSS shear length input",
 );
@@ -327,6 +458,46 @@ assert.match(
   "steel-column-formal.js should pass unit highlight cards into the exported report",
 );
 assert.match(
+  columnFormalHtmlSource,
+  /page-only-report-status[\s\S]*id="columnReportReadiness"/,
+  "steel-column-formal.html should expose a page-only report readiness panel for on-page attachment review",
+);
+assert.match(
+  columnFormalSource,
+  /let lastColumnReportValidationMessage = ""[\s\S]*function buildColumnReportReadinessModel\(validationMessage = lastColumnReportValidationMessage\)[\s\S]*function renderColumnReportReadiness\(validationMessage = lastColumnReportValidationMessage\)[\s\S]*不會寫入計算書或列印 PDF/s,
+  "steel-column-formal.js should render a page-only report readiness panel and keep it outside printed/exported reports",
+);
+assert.match(
+  columnFormalSource,
+  /const SteelFormalUI = window\.SteelFormalUI;[\s\S]*SteelFormalUI\.hasBlankFieldValues[\s\S]*SteelFormalUI\.renderStatusGridPanel/s,
+  "steel-column-formal.js should reuse the shared formal-page helper for readiness rendering and blank-field checks",
+);
+assert.match(
+  columnFormalSource,
+  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*openReport\({[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
+  "steel-column-formal.js should normalize placeholder project metadata before syncing report meta and exporting the formal report",
+);
+assert.doesNotMatch(
+  columnFormalSource,
+  /\$\("proj(?:Name|No|Designer)"\)\.value\.trim\(\)/,
+  "steel-column-formal.js should not read raw trimmed project metadata outside the shared normalization path",
+);
+assert.doesNotMatch(
+  columnFormalSource,
+  /const escapeHtml =/,
+  "steel-column-formal.js should not keep a duplicated local HTML escape helper",
+);
+assert.match(
+  columnFormalSource,
+  /function inputFail\(message\)\s*{[\s\S]*setColumnReportValidationMessage\(message\)[\s\S]*function runCheck\(\)[\s\S]*setColumnReportValidationMessage\(""\)/s,
+  "steel-column-formal.js should route inline validation into the page-only report readiness state",
+);
+assert.match(
+  columnFormalSource,
+  /function syncColumnProjectMetaUi\(\)\s*{[\s\S]*renderColumnReportReadiness\(\)[\s\S]*renderMeta\(resultState\)[\s\S]*\["projName", "projNo", "projDesigner"\][\s\S]*syncColumnProjectMetaUi/s,
+  "steel-column-formal.js should rerender readiness and sync report metadata when project metadata changes",
+);
+assert.match(
   columnFormalSource,
   /function getColumnPrimaryIssue\(result\)[\s\S]*function getColumnReportSummaryState\(result\)[\s\S]*function getColumnReportSummaryFacts\(result\)[\s\S]*summaryFacts: getColumnReportSummaryFacts\(result\)[\s\S]*summary: summaryState/s,
   "steel-column-formal.js should build a first-screen report summary with controlling axis, KL\/r, and primary issue",
@@ -353,6 +524,11 @@ assert.match(
 );
 assert.match(
   stylesSource,
+  /report-readiness[\s\S]*@media\s+print[\s\S]*\.page-only-report-status[\s\S]*display:\s*none\s*!important/s,
+  "styles.css should define page-only report readiness styles and hide them from print/PDF output",
+);
+assert.match(
+  stylesSource,
   /--font-ui:|--font-report:|--font-mono:|\.unit-system-card|\.unit-system-grid|\.unit-system-conversion/s,
   "styles.css should define shared font tokens and unit-system card styles",
 );
@@ -360,6 +536,11 @@ assert.match(
   appSource,
   /"Segoe UI","Noto Sans TC","Microsoft JhengHei"|Cascadia Code/s,
   "app.js report export should use the unified font stacks",
+);
+assert.match(
+  appSource,
+  /function normalizeProjectMetaValue\(value\)[\s\S]*"未填"[\s\S]*function getProjectMetaDisplayValue\(value\)[\s\S]*metaProjectName\.textContent = getProjectMetaDisplayValue\(result\.state\.projectName\)[\s\S]*metaConnectionTag\.textContent = getProjectMetaDisplayValue\(result\.state\.connectionTag\)[\s\S]*metaDesigner\.textContent = getProjectMetaDisplayValue\(result\.state\.designer\)[\s\S]*<div><b>計畫名稱<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}<\/div>[\s\S]*<div><b>接頭編號<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}<\/div>[\s\S]*<div><b>設計人<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.designer\)\}<\/div>[\s\S]*`計畫：\$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}`[\s\S]*`接頭：\$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}`/s,
+  "app.js should normalize placeholder project metadata before rendering page meta, printable report output, and copied summaries",
 );
 assert.match(
   `${indexSource}\n${stylesSource}\n${appSource}`,
@@ -398,8 +579,13 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
-  /main-plate[\s\S]*main-tension[\s\S]*standalone-plate[\s\S]*formal-beam[\s\S]*formal-column/s,
-  "steel-audit-browser-runner.js should cover homepage, standalone plate, and steel formal pages",
+  /main-plate[\s\S]*main-tension[\s\S]*standalone-plate[\s\S]*formal-beam[\s\S]*formal-beam-report-popup[\s\S]*formal-column[\s\S]*formal-column-report-popup/s,
+  "steel-audit-browser-runner.js should cover homepage, standalone plate, steel formal pages, and formal report popup outputs",
+);
+assert.match(
+  browserRunnerSource,
+  /main-plate[\s\S]*main-plate-report-popup-placeholder[\s\S]*setup:\s*setupMainPlateProjectMetaPlaceholder[\s\S]*assert:\s*assertMainPlateReportPopupPlaceholder[\s\S]*main-tension/s,
+  "steel-audit-browser-runner.js should run a legacy main-page placeholder-metadata export scenario between the default and tension snapshots",
 );
 assert.match(
   browserRunnerSource,
@@ -413,8 +599,33 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
+  /FORMAL_PROJECT_META_PLACEHOLDER[\s\S]*projName:\s*'未填'[\s\S]*setupFormalProjectMetaPlaceholder[\s\S]*assertFormalReportReadiness[\s\S]*assertFormalProjectMetaPlaceholderRendered[\s\S]*nameId:\s*'#beamMetaProjectName'[\s\S]*nameId:\s*'#columnMetaProjectName'[\s\S]*assertFormalReportReadinessTextAbsent[\s\S]*計畫名稱 \/ 編號 \/ 設計人尚未完整[\s\S]*不會寫入計算書或列印 PDF/s,
+  "steel-audit-browser-runner.js should define placeholder-metadata browser checks for readiness, page meta fallback, and the print/PDF boundary",
+);
+assert.match(
+  browserRunnerSource,
+  /LEGACY_PROJECT_META_PLACEHOLDER[\s\S]*projectName:\s*'未填'[\s\S]*setupMainPlateProjectMetaPlaceholder[\s\S]*plate_geometry[\s\S]*assertMainPlateProjectMetaPlaceholderRendered[\s\S]*#metaProjectName[\s\S]*assertMainPlateSummaryCopyPlaceholder[\s\S]*計畫：—[\s\S]*接頭：\$\{LEGACY_PROJECT_META_PLACEHOLDER\.connectionTag\}[\s\S]*assertLegacyReportPopup[\s\S]*buttonSelector:\s*'#exportReportBtn'[\s\S]*titleNeedle:\s*'連接板檢核計算書'[\s\S]*absentNeedles:\s*\['未填'\]/s,
+  "steel-audit-browser-runner.js should verify the legacy main page scrubs placeholder project text from on-page meta, copied summary, and exported report popup",
+);
+assert.match(
+  browserRunnerSource,
+  /formal-beam[\s\S]*setup:\s*setupFormalProjectMetaPlaceholder[\s\S]*formal-beam-meta-complete[\s\S]*formal-beam-report-popup[\s\S]*setup:\s*setupFormalProjectMetaComplete[\s\S]*assert:\s*assertFormalBeamReportPopupComplete[\s\S]*formal-beam-report-popup-placeholder[\s\S]*setup:\s*setupFormalProjectMetaPlaceholder[\s\S]*assert:\s*assertFormalBeamReportPopupPlaceholder/s,
+  "steel-audit-browser-runner.js should run the beam placeholder and complete metadata scenarios alongside dedicated popup export checks",
+);
+assert.match(
+  browserRunnerSource,
+  /formal-column[\s\S]*setup:\s*setupFormalProjectMetaPlaceholder[\s\S]*formal-column-meta-complete[\s\S]*formal-column-report-popup[\s\S]*setup:\s*setupFormalProjectMetaComplete[\s\S]*assert:\s*assertFormalColumnReportPopupComplete[\s\S]*formal-column-report-popup-placeholder[\s\S]*setup:\s*setupFormalProjectMetaPlaceholder[\s\S]*assert:\s*assertFormalColumnReportPopupPlaceholder/s,
+  "steel-audit-browser-runner.js should run the column placeholder and complete metadata scenarios alongside dedicated popup export checks",
+);
+assert.match(
+  browserRunnerSource,
   /formal-beam-invalid[\s\S]*setup: setupFormalBeamInvalid[\s\S]*formal-column-invalid[\s\S]*setup: setupFormalColumnInvalid/s,
   "steel-audit-browser-runner.js should run the steel formal inline validation scenarios",
+);
+assert.match(
+  browserRunnerSource,
+  /async function assertFormalReportPopup\(cdp, sessionId, options\)[\s\S]*openFormalReportPopup[\s\S]*優先建議報告閱讀狀態[\s\S]*頁面顯示，不進計算書、列印或 PDF[\s\S]*不會寫入計算書或列印 PDF[\s\S]*計畫名稱 \/ 編號 \/ 設計人尚未完整[\s\S]*async function openFormalReportPopup[\s\S]*Target\.getTargets[\s\S]*waitForNewPageTarget[\s\S]*waitForPopupReady/s,
+  "steel-audit-browser-runner.js should open the formal report popup and assert that page-only readiness wording never appears in the exported report window",
 );
 assert.match(
   runSyncFormalCoreBatSource,
