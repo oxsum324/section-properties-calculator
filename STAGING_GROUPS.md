@@ -11,8 +11,8 @@
   - `b1a534e Expand report boundary governance across tools`
   - `d530816 Refresh anchor deployment assets`
   - `60f3c18 Update release status snapshots`
-- 最新正式放行證據：`runId=20260710-053304`，`quick=false`、`ForcePlatformAudit=true`、`ForceSlowChecks=true`、`49/49` 通過，post checks `3/3` 通過。
-- 最新 Pages deploy：workflow run `29052463494`，`Pages deploy` completed/success。
+- 公開狀態快照正式放行基準：`runId=20260710-053304`，`quick=false`、`ForcePlatformAudit=true`、`ForceSlowChecks=true`、`49/49` 通過，post checks `3/3` 通過。
+- 公開狀態快照發布基準：workflow run `29052463494`，`Pages deploy` completed/success；後續文件治理提交的最新 Pages run 以 `gh run list --limit 1` 為準，不在本 ledger 硬編碼。
 - 報告閱讀狀態：`頁面專用`，page-only boundary `4/4`，issue `0`；此總覽只能出現在頁面或工具本身，不得附入計算書、列印輸出或 PDF。
 - 下列 A0~G 是下次同類變更的分包 playbook，不是目前待 staging 清單。
 

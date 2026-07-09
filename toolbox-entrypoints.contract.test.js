@@ -409,9 +409,11 @@ assert.ok(staging.includes('4944fa7 Harden page-only report readiness release ev
 assert.ok(staging.includes('b1a534e Expand report boundary governance across tools'), 'STAGING_GROUPS records cross-family report governance commit');
 assert.ok(staging.includes('d530816 Refresh anchor deployment assets'), 'STAGING_GROUPS records anchor deploy asset commit');
 assert.ok(staging.includes('60f3c18 Update release status snapshots'), 'STAGING_GROUPS records status snapshot commit');
-assert.ok(staging.includes('runId=20260710-053304'), 'STAGING_GROUPS records latest formal release evidence');
+assert.ok(staging.includes('公開狀態快照正式放行基準：`runId=20260710-053304`'), 'STAGING_GROUPS records stable formal release baseline evidence');
 assert.ok(staging.includes('ForcePlatformAudit=true') && staging.includes('ForceSlowChecks=true'), 'STAGING_GROUPS records release force flags');
-assert.ok(staging.includes('workflow run `29052463494`'), 'STAGING_GROUPS records Pages deploy evidence');
+assert.ok(staging.includes('公開狀態快照發布基準：workflow run `29052463494`'), 'STAGING_GROUPS records stable Pages deploy baseline evidence');
+assert.ok(staging.includes('最新 Pages run 以 `gh run list --limit 1` 為準'), 'STAGING_GROUPS avoids self-staling latest Pages run ids');
+assert.equal(staging.includes('最新 Pages deploy'), false, 'STAGING_GROUPS must not describe a historical baseline deploy as latest');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'STAGING_GROUPS records page-only boundary health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'STAGING_GROUPS keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'STAGING_GROUPS keeps future staging playbook');

@@ -39,9 +39,11 @@ assert.ok(staging.includes('4944fa7 Harden page-only report readiness release ev
 assert.ok(staging.includes('b1a534e Expand report boundary governance across tools'), 'staging guide records cross-family report governance commit');
 assert.ok(staging.includes('d530816 Refresh anchor deployment assets'), 'staging guide records anchor deploy asset commit');
 assert.ok(staging.includes('60f3c18 Update release status snapshots'), 'staging guide records status snapshot commit');
-assert.ok(staging.includes('runId=20260710-053304'), 'staging guide records latest formal release run evidence');
+assert.ok(staging.includes('公開狀態快照正式放行基準：`runId=20260710-053304`'), 'staging guide records stable formal release baseline evidence');
 assert.ok(staging.includes('ForcePlatformAudit=true') && staging.includes('ForceSlowChecks=true'), 'staging guide records forced release evidence flags');
-assert.ok(staging.includes('workflow run `29052463494`'), 'staging guide records Pages deploy workflow evidence');
+assert.ok(staging.includes('公開狀態快照發布基準：workflow run `29052463494`'), 'staging guide records stable Pages deploy baseline evidence');
+assert.ok(staging.includes('最新 Pages run 以 `gh run list --limit 1` 為準'), 'staging guide avoids self-staling latest Pages run ids');
+assert.equal(staging.includes('最新 Pages deploy'), false, 'staging guide must not describe a historical baseline deploy as latest');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'staging guide records page-only boundary health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'staging guide keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'staging guide keeps future staging playbook');
