@@ -4,6 +4,7 @@ const path = require('path');
 
 const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'beam-report-visual.test.js');
+const helperPath = path.join(toolsDir, 'report-screenshot-quality.js');
 const testBeamPath = path.join(toolsDir, 'test-beam.ps1');
 const casesPath = path.join(toolsDir, 'beam-regression-cases.json');
 
@@ -17,6 +18,7 @@ function assertIncludes(text, needle, label) {
 }
 
 const visual = read(visualPath);
+const helper = read(helperPath);
 const testBeam = read(testBeamPath);
 const cases = JSON.parse(read(casesPath));
 
@@ -46,11 +48,15 @@ const cases = JSON.parse(read(casesPath));
   '不列為 OK 結論',
   'assertArtifact(screenshotPath',
   'assertReportScreenshotQuality(screenshotPath',
-  'readPngVisualQuality',
-  'nonWhitePixelCount',
-  'uniqueColorCount',
   'assertArtifact(pdfPath',
   'beam-report-visual-audit.json',
 ].forEach(needle => assertIncludes(visual, needle, 'beam report visual smoke quality gate'));
+
+[
+  'function readPngVisualQuality',
+  'nonWhitePixelCount',
+  'uniqueColorCount',
+  'module.exports',
+].forEach(needle => assertIncludes(helper, needle, 'shared report screenshot quality helper'));
 
 console.log('beam report visual contract OK');

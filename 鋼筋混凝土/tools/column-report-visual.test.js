@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
+const { assertReportScreenshotQuality } = require('./report-screenshot-quality');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_VISUAL_PORT || 0);
@@ -231,7 +232,8 @@ async function main() {
       await report.emulateMedia({ media: 'screen' });
 
       const metrics = await extractReportMetrics(report);
-      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, metrics, printMetrics });
+      const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
+      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, metrics, printMetrics, screenshotQuality });
 
       assert(pageErrors.length === 0, `${tc.key} report page errors`, 'none');
       assert(failedResponses.length === 0, `${tc.key} report failed responses`, 'none');

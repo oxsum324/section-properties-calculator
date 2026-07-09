@@ -4,6 +4,7 @@ const path = require('path');
 
 const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'column-report-visual.test.js');
+const helperPath = path.join(toolsDir, 'report-screenshot-quality.js');
 const testColumnPath = path.join(toolsDir, 'test-column.ps1');
 const casesPath = path.join(toolsDir, 'column-regression-cases.json');
 
@@ -17,6 +18,7 @@ function assertIncludes(text, needle, label) {
 }
 
 const visual = read(visualPath);
+const helper = read(helperPath);
 const testColumn = read(testColumnPath);
 const cases = JSON.parse(read(casesPath));
 
@@ -50,10 +52,18 @@ const cases = JSON.parse(read(casesPath));
   'no top manual-review reminder',
   'print toolbar hidden',
   'assertArtifact(screenshotPath',
+  'assertReportScreenshotQuality(screenshotPath',
   'assertArtifact(pdfPath',
   '0x89, 0x50, 0x4e, 0x47',
   '0x25, 0x50, 0x44, 0x46',
   'column-report-visual-audit.json'
 ].forEach(needle => assertIncludes(visual, needle, 'column report visual smoke quality gate'));
+
+[
+  'function readPngVisualQuality',
+  'nonWhitePixelCount',
+  'uniqueColorCount',
+  'module.exports',
+].forEach(needle => assertIncludes(helper, needle, 'shared report screenshot quality helper'));
 
 console.log('column report visual contract OK');
