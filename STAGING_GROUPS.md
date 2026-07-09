@@ -4,7 +4,8 @@
 
 ## 目前狀態
 
-- 工作樹基準：`master` 與 `origin/master` 對齊，HEAD `60f3c1803ea28cf3bb8ea057ef128b40f22dbcf4`。
+- 工作樹基準：最新 HEAD 與遠端同步狀態以 `git status -sb`、`git log -1 --oneline` 為準，本文件不硬編碼自我引用的最新 commit hash，避免提交後立即失真。
+- 狀態快照基準提交：`60f3c18 Update release status snapshots`，其公開快照指向正式放行證據 `20260710-053304`。
 - 已落地提交：
   - `4944fa7 Harden page-only report readiness release evidence`
   - `b1a534e Expand report boundary governance across tools`

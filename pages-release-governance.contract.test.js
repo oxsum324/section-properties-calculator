@@ -31,7 +31,10 @@ const reportReadinessStatus = readJson('結構工具箱/assets/status/report-rea
 
 assert.ok(staging.includes('## 目前狀態'), 'staging guide records current release status');
 assert.ok(staging.includes('不是目前待提交清單'), 'staging guide distinguishes release ledger from active worktree queue');
-assert.ok(staging.includes('60f3c1803ea28cf3bb8ea057ef128b40f22dbcf4'), 'staging guide records current published head');
+assert.ok(staging.includes('最新 HEAD 與遠端同步狀態以 `git status -sb`、`git log -1 --oneline` 為準'), 'staging guide avoids self-staling latest HEAD');
+assert.ok(staging.includes('本文件不硬編碼自我引用的最新 commit hash'), 'staging guide documents why latest HEAD is not hard-coded');
+assert.ok(staging.includes('狀態快照基準提交：`60f3c18 Update release status snapshots`'), 'staging guide records stable status snapshot baseline commit');
+assert.equal(/HEAD\s+`[0-9a-f]{7,40}`/.test(staging), false, 'staging guide must not hard-code a self-staling current HEAD');
 assert.ok(staging.includes('4944fa7 Harden page-only report readiness release evidence'), 'staging guide records page-only readiness release commit');
 assert.ok(staging.includes('b1a534e Expand report boundary governance across tools'), 'staging guide records cross-family report governance commit');
 assert.ok(staging.includes('d530816 Refresh anchor deployment assets'), 'staging guide records anchor deploy asset commit');

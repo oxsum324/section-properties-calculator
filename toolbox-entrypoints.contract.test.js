@@ -401,7 +401,10 @@ assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/preflight-summary.
 assert.ok(fs.existsSync(path.join(toolboxRoot, 'assets/status/report-readiness-status.json')), 'homepage report readiness status asset exists');
 assert.ok(staging.includes('## 目前狀態'), 'STAGING_GROUPS records current release status');
 assert.ok(staging.includes('不是目前待提交清單'), 'STAGING_GROUPS distinguishes release ledger from active worktree queue');
-assert.ok(staging.includes('60f3c1803ea28cf3bb8ea057ef128b40f22dbcf4'), 'STAGING_GROUPS records current published head');
+assert.ok(staging.includes('最新 HEAD 與遠端同步狀態以 `git status -sb`、`git log -1 --oneline` 為準'), 'STAGING_GROUPS avoids self-staling latest HEAD');
+assert.ok(staging.includes('本文件不硬編碼自我引用的最新 commit hash'), 'STAGING_GROUPS documents why latest HEAD is not hard-coded');
+assert.ok(staging.includes('狀態快照基準提交：`60f3c18 Update release status snapshots`'), 'STAGING_GROUPS records stable status snapshot baseline commit');
+assert.equal(/HEAD\s+`[0-9a-f]{7,40}`/.test(staging), false, 'STAGING_GROUPS must not hard-code a self-staling current HEAD');
 assert.ok(staging.includes('4944fa7 Harden page-only report readiness release evidence'), 'STAGING_GROUPS records page-only readiness release commit');
 assert.ok(staging.includes('b1a534e Expand report boundary governance across tools'), 'STAGING_GROUPS records cross-family report governance commit');
 assert.ok(staging.includes('d530816 Refresh anchor deployment assets'), 'STAGING_GROUPS records anchor deploy asset commit');
