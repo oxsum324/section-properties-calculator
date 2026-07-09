@@ -432,6 +432,13 @@ assert.ok(staging.includes('toolbox-entrypoints.contract.test.js') && staging.in
 assert.ok(staging.includes('下次不要混入本包'), 'STAGING_GROUPS A0 documents excluded neighboring work');
 assert.ok(staging.includes('anchor/assets/') && staging.includes('改放 B 包'), 'STAGING_GROUPS A0 keeps anchor deploy assets out of the first package');
 assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity matrix publishes homepage status snapshots');
+assert.ok(maturityMatrix.includes('preserveHomepageStatus'), 'maturity matrix supports preserving tracked homepage status snapshots');
+assert.ok(maturityMatrix.includes('--preserve-homepage-status'), 'maturity matrix exposes preserve homepage status CLI flag');
+assert.ok(preflight.includes('$maturityMatrixArgs += "--preserve-homepage-status"'), 'quick preflight preserves homepage status on first matrix refresh');
+assert.ok(preflight.includes('$postSummaryMatrixArgs += "--preserve-homepage-status"'), 'quick preflight preserves homepage status on final matrix refresh');
+assert.ok(readme.includes('--preserve-homepage-status'), 'README documents quick preflight homepage status preservation');
+assert.ok(boundaries.includes('--preserve-homepage-status'), 'TOOL_BOUNDARIES documents quick preflight homepage status preservation');
+assert.ok(staging.includes('--preserve-homepage-status'), 'STAGING_GROUPS documents quick preflight homepage status preservation');
 assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/report-readiness-status.json'), 'Pages live smoke checks report readiness status asset');

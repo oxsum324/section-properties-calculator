@@ -1514,19 +1514,21 @@ function writeHomepageStatusSnapshots(matrixPayload = null, matrixSourceHash = '
   }
 }
 
-function writeMatrix(matrix) {
+function writeMatrix(matrix, options = {}) {
   fs.mkdirSync(outputDir, { recursive: true });
   const jsonText = `${JSON.stringify(matrix.payload, null, 2)}\n`;
   fs.writeFileSync(jsonOutputPath, jsonText, 'utf8');
   fs.writeFileSync(markdownOutputPath, matrix.markdown, 'utf8');
-  writeHomepageStatusSnapshots(matrix.payload, hashText(jsonText));
+  if (!options.preserveHomepageStatus) {
+    writeHomepageStatusSnapshots(matrix.payload, hashText(jsonText));
+  }
 }
 
 function displayPath(filePath) {
   return path.relative(repoRoot, filePath).replace(/\\/g, '/');
 }
 
-function assertHomepageStatusSnapshot(filePath, expectedKind, expectedSourcePath, sourcePath) {
+function assertHomepageStatusSnapshot(filePath, expectedKind, expectedSourcePath, sourcePath, options = {}) {
   assert.ok(fileExists(filePath), `homepage status snapshot exists: ${displayPath(filePath)}`);
   const payload = readJson(filePath);
   assert.equal(payload.snapshotVersion, 1, `${expectedKind} snapshot version`);
@@ -1544,13 +1546,13 @@ function assertHomepageStatusSnapshot(filePath, expectedKind, expectedSourcePath
   assert.equal(Object.prototype.hasOwnProperty.call(payload, 'root'), false, `${expectedKind} must not publish local root`);
   assert.equal(JSON.stringify(payload).includes(repoRoot), false, `${expectedKind} must not publish local absolute paths`);
   const currentSourcePath = sourcePath || repoFile(String(payload.sourcePath || '').replace(/\\/g, '/'));
-  if (fileExists(currentSourcePath)) {
+  if (!options.skipCurrentSourceHash && fileExists(currentSourcePath)) {
     assert.equal(payload.sourceHash, sourceHashIfExists(currentSourcePath), `${expectedKind} sourceHash current`);
   }
   return payload;
 }
 
-function checkMatrix(payload, markdown) {
+function checkMatrix(payload, markdown, options = {}) {
   assert.ok(payload.rows.length >= 17, 'tool maturity matrix should cover formal and local quick tools');
   assert.equal(payload.totals.tools, payload.rows.length, 'tool maturity matrix totals match row count');
   assert.equal(payload.totals.needsAttention, 0, 'tool maturity matrix has no needs-attention tools');
@@ -1701,9 +1703,10 @@ function checkMatrix(payload, markdown) {
   assert.ok(markdown.indexOf('## Top Upgrade Targets') < markdown.indexOf('## Source Trace'), 'tool maturity matrix top upgrade section precedes source trace');
   assert.ok(markdown.includes('## Source Trace'), 'tool maturity matrix markdown exposes source trace section');
   assert.ok(markdown.includes('sourceManifests:'), 'tool maturity matrix markdown exposes source manifests');
-  const homepagePlatformStatus = assertHomepageStatusSnapshot(homepagePlatformStatusPath, 'platform-status', 'output/audit/platform-status.json', platformStatusSourcePath);
+  const preserveHomepageStatus = Boolean(options.preserveHomepageStatus);
+  const homepagePlatformStatus = assertHomepageStatusSnapshot(homepagePlatformStatusPath, 'platform-status', 'output/audit/platform-status.json', platformStatusSourcePath, { skipCurrentSourceHash: preserveHomepageStatus });
   const homepagePreflightStatus = assertHomepageStatusSnapshot(homepagePreflightStatusPath, 'preflight-summary', /^output\/preflight\/(?:history\/[^/]+\/)?preflight-summary\.json$/, null);
-  const homepageReportReadinessStatus = assertHomepageStatusSnapshot(homepageReportReadinessStatusPath, 'report-readiness-status', 'output/audit/tool-maturity-matrix.json', jsonOutputPath);
+  const homepageReportReadinessStatus = assertHomepageStatusSnapshot(homepageReportReadinessStatusPath, 'report-readiness-status', 'output/audit/tool-maturity-matrix.json', jsonOutputPath, { skipCurrentSourceHash: preserveHomepageStatus });
   const latestFullHomepagePreflight = findLatestPreflightHistorySummary(
     summary => summary && summary.quick === false,
     readJsonIfExists(preflightHistorySourcePath)?.items
@@ -1792,15 +1795,19 @@ function checkMatrix(payload, markdown) {
 }
 
 const matrix = buildMatrix();
+const preserveHomepageStatus = hasArg('--preserve-homepage-status');
 if (hasArg('--write')) {
-  writeMatrix(matrix);
+  writeMatrix(matrix, { preserveHomepageStatus });
 }
 if (hasArg('--check')) {
-  checkMatrix(matrix.payload, matrix.markdown);
+  checkMatrix(matrix.payload, matrix.markdown, { preserveHomepageStatus });
 }
 
 console.log(`tool maturity matrix OK (${matrix.payload.rows.length} tools, governed=${matrix.payload.totals.governed}, maturing=${matrix.payload.totals.maturing})`);
 if (hasArg('--write')) {
   console.log(`wrote ${displayPath(jsonOutputPath)}`);
   console.log(`wrote ${displayPath(markdownOutputPath)}`);
+  if (preserveHomepageStatus) {
+    console.log('preserved homepage status snapshots');
+  }
 }

@@ -113,6 +113,9 @@ assert.equal(artifactSmoke.includes('--allow-local-output'), false, 'local artif
 assert.ok(maturityMatrix.includes('writeHomepageStatusSnapshots'), 'maturity matrix writes homepage status snapshots');
 assert.ok(maturityMatrix.includes('report-readiness-status'), 'maturity matrix writes report readiness snapshot');
 assert.ok(maturityMatrix.includes('preflightStatusSourcePath'), 'report readiness snapshot records preflight source');
+assert.ok(maturityMatrix.includes('--preserve-homepage-status'), 'maturity matrix can preserve homepage status snapshots for quick checks');
+assert.ok(preflightTools.includes('$maturityMatrixArgs += "--preserve-homepage-status"'), 'quick preflight preserves homepage status on first matrix refresh');
+assert.ok(preflightTools.includes('$postSummaryMatrixArgs += "--preserve-homepage-status"'), 'quick preflight preserves homepage status on final matrix refresh');
 
 for (const [label, payload] of Object.entries({ platformStatus, preflightStatus, reportReadinessStatus })) {
   assert.equal(payload.snapshotVersion, 1, `${label} snapshotVersion`);

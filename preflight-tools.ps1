@@ -2386,11 +2386,13 @@ Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
 
 $maturityMatrixScript = Join-Path $root "結構工具箱\tools\tool-maturity-matrix.js"
 if ($overallPass -and (Test-Path -LiteralPath $maturityMatrixScript)) {
-  $matrixProc = Start-Process -FilePath node -ArgumentList @(
+  $maturityMatrixArgs = @(
     $maturityMatrixScript,
     "--write",
     "--check"
-  ) -WorkingDirectory $root -RedirectStandardOutput (Join-Path $runDir "tool-maturity-matrix.stdout.txt") -RedirectStandardError (Join-Path $runDir "tool-maturity-matrix.stderr.txt") -PassThru -Wait -WindowStyle Hidden
+  )
+  if ($Quick) { $maturityMatrixArgs += "--preserve-homepage-status" }
+  $matrixProc = Start-Process -FilePath node -ArgumentList $maturityMatrixArgs -WorkingDirectory $root -RedirectStandardOutput (Join-Path $runDir "tool-maturity-matrix.stdout.txt") -RedirectStandardError (Join-Path $runDir "tool-maturity-matrix.stderr.txt") -PassThru -Wait -WindowStyle Hidden
   if ($matrixProc.ExitCode -ne 0) {
     $overallPass = $false
     $matrixLog = Join-Path $runDir "tool-maturity-matrix.stderr.txt"
@@ -2502,11 +2504,13 @@ if ($overallPass -and (Test-Path -LiteralPath $maturityMatrixScript)) {
     $postCheckFailures = @($postCheckState.failedKeys)
     $postCheckSummaryLines = @($postCheckState.summaryLines)
     $postCheckDetailLines = @($postCheckState.detailLines)
-    $postSummaryMatrixProc = Start-Process -FilePath node -ArgumentList @(
+    $postSummaryMatrixArgs = @(
       $maturityMatrixScript,
       "--write",
       "--check"
-    ) -WorkingDirectory $root -RedirectStandardOutput (Join-Path $runDir "tool-maturity-matrix-final.stdout.txt") -RedirectStandardError (Join-Path $runDir "tool-maturity-matrix-final.stderr.txt") -PassThru -Wait -WindowStyle Hidden
+    )
+    if ($Quick) { $postSummaryMatrixArgs += "--preserve-homepage-status" }
+    $postSummaryMatrixProc = Start-Process -FilePath node -ArgumentList $postSummaryMatrixArgs -WorkingDirectory $root -RedirectStandardOutput (Join-Path $runDir "tool-maturity-matrix-final.stdout.txt") -RedirectStandardError (Join-Path $runDir "tool-maturity-matrix-final.stderr.txt") -PassThru -Wait -WindowStyle Hidden
     if ($postSummaryMatrixProc.ExitCode -ne 0) {
       $overallPass = $false
       $matrixLog = Join-Path $runDir "tool-maturity-matrix-final.stderr.txt"
