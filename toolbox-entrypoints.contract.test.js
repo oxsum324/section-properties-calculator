@@ -276,6 +276,7 @@ const toolStates = evaluateLiteral(extractConstLiteral(homeSource, 'toolStates')
 const stateBoundaryRules = evaluateLiteral(extractConstLiteral(homeSource, 'stateBoundaryRules'), 'state-boundary-rules');
 const governanceSources = evaluateLiteral(extractConstLiteral(homeSource, 'governanceSources'), 'governance-sources');
 const reportReadinessOverview = evaluateLiteral(extractConstLiteral(homeSource, 'reportReadinessOverview'), 'report-readiness-overview');
+const reportReadinessStatusSnapshot = readJson('結構工具箱/assets/status/report-readiness-status.json');
 const routeFileMap = evaluateLiteral(extractConstLiteral(homeSource, 'routeFileMap'), 'route-file-map');
 const EXPECTED_GOVERNANCE_SOURCE_KEYS = {
   'formal-tools': {
@@ -396,6 +397,12 @@ assert.ok(reportReadinessOverview.details.join(' ').includes('石材'), 'report 
 assert.ok(reportReadinessOverview.details.join(' ').includes('覆工板'), 'report readiness overview covers decking family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('JSON/計算書/文字 邊界'), 'report readiness overview covers local quick text boundary chip');
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'report readiness overview keeps delivery boundary');
+assert.equal(reportReadinessStatusSnapshot.kind, 'report-readiness-status', 'tracked report readiness snapshot kind');
+assert.ok(reportReadinessStatusSnapshot.summary.includes('優先建議報告閱讀狀態'), 'tracked report readiness snapshot summary mentions page-only readiness');
+assert.ok(reportReadinessStatusSnapshot.summary.includes('不會寫入計算書、列印或 PDF'), 'tracked report readiness snapshot summary keeps export boundary');
+assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('JSON/計算書/文字 邊界'), 'tracked report readiness snapshot covers local quick text boundary chip');
+assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'tracked report readiness snapshot keeps delivery boundary');
+assert.equal(reportReadinessStatusSnapshot.details.join(' ').includes('JSON/計算書 邊界'), false, 'tracked report readiness snapshot rejects stale local quick boundary chip');
 assert.ok(maturityMatrix.includes('formal-tools.manifest.json'), 'maturity matrix reads formal manifest');
 assert.ok(maturityMatrix.includes('local-quick-tools.manifest.json'), 'maturity matrix reads local quick manifest');
 assert.ok(maturityMatrix.includes('homeEntry'), 'maturity matrix checks home entries');

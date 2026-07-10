@@ -1752,6 +1752,8 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('特殊修正 / 折減'), 'homepage report readiness details include wind special');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊式頁面'), 'homepage report readiness details include steel beam legacy');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼柱舊式頁面'), 'homepage report readiness details include steel column legacy');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書/文字 邊界'), 'homepage report readiness details include local quick text boundary chip');
+  assert.equal((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書 邊界'), false, 'homepage report readiness details reject stale local quick boundary chip');
   assert.ok(Array.isArray(homepageReportReadinessStatus.pageOnlyRoutes) && homepageReportReadinessStatus.pageOnlyRoutes.length >= 4, 'homepage report readiness routes array');
   if (latestFullHomepagePreflight) {
     assert.equal(homepagePreflightStatus.quick, false, 'homepage preflight status should prefer latest full run when history contains one');
