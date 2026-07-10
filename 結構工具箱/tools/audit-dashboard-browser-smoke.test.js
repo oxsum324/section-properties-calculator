@@ -25,6 +25,7 @@ const fixtureGeneratedAt = '2026-06-21T21:30:00+08:00';
 const fixtureRoot = 'C:/repo';
 const expectedCoverageTotals = [
   { key: 'reportModes', label: '報告模式', value: '1 / 1' },
+  { key: 'reportTextSmoke', label: '報告可讀文字抽檢', value: '1 / 1' },
   { key: 'jsonExport', label: 'JSON 匯出', value: '1 / 1' },
   { key: 'jsonImport', label: 'JSON 匯入', value: '1 / 1' },
   { key: 'diagramGeometry', label: '圖面幾何驗證', value: '1 / 1' },
@@ -219,6 +220,7 @@ const fixtures = new Map(Object.entries({
       goldenCases: 2,
       toolsWithMultipleGoldenCases: 1,
       reportModes: 1,
+      reportTextSmoke: 1,
       jsonExport: 1,
       jsonImport: 1,
       diagramGeometry: 1,
@@ -547,7 +549,7 @@ const fixtures = new Map(Object.entries({
       label: 'Fixture tool',
       route: '/fixture-tool',
       status: 'governed',
-      score: { passed: 3, total: 3 },
+      score: { passed: 4, total: 4 },
       goldenCaseCount: 2,
       upgradePriority: 'none',
       upgradeGaps: [],
@@ -558,6 +560,7 @@ const fixtures = new Map(Object.entries({
       checks: {
         cleanRoute: true,
         browserSmoke: true,
+        reportTextSmoke: true,
         goldenCaseRegression: true,
       },
     }],

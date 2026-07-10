@@ -363,7 +363,7 @@ assert.equal(governanceSources['excavation-service'].cardTag, 'PDF/DOCX 邊界',
 assert.equal(governanceSources['continuous-beam'].cardTag, '計算書邊界', 'continuous beam governance source exposes calculation-book boundary chip');
 assert.equal(governanceSources['frame-analysis'].cardTag, '計算書邊界', 'frame analysis governance source exposes calculation-book boundary chip');
 assert.equal(governanceSources['section-tools'].cardTag, '報表邊界', 'section tools governance source exposes report boundary chip');
-assert.equal(governanceSources['local-quick-contract'].cardTag, 'JSON/計算書 邊界', 'local quick governance source exposes JSON/calculation-book boundary chip');
+assert.equal(governanceSources['local-quick-contract'].cardTag, 'JSON/計算書/文字 邊界', 'local quick governance source exposes JSON/calculation-book/text boundary chip');
 for (const [sourceKey, source] of Object.entries(governanceSources)) {
   assert.ok(Array.isArray(source.preflightKeys) && source.preflightKeys.length > 0, `${sourceKey} governance source preflight keys`);
   for (const preflightKey of source.preflightKeys) {
@@ -394,7 +394,7 @@ assert.ok(reportReadinessOverview.details.join(' ').includes('RC 正式工具'),
 assert.ok(reportReadinessOverview.details.join(' ').includes('鋼構正式工具'), 'report readiness overview covers steel family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('石材'), 'report readiness overview covers stone family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('覆工板'), 'report readiness overview covers decking family');
-assert.ok(reportReadinessOverview.details.join(' ').includes('首頁卡片會標記'), 'report readiness overview covers per-card boundary chips');
+assert.ok(reportReadinessOverview.details.join(' ').includes('JSON/計算書/文字 邊界'), 'report readiness overview covers local quick text boundary chip');
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'report readiness overview keeps delivery boundary');
 assert.ok(maturityMatrix.includes('formal-tools.manifest.json'), 'maturity matrix reads formal manifest');
 assert.ok(maturityMatrix.includes('local-quick-tools.manifest.json'), 'maturity matrix reads local quick manifest');

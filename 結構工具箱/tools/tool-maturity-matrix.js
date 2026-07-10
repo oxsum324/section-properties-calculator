@@ -20,6 +20,7 @@ const preflightHistoryDir = path.join(repoRoot, 'output', 'preflight', 'history'
 const NA = 'n/a';
 const UPGRADE_TARGETS = [
   { key: 'reportModes', label: '報告簡版 / 詳版模式', priority: 'P1' },
+  { key: 'reportTextSmoke', label: '報告可讀文字抽檢', priority: 'P1' },
   { key: 'jsonRoundTrip', label: 'JSON round-trip 回歸', priority: 'P1' },
   { key: 'jsonExport', label: 'JSON 匯出', priority: 'P2' },
   { key: 'jsonImport', label: 'JSON 匯入', priority: 'P2' },
@@ -27,6 +28,7 @@ const UPGRADE_TARGETS = [
 ];
 const COVERAGE_TOTALS = [
   { key: 'reportModes', label: '報告模式' },
+  { key: 'reportTextSmoke', label: '報告可讀文字抽檢' },
   { key: 'jsonExport', label: 'JSON 匯出' },
   { key: 'jsonImport', label: 'JSON 匯入' },
   { key: 'diagramGeometry', label: '圖面幾何驗證' },
@@ -912,6 +914,8 @@ function loadSourceState() {
 
 function buildFormalRows(state) {
   const traceByKey = new Map((state.formalTraceabilityCatalog.tools || []).map(entry => [entry.key, entry]));
+  const formalContractPath = toolboxFile(state.formalManifest.shared.contractTest);
+  const formalContractText = fileExists(formalContractPath) ? readText(formalContractPath) : '';
   return state.formalManifest.tools.map((tool) => {
     const htmlPath = toolboxFile(tool.html);
     const html = fileExists(htmlPath) ? readText(htmlPath) : '';
@@ -920,6 +924,7 @@ function buildFormalRows(state) {
     const goldenCaseCount = Array.isArray(tool.goldenCases) ? tool.goldenCases.length : 0;
     const rowSourceTrace = sourceTraceFor([
       toolboxSourceInput('html', tool.html),
+      toolboxSourceInput('shared-contract-test', state.formalManifest.shared.contractTest),
       toolboxSourceInput('traceability-catalog', 'tools/formal-traceability.catalog.json')
     ]);
     const traceEntry = traceByKey.get(tool.key);
@@ -933,6 +938,10 @@ function buildFormalRows(state) {
       jsonImport: caps.jsonImport ? bool(tool.importButton && html.includes(tool.importButton)) : NA,
       browserSmoke: caps.browserSmoke === true,
       reportRegression: caps.reportRegression === true && Array.isArray(tool.reportNeedles) && tool.reportNeedles.length > 0,
+      reportTextSmoke: caps.reportRegression === true ? (
+        formalContractText.includes('reportHtmlText') &&
+        formalContractText.includes('visible report text')
+      ) : NA,
       reportModeRegression: tool.reportMode ? bool(tool.reportExpectations?.simple && tool.reportExpectations?.detail) : NA,
       diagramGeometry: caps.diagramGeometry ? bool(tool.diagramChecks && (tool.diagramRoleNeedles || []).length > 0) : NA,
       coreRegression: caps.coreRegression === true,
@@ -957,6 +966,7 @@ function buildFormalRows(state) {
       checks,
       coverage: {
         reportModes: checks.reportModes === true,
+        reportTextSmoke: checks.reportTextSmoke === true,
         jsonExport: bool(tool.exportButton),
         jsonImport: bool(tool.importButton),
         diagramGeometry: bool(tool.diagramChecks),
@@ -977,12 +987,15 @@ function buildLocalQuickRows(state) {
     const goldenPath = toolboxFile(tool.golden);
     const corePath = toolboxFile(tool.core);
     const coreText = fileExists(corePath) ? readText(corePath) : '';
+    const browserSmokePath = toolboxFile(state.localQuickManifest.shared.browserSmokeTest);
+    const browserSmokeText = fileExists(browserSmokePath) ? readText(browserSmokePath) : '';
     const rowSourceTrace = sourceTraceFor([
       toolboxSourceInput('html', tool.html),
       toolboxSourceInput('core', tool.core),
       toolboxSourceInput('golden', tool.golden),
       toolboxSourceInput('test', tool.test),
       toolboxSourceInput('shared-output-consistency-test', state.localQuickManifest.shared.outputConsistencyTest),
+      toolboxSourceInput('shared-browser-smoke-test', state.localQuickManifest.shared.browserSmokeTest),
       toolboxSourceInput('shared-contract-test', state.localQuickManifest.shared.contractTest)
     ]);
     const goldenCaseRegression = fileExists(testPath) && fileExists(goldenPath);
@@ -1001,6 +1014,10 @@ function buildLocalQuickRows(state) {
       jsonImport: html.includes('btnImportJson') || html.includes('讀取 JSON'),
       browserSmoke: Boolean(tool.smoke),
       reportRegression: html.includes('列印計算書') && html.includes('output-actions'),
+      reportTextSmoke: tool.reportMode ? (
+        browserSmokeText.includes('reportHtmlText') &&
+        browserSmokeText.includes('visible report text')
+      ) : NA,
       outputConsistency: fileExists(toolboxFile(state.localQuickManifest.shared.outputConsistencyTest)),
       manifestContract: fileExists(toolboxFile(state.localQuickManifest.shared.contractTest)),
       jsonRoundTrip: hasJsonImport ? tool.jsonRoundTrip === true : NA,
@@ -1024,6 +1041,7 @@ function buildLocalQuickRows(state) {
       checks,
       coverage: {
         reportModes: checks.reportModes === true,
+        reportTextSmoke: checks.reportTextSmoke === true,
         jsonExport: checks.jsonExport,
         jsonImport: checks.jsonImport,
         diagramGeometry: checks.diagramGeometry === true,
@@ -1064,6 +1082,7 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
     jsonExport: rows.filter(row => row.coverage.jsonExport).length,
     jsonImport: rows.filter(row => row.coverage.jsonImport).length,
     reportModes: rows.filter(row => row.coverage.reportModes).length,
+    reportTextSmoke: rows.filter(row => row.coverage.reportTextSmoke).length,
     diagramGeometry: rows.filter(row => row.coverage.diagramGeometry).length,
     coreRegression: rows.filter(row => row.coverage.coreRegression).length,
     goldenCaseRegression: rows.filter(row => row.coverage.goldenCaseRegression).length,
@@ -1468,7 +1487,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     pageOnlyTitles.length
       ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
-    '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書 邊界，避免把 page-only 提醒誤當正式交付內容。',
+    '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
   ];
   return {
@@ -1780,6 +1799,10 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.equal(row.checks.cleanRoute, true, `${row.key} clean route`);
     assert.equal(row.checks.homeEntry, true, `${row.key} home entry`);
     assert.equal(row.checks.browserSmoke, true, `${row.key} browser smoke`);
+    if (row.checks.reportModes === true) {
+      assert.equal(row.checks.reportTextSmoke, true, `${row.key} report text smoke`);
+      assert.equal(row.coverage.reportTextSmoke, true, `${row.key} report text smoke coverage`);
+    }
     assert.ok(Array.isArray(row.upgradeGaps), `${row.key} upgrade gaps array`);
     assert.ok(row.upgradePriority, `${row.key} upgrade priority`);
     assert.ok(row.sourceTrace && typeof row.sourceTrace === 'object', `${row.key} sourceTrace object`);

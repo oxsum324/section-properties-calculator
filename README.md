@@ -83,6 +83,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 確認 `run-preflight-tools-release.bat` 固定帶 `-ForceSlowChecks` 與 `-ForcePlatformAudit` 且不透傳任意參數，preflight 本體也會拒絕 `-Quick` 與 release force flags 同時使用；preflight summary / history / homepage status 保留 force flags、慢測重用與平台 audit 重用資訊，並以 `release-readiness-contract` 納入 preflight 與 Global Governance Gates，避免把一般 full run 或 quick run 誤當正式放行證據。
 - 工具成熟度矩陣產生器：
   [結構工具箱/tools/tool-maturity-matrix.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/tool-maturity-matrix.js:1)
+  - 合併正式工具與局部快算 manifest，輸出 `reportTextSmoke` / `報告可讀文字抽檢`、golden case、JSON round-trip、reference traceability 等治理覆蓋率，讓首頁與巡檢儀表板能看見報告可讀性證據，但不把頁面閱讀狀態寫入計算書或列印 PDF。
 - GitHub Pages deploy / live smoke：
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)
   - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact，deploy 成功後再檢查公開首頁、`home.js`、`結構工具箱/assets/status/*.json` 與代表性公開工具頁是否可讀，並拒絕公開頁出現本機工作目錄路徑；`--check-private-boundary` 會確認 Markdown、`CONTEXT.md`、`docs/adr/`、PowerShell / batch、測試檔、合約檔、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔未被發布，避免首頁狀態卡再次依賴未部署的 `output/` 或公開 artifact 混入維護工具。部署前可先跑 [run-pages-artifact-smoke.ps1](/C:/Users/USER/Desktop/AI/小工具製作/run-pages-artifact-smoke.ps1:1)，它會在本機 temp 目錄產生接近 Pages artifact 的靜態站台並呼叫同一支 smoke。

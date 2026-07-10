@@ -885,6 +885,7 @@ if (fs.existsSync(maturityMatrixPath)) {
   );
   const coverageTotalKeys = [
     'reportModes',
+    'reportTextSmoke',
     'jsonExport',
     'jsonImport',
     'diagramGeometry',

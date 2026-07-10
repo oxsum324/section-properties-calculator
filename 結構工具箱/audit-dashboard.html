@@ -1219,6 +1219,7 @@
 
     const MATURITY_COVERAGE_TOTALS = [
       ['reportModes', '報告模式'],
+      ['reportTextSmoke', '報告可讀文字抽檢'],
       ['jsonExport', 'JSON 匯出'],
       ['jsonImport', 'JSON 匯入'],
       ['diagramGeometry', '圖面幾何驗證'],
@@ -1583,7 +1584,7 @@
         const upgradeGapText = upgradeGaps.length
           ? upgradeGaps.map((gap) => `${gap.priority || '-'} ${gap.label || gap.key}`).join(', ')
           : '無';
-        const keyChecks = ['cleanRoute', 'homeEntry', 'browserSmoke', 'reportRegression', 'goldenCaseRegression', 'jsonRoundTrip', 'referenceTraceability', 'jsonExport', 'jsonImport', 'diagramGeometry', 'coreRegression']
+        const keyChecks = ['cleanRoute', 'homeEntry', 'browserSmoke', 'reportRegression', 'reportTextSmoke', 'goldenCaseRegression', 'jsonRoundTrip', 'referenceTraceability', 'jsonExport', 'jsonImport', 'diagramGeometry', 'coreRegression']
           .filter((key) => Object.prototype.hasOwnProperty.call(checks, key))
           .map((key) => {
             const value = checks[key];
