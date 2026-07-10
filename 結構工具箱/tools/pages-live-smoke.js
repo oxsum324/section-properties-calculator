@@ -192,6 +192,11 @@ async function main() {
   assert.equal(Array.isArray(reportReadinessStatus.reportTextSmokeEvidenceGates), true, 'report readiness report text evidence gates array');
   assert.deepEqual(reportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, [], 'report readiness report text evidence maps every family');
   assert.ok(reportReadinessStatus.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'report readiness report text evidence gates pass');
+  assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('風力 / 地震正式工具'), 'report readiness report text scope includes formal tools');
+  assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('局部快算'), 'report readiness report text scope includes local quick tools');
+  assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness report text scope keeps other-family boundary');
+  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('優先建議報告閱讀狀態'), 'report readiness compact summary keeps page-only wording');
+  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('不會寫入計算書、列印或 PDF'), 'report readiness compact summary keeps export boundary');
   assert.ok(String(reportReadinessStatus.summary || '').includes('頁面專用閱讀狀態治理'), 'report readiness status summary includes governance counts');
   assert.ok(Array.isArray(reportReadinessStatus.details) && reportReadinessStatus.details.length >= 3, 'report readiness status details array');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness status exposes report text coverage');

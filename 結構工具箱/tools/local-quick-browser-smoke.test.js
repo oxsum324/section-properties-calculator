@@ -504,6 +504,7 @@ function newHomeExpression(tools) {
     const preflightStatusText = document.getElementById('preflightStatus')?.innerText.replace(/\\s+/g, ' ').trim() || '';
     const reportReadinessStatusText = document.getElementById('reportReadinessStatus')?.innerText.replace(/\\s+/g, ' ').trim() || '';
     const reportReadinessStatusBadge = document.querySelector('#reportReadinessStatus .status-card__badge')?.textContent?.trim() || '';
+    const reportReadinessStatusMeta = Array.from(document.querySelectorAll('#reportReadinessStatus .status-card__meta-item')).map(node => node.textContent.trim()).filter(Boolean);
     const reportReadinessStatusSource = document.getElementById('reportReadinessStatus')?.dataset?.statusSource || '';
     const statusRegion = id => {
       const node = document.getElementById(id);
@@ -595,6 +596,7 @@ function newHomeExpression(tools) {
       preflightStatusText,
       reportReadinessStatusText,
       reportReadinessStatusBadge,
+      reportReadinessStatusMeta,
       reportReadinessStatusSource,
       statusRegions: {
         platformStatus: statusRegion('platformStatus'),
@@ -1155,11 +1157,13 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
   assert.equal(state.hasCategoryArt, false, `${label} new home category art`);
   assert.ok(state.cardCount >= tools.length, `${label} new home card count`);
   assert.equal(state.reportReadinessStatusBadge, '頁面專用', `${label} new home report readiness badge`);
+  ['頁面邊界', '可讀文字', '瀏覽器 smoke'].forEach(metric => {
+    assert.ok(state.reportReadinessStatusMeta.some(item => item.startsWith(metric)), `${label} new home report readiness metric: ${metric}`);
+  });
   assert.ok(state.reportReadinessStatusText.includes('報告閱讀狀態總覽'), `${label} new home report readiness summary card`);
   assert.ok(state.reportReadinessStatusText.includes('優先建議報告閱讀狀態'), `${label} new home report readiness wording`);
   assert.ok(state.reportReadinessStatusText.includes('不會寫入計算書、列印或 PDF'), `${label} new home report readiness export boundary`);
   assert.ok(state.reportReadinessStatusText.includes('正式計算書可讀文字抽檢'), `${label} new home report text coverage`);
-  assert.ok(state.reportReadinessStatusText.includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), `${label} new home report readiness delivery boundary`);
   for (const statusId of ['platformStatus', 'preflightStatus', 'reportReadinessStatus']) {
     assert.ok(state.statusRegions?.[statusId], `${label} new home ${statusId} live-region metadata`);
   }
@@ -1172,9 +1176,10 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
     assert.equal(state.reportReadinessStatusSource, 'static', `${label} new home report readiness static fallback source`);
   } else {
     assert.equal(state.reportReadinessStatusSource, 'snapshot', `${label} new home report readiness snapshot source`);
-    assert.ok(state.reportReadinessStatusText.includes('頁面專用閱讀狀態治理'), `${label} new home report readiness live governance count`);
-    assert.match(state.reportReadinessStatusText, /正式計算書可讀文字抽檢：\d+ \/ \d+/, `${label} new home report text coverage count`);
-    assert.match(state.reportReadinessStatusText, /瀏覽器 smoke 證據為 \d+ \/ \d+/, `${label} new home report text runtime evidence count`);
+    assert.ok(state.reportReadinessStatusMeta.includes('頁面邊界 4 / 4'), `${label} new home report readiness page-only metric`);
+    assert.ok(state.reportReadinessStatusMeta.includes('可讀文字 17 / 17'), `${label} new home report readiness report-text metric`);
+    assert.ok(state.reportReadinessStatusMeta.includes('瀏覽器 smoke 2 / 2'), `${label} new home report readiness runtime metric`);
+    assert.ok(state.reportReadinessStatusText.includes('風力 / 地震正式工具') && state.reportReadinessStatusText.includes('局部快算'), `${label} new home report text scope`);
   }
   assert.ok(state.rcBeamMeta.includes('報告邊界'), `${label} new home RC beam exposes report boundary chip`);
   assert.ok(state.rcBeamReadiness.includes('正式計算書') && state.rcBeamReadiness.includes('工程師確認'), `${label} new home RC beam readiness summary`);

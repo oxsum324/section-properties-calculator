@@ -506,6 +506,8 @@ assertIncludes(repoDocs.homeCss, '.tool-card--analysis', 'new home logic card CS
 assertIncludes(repoDocs.homeCss, '.tool-card--wind', 'new home wind card CSS');
 assertIncludes(repoDocs.homeCss, '.tool-card--seismic', 'new home seismic card CSS');
 assertIncludes(repoDocs.homeCss, '.tool-card__icon', 'new home tool icon CSS');
+assertIncludes(repoDocs.homeCss, '.status-card__badge.warn', 'new home warning status badge CSS');
+assertIncludes(repoDocs.homeJs, "node.classList.toggle('status-card--warn', badgeClassName === 'warn')", 'new home warning status card visual state');
 assert.equal(repoDocs.homeCss.includes('category-tiles.png'), false, 'new home does not use category tile image');
 assert.equal(repoDocs.homeJs.includes('category-art'), false, 'new home does not render category art');
 assert.equal(repoDocs.homeJs.includes('renderStateFilters'), false, 'new home does not render state filter panel');

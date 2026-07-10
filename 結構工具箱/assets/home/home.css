@@ -278,6 +278,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--fg-3);
 }
 .status-card__badge.ok { background: var(--hy-success-100); color: var(--hy-success); }
+.status-card__badge.warn { background: var(--hy-warning-100); color: var(--hy-warning); }
 .status-card__badge.fail { background: var(--hy-red-100); color: var(--hy-red); }
 .status-card--ok { border-left-color: var(--hy-success); }
 .status-card--warn { border-left-color: var(--hy-warning); }

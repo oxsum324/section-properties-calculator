@@ -41,12 +41,14 @@ const REPORT_TEXT_SMOKE_EVIDENCE_GATES = [
   {
     key: 'formal-browser-smoke',
     label: '風力 / 地震正式工具瀏覽器 smoke',
-    family: 'formal-tools'
+    family: 'formal-tools',
+    scopeLabel: '風力 / 地震正式工具'
   },
   {
     key: 'local-quick-tools-runner',
     label: '局部快算 manifest runner',
-    family: 'local-quick-tools'
+    family: 'local-quick-tools',
+    scopeLabel: '局部快算'
   }
 ];
 const GLOBAL_GOVERNANCE_GATES = [
@@ -1499,6 +1501,7 @@ function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
       key: spec.key,
       label: spec.label,
       family: spec.family,
+      scopeLabel: spec.scopeLabel,
       required,
       complete,
       pass: required > 0 && staticComplete === required && runtimePass,
@@ -1510,6 +1513,9 @@ function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
   const required = gates.reduce((sum, gate) => sum + gate.required, 0) + unmappedRows.length;
   const complete = gates.reduce((sum, gate) => sum + gate.complete, 0);
   const evidenceComplete = gates.filter(gate => gate.pass).length;
+  const scopeItems = gates
+    .filter(gate => gate.required > 0)
+    .map(gate => `${gate.scopeLabel} ${gate.required} 項`);
   return {
     required,
     complete,
@@ -1519,6 +1525,9 @@ function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
     evidenceIssueCount: gates.length - evidenceComplete,
     runId: String(preflightPayload?.runId || ''),
     gates,
+    scope: scopeItems.length
+      ? `正式計算書可讀文字抽檢範圍：成熟度矩陣：${scopeItems.join('、')}。矩陣外工具家族仍以各自報告合約治理。`
+      : '正式計算書可讀文字抽檢範圍：成熟度矩陣目前沒有可讀文字抽檢範圍。',
     unmappedFamilies: Array.from(new Set(unmappedRows.map(row => String(row.family || '')).filter(Boolean)))
   };
 }
@@ -1543,6 +1552,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
     `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項只確認正式輸出的可讀文字與頁面專用文字排除，不會把頁面狀態寫入計算書、列印或 PDF。`,
+    `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
   ];
@@ -1556,6 +1566,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
+    compactSummary: '頁面上的「優先建議報告閱讀狀態」僅供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。',
     details,
     pageOnlyBoundaryRequired: required,
     pageOnlyBoundaryComplete: complete,
@@ -1569,6 +1580,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     reportTextSmokeEvidenceRunId: reportTextSmokeEvidence.runId,
     reportTextSmokeEvidenceGates: reportTextSmokeEvidence.gates,
     reportTextSmokeEvidenceUnmappedFamilies: reportTextSmokeEvidence.unmappedFamilies,
+    reportTextSmokeScope: reportTextSmokeEvidence.scope,
     pageOnlyRoutes: pageOnlyRoutes.map(item => ({
       route: String(item.route || ''),
       title: String(item.title || ''),
@@ -1820,6 +1832,11 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(homepageReportReadinessStatus.reportTextSmokeEvidenceIssueCount, 0, 'homepage report readiness report text evidence issues empty');
   assert.equal(homepageReportReadinessStatus.reportTextSmokeEvidenceRunId, homepagePreflightStatus.runId, 'homepage report readiness report text evidence runId matches preflight');
   assert.deepEqual(homepageReportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, [], 'homepage report readiness report text evidence maps every family');
+  assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('風力 / 地震正式工具'), 'homepage report readiness report text scope includes formal tools');
+  assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('局部快算'), 'homepage report readiness report text scope includes local quick tools');
+  assert.ok(String(homepageReportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'homepage report readiness report text scope keeps other-family boundary');
+  assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('優先建議報告閱讀狀態'), 'homepage report readiness compact summary keeps page-only wording');
+  assert.ok(String(homepageReportReadinessStatus.compactSummary || '').includes('不會寫入計算書、列印或 PDF'), 'homepage report readiness compact summary keeps export boundary');
   assert.equal(Array.isArray(homepageReportReadinessStatus.reportTextSmokeEvidenceGates), true, 'homepage report readiness report text evidence gates array');
   assert.deepEqual(homepageReportReadinessStatus.reportTextSmokeEvidenceGates.map(gate => gate.key).sort(), REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(gate => gate.key).sort(), 'homepage report readiness report text evidence gates match expected');
   for (const gate of homepageReportReadinessStatus.reportTextSmokeEvidenceGates) {

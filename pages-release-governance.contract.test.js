@@ -140,6 +140,9 @@ assert.equal(reportReadinessStatus.reportTextSmokeEvidenceIssueCount, 0, 'report
 assert.equal(reportReadinessStatus.reportTextSmokeEvidenceRunId, preflightStatus.runId, 'report readiness runtime evidence runId matches public preflight');
 assert.deepEqual(reportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, [], 'report readiness maps every report text family to runtime evidence');
 assert.ok(reportReadinessStatus.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'report readiness runtime evidence gates pass');
+assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('風力 / 地震正式工具') && String(reportReadinessStatus.reportTextSmokeScope || '').includes('局部快算'), 'report readiness names report text scope');
+assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness keeps other-family report boundary');
+assert.ok(String(reportReadinessStatus.compactSummary || '').includes('優先建議報告閱讀狀態') && String(reportReadinessStatus.compactSummary || '').includes('不會寫入計算書、列印或 PDF'), 'report readiness keeps compact page-only summary');
 assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness exposes report text coverage');
 assert.ok(reportReadinessStatus.details.join(' ').includes('瀏覽器 smoke 證據'), 'report readiness exposes report text runtime evidence');
 

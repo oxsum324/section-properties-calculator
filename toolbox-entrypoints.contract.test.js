@@ -390,12 +390,16 @@ assert.equal(reportReadinessOverview.badge, '頁面專用', 'report readiness ov
 assert.equal(reportReadinessOverview.label, '報告閱讀狀態總覽', 'report readiness overview label');
 assert.ok(reportReadinessOverview.summary.includes('優先建議報告閱讀狀態'), 'report readiness overview summary mentions page-only readiness');
 assert.ok(reportReadinessOverview.summary.includes('不會寫入計算書、列印或 PDF'), 'report readiness overview summary keeps export boundary');
+assert.ok(reportReadinessOverview.compactSummary.includes('優先建議報告閱讀狀態') && reportReadinessOverview.compactSummary.includes('不會寫入計算書、列印或 PDF'), 'report readiness overview keeps compact page-only summary');
+assert.ok(reportReadinessOverview.reportTextSmokeSummary.includes('正式計算書可讀文字抽檢'), 'report readiness overview keeps report text summary');
 assert.ok(Array.isArray(reportReadinessOverview.details) && reportReadinessOverview.details.length >= 2, 'report readiness overview details exist');
 assert.ok(reportReadinessOverview.details.join(' ').includes('RC 正式工具'), 'report readiness overview covers RC family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('鋼構正式工具'), 'report readiness overview covers steel family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('石材'), 'report readiness overview covers stone family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('覆工板'), 'report readiness overview covers decking family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式計算書可讀文字抽檢') && reportReadinessOverview.details.join(' ').includes('完整交付前檢查'), 'report readiness overview keeps report text runtime evidence boundary');
+assert.ok(reportReadinessOverview.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessOverview.reportTextSmokeScope.includes('局部快算'), 'report readiness overview names report text scope');
+assert.ok(Array.isArray(reportReadinessOverview.meta) && reportReadinessOverview.meta.length === 3, 'report readiness overview exposes compact metrics');
 assert.ok(reportReadinessOverview.details.join(' ').includes('JSON/計算書/文字 邊界'), 'report readiness overview covers local quick text boundary chip');
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'report readiness overview keeps delivery boundary');
 assert.equal(reportReadinessStatusSnapshot.kind, 'report-readiness-status', 'tracked report readiness snapshot kind');
@@ -408,6 +412,8 @@ assert.equal(reportReadinessStatusSnapshot.reportTextSmokeEvidenceIssueCount, 0,
 assert.equal(reportReadinessStatusSnapshot.reportTextSmokeEvidenceRunId, reportReadinessStatusSnapshot.runId, 'tracked report readiness snapshot report text runtime evidence runId');
 assert.deepEqual(reportReadinessStatusSnapshot.reportTextSmokeEvidenceUnmappedFamilies, [], 'tracked report readiness snapshot maps every report text family to runtime evidence');
 assert.ok(reportReadinessStatusSnapshot.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'tracked report readiness snapshot report text runtime evidence gates pass');
+assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessStatusSnapshot.reportTextSmokeScope.includes('局部快算'), 'tracked report readiness snapshot names report text scope');
+assert.ok(reportReadinessStatusSnapshot.reportTextSmokeScope.includes('矩陣外工具家族'), 'tracked report readiness snapshot keeps other-family report boundary');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式計算書可讀文字抽檢'), 'tracked report readiness snapshot exposes report text coverage');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('瀏覽器 smoke 證據'), 'tracked report readiness snapshot exposes report text runtime evidence');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('JSON/計算書/文字 邊界'), 'tracked report readiness snapshot covers local quick text boundary chip');

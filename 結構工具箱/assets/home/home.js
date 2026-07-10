@@ -118,6 +118,14 @@
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary: '頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。',
+    compactSummary: '頁面上的「優先建議報告閱讀狀態」僅供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。',
+    reportTextSmokeSummary: '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理。',
+    reportTextSmokeScope: '正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具與局部快算。矩陣外工具家族仍以各自報告合約治理。',
+    meta: [
+      { text: '頁面邊界', tone: 'ok' },
+      { text: '可讀文字', tone: 'ok' },
+      { text: '瀏覽器 smoke', tone: 'ok' }
+    ],
     details: [
       '已治理家族涵蓋風力 / 地震 / 鋼構正式工具、RC 正式工具、連續梁 / 斷面與補強頁、平面剛架、錨栓、石材、覆工板、開挖擋土支撐與局部快算。',
       '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理，只顯示於頁面狀態，不會寫入計算書、列印或 PDF。',
@@ -1129,8 +1137,10 @@
     node.replaceChildren(...[badge, title, summary, meta].filter(Boolean));
   }
 
-  function renderStaticStatusCard(node, badgeText, badgeClassName, label, summaryText) {
+  function renderStaticStatusCard(node, badgeText, badgeClassName, label, summaryText, metaItems) {
     if (!node) return;
+    node.classList.toggle('status-card--ok', badgeClassName === 'ok');
+    node.classList.toggle('status-card--warn', badgeClassName === 'warn');
     const badge = document.createElement('span');
     badge.className = `status-card__badge ${badgeClassName || 'neutral'}`;
     badge.textContent = badgeText;
@@ -1138,7 +1148,22 @@
     title.textContent = label;
     const summary = document.createElement('p');
     summary.textContent = summaryText;
-    node.replaceChildren(badge, title, summary);
+    const meta = buildStatusMeta(metaItems);
+    node.replaceChildren(...[badge, title, summary, meta].filter(Boolean));
+  }
+
+  function reportReadinessStatusMeta(payload, fallbackMeta = []) {
+    if (!payload || payload.kind !== 'report-readiness-status') return fallbackMeta;
+    const ratio = (label, complete, required, issues) => {
+      if (!Number.isInteger(complete) || !Number.isInteger(required)) return null;
+      const tone = issues === 0 && complete === required ? 'ok' : 'warn';
+      return { text: `${label} ${complete} / ${required}`, tone };
+    };
+    return [
+      ratio('頁面邊界', payload.pageOnlyBoundaryComplete, payload.pageOnlyBoundaryRequired, payload.pageOnlyBoundaryIssueCount),
+      ratio('可讀文字', payload.reportTextSmokeComplete, payload.reportTextSmokeRequired, payload.reportTextSmokeIssueCount),
+      ratio('瀏覽器 smoke', payload.reportTextSmokeEvidenceComplete, payload.reportTextSmokeEvidenceRequired, payload.reportTextSmokeEvidenceIssueCount)
+    ].filter(Boolean);
   }
 
   function reportReadinessCardData(payload) {
@@ -1149,9 +1174,13 @@
       badge: payload.badge || reportReadinessOverview.badge,
       label: payload.label || reportReadinessOverview.label,
       summary: payload.summary || reportReadinessOverview.summary,
+      compactSummary: payload.compactSummary || reportReadinessOverview.compactSummary,
       details: Array.isArray(payload.details) && payload.details.length
         ? payload.details
         : reportReadinessOverview.details,
+      reportTextSmokeSummary: (Array.isArray(payload.details) ? payload.details : []).find(item => String(item || '').includes('正式計算書可讀文字抽檢')) || reportReadinessOverview.reportTextSmokeSummary,
+      reportTextSmokeScope: payload.reportTextSmokeScope || reportReadinessOverview.reportTextSmokeScope,
+      meta: reportReadinessStatusMeta(payload, reportReadinessOverview.meta),
       pass: payload.pass !== false
     };
   }
@@ -1159,13 +1188,14 @@
   function renderReportReadinessStatus(payload = null) {
     if (!elements.reportReadinessStatus) return;
     const card = reportReadinessCardData(payload);
-    const detailText = `${card.summary} ${(card.details || []).join(' ')}`;
+    const detailText = [card.compactSummary, card.reportTextSmokeScope].filter(Boolean).join(' ');
     renderStaticStatusCard(
       elements.reportReadinessStatus,
       card.badge,
       card.pass === false ? 'warn' : 'ok',
       card.label,
-      detailText
+      detailText,
+      card.meta || reportReadinessOverview.meta
     );
     elements.reportReadinessStatus.dataset.statusSource = payload && payload.kind === 'report-readiness-status' ? 'snapshot' : 'static';
   }
