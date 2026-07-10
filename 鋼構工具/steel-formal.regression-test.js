@@ -43,11 +43,46 @@ function renderReportHtml(source, filename, project = {}) {
   context.openReport({
     title: "QA 計算書",
     project,
-    inputs: [{ group: "輸入資料", items: [{ label: "A", value: "1", unit: "" }] }],
-    checks: [{ group: "檢核結果", items: [{ label: "A", formula: "A", sub: "1", value: "1", unit: "", ok: true }] }],
+    inputs: [{ group: "輸入資料", items: [{ label: "A", value: "1", unit: "" }, { label: "B", value: "2", unit: "tf" }] }],
+    checks: [{
+      group: "檢核結果",
+      items: [
+        { label: "A", formula: "A", sub: "1", value: "1", unit: "", ok: true },
+        { label: "B", formula: "B / A", sub: "2 / 1", value: "2.00", unit: "", ok: true, note: "控制檢核" },
+      ],
+    }],
+    summaryFacts: [{ label: "控制值", value: "B / A", tone: "ok" }],
     summary: { ok: true, text: "OK" },
+    notes: ["本報告樣本用於驗證正式輸出文字抽檢。"],
   });
   return html;
+}
+
+function reportHtmlText(html) {
+  return String(html || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function assertReportHtmlText(html, label, requiredNeedles) {
+  const text = reportHtmlText(html);
+  assert.ok(text.length > 160, `${label} should produce substantial visible report text`);
+  for (const needle of requiredNeedles) {
+    assert.ok(text.includes(needle), `${label} visible report text should include ${needle}`);
+  }
+  for (const needle of pageOnlyReportStatusNeedles) {
+    assert.equal(text.includes(needle), false, `${label} visible report text should exclude page-only wording: ${needle}`);
+  }
+  return text;
 }
 
 const Steel = loadSteelCore();
@@ -187,8 +222,32 @@ assert.equal(sharedReportRuntime.ToolReportUI.normalizeProjectFieldValue("未填
 assert.equal(localReportRuntime.SteelFormalUI.normalizeProjectFieldValue("未填"), "", "steel local report runtime should clear placeholder project text");
 const sharedReportHtml = renderReportHtml(sharedReportSource, sharedReportPath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
 const localReportHtml = renderReportHtml(localReportCoreSource, localReportCorePath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
+const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report generator", [
+  "QA 計算書",
+  "計畫名稱",
+  "計畫編號",
+  "FORMAL-VERIFY-001",
+  "設計人員",
+  "Codex QA",
+  "輸入資料",
+  "檢核結果",
+  "OK",
+]);
+const localReportText = assertReportHtmlText(localReportHtml, "steel local report generator", [
+  "QA 計算書",
+  "計畫名稱",
+  "計畫編號",
+  "FORMAL-VERIFY-001",
+  "設計人員",
+  "Codex QA",
+  "輸入資料",
+  "檢核結果",
+  "OK",
+]);
 assert.equal(sharedReportHtml.includes("未填"), false, "shared report generator should scrub placeholder project metadata in rendered output");
 assert.equal(localReportHtml.includes("未填"), false, "steel local report generator should scrub placeholder project metadata in rendered output");
+assert.equal(sharedReportText.includes("未填"), false, "shared report generator visible text should scrub placeholder project metadata");
+assert.equal(localReportText.includes("未填"), false, "steel local report generator visible text should scrub placeholder project metadata");
 assert.match(sharedReportHtml, /計畫名稱<\/b>—/, "shared report generator should fallback blank project name to dash");
 assert.match(localReportHtml, /計畫名稱<\/b>—/, "steel local report generator should fallback blank project name to dash");
 assert.match(sharedReportHtml, /FORMAL-VERIFY-001/, "shared report generator should keep project number after placeholder scrub");

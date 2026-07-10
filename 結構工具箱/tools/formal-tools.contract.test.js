@@ -75,11 +75,55 @@ function renderReportHtml(filePath, project = {}) {
   context.openReport({
     title: 'QA 計算書',
     project,
-    inputs: [{ group: '輸入資料', items: [{ label: 'A', value: '1', unit: '' }] }],
-    checks: [{ group: '檢核結果', items: [{ label: 'A', formula: 'A', sub: '1', value: '1', unit: '', ok: true }] }],
-    summary: { ok: true, text: 'OK' }
+    inputs: [{ group: '輸入資料', items: [{ label: 'A', value: '1', unit: '' }, { label: 'B', value: '2', unit: 'tf' }] }],
+    checks: [{
+      group: '檢核結果',
+      items: [
+        { label: 'A', formula: 'A', sub: '1', value: '1', unit: '', ok: true },
+        { label: 'B', formula: 'B / A', sub: '2 / 1', value: '2.00', unit: '', ok: true, note: '控制檢核' },
+      ],
+    }],
+    summaryFacts: [{ label: '控制值', value: 'B / A', tone: 'ok' }],
+    summary: { ok: true, text: 'OK' },
+    notes: ['本報告樣本用於驗證正式輸出文字抽檢。'],
   });
   return html;
+}
+
+function reportHtmlText(html) {
+  return String(html || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const pageOnlyReportStatusNeedles = [
+  '產報前檢查',
+  '附件適用狀態',
+  '優先建議報告閱讀狀態',
+  '報告閱讀狀態',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+];
+
+function assertReportHtmlText(html, label, requiredNeedles) {
+  const text = reportHtmlText(html);
+  assert.ok(text.length > 160, `${label} should produce substantial visible report text`);
+  requiredNeedles.forEach(needle => assertIncludes(text, needle, `${label} visible report text`));
+  pageOnlyReportStatusNeedles.forEach(needle => assertNoIncludes(text, needle, `${label} visible report text`));
+  return text;
 }
 
 const manifestPath = assertFile('tools/formal-tools.manifest.json');
@@ -129,7 +173,19 @@ assert.equal(
   'shared report runtime helper accepts complete project metadata'
 );
 const sharedReportHtml = renderReportHtml(toolboxFile('core/ui/report.js'), { name: '未填', no: 'FORMAL-VERIFY-001', designer: 'Codex QA' });
+const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared formal report generator', [
+  'QA 計算書',
+  '計畫名稱',
+  '計畫編號',
+  'FORMAL-VERIFY-001',
+  '設計人員',
+  'Codex QA',
+  '輸入資料',
+  '檢核結果',
+  'OK',
+]);
 assertNoIncludes(sharedReportHtml, '未填', 'shared report generator should scrub placeholder project metadata at render time');
+assertNoIncludes(sharedReportText, '未填', 'shared report generator visible text should scrub placeholder project metadata at render time');
 assertIncludes(sharedReportHtml, '計畫名稱</b>—', 'shared report generator should fallback blank project name to dash');
 assertIncludes(sharedReportHtml, 'FORMAL-VERIFY-001', 'shared report generator should keep project number');
 assertIncludes(sharedReportHtml, 'Codex QA', 'shared report generator should keep designer');

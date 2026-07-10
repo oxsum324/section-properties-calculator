@@ -28,6 +28,9 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   可直接檢視平台 history、preflight latest / full / quick、近期異常趨勢、耗時與最慢檢查，並固定提醒頁面上的「優先建議報告閱讀狀態」不會寫入計算書、列印或 PDF。
 - 鋼構正式規範工具：
   [鋼構工具/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/index.html:1)
+- 鋼構正式頁 regression：
+  [鋼構工具/steel-formal.regression-test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/steel-formal.regression-test.js:1)
+  - 固定檢查鋼梁 / 鋼柱正式頁、共用報表 helper、page-only 產報前檢查邊界，並把 HTML 彈窗型計算書轉成可讀文字，確認標題、計畫資訊、主要章節與 page-only wording 排除清單。
 - RC 工具入口：
   [鋼筋混凝土/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/index.html:1)
 - 基礎局部檢核：
@@ -54,6 +57,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/formal-tools.run.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-tools.run.js:1)
 - 風力 / 地震正式工具共同契約測試：
   [結構工具箱/tools/formal-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-tools.contract.test.js:1)
+  - 固定檢查正式工具 manifest、乾淨路由、報表分流、示意圖角色與 HTML 彈窗型計算書可讀文字，避免頁面專用「優先建議報告閱讀狀態」混入列印計算書。
 - 風力 / 地震條文語意追蹤 catalog：
   [結構工具箱/tools/formal-traceability.catalog.json](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-traceability.catalog.json:1)
 - 風力 / 地震條文語意追蹤契約測試：
