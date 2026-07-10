@@ -100,6 +100,7 @@ const stoneReleaseBundleSmoke = readText(repoFile('石材固定/release_bundle_s
 const stoneReadme = readText(repoFile('石材固定/README.md'));
 const deckingHtml = readText(repoFile('覆工板/index.html'));
 const deckingReport = readText(repoFile('覆工板/report/gen_report.py'));
+const deckingReportContract = readText(repoFile('覆工板/decking-report.contract.test.js'));
 const deckingFixture = readText(repoFile('覆工板/test-fixtures/report-smoke.json'));
 const deckingReadme = readText(repoFile('覆工板/README.md'));
 const excavationReporting = readText(repoFile('開挖擋土支撐/backend/app/reporting.py'));
@@ -178,9 +179,15 @@ const anchorReportTrace = traceById(anchorCatalog, 'anchor-strength', 'anchor-st
   'auto_export_word',
   'PdfReader',
   'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'extract_docx_text',
+  'pdf_text =',
+  'docx_text',
+  'self.assertGreaterEqual(len(pdf_text), 8_000)',
+  'self.assertGreaterEqual(len(docx_text), 8_000)',
+  'self.assertNotIn(needle, text)',
   'test_review_summary_import_is_true_opt_in_without_toc_ghost',
   'test_formal_auto_word_outputs_pdf_docx_with_review_notes_and_boundaries',
-].forEach(needle => assertIncludes(stoneAutoWordArtifact, needle, `stone auto_word artifact keeps ${needle}`));
+].forEach(needle => assertIncludes(stoneAutoWordArtifact, needle, `stone auto_word artifact text extraction keeps ${needle}`));
 
 [
   'REQUIRED_AUDIT_PATHS',
@@ -244,6 +251,19 @@ assertIncludesAny(
   '計算結果總表',
   'JSON',
 ].forEach(needle => assertIncludes(deckingReport, needle, `decking Word report keeps ${needle}`));
+
+[
+  'readDocxPayload',
+  "z.read('word/document.xml')",
+  'docxPayload.text.length > 2500',
+  'docxPayload.paragraphCount >= 60',
+  'docxPayload.tableCount >= 6',
+  'docxPayload.sectionCount >= 8',
+  'docxPayload.xml.includes',
+  'docxPayload.text.includes',
+  '!docxPayload.xml.includes(needle)',
+  '!docxPayload.text.includes(needle)',
+].forEach(needle => assertIncludes(deckingReportContract, needle, `decking report contract text extraction keeps ${needle}`));
 
 [
   '"project"',
@@ -316,7 +336,14 @@ assertIncludesAny(
   'build_word_report',
   'PdfReader',
   'Document',
-].forEach(needle => assertIncludes(excavationReportingTests, needle, `excavation reporting tests cover ${needle}`));
+  'test_pdf_report_uses_formal_section_structure',
+  'test_pdf_report_excludes_page_only_status_overview',
+  'self.assertGreater(len(full_text), 25000)',
+  'self.assertEqual(sum(1 for page_text in page_texts if len(page_text.strip()) > 100), len(reader.pages))',
+  'for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'self.assertNotIn(needle, text)',
+  'self.assertGreater(len(artifact["combined_text"]), 25000)',
+].forEach(needle => assertIncludes(excavationReportingTests, needle, `excavation reporting tests text extraction cover ${needle}`));
 
 [
   'latest-report.docx',
@@ -348,6 +375,8 @@ assertIncludesAny(
   'serializeReportDocument',
   'word/document.xml',
   'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'visibleText',
+  'expect(visibleText).not.toContain(needle)',
   'tableCount',
   'pageBreakCount',
 ].forEach(needle => assertIncludes(anchorReportDocxTest, needle, `anchor DOCX artifact test keeps ${needle}`));
@@ -357,6 +386,8 @@ assertIncludesAny(
   'ExcelJS',
   'workbookText',
   'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'expect(text.length).toBeGreaterThan(2_000)',
+  'expect(text).not.toContain(needle)',
   'CORE_WORKBOOK_SHEETS',
 ].forEach(needle => assertIncludes(anchorReportWorkbookTest, needle, `anchor XLSX artifact test keeps ${needle}`));
 
