@@ -1,7 +1,7 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-07-09T21:44:58.470Z",
+  "generatedAt": "2026-07-10T01:05:20.930Z",
   "runId": "20260710-053304",
   "pass": true,
   "failureCount": 0,
@@ -44,5 +44,5 @@
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
   "preflightStatusSourcePath": "output/preflight/history/20260710-053304/preflight-summary.json",
-  "sourceHash": "eb296c4ac5fd38c564dddde8570c9d407704ae056b52a8ba6bd79abe251d2432"
+  "sourceHash": "0c8957c4a23817ae79045dc90e8d7034b0928ca070ed12937dba05cfc89956af"
 }

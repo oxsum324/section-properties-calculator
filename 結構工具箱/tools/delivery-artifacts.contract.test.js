@@ -82,9 +82,11 @@ function assertTraceEvidence(catalogPath, trace, requiredNeedles) {
 const stoneCatalogPath = '石材固定/stone-traceability.catalog.json';
 const deckingCatalogPath = '覆工板/decking-traceability.catalog.json';
 const excavationCatalogPath = '開挖擋土支撐/excavation-traceability.catalog.json';
+const anchorCatalogPath = '螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json';
 const stoneCatalog = readJson(stoneCatalogPath);
 const deckingCatalog = readJson(deckingCatalogPath);
 const excavationCatalog = readJson(excavationCatalogPath);
+const anchorCatalog = readJson(anchorCatalogPath);
 
 const stoneServer = readText(repoFile('石材固定/server.py'));
 const stoneServerSmoke = readText(repoFile('石材固定/server_smoke_test.py'));
@@ -109,6 +111,12 @@ const excavationApi = readText(repoFile('開挖擋土支撐/frontend/src/api.ts'
 const excavationReportingTests = readText(repoFile('開挖擋土支撐/backend/tests/test_reporting.py'));
 const excavationStoreTests = readText(repoFile('開挖擋土支撐/backend/tests/test_project_store.py'));
 const excavationReadme = readText(repoFile('開挖擋土支撐/README.md'));
+const anchorReportContract = readText(repoFile('螺栓檢討/anchor-report.contract.test.js'));
+const anchorPackageReadme = readText(repoFile('螺栓檢討/bolt-review-tool/README.md'));
+const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportExport.test.ts'));
+const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
+const anchorReportWorkbookTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts'));
+const anchorAttachmentReadinessTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts'));
 const rootReadme = readText(repoFile('README.md'));
 const preflight = readText(repoFile('preflight-tools.ps1'));
 const staging = readText(repoFile('STAGING_GROUPS.md'));
@@ -119,6 +127,7 @@ const maturityMatrixScript = readText(repoFile('結構工具箱/tools/tool-matur
 assert(stoneCatalog.family === 'stone-traceability', 'stone catalog family', stoneCatalog.family);
 assert(deckingCatalog.family === 'decking-traceability', 'decking catalog family', deckingCatalog.family);
 assert(excavationCatalog.family === 'excavation-traceability', 'excavation catalog family', excavationCatalog.family);
+assert(anchorCatalog.family === 'anchor-traceability', 'anchor catalog family', anchorCatalog.family);
 
 const stoneReportTrace = traceById(stoneCatalog, 'stone-serviceability-report', 'stone-report-audit-golden-governance');
 assertTraceEvidence(stoneCatalogPath, stoneReportTrace, ['Word', 'PDF', 'JSON', '交付前檢查']);
@@ -128,6 +137,16 @@ const excavationReportTrace = traceById(excavationCatalog, 'excavation-report-go
 assertTraceEvidence(excavationCatalogPath, excavationReportTrace, ['PDF', 'DOCX', 'ProjectState']);
 const excavationDownloadTrace = traceById(excavationCatalog, 'excavation-report-governance', 'excavation-report-download-boundary');
 assertTraceEvidence(excavationCatalogPath, excavationDownloadTrace, ['latest', 'PDF', 'Word']);
+const anchorReportTrace = traceById(anchorCatalog, 'anchor-strength', 'anchor-strength-tension-modes');
+[
+  '鋼材拉力強度',
+  '控制檢核',
+  '列印報告',
+].forEach(needle => assertIncludes((anchorReportTrace.report || []).join(' / '), needle, `anchor report trace declares ${needle}`));
+[
+  'src/calc.ts',
+  'src/ReportDocument.tsx',
+].forEach(evidence => assert(fs.existsSync(repoFile(`螺栓檢討/bolt-review-tool/${evidence}`)), 'anchor report trace evidence exists', evidence));
 
 [
   'def write_export_audit',
@@ -312,6 +331,49 @@ assertIncludesAny(
 ].forEach(needle => assertIncludes(excavationReadme, needle, `excavation README delivery boundary keeps ${needle}`));
 
 [
+  'src/reportExport.test.ts',
+  'src/reportDocx.test.ts',
+  'src/reportWorkbook.test.ts',
+  'src/attachmentReadiness.test.ts',
+].forEach(needle => assertIncludes(anchorReportContract, needle, `anchor report boundary contract wraps ${needle}`));
+
+[
+  'buildStandaloneReportHtml',
+  'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'expectNoPageOnlyReportStatus',
+  'autoPrint',
+].forEach(needle => assertIncludes(anchorReportExportTest, needle, `anchor HTML report artifact test keeps ${needle}`));
+
+[
+  'serializeReportDocument',
+  'word/document.xml',
+  'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'tableCount',
+  'pageBreakCount',
+].forEach(needle => assertIncludes(anchorReportDocxTest, needle, `anchor DOCX artifact test keeps ${needle}`));
+
+[
+  'serializeReportWorkbook',
+  'ExcelJS',
+  'workbookText',
+  'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'CORE_WORKBOOK_SHEETS',
+].forEach(needle => assertIncludes(anchorReportWorkbookTest, needle, `anchor XLSX artifact test keeps ${needle}`));
+
+[
+  '頁面顯示，不進計算書、列印或 PDF',
+  '不會寫入計算書或列印 PDF',
+  '優先閱讀',
+].forEach(needle => assertIncludes(anchorAttachmentReadinessTest, needle, `anchor attachment readiness boundary keeps ${needle}`));
+
+[
+  '螺栓檢討/anchor-report.contract.test.js',
+  '報告匯出與附件閱讀狀態',
+  '平台層報告邊界 gate',
+  'workbook/docx 邊界',
+].forEach(needle => assertIncludes(anchorPackageReadme, needle, `anchor README delivery boundary keeps ${needle}`));
+
+[
   'delivery-artifacts-contract',
   'node 結構工具箱/tools/delivery-artifacts.contract.test.js',
   'Delivery artifact governance contract',
@@ -359,6 +421,15 @@ assertIncludesAny(
     ],
     `${label} delivery artifact scope keeps excavation PDF / DOCX / download scope`
   );
+  assertIncludesAny(
+    text,
+    [
+      '錨栓 HTML / XLSX / DOCX',
+      '錨栓 HTML / workbook / DOCX',
+      '錨栓 HTML / XLSX / DOCX 報告',
+    ],
+    `${label} delivery artifact scope keeps anchor HTML / XLSX / DOCX scope`
+  );
 });
 
 [
@@ -366,6 +437,7 @@ assertIncludesAny(
   '交付物一致性',
   '結構工具箱/tools/delivery-artifacts.contract.test.js',
   '石材 audit JSON / Word / PDF',
+  '錨栓 HTML / XLSX / DOCX',
 ].forEach(needle => assertIncludes(maturityMatrixScript, needle, `maturity matrix global gate includes ${needle}`));
 
 if (failed) {

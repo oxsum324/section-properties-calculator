@@ -912,8 +912,8 @@ if (fs.existsSync(maturityMatrixPath)) {
   const deliveryArtifactsGate = matrix.globalGovernance.gates.find(gate => gate.key === 'delivery-artifacts-contract');
   assert.ok(deliveryArtifactsGate, 'maturity globalGovernance delivery artifacts gate exists');
   assert.equal(deliveryArtifactsGate.pass, true, 'maturity globalGovernance delivery artifacts gate passes');
-  assert.equal(deliveryArtifactsGate.coveredCatalogs, 3, 'maturity globalGovernance delivery artifacts catalog count');
-  assert.deepEqual(deliveryArtifactsGate.catalogFamilies, ['stone-traceability', 'decking-traceability', 'excavation-traceability'], 'maturity globalGovernance delivery artifacts relevant families');
+  assert.equal(deliveryArtifactsGate.coveredCatalogs, 4, 'maturity globalGovernance delivery artifacts catalog count');
+  assert.deepEqual(deliveryArtifactsGate.catalogFamilies, ['stone-traceability', 'anchor-traceability', 'decking-traceability', 'excavation-traceability'], 'maturity globalGovernance delivery artifacts relevant families');
   assert.deepEqual(deliveryArtifactsGate.issues, [], 'maturity globalGovernance delivery artifacts issues empty');
   const releaseReadinessGate = matrix.globalGovernance.gates.find(gate => gate.key === 'release-readiness-contract');
   assert.ok(releaseReadinessGate, 'maturity globalGovernance release readiness gate exists');

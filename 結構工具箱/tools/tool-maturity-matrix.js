@@ -48,9 +48,9 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'delivery-artifacts-contract',
     label: '交付物一致性',
     contract: '結構工具箱/tools/delivery-artifacts.contract.test.js',
-    scope: '石材 audit JSON / Word / PDF、覆工板 JSON / Word 報表與開挖 PDF / DOCX / 下載 API 交付邊界',
-    catalogFamilies: ['stone-traceability', 'decking-traceability', 'excavation-traceability'],
-    minCatalogs: 3
+    scope: '石材 audit JSON / Word / PDF、錨栓 HTML / XLSX / DOCX、覆工板 JSON / Word 報表與開挖 PDF / DOCX / 下載 API 交付邊界',
+    catalogFamilies: ['stone-traceability', 'anchor-traceability', 'decking-traceability', 'excavation-traceability'],
+    minCatalogs: 4
   },
   {
     key: 'release-readiness-contract',
@@ -1587,8 +1587,8 @@ function checkMatrix(payload, markdown, options = {}) {
   const deliveryArtifactsGate = payload.globalGovernance.gates.find(item => item.key === 'delivery-artifacts-contract');
   assert.ok(deliveryArtifactsGate, 'tool maturity matrix globalGovernance includes delivery artifacts gate');
   assert.equal(deliveryArtifactsGate.pass, true, 'tool maturity matrix delivery artifacts gate passed');
-  assert.equal(deliveryArtifactsGate.coveredCatalogs, 3, 'tool maturity matrix delivery artifacts gate covers traceability catalogs');
-  assert.deepEqual(deliveryArtifactsGate.catalogFamilies, ['stone-traceability', 'decking-traceability', 'excavation-traceability'], 'tool maturity matrix delivery artifacts gate relevant families');
+  assert.equal(deliveryArtifactsGate.coveredCatalogs, 4, 'tool maturity matrix delivery artifacts gate covers traceability catalogs');
+  assert.deepEqual(deliveryArtifactsGate.catalogFamilies, ['stone-traceability', 'anchor-traceability', 'decking-traceability', 'excavation-traceability'], 'tool maturity matrix delivery artifacts gate relevant families');
   assert.deepEqual(deliveryArtifactsGate.issues, [], 'tool maturity matrix delivery artifacts gate issues empty');
   const releaseReadinessGate = payload.globalGovernance.gates.find(item => item.key === 'release-readiness-contract');
   assert.ok(releaseReadinessGate, 'tool maturity matrix globalGovernance includes release readiness gate');
