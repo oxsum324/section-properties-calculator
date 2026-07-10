@@ -70,10 +70,25 @@ function renderSharedReportHtml(source, filename, project = {}) {
     title: 'QA 計算書',
     subtitle: 'Report Runtime Smoke',
     project,
-    inputs: [{ group: '輸入資料', items: [{ label: 'A', value: '1', unit: '' }] }],
-    checks: [{ group: '檢核結果', items: [{ label: 'A', formula: 'A', sub: '1', value: '1', unit: '', ok: true }] }],
+    inputs: [{
+      group: '輸入資料',
+      items: [
+        { label: 'A', value: '1', unit: '' },
+        { label: 'B', value: '2', unit: 'tf' },
+        { label: 'C', value: '3', unit: 'cm²' },
+      ],
+    }],
+    checks: [{
+      group: '檢核結果',
+      items: [
+        { label: 'A', formula: 'A', sub: '1', value: '1', unit: '', ok: true },
+        { label: 'B', formula: 'B / A', sub: '2 / 1', value: '2.00', unit: '', ok: true, note: '控制檢核' },
+        { label: 'C', formula: 'A + B', sub: '1 + 2', value: '3.00', unit: 'cm²', ok: true, note: '文字抽檢樣本' },
+      ],
+    }],
+    summaryFacts: [{ label: '控制值', value: 'B / A', tone: 'ok' }],
     summary: { ok: true, text: 'OK' },
-    notes: ['正式報告備註'],
+    notes: ['正式報告備註', '本樣本用於確認共享報告輸出包含足量可讀文字。'],
   });
 }
 
@@ -99,6 +114,130 @@ function renderSharedReportPayload(source, filename, payload) {
   assert(typeof context.openReport === 'function', `${filename} exposes openReport`, 'openReport');
   context.openReport(payload);
   return html;
+}
+
+function reportHtmlText(reportHtml) {
+  return String(reportHtml || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function assertReportHtmlText(reportHtml, label, requiredNeedles, minLength = 260) {
+  const text = reportHtmlText(reportHtml);
+  assert(text.length >= minLength, `${label} visible report text is substantial`, `chars=${text.length}`);
+  requiredNeedles.forEach(needle => {
+    assert(text.includes(needle), `${label} visible report text includes required wording`, needle);
+  });
+  pageOnlyReportStatusNeedles.forEach(needle => {
+    assert(!text.includes(needle), `${label} visible report text excludes page-only readiness wording`, needle);
+  });
+  return text;
+}
+
+function captureCompositeReportPayload(source) {
+  let payload = null;
+  const elements = new Map([
+    ['projName', { value: '未填' }],
+    ['projNo', { value: 'COMP-QA-001' }],
+    ['projDesigner', { value: 'Codex QA' }],
+    ['projNote', { value: '' }],
+    ['h-select', { value: '', selectedIndex: 0, options: [] }],
+    ['h-H', { value: '300' }],
+    ['h-B', { value: '150' }],
+    ['h-tw', { value: '6.5' }],
+    ['h-tf', { value: '9' }],
+    ['h-R', { value: '13' }],
+    ['secCanvas', { toDataURL() { return 'data:image/png;base64,composite'; } }],
+    ['reportStatus', { textContent: '', className: '' }],
+  ]);
+  const context = {
+    window: {
+      ToolReportUI: {
+        normalizeProjectFieldValue(value) {
+          const text = (value == null ? '' : String(value)).trim();
+          return text === '未填' ? '' : text;
+        },
+      },
+    },
+    document: {
+      getElementById(id) {
+        return elements.get(id) || null;
+      },
+    },
+    openReport(nextPayload) {
+      payload = nextPayload;
+    },
+    setReportStatus(message, tone = 'warn') {
+      const el = elements.get('reportStatus');
+      if (!el) return;
+      el.textContent = message || '';
+      el.className = `report-status${message ? ` ${tone}` : ''}`;
+    },
+    lastData: {
+      geom: {
+        mode: 'both',
+        Hmm: 300,
+        Bmm: 150,
+        tw: 6.5,
+        tf: 9,
+        R: 13,
+        tspMm: 9,
+        hspMm: 260,
+        tcpMm: 12,
+        wcpMm: 180,
+      },
+      baseH: {
+        A: 46.8,
+        Ix: 7200,
+        Iy: 508,
+        Zx: 540,
+        Zy: 104,
+        Jopen: 17.6,
+        ymax: 15,
+        xmax: 7.5,
+      },
+      total: {
+        A: 92.4,
+        W: 72.5,
+        Ix: 18800,
+        Iy: 2740,
+        Sx: 1253,
+        Sy: 365,
+        Zx: 1450,
+        Zy: 512,
+        rx: 14.27,
+        ry: 5.45,
+        Jopen: 45.8,
+        Jclosed: 8600,
+        closedNote: '（測試樣本）',
+      },
+    },
+    console,
+    Date,
+    Math,
+    Number,
+    String,
+    JSON,
+    parseFloat,
+    isFinite,
+  };
+  vm.createContext(context);
+  ['val', 'fmt', 'normalizeProjectFieldValue', 'getProjectFieldValue', 'currentHName', 'exportReport'].forEach(name => {
+    vm.runInContext(functionSource(source, name), context, { filename: `composite-report:${name}` });
+  });
+  assert(typeof context.exportReport === 'function', 'composite exportReport runtime function exists', 'exportReport');
+  context.exportReport();
+  assert(payload && typeof payload === 'object', 'composite runtime captures report payload', 'exportReport payload');
+  return payload;
 }
 
 function captureRetrofitReportPayload(source, functionName, stateKey, stateValue) {
@@ -209,6 +348,26 @@ assertReportPayloadExcludes(rcRetrofitHtml, 'exportColReport', pageOnlyReportSta
 assertProjectMetaUsesSharedNormalization(rcRetrofitHtml, 'RC retrofit section reports', ['exportBeamReport', 'exportColReport']);
 
 const sharedReportSource = read(path.join('結構工具箱', 'core', 'ui', 'report.js'));
+const compositePayload = captureCompositeReportPayload(compositeHtml);
+const compositeReportHtml = renderSharedReportPayload(
+  sharedReportSource,
+  path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js'),
+  compositePayload
+);
+const compositeReportText = assertReportHtmlText(compositeReportHtml, 'composite section runtime report', [
+  '合成斷面性質計算書',
+  '計畫名稱',
+  '計畫編號',
+  'COMP-QA-001',
+  '設計人員',
+  'Codex QA',
+  '基本輸入',
+  '合成斷面總性質',
+  '與基礎 H 型鋼比較',
+], 520);
+assert(!compositeReportHtml.includes('未填'), 'composite runtime report excludes raw placeholder project text', '未填');
+assert(!compositeReportText.includes('未填'), 'composite runtime visible text excludes raw placeholder project text', '未填');
+
 const retrofitBeamPayload = captureRetrofitReportPayload(rcRetrofitHtml, 'exportBeamReport', 'lastBeam', {
   geom: {
     b_mm: 30, h_mm: 60, d_mm: 55, dp_mm: 5,
@@ -259,11 +418,23 @@ const retrofitBeamHtml = renderSharedReportPayload(
   path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js'),
   retrofitBeamPayload
 );
+const retrofitBeamText = assertReportHtmlText(retrofitBeamHtml, 'RC retrofit beam runtime report', [
+  'RC 梁補強斷面計算書',
+  '計畫名稱',
+  '計畫編號',
+  'RETROFIT-QA-001',
+  '設計人員',
+  'Codex QA',
+  '輸入條件',
+  '彈性斷面',
+  '極限撓曲',
+], 650);
 assert(retrofitBeamHtml.includes('RC 梁補強斷面計算書'), 'RC retrofit beam runtime report title', 'RC 梁補強斷面計算書');
 assert(retrofitBeamHtml.includes('計畫名稱</b>—'), 'RC retrofit beam runtime project placeholder', '計畫名稱 —');
 assert(retrofitBeamHtml.includes('RETROFIT-QA-001'), 'RC retrofit beam runtime project number', 'RETROFIT-QA-001');
 assert(retrofitBeamHtml.includes('Codex QA'), 'RC retrofit beam runtime project designer', 'Codex QA');
 assert(!retrofitBeamHtml.includes('未填'), 'RC retrofit beam runtime excludes raw placeholder project text', '未填');
+assert(!retrofitBeamText.includes('未填'), 'RC retrofit beam visible text excludes raw placeholder project text', '未填');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!retrofitBeamHtml.includes(needle), 'RC retrofit beam runtime report excludes page-only readiness wording', needle);
 }
@@ -296,11 +467,24 @@ const retrofitColumnHtml = renderSharedReportPayload(
   path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js'),
   retrofitColumnPayload
 );
+const retrofitColumnText = assertReportHtmlText(retrofitColumnHtml, 'RC retrofit column runtime report', [
+  'RC 柱補強斷面計算書',
+  '計畫名稱',
+  '計畫編號',
+  'RETROFIT-QA-001',
+  '設計人員',
+  'Codex QA',
+  '輸入條件',
+  '圍束效應',
+  '軸壓能力',
+  'P-M 需求點檢核',
+], 650);
 assert(retrofitColumnHtml.includes('RC 柱補強斷面計算書'), 'RC retrofit column runtime report title', 'RC 柱補強斷面計算書');
 assert(retrofitColumnHtml.includes('計畫名稱</b>—'), 'RC retrofit column runtime project placeholder', '計畫名稱 —');
 assert(retrofitColumnHtml.includes('RETROFIT-QA-001'), 'RC retrofit column runtime project number', 'RETROFIT-QA-001');
 assert(retrofitColumnHtml.includes('Codex QA'), 'RC retrofit column runtime project designer', 'Codex QA');
 assert(!retrofitColumnHtml.includes('未填'), 'RC retrofit column runtime excludes raw placeholder project text', '未填');
+assert(!retrofitColumnText.includes('未填'), 'RC retrofit column visible text excludes raw placeholder project text', '未填');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!retrofitColumnHtml.includes(needle), 'RC retrofit column runtime report excludes page-only readiness wording', needle);
 }
@@ -310,11 +494,23 @@ const sharedReportHtml = renderSharedReportHtml(
   path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js'),
   { name: '未填', no: 'SECTION-VERIFY-001', designer: 'Codex QA' }
 );
+const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared section report runtime', [
+  'QA 計算書',
+  '計畫名稱',
+  '計畫編號',
+  'SECTION-VERIFY-001',
+  '設計人員',
+  'Codex QA',
+  '輸入資料',
+  '檢核結果',
+  '正式報告備註',
+], 260);
 assert(sharedReportHtml.includes('QA 計算書'), 'shared section report runtime title', 'QA 計算書');
 assert(sharedReportHtml.includes('計畫名稱</b>—'), 'shared section report runtime placeholder project fallback', '計畫名稱 —');
 assert(sharedReportHtml.includes('SECTION-VERIFY-001'), 'shared section report runtime project number', 'SECTION-VERIFY-001');
 assert(sharedReportHtml.includes('Codex QA'), 'shared section report runtime project designer', 'Codex QA');
 assert(!sharedReportHtml.includes('未填'), 'shared section report runtime excludes raw placeholder project text', '未填');
+assert(!sharedReportText.includes('未填'), 'shared section report visible text excludes raw placeholder project text', '未填');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!sharedReportHtml.includes(needle), 'shared section report runtime excludes page-only readiness wording', needle);
 }

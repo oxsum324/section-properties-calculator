@@ -166,6 +166,34 @@ const pageOnlyNeedles = [
   '不會寫入計算書或列印 PDF',
   '頁面顯示，不進計算書、列印或 PDF',
 ];
+
+function reportHtmlText(reportHtml) {
+  return String(reportHtml || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function assertReportHtmlText(reportHtml, label, requiredNeedles, minLength = 360) {
+  const text = reportHtmlText(reportHtml);
+  assert(text.length >= minLength, `${label} visible report text is substantial`, `chars=${text.length}`);
+  for (const needle of requiredNeedles) {
+    assert(text.includes(needle), `${label} visible report text includes required wording`, needle);
+  }
+  for (const needle of pageOnlyNeedles) {
+    assert(!text.includes(needle), `${label} visible report text excludes page-only readiness wording`, needle);
+  }
+  return text;
+}
+
 const exportPdfSource = extractFunctionBlock(html, 'exportPDF');
 for (const needle of pageOnlyNeedles) {
   assert(!exportPdfSource.includes(needle), 'exportPDF excludes page-only readiness wording', needle);
@@ -362,10 +390,21 @@ function main() {
   assert(ctx.__lastReportConfig.project.no === 'CB-001', 'project number remains in report export', JSON.stringify(ctx.__lastReportConfig.project));
   assert(ctx.__lastReportConfig.project.designer === '', 'placeholder designer is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
   const reportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
+  const reportText = assertReportHtmlText(reportHtml, 'continuous beam runtime report', [
+    '連續梁分析計算書',
+    '計畫名稱',
+    '計畫編號',
+    'CB-001',
+    '支承反力',
+    '梁示意圖',
+    '剪力圖',
+    '彎矩圖',
+  ]);
   assert(reportHtml.includes('連續梁分析計算書'), 'continuous beam runtime report title', '連續梁分析計算書');
   assert(reportHtml.includes('計畫名稱</b>—'), 'continuous beam runtime report placeholder project fallback', '計畫名稱 —');
   assert(reportHtml.includes('CB-001'), 'continuous beam runtime report project number', 'CB-001');
   assert(!reportHtml.includes('未填'), 'continuous beam runtime report excludes raw placeholder text', '未填');
+  assert(!reportText.includes('未填'), 'continuous beam runtime visible text excludes raw placeholder text', '未填');
   for (const needle of pageOnlyNeedles) {
     assert(!reportHtml.includes(needle), 'continuous beam runtime report excludes page-only readiness wording', needle);
   }

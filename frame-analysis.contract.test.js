@@ -184,6 +184,33 @@ const pageOnlyReportStatusNeedles = [
   '不會寫入計算書或列印 PDF',
 ];
 
+function reportHtmlText(reportHtml) {
+  return String(reportHtml || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function assertReportHtmlText(reportHtml, label, requiredNeedles, minLength = 700) {
+  const text = reportHtmlText(reportHtml);
+  assert(text.length >= minLength, `${label} visible report text is substantial`, `chars=${text.length}`);
+  requiredNeedles.forEach(needle => {
+    assert(text.includes(needle), `${label} visible report text includes required wording`, needle);
+  });
+  pageOnlyReportStatusNeedles.forEach(needle => {
+    assert(!text.includes(needle), `${label} visible report text excludes page-only readiness wording`, needle);
+  });
+  return text;
+}
+
 const frameAnalysisHtml = read(path.join('鋼架', '平面剛架分析.html'));
 
 assert(!frameAnalysisHtml.includes('alert('), 'rigid frame avoids blocking alert', 'alert(');
@@ -237,9 +264,22 @@ assertPrintHidesSelectors(frameAnalysisHtml, ['.page-only-report-status', '.page
 assertFunctionTemplateExcludes(frameAnalysisHtml, 'printReport', 'const html = `', pageOnlyReportStatusNeedles, 'rigid frame report export');
 
 const frameReportRuntime = captureFrameReportHtml(frameAnalysisHtml);
+const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid frame runtime report', [
+  '平面剛架分析 計算書',
+  '分析組合',
+  '節點',
+  '桿件',
+  '載重',
+  '模型自檢',
+  '平衡檢核',
+  '節點位移 / 反力',
+  '桿件極值',
+]);
 assert(frameReportRuntime.html.includes('平面剛架分析 計算書'), 'rigid frame runtime report title', '平面剛架分析 計算書');
 assert(frameReportRuntime.html.includes('載重</h2>'), 'rigid frame runtime report keeps load table', '載重');
 assert(frameReportRuntime.html.includes('平衡檢核'), 'rigid frame runtime report keeps equilibrium section', '平衡檢核');
+assert(frameReportText.includes('節點 N2'), 'rigid frame visible report text keeps node data', '節點 N2');
+assert(frameReportText.includes('桿件 M1'), 'rigid frame visible report text keeps member data', '桿件 M1');
 assert(frameReportRuntime.href === 'blob:frame-report', 'rigid frame runtime report link set', frameReportRuntime.href);
 assert(frameReportRuntime.openedUrl === 'blob:frame-report', 'rigid frame runtime report window opens blob URL', frameReportRuntime.openedUrl);
 assert(frameReportRuntime.status.includes('已產生計算書'), 'rigid frame runtime report status message', frameReportRuntime.status);
