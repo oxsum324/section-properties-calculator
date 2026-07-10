@@ -17,6 +17,18 @@ import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildReportWorkbook, serializeReportWorkbook } from './reportWorkbook'
 import { normalizeUnitPreferences } from './units'
 
+const CORE_WORKBOOK_SHEETS = [
+  'Summary',
+  'LoadCases',
+  'Results',
+  'Dimensions',
+  'Factors',
+  'Candidates',
+  'Evidence',
+  'Layouts',
+  'AuditTrail',
+]
+
 const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
   '產報前檢查',
   '附件適用狀態',
@@ -163,13 +175,32 @@ describe('reportWorkbook', () => {
   it('builds a workbook with the core review sheets', () => {
     const workbook = buildReportWorkbook(buildParams())
 
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toContain('Summary')
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toContain('LoadCases')
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toContain('Results')
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toContain('Factors')
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toContain('Evidence')
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toContain('Layouts')
-    expect(workbook.worksheets.map((sheet) => sheet.name)).toContain('AuditTrail')
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(
+      expect.arrayContaining(CORE_WORKBOOK_SHEETS),
+    )
+  })
+
+  it('builds populated and filterable workbook sheets', () => {
+    const workbook = buildReportWorkbook(buildParams())
+
+    for (const sheetName of CORE_WORKBOOK_SHEETS) {
+      const worksheet = workbook.getWorksheet(sheetName)
+      expect(worksheet, `${sheetName} sheet exists`).toBeDefined()
+      expect(worksheet!.rowCount, `${sheetName} row count`).toBeGreaterThan(1)
+      expect(worksheet!.columnCount, `${sheetName} column count`).toBeGreaterThan(1)
+      expect(worksheet!.views, `${sheetName} frozen header`).toContainEqual({
+        state: 'frozen',
+        ySplit: 1,
+      })
+      expect(worksheet!.autoFilter, `${sheetName} autofilter`).toMatchObject({
+        from: { row: 1, column: 1 },
+        to: { row: 1, column: worksheet!.columnCount },
+      })
+    }
+
+    expect(workbook.getWorksheet('Summary')!.rowCount).toBeGreaterThanOrEqual(20)
+    expect(workbook.getWorksheet('Results')!.rowCount).toBeGreaterThanOrEqual(8)
+    expect(workbook.getWorksheet('Factors')!.rowCount).toBeGreaterThanOrEqual(8)
   })
 
   it('serializes a valid xlsx workbook buffer', async () => {
@@ -190,6 +221,7 @@ describe('reportWorkbook', () => {
       summaryRows.some((row) => row.項目 === '使用邊界 / 簽證責任'),
     ).toBe(true)
     const text = workbookText(workbook)
+    expect(text.length).toBeGreaterThan(2_000)
     for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES) {
       expect(text).not.toContain(needle)
     }

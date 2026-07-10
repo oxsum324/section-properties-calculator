@@ -133,6 +133,26 @@ function docxVisibleText(buffer: Uint8Array) {
     .replace(/&amp;/g, '&')
 }
 
+function readDocxStructure(buffer: Uint8Array) {
+  const documentXml = readZipEntry(buffer, 'word/document.xml')
+  const visibleText = documentXml
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+
+  return {
+    documentXml,
+    visibleText,
+    paragraphCount: documentXml.match(/<w:p(?:\s|>)/g)?.length ?? 0,
+    tableCount: documentXml.match(/<w:tbl(?:\s|>)/g)?.length ?? 0,
+    tableRowCount: documentXml.match(/<w:tr(?:\s|>)/g)?.length ?? 0,
+    pageBreakCount:
+      documentXml.match(/w:pageBreakBefore|<w:br[^>]+w:type="page"/g)
+        ?.length ?? 0,
+  }
+}
+
 describe('reportDocx', () => {
   it('serializes a valid docx buffer', async () => {
     const buffer = await serializeReportDocument(buildParams())
@@ -146,6 +166,31 @@ describe('reportDocx', () => {
     const visibleText = docxVisibleText(buffer)
     for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES) {
       expect(visibleText).not.toContain(needle)
+    }
+  })
+
+  it('serializes substantial report structure into the docx body', async () => {
+    const structure = readDocxStructure(await serializeReportDocument(buildParams()))
+    const sectionTitles = [
+      '報告摘要',
+      '載重組合批次檢核',
+      '逐項檢核明細',
+      '尺寸檢核',
+      'φ / ψ 與因子總表',
+      '候選產品比選',
+      '候選配置比選',
+      '產品證據與文件對照',
+      '審查留痕',
+      '使用邊界與版本',
+    ]
+
+    expect(structure.visibleText.length).toBeGreaterThan(3_000)
+    expect(structure.paragraphCount).toBeGreaterThanOrEqual(35)
+    expect(structure.tableCount).toBeGreaterThanOrEqual(9)
+    expect(structure.tableRowCount).toBeGreaterThanOrEqual(30)
+    expect(structure.pageBreakCount).toBeGreaterThanOrEqual(6)
+    for (const title of sectionTitles) {
+      expect(structure.visibleText).toContain(title)
     }
   })
 })
