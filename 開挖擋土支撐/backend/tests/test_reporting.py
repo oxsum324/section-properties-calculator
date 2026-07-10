@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from zipfile import ZipFile
 
@@ -44,12 +45,14 @@ class ReportingTests(unittest.TestCase):
             document = Document(str(report_path))
             text = "\n".join(paragraph.text for paragraph in document.paragraphs)
             table_text = "\n".join(cell.text for table in document.tables for row in table.rows for cell in row.cells)
+            combined_text = text + "\n" + table_text
             section = document.sections[0]
             header_text = "\n".join(paragraph.text for paragraph in section.header.paragraphs)
             footer_text = "\n".join(paragraph.text for paragraph in section.footer.paragraphs)
             first_page_header_text = "\n".join(paragraph.text for paragraph in section.first_page_header.paragraphs)
             first_page_footer_text = "\n".join(paragraph.text for paragraph in section.first_page_footer.paragraphs)
             with ZipFile(report_path) as archive:
+                archive_names = archive.namelist()
                 document_xml = archive.read("word/document.xml").decode("utf-8")
                 footer_files = [name for name in archive.namelist() if name.startswith("word/footer")]
                 footer_xml = "\n".join(archive.read(name).decode("utf-8") for name in footer_files)
@@ -59,7 +62,7 @@ class ReportingTests(unittest.TestCase):
                 "document": document,
                 "text": text,
                 "table_text": table_text,
-                "combined_text": text + "\n" + table_text,
+                "combined_text": combined_text,
                 "section": section,
                 "header_text": header_text,
                 "footer_text": footer_text,
@@ -67,6 +70,10 @@ class ReportingTests(unittest.TestCase):
                 "first_page_footer_text": first_page_footer_text,
                 "document_xml": document_xml,
                 "footer_xml": footer_xml,
+                "section_heading_count": len(re.findall(r"[一二三四五六七八九十]+、", combined_text)),
+                "page_break_count": document_xml.count('w:type="page"'),
+                "drawing_count": document_xml.count("<w:drawing"),
+                "media_count": len([name for name in archive_names if name.startswith("word/media/")]),
             }
         return cls._default_word_artifact
 
@@ -76,6 +83,18 @@ class ReportingTests(unittest.TestCase):
         self.assertTrue(report_path.exists())
         self.assertEqual(report_path.suffix.lower(), ".docx")
         self.assertGreater(report_path.stat().st_size, 0)
+
+    def test_word_report_has_substantial_attachment_structure(self) -> None:
+        artifact = self.default_word_artifact()
+        document = artifact["document"]
+
+        self.assertGreater(len(artifact["combined_text"]), 25000)
+        self.assertGreaterEqual(len(document.paragraphs), 500)
+        self.assertGreaterEqual(len(document.tables), 10)
+        self.assertGreaterEqual(artifact["section_heading_count"], 8)
+        self.assertGreaterEqual(artifact["page_break_count"], 2)
+        self.assertGreaterEqual(artifact["drawing_count"], 1)
+        self.assertGreaterEqual(artifact["media_count"], 1)
 
     def test_word_report_includes_cover_title_and_project_metadata(self) -> None:
         combined_text = self.default_word_artifact()["combined_text"]
@@ -101,8 +120,14 @@ class ReportingTests(unittest.TestCase):
         report_path = build_report(project)
         reader = PdfReader(str(report_path))
         first_page_text = reader.pages[0].extract_text() or ""
+        page_texts = [page.extract_text() or "" for page in reader.pages]
+        full_text = "\n".join(page_texts)
         text = "\n".join(page.extract_text() or "" for page in reader.pages[:4])
 
+        self.assertGreaterEqual(len(reader.pages), 20)
+        self.assertGreater(len(full_text), 25000)
+        self.assertEqual(sum(1 for page_text in page_texts if len(page_text.strip()) > 100), len(reader.pages))
+        self.assertGreaterEqual(len(re.findall(r"[一二三四五六七八九十]+、", full_text)), 8)
         self.assertIn("一、摘要", text)
         self.assertIn("二、設計依據", text)
         self.assertIn("三、結構分析使用之電腦程式", text)
