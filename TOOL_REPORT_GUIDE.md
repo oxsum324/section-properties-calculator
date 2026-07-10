@@ -363,7 +363,7 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 - 簡易結果沒有 `計算內容` 或公式詳列。
 - 詳算式與簡易結果都不列印畫面用的 `適用性檢核`、`採用提醒`、`操作警告` 或防呆說明。
 - `報告閱讀狀態`、`附件適用狀態`、`優先建議報告閱讀狀態`、`頁面專用閱讀狀態` 等 page-only wording 不出現在計算書、列印 PDF、Word / DOCX、workbook 或正式附件。
-- 有自動產生 PDF 的 smoke，應抽取 PDF 文字並檢查頁數、文字量、必要標題與 page-only wording 排除清單，不得只驗 PDF 檔頭；有 HTML 彈窗型計算書時，應將產出的 HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單；有 Word / DOCX / workbook 交付物時，也應抽取 `word/document.xml`、段落 / 表格文字或 workbook cell text，確認正式輸出具備可讀內容且排除 page-only wording。
+- 有自動產生 PDF 的 smoke，應抽取 PDF 文字並檢查頁數、文字量、必要標題與 page-only wording 排除清單，不得只驗 PDF 檔頭；多頁報告另須用 `pdftotext -layout` 確認頁尾沒有與表格列或其他內容落在同一文字行。共用 A4 報告殼層的下邊界至少保留 `18mm`，列印頁尾應跟隨文件流、避免單獨占用新頁，不使用會覆蓋分頁內容的固定定位。有 HTML 彈窗型計算書時，應將產出的 HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單；有 Word / DOCX / workbook 交付物時，也應抽取 `word/document.xml`、段落 / 表格文字或 workbook cell text，確認正式輸出具備可讀內容且排除 page-only wording。
 - 案件資訊只在頁首出現一次。
 - `設計條件` 不抓 `getProjectInfo()`。
 - 隱藏、停用或未勾選欄位不進列印報告。

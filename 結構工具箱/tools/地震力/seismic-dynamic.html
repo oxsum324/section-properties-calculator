@@ -1804,7 +1804,7 @@ function openDynamicReport() {
   const html = `<!doctype html>
   <html lang="zh-TW"><head><meta charset="utf-8"><title>反應譜動力分析規範整理</title>
   <style>
-    @page { size:A4 portrait; margin:18mm 14mm; }
+    @page { size:A4 portrait; margin:18mm 14mm 18mm; }
     body { font-family:"Microsoft JhengHei","PingFang TC",sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
     .toolbar { max-width:800px; margin:0 auto 12px; text-align:right; }
     .toolbar button { background:#0f766e; color:#fff; border:0; padding:8px 18px; border-radius:4px; margin-left:6px; cursor:pointer; }
@@ -1824,7 +1824,7 @@ function openDynamicReport() {
     .rep-footer { position:fixed; left:0; bottom:0; width:100%; padding:0 14mm 8mm; font-size:10px; color:#666; display:flex; justify-content:flex-end; align-items:end; }
     .rep-footer-left { text-align:left; }
     .rep-footer-right { text-align:right; }
-    @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .paper { box-shadow:none; padding:0; max-width:none; } }
+    @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .paper { box-shadow:none; padding:0; max-width:none; } .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; } }
   </style></head>
   <body>
     <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){var hint=document.getElementById('closeHint');if(hint){hint.textContent='瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。';}}},150);})()">✕ 關閉</button><span id="closeHint" style="display:block;margin-top:8px;color:#92400e;font-size:12px;"></span></div>

@@ -1,8 +1,8 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-07-10T15:35:24.282Z",
-  "runId": "20260710-232122",
+  "generatedAt": "2026-07-10T16:39:40.764Z",
+  "runId": "20260711-002515",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -12,7 +12,7 @@
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項只確認正式輸出的可讀文字與頁面專用文字排除，不會把頁面狀態寫入計算書、列印或 PDF。",
-    "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 6 個工具家族；證據來自 release 20260710-232122。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 6 個工具家族；證據來自 release 20260711-002515。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
     "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。"
@@ -26,7 +26,7 @@
   "reportTextSmokeEvidenceRequired": 2,
   "reportTextSmokeEvidenceComplete": 2,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260710-232122",
+  "reportTextSmokeEvidenceRunId": "20260711-002515",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -37,7 +37,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 77.4
+      "seconds": 83.9
     },
     {
       "key": "local-quick-tools-runner",
@@ -48,7 +48,7 @@
       "complete": 3,
       "pass": true,
       "reused": false,
-      "seconds": 21.8
+      "seconds": 22.1
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
@@ -56,7 +56,7 @@
   "renderedDeliveryEvidenceRequired": 31,
   "renderedDeliveryEvidenceComplete": 31,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20260710-232122",
+  "renderedDeliveryEvidenceRunId": "20260711-002515",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "formal-tools",
@@ -84,8 +84,8 @@
     }
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：31 / 31。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260710-232122/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "3772f2b329cc5866cac83c06bd069553bbea7d2861db8eb63ee266a5c6781246",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260711-002515/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "8471fb7ce90f9a7eb3e2bc4b7e53b0c7642b8b6a15c78949dd2ee244291b798f",
   "pageOnlyRoutes": [
     {
       "route": "/steel-beam",
@@ -113,6 +113,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260710-232122/preflight-summary.json",
-  "sourceHash": "ca066841138c0f9db82140304698c7fe05ede09727493173ba21158eb488e10d"
+  "preflightStatusSourcePath": "output/preflight/history/20260711-002515/preflight-summary.json",
+  "sourceHash": "162a695a98a807ed9dd2343d1bed01416e246a57c74c24ef5abdfb786cea9e93"
 }

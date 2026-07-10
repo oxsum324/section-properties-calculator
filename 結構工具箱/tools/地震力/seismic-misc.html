@@ -1493,7 +1493,7 @@ function openMiscReport() {
   <meta charset="utf-8">
   <title>雜項工作物地震力計算書 V3.3</title>
   <style>
-    @page { size: A4 portrait; margin: 18mm 14mm; }
+    @page { size: A4 portrait; margin: 18mm 14mm 18mm; }
     * { box-sizing: border-box; }
     body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
     .rep-toolbar { max-width:800px; margin:0 auto 12px; text-align:right; }
@@ -1549,6 +1549,7 @@ function openMiscReport() {
       .rep-toolbar { display:none; }
       .rep-paper { box-shadow:none; padding:0; max-width:none; }
       .rep-summary { break-inside: avoid; }
+      .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
       .results-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .result-item, .step, .cmp, .rep-input { break-inside: avoid; page-break-inside: avoid; }
     }

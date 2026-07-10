@@ -2,7 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const { validatePdfFile } = require('./rendered-delivery-evidence');
+const { findPdfFooterOverlapLines, validatePdfFile } = require('./rendered-delivery-evidence');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -11,6 +11,54 @@ const inventoryPath = path.join(toolsRoot, 'rendered-delivery-evidence.inventory
 const homePath = path.join(toolboxRoot, 'assets', 'home', 'home.js');
 const inventory = JSON.parse(fs.readFileSync(inventoryPath, 'utf8'));
 const homeSource = fs.readFileSync(homePath, 'utf8');
+
+assert.deepEqual(
+  findPdfFooterOverlapLines('資料列內容   版權所有 弘一工程顧問有限公司').overlaps,
+  [{ line: 1, footer: '版權所有 弘一工程顧問有限公司', text: '資料列內容 版權所有 弘一工程顧問有限公司' }],
+  'rendered delivery evidence detects footer/content overlap'
+);
+assert.deepEqual(
+  findPdfFooterOverlapLines('版權所有 弘一工程顧問有限公司').overlaps,
+  [],
+  'rendered delivery evidence accepts a standalone footer line'
+);
+
+for (const [relativePath, expectedPrintLayouts] of [
+  ['結構工具箱/core/ui/report.js', 1],
+  ['鋼構工具/core/ui/report.js', 1],
+  ['鋼筋混凝土/shared/report.js', 1],
+  ['結構工具箱/core/wind-report.js', 2],
+  ['結構工具箱/tools/風力/wind-fence-sign.html', 1],
+  ['結構工具箱/tools/風力/wind-object-frame.html', 1],
+  ['結構工具箱/tools/風力/wind-lattice-tower.html', 1],
+  ['結構工具箱/tools/風力/wind-object-tower.html', 1],
+  ['結構工具箱/tools/風力/wind-object-solid.html', 1],
+  ['結構工具箱/tools/地震力/seismic-appendage.html', 1],
+  ['結構工具箱/tools/地震力/seismic-dynamic.html', 1],
+  ['結構工具箱/tools/地震力/seismic-force.html', 1],
+  ['結構工具箱/tools/地震力/seismic-misc.html', 1],
+]) {
+  const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  const footerSafeMargins = source.match(/@page\s*\{[^}]*margin:\s*18mm\s+14mm\s+18mm\s*;?\s*\}/g) || [];
+  const flowingPrintFooters = source.match(/\.rep-footer\s*\{\s*position:static;\s*width:auto;\s*padding:0;\s*margin-top:4mm;\s*break-before:avoid-page;\s*page-break-before:avoid;\s*break-inside:avoid;\s*\}/g) || [];
+  assert.ok(footerSafeMargins.length >= expectedPrintLayouts, `${relativePath} reserves footer-safe A4 bottom margin`);
+  assert.ok(flowingPrintFooters.length >= expectedPrintLayouts, `${relativePath} keeps the print footer in document flow`);
+}
+
+for (const relativePath of [
+  '鋼筋混凝土/tools/beam-report-visual.test.js',
+  '鋼筋混凝土/tools/column-report-visual.test.js',
+  '鋼筋混凝土/tools/foundation-report-visual.test.js',
+  '鋼筋混凝土/tools/retrofit-report-visual.test.js',
+  '鋼筋混凝土/tools/shear-wall-report-visual.test.js',
+  '鋼筋混凝土/tools/single-pile-report-visual.test.js',
+  '鋼筋混凝土/tools/slab-report-visual.test.js',
+  '鋼筋混凝土/tools/wall-report-visual.test.js',
+]) {
+  const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  assert.ok(source.includes("bottom: '18mm'"), `${relativePath} renders with footer-safe bottom margin`);
+  assert.equal(source.includes("bottom: '24mm'"), false, `${relativePath} rejects oversized bottom margin that can create footer-only pages`);
+}
 
 function extractConstLiteral(source, name) {
   const prefix = `const ${name} = `;

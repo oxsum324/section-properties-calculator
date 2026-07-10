@@ -18,6 +18,10 @@ const DEFAULT_FORBIDDEN = [
   '不會寫入計算書或列印 PDF',
 ];
 
+const DEFAULT_FOOTER_NEEDLES = [
+  '版權所有 弘一工程顧問有限公司',
+];
+
 function safeName(value) {
   return String(value || 'artifact')
     .normalize('NFKD')
@@ -36,6 +40,30 @@ function decodeText(value) {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function normalizeLayoutLine(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function findPdfFooterOverlapLines(layoutText, footerNeedles = DEFAULT_FOOTER_NEEDLES) {
+  const needles = [...new Set((footerNeedles || []).map(normalizeLayoutLine).filter(Boolean))];
+  const overlaps = [];
+  let footerLineCount = 0;
+  String(layoutText || '').split(/\r?\n/).forEach((line, index) => {
+    const normalized = normalizeLayoutLine(line);
+    if (!normalized) return;
+    for (const needle of needles) {
+      const marker = needle.split(' ')[0];
+      if (!normalized.includes(marker)) continue;
+      footerLineCount += 1;
+      if (normalized !== needle) {
+        overlaps.push({ line: index + 1, footer: needle, text: normalized });
+      }
+      break;
+    }
+  });
+  return { footerLineCount, overlaps };
 }
 
 function resolveEvidenceDir(repoRoot, family) {
@@ -120,8 +148,19 @@ function validatePdfFile(pdfPath, options) {
 
   const textPath = pdfPath.replace(/\.pdf$/i, '.txt');
   run('pdftotext', ['-layout', pdfPath, textPath], `${options.label} pdftotext`);
-  const text = decodeText(fs.readFileSync(textPath, 'utf8'));
+  const layoutText = fs.readFileSync(textPath, 'utf8');
+  const text = decodeText(layoutText);
   assert.ok(text.length >= (options.minTextLength || 300), `${options.label} PDF has readable text: chars=${text.length}`);
+
+  const footerLayout = findPdfFooterOverlapLines(
+    layoutText,
+    options.footerNeedles || DEFAULT_FOOTER_NEEDLES
+  );
+  assert.deepEqual(
+    footerLayout.overlaps,
+    [],
+    `${options.label} PDF footer does not overlap report content: ${JSON.stringify(footerLayout.overlaps)}`
+  );
 
   const required = [...new Set((options.requiredNeedles || []).map(decodeText).filter(Boolean))];
   for (const needle of required) {
@@ -159,7 +198,7 @@ function validatePdfFile(pdfPath, options) {
         `${options.label} PDF page ${index + 1} content is not clipped at page edges: ${JSON.stringify(page.bounds)}`
       );
     }
-    return { pageCount, textLength: text.length, textPath, pages };
+    return { pageCount, textLength: text.length, textPath, footerLineCount: footerLayout.footerLineCount, pages };
   } finally {
     fs.rmSync(renderDir, { recursive: true, force: true });
   }
@@ -290,6 +329,8 @@ function writeEvidenceSummary(outputDir, family, records, expectedKeys = []) {
 
 module.exports = {
   DEFAULT_FORBIDDEN,
+  DEFAULT_FOOTER_NEEDLES,
+  findPdfFooterOverlapLines,
   resolveEvidenceDir,
   renderAndValidateReportPdf,
   validatePdfFile,

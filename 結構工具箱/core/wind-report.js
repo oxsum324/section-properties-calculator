@@ -698,7 +698,7 @@ function closeReportWindow() {
 <meta charset="utf-8">
 <title>${esc(title)} 計算書</title>
 <style>
-@page { size: A4 portrait; margin: 18mm 14mm; }
+@page { size: A4 portrait; margin: 18mm 14mm 18mm; }
 * { box-sizing: border-box; }
 body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
 .rep-paper { max-width: 980px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
@@ -745,6 +745,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
   .rep-paper { box-shadow:none; padding:0; max-width:none; }
+  .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 </style>
 </head>
@@ -833,7 +834,7 @@ ${reportWindowScriptHtml()}
 <meta charset="utf-8">
 <title>${esc(title)} 計算書</title>
 <style>
-@page { size: A4 portrait; margin: 18mm 14mm; }
+@page { size: A4 portrait; margin: 18mm 14mm 18mm; }
 * { box-sizing: border-box; }
 body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-ui, sans-serif; color:#111; margin:0; padding:24px; background:#f4f4f4; }
 .rep-paper { max-width: 980px; margin:0 auto; background:#fff; padding:32px 36px; box-shadow:0 2px 12px rgba(0,0,0,.08); }
@@ -876,6 +877,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
   .rep-paper { box-shadow:none; padding:0; max-width:none; }
+  .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 </style>
 </head>
