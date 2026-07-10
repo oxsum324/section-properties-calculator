@@ -121,10 +121,12 @@
     compactSummary: '頁面上的「優先建議報告閱讀狀態」僅供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。',
     reportTextSmokeSummary: '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理。',
     reportTextSmokeScope: '正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具與局部快算。矩陣外工具家族仍以各自報告合約治理。',
+    renderedDeliveryEvidenceSummary: '最新正式放行的實際交付物渲染會以 PDF、DOCX 或 workbook 成品驗證首頁正式工具。',
     meta: [
       { text: '頁面邊界', tone: 'ok' },
       { text: '可讀文字', tone: 'ok' },
-      { text: '瀏覽器 smoke', tone: 'ok' }
+      { text: '瀏覽器 smoke', tone: 'ok' },
+      { text: '成品渲染', tone: 'ok' }
     ],
     details: [
       '已治理家族涵蓋風力 / 地震 / 鋼構正式工具、RC 正式工具、連續梁 / 斷面與補強頁、平面剛架、錨栓、石材、覆工板、開挖擋土支撐與局部快算。',
@@ -1162,7 +1164,8 @@
     return [
       ratio('頁面邊界', payload.pageOnlyBoundaryComplete, payload.pageOnlyBoundaryRequired, payload.pageOnlyBoundaryIssueCount),
       ratio('可讀文字', payload.reportTextSmokeComplete, payload.reportTextSmokeRequired, payload.reportTextSmokeIssueCount),
-      ratio('瀏覽器 smoke', payload.reportTextSmokeEvidenceComplete, payload.reportTextSmokeEvidenceRequired, payload.reportTextSmokeEvidenceIssueCount)
+      ratio('瀏覽器 smoke', payload.reportTextSmokeEvidenceComplete, payload.reportTextSmokeEvidenceRequired, payload.reportTextSmokeEvidenceIssueCount),
+      ratio('成品渲染', payload.renderedDeliveryEvidenceComplete, payload.renderedDeliveryEvidenceRequired, payload.renderedDeliveryEvidenceIssueCount)
     ].filter(Boolean);
   }
 
@@ -1180,6 +1183,7 @@
         : reportReadinessOverview.details,
       reportTextSmokeSummary: (Array.isArray(payload.details) ? payload.details : []).find(item => String(item || '').includes('正式計算書可讀文字抽檢')) || reportReadinessOverview.reportTextSmokeSummary,
       reportTextSmokeScope: payload.reportTextSmokeScope || reportReadinessOverview.reportTextSmokeScope,
+      renderedDeliveryEvidenceSummary: payload.renderedDeliveryEvidenceSummary || reportReadinessOverview.renderedDeliveryEvidenceSummary,
       meta: reportReadinessStatusMeta(payload, reportReadinessOverview.meta),
       pass: payload.pass !== false
     };
@@ -1188,7 +1192,7 @@
   function renderReportReadinessStatus(payload = null) {
     if (!elements.reportReadinessStatus) return;
     const card = reportReadinessCardData(payload);
-    const detailText = [card.compactSummary, card.reportTextSmokeScope].filter(Boolean).join(' ');
+    const detailText = [card.compactSummary, card.renderedDeliveryEvidenceSummary, card.reportTextSmokeScope].filter(Boolean).join(' ');
     renderStaticStatusCard(
       elements.reportReadinessStatus,
       card.badge,

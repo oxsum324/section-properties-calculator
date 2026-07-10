@@ -5,15 +5,16 @@
 ## 目前狀態
 
 - 工作樹基準：最新 HEAD 與遠端同步狀態以 `git status -sb`、`git log -1 --oneline` 為準，本文件不硬編碼自我引用的最新 commit hash，避免提交後立即失真。
-- 狀態快照基準提交：`60f3c18 Update release status snapshots`，其公開快照指向正式放行證據 `20260710-053304`。
+- 狀態快照證據基準：以 tracked `結構工具箱/assets/status/preflight-summary.json` 與 `report-readiness-status.json` 的 `runId`、`sourcePath`、`sourceHash` 為準；承載提交由 `git log -1 --oneline` 查詢，不在本 ledger 重複硬編碼。
 - 已落地提交：
   - `4944fa7 Harden page-only report readiness release evidence`
   - `b1a534e Expand report boundary governance across tools`
   - `d530816 Refresh anchor deployment assets`
   - `60f3c18 Update release status snapshots`
-- 公開狀態快照正式放行基準：`runId=20260710-053304`，`quick=false`、`ForcePlatformAudit=true`、`ForceSlowChecks=true`、`49/49` 通過，post checks `3/3` 通過。
-- 公開狀態快照發布基準：workflow run `29052463494`，`Pages deploy` completed/success；後續文件治理提交的最新 Pages run 以 `gh run list --limit 1` 為準，不在本 ledger 硬編碼。
-- 報告閱讀狀態：`頁面專用`，page-only boundary `4/4`，issue `0`；此總覽只能出現在頁面或工具本身，不得附入計算書、列印輸出或 PDF。
+  - `2029758 Enforce formal attachment boundaries and rendered release evidence`
+- 公開狀態快照正式放行基準：上述 tracked JSON 必須為 `quick=false`、`ForcePlatformAudit=true`、`ForceSlowChecks=true`、`recordsCount=passedCount`、post checks 全數通過，且沒有慢測或平台巡檢重用；當前 `runId` 直接讀取 JSON，不在本 ledger 複製。
+- 公開狀態快照發布基準：最新 `Pages deploy` 必須為 completed/success，並以 `gh run list --workflow "Pages deploy" --limit 1` 查詢；workflow run ID 不在本 ledger 硬編碼。
+- 報告閱讀狀態：`頁面專用`，page-only boundary `4/4`、可讀文字 `17/17`、瀏覽器 smoke `2/2`、正式放行實際交付物渲染 `31/31`，issue `0`；此總覽只能出現在頁面或工具本身，不得附入計算書、列印輸出或 PDF，也不得寫入 Word / DOCX 或 workbook。
 - 下列 A0~G 是下次同類變更的分包 playbook，不是目前待 staging 清單。
 
 ## A0. 報告閱讀狀態與 Pages release governance

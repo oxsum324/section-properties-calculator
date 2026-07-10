@@ -63,7 +63,7 @@
 | `結構工具箱/tools/audit-dashboard-browser-smoke.test.js` | 納入 | 巡檢儀表板瀏覽器 smoke；用 fixture 驅動 dashboard，並拒絕任何未列入 fixture map 的 `output/` 請求，確認 latest record 表格、pass/fail 狀態、exitCode、latest/history log 連結、preflight history、成熟度矩陣與頁面專用報告閱讀狀態邊界提醒在真實 Edge/CDP 渲染下可用。 |
 | `結構工具箱/index.html` | 納入 | 正式工具箱首頁（弘一設計系統新版，依 `home.js` 單一資料源）；原公文版主選單保留為 `結構工具箱/index-classic.html` 可回退，clean route `/toolbox-home` 導向首頁。 |
 | `結構工具箱/assets/home/` | 納入 | 首頁 Web App 的資料驅動工具清單、分類樣式與 inline SVG 小圖示；不再使用分類圖片資產。 |
-| `結構工具箱/assets/status/` | 納入 | GitHub Pages 可讀的首頁公開狀態快照；由 `tool-maturity-matrix.js --write` 從 git ignored `output/` 精簡產生，只保留狀態、runId、失敗數、筆數、耗時與 sourceHash 等公開欄位，不保留本機絕對路徑。首頁健康卡需直接用這組快照顯示 `完整檢查` / `快速檢查` / `正式放行` 與 `runId`，避免讀者把 quick run 誤判成正式交付證據；quick preflight 應保留這組 tracked 快照，正式放行或刻意刷新首頁狀態時才 staging。 |
+| `結構工具箱/assets/status/` | 納入 | GitHub Pages 可讀的首頁公開狀態快照；由 `tool-maturity-matrix.js --write` 從 git ignored `output/` 精簡產生，只保留狀態、runId、失敗數、筆數、耗時與 sourceHash 等公開欄位，不保留本機絕對路徑。報告閱讀狀態快照另保留最近一次正式放行的實際交付物渲染完成數、工具家族、release runId、相對證據路徑與 hash，但不得發布交付檔名或案件內容。首頁健康卡需直接用這組快照顯示 `完整檢查` / `快速檢查` / `正式放行` 與 `runId`，避免讀者把 quick run 誤判成正式交付證據；quick preflight 應保留這組 tracked 快照，正式放行或刻意刷新首頁狀態時才 staging。 |
 | `結構工具箱/assets/hy/colors_and_type.css` | 納入 | 弘一首頁設計 token；只使用本機 / 系統字型，不載入遠端 Google Fonts，確保離線 preflight 與現場瀏覽器可用。 |
 | `螺栓檢討/bolt-review-tool/` | 保持原工具碼與 deploy 輸出分流 | 原始 React 工具用 npm verify；`anchor/` 是部署鏡像。修改原始碼後先跑 `sync-anchor-deployment.ps1`，再跑 preflight。新增規範路線時同步更新 `src/anchor-traceability.catalog.json` 與 `src/anchorTraceabilityCatalog.test.ts`；調整計算書、workbook、docx 或頁面專用附件閱讀狀態時，需一併更新 repo 層 `螺栓檢討/anchor-report.contract.test.js`。 |
 

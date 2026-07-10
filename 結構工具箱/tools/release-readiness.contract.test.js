@@ -160,6 +160,10 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'rendered-delivery-evidence',
   '實際交付物渲染佐證',
   'tool maturity matrix rendered delivery evidence gate passed',
+  'function isRenderedDeliveryRelease',
+  'function resolveRenderedDeliveryEvidenceSource',
+  'renderedDeliveryEvidenceRequired',
+  'renderedDeliveryEvidenceSourceHash',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
 
 [

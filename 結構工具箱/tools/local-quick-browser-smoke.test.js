@@ -1175,13 +1175,14 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
   assert.equal(state.hasCategoryArt, false, `${label} new home category art`);
   assert.ok(state.cardCount >= tools.length, `${label} new home card count`);
   assert.equal(state.reportReadinessStatusBadge, '頁面專用', `${label} new home report readiness badge`);
-  ['頁面邊界', '可讀文字', '瀏覽器 smoke'].forEach(metric => {
+  ['頁面邊界', '可讀文字', '瀏覽器 smoke', '成品渲染'].forEach(metric => {
     assert.ok(state.reportReadinessStatusMeta.some(item => item.startsWith(metric)), `${label} new home report readiness metric: ${metric}`);
   });
   assert.ok(state.reportReadinessStatusText.includes('報告閱讀狀態總覽'), `${label} new home report readiness summary card`);
   assert.ok(state.reportReadinessStatusText.includes('優先建議報告閱讀狀態'), `${label} new home report readiness wording`);
   assert.ok(state.reportReadinessStatusText.includes('不會寫入計算書、列印或 PDF'), `${label} new home report readiness export boundary`);
   assert.ok(state.reportReadinessStatusText.includes('正式計算書可讀文字抽檢'), `${label} new home report text coverage`);
+  assert.ok(state.reportReadinessStatusText.includes('實際交付物渲染'), `${label} new home rendered delivery evidence`);
   for (const statusId of ['platformStatus', 'preflightStatus', 'reportReadinessStatus']) {
     assert.ok(state.statusRegions?.[statusId], `${label} new home ${statusId} live-region metadata`);
   }
@@ -1197,6 +1198,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
     assert.ok(state.reportReadinessStatusMeta.includes('頁面邊界 4 / 4'), `${label} new home report readiness page-only metric`);
     assert.ok(state.reportReadinessStatusMeta.includes('可讀文字 17 / 17'), `${label} new home report readiness report-text metric`);
     assert.ok(state.reportReadinessStatusMeta.includes('瀏覽器 smoke 2 / 2'), `${label} new home report readiness runtime metric`);
+    assert.ok(state.reportReadinessStatusMeta.includes('成品渲染 31 / 31'), `${label} new home report readiness rendered delivery metric`);
     assert.ok(state.reportReadinessStatusText.includes('風力 / 地震正式工具') && state.reportReadinessStatusText.includes('局部快算'), `${label} new home report text scope`);
   }
   assert.ok(state.rcBeamMeta.includes('報告邊界'), `${label} new home RC beam exposes report boundary chip`);

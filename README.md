@@ -25,7 +25,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/index.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/index.html:1)
 - 平台巡檢儀表板：
   [結構工具箱/audit-dashboard.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/audit-dashboard.html:1)
-  可直接檢視平台 history、preflight latest / full / quick、近期異常趨勢、耗時與最慢檢查，並固定提醒頁面上的「優先建議報告閱讀狀態」不會寫入計算書、列印或 PDF。
+  可直接檢視平台 history、preflight latest / full / quick、近期異常趨勢、耗時與最慢檢查，並固定提醒頁面上的「優先建議報告閱讀狀態」不會寫入計算書、列印或 PDF。首頁的頁面專用總覽另會顯示最近一次正式放行的實際交付物渲染完成數，但公開快照不包含交付檔名或案件內容。
 - 鋼構正式規範工具：
   [鋼構工具/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/index.html:1)
 - 鋼構正式頁 regression：

@@ -17,6 +17,7 @@ const platformStatusSourcePath = path.join(repoRoot, 'output', 'audit', 'platfor
 const preflightSummarySourcePath = path.join(repoRoot, 'output', 'preflight', 'preflight-summary.json');
 const preflightHistorySourcePath = path.join(repoRoot, 'output', 'preflight', 'preflight-history.json');
 const preflightHistoryDir = path.join(repoRoot, 'output', 'preflight', 'history');
+const renderedDeliveryEvidenceSummaryName = 'rendered-delivery-evidence-summary.json';
 const NA = 'n/a';
 const UPGRADE_TARGETS = [
   { key: 'reportModes', label: '報告簡版 / 詳版模式', priority: 'P1' },
@@ -1494,6 +1495,65 @@ function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
   };
 }
 
+function isRenderedDeliveryRelease(payload) {
+  return Boolean(
+    payload
+    && payload.quick === false
+    && payload.forcePlatformAudit === true
+    && payload.forceSlowChecks === true
+    && payload.pass === true
+    && compactNumber(payload.slowReuseCount) === 0
+    && payload.platformAuditReused === false
+  );
+}
+
+function renderedDeliveryEvidencePathForRun(runId) {
+  return path.join(
+    preflightHistoryDir,
+    String(runId || ''),
+    'rendered-delivery-evidence',
+    renderedDeliveryEvidenceSummaryName
+  );
+}
+
+function resolveRenderedDeliveryEvidenceSource() {
+  const history = readJsonIfExists(preflightHistorySourcePath);
+  const releaseSource = findLatestPreflightHistorySummary(
+    summary => {
+      if (!isRenderedDeliveryRelease(summary)) return false;
+      const evidence = tryReadJsonIfExists(renderedDeliveryEvidencePathForRun(summary.runId));
+      return Boolean(
+        evidence
+        && evidence.kind === 'release-rendered-delivery-evidence'
+        && evidence.runId === summary.runId
+        && evidence.pass === true
+        && Number.isInteger(evidence.required)
+        && Number.isInteger(evidence.complete)
+        && evidence.complete === evidence.required
+      );
+    },
+    history?.items
+  );
+  if (!releaseSource) return null;
+
+  const filePath = renderedDeliveryEvidencePathForRun(releaseSource.payload.runId);
+  const evidence = readJsonIfExists(filePath);
+  const familyCounts = new Map();
+  for (const record of Array.isArray(evidence?.records) ? evidence.records : []) {
+    const family = String(record?.family || '').trim();
+    if (!family) continue;
+    familyCounts.set(family, (familyCounts.get(family) || 0) + 1);
+  }
+  return {
+    payload: evidence,
+    families: Array.from(familyCounts, ([family, complete]) => ({ family, complete }))
+      .sort((left, right) => left.family.localeCompare(right.family)),
+    filePath,
+    sourcePath: displayPath(filePath),
+    sourceHash: sourceHashIfExists(filePath)
+  };
+}
+
 function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
   const rows = Array.isArray(matrixPayload?.rows) ? matrixPayload.rows : [];
   const records = Array.isArray(preflightPayload?.records) ? preflightPayload.records : [];
@@ -1540,7 +1600,7 @@ function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
   };
 }
 
-function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflightStatus = null, preflightPayload = null) {
+function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflightStatus = null, preflightPayload = null, renderedDeliveryEvidence = null) {
   if (!matrixPayload) return null;
   const entrypointCoverage = matrixPayload.entrypointCoverage || {};
   const boundaryRoutes = Array.isArray(entrypointCoverage.boundaryRoutes) ? entrypointCoverage.boundaryRoutes : [];
@@ -1554,12 +1614,22 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const reportTextSmokeRequired = reportTextSmokeEvidence.required;
   const reportTextSmokeComplete = reportTextSmokeEvidence.complete;
   const reportTextSmokeIssueCount = reportTextSmokeEvidence.issueCount;
+  const renderedDeliveryPayload = renderedDeliveryEvidence?.payload || null;
+  const renderedDeliveryRequired = compactNumber(renderedDeliveryPayload?.required);
+  const renderedDeliveryComplete = compactNumber(renderedDeliveryPayload?.complete);
+  const renderedDeliveryIssueCount = renderedDeliveryPayload?.pass === true
+    ? Math.max(0, renderedDeliveryRequired - renderedDeliveryComplete)
+    : Math.max(1, renderedDeliveryRequired - renderedDeliveryComplete);
+  const renderedDeliveryFamilies = Array.isArray(renderedDeliveryEvidence?.families)
+    ? renderedDeliveryEvidence.families
+    : [];
   const summary = `頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
     pageOnlyTitles.length
       ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
     `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項只確認正式輸出的可讀文字與頁面專用文字排除，不會把頁面狀態寫入計算書、列印或 PDF。`,
+    `正式放行實際交付物渲染佐證：${renderedDeliveryComplete} / ${renderedDeliveryRequired} 個首頁正式工具已完成，涵蓋 ${renderedDeliveryFamilies.length} 個工具家族；證據來自 release ${String(renderedDeliveryPayload?.runId || '-')}。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。`,
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
@@ -1569,8 +1639,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount),
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -1589,6 +1659,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     reportTextSmokeEvidenceGates: reportTextSmokeEvidence.gates,
     reportTextSmokeEvidenceUnmappedFamilies: reportTextSmokeEvidence.unmappedFamilies,
     reportTextSmokeScope: reportTextSmokeEvidence.scope,
+    renderedDeliveryEvidenceRequired: renderedDeliveryRequired,
+    renderedDeliveryEvidenceComplete: renderedDeliveryComplete,
+    renderedDeliveryEvidenceIssueCount: renderedDeliveryIssueCount,
+    renderedDeliveryEvidenceRunId: String(renderedDeliveryPayload?.runId || ''),
+    renderedDeliveryEvidenceFamilies: renderedDeliveryFamilies,
+    renderedDeliveryEvidenceSummary: `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`,
+    renderedDeliveryEvidenceSourcePath: String(renderedDeliveryEvidence?.sourcePath || ''),
+    renderedDeliveryEvidenceSourceHash: String(renderedDeliveryEvidence?.sourceHash || ''),
     pageOnlyRoutes: pageOnlyRoutes.map(item => ({
       route: String(item.route || ''),
       title: String(item.title || ''),
@@ -1605,7 +1683,8 @@ function writeHomepageStatusSnapshots(matrixPayload = null, matrixSourceHash = '
   const platformStatus = buildHomepagePlatformStatus(readJsonIfExists(platformStatusSourcePath));
   const preflightSource = resolveHomepagePreflightSource();
   const preflightStatus = buildHomepagePreflightStatus(preflightSource.payload, preflightSource.filePath, preflightSource.sourcePath);
-  const reportReadinessStatus = buildHomepageReportReadinessStatus(matrixPayload, matrixSourceHash || sourceHashIfExists(jsonOutputPath), preflightStatus, preflightSource.payload);
+  const renderedDeliveryEvidence = resolveRenderedDeliveryEvidenceSource();
+  const reportReadinessStatus = buildHomepageReportReadinessStatus(matrixPayload, matrixSourceHash || sourceHashIfExists(jsonOutputPath), preflightStatus, preflightSource.payload, renderedDeliveryEvidence);
   fs.mkdirSync(homepageStatusDir, { recursive: true });
   if (platformStatus) {
     fs.writeFileSync(homepagePlatformStatusPath, `${JSON.stringify(platformStatus, null, 2)}\n`, 'utf8');
@@ -1857,12 +1936,25 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.equal(gate.pass, true, `homepage report readiness report text evidence gate pass: ${gate.key}`);
     assert.equal(gate.complete, gate.required, `homepage report readiness report text evidence gate coverage: ${gate.key}`);
   }
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired), true, 'homepage report readiness rendered delivery required integer');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete), true, 'homepage report readiness rendered delivery complete integer');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount), true, 'homepage report readiness rendered delivery issue integer');
+  assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceRequired, 31, 'homepage report readiness rendered delivery covers every formal homepage tool');
+  assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceComplete, homepageReportReadinessStatus.renderedDeliveryEvidenceRequired, 'homepage report readiness rendered delivery evidence complete');
+  assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'homepage report readiness rendered delivery evidence issues empty');
+  assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceRunId, /^\d{8}-\d{6}$/, 'homepage report readiness rendered delivery runId');
+  assert.equal(Array.isArray(homepageReportReadinessStatus.renderedDeliveryEvidenceFamilies), true, 'homepage report readiness rendered delivery families array');
+  assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceFamilies.reduce((sum, family) => sum + family.complete, 0), homepageReportReadinessStatus.renderedDeliveryEvidenceComplete, 'homepage report readiness rendered delivery family totals match');
+  assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${homepageReportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/${renderedDeliveryEvidenceSummaryName}`, 'homepage report readiness rendered delivery source path');
+  assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
+  assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
   assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
   assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');
   assert.ok(String(homepageReportReadinessStatus.summary || '').includes('優先建議報告閱讀狀態'), 'homepage report readiness summary keeps boundary wording');
   assert.ok(String(homepageReportReadinessStatus.summary || '').includes('頁面專用閱讀狀態治理'), 'homepage report readiness summary includes governance count');
   assert.ok(Array.isArray(homepageReportReadinessStatus.details) && homepageReportReadinessStatus.details.length >= 3, 'homepage report readiness details array');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式計算書可讀文字抽檢'), 'homepage report readiness details include report text coverage');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式放行實際交付物渲染佐證'), 'homepage report readiness details include actual rendered delivery coverage');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('Kzt 地形係數'), 'homepage report readiness details include wind kzt');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('特殊修正 / 折減'), 'homepage report readiness details include wind special');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊案延續頁'), 'homepage report readiness details include steel beam transition page');
