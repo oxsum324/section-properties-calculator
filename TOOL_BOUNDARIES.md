@@ -41,7 +41,7 @@
 | `結構工具箱/tools/local-quick-export.test.js` | 納入 | JSON 匯出 helper 的 Node stub regression；驗證 payload、預設檔名、MIME、click/remove/revoke 與 Infinity/NaN 序列化，不依賴瀏覽器下載事件。 |
 | `結構工具箱/tools/project-storage.test.js` | 納入 | 共用專案欄位儲存 helper 的 Node regression；驗證 `未填` placeholder 會在 collect/apply/build payload 前被正規化為空字串，並確認專案名稱、編號、設計者欄位會先 trim 再進入跨工具 JSON / 報表 metadata。preflight JS 執行檔清冊需固定列入此測試，避免 project storage 與頁面報表的 placeholder 清理邏輯漂移。 |
 | `結構工具箱/tools/local-quick-output-consistency.test.js` | 納入 | 局部快算跨輸出一致性 regression；以 manifest + golden cases 驗證 core result、JSON payload、summary/checks、schema、provenance 與 HTML 匯出/report metadata 的工具身份一致。 |
-| `結構工具箱/tools/local-quick-browser-smoke.test.js` | 納入 | 局部快算 Edge/CDP 瀏覽器 smoke；啟動臨時靜態 server 並模擬 `vercel.json` rewrites，在 desktop/mobile viewport 載入首頁、乾淨路由與三個工具頁，檢查初始計算、JSON 匯出按鈕 payload、設備 / 土壓 JSON round-trip、列印計算書 metadata、script、console error 與橫向溢出。 |
+| `結構工具箱/tools/local-quick-browser-smoke.test.js` | 納入 | 局部快算 Edge/CDP 瀏覽器 smoke；啟動臨時靜態 server 並模擬 `vercel.json` rewrites，在 desktop/mobile viewport 載入首頁、乾淨路由與三個工具頁，檢查初始計算、JSON 匯出按鈕 payload、設備 / 土壓 JSON round-trip、詳算式與簡易結果列印計算書 metadata / 可讀文字、page-only wording 排除清單、script、console error 與橫向溢出。 |
 | `結構工具箱/tools/formal-tools.manifest.json` | 納入 | 風力 / 地震正式工具清冊；集中記錄 14 個正式頁的路由、報表、JSON、示意圖、pilot golden cases 與 regression 期望，避免首頁、`vercel.json`、smoke 與文件漂移。 |
 | `結構工具箱/tools/formal-tools.run.js` | 納入 | 正式工具 manifest runner；由清冊呼叫共同契約與正式頁 Edge 瀏覽器 smoke。工具成熟度矩陣由 `preflight-tools.ps1` 在主檢查 summary 寫出後統一重產與檢查，避免新增 governance key 時讀到舊 summary。 |
 | `結構工具箱/tools/formal-tools.contract.test.js` | 納入 | 正式工具共同契約測試；集中確認 14 個正式工具檔案、首頁入口、乾淨路由、文件邊界、報表分流、示意圖角色、HTML 彈窗型計算書可讀文字抽檢與 golden case 欄位。 |

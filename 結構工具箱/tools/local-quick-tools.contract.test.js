@@ -205,6 +205,8 @@ const ExportHelper = require(exportHelperPath);
   'btnPrint',
   'assertReportState',
   'assertPlaceholderReportState',
+  'reportHtmlText',
+  'visible report text',
   "reportExpression('summary')",
   "reportExpression('detailed')",
   "jsonExportExpression('placeholder')",

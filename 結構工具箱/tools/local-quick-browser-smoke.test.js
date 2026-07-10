@@ -21,6 +21,29 @@ const viewports = [
   { key: 'mobile', width: 390, height: 844, mobile: true },
 ];
 
+const pageOnlyReportStatusNeedles = [
+  '產報前檢查',
+  '優先閱讀',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書或列印 PDF',
+];
+
+function reportHtmlText(reportHtml) {
+  return String(reportHtml || '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function toolboxFile(relativePath) {
   return path.join(toolboxRoot, ...relativePath.split('/'));
 }
@@ -1408,14 +1431,17 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   requiredNeedles.forEach(needle => {
     assert.ok(state.html.includes(needle), `${label} ${tool.key} report includes ${needle}`);
   });
-  [
-    '產報前檢查',
-    '優先閱讀',
-    '頁面輔助',
-    '公司內部整理計算附件',
-    '不會寫入計算書或列印 PDF'
-  ].forEach(needle => {
+  const visibleText = reportHtmlText(state.html);
+  assert.ok(
+    visibleText.length >= (mode === 'summary' ? 320 : 520),
+    `${label} ${tool.key} visible report text is substantial: chars=${visibleText.length}`
+  );
+  requiredNeedles.forEach(needle => {
+    assert.ok(visibleText.includes(needle), `${label} ${tool.key} visible report text includes ${needle}`);
+  });
+  pageOnlyReportStatusNeedles.forEach(needle => {
     assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report excludes page-only readiness ${needle}`);
+    assert.equal(visibleText.includes(needle), false, `${label} ${tool.key} visible report text excludes page-only readiness ${needle}`);
   });
 }
 
@@ -1448,6 +1474,7 @@ function assertPlaceholderReportState(state, tool, label, mode = 'detailed') {
 
 function assertLegacyReportState(state, legacyTool, label) {
   const missingProjectMetaPattern = /計畫名稱 \/ 編號 \/ 設計人尚未完整，附件識別不足/;
+  const visibleText = reportHtmlText(state.html);
   assert.equal(state.projectMetaState, 'complete', `${label} ${legacyTool.key} report project state`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} report open count`);
   assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} report document open`);
@@ -1458,6 +1485,14 @@ function assertLegacyReportState(state, legacyTool, label) {
   assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${legacyTool.key} report project no`);
   assert.ok(state.html.includes('Codex QA'), `${label} ${legacyTool.key} report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${legacyTool.key} report excludes raw placeholder project text`);
+  assert.ok(visibleText.length >= 420, `${label} ${legacyTool.key} visible report text is substantial: chars=${visibleText.length}`);
+  ['計算書', '局部工具驗證案', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
+    assert.ok(visibleText.includes(needle), `${label} ${legacyTool.key} visible report text includes ${needle}`);
+  });
+  pageOnlyReportStatusNeedles.forEach(needle => {
+    assert.equal(state.html.includes(needle), false, `${label} ${legacyTool.key} report excludes page-only readiness ${needle}`);
+    assert.equal(visibleText.includes(needle), false, `${label} ${legacyTool.key} visible report text excludes page-only readiness ${needle}`);
+  });
   assert.ok(state.pageOnlyReadinessText.includes('優先閱讀'), `${label} ${legacyTool.key} page readiness priority`);
   assert.ok(state.pageOnlyReadinessText.includes('不會寫入計算書或列印 PDF'), `${label} ${legacyTool.key} page readiness boundary`);
   assert.equal(missingProjectMetaPattern.test(state.pageOnlyReadinessText), false, `${label} ${legacyTool.key} page readiness refreshes after project metadata`);
@@ -1465,6 +1500,7 @@ function assertLegacyReportState(state, legacyTool, label) {
 
 function assertLegacyPlaceholderReportState(state, legacyTool, label) {
   const missingProjectMetaPattern = /計畫名稱 \/ 編號 \/ 設計人尚未完整，附件識別不足/;
+  const visibleText = reportHtmlText(state.html);
   assert.equal(state.projectMetaState, 'placeholder', `${label} ${legacyTool.key} placeholder report project state`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} placeholder report open count`);
   assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} placeholder report document open`);
@@ -1476,6 +1512,14 @@ function assertLegacyPlaceholderReportState(state, legacyTool, label) {
   assert.ok(state.html.includes('Codex QA'), `${label} ${legacyTool.key} placeholder report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${legacyTool.key} placeholder report excludes raw placeholder project text`);
   assert.equal(state.html.includes('局部工具驗證案'), false, `${label} ${legacyTool.key} placeholder report excludes completed project name`);
+  assert.ok(visibleText.length >= 420, `${label} ${legacyTool.key} placeholder visible report text is substantial: chars=${visibleText.length}`);
+  ['計算書', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
+    assert.ok(visibleText.includes(needle), `${label} ${legacyTool.key} placeholder visible report text includes ${needle}`);
+  });
+  pageOnlyReportStatusNeedles.forEach(needle => {
+    assert.equal(state.html.includes(needle), false, `${label} ${legacyTool.key} placeholder report excludes page-only readiness ${needle}`);
+    assert.equal(visibleText.includes(needle), false, `${label} ${legacyTool.key} placeholder visible report text excludes page-only readiness ${needle}`);
+  });
   assert.ok(state.pageOnlyReadinessText.includes('優先閱讀'), `${label} ${legacyTool.key} placeholder readiness priority`);
   assert.equal(missingProjectMetaPattern.test(state.pageOnlyReadinessText), true, `${label} ${legacyTool.key} placeholder readiness treats placeholder metadata as missing`);
 }
