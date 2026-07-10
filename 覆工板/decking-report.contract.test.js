@@ -45,8 +45,16 @@ function readDocxPayload(docxPath) {
 import sys, json, zipfile, re
 with zipfile.ZipFile(sys.argv[1]) as z:
     data = z.read('word/document.xml').decode('utf-8')
+    names = z.namelist()
 text = re.sub(r'<[^>]+>', '', data)
-print(json.dumps({"xml": data, "text": text}, ensure_ascii=False))
+print(json.dumps({
+    "xml": data,
+    "text": text,
+    "paragraphCount": len(re.findall(r'<w:p(?:\\s|>)', data)),
+    "tableCount": len(re.findall(r'<w:tbl(?:\\s|>)', data)),
+    "sectionCount": len(re.findall(r'[一二三四五六七八九十]+、', text)),
+    "imageCount": len([n for n in names if n.startswith('word/media/')]),
+}, ensure_ascii=False))
 `;
   const stdout = runPython(['-c', script, docxPath], 'decking report document.xml extraction');
   return JSON.parse(stdout);
@@ -98,6 +106,10 @@ assert(fs.existsSync(outPath), 'decking report output exists', outPath);
 assert(fs.statSync(outPath).size > 0, 'decking report output is non-empty', String(fs.statSync(outPath).size));
 
 const docxPayload = readDocxPayload(outPath);
+assert(docxPayload.text.length > 2500, 'decking docx has substantial report text', `${docxPayload.text.length} chars`);
+assert(docxPayload.paragraphCount >= 60, 'decking docx paragraph structure is populated', `${docxPayload.paragraphCount} paragraphs`);
+assert(docxPayload.tableCount >= 6, 'decking docx table structure is populated', `${docxPayload.tableCount} tables`);
+assert(docxPayload.sectionCount >= 8, 'decking docx keeps expected section structure', `${docxPayload.sectionCount} sections`);
 assert(docxPayload.xml.includes('覆工板系統結構計算書'), 'decking docx keeps report title in XML', '覆工板系統結構計算書');
 assert(docxPayload.text.includes('覆工板系統結構計算書'), 'decking docx report title', '覆工板系統結構計算書');
 assert(docxPayload.text.includes('一、計算結果總表'), 'decking docx summary section', '一、計算結果總表');
