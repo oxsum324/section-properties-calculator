@@ -24,6 +24,9 @@
   .btn-print { display:inline-block; margin-top:8px; padding:8px 18px; background:#0891b2; color:#fff;
     border:0; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.88em; }
   .btn-print:hover { background:#0e7490; }
+  .legacy-report-confirm { display:inline-flex; align-items:center; gap:5px; font-size:0.78em; font-weight:700; color:#7c2d12; white-space:nowrap; }
+  .legacy-report-confirm input { width:16px; height:16px; margin:0; accent-color:#c2410c; }
+  .mode-bar__report:disabled { opacity:.45; cursor:not-allowed; }
   .chk-detail { margin-top:6px; font-size:0.85em; color:var(--text-light); }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.85em; line-height:1.6; font-weight:700; }
   .input-status:empty { display:none; }
@@ -89,7 +92,8 @@
     <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
     <input type="text" id="projNo"   class="w-no"   placeholder="編號">
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button id="btnReport" class="mode-bar__report" type="button" onclick="buildBeamReport()">📄 計算書</button>
+    <label class="legacy-report-confirm page-only-report-status"><input type="checkbox" id="beamLegacyUseConfirm">既有案件延續</label>
+    <button id="btnReport" class="mode-bar__report" type="button" onclick="buildBeamReport()" disabled>舊案延續計算記錄</button>
   </div>
 </div>
 
@@ -275,6 +279,16 @@ function isBeamProjectMetaMissing() {
   return !!window.ToolReportUI?.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
 }
 
+function isBeamLegacyUseConfirmed() {
+  return $('beamLegacyUseConfirm')?.checked === true;
+}
+
+function syncBeamLegacyReportControl() {
+  const reportButton = $('btnReport');
+  if (reportButton) reportButton.disabled = !isBeamLegacyUseConfirmed();
+  renderBeamReportReadiness(lastBeamReportValidationMessage);
+}
+
 function setBeamReportValidationMessage(message = '') {
   lastBeamReportValidationMessage = message || '';
   renderBeamReportReadiness(lastBeamReportValidationMessage);
@@ -288,7 +302,8 @@ function composeBeamReadinessModel(validationMessage = lastBeamReportValidationM
       title: '輸入尚未通過檢查，先不要產生計算書。',
       items: [
         { label: '輸入檢核', value: validationMessage },
-        { label: '工具定位', value: '舊版保留；優先供舊案延續或連續梁匯入對接' },
+        { label: '工具定位', value: '過渡工具；只供既有案件延續' },
+        { label: '既有案件用途', value: isBeamLegacyUseConfirmed() ? '已確認' : '未確認' },
         { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
       ],
     };
@@ -300,25 +315,29 @@ function composeBeamReadinessModel(validationMessage = lastBeamReportValidationM
       title: '尚未完成檢核，先不要產生計算書。',
       items: [
         { label: '檢核狀態', value: '尚未建立舊版鋼梁檢核結果' },
-        { label: '工具定位', value: '舊版保留；優先供舊案延續或連續梁匯入對接' },
+        { label: '工具定位', value: '過渡工具；只供既有案件延續' },
+        { label: '既有案件用途', value: isBeamLegacyUseConfirmed() ? '已確認' : '未確認' },
         { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
       ],
     };
   }
-  const reviewItems = ['此頁為舊版保留流程；若非舊案延續或連續梁匯入，建議改用鋼梁正式頁面。'];
+  const legacyUseConfirmed = isBeamLegacyUseConfirmed();
+  const reviewItems = ['此頁為過渡工具；新案正式計算附件必須改用鋼梁正式頁面。'];
+  if (!legacyUseConfirmed) reviewItems.unshift('尚未確認本次屬於既有案件延續，因此不得產出舊案延續計算記錄。');
   if (isBeamProjectMetaMissing()) reviewItems.unshift('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
   if (!lastBeamResult.flexOk) reviewItems.unshift(`撓曲強度未通過，應先調整斷面或側撐；目前控制比 ${lastBeamResult.ratio_flex}%。`);
   else if (!lastBeamResult.shearOk) reviewItems.unshift(`剪力強度未通過，應先調整腹板或加勁；目前控制比 ${lastBeamResult.ratio_shear}%。`);
   else if (lastBeamResult.deflStatus === 'fail') reviewItems.unshift('撓度檢核未通過，應先調整斷面慣性矩或跨度。');
   else if (lastBeamResult.deflStatus === 'skipped') reviewItems.unshift('撓度尚未檢核；若要整理正式附件，應先補足使用載重與限值判讀。');
 
-  const blocked = !lastBeamResult.allOk;
+  const blocked = !lastBeamResult.allOk || !legacyUseConfirmed;
   const items = reviewItems.slice(0, 2).map((message, index) => ({
     label: `優先處理 ${index + 1}`,
     value: message,
   }));
   items.push(
-    { label: '工具定位', value: '舊版保留 / 逐步回正式頁面' },
+    { label: '工具定位', value: '過渡工具 / 新案回正式頁面' },
+    { label: '既有案件用途', value: legacyUseConfirmed ? '已確認' : '未確認' },
     { label: '控制模式', value: lastBeamResult.flex?.governing || '未形成' },
     { label: '計算書模式', value: beamLegacyReportModeLabel() },
     { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
@@ -326,7 +345,7 @@ function composeBeamReadinessModel(validationMessage = lastBeamReportValidationM
   return {
     level: blocked ? 'blocked' : 'review',
     badge: blocked ? '暫勿作附件' : '優先複核',
-    title: blocked ? '舊版檢核結果尚未達附件整理條件。' : '舊版檢核已完成，但整理附件前建議優先閱讀下列項目。',
+    title: blocked ? '尚未達到舊案延續記錄產出條件。' : '舊案延續檢核已完成，產出前請複核下列項目。',
     items,
   };
 }
@@ -343,7 +362,7 @@ function renderBeamReportReadiness(validationMessage = lastBeamReportValidationM
     title: model.title,
     badge: model.badge,
     items: model.items,
-    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；本頁仍屬舊版保留流程，設計者應確認是否改回鋼梁正式頁面、連續梁匯入來源、載重組合與送審圖說一致性。',
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；本頁屬過渡工具，只供既有案件延續，新案應改用鋼梁正式頁面。',
   });
 }
 
@@ -706,6 +725,11 @@ renderLoadComboPanel();
 onMatSelect();
 
 function buildBeamReport() {
+  if (!isBeamLegacyUseConfirmed()) {
+    setBeamReportValidationMessage('請先確認本次屬於既有案件延續，才可產出舊案延續計算記錄。');
+    $('beamLegacyUseConfirm')?.focus();
+    return;
+  }
   const result = runCheck();
   if (!result) return;
 
@@ -771,8 +795,8 @@ function buildBeamReport() {
   const clsText = c => ({compact:'結實',['non-compact']:'非結實',slender:'細長'})[c];
 
   openReport({
-    title: '鋼梁設計檢核計算書',
-    subtitle: `Steel Beam Design Report (${designMethod})`,
+    title: '鋼梁舊案延續計算記錄',
+    subtitle: `Legacy Steel Beam Continuation Record (${designMethod})`,
     project: proj,
     inputs: [
       { group: '斷面', items: [
@@ -789,6 +813,7 @@ function buildBeamReport() {
         { label:'J', value: f2(sec.J), unit:'cm⁴' },
       ]},
       { group: '設計參數', items: [
+        { label:'輸出分類', value:'既有案件延續；不得作為新案正式計算附件' },
         { label:'設計方法', value: designMethod },
         { label:'Fy', value: Fy, unit:'kgf/cm²' },
         { label:'跨度 L', value: L, unit:'cm' },
@@ -838,6 +863,7 @@ function buildBeamReport() {
     },
     diagrams,
     notes: [
+      '本輸出為舊案延續計算記錄，只供既有案件流程延續；新案正式計算附件必須由鋼梁正式頁面產出。',
       `設計方法: ${designMethod}`,
       envDetail ? `荷重組合控制圖採 ${envDetail.comboName}；控制彎矩為 ${envDetail.envelope.M.abs.name}，控制剪力為 ${envDetail.envelope.V.abs.name}。此摘要僅反映組合控制值，不代表跨內內力包絡。` : '若需荷重組合控制摘要，請先使用載重組合產生器套用後再輸出計算書。',
       ...(reportDetail ? [
@@ -859,6 +885,8 @@ function buildBeamReport() {
   node.addEventListener('input', syncBeamReportReadinessUi);
   node.addEventListener('change', syncBeamReportReadinessUi);
 });
+$('beamLegacyUseConfirm')?.addEventListener('change', syncBeamLegacyReportControl);
+syncBeamLegacyReportControl();
 renderBeamReportReadiness();
 </script>
 <script src="../project-storage.js" data-tool-id="steel-beam" data-tool-name="鋼梁設計與檢核" data-tool-version="V3.1"></script>

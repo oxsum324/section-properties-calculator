@@ -2,6 +2,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
+const {
+  resolveEvidenceDir,
+  renderAndValidateReportPdf,
+  writeEvidenceSummary,
+} = require('../結構工具箱/tools/rendered-delivery-evidence');
 
 const args = parseArgs(process.argv.slice(2));
 const baseUrl = String(args['base-url'] || 'http://127.0.0.1:8123').replace(/\/$/, '');
@@ -10,6 +15,9 @@ const historyDir = path.resolve(String(args['history-dir'] || outputDir));
 const summaryJson = path.resolve(String(args['summary-json'] || path.join(historyDir, 'steel-browser-runner-summary.json')));
 const quiet = Boolean(args.quiet);
 const scenarioTimeoutMs = Number(args['scenario-timeout-ms'] || 90000);
+const repoRoot = path.resolve(__dirname, '..');
+const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'steel-formal');
+const renderedEvidenceRecords = [];
 
 const viewports = [
   { label: 'desktop', width: 1440, height: 1100, mobile: false },
@@ -23,6 +31,7 @@ const scenarios = [
   { name: 'main-tension', url: '/index.html', setup: setupMainTension },
   { name: 'standalone-plate', url: '/plate-check.html' },
   { name: 'formal-beam', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalBeamReadiness },
+  { name: 'formal-beam-import-candidate', url: '/steel-beam-formal.html?import=1', setup: setupFormalBeamImportCandidate, assert: assertFormalBeamImportCandidate },
   { name: 'formal-beam-meta-complete', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaComplete, assert: assertFormalBeamReadinessMetaComplete },
   { name: 'formal-beam-report-popup', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaComplete, assert: assertFormalBeamReportPopupComplete },
   { name: 'formal-beam-report-popup-placeholder', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalBeamReportPopupPlaceholder },
@@ -315,6 +324,31 @@ async function setupFormalBeamInvalid(cdp, sessionId) {
   await setupFormalInvalid(cdp, sessionId, '#beamInputStatus', 'beam inline validation');
 }
 
+async function setupFormalBeamImportCandidate(cdp, sessionId) {
+  const payload = {
+    target: 'steel-beam',
+    meta: {
+      source: '連續梁分析',
+      caseName: '主控組合 (梁)',
+      factored: false,
+      loadBasis: 'unconfirmed',
+    },
+    forces: { M: 12.5, MNeg: -18.75, V: -7.25 },
+    member: { spanCm: 650 },
+    section: { title: '上游參考斷面' },
+    material: null,
+  };
+  const loadEvent = waitForEvent(cdp, 'Page.loadEventFired', sessionId, () => true, 30000);
+  await evaluate(cdp, sessionId, `(() => {
+    localStorage.setItem('structToolbox.pendingForces', ${JSON.stringify(JSON.stringify(payload))});
+    location.reload();
+    return true;
+  })()`, 'formal beam import candidate reload');
+  await loadEvent;
+  await wait(350);
+  await setupFormalProjectMetaComplete(cdp, sessionId);
+}
+
 async function setupFormalProjectMeta(cdp, sessionId, fields, label) {
   await evaluate(cdp, sessionId, `(() => {
     const fields = ${JSON.stringify(fields)};
@@ -385,7 +419,96 @@ async function assertFormalBeamReadinessBlocked(cdp, sessionId) {
   await assertFormalReportReadinessBlocked(cdp, sessionId, '#beamReportReadiness', 'beam report readiness');
 }
 
-async function assertFormalBeamReportPopupComplete(cdp, sessionId) {
+async function assertFormalBeamImportCandidate(cdp, sessionId) {
+  const state = await evaluate(cdp, sessionId, `(() => {
+    const read = id => document.getElementById(id);
+    const initial = {
+      panelHidden: read('beamImportReview')?.hidden,
+      applyDisabled: read('beamImportApply')?.disabled,
+      moment: read('inMu')?.value,
+      shear: read('inVu')?.value,
+      span: read('inL')?.value,
+      fy: read('inFy')?.value,
+      lb: read('inLb')?.value,
+      cb: read('inCb')?.value,
+      candidateText: read('beamImportReview')?.innerText || '',
+    };
+    read('beamImportMomentChoice').value = 'absolute';
+    read('beamImportConfirm').checked = true;
+    read('beamImportConfirm').dispatchEvent(new Event('change', { bubbles: true }));
+    const enabledAfterConfirm = !read('beamImportApply').disabled;
+    read('beamImportApply').click();
+    const adopted = {
+      moment: read('inMu')?.value,
+      shear: read('inVu')?.value,
+      span: read('inL')?.value,
+      fy: read('inFy')?.value,
+      lb: read('inLb')?.value,
+      cb: read('inCb')?.value,
+      badge: read('beamImportReviewBadge')?.textContent || '',
+      status: read('beamImportStatus')?.textContent || '',
+      reportValidation: read('beamReportReadiness')?.innerText || '',
+      pendingStorage: localStorage.getItem('structToolbox.pendingForces'),
+    };
+
+    const originalOpen = window.open;
+    const writes = [];
+    window.open = () => ({
+      document: {
+        open() {},
+        write(html) { writes.push(String(html || '')); },
+        close() {},
+      },
+      focus() {},
+    });
+    try {
+      read('btnReport').click();
+    } finally {
+      window.open = originalOpen;
+    }
+    const reportHtml = writes.join('');
+    const reportDocument = new DOMParser().parseFromString(reportHtml, 'text/html');
+    return {
+      initial,
+      enabledAfterConfirm,
+      adopted,
+      reportText: (reportDocument.body?.innerText || reportDocument.body?.textContent || '').replace(/\\s+/g, ' ').trim(),
+    };
+  })()`, 'formal beam import candidate adoption');
+
+  if (state.initial.panelHidden !== false || state.initial.applyDisabled !== true) {
+    throw new Error(`beam candidate should be visible but disabled before confirmation: ${JSON.stringify(state.initial)}`);
+  }
+  if (!state.initial.candidateText.includes('12.50 tf·m') || !state.initial.candidateText.includes('-18.75 tf·m') || !state.initial.candidateText.includes('7.25 tf') || !state.initial.candidateText.includes('650.0 cm') || !state.initial.candidateText.includes('載重基準：未確認')) {
+    throw new Error(`beam candidate values missing: ${state.initial.candidateText}`);
+  }
+  if (state.initial.moment !== '30' || state.initial.shear !== '15' || state.initial.span !== '800') {
+    throw new Error(`beam formal inputs changed before confirmation: ${JSON.stringify(state.initial)}`);
+  }
+  if (!state.enabledAfterConfirm || state.adopted.moment !== '18.75' || state.adopted.shear !== '7.25' || state.adopted.span !== '650') {
+    throw new Error(`beam candidate adoption mismatch: ${JSON.stringify(state)}`);
+  }
+  if (state.adopted.fy !== state.initial.fy || state.adopted.lb !== state.initial.lb || state.adopted.cb !== state.initial.cb) {
+    throw new Error(`beam candidate must not overwrite Fy/Lb/Cb: ${JSON.stringify(state)}`);
+  }
+  if (!state.adopted.badge.includes('已套用') || !state.adopted.status.includes('請再確認斷面、Fy、Lb／Cb')) {
+    throw new Error(`beam candidate adoption status missing: ${JSON.stringify(state.adopted)}`);
+  }
+  if (!state.adopted.reportValidation.includes('重新執行檢核') || state.adopted.pendingStorage !== null) {
+    throw new Error(`beam candidate should require rerun and clear pending storage: ${JSON.stringify(state.adopted)}`);
+  }
+  if (!state.reportText.includes('內力來源') || !state.reportText.includes('連續梁分析') || !state.reportText.includes('人工確認採用') || !state.reportText.includes('載重基準：已人工確認')) {
+    throw new Error(`beam formal report should record the adopted source: ${state.reportText}`);
+  }
+  for (const forbidden of ['候選輸入值', '候選值尚未套用', '優先建議報告閱讀狀態', '不會寫入計算書或列印 PDF']) {
+    if (state.reportText.includes(forbidden)) {
+      throw new Error(`beam formal report should exclude page-only candidate/readiness wording "${forbidden}": ${state.reportText}`);
+    }
+  }
+  await assertPageOnlyReadinessHiddenInPrint(cdp, sessionId, '#beamImportReview', 'beam import candidate review');
+}
+
+async function assertFormalBeamReportPopupComplete(cdp, sessionId, context = {}) {
   return assertFormalReportPopup(cdp, sessionId, {
     label: 'beam formal report popup',
     titleNeedle: '鋼梁正式規範核算計算書',
@@ -394,6 +517,7 @@ async function assertFormalBeamReportPopupComplete(cdp, sessionId) {
       no: FORMAL_PROJECT_META.projNo,
       designer: FORMAL_PROJECT_META.projDesigner,
     },
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-beam-formal' : '',
   });
 }
 
@@ -451,7 +575,7 @@ async function assertMainPlateSummaryCopyPlaceholder(cdp, sessionId) {
   }
 }
 
-async function assertMainPlateReportPopupPlaceholder(cdp, sessionId) {
+async function assertMainPlateReportPopupPlaceholder(cdp, sessionId, context = {}) {
   await assertMainPlateProjectMetaPlaceholderRendered(cdp, sessionId);
   await assertMainPlateSummaryCopyPlaceholder(cdp, sessionId);
   return assertLegacyReportPopup(cdp, sessionId, {
@@ -464,6 +588,7 @@ async function assertMainPlateReportPopupPlaceholder(cdp, sessionId) {
       designer: LEGACY_PROJECT_META_PLACEHOLDER.designer,
     },
     absentNeedles: ['未填'],
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-plate' : '',
   });
 }
 
@@ -491,7 +616,7 @@ async function assertFormalColumnReadinessBlocked(cdp, sessionId) {
   await assertFormalReportReadinessBlocked(cdp, sessionId, '#columnReportReadiness', 'column report readiness');
 }
 
-async function assertFormalColumnReportPopupComplete(cdp, sessionId) {
+async function assertFormalColumnReportPopupComplete(cdp, sessionId, context = {}) {
   return assertFormalReportPopup(cdp, sessionId, {
     label: 'column formal report popup',
     titleNeedle: '鋼柱正式規範核算計算書',
@@ -500,6 +625,7 @@ async function assertFormalColumnReportPopupComplete(cdp, sessionId) {
       no: FORMAL_PROJECT_META.projNo,
       designer: FORMAL_PROJECT_META.projDesigner,
     },
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-column-formal' : '',
   });
 }
 
@@ -630,6 +756,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     title: document.title || '',
     header: document.querySelector('.rep-header h1')?.innerText?.trim() || '',
     bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+    html: document.documentElement?.outerHTML || '',
     metaRows: Array.from(document.querySelectorAll('.rep-meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
   }))()`, `${options.label} snapshot`);
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
@@ -659,6 +786,26 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   if (!designerRow.includes(options.expectedProject.designer)) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
+  if (options.renderEvidenceKey) {
+    const evidence = await renderAndValidateReportPdf(cdp, {
+      html: snapshot.html,
+      outputDir: renderedEvidenceDir,
+      artifactName: options.renderEvidenceKey,
+      label: options.label,
+      renderer: 'steel-formal-report',
+      titleNeedle: options.titleNeedle,
+      requiredNeedles: [options.titleNeedle, '計畫名稱'],
+      forbiddenNeedles,
+    });
+    renderedEvidenceRecords.push({
+      key: options.renderEvidenceKey,
+      renderer: evidence.renderer,
+      artifact: path.basename(evidence.pdfPath),
+      evidence: path.basename(evidence.evidencePath),
+      pageCount: evidence.pdf.pageCount,
+      textLength: evidence.pdf.textLength,
+    });
+  }
   return {
     captureSessionId: popup.sessionId,
     captureTargetId: popup.targetId,
@@ -671,6 +818,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     title: document.title || '',
     header: document.querySelector('h1')?.innerText?.trim() || '',
     bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
+    html: document.documentElement?.outerHTML || '',
     metaRows: Array.from(document.querySelectorAll('.meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
   }))()`, `${options.label} snapshot`);
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
@@ -699,6 +847,26 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
   }
   if (!designerRow.includes(options.expectedProject.designer)) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  }
+  if (options.renderEvidenceKey) {
+    const evidence = await renderAndValidateReportPdf(cdp, {
+      html: snapshot.html,
+      outputDir: renderedEvidenceDir,
+      artifactName: options.renderEvidenceKey,
+      label: options.label,
+      renderer: 'steel-main-report',
+      titleNeedle: options.titleNeedle,
+      requiredNeedles: [options.titleNeedle, '計畫名稱'],
+      forbiddenNeedles,
+    });
+    renderedEvidenceRecords.push({
+      key: options.renderEvidenceKey,
+      renderer: evidence.renderer,
+      artifact: path.basename(evidence.pdfPath),
+      evidence: path.basename(evidence.evidencePath),
+      pageCount: evidence.pdf.pageCount,
+      textLength: evidence.pdf.textLength,
+    });
   }
   return {
     captureSessionId: popup.sessionId,
@@ -818,7 +986,7 @@ async function runSnapshot(cdp, scenario, viewport) {
     await wait(300);
     if (scenario.setup) await scenario.setup(cdp, sessionId);
     if (scenario.assert) {
-      const assertResult = await scenario.assert(cdp, sessionId);
+      const assertResult = await scenario.assert(cdp, sessionId, { scenario, viewport });
       if (assertResult?.captureSessionId) captureSessionId = assertResult.captureSessionId;
       if (assertResult?.captureTargetId) targetIds.push(assertResult.captureTargetId);
     }
@@ -1016,6 +1184,17 @@ async function main() {
     summaryLines,
     cleanupWarnings,
   };
+  const renderedSummary = failures.length === 0
+    ? writeEvidenceSummary(
+      renderedEvidenceDir,
+      'steel-formal',
+      renderedEvidenceRecords,
+      ['steel-main-plate', 'steel-beam-formal', 'steel-column-formal']
+    )
+    : null;
+  if (renderedSummary) {
+    summaryLines.push(`- rendered delivery evidence: ${renderedSummary.summaryPath}`);
+  }
   for (const warning of cleanupWarnings) {
     summaryLines.push(`- ${warning}`);
   }

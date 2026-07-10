@@ -6,6 +6,8 @@ const htmlPath = path.join(__dirname, '連續梁分析.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
 const sharedReportPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js');
 const sharedReportSource = fs.readFileSync(sharedReportPath, 'utf8');
+const forcePickerPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'force-picker.js');
+const forcePickerSource = fs.readFileSync(forcePickerPath, 'utf8');
 
 function assert(pass, title, detail) {
   if (!pass) throw new Error(`${title} :: ${detail}`);
@@ -42,6 +44,51 @@ assert(html.includes("['設計人員', 'projDesigner']"), 'designer participates
 assert(html.includes("name:     getProjectFieldValue('projName')"), 'report export uses normalized project name', 'continuous beam report payload');
 assert(html.includes("designer: getProjectFieldValue('projDesigner')"), 'report export uses normalized designer', 'continuous beam report payload');
 assertPrintHidesSelectors(html, ['.page-only-report-status', '.save-bar', '.modal-overlay'], 'continuous beam page-only controls');
+assert(
+  html.includes("beam: { url: '鋼構工具/steel-beam-formal.html?import=1'"),
+  'continuous beam steel transfer uses the formal beam page',
+  'new-project steel attachments stay on the formal page'
+);
+assert(
+  !/steel:\s*\{[\s\S]*?steel-column/.test(html),
+  'continuous beam removes steel-column transfer',
+  'beam analysis has no axial-force/frame context for column design'
+);
+assert(
+  html.includes("loadBasis: isBeam && mat === 'steel' ? 'unconfirmed' : 'unfactored'"),
+  'steel beam transfer marks load basis unconfirmed',
+  'candidate review must resolve the load basis manually'
+);
+assert(html.includes('member: { spanCm: env.Lcm }'), 'steel beam transfer includes span candidate', 'span remains a reviewable candidate value');
+assert(forcePickerSource.includes('member:   payload.member   || null'), 'ForcePicker preserves member geometry', 'candidate span survives localStorage transport');
+assert(forcePickerSource.includes("loadBasis: payload.meta?.loadBasis"), 'ForcePicker preserves load-basis status', 'candidate review receives the upstream load-basis classification');
+assert(forcePickerSource.includes("'steel-beam':   '../../鋼構工具/steel-beam-formal.html?import=1'"), 'ForcePicker steel beam fallback targets formal page', 'generic transport cannot reopen the legacy beam page');
+assert(!forcePickerSource.includes("'steel-column':"), 'ForcePicker exposes no generic steel-column target', 'column transfer requires a frame workflow with axial force context');
+{
+  let storedPayload = '';
+  const forcePickerContext = {
+    localStorage: {
+      setItem(_key, value) { storedPayload = value; },
+      getItem() { return storedPayload; },
+      removeItem() { storedPayload = ''; },
+    },
+    window: {},
+    Date,
+    JSON,
+    Object,
+  };
+  vm.createContext(forcePickerContext);
+  vm.runInContext(forcePickerSource, forcePickerContext, { filename: forcePickerPath });
+  forcePickerContext.window.ForcePicker.stash({
+    target: 'steel-beam',
+    meta: { source: '連續梁分析', caseName: '主控組合 (梁)', factored: false, loadBasis: 'unconfirmed' },
+    forces: { M: 10, MNeg: -12, V: 5 },
+    member: { spanCm: 600 },
+  });
+  const preserved = JSON.parse(storedPayload);
+  assert(preserved.meta.loadBasis === 'unconfirmed', 'ForcePicker runtime keeps load-basis status', JSON.stringify(preserved.meta));
+  assert(preserved.member.spanCm === 600, 'ForcePicker runtime keeps candidate span', JSON.stringify(preserved.member));
+}
 
 function assertNear(actual, expected, tol, title, detail) {
   assert(Math.abs(actual - expected) <= tol, title, `${detail}; actual=${actual}, expected=${expected}, tol=${tol}`);
@@ -376,6 +423,24 @@ function main() {
   assertNear(ctx.solution.reactions[0].Ry, 30, 1e-9, 'simple span UDL left reaction', 'Ry0 = wL/2');
   assertNear(ctx.solution.reactions[1].Ry, 30, 1e-9, 'simple span UDL right reaction', 'Ry1 = wL/2');
   assertNear(Math.max(...ctx.diagrams.spans[0].ms), 45, 1e-9, 'simple span UDL max moment', 'Mmax = wL^2/8');
+
+  let steelTransfer = null;
+  ctx.document.getElementById('matSelect').value = 'steel';
+  ctx.ForcePicker = {
+    sendTo(target, payload, url) {
+      steelTransfer = { target, payload, url };
+    },
+  };
+  ctx.dispatchDesign('steel-beam');
+  assert(steelTransfer?.target === 'steel-beam', 'continuous beam dispatches only to formal steel beam candidate target', JSON.stringify(steelTransfer));
+  assert(steelTransfer?.url === '鋼構工具/steel-beam-formal.html?import=1', 'continuous beam dispatch uses formal steel beam URL', steelTransfer?.url);
+  assert(steelTransfer?.payload?.meta?.loadBasis === 'unconfirmed', 'continuous beam dispatch preserves unconfirmed load basis', JSON.stringify(steelTransfer?.payload?.meta));
+  assert(steelTransfer?.payload?.material === null, 'continuous beam does not auto-adopt steel material strength', JSON.stringify(steelTransfer?.payload));
+  assert(steelTransfer?.payload?.member?.spanCm === 600, 'continuous beam dispatches span as a candidate value', JSON.stringify(steelTransfer?.payload?.member));
+  assertNear(steelTransfer?.payload?.forces?.M, 45 / 9.80665, 1e-3, 'continuous beam dispatches positive moment candidate', JSON.stringify(steelTransfer?.payload?.forces));
+  assert(steelTransfer?.payload?.forces?.MNeg === 0, 'continuous beam dispatches negative moment candidate', JSON.stringify(steelTransfer?.payload?.forces));
+  assertNear(steelTransfer?.payload?.forces?.V, 30 / 9.80665, 1e-3, 'continuous beam dispatches shear candidate', JSON.stringify(steelTransfer?.payload?.forces));
+  ctx.document.getElementById('matSelect').value = 'concrete';
 
   ctx.document.getElementById('projName').value = '未填';
   ctx.document.getElementById('projNo').value = 'CB-001';

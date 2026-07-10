@@ -1,8 +1,8 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-07-10T06:04:58.180Z",
-  "runId": "20260710-053304",
+  "generatedAt": "2026-07-10T15:00:28.389Z",
+  "runId": "20260710-224610",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -10,7 +10,7 @@
   "summary": "頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。目前首頁矩陣外 4 / 4 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。",
   "compactSummary": "頁面上的「優先建議報告閱讀狀態」僅供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。",
   "details": [
-    "目前覆蓋 舊版保留 / 輔助查詢 入口：鋼梁舊式頁面、鋼柱舊式頁面、Kzt 地形係數、特殊修正 / 折減。",
+    "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項只確認正式輸出的可讀文字與頁面專用文字排除，不會把頁面狀態寫入計算書、列印或 PDF。",
     "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
@@ -25,7 +25,7 @@
   "reportTextSmokeEvidenceRequired": 2,
   "reportTextSmokeEvidenceComplete": 2,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260710-053304",
+  "reportTextSmokeEvidenceRunId": "20260710-224610",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -36,7 +36,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 45.8
+      "seconds": 78.1
     },
     {
       "key": "local-quick-tools-runner",
@@ -47,7 +47,7 @@
       "complete": 3,
       "pass": true,
       "reused": false,
-      "seconds": 14.7
+      "seconds": 21.7
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
@@ -55,14 +55,14 @@
   "pageOnlyRoutes": [
     {
       "route": "/steel-beam",
-      "title": "鋼梁舊式頁面",
-      "state": "舊版保留",
+      "title": "鋼梁舊案延續頁",
+      "state": "過渡工具",
       "sourcePath": "結構工具箱/tools/鋼構/steel-beam.html"
     },
     {
       "route": "/steel-column",
-      "title": "鋼柱舊式頁面",
-      "state": "舊版保留",
+      "title": "鋼柱舊案延續頁",
+      "state": "過渡工具",
       "sourcePath": "結構工具箱/tools/鋼構/steel-column.html"
     },
     {
@@ -79,6 +79,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260710-053304/preflight-summary.json",
-  "sourceHash": "79bb0aa2b355aee3af8e927f2091e4ef738c06e7242d4f9c8bb6206cb89cf467"
+  "preflightStatusSourcePath": "output/preflight/history/20260710-224610/preflight-summary.json",
+  "sourceHash": "46ddd052e252bcc8974089091fdf9420edc4027858dba947dfb5a183e8f1f9db"
 }

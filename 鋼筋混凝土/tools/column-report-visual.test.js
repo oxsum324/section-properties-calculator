@@ -7,7 +7,9 @@ const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('.
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_VISUAL_PORT || 0);
 const CASES_PATH = path.join(__dirname, 'column-regression-cases.json');
-const OUT_DIR = path.resolve(process.env.RC_VISUAL_OUT || path.join(ROOT, 'output', 'playwright'));
+const OUT_DIR = path.resolve(process.env.RC_VISUAL_OUT || (process.env.PREFLIGHT_RUN_DIR
+  ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
+  : path.join(ROOT, 'output', 'playwright')));
 const CASE_KEYS = (process.env.RC_VISUAL_CASES || 'default_rect_design,seismic_lap_class_a_ineligible_uses_b,seismic_detail_first_outside_spacing_ng')
   .split(',')
   .map(s => s.trim())

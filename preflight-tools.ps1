@@ -208,6 +208,7 @@ function Invoke-PreflightCheck {
   }
 
   Write-Status "=== $Label ===" "Cyan"
+  $releaseEvidenceRequired = if ((-not $Quick) -and $ForceSlowChecks -and $ForcePlatformAudit) { '1' } else { '0' }
   $scriptEncodingBootstrap = @(
     '$utf8NoBom = [System.Text.UTF8Encoding]::new($false)',
     '[Console]::InputEncoding = $utf8NoBom',
@@ -219,6 +220,9 @@ function Invoke-PreflightCheck {
     '$env:NO_COLOR = "1"'
     '$env:FORCE_COLOR = "0"'
     '$env:CI = "1"'
+    ('$env:PREFLIGHT_RUN_DIR = "' + $RunDir.Replace('"', '`"') + '"')
+    ('$env:PREFLIGHT_CHECK_KEY = "' + $Key.Replace('"', '`"') + '"')
+    ('$env:PREFLIGHT_RELEASE = "' + $releaseEvidenceRequired + '"')
   ) -join [Environment]::NewLine
   Set-Content -Path $scriptPath -Value ($scriptEncodingBootstrap + [Environment]::NewLine + $Command) -Encoding Unicode
   $startedAt = Get-Date
@@ -1197,6 +1201,11 @@ node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$renderedDeliveryEvidenceContractCommand = @'
+node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $pagesReleaseGovernanceContractCommand = @'
 node pages-release-governance.contract.test.js
 exit $LASTEXITCODE
@@ -1810,6 +1819,7 @@ $localQuickRunnerCache = [pscustomobject]@{
     '結構工具箱\tools\local-quick-tools.manifest.json',
     '結構工具箱\tools\local-quick-tools.run.js',
     '結構工具箱\tools\local-quick-browser-smoke.test.js',
+    '結構工具箱\tools\rendered-delivery-evidence.js',
     '結構工具箱\tools\local-quick-tools.contract.test.js',
     '結構工具箱\tools\local-quick-export.js',
     '結構工具箱\tools\local-quick-export.test.js',
@@ -1831,6 +1841,7 @@ $formalRunnerCache = [pscustomobject]@{
     '結構工具箱\tools\formal-tools.manifest.json',
     '結構工具箱\tools\formal-tools.run.js',
     '結構工具箱\tools\formal-browser-smoke.test.js',
+    '結構工具箱\tools\rendered-delivery-evidence.js',
     '結構工具箱\tools\formal-tools.contract.test.js',
     '結構工具箱\tools\tool-maturity-matrix.js',
     '結構工具箱\tools\風力',
@@ -2188,6 +2199,14 @@ $checks = @(
     slow = $true
     cache = $formalRunnerCache
     timeoutSeconds = 300
+  },
+  [pscustomobject]@{
+    key = "rendered-delivery-evidence"
+    label = "Rendered delivery evidence release gate"
+    workdir = $root
+    command = $renderedDeliveryEvidenceContractCommand
+    slow = $false
+    timeoutSeconds = 240
   },
   [pscustomobject]@{
     key = "runtime-pid-cleanliness-final"

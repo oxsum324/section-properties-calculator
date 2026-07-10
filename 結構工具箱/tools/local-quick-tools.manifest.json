@@ -28,6 +28,7 @@
       "boundaryPath": "結構工具箱/tools/foundation/",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "reportTitleNeedle": "基礎局部穩定檢核計算書",
       "reportModeControls": {
         "selectId": "reportMode",
         "simpleValue": "summary",
@@ -64,6 +65,7 @@
       "boundaryPath": "結構工具箱/tools/equipment/",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "reportTitleNeedle": "設備局部荷重計算書",
       "reportModeControls": {
         "selectId": "reportMode",
         "simpleValue": "summary",
@@ -100,6 +102,7 @@
       "boundaryPath": "結構工具箱/tools/earth/",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "reportTitleNeedle": "擋土土壓局部穩定檢核計算書",
       "reportModeControls": {
         "selectId": "reportMode",
         "simpleValue": "summary",

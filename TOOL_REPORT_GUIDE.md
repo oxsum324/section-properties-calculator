@@ -213,6 +213,8 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 
 `結構工具箱/tools/delivery-artifacts.contract.test.js` 是交付物一致性契約；它鎖住石材 audit JSON / Word / PDF、錨栓 HTML / XLSX / DOCX 報告、覆工板 JSON 匯出 / Word 計算書與開挖擋土支撐 PDF / DOCX / latest download API 的 traceability、README、smoke fixture、報表產生器、前端產出狀態與下載邊界。新增或修改正式交付檔、報表 schema、下載端點或本機 app_data 邊界時，需同步更新 catalog 與文件，並讓平台 preflight 的 `delivery-artifacts-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板會在 Global Governance Gates 顯示這個 gate。
 
+`結構工具箱/tools/rendered-delivery-evidence.js` 是正式放行的實際渲染門檻，`rendered-delivery-evidence.inventory.json` 對齊首頁 31 個 formal 入口，`rendered-delivery-evidence.contract.test.js` 負責彙整當輪證據。風力 / 地震正式工具、局部快算與鋼構正式報表會在 release 慢測中真正列印成 A4 PDF，逐件檢查頁數、可讀文字、非空白頁、頁邊截切、表格標題、標題到案件資料的閱讀順序，以及本章 page-only 字串完全排除；共用摘要與詳算版型各保留至少一件代表證據。RC 報告沿用各工具的 PNG / PDF 視覺 smoke，DOCX / workbook 則必須抽取段落、表格或儲存格文字。只通過 HTML 字串或原始碼契約，不再足以作為 release 證據。
+
 ### 採用依據文字
 
 應使用：
@@ -393,7 +395,7 @@ node .\結構工具箱\tests\wind.test.js
 
 開始正式製作前，請先確認：
 
-- 此工具屬於正式核算、初估 / 簡化、本機服務或舊版保留哪一類。
+- 此工具屬於正式核算、初估 / 簡化、本機服務或過渡工具哪一類。
 - 計算依據是規範表、公式、專案文件、風洞試驗或設計者指定。
 - 是否需要示意圖，以及示意圖要呈現哪些幾何與外力。
 - 是否需要詳算式與簡易結果兩種計算書模式。

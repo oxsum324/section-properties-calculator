@@ -37,7 +37,7 @@
     report: { label: '案件報表', tone: 'report', summary: '用於承接外部模型或案件結果，重點在摘要、比對與報表整理。' },
     workflow: { label: '案件入口', tone: 'workflow', summary: '用於統一案件參數與導向子工具，適合先整理再分流。' },
     service: { label: '本機服務', tone: 'service', summary: '需要啟動本機前後端或資料庫服務，適合較完整的案件工作流。' },
-    legacy: { label: '舊版保留', tone: 'legacy', summary: '保留既有工作流供查核或過渡，建議逐步回新版正式入口。' },
+    legacy: { label: '過渡工具', tone: 'legacy', summary: '只供既有案件延續與查核；新案正式計算附件必須由正式頁產出。' },
     external: { label: '外部套件', tone: 'external', summary: '外部或獨立套件，送審前需回正式工具與專案流程確認。' }
   };
 
@@ -48,7 +48,7 @@
     estimate: { limitAny: ['初步', '後續', '需回', '簡化'], forbiddenCapabilities: ['正式核算'] },
     report: { limitAny: ['不是', '不取代', '由案件'], forbiddenCapabilities: ['正式核算'] },
     service: { limitAny: ['需先啟動', '本機'], forbiddenCapabilities: ['正式核算'] },
-    legacy: { limitAny: ['尚未完全', '建議逐步'], requiredCapabilities: ['舊版保留'], forbiddenCapabilities: ['正式核算'] },
+    legacy: { limitAny: ['新案', '正式頁'], requiredCapabilities: ['過渡工具'], forbiddenCapabilities: ['正式核算'] },
     external: { limitAny: ['外部', '送審前'], forbiddenCapabilities: ['正式核算'] }
   };
 
@@ -369,30 +369,30 @@
       capabilities: ['正式核算', '鋼構']
     },
     {
-      title: '鋼梁舊式頁面',
+      title: '鋼梁舊案延續頁',
       version: '舊版',
       href: '/steel-beam',
       categories: ['member'],
       memberSystem: 'steel',
       state: 'legacy',
-      output: '舊版鋼梁撓曲、剪力、撓度檢核',
-      summary: 'H 型鋼梁撓曲、剪力、撓度與斷面分類檢算；亦為連續梁分析「→ 鋼梁設計」的匯入對接頁。',
-      fit: '既有流程延續、快速查核，與連續梁分析的鋼梁匯入銜接。',
-      limit: '頁面治理與報表格式尚未完全平台化；整併前須先處理連續梁分析的匯入連結。',
-      capabilities: ['舊版保留', '待整併']
+      output: '鋼梁舊案延續計算記錄',
+      summary: '只供既有案件延續的 H 型鋼梁撓曲、剪力、撓度與斷面分類檢算。',
+      fit: '確認既有案件用途後延續原有計算記錄。',
+      limit: '不得作為新案正式計算附件；新案必須改由鋼梁正式頁產出。',
+      capabilities: ['過渡工具', '舊案延續']
     },
     {
-      title: '鋼柱舊式頁面',
+      title: '鋼柱舊案延續頁',
       version: '舊版',
       href: '/steel-column',
       categories: ['member'],
       memberSystem: 'steel',
       state: 'legacy',
-      output: '舊版鋼柱軸壓、K 因數與 P-M 檢核',
-      summary: '軸壓挫屈、K 因數、P-M 互制與 ASD/LRFD 雙軌檢核；亦為連續梁分析「→ 鋼柱設計」的匯入對接頁。',
-      fit: '既有鋼柱快速查核，與連續梁分析的鋼柱匯入銜接。',
-      limit: '建議逐步回正式頁面；整併前須先處理連續梁分析的匯入連結。',
-      capabilities: ['舊版保留', '待整併']
+      output: '鋼柱舊案延續計算記錄',
+      summary: '只供既有案件延續的軸壓挫屈、K 因數、P-M 互制與 ASD/LRFD 檢核。',
+      fit: '確認既有案件用途後延續原有計算記錄。',
+      limit: '不得作為新案正式計算附件；新案必須改由鋼柱正式頁產出。',
+      capabilities: ['過渡工具', '舊案延續']
     },
     {
       title: '耐風案件總覽',

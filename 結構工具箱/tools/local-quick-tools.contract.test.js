@@ -492,7 +492,7 @@ assertIncludes(repoDocs.homeJs, "profileItem('閱讀狀態', currentState.summar
   "reference: { label: '輔助查詢'",
   "estimate: { label: '初估 / 簡化'",
   "service: { label: '本機服務'",
-  "legacy: { label: '舊版保留'",
+  "legacy: { label: '過渡工具'",
 ].forEach(needle => assertIncludes(repoDocs.homeJs, needle, 'new home governed states'));
 assertIncludes(repoDocs.homeCss, '.category-icon', 'new home category icon CSS');
 assertIncludes(repoDocs.homeCss, '.icon-mark', 'new home icon mark CSS');
@@ -519,9 +519,9 @@ assert.equal(repoDocs.homeTokens.includes('fonts.googleapis.com'), false, 'home 
 assert.equal(repoDocs.homeTokens.includes('fonts.gstatic.com'), false, 'home design tokens avoid remote font binaries');
 assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), false, 'dynamic seismic summary is not mixed into structural analysis');
 [
-[repoDocs.steelBeam, 'steel beam legacy page'],
-  [repoDocs.steelColumn, 'steel column legacy page'],
-].forEach(([html, label]) => {
+  [repoDocs.steelBeam, 'steel beam transition page', 'beamLegacyUseConfirm', 'isBeamLegacyUseConfirmed', '鋼梁舊案延續計算記錄'],
+  [repoDocs.steelColumn, 'steel column transition page', 'columnLegacyUseConfirm', 'isColumnLegacyUseConfirmed', '鋼柱舊案延續計算記錄'],
+].forEach(([html, label, confirmId, confirmFunction, reportTitle]) => {
   assertIncludes(html, 'id="inputStatus"', `${label} inline input status`);
   assertIncludes(html, 'function setInputStatus', `${label} inline input status helper`);
   assertIncludes(html, 'return inputFail(', `${label} validation returns inline failure`);
@@ -533,6 +533,13 @@ assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), fal
   ].forEach(needle => assertIncludes(html, needle, `${label} page-only readiness copy`));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${label} page-only readiness hidden from print`);
   assertIncludes(html, 'renderStatusGridPanel', `${label} readiness shared renderer usage`);
+  assertIncludes(html, `id="${confirmId}"`, `${label} existing-project confirmation`);
+  assertIncludes(html, `function ${confirmFunction}`, `${label} output confirmation guard`);
+  assertIncludes(html, '>舊案延續計算記錄</button>', `${label} report button classification`);
+  assert.ok(/id="btnReport"[^>]*disabled/.test(html), `${label} report output starts disabled`);
+  assertIncludes(html, reportTitle, `${label} report title classification`);
+  assertIncludes(html, '不得作為新案正式計算附件', `${label} report excludes new-project use`);
+  assertIncludes(html, '新案正式計算附件必須由', `${label} report points new projects to formal page`);
 });
 assertFunctionTemplateExcludes(repoDocs.steelBeam, 'buildBeamReport', 'openReport({', pageOnlyReportStatusNeedles, 'steel beam legacy report excludes page-only readiness wording');
 assertFunctionTemplateExcludes(repoDocs.steelColumn, 'buildColumnReport', 'openReport({', pageOnlyReportStatusNeedles, 'steel column legacy report excludes page-only readiness wording');

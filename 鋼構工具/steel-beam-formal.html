@@ -45,6 +45,47 @@
       <div class="report-readiness blocked" id="beamReportReadiness" role="status" aria-live="polite"></div>
     </section>
 
+    <section class="card page-only-report-status candidate-review" id="beamImportReview" hidden aria-labelledby="beamImportReviewTitle">
+      <div class="candidate-review__head">
+        <div>
+          <p class="candidate-review__kicker">頁面專用｜候選輸入值</p>
+          <h2 id="beamImportReviewTitle">連續梁分析匯入確認</h2>
+        </div>
+        <span class="candidate-review__badge" id="beamImportReviewBadge">待確認</span>
+      </div>
+      <p class="candidate-review__intro">上游資料不會自動覆寫正式輸入或執行檢核。請先確認控制彎矩、載重基準與其餘設計條件，再決定是否採用。</p>
+      <div class="candidate-review__facts" aria-label="連續梁候選值摘要">
+        <div><span>正彎矩</span><strong id="beamImportMPos">-</strong></div>
+        <div><span>負彎矩</span><strong id="beamImportMNeg">-</strong></div>
+        <div><span>剪力</span><strong id="beamImportV">-</strong></div>
+        <div><span>跨度</span><strong id="beamImportSpan">-</strong></div>
+      </div>
+      <div class="candidate-review__controls">
+        <label class="form-group" for="beamImportMomentChoice">
+          <span>採用彎矩候選</span>
+          <select id="beamImportMomentChoice">
+            <option value="absolute">正負彎矩絕對值取大</option>
+            <option value="positive">採正彎矩</option>
+            <option value="negative">採負彎矩絕對值</option>
+          </select>
+        </label>
+        <div class="candidate-review__source">
+          <span>來源</span>
+          <strong id="beamImportSource">-</strong>
+          <small id="beamImportSection">斷面與材料未由上游正式採用。</small>
+        </div>
+      </div>
+      <label class="candidate-review__confirm" for="beamImportConfirm">
+        <input type="checkbox" id="beamImportConfirm">
+        <span>已確認載重基準、單位與控制方向；斷面、Fy、Lb／Cb 及使用性條件仍由本頁另行確認。</span>
+      </label>
+      <div class="candidate-review__actions">
+        <button class="btn-calc" id="beamImportApply" type="button" disabled>套用至正式輸入</button>
+        <button class="btn-secondary" id="beamImportDiscard" type="button">捨棄候選值</button>
+      </div>
+      <div class="member-input-status" id="beamImportStatus" role="status" aria-live="polite"></div>
+    </section>
+
     <section class="card unit-system-card" aria-label="鋼梁正式頁單位系統">
       <div class="unit-system-heading">
         <div>

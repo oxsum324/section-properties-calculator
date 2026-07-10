@@ -1830,8 +1830,7 @@ const DESIGN_ROUTES = {
     columnCirc: { url: '鋼筋混凝土/tools/column.html?import=1&colType=circle',    label: '→ RC 圓柱',         color: '#6d28d9', target: 'column-circ' },
   },
   steel: {
-    beam:   { url: '結構工具箱/tools/鋼構/steel-beam.html?import=1', label: '→ 鋼梁設計', color: '#2563eb', target: 'steel-beam' },
-    column: { url: '結構工具箱/tools/鋼構/steel-column.html?import=1', label: '→ 鋼柱設計', color: '#7c3aed', target: 'steel-column' },
+    beam: { url: '鋼構工具/steel-beam-formal.html?import=1', label: '→ 鋼梁正式檢核', color: '#2563eb', target: 'steel-beam' },
   },
 };
 
@@ -1916,13 +1915,18 @@ function dispatchDesign(target) {
   const forces = isBeam
     ? { M: env.Mpos, MNeg: env.Mneg, V: env.V }
     : { P: 0, Mx: env.M, Vx: env.V };
+  const transferMeta = {
+    source: '連續梁分析',
+    caseName: `主控組合 (${isBeam ? '梁' : '柱'})`,
+    factored: false,
+    loadBasis: isBeam && mat === 'steel' ? 'unconfirmed' : 'unfactored',
+  };
   ForcePicker.sendTo(target, {
-    meta: {
-      source:   '連續梁分析',
-      caseName: `主控組合 (${isBeam ? '梁' : '柱'})`,
-      factored: false,
-    },
-    forces, material, section,
+    meta: transferMeta,
+    forces,
+    material: mat === 'steel' ? null : material,
+    section,
+    member: { spanCm: env.Lcm },
   }, route.url);   // ← urlOverride: 以本頁為基準的正確相對路徑
 }
 

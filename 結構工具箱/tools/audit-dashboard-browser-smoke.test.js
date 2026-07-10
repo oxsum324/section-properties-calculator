@@ -47,6 +47,7 @@ const expectedGlobalGovernance = [
   { key: 'report-disclosure-contract', label: '跨家族報告揭露', value: '通過；runId fixture-full；7 catalogs；required formal-traceability, rc-traceability, steel-traceability, anchor-traceability, stone-traceability, decking-traceability, excavation-traceability；report-disclosure-contract' },
   { key: 'delivery-artifacts-contract', label: '交付物一致性', value: '通過；runId fixture-full；3 catalogs；required stone-traceability, decking-traceability, excavation-traceability；delivery-artifacts-contract' },
   { key: 'release-readiness-contract', label: '正式放行證據', value: '通過；runId fixture-full；0 catalogs；release-readiness-contract' },
+  { key: 'rendered-delivery-evidence', label: '實際交付物渲染佐證', value: '通過；runId fixture-full；0 catalogs；rendered-delivery-evidence' },
 ];
 
 function fixtureOutputPath(relativePath) {
@@ -338,8 +339,8 @@ const fixtures = new Map(Object.entries({
       },
     ],
     globalGovernance: {
-      required: 3,
-      passed: 3,
+      required: 4,
+      passed: 4,
       issueCount: 0,
       gates: [
         {
@@ -407,6 +408,22 @@ const fixtures = new Map(Object.entries({
           runId: 'fixture-full',
           quick: false,
           seconds: 0.3,
+          exitCode: 0,
+          coveredCatalogs: 0,
+          requiredCatalogFamilies: [],
+          catalogFamilies: [],
+          missingCatalogFamilies: [],
+          issues: [],
+        },
+        {
+          key: 'rendered-delivery-evidence',
+          label: '實際交付物渲染佐證',
+          contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
+          scope: 'fixture rendered delivery evidence',
+          pass: true,
+          runId: 'fixture-full',
+          quick: false,
+          seconds: 0.5,
           exitCode: 0,
           coveredCatalogs: 0,
           requiredCatalogFamilies: [],

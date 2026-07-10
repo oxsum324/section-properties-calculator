@@ -75,6 +75,14 @@ const GLOBAL_GOVERNANCE_GATES = [
     scope: 'release wrapper、force flags、慢測重用揭露與 dashboard 放行模式顯示',
     catalogFamilies: [],
     minCatalogs: 0
+  },
+  {
+    key: 'rendered-delivery-evidence',
+    label: '實際交付物渲染佐證',
+    contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
+    scope: '首頁 31 個正式工具的 PDF、DOCX 或 workbook 當輪實際產出與文字 / 版面驗證',
+    catalogFamilies: [],
+    minCatalogs: 0
   }
 ];
 
@@ -1692,10 +1700,16 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(releaseReadinessGate.coveredCatalogs, 0, 'tool maturity matrix release readiness gate has no catalog dependency');
   assert.deepEqual(releaseReadinessGate.catalogFamilies, [], 'tool maturity matrix release readiness gate relevant families empty');
   assert.deepEqual(releaseReadinessGate.issues, [], 'tool maturity matrix release readiness gate issues empty');
+  const renderedDeliveryGate = payload.globalGovernance.gates.find(item => item.key === 'rendered-delivery-evidence');
+  assert.ok(renderedDeliveryGate, 'tool maturity matrix rendered delivery evidence gate exists');
+  assert.equal(renderedDeliveryGate.pass, true, 'tool maturity matrix rendered delivery evidence gate passed');
+  assert.equal(renderedDeliveryGate.coveredCatalogs, 0, 'tool maturity matrix rendered delivery evidence gate has no catalog dependency');
+  assert.deepEqual(renderedDeliveryGate.issues, [], 'tool maturity matrix rendered delivery evidence gate issues empty');
   assert.ok(markdown.includes('## Global Governance Gates'), 'tool maturity matrix markdown exposes global governance gates');
   assert.ok(markdown.includes('report-disclosure-contract'), 'tool maturity matrix markdown exposes report disclosure gate');
   assert.ok(markdown.includes('delivery-artifacts-contract'), 'tool maturity matrix markdown exposes delivery artifacts gate');
   assert.ok(markdown.includes('release-readiness-contract'), 'tool maturity matrix markdown exposes release readiness gate');
+  assert.ok(markdown.includes('rendered-delivery-evidence'), 'tool maturity matrix markdown exposes rendered delivery evidence gate');
   assert.ok(payload.entrypointCoverage && typeof payload.entrypointCoverage === 'object', 'tool maturity matrix entrypointCoverage object');
   assert.equal(Number.isInteger(payload.entrypointCoverage.total), true, 'tool maturity matrix entrypointCoverage total integer');
   assert.equal(Number.isInteger(payload.entrypointCoverage.matrixCovered), true, 'tool maturity matrix entrypointCoverage matrixCovered integer');
@@ -1851,8 +1865,8 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式計算書可讀文字抽檢'), 'homepage report readiness details include report text coverage');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('Kzt 地形係數'), 'homepage report readiness details include wind kzt');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('特殊修正 / 折減'), 'homepage report readiness details include wind special');
-  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊式頁面'), 'homepage report readiness details include steel beam legacy');
-  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼柱舊式頁面'), 'homepage report readiness details include steel column legacy');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊案延續頁'), 'homepage report readiness details include steel beam transition page');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼柱舊案延續頁'), 'homepage report readiness details include steel column transition page');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書/文字 邊界'), 'homepage report readiness details include local quick text boundary chip');
   assert.equal((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書 邊界'), false, 'homepage report readiness details reject stale local quick boundary chip');
   assert.ok(Array.isArray(homepageReportReadinessStatus.pageOnlyRoutes) && homepageReportReadinessStatus.pageOnlyRoutes.length >= 4, 'homepage report readiness routes array');

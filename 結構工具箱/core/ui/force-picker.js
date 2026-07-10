@@ -8,7 +8,7 @@
  *
  * 統一內力 schema：
  *   {
- *     meta: { source, caseName, factored, timestamp },
+ *     meta: { source, caseName, factored, loadBasis, timestamp },
  *     forces: {
  *       P  : 軸力 (tf, 壓+)
  *       Mx : x 向彎矩 (tf·m)   ── 柱專用 (雙向)
@@ -19,7 +19,7 @@
  *       V  : 主剪力 (tf)       ── 梁專用
  *       T  : 扭矩 (tf·m)       ── 梁專用
  *     },
- *     target: 'beam' | 'column-rect' | 'column-circ'
+ *     target: 'beam' | 'column-rect' | 'column-circ' | 'steel-beam'
  *   }
  *
  * 目標 (target) → 對應 URL：
@@ -37,8 +37,7 @@
     'beam':        '../鋼筋混凝土/tools/beam.html?import=1',
     'column-rect': '../鋼筋混凝土/tools/column.html?import=1',
     'column-circ': '../鋼筋混凝土/tools/column.html?import=1&colType=circle',
-    'steel-beam':   'tools/steel-beam.html?import=1',
-    'steel-column': 'tools/steel-column.html?import=1',
+    'steel-beam':   '../../鋼構工具/steel-beam-formal.html?import=1',
   };
 
   // 各 target 預期使用的 force keys (用於驗證 + UI 顯示)
@@ -47,15 +46,13 @@
     'column-rect':  ['P', 'Mx', 'My', 'Vx', 'Vy'],
     'column-circ':  ['P', 'Mx', 'Vx'],
     'steel-beam':   ['M', 'MNeg', 'V'],
-    'steel-column': ['P', 'Mx', 'My'],
   };
 
   const TARGET_LABEL = {
     'beam':         '梁構件設計 (beam.html)',
     'column-rect':  '矩形柱設計 (column.html)',
     'column-circ':  '圓形柱設計 (column.html)',
-    'steel-beam':   '鋼梁設計 (steel-beam.html)',
-    'steel-column': '鋼柱設計 (steel-column.html)',
+    'steel-beam':   '鋼梁正式檢核 (steel-beam-formal.html)',
   };
 
   // 內力鍵 → 中文標籤、單位
@@ -80,6 +77,7 @@
         source:    payload.meta?.source    || '未指定',
         caseName:  payload.meta?.caseName  || '未命名工況',
         factored:  !!payload.meta?.factored,
+        loadBasis: payload.meta?.loadBasis || (payload.meta?.factored ? 'factored' : 'unconfirmed'),
         timestamp: new Date().toISOString(),
       },
       forces: payload.forces || {},
@@ -87,6 +85,8 @@
       section:  payload.section  || null,
       // 可選: 材料性質 {fc, fy}  (kgf/cm²)
       material: payload.material || null,
+      // 可選: 構件幾何摘要，例如 {spanCm}
+      member:   payload.member   || null,
       target:   payload.target   || null,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));

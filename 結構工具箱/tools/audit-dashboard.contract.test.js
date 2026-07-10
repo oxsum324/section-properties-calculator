@@ -824,10 +824,13 @@ const auditDashboardBrowserSmokeScript = readText(toolboxFile('tools/audit-dashb
   'report-disclosure-contract',
   'delivery-artifacts-contract',
   'release-readiness-contract',
+  'rendered-delivery-evidence',
   '交付物一致性',
   '正式放行證據',
+  '實際交付物渲染佐證',
   '結構工具箱/tools/delivery-artifacts.contract.test.js',
   '結構工具箱/tools/release-readiness.contract.test.js',
+  '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
   '## Global Governance Gates',
   'latestFullPreflightSummary',
   'preflightHistoryHealth',
@@ -922,10 +925,17 @@ if (fs.existsSync(maturityMatrixPath)) {
   assert.equal(releaseReadinessGate.coveredCatalogs, 0, 'maturity globalGovernance release readiness catalog count');
   assert.deepEqual(releaseReadinessGate.catalogFamilies, [], 'maturity globalGovernance release readiness relevant families empty');
   assert.deepEqual(releaseReadinessGate.issues, [], 'maturity globalGovernance release readiness issues empty');
+  const renderedDeliveryGate = matrix.globalGovernance.gates.find(gate => gate.key === 'rendered-delivery-evidence');
+  assert.ok(renderedDeliveryGate, 'maturity globalGovernance rendered delivery evidence gate exists');
+  assert.equal(renderedDeliveryGate.pass, true, 'maturity globalGovernance rendered delivery evidence gate passes');
+  assert.equal(renderedDeliveryGate.coveredCatalogs, 0, 'maturity globalGovernance rendered delivery evidence catalog count');
+  assert.deepEqual(renderedDeliveryGate.catalogFamilies, [], 'maturity globalGovernance rendered delivery evidence relevant families empty');
+  assert.deepEqual(renderedDeliveryGate.issues, [], 'maturity globalGovernance rendered delivery evidence issues empty');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('## Global Governance Gates'), 'maturity markdown exposes global governance gates');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('report-disclosure-contract'), 'maturity markdown exposes report disclosure gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('delivery-artifacts-contract'), 'maturity markdown exposes delivery artifacts gate');
   assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('release-readiness-contract'), 'maturity markdown exposes release readiness gate');
+  assert.ok(readText(repoFile('output/audit/tool-maturity-matrix.md')).includes('rendered-delivery-evidence'), 'maturity markdown exposes rendered delivery evidence gate');
   if (maturityFresh) {
     assert.ok(matrix.preflightHistoryHealth && typeof matrix.preflightHistoryHealth === 'object', 'maturity preflightHistoryHealth object');
     assert.equal(Number.isInteger(matrix.preflightHistoryHealth.count), true, 'maturity preflightHistoryHealth count integer');

@@ -157,6 +157,8 @@ const beamFormalPath = path.join(__dirname, "steel-beam-formal.js");
 const beamFormalSource = fs.readFileSync(beamFormalPath, "utf8");
 const beamFormalHtmlPath = path.join(__dirname, "steel-beam-formal.html");
 const beamFormalHtmlSource = fs.readFileSync(beamFormalHtmlPath, "utf8");
+const memberFormalStylesPath = path.join(__dirname, "steel-member-formal.css");
+const memberFormalStylesSource = fs.readFileSync(memberFormalStylesPath, "utf8");
 const stylesPath = path.join(__dirname, "styles.css");
 const stylesSource = fs.readFileSync(stylesPath, "utf8");
 const appPath = path.join(__dirname, "app.js");
@@ -412,6 +414,36 @@ assert.doesNotMatch(
   "steel-beam-formal.html should no longer depend on parent-directory core script paths",
 );
 assert.match(
+  beamFormalHtmlSource,
+  /id="beamImportReview"[^>]*hidden[\s\S]*id="beamImportMPos"[\s\S]*id="beamImportMNeg"[\s\S]*id="beamImportV"[\s\S]*id="beamImportSpan"[\s\S]*id="beamImportConfirm"[\s\S]*id="beamImportApply"[^>]*disabled/s,
+  "steel-beam-formal.html should expose a hidden page-only candidate review whose apply action starts disabled",
+);
+assert.match(
+  beamFormalSource,
+  /const PENDING_FORCE_STORAGE_KEY = "structToolbox\.pendingForces"[\s\S]*function initBeamImportReview\(\)[\s\S]*payload\.target !== "steel-beam"[\s\S]*function applyPendingBeamImport\(\)[\s\S]*!\$\("beamImportConfirm"\)\?\.checked/s,
+  "steel-beam-formal.js should read only the steel-beam candidate payload and require explicit confirmation before adoption",
+);
+assert.match(
+  beamFormalSource,
+  /function renderPendingBeamImport\(payload\)[\s\S]*候選值尚未套用；目前正式輸入與檢核結果未受影響。[\s\S]*function applyPendingBeamImport\(\)[\s\S]*setDisplayFieldValue\("inMu"[\s\S]*setDisplayFieldValue\("inVu"[\s\S]*setDisplayFieldValue\("inL"/s,
+  "steel-beam-formal.js should keep candidate values separate until the confirmed apply action",
+);
+assert.doesNotMatch(
+  beamFormalSource.match(/function applyPendingBeamImport\(\)[\s\S]*?\n  }/)?.[0] || "",
+  /runCheck\(/,
+  "applying a beam candidate should not automatically execute the formal check",
+);
+assert.match(
+  beamFormalSource,
+  /adoptedInputSource: adoptedBeamImportSourceText\(\)[\s\S]*label: "內力來源", value: result\.adoptedInputSource/s,
+  "steel-beam-formal.js should record only the adopted input source in the formal report",
+);
+assert.match(
+  memberFormalStylesSource,
+  /@media\s+print[\s\S]*\.candidate-review[\s\S]*display:\s*none\s*!important/s,
+  "steel-member-formal.css should hide the candidate review from print and PDF",
+);
+assert.match(
   beamFormalSource,
   /const beamUnitFieldConfigs = \[[\s\S]*id: "inFy"[\s\S]*id: "inL"[\s\S]*id: "inLb"[\s\S]*id: "inLv"[\s\S]*id: "inMu"[\s\S]*id: "inVu"[\s\S]*id: "inWD"[\s\S]*id: "inWL"[\s\S]*];/,
   "steel-beam-formal.js should declare the beam fields that participate in unit conversion",
@@ -640,6 +672,11 @@ assert.match(
   browserRunnerSource,
   /main-plate[\s\S]*main-tension[\s\S]*standalone-plate[\s\S]*formal-beam[\s\S]*formal-beam-report-popup[\s\S]*formal-column[\s\S]*formal-column-report-popup/s,
   "steel-audit-browser-runner.js should cover homepage, standalone plate, steel formal pages, and formal report popup outputs",
+);
+assert.match(
+  browserRunnerSource,
+  /formal-beam-import-candidate[\s\S]*setupFormalBeamImportCandidate[\s\S]*loadBasis:\s*'unconfirmed'[\s\S]*assertFormalBeamImportCandidate[\s\S]*beam candidate must not overwrite Fy\/Lb\/Cb[\s\S]*人工確認採用/s,
+  "steel-audit-browser-runner.js should verify candidate isolation, explicit adoption, protected design inputs, and adopted-source reporting",
 );
 assert.match(
   browserRunnerSource,

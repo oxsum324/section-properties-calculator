@@ -5,6 +5,11 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const {
+  resolveEvidenceDir,
+  renderAndValidateReportPdf,
+  writeEvidenceSummary,
+} = require('./rendered-delivery-evidence');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -23,6 +28,7 @@ const viewports = [
 const formalManifest = readRootJson('結構工具箱/tools/formal-tools.manifest.json');
 const formalTools = formalManifest.tools;
 const requiredFormalRoutes = formalManifest.requiredRoutes;
+const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'formal-tools');
 const inlineValidationCases = {
   'wind-force': {
     inputs: { h: '0' },
@@ -1996,6 +2002,7 @@ async function main() {
   let server;
   let edge;
   let client;
+  const renderedEvidenceRecords = [];
 
   try {
     server = await startStaticServer(serverPort, vercelConfig);
@@ -2111,6 +2118,64 @@ async function main() {
           for (const [mode, popupReportState] of Object.entries(placeholderPopupReportStates)) {
             assertPlaceholderPopupReportState(popupReportState, tool, `${interactionLabel} popup placeholder`, mode);
           }
+          const renderedReportState = popupReportStates.detail
+            || popupReportStates.default
+            || reportStates.detail
+            || reportStates.default
+            || reportStates.simple;
+          assert.ok(renderedReportState?.html, `${interactionLabel} ${tool.key} has report HTML for real PDF evidence`);
+          const renderedEvidence = await renderAndValidateReportPdf(client, {
+            html: renderedReportState.html,
+            outputDir: renderedEvidenceDir,
+            artifactName: `${tool.key}-formal-report`,
+            label: `${tool.key} formal report`,
+            renderer: tool.reportMode ? 'formal-detailed' : 'formal-default',
+            titleNeedle: tool.titleNeedle,
+            requiredNeedles: [tool.titleNeedle, '計畫名稱', ...(tool.reportNeedles || [])],
+            forbiddenNeedles: [
+              ...(formalManifest.reportForbiddenNeedles || []),
+              ...(formalManifest.reportPageOnlyForbiddenNeedles || []),
+            ],
+          });
+          renderedEvidenceRecords.push({
+            key: tool.key,
+            renderer: renderedEvidence.renderer,
+            artifact: path.basename(renderedEvidence.pdfPath),
+            evidence: path.basename(renderedEvidence.evidencePath),
+            pageCount: renderedEvidence.pdf.pageCount,
+            textLength: renderedEvidence.pdf.textLength,
+          });
+          if (tool.key === 'wind-force') {
+            const summaryEvidence = await renderAndValidateReportPdf(client, {
+              html: reportStates.simple.html,
+              outputDir: renderedEvidenceDir,
+              artifactName: 'shared-summary-layout',
+              label: 'shared formal summary layout',
+              renderer: 'formal-summary',
+              titleNeedle: tool.titleNeedle,
+              requiredNeedles: [tool.titleNeedle, '計畫名稱', ...(tool.reportNeedles || [])],
+              forbiddenNeedles: [
+                ...(formalManifest.reportForbiddenNeedles || []),
+                ...(formalManifest.reportPageOnlyForbiddenNeedles || []),
+              ],
+            });
+            renderedEvidenceRecords.push({
+              key: 'shared-summary-layout',
+              renderer: summaryEvidence.renderer,
+              artifact: path.basename(summaryEvidence.pdfPath),
+              evidence: path.basename(summaryEvidence.evidencePath),
+              pageCount: summaryEvidence.pdf.pageCount,
+              textLength: summaryEvidence.pdf.textLength,
+            });
+            renderedEvidenceRecords.push({
+              key: 'shared-detailed-layout',
+              renderer: renderedEvidence.renderer,
+              artifact: path.basename(renderedEvidence.pdfPath),
+              evidence: path.basename(renderedEvidence.evidencePath),
+              pageCount: renderedEvidence.pdf.pageCount,
+              textLength: renderedEvidence.pdf.textLength,
+            });
+          }
           const inlineValidationState = inlineValidationCases[tool.key]
             ? await evaluate(client, sessionId, inlineValidationExpression(tool))
             : null;
@@ -2126,9 +2191,20 @@ async function main() {
       }
     }
 
+    const expectedRenderedEvidence = [
+      ...formalTools.map(tool => tool.key),
+      'shared-summary-layout',
+      'shared-detailed-layout',
+    ];
+    const renderedSummary = writeEvidenceSummary(
+      renderedEvidenceDir,
+      'formal-tools',
+      renderedEvidenceRecords,
+      expectedRenderedEvidence
+    );
     await client.send('Browser.close').catch(() => {});
     await waitForProcessExit(edge, 5000);
-    console.log(`formal browser smoke OK (${formalTools.length} tools, ${viewports.length} viewports)`);
+    console.log(`formal browser smoke OK (${formalTools.length} tools, ${viewports.length} viewports, renderedEvidence=${renderedEvidenceRecords.length}, summary=${renderedSummary.summaryPath})`);
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {

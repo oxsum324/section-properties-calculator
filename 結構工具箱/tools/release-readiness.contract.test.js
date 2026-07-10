@@ -37,6 +37,14 @@ const dashboardBrowserSmoke = readText('結構工具箱/tools/audit-dashboard-br
 const readme = readText('README.md');
 const staging = readText('STAGING_GROUPS.md');
 const boundaries = readText('TOOL_BOUNDARIES.md');
+const renderedEvidenceHelper = readText('結構工具箱/tools/rendered-delivery-evidence.js');
+const formalBrowserSmoke = readText('結構工具箱/tools/formal-browser-smoke.test.js');
+const localQuickBrowserSmoke = readText('結構工具箱/tools/local-quick-browser-smoke.test.js');
+const steelBrowserRunner = readText('鋼構工具/steel-audit-browser-runner.js');
+const rcAudit = readText('鋼筋混凝土/audit-tool.ps1');
+const deliveryArtifactsContract = readText('結構工具箱/tools/delivery-artifacts.contract.test.js');
+const renderedEvidenceContract = readText('結構工具箱/tools/rendered-delivery-evidence.contract.test.js');
+const renderedEvidenceInventory = readText('結構工具箱/tools/rendered-delivery-evidence.inventory.json');
 
 [
   'preflight-tools.ps1',
@@ -64,7 +72,80 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'release-readiness-contract',
   'node 結構工具箱/tools/release-readiness.contract.test.js',
   'Release readiness governance contract',
+  'PREFLIGHT_RUN_DIR',
+  'rendered-delivery-evidence.js',
+  'PREFLIGHT_RELEASE',
+  'rendered-delivery-evidence',
+  'node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
+  'Rendered delivery evidence release gate',
 ].forEach(needle => assertIncludes(preflight, needle, `preflight preserves release readiness ${needle}`));
+
+[
+  'Page.printToPDF',
+  'pdfinfo',
+  'pdftotext',
+  'pdftoppm',
+  'readPpmMetrics',
+  'PDF has readable text',
+  'PDF reading order keeps title before project metadata',
+  'report tables expose headings',
+  'PDF excludes page-only/forbidden text',
+  'content is not clipped at page edges',
+  'writeEvidenceSummary',
+].forEach(needle => assertIncludes(renderedEvidenceHelper, needle, `rendered delivery helper preserves ${needle}`));
+
+[
+  'renderAndValidateReportPdf',
+  'formalTools.map(tool => tool.key)',
+  'shared-summary-layout',
+  'shared-detailed-layout',
+  'writeEvidenceSummary',
+].forEach(needle => assertIncludes(formalBrowserSmoke, needle, `formal browser smoke preserves rendered evidence ${needle}`));
+
+[
+  'renderAndValidateReportPdf',
+  'manifest.tools.map(tool => tool.key)',
+  'shared-summary-layout',
+  'shared-detailed-layout',
+  'writeEvidenceSummary',
+].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
+
+[
+  'steel-main-plate',
+  'steel-beam-formal',
+  'steel-column-formal',
+  'renderAndValidateReportPdf',
+  'writeEvidenceSummary',
+].forEach(needle => assertIncludes(steelBrowserRunner, needle, `steel browser runner preserves rendered evidence ${needle}`));
+
+[
+  'Beam regression and report visual smoke',
+  'Column regression and report visual smoke',
+  'Slab regression and report visual smoke',
+  'Wall regression and report visual smoke',
+  'Shear wall report visual smoke',
+  'Foundation regression and report visual smoke',
+  'Single pile regression and report visual smoke',
+  'RC Retrofit report visual smoke',
+].forEach(needle => assertIncludes(rcAudit, needle, `RC audit preserves actual report rendering ${needle}`));
+
+[
+  'extract_docx_text',
+  'docxPayload.text.length > 2500',
+  'workbook/docx 邊界',
+].forEach(needle => assertIncludes(deliveryArtifactsContract, needle, `delivery artifact contract preserves extracted Office evidence ${needle}`));
+
+[
+  'inventory.tools.length, 31',
+  "process.env.PREFLIGHT_RELEASE === '1'",
+  "['formal-tools', 'local-quick-tools', 'steel-formal']",
+  "family === 'rc-formal'",
+  "family === 'rc-retrofit'",
+  "family === 'office-artifacts'",
+  'release rendered evidence resolves every homepage formal tool',
+  'rendered-delivery-evidence-summary.json',
+].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
+assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evidence inventory has 31 formal tools', 'rendered-delivery-evidence.inventory.json');
 
 [
   'release-readiness-contract',
@@ -76,6 +157,9 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'typeof payload.latestPreflight.forcePlatformAudit',
   'typeof payload.latestPreflight.forceSlowChecks',
   'tool maturity matrix release readiness gate passed',
+  'rendered-delivery-evidence',
+  '實際交付物渲染佐證',
+  'tool maturity matrix rendered delivery evidence gate passed',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
 
 [
@@ -95,6 +179,8 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'maturity globalGovernance release readiness gate exists',
   'maturity latest preflight forcePlatformAudit boolean',
   'maturity latest preflight forceSlowChecks boolean',
+  'rendered-delivery-evidence',
+  'maturity globalGovernance rendered delivery evidence gate exists',
 ].forEach(needle => assertIncludes(dashboardContract, needle, `dashboard contract preserves release readiness ${needle}`));
 
 [
@@ -105,6 +191,8 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'fixture-release',
   '正式放行',
   'R',
+  'rendered-delivery-evidence',
+  '實際交付物渲染佐證',
 ].forEach(needle => assertIncludes(dashboardBrowserSmoke, needle, `dashboard browser smoke preserves release readiness ${needle}`));
 
 [
@@ -113,6 +201,9 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'ForcePlatformAudit',
   'release-readiness-contract',
   '結構工具箱/tools/release-readiness.contract.test.js',
+  '結構工具箱/tools/rendered-delivery-evidence.js',
+  '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
+  '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
 ].forEach(needle => {
   assertIncludes(readme, needle, `README documents release readiness ${needle}`);
   assertIncludes(staging, needle, `STAGING_GROUPS documents release readiness ${needle}`);

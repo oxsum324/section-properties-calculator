@@ -270,6 +270,7 @@ function Run-AuditPass {
     @{ Label = "Foundation regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8133'; & '$toolsDir\test-foundation.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir },
     @{ Label = "Single pile report visual smoke contract"; Command = "Set-Location '$toolsDir'; node '.\single-pile-report-visual.contract.test.js'"; Workdir = $toolsDir },
     @{ Label = "Single pile regression and report visual smoke"; Command = "`$env:RC_TEST_PORT='8134'; & '$toolsDir\test-single-pile.ps1'; Remove-Item Env:RC_TEST_PORT -ErrorAction SilentlyContinue"; Workdir = $toolsDir }
+    @{ Label = "RC Retrofit report visual smoke"; Command = "& '$toolsDir\test-retrofit-report.ps1'"; Workdir = $toolsDir }
   )
 
   foreach ($item in $commands) {

@@ -6,6 +6,11 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { spawn } = require('child_process');
 const assert = require('assert');
+const {
+  resolveEvidenceDir,
+  renderAndValidateReportPdf,
+  writeEvidenceSummary,
+} = require('./rendered-delivery-evidence');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -546,7 +551,7 @@ function newHomeExpression(tools) {
     const rcBeamReadiness = rcBeamCard
       ? (Array.from(rcBeamCard.querySelectorAll('.tool-profile__item')).find(item => item.querySelector('span')?.textContent.trim() === '閱讀狀態')?.querySelector('p')?.textContent.trim() || '')
       : '';
-    const legacySteelCard = Array.from(document.querySelectorAll('.tool-card')).find(card => (card.querySelector('h3')?.textContent || '').trim() === '鋼梁舊式頁面');
+    const legacySteelCard = Array.from(document.querySelectorAll('.tool-card')).find(card => (card.querySelector('h3')?.textContent || '').trim() === '鋼梁舊案延續頁');
     const legacySteelReadiness = legacySteelCard
       ? (Array.from(legacySteelCard.querySelectorAll('.tool-profile__item')).find(item => item.querySelector('span')?.textContent.trim() === '閱讀狀態')?.querySelector('p')?.textContent.trim() || '')
       : '';
@@ -1007,7 +1012,7 @@ function reportExpression(mode = null, projectMetaState = 'complete') {
   })()`;
 }
 
-function legacyReportExpression(reportButtonId = 'btnReport', projectMetaState = 'complete') {
+function legacyReportExpression(reportButtonId = 'btnReport', confirmId, projectMetaState = 'complete') {
   return `(() => {
     const originalOpen = window.open;
     const opened = [];
@@ -1054,11 +1059,24 @@ function legacyReportExpression(reportButtonId = 'btnReport', projectMetaState =
         setProjectField('projNo', 'LOCAL-VERIFY-001');
         setProjectField('projDesigner', 'Codex QA');
       }
-      document.getElementById(${JSON.stringify(reportButtonId)}).click();
+      const reportButton = document.getElementById(${JSON.stringify(reportButtonId)});
+      const useConfirm = document.getElementById(${JSON.stringify(confirmId)});
+      if (!reportButton || !useConfirm) throw new Error('legacy output controls missing');
+      const initialReportDisabled = reportButton.disabled;
+      reportButton.click();
+      const blockedOpenCount = opened.length;
+      useConfirm.checked = true;
+      useConfirm.dispatchEvent(new Event('change', { bubbles: true }));
+      const confirmedReportDisabled = reportButton.disabled;
+      reportButton.click();
       const html = writes.join('');
-      const pageOnlyReadinessText = (document.querySelector('.page-only-report-status')?.textContent || '').replace(/\\s+/g, ' ').trim();
+      const pageOnlyReadinessText = (document.querySelector('.page-only-report-status.report-readiness')?.textContent || '').replace(/\\s+/g, ' ').trim();
       return {
         projectMetaState: projectState,
+        initialReportDisabled,
+        blockedOpenCount,
+        confirmedReportDisabled,
+        useConfirmed: useConfirm.checked,
         openCount: opened.length,
         opened,
         documentOpened,
@@ -1183,7 +1201,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
   }
   assert.ok(state.rcBeamMeta.includes('報告邊界'), `${label} new home RC beam exposes report boundary chip`);
   assert.ok(state.rcBeamReadiness.includes('正式計算書') && state.rcBeamReadiness.includes('工程師確認'), `${label} new home RC beam readiness summary`);
-  assert.ok(state.legacySteelReadiness.includes('建議逐步回新版正式入口'), `${label} new home legacy steel readiness summary`);
+  assert.ok(state.legacySteelReadiness.includes('既有案件延續') && state.legacySteelReadiness.includes('新案正式計算附件'), `${label} new home transition steel readiness summary`);
   assert.equal(state.horizontalOverflow, false, `${label} new home horizontal overflow`);
   for (const link of state.requiredLinks) {
     assert.equal(link.exists, true, `${label} new home link exists: ${link.href}`);
@@ -1484,17 +1502,23 @@ function assertLegacyReportState(state, legacyTool, label) {
   const missingProjectMetaPattern = /計畫名稱 \/ 編號 \/ 設計人尚未完整，附件識別不足/;
   const visibleText = reportHtmlText(state.html);
   assert.equal(state.projectMetaState, 'complete', `${label} ${legacyTool.key} report project state`);
+  assert.equal(state.initialReportDisabled, true, `${label} ${legacyTool.key} output disabled before existing-project confirmation`);
+  assert.equal(state.blockedOpenCount, 0, `${label} ${legacyTool.key} cannot open output before confirmation`);
+  assert.equal(state.confirmedReportDisabled, false, `${label} ${legacyTool.key} output enabled after existing-project confirmation`);
+  assert.equal(state.useConfirmed, true, `${label} ${legacyTool.key} existing-project use remains confirmed`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} report open count`);
   assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} report document open`);
   assert.equal(state.closed, true, `${label} ${legacyTool.key} report document close`);
   assert.ok(state.htmlLength > 1500, `${label} ${legacyTool.key} report HTML length`);
-  assert.ok(state.html.includes('計算書'), `${label} ${legacyTool.key} report title`);
+  assert.ok(state.html.includes(legacyTool.reportTitle), `${label} ${legacyTool.key} report title`);
+  assert.ok(state.html.includes('不得作為新案正式計算附件'), `${label} ${legacyTool.key} output classification`);
+  assert.ok(state.html.includes('新案正式計算附件必須由'), `${label} ${legacyTool.key} formal-page boundary`);
   assert.ok(state.html.includes('局部工具驗證案'), `${label} ${legacyTool.key} report project name`);
   assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${legacyTool.key} report project no`);
   assert.ok(state.html.includes('Codex QA'), `${label} ${legacyTool.key} report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${legacyTool.key} report excludes raw placeholder project text`);
   assert.ok(visibleText.length >= 420, `${label} ${legacyTool.key} visible report text is substantial: chars=${visibleText.length}`);
-  ['計算書', '局部工具驗證案', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
+  [legacyTool.reportTitle, '舊案延續', '局部工具驗證案', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
     assert.ok(visibleText.includes(needle), `${label} ${legacyTool.key} visible report text includes ${needle}`);
   });
   pageOnlyReportStatusNeedles.forEach(needle => {
@@ -1510,18 +1534,22 @@ function assertLegacyPlaceholderReportState(state, legacyTool, label) {
   const missingProjectMetaPattern = /計畫名稱 \/ 編號 \/ 設計人尚未完整，附件識別不足/;
   const visibleText = reportHtmlText(state.html);
   assert.equal(state.projectMetaState, 'placeholder', `${label} ${legacyTool.key} placeholder report project state`);
+  assert.equal(state.initialReportDisabled, true, `${label} ${legacyTool.key} placeholder output disabled before existing-project confirmation`);
+  assert.equal(state.blockedOpenCount, 0, `${label} ${legacyTool.key} placeholder output cannot open before confirmation`);
+  assert.equal(state.confirmedReportDisabled, false, `${label} ${legacyTool.key} placeholder output enabled after existing-project confirmation`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} placeholder report open count`);
   assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} placeholder report document open`);
   assert.equal(state.closed, true, `${label} ${legacyTool.key} placeholder report document close`);
   assert.ok(state.htmlLength > 1500, `${label} ${legacyTool.key} placeholder report HTML length`);
-  assert.ok(state.html.includes('計算書'), `${label} ${legacyTool.key} placeholder report title`);
+  assert.ok(state.html.includes(legacyTool.reportTitle), `${label} ${legacyTool.key} placeholder report title`);
+  assert.ok(state.html.includes('不得作為新案正式計算附件'), `${label} ${legacyTool.key} placeholder output classification`);
   assert.ok(state.html.includes('計畫名稱</b>—'), `${label} ${legacyTool.key} placeholder report project name fallback`);
   assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${legacyTool.key} placeholder report project no`);
   assert.ok(state.html.includes('Codex QA'), `${label} ${legacyTool.key} placeholder report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${legacyTool.key} placeholder report excludes raw placeholder project text`);
   assert.equal(state.html.includes('局部工具驗證案'), false, `${label} ${legacyTool.key} placeholder report excludes completed project name`);
   assert.ok(visibleText.length >= 420, `${label} ${legacyTool.key} placeholder visible report text is substantial: chars=${visibleText.length}`);
-  ['計算書', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
+  [legacyTool.reportTitle, '舊案延續', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
     assert.ok(visibleText.includes(needle), `${label} ${legacyTool.key} placeholder visible report text includes ${needle}`);
   });
   pageOnlyReportStatusNeedles.forEach(needle => {
@@ -1559,6 +1587,8 @@ function assertReferenceReadinessState(state, tool, label) {
 
 async function main() {
   const manifest = readJson('tools/local-quick-tools.manifest.json');
+  const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'local-quick-tools');
+  const renderedEvidenceRecords = [];
   const preflightStatusPayload = readJson('assets/status/preflight-summary.json');
   const vercelConfig = readRootJson('vercel.json');
   const edgePath = EDGE_CANDIDATES.find(candidate => fs.existsSync(candidate));
@@ -1635,11 +1665,15 @@ async function main() {
         key: 'steel-beam',
         route: '/steel-beam',
         reportButtonId: 'btnReport',
+        confirmId: 'beamLegacyUseConfirm',
+        reportTitle: '鋼梁舊案延續計算記錄',
       },
       {
         key: 'steel-column',
         route: '/steel-column',
         reportButtonId: 'btnReport',
+        confirmId: 'columnLegacyUseConfirm',
+        reportTitle: '鋼柱舊案延續計算記錄',
       },
     ];
     const referenceReadinessCases = [
@@ -1717,7 +1751,7 @@ async function main() {
             sessionId,
             `http://127.0.0.1:${serverPort}${legacyTool.route}`,
             viewport,
-            legacyReportExpression(legacyTool.reportButtonId, 'complete')
+            legacyReportExpression(legacyTool.reportButtonId, legacyTool.confirmId, 'complete')
           );
           assert.deepEqual(completeResult.errors, [], `${label} complete console/dialog errors: ${completeResult.errors.join(' | ')}`);
           assertLegacyReportState(completeResult.state, legacyTool, label);
@@ -1727,7 +1761,7 @@ async function main() {
             sessionId,
             `http://127.0.0.1:${serverPort}${legacyTool.route}`,
             viewport,
-            legacyReportExpression(legacyTool.reportButtonId, 'placeholder')
+            legacyReportExpression(legacyTool.reportButtonId, legacyTool.confirmId, 'placeholder')
           );
           assert.deepEqual(placeholderResult.errors, [], `${label} placeholder console/dialog errors: ${placeholderResult.errors.join(' | ')}`);
           assertLegacyPlaceholderReportState(placeholderResult.state, legacyTool, `${label} placeholder`);
@@ -1790,6 +1824,52 @@ async function main() {
               const summaryPlaceholderReportState = await evaluate(client, sessionId, reportExpression('summary', 'placeholder'));
               assertReportState(summaryReportState, tool, interactionLabel, 'summary');
               assertPlaceholderReportState(summaryPlaceholderReportState, tool, `${interactionLabel} placeholder`, 'summary');
+              const detailedEvidence = await renderAndValidateReportPdf(client, {
+                html: detailedReportState.html,
+                outputDir: renderedEvidenceDir,
+                artifactName: `${tool.key}-detailed-report`,
+                label: `${tool.key} detailed report`,
+                renderer: 'local-quick-detailed',
+                titleNeedle: tool.reportTitleNeedle,
+                projectNeedle: '計畫：',
+                requiredNeedles: [tool.reportTitleNeedle, '計畫：', ...(tool.reportNeedles || [])],
+              });
+              renderedEvidenceRecords.push({
+                key: tool.key,
+                renderer: detailedEvidence.renderer,
+                artifact: path.basename(detailedEvidence.pdfPath),
+                evidence: path.basename(detailedEvidence.evidencePath),
+                pageCount: detailedEvidence.pdf.pageCount,
+                textLength: detailedEvidence.pdf.textLength,
+              });
+              if (tool.key === 'foundation-local') {
+                const summaryEvidence = await renderAndValidateReportPdf(client, {
+                  html: summaryReportState.html,
+                  outputDir: renderedEvidenceDir,
+                  artifactName: 'shared-summary-layout',
+                  label: 'shared local quick summary layout',
+                  renderer: 'local-quick-summary',
+                  titleNeedle: tool.reportTitleNeedle,
+                  projectNeedle: '計畫：',
+                  requiredNeedles: [tool.reportTitleNeedle, '計畫：', ...(tool.reportNeedles || [])],
+                });
+                renderedEvidenceRecords.push({
+                  key: 'shared-summary-layout',
+                  renderer: summaryEvidence.renderer,
+                  artifact: path.basename(summaryEvidence.pdfPath),
+                  evidence: path.basename(summaryEvidence.evidencePath),
+                  pageCount: summaryEvidence.pdf.pageCount,
+                  textLength: summaryEvidence.pdf.textLength,
+                });
+                renderedEvidenceRecords.push({
+                  key: 'shared-detailed-layout',
+                  renderer: detailedEvidence.renderer,
+                  artifact: path.basename(detailedEvidence.pdfPath),
+                  evidence: path.basename(detailedEvidence.evidencePath),
+                  pageCount: detailedEvidence.pdf.pageCount,
+                  textLength: detailedEvidence.pdf.textLength,
+                });
+              }
             } else {
               const reportState = await evaluate(client, sessionId, reportExpression());
               const placeholderReportState = await evaluate(client, sessionId, reportExpression(null, 'placeholder'));
@@ -1801,9 +1881,20 @@ async function main() {
       }
     }
 
+    const expectedRenderedEvidence = [
+      ...manifest.tools.map(tool => tool.key),
+      'shared-summary-layout',
+      'shared-detailed-layout',
+    ];
+    const renderedSummary = writeEvidenceSummary(
+      renderedEvidenceDir,
+      'local-quick-tools',
+      renderedEvidenceRecords,
+      expectedRenderedEvidence
+    );
     await client.send('Browser.close').catch(() => {});
     await waitForProcessExit(edge, 5000);
-    console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports, clean routes)`);
+    console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports, clean routes, renderedEvidence=${renderedEvidenceRecords.length}, summary=${renderedSummary.summaryPath})`);
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {

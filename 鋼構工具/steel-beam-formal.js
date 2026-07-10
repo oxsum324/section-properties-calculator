@@ -7,6 +7,7 @@
   const SteelFormalUI = window.SteelFormalUI;
   if (!SteelFormalUI) throw new Error("SteelFormalUI is not loaded.");
   const UI_PREFS_KEY = "steel-beam-formal-ui-v3";
+  const PENDING_FORCE_STORAGE_KEY = "structToolbox.pendingForces";
   const TF_TO_KN = 9.80665;
   const KGFCM2_TO_MPA = 0.0980665;
   const KGFCM_TO_KNM = 0.980665;
@@ -115,6 +116,124 @@
   let currentPanel = "report";
   let resultState = null;
   let lastBeamReportValidationMessage = "";
+  let pendingBeamImport = null;
+  let adoptedBeamImport = null;
+
+  function finiteCandidate(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function candidateMomentValue(choice = $("beamImportMomentChoice")?.value) {
+    if (!pendingBeamImport) return 0;
+    const positive = Math.abs(pendingBeamImport.mPos || 0);
+    const negative = Math.abs(pendingBeamImport.mNeg || 0);
+    if (choice === "positive") return positive;
+    if (choice === "negative") return negative;
+    return Math.max(positive, negative);
+  }
+
+  function candidateMomentLabel(choice = $("beamImportMomentChoice")?.value) {
+    if (choice === "positive") return "正彎矩";
+    if (choice === "negative") return "負彎矩絕對值";
+    return "正負彎矩絕對值取大";
+  }
+
+  function candidateLoadBasisLabel(value) {
+    if (value === "factored") return "已因數化";
+    if (value === "unfactored") return "未因數化";
+    if (value === "unconfirmed") return "未確認";
+    return "未提供";
+  }
+
+  function adoptedBeamImportSourceText() {
+    if (!adoptedBeamImport) return "本頁手動輸入";
+    const currentMoment = getLegacyInputValue("inMu", "moment");
+    const currentShear = getLegacyInputValue("inVu", "force");
+    const currentSpan = getLegacyInputValue("inL", "memberLength");
+    const changed = Math.abs(currentMoment - adoptedBeamImport.moment) > 1e-6
+      || Math.abs(currentShear - adoptedBeamImport.shear) > 1e-6
+      || Math.abs(currentSpan - adoptedBeamImport.spanCm) > 1e-6;
+    const adjustment = changed ? "；套用後經人工調整" : "；人工確認採用";
+    return `${adoptedBeamImport.source}｜${adoptedBeamImport.caseName}｜${adoptedBeamImport.momentLabel}${adjustment}；載重基準：已人工確認`;
+  }
+
+  function clearPendingBeamImport({ hide = true } = {}) {
+    localStorage.removeItem(PENDING_FORCE_STORAGE_KEY);
+    pendingBeamImport = null;
+    if ($("beamImportConfirm")) $("beamImportConfirm").checked = false;
+    if ($("beamImportApply")) $("beamImportApply").disabled = true;
+    if (hide && $("beamImportReview")) $("beamImportReview").hidden = true;
+  }
+
+  function renderPendingBeamImport(payload) {
+    const forces = payload?.forces || {};
+    const member = payload?.member || {};
+    const mPos = finiteCandidate(forces.M);
+    const mNeg = finiteCandidate(forces.MNeg);
+    const shear = finiteCandidate(forces.V);
+    const spanCm = finiteCandidate(member.spanCm);
+    if (mPos === null || mNeg === null || shear === null || spanCm === null || spanCm <= 0) return false;
+    pendingBeamImport = {
+      payload,
+      mPos,
+      mNeg,
+      shear: Math.abs(shear),
+      spanCm,
+    };
+    const meta = payload.meta || {};
+    const sectionTitle = payload.section?.title || "未提供可直接採用的鋼構斷面";
+    $("beamImportMPos").textContent = `${f2(mPos)} tf·m`;
+    $("beamImportMNeg").textContent = `${f2(mNeg)} tf·m`;
+    $("beamImportV").textContent = `${f2(Math.abs(shear))} tf`;
+    $("beamImportSpan").textContent = `${f1(spanCm)} cm`;
+    $("beamImportSource").textContent = `${meta.source || "未指定來源"}｜${meta.caseName || "未命名工況"}｜載重基準：${candidateLoadBasisLabel(meta.loadBasis)}`;
+    $("beamImportSection").textContent = `來源斷面：${sectionTitle}；斷面、Fy、Lb／Cb 不會自動套用。`;
+    $("beamImportReview").hidden = false;
+    $("beamImportReviewBadge").textContent = "待確認";
+    $("beamImportStatus").textContent = "候選值尚未套用；目前正式輸入與檢核結果未受影響。";
+    return true;
+  }
+
+  function initBeamImportReview() {
+    if (new URLSearchParams(window.location.search).get("import") !== "1") return;
+    let payload = null;
+    try {
+      const raw = localStorage.getItem(PENDING_FORCE_STORAGE_KEY);
+      payload = raw ? JSON.parse(raw) : null;
+    } catch {
+      payload = null;
+    }
+    if (!payload || payload.target !== "steel-beam" || !renderPendingBeamImport(payload)) {
+      clearPendingBeamImport();
+    }
+  }
+
+  function applyPendingBeamImport() {
+    if (!pendingBeamImport || !$("beamImportConfirm")?.checked) return;
+    const momentChoice = $("beamImportMomentChoice").value;
+    const moment = candidateMomentValue(momentChoice);
+    setDisplayFieldValue("inMu", moment, "moment");
+    setDisplayFieldValue("inVu", pendingBeamImport.shear, "force");
+    setDisplayFieldValue("inL", pendingBeamImport.spanCm, "memberLength");
+    const meta = pendingBeamImport.payload.meta || {};
+    adoptedBeamImport = {
+      source: meta.source || "連續梁分析",
+      caseName: meta.caseName || "主控組合",
+      moment,
+      shear: pendingBeamImport.shear,
+      spanCm: pendingBeamImport.spanCm,
+      momentLabel: candidateMomentLabel(momentChoice),
+      loadBasis: meta.loadBasis || "unconfirmed",
+    };
+    clearPendingBeamImport({ hide: false });
+    $("beamImportReviewBadge").textContent = "已套用";
+    $("beamImportStatus").textContent = "候選內力與跨度已套用至正式輸入；請再確認斷面、Fy、Lb／Cb、設計方法與使用性條件後執行檢核。";
+    renderFillStatus();
+    renderCardStatuses(null);
+    resultState = null;
+    setBeamReportValidationMessage("候選值已套用，請確認其餘設計條件並重新執行檢核。");
+  }
 
   const glossaryItems = [
     ["Fy", "鋼材降伏強度", "kgf/cm²", "鋼材規定最小降伏強度。", "撓曲與剪力強度計算。", "第七章撓曲構材一般規定"],
@@ -1361,6 +1480,7 @@
       ${pairRow("單位系統", getFormalUnitSummaryText())}
       ${pairRow("跨度 / 穩定參數", spanAndStability)}
       ${pairRow("設計需求", `${designMethod === "LRFD" ? "Mu" : "Ma"} = ${formatDisplayValue(result.demandMoment, "moment", 2)} ${getQuantityUnit("moment")}，${designMethod === "LRFD" ? "Vu" : "Va"} = ${formatDisplayValue(result.demandShear, "force", 2)} ${getQuantityUnit("force")}`)}
+      ${pairRow("內力來源", result.adoptedInputSource)}
       ${pairRow("使用載重", `wD = ${formatDisplayValue(getLegacyInputValue("inWD"), "lineLoad", unitMode === "si" ? 3 : 2)} ${getQuantityUnit("lineLoad")}，wL = ${formatDisplayValue(getLegacyInputValue("inWL"), "lineLoad", unitMode === "si" ? 3 : 2)} ${getQuantityUnit("lineLoad")}`)}
       ${pairRow("撓度限值", `活載重 L/${$("limL").value}，總撓度 L/${$("limT").value}`)}
       ${pairRow("輸出報表內容", getReportContentSummaryText())}
@@ -1749,7 +1869,7 @@
     $("summaryResult").innerHTML = `<div class="member-note">${isOverallOk({ flexOk, shearOk, deflStatus }) ? "本次鋼梁斷面於主軸彎矩、剪力與撓度檢核均通過。" : "本次鋼梁斷面至少有一項控制條件未通過，請優先檢視控制模式、剪力條件與撓度條件。"}</div>`;
     $("summaryCard").style.display = "";
 
-    const result = { sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear };
+    const result = { sectionType, sec, cls, flex, shear, deflection, Fy, Lb, Cb, L, Lv, isLRFD, flexOk, shearOk, ratioFlex, ratioShear, deflStatus, allowLive, allowTotal, demandMoment, demandShear, adoptedInputSource: adoptedBeamImportSourceText() };
     resultState = result;
     setBeamReportValidationMessage("");
     renderSummary(result);
@@ -1791,6 +1911,7 @@
           { label: designMethod === "LRFD" ? "Mu" : "Ma", value: formatDisplayValue(result.demandMoment, "moment", 2), unit: getQuantityUnit("moment") },
           { label: designMethod === "LRFD" ? "Vu" : "Va", value: formatDisplayValue(result.demandShear, "force", 2), unit: getQuantityUnit("force") },
           { label: "跨度 L", value: formatDisplayValue(result.L, "memberLength", unitMode === "si" ? 3 : 1), unit: getQuantityUnit("memberLength") },
+          { label: "內力來源", value: result.adoptedInputSource },
         ]},
       ],
         checks: [
@@ -1817,6 +1938,14 @@
   }
 
   function bindEvents() {
+    $("beamImportConfirm").addEventListener("change", () => {
+      $("beamImportApply").disabled = !pendingBeamImport || !$("beamImportConfirm").checked;
+    });
+    $("beamImportApply").addEventListener("click", applyPendingBeamImport);
+    $("beamImportDiscard").addEventListener("click", () => {
+      clearPendingBeamImport();
+      $("beamInputStatus").textContent = "已捨棄連續梁候選值，正式輸入維持不變。";
+    });
     $("sectionTypeSelect").addEventListener("change", () => {
       syncSectionTypeUI();
       resultState = runCheck();
@@ -1878,6 +2007,7 @@
       $(id).addEventListener("change", syncBeamProjectMetaUi);
     });
     document.querySelectorAll("input, select").forEach((input) => {
+      if (input.closest("#beamImportReview")) return;
       if (!["projName", "projNo", "projDesigner"].includes(input.id) && !input.dataset.filterInput) {
         input.addEventListener("change", () => { resultState = runCheck(); });
       }
@@ -1903,6 +2033,7 @@
   syncSectionTypeUI();
   setMethod(designMethod);
   onMatSelect();
+  initBeamImportReview();
   renderFillStatus();
   renderCardStatuses(null);
   resultState = runCheck();

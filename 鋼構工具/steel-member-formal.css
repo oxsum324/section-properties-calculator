@@ -58,6 +58,120 @@
   display: none;
 }
 
+.candidate-review {
+  border-left: 4px solid #d97706;
+  background: #fffbeb;
+}
+
+.candidate-review__head,
+.candidate-review__controls,
+.candidate-review__actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.candidate-review__kicker {
+  margin: 0 0 3px;
+  color: #92400e;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.candidate-review__head h2,
+.candidate-review__intro {
+  margin: 0;
+}
+
+.candidate-review__badge {
+  padding: 4px 9px;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: #fff;
+  color: #92400e;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.candidate-review__intro {
+  margin-top: 8px;
+  color: #78350f;
+  line-height: 1.6;
+}
+
+.candidate-review__facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.candidate-review__facts > div,
+.candidate-review__source {
+  padding: 9px 10px;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.candidate-review__facts span,
+.candidate-review__source span,
+.candidate-review__source small {
+  display: block;
+  color: #78716c;
+  font-size: 0.75rem;
+}
+
+.candidate-review__facts strong,
+.candidate-review__source strong {
+  display: block;
+  margin-top: 3px;
+  color: #292524;
+}
+
+.candidate-review__controls {
+  margin-top: 10px;
+}
+
+.candidate-review__controls .form-group {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+.candidate-review__source {
+  flex: 2 1 360px;
+}
+
+.candidate-review__confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  color: #78350f;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.candidate-review__confirm input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: #b45309;
+}
+
+.candidate-review__actions {
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
+.candidate-review__actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .member-summary-card {
   border: 1px solid #d9e4ec;
   border-radius: 12px;
@@ -334,6 +448,18 @@
 
   .member-layout .report-paper .report-block.is-collapsed .report-block-body {
     display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .candidate-review__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media print {
+  .candidate-review {
+    display: none !important;
   }
 }
 

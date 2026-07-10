@@ -6,7 +6,9 @@ const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('.
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.SLAB_REPORT_PORT || 0);
-const OUT_DIR = path.resolve(process.env.SLAB_REPORT_OUT || path.join(ROOT, 'output', 'playwright'));
+const OUT_DIR = path.resolve(process.env.SLAB_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
+  ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
+  : path.join(ROOT, 'output', 'playwright')));
 const CASE_KEYS = (process.env.SLAB_REPORT_CASES || 'one_basic,two_basic,flat_interior_pass_warn,flat_edge_cons')
   .split(',')
   .map(s => s.trim())

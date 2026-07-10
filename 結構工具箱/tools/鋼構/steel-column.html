@@ -28,6 +28,9 @@
   .btn-print { display:inline-block; margin-top:8px; padding:8px 18px; background:#0891b2; color:#fff;
     border:0; border-radius:6px; cursor:pointer; font-weight:600; font-size:0.88em; }
   .btn-print:hover { background:#0e7490; }
+  .legacy-report-confirm { display:inline-flex; align-items:center; gap:5px; font-size:0.78em; font-weight:700; color:#7c2d12; white-space:nowrap; }
+  .legacy-report-confirm input { width:16px; height:16px; margin:0; accent-color:#c2410c; }
+  .mode-bar__report:disabled { opacity:.45; cursor:not-allowed; }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.85em; line-height:1.6; font-weight:700; }
   .input-status:empty { display:none; }
   .report-readiness { margin-top:10px; border:1px solid #fde68a; border-radius:10px; background:#fffbeb; padding:12px 14px; color:#92400e; line-height:1.6; }
@@ -95,7 +98,8 @@
     <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
     <input type="text" id="projNo"   class="w-no"   placeholder="編號">
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <button id="btnReport" class="mode-bar__report" type="button" onclick="buildColumnReport()">📄 計算書</button>
+    <label class="legacy-report-confirm page-only-report-status"><input type="checkbox" id="columnLegacyUseConfirm">既有案件延續</label>
+    <button id="btnReport" class="mode-bar__report" type="button" onclick="buildColumnReport()" disabled>舊案延續計算記錄</button>
   </div>
 </div>
 
@@ -302,6 +306,16 @@ function isColumnProjectMetaMissing() {
   return !!window.ToolReportUI?.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
 }
 
+function isColumnLegacyUseConfirmed() {
+  return $('columnLegacyUseConfirm')?.checked === true;
+}
+
+function syncColumnLegacyReportControl() {
+  const reportButton = $('btnReport');
+  if (reportButton) reportButton.disabled = !isColumnLegacyUseConfirmed();
+  renderColumnReportReadiness(lastColumnReportValidationMessage);
+}
+
 function setColumnReportValidationMessage(message = '') {
   lastColumnReportValidationMessage = message || '';
   renderColumnReportReadiness(lastColumnReportValidationMessage);
@@ -315,7 +329,8 @@ function composeColumnReadinessModel(validationMessage = lastColumnReportValidat
       title: '輸入尚未通過檢查，先不要產生計算書。',
       items: [
         { label: '輸入檢核', value: validationMessage },
-        { label: '工具定位', value: '舊版保留；優先供舊案延續或連續梁匯入對接' },
+        { label: '工具定位', value: '過渡工具；只供既有案件延續' },
+        { label: '既有案件用途', value: isColumnLegacyUseConfirmed() ? '已確認' : '未確認' },
         { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
       ],
     };
@@ -327,23 +342,27 @@ function composeColumnReadinessModel(validationMessage = lastColumnReportValidat
       title: '尚未完成檢核，先不要產生計算書。',
       items: [
         { label: '檢核狀態', value: '尚未建立舊版鋼柱檢核結果' },
-        { label: '工具定位', value: '舊版保留；優先供舊案延續或連續梁匯入對接' },
+        { label: '工具定位', value: '過渡工具；只供既有案件延續' },
+        { label: '既有案件用途', value: isColumnLegacyUseConfirmed() ? '已確認' : '未確認' },
         { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
       ],
     };
   }
-  const reviewItems = ['此頁為舊版保留流程；若非舊案延續或連續梁匯入，建議改用鋼柱正式頁面。'];
+  const legacyUseConfirmed = isColumnLegacyUseConfirmed();
+  const reviewItems = ['此頁為過渡工具；新案正式計算附件必須改用鋼柱正式頁面。'];
+  if (!legacyUseConfirmed) reviewItems.unshift('尚未確認本次屬於既有案件延續，因此不得產出舊案延續計算記錄。');
   if (isColumnProjectMetaMissing()) reviewItems.unshift('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
   if (!lastColumnResult.axialOk) reviewItems.unshift(`軸壓強度未通過，應先調整斷面或有效長度；目前控制比 ${lastColumnResult.ratio_ax}%。`);
   else if (!lastColumnResult.interOk) reviewItems.unshift(`軸力彎矩互制未通過，應先調整偏心矩、側撐或斷面；目前控制比 ${lastColumnResult.ratio_ir}%。`);
 
-  const blocked = !lastColumnResult.allOk;
+  const blocked = !lastColumnResult.allOk || !legacyUseConfirmed;
   const items = reviewItems.slice(0, 2).map((message, index) => ({
     label: `優先處理 ${index + 1}`,
     value: message,
   }));
   items.push(
-    { label: '工具定位', value: '舊版保留 / 逐步回正式頁面' },
+    { label: '工具定位', value: '過渡工具 / 新案回正式頁面' },
+    { label: '既有案件用途', value: legacyUseConfirmed ? '已確認' : '未確認' },
     { label: '控制 KL/r', value: `${f1(lastColumnResult.KLr_max)} (${lastColumnResult.ctrlAxis})` },
     { label: '計算書模式', value: columnLegacyReportModeLabel() },
     { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
@@ -351,7 +370,7 @@ function composeColumnReadinessModel(validationMessage = lastColumnReportValidat
   return {
     level: blocked ? 'blocked' : 'review',
     badge: blocked ? '暫勿作附件' : '優先複核',
-    title: blocked ? '舊版檢核結果尚未達附件整理條件。' : '舊版檢核已完成，但整理附件前建議優先閱讀下列項目。',
+    title: blocked ? '尚未達到舊案延續記錄產出條件。' : '舊案延續檢核已完成，產出前請複核下列項目。',
     items,
   };
 }
@@ -368,7 +387,7 @@ function renderColumnReportReadiness(validationMessage = lastColumnReportValidat
     title: model.title,
     badge: model.badge,
     items: model.items,
-    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；本頁仍屬舊版保留流程，設計者應確認是否改回鋼柱正式頁面、構架側移條件、有效長度與送審圖說一致性。',
+    note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；本頁屬過渡工具，只供既有案件延續，新案應改用鋼柱正式頁面。',
   });
 }
 
@@ -829,6 +848,11 @@ renderLoadComboPanel();
 onMatSelect();
 
 function buildColumnReport() {
+  if (!isColumnLegacyUseConfirmed()) {
+    setColumnReportValidationMessage('請先確認本次屬於既有案件延續，才可產出舊案延續計算記錄。');
+    $('columnLegacyUseConfirm')?.focus();
+    return;
+  }
   const result = runCheck();
   if (!result) return;
 
@@ -937,8 +961,8 @@ function buildColumnReport() {
   }
 
   openReport({
-    title: '鋼柱設計檢核計算書',
-    subtitle: `Steel Column Design Report (${designMethod})`,
+    title: '鋼柱舊案延續計算記錄',
+    subtitle: `Legacy Steel Column Continuation Record (${designMethod})`,
     project: proj,
     inputs: [
       { group: '斷面', items: [
@@ -954,6 +978,7 @@ function buildColumnReport() {
         { label:'ry', value: f2(sec.ry), unit:'cm' },
       ]},
       { group: '設計參數', items: [
+        { label:'輸出分類', value:'既有案件延續；不得作為新案正式計算附件' },
         { label:'設計方法', value: designMethod },
         { label:'Fy', value: Fy, unit:'kgf/cm²' },
         { label:'Kx×Lx', value: f1(Kx*Lx), unit:'cm' },
@@ -991,6 +1016,7 @@ function buildColumnReport() {
     diagrams,
     summary: { ok: allOk, text: allOk ? '✓ 全部通過 — 斷面安全' : '✗ 部分不通過 — 請依建議調整' },
     notes: [
+      '本輸出為舊案延續計算記錄，只供既有案件流程延續；新案正式計算附件必須由鋼柱正式頁面產出。',
       `設計方法: ${designMethod}`,
       envDetail ? `荷重組合控制圖採 ${envDetail.comboName}；控制軸力為 ${envDetail.envelope.P.abs.name}。此摘要僅反映組合控制值，不等同鋼柱 P-M 強度互制包絡。` : '若需荷重組合控制摘要，請先使用載重組合產生器套用後再輸出計算書。',
       ...(reportDetail ? [
@@ -1013,6 +1039,8 @@ function buildColumnReport() {
   node.addEventListener('input', syncColumnReportReadinessUi);
   node.addEventListener('change', syncColumnReportReadinessUi);
 });
+$('columnLegacyUseConfirm')?.addEventListener('change', syncColumnLegacyReportControl);
+syncColumnLegacyReportControl();
 renderColumnReportReadiness();
 </script>
 <script src="../project-storage.js" data-tool-id="steel-column" data-tool-name="鋼柱設計與檢核" data-tool-version="V3.1"></script>

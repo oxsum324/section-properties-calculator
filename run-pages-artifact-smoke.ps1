@@ -73,6 +73,8 @@ $ExcludeFiles = @(
   'TOOL_BOUNDARIES.md',
   'TOOL_REPORT_GUIDE.md',
   'pages-live-smoke.js',
+  'rendered-delivery-evidence.js',
+  'rendered-delivery-evidence.inventory.json',
   '*.py',
   '*.pyc',
   '*.reg',

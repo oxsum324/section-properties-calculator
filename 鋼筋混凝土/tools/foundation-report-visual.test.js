@@ -7,7 +7,9 @@ const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('.
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.FOUNDATION_REPORT_PORT || 0);
 const CASES_PATH = path.join(__dirname, 'foundation-regression-cases.json');
-const OUT_DIR = path.resolve(process.env.FOUNDATION_REPORT_OUT || path.join(ROOT, 'output', 'playwright'));
+const OUT_DIR = path.resolve(process.env.FOUNDATION_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
+  ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
+  : path.join(ROOT, 'output', 'playwright')));
 const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,combined_default,combined_pass_warn,mat_pass_warn,retain_counterfort_warn,pile_default')
   .split(',')
   .map(s => s.trim())

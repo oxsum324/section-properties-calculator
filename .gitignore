@@ -67,6 +67,7 @@ _參考資料/
 !鋼筋混凝土/tools/column-report-visual.test.js
 !鋼筋混凝土/tools/column-report-visual.contract.test.js
 !鋼筋混凝土/tools/test-column.ps1
+!鋼筋混凝土/tools/test-retrofit-report.ps1
 !鋼筋混凝土/tools/slab-regression.test.js
 !鋼筋混凝土/tools/slab-regression-cases.json
 !鋼筋混凝土/tools/slab-report-visual.test.js
