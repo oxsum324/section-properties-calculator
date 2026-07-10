@@ -10848,16 +10848,17 @@ function toc(inp, caseCount, hasWind, hasExtra, extraAnnN){
   const certPages = certificatePageEnabled(inp) ? _certImages.length : 0;
   const hasRef = referenceAppendixEnabled(inp);
   const hasBatch = batchAppendixEnabled(inp) && !!batchReportData();
+  const hasReviewSummary = reviewSummaryEnabled(inp);
   const chapters = reportChapters(inp);
   const pagePlan = buildReportPagePlan(hasWind, hasExtra, hasSign, certPages, hasBatch, hasRef, inp);
   const offset  = hasWind ? 1 : 0;
   // 雙版頁碼：螢幕顯示 fallback 數字；Paged.js 列印改用 target-counter 指向真實頁次
   const tocPg = (cls, fallback, anchor) =>
     `<span class="toc-pg${cls?' '+cls:''}"><span class="toc-fallback">${fallback||''}</span>${anchor?`<a class="toc-link" href="#anchor-${anchor}"></a>`:''}</span>`;
-  let frontRows = `<div class="toc-row toc-app">
+  let frontRows = hasReviewSummary ? `<div class="toc-row toc-app">
       <span>送審速覽</span>
       ${tocPg('roman', pagePlan.reviewPage, 'review')}
-    </div>`;
+    </div>` : '';
   if(hasSign){
     frontRows += `<div class="toc-row toc-app">
       <span>${signaturePageTitle()}</span>
@@ -12245,7 +12246,7 @@ function load(){
     sp_thermal_alpha:'sp_thermal_alpha',sp_thermal_delta_t:'sp_thermal_delta_t',sp_thermal_reserve_mm:'sp_thermal_reserve_mm',
     sp_custom_torque_nm:'sp_custom_torque_nm'};
     Object.keys(mapping).forEach(k=>{ if(inp[k]!==undefined) set(mapping[k], inp[k]); });
-    ['sign_page_on','cover_show_engineer_on','cover_show_license_on','cert_page_on','ref_inline_table_on','ref_appendix_on','batch_appendix_on','appendix_spec_summary_on',
+    ['review_summary_on','sign_page_on','cover_show_engineer_on','cover_show_license_on','cert_page_on','ref_inline_table_on','ref_appendix_on','batch_appendix_on','appendix_spec_summary_on',
       'seismic_formula_note_on','seismic_summary_note_on',
       'basis_building_on','basis_steel_on','basis_seismic_on','basis_wind_on','basis_anchor_on','basis_stone_on','basis_drift_on','basis_thermal_on',
       'sp_anchor_on','sp_bk2_on','sp_panel_on','sp_psicv_on','sp_geometry_on','sp_custom_anchor_on',
@@ -13264,10 +13265,11 @@ function buildWordCoverPage(inp){
 function buildReportPagePlan(hasWind, hasExtra, hasSignPage=true, certPageCount=0, hasBatchPage=false, hasReferencePage=true, inp=null){
   const annOffset = hasWind ? 1 : 0;
   const extraGroups = hasExtra ? Math.max(1, Math.ceil((_extraImages?.length || 0) / (extraLayout(inp).perPage))) : 0;
+  const hasReviewSummary = reviewSummaryEnabled(inp);
   let romanIndex = 1;
   const coverPage = '';
   const tocPage = toRomanLower(romanIndex++);
-  const reviewPage = toRomanLower(romanIndex++);
+  const reviewPage = hasReviewSummary ? toRomanLower(romanIndex++) : null;
   const signPage = hasSignPage ? toRomanLower(romanIndex++) : null;
   const certPages = Array.from({length: certPageCount}, () => toRomanLower(romanIndex++));
   const certStartPage = certPages[0] || null;
@@ -13291,7 +13293,8 @@ function buildReportPagePlan(hasWind, hasExtra, hasSignPage=true, certPageCount=
 }
 
 function buildWordTocPage(inp, results, hasWind, hasExtra, extraAnnN, pagePlan){
-  const frontRows = [['送審速覽', String(pagePlan.reviewPage || '')]];
+  const frontRows = [];
+  if(reviewSummaryEnabled(inp)) frontRows.push(['送審速覽', String(pagePlan.reviewPage || '')]);
   if(signaturePageEnabled(inp)) frontRows.push([signaturePageTitle(), String(pagePlan.signPage || '')]);
   if(certificatePageEnabled(inp)) frontRows.push([certificatePageTitle(), String(pagePlan.certStartPage || '')]);
   if(referenceAppendixEnabled(inp)) frontRows.push([referenceAppendixTitle(inp), String(pagePlan.referencePage || '')]);
@@ -13972,7 +13975,7 @@ async function buildWordPages(inp, results){
   const pages = [
     buildWordCoverPage(inp),
     buildWordTocPage(inp, results, hasWind, hasExtra, extraAnnN, pagePlan),
-    buildWordReviewSummaryPage(inp, results, pagePlan.reviewPage),
+    ...(reviewSummaryEnabled(inp) ? [buildWordReviewSummaryPage(inp, results, pagePlan.reviewPage)] : []),
     ...(hasSign ? [buildWordSignaturePage(inp, pagePlan.signPage)] : []),
     ...buildWordCertificatePages(inp, pagePlan.certPages || []),
     ...(hasRef ? [buildWordReferencePage(inp, pagePlan.referencePage)] : []),
@@ -14512,11 +14515,14 @@ function buildDocxCoverSection(inp, assets){
 }
 
 function buildDocxTocSection(inp, results, hasWind, hasExtra, extraAnnN, pagePlan){
-  const entries = [{
-    title: '送審速覽',
-    page: pagePlan.reviewPage,
-    level: 1,
-  }];
+  const entries = [];
+  if(reviewSummaryEnabled(inp)){
+    entries.push({
+      title: '送審速覽',
+      page: pagePlan.reviewPage,
+      level: 1,
+    });
+  }
   if(signaturePageEnabled(inp)){
     entries.push({
       title: signaturePageTitle(),
@@ -15277,7 +15283,7 @@ async function exportDocxDirect(inp, results){
   const sections = [
     buildDocxCoverSection(inp, assets),
     buildDocxTocSection(inp, results, hasWind, hasExtra, extraAnnN, pagePlan),
-    buildDocxReviewSummarySection(inp, results, pagePlan.reviewPage),
+    ...(reviewSummaryEnabled(inp) ? [buildDocxReviewSummarySection(inp, results, pagePlan.reviewPage)] : []),
     ...(hasSign ? [buildDocxSignatureSection(inp, assets)].filter(Boolean) : []),
     ...buildDocxCertificateSections(inp, assets.certificates || []),
     ...(hasRef ? [buildDocxReferenceSection(inp)].filter(Boolean) : []),

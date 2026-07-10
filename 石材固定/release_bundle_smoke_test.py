@@ -63,6 +63,7 @@ class ReleaseBundleSmokeTests(unittest.TestCase):
             'env_check.py',
             'self_check.py',
             'server_smoke_test.py',
+            'auto_word_artifact_test.py',
             'ui_smoke_test.py',
             'audit_schema.py',
             'audit_schema_test.py',

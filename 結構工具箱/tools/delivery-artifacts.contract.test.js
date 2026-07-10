@@ -88,6 +88,7 @@ const excavationCatalog = readJson(excavationCatalogPath);
 
 const stoneServer = readText(repoFile('石材固定/server.py'));
 const stoneServerSmoke = readText(repoFile('石材固定/server_smoke_test.py'));
+const stoneAutoWordArtifact = readText(repoFile('石材固定/auto_word_artifact_test.py'));
 const stoneReportContract = readText(repoFile('石材固定/stone-report.contract.test.js'));
 const stoneAuditSchema = readText(repoFile('石材固定/audit_schema.py'));
 const stoneAuditSchemaTests = readText(repoFile('石材固定/audit_schema_test.py'));
@@ -150,7 +151,17 @@ assertTraceEvidence(excavationCatalogPath, excavationDownloadTrace, ['latest', '
   'test_legacy_generate_report_outputs_structured_docx_and_audit_boundary',
   'test_export_audit_strips_page_only_report_reading_status',
   'test_export_audit_forces_quality_c_when_payload_html_differs',
+  'test_review_summary_import_is_true_opt_in_without_toc_ghost',
+  'test_formal_auto_word_outputs_pdf_docx_with_review_notes_and_boundaries',
 ].forEach(needle => assertIncludes(stoneReportContract, needle, `stone report contract keeps ${needle}`));
+
+[
+  'auto_export_word',
+  'PdfReader',
+  'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'test_review_summary_import_is_true_opt_in_without_toc_ghost',
+  'test_formal_auto_word_outputs_pdf_docx_with_review_notes_and_boundaries',
+].forEach(needle => assertIncludes(stoneAutoWordArtifact, needle, `stone auto_word artifact keeps ${needle}`));
 
 [
   'REQUIRED_AUDIT_PATHS',

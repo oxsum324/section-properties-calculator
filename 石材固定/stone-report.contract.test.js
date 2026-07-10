@@ -11,6 +11,8 @@ const result = spawnSync(
     'server_smoke_test.ServerSmokeTests.test_legacy_generate_report_outputs_structured_docx_and_audit_boundary',
     'server_smoke_test.ServerSmokeTests.test_export_audit_strips_page_only_report_reading_status',
     'server_smoke_test.ServerSmokeTests.test_export_audit_forces_quality_c_when_payload_html_differs',
+    'auto_word_artifact_test.AutoWordArtifactTests.test_review_summary_import_is_true_opt_in_without_toc_ghost',
+    'auto_word_artifact_test.AutoWordArtifactTests.test_formal_auto_word_outputs_pdf_docx_with_review_notes_and_boundaries',
   ],
   {
     cwd: toolRoot,
