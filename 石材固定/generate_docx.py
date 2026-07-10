@@ -344,6 +344,34 @@ def build_audit_text(meta):
     return f'工具 {build}｜結果 {result_source}｜雜湊 {short_hash}'
 
 
+def normalize_review_notes(data):
+    raw_notes = data.get('reviewNotes') if isinstance(data.get('reviewNotes'), dict) else {}
+    notes = {}
+    for key, value in raw_notes.items():
+        clean_key = str(key or '').strip()[:240]
+        clean_value = str(value or '').strip()[:1200]
+        if clean_key and clean_value:
+            notes[clean_key] = clean_value
+    return notes
+
+
+def review_note_for_check(review_notes, cd, case_index, check):
+    if not review_notes:
+        return ''
+    item = str(check.get('item') or check.get('no') or '檢核項目').strip()
+    case_id = cd.get('id') or cd.get('case_id') or cd.get('caseId') or case_index + 1
+    candidates = [
+        f'{case_id}::{item}',
+        f'{case_index + 1}::{item}',
+        f'idx{case_index + 1}::{item}',
+    ]
+    for key in candidates:
+        note = review_notes.get(str(key))
+        if note:
+            return note
+    return ''
+
+
 # ─────────────────────────────────────────────
 #  XML 工具函式
 # ─────────────────────────────────────────────
@@ -1031,7 +1059,7 @@ def build_wind_appendix(doc, cc, inp):
 # ─────────────────────────────────────────────
 #  附件（各案例詳細計算）
 # ─────────────────────────────────────────────
-def build_case_appendix(doc, cd, res, n, inp):
+def build_case_appendix(doc, cd, res, n, inp, review_notes=None, case_index=0):
     """n: 附件編號（從1起）"""
     name  = cd.get('name', f'案例{n}')
     tp    = cd.get('type', '')
@@ -1123,6 +1151,14 @@ def build_case_appendix(doc, cd, res, n, inp):
         _add_run(p, ck['formula'], size_pt=10,
                  color=RGBColor(0x33, 0x33, 0x33))
         _add_run(p, f'\t【{ok_text}】', size_pt=11, bold=True, color=ok_color)
+        note = review_note_for_check(review_notes or {}, cd, case_index, ck)
+        if note:
+            note_para = doc.add_paragraph()
+            _set_para_spacing(note_para, before=0, after=60)
+            _set_indent(note_para, left_cm=1.0)
+            _add_run(note_para, '設計者註記：', size_pt=10, bold=True,
+                     color=RGBColor(0x66, 0x66, 0x66))
+            _add_run(note_para, note, size_pt=10, color=RGBColor(0x66, 0x66, 0x66))
 
     # 附件結語
     all_ok = res.get('all_ok', False)
@@ -1245,6 +1281,7 @@ def generate_report(json_path: str) -> str:
     results, result_source = resolve_results(data, inp, cases)
     meta['result_source'] = result_source
     audit_text = build_audit_text(meta)
+    review_notes = normalize_review_notes(data)
 
     doc = Document()
 
@@ -1300,7 +1337,7 @@ def generate_report(json_path: str) -> str:
         section_title = f'附件 {ann_n}　{name}'
         _set_header_footer(new_section, proj, section_title, audit_text=audit_text)
 
-        build_case_appendix(doc, cd, res, ann_n, inp)
+        build_case_appendix(doc, cd, res, ann_n, inp, review_notes=review_notes, case_index=idx)
 
     # 附圖附件（若啟用）
     if inp.get('extra_ann_on'):

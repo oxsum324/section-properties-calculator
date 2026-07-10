@@ -140,12 +140,14 @@ assertTraceEvidence(excavationCatalogPath, excavationDownloadTrace, ['latest', '
 [
   'PAGE_ONLY_REPORT_STATUS_NEEDLES',
   'test_export_audit_records_summary_and_trace',
+  'test_legacy_generate_report_outputs_structured_docx_and_audit_boundary',
   'test_export_audit_strips_page_only_report_reading_status',
   'test_export_audit_forces_quality_c_when_payload_html_differs',
 ].forEach(needle => assertIncludes(stoneServerSmoke, needle, `stone export smoke keeps ${needle}`));
 
 [
   'test_export_audit_records_summary_and_trace',
+  'test_legacy_generate_report_outputs_structured_docx_and_audit_boundary',
   'test_export_audit_strips_page_only_report_reading_status',
   'test_export_audit_forces_quality_c_when_payload_html_differs',
 ].forEach(needle => assertIncludes(stoneReportContract, needle, `stone report contract keeps ${needle}`));

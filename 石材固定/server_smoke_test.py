@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import json
 import io
+import re
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
+
+from docx import Document
 
 import generate_docx
 import server
@@ -224,6 +228,80 @@ class ServerSmokeTests(unittest.TestCase):
         self.assertEqual(report['review']['formula_source']['missing'], 0)
         self.assertFalse(report['review']['server_status_not_evaluated'])
         self.assertTrue(report['review']['server_evaluation']['tool_html_match'])
+
+    def test_legacy_generate_report_outputs_structured_docx_and_audit_boundary(self) -> None:
+        payload = v2_payload()
+        review_summary = payload['meta']['review_summary']
+        review_summary['priority_report_reading_status'] = {
+            'title': '優先建議報告閱讀狀態',
+            'decision': '暫勿作附件',
+            'note': '頁面輔助，不會寫入計算書或列印 PDF。',
+        }
+        review_summary['delivery_quality']['reasons'].append('報告閱讀狀態：暫勿作附件')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            payload_path = Path(tmp) / 'stone_payload.json'
+            payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
+
+            out_path = Path(generate_docx.generate_report(str(payload_path)))
+            self.assertEqual(out_path.suffix.lower(), '.docx')
+            self.assertTrue(out_path.is_file())
+            self.assertGreater(out_path.stat().st_size, 35000)
+
+            doc = Document(str(out_path))
+            paragraph_text = '\n'.join(para.text for para in doc.paragraphs)
+            table_text = '\n'.join(
+                cell.text
+                for table in doc.tables
+                for row in table.rows
+                for cell in row.cells
+            )
+            combined_text = f'{paragraph_text}\n{table_text}'
+
+            with zipfile.ZipFile(out_path) as archive:
+                document_xml = archive.read('word/document.xml').decode('utf-8')
+
+            paragraph_count = len(re.findall(r'<w:p(?:\s|>)', document_xml))
+            table_count = len(re.findall(r'<w:tbl(?:\s|>)', document_xml))
+            page_break_count = len(re.findall(r'<w:br[^>]+w:type="page"', document_xml))
+            section_count = len(re.findall(r'[一二三四五六七八九十]+、', combined_text))
+
+            self.assertGreaterEqual(len(combined_text), 2000)
+            self.assertGreaterEqual(len(doc.paragraphs), 55)
+            self.assertGreaterEqual(len(doc.tables), 4)
+            self.assertGreaterEqual(paragraph_count, 110)
+            self.assertGreaterEqual(table_count, 4)
+            self.assertGreaterEqual(page_break_count, 2)
+            self.assertGreaterEqual(section_count, 10)
+
+            for needle in (
+                '結　構　計　算　書',
+                '石材外牆固定構件結構檢核',
+                '一、設計基準',
+                '五、各案例檢核彙整',
+                '附件 1',
+                '插銷剪力',
+                '改採加大插銷後覆核。',
+            ):
+                self.assertIn(needle, combined_text)
+
+            for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
+                self.assertNotIn(needle, combined_text)
+                self.assertNotIn(needle, document_xml)
+
+            audit_path = server.write_export_audit(
+                payload,
+                out_path,
+                'generate_legacy_compat',
+                result_source='frontend_results',
+            )
+            report = json.loads(audit_path.read_text(encoding='utf-8'))
+
+            self.assertAuditSchema(report)
+            self.assertEqual(report['output']['size_bytes'], out_path.stat().st_size)
+            self.assertEqual(report['trace']['result_source'], 'frontend_results')
+            self.assertEqual(report['review']['delivery_quality']['code'], 'C')
+            self.assertEqual(report['summary']['checks_total'], 3)
 
     def test_export_audit_strips_page_only_report_reading_status(self) -> None:
         payload = v2_payload()

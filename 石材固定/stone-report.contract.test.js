@@ -8,6 +8,7 @@ const result = spawnSync(
     '-m',
     'unittest',
     'server_smoke_test.ServerSmokeTests.test_export_audit_records_summary_and_trace',
+    'server_smoke_test.ServerSmokeTests.test_legacy_generate_report_outputs_structured_docx_and_audit_boundary',
     'server_smoke_test.ServerSmokeTests.test_export_audit_strips_page_only_report_reading_status',
     'server_smoke_test.ServerSmokeTests.test_export_audit_forces_quality_c_when_payload_html_differs',
   ],
