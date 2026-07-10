@@ -1174,6 +1174,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
     assert.equal(state.reportReadinessStatusSource, 'snapshot', `${label} new home report readiness snapshot source`);
     assert.ok(state.reportReadinessStatusText.includes('頁面專用閱讀狀態治理'), `${label} new home report readiness live governance count`);
     assert.match(state.reportReadinessStatusText, /正式計算書可讀文字抽檢：\d+ \/ \d+/, `${label} new home report text coverage count`);
+    assert.match(state.reportReadinessStatusText, /瀏覽器 smoke 證據為 \d+ \/ \d+/, `${label} new home report text runtime evidence count`);
   }
   assert.ok(state.rcBeamMeta.includes('報告邊界'), `${label} new home RC beam exposes report boundary chip`);
   assert.ok(state.rcBeamReadiness.includes('正式計算書') && state.rcBeamReadiness.includes('工程師確認'), `${label} new home RC beam readiness summary`);

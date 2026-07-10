@@ -135,6 +135,12 @@ assert.equal(reportReadinessStatus.pageOnlyBoundaryComplete, reportReadinessStat
 assert.equal(reportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'report readiness has no page-only boundary issues');
 assert.equal(reportReadinessStatus.reportTextSmokeComplete, reportReadinessStatus.reportTextSmokeRequired, 'report readiness report text coverage complete');
 assert.equal(reportReadinessStatus.reportTextSmokeIssueCount, 0, 'report readiness has no report text issues');
+assert.equal(reportReadinessStatus.reportTextSmokeEvidenceComplete, reportReadinessStatus.reportTextSmokeEvidenceRequired, 'report readiness report text runtime evidence complete');
+assert.equal(reportReadinessStatus.reportTextSmokeEvidenceIssueCount, 0, 'report readiness has no report text runtime evidence issues');
+assert.equal(reportReadinessStatus.reportTextSmokeEvidenceRunId, preflightStatus.runId, 'report readiness runtime evidence runId matches public preflight');
+assert.deepEqual(reportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, [], 'report readiness maps every report text family to runtime evidence');
+assert.ok(reportReadinessStatus.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'report readiness runtime evidence gates pass');
 assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness exposes report text coverage');
+assert.ok(reportReadinessStatus.details.join(' ').includes('瀏覽器 smoke 證據'), 'report readiness exposes report text runtime evidence');
 
 console.log('pages release governance contract OK');

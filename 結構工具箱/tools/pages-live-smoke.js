@@ -183,9 +183,19 @@ async function main() {
   assert.equal(Number.isInteger(reportReadinessStatus.reportTextSmokeIssueCount), true, 'report readiness report text issue integer');
   assert.equal(reportReadinessStatus.reportTextSmokeComplete, reportReadinessStatus.reportTextSmokeRequired, 'report readiness report text status fully covered');
   assert.equal(reportReadinessStatus.reportTextSmokeIssueCount, 0, 'report readiness report text issues empty');
+  assert.equal(Number.isInteger(reportReadinessStatus.reportTextSmokeEvidenceRequired), true, 'report readiness report text evidence required integer');
+  assert.equal(Number.isInteger(reportReadinessStatus.reportTextSmokeEvidenceComplete), true, 'report readiness report text evidence complete integer');
+  assert.equal(Number.isInteger(reportReadinessStatus.reportTextSmokeEvidenceIssueCount), true, 'report readiness report text evidence issue integer');
+  assert.equal(reportReadinessStatus.reportTextSmokeEvidenceComplete, reportReadinessStatus.reportTextSmokeEvidenceRequired, 'report readiness report text evidence fully covered');
+  assert.equal(reportReadinessStatus.reportTextSmokeEvidenceIssueCount, 0, 'report readiness report text evidence issues empty');
+  assert.equal(reportReadinessStatus.reportTextSmokeEvidenceRunId, preflightStatus.runId, 'report readiness report text evidence runId matches public preflight');
+  assert.equal(Array.isArray(reportReadinessStatus.reportTextSmokeEvidenceGates), true, 'report readiness report text evidence gates array');
+  assert.deepEqual(reportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, [], 'report readiness report text evidence maps every family');
+  assert.ok(reportReadinessStatus.reportTextSmokeEvidenceGates.every(gate => gate.pass && gate.complete === gate.required), 'report readiness report text evidence gates pass');
   assert.ok(String(reportReadinessStatus.summary || '').includes('頁面專用閱讀狀態治理'), 'report readiness status summary includes governance counts');
   assert.ok(Array.isArray(reportReadinessStatus.details) && reportReadinessStatus.details.length >= 3, 'report readiness status details array');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness status exposes report text coverage');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('瀏覽器 smoke 證據'), 'report readiness status exposes report text runtime evidence');
   assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight status');
   assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness preflight source matches public preflight status');
   assert.ok(

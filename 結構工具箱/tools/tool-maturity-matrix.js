@@ -37,6 +37,18 @@ const COVERAGE_TOTALS = [
   { key: 'jsonRoundTrip', label: 'JSON round-trip' },
   { key: 'referenceTraceability', label: '工程依據追蹤' }
 ];
+const REPORT_TEXT_SMOKE_EVIDENCE_GATES = [
+  {
+    key: 'formal-browser-smoke',
+    label: '風力 / 地震正式工具瀏覽器 smoke',
+    family: 'formal-tools'
+  },
+  {
+    key: 'local-quick-tools-runner',
+    label: '局部快算 manifest runner',
+    family: 'local-quick-tools'
+  }
+];
 const GLOBAL_GOVERNANCE_GATES = [
   {
     key: 'report-disclosure-contract',
@@ -1472,10 +1484,48 @@ function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
   };
 }
 
-function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflightStatus = null) {
+function buildReportTextSmokeEvidence(matrixPayload, preflightPayload = null) {
+  const rows = Array.isArray(matrixPayload?.rows) ? matrixPayload.rows : [];
+  const records = Array.isArray(preflightPayload?.records) ? preflightPayload.records : [];
+  const governedFamilies = new Set(REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(gate => gate.family));
+  const gates = REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(spec => {
+    const familyRows = rows.filter(row => row.family === spec.family && row.coverage?.reportModes === true);
+    const required = familyRows.length;
+    const staticComplete = familyRows.filter(row => row.coverage?.reportTextSmoke === true).length;
+    const record = records.find(item => item && item.key === spec.key) || null;
+    const runtimePass = Boolean(preflightPayload?.pass && record?.pass);
+    const complete = runtimePass ? Math.min(required, staticComplete) : 0;
+    return {
+      key: spec.key,
+      label: spec.label,
+      family: spec.family,
+      required,
+      complete,
+      pass: required > 0 && staticComplete === required && runtimePass,
+      reused: Boolean(record?.reused),
+      seconds: compactNumber(record?.seconds)
+    };
+  });
+  const unmappedRows = rows.filter(row => row.coverage?.reportModes === true && !governedFamilies.has(row.family));
+  const required = gates.reduce((sum, gate) => sum + gate.required, 0) + unmappedRows.length;
+  const complete = gates.reduce((sum, gate) => sum + gate.complete, 0);
+  const evidenceComplete = gates.filter(gate => gate.pass).length;
+  return {
+    required,
+    complete,
+    issueCount: Math.max(0, required - complete),
+    evidenceRequired: gates.length,
+    evidenceComplete,
+    evidenceIssueCount: gates.length - evidenceComplete,
+    runId: String(preflightPayload?.runId || ''),
+    gates,
+    unmappedFamilies: Array.from(new Set(unmappedRows.map(row => String(row.family || '')).filter(Boolean)))
+  };
+}
+
+function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflightStatus = null, preflightPayload = null) {
   if (!matrixPayload) return null;
   const entrypointCoverage = matrixPayload.entrypointCoverage || {};
-  const totals = matrixPayload.totals || {};
   const boundaryRoutes = Array.isArray(entrypointCoverage.boundaryRoutes) ? entrypointCoverage.boundaryRoutes : [];
   const pageOnlyRoutes = boundaryRoutes.filter(item => item.pageOnlyReadinessRequired);
   const pageOnlyTitles = pageOnlyRoutes.map(item => String(item.title || '').trim()).filter(Boolean);
@@ -1483,15 +1533,16 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const required = compactNumber(entrypointCoverage.pageOnlyBoundaryRequired);
   const complete = compactNumber(entrypointCoverage.pageOnlyBoundaryComplete);
   const issues = compactNumber(entrypointCoverage.pageOnlyBoundaryIssueCount);
-  const reportTextSmokeRequired = compactNumber(totals.reportModes);
-  const reportTextSmokeComplete = compactNumber(totals.reportTextSmoke);
-  const reportTextSmokeIssueCount = Math.abs(reportTextSmokeRequired - reportTextSmokeComplete);
+  const reportTextSmokeEvidence = buildReportTextSmokeEvidence(matrixPayload, preflightPayload);
+  const reportTextSmokeRequired = reportTextSmokeEvidence.required;
+  const reportTextSmokeComplete = reportTextSmokeEvidence.complete;
+  const reportTextSmokeIssueCount = reportTextSmokeEvidence.issueCount;
   const summary = `頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
     pageOnlyTitles.length
       ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
-    `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；本項只確認正式輸出的可讀文字與 page-only wording 排除，不會把頁面狀態寫入計算書、列印或 PDF。`,
+    `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項只確認正式輸出的可讀文字與頁面專用文字排除，不會把頁面狀態寫入計算書、列印或 PDF。`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
   ];
@@ -1500,8 +1551,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0,
-    failureCount: issues + reportTextSmokeIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount),
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -1512,6 +1563,12 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     reportTextSmokeRequired,
     reportTextSmokeComplete,
     reportTextSmokeIssueCount,
+    reportTextSmokeEvidenceRequired: reportTextSmokeEvidence.evidenceRequired,
+    reportTextSmokeEvidenceComplete: reportTextSmokeEvidence.evidenceComplete,
+    reportTextSmokeEvidenceIssueCount: reportTextSmokeEvidence.evidenceIssueCount,
+    reportTextSmokeEvidenceRunId: reportTextSmokeEvidence.runId,
+    reportTextSmokeEvidenceGates: reportTextSmokeEvidence.gates,
+    reportTextSmokeEvidenceUnmappedFamilies: reportTextSmokeEvidence.unmappedFamilies,
     pageOnlyRoutes: pageOnlyRoutes.map(item => ({
       route: String(item.route || ''),
       title: String(item.title || ''),
@@ -1528,7 +1585,7 @@ function writeHomepageStatusSnapshots(matrixPayload = null, matrixSourceHash = '
   const platformStatus = buildHomepagePlatformStatus(readJsonIfExists(platformStatusSourcePath));
   const preflightSource = resolveHomepagePreflightSource();
   const preflightStatus = buildHomepagePreflightStatus(preflightSource.payload, preflightSource.filePath, preflightSource.sourcePath);
-  const reportReadinessStatus = buildHomepageReportReadinessStatus(matrixPayload, matrixSourceHash || sourceHashIfExists(jsonOutputPath), preflightStatus);
+  const reportReadinessStatus = buildHomepageReportReadinessStatus(matrixPayload, matrixSourceHash || sourceHashIfExists(jsonOutputPath), preflightStatus, preflightSource.payload);
   fs.mkdirSync(homepageStatusDir, { recursive: true });
   if (platformStatus) {
     fs.writeFileSync(homepagePlatformStatusPath, `${JSON.stringify(platformStatus, null, 2)}\n`, 'utf8');
@@ -1756,6 +1813,19 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(Number.isInteger(homepageReportReadinessStatus.reportTextSmokeIssueCount), true, 'homepage report readiness report text issue integer');
   assert.equal(homepageReportReadinessStatus.reportTextSmokeComplete, homepageReportReadinessStatus.reportTextSmokeRequired, 'homepage report readiness report text coverage complete');
   assert.equal(homepageReportReadinessStatus.reportTextSmokeIssueCount, 0, 'homepage report readiness report text issues empty');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.reportTextSmokeEvidenceRequired), true, 'homepage report readiness report text evidence required integer');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.reportTextSmokeEvidenceComplete), true, 'homepage report readiness report text evidence complete integer');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.reportTextSmokeEvidenceIssueCount), true, 'homepage report readiness report text evidence issue integer');
+  assert.equal(homepageReportReadinessStatus.reportTextSmokeEvidenceComplete, homepageReportReadinessStatus.reportTextSmokeEvidenceRequired, 'homepage report readiness report text evidence complete');
+  assert.equal(homepageReportReadinessStatus.reportTextSmokeEvidenceIssueCount, 0, 'homepage report readiness report text evidence issues empty');
+  assert.equal(homepageReportReadinessStatus.reportTextSmokeEvidenceRunId, homepagePreflightStatus.runId, 'homepage report readiness report text evidence runId matches preflight');
+  assert.deepEqual(homepageReportReadinessStatus.reportTextSmokeEvidenceUnmappedFamilies, [], 'homepage report readiness report text evidence maps every family');
+  assert.equal(Array.isArray(homepageReportReadinessStatus.reportTextSmokeEvidenceGates), true, 'homepage report readiness report text evidence gates array');
+  assert.deepEqual(homepageReportReadinessStatus.reportTextSmokeEvidenceGates.map(gate => gate.key).sort(), REPORT_TEXT_SMOKE_EVIDENCE_GATES.map(gate => gate.key).sort(), 'homepage report readiness report text evidence gates match expected');
+  for (const gate of homepageReportReadinessStatus.reportTextSmokeEvidenceGates) {
+    assert.equal(gate.pass, true, `homepage report readiness report text evidence gate pass: ${gate.key}`);
+    assert.equal(gate.complete, gate.required, `homepage report readiness report text evidence gate coverage: ${gate.key}`);
+  }
   assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
   assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');
   assert.ok(String(homepageReportReadinessStatus.summary || '').includes('優先建議報告閱讀狀態'), 'homepage report readiness summary keeps boundary wording');
