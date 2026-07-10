@@ -1,7 +1,7 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-07-10T02:54:23.986Z",
+  "generatedAt": "2026-07-10T05:19:52.438Z",
   "runId": "20260710-053304",
   "pass": true,
   "failureCount": 0,
@@ -10,12 +10,16 @@
   "summary": "頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。目前首頁矩陣外 4 / 4 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。",
   "details": [
     "目前覆蓋 舊版保留 / 輔助查詢 入口：鋼梁舊式頁面、鋼柱舊式頁面、Kzt 地形係數、特殊修正 / 折減。",
+    "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；本項只確認正式輸出的可讀文字與 page-only wording 排除，不會把頁面狀態寫入計算書、列印或 PDF。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
     "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。"
   ],
   "pageOnlyBoundaryRequired": 4,
   "pageOnlyBoundaryComplete": 4,
   "pageOnlyBoundaryIssueCount": 0,
+  "reportTextSmokeRequired": 17,
+  "reportTextSmokeComplete": 17,
+  "reportTextSmokeIssueCount": 0,
   "pageOnlyRoutes": [
     {
       "route": "/steel-beam",
@@ -44,5 +48,5 @@
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
   "preflightStatusSourcePath": "output/preflight/history/20260710-053304/preflight-summary.json",
-  "sourceHash": "e8ae64292a7cd5f840c8badba624c09857da46d3b294242360652ae13ea7455a"
+  "sourceHash": "cc9ace6eddc7cce6ab03c38b12e2d234f1c0415a92852fc2a71be8d56637e8a2"
 }

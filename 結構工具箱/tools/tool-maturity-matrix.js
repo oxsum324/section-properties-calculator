@@ -1475,6 +1475,7 @@ function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
 function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflightStatus = null) {
   if (!matrixPayload) return null;
   const entrypointCoverage = matrixPayload.entrypointCoverage || {};
+  const totals = matrixPayload.totals || {};
   const boundaryRoutes = Array.isArray(entrypointCoverage.boundaryRoutes) ? entrypointCoverage.boundaryRoutes : [];
   const pageOnlyRoutes = boundaryRoutes.filter(item => item.pageOnlyReadinessRequired);
   const pageOnlyTitles = pageOnlyRoutes.map(item => String(item.title || '').trim()).filter(Boolean);
@@ -1482,11 +1483,15 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const required = compactNumber(entrypointCoverage.pageOnlyBoundaryRequired);
   const complete = compactNumber(entrypointCoverage.pageOnlyBoundaryComplete);
   const issues = compactNumber(entrypointCoverage.pageOnlyBoundaryIssueCount);
+  const reportTextSmokeRequired = compactNumber(totals.reportModes);
+  const reportTextSmokeComplete = compactNumber(totals.reportTextSmoke);
+  const reportTextSmokeIssueCount = Math.abs(reportTextSmokeRequired - reportTextSmokeComplete);
   const summary = `頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
     pageOnlyTitles.length
       ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
+    `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；本項只確認正式輸出的可讀文字與 page-only wording 排除，不會把頁面狀態寫入計算書、列印或 PDF。`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
   ];
@@ -1495,8 +1500,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0,
-    failureCount: issues,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0,
+    failureCount: issues + reportTextSmokeIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -1504,6 +1509,9 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     pageOnlyBoundaryRequired: required,
     pageOnlyBoundaryComplete: complete,
     pageOnlyBoundaryIssueCount: issues,
+    reportTextSmokeRequired,
+    reportTextSmokeComplete,
+    reportTextSmokeIssueCount,
     pageOnlyRoutes: pageOnlyRoutes.map(item => ({
       route: String(item.route || ''),
       title: String(item.title || ''),
@@ -1743,11 +1751,17 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(Number.isInteger(homepageReportReadinessStatus.pageOnlyBoundaryIssueCount), true, 'homepage report readiness issue integer');
   assert.equal(homepageReportReadinessStatus.pageOnlyBoundaryComplete, homepageReportReadinessStatus.pageOnlyBoundaryRequired, 'homepage report readiness coverage complete');
   assert.equal(homepageReportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'homepage report readiness issues empty');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.reportTextSmokeRequired), true, 'homepage report readiness report text required integer');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.reportTextSmokeComplete), true, 'homepage report readiness report text complete integer');
+  assert.equal(Number.isInteger(homepageReportReadinessStatus.reportTextSmokeIssueCount), true, 'homepage report readiness report text issue integer');
+  assert.equal(homepageReportReadinessStatus.reportTextSmokeComplete, homepageReportReadinessStatus.reportTextSmokeRequired, 'homepage report readiness report text coverage complete');
+  assert.equal(homepageReportReadinessStatus.reportTextSmokeIssueCount, 0, 'homepage report readiness report text issues empty');
   assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
   assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');
   assert.ok(String(homepageReportReadinessStatus.summary || '').includes('優先建議報告閱讀狀態'), 'homepage report readiness summary keeps boundary wording');
   assert.ok(String(homepageReportReadinessStatus.summary || '').includes('頁面專用閱讀狀態治理'), 'homepage report readiness summary includes governance count');
   assert.ok(Array.isArray(homepageReportReadinessStatus.details) && homepageReportReadinessStatus.details.length >= 3, 'homepage report readiness details array');
+  assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('正式計算書可讀文字抽檢'), 'homepage report readiness details include report text coverage');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('Kzt 地形係數'), 'homepage report readiness details include wind kzt');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('特殊修正 / 折減'), 'homepage report readiness details include wind special');
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('鋼梁舊式頁面'), 'homepage report readiness details include steel beam legacy');

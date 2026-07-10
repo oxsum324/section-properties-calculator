@@ -133,5 +133,8 @@ assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readine
 assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness source matches public preflight source');
 assert.equal(reportReadinessStatus.pageOnlyBoundaryComplete, reportReadinessStatus.pageOnlyBoundaryRequired, 'report readiness page-only boundary complete');
 assert.equal(reportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'report readiness has no page-only boundary issues');
+assert.equal(reportReadinessStatus.reportTextSmokeComplete, reportReadinessStatus.reportTextSmokeRequired, 'report readiness report text coverage complete');
+assert.equal(reportReadinessStatus.reportTextSmokeIssueCount, 0, 'report readiness has no report text issues');
+assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness exposes report text coverage');
 
 console.log('pages release governance contract OK');

@@ -395,11 +395,15 @@ assert.ok(reportReadinessOverview.details.join(' ').includes('RC 正式工具'),
 assert.ok(reportReadinessOverview.details.join(' ').includes('鋼構正式工具'), 'report readiness overview covers steel family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('石材'), 'report readiness overview covers stone family');
 assert.ok(reportReadinessOverview.details.join(' ').includes('覆工板'), 'report readiness overview covers decking family');
+assert.ok(reportReadinessOverview.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness overview keeps report text coverage boundary');
 assert.ok(reportReadinessOverview.details.join(' ').includes('JSON/計算書/文字 邊界'), 'report readiness overview covers local quick text boundary chip');
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'report readiness overview keeps delivery boundary');
 assert.equal(reportReadinessStatusSnapshot.kind, 'report-readiness-status', 'tracked report readiness snapshot kind');
 assert.ok(reportReadinessStatusSnapshot.summary.includes('優先建議報告閱讀狀態'), 'tracked report readiness snapshot summary mentions page-only readiness');
 assert.ok(reportReadinessStatusSnapshot.summary.includes('不會寫入計算書、列印或 PDF'), 'tracked report readiness snapshot summary keeps export boundary');
+assert.equal(reportReadinessStatusSnapshot.reportTextSmokeComplete, reportReadinessStatusSnapshot.reportTextSmokeRequired, 'tracked report readiness snapshot report text coverage complete');
+assert.equal(reportReadinessStatusSnapshot.reportTextSmokeIssueCount, 0, 'tracked report readiness snapshot report text issues empty');
+assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式計算書可讀文字抽檢'), 'tracked report readiness snapshot exposes report text coverage');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('JSON/計算書/文字 邊界'), 'tracked report readiness snapshot covers local quick text boundary chip');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'tracked report readiness snapshot keeps delivery boundary');
 assert.equal(reportReadinessStatusSnapshot.details.join(' ').includes('JSON/計算書 邊界'), false, 'tracked report readiness snapshot rejects stale local quick boundary chip');

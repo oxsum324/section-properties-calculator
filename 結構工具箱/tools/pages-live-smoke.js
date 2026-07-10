@@ -178,8 +178,14 @@ async function main() {
   assert.equal(Number.isInteger(reportReadinessStatus.pageOnlyBoundaryRequired), true, 'report readiness required integer');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryComplete, reportReadinessStatus.pageOnlyBoundaryRequired, 'report readiness status fully covered');
   assert.equal(reportReadinessStatus.pageOnlyBoundaryIssueCount, 0, 'report readiness status issues empty');
+  assert.equal(Number.isInteger(reportReadinessStatus.reportTextSmokeRequired), true, 'report readiness report text required integer');
+  assert.equal(Number.isInteger(reportReadinessStatus.reportTextSmokeComplete), true, 'report readiness report text complete integer');
+  assert.equal(Number.isInteger(reportReadinessStatus.reportTextSmokeIssueCount), true, 'report readiness report text issue integer');
+  assert.equal(reportReadinessStatus.reportTextSmokeComplete, reportReadinessStatus.reportTextSmokeRequired, 'report readiness report text status fully covered');
+  assert.equal(reportReadinessStatus.reportTextSmokeIssueCount, 0, 'report readiness report text issues empty');
   assert.ok(String(reportReadinessStatus.summary || '').includes('頁面專用閱讀狀態治理'), 'report readiness status summary includes governance counts');
   assert.ok(Array.isArray(reportReadinessStatus.details) && reportReadinessStatus.details.length >= 3, 'report readiness status details array');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness status exposes report text coverage');
   assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight status');
   assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness preflight source matches public preflight status');
   assert.ok(
