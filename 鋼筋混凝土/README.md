@@ -66,7 +66,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 梁斷面圖在計算書內有實際渲染。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格與圖示不得產生水平 overflow，並確認列印時 toolbar 隱藏。
-- 輸出 PNG、PDF 與 JSON 稽核紀錄。
+- 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄。
 
 柱報告視覺 smoke 已接在 [tools/test-column.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-column.ps1:1)，並由 [tools/column-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/column-report-visual.contract.test.js:1) 固定測試案例與品質門檻，會以瀏覽器產生計算書，檢查：
 
@@ -74,7 +74,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 計算書不得輸出頁面用的「提醒」或「缺漏 / 複核摘要」卡；相關缺漏提示保留在工具頁面。
 - 耐震搭接、柱端錨定、橫向鋼筋間距與圍束等技術判定仍需保留在檢核表與規範覆蓋矩陣中。
 - 報告表格、規範覆蓋矩陣與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
-- 輸出 PNG、PDF 與 JSON 稽核紀錄。
+- 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄。
 
 板報告視覺 smoke contract 位於 [tools/slab-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/slab-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免待確認 / 正式分析需求等 page-only 提示漂移進計算書。
 
@@ -86,7 +86,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 計算書不得輸出頁面用的「待確認」狀態 banner 或「待確認 / 正式分析需求」提示群組。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格、圖示與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
-- 輸出 PNG、PDF 與 JSON 稽核紀錄。
+- 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄。
 
 基礎報告視覺 smoke contract 位於 [tools/foundation-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/foundation-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免聯合基腳 / 筏基待確認提示或 page-only 閱讀狀態漂移進計算書。
 
@@ -96,7 +96,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 樁基報告須揭露土層與單樁承載、群樁構造、服務性與樁身、樁帽結構四類檢核。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格與逐層承載力表不得產生水平 overflow，並確認列印時 toolbar 隱藏。
-- 輸出 PNG、PDF 與 JSON 稽核紀錄。
+- 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄。
 
 單樁報告視覺 smoke contract 位於 [tools/single-pile-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/single-pile-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界、人工複核段落與輸出證據檔名，避免頁面專用提醒或人工複核結論漂移。
 
@@ -109,7 +109,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 逐層承載力表與候選方案矩陣需進入報告計算過程。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格、示意圖與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
-- 輸出 PNG、PDF 與 JSON 稽核紀錄。
+- 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄。
 
 牆報告視覺 smoke contract 位於 [tools/wall-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/wall-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免地下室外牆或 SBE page-only 提示漂移進計算書。
 
@@ -120,7 +120,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - 條文對照與方法分級、面外 P-Δ、SBE 延伸與地下室外牆土壓概算需出現在報告中。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格、圖示與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
-- 輸出 PNG、PDF 與 JSON 稽核紀錄。
+- 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄。
 
 剪力牆 suite 入口為 [tools/test-shear-wall.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-shear-wall.ps1:1)，會同步檢查：
 
@@ -138,7 +138,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 - P-M 圖與牆斷面圖在計算書內有實際渲染。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 軸力越界時須明確呈現 `c@Pu 不採用` 與 `不適用`，不得誤列為 OK 結論。
-- 輸出 PNG、PDF 與 JSON 稽核紀錄，並確認列印時 toolbar 隱藏。
+- 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄，並確認列印時 toolbar 隱藏。
 
 ## 執行方式
 

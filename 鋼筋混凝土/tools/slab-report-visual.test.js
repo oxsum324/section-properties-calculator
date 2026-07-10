@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
-const { assertReportScreenshotQuality } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('./report-screenshot-quality');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.SLAB_REPORT_PORT || 0);
@@ -293,7 +293,11 @@ async function main() {
 
       const metrics = await reportMetrics(report);
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
-      results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality });
+      const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {
+        assert,
+        include: ['板初步設計計算書', '計算書'],
+      });
+      results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
       assert(!metrics.hasReportSummary, `${key} report status banner hidden`, 'no .rep-summary');

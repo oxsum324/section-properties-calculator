@@ -53,7 +53,9 @@ const cases = JSON.parse(read(casesPath));
   'print toolbar hidden',
   'assertArtifact(screenshotPath',
   'assertReportScreenshotQuality(screenshotPath',
+  'assertReportPdfTextQuality(pdfPath',
   'screenshotQuality',
+  'pdfTextQuality',
   'assertArtifact(pdfPath',
   '0x89, 0x50, 0x4e, 0x47',
   '0x25, 0x50, 0x44, 0x46',
@@ -62,9 +64,14 @@ const cases = JSON.parse(read(casesPath));
 
 [
   'function readPngVisualQuality',
+  'function readPdfTextWithPython',
+  'function assertReportPdfTextQuality',
+  'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'includeAny',
+  'from pypdf import PdfReader',
   'nonWhitePixelCount',
   'uniqueColorCount',
   'module.exports',
-].forEach(needle => assertIncludes(helper, needle, 'shared report screenshot quality helper'));
+].forEach(needle => assertIncludes(helper, needle, 'shared report artifact quality helper'));
 
 console.log('column report visual contract OK');

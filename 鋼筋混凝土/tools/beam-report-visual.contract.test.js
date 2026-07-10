@@ -48,16 +48,23 @@ const cases = JSON.parse(read(casesPath));
   '不列為 OK 結論',
   'assertArtifact(screenshotPath',
   'assertReportScreenshotQuality(screenshotPath',
+  'assertReportPdfTextQuality(pdfPath',
   'screenshotQuality',
+  'pdfTextQuality',
   'assertArtifact(pdfPath',
   'beam-report-visual-audit.json',
 ].forEach(needle => assertIncludes(visual, needle, 'beam report visual smoke quality gate'));
 
 [
   'function readPngVisualQuality',
+  'function readPdfTextWithPython',
+  'function assertReportPdfTextQuality',
+  'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'includeAny',
+  'from pypdf import PdfReader',
   'nonWhitePixelCount',
   'uniqueColorCount',
   'module.exports',
-].forEach(needle => assertIncludes(helper, needle, 'shared report screenshot quality helper'));
+].forEach(needle => assertIncludes(helper, needle, 'shared report artifact quality helper'));
 
 console.log('beam report visual contract OK');

@@ -1,6 +1,23 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const zlib = require('zlib');
+
+const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
+  '產報前檢查',
+  '附件適用狀態',
+  '優先建議報告閱讀狀態',
+  '優先閱讀',
+  '報告閱讀狀態',
+  '可作附件',
+  '可作附件，需人工複核',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+  '頁面顯示，不進計算書、列印或 PDF',
+];
 
 function paethPredictor(left, up, upperLeft) {
   const p = left + up - upperLeft;
@@ -125,7 +142,84 @@ function assertReportScreenshotQuality(file, title, options = {}) {
   return stats;
 }
 
+function readPdfTextWithPython(file) {
+  const script = `
+import json
+import sys
+from pathlib import Path
+from pypdf import PdfReader
+
+pdf_path = Path(sys.argv[1])
+reader = PdfReader(str(pdf_path))
+text = "\\n".join(page.extract_text() or "" for page in reader.pages)
+print(json.dumps({
+    "pages": len(reader.pages),
+    "textLength": len(text),
+    "text": text,
+}, ensure_ascii=False))
+`;
+  const result = spawnSync('python', ['-c', script, file], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PYTHONIOENCODING: 'utf-8',
+    },
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout || `python exit ${result.status}`).trim());
+  }
+  return JSON.parse(result.stdout);
+}
+
+function assertReportPdfTextQuality(file, title, options = {}) {
+  const assertFn = options.assert || defaultAssert;
+  let stats = null;
+  try {
+    stats = readPdfTextWithPython(file);
+  } catch (err) {
+    assertFn(false, `${title} PDF text extraction`, err.message);
+    return null;
+  }
+
+  const minPages = options.minPages || 2;
+  const minTextLength = options.minTextLength || 800;
+  const requiredText = options.include || options.requiredText || [];
+  const includeAny = options.includeAny || [];
+  const forbiddenText = [
+    ...PAGE_ONLY_REPORT_STATUS_NEEDLES,
+    ...(options.exclude || options.forbiddenText || []),
+  ];
+
+  assertFn(stats.pages >= minPages, `${title} PDF page count`, `${stats.pages} >= ${minPages}`);
+  assertFn(stats.textLength >= minTextLength, `${title} PDF extracted text length`, `${stats.textLength} >= ${minTextLength}`);
+  for (const needle of requiredText) {
+    assertFn(stats.text.includes(needle), `${title} PDF includes`, needle);
+  }
+  for (const group of includeAny) {
+    const candidates = Array.isArray(group) ? group : [group];
+    assertFn(
+      candidates.some(needle => stats.text.includes(needle)),
+      `${title} PDF includes one of`,
+      candidates.join(' || ')
+    );
+  }
+  for (const needle of forbiddenText) {
+    assertFn(!stats.text.includes(needle), `${title} PDF excludes page-only status`, needle);
+  }
+
+  return {
+    pages: stats.pages,
+    textLength: stats.textLength,
+  };
+}
+
 module.exports = {
+  assertReportPdfTextQuality,
   assertReportScreenshotQuality,
+  readPdfTextWithPython,
   readPngVisualQuality,
+  PAGE_ONLY_REPORT_STATUS_NEEDLES,
 };

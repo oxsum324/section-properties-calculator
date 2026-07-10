@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
-const { assertReportScreenshotQuality } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('./report-screenshot-quality');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.BEAM_REPORT_PORT || 0);
@@ -274,8 +274,13 @@ async function main() {
 
       const metrics = await reportMetrics(report);
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
+      const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
+        assert,
+        include: ['計算書'],
+        includeAny: [['梁設計計算書', '梁檢核計算書']],
+      });
       const expected = EXPECTED[tc.key] || {};
-      results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality });
+      results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
       assert(!metrics.hasReportSummary, `${tc.key} report status banner hidden`, 'no .rep-summary');
