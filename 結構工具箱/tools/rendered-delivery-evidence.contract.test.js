@@ -2,7 +2,12 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const { findPdfFooterOverlapLines, validatePdfFile } = require('./rendered-delivery-evidence');
+const {
+  findPdfFooterOverlapLines,
+  summarizePdfLayoutPages,
+  findSparseFinalPage,
+  validatePdfFile,
+} = require('./rendered-delivery-evidence');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -21,6 +26,21 @@ assert.deepEqual(
   findPdfFooterOverlapLines('版權所有 弘一工程顧問有限公司').overlaps,
   [],
   'rendered delivery evidence accepts a standalone footer line'
+);
+
+const sparsePageText = summarizePdfLayoutPages(
+  `${'第一頁完整內容'.repeat(30)}\f備註\n僅一行\n版權所有 弘一工程顧問有限公司\f`
+);
+assert.equal(sparsePageText.length, 2, 'rendered delivery evidence preserves PDF text page boundaries');
+assert.equal(sparsePageText[1].lines, 2, 'rendered delivery evidence excludes the standalone footer from page density');
+assert.ok(
+  findSparseFinalPage(sparsePageText, [{ inkRatio: 0.2 }, { inkRatio: 0.02 }]),
+  'rendered delivery evidence detects a low-text low-ink final page'
+);
+assert.equal(
+  findSparseFinalPage(sparsePageText, [{ inkRatio: 0.2 }, { inkRatio: 0.1 }]),
+  null,
+  'rendered delivery evidence accepts a low-text final page with substantial visual content'
 );
 
 for (const [relativePath, expectedPrintLayouts] of [
@@ -59,6 +79,29 @@ for (const relativePath of [
   assert.ok(source.includes("bottom: '18mm'"), `${relativePath} renders with footer-safe bottom margin`);
   assert.equal(source.includes("bottom: '24mm'"), false, `${relativePath} rejects oversized bottom margin that can create footer-only pages`);
 }
+
+const windReportSource = fs.readFileSync(path.join(repoRoot, '結構工具箱/core/wind-report.js'), 'utf8');
+assert.equal(
+  (windReportSource.match(/\.rep-step \{ margin:6px 0 8px; \}/g) || []).length,
+  2,
+  'shared wind report keeps compact print-only step spacing in both report layouts'
+);
+assert.equal(
+  (windReportSource.match(/\.rep-step-body \{ line-height:1\.45; padding:6px 8px; \}/g) || []).length,
+  2,
+  'shared wind report keeps compact print-only formula blocks in both report layouts'
+);
+const appendageSource = fs.readFileSync(path.join(repoRoot, '結構工具箱/tools/地震力/seismic-appendage.html'), 'utf8');
+assert.ok(
+  appendageSource.includes('.block { margin:8px 0 10px; }')
+    && appendageSource.includes('.step-title { margin-bottom:3px; padding:3px 8px; } .step-body { line-height:1.55; }'),
+  'appendage report compacts print-only calculation spacing so notes do not create a sparse final page'
+);
+assert.ok(
+  appendageSource.includes('<section class="block calc-block">')
+    && appendageSource.includes('.block.calc-block { break-inside:auto; page-break-inside:auto; }'),
+  'appendage report lets the long calculation block fill the remaining first-page space before continuing'
+);
 
 function extractConstLiteral(source, name) {
   const prefix = `const ${name} = `;

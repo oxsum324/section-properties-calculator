@@ -1287,7 +1287,7 @@ function openAppendageReport() {
         <h3>計算示意圖</h3>
         ${detailedDiagramHtml}
       </section>
-      <section class="block">
+      <section class="block calc-block">
         <h3>計算內容</h3>
         <div class="detail-basis">
           <strong>規範依據與工址摘要</strong><br>
@@ -1332,7 +1332,7 @@ function openAppendageReport() {
     .diagram-caption { margin-top:6px; color:#475569; font-size:11px; line-height:1.6; }
     .notes { padding-left:20px; font-size:12px; line-height:1.8; }
     .rep-footer { position:fixed; left:0; bottom:0; width:100%; padding:0 14mm 8mm; font-size:10px; color:#666; display:flex; justify-content:flex-end; align-items:end; }
-    @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .paper { box-shadow:none; padding:0; max-width:none; } .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; } }
+    @media print { body { background:#fff; padding:0; } .toolbar { display:none; } .paper { box-shadow:none; padding:0; max-width:none; } .block { margin:8px 0 10px; } .block.calc-block { break-inside:auto; page-break-inside:auto; } .step-title { margin-bottom:3px; padding:3px 8px; } .step-body { line-height:1.55; } .detail-basis { margin-bottom:8px; padding:7px 9px; line-height:1.55; } .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; } }
   </style></head>
   <body>
     <div class="toolbar"><button onclick="window.print()">🖨️ 列印 / 存 PDF</button><button onclick="(function(){try{window.close();}catch(e){}try{window.open('','_self','');window.close();}catch(e){}setTimeout(function(){if(!window.closed){var hint=document.getElementById('closeHint');if(hint){hint.textContent='瀏覽器安全策略無法自動關閉，請手動按 Ctrl+W (或 ⌘+W) 關閉分頁。';}}},150);})()">✕ 關閉</button><span id="closeHint" style="display:block;margin-top:8px;color:#92400e;font-size:12px;"></span></div>

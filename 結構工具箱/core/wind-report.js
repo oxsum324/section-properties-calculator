@@ -745,6 +745,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
   .rep-paper { box-shadow:none; padding:0; max-width:none; }
+  .rep-step { margin:6px 0 8px; }
+  .rep-step-body { line-height:1.45; padding:6px 8px; }
   .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 </style>
@@ -877,6 +879,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
   .rep-paper { box-shadow:none; padding:0; max-width:none; }
+  .rep-step { margin:6px 0 8px; }
+  .rep-step-body { line-height:1.45; padding:6px 8px; }
   .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 </style>

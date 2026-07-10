@@ -66,6 +66,42 @@ function findPdfFooterOverlapLines(layoutText, footerNeedles = DEFAULT_FOOTER_NE
   return { footerLineCount, overlaps };
 }
 
+function summarizePdfLayoutPages(layoutText, footerNeedles = DEFAULT_FOOTER_NEEDLES) {
+  const footerLines = new Set((footerNeedles || []).map(normalizeLayoutLine).filter(Boolean));
+  const rawPages = String(layoutText || '').split('\f');
+  if (rawPages.length > 0 && !rawPages[rawPages.length - 1].trim()) rawPages.pop();
+  return rawPages.map((pageText, index) => {
+    const contentLines = pageText
+      .split(/\r?\n/)
+      .map(normalizeLayoutLine)
+      .filter(line => line && !footerLines.has(line));
+    return {
+      page: index + 1,
+      lines: contentLines.length,
+      chars: contentLines.join('').length,
+      preview: contentLines.slice(0, 3),
+    };
+  });
+}
+
+function findSparseFinalPage(pageTextStats, pageMetrics, options = {}) {
+  if (!Array.isArray(pageTextStats) || pageTextStats.length <= 1) return null;
+  const minTextChars = options.minFinalPageTextChars ?? 100;
+  const minInkRatio = options.minFinalPageInkRatio ?? 0.035;
+  const text = pageTextStats[pageTextStats.length - 1];
+  const visual = pageMetrics?.[pageMetrics.length - 1];
+  if (!visual || text.chars >= minTextChars || visual.inkRatio >= minInkRatio) return null;
+  return {
+    page: text.page,
+    chars: text.chars,
+    lines: text.lines,
+    inkRatio: visual.inkRatio,
+    preview: text.preview,
+    minTextChars,
+    minInkRatio,
+  };
+}
+
 function resolveEvidenceDir(repoRoot, family) {
   const base = process.env.PREFLIGHT_RUN_DIR
     ? path.resolve(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence')
@@ -156,6 +192,10 @@ function validatePdfFile(pdfPath, options) {
     layoutText,
     options.footerNeedles || DEFAULT_FOOTER_NEEDLES
   );
+  const pageTextStats = summarizePdfLayoutPages(
+    layoutText,
+    options.footerNeedles || DEFAULT_FOOTER_NEEDLES
+  );
   assert.deepEqual(
     footerLayout.overlaps,
     [],
@@ -188,6 +228,7 @@ function validatePdfFile(pdfPath, options) {
       .sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]));
     assert.equal(pageFiles.length, pageCount, `${options.label} rendered page count matches PDF page count`);
     const pages = pageFiles.map(name => readPpmMetrics(path.join(renderDir, name)));
+    assert.equal(pageTextStats.length, pageCount, `${options.label} PDF text page count matches PDF page count`);
     for (const [index, page] of pages.entries()) {
       assert.ok(page.inkRatio >= 0.002, `${options.label} PDF page ${index + 1} is nonblank: inkRatio=${page.inkRatio.toFixed(4)}`);
       assert.ok(
@@ -198,7 +239,20 @@ function validatePdfFile(pdfPath, options) {
         `${options.label} PDF page ${index + 1} content is not clipped at page edges: ${JSON.stringify(page.bounds)}`
       );
     }
-    return { pageCount, textLength: text.length, textPath, footerLineCount: footerLayout.footerLineCount, pages };
+    const sparseFinalPage = findSparseFinalPage(pageTextStats, pages, options);
+    assert.equal(
+      sparseFinalPage,
+      null,
+      `${options.label} PDF final page is not sparse: ${JSON.stringify(sparseFinalPage)}`
+    );
+    return {
+      pageCount,
+      textLength: text.length,
+      textPath,
+      footerLineCount: footerLayout.footerLineCount,
+      pageTextStats,
+      pages,
+    };
   } finally {
     fs.rmSync(renderDir, { recursive: true, force: true });
   }
@@ -331,6 +385,8 @@ module.exports = {
   DEFAULT_FORBIDDEN,
   DEFAULT_FOOTER_NEEDLES,
   findPdfFooterOverlapLines,
+  summarizePdfLayoutPages,
+  findSparseFinalPage,
   resolveEvidenceDir,
   renderAndValidateReportPdf,
   validatePdfFile,

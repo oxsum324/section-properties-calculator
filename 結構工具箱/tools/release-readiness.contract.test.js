@@ -93,6 +93,8 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'content is not clipped at page edges',
   'PDF footer does not overlap report content',
   'findPdfFooterOverlapLines',
+  'PDF final page is not sparse',
+  'findSparseFinalPage',
   'marginBottom: 0.55',
   'writeEvidenceSummary',
 ].forEach(needle => assertIncludes(renderedEvidenceHelper, needle, `rendered delivery helper preserves ${needle}`));
