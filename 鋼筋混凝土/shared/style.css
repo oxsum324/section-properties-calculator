@@ -143,14 +143,48 @@ header a.back:hover { opacity:1; text-decoration:underline; }
   line-height: 1.5;
 }
 .report-readiness-notes li { margin: 4px 0; }
+.force-candidate-card { border-top: 3px solid #b45309; background: #fffdf7; }
+.force-candidate-card h2 .scope-badge { background: #fef3c7; color: #92400e; }
+.force-candidate-summary {
+  margin: 0;
+  color: #78350f;
+  font-size: 0.86em;
+  line-height: 1.5;
+}
+.force-candidate-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.force-candidate-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-left: 3px solid #d97706;
+  border-radius: 6px;
+  background: #fffbeb;
+  font-size: 0.84em;
+}
+.force-candidate-item .label { color: #92400e; font-weight: 700; }
+.force-candidate-item .value { color: #451a03; font-family: Consolas, monospace; font-weight: 800; text-align: right; }
+.force-candidate-confirm { display: flex; gap: 8px; align-items: flex-start; color: var(--text); font-size: 0.84em; line-height: 1.45; }
+.force-candidate-confirm input { margin-top: 3px; flex: 0 0 auto; }
+.force-candidate-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.force-candidate-actions button:disabled { cursor: not-allowed; opacity: 0.55; }
 @media print {
   .report-readiness-card,
+  .force-candidate-card,
   .advanced-tools,
   .page-only-case-tools,
   .mode-bar,
   .mode-bar__report,
   .mode-bar__action,
   .mode-bar__project-status { display: none !important; }
+}
+@media (max-width: 640px) {
+  .force-candidate-list { grid-template-columns: 1fr; }
 }
 
 /* ── 作業模式列 (設計／檢核 + 計畫資訊) ── */

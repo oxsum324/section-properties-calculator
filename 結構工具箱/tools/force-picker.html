@@ -148,9 +148,9 @@
 
   <div class="card">
     <h2>③ 送往下游設計工具</h2>
-    <div class="hint" style="margin-bottom:8px;">點擊目標 → 自動暫存到 localStorage 並開新分頁進入該工具 (URL 加上 <code>?import=1</code>)。
+    <div class="hint" style="margin-bottom:8px;">點擊目標 → 暫存到 localStorage 並開新分頁進入該工具 (URL 加上 <code>?import=1</code>)。
       目標工具須含 <code>&lt;script src="../core/ui/forces-receive.js"&gt;&lt;/script&gt;</code> 與
-      <code>data-force="M|V|T|P|Mx|My|Vx|Vy"</code> 之輸入欄位才能自動填入。</div>
+      <code>data-force="M|V|T|P|Mx|My|Vx|Vy"</code> 之輸入欄位；正式計算頁會先顯示候選值，人工確認後才套用。</div>
     <div class="input-status" id="targetStatus" aria-live="polite"></div>
     <div class="target-grid" id="targets"></div>
   </div>
@@ -161,12 +161,10 @@
       此模組以 <strong>localStorage</strong> 為媒介,將上游分析結果交付給下游構件設計工具,
       避免人工抄寫內力造成誤差。模組位於 <code>core/ui/force-picker.js</code>,接收端
       <code>core/ui/forces-receive.js</code>。各設計工具可在輸入欄位加上
-      <code>data-force="M"</code> 等屬性即可被自動填入。
+      <code>data-force="M"</code> 等屬性即可接收候選值；正式計算頁由人工確認後才填入正式欄位。
     </p>
     <div class="note">
-      ⚠ 既有 <code>鋼筋混凝土/</code> 資料夾之 beam.html / column.html 尚未加入接收器,
-      點擊「送往梁/柱」會跳轉並寫入 localStorage,但不會自動填入欄位。
-      待加入 <code>data-force</code> 屬性與 <code>&lt;script&gt;</code> 後即可使用。
+      送往 RC 梁／柱後，內力會停留在候選確認區。請先確認載重組合、正負號與單位，再套用至正式輸入。
     </div>
   </div>
 
@@ -273,7 +271,7 @@ function setTargetStatus(message) {
 const TARGETS = [
   { key: 'beam',        icon: '▭', name: '梁設計 (beam.html)',         disabled: false },
   { key: 'column-rect', icon: '▮', name: '矩形柱設計 (column.html)',   disabled: false },
-  { key: 'column-circ', icon: '⬤', name: '圓形柱設計 (尚未實作)',     disabled: true  },
+  { key: 'column-circ', icon: '⬤', name: '圓形柱設計 (column.html)',   disabled: false },
 ];
 TARGETS.forEach(t => {
   const keys = ForcePicker.TARGET_KEYS[t.key].join(', ');

@@ -8,6 +8,8 @@ const sharedReportPath = path.join(__dirname, '結構工具箱', 'core', 'ui', '
 const sharedReportSource = fs.readFileSync(sharedReportPath, 'utf8');
 const forcePickerPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'force-picker.js');
 const forcePickerSource = fs.readFileSync(forcePickerPath, 'utf8');
+const forcesReceivePath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'forces-receive.js');
+const forcesReceiveSource = fs.readFileSync(forcesReceivePath, 'utf8');
 
 function assert(pass, title, detail) {
   if (!pass) throw new Error(`${title} :: ${detail}`);
@@ -55,10 +57,16 @@ assert(
   'beam analysis has no axial-force/frame context for column design'
 );
 assert(
-  html.includes("loadBasis: isBeam && mat === 'steel' ? 'unconfirmed' : 'unfactored'"),
-  'steel beam transfer marks load basis unconfirmed',
+  !html.includes('columnRect:') && !html.includes('columnCirc:'),
+  'continuous beam removes RC column transfer',
+  'beam analysis must not fabricate P=0 without axial-force/frame context'
+);
+assert(
+  html.includes("loadBasis: 'unconfirmed'"),
+  'all continuous beam transfers mark load basis unconfirmed',
   'candidate review must resolve the load basis manually'
 );
+assert(!html.includes('{ P: 0, Mx: env.M, Vx: env.V }'), 'continuous beam does not fabricate column force payload', 'column analysis needs independent P-M context');
 assert(html.includes('member: { spanCm: env.Lcm }'), 'steel beam transfer includes span candidate', 'span remains a reviewable candidate value');
 assert(forcePickerSource.includes('member:   payload.member   || null'), 'ForcePicker preserves member geometry', 'candidate span survives localStorage transport');
 assert(forcePickerSource.includes("loadBasis: payload.meta?.loadBasis"), 'ForcePicker preserves load-basis status', 'candidate review receives the upstream load-basis classification');
@@ -88,6 +96,80 @@ assert(!forcePickerSource.includes("'steel-column':"), 'ForcePicker exposes no g
   const preserved = JSON.parse(storedPayload);
   assert(preserved.meta.loadBasis === 'unconfirmed', 'ForcePicker runtime keeps load-basis status', JSON.stringify(preserved.meta));
   assert(preserved.member.spanCm === 600, 'ForcePicker runtime keeps candidate span', JSON.stringify(preserved.member));
+}
+
+function bootForceReceiver({ mode = 'candidate', payload }) {
+  const events = [];
+  const documentEvents = [];
+  let banner = null;
+  const fields = ['M', 'MNeg', 'V'].map((key, index) => ({
+    key,
+    value: String([50, 60, 25][index]),
+    getAttribute(name) { return name === 'data-force' ? key : null; },
+    dispatchEvent(event) { events.push({ key, type: event.type }); }
+  }));
+  const makeElement = () => ({
+    style: {},
+    append() {},
+    addEventListener() {},
+    remove() {}
+  });
+  const document = {
+    currentScript: { dataset: mode === 'auto' ? { forceImportMode: 'auto' } : {} },
+    readyState: 'complete',
+    querySelectorAll(selector) { return selector === '[data-force]' ? fields : []; },
+    dispatchEvent(event) { documentEvents.push(event); },
+    addEventListener() {},
+    createElement: makeElement,
+    body: { firstChild: null, insertBefore(node) { banner = node; } }
+  };
+  class FakeEvent {
+    constructor(type, init = {}) { this.type = type; Object.assign(this, init); }
+  }
+  class FakeCustomEvent extends FakeEvent {
+    constructor(type, init = {}) { super(type, init); this.detail = init.detail; }
+  }
+  let stored = JSON.stringify(payload);
+  const context = {
+    window: {}, document, location: { search: '?import=1' },
+    localStorage: {
+      getItem() { return stored; },
+      removeItem() { stored = null; }
+    },
+    URLSearchParams, Event: FakeEvent, CustomEvent: FakeCustomEvent,
+    JSON, Number, Set, Date
+  };
+  vm.createContext(context);
+  vm.runInContext(forcesReceiveSource, context, { filename: forcesReceivePath });
+  return { api: context.window.ForcePickerReceive, fields, events, documentEvents, getStored: () => stored, getBanner: () => banner };
+}
+
+{
+  const payload = {
+    target: 'beam',
+    meta: { source: '連續梁分析', caseName: '主控組合 (梁)', loadBasis: 'unconfirmed' },
+    forces: { M: 88, MNeg: 126, V: 44 }
+  };
+  const receiver = bootForceReceiver({ payload });
+  assert(receiver.api.mode === 'candidate', 'force receiver defaults to candidate mode', receiver.api.mode);
+  assert(receiver.fields.map(field => field.value).join(',') === '50,60,25', 'candidate receiver leaves formal fields unchanged', JSON.stringify(receiver.fields));
+  assert(!!receiver.getStored(), 'candidate receiver keeps pending storage', String(receiver.getStored()));
+  assert(receiver.documentEvents.some(event => event.type === 'force-picker-candidate-ready'), 'candidate receiver announces review payload', JSON.stringify(receiver.documentEvents));
+  const applied = receiver.api.applyPending({ forceKeys: ['M', 'V'] });
+  assert(receiver.fields.map(field => field.value).join(',') === '88,60,44', 'candidate receiver only applies confirmed field keys', JSON.stringify(receiver.fields));
+  assert(applied.filled.join(',') === 'M=88,V=44', 'candidate receiver reports applied field keys', JSON.stringify(applied));
+  assert(receiver.getStored() == null && receiver.api.getPending() == null, 'candidate receiver clears storage only after apply', String(receiver.getStored()));
+}
+
+{
+  const receiver = bootForceReceiver({
+    mode: 'auto',
+    payload: { target: 'legacy', meta: { source: '既有入口', factored: true }, forces: { M: 70, MNeg: 80, V: 30 } }
+  });
+  assert(receiver.api.mode === 'auto', 'force receiver preserves explicit legacy auto mode', receiver.api.mode);
+  assert(receiver.fields.map(field => field.value).join(',') === '70,80,30', 'legacy auto receiver still fills mapped fields', JSON.stringify(receiver.fields));
+  assert(receiver.getStored() == null && receiver.api.getPending() == null, 'legacy auto receiver consumes storage after import', String(receiver.getStored()));
+  assert(!!receiver.getBanner(), 'legacy auto receiver still displays import notice', 'banner created');
 }
 
 function assertNear(actual, expected, tol, title, detail) {
@@ -440,7 +522,20 @@ function main() {
   assertNear(steelTransfer?.payload?.forces?.M, 45 / 9.80665, 1e-3, 'continuous beam dispatches positive moment candidate', JSON.stringify(steelTransfer?.payload?.forces));
   assert(steelTransfer?.payload?.forces?.MNeg === 0, 'continuous beam dispatches negative moment candidate', JSON.stringify(steelTransfer?.payload?.forces));
   assertNear(steelTransfer?.payload?.forces?.V, 30 / 9.80665, 1e-3, 'continuous beam dispatches shear candidate', JSON.stringify(steelTransfer?.payload?.forces));
+
+  let concreteTransfer = null;
   ctx.document.getElementById('matSelect').value = 'concrete';
+  ctx.ForcePicker = {
+    sendTo(target, payload, url) {
+      concreteTransfer = { target, payload, url };
+    },
+  };
+  ctx.dispatchDesign('beam');
+  assert(concreteTransfer?.target === 'beam', 'continuous beam dispatches RC candidate to beam only', JSON.stringify(concreteTransfer));
+  assert(concreteTransfer?.url === '鋼筋混凝土/tools/beam.html?import=1', 'continuous beam dispatch uses RC beam URL', concreteTransfer?.url);
+  assert(concreteTransfer?.payload?.meta?.loadBasis === 'unconfirmed', 'continuous beam RC dispatch preserves unconfirmed load basis', JSON.stringify(concreteTransfer?.payload?.meta));
+  assert(concreteTransfer?.payload?.material === null && concreteTransfer?.payload?.section === null, 'continuous beam does not auto-adopt RC material or section', JSON.stringify(concreteTransfer?.payload));
+  assert(!Object.prototype.hasOwnProperty.call(concreteTransfer?.payload?.forces || {}, 'P'), 'continuous beam RC dispatch has no fabricated axial force', JSON.stringify(concreteTransfer?.payload?.forces));
 
   ctx.document.getElementById('projName').value = '未填';
   ctx.document.getElementById('projNo').value = 'CB-001';

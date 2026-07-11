@@ -512,6 +512,17 @@
         <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
         <div id="columnAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
       </div>
+      <div class="card force-candidate-card" id="columnForceCandidateCard" style="display:none;">
+        <h2>上游內力候選值 <span class="scope-badge">需確認</span></h2>
+        <p class="force-candidate-summary" id="columnForceCandidateSummary"></p>
+        <div class="force-candidate-list" id="columnForceCandidateList"></div>
+        <label class="force-candidate-confirm"><input type="checkbox" id="columnForceCandidateConfirm">我已確認載重組合、軸力與彎矩方向、單位，以及這些資料可作為本柱的係數化設計外力。</label>
+        <div class="force-candidate-actions">
+          <button class="btn-secondary" type="button" id="columnForceCandidateApply" disabled>套用至正式輸入</button>
+          <button class="btn-secondary" type="button" id="columnForceCandidateDiscard">捨棄候選值</button>
+        </div>
+        <p class="hint">候選值只在本頁顯示，不會寫入計算書、列印或 PDF；確認套用後，才會在計算書留下實際採用來源。</p>
+      </div>
       <!-- 載重摘要 (loads + summary) -->
       <div class="card" data-shows="loads summary">
         <h2>載重摘要</h2>
@@ -669,6 +680,7 @@
 
   // 模式切換 (設計 / 檢核)
   let currentMode = 'design';
+  let adoptedColumnForceImport = null;
   function syncDesignFields() {
     // 設計模式下：主筋根數 / 箍筋與繫筋間距與數均由系統反算自動填入 (隱藏輸入)
     // 檢核模式下：使用者自行輸入主筋號數 / 根數 / 間距
@@ -942,6 +954,7 @@
         projectNo: window.RCUI.normalizeProjectFieldValue($('projNo')?.value),
         designer: window.RCUI.normalizeProjectFieldValue($('projDesigner')?.value)
       },
+      forceImport: serializeColumnForceImport(),
       fields,
       summary: {
         banner: bannerText,
@@ -1021,6 +1034,7 @@
     Object.entries(payload.fields).forEach(([id, saved]) => {
       if (setColumnProjectControl(id, saved)) applied += 1;
     });
+    restoreColumnForceImport(payload.forceImport);
     syncDesignFields();
     if (typeof calcColumn === 'function') calcColumn();
     const tab = ['geom','rebar','loads','pm','shear','summary'].includes(payload.activeTab) ? payload.activeTab : 'geom';
@@ -3622,6 +3636,128 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     });
   }
 
+  const COLUMN_FORCE_CANDIDATE_FIELDS = [
+    { key: 'P', label: 'Pu', unit: 'tf' },
+    { key: 'Mx', label: 'Mux', unit: 'tf·m' },
+    { key: 'My', label: 'Muy', unit: 'tf·m' },
+    { key: 'Vx', label: 'Vux', unit: 'tf' },
+    { key: 'Vy', label: 'Vuy', unit: 'tf' }
+  ];
+
+  function describeColumnForceImportBasis(meta = {}) {
+    if (meta.loadBasis === 'factored' || meta.factored) return '已確認係數化';
+    if (meta.loadBasis === 'unfactored') return '未係數化';
+    return '尚未確認資料基準';
+  }
+
+  function renderColumnForceCandidate(payload) {
+    if (!payload || !['column-rect', 'column-circ'].includes(payload.target)) return;
+    const candidates = COLUMN_FORCE_CANDIDATE_FIELDS
+      .filter(field => Number.isFinite(Number(payload.forces?.[field.key])))
+      .map(field => ({ ...field, value: Number(payload.forces[field.key]) }));
+    if (!candidates.length) return;
+
+    const card = $('columnForceCandidateCard');
+    const summary = $('columnForceCandidateSummary');
+    const list = $('columnForceCandidateList');
+    const confirm = $('columnForceCandidateConfirm');
+    const apply = $('columnForceCandidateApply');
+    const discard = $('columnForceCandidateDiscard');
+    if (!card || !summary || !list || !confirm || !apply || !discard) return;
+
+    const meta = payload.meta || {};
+    summary.textContent = `來源：${meta.source || '—'}｜工況：${meta.caseName || '—'}｜資料基準：${describeColumnForceImportBasis(meta)}`;
+    list.replaceChildren();
+    candidates.forEach(field => {
+      const item = document.createElement('div');
+      item.className = 'force-candidate-item';
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = field.label;
+      const value = document.createElement('span');
+      value.className = 'value';
+      value.textContent = `${field.value.toFixed(2)} ${field.unit}`;
+      item.append(label, value);
+      list.appendChild(item);
+    });
+    confirm.checked = false;
+    apply.disabled = true;
+    confirm.onchange = () => { apply.disabled = !confirm.checked; };
+    discard.onclick = () => {
+      window.ForcePickerReceive?.discardPending();
+      card.style.display = 'none';
+    };
+    apply.onclick = () => {
+      if (!confirm.checked) return;
+      const result = window.ForcePickerReceive?.applyPending({ forceKeys: candidates.map(field => field.key) });
+      if (!result?.payload) return;
+      adoptedColumnForceImport = {
+        meta: { ...(result.payload.meta || {}) },
+        fields: candidates.map(field => ({ ...field })),
+        adoptionBasis: 'factored',
+        adoptedAt: new Date().toISOString()
+      };
+      card.style.display = 'none';
+      calcColumn();
+    };
+    card.style.display = '';
+  }
+
+  function initColumnForceCandidateReview() {
+    renderColumnForceCandidate(window.ForcePickerReceive?.getPending());
+  }
+  document.addEventListener('force-picker-candidate-ready', event => {
+    renderColumnForceCandidate(event.detail);
+  });
+
+  function serializeColumnForceImport() {
+    if (!adoptedColumnForceImport) return null;
+    return {
+      meta: { ...(adoptedColumnForceImport.meta || {}) },
+      fields: adoptedColumnForceImport.fields.map(field => ({ ...field })),
+      adoptionBasis: adoptedColumnForceImport.adoptionBasis || 'factored',
+      adoptedAt: adoptedColumnForceImport.adoptedAt
+    };
+  }
+
+  function restoreColumnForceImport(raw) {
+    const allowed = new Map(COLUMN_FORCE_CANDIDATE_FIELDS.map(field => [field.key, field]));
+    const fields = Array.isArray(raw?.fields)
+      ? raw.fields.map(field => {
+          const reference = allowed.get(field?.key);
+          const value = Number(field?.value);
+          return reference && Number.isFinite(value) ? { ...reference, value } : null;
+        }).filter(Boolean)
+      : [];
+    adoptedColumnForceImport = fields.length ? {
+      meta: raw?.meta && typeof raw.meta === 'object' ? { ...raw.meta } : {},
+      fields,
+      adoptionBasis: raw?.adoptionBasis || 'factored',
+      adoptedAt: typeof raw?.adoptedAt === 'string' ? raw.adoptedAt : new Date().toISOString()
+    } : null;
+  }
+
+  function buildColumnForceImportReportGroup(r) {
+    if (!adoptedColumnForceImport) return null;
+    const current = { P: r.Pu, Mx: r.Mux, My: r.Muy, Vx: r.Vu_in, Vy: r.Vuy_in };
+    const adjusted = adoptedColumnForceImport.fields.some(field => Math.abs(field.value - Number(current[field.key])) > 1e-9);
+    const meta = adoptedColumnForceImport.meta || {};
+    const adoptedAt = new Date(adoptedColumnForceImport.adoptedAt).toLocaleString('zh-TW');
+    return {
+      group: '上游內力採用記錄',
+      keepTogether: true,
+      items: [
+        { label: '資料狀態', value: adjusted ? '已確認採用後人工調整' : '已確認採用' },
+        { label: '來源', value: meta.source || '—' },
+        { label: '工況', value: meta.caseName || '—' },
+        { label: '上游資料基準', value: describeColumnForceImportBasis(meta) },
+        { label: '採用判定', value: adoptedColumnForceImport.adoptionBasis === 'factored' ? '人工確認作為係數化設計外力' : '人工確認採用' },
+        { label: '採用欄位', value: adoptedColumnForceImport.fields.map(field => `${field.label}=${field.value.toFixed(2)} ${field.unit}`).join('；') },
+        { label: '確認時間', value: adoptedAt }
+      ]
+    };
+  }
+
   function buildColumnReport() {
     calcColumn();  // 永遠先以最新輸入跑一次計算
     const r = window.colLast;
@@ -3634,6 +3770,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     };
     const typeLabel = ({rect:'矩形 (箍筋)',circle:'圓形 (螺箍筋)',circleTied:'圓形 (箍筋)'})[r.colType];
 
+    const importedForceGroup = buildColumnForceImportReportGroup(r);
     const inputs = [
       { group:'幾何', items:[
         { label:'柱型', value: typeLabel },
@@ -3682,6 +3819,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
           { label:'Vd,x / Vd,y', value: `${r.designVxTf.toFixed(2)} / ${r.designVyTf.toFixed(2)}`, unit:'tf' }
         ] : [])
       ]},
+      ...(importedForceGroup ? [importedForceGroup] : []),
       ...(r.seismic && r.scwb ? [{
         group:'耐震接頭',
         items:[
@@ -4670,7 +4808,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     });
   });
 </script>
-<!-- ForcePicker 接收器 — 自動匯入上游分析之內力 -->
+<!-- ForcePicker 接收器：RC 頁面先顯示候選值，人工確認後才套用。 -->
 <script src="../../結構工具箱/core/ui/forces-receive.js"></script>
+<script>initColumnForceCandidateReview();</script>
 </body>
 </html>

@@ -121,6 +121,7 @@ async function exerciseProjectStorage(page) {
   assert(saved.fields.Pu.value === '321', 'column project stores numeric input as editable value', saved.fields.Pu.value);
   assert(saved.fields.seismicMode.checked === true, 'column project stores checkbox state', saved.fields.seismicMode.checked);
   assert(saved.fields.columnProjectFile == null, 'column project excludes file input', 'file input excluded');
+  assert(saved.forceImport == null, 'column project has no adopted force import before confirmation', String(saved.forceImport));
 
   const placeholderSaved = await page.evaluate(() => {
     const setValue = (id, value) => {
@@ -223,6 +224,74 @@ async function exerciseProjectStorage(page) {
   assert(draft.raw && draft.raw.includes('rc-column-project-v1'), 'column project draft localStorage payload', 'draft saved');
 }
 
+async function runColumnForceCandidateReviewCase(page) {
+  const payload = {
+    target: 'column-rect',
+    meta: { source: '構架分析', caseName: 'ULS-01', factored: false, loadBasis: 'unconfirmed' },
+    forces: { P: 333, Mx: 71, My: 10, Vx: 31, Vy: 5 }
+  };
+  await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+  await page.evaluate(candidate => localStorage.setItem('structToolbox.pendingForces', JSON.stringify(candidate)), payload);
+  await page.goto(`${TOOL_URL}?import=1`, { waitUntil: 'networkidle' });
+  await wait(250);
+  const before = await page.evaluate(() => ({
+    cardVisible: document.getElementById('columnForceCandidateCard')?.style.display !== 'none',
+    summary: document.getElementById('columnForceCandidateSummary')?.textContent || '',
+    Pu: document.getElementById('Pu')?.value,
+    Mux: document.getElementById('Mux')?.value,
+    Muy: document.getElementById('Muy')?.value,
+    Vu: document.getElementById('Vu')?.value,
+    Vuy: document.getElementById('Vuy')?.value,
+    stored: localStorage.getItem('structToolbox.pendingForces')
+  }));
+  assert(before.cardVisible, 'column candidate card displays before adoption', before.summary);
+  assert(before.summary.includes('構架分析') && before.summary.includes('尚未確認資料基準'), 'column candidate shows source and unresolved basis', before.summary);
+  assert(before.Pu !== '333' && before.Mux !== '71' && before.Muy !== '10', 'column candidate does not write formal inputs before confirmation', JSON.stringify(before));
+  assert(!!before.stored, 'column candidate keeps pending storage before confirmation', before.stored);
+
+  await page.check('#columnForceCandidateConfirm');
+  await page.click('#columnForceCandidateApply');
+  await wait(250);
+  const after = await page.evaluate(() => ({
+    cardHidden: document.getElementById('columnForceCandidateCard')?.style.display === 'none',
+    Pu: document.getElementById('Pu')?.value,
+    Mux: document.getElementById('Mux')?.value,
+    Muy: document.getElementById('Muy')?.value,
+    Vu: document.getElementById('Vu')?.value,
+    Vuy: document.getElementById('Vuy')?.value,
+    stored: localStorage.getItem('structToolbox.pendingForces')
+  }));
+  assert(after.cardHidden, 'column candidate card closes after adoption', JSON.stringify(after));
+  assert(after.Pu === '333' && after.Mux === '71' && after.Muy === '10' && after.Vu === '31' && after.Vuy === '5', 'column candidate writes confirmed formal inputs', JSON.stringify(after));
+  assert(after.stored == null, 'column candidate clears pending storage only after adoption', String(after.stored));
+  const reportHtml = await page.evaluate(() => {
+    let html = '';
+    const previousOpen = window.open;
+    window.open = () => ({ document: { open() {}, write(chunk) { html += String(chunk); }, close() {} }, close() {}, closed: false });
+    try { window.buildColumnReport(); } finally { window.open = previousOpen; }
+    return html;
+  });
+  ['上游內力採用記錄', '已確認採用', '構架分析', 'ULS-01'].forEach(fragment => {
+    assert(reportHtml.includes(fragment), 'column report records confirmed upstream source', fragment);
+  });
+  ['上游內力候選值', '需確認', '候選值只在本頁'].forEach(fragment => {
+    assert(!reportHtml.includes(fragment), 'column report excludes candidate reading state', fragment);
+  });
+  const restored = await page.evaluate(() => {
+    const saved = window.collectColumnProjectData();
+    document.getElementById('Pu').value = '1';
+    window.applyColumnProjectData(saved, { silent: true });
+    let html = '';
+    const previousOpen = window.open;
+    window.open = () => ({ document: { open() {}, write(chunk) { html += String(chunk); }, close() {} }, close() {}, closed: false });
+    try { window.buildColumnReport(); } finally { window.open = previousOpen; }
+    return { forceImport: saved.forceImport, Pu: document.getElementById('Pu').value, html };
+  });
+  assert(restored.forceImport?.fields?.length === 5, 'column project saves adopted force provenance', JSON.stringify(restored.forceImport));
+  assert(restored.Pu === '333', 'column project restores adopted force inputs', restored.Pu);
+  assert(restored.html.includes('人工確認作為係數化設計外力'), 'column project restores adopted force decision into report', 'adoption decision preserved');
+}
+
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -246,6 +315,10 @@ async function main() {
   assert(html.includes('btnSaveProject'), 'column.html has save project button', 'local JSON export control exists');
   assert(html.includes('btnLoadProject'), 'column.html has load project button', 'local JSON import control exists');
   assert(html.includes('rc.column.project.draft'), 'column.html has browser draft storage key', 'browser-local draft storage exists');
+  assert(html.includes('id="columnForceCandidateCard"'), 'column.html has force candidate review card', 'imported forces require explicit confirmation');
+  assert(html.includes('initColumnForceCandidateReview'), 'column.html initializes candidate receiver', 'candidate payload is rendered without automatic adoption');
+  assert(html.includes('上游內力採用記錄'), 'column report records adopted force provenance', 'only confirmed imports are traceable in the calculation report');
+  assert(html.includes('serializeColumnForceImport'), 'column project file preserves adopted force provenance', 'reopened projects keep confirmed import record');
   assert(common.includes('window.RCUI.normalizeProjectFieldValue'), 'shared/common.js exposes project metadata normalizer', 'placeholder project text can be scrubbed once');
   assert(html.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), 'column project payload normalizes placeholder project name', 'project storage metadata uses shared normalizer');
   assert(!html.includes("$('projName').value.trim()"), 'column report/project metadata no longer uses raw trim on project name', 'shared normalizer handles placeholder cleanup');
@@ -519,6 +592,8 @@ async function main() {
         }
       }
     }
+
+    await runColumnForceCandidateReviewCase(page);
 
     console.log('\nAll column regression checks passed.');
   } finally {

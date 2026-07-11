@@ -439,6 +439,7 @@ async function exerciseBeamProjectStorage(page) {
   assert(saved.fields.MuPos.value === '88', 'beam project stores numeric input as editable value', saved.fields.MuPos.value);
   assert(saved.fields.enableTorsion.checked === true, 'beam project stores checkbox state', saved.fields.enableTorsion.checked);
   assert(saved.fields.beamProjectFile == null, 'beam project excludes file input', 'file input excluded');
+  assert(saved.forceImport == null, 'beam project has no adopted force import before confirmation', String(saved.forceImport));
 
   const placeholderSaved = await page.evaluate(() => {
     const setField = (id, value) => {
@@ -602,6 +603,66 @@ async function runBeamColumnHandoffCase(page) {
   assert(actual.storageCleared === true, 'column import clears pending storage', `storageCleared=${actual.storageCleared}`);
 }
 
+async function runBeamForceCandidateReviewCase(page) {
+  section('Beam Force Candidate Review');
+  const payload = {
+    target: 'beam',
+    meta: { source: '連續梁分析', caseName: '主控組合 (梁)', factored: false, loadBasis: 'unconfirmed' },
+    forces: { M: 88, MNeg: 126, V: 44 }
+  };
+  await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+  await page.evaluate(candidate => localStorage.setItem('structToolbox.pendingForces', JSON.stringify(candidate)), payload);
+  await page.goto(`${TOOL_URL}?import=1`, { waitUntil: 'networkidle' });
+  await wait(250);
+  const before = await page.evaluate(() => ({
+    cardVisible: document.getElementById('beamForceCandidateCard')?.style.display !== 'none',
+    summary: document.getElementById('beamForceCandidateSummary')?.textContent || '',
+    MuPos: document.getElementById('MuPos')?.value,
+    MuNeg: document.getElementById('MuNeg')?.value,
+    Vu: document.getElementById('Vu')?.value,
+    stored: localStorage.getItem('structToolbox.pendingForces')
+  }));
+  assert(before.cardVisible, 'beam candidate card displays before adoption', before.summary);
+  assert(before.summary.includes('連續梁分析') && before.summary.includes('尚未確認資料基準'), 'beam candidate shows source and unresolved basis', before.summary);
+  assert(before.MuPos !== '88' && before.MuNeg !== '126' && before.Vu !== '44', 'beam candidate does not write formal inputs before confirmation', JSON.stringify(before));
+  assert(!!before.stored, 'beam candidate keeps pending storage before confirmation', before.stored);
+  const reportBefore = await captureBeamReportHtml(page);
+  ['上游內力候選值', '需確認', '候選值只在本頁'].forEach(fragment => {
+    assert(!reportBefore.includes(fragment), 'beam report excludes candidate reading state', fragment);
+  });
+
+  await page.check('#beamForceCandidateConfirm');
+  await page.click('#beamForceCandidateApply');
+  await wait(250);
+  const after = await page.evaluate(() => ({
+    cardHidden: document.getElementById('beamForceCandidateCard')?.style.display === 'none',
+    MuPos: document.getElementById('MuPos')?.value,
+    MuNeg: document.getElementById('MuNeg')?.value,
+    Vu: document.getElementById('Vu')?.value,
+    stored: localStorage.getItem('structToolbox.pendingForces')
+  }));
+  assert(after.cardHidden, 'beam candidate card closes after adoption', JSON.stringify(after));
+  assert(after.MuPos === '88' && after.MuNeg === '126' && after.Vu === '44', 'beam candidate writes confirmed formal inputs', JSON.stringify(after));
+  assert(after.stored == null, 'beam candidate clears pending storage only after adoption', String(after.stored));
+  const reportAfter = await captureBeamReportHtml(page);
+  ['上游內力採用記錄', '已確認採用', '連續梁分析', '主控組合 (梁)'].forEach(fragment => {
+    assert(reportAfter.includes(fragment), 'beam report records confirmed upstream source', fragment);
+  });
+  const restored = await page.evaluate(() => {
+    const saved = window.collectBeamProjectData();
+    document.getElementById('MuPos').value = '1';
+    window.applyBeamProjectData(saved, { silent: true });
+    let html = '';
+    const previousOpen = window.open;
+    window.open = () => ({ document: { open() {}, write(chunk) { html += String(chunk); }, close() {} }, close() {}, closed: false });
+    try { window.buildBeamReport(); } finally { window.open = previousOpen; }
+    return { forceImport: saved.forceImport, MuPos: document.getElementById('MuPos').value, html };
+  });
+  assert(restored.forceImport?.fields?.length === 3, 'beam project saves adopted force provenance', JSON.stringify(restored.forceImport));
+  assert(restored.MuPos === '88', 'beam project restores adopted force inputs', restored.MuPos);
+  assert(restored.html.includes('人工確認作為係數化設計外力'), 'beam project restores adopted force decision into report', 'adoption decision preserved');
+}
+
 async function runBrowserCases() {
   section('Browser Regression Cases');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
@@ -666,6 +727,7 @@ async function runBrowserCases() {
 
 
     await runBeamColumnHandoffCase(page);
+    await runBeamForceCandidateReviewCase(page);
     if (process.env.BEAM_PRINT_ACTUAL === '1') {
       console.log(JSON.stringify(captured, null, 2));
     }
@@ -743,6 +805,10 @@ async function main() {
   assert(beamHtml.includes('btnSaveBeamProject'), 'beam.html has save project button', 'local JSON export control exists');
   assert(beamHtml.includes('btnLoadBeamProject'), 'beam.html has load project button', 'local JSON import control exists');
   assert(beamHtml.includes('rc.beam.project.draft'), 'beam.html has browser draft storage key', 'browser-local draft storage exists');
+  assert(beamHtml.includes('id="beamForceCandidateCard"'), 'beam.html has force candidate review card', 'imported forces require explicit confirmation');
+  assert(beamHtml.includes('initBeamForceCandidateReview'), 'beam.html initializes candidate receiver', 'candidate payload is rendered without automatic adoption');
+  assert(beamHtml.includes('上游內力採用記錄'), 'beam report records adopted force provenance', 'only confirmed imports are traceable in the calculation report');
+  assert(beamHtml.includes('serializeBeamForceImport'), 'beam project file preserves adopted force provenance', 'reopened projects keep confirmed import record');
 
   const libs = bootLibs();
   const { Flexure, Concrete, Rebar } = libs;

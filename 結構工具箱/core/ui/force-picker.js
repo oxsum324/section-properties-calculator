@@ -4,7 +4,9 @@
  * 概念：上游分析工具 (連續梁分析、struct_dx、手動輸入) 把計算出的內力
  * 透過此模組「打包 → 暫存 → 跳轉到設計工具」。設計工具 (beam.html、
  * column.html) 在 <input> 上加 data-force="M|V|T|P|Mx|My|Vx|Vy" 後，
- * 配合 forces-receive.js 即可自動填入。
+ * 配合 forces-receive.js 將資料送到目標頁的候選確認區；正式欄位必須由
+ * 使用者確認後才會套用。僅標示 data-force-import-mode="auto" 的舊版頁面
+ * 保留自動填入行為。
  *
  * 統一內力 schema：
  *   {

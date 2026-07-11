@@ -605,6 +605,17 @@
         <h2>產報前檢查 <span class="scope-badge">頁面輔助</span></h2>
         <div id="beamAttachmentReadiness" role="status" aria-live="polite">尚未計算。</div>
       </div>
+      <div class="card force-candidate-card" id="beamForceCandidateCard" style="display:none;">
+        <h2>上游內力候選值 <span class="scope-badge">需確認</span></h2>
+        <p class="force-candidate-summary" id="beamForceCandidateSummary"></p>
+        <div class="force-candidate-list" id="beamForceCandidateList"></div>
+        <label class="force-candidate-confirm"><input type="checkbox" id="beamForceCandidateConfirm">我已確認載重組合、正負號、單位，以及這些資料可作為本梁的係數化設計外力。</label>
+        <div class="force-candidate-actions">
+          <button class="btn-secondary" type="button" id="beamForceCandidateApply" disabled>套用至正式輸入</button>
+          <button class="btn-secondary" type="button" id="beamForceCandidateDiscard">捨棄候選值</button>
+        </div>
+        <p class="hint">候選值只在本頁顯示，不會寫入計算書、列印或 PDF；確認套用後，才會在計算書留下實際採用來源。</p>
+      </div>
       <div class="card" id="warningCard">
         <h2>設計警示</h2>
         <div id="warningList" class="hint">目前沒有特殊警示。</div>
@@ -955,6 +966,7 @@
         projectNo: window.RCUI.normalizeProjectFieldValue($('projNo')?.value),
         designer: window.RCUI.normalizeProjectFieldValue($('projDesigner')?.value)
       },
+      forceImport: serializeBeamForceImport(),
       fields,
       summary: {
         banner: bannerText,
@@ -1033,6 +1045,7 @@
     Object.entries(payload.fields).forEach(([id, saved]) => {
       if (setBeamProjectControl(id, saved)) applied += 1;
     });
+    restoreBeamForceImport(payload.forceImport);
     syncToggles();
     syncDesignFields();
     if (typeof calcBeam === 'function') calcBeam();
@@ -1759,6 +1772,7 @@
 
   // 模式切換 (設計 / 檢核)
   let currentMode = 'design';
+  let adoptedBeamForceImport = null;
   // 設計模式：根數欄位設為 readonly + 灰色，由 calcBeam 自動寫入；檢核模式可手動編輯
   const REBAR_N_IDS = ['botBar1N','botBar2N','botBar3N','topBar1N','topBar2N','topBar3N'];
   function syncDesignFields() {
@@ -2785,6 +2799,126 @@ ${layerBars.map(L => {
     });
   }
 
+  const BEAM_FORCE_CANDIDATE_FIELDS = [
+    { key: 'M', label: '+Mu (底拉)', unit: 'tf·m' },
+    { key: 'MNeg', label: '−Mu (頂拉)', unit: 'tf·m' },
+    { key: 'V', label: 'Vu', unit: 'tf' }
+  ];
+
+  function describeForceImportBasis(meta = {}) {
+    if (meta.loadBasis === 'factored' || meta.factored) return '已確認係數化';
+    if (meta.loadBasis === 'unfactored') return '未係數化';
+    return '尚未確認資料基準';
+  }
+
+  function renderBeamForceCandidate(payload) {
+    if (!payload || payload.target !== 'beam') return;
+    const candidates = BEAM_FORCE_CANDIDATE_FIELDS
+      .filter(field => Number.isFinite(Number(payload.forces?.[field.key])))
+      .map(field => ({ ...field, value: Number(payload.forces[field.key]) }));
+    if (!candidates.length) return;
+
+    const card = $('beamForceCandidateCard');
+    const summary = $('beamForceCandidateSummary');
+    const list = $('beamForceCandidateList');
+    const confirm = $('beamForceCandidateConfirm');
+    const apply = $('beamForceCandidateApply');
+    const discard = $('beamForceCandidateDiscard');
+    if (!card || !summary || !list || !confirm || !apply || !discard) return;
+
+    const meta = payload.meta || {};
+    summary.textContent = `來源：${meta.source || '—'}｜工況：${meta.caseName || '—'}｜資料基準：${describeForceImportBasis(meta)}`;
+    list.replaceChildren();
+    candidates.forEach(field => {
+      const item = document.createElement('div');
+      item.className = 'force-candidate-item';
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = field.label;
+      const value = document.createElement('span');
+      value.className = 'value';
+      value.textContent = `${field.value.toFixed(2)} ${field.unit}`;
+      item.append(label, value);
+      list.appendChild(item);
+    });
+    confirm.checked = false;
+    apply.disabled = true;
+    confirm.onchange = () => { apply.disabled = !confirm.checked; };
+    discard.onclick = () => {
+      window.ForcePickerReceive?.discardPending();
+      card.style.display = 'none';
+    };
+    apply.onclick = () => {
+      if (!confirm.checked) return;
+      const result = window.ForcePickerReceive?.applyPending({ forceKeys: candidates.map(field => field.key) });
+      if (!result?.payload) return;
+      adoptedBeamForceImport = {
+        meta: { ...(result.payload.meta || {}) },
+        fields: candidates.map(field => ({ ...field })),
+        adoptionBasis: 'factored',
+        adoptedAt: new Date().toISOString()
+      };
+      card.style.display = 'none';
+      calcBeam();
+    };
+    card.style.display = '';
+  }
+
+  function initBeamForceCandidateReview() {
+    renderBeamForceCandidate(window.ForcePickerReceive?.getPending());
+  }
+  document.addEventListener('force-picker-candidate-ready', event => {
+    renderBeamForceCandidate(event.detail);
+  });
+
+  function serializeBeamForceImport() {
+    if (!adoptedBeamForceImport) return null;
+    return {
+      meta: { ...(adoptedBeamForceImport.meta || {}) },
+      fields: adoptedBeamForceImport.fields.map(field => ({ ...field })),
+      adoptionBasis: adoptedBeamForceImport.adoptionBasis || 'factored',
+      adoptedAt: adoptedBeamForceImport.adoptedAt
+    };
+  }
+
+  function restoreBeamForceImport(raw) {
+    const allowed = new Map(BEAM_FORCE_CANDIDATE_FIELDS.map(field => [field.key, field]));
+    const fields = Array.isArray(raw?.fields)
+      ? raw.fields.map(field => {
+          const reference = allowed.get(field?.key);
+          const value = Number(field?.value);
+          return reference && Number.isFinite(value) ? { ...reference, value } : null;
+        }).filter(Boolean)
+      : [];
+    adoptedBeamForceImport = fields.length ? {
+      meta: raw?.meta && typeof raw.meta === 'object' ? { ...raw.meta } : {},
+      fields,
+      adoptionBasis: raw?.adoptionBasis || 'factored',
+      adoptedAt: typeof raw?.adoptedAt === 'string' ? raw.adoptedAt : new Date().toISOString()
+    } : null;
+  }
+
+  function buildBeamForceImportReportGroup(r) {
+    if (!adoptedBeamForceImport) return null;
+    const current = { M: r.MuPos_in, MNeg: r.MuNeg_in, V: r.Vu_in };
+    const adjusted = adoptedBeamForceImport.fields.some(field => Math.abs(field.value - Number(current[field.key])) > 1e-9);
+    const meta = adoptedBeamForceImport.meta || {};
+    const adoptedAt = new Date(adoptedBeamForceImport.adoptedAt).toLocaleString('zh-TW');
+    return {
+      group: '上游內力採用記錄',
+      keepTogether: true,
+      items: [
+        { label: '資料狀態', value: adjusted ? '已確認採用後人工調整' : '已確認採用' },
+        { label: '來源', value: meta.source || '—' },
+        { label: '工況', value: meta.caseName || '—' },
+        { label: '上游資料基準', value: describeForceImportBasis(meta) },
+        { label: '採用判定', value: adoptedBeamForceImport.adoptionBasis === 'factored' ? '人工確認作為係數化設計外力' : '人工確認採用' },
+        { label: '採用欄位', value: adoptedBeamForceImport.fields.map(field => `${field.label}=${field.value.toFixed(2)} ${field.unit}`).join('；') },
+        { label: '確認時間', value: adoptedAt }
+      ]
+    };
+  }
+
   // === 計算書產生 ===
   function buildBeamReport() {
     // 永遠先以最新輸入跑一次計算，確保 beamLast 與 DOM 同步
@@ -2803,6 +2937,7 @@ ${layerBars.map(L => {
       .map((L,i) => `第${i+1}排: ${L.n}-${L.barNo}`)
       .join('；') || '—';
 
+    const importedForceGroup = buildBeamForceImportReportGroup(r);
     const inputs = [
       { group: '幾何與斷面', items: [
         { label:'斷面型式', value: ({rect:'矩形',T:'T 形',L:'L 形'})[r.sectionType] },
@@ -2837,6 +2972,7 @@ ${layerBars.map(L => {
         ...(r.seismic?[{ label:'Ve (耐震)', value:r.Ve_in.toFixed(2), unit:'tf' }]:[]),
         { label:'軸力 Pu', value:r.Pu_in.toFixed(2), unit:'tf' }
       ]},
+      ...(importedForceGroup ? [importedForceGroup] : []),
       ...(r.seismic && r.beamColumnJoint ? [{ group: '梁柱接頭輸出', items: [
         { label:'送入柱頁位置', value:r.beamColumnJoint.targetLabel },
         { label:'送出 Mnb', value:r.beamColumnJoint.values.mnbControl.toFixed(2), unit:'tf·m' },
@@ -3495,7 +3631,8 @@ ${layerBars.map(L => {
   // 載入時初始化 + 算一次 + 套用預設分頁顯示
   window.addEventListener('load', () => { syncToggles(); syncDesignFields(); ingestQueryParams(); applyPanel('geom'); attachFormulaTips(); });
 </script>
-<!-- ForcePicker 接收器 — 自動匯入上游分析之內力 -->
+<!-- ForcePicker 接收器：RC 頁面先顯示候選值，人工確認後才套用。 -->
 <script src="../../結構工具箱/core/ui/forces-receive.js"></script>
+<script>initBeamForceCandidateReview();</script>
 </body>
 </html>

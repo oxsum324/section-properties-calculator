@@ -1822,12 +1822,10 @@ function runAnalysis() {
 
 // ==================== 傳送至設計工具 (依材料分流) ====================
 
-// 路由表：材料 → { beam / column } → { url, label, color, target }
+// 路由表：連續梁結果只可送往梁設計；柱設計需要獨立的軸力與構架背景。
 const DESIGN_ROUTES = {
   concrete: {
-    beam:       { url: '鋼筋混凝土/tools/beam.html?import=1',                     label: '→ RC 梁設計',        color: '#0f766e', target: 'beam' },
-    columnRect: { url: '鋼筋混凝土/tools/column.html?import=1',                   label: '→ RC 矩形柱',       color: '#7c3aed', target: 'column-rect' },
-    columnCirc: { url: '鋼筋混凝土/tools/column.html?import=1&colType=circle',    label: '→ RC 圓柱',         color: '#6d28d9', target: 'column-circ' },
+    beam: { url: '鋼筋混凝土/tools/beam.html?import=1', label: '→ RC 梁設計', color: '#0f766e', target: 'beam' },
   },
   steel: {
     beam: { url: '鋼構工具/steel-beam-formal.html?import=1', label: '→ 鋼梁正式檢核', color: '#2563eb', target: 'steel-beam' },
@@ -1910,22 +1908,18 @@ function dispatchDesign(target) {
     showError(`${route?.label || target} 尚未實作`); return;
   }
   const env = _envelopeForDesign();
-  const { material, section } = _materialAndSection();
-  const isBeam = target.includes('beam');
-  const forces = isBeam
-    ? { M: env.Mpos, MNeg: env.Mneg, V: env.V }
-    : { P: 0, Mx: env.M, Vx: env.V };
+  const forces = { M: env.Mpos, MNeg: env.Mneg, V: env.V };
   const transferMeta = {
     source: '連續梁分析',
-    caseName: `主控組合 (${isBeam ? '梁' : '柱'})`,
+    caseName: '主控組合 (梁)',
     factored: false,
-    loadBasis: isBeam && mat === 'steel' ? 'unconfirmed' : 'unfactored',
+    loadBasis: 'unconfirmed',
   };
   ForcePicker.sendTo(target, {
     meta: transferMeta,
     forces,
-    material: mat === 'steel' ? null : material,
-    section,
+    material: null,
+    section: null,
     member: { spanCm: env.Lcm },
   }, route.url);   // ← urlOverride: 以本頁為基準的正確相對路徑
 }
