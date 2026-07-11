@@ -102,6 +102,7 @@
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
     <label class="legacy-purpose-select page-only-report-status" for="columnLegacyPurpose"><span>既有案件用途</span><select id="columnLegacyPurpose"><option value="">請選擇</option><option value="record-continuation">既有計算記錄延續</option><option value="review-change">既有案件復核 / 變更比較</option></select></label>
     <label class="legacy-report-confirm page-only-report-status"><input type="checkbox" id="columnLegacyUseConfirm">已確認僅限既有案件</label>
+    <input type="hidden" id="columnLegacyConfirmationScope" value="">
     <button id="btnReport" class="mode-bar__report" type="button" onclick="buildColumnReport()" disabled>舊案延續計算記錄</button>
   </div>
 </div>
@@ -322,13 +323,40 @@ function columnLegacyPurposeLabel() {
   return columnLegacyPurposeLabels[columnLegacyPurpose()] || '未選擇';
 }
 
+function columnLegacyConfirmationScope() {
+  const normalize = window.ToolReportUI?.normalizeProjectFieldValue || (value => String(value || '').trim());
+  return JSON.stringify({
+    project: ['projName', 'projNo', 'projDesigner'].map(id => normalize($(id)?.value)),
+    purpose: columnLegacyPurpose(),
+  });
+}
+
+function columnLegacyConfirmationScopeValue() {
+  return $('columnLegacyConfirmationScope')?.value || '';
+}
+
 function isColumnLegacyUseConfirmed() {
-  return !!columnLegacyPurpose() && $('columnLegacyUseConfirm')?.checked === true;
+  return !!columnLegacyPurpose()
+    && $('columnLegacyUseConfirm')?.checked === true
+    && columnLegacyConfirmationScopeValue() === columnLegacyConfirmationScope();
 }
 
 function columnLegacyUseStatusLabel() {
   if (!columnLegacyPurpose()) return '未選擇';
-  return `${columnLegacyPurposeLabel()}；${$('columnLegacyUseConfirm')?.checked ? '已確認' : '尚未確認'}`;
+  return `${columnLegacyPurposeLabel()}；${isColumnLegacyUseConfirmed() ? '已確認' : '尚未確認'}`;
+}
+
+function invalidateColumnLegacyUseConfirmation() {
+  if (!$('columnLegacyUseConfirm')?.checked || columnLegacyConfirmationScopeValue() === columnLegacyConfirmationScope()) return;
+  $('columnLegacyUseConfirm').checked = false;
+  $('columnLegacyConfirmationScope').value = '';
+}
+
+function recordColumnLegacyUseConfirmation() {
+  const confirm = $('columnLegacyUseConfirm');
+  const scope = $('columnLegacyConfirmationScope');
+  if (!confirm || !scope) return;
+  scope.value = confirm.checked && columnLegacyPurpose() ? columnLegacyConfirmationScope() : '';
 }
 
 function syncColumnLegacyReportControl() {
@@ -1065,11 +1093,31 @@ function buildColumnReport() {
 ['projName', 'projNo', 'projDesigner'].forEach(function (id) {
   const node = document.getElementById(id);
   if (!node) return;
-  node.addEventListener('input', syncColumnReportReadinessUi);
-  node.addEventListener('change', syncColumnReportReadinessUi);
+  node.addEventListener('input', function () {
+    invalidateColumnLegacyUseConfirmation();
+    syncColumnLegacyReportControl();
+  });
+  node.addEventListener('change', function () {
+    invalidateColumnLegacyUseConfirmation();
+    syncColumnLegacyReportControl();
+  });
 });
-$('columnLegacyPurpose')?.addEventListener('change', syncColumnLegacyReportControl);
-$('columnLegacyUseConfirm')?.addEventListener('change', syncColumnLegacyReportControl);
+$('columnLegacyPurpose')?.addEventListener('change', function () {
+  invalidateColumnLegacyUseConfirmation();
+  syncColumnLegacyReportControl();
+});
+$('columnLegacyUseConfirm')?.addEventListener('click', function () {
+  this.dataset.legacyConfirmationPending = 'true';
+});
+$('columnLegacyUseConfirm')?.addEventListener('change', function () {
+  if (this.dataset.legacyConfirmationPending === 'true') {
+    delete this.dataset.legacyConfirmationPending;
+    recordColumnLegacyUseConfirmation();
+  }
+  syncColumnLegacyReportControl();
+});
+$('columnLegacyConfirmationScope')?.addEventListener('change', syncColumnLegacyReportControl);
+invalidateColumnLegacyUseConfirmation();
 syncColumnLegacyReportControl();
 renderColumnReportReadiness();
 </script>

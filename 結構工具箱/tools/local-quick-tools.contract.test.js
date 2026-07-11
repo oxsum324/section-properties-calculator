@@ -538,6 +538,8 @@ assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), fal
   assertIncludes(html, '既有案件復核 / 變更比較', `${label} legacy review purpose option`);
   assertIncludes(html, `id="${confirmId}"`, `${label} existing-project confirmation`);
   assertIncludes(html, `function ${confirmFunction}`, `${label} output confirmation guard`);
+  assertIncludes(html, 'LegacyConfirmationScope', `${label} confirmation scope persistence`);
+  assertIncludes(html, 'invalidate', `${label} project or purpose change revokes confirmation`);
   assertIncludes(html, '用途確認', `${label} report purpose confirmation provenance`);
   assertIncludes(html, '已確認：僅限既有案件，不作新案正式計算附件', `${label} report purpose confirmation boundary`);
   assertIncludes(html, '>舊案延續計算記錄</button>', `${label} report button classification`);

@@ -1066,35 +1066,43 @@ function legacyReportExpression(reportButtonId = 'btnReport', purposeId, confirm
       const initialReportDisabled = reportButton.disabled;
       reportButton.click();
       const blockedOpenCount = opened.length;
-      useConfirm.checked = true;
-      useConfirm.dispatchEvent(new Event('change', { bubbles: true }));
+      useConfirm.click();
       const checkboxOnlyReportDisabled = reportButton.disabled;
       purpose.value = 'review-change';
       purpose.dispatchEvent(new Event('input', { bubbles: true }));
       purpose.dispatchEvent(new Event('change', { bubbles: true }));
+      const purposeOnlyReportDisabled = reportButton.disabled;
+      useConfirm.click();
       const confirmedReportDisabled = reportButton.disabled;
       reportButton.click();
       const html = writes.join('');
       const pageOnlyReadinessText = (document.querySelector('.page-only-report-status.report-readiness')?.textContent || '').replace(/\\s+/g, ' ').trim();
       const savedFields = window.ToolProjectStorage?.collectFields?.() || {};
-      purpose.value = '';
+      setProjectField('projNo', 'LOCAL-VERIFY-CHANGED');
+      const projectChangeReportDisabled = reportButton.disabled;
+      const projectChangeUseConfirmed = useConfirm.checked;
+      window.ToolProjectStorage?.applyFields?.(savedFields);
+      purpose.value = 'record-continuation';
       purpose.dispatchEvent(new Event('change', { bubbles: true }));
-      useConfirm.checked = false;
-      useConfirm.dispatchEvent(new Event('change', { bubbles: true }));
-      window.ToolProjectStorage?.applyFields?.({
-        [purpose.id]: savedFields[purpose.id],
-        [useConfirm.id]: savedFields[useConfirm.id],
-      });
+      const purposeChangeReportDisabled = reportButton.disabled;
+      const purposeChangeUseConfirmed = useConfirm.checked;
+      window.ToolProjectStorage?.applyFields?.(savedFields);
       return {
         projectMetaState: projectState,
         initialReportDisabled,
         blockedOpenCount,
         checkboxOnlyReportDisabled,
+        purposeOnlyReportDisabled,
         confirmedReportDisabled,
         purposeValue: purpose.value,
         useConfirmed: useConfirm.checked,
         savedPurposeValue: savedFields[purpose.id]?.value || '',
         savedUseConfirmed: savedFields[useConfirm.id]?.checked === true,
+        savedConfirmationScope: Object.keys(savedFields).some(id => id.endsWith('LegacyConfirmationScope') && savedFields[id]?.value),
+        projectChangeReportDisabled,
+        projectChangeUseConfirmed,
+        purposeChangeReportDisabled,
+        purposeChangeUseConfirmed,
         restoredReportDisabled: reportButton.disabled,
         openCount: opened.length,
         opened,
@@ -1526,11 +1534,17 @@ function assertLegacyReportState(state, legacyTool, label) {
   assert.equal(state.initialReportDisabled, true, `${label} ${legacyTool.key} output disabled before existing-project confirmation`);
   assert.equal(state.blockedOpenCount, 0, `${label} ${legacyTool.key} cannot open output before confirmation`);
   assert.equal(state.checkboxOnlyReportDisabled, true, `${label} ${legacyTool.key} checkbox alone cannot enable output`);
+  assert.equal(state.purposeOnlyReportDisabled, true, `${label} ${legacyTool.key} purpose alone cannot enable output`);
   assert.equal(state.confirmedReportDisabled, false, `${label} ${legacyTool.key} output enabled after existing-project confirmation`);
   assert.equal(state.purposeValue, 'review-change', `${label} ${legacyTool.key} existing-project purpose remains selected`);
   assert.equal(state.useConfirmed, true, `${label} ${legacyTool.key} existing-project use remains confirmed`);
   assert.equal(state.savedPurposeValue, 'review-change', `${label} ${legacyTool.key} saves existing-project purpose`);
   assert.equal(state.savedUseConfirmed, true, `${label} ${legacyTool.key} saves existing-project confirmation`);
+  assert.equal(state.savedConfirmationScope, true, `${label} ${legacyTool.key} saves confirmation scope`);
+  assert.equal(state.projectChangeReportDisabled, true, `${label} ${legacyTool.key} project change revokes output authorization`);
+  assert.equal(state.projectChangeUseConfirmed, false, `${label} ${legacyTool.key} project change clears confirmation`);
+  assert.equal(state.purposeChangeReportDisabled, true, `${label} ${legacyTool.key} purpose change revokes output authorization`);
+  assert.equal(state.purposeChangeUseConfirmed, false, `${label} ${legacyTool.key} purpose change clears confirmation`);
   assert.equal(state.restoredReportDisabled, false, `${label} ${legacyTool.key} restores report authorization`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} report open count`);
   assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} report document open`);
@@ -1565,10 +1579,16 @@ function assertLegacyPlaceholderReportState(state, legacyTool, label) {
   assert.equal(state.initialReportDisabled, true, `${label} ${legacyTool.key} placeholder output disabled before existing-project confirmation`);
   assert.equal(state.blockedOpenCount, 0, `${label} ${legacyTool.key} placeholder output cannot open before confirmation`);
   assert.equal(state.checkboxOnlyReportDisabled, true, `${label} ${legacyTool.key} placeholder checkbox alone cannot enable output`);
+  assert.equal(state.purposeOnlyReportDisabled, true, `${label} ${legacyTool.key} placeholder purpose alone cannot enable output`);
   assert.equal(state.confirmedReportDisabled, false, `${label} ${legacyTool.key} placeholder output enabled after existing-project confirmation`);
   assert.equal(state.purposeValue, 'review-change', `${label} ${legacyTool.key} placeholder purpose remains selected`);
   assert.equal(state.savedPurposeValue, 'review-change', `${label} ${legacyTool.key} placeholder saves existing-project purpose`);
   assert.equal(state.savedUseConfirmed, true, `${label} ${legacyTool.key} placeholder saves existing-project confirmation`);
+  assert.equal(state.savedConfirmationScope, true, `${label} ${legacyTool.key} placeholder saves confirmation scope`);
+  assert.equal(state.projectChangeReportDisabled, true, `${label} ${legacyTool.key} placeholder project change revokes output authorization`);
+  assert.equal(state.projectChangeUseConfirmed, false, `${label} ${legacyTool.key} placeholder project change clears confirmation`);
+  assert.equal(state.purposeChangeReportDisabled, true, `${label} ${legacyTool.key} placeholder purpose change revokes output authorization`);
+  assert.equal(state.purposeChangeUseConfirmed, false, `${label} ${legacyTool.key} placeholder purpose change clears confirmation`);
   assert.equal(state.restoredReportDisabled, false, `${label} ${legacyTool.key} placeholder restores report authorization`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} placeholder report open count`);
   assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} placeholder report document open`);

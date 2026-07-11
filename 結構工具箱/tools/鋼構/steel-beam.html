@@ -96,6 +96,7 @@
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
     <label class="legacy-purpose-select page-only-report-status" for="beamLegacyPurpose"><span>既有案件用途</span><select id="beamLegacyPurpose"><option value="">請選擇</option><option value="record-continuation">既有計算記錄延續</option><option value="review-change">既有案件復核 / 變更比較</option></select></label>
     <label class="legacy-report-confirm page-only-report-status"><input type="checkbox" id="beamLegacyUseConfirm">已確認僅限既有案件</label>
+    <input type="hidden" id="beamLegacyConfirmationScope" value="">
     <button id="btnReport" class="mode-bar__report" type="button" onclick="buildBeamReport()" disabled>舊案延續計算記錄</button>
   </div>
 </div>
@@ -295,13 +296,40 @@ function beamLegacyPurposeLabel() {
   return beamLegacyPurposeLabels[beamLegacyPurpose()] || '未選擇';
 }
 
+function beamLegacyConfirmationScope() {
+  const normalize = window.ToolReportUI?.normalizeProjectFieldValue || (value => String(value || '').trim());
+  return JSON.stringify({
+    project: ['projName', 'projNo', 'projDesigner'].map(id => normalize($(id)?.value)),
+    purpose: beamLegacyPurpose(),
+  });
+}
+
+function beamLegacyConfirmationScopeValue() {
+  return $('beamLegacyConfirmationScope')?.value || '';
+}
+
 function isBeamLegacyUseConfirmed() {
-  return !!beamLegacyPurpose() && $('beamLegacyUseConfirm')?.checked === true;
+  return !!beamLegacyPurpose()
+    && $('beamLegacyUseConfirm')?.checked === true
+    && beamLegacyConfirmationScopeValue() === beamLegacyConfirmationScope();
 }
 
 function beamLegacyUseStatusLabel() {
   if (!beamLegacyPurpose()) return '未選擇';
-  return `${beamLegacyPurposeLabel()}；${$('beamLegacyUseConfirm')?.checked ? '已確認' : '尚未確認'}`;
+  return `${beamLegacyPurposeLabel()}；${isBeamLegacyUseConfirmed() ? '已確認' : '尚未確認'}`;
+}
+
+function invalidateBeamLegacyUseConfirmation() {
+  if (!$('beamLegacyUseConfirm')?.checked || beamLegacyConfirmationScopeValue() === beamLegacyConfirmationScope()) return;
+  $('beamLegacyUseConfirm').checked = false;
+  $('beamLegacyConfirmationScope').value = '';
+}
+
+function recordBeamLegacyUseConfirmation() {
+  const confirm = $('beamLegacyUseConfirm');
+  const scope = $('beamLegacyConfirmationScope');
+  if (!confirm || !scope) return;
+  scope.value = confirm.checked && beamLegacyPurpose() ? beamLegacyConfirmationScope() : '';
 }
 
 function syncBeamLegacyReportControl() {
@@ -911,11 +939,31 @@ function buildBeamReport() {
 ['projName', 'projNo', 'projDesigner'].forEach(function (id) {
   const node = document.getElementById(id);
   if (!node) return;
-  node.addEventListener('input', syncBeamReportReadinessUi);
-  node.addEventListener('change', syncBeamReportReadinessUi);
+  node.addEventListener('input', function () {
+    invalidateBeamLegacyUseConfirmation();
+    syncBeamLegacyReportControl();
+  });
+  node.addEventListener('change', function () {
+    invalidateBeamLegacyUseConfirmation();
+    syncBeamLegacyReportControl();
+  });
 });
-$('beamLegacyPurpose')?.addEventListener('change', syncBeamLegacyReportControl);
-$('beamLegacyUseConfirm')?.addEventListener('change', syncBeamLegacyReportControl);
+$('beamLegacyPurpose')?.addEventListener('change', function () {
+  invalidateBeamLegacyUseConfirmation();
+  syncBeamLegacyReportControl();
+});
+$('beamLegacyUseConfirm')?.addEventListener('click', function () {
+  this.dataset.legacyConfirmationPending = 'true';
+});
+$('beamLegacyUseConfirm')?.addEventListener('change', function () {
+  if (this.dataset.legacyConfirmationPending === 'true') {
+    delete this.dataset.legacyConfirmationPending;
+    recordBeamLegacyUseConfirmation();
+  }
+  syncBeamLegacyReportControl();
+});
+$('beamLegacyConfirmationScope')?.addEventListener('change', syncBeamLegacyReportControl);
+invalidateBeamLegacyUseConfirmation();
 syncBeamLegacyReportControl();
 renderBeamReportReadiness();
 </script>
