@@ -1702,7 +1702,7 @@
     const { plateWidth, plateLength, holes, netSection, blockShear, loadDirection } = result.sketchData;
     const scale = Math.min(480 / Math.max(plateWidth, 1), 340 / Math.max(plateLength, 1));
     const toX = (value) => 20 + value * scale;
-    const toY = (value) => 20 + value * scale;
+    const toY = (value) => 36 + value * scale;
     const holeRadius = Math.max(result.state.holeDiameter * scale / 2, 3);
     const netPath = (netSection?.points || []).map((point) => `${toX(point.x)},${toY(point.y)}`).join(" ");
     const blockPath = (blockShear || []).map((point, index) => `${index === 0 ? "M" : "L"} ${toX(point.x)} ${toY(point.y)}`).join(" ") + " Z";
@@ -1711,9 +1711,9 @@
       : `<line x1="${toX(plateWidth / 2)}" y1="${toY(10)}" x2="${toX(plateWidth / 2)}" y2="${toY(plateLength - 10)}" class="sketch-arrow" marker-end="url(#plateArrow)" />`;
     const widthDim = buildDimensionLine({
       x1: toX(0),
-      y1: toY(plateLength) + 26,
+      y1: toY(plateLength) + 34,
       x2: toX(plateWidth),
-      y2: toY(plateLength) + 26,
+      y2: toY(plateLength) + 34,
       label: `板寬 ${formatNumber(plateWidth, 1)} mm`,
       textOffsetY: -6,
       markerId: "plateDimArrow",
@@ -1731,9 +1731,9 @@
     const pitchXDim = result.state.pitchX > 0 && holes.length > 1
       ? buildDimensionLine({
           x1: toX(holes[0].x),
-          y1: toY(plateLength) + 50,
+          y1: toY(plateLength) + 58,
           x2: toX(Math.min(holes[0].x + result.state.pitchX, plateWidth)),
-          y2: toY(plateLength) + 50,
+          y2: toY(plateLength) + 58,
           label: `沿力方向孔距 ${formatNumber(result.state.pitchX, 1)} mm`,
           textOffsetY: -6,
           markerId: "plateDimArrow",
@@ -1752,7 +1752,7 @@
       : "";
 
     return `
-      <svg class="plate-sketch${inline ? " plate-sketch--print" : ""}" viewBox="0 0 ${toX(plateWidth) + 76} ${toY(plateLength) + 76}" xmlns="http://www.w3.org/2000/svg" aria-label="連接板幾何示意">
+      <svg class="plate-sketch${inline ? " plate-sketch--print" : ""}" viewBox="0 0 ${toX(plateWidth) + 76} ${toY(plateLength) + 92}" xmlns="http://www.w3.org/2000/svg" aria-label="連接板幾何示意">
         <defs>
           <marker id="plateArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
             <path d="M0,0 L8,4 L0,8 z" fill="#0e7490"></path>
@@ -1770,7 +1770,7 @@
         ${lengthDim}
         ${pitchXDim}
         ${edgeDim}
-        <text x="${toX(plateWidth / 2)}" y="${toY(plateLength) + 16}" text-anchor="middle" class="sketch-label">${loadDirection === "horizontal" ? "水平拉力" : "垂直拉力"}</text>
+        <text x="${toX(plateWidth / 2)}" y="${toY(plateLength) + 14}" text-anchor="middle" class="sketch-label">${loadDirection === "horizontal" ? "水平拉力" : "垂直拉力"}</text>
       </svg>
     `;
   }
@@ -2218,7 +2218,7 @@
           <tr><th>Agt</th><td>${formatNumber(result.derivedAreas.Agt, 2)} mm²</td></tr>
           <tr><th>Ant</th><td>${formatNumber(result.derivedAreas.Ant, 2)} mm²</td></tr>
         </tbody></table><div style="margin-top:8px;font-size:12px;color:#555;">${result.pathSummary?.netSection || ""}<br>${result.pathSummary?.blockShear || ""}</div></section>
-        <section class="block"><h3>破壞路徑示意</h3>${buildPlateSketchMarkup(result, { inline: true })}</section>`
+        <section class="block report-sketch-block"><h3>破壞路徑示意</h3>${buildPlateSketchMarkup(result, { inline: true })}</section>`
       : "";
     const tensionAreaTable = result.state.connectionType === "tension_member" && result.derivedAreas
       ? `<section class="block"><h3>拉力構件派生面積</h3><table><tbody>
@@ -2231,7 +2231,7 @@
           <tr><th>Agt</th><td>${formatNumber(result.derivedAreas.Agt, 2)} mm²</td></tr>
           <tr><th>Ant</th><td>${formatNumber(result.derivedAreas.Ant, 2)} mm²</td></tr>
         </tbody></table><div style="margin-top:8px;font-size:12px;color:#555;">${result.pathSummary?.netSection || ""}<br>${result.pathSummary?.blockShear || ""}</div></section>
-        <section class="block"><h3>構材與接合示意</h3>${buildTensionSketchMarkup(result, { inline: true })}</section>`
+        <section class="block report-sketch-block"><h3>構材與接合示意</h3>${buildTensionSketchMarkup(result, { inline: true })}</section>`
       : "";
     const referenceToolsHtml = `<section class="block"><h3>功能借鏡</h3><p style="font-size:12px;color:#555;line-height:1.6;">下列網路工具僅作介面流程與報表表現方式之借鏡，規範判定仍以本工具引用之正式條文為準。</p><ul>${toolReferences.map((item) => `<li><a href="${item.url}" target="_blank" rel="noreferrer noopener">${item.name}</a>：${item.adopted}</li>`).join("")}</ul></section>`;
 
@@ -2263,7 +2263,7 @@ th{background:#eef2f6}
 .card-placeholder{padding:14px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b}
 .plate-sketch{width:100%;height:auto;min-height:220px}.sketch-plate,.sketch-member{fill:rgba(14,116,144,.08);stroke:#0e7490;stroke-width:2}.sketch-hole{fill:#fff;stroke:#1e293b;stroke-width:1.5}.sketch-net{fill:none;stroke:#c0392b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 6}.sketch-block{fill:rgba(217,119,6,.12);stroke:#d97706;stroke-width:2.5}.sketch-arrow{stroke:#0e7490;stroke-width:2.5}.sketch-label{fill:#0f172a;font-size:12px;font-weight:700}.sketch-note{fill:#475569;font-size:11px}.sketch-weld{stroke:#b45309;stroke-width:5;stroke-linecap:round}.sketch-weld--transverse{stroke:#c2410c}.sketch-dim{stroke:#64748b;stroke-width:1.4}.sketch-dim-label{fill:#475569;font-size:10px;font-weight:700}
 ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-align:right}.toolbar button{padding:8px 18px}
-@media print{body{background:#fff;padding:0}.toolbar{display:none}.paper{box-shadow:none;max-width:none;padding:0}}
+@media print{body{background:#fff;padding:0}.toolbar{display:none}.paper{box-shadow:none;max-width:none;padding:0}.block h3{break-after:avoid-page;page-break-after:avoid}.report-sketch-block,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
 </style>
 </head>
 <body>

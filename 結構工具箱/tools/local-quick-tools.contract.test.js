@@ -1339,6 +1339,11 @@ for (const tool of tools) {
     assert.ok(html.indexOf('id="btnCalc"') > html.indexOf('③ 服務載重'), `${tool.key} calculate action stays after full input basis`);
     assert.ok(html.indexOf('id="btnJson"') > html.indexOf('③ 服務載重'), `${tool.key} JSON download stays after full input basis`);
     assert.equal(html.includes('id="btnReport"'), false, `${tool.key} removes duplicate top report action`);
+    assertIncludes(
+      html,
+      'h2,h3{break-after:avoid-page;page-break-after:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}',
+      `${tool.key} report pagination context`,
+    );
   }
   if (tool.key === 'earth-pressure') {
     [

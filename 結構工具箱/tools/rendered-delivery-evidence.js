@@ -80,8 +80,28 @@ function summarizePdfLayoutPages(layoutText, footerNeedles = DEFAULT_FOOTER_NEED
       lines: contentLines.length,
       chars: contentLines.join('').length,
       preview: contentLines.slice(0, 3),
+      ending: contentLines.slice(-3),
     };
   });
+}
+
+function looksLikeKeepWithNextHeading(line) {
+  const normalized = normalizeLayoutLine(line);
+  if (!normalized || normalized.length > 80 || /[=≥≤。；，,;]/.test(normalized)) return false;
+  return /^[①-⑳]/.test(normalized)
+    || /(?:檢核|摘要|說明|明細|計算|備註|輸入資料|結果)$/.test(normalized);
+}
+
+function findPdfOrphanPageEndHeadings(pageTextStats, keepWithNextLabels = []) {
+  const labels = new Set((keepWithNextLabels || []).map(normalizeLayoutLine).filter(Boolean));
+  const orphans = [];
+  for (const page of (pageTextStats || []).slice(0, -1)) {
+    const line = page.ending?.[page.ending.length - 1] || '';
+    if (labels.has(line) || looksLikeKeepWithNextHeading(line)) {
+      orphans.push({ page: page.page, heading: line });
+    }
+  }
+  return orphans;
 }
 
 function findSparseFinalPage(pageTextStats, pageMetrics, options = {}) {
@@ -196,10 +216,19 @@ function validatePdfFile(pdfPath, options) {
     layoutText,
     options.footerNeedles || DEFAULT_FOOTER_NEEDLES
   );
+  const orphanHeadings = findPdfOrphanPageEndHeadings(
+    pageTextStats,
+    options.keepWithNextLabels || []
+  );
   assert.deepEqual(
     footerLayout.overlaps,
     [],
     `${options.label} PDF footer does not overlap report content: ${JSON.stringify(footerLayout.overlaps)}`
+  );
+  assert.deepEqual(
+    orphanHeadings,
+    [],
+    `${options.label} PDF keeps section headings with following content: ${JSON.stringify(orphanHeadings)}`
   );
 
   const required = [...new Set((options.requiredNeedles || []).map(decodeText).filter(Boolean))];
@@ -250,6 +279,7 @@ function validatePdfFile(pdfPath, options) {
       textLength: text.length,
       textPath,
       footerLineCount: footerLayout.footerLineCount,
+      orphanHeadingCount: orphanHeadings.length,
       pageTextStats,
       pages,
     };
@@ -308,6 +338,9 @@ async function renderAndValidateReportPdf(client, options) {
         return {
           bodyText: clean(document.body?.innerText || document.body?.textContent),
           headings: Array.from(document.querySelectorAll('h1, h2, h3')).map(node => clean(node.textContent)).filter(Boolean),
+          keepWithNextLabels: Array.from(document.querySelectorAll('h2, h3, h4, .step-title, .rep-step-title'))
+            .map(node => clean(node.textContent))
+            .filter(Boolean),
           tableCount: document.querySelectorAll('table').length,
           tableHeaders: Array.from(document.querySelectorAll('th')).map(node => clean(node.textContent)).filter(Boolean),
           horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
@@ -340,7 +373,10 @@ async function renderAndValidateReportPdf(client, options) {
     assert.ok(pdfBuffer.length > 1024, `${options.label} produced a real PDF`);
     assert.equal(pdfBuffer.subarray(0, 4).toString('ascii'), '%PDF', `${options.label} PDF signature`);
     fs.writeFileSync(pdfPath, pdfBuffer);
-    const pdf = validatePdfFile(pdfPath, options);
+    const pdf = validatePdfFile(pdfPath, {
+      ...options,
+      keepWithNextLabels: dom.keepWithNextLabels || [],
+    });
     const evidence = {
       artifact: path.basename(pdfPath),
       label: options.label,
@@ -348,6 +384,7 @@ async function renderAndValidateReportPdf(client, options) {
       renderer: options.renderer || 'browser-print',
       dom: {
         headings: dom.headings,
+        keepWithNextLabels: dom.keepWithNextLabels,
         tableCount: dom.tableCount,
         tableHeaders: dom.tableHeaders,
         horizontalOverflow: dom.horizontalOverflow,
@@ -386,6 +423,7 @@ module.exports = {
   DEFAULT_FOOTER_NEEDLES,
   findPdfFooterOverlapLines,
   summarizePdfLayoutPages,
+  findPdfOrphanPageEndHeadings,
   findSparseFinalPage,
   resolveEvidenceDir,
   renderAndValidateReportPdf,

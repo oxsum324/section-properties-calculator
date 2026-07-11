@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const zlib = require('zlib');
+const { validatePdfFile } = require('../../結構工具箱/tools/rendered-delivery-evidence');
 
 const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
   '產報前檢查',
@@ -210,9 +211,22 @@ function assertReportPdfTextQuality(file, title, options = {}) {
     assertFn(!stats.text.includes(needle), `${title} PDF excludes page-only status`, needle);
   }
 
+  let renderedStats = null;
+  try {
+    renderedStats = validatePdfFile(file, {
+      label: title,
+      minTextLength,
+      projectNeedle: '__skip_project_order__',
+      forbiddenNeedles: options.exclude || options.forbiddenText || [],
+    });
+  } catch (err) {
+    assertFn(false, `${title} PDF rendered pagination quality`, err.message);
+  }
+
   return {
     pages: stats.pages,
     textLength: stats.textLength,
+    renderedPagination: renderedStats,
   };
 }
 

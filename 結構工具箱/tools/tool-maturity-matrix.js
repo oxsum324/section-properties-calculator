@@ -1452,9 +1452,23 @@ function buildHomepagePlatformStatus(payload) {
 
 function resolveHomepagePreflightSource() {
   const latestSummary = readJsonIfExists(preflightSummarySourcePath);
+  if (latestSummary && latestSummary.quick === false && latestSummary.pass === true) {
+    const runId = String(latestSummary.runId || '').trim();
+    const historySummaryPath = runId
+      ? path.join(preflightHistoryDir, runId, 'preflight-summary.json')
+      : '';
+    const filePath = historySummaryPath && fileExists(historySummaryPath)
+      ? historySummaryPath
+      : preflightSummarySourcePath;
+    return {
+      payload: latestSummary,
+      filePath,
+      sourcePath: displayPath(filePath)
+    };
+  }
   const history = readJsonIfExists(preflightHistorySourcePath);
   const latestFull = findLatestPreflightHistorySummary(
-    summary => summary && summary.quick === false,
+    summary => summary && summary.quick === false && summary.pass === true,
     history?.items
   );
   if (latestFull) {
@@ -1516,24 +1530,34 @@ function renderedDeliveryEvidencePathForRun(runId) {
   );
 }
 
-function resolveRenderedDeliveryEvidenceSource() {
-  const history = readJsonIfExists(preflightHistorySourcePath);
-  const releaseSource = findLatestPreflightHistorySummary(
-    summary => {
-      if (!isRenderedDeliveryRelease(summary)) return false;
-      const evidence = tryReadJsonIfExists(renderedDeliveryEvidencePathForRun(summary.runId));
-      return Boolean(
-        evidence
-        && evidence.kind === 'release-rendered-delivery-evidence'
-        && evidence.runId === summary.runId
-        && evidence.pass === true
-        && Number.isInteger(evidence.required)
-        && Number.isInteger(evidence.complete)
-        && evidence.complete === evidence.required
-      );
-    },
-    history?.items
+function isCompleteRenderedDeliveryEvidence(evidence, runId) {
+  return Boolean(
+    evidence
+    && evidence.kind === 'release-rendered-delivery-evidence'
+    && evidence.runId === runId
+    && evidence.pass === true
+    && Number.isInteger(evidence.required)
+    && Number.isInteger(evidence.complete)
+    && evidence.complete === evidence.required
   );
+}
+
+function resolveRenderedDeliveryEvidenceSource() {
+  const latestReleaseSummary = readJsonIfExists(preflightSummarySourcePath);
+  const latestReleaseEvidence = isRenderedDeliveryRelease(latestReleaseSummary)
+    ? tryReadJsonIfExists(renderedDeliveryEvidencePathForRun(latestReleaseSummary.runId))
+    : null;
+  const history = readJsonIfExists(preflightHistorySourcePath);
+  const releaseSource = isCompleteRenderedDeliveryEvidence(latestReleaseEvidence, latestReleaseSummary?.runId)
+    ? { payload: latestReleaseSummary }
+    : findLatestPreflightHistorySummary(
+      summary => {
+        if (!isRenderedDeliveryRelease(summary)) return false;
+        const evidence = tryReadJsonIfExists(renderedDeliveryEvidencePathForRun(summary.runId));
+        return isCompleteRenderedDeliveryEvidence(evidence, summary.runId);
+      },
+      history?.items
+    );
   if (!releaseSource) return null;
 
   const filePath = renderedDeliveryEvidencePathForRun(releaseSource.payload.runId);
@@ -1896,10 +1920,7 @@ function checkMatrix(payload, markdown, options = {}) {
   const homepagePlatformStatus = assertHomepageStatusSnapshot(homepagePlatformStatusPath, 'platform-status', 'output/audit/platform-status.json', platformStatusSourcePath, { skipCurrentSourceHash: preserveHomepageStatus });
   const homepagePreflightStatus = assertHomepageStatusSnapshot(homepagePreflightStatusPath, 'preflight-summary', /^output\/preflight\/(?:history\/[^/]+\/)?preflight-summary\.json$/, null);
   const homepageReportReadinessStatus = assertHomepageStatusSnapshot(homepageReportReadinessStatusPath, 'report-readiness-status', 'output/audit/tool-maturity-matrix.json', jsonOutputPath, { skipCurrentSourceHash: preserveHomepageStatus });
-  const latestFullHomepagePreflight = findLatestPreflightHistorySummary(
-    summary => summary && summary.quick === false,
-    readJsonIfExists(preflightHistorySourcePath)?.items
-  );
+  const latestFullHomepagePreflight = resolveHomepagePreflightSource();
   assert.ok(Array.isArray(homepagePlatformStatus.modules), 'homepage platform status modules array');
   assert.equal(typeof homepagePreflightStatus.quick, 'boolean', 'homepage preflight status quick boolean');
   assert.equal(Number.isInteger(homepagePreflightStatus.recordsCount), true, 'homepage preflight status recordsCount integer');
@@ -1962,7 +1983,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書/文字 邊界'), 'homepage report readiness details include local quick text boundary chip');
   assert.equal((homepageReportReadinessStatus.details || []).join(' ').includes('JSON/計算書 邊界'), false, 'homepage report readiness details reject stale local quick boundary chip');
   assert.ok(Array.isArray(homepageReportReadinessStatus.pageOnlyRoutes) && homepageReportReadinessStatus.pageOnlyRoutes.length >= 4, 'homepage report readiness routes array');
-  if (latestFullHomepagePreflight) {
+  if (latestFullHomepagePreflight?.payload?.quick === false) {
     assert.equal(homepagePreflightStatus.quick, false, 'homepage preflight status should prefer latest full run when history contains one');
     assert.equal(homepagePreflightStatus.runId, String(latestFullHomepagePreflight.payload.runId || ''), 'homepage preflight status runId matches latest full history run');
     assert.equal(homepagePreflightStatus.sourcePath, latestFullHomepagePreflight.sourcePath, 'homepage preflight status sourcePath matches latest full history summary');

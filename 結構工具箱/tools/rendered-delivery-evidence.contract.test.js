@@ -5,6 +5,7 @@ const vm = require('vm');
 const {
   findPdfFooterOverlapLines,
   summarizePdfLayoutPages,
+  findPdfOrphanPageEndHeadings,
   findSparseFinalPage,
   validatePdfFile,
 } = require('./rendered-delivery-evidence');
@@ -41,6 +42,22 @@ assert.equal(
   findSparseFinalPage(sparsePageText, [{ inkRatio: 0.2 }, { inkRatio: 0.1 }]),
   null,
   'rendered delivery evidence accepts a low-text final page with substantial visual content'
+);
+
+const orphanPageText = summarizePdfLayoutPages(
+  `前段內容\n⑧ VD — 最小設計水平總橫力 (式 2-3)\fSaD/Fu = 0.2151\n後續公式\f`
+);
+assert.deepEqual(
+  findPdfOrphanPageEndHeadings(orphanPageText),
+  [{ page: 1, heading: '⑧ VD — 最小設計水平總橫力 (式 2-3)' }],
+  'rendered delivery evidence detects a section heading orphaned at a page end'
+);
+assert.deepEqual(
+  findPdfOrphanPageEndHeadings(
+    summarizePdfLayoutPages(`前頁完整說明。\f下一頁內容\f`)
+  ),
+  [],
+  'rendered delivery evidence does not treat a completed sentence as an orphaned heading'
 );
 
 for (const [relativePath, expectedPrintLayouts] of [
@@ -91,6 +108,11 @@ assert.equal(
   2,
   'shared wind report keeps compact print-only formula blocks in both report layouts'
 );
+assert.equal(
+  (windReportSource.match(/\.rep-block h3, \.rep-step h4 \{ break-after:avoid-page; page-break-after:avoid; \}/g) || []).length,
+  2,
+  'shared wind report keeps section headings with their following content in both report layouts'
+);
 const appendageSource = fs.readFileSync(path.join(repoRoot, '結構工具箱/tools/地震力/seismic-appendage.html'), 'utf8');
 assert.ok(
   appendageSource.includes('.block { margin:8px 0 10px; }')
@@ -101,6 +123,30 @@ assert.ok(
   appendageSource.includes('<section class="block calc-block">')
     && appendageSource.includes('.block.calc-block { break-inside:auto; page-break-inside:auto; }'),
   'appendage report lets the long calculation block fill the remaining first-page space before continuing'
+);
+const seismicForceSource = fs.readFileSync(path.join(repoRoot, '結構工具箱/tools/地震力/seismic-force.html'), 'utf8');
+assert.ok(
+  seismicForceSource.includes('.rep-step { break-inside:avoid-page; page-break-inside:avoid; }'),
+  'seismic force report keeps each print calculation heading with its formula body'
+);
+for (const relativePath of [
+  '結構工具箱/core/ui/report.js',
+  '鋼構工具/core/ui/report.js',
+  '鋼筋混凝土/shared/report.js',
+]) {
+  const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  assert.ok(
+    source.includes('.rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
+      && source.includes('tr { break-inside:avoid-page; page-break-inside:avoid; }')
+      && source.includes('<thead><tr><th>符號</th><th>說明</th></tr></thead>'),
+    `${relativePath} keeps report headings and table rows intact across print pages`
+  );
+}
+const rcVisualQualitySource = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/report-screenshot-quality.js'), 'utf8');
+assert.ok(
+  rcVisualQualitySource.includes("require('../../結構工具箱/tools/rendered-delivery-evidence')")
+    && rcVisualQualitySource.includes('PDF rendered pagination quality'),
+  'every RC report visual PDF uses the shared rendered pagination validator'
 );
 
 function extractConstLiteral(source, name) {

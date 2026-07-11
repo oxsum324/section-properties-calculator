@@ -213,7 +213,7 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 
 `結構工具箱/tools/delivery-artifacts.contract.test.js` 是交付物一致性契約；它鎖住石材 audit JSON / Word / PDF、錨栓 HTML / XLSX / DOCX 報告、覆工板 JSON 匯出 / Word 計算書與開挖擋土支撐 PDF / DOCX / latest download API 的 traceability、README、smoke fixture、報表產生器、前端產出狀態與下載邊界。新增或修改正式交付檔、報表 schema、下載端點或本機 app_data 邊界時，需同步更新 catalog 與文件，並讓平台 preflight 的 `delivery-artifacts-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板會在 Global Governance Gates 顯示這個 gate。
 
-`結構工具箱/tools/rendered-delivery-evidence.js` 是正式放行的實際渲染門檻，`rendered-delivery-evidence.inventory.json` 對齊首頁 31 個 formal 入口，`rendered-delivery-evidence.contract.test.js` 負責彙整當輪證據。風力 / 地震正式工具、局部快算與鋼構正式報表會在 release 慢測中真正列印成 A4 PDF，逐件檢查頁數、可讀文字、非空白頁、頁邊截切、表格標題、標題到案件資料的閱讀順序，以及本章 page-only 字串完全排除；共用摘要與詳算版型各保留至少一件代表證據。RC 報告沿用各工具的 PNG / PDF 視覺 smoke，DOCX / workbook 則必須抽取段落、表格或儲存格文字。只通過 HTML 字串或原始碼契約，不再足以作為 release 證據。
+`結構工具箱/tools/rendered-delivery-evidence.js` 是正式放行的實際渲染門檻，`rendered-delivery-evidence.inventory.json` 對齊首頁 31 個 formal 入口，`rendered-delivery-evidence.contract.test.js` 負責彙整當輪證據。風力 / 地震正式工具、局部快算與鋼構正式報表會在 release 慢測中真正列印成 A4 PDF，逐件檢查頁數、可讀文字、非空白頁、頁邊截切、表格標題、標題到案件資料的閱讀順序、頁尾不得只剩孤立章節標題，以及本章 page-only 字串完全排除；共用摘要與詳算版型各保留至少一件代表證據。RC 報告沿用各工具的 PNG / PDF 視覺 smoke，並呼叫相同的 PDF 分頁成品檢查；DOCX / workbook 則必須抽取段落、表格或儲存格文字。只通過 HTML 字串或原始碼契約，不再足以作為 release 證據。
 
 ### 採用依據文字
 
@@ -363,7 +363,7 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 - 簡易結果沒有 `計算內容` 或公式詳列。
 - 詳算式與簡易結果都不列印畫面用的 `適用性檢核`、`採用提醒`、`操作警告` 或防呆說明。
 - `報告閱讀狀態`、`附件適用狀態`、`優先建議報告閱讀狀態`、`頁面專用閱讀狀態` 等 page-only wording 不出現在計算書、列印 PDF、Word / DOCX、workbook 或正式附件。
-- 有自動產生 PDF 的 smoke，應抽取 PDF 文字並檢查頁數、文字量、必要標題與 page-only wording 排除清單，不得只驗 PDF 檔頭；多頁報告另須用 `pdftotext -layout` 確認頁尾沒有與表格列或其他內容落在同一文字行，並結合末頁文字量與渲染墨量拒絕只剩單一步驟、短備註或頁尾的稀疏末頁。共用 A4 報告殼層的下邊界至少保留 `18mm`，列印頁尾應跟隨文件流、避免單獨占用新頁，不使用會覆蓋分頁內容的固定定位；超過一頁的長計算區塊應允許自然跨頁，短表格、圖面與備註則維持完整。有 HTML 彈窗型計算書時，應將產出的 HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單；有 Word / DOCX / workbook 交付物時，也應抽取 `word/document.xml`、段落 / 表格文字或 workbook cell text，確認正式輸出具備可讀內容且排除 page-only wording。
+- 有自動產生 PDF 的 smoke，應抽取 PDF 文字並檢查頁數、文字量、必要標題與 page-only wording 排除清單，不得只驗 PDF 檔頭；多頁報告另須用 `pdftotext -layout` 確認頁尾沒有與表格列或其他內容落在同一文字行、頁尾不得只剩章節標題，並結合末頁文字量與渲染墨量拒絕只剩單一步驟、短備註或頁尾的稀疏末頁。共用 A4 報告殼層的下邊界至少保留 `18mm`，列印頁尾應跟隨文件流、避免單獨占用新頁，不使用會覆蓋分頁內容的固定定位；章節標題需與後續內容同頁，表格列不得被拆成上下兩頁，跨頁表格應重複表頭。超過一頁的長計算區塊應允許自然跨頁，短表格、圖面與備註則維持完整。有 HTML 彈窗型計算書時，應將產出的 HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單；有 Word / DOCX / workbook 交付物時，也應抽取 `word/document.xml`、段落 / 表格文字或 workbook cell text，確認正式輸出具備可讀內容且排除 page-only wording。
 - 案件資訊只在頁首出現一次。
 - `設計條件` 不抓 `getProjectInfo()`。
 - 隱藏、停用或未勾選欄位不進列印報告。

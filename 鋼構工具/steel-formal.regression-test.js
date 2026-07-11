@@ -195,6 +195,25 @@ const pageOnlyReportStatusNeedles = [
   "不會寫入計算書或列印 PDF",
 ];
 
+for (const token of [
+  "const toY = (value) => 36 + value * scale",
+  "toY(plateLength) + 34",
+  "toY(plateLength) + 58",
+  "toY(plateLength) + 92",
+]) {
+  assert.ok(appSource.includes(token), `legacy plate sketch should preserve separated label spacing: ${token}`);
+}
+assert.match(
+  appSource,
+  /class="block report-sketch-block"><h3>破壞路徑示意[\s\S]*class="block report-sketch-block"><h3>構材與接合示意/s,
+  "legacy report should keep each diagram heading in the same print block as its sketch",
+);
+assert.match(
+  appSource,
+  /\.block h3\{break-after:avoid-page;page-break-after:avoid\}\.report-sketch-block,tr\{break-inside:avoid-page;page-break-inside:avoid\}thead\{display:table-header-group\}/,
+  "legacy report print CSS should prevent orphan headings and split sketch blocks while repeating table headers",
+);
+
 for (const needle of pageOnlyReportStatusNeedles) {
   assert.equal(
     sharedReportSource.includes(needle),

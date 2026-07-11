@@ -115,9 +115,10 @@ function openReport(cfg) {
     <section class="rep-block">
       <h3>符號說明</h3>
       <table class="rep-sym">
+        <thead><tr><th>符號</th><th>說明</th></tr></thead>
         <tbody>
           ${cfg.symbols.map(s => `<tr><th>${esc(s.sym)}</th><td>${esc(s.desc)}</td></tr>`).join('')}
-       </tbody>
+        </tbody>
      </table>
    </section>` : '';
 
@@ -318,6 +319,9 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   body { background:#fff; padding:0; }
   .rep-toolbar { display:none; }
   .rep-paper { box-shadow:none; padding:0; max-width:none; }
+  .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
+  thead { display:table-header-group; }
+  tr { break-inside:avoid-page; page-break-inside:avoid; }
   .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 </style>

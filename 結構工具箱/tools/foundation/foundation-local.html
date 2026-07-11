@@ -1196,7 +1196,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 .rpt-diagram{border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fafbff;} .rpt-diagram svg{width:100%;max-width:560px;height:auto;display:block;margin:0 auto;}
 .conclusion{padding:12px 14px;border-radius:8px;border:2px solid ${r.overallOk ? '#10b981' : '#ef4444'};background:${r.overallOk ? '#ecfdf5' : '#fef2f2'};font-weight:800;}
 .note{margin-top:14px;padding:10px 12px;border-left:4px solid #f59e0b;background:#fffbeb;color:#78350f;font-size:.9rem;}
-@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}}
+@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}h2,h3{break-after:avoid-page;page-break-after:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
 </style></head><body>
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
