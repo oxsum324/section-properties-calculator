@@ -519,9 +519,9 @@ assert.equal(repoDocs.homeTokens.includes('fonts.googleapis.com'), false, 'home 
 assert.equal(repoDocs.homeTokens.includes('fonts.gstatic.com'), false, 'home design tokens avoid remote font binaries');
 assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), false, 'dynamic seismic summary is not mixed into structural analysis');
 [
-  [repoDocs.steelBeam, 'steel beam transition page', 'beamLegacyUseConfirm', 'isBeamLegacyUseConfirmed', '鋼梁舊案延續計算記錄'],
-  [repoDocs.steelColumn, 'steel column transition page', 'columnLegacyUseConfirm', 'isColumnLegacyUseConfirmed', '鋼柱舊案延續計算記錄'],
-].forEach(([html, label, confirmId, confirmFunction, reportTitle]) => {
+  [repoDocs.steelBeam, 'steel beam transition page', 'beamLegacyPurpose', 'beamLegacyUseConfirm', 'isBeamLegacyUseConfirmed', '鋼梁舊案延續計算記錄'],
+  [repoDocs.steelColumn, 'steel column transition page', 'columnLegacyPurpose', 'columnLegacyUseConfirm', 'isColumnLegacyUseConfirmed', '鋼柱舊案延續計算記錄'],
+].forEach(([html, label, purposeId, confirmId, confirmFunction, reportTitle]) => {
   assertIncludes(html, 'id="inputStatus"', `${label} inline input status`);
   assertIncludes(html, 'function setInputStatus', `${label} inline input status helper`);
   assertIncludes(html, 'return inputFail(', `${label} validation returns inline failure`);
@@ -533,8 +533,13 @@ assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), fal
   ].forEach(needle => assertIncludes(html, needle, `${label} page-only readiness copy`));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), `${label} page-only readiness hidden from print`);
   assertIncludes(html, 'renderStatusGridPanel', `${label} readiness shared renderer usage`);
+  assertIncludes(html, `id="${purposeId}"`, `${label} existing-project purpose selection`);
+  assertIncludes(html, '既有計算記錄延續', `${label} legacy record purpose option`);
+  assertIncludes(html, '既有案件復核 / 變更比較', `${label} legacy review purpose option`);
   assertIncludes(html, `id="${confirmId}"`, `${label} existing-project confirmation`);
   assertIncludes(html, `function ${confirmFunction}`, `${label} output confirmation guard`);
+  assertIncludes(html, '用途確認', `${label} report purpose confirmation provenance`);
+  assertIncludes(html, '已確認：僅限既有案件，不作新案正式計算附件', `${label} report purpose confirmation boundary`);
   assertIncludes(html, '>舊案延續計算記錄</button>', `${label} report button classification`);
   assert.ok(/id="btnReport"[^>]*disabled/.test(html), `${label} report output starts disabled`);
   assertIncludes(html, reportTitle, `${label} report title classification`);

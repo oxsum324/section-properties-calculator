@@ -26,6 +26,8 @@
   .btn-print:hover { background:#0e7490; }
   .legacy-report-confirm { display:inline-flex; align-items:center; gap:5px; font-size:0.78em; font-weight:700; color:#7c2d12; white-space:nowrap; }
   .legacy-report-confirm input { width:16px; height:16px; margin:0; accent-color:#c2410c; }
+  .legacy-purpose-select { display:inline-flex; align-items:center; gap:5px; font-size:0.78em; font-weight:700; color:#7c2d12; white-space:nowrap; }
+  .legacy-purpose-select select { max-width:180px; padding:4px 6px; border:1px solid #fdba74; border-radius:4px; background:#fff7ed; color:#7c2d12; font:inherit; }
   .mode-bar__report:disabled { opacity:.45; cursor:not-allowed; }
   .chk-detail { margin-top:6px; font-size:0.85em; color:var(--text-light); }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.85em; line-height:1.6; font-weight:700; }
@@ -92,7 +94,8 @@
     <input type="text" id="projName" class="w-name" placeholder="計畫名稱">
     <input type="text" id="projNo"   class="w-no"   placeholder="編號">
     <input type="text" id="projDesigner" class="w-des" placeholder="設計人">
-    <label class="legacy-report-confirm page-only-report-status"><input type="checkbox" id="beamLegacyUseConfirm">既有案件延續</label>
+    <label class="legacy-purpose-select page-only-report-status" for="beamLegacyPurpose"><span>既有案件用途</span><select id="beamLegacyPurpose"><option value="">請選擇</option><option value="record-continuation">既有計算記錄延續</option><option value="review-change">既有案件復核 / 變更比較</option></select></label>
+    <label class="legacy-report-confirm page-only-report-status"><input type="checkbox" id="beamLegacyUseConfirm">已確認僅限既有案件</label>
     <button id="btnReport" class="mode-bar__report" type="button" onclick="buildBeamReport()" disabled>舊案延續計算記錄</button>
   </div>
 </div>
@@ -279,8 +282,26 @@ function isBeamProjectMetaMissing() {
   return !!window.ToolReportUI?.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
 }
 
+const beamLegacyPurposeLabels = {
+  'record-continuation': '既有計算記錄延續',
+  'review-change': '既有案件復核 / 變更比較',
+};
+
+function beamLegacyPurpose() {
+  return $('beamLegacyPurpose')?.value || '';
+}
+
+function beamLegacyPurposeLabel() {
+  return beamLegacyPurposeLabels[beamLegacyPurpose()] || '未選擇';
+}
+
 function isBeamLegacyUseConfirmed() {
-  return $('beamLegacyUseConfirm')?.checked === true;
+  return !!beamLegacyPurpose() && $('beamLegacyUseConfirm')?.checked === true;
+}
+
+function beamLegacyUseStatusLabel() {
+  if (!beamLegacyPurpose()) return '未選擇';
+  return `${beamLegacyPurposeLabel()}；${$('beamLegacyUseConfirm')?.checked ? '已確認' : '尚未確認'}`;
 }
 
 function syncBeamLegacyReportControl() {
@@ -303,7 +324,7 @@ function composeBeamReadinessModel(validationMessage = lastBeamReportValidationM
       items: [
         { label: '輸入檢核', value: validationMessage },
         { label: '工具定位', value: '過渡工具；只供既有案件延續' },
-        { label: '既有案件用途', value: isBeamLegacyUseConfirmed() ? '已確認' : '未確認' },
+        { label: '既有案件用途', value: beamLegacyUseStatusLabel() },
         { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
       ],
     };
@@ -316,14 +337,15 @@ function composeBeamReadinessModel(validationMessage = lastBeamReportValidationM
       items: [
         { label: '檢核狀態', value: '尚未建立舊版鋼梁檢核結果' },
         { label: '工具定位', value: '過渡工具；只供既有案件延續' },
-        { label: '既有案件用途', value: isBeamLegacyUseConfirmed() ? '已確認' : '未確認' },
+        { label: '既有案件用途', value: beamLegacyUseStatusLabel() },
         { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
       ],
     };
   }
   const legacyUseConfirmed = isBeamLegacyUseConfirmed();
   const reviewItems = ['此頁為過渡工具；新案正式計算附件必須改用鋼梁正式頁面。'];
-  if (!legacyUseConfirmed) reviewItems.unshift('尚未確認本次屬於既有案件延續，因此不得產出舊案延續計算記錄。');
+  if (!beamLegacyPurpose()) reviewItems.unshift('尚未選擇既有案件用途，因此不得產出舊案延續計算記錄。');
+  else if (!legacyUseConfirmed) reviewItems.unshift('尚未確認本次僅限既有案件，因此不得產出舊案延續計算記錄。');
   if (isBeamProjectMetaMissing()) reviewItems.unshift('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
   if (!lastBeamResult.flexOk) reviewItems.unshift(`撓曲強度未通過，應先調整斷面或側撐；目前控制比 ${lastBeamResult.ratio_flex}%。`);
   else if (!lastBeamResult.shearOk) reviewItems.unshift(`剪力強度未通過，應先調整腹板或加勁；目前控制比 ${lastBeamResult.ratio_shear}%。`);
@@ -337,7 +359,7 @@ function composeBeamReadinessModel(validationMessage = lastBeamReportValidationM
   }));
   items.push(
     { label: '工具定位', value: '過渡工具 / 新案回正式頁面' },
-    { label: '既有案件用途', value: legacyUseConfirmed ? '已確認' : '未確認' },
+    { label: '既有案件用途', value: beamLegacyUseStatusLabel() },
     { label: '控制模式', value: lastBeamResult.flex?.governing || '未形成' },
     { label: '計算書模式', value: beamLegacyReportModeLabel() },
     { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
@@ -725,8 +747,13 @@ renderLoadComboPanel();
 onMatSelect();
 
 function buildBeamReport() {
+  if (!beamLegacyPurpose()) {
+    setBeamReportValidationMessage('請先選擇既有案件用途，才可產出舊案延續計算記錄。');
+    $('beamLegacyPurpose')?.focus();
+    return;
+  }
   if (!isBeamLegacyUseConfirmed()) {
-    setBeamReportValidationMessage('請先確認本次屬於既有案件延續，才可產出舊案延續計算記錄。');
+    setBeamReportValidationMessage('請確認本次僅限既有案件，才可產出舊案延續計算記錄。');
     $('beamLegacyUseConfirm')?.focus();
     return;
   }
@@ -814,6 +841,8 @@ function buildBeamReport() {
       ]},
       { group: '設計參數', items: [
         { label:'輸出分類', value:'既有案件延續；不得作為新案正式計算附件' },
+        { label:'既有案件用途', value: beamLegacyPurposeLabel() },
+        { label:'用途確認', value:'已確認：僅限既有案件，不作新案正式計算附件' },
         { label:'設計方法', value: designMethod },
         { label:'Fy', value: Fy, unit:'kgf/cm²' },
         { label:'跨度 L', value: L, unit:'cm' },
@@ -885,6 +914,7 @@ function buildBeamReport() {
   node.addEventListener('input', syncBeamReportReadinessUi);
   node.addEventListener('change', syncBeamReportReadinessUi);
 });
+$('beamLegacyPurpose')?.addEventListener('change', syncBeamLegacyReportControl);
 $('beamLegacyUseConfirm')?.addEventListener('change', syncBeamLegacyReportControl);
 syncBeamLegacyReportControl();
 renderBeamReportReadiness();

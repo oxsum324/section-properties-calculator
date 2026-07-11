@@ -455,22 +455,22 @@ async function assertPageOnlyReadinessHiddenInPrint(client, sessionId, tool, lab
   await setMedia(client, sessionId, 'print');
   try {
     const printState = await evaluate(client, sessionId, `(() => {
-      const node = document.querySelector('.page-only-report-status');
-      if (!node) {
-        return { exists: false, display: '', visibility: '', text: '' };
-      }
-      const style = window.getComputedStyle(node);
+      const nodes = Array.from(document.querySelectorAll('.page-only-report-status'));
       return {
-        exists: true,
-        display: style.display || '',
-        visibility: style.visibility || '',
-        text: (node.textContent || '').replace(/\\s+/g, ' ').trim(),
+        count: nodes.length,
+        nodes: nodes.map(node => {
+          const style = window.getComputedStyle(node);
+          return {
+            display: style.display || '',
+            visibility: style.visibility || '',
+            text: (node.textContent || '').replace(/\\s+/g, ' ').trim(),
+          };
+        }),
       };
     })()`);
-    assert.equal(printState.exists, true, `${label} ${tool.key} print DOM keeps page-only readiness node`);
-    assert.equal(
-      printState.display,
-      'none',
+    assert.ok(printState.count > 0, `${label} ${tool.key} print DOM keeps page-only readiness nodes`);
+    assert.ok(
+      printState.nodes.every(node => node.display === 'none'),
       `${label} ${tool.key} page-only readiness hidden in print: ${JSON.stringify(printState)}`
     );
   } finally {
@@ -1012,7 +1012,7 @@ function reportExpression(mode = null, projectMetaState = 'complete') {
   })()`;
 }
 
-function legacyReportExpression(reportButtonId = 'btnReport', confirmId, projectMetaState = 'complete') {
+function legacyReportExpression(reportButtonId = 'btnReport', purposeId, confirmId, projectMetaState = 'complete') {
   return `(() => {
     const originalOpen = window.open;
     const opened = [];
@@ -1060,23 +1060,42 @@ function legacyReportExpression(reportButtonId = 'btnReport', confirmId, project
         setProjectField('projDesigner', 'Codex QA');
       }
       const reportButton = document.getElementById(${JSON.stringify(reportButtonId)});
+      const purpose = document.getElementById(${JSON.stringify(purposeId)});
       const useConfirm = document.getElementById(${JSON.stringify(confirmId)});
-      if (!reportButton || !useConfirm) throw new Error('legacy output controls missing');
+      if (!reportButton || !purpose || !useConfirm) throw new Error('legacy output controls missing');
       const initialReportDisabled = reportButton.disabled;
       reportButton.click();
       const blockedOpenCount = opened.length;
       useConfirm.checked = true;
       useConfirm.dispatchEvent(new Event('change', { bubbles: true }));
+      const checkboxOnlyReportDisabled = reportButton.disabled;
+      purpose.value = 'review-change';
+      purpose.dispatchEvent(new Event('input', { bubbles: true }));
+      purpose.dispatchEvent(new Event('change', { bubbles: true }));
       const confirmedReportDisabled = reportButton.disabled;
       reportButton.click();
       const html = writes.join('');
       const pageOnlyReadinessText = (document.querySelector('.page-only-report-status.report-readiness')?.textContent || '').replace(/\\s+/g, ' ').trim();
+      const savedFields = window.ToolProjectStorage?.collectFields?.() || {};
+      purpose.value = '';
+      purpose.dispatchEvent(new Event('change', { bubbles: true }));
+      useConfirm.checked = false;
+      useConfirm.dispatchEvent(new Event('change', { bubbles: true }));
+      window.ToolProjectStorage?.applyFields?.({
+        [purpose.id]: savedFields[purpose.id],
+        [useConfirm.id]: savedFields[useConfirm.id],
+      });
       return {
         projectMetaState: projectState,
         initialReportDisabled,
         blockedOpenCount,
+        checkboxOnlyReportDisabled,
         confirmedReportDisabled,
+        purposeValue: purpose.value,
         useConfirmed: useConfirm.checked,
+        savedPurposeValue: savedFields[purpose.id]?.value || '',
+        savedUseConfirmed: savedFields[useConfirm.id]?.checked === true,
+        restoredReportDisabled: reportButton.disabled,
         openCount: opened.length,
         opened,
         documentOpened,
@@ -1506,21 +1525,28 @@ function assertLegacyReportState(state, legacyTool, label) {
   assert.equal(state.projectMetaState, 'complete', `${label} ${legacyTool.key} report project state`);
   assert.equal(state.initialReportDisabled, true, `${label} ${legacyTool.key} output disabled before existing-project confirmation`);
   assert.equal(state.blockedOpenCount, 0, `${label} ${legacyTool.key} cannot open output before confirmation`);
+  assert.equal(state.checkboxOnlyReportDisabled, true, `${label} ${legacyTool.key} checkbox alone cannot enable output`);
   assert.equal(state.confirmedReportDisabled, false, `${label} ${legacyTool.key} output enabled after existing-project confirmation`);
+  assert.equal(state.purposeValue, 'review-change', `${label} ${legacyTool.key} existing-project purpose remains selected`);
   assert.equal(state.useConfirmed, true, `${label} ${legacyTool.key} existing-project use remains confirmed`);
+  assert.equal(state.savedPurposeValue, 'review-change', `${label} ${legacyTool.key} saves existing-project purpose`);
+  assert.equal(state.savedUseConfirmed, true, `${label} ${legacyTool.key} saves existing-project confirmation`);
+  assert.equal(state.restoredReportDisabled, false, `${label} ${legacyTool.key} restores report authorization`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} report open count`);
   assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} report document open`);
   assert.equal(state.closed, true, `${label} ${legacyTool.key} report document close`);
   assert.ok(state.htmlLength > 1500, `${label} ${legacyTool.key} report HTML length`);
   assert.ok(state.html.includes(legacyTool.reportTitle), `${label} ${legacyTool.key} report title`);
   assert.ok(state.html.includes('不得作為新案正式計算附件'), `${label} ${legacyTool.key} output classification`);
+  assert.ok(state.html.includes('既有案件復核 / 變更比較'), `${label} ${legacyTool.key} report existing-project purpose`);
+  assert.ok(state.html.includes('已確認：僅限既有案件，不作新案正式計算附件'), `${label} ${legacyTool.key} report purpose confirmation`);
   assert.ok(state.html.includes('新案正式計算附件必須由'), `${label} ${legacyTool.key} formal-page boundary`);
   assert.ok(state.html.includes('局部工具驗證案'), `${label} ${legacyTool.key} report project name`);
   assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${legacyTool.key} report project no`);
   assert.ok(state.html.includes('Codex QA'), `${label} ${legacyTool.key} report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${legacyTool.key} report excludes raw placeholder project text`);
   assert.ok(visibleText.length >= 420, `${label} ${legacyTool.key} visible report text is substantial: chars=${visibleText.length}`);
-  [legacyTool.reportTitle, '舊案延續', '局部工具驗證案', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
+  [legacyTool.reportTitle, '舊案延續', '既有案件復核 / 變更比較', '局部工具驗證案', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
     assert.ok(visibleText.includes(needle), `${label} ${legacyTool.key} visible report text includes ${needle}`);
   });
   pageOnlyReportStatusNeedles.forEach(needle => {
@@ -1538,20 +1564,27 @@ function assertLegacyPlaceholderReportState(state, legacyTool, label) {
   assert.equal(state.projectMetaState, 'placeholder', `${label} ${legacyTool.key} placeholder report project state`);
   assert.equal(state.initialReportDisabled, true, `${label} ${legacyTool.key} placeholder output disabled before existing-project confirmation`);
   assert.equal(state.blockedOpenCount, 0, `${label} ${legacyTool.key} placeholder output cannot open before confirmation`);
+  assert.equal(state.checkboxOnlyReportDisabled, true, `${label} ${legacyTool.key} placeholder checkbox alone cannot enable output`);
   assert.equal(state.confirmedReportDisabled, false, `${label} ${legacyTool.key} placeholder output enabled after existing-project confirmation`);
+  assert.equal(state.purposeValue, 'review-change', `${label} ${legacyTool.key} placeholder purpose remains selected`);
+  assert.equal(state.savedPurposeValue, 'review-change', `${label} ${legacyTool.key} placeholder saves existing-project purpose`);
+  assert.equal(state.savedUseConfirmed, true, `${label} ${legacyTool.key} placeholder saves existing-project confirmation`);
+  assert.equal(state.restoredReportDisabled, false, `${label} ${legacyTool.key} placeholder restores report authorization`);
   assert.equal(state.openCount, 1, `${label} ${legacyTool.key} placeholder report open count`);
   assert.equal(state.documentOpened, true, `${label} ${legacyTool.key} placeholder report document open`);
   assert.equal(state.closed, true, `${label} ${legacyTool.key} placeholder report document close`);
   assert.ok(state.htmlLength > 1500, `${label} ${legacyTool.key} placeholder report HTML length`);
   assert.ok(state.html.includes(legacyTool.reportTitle), `${label} ${legacyTool.key} placeholder report title`);
   assert.ok(state.html.includes('不得作為新案正式計算附件'), `${label} ${legacyTool.key} placeholder output classification`);
+  assert.ok(state.html.includes('既有案件復核 / 變更比較'), `${label} ${legacyTool.key} placeholder report existing-project purpose`);
+  assert.ok(state.html.includes('已確認：僅限既有案件，不作新案正式計算附件'), `${label} ${legacyTool.key} placeholder report purpose confirmation`);
   assert.ok(state.html.includes('計畫名稱</b>—'), `${label} ${legacyTool.key} placeholder report project name fallback`);
   assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${legacyTool.key} placeholder report project no`);
   assert.ok(state.html.includes('Codex QA'), `${label} ${legacyTool.key} placeholder report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${legacyTool.key} placeholder report excludes raw placeholder project text`);
   assert.equal(state.html.includes('局部工具驗證案'), false, `${label} ${legacyTool.key} placeholder report excludes completed project name`);
   assert.ok(visibleText.length >= 420, `${label} ${legacyTool.key} placeholder visible report text is substantial: chars=${visibleText.length}`);
-  [legacyTool.reportTitle, '舊案延續', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
+  [legacyTool.reportTitle, '舊案延續', '既有案件復核 / 變更比較', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
     assert.ok(visibleText.includes(needle), `${label} ${legacyTool.key} placeholder visible report text includes ${needle}`);
   });
   pageOnlyReportStatusNeedles.forEach(needle => {
@@ -1667,6 +1700,7 @@ async function main() {
         key: 'steel-beam',
         route: '/steel-beam',
         reportButtonId: 'btnReport',
+        purposeId: 'beamLegacyPurpose',
         confirmId: 'beamLegacyUseConfirm',
         reportTitle: '鋼梁舊案延續計算記錄',
       },
@@ -1674,6 +1708,7 @@ async function main() {
         key: 'steel-column',
         route: '/steel-column',
         reportButtonId: 'btnReport',
+        purposeId: 'columnLegacyPurpose',
         confirmId: 'columnLegacyUseConfirm',
         reportTitle: '鋼柱舊案延續計算記錄',
       },
@@ -1753,17 +1788,18 @@ async function main() {
             sessionId,
             `http://127.0.0.1:${serverPort}${legacyTool.route}`,
             viewport,
-            legacyReportExpression(legacyTool.reportButtonId, legacyTool.confirmId, 'complete')
+            legacyReportExpression(legacyTool.reportButtonId, legacyTool.purposeId, legacyTool.confirmId, 'complete')
           );
           assert.deepEqual(completeResult.errors, [], `${label} complete console/dialog errors: ${completeResult.errors.join(' | ')}`);
           assertLegacyReportState(completeResult.state, legacyTool, label);
+          await assertPageOnlyReadinessHiddenInPrint(client, sessionId, legacyTool, label);
 
           const placeholderResult = await navigateAndInspect(
             client,
             sessionId,
             `http://127.0.0.1:${serverPort}${legacyTool.route}`,
             viewport,
-            legacyReportExpression(legacyTool.reportButtonId, legacyTool.confirmId, 'placeholder')
+            legacyReportExpression(legacyTool.reportButtonId, legacyTool.purposeId, legacyTool.confirmId, 'placeholder')
           );
           assert.deepEqual(placeholderResult.errors, [], `${label} placeholder console/dialog errors: ${placeholderResult.errors.join(' | ')}`);
           assertLegacyPlaceholderReportState(placeholderResult.state, legacyTool, `${label} placeholder`);
