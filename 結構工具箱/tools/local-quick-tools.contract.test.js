@@ -1341,7 +1341,7 @@ for (const tool of tools) {
     assert.equal(html.includes('id="btnReport"'), false, `${tool.key} removes duplicate top report action`);
     assertIncludes(
       html,
-      'h2,h3{break-after:avoid-page;page-break-after:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}',
+      'h2,h3{break-after:avoid-page;page-break-after:avoid}.rpt-step{break-inside:avoid-page;page-break-inside:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}',
       `${tool.key} report pagination context`,
     );
   }

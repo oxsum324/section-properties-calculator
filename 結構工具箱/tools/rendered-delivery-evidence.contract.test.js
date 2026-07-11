@@ -6,6 +6,7 @@ const {
   findPdfFooterOverlapLines,
   summarizePdfLayoutPages,
   findPdfOrphanPageEndHeadings,
+  findPdfUncontextualPageStarts,
   findSparseFinalPage,
   validatePdfFile,
 } = require('./rendered-delivery-evidence');
@@ -58,6 +59,44 @@ assert.deepEqual(
   ),
   [],
   'rendered delivery evidence does not treat a completed sentence as an orphaned heading'
+);
+assert.deepEqual(
+  findPdfOrphanPageEndHeadings(
+    summarizePdfLayoutPages(`表格內容\n強制檢核\f下一頁內容\f`),
+    ['幾何規範']
+  ),
+  [],
+  'rendered delivery evidence does not treat a table-cell phrase as an orphan when DOM headings are available'
+);
+assert.deepEqual(
+  findPdfOrphanPageEndHeadings(summarizePdfLayoutPages(`表格內容\n強制檢核\f下一頁內容\f`)),
+  [],
+  'rendered delivery evidence does not infer a generic check-status cell as a section heading'
+);
+
+const continuationPageText = summarizePdfLayoutPages(
+  `前頁內容\fCb 1\n設計需求\f|ex|/B + |ey|/L = 0.0728 ≤ 1/6\n4. 角點線性底壓\f`
+);
+assert.deepEqual(
+  findPdfUncontextualPageStarts(continuationPageText, ['設計需求']),
+  [
+    { page: 2, text: 'Cb 1' },
+    { page: 3, text: '|ex|/B + |ey|/L = 0.0728 ≤ 1/6' },
+  ],
+  'rendered delivery evidence detects continuation pages that start with an unlabeled row or formula fragment'
+);
+assert.deepEqual(
+  findPdfUncontextualPageStarts(
+    summarizePdfLayoutPages(`前頁內容\f項目 採用值\nCb 1\f3. 合力偏心與中央核\n公式內容\f材料\n混凝土 fc'\f檢核項 公式 代入值 結果 OK?\n檢核列\fP-M 互制曲線 (繞 Y 軸)\n曲線圖\f外力\nPu 200 tf\f撓曲檢核 (負彎矩 Mu，頂拉) −\n檢核列\f檢核對比 (使用者輸入 vs. 反算需求)\n對比內容\f內力分析 (各方向、各位置)\n分析內容\f板厚最小值檢核 (規範 8.3.1.2(b) (0.2 < α_fm ≤ 2.0))\n檢核內容\f溫度收縮筋檢核 (規範 24.4.3)\n檢核內容\f撓曲鋼筋設計\n設計內容\f剪力初估\n初估內容\f鋼筋細節\n細節內容\f載重 (φPn / φVn)\n載重內容\f配筋 ＆ 詳細規定\n規定內容\f面外 P-Δ ＆ SBE 延伸\n延伸內容\f面內撓曲 P-M (規範 18.7.5)\n互制內容\f土壓 / 偏心 / 抗滑\n穩定內容\f代表柱控制\n控制內容\f設計建議 (反算)\nAst 需求\f條文對照 ＆ 方法分級\n功能 分級 條文\fℓ\n4. 握裹／搭接說明\f`),
+    ['項目 採用值', '3. 合力偏心與中央核']
+  ),
+  [],
+  'rendered delivery evidence accepts known headings, numbered steps, and multi-column headers at continuation page starts'
+);
+assert.deepEqual(
+  findPdfUncontextualPageStarts(summarizePdfLayoutPages(`前頁內容\fℓ\n= 172.6 cm\f`)),
+  [{ page: 2, text: 'ℓ' }],
+  'rendered delivery evidence only skips an isolated extracted symbol when a contextual line follows it'
 );
 
 for (const [relativePath, expectedPrintLayouts] of [
@@ -137,11 +176,55 @@ for (const relativePath of [
   const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
   assert.ok(
     source.includes('.rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
+      && source.includes("<section class=\"rep-block${g.keepTogether ? ' rep-block--keep' : ''}\">")
+      && source.includes('.rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }')
       && source.includes('tr { break-inside:avoid-page; page-break-inside:avoid; }')
       && source.includes('<thead><tr><th>符號</th><th>說明</th></tr></thead>'),
     `${relativePath} keeps report headings and table rows intact across print pages`
   );
 }
+for (const relativePath of [
+  '結構工具箱/core/ui/report.js',
+  '鋼構工具/core/ui/report.js',
+]) {
+  const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  assert.ok(
+    source.includes('<thead><tr><th>項目</th><th>採用值</th></tr></thead>'),
+    `${relativePath} gives formal input tables a repeatable continuation header`
+  );
+}
+const rcColumnSource = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/column.html'), 'utf8');
+assert.ok(
+  rcColumnSource.includes("{ group:'外力', keepTogether:true, items:["),
+  'RC column report keeps the compact external-load input group together on one page'
+);
+const rcBeamSource = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/beam.html'), 'utf8');
+assert.ok(
+  rcBeamSource.includes("{ group: '材料', keepTogether: true, items: ["),
+  'RC beam report keeps the compact material input group together on one page'
+);
+const rcSlabSource = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/slab.html'), 'utf8');
+assert.ok(
+  rcSlabSource.includes("{ group:'材料', keepTogether:true, items:["),
+  'RC slab report keeps the compact material input group together on one page'
+);
+const rcShearWallSource = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/shear-wall.html'), 'utf8');
+assert.ok(
+  rcShearWallSource.includes("{ group:'幾何 ＆ 材料', keepTogether:true, items:["),
+  'RC shear-wall report keeps the compact geometry and material input group together on one page'
+);
+const rcSinglePileSource = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/single-pile-designer.html'), 'utf8');
+assert.ok(
+  rcSinglePileSource.includes("{ group: r.bestCandidate ? '採用方案' : '最接近控制方案', keepTogether: true, items: ["),
+  'RC single-pile report keeps the compact adopted-scheme input group together on one page'
+);
+const foundationLocalSource = fs.readFileSync(path.join(repoRoot, '結構工具箱/tools/foundation/foundation-local.html'), 'utf8');
+assert.ok(
+  (foundationLocalSource.match(/<section class="rpt-step"><h3>/g) || []).length >= 5
+    && foundationLocalSource.includes('.rpt-step{break-inside:avoid-page;page-break-inside:avoid}')
+    && foundationLocalSource.includes('<table><thead><tr><th>角點</th><th>q (tf/m²)</th></tr></thead>'),
+  'foundation local report keeps short calculation steps intact and exposes a repeatable pressure-table header'
+);
 const rcVisualQualitySource = fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/tools/report-screenshot-quality.js'), 'utf8');
 assert.ok(
   rcVisualQualitySource.includes("require('../../結構工具箱/tools/rendered-delivery-evidence')")

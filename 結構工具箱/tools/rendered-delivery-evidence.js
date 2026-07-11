@@ -88,6 +88,7 @@ function summarizePdfLayoutPages(layoutText, footerNeedles = DEFAULT_FOOTER_NEED
 function looksLikeKeepWithNextHeading(line) {
   const normalized = normalizeLayoutLine(line);
   if (!normalized || normalized.length > 80 || /[=≥≤。；，,;]/.test(normalized)) return false;
+  if (/^(?:強制|自動|人工)檢核$/.test(normalized)) return false;
   return /^[①-⑳]/.test(normalized)
     || /(?:檢核|摘要|說明|明細|計算|備註|輸入資料|結果)$/.test(normalized);
 }
@@ -97,11 +98,49 @@ function findPdfOrphanPageEndHeadings(pageTextStats, keepWithNextLabels = []) {
   const orphans = [];
   for (const page of (pageTextStats || []).slice(0, -1)) {
     const line = page.ending?.[page.ending.length - 1] || '';
-    if (labels.has(line) || looksLikeKeepWithNextHeading(line)) {
+    if (labels.has(line) || (labels.size === 0 && looksLikeKeepWithNextHeading(line))) {
       orphans.push({ page: page.page, heading: line });
     }
   }
   return orphans;
+}
+
+function looksLikeContinuationContext(line) {
+  const normalized = normalizeLayoutLine(line);
+  if (/^\d+(?:\.\d+)*[.、]\s*/.test(normalized)) return true;
+  if (/^(?:板厚最小值檢核|溫度收縮筋檢核|撓曲檢核)/.test(normalized)) return true;
+  if (!normalized || normalized.length > 120 || /[=≥≤；;]/.test(normalized)) return false;
+  const headingCandidate = normalized.replace(/\s*[（(].*[）)]\s*[−-]?$/, '').trim();
+  const tableHeaderTokens = ['項目', '採用值', '檢核項', '公式', '代入值', '數值', '單位', '結果', '判定', '說明', '需求', '容量', '符號', '規範'];
+  const tableHeaderTokenCount = tableHeaderTokens.filter(token => normalized.includes(token)).length;
+  return /^[①-⑳]/.test(normalized)
+    || /^第\s*\d+(?:\.\d+)*\s*節/.test(normalized)
+    || /^(?:P-M\s*互制曲線|面內撓曲|撓曲檢核|檢核對比|內力分析|設計建議|需求對比)/.test(normalized)
+    || tableHeaderTokenCount >= 2
+    || /(?:表|資料|條件|內容|明細|結果|備註|說明|檢核|計算|輸出|需求|材料|規範|規定|配筋|耐震|分析|分級|方法|設計|初估|細節|鋼筋|載重|延伸|抗滑|控制|矩陣|方案|圖|外力)$/.test(headingCandidate);
+}
+
+function findPdfUncontextualPageStarts(pageTextStats, continuationContextLabels = []) {
+  const labels = [...new Set((continuationContextLabels || []).map(normalizeLayoutLine).filter(Boolean))];
+  const issues = [];
+  for (const page of (pageTextStats || []).slice(1)) {
+    const preview = page.preview || [];
+    const hasKnownLabel = line => labels.some(label => (
+      line === label
+      || (label.length >= 4 && line.startsWith(`${label} `))
+      || (line.length >= 4 && label.startsWith(`${line} `))
+    ));
+    let line = preview[0] || '';
+    const nextLine = preview[1] || '';
+    if (line.length <= 2 && nextLine && (hasKnownLabel(nextLine) || looksLikeContinuationContext(nextLine))) {
+      line = nextLine;
+    }
+    const hasKnownContext = hasKnownLabel(line);
+    if (line && !hasKnownContext && !looksLikeContinuationContext(line)) {
+      issues.push({ page: page.page, text: line });
+    }
+  }
+  return issues;
 }
 
 function findSparseFinalPage(pageTextStats, pageMetrics, options = {}) {
@@ -220,6 +259,10 @@ function validatePdfFile(pdfPath, options) {
     pageTextStats,
     options.keepWithNextLabels || []
   );
+  const uncontextualPageStarts = findPdfUncontextualPageStarts(
+    pageTextStats,
+    options.continuationContextLabels || []
+  );
   assert.deepEqual(
     footerLayout.overlaps,
     [],
@@ -229,6 +272,11 @@ function validatePdfFile(pdfPath, options) {
     orphanHeadings,
     [],
     `${options.label} PDF keeps section headings with following content: ${JSON.stringify(orphanHeadings)}`
+  );
+  assert.deepEqual(
+    uncontextualPageStarts,
+    [],
+    `${options.label} PDF continuation pages start with context: ${JSON.stringify(uncontextualPageStarts)}`
   );
 
   const required = [...new Set((options.requiredNeedles || []).map(decodeText).filter(Boolean))];
@@ -280,6 +328,7 @@ function validatePdfFile(pdfPath, options) {
       textPath,
       footerLineCount: footerLayout.footerLineCount,
       orphanHeadingCount: orphanHeadings.length,
+      uncontextualPageStartCount: uncontextualPageStarts.length,
       pageTextStats,
       pages,
     };
@@ -335,12 +384,18 @@ async function renderAndValidateReportPdf(client, options) {
             clientWidth: node.clientWidth,
             scrollWidth: node.scrollWidth,
           }));
+        const headingLabels = Array.from(document.querySelectorAll('h2, h3, h4, .step-title, .rep-step-title'))
+          .map(node => clean(node.textContent))
+          .filter(Boolean);
+        const tableHeaderRows = Array.from(document.querySelectorAll('tr'))
+          .filter(row => row.querySelectorAll('th').length > 0 && row.querySelectorAll('td').length === 0)
+          .map(row => Array.from(row.children).map(cell => clean(cell.textContent)).filter(Boolean).join(' '))
+          .filter(Boolean);
         return {
           bodyText: clean(document.body?.innerText || document.body?.textContent),
           headings: Array.from(document.querySelectorAll('h1, h2, h3')).map(node => clean(node.textContent)).filter(Boolean),
-          keepWithNextLabels: Array.from(document.querySelectorAll('h2, h3, h4, .step-title, .rep-step-title'))
-            .map(node => clean(node.textContent))
-            .filter(Boolean),
+          keepWithNextLabels: headingLabels,
+          continuationContextLabels: Array.from(new Set([...headingLabels, ...tableHeaderRows])),
           tableCount: document.querySelectorAll('table').length,
           tableHeaders: Array.from(document.querySelectorAll('th')).map(node => clean(node.textContent)).filter(Boolean),
           horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
@@ -376,6 +431,7 @@ async function renderAndValidateReportPdf(client, options) {
     const pdf = validatePdfFile(pdfPath, {
       ...options,
       keepWithNextLabels: dom.keepWithNextLabels || [],
+      continuationContextLabels: dom.continuationContextLabels || [],
     });
     const evidence = {
       artifact: path.basename(pdfPath),
@@ -385,6 +441,7 @@ async function renderAndValidateReportPdf(client, options) {
       dom: {
         headings: dom.headings,
         keepWithNextLabels: dom.keepWithNextLabels,
+        continuationContextLabels: dom.continuationContextLabels,
         tableCount: dom.tableCount,
         tableHeaders: dom.tableHeaders,
         horizontalOverflow: dom.horizontalOverflow,
@@ -424,6 +481,7 @@ module.exports = {
   findPdfFooterOverlapLines,
   summarizePdfLayoutPages,
   findPdfOrphanPageEndHeadings,
+  findPdfUncontextualPageStarts,
   findSparseFinalPage,
   resolveEvidenceDir,
   renderAndValidateReportPdf,

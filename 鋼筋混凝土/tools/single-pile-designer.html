@@ -1686,7 +1686,7 @@ ${gainText}`;
           { label: '沉陷模式 / 容許沉陷', value: `${params.settlementMode === 'manual' ? '手動係數' : '自動係數'} / ${fmt(params.allowSettlement)}`, unit: 'cm' },
           { label: '搜尋範圍 D / L', value: `${fmt(params.diameterMin, 0)}-${fmt(params.diameterMax, 0)} cm；${fmt(params.depthMin, 1)}-${fmt(params.depthMax, 1)} m`, unit: '' }
         ]},
-        { group: r.bestCandidate ? '採用方案' : '最接近控制方案', items: [
+        { group: r.bestCandidate ? '採用方案' : '最接近控制方案', keepTogether: true, items: [
           { label: 'D / L', value: `${candidate.diaCm} / ${fmt(candidate.depthM, 1)}`, unit: 'cm / m' },
           { label: '控制端點層', value: tipName, unit: '' },
           { label: 'Qs / Qb / Qult', value: `${fmt(candidate.skin.Qs)} / ${fmt(candidate.tip.Qb)} / ${fmt(candidate.Qult)}`, unit: 'tf' },

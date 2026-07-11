@@ -128,9 +128,10 @@ function openReport(cfg) {
   const esc = escapeReportHtml;
 
   const inputsHtml = (cfg.inputs || []).map(g => `
-    <section class="rep-block">
+    <section class="rep-block${g.keepTogether ? ' rep-block--keep' : ''}">
       <h3>${esc(g.group)}</h3>
       <table class="rep-input">
+        <thead><tr><th>項目</th><th>採用值</th></tr></thead>
         <tbody>
           ${g.items.map(it => `
             <tr>
@@ -339,6 +340,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-toolbar { display:none; }
   .rep-paper { box-shadow:none; padding:0; max-width:none; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
+  .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
   thead { display:table-header-group; }
   tr { break-inside:avoid-page; page-break-inside:avoid; }
   .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }

@@ -2247,7 +2247,7 @@
         ] : []),
         { label:'鋼筋層', value: r.isThick ? '雙層 (頂+底，各兩向)' : '單層 (兩向)' },
       ]},
-      { group:'材料', items:[
+      { group:'材料', keepTogether:true, items:[
         { label:"fc'", value:r.fc, unit:'kgf/cm²' },
         { label:'fy 主筋',  value:r.fy, unit:'kgf/cm²' },
         { label:'fyt 溫度筋', value:r.fyT, unit:'kgf/cm²' },

@@ -3670,7 +3670,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         }] : []),
         { label:'ρg', value: `${(r.rhog*100).toFixed(2)}%` }
       ]},
-      { group:'外力', items:[
+      { group:'外力', keepTogether:true, items:[
         { label:'Pu', value: r.Pu.toFixed(2), unit:'tf' },
         { label:'Mux', value: r.Mux.toFixed(2), unit:'tf·m' },
         { label:'Muy', value: r.Muy.toFixed(2), unit:'tf·m', },

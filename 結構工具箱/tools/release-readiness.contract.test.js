@@ -95,6 +95,8 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'findPdfFooterOverlapLines',
   'PDF keeps section headings with following content',
   'findPdfOrphanPageEndHeadings',
+  'PDF continuation pages start with context',
+  'findPdfUncontextualPageStarts',
   'PDF final page is not sparse',
   'findSparseFinalPage',
   'marginBottom: 0.55',

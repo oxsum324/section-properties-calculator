@@ -1089,24 +1089,24 @@
     return `
 <h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div>
 <h2>計算內容</h2>
-<h3>1. 採用基準與安全係數</h3>
+<section class="rpt-step"><h3>1. 採用基準與安全係數</h3>
 <p>規範：${escapeHtml(basis.designCodeLabel || '使用者自訂')}（${escapeHtml(basis.reference || '')}）。載重情況：${escapeHtml(basis.loadConditionLabel || '')}。</p>
 <p>規範依據：${escapeHtml(basis.basis || '依專案基準採用')}。</p>
-<p><code>qa = ${r.bearingMode === 'ultimate' ? `qult/FS = ${fmt(r.qult)}/${fmt(r.bearingSafetyFactor, 2)} = ${fmt(r.qa)}` : fmt(r.qa)} tf/m²；FS_slide,req = ${fmt(r.fsSlideReq, 2)}；FS_over,req = ${fmt(r.fsOverReq, 2)}</code></p>
-<h3>2. 垂直合力與基礎面積</h3>
+<p><code>qa = ${r.bearingMode === 'ultimate' ? `qult/FS = ${fmt(r.qult)}/${fmt(r.bearingSafetyFactor, 2)} = ${fmt(r.qa)}` : fmt(r.qa)} tf/m²；FS_slide,req = ${fmt(r.fsSlideReq, 2)}；FS_over,req = ${fmt(r.fsOverReq, 2)}</code></p></section>
+<section class="rpt-step"><h3>2. 垂直合力與基礎面積</h3>
 <p><code>A = B×L = ${fmt(r.B)}×${fmt(r.L)} = ${fmt(r.area)} m²</code></p>
 <p><code>Wf = A·t·γc = ${fmt(r.footingWeight)} tf；Ws = A·max(Df−t,0)·γs = ${fmt(r.soilWeight)} tf</code></p>
-<p><code>Ptotal = P + Wf + Ws = ${fmt(r.P)} + ${fmt(r.footingWeight)} + ${fmt(r.soilWeight)} = ${fmt(r.Ptotal)} tf</code></p>
-<h3>3. 合力偏心與中央核</h3>
+<p><code>Ptotal = P + Wf + Ws = ${fmt(r.P)} + ${fmt(r.footingWeight)} + ${fmt(r.soilWeight)} = ${fmt(r.Ptotal)} tf</code></p></section>
+<section class="rpt-step"><h3>3. 合力偏心與中央核</h3>
 <p><code>ex = My/Ptotal = ${fmt(r.ex, 4)} m；ey = Mx/Ptotal = ${fmt(r.ey, 4)} m</code></p>
-<p><code>|ex|/B + |ey|/L = ${fmt(r.kernUtil, 4)} ${r.fullContact ? '≤' : '>'} 1/6 = ${fmt(1 / 6, 4)}</code></p>
-<h3>4. 角點線性底壓</h3>
+<p><code>|ex|/B + |ey|/L = ${fmt(r.kernUtil, 4)} ${r.fullContact ? '≤' : '>'} 1/6 = ${fmt(1 / 6, 4)}</code></p></section>
+<section class="rpt-step"><h3>4. 角點線性底壓</h3>
 <p><code>q = P/A ± 6·My/(L·B²) ± 6·Mx/(B·L²)；qavg = ${fmt(r.qAvg)}，Δqx = ${fmt(r.qFromMy)}，Δqy = ${fmt(r.qFromMx)} tf/m²</code></p>
-<table><tr><th>角點</th><th>q (tf/m²)</th></tr>${cornerRows}</table>
-<h3>5. 抗滑與抗傾覆</h3>
+<table><thead><tr><th>角點</th><th>q (tf/m²)</th></tr></thead><tbody>${cornerRows}</tbody></table></section>
+<section class="rpt-step"><h3>5. 抗滑與抗傾覆</h3>
 <p><code>H = √(Hx²+Hy²) = √(${fmt(r.Hx)}²+${fmt(r.Hy)}²) = ${fmt(r.H)} tf</code></p>
 <p><code>FS_slide = (μ·Ptotal + Rp)/H = (${fmt(r.mu)}×${fmt(r.Ptotal)} + ${fmt(r.passive)})/${fmt(r.H)} = ${fmt(r.fsSlide, 2)}</code></p>
-<p><code>FS_over,B = Ptotal·(B/2)/|My| = ${fmt(r.fsOverB, 2)}；FS_over,L = Ptotal·(L/2)/|Mx| = ${fmt(r.fsOverL, 2)}</code></p>
+<p><code>FS_over,B = Ptotal·(B/2)/|My| = ${fmt(r.fsOverB, 2)}；FS_over,L = Ptotal·(L/2)/|Mx| = ${fmt(r.fsOverL, 2)}</code></p></section>
 ${(r.effectiveAreaCheck || r.hasSettlement) ? `<h3>6. 有效面積承壓與沉陷初估</h3>
 ${r.effectiveAreaCheck ? `<p><code>B′ = B−2|ex| = ${fmt(r.effWidthB, 3)} m；L′ = L−2|ey| = ${fmt(r.effWidthL, 3)} m；q′ = Ptotal/(B′·L′) = ${fmt(r.qEff)} tf/m² ${r.qEffOk ? '≤' : '>'} qa = ${fmt(r.qa)} tf/m²（Meyerhof 有效面積）</code></p>` : ''}
 ${r.hasSettlement ? `<p><code>Se = q·B·(1−ν²)·Iw/Es = ${fmt(r.qAvg)}×${fmt(r.B)}×(1−${fmt(r.nu)}²)×${fmt(r.settlementInfluence)}/${fmt(r.Es)} = ${fmt(r.settlementCm)} cm ${r.settlementOk ? '≤' : '>'} 容許 ${fmt(r.allowableSettlementCm)} cm（立即彈性沉陷初估）</code></p>` : ''}` : ''}
@@ -1196,7 +1196,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 .rpt-diagram{border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fafbff;} .rpt-diagram svg{width:100%;max-width:560px;height:auto;display:block;margin:0 auto;}
 .conclusion{padding:12px 14px;border-radius:8px;border:2px solid ${r.overallOk ? '#10b981' : '#ef4444'};background:${r.overallOk ? '#ecfdf5' : '#fef2f2'};font-weight:800;}
 .note{margin-top:14px;padding:10px 12px;border-left:4px solid #f59e0b;background:#fffbeb;color:#78350f;font-size:.9rem;}
-@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}h2,h3{break-after:avoid-page;page-break-after:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
+@media print{.toolbar{display:none}.paper{box-shadow:none;margin:0;max-width:none}body{background:#fff}h2,h3{break-after:avoid-page;page-break-after:avoid}.rpt-step{break-inside:avoid-page;page-break-inside:avoid}tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
 </style></head><body>
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">

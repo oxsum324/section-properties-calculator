@@ -2818,7 +2818,7 @@ ${layerBars.map(L => {
         { label:'保護層',    value: r.cover, unit:'cm' },
         { label:'排間淨距 sv', value: r.sv, unit:'cm' }
       ]},
-      { group: '材料', items: [
+      { group: '材料', keepTogether: true, items: [
         { label:"混凝土 fc'", value: r.fc, unit:'kgf/cm²' },
         { label:'主筋 fy',    value: r.fy, unit:'kgf/cm²' },
         { label:'箍筋 fyt',   value: r.fyt, unit:'kgf/cm²' },

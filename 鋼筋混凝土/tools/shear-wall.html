@@ -1769,7 +1769,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         { label:'開口影響', value:r.scopeNoOpening ? '臨界斷面無開口削弱，或已由外部模型處理' : '開口或削弱未納入本斷面模型' },
         { label:'整體分析效應', value:r.scopeAnalysisReady ? 'Pu / Mu / Ve 已由外部模型提供' : '整體牆系統與樓版集力效應待確認' },
       ]},
-      { group:'幾何 ＆ 材料', items:[
+      { group:'幾何 ＆ 材料', keepTogether:true, items:[
         { label:"fc'", value:r.fc, unit:'kgf/cm²' }, { label:'fy / fyt', value:`${r.fy} / ${r.fyt}`, unit:'kgf/cm²' },
         { label:'牆厚 tw', value:r.tw, unit:'cm' }, { label:'牆長 ℓw', value:r.lw, unit:'cm' },
         { label:'牆高 hw', value:r.hw, unit:'cm' }, { label:'hw/ℓw', value:r.hwlw.toFixed(2) },
