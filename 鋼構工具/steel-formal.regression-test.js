@@ -42,6 +42,7 @@ function renderReportHtml(source, filename, project = {}) {
   assert.equal(typeof context.openReport, "function", `${filename} should expose openReport`);
   context.openReport({
     title: "QA 計算書",
+    outputSource: { tool: "QA 正式工具", version: "V9.9" },
     project,
     inputs: [{ group: "輸入資料", items: [{ label: "A", value: "1", unit: "" }, { label: "B", value: "2", unit: "tf" }] }],
     checks: [{
@@ -250,6 +251,10 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report g
   "FORMAL-VERIFY-001",
   "設計人員",
   "Codex QA",
+  "產出工具",
+  "QA 正式工具",
+  "工具版本",
+  "V9.9",
   "輸出時間",
   "計算指紋",
   "輸入資料",
@@ -263,6 +268,10 @@ const localReportText = assertReportHtmlText(localReportHtml, "steel local repor
   "FORMAL-VERIFY-001",
   "設計人員",
   "Codex QA",
+  "產出工具",
+  "QA 正式工具",
+  "工具版本",
+  "V9.9",
   "輸出時間",
   "計算指紋",
   "輸入資料",

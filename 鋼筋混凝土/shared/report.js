@@ -111,6 +111,16 @@ function buildCalculationFingerprint(cfg) {
   return `CF-${fingerprintHash(source, 0x811C9DC5)}${fingerprintHash(source, 0x9E3779B9)}`;
 }
 
+function getReportSourceTrace(cfg) {
+  const configured = cfg.outputSource && typeof cfg.outputSource === 'object' ? cfg.outputSource : {};
+  const documentTitle = typeof document !== 'undefined' ? String(document.title || '').trim() : '';
+  const rawTool = String(configured.tool || cfg.toolName || documentTitle || cfg.title || '').trim();
+  const versionMatch = rawTool.match(/(?:^|\s)(V\d+(?:\.\d+)*(?:[-+.\w]*)?)(?=\s|$)/i);
+  const version = String(configured.version || cfg.toolVersion || versionMatch?.[1] || '').trim();
+  const tool = rawTool.replace(/\s*V\d+(?:\.\d+)*(?:[-+.\w]*)?\s*$/i, '').trim() || String(cfg.title || '').trim();
+  return { tool, version };
+}
+
 function openReport(cfg) {
   const today = new Date();
   const todayStr = today.getFullYear() + '/' +
@@ -122,6 +132,7 @@ function openReport(cfg) {
   proj.designer = normalizeProjectFieldValue(proj.designer);
   const reportGeneratedAt = formatReportTimestamp(today);
   const calculationFingerprint = buildCalculationFingerprint(cfg);
+  const sourceTrace = getReportSourceTrace(cfg);
 
   const esc = s => (s===null||s===undefined?'':String(s))
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -293,6 +304,7 @@ body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-
 .rep-header .sub { color:#555; font-size:13px; }
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;
             font-size:12px; margin:14px 0 18px; }
+.rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
 .rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
 .rep-meta b { display:inline-block; min-width:64px; color:#444; }
 .rep-block { margin:14px 0 18px; }
@@ -393,11 +405,13 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <h1>${esc(cfg.title || '計算書')}</h1>
     ${cfg.subtitle?`<div class="sub">${esc(cfg.subtitle)}</div>`:''}
   </div>
-  <div class="rep-meta">
+  <div class="rep-meta${sourceTrace.tool ? ' rep-meta--traceable' : ''}">
     <div><b>計畫名稱</b>${esc(proj.name)||'—'}</div>
     <div><b>計畫編號</b>${esc(proj.no)||'—'}</div>
     <div><b>設計人員</b>${esc(proj.designer)||'—'}</div>
     <div><b>製表日期</b>${esc(proj.date)}</div>
+    ${sourceTrace.tool ? `<div><b>產出工具</b>${esc(sourceTrace.tool)}</div>` : ''}
+    ${sourceTrace.version ? `<div><b>工具版本</b>${esc(sourceTrace.version)}</div>` : ''}
     <div><b>輸出時間</b>${esc(reportGeneratedAt)}</div>
     <div><b>計算指紋</b>${esc(calculationFingerprint)}</div>
   </div>

@@ -264,11 +264,15 @@ async function main() {
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
-        include: ['RC Shear Wall', '計算書'],
+        include: ['RC Shear Wall', '計算書', 'V0.3'],
       });
       results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === '剪力牆設計計算書', `${tc.key} report title`, metrics.title);
+      assert(metrics.bodyText.includes('產出工具'), `${tc.key} report source tool label`, metrics.bodyText);
+      assert(metrics.bodyText.includes('剪力牆設計／檢核'), `${tc.key} report source tool`, metrics.bodyText);
+      assert(metrics.bodyText.includes('工具版本'), `${tc.key} report source version label`, metrics.bodyText);
+      assert(metrics.bodyText.includes('V0.3'), `${tc.key} report source version`, metrics.bodyText);
       assert(!metrics.hasReportSummary, `${tc.key} report status summary hidden`, 'no .rep-summary');
       assert(metrics.checkGroupCount >= 7, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 2, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);

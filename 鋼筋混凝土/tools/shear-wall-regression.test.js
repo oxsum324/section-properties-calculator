@@ -104,6 +104,7 @@ function main() {
   assert(html.includes('window.RCUI.normalizeProjectFieldValue'), '剪力牆使用共用專案欄位正規化 helper', 'shared project normalizer present');
   const buildReportSrc = html.slice(html.indexOf('function buildReport'), html.indexOf('function svgToDataURL'));
   assert(buildReportSrc.includes('summary:false'), '剪力牆計算書關閉頂部狀態 summary', 'report summary false');
+  assert(buildReportSrc.includes("outputSource:{ tool:'剪力牆設計／檢核', version:'V0.3' }"), '剪力牆計算書明示產出版本', 'V0.3 source trace');
   assert(html.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), '剪力牆專案 payload 會清除 placeholder 案名', 'project storage metadata normalized');
   assert(!buildReportSrc.includes("$('projName').value.trim()"), '剪力牆計算書不直接輸出 placeholder 專案欄位', 'report project header normalized');
   assert(!buildReportSrc.includes('RCUI.buildReviewCheckGroup'), '剪力牆計算書不輸出待確認總覽群組', 'review overview stays page-only');

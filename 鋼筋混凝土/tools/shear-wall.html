@@ -1898,7 +1898,9 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
     }
 
     openReport({
-      title:'剪力牆設計計算書', subtitle:'RC Shear Wall Design Report (依 112 規範 11 / 18.7 章)',
+      title:'剪力牆設計計算書',
+      outputSource:{ tool:'剪力牆設計／檢核', version:'V0.3' },
+      subtitle:'RC Shear Wall Design Report (依 112 規範 11 / 18.7 章)',
       project:proj,
       summary:false,
       inputs, checks, diagrams, steps:stepsArr,
