@@ -40,6 +40,7 @@ jobs:
             --exclude='TOOL_BOUNDARIES.md' \
             --exclude='TOOL_REPORT_GUIDE.md' \
             --exclude='結構工具箱/tools/pages-live-smoke.js' \
+            --exclude='結構工具箱/tools/attachment-package-check.js' \
             --exclude='結構工具箱/tools/rendered-delivery-evidence.js' \
             --exclude='結構工具箱/tools/rendered-delivery-evidence.inventory.json' \
             --exclude='石材固定/dev_tools/' \

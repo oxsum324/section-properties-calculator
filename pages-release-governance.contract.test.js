@@ -94,6 +94,7 @@ assert.ok(adr.includes('page-only') && adr.includes('must not be attached'), 'AD
 assert.ok(pagesWorkflow.includes("--exclude='output/'"), 'Pages workflow excludes generated output');
 assert.ok(pagesWorkflow.includes("--exclude='*.md'"), 'Pages workflow excludes markdown docs');
 assert.ok(pagesWorkflow.includes("--exclude='*.ps1'"), 'Pages workflow excludes PowerShell helpers');
+assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/attachment-package-check.js'"), 'Pages workflow excludes attachment package checker');
 assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/rendered-delivery-evidence.js'"), 'Pages workflow excludes rendered delivery evidence helper');
 assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/rendered-delivery-evidence.inventory.json'"), 'Pages workflow excludes rendered delivery evidence inventory');
 assert.ok(pagesWorkflow.includes('pages-live-smoke.js') && pagesWorkflow.includes('--check-private-boundary'), 'Pages workflow runs private-boundary smoke after deploy');
@@ -105,6 +106,7 @@ assert.ok(pagesSmoke.includes('reportReadinessStatus.runId, preflightStatus.runI
 assert.ok(pagesSmoke.includes('reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath'), 'Pages smoke aligns report readiness preflight source');
 assert.ok(pagesSmoke.includes('CONTEXT.md'), 'Pages smoke blocks context publication');
 assert.ok(pagesSmoke.includes('docs/adr/0001-page-only-report-readiness.md'), 'Pages smoke blocks ADR publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/attachment-package-check.js'), 'Pages smoke blocks attachment package checker publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.js'), 'Pages smoke blocks rendered delivery evidence helper publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.inventory.json'), 'Pages smoke blocks rendered delivery evidence inventory publication');
 
@@ -114,6 +116,7 @@ assert.ok(artifactSmoke.includes("'output'"), 'local artifact smoke excludes out
 assert.ok(artifactSmoke.includes("'.claude'"), 'local artifact smoke excludes local worktrees');
 assert.ok(artifactSmoke.includes("'node_modules'"), 'local artifact smoke excludes node_modules');
 assert.ok(artifactSmoke.includes('pages-live-smoke.js'), 'local artifact smoke reuses Pages smoke');
+assert.ok(artifactSmoke.includes("'attachment-package-check.js'"), 'local artifact smoke excludes attachment package checker');
 assert.ok(artifactSmoke.includes("'rendered-delivery-evidence.js'"), 'local artifact smoke excludes rendered delivery evidence helper');
 assert.ok(artifactSmoke.includes("'rendered-delivery-evidence.inventory.json'"), 'local artifact smoke excludes rendered delivery evidence inventory');
 assert.ok(artifactSmoke.includes('--check-private-boundary'), 'local artifact smoke keeps private-boundary check');

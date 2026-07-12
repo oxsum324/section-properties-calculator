@@ -32,6 +32,7 @@ const PRIVATE_PATHS = [
   'run-preflight-tools.bat',
   'toolbox-entrypoints.contract.test.js',
   '結構工具箱/tools/pages-live-smoke.js',
+  '結構工具箱/tools/attachment-package-check.js',
   '結構工具箱/tools/local-quick-browser-smoke.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
