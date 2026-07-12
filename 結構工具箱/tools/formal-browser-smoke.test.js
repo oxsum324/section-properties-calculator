@@ -1402,7 +1402,7 @@ function windOverviewProjectStorageExpression() {
         projName: { type: 'text', value: '' },
         projNo: { type: 'text', value: 'OVERVIEW-001' },
         projDesigner: { type: 'text', value: 'Codex QA' },
-        city: { type: 'select-one', value: '臺中市' },
+        city: { type: 'select-one', value: '臺北市' },
         terrain: { type: 'select-one', value: 'B' },
         impClass: { type: 'select-one', value: 'IV' },
         Kzt: { type: 'number', value: '1.10' },
@@ -1411,6 +1411,14 @@ function windOverviewProjectStorageExpression() {
         Bx: { type: 'number', value: '18' },
         By: { type: 'number', value: '36' }
       }
+    };
+    draftPayload.review = {
+      reviewVersion: '1',
+      status: 'confirmed',
+      reviewer: '測試複核人',
+      reviewedAt: '2026-07-03T00:20:00.000Z',
+      reviewedSnapshot: ToolProjectStorage.buildReviewSnapshotFromFields(draftPayload.fields),
+      scope: '本頁案件資料與計算輸入'
     };
     localStorage.setItem(draftStorageKey, JSON.stringify(draftPayload));
     const loadDraftButton = await waitFor('[data-project-storage-draft-load]');
@@ -1430,10 +1438,20 @@ function windOverviewProjectStorageExpression() {
     }
     const summaryText = normalizeText(document.getElementById('summaryBox')?.textContent || '');
     const statusText = normalizeText(document.querySelector('[data-project-storage-status]')?.textContent || '');
+    const reviewTextAfterApply = normalizeText(document.querySelector('[data-project-review]')?.textContent || '');
+    const heightInput = document.getElementById('H');
+    if (heightInput) {
+      heightInput.value = '43';
+      heightInput.dispatchEvent(new Event('input', { bubbles: true }));
+      heightInput.dispatchEvent(new Event('change', { bubbles: true }));
+      await settle(2);
+    }
+    const reviewTextAfterChange = normalizeText(document.querySelector('[data-project-review]')?.textContent || '');
     const storedOverview = JSON.parse(localStorage.getItem(overviewStorageKey) || '{}');
     return {
       hasProjectStorageBar: !!document.querySelector('.project-storage-bar'),
       hasLoadDraftButton: !!loadDraftButton,
+      hasReviewControl: !!document.querySelector('[data-project-review]'),
       previewShownBeforeApply,
       previewText,
       beforeSummary,
@@ -1442,6 +1460,8 @@ function windOverviewProjectStorageExpression() {
       projectDesigner: document.getElementById('projDesigner')?.value || '',
       summaryText,
       statusText,
+      reviewTextAfterApply,
+      reviewTextAfterChange,
       storedOverviewProjectName: storedOverview.projName || '',
       storedOverviewProjectNo: storedOverview.projNo || '',
       storedOverviewProjectDesigner: storedOverview.projDesigner || ''
@@ -1776,6 +1796,7 @@ function assertSeismicDynamicProjectRestoreState(state, label) {
 function assertWindOverviewProjectStorageState(state, label) {
   assert.equal(state.hasProjectStorageBar, true, `${label} wind-overview project storage bar exists`);
   assert.equal(state.hasLoadDraftButton, true, `${label} wind-overview project storage draft load button exists`);
+  assert.equal(state.hasReviewControl, true, `${label} wind-overview page-only review control exists`);
   assert.equal(state.previewShownBeforeApply, true, `${label} wind-overview preview requires confirmation before applying draft`);
   assert.ok(state.previewText.includes('儲存格式 0.1.0'), `${label} wind-overview preview exposes legacy storage version`);
   assert.ok(state.beforeSummary.includes('舊案名'), `${label} wind-overview baseline summary uses existing localStorage`);
@@ -1787,6 +1808,9 @@ function assertWindOverviewProjectStorageState(state, label) {
   assert.ok(state.summaryText.includes('Codex QA'), `${label} wind-overview summary shows restored project designer`);
   assert.equal(state.summaryText.includes('舊案名'), false, `${label} wind-overview summary should not retain stale localStorage project name`);
   assert.ok(state.statusText.includes('已讀取：瀏覽器暫存'), `${label} wind-overview draft load status`);
+  assert.ok(state.reviewTextAfterApply.includes('已由 測試複核人'), `${label} wind-overview restores confirmed review from JSON`);
+  assert.ok(state.reviewTextAfterApply.includes('不會寫入計算書、列印或 PDF'), `${label} wind-overview review keeps page-only boundary visible`);
+  assert.ok(state.reviewTextAfterChange.includes('需重新確認'), `${label} wind-overview input change invalidates confirmed review`);
   assert.equal(state.storedOverviewProjectName, '舊案名', `${label} wind-overview page summary should refresh from current fields, not mutate overview storage`);
   assert.equal(state.storedOverviewProjectNo, 'OLD-001', `${label} wind-overview overview storage remains previous number`);
   assert.equal(state.storedOverviewProjectDesigner, '舊設計人', `${label} wind-overview overview storage remains previous designer`);
