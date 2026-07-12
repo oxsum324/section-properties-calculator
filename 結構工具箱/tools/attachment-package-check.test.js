@@ -24,6 +24,7 @@ assert.equal(htmlExtracted.projectName, '測試大樓');
 assert.equal(htmlExtracted.projectNo, 'PKG-001');
 assert.equal(htmlExtracted.toolVersion, 'V3.1');
 assert.equal(Checker.extractTextMetadata('設計人員 Codex QA 製表日期 2026/07/12 計算書模式 詳算式').designer, 'Codex QA');
+assert.equal(Checker.extractTextMetadata('產出工具：建築物耐風設計 — 開放式建 築屋面風壓 工具版本：v1').sourceTool, '建築物耐風設計 — 開放式建築屋面風壓');
 
 const readyReport = Checker.analyzePackage([
   { file: 'beam.pdf', errors: [], pageOnlyNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', fingerprints: ['CF-1234ABCD5678EF90'] },
@@ -61,6 +62,21 @@ try {
   assert.equal(cli.status, 0, cli.stderr || cli.stdout);
   assert.match(cli.stdout, /附件組包一致性檢查：可整理/);
 
+  const evidenceDir = path.join(tempDir, 'evidence');
+  fs.mkdirSync(evidenceDir, { recursive: true });
+  fs.writeFileSync(path.join(evidenceDir, 'formal-report.pdf'), 'fixture', 'utf8');
+  fs.writeFileSync(path.join(evidenceDir, 'formal-report.txt'), 'derived PDF text', 'utf8');
+  fs.writeFileSync(path.join(evidenceDir, 'formal-report.evidence.json'), '{}', 'utf8');
+  fs.writeFileSync(path.join(evidenceDir, 'rendered-delivery-evidence-summary.json'), '{}', 'utf8');
+  fs.writeFileSync(path.join(evidenceDir, 'case.json'), JSON.stringify({ project: { no: 'PKG-001' } }), 'utf8');
+  const evidenceCollection = Checker.collectAttachmentFiles(evidenceDir, '');
+  assert.deepEqual(evidenceCollection.files.map(file => path.basename(file)), ['case.json', 'formal-report.pdf']);
+  assert.deepEqual(evidenceCollection.skippedGeneratedEvidence.map(file => path.basename(file)), [
+    'formal-report.evidence.json',
+    'formal-report.txt',
+    'rendered-delivery-evidence-summary.json'
+  ]);
+
   const fixtureDir = path.join(tempDir, 'fixture');
   fs.mkdirSync(path.join(fixtureDir, 'word'), { recursive: true });
   fs.mkdirSync(path.join(fixtureDir, 'xl', 'worksheets'), { recursive: true });
@@ -83,5 +99,6 @@ try {
 
 assert.deepEqual(Checker.parseArgs(['--input', 'C:/case', '--project-no', 'PKG-001']), { input: 'C:/case', projectNo: 'PKG-001' });
 assert.match(Checker.formatSummary(readyReport), /僅供交付前整理/);
+assert.match(Checker.formatSummary({ ...readyReport, skippedGeneratedEvidence: ['formal-report.evidence.json'] }), /已略過 1 個驗證中間檔/);
 
 console.log('attachment package check OK');

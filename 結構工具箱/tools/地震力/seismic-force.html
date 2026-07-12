@@ -2148,7 +2148,7 @@ function reportMetaHtml(project, reportTrace) {
       <div><b>計畫編號</b>${escReport(project.no || '—')}</div>
       <div><b>設計人員</b>${escReport(project.designer || '—')}</div>
       <div><b>製表日期</b>${escReport(new Date().toLocaleDateString('zh-TW'))}</div>
-      <div><b>產出工具</b>${escReport(reportTrace.sourceTrace.tool || '—')}</div>
+      <div class="rep-source-tool"><b>產出工具</b>${escReport(reportTrace.sourceTrace.tool || '—')}</div>
       <div><b>工具版本</b>${escReport(reportTrace.sourceTrace.version || '—')}</div>
       <div><b>輸出時間</b>${escReport(reportTrace.generatedAt)}</div>
       <div><b>計算指紋</b>${escReport(reportTrace.calculationFingerprint)}</div>
@@ -2312,6 +2312,7 @@ function openSeismicReport() {
     .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
     .rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
     .rep-meta b { display:inline-block; min-width:64px; color:#444; }
+    .rep-meta--traceable .rep-source-tool { grid-column:span 2; }
     .rep-block { margin:14px 0 18px; page-break-inside: avoid; }
     .rep-block h3 { font-size:14px; margin:0 0 8px; padding:4px 8px; background:#6d28d9; color:#fff; border-radius:3px 3px 0 0; }
     .rep-input, .story, .cmp { width:100%; border-collapse:collapse; font-size:12px; }

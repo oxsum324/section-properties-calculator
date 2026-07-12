@@ -206,7 +206,7 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared formal r
   '產出工具',
   'QA 正式工具',
   '工具版本',
-  'V9.9',
+  'v9.9',
   '輸出時間',
   '計算指紋',
   '輸入資料',
@@ -253,11 +253,25 @@ const sharedReportTrace = sharedReportRuntime.ToolReportUI.buildReportTrace({
 });
 assert.deepEqual(
   JSON.parse(JSON.stringify(sharedReportTrace.sourceTrace)),
-  { tool: 'QA 正式工具', version: 'V9.9' },
+  { tool: 'QA 正式工具', version: 'v9.9' },
   'shared report trace source'
 );
 assert.equal(sharedReportTrace.generatedAt, '2026/07/12 12:34:56', 'shared report trace timestamp');
 assert.match(sharedReportTrace.calculationFingerprint, /^CF-[0-9A-F]{16}$/, 'shared report trace fingerprint');
+[
+  ['4.0', 'v4.0'],
+  ['V4.0', 'v4.0'],
+  ['wind-force.v1', 'v1']
+].forEach(([sourceVersion, expectedVersion]) => {
+  const trace = sharedReportRuntime.ToolReportUI.buildReportTrace({
+    title: 'QA 計算書',
+    outputSource: { tool: 'QA 正式工具', version: sourceVersion },
+    snapshot: { control: 1.25, inputs: { A: 1, B: 2 } },
+    generatedAt: new Date('2026-07-12T12:34:56'),
+  });
+  assert.equal(trace.sourceTrace.version, expectedVersion, `shared report trace normalizes ${sourceVersion}`);
+  assert.equal(trace.calculationFingerprint, sharedReportTrace.calculationFingerprint, `shared report fingerprint excludes display version ${sourceVersion}`);
+});
 
 const windReportRuntimePath = toolboxFile('core/wind-report.js');
 const originalWindReport = global.WindReport;
@@ -1024,6 +1038,8 @@ for (const [relativePath, reportFunction, openFunction] of [
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'seismic-force page-only report readiness'));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'seismic-force page-only report readiness hidden from print');
+  assertIncludes(html, 'class="rep-source-tool"', 'seismic-force trace source has dedicated print cell');
+  assertIncludes(html, '.rep-meta--traceable .rep-source-tool { grid-column:span 2; }', 'seismic-force trace source spans two print columns');
   const reportStart = html.indexOf('function openSeismicReport()');
   const reportEnd = html.indexOf("document.getElementById('btnExportCase')", reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, 'seismic-force report body isolated');

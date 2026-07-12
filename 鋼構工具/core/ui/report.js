@@ -83,12 +83,21 @@ function buildCalculationFingerprint(cfg) {
   return `CF-${fingerprintHash(source, 0x811C9DC5)}${fingerprintHash(source, 0x9E3779B9)}`;
 }
 
+function normalizeReportVersion(value) {
+  const raw = String(value || '').trim();
+  const bareVersion = raw.match(/^v?(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);
+  if (bareVersion) return `v${bareVersion[1]}`;
+  const namespacedVersion = raw.match(/^[a-z][a-z0-9-]*\.v(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);
+  if (namespacedVersion) return `v${namespacedVersion[1]}`;
+  return raw;
+}
+
 function getReportSourceTrace(cfg) {
   const configured = cfg.outputSource && typeof cfg.outputSource === 'object' ? cfg.outputSource : {};
   const documentTitle = typeof document !== 'undefined' ? String(document.title || '').trim() : '';
   const rawTool = String(configured.tool || cfg.toolName || documentTitle || cfg.title || '').trim();
   const versionMatch = rawTool.match(/(?:^|\s)(V\d+(?:\.\d+)*(?:[-+.\w]*)?)(?=\s|$)/i);
-  const version = String(configured.version || cfg.toolVersion || versionMatch?.[1] || '').trim();
+  const version = normalizeReportVersion(configured.version || cfg.toolVersion || versionMatch?.[1]);
   const tool = rawTool.replace(/\s*V\d+(?:\.\d+)*(?:[-+.\w]*)?\s*$/i, '').trim() || String(cfg.title || '').trim();
   return { tool, version };
 }
@@ -163,6 +172,7 @@ if (typeof window !== 'undefined') {
   const sharedReportUI = Object.assign(window.ToolReportUI || window.SteelFormalUI || {}, {
     escapeHtml: escapeReportHtml,
     normalizeProjectFieldValue,
+    normalizeReportVersion,
     hasBlankFieldValues,
     buildReportTrace,
     renderStatusGridPanel,

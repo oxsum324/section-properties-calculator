@@ -43,7 +43,7 @@ function unique(values) {
 }
 
 function cleanMetadataValue(value) {
-  const text = String(value || '').trim();
+  const text = String(value || '').trim().replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, '$1');
   return /^(?:—|未填|N\/A|-)$/.test(text) ? '' : text;
 }
 
@@ -169,18 +169,33 @@ function inspectAttachment(filePath, rootDir) {
   return record;
 }
 
+function isGeneratedEvidenceFile(fileName, siblingNames) {
+  const normalized = String(fileName || '').toLowerCase();
+  if (normalized === 'rendered-delivery-evidence-summary.json' || normalized.endsWith('.evidence.json')) return true;
+  if (!normalized.endsWith('.txt')) return false;
+  const stem = normalized.slice(0, -'.txt'.length);
+  return siblingNames.has(`${stem}.evidence.json`);
+}
+
 function collectAttachmentFiles(inputDir, ignoredFile) {
   const files = [];
+  const skippedGeneratedEvidence = [];
   const walk = directory => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const entries = fs.readdirSync(directory, { withFileTypes: true });
+    const siblingNames = new Set(entries.map(entry => entry.name.toLowerCase()));
+    for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
       const entryPath = path.join(directory, entry.name);
       if (entry.isDirectory()) walk(entryPath);
-      else if (entry.isFile() && path.resolve(entryPath) !== ignoredFile && SUPPORTED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) files.push(entryPath);
+      else if (entry.isFile() && path.resolve(entryPath) !== ignoredFile && SUPPORTED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+        if (isGeneratedEvidenceFile(entry.name, siblingNames)) skippedGeneratedEvidence.push(entryPath);
+        else files.push(entryPath);
+      }
     }
   };
   walk(inputDir);
-  return files.sort((left, right) => left.localeCompare(right, 'zh-Hant'));
+  const sortFiles = (left, right) => left.localeCompare(right, 'zh-Hant');
+  return { files: files.sort(sortFiles), skippedGeneratedEvidence: skippedGeneratedEvidence.sort(sortFiles) };
 }
 
 function buildIssue(level, code, message, files = []) {
@@ -252,7 +267,10 @@ function checkPackage(inputDir, options = {}) {
   const resolvedInput = path.resolve(inputDir || '');
   if (!fs.existsSync(resolvedInput) || !fs.statSync(resolvedInput).isDirectory()) throw new Error(`附件資料夾不存在：${resolvedInput || inputDir || '(未指定)'}`);
   const ignoredFile = options.output ? path.resolve(options.output) : '';
-  return analyzePackage(collectAttachmentFiles(resolvedInput, ignoredFile).map(file => inspectAttachment(file, resolvedInput)), options);
+  const collection = collectAttachmentFiles(resolvedInput, ignoredFile);
+  const report = analyzePackage(collection.files.map(file => inspectAttachment(file, resolvedInput)), options);
+  report.skippedGeneratedEvidence = collection.skippedGeneratedEvidence.map(file => path.relative(resolvedInput, file) || path.basename(file));
+  return report;
 }
 
 function formatSummary(report) {
@@ -260,6 +278,7 @@ function formatSummary(report) {
     `附件組包一致性檢查：${report.status === 'ready' ? '可整理' : report.status === 'review' ? '需人工確認' : '暫勿整理'}`,
     `附件 ${report.summary.attachments} 份；阻擋 ${report.summary.errors} 項；提醒 ${report.summary.warnings} 項。`,
   ];
+  if (report.skippedGeneratedEvidence?.length) lines.push(`已略過 ${report.skippedGeneratedEvidence.length} 個驗證中間檔（.evidence.json、成對文字擷取或渲染摘要）。`);
   report.attachments.forEach(record => {
     const trace = [record.projectNo, record.sourceTool, record.toolVersion, record.fingerprints.join(',')].filter(Boolean).join('｜') || '未抽取追溯資訊';
     lines.push(`- ${record.file}：${record.errors.length ? `讀取失敗 (${record.errors.join('；')})` : trace}`);
@@ -302,4 +321,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { PAGE_ONLY_NEEDLES, normalizeText, extractTextMetadata, extractJsonMetadata, inspectAttachment, analyzePackage, checkPackage, formatSummary, parseArgs };
+module.exports = { PAGE_ONLY_NEEDLES, normalizeText, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };
