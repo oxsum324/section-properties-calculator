@@ -51,7 +51,7 @@ function loadWindowScript(filePath) {
   return context.window;
 }
 
-function renderReportHtml(filePath, project = {}) {
+function renderReportHtml(filePath, project = {}, overrides = {}) {
   let html = '';
   const context = {
     window: {
@@ -86,6 +86,7 @@ function renderReportHtml(filePath, project = {}) {
     summaryFacts: [{ label: '控制值', value: 'B / A', tone: 'ok' }],
     summary: { ok: true, text: 'OK' },
     notes: ['本報告樣本用於驗證正式輸出文字抽檢。'],
+    ...overrides,
   });
   return html;
 }
@@ -180,6 +181,8 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared formal r
   'FORMAL-VERIFY-001',
   '設計人員',
   'Codex QA',
+  '輸出時間',
+  '計算指紋',
   '輸入資料',
   '檢核結果',
   'OK',
@@ -189,6 +192,14 @@ assertNoIncludes(sharedReportText, '未填', 'shared report generator visible te
 assertIncludes(sharedReportHtml, '計畫名稱</b>—', 'shared report generator should fallback blank project name to dash');
 assertIncludes(sharedReportHtml, 'FORMAL-VERIFY-001', 'shared report generator should keep project number');
 assertIncludes(sharedReportHtml, 'Codex QA', 'shared report generator should keep designer');
+assert.match(sharedReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, 'shared report generator should include a stable calculation fingerprint');
+const reportFingerprintOf = (html) => html.match(/計算指紋<\/b>(CF-[0-9A-F]{16})/)?.[1] || '';
+const matchingCalculationHtml = renderReportHtml(toolboxFile('core/ui/report.js'), { name: '另一個案件', no: 'FORMAL-VERIFY-002', designer: 'Reviewer' });
+const changedCalculationHtml = renderReportHtml(toolboxFile('core/ui/report.js'), { name: '未填', no: 'FORMAL-VERIFY-001', designer: 'Codex QA' }, {
+  inputs: [{ group: '輸入資料', items: [{ label: 'A', value: '9', unit: '' }, { label: 'B', value: '2', unit: 'tf' }] }],
+});
+assert.equal(reportFingerprintOf(sharedReportHtml), reportFingerprintOf(matchingCalculationHtml), 'report fingerprint ignores project metadata for the same calculation');
+assert.notEqual(reportFingerprintOf(sharedReportHtml), reportFingerprintOf(changedCalculationHtml), 'report fingerprint changes when calculation input changes');
 const sharedCompatPanel = { className: '', innerHTML: '' };
 sharedReportRuntime.ToolReportUI.renderStatusGridPanel({
   target: sharedCompatPanel,

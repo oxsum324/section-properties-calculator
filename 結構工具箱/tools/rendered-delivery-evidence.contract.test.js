@@ -175,6 +175,12 @@ for (const relativePath of [
 ]) {
   const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
   assert.ok(
+    source.includes('function buildCalculationFingerprint')
+      && source.includes('<b>輸出時間</b>')
+      && source.includes('<b>計算指紋</b>'),
+    `${relativePath} includes the shared calculation traceability header`
+  );
+  assert.ok(
     source.includes('.rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
       && source.includes("<section class=\"rep-block${g.keepTogether ? ' rep-block--keep' : ''}\">")
       && source.includes('.rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }')

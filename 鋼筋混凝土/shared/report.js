@@ -58,6 +58,59 @@ function normalizeProjectFieldValue(value) {
   return text === '未填' ? '' : text;
 }
 
+function formatReportTimestamp(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.getFullYear() + '/' +
+    String(date.getMonth() + 1).padStart(2, '0') + '/' +
+    String(date.getDate()).padStart(2, '0') + ' ' +
+    String(date.getHours()).padStart(2, '0') + ':' +
+    String(date.getMinutes()).padStart(2, '0') + ':' +
+    String(date.getSeconds()).padStart(2, '0');
+}
+
+function normalizeFingerprintValue(value) {
+  if (value === null || value === undefined) return null;
+  if (Array.isArray(value)) return value.map(normalizeFingerprintValue);
+  if (typeof value === 'object') {
+    const normalized = {};
+    Object.keys(value).sort().forEach((key) => {
+      if (key === 'dataURL' || key === 'html') return;
+      normalized[key] = normalizeFingerprintValue(value[key]);
+    });
+    return normalized;
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) return String(value);
+  return String(value);
+}
+
+function fingerprintHash(text, seed) {
+  let hash = seed >>> 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).toUpperCase().padStart(8, '0');
+}
+
+function buildCalculationFingerprint(cfg) {
+  if (cfg.calculationFingerprint) return String(cfg.calculationFingerprint);
+  const snapshot = normalizeFingerprintValue({
+    title: cfg.title || '',
+    subtitle: cfg.subtitle || '',
+    inputs: cfg.inputs || [],
+    checks: cfg.checks || [],
+    summary: cfg.summary || {},
+    coverageSummary: cfg.coverageSummary || [],
+    methods: cfg.methods || [],
+    coverage: cfg.coverage || [],
+    steps: cfg.steps || [],
+    symbols: cfg.symbols || [],
+    notes: cfg.notes || [],
+  });
+  const source = JSON.stringify(snapshot);
+  return `CF-${fingerprintHash(source, 0x811C9DC5)}${fingerprintHash(source, 0x9E3779B9)}`;
+}
+
 function openReport(cfg) {
   const today = new Date();
   const todayStr = today.getFullYear() + '/' +
@@ -67,6 +120,8 @@ function openReport(cfg) {
   proj.name = normalizeProjectFieldValue(proj.name);
   proj.no = normalizeProjectFieldValue(proj.no);
   proj.designer = normalizeProjectFieldValue(proj.designer);
+  const reportGeneratedAt = formatReportTimestamp(today);
+  const calculationFingerprint = buildCalculationFingerprint(cfg);
 
   const esc = s => (s===null||s===undefined?'':String(s))
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -343,6 +398,8 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <div><b>計畫編號</b>${esc(proj.no)||'—'}</div>
     <div><b>設計人員</b>${esc(proj.designer)||'—'}</div>
     <div><b>製表日期</b>${esc(proj.date)}</div>
+    <div><b>輸出時間</b>${esc(reportGeneratedAt)}</div>
+    <div><b>計算指紋</b>${esc(calculationFingerprint)}</div>
   </div>
 
   ${summaryHtml}

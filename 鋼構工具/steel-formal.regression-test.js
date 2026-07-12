@@ -250,6 +250,8 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report g
   "FORMAL-VERIFY-001",
   "設計人員",
   "Codex QA",
+  "輸出時間",
+  "計算指紋",
   "輸入資料",
   "檢核結果",
   "OK",
@@ -261,6 +263,8 @@ const localReportText = assertReportHtmlText(localReportHtml, "steel local repor
   "FORMAL-VERIFY-001",
   "設計人員",
   "Codex QA",
+  "輸出時間",
+  "計算指紋",
   "輸入資料",
   "檢核結果",
   "OK",
@@ -273,6 +277,8 @@ assert.match(sharedReportHtml, /計畫名稱<\/b>—/, "shared report generator 
 assert.match(localReportHtml, /計畫名稱<\/b>—/, "steel local report generator should fallback blank project name to dash");
 assert.match(sharedReportHtml, /FORMAL-VERIFY-001/, "shared report generator should keep project number after placeholder scrub");
 assert.match(localReportHtml, /FORMAL-VERIFY-001/, "steel local report generator should keep project number after placeholder scrub");
+assert.match(sharedReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, "shared report generator should include a stable calculation fingerprint");
+assert.match(localReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, "steel local report generator should include a stable calculation fingerprint");
 assert.equal(
   localReportRuntime.SteelFormalUI.hasBlankFieldValues(["projName", "projNo", "projDesigner"], (id) => ({ value: id === "projName" ? "未填" : "QA" })),
   true,
