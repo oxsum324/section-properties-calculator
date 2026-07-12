@@ -242,6 +242,16 @@ function analyzePackage(records, options = {}) {
   });
   if (!projectNumbers.size) issues.push(buildIssue('warn', 'missing-project-no', '未能從附件抽取計畫編號；建議以 --project-no 指定本次案件編號。'));
   readable.filter(record => !record.projectNo).forEach(record => issues.push(buildIssue('warn', 'missing-project-no', `${record.file} 未能抽取計畫編號。`, [record.file])));
+  readable.forEach(record => {
+    const missingTraceFields = [
+      !record.sourceTool && '產出工具',
+      !record.toolVersion && '工具版本',
+      !record.outputTime && '輸出時間',
+    ].filter(Boolean);
+    if (missingTraceFields.length) {
+      issues.push(buildIssue('warn', 'missing-output-trace', `${record.file} 未能抽取${missingTraceFields.join('、')}；請人工確認其來源與交付用途。`, [record.file]));
+    }
+  });
   const toolVersions = new Map();
   readable.forEach(record => {
     const toolVersion = normalizeToolVersion(record.toolVersion);
