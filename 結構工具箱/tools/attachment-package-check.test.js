@@ -17,14 +17,17 @@ const extracted = Checker.extractTextMetadata(`
 assert.equal(extracted.projectName, '測試大樓');
 assert.equal(extracted.projectNo, 'PKG-001');
 assert.equal(extracted.sourceTool, 'RC 梁設計／檢核');
-assert.equal(extracted.toolVersion, 'V3.1');
+assert.equal(extracted.toolVersion, 'v3.1');
 assert.deepEqual(extracted.fingerprints, ['CF-1234ABCD5678EF90']);
 const htmlExtracted = Checker.extractTextMetadata('<div><b>計畫名稱</b>測試大樓</div><div><b>計畫編號</b>PKG-001</div><div><b>工具版本</b>V3.1</div><div><b>計算指紋</b>CF-1234ABCD5678EF90</div>');
 assert.equal(htmlExtracted.projectName, '測試大樓');
 assert.equal(htmlExtracted.projectNo, 'PKG-001');
-assert.equal(htmlExtracted.toolVersion, 'V3.1');
+assert.equal(htmlExtracted.toolVersion, 'v3.1');
 assert.equal(Checker.extractTextMetadata('設計人員 Codex QA 製表日期 2026/07/12 計算書模式 詳算式').designer, 'Codex QA');
 assert.equal(Checker.extractTextMetadata('產出工具：建築物耐風設計 — 開放式建 築屋面風壓 工具版本：v1').sourceTool, '建築物耐風設計 — 開放式建築屋面風壓');
+assert.equal(Checker.normalizeToolVersion('4.0'), 'v4.0');
+assert.equal(Checker.normalizeToolVersion('V4.0'), 'v4.0');
+assert.equal(Checker.normalizeToolVersion('wind-force.v1'), 'v1');
 
 const readyReport = Checker.analyzePackage([
   { file: 'beam.pdf', errors: [], pageOnlyNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', fingerprints: ['CF-1234ABCD5678EF90'] },
@@ -56,11 +59,15 @@ try {
   const scanned = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(scanned.attachments.length, 1);
   assert.equal(scanned.attachments[0].projectNo, 'PKG-001');
-  assert.equal(scanned.attachments[0].toolVersion, 'V1');
+  assert.equal(scanned.attachments[0].toolVersion, 'v1');
   assert.equal(scanned.status, 'ready');
   const cli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stderr || cli.stdout);
   assert.match(cli.stdout, /附件組包一致性檢查：可整理/);
+
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>計算指紋：CF-AAAA0000BBBB1111</div>', 'utf8');
+  const legacyJsonAndFormalReport = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
+  assert.equal(legacyJsonAndFormalReport.status, 'ready', 'legacy JSON and canonical report versions remain compatible');
 
   const evidenceDir = path.join(tempDir, 'evidence');
   fs.mkdirSync(evidenceDir, { recursive: true });

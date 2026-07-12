@@ -1763,6 +1763,7 @@ function assertReportContentState(state, tool, label, mode = 'default') {
     ['產出工具', '工具版本', '輸出時間', '計算指紋'].forEach(needle => {
       assert.ok(auditHtml.includes(needle), `${label} ${tool.key} ${mode} report trace includes ${needle}`);
     });
+    assert.match(auditHtml, /工具版本<\/b>\s*v\d+(?:\.\d+)*(?:[-+.\w]*)?/i, `${label} ${tool.key} ${mode} report trace canonical version`);
     assert.match(auditHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, `${label} ${tool.key} ${mode} report trace fingerprint`);
   }
   assertReportExpectations(state, tool, label, mode);
@@ -2213,6 +2214,9 @@ async function main() {
               ...(formalManifest.reportPageOnlyForbiddenNeedles || []),
             ],
           });
+          if (tool.reportTraceRequired) {
+            assert.match(fs.readFileSync(renderedEvidence.pdf.textPath, 'utf8'), /工具版本\s*v\d+(?:\.\d+)*(?:[-+.\w]*)?/i, `${interactionLabel} ${tool.key} formal PDF canonical version`);
+          }
           renderedEvidenceRecords.push({
             key: tool.key,
             renderer: renderedEvidence.renderer,
@@ -2240,6 +2244,9 @@ async function main() {
                 ...(formalManifest.reportPageOnlyForbiddenNeedles || []),
               ],
             });
+            if (tool.reportTraceRequired) {
+              assert.match(fs.readFileSync(summaryEvidence.pdf.textPath, 'utf8'), /工具版本\s*v\d+(?:\.\d+)*(?:[-+.\w]*)?/i, 'shared formal summary PDF canonical version');
+            }
             renderedEvidenceRecords.push({
               key: 'shared-summary-layout',
               renderer: summaryEvidence.renderer,

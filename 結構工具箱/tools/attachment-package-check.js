@@ -47,6 +47,15 @@ function cleanMetadataValue(value) {
   return /^(?:—|未填|N\/A|-)$/.test(text) ? '' : text;
 }
 
+function normalizeToolVersion(value) {
+  const raw = cleanMetadataValue(value);
+  const bareVersion = raw.match(/^v?(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);
+  if (bareVersion) return `v${bareVersion[1]}`;
+  const namespacedVersion = raw.match(/^[a-z][a-z0-9-]*\.v(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);
+  if (namespacedVersion) return `v${namespacedVersion[1]}`;
+  return raw;
+}
+
 function run(command, args, label) {
   const result = spawnSync(command, args, {
     encoding: 'utf8',
@@ -106,7 +115,7 @@ function extractJsonMetadata(value) {
     projectNo: cleanMetadataValue(project.no || value?.projectNo || fieldValue('projNo', 'projectNo')),
     designer: cleanMetadataValue(project.designer || value?.projectDesigner || fieldValue('projDesigner', 'projectDesigner')),
     sourceTool: cleanMetadataValue(tool.name || tool.id || value?.toolName),
-    toolVersion: cleanMetadataValue(tool.version || value?.toolVersion || value?.pageVersion),
+    toolVersion: normalizeToolVersion(tool.version || value?.toolVersion || value?.pageVersion),
     outputTime: cleanMetadataValue(value?.savedAt || value?.outputTime),
     fingerprints,
   };
@@ -137,7 +146,7 @@ function extractTextMetadata(text) {
     projectNo: extractLabelValue(normalized, FIELD_LABELS.projectNo),
     designer: extractLabelValue(normalized, FIELD_LABELS.designer),
     sourceTool: extractLabelValue(normalized, FIELD_LABELS.sourceTool),
-    toolVersion: extractLabelValue(normalized, FIELD_LABELS.toolVersion),
+    toolVersion: normalizeToolVersion(extractLabelValue(normalized, FIELD_LABELS.toolVersion)),
     outputTime: extractLabelValue(normalized, FIELD_LABELS.outputTime),
     fingerprints: unique((normalized.match(/CF-[0-9A-F]{16}/gi) || []).map(item => item.toUpperCase())),
   };
@@ -235,11 +244,12 @@ function analyzePackage(records, options = {}) {
   readable.filter(record => !record.projectNo).forEach(record => issues.push(buildIssue('warn', 'missing-project-no', `${record.file} 未能抽取計畫編號。`, [record.file])));
   const toolVersions = new Map();
   readable.forEach(record => {
-    if (!record.sourceTool || !record.toolVersion) return;
+    const toolVersion = normalizeToolVersion(record.toolVersion);
+    if (!record.sourceTool || !toolVersion) return;
     if (!toolVersions.has(record.sourceTool)) toolVersions.set(record.sourceTool, new Map());
     const versions = toolVersions.get(record.sourceTool);
-    if (!versions.has(record.toolVersion)) versions.set(record.toolVersion, []);
-    versions.get(record.toolVersion).push(record.file);
+    if (!versions.has(toolVersion)) versions.set(toolVersion, []);
+    versions.get(toolVersion).push(record.file);
   });
   toolVersions.forEach((versions, sourceTool) => {
     if (versions.size > 1) issues.push(buildIssue('error', 'tool-version-conflict', `${sourceTool} 使用多個工具版本：${[...versions.keys()].join(' / ')}`, [...versions.values()].flat()));
@@ -321,4 +331,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { PAGE_ONLY_NEEDLES, normalizeText, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };
+module.exports = { PAGE_ONLY_NEEDLES, normalizeText, cleanMetadataValue, normalizeToolVersion, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };
