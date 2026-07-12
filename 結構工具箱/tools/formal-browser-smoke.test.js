@@ -225,6 +225,23 @@ function waitForProcessExit(child, timeoutMs = 5000) {
   });
 }
 
+async function terminateProcessTree(child) {
+  if (!child || !Number.isInteger(child.pid)) return;
+  if (process.platform === 'win32') {
+    await new Promise(resolve => {
+      const killer = spawn('taskkill', ['/pid', String(child.pid), '/t', '/f'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      killer.once('error', resolve);
+      killer.once('exit', resolve);
+    });
+  } else {
+    child.kill('SIGKILL');
+  }
+  await waitForProcessExit(child, 5000);
+}
+
 async function removeDirectoryBestEffort(directoryPath) {
   const resolved = path.resolve(directoryPath);
   assert.ok(resolved.startsWith(path.resolve(os.tmpdir())), `refusing to remove non-temp directory: ${resolved}`);
@@ -293,8 +310,7 @@ async function launchEdgeCdpWithRetry(edgePath, browserArgs, options, versionUrl
     } catch (error) {
       lastError = error;
       if (edge && edge.exitCode === null) {
-        edge.kill();
-        await waitForProcessExit(edge, 5000);
+        await terminateProcessTree(edge);
       }
       const canRetry = attempt < retryDelaysMs.length - 1 && isTransientEdgeLaunchError(error);
       if (!canRetry) throw error;
@@ -2269,13 +2285,11 @@ async function main() {
     );
     await client.send('Browser.close').catch(() => {});
     await waitForProcessExit(edge, 5000);
+    await terminateProcessTree(edge);
     console.log(`formal browser smoke OK (${formalTools.length} tools, ${viewports.length} viewports, renderedEvidence=${renderedEvidenceRecords.length}, summary=${renderedSummary.summaryPath})`);
   } finally {
     if (client) client.close();
-    if (edge && edge.exitCode === null) {
-      edge.kill();
-      await waitForProcessExit(edge, 5000);
-    }
+    await terminateProcessTree(edge);
     if (server) {
       await new Promise(resolve => server.close(resolve));
     }

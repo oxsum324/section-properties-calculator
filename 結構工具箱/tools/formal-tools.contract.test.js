@@ -149,6 +149,12 @@ const traceRequiredToolKeys = [
   'wind-cc',
   'wind-open-roof',
   'wind-parapet',
+  'wind-object-solid',
+  'wind-object-frame',
+  'wind-lattice-tower',
+  'wind-object-tower',
+  'wind-fence-sign',
+  'wind-sign-pole',
   'seismic-force',
   'seismic-appendage',
   'seismic-misc',
@@ -322,7 +328,7 @@ const windReportSource = readText(toolboxFile('core/wind-report.js'));
   'tools/地震力/seismic-dynamic.html',
 ].forEach(relativePath => {
   const html = readText(toolboxFile(relativePath));
-  ['window.ToolReportUI.buildReportTrace', '產出工具', '工具版本', '輸出時間', '計算指紋'].forEach(needle => {
+  ['window.ToolReportUI.buildReportTrace', 'reportTrace.sourceTrace.tool', 'reportTrace.sourceTrace.version', '產出工具', '工具版本', '輸出時間', '計算指紋'].forEach(needle => {
     assertIncludes(html, needle, `${relativePath} formal trace ${needle}`);
   });
 });
@@ -975,6 +981,24 @@ for (const inlineValidationPage of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertNoIncludes(reportBody, needle, 'wind-sign-pole report excludes page-only readiness wording'));
+}
+
+for (const [relativePath, reportFunction, openFunction] of [
+  ['tools/風力/wind-object-solid.html', 'buildSolidObjectReportHtml', 'openSolidObjectReport'],
+  ['tools/風力/wind-object-frame.html', 'buildFrameObjectReportHtml', 'openFrameObjectReport'],
+  ['tools/風力/wind-lattice-tower.html', 'buildLatticeTowerReportHtml', 'openLatticeTowerReport'],
+  ['tools/風力/wind-object-tower.html', 'buildTowerObjectReportHtml', 'openTowerObjectReport'],
+  ['tools/風力/wind-fence-sign.html', 'buildFenceSignReportHtml', 'openFenceSignReport'],
+  ['tools/風力/wind-sign-pole.html', 'buildSignPoleReportHtml', 'openSignPoleReport']
+]) {
+  const html = readText(toolboxFile(relativePath));
+  const reportStart = html.indexOf(`function ${reportFunction}()`);
+  const reportEnd = html.indexOf(`function ${openFunction}()`, reportStart);
+  assert.ok(reportStart >= 0 && reportEnd > reportStart, `${relativePath} trace report body isolated`);
+  const reportBody = html.slice(reportStart, reportEnd);
+  ['window.ToolReportUI.buildReportTrace', '產出工具', '工具版本', '輸出時間', '計算指紋'].forEach(needle => {
+    assertIncludes(reportBody, needle, `${relativePath} formal trace ${needle}`);
+  });
 }
 
 {
