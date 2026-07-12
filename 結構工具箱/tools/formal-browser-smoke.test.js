@@ -1414,9 +1414,19 @@ function windOverviewProjectStorageExpression() {
     };
     localStorage.setItem(draftStorageKey, JSON.stringify(draftPayload));
     const loadDraftButton = await waitFor('[data-project-storage-draft-load]');
+    let previewShownBeforeApply = false;
+    let previewText = '';
     if (loadDraftButton) {
       loadDraftButton.click();
       await settle(3);
+      const preview = document.querySelector('[data-project-storage-preview]');
+      previewShownBeforeApply = !!preview && !preview.hidden;
+      previewText = normalizeText(preview?.textContent || '');
+      const applyDraftButton = await waitFor('[data-project-storage-apply]');
+      if (applyDraftButton) {
+        applyDraftButton.click();
+        await settle(3);
+      }
     }
     const summaryText = normalizeText(document.getElementById('summaryBox')?.textContent || '');
     const statusText = normalizeText(document.querySelector('[data-project-storage-status]')?.textContent || '');
@@ -1424,6 +1434,8 @@ function windOverviewProjectStorageExpression() {
     return {
       hasProjectStorageBar: !!document.querySelector('.project-storage-bar'),
       hasLoadDraftButton: !!loadDraftButton,
+      previewShownBeforeApply,
+      previewText,
       beforeSummary,
       projectName: document.getElementById('projName')?.value || '',
       projectNo: document.getElementById('projNo')?.value || '',
@@ -1764,6 +1776,8 @@ function assertSeismicDynamicProjectRestoreState(state, label) {
 function assertWindOverviewProjectStorageState(state, label) {
   assert.equal(state.hasProjectStorageBar, true, `${label} wind-overview project storage bar exists`);
   assert.equal(state.hasLoadDraftButton, true, `${label} wind-overview project storage draft load button exists`);
+  assert.equal(state.previewShownBeforeApply, true, `${label} wind-overview preview requires confirmation before applying draft`);
+  assert.ok(state.previewText.includes('儲存格式 0.1.0'), `${label} wind-overview preview exposes legacy storage version`);
   assert.ok(state.beforeSummary.includes('舊案名'), `${label} wind-overview baseline summary uses existing localStorage`);
   assert.equal(state.projectName, '', `${label} wind-overview draft restore clears project name`);
   assert.equal(state.projectNo, 'OVERVIEW-001', `${label} wind-overview draft restore keeps project number`);

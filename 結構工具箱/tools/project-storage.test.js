@@ -59,6 +59,30 @@ assert.deepEqual(fieldC.events, ['input', 'change']);
 assert.equal(fieldD.value, '驗證者');
 assert.deepEqual(fieldD.events, ['input', 'change']);
 
+const compatibility = Storage.inspectPayload({
+  schema: 'tool-project-storage.v1',
+  storageVersion: '0.1.0',
+  tool: { id: 'wind-kzt', name: 'Kzt', version: 'V0' },
+  fields: {
+    projName: { type: 'text', value: '舊案' },
+    checkDetail: { type: 'text', value: '不應套用' },
+    retiredInput: { type: 'number', value: '12' },
+  },
+}, { id: 'wind-kzt', name: 'Kzt', version: 'V1' }, fakeDocument);
+assert.equal(compatibility.storageVersion, '0.1.0');
+assert.deepEqual(compatibility.unknownFieldIds, ['retiredInput']);
+assert.ok(compatibility.missingFieldIds.includes('projNo'));
+assert.deepEqual(compatibility.incompatibleFieldIds, ['checkDetail']);
+assert.ok(compatibility.notices.some(notice => notice.includes('儲存格式 0.1.0')));
+assert.ok(compatibility.notices.some(notice => notice.includes('工具版本 V0')));
+
+const mismatchedApply = Storage.applyFields({
+  checkDetail: { type: 'text', value: '不應套用' },
+}, fakeDocument);
+assert.deepEqual(mismatchedApply.appliedFieldIds, []);
+assert.deepEqual(mismatchedApply.skippedFieldIds, ['checkDetail']);
+assert.equal(fieldC.checked, false);
+
 const payload = Storage.buildPayload({ id: 'wind-kzt', name: 'Kzt' }, fakeDocument);
 assert.equal(payload.schema, 'tool-project-storage.v1');
 assert.equal(payload.tool.id, 'wind-kzt');
@@ -70,5 +94,7 @@ const storageSource = require('fs').readFileSync(require.resolve('./project-stor
 assert(storageSource.includes("['runCheck', 'calc', 'calculate', 'compute', 'renderSummaryFromFields', 'renderSummary', 'loadOverview']"), 'project storage refreshPage checks renderSummaryFromFields before loadOverview');
 assert(storageSource.includes('continue;'), 'project storage refreshPage keeps trying later refresh candidates after an earlier helper throws');
 assert(storageSource.includes("@media print{.' + CONTROL_CLASS + '{display:none!important;}}"), 'project storage bar stays screen-only and does not print into PDF output');
+assert(storageSource.includes('data-project-storage-preview'), 'project storage shows compatibility preview before applying a saved case');
+assert(storageSource.includes('data-project-storage-apply'), 'project storage requires explicit application after preview');
 
 console.log('project storage helper OK');
