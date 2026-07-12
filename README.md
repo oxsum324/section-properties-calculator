@@ -31,6 +31,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - 鋼構正式頁 regression：
   [鋼構工具/steel-formal.regression-test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/steel-formal.regression-test.js:1)
   - 固定檢查鋼梁 / 鋼柱正式頁、共用報表 helper、page-only 產報前檢查邊界，並把 HTML 彈窗型計算書轉成可讀文字，確認標題、計畫資訊、主要章節與 page-only wording 排除清單。
+- 鋼梁 / 鋼柱既有案件延續頁：
+  - 只供既有案件延續或復核比較；必須選擇用途並確認後，才可產生「舊案延續計算記錄」。頁面本體的直接列印不提供計算附件，新案正式計算附件必須由鋼梁 / 鋼柱正式頁產出。
 - RC 工具入口：
   [鋼筋混凝土/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/index.html:1)
 - 基礎局部檢核：

@@ -547,6 +547,9 @@ assert.equal(repoDocs.homeJs.includes("categories: ['seismic', 'analysis'"), fal
   assertIncludes(html, reportTitle, `${label} report title classification`);
   assertIncludes(html, '不得作為新案正式計算附件', `${label} report excludes new-project use`);
   assertIncludes(html, '新案正式計算附件必須由', `${label} report points new projects to formal page`);
+  assertIncludes(html, 'id="legacyDirectPrintNotice"', `${label} direct-print boundary notice`);
+  assertIncludes(html, 'body > * { display:none !important; }', `${label} direct print hides live calculation page`);
+  assertIncludes(html, '#legacyDirectPrintNotice { display:block !important;', `${label} direct print only shows boundary notice`);
 });
 assertFunctionTemplateExcludes(repoDocs.steelBeam, 'buildBeamReport', 'openReport({', pageOnlyReportStatusNeedles, 'steel beam legacy report excludes page-only readiness wording');
 assertFunctionTemplateExcludes(repoDocs.steelColumn, 'buildColumnReport', 'openReport({', pageOnlyReportStatusNeedles, 'steel column legacy report excludes page-only readiness wording');

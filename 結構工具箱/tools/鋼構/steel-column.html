@@ -32,6 +32,7 @@
   .legacy-report-confirm input { width:16px; height:16px; margin:0; accent-color:#c2410c; }
   .legacy-purpose-select { display:inline-flex; align-items:center; gap:5px; font-size:0.78em; font-weight:700; color:#7c2d12; white-space:nowrap; }
   .legacy-purpose-select select { max-width:180px; padding:4px 6px; border:1px solid #fdba74; border-radius:4px; background:#fff7ed; color:#7c2d12; font:inherit; }
+  .legacy-direct-print-notice { display:none; }
   .mode-bar__report:disabled { opacity:.45; cursor:not-allowed; }
   .input-status { min-height:22px; margin-top:8px; color:#991b1b; font-size:0.85em; line-height:1.6; font-weight:700; }
   .input-status:empty { display:none; }
@@ -68,6 +69,8 @@
   @media print {
     @page { size:A4; margin:15mm 12mm; }
     body { background:#fff !important; color:#000 !important; font-size:10pt; }
+    body > * { display:none !important; }
+    #legacyDirectPrintNotice { display:block !important; max-width:150mm; margin:60mm auto 0; padding:12mm; border:1px solid #111; font-size:12pt; line-height:1.8; }
     .mode-bar { background:#fff !important; border-bottom:2px solid #000; color:#000 !important; }
     .mode-bar span { color:#000 !important; }
     .two-col { display:block !important; }
@@ -84,6 +87,7 @@
 </style>
 </head>
 <body>
+<div id="legacyDirectPrintNotice" class="legacy-direct-print-notice"><strong>此頁直接列印不提供計算附件。</strong><br>請先確認既有案件用途，再使用「鋼柱舊案延續計算記錄」產生可列印輸出；新案正式計算附件必須由鋼柱正式頁面產出。</div>
 <header>
   <h1>鋼柱設計與檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
   <p>LRFD (AISC 360) / ASD (傳統容許應力法) 雙模式 ｜ 台灣鋼結構設計規範</p>

@@ -1271,6 +1271,27 @@ function expectedPreflightEvidenceText(payload) {
   return '正式交付請以完整檢查或正式放行結果為準。';
 }
 
+async function assertLegacyDirectPrintBlocked(client, sessionId, legacyTool, label) {
+  await setMedia(client, sessionId, 'print');
+  try {
+    const printState = await evaluate(client, sessionId, `(() => {
+      const notice = document.getElementById('legacyDirectPrintNotice');
+      const livePage = document.querySelector('.two-col');
+      return {
+        noticeVisible: !!notice && window.getComputedStyle(notice).display !== 'none',
+        noticeText: (notice?.textContent || '').replace(/\\s+/g, ' ').trim(),
+        livePageVisible: !!livePage && livePage.getClientRects().length > 0,
+      };
+    })()`);
+    assert.equal(printState.noticeVisible, true, `${label} ${legacyTool.key} direct print shows boundary notice`);
+    assert.ok(printState.noticeText.includes('直接列印不提供計算附件'), `${label} ${legacyTool.key} direct print boundary copy`);
+    assert.ok(printState.noticeText.includes(legacyTool.reportTitle), `${label} ${legacyTool.key} direct print points to gated output`);
+    assert.equal(printState.livePageVisible, false, `${label} ${legacyTool.key} direct print hides live calculation page`);
+  } finally {
+    await setMedia(client, sessionId, 'screen');
+  }
+}
+
 function expectedPreflightStatusLabel(payload) {
   return payload && payload.pass === true ? '通過' : '異常';
 }
@@ -1813,6 +1834,7 @@ async function main() {
           assert.deepEqual(completeResult.errors, [], `${label} complete console/dialog errors: ${completeResult.errors.join(' | ')}`);
           assertLegacyReportState(completeResult.state, legacyTool, label);
           await assertPageOnlyReadinessHiddenInPrint(client, sessionId, legacyTool, label);
+          await assertLegacyDirectPrintBlocked(client, sessionId, legacyTool, label);
 
           const placeholderResult = await navigateAndInspect(
             client,
