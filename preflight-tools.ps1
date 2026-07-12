@@ -1196,6 +1196,11 @@ node 結構工具箱/tools/delivery-artifacts.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageCheckCommand = @'
+node 結構工具箱/tools/attachment-package-check.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1960,6 +1965,13 @@ $checks = @(
     label = "Delivery artifact governance contract"
     workdir = $root
     command = $deliveryArtifactsContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-check"
+    label = "Attachment package consistency check"
+    workdir = $root
+    command = $attachmentPackageCheckCommand
     slow = $false
   },
   [pscustomobject]@{
