@@ -69,6 +69,7 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "reportTraceRequired": true,
       "popupReportModes": [
         "simple",
         "detail"
@@ -209,6 +210,7 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "reportTraceRequired": true,
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
@@ -350,6 +352,7 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "reportTraceRequired": true,
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
@@ -502,6 +505,7 @@
       "calcButton": "btnCalc",
       "reportButtonSelector": ".btn-print",
       "reportMode": true,
+      "reportTraceRequired": true,
       "exportButton": "btnExportCase",
       "importButton": "btnImportCase",
       "jsonRoundTrip": true,
@@ -1468,6 +1472,7 @@
       "calcButton": "btnCalc",
       "reportButton": "btnReport",
       "reportMode": true,
+      "reportTraceRequired": true,
       "popupReportModes": [
         "simple",
         "detail"
@@ -1610,6 +1615,7 @@
       "importButton": "btnImportCaseJson",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "reportTraceRequired": true,
       "diagramSelector": ".line-h2-diagram",
       "diagramRoleNeedles": [
         "fph-arrow-zone",
@@ -1768,6 +1774,7 @@
       "importButton": "btnImportCaseJson",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "reportTraceRequired": true,
       "diagramSelector": ".line-h2-diagram",
       "diagramRoleNeedles": [
         "vh-arrow-zone",
@@ -1974,6 +1981,7 @@
       "importButton": "btnImportCaseJson",
       "jsonRoundTrip": true,
       "reportMode": true,
+      "reportTraceRequired": true,
       "diagramSelector": "#dynamicSpectrumChart",
       "diagramRoleNeedles": [
         "dynamic-spectrum-chart"

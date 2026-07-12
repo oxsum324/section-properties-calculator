@@ -1416,6 +1416,12 @@ function openMiscReport() {
   const isCustomType = typeIdx === -1;
   const limitWarning = getHeightLimitWarning(r, r.hn);
   const includeDetail = getPrintReportMode() === 'detail';
+  const reportTrace = window.ToolReportUI.buildReportTrace({
+    title: '雜項工作物地震力計算書',
+    subtitle: '依「建築物耐震設計規範及解說」113 年版｜第五章雜項工作物',
+    outputSource: { tool: '雜項工作物地震力', version: TOOL_VERSION },
+    snapshot: { reportMode: getPrintReportMode(), result: r },
+  });
   const diagramHtml = renderMiscDiagram(r, { compact: true });
   const resultGridHtml = document.getElementById('miscResult')?.querySelector('.results-grid')?.outerHTML || '';
   const calcDetailHtml = document.getElementById('miscResult')?.querySelector('.step')?.outerHTML || document.getElementById('miscResult')?.innerHTML || '';
@@ -1503,6 +1509,7 @@ function openMiscReport() {
     .rep-header h1 { margin:0 0 4px; font-size:22px; }
     .rep-header .sub { color:#555; font-size:13px; }
     .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
+    .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
     .rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
     .rep-meta b { display:inline-block; min-width:64px; color:#444; }
     .rep-summary { margin:12px 0 20px; padding:14px 18px; border-radius:5px; font-size:18px; font-weight:700; text-align:center; background:#ecfeff; color:#0f766e; border:2px solid #0f766e; }
@@ -1566,11 +1573,15 @@ function openMiscReport() {
         <h1>雜項工作物地震力計算書</h1>
         <div class="sub">依「建築物耐震設計規範及解說」113 年版｜第五章雜項工作物</div>
       </div>
-      <div class="rep-meta">
+      <div class="rep-meta rep-meta--traceable">
         <div><b>計畫名稱</b>${esc(proj.name || '—')}</div>
         <div><b>計畫編號</b>${esc(proj.no || '—')}</div>
         <div><b>設計人員</b>${esc(proj.designer || '—')}</div>
         <div><b>製表日期</b>${esc(today)}</div>
+        <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool || '—')}</div>
+        <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version || '—')}</div>
+        <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
+        <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
       </div>
       ${includeDetail ? detailedReportHtml : simpleReportHtml}
       <section class="rep-block">

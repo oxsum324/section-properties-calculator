@@ -912,7 +912,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
   }
 
   const popupLabel = `${tool.key}:${mode}:${projectMetaState}`;
-  const popupTarget = await waitForNewPageTarget(client, existingTargetIds, popupLabel);
+  const popupTarget = await waitForNewPageTarget(client, existingTargetIds, `${popupLabel} :: ${JSON.stringify(openState)}`);
   const attached = await client.send('Target.attachToTarget', {
     targetId: popupTarget.targetId,
     flatten: true,
@@ -1550,6 +1550,9 @@ function reportPopupOpenExpression(tool, mode = null, projectMetaState = 'curren
     const reportMode = ${JSON.stringify(mode)};
     const projectState = ${JSON.stringify(projectMetaState)};
     const reportModeControls = ${JSON.stringify(tool.reportModeControls || null)};
+    const runtimeErrors = [];
+    const onError = event => runtimeErrors.push(String(event.message || event.error?.message || 'unknown page error'));
+    window.addEventListener('error', onError);
     const setProjectField = (id, value) => {
       const node = byId(id);
       if (!node) return;
@@ -1596,7 +1599,14 @@ function reportPopupOpenExpression(tool, mode = null, projectMetaState = 'curren
     if (!button) return { mode: reportMode || 'default', missingButton: true };
     button.click();
     await settle(2);
-    return { mode: reportMode || 'default', missingButton: false };
+    window.removeEventListener('error', onError);
+    return {
+      mode: reportMode || 'default',
+      missingButton: false,
+      reportStatus: (document.getElementById('windReportStatus')?.textContent || '').replace(/\\s+/g, ' ').trim(),
+      traceHelper: typeof window.ToolReportUI?.buildReportTrace,
+      runtimeErrors,
+    };
   })()`;
 }
 
@@ -1731,6 +1741,13 @@ function assertReportContentState(state, tool, label, mode = 'default') {
   for (const needle of disclosureNeedles) {
     const auditHtml = state.auditHtml || state.html;
     assert.ok(auditHtml.includes(needle), `${label} ${tool.key} ${mode} report discloses ${needle}`);
+  }
+  if (tool.reportTraceRequired) {
+    const auditHtml = state.auditHtml || state.html;
+    ['產出工具', '工具版本', '輸出時間', '計算指紋'].forEach(needle => {
+      assert.ok(auditHtml.includes(needle), `${label} ${tool.key} ${mode} report trace includes ${needle}`);
+    });
+    assert.match(auditHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, `${label} ${tool.key} ${mode} report trace fingerprint`);
   }
   assertReportExpectations(state, tool, label, mode);
 }
@@ -2169,7 +2186,12 @@ async function main() {
             label: `${tool.key} formal report`,
             renderer: tool.reportMode ? 'formal-detailed' : 'formal-default',
             titleNeedle: tool.titleNeedle,
-            requiredNeedles: [tool.titleNeedle, '計畫名稱', ...(tool.reportNeedles || [])],
+            requiredNeedles: [
+              tool.titleNeedle,
+              '計畫名稱',
+              ...(tool.reportNeedles || []),
+              ...(tool.reportTraceRequired ? ['產出工具', '工具版本', '輸出時間', '計算指紋'] : []),
+            ],
             forbiddenNeedles: [
               ...(formalManifest.reportForbiddenNeedles || []),
               ...(formalManifest.reportPageOnlyForbiddenNeedles || []),
@@ -2191,7 +2213,12 @@ async function main() {
               label: 'shared formal summary layout',
               renderer: 'formal-summary',
               titleNeedle: tool.titleNeedle,
-              requiredNeedles: [tool.titleNeedle, '計畫名稱', ...(tool.reportNeedles || [])],
+              requiredNeedles: [
+                tool.titleNeedle,
+                '計畫名稱',
+                ...(tool.reportNeedles || []),
+                ...(tool.reportTraceRequired ? ['產出工具', '工具版本', '輸出時間', '計算指紋'] : []),
+              ],
               forbiddenNeedles: [
                 ...(formalManifest.reportForbiddenNeedles || []),
                 ...(formalManifest.reportPageOnlyForbiddenNeedles || []),

@@ -77,6 +77,7 @@ function buildCalculationFingerprint(cfg) {
     steps: cfg.steps || [],
     symbols: cfg.symbols || [],
     notes: cfg.notes || [],
+    snapshot: cfg.snapshot || {},
   });
   const source = JSON.stringify(snapshot);
   return `CF-${fingerprintHash(source, 0x811C9DC5)}${fingerprintHash(source, 0x9E3779B9)}`;
@@ -90,6 +91,29 @@ function getReportSourceTrace(cfg) {
   const version = String(configured.version || cfg.toolVersion || versionMatch?.[1] || '').trim();
   const tool = rawTool.replace(/\s*V\d+(?:\.\d+)*(?:[-+.\w]*)?\s*$/i, '').trim() || String(cfg.title || '').trim();
   return { tool, version };
+}
+
+function buildReportTrace(cfg = {}) {
+  const generatedAt = cfg.generatedAt instanceof Date ? cfg.generatedAt : new Date(cfg.generatedAt || Date.now());
+  const sourceTrace = getReportSourceTrace(cfg);
+  const calculationFingerprint = buildCalculationFingerprint({
+    title: cfg.title || '',
+    subtitle: cfg.subtitle || '',
+    inputs: cfg.inputs || [],
+    checks: cfg.checks || [],
+    summary: cfg.summary || {},
+    summaryFacts: cfg.summaryFacts || [],
+    steps: cfg.steps || [],
+    symbols: cfg.symbols || [],
+    notes: cfg.notes || [],
+    snapshot: cfg.snapshot || {},
+    calculationFingerprint: cfg.calculationFingerprint,
+  });
+  return {
+    sourceTrace,
+    generatedAt: formatReportTimestamp(generatedAt),
+    calculationFingerprint,
+  };
 }
 
 function hasBlankFieldValues(ids, resolver) {
@@ -140,6 +164,7 @@ if (typeof window !== 'undefined') {
     escapeHtml: escapeReportHtml,
     normalizeProjectFieldValue,
     hasBlankFieldValues,
+    buildReportTrace,
     renderStatusGridPanel,
   });
   window.ToolReportUI = sharedReportUI;

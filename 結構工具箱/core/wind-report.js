@@ -37,6 +37,30 @@
     };
   }
 
+  function buildWindReportTrace({ title, subtitle, mode, summary, inputGroups }) {
+    const reportUi = global.ToolReportUI;
+    if (!reportUi || typeof reportUi.buildReportTrace !== 'function') {
+      showWindReportIssue('共用報告追溯模組未載入，無法產生正式計算書。');
+      return null;
+    }
+    const headerTitle = textFrom(document.querySelector('header h1')) || title;
+    const displayedVersion = headerTitle.match(/(?:^|\s)(V\d+(?:\.\d+)*(?:[-+.\w]*)?)(?=\s|$)/i)?.[1] || '';
+    const tool = headerTitle.replace(/\s*V\d+(?:\.\d+)*(?:[-+.\w]*)?\s*$/i, '').trim() || title;
+    const version = typeof TOOL_VERSION !== 'undefined' && TOOL_VERSION
+      ? String(TOOL_VERSION).trim()
+      : displayedVersion;
+    return reportUi.buildReportTrace({
+      title,
+      subtitle,
+      outputSource: { tool, version },
+      snapshot: {
+        reportMode: mode,
+        summary: { ok: summary?.ok, text: summary?.text || '' },
+        inputs: inputGroups || [],
+      },
+    });
+  }
+
   function isProjectMetaMissing(projectInfo = project()) {
     return isBlankProjectMetaValue(projectInfo?.name)
       || isBlankProjectMetaValue(projectInfo?.no)
@@ -106,6 +130,19 @@
     if (!status) return;
     status.hidden = false;
     status.textContent = message;
+  }
+
+  function openWindReportWindow() {
+    const reportWindow = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
+    if (!reportWindow) {
+      showWindReportIssue('請允許彈出視窗以開啟計算書。');
+      return null;
+    }
+    return reportWindow;
+  }
+
+  function closeWindReportWindow(reportWindow) {
+    try { reportWindow?.close(); } catch (_) {}
   }
 
   function normalizeStatusGridItem(item) {
@@ -668,8 +705,11 @@ function closeReportWindow() {
   }
 
   function openWindForceReport() {
+    const w = openWindReportWindow();
+    if (!w) return;
     const calcResult = typeof global.calc === 'function' ? global.calc() : true;
     if (calcResult === false) {
+      closeWindReportWindow(w);
       showWindReportIssue('輸入條件尚未通過，無法產生計算書。');
       return;
     }
@@ -684,7 +724,10 @@ function closeReportWindow() {
     const mode = currentReportMode();
     const isSummaryReport = mode === 'summary';
     const modeLabel = reportModeLabel(mode);
-    const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(collectInputGroups()) : '';
+    const inputGroups = collectInputGroups();
+    const reportTrace = buildWindReportTrace({ title, subtitle, mode, summary, inputGroups });
+    if (!reportTrace) return;
+    const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(inputGroups) : '';
     const notes = collectNotes();
     const notesHtml = !isSummaryReport && reportOpt('rep_notes', false) && notes.length ? `
       <section class="rep-block">
@@ -706,6 +749,7 @@ body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
+.rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
 .rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
 .rep-meta b { display:inline-block; min-width:64px; color:#444; }
 .rep-summary { margin:12px 0 20px; padding:14px 18px; border-radius:5px; font-size:18px; font-weight:700; text-align:center; }
@@ -761,12 +805,16 @@ ${reportToolbarHtml()}
     <h1>${esc(title)} 計算書</h1>
     ${subtitle ? `<div class="sub">${esc(subtitle)}</div>` : ''}
   </div>
-  <div class="rep-meta">
+  <div class="rep-meta rep-meta--traceable">
     <div><b>計畫名稱</b>${esc(proj.name) || '—'}</div>
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
     <div><b>設計人員</b>${esc(proj.designer) || '—'}</div>
     <div><b>製表日期</b>${esc(proj.date)}</div>
     <div><b>計算書模式</b>${esc(modeLabel)}</div>
+    <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool) || '—'}</div>
+    <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version) || '—'}</div>
+    <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
+    <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
   </div>
   ${reportOpt('rep_summary', true) ? `<div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>` : ''}
   ${reportOpt('rep_summary', true) ? buildBannerKeySection() : ''}
@@ -791,19 +839,17 @@ ${reportToolbarHtml()}
 ${reportWindowScriptHtml()}
 </body>
 </html>`;
-    const w = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
-    if (!w) {
-      showWindReportIssue('請允許彈出視窗以開啟計算書。');
-      return;
-    }
     w.document.open();
     w.document.write(html);
     w.document.close();
   }
 
   function openWindGenericReport() {
+    const w = openWindReportWindow();
+    if (!w) return;
     const calcResult = typeof global.calc === 'function' ? global.calc() : true;
     if (calcResult === false) {
+      closeWindReportWindow(w);
       showWindReportIssue('輸入條件尚未通過，無法產生計算書。');
       return;
     }
@@ -818,7 +864,10 @@ ${reportWindowScriptHtml()}
     const mode = currentReportMode();
     const isSummaryReport = mode === 'summary';
     const modeLabel = reportModeLabel(mode);
-    const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(collectInputGroups()) : '';
+    const inputGroups = collectInputGroups();
+    const reportTrace = buildWindReportTrace({ title, subtitle, mode, summary, inputGroups });
+    if (!reportTrace) return;
+    const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(inputGroups) : '';
     const notes = Array.from(document.querySelectorAll('.main-layout > div:first-child .note'))
       .map(el => cleanText(el.textContent))
       .filter(Boolean);
@@ -847,6 +896,7 @@ body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
+.rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
 .rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
 .rep-meta b { display:inline-block; min-width:64px; color:#444; }
 .rep-summary { margin:12px 0 20px; padding:14px 18px; border-radius:5px; font-size:18px; font-weight:700; text-align:center; }
@@ -898,12 +948,16 @@ ${reportToolbarHtml()}
     <h1>${esc(title)} 計算書</h1>
     ${subtitle ? `<div class="sub">${esc(subtitle)}</div>` : ''}
   </div>
-  <div class="rep-meta">
+  <div class="rep-meta rep-meta--traceable">
     <div><b>計畫名稱</b>${esc(proj.name) || '—'}</div>
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
     <div><b>設計人員</b>${esc(proj.designer) || '—'}</div>
     <div><b>製表日期</b>${esc(proj.date)}</div>
     <div><b>計算書模式</b>${esc(modeLabel)}</div>
+    <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool) || '—'}</div>
+    <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version) || '—'}</div>
+    <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
+    <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
   </div>
   <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
   ${reportSections.filter(Boolean).join('')}
@@ -915,18 +969,12 @@ ${reportToolbarHtml()}
 ${reportWindowScriptHtml()}
 </body>
 </html>`;
-    const w = window.open('', '_blank', 'width=1100,height=1100,scrollbars=yes');
-    if (!w) {
-      showWindReportIssue('請允許彈出視窗以開啟計算書。');
-      return;
-    }
     w.document.open();
     w.document.write(html);
     w.document.close();
   }
 
   function openWindReport() {
-    if (typeof global.calc === 'function') global.calc();
     if (document.getElementById('controlTable')) {
       openWindForceReport();
       return;

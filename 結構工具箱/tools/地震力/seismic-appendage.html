@@ -1172,6 +1172,7 @@ function calcAppendagePage() {
     <div class="step" style="margin-top:12px;">
       <div class="step-title">第四章 — ${typeName} 地震力計算</div>
       <div class="step-body">
+        <div class="calc-unit">
         <strong>① 工址與構材條件</strong><br>
         S<sub>DS</sub> = <span class="val">${fmt(site.SDS,4)}</span> g，
         a<sub>p</sub> = ${ap}，
@@ -1181,39 +1182,52 @@ function calcAppendagePage() {
         h<sub>x</sub> = ${hx} m，
         h<sub>n</sub> = ${hn} m，
         h<sub>x</sub>/h<sub>n</sub> = ${fmt(hx / hn,3)}<br><br>
+        </div>
 
+        <div class="calc-unit">
         <strong>② 式(4-2) 容許耐震韌性容量 R<sub>pa</sub></strong><br>
         R<sub>pa</sub> = 1 + (R<sub>p</sub> − 1) / ${isTB ? '2.0' : '1.5'}<br>
         &emsp;= 1 + (${Rp} − 1) / ${isTB ? '2.0' : '1.5'}<br>
         &emsp;= <span class="val">${fmt(r.Rpa,3)}</span><br><br>
+        </div>
 
+        <div class="calc-unit">
         <strong>③ 式(4-1a) 附屬構造物水平地震力計算值</strong><br>
         F<sub>ph,a</sub> = 0.4 × S<sub>DS</sub> × I<sub>p</sub> × (a<sub>p</sub> / R<sub>pa</sub>) × (1 + 2h<sub>x</sub>/h<sub>n</sub>) × W<sub>p</sub><br>
         水平計算係數 C<sub>ph,a</sub> = 0.4 × ${fmt(site.SDS,4)} × ${Ip} × (${ap} / ${fmt(r.Rpa,3)}) × (1 + 2 × ${fmt(hx / hn,3)}) = <span class="val">${fmtCoeff(r.Cph_calc)}</span><br>
         F<sub>ph,a</sub> = C<sub>ph,a</sub>W<sub>p</sub> = ${fmtCoeff(r.Cph_calc)}W<sub>p</sub> = ${fmtCoeff(r.Cph_calc)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val">${fmt(r.Fph_calc,4)}</span> tf<br><br>
+        </div>
 
+        <div class="calc-unit">
         <strong>④ 式(4-1b) 上限值</strong><br>
         F<sub>ph,max</sub> = 1.6 × S<sub>DS</sub> × I<sub>p</sub> × W<sub>p</sub><br>
         C<sub>ph,max</sub> = 1.6 × ${fmt(site.SDS,4)} × ${Ip} = <span class="val">${fmtCoeff(r.Cph_max)}</span><br>
         F<sub>ph,max</sub> = C<sub>ph,max</sub>W<sub>p</sub> = ${fmtCoeff(r.Cph_max)}W<sub>p</sub> = ${fmtCoeff(r.Cph_max)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val">${fmt(r.Fph_max,4)}</span> tf<br><br>
+        </div>
 
+        <div class="calc-unit">
         <strong>⑤ 式(4-1c) 下限值</strong><br>
         F<sub>ph,min</sub> = 0.3 × S<sub>DS</sub> × I<sub>p</sub> × W<sub>p</sub><br>
         C<sub>ph,min</sub> = 0.3 × ${fmt(site.SDS,4)} × ${Ip} = <span class="val">${fmtCoeff(r.Cph_min)}</span><br>
         F<sub>ph,min</sub> = C<sub>ph,min</sub>W<sub>p</sub> = ${fmtCoeff(r.Cph_min)}W<sub>p</sub> = ${fmtCoeff(r.Cph_min)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val">${fmt(r.Fph_min,4)}</span> tf<br><br>
+        </div>
 
+        <div class="calc-unit">
         <strong>⑥ 水平設計地震力採用</strong><br>
         F<sub>ph</sub> = C<sub>ph</sub>W<sub>p</sub> = ${fmtCoeff(r.Cph)}W<sub>p</sub> = ${fmtCoeff(r.Cph)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val hl">${fmt(r.Fph,3)}</span> tf　(${ctrlLabel})<br><br>
+        </div>
 
+        <div class="calc-unit">
         <strong>⑦ 式(4-3) 垂直地震力</strong><br>
         F<sub>pv</sub> = ${isNF ? '2/3' : '1/2'} × F<sub>ph</sub><br>
         垂直係數 C<sub>pv</sub> = ${isNF ? '2/3' : '1/2'} × C<sub>ph</sub> = <span class="val">${fmtCoeff(Cpv)}</span><br>
         F<sub>pv</sub> = C<sub>pv</sub>W<sub>p</sub> = ${fmtCoeff(Cpv)}W<sub>p</sub> = ${fmtCoeff(Cpv)} × ${fmt(Wp,3)}<br>
         &emsp;= <span class="val hl">${fmt(Fpv,3)}</span> tf
+        </div>
       </div>
     </div>
   `;
@@ -1234,6 +1248,12 @@ function openAppendageReport() {
   const zoneText = [document.getElementById('zoneCity').value, document.getElementById('zoneDist').value].filter(Boolean).join(' ') || '手動輸入震區參數';
   const siteClassText = document.getElementById('siteClass').selectedOptions[0]?.textContent || '—';
   const includeCalcDetail = getPrintReportMode() === 'detail';
+  const reportTrace = window.ToolReportUI.buildReportTrace({
+    title: '附屬構造物地震力計算書',
+    subtitle: '依「建築物耐震設計規範及解說」113 年版｜第四章附屬構造物',
+    outputSource: { tool: '附屬構造物地震力', version: TOOL_VERSION },
+    snapshot: { reportMode: getPrintReportMode(), result: r },
+  });
   const calcDetailHtml = document.getElementById('appendResult')?.querySelector('.step')?.outerHTML || document.getElementById('appendResult')?.innerHTML || '';
   const detailedDiagramHtml = renderAppendageDiagram(r, { compact: true });
   const simpleDiagramHtml = renderAppendageDiagram(r, { compact: true, simple: true });
@@ -1308,6 +1328,7 @@ function openAppendageReport() {
     h1 { margin:0 0 6px; font-size:22px; }
     .sub { font-size:13px; color:#555; border-bottom:3px double #222; padding-bottom:12px; margin-bottom:14px; }
     .meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:12px 0 16px; }
+    .meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
     .meta div { border-bottom:1px dotted #888; padding:4px 0; }
     .summary { margin:12px 0 18px; padding:14px 18px; border-radius:6px; font-size:18px; font-weight:700; text-align:center; background:#faf5ff; color:#6d28d9; border:2px solid #c4b5fd; }
     .block { margin:14px 0 18px; page-break-inside:avoid; }
@@ -1323,6 +1344,7 @@ function openAppendageReport() {
     .result-item .unit { color:#64748b; font-size:0.82em; margin-left:4px; }
     .step-title { font-size:12px; font-weight:700; color:#6d28d9; margin-bottom:6px; padding:5px 10px; background:#faf5ff; border-left:4px solid #7c3aed; border-radius:0 6px 6px 0; }
     .step-body { font-size:12px; line-height:1.8; color:#1f2937; }
+    .step-body .calc-unit { break-inside:avoid; page-break-inside:avoid; }
     .step-body .val { font-weight:700; color:#6d28d9; font-family:"Consolas", monospace; }
     .step-body .val.hl { color:#4c1d95; }
     .detail-basis { margin:0 0 12px; padding:10px 12px; border:1px solid #ddd6fe; border-radius:8px; background:#faf5ff; font-size:12px; line-height:1.8; color:#374151; }
@@ -1339,11 +1361,15 @@ function openAppendageReport() {
     <div class="paper">
       <h1>附屬構造物地震力計算書</h1>
       <div class="sub">依「建築物耐震設計規範及解說」113 年版｜第四章附屬構造物</div>
-      <div class="meta">
+      <div class="meta meta--traceable">
         <div><b>計畫名稱</b>${escHtml(proj.name || '—')}</div>
         <div><b>計畫編號</b>${escHtml(proj.no || '—')}</div>
         <div><b>設計人員</b>${escHtml(proj.designer || '—')}</div>
         <div><b>製表日期</b>${escHtml(today)}</div>
+        <div><b>產出工具</b>${escHtml(reportTrace.sourceTrace.tool || '—')}</div>
+        <div><b>工具版本</b>${escHtml(reportTrace.sourceTrace.version || '—')}</div>
+        <div><b>輸出時間</b>${escHtml(reportTrace.generatedAt)}</div>
+        <div><b>計算指紋</b>${escHtml(reportTrace.calculationFingerprint)}</div>
       </div>
       ${includeCalcDetail ? detailedReportHtml : simpleReportHtml}
       <section class="block">

@@ -144,6 +144,21 @@ assert.deepEqual(
   tools.map(tool => tool.route),
   'formal tools requiredRoutes must match tool order'
 );
+const traceRequiredToolKeys = [
+  'wind-force',
+  'wind-cc',
+  'wind-open-roof',
+  'wind-parapet',
+  'seismic-force',
+  'seismic-appendage',
+  'seismic-misc',
+  'seismic-dynamic',
+];
+assert.deepEqual(
+  tools.filter(tool => tool.reportTraceRequired).map(tool => tool.key),
+  traceRequiredToolKeys,
+  'formal trace metadata coverage'
+);
 
 const repoDocs = {
   readme: readText(repoFile('README.md')),
@@ -224,6 +239,19 @@ assert.equal(sharedCompatPanel.className, 'report-readiness page-only-report-sta
 assertIncludes(sharedCompatPanel.innerHTML, '先補計畫名稱', 'shared report runtime helper priority items');
 assertIncludes(sharedCompatPanel.innerHTML, '控制值', 'shared report runtime helper tuple item label');
 assertIncludes(sharedCompatPanel.innerHTML, '風向 X', 'shared report runtime helper tuple item value');
+const sharedReportTrace = sharedReportRuntime.ToolReportUI.buildReportTrace({
+  title: 'QA 計算書',
+  outputSource: { tool: 'QA 正式工具', version: 'V9.9' },
+  snapshot: { control: 1.25, inputs: { A: 1, B: 2 } },
+  generatedAt: new Date('2026-07-12T12:34:56'),
+});
+assert.deepEqual(
+  JSON.parse(JSON.stringify(sharedReportTrace.sourceTrace)),
+  { tool: 'QA 正式工具', version: 'V9.9' },
+  'shared report trace source'
+);
+assert.equal(sharedReportTrace.generatedAt, '2026/07/12 12:34:56', 'shared report trace timestamp');
+assert.match(sharedReportTrace.calculationFingerprint, /^CF-[0-9A-F]{16}$/, 'shared report trace fingerprint');
 
 const windReportRuntimePath = toolboxFile('core/wind-report.js');
 const originalWindReport = global.WindReport;
@@ -262,6 +290,42 @@ if (originalWindReport === undefined) {
 } else {
   global.WindReport = originalWindReport;
 }
+
+[
+  'tools/風力/wind-force.html',
+  'tools/風力/wind-cc.html',
+  'tools/風力/wind-open-roof.html',
+  'tools/風力/wind-parapet.html',
+].forEach(relativePath => {
+  const html = readText(toolboxFile(relativePath));
+  assertIncludes(html, '../../core/ui/report.js', `${relativePath} loads shared trace helper`);
+  assertNoIncludes(html, '../../../鋼筋混凝土/shared/report.js', `${relativePath} does not load unrelated RC report helper`);
+});
+['產出工具', '工具版本', '輸出時間', '計算指紋', 'buildWindReportTrace'].forEach(needle => {
+  assertIncludes(readText(toolboxFile('core/wind-report.js')), needle, `wind report trace ${needle}`);
+});
+const windReportSource = readText(toolboxFile('core/wind-report.js'));
+['openWindForceReport', 'openWindGenericReport'].forEach(functionName => {
+  const start = windReportSource.indexOf(`function ${functionName}()`);
+  const end = windReportSource.indexOf('\n  function ', start + 1);
+  const body = windReportSource.slice(start, end === -1 ? undefined : end);
+  assert.ok(start >= 0, `${functionName} exists`);
+  assert.ok(
+    body.indexOf('const w = openWindReportWindow();') < body.indexOf('const calcResult ='),
+    `${functionName} reserves report popup before recalculation`
+  );
+});
+[
+  'tools/地震力/seismic-force.html',
+  'tools/地震力/seismic-appendage.html',
+  'tools/地震力/seismic-misc.html',
+  'tools/地震力/seismic-dynamic.html',
+].forEach(relativePath => {
+  const html = readText(toolboxFile(relativePath));
+  ['window.ToolReportUI.buildReportTrace', '產出工具', '工具版本', '輸出時間', '計算指紋'].forEach(needle => {
+    assertIncludes(html, needle, `${relativePath} formal trace ${needle}`);
+  });
+});
 
 [
   ['tools/風力/wind-force.html', "window.WindReport.normalizeProjectFieldValue(document.getElementById('projName').value)"],

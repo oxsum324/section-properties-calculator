@@ -1799,6 +1799,13 @@ function openDynamicReport() {
   const reportMode = document.getElementById('reportMode')?.value === 'summary' ? 'summary' : 'detailed';
   const isSummaryReport = reportMode === 'summary';
   const modeLabel = isSummaryReport ? '簡易結果' : '詳算式';
+  const { project: ignoredProject, ...calculation } = result;
+  const reportTrace = window.ToolReportUI.buildReportTrace({
+    title: '反應譜動力分析規範整理計算書',
+    subtitle: '依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求',
+    outputSource: { tool: '反應譜動力分析', version: TOOL_VERSION },
+    snapshot: { reportMode, includeModelCheck, calculation, x, y, modelCheck },
+  });
   const spectrumCanvas = document.getElementById('dynamicSpectrumChart');
   const spectrumImage = spectrumCanvas ? spectrumCanvas.toDataURL('image/png') : '';
   const html = `<!doctype html>
@@ -1812,6 +1819,7 @@ function openDynamicReport() {
     h1 { margin:0 0 6px; font-size:22px; }
     .sub { font-size:13px; color:#555; border-bottom:3px double #222; padding-bottom:12px; margin-bottom:14px; }
     .meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:12px 0 16px; }
+    .meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
     .meta div { border-bottom:1px dotted #888; padding:4px 0; }
     .summary { margin:12px 0 18px; padding:14px 18px; border-radius:6px; font-size:18px; font-weight:700; text-align:center; background:#ecfeff; color:#0f766e; border:2px solid #0f766e; }
     .block { margin:14px 0 18px; page-break-inside:avoid; }
@@ -1831,12 +1839,16 @@ function openDynamicReport() {
     <div class="paper">
       <h1>反應譜動力分析規範整理計算書</h1>
       <div class="sub">依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求</div>
-      <div class="meta">
+      <div class="meta meta--traceable">
         <div><b>計畫名稱</b>${esc(proj.name || '—')}</div>
         <div><b>計畫編號</b>${esc(proj.no || '—')}</div>
         <div><b>設計人員</b>${esc(proj.designer || '—')}</div>
         <div><b>製表日期</b>${esc(today)}</div>
         <div><b>計算書模式</b>${esc(modeLabel)}</div>
+        <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool || '—')}</div>
+        <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version || '—')}</div>
+        <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
+        <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
       </div>
       <div class="summary">X 向動力 / 調整要求 = ${esc(fmt(result.x.ratio,2))} ｜ Y 向動力 / 調整要求 = ${esc(fmt(result.y.ratio,2))}</div>
       <section class="block">

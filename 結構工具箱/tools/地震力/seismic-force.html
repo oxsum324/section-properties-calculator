@@ -2130,13 +2130,28 @@ function escReport(text) {
     .replace(/>/g, '&gt;');
 }
 
-function reportMetaHtml(project) {
+function buildSeismicReportTrace() {
+  const state = window._lastSeismicReport || {};
+  const { project: ignoredProject, ...calculation } = state;
+  return window.ToolReportUI.buildReportTrace({
+    title: '建築物耐震設計 — 等值靜力分析 計算書',
+    subtitle: '依「建築物耐震設計規範及解說」113 年版｜第二章靜力分析方法',
+    outputSource: { tool: '建築物耐震設計 — 等值靜力分析', version: TOOL_VERSION },
+    snapshot: { reportOptions: snapshotReportOptions(), calculation },
+  });
+}
+
+function reportMetaHtml(project, reportTrace) {
   return `
-    <div class="rep-meta">
+    <div class="rep-meta rep-meta--traceable">
       <div><b>計畫名稱</b>${escReport(project.name || '—')}</div>
       <div><b>計畫編號</b>${escReport(project.no || '—')}</div>
       <div><b>設計人員</b>${escReport(project.designer || '—')}</div>
       <div><b>製表日期</b>${escReport(new Date().toLocaleDateString('zh-TW'))}</div>
+      <div><b>產出工具</b>${escReport(reportTrace.sourceTrace.tool || '—')}</div>
+      <div><b>工具版本</b>${escReport(reportTrace.sourceTrace.version || '—')}</div>
+      <div><b>輸出時間</b>${escReport(reportTrace.generatedAt)}</div>
+      <div><b>計算指紋</b>${escReport(reportTrace.calculationFingerprint)}</div>
     </div>
   `;
 }
@@ -2261,6 +2276,7 @@ function openSeismicReport() {
     if (calc() === false) return;
   }
   const project = getProjectInfo();
+  const reportTrace = buildSeismicReportTrace();
   const spectrumImage = collectSeismicDiagrams()[0];
   const inputsHtml = reportOpt('rep_inputs', true) ? renderReportInputSections(collectSeismicInputs()) : '';
   const symbolsHtml = reportOpt('rep_symbols', true) ? renderReportSymbols(collectSeismicSymbols()) : '';
@@ -2293,6 +2309,7 @@ function openSeismicReport() {
     .rep-header h1 { margin:0 0 4px; font-size:22px; }
     .rep-header .sub { color:#555; font-size:13px; }
     .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px; font-size:12px; margin:14px 0 18px; }
+    .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
     .rep-meta div { border-bottom:1px dotted #888; padding:4px 0; }
     .rep-meta b { display:inline-block; min-width:64px; color:#444; }
     .rep-block { margin:14px 0 18px; page-break-inside: avoid; }
@@ -2355,7 +2372,7 @@ function openSeismicReport() {
         <h1>建築物耐震設計 — 等值靜力分析 計算書</h1>
         <div class="sub">依「建築物耐震設計規範及解說」113 年版｜第二章靜力分析方法</div>
       </div>
-      ${reportMetaHtml(project)}
+      ${reportMetaHtml(project, reportTrace)}
       ${buildSummaryIntroHtml()}
       ${buildDirectionalSummaryHtml()}
       ${reportOpt('rep_adopt', true) ? buildOriginalBlockHtml('2. 設計採用摘要', document.getElementById('bannerKey')?.innerHTML || '', 'banner-key') : ''}
