@@ -234,6 +234,77 @@ def main() -> int:
                     f'Expected saved project profile to replace fresh runtime state: {restored_project_state}'
                 )
 
+            migrated_profile_defaults = project_profile_page.evaluate(
+                """async () => {
+                  const payload = await buildProjectPayload();
+                  payload.inp.code_profiles = {seismic:'cns_seismic_113_conservative'};
+                  delete payload.inp.sp_ip_default;
+                  delete payload.inp.sp_seis_ap;
+                  delete payload.inp.sp_seis_rp;
+                  setStoredProjectRaw(JSON.stringify(payload));
+                  _v2MigrationToastShown = false;
+                  load();
+                  render();
+                  v2DetectAndShowMigrationToast();
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  const persisted = JSON.parse(getStoredProjectRaw().raw);
+                  return {
+                    runtimeProfile: inputs().code_profiles?.seismic || '',
+                    ip: document.getElementById('sp_ip_default')?.value || '',
+                    ap: document.getElementById('sp_seis_ap')?.value || '',
+                    rp: document.getElementById('sp_seis_rp')?.value || '',
+                    appliedDefaults: persisted.meta?.applied_defaults || [],
+                    persistStatus: persisted.meta?.migration_persist_status || '',
+                    toastShown: document.getElementById('v2-migration-toast')?.classList.contains('show') || false,
+                    toastHasActiveProfile: (document.getElementById('v2_migration_toast_body')?.innerText || '').includes('active profile'),
+                  };
+                }"""
+            )
+            expected_profile_default_fields = ['sp_ip_default', 'sp_seis_ap', 'sp_seis_rp']
+            if migrated_profile_defaults != {
+                'runtimeProfile': expected_conservative_id,
+                'ip': '1.5',
+                'ap': '1',
+                'rp': '2',
+                'appliedDefaults': expected_profile_default_fields,
+                'persistStatus': 'saved',
+                'toastShown': True,
+                'toastHasActiveProfile': True,
+            }:
+                raise AssertionError(
+                    f'Expected missing fields to follow active project profile: {migrated_profile_defaults}'
+                )
+
+            preserved_imported_manual_value = project_profile_page.evaluate(
+                """async () => {
+                  const payload = await buildProjectPayload();
+                  payload.inp.code_profiles = {seismic:'cns_seismic_113_conservative'};
+                  delete payload.inp.sp_ip_default;
+                  delete payload.inp.sp_seis_ap;
+                  payload.inp.sp_seis_rp = '2.35';
+                  setStoredProjectRaw(JSON.stringify(payload));
+                  load();
+                  render();
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  const persisted = JSON.parse(getStoredProjectRaw().raw);
+                  return {
+                    ip: document.getElementById('sp_ip_default')?.value || '',
+                    ap: document.getElementById('sp_seis_ap')?.value || '',
+                    rp: document.getElementById('sp_seis_rp')?.value || '',
+                    appliedDefaults: persisted.meta?.applied_defaults || [],
+                  };
+                }"""
+            )
+            if preserved_imported_manual_value != {
+                'ip': '1.5',
+                'ap': '1',
+                'rp': '2.35',
+                'appliedDefaults': ['sp_ip_default', 'sp_seis_ap'],
+            }:
+                raise AssertionError(
+                    f'Expected explicit imported Rp to survive profile default migration: {preserved_imported_manual_value}'
+                )
+
             cleared_legacy_state = project_profile_page.evaluate(
                 """async () => {
                   const payload = await buildProjectPayload();

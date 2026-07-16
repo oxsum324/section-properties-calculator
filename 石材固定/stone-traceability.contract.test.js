@@ -56,7 +56,7 @@ const expectedTools = [
   'stone-serviceability-report',
 ];
 
-assert(catalog.version === '0.3.0', 'stone traceability catalog version', catalog.version);
+assert(catalog.version === '0.4.0', 'stone traceability catalog version', catalog.version);
 assert(catalog.family === 'stone-traceability', 'stone traceability catalog family', catalog.family);
 assertString(catalog.description, 'stone traceability catalog description');
 assert(Array.isArray(catalog.tools), 'stone traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -139,6 +139,7 @@ assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `trace
   'PROFILE_INPUT_BINDINGS',
   'buildProfileInputUpdates',
   'normalizeProfileOverrides',
+  'buildProfileOwnedInputDefaults',
   'validateGovernanceMeta',
 ].forEach((needle) => {
   assert(codeProfiles.includes(needle), `stone code profile governance keeps ${needle}`, needle);
@@ -196,6 +197,10 @@ assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `trace
   'function v2GetRuntimeProfileOverride',
   'function v2SetRuntimeProfileOverride',
   'v2SetRuntimeProfileOverride(inp.code_profiles)',
+  'function v2ApplyImportedDefault',
+  'v2ProfileOwnedInputDefaults(profileOverride)',
+  'applied_defaults: appliedDefaults.length',
+  '缺少欄位已依目前設定補齊',
   '已同步 ${updatedCount} 個 profile 預設欄位',
   '保留 ${preservedCount} 個人工覆寫欄位',
 ].forEach((needle) => {
@@ -206,6 +211,8 @@ assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `trace
   'Expected saved project profile to replace fresh runtime state',
   'Expected default project to clear unrelated browser profile',
   'Expected in-memory project profile to survive storage failure',
+  'Expected missing fields to follow active project profile',
+  'Expected explicit imported Rp to survive profile default migration',
 ].forEach((needle) => {
   assert(uiSmoke.includes(needle), `stone project profile browser regression keeps ${needle}`, needle);
 });

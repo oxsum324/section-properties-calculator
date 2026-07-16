@@ -2,6 +2,20 @@
 
 本檔記錄石材固定計算書工具的主要版本變更。正式修改工具前後，請同步更新此檔、`APP_VERSION`、`SERVER_VERSION`，必要時也更新 `TEMPLATE_CATALOG_VERSION` 與回歸測試基準值。
 
+## V3.0.5 - 2026-07-16
+
+版本同步：`APP_VERSION = V3.0.5`；`SERVER_VERSION = 3.0.5`。
+
+### 重點：缺少 profile-owned 欄位時依 active profile 遷移
+
+- 修正舊版或外部專案 JSON 已指定保守耐震 profile、但缺少 `sp_ip_default`、`sp_seis_ap` 或 `sp_seis_rp` 時，migration 一律補成一般 profile 預設，可能形成「保守 profile + Rp = 2.5」矛盾狀態的問題。
+- 新增 `buildProfileOwnedInputDefaults()`：依正規化後的 active profile 取得 profile-owned 欄位預設；migration 只套用到缺失、`null` 或需補值的空白欄位。
+- 專案 JSON 明示的人工值不會被覆蓋；例如保守 profile 明示 `Rp = 2.35` 時，只補缺少的 `Ip / ap`，並保留 `Rp = 2.35`。
+- `meta.applied_defaults` 記錄本輪實際補值欄位；現行 schema 缺值也會寫回正規化專案，並與舊 schema 升級使用不同的畫面提示與 migration audit 類型。
+- 修正 migration toast 在實際套用預設值時仍宣稱「原始輸入未變動」的說明；現改為明示缺值已補齊、既有輸入保留。
+- registry smoke 增至 54 項，瀏覽器回歸新增保守 profile 缺值補齊、audit／toast 與人工 `Rp` 保留情境。
+- 條文語意追蹤 catalog 升級至 0.4.0；首頁與 classic 入口卡片同步顯示 V3.0.5。
+
 ## V3.0.4 - 2026-07-16
 
 版本同步：`APP_VERSION = V3.0.4`；`SERVER_VERSION = 3.0.4`。
