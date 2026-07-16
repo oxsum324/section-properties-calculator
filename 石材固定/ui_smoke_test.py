@@ -121,8 +121,81 @@ def main() -> int:
             if f'V{server.SERVER_VERSION} 任務導向介面' not in data['header']:
                 raise AssertionError('Expected header version to match server version')
 
-            keyboard_semantics = page.evaluate(
+            # Profile picker must update the editable values actually consumed by calc-core.
+            # Use an isolated browser context so this stateful scenario cannot affect the
+            # remaining dashboard and persistence checks in the main page.
+            profile_context = browser.new_context(viewport={'width': 1440, 'height': 1000})
+            profile_page = profile_context.new_page()
+            profile_page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
+            profile_page.wait_for_selector('.ap-picker-select[data-scope="seismic"]', timeout=30000)
+            profile_ids = profile_page.evaluate(
                 """() => ({
+                  defaultId: StoneCodeProfiles.DEFAULT_ACTIVE.seismic,
+                  conservativeId: 'cns_seismic_113_conservative',
+                  initialRp: document.getElementById('sp_seis_rp')?.value || '',
+                })"""
+            )
+            if profile_ids != {
+                'defaultId': 'cns_seismic_113',
+                'conservativeId': 'cns_seismic_113_conservative',
+                'initialRp': '2.5',
+            }:
+                raise AssertionError(f'Unexpected initial seismic profile state: {profile_ids}')
+
+            seismic_picker = '.ap-picker-select[data-scope="seismic"]'
+            profile_page.select_option(seismic_picker, profile_ids['conservativeId'])
+            profile_page.wait_for_function(
+                """profileId => {
+                  const stored = JSON.parse(localStorage.getItem('stone_v2_profile_override') || '{}');
+                  return stored.seismic === profileId
+                    && document.getElementById('sp_seis_rp')?.value === '2'
+                    && document.querySelector('.ap-picker-select[data-scope="seismic"]')?.value === profileId;
+                }""",
+                arg=profile_ids['conservativeId'],
+                timeout=10000,
+            )
+            conservative_state = profile_page.evaluate(
+                """() => ({
+                  selected: document.querySelector('.ap-picker-select[data-scope="seismic"]')?.value || '',
+                  stored: JSON.parse(localStorage.getItem('stone_v2_profile_override') || '{}').seismic || '',
+                  rp: document.getElementById('sp_seis_rp')?.value || '',
+                })"""
+            )
+            if conservative_state != {
+                'selected': profile_ids['conservativeId'],
+                'stored': profile_ids['conservativeId'],
+                'rp': '2',
+            }:
+                raise AssertionError(f'Expected conservative profile to synchronize Rp: {conservative_state}')
+
+            profile_page.select_option(seismic_picker, profile_ids['defaultId'])
+            profile_page.wait_for_function(
+                """() => {
+                  const stored = JSON.parse(localStorage.getItem('stone_v2_profile_override') || '{}');
+                  return !stored.seismic
+                    && document.getElementById('sp_seis_rp')?.value === '2.5'
+                    && document.querySelector('.ap-picker-select[data-scope="seismic"]')?.value === StoneCodeProfiles.DEFAULT_ACTIVE.seismic;
+                }""",
+                timeout=10000,
+            )
+            profile_page.evaluate("() => { document.getElementById('sp_seis_rp').value = '2.35'; }")
+            profile_page.select_option(seismic_picker, profile_ids['conservativeId'])
+            profile_page.wait_for_function(
+                """profileId => {
+                  const stored = JSON.parse(localStorage.getItem('stone_v2_profile_override') || '{}');
+                  return stored.seismic === profileId
+                    && document.querySelector('.ap-picker-select[data-scope="seismic"]')?.value === profileId;
+                }""",
+                arg=profile_ids['conservativeId'],
+                timeout=10000,
+            )
+            preserved_rp = profile_page.locator('#sp_seis_rp').input_value()
+            if preserved_rp != '2.35':
+                raise AssertionError(f'Expected manual Rp override to be preserved, got {preserved_rp}')
+            profile_context.close()
+
+            keyboard_semantics = page.evaluate(
+                """async () => ({
                   badAccordions: Array.from(document.querySelectorAll('#sidebar .acc-hd')).filter(el => el.getAttribute('role') !== 'button' || el.getAttribute('tabindex') !== '0' || !el.getAttribute('aria-controls') || !el.getAttribute('aria-expanded')).length,
                   badChips: Array.from(document.querySelectorAll('.chip')).filter(el => el.getAttribute('role') !== 'button' || el.getAttribute('tabindex') !== '0' || !el.hasAttribute('aria-pressed')).length,
                   badChipGroups: Array.from(document.querySelectorAll('.chips')).filter(el => el.getAttribute('role') !== 'group' || !el.getAttribute('aria-label')).length,
@@ -157,7 +230,7 @@ def main() -> int:
                   badPdfPickerControls: Array.from(document.querySelectorAll('#pdf_picker_all,#pdf_picker_none,#pdf_picker_apply')).filter(el => el.getAttribute('aria-controls') !== 'pdf_picker_thumbs').length,
                   uiPreferenceStorageFailures: (() => {
                     const originalSetItem = Storage.prototype.setItem;
-                    const originalAlert = window.alert;
+                    const originalNotify = window.v2Notify;
                     const oldMode = v2CurrentWorkflowMode();
                     const oldCollapsed = _v2DashboardCollapsed;
                     const oldModeStored = localStorage.getItem(V2_WORKFLOW_MODE_KEY);
@@ -165,7 +238,7 @@ def main() -> int:
                     let alerts = 0;
                     try{
                       _v2LastStorageAlertAt = 0;
-                      window.alert = msg => { if(String(msg || '').includes('本機儲存空間不足')) alerts += 1; };
+                      window.v2Notify = msg => { if(String(msg || '').includes('本機儲存空間不足')) alerts += 1; };
                       Storage.prototype.setItem = function(key, value){
                         if([V2_WORKFLOW_MODE_KEY, 'stone_review_dashboard_collapsed'].includes(key)){
                           const err = new Error('Quota exceeded');
@@ -180,7 +253,7 @@ def main() -> int:
                       return alerts === 2;
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                       v2SetWorkflowMode(oldMode, {persist:false});
                       _v2DashboardCollapsed = oldCollapsed;
                       if(oldModeStored === null) localStorage.removeItem(V2_WORKFLOW_MODE_KEY);
@@ -349,7 +422,7 @@ def main() -> int:
                     const oldRefs = localStorage.getItem(V2_VALIDATION_KEY);
                     const oldLog = localStorage.getItem(V2_CHANGE_LOG_KEY);
                     const originalSetItem = Storage.prototype.setItem;
-                    const originalAlert = window.alert;
+                    const originalNotify = window.v2Notify;
                     let storageWriteFailuresReported = false;
                     localStorage.setItem(V2_USER_TPL_KEY, JSON.stringify({bad:true}));
                     localStorage.setItem(V2_VALIDATION_KEY, JSON.stringify({bad:true}));
@@ -381,7 +454,7 @@ def main() -> int:
                       && v2ReadChangeLog()[0].size === 12;
                     try{
                       _v2LastStorageAlertAt = 0;
-                      window.alert = msg => { storageWriteFailuresReported = String(msg || '').includes('本機儲存空間不足'); };
+                      window.v2Notify = msg => { storageWriteFailuresReported = String(msg || '').includes('本機儲存空間不足'); };
                       Storage.prototype.setItem = function(key, value){
                         if([V2_USER_TPL_KEY, V2_VALIDATION_KEY, V2_CHANGE_LOG_KEY].includes(key)){
                           const err = new Error('Quota exceeded');
@@ -395,7 +468,7 @@ def main() -> int:
                         && storageWriteFailuresReported;
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     if(oldTpl === null) localStorage.removeItem(V2_USER_TPL_KEY);
                     else localStorage.setItem(V2_USER_TPL_KEY, oldTpl);
@@ -517,7 +590,7 @@ def main() -> int:
                     const oldCert = _certImages.slice();
                     const oldCertOn = document.querySelector('#cert_page_on')?.checked;
                     const originalRemoveItem = Storage.prototype.removeItem;
-                    const originalAlert = window.alert;
+                    const originalNotify = window.v2Notify;
                     let clearImageFailuresReported = false;
                     let storedCleanupFailureReported = false;
                     localStorage.setItem(STAMP_KEY, 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=');
@@ -532,7 +605,7 @@ def main() -> int:
                     localStorage.setItem(STAMP_KEY, 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=');
                     try{
                       _v2LastStorageAlertAt = 0;
-                      window.alert = msg => { storedCleanupFailureReported = String(msg || '').includes('本機儲存空間不足'); };
+                      window.v2Notify = msg => { storedCleanupFailureReported = String(msg || '').includes('本機儲存空間不足'); };
                       Storage.prototype.removeItem = function(key){
                         if(key === STAMP_KEY){
                           const err = new Error('Quota exceeded');
@@ -544,7 +617,7 @@ def main() -> int:
                       v2NormalizeStoredRasterImages();
                     }finally{
                       Storage.prototype.removeItem = originalRemoveItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     _extraImages = [
                       { name:'bad-extra', src:'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=', caption:'bad' },
@@ -565,7 +638,7 @@ def main() -> int:
                       && !certHtml.includes('data:image/svg+xml');
                     try{
                       _v2LastStorageAlertAt = 0;
-                      window.alert = msg => { clearImageFailuresReported = String(msg || '').includes('本機儲存空間不足'); };
+                      window.v2Notify = msg => { clearImageFailuresReported = String(msg || '').includes('本機儲存空間不足'); };
                       Storage.prototype.removeItem = function(key){
                         if([STAMP_KEY, DIAGRAM_KEY].includes(key)){
                           const err = new Error('Quota exceeded');
@@ -579,7 +652,7 @@ def main() -> int:
                         && clearImageFailuresReported;
                     }finally{
                       Storage.prototype.removeItem = originalRemoveItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     if(oldStamp === null) localStorage.removeItem(STAMP_KEY);
                     else localStorage.setItem(STAMP_KEY, oldStamp);
@@ -641,11 +714,13 @@ def main() -> int:
                     localStorage.setItem(STORAGE_KEY_LEGACY, '{"schema":"stone-calc/test","inp":{}}');
                     const originalSetItem = Storage.prototype.setItem;
                     const originalRemoveItem = Storage.prototype.removeItem;
-                    const originalAlert = window.alert;
+                    const originalNotify = window.v2Notify;
                     const originalConfirmAction = window.v2ConfirmAction;
                     const originalDownloadBlob = window.downloadBlob;
                     let storageErrorOk = false;
                     let storageAlertOk = false;
+                    let recoveryRestoreDebug = {};
+                    let migrationDebug = {};
                     let canonicalWriteSurvivesLegacyCleanupFailure = false;
                     let undoSnapshotUsesCanonicalStorage = false;
                     let recoveryBackupFailurePreservesData = false;
@@ -676,7 +751,7 @@ def main() -> int:
                     let migrationPersistenceFailureStillLoads = false;
                     let clearRecoveryRequiresConfirm = false;
                     try{
-                      window.alert = msg => { storageAlertOk = String(msg || '').includes('本機儲存空間不足'); };
+                      window.v2Notify = msg => { storageAlertOk = String(msg || '').includes('本機儲存空間不足'); };
                       Storage.prototype.setItem = function(key, value){
                         if(key === STORAGE_KEY || key === STORAGE_RECOVERY_KEY){
                           const err = new Error('Quota exceeded');
@@ -696,12 +771,12 @@ def main() -> int:
                         && localStorage.getItem(STORAGE_KEY_LEGACY) === '{"schema":"stone-calc/test","inp":{}}';
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     try{
                       localStorage.setItem(STORAGE_KEY_LEGACY, '{"schema":"stone-calc/legacy-cleanup","inp":{"proj":"OLD"}}');
                       _v2LastStorageAlertAt = 0;
-                      window.alert = msg => { storageAlertOk = storageAlertOk || String(msg || '').includes('本機儲存空間不足'); };
+                      window.v2Notify = msg => { storageAlertOk = storageAlertOk || String(msg || '').includes('本機儲存空間不足'); };
                       Storage.prototype.removeItem = function(key){
                         if(key === STORAGE_KEY_LEGACY){
                           const err = new Error('Quota exceeded');
@@ -715,7 +790,7 @@ def main() -> int:
                         && localStorage.getItem(STORAGE_KEY_LEGACY)?.includes('OLD');
                     }finally{
                       Storage.prototype.removeItem = originalRemoveItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     try{
                       localStorage.setItem(STORAGE_KEY, '{"schema":"stone-calc/new","inp":{"proj":"UNDO_SNAPSHOT"}}');
@@ -724,7 +799,7 @@ def main() -> int:
                       v2UndoSuspend = false;
                       v2SnapshotState();
                       _v2LastStorageAlertAt = 0;
-                      window.alert = msg => { storageAlertOk = storageAlertOk || String(msg || '').includes('本機儲存空間不足'); };
+                      window.v2Notify = msg => { storageAlertOk = storageAlertOk || String(msg || '').includes('本機儲存空間不足'); };
                       Storage.prototype.setItem = function(key, value){
                         if(key === STORAGE_KEY){
                           const err = new Error('Quota exceeded');
@@ -757,12 +832,12 @@ def main() -> int:
                       v2UndoSuspend = false;
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     try{
                       localStorage.setItem(STORAGE_KEY_LEGACY, '{"schema":"stone-calc/cleanup","inp":{"proj":"KEEP"}}');
                       _v2LastStorageAlertAt = 0;
-                      window.alert = msg => { storageAlertOk = storageAlertOk || String(msg || '').includes('本機儲存空間不足'); };
+                      window.v2Notify = msg => { storageAlertOk = storageAlertOk || String(msg || '').includes('本機儲存空間不足'); };
                       Storage.prototype.removeItem = function(key){
                         if(key === STORAGE_KEY_LEGACY){
                           const err = new Error('Quota exceeded');
@@ -777,10 +852,10 @@ def main() -> int:
                         && _lastStoredProjectBackupStatus === 'cleanup_failed';
                     }finally{
                       Storage.prototype.removeItem = originalRemoveItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     try{
-                      window.alert = () => {};
+                      window.v2Notify = () => {};
                       localStorage.setItem(STORAGE_KEY, '{"schema":"stone-calc/current","inp":{"proj":"CURRENT"}}');
                       localStorage.setItem(STORAGE_RECOVERY_KEY, JSON.stringify({
                         source_key: STORAGE_KEY,
@@ -798,23 +873,34 @@ def main() -> int:
                       };
                       let restoreConfirmMessage = '';
                       window.v2ConfirmAction = async msg => { restoreConfirmMessage = String(msg || ''); return false; };
-                      const restoreCanceled = (await restoreRecoveryBackup()) === false
-                        && localStorage.getItem(STORAGE_KEY)?.includes('CURRENT');
+                      const restoreCanceled = (await restoreRecoveryBackup()) === false;
                       recoveryRestoreConfirmShowsContext = restoreCanceled
                         && restoreConfirmMessage.includes('RECOVERED')
                         && restoreConfirmMessage.includes('備份原因')
                         && restoreConfirmMessage.includes('匯入新專案前')
                         && restoreConfirmMessage.includes('目前專案會先備份');
                       window.v2ConfirmAction = async () => true;
-                      await restoreRecoveryBackup({confirm:false});
-                      recoveryRestoreFailurePreservesCurrent = localStorage.getItem(STORAGE_KEY)?.includes('CURRENT');
+                      // Reset after the awaited cancel path: earlier UI scenarios may still
+                      // finish an asynchronous auto-save while this monolithic smoke runs.
+                      localStorage.setItem(STORAGE_KEY, '{"schema":"stone-calc/current","inp":{"proj":"CURRENT"}}');
+                      const restorePromise = restoreRecoveryBackup({confirm:false});
+                      const currentPreservedAtRestore = localStorage.getItem(STORAGE_KEY)?.includes('CURRENT');
+                      const restoreResult = await restorePromise;
+                      recoveryRestoreFailurePreservesCurrent = restoreResult === false && currentPreservedAtRestore;
+                      recoveryRestoreDebug = {
+                        restoreCanceled,
+                        restoreConfirmMessage,
+                        restoreResult,
+                        currentPreservedAtRestore,
+                        recoveryPreserved: localStorage.getItem(STORAGE_RECOVERY_KEY)?.includes('RECOVERED') || false,
+                      };
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                       window.v2ConfirmAction = originalConfirmAction;
                     }
                     try{
-                      window.alert = () => {};
+                      window.v2Notify = () => {};
                       localStorage.setItem(STORAGE_KEY, '{"schema":"stone-calc/current","inp":{"proj":"CURRENT_RESTORE_APPLY"}}');
                       localStorage.setItem(STORAGE_RECOVERY_KEY, JSON.stringify({
                         source_key: STORAGE_KEY,
@@ -836,10 +922,10 @@ def main() -> int:
                         && localStorage.getItem(STORAGE_RECOVERY_KEY) === recoveryBeforeApply;
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     try{
-                      window.alert = () => {};
+                      window.v2Notify = () => {};
                       localStorage.removeItem(STORAGE_KEY);
                       localStorage.removeItem(STORAGE_KEY_LEGACY);
                       localStorage.setItem(STORAGE_RECOVERY_KEY, JSON.stringify({
@@ -867,11 +953,11 @@ def main() -> int:
                         && !localStorage.getItem(STORAGE_KEY)?.includes('RECOVERED_CLEANUP');
                     }finally{
                       Storage.prototype.removeItem = originalRemoveItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                       window.v2ConfirmAction = originalConfirmAction;
                     }
                     try{
-                      window.alert = () => {};
+                      window.v2Notify = () => {};
                       localStorage.setItem(STORAGE_KEY, '{"schema":"stone-calc/current","inp":{"proj":"CURRENT_IMPORT"}}');
                       Storage.prototype.setItem = function(key, value){
                         if(key === STORAGE_RECOVERY_KEY){
@@ -889,10 +975,10 @@ def main() -> int:
                       }
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     try{
-                      window.alert = () => {};
+                      window.v2Notify = () => {};
                       localStorage.setItem(STORAGE_KEY, '{"schema":"stone-calc/current","inp":{"proj":"CURRENT_IMPORT_APPLY"}}');
                       localStorage.setItem(STORAGE_RECOVERY_KEY, JSON.stringify({
                         source_key: STORAGE_KEY,
@@ -918,10 +1004,10 @@ def main() -> int:
                       }
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     try{
-                      window.alert = () => {};
+                      window.v2Notify = () => {};
                       localStorage.removeItem(STORAGE_KEY);
                       localStorage.setItem(STORAGE_KEY_LEGACY, '{"schema":"stone-calc/legacy","inp":{"proj":"LOAD_CONTINUES"},"cases":[]}');
                       Storage.prototype.setItem = function(key, value){
@@ -941,11 +1027,17 @@ def main() -> int:
                       }).some(item => item.text.includes('匯出前請先下載專案 JSON'));
                       migrationPersistenceFailureStillLoads = document.getElementById('c_proj')?.value === 'LOAD_CONTINUES'
                         && _projectMigrationInfo?.migration_persist_status === 'failed'
-                        && projectTraceabilityNotes().some(note => note.includes('本機儲存寫回失敗'))
+                        && projectTraceabilityNotesInternal().some(note => note.includes('本機儲存寫回失敗'))
                         && migrationExportChecklistWarns;
+                      migrationDebug = {
+                        project: document.getElementById('c_proj')?.value || '',
+                        persistStatus: _projectMigrationInfo?.migration_persist_status || '',
+                        traceNotes: projectTraceabilityNotesInternal(),
+                        migrationExportChecklistWarns,
+                      };
                     }finally{
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                     }
                     try{
                       localStorage.setItem(STORAGE_RECOVERY_KEY, JSON.stringify({
@@ -1093,7 +1185,7 @@ def main() -> int:
                       window.v2ConfirmAction = originalConfirmAction;
                       window.downloadBlob = originalDownloadBlob;
                       Storage.prototype.setItem = originalSetItem;
-                      window.alert = originalAlert;
+                      window.v2Notify = originalNotify;
                       if(canonicalBefore === null) localStorage.removeItem(STORAGE_KEY);
                       else localStorage.setItem(STORAGE_KEY, canonicalBefore);
                       if(legacyBefore === null) localStorage.removeItem(STORAGE_KEY_LEGACY);
@@ -1101,46 +1193,54 @@ def main() -> int:
                       if(recoveryBefore === null) localStorage.removeItem(STORAGE_RECOVERY_KEY);
                       else localStorage.setItem(STORAGE_RECOVERY_KEY, recoveryBefore);
                     }
-                    return document.querySelector('#importFile')?.getAttribute('accept') === '.json'
-                      && V2_PROJECT_JSON_MAX_BYTES === 10 * 1024 * 1024
-                      && v2IsAllowedProjectJsonFile(json)
-                      && v2IsAllowedProjectJsonFile(jsonNoType)
-                      && !v2IsAllowedProjectJsonFile(txt)
-                      && v2ProjectJsonTextWithinLimit('{}')
-                      && !v2ProjectJsonTextWithinLimit('x'.repeat(V2_PROJECT_JSON_MAX_BYTES + 1))
-                      && v2DecodeBase64Utf8('eyJ4Ijoi5bCI5qGIIn0=') === '{"x":"專案"}'
-                      && typeof v2ImportProjectText === 'function'
-                      && storageErrorOk
-                      && storageAlertOk
-                      && canonicalWriteSurvivesLegacyCleanupFailure
-                      && undoSnapshotUsesCanonicalStorage
-                      && recoveryBackupFailurePreservesData
-                      && recoveryCleanupFailurePreservesData
-                      && recoveryRestoreFailurePreservesCurrent
-                      && recoveryRestoreApplyFailurePreservesRecovery
-                      && recoveryRestoreCleanupFailurePreservesRecovery
-                      && recoveryRestoreConfirmShowsContext
-                      && recoveryRestoreConfirmReflectsCurrentState
-                      && projectImportBackupFailurePreservesCurrent
-                      && projectImportApplyFailurePreservesRecovery
-                      && recoveryDownloadFilenameIncludesContext
-                      && recoveryBrokenJsonDownloadsAsText
-                      && recoveryMalformedEnvelopeDownloadsAsText
-                      && recoveryInvalidEnvelopeDownloadsAsText
-                      && recoveryMissingPayloadDownloadsEnvelope
-                      && recoveryInvalidPayloadTypeDownloadsEnvelope
-                      && recoveryUnrecognizedJsonDownloadsAsText
-                      && recoveryDownloadReturnStatus
-                      && recoveryDownloadFailureReturnsFalse
-                      && recoveryCanRestoreChecks
-                      && recoveryActionButtonsAreLabelled
-                      && recoveryActionGroupIsLabelled
-                      && recoveryNoticeHasStatusSemantics
-                      && recoveryNoticeUsesProjectNameOnly
-                      && recoveryReasonLabelsAreReadable
-                      && clearRecoveryConfirmShowsContext
-                      && migrationPersistenceFailureStillLoads
-                      && clearRecoveryRequiresConfirm;
+                    const checks = {
+                      importAccept: document.querySelector('#importFile')?.getAttribute('accept') === '.json',
+                      maxBytes: V2_PROJECT_JSON_MAX_BYTES === 10 * 1024 * 1024,
+                      allowsJson: v2IsAllowedProjectJsonFile(json),
+                      allowsJsonWithoutMime: v2IsAllowedProjectJsonFile(jsonNoType),
+                      rejectsText: !v2IsAllowedProjectJsonFile(txt),
+                      acceptsSmallText: v2ProjectJsonTextWithinLimit('{}'),
+                      rejectsOversizedText: !v2ProjectJsonTextWithinLimit('x'.repeat(V2_PROJECT_JSON_MAX_BYTES + 1)),
+                      decodesUtf8Base64: v2DecodeBase64Utf8('eyJ4Ijoi5bCI5qGIIn0=') === '{"x":"專案"}',
+                      importFunctionExists: typeof v2ImportProjectText === 'function',
+                      storageErrorOk,
+                      storageAlertOk,
+                      canonicalWriteSurvivesLegacyCleanupFailure,
+                      undoSnapshotUsesCanonicalStorage,
+                      recoveryBackupFailurePreservesData,
+                      recoveryCleanupFailurePreservesData,
+                      recoveryRestoreFailurePreservesCurrent,
+                      recoveryRestoreApplyFailurePreservesRecovery,
+                      recoveryRestoreCleanupFailurePreservesRecovery,
+                      recoveryRestoreConfirmShowsContext,
+                      recoveryRestoreConfirmReflectsCurrentState,
+                      projectImportBackupFailurePreservesCurrent,
+                      projectImportApplyFailurePreservesRecovery,
+                      recoveryDownloadFilenameIncludesContext,
+                      recoveryBrokenJsonDownloadsAsText,
+                      recoveryMalformedEnvelopeDownloadsAsText,
+                      recoveryInvalidEnvelopeDownloadsAsText,
+                      recoveryMissingPayloadDownloadsEnvelope,
+                      recoveryInvalidPayloadTypeDownloadsEnvelope,
+                      recoveryUnrecognizedJsonDownloadsAsText,
+                      recoveryDownloadReturnStatus,
+                      recoveryDownloadFailureReturnsFalse,
+                      recoveryCanRestoreChecks,
+                      recoveryActionButtonsAreLabelled,
+                      recoveryActionGroupIsLabelled,
+                      recoveryNoticeHasStatusSemantics,
+                      recoveryNoticeUsesProjectNameOnly,
+                      recoveryReasonLabelsAreReadable,
+                      clearRecoveryConfirmShowsContext,
+                      migrationPersistenceFailureStillLoads,
+                      clearRecoveryRequiresConfirm,
+                    };
+                    const failed = Object.entries(checks).filter(([, value]) => !value).map(([key]) => key);
+                    return {
+                      ok: failed.length === 0,
+                      failed,
+                      debug: failed.length ? { recoveryRestoreDebug, migrationDebug } : {},
+                    };
                   })(),
                   badCaseIconButtons: Array.from(document.querySelectorAll('.case-card button')).filter(el => ['📋','✕'].includes(el.textContent.trim()) && !el.getAttribute('aria-label')).length,
                   badZoomButtons: Array.from(document.querySelectorAll('#v2_method_grid .zoom-btn')).filter(el => !el.getAttribute('aria-label')).length,
@@ -1212,8 +1312,11 @@ def main() -> int:
                 raise AssertionError(f'Expected image upload guards to reject SVG/non-image sources and keep raster previews: {keyboard_semantics}')
             if not keyboard_semantics['wordImageRejectsUnsafeData']:
                 raise AssertionError(f'Expected Word image helper to replace unsafe data URLs with placeholders: {keyboard_semantics}')
-            if not keyboard_semantics['projectJsonImportGuards']:
-                raise AssertionError(f'Expected project JSON import to restrict file type and size: {keyboard_semantics}')
+            if not keyboard_semantics['projectJsonImportGuards']['ok']:
+                raise AssertionError(
+                    f'Expected project JSON import and recovery guards to pass: '
+                    f'{keyboard_semantics["projectJsonImportGuards"]}'
+                )
             migration_payload_meta = page.evaluate(
                 """async () => {
                   const priorMigrationInfo = _projectMigrationInfo;
@@ -1226,7 +1329,7 @@ def main() -> int:
                       migration_persist_status: 'failed'
                     };
                     const payload = await buildProjectPayload();
-                    const notes = projectTraceabilityNotes();
+                    const notes = projectTraceabilityNotesInternal();
                     return {
                       persistStatus: payload?.meta?.migration_persist_status || '',
                       applied: payload?.meta?.migration_applied === true,
@@ -1249,14 +1352,14 @@ def main() -> int:
                 """async () => {
                   const oldLog = localStorage.getItem(V2_CHANGE_LOG_KEY);
                   const originalSetItem = Storage.prototype.setItem;
-                  const originalAlert = window.alert;
+                  const originalNotify = window.v2Notify;
                   const originalComputeRev = v2ComputeRev;
                   let alerted = false;
                   try{
                     localStorage.removeItem(V2_CHANGE_LOG_KEY);
                     _v2LastStorageAlertAt = 0;
                     v2ComputeRev = async () => ({ rev: 'SMOKE-CHANGE-LOG-WRITE', length: 123 });
-                    window.alert = msg => { alerted = String(msg || '').includes('本機儲存空間不足'); };
+                    window.v2Notify = msg => { alerted = String(msg || '').includes('本機儲存空間不足'); };
                     Storage.prototype.setItem = function(key, value){
                       if(key === V2_CHANGE_LOG_KEY){
                         const err = new Error('Quota exceeded');
@@ -1270,7 +1373,7 @@ def main() -> int:
                   }finally{
                     v2ComputeRev = originalComputeRev;
                     Storage.prototype.setItem = originalSetItem;
-                    window.alert = originalAlert;
+                    window.v2Notify = originalNotify;
                     if(oldLog === null) localStorage.removeItem(V2_CHANGE_LOG_KEY);
                     else localStorage.setItem(V2_CHANGE_LOG_KEY, oldLog);
                   }
@@ -1667,7 +1770,7 @@ def main() -> int:
             page.keyboard.press('Enter')
             page.wait_for_selector('#v2-check-modal.show', timeout=10000)
             modal_text = page.locator('#v2_check_body').inner_text(timeout=10000)
-            for required in ['審查狀態', '交付品質', '未通過與警示', '工程覆核註記', '公式來源覆核', 'formula-registry-2026.04.25', '工具與伺服器', 'HTML 一致性']:
+            for required in ['審查狀態', '交付品質', '未通過與警示', '公式來源覆核', 'formula-registry-2026.04.25', '工具與伺服器', 'HTML 一致性']:
                 if required not in modal_text:
                     raise AssertionError(f'Missing modal text: {required}')
             page.wait_for_function(

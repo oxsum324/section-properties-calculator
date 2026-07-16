@@ -49,6 +49,9 @@
 - `node --check js\review-dashboard-smoke.test.js`
 - `node js\review-dashboard-smoke.test.js`
 - `node js\formula-registry-smoke.test.js`
+- `node --check js\code-profiles-registry.spec.js`
+- `node --check js\code-profiles-registry-smoke.test.js`
+- `node js\code-profiles-registry-smoke.test.js`
 - `python server_smoke_test.py`
 - `python audit_schema_test.py`
 - `python audit_compare_test.py`
@@ -64,6 +67,8 @@
 `js/formula-registry-smoke.test.js` 會檢查實際計算項目都有對應的公式、單位與規範來源登錄；V2 審查儀表板、審查明細與輸出檢核表會引用同一份來源表。
 `stone-traceability.contract.test.js` 會檢查 `stone-traceability.catalog.json` 的條文語意追蹤，確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核各自追得到規範來源、輸入、計算核心、報告落點、測試證據與人工複核邊界。
 `js/version-sync-smoke.test.js` 會用 mock DOM 檢查側欄版本標示 helper。
+`js/code-profiles-registry-smoke.test.js` 會檢查 active profile、指紋與 profile-owned 輸入同步；切換 profile 時只更新仍等於舊 profile 預設的欄位，使用者自行覆寫的值會保留。
+`js/regression-smoke.test.js` 另以實際計算核心驗證保守耐震 profile 的 Rp 同步與 Fph 需求差異，避免 registry 選項只改 metadata、不改實算。
 `js/review-dashboard-smoke.test.js` 會檢查審查儀表板伺服器狀態文字、交付品質分級、匯出前品質提醒、匯出前檢查 HTML 與確認門檻 helper。
 `self_check.py` 會檢查 V2 HTML 檔名、前端版本、後端版本、啟動批次檔、自動 Word URL、README、CHANGELOG 與正式輸出清單是否一致，並避免 smoke test 硬寫目前版本。
 `server_smoke_test.py` 會離線檢查 V2 `/generate` fallback 阻擋、前端 results 來源判斷、匯出稽核報告摘要、CORS 白名單、靜態檔範圍與 JSON payload 驗證。
@@ -130,6 +135,7 @@ python audit_compare.py --latest --fail-on-regression
 - 新增、移除或改名重要檔案後，請同步更新 `PROJECT_FILES.md`。
 - 主頁面檔名應維持與 `server.py`、`auto_word.py`、`開啟石材計算書.bat` 一致。
 - 若調整 V2 預設值、材料參數、風壓或耐震公式，請同步更新 `js/regression-smoke.test.js` 的基準值。
+- 若新增可切換 profile 或 profile-owned 輸入欄位，請同步更新 `PROFILE_INPUT_BINDINGS`，並驗證舊預設會跟隨切換、人工覆寫不被覆蓋。
 - 若修改內建範本，請同步更新 `TEMPLATE_CATALOG_VERSION`，讓匯出稽核報告可追溯範本來源。
 - 不建議再使用舊版 `石材計算書產生器_規範版.html` 作為正式匯出來源。
 

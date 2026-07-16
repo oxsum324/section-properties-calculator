@@ -181,7 +181,7 @@
       '/seismic-appendage': '2026-07-12',
       '/seismic-misc': '2026-07-12',
       '/anchor': '2026-07-10',
-      '/stone-fixing': '2026-07-10',
+      '/stone-fixing': '2026-07-16',
       '/foundation-local': '2026-07-11',
       '/equipment-load': '2026-07-05',
       '/earth-pressure': '2026-07-05',
@@ -681,7 +681,7 @@
     },
     {
       title: '石材固定構件計算書',
-      version: 'V3.0.2',
+      version: 'V3.0.3',
       href: '/stone-fixing',
       categories: ['attachments'],
       state: 'formal',

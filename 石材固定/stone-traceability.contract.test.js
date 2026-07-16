@@ -46,6 +46,7 @@ const calculator = readUtf8('js/calculator.spec.js');
 const constants = readUtf8('js/constants.spec.js');
 const inputSchema = readUtf8('js/input-schema.spec.js');
 const regressionSmoke = readUtf8('js/regression-smoke.test.js');
+const mainHtml = readUtf8('石材計算書產生器_規範版V2.html');
 
 const expectedTools = [
   'stone-load-demand',
@@ -54,7 +55,7 @@ const expectedTools = [
   'stone-serviceability-report',
 ];
 
-assert(catalog.version === '0.1.0', 'stone traceability catalog version', catalog.version);
+assert(catalog.version === '0.2.0', 'stone traceability catalog version', catalog.version);
 assert(catalog.family === 'stone-traceability', 'stone traceability catalog family', catalog.family);
 assertString(catalog.description, 'stone traceability catalog description');
 assert(Array.isArray(catalog.tools), 'stone traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -134,6 +135,8 @@ assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `trace
   'cns_stone_general',
   'buildGovernanceFingerprint',
   'buildGovernanceAckHash',
+  'PROFILE_INPUT_BINDINGS',
+  'buildProfileInputUpdates',
   'validateGovernanceMeta',
 ].forEach((needle) => {
   assert(codeProfiles.includes(needle), `stone code profile governance keeps ${needle}`, needle);
@@ -180,8 +183,18 @@ assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `trace
   'drift failure flags displacement and rotation',
   'thermal joint failure',
   'separated interaction omits duplicate shear term',
+  'profile runtime sync',
 ].forEach((needle) => {
   assert(regressionSmoke.includes(needle), `stone regression smoke keeps ${needle}`, needle);
+});
+
+[
+  'function v2SyncProfileOwnedInputs',
+  'SP.buildProfileInputUpdates',
+  '已同步 ${updatedCount} 個 profile 預設欄位',
+  '保留 ${preservedCount} 個人工覆寫欄位',
+].forEach((needle) => {
+  assert(mainHtml.includes(needle), `stone profile picker runtime keeps ${needle}`, needle);
 });
 
 assert(readme.includes('stone-traceability.catalog.json'), 'stone README documents traceability catalog path', 'README.md');

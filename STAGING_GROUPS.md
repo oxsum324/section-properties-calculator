@@ -127,7 +127,8 @@ Refresh anchor deployment assets
 - `鋼架/`：目前只有 `平面剛架分析.html`，頁面 / 計算書邊界已由根目錄 `frame-analysis.contract.test.js` 治理；若要納入 HTML 調整，建議與該 contract 一起審查。
 
 ```powershell
-git add -- "石材固定/README.md" "石材固定/stone-traceability.catalog.json" "石材固定/stone-traceability.contract.test.js" "石材固定/stone-report.contract.test.js"
+git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/ui_smoke_test.py" "石材固定/js/code-profiles-registry.spec.js" "石材固定/js/code-profiles-registry-smoke.test.js" "石材固定/js/regression-smoke.test.js"
+git add -- "石材固定/README.md" "石材固定/CHANGELOG.md" "石材固定/PROJECT_FILES.md" "石材固定/RELEASE_CHECKLIST.md" "石材固定/自我檢查.bat" "石材固定/stone-traceability.catalog.json" "石材固定/stone-traceability.contract.test.js" "石材固定/stone-report.contract.test.js"
 git add -- "開挖擋土支撐/README.md" "開挖擋土支撐/excavation-traceability.catalog.json" "開挖擋土支撐/excavation-traceability.contract.test.js" "開挖擋土支撐/excavation-report.contract.test.js" "開挖擋土支撐/backend/tests/test_project_store.py" "開挖擋土支撐/backend/tests/test_reporting.py"
 git add -- "覆工板/README.md" "覆工板/decking-report.contract.test.js" "覆工板/decking-traceability.catalog.json" "覆工板/decking-traceability.contract.test.js"
 ```

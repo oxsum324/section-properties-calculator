@@ -21,6 +21,8 @@
 - `js/regression-smoke.test.js`：代表案例回歸測試。
 - `js/formula-registry.spec.js`：計算項目的公式、單位與規範來源集中登錄。
 - `js/formula-registry-smoke.test.js`：檢查實際檢核項目是否都有公式來源登錄。
+- `js/code-profiles-registry.spec.js`：規範 profile、指紋、profile-owned 輸入綁定與安全同步 helper。
+- `js/code-profiles-registry-smoke.test.js`：profile schema、雜湊、切換同步與人工覆寫保留測試。
 - `js/version-sync.js`：V2 頁面側欄版本標示同步 helper。
 - `js/version-sync-smoke.test.js`：版本標示同步 helper 的 Node smoke test。
 - `js/review-dashboard.js`：審查儀表板狀態文字、交付品質分級、匯出前品質提醒、匯出前檢查 HTML 與確認門檻 helper。

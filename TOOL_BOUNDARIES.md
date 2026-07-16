@@ -15,7 +15,7 @@
 | `continuous-beam-regression.test.js`、`test-continuous-beam.ps1` | 納入 | 連續梁回歸與報告邊界檢查；確認分析表格、圖面與 HTML 計算書仍有足量可讀文字、必要章節與計畫資訊，且頁面專用閱讀狀態不混入計算書。 |
 | `stone-feedback.contract.test.js` | 納入 | 石材 V2、舊版與 baseline capture feedback 合約；確認通知、確認、範本管理與錯誤提示不回退原生 dialog。 |
 | `石材固定/stone-report.contract.test.js`、`石材固定/server_smoke_test.py` | 納入 | 石材報告邊界契約與離線匯出 smoke；固定檢查 Word/PDF 匯出稽核摘要、PDF / DOCX 文字抽檢、頁面專用閱讀狀態清理與 payload HTML 不一致時的降級判定，避免 page-only 閱讀狀態混入正式交付。 |
-| `石材固定/stone-traceability.catalog.json`、`石材固定/stone-traceability.contract.test.js` | 納入 | 石材 V2 條文語意追蹤 catalog 與契約測試；集中確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
+| `石材固定/stone-traceability.catalog.json`、`石材固定/stone-traceability.contract.test.js`、`石材固定/js/code-profiles-registry.spec.js`、`石材固定/js/code-profiles-registry-smoke.test.js`、`石材固定/js/regression-smoke.test.js` | 納入 | 石材 V2 條文語意追蹤 catalog 與契約測試；集中確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核的規範來源、輸入、計算、報告、證據與人工複核邊界。active profile 切換另由 `PROFILE_INPUT_BINDINGS` / `buildProfileInputUpdates()` 同步仍沿用舊 profile 預設的 ap、Rp 與外牆 Ip 欄位，保留人工覆寫；registry smoke 與 calc-core regression 必須證明 profile 不只改 metadata，也改變代表案例的實際需求值。 |
 | `struct-dx.contract.test.js` | 納入 | struct.dx 前端 feedback 合約；確認 diagnosis、verify engine、struct suite 三頁都有 action status outlet 與 helper。 |
 | `decking-tools.contract.test.js` | 納入 | 覆工板前端 feedback 合約；確認套用、匯出與 reset 確認維持頁內狀態與受控確認流程。 |
 | `覆工板/decking-report.contract.test.js`、`覆工板/report/gen_report.py`、`覆工板/test-fixtures/report-smoke.json` | 納入 | 覆工板 Word 報告邊界契約、報表產生器與固定 smoke fixture；確認 page-only 附件閱讀狀態只留在頁面，Python 產出的 `.docx` 經 `word/document.xml` 文字抽檢後保留案名/編號/日期與計算章節，但不混入頁面專用提醒。 |

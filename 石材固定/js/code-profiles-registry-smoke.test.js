@@ -122,6 +122,41 @@ test('V2.2.3：cns_seismic_113_conservative 對照 profile 存在且差異正確
   assert.strictEqual(cons.params.Rp_stone_panel_default, 2.0);
 });
 
+test('V3.0.3：切換耐震 profile 會同步仍沿用舊預設的欄位', () => {
+  const r = Reg.buildProfileInputUpdates(
+    'seismic',
+    'cns_seismic_113',
+    'cns_seismic_113_conservative',
+    { sp_ip_default: '1.5', sp_seis_ap: '1.0', sp_seis_rp: '2.5' }
+  );
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.updates)), {
+    sp_ip_default: 1.5,
+    sp_seis_ap: 1,
+    sp_seis_rp: 2,
+  });
+  assert.deepStrictEqual(Array.from(r.preserved), []);
+});
+
+test('V3.0.3：profile 切換保留人工覆寫欄位', () => {
+  const r = Reg.buildProfileInputUpdates(
+    'seismic',
+    'cns_seismic_113',
+    'cns_seismic_113_conservative',
+    { sp_ip_default: '1.5', sp_seis_ap: '1.2', sp_seis_rp: '1.8' }
+  );
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.updates.sp_ip_default, 1.5);
+  assert.deepStrictEqual(Array.from(r.preserved), ['sp_seis_ap', 'sp_seis_rp']);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(r.updates, 'sp_seis_rp'), false);
+});
+
+test('V3.0.3：profile input sync 拒絕跨 scope 或不存在的 profile', () => {
+  const r = Reg.buildProfileInputUpdates('seismic', 'cns_wind_107', 'cns_seismic_113', {});
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.error.includes('無效'));
+});
+
 test('DEFAULT_ACTIVE 涵蓋 5 種 scope', () => {
   const expected = ['wind','seismic','anchor','steel','stone'];
   for (const s of expected) {

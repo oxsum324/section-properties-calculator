@@ -8,14 +8,18 @@ function loadCalculator() {
   context.globalThis = context;
   vm.createContext(context);
 
-  for (const file of ['constants.spec.js', 'calculator.spec.js']) {
+  for (const file of ['constants.spec.js', 'code-profiles-registry.spec.js', 'calculator.spec.js']) {
     const fullPath = path.join(__dirname, file);
     vm.runInContext(fs.readFileSync(fullPath, 'utf8'), context, { filename: file });
   }
 
   assert.ok(context.window.STONE_CONSTANTS, 'STONE_CONSTANTS should be loaded');
+  assert.ok(context.window.StoneCodeProfiles, 'StoneCodeProfiles should be loaded');
   assert.ok(context.window.StoneCalculator, 'StoneCalculator should be loaded');
-  return context.window.StoneCalculator;
+  return {
+    calculator: context.window.StoneCalculator,
+    profiles: context.window.StoneCodeProfiles,
+  };
 }
 
 function baseInput(overrides = {}) {
@@ -207,9 +211,46 @@ function assertFocused(name, cd, inp, expected) {
   assert.deepStrictEqual(Object.keys(actual).sort(), Object.keys(expected).sort(), `${name}: snapshot keys`);
 }
 
-const calculator = loadCalculator();
+const { calculator, profiles } = loadCalculator();
 
 assert.match(calculator.VERSION, /^\d{4}\.\d{2}\.\d{2}-spec-core\d+$/);
+
+{
+  const defaultInput = baseInput({
+    sp_seis_zh_ratio: 1,
+    w_pos: 0,
+    w_neg: 0,
+  });
+  const sync = profiles.buildProfileInputUpdates(
+    'seismic',
+    'cns_seismic_113',
+    'cns_seismic_113_conservative',
+    {
+      sp_ip_default: String(defaultInput.sp_ip_default ?? 1.5),
+      sp_seis_ap: String(defaultInput.sp_seis_ap),
+      sp_seis_rp: String(defaultInput.sp_seis_rp),
+    },
+  );
+  assert.strictEqual(sync.ok, true, 'profile input sync should resolve both seismic profiles');
+  assert.strictEqual(sync.updates.sp_seis_rp, 2, 'conservative profile should lower Rp default from 2.5 to 2.0');
+
+  const defaultSeismic = calculator.calcCase(caseFixture(), defaultInput).spec.seismic;
+  const conservativeInput = {
+    ...defaultInput,
+    ...sync.updates,
+    code_profiles: { seismic: 'cns_seismic_113_conservative' },
+  };
+  const conservativeSeismic = calculator.calcCase(caseFixture(), conservativeInput).spec.seismic;
+  assert.strictEqual(Number(defaultSeismic.fph.toFixed(4)), 3.4992, 'default profile seismic demand baseline');
+  assert.strictEqual(Number(conservativeSeismic.fph.toFixed(4)), 4.374, 'conservative profile seismic demand uses synchronized Rp=2.0');
+  assert.strictEqual(conservativeSeismic.rp, 2, 'calculation report should expose synchronized conservative Rp');
+  assert.strictEqual(
+    Number((conservativeSeismic.fph / defaultSeismic.fph).toFixed(2)),
+    1.25,
+    'conservative profile should raise this non-limit-controlled demand by 25%',
+  );
+  console.log('  profile runtime sync: default Fph=3.4992 -> conservative Fph=4.3740 (Rp 2.5 -> 2.0)');
+}
 
 {
   const result = calculator.calcCase(caseFixture({

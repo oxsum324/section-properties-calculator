@@ -61,6 +61,12 @@ node "js\review-dashboard-smoke.test.js"
 if errorlevel 1 goto failed
 node "js\formula-registry-smoke.test.js"
 if errorlevel 1 goto failed
+node --check "js\code-profiles-registry.spec.js"
+if errorlevel 1 goto failed
+node --check "js\code-profiles-registry-smoke.test.js"
+if errorlevel 1 goto failed
+node "js\code-profiles-registry-smoke.test.js"
+if errorlevel 1 goto failed
 
 echo.
 echo [6/11] Running server export smoke tests...

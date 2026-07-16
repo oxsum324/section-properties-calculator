@@ -1,5 +1,5 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "family": "stone-traceability",
   "description": "石材固定 V2 計算書工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因自我檢查或匯出成功就誤判為所有工程依據都已可追溯。",
   "tools": [
@@ -22,11 +22,11 @@
         {
           "id": "stone-load-profile-governance",
           "clause": "耐風 107 年版、耐震 113 年版、ACI 318 Appendix D、鋼構容許應力與 CNS / JASS 石材 profile 治理",
-          "purpose": "規範參數需以 active profile 與指紋綁定到計算結果，讓改版、保守 profile 或人工 ack 不會只停留在 UI 選項。",
-          "inputs": ["code_profiles", "governance_ack", "calc_source_hash", "input_hash", "normalized_input_hash", "result_hash", "active profile ids"],
-          "calculation": ["resolveActiveProfiles", "getParam", "profile params hash", "governance_fingerprint", "governance_ack_hash", "profile changelog"],
-          "report": ["主要計算依據", "profile 名稱與版本", "governance fingerprint", "audit JSON", "審查儀表板"],
-          "evidence": ["js/code-profiles-registry.spec.js", "js/code-profiles-registry-smoke.test.js", "js/review-dashboard.js", "audit_schema_test.py", "audit_compare_test.py"],
+          "purpose": "規範參數需以 active profile 與指紋綁定到計算結果；切換 profile 時，仍沿用舊 profile 預設的可編輯欄位必須同步，人工覆寫則保留並揭露，避免保守 profile 只改 UI / metadata 而未改實算。",
+          "inputs": ["code_profiles", "PROFILE_INPUT_BINDINGS", "sp_ip_default", "sp_seis_ap", "sp_seis_rp", "governance_ack", "calc_source_hash", "input_hash", "normalized_input_hash", "result_hash", "active profile ids"],
+          "calculation": ["resolveActiveProfiles", "getParam", "buildProfileInputUpdates", "profile-owned default sync", "profile params hash", "governance_fingerprint", "governance_ack_hash", "profile changelog"],
+          "report": ["主要計算依據", "profile 名稱與版本", "同步後 ap / Rp / Ip", "人工覆寫提示", "governance fingerprint", "audit JSON", "審查儀表板"],
+          "evidence": ["js/code-profiles-registry.spec.js", "js/code-profiles-registry-smoke.test.js", "js/calculator.spec.js", "js/regression-smoke.test.js", "石材計算書產生器_規範版V2.html", "js/review-dashboard.js", "audit_schema_test.py", "audit_compare_test.py"],
           "manualReview": ["採用非預設 profile、保守對照參數或專案指定規範版本時，須由設計者在專案文件或覆核註記中說明採用理由。"]
         }
       ]

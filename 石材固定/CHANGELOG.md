@@ -2,6 +2,21 @@
 
 本檔記錄石材固定計算書工具的主要版本變更。正式修改工具前後，請同步更新此檔、`APP_VERSION`、`SERVER_VERSION`，必要時也更新 `TEMPLATE_CATALOG_VERSION` 與回歸測試基準值。
 
+## V3.0.3 - 2026-07-16
+
+版本同步：`APP_VERSION = V3.0.3`；`SERVER_VERSION = 3.0.3`。
+
+### 重點：profile picker 與實際計算欄位同步
+
+- 修正切換 `cns_seismic_113_conservative` 後，畫面 `Rp` 仍停在預設 profile 的 2.5，導致部分高度比案例未採保守 profile 之 `Rp = 2.0` 的問題。
+- 新增 `PROFILE_INPUT_BINDINGS` 與 `buildProfileInputUpdates()`：只有仍等於前一 profile 預設值或空白的欄位會同步，使用者已自行覆寫的數值會保留並提示。
+- profile picker 會先同步欄位、保存專案，再重新計算與渲染；不再只更新 localStorage 內的 profile id。
+- `regression-smoke.test.js` 現在會載入實際 profile registry，並驗證 `z/h = 1.0` 代表案例由預設 profile 的 `Fph = 3.4992 kgf/m²` 提升為保守 profile 的 `Fph = 4.3740 kgf/m²`，同時確認報告採用 `Rp = 2.0`。
+- `code-profiles-registry-smoke.test.js` 補上舊預設同步、人工覆寫保留與無效 scope/profile 拒絕測試。
+- `ui_smoke_test.py` 新增實際瀏覽器操作驗證，覆蓋保守 profile 同步、切回預設，以及人工 `Rp` 覆寫保留。
+- 修正 UI smoke 內含 `await` 的整合檢查未宣告 `async`，確保後段的安全性與無障礙測試實際執行。
+- 首頁與 classic 入口卡片同步顯示 V3.0.3，並更新石材工具內容日期。
+
 ## V3.0.2 - 2026-04-29
 
 版本同步：`APP_VERSION = V3.0.2`；`SERVER_VERSION = 3.0.2`。
