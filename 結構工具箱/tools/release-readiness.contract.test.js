@@ -152,7 +152,7 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   "family === 'rc-retrofit'",
   "family === 'stone-formal'",
   "family === 'anchor-formal'",
-  "family === 'office-artifacts'",
+  "family === 'decking-formal'",
   'release rendered evidence resolves every homepage formal tool',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));

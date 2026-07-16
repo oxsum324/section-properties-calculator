@@ -379,14 +379,6 @@ function newestMatchingPdf(directory, prefix) {
   return matches[0];
 }
 
-function validateCurrentLog(runDir, key, marker) {
-  const logPath = path.join(runDir, `${key}.txt`);
-  assert.ok(fs.existsSync(logPath), `current-run ${key} log exists`);
-  const text = fs.readFileSync(logPath, 'utf8');
-  assert.ok(text.includes(marker), `current-run ${key} confirms actual artifact test`);
-  return path.basename(logPath);
-}
-
 assert.equal(inventory.version, 1, 'rendered delivery inventory version');
 assert.equal(inventory.tools.length, 31, 'rendered delivery inventory covers all homepage formal tools');
 const homeTools = vm.runInNewContext(`(${extractConstLiteral(homeSource, 'tools')})`);
@@ -565,16 +557,85 @@ records.push({
   workbookTextLength: anchorWorkbookText.length,
 });
 
-const officeMarkers = {
-  'decking-report-contract': 'Decking report contract checks passed.',
-};
-for (const tool of inventory.tools.filter(item => item.family === 'office-artifacts')) {
-  const log = validateCurrentLog(runDir, tool.evidenceKey, officeMarkers[tool.evidenceKey]);
-  records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: log });
+const deckingTool = inventory.tools.find(tool => tool.family === 'decking-formal');
+assert.ok(deckingTool, 'rendered delivery inventory maps the decking formal tool');
+const { summary: deckingSummary, directory: deckingEvidenceDir } = validateArtifactFamilySummary(
+  runDir,
+  'decking-formal',
+  ['decking-report']
+);
+const deckingEvidence = deckingSummary.records.find(record => record.key === deckingTool.evidenceKey);
+assert.ok(deckingEvidence, 'decking current-run summary resolves the formal artifact record');
+const deckingDocxPath = path.join(deckingEvidenceDir, deckingEvidence.document || '');
+assert.ok(
+  fs.existsSync(deckingDocxPath) && fs.statSync(deckingDocxPath).size > 1024,
+  'decking current-run DOCX artifact exists and is non-empty'
+);
+assert.equal(fs.readFileSync(deckingDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'decking report artifact has DOCX ZIP signature');
+const deckingDocxEntries = readZipEntries(deckingDocxPath, 'decking DOCX');
+assert.ok(deckingDocxEntries.has('word/document.xml'), 'decking DOCX contains word/document.xml');
+const deckingDocumentXml = deckingDocxEntries.get('word/document.xml').toString('utf8');
+const deckingRawText = deckingDocumentXml.replace(/<[^>]+>/g, '');
+const deckingDocxText = decodeXmlText(deckingDocumentXml);
+const deckingParagraphCount = (deckingDocumentXml.match(/<w:p(?:\s|>)/g) || []).length;
+const deckingTableCount = (deckingDocumentXml.match(/<w:tbl(?:\s|>)/g) || []).length;
+const deckingSectionCount = (deckingDocxText.match(/[一二三四五六七八九十]+、/g) || []).length;
+const deckingImageCount = [...deckingDocxEntries.keys()].filter(name => name.startsWith('word/media/')).length;
+assert.ok(deckingDocxText.length > 2500, 'decking DOCX artifact contains substantial visible text');
+assert.ok(deckingParagraphCount >= 60, 'decking DOCX artifact has populated paragraph structure');
+assert.ok(deckingTableCount >= 6, 'decking DOCX artifact has populated table structure');
+assert.ok(deckingSectionCount >= 8, 'decking DOCX artifact keeps expected section structure');
+const deckingFixture = readJson(path.join(repoRoot, '覆工板', 'test-fixtures', 'report-smoke.json'));
+for (const needle of [
+  '覆工板系統結構計算書',
+  '一、計算結果總表',
+  '九、結論與建議',
+  deckingFixture.project.name,
+  deckingFixture.project.no,
+  deckingFixture.project.date,
+  '部分項目不通過',
+]) {
+  assert.ok(deckingDocxText.includes(needle), `decking DOCX artifact contains ${needle}`);
 }
-const deckingDocx = path.join(repoRoot, 'output', 'preflight', 'cover-slab-report-contract.docx');
-assert.ok(fs.existsSync(deckingDocx) && fs.statSync(deckingDocx).size > 1024, 'decking current report contract produced a non-empty DOCX');
-assert.equal(fs.readFileSync(deckingDocx).subarray(0, 2).toString('ascii'), 'PK', 'decking report artifact has DOCX ZIP signature');
+assert.equal(deckingDocxText.includes('（未填）'), false, 'decking DOCX does not use missing project placeholders');
+for (const needle of [
+  '產報前檢查',
+  '附件適用狀態',
+  '優先建議報告閱讀狀態',
+  '優先閱讀',
+  '報告閱讀狀態',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+  '輸出邊界',
+  '頁面顯示，不進計算書、列印或 PDF',
+]) {
+  assert.equal(deckingDocxText.includes(needle), false, `decking DOCX excludes page-only status: ${needle}`);
+}
+assert.equal(deckingEvidence.documentBytes, fs.statSync(deckingDocxPath).size, 'decking summary matches preserved DOCX size');
+assert.equal(deckingEvidence.documentXmlBytes, Buffer.byteLength(deckingDocumentXml, 'utf8'), 'decking summary matches document.xml size');
+assert.equal(deckingEvidence.documentTextLength, deckingRawText.length, 'decking summary matches extracted DOCX text length');
+assert.equal(deckingEvidence.paragraphCount, deckingParagraphCount, 'decking summary matches DOCX paragraph count');
+assert.equal(deckingEvidence.tableCount, deckingTableCount, 'decking summary matches DOCX table count');
+assert.equal(deckingEvidence.sectionCount, deckingSectionCount, 'decking summary matches DOCX section count');
+assert.equal(deckingEvidence.imageCount, deckingImageCount, 'decking summary matches DOCX image count');
+assert.equal(deckingEvidence.projectName, deckingFixture.project.name, 'decking summary matches smoke project name');
+records.push({
+  href: deckingTool.href,
+  title: deckingTool.title,
+  family: deckingTool.family,
+  evidenceKey: deckingTool.evidenceKey,
+  document: deckingEvidence.document,
+  documentBytes: fs.statSync(deckingDocxPath).size,
+  documentTextLength: deckingDocxText.length,
+  paragraphCount: deckingParagraphCount,
+  tableCount: deckingTableCount,
+  sectionCount: deckingSectionCount,
+  imageCount: deckingImageCount,
+});
 
 assert.equal(records.length, inventory.tools.length, 'release rendered evidence resolves every homepage formal tool');
 const aggregate = {

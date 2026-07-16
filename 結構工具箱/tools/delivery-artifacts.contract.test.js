@@ -264,6 +264,15 @@ assertIncludesAny(
   'docxPayload.text.includes',
   '!docxPayload.xml.includes(needle)',
   '!docxPayload.text.includes(needle)',
+  'DECKING_RENDERED_EVIDENCE_DIR',
+  "process.env.PREFLIGHT_RELEASE === '1'",
+  'PREFLIGHT_RUN_DIR',
+  "'rendered-delivery-evidence'",
+  "family: 'decking-formal'",
+  "key: 'decking-report'",
+  'rendered-delivery-evidence-summary.json',
+  'documentBytes',
+  'documentXmlBytes',
 ].forEach(needle => assertIncludes(deckingReportContract, needle, `decking report contract text extraction keeps ${needle}`));
 
 [
