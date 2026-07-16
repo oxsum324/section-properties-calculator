@@ -194,6 +194,120 @@ def main() -> int:
                 raise AssertionError(f'Expected manual Rp override to be preserved, got {preserved_rp}')
             profile_context.close()
 
+            # A saved/imported project owns its profile selection. Loading it in a
+            # fresh browser must restore that selection before render/save can
+            # overwrite the project, and a default/legacy project must clear an
+            # unrelated browser override.
+            project_profile_context = browser.new_context(viewport={'width': 1440, 'height': 1000})
+            project_profile_page = project_profile_context.new_page()
+            project_profile_page.goto(TOOL_URL, wait_until='networkidle', timeout=60000)
+            project_profile_page.wait_for_selector('.ap-picker-select[data-scope="seismic"]', timeout=30000)
+            restored_project_state = project_profile_page.evaluate(
+                """async () => {
+                  const payload = await buildProjectPayload();
+                  payload.inp.code_profiles = {seismic:'cns_seismic_113_conservative'};
+                  payload.inp.sp_seis_rp = '2';
+                  setStoredProjectRaw(JSON.stringify(payload));
+                  load();
+                  render();
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  const persisted = JSON.parse(getStoredProjectRaw().raw);
+                  return {
+                    projectProfile: persisted.inp.code_profiles?.seismic || '',
+                    runtimeProfile: inputs().code_profiles?.seismic || '',
+                    storedProfile: JSON.parse(localStorage.getItem(V2_PROFILE_OVERRIDE_KEY) || '{}').seismic || '',
+                    selected: document.querySelector('.ap-picker-select[data-scope="seismic"]')?.value || '',
+                    rp: document.getElementById('sp_seis_rp')?.value || '',
+                  };
+                }"""
+            )
+            expected_conservative_id = 'cns_seismic_113_conservative'
+            expected_restored_project_state = {
+                'projectProfile': expected_conservative_id,
+                'runtimeProfile': expected_conservative_id,
+                'storedProfile': expected_conservative_id,
+                'selected': expected_conservative_id,
+                'rp': '2',
+            }
+            if restored_project_state != expected_restored_project_state:
+                raise AssertionError(
+                    f'Expected saved project profile to replace fresh runtime state: {restored_project_state}'
+                )
+
+            cleared_legacy_state = project_profile_page.evaluate(
+                """async () => {
+                  const payload = await buildProjectPayload();
+                  delete payload.inp.code_profiles;
+                  payload.inp.sp_seis_rp = '2.5';
+                  setStoredProjectRaw(JSON.stringify(payload));
+                  load();
+                  render();
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                  const persisted = JSON.parse(getStoredProjectRaw().raw);
+                  return {
+                    projectProfile: persisted.inp.code_profiles?.seismic || '',
+                    runtimeProfile: inputs().code_profiles?.seismic || '',
+                    storagePresent: localStorage.getItem(V2_PROFILE_OVERRIDE_KEY) !== null,
+                    selected: document.querySelector('.ap-picker-select[data-scope="seismic"]')?.value || '',
+                    rp: document.getElementById('sp_seis_rp')?.value || '',
+                  };
+                }"""
+            )
+            expected_cleared_legacy_state = {
+                'projectProfile': '',
+                'runtimeProfile': '',
+                'storagePresent': False,
+                'selected': 'cns_seismic_113',
+                'rp': '2.5',
+            }
+            if cleared_legacy_state != expected_cleared_legacy_state:
+                raise AssertionError(
+                    f'Expected default project to clear unrelated browser profile: {cleared_legacy_state}'
+                )
+
+            storage_failure_state = project_profile_page.evaluate(
+                """() => {
+                  const originalSetItem = Storage.prototype.setItem;
+                  const originalNotify = window.v2Notify;
+                  let storageAlerts = 0;
+                  try {
+                    localStorage.removeItem(V2_PROFILE_OVERRIDE_KEY);
+                    _v2LastStorageAlertAt = 0;
+                    window.v2Notify = msg => {
+                      if (String(msg || '').includes('本機儲存空間不足')) storageAlerts += 1;
+                    };
+                    Storage.prototype.setItem = function(key, value) {
+                      if (key === V2_PROFILE_OVERRIDE_KEY) {
+                        const err = new Error('Quota exceeded');
+                        err.name = 'QuotaExceededError';
+                        throw err;
+                      }
+                      return originalSetItem.call(this, key, value);
+                    };
+                    v2SetRuntimeProfileOverride({seismic:'cns_seismic_113_conservative'});
+                    return {
+                      runtimeProfile: inputs().code_profiles?.seismic || '',
+                      storagePresent: localStorage.getItem(V2_PROFILE_OVERRIDE_KEY) !== null,
+                      storageAlerts,
+                    };
+                  } finally {
+                    Storage.prototype.setItem = originalSetItem;
+                    window.v2Notify = originalNotify;
+                    v2SetRuntimeProfileOverride({}, {persist:false});
+                  }
+                }"""
+            )
+            expected_storage_failure_state = {
+                'runtimeProfile': expected_conservative_id,
+                'storagePresent': False,
+                'storageAlerts': 1,
+            }
+            if storage_failure_state != expected_storage_failure_state:
+                raise AssertionError(
+                    f'Expected in-memory project profile to survive storage failure: {storage_failure_state}'
+                )
+            project_profile_context.close()
+
             keyboard_semantics = page.evaluate(
                 """async () => ({
                   badAccordions: Array.from(document.querySelectorAll('#sidebar .acc-hd')).filter(el => el.getAttribute('role') !== 'button' || el.getAttribute('tabindex') !== '0' || !el.getAttribute('aria-controls') || !el.getAttribute('aria-expanded')).length,

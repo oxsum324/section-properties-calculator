@@ -2,6 +2,20 @@
 
 本檔記錄石材固定計算書工具的主要版本變更。正式修改工具前後，請同步更新此檔、`APP_VERSION`、`SERVER_VERSION`，必要時也更新 `TEMPLATE_CATALOG_VERSION` 與回歸測試基準值。
 
+## V3.0.4 - 2026-07-16
+
+版本同步：`APP_VERSION = V3.0.4`；`SERVER_VERSION = 3.0.4`。
+
+### 重點：專案 profile 還原與跨專案隔離
+
+- 修正專案 JSON 已保存 `code_profiles`，但載入或匯入時未還原執行中 profile，第一次重新渲染便可能把專案選擇覆寫遺失的問題。
+- 修正瀏覽器既有 `stone_v2_profile_override` 可能汙染另一個未指定 profile 的專案，造成 active profile 與 `Rp` 等實際輸入互相矛盾的問題。
+- 新增 `normalizeProfileOverrides()`，只接受已登錄、scope 相符且非預設的 profile id；無效、跨 scope、未知 scope 與多餘預設值都會回到標準預設狀態。
+- profile 執行狀態改為由目前專案完整取代：先更新記憶體、再持久化 localStorage。即使 localStorage 寫入失敗，本輪計算仍採專案值並顯示既有儲存錯誤提示。
+- `ui_smoke_test.py` 新增真實瀏覽器回歸，驗證新環境能從專案還原保守 profile，且預設／舊版專案會清除無關的瀏覽器覆寫。
+- 條文語意追蹤 catalog 升級至 0.3.0，納入 profile 專案還原、runtime 狀態與瀏覽器測試證據。
+- 首頁與 classic 入口卡片同步顯示 V3.0.4。
+
 ## V3.0.3 - 2026-07-16
 
 版本同步：`APP_VERSION = V3.0.3`；`SERVER_VERSION = 3.0.3`。

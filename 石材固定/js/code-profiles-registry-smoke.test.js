@@ -157,6 +157,25 @@ test('V3.0.3：profile input sync 拒絕跨 scope 或不存在的 profile', () =
   assert.ok(r.error.includes('無效'));
 });
 
+test('V3.0.4：專案 profile 正規化只保留有效的非預設覆寫', () => {
+  const r = Reg.normalizeProfileOverrides({
+    wind: 'cns_wind_107',
+    seismic: 'cns_seismic_113_conservative',
+    anchor: 'cns_seismic_113_conservative',
+    steel: 'missing_profile',
+    unknown: 'cns_seismic_113_conservative',
+  });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r)), {
+    seismic: 'cns_seismic_113_conservative',
+  });
+});
+
+test('V3.0.4：空白或非物件 profile 選擇正規化為預設狀態', () => {
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(Reg.normalizeProfileOverrides(null))), {});
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(Reg.normalizeProfileOverrides([]))), {});
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(Reg.normalizeProfileOverrides('bad'))), {});
+});
+
 test('DEFAULT_ACTIVE 涵蓋 5 種 scope', () => {
   const expected = ['wind','seismic','anchor','steel','stone'];
   for (const s of expected) {
