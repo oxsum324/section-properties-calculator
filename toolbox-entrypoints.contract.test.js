@@ -524,6 +524,16 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
+if (Number.isInteger(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceRequired)) {
+  assert.ok([1, 2].includes(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceRequired), 'tracked report readiness snapshot supplemental delivery uses a supported transition count');
+  assert.equal(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceComplete, reportReadinessStatusSnapshot.supplementalDeliveryEvidenceRequired, 'tracked report readiness snapshot supplemental delivery complete');
+  assert.equal(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceIssueCount, 0, 'tracked report readiness snapshot supplemental delivery issues empty');
+  assert.ok(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceFamilies.some(item => item.family === 'excavation-formal' && item.complete === 1), 'tracked report readiness snapshot supplemental delivery keeps excavation service coverage');
+  if (reportReadinessStatusSnapshot.supplementalDeliveryEvidenceRequired === 2) {
+    assert.deepEqual(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceFamilies, [{ family: 'excavation-formal', complete: 1 }, { family: 'seismic-report', complete: 1 }], 'tracked report readiness snapshot supplemental delivery covers report and service families');
+    assert.ok(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceSummary.includes('補充報告 / 服務實際交付物渲染'), 'tracked report readiness snapshot supplemental delivery summary');
+  }
+}
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式計算書可讀文字抽檢'), 'tracked report readiness snapshot exposes report text coverage');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式放行實際交付物渲染佐證'), 'tracked report readiness snapshot exposes actual rendered delivery coverage');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('瀏覽器 smoke 證據'), 'tracked report readiness snapshot exposes report text runtime evidence');
@@ -565,7 +575,7 @@ assert.ok(staging.includes('workflow run ID 不在本 ledger 硬編碼'), 'STAGI
 assert.ok(staging.includes('最新 `Pages deploy` 必須為 completed/success'), 'STAGING_GROUPS requires current Pages deploy success');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'STAGING_GROUPS records page-only boundary health');
 assert.ok(staging.includes('首頁正式工具實際交付物渲染 `31/31`'), 'STAGING_GROUPS records homepage rendered delivery evidence health');
-assert.ok(staging.includes('本機服務成品 `1/1`'), 'STAGING_GROUPS records supplemental service delivery evidence health');
+assert.ok(staging.includes('補充報告 / 服務成品 `2/2`'), 'STAGING_GROUPS records supplemental report and service delivery evidence health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'STAGING_GROUPS keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'STAGING_GROUPS keeps future staging playbook');
 assert.equal(staging.includes('本檔把目前工作樹切成可審查的提交包'), false, 'STAGING_GROUPS must not describe landed work as the current worktree');
