@@ -6,8 +6,8 @@
 
 | 區域 | 建議 | 理由 |
 |---|---|---|
-| `preflight-tools.ps1`、`run-preflight-tools.bat`、`run-preflight-tools-quick.bat`、`run-preflight-tools-release.bat` | 納入 | 已成為跨工具交付前檢查入口；quick / normal / release wrapper 需一起提交，release wrapper 固定強制慢檢查與平台 audit，且不得透傳 `%*` 任意參數或被 `-Quick` 覆蓋；頁面專用 report-readiness / Pages artifact governance 需由 `pages-release-governance-contract` 納入同一輪 preflight 記錄。 |
-| `.github/workflows/pr-validation.yml`、`pr-validation.contract.test.js` | 納入 | 送往 `master` 的 PR 使用 Windows runner 執行 canonical quick preflight，採唯讀權限、不依賴 secrets、限制執行時間並保留 summary / history artifact；契約與 `pr-validation-contract` preflight record 必須同批提交，避免 PR 回到沒有狀態檢查的發布盲區。 |
+| `preflight-tools.ps1`、`run-preflight-tools.bat`、`run-preflight-tools-quick.bat`、`run-preflight-tools-ci.bat`、`run-preflight-tools-release.bat` | 納入 | 已成為跨工具交付前檢查入口；CI / quick / normal / release wrapper 需一起提交。CI 只跑 clean-checkout 可重現 gate，不得冒充完整 quick 或正式 release；release wrapper 固定強制慢檢查與平台 audit，且不得透傳 `%*` 任意參數或被 `-Quick` 覆蓋；頁面專用 report-readiness / Pages artifact governance 需由 `pages-release-governance-contract` 納入同一輪 preflight 記錄。 |
+| `.github/workflows/pr-validation.yml`、`pr-validation.contract.test.js` | 納入 | 送往 `master` 的 PR 使用 Windows runner 執行 `run-preflight-tools-ci.bat` clean-checkout gate，採唯讀權限、不依賴 secrets、限制執行時間並保留 summary / history artifact；ignored audit 狀態、本機 node_modules / Python 套件與本機工具檔仍由工作站 quick / release 補證，契約與 `pr-validation-contract` preflight record 必須同批提交。 |
 | `audit-all.ps1`、`refresh-platform-status.ps1`、`platform-audit-preflight.ps1`、`run-audit-all.bat`、`run-audit-all-loop.bat` | 納入 | 平台 audit orchestration 與 preflight 重用判定入口；`audit-all.ps1` 子 audit 採 `ProcessStartInfo` 執行，避免 Windows `Path` / `PATH` 環境鍵重複時 `Start-Process` 失敗，也避免子系統 audit 狀態新鮮但整體摘要或 dashboard decision hash 未刷新。 |
 | `鋼構工具/run-audit.bat`、`鋼筋混凝土/run-audit.bat`、`結構工具箱/audit-core.ps1`、`結構工具箱/run-audit-core.bat` | 納入 | 子系統 audit wrapper 與規範核心 audit 入口；preflight helper script 清冊會檢查這些入口存在並列入 staging 文件。 |
 | `開挖擋土支撐/start_html_mode.ps1`、`開挖擋土支撐/stop_html_mode.ps1` | 納入 | 開挖擋土支撐本機服務邊界 smoke 需要的啟停入口；工程資料仍排除。 |

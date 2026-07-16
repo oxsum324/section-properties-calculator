@@ -1,6 +1,7 @@
 ﻿param(
   [switch]$Quiet,
   [switch]$Quick,
+  [switch]$CI,
   [switch]$ForcePlatformAudit,
   [switch]$ForceSlowChecks
 )
@@ -27,6 +28,10 @@ if (-not (Test-Path $slowStatusDir)) {
 
 if ($Quick -and ($ForcePlatformAudit -or $ForceSlowChecks)) {
   throw "Quick preflight cannot be combined with release force flags. Use run-preflight-tools-quick.bat for quick checks or run-preflight-tools-release.bat for release evidence."
+}
+
+if ($CI -and -not $Quick) {
+  throw "CI preflight must also use -Quick. Run run-preflight-tools-ci.bat for clean-checkout PR validation."
 }
 
 function Write-Status {
@@ -1449,6 +1454,10 @@ $checks = @(
     Needles = @('preflight-tools.ps1', '-Quiet', '-Quick')
   },
   @{
+    Path = 'run-preflight-tools-ci.bat'
+    Needles = @('preflight-tools.ps1', '-Quiet', '-Quick', '-CI')
+  },
+  @{
     Path = 'run-audit-all.bat'
     Needles = @('audit-all.ps1', '-Quiet')
   },
@@ -2246,6 +2255,32 @@ if ($Quick) {
   $checks = @($checks | Where-Object { -not $_.slow })
 }
 
+if ($CI) {
+  # These gates require ignored audit state, local-only tool files, or dependencies
+  # that are intentionally outside a clean checkout. They remain mandatory in the
+  # local quick/release workflows and must not be represented as CI release evidence.
+  $ciExcludedCheckKeys = @(
+    'rc-traceability-contract',
+    'rc-column-report-contract',
+    'rc-shear-wall-report-contract',
+    'steel-traceability-contract',
+    'stone-feedback-contract',
+    'staging-groups-coverage',
+    'steel-audit-status',
+    'rc-audit-status',
+    'core-audit-status',
+    'platform-status-refresh',
+    'anchor-route',
+    'anchor-report-contract',
+    'stone-self-check',
+    'stone-report-contract',
+    'stone-quick-check',
+    'excavation-report-contract',
+    'decking-report-contract'
+  )
+  $checks = @($checks | Where-Object { $ciExcludedCheckKeys -notcontains $_.key })
+}
+
 Update-PreflightHistoryManifest
 
 $runStamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -2393,6 +2428,7 @@ $summaryContent = @(
   "- root: $root"
   "- runId: $runStamp"
   "- quick: $([bool]$Quick)"
+  "- ci: $([bool]$CI)"
   "- forcePlatformAudit: $([bool]$ForcePlatformAudit)"
   "- forceSlowChecks: $([bool]$ForceSlowChecks)"
   "- pass: $overallPass"
@@ -2409,6 +2445,7 @@ $payload = [ordered]@{
   root = $root
   runId = $runStamp
   quick = [bool]$Quick
+  ci = [bool]$CI
   forcePlatformAudit = [bool]$ForcePlatformAudit
   forceSlowChecks = [bool]$ForceSlowChecks
   pass = $overallPass
@@ -2433,7 +2470,7 @@ Write-JsonFile -Path $summaryJsonPath -Value $payload -Depth 6
 Write-JsonFile -Path $historySummaryJsonPath -Value $payload -Depth 6
 
 $maturityMatrixScript = Join-Path $root "結構工具箱\tools\tool-maturity-matrix.js"
-if ($overallPass -and (Test-Path -LiteralPath $maturityMatrixScript)) {
+if ($overallPass -and -not $CI -and (Test-Path -LiteralPath $maturityMatrixScript)) {
   $maturityMatrixArgs = @(
     $maturityMatrixScript,
     "--write",
