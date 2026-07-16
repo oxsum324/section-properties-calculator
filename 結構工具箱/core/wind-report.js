@@ -141,10 +141,6 @@
     return reportWindow;
   }
 
-  function closeWindReportWindow(reportWindow) {
-    try { reportWindow?.close(); } catch (_) {}
-  }
-
   function normalizeStatusGridItem(item) {
     if (Array.isArray(item)) {
       return { label: item[0], value: item[1] };
@@ -705,14 +701,13 @@ function closeReportWindow() {
   }
 
   function openWindForceReport() {
-    const w = openWindReportWindow();
-    if (!w) return;
     const calcResult = typeof global.calc === 'function' ? global.calc() : true;
     if (calcResult === false) {
-      closeWindReportWindow(w);
       showWindReportIssue('輸入條件尚未通過，無法產生計算書。');
       return;
     }
+    const w = openWindReportWindow();
+    if (!w) return;
     clearWindReportIssue();
     const today = new Date();
     const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
@@ -845,14 +840,13 @@ ${reportWindowScriptHtml()}
   }
 
   function openWindGenericReport() {
-    const w = openWindReportWindow();
-    if (!w) return;
     const calcResult = typeof global.calc === 'function' ? global.calc() : true;
     if (calcResult === false) {
-      closeWindReportWindow(w);
       showWindReportIssue('輸入條件尚未通過，無法產生計算書。');
       return;
     }
+    const w = openWindReportWindow();
+    if (!w) return;
     clearWindReportIssue();
     const today = new Date();
     const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
