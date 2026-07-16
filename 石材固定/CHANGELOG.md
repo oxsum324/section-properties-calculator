@@ -2,6 +2,18 @@
 
 本檔記錄石材固定計算書工具的主要版本變更。正式修改工具前後，請同步更新此檔、`APP_VERSION`、`SERVER_VERSION`，必要時也更新 `TEMPLATE_CATALOG_VERSION` 與回歸測試基準值。
 
+## V3.0.7 - 2026-07-16
+
+版本同步：`APP_VERSION = V3.0.7`；`SERVER_VERSION = 3.0.7`。
+
+### 重點：密集輸入存檔順序與舊快照倒寫防護
+
+- 修正欄位 `oninput` 快速連續觸發多個非同步 `save()` 時，較早但 hash 較慢的請求可能最後寫回，讓畫面新值在重開後退回舊值的問題。
+- 新增專案持久化 request token；只有最新存檔／JSON 匯出請求可更新 localStorage，過期請求仍可完成自己的 payload，但不得覆蓋較新的專案狀態。
+- `load()`、復原／重做與匯入套用新專案時會使先前尚在計算 hash 的寫回失效，避免舊專案快照跨越替換邊界倒寫。
+- `ui_smoke_test.py` 以真實瀏覽器刻意延遲第一筆 SHA-256，驗證畫面與 storage 都保留第二筆新輸入，且保存後指紋有效。
+- 條文語意追蹤 catalog 升級至 0.6.0；首頁與 classic 入口卡片同步顯示 V3.0.7。
+
 ## V3.0.6 - 2026-07-16
 
 版本同步：`APP_VERSION = V3.0.6`；`SERVER_VERSION = 3.0.6`。

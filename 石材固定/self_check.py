@@ -776,6 +776,8 @@ def main() -> int:
         ('migration persistence removes stale source hash while pending', "meta.input_hash = '';" in html and "meta.migration_persist_status = 'pending'" in html),
         ('migration persistence recomputes normalized input hash', 'startProjectMigrationPersistence' in html and 'meta.input_hash = inputHash' in html),
         ('project save hashes and writes the same immutable snapshot', 'const inputSnapshot = v2CloneJson({ inp, cases: casesSave })' in html and 'stableSerialize(inputSnapshot)' in html and 'inp: inputSnapshot.inp' in html and 'cases: inputSnapshot.cases' in html),
+        ('latest asynchronous project save wins', 'let _projectPersistenceRequestToken = 0' in html and 'const requestToken = ++_projectPersistenceRequestToken' in html and 'if(requestToken !== _projectPersistenceRequestToken) return payload' in html and 'rapid_save_latest_wins' in ui_smoke),
+        ('project replacement invalidates pending asynchronous writes', '使先前尚在計算 hash 的 save/export 寫回失效' in html and '_projectPersistenceRequestToken++;' in html and 'project_replacement_invalidates_pending_save' in ui_smoke),
         ('project load replaces rather than appends cases', "document.getElementById('cases-list')?.replaceChildren()" in html and 'caseCountStable' in ui_smoke),
         ('pending or failed migration persistence retries on reload', "priorMigrationPersistStatus === 'pending'" in html and "priorMigrationPersistStatus === 'failed'" in html and '|| persistenceRetry' in html),
         ('pending migration persistence blocks export', "migrationPersistStatus === 'pending'" in html and '稍候完成後再匯出' in html),
