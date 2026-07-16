@@ -11,7 +11,7 @@
 (function (root) {
   'use strict';
 
-  const REGISTRY_VERSION = 'code-profiles-registry-2026.07.16-v2';
+  const REGISTRY_VERSION = 'code-profiles-registry-2026.07.16-v3';
   // V3.0.0：StoneGovernanceProtocol 版本號 — 對應 dev_tools/StoneGovernanceProtocol-v1.0.md
   // 任何 protocol-compliant 工具於 result.meta.governance_protocol_version 寫入此值；
   // 用於跨工具 / 跨版本比對時確認治理欄位 schema 相容性
@@ -184,6 +184,23 @@
   // 列出所有可用 profile（給 UI 切換器用）
   function listProfilesByScope(scope) {
     return Object.values(PROFILES).filter(p => p.scope === scope);
+  }
+
+  // 將專案或 localStorage 的 profile 選擇正規化為「有效且非預設」的最小覆寫集。
+  // 無效 id、跨 scope id、未知 scope 與預設 id 都不應進入計算狀態。
+  function normalizeProfileOverrides(selection) {
+    const source = selection && typeof selection === 'object' && !Array.isArray(selection)
+      ? selection
+      : {};
+    const out = {};
+    for (const [scope, defaultId] of Object.entries(DEFAULT_ACTIVE)) {
+      const id = source[scope];
+      const profile = typeof id === 'string' ? getProfile(id) : null;
+      if (profile && profile.scope === scope && id !== defaultId) {
+        out[scope] = id;
+      }
+    }
+    return out;
   }
 
   // 給匯出用：active profile ids + 名稱對照
@@ -645,6 +662,7 @@
     getProfile,
     getActiveProfile,
     listProfilesByScope,
+    normalizeProfileOverrides,
     buildActiveProfilesMeta,
     getParam,
     buildProfileInputUpdates,

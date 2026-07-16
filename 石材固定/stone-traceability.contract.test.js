@@ -47,6 +47,7 @@ const constants = readUtf8('js/constants.spec.js');
 const inputSchema = readUtf8('js/input-schema.spec.js');
 const regressionSmoke = readUtf8('js/regression-smoke.test.js');
 const mainHtml = readUtf8('石材計算書產生器_規範版V2.html');
+const uiSmoke = readUtf8('ui_smoke_test.py');
 
 const expectedTools = [
   'stone-load-demand',
@@ -55,7 +56,7 @@ const expectedTools = [
   'stone-serviceability-report',
 ];
 
-assert(catalog.version === '0.2.0', 'stone traceability catalog version', catalog.version);
+assert(catalog.version === '0.3.0', 'stone traceability catalog version', catalog.version);
 assert(catalog.family === 'stone-traceability', 'stone traceability catalog family', catalog.family);
 assertString(catalog.description, 'stone traceability catalog description');
 assert(Array.isArray(catalog.tools), 'stone traceability catalog tools array', `count=${catalog.tools?.length || 0}`);
@@ -137,6 +138,7 @@ assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `trace
   'buildGovernanceAckHash',
   'PROFILE_INPUT_BINDINGS',
   'buildProfileInputUpdates',
+  'normalizeProfileOverrides',
   'validateGovernanceMeta',
 ].forEach((needle) => {
   assert(codeProfiles.includes(needle), `stone code profile governance keeps ${needle}`, needle);
@@ -191,10 +193,21 @@ assert(seenTraceIds.size >= 8, 'stone traceability catalog trace volume', `trace
 [
   'function v2SyncProfileOwnedInputs',
   'SP.buildProfileInputUpdates',
+  'function v2GetRuntimeProfileOverride',
+  'function v2SetRuntimeProfileOverride',
+  'v2SetRuntimeProfileOverride(inp.code_profiles)',
   '已同步 ${updatedCount} 個 profile 預設欄位',
   '保留 ${preservedCount} 個人工覆寫欄位',
 ].forEach((needle) => {
   assert(mainHtml.includes(needle), `stone profile picker runtime keeps ${needle}`, needle);
+});
+
+[
+  'Expected saved project profile to replace fresh runtime state',
+  'Expected default project to clear unrelated browser profile',
+  'Expected in-memory project profile to survive storage failure',
+].forEach((needle) => {
+  assert(uiSmoke.includes(needle), `stone project profile browser regression keeps ${needle}`, needle);
 });
 
 assert(readme.includes('stone-traceability.catalog.json'), 'stone README documents traceability catalog path', 'README.md');
