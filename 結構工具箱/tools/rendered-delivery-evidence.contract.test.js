@@ -643,6 +643,75 @@ records.push({
   imageCount: deckingImageCount,
 });
 
+const { summary: formalReportSummary, directory: formalReportEvidenceDir } = validateArtifactFamilySummary(
+  runDir,
+  'formal-tools',
+  ['seismic-dynamic']
+);
+const seismicDynamicEvidence = formalReportSummary.records.find(record => record.key === 'seismic-dynamic');
+assert.ok(seismicDynamicEvidence, 'seismic dynamic current-run summary resolves the report artifact record');
+const seismicDynamicPdfPath = path.join(formalReportEvidenceDir, seismicDynamicEvidence.artifact || '');
+const seismicDynamicEvidencePath = path.join(formalReportEvidenceDir, seismicDynamicEvidence.evidence || '');
+assert.ok(fs.existsSync(seismicDynamicEvidencePath), 'seismic dynamic current-run evidence JSON exists');
+const seismicDynamicPdf = validatePdfFile(seismicDynamicPdfPath, {
+  label: '反應譜動力分析摘要報告',
+  minTextLength: 2500,
+  requiredNeedles: [
+    '反應譜動力分析規範整理計算書',
+    '正式工具驗證案',
+    '第 3.3 節總橫力調整檢核',
+    '第 3.2 節反應譜輸出表',
+    '總橫力比對表',
+    '動力模型檢核表',
+  ],
+  titleNeedle: '反應譜動力分析規範整理計算書',
+  projectNeedle: '正式工具驗證案',
+  keepWithNextLabels: [
+    '第 3.3 節總橫力調整檢核',
+    '工址與設計譜參考',
+    '第 3.2 節反應譜輸出表',
+    '反應譜圖形化檢核',
+    '總橫力比對表',
+    '動力模型檢核表',
+    '備註',
+  ],
+  continuationContextLabels: [
+    '第 3.3 節總橫力調整檢核',
+    '工址與設計譜參考',
+    '第 3.2 節反應譜輸出表',
+    '反應譜圖形化檢核',
+    '總橫力比對表',
+    '動力模型檢核表',
+    '備註',
+    '方向 等值靜力結果 調整要求 動力 / 要求 最低倍率 輸入採用總橫力 採用倍率 判讀',
+    'T(sec) 設計地震 SaD 設計輸入譜 中小度下限譜 採用設計輸入譜 控制 最大考量 SaM 最大考量輸入譜',
+    '方向 週期 T 動力基底剪力 等值靜力結果 調整要求 動力/要求 最低倍率 輸入採用總橫力 採用倍率 判讀',
+    '項目 檢核內容 狀態',
+  ],
+});
+const seismicDynamicEvidenceJson = readJson(seismicDynamicEvidencePath);
+assert.equal(seismicDynamicEvidenceJson.artifact, seismicDynamicEvidence.artifact, 'seismic dynamic evidence names the preserved PDF');
+assert.equal(seismicDynamicEvidenceJson.renderer, 'formal-detailed', 'seismic dynamic evidence uses the detailed formal renderer');
+assert.equal(seismicDynamicEvidenceJson.dom.horizontalOverflow, false, 'seismic dynamic report has no horizontal overflow');
+assert.ok(seismicDynamicEvidenceJson.dom.tableCount >= 6, 'seismic dynamic report keeps populated tables');
+assert.equal(seismicDynamicEvidenceJson.pdf.pageCount, seismicDynamicPdf.pageCount, 'seismic dynamic evidence matches PDF page count');
+assert.equal(seismicDynamicEvidenceJson.pdf.textLength, seismicDynamicPdf.textLength, 'seismic dynamic evidence matches PDF text length');
+assert.equal(seismicDynamicEvidenceJson.pdf.orphanHeadingCount, 0, 'seismic dynamic report has no orphan headings');
+assert.equal(seismicDynamicEvidenceJson.pdf.uncontextualPageStartCount, 0, 'seismic dynamic report continuation pages keep context');
+supplementalRecords.push({
+  href: '/seismic-dynamic',
+  title: '動力分析摘要',
+  family: 'seismic-report',
+  sourceFamily: 'formal-tools',
+  category: 'report',
+  evidenceKey: 'seismic-dynamic',
+  artifact: seismicDynamicEvidence.artifact,
+  evidence: seismicDynamicEvidence.evidence,
+  pageCount: seismicDynamicPdf.pageCount,
+  textLength: seismicDynamicPdf.textLength,
+  tableCount: seismicDynamicEvidenceJson.dom.tableCount,
+});
+
 const { summary: excavationSummary, directory: excavationEvidenceDir } = validateArtifactFamilySummary(
   runDir,
   'excavation-formal',
@@ -771,6 +840,7 @@ assert.equal(excavationEvidence.mediaCount, excavationMediaCount, 'excavation su
 supplementalRecords.push({
   title: '開挖擋土支撐',
   family: 'excavation-formal',
+  category: 'service',
   evidenceKey: 'excavation-report',
   artifact: excavationEvidence.artifact,
   document: excavationEvidence.document,
@@ -785,7 +855,7 @@ supplementalRecords.push({
 });
 
 assert.equal(records.length, inventory.tools.length, 'release rendered evidence resolves every homepage formal tool');
-assert.equal(supplementalRecords.length, 1, 'release rendered evidence resolves every supplemental service artifact');
+assert.equal(supplementalRecords.length, 2, 'release rendered evidence resolves every supplemental report and service artifact');
 const aggregate = {
   schemaVersion: 1,
   kind: 'release-rendered-delivery-evidence',
@@ -793,14 +863,14 @@ const aggregate = {
   runId: path.basename(runDir),
   required: inventory.tools.length,
   complete: records.length,
-  supplementalRequired: 1,
+  supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
-  supplementalPass: supplementalRecords.length === 1,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 1,
+  supplementalPass: supplementalRecords.length === 2,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/1, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, summary=${aggregatePath})`);

@@ -153,10 +153,12 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   "family === 'stone-formal'",
   "family === 'anchor-formal'",
   "family === 'decking-formal'",
+  "'seismic-dynamic'",
+  "family: 'seismic-report'",
   "'excavation-formal'",
   'release rendered evidence resolves every homepage formal tool',
-  'release rendered evidence resolves every supplemental service artifact',
-  'supplementalRequired: 1',
+  'release rendered evidence resolves every supplemental report and service artifact',
+  'supplementalRequired: 2',
   'supplementalRecords',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
@@ -185,7 +187,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'renderedDeliveryEvidenceSourceHash',
   'supplementalDeliveryEvidenceRequired',
   'supplementalDeliveryEvidenceFamilies',
-  '本機服務實際交付物渲染',
+  '補充報告 / 服務實際交付物渲染',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
 
 [

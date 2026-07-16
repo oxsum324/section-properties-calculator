@@ -1221,7 +1221,7 @@
       ratio('瀏覽器 smoke', payload.reportTextSmokeEvidenceComplete, payload.reportTextSmokeEvidenceRequired, payload.reportTextSmokeEvidenceIssueCount),
       ratio('成品渲染', payload.renderedDeliveryEvidenceComplete, payload.renderedDeliveryEvidenceRequired, payload.renderedDeliveryEvidenceIssueCount),
       Number.isInteger(payload.supplementalDeliveryEvidenceRequired) && payload.supplementalDeliveryEvidenceRequired > 0
-        ? ratio('服務成品', payload.supplementalDeliveryEvidenceComplete, payload.supplementalDeliveryEvidenceRequired, payload.supplementalDeliveryEvidenceIssueCount)
+        ? ratio('補充成品', payload.supplementalDeliveryEvidenceComplete, payload.supplementalDeliveryEvidenceRequired, payload.supplementalDeliveryEvidenceIssueCount)
         : null
     ].filter(Boolean);
   }

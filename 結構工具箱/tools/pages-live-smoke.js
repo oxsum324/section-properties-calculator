@@ -211,12 +211,15 @@ async function main() {
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
   if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
-    assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceRequired, 1, 'report readiness supplemental delivery covers the excavation service');
+    assert.ok([1, 2].includes(reportReadinessStatus.supplementalDeliveryEvidenceRequired), 'report readiness supplemental delivery uses a supported transition count');
     assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceComplete, reportReadinessStatus.supplementalDeliveryEvidenceRequired, 'report readiness supplemental delivery fully covered');
     assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceIssueCount, 0, 'report readiness supplemental delivery issues empty');
-    assert.deepEqual(reportReadinessStatus.supplementalDeliveryEvidenceFamilies, [{ family: 'excavation-formal', complete: 1 }], 'report readiness supplemental delivery family coverage');
-    assert.ok(String(reportReadinessStatus.supplementalDeliveryEvidenceSummary || '').includes('本機服務實際交付物渲染'), 'report readiness supplemental delivery summary');
-    assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('本機服務成品'), 'report readiness rendered delivery summary includes supplemental service evidence');
+    assert.ok(reportReadinessStatus.supplementalDeliveryEvidenceFamilies.some(item => item.family === 'excavation-formal' && item.complete === 1), 'report readiness supplemental delivery keeps excavation service coverage');
+    if (reportReadinessStatus.supplementalDeliveryEvidenceRequired === 2) {
+      assert.deepEqual(reportReadinessStatus.supplementalDeliveryEvidenceFamilies, [{ family: 'excavation-formal', complete: 1 }, { family: 'seismic-report', complete: 1 }], 'report readiness supplemental delivery covers report and service families');
+      assert.ok(String(reportReadinessStatus.supplementalDeliveryEvidenceSummary || '').includes('補充報告 / 服務實際交付物渲染'), 'report readiness supplemental delivery summary');
+      assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('補充報告 / 服務成品'), 'report readiness rendered delivery summary includes supplemental report and service evidence');
+    }
   }
   assert.equal(JSON.stringify(reportReadinessStatus).includes('"artifact":'), false, 'report readiness snapshot does not publish artifact fields');
   assert.equal(/\.(?:pdf|docx|xlsx)\b/i.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness snapshot does not publish delivery filenames');

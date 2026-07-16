@@ -83,7 +83,7 @@ node excavation-traceability.contract.test.js
 node excavation-report.contract.test.js
 ```
 
-當 `PREFLIGHT_RELEASE=1` 且提供 `PREFLIGHT_RUN_DIR` 時，報告契約會呼叫 `backend/tests/release_report_artifacts.py`，把當輪正式放行產生的 PDF、DOCX 與專案 `latest-report.pdf` / `latest-report.docx` 最新下載副本保存到 ignored 的 `rendered-delivery-evidence/excavation-formal/`。平台總閘門會重新解析成品的文字、頁數、段落、表格、章節、圖面與媒體，並核對原始成品和最新下載副本的檔案雜湊；這份 `1/1` 本機服務證據與首頁 31 個正式工具分開計數，不提交工程案例或報告成品。
+當 `PREFLIGHT_RELEASE=1` 且提供 `PREFLIGHT_RUN_DIR` 時，報告契約會呼叫 `backend/tests/release_report_artifacts.py`，把當輪正式放行產生的 PDF、DOCX 與專案 `latest-report.pdf` / `latest-report.docx` 最新下載副本保存到 ignored 的 `rendered-delivery-evidence/excavation-formal/`。平台總閘門會重新解析成品的文字、頁數、段落、表格、章節、圖面與媒體，並核對原始成品和最新下載副本的檔案雜湊；這是補充報告 / 服務成品 `2/2` 中的本機服務證據，與首頁 31 個正式工具分開計數，不提交工程案例或報告成品。
 
 ## 目前實作重點
 
