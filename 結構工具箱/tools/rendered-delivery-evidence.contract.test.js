@@ -359,9 +359,50 @@ const retrofitTool = inventory.tools.find(tool => tool.family === 'rc-retrofit')
 const retrofitEvidence = retrofitSummary.records.find(record => record.key === retrofitTool.evidenceKey);
 records.push({ href: retrofitTool.href, title: retrofitTool.title, family: retrofitTool.family, evidenceKey: retrofitTool.evidenceKey, artifact: retrofitEvidence.artifact });
 
+const stoneSummary = validateFamilySummary(runDir, 'stone-formal', ['stone-fixing']);
+const stoneTool = inventory.tools.find(tool => tool.family === 'stone-formal');
+const stoneEvidence = stoneSummary.records.find(record => record.key === stoneTool.evidenceKey);
+const stoneEvidenceDir = path.join(runDir, 'rendered-delivery-evidence', 'stone-formal');
+const stonePdfPath = path.join(stoneEvidenceDir, stoneEvidence.artifact);
+const stoneDocxPath = path.join(stoneEvidenceDir, stoneEvidence.document || '');
+const stoneAuditPath = path.join(stoneEvidenceDir, stoneEvidence.evidence || '');
+const stonePdf = validatePdfFile(stonePdfPath, {
+  label: stoneTool.title,
+  minTextLength: 8000,
+  requiredNeedles: ['結 構 計 算 書', '石材外牆固定構件', 'Auto Word Formal Artifact', '送審速覽', '設計者註記'],
+  titleNeedle: '結 構 計 算 書',
+  projectNeedle: 'Auto Word Formal Artifact',
+  continuationContextLabels: [
+    '目 錄',
+    'Auto Word Formal Artifact送審速覽',
+    'Auto Word Formal Artifact簽章頁',
+    'Auto Word Formal Artifact主文（一）',
+    'Auto Word Formal Artifact主文（二）',
+    'Auto Word Formal Artifact 附件 2 標準板',
+    'Auto Word Formal Artifact 附件 2 標準板（續）',
+    '附圖 B – 工法實拍照片',
+  ],
+});
+assert.ok(fs.existsSync(stoneDocxPath), 'stone current-run rendered evidence includes DOCX');
+assert.equal(fs.readFileSync(stoneDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'stone report artifact has DOCX ZIP signature');
+assert.ok(fs.existsSync(stoneAuditPath), 'stone current-run rendered evidence includes audit JSON');
+const stoneAudit = readJson(stoneAuditPath);
+assert.equal(stoneAudit.mode, 'auto_word', 'stone rendered evidence audit records the formal export path');
+assert.equal(stoneAudit.output.size_bytes, fs.statSync(stoneDocxPath).size, 'stone rendered evidence audit matches the preserved DOCX');
+records.push({
+  href: stoneTool.href,
+  title: stoneTool.title,
+  family: stoneTool.family,
+  evidenceKey: stoneTool.evidenceKey,
+  artifact: stoneEvidence.artifact,
+  document: stoneEvidence.document,
+  evidence: stoneEvidence.evidence,
+  pageCount: stonePdf.pageCount,
+  textLength: stonePdf.textLength,
+});
+
 const officeMarkers = {
   'anchor-report-contract': 'Anchor report contract checks passed.',
-  'stone-report-contract': 'Stone report contract checks passed.',
   'decking-report-contract': 'Decking report contract checks passed.',
 };
 for (const tool of inventory.tools.filter(item => item.family === 'office-artifacts')) {

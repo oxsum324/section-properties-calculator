@@ -28,7 +28,7 @@
     { "href": "/seismic-appendage", "title": "附屬構造物地震力", "family": "formal-tools", "evidenceKey": "seismic-appendage" },
     { "href": "/seismic-misc", "title": "雜項工作物地震力", "family": "formal-tools", "evidenceKey": "seismic-misc" },
     { "href": "/anchor", "title": "錨栓檢討工具", "family": "office-artifacts", "evidenceKey": "anchor-report-contract" },
-    { "href": "/stone-fixing", "title": "石材固定構件計算書", "family": "office-artifacts", "evidenceKey": "stone-report-contract" },
+    { "href": "/stone-fixing", "title": "石材固定構件計算書", "family": "stone-formal", "evidenceKey": "stone-fixing" },
     { "href": "/foundation-local", "title": "基礎局部檢核", "family": "local-quick-tools", "evidenceKey": "foundation-local" },
     { "href": "/equipment-load", "title": "設備局部荷重", "family": "local-quick-tools", "evidenceKey": "equipment-load" },
     { "href": "/earth-pressure", "title": "擋土土壓局部快算", "family": "local-quick-tools", "evidenceKey": "earth-pressure" },
