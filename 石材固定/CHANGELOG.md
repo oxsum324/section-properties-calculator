@@ -2,7 +2,7 @@
 
 本檔記錄石材固定計算書工具的主要版本變更。正式修改工具前後，請同步更新此檔、`APP_VERSION`、`SERVER_VERSION`，必要時也更新 `TEMPLATE_CATALOG_VERSION` 與回歸測試基準值。
 
-## V3.0.7 - 2026-07-16
+## V3.0.7 - 2026-07-17
 
 版本同步：`APP_VERSION = V3.0.7`；`SERVER_VERSION = 3.0.7`。
 
