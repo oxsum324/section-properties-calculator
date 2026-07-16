@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>石材外牆固定構件計算書產生器 規範版 V3.0.5</title>
+<title>石材外牆固定構件計算書產生器 規範版 V3.0.6</title>
 <link rel="icon" href="data:,">
 <style>
 /* ─── Reset ─────────────────────────────── */
@@ -517,12 +517,12 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 }
 
 /* Migration toast */
-#v2-migration-toast{position:fixed;top:60px;right:12px;background:#1d6c2a;color:#fff;padding:12px 18px;border-radius:5px;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:9999;display:none;max-width:340px;font-size:12.5px;line-height:1.5;border-left:5px solid #2eb84a}
+#v2-migration-toast{position:fixed;top:60px;right:12px;background:#1d6c2a;color:#fff;padding:12px 18px;border-radius:5px;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:9999;display:none;max-width:340px;font-size:12.5px;line-height:1.5;border-left:5px solid #2eb84a;pointer-events:none}
 #v2-migration-toast.show{display:block;animation:v2toast-in .3s ease-out}
 #v2-migration-toast.warn{background:#a5691a;border-left-color:#e3b86b}
 #v2-migration-toast.err{background:#9b1c1c;border-left-color:#ffb4b4}
 @keyframes v2toast-in{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
-#v2-migration-toast .v2-toast-close{float:right;background:transparent;color:rgba(255,255,255,.7);border:none;cursor:pointer;font-size:14px;margin-left:8px;padding:0}
+#v2-migration-toast .v2-toast-close{float:right;background:transparent;color:rgba(255,255,255,.7);border:none;cursor:pointer;font-size:14px;margin-left:8px;padding:0;pointer-events:auto}
 #v2-migration-toast .v2-toast-close:hover{color:#fff}
 
 /* ⑤ 規範附加模組 – 核心/進階過濾器 */
@@ -852,7 +852,7 @@ button[aria-label="刪除此案例"]:focus-visible,button[aria-label="移除此�
 
 <!-- Sidebar -->
 <div id="sidebar">
-  <div id="tool-header">石材固定構件計算書產生器｜規範版 V2 <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span><span id="tool-version-label">V3.0.5 任務導向介面 ‧ 弘一工程顧問有限公司 ‧ 目前使用版本：V2.1</span></div>
+  <div id="tool-header">石材固定構件計算書產生器｜規範版 V2 <span class="v2-rev-pill" id="v2-rev-pill" title="依目前 JSON SHA-256 前 8 碼自動產生之版次碼；內容變動即會更新">REV-—</span><span id="tool-version-label">V3.0.6 任務導向介面 ‧ 弘一工程顧問有限公司 ‧ 目前使用版本：V2.1</span></div>
 
   <!-- V2 快速工具列 -->
   <div id="v2-toolbar" role="toolbar" aria-label="快速工具列">
@@ -2068,7 +2068,9 @@ const DIAGRAM_KEY = 'stone_diagram_img_spec';
 const V2_PROJECT_JSON_MAX_BYTES = 10 * 1024 * 1024;
 const V2_CASE_CSV_MAX_BYTES = 2 * 1024 * 1024;
 let _projectMigrationInfo = null;
+let _projectMigrationEventInfo = null;
 let _projectIntegrityToken = 0;
+let _projectMigrationPersistenceToken = 0;
 let _lastStoredProjectBackupStatus = '';
 function getStoredProjectRaw(){
   for(const key of STORAGE_KEYS){
@@ -3092,7 +3094,9 @@ function v2CollectExportChecklist(payload, serverStatus){
   }catch(e){}
   // 6. schema migration 寫回失敗
   const migrationPersistStatus = payload?.meta?.migration_persist_status || _projectMigrationInfo?.migration_persist_status || '';
-  if(migrationPersistStatus === 'failed'){
+  if(migrationPersistStatus === 'pending'){
+    items.push({level:'block', text:'專案正在完成正規化指紋與本機儲存；請稍候完成後再匯出。'});
+  }else if(migrationPersistStatus === 'failed'){
     items.push({level:'block', text:'專案已載入遷移後資料，但本機儲存寫回失敗；匯出前請先下載專案 JSON 保存目前狀態。'});
   }
   // 6b. input schema 驗證失敗 → BLOCK
@@ -5502,8 +5506,9 @@ function v2Notify(message, kind='warn', title='提示', autoHide=8000){
   });
 }
 
-// 偵測 _projectMigrationInfo 並決定是否顯示 toast
+// migration toast 只消費本次 load 產生的短暫事件；長期追溯資訊仍保留於 _projectMigrationInfo。
 let _v2MigrationToastShown = false;
+let _v2IntegrityToastSignature = '';
 const V2_MIGRATION_AUDIT_KEY = 'stoneV2MigrationAudit';
 function v2AppendMigrationAudit(entry){
   try{
@@ -5513,16 +5518,19 @@ function v2AppendMigrationAudit(entry){
     localStorage.setItem(V2_MIGRATION_AUDIT_KEY, JSON.stringify(log));
   }catch(e){ console.warn('[v2AppendMigrationAudit] failed:', e); }
 }
+function v2ScheduleMigrationToast(){
+  _v2MigrationToastShown = false;
+  setTimeout(v2DetectAndShowMigrationToast, 0);
+}
 function v2DetectAndShowMigrationToast(){
-  if(_v2MigrationToastShown) return;
-  const info = window._projectMigrationInfo || _projectMigrationInfo;
-  if(!info) return;
-  const status = info.migration_persist_status;
+  const info = _projectMigrationEventInfo;
+  const status = info?.migration_persist_status;
+  const persistenceRetry = info?.persistence_retry === true;
   // 收集 default_fields_applied（若 V1 schema 沒有的欄位被預設值填入）
-  const appliedDefaults = info.applied_defaults || info.default_fields_applied || info.fields_with_default || [];
+  const appliedDefaults = info?.applied_defaults || info?.default_fields_applied || info?.fields_with_default || [];
   const appliedCount = Array.isArray(appliedDefaults) ? appliedDefaults.length : (typeof appliedDefaults === 'number' ? appliedDefaults : 0);
 
-  if(status === 'saved'){
+  if(!_v2MigrationToastShown && status === 'saved'){
     _v2MigrationToastShown = true;
     const fromV = info.from_version || info.source_version || 'v1';
     const toV = info.to_version || info.target_version || 'v3';
@@ -5534,24 +5542,27 @@ function v2DetectAndShowMigrationToast(){
       : '';
     v2ShowMigrationToast({
       kind: 'success',
-      title: completedCurrentSchema ? '✓ 專案缺值已自動補齊' : '✓ 舊檔已自動轉換',
-      message: completedCurrentSchema
+      title: persistenceRetry ? '✓ 專案正規化已完成保存' : (completedCurrentSchema ? '✓ 專案缺值已自動補齊' : '✓ 舊檔已自動轉換'),
+      message: persistenceRetry
+        ? `已重新計算正規化專案的輸入指紋並寫回本機儲存，先前未完成的保存狀態已恢復。`
+        : completedCurrentSchema
         ? `偵測到目前 schema 的專案 JSON 缺少欄位，已依 active profile 與現行 schema 預設補齊並寫回本機儲存；明示的既有輸入均保留。${detailsLine}`
         : `偵測到 ${escapeHtml(String(fromV))} 格式專案 JSON，已轉換為當前 ${escapeHtml(String(toV))} schema 並寫回本機儲存。${appliedCount > 0 ? '缺少欄位已依目前設定補齊；明示的既有輸入均保留。' : '原始輸入未變動。'}${detailsLine}`,
       autoHide: 12000
     });
     v2AppendMigrationAudit({
-      kind: completedCurrentSchema ? 'project_defaults_completed' : 'migration_saved',
+      kind: persistenceRetry ? 'migration_persistence_recovered' : (completedCurrentSchema ? 'project_defaults_completed' : 'migration_saved'),
       from_version: fromV,
       to_version: toV,
       applied_defaults: appliedDefaults,
       applied_default_count: appliedCount
     });
-  } else if(status === 'failed'){
+    _projectMigrationEventInfo = null;
+  } else if(!_v2MigrationToastShown && status === 'failed'){
     _v2MigrationToastShown = true;
     v2ShowMigrationToast({
       kind: 'warn',
-      title: '⚠ 舊檔轉換警告',
+      title: persistenceRetry ? '⚠ 專案正規化保存警告' : '⚠ 舊檔轉換警告',
       message: `已自動轉換為當前 schema，但寫回本機儲存失敗。匯出前請先下載專案 JSON 保存目前狀態。${appliedCount > 0 ? `<br><span style="font-size:11px;opacity:.85">套用預設欄位 ${appliedCount} 項</span>` : ''}`,
       autoHide: 0  // 不自動隱藏
     });
@@ -5560,22 +5571,29 @@ function v2DetectAndShowMigrationToast(){
       applied_defaults: appliedDefaults,
       applied_default_count: appliedCount
     });
+    _projectMigrationEventInfo = null;
   }
   // integrity 不一致警示
-  if(info.integrity_status === 'mismatch'){
+  const integrityInfo = window._projectMigrationInfo || _projectMigrationInfo;
+  const integritySignature = integrityInfo?.integrity_status === 'mismatch'
+    ? `${integrityInfo.integrity_expected_hash || ''}:${integrityInfo.integrity_actual_hash || ''}`
+    : '';
+  if(integritySignature && integritySignature !== _v2IntegrityToastSignature){
+    _v2IntegrityToastSignature = integritySignature;
     v2AppendMigrationAudit({
       kind: 'integrity_mismatch',
-      expected_hash: info.integrity_expected_hash,
-      actual_hash: info.integrity_actual_hash
+      expected_hash: integrityInfo.integrity_expected_hash,
+      actual_hash: integrityInfo.integrity_actual_hash
     });
-    setTimeout(()=>{
+    clearTimeout(window._v2IntegrityToastTimer);
+    window._v2IntegrityToastTimer = setTimeout(()=>{
       v2ShowMigrationToast({
         kind: 'warn',
         title: '⚠ 完整性指紋不符',
         message: `專案 JSON 含 input_hash 但與目前內容不符；可能為手動編輯或舊版 hash 演算法。建議先確認後再匯出。`,
         autoHide: 12000
       });
-    }, 9000);
+    }, _v2MigrationToastShown ? 9000 : 0);
   }
 }
 
@@ -7381,7 +7399,7 @@ const {
 } = window.StoneCalculator || {};
 const MATERIAL_GRADE_MAP = Object.fromEntries(MATERIAL_GRADE_OPTIONS.map(item => [item.value, item]));
 const STONE_GRADE_MAP = STONE_GRADE_CATALOG || {};
-const APP_VERSION = 'V3.0.5';
+const APP_VERSION = 'V3.0.6';
 const TOOL_HTML_FILENAME = '石材計算書產生器_規範版V2.html';
 const GENERATOR_NAME = 'stone-spec-direct-word-html-v2';
 const PROJECT_SCHEMA = 'stone-calc/v3';
@@ -8890,7 +8908,7 @@ function projectIntegrityNote(){
   if(status === 'error') return '資料完整性：來源專案輸入雜湊驗證失敗，請重新匯出或比對原始 JSON。';
   return '';
 }
-function startProjectIntegrityCheck(source, migrated){
+function startProjectIntegrityCheck(source){
   const sourceMeta = source?.meta && typeof source.meta === 'object' ? source.meta : {};
   const storedHash = pickText(sourceMeta.input_hash, '');
   const token = ++_projectIntegrityToken;
@@ -8902,7 +8920,8 @@ function startProjectIntegrityCheck(source, migrated){
     integrity_verified_at: storedHash ? '' : new Date().toISOString(),
   };
   if(!storedHash) return Promise.resolve(_projectMigrationInfo);
-  return sha256Hex(stableSerialize({ inp: migrated?.inp || {}, cases: migrated?.cases || [] }))
+  // input_hash 是來源檔產生時的指紋；必須與來源內容比對，不能與 migration 補值後內容比對。
+  return sha256Hex(stableSerialize({ inp: source?.inp || {}, cases: source?.cases || [] }))
     .then(actualHash => {
       if(token !== _projectIntegrityToken) return null;
       _projectMigrationInfo = {
@@ -10199,7 +10218,9 @@ function projectTraceabilityNotesInternal(){
     notes.push(completedCurrentSchema
       ? `專案資料來源：${sourceTag}；缺少欄位已依 active profile 與現行 schema 預設補齊（${appliedDefaults.join('、')}），明示的既有輸入均保留${migratedAt ? `（補齊時間：${migratedAt}）` : ''}。`
       : `專案資料來源：${sourceTag}；已升級為 ${PROJECT_SCHEMA} 並補齊新增欄位預設值${migratedAt ? `（遷移時間：${migratedAt}）` : ''}。`);
-    if(_projectMigrationInfo.migration_persist_status === 'failed'){
+    if(_projectMigrationInfo.migration_persist_status === 'pending'){
+      notes.push('專案遷移狀態：正在重新計算正規化指紋並寫回本機儲存；完成前請勿匯出。');
+    }else if(_projectMigrationInfo.migration_persist_status === 'failed'){
       notes.push('專案遷移狀態：已載入遷移後資料，但本機儲存寫回失敗；請匯出專案 JSON 保存目前狀態。');
     }
   }else{
@@ -12161,7 +12182,10 @@ async function buildProjectPayload(){
   inp.extra_ann_note  = document.getElementById('extra_ann_note')?.value  || '';
   inp.extra_per_page  = v2NormalizeExtraPerPage(document.getElementById('extra_per_page')?.value);
   const generatedAt = new Date().toISOString();
-  const inputHash = await sha256Hex(stableSerialize({ inp, cases: casesSave }));
+  // Web Crypto 為非同步；雜湊期間 render 可能改動 inp 內巢狀參照。
+  // 因此必須對同一份不可變 JSON 快照計算指紋並寫出，避免 hash / payload 競態。
+  const inputSnapshot = v2CloneJson({ inp, cases: casesSave });
+  const inputHash = await sha256Hex(stableSerialize(inputSnapshot));
   const priorMeta = _projectMigrationInfo && typeof _projectMigrationInfo === 'object' ? _projectMigrationInfo : {};
   const migrationMeta = {};
   const priorSourceSchema = pickText(priorMeta.source_schema, '');
@@ -12175,7 +12199,10 @@ async function buildProjectPayload(){
   if(Number.isFinite(priorSourceVersion)) migrationMeta.source_version = priorSourceVersion;
   if(priorMeta.migration_applied) migrationMeta.migration_applied = true;
   if(priorMigratedAt) migrationMeta.migrated_at = priorMigratedAt;
-  if(priorPersistStatus) migrationMeta.migration_persist_status = priorPersistStatus;
+  if(priorPersistStatus){
+    // 本輪 payload 已重新計算 input_hash，可取代尚在等待的 migration 持久化。
+    migrationMeta.migration_persist_status = priorPersistStatus === 'pending' ? 'saved' : priorPersistStatus;
+  }
   if(priorAppliedDefaults.length) migrationMeta.applied_defaults = priorAppliedDefaults;
   return {
     schema: PROJECT_SCHEMA,
@@ -12193,8 +12220,8 @@ async function buildProjectPayload(){
       review_summary: structuredReviewSummary(inp, results),
       ...migrationMeta,
     },
-    inp,
-    cases: casesSave,
+    inp: inputSnapshot.inp,
+    cases: inputSnapshot.cases,
     results,
     reviewNotes: reviewNotesForPayload(),
     batchAnalysis: _batchAnalysisReport,
@@ -12262,10 +12289,94 @@ function migrateProjectPayload(payload){
   return migrated;
 }
 
+function v2SetProjectMigrationEvent(meta, context, status){
+  const appliedDefaults = Array.isArray(context?.appliedDefaults) ? [...context.appliedDefaults] : [];
+  _projectMigrationEventInfo = {
+    ...(meta || {}),
+    source_schema: context?.sourceSchema || '',
+    source_version: context?.sourceVersion,
+    from_version: context?.sourceVersion || context?.sourceSchema || 'legacy',
+    to_version: PROJECT_SCHEMA_VERSION,
+    applied_defaults: appliedDefaults,
+    persistence_retry: context?.persistenceRetry === true,
+    migration_persist_status: status,
+  };
+}
+
+function startProjectMigrationPersistence(migrated, context, token){
+  const meta = migrated?.meta && typeof migrated.meta === 'object' ? migrated.meta : {};
+  // 先寫入「待完成」且不帶舊指紋的正規化資料，避免短暫將舊 hash 誤標為新內容指紋。
+  meta.input_hash = '';
+  meta.migration_persist_status = 'pending';
+  v2SetProjectMigrationEvent(meta, context, 'pending');
+  const pendingRaw = JSON.stringify(migrated);
+  try{
+    setStoredProjectRaw(pendingRaw);
+    _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...meta };
+  }catch(err){
+    console.warn('load migration persistence failed; continuing with in-memory project', err);
+    meta.migration_persist_status = 'failed';
+    _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...meta };
+    v2SetProjectMigrationEvent(meta, context, 'failed');
+    v2ReportStorageError(err);
+    v2ScheduleMigrationToast();
+    return Promise.resolve(false);
+  }
+  return sha256Hex(stableSerialize({ inp: migrated.inp || {}, cases: migrated.cases || [] }))
+    .then(async inputHash => {
+      if(token !== _projectMigrationPersistenceToken) return false;
+      const current = getStoredProjectRaw();
+      if(current.raw && current.raw !== pendingRaw){
+        // 使用者已於計算指紋期間存檔：不覆寫較新內容，只驗證新存檔已自帶正確指紋。
+        const currentPayload = JSON.parse(current.raw);
+        const currentExpected = pickText(currentPayload?.meta?.input_hash, '');
+        const currentActual = await sha256Hex(stableSerialize({
+          inp: currentPayload?.inp || {},
+          cases: currentPayload?.cases || [],
+        }));
+        if(!currentExpected || currentExpected !== currentActual){
+          throw new Error('migration persistence was superseded by a project without a valid input hash');
+        }
+        const currentMeta = { ...(currentPayload.meta || {}), migration_persist_status: 'saved' };
+        _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...currentMeta };
+        v2SetProjectMigrationEvent(currentMeta, context, 'saved');
+        v2ScheduleMigrationToast();
+        return true;
+      }
+      meta.input_hash = inputHash;
+      meta.migration_persist_status = 'saved';
+      setStoredProjectRaw(JSON.stringify(migrated));
+      _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...meta };
+      v2SetProjectMigrationEvent(meta, context, 'saved');
+      v2ScheduleMigrationToast();
+      return true;
+    })
+    .catch(err => {
+      if(token !== _projectMigrationPersistenceToken) return false;
+      console.warn('load migration persistence failed; continuing with in-memory project', err);
+      meta.migration_persist_status = 'failed';
+      _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...meta };
+      v2SetProjectMigrationEvent(meta, context, 'failed');
+      try{ setStoredProjectRaw(JSON.stringify(migrated)); }catch(_err){}
+      v2ReportStorageError(err);
+      v2ScheduleMigrationToast();
+      return false;
+    });
+}
+
 async function save(){
   const payload = await buildProjectPayload();
   try{
     setStoredProjectRaw(JSON.stringify(payload));
+    _projectMigrationInfo = { ...(_projectMigrationInfo || {}), ...(payload.meta || {}) };
+    if(_projectMigrationEventInfo?.migration_persist_status === 'pending'){
+      _projectMigrationEventInfo = {
+        ..._projectMigrationEventInfo,
+        ...(payload.meta || {}),
+        migration_persist_status: 'saved',
+      };
+      v2ScheduleMigrationToast();
+    }
   }catch(err){
     console.warn('save local storage failed', err);
     v2ReportStorageError(err);
@@ -12276,7 +12387,12 @@ async function save(){
 function load(){
   try{
     _projectIntegrityToken++;
+    const migrationPersistenceToken = ++_projectMigrationPersistenceToken;
     _projectMigrationInfo = null;
+    _projectMigrationEventInfo = null;
+    _v2MigrationToastShown = false;
+    _v2IntegrityToastSignature = '';
+    clearTimeout(window._v2IntegrityToastTimer);
     const { key: storedKey, raw } = getStoredProjectRaw();
     if(!raw){
       refreshRecoveryNotice();
@@ -12318,21 +12434,21 @@ function load(){
     _projectMigrationInfo = meta || null;
     const sourceSchema = inferProjectSchema(parsed);
     const sourceVersion = inferProjectVersion(parsed, sourceSchema);
-    if(storedKey !== STORAGE_KEY
+    const priorMigrationPersistStatus = pickText(parsed?.meta?.migration_persist_status, '');
+    const persistenceRetry = priorMigrationPersistStatus === 'pending' || priorMigrationPersistStatus === 'failed';
+    const needsMigrationPersistence = storedKey !== STORAGE_KEY
       || sourceSchema !== PROJECT_SCHEMA
       || sourceVersion !== PROJECT_SCHEMA_VERSION
       || !parsed?.meta
-      || (migrationDiagnostics?.appliedDefaults?.length || 0) > 0){
-      try{
-        migrated.meta.migration_persist_status = 'saved';
-        setStoredProjectRaw(JSON.stringify(migrated));
-        _projectMigrationInfo = migrated.meta;
-      }catch(err){
-        console.warn('load migration persistence failed; continuing with in-memory project', err);
-        migrated.meta.migration_persist_status = 'failed';
-        _projectMigrationInfo = migrated.meta;
-        v2ReportStorageError(err);
-      }
+      || (migrationDiagnostics?.appliedDefaults?.length || 0) > 0
+      || persistenceRetry;
+    if(needsMigrationPersistence){
+      startProjectMigrationPersistence(migrated, {
+        sourceSchema,
+        sourceVersion,
+        appliedDefaults: migrationDiagnostics?.appliedDefaults || [],
+        persistenceRetry,
+      }, migrationPersistenceToken);
     }
     const set = (id, v) => { const el=document.getElementById(id); if(el) el.value=v; };
     Object.keys(inp).forEach(k=>{
@@ -12427,11 +12543,14 @@ function load(){
     syncStoneGradeControls();
     syncConcreteCrackControls();
     _batchAnalysisReport = batchAnalysis || null;
-    // restore cases
+    // 載入語意是以專案快照取代目前案例，不可追加；否則 Undo / 重載會使案例數倍增。
+    document.getElementById('cases-list')?.replaceChildren();
+    cases = [];
+    caseIdCounter = 1;
     if(scc) caseIdCounter = scc;
     (savedCases||[]).forEach(c=>{ addCase(c); });
     refreshRecoveryNotice();
-    startProjectIntegrityCheck(parsed, migrated);
+    startProjectIntegrityCheck(parsed);
   } catch(e){
     console.warn('load failed', e);
     refreshRecoveryNotice();

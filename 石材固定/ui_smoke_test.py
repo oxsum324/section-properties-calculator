@@ -207,6 +207,7 @@ def main() -> int:
                   const payload = await buildProjectPayload();
                   payload.inp.code_profiles = {seismic:'cns_seismic_113_conservative'};
                   payload.inp.sp_seis_rp = '2';
+                  payload.meta.input_hash = await sha256Hex(stableSerialize({inp:payload.inp, cases:payload.cases}));
                   setStoredProjectRaw(JSON.stringify(payload));
                   load();
                   render();
@@ -241,13 +242,15 @@ def main() -> int:
                   delete payload.inp.sp_ip_default;
                   delete payload.inp.sp_seis_ap;
                   delete payload.inp.sp_seis_rp;
+                  payload.meta.input_hash = await sha256Hex(stableSerialize({inp:payload.inp, cases:payload.cases}));
                   setStoredProjectRaw(JSON.stringify(payload));
                   _v2MigrationToastShown = false;
                   load();
                   render();
                   v2DetectAndShowMigrationToast();
-                  await new Promise(resolve => setTimeout(resolve, 100));
+                  await new Promise(resolve => setTimeout(resolve, 250));
                   const persisted = JSON.parse(getStoredProjectRaw().raw);
+                  const persistedActualHash = await sha256Hex(stableSerialize({inp:persisted.inp, cases:persisted.cases}));
                   return {
                     runtimeProfile: inputs().code_profiles?.seismic || '',
                     ip: document.getElementById('sp_ip_default')?.value || '',
@@ -255,6 +258,8 @@ def main() -> int:
                     rp: document.getElementById('sp_seis_rp')?.value || '',
                     appliedDefaults: persisted.meta?.applied_defaults || [],
                     persistStatus: persisted.meta?.migration_persist_status || '',
+                    integrityStatus: _projectMigrationInfo?.integrity_status || '',
+                    persistedHashValid: persisted.meta?.input_hash === persistedActualHash,
                     toastShown: document.getElementById('v2-migration-toast')?.classList.contains('show') || false,
                     toastHasActiveProfile: (document.getElementById('v2_migration_toast_body')?.innerText || '').includes('active profile'),
                   };
@@ -268,11 +273,91 @@ def main() -> int:
                 'rp': '2',
                 'appliedDefaults': expected_profile_default_fields,
                 'persistStatus': 'saved',
+                'integrityStatus': 'verified',
+                'persistedHashValid': True,
                 'toastShown': True,
                 'toastHasActiveProfile': True,
             }:
                 raise AssertionError(
                     f'Expected missing fields to follow active project profile: {migrated_profile_defaults}'
+                )
+
+            normalized_reload_state = project_profile_page.evaluate(
+                """async () => {
+                  v2HideMigrationToast();
+                  load();
+                  render();
+                  await new Promise(resolve => setTimeout(resolve, 250));
+                  v2DetectAndShowMigrationToast();
+                  return {
+                    integrityStatus: _projectMigrationInfo?.integrity_status || '',
+                    caseCountStable: cases.length === (JSON.parse(getStoredProjectRaw().raw).cases || []).length,
+                    migrationEventPresent: _projectMigrationEventInfo !== null,
+                    toastShown: document.getElementById('v2-migration-toast')?.classList.contains('show') || false,
+                  };
+                }"""
+            )
+            if normalized_reload_state != {
+                'integrityStatus': 'verified',
+                'caseCountStable': True,
+                'migrationEventPresent': False,
+                'toastShown': False,
+            }:
+                raise AssertionError(
+                    f'Expected normalized reload to verify source hash without repeating migration toast: {normalized_reload_state}'
+                )
+
+            pending_migration_retry = project_profile_page.evaluate(
+                """async () => {
+                  const payload = JSON.parse(getStoredProjectRaw().raw);
+                  payload.meta.input_hash = '';
+                  payload.meta.migration_persist_status = 'pending';
+                  const pendingExportBlocked = v2CollectExportChecklist({
+                    inp: payload.inp,
+                    results: [],
+                    cases: [{name:'案例1'}],
+                    meta: payload.meta,
+                  }).some(item => item.level === 'block' && item.text.includes('稍候完成後再匯出'));
+                  setStoredProjectRaw(JSON.stringify(payload));
+                  v2HideMigrationToast();
+                  load();
+                  render();
+                  await new Promise(resolve => setTimeout(resolve, 250));
+                  const persisted = JSON.parse(getStoredProjectRaw().raw);
+                  const actualHash = await sha256Hex(stableSerialize({inp:persisted.inp, cases:persisted.cases}));
+                  return {
+                    persistStatus: persisted.meta?.migration_persist_status || '',
+                    persistedHashValid: persisted.meta?.input_hash === actualHash,
+                    pendingExportBlocked,
+                    toastShowsRecovery: (document.getElementById('v2_migration_toast_body')?.innerText || '').includes('完成保存'),
+                  };
+                }"""
+            )
+            if pending_migration_retry != {
+                'persistStatus': 'saved',
+                'persistedHashValid': True,
+                'pendingExportBlocked': True,
+                'toastShowsRecovery': True,
+            }:
+                raise AssertionError(
+                    f'Expected interrupted migration persistence to retry with a valid normalized hash: {pending_migration_retry}'
+                )
+
+            tampered_project_integrity = project_profile_page.evaluate(
+                """async () => {
+                  const payload = JSON.parse(getStoredProjectRaw().raw);
+                  payload.inp.proj = 'TAMPERED_WITHOUT_REHASH';
+                  setStoredProjectRaw(JSON.stringify(payload));
+                  v2HideMigrationToast();
+                  load();
+                  render();
+                  await new Promise(resolve => setTimeout(resolve, 250));
+                  return _projectMigrationInfo?.integrity_status || '';
+                }"""
+            )
+            if tampered_project_integrity != 'mismatch':
+                raise AssertionError(
+                    f'Expected externally modified project to retain integrity mismatch detection: {tampered_project_integrity}'
                 )
 
             preserved_imported_manual_value = project_profile_page.evaluate(
@@ -282,6 +367,7 @@ def main() -> int:
                   delete payload.inp.sp_ip_default;
                   delete payload.inp.sp_seis_ap;
                   payload.inp.sp_seis_rp = '2.35';
+                  payload.meta.input_hash = await sha256Hex(stableSerialize({inp:payload.inp, cases:payload.cases}));
                   setStoredProjectRaw(JSON.stringify(payload));
                   load();
                   render();
