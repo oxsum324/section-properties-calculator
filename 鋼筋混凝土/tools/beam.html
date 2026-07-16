@@ -205,7 +205,8 @@
   }
 </style>
 </head>
-<body>
+<body class="rc-formal-output-page">
+<div class="rc-direct-print-boundary">DRAFT／主頁直接列印非正式附件：此頁面列印未經正式附件 gate；請使用「計算書」按鈕產生受案件資料與檢核狀態管控的輸出。不得作為正式附件。</div>
 <header>
   <h1>梁 Beam 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 撓曲、剪力、扭力、跨深比；含特殊抗彎矩構架耐震檢核</p>
@@ -2745,14 +2746,26 @@ ${layerBars.map(L => {
     return [...new Set(items)];
   }
 
+  function getBeamProjectInfo() {
+    return window.RCUI.getProjectMetadataState({
+      name: $('projName')?.value,
+      no: $('projNo')?.value,
+      designer: $('projDesigner')?.value
+    }).project;
+  }
+
   function updateBeamAttachmentReadiness(r) {
     if (!window.RCUI?.renderAttachmentReadiness) return;
     if (!r || !Number.isFinite(r.bw)) {
+      window.lastBeamAttachmentReadiness = window.RCUI.assessFormalAttachment({
+        project: getBeamProjectInfo(),
+        calculated: false
+      });
       window.RCUI.renderAttachmentReadiness('beamAttachmentReadiness', {
         status: 'neutral',
         summary: '完成計算後顯示是否適合作為公司計算附件。'
       });
-      return;
+      return window.lastBeamAttachmentReadiness;
     }
     const checks = [
       ['正彎矩強度', r.okFlexPos],
@@ -2774,29 +2787,37 @@ ${layerBars.map(L => {
       .filter(([, ok]) => ok === false)
       .map(([label]) => label);
     const manualReviewItems = collectBeamManualReviewItems(r);
-    const status = failedItems.length ? 'blocked' : (manualReviewItems.length ? 'review' : 'ready');
-    const summary = failedItems.length
-      ? `尚有 ${failedItems.length} 項不符，先不要作為附件輸出。`
-      : (manualReviewItems.length
-          ? `數值檢核未見不符，但 ${manualReviewItems.length} 項需人工複核。`
-          : '數值檢核與必要輸入已通過，可作為公司計算附件。');
+    const readiness = window.RCUI.assessFormalAttachment({
+      project: getBeamProjectInfo(),
+      failedItems,
+      reviewItems: manualReviewItems
+    });
+    window.lastBeamAttachmentReadiness = readiness;
+    const { status, summary } = readiness;
+    const missingMetadata = readiness.metadata.missingItems;
     const firstFailures = failedItems.slice(0, 4).join('、');
     const moreFailures = failedItems.length > 4 ? `等 ${failedItems.length} 項` : '';
 
     window.RCUI.renderAttachmentReadiness('beamAttachmentReadiness', {
       status,
+      label: status === 'review'
+        ? (missingMetadata.length ? '僅供預覽，待補案件資料／人工複核' : '待人工複核，僅供預覽')
+        : undefined,
       summary,
       items: [
         { label: '不符項目', value: `${failedItems.length} 項`, tone: failedItems.length ? 'fail' : 'ok' },
         { label: '人工複核', value: `${manualReviewItems.length} 項`, tone: manualReviewItems.length ? 'warn' : 'ok' },
+        { label: '案件識別資料', value: missingMetadata.length ? `缺 ${missingMetadata.length} 項` : '完整', tone: missingMetadata.length ? 'warn' : 'ok' },
         { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF', tone: 'neutral' }
       ],
       notes: [
         '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。',
         failedItems.length ? `優先處理：${firstFailures}${moreFailures}。` : '',
-        manualReviewItems.length ? `需人工確認：${manualReviewItems.join('、')}。` : ''
+        manualReviewItems.length ? `需人工確認：${manualReviewItems.join('、')}。` : '',
+        missingMetadata.length ? `需補齊案件識別資料：${missingMetadata.join('、')}。` : ''
       ]
     });
+    return readiness;
   }
 
   const BEAM_FORCE_CANDIDATE_FIELDS = [
@@ -2926,11 +2947,9 @@ ${layerBars.map(L => {
     const r = window.beamLast;
     const isDesignMode = (currentMode === 'design');
     const reportDetail = $('showSteps')?.checked;
-    const proj = {
-      name: window.RCUI.normalizeProjectFieldValue($('projName').value),
-      no:   window.RCUI.normalizeProjectFieldValue($('projNo').value),
-      designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
-    };
+    const proj = getBeamProjectInfo();
+    const attachmentReadiness = updateBeamAttachmentReadiness(r)
+      || window.RCUI.assessFormalAttachment({ project: proj, calculated: false });
 
     const layerStr = (stack) => stack
       .filter(L => L.n > 0)
@@ -3241,6 +3260,7 @@ ${layerBars.map(L => {
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',
       project: proj,
+      documentState: attachmentReadiness.documentState,
       summary:false,
       inputs, checks, steps: stepsArr, diagrams,
       symbols: [

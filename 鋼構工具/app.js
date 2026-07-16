@@ -1,5 +1,15 @@
 (function initSteelConnectionApp() {
   const { calculateConnection } = window.ShearConnectionCalculator;
+  const SteelFormalUI = window.SteelFormalUI;
+  const STEEL_TOOL_METADATA = window.SteelToolMetadata;
+  if (!SteelFormalUI?.buildReportTrace) throw new Error("Steel formal report core is not loaded.");
+  if (!STEEL_TOOL_METADATA) throw new Error("Steel tool metadata is not loaded.");
+  const getFormalToolMetadata = (connectionType) => connectionType === "plate_check"
+    ? STEEL_TOOL_METADATA.plate
+    : connectionType === "tension_member"
+      ? STEEL_TOOL_METADATA.tension
+      : STEEL_TOOL_METADATA.connection;
+  const withFormalToolVersion = (title, metadata) => `${title} ${metadata.version}`;
   const STORAGE_KEY = location.pathname.toLowerCase().includes("plate-check")
     ? "steel-plate-check-draft-v2"
     : "steel-connection-suite-draft-v3";
@@ -2096,9 +2106,11 @@
   }
 
   function renderSummary(result) {
-    pageTitle.textContent = result.pageTitle;
+    const currentToolMetadata = getFormalToolMetadata(result.state.connectionType);
+    const versionedPageTitle = withFormalToolVersion(result.pageTitle, currentToolMetadata);
+    pageTitle.textContent = versionedPageTitle;
     pageDescription.textContent = result.pageDescription;
-    document.title = result.pageTitle;
+    document.title = versionedPageTitle;
     reportTitle.textContent = result.reportTitle;
     reportSubtitle.textContent = result.reportSubtitle;
     metaProjectName.textContent = getProjectMetaDisplayValue(result.state.projectName);
@@ -2165,6 +2177,21 @@
   }
 
   function buildReportHtml(result) {
+    const outputSource = getFormalToolMetadata(result.state.connectionType);
+    const reportTrace = SteelFormalUI.buildReportTrace({
+      title: result.reportTitle,
+      subtitle: result.reportSubtitle,
+      outputSource,
+      checks: result.checks,
+      summary: { ok: result.passes, text: reportBanner.textContent },
+      snapshot: {
+        state: result.state,
+        governing: result.governing,
+        detailChecks: result.detailChecks,
+        derivedAreas: result.derivedAreas,
+      },
+    });
+    const escReport = SteelFormalUI.escapeHtml;
     const strengthRows = result.checks.map((check) => `
       <tr>
         <td>${check.label}${buildCheckReferenceMarkup(check)}</td>
@@ -2233,8 +2260,6 @@
         </tbody></table><div style="margin-top:8px;font-size:12px;color:#555;">${result.pathSummary?.netSection || ""}<br>${result.pathSummary?.blockShear || ""}</div></section>
         <section class="block report-sketch-block"><h3>構材與接合示意</h3>${buildTensionSketchMarkup(result, { inline: true })}</section>`
       : "";
-    const referenceToolsHtml = `<section class="block"><h3>功能借鏡</h3><p style="font-size:12px;color:#555;line-height:1.6;">下列網路工具僅作介面流程與報表表現方式之借鏡，規範判定仍以本工具引用之正式條文為準。</p><ul>${toolReferences.map((item) => `<li><a href="${item.url}" target="_blank" rel="noreferrer noopener">${item.name}</a>：${item.adopted}</li>`).join("")}</ul></section>`;
-
     return `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -2251,7 +2276,7 @@ h1{margin:0 0 6px;font-size:24px}.sub{color:#555;margin-bottom:16px}
 .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:12px;margin-bottom:18px}
 .meta div{border-bottom:1px dotted #888;padding:4px 0}
 .banner{padding:14px 18px;border:2px solid #888;border-radius:6px;text-align:center;font-size:18px;font-weight:700;margin-bottom:18px}
-.block{margin:16px 0}.block h3{margin:0 0 8px;padding:4px 8px;background:#1a3d5c;color:#fff;border-radius:4px;font-size:14px}
+.block{margin:12px 0}.block h3{margin:0 0 8px;padding:4px 8px;background:#1a3d5c;color:#fff;border-radius:4px;font-size:14px}
 table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{border:1px solid #999;padding:6px 8px;text-align:left;vertical-align:top}
 th{background:#eef2f6}
@@ -2259,7 +2284,7 @@ th{background:#eef2f6}
 .flow-decision{font-size:12px;color:#334155;font-weight:700;margin:0 0 8px}
 .mono{white-space:pre-wrap;font-family:"Cascadia Code","Consolas",monospace;background:#faf5ff;border:1px solid #e9d5ff;border-radius:4px;padding:10px;color:#3b0764;font-size:11px;line-height:1.6}
 .equation-math{background:#faf5ff;border:1px solid #e9d5ff;border-radius:6px;padding:10px 12px;color:#3b0764;overflow:auto}.equation-math__line + .equation-math__line{margin-top:8px}.equation-list--fallback,.mono--fallback{display:none}.mathjax-fallback .equation-math{display:none}.mathjax-fallback .equation-list--fallback,.mathjax-fallback .mono--fallback{display:block}
-.review-section + .review-section{margin-top:12px}.review-section__title{margin-bottom:6px;font-size:12px;font-weight:700;color:#0e7490}
+.review-section{font-size:12px;line-height:1.5}.review-section + .review-section{margin-top:8px}.review-section__title{margin-bottom:4px;font-size:12px;font-weight:700;color:#0e7490}
 .card-placeholder{padding:14px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b}
 .plate-sketch{width:100%;height:auto;min-height:220px}.sketch-plate,.sketch-member{fill:rgba(14,116,144,.08);stroke:#0e7490;stroke-width:2}.sketch-hole{fill:#fff;stroke:#1e293b;stroke-width:1.5}.sketch-net{fill:none;stroke:#c0392b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 6}.sketch-block{fill:rgba(217,119,6,.12);stroke:#d97706;stroke-width:2.5}.sketch-arrow{stroke:#0e7490;stroke-width:2.5}.sketch-label{fill:#0f172a;font-size:12px;font-weight:700}.sketch-note{fill:#475569;font-size:11px}.sketch-weld{stroke:#b45309;stroke-width:5;stroke-linecap:round}.sketch-weld--transverse{stroke:#c2410c}.sketch-dim{stroke:#64748b;stroke-width:1.4}.sketch-dim-label{fill:#475569;font-size:10px;font-weight:700}
 ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-align:right}.toolbar button{padding:8px 18px}
@@ -2275,7 +2300,10 @@ ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-a
   <div><b>計畫名稱</b> ${getProjectMetaDisplayValue(result.state.projectName)}</div>
   <div><b>接頭編號</b> ${getProjectMetaDisplayValue(result.state.connectionTag)}</div>
   <div><b>設計人</b> ${getProjectMetaDisplayValue(result.state.designer)}</div>
-  <div><b>製表時間</b> ${nowLabel()}</div>
+  <div><b>產出工具</b> ${escReport(reportTrace.sourceTrace.tool)}</div>
+  <div><b>工具版本</b> ${escReport(reportTrace.sourceTrace.version)}</div>
+  <div><b>輸出時間</b> ${escReport(reportTrace.generatedAt)}</div>
+  <div><b>計算指紋</b> ${escReport(reportTrace.calculationFingerprint)}</div>
   <div><b>設計法</b> ${mapValue("designMethod", result.state.designMethod)}</div>
   <div><b>規範基準</b> ${getCodeBasisText(result.state)}</div>
   <div><b>控制項</b> ${result.governing.label}</div>
@@ -2288,7 +2316,6 @@ ${plateAreaTable}
 ${tensionAreaTable}
 ${flowHtml}
 <section class="block"><h3>設計依據與限制條件</h3>${reviewSectionsHtml || `<ul>${notes.map((item) => `<li>${item}</li>`).join("")}</ul>`}</section>
-${referenceToolsHtml}
 </div>
 </body>
 </html>`;
@@ -2627,7 +2654,7 @@ ${referenceToolsHtml}
   saveDraftBtn.addEventListener("click", () => persistDraft(collectFormState()));
   exportReportBtn.addEventListener("click", exportReport);
   copySummaryBtn.addEventListener("click", copySummary);
-  printReportBtn.addEventListener("click", () => window.print());
+  printReportBtn.addEventListener("click", exportReport);
   resetBtn.addEventListener("click", () => setFormState(getCurrentExampleState(), true));
 
   renderGlossary();

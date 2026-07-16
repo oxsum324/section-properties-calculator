@@ -50,6 +50,93 @@ window.RCUI.normalizeProjectFieldValue = window.RCUI.normalizeProjectFieldValue 
   return text === '未填' ? '' : text;
 };
 
+window.RCUI.getProjectMetadataState = function(project = {}) {
+  const normalized = {
+    name: window.RCUI.normalizeProjectFieldValue(project.name),
+    no: window.RCUI.normalizeProjectFieldValue(project.no),
+    designer: window.RCUI.normalizeProjectFieldValue(project.designer)
+  };
+  const required = [
+    { key: 'name', label: '計畫名稱' },
+    { key: 'no', label: '計畫編號' },
+    { key: 'designer', label: '設計人' }
+  ];
+  const missingItems = required.filter(field => !normalized[field.key]).map(field => field.label);
+  return {
+    project: normalized,
+    required,
+    missingItems,
+    complete: missingItems.length === 0
+  };
+};
+
+window.RCUI.assessFormalAttachment = function(state = {}) {
+  const normalizeItems = input => [...new Set((Array.isArray(input) ? input : [])
+    .map(item => String(item?.label ?? item ?? '').trim())
+    .filter(Boolean))];
+  const failedItems = normalizeItems(state.failedItems);
+  const reviewItems = normalizeItems(state.reviewItems);
+  const metadata = window.RCUI.getProjectMetadataState(state.project || {});
+  const calculated = state.calculated !== false;
+
+  if (!calculated) {
+    return {
+      status: 'neutral',
+      summary: '完成計算後顯示是否適合作為公司計算附件。',
+      failedItems,
+      reviewItems,
+      metadata,
+      formalOutputAllowed: false,
+      documentState: null
+    };
+  }
+
+  const status = failedItems.length
+    ? 'blocked'
+    : (reviewItems.length || !metadata.complete ? 'review' : 'ready');
+  const metadataText = metadata.missingItems.join('、');
+  let summary = '數值檢核、必要輸入與案件識別資料已通過，可作為公司計算附件。';
+  if (status === 'blocked') {
+    summary = `尚有 ${failedItems.length} 項不符；僅能輸出明確標示的內部檢討版。`;
+  } else if (status === 'review') {
+    const reasons = [];
+    if (reviewItems.length) reasons.push(`${reviewItems.length} 項需人工複核`);
+    if (!metadata.complete) reasons.push(`案件識別資料缺少：${metadataText}`);
+    summary = `${reasons.join('；')}；目前僅能預覽或輸出非正式附件。`;
+  }
+
+  const draftDetail = status === 'blocked'
+    ? [
+        `本文件僅供內部檢討；仍有 ${failedItems.length} 項數值或規範檢核不符，不得作為正式附件。`,
+        reviewItems.length ? `另有 ${reviewItems.length} 項需人工確認。` : '',
+        metadata.complete ? '' : `案件識別資料尚缺：${metadataText}。`
+      ].filter(Boolean).join(' ')
+    : [
+        '本文件僅供內部複核；',
+        reviewItems.length ? `尚有 ${reviewItems.length} 項需人工確認。` : '',
+        metadata.complete ? '' : `案件識別資料尚缺：${metadataText}。`,
+        '完成複核及資料補正前不得作為正式附件。'
+      ].filter(Boolean).join(' ');
+  const documentState = status === 'ready' ? null : {
+    kind: 'draft',
+    reason: status,
+    label: status === 'blocked'
+      ? 'DRAFT／非正式附件 - 檢核不符'
+      : 'DRAFT／非正式附件 - 待人工複核',
+    detail: draftDetail
+  };
+
+  return {
+    status,
+    summary,
+    failedItems,
+    reviewItems,
+    metadata,
+    formalOutputAllowed: status === 'ready',
+    documentState
+  };
+};
+
 window.RCUI.getStepsVerbosity = function(defaultMode = 'full') {
   return document.getElementById('stepsVerbosity')?.value || defaultMode;
 };

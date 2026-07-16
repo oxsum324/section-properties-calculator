@@ -18,6 +18,7 @@
   .tool-link strong { color:var(--primary); font-size:0.95em; }
   .tool-link .desc { font-size:0.78em; color:var(--text-light); line-height:1.5; }
   .tool-link .scope { font-size:0.74em; color:#0369a1; background:#e0f2fe; padding:2px 8px; border-radius:6px; align-self:flex-start; margin-top:2px; }
+  .tool-link .dispatch-note { font-size:0.74em; color:#166534; background:#dcfce7; padding:3px 8px; border-radius:6px; align-self:flex-start; margin-top:3px; font-weight:700; }
   .summary-box {
     background:#f8fafc; border:1px solid var(--border); border-left:4px solid #7c3aed;
     border-radius:8px; padding:12px 14px; margin-top:8px;
@@ -72,7 +73,7 @@
     </div>
     <div class="form-group">
       <label>K<sub>zt</sub> 地形係數</label>
-      <input id="Kzt" type="number" value="1.0" step="0.05">
+      <input id="Kzt" type="number" value="1.0" min="0.01" step="0.05">
       <div class="hint">平地取 1.0；山頂或岩盤需另算 (規範 §2.7)</div>
     </div>
   </div>
@@ -84,7 +85,7 @@
     </div>
     <div class="form-group">
       <label>樓層數</label>
-      <input id="floors" type="number" value="10" step="1">
+      <input id="floors" type="number" value="10" min="1" step="1">
     </div>
   </div>
   <div class="form-row">
@@ -221,13 +222,16 @@
     <li><strong>特殊折減</strong>：遮蔽、透氣外牆、風洞修正等以 ⑪ 整理依據。</li>
   </ol>
   <div class="note" style="margin-top:10px;">
-    ⚠ 本頁將「案件基本參數」儲存於本機瀏覽器 (localStorage)；後續可參考此摘要在子工具中重複輸入相同參數。
-    （未來版本將擴充 URL 參數派送與一鍵跳轉預填功能。）
+    本頁將「案件基本參數」以 <code>wind-shared-profile.v1</code> 儲存於本機瀏覽器。
+    儲存後由本頁開啟支援的子工具，即會自動預填案件識別、地點、地況、用途係數與 K<sub>zt</sub>；
+    主風力抵抗系統工具另會帶入可明確對應的總高、樓層與 X／Y 平面尺寸。
+    屋頂平均高、屋簷高、構架或標示物尺寸等專用幾何仍須由設計人確認，不由本頁代填。
   </div>
 </div>
 </div>
 
 <script src="../../core/loads/wind.js"></script>
+<script src="wind-shared-profile.js"></script>
 <script>
 const W = window.Wind;
 const fmt = (v, d=2) => isFinite(v) ? v.toFixed(d) : '—';
@@ -246,6 +250,12 @@ function normalizeOverviewParams(params) {
   next.projName = normalizeProjectFieldValue(next.projName);
   next.projNo = normalizeProjectFieldValue(next.projNo);
   next.projDesigner = normalizeProjectFieldValue(next.projDesigner);
+  for (const key of ['Kzt', 'H', 'Bx', 'By']) {
+    const number = Number(next[key]);
+    next[key] = Number.isFinite(number) && number > 0 ? number : null;
+  }
+  const floors = Number(next.floors);
+  next.floors = Number.isInteger(floors) && floors > 0 ? floors : null;
   return next;
 }
 
@@ -283,8 +293,11 @@ function refreshV() {
 function loadOverview() {
   try {
     const raw = localStorage.getItem(OVERVIEW_STORAGE_KEY);
-    if (raw) {
-      const p = normalizeOverviewParams(JSON.parse(raw));
+    const sharedProfile = window.WindSharedProfile?.load(localStorage);
+    const p = raw
+      ? normalizeOverviewParams(JSON.parse(raw))
+      : (sharedProfile ? normalizeOverviewParams(window.WindSharedProfile.toOverviewParams(sharedProfile)) : null);
+    if (p) {
       if (p.city && document.querySelector(`#city option[value="${p.city}"]`)) document.getElementById('city').value = p.city;
       if (p.terrain) document.getElementById('terrain').value = p.terrain;
       if (p.impClass && document.querySelector(`#impClass option[value="${p.impClass}"]`)) document.getElementById('impClass').value = p.impClass;
@@ -295,7 +308,10 @@ function loadOverview() {
       if (p.By != null) document.getElementById('By').value = p.By;
       applyOverviewProjectMeta(p);
       refreshV();
-      renderSummary(p);
+      const current = gatherParams();
+      renderSummary(current);
+      const profile = window.WindSharedProfile.save({ ...current, toolVersion: 'V1' }, localStorage);
+      window.WindSharedProfile.decorateDispatchLinks(document, profile);
     }
   } catch (e) {
     console.warn('overview load failed', e);
@@ -307,9 +323,9 @@ function gatherParams() {
     city: document.getElementById('city').value,
     terrain: document.getElementById('terrain').value,
     impClass: document.getElementById('impClass').value,
-    Kzt: parseFloat(document.getElementById('Kzt').value) || 1.0,
+    Kzt: Number(document.getElementById('Kzt').value),
     H: parseFloat(document.getElementById('H').value) || 0,
-    floors: parseInt(document.getElementById('floors').value) || 0,
+    floors: Number(document.getElementById('floors').value),
     Bx: parseFloat(document.getElementById('Bx').value) || 0,
     By: parseFloat(document.getElementById('By').value) || 0,
     projName: document.getElementById('projName').value,
@@ -356,16 +372,20 @@ function renderSummaryFromFields() {
 
 document.getElementById('btnSave').addEventListener('click', () => {
   const p = gatherParams();
-  if (p.H <= 0 || p.Bx <= 0 || p.By <= 0) {
-    document.getElementById('saveMsg').textContent = '⚠ H、B_x、B_y 都需大於 0';
+  const hasValidPositiveInputs = ['Kzt', 'H', 'Bx', 'By']
+    .every(key => Number.isFinite(p[key]) && p[key] > 0);
+  if (!hasValidPositiveInputs || !Number.isInteger(p.floors) || p.floors < 1) {
+    document.getElementById('saveMsg').textContent = '⚠ Kzt、H、B_x、B_y 都需大於 0，樓層數須為正整數';
     document.getElementById('saveMsg').style.color = '#dc2626';
     return;
   }
   localStorage.setItem(OVERVIEW_STORAGE_KEY, JSON.stringify(p));
+  const profile = window.WindSharedProfile.save({ ...p, toolVersion: 'V1' }, localStorage);
+  const dispatched = window.WindSharedProfile.decorateDispatchLinks(document, profile);
   renderSummary(p);
   const msg = document.getElementById('saveMsg');
   msg.style.color = '#059669';
-  msg.textContent = `✓ 已儲存（${new Date().toLocaleTimeString('zh-TW')}）。子工具中可手動沿用此處參數，未來版本將支援自動派送。`;
+  msg.textContent = `✓ 已儲存（${new Date().toLocaleTimeString('zh-TW')}）。下方 ${dispatched.length} 個工具入口已啟用一鍵自動預填。`;
 });
 
 loadOverview();

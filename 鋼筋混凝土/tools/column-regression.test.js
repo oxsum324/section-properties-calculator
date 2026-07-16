@@ -292,6 +292,115 @@ async function runColumnForceCandidateReviewCase(page) {
   assert(restored.html.includes('人工確認作為係數化設計外力'), 'column project restores adopted force decision into report', 'adoption decision preserved');
 }
 
+async function captureColumnReportHtml(page) {
+  return page.evaluate(() => {
+    let html = '';
+    const previousOpen = window.open;
+    window.open = () => ({
+      document: { open() {}, write(chunk) { html += String(chunk); }, close() {} },
+      close() {},
+      closed: false
+    });
+    try { window.buildColumnReport(); } finally { window.open = previousOpen; }
+    return html;
+  });
+}
+
+async function exerciseColumnAttachmentBoundary(page, pack) {
+  const byKey = new Map(pack.cases.map(tc => [tc.key, tc]));
+  const metadata = { name: '附件門檻測試工程', no: 'RC-COL-GATE', designer: 'QA' };
+  const loadScenario = async (key, project, overrides = {}) => {
+    const tc = byKey.get(key);
+    assert(!!tc, `column attachment case ${key}`, 'case exists');
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    await page.evaluate(({ tcCase, projectInfo, fieldOverrides }) => {
+      const setCheckbox = (id, desired) => {
+        const el = document.getElementById(id);
+        if (!el || el.checked === !!desired) return;
+        el.click();
+      };
+      const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = String(value ?? '');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      document.querySelector(`.mode-btn[data-mode="${tcCase.mode}"]`)?.click();
+      Object.entries(tcCase.checkboxes || {}).forEach(([id, desired]) => setCheckbox(id, desired));
+      Object.entries(tcCase.selects || {}).forEach(([id, value]) => setValue(id, value));
+      Object.entries(tcCase.values || {}).forEach(([id, value]) => setValue(id, value));
+      Object.entries(fieldOverrides || {}).forEach(([id, value]) => setValue(id, value));
+      setValue('projName', projectInfo?.name || '');
+      setValue('projNo', projectInfo?.no || '');
+      setValue('projDesigner', projectInfo?.designer || '');
+      window.calcColumn();
+    }, { tcCase: tc, projectInfo: project || {}, fieldOverrides: overrides });
+    await wait(250);
+    return page.evaluate(() => {
+      const target = document.getElementById('columnAttachmentReadiness');
+      return {
+        status: target?.dataset.attachmentStatus || '',
+        text: target?.innerText?.replace(/\s+/g, ' ').trim() || '',
+        assessment: window.lastColumnAttachmentReadiness
+      };
+    });
+  };
+
+  const readyInputs = { columnDevTop: 500, columnDevBottom: 500 };
+  const missingMetadata = await loadScenario('default_rect_design', {}, readyInputs);
+  assert(missingMetadata.status === 'review', 'column empty metadata is preview-only', missingMetadata.text);
+  assert(missingMetadata.assessment?.metadata?.missingItems?.length === 3, 'column empty metadata lists all required fields', JSON.stringify(missingMetadata.assessment?.metadata));
+  assert(missingMetadata.text.includes('僅供預覽') && missingMetadata.text.includes('缺 3 項'), 'column page explains metadata preview boundary', missingMetadata.text);
+  const screenPrintNotice = await page.evaluate(() => getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display);
+  assert(screenPrintNotice === 'none', 'column direct-print boundary stays hidden on screen', screenPrintNotice);
+  await page.emulateMedia({ media: 'print' });
+  const directPrintState = await page.evaluate(() => ({
+    noticeDisplay: getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display,
+    noticeText: document.querySelector('.rc-direct-print-boundary')?.textContent || '',
+    watermark: getComputedStyle(document.body, '::after').content
+  }));
+  await page.emulateMedia({ media: 'screen' });
+  assert(directPrintState.noticeDisplay !== 'none', 'column direct print exposes non-formal boundary', JSON.stringify(directPrintState));
+  assert(directPrintState.noticeText.includes('主頁直接列印非正式附件') && directPrintState.noticeText.includes('不得作為正式附件'), 'column direct print cannot bypass formal gate', directPrintState.noticeText);
+  assert(directPrintState.watermark.includes('DRAFT'), 'column direct print carries DRAFT watermark', directPrintState.watermark);
+
+  const ready = await loadScenario('default_rect_design', metadata, readyInputs);
+  assert(ready.status === 'ready', 'column complete clean case is ready', ready.text);
+  assert(ready.assessment?.formalOutputAllowed === true, 'column ready case allows formal output', JSON.stringify(ready.assessment));
+  const readyReport = await captureColumnReportHtml(page);
+  assert(!readyReport.includes('DRAFT／非正式附件'), 'column ready report has no draft state', 'formal report');
+  assert(!readyReport.includes('data-document-state="draft"'), 'column ready report has no draft marker', 'formal report');
+  await page.evaluate(() => { document.getElementById('projNo').value = ''; });
+  const currentMissingReport = await captureColumnReportHtml(page);
+  assert(currentMissingReport.includes('DRAFT／非正式附件 - 待人工複核'), 'column report rechecks metadata at export time', 'project number cleared after calculation');
+  assert(currentMissingReport.includes('案件識別資料尚缺：計畫編號'), 'column draft identifies metadata cleared after calculation', 'current project fields used');
+  await page.evaluate(project => {
+    document.getElementById('projName').value = project.name;
+    document.getElementById('projNo').value = project.no;
+    document.getElementById('projDesigner').value = project.designer;
+  }, metadata);
+  const currentCompleteReport = await captureColumnReportHtml(page);
+  assert(!currentCompleteReport.includes('DRAFT／非正式附件'), 'column report clears stale draft after metadata completion', 'current project fields used');
+
+  const review = await loadScenario('development_anchor_manual_review', metadata);
+  assert(review.status === 'review', 'column manual-review case stays review', review.text);
+  assert(review.text.includes('待人工複核') && review.text.includes('僅供預覽'), 'column review page gives explicit manual-review boundary', review.text);
+  const reviewReport = await captureColumnReportHtml(page);
+  assert(reviewReport.includes('DRAFT／非正式附件 - 待人工複核'), 'column review report is explicit draft', 'review document state');
+  assert(reviewReport.includes('data-document-reason="review"'), 'column review report carries review reason', 'review document state');
+  assert(reviewReport.includes('列印內部檢討版 / 存 PDF'), 'column review report print action stays internal', 'draft toolbar');
+
+  const blocked = await loadScenario('ng_heavy_check', metadata);
+  assert(blocked.status === 'blocked', 'column failed case is blocked', blocked.text);
+  const blockedReport = await captureColumnReportHtml(page);
+  assert(blockedReport.includes('DRAFT／非正式附件 - 檢核不符'), 'column blocked report is explicit draft', 'blocked document state');
+  assert(blockedReport.includes('data-document-reason="blocked"'), 'column blocked report carries blocked reason', 'blocked document state');
+  ['產報前檢查', '優先閱讀', '可作附件，需人工複核', '暫勿作附件', '不會寫入計算書或列印 PDF'].forEach(fragment => {
+    assert(!blockedReport.includes(fragment), 'column draft report excludes page-only readiness wording', fragment);
+  });
+}
+
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -593,6 +702,7 @@ async function main() {
       }
     }
 
+    await exerciseColumnAttachmentBoundary(page, pack);
     await runColumnForceCandidateReviewCase(page);
 
     console.log('\nAll column regression checks passed.');

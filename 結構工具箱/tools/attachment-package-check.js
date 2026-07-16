@@ -9,6 +9,9 @@ const PAGE_ONLY_NEEDLES = [
   '產報前檢查', '附件適用狀態', '優先建議報告閱讀狀態', '優先閱讀', '報告閱讀狀態',
   '可作附件，需人工複核', '暫勿作附件', '頁面輔助', '不會寫入計算書',
 ];
+const DRAFT_DOCUMENT_NEEDLES = [
+  '非正式附件', '列印內部檢討版', '本文件僅供內部檢討', '本文件僅供內部複核', '不得作為正式附件',
+];
 const FIELD_LABELS = {
   projectName: ['計畫名稱', '專案名稱', '工程名稱', '案件名稱'],
   projectNo: ['計畫編號', '專案編號', '工程編號', '案件編號'],
@@ -157,7 +160,7 @@ function inspectAttachment(filePath, rootDir) {
   const record = {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: fs.statSync(filePath).size,
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '',
-    fingerprints: [], pageOnlyNeedles: [], errors: [],
+    fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], errors: [],
   };
   try {
     let text = '';
@@ -172,6 +175,7 @@ function inspectAttachment(filePath, rootDir) {
     Object.assign(record, metadata || extractTextMetadata(text));
     record.textLength = normalizeText(text).length;
     record.pageOnlyNeedles = PAGE_ONLY_NEEDLES.filter(needle => text.includes(needle));
+    record.draftDocumentNeedles = DRAFT_DOCUMENT_NEEDLES.filter(needle => text.includes(needle));
   } catch (error) {
     record.errors.push(error.message || String(error));
   }
@@ -229,6 +233,9 @@ function analyzePackage(records, options = {}) {
   records.forEach(record => {
     if (record.errors.length) issues.push(buildIssue('error', 'unreadable-attachment', `${record.file} 無法讀取：${record.errors.join('；')}`, [record.file]));
     if (record.pageOnlyNeedles.length) issues.push(buildIssue('error', 'page-only-leak', `${record.file} 含有頁面專用文字：${record.pageOnlyNeedles.join('、')}`, [record.file]));
+    if ((record.draftDocumentNeedles || []).length) {
+      issues.push(buildIssue('error', 'draft-document', `${record.file} 含有非正式／內部檢討文件標記：${record.draftDocumentNeedles.join('、')}；不得納入交付附件組包。`, [record.file]));
+    }
   });
   const readable = records.filter(record => !record.errors.length);
   const projectNumbers = findConflicts(readable, 'projectNo', '計畫編號', issues);
@@ -341,4 +348,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { PAGE_ONLY_NEEDLES, normalizeText, cleanMetadataValue, normalizeToolVersion, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };
+module.exports = { PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, normalizeText, cleanMetadataValue, normalizeToolVersion, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };

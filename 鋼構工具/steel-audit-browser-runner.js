@@ -61,6 +61,25 @@ const LEGACY_PROJECT_META_PLACEHOLDER = {
   designer: 'Codex QA',
 };
 
+const FORMAL_REPORT_TRACE_LABELS = ['產出工具', '工具版本', '輸出時間', '計算指紋'];
+const FORMAL_REPORT_REFERENCE_NEEDLES = ['功能借鏡', 'SkyCiv', 'ClearCalcs', 'Dlubal'];
+
+function assertFormalReportTraceText(value, label) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  for (const needle of FORMAL_REPORT_TRACE_LABELS) {
+    if (!text.includes(needle)) throw new Error(`${label} missing report trace label ${needle}: ${text}`);
+  }
+  const expectations = [
+    [/產出工具\s*(?:連接板|拉力構件|鋼構接頭|鋼梁|鋼柱)正式規範核算工具/, '產出工具'],
+    [/工具版本\s*v\d+(?:\.\d+)*(?:[-+.\w]*)?/i, '工具版本'],
+    [/輸出時間\s*\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}/, '輸出時間'],
+    [/計算指紋\s*CF-[0-9A-F]{16}/, '計算指紋'],
+  ];
+  for (const [pattern, field] of expectations) {
+    if (!pattern.test(text)) throw new Error(`${label} missing a valid ${field} value: ${text}`);
+  }
+}
+
 function parseArgs(argv) {
   const parsed = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -511,6 +530,7 @@ async function assertFormalBeamImportCandidate(cdp, sessionId) {
 async function assertFormalBeamReportPopupComplete(cdp, sessionId, context = {}) {
   return assertFormalReportPopup(cdp, sessionId, {
     label: 'beam formal report popup',
+    buttonSelector: '#printReportBtn',
     titleNeedle: '鋼梁正式規範核算計算書',
     expectedProject: {
       name: FORMAL_PROJECT_META.projName,
@@ -580,7 +600,7 @@ async function assertMainPlateReportPopupPlaceholder(cdp, sessionId, context = {
   await assertMainPlateSummaryCopyPlaceholder(cdp, sessionId);
   return assertLegacyReportPopup(cdp, sessionId, {
     label: 'main plate report popup placeholder',
-    buttonSelector: '#exportReportBtn',
+    buttonSelector: '#printReportBtn',
     titleNeedle: '連接板檢核計算書',
     expectedProject: {
       name: '—',
@@ -619,6 +639,7 @@ async function assertFormalColumnReadinessBlocked(cdp, sessionId) {
 async function assertFormalColumnReportPopupComplete(cdp, sessionId, context = {}) {
   return assertFormalReportPopup(cdp, sessionId, {
     label: 'column formal report popup',
+    buttonSelector: '#printReportBtn',
     titleNeedle: '鋼柱正式規範核算計算書',
     expectedProject: {
       name: FORMAL_PROJECT_META.projName,
@@ -751,7 +772,7 @@ async function assertFormalProjectMetaPlaceholderRendered(cdp, sessionId, select
 }
 
 async function assertFormalReportPopup(cdp, sessionId, options) {
-  const popup = await openFormalReportPopup(cdp, sessionId, options.label);
+  const popup = await openFormalReportPopup(cdp, sessionId, options.label, options.buttonSelector || '#btnReport');
   const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
     title: document.title || '',
     header: document.querySelector('.rep-header h1')?.innerText?.trim() || '',
@@ -769,6 +790,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     '頁面顯示，不進計算書、列印或 PDF',
     '不會寫入計算書或列印 PDF',
     '計畫名稱 / 編號 / 設計人尚未完整',
+    ...FORMAL_REPORT_REFERENCE_NEEDLES,
     ...(Array.isArray(options.absentNeedles) ? options.absentNeedles : []),
   ];
   for (const needle of forbiddenNeedles) {
@@ -786,6 +808,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   if (!designerRow.includes(options.expectedProject.designer)) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
+  assertFormalReportTraceText(snapshot.bodyText, options.label);
   if (options.renderEvidenceKey) {
     const evidence = await renderAndValidateReportPdf(cdp, {
       html: snapshot.html,
@@ -794,9 +817,10 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       label: options.label,
       renderer: 'steel-formal-report',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, '計畫名稱'],
+      requiredNeedles: [options.titleNeedle, '計畫名稱', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
     });
+    assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
     renderedEvidenceRecords.push({
       key: options.renderEvidenceKey,
       renderer: evidence.renderer,
@@ -831,6 +855,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     '頁面顯示，不進計算書、列印或 PDF',
     '不會寫入計算書或列印 PDF',
     '計畫名稱 / 編號 / 設計人尚未完整',
+    ...FORMAL_REPORT_REFERENCE_NEEDLES,
     ...(Array.isArray(options.absentNeedles) ? options.absentNeedles : []),
   ];
   for (const needle of forbiddenNeedles) {
@@ -848,6 +873,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
   if (!designerRow.includes(options.expectedProject.designer)) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
+  assertFormalReportTraceText(snapshot.bodyText, options.label);
   if (options.renderEvidenceKey) {
     const evidence = await renderAndValidateReportPdf(cdp, {
       html: snapshot.html,
@@ -856,9 +882,10 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       label: options.label,
       renderer: 'steel-main-report',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, '計畫名稱'],
+      requiredNeedles: [options.titleNeedle, '計畫名稱', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
     });
+    assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
     renderedEvidenceRecords.push({
       key: options.renderEvidenceKey,
       renderer: evidence.renderer,
@@ -874,7 +901,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
   };
 }
 
-async function openFormalReportPopup(cdp, sessionId, label) {
+async function openFormalReportPopup(cdp, sessionId, label, buttonSelector = '#btnReport') {
   const beforeTargets = await cdp.send('Target.getTargets');
   const existingTargetIds = new Set(
     (beforeTargets.targetInfos || [])
@@ -882,8 +909,8 @@ async function openFormalReportPopup(cdp, sessionId, label) {
       .map((info) => info.targetId)
   );
   await evaluate(cdp, sessionId, `(() => {
-    const button = document.querySelector('#btnReport');
-    if (!button) throw new Error('missing #btnReport');
+    const button = document.querySelector(${JSON.stringify(buttonSelector)});
+    if (!button) throw new Error('missing ${buttonSelector}');
     button.click();
     return true;
   })()`, `${label} open report`);

@@ -133,6 +133,17 @@ function openReport(cfg) {
   const reportGeneratedAt = formatReportTimestamp(today);
   const calculationFingerprint = buildCalculationFingerprint(cfg);
   const sourceTrace = getReportSourceTrace(cfg);
+  const configuredDocumentState = cfg.documentState && typeof cfg.documentState === 'object'
+    ? cfg.documentState
+    : null;
+  const documentState = configuredDocumentState && configuredDocumentState.kind === 'draft'
+    ? {
+        kind: 'draft',
+        reason: configuredDocumentState.reason === 'blocked' ? 'blocked' : 'review',
+        label: String(configuredDocumentState.label || 'DRAFT／非正式附件').trim(),
+        detail: String(configuredDocumentState.detail || '本文件僅供內部檢討，不得作為正式附件。').trim()
+      }
+    : null;
 
   const esc = s => (s===null||s===undefined?'':String(s))
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -286,6 +297,12 @@ function openReport(cfg) {
   const summaryHtml = hasSummary
     ? `<div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>`
     : '';
+  const documentStateHtml = documentState
+    ? `<section class="rep-document-state rep-document-state--${esc(documentState.reason)}" data-document-state="${esc(documentState.kind)}" data-document-reason="${esc(documentState.reason)}">
+        <strong>${esc(documentState.label)}</strong>
+        <span>${esc(documentState.detail)}</span>
+      </section>`
+    : '';
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -302,6 +319,11 @@ body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-
 .rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
+.rep-document-state { margin:12px 0 16px; padding:10px 14px; border:2px solid #b91c1c;
+                      background:#fff1f2; color:#881337; page-break-inside:avoid; }
+.rep-document-state strong { display:block; font-size:16px; letter-spacing:.03em; }
+.rep-document-state span { display:block; margin-top:4px; font-size:11px; line-height:1.5; }
+.rep-document-state--review { border-color:#b45309; background:#fff7ed; color:#7c2d12; }
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;
             font-size:12px; margin:14px 0 18px; }
 .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
@@ -384,8 +406,15 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
               font-size:10px; color:#666; text-align:right; }
 @media print {
   body { background:#fff; padding:0; }
+  body.rep-document-draft::after { content:"DRAFT"; position:fixed; left:50%; top:46%;
+    transform:translate(-50%,-50%) rotate(-28deg); color:rgba(153,27,27,.07);
+    font:700 84px/1 Arial,sans-serif; letter-spacing:.08em; pointer-events:none; z-index:999; }
+  .rep-document-state { display:block; position:absolute; top:0; right:0; z-index:1000;
+    width:auto; max-width:48%; margin:0; padding:1mm 2mm; white-space:nowrap; }
+  .rep-document-state strong { font-size:9px; }
+  .rep-document-state span { display:none; }
   .rep-toolbar { display:none; }
-  .rep-paper { box-shadow:none; padding:0; max-width:none; }
+  .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
   thead { display:table-header-group; }
@@ -394,9 +423,9 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 }
 </style>
 </head>
-<body>
+<body${documentState ? ` class="rep-document-draft rep-document-${documentState.reason}"` : ''}>
 <div class="rep-toolbar">
-  <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
+  <button onclick="window.print()">${documentState ? '🖨️ 列印內部檢討版 / 存 PDF' : '🖨️ 列印 / 存 PDF'}</button>
   <button onclick="closeReportWindow()">✕ 關閉</button>
   <span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span>
 </div>
@@ -405,6 +434,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <h1>${esc(cfg.title || '計算書')}</h1>
     ${cfg.subtitle?`<div class="sub">${esc(cfg.subtitle)}</div>`:''}
   </div>
+  ${documentStateHtml}
   <div class="rep-meta${sourceTrace.tool ? ' rep-meta--traceable' : ''}">
     <div><b>計畫名稱</b>${esc(proj.name)||'—'}</div>
     <div><b>計畫編號</b>${esc(proj.no)||'—'}</div>

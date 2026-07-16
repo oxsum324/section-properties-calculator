@@ -6,6 +6,8 @@
   const num = (id) => parseFloat($(id)?.value) || 0;
   const SteelFormalUI = window.SteelFormalUI;
   if (!SteelFormalUI) throw new Error("SteelFormalUI is not loaded.");
+  const TOOL_METADATA = window.SteelToolMetadata?.beam;
+  if (!TOOL_METADATA) throw new Error("Steel beam tool metadata is not loaded.");
   const UI_PREFS_KEY = "steel-beam-formal-ui-v3";
   const PENDING_FORCE_STORAGE_KEY = "structToolbox.pendingForces";
   const TF_TO_KN = 9.80665;
@@ -1888,6 +1890,7 @@
     openReport({
       title: "鋼梁正式規範核算計算書",
       subtitle: `Steel Beam Formal Report (${designMethod}｜${getCurrentInputModeLabel()})`,
+      outputSource: TOOL_METADATA,
       project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
       highlights: getUnitReportHighlights(),
       summaryFacts: getBeamReportSummaryFacts(result),
@@ -1961,7 +1964,7 @@
     $("btnASD").addEventListener("click", () => { setMethod("ASD"); resultState = runCheck(); });
     $("runCheckBtn").addEventListener("click", () => { resultState = runCheck(); });
     $("btnReport").addEventListener("click", buildReport);
-    $("printReportBtn").addEventListener("click", () => window.print());
+    $("printReportBtn").addEventListener("click", buildReport);
     $("beamJumpGoverningBtn").addEventListener("click", () => scrollToBlock(getGoverningTarget()));
     $("beamJumpFirstNgBtn").addEventListener("click", () => {
       scrollToBlock(getFirstNgTarget());

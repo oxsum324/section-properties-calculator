@@ -1769,6 +1769,94 @@ function assertReportContentState(state, tool, label, mode = 'default') {
   assertReportExpectations(state, tool, label, mode);
 }
 
+function windOverviewDispatchSetupExpression() {
+  return `(async () => {
+    const settle = (frames = 2) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    const setInput = (id, value) => {
+      const element = document.getElementById(id);
+      if (!element) return;
+      element.value = String(value);
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const validFields = {
+      projName: '耐風共用派送案',
+      projNo: 'WIND-DISPATCH-001',
+      projDesigner: 'Codex QA',
+      city: '臺北市',
+      terrain: 'B',
+      impClass: 'IV',
+      Kzt: '1.15',
+      H: '48',
+      floors: '12',
+      Bx: '18',
+      By: '36'
+    };
+    Object.entries(validFields).forEach(([id, value]) => setInput(id, value));
+    document.getElementById('btnSave')?.click();
+    await settle(3);
+    const sharedProfileKey = 'windSharedProfile:latest.v1';
+    const overviewKey = 'wind-overview-params';
+    const validSharedRaw = localStorage.getItem(sharedProfileKey);
+    const validOverviewRaw = localStorage.getItem(overviewKey);
+    const validMessage = String(document.getElementById('saveMsg')?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const invalidAttempts = [];
+    for (const field of ['Kzt', 'H', 'Bx', 'By']) {
+      for (const invalidValue of ['-1', '']) {
+        Object.entries(validFields).forEach(([id, value]) => setInput(id, value));
+        setInput(field, invalidValue);
+        document.getElementById('btnSave')?.click();
+        await settle(1);
+        invalidAttempts.push({
+          field,
+          invalidValue,
+          message: String(document.getElementById('saveMsg')?.textContent || '').replace(/\\s+/g, ' ').trim(),
+          sharedProfileUnchanged: localStorage.getItem(sharedProfileKey) === validSharedRaw,
+          overviewUnchanged: localStorage.getItem(overviewKey) === validOverviewRaw
+        });
+      }
+    }
+    Object.entries(validFields).forEach(([id, value]) => setInput(id, value));
+    const raw = localStorage.getItem(sharedProfileKey);
+    const profile = raw ? JSON.parse(raw) : null;
+    const links = Array.from(document.querySelectorAll('a[data-wind-profile-dispatch="true"]')).map(link => link.getAttribute('href'));
+    return {
+      profile,
+      links,
+      message: validMessage,
+      invalidAttempts,
+      specialHref: document.querySelector('a[href^="wind-special.html"]')?.getAttribute('href') || ''
+    };
+  })()`;
+}
+
+function windSharedProfileTargetExpression() {
+  return `(() => ({
+    applied: document.documentElement.dataset.windProfileApplied || '',
+    name: document.getElementById('projName')?.value || '',
+    no: document.getElementById('projNo')?.value || '',
+    designer: document.getElementById('projDesigner')?.value || '',
+    city: document.getElementById('city')?.value || '',
+    terrain: document.getElementById('terrain')?.value || '',
+    importanceClass: document.getElementById('impClass')?.value || '',
+    Kzt: document.getElementById('Kzt')?.value || '',
+    B: document.getElementById('B')?.value || '',
+    L: document.getElementById('L')?.value || '',
+    floors: document.getElementById('N')?.value || '',
+    storyHeight: document.getElementById('h')?.value || '',
+    status: String(document.querySelector('[data-wind-shared-profile-status]')?.textContent || '').replace(/\\s+/g, ' ').trim(),
+    targets: (window.__windSharedProfileApply?.applied || []).map(item => item.target)
+  }))()`;
+}
+
 function assertReportState(state, tool, label, mode = 'default') {
   assert.equal(state.missingButton, false, `${label} ${tool.key} report button exists`);
   assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
@@ -1848,6 +1936,42 @@ function assertWindOverviewProjectStorageState(state, label) {
   assert.equal(state.storedOverviewProjectName, '舊案名', `${label} wind-overview page summary should refresh from current fields, not mutate overview storage`);
   assert.equal(state.storedOverviewProjectNo, 'OLD-001', `${label} wind-overview overview storage remains previous number`);
   assert.equal(state.storedOverviewProjectDesigner, '舊設計人', `${label} wind-overview overview storage remains previous designer`);
+}
+
+function assertWindOverviewDispatchState(state, label) {
+  assert.equal(state.profile?.schema, 'wind-shared-profile.v1', `${label} shared profile schema`);
+  assert.equal(state.profile?.project?.name, '耐風共用派送案', `${label} shared project name`);
+  assert.equal(state.profile?.building?.height, 48, `${label} shared building height`);
+  assert.equal(state.links.length, 11, `${label} supported tool links decorated`);
+  state.links.forEach(href => assert.ok(href.includes('windProfile=latest'), `${label} dispatch query: ${href}`));
+  assert.equal(state.specialHref, 'wind-special.html', `${label} special adjustment keeps non-profile route`);
+  assert.ok(state.message.includes('11 個工具入口已啟用一鍵自動預填'), `${label} save message confirms dispatch`);
+  assert.equal(state.invalidAttempts.length, 8, `${label} checks blank and negative values for every positive input`);
+  state.invalidAttempts.forEach(attempt => {
+    const invalidLabel = `${label} ${attempt.field}=${JSON.stringify(attempt.invalidValue)}`;
+    assert.equal(attempt.sharedProfileUnchanged, true, `${invalidLabel} keeps valid shared profile`);
+    assert.equal(attempt.overviewUnchanged, true, `${invalidLabel} keeps valid overview profile`);
+    assert.equal(attempt.message.includes('已儲存'), false, `${invalidLabel} does not announce a successful save`);
+    assert.ok(attempt.message.includes('都需大於 0'), `${invalidLabel} shows positive-value validation`);
+  });
+}
+
+function assertWindSharedProfileTargetState(state, label) {
+  assert.equal(state.applied, 'true', `${label} profile applied marker`);
+  assert.equal(state.name, '耐風共用派送案', `${label} project name`);
+  assert.equal(state.no, 'WIND-DISPATCH-001', `${label} project number`);
+  assert.equal(state.designer, 'Codex QA', `${label} designer`);
+  assert.equal(state.city, '臺北市', `${label} city`);
+  assert.equal(state.terrain, 'B', `${label} terrain`);
+  assert.equal(state.importanceClass, 'IV', `${label} importance class`);
+  assert.equal(Number(state.Kzt), 1.15, `${label} Kzt`);
+  assert.equal(Number(state.B), 18, `${label} windward width`);
+  assert.equal(Number(state.L), 36, `${label} along-wind length`);
+  assert.equal(Number(state.floors), 12, `${label} floors`);
+  assert.equal(Number(state.storyHeight), 4, `${label} derived uniform story height`);
+  assert.ok(state.status.includes('已從耐風案件總覽自動預填 11 項'), `${label} visible applied status`);
+  ['projName', 'projNo', 'projDesigner', 'city', 'terrain', 'impClass', 'Kzt', 'B', 'L', 'N', 'h']
+    .forEach(target => assert.ok(state.targets.includes(target), `${label} applied target ${target}`));
 }
 
 function assertExportState(state, tool, label) {
@@ -2111,8 +2235,17 @@ async function main() {
         const pageErrors = await navigate(client, sessionId, `http://127.0.0.1:${serverPort}/wind-overview`, viewport);
         const state = await evaluate(client, sessionId, windOverviewProjectStorageExpression());
         assertWindOverviewProjectStorageState(state, label);
+        const dispatchState = await evaluate(client, sessionId, windOverviewDispatchSetupExpression());
+        assertWindOverviewDispatchState(dispatchState, `${viewport.key} wind-overview dispatch`);
         pageErrors.unsubscribe();
         assertNoPageErrors(pageErrors.errors, label);
+
+        const targetLabel = `${viewport.key} wind-force shared profile`;
+        const targetErrors = await navigate(client, sessionId, `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/tools/風力/wind-force.html')}?windProfile=latest`, viewport);
+        const targetState = await evaluate(client, sessionId, windSharedProfileTargetExpression());
+        assertWindSharedProfileTargetState(targetState, targetLabel);
+        targetErrors.unsubscribe();
+        assertNoPageErrors(targetErrors.errors, targetLabel);
       }
       for (const tool of formalTools) {
         const label = `${viewport.key} route`;

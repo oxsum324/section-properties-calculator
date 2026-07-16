@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
-const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality, readPdfTextWithPython } = require('./report-screenshot-quality');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.BEAM_REPORT_PORT || 0);
@@ -253,6 +253,29 @@ async function main() {
       assert(state.readinessText.includes('優先閱讀'), `${tc.key} page attachment readiness priority`, state.readinessText);
       assert(['ready', 'review', 'blocked'].includes(state.readinessStatus), `${tc.key} page attachment readiness status`, state.readinessStatus);
       assert(state.readinessDisplay !== 'none', `${tc.key} page attachment readiness visible`, state.readinessDisplay);
+
+      const directPrintPdfPath = path.join(OUT_DIR, `beam-direct-print-${tc.key}.pdf`);
+      await page.emulateMedia({ media: 'print' });
+      const directPrintState = await page.evaluate(() => ({
+        noticeDisplay: getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display,
+        noticeText: document.querySelector('.rc-direct-print-boundary')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        watermark: getComputedStyle(document.body, '::after').content,
+      }));
+      await page.pdf({
+        path: directPrintPdfPath,
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
+      });
+      await page.emulateMedia({ media: 'screen' });
+      const directPrintPdfText = readPdfTextWithPython(directPrintPdfPath);
+      assert(directPrintState.noticeDisplay !== 'none', `${tc.key} direct print boundary visible`, directPrintState.noticeDisplay);
+      assert(directPrintState.watermark.includes('DRAFT'), `${tc.key} direct print watermark`, directPrintState.watermark);
+      for (const needle of ['DRAFT', '直接列印非正式附件', '不得作為正式附件']) {
+        assert(directPrintPdfText.text.includes(needle), `${tc.key} direct-print PDF includes`, needle);
+      }
+      assertArtifact(directPrintPdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} direct-print boundary PDF written`);
+
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -282,7 +305,7 @@ async function main() {
         includeAny: [['梁設計計算書', '梁檢核計算書']],
       });
       const expected = EXPECTED[tc.key] || {};
-      results.push({ key: tc.key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
+      results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
       assert(!metrics.hasReportSummary, `${tc.key} report status banner hidden`, 'no .rep-summary');

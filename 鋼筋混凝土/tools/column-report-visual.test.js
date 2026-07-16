@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
-const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality, readPdfTextWithPython } = require('./report-screenshot-quality');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_VISUAL_PORT || 0);
@@ -218,6 +218,29 @@ async function main() {
           height: rect ? Math.round(rect.height) : 0
         };
       });
+
+      const directPrintPdfPath = path.join(OUT_DIR, `column-direct-print-${tc.key}.pdf`);
+      await page.emulateMedia({ media: 'print' });
+      const directPrintState = await page.evaluate(() => ({
+        noticeDisplay: getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display,
+        noticeText: document.querySelector('.rc-direct-print-boundary')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        watermark: getComputedStyle(document.body, '::after').content,
+      }));
+      await page.pdf({
+        path: directPrintPdfPath,
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
+      });
+      await page.emulateMedia({ media: 'screen' });
+      const directPrintPdfText = readPdfTextWithPython(directPrintPdfPath);
+      assert(directPrintState.noticeDisplay !== 'none', `${tc.key} direct print boundary visible`, directPrintState.noticeDisplay);
+      assert(directPrintState.watermark.includes('DRAFT'), `${tc.key} direct print watermark`, directPrintState.watermark);
+      for (const needle of ['DRAFT', '直接列印非正式附件', '不得作為正式附件']) {
+        assert(directPrintPdfText.text.includes(needle), `${tc.key} direct-print PDF includes`, needle);
+      }
+      assertArtifact(directPrintPdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} direct-print boundary PDF written`);
+
       const report = await openReportPopup(page);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
       await report.setViewportSize({ width: 980, height: 1300 });
@@ -240,7 +263,7 @@ async function main() {
         include: ['計算書'],
         includeAny: [['柱設計計算書', '柱檢核計算書']],
       });
-      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, metrics, printMetrics, screenshotQuality, pdfTextQuality });
+      results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(pageErrors.length === 0, `${tc.key} report page errors`, 'none');
       assert(failedResponses.length === 0, `${tc.key} report failed responses`, 'none');

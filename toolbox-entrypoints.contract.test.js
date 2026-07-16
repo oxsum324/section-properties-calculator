@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { spawnSync } = require('child_process');
 
 const repoRoot = __dirname;
 const toolboxRoot = path.join(repoRoot, '結構工具箱');
@@ -153,16 +154,58 @@ function normalizeVersion(value) {
   return match ? `V${match[1]}` : null;
 }
 
-function detectHtmlVersion(source) {
-  const constMatch = source.match(/\b(?:APP_VERSION|TOOL_VERSION)\s*=\s*['\"]\s*v?(\d+(?:\.\d+)*)\s*['\"]/i);
-  if (constMatch) return `V${constMatch[1]}`;
-  const taggedMatches = source.matchAll(/<(title|h1)\b[^>]*>([\s\S]*?)<\/\1>/gi);
-  for (const match of taggedMatches) {
+function collectHtmlVersionHits(source) {
+  const hits = [];
+  const addHit = (label, value) => {
+    const version = normalizeVersion(value);
+    if (version) hits.push({ label, version });
+  };
+
+  for (const match of source.matchAll(/\b(APP_VERSION|TOOL_VERSION)\s*=\s*['\"]\s*(v?\d+(?:\.\d+)*)\s*['\"]/gi)) {
+    addHit(match[1], match[2]);
+  }
+
+  for (const match of source.matchAll(/<(title|h1)\b[^>]*>([\s\S]*?)<\/\1>/gi)) {
+    const text = match[2].replace(/<[^>]+>/g, ' ');
+    for (const versionMatch of text.matchAll(/\bV\s*(\d+(?:\.\d+)*)\b/gi)) {
+      addHit(match[1].toLowerCase(), versionMatch[1]);
+    }
+  }
+
+  for (const match of source.matchAll(/\b(toolVersion|appVersion)\s*:\s*['\"]\s*(v?\d+(?:\.\d+)*)\s*['\"]/gi)) {
+    addHit(match[1], match[2]);
+  }
+
+  for (const match of source.matchAll(/<(meta)\b[^>]*(?:name|property)=['\"][^'\"]*version[^'\"]*['\"][^>]*>/gi)) {
+    const contentMatch = match[0].match(/\bcontent=['\"]\s*(v?\d+(?:\.\d+)*)\s*['\"]/i);
+    if (contentMatch) addHit('meta version', contentMatch[1]);
+  }
+
+  for (const match of source.matchAll(/<([a-z][\w-]*)\b[^>]*class=['\"][^'\"]*(?:badge-v|version)[^'\"]*['\"][^>]*>([\s\S]*?)<\/\1>/gi)) {
     const text = match[2].replace(/<[^>]+>/g, ' ');
     const versionMatch = text.match(/\bV\s*(\d+(?:\.\d+)*)\b/i);
-    if (versionMatch) return `V${versionMatch[1]}`;
+    if (versionMatch) addHit('visible version badge', versionMatch[1]);
   }
-  return null;
+
+  for (const match of source.matchAll(/\b(outputSource|tool)\s*:\s*\{[\s\S]{0,300}?\bversion\s*:\s*['\"]\s*(v?\d+(?:\.\d+)*)\s*['\"]/gi)) {
+    addHit(`${match[1]} metadata`, match[2]);
+  }
+
+  for (const match of source.matchAll(/工具版本[\s\S]{0,160}?\bV\s*(\d+(?:\.\d+)*)\b/gi)) {
+    addHit('report tool version', match[1]);
+  }
+
+  return hits;
+}
+
+function detectHtmlVersion(source, label = 'HTML') {
+  const hits = collectHtmlVersionHits(source);
+  const versions = [...new Set(hits.map(hit => hit.version))];
+  assert.ok(
+    versions.length <= 1,
+    `${label} has inconsistent tool versions: ${hits.map(hit => `${hit.label}=${hit.version}`).join(', ')}`
+  );
+  return versions[0] || null;
 }
 
 function assertHomeDate(value, label) {
@@ -173,6 +216,42 @@ function assertHomeDate(value, label) {
   tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
   assert.ok(parsed <= tomorrow, `${label} must not be future dated: ${value}`);
 }
+
+function latestCommittedDate(relativeFile) {
+  const result = spawnSync('git', ['log', '-1', '--format=%cs', '--', relativeFile], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  if (result.status !== 0) return null;
+  const value = String(result.stdout || '').trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function hasWorkingTreeChange(relativeFile) {
+  const result = spawnSync('git', ['status', '--porcelain', '--untracked-files=all', '--', relativeFile], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  return result.status === 0 && String(result.stdout || '').trim().length > 0;
+}
+
+assert.equal(
+  detectHtmlVersion('<title>QA V1.6</title><h1>QA <span class="version">V1.6</span></h1>', 'version fixture'),
+  'V1.6',
+  'version fixture accepts one canonical visible version'
+);
+assert.throws(
+  () => detectHtmlVersion('<title>QA V1.6</title><h1>QA <span>V1.0</span></h1>', 'version mismatch fixture'),
+  /inconsistent tool versions/,
+  'version contract rejects title and H1 drift'
+);
+assert.throws(
+  () => detectHtmlVersion("<title>QA V1.6</title><script>const TOOL_VERSION = '1.6'; const report = { toolVersion: '1.0' };</script>", 'report metadata mismatch fixture'),
+  /inconsistent tool versions/,
+  'version contract rejects page and report metadata drift'
+);
 
 function assertHomeStatusRegion(source, id, label) {
   const match = source.match(new RegExp(`<div\\s+[^>]*id="${id}"[^>]*>`));
@@ -271,12 +350,13 @@ function extractPreflightHelperPaths(source) {
 const homeSource = readText(homeJsPath);
 const homeIndex = readText(path.join(toolboxRoot, 'index.html'));
 const homeTools = evaluateLiteral(extractConstLiteral(homeSource, 'tools'), 'home-tools');
-const homeDataUpdated = extractConstString(homeSource, 'HOME_DATA_UPDATED');
+const homeToolUpdates = evaluateLiteral(extractConstLiteral(homeSource, 'HOME_TOOL_UPDATES'), 'home-tool-updates');
 const toolStates = evaluateLiteral(extractConstLiteral(homeSource, 'toolStates'), 'tool-states');
 const stateBoundaryRules = evaluateLiteral(extractConstLiteral(homeSource, 'stateBoundaryRules'), 'state-boundary-rules');
 const governanceSources = evaluateLiteral(extractConstLiteral(homeSource, 'governanceSources'), 'governance-sources');
 const reportReadinessOverview = evaluateLiteral(extractConstLiteral(homeSource, 'reportReadinessOverview'), 'report-readiness-overview');
 const reportReadinessStatusSnapshot = readJson('結構工具箱/assets/status/report-readiness-status.json');
+const preflightStatusSnapshot = readJson('結構工具箱/assets/status/preflight-summary.json');
 const routeFileMap = evaluateLiteral(extractConstLiteral(homeSource, 'routeFileMap'), 'route-file-map');
 const EXPECTED_GOVERNANCE_SOURCE_KEYS = {
   'formal-tools': {
@@ -336,7 +416,27 @@ assert.ok(Array.isArray(vercel.redirects), 'vercel redirects array');
 assert.ok(Array.isArray(vercel.rewrites), 'vercel rewrites array');
 assert.ok(Array.isArray(homeTools), 'home tools array');
 assert.ok(homeTools.length >= 40, 'home tool count should cover the governed platform');
-assertHomeDate(homeDataUpdated, 'HOME_DATA_UPDATED');
+assert.equal(homeSource.includes('HOME_DATA_UPDATED'), false, 'home cards must not share one fallback update date');
+assert.equal(homeToolUpdates.version, 1, 'home tool update catalog version');
+assertHomeDate(homeToolUpdates.generatedAt, 'HOME_TOOL_UPDATES generatedAt');
+assertHomeDate(homeToolUpdates.releaseVerifiedAt, 'HOME_TOOL_UPDATES releaseVerifiedAt');
+assert.equal(typeof homeToolUpdates.source, 'string', 'home tool update catalog source');
+assert.ok(homeToolUpdates.source.includes('Git history'), 'home tool update catalog documents content date source');
+assert.ok(homeToolUpdates.source.includes('worktree changes'), 'home tool update catalog documents uncommitted content date source');
+assert.ok(homeToolUpdates.source.includes('preflight'), 'home tool update catalog documents release verification source');
+assert.equal(preflightStatusSnapshot.quick, false, 'tracked homepage preflight snapshot is full mode');
+assert.equal(preflightStatusSnapshot.forcePlatformAudit, true, 'tracked homepage preflight snapshot forced platform audit');
+assert.equal(preflightStatusSnapshot.forceSlowChecks, true, 'tracked homepage preflight snapshot forced slow checks');
+assert.equal(preflightStatusSnapshot.pass, true, 'tracked homepage preflight snapshot passed');
+const trackedReleaseDate = String(preflightStatusSnapshot.generatedAt || '').slice(0, 10);
+assertHomeDate(trackedReleaseDate, 'tracked homepage release date');
+assert.ok(homeToolUpdates.releaseVerifiedAt >= trackedReleaseDate, 'home release verification date must not predate tracked formal release');
+assert.ok(homeToolUpdates.generatedAt >= homeToolUpdates.releaseVerifiedAt, 'home tool update catalog must not predate release verification');
+assert.deepEqual(
+  Object.keys(homeToolUpdates.routes || {}).sort(),
+  homeTools.map(tool => tool.href).sort(),
+  'home tool update catalog must cover every card exactly once'
+);
 assert.ok(toolStates.formal, 'home tool states include formal');
 for (const stateKey of Object.keys(toolStates).filter(key => key !== 'formal')) {
   assert.ok(stateBoundaryRules[stateKey], `${stateKey} non-formal state has boundary rules`);
@@ -712,7 +812,22 @@ for (const tool of homeTools) {
   const absoluteFile = path.join(repoRoot, ...relativeFile.split('/'));
   assert.ok(fs.existsSync(absoluteFile), `${tool.title} home href target missing: ${relativeFile}`);
 
-  assertHomeDate(tool.updated || homeDataUpdated, `${tool.title} home updated date`);
+  assert.equal(Object.prototype.hasOwnProperty.call(tool, 'updated'), false, `${tool.title} must use the centralized update catalog`);
+  const homeUpdated = homeToolUpdates.routes[tool.href];
+  assertHomeDate(homeUpdated, `${tool.title} home updated date`);
+  assert.ok(homeUpdated <= homeToolUpdates.generatedAt, `${tool.title} home updated date must not exceed catalog generation date`);
+  const lastCommittedDate = latestCommittedDate(relativeFile);
+  if (lastCommittedDate) {
+    const targetChanged = hasWorkingTreeChange(relativeFile);
+    const expectedContentDate = targetChanged
+      ? homeToolUpdates.generatedAt
+      : lastCommittedDate;
+    assert.equal(
+      homeUpdated,
+      expectedContentDate,
+      `${tool.title} home updated date must match ${targetChanged ? 'current target worktree change' : 'target Git history'} (${relativeFile})`
+    );
+  }
   assert.ok(tool.version, `${tool.title} home version`);
   const categoricalVersionRule = CATEGORICAL_VERSION_RULES[tool.version];
   if (categoricalVersionRule) {
@@ -721,7 +836,7 @@ for (const tool of homeTools) {
     const homeVersion = normalizeVersion(tool.version);
     assert.ok(homeVersion, `${tool.title} home version must be Vn.n or an approved categorical tag: ${tool.version}`);
     if (/\.html?$/i.test(relativeFile)) {
-      const htmlVersion = detectHtmlVersion(readText(absoluteFile));
+      const htmlVersion = detectHtmlVersion(readText(absoluteFile), relativeFile);
       if (htmlVersion) {
         assert.equal(homeVersion, htmlVersion, `${tool.title} home version must match tool version source (${relativeFile})`);
       }
@@ -807,7 +922,7 @@ for (const tool of manifestTools) {
   '非 formal 責任邊界',
   'stateBoundaryRules',
   '首頁版本治理',
-  'HOME_DATA_UPDATED',
+  'HOME_TOOL_UPDATES',
   'TOOL_VERSION',
   'APP_VERSION',
   'Pages deploy',

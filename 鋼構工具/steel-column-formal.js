@@ -6,6 +6,8 @@
   const num = (id) => parseFloat($(id)?.value) || 0;
   const SteelFormalUI = window.SteelFormalUI;
   if (!SteelFormalUI) throw new Error("SteelFormalUI is not loaded.");
+  const TOOL_METADATA = window.SteelToolMetadata?.column;
+  if (!TOOL_METADATA) throw new Error("Steel column tool metadata is not loaded.");
   const UI_PREFS_KEY = "steel-column-formal-ui-v3";
   const TF_TO_KN = 9.80665;
   const KGFCM2_TO_MPA = 0.0980665;
@@ -1648,6 +1650,7 @@
     openReport({
       title: "鋼柱正式規範核算計算書",
       subtitle: `Steel Column Formal Report (${designMethod}｜${getCurrentInputModeLabel()})`,
+      outputSource: TOOL_METADATA,
       project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
       highlights: getUnitReportHighlights(),
       summaryFacts: getColumnReportSummaryFacts(result),
@@ -1712,7 +1715,7 @@
     $("btnASD").addEventListener("click", () => { setMethod("ASD"); resultState = runCheck(); });
     $("runCheckBtn").addEventListener("click", () => { resultState = runCheck(); });
     $("btnReport").addEventListener("click", buildReport);
-    $("printReportBtn").addEventListener("click", () => window.print());
+    $("printReportBtn").addEventListener("click", buildReport);
     $("columnJumpGoverningBtn").addEventListener("click", () => scrollToBlock(getGoverningTarget()));
     $("columnJumpFirstNgBtn").addEventListener("click", () => {
       scrollToBlock(getFirstNgTarget());
