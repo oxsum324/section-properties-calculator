@@ -2,6 +2,23 @@
 
 本檔記錄石材固定計算書工具的主要版本變更。正式修改工具前後，請同步更新此檔、`APP_VERSION`、`SERVER_VERSION`，必要時也更新 `TEMPLATE_CATALOG_VERSION` 與回歸測試基準值。
 
+## V3.0.6 - 2026-07-16
+
+版本同步：`APP_VERSION = V3.0.6`；`SERVER_VERSION = 3.0.6`。
+
+### 重點：專案移轉完整性與單次提示
+
+- 修正完整未竄改的專案在 migration 補齊欄位後，因拿來源 `input_hash` 與補值後內容比對而誤報 `mismatch` 的問題；現改為來源指紋只驗證來源 `inp / cases`。
+- migration 寫回改為先儲存不帶舊指紋的 `pending` 正規化資料，再重新計算 SHA-256 後標記 `saved`，不再出現舊 hash 短暫被套在新內容的視窗。
+- 若瀏覽器在 `pending` 完成前關閉，或上次寫回留下 `failed`，下次載入會自動重試並重建有效指紋；`pending` 期間匯出門檻會阻擋匯出，避免交付尚未完成指紋的專案。
+- 修正 `buildProjectPayload()` 使用 Web Crypto 非同步計算期間，巢狀輸入可能被渲染流程改動，造成寫出 payload 與已計算 hash 不同的競態；現改為對同一份深拷貝 JSON 快照計算並寫出。
+- 專案 `load()` 改為先清空現有案例與案例 DOM，再完整還原存檔內容；避免重載、復原／重做或 migration 寫回重試時重複累加案例。
+- migration toast 改用本次 `load()` 的短暫事件；長期 `meta.applied_defaults` 與追溯資料仍保留，但已正規化的專案第二次重載不再重複顯示補值成功提示。
+- 完整性不一致仍會對真正的外部修改顯示警示；新專案載入時會取消前一專案未顯示的延遲警示。
+- 提示層改為訊息本體不攋截底下操作，關閉鈕仍可點擊，避免長時間警示擋住審查儀表板。
+- `ui_smoke_test.py` 新增來源 hash 通過、正規化寫回 hash 有效、第二次重載不提示與真實竄改仍 mismatch 四組瀏覽器回歸。
+- 條文語意追蹤 catalog 升級至 0.5.0；首頁與 classic 入口卡片同步顯示 V3.0.6。
+
 ## V3.0.5 - 2026-07-16
 
 版本同步：`APP_VERSION = V3.0.5`；`SERVER_VERSION = 3.0.5`。

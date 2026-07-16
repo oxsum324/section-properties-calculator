@@ -681,7 +681,7 @@
     },
     {
       title: '石材固定構件計算書',
-      version: 'V3.0.5',
+      version: 'V3.0.6',
       href: '/stone-fixing',
       categories: ['attachments'],
       state: 'formal',

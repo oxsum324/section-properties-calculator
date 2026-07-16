@@ -67,7 +67,7 @@
 `js/formula-registry-smoke.test.js` 會檢查實際計算項目都有對應的公式、單位與規範來源登錄；V2 審查儀表板、審查明細與輸出檢核表會引用同一份來源表。
 `stone-traceability.contract.test.js` 會檢查 `stone-traceability.catalog.json` 的條文語意追蹤，確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核各自追得到規範來源、輸入、計算核心、報告落點、測試證據與人工複核邊界。
 `js/version-sync-smoke.test.js` 會用 mock DOM 檢查側欄版本標示 helper。
-`js/code-profiles-registry-smoke.test.js` 會檢查 active profile、指紋、profile-owned 輸入同步、專案 profile 正規化與 profile-owned migration 預設；切換 profile 時只更新仍等於舊 profile 預設的欄位，使用者自行覆寫的值會保留。`ui_smoke_test.py` 另以隔離瀏覽器驗證專案 JSON 在匯入／重新載入後會完整取代 runtime profile；缺少 `Ip / ap / Rp` 時依 active profile 補齊並記錄 `meta.applied_defaults`，明示人工值則保留，避免換電腦遺失選擇、被另一個專案的 localStorage 狀態汙染，或出現 profile 與實算欄位矛盾。
+`js/code-profiles-registry-smoke.test.js` 會檢查 active profile、指紋、profile-owned 輸入同步、專案 profile 正規化與 profile-owned migration 預設；切換 profile 時只更新仍等於舊 profile 預設的欄位，使用者自行覆寫的值會保留。`ui_smoke_test.py` 另以隔離瀏覽器驗證專案 JSON 在匯入／重新載入後會完整取代 runtime profile；每次 `load()` 會先清空既有案例，再還原存檔案例，避免重載、復原／重做或 migration 重試時案例重複累加。缺少 `Ip / ap / Rp` 時依 active profile 補齊並記錄 `meta.applied_defaults`，明示人工值則保留。來源 `input_hash` 只與移轉前內容比對，正規化寫回會重新產生指紋；一般存檔也會先深拷貝不可變輸入快照，對同一份快照計算 hash 並寫出，避免非同步 Web Crypto 期間的巢狀參照競態。中斷的 `pending / failed` 寫回會在下次載入重試，`pending` 期間不允許匯出。補值提示只在本次移轉顯示，已正規化專案重載不會重複提示，真正的外部修改仍會導致 `mismatch`。藉此避免換電腦遺失選擇、被另一個專案的 localStorage 狀態汙染、假完整性警報，或出現 profile 與實算欄位矛盾。
 `js/regression-smoke.test.js` 另以實際計算核心驗證保守耐震 profile 的 Rp 同步與 Fph 需求差異，避免 registry 選項只改 metadata、不改實算。
 `js/review-dashboard-smoke.test.js` 會檢查審查儀表板伺服器狀態文字、交付品質分級、匯出前品質提醒、匯出前檢查 HTML 與確認門檻 helper。
 `self_check.py` 會檢查 V2 HTML 檔名、前端版本、後端版本、啟動批次檔、自動 Word URL、README、CHANGELOG 與正式輸出清單是否一致，並避免 smoke test 硬寫目前版本。
@@ -87,7 +87,7 @@
 
 `stone-traceability.catalog.json` 是 V2 正式計算書的條文語意追蹤 catalog，涵蓋：
 
-- 風力、耐震需求、code profile 指紋，以及專案匯入／重新載入時的 profile 還原、profile-owned 缺值補齊與跨專案隔離。
+- 風力、耐震需求、code profile 指紋，以及專案匯入／重新載入時的 profile 還原、案例集合完整取代、profile-owned 缺值補齊、來源／正規化 hash 邊界、單次移轉提示與跨專案隔離。
 - 膨脹螺栓、背扣、馬車螺栓、插銷、伸縮片與角鋼檢核。
 - 石材板彎曲、孔周剪應力、背擴孔錐形拉出、孔位幾何、厚度、面積、材料與自訂尺寸檢核。
 - 層間變位、掛件轉角、溫度伸縮縫、稽核 JSON、公式來源覆蓋與 golden sample drift 管理。
