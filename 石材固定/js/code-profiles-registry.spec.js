@@ -4,14 +4,14 @@
 //   - 把過去散落於 calc-core 的規範參數抽出為獨立 JSON profile
 //   - 計算結果 meta 內含 active profiles 指紋，達到法規版本綁定
 //   - Phase 1：骨架上線（profile 已可被讀取、寫入 meta、顯示於法規 footer）
-//   - Phase 2 (TODO)：calc-core 真正消費 profile（取代 hardcoded 數值）
+//   - Phase 2：calc-core 已透過 getParam() 消費 profile；profile picker 另同步仍沿用舊預設的可編輯欄位
 //
 // 此檔可在瀏覽器與 Node.js 同時載入。
 
 (function (root) {
   'use strict';
 
-  const REGISTRY_VERSION = 'code-profiles-registry-2026.04.27-v1';
+  const REGISTRY_VERSION = 'code-profiles-registry-2026.07.16-v2';
   // V3.0.0：StoneGovernanceProtocol 版本號 — 對應 dev_tools/StoneGovernanceProtocol-v1.0.md
   // 任何 protocol-compliant 工具於 result.meta.governance_protocol_version 寫入此值；
   // 用於跨工具 / 跨版本比對時確認治理欄位 schema 相容性
@@ -25,6 +25,16 @@
     anchor:  'aci_318_appendix_d',
     steel:   'cns_steel_general',
     stone:   'cns_stone_general'
+  });
+
+  // active profile 切換時，可安全跟隨 profile 預設值的可編輯欄位。
+  // 僅當欄位仍為「前一個 profile 的預設值」或空白時才更新；使用者自行覆寫的值必須保留。
+  const PROFILE_INPUT_BINDINGS = Object.freeze({
+    seismic: Object.freeze([
+      Object.freeze({ inputId: 'sp_ip_default', paramKey: 'Ip_facade_minimum' }),
+      Object.freeze({ inputId: 'sp_seis_ap', paramKey: 'ap_default' }),
+      Object.freeze({ inputId: 'sp_seis_rp', paramKey: 'Rp_stone_panel_default' })
+    ])
   });
 
   // profile 內容註冊表（Phase 1：先以 inline 物件保存，避免動態 fetch 在 file:// 失敗）
@@ -199,6 +209,48 @@
       }
     } catch (e) { /* swallow，用 fallback */ }
     return fallback;
+  }
+
+  function nearlyEqualNumber(a, b) {
+    const left = Number(a);
+    const right = Number(b);
+    if (!Number.isFinite(left) || !Number.isFinite(right)) return false;
+    const scale = Math.max(1, Math.abs(left), Math.abs(right));
+    return Math.abs(left - right) <= 1e-9 * scale;
+  }
+
+  // 回傳 profile picker 應套用的欄位更新與應保留的人工覆寫。
+  // currentValues 以 DOM input id 為 key；函式本身不碰 DOM，便於 Node regression 驗證。
+  function buildProfileInputUpdates(scope, previousProfileId, nextProfileId, currentValues) {
+    const bindings = PROFILE_INPUT_BINDINGS[scope] || [];
+    const previous = getProfile(previousProfileId);
+    const next = getProfile(nextProfileId);
+    const updates = {};
+    const preserved = [];
+    const skipped = [];
+    const values = currentValues && typeof currentValues === 'object' ? currentValues : {};
+
+    if (!previous || !next || previous.scope !== scope || next.scope !== scope) {
+      return { ok: false, scope, previousProfileId, nextProfileId, updates, preserved, skipped, error: 'profile scope 或 id 無效' };
+    }
+
+    for (const binding of bindings) {
+      const previousValue = previous.params?.[binding.paramKey];
+      const nextValue = next.params?.[binding.paramKey];
+      if (!Number.isFinite(Number(previousValue)) || !Number.isFinite(Number(nextValue))) {
+        skipped.push(binding.inputId);
+        continue;
+      }
+      const rawCurrent = values[binding.inputId];
+      const currentIsBlank = rawCurrent === '' || rawCurrent === null || rawCurrent === undefined;
+      if (currentIsBlank || nearlyEqualNumber(rawCurrent, previousValue)) {
+        updates[binding.inputId] = nextValue;
+      } else {
+        preserved.push(binding.inputId);
+      }
+    }
+
+    return { ok: true, scope, previousProfileId, nextProfileId, updates, preserved, skipped, error: '' };
   }
 
   // V2.4.1：profile params hash 歷史快照
@@ -587,6 +639,7 @@
     VERSION: REGISTRY_VERSION,
     GOVERNANCE_PROTOCOL_VERSION: STONE_GOVERNANCE_PROTOCOL_VERSION,
     DEFAULT_ACTIVE,
+    PROFILE_INPUT_BINDINGS,
     PROFILES,
     resolveActiveProfiles,
     getProfile,
@@ -594,6 +647,7 @@
     listProfilesByScope,
     buildActiveProfilesMeta,
     getParam,
+    buildProfileInputUpdates,
     validateProfile,
     validateAllProfiles,
     auditProfileAgainstConsts,
