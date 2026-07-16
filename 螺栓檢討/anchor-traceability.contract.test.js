@@ -275,6 +275,7 @@ assertPrintHidesSelectors(
   'src/reportDocx.test.ts',
   'src/reportWorkbook.test.ts',
   'src/attachmentReadiness.test.ts',
+  'tests/reportArtifacts.test.ts',
 ].forEach(needle => assert(reportContract.includes(needle), 'anchor report contract keeps targeted report suites', needle));
 
 assert(homeJs.includes("'anchor-deployment': {"), 'home governance keeps anchor deployment source', 'anchor-deployment');

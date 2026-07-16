@@ -10,6 +10,7 @@ const vitestArgs = [
   'src/reportDocx.test.ts',
   'src/reportWorkbook.test.ts',
   'src/attachmentReadiness.test.ts',
+  'tests/reportArtifacts.test.ts',
 ];
 
 const result =

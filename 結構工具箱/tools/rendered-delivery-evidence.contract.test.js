@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { inflateRawSync } = require('zlib');
 const {
   findPdfFooterOverlapLines,
   summarizePdfLayoutPages,
@@ -292,6 +293,82 @@ function validateFamilySummary(runDir, family, expectedKeys) {
   return summary;
 }
 
+function validateArtifactFamilySummary(runDir, family, expectedKeys) {
+  const summaryPath = path.join(runDir, 'rendered-delivery-evidence', family, 'rendered-delivery-evidence-summary.json');
+  assert.ok(fs.existsSync(summaryPath), `${family} current-run rendered summary exists`);
+  const summary = readJson(summaryPath);
+  assert.equal(summary.pass, true, `${family} rendered summary passes`);
+  const complete = new Set(summary.complete || summary.records?.map(record => record.key) || []);
+  for (const key of expectedKeys) {
+    assert.ok(complete.has(key), `${family} rendered summary covers ${key}`);
+  }
+  return { summary, directory: path.dirname(summaryPath) };
+}
+
+function readZipEntries(filePath, label) {
+  const zip = fs.readFileSync(filePath);
+  let eocdOffset = -1;
+  for (let offset = zip.length - 22; offset >= 0; offset -= 1) {
+    if (zip.readUInt32LE(offset) === 0x06054b50) {
+      eocdOffset = offset;
+      break;
+    }
+  }
+  assert.notEqual(eocdOffset, -1, `${label} ZIP end-of-central-directory exists`);
+
+  const entryCount = zip.readUInt16LE(eocdOffset + 10);
+  let centralOffset = zip.readUInt32LE(eocdOffset + 16);
+  const entries = new Map();
+  for (let index = 0; index < entryCount; index += 1) {
+    assert.equal(zip.readUInt32LE(centralOffset), 0x02014b50, `${label} ZIP central-directory entry is valid`);
+    const compressionMethod = zip.readUInt16LE(centralOffset + 10);
+    const compressedSize = zip.readUInt32LE(centralOffset + 20);
+    const fileNameLength = zip.readUInt16LE(centralOffset + 28);
+    const extraLength = zip.readUInt16LE(centralOffset + 30);
+    const commentLength = zip.readUInt16LE(centralOffset + 32);
+    const localHeaderOffset = zip.readUInt32LE(centralOffset + 42);
+    const nameStart = centralOffset + 46;
+    const name = zip.toString('utf8', nameStart, nameStart + fileNameLength);
+
+    assert.equal(zip.readUInt32LE(localHeaderOffset), 0x04034b50, `${label} ZIP local header is valid: ${name}`);
+    const localNameLength = zip.readUInt16LE(localHeaderOffset + 26);
+    const localExtraLength = zip.readUInt16LE(localHeaderOffset + 28);
+    const dataStart = localHeaderOffset + 30 + localNameLength + localExtraLength;
+    const compressed = zip.subarray(dataStart, dataStart + compressedSize);
+    if (compressionMethod === 0) {
+      entries.set(name, compressed);
+    } else if (compressionMethod === 8) {
+      entries.set(name, inflateRawSync(compressed));
+    } else {
+      assert.fail(`${label} ZIP uses unsupported compression method ${compressionMethod}: ${name}`);
+    }
+    centralOffset += 46 + fileNameLength + extraLength + commentLength;
+  }
+  return entries;
+}
+
+function decodeXmlText(xml) {
+  return xml
+    .replace(/<w:tab\s*\/>/g, '\t')
+    .replace(/<\/(?:w:p|t|row)>/g, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(Number.parseInt(code, 16)));
+}
+
+function decodeHtmlText(html) {
+  return decodeXmlText(
+    html
+      .replace(/<style(?:\s[^>]*)?>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script(?:\s[^>]*)?>[\s\S]*?<\/script>/gi, ' ')
+  );
+}
+
 function newestMatchingPdf(directory, prefix) {
   assert.ok(fs.existsSync(directory), `RC rendered evidence directory exists: ${directory}`);
   const matches = fs.readdirSync(directory)
@@ -401,8 +478,94 @@ records.push({
   textLength: stonePdf.textLength,
 });
 
+const anchorTool = inventory.tools.find(tool => tool.family === 'anchor-formal');
+assert.ok(anchorTool, 'rendered delivery inventory maps the anchor formal tool');
+const { summary: anchorSummary, directory: anchorEvidenceDir } = validateArtifactFamilySummary(
+  runDir,
+  'anchor-formal',
+  ['anchor-review']
+);
+const anchorEvidence = anchorSummary.records.find(record => record.key === anchorTool.evidenceKey);
+assert.ok(anchorEvidence, 'anchor current-run summary resolves the formal artifact record');
+const anchorHtmlPath = path.join(anchorEvidenceDir, anchorEvidence.artifact || '');
+const anchorDocxPath = path.join(anchorEvidenceDir, anchorEvidence.document || '');
+const anchorWorkbookPath = path.join(anchorEvidenceDir, anchorEvidence.workbook || '');
+for (const [filePath, label] of [
+  [anchorHtmlPath, 'HTML'],
+  [anchorDocxPath, 'DOCX'],
+  [anchorWorkbookPath, 'XLSX'],
+]) {
+  assert.ok(fs.existsSync(filePath) && fs.statSync(filePath).size > 1024, `anchor current-run ${label} artifact exists and is non-empty`);
+}
+
+const anchorHtml = fs.readFileSync(anchorHtmlPath, 'utf8');
+const anchorHtmlText = decodeHtmlText(anchorHtml);
+assert.ok(anchorHtmlText.length > 3000, 'anchor HTML artifact contains substantial visible text');
+for (const needle of ['錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '使用邊界與版本追溯']) {
+  assert.ok(anchorHtmlText.includes(needle), `anchor HTML artifact contains ${needle}`);
+}
+
+assert.equal(fs.readFileSync(anchorDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has DOCX ZIP signature');
+const anchorDocxEntries = readZipEntries(anchorDocxPath, 'anchor DOCX');
+assert.ok(anchorDocxEntries.has('word/document.xml'), 'anchor DOCX contains word/document.xml');
+const anchorDocxText = decodeXmlText(anchorDocxEntries.get('word/document.xml').toString('utf8'));
+assert.ok(anchorDocxText.length > 3000, 'anchor DOCX artifact contains substantial visible text');
+for (const needle of ['鋼筋混凝土錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '逐項檢核明細', '使用邊界與版本']) {
+  assert.ok(anchorDocxText.includes(needle), `anchor DOCX artifact contains ${needle}`);
+}
+
+assert.equal(fs.readFileSync(anchorWorkbookPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has XLSX ZIP signature');
+const anchorWorkbookEntries = readZipEntries(anchorWorkbookPath, 'anchor XLSX');
+assert.ok(anchorWorkbookEntries.has('xl/workbook.xml'), 'anchor XLSX contains xl/workbook.xml');
+const anchorWorkbookXml = anchorWorkbookEntries.get('xl/workbook.xml').toString('utf8');
+for (const sheet of ['Summary', 'LoadCases', 'Results', 'Dimensions', 'Factors', 'Candidates', 'Evidence', 'Layouts', 'AuditTrail']) {
+  assert.ok(anchorWorkbookXml.includes(`name="${sheet}"`), `anchor XLSX contains ${sheet} sheet`);
+}
+const anchorWorkbookText = [...anchorWorkbookEntries.entries()]
+  .filter(([name]) => name === 'xl/sharedStrings.xml' || name.startsWith('xl/worksheets/'))
+  .map(([, value]) => decodeXmlText(value.toString('utf8')))
+  .join('\n');
+assert.ok(anchorWorkbookText.length > 2000, 'anchor XLSX artifact contains substantial worksheet text');
+for (const needle of ['柱腳基板示例', '案例名稱', '控制模式', '使用邊界 / 簽證責任']) {
+  assert.ok(anchorWorkbookText.includes(needle), `anchor XLSX artifact contains ${needle}`);
+}
+
+const anchorForbiddenNeedles = [
+  '產報前檢查',
+  '附件適用狀態',
+  '優先建議報告閱讀狀態',
+  '優先閱讀',
+  '報告閱讀狀態',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+  '頁面顯示，不進計算書、列印或 PDF',
+];
+for (const needle of anchorForbiddenNeedles) {
+  assert.equal(anchorHtmlText.includes(needle), false, `anchor HTML excludes page-only status: ${needle}`);
+  assert.equal(anchorDocxText.includes(needle), false, `anchor DOCX excludes page-only status: ${needle}`);
+  assert.equal(anchorWorkbookText.includes(needle), false, `anchor XLSX excludes page-only status: ${needle}`);
+}
+assert.equal(anchorEvidence.htmlTextLength, anchorHtml.length, 'anchor summary matches preserved HTML length');
+assert.equal(anchorEvidence.documentBytes, fs.statSync(anchorDocxPath).size, 'anchor summary matches preserved DOCX size');
+assert.equal(anchorEvidence.workbookBytes, fs.statSync(anchorWorkbookPath).size, 'anchor summary matches preserved XLSX size');
+records.push({
+  href: anchorTool.href,
+  title: anchorTool.title,
+  family: anchorTool.family,
+  evidenceKey: anchorTool.evidenceKey,
+  artifact: anchorEvidence.artifact,
+  document: anchorEvidence.document,
+  workbook: anchorEvidence.workbook,
+  htmlTextLength: anchorHtmlText.length,
+  documentTextLength: anchorDocxText.length,
+  workbookTextLength: anchorWorkbookText.length,
+});
+
 const officeMarkers = {
-  'anchor-report-contract': 'Anchor report contract checks passed.',
   'decking-report-contract': 'Decking report contract checks passed.',
 };
 for (const tool of inventory.tools.filter(item => item.family === 'office-artifacts')) {
