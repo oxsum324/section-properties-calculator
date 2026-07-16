@@ -331,8 +331,8 @@ const windReportSource = readText(toolboxFile('core/wind-report.js'));
   const body = windReportSource.slice(start, end === -1 ? undefined : end);
   assert.ok(start >= 0, `${functionName} exists`);
   assert.ok(
-    body.indexOf('const w = openWindReportWindow();') < body.indexOf('const calcResult ='),
-    `${functionName} reserves report popup before recalculation`
+    body.indexOf('const calcResult =') < body.indexOf('const w = openWindReportWindow();'),
+    `${functionName} validates inputs before opening the report popup`
   );
 });
 [
