@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { createHash } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
@@ -273,6 +274,10 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+function sha256File(filePath) {
+  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
+
 function validateFamilySummary(runDir, family, expectedKeys) {
   const summaryPath = path.join(runDir, 'rendered-delivery-evidence', family, 'rendered-delivery-evidence-summary.json');
   assert.ok(fs.existsSync(summaryPath), `${family} current-run rendered summary exists`);
@@ -401,6 +406,7 @@ if (!strictRelease) {
 const runDir = path.resolve(process.env.PREFLIGHT_RUN_DIR || '');
 assert.ok(process.env.PREFLIGHT_RUN_DIR && fs.existsSync(runDir), 'release rendered evidence receives PREFLIGHT_RUN_DIR');
 const records = [];
+const supplementalRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
@@ -637,7 +643,149 @@ records.push({
   imageCount: deckingImageCount,
 });
 
+const { summary: excavationSummary, directory: excavationEvidenceDir } = validateArtifactFamilySummary(
+  runDir,
+  'excavation-formal',
+  ['excavation-report']
+);
+const excavationEvidence = excavationSummary.records.find(record => record.key === 'excavation-report');
+assert.ok(excavationEvidence, 'excavation current-run summary resolves the formal artifact record');
+const excavationPdfPath = path.join(excavationEvidenceDir, excavationEvidence.artifact || '');
+const excavationDocxPath = path.join(excavationEvidenceDir, excavationEvidence.document || '');
+const excavationLatestPdfPath = path.join(excavationEvidenceDir, excavationEvidence.latestArtifact || '');
+const excavationLatestDocxPath = path.join(excavationEvidenceDir, excavationEvidence.latestDocument || '');
+for (const [filePath, label, signature] of [
+  [excavationPdfPath, 'PDF', '%PDF'],
+  [excavationDocxPath, 'DOCX', 'PK'],
+  [excavationLatestPdfPath, 'latest PDF', '%PDF'],
+  [excavationLatestDocxPath, 'latest DOCX', 'PK'],
+]) {
+  assert.ok(fs.existsSync(filePath) && fs.statSync(filePath).size > 1024, `excavation current-run ${label} artifact exists and is non-empty`);
+  assert.equal(fs.readFileSync(filePath).subarray(0, signature.length).toString('ascii'), signature, `excavation ${label} artifact signature`);
+}
+const excavationPdf = validatePdfFile(excavationPdfPath, {
+  label: '開挖擋土支撐正式報告',
+  minTextLength: 25000,
+  requiredNeedles: [
+    '擋土支撐檢核計算書',
+    '正式放行擋土支撐範例',
+    '一、摘要',
+    '二、設計依據',
+    '三、結構分析使用之電腦程式',
+    '六、結構計算結果',
+    '附件一',
+    '附件二',
+  ],
+  titleNeedle: '擋土支撐檢核計算書',
+  projectNeedle: '正式放行擋土支撐範例',
+  keepWithNextLabels: [
+    '一、摘要',
+    '二、設計依據',
+    '三、結構分析使用之電腦程式',
+    '四、材料性質',
+    '五、輸入基本資料',
+    '六、結構計算結果',
+    '附件一',
+    '附件二',
+  ],
+  continuationContextLabels: [
+    '擋土支撐檢核計算書',
+    '一、摘要',
+    '二、設計依據',
+    '三、結構分析使用之電腦程式',
+    '四、材料性質',
+    '五、輸入基本資料',
+    '六、結構計算結果',
+    '附件一',
+    '附件二',
+    '主要控制項目彙整',
+    '設計規範與檢核依據',
+    '附件一型鋼彙整表',
+    '附件二型鋼彙整表',
+    '本節檢核摘要',
+    '已知條件',
+    '斷面資料',
+    '檢核公式',
+    '代入計算',
+  ],
+});
+const excavationDocxEntries = readZipEntries(excavationDocxPath, 'excavation DOCX');
+assert.ok(excavationDocxEntries.has('word/document.xml'), 'excavation DOCX contains word/document.xml');
+const excavationDocumentXml = excavationDocxEntries.get('word/document.xml').toString('utf8');
+const excavationDocumentRawText = excavationDocumentXml.replace(/<[^>]+>/g, '');
+const excavationDocxText = decodeXmlText(excavationDocumentXml);
+const excavationParagraphCount = (excavationDocumentXml.match(/<w:p(?:\s|>)/g) || []).length;
+const excavationTableCount = (excavationDocumentXml.match(/<w:tbl(?:\s|>)/g) || []).length;
+const excavationSectionCount = (excavationDocxText.match(/[一二三四五六七八九十]+、/g) || []).length;
+const excavationPageBreakCount = (excavationDocumentXml.match(/w:type="page"/g) || []).length;
+const excavationDrawingCount = (excavationDocumentXml.match(/<w:drawing(?:\s|>)/g) || []).length;
+const excavationMediaCount = [...excavationDocxEntries.keys()].filter(name => name.startsWith('word/media/')).length;
+assert.ok(excavationDocxText.length > 25000, 'excavation DOCX artifact contains substantial visible text');
+assert.ok(excavationParagraphCount >= 500, 'excavation DOCX artifact has populated paragraph structure');
+assert.ok(excavationTableCount >= 10, 'excavation DOCX artifact has populated table structure');
+assert.ok(excavationSectionCount >= 8, 'excavation DOCX artifact keeps expected section structure');
+assert.ok(excavationPageBreakCount >= 2, 'excavation DOCX artifact keeps appendix page breaks');
+assert.ok(excavationDrawingCount >= 1, 'excavation DOCX artifact keeps report drawings');
+assert.ok(excavationMediaCount >= 1, 'excavation DOCX artifact keeps embedded media');
+for (const needle of [
+  '擋土支撐檢核計算書',
+  '正式放行擋土支撐範例',
+  '一、摘要',
+  '二、設計依據',
+  '三、結構分析使用之電腦程式',
+  '六、結構計算結果',
+  '附件一',
+  '附件二',
+]) {
+  assert.ok(excavationDocxText.includes(needle), `excavation DOCX artifact contains ${needle}`);
+}
+for (const needle of [
+  '產報前檢查',
+  '附件適用狀態',
+  '優先建議報告閱讀狀態',
+  '報告閱讀狀態',
+  '可作附件',
+  '暫勿作附件',
+  '頁面輔助',
+  '公司內部整理計算附件',
+  '不會寫入計算書',
+  '不會寫入計算書或列印 PDF',
+]) {
+  assert.equal(excavationDocxText.includes(needle), false, `excavation DOCX excludes page-only status: ${needle}`);
+}
+assert.ok(fs.readFileSync(excavationPdfPath).equals(fs.readFileSync(excavationLatestPdfPath)), 'excavation latest PDF matches current generated PDF');
+assert.ok(fs.readFileSync(excavationDocxPath).equals(fs.readFileSync(excavationLatestDocxPath)), 'excavation latest DOCX matches current generated DOCX');
+assert.equal(excavationEvidence.artifactBytes, fs.statSync(excavationPdfPath).size, 'excavation summary matches preserved PDF size');
+assert.equal(excavationEvidence.documentBytes, fs.statSync(excavationDocxPath).size, 'excavation summary matches preserved DOCX size');
+assert.equal(excavationEvidence.documentXmlBytes, Buffer.byteLength(excavationDocumentXml, 'utf8'), 'excavation summary matches document.xml size');
+assert.equal(excavationEvidence.artifactSha256, sha256File(excavationPdfPath), 'excavation summary matches PDF hash');
+assert.equal(excavationEvidence.documentSha256, sha256File(excavationDocxPath), 'excavation summary matches DOCX hash');
+assert.equal(excavationEvidence.pdfPageCount, excavationPdf.pageCount, 'excavation summary matches PDF page count');
+assert.equal(excavationEvidence.documentXmlTextLength, excavationDocumentRawText.length, 'excavation summary matches extracted DOCX text length');
+assert.equal(excavationEvidence.xmlParagraphCount, excavationParagraphCount, 'excavation summary matches DOCX paragraph count');
+assert.equal(excavationEvidence.xmlTableCount, excavationTableCount, 'excavation summary matches DOCX table count');
+assert.equal(excavationEvidence.xmlSectionCount, excavationSectionCount, 'excavation summary matches DOCX section count');
+assert.equal(excavationEvidence.pageBreakCount, excavationPageBreakCount, 'excavation summary matches DOCX page-break count');
+assert.equal(excavationEvidence.drawingCount, excavationDrawingCount, 'excavation summary matches DOCX drawing count');
+assert.equal(excavationEvidence.mediaCount, excavationMediaCount, 'excavation summary matches DOCX media count');
+supplementalRecords.push({
+  title: '開挖擋土支撐',
+  family: 'excavation-formal',
+  evidenceKey: 'excavation-report',
+  artifact: excavationEvidence.artifact,
+  document: excavationEvidence.document,
+  latestArtifact: excavationEvidence.latestArtifact,
+  latestDocument: excavationEvidence.latestDocument,
+  pageCount: excavationPdf.pageCount,
+  pdfTextLength: excavationPdf.textLength,
+  documentTextLength: excavationDocxText.length,
+  paragraphCount: excavationParagraphCount,
+  tableCount: excavationTableCount,
+  sectionCount: excavationSectionCount,
+});
+
 assert.equal(records.length, inventory.tools.length, 'release rendered evidence resolves every homepage formal tool');
+assert.equal(supplementalRecords.length, 1, 'release rendered evidence resolves every supplemental service artifact');
 const aggregate = {
   schemaVersion: 1,
   kind: 'release-rendered-delivery-evidence',
@@ -645,10 +793,14 @@ const aggregate = {
   runId: path.basename(runDir),
   required: inventory.tools.length,
   complete: records.length,
-  pass: records.length === inventory.tools.length,
+  supplementalRequired: 1,
+  supplementalComplete: supplementalRecords.length,
+  supplementalPass: supplementalRecords.length === 1,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 1,
   records,
+  supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/1, summary=${aggregatePath})`);

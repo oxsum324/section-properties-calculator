@@ -1219,7 +1219,10 @@
       ratio('頁面邊界', payload.pageOnlyBoundaryComplete, payload.pageOnlyBoundaryRequired, payload.pageOnlyBoundaryIssueCount),
       ratio('可讀文字', payload.reportTextSmokeComplete, payload.reportTextSmokeRequired, payload.reportTextSmokeIssueCount),
       ratio('瀏覽器 smoke', payload.reportTextSmokeEvidenceComplete, payload.reportTextSmokeEvidenceRequired, payload.reportTextSmokeEvidenceIssueCount),
-      ratio('成品渲染', payload.renderedDeliveryEvidenceComplete, payload.renderedDeliveryEvidenceRequired, payload.renderedDeliveryEvidenceIssueCount)
+      ratio('成品渲染', payload.renderedDeliveryEvidenceComplete, payload.renderedDeliveryEvidenceRequired, payload.renderedDeliveryEvidenceIssueCount),
+      Number.isInteger(payload.supplementalDeliveryEvidenceRequired) && payload.supplementalDeliveryEvidenceRequired > 0
+        ? ratio('服務成品', payload.supplementalDeliveryEvidenceComplete, payload.supplementalDeliveryEvidenceRequired, payload.supplementalDeliveryEvidenceIssueCount)
+        : null
     ].filter(Boolean);
   }
 

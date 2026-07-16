@@ -47,7 +47,8 @@ assert.ok(staging.includes('gh run list --workflow "Pages deploy" --limit 1'), '
 assert.ok(staging.includes('workflow run ID 不在本 ledger 硬編碼'), 'staging guide avoids self-staling Pages run ids');
 assert.ok(staging.includes('最新 `Pages deploy` 必須為 completed/success'), 'staging guide requires current Pages deploy success');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'staging guide records page-only boundary health');
-assert.ok(staging.includes('正式放行實際交付物渲染 `31/31`'), 'staging guide records rendered delivery evidence health');
+assert.ok(staging.includes('首頁正式工具實際交付物渲染 `31/31`'), 'staging guide records homepage rendered delivery evidence health');
+assert.ok(staging.includes('本機服務成品 `1/1`'), 'staging guide records supplemental service delivery evidence health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'staging guide keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'staging guide keeps future staging playbook');
 assert.equal(staging.includes('本檔把目前工作樹切成可審查的提交包'), false, 'staging guide must not describe landed work as the current worktree');
@@ -163,6 +164,13 @@ assert.equal(reportReadinessStatus.renderedDeliveryEvidenceFamilies.reduce((sum,
 assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
 assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
 assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
+if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
+  assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceRequired, 1, 'report readiness supplemental delivery covers the excavation service');
+  assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceComplete, reportReadinessStatus.supplementalDeliveryEvidenceRequired, 'report readiness supplemental delivery complete');
+  assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceIssueCount, 0, 'report readiness supplemental delivery issues empty');
+  assert.deepEqual(reportReadinessStatus.supplementalDeliveryEvidenceFamilies, [{ family: 'excavation-formal', complete: 1 }], 'report readiness supplemental delivery family coverage');
+  assert.ok(String(reportReadinessStatus.supplementalDeliveryEvidenceSummary || '').includes('本機服務實際交付物渲染'), 'report readiness supplemental delivery summary');
+}
 assert.equal(JSON.stringify(reportReadinessStatus).includes('"artifact":'), false, 'report readiness snapshot excludes artifact fields');
 assert.equal(/\.(?:pdf|docx|xlsx)\b/i.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness snapshot excludes delivery filenames');
 assert.ok(String(reportReadinessStatus.compactSummary || '').includes('優先建議報告閱讀狀態') && String(reportReadinessStatus.compactSummary || '').includes('不會寫入計算書、列印或 PDF'), 'report readiness keeps compact page-only summary');

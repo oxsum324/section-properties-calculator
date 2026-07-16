@@ -564,7 +564,8 @@ assert.ok(staging.includes('gh run list --workflow "Pages deploy" --limit 1'), '
 assert.ok(staging.includes('workflow run ID 不在本 ledger 硬編碼'), 'STAGING_GROUPS avoids self-staling Pages run ids');
 assert.ok(staging.includes('最新 `Pages deploy` 必須為 completed/success'), 'STAGING_GROUPS requires current Pages deploy success');
 assert.ok(staging.includes('page-only boundary `4/4`') && staging.includes('issue `0`'), 'STAGING_GROUPS records page-only boundary health');
-assert.ok(staging.includes('正式放行實際交付物渲染 `31/31`'), 'STAGING_GROUPS records rendered delivery evidence health');
+assert.ok(staging.includes('首頁正式工具實際交付物渲染 `31/31`'), 'STAGING_GROUPS records homepage rendered delivery evidence health');
+assert.ok(staging.includes('本機服務成品 `1/1`'), 'STAGING_GROUPS records supplemental service delivery evidence health');
 assert.ok(staging.includes('不得附入計算書、列印輸出或 PDF'), 'STAGING_GROUPS keeps report readiness page-only boundary');
 assert.ok(staging.includes('下次同類變更的分包 playbook'), 'STAGING_GROUPS keeps future staging playbook');
 assert.equal(staging.includes('本檔把目前工作樹切成可審查的提交包'), false, 'STAGING_GROUPS must not describe landed work as the current worktree');

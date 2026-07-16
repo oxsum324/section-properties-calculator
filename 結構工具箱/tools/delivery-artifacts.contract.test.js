@@ -111,6 +111,8 @@ const excavationApp = readText(repoFile('開挖擋土支撐/frontend/src/App.tsx
 const excavationApi = readText(repoFile('開挖擋土支撐/frontend/src/api.ts'));
 const excavationReportingTests = readText(repoFile('開挖擋土支撐/backend/tests/test_reporting.py'));
 const excavationStoreTests = readText(repoFile('開挖擋土支撐/backend/tests/test_project_store.py'));
+const excavationReportContract = readText(repoFile('開挖擋土支撐/excavation-report.contract.test.js'));
+const excavationReleaseArtifacts = readText(repoFile('開挖擋土支撐/backend/tests/release_report_artifacts.py'));
 const excavationReadme = readText(repoFile('開挖擋土支撐/README.md'));
 const anchorReportContract = readText(repoFile('螺栓檢討/anchor-report.contract.test.js'));
 const anchorPackageReadme = readText(repoFile('螺栓檢討/bolt-review-tool/README.md'));
@@ -361,10 +363,38 @@ assertIncludesAny(
 ].forEach(needle => assertIncludes(excavationStoreTests, needle, `excavation project store tests cover ${needle}`));
 
 [
+  'EXCAVATION_RENDERED_EVIDENCE_DIR',
+  "process.env.PREFLIGHT_RELEASE === '1'",
+  'PREFLIGHT_RUN_DIR',
+  'rendered-delivery-evidence',
+  'excavation-formal',
+  'backend.tests.release_report_artifacts',
+].forEach(needle => assertIncludes(excavationReportContract, needle, `excavation report contract preserves durable release evidence ${needle}`));
+
+[
+  'build_report',
+  'build_word_report',
+  'ProjectStore',
+  'latest-download',
+  'latest-report.docx',
+  'PdfReader',
+  'Document',
+  'PAGE_ONLY_REPORT_STATUS_NEEDLES',
+  'rendered-delivery-evidence-summary.json',
+  'artifactSha256',
+  'documentSha256',
+  'xmlParagraphCount',
+  'latest PDF must match generated PDF',
+].forEach(needle => assertIncludes(excavationReleaseArtifacts, needle, `excavation durable release artifact generator keeps ${needle}`));
+
+[
   'PDF 計算書與 Word 編修版輸出',
   'app_data',
   'Word/PDF 輸出',
   'PDF / DOCX 版面先以穩定輸出為優先',
+  '當輪正式放行',
+  'excavation-formal',
+  '最新下載',
 ].forEach(needle => assertIncludes(excavationReadme, needle, `excavation README delivery boundary keeps ${needle}`));
 
 [
