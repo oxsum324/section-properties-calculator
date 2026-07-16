@@ -1216,6 +1216,11 @@ node pages-release-governance.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$prValidationContractCommand = @'
+node pr-validation.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $excavationTraceabilityContractCommand = @'
 node 開挖擋土支撐/excavation-traceability.contract.test.js
 exit $LASTEXITCODE
@@ -1987,6 +1992,13 @@ $checks = @(
     label = "Pages release governance contract"
     workdir = $root
     command = $pagesReleaseGovernanceContractCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "pr-validation-contract"
+    label = "Pull request validation workflow contract"
+    workdir = $root
+    command = $prValidationContractCommand
     slow = $false
   },
   [pscustomobject]@{
