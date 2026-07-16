@@ -176,6 +176,28 @@ test('V3.0.4：空白或非物件 profile 選擇正規化為預設狀態', () =>
   assert.deepStrictEqual(JSON.parse(JSON.stringify(Reg.normalizeProfileOverrides('bad'))), {});
 });
 
+test('V3.0.5：profile-owned 缺值可依 active profile 取得正確預設', () => {
+  const conservative = Reg.buildProfileOwnedInputDefaults({
+    seismic: 'cns_seismic_113_conservative',
+  });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(conservative)), {
+    sp_ip_default: 1.5,
+    sp_seis_ap: 1,
+    sp_seis_rp: 2,
+  });
+  const defaults = Reg.buildProfileOwnedInputDefaults({});
+  assert.strictEqual(defaults.sp_seis_rp, 2.5);
+});
+
+test('V3.0.5：無效或跨 scope 覆寫回退到各 scope 預設', () => {
+  const r = Reg.buildProfileOwnedInputDefaults({
+    seismic: 'cns_wind_107',
+    unknown: 'cns_seismic_113_conservative',
+  });
+  assert.strictEqual(r.sp_seis_rp, 2.5);
+  assert.strictEqual(r.sp_seis_ap, 1);
+});
+
 test('DEFAULT_ACTIVE 涵蓋 5 種 scope', () => {
   const expected = ['wind','seismic','anchor','steel','stone'];
   for (const s of expected) {

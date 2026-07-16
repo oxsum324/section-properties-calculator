@@ -11,7 +11,7 @@
 (function (root) {
   'use strict';
 
-  const REGISTRY_VERSION = 'code-profiles-registry-2026.07.16-v3';
+  const REGISTRY_VERSION = 'code-profiles-registry-2026.07.16-v4';
   // V3.0.0：StoneGovernanceProtocol 版本號 — 對應 dev_tools/StoneGovernanceProtocol-v1.0.md
   // 任何 protocol-compliant 工具於 result.meta.governance_protocol_version 寫入此值；
   // 用於跨工具 / 跨版本比對時確認治理欄位 schema 相容性
@@ -198,6 +198,23 @@
       const profile = typeof id === 'string' ? getProfile(id) : null;
       if (profile && profile.scope === scope && id !== defaultId) {
         out[scope] = id;
+      }
+    }
+    return out;
+  }
+
+  // 取得 active profile 所擁有之可編輯欄位預設值。
+  // 專案 migration 只會把這些值套到缺失／空白欄位；明示的人工值由呼叫端保留。
+  function buildProfileOwnedInputDefaults(profileOverrides) {
+    const normalizedOverrides = normalizeProfileOverrides(profileOverrides);
+    const active = resolveActiveProfiles({ code_profiles: normalizedOverrides });
+    const out = {};
+    for (const [scope, bindings] of Object.entries(PROFILE_INPUT_BINDINGS)) {
+      const profile = getProfile(active[scope]);
+      if (!profile || profile.scope !== scope) continue;
+      for (const binding of bindings) {
+        const value = profile.params?.[binding.paramKey];
+        if (Number.isFinite(Number(value))) out[binding.inputId] = value;
       }
     }
     return out;
@@ -663,6 +680,7 @@
     getActiveProfile,
     listProfilesByScope,
     normalizeProfileOverrides,
+    buildProfileOwnedInputDefaults,
     buildActiveProfilesMeta,
     getParam,
     buildProfileInputUpdates,

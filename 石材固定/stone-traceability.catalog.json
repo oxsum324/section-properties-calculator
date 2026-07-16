@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "family": "stone-traceability",
   "description": "石材固定 V2 計算書工具的條文語意追蹤表。每筆 trace 將規範來源、輸入欄位、計算路線、報告落點、測試證據與人工複核邊界對齊，避免只因自我檢查或匯出成功就誤判為所有工程依據都已可追溯。",
   "tools": [
@@ -22,9 +22,9 @@
         {
           "id": "stone-load-profile-governance",
           "clause": "耐風 107 年版、耐震 113 年版、ACI 318 Appendix D、鋼構容許應力與 CNS / JASS 石材 profile 治理",
-          "purpose": "規範參數需以 active profile 與指紋綁定到計算結果；切換 profile 時，仍沿用舊 profile 預設的可編輯欄位必須同步，人工覆寫則保留並揭露。專案匯入或重新載入時，專案 profile 必須先正規化並完整取代瀏覽器 runtime 狀態，避免換電腦遺失選擇、跨專案汙染，或只改 UI / metadata 而未改實算。",
-          "inputs": ["code_profiles", "PROFILE_INPUT_BINDINGS", "V2_PROFILE_OVERRIDE_KEY", "v2GetRuntimeProfileOverride", "v2SetRuntimeProfileOverride", "sp_ip_default", "sp_seis_ap", "sp_seis_rp", "governance_ack", "calc_source_hash", "input_hash", "normalized_input_hash", "result_hash", "active profile ids"],
-          "calculation": ["resolveActiveProfiles", "normalizeProfileOverrides", "getParam", "buildProfileInputUpdates", "project profile restore", "runtime profile replacement", "profile-owned default sync", "profile params hash", "governance_fingerprint", "governance_ack_hash", "profile changelog"],
+          "purpose": "規範參數需以 active profile 與指紋綁定到計算結果；切換 profile 時，仍沿用舊 profile 預設的可編輯欄位必須同步，人工覆寫則保留並揭露。專案匯入或重新載入時，專案 profile 必須先正規化並完整取代瀏覽器 runtime 狀態；缺少 profile-owned 欄位時依 active profile 補齊並記錄實際欄位，避免換電腦遺失選擇、跨專案汙染，或 profile / metadata 與實算欄位矛盾。",
+          "inputs": ["code_profiles", "PROFILE_INPUT_BINDINGS", "V2_PROFILE_OVERRIDE_KEY", "v2GetRuntimeProfileOverride", "v2SetRuntimeProfileOverride", "sp_ip_default", "sp_seis_ap", "sp_seis_rp", "meta.applied_defaults", "governance_ack", "calc_source_hash", "input_hash", "normalized_input_hash", "result_hash", "active profile ids"],
+          "calculation": ["resolveActiveProfiles", "normalizeProfileOverrides", "buildProfileOwnedInputDefaults", "getParam", "buildProfileInputUpdates", "project profile restore", "runtime profile replacement", "profile-owned missing-field migration", "explicit manual value preservation", "profile-owned default sync", "profile params hash", "governance_fingerprint", "governance_ack_hash", "profile changelog"],
           "report": ["主要計算依據", "profile 名稱與版本", "同步後 ap / Rp / Ip", "人工覆寫提示", "governance fingerprint", "audit JSON", "審查儀表板"],
           "evidence": ["js/code-profiles-registry.spec.js", "js/code-profiles-registry-smoke.test.js", "js/calculator.spec.js", "js/regression-smoke.test.js", "石材計算書產生器_規範版V2.html", "ui_smoke_test.py", "js/review-dashboard.js", "audit_schema_test.py", "audit_compare_test.py"],
           "manualReview": ["採用非預設 profile、保守對照參數或專案指定規範版本時，須由設計者在專案文件或覆核註記中說明採用理由。"]
