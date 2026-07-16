@@ -56,7 +56,7 @@ const expectedTools = [
   'stone-serviceability-report',
 ];
 
-assert(catalog.version === '0.5.0', 'stone traceability catalog version', catalog.version);
+assert(catalog.version === '0.6.0', 'stone traceability catalog version', catalog.version);
 assert(catalog.family === 'stone-traceability', 'stone traceability catalog family', catalog.family);
 assertString(catalog.description, 'stone traceability catalog description');
 assert(Array.isArray(catalog.tools), 'stone traceability catalog tools array', `count=${catalog.tools?.length || 0}`);

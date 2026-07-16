@@ -140,7 +140,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 1,
-    generatedAt: '2026-07-16',
+    generatedAt: '2026-07-17',
     releaseVerifiedAt: '2026-07-16',
     source: 'routeFileMap target Git history + current target worktree changes + tracked preflight release snapshot',
     routes: {
@@ -181,7 +181,7 @@
       '/seismic-appendage': '2026-07-12',
       '/seismic-misc': '2026-07-12',
       '/anchor': '2026-07-10',
-      '/stone-fixing': '2026-07-16',
+      '/stone-fixing': '2026-07-17',
       '/foundation-local': '2026-07-11',
       '/equipment-load': '2026-07-05',
       '/earth-pressure': '2026-07-05',
@@ -681,7 +681,7 @@
     },
     {
       title: '石材固定構件計算書',
-      version: 'V3.0.6',
+      version: 'V3.0.7',
       href: '/stone-fixing',
       categories: ['attachments'],
       state: 'formal',

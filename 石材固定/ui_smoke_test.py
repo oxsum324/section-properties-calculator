@@ -343,6 +343,90 @@ def main() -> int:
                     f'Expected interrupted migration persistence to retry with a valid normalized hash: {pending_migration_retry}'
                 )
 
+            rapid_save_latest_wins = project_profile_page.evaluate(
+                """async () => {
+                  const originalSha256Hex = window.sha256Hex;
+                  let calls = 0;
+                  try {
+                    window.sha256Hex = async value => {
+                      const call = ++calls;
+                      if(call === 1) await new Promise(resolve => setTimeout(resolve, 120));
+                      if(call === 2) await new Promise(resolve => setTimeout(resolve, 5));
+                      return originalSha256Hex(value);
+                    };
+                    const field = document.getElementById('c_proj');
+                    field.value = 'RACE_OLD';
+                    const firstSave = save();
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                    field.value = 'RACE_NEW';
+                    const secondSave = save();
+                    await Promise.all([firstSave, secondSave]);
+                    const persisted = JSON.parse(getStoredProjectRaw().raw);
+                    const actualHash = await originalSha256Hex(stableSerialize({inp:persisted.inp, cases:persisted.cases}));
+                    return {
+                      calls,
+                      visibleProject: field.value,
+                      storedProject: persisted.inp?.proj || '',
+                      persistedHashValid: persisted.meta?.input_hash === actualHash,
+                    };
+                  } finally {
+                    window.sha256Hex = originalSha256Hex;
+                  }
+                }"""
+            )
+            if rapid_save_latest_wins != {
+                'calls': 2,
+                'visibleProject': 'RACE_NEW',
+                'storedProject': 'RACE_NEW',
+                'persistedHashValid': True,
+            }:
+                raise AssertionError(
+                    f'Expected rapid asynchronous saves to persist the latest input without stale overwrite: {rapid_save_latest_wins}'
+                )
+
+            project_replacement_invalidates_pending_save = project_profile_page.evaluate(
+                """async () => {
+                  const originalSha256Hex = window.sha256Hex;
+                  const replacement = JSON.parse(getStoredProjectRaw().raw);
+                  replacement.inp.proj = 'LOADED_NEW_PROJECT';
+                  replacement.meta.input_hash = await originalSha256Hex(stableSerialize({inp:replacement.inp, cases:replacement.cases}));
+                  let calls = 0;
+                  try {
+                    window.sha256Hex = async value => {
+                      const call = ++calls;
+                      if(call === 1) await new Promise(resolve => setTimeout(resolve, 120));
+                      return originalSha256Hex(value);
+                    };
+                    const field = document.getElementById('c_proj');
+                    field.value = 'STALE_BEFORE_LOAD';
+                    const staleSave = save();
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                    setStoredProjectRaw(JSON.stringify(replacement));
+                    load();
+                    render();
+                    await staleSave;
+                    const persisted = JSON.parse(getStoredProjectRaw().raw);
+                    const actualHash = await originalSha256Hex(stableSerialize({inp:persisted.inp, cases:persisted.cases}));
+                    return {
+                      visibleProject: field.value,
+                      storedProject: persisted.inp?.proj || '',
+                      persistedHashValid: persisted.meta?.input_hash === actualHash,
+                    };
+                  } finally {
+                    window.sha256Hex = originalSha256Hex;
+                  }
+                }"""
+            )
+            if project_replacement_invalidates_pending_save != {
+                'visibleProject': 'LOADED_NEW_PROJECT',
+                'storedProject': 'LOADED_NEW_PROJECT',
+                'persistedHashValid': True,
+            }:
+                raise AssertionError(
+                    'Expected project replacement to invalidate a pending save from the previous project: '
+                    f'{project_replacement_invalidates_pending_save}'
+                )
+
             tampered_project_integrity = project_profile_page.evaluate(
                 """async () => {
                   const payload = JSON.parse(getStoredProjectRaw().raw);
