@@ -151,6 +151,7 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   "family === 'rc-formal'",
   "family === 'rc-retrofit'",
   "family === 'stone-formal'",
+  "family === 'anchor-formal'",
   "family === 'office-artifacts'",
   'release rendered evidence resolves every homepage formal tool',
   'rendered-delivery-evidence-summary.json',

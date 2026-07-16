@@ -118,6 +118,7 @@ const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/
 const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
 const anchorReportWorkbookTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts'));
 const anchorAttachmentReadinessTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts'));
+const anchorReportArtifactsTest = readText(repoFile('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts'));
 const rootReadme = readText(repoFile('README.md'));
 const preflight = readText(repoFile('preflight-tools.ps1'));
 const staging = readText(repoFile('STAGING_GROUPS.md'));
@@ -362,6 +363,7 @@ assertIncludesAny(
   'src/reportDocx.test.ts',
   'src/reportWorkbook.test.ts',
   'src/attachmentReadiness.test.ts',
+  'tests/reportArtifacts.test.ts',
 ].forEach(needle => assertIncludes(anchorReportContract, needle, `anchor report boundary contract wraps ${needle}`));
 
 [
@@ -390,6 +392,18 @@ assertIncludesAny(
   'expect(text).not.toContain(needle)',
   'CORE_WORKBOOK_SHEETS',
 ].forEach(needle => assertIncludes(anchorReportWorkbookTest, needle, `anchor XLSX artifact test keeps ${needle}`));
+
+[
+  'ANCHOR_RENDERED_EVIDENCE_DIR',
+  "process.env.PREFLIGHT_RELEASE !== '1'",
+  'PREFLIGHT_RUN_DIR',
+  "'rendered-delivery-evidence'",
+  "family: 'anchor-formal'",
+  'rendered-delivery-evidence-summary.json',
+  'serializeReportDocument',
+  'serializeReportWorkbook',
+  'buildStandaloneReportHtml',
+].forEach(needle => assertIncludes(anchorReportArtifactsTest, needle, `anchor durable release artifact test keeps ${needle}`));
 
 [
   '頁面顯示，不進計算書、列印或 PDF',
