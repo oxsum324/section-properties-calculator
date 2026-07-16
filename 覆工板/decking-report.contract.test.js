@@ -61,8 +61,14 @@ print(json.dumps({
 }
 
 const fixturePath = path.join(toolRoot, 'test-fixtures', 'report-smoke.json');
-const outDir = path.join(repoRoot, 'output', 'preflight');
-const outPath = path.join(outDir, 'cover-slab-report-contract.docx');
+const releaseEvidenceDir = process.env.DECKING_RENDERED_EVIDENCE_DIR
+  ? path.resolve(process.env.DECKING_RENDERED_EVIDENCE_DIR)
+  : process.env.PREFLIGHT_RELEASE === '1' && process.env.PREFLIGHT_RUN_DIR
+    ? path.join(path.resolve(process.env.PREFLIGHT_RUN_DIR), 'rendered-delivery-evidence', 'decking-formal')
+    : '';
+const outDir = releaseEvidenceDir || path.join(repoRoot, 'output', 'preflight');
+const outFileName = releaseEvidenceDir ? 'decking-report.docx' : 'cover-slab-report-contract.docx';
+const outPath = path.join(outDir, outFileName);
 const html = readUtf8('index.html');
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
@@ -124,5 +130,33 @@ pageOnlyReportStatusNeedles.forEach((needle) => {
   assert(!docxPayload.xml.includes(needle), 'decking docx excludes page-only readiness wording from XML', needle);
   assert(!docxPayload.text.includes(needle), 'decking docx excludes page-only readiness wording from text', needle);
 });
+
+if (releaseEvidenceDir) {
+  const summary = {
+    schemaVersion: 1,
+    family: 'decking-formal',
+    generatedAt: new Date().toISOString(),
+    required: 1,
+    complete: ['decking-report'],
+    pass: true,
+    records: [{
+      key: 'decking-report',
+      document: outFileName,
+      documentBytes: fs.statSync(outPath).size,
+      documentXmlBytes: Buffer.byteLength(docxPayload.xml, 'utf8'),
+      documentTextLength: docxPayload.text.length,
+      paragraphCount: docxPayload.paragraphCount,
+      tableCount: docxPayload.tableCount,
+      sectionCount: docxPayload.sectionCount,
+      imageCount: docxPayload.imageCount,
+      projectName: fixture.project.name,
+    }],
+  };
+  fs.writeFileSync(
+    path.join(releaseEvidenceDir, 'rendered-delivery-evidence-summary.json'),
+    `${JSON.stringify(summary, null, 2)}\n`,
+    'utf8'
+  );
+}
 
 console.log('\nDecking report contract checks passed.');

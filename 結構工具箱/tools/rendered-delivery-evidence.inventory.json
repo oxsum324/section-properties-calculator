@@ -32,6 +32,6 @@
     { "href": "/foundation-local", "title": "基礎局部檢核", "family": "local-quick-tools", "evidenceKey": "foundation-local" },
     { "href": "/equipment-load", "title": "設備局部荷重", "family": "local-quick-tools", "evidenceKey": "equipment-load" },
     { "href": "/earth-pressure", "title": "擋土土壓局部快算", "family": "local-quick-tools", "evidenceKey": "earth-pressure" },
-    { "href": "/decking", "title": "覆工板系統計算", "family": "office-artifacts", "evidenceKey": "decking-report-contract" }
+    { "href": "/decking", "title": "覆工板系統計算", "family": "decking-formal", "evidenceKey": "decking-report" }
   ]
 }
