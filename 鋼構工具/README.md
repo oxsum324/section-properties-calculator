@@ -44,6 +44,7 @@
 - `styles.css`：介面樣式
 - `calculator.js`：多接頭、連接板與拉力構件的檢核公式
 - `app.js`：互動、報表、參數字典與輸出
+- `tool-metadata.js`：鋼構正式工具名稱與 canonical 版號；正式報告不得再由頁面標題推測版本
 - `calculator.smoke-test.js`：快速回歸檢查
 - `steel-traceability.catalog.json`：鋼構條文語意追蹤 catalog，集中登記規範來源、輸入、計算路線、報告落點、測試證據與人工複核邊界
 - `steel-traceability.contract.test.js`：檢查 traceability catalog schema、證據檔案、人工複核文字與開發中接頭邊界
@@ -76,6 +77,8 @@ http://127.0.0.1:4173/index.html
 
 鋼梁 / 鋼柱正式頁現在可單獨部署於 `鋼構工具` 根目錄；其共用核心已內聚在 `core/materials/steel.js` 與 `core/ui/report.js`。
 同步後的來源路徑、SHA256 指紋與同步時間會寫入 `core/formal-core-manifest.json`。
+
+連接板、拉力構件、鋼梁與鋼柱正式計算書固定輸出 `產出工具`、`工具版本`、`輸出時間` 與 `計算指紋`。頁首與結果區的輸出按鈕都統一開啟同一份正式報表，不直接列印操作頁；browser audit 會實際點擊結果區按鈕並驗證產出的 PDF。SkyCiv、ClearCalcs、Dlubal 等介面功能借鏡僅保留在操作頁與本 README，不進入正式計算書或 PDF。
 
 ## 目前邊界
 

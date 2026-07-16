@@ -479,7 +479,7 @@ assertIncludes(repoDocs.homeHtml, 'id="memberSystemPanel"', 'new home member sys
   "memberSystem: 'rc'",
   "memberSystem: 'steel'",
   "label: 'SRC'",
-  'HOME_DATA_UPDATED',
+  'HOME_TOOL_UPDATES',
   'tool-updated',
 ].forEach(needle => assertIncludes(repoDocs.homeJs, needle, 'new home logic category data'));
 const homeToolObjectCount = (repoDocs.homeJs.match(/\r?\n\s*{\r?\n\s*title: '/g) || []).length;

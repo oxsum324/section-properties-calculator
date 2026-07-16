@@ -378,6 +378,94 @@ async function captureBeamReportHtml(page) {
   });
 }
 
+async function exerciseBeamAttachmentBoundary(page, pack) {
+  section('Beam Formal Attachment Boundary');
+  const byKey = new Map(pack.cases.map(tc => [tc.key, tc]));
+  const metadata = { name: '附件門檻測試工程', no: 'RC-BEAM-GATE', designer: 'QA' };
+  const loadScenario = async (key, project) => {
+    const tc = byKey.get(key);
+    assert(!!tc, `beam attachment case ${key}`, 'case exists');
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    await applyCase(page, tc);
+    const state = await page.evaluate(({ projectName, projectNo, designer }) => {
+      const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = String(value || '');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      setValue('projName', projectName);
+      setValue('projNo', projectNo);
+      setValue('projDesigner', designer);
+      window.calcBeam();
+      const target = document.getElementById('beamAttachmentReadiness');
+      return {
+        status: target?.dataset.attachmentStatus || '',
+        text: target?.innerText?.replace(/\s+/g, ' ').trim() || '',
+        assessment: window.lastBeamAttachmentReadiness
+      };
+    }, {
+      projectName: project?.name || '',
+      projectNo: project?.no || '',
+      designer: project?.designer || ''
+    });
+    return state;
+  };
+
+  const missingMetadata = await loadScenario('smrf_detail_inputs_ok', {});
+  assert(missingMetadata.status === 'review', 'beam empty metadata is preview-only', missingMetadata.text);
+  assert(missingMetadata.assessment?.metadata?.missingItems?.length === 3, 'beam empty metadata lists all required fields', JSON.stringify(missingMetadata.assessment?.metadata));
+  assert(missingMetadata.text.includes('僅供預覽') && missingMetadata.text.includes('缺 3 項'), 'beam page explains metadata preview boundary', missingMetadata.text);
+  const screenPrintNotice = await page.evaluate(() => getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display);
+  assert(screenPrintNotice === 'none', 'beam direct-print boundary stays hidden on screen', screenPrintNotice);
+  await page.emulateMedia({ media: 'print' });
+  const directPrintState = await page.evaluate(() => ({
+    noticeDisplay: getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display,
+    noticeText: document.querySelector('.rc-direct-print-boundary')?.textContent || '',
+    watermark: getComputedStyle(document.body, '::after').content
+  }));
+  await page.emulateMedia({ media: 'screen' });
+  assert(directPrintState.noticeDisplay !== 'none', 'beam direct print exposes non-formal boundary', JSON.stringify(directPrintState));
+  assert(directPrintState.noticeText.includes('主頁直接列印非正式附件') && directPrintState.noticeText.includes('不得作為正式附件'), 'beam direct print cannot bypass formal gate', directPrintState.noticeText);
+  assert(directPrintState.watermark.includes('DRAFT'), 'beam direct print carries DRAFT watermark', directPrintState.watermark);
+
+  const ready = await loadScenario('smrf_detail_inputs_ok', metadata);
+  assert(ready.status === 'ready', 'beam complete clean case is ready', ready.text);
+  assert(ready.assessment?.formalOutputAllowed === true, 'beam ready case allows formal output', JSON.stringify(ready.assessment));
+  const readyReport = await captureBeamReportHtml(page);
+  assert(!readyReport.includes('DRAFT／非正式附件'), 'beam ready report has no draft state', 'formal report');
+  assert(!readyReport.includes('data-document-state="draft"'), 'beam ready report has no draft marker', 'formal report');
+  await page.evaluate(() => { document.getElementById('projNo').value = ''; });
+  const currentMissingReport = await captureBeamReportHtml(page);
+  assert(currentMissingReport.includes('DRAFT／非正式附件 - 待人工複核'), 'beam report rechecks metadata at export time', 'project number cleared after calculation');
+  assert(currentMissingReport.includes('案件識別資料尚缺：計畫編號'), 'beam draft identifies metadata cleared after calculation', 'current project fields used');
+  await page.evaluate(project => {
+    document.getElementById('projName').value = project.name;
+    document.getElementById('projNo').value = project.no;
+    document.getElementById('projDesigner').value = project.designer;
+  }, metadata);
+  const currentCompleteReport = await captureBeamReportHtml(page);
+  assert(!currentCompleteReport.includes('DRAFT／非正式附件'), 'beam report clears stale draft after metadata completion', 'current project fields used');
+
+  const review = await loadScenario('development_manual_review', metadata);
+  assert(review.status === 'review', 'beam manual-review case stays review', review.text);
+  assert(review.text.includes('待人工複核') && review.text.includes('僅供預覽'), 'beam review page gives explicit manual-review boundary', review.text);
+  const reviewReport = await captureBeamReportHtml(page);
+  assert(reviewReport.includes('DRAFT／非正式附件 - 待人工複核'), 'beam review report is explicit draft', 'review document state');
+  assert(reviewReport.includes('data-document-reason="review"'), 'beam review report carries review reason', 'review document state');
+  assert(reviewReport.includes('列印內部檢討版 / 存 PDF'), 'beam review report print action stays internal', 'draft toolbar');
+
+  const blocked = await loadScenario('shear_avmin_spacing_ng', metadata);
+  assert(blocked.status === 'blocked', 'beam failed case is blocked', blocked.text);
+  const blockedReport = await captureBeamReportHtml(page);
+  assert(blockedReport.includes('DRAFT／非正式附件 - 檢核不符'), 'beam blocked report is explicit draft', 'blocked document state');
+  assert(blockedReport.includes('data-document-reason="blocked"'), 'beam blocked report carries blocked reason', 'blocked document state');
+  ['產報前檢查', '優先閱讀', '可作附件，需人工複核', '暫勿作附件', '不會寫入計算書或列印 PDF'].forEach(fragment => {
+    assert(!blockedReport.includes(fragment), 'beam draft report excludes page-only readiness wording', fragment);
+  });
+}
+
 async function exerciseBeamProjectStorage(page) {
   await page.evaluate(() => {
     const setField = (id, value) => {
@@ -725,7 +813,7 @@ async function runBrowserCases() {
       }
     }
 
-
+    await exerciseBeamAttachmentBoundary(page, pack);
     await runBeamColumnHandoffCase(page);
     await runBeamForceCandidateReviewCase(page);
     if (process.env.BEAM_PRINT_ACTUAL === '1') {

@@ -117,8 +117,8 @@
   const reportReadinessOverview = {
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
-    summary: '頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。',
-    compactSummary: '頁面上的「優先建議報告閱讀狀態」僅供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。',
+    summary: '頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；RC 梁柱若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類。',
+    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；RC 梁柱非 ready 輸出會另帶 DRAFT／非正式附件分類。',
     reportTextSmokeSummary: '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理。',
     reportTextSmokeScope: '正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具與局部快算。矩陣外工具家族仍以各自報告合約治理。',
     renderedDeliveryEvidenceSummary: '最新正式放行的實際交付物渲染會以 PDF、DOCX 或 workbook 成品驗證首頁正式工具。',
@@ -130,13 +130,65 @@
     ],
     details: [
       '已治理家族涵蓋風力 / 地震 / 鋼構正式工具、RC 正式工具、連續梁 / 斷面與補強頁、平面剛架、錨栓、石材、覆工板、開挖擋土支撐與局部快算。',
-      '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理，只顯示於頁面狀態，不會寫入計算書、列印或 PDF。',
+      '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理；頁面診斷明細不會寫入計算書、列印或 PDF，RC 梁柱非 ready 的 DRAFT 文件分類則會明確進入內部檢討輸出並由附件組包檢查阻擋。',
       '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
       '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
     ]
   };
 
-  const HOME_DATA_UPDATED = '2026-07-03';
+  // 工具內容更新日與正式放行確認日是不同概念：前者逐入口維護，後者對齊
+  // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
+  const HOME_TOOL_UPDATES = {
+    version: 1,
+    generatedAt: '2026-07-16',
+    releaseVerifiedAt: '2026-07-16',
+    source: 'routeFileMap target Git history + current target worktree changes + tracked preflight release snapshot',
+    routes: {
+      '/beam-analysis': '2026-07-12',
+      '/frame-analysis': '2026-07-10',
+      '/struct-dx': '2026-06-23',
+      '/section': '2026-06-23',
+      '/composite-section': '2026-07-16',
+      '/rc-beam': '2026-07-16',
+      '/rc-column': '2026-07-16',
+      '/rc-slab': '2026-07-11',
+      '/rc-wall': '2026-07-10',
+      '/rc-shear-wall': '2026-07-12',
+      '/rc-foundation': '2026-07-10',
+      '/rc-pile': '2026-07-11',
+      '/rc-retrofit-section': '2026-07-16',
+      '/steel-formal': '2026-07-16',
+      '/steel-beam-formal': '2026-07-16',
+      '/steel-column-formal': '2026-07-16',
+      '/steel-plate': '2026-07-16',
+      '/steel-beam': '2026-07-12',
+      '/steel-column': '2026-07-12',
+      '/wind-overview': '2026-07-16',
+      '/wind-kzt': '2026-07-16',
+      '/wind-special': '2026-07-10',
+      '/wind-force': '2026-07-16',
+      '/wind-cc': '2026-07-16',
+      '/wind-parapet': '2026-07-16',
+      '/wind-open-roof': '2026-07-16',
+      '/wind-object-solid': '2026-07-16',
+      '/wind-object-frame': '2026-07-16',
+      '/wind-lattice-tower': '2026-07-16',
+      '/wind-object-tower': '2026-07-16',
+      '/wind-fence-sign': '2026-07-16',
+      '/wind-sign-pole': '2026-07-16',
+      '/seismic-force': '2026-07-12',
+      '/seismic-dynamic': '2026-07-12',
+      '/seismic-appendage': '2026-07-12',
+      '/seismic-misc': '2026-07-12',
+      '/anchor': '2026-07-10',
+      '/stone-fixing': '2026-07-10',
+      '/foundation-local': '2026-07-11',
+      '/equipment-load': '2026-07-05',
+      '/earth-pressure': '2026-07-05',
+      '/decking': '2026-07-10',
+      '/excavation-support': '2026-06-26'
+    }
+  };
 
   const tools = [
     {
@@ -331,7 +383,7 @@
     },
     {
       title: '鋼梁正式頁',
-      version: '新版',
+      version: 'V1.0',
       href: '/steel-beam-formal',
       categories: ['member'],
       memberSystem: 'steel',
@@ -345,7 +397,7 @@
     },
     {
       title: '鋼柱正式頁',
-      version: '新版',
+      version: 'V1.0',
       href: '/steel-column-formal',
       categories: ['member'],
       memberSystem: 'steel',
@@ -359,7 +411,7 @@
     },
     {
       title: '連接板檢核',
-      version: '新版',
+      version: 'V1.0',
       href: '/steel-plate',
       categories: ['attachments'],
       state: 'formal',
@@ -972,7 +1024,9 @@
     version.textContent = tool.version;
     const updated = document.createElement('span');
     updated.className = 'tool-updated';
-    updated.textContent = `更新 ${tool.updated || HOME_DATA_UPDATED}`;
+    const updatedOn = HOME_TOOL_UPDATES.routes[tool.href];
+    updated.textContent = `更新 ${updatedOn}`;
+    updated.title = `工具內容更新：${updatedOn}；最近正式放行確認：${HOME_TOOL_UPDATES.releaseVerifiedAt}`;
     badges.append(version, updated);
     titleRow.append(icon, title);
     head.append(titleRow, badges);

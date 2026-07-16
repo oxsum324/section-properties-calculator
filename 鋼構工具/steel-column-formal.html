@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>鋼柱正式規範核算工具</title>
+  <title>鋼柱正式規範核算工具 V1.0</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <link rel="stylesheet" href="./steel-member-formal.css">
@@ -16,7 +16,7 @@
       <a class="page-header__link" href="./plate-check.html">連接板獨立頁</a>
       <a class="page-header__link" href="../結構工具箱/tools/鋼構/steel-column.html">舊版鋼柱頁</a>
     </nav>
-    <h1>鋼柱正式規範核算工具</h1>
+    <h1>鋼柱正式規範核算工具 V1.0</h1>
     <p>沿用既有鋼柱檢算核心，升級為左輸入、右報表、計算流程、參數詞典的一體化正式模板</p>
   </header>
 
@@ -294,7 +294,7 @@
               <span id="reportStatus">尚未執行檢核</span>
               <div class="toolbar-actions">
                 <button id="copySummaryBtn" class="btn-secondary" type="button">複製摘要</button>
-                <button id="printReportBtn" class="btn-calc" type="button">列印預覽</button>
+                <button id="printReportBtn" class="btn-calc" type="button">輸出正式報表</button>
               </div>
             </div>
             <header class="report-head">
@@ -438,6 +438,7 @@
   <button id="columnMobileFab" class="mobile-fab" type="button" aria-label="回到頂部">回到頂部</button>
 
   <script src="./core/materials/steel.js"></script>
+  <script src="./tool-metadata.js"></script>
   <script src="./core/ui/report.js"></script>
   <script src="./steel-column-formal.js"></script>
 </body>

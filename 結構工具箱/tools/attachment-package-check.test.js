@@ -30,7 +30,7 @@ assert.equal(Checker.normalizeToolVersion('V4.0'), 'v4.0');
 assert.equal(Checker.normalizeToolVersion('wind-force.v1'), 'v1');
 
 const readyReport = Checker.analyzePackage([
-  { file: 'beam.pdf', errors: [], pageOnlyNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+  { file: 'beam.pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
 ], { projectNo: 'PKG-001' });
 assert.equal(readyReport.status, 'ready');
 
@@ -54,6 +54,12 @@ const pageOnlyReport = Checker.analyzePackage([
 assert.equal(pageOnlyReport.status, 'blocked');
 assert(pageOnlyReport.issues.some(issue => issue.code === 'page-only-leak'));
 
+const draftDocumentReport = Checker.analyzePackage([
+  { file: 'beam-draft.pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: ['非正式附件', '不得作為正式附件'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/16 14:31:43', fingerprints: ['CF-1234ABCD5678EF90'] },
+], { projectNo: 'PKG-001' });
+assert.equal(draftDocumentReport.status, 'blocked');
+assert(draftDocumentReport.issues.some(issue => issue.code === 'draft-document'));
+
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-package-check-'));
 try {
   fs.writeFileSync(path.join(tempDir, 'wind.json'), JSON.stringify({
@@ -75,6 +81,11 @@ try {
   fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-AAAA0000BBBB1111</div>', 'utf8');
   const legacyJsonAndFormalReport = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(legacyJsonAndFormalReport.status, 'ready', 'legacy JSON and canonical report versions remain compatible');
+
+  fs.writeFileSync(path.join(tempDir, 'rc-draft.html'), '<div>DRAFT／非正式附件 - 待人工複核</div><div>本文件僅供內部複核；完成複核及資料補正前不得作為正式附件。</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：RC 梁</div><div>工具版本：V3.1</div><div>輸出時間：2026/07/16 14:31:43</div><div>計算指紋：CF-BBBB0000CCCC1111</div>', 'utf8');
+  const draftPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
+  assert.equal(draftPackage.status, 'blocked', 'draft report cannot enter a delivery package');
+  assert(draftPackage.issues.some(issue => issue.code === 'draft-document'));
 
   const evidenceDir = path.join(tempDir, 'evidence');
   fs.mkdirSync(evidenceDir, { recursive: true });

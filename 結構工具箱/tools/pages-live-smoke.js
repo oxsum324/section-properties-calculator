@@ -150,7 +150,8 @@ async function main() {
   assert.ok(homeJs.includes("assets/status/report-readiness-status.json"), 'home.js reads report readiness status asset');
   assert.equal(/fetch\(\s*[`'"]\/output\//.test(homeJs), false, 'home.js must not fetch domain-root output paths');
   assert.ok(homeJs.includes("label: '報告閱讀狀態總覽'"), 'home.js keeps report readiness overview label');
-  assert.ok(homeJs.includes("summary: '頁面上的「優先建議報告閱讀狀態」只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF。'"), 'home.js keeps page-only report readiness boundary summary');
+  assert.ok(homeJs.includes('頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查'), 'home.js keeps page-only diagnostic boundary summary');
+  assert.ok(homeJs.includes('RC 梁柱若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類'), 'home.js distinguishes draft document classification from page-only diagnostics');
   assert.ok(homeJs.includes('完整檢查'), 'home.js keeps full preflight mode label');
   assert.ok(homeJs.includes('快速檢查'), 'home.js keeps quick preflight mode label');
   assert.ok(homeJs.includes('正式放行'), 'home.js keeps release preflight mode label');

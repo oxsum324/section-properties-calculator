@@ -1404,7 +1404,8 @@ exit $LASTEXITCODE
 
 $formalToolsStaticCommand = @'
 $checks = @(
-  '結構工具箱\tools\formal-tools.contract.test.js'
+  '結構工具箱\tools\formal-tools.contract.test.js',
+  '結構工具箱\tools\wind-shared-profile.contract.test.js'
 )
 foreach ($check in $checks) {
   if (-not (Test-Path -LiteralPath $check)) {

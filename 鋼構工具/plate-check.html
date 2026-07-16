@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>鋼構連接板正式規範核算工具</title>
+  <title>鋼構連接板正式規範核算工具 V1.0</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230e7490'/%3E%3Cpath d='M16 18h32v8H16zm0 20h32v8H16zm12-20h8v28h-8z' fill='%23ecfeff'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./styles.css">
   <script>
@@ -19,7 +19,7 @@
       <a class="page-header__link" href="./steel-beam-formal.html">鋼梁正式頁</a>
       <a class="page-header__link" href="./steel-column-formal.html">鋼柱正式頁</a>
     </nav>
-    <h1 id="pageTitle">鋼構連接板正式規範核算工具</h1>
+    <h1 id="pageTitle">鋼構連接板正式規範核算工具 V1.0</h1>
     <p id="pageDescription">矩形連接板｜全斷面降伏、有效淨斷面斷裂、區塊剪力破壞｜左輸入右報表模板</p>
   </header>
 
@@ -761,7 +761,7 @@
               <span id="draftStatus">尚未儲存草稿</span>
               <div class="toolbar-actions">
                 <button id="copySummaryBtn" class="btn-secondary" type="button">複製摘要</button>
-                <button id="printReportBtn" class="btn-calc" type="button">列印預覽</button>
+                <button id="printReportBtn" class="btn-calc" type="button">輸出正式報表</button>
               </div>
             </div>
 
@@ -915,6 +915,8 @@
     </div>
   </main>
 
+  <script src="./tool-metadata.js"></script>
+  <script src="./core/ui/report.js"></script>
   <script src="./calculator.js"></script>
   <script src="./app.js"></script>
 </body>

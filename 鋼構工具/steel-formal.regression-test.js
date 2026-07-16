@@ -166,6 +166,10 @@ const appPath = path.join(__dirname, "app.js");
 const appSource = fs.readFileSync(appPath, "utf8");
 const indexPath = path.join(__dirname, "index.html");
 const indexSource = fs.readFileSync(indexPath, "utf8");
+const plateCheckPath = path.join(__dirname, "plate-check.html");
+const plateCheckSource = fs.readFileSync(plateCheckPath, "utf8");
+const toolMetadataPath = path.join(__dirname, "tool-metadata.js");
+const toolMetadataSource = fs.readFileSync(toolMetadataPath, "utf8");
 const auditToolPath = path.join(__dirname, "audit-tool.ps1");
 const auditToolSource = fs.readFileSync(auditToolPath, "utf8");
 const browserRunnerPath = path.join(__dirname, "steel-audit-browser-runner.js");
@@ -183,6 +187,9 @@ const localReportCorePath = path.join(__dirname, "core", "ui", "report.js");
 const localReportCoreSource = fs.readFileSync(localReportCorePath, "utf8");
 const sharedReportRuntime = loadWindowScript(sharedReportSource, sharedReportPath);
 const localReportRuntime = loadWindowScript(localReportCoreSource, localReportCorePath);
+const toolMetadataRuntime = loadWindowScript(toolMetadataSource, toolMetadataPath);
+const reportTraceLabels = ["產出工具", "工具版本", "輸出時間", "計算指紋"];
+const formalReportReferenceNeedles = ["功能借鏡", "SkyCiv", "ClearCalcs", "Dlubal"];
 const pageOnlyReportStatusNeedles = [
   "產報前檢查",
   "附件適用狀態",
@@ -242,6 +249,12 @@ assert.equal(sharedReportRuntime.ToolReportUI, sharedReportRuntime.SteelFormalUI
 assert.equal(localReportRuntime.ToolReportUI, localReportRuntime.SteelFormalUI, "steel local report runtime should alias ToolReportUI and SteelFormalUI");
 assert.equal(sharedReportRuntime.ToolReportUI.normalizeProjectFieldValue("未填"), "", "shared report runtime should clear placeholder project text");
 assert.equal(localReportRuntime.SteelFormalUI.normalizeProjectFieldValue("未填"), "", "steel local report runtime should clear placeholder project text");
+for (const key of ["connection", "plate", "tension", "beam", "column"]) {
+  const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
+  assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
+  assert.match(metadata.name, /正式規範核算工具$/, `${key} metadata should expose a report-ready tool name`);
+  assert.equal(metadata.version, "V1.0", `${key} metadata should expose the canonical steel formal version`);
+}
 const sharedReportHtml = renderReportHtml(sharedReportSource, sharedReportPath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
 const localReportHtml = renderReportHtml(localReportCoreSource, localReportCorePath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
 const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report generator", [
@@ -288,6 +301,86 @@ assert.match(sharedReportHtml, /FORMAL-VERIFY-001/, "shared report generator sho
 assert.match(localReportHtml, /FORMAL-VERIFY-001/, "steel local report generator should keep project number after placeholder scrub");
 assert.match(sharedReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, "shared report generator should include a stable calculation fingerprint");
 assert.match(localReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, "steel local report generator should include a stable calculation fingerprint");
+assert.match(
+  beamFormalSource,
+  /const TOOL_METADATA = window\.SteelToolMetadata\?\.beam;[\s\S]*outputSource:\s*TOOL_METADATA/s,
+  "steel beam report should pass explicit canonical metadata instead of inferring a version from document.title",
+);
+assert.match(
+  columnFormalSource,
+  /const TOOL_METADATA = window\.SteelToolMetadata\?\.column;[\s\S]*outputSource:\s*TOOL_METADATA/s,
+  "steel column report should pass explicit canonical metadata instead of inferring a version from document.title",
+);
+for (const [label, html] of [["beam", beamFormalHtmlSource], ["column", columnFormalHtmlSource]]) {
+  assert.match(
+    html,
+    /\.\/tool-metadata\.js[\s\S]*\.\/core\/ui\/report\.js/s,
+    `${label} formal page should load canonical tool metadata before the report core`,
+  );
+}
+for (const [label, html] of [["main", indexSource], ["standalone plate", plateCheckSource]]) {
+  assert.match(
+    html,
+    /\.\/tool-metadata\.js[\s\S]*\.\/core\/ui\/report\.js[\s\S]*\.\/calculator\.js[\s\S]*\.\/app\.js/s,
+    `${label} page should load canonical metadata and the report trace core before app.js`,
+  );
+}
+for (const [label, html] of [
+  ["steel main", indexSource],
+  ["steel plate", plateCheckSource],
+  ["steel beam", beamFormalHtmlSource],
+  ["steel column", columnFormalHtmlSource],
+]) {
+  const title = html.match(/<title>([^<]+)<\/title>/)?.[1]?.trim() || "";
+  const heading = html.match(/<h1(?:\s+[^>]*)?>([^<]+)<\/h1>/)?.[1]?.trim() || "";
+  assert.ok(title.endsWith("V1.0"), `${label} document title should visibly expose V1.0`);
+  assert.equal(heading, title, `${label} document title and H1 should expose the same canonical version`);
+  assert.match(
+    html,
+    /id="printReportBtn"[^>]*>輸出正式報表<\/button>/,
+    `${label} result action should identify the traceable formal-report path instead of direct page printing`,
+  );
+}
+assert.match(
+  appSource,
+  /printReportBtn\.addEventListener\("click", exportReport\);/,
+  "connection and plate result actions should route through the traceable formal report exporter",
+);
+assert.doesNotMatch(
+  appSource,
+  /printReportBtn\.addEventListener\("click", \(\) => window\.print\(\)\);/,
+  "connection and plate result actions should not directly print the working page",
+);
+for (const [label, source] of [["beam", beamFormalSource], ["column", columnFormalSource]]) {
+  assert.match(
+    source,
+    /\$\("printReportBtn"\)\.addEventListener\("click", buildReport\);/,
+    `${label} result action should route through the traceable formal report builder`,
+  );
+  assert.doesNotMatch(
+    source,
+    /\$\("printReportBtn"\)\.addEventListener\("click", \(\) => window\.print\(\)\);/,
+    `${label} result action should not directly print the working page`,
+  );
+}
+assert.match(
+  appSource,
+  /const getFormalToolMetadata =[\s\S]*const withFormalToolVersion =[\s\S]*function renderSummary\(result\)[\s\S]*versionedPageTitle[\s\S]*pageTitle\.textContent = versionedPageTitle[\s\S]*document\.title = versionedPageTitle/s,
+  "the connection suite should preserve the canonical visible version when the active module changes",
+);
+const mainReportBuilderSource = appSource.match(/function buildReportHtml\(result\)\s*\{[\s\S]*?\n\s*function exportReport\(\)/)?.[0] || "";
+assert.ok(mainReportBuilderSource, "app.js should expose a statically inspectable formal report builder");
+assert.match(
+  mainReportBuilderSource,
+  /SteelFormalUI\.buildReportTrace\([\s\S]*outputSource[\s\S]*reportTrace\.sourceTrace\.tool[\s\S]*reportTrace\.sourceTrace\.version[\s\S]*reportTrace\.generatedAt[\s\S]*reportTrace\.calculationFingerprint/s,
+  "connection and plate reports should emit all four trace fields from the shared report trace core",
+);
+for (const needle of reportTraceLabels) {
+  assert.ok(mainReportBuilderSource.includes(needle), `connection and plate report builder should include ${needle}`);
+}
+for (const needle of formalReportReferenceNeedles) {
+  assert.equal(mainReportBuilderSource.includes(needle), false, `formal connection report should exclude page-only feature reference ${needle}`);
+}
 assert.equal(
   localReportRuntime.SteelFormalUI.hasBlankFieldValues(["projName", "projNo", "projDesigner"], (id) => ({ value: id === "projName" ? "未填" : "QA" })),
   true,
@@ -734,8 +827,13 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
-  /LEGACY_PROJECT_META_PLACEHOLDER[\s\S]*projectName:\s*'未填'[\s\S]*setupMainPlateProjectMetaPlaceholder[\s\S]*plate_geometry[\s\S]*assertMainPlateProjectMetaPlaceholderRendered[\s\S]*#metaProjectName[\s\S]*assertMainPlateSummaryCopyPlaceholder[\s\S]*計畫：—[\s\S]*接頭：\$\{LEGACY_PROJECT_META_PLACEHOLDER\.connectionTag\}[\s\S]*assertLegacyReportPopup[\s\S]*buttonSelector:\s*'#exportReportBtn'[\s\S]*titleNeedle:\s*'連接板檢核計算書'[\s\S]*absentNeedles:\s*\['未填'\]/s,
-  "steel-audit-browser-runner.js should verify the legacy main page scrubs placeholder project text from on-page meta, copied summary, and exported report popup",
+  /LEGACY_PROJECT_META_PLACEHOLDER[\s\S]*projectName:\s*'未填'[\s\S]*setupMainPlateProjectMetaPlaceholder[\s\S]*plate_geometry[\s\S]*assertMainPlateProjectMetaPlaceholderRendered[\s\S]*#metaProjectName[\s\S]*assertMainPlateSummaryCopyPlaceholder[\s\S]*計畫：—[\s\S]*接頭：\$\{LEGACY_PROJECT_META_PLACEHOLDER\.connectionTag\}[\s\S]*assertLegacyReportPopup[\s\S]*buttonSelector:\s*'#printReportBtn'[\s\S]*titleNeedle:\s*'連接板檢核計算書'[\s\S]*absentNeedles:\s*\['未填'\]/s,
+  "steel-audit-browser-runner.js should verify the legacy main result action scrubs placeholder project text and opens the traceable report popup",
+);
+assert.match(
+  browserRunnerSource,
+  /assertFormalBeamReportPopupComplete[\s\S]*buttonSelector:\s*'#printReportBtn'[\s\S]*assertFormalColumnReportPopupComplete[\s\S]*buttonSelector:\s*'#printReportBtn'/s,
+  "steel-audit-browser-runner.js should exercise the actual beam and column result-area formal-report actions",
 );
 assert.match(
   browserRunnerSource,
@@ -757,6 +855,14 @@ assert.match(
   /async function assertFormalReportPopup\(cdp, sessionId, options\)[\s\S]*openFormalReportPopup[\s\S]*優先建議報告閱讀狀態[\s\S]*頁面顯示，不進計算書、列印或 PDF[\s\S]*不會寫入計算書或列印 PDF[\s\S]*計畫名稱 \/ 編號 \/ 設計人尚未完整[\s\S]*async function openFormalReportPopup[\s\S]*Target\.getTargets[\s\S]*waitForNewPageTarget[\s\S]*waitForPopupReady/s,
   "steel-audit-browser-runner.js should open the formal report popup and assert that page-only readiness wording never appears in the exported report window",
 );
+assert.match(
+  browserRunnerSource,
+  /function assertFormalReportTraceText\(value, label\)[\s\S]*產出工具[\s\S]*工具版本[\s\S]*輸出時間[\s\S]*計算指紋[\s\S]*requiredNeedles:[\s\S]*FORMAL_REPORT_TRACE_LABELS[\s\S]*evidence\.pdf\.textPath/s,
+  "steel rendered-evidence browser contract should validate non-empty trace values in both the popup and extracted PDF text",
+);
+for (const needle of formalReportReferenceNeedles) {
+  assert.ok(browserRunnerSource.includes(needle), `steel browser contract should forbid ${needle} in formal report output`);
+}
 assert.match(
   runSyncFormalCoreBatSource,
   /powershell -ExecutionPolicy Bypass -File "%~dp0sync-formal-core\.ps1" %\*/,

@@ -76,6 +76,34 @@ function main() {
   assert(row.ok === false, 'entry ok override preserves false', String(row.ok));
   assert(row.note === '自訂註記', 'entry note preserved', row.note);
 
+  assert(typeof RCUI.getProjectMetadataState === 'function', 'project metadata state helper exported', typeof RCUI.getProjectMetadataState);
+  assert(typeof RCUI.assessFormalAttachment === 'function', 'formal attachment assessment helper exported', typeof RCUI.assessFormalAttachment);
+  const emptyMetadata = RCUI.getProjectMetadataState({ name: '未填', no: ' ', designer: '' });
+  assert(emptyMetadata.complete === false, 'empty project metadata is incomplete', JSON.stringify(emptyMetadata.missingItems));
+  assert(emptyMetadata.missingItems.join('、') === '計畫名稱、計畫編號、設計人', 'all required metadata fields are listed', emptyMetadata.missingItems.join('、'));
+
+  const metadataDraft = RCUI.assessFormalAttachment({ project: {}, failedItems: [], reviewItems: [] });
+  assert(metadataDraft.status === 'review', 'missing metadata cannot be ready', metadataDraft.status);
+  assert(metadataDraft.formalOutputAllowed === false, 'missing metadata blocks formal output', String(metadataDraft.formalOutputAllowed));
+  assert(metadataDraft.documentState?.label.includes('DRAFT／非正式附件'), 'missing metadata produces explicit draft state', metadataDraft.documentState?.label);
+  assert(metadataDraft.documentState?.detail.includes('計畫名稱、計畫編號、設計人'), 'draft state identifies missing metadata', metadataDraft.documentState?.detail);
+
+  const completeProject = { name: '測試工程', no: 'RC-001', designer: 'QA' };
+  const readyAssessment = RCUI.assessFormalAttachment({ project: completeProject, failedItems: [], reviewItems: [] });
+  assert(readyAssessment.status === 'ready', 'complete clean assessment is ready', readyAssessment.status);
+  assert(readyAssessment.formalOutputAllowed === true, 'ready assessment allows formal output', String(readyAssessment.formalOutputAllowed));
+  assert(readyAssessment.documentState === null, 'ready assessment has no draft document state', String(readyAssessment.documentState));
+
+  const reviewAssessment = RCUI.assessFormalAttachment({ project: completeProject, reviewItems: ['柱端錨定'] });
+  assert(reviewAssessment.status === 'review', 'manual item requires review', reviewAssessment.status);
+  assert(reviewAssessment.formalOutputAllowed === false, 'review assessment blocks formal output', String(reviewAssessment.formalOutputAllowed));
+  assert(reviewAssessment.documentState?.label.includes('待人工複核'), 'review draft has explicit manual-review label', reviewAssessment.documentState?.label);
+
+  const blockedAssessment = RCUI.assessFormalAttachment({ project: completeProject, failedItems: ['剪力強度'] });
+  assert(blockedAssessment.status === 'blocked', 'failed check is blocked', blockedAssessment.status);
+  assert(blockedAssessment.formalOutputAllowed === false, 'blocked assessment blocks formal output', String(blockedAssessment.formalOutputAllowed));
+  assert(blockedAssessment.documentState?.label.includes('檢核不符'), 'blocked draft has explicit failure label', blockedAssessment.documentState?.label);
+
   assert(typeof RCUI.getAttachmentReadinessPriority === 'function', 'attachment readiness priority helper exported', typeof RCUI.getAttachmentReadinessPriority);
   const blockedPriority = RCUI.getAttachmentReadinessPriority({
     status: 'blocked',
