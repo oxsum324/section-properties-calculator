@@ -81,7 +81,7 @@ const GLOBAL_GOVERNANCE_GATES = [
     key: 'rendered-delivery-evidence',
     label: '實際交付物渲染佐證',
     contract: '結構工具箱/tools/rendered-delivery-evidence.contract.test.js',
-    scope: '首頁 31 個正式工具的 PDF、DOCX 或 workbook 當輪實際產出與文字 / 版面驗證',
+    scope: '首頁 31 個正式工具的 PDF、DOCX 或 workbook，加上開挖本機服務 PDF / DOCX / 最新下載的當輪實際產出與文字 / 版面驗證',
     catalogFamilies: [],
     minCatalogs: 0
   }
@@ -1531,6 +1531,7 @@ function renderedDeliveryEvidencePathForRun(runId) {
 }
 
 function isCompleteRenderedDeliveryEvidence(evidence, runId) {
+  const supplementalDeclared = Number.isInteger(evidence?.supplementalRequired);
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1539,6 +1540,11 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
     && Number.isInteger(evidence.required)
     && Number.isInteger(evidence.complete)
     && evidence.complete === evidence.required
+    && (!supplementalDeclared || (
+      Number.isInteger(evidence.supplementalComplete)
+      && evidence.supplementalComplete === evidence.supplementalRequired
+      && evidence.supplementalPass === true
+    ))
   );
 }
 
@@ -1568,9 +1574,17 @@ function resolveRenderedDeliveryEvidenceSource() {
     if (!family) continue;
     familyCounts.set(family, (familyCounts.get(family) || 0) + 1);
   }
+  const supplementalFamilyCounts = new Map();
+  for (const record of Array.isArray(evidence?.supplementalRecords) ? evidence.supplementalRecords : []) {
+    const family = String(record?.family || '').trim();
+    if (!family) continue;
+    supplementalFamilyCounts.set(family, (supplementalFamilyCounts.get(family) || 0) + 1);
+  }
   return {
     payload: evidence,
     families: Array.from(familyCounts, ([family, complete]) => ({ family, complete }))
+      .sort((left, right) => left.family.localeCompare(right.family)),
+    supplementalFamilies: Array.from(supplementalFamilyCounts, ([family, complete]) => ({ family, complete }))
       .sort((left, right) => left.family.localeCompare(right.family)),
     filePath,
     sourcePath: displayPath(filePath),
@@ -1647,13 +1661,31 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const renderedDeliveryFamilies = Array.isArray(renderedDeliveryEvidence?.families)
     ? renderedDeliveryEvidence.families
     : [];
+  const supplementalDeliveryDeclared = Number.isInteger(renderedDeliveryPayload?.supplementalRequired);
+  const supplementalDeliveryRequired = supplementalDeliveryDeclared
+    ? compactNumber(renderedDeliveryPayload.supplementalRequired)
+    : 0;
+  const supplementalDeliveryComplete = supplementalDeliveryDeclared
+    ? compactNumber(renderedDeliveryPayload.supplementalComplete)
+    : 0;
+  const supplementalDeliveryIssueCount = !supplementalDeliveryDeclared
+    ? 0
+    : renderedDeliveryPayload?.supplementalPass === true
+      ? Math.max(0, supplementalDeliveryRequired - supplementalDeliveryComplete)
+      : Math.max(1, supplementalDeliveryRequired - supplementalDeliveryComplete);
+  const supplementalDeliveryFamilies = Array.isArray(renderedDeliveryEvidence?.supplementalFamilies)
+    ? renderedDeliveryEvidence.supplementalFamilies
+    : [];
+  const renderedDeliverySummary = supplementalDeliveryDeclared
+    ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；本機服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`
+    : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
   const summary = `頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；RC 梁柱若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
     pageOnlyTitles.length
       ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
     `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項確認正式輸出的可讀文字與頁面診斷明細排除；RC 梁柱非 ready 的 DRAFT 文件分類是必要輸出邊界，不屬於 page-only 診斷明細。`,
-    `正式放行實際交付物渲染佐證：${renderedDeliveryComplete} / ${renderedDeliveryRequired} 個首頁正式工具已完成，涵蓋 ${renderedDeliveryFamilies.length} 個工具家族；證據來自 release ${String(renderedDeliveryPayload?.runId || '-')}。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。`,
+    `正式放行實際交付物渲染佐證：${renderedDeliveryComplete} / ${renderedDeliveryRequired} 個首頁正式工具已完成，涵蓋 ${renderedDeliveryFamilies.length} 個工具家族${supplementalDeliveryDeclared ? `；另有 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired} 個本機服務成品，涵蓋 ${supplementalDeliveryFamilies.length} 個服務家族` : ''}；證據來自 release ${String(renderedDeliveryPayload?.runId || '-')}。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。`,
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
@@ -1663,8 +1695,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -1688,9 +1720,16 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     renderedDeliveryEvidenceIssueCount: renderedDeliveryIssueCount,
     renderedDeliveryEvidenceRunId: String(renderedDeliveryPayload?.runId || ''),
     renderedDeliveryEvidenceFamilies: renderedDeliveryFamilies,
-    renderedDeliveryEvidenceSummary: `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`,
+    renderedDeliveryEvidenceSummary: renderedDeliverySummary,
     renderedDeliveryEvidenceSourcePath: String(renderedDeliveryEvidence?.sourcePath || ''),
     renderedDeliveryEvidenceSourceHash: String(renderedDeliveryEvidence?.sourceHash || ''),
+    ...(supplementalDeliveryDeclared ? {
+      supplementalDeliveryEvidenceRequired: supplementalDeliveryRequired,
+      supplementalDeliveryEvidenceComplete: supplementalDeliveryComplete,
+      supplementalDeliveryEvidenceIssueCount: supplementalDeliveryIssueCount,
+      supplementalDeliveryEvidenceFamilies: supplementalDeliveryFamilies,
+      supplementalDeliveryEvidenceSummary: `本機服務實際交付物渲染：${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`,
+    } : {}),
     pageOnlyRoutes: pageOnlyRoutes.map(item => ({
       route: String(item.route || ''),
       title: String(item.title || ''),
@@ -1969,6 +2008,15 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${homepageReportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/${renderedDeliveryEvidenceSummaryName}`, 'homepage report readiness rendered delivery source path');
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
+  if (Number.isInteger(homepageReportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
+    assert.equal(homepageReportReadinessStatus.supplementalDeliveryEvidenceRequired, 1, 'homepage report readiness supplemental delivery covers the excavation service');
+    assert.equal(homepageReportReadinessStatus.supplementalDeliveryEvidenceComplete, homepageReportReadinessStatus.supplementalDeliveryEvidenceRequired, 'homepage report readiness supplemental delivery evidence complete');
+    assert.equal(homepageReportReadinessStatus.supplementalDeliveryEvidenceIssueCount, 0, 'homepage report readiness supplemental delivery issues empty');
+    assert.equal(Array.isArray(homepageReportReadinessStatus.supplementalDeliveryEvidenceFamilies), true, 'homepage report readiness supplemental delivery families array');
+    assert.deepEqual(homepageReportReadinessStatus.supplementalDeliveryEvidenceFamilies, [{ family: 'excavation-formal', complete: 1 }], 'homepage report readiness supplemental delivery family coverage');
+    assert.ok(String(homepageReportReadinessStatus.supplementalDeliveryEvidenceSummary || '').includes('本機服務實際交付物渲染'), 'homepage report readiness supplemental delivery summary');
+    assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('本機服務成品'), 'homepage report readiness rendered delivery summary includes supplemental service evidence');
+  }
   assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
   assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');
   assert.ok(String(homepageReportReadinessStatus.summary || '').includes('優先建議報告閱讀狀態'), 'homepage report readiness summary keeps boundary wording');
