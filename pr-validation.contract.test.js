@@ -26,7 +26,7 @@ assert.ok(workflow.includes('uses: actions/checkout@v7'), 'PR validation uses th
 assert.ok(workflow.includes('persist-credentials: false'), 'PR validation does not retain checkout credentials');
 assert.ok(workflow.includes('uses: actions/setup-node@v6') && workflow.includes('node-version: 24'), 'PR validation pins Node 24');
 assert.ok(workflow.includes('package-manager-cache: false'), 'PR validation does not enable an unused package-manager cache');
-assert.ok(workflow.includes('uses: actions/setup-python@v7') && workflow.includes("python-version: '3.14'"), 'PR validation pins Python 3.14');
+assert.ok(workflow.includes('uses: actions/setup-python@v6') && workflow.includes("python-version: '3.14'"), 'PR validation pins Python 3.14');
 assert.ok(workflow.includes('shell: cmd') && workflow.includes('call run-preflight-tools-quick.bat'), 'PR validation calls the canonical quick preflight wrapper');
 assert.ok(workflow.includes('if: ${{ always() }}') && workflow.includes('uses: actions/upload-artifact@v7'), 'PR validation always uploads available evidence');
 assert.ok(workflow.includes('output/preflight/preflight-summary.json') && workflow.includes('output/preflight/history/'), 'PR validation preserves summary and history evidence');
