@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -11,6 +13,7 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 from docx import Document
@@ -82,6 +85,55 @@ def extract_docx_text(docx_path: Path) -> tuple[str, Document]:
         for cell in row.cells
     )
     return f'{paragraph_text}\n{table_text}', document
+
+
+def rendered_evidence_dir() -> Path | None:
+    override = os.environ.get('STONE_RENDERED_EVIDENCE_DIR', '').strip()
+    if override:
+        return Path(override).resolve()
+    run_dir = os.environ.get('PREFLIGHT_RUN_DIR', '').strip()
+    if os.environ.get('PREFLIGHT_RELEASE') == '1' and run_dir:
+        return Path(run_dir).resolve() / 'rendered-delivery-evidence' / 'stone-formal'
+    return None
+
+
+def persist_rendered_evidence(
+    pdf_path: Path,
+    docx_path: Path,
+    audit_path: Path,
+    *,
+    page_count: int,
+    pdf_text_length: int,
+    docx_text_length: int,
+) -> Path | None:
+    output_dir = rendered_evidence_dir()
+    if output_dir is None:
+        return None
+    output_dir.mkdir(parents=True, exist_ok=True)
+    pdf_copy = output_dir / 'stone-auto-word-formal.pdf'
+    docx_copy = output_dir / 'stone-auto-word-formal.docx'
+    audit_copy = output_dir / 'stone-auto-word-formal.audit.json'
+    shutil.copy2(pdf_path, pdf_copy)
+    shutil.copy2(docx_path, docx_copy)
+    shutil.copy2(audit_path, audit_copy)
+    summary = {
+        'schemaVersion': 1,
+        'family': 'stone-formal',
+        'pass': True,
+        'generatedAt': datetime.now(timezone.utc).isoformat(),
+        'records': [{
+            'key': 'stone-fixing',
+            'artifact': pdf_copy.name,
+            'document': docx_copy.name,
+            'evidence': audit_copy.name,
+            'pageCount': page_count,
+            'pdfTextLength': pdf_text_length,
+            'docxTextLength': docx_text_length,
+        }],
+    }
+    summary_path = output_dir / 'rendered-delivery-evidence-summary.json'
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    return summary_path
 
 
 class AutoWordArtifactTests(unittest.TestCase):
@@ -224,6 +276,18 @@ class AutoWordArtifactTests(unittest.TestCase):
             self.assertNotIn('priority_report_reading_status', report['review'])
             for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
                 self.assertNotIn(needle, report_text(report))
+
+            evidence_summary = persist_rendered_evidence(
+                pdf_path,
+                docx_path,
+                audit_path,
+                page_count=len(reader.pages),
+                pdf_text_length=len(pdf_text),
+                docx_text_length=len(docx_text),
+            )
+            if rendered_evidence_dir() is not None:
+                self.assertIsNotNone(evidence_summary)
+                self.assertTrue(evidence_summary.is_file())
 
 
 if __name__ == '__main__':
