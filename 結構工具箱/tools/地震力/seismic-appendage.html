@@ -274,7 +274,7 @@
             <div class="hint">構材附著點距地面高度</div>
           </div>
           <div class="form-group">
-            <label>設計備註</label>
+            <label>案件說明</label>
             <input id="apRemark" type="text" placeholder="例：屋頂水箱、管線吊架、空調設備">
           </div>
         </div>
@@ -1245,7 +1245,7 @@ function openAppendageReport() {
   const r = lastAppendResult;
   const proj = getProjectInfo();
   const today = new Date().toLocaleDateString('zh-TW');
-  const zoneText = [document.getElementById('zoneCity').value, document.getElementById('zoneDist').value].filter(Boolean).join(' ') || '手動輸入震區參數';
+  const zoneText = [document.getElementById('zoneCity').value, document.getElementById('zoneDist').value].filter(Boolean).join(' ') || '採指定震區參數';
   const siteClassText = document.getElementById('siteClass').selectedOptions[0]?.textContent || '—';
   const includeCalcDetail = getPrintReportMode() === 'detail';
   const reportTrace = window.ToolReportUI.buildReportTrace({
@@ -1284,7 +1284,7 @@ function openAppendageReport() {
           <tr><th>I_p</th><td>${r.Ip}</td></tr>
           <tr><th>構材重量 W_p</th><td>${fmt(r.Wp,3)} tf</td></tr>
           <tr><th>固定高度 h_x</th><td>${fmt(r.hx,2)} m</td></tr>
-          <tr><th>備註</th><td>${escHtml(r.note || '—')}</td></tr>
+          <tr><th>案件說明</th><td>${escHtml(r.note || '—')}</td></tr>
         </tbody></table>
       </section>
       <section class="block">
@@ -1372,13 +1372,6 @@ function openAppendageReport() {
         <div><b>計算指紋</b>${escHtml(reportTrace.calculationFingerprint)}</div>
       </div>
       ${includeCalcDetail ? detailedReportHtml : simpleReportHtml}
-      <section class="block">
-        <h3>備註</h3>
-        <ol class="notes">
-          <li>本頁為第四章附屬構造物局部計算書；完整建築物耐震通盤檢討請另由等值靜力分析頁辦理。</li>
-          ${r.note ? `<li>${escHtml(r.note)}</li>` : ''}
-        </ol>
-      </section>
       <div class="rep-footer"><div>版權所有 弘一工程顧問有限公司</div></div>
     </div>
   </body></html>`;

@@ -28,6 +28,12 @@ const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
   '不會寫入計算書',
   '不會寫入計算書或列印 PDF',
   '頁面顯示，不進計算書、列印或 PDF',
+  '輸入模式',
+  '計算書模式',
+  '換算對照',
+  '流程顯示',
+  '報表模式',
+  '輸出設定',
 ]
 
 function expectNoPageOnlyReportStatus(text: string) {

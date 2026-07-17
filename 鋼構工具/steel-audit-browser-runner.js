@@ -63,7 +63,7 @@ const LEGACY_PROJECT_META_PLACEHOLDER = {
 
 const FORMAL_REPORT_TRACE_LABELS = ['產出工具', '工具版本', '輸出時間', '計算指紋'];
 const FORMAL_REPORT_REFERENCE_NEEDLES = ['功能借鏡', 'SkyCiv', 'ClearCalcs', 'Dlubal'];
-const CALCULATION_BOOK_UI_ONLY_NEEDLES = ['輸入模式', '換算對照', '流程顯示', '報表模式', '輸出設定'];
+const CALCULATION_BOOK_UI_ONLY_NEEDLES = ['輸入模式', '計算書模式', '換算對照', '流程顯示', '報表模式', '輸出設定', '可切換', '面積直輸模式', '面積輸入模式', '設計依據與限制條件', '適用範圍', '限制與不適用事項', '審查提醒', '設計備註'];
 
 function assertFormalReportTraceText(value, label) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();

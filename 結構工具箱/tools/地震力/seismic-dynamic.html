@@ -277,7 +277,7 @@
             <input id="software" type="text" placeholder="例：ETABS / SAP2000 / MIDAS">
           </div>
           <div class="form-group">
-            <label>摘要備註</label>
+            <label>分析來源說明</label>
             <input id="remark" type="text" placeholder="例：CQC 組合、有效質量 > 90%、25 模態">
           </div>
         </div>
@@ -380,6 +380,7 @@
               <option value="detailed" selected>詳算式（含反應譜表與模型檢核）</option>
               <option value="summary">簡易結果（總橫力摘要）</option>
             </select>
+            <div class="hint">本選項只控制輸出詳略，不會列為計算書欄位。</div>
           </div>
         </div>
         <div class="inline-actions">
@@ -421,7 +422,7 @@
             </div>
           </div>
           <div class="form-group">
-            <label>匯出週期上限 T<sub>export</sub> (sec)</label>
+            <label>反應譜資料週期上限 T<sub>data</sub> (sec)</label>
             <input id="spectrumExportTmax" type="number" value="4" step="0.5" min="0.5">
           </div>
         </div>
@@ -489,7 +490,7 @@
           </div>
         </div>
         <div class="form-group" style="margin-top:10px;">
-          <label>模型檢核備註</label>
+          <label>模型檢核說明</label>
           <input id="modelCheckNote" type="text" placeholder="例：X/Y/Rz 有效質量均超過 90%，樓層剪力已依採用倍率縮放">
         </div>
       </div>
@@ -512,7 +513,7 @@
         <div id="spectrumRefGrid" class="mini-grid"></div>
       </div>
       <div class="card">
-        <h2>規範反應譜輸出表</h2>
+        <h2>規範反應譜資料表</h2>
         <div id="codeSpectrumPanel" class="spectrum-panel"></div>
       </div>
       <div class="card">
@@ -726,7 +727,7 @@ function evaluateModelCheck(modelCheck) {
 
 function renderModelCheckPanel(modelCheck) {
   const items = evaluateModelCheck(modelCheck);
-  const note = modelCheck?.note ? `<div class="decision-note">備註：${escapeHtml(modelCheck.note)}</div>` : '';
+  const note = modelCheck?.note ? `<div class="decision-note">模型檢核說明：${escapeHtml(modelCheck.note)}</div>` : '';
   return `
     ${items.map(item => `
       <div class="model-status-item">
@@ -809,7 +810,7 @@ function buildDynamicReportReadinessModel(validationMessage = lastDynamicReportV
     tone: reviewItems.length ? 'review' : 'ready',
     badge: reviewItems.length ? '優先複核' : '可作附件',
     title: reviewItems.length ? '分析已完成，但產報前建議優先閱讀下列項目。' : '分析已完成，可產生計算書附件。',
-    priority: reviewItems.length ? reviewItems : ['動力摘要、反應譜輸出與總橫力調整檢核已可供附件整理。'],
+    priority: reviewItems.length ? reviewItems : ['動力摘要、反應譜資料與總橫力調整檢核已可供附件整理。'],
     items: [
       ['分析狀態', 'X/Y 雙向完成'],
       ['控制比值', `X ${fmt(actions[0]?.ratio, 2)} / Y ${fmt(actions[1]?.ratio, 2)}`],
@@ -1397,7 +1398,7 @@ function renderSpectrumChart(result) {
     }
   });
   const ranges = result.responseSpectrum?.ranges || {};
-  legend.innerHTML = `圖中依工址條件繪出設計地震反應譜、最大考量地震反應譜，以及依規範第 3.2 節換算之分析輸入譜；中小度下限譜以灰色虛線表示，用來判斷採用設計輸入譜是否由下限控制。圖表週期上限 T<sub>plot</sub> = <b>${fmt(ranges.plotTmax,1)}</b> sec，匯出週期上限 T<sub>export</sub> = <b>${fmt(ranges.exportTmax,1)}</b> sec。X 向主模態週期 T<sub>x</sub> = <b>${fmt(tx,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(txSa,3)}</b> g；Y 向主模態週期 T<sub>y</sub> = <b>${fmt(ty,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(tySa,3)}</b> g。${ranges.isPlotShort ? '<br><strong>提醒：</strong>目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍再判讀。' : ''}`;
+  legend.innerHTML = `圖中依工址條件繪出設計地震反應譜、最大考量地震反應譜，以及依規範第 3.2 節換算之分析輸入譜；中小度下限譜以灰色虛線表示，用來判斷採用設計輸入譜是否由下限控制。圖表週期上限 T<sub>plot</sub> = <b>${fmt(ranges.plotTmax,1)}</b> sec，反應譜資料週期上限 T<sub>data</sub> = <b>${fmt(ranges.exportTmax,1)}</b> sec。X 向主模態週期 T<sub>x</sub> = <b>${fmt(tx,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(txSa,3)}</b> g；Y 向主模態週期 T<sub>y</sub> = <b>${fmt(ty,3)}</b> sec，對應 S<sub>aD</sub> = <b>${fmt(tySa,3)}</b> g。${ranges.isPlotShort ? '<br><strong>提醒：</strong>目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍再判讀。' : ''}`;
 }
 
 function renderDesignActionCards(actions) {
@@ -1443,7 +1444,7 @@ function renderCodeSpectrumPanel(spectrum) {
       <div class="mini-card"><span class="label">最大考量地震輸入譜峰值</span><span class="value">${fmt(s.mcePeak?.mceAccel,4)} g @ T=${fmt(s.mcePeak?.T,3)}</span></div>
       <div class="mini-card"><span class="label">T1 採用設計輸入譜</span><span class="value">${fmt(s.t1?.designAccel,4)} g</span></div>
       <div class="mini-card"><span class="label">中小度下限控制比例</span><span class="value">${fmt((s.lowerControlShare || 0) * 100,0)}%</span></div>
-      <div class="mini-card"><span class="label">圖表 / 匯出週期上限</span><span class="value">${fmt(ranges.plotTmax,1)} / ${fmt(ranges.exportTmax,1)} sec</span></div>
+      <div class="mini-card"><span class="label">圖表 / 資料週期上限</span><span class="value">${fmt(ranges.plotTmax,1)} / ${fmt(ranges.exportTmax,1)} sec</span></div>
       <div class="mini-card"><span class="label">圖表範圍建議</span><span class="value">${ranges.plotMode === 'auto' ? '自動' : '手動'} ｜ 建議 ${fmt(ranges.recommendedPlotTmax,1)} sec</span></div>
     </div>
     <div class="spectrum-table-wrap">
@@ -1570,7 +1571,7 @@ function calcDynamic() {
     }
   });
   if (software) notes.push(`本次動力摘要來源：${software}${remark ? `，${remark}` : ''}。`);
-  notes.push(`已建立第 3.2 節反應譜輸出；設計譜值來源為「${responseSpectrum.params.siteModeLabel}」，T1 = ${fmt(responseSpectrum.params.T1, 3)} sec，圖表上限 = ${fmt(responseSpectrum.ranges.plotTmax,1)} sec，匯出上限 = ${fmt(responseSpectrum.ranges.exportTmax,1)} sec，中小度下限控制比例約 ${fmt(responseSpectrum.summary.lowerControlShare * 100, 0)}%。`);
+  notes.push(`已建立第 3.2 節反應譜資料；設計譜值來源為「${responseSpectrum.params.siteModeLabel}」，T1 = ${fmt(responseSpectrum.params.T1, 3)} sec，圖表上限 = ${fmt(responseSpectrum.ranges.plotTmax,1)} sec，資料上限 = ${fmt(responseSpectrum.ranges.exportTmax,1)} sec，中小度下限控制比例約 ${fmt(responseSpectrum.summary.lowerControlShare * 100, 0)}%。`);
   if (responseSpectrum.ranges.isPlotShort) notes.push('目前圖表週期上限短於 1.5 倍主要週期，建議加長顯示範圍後再判讀長週期段。');
   notes.push('依規範第 3.5 節，正式模型仍應確認 X 向、Y 向及扭轉方向有效質量和、振態疊加方法與地震輸入方向。');
   const result = {
@@ -1798,7 +1799,6 @@ function openDynamicReport() {
   const includeModelCheck = Boolean(document.getElementById('printModelCheckSection')?.checked);
   const reportMode = document.getElementById('reportMode')?.value === 'summary' ? 'summary' : 'detailed';
   const isSummaryReport = reportMode === 'summary';
-  const modeLabel = isSummaryReport ? '簡易結果' : '詳算式';
   const { project: ignoredProject, ...calculation } = result;
   const reportTrace = window.ToolReportUI.buildReportTrace({
     title: '反應譜動力分析規範整理計算書',
@@ -1844,7 +1844,6 @@ function openDynamicReport() {
         <div><b>計畫編號</b>${esc(proj.no || '—')}</div>
         <div><b>設計人員</b>${esc(proj.designer || '—')}</div>
         <div><b>製表日期</b>${esc(today)}</div>
-        <div><b>計算書模式</b>${esc(modeLabel)}</div>
         <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool || '—')}</div>
         <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version || '—')}</div>
         <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
@@ -1885,7 +1884,7 @@ function openDynamicReport() {
       </section>
       ${!isSummaryReport ? `
       <section class="block">
-        <h3>第 3.2 節反應譜輸出表</h3>
+        <h3>第 3.2 節反應譜資料表</h3>
         <table style="margin-bottom:8px;">
           <tbody>
             <tr><th class="label">T1 / ξ</th><td>${esc(fmt(codeSpectrum?.params?.T1,3))} sec / ${esc(fmt(codeSpectrum?.params?.damping,1))}%</td><th class="label">R / Ra / αy</th><td>${esc(fmt(codeSpectrum?.params?.R,2))} / ${esc(fmt(codeSpectrum?.params?.Ra,4))} / ${esc(fmt(codeSpectrum?.params?.alphaY,2))}</td></tr>
@@ -1923,13 +1922,13 @@ function openDynamicReport() {
             <thead><tr><th>項目</th><th>檢核內容</th><th>狀態</th></tr></thead>
             <tbody>
               ${modelCheckItems.map(item => `<tr><td>${esc(item.label)}</td><td class="label">${esc(item.detail)}</td><td>${esc(item.text)}</td></tr>`).join('')}
-              ${modelCheck.note ? `<tr><td>備註</td><td class="label" colspan="2">${esc(modelCheck.note)}</td></tr>` : ''}
+              ${modelCheck.note ? `<tr><td>模型檢核說明</td><td class="label" colspan="2">${esc(modelCheck.note)}</td></tr>` : ''}
             </tbody>
           </table>
         </section>
       ` : ''}
       <section class="block">
-        <h3>備註</h3>
+        <h3>設計判讀與採用</h3>
         <ol class="notes">${result.notes.map(note => `<li>${esc(note)}</li>`).join('')}</ol>
       </section>
       <div class="rep-footer">
@@ -1978,7 +1977,7 @@ function exportResponseSpectrumJson() {
     target,
     spectrumName: name,
     unit: 'g',
-    basis: '規範第 3.2 節反應譜輸出；週期單位 sec，加速度為 g。',
+    basis: '規範第 3.2 節反應譜資料；週期單位 sec，加速度為 g。',
     project: syncProjectMeta(result.project),
     params: result.responseSpectrum.params,
     site: result.responseSpectrum.site,

@@ -66,7 +66,7 @@
       projectName: "示範剪力接頭",
       connectionTag: "ST-01",
       designer: "",
-      notes: "套用鋼梁 / RC 梁模板版面",
+      notes: "",
       designMethod: "LRFD",
       connectionType: "single_plate",
       exposureCondition: "painted",
@@ -220,7 +220,7 @@
       projectName: "示範連接板檢核",
       connectionTag: "PL-01",
       designer: "",
-      notes: "連接板可切換幾何推導與面積直輸模式",
+      notes: "",
       designMethod: "LRFD",
       connectionType: "plate_check",
       exposureCondition: "painted",
@@ -353,7 +353,7 @@
           ...exampleStates.plate_check,
           projectName: "示範連接板檢核",
           connectionTag: "PL-02",
-          notes: "面積直輸模式，適合特殊破壞路徑由工程師先行整理後核算",
+          notes: "本案 Ag、An、Agv、Anv、Agt、Ant 採設計指定值。",
           plateInputMode: "area_manual",
           grossArea: 6720,
           netArea: 4992,
@@ -430,7 +430,7 @@
           ...exampleStates.tension_member,
           projectName: "示範拉力構件",
           connectionTag: "TM-03",
-          notes: "特殊路徑以 Ag、An、Ae 與區塊剪力面積直接輸入",
+          notes: "本案 Ag、An、Ae 與區塊剪力面積採設計指定值。",
           tensionConnectionMode: "bolted",
           tensionAreaInput: "manual",
           tensionShearLagCase: "manual_u",
@@ -1706,7 +1706,7 @@
 
   function buildPlateSketchMarkup(result, { inline = false } = {}) {
     if (result.sketchData?.mode !== "geometry" || result.state.showPlateSketch === false) {
-      return `<div class="card-placeholder">${result.sketchData?.caption || "面積直輸模式，未顯示幾何示意。"}</div>`;
+      return `<div class="card-placeholder">${result.sketchData?.caption || "本案採指定斷面面積，未建立幾何示意。"}</div>`;
     }
 
     const { plateWidth, plateLength, holes, netSection, blockShear, loadDirection } = result.sketchData;
@@ -1787,7 +1787,7 @@
 
   function buildTensionSketchMarkup(result, { inline = false } = {}) {
     if (result.sketchData?.mode !== "geometry") {
-      return `<div class="card-placeholder">${result.sketchData?.caption || "面積輸入模式，未顯示幾何示意。"}</div>`;
+      return `<div class="card-placeholder">${result.sketchData?.caption || "本案採指定斷面面積，未建立幾何示意。"}</div>`;
     }
 
     const {
@@ -2220,13 +2220,6 @@
           : `<div class="mono">${(check.equationLines || []).join("<br>")}</div>`}
       </section>
     `).join("") : "";
-    const notes = [
-      ...result.validations,
-      ...result.assumptions,
-      ...result.references.map((item) => `參考條文：${item}`),
-      result.state.notes ? `設計備註：${result.state.notes}` : null,
-    ].filter(Boolean);
-    const reviewSectionsHtml = buildReviewSectionsMarkup(result, { inline: true });
     const plateAreaTable = result.state.connectionType === "plate_check" && result.derivedAreas
       ? `<section class="block"><h3>連接板派生面積</h3><table><tbody>
           <tr><th>Ag</th><td>${formatNumber(result.derivedAreas.Ag, 2)} mm²</td></tr>
@@ -2306,7 +2299,6 @@ ${plateAreaTable}
 ${tensionAreaTable}
 ${flowHtml}
 <div class="report-ending">
-<section class="block"><h3>設計依據與限制條件</h3>${reviewSectionsHtml || `<ul>${notes.map((item) => `<li>${item}</li>`).join("")}</ul>`}</section>
 <section class="block"><h3>檢核結論</h3><div class="banner">${reportBanner.textContent}</div></section>
 </div>
 </div>

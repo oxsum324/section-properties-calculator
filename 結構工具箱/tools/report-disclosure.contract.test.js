@@ -112,6 +112,7 @@ const pageOnlyReportStatusNeedles = [
 ];
 const calculationBookUiOnlyNeedles = [
   '輸入模式',
+  '計算書模式',
   '換算對照',
   '流程顯示',
   '報表模式',
@@ -214,6 +215,7 @@ const contextDoc = readText(repoFile('CONTEXT.md'));
 const pageOnlyReportReadinessAdr = readText(repoFile('docs/adr/0001-page-only-report-readiness.md'));
 const calculationBookContentAdr = readText(repoFile('docs/adr/0003-calculation-book-content-boundary.md'));
 const formalManifest = readJson(repoFile('結構工具箱/tools/formal-tools.manifest.json'));
+const attachmentPackageCheck = readText(repoFile('結構工具箱/tools/attachment-package-check.js'));
 const sharedCalculationReport = readText(repoFile('結構工具箱/core/ui/report.js'));
 const rcSharedCalculationReport = readText(repoFile('鋼筋混凝土/shared/report.js'));
 const rcSharedStyle = readText(repoFile('鋼筋混凝土/shared/style.css'));
@@ -321,6 +323,19 @@ assert(
   'RC shared calculation report filters interface fields and places the conclusion after calculation content',
   'RC_CALCULATION_BOOK_PAGE_ONLY_LABELS',
 );
+[
+  ['attachment package checker', attachmentPackageCheck],
+  ['RC rendered PDF helper', rcReportScreenshotQualityHelper],
+  ['stone export smoke', stoneServerSmoke],
+  ['anchor HTML smoke', anchorReportExportTest],
+  ['anchor DOCX smoke', anchorReportDocxTest],
+  ['anchor workbook smoke', anchorReportWorkbookTest],
+  ['excavation PDF / DOCX smoke', excavationReportingTest],
+].forEach(([label, source]) => {
+  calculationBookUiOnlyNeedles.forEach(needle => {
+    assert(source.includes(needle), `${label} rejects calculation-book UI-only wording`, needle);
+  });
+});
 assert(stoneServer.includes('PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS'), 'stone export server keeps page-only review key markers', 'PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS');
 assert(stoneServer.includes('def _strip_page_only_review_status'), 'stone export server keeps page-only review status stripper', '_strip_page_only_review_status');
 assert(stoneServerSmoke.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'stone export smoke keeps page-only report needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');

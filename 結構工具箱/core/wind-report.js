@@ -25,7 +25,12 @@
 
   function titleFrom(el) {
     if (!el) return '未命名區塊';
-    return textFrom(el.querySelector('h2')) || textFrom(el.querySelector('summary')) || '未命名區塊';
+    const heading = el.querySelector('h2');
+    if (heading) return textFrom(heading) || '未命名區塊';
+    const summary = el.querySelector('summary');
+    if (!summary) return '未命名區塊';
+    const primary = Array.from(summary.children).find(child => !child.classList.contains('fold-chip'));
+    return textFrom(primary || summary) || '未命名區塊';
   }
 
   function project() {
@@ -235,10 +240,15 @@ function closeReportWindow() {
     return cleanText(el.value);
   }
 
+  function isCalculationBookOutputControl(field) {
+    const id = String(field?.id || '');
+    return id === 'chkDetail' || id === 'reportMode' || id === 'repRemember' || id.startsWith('rep_');
+  }
+
   function collectInputGroups() {
     const left = document.querySelector('.main-layout > div:first-child');
     if (!left) return [];
-    return Array.from(left.children)
+    const groups = Array.from(left.children)
       .filter(node => node.matches('.card, details.card'))
       .map(card => {
         const items = [];
@@ -247,6 +257,7 @@ function closeReportWindow() {
           const label = textFrom(group.querySelector('label'));
           const field = group.querySelector('input, select, textarea');
           if (!label || !field) return;
+          if (isCalculationBookOutputControl(field)) return;
           if (field.disabled || field.hidden || !isVisible(field)) return;
           items.push({ label, value: fieldValue(field), unit: '' });
         });
@@ -255,12 +266,16 @@ function closeReportWindow() {
           const label = textFrom(row.querySelector('label'));
           const field = row.querySelector('input[type="checkbox"]');
           if (!label || !field) return;
+          if (isCalculationBookOutputControl(field)) return;
           if (!field.checked && row.dataset.reportUnchecked === 'omit') return;
           items.push({ label, value: field.checked ? '啟用' : '未啟用', unit: '' });
         });
         return items.length ? { group: titleFrom(card), items } : null;
       })
       .filter(Boolean);
+    return typeof global.ToolReportUI?.getCalculationBookInputGroups === 'function'
+      ? global.ToolReportUI.getCalculationBookInputGroups(groups)
+      : groups;
   }
 
   function makeTextGroup(group, text, label) {
@@ -395,7 +410,7 @@ function closeReportWindow() {
     appendIf(groups, makeTextGroup('設計風力組合', textFrom(document.getElementById('comboSummary'))));
     appendIf(groups, parseTable(document.getElementById('controlTable'), '控制採用表', 'directional'));
     appendIf(groups, parseTable(document.getElementById('dirComboTable'), '雙主風向設計風力組合', 'directional'));
-    appendIf(groups, makeTextGroup('第四章正式檢核', textFrom(document.getElementById('accelFormalSummary'))));
+    appendIf(groups, makeTextGroup('第四章角隅加速度', textFrom(document.getElementById('accelFormalSummary'))));
     appendIf(groups, makeTextGroup('簡化推估附錄', textFrom(document.getElementById('accelEstimateSummary'))));
     appendIf(groups, parseTable(document.getElementById('comboTable'), '逐層設計風力組合', 'directional'));
     appendIf(groups, makeTextGroup('MWFRS 內外壓組合', textFrom(document.getElementById('caseSummary'))));
@@ -480,7 +495,6 @@ function closeReportWindow() {
     return blocks ? `
       <section class="rep-block">
         <h3>輸入資料表</h3>
-        <div class="rep-text">以下整理本次計算採用之輸入條件。</div>
       </section>
       ${blocks}
     ` : '';
@@ -628,16 +642,13 @@ function closeReportWindow() {
     if (/規範示意圖/.test(title || '')) {
       const shotTitle = textFrom(body.querySelector('#refShotTitle, .ref-panel h3:last-of-type')) || '規範圖面';
       const shot = body.querySelector('#refShot, .ref-shot');
-      const caption = body.querySelector('#refShotDesc, .ref-caption:last-of-type');
       const shotHtml = shot ? shot.outerHTML.replace('class="ref-shot"', 'class="rep-visual-shot"') : '';
-      const captionHtml = caption ? `<div class="rep-note">${caption.innerHTML}</div>` : '';
       return `
         <section class="rep-block rep-visual-compact">
           <h3>${esc(title || titleFrom(card))}</h3>
           <div class="rep-text">
             <div class="rep-visual-title">${esc(shotTitle)}</div>
             ${shotHtml}
-            ${captionHtml}
           </div>
         </section>
       `;
@@ -671,6 +682,7 @@ function closeReportWindow() {
     if (!card || !isVisible(card)) return '';
     const title = titleFrom(card);
     if (!title) return '';
+    if (title === '說明' || title === '本頁假設' || title === '區域示意與說明') return '';
     if (/規範適用檢查/.test(title)) {
       return buildApplicabilitySection(title, card.querySelector('#applicStatus, .banner-status'), card.querySelector('#applicList, #bannerKey'));
     }
@@ -682,8 +694,7 @@ function closeReportWindow() {
     }
     if (card.querySelector('table')) {
       const table = card.querySelector('table');
-      const note = card.querySelector('.legend, .note');
-      return buildTableSection(title, table, note);
+      return buildTableSection(title, table, null);
     }
     if (card.querySelector('.results-grid')) {
       return buildResultGridSection(title, card);
@@ -718,18 +729,11 @@ function closeReportWindow() {
     const summaryCls = summary.ok === true ? 'ok' : summary.ok === false ? 'ng' : 'na';
     const mode = currentReportMode();
     const isSummaryReport = mode === 'summary';
-    const modeLabel = reportModeLabel(mode);
     const inputGroups = collectInputGroups();
     const reportTrace = buildWindReportTrace({ title, subtitle, mode, summary, inputGroups });
     if (!reportTrace) return;
     const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(inputGroups) : '';
-    const notes = collectNotes();
-    const notesHtml = !isSummaryReport && reportOpt('rep_notes', false) && notes.length ? `
-      <section class="rep-block">
-        <h3>備註</h3>
-        <ol class="rep-notes">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ol>
-      </section>
-    ` : '';
+    const notesHtml = '';
     const html = `<!doctype html>
 <html lang="zh-TW">
 <head>
@@ -805,7 +809,6 @@ ${reportToolbarHtml()}
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
     <div><b>設計人員</b>${esc(proj.designer) || '—'}</div>
     <div><b>製表日期</b>${esc(proj.date)}</div>
-    <div><b>計算書模式</b>${esc(modeLabel)}</div>
     <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool) || '—'}</div>
     <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version) || '—'}</div>
     <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
@@ -815,17 +818,16 @@ ${reportToolbarHtml()}
   ${reportOpt('rep_summary', true) ? buildBannerKeySection() : ''}
   ${reportOpt('rep_applicability', true) ? buildNarrativeSection('適用性檢查', document.getElementById('applicability')) : ''}
   ${reportOpt('rep_combo', true) ? buildNarrativeSection('設計風力組合', document.getElementById('comboSummary')) : ''}
-  ${reportOpt('rep_control', true) ? buildTableSection('採用控制表', document.getElementById('controlTable'), document.getElementById('controlNote')) : ''}
-  ${!isSummaryReport && reportOpt('rep_dir_combo', true) ? buildTableSection('雙主風向設計風力組合', document.getElementById('dirComboTable'), document.getElementById('dirComboNote')) : ''}
-  ${!isSummaryReport && reportOpt('rep_accel_formal', true) ? buildNarrativeSection('第四章正式檢核', document.getElementById('accelFormalSummary')) : ''}
+  ${reportOpt('rep_control', true) ? buildTableSection('採用控制表', document.getElementById('controlTable'), null) : ''}
+  ${!isSummaryReport && reportOpt('rep_dir_combo', true) ? buildTableSection('雙主風向設計風力組合', document.getElementById('dirComboTable'), null) : ''}
+  ${!isSummaryReport && reportOpt('rep_accel_formal', true) ? buildNarrativeSection('第四章角隅加速度', document.getElementById('accelFormalSummary')) : ''}
   ${!isSummaryReport && reportOpt('rep_accel_estimate', true) ? buildNarrativeSection('簡化推估附錄', document.getElementById('accelEstimateSummary')) : ''}
-  ${!isSummaryReport && reportOpt('rep_floor_combo', true) ? buildTableSection('逐層設計風力組合', document.getElementById('comboTable'), document.getElementById('comboNote')) : ''}
-  ${!isSummaryReport && reportOpt('rep_story', true) ? buildTableSection('逐層風壓與設計風力', document.getElementById('storyTable'), document.getElementById('storyNote')) : ''}
+  ${!isSummaryReport && reportOpt('rep_floor_combo', true) ? buildTableSection('逐層設計風力組合', document.getElementById('comboTable'), null) : ''}
+  ${!isSummaryReport && reportOpt('rep_story', true) ? buildTableSection('逐層風壓與設計風力', document.getElementById('storyTable'), null) : ''}
   ${!isSummaryReport && reportOpt('rep_case', false) ? buildNarrativeSection('MWFRS 內外壓組合', document.getElementById('caseSummary')) : ''}
   ${!isSummaryReport && reportOpt('rep_roof', false) ? buildNarrativeSection('屋面主結構壓力', document.getElementById('roofSummary')) : ''}
   ${!isSummaryReport && reportOpt('rep_lateral', false) ? buildNarrativeSection('橫風向與扭轉向設計風力', document.getElementById('lateralSummary')) : ''}
   ${!isSummaryReport && reportOpt('rep_parapet', false) ? buildNarrativeSection('MWFRS 女兒牆', document.getElementById('parapetSummary')) : ''}
-  ${!isSummaryReport && reportOpt('rep_route', false) ? buildNarrativeSection('適用分流', document.getElementById('routeSummary')) : ''}
   ${inputsHtml}
   ${!isSummaryReport ? buildStepsHtml() : ''}
   ${notesHtml}
@@ -857,24 +859,16 @@ ${reportWindowScriptHtml()}
     const summaryCls = summary.ok === true ? 'ok' : summary.ok === false ? 'ng' : 'na';
     const mode = currentReportMode();
     const isSummaryReport = mode === 'summary';
-    const modeLabel = reportModeLabel(mode);
     const inputGroups = collectInputGroups();
     const reportTrace = buildWindReportTrace({ title, subtitle, mode, summary, inputGroups });
     if (!reportTrace) return;
     const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(inputGroups) : '';
-    const notes = Array.from(document.querySelectorAll('.main-layout > div:first-child .note'))
-      .map(el => cleanText(el.textContent))
-      .filter(Boolean);
-    const notesHtml = !isSummaryReport && notes.length ? `
-      <section class="rep-block">
-        <h3>備註</h3>
-        <ol class="rep-notes">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ol>
-      </section>
-    ` : '';
+    const notesHtml = '';
     const sections = collectWindGenericSections();
     const reportSections = isSummaryReport
       ? sections.filter(section => !section.includes('rep-steps-wrap'))
       : sections;
+    const hasStructuredSteps = reportSections.some(section => section.includes('rep-steps-wrap'));
 
     const html = `<!doctype html>
 <html lang="zh-TW">
@@ -947,7 +941,6 @@ ${reportToolbarHtml()}
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
     <div><b>設計人員</b>${esc(proj.designer) || '—'}</div>
     <div><b>製表日期</b>${esc(proj.date)}</div>
-    <div><b>計算書模式</b>${esc(modeLabel)}</div>
     <div><b>產出工具</b>${esc(reportTrace.sourceTrace.tool) || '—'}</div>
     <div><b>工具版本</b>${esc(reportTrace.sourceTrace.version) || '—'}</div>
     <div><b>輸出時間</b>${esc(reportTrace.generatedAt)}</div>
@@ -956,7 +949,7 @@ ${reportToolbarHtml()}
   <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
   ${reportSections.filter(Boolean).join('')}
   ${inputsHtml}
-  ${!isSummaryReport ? buildStepsHtml() : ''}
+  ${!isSummaryReport && !hasStructuredSteps ? buildStepsHtml() : ''}
   ${notesHtml}
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </div>

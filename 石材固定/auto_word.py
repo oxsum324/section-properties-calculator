@@ -147,7 +147,9 @@ def render_payload_to_pdf(payload: dict, out_pdf: Path, tool_url: str = TOOL_URL
         # 在原頁呼叫 buildPagedPrintHtml + promoteAnchorIds，組 Paged.js HTML
         paged_html = page.evaluate(
             """() => {
-              const sheets = document.getElementById('preview-sheets').innerHTML;
+              const sheets = window.buildPrintableSheetsHtml
+                ? window.buildPrintableSheetsHtml()
+                : document.getElementById('preview-sheets').innerHTML;
               const promoted = window.promoteAnchorIds ? window.promoteAnchorIds(sheets) : sheets;
               const title = window.sanitizeFilename
                 ? window.sanitizeFilename((window.inputs && window.inputs().proj) || '石材計算書')

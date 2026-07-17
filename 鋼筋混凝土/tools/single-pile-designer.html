@@ -1044,16 +1044,15 @@
   function buildCompliance(rules, params) {
     const notes = [];
     const warnings = [];
-    notes.push(`計算法模式 = ${getModeLabel(params.calcMode)}。`);
+    notes.push(`採用計算法：${getModeLabel(params.calcMode)}。`);
     if (params.calcMode === 'regulation') {
       notes.push(`規範模式支承力法 = ${getRegulationMethodLabel(params.regulationMethod)}。`);
       notes.push(`垂直容許支承力固定採規範分項安全係數：常時 Qs/2.5 + Qb/3.5，短期 Qs/1.8 + Qb/2.5，極限限界狀態 Qs/1.2 + Qb/1.5。`);
       notes.push(`抗拔容許承載力固定採規範分項安全係數：常時 Ra = Wp + Qs/5.0，短期 = Wp + Qs/3.0，極限限界 = Wp + Qs/2.4。`);
-      notes.push('規範模式下，上方整體 FS 與簡化模式 FS 欄位僅保留顯示，不參與計算。');
     } else {
       notes.push(`長期 FS = ${params.safetyFactorLong.toFixed(2)}，短期 FS = ${params.safetyFactorShort.toFixed(2)}。`);
-      if (params.safetyFactorLong < DEFAULT_RULES.safetyFactorLong) warnings.push('長期安全係數低於本工具預設保守值 3.0。');
-      if (params.safetyFactorShort < DEFAULT_RULES.safetyFactorShort) warnings.push('短期安全係數低於本工具預設保守值 2.0。');
+      if (params.safetyFactorLong < DEFAULT_RULES.safetyFactorLong) warnings.push('長期安全係數低於一般保守檢核值 3.0。');
+      if (params.safetyFactorShort < DEFAULT_RULES.safetyFactorShort) warnings.push('短期安全係數低於一般保守檢核值 2.0。');
     }
     if (rules.alphaSoft > DEFAULT_RULES.alphaSoft || rules.alphaMedium > DEFAULT_RULES.alphaMedium || rules.alphaStiff > DEFAULT_RULES.alphaStiff) warnings.push('黏土/軟岩 α 係數高於預設值，樁周摩擦力可能偏樂觀。');
     if (rules.sandKDriven > DEFAULT_RULES.sandKDriven || rules.sandKBored > DEFAULT_RULES.sandKBored) warnings.push('砂層 K 值高於預設值，樁周摩擦力可能偏樂觀。');
@@ -1427,7 +1426,7 @@
 2. 改用打入樁或提高持力層嵌入深度。
 3. 放寬容許沉陷前，請先確認實際使用需求。
 4. 目前最大可達 Qall(長期/短期) 約 ${maxQallLong.toFixed(2)} / ${maxQallShort.toFixed(2)} tf。
-5. ${compliance.ok ? '細部折減仍在本工具預設保守範圍內。' : '細部折減已有自訂值，請人工複核。'}`;
+5. ${compliance.ok ? '細部折減未超過一般保守檢核值。' : '細部折減採專案指定值，請人工複核。'}`;
     }
     const tipName = best.tip.tipLayer ? (best.tip.tipLayer.label || best.tip.tipLayer.type) : '—';
     const shareQs = best.Qult > 0 ? best.skin.Qs / best.Qult : 0;
@@ -1435,7 +1434,7 @@
     const nextDepth = candidates.find(c => c.diaCm === best.diaCm && Math.abs(c.depthM - (best.depthM + params.depthStep)) < 1e-9);
     const gainText = nextDepth ? `同樁徑再加深 ${params.depthStep.toFixed(1)} m，Qall(長期/短期) 將增加 ${(nextDepth.QallLong - best.QallLong).toFixed(2)} / ${(nextDepth.QallShort - best.QallShort).toFixed(2)} tf。` : '已達目前搜尋深度上限。';
     return `建議採用 D = ${best.diaCm} cm，L = ${best.depthM.toFixed(1)} m。
-計算法模式：${getModeLabel(params.calcMode)}${params.calcMode === 'regulation' ? ` / ${getRegulationMethodLabel(params.regulationMethod)}` : ''}
+採用計算法：${getModeLabel(params.calcMode)}${params.calcMode === 'regulation' ? ` / ${getRegulationMethodLabel(params.regulationMethod)}` : ''}
 控制端點層：${tipName}
 單樁承載力：Qs = ${best.skin.Qs.toFixed(2)} tf，Qb = ${best.tip.Qb.toFixed(2)} tf，Qall(長期/短期) = ${best.QallLong.toFixed(2)} / ${best.QallShort.toFixed(2)} tf。
 抗拔承載力：Ra = ${best.upliftRa.toFixed(2)} tf = Qs/FS + Wp，其中 Wp = ${best.upliftWp.toFixed(2)} tf。
@@ -1448,7 +1447,7 @@
 ${best.tip.capApplied ? `端承已套用上限 ${best.tip.capValue} tf/m²。` : '端承未觸發上限。'}
 安全係數：${params.calcMode === 'regulation'
       ? '規範模式固定採常時 Qs/2.5 + Qb/3.5、短期 Qs/1.8 + Qb/2.5，抗拔常時 Ra = Wp + Qs/5.0。'
-      : `長期 FS=${params.safetyFactorLong.toFixed(2)}，短期 FS=${params.safetyFactorShort.toFixed(2)}。${params.calcMode === 'code' ? '此模式為工程推估模式，非 112 規範表 5.3-1 的 FS1/FS2 分項模式。' : ''}`}${compliance.ok ? '折減參數仍在預設保守範圍。' : '折減參數已有調整，請依專案規範複核。'}
+      : `長期 FS=${params.safetyFactorLong.toFixed(2)}，短期 FS=${params.safetyFactorShort.toFixed(2)}。${params.calcMode === 'code' ? '本案採工程推估，非 112 規範表 5.3-1 的 FS1/FS2 分項方式。' : ''}`}${compliance.ok ? '折減參數未超過一般保守檢核值。' : '折減參數採專案指定值，請依專案規範複核。'}
 ${gainText}`;
   }
 
@@ -1680,10 +1679,10 @@ ${gainText}`;
           { label: "fc'", value: fmt(params.fc, 0), unit: 'kgf/cm²' },
           { label: '樁型式 / 施工法', value: `${params.pileType === 'cast-in-place' ? '場鑄混凝土樁' : '鋼管樁'} / ${params.pileInstall === 'driven' ? '打入樁' : '鑽掘樁'}`, unit: '' }
         ]},
-        { group: '計算模式', items: [
-          { label: '模式', value: `${getModeLabel(params.calcMode)}${params.calcMode === 'regulation' ? ` / ${getRegulationMethodLabel(params.regulationMethod)}` : ''}`, unit: '' },
+        { group: '計算方法與係數', items: [
+          { label: '採用計算法', value: `${getModeLabel(params.calcMode)}${params.calcMode === 'regulation' ? ` / ${getRegulationMethodLabel(params.regulationMethod)}` : ''}`, unit: '' },
           { label: '安全係數', value: params.calcMode === 'regulation' ? '常時 Qs/2.5 + Qb/3.5；短期 Qs/1.8 + Qb/2.5' : `長期 FS=${fmt(params.safetyFactorLong)}；短期 FS=${fmt(params.safetyFactorShort)}`, unit: '' },
-          { label: '沉陷模式 / 容許沉陷', value: `${params.settlementMode === 'manual' ? '手動係數' : '自動係數'} / ${fmt(params.allowSettlement)}`, unit: 'cm' },
+          { label: '沉陷係數 / 容許沉陷', value: `${params.settlementMode === 'manual' ? '採指定係數' : '依材料條件推估'} / ${fmt(params.allowSettlement)}`, unit: 'cm' },
           { label: '搜尋範圍 D / L', value: `${fmt(params.diameterMin, 0)}-${fmt(params.diameterMax, 0)} cm；${fmt(params.depthMin, 1)}-${fmt(params.depthMax, 1)} m`, unit: '' }
         ]},
         { group: r.bestCandidate ? '採用方案' : '最接近控制方案', keepTogether: true, items: [
@@ -1709,8 +1708,8 @@ ${gainText}`;
           { label: '構造限制', value: candidate.structural.text, ok: candidate.structural.ok }
         ]},
         { group: '規範假設檢核', items: [
-          { label: '細部折減參數', value: reviewWarnings.length ? '需人工複核' : '預設保守值內', ok: reviewWarnings.length ? null : true },
-          { label: '計算模式揭露', value: getModeLabel(params.calcMode), ok: true },
+          { label: '細部折減參數', value: reviewWarnings.length ? '需人工複核' : '一般保守檢核值內', ok: reviewWarnings.length ? null : true },
+          { label: '採用計算法', value: getModeLabel(params.calcMode), ok: true },
           { label: 'N 值經驗式適用性', value: params.calcMode === 'regulation' && params.regulationMethod === 'nvalue' ? '僅適用砂性土，特殊地層需人工複核' : '未採 N 值經驗式', ok: null }
         ]}
       ],
@@ -1722,9 +1721,9 @@ ${gainText}`;
         { group: '候選方案矩陣', body: candidateRowsForReport(r.candidates || [], r.bestCandidate) }
       ],
       methods: [
-        { item: '單樁承載力', level: getModeLabel(params.calcMode), ref: params.calcMode === 'regulation' ? '規範分項 FS' : '工程初估', note: params.calcMode === 'regulation' ? `支承力法：${getRegulationMethodLabel(params.regulationMethod)}` : '依頁面輸入之 FS 與工程參數計算' },
+        { item: '單樁承載力', level: getModeLabel(params.calcMode), ref: params.calcMode === 'regulation' ? '規範分項 FS' : '工程初估', note: params.calcMode === 'regulation' ? `支承力法：${getRegulationMethodLabel(params.regulationMethod)}` : '依採用之 FS 與工程參數計算' },
         { item: '砂層端承', level: '規範判定', ref: '20D 臨界深度', note: 'N>50 極緊密砂或卵礫石依輸入上限控制' },
-        { item: '沉陷估算', level: '工程估算', ref: 'Ws + Wpp + Wps', note: params.settlementMode === 'manual' ? '採手動係數' : '採自動係數' }
+        { item: '沉陷估算', level: '工程估算', ref: 'Ws + Wpp + Wps', note: params.settlementMode === 'manual' ? '採指定係數' : '依材料條件推估係數' }
       ],
       symbols: [
         { sym: 'Qs', desc: '樁周摩擦力' },
@@ -1828,11 +1827,11 @@ ${gainText}`;
     setText('rRa', best ? `${best.upliftRa.toFixed(2)} tf` : '—', best ? 'good' : 'bad');
     setText('rWo', best ? `${best.settlement.Wo_cm.toFixed(2)} cm` : '—', best && best.okSettlement ? 'good' : 'bad');
     setText('rSplit', best ? `${best.skin.Qs.toFixed(1)} / ${best.tip.Qb.toFixed(1)} tf` : '—');
-    setText('rCode', reviewWarnings.length ? '需人工複核' : '預設保守值內', reviewWarnings.length ? 'warn' : 'good');
+    setText('rCode', reviewWarnings.length ? '需人工複核' : '一般保守檢核值內', reviewWarnings.length ? 'warn' : 'good');
     $('summary').textContent = buildSummary(best, params, parsed, candidates, compliance);
-    $('complianceSummary').textContent = `${reviewWarnings.length ? '目前至少有一項細部參數或安全係數配置需人工確認是否符合專案規範。' : '目前細部參數仍在本工具預設保守值範圍內。'}
+    $('complianceSummary').textContent = `${reviewWarnings.length ? '目前至少有一項細部參數或安全係數配置需人工確認是否符合專案規範。' : '採用之細部參數未超過一般保守檢核值。'}
 ${compliance.notes.join('\n')}
-${reviewWarnings.length ? `\n需要複核：\n- ${reviewWarnings.join('\n- ')}` : '\n需要複核：\n- 目前未發現超出本工具預設保守值的細部參數。'}`;
+${reviewWarnings.length ? `\n需要複核：\n- ${reviewWarnings.join('\n- ')}` : '\n需要複核：\n- 目前未發現超出一般保守檢核值的細部參數。'}`;
     renderLayerTable(displayCandidate);
     renderCandidateTable(candidates, best);
 

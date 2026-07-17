@@ -247,6 +247,7 @@
         <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
         <option value="summary">簡易結果（摘要與採用表）</option>
       </select>
+      <div class="hint">本選項只控制輸出詳略，不會列為計算書欄位。</div>
     </div>
     <button class="btn-print" type="button">列印計算書</button>
   </details>
@@ -398,7 +399,7 @@
       最大負壓: <code>p<sub>−</sub> = q<sub>h</sub> · (GC<sub>p,neg</sub> − GC<sub>pi</sub>)</code>
     </div>
     <div class="note">
-      ⚠ 本工具依規範第三章圖 3.1 / 圖 3.2 簡化，僅適用封閉式或部分封閉式建築物之外牆與低坡度屋面；不含開放式建築、女兒牆及特殊遮蔽折減。
+      適用條件：依規範第三章圖 3.1 / 圖 3.2，本計算適用封閉式或部分封閉式建築物之外牆與低坡度屋面；不涵蓋開放式建築、女兒牆及特殊遮蔽折減。
     </div>
   </details>
 </div>
@@ -867,7 +868,7 @@ function calc() {
       <td>控制絕對值</td>
       <td>${fmt(Math.max(Math.abs(maxAbs.data.p_pos), Math.abs(maxAbs.data.p_neg)), 1)}</td>
       <td>${maxAbs.label}</td>
-      <td>便於快速抓取控制設計值</td>
+      <td>各區域設計風壓取最大絕對值</td>
     </tr>
   `;
   document.getElementById('designAdoptNote').innerHTML =
@@ -928,7 +929,7 @@ function calc() {
   const slopeLimit = r.isLE18 ? 7 : 10;
 
   const applicability = [
-    { label: '建築物型式', level: 'ok', message: `${enclosureName}，屬本工具適用範圍` },
+    { label: '建築物型式', level: 'ok', message: `${enclosureName}，符合本次規範計算適用條件` },
     { label: '構材類型', level: 'ok', message: surface === 'wall' ? '外牆 C&C' : '低坡度屋面 C&C' },
     ...(surface === 'roof' ? [{
       label: '屋面坡度',

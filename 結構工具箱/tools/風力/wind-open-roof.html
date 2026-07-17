@@ -205,6 +205,7 @@
         <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
         <option value="summary">簡易結果（摘要與採用表）</option>
       </select>
+      <div class="hint">本選項只控制輸出詳略，不會列為計算書欄位。</div>
     </div>
     <button class="btn-print" type="button">列印計算書</button>
   </details>
@@ -764,7 +765,7 @@ function calc() {
       <td>控制絕對值</td>
       <td>${fmt(Math.max(Math.abs(maxAbs.data.p_pos), Math.abs(maxAbs.data.p_neg)),1)}</td>
       <td>${maxAbs.label}</td>
-      <td>便於快速抓取控制設計值</td>
+      <td>各區域設計風壓取最大絕對值</td>
     </tr>
   `;
   document.getElementById('designAdoptNote').textContent = `本表彙整開放式建築屋面區域 1 / 2 / 3 的控制設計值，可直接作為屋面設計採用摘要；本次採 ${sourceFigure}。`;

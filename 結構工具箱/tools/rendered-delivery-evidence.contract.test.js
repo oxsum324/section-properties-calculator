@@ -677,7 +677,7 @@ const seismicDynamicPdf = validatePdfFile(seismicDynamicPdfPath, {
     '反應譜動力分析規範整理計算書',
     '正式工具驗證案',
     '第 3.3 節總橫力調整檢核',
-    '第 3.2 節反應譜輸出表',
+    '第 3.2 節反應譜資料表',
     '總橫力比對表',
     '動力模型檢核表',
   ],
@@ -686,7 +686,7 @@ const seismicDynamicPdf = validatePdfFile(seismicDynamicPdfPath, {
   keepWithNextLabels: [
     '第 3.3 節總橫力調整檢核',
     '工址與設計譜參考',
-    '第 3.2 節反應譜輸出表',
+    '第 3.2 節反應譜資料表',
     '反應譜圖形化檢核',
     '總橫力比對表',
     '動力模型檢核表',
@@ -695,7 +695,7 @@ const seismicDynamicPdf = validatePdfFile(seismicDynamicPdfPath, {
   continuationContextLabels: [
     '第 3.3 節總橫力調整檢核',
     '工址與設計譜參考',
-    '第 3.2 節反應譜輸出表',
+    '第 3.2 節反應譜資料表',
     '反應譜圖形化檢核',
     '總橫力比對表',
     '動力模型檢核表',
