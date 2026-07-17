@@ -17,6 +17,12 @@ $SmokeScript = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'pages-live
 if (-not $SmokeScript) {
   throw 'Could not find pages-live-smoke.js under the repository tools directories.'
 }
+$RouteBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pages-clean-routes.js' |
+  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)build-pages-clean-routes.js" } |
+  Select-Object -First 1
+if (-not $RouteBuilder) {
+  throw 'Could not find build-pages-clean-routes.js under the repository tools directory.'
+}
 
 $Python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $Python) {
@@ -73,6 +79,7 @@ $ExcludeFiles = @(
   'TOOL_BOUNDARIES.md',
   'TOOL_REPORT_GUIDE.md',
   'pages-live-smoke.js',
+  'build-pages-clean-routes.js',
   'attachment-package-check.js',
   'rendered-delivery-evidence.js',
   'rendered-delivery-evidence.inventory.json',
@@ -96,6 +103,10 @@ $ExcludeFiles = @(
 & robocopy $RepoRoot $SiteRoot /E /XD $ExcludeDirs /XF $ExcludeFiles /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -gt 7) {
   throw "robocopy failed with exit code $LASTEXITCODE"
+}
+& node $RouteBuilder.FullName --site-root $SiteRoot --config (Join-Path $RepoRoot 'vercel.json')
+if ($LASTEXITCODE -ne 0) {
+  throw "build-pages-clean-routes.js failed with exit code $LASTEXITCODE"
 }
 New-Item -ItemType File -Path (Join-Path $SiteRoot '.nojekyll') -Force | Out-Null
 
