@@ -793,7 +793,6 @@ function buildBeamReport() {
   if (!result) return;
 
   const { sec, cls, flex, shear, Fy, Lb, Cb, L, isLRFD, flexOk, shearOk, ratio_flex, ratio_shear, deflStatus, allOk, secName } = result;
-  const reportDetail = $('chkDetail')?.checked;
   const Mu_tf = num('inMu');
   const Vu_tf = num('inVu');
   const Mu_abs_tf = Math.abs(Mu_tf);
@@ -923,16 +922,6 @@ function buildBeamReport() {
       text: allOk ? '✓ 全部通過 — 斷面安全' : (deflStatus === 'skipped' && flexOk && shearOk ? '△ 強度通過，撓度未檢核' : '✗ 部分不通過 — 請依建議調整'),
     },
     diagrams,
-    notes: [
-      '本輸出為舊案延續計算記錄，只供既有案件流程延續；新案正式計算附件必須由鋼梁正式頁面產出。',
-      `設計方法: ${designMethod}`,
-      envDetail ? `荷重組合控制圖採 ${envDetail.comboName}；控制彎矩為 ${envDetail.envelope.M.abs.name}，控制剪力為 ${envDetail.envelope.V.abs.name}。此摘要僅反映組合控制值，不代表跨內內力包絡。` : '若需荷重組合控制摘要，請先使用載重組合產生器套用後再輸出計算書。',
-      ...(reportDetail ? [
-        `規範依據: AISC 360-22 Section ${flex.webSection}；台灣鋼結構設計規範第七章撓曲構材與附錄三補充規定`,
-        `斷面條件: ${secName}, Fy=${Fy} kgf/cm², Lb=${Lb} cm, Cb=${Cb}`,
-        `斷面分類說明: 受壓翼板為${clsText(cls.flange)}，腹板為${clsText(cls.web)}。`,
-      ] : []),
-    ],
   });
 }
 </script>

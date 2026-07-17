@@ -1939,6 +1939,7 @@ $checks = @(
     workdir = $root
     command = $rcColumnReportContractCommand
     slow = $false
+    timeoutSeconds = 300
   },
   [pscustomobject]@{
     key = "rc-shear-wall-report-contract"

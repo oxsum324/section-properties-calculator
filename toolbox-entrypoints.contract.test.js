@@ -729,6 +729,16 @@ assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.j
 assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}'), 'Pages live smoke uses deployed page URL');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
+assert.match(
+  preflight,
+  /key\s*=\s*"rc-column-report-contract"[\s\S]{0,320}?timeoutSeconds\s*=\s*300/,
+  'RC column report contract keeps a five-minute timeout for the full visual evidence set'
+);
+[readme, boundaries, staging].forEach((documentText, index) => {
+  const label = ['README', 'TOOL_BOUNDARIES', 'STAGING_GROUPS'][index];
+  assert.ok(documentText.includes('rc-column-report-contract'), `${label} documents the RC column report gate`);
+  assert.ok(documentText.includes('timeoutSeconds = 300'), `${label} documents the RC column report timeout`);
+});
 assert.ok(preflight.includes('$maturityMatrixScript = Join-Path $root "結構工具箱\\tools\\tool-maturity-matrix.js"'), 'preflight resolves maturity matrix after summary');
 assert.ok(preflight.includes('$matrixProc = Start-Process -FilePath node'), 'preflight refreshes maturity matrix from summary');
 assert.ok(preflight.includes('tool-maturity-matrix-refresh: exitCode=$($matrixProc.ExitCode)'), 'preflight reports maturity matrix refresh failures');
