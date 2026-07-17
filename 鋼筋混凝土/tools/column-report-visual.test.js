@@ -299,6 +299,59 @@ async function main() {
       await report.close();
       await page.close();
     }
+
+    const resolvedCase = pack.cases.find(tc => tc.key === 'development_anchor_manual_review');
+    assert(!!resolvedCase, 'resolved review visual case exists', 'development_anchor_manual_review');
+    const page = await browser.newPage({ viewport: { width: 1180, height: 900 }, deviceScaleFactor: 1 });
+    await page.goto(toolUrl, { waitUntil: 'networkidle' });
+    await applyCase(page, resolvedCase);
+    await page.evaluate(() => {
+      const values = { projName: '可送簽版測試工程', projNo: 'RC-COL-SIGN', projDesigner: 'QA' };
+      Object.entries(values).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        el.value = value;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      window.calcColumn();
+    });
+    await page.click('.section-tabs button[data-tab="summary"]');
+    await page.selectOption('[data-review-item="column-anchorage"] [data-review-field="basis"]', 'drawing');
+    await page.fill('[data-review-item="column-anchorage"] [data-review-field="reference"]', 'S-302');
+    await page.fill('[data-review-item="column-anchorage"] [data-review-field="reviewer"]', 'QA-01');
+    await page.fill('[data-review-item="column-anchorage"] [data-review-field="reviewedAt"]', '2026-07-17T14:30');
+    await page.click('[data-review-item="column-anchorage"] [data-review-action="confirm"]');
+    const readyState = await page.evaluate(() => ({
+      status: document.getElementById('columnAttachmentReadiness')?.dataset.attachmentStatus,
+      readyToSign: window.lastColumnAttachmentReadiness?.readyToSign
+    }));
+    assert(readyState.status === 'ready' && readyState.readyToSign === true, 'resolved review visual case reaches ready-to-sign', JSON.stringify(readyState));
+
+    const report = await openReportPopup(page);
+    await report.waitForSelector('.rep-paper', { timeout: 10000 });
+    await report.setViewportSize({ width: 980, height: 1300 });
+    await report.waitForTimeout(300);
+    const screenshotPath = path.join(OUT_DIR, 'column-report-resolved-review-ready-to-sign.png');
+    const pdfPath = path.join(OUT_DIR, 'column-report-resolved-review-ready-to-sign.pdf');
+    await report.screenshot({ path: screenshotPath, fullPage: true });
+    await report.emulateMedia({ media: 'print' });
+    await report.pdf({ path: pdfPath, format: 'A4', printBackground: true, margin: { top: '18mm', right: '14mm', bottom: '18mm', left: '14mm' } });
+    await report.emulateMedia({ media: 'screen' });
+    const metrics = await extractReportMetrics(report);
+    const screenshotQuality = assertReportScreenshotQuality(screenshotPath, 'resolved review ready-to-sign report', { assert });
+    const pdfTextQuality = assertReportPdfTextQuality(pdfPath, 'resolved review ready-to-sign report', {
+      assert,
+      include: ['柱檢核計算書', '人工複核採用記錄', '複核完成／可送簽版', '配筋圖／S-302', 'QA-01', '人工複核（已完成）', '已複核']
+    });
+    ['DRAFT／非正式附件', '未輸入時不作通過判定', '人工複核項，不納入自動 OK 判定', '報告不作通過判定'].forEach(fragment => {
+      assert(!metrics.bodyText.includes(fragment), 'resolved review rendered report has no stale draft conclusion', fragment);
+    });
+    assert(!metrics.hasHorizontalPageOverflow && metrics.overflowSample.length === 0, 'resolved review rendered report has no overflow', JSON.stringify(metrics.overflowSample));
+    assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], 'resolved review screenshot written');
+    assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], 'resolved review PDF written');
+    results.push({ key: 'resolved-review-ready-to-sign', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality });
+    await report.close();
+    await page.close();
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));
