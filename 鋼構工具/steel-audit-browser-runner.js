@@ -63,6 +63,7 @@ const LEGACY_PROJECT_META_PLACEHOLDER = {
 
 const FORMAL_REPORT_TRACE_LABELS = ['產出工具', '工具版本', '輸出時間', '計算指紋'];
 const FORMAL_REPORT_REFERENCE_NEEDLES = ['功能借鏡', 'SkyCiv', 'ClearCalcs', 'Dlubal'];
+const CALCULATION_BOOK_UI_ONLY_NEEDLES = ['輸入模式', '換算對照', '流程顯示', '報表模式', '輸出設定'];
 
 function assertFormalReportTraceText(value, label) {
   const text = String(value || '').replace(/\s+/g, ' ').trim();
@@ -779,6 +780,8 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
     html: document.documentElement?.outerHTML || '',
     metaRows: Array.from(document.querySelectorAll('.rep-meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
+    sectionHeadings: Array.from(document.querySelectorAll('.rep-paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
+    uiCardCount: document.querySelectorAll('.rep-highlights, .rep-summary-facts').length,
   }))()`, `${options.label} snapshot`);
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
@@ -791,12 +794,21 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     '不會寫入計算書或列印 PDF',
     '計畫名稱 / 編號 / 設計人尚未完整',
     ...FORMAL_REPORT_REFERENCE_NEEDLES,
+    ...CALCULATION_BOOK_UI_ONLY_NEEDLES,
+    '符號說明',
     ...(Array.isArray(options.absentNeedles) ? options.absentNeedles : []),
   ];
   for (const needle of forbiddenNeedles) {
     if (snapshot.bodyText.includes(needle)) {
       throw new Error(`${options.label} should exclude "${needle}": ${snapshot.bodyText}`);
     }
+  }
+  if (snapshot.uiCardCount !== 0) {
+    throw new Error(`${options.label} should not render interface-style cards: ${snapshot.uiCardCount}`);
+  }
+  const conclusionIndex = snapshot.sectionHeadings.lastIndexOf('檢核結論');
+  if (conclusionIndex < 0 || conclusionIndex !== snapshot.sectionHeadings.length - 1) {
+    throw new Error(`${options.label} should place 檢核結論 after calculation content: ${JSON.stringify(snapshot.sectionHeadings)}`);
   }
   const [nameRow = '', noRow = '', designerRow = ''] = snapshot.metaRows;
   if (!nameRow.includes(options.expectedProject.name)) {
@@ -817,7 +829,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       label: options.label,
       renderer: 'steel-formal-report',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, '計畫名稱', ...FORMAL_REPORT_TRACE_LABELS],
+      requiredNeedles: [options.titleNeedle, '計畫名稱', '計算過程明細', '檢核結論', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
     });
     assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
@@ -844,6 +856,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
     html: document.documentElement?.outerHTML || '',
     metaRows: Array.from(document.querySelectorAll('.meta div')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
+    sectionHeadings: Array.from(document.querySelectorAll('.paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
   }))()`, `${options.label} snapshot`);
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
@@ -856,12 +869,18 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     '不會寫入計算書或列印 PDF',
     '計畫名稱 / 編號 / 設計人尚未完整',
     ...FORMAL_REPORT_REFERENCE_NEEDLES,
+    ...CALCULATION_BOOK_UI_ONLY_NEEDLES,
+    '審查摘要',
     ...(Array.isArray(options.absentNeedles) ? options.absentNeedles : []),
   ];
   for (const needle of forbiddenNeedles) {
     if (snapshot.bodyText.includes(needle)) {
       throw new Error(`${options.label} should exclude "${needle}": ${snapshot.bodyText}`);
     }
+  }
+  const legacyConclusionIndex = snapshot.sectionHeadings.lastIndexOf('檢核結論');
+  if (legacyConclusionIndex < 0 || legacyConclusionIndex !== snapshot.sectionHeadings.length - 1) {
+    throw new Error(`${options.label} should place 檢核結論 after calculation content: ${JSON.stringify(snapshot.sectionHeadings)}`);
   }
   const [nameRow = '', tagRow = '', designerRow = ''] = snapshot.metaRows;
   if (!nameRow.includes(options.expectedProject.name)) {
@@ -882,7 +901,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       label: options.label,
       renderer: 'steel-main-report',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, '計畫名稱', ...FORMAL_REPORT_TRACE_LABELS],
+      requiredNeedles: [options.titleNeedle, '計畫名稱', '檢核結論', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
     });
     assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);

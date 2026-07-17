@@ -2227,14 +2227,6 @@
       result.state.notes ? `設計備註：${result.state.notes}` : null,
     ].filter(Boolean);
     const reviewSectionsHtml = buildReviewSectionsMarkup(result, { inline: true });
-    const reviewSummaryRows = [
-      ["規範基準", getCodeBasisText(result.state)],
-      ["正式規範核算模組", result.complianceReady ? "是" : "否"],
-      ["控制檢核項目", result.governing.label],
-      ["控制式號", result.governing.equationRef || "—"],
-      ["整體判定", result.passes ? (result.overallStatus === "warn" ? "條件式核可" : "核可") : "不核可"],
-      ["限制條件狀態", result.scopeLimited ? "有範圍限制，應配合限制事項判讀" : "無額外範圍限制訊息"],
-    ].map(([label, value]) => `<tr><th>${label}</th><td>${value}</td></tr>`).join("");
     const plateAreaTable = result.state.connectionType === "plate_check" && result.derivedAreas
       ? `<section class="block"><h3>連接板派生面積</h3><table><tbody>
           <tr><th>Ag</th><td>${formatNumber(result.derivedAreas.Ag, 2)} mm²</td></tr>
@@ -2288,7 +2280,7 @@ th{background:#eef2f6}
 .card-placeholder{padding:14px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;color:#64748b}
 .plate-sketch{width:100%;height:auto;min-height:220px}.sketch-plate,.sketch-member{fill:rgba(14,116,144,.08);stroke:#0e7490;stroke-width:2}.sketch-hole{fill:#fff;stroke:#1e293b;stroke-width:1.5}.sketch-net{fill:none;stroke:#c0392b;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:8 6}.sketch-block{fill:rgba(217,119,6,.12);stroke:#d97706;stroke-width:2.5}.sketch-arrow{stroke:#0e7490;stroke-width:2.5}.sketch-label{fill:#0f172a;font-size:12px;font-weight:700}.sketch-note{fill:#475569;font-size:11px}.sketch-weld{stroke:#b45309;stroke-width:5;stroke-linecap:round}.sketch-weld--transverse{stroke:#c2410c}.sketch-dim{stroke:#64748b;stroke-width:1.4}.sketch-dim-label{fill:#475569;font-size:10px;font-weight:700}
 ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-align:right}.toolbar button{padding:8px 18px}
-@media print{body{background:#fff;padding:0}.toolbar{display:none}.paper{box-shadow:none;max-width:none;padding:0}.block h3{break-after:avoid-page;page-break-after:avoid}.report-sketch-block,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
+@media print{body{background:#fff;padding:0}.toolbar{display:none}.paper{box-shadow:none;max-width:none;padding:0}.block h3{break-after:avoid-page;page-break-after:avoid}.report-sketch-block,.report-ending,tr{break-inside:avoid-page;page-break-inside:avoid}thead{display:table-header-group}}
 </style>
 </head>
 <body>
@@ -2308,14 +2300,15 @@ ul{margin:0;padding-left:20px}.toolbar{max-width:820px;margin:0 auto 12px;text-a
   <div><b>規範基準</b> ${getCodeBasisText(result.state)}</div>
   <div><b>控制項</b> ${result.governing.label}</div>
 </div>
-<div class="banner">${reportBanner.textContent}</div>
-<section class="block"><h3>審查摘要</h3><table><tbody>${reviewSummaryRows}</tbody></table></section>
 <section class="block"><h3>強度檢核總表</h3><table><thead><tr><th>檢核項目</th><th>需求值</th><th>可用強度</th><th>DCR</th><th>判定</th></tr></thead><tbody>${strengthRows}</tbody></table></section>
 <section class="block"><h3>細部規定檢核</h3><table><thead><tr><th>檢核項目</th><th>規定條文</th><th>提供值</th><th>規定值</th><th>檢核說明</th><th>判定</th></tr></thead><tbody>${detailRows}</tbody></table></section>
 ${plateAreaTable}
 ${tensionAreaTable}
 ${flowHtml}
+<div class="report-ending">
 <section class="block"><h3>設計依據與限制條件</h3>${reviewSectionsHtml || `<ul>${notes.map((item) => `<li>${item}</li>`).join("")}</ul>`}</section>
+<section class="block"><h3>檢核結論</h3><div class="banner">${reportBanner.textContent}</div></section>
+</div>
 </div>
 </body>
 </html>`;

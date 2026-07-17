@@ -184,9 +184,13 @@ Expand RC tool governance and report verification
 
 這包集中 `鋼構工具/` 的正式頁、共用報表、manifest、樣式與 regression；`結構工具箱/tools/鋼構/` 是工具箱內的舊版 / 轉接頁，應與首頁狀態一起審查。`steel-formal.regression-test.js` 同時負責 HTML 彈窗型計算書的可讀文字抽檢、page-only wording 排除、舊版示意圖尺寸標註間距與圖面不可拆頁規則。
 
+正式計算書若調整為 calculation-first 內容邊界，必須把共用 report helper、RC report helper、鋼構正式頁與 browser runner、風力 / 地震正式工具 manifest、跨家族 report-disclosure contract、ADR 與報告指南視為同一包審查。輸入模式、換算對照、流程顯示、輸出設定、符號詞典與長篇條文解釋只留在 HTML 畫面；採用值、公式代入、檢核結果、對應條文依據與必要人工複核限制才進入計算書，且檢核結論固定置於計算內容之後。
+
 ```powershell
 git add -- "鋼構工具/app.js" "鋼構工具/tool-metadata.js" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/core" "鋼構工具/steel-beam-formal.html" "鋼構工具/steel-beam-formal.js" "鋼構工具/steel-column-formal.html" "鋼構工具/steel-column-formal.js" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-traceability.catalog.json" "鋼構工具/steel-traceability.contract.test.js" "鋼構工具/steel-member-formal.css" "鋼構工具/styles.css" "鋼構工具/README.md"
 git add -- "結構工具箱/tools/鋼構/steel-beam.html" "結構工具箱/tools/鋼構/steel-column.html"
+git add -- "結構工具箱/core/ui/report.js" "鋼筋混凝土/shared/report.js" "結構工具箱/tools/formal-tools.manifest.json" "結構工具箱/tools/formal-tools.contract.test.js" "結構工具箱/tools/report-disclosure.contract.test.js"
+git add -- "docs/adr/0003-calculation-book-content-boundary.md" "TOOL_REPORT_GUIDE.md" "TOOL_BOUNDARIES.md" "CONTEXT.md" "README.md" "STAGING_GROUPS.md"
 ```
 
 `鋼構工具/steel-traceability.catalog.json` 是鋼構條文語意追蹤 catalog，需和 `steel-traceability.contract.test.js`、`audit-tool.ps1`、鋼構 regression / browser runner 與 dashboard maturity matrix 變更一起 staging。

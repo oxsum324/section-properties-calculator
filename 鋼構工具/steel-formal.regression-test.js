@@ -44,7 +44,14 @@ function renderReportHtml(source, filename, project = {}) {
     title: "QA 計算書",
     outputSource: { tool: "QA 正式工具", version: "V9.9" },
     project,
-    inputs: [{ group: "輸入資料", items: [{ label: "A", value: "1", unit: "" }, { label: "B", value: "2", unit: "tf" }] }],
+    inputs: [
+      { group: "頁面操作說明", items: [
+        { label: "輸入模式", value: "舊制" },
+        { label: "換算對照", value: "1 tf = 9.80665 kN" },
+        { label: "流程顯示", value: "核心計算單位" },
+      ] },
+      { group: "輸入資料", items: [{ label: "A", value: "1", unit: "" }, { label: "B", value: "2", unit: "tf" }] },
+    ],
     checks: [{
       group: "檢核結果",
       items: [
@@ -52,8 +59,10 @@ function renderReportHtml(source, filename, project = {}) {
         { label: "B", formula: "B / A", sub: "2 / 1", value: "2.00", unit: "", ok: true, note: "控制檢核" },
       ],
     }],
-    summaryFacts: [{ label: "控制值", value: "B / A", tone: "ok" }],
+    summaryFacts: [{ label: "摘要卡說明", value: "B / A", tone: "ok" }],
     summary: { ok: true, text: "OK" },
+    steps: [{ group: "1. 計算代入", body: "B / A = 2 / 1 = 2.00" }],
+    symbols: [{ sym: "A", desc: "符號附註" }],
     notes: ["本報告樣本用於驗證正式輸出文字抽檢。"],
   });
   return html;
@@ -80,7 +89,7 @@ function assertReportHtmlText(html, label, requiredNeedles) {
   for (const needle of requiredNeedles) {
     assert.ok(text.includes(needle), `${label} visible report text should include ${needle}`);
   }
-  for (const needle of pageOnlyReportStatusNeedles) {
+  for (const needle of [...pageOnlyReportStatusNeedles, ...calculationBookUiOnlyNeedles]) {
     assert.equal(text.includes(needle), false, `${label} visible report text should exclude page-only wording: ${needle}`);
   }
   return text;
@@ -202,6 +211,13 @@ const pageOnlyReportStatusNeedles = [
   "不會寫入計算書",
   "不會寫入計算書或列印 PDF",
 ];
+const calculationBookUiOnlyNeedles = [
+  "輸入模式",
+  "換算對照",
+  "流程顯示",
+  "報表模式",
+  "輸出設定",
+];
 
 for (const token of [
   "const toY = (value) => 36 + value * scale",
@@ -218,8 +234,13 @@ assert.match(
 );
 assert.match(
   appSource,
-  /\.block h3\{break-after:avoid-page;page-break-after:avoid\}\.report-sketch-block,tr\{break-inside:avoid-page;page-break-inside:avoid\}thead\{display:table-header-group\}/,
-  "legacy report print CSS should prevent orphan headings and split sketch blocks while repeating table headers",
+  /\.block h3\{break-after:avoid-page;page-break-after:avoid\}\.report-sketch-block,\.report-ending,tr\{break-inside:avoid-page;page-break-inside:avoid\}thead\{display:table-header-group\}/,
+  "legacy report print CSS should prevent orphan headings, split sketch blocks, and isolated conclusions while repeating table headers",
+);
+assert.match(
+  appSource,
+  /<div class="report-ending">[\s\S]*<h3>設計依據與限制條件<\/h3>[\s\S]*<h3>檢核結論<\/h3>[\s\S]*<\/div>/,
+  "legacy report should keep the design boundary and final conclusion together at the end",
 );
 
 for (const needle of pageOnlyReportStatusNeedles) {
@@ -272,6 +293,8 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report g
   "計算指紋",
   "輸入資料",
   "檢核結果",
+  "計算過程明細",
+  "檢核結論",
   "OK",
 ]);
 const localReportText = assertReportHtmlText(localReportHtml, "steel local report generator", [
@@ -289,8 +312,18 @@ const localReportText = assertReportHtmlText(localReportHtml, "steel local repor
   "計算指紋",
   "輸入資料",
   "檢核結果",
+  "計算過程明細",
+  "檢核結論",
   "OK",
 ]);
+for (const [label, text] of [["shared", sharedReportText], ["local", localReportText]]) {
+  assert.ok(text.indexOf("輸入資料") < text.indexOf("檢核結果"), `${label} report should place adopted inputs before checks`);
+  assert.ok(text.indexOf("檢核結果") < text.indexOf("計算過程明細"), `${label} report should place checks before detailed calculation steps`);
+  assert.ok(text.indexOf("計算過程明細") < text.indexOf("檢核結論"), `${label} report should place the conclusion after calculation content`);
+  for (const forbidden of ["頁面操作說明", "摘要卡說明", "符號附註", "本報告樣本用於驗證正式輸出文字抽檢。"] ) {
+    assert.equal(text.includes(forbidden), false, `${label} report should exclude page-only/explanatory content: ${forbidden}`);
+  }
+}
 assert.equal(sharedReportHtml.includes("未填"), false, "shared report generator should scrub placeholder project metadata in rendered output");
 assert.equal(localReportHtml.includes("未填"), false, "steel local report generator should scrub placeholder project metadata in rendered output");
 assert.equal(sharedReportText.includes("未填"), false, "shared report generator visible text should scrub placeholder project metadata");
@@ -650,15 +683,22 @@ assert.match(
   /localStorage\.setItem\(UI_PREFS_KEY[\s\S]*unitMode[\s\S]*parsed\.unitMode === "legacy" \|\| parsed\.unitMode === "si"/,
   "steel-column-formal.js should persist and restore the last-used unit mode",
 );
+const beamBuildReportSource = beamFormalSource.match(/function buildReport\(\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
+const columnBuildReportSource = columnFormalSource.match(/function buildReport\(\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
 assert.match(
-  beamFormalSource,
-  /function getUnitReportHighlights\(\)[\s\S]*value: getFormalUnitSummaryText\(\)[\s\S]*highlights: getUnitReportHighlights\(\)/,
-  "steel-beam-formal.js should pass unit highlight cards into the exported report",
+  beamBuildReportSource,
+  /subtitle: `Steel Beam Formal Report \(\$\{designMethod\}\)`[\s\S]*inputs:[\s\S]*group: "斷面與材料"[\s\S]*checks:[\s\S]*summary: summaryState[\s\S]*steps: buildReportSteps\(result\)/s,
+  "steel-beam-formal.js should export adopted inputs, checks, calculation steps, and the final conclusion",
+);
+assert.doesNotMatch(
+  beamBuildReportSource,
+  /highlights:|summaryFacts:|group: "單位系統"|symbols:|notes:/,
+  "steel-beam-formal.js should keep unit cards, summary cards, symbols, and explanatory notes out of the calculation book",
 );
 assert.match(
-  beamFormalSource,
-  /function getBeamPrimaryIssue\(result\)[\s\S]*function getBeamReportSummaryState\(result\)[\s\S]*function getBeamReportSummaryFacts\(result\)[\s\S]*summaryFacts: getBeamReportSummaryFacts\(result\)[\s\S]*summary: summaryState/s,
-  "steel-beam-formal.js should build a first-screen report summary with control mode, clause, and primary issue",
+  beamFormalHtmlSource,
+  /beamShowFlowInReport[^>]*checked hidden[\s\S]*beamShowSymbolsInReport[^>]*hidden[\s\S]*正式計算書固定輸出採用輸入、公式代入、檢核結果與結論[\s\S]*只保留在本 HTML 畫面/s,
+  "steel-beam-formal.html should explain the fixed calculation-book boundary on the page",
 );
 assert.match(
   beamFormalSource,
@@ -668,12 +708,22 @@ assert.match(
 assert.match(
   beamFormalSource,
   /value: getBeamClauseDisplay\(result\.flex\.webSection\)[\s\S]*value: getBeamGoverningDisplay\(result\.flex\.governing\)[\s\S]*控制模式：\$\{getBeamGoverningDisplay\(result\.flex\.governing\)\}/s,
-  "steel-beam-formal.js should use the localized beam control labels in report summary facts and check notes",
+  "steel-beam-formal.js should use localized beam control labels in the on-page review and calculation checks",
 );
 assert.match(
-  columnFormalSource,
-  /function getUnitReportHighlights\(\)[\s\S]*value: getFormalUnitSummaryText\(\)[\s\S]*highlights: getUnitReportHighlights\(\)/,
-  "steel-column-formal.js should pass unit highlight cards into the exported report",
+  columnBuildReportSource,
+  /subtitle: `Steel Column Formal Report \(\$\{designMethod\}\)`[\s\S]*inputs:[\s\S]*group: "斷面與材料"[\s\S]*checks:[\s\S]*summary: summaryState[\s\S]*steps: buildReportSteps\(result\)/s,
+  "steel-column-formal.js should export adopted inputs, checks, calculation steps, and the final conclusion",
+);
+assert.doesNotMatch(
+  columnBuildReportSource,
+  /highlights:|summaryFacts:|group: "單位系統"|symbols:|notes:/,
+  "steel-column-formal.js should keep unit cards, summary cards, symbols, and explanatory notes out of the calculation book",
+);
+assert.match(
+  columnFormalHtmlSource,
+  /columnShowFlowInReport[^>]*checked hidden[\s\S]*columnShowSymbolsInReport[^>]*hidden[\s\S]*正式計算書固定輸出採用輸入、公式代入、檢核結果與結論[\s\S]*只保留在本 HTML 畫面/s,
+  "steel-column-formal.html should explain the fixed calculation-book boundary on the page",
 );
 assert.match(
   columnFormalHtmlSource,
@@ -717,8 +767,8 @@ assert.match(
 );
 assert.match(
   columnFormalSource,
-  /function getColumnPrimaryIssue\(result\)[\s\S]*function getColumnReportSummaryState\(result\)[\s\S]*function getColumnReportSummaryFacts\(result\)[\s\S]*summaryFacts: getColumnReportSummaryFacts\(result\)[\s\S]*summary: summaryState/s,
-  "steel-column-formal.js should build a first-screen report summary with controlling axis, KL\/r, and primary issue",
+  /function getColumnPrimaryIssue\(result\)[\s\S]*function getColumnReportSummaryState\(result\)[\s\S]*鋼柱檢核：OK[\s\S]*鋼柱檢核：NG/s,
+  "steel-column-formal.js should keep the exported conclusion concise while preserving detailed checks below",
 );
 assert.match(
   columnFormalSource,
@@ -728,7 +778,7 @@ assert.match(
 assert.match(
   columnFormalSource,
   /value: getColumnControlSummary\(result\)[\s\S]*value: getColumnZoneLabel\(result\.pn\.zone\)[\s\S]*note: `第六章受壓構材｜控制 \$\{getColumnAxisDisplay\(result\.ctrlAxis\)\}`/s,
-  "steel-column-formal.js should use the localized column control-axis and buckling-zone labels in report summary facts and checks",
+  "steel-column-formal.js should use localized control-axis and buckling-zone labels in the on-page review and calculation checks",
 );
 assert.match(
   beamFormalSource,
@@ -772,8 +822,13 @@ assert.doesNotMatch(
 );
 assert.match(
   sharedReportSource,
-  /"Segoe UI", "Noto Sans TC", "Microsoft JhengHei"|Cascadia Code|cfg\.highlights|rep-highlights|rep-highlight-value|cfg\.summaryFacts|rep-summary-facts|rep-summary-fact-value|showReportIssue|repWindowStatus/s,
-  "shared report generator should use the unified font stacks, support highlight cards plus summary facts, and surface report-window issues inline",
+  /CALCULATION_BOOK_PAGE_ONLY_LABELS[\s\S]*getCalculationBookInputGroups[\s\S]*showReportIssue[\s\S]*const summaryHtml[\s\S]*檢核結論[\s\S]*repWindowStatus[\s\S]*\$\{inputsHtml\}[\s\S]*\$\{checksHtml\}[\s\S]*\$\{stepsHtml\}[\s\S]*\$\{summaryHtml\}/s,
+  "shared report generator should filter page-only fields and render calculation content before the conclusion",
+);
+assert.doesNotMatch(
+  sharedReportSource,
+  /cfg\.highlights|rep-highlights|cfg\.summaryFacts|rep-summary-facts|const symHtml|const notesHtml/,
+  "shared report generator should not render interface highlight cards, summary cards, symbol teaching, or explanatory notes",
 );
 assert.doesNotMatch(
   sharedReportSource,

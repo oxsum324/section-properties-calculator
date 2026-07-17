@@ -151,9 +151,6 @@
         inputPreset: currentInputPreset,
         reportPreset: currentReportPreset,
         panel: currentPanel,
-        showFlowInReport: $("columnShowFlowInReport")?.checked ?? true,
-        showSymbolsInReport: $("columnShowSymbolsInReport")?.checked ?? true,
-        showNotesInReport: $("columnShowNotesInReport")?.checked ?? true,
       }));
     } catch {
       // ignore
@@ -173,15 +170,6 @@
       if (parsed.inputPreset) currentInputPreset = parsed.inputPreset;
       if (parsed.reportPreset) currentReportPreset = parsed.reportPreset;
       if (parsed.panel) currentPanel = parsed.panel;
-      if (typeof parsed.showFlowInReport === "boolean" && $("columnShowFlowInReport")) {
-        $("columnShowFlowInReport").checked = parsed.showFlowInReport;
-      }
-      if (typeof parsed.showSymbolsInReport === "boolean" && $("columnShowSymbolsInReport")) {
-        $("columnShowSymbolsInReport").checked = parsed.showSymbolsInReport;
-      }
-      if (typeof parsed.showNotesInReport === "boolean" && $("columnShowNotesInReport")) {
-        $("columnShowNotesInReport").checked = parsed.showNotesInReport;
-      }
     } catch {
       // ignore
     }
@@ -935,12 +923,12 @@
     if (isOverallOk(result)) {
       return {
         ok: true,
-        text: `全部通過｜${getColumnControlSummary(result)}`,
+        text: "鋼柱檢核：OK",
       };
     }
     return {
       ok: false,
-      text: `${issue.value}｜${getColumnControlSummary(result)}`,
+      text: `鋼柱檢核：NG｜${issue.value}`,
     };
   }
 
@@ -1642,24 +1630,13 @@
   function buildReport() {
     const result = runCheck();
     if (!result) return;
-    const includeFlow = $("columnShowFlowInReport").checked;
-    const includeSymbols = $("columnShowSymbolsInReport").checked;
-    const includeNotes = $("columnShowNotesInReport").checked;
-    const reportNotes = buildReportNotes(result);
     const summaryState = getColumnReportSummaryState(result);
     openReport({
       title: "鋼柱正式規範核算計算書",
-      subtitle: `Steel Column Formal Report (${designMethod}｜${getCurrentInputModeLabel()})`,
+      subtitle: `Steel Column Formal Report (${designMethod})`,
       outputSource: TOOL_METADATA,
       project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
-      highlights: getUnitReportHighlights(),
-      summaryFacts: getColumnReportSummaryFacts(result),
       inputs: [
-          { group: "單位系統", items: [
-            { label: "輸入模式", value: getFormalUnitSummaryText() },
-            { label: "換算對照", value: getFormalUnitConversionText() },
-            { label: "流程顯示", value: getInternalUnitNoteText() },
-          ]},
           { group: "斷面與材料", items: [
             { label: "規格", value: getSectionInputSummaryText(result) },
             { label: "Fy", value: formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress") },
@@ -1693,9 +1670,7 @@
           { group: "互制檢核", items: [{ label: "互制狀態", formula: "第八章組合力互制式", sub: `${result.isLRFD ? `φb = ${f2(Steel.PHI.flexure)}` : `Ωb = ${f2(Steel.OMEGA.flexure)}`} ｜ ${result.interDetail.join(" ｜ ")}`, value: result.interRatioText, ok: result.interOk, note: `控制軸向：${getColumnAxisDisplay(result.ctrlAxis)}` }] },
       ],
       summary: summaryState,
-      steps: includeFlow ? buildReportSteps(result) : [],
-      symbols: includeSymbols ? buildReportSymbols(result, { includeFlow }) : [],
-      notes: includeNotes ? reportNotes : [],
+      steps: buildReportSteps(result),
     });
   }
 

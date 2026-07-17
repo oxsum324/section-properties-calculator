@@ -295,9 +295,6 @@
         inputPreset: currentInputPreset,
         reportPreset: currentReportPreset,
         panel: currentPanel,
-        showFlowInReport: $("beamShowFlowInReport")?.checked ?? true,
-        showSymbolsInReport: $("beamShowSymbolsInReport")?.checked ?? true,
-        showNotesInReport: $("beamShowNotesInReport")?.checked ?? true,
       }));
     } catch {
       // ignore
@@ -317,15 +314,6 @@
       if (parsed.inputPreset) currentInputPreset = parsed.inputPreset;
       if (parsed.reportPreset) currentReportPreset = parsed.reportPreset;
       if (parsed.panel) currentPanel = parsed.panel;
-      if (typeof parsed.showFlowInReport === "boolean" && $("beamShowFlowInReport")) {
-        $("beamShowFlowInReport").checked = parsed.showFlowInReport;
-      }
-      if (typeof parsed.showSymbolsInReport === "boolean" && $("beamShowSymbolsInReport")) {
-        $("beamShowSymbolsInReport").checked = parsed.showSymbolsInReport;
-      }
-      if (typeof parsed.showNotesInReport === "boolean" && $("beamShowNotesInReport")) {
-        $("beamShowNotesInReport").checked = parsed.showNotesInReport;
-      }
     } catch {
       // ignore
     }
@@ -1100,18 +1088,18 @@
     if (isOverallOk(result)) {
       return {
         ok: true,
-        text: `全部通過｜${getBeamGoverningDisplay(result.flex.governing)}・${getBeamClauseDisplay(result.flex.webSection)}`,
+        text: "鋼梁檢核：OK",
       };
     }
     if (issue.value === "撓度未檢核") {
       return {
         ok: null,
-        text: `強度通過｜${issue.value}｜${getBeamGoverningDisplay(result.flex.governing)}`,
+        text: `鋼梁檢核：強度 OK｜${issue.value}`,
       };
     }
     return {
       ok: false,
-      text: `${issue.value}｜${getBeamGoverningDisplay(result.flex.governing)}・${getBeamClauseDisplay(result.flex.webSection)}`,
+      text: `鋼梁檢核：NG｜${issue.value}`,
     };
   }
 
@@ -1882,24 +1870,13 @@
   function buildReport() {
     const result = runCheck();
     if (!result) return;
-    const includeFlow = $("beamShowFlowInReport").checked;
-    const includeSymbols = $("beamShowSymbolsInReport").checked;
-    const includeNotes = $("beamShowNotesInReport").checked;
-    const reportNotes = buildReportNotes(result);
     const summaryState = getBeamReportSummaryState(result);
     openReport({
       title: "鋼梁正式規範核算計算書",
-      subtitle: `Steel Beam Formal Report (${designMethod}｜${getCurrentInputModeLabel()})`,
+      subtitle: `Steel Beam Formal Report (${designMethod})`,
       outputSource: TOOL_METADATA,
       project: { name: getProjectMetaValue("projName"), no: getProjectMetaValue("projNo"), designer: getProjectMetaValue("projDesigner") },
-      highlights: getUnitReportHighlights(),
-      summaryFacts: getBeamReportSummaryFacts(result),
       inputs: [
-        { group: "單位系統", items: [
-          { label: "輸入模式", value: getFormalUnitSummaryText() },
-          { label: "換算對照", value: getFormalUnitConversionText() },
-          { label: "流程顯示", value: getInternalUnitNoteText() },
-        ]},
         { group: "斷面與材料", items: [
           { label: "規格", value: getSectionInputSummaryText(result) },
           { label: "Fy", value: formatDisplayValue(result.Fy, "stress", unitMode === "si" ? 1 : 0), unit: getQuantityUnit("stress") },
@@ -1934,9 +1911,7 @@
         ]},
       ],
       summary: summaryState,
-      steps: includeFlow ? buildReportSteps(result) : [],
-      symbols: includeSymbols ? buildReportSymbols(result, { includeFlow }) : [],
-      notes: includeNotes ? reportNotes : [],
+      steps: buildReportSteps(result),
     });
   }
 

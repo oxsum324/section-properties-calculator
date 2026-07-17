@@ -114,19 +114,10 @@
             <label>規範基準</label>
             <input id="codeBasisDisplay" value="鋼構造建築物鋼結構設計技術規範｜第六章受壓構材、第八章構材承受組合力及扭矩" disabled>
           </div>
-          <div class="checkbox-row">
-            <input id="columnShowFlowInReport" type="checkbox" checked>
-            <label for="columnShowFlowInReport">核可將計算流程顯示於輸出報表</label>
-          </div>
-          <div class="checkbox-row">
-            <input id="columnShowSymbolsInReport" type="checkbox" checked>
-            <label for="columnShowSymbolsInReport">核可於輸出報表顯示符號說明</label>
-          </div>
-          <div class="checkbox-row">
-            <input id="columnShowNotesInReport" type="checkbox" checked>
-            <label for="columnShowNotesInReport">核可於輸出報表顯示備註與條文說明</label>
-          </div>
-          <p class="section-note">可分別控制是否輸出計算流程、符號說明與備註；符號說明僅列出本次實際使用到的符號。</p>
+          <input id="columnShowFlowInReport" type="checkbox" checked hidden>
+          <input id="columnShowSymbolsInReport" type="checkbox" hidden>
+          <input id="columnShowNotesInReport" type="checkbox" hidden>
+          <p class="section-note">正式計算書固定輸出採用輸入、公式代入、檢核結果與結論；輸入模式、操作流程、符號詞典及條文解釋只保留在本 HTML 畫面。</p>
         </div>
 
         <div class="card" id="columnCardSection">

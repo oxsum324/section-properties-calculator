@@ -2254,6 +2254,7 @@
       ]},
       { group:'分析方法', items: [
         { label:'採用方法', value: r.methodLabel },
+        ...(!r.isOneWay ? [{ label:'方法邊界', value:'簡化二向條帶初估，非完整 8.10 DDM；未含總靜力矩、柱列與中間帶完整分配。' }] : []),
         { label:'模型假設', value:'各方向以代表跨條帶近似，不代表整塊樓板之完整全域分析。' },
         ...(r.isOneWay ? [
           { label:'說明', value:'長短向比 > 2，板沿短向 (Lx) 受彎；長向僅配溫度收縮筋。' }

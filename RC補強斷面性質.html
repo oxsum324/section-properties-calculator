@@ -2119,6 +2119,8 @@ function exportBeamReport() {
       inputItems.push({ label:'側板高 hsp,s = h − ts', value:`${g.h_mm} − ${g.plateInfo.slab_mm} = ${g.plateInfo.hsp_s_mm}`, unit:'mm' });
     }
   }
+  const projectNote = document.getElementById('projNote').value.trim();
+  if (projectNote) inputItems.push({ label:'專案指定', value:projectNote });
 
   const elItems = [
     { label:'A_t', value: `${fmt(e.uncr0.A)} → ${fmt(e.uncr.A)}`, unit:'cm²' },
@@ -2164,6 +2166,38 @@ function exportBeamReport() {
     shearItems.push({ label:'Vu/φVn', value: `${fmt(sh.shearRatio,3)} ${sh.shearRatio<=1.0?'(OK)':'(NG)'}` });
   }
 
+  let strengtheningStep = '未採外加補強材料；補強後數值等同原 RC 斷面。';
+  if (g.mode === 'frp') {
+    strengtheningStep = `εfd = 0.083·√(fc'/(n·Ef·tf)) = ${fmt(g.frpInfo.eps_fd_calc,3)}\n`
+      + `εfe = min(εfd, εfu, εcu·(df-c)/c - εbi) = ${fmt(u.res.eps_fe,3)}\n`
+      + `Le = ${fmt(g.frpInfo.Le_mm,4)} mm；破壞模式 = ${u.res.failMode}`;
+  } else if (g.mode === 'plate') {
+    strengtheningStep = `底板面積 Asp = bsp·tsp = ${fmt(g.Ap_plate,4)} cm²\n`
+      + `鋼板強度 fy,sp = ${fmt(g.plateInfo.fy_sp)} kgf/cm²；補強後 Mn = ${fmt(u.res.Mn/1e5)} tf·m`;
+  }
+  const betaOne = g.fc <= 280 ? 0.85 : (g.fc >= 560 ? 0.65 : 0.85 - 0.05 * (g.fc - 280) / 70);
+  const beamSteps = [
+    {
+      group:'1. 彈性斷面性質',
+      body:`Ec = 12000·√fc' = ${fmt(e.Ec)} kgf/cm²\n`
+        + `未裂 I_t：${fmt(e.uncr0.I)} → ${fmt(e.uncr.I)} cm⁴\n`
+        + (e.crk.ok && e.crk0.ok ? `開裂 Icr：${fmt(e.crk0.Icr)} → ${fmt(e.crk.Icr)} cm⁴` : '開裂斷面未形成有效解'),
+    },
+    {
+      group:'2. 撓曲強度',
+      body:`β1 = ${fmt(betaOne,3)}；由內力平衡求 c = ${fmt(u.res.c)} cm\n`
+        + `Mn = ${fmt(u.res.Mn/1e5)} tf·m；φ = ${fmt(u.res.phi,3)}；φMn = ${fmt(u.res.phi*u.res.Mn/1e5)} tf·m\n`
+        + 'φ 依拉力鋼筋應變判定：εs ≥ 0.005 取 0.90，εy 至 0.005 間線性內插。',
+    },
+    { group:'3. 補強材料有效貢獻', body:strengtheningStep },
+    {
+      group:'4. 剪力強度與設計邊界',
+      body:`Vn = Vc + Vs + 補強貢獻 = ${fmt(sh.Vn/1000)} tf；φVn = ${fmt(sh.phiVn/1000)} tf\n`
+        + '依 112 規範 22.5 節限制總剪力補強；FRP U-wrap 採 ACI 440.2R-17 §11 的有效應變與 ψf = 0.85。\n'
+        + '本結果為標稱強度計算；錨固、接著面剪力、延性及施工細節須依專案另行檢核。',
+    },
+  ];
+
   const cvs = document.getElementById('beamCanvas');
   openReport({
     title: 'RC 梁補強斷面計算書',
@@ -2173,23 +2207,15 @@ function exportBeamReport() {
       no:   getProjectFieldValue('projNo'),
       designer: getProjectFieldValue('projDesigner'),
     },
-    summary: { ok:null, text:`RC 梁補強斷面性質 + 極限撓曲強度（${modeTxt}）` },
-    diagrams: [{ title:'梁斷面示意', dataURL: cvs.toDataURL('image/png'), width: 480 }],
+    summary: { ok:null, text:`補強後 φMn = ${fmt(u.res.phi*u.res.Mn/1e5)} tf·m；φVn = ${fmt(sh.phiVn/1000)} tf` },
+    diagrams: [{ title:'梁斷面示意', dataURL: cvs.toDataURL('image/png'), width: 360 }],
     inputs: [
       { group:'輸入條件', items: inputItems },
-      { group:'彈性斷面（原 RC → 補強後）', items: elItems },
-      { group:'極限撓曲（原 RC → 補強後）', items: ultItems },
-      { group:'剪力檢核（依 112 規範 + ACI 440.2R-17 §11）', items: shearItems },
+      { group:'彈性斷面結果（原 RC → 補強後）', items: elItems },
+      { group:'撓曲強度結果（原 RC → 補強後）', items: ultItems },
+      { group:'剪力強度結果（原 RC → 補強後）', items: shearItems },
     ],
-    notes: [
-      '依 112 混凝土結構設計規範：Ec = 12000·√fc\'；β1 依 fc\' 於 0.65 ~ 0.85 間變化。',
-      g.mode==='frp' ? 'CFRP 設計參數依 ACI 440.2R-17：環境係數 CE 折減、ψf = 0.85、εfd = 0.083·√(fc\'/(n·Ef·tf))。' : '',
-      g.mode==='frp' ? `本案 εfd = ${fmt(u.res.eps_fd,3)}；有效應變以 min(εfd, εfu, εcu·(df-c)/c - εbi) 取用。` : '',
-      '剪力公式：112 規範 22.5 節 Vc + Vs；FRP U-wrap 採 Vf = 2·n·tf·wf·Ef·εfe·(sinα+cosα)·dfv/sf，ψf,shear = 0.85。',
-      'φ 依 ACI 440.2R-17 §10.2.7：εs ≥ 0.005 取 0.90；εy ≤ εs < 0.005 線性內插至 0.65。',
-      '本計算為標稱強度；現場補強案件應另檢核錨固、接著面剪力、延性需求與施工細節。',
-      document.getElementById('projNote').value ? ('備註：' + document.getElementById('projNote').value) : '',
-    ].filter(Boolean),
+    steps: beamSteps,
   });
 }
 
@@ -2219,6 +2245,8 @@ function exportColReport() {
     inputItems.push({ label:'εfe 有效應變', value: g.frpInfo.eps_fe });
     inputItems.push({ label:'ka 形狀效率', value: g.frpInfo.ka });
   }
+  const projectNote = document.getElementById('projNote').value.trim();
+  if (projectNote) inputItems.push({ label:'專案指定', value:projectNote });
 
   const confItems = [
     { label:'f\'l 等效側向壓力', value: fmt(d.confine.f_l), unit:'kgf/cm²' },
@@ -2257,6 +2285,37 @@ function exportColReport() {
   shearItems.push({ label:'Vn₀ → Vn', value:`${fmt(sh.Vn_base/1000)} → ${fmt(sh.Vn/1000)}`, unit:'tf' });
   shearItems.push({ label:'φVn (φ=0.75)', value:`${fmt(sh.phiVn_base/1000)} → ${fmt(sh.phiVn/1000)}`, unit:'tf' });
 
+  let confinementStep = `未採圍束補強，f'cc = fc' = ${fmt(g.fc)} kgf/cm²。`;
+  if (g.mode === 'jacket') {
+    confinementStep = `f'l = ke·2·fyj·tj/h = ${fmt(d.confine.f_l)} kgf/cm²\n`
+      + `Mander 簡化式：f'cc = ${fmt(d.confine.f_cc)} kgf/cm²`;
+  } else if (g.mode === 'frp') {
+    confinementStep = `f'l = ka·2·Ef·εfe·n·tf/h = ${fmt(d.confine.f_l)} kgf/cm²\n`
+      + `Richart 簡化式：f'cc = fc' + 4.1·f'l = ${fmt(d.confine.f_cc)} kgf/cm²`;
+  }
+  const pmResult = pm.checkRatio_conf === null
+    ? '需求點未形成可判定之容量交點。'
+    : `Mu/φMn = ${fmt(pm.checkRatio_conf,3)} ${pm.checkRatio_conf<=1.0?'(OK)':'(NG)'}`;
+  const columnSteps = [
+    { group:'1. 圍束後混凝土強度', body:confinementStep },
+    {
+      group:'2. 軸壓強度',
+      body:`Po = 0.85·f'cc·(Ag-Ast) + fy·Ast = ${fmt(d.axial.Po_conf/1000)} tf\n`
+        + `Pn,max = 0.80·Po；φPn,max = 0.65·Pn,max = ${fmt(0.65*d.axial.Pn_max_conf/1000)} tf`,
+    },
+    {
+      group:'3. P-M 互制需求檢核',
+      body:`以應變相容逐一掃描中性軸深度，建立 φPn-φMn 曲線。\n`
+        + `Nu = ${fmt(pm.Nu_kgf/1000)} tf；Mu = ${fmt(pm.Mu_kgfcm/1e5)} tf·m；${pmResult}`,
+    },
+    {
+      group:'4. 剪力強度與設計邊界',
+      body:`Vn = Vc + Vs + 補強貢獻 = ${fmt(sh.Vn/1000)} tf；φVn = ${fmt(sh.phiVn/1000)} tf\n`
+        + '依 112 規範 22.5 節限制總剪力補強；全包覆 FRP 採 ψf = 0.95、εfe = 0.004。\n'
+        + '本結果為補強初估；接著面剪力、錨固詳圖、搭接束制與延性需求須依專案另行檢核。',
+    },
+  ];
+
   const cvs = document.getElementById('colCanvas');
   const pmCvs = document.getElementById('pmCanvas');
   openReport({
@@ -2267,7 +2326,7 @@ function exportColReport() {
       no:   getProjectFieldValue('projNo'),
       designer: getProjectFieldValue('projDesigner'),
     },
-    summary: { ok:null, text:`RC 柱補強：圍束強化 + 軸壓／撓曲能力（${modeTxt}）` },
+    summary: { ok:null, text:`補強後 φPn,max = ${fmt(0.65*d.axial.Pn_max_conf/1000)} tf；φVn = ${fmt(sh.phiVn/1000)} tf` },
     diagrams: [
       { title:'柱斷面示意', dataURL: cvs.toDataURL('image/png'), width: 380 },
       { title:'P-M 互制曲線（灰虛＝原 RC；藍＝Pn-Mn；綠＝φPn-φMn；紅●＝需求點）', dataURL: pmCvs.toDataURL('image/png'), width: 480 },
@@ -2278,17 +2337,9 @@ function exportColReport() {
       { group:'軸壓能力', items: axialItems },
       { group:'純彎能力（P=0 參考）', items: flexItems },
       { group:'P-M 需求點檢核', items: pmItems },
-      { group:'剪力檢核（依 112 規範 22.5 + ACI 440.2R-17 §11）', items: shearItems },
+      { group:'剪力強度結果（原 RC → 補強後）', items: shearItems },
     ],
-    notes: [
-      '圍束強度 f\'cc 採 Mander（鋼板）/ Richart 4.1 (FRP) 簡化式；形狀效率 ke 或 ka 反映矩形直貼之圍束效率折減。',
-      '軸壓 Po = 0.85·f\'cc·(Ag - Ast) + fy·Ast；Pn_max = 0.80·Po（綁箍柱）；φ = 0.65。',
-      'P-M 互制曲線：以 strain compatibility 逐 c 掃描；φ 依下緣鋼筋拉應變：εs ≥ 0.005 取 0.90，εy 以下取 0.65，之間線性內插。',
-      '剪力：Vc = 0.53·(1 + Nu/(140·Ag))·√fc\'·b·d；鋼套管貢獻以雙側連續箍筋近似；FRP 全包覆 ψf = 0.95、εfe = 0.004。',
-      '矩形鋼板直貼之圍束效率於文獻上未有單一權威值；本工具以 ke、ka 作為可調係數（預設偏保守）。',
-      '本計算為初估；實務補強案件仍須檢核接著面剪力、錨固詳圖、搭接束制與延性需求。',
-      document.getElementById('projNote').value ? ('備註：' + document.getElementById('projNote').value) : '',
-    ].filter(Boolean),
+    steps: columnSteps,
   });
 }
 
