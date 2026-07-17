@@ -1575,13 +1575,13 @@ function assertLegacyReportState(state, legacyTool, label) {
   assert.ok(state.html.includes('不得作為新案正式計算附件'), `${label} ${legacyTool.key} output classification`);
   assert.ok(state.html.includes('既有案件復核 / 變更比較'), `${label} ${legacyTool.key} report existing-project purpose`);
   assert.ok(state.html.includes('已確認：僅限既有案件，不作新案正式計算附件'), `${label} ${legacyTool.key} report purpose confirmation`);
-  assert.ok(state.html.includes('新案正式計算附件必須由'), `${label} ${legacyTool.key} formal-page boundary`);
+  assert.equal(state.html.includes('新案正式計算附件必須由'), false, `${label} ${legacyTool.key} report excludes page-only navigation guidance`);
   assert.ok(state.html.includes('局部工具驗證案'), `${label} ${legacyTool.key} report project name`);
   assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${legacyTool.key} report project no`);
   assert.ok(state.html.includes('Codex QA'), `${label} ${legacyTool.key} report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${legacyTool.key} report excludes raw placeholder project text`);
   assert.ok(visibleText.length >= 420, `${label} ${legacyTool.key} visible report text is substantial: chars=${visibleText.length}`);
-  [legacyTool.reportTitle, '舊案延續', '既有案件復核 / 變更比較', '局部工具驗證案', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
+  [legacyTool.reportTitle, '舊案延續', '不得作為新案正式計算附件', '既有案件復核 / 變更比較', '已確認：僅限既有案件，不作新案正式計算附件', '局部工具驗證案', 'LOCAL-VERIFY-001', 'Codex QA'].forEach(needle => {
     assert.ok(visibleText.includes(needle), `${label} ${legacyTool.key} visible report text includes ${needle}`);
   });
   pageOnlyReportStatusNeedles.forEach(needle => {

@@ -916,7 +916,6 @@ function buildColumnReport() {
   if (!result) return;
 
   const { sec, clsC, pn, Fy, Lx, Ly, Kx, Ky, KLr_x, KLr_y, KLr_max, ctrlAxis, Pu_tf, Pu_kgf, puDemand_tf, Mux_tf, Muy_tf, isLRFD, axialOk, ratio_ax, secName, designPc_tf } = result;
-  const reportDetail = $('chkDetail')?.checked;
   const pLabel = isLRFD ? 'Pu' : 'Pa';
   const pcLabel = isLRFD ? 'φPn' : 'Pa(ASD)';
 
@@ -1076,18 +1075,6 @@ function buildColumnReport() {
     ],
     diagrams,
     summary: { ok: allOk, text: allOk ? '✓ 全部通過 — 斷面安全' : '✗ 部分不通過 — 請依建議調整' },
-    notes: [
-      '本輸出為舊案延續計算記錄，只供既有案件流程延續；新案正式計算附件必須由鋼柱正式頁面產出。',
-      `設計方法: ${designMethod}`,
-      envDetail ? `荷重組合控制圖採 ${envDetail.comboName}；控制軸力為 ${envDetail.envelope.P.abs.name}。此摘要僅反映組合控制值，不等同鋼柱 P-M 強度互制包絡。` : '若需荷重組合控制摘要，請先使用載重組合產生器套用後再輸出計算書。',
-      ...(reportDetail ? [
-        isLRFD
-          ? '規範依據: AISC 360 / 台灣鋼結構設計規範 (LRFD 強度設計法)'
-          : '規範依據: ASD 傳統容許應力法 / 台灣鋼結構設計規範',
-        `斷面條件: ${secName}, Fy=${Fy} kgf/cm², KL/r=${f1(KLr_max)} (${ctrlAxis})`,
-        hasMoment ? '互制放大僅適用無側移 (non-sway) 構架。' : '',
-      ] : []),
-    ].filter(Boolean),
   });
 }
 </script>
