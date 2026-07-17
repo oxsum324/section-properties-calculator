@@ -934,7 +934,7 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
     if (state.plateInputMode !== "geometry") {
       return {
         mode: "manual_area",
-        caption: "面積直輸模式，示意圖改為文字摘要。",
+        caption: "本案採指定斷面面積，示意圖以文字摘要代替。",
       };
     }
 
@@ -1002,7 +1002,7 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
           state.grossArea > 0 && state.netArea > 0 && state.Agv > 0 && state.Anv > 0 && state.Agt > 0 && state.Ant > 0 ? 1 : 0,
           true,
           "custom",
-          "面積直輸模式需提供 Ag、An、Agv、Anv、Agt、Ant。",
+          "採指定斷面面積時，須提供 Ag、An、Agv、Anv、Agt、Ant。",
           "Manual"
         ),
         makeDetailCheck(
@@ -1011,7 +1011,7 @@ A &= ${formatEquationNumber(directArea)}\ \text{mm}^2\\
           state.netArea <= state.grossArea && state.Ant <= state.Agt && state.Anv <= state.Agv ? 1 : 0,
           true,
           "custom",
-          "面積直輸模式下，淨面積不應大於對應總面積。",
+          "採指定斷面面積時，淨面積不應大於對應總面積。",
           "Manual"
         ),
       ];
@@ -1274,7 +1274,7 @@ ${buildAvailableStrengthLatex(designMethod, "blockShear", nominal)}
     if (state.tensionAreaInput !== "geometry") {
       return {
         mode: "manual_area",
-        caption: "面積輸入模式，示意圖改為文字摘要。",
+        caption: "本案採指定斷面面積，示意圖以文字摘要代替。",
       };
     }
 
@@ -1646,12 +1646,12 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
       tensionGeometrySummary: {
         size: state.tensionAreaInput === "geometry"
           ? `${formatEquationNumber(state.memberWidth)} × ${formatEquationNumber(state.memberThickness)} mm`
-          : "面積輸入模式",
+          : "採指定斷面面積",
         connection: state.tensionConnectionMode === "bolted"
           ? `${state.tensionBoltLineCount} 行 × ${state.tensionBoltRowCount} 列螺栓`
           : `${getTensionWeldTypeLabel(state.tensionWeldType)} / ${state.tensionWeldLineCount} 道縱向銲 / ${formatEquationNumber(state.tensionWeldLengthLongitudinal)} mm`,
         shearLag: derived.shearLag.note,
-        areaInput: state.tensionAreaInput === "geometry" ? "幾何輸入" : "面積輸入",
+        areaInput: state.tensionAreaInput === "geometry" ? "依幾何推導" : "採指定斷面面積",
       },
       pathSummary: {
         netSection: derived.shearLag.note,
@@ -2192,7 +2192,7 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
       }
     } else {
       if (!(state.grossArea > 0 && state.netArea > 0 && state.Agv > 0 && state.Anv > 0 && state.Agt > 0 && state.Ant > 0)) {
-        validations.push("面積直輸模式需完整提供 Ag、An、Agv、Anv、Agt、Ant。");
+        validations.push("採指定斷面面積時，須完整提供 Ag、An、Agv、Anv、Agt、Ant。");
       }
       if (state.netArea > state.grossArea) validations.push("淨面積 An 不可大於總面積 Ag。");
       if (state.Ant > state.Agt || state.Anv > state.Agv) validations.push("塊狀撕裂的淨面積不可大於對應總面積。");
@@ -2221,7 +2221,7 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
         equationRef: "式(10.5-2)",
         note: state.plateInputMode === "geometry"
           ? "依 4.3 栓接之連接板規定，Ae = min(An, 0.85Ag)；幾何模式目前僅採直線淨斷面。"
-          : "面積直輸模式下，Ae 仍依 4.3 以 min(An, 0.85Ag) 整理。",
+          : "本案採指定斷面面積，Ae 仍依 4.3 以 min(An, 0.85Ag) 整理。",
       }),
       buildBlockShearAreaCheck({
         key: "plateBlockShear",
@@ -2234,7 +2234,7 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
         Agt: derived.Agt,
         Ant: derived.Ant,
         designMethod: state.designMethod,
-        note: derived.pathSource === "manual_override" ? "區塊剪力面積已採手動覆寫。" : derived.pathSource === "manual_area" ? "面積直輸模式，區塊剪力由使用者提供。" : "依矩形板件常用 U 型區塊剪力路徑自動推導。",
+        note: derived.pathSource === "manual_override" ? "區塊剪力面積採指定值。" : derived.pathSource === "manual_area" ? "本案區塊剪力面積採指定值。" : "依矩形板件常用 U 型區塊剪力路徑自動推導。",
       }),
     ];
 
@@ -2272,11 +2272,11 @@ ${buildAvailableStrengthLatex(state.designMethod, "bearing", totalBearingNominal
       pathSummary: {
         netSection: state.plateInputMode === "geometry"
           ? `直線淨斷面控制，Ae = min(An, 0.85Ag) = ${formatEquationNumber(effectiveNetArea)} mm²`
-          : `面積直輸模式，Ae = min(An, 0.85Ag) = ${formatEquationNumber(effectiveNetArea)} mm²`,
+          : `採指定斷面面積，Ae = min(An, 0.85Ag) = ${formatEquationNumber(effectiveNetArea)} mm²`,
         blockShear: derived.pathSource === "manual_override"
           ? "區塊剪力採手動覆寫路徑"
           : derived.pathSource === "manual_area"
-            ? "區塊剪力面積由使用者直接輸入"
+            ? "區塊剪力面積採指定值"
             : `自動區塊剪力路徑，剪力面長度 ${formatEquationNumber(derived.shearLength)} mm`,
       },
       sketchData: buildPlateSketchData(state, orientation, derived),

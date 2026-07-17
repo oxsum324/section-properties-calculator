@@ -53,6 +53,8 @@ const pageOnlyReport = Checker.analyzePackage([
 ]);
 assert.equal(pageOnlyReport.status, 'blocked');
 assert(pageOnlyReport.issues.some(issue => issue.code === 'page-only-leak'));
+assert(Checker.PAGE_ONLY_NEEDLES.includes('計算書模式'));
+assert(Checker.PAGE_ONLY_NEEDLES.includes('輸出設定'));
 
 const draftDocumentReport = Checker.analyzePackage([
   { file: 'beam-draft.pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: ['非正式附件', '不得作為正式附件'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/16 14:31:43', fingerprints: ['CF-1234ABCD5678EF90'] },

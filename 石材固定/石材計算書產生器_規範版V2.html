@@ -5765,22 +5765,22 @@ function v2InjectRegulationFooter(){
     const profileRowsHtml = (() => {
       const cp = meta?.code_profiles;
       if (!cp || typeof cp !== 'object') return '';
-      const scopeLabels = { wind:'耐風 profile', seismic:'耐震 profile', anchor:'錨栓 profile', steel:'鋼結構 profile', stone:'石材 profile' };
+      const scopeLabels = { wind:'耐風採用參數', seismic:'耐震採用參數', anchor:'錨栓採用參數', steel:'鋼結構採用參數', stone:'石材採用參數' };
       const hashes = meta?.code_profiles_hashes || {};
       return Object.entries(cp).map(([scope, info]) => {
         if (!info || !info.id) return '';
         const idText = `<code style="font-family:monospace;font-size:10px">${escapeHtml(info.id)}</code>`;
         const hashInfo = hashes[scope];
         const hashTag = hashInfo?.hash
-          ? ` <span style="font-family:monospace;font-size:9.5px;color:#7a7a7a;background:#f0f3f7;padding:1px 4px;border-radius:2px" title="profile params 指紋（cyrb53）；規範變動時會變化">${escapeHtml(hashInfo.hash.replace('cyrb53:', ''))}</span>`
+          ? ` <span class="v2-page-only-governance" style="font-family:monospace;font-size:9.5px;color:#7a7a7a;background:#f0f3f7;padding:1px 4px;border-radius:2px" title="profile params 指紋（cyrb53）；規範變動時會變化">${escapeHtml(hashInfo.hash.replace('cyrb53:', ''))}</span>`
           : '';
         // V2.4.1：archive 比對徽章
         const cl = changelog?.perScope?.[scope];
         let archiveTag = '';
         if (cl?.changed) {
-          archiveTag = ` <span style="font-family:inherit;font-size:9.5px;color:#a4242a;background:#fde6e8;padding:1px 6px;border-radius:2px;font-weight:bold" title="profile params 自 ${cl.archiveVersion} (${cl.archiveDate}) 以來已變動；archive=${cl.archiveHash}, current=${cl.currentHash}">⚠ 自 ${escapeHtml(cl.archiveVersion)} 起已變動</span>`;
+          archiveTag = ` <span class="v2-page-only-governance" style="font-family:inherit;font-size:9.5px;color:#a4242a;background:#fde6e8;padding:1px 6px;border-radius:2px;font-weight:bold" title="profile params 自 ${cl.archiveVersion} (${cl.archiveDate}) 以來已變動；archive=${cl.archiveHash}, current=${cl.currentHash}">⚠ 自 ${escapeHtml(cl.archiveVersion)} 起已變動</span>`;
         } else if (cl?.newProfile) {
-          archiveTag = ` <span style="font-family:inherit;font-size:9.5px;color:#7a5210;background:#fdebd0;padding:1px 6px;border-radius:2px;font-weight:bold" title="此 profile 未存於最新 archive（${cl.archiveVersion || '?'}）">＋ 新 profile</span>`;
+          archiveTag = ` <span class="v2-page-only-governance" style="font-family:inherit;font-size:9.5px;color:#7a5210;background:#fdebd0;padding:1px 6px;border-radius:2px;font-weight:bold" title="此 profile 未存於最新 archive（${cl.archiveVersion || '?'}）">＋ 新 profile</span>`;
         }
         return `<tr><td>${escapeHtml(scopeLabels[scope] || scope)}</td><td>${idText}${hashTag}${archiveTag}　${escapeHtml(info.name || '')}</td></tr>`;
       }).join('');
@@ -5790,7 +5790,7 @@ function v2InjectRegulationFooter(){
       : '';
     // V2.5.0：governance fingerprint — 單一指紋涵蓋「工具 + 規範」雙治理狀態
     const govFingerprint = meta.governance_fingerprint
-      ? `<tr><td>治理指紋</td><td style="font-family:monospace" title="本次計算之 governance 狀態（calc_source_hash + code_profiles_hashes 之 cyrb53 合成）；工具或規範任一變動皆會更新此指紋">${escapeHtml(meta.governance_fingerprint)}</td></tr>`
+      ? `<tr class="v2-page-only-governance"><td>治理指紋</td><td style="font-family:monospace" title="本次計算之 governance 狀態（calc_source_hash + code_profiles_hashes 之 cyrb53 合成）；工具或規範任一變動皆會更新此指紋">${escapeHtml(meta.governance_fingerprint)}</td></tr>`
       : '';
     // V2.8.0：governance acknowledgment hash — archive + current + ack 三方雜湊綁定
     const govAckHash = meta.governance_ack_hash
@@ -5830,7 +5830,7 @@ function v2InjectRegulationFooter(){
       const schemaTxt = schemaOk ? 'profile schema 驗證通過' : `profile schema 驗證失敗（${schemaErrors.length} 個）`;
       const consistTxt = consistOk ? 'profile 與 CONSTS 一致' : `profile 與 CONSTS 有 ${consistDiffs.length} 處差異`;
       const okColor = '#1a7a3a', warnColor = '#b3471d';
-      return `<tr><td>規範自檢</td><td>
+      return `<tr class="v2-page-only-governance"><td>規範自檢</td><td>
         <span style="color:${schemaOk?okColor:warnColor};font-weight:bold">${schemaIco}</span> ${escapeHtml(schemaTxt)}
         <span style="color:${consistOk?okColor:warnColor};font-weight:bold">${consistIco}</span> ${escapeHtml(consistTxt)}
       </td></tr>`;
@@ -5840,7 +5840,7 @@ function v2InjectRegulationFooter(){
     footer.innerHTML = `
       <h5>📋 本計算書引用之規範版本</h5>
       <table>${rows}${profileRowsHtml}${validationBadge}${fingerprint}${govFingerprint}${govAckHash}</table>
-      <p style="font-size:10px;color:#888;margin-top:4px">本計算書計算邏輯可由「公式指紋」追溯；指紋變動代表計算邏輯已更新。各 scope profile id 對應當時計算採用之規範版本，舊案重新開啟仍會沿用拍攝當時之 profile。「規範自檢」為啟動時 profile schema 驗證 + 與 CONSTS 一致性檢查的雙軌結果。</p>`;
+      <p class="v2-page-only-governance" style="font-size:10px;color:#888;margin-top:4px">本計算書計算邏輯可由「公式指紋」追溯；指紋變動代表計算邏輯已更新。各 scope profile id 對應當時計算採用之規範版本，舊案重新開啟仍會沿用拍攝當時之 profile。「規範自檢」為啟動時 profile schema 驗證 + 與 CONSTS 一致性檢查的雙軌結果。</p>`;
     const previewSheets = document.getElementById('preview-sheets');
     if(previewSheets) previewSheets.appendChild(footer);
   }catch(e){ console.warn('[v2InjectRegulationFooter] failed:', e); }
@@ -12160,13 +12160,31 @@ function promoteAnchorIds(html){
   return html.replace(/data-anchor="([^"]+)"/g, (m, key) => `id="anchor-${key}" data-anchor="${key}"`);
 }
 
+// 正式輸出只保留計算內容與必要追溯資訊；操作、治理與比較介面留在 HTML 畫面。
+function buildPrintableSheetsHtml(){
+  const source = document.getElementById('preview-sheets');
+  if(!source) return '';
+  const clone = source.cloneNode(true);
+  clone.querySelectorAll([
+    '.v2-tier-banner',
+    '.v2-active-params',
+    '.v2-profile-diff',
+    '.v2-governance-dashboard',
+    '.v2-ack-history',
+    '.v2-page-only-governance',
+    '.cov-gov-footer',
+    '.review-gov-footer'
+  ].join(',')).forEach(el => el.remove());
+  return clone.innerHTML;
+}
+
 function previewPrint(){
-  const sheets = document.getElementById('preview-sheets')?.innerHTML || '';
+  const sheets = buildPrintableSheetsHtml();
   openPagedPrintWindow(buildPagedPrintHtml(exportBaseFilename('計算書'), promoteAnchorIds(sheets), false));
 }
 
 function exportPDF(){
-  const sheets = document.getElementById('preview-sheets')?.innerHTML || '';
+  const sheets = buildPrintableSheetsHtml();
   openPagedPrintWindow(buildPagedPrintHtml(exportBaseFilename('計算書'), promoteAnchorIds(sheets), true));
 }
 

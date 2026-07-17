@@ -445,6 +445,7 @@
         <option value="detailed" selected>詳算式（含輸入與逐步計算）</option>
         <option value="summary">簡易結果（摘要與採用表）</option>
       </select>
+      <div class="hint">本選項只控制輸出詳略，不會列為計算書欄位。</div>
     </div>
     <button class="btn-print" type="button">列印計算書</button>
   </div>
@@ -467,10 +468,8 @@
     <div class="checkbox-row"><input type="checkbox" id="rep_roof"><label for="rep_roof">屋面主結構壓力</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_lateral"><label for="rep_lateral">橫風向與扭轉向設計風力</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_parapet"><label for="rep_parapet">MWFRS 女兒牆</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_route"><label for="rep_route">適用分流</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_steps"><label for="rep_steps">逐步計算</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_inputs"><label for="rep_inputs">輸入資料表</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_notes"><label for="rep_notes">附註 / 說明</label></div>
   </details>
 </div>
 
@@ -678,8 +677,8 @@ const CASE_VALUE_IDS = [
   'occupancy', 'fa', 'ft', 'Dstar', 'Lstar', 'thetaStar', 'structType', 'massDensity',
   'chkDetail', 'reportMode', 'rep_summary', 'rep_applicability', 'rep_combo', 'rep_control',
   'rep_accel_formal', 'rep_accel_estimate', 'rep_dir_combo', 'rep_floor_combo', 'rep_story',
-  'rep_case', 'rep_roof', 'rep_lateral', 'rep_parapet', 'rep_route', 'rep_steps',
-  'rep_inputs', 'rep_notes'
+  'rep_case', 'rep_roof', 'rep_lateral', 'rep_parapet', 'rep_steps',
+  'rep_inputs'
 ];
 let storyHeightDraft = [];
 let lastWindForceReportState = null;
@@ -1388,7 +1387,7 @@ function calc(forcedStoryHeights) {
       V<sub>h</sub> = <strong>${fmt(r.Vh,2)}</strong> m/s。<br>
       橫風向底部剪力 ΣW<sub>L</sub> = <strong>${fmt(VbL,0)}</strong> kgf。<br>
       扭轉向底部總扭矩 ΣM<sub>T</sub> = <strong>${fmt(VbT,0)}</strong> kgf·m。<br>
-      本頁主結構橫風向與扭矩結果依第二章 <strong>Eq 2.21 / Eq 2.23</strong> 輸出；第四章角隅加速度需配合結構分析位移另行檢核。
+      本案主結構橫風向與扭矩結果依第二章 <strong>Eq 2.21 / Eq 2.23</strong> 計算；第四章角隅加速度需配合結構分析位移另行檢核。
     `;
   } else if (r.lateralMeta && r.lateralMeta.regime === 'resonant') {
     const VbL = r.crossWind ? r.crossWind.reduce((s, c) => s + c.WL, 0) : null;
@@ -1409,7 +1408,7 @@ function calc(forcedStoryHeights) {
   } else {
     document.getElementById('lateralSummary').innerHTML = `
       h/√BL = <strong>${fmt(r.hBL,2)}</strong>。<br>
-      本頁未套用第二章矩形建物橫風向 / 扭矩公式。<br>
+      本案未採用第二章矩形建物橫風向 / 扭矩公式。<br>
       超出 <strong>h/√BL &lt; 3</strong> 或 <strong>3 ≤ h/√BL ≤ 6、0.2 ≤ L/B ≤ 5、V<sub>h</sub>/(f√BL) ≤ 10</strong> 之條件時，應依完整規範或風洞試驗辦理。
     `;
   }
@@ -1420,14 +1419,14 @@ function calc(forcedStoryHeights) {
   const sumWTY = rY.torsion ? rY.torsion.reduce((s, c) => s + c.MT, 0) : null;
   const lateralMethodText = r.lateralMeta && r.lateralMeta.methodCross
     ? `${r.lateralMeta.methodCross}${r.lateralMeta.methodTorsion ? ` / ${r.lateralMeta.methodTorsion}` : ''}`
-    : '未形成本頁可採用之 WL / WT';
+    : '未形成規範可採用之 WL / WT';
   document.getElementById('comboSummary').innerHTML = `
-    依第二章 2.12，本頁詳算以 <strong>X 風向</strong> 為主，應以 <strong>{ W<sub>D,x</sub>, W<sub>L,x</sub>, W<sub>T,x</sub> }</strong> 輸入結構分析。<br>
+    依第二章 2.12，本案計算以 <strong>X 風向</strong> 為主，採 <strong>{ W<sub>D,x</sub>, W<sub>L,x</sub>, W<sub>T,x</sub> }</strong> 進行結構分析。<br>
     X 風向：W<sub>D</sub> = <strong>${fmt(r.Vb,0)}</strong> kgf，
     W<sub>L</sub> = <strong>${sumWL == null ? '—' : fmt(sumWL,0)}</strong> kgf，
     W<sub>T</sub> = <strong>${sumWT == null ? '—' : fmt(sumWT,0)}</strong> kgf·m。<br>
     橫風向 / 扭矩採用路徑：<strong>${lateralMethodText}</strong>。<br>
-    Y 風向結果已於下表同步整理；若 X / Y 方向動力特性不同，應於 f<sub>a,y</sub>、f<sub>t,y</sub> 分別輸入。
+    Y 風向結果列於下表；若 X / Y 方向動力特性不同，應於 f<sub>a,y</sub>、f<sub>t,y</sub> 分別採用對應值。
   `;
   const dirTbody = document.querySelector('#dirComboTable tbody');
   dirTbody.innerHTML = '';
@@ -1438,7 +1437,7 @@ function calc(forcedStoryHeights) {
     const tr = document.createElement('tr');
     const method = item.rx.lateralMeta && item.rx.lateralMeta.methodCross
       ? `${item.rx.lateralMeta.methodCross}${item.rx.lateralMeta.methodTorsion ? ` / ${item.rx.lateralMeta.methodTorsion}` : ''}`
-      : '不適用本頁';
+      : '不適用此規範路線';
     tr.innerHTML = `
       <td class="idx">${item.name}</td>
       <td>${fmt(item.width,1)} / ${fmt(item.depth,1)}</td>
@@ -1519,9 +1518,8 @@ function calc(forcedStoryHeights) {
     accelFormalCard.style.display = '';
     accelEstimateCard.style.display = 'none';
     document.getElementById('accelFormalSummary').innerHTML = `
-      本頁未執行第四章角隅加速度檢核。<br>
-      正式檢核：選擇「規範檢核」並輸入 D*、L*、θ*。<br>
-      報表推估：選擇「簡化推估」並輸入平均密度。
+      本案未納入第四章角隅加速度檢核。<br>
+      若專案需辦理舒適度檢核，應另依第四章採用最高居室樓層之結構分析參數 D*、L*、θ* 計算。
     `;
     document.getElementById('accelEstimateSummary').innerHTML = '';
   }

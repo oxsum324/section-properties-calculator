@@ -295,7 +295,7 @@
             <input id="miscT" type="number" value="0" step="0.01" min="0" placeholder="0 = 剛性">
           </div>
           <div class="form-group">
-            <label>設計備註</label>
+            <label>案件說明</label>
             <input id="miscRemark" type="text" placeholder="例：屋頂招牌、庭園圍牆">
           </div>
         </div>
@@ -1411,7 +1411,7 @@ function openMiscReport() {
   const modeLabel = r.mode === 'similar' ? '5.3 相似於建築結構' : '5.4 非相似於建築結構';
   const zoneCity = document.getElementById('zoneCity');
   const zoneDist = document.getElementById('zoneDist');
-  const zoneText = zoneCity.value && zoneDist.value ? `${zoneCity.value} ${zoneDist.value}` : '手動輸入震區參數';
+  const zoneText = zoneCity.value && zoneDist.value ? `${zoneCity.value} ${zoneDist.value}` : '採指定震區參數';
   const typeIdx = parseInt(document.getElementById('miscType').value, 10);
   const isCustomType = typeIdx === -1;
   const limitWarning = getHeightLimitWarning(r, r.hn);
@@ -1426,10 +1426,8 @@ function openMiscReport() {
   const resultGridHtml = document.getElementById('miscResult')?.querySelector('.results-grid')?.outerHTML || '';
   const calcDetailHtml = document.getElementById('miscResult')?.querySelector('.step')?.outerHTML || document.getElementById('miscResult')?.innerHTML || '';
   const reportNotes = [];
-  if (note) reportNotes.push(note);
   if (isCustomType) reportNotes.push('本案 R 與 αy 由使用者自訂，請對照第五章表列規定複核。');
   if (limitWarning) reportNotes.push(limitWarning);
-  if (!reportNotes.length) reportNotes.push('本頁為第五章局部計算書；其他章節檢核請另由完整耐震頁辦理。');
   const simpleReportHtml = `
       <div class="rep-summary">第五章 ${esc(modeLabel)}　Vh = ${esc(fmt(r.Vh, 2))} tf　｜　Vv = ${esc(fmt(r.Vv, 2))} tf</div>
       <div class="rep-chipbar">
@@ -1461,7 +1459,7 @@ function openMiscReport() {
           <tr><th>週期 T</th><td>${esc(fmt(r.T, 3))} sec</td></tr>
           <tr><th>R / αy</th><td>${esc(`${r.R} / ${r.alphaY}`)}</td></tr>
           <tr><th>表列高度上限</th><td>${esc(r.hLimit)}</td></tr>
-          <tr><th>備註</th><td>${esc(note || '—')}</td></tr>
+          <tr><th>案件說明</th><td>${esc(note || '—')}</td></tr>
         </tbody></table>
       </section>
       <section class="rep-block">
@@ -1584,12 +1582,10 @@ function openMiscReport() {
         <div><b>計算指紋</b>${esc(reportTrace.calculationFingerprint)}</div>
       </div>
       ${includeDetail ? detailedReportHtml : simpleReportHtml}
-      <section class="rep-block">
-        <h3>備註</h3>
-        <ol class="rep-notes">
-          ${reportNotes.map(item => `<li>${esc(item)}</li>`).join('')}
-        </ol>
-      </section>
+      ${reportNotes.length ? `<section class="rep-block">
+        <h3>設計複核事項</h3>
+        <ol class="rep-notes">${reportNotes.map(item => `<li>${esc(item)}</li>`).join('')}</ol>
+      </section>` : ''}
       <div class="rep-footer">
         <div class="rep-footer-right">版權所有 弘一工程顧問有限公司</div>
       </div>

@@ -41,6 +41,7 @@ function formatReportTimestamp(value) {
 
 const CALCULATION_BOOK_PAGE_ONLY_LABELS = Object.freeze([
   '輸入模式',
+  '計算書模式',
   '換算對照',
   '流程顯示',
   '報表模式',

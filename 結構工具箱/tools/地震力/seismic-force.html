@@ -365,8 +365,6 @@
     <div class="checkbox-row"><input type="checkbox" id="rep_misc"><label for="rep_misc">雜項工作物地震力</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_steps"><label for="rep_steps">逐步計算</label></div>
     <div class="checkbox-row"><input type="checkbox" id="rep_inputs" checked><label for="rep_inputs">輸入資料表</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_symbols" checked><label for="rep_symbols">符號說明</label></div>
-    <div class="checkbox-row"><input type="checkbox" id="rep_notes" checked><label for="rep_notes">附註 / 說明</label></div>
     <div class="checkbox-row" style="margin-top:8px; background:#eef2ff; border-color:#c7d2fe;">
       <input type="checkbox" id="repRemember" checked>
       <label for="repRemember">記住本頁列印勾選設定</label>
@@ -690,7 +688,7 @@ const CASE_VALUE_IDS = [
   'chkTaipei', ...CASE_ZONE_VALUE_IDS, 'SsD', 'S1D', 'SsM', 'S1M', 'siteClass',
   'N', 'hn', 'B', 'Bh', 'wUniform', 'Tdyna', 'chkDetail',
   'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum', 'rep_story', 'rep_sub', 'rep_drift',
-  'rep_appendage', 'rep_vertical', 'rep_misc', 'rep_steps', 'rep_inputs', 'rep_symbols', 'rep_notes'
+  'rep_appendage', 'rep_vertical', 'rep_misc', 'rep_steps', 'rep_inputs'
 ];
 function fmt(v, d) { return v == null ? '—' : Number(v).toFixed(d); }
 function fmtCoeff(v) { return fmt(v, 4); }
@@ -1668,7 +1666,7 @@ function reportOpt(id, fallback) {
 const SEISMIC_REPORT_OPTION_IDS = [
   'rep_summary', 'rep_direction', 'rep_adopt', 'rep_spectrum',
   'rep_story', 'rep_sub', 'rep_drift', 'rep_appendage', 'rep_vertical',
-  'rep_misc', 'rep_steps', 'rep_inputs', 'rep_symbols', 'rep_notes'
+  'rep_misc', 'rep_steps', 'rep_inputs'
 ];
 
 const SEISMIC_REPORT_PRESETS = {
@@ -1684,9 +1682,7 @@ const SEISMIC_REPORT_PRESETS = {
     rep_vertical: false,
     rep_misc: false,
     rep_steps: false,
-    rep_inputs: true,
-    rep_symbols: true,
-    rep_notes: true
+    rep_inputs: true
   },
   results: {
     rep_summary: true,
@@ -1700,9 +1696,7 @@ const SEISMIC_REPORT_PRESETS = {
     rep_vertical: false,
     rep_misc: false,
     rep_steps: false,
-    rep_inputs: false,
-    rep_symbols: false,
-    rep_notes: false
+    rep_inputs: false
   },
   full: {
     rep_summary: true,
@@ -1716,9 +1710,7 @@ const SEISMIC_REPORT_PRESETS = {
     rep_vertical: true,
     rep_misc: true,
     rep_steps: true,
-    rep_inputs: true,
-    rep_symbols: true,
-    rep_notes: true
+    rep_inputs: true
   }
 };
 
@@ -1935,20 +1927,20 @@ function collectSeismicInputs() {
     return '一般工址反應譜';
   })();
 
-  appendGroup(inputs, makeInputGroup('結構系統與設計模式', [
+  appendGroup(inputs, makeInputGroup('結構系統與設計條件', [
     { label: '結構系統', value: getFieldValue(document.getElementById('sys')), unit: '' },
     { label: '用途分類', value: getFieldValue(document.getElementById('impClass')), unit: '' },
-    { label: 'X / Y 向分別設計', value: document.getElementById('chkXY').checked ? '啟用' : '未啟用', unit: '' },
+    { label: '設計方向', value: document.getElementById('chkXY').checked ? 'X / Y 向分別設計' : 'X 向單向設計', unit: '' },
     { label: 'Y 向結構系統', value: document.getElementById('chkXY').checked ? getFieldValue(document.getElementById('sysY')) : '—', unit: '' },
     { label: '動力分析週期 Tdyna', value: getFieldValue(document.getElementById('Tdyna')), unit: 'sec' },
     { label: 'Y 向動力分析週期 Tdyna,Y', value: document.getElementById('chkXY').checked ? getFieldValue(document.getElementById('TdynaY')) : '—', unit: 'sec' },
-    { label: '臺北盆地微分區', value: document.getElementById('chkTaipei').checked ? '啟用' : '未啟用', unit: '' },
+    { label: '臺北盆地微分區', value: document.getElementById('chkTaipei').checked ? '採用' : '未採用', unit: '' },
     { label: '設計譜來源', value: siteSourceLabel, unit: '' }
   ]));
 
   appendGroup(inputs, makeInputGroup('震區參數與工址條件', [
-    { label: '縣市', value: getFieldValue(document.getElementById('zoneCity')), unit: '' },
-    { label: '鄉鎮市區', value: getFieldValue(document.getElementById('zoneDist')), unit: '' },
+    { label: '縣市', value: document.getElementById('zoneCity').value ? getFieldValue(document.getElementById('zoneCity')) : '未指定', unit: '' },
+    { label: '鄉鎮市區', value: document.getElementById('zoneDist').value ? getFieldValue(document.getElementById('zoneDist')) : '未指定', unit: '' },
     { label: '里別微分區', value: basinSelection?.village || getFieldValue(document.getElementById('zoneVillage')), unit: '' },
     { label: '微分區', value: basinSelection?.zoneName || '—', unit: '' },
     { label: '盆地特徵週期 T0', value: basinSelection?.T0 != null ? fmt(basinSelection.T0, 3) : '—', unit: 'sec' },
@@ -1965,7 +1957,6 @@ function collectSeismicInputs() {
     { label: '建物總高 hn', value: getFieldValue(document.getElementById('hn')), unit: 'm' },
     { label: '地下層數 B', value: getFieldValue(document.getElementById('B')), unit: '層' },
     { label: '地下每層深 Bh', value: getFieldValue(document.getElementById('Bh')), unit: 'm' },
-    { label: '快速填入每層重', value: getFieldValue(document.getElementById('wUniform')), unit: 'tf' },
     { label: '地上樓層筆數', value: floorCount ? String(floorCount) : '—', unit: '層' },
     { label: '地上總重量 W', value: floorCount ? fmt(totalWeight, 0) : '—', unit: 'tf' },
     { label: '累計樓高', value: floorCount ? fmt(totalHeight, 2) : '—', unit: 'm' }
@@ -2083,14 +2074,6 @@ function collectSeismicSteps() {
   }).filter(Boolean);
 }
 
-function collectSeismicNotes() {
-  return Array.from(document.querySelectorAll('.main-layout > div:first-child .note, #resultPanel .note, #resultPanel .legend'))
-    .map(el => cleanSeismicText(el.textContent))
-    .filter(Boolean)
-    .filter((text, index, arr) => arr.indexOf(text) === index)
-    .slice(0, 12);
-}
-
 function collectSeismicDiagrams() {
   if (!reportOpt('rep_spectrum', true)) return [];
   const canvas = document.getElementById('spectrumChart');
@@ -2105,16 +2088,6 @@ function collectSeismicDiagrams() {
   } catch (err) {
     return [];
   }
-}
-
-function collectSeismicSymbols() {
-  return [
-    { sym: 'Vdesign', desc: '設計水平總橫力（實務上常稱底部剪力），取 VD、V*、VM 三者控制值。' },
-    { sym: 'SDS / SD1', desc: '設計地震短週期與 1 秒週期譜加速度係數。' },
-    { sym: 'SMS / SM1', desc: '最大考量地震短週期與 1 秒週期譜加速度係數。' },
-    { sym: 'Ra / Fu', desc: '容許韌性容量與地震力折減係數。' },
-    { sym: 'Ft', desc: '頂部附加力，依式 2-14 計入。' }
-  ];
 }
 
 function collectSeismicSummary() {
@@ -2172,37 +2145,6 @@ function renderReportInputSections(groups) {
       </table>
     </section>
   `).join('');
-}
-
-function renderReportSymbols(symbols) {
-  if (!symbols?.length) return '';
-  return `
-    <section class="rep-block">
-      <h3>符號說明</h3>
-      <table class="rep-input">
-        <tbody>
-          ${symbols.map(item => `
-            <tr>
-              <th>${escReport(item.sym)}</th>
-              <td>${escReport(item.desc)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </section>
-  `;
-}
-
-function renderReportNotes(notes) {
-  if (!notes?.length) return '';
-  return `
-    <section class="rep-block">
-      <h3>附註 / 說明</h3>
-      <ol class="rep-notes">
-        ${notes.map(note => `<li>${escReport(note)}</li>`).join('')}
-      </ol>
-    </section>
-  `;
 }
 
 function buildDirectionalSummaryHtml() {
@@ -2279,8 +2221,6 @@ function openSeismicReport() {
   const reportTrace = buildSeismicReportTrace();
   const spectrumImage = collectSeismicDiagrams()[0];
   const inputsHtml = reportOpt('rep_inputs', true) ? renderReportInputSections(collectSeismicInputs()) : '';
-  const symbolsHtml = reportOpt('rep_symbols', true) ? renderReportSymbols(collectSeismicSymbols()) : '';
-  const notesHtml = reportOpt('rep_notes', true) ? renderReportNotes(collectSeismicNotes()) : '';
   const stepsHtml = (document.getElementById('chkDetail').checked && reportOpt('rep_steps', false))
     ? `
       <section class="rep-block">
@@ -2392,8 +2332,6 @@ function openSeismicReport() {
       ${reportOpt('rep_misc', false) ? buildOriginalBlockHtml('雜項工作物地震力', document.getElementById('miscResult')?.innerHTML || '') : ''}
       ${inputsHtml}
       ${stepsHtml}
-      ${symbolsHtml}
-      ${notesHtml}
       <div class="rep-footer">
         <div class="rep-footer-right">版權所有 弘一工程顧問有限公司</div>
       </div>
@@ -2615,7 +2553,7 @@ function calc() {
       S<sub>D1</sub> = <span class="val hl">${fmt(site.SD1,4)}</span> g，
       S<sub>MS</sub> = <span class="val">${fmt(site.SMS,4)}</span> g，
       S<sub>M1</sub> = <span class="val">${fmt(site.SM1,4)}</span> g
-    `, `近斷層資料表提供的是直接控制後之 S<sub>DS</sub>/S<sub>D1</sub>/S<sub>MS</sub>/S<sub>M1</sub>，本工具改為直接套用，避免再經 F<sub>a</sub>/F<sub>v</sub> 重複放大。`);
+    `, `近斷層資料表提供的是直接控制後之 S<sub>DS</sub>/S<sub>D1</sub>/S<sub>MS</sub>/S<sub>M1</sub>，本案直接採用該控制值，避免再經 F<sub>a</sub>/F<sub>v</sub> 重複放大。`);
 
     html += step('② 工址水平譜加速度係數', `
       本次採用直接控制譜值，不再由 F<sub>a</sub>、F<sub>v</sub> 與 Ss/S1 反算。<br>

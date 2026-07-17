@@ -706,7 +706,7 @@ function calc() {
     q(z) = 0.06 × K(z) × K<sub>zt</sub> × (I × V)<sup>2</sup> = <span class="val">${fmt(q.qz,1)}</span> kgf/m²<br>
     G = <span class="val">${fmt(G,3)}</span>
   `, buildGustDetailHtml(gustInfo, {
-    intro: 'G 採剛性陣風反應因子；本頁以作用高度 z 作為 h<sub>G</sub>，並以投影面積換算等效寬度 B<sub>G</sub>。',
+    intro: 'G 採剛性陣風反應因子；採作用高度 z 作為 h<sub>G</sub>，並以投影面積換算等效寬度 B<sub>G</sub>。',
     heightName: 'h<sub>G</sub>',
     widthName: 'B<sub>G</sub>',
     widthExpression: `B<sub>G</sub> = max(√A, 1.00) = max(√${fmt(A,2)}, 1.00) = <span class="val">${fmt(gustInfo.B,2)}</span> m`

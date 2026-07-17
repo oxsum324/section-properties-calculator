@@ -213,6 +213,7 @@ const pageOnlyReportStatusNeedles = [
 ];
 const calculationBookUiOnlyNeedles = [
   "輸入模式",
+  "計算書模式",
   "換算對照",
   "流程顯示",
   "報表模式",
@@ -239,8 +240,13 @@ assert.match(
 );
 assert.match(
   appSource,
-  /<div class="report-ending">[\s\S]*<h3>設計依據與限制條件<\/h3>[\s\S]*<h3>檢核結論<\/h3>[\s\S]*<\/div>/,
-  "legacy report should keep the design boundary and final conclusion together at the end",
+  /<div class="report-ending">[\s\S]*<h3>檢核結論<\/h3>[\s\S]*<\/div>/,
+  "legacy report should keep the final conclusion together at the end",
+);
+assert.doesNotMatch(
+  appSource.match(/function buildReportHtml\(result\)[\s\S]*?\n  }\n\n  function openReportWindow/)?.[0] || "",
+  /設計依據與限制條件|buildReviewSectionsMarkup|設計備註/,
+  "legacy formal report should keep review explanations on the HTML page instead of exporting them",
 );
 
 for (const needle of pageOnlyReportStatusNeedles) {

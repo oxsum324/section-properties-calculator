@@ -647,7 +647,7 @@ assertIncludes(repoDocs.vercel, '"destination": "/結構工具箱/"', 'new home 
   '<title>建築物耐震設計 — 反應譜動力分析規範整理 V3.8</title>',
   '總橫力調整檢核',
   'id="designActionPanel"',
-  '規範反應譜輸出表',
+  '規範反應譜資料表',
   'id="codeSpectrumPanel"',
   '設計譜值來源',
   '中小度下限譜',

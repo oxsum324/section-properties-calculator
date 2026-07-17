@@ -128,6 +128,7 @@ const pageOnlyReportStatusNeedles = [
   '不會寫入計算書',
   '不會寫入計算書或列印 PDF',
   '輸入模式',
+  '計算書模式',
   '換算對照',
   '流程顯示',
   '報表模式',
@@ -356,6 +357,8 @@ if (originalWindReport === undefined) {
   assertIncludes(readText(toolboxFile('core/wind-report.js')), needle, `wind report trace ${needle}`);
 });
 const windReportSource = readText(toolboxFile('core/wind-report.js'));
+assertIncludes(windReportSource, 'function isCalculationBookOutputControl', 'wind report identifies page-only output controls');
+assertIncludes(windReportSource, 'global.ToolReportUI.getCalculationBookInputGroups(groups)', 'wind report reuses the shared calculation-book input filter');
 ['openWindForceReport', 'openWindGenericReport'].forEach(functionName => {
   const start = windReportSource.indexOf(`function ${functionName}()`);
   const end = windReportSource.indexOf('\n  function ', start + 1);
@@ -758,7 +761,8 @@ for (const inlineValidationPage of [
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
-    '不會寫入計算書或列印 PDF'
+    '不會寫入計算書或列印 PDF',
+    '計算書模式'
   ].forEach(needle => assertIncludes(html, needle, 'wind-force page-only report readiness'));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-force page-only report readiness hidden from print');
 
@@ -772,7 +776,8 @@ for (const inlineValidationPage of [
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
-    '不會寫入計算書或列印 PDF'
+    '不會寫入計算書或列印 PDF',
+    '計算書模式'
   ].forEach(needle => assertNoIncludes(windReport, needle, 'wind report excludes page-only readiness wording'));
 }
 
@@ -1156,7 +1161,8 @@ for (const [relativePath, reportFunction, openFunction] of [
     'page-only-report-status',
     '產報前檢查',
     '優先閱讀',
-    '不會寫入計算書或列印 PDF'
+    '不會寫入計算書或列印 PDF',
+    '計算書模式'
   ].forEach(needle => assertNoIncludes(reportBody, needle, 'seismic-dynamic report excludes page-only readiness wording'));
   assertNoIncludes(html, 'confirm(', 'seismic-dynamic reset confirmation must be inline');
   [
