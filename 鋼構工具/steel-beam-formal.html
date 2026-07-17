@@ -155,19 +155,10 @@
             <label>規範基準</label>
             <input id="codeBasisDisplay" value="鋼構造建築物鋼結構設計技術規範｜第七章撓曲構材；撓度限值由設計者依使用性需求輸入" disabled>
           </div>
-          <div class="checkbox-row">
-            <input id="beamShowFlowInReport" type="checkbox" checked>
-            <label for="beamShowFlowInReport">核可將計算流程顯示於輸出報表</label>
-          </div>
-          <div class="checkbox-row">
-            <input id="beamShowSymbolsInReport" type="checkbox" checked>
-            <label for="beamShowSymbolsInReport">核可於輸出報表顯示符號說明</label>
-          </div>
-          <div class="checkbox-row">
-            <input id="beamShowNotesInReport" type="checkbox" checked>
-            <label for="beamShowNotesInReport">核可於輸出報表顯示備註與條文說明</label>
-          </div>
-          <p class="section-note">可分別控制是否輸出計算流程、符號說明與備註；符號說明僅列出本次實際使用到的符號。</p>
+          <input id="beamShowFlowInReport" type="checkbox" checked hidden>
+          <input id="beamShowSymbolsInReport" type="checkbox" hidden>
+          <input id="beamShowNotesInReport" type="checkbox" hidden>
+          <p class="section-note">正式計算書固定輸出採用輸入、公式代入、檢核結果與結論；輸入模式、操作流程、符號詞典及條文解釋只保留在本 HTML 畫面。</p>
         </div>
 
         <div class="card" id="beamCardSection">

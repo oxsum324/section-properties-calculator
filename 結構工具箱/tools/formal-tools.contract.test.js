@@ -76,7 +76,14 @@ function renderReportHtml(filePath, project = {}, overrides = {}) {
     title: 'QA 計算書',
     outputSource: { tool: 'QA 正式工具', version: 'V9.9' },
     project,
-    inputs: [{ group: '輸入資料', items: [{ label: 'A', value: '1', unit: '' }, { label: 'B', value: '2', unit: 'tf' }] }],
+    inputs: [
+      { group: '頁面操作說明', items: [
+        { label: '輸入模式', value: '舊制' },
+        { label: '換算對照', value: '1 tf = 9.80665 kN' },
+        { label: '流程顯示', value: '核心計算單位' },
+      ] },
+      { group: '輸入資料', items: [{ label: 'A', value: '1', unit: '' }, { label: 'B', value: '2', unit: 'tf' }] },
+    ],
     checks: [{
       group: '檢核結果',
       items: [
@@ -84,8 +91,10 @@ function renderReportHtml(filePath, project = {}, overrides = {}) {
         { label: 'B', formula: 'B / A', sub: '2 / 1', value: '2.00', unit: '', ok: true, note: '控制檢核' },
       ],
     }],
-    summaryFacts: [{ label: '控制值', value: 'B / A', tone: 'ok' }],
+    summaryFacts: [{ label: '摘要卡說明', value: 'B / A', tone: 'ok' }],
     summary: { ok: true, text: 'OK' },
+    steps: [{ group: '1. 計算代入', body: 'B / A = 2 / 1 = 2.00' }],
+    symbols: [{ sym: 'A', desc: '符號附註' }],
     notes: ['本報告樣本用於驗證正式輸出文字抽檢。'],
     ...overrides,
   });
@@ -118,6 +127,11 @@ const pageOnlyReportStatusNeedles = [
   '公司內部整理計算附件',
   '不會寫入計算書',
   '不會寫入計算書或列印 PDF',
+  '輸入模式',
+  '換算對照',
+  '流程顯示',
+  '報表模式',
+  '輸出設定',
 ];
 
 function assertReportHtmlText(html, label, requiredNeedles) {
@@ -190,6 +204,15 @@ assert.equal(
   'shared report runtime helper treats placeholder project name as missing'
 );
 assert.equal(sharedReportRuntime.ToolReportUI.normalizeProjectFieldValue('未填'), '', 'shared report runtime helper clears placeholder project text');
+assert(sharedReportRuntime.ToolReportUI.calculationBookPageOnlyLabels.includes('輸入模式'), 'shared report runtime publishes calculation-book page-only labels');
+assert.deepEqual(
+  JSON.parse(JSON.stringify(sharedReportRuntime.ToolReportUI.getCalculationBookInputGroups([
+    { group: '頁面操作說明', items: [{ label: '輸入模式', value: '舊制' }] },
+    { group: '採用輸入', items: [{ label: 'Fy', value: '2500' }] },
+  ]))),
+  [{ group: '採用輸入', items: [{ label: 'Fy', value: '2500' }] }],
+  'shared report runtime removes page-only input groups while retaining adopted engineering inputs',
+);
 assert.equal(
   sharedReportRuntime.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'], () => ({ value: 'QA' })),
   false,
@@ -211,8 +234,16 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared formal r
   '計算指紋',
   '輸入資料',
   '檢核結果',
+  '計算過程明細',
+  '檢核結論',
   'OK',
 ]);
+assert(sharedReportText.indexOf('輸入資料') < sharedReportText.indexOf('檢核結果'), 'shared report places adopted inputs before checks');
+assert(sharedReportText.indexOf('檢核結果') < sharedReportText.indexOf('計算過程明細'), 'shared report places checks before calculation steps');
+assert(sharedReportText.indexOf('計算過程明細') < sharedReportText.indexOf('檢核結論'), 'shared report places conclusion after calculation content');
+for (const forbidden of ['頁面操作說明', '摘要卡說明', '符號附註', '本報告樣本用於驗證正式輸出文字抽檢。']) {
+  assertNoIncludes(sharedReportText, forbidden, 'shared report excludes page-only/explanatory content');
+}
 assertNoIncludes(sharedReportHtml, '未填', 'shared report generator should scrub placeholder project metadata at render time');
 assertNoIncludes(sharedReportText, '未填', 'shared report generator visible text should scrub placeholder project metadata at render time');
 assertIncludes(sharedReportHtml, '計畫名稱</b>—', 'shared report generator should fallback blank project name to dash');

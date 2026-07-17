@@ -110,6 +110,13 @@ const pageOnlyReportStatusNeedles = [
   '不會寫入計算書',
   '不會寫入計算書或列印 PDF',
 ];
+const calculationBookUiOnlyNeedles = [
+  '輸入模式',
+  '換算對照',
+  '流程顯示',
+  '報表模式',
+  '輸出設定',
+];
 const formalReportRendererFiles = [
   '結構工具箱/core/ui/report.js',
   '結構工具箱/core/wind-report.js',
@@ -205,7 +212,10 @@ const staging = readText(repoFile('STAGING_GROUPS.md'));
 const reportGuide = readText(repoFile('TOOL_REPORT_GUIDE.md'));
 const contextDoc = readText(repoFile('CONTEXT.md'));
 const pageOnlyReportReadinessAdr = readText(repoFile('docs/adr/0001-page-only-report-readiness.md'));
+const calculationBookContentAdr = readText(repoFile('docs/adr/0003-calculation-book-content-boundary.md'));
 const formalManifest = readJson(repoFile('結構工具箱/tools/formal-tools.manifest.json'));
+const sharedCalculationReport = readText(repoFile('結構工具箱/core/ui/report.js'));
+const rcSharedCalculationReport = readText(repoFile('鋼筋混凝土/shared/report.js'));
 const rcSharedStyle = readText(repoFile('鋼筋混凝土/shared/style.css'));
 const rcBeamHtml = readText(repoFile('鋼筋混凝土/tools/beam.html'));
 const rcFoundationHtml = readText(repoFile('鋼筋混凝土/tools/foundation.html'));
@@ -232,6 +242,7 @@ const stoneServer = readText(repoFile('石材固定/server.py'));
 const stoneServerSmoke = readText(repoFile('石材固定/server_smoke_test.py'));
 const stoneReportContract = readText(repoFile('石材固定/stone-report.contract.test.js'));
 const steelFormalRegressionTest = readText(repoFile('鋼構工具/steel-formal.regression-test.js'));
+const steelBrowserRunner = readText(repoFile('鋼構工具/steel-audit-browser-runner.js'));
 const steelFormalStyles = readText(repoFile('鋼構工具/styles.css'));
 const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportExport.test.ts'));
 const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
@@ -262,6 +273,13 @@ assert(
   'docs/adr/0001-page-only-report-readiness.md',
 );
 assert(
+  calculationBookContentAdr.includes('calculation-first') &&
+    calculationBookContentAdr.includes('Input-mode guidance') &&
+    calculationBookContentAdr.includes('calculation content precedes the conclusion'),
+  'ADR records the calculation-book content boundary',
+  'docs/adr/0003-calculation-book-content-boundary.md',
+);
+assert(
   reportGuide.includes('頁面專用閱讀狀態') &&
     reportGuide.includes('CONTEXT.md') &&
     reportGuide.includes('docs/adr/0001-page-only-report-readiness.md') &&
@@ -271,9 +289,38 @@ assert(
   '頁面專用閱讀狀態 / Word / DOCX / workbook',
 );
 assert(Array.isArray(formalManifest.reportPageOnlyForbiddenNeedles) && formalManifest.reportPageOnlyForbiddenNeedles.length >= 8, 'formal manifest carries page-only report boundary needles', 'reportPageOnlyForbiddenNeedles');
-for (const needle of pageOnlyReportStatusNeedles) {
+for (const needle of [...pageOnlyReportStatusNeedles, ...calculationBookUiOnlyNeedles]) {
   assert(formalManifest.reportPageOnlyForbiddenNeedles.includes(needle), 'formal manifest page-only report boundary needle', needle);
 }
+assert(
+  reportGuide.includes('正式計算書與 HTML 畫面分層') &&
+    reportGuide.includes('docs/adr/0003-calculation-book-content-boundary.md') &&
+    calculationBookUiOnlyNeedles.every(needle => reportGuide.includes(needle)),
+  'TOOL_REPORT_GUIDE defines the calculation-first report boundary',
+  '正式計算書與 HTML 畫面分層',
+);
+assert(
+  sharedCalculationReport.includes('CALCULATION_BOOK_PAGE_ONLY_LABELS') &&
+    sharedCalculationReport.includes('getCalculationBookInputGroups') &&
+    !sharedCalculationReport.includes('const highlightsHtml') &&
+    !sharedCalculationReport.includes('const summaryFactsHtml') &&
+    sharedCalculationReport.indexOf('${inputsHtml}') < sharedCalculationReport.indexOf('${checksHtml}') &&
+    sharedCalculationReport.indexOf('${checksHtml}') < sharedCalculationReport.indexOf('${stepsHtml}') &&
+    sharedCalculationReport.indexOf('${stepsHtml}') < sharedCalculationReport.indexOf('${summaryHtml}'),
+  'shared calculation report filters interface fields and places the conclusion last',
+  'CALCULATION_BOOK_PAGE_ONLY_LABELS',
+);
+assert(
+  rcSharedCalculationReport.includes('RC_CALCULATION_BOOK_PAGE_ONLY_LABELS') &&
+    rcSharedCalculationReport.includes('getRcCalculationBookInputGroups') &&
+    !rcSharedCalculationReport.includes('const notesHtml') &&
+    !rcSharedCalculationReport.includes('const symHtml') &&
+    rcSharedCalculationReport.indexOf('${inputsHtml}') < rcSharedCalculationReport.indexOf('${checksHtml}') &&
+    rcSharedCalculationReport.indexOf('${checksHtml}') < rcSharedCalculationReport.indexOf('${stepsHtml}') &&
+    rcSharedCalculationReport.indexOf('${stepsHtml}') < rcSharedCalculationReport.indexOf('${summaryHtml}'),
+  'RC shared calculation report filters interface fields and places the conclusion after calculation content',
+  'RC_CALCULATION_BOOK_PAGE_ONLY_LABELS',
+);
 assert(stoneServer.includes('PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS'), 'stone export server keeps page-only review key markers', 'PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS');
 assert(stoneServer.includes('def _strip_page_only_review_status'), 'stone export server keeps page-only review status stripper', '_strip_page_only_review_status');
 assert(stoneServerSmoke.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'stone export smoke keeps page-only report needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
@@ -290,6 +337,10 @@ assert(steelFormalRegressionTest.includes('優先建議報告閱讀狀態'), 'st
 assert(steelFormalRegressionTest.includes('不會寫入計算書或列印 PDF'), 'steel formal regression covers print/PDF boundary wording', '不會寫入計算書或列印 PDF');
 assert(steelFormalRegressionTest.includes('FORMAL_PROJECT_META_PLACEHOLDER'), 'steel formal regression covers placeholder metadata export boundary fixtures', 'FORMAL_PROJECT_META_PLACEHOLDER');
 assert(steelFormalRegressionTest.includes('assertFormalProjectMetaPlaceholderRendered'), 'steel formal regression covers placeholder project metadata rendering checks', 'assertFormalProjectMetaPlaceholderRendered');
+assert(steelFormalRegressionTest.includes('calculationBookUiOnlyNeedles'), 'steel formal regression covers calculation-book UI-only wording', 'calculationBookUiOnlyNeedles');
+assert(steelFormalRegressionTest.includes('should place the conclusion after calculation content'), 'steel formal regression verifies report content ordering', 'conclusion after calculation content');
+assert(steelBrowserRunner.includes('CALCULATION_BOOK_UI_ONLY_NEEDLES'), 'steel browser runner rejects UI-only calculation-book wording', 'CALCULATION_BOOK_UI_ONLY_NEEDLES');
+assert(steelBrowserRunner.includes("lastIndexOf('檢核結論')"), 'steel browser runner verifies the rendered conclusion is last', '檢核結論');
 assertPrintHidesSelectors(steelFormalStyles, ['.page-only-report-status'], 'steel formal shared styles');
 assert(anchorReportExportTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'anchor report HTML smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
 assert(anchorReportExportTest.includes('expectNoPageOnlyReportStatus(html)'), 'anchor report HTML smoke asserts standalone HTML excludes page-only wording', 'expectNoPageOnlyReportStatus(html)');

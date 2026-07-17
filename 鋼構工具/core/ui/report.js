@@ -8,9 +8,7 @@
  *     inputs:   [{ group, items:[{ label, value, unit }] }, ...],
  *     checks:   [{ group, items:[{ label, formula, sub, value, unit, ok, note }] }, ...],
  *     diagrams: [{ title, dataURL, caption, width }, ...],   // 斷面 / PM 曲線等示意圖
- *     summary:  { ok: true|false, text: '✓ OK / ✗ NG' },
- *     symbols:  [{ sym, desc }, ...],
- *     notes:    ['依據 112 年混凝土結構設計規範', ...]
+ *     summary:  { ok: true|false, text: '✓ OK / ✗ NG' }
  *   });
  *
  * 開啟一個新視窗呈現可列印 (A4) 計算書;
@@ -39,6 +37,35 @@ function formatReportTimestamp(value) {
     String(date.getHours()).padStart(2, '0') + ':' +
     String(date.getMinutes()).padStart(2, '0') + ':' +
     String(date.getSeconds()).padStart(2, '0');
+}
+
+const CALCULATION_BOOK_PAGE_ONLY_LABELS = Object.freeze([
+  '輸入模式',
+  '換算對照',
+  '流程顯示',
+  '報表模式',
+  '輸出設定',
+  '報表內容',
+  '輸出報表內容',
+  '輸出報表流程',
+  '計算流程輸出',
+  '符號說明',
+  '備註與條文說明',
+  '預計輸出符號',
+  '預計輸出備註',
+]);
+
+function isCalculationBookPageOnlyLabel(value) {
+  const label = String(value || '').trim();
+  return CALCULATION_BOOK_PAGE_ONLY_LABELS.includes(label);
+}
+
+function getCalculationBookInputGroups(groups) {
+  return (Array.isArray(groups) ? groups : []).map((group) => ({
+    ...group,
+    items: (Array.isArray(group?.items) ? group.items : [])
+      .filter((item) => !isCalculationBookPageOnlyLabel(item?.label)),
+  })).filter((group) => group.items.length > 0 && !isCalculationBookPageOnlyLabel(group.group));
 }
 
 function normalizeFingerprintValue(value) {
@@ -70,13 +97,10 @@ function buildCalculationFingerprint(cfg) {
   const snapshot = normalizeFingerprintValue({
     title: cfg.title || '',
     subtitle: cfg.subtitle || '',
-    inputs: cfg.inputs || [],
+    inputs: getCalculationBookInputGroups(cfg.inputs),
     checks: cfg.checks || [],
     summary: cfg.summary || {},
-    summaryFacts: cfg.summaryFacts || [],
     steps: cfg.steps || [],
-    symbols: cfg.symbols || [],
-    notes: cfg.notes || [],
     snapshot: cfg.snapshot || {},
   });
   const source = JSON.stringify(snapshot);
@@ -108,13 +132,10 @@ function buildReportTrace(cfg = {}) {
   const calculationFingerprint = buildCalculationFingerprint({
     title: cfg.title || '',
     subtitle: cfg.subtitle || '',
-    inputs: cfg.inputs || [],
+    inputs: getCalculationBookInputGroups(cfg.inputs),
     checks: cfg.checks || [],
     summary: cfg.summary || {},
-    summaryFacts: cfg.summaryFacts || [],
     steps: cfg.steps || [],
-    symbols: cfg.symbols || [],
-    notes: cfg.notes || [],
     snapshot: cfg.snapshot || {},
     calculationFingerprint: cfg.calculationFingerprint,
   });
@@ -176,6 +197,8 @@ if (typeof window !== 'undefined') {
     hasBlankFieldValues,
     buildReportTrace,
     renderStatusGridPanel,
+    calculationBookPageOnlyLabels: CALCULATION_BOOK_PAGE_ONLY_LABELS,
+    getCalculationBookInputGroups,
   });
   window.ToolReportUI = sharedReportUI;
   window.SteelFormalUI = sharedReportUI;
@@ -226,7 +249,7 @@ function openReport(cfg) {
 
   const esc = escapeReportHtml;
 
-  const inputsHtml = (cfg.inputs || []).map(g => `
+  const inputsHtml = getCalculationBookInputGroups(cfg.inputs).map(g => `
     <section class="rep-block${g.keepTogether ? ' rep-block--keep' : ''}">
       <h3>${esc(g.group)}</h3>
       <table class="rep-input">
@@ -242,18 +265,6 @@ function openReport(cfg) {
       </table>
     </section>
   `).join('');
-
-  const highlightsHtml = (cfg.highlights && cfg.highlights.length) ? `
-    <section class="rep-highlights">
-      ${cfg.highlights.map(item => `
-        <article class="rep-highlight ${esc(item.tone || 'info')}">
-          <div class="rep-highlight-label">${esc(item.label || '')}</div>
-          <div class="rep-highlight-value">${esc(item.value || '—')}</div>
-          ${item.note ? `<div class="rep-highlight-note">${esc(item.note)}</div>` : ''}
-        </article>
-      `).join('')}
-    </section>
-  ` : '';
 
   const checksHtml = (cfg.checks || []).map(g => `
     <section class="rep-block">
@@ -279,25 +290,6 @@ function openReport(cfg) {
     </section>
   `).join('');
 
-  const symHtml = (cfg.symbols && cfg.symbols.length) ? `
-    <section class="rep-block">
-      <h3>符號說明</h3>
-      <table class="rep-sym">
-        <thead><tr><th>符號</th><th>說明</th></tr></thead>
-        <tbody>
-          ${cfg.symbols.map(s => `<tr><th>${esc(s.sym)}</th><td>${esc(s.desc)}</td></tr>`).join('')}
-        </tbody>
-      </table>
-    </section>` : '';
-
-  const notesHtml = (cfg.notes && cfg.notes.length) ? `
-    <section class="rep-block">
-      <h3>備註</h3>
-      <ol class="rep-notes">
-        ${cfg.notes.map(n=>`<li>${esc(n)}</li>`).join('')}
-      </ol>
-    </section>` : '';
-
   const diagramsHtml = (cfg.diagrams && cfg.diagrams.length) ? `
     <section class="rep-block rep-diagrams">
       <h3>計算線圖與示意圖</h3>
@@ -312,30 +304,30 @@ function openReport(cfg) {
       </div>
     </section>` : '';
 
-  const stepsHtml = (cfg.steps && cfg.steps.length) ? `
+  const reportSteps = Array.isArray(cfg.steps) ? cfg.steps.filter(Boolean) : [];
+  const renderStep = s => `
+    <div class="rep-step">
+      <h4>${esc(s.group)}</h4>
+      <pre class="rep-step-body">${esc(s.body)}</pre>
+    </div>`;
+  const leadingSteps = reportSteps.slice(0, -1);
+  const stepsHtml = leadingSteps.length ? `
     <section class="rep-block rep-steps-wrap">
       <h3>計算過程明細</h3>
-      ${cfg.steps.map(s => `
-        <div class="rep-step">
-          <h4>${esc(s.group)}</h4>
-          <pre class="rep-step-body">${esc(s.body)}</pre>
-        </div>
-      `).join('')}
+      ${leadingSteps.map(renderStep).join('')}
+    </section>` : '';
+  const finalStepHtml = reportSteps.length ? `
+    <section class="rep-block rep-steps-wrap rep-steps-final">
+      ${reportSteps.length === 1 ? '<h3>計算過程明細</h3>' : ''}
+      ${renderStep(reportSteps[reportSteps.length - 1])}
     </section>` : '';
 
   const summary = cfg.summary || {};
   const summaryCls = summary.ok===true?'ok':summary.ok===false?'ng':'na';
-  const summaryFactsHtml = (cfg.summaryFacts && cfg.summaryFacts.length) ? `
-    <section class="rep-summary-facts">
-      ${cfg.summaryFacts.map(item => `
-        <article class="rep-summary-fact ${esc(item.tone || 'neutral')}">
-          <div class="rep-summary-fact-label">${esc(item.label || '')}</div>
-          <div class="rep-summary-fact-value">${esc(item.value || '—')}</div>
-          ${item.note ? `<div class="rep-summary-fact-note">${esc(item.note)}</div>` : ''}
-        </article>
-      `).join('')}
-    </section>
-  ` : '';
+  const summaryHtml = `<section class="rep-block rep-conclusion">
+    <h3>檢核結論</h3>
+    <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
+  </section>`;
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -376,12 +368,6 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-check tr.ng td.judge { color:#c0392b; }
 .rep-check tr.ng td.lbl { color:#c0392b; }
 .rep-check .note { font-weight:400; font-size:10px; color:#666; margin-top:2px; }
-.rep-sym th { background:#fafbfc; text-align:center; width:80px;
-              font-family:"Cambria Math",serif; font-style:italic; }
-.rep-sym td { padding:4px 8px; border:1px solid #aaa; }
-.rep-sym tr th { border:1px solid #aaa; }
-.rep-notes { padding-left:20px; font-size:12px; }
-.rep-notes li { margin:3px 0; }
 .rep-step { margin:10px 0 14px; page-break-inside: avoid; }
 .rep-step h4 { margin:0 0 4px; padding:3px 8px; font-size:12px;
                background:#ede9fe; color:#5b21b6; border-left:3px solid #7c3aed; }
@@ -389,33 +375,12 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
                  font-family:"Cascadia Code","Consolas",monospace; font-size:11px;
                  line-height:1.55; background:#faf5ff; border:1px solid #e9d5ff;
                  border-radius:4px; padding:8px 10px; margin:0; color:#3b0764; }
+.rep-ending { break-inside:avoid-page; page-break-inside:avoid; }
 .rep-summary { margin:12px 0 20px; padding:14px 18px; border-radius:5px;
                font-size:18px; font-weight:700; text-align:center; }
 .rep-summary.ok { background:#e8f5ec; color:#1b8a3a; border:2px solid #1b8a3a; }
 .rep-summary.ng { background:#fbeaea; color:#c0392b; border:2px solid #c0392b; }
 .rep-summary.na { background:#f0f0f0; color:#555; border:2px solid #888; }
-.rep-summary-facts { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
-                     gap:10px; margin:0 0 18px; }
-.rep-summary-fact { border:1px solid #d7dee6; border-radius:8px; padding:12px 14px;
-                    background:#fff; box-shadow:0 1px 3px rgba(15, 23, 42, 0.05); }
-.rep-summary-fact.ok { border-color:#9fd5af; background:#f4fcf6; }
-.rep-summary-fact.fail { border-color:#efb3ac; background:#fff5f4; }
-.rep-summary-fact.warn { border-color:#f0d38e; background:#fffbef; }
-.rep-summary-fact.neutral { border-color:#d7dee6; background:#fcfdff; }
-.rep-summary-fact-label { font-size:11px; font-weight:700; color:#53657a; letter-spacing:.04em; }
-.rep-summary-fact-value { font-size:16px; font-weight:700; color:#16283b; margin-top:4px; }
-.rep-summary-fact-note { font-size:10px; color:#5f6f80; margin-top:6px; line-height:1.45; }
-.rep-highlights { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr));
-                  gap:10px; margin:12px 0 18px; }
-.rep-highlight { border:1px solid #cbd5e1; border-radius:8px; padding:10px 12px;
-                 background:linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
-                 page-break-inside: avoid; }
-.rep-highlight.accent { border-color:#1a3d5c; background:linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%); }
-.rep-highlight.info { border-color:#b6c7d8; }
-.rep-highlight.neutral { border-color:#d0d7de; background:linear-gradient(180deg, #fbfbfc 0%, #f3f4f6 100%); }
-.rep-highlight-label { font-size:11px; font-weight:700; color:#38536f; letter-spacing:.04em; }
-.rep-highlight-value { font-size:17px; font-weight:700; color:#10253a; margin-top:4px; }
-.rep-highlight-note { font-size:10px; color:#526272; margin-top:6px; line-height:1.45; }
 .rep-diagrams-grid { display:flex; flex-wrap:wrap; gap:14px; justify-content:center; }
 .rep-diagram { margin:0; padding:8px 10px; border:1px solid #cbd5e1; border-radius:4px;
                background:#fafbfc; text-align:center; page-break-inside: avoid; flex:0 0 auto; }
@@ -432,7 +397,6 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 @media (max-width: 600px) {
   .rep-paper { padding: 16px; }
   .rep-meta { grid-template-columns: 1fr; }
-  .rep-highlights { grid-template-columns: 1fr; }
   .rep-check { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 @media print {
@@ -469,17 +433,14 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <div><b>計算指紋</b>${esc(calculationFingerprint)}</div>
   </div>
 
-  ${highlightsHtml}
-
-  <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
-  ${summaryFactsHtml}
-
-  ${diagramsHtml}
   ${inputsHtml}
+  ${diagramsHtml}
   ${checksHtml}
   ${stepsHtml}
-  ${symHtml}
-  ${notesHtml}
+  <div class="rep-ending">
+    ${finalStepHtml}
+    ${summaryHtml}
+  </div>
 
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </div>

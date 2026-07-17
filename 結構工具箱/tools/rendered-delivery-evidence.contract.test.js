@@ -118,7 +118,7 @@ for (const [relativePath, expectedPrintLayouts] of [
 ]) {
   const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
   const footerSafeMargins = source.match(/@page\s*\{[^}]*margin:\s*18mm\s+14mm\s+18mm\s*;?\s*\}/g) || [];
-  const flowingPrintFooters = source.match(/\.rep-footer\s*\{\s*position:static;\s*width:auto;\s*padding:0;\s*margin-top:4mm;\s*break-before:avoid-page;\s*page-break-before:avoid;\s*break-inside:avoid;\s*\}/g) || [];
+  const flowingPrintFooters = source.match(/\.rep-footer\s*\{\s*position:static;\s*width:auto;\s*(?:clear:both;\s*)?padding:(?:0|1mm 0 0);\s*margin-top:(?:4|8)mm;\s*break-before:avoid-page;\s*page-break-before:avoid;\s*break-inside:avoid;\s*\}/g) || [];
   assert.ok(footerSafeMargins.length >= expectedPrintLayouts, `${relativePath} reserves footer-safe A4 bottom margin`);
   assert.ok(flowingPrintFooters.length >= expectedPrintLayouts, `${relativePath} keeps the print footer in document flow`);
 }
@@ -186,14 +186,31 @@ for (const relativePath of [
     source.includes('.rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }')
       && source.includes("<section class=\"rep-block${g.keepTogether ? ' rep-block--keep' : ''}\">")
       && source.includes('.rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }')
-      && source.includes('tr { break-inside:avoid-page; page-break-inside:avoid; }')
-      && source.includes('<thead><tr><th>符號</th><th>說明</th></tr></thead>'),
+      && source.includes('tr { break-inside:avoid-page; page-break-inside:avoid; }'),
     `${relativePath} keeps report headings and table rows intact across print pages`
+  );
+}
+assert.ok(
+  !fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/shared/report.js'), 'utf8').includes('const symHtml')
+    && !fs.readFileSync(path.join(repoRoot, '鋼筋混凝土/shared/report.js'), 'utf8').includes('const notesHtml'),
+  'RC shared report excludes standalone symbol dictionaries and explanatory note appendices'
+);
+for (const relativePath of [
+  '結構工具箱/core/ui/report.js',
+  '鋼構工具/core/ui/report.js',
+]) {
+  const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  assert.ok(
+    source.includes('CALCULATION_BOOK_PAGE_ONLY_LABELS')
+      && !source.includes('<thead><tr><th>符號</th><th>說明</th></tr></thead>')
+      && !source.includes('const notesHtml'),
+    `${relativePath} keeps UI dictionaries and explanatory note appendices out of formal calculation books`
   );
 }
 for (const relativePath of [
   '結構工具箱/core/ui/report.js',
   '鋼構工具/core/ui/report.js',
+  '鋼筋混凝土/shared/report.js',
 ]) {
   const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
   assert.ok(

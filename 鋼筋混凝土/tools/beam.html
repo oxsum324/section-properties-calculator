@@ -3059,7 +3059,8 @@ ${layerBars.map(L => {
         { label:'主筋裂縫控制間距',
           formula:'規範 24.3.2；未另算使用應力時 fs=2/3fy，smax = min[(2800/fs)(38−2.5cc), 30(2800/fs)]',
           sub:`smax = ${r.crackSpacingLimit.toFixed(1)} cm；${r.crackSpacingText}`,
-          value: r.okCrackSpacing === true ? '符合' : r.okCrackSpacing === false ? '不符' : '人工複核', unit:'', ok:r.okCrackSpacing },
+          value: r.okCrackSpacing === true ? '符合' : r.okCrackSpacing === false ? '不符' : '人工複核', unit:'', ok:r.okCrackSpacing,
+          note:'裂縫控制：主筋間距採最外排受拉鋼筋中心間距估算；未另算使用應力時，依 24.3.2 採 fs=2/3fy 的簡化上限，完整裂縫寬度或特殊暴露條件仍須由專案文件確認。' },
         ...(r.needSkin ? [{ label:'表層筋 (h > 90 cm)',
           formula:'規範 9.7.2.3：正彎矩檢底受拉區、負彎矩檢頂受拉區；距受拉面 h/2 範圍內配置，間距依 24.3.2',
           sub: `${r.skinZoneText}；每側每區 ${r.nSkin} 根 ${r.skinNo}，需求 ≥ ${r.skinRequiredPerTensionFace} 根；估計間距 ${Number.isFinite(r.skinSpacing)?r.skinSpacing.toFixed(1):'∞'} / ${r.skinSpacingLimit.toFixed(1)} cm；雙側面 As=${r.skinAreaTotalBothSides.toFixed(2)} cm²`,
@@ -3097,7 +3098,8 @@ ${layerBars.map(L => {
           label:'22.7 扭力詳算結論',
           formula:'由專案詳算書、配筋圖或設計者判定輸入；本頁僅承接結論並納入總判定',
           sub:`At/s = ${r.torsionAtPerS == null ? '未輸入' : r.torsionAtPerS.toFixed(4) + ' cm²/cm'}；Al = ${r.torsionAl == null ? '未輸入' : r.torsionAl.toFixed(2) + ' cm²'}`,
-          value: r.torsionDesignStatus === 'ok' ? '符合' : r.torsionDesignStatus === 'ng' ? '不符合' : '人工複核', unit:'', ok: r.torsionDetailOk
+          value: r.torsionDesignStatus === 'ok' ? '符合' : r.torsionDesignStatus === 'ng' ? '不符合' : '人工複核', unit:'', ok: r.torsionDetailOk,
+          note:'Tu 超過門檻時承接專案 22.7 詳算結論，未輸入時列為人工複核；本頁不自動反算 At/Al。'
         }] : [])
       ]}] : []),
       { group:'幾何規範', items:[
@@ -3113,7 +3115,8 @@ ${layerBars.map(L => {
           label:'h ≥ hmin (跨深比免算條件)',
           formula:`hmin = ℓn/${r.factorMap[r.support]}`,
           sub:`hmin = ${r.ln}/${r.factorMap[r.support]} = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm；${r.deflStatusText}`,
-          value:`${r.h}`, unit:'cm', ok:r.okHmin ? true : null }]:[])
+          value:`${r.h}`, unit:'cm', ok:r.okHmin ? true : null,
+          note:'跨深比僅作免算條件；連接易損構造或 h < hmin 時，需以 Bischoff Ie 嚴謹撓度計算確認，未計算時列為人工複核。' }]:[])
       ]},
       ...(isDesignMode ? [{ group:'設計建議 (反算)', items:[
         { label:'底層 As 需求',

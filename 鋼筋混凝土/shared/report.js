@@ -9,11 +9,8 @@
  *     checks:   [{ group, items:[{ label, formula, sub, value, unit, ok, note }] }, ...],
  *     diagrams: [{ title, dataURL, caption, width }, ...],   // 斷面 / PM 曲線等示意圖
  *     summary:  { ok: true|false, text: '✓ OK / ✗ NG' },
- *     symbols:  [{ sym, desc }, ...],
  *     methods:  [{ item, level, ref, note }, ...],
- *     coverage: [{ item, ref, applies, level, evidence, status, ok, gap }, ...],
- *     coverageSummary: [{ title, kind, items:[{ label, detail }] }, ...],
- *     notes:    ['依據 112 年混凝土結構設計規範', ...]
+ *     coverage: [{ item, ref, applies, level, evidence, status, ok, gap }, ...]
  *   });
  *
  * 開啟一個新視窗呈現可列印 (A4) 計算書;
@@ -68,6 +65,28 @@ function formatReportTimestamp(value) {
     String(date.getSeconds()).padStart(2, '0');
 }
 
+const RC_CALCULATION_BOOK_PAGE_ONLY_LABELS = Object.freeze([
+  '輸入模式',
+  '換算對照',
+  '流程顯示',
+  '報表模式',
+  '輸出設定',
+  '報表內容',
+  '輸出報表內容',
+  '輸出報表流程',
+  '計算流程輸出',
+  '預計輸出符號',
+  '預計輸出備註',
+]);
+
+function getRcCalculationBookInputGroups(groups) {
+  return (Array.isArray(groups) ? groups : []).map((group) => ({
+    ...group,
+    items: (Array.isArray(group?.items) ? group.items : [])
+      .filter((item) => !RC_CALCULATION_BOOK_PAGE_ONLY_LABELS.includes(String(item?.label || '').trim())),
+  })).filter((group) => group.items.length > 0 && !RC_CALCULATION_BOOK_PAGE_ONLY_LABELS.includes(String(group.group || '').trim()));
+}
+
 function normalizeFingerprintValue(value) {
   if (value === null || value === undefined) return null;
   if (Array.isArray(value)) return value.map(normalizeFingerprintValue);
@@ -97,15 +116,12 @@ function buildCalculationFingerprint(cfg) {
   const snapshot = normalizeFingerprintValue({
     title: cfg.title || '',
     subtitle: cfg.subtitle || '',
-    inputs: cfg.inputs || [],
+    inputs: getRcCalculationBookInputGroups(cfg.inputs),
     checks: cfg.checks || [],
     summary: cfg.summary || {},
-    coverageSummary: cfg.coverageSummary || [],
     methods: cfg.methods || [],
     coverage: cfg.coverage || [],
     steps: cfg.steps || [],
-    symbols: cfg.symbols || [],
-    notes: cfg.notes || [],
   });
   const source = JSON.stringify(snapshot);
   return `CF-${fingerprintHash(source, 0x811C9DC5)}${fingerprintHash(source, 0x9E3779B9)}`;
@@ -147,11 +163,20 @@ function openReport(cfg) {
 
   const esc = s => (s===null||s===undefined?'':String(s))
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const checkGroupTitle = value => {
+    const label = String(value || '').trim();
+    return /(?:檢核|結果)(?:\s*[（(].*[）)])?$/.test(label) ? label : `${label}｜檢核結果`;
+  };
+  const calculationStepTitle = (value, index) => {
+    const label = String(value || '').trim();
+    return /^\d+(?:\.\d+)*[.、]\s*/.test(label) ? label : `${index + 1}. ${label}`;
+  };
 
-  const inputsHtml = (cfg.inputs || []).map(g => `
+  const inputsHtml = getRcCalculationBookInputGroups(cfg.inputs).map(g => `
     <section class="rep-block${g.keepTogether ? ' rep-block--keep' : ''}">
       <h3>${esc(g.group)}</h3>
       <table class="rep-input">
+        <thead><tr><th>項目</th><th>採用值</th></tr></thead>
         <tbody>
           ${g.items.map(it => `
             <tr>
@@ -166,7 +191,7 @@ function openReport(cfg) {
 
   const checksHtml = (cfg.checks || []).map(g => `
     <section class="rep-block">
-      <h3>${esc(g.group)}</h3>
+      <h3>${esc(checkGroupTitle(g.group))}</h3>
       <table class="rep-check">
         <thead>
           <tr><th>檢核項</th><th>公式</th><th>代入值</th><th>結果</th><th>OK?</th></tr>
@@ -187,17 +212,6 @@ function openReport(cfg) {
       </table>
     </section>
   `).join('');
-
-  const symHtml = (cfg.symbols && cfg.symbols.length) ? `
-    <section class="rep-block">
-      <h3>符號說明</h3>
-      <table class="rep-sym">
-        <thead><tr><th>符號</th><th>說明</th></tr></thead>
-        <tbody>
-          ${cfg.symbols.map(s => `<tr><th>${esc(s.sym)}</th><td>${esc(s.desc)}</td></tr>`).join('')}
-        </tbody>
-     </table>
-   </section>` : '';
 
   const methodsHtml = (cfg.methods && cfg.methods.length) ? `
     <section class="rep-block">
@@ -242,30 +256,6 @@ function openReport(cfg) {
         </tbody>
       </table>
     </section>` : '';
-  const coverageSummaryHtml = (cfg.coverageSummary && cfg.coverageSummary.length) ? `
-    <section class="rep-block rep-coverage-summary-wrap">
-      <h3>缺漏 / 複核摘要</h3>
-      <div class="rep-coverage-summary">
-        ${cfg.coverageSummary.map(g => {
-          const cls = g.kind || 'info';
-          const items = g.items || [];
-          return `<div class="rep-coverage-summary-card ${esc(cls)}">
-            <div class="rep-coverage-summary-title">${esc(g.title)}<span>${items.length}</span></div>
-            ${items.length ? `<ul>${items.map(it => `<li><b>${esc(it.label || '')}</b>${it.detail ? `<em>${esc(it.detail)}</em>` : ''}</li>`).join('')}</ul>` : '<div class="empty">無</div>'}
-          </div>`;
-        }).join('')}
-      </div>
-    </section>` : '';
-
-
-  const notesHtml = (cfg.notes && cfg.notes.length) ? `
-    <section class="rep-block">
-      <h3>備註</h3>
-      <ol class="rep-notes">
-        ${cfg.notes.map(n=>`<li>${esc(n)}</li>`).join('')}
-      </ol>
-    </section>` : '';
-
   const diagramsHtml = (cfg.diagrams && cfg.diagrams.length) ? `
     <section class="rep-block rep-diagrams">
       <h3>斷面示意圖</h3>
@@ -283,9 +273,9 @@ function openReport(cfg) {
   const stepsHtml = (cfg.steps && cfg.steps.length) ? `
     <section class="rep-block rep-steps-wrap">
       <h3>計算過程明細</h3>
-      ${cfg.steps.map(s => `
+      ${cfg.steps.map((s, index) => `
         <div class="rep-step">
-          <h4>${esc(s.group)}</h4>
+          <h4>${esc(calculationStepTitle(s.group, index))}</h4>
           <pre class="rep-step-body">${esc(s.body)}</pre>
         </div>
       `).join('')}
@@ -348,10 +338,6 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 .rep-check tr.ng td.judge { color:#c0392b; }
 .rep-check tr.ng td.lbl { color:#c0392b; }
 .rep-check .note { font-weight:400; font-size:10px; color:#666; margin-top:2px; }
-.rep-sym th { background:#fafbfc; text-align:center; width:80px;
-              font-family:"Cambria Math",serif; font-style:italic; }
-  .rep-sym td { padding:4px 8px; border:1px solid #aaa; }
-  .rep-sym tr th { border:1px solid #aaa; }
   .rep-method th, .rep-method td { border:1px solid #888; padding:5px 6px; vertical-align:top; }
   .rep-method th { background:#eef2f6; font-weight:600; text-align:center; font-size:11px; }
   .rep-method td.level { width:12%; text-align:center; font-weight:700; }
@@ -377,8 +363,6 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-coverage-summary li b { display:block; }
   .rep-coverage-summary li em { display:block; margin-top:1px; color:#555; font-style:normal; line-height:1.3; }
   .rep-coverage-summary .empty { color:#667085; }
-  .rep-notes { padding-left:20px; font-size:12px; }
-.rep-notes li { margin:3px 0; }
 .rep-step { margin:10px 0 14px; page-break-inside: avoid; }
 .rep-step h4 { margin:0 0 4px; padding:3px 8px; font-size:12px;
                background:#ede9fe; color:#5b21b6; border-left:3px solid #7c3aed; }
@@ -406,9 +390,10 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
               font-size:10px; color:#666; text-align:right; }
 @media print {
   body { background:#fff; padding:0; }
-  body.rep-document-draft::after { content:"DRAFT"; position:fixed; left:50%; top:46%;
-    transform:translate(-50%,-50%) rotate(-28deg); color:rgba(153,27,27,.07);
-    font:700 84px/1 Arial,sans-serif; letter-spacing:.08em; pointer-events:none; z-index:999; }
+  body.rep-document-draft::after { content:""; position:fixed; left:50%; top:46%; width:160mm; height:44mm;
+    transform:translate(-50%,-50%) rotate(-28deg);
+    background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 160'%3E%3Cpath d='M45 130V30H85Q125 30 125 80Q125 130 85 130Z M155 130L195 30L235 130M170 92H220 M265 130V30H305Q345 30 345 62Q345 94 305 94H265M305 94L350 130 M385 130V30H455M385 78H445 M480 30H565M522 30V130' fill='none' stroke='%23991b1b' stroke-width='18' stroke-linecap='square' stroke-linejoin='miter' opacity='.08'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:999; }
   .rep-document-state { display:block; position:absolute; top:0; right:0; z-index:1000;
     width:auto; max-width:48%; margin:0; padding:1mm 2mm; white-space:nowrap; }
   .rep-document-state strong { font-size:9px; }
@@ -419,7 +404,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
   thead { display:table-header-group; }
   tr { break-inside:avoid-page; page-break-inside:avoid; }
-  .rep-footer { position:static; width:auto; padding:0; margin-top:4mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
+  .rep-footer { position:static; width:auto; clear:both; padding:1mm 0 0; margin-top:8mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 </style>
 </head>
@@ -446,17 +431,13 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <div><b>計算指紋</b>${esc(calculationFingerprint)}</div>
   </div>
 
-  ${summaryHtml}
-
-  ${coverageSummaryHtml}
-  ${diagramsHtml}
   ${inputsHtml}
+  ${diagramsHtml}
   ${checksHtml}
   ${stepsHtml}
-  ${symHtml}
   ${methodsHtml}
   ${coverageHtml}
-  ${notesHtml}
+  ${summaryHtml}
 
   <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </div>

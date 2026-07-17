@@ -427,7 +427,9 @@ const retrofitBeamText = assertReportHtmlText(retrofitBeamHtml, 'RC retrofit bea
   'Codex QA',
   '輸入條件',
   '彈性斷面',
-  '極限撓曲',
+  '撓曲強度結果',
+  '計算過程明細',
+  '補強後 φMn',
 ], 650);
 assert(retrofitBeamHtml.includes('RC 梁補強斷面計算書'), 'RC retrofit beam runtime report title', 'RC 梁補強斷面計算書');
 assert(retrofitBeamHtml.includes('計畫名稱</b>—'), 'RC retrofit beam runtime project placeholder', '計畫名稱 —');
@@ -503,7 +505,6 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared section 
   'Codex QA',
   '輸入資料',
   '檢核結果',
-  '正式報告備註',
 ], 260);
 assert(sharedReportHtml.includes('QA 計算書'), 'shared section report runtime title', 'QA 計算書');
 assert(sharedReportHtml.includes('計畫名稱</b>—'), 'shared section report runtime placeholder project fallback', '計畫名稱 —');
@@ -511,6 +512,7 @@ assert(sharedReportHtml.includes('SECTION-VERIFY-001'), 'shared section report r
 assert(sharedReportHtml.includes('Codex QA'), 'shared section report runtime project designer', 'Codex QA');
 assert(!sharedReportHtml.includes('未填'), 'shared section report runtime excludes raw placeholder project text', '未填');
 assert(!sharedReportText.includes('未填'), 'shared section report visible text excludes raw placeholder project text', '未填');
+assert(!sharedReportText.includes('正式報告備註'), 'shared section report keeps explanatory notes out of the calculation book', '正式報告備註');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!sharedReportHtml.includes(needle), 'shared section report runtime excludes page-only readiness wording', needle);
 }
