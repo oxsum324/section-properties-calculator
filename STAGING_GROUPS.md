@@ -26,7 +26,7 @@
 ```powershell
 git add -- CONTEXT.md docs/adr/0001-page-only-report-readiness.md
 git add -- ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "run-preflight-tools-ci.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js"
-git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-maturity-matrix.js"
+git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/tool-maturity-matrix.js"
 git add -- "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
 
@@ -50,7 +50,7 @@ node .\結構工具箱\tools\report-disclosure.contract.test.js
 node .\結構工具箱\tools\tool-maturity-matrix.js --write --check
 .\run-preflight-tools-release.bat
 .\run-pages-artifact-smoke.ps1
-git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
+git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
 
 下次不要混入本包：
@@ -82,7 +82,7 @@ git add -- "鋼構工具/audit-tool.ps1" "鋼構工具/steel-audit-browser-runne
 git add -- "結構工具箱/core/style.css"
 git add -- "結構工具箱/audit-dashboard.html" "結構工具箱/tools/audit-dashboard.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js"
 git add -- "結構工具箱/tools/formal-tools.manifest.json" "結構工具箱/tools/formal-traceability.catalog.json" "結構工具箱/tools/formal-traceability.contract.test.js" "結構工具箱/tools/formal-tools.run.js" "結構工具箱/tools/formal-tools.contract.test.js" "結構工具箱/tools/formal-browser-smoke.test.js" "結構工具箱/tools/wind-shared-profile.contract.test.js" "結構工具箱/tools/tool-maturity-matrix.js" "TOOL_REPORT_GUIDE.md"
-git add -- ".github/workflows/pages-deploy.yml" "結構工具箱/tools/pages-live-smoke.js" "run-pages-artifact-smoke.ps1" "開挖擋土支撐/index.html" "toolbox-entrypoints.contract.test.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
+git add -- ".github/workflows/pages-deploy.yml" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/build-pages-clean-routes.js" "run-pages-artifact-smoke.ps1" "開挖擋土支撐/index.html" "toolbox-entrypoints.contract.test.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
 git add -- "結構工具箱/core/ui/report.js" "鋼構工具/core/ui/report.js" "鋼構工具/core/formal-core-manifest.json" "結構工具箱/core/wind-report.js" "結構工具箱/core/ui/force-picker.js" "結構工具箱/core/ui/forces-receive.js" "結構工具箱/tools/formal-golden-harvest.js" "結構工具箱/tools/force-picker.html"
 git add -- "結構工具箱/tools/地震力/seismic-force.html" "結構工具箱/tools/地震力/seismic-appendage.html" "結構工具箱/tools/地震力/seismic-misc.html" "結構工具箱/tools/地震力/seismic-dynamic.html"
 git add -- "結構工具箱/tools/風力/wind-special.html"

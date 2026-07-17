@@ -21,6 +21,10 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '結構工具箱/tools/equipment/equipment-load.html', needles: ['設備局部荷重'] },
   { path: '結構工具箱/tools/earth/earth-pressure.html', needles: ['擋土土壓局部快算'] }
 ];
+const CLEAN_ROUTE_SAMPLES = [
+  { path: 'rc-column/', source: '/rc-column', targetNeedle: 'column.html' },
+  { path: 'steel-beam-formal/', source: '/steel-beam-formal', targetNeedle: 'steel-beam-formal.html' }
+];
 const PRIVATE_PATHS = [
   'README.md',
   'CONTEXT.md',
@@ -32,6 +36,7 @@ const PRIVATE_PATHS = [
   'run-preflight-tools.bat',
   'toolbox-entrypoints.contract.test.js',
   '結構工具箱/tools/pages-live-smoke.js',
+  '結構工具箱/tools/build-pages-clean-routes.js',
   '結構工具箱/tools/attachment-package-check.js',
   '結構工具箱/tools/local-quick-browser-smoke.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
@@ -121,6 +126,17 @@ async function assertPublicRouteSamples(base) {
     for (const needle of sample.needles) {
       assert.ok(html.includes(needle), `${sample.path} missing public page marker: ${needle}`);
     }
+    assertNoLocalWorkspaceLeak(html, sample.path);
+  }
+}
+
+async function assertCleanRouteSamples(base) {
+  for (const sample of CLEAN_ROUTE_SAMPLES) {
+    const html = await fetchText(liveUrl(base, sample.path));
+    assert.ok(html.includes('generated-by: build-pages-clean-routes.js'), `${sample.path} missing generated clean-route marker`);
+    assert.ok(html.includes(`content="${sample.source}"`), `${sample.path} missing clean-route source marker`);
+    assert.ok(html.includes(sample.targetNeedle), `${sample.path} missing clean-route destination marker`);
+    assert.ok(html.includes('window.location.search + window.location.hash'), `${sample.path} does not preserve query and hash`);
     assertNoLocalWorkspaceLeak(html, sample.path);
   }
 }
@@ -236,6 +252,7 @@ async function main() {
   );
 
   await assertPublicRouteSamples(base);
+  await assertCleanRouteSamples(base);
   if (!allowLocalOutput()) {
     await assertOldOutputNotRequired(base);
   }

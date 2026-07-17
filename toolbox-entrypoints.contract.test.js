@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const vm = require('vm');
 const { spawnSync } = require('child_process');
@@ -408,8 +409,43 @@ const releaseWrapper = readText(path.join(repoRoot, 'run-preflight-tools-release
 const auditAll = readText(path.join(repoRoot, 'audit-all.ps1'));
 const maturityMatrix = readText(path.join(toolboxRoot, 'tools/tool-maturity-matrix.js'));
 const pagesLiveSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-smoke.js'));
+const pagesCleanRouteBuilderPath = path.join(toolboxRoot, 'tools/build-pages-clean-routes.js');
+const pagesCleanRouteBuilder = readText(pagesCleanRouteBuilderPath);
 const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
 const pagesArtifactSmoke = readText(path.join(repoRoot, 'run-pages-artifact-smoke.ps1'));
+
+function assertPagesCleanRouteBuilder() {
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-clean-routes-contract-'));
+  try {
+    const destination = path.join(fixtureRoot, '鋼筋混凝土', 'tools', 'column.html');
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.writeFileSync(path.join(fixtureRoot, 'index.html'), '<!doctype html><title>root</title>', 'utf8');
+    fs.writeFileSync(destination, '<!doctype html><title>RC column</title>', 'utf8');
+    const { buildPagesCleanRoutes, normalizeRoutePath } = require(pagesCleanRouteBuilderPath);
+    const result = buildPagesCleanRoutes({
+      siteRoot: fixtureRoot,
+      config: {
+        rewrites: [],
+        redirects: [
+          { source: '/', destination: '/鋼筋混凝土/tools/column' },
+          { source: '/rc-column', destination: '/鋼筋混凝土/tools/column' }
+        ]
+      }
+    });
+    assert.equal(result.generated.length, 1, 'Pages clean-route builder generates fixture alias');
+    assert.equal(result.skipped.length, 1, 'Pages clean-route builder preserves root index');
+    const aliasHtml = readText(path.join(fixtureRoot, 'rc-column', 'index.html'));
+    assert.ok(aliasHtml.includes('generated-by: build-pages-clean-routes.js'), 'Pages clean-route alias has generated marker');
+    assert.ok(aliasHtml.includes('%E9%8B%BC%E7%AD%8B%E6%B7%B7%E5%87%9D%E5%9C%9F/tools/column.html'), 'Pages clean-route alias targets encoded non-ASCII path');
+    assert.ok(aliasHtml.includes('window.location.search + window.location.hash'), 'Pages clean-route alias preserves query and hash');
+    assert.equal(readText(path.join(fixtureRoot, 'index.html')).includes('root'), true, 'Pages clean-route builder does not replace root index');
+    assert.throws(() => normalizeRoutePath('/../private', 'source'), /unsupported route segments/, 'Pages clean-route builder rejects traversal');
+  } finally {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+assertPagesCleanRouteBuilder();
 
 assert.equal(vercel.cleanUrls, true, 'Vercel cleanUrls must stay enabled');
 assert.ok(Array.isArray(vercel.redirects), 'vercel redirects array');
@@ -601,6 +637,9 @@ assert.ok(readme.includes('--preserve-homepage-status'), 'README documents quick
 assert.ok(boundaries.includes('--preserve-homepage-status'), 'TOOL_BOUNDARIES documents quick preflight homepage status preservation');
 assert.ok(staging.includes('--preserve-homepage-status'), 'STAGING_GROUPS documents quick preflight homepage status preservation');
 assert.ok(pagesLiveSmoke.includes('assets/status/platform-status.json'), 'Pages live smoke checks platform status asset');
+assert.ok(pagesCleanRouteBuilder.includes('buildPagesCleanRoutes'), 'Pages clean-route builder exposes a testable build function');
+assert.ok(pagesCleanRouteBuilder.includes('window.location.replace(target)'), 'Pages clean-route builder emits a browser redirect');
+assert.ok(pagesCleanRouteBuilder.includes('window.location.search + window.location.hash'), 'Pages clean-route builder preserves query and hash');
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/report-readiness-status.json'), 'Pages live smoke checks report readiness status asset');
 assert.ok(pagesLiveSmoke.includes('reportReadinessStatus.runId, preflightStatus.runId'), 'Pages live smoke aligns report readiness runId with public preflight status');
@@ -608,6 +647,9 @@ assert.ok(pagesLiveSmoke.includes('reportReadinessStatus.preflightStatusSourcePa
 assert.ok(pagesLiveSmoke.includes('--allow-local-output'), 'Pages live smoke supports local repo-root preview override');
 assert.ok(pagesLiveSmoke.includes('PUBLIC_ROUTE_SAMPLES'), 'Pages live smoke has public route sample inventory');
 assert.ok(pagesLiveSmoke.includes('assertPublicRouteSamples'), 'Pages live smoke checks representative public routes');
+assert.ok(pagesLiveSmoke.includes('CLEAN_ROUTE_SAMPLES'), 'Pages live smoke has clean-route sample inventory');
+assert.ok(pagesLiveSmoke.includes('assertCleanRouteSamples'), 'Pages live smoke checks generated clean routes');
+assert.ok(pagesLiveSmoke.includes("source: '/rc-column'"), 'Pages live smoke samples the RC column clean route');
 assert.ok(pagesLiveSmoke.includes('assertNoLocalWorkspaceLeak'), 'Pages live smoke rejects local workspace path leaks from public pages');
 assert.ok(pagesLiveSmoke.includes('鋼筋混凝土/tools/beam.html'), 'Pages live smoke samples RC tool page');
 assert.ok(pagesLiveSmoke.includes('鋼構工具/steel-beam-formal.html'), 'Pages live smoke samples steel formal page');
@@ -621,6 +663,7 @@ assert.ok(readme.includes('CONTEXT.md') && readme.includes('docs/adr/'), 'README
 assert.ok(boundaries.includes('CONTEXT.md') && boundaries.includes('docs/adr/'), 'TOOL_BOUNDARIES documents context and ADR private boundary');
 assert.ok(pagesLiveSmoke.includes('preflight-tools.ps1'), 'Pages live smoke blocks preflight script publication');
 assert.ok(pagesLiveSmoke.includes('toolbox-entrypoints.contract.test.js'), 'Pages live smoke blocks contract publication');
+assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/build-pages-clean-routes.js'), 'Pages live smoke blocks clean-route builder publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke blocks stone backend helper publication');
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/backend/app/main.py'), 'Pages live smoke blocks excavation backend publication');
@@ -648,6 +691,8 @@ assert.ok(pagesArtifactSmoke.includes("'backend'"), 'local Pages artifact smoke 
 assert.ok(pagesArtifactSmoke.includes("'frontend'"), 'local Pages artifact smoke excludes service frontends');
 assert.ok(pagesArtifactSmoke.includes('DynamicExcludeDirs'), 'local Pages artifact smoke dynamically narrows source-project directory exclusions');
 assert.ok(pagesArtifactSmoke.includes('pages-live-smoke.js'), 'local Pages artifact smoke calls shared live smoke');
+assert.ok(pagesArtifactSmoke.includes('build-pages-clean-routes.js'), 'local Pages artifact smoke builds clean routes');
+assert.ok(pagesArtifactSmoke.includes("'build-pages-clean-routes.js'"), 'local Pages artifact smoke excludes clean-route builder from publication');
 assert.ok(pagesArtifactSmoke.includes('--check-private-boundary'), 'local Pages artifact smoke verifies private boundary');
 assert.equal(pagesArtifactSmoke.includes('--allow-local-output'), false, 'local Pages artifact smoke must not allow repo-root output');
 assert.ok(pagesArtifactSmoke.includes('Start-Process'), 'local Pages artifact smoke starts a temporary server');
@@ -668,6 +713,7 @@ assert.ok(pagesDeployWorkflow.includes("--exclude='*.test.js'"), 'Pages deploy w
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.contract.test.js'"), 'Pages deploy workflow excludes contract tests');
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.md'"), 'Pages deploy workflow excludes markdown docs');
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/pages-live-smoke.js'"), 'Pages deploy workflow excludes live smoke script');
+assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/build-pages-clean-routes.js'"), 'Pages deploy workflow excludes clean-route builder');
 assert.ok(pagesDeployWorkflow.includes("--exclude='**/dev_tools/'"), 'Pages deploy workflow excludes dev_tools directories');
 assert.ok(pagesDeployWorkflow.includes("--exclude='螺栓檢討/bolt-review-tool/'"), 'Pages deploy workflow excludes anchor source project');
 assert.ok(pagesDeployWorkflow.includes("--exclude='開挖擋土支撐/backend/'"), 'Pages deploy workflow excludes excavation backend');
@@ -678,6 +724,7 @@ assert.ok(pagesDeployWorkflow.includes("--exclude='**/*.ts'"), 'Pages deploy wor
 assert.ok(pagesDeployWorkflow.includes("--exclude='**/*.tsx'"), 'Pages deploy workflow excludes TSX source');
 assert.ok(pagesDeployWorkflow.includes("--exclude='**/package.json'"), 'Pages deploy workflow excludes package manifests');
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
+assert.ok(pagesDeployWorkflow.includes('build-pages-clean-routes.js" --site-root "_site" --config "vercel.json"'), 'Pages deploy workflow builds Vercel-compatible clean routes for Pages');
 assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages deploy workflow runs smoke script after deployment');
 assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}'), 'Pages live smoke uses deployed page URL');
@@ -939,6 +986,7 @@ for (const tool of manifestTools) {
   'Pages deploy',
   'Pages deploy / live smoke',
   'pages-live-smoke.js',
+  'build-pages-clean-routes.js',
   '.github/workflows/pages-deploy.yml',
   'preflight contract 文件化',
   'preflight JS 執行檔清冊',
