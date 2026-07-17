@@ -1636,7 +1636,7 @@ ${gainText}`;
       (candidate.reasons || []).forEach(reason => failed.push(reason));
     }
     const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
-    const title = failed.length ? '暫勿作附件' : reviewWarnings.length ? '可作附件，需人工複核' : '可作附件';
+    const label = failed.length ? '暫勿作附件' : reviewWarnings.length ? '待人工複核' : '可送簽';
     const items = [
       { label: '候選方案', value: candidate ? `D ${candidate.diaCm} cm / L ${Number(candidate.depthM).toFixed(1)} m` : '未建立', tone: candidate ? (failed.length ? 'fail' : 'ok') : 'fail' },
       { label: '承載 / 沉陷 / 樁身', value: failed.length ? '未完整通過' : '數值通過', tone: failed.length ? 'fail' : 'ok' },
@@ -1646,7 +1646,7 @@ ${gainText}`;
     ];
     RCUI.renderAttachmentReadiness(hostId, {
       status,
-      title,
+      label,
       items,
       notes: [boundaryNote, '人工複核項目仍須由地工資料、專案規範或設計者判斷補齊。']
     });

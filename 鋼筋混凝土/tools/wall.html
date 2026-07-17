@@ -1420,7 +1420,7 @@
     const failed = summary.checks.filter(([, ok]) => ok === false).map(([label]) => label);
     const reviewWarnings = Array.isArray(summary.reviewWarnings) ? summary.reviewWarnings : [];
     const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
-    const title = failed.length ? '暫勿作附件' : reviewWarnings.length ? '可作附件，需人工複核' : '可作附件';
+    const label = failed.length ? '暫勿作附件' : reviewWarnings.length ? '待人工複核' : '可送簽';
     const items = [
       { label: '主要檢核', value: failed.length ? `${failed.length} 項未通過` : '數值通過', tone: failed.length ? 'fail' : 'ok' },
       { label: '正式分析需求', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
@@ -1429,7 +1429,7 @@
     ];
     RCUI.renderAttachmentReadiness(hostId, {
       status,
-      title,
+      label,
       items,
       notes: [boundaryNote, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
     });

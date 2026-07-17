@@ -122,6 +122,7 @@ async function exerciseProjectStorage(page) {
   assert(saved.fields.seismicMode.checked === true, 'column project stores checkbox state', saved.fields.seismicMode.checked);
   assert(saved.fields.columnProjectFile == null, 'column project excludes file input', 'file input excluded');
   assert(saved.forceImport == null, 'column project has no adopted force import before confirmation', String(saved.forceImport));
+  assert(Array.isArray(saved.reviewResolutions) && saved.reviewResolutions.length === 0, 'column project initializes review resolution records', JSON.stringify(saved.reviewResolutions));
 
   const placeholderSaved = await page.evaluate(() => {
     const setValue = (id, value) => {
@@ -391,6 +392,71 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
   assert(reviewReport.includes('data-document-reason="review"'), 'column review report carries review reason', 'review document state');
   assert(reviewReport.includes('列印內部檢討版 / 存 PDF'), 'column review report print action stays internal', 'draft toolbar');
 
+  await page.click('.section-tabs button[data-tab="summary"]');
+  const reviewPanel = await page.evaluate(() => ({
+    hidden: document.getElementById('columnReviewResolutionPanel')?.hidden,
+    text: document.getElementById('columnReviewResolutionPanel')?.innerText?.replace(/\s+/g, ' ').trim() || '',
+    hasCheckbox: !!document.querySelector('#columnReviewResolutionPanel input[type="checkbox"]')
+  }));
+  assert(reviewPanel.hidden === false, 'column manual-review resolution panel is visible', reviewPanel.text);
+  assert(reviewPanel.text.includes('複核依據') && reviewPanel.text.includes('依據編號 / 圖號') && reviewPanel.text.includes('複核人') && reviewPanel.text.includes('複核時間'), 'column review requires traceable fields', reviewPanel.text);
+  assert(reviewPanel.hasCheckbox === false, 'column review is not an arbitrary approval checkbox', String(reviewPanel.hasCheckbox));
+
+  await page.selectOption('[data-review-item="column-anchorage"] [data-review-field="basis"]', 'drawing');
+  await page.fill('[data-review-item="column-anchorage"] [data-review-field="reference"]', 'S-302');
+  await page.fill('[data-review-item="column-anchorage"] [data-review-field="reviewer"]', 'QA-01');
+  await page.fill('[data-review-item="column-anchorage"] [data-review-field="reviewedAt"]', '2026-07-17T14:30');
+  await page.click('[data-review-item="column-anchorage"] [data-review-action="confirm"]');
+  await wait(250);
+  const resolved = await page.evaluate(() => ({
+    status: document.getElementById('columnAttachmentReadiness')?.dataset.attachmentStatus,
+    text: document.getElementById('columnAttachmentReadinessCard')?.innerText?.replace(/\s+/g, ' ').trim() || '',
+    banner: document.getElementById('bannerStatus')?.innerText?.replace(/\s+/g, ' ').trim() || '',
+    assessment: window.lastColumnAttachmentReadiness,
+    saved: window.collectColumnProjectData()
+  }));
+  assert(resolved.status === 'ready', 'traceable column review reaches ready-to-sign', resolved.text);
+  assert(resolved.text.includes('可送簽') && resolved.text.includes('已完成 1 項'), 'column page identifies ready-to-sign and completed review', resolved.text);
+  assert(resolved.banner.includes('複核完成 — 可送簽') && !resolved.banner.includes('需人工複核'), 'column summary banner agrees with ready-to-sign state', resolved.banner);
+  assert(resolved.assessment?.readyToSign === true && resolved.assessment?.unresolvedReviewItems?.length === 0, 'column resolved assessment closes review gate', JSON.stringify(resolved.assessment));
+  assert(resolved.saved.reviewResolutions?.length === 1 && resolved.saved.reviewResolutions[0].reference === 'S-302', 'column project persists review record', JSON.stringify(resolved.saved.reviewResolutions));
+  const resolvedReport = await captureColumnReportHtml(page);
+  assert(!resolvedReport.includes('DRAFT／非正式附件'), 'resolved column review removes draft state', 'ready-to-sign report');
+  ['人工複核採用記錄', '複核完成／可送簽版', '人工複核（已完成）', '已複核', '柱端錨定—依據', '配筋圖／S-302', 'QA-01'].forEach(fragment => {
+    assert(resolvedReport.includes(fragment), 'column report carries traceable review record', fragment);
+  });
+  ['未輸入時不作通過判定', '人工複核項，不納入自動 OK 判定', '報告不作通過判定'].forEach(fragment => {
+    assert(!resolvedReport.includes(fragment), 'resolved column report has no stale pending-review conclusion', fragment);
+  });
+  ['不是勾選放行', '相關計算條件變更後', '記錄複核完成'].forEach(fragment => {
+    assert(!resolvedReport.includes(fragment), 'column report excludes page-only review instructions', fragment);
+  });
+
+  const restoredReview = await page.evaluate(payload => {
+    window.reopenColumnReviewResolution('column-anchorage');
+    const result = window.applyColumnProjectData(payload, { silent: true });
+    return {
+      applied: result.applied,
+      status: document.getElementById('columnAttachmentReadiness')?.dataset.attachmentStatus,
+      resolutions: window.serializeColumnReviewResolutions()
+    };
+  }, resolved.saved);
+  assert(restoredReview.status === 'ready' && restoredReview.resolutions.length === 1, 'column project restores valid review gate state', JSON.stringify(restoredReview));
+
+  await page.click('.section-tabs button[data-tab="rebar"]');
+  await page.selectOption('#columnDevTopType', 'other');
+  await wait(250);
+  const staleReview = await page.evaluate(() => ({
+    status: document.getElementById('columnAttachmentReadiness')?.dataset.attachmentStatus,
+    text: document.getElementById('columnReviewResolutionPanel')?.innerText?.replace(/\s+/g, ' ').trim() || '',
+    assessment: window.lastColumnAttachmentReadiness
+  }));
+  assert(staleReview.status === 'review', 'changed anchorage condition invalidates prior review', staleReview.text);
+  assert(staleReview.text.includes('條件已變更') && staleReview.text.includes('不能沿用'), 'column page explains stale review record', staleReview.text);
+  assert(staleReview.assessment?.unresolvedReviews?.[0]?.validation?.contextMatches === false, 'column stale review exposes context mismatch', JSON.stringify(staleReview.assessment));
+  const staleReport = await captureColumnReportHtml(page);
+  assert(staleReport.includes('DRAFT／非正式附件 - 待人工複核'), 'stale column review restores draft state', 'changed review context');
+
   const blocked = await loadScenario('ng_heavy_check', metadata);
   assert(blocked.status === 'blocked', 'column failed case is blocked', blocked.text);
   const blockedReport = await captureColumnReportHtml(page);
@@ -420,6 +486,9 @@ async function main() {
   assert(!html.includes('coverageSummary: reportCoverageSummary'), 'column report omits coverage summary cards', 'gap summaries stay on the page, not in the report');
   assert(html.includes('lastColumnReportConfig'), 'column.html exposes last report config', 'report coverage can be regression tested');
   assert(html.includes('function collectColumnManualReviewItems'), 'column.html centralizes manual-review items', 'banner and report share pending-review boundaries');
+  assert(html.includes('function collectColumnManualReviewRequirements'), 'column.html builds context-bound review requirements', 'review records invalidate after relevant input changes');
+  assert(html.includes('人工複核採用記錄'), 'column report records completed manual review provenance', 'ready-to-sign output is traceable');
+  assert(html.includes('reviewResolutions: serializeColumnReviewResolutions()'), 'column project stores manual review records', 'review decisions survive project reopen');
   assert(html.includes('COLUMN_PROJECT_SCHEMA'), 'column.html has project file schema', 'versioned column project file exists');
   assert(html.includes('btnSaveProject'), 'column.html has save project button', 'local JSON export control exists');
   assert(html.includes('btnLoadProject'), 'column.html has load project button', 'local JSON import control exists');

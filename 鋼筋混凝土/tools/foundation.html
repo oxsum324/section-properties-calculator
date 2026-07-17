@@ -3771,7 +3771,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     const failed = checks.filter(([, ok]) => ok === false).map(([label]) => label);
     const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
     const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
-    const title = failed.length ? '暫勿作附件' : reviewWarnings.length ? '可作附件，需人工複核' : '可作附件';
+    const label = failed.length ? '暫勿作附件' : reviewWarnings.length ? '待人工複核' : '可送簽';
     const items = [
       { label: '分頁', value: ({ iso:'獨立基腳', combined:'聯合基腳', mat:'筏式基礎', pile:'樁基／樁帽', retain:'擋土牆', seismic:'耐震' })[r.tab] || r.tab || '未指定', tone: 'neutral' },
       { label: '主要檢核', value: failed.length ? `${failed.length} 項未通過` : '數值通過', tone: failed.length ? 'fail' : 'ok' },
@@ -3781,7 +3781,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     ];
     RCUI.renderAttachmentReadiness(hostId, {
       status,
-      title,
+      label,
       items,
       notes: [boundaryNote, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
     });

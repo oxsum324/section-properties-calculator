@@ -92,12 +92,39 @@ function main() {
   const readyAssessment = RCUI.assessFormalAttachment({ project: completeProject, failedItems: [], reviewItems: [] });
   assert(readyAssessment.status === 'ready', 'complete clean assessment is ready', readyAssessment.status);
   assert(readyAssessment.formalOutputAllowed === true, 'ready assessment allows formal output', String(readyAssessment.formalOutputAllowed));
+  assert(readyAssessment.readyToSign === true, 'ready assessment is explicitly ready to sign', String(readyAssessment.readyToSign));
+  assert(readyAssessment.documentClass?.label === '可送簽版', 'ready assessment carries document class', readyAssessment.documentClass?.label);
   assert(readyAssessment.documentState === null, 'ready assessment has no draft document state', String(readyAssessment.documentState));
 
   const reviewAssessment = RCUI.assessFormalAttachment({ project: completeProject, reviewItems: ['柱端錨定'] });
   assert(reviewAssessment.status === 'review', 'manual item requires review', reviewAssessment.status);
   assert(reviewAssessment.formalOutputAllowed === false, 'review assessment blocks formal output', String(reviewAssessment.formalOutputAllowed));
   assert(reviewAssessment.documentState?.label.includes('待人工複核'), 'review draft has explicit manual-review label', reviewAssessment.documentState?.label);
+
+  const reviewRequirement = { id: 'column-anchorage', label: '柱端錨定', contextKey: 'ctx-001' };
+  const reviewResolution = {
+    id: 'column-anchorage', label: '柱端錨定', status: 'confirmed', basis: 'drawing',
+    reference: 'S-302', reviewer: 'QA', reviewedAt: '2026-07-17T02:00:00.000Z', contextKey: 'ctx-001'
+  };
+  const resolvedAssessment = RCUI.assessFormalAttachment({
+    project: completeProject,
+    reviewItems: [reviewRequirement],
+    reviewResolutions: [reviewResolution]
+  });
+  assert(resolvedAssessment.status === 'ready', 'traceable manual review can reach ready-to-sign', resolvedAssessment.status);
+  assert(resolvedAssessment.resolvedReviewItems.join('、') === '柱端錨定', 'resolved manual review is listed', JSON.stringify(resolvedAssessment.resolvedReviewItems));
+  assert(resolvedAssessment.unresolvedReviewItems.length === 0, 'resolved manual review clears pending item', JSON.stringify(resolvedAssessment.unresolvedReviewItems));
+  assert(resolvedAssessment.documentState === null, 'resolved manual review removes draft state', String(resolvedAssessment.documentState));
+
+  const staleAssessment = RCUI.assessFormalAttachment({
+    project: completeProject,
+    reviewItems: [{ ...reviewRequirement, contextKey: 'ctx-002' }],
+    reviewResolutions: [reviewResolution]
+  });
+  assert(staleAssessment.status === 'review', 'changed calculation context invalidates prior review', staleAssessment.status);
+  assert(staleAssessment.unresolvedReviewItems.join('、') === '柱端錨定', 'stale review returns to unresolved list', JSON.stringify(staleAssessment.unresolvedReviewItems));
+  assert(staleAssessment.unresolvedReviews[0]?.validation?.contextMatches === false, 'stale review explains context mismatch', JSON.stringify(staleAssessment.unresolvedReviews[0]?.validation));
+  assert(staleAssessment.documentState?.detail.includes('柱端錨定'), 'stale draft names unresolved review item', staleAssessment.documentState?.detail);
 
   const blockedAssessment = RCUI.assessFormalAttachment({ project: completeProject, failedItems: ['剪力強度'] });
   assert(blockedAssessment.status === 'blocked', 'failed check is blocked', blockedAssessment.status);
@@ -140,7 +167,7 @@ function main() {
     items: [{ label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF', tone: 'neutral' }]
   });
   assert(readyPriority.tone === 'ok', 'ready priority tone', readyPriority.tone);
-  assert(readyPriority.value.includes('輸出邊界'), 'ready priority mentions output boundary', readyPriority.value);
+  assert(readyPriority.value.includes('可送簽版') && readyPriority.value.includes('簽認程序'), 'ready priority explains ready-to-sign boundary', readyPriority.value);
 
   if (failed) {
     console.error(`\n${failed} common helper tests failed.`);

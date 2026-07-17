@@ -394,7 +394,7 @@ async function main() {
       if (expected.expectedSnapshot === '待確認') {
         assert(state.summaryOk === null, `${key} summary is manual review`, `summaryOk=${state.summaryOk}, text=${state.summaryText}`);
         assert(state.reviewWarningCount >= 1, `${key} review warnings captured`, `count=${state.reviewWarningCount}`);
-        assert(state.readinessText.includes('可作附件，需人工複核'), `${key} page readiness flags review`, state.readinessText);
+        assert(state.readinessText.includes('待人工複核'), `${key} page readiness flags review`, state.readinessText);
       }
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${key}:report`);
@@ -440,6 +440,7 @@ async function main() {
       for (const forbidden of [
         '產報前檢查',
         '優先閱讀',
+        '待人工複核',
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',

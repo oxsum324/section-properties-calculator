@@ -269,7 +269,7 @@ async function main() {
         assert(state.summaryOk === null, `${key} summary snapshot needs review`, state.summaryStatusText);
         assert(state.complianceOk === false && state.complianceWarningCount > 0, `${key} compliance warnings surfaced`, `count=${state.complianceWarningCount}`);
         assert(state.banner.includes('需人工複核') && state.bannerClass.includes('warn'), `${key} no misleading green banner`, state.banner);
-        assert(state.readinessText.includes('可作附件，需人工複核'), `${key} page readiness flags review`, state.readinessText);
+        assert(state.readinessText.includes('待人工複核'), `${key} page readiness flags review`, state.readinessText);
       } else {
         assert(state.control && state.control.diaCm >= 40, `${key} control candidate exists`, `D=${state.control?.diaCm}`);
       }
@@ -316,6 +316,7 @@ async function main() {
       for (const forbidden of [
         '產報前檢查',
         '優先閱讀',
+        '待人工複核',
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',

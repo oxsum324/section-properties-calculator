@@ -70,12 +70,74 @@ window.RCUI.getProjectMetadataState = function(project = {}) {
   };
 };
 
+window.RCUI.normalizeReviewRequirements = function(input = []) {
+  const seen = new Set();
+  return (Array.isArray(input) ? input : []).map(item => {
+    const label = String(item?.label ?? item ?? '').trim();
+    const id = String(item?.id ?? label).trim();
+    if (!id || !label || seen.has(id)) return null;
+    seen.add(id);
+    return {
+      id,
+      label,
+      contextKey: String(item?.contextKey ?? '').trim()
+    };
+  }).filter(Boolean);
+};
+
+window.RCUI.normalizeReviewResolutions = function(input = []) {
+  const seen = new Set();
+  return (Array.isArray(input) ? input : []).map(item => {
+    const id = String(item?.id ?? item?.item ?? '').trim();
+    if (!id || seen.has(id)) return null;
+    seen.add(id);
+    return {
+      id,
+      label: String(item?.label ?? item?.item ?? id).trim(),
+      status: String(item?.status ?? '').trim(),
+      basis: String(item?.basis ?? '').trim(),
+      reference: String(item?.reference ?? '').trim(),
+      reviewer: String(item?.reviewer ?? '').trim(),
+      reviewedAt: String(item?.reviewedAt ?? '').trim(),
+      contextKey: String(item?.contextKey ?? '').trim()
+    };
+  }).filter(Boolean);
+};
+
+window.RCUI.validateReviewResolution = function(requirement = {}, resolution = {}) {
+  const missingFields = [];
+  if (resolution.status !== 'confirmed') missingFields.push('完成狀態');
+  if (!resolution.basis) missingFields.push('複核依據');
+  if (!resolution.reference) missingFields.push('依據編號');
+  if (!resolution.reviewer) missingFields.push('複核人');
+  if (!resolution.reviewedAt || Number.isNaN(Date.parse(resolution.reviewedAt))) missingFields.push('複核時間');
+  const contextMatches = !requirement.contextKey
+    || (!!resolution.contextKey && resolution.contextKey === requirement.contextKey);
+  return {
+    valid: missingFields.length === 0 && contextMatches,
+    missingFields,
+    contextMatches
+  };
+};
+
 window.RCUI.assessFormalAttachment = function(state = {}) {
   const normalizeItems = input => [...new Set((Array.isArray(input) ? input : [])
     .map(item => String(item?.label ?? item ?? '').trim())
     .filter(Boolean))];
   const failedItems = normalizeItems(state.failedItems);
-  const reviewItems = normalizeItems(state.reviewItems);
+  const reviewRequirements = window.RCUI.normalizeReviewRequirements(state.reviewItems);
+  const reviewItems = reviewRequirements.map(item => item.label);
+  const reviewResolutions = window.RCUI.normalizeReviewResolutions(state.reviewResolutions);
+  const resolutionById = new Map(reviewResolutions.map(item => [item.id, item]));
+  const reviewed = reviewRequirements.map(requirement => {
+    const resolution = resolutionById.get(requirement.id) || null;
+    const validation = window.RCUI.validateReviewResolution(requirement, resolution || {});
+    return { requirement, resolution, validation };
+  });
+  const resolvedReviews = reviewed.filter(item => item.validation.valid);
+  const unresolvedReviews = reviewed.filter(item => !item.validation.valid);
+  const resolvedReviewItems = resolvedReviews.map(item => item.requirement.label);
+  const unresolvedReviewItems = unresolvedReviews.map(item => item.requirement.label);
   const metadata = window.RCUI.getProjectMetadataState(state.project || {});
   const calculated = state.calculated !== false;
 
@@ -85,22 +147,29 @@ window.RCUI.assessFormalAttachment = function(state = {}) {
       summary: '完成計算後顯示是否適合作為公司計算附件。',
       failedItems,
       reviewItems,
+      reviewRequirements,
+      reviewResolutions,
+      resolvedReviewItems,
+      unresolvedReviewItems,
+      resolvedReviews,
+      unresolvedReviews,
       metadata,
       formalOutputAllowed: false,
+      readyToSign: false,
       documentState: null
     };
   }
 
   const status = failedItems.length
     ? 'blocked'
-    : (reviewItems.length || !metadata.complete ? 'review' : 'ready');
+    : (unresolvedReviews.length || !metadata.complete ? 'review' : 'ready');
   const metadataText = metadata.missingItems.join('、');
-  let summary = '數值檢核、必要輸入與案件識別資料已通過，可作為公司計算附件。';
+  let summary = '數值檢核、必要輸入、人工複核與案件識別資料已完成，可產生公司計算附件的可送簽版。';
   if (status === 'blocked') {
     summary = `尚有 ${failedItems.length} 項不符；僅能輸出明確標示的內部檢討版。`;
   } else if (status === 'review') {
     const reasons = [];
-    if (reviewItems.length) reasons.push(`${reviewItems.length} 項需人工複核`);
+    if (unresolvedReviews.length) reasons.push(`${unresolvedReviews.length} 項待完成可追溯的人工複核`);
     if (!metadata.complete) reasons.push(`案件識別資料缺少：${metadataText}`);
     summary = `${reasons.join('；')}；目前僅能預覽或輸出非正式附件。`;
   }
@@ -108,12 +177,12 @@ window.RCUI.assessFormalAttachment = function(state = {}) {
   const draftDetail = status === 'blocked'
     ? [
         `本文件僅供內部檢討；仍有 ${failedItems.length} 項數值或規範檢核不符，不得作為正式附件。`,
-        reviewItems.length ? `另有 ${reviewItems.length} 項需人工確認。` : '',
+        unresolvedReviews.length ? `另有 ${unresolvedReviews.length} 項待人工複核：${unresolvedReviewItems.join('、')}。` : '',
         metadata.complete ? '' : `案件識別資料尚缺：${metadataText}。`
       ].filter(Boolean).join(' ')
     : [
         '本文件僅供內部複核；',
-        reviewItems.length ? `尚有 ${reviewItems.length} 項需人工確認。` : '',
+        unresolvedReviews.length ? `尚有 ${unresolvedReviews.length} 項待人工複核：${unresolvedReviewItems.join('、')}。` : '',
         metadata.complete ? '' : `案件識別資料尚缺：${metadataText}。`,
         '完成複核及資料補正前不得作為正式附件。'
       ].filter(Boolean).join(' ');
@@ -131,8 +200,18 @@ window.RCUI.assessFormalAttachment = function(state = {}) {
     summary,
     failedItems,
     reviewItems,
+    reviewRequirements,
+    reviewResolutions,
+    resolvedReviewItems,
+    unresolvedReviewItems,
+    resolvedReviews,
+    unresolvedReviews,
     metadata,
     formalOutputAllowed: status === 'ready',
+    readyToSign: status === 'ready',
+    documentClass: status === 'ready'
+      ? { key: 'ready-to-sign', label: '可送簽版' }
+      : { key: 'draft', label: '內部複核版' },
     documentState
   };
 };
@@ -262,7 +341,7 @@ window.RCUI.getAttachmentReadinessPriority = function(state = {}, itemsInput, no
     }
   }
   if (status === 'ready') {
-    return { label: '優先閱讀', value: '先確認輸出邊界，再產出公司計算附件。', tone: 'ok' };
+    return { label: '優先閱讀', value: '條件已齊全，可產生可送簽版；正式附件仍須完成簽認程序。', tone: 'ok' };
   }
   return null;
 };
@@ -279,8 +358,8 @@ window.RCUI.renderAttachmentReadiness = function(targetId, state = {}) {
     neutral: 'neutral'
   };
   const statusLabel = {
-    ready: '可作附件',
-    review: '可作附件，需人工複核',
+    ready: '可送簽',
+    review: '待人工複核',
     estimate: '僅供初估，不建議直接作附件',
     blocked: '暫勿作附件',
     neutral: '尚未計算'

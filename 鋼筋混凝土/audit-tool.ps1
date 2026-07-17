@@ -98,7 +98,7 @@ function Invoke-AuditCommand {
     [string]$Command,
     [string]$Workdir,
     [string]$RunDir,
-    [int]$TimeoutSeconds = 180
+    [int]$TimeoutSeconds = 300
   )
 
   $safeLabel = ($Label -replace '[^A-Za-z0-9\-]+', '-').Trim('-').ToLowerInvariant()

@@ -295,7 +295,7 @@ async function main() {
       if (EXPECTED[tc.key]?.expectedSnapshot === '待確認') {
         assert(!state.banner.includes('OK — 符合規範') && !state.banner.includes('✓ OK'), `${tc.key} no misleading OK banner`, state.banner);
         assert(state.reviewWarningCount >= 1, `${tc.key} review warnings captured`, `count=${state.reviewWarningCount}`);
-        assert(state.readinessText.includes('可作附件，需人工複核'), `${tc.key} page readiness flags review`, state.readinessText);
+        assert(state.readinessText.includes('待人工複核'), `${tc.key} page readiness flags review`, state.readinessText);
       }
       if (tc.tab === 'mat') {
         assert(state.mcDdmText.includes('待確認') && state.mcDdmWarn, `${tc.key} DDM unavailable UI is warning`, state.mcDdmText);
@@ -340,6 +340,7 @@ async function main() {
       for (const forbidden of [
         '產報前檢查',
         '優先閱讀',
+        '待人工複核',
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',
