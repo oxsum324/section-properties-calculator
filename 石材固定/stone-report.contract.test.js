@@ -1,6 +1,51 @@
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const toolRoot = __dirname;
+const formalPagePath = path.join(toolRoot, '石材計算書產生器_規範版V2.html');
+const formalPage = fs.readFileSync(formalPagePath, 'utf8');
+
+function assertContract(condition, label, detail) {
+  if (!condition) {
+    console.error(`FAIL | ${label} :: ${detail}`);
+    process.exit(1);
+  }
+  console.log(`PASS | ${label} | ${detail}`);
+}
+
+const directPrintNeedles = [
+  '../結構工具箱/core/direct-print-boundary.css',
+  '<body class="formal-tool-output-page">',
+  'class="formal-direct-print-boundary"',
+  '石材工具主頁列印已封鎖',
+  '本頁不得作為附件',
+  'body.formal-tool-output-page > #printout{display:none!important}',
+];
+
+for (const needle of directPrintNeedles) {
+  assertContract(formalPage.includes(needle), 'Stone direct-print boundary is present', needle);
+}
+
+assertContract(
+  formalPage.includes("const source = document.getElementById('preview-sheets');")
+    && formalPage.includes('openPagedPrintWindow(buildPagedPrintHtml('),
+  'Stone report output remains dedicated',
+  'printable sheets are cloned into a separate report window'
+);
+
+const reportBuilderStart = formalPage.indexOf('function buildPagedPrintHtml(');
+const reportBuilderEnd = formalPage.indexOf('/* ══════════════════ PERSIST', reportBuilderStart);
+const reportBuilderSource = formalPage.slice(reportBuilderStart, reportBuilderEnd);
+assertContract(
+  reportBuilderStart >= 0
+    && reportBuilderEnd > reportBuilderStart
+    && !reportBuilderSource.includes('formal-direct-print-boundary')
+    && !reportBuilderSource.includes('石材工具主頁列印已封鎖')
+    && !reportBuilderSource.includes('本頁不得作為附件'),
+  'Stone report window excludes work-page boundary wording',
+  'dedicated PDF/preview HTML contains report sheets only'
+);
 
 const result = spawnSync(
   'python',
