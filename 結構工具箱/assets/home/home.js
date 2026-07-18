@@ -144,8 +144,8 @@
     releaseVerifiedAt: '2026-07-18',
     source: 'routeFileMap target Git history + current target worktree changes + tracked preflight release snapshot',
     routes: {
-      '/beam-analysis': '2026-07-12',
-      '/frame-analysis': '2026-07-10',
+      '/beam-analysis': '2026-07-18',
+      '/frame-analysis': '2026-07-18',
       '/struct-dx': '2026-06-23',
       '/section': '2026-06-23',
       '/composite-section': '2026-07-16',

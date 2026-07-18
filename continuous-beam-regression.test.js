@@ -4,6 +4,8 @@ const vm = require('vm');
 
 const htmlPath = path.join(__dirname, '連續梁分析.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
+const directPrintBoundaryPath = path.join(__dirname, '結構工具箱', 'core', 'direct-print-boundary.css');
+const directPrintBoundarySource = fs.readFileSync(directPrintBoundaryPath, 'utf8');
 const sharedReportPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js');
 const sharedReportSource = fs.readFileSync(sharedReportPath, 'utf8');
 const forcePickerPath = path.join(__dirname, '結構工具箱', 'core', 'ui', 'force-picker.js');
@@ -41,6 +43,13 @@ assert(html.includes('function continuousBeamReportReadinessModel'), 'attachment
 assert(html.includes('page-only-report-status'), 'attachment readiness is page-only', 'print/PDF boundary class');
 assert(html.includes('不會寫入計算書或列印 PDF'), 'attachment readiness boundary copy exists', 'page-only wording');
 assert(html.includes('頁面顯示，不進計算書、列印或 PDF'), 'attachment readiness boundary row exists', 'page-only boundary row');
+assert(html.includes('href="結構工具箱/core/direct-print-boundary.css"'), 'continuous beam loads shared direct-print boundary', 'shared print stylesheet');
+assert(/<body class="formal-tool-output-page">[\s\S]*class="formal-direct-print-boundary"/.test(html), 'continuous beam exposes work-page direct-print boundary', 'formal output page boundary');
+['分析工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件'].forEach(needle => {
+  assert(html.includes(needle), 'continuous beam explains blocked direct print', needle);
+});
+assert(directPrintBoundarySource.includes('body.formal-tool-output-page > :not(.formal-direct-print-boundary)'), 'shared CSS hides continuous beam work page during direct print', 'formal work-page children hidden');
+assert(directPrintBoundarySource.includes('body.formal-tool-output-page > .formal-direct-print-boundary'), 'shared CSS renders continuous beam direct-print notice', 'boundary notice rendered');
 assert(html.includes('window.ToolReportUI?.normalizeProjectFieldValue'), 'shared project meta normalization hook exists', 'continuous beam uses shared placeholder cleanup when available');
 assert(html.includes("['設計人員', 'projDesigner']"), 'designer participates in readiness completeness', 'continuous beam attachment readiness requires designer metadata');
 assert(html.includes("name:     getProjectFieldValue('projName')"), 'report export uses normalized project name', 'continuous beam report payload');
