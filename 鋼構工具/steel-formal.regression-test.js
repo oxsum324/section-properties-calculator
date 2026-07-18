@@ -843,6 +843,26 @@ assert.match(
 );
 assert.match(
   appSource,
+  /function isLocalAuditHost\(hostname = window\.location\.hostname\)[\s\S]*function getAuditStatusSource\(\)[\s\S]*\.\/output\/audit\/audit-status\.json[\s\S]*\.\.\/結構工具箱\/assets\/status\/platform-status\.json/s,
+  "app.js should route local steel audit status and the published platform snapshot without requesting private output on public hosts",
+);
+assert.match(
+  appSource,
+  /平台公開巡檢狀態[\s\S]*來源｜正式放行公開快照[\s\S]*開啟工具箱狀態總覽[\s\S]*開啟公開狀態 JSON/s,
+  "app.js should label the public platform snapshot distinctly from local steel audit status",
+);
+assert.match(
+  appSource,
+  /鋼構本機自巡檢狀態[\s\S]*開啟巡檢摘要[\s\S]*開啟狀態 JSON/s,
+  "app.js should preserve local steel audit details and links on local hosts",
+);
+assert.doesNotMatch(
+  appSource,
+  /fetch\(`\.\/output\/audit\/audit-status\.json/,
+  "app.js should not unconditionally fetch private local audit output on public deployments",
+);
+assert.match(
+  appSource,
   /function normalizeProjectMetaValue\(value\)[\s\S]*"未填"[\s\S]*function getProjectMetaDisplayValue\(value\)[\s\S]*metaProjectName\.textContent = getProjectMetaDisplayValue\(result\.state\.projectName\)[\s\S]*metaConnectionTag\.textContent = getProjectMetaDisplayValue\(result\.state\.connectionTag\)[\s\S]*metaDesigner\.textContent = getProjectMetaDisplayValue\(result\.state\.designer\)[\s\S]*<div><b>計畫名稱<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}<\/div>[\s\S]*<div><b>接頭編號<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}<\/div>[\s\S]*<div><b>設計人<\/b> \$\{getProjectMetaDisplayValue\(result\.state\.designer\)\}<\/div>[\s\S]*`計畫：\$\{getProjectMetaDisplayValue\(result\.state\.projectName\)\}`[\s\S]*`接頭：\$\{getProjectMetaDisplayValue\(result\.state\.connectionTag\)\}`/s,
   "app.js should normalize placeholder project metadata before rendering page meta, printable report output, and copied summaries",
 );
