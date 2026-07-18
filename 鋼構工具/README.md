@@ -178,4 +178,4 @@ run-audit-loop.bat
 - `output/audit/playwright-*.png`
 - `output/audit/history/<runId>/...`
 
-若以本機伺服器模式開啟工具，右側報表上方會直接顯示最新一輪 `內建自巡檢狀態`。
+若以本機或區網伺服器開啟工具，右側報表上方會顯示最新一輪鋼構本機自巡檢狀態；公開部署則改讀 `結構工具箱/assets/status/platform-status.json`，明確標示為平台公開巡檢快照，不會請求未發布的 `output/audit/audit-status.json`。

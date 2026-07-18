@@ -655,6 +655,8 @@ assert.ok(pagesLiveSmoke.includes('鋼筋混凝土/tools/beam.html'), 'Pages liv
 assert.ok(pagesLiveSmoke.includes('鋼構工具/steel-beam-formal.html'), 'Pages live smoke samples steel formal page');
 assert.ok(pagesLiveSmoke.includes('鋼構工具/plate-check.html'), 'Pages live smoke samples steel plate formal page');
 assert.ok(pagesLiveSmoke.includes('鋼構工具/steel-column-formal.html'), 'Pages live smoke samples steel column formal page');
+assert.ok(pagesLiveSmoke.includes('鋼構工具/app.js'), 'Pages live smoke samples the steel public audit-status router');
+assert.ok(pagesLiveSmoke.includes('../結構工具箱/assets/status/platform-status.json'), 'Pages live smoke checks the steel public platform-status source');
 assert.ok(pagesLiveSmoke.includes('石材固定/石材計算書產生器_規範版V2.html'), 'Pages live smoke samples stone V2 page');
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/index.html'), 'Pages live smoke samples excavation launcher');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');

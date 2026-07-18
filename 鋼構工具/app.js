@@ -1571,7 +1571,7 @@
   function renderAuditStatusCard(status, options = {}) {
     if (!reportAuditStatus) return;
 
-    const { error = "", note = "", hidden = false } = options;
+    const { error = "", note = "", hidden = false, sourceKind = "local" } = options;
     if (hidden) {
       reportAuditStatus.classList.add("is-hidden");
       reportAuditStatus.innerHTML = "";
@@ -1583,34 +1583,72 @@
     let badgeTone = "warn";
     let badgeLabel = "未讀取";
     let summary = note || "尚未載入最新自巡檢狀態。";
+    const cardTitle = sourceKind === "public" ? "平台公開巡檢狀態" : "鋼構本機自巡檢狀態";
     const meta = [];
     const links = [];
 
     if (status) {
+      const isPublicPlatformStatus = sourceKind === "public" || status.kind === "platform-status";
       badgeTone = status.pass ? "ok" : "fail";
-      badgeLabel = status.pass ? "最近巡檢通過" : `最近巡檢異常 ${status.failureCount || 0} 項`;
-      summary = `最近一輪自巡檢 ${status.pass ? "已通過" : "發現異常"}，runId：${status.runId || "—"}。`;
+      badgeLabel = status.pass
+        ? (isPublicPlatformStatus ? "平台最近巡檢通過" : "最近巡檢通過")
+        : `${isPublicPlatformStatus ? "平台最近巡檢異常" : "最近巡檢異常"} ${status.failureCount || 0} 項`;
+      summary = `${isPublicPlatformStatus ? "公開平台" : "鋼構本機"}最近一輪巡檢 ${status.pass ? "已通過" : "發現異常"}，runId：${status.runId || "—"}。`;
       if (status.runId) meta.push(`runId｜${status.runId}`);
-      meta.push(status.loop ? "模式｜循環巡檢" : "模式｜單次巡檢");
-      meta.push(status.quiet ? "輸出｜靜默" : "輸出｜標準");
+      if (isPublicPlatformStatus) {
+        const moduleLabels = { steel: "鋼構", rc: "RC", core: "風震核心" };
+        const modules = (status.modules || []).map((key) => moduleLabels[key] || key).filter(Boolean);
+        if (modules.length) meta.push(`範圍｜${modules.join("、")}`);
+        meta.push("來源｜正式放行公開快照");
+        links.push({ href: "../結構工具箱/index.html", label: "開啟工具箱狀態總覽" });
+        links.push({ href: "../結構工具箱/assets/status/platform-status.json", label: "開啟公開狀態 JSON" });
+      } else {
+        meta.push(status.loop ? "模式｜循環巡檢" : "模式｜單次巡檢");
+        meta.push(status.quiet ? "輸出｜靜默" : "輸出｜標準");
+        links.push({ href: "./output/audit/audit-summary.md", label: "開啟巡檢摘要" });
+        links.push({ href: "./output/audit/audit-status.json", label: "開啟狀態 JSON" });
+      }
       meta.push(`結果｜${status.failureCount || 0} 項異常`);
-      links.push({ href: "./output/audit/audit-summary.md", label: "開啟巡檢摘要" });
-      links.push({ href: "./output/audit/audit-status.json", label: "開啟狀態 JSON" });
     } else if (error) {
       badgeTone = "warn";
-      badgeLabel = "巡檢狀態未載入";
+      badgeLabel = sourceKind === "public" ? "公開狀態未載入" : "巡檢狀態未載入";
       summary = error;
     }
 
     reportAuditStatus.innerHTML = `
       <div class="audit-status-card__head">
-        <span class="audit-status-card__title">內建自巡檢狀態</span>
+        <span class="audit-status-card__title">${cardTitle}</span>
         <span class="audit-status-card__badge ${badgeTone}">${badgeLabel}</span>
       </div>
       <div class="audit-status-card__summary">${summary}</div>
       ${meta.length ? `<div class="audit-status-card__meta">${meta.map((item) => `<span>${item}</span>`).join("")}</div>` : ""}
       ${links.length ? `<div class="audit-status-card__links">${links.map((item) => `<a href="${item.href}" target="_blank" rel="noreferrer">${item.label}</a>`).join("")}</div>` : ""}
     `;
+  }
+
+  function isLocalAuditHost(hostname = window.location.hostname) {
+    const host = String(hostname || "").trim().toLowerCase().replace(/^\[|\]$/g, "");
+    if (["localhost", "0.0.0.0", "::1"].includes(host)) return true;
+    if (/^127(?:\.\d{1,3}){3}$/.test(host)) return true;
+    if (/^10(?:\.\d{1,3}){3}$/.test(host)) return true;
+    if (/^192\.168(?:\.\d{1,3}){2}$/.test(host)) return true;
+    const private172 = host.match(/^172\.(\d{1,2})(?:\.\d{1,3}){2}$/);
+    return Boolean(private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31);
+  }
+
+  function getAuditStatusSource() {
+    if (isLocalAuditHost()) {
+      return {
+        kind: "local",
+        url: "./output/audit/audit-status.json",
+        errorPrefix: "尚未取得最新鋼構自巡檢狀態",
+      };
+    }
+    return {
+      kind: "public",
+      url: "../結構工具箱/assets/status/platform-status.json",
+      errorPrefix: "尚未取得公開平台巡檢狀態",
+    };
   }
 
   async function loadAuditStatus() {
@@ -1623,16 +1661,20 @@
       return;
     }
 
+    const source = getAuditStatusSource();
     try {
-      const response = await fetch(`./output/audit/audit-status.json?ts=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(`${source.url}?ts=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
       const status = await response.json();
-      renderAuditStatusCard(status);
+      renderAuditStatusCard(status, { sourceKind: source.kind });
     } catch (error) {
       renderAuditStatusCard(null, {
-        error: `尚未取得最新自巡檢狀態（${error.message || "讀取失敗"}）。可先執行 run-audit.bat 或 run-audit-loop.bat。`,
+        sourceKind: source.kind,
+        error: source.kind === "public"
+          ? `${source.errorPrefix}（${error.message || "讀取失敗"}）。請稍後重試或查看結構工具箱首頁。`
+          : `${source.errorPrefix}（${error.message || "讀取失敗"}）。可先執行 run-audit.bat 或 run-audit-loop.bat。`,
       });
     }
   }
