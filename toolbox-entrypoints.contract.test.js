@@ -653,6 +653,8 @@ assert.ok(pagesLiveSmoke.includes("source: '/rc-column'"), 'Pages live smoke sam
 assert.ok(pagesLiveSmoke.includes('assertNoLocalWorkspaceLeak'), 'Pages live smoke rejects local workspace path leaks from public pages');
 assert.ok(pagesLiveSmoke.includes('鋼筋混凝土/tools/beam.html'), 'Pages live smoke samples RC tool page');
 assert.ok(pagesLiveSmoke.includes('鋼構工具/steel-beam-formal.html'), 'Pages live smoke samples steel formal page');
+assert.ok(pagesLiveSmoke.includes('鋼構工具/plate-check.html'), 'Pages live smoke samples steel plate formal page');
+assert.ok(pagesLiveSmoke.includes('鋼構工具/steel-column-formal.html'), 'Pages live smoke samples steel column formal page');
 assert.ok(pagesLiveSmoke.includes('石材固定/石材計算書產生器_規範版V2.html'), 'Pages live smoke samples stone V2 page');
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/index.html'), 'Pages live smoke samples excavation launcher');
 assert.ok(pagesLiveSmoke.includes('pages live smoke OK'), 'Pages live smoke reports success');
@@ -700,6 +702,8 @@ assert.ok(pagesLiveSmoke.includes('formal-tool-output-page'), 'Pages live smoke 
 assert.ok(pagesLiveSmoke.includes('正式工具主頁列印已封鎖'), 'Pages live smoke checks formal work-page print boundary wording');
 assert.ok(pagesLiveSmoke.includes('local-quick-output-page'), 'Pages live smoke checks local quick work-page print body class');
 assert.ok(pagesLiveSmoke.includes('局部快算主頁列印已封鎖'), 'Pages live smoke checks local quick work-page print boundary wording');
+assert.ok(pagesLiveSmoke.includes('steel-formal-output-page'), 'Pages live smoke checks steel formal work-page print body class');
+assert.ok(pagesLiveSmoke.includes('鋼構正式工具主頁列印已封鎖'), 'Pages live smoke checks steel formal work-page print boundary wording');
 assert.ok(pagesArtifactSmoke.includes('Start-Process'), 'local Pages artifact smoke starts a temporary server');
 assert.ok(pagesArtifactSmoke.includes('-WindowStyle Hidden'), 'local Pages artifact smoke hides temporary server window');
 assert.ok(pagesArtifactSmoke.includes('Stop-Process'), 'local Pages artifact smoke stops temporary server');

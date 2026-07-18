@@ -30,7 +30,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [鋼構工具/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/index.html:1)
 - 鋼構正式頁 regression：
   [鋼構工具/steel-formal.regression-test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/steel-formal.regression-test.js:1)
-  - 固定檢查連接板、拉力構件、鋼梁與鋼柱的正式頁、共用報表 helper、page-only 產報前檢查與計算書內容邊界；結果區的「輸出正式報表」與頁首輸出都走同一個可追溯報表流程，不直接列印工作頁。正式輸出固定以採用輸入、公式代入、結果與結論為主，不輸出輸入模式、換算、流程、介面摘要卡、符號教學或長篇條文說明。browser runner 會實際點擊結果區按鈕，把 HTML 彈窗型計算書轉成 PDF 與可讀文字，確認產出工具、工具版本、輸出時間、計算指紋、計畫資訊、主要章節、內容順序，以及 page-only / 功能借鏡文字排除清單。
+  - 固定檢查連接板、拉力構件、鋼梁與鋼柱的正式頁、共用報表 helper、page-only 產報前檢查與計算書內容邊界；結果區的「輸出正式報表」與頁首輸出都走同一個可追溯報表流程，不直接列印工作頁。四個鋼構正式工作頁的瀏覽器直接列印已由共用 CSS 封鎖，只顯示一頁操作指引；正式報表彈窗仍可列印或存成 PDF。正式輸出固定以採用輸入、公式代入、結果與結論為主，不輸出輸入模式、換算、流程、介面摘要卡、符號教學或長篇條文說明。browser runner 會實際點擊結果區按鈕，把 HTML 彈窗型計算書轉成 PDF 與可讀文字，也會把四個工作頁各自直接列印成 PDF，確認只有一頁邊界通知且不含表單、案件資料或 `DRAFT`。
 - 鋼梁 / 鋼柱既有案件延續頁：
   - 只供既有案件延續或復核比較；必須選擇用途並確認後，才可產生「舊案延續計算記錄」。頁面本體的直接列印不提供計算附件，新案正式計算附件必須由鋼梁 / 鋼柱正式頁產出。
 - RC 工具入口：
@@ -93,7 +93,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - GitHub Pages deploy / live smoke：
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)
   [結構工具箱/tools/build-pages-clean-routes.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/build-pages-clean-routes.js:1)
-  - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact；staging 完成後，`build-pages-clean-routes.js` 依 `vercel.json` 為 GitHub Pages 產生不覆寫既有頁面的靜態短網址轉向頁，使首頁公開的 `/rc-column`、`/steel-beam-formal` 等 clean route 在 Pages 專案子路徑下也能使用，並保留 query 與 hash。deploy 成功後再由 live smoke 檢查短網址、公開首頁、`home.js`、`結構工具箱/assets/status/*.json`、正式與局部快算工作頁的直接列印封鎖 CSS，以及代表性公開工具頁是否可讀，並拒絕公開頁出現本機工作目錄路徑；`--check-private-boundary` 會確認 Markdown、`CONTEXT.md`、`docs/adr/`、PowerShell / batch、測試檔、合約檔、route builder、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔未被發布。部署前可先跑 [run-pages-artifact-smoke.ps1](/C:/Users/USER/Desktop/AI/小工具製作/run-pages-artifact-smoke.ps1:1)，它會在本機 temp 目錄產生同樣含 clean route 的 Pages artifact 並呼叫共享 smoke。
+  - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact；staging 完成後，`build-pages-clean-routes.js` 依 `vercel.json` 為 GitHub Pages 產生不覆寫既有頁面的靜態短網址轉向頁，使首頁公開的 `/rc-column`、`/steel-beam-formal` 等 clean route 在 Pages 專案子路徑下也能使用，並保留 query 與 hash。deploy 成功後再由 live smoke 檢查短網址、公開首頁、`home.js`、`結構工具箱/assets/status/*.json`、風震正式、鋼構正式與局部快算工作頁的直接列印封鎖 CSS，以及代表性公開工具頁是否可讀，並拒絕公開頁出現本機工作目錄路徑；`--check-private-boundary` 會確認 Markdown、`CONTEXT.md`、`docs/adr/`、PowerShell / batch、測試檔、合約檔、route builder、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔未被發布。部署前可先跑 [run-pages-artifact-smoke.ps1](/C:/Users/USER/Desktop/AI/小工具製作/run-pages-artifact-smoke.ps1:1)，它會在本機 temp 目錄產生同樣含 clean route 的 Pages artifact 並呼叫共享 smoke。
 - Pull request validation：
   [.github/workflows/pr-validation.yml](/C:/Users/USER/Desktop/AI/小工具製作/.github/workflows/pr-validation.yml:1)
   - 每次送往 `master` 的 PR 會在 `windows-latest` 執行 `run-preflight-tools-ci.bat` 的 clean-checkout gate，以唯讀權限、無 secrets、限時 30 分鐘的方式建立狀態檢查；無論成功或失敗都保留 7 天的 preflight summary / history artifact。CI 模式只執行不依賴 ignored audit 狀態、本機 node_modules、Python 額外套件或本機工具檔的可重現契約；完整 46 項 quick 與正式 release preflight 仍須在交付工作站執行，CI 綠燈不得取代正式放行證據。`pr-validation.contract.test.js` 會鎖住觸發條件、權限、runtime 版本、wrapper、clean-checkout 邊界與證據路徑。

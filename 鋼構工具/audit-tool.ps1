@@ -8,8 +8,9 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$repoRoot = Split-Path -Parent $root
 $serverPort = 8123
-$baseUrl = "http://127.0.0.1:$serverPort"
+$baseUrl = "http://127.0.0.1:$serverPort/鋼構工具"
 $auditOutputDir = Join-Path $root "output\audit"
 $historyDir = Join-Path $auditOutputDir "history"
 $lockPath = Join-Path $auditOutputDir "audit.lock.json"
@@ -108,7 +109,7 @@ function Ensure-Server {
   }
 
   Write-Status "Starting local HTTP server at $baseUrl" "DarkYellow"
-  $process = Start-Process -FilePath python -ArgumentList "-m", "http.server", "$serverPort" -WorkingDirectory $root -PassThru -WindowStyle Hidden
+  $process = Start-Process -FilePath python -ArgumentList "-m", "http.server", "$serverPort" -WorkingDirectory $repoRoot -PassThru -WindowStyle Hidden
   Start-Sleep -Seconds 2
   $response = Invoke-WebRequest -Uri "$baseUrl/index.html" -UseBasicParsing -TimeoutSec 5
   if ($response.StatusCode -ne 200) {

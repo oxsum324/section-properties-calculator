@@ -5,6 +5,7 @@ const { spawn } = require('node:child_process');
 const {
   resolveEvidenceDir,
   renderAndValidateReportPdf,
+  validatePdfFile,
   writeEvidenceSummary,
 } = require('../結構工具箱/tools/rendered-delivery-evidence');
 
@@ -18,6 +19,11 @@ const scenarioTimeoutMs = Number(args['scenario-timeout-ms'] || 90000);
 const repoRoot = path.resolve(__dirname, '..');
 const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'steel-formal');
 const renderedEvidenceRecords = [];
+const directPrintOutputDir = path.resolve(String(
+  args['direct-print-output-dir']
+    || path.join(repoRoot, 'output', 'playwright', 'steel-formal-direct-print-block')
+));
+const directPrintSummaryJson = path.join(directPrintOutputDir, 'steel-formal-direct-print-block-summary.json');
 
 const viewports = [
   { label: 'desktop', width: 1440, height: 1100, mobile: false },
@@ -41,6 +47,15 @@ const scenarios = [
   { name: 'formal-column-report-popup', url: '/steel-column-formal.html', setup: setupFormalProjectMetaComplete, assert: assertFormalColumnReportPopupComplete },
   { name: 'formal-column-report-popup-placeholder', url: '/steel-column-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalColumnReportPopupPlaceholder },
   { name: 'formal-column-invalid', url: '/steel-column-formal.html', setup: setupFormalColumnInvalid, assert: assertFormalColumnReadinessBlocked },
+];
+
+const STEEL_DIRECT_PRINT_TITLE = '鋼構正式工具主頁列印已封鎖';
+const STEEL_DIRECT_PRINT_BODY = '此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「輸出正式報表」按鈕產生依目前案件資料與檢核狀態整理的正式報表；本頁不得作為附件。';
+const steelDirectPrintPages = [
+  { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.0' },
+  { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.0' },
+  { key: 'steel-beam-formal', url: '/steel-beam-formal.html', pageTitle: '鋼梁正式規範核算工具 V1.0' },
+  { key: 'steel-column-formal', url: '/steel-column-formal.html', pageTitle: '鋼柱正式規範核算工具 V1.0' },
 ];
 
 const FORMAL_PROJECT_META = {
@@ -134,7 +149,7 @@ function withTimeout(promise, ms, label) {
 function isTransientLaunchError(error) {
   if (!error) return false;
   if (['EPERM', 'EACCES', 'EBUSY'].includes(error.code)) return true;
-  return /spawn EPERM|WinError 5|access is denied|Permission denied|Timed out waiting for Edge DevTools/i.test(error.message || '');
+  return /spawn EPERM|WinError 5|access is denied|Permission denied|Timed out waiting for Edge DevTools|Edge exited before DevTools endpoint was available/i.test(error.message || '');
 }
 
 function formatError(error) {
@@ -999,6 +1014,103 @@ async function waitForPopupReady(cdp, sessionId, label, timeoutMs = 10000) {
   throw new Error(`${label} timed out after ${timeoutMs}ms`);
 }
 
+async function verifySteelDirectPrintBlock(cdp, page) {
+  const created = await cdp.send('Target.createTarget', { url: 'about:blank' });
+  let sessionId;
+  try {
+    const attached = await cdp.send('Target.attachToTarget', { targetId: created.targetId, flatten: true });
+    sessionId = attached.sessionId;
+    await cdp.send('Page.enable', {}, sessionId);
+    await cdp.send('Runtime.enable', {}, sessionId);
+    const loadEvent = waitForEvent(cdp, 'Page.loadEventFired', sessionId, () => true, 45000);
+    await cdp.send('Page.navigate', { url: `${baseUrl}${page.url}` }, sessionId);
+    await loadEvent;
+    await wait(300);
+
+    const screenState = await evaluate(cdp, sessionId, `(() => {
+      const boundary = document.querySelector('.steel-formal-direct-print-boundary');
+      const stylesheet = document.querySelector('link[href$="direct-print-boundary.css"]');
+      return {
+        bodyClass: document.body?.classList.contains('steel-formal-output-page') || false,
+        boundaryExists: Boolean(boundary),
+        boundaryRects: boundary?.getClientRects().length || 0,
+        stylesheetExists: Boolean(stylesheet),
+        stylesheetLoaded: Boolean(stylesheet?.sheet),
+      };
+    })()`, `${page.key} screen direct-print state`);
+    if (!screenState.bodyClass) throw new Error(`${page.key} missing steel-formal-output-page body class`);
+    if (!screenState.boundaryExists) throw new Error(`${page.key} missing steel formal direct-print notice`);
+    if (screenState.boundaryRects !== 0) throw new Error(`${page.key} direct-print notice must stay hidden on screen`);
+    if (!screenState.stylesheetExists || !screenState.stylesheetLoaded) {
+      throw new Error(`${page.key} shared direct-print stylesheet is unavailable`);
+    }
+
+    await cdp.send('Emulation.setEmulatedMedia', { media: 'print' }, sessionId);
+    await wait(150);
+    const printState = await evaluate(cdp, sessionId, `(() => {
+      const clean = value => String(value || '').replace(/\\s+/g, ' ').trim();
+      const boundary = document.querySelector('.steel-formal-direct-print-boundary');
+      const visibleSiblings = Array.from(document.body?.children || [])
+        .filter(node => node !== boundary && node.getClientRects().length > 0)
+        .map(node => ({ tag: node.tagName, id: node.id || '', className: node.className || '' }));
+      return {
+        boundaryRects: boundary?.getClientRects().length || 0,
+        boundaryText: clean(boundary?.innerText),
+        visibleSiblings,
+        bodyPseudo: clean([
+          getComputedStyle(document.body, '::before').content,
+          getComputedStyle(document.body, '::after').content,
+        ].join(' ')),
+      };
+    })()`, `${page.key} print direct-print state`);
+    if (printState.boundaryRects === 0) throw new Error(`${page.key} direct-print notice is not visible in print media`);
+    if (printState.visibleSiblings.length > 0) {
+      throw new Error(`${page.key} still prints work-page children: ${JSON.stringify(printState.visibleSiblings)}`);
+    }
+    for (const needle of [STEEL_DIRECT_PRINT_TITLE, STEEL_DIRECT_PRINT_BODY]) {
+      if (!printState.boundaryText.includes(needle)) throw new Error(`${page.key} print notice missing ${needle}`);
+    }
+    if (/DRAFT|非正式附件/i.test(printState.bodyPseudo)) {
+      throw new Error(`${page.key} direct print must not create a draft calculation-book classification`);
+    }
+
+    const pdfResult = await cdp.send('Page.printToPDF', {
+      printBackground: true,
+      preferCSSPageSize: true,
+      paperWidth: 8.27,
+      paperHeight: 11.69,
+      marginTop: 0.25,
+      marginBottom: 0.25,
+      marginLeft: 0.25,
+      marginRight: 0.25,
+    }, sessionId);
+    const pdfPath = path.join(directPrintOutputDir, `${page.key}.pdf`);
+    fs.writeFileSync(pdfPath, Buffer.from(pdfResult.data || '', 'base64'));
+    const pdf = validatePdfFile(pdfPath, {
+      label: `${page.key} work-page direct-print block`,
+      titleNeedle: STEEL_DIRECT_PRINT_TITLE,
+      requiredNeedles: [STEEL_DIRECT_PRINT_TITLE, '此頁是操作介面，不是計算書', '輸出正式報表', '本頁不得作為附件'],
+      forbiddenNeedles: [page.pageTitle, '計畫名稱', 'DRAFT', '非正式附件'],
+      minTextLength: 60,
+    });
+    if (pdf.pageCount !== 1) throw new Error(`${page.key} direct-print block must be one page, got ${pdf.pageCount}`);
+    return {
+      key: page.key,
+      url: page.url,
+      pdfPath,
+      textPath: pdf.textPath,
+      pageCount: pdf.pageCount,
+      textLength: pdf.textLength,
+      screenBoundaryRects: screenState.boundaryRects,
+      printBoundaryRects: printState.boundaryRects,
+      visibleSiblingCount: printState.visibleSiblings.length,
+    };
+  } finally {
+    await cdp.send('Emulation.setEmulatedMedia', { media: 'screen' }, sessionId).catch(() => {});
+    await cdp.send('Target.closeTarget', { targetId: created.targetId }).catch(() => {});
+  }
+}
+
 async function runSnapshot(cdp, scenario, viewport) {
   const label = `${scenario.name}-${viewport.label}`;
   log(`Edge CDP snapshot [${label}] ${viewport.width}x${viewport.height}`);
@@ -1179,7 +1291,10 @@ function writeScenarioArtifacts(label, snapshotText, screenshotBuffer, records) 
 async function main() {
   ensureDir(outputDir);
   ensureDir(historyDir);
+  ensureDir(directPrintOutputDir);
   const records = [];
+  const directPrintRecords = [];
+  const directPrintFailures = [];
   const failures = [];
   const summaryLines = [];
   const cleanupWarnings = [];
@@ -1189,6 +1304,22 @@ async function main() {
     browser = await launchEdge();
     cdp = new CdpConnection(browser.wsUrl);
     await cdp.open();
+    for (const page of steelDirectPrintPages) {
+      try {
+        const record = await withTimeout(
+          verifySteelDirectPrintBlock(cdp, page),
+          scenarioTimeoutMs,
+          `${page.key}-direct-print`
+        );
+        directPrintRecords.push(record);
+        summaryLines.push(`- ${page.key} direct-print block: pdf=${record.pdfPath}`);
+      } catch (error) {
+        const failure = `${page.key}-direct-print: ${error.message || formatError(error)}`;
+        directPrintFailures.push(failure);
+        failures.push(failure);
+        summaryLines.push(`- ${failure}`);
+      }
+    }
     for (const scenario of scenarios) {
       for (const viewport of viewports) {
         const record = await withTimeout(runSnapshot(cdp, scenario, viewport), scenarioTimeoutMs, `${scenario.name}-${viewport.label}`);
@@ -1226,10 +1357,18 @@ async function main() {
     baseUrl,
     runner: 'edge-cdp',
     records,
+    directPrintRecords,
     failures,
     summaryLines,
     cleanupWarnings,
   };
+  fs.writeFileSync(directPrintSummaryJson, JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    baseUrl,
+    expectedCount: steelDirectPrintPages.length,
+    records: directPrintRecords,
+    failures: directPrintFailures,
+  }, null, 2) + '\n', 'utf8');
   const renderedSummary = failures.length === 0
     ? writeEvidenceSummary(
       renderedEvidenceDir,
@@ -1251,7 +1390,7 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-  console.log(`steel browser runner OK (records=${records.length}, runner=edge-cdp)`);
+  console.log(`steel browser runner OK (records=${records.length}, directPrintBlocks=${directPrintRecords.length}, runner=edge-cdp)`);
 }
 
 main().catch(error => {
