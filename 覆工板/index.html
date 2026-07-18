@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>覆工板系統計算工具 v1.0</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../結構工具箱/core/direct-print-boundary.css">
 <style>
   :root {
     --c-bg: #f5f6f8;
@@ -438,21 +440,36 @@
   }
 
   @media print {
-    nav.tabs, .btn, .statusbar, .preset-bar, .action-status, .auto-link-toggle, .page-only-report-status, header .home-link { display: none !important; }
-    section.tab-panel { display: block !important; page-break-after: always; }
-    header { background: var(--c-primary) !important; -webkit-print-color-adjust: exact; }
+    body.formal-tool-output-page.decking-report-print-mode > .formal-direct-print-boundary { display: none !important; }
+    body.formal-tool-output-page.decking-report-print-mode > main {
+      display: block !important;
+      max-width: none;
+      padding: 0;
+    }
+    body.formal-tool-output-page.decking-report-print-mode section.tab-panel { display: none !important; }
+    body.formal-tool-output-page.decking-report-print-mode section#tab-report {
+      display: block !important;
+      page-break-after: auto;
+    }
+    nav.tabs, .btn, .statusbar, .preset-bar, .action-status, .auto-link-toggle,
+    .page-only-report-status, .decking-report-page-only, header { display: none !important; }
     body { background: #fff; font-size: 11px; }
-    .card { box-shadow: none; page-break-inside: avoid; }
+    #tab-report > .card { border: 0; box-shadow: none; padding: 0; page-break-inside: auto; }
+    #tab-report h1, #tab-report h2, #tab-report h3, #tab-report h4 { break-after: avoid-page; }
+    #tab-report table { break-inside: auto; }
+    #tab-report thead { display: table-header-group; }
+    #tab-report tr { break-inside: avoid-page; }
     .summary, table.calc th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
 </head>
-<body>
+<body class="formal-tool-output-page">
+<div class="formal-direct-print-boundary" aria-hidden="true"><strong>覆工板工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「列印彙整計算書」按鈕，或依正式 Word 計算書流程產生只包含案件資料、採用條件、計算結果與必要說明的文件；本頁不得作為附件。</span></div>
 
 <header>
   <a class="home-link" href="../結構工具箱/index.html">&larr; 回主選單</a>
   <h1>覆工板系統計算工具 v1.0</h1>
-  <div class="sub">覆工板面 → 覆工小梁 → 覆工大梁 → 共構柱｜HS20-44 / PC400 / 45T-300T 吊車載重　｜　Ctrl+1~5 切頁　｜　Ctrl+P 列印報告</div>
+  <div class="sub">覆工板面 → 覆工小梁 → 覆工大梁 → 共構柱｜HS20-44 / PC400 / 45T-300T 吊車載重　｜　Ctrl+1~5 切頁　｜　使用專用按鈕列印彙整計算書</div>
 </header>
 
 <nav class="tabs">
@@ -467,7 +484,7 @@
   <button class="btn btn-ghost" style="align-self:center;" onclick="saveDraft()" title="暫存目前輸入">暫存</button>
   <button class="btn btn-ghost" style="align-self:center;" onclick="loadDraft()" title="讀取瀏覽器暫存">讀取暫存</button>
   <input type="file" id="projectJsonFile" accept=".json,application/json" style="display:none" onchange="importProjectJSON(this)">
-  <button class="btn" style="margin-left:auto; align-self:center;" onclick="window.print()" title="列印 / 匯出 PDF">🖨 列印</button>
+  <button class="btn" style="margin-left:auto; align-self:center;" onclick="printDeckingReport()" title="列印彙整計算書 / 匯出 PDF">🖨 列印彙整計算書</button>
   <button class="btn btn-ghost" style="align-self:center;" onclick="resetAll()" title="清空所有輸入">↺ 重置</button>
 </nav>
 
@@ -848,10 +865,10 @@
 <!-- ==================== Tab 6: 彙整報告 ==================== -->
 <section class="tab-panel" id="tab-report">
   <div class="card">
-    <h2>📑 覆工板系統結構計算書（彙整版）</h2>
-    <div class="note">此頁整合 Tab②~⑤ 所有檢核結果，可直接按「🖨 列印」匯出 PDF 作為計算書附件。</div>
+    <h2 class="decking-report-page-only">📑 覆工板系統結構計算書（彙整版）</h2>
+    <div class="note decking-report-page-only">此頁整合 Tab②~⑤ 所有檢核結果；請使用「🖨 列印彙整計算書」輸出 PDF，瀏覽器直接列印操作頁只會顯示邊界通知。</div>
 
-    <div class="row-flex" style="margin-bottom:12px; padding:10px; background:#e8f4ff; border:1px solid #b8d4f0; border-radius:6px;">
+    <div class="row-flex decking-report-page-only" style="margin-bottom:12px; padding:10px; background:#e8f4ff; border:1px solid #b8d4f0; border-radius:6px;">
       <b style="color:#1a4480;">📄 產出正式 Word 計算書：</b>
       <button class="btn" onclick="exportJSON()">💾 步驟 1：下載 JSON 參數檔</button>
       <span style="font-size:12px; color:#555;">→ 雙擊本資料夾內「<b>產生計算書.bat</b>」→ 生成 Word 檔</span>
@@ -1876,6 +1893,29 @@ function exportJSON() {
 //============================================================
 // Tab 6: 彙整報告 / 計算書附件
 //============================================================
+function printDeckingReport() {
+  recalcAll();
+  const reportTab = document.querySelector('nav.tabs button[data-tab="report"]');
+  if (reportTab) reportTab.click();
+  const missingProjectFields = [
+    ['案名', 'proj_name'],
+    ['案件編號', 'proj_no'],
+    ['日期', 'proj_date'],
+  ].filter(([, id]) => !textOrBlank(document.getElementById(id)?.value)).map(([label]) => label);
+  if (missingProjectFields.length) {
+    setActionStatus(`暫不列印：請先填寫${missingProjectFields.join('、')}。`, 'error');
+    return false;
+  }
+  setActionStatus('');
+  document.body.classList.add('decking-report-print-mode');
+  try {
+    window.print();
+  } finally {
+    document.body.classList.remove('decking-report-print-mode');
+  }
+  return true;
+}
+
 function buildReport() {
   const g = G();
   const name = document.getElementById('proj_name').value || '(未填)';

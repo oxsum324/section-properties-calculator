@@ -12,7 +12,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '鋼構工具/app.js', needles: ['getAuditStatusSource', '../結構工具箱/assets/status/platform-status.json', '平台公開巡檢狀態', '鋼構本機自巡檢狀態'] },
   { path: 'anchor/', needles: ['錨栓檢討工具'] },
   { path: '石材固定/石材計算書產生器_規範版V2.html', needles: ['石材外牆固定構件計算書產生器', '規範版'] },
-  { path: '覆工板/index.html', needles: ['覆工板系統計算工具'] },
+  { path: '覆工板/index.html', needles: ['覆工板系統計算工具', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '覆工板工具主頁列印已封鎖', 'printDeckingReport()'] },
   { path: '開挖擋土支撐/index.html', needles: ['開挖擋土支撐計算工具', '本機服務工具'] },
   { path: '連續梁分析.html', needles: ['連續梁分析工具', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '分析工具主頁列印已封鎖'] },
   { path: '鋼架/平面剛架分析.html', needles: ['平面剛架分析', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },

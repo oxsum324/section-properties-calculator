@@ -86,6 +86,9 @@ const pageOnlyReportStatusNeedles = [
   '不會寫入計算書或列印 PDF',
   '輸出邊界',
   '頁面顯示，不進計算書、列印或 PDF',
+  '覆工板工具主頁列印已封鎖',
+  '此頁是操作介面，不是計算書',
+  '暫不列印：請先填寫',
 ];
 
 assert(fs.existsSync(fixturePath), 'decking report fixture exists', 'test-fixtures/report-smoke.json');
@@ -95,7 +98,11 @@ assert(html.includes('page-only-report-status'), 'decking report readiness uses 
 assert(html.includes('產報前檢查'), 'decking report readiness copy exists', '產報前檢查');
 assert(html.includes('優先閱讀'), 'decking report readiness priority copy exists', '優先閱讀');
 assert(html.includes('此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。'), 'decking report readiness boundary note exists', 'page-only note');
-assertPrintHidesSelectors(html, ['.page-only-report-status'], 'decking report readiness');
+assert(html.includes('href="../結構工具箱/core/direct-print-boundary.css"'), 'decking report page loads shared direct-print boundary', 'direct-print-boundary.css');
+assert(html.includes('onclick="printDeckingReport()"'), 'decking PDF output uses dedicated report print path', 'printDeckingReport');
+assert(!html.includes('onclick="window.print()"'), 'decking work page cannot directly invoke browser print', 'direct window.print removed');
+assert(html.includes('暫不列印：請先填寫'), 'decking PDF output blocks missing project metadata', 'project metadata gate');
+assertPrintHidesSelectors(html, ['.page-only-report-status', '.decking-report-page-only'], 'decking report readiness');
 
 runPython(['-m', 'py_compile', 'dump_xls.py', path.join('report', 'gen_report.py')], 'decking report python compile');
 
