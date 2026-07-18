@@ -212,6 +212,7 @@ function assertReportHtmlText(reportHtml, label, requiredNeedles, minLength = 70
 }
 
 const frameAnalysisHtml = read(path.join('鋼架', '平面剛架分析.html'));
+const directPrintBoundary = read(path.join('結構工具箱', 'core', 'direct-print-boundary.css'));
 
 assert(!frameAnalysisHtml.includes('alert('), 'rigid frame avoids blocking alert', 'alert(');
 
@@ -250,6 +251,19 @@ assertIncludesAll(frameAnalysisHtml, [
   'kθ (tf·m/rad)',
   'springForces',
 ], 'rigid frame static contract');
+
+assertIncludesAll(frameAnalysisHtml, [
+  'href="../結構工具箱/core/direct-print-boundary.css"',
+  '<body class="formal-tool-output-page">',
+  'class="formal-direct-print-boundary"',
+  '分析工具主頁列印已封鎖',
+  '此頁是操作介面，不是計算書',
+  '本頁不得作為附件',
+], 'rigid frame direct-print boundary');
+assertIncludesAll(directPrintBoundary, [
+  'body.formal-tool-output-page > :not(.formal-direct-print-boundary)',
+  'body.formal-tool-output-page > .formal-direct-print-boundary',
+], 'shared direct-print CSS');
 
 assertIncludesAll(frameAnalysisHtml, [
   'grid-template-columns: minmax(560px, 0.9fr) minmax(0, 1.1fr)',

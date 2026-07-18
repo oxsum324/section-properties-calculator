@@ -12,7 +12,7 @@
 | `鋼構工具/run-audit.bat`、`鋼筋混凝土/run-audit.bat`、`結構工具箱/audit-core.ps1`、`結構工具箱/run-audit-core.bat` | 納入 | 子系統 audit wrapper 與規範核心 audit 入口；preflight helper script 清冊會檢查這些入口存在並列入 staging 文件。 |
 | `開挖擋土支撐/start_html_mode.ps1`、`開挖擋土支撐/stop_html_mode.ps1` | 納入 | 開挖擋土支撐本機服務邊界 smoke 需要的啟停入口；工程資料仍排除。 |
 | `開挖擋土支撐/excavation-traceability.catalog.json`、`開挖擋土支撐/excavation-traceability.contract.test.js`、`開挖擋土支撐/excavation-report.contract.test.js`、`開挖擋土支撐/backend/tests/release_report_artifacts.py` | 納入 | 開挖擋土支撐服務型工具的規範語意追蹤 catalog、服務治理契約、報告邊界契約與正式放行成品產生器；集中確認分析輸出匯入、支撐 / 橫擋 / 斜撐 / 大角撐、柱與基礎、PDF / DOCX 報表、本機服務資料治理的來源、輸入、計算、報告、證據與人工複核邊界。 |
-| `continuous-beam-regression.test.js`、`test-continuous-beam.ps1` | 納入 | 連續梁回歸與報告邊界檢查；確認分析表格、圖面與 HTML 計算書仍有足量可讀文字、必要章節與計畫資訊，且頁面專用閱讀狀態不混入計算書。 |
+| `continuous-beam-regression.test.js`、`test-continuous-beam.ps1` | 納入 | 連續梁回歸與報告邊界檢查；確認分析表格、圖面與 HTML 計算書仍有足量可讀文字、必要章節與計畫資訊，且頁面專用閱讀狀態不混入計算書。操作頁另共用 `結構工具箱/core/direct-print-boundary.css`，瀏覽器直接列印只能顯示一頁邊界通知，不得輸出表單、分析畫面或案件資料。 |
 | `stone-feedback.contract.test.js` | 納入 | 石材 V2、舊版與 baseline capture feedback 合約；確認通知、確認、範本管理與錯誤提示不回退原生 dialog。 |
 | `石材固定/stone-report.contract.test.js`、`石材固定/server_smoke_test.py` | 納入 | 石材報告邊界契約與離線匯出 smoke；固定檢查 Word/PDF 匯出稽核摘要、PDF / DOCX 文字抽檢、頁面專用閱讀狀態清理與 payload HTML 不一致時的降級判定，避免 page-only 閱讀狀態混入正式交付。 |
 | `石材固定/stone-traceability.catalog.json`、`石材固定/stone-traceability.contract.test.js`、`石材固定/js/code-profiles-registry.spec.js`、`石材固定/js/code-profiles-registry-smoke.test.js`、`石材固定/js/regression-smoke.test.js` | 納入 | 石材 V2 條文語意追蹤 catalog 與契約測試；集中確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核的規範來源、輸入、計算、報告、證據與人工複核邊界。active profile 切換另由 `PROFILE_INPUT_BINDINGS` / `buildProfileInputUpdates()` 同步仍沿用舊 profile 預設的 ap、Rp 與外牆 Ip 欄位，保留人工覆寫；registry smoke 與 calc-core regression 必須證明 profile 不只改 metadata，也改變代表案例的實際需求值。 |
@@ -23,7 +23,7 @@
 | `開挖擋土支撐/excavation-report.contract.test.js`、`開挖擋土支撐/backend/tests/test_reporting.py`、`開挖擋土支撐/backend/tests/release_report_artifacts.py` | 納入 | 開挖擋土支撐報告邊界契約、Python 報表測試與正式放行成品產生器；確認 PDF 正式版與 Word 編修版共用同一套報表文字、下載邊界與 latest report 邏輯，並用 PDF / DOCX 文字抽檢排除頁面專用閱讀狀態。release 當輪另在 ignored 的 `excavation-formal` 保存 PDF、DOCX 與 latest download 副本，供總閘門重新解析並核對雜湊。 |
 | `覆工板/decking-traceability.catalog.json`、`覆工板/decking-traceability.contract.test.js` | 納入 | 覆工板條文語意追蹤 catalog 與契約測試；集中確認 HS20 / PC400 / 吊車載重、覆工板面 / 小梁 / 大梁彎剪撓度、大梁 Pu、共構柱、握裹、樁基、JSON / Word 報表與施工臨設邊界的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
 | `section-tools.contract.test.js` | 納入 | 根目錄斷面工具 feedback / 報告邊界合約；確認斷面性質、合成斷面與 RC 補強報表維持 inline status，不回退原生 alert，並把共享報表、合成斷面與 RC 補強 runtime HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單。 |
-| `frame-analysis.contract.test.js`、`鋼架/平面剛架分析.html` | 納入 | 平面剛架報告邊界合約與頁面本體；確認附件閱讀狀態只留在頁面、`printReport()` 產出的 blob 計算書具備足量可讀文字、必要分析章節與節點 / 桿件資料，且不帶 page-only wording，並維持彈性支承、分析組合、平衡檢核與響應式版面 smoke。 |
+| `frame-analysis.contract.test.js`、`鋼架/平面剛架分析.html` | 納入 | 平面剛架報告邊界合約與頁面本體；確認附件閱讀狀態只留在頁面、`printReport()` 產出的 blob 計算書具備足量可讀文字、必要分析章節與節點 / 桿件資料，且不帶 page-only wording，並維持彈性支承、分析組合、平衡檢核與響應式版面 smoke。操作頁另共用 `結構工具箱/core/direct-print-boundary.css`，瀏覽器直接列印只能顯示一頁邊界通知，不得輸出表單、分析畫面或案件資料。 |
 | `browser-dialogs.contract.test.js` | 納入 | 全專案瀏覽器原生 dialog 合約；掃描 HTML/JS/TS/TSX，要求正式工具不回退 `alert` / `prompt`，並讓 `confirm` 只能經審核路徑保留。 |
 | `anchor/` | 納入部署資產 | Vercel `/anchor/` 乾淨路由直接使用此輸出；hash asset 更新時舊檔刪除與新檔新增需一起提交，並同步 `anchor/deployment-manifest.json` 的 source fingerprint。 |
 | `sync-anchor-deployment.ps1` | 納入 | 錨栓 React 工具的正式部署同步入口；以 `/anchor/` base build、受控清理 `anchor/assets`、複製 dist 並寫入部署 fingerprint manifest。 |
