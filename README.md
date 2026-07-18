@@ -112,7 +112,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 鎖住 `鋼架/平面剛架分析.html` 的頁面 / 計算書邊界，確認附件閱讀狀態只留在頁面，`printReport()` 實際產出的 blob 計算書具備足量可讀文字、必要分析章節與節點 / 桿件資料，且不帶 page-only wording，並維持彈性支承、分析組合、平衡檢核與響應式版面 smoke。瀏覽器直接列印操作頁已由共用邊界樣式封鎖，只顯示一頁操作指引，必須使用頁面內的「列印計算書」流程產生附件候選。
 - 覆工板 Word 報告邊界契約測試：
   [覆工板/decking-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/覆工板/decking-report.contract.test.js:1)
-  - 鎖住 `覆工板/report/gen_report.py` 與固定 smoke fixture 的 `.docx` 產報邊界，確認案名 / 編號 / 日期與主要章節仍會寫入 Word 計算書，但頁面上的附件閱讀狀態不會混入輸出；正式 release 另把當輪 DOCX 與結構摘要保存在 `decking-formal` 證據目錄，供平台總閘門重新解析。
+  - 鎖住 `覆工板/report/gen_report.py` 與固定 smoke fixture 的 `.docx` 產報邊界，確認案名 / 編號 / 日期與主要章節仍會寫入 Word 計算書，但頁面上的附件閱讀狀態不會混入輸出；操作頁直接列印只顯示一頁邊界通知，頁面內「列印彙整計算書」才會暫時啟用只含彙整報告的 PDF 列印模式，Word 流程維持獨立。正式 release 另把當輪 DOCX 與結構摘要保存在 `decking-formal` 證據目錄，供平台總閘門重新解析。
 - 開挖擋土支撐報告邊界契約測試：
   [開挖擋土支撐/excavation-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/開挖擋土支撐/excavation-report.contract.test.js:1)
   - 包裝 `backend.tests.test_reporting`，固定檢查 PDF 正式版與 Word 編修版共用同一套報表文字與下載邊界，並排除頁面專用的「優先建議報告閱讀狀態」與頁面輔助提醒；正式 release 另由 `backend/tests/release_report_artifacts.py` 把當輪 PDF、DOCX 與 latest download 副本保存到 `excavation-formal`，供總閘門重新解析並核對雜湊。

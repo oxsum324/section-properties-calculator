@@ -69,6 +69,7 @@ function renderDeckingReportRuntime(source, fixture, filename) {
 
 const htmlPath = path.join(__dirname, '覆工板', 'index.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
+const directPrintBoundaryCss = fs.readFileSync(path.join(__dirname, '結構工具箱', 'core', 'direct-print-boundary.css'), 'utf8');
 const reportSmokeFixture = JSON.parse(fs.readFileSync(path.join(__dirname, '覆工板', 'test-fixtures', 'report-smoke.json'), 'utf8'));
 const buildReportSource = functionSource(html, 'buildReport');
 const reportHtmlStart = buildReportSource.indexOf('const html = `');
@@ -87,6 +88,9 @@ const pageOnlyReportStatusNeedles = [
   '不會寫入計算書或列印 PDF',
   '輸出邊界',
   '頁面顯示，不進計算書、列印或 PDF',
+  '覆工板工具主頁列印已封鎖',
+  '此頁是操作介面，不是計算書',
+  '暫不列印：請先填寫',
 ];
 
 assert(!html.includes('alert('), 'decking tool uses inline feedback', '覆工板/index.html');
@@ -95,6 +99,29 @@ assert(html.includes('id="actionStatus"'), 'decking tool action status exists', 
 assert(html.includes('function setActionStatus'), 'decking tool action status helper exists', 'setActionStatus');
 assert(html.includes('function confirmResetAll'), 'decking reset confirmation helper exists', 'confirmResetAll');
 assert(html.includes('function cancelResetAll'), 'decking reset cancellation helper exists', 'cancelResetAll');
+assert(html.includes('href="../結構工具箱/core/direct-print-boundary.css"'), 'decking loads shared direct-print boundary', 'direct-print-boundary.css');
+assert(html.includes('<body class="formal-tool-output-page">'), 'decking uses governed work-page body class', 'formal-tool-output-page');
+assert(html.includes('class="formal-direct-print-boundary"'), 'decking exposes direct-print boundary', 'formal-direct-print-boundary');
+['覆工板工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件'].forEach((needle) => {
+  assert(html.includes(needle), 'decking direct-print boundary explains blocked work-page print', needle);
+});
+assert(directPrintBoundaryCss.includes('body.formal-tool-output-page > :not(.formal-direct-print-boundary)'), 'shared boundary hides decking work-page children', 'formal direct-print selector');
+assert(!html.includes('onclick="window.print()"'), 'decking removes direct work-page print action', 'no direct window.print button');
+assert(html.includes('onclick="printDeckingReport()"'), 'decking uses dedicated report print action', 'printDeckingReport');
+const printDeckingReportSource = functionSource(html, 'printDeckingReport');
+assert(printDeckingReportSource.includes("recalcAll();"), 'decking report print recalculates current state', 'recalcAll');
+assert(printDeckingReportSource.includes('button[data-tab="report"]'), 'decking report print activates report tab', 'report tab');
+['proj_name', 'proj_no', 'proj_date'].forEach((id) => {
+  assert(printDeckingReportSource.includes(`'${id}'`), 'decking report print requires project metadata', id);
+});
+assert(printDeckingReportSource.includes('暫不列印：請先填寫'), 'decking report print blocks missing project metadata', 'missing project metadata');
+assert(printDeckingReportSource.includes("setActionStatus('');"), 'decking report print clears stale metadata warning after recovery', 'clear print status');
+assert(printDeckingReportSource.includes("classList.add('decking-report-print-mode')"), 'decking report print arms dedicated print mode', 'decking-report-print-mode add');
+assert(printDeckingReportSource.includes('window.print();'), 'decking dedicated report path invokes browser print', 'window.print');
+assert(printDeckingReportSource.includes("classList.remove('decking-report-print-mode')"), 'decking report print always clears dedicated mode', 'decking-report-print-mode remove');
+assert(/body\.formal-tool-output-page\.decking-report-print-mode\s*>\s*main\s*\{[\s\S]*display:\s*block\s*!important/.test(html), 'decking dedicated print mode reveals report container', 'main print override');
+assert(/section#tab-report\s*\{[\s\S]*display:\s*block\s*!important/.test(html), 'decking dedicated print mode reveals only report tab', 'tab-report print override');
+assertPrintHidesSelectors(html, ['.decking-report-page-only'], 'decking report workflow guidance');
 assert(html.includes('setActionStatus(`已套用'), 'decking preset feedback is inline', 'applyPreset');
 assert(html.includes('setActionStatus(`已下載'), 'decking export feedback is inline', 'exportJSON');
 assert(html.includes('id="report-readiness"'), 'decking readiness outlet exists', 'report-readiness');
