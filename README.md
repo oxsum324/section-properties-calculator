@@ -77,7 +77,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 包裝 `reportExport` / `reportDocx` / `reportWorkbook` / `attachmentReadiness` 與 `reportArtifacts` 五組 vitest，確認「優先建議報告閱讀狀態」與頁面輔助文字只留在工作頁面，不混入錨栓計算書、列印 PDF 或 workbook/docx 輸出；正式 release 另會把同一案例實際序列化的 HTML、DOCX、XLSX 保存在當輪 `anchor-formal` 證據目錄。
 - 石材報告邊界契約測試：
   [石材固定/stone-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/石材固定/stone-report.contract.test.js:1)
-  - 包裝 `server_smoke_test.py` 內與匯出稽核最相關的三組測試，固定檢查 Word/PDF 匯出稽核摘要、頁面專用「優先建議報告閱讀狀態」清理與 payload HTML 不一致時的降級判定，避免 page-only 閱讀狀態混入正式交付。
+  - 包裝 `server_smoke_test.py` 內與匯出稽核最相關的測試，固定檢查 Word/PDF 匯出稽核摘要、頁面專用「優先建議報告閱讀狀態」清理與 payload HTML 不一致時的降級判定，避免 page-only 閱讀狀態混入正式交付。V2 操作主頁另共用 `結構工具箱/core/direct-print-boundary.css`；瀏覽器功能表直接列印只顯示一頁邊界通知，`#printout` 不得繞過封鎖，正式預覽 / PDF / Word 仍走獨立報表輸出。
 - 跨家族報告揭露契約測試：
   [結構工具箱/tools/report-disclosure.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/report-disclosure.contract.test.js:1)
   - 讀取 formal、RC、鋼構、錨栓、石材、覆工板與開挖擋土支撐 traceability catalog，要求每筆 trace 至少有一個人可讀報告落點、人工複核邊界與可追溯依據，並以 `report-disclosure-contract` 納入 preflight，避免報告把規範判定、初估 / 簡化或專案文件人工複核混在一起。
