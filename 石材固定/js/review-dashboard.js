@@ -5,6 +5,7 @@
     const toolHtml = options?.toolHtml || '';
     const appVersion = String(options?.appVersion || '').replace(/^V/i, '');
     if(!status) return { text:'確認中', cls:'warn' };
+    if(status.skipped) return { text:'公開版免檢查', cls:'ok' };
     if(!status.ok) return { text:'未連線', cls:'warn' };
     const sameHtml = status.tool_html === toolHtml;
     const sameVersion = String(status.server_version || '') === appVersion;

@@ -37,6 +37,7 @@ const options = { toolHtml: 'toolV2.html', appVersion: 'V9.8.7' };
 
 const cases = [
   [null, { text:'確認中', cls:'warn' }],
+  [{ ok:false, skipped:true, mode:'public_static' }, { text:'公開版免檢查', cls:'ok' }],
   [{ ok:false }, { text:'未連線', cls:'warn' }],
   [{ ok:true, tool_html:'toolV2.html', server_version:'9.8.7' }, { text:'v9.8.7 一致', cls:'ok' }],
   [{ ok:true, tool_html:'old.html', server_version:'9.8.7' }, { text:'HTML old.html', cls:'ng' }],
@@ -94,6 +95,12 @@ assertQuality(
 assertQuality(
   'ready',
   qualityHelper({ caseCount:1, failedTotal:0, warningTotal:0 }, { total:2, covered:2 }, [], { cls:'ok' }),
+  { code:'A', text:'A 可交付', cls:'ok', reasons:['主要檢核、公式來源、覆核與版本狀態皆完成'] },
+);
+
+assertQuality(
+  'public static ready',
+  qualityHelper({ caseCount:1, failedTotal:0, warningTotal:0 }, { total:2, covered:2 }, [], helper({ ok:false, skipped:true }, options)),
   { code:'A', text:'A 可交付', cls:'ok', reasons:['主要檢核、公式來源、覆核與版本狀態皆完成'] },
 );
 
