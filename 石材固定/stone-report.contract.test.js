@@ -27,6 +27,32 @@ for (const needle of directPrintNeedles) {
   assertContract(formalPage.includes(needle), 'Stone direct-print boundary is present', needle);
 }
 
+const privateMethodPhotoPaths = [
+  '01_背扣雙角鐵.jpg',
+  '02_插銷鐵件.jpg',
+  '02套管式膨脹螺栓.jpg',
+  '02鎚釘式膨脹螺栓.png',
+];
+for (const privatePath of privateMethodPhotoPaths) {
+  assertContract(
+    !formalPage.includes(privatePath),
+    'Stone public method media does not request ignored raster files',
+    privatePath
+  );
+}
+
+for (const needle of [
+  'const V2_METHOD_MEDIA = Object.freeze({',
+  "src:v2MethodSchematicDataUrl('sleeve')",
+  "src:v2MethodSchematicDataUrl('wedge')",
+  'v2InitMethodMedia();',
+  "mode:'public_static'",
+  '公開靜態版不檢查本機服務',
+  'const proseAt = m.search(/[\\u3400-\\u9fff]/);',
+]) {
+  assertContract(formalPage.includes(needle), 'Stone public console safety contract is present', needle);
+}
+
 assertContract(
   formalPage.includes("const source = document.getElementById('preview-sheets');")
     && formalPage.includes('openPagedPrintWindow(buildPagedPrintHtml('),
