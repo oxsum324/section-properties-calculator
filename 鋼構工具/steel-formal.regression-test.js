@@ -171,6 +171,8 @@ const memberFormalStylesPath = path.join(__dirname, "steel-member-formal.css");
 const memberFormalStylesSource = fs.readFileSync(memberFormalStylesPath, "utf8");
 const stylesPath = path.join(__dirname, "styles.css");
 const stylesSource = fs.readFileSync(stylesPath, "utf8");
+const directPrintBoundaryPath = path.join(__dirname, "..", "結構工具箱", "core", "direct-print-boundary.css");
+const directPrintBoundarySource = fs.readFileSync(directPrintBoundaryPath, "utf8");
 const appPath = path.join(__dirname, "app.js");
 const appSource = fs.readFileSync(appPath, "utf8");
 const indexPath = path.join(__dirname, "index.html");
@@ -379,7 +381,35 @@ for (const [label, html] of [
     /id="printReportBtn"[^>]*>輸出正式報表<\/button>/,
     `${label} result action should identify the traceable formal-report path instead of direct page printing`,
   );
+  assert.match(
+    html,
+    /<link rel="stylesheet" href="\.\.\/結構工具箱\/core\/direct-print-boundary\.css">/,
+    `${label} work page should load the shared direct-print boundary stylesheet`,
+  );
+  assert.match(
+    html,
+    /<body class="steel-formal-output-page">[\s\S]*class="steel-formal-direct-print-boundary"/,
+    `${label} work page should expose the steel formal direct-print boundary`,
+  );
+  for (const needle of [
+    "鋼構正式工具主頁列印已封鎖",
+    "此頁是操作介面，不是計算書",
+    "使用頁面上的「輸出正式報表」按鈕",
+    "本頁不得作為附件",
+  ]) {
+    assert.ok(html.includes(needle), `${label} direct-print notice should include ${needle}`);
+  }
 }
+assert.match(
+  directPrintBoundarySource,
+  /body\.steel-formal-output-page > :not\(\.steel-formal-direct-print-boundary\)[\s\S]*body\.steel-formal-output-page > \.steel-formal-direct-print-boundary/s,
+  "shared direct-print stylesheet should hide steel work-page content and render only the boundary notice",
+);
+assert.doesNotMatch(
+  directPrintBoundarySource,
+  /DRAFT|非正式附件/,
+  "steel work-page direct-print boundary should not create a draft calculation-book classification",
+);
 assert.match(
   appSource,
   /printReportBtn\.addEventListener\("click", exportReport\);/,
@@ -511,7 +541,7 @@ assert.match(
 );
 assert.doesNotMatch(
   columnFormalHtmlSource,
-  /\.\.\/結構工具箱\/core\//,
+  /<script[^>]+src="\.\.\/結構工具箱\/core\//,
   "steel-column-formal.html should no longer depend on parent-directory core script paths",
 );
 assert.match(
@@ -576,7 +606,7 @@ assert.match(
 );
 assert.doesNotMatch(
   beamFormalHtmlSource,
-  /\.\.\/結構工具箱\/core\//,
+  /<script[^>]+src="\.\.\/結構工具箱\/core\//,
   "steel-beam-formal.html should no longer depend on parent-directory core script paths",
 );
 assert.match(
@@ -857,6 +887,11 @@ assert.match(
   "audit-tool.ps1 should delegate browser coverage to the single Edge CDP runner",
 );
 assert.match(
+  auditToolSource,
+  /\$repoRoot = Split-Path -Parent \$root[\s\S]*\$baseUrl = "http:\/\/127\.0\.0\.1:\$serverPort\/鋼構工具"[\s\S]*-WorkingDirectory \$repoRoot/s,
+  "audit-tool.ps1 should serve the repository root so sibling shared assets match the deployed Pages layout",
+);
+assert.match(
   browserRunnerSource,
   /main-plate[\s\S]*main-tension[\s\S]*standalone-plate[\s\S]*formal-beam[\s\S]*formal-beam-report-popup[\s\S]*formal-column[\s\S]*formal-column-report-popup/s,
   "steel-audit-browser-runner.js should cover homepage, standalone plate, steel formal pages, and formal report popup outputs",
@@ -875,6 +910,16 @@ assert.match(
   browserRunnerSource,
   /scenarioTimeoutMs[\s\S]*withTimeout[\s\S]*runSnapshot/s,
   "steel-audit-browser-runner.js should bound each browser scenario instead of allowing hangs",
+);
+assert.match(
+  browserRunnerSource,
+  /isTransientLaunchError[\s\S]*Edge exited before DevTools endpoint was available[\s\S]*retryDelaysMs/s,
+  "steel browser runner should retry an early Chromium exit before aborting the audit",
+);
+assert.match(
+  browserRunnerSource,
+  /steelDirectPrintPages[\s\S]*steel-main-formal[\s\S]*steel-plate-formal[\s\S]*steel-beam-formal[\s\S]*steel-column-formal[\s\S]*verifySteelDirectPrintBlock[\s\S]*Emulation\.setEmulatedMedia[\s\S]*Page\.printToPDF[\s\S]*validatePdfFile[\s\S]*directPrintBlocks/s,
+  "steel browser runner should validate all four work-page direct-print blocks as one-page PDFs",
 );
 assert.match(
   browserRunnerSource,

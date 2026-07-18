@@ -5,8 +5,10 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '鋼筋混凝土/', needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢'] },
   { path: '鋼筋混凝土/tools/beam.html', needles: ['梁 Beam 設計', 'RC 工具箱'] },
   { path: '鋼筋混凝土/tools/shear-wall.html', needles: ['剪力牆 Shear Wall', '18.7'] },
-  { path: '鋼構工具/', needles: ['鋼構正式規範核算工具'] },
-  { path: '鋼構工具/steel-beam-formal.html', needles: ['鋼梁正式規範核算工具'] },
+  { path: '鋼構工具/', needles: ['鋼構正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '鋼構正式工具主頁列印已封鎖'] },
+  { path: '鋼構工具/plate-check.html', needles: ['鋼構連接板正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '此頁是操作介面，不是計算書'] },
+  { path: '鋼構工具/steel-beam-formal.html', needles: ['鋼梁正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '輸出正式報表'] },
+  { path: '鋼構工具/steel-column-formal.html', needles: ['鋼柱正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '本頁不得作為附件'] },
   { path: 'anchor/', needles: ['錨栓檢討工具'] },
   { path: '石材固定/石材計算書產生器_規範版V2.html', needles: ['石材外牆固定構件計算書產生器', '規範版'] },
   { path: '覆工板/index.html', needles: ['覆工板系統計算工具'] },
@@ -181,6 +183,8 @@ async function main() {
   assert.ok(directPrintBoundaryCss.includes('.formal-direct-print-boundary'), 'formal direct-print stylesheet renders the boundary notice');
   assert.ok(directPrintBoundaryCss.includes('body.local-quick-output-page > :not(.local-quick-direct-print-boundary)'), 'local quick direct-print stylesheet hides work-page content');
   assert.ok(directPrintBoundaryCss.includes('.local-quick-direct-print-boundary'), 'local quick direct-print stylesheet renders the boundary notice');
+  assert.ok(directPrintBoundaryCss.includes('body.steel-formal-output-page > :not(.steel-formal-direct-print-boundary)'), 'steel formal direct-print stylesheet hides work-page content');
+  assert.ok(directPrintBoundaryCss.includes('.steel-formal-direct-print-boundary'), 'steel formal direct-print stylesheet renders the boundary notice');
   assert.equal(directPrintBoundaryCss.includes('DRAFT'), false, 'formal direct-print stylesheet does not create a DRAFT document');
 
   const platformStatus = await fetchJson(platformStatusUrl);
