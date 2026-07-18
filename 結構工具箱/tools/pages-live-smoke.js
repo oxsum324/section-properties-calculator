@@ -14,9 +14,9 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '連續梁分析.html', needles: ['連續梁分析工具'] },
   { path: '合成斷面性質.html', needles: ['合成斷面性質計算'] },
   { path: 'RC補強斷面性質.html', needles: ['RC 補強斷面性質計算'] },
-  { path: '結構工具箱/tools/風力/wind-force.html', needles: ['矩形建物 MWFRS', '建築物耐風設計'] },
-  { path: '結構工具箱/tools/風力/wind-object-solid.html', needles: ['實體標示物風力', '表 2.10'] },
-  { path: '結構工具箱/tools/地震力/seismic-force.html', needles: ['等值靜力分析', '建築物耐震設計'] },
+  { path: '結構工具箱/tools/風力/wind-force.html', needles: ['矩形建物 MWFRS', '建築物耐風設計', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '正式工具主頁列印已封鎖'] },
+  { path: '結構工具箱/tools/風力/wind-object-solid.html', needles: ['實體標示物風力', '表 2.10', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '此頁是操作介面，不是計算書'] },
+  { path: '結構工具箱/tools/地震力/seismic-force.html', needles: ['等值靜力分析', '建築物耐震設計', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
   { path: '結構工具箱/tools/foundation/foundation-local.html', needles: ['基礎局部檢核'] },
   { path: '結構工具箱/tools/equipment/equipment-load.html', needles: ['設備局部荷重'] },
   { path: '結構工具箱/tools/earth/earth-pressure.html', needles: ['擋土土壓局部快算'] }
@@ -156,6 +156,7 @@ async function main() {
   const platformStatusUrl = liveUrl(base, '結構工具箱/assets/status/platform-status.json');
   const preflightStatusUrl = liveUrl(base, '結構工具箱/assets/status/preflight-summary.json');
   const reportReadinessStatusUrl = liveUrl(base, '結構工具箱/assets/status/report-readiness-status.json');
+  const directPrintBoundaryUrl = liveUrl(base, '結構工具箱/core/direct-print-boundary.css');
 
   const homeHtml = await fetchText(homeUrl);
   assert.ok(homeHtml.includes('assets/home/home.js'), 'homepage references home.js');
@@ -174,6 +175,11 @@ async function main() {
   assert.ok(homeJs.includes('正式交付請以完整檢查或正式放行結果為準。'), 'home.js keeps full-run evidence summary');
   assert.ok(homeJs.includes("cardTag: '報告邊界'"), 'home.js keeps RC report boundary card tag');
   assert.ok(homeJs.includes("cardTag: '輸出邊界'"), 'home.js keeps anchor output boundary card tag');
+
+  const directPrintBoundaryCss = await fetchText(directPrintBoundaryUrl);
+  assert.ok(directPrintBoundaryCss.includes('body.formal-tool-output-page > :not(.formal-direct-print-boundary)'), 'formal direct-print stylesheet hides work-page content');
+  assert.ok(directPrintBoundaryCss.includes('.formal-direct-print-boundary'), 'formal direct-print stylesheet renders the boundary notice');
+  assert.equal(directPrintBoundaryCss.includes('DRAFT'), false, 'formal direct-print stylesheet does not create a DRAFT document');
 
   const platformStatus = await fetchJson(platformStatusUrl);
   assertStatusPayload(platformStatus, 'platform status');

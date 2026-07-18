@@ -149,11 +149,27 @@ const manifest = JSON.parse(manifestText);
 const tools = manifest.tools;
 const traceCatalogPath = assertFile(manifest.shared.traceabilityCatalog);
 const traceCatalog = JSON.parse(readText(traceCatalogPath));
+const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
+const directPrintBoundary = readText(directPrintBoundaryPath);
 
 assert.equal(manifest.version, '0.1.0', 'formal tools manifest version');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
 assert.ok(Array.isArray(tools), 'formal tools manifest tools');
 assert.equal(tools.length, 14, 'formal tools manifest tool count');
+assert.equal(manifest.shared.directPrintBodyClass, 'formal-tool-output-page', 'formal direct-print body class');
+assert.equal(manifest.shared.directPrintBoundaryClass, 'formal-direct-print-boundary', 'formal direct-print boundary class');
+assert.ok(manifest.shared.directPrintBoundaryNeedles.length >= 3, 'formal direct-print boundary wording');
+assertIncludes(
+  directPrintBoundary,
+  'body.formal-tool-output-page > :not(.formal-direct-print-boundary)',
+  'formal direct-print CSS hides every work-page child'
+);
+assertIncludes(
+  directPrintBoundary,
+  'body.formal-tool-output-page > .formal-direct-print-boundary',
+  'formal direct-print CSS renders only the boundary notice'
+);
+assertNoIncludes(directPrintBoundary, 'content: "DRAFT"', 'formal direct-print boundary is not a draft report');
 assert.deepEqual(
   manifest.requiredRoutes,
   tools.map(tool => tool.route),
@@ -608,6 +624,24 @@ for (const tool of tools) {
   assertIncludes(html, tool.calcButton, `${tool.key} calc button in HTML`);
   if (tool.reportButton) assertIncludes(html, tool.reportButton, `${tool.key} report button in HTML`);
   if (tool.reportButtonSelector) assertIncludes(html, 'btn-print', `${tool.key} print selector fallback in HTML`);
+  assertIncludes(
+    html,
+    `../../${manifest.shared.directPrintBoundaryStylesheet}`,
+    `${tool.key} loads shared direct-print boundary`
+  );
+  assertIncludes(
+    html,
+    `<body class="${manifest.shared.directPrintBodyClass}">`,
+    `${tool.key} blocks direct work-page print`
+  );
+  assertIncludes(
+    html,
+    `class="${manifest.shared.directPrintBoundaryClass}"`,
+    `${tool.key} has direct-print boundary notice`
+  );
+  for (const needle of manifest.shared.directPrintBoundaryNeedles) {
+    assertIncludes(html, needle, `${tool.key} direct-print guidance`);
+  }
   if (tool.exportButton) assertIncludes(html, tool.exportButton, `${tool.key} export button in HTML`);
   if (tool.importButton) assertIncludes(html, tool.importButton, `${tool.key} import button in HTML`);
   if (tool.reportMode) {

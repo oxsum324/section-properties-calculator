@@ -35,7 +35,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 只供既有案件延續或復核比較；必須選擇用途並確認後，才可產生「舊案延續計算記錄」。頁面本體的直接列印不提供計算附件，新案正式計算附件必須由鋼梁 / 鋼柱正式頁產出。
 - RC 工具入口：
   [鋼筋混凝土/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/index.html:1)
-  - RC 梁、柱只有案件資料完整且計算狀態 ready 時才可產生「可送簽版」；工具不自行宣稱已成為正式附件，仍須完成公司簽認、技師簽章或專案核准程序。非 ready 的計算書明確標示 `DRAFT／非正式附件`。RC 柱的人工複核需留下依據、文件編號、複核人、時間與計算條件 context key，相關輸入變更後自動失效；完成紀錄會隨專案 JSON 保存並寫入計算書。若從工作頁直接使用瀏覽器列印，列印版固定顯示非正式附件邊界與 `DRAFT` 浮水印，必須改由「計算書」流程取得可判定附件狀態的輸出。
+  - RC 梁、柱只有案件資料完整且計算狀態 ready 時才可產生「可送簽版」；工具不自行宣稱已成為正式附件，仍須完成公司簽認、技師簽章或專案核准程序。非 ready 的計算書明確標示 `DRAFT／非正式附件`。RC 柱的人工複核需留下依據、文件編號、複核人、時間與計算條件 context key，相關輸入變更後自動失效；完成紀錄會隨專案 JSON 保存並寫入計算書。8 個 RC 正式輸出工作頁的瀏覽器直接列印已完全封鎖，只顯示一頁操作指引，不會輸出表單、結果或 `DRAFT` 浮水印；內部 DRAFT 與可送簽版都必須由「計算書」流程產生。
 - 基礎局部檢核：
   [結構工具箱/tools/foundation/foundation-local.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/foundation/foundation-local.html:1)
 - 設備局部荷重：
@@ -61,7 +61,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/formal-tools.run.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-tools.run.js:1)
 - 風力 / 地震正式工具共同契約測試：
   [結構工具箱/tools/formal-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-tools.contract.test.js:1)
-  - 固定檢查正式工具 manifest、乾淨路由、報表分流、示意圖角色與 HTML 彈窗型計算書可讀文字，避免頁面專用「優先建議報告閱讀狀態」混入列印計算書。
+  - 固定檢查正式工具 manifest、乾淨路由、報表分流、示意圖角色與 HTML 彈窗型計算書可讀文字，避免頁面專用「優先建議報告閱讀狀態」混入列印計算書。14 個正式風力／地震工作頁的瀏覽器直接列印另由共用邊界樣式完全封鎖，只輸出一頁操作指引；真正的簡易／詳算計算書仍由頁面上的「列印計算書」流程產生。
 - 耐風共用案件檔與一鍵預填契約：
   [結構工具箱/tools/wind-shared-profile.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/wind-shared-profile.contract.test.js:1)
   - `wind-overview.html` 以 `wind-shared-profile.v1` 保存案件識別、地點、地況、用途係數、Kzt 與主結構幾何；由總覽開啟 11 個支援工具時，會以明確欄位映射自動預填。只有主風力抵抗系統工具會承接總高、正整數樓層數與 X／Y 平面尺寸；屋頂平均高、屋簷高、風向專用尺寸、招牌與塔體等專用幾何不會由總覽代填，所有子工具仍須確認其專用幾何與規範路線。
@@ -93,7 +93,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - GitHub Pages deploy / live smoke：
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)
   [結構工具箱/tools/build-pages-clean-routes.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/build-pages-clean-routes.js:1)
-  - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact；staging 完成後，`build-pages-clean-routes.js` 依 `vercel.json` 為 GitHub Pages 產生不覆寫既有頁面的靜態短網址轉向頁，使首頁公開的 `/rc-column`、`/steel-beam-formal` 等 clean route 在 Pages 專案子路徑下也能使用，並保留 query 與 hash。deploy 成功後再由 live smoke 檢查短網址、公開首頁、`home.js`、`結構工具箱/assets/status/*.json` 與代表性公開工具頁是否可讀，並拒絕公開頁出現本機工作目錄路徑；`--check-private-boundary` 會確認 Markdown、`CONTEXT.md`、`docs/adr/`、PowerShell / batch、測試檔、合約檔、route builder、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔未被發布。部署前可先跑 [run-pages-artifact-smoke.ps1](/C:/Users/USER/Desktop/AI/小工具製作/run-pages-artifact-smoke.ps1:1)，它會在本機 temp 目錄產生同樣含 clean route 的 Pages artifact 並呼叫共享 smoke。
+  - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact；staging 完成後，`build-pages-clean-routes.js` 依 `vercel.json` 為 GitHub Pages 產生不覆寫既有頁面的靜態短網址轉向頁，使首頁公開的 `/rc-column`、`/steel-beam-formal` 等 clean route 在 Pages 專案子路徑下也能使用，並保留 query 與 hash。deploy 成功後再由 live smoke 檢查短網址、公開首頁、`home.js`、`結構工具箱/assets/status/*.json`、正式工具直接列印封鎖 CSS 與代表性公開工具頁是否可讀，並拒絕公開頁出現本機工作目錄路徑；`--check-private-boundary` 會確認 Markdown、`CONTEXT.md`、`docs/adr/`、PowerShell / batch、測試檔、合約檔、route builder、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔未被發布。部署前可先跑 [run-pages-artifact-smoke.ps1](/C:/Users/USER/Desktop/AI/小工具製作/run-pages-artifact-smoke.ps1:1)，它會在本機 temp 目錄產生同樣含 clean route 的 Pages artifact 並呼叫共享 smoke。
 - Pull request validation：
   [.github/workflows/pr-validation.yml](/C:/Users/USER/Desktop/AI/小工具製作/.github/workflows/pr-validation.yml:1)
   - 每次送往 `master` 的 PR 會在 `windows-latest` 執行 `run-preflight-tools-ci.bat` 的 clean-checkout gate，以唯讀權限、無 secrets、限時 30 分鐘的方式建立狀態檢查；無論成功或失敗都保留 7 天的 preflight summary / history artifact。CI 模式只執行不依賴 ignored audit 狀態、本機 node_modules、Python 額外套件或本機工具檔的可重現契約；完整 46 項 quick 與正式 release preflight 仍須在交付工作站執行，CI 綠燈不得取代正式放行證據。`pr-validation.contract.test.js` 會鎖住觸發條件、權限、runtime 版本、wrapper、clean-checkout 邊界與證據路徑。
