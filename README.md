@@ -106,7 +106,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 固定檢查連續梁分析計算書的 HTML 輸出可讀文字、計畫資訊、支承反力、梁示意圖、剪力圖與彎矩圖，並排除頁面專用閱讀狀態。瀏覽器直接列印操作頁已由共用邊界樣式封鎖，只顯示一頁操作指引；真正的計算書仍由結果區「計算書」按鈕產生。
 - 斷面工具共同契約測試：
   [section-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/section-tools.contract.test.js:1)
-  - 鎖住斷面性質、合成斷面與 RC 補強斷面頁的 inline status / 報表 payload 邊界，並把共享報表與 runtime HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單，避免頁面專用閱讀狀態混入正式報表。
+  - 鎖住斷面性質、合成斷面與 RC 補強斷面頁的 inline status / 報表 payload 邊界，並把共享報表與 runtime HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單，避免頁面專用閱讀狀態混入正式報表。基本斷面、獨立版基本斷面與合成斷面的瀏覽器直接列印已由共用邊界樣式封鎖，只顯示一頁操作指引；RC 補強斷面沿用 RC 正式工具相同邊界，所有實際輸出都必須走頁面內的 PDF／計算書流程。
 - 平面剛架報告邊界契約測試：
   [frame-analysis.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/frame-analysis.contract.test.js:1)
   - 鎖住 `鋼架/平面剛架分析.html` 的頁面 / 計算書邊界，確認附件閱讀狀態只留在頁面，`printReport()` 實際產出的 blob 計算書具備足量可讀文字、必要分析章節與節點 / 桿件資料，且不帶 page-only wording，並維持彈性支承、分析組合、平衡檢核與響應式版面 smoke。瀏覽器直接列印操作頁已由共用邊界樣式封鎖，只顯示一頁操作指引，必須使用頁面內的「列印計算書」流程產生附件候選。

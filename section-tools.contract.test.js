@@ -338,6 +338,22 @@ for (const tool of tools) {
   }
 }
 
+const directPrintBoundarySource = read(path.join('結構工具箱', 'core', 'direct-print-boundary.css'));
+for (const tool of [
+  { label: 'section property picker', path: 'index.html' },
+  { label: 'section property standalone', path: '斷面性質計算.html' },
+  { label: 'composite section report', path: '合成斷面性質.html' },
+]) {
+  const html = read(tool.path);
+  assert(html.includes('href="結構工具箱/core/direct-print-boundary.css"'), `${tool.label} loads shared direct-print boundary`, tool.path);
+  assert(/<body class="formal-tool-output-page">[\s\S]*class="formal-direct-print-boundary"/.test(html), `${tool.label} exposes direct-print boundary`, tool.path);
+  for (const needle of ['斷面工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件']) {
+    assert(html.includes(needle), `${tool.label} explains blocked direct print`, needle);
+  }
+}
+assert(directPrintBoundarySource.includes('body.formal-tool-output-page > :not(.formal-direct-print-boundary)'), 'shared CSS hides section work pages during direct print', 'formal work-page children hidden');
+assert(directPrintBoundarySource.includes('body.formal-tool-output-page > .formal-direct-print-boundary'), 'shared CSS renders section direct-print notice', 'boundary notice rendered');
+
 const compositeHtml = read('合成斷面性質.html');
 assertReportPayloadExcludes(compositeHtml, 'exportReport', pageOnlyReportStatusNeedles);
 assertProjectMetaUsesSharedNormalization(compositeHtml, 'composite section report', ['exportReport']);
