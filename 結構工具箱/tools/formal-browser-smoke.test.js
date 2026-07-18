@@ -942,6 +942,16 @@ async function waitForNewPageTarget(client, existingTargetIds, label = 'popup', 
   throw new Error(`Timed out waiting for popup target after ${timeoutMs}ms: ${label} :: existing=${existingTargetIds.size}, lastPages=${lastPageTargetCount}`);
 }
 
+async function waitForTargetClosed(client, targetId, timeoutMs = 5000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await client.send('Target.getTargets');
+    if (!(result.targetInfos || []).some(info => info.targetId === targetId)) return true;
+    await delay(100);
+  }
+  return false;
+}
+
 async function waitForPopupReady(client, sessionId, label, timeoutMs = POPUP_READY_TIMEOUT_MS) {
   const startedAt = Date.now();
   let lastState = null;
@@ -965,8 +975,25 @@ async function waitForPopupReady(client, sessionId, label, timeoutMs = POPUP_REA
 }
 
 async function popupReportCaptureState(client, pageSessionId, tool, mode = 'default', projectMetaState = 'complete') {
+  const setupState = await evaluate(client, pageSessionId, reportPopupSetupExpression(tool, mode, projectMetaState));
+  if (setupState.missingButton) {
+    return {
+      mode: setupState.mode || mode,
+      projectMetaState,
+      missingButton: true,
+      popupOpened: false,
+      popupErrors: [],
+      title: '',
+      heading: '',
+      bodyText: '',
+      html: '',
+      auditHtml: '',
+      projectMeta: [],
+    };
+  }
+
   const existingTargetIds = await listPageTargetIds(client);
-  const openState = await evaluateWithUserGesture(client, pageSessionId, reportPopupOpenExpression(tool, mode, projectMetaState));
+  const openState = await evaluateWithUserGesture(client, pageSessionId, reportPopupOpenExpression(tool, mode));
   if (openState.missingButton) {
     return {
       mode: openState.mode || mode,
@@ -1024,7 +1051,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
   } finally {
     popupErrors.unsubscribe();
     await client.send('Target.closeTarget', { targetId: popupTarget.targetId }).catch(() => {});
-    await delay(250);
+    const popupClosed = await waitForTargetClosed(client, popupTarget.targetId);
+    assert.equal(popupClosed, true, `${popupLabel} popup target closes before the next report`);
   }
 }
 
@@ -1605,7 +1633,7 @@ function inlineValidationExpression(tool) {
   })()`;
 }
 
-function reportPopupOpenExpression(tool, mode = null, projectMetaState = 'current') {
+function reportPopupSetupExpression(tool, mode = null, projectMetaState = 'current') {
   return `(async () => {
     const settle = (frames = 2) => new Promise(resolve => {
       let remaining = frames;
@@ -1622,9 +1650,6 @@ function reportPopupOpenExpression(tool, mode = null, projectMetaState = 'curren
     const reportMode = ${JSON.stringify(mode)};
     const projectState = ${JSON.stringify(projectMetaState)};
     const reportModeControls = ${JSON.stringify(tool.reportModeControls || null)};
-    const runtimeErrors = [];
-    const onError = event => runtimeErrors.push(String(event.message || event.error?.message || 'unknown page error'));
-    window.addEventListener('error', onError);
     const setProjectField = (id, value) => {
       const node = byId(id);
       if (!node) return;
@@ -1668,9 +1693,28 @@ function reportPopupOpenExpression(tool, mode = null, projectMetaState = 'curren
     }
     if (reportMode) await chooseReportMode(reportMode);
     const button = reportId ? byId(reportId) : document.querySelector(reportSelector);
-    if (!button) return { mode: reportMode || 'default', missingButton: true };
+    return {
+      mode: reportMode || 'default',
+      missingButton: !button,
+      projectMetaState: projectState,
+    };
+  })()`;
+}
+
+function reportPopupOpenExpression(tool, mode = null) {
+  return `(() => {
+    const reportId = ${JSON.stringify(tool.reportButton || null)};
+    const reportSelector = ${JSON.stringify(tool.reportButtonSelector || null)};
+    const reportMode = ${JSON.stringify(mode)};
+    const runtimeErrors = [];
+    const onError = event => runtimeErrors.push(String(event.message || event.error?.message || 'unknown page error'));
+    window.addEventListener('error', onError);
+    const button = reportId ? document.getElementById(reportId) : document.querySelector(reportSelector);
+    if (!button) {
+      window.removeEventListener('error', onError);
+      return { mode: reportMode || 'default', missingButton: true, runtimeErrors };
+    }
     button.click();
-    await settle(2);
     window.removeEventListener('error', onError);
     return {
       mode: reportMode || 'default',
