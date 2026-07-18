@@ -79,7 +79,7 @@ git add -- "開挖擋土支撐/start_html_mode.ps1" "開挖擋土支撐/stop_htm
 git add -- index.html "斷面性質計算.html" "合成斷面性質.html" "RC補強斷面性質.html"
 git add -- "解題/struct_dx/frontend/diagnosis.html" "解題/struct_dx/frontend/verify_engine.html" "解題/struct_dx/frontend/struct_suite.html"
 git add -- "鋼構工具/audit-tool.ps1" "鋼構工具/steel-audit-browser-runner.js"
-git add -- "結構工具箱/core/style.css"
+git add -- "結構工具箱/core/style.css" "結構工具箱/core/direct-print-boundary.css"
 git add -- "結構工具箱/audit-dashboard.html" "結構工具箱/tools/audit-dashboard.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js"
 git add -- "結構工具箱/tools/formal-tools.manifest.json" "結構工具箱/tools/formal-traceability.catalog.json" "結構工具箱/tools/formal-traceability.contract.test.js" "結構工具箱/tools/formal-tools.run.js" "結構工具箱/tools/formal-tools.contract.test.js" "結構工具箱/tools/formal-browser-smoke.test.js" "結構工具箱/tools/wind-shared-profile.contract.test.js" "結構工具箱/tools/tool-maturity-matrix.js" "TOOL_REPORT_GUIDE.md"
 git add -- ".github/workflows/pages-deploy.yml" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/build-pages-clean-routes.js" "run-pages-artifact-smoke.ps1" "開挖擋土支撐/index.html" "toolbox-entrypoints.contract.test.js" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"

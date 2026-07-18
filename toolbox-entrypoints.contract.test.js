@@ -695,6 +695,9 @@ assert.ok(pagesArtifactSmoke.includes('build-pages-clean-routes.js'), 'local Pag
 assert.ok(pagesArtifactSmoke.includes("'build-pages-clean-routes.js'"), 'local Pages artifact smoke excludes clean-route builder from publication');
 assert.ok(pagesArtifactSmoke.includes('--check-private-boundary'), 'local Pages artifact smoke verifies private boundary');
 assert.equal(pagesArtifactSmoke.includes('--allow-local-output'), false, 'local Pages artifact smoke must not allow repo-root output');
+assert.ok(pagesLiveSmoke.includes('結構工具箱/core/direct-print-boundary.css'), 'Pages live smoke checks the formal direct-print boundary stylesheet');
+assert.ok(pagesLiveSmoke.includes('formal-tool-output-page'), 'Pages live smoke checks formal work-page print body class');
+assert.ok(pagesLiveSmoke.includes('正式工具主頁列印已封鎖'), 'Pages live smoke checks formal work-page print boundary wording');
 assert.ok(pagesArtifactSmoke.includes('Start-Process'), 'local Pages artifact smoke starts a temporary server');
 assert.ok(pagesArtifactSmoke.includes('-WindowStyle Hidden'), 'local Pages artifact smoke hides temporary server window');
 assert.ok(pagesArtifactSmoke.includes('Stop-Process'), 'local Pages artifact smoke stops temporary server');

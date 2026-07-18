@@ -6,6 +6,14 @@
     "runner": "tools/formal-tools.run.js",
     "contractTest": "tools/formal-tools.contract.test.js",
     "browserSmokeTest": "tools/formal-browser-smoke.test.js",
+    "directPrintBoundaryStylesheet": "core/direct-print-boundary.css",
+    "directPrintBodyClass": "formal-tool-output-page",
+    "directPrintBoundaryClass": "formal-direct-print-boundary",
+    "directPrintBoundaryNeedles": [
+      "正式工具主頁列印已封鎖",
+      "此頁是操作介面，不是計算書",
+      "本頁不得作為附件"
+    ],
     "maturityMatrix": "tools/tool-maturity-matrix.js",
     "goldenHarvest": "tools/formal-golden-harvest.js",
     "traceabilityCatalog": "tools/formal-traceability.catalog.json",
