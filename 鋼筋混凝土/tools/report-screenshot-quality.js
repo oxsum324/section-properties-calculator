@@ -181,6 +181,29 @@ print(json.dumps({
   return JSON.parse(result.stdout);
 }
 
+function readPdfTextWithPoppler(file) {
+  const pageStats = readPdfTextWithPython(file);
+  const result = spawnSync('pdftotext', ['-layout', file, '-'], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      PYTHONIOENCODING: 'utf-8',
+    },
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout || `pdftotext exit ${result.status}`).trim());
+  }
+  const text = result.stdout || '';
+  return {
+    pages: pageStats.pages,
+    textLength: text.length,
+    text,
+  };
+}
+
 function assertReportPdfTextQuality(file, title, options = {}) {
   const assertFn = options.assert || defaultAssert;
   let stats = null;
@@ -239,6 +262,7 @@ function assertReportPdfTextQuality(file, title, options = {}) {
 module.exports = {
   assertReportPdfTextQuality,
   assertReportScreenshotQuality,
+  readPdfTextWithPoppler,
   readPdfTextWithPython,
   readPngVisualQuality,
   PAGE_ONLY_REPORT_STATUS_NEEDLES,

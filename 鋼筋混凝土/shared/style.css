@@ -173,7 +173,6 @@ header a.back:hover { opacity:1; text-decoration:underline; }
 .force-candidate-confirm input { margin-top: 3px; flex: 0 0 auto; }
 .force-candidate-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .force-candidate-actions button:disabled { cursor: not-allowed; opacity: 0.55; }
-.rc-direct-print-boundary { display: none; }
 @media print {
   .report-readiness-card,
   .force-candidate-card,
@@ -183,31 +182,6 @@ header a.back:hover { opacity:1; text-decoration:underline; }
   .mode-bar__report,
   .mode-bar__action,
   .mode-bar__project-status { display: none !important; }
-  .rc-direct-print-boundary {
-    display: block !important;
-    margin: 0 0 8mm;
-    padding: 3mm 4mm;
-    border: 2px solid #b91c1c;
-    background: #fff1f2 !important;
-    color: #881337 !important;
-    font-size: 11pt;
-    font-weight: 700;
-    line-height: 1.5;
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-  body.rc-formal-output-page::after {
-    content: "DRAFT";
-    position: fixed;
-    left: 50%;
-    top: 46%;
-    transform: translate(-50%, -50%) rotate(-28deg);
-    color: rgba(153, 27, 27, 0.07);
-    font: 700 84px/1 Arial, sans-serif;
-    letter-spacing: 0.08em;
-    pointer-events: none;
-    z-index: 999;
-  }
 }
 @media (max-width: 640px) {
   .force-candidate-list { grid-template-columns: 1fr; }

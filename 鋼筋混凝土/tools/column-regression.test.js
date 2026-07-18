@@ -357,14 +357,18 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
   assert(screenPrintNotice === 'none', 'column direct-print boundary stays hidden on screen', screenPrintNotice);
   await page.emulateMedia({ media: 'print' });
   const directPrintState = await page.evaluate(() => ({
-    noticeDisplay: getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display,
+    noticeRects: document.querySelector('.rc-direct-print-boundary')?.getClientRects().length || 0,
     noticeText: document.querySelector('.rc-direct-print-boundary')?.textContent || '',
+    visiblePageChildren: Array.from(document.body.children)
+      .filter(el => !el.classList.contains('rc-direct-print-boundary') && el.getClientRects().length > 0)
+      .map(el => el.id || el.className || el.tagName),
     watermark: getComputedStyle(document.body, '::after').content
   }));
   await page.emulateMedia({ media: 'screen' });
-  assert(directPrintState.noticeDisplay !== 'none', 'column direct print exposes non-formal boundary', JSON.stringify(directPrintState));
-  assert(directPrintState.noticeText.includes('主頁直接列印非正式附件') && directPrintState.noticeText.includes('不得作為正式附件'), 'column direct print cannot bypass formal gate', directPrintState.noticeText);
-  assert(directPrintState.watermark.includes('DRAFT'), 'column direct print carries DRAFT watermark', directPrintState.watermark);
+  assert(directPrintState.noticeRects > 0, 'column direct print exposes blocked-print boundary', JSON.stringify(directPrintState));
+  assert(directPrintState.noticeText.includes('RC 工具主頁列印已封鎖') && directPrintState.noticeText.includes('本頁不得作為附件'), 'column direct print cannot bypass calculation-book output', directPrintState.noticeText);
+  assert(directPrintState.visiblePageChildren.length === 0, 'column direct print hides the complete work page', JSON.stringify(directPrintState.visiblePageChildren));
+  assert(!directPrintState.watermark.includes('DRAFT'), 'column blocked-print page is not a draft calculation book', directPrintState.watermark);
 
   const ready = await loadScenario('default_rect_design', metadata, readyInputs);
   assert(ready.status === 'ready', 'column complete clean case is ready', ready.text);

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
-const { assertReportPdfTextQuality, assertReportScreenshotQuality, readPdfTextWithPython } = require('./report-screenshot-quality');
+const { assertReportPdfTextQuality, assertReportScreenshotQuality, readPdfTextWithPoppler } = require('./report-screenshot-quality');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.BEAM_REPORT_PORT || 0);
@@ -257,8 +257,11 @@ async function main() {
       const directPrintPdfPath = path.join(OUT_DIR, `beam-direct-print-${tc.key}.pdf`);
       await page.emulateMedia({ media: 'print' });
       const directPrintState = await page.evaluate(() => ({
-        noticeDisplay: getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display,
+        noticeRects: document.querySelector('.rc-direct-print-boundary')?.getClientRects().length || 0,
         noticeText: document.querySelector('.rc-direct-print-boundary')?.textContent?.replace(/\s+/g, ' ').trim() || '',
+        visiblePageChildren: Array.from(document.body.children)
+          .filter(el => !el.classList.contains('rc-direct-print-boundary') && el.getClientRects().length > 0)
+          .map(el => el.id || el.className || el.tagName),
         watermark: getComputedStyle(document.body, '::after').content,
       }));
       await page.pdf({
@@ -268,13 +271,17 @@ async function main() {
         margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' },
       });
       await page.emulateMedia({ media: 'screen' });
-      const directPrintPdfText = readPdfTextWithPython(directPrintPdfPath);
-      assert(directPrintState.noticeDisplay !== 'none', `${tc.key} direct print boundary visible`, directPrintState.noticeDisplay);
-      assert(directPrintState.watermark.includes('DRAFT'), `${tc.key} direct print watermark`, directPrintState.watermark);
-      for (const needle of ['DRAFT', '直接列印非正式附件', '不得作為正式附件']) {
+      const directPrintPdfText = readPdfTextWithPoppler(directPrintPdfPath);
+      assert(directPrintState.noticeRects > 0, `${tc.key} blocked direct-print boundary visible`, JSON.stringify(directPrintState));
+      assert(directPrintState.visiblePageChildren.length === 0, `${tc.key} direct print hides work page`, JSON.stringify(directPrintState.visiblePageChildren));
+      assert(!directPrintState.watermark.includes('DRAFT'), `${tc.key} blocked print is not a draft report`, directPrintState.watermark);
+      assert(directPrintPdfText.pages === 1, `${tc.key} blocked direct-print PDF page count`, String(directPrintPdfText.pages));
+      for (const needle of ['RC 工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件']) {
         assert(directPrintPdfText.text.includes(needle), `${tc.key} direct-print PDF includes`, needle);
       }
-      assertArtifact(directPrintPdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} direct-print boundary PDF written`);
+      assert(!directPrintPdfText.text.includes('梁 Beam 設計／檢核'), `${tc.key} direct-print PDF excludes work page`, '梁 Beam 設計／檢核');
+      assert(!directPrintPdfText.text.includes('DRAFT'), `${tc.key} direct-print PDF is not a draft calculation book`, 'DRAFT');
+      assertArtifact(directPrintPdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} blocked direct-print PDF written`);
 
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);

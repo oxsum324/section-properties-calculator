@@ -13,9 +13,11 @@ const testWallPath = path.join(ROOT, 'tools', 'test-wall.ps1');
 const testFoundationPath = path.join(ROOT, 'tools', 'test-foundation.ps1');
 const testSinglePilePath = path.join(ROOT, 'tools', 'test-single-pile.ps1');
 const testRcIndexPath = path.join(ROOT, 'tools', 'test-rc-index-menu.ps1');
+const rcIndexBrowserPath = path.join(ROOT, 'tools', 'rc-index-menu-browser-smoke.test.js');
 const testShearWallReportPath = path.join(ROOT, 'tools', 'test-shear-wall-report.ps1');
 const ensurePlaywrightDepsPath = path.join(ROOT, 'tools', 'ensure-playwright-deps.ps1');
 const sharedReportPath = path.join(ROOT, 'shared', 'report.js');
+const directPrintBoundaryPath = path.join(ROOT, 'shared', 'direct-print-boundary.css');
 const rcTraceCatalogPath = path.join(ROOT, 'tools', 'rc-traceability.catalog.json');
 
 let failed = 0;
@@ -139,9 +141,11 @@ const testWall = fs.readFileSync(testWallPath, 'utf8');
 const testFoundation = fs.readFileSync(testFoundationPath, 'utf8');
 const testSinglePile = fs.readFileSync(testSinglePilePath, 'utf8');
 const testRcIndex = fs.readFileSync(testRcIndexPath, 'utf8');
+const rcIndexBrowser = fs.readFileSync(rcIndexBrowserPath, 'utf8');
 const testShearWallReport = fs.readFileSync(testShearWallReportPath, 'utf8');
 const ensurePlaywrightDeps = fs.readFileSync(ensurePlaywrightDepsPath, 'utf8');
 const sharedReport = fs.readFileSync(sharedReportPath, 'utf8');
+const directPrintBoundary = fs.readFileSync(directPrintBoundaryPath, 'utf8');
 const rcTraceCatalogText = fs.readFileSync(rcTraceCatalogPath, 'utf8');
 const rcTraceCatalog = JSON.parse(rcTraceCatalogText);
 
@@ -165,6 +169,7 @@ const requiredQaArtifacts = [
   'tools/rc-traceability.contract.test.js',
   'tools/rc-index-menu-browser-smoke.test.js',
   'tools/test-rc-index-menu.ps1',
+  'shared/direct-print-boundary.css',
   'tools/beam-regression.test.js',
   'tools/beam-regression-cases.json',
   'tools/beam-report-visual.test.js',
@@ -244,9 +249,14 @@ for (const card of menuCards) {
   const html = fs.readFileSync(target, 'utf8');
   const pageDir = path.dirname(target);
   assert(html.includes('<link rel="icon" href="data:,">'), `menu target has data favicon: ${card.href}`, path.basename(target));
-  for (const resource of parseLocalResources(html, pageDir)) {
+  const resources = parseLocalResources(html, pageDir);
+  for (const resource of resources) {
     assert(fs.existsSync(resource.target), `${path.basename(target)} ${resource.kind} exists`, resource.href);
   }
+  assert(/<body\b[^>]*\bclass="[^"]*\brc-formal-output-page\b/.test(html), `menu target blocks direct work-page print: ${card.href}`, path.basename(target));
+  assert(html.includes('class="rc-direct-print-boundary"'), `menu target has direct-print boundary: ${card.href}`, path.basename(target));
+  assert(html.includes('RC 工具主頁列印已封鎖') && html.includes('本頁不得作為附件'), `menu target explains blocked direct print: ${card.href}`, path.basename(target));
+  assert(resources.some(resource => path.resolve(resource.target) === path.resolve(directPrintBoundaryPath)), `menu target loads shared direct-print boundary: ${card.href}`, path.basename(target));
 }
 
 for (const rel of requiredQaArtifacts) {
@@ -267,6 +277,10 @@ for (const [scriptName, source, preferredDir] of browserSuiteScripts) {
 assertIncludes(ensurePlaywrightDeps, '$dependencyDirNames = @(', 'Playwright helper owns fallback dependency list');
 assert(ensurePlaywrightDeps.trimStart().startsWith('param('), 'Playwright helper keeps param block first');
 assertIncludes(ensurePlaywrightDeps, 'Using Playwright deps:', 'Playwright helper reports selected dependency root');
+assertIncludes(directPrintBoundary, 'body.rc-formal-output-page > :not(.rc-direct-print-boundary)', 'direct-print boundary hides every work-page child');
+assertIncludes(directPrintBoundary, 'body.rc-formal-output-page > .rc-direct-print-boundary', 'direct-print boundary renders only the blocked-print notice');
+assertIncludes(directPrintBoundary, 'content: none !important', 'direct-print boundary removes draft-report pseudo content');
+assert(!directPrintBoundary.includes('content: "DRAFT"'), 'direct-print boundary does not emit a draft calculation-book watermark', 'shared/direct-print-boundary.css');
 for (const rel of localDependencyDirs) {
   const dirName = rel.match(/tools\/([^/]+)\//)[1];
   assertIncludes(ensurePlaywrightDeps, `'${dirName}'`, `Playwright helper lists local dependency dir ${dirName}`);
@@ -297,6 +311,15 @@ assertIncludes(audit, 'Wall regression and report visual smoke', 'audit runs wal
 assertIncludes(audit, 'Slab regression and report visual smoke', 'audit runs slab regression and report visual smoke');
 assertIncludes(audit, 'Single pile regression and report visual smoke', 'audit runs single pile regression and report visual smoke');
 assertIncludes(audit, 'RC index menu browser smoke', 'audit runs index menu browser smoke');
+[
+  'FORMAL_PRINT_KEYS',
+  'rc-direct-print-block-${printKey}.pdf',
+  'getClientRects().length',
+  'direct print hides complete work page',
+  'blocked-print PDF is one page',
+  'readPdfTextWithPoppler',
+  'RC 工具主頁列印已封鎖',
+].forEach(needle => assertIncludes(rcIndexBrowser, needle, 'RC index smoke enforces direct-print block'));
 assertIncludes(sharedReport, 'showRcReportIssue', 'shared report exposes inline popup-block status helper');
 assertIncludes(sharedReport, 'repWindowStatus', 'shared report exposes inline report-window status helper');
 assert(!sharedReport.includes('alert('), 'shared report uses inline status instead of blocking alerts');
