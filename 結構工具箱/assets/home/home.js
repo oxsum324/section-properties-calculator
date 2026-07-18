@@ -182,9 +182,9 @@
       '/seismic-misc': '2026-07-18',
       '/anchor': '2026-07-18',
       '/stone-fixing': '2026-07-18',
-      '/foundation-local': '2026-07-11',
-      '/equipment-load': '2026-07-05',
-      '/earth-pressure': '2026-07-05',
+      '/foundation-local': '2026-07-18',
+      '/equipment-load': '2026-07-18',
+      '/earth-pressure': '2026-07-18',
       '/decking': '2026-07-10',
       '/excavation-support': '2026-06-26'
     }

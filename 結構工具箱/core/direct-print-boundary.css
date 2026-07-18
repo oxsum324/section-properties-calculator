@@ -1,24 +1,30 @@
-.formal-direct-print-boundary {
+.formal-direct-print-boundary,
+.local-quick-direct-print-boundary {
   display: none;
 }
 
 @media print {
-  body.formal-tool-output-page {
+  body.formal-tool-output-page,
+  body.local-quick-output-page {
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
   }
 
   body.formal-tool-output-page::before,
-  body.formal-tool-output-page::after {
+  body.formal-tool-output-page::after,
+  body.local-quick-output-page::before,
+  body.local-quick-output-page::after {
     content: none !important;
   }
 
-  body.formal-tool-output-page > :not(.formal-direct-print-boundary) {
+  body.formal-tool-output-page > :not(.formal-direct-print-boundary),
+  body.local-quick-output-page > :not(.local-quick-direct-print-boundary) {
     display: none !important;
   }
 
-  body.formal-tool-output-page > .formal-direct-print-boundary {
+  body.formal-tool-output-page > .formal-direct-print-boundary,
+  body.local-quick-output-page > .local-quick-direct-print-boundary {
     display: block !important;
     box-sizing: border-box;
     margin: 10mm auto 0;
@@ -32,14 +38,16 @@
     line-height: 1.8;
   }
 
-  .formal-direct-print-boundary strong {
+  .formal-direct-print-boundary strong,
+  .local-quick-direct-print-boundary strong {
     display: block;
     margin-bottom: 4mm;
     font-size: 20pt;
     line-height: 1.35;
   }
 
-  .formal-direct-print-boundary span {
+  .formal-direct-print-boundary span,
+  .local-quick-direct-print-boundary span {
     display: block;
     font-size: 12pt;
   }

@@ -88,7 +88,7 @@ const formalManifestPath = assertFile('tools/formal-tools.manifest.json');
 const formalManifestText = readText(formalManifestPath);
 const formalManifest = JSON.parse(formalManifestText);
 
-assert.equal(manifest.version, '0.1.0', 'local quick tools manifest version');
+assert.equal(manifest.version, '0.2.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
@@ -142,17 +142,19 @@ const exportHelperPath = assertFile(manifest.shared.exportHelper);
 const exportHelperTestPath = assertFile(manifest.shared.exportHelperTest);
 const outputConsistencyTestPath = assertFile(manifest.shared.outputConsistencyTest);
 const browserSmokeTestPath = assertFile(manifest.shared.browserSmokeTest);
+const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
 const formalBrowserSmokeTestPath = assertFile('tools/formal-browser-smoke.test.js');
 const runnerText = readText(runnerPath);
 const exportHelperText = readText(exportHelperPath);
 const exportHelperTestText = readText(exportHelperTestPath);
 const outputConsistencyTestText = readText(outputConsistencyTestPath);
 const browserSmokeTestText = readText(browserSmokeTestPath);
+const directPrintBoundaryText = readText(directPrintBoundaryPath);
 const formalBrowserSmokeTestText = readText(formalBrowserSmokeTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
-  '"version": "0.1.0"',
+  '"version": "0.2.0"',
   '"family": "local-quick-tools"',
   '"shared"',
   '"runner"',
@@ -164,6 +166,25 @@ const ExportHelper = require(exportHelperPath);
   '"earth-pressure"',
   '"jsonRoundTrip"',
 ].forEach(needle => assertIncludes(manifestText, needle, 'local quick tools manifest'));
+
+assert.equal(manifest.shared.directPrintBodyClass, 'local-quick-output-page', 'local quick direct-print body class');
+assert.equal(manifest.shared.directPrintBoundaryClass, 'local-quick-direct-print-boundary', 'local quick direct-print boundary class');
+assert.deepEqual(
+  manifest.shared.directPrintBoundaryNeedles,
+  ['局部快算主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件'],
+  'local quick direct-print boundary wording'
+);
+assertIncludes(
+  directPrintBoundaryText,
+  'body.local-quick-output-page > :not(.local-quick-direct-print-boundary)',
+  'local quick direct-print CSS hides work-page content'
+);
+assertIncludes(
+  directPrintBoundaryText,
+  'body.local-quick-output-page > .local-quick-direct-print-boundary',
+  'local quick direct-print CSS renders only boundary notice'
+);
+assert.equal(directPrintBoundaryText.includes('content: "DRAFT"'), false, 'local quick direct print is not a draft calculation book');
 
 [
   'local quick tools manifest runner OK',
@@ -1244,6 +1265,7 @@ for (const tool of tools) {
     `pageVersion: '${tool.pageVersion}'`,
     tool.calcFunction,
     'href="../../core/style.css"',
+    'href="../../core/direct-print-boundary.css"',
     'src="../local-quick-export.js',
     `src="${tool.core.split('/').pop()}`,
     'id="btnCalc"',
@@ -1258,7 +1280,10 @@ for (const tool of tools) {
     '下載 JSON',
     'LocalQuickExport',
     'function downloadResultJson',
+    `class="${manifest.shared.directPrintBodyClass}"`,
+    `class="${manifest.shared.directPrintBoundaryClass}"`,
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));
+  manifest.shared.directPrintBoundaryNeedles.forEach(needle => assertIncludes(html, needle, `${tool.key} direct-print boundary`));
   tool.reportNeedles.forEach(needle => assertIncludes(html, needle, `${tool.key} report needle source`));
   [
     'page-only-report-status',
