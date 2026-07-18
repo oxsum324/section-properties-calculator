@@ -52,7 +52,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/local-quick-output-consistency.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-output-consistency.test.js:1)
 - 局部快算瀏覽器 smoke：
   [結構工具箱/tools/local-quick-browser-smoke.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-browser-smoke.test.js:1)
-  - 在 Edge/CDP 內檢查三個局部快算頁的乾淨路由、JSON 匯出 / 回讀、詳算式與簡易結果列印計算書，並把報告 HTML 轉成可讀文字抽檢必要章節與 page-only wording 排除清單。
+  - 在 Edge/CDP 內檢查三個局部快算頁的乾淨路由、JSON 匯出 / 回讀、詳算式與簡易結果列印計算書，並把報告 HTML 轉成可讀文字抽檢必要章節與 page-only wording 排除清單。3 個工作頁的瀏覽器直接列印另由共用邊界樣式完全封鎖，只輸出一頁操作指引；真正的計算書仍由頁面上的「列印計算書」流程產生。
 - 風力 / 地震正式頁瀏覽器 smoke：
   [結構工具箱/tools/formal-browser-smoke.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-browser-smoke.test.js:1)
 - 風力 / 地震正式工具 manifest：
@@ -93,7 +93,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - GitHub Pages deploy / live smoke：
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)
   [結構工具箱/tools/build-pages-clean-routes.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/build-pages-clean-routes.js:1)
-  - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact；staging 完成後，`build-pages-clean-routes.js` 依 `vercel.json` 為 GitHub Pages 產生不覆寫既有頁面的靜態短網址轉向頁，使首頁公開的 `/rc-column`、`/steel-beam-formal` 等 clean route 在 Pages 專案子路徑下也能使用，並保留 query 與 hash。deploy 成功後再由 live smoke 檢查短網址、公開首頁、`home.js`、`結構工具箱/assets/status/*.json`、正式工具直接列印封鎖 CSS 與代表性公開工具頁是否可讀，並拒絕公開頁出現本機工作目錄路徑；`--check-private-boundary` 會確認 Markdown、`CONTEXT.md`、`docs/adr/`、PowerShell / batch、測試檔、合約檔、route builder、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔未被發布。部署前可先跑 [run-pages-artifact-smoke.ps1](/C:/Users/USER/Desktop/AI/小工具製作/run-pages-artifact-smoke.ps1:1)，它會在本機 temp 目錄產生同樣含 clean route 的 Pages artifact 並呼叫共享 smoke。
+  - 由 `.github/workflows/pages-deploy.yml` 在 `master` push 後以 GitHub Actions 發布 Pages artifact；staging 完成後，`build-pages-clean-routes.js` 依 `vercel.json` 為 GitHub Pages 產生不覆寫既有頁面的靜態短網址轉向頁，使首頁公開的 `/rc-column`、`/steel-beam-formal` 等 clean route 在 Pages 專案子路徑下也能使用，並保留 query 與 hash。deploy 成功後再由 live smoke 檢查短網址、公開首頁、`home.js`、`結構工具箱/assets/status/*.json`、正式與局部快算工作頁的直接列印封鎖 CSS，以及代表性公開工具頁是否可讀，並拒絕公開頁出現本機工作目錄路徑；`--check-private-boundary` 會確認 Markdown、`CONTEXT.md`、`docs/adr/`、PowerShell / batch、測試檔、合約檔、route builder、`dev_tools/`、Python / TypeScript source、backend、package manifest 與本機註冊檔未被發布。部署前可先跑 [run-pages-artifact-smoke.ps1](/C:/Users/USER/Desktop/AI/小工具製作/run-pages-artifact-smoke.ps1:1)，它會在本機 temp 目錄產生同樣含 clean route 的 Pages artifact 並呼叫共享 smoke。
 - Pull request validation：
   [.github/workflows/pr-validation.yml](/C:/Users/USER/Desktop/AI/小工具製作/.github/workflows/pr-validation.yml:1)
   - 每次送往 `master` 的 PR 會在 `windows-latest` 執行 `run-preflight-tools-ci.bat` 的 clean-checkout gate，以唯讀權限、無 secrets、限時 30 分鐘的方式建立狀態檢查；無論成功或失敗都保留 7 天的 preflight summary / history artifact。CI 模式只執行不依賴 ignored audit 狀態、本機 node_modules、Python 額外套件或本機工具檔的可重現契約；完整 46 項 quick 與正式 release preflight 仍須在交付工作站執行，CI 綠燈不得取代正式放行證據。`pr-validation.contract.test.js` 會鎖住觸發條件、權限、runtime 版本、wrapper、clean-checkout 邊界與證據路徑。

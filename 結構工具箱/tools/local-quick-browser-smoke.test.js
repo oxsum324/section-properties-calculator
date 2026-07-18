@@ -9,6 +9,7 @@ const assert = require('assert');
 const {
   resolveEvidenceDir,
   renderAndValidateReportPdf,
+  validatePdfFile,
   writeEvidenceSummary,
 } = require('./rendered-delivery-evidence');
 
@@ -476,6 +477,87 @@ async function assertPageOnlyReadinessHiddenInPrint(client, sessionId, tool, lab
   } finally {
     await setMedia(client, sessionId, 'screen');
   }
+}
+
+async function assertLocalQuickDirectPrintBlocked(client, sessionId, manifest, tool, label, capturePdf, outputDir) {
+  const bodyClass = manifest.shared.directPrintBodyClass;
+  const boundaryClass = manifest.shared.directPrintBoundaryClass;
+  const boundaryNeedles = manifest.shared.directPrintBoundaryNeedles || [];
+  const screenState = await evaluate(client, sessionId, `(() => {
+    const boundary = document.querySelector('.${boundaryClass}');
+    return {
+      bodyClass: document.body.classList.contains('${bodyClass}'),
+      boundaryExists: !!boundary,
+      boundaryRects: boundary?.getClientRects().length || 0,
+      stylesheetLoaded: Array.from(document.styleSheets)
+        .some(sheet => String(sheet.href || '').includes('direct-print-boundary.css')),
+    };
+  })()`);
+  assert.equal(screenState.bodyClass, true, `${label} ${tool.key} direct-print body class`);
+  assert.equal(screenState.boundaryExists, true, `${label} ${tool.key} direct-print boundary exists`);
+  assert.equal(screenState.boundaryRects, 0, `${label} ${tool.key} direct-print boundary hidden on screen`);
+  assert.equal(screenState.stylesheetLoaded, true, `${label} ${tool.key} direct-print stylesheet loaded`);
+
+  await setMedia(client, sessionId, 'print');
+  try {
+    const printState = await evaluate(client, sessionId, `(() => {
+      const boundary = document.querySelector('.${boundaryClass}');
+      return {
+        boundaryRects: boundary?.getClientRects().length || 0,
+        boundaryText: (boundary?.textContent || '').replace(/\\s+/g, ' ').trim(),
+        visibleOtherChildren: Array.from(document.body.children)
+          .filter(node => !node.classList.contains('${boundaryClass}') && node.getClientRects().length > 0)
+          .map(node => node.id || node.className || node.tagName),
+        beforeContent: getComputedStyle(document.body, '::before').content,
+        afterContent: getComputedStyle(document.body, '::after').content,
+      };
+    })()`);
+    assert.ok(printState.boundaryRects > 0, `${label} ${tool.key} direct-print boundary rendered`);
+    assert.deepEqual(printState.visibleOtherChildren, [], `${label} ${tool.key} direct print hides complete work page`);
+    for (const needle of boundaryNeedles) {
+      assert.ok(printState.boundaryText.includes(needle), `${label} ${tool.key} direct-print notice includes ${needle}`);
+    }
+    assert.equal(
+      printState.beforeContent.includes('DRAFT') || printState.afterContent.includes('DRAFT'),
+      false,
+      `${label} ${tool.key} direct print is not a draft report`
+    );
+
+    if (capturePdf) {
+      fs.mkdirSync(outputDir, { recursive: true });
+      const pdfPath = path.join(outputDir, `${tool.key}.pdf`);
+      const printed = await client.send('Page.printToPDF', {
+        printBackground: true,
+        paperWidth: 8.27,
+        paperHeight: 11.69,
+        marginTop: 0.55,
+        marginRight: 0.45,
+        marginBottom: 0.55,
+        marginLeft: 0.45,
+        preferCSSPageSize: false,
+        generateTaggedPDF: true,
+      }, sessionId);
+      const pdfBuffer = Buffer.from(printed.data || '', 'base64');
+      assert.ok(pdfBuffer.length > 1024, `${label} ${tool.key} direct-print block produced PDF`);
+      fs.writeFileSync(pdfPath, pdfBuffer);
+      const pdf = validatePdfFile(pdfPath, {
+        label: `${tool.key} direct-print block`,
+        minTextLength: 40,
+        requiredNeedles: boundaryNeedles,
+        forbiddenNeedles: [tool.label, '計畫名稱', 'DRAFT'],
+      });
+      assert.equal(pdf.pageCount, 1, `${label} ${tool.key} direct-print block is one page`);
+      return {
+        key: tool.key,
+        artifact: path.basename(pdfPath),
+        pageCount: pdf.pageCount,
+        textLength: pdf.textLength,
+      };
+    }
+  } finally {
+    await setMedia(client, sessionId, 'screen');
+  }
+  return null;
 }
 
 function homeExpression(tools) {
@@ -1664,7 +1746,9 @@ function assertReferenceReadinessState(state, tool, label) {
 async function main() {
   const manifest = readJson('tools/local-quick-tools.manifest.json');
   const renderedEvidenceDir = resolveEvidenceDir(repoRoot, 'local-quick-tools');
+  const directPrintOutputDir = path.join(repoRoot, 'output', 'playwright', 'local-quick-direct-print-block');
   const renderedEvidenceRecords = [];
+  const directPrintRecords = [];
   const preflightStatusPayload = readJson('assets/status/preflight-summary.json');
   const vercelConfig = readRootJson('vercel.json');
   const edgePath = EDGE_CANDIDATES.find(candidate => fs.existsSync(candidate));
@@ -1873,7 +1957,16 @@ async function main() {
           const result = await navigateAndInspect(client, sessionId, toolCase.url, viewport, toolExpression(tool));
           assert.deepEqual(result.errors, [], `${label} ${tool.key} console errors: ${result.errors.join(' | ')}`);
           assertToolState(result.state, tool, label);
-          await assertPageOnlyReadinessHiddenInPrint(client, sessionId, tool, label);
+          const directPrintRecord = await assertLocalQuickDirectPrintBlocked(
+            client,
+            sessionId,
+            manifest,
+            tool,
+            label,
+            toolCase.key === 'route-tool' && viewport.key === 'desktop',
+            directPrintOutputDir
+          );
+          if (directPrintRecord) directPrintRecords.push(directPrintRecord);
           if (toolCase.key === 'route-tool' && viewport.key === 'desktop') {
             const interactionLabel = 'desktop route-tool interaction';
             const exportState = await evaluate(client, sessionId, jsonExportExpression());
@@ -1972,9 +2065,18 @@ async function main() {
       renderedEvidenceRecords,
       expectedRenderedEvidence
     );
+    assert.equal(directPrintRecords.length, manifest.tools.length, 'local quick direct-print PDF coverage');
+    const directPrintSummaryPath = path.join(directPrintOutputDir, 'local-quick-direct-print-block-summary.json');
+    fs.writeFileSync(directPrintSummaryPath, `${JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      required: manifest.tools.map(tool => tool.key),
+      complete: directPrintRecords.map(record => record.key),
+      records: directPrintRecords,
+      pass: directPrintRecords.length === manifest.tools.length,
+    }, null, 2)}\n`, 'utf8');
     await client.send('Browser.close').catch(() => {});
     await waitForProcessExit(edge, 5000);
-    console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports, clean routes, renderedEvidence=${renderedEvidenceRecords.length}, summary=${renderedSummary.summaryPath})`);
+    console.log(`local quick browser smoke OK (${manifest.tools.length} tools, ${viewports.length} viewports, clean routes, renderedEvidence=${renderedEvidenceRecords.length}, directPrintBlocks=${directPrintRecords.length}, summary=${renderedSummary.summaryPath})`);
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {
