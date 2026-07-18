@@ -2,12 +2,23 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
+const { readPdfTextWithPoppler } = require('./report-screenshot-quality');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_INDEX_SMOKE_PORT || 0);
 const OUT_DIR = path.resolve(process.env.RC_INDEX_SMOKE_OUT || path.join(ROOT, 'output', 'playwright'));
 const INDEX_PATH = '/鋼筋混凝土/index.html';
 const EXPECTED_CARD_COUNT = 8;
+const FORMAL_PRINT_KEYS = new Map([
+  ['tools/beam.html', 'beam'],
+  ['tools/column.html', 'column'],
+  ['tools/slab.html', 'slab'],
+  ['tools/wall.html', 'wall'],
+  ['tools/shear-wall.html', 'shear-wall'],
+  ['tools/foundation.html', 'foundation'],
+  ['tools/single-pile-designer.html', 'single-pile'],
+  ['../RC補強斷面性質.html', 'retrofit'],
+]);
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -126,6 +137,7 @@ async function main() {
   const pageErrors = [];
   const failedResponses = [];
   const visited = [];
+  const directPrintArtifacts = [];
 
   try {
     server = await serveStatic(ROOT, PORT);
@@ -163,6 +175,63 @@ async function main() {
       assert(status === 200, `menu target loads: ${card.href}`, `status=${status}`);
       assert(pageTitle.length > 0, `menu target has title: ${card.href}`, pageTitle || '(empty)');
       assert(bodyChars >= 100, `menu target has content: ${card.href}`, `bodyChars=${bodyChars}`);
+
+      const printKey = FORMAL_PRINT_KEYS.get(card.href);
+      assert(!!printKey, `menu target has formal print key: ${card.href}`, printKey || '(missing)');
+      const screenBoundary = await page.evaluate(() => {
+        const boundary = document.querySelector('.rc-direct-print-boundary');
+        return {
+          bodyClass: document.body.classList.contains('rc-formal-output-page'),
+          display: boundary ? getComputedStyle(boundary).display : '',
+          rects: boundary?.getClientRects().length || 0,
+        };
+      });
+      assert(screenBoundary.bodyClass, `menu target declares formal-output page: ${card.href}`, JSON.stringify(screenBoundary));
+      assert(screenBoundary.display === 'none' && screenBoundary.rects === 0, `blocked-print notice stays screen-hidden: ${card.href}`, JSON.stringify(screenBoundary));
+
+      if (printKey) {
+        const directPrintPdfPath = path.join(OUT_DIR, `rc-direct-print-block-${printKey}.pdf`);
+        await page.emulateMedia({ media: 'print' });
+        const directPrintState = await page.evaluate(() => {
+          const boundary = document.querySelector('.rc-direct-print-boundary');
+          return {
+            boundaryRects: boundary?.getClientRects().length || 0,
+            boundaryText: boundary?.textContent?.replace(/\s+/g, ' ').trim() || '',
+            visiblePageChildren: Array.from(document.body.children)
+              .filter(el => !el.classList.contains('rc-direct-print-boundary') && el.getClientRects().length > 0)
+              .map(el => el.id || el.className || el.tagName),
+            beforeContent: getComputedStyle(document.body, '::before').content,
+            afterContent: getComputedStyle(document.body, '::after').content,
+          };
+        });
+        await page.pdf({
+          path: directPrintPdfPath,
+          format: 'A4',
+          printBackground: true,
+          margin: { top: '16mm', right: '16mm', bottom: '16mm', left: '16mm' },
+        });
+        await page.emulateMedia({ media: 'screen' });
+
+        const directPrintPdfText = readPdfTextWithPoppler(directPrintPdfPath);
+        assert(directPrintState.boundaryRects > 0, `blocked-print notice is rendered: ${card.href}`, JSON.stringify(directPrintState));
+        assert(directPrintState.visiblePageChildren.length === 0, `direct print hides complete work page: ${card.href}`, JSON.stringify(directPrintState.visiblePageChildren));
+        assert(!directPrintState.beforeContent.includes('DRAFT') && !directPrintState.afterContent.includes('DRAFT'), `direct print has no draft-report watermark: ${card.href}`, `${directPrintState.beforeContent} / ${directPrintState.afterContent}`);
+        assert(directPrintPdfText.pages === 1, `blocked-print PDF is one page: ${card.href}`, `pages=${directPrintPdfText.pages}`);
+        for (const needle of ['RC 工具主頁列印已封鎖', '此頁是操作介面，不是計算書', '本頁不得作為附件']) {
+          assert(directPrintPdfText.text.includes(needle), `blocked-print PDF includes boundary: ${card.href}`, needle);
+        }
+        assert(!directPrintPdfText.text.includes(card.title), `blocked-print PDF excludes work-page title: ${card.href}`, card.title);
+        assert(!directPrintPdfText.text.includes('DRAFT'), `blocked-print PDF is not a draft calculation book: ${card.href}`, 'DRAFT');
+        assertArtifact(directPrintPdfPath, [0x25, 0x50, 0x44, 0x46], `blocked-print PDF written: ${card.href}`);
+        directPrintArtifacts.push({
+          href: card.href,
+          key: printKey,
+          pdfPath: directPrintPdfPath,
+          pages: directPrintPdfText.pages,
+          textLength: directPrintPdfText.textLength,
+          state: directPrintState,
+        });
+      }
     }
 
     await page.goto(indexUrl, { waitUntil: 'load', timeout: 30000 });
@@ -178,6 +247,7 @@ async function main() {
     indexUrl,
     screenshotPath,
     visited,
+    directPrintArtifacts,
     consoleErrors,
     pageErrors,
     failedResponses,
