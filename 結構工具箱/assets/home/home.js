@@ -182,9 +182,9 @@
       '/seismic-misc': '2026-07-20',
       '/anchor': '2026-07-19',
       '/stone-fixing': '2026-07-19',
-      '/foundation-local': '2026-07-18',
-      '/equipment-load': '2026-07-18',
-      '/earth-pressure': '2026-07-18',
+      '/foundation-local': '2026-07-20',
+      '/equipment-load': '2026-07-20',
+      '/earth-pressure': '2026-07-20',
       '/decking': '2026-07-19',
       '/excavation-support': '2026-06-26'
     }
@@ -206,7 +206,10 @@
       '/seismic-force': ['結構工具箱/core/ui/report.js'],
       '/seismic-dynamic': ['結構工具箱/core/ui/report.js'],
       '/seismic-appendage': ['結構工具箱/core/ui/report.js'],
-      '/seismic-misc': ['結構工具箱/core/ui/report.js']
+      '/seismic-misc': ['結構工具箱/core/ui/report.js'],
+      '/foundation-local': ['結構工具箱/core/ui/report.js'],
+      '/equipment-load': ['結構工具箱/core/ui/report.js'],
+      '/earth-pressure': ['結構工具箱/core/ui/report.js']
     }
   };
 

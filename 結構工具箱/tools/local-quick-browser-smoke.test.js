@@ -769,6 +769,7 @@ function toolExpression(tool) {
       hasDiagramBody: !!document.getElementById('diagramBody'),
       hasCheckList: !!document.getElementById('checkList'),
       hasExportScript: scripts.some(src => src === '../local-quick-export.js' || src.endsWith('/local-quick-export.js')),
+      hasDocumentStateScript: scripts.some(src => src === '../../core/ui/report.js' || src.endsWith('/core/ui/report.js')),
       hasCoreScript: scripts.some(src => src.endsWith(${JSON.stringify(tool.core.split('/').pop())})),
       hasJsonImportButton: !!document.getElementById('btnImportJson'),
       hasJsonFileInput: !!document.getElementById('jsonFile'),
@@ -1020,7 +1021,7 @@ function jsonImportExpression(tool, payload) {
   })()`;
 }
 
-function reportExpression(mode = null, projectMetaState = 'complete') {
+function reportExpression(mode = null, projectMetaState = 'complete', calculationState = 'default', toolKey = '') {
   return `(() => {
     const originalOpen = window.open;
     const opened = [];
@@ -1052,6 +1053,8 @@ function reportExpression(mode = null, projectMetaState = 'complete') {
     try {
       const requestedMode = ${JSON.stringify(mode)};
       const projectState = ${JSON.stringify(projectMetaState)};
+      const requestedCalculationState = ${JSON.stringify(calculationState)};
+      const requestedToolKey = ${JSON.stringify(toolKey)};
       const select = document.getElementById('reportMode');
       const setProjectField = (id, value) => {
         const node = document.getElementById(id);
@@ -1074,10 +1077,28 @@ function reportExpression(mode = null, projectMetaState = 'complete') {
         select.dispatchEvent(new Event('input', { bubbles: true }));
         select.dispatchEvent(new Event('change', { bubbles: true }));
       }
+      if (requestedCalculationState === 'failed') {
+        if (requestedToolKey === 'foundation-local') setProjectField('qa', '0.10');
+        if (requestedToolKey === 'equipment-load') {
+          setProjectField('allowableContact', '0.01');
+          setProjectField('allowableSpread', '0.01');
+          setProjectField('allowablePoint', '0.01');
+        }
+        if (requestedToolKey === 'earth-pressure') {
+          setProjectField('qa', '0.10');
+          setProjectField('verticalLoad', '1.00');
+          setProjectField('surcharge', '100.00');
+        }
+        document.getElementById('btnCalc').click();
+      }
+      const pageReadinessLevel = window.ToolReportUI?.getPageReportReadinessLevel(document) || '';
       document.getElementById('btnPrint').click();
       const html = writes.join('');
+      const reportDocument = new DOMParser().parseFromString(html, 'text/html');
+      const documentStateNode = reportDocument.querySelector('[data-document-state]');
       return {
         projectMetaState: projectState,
+        calculationState: requestedCalculationState,
         mode: requestedMode || (select ? select.value : 'default'),
         selectedMode: select ? select.value : '',
         openCount: opened.length,
@@ -1086,7 +1107,11 @@ function reportExpression(mode = null, projectMetaState = 'complete') {
         closed,
         focused,
         htmlLength: html.length,
-        html
+        html,
+        pageReadinessLevel,
+        documentState: documentStateNode?.getAttribute('data-document-state') || '',
+        documentReason: documentStateNode?.getAttribute('data-document-reason') || '',
+        documentStateText: (documentStateNode?.textContent || '').replace(/\s+/g, ' ').trim()
       };
     } finally {
       window.open = originalOpen;
@@ -1411,6 +1436,7 @@ function assertToolState(state, tool, label) {
   assert.ok(state.hasMetricGrid, `${label} ${tool.key} metric grid`);
   assert.ok(state.hasCheckList, `${label} ${tool.key} check list`);
   assert.ok(state.hasExportScript, `${label} ${tool.key} export script`);
+  assert.ok(state.hasDocumentStateScript, `${label} ${tool.key} document-state script`);
   assert.ok(state.hasCoreScript, `${label} ${tool.key} core script`);
   assert.equal(state.hasPageOnlyReadiness, true, `${label} ${tool.key} page-only readiness exists`);
   assert.ok(state.pageOnlyReadinessText.includes('優先閱讀'), `${label} ${tool.key} page-only readiness priority`, state.pageOnlyReadinessText);
@@ -1603,6 +1629,23 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   });
 }
 
+function assertCalculationBookDocumentState(state, tool, label) {
+  assert.match(state.pageReadinessLevel, /^(ready|review|blocked)$/, `${label} ${tool.key} page readiness level`);
+  const requiresDraft = state.pageReadinessLevel !== 'ready';
+  if (!requiresDraft) {
+    assert.equal(state.documentState, '', `${label} ${tool.key} ready report has no document-state block`);
+    assert.equal(state.documentReason, '', `${label} ${tool.key} ready report has no draft reason`);
+    assert.equal(state.html.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} ready report has no DRAFT label`);
+    return;
+  }
+  const expectedReason = state.pageReadinessLevel === 'blocked' ? 'blocked' : 'review';
+  assert.equal(state.documentState, 'draft', `${label} ${tool.key} non-ready report is classified as draft`);
+  assert.equal(state.documentReason, expectedReason, `${label} ${tool.key} draft reason follows page readiness`);
+  assert.ok(state.documentStateText.includes('DRAFT／非正式附件'), `${label} ${tool.key} draft label is visible`);
+  assert.ok(state.documentStateText.includes('不得作為正式附件'), `${label} ${tool.key} draft attachment boundary is visible`);
+  assert.ok(state.html.includes('data-formal-document-state-style'), `${label} ${tool.key} draft report carries print watermark CSS`);
+}
+
 function assertReportState(state, tool, label, mode = 'detailed') {
   assert.equal(state.projectMetaState, 'complete', `${label} ${tool.key} report project state`);
   assert.equal(state.openCount, 1, `${label} ${tool.key} report open count`);
@@ -1613,6 +1656,7 @@ function assertReportState(state, tool, label, mode = 'detailed') {
   assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${tool.key} report project no`);
   assert.ok(state.html.includes('Codex QA'), `${label} ${tool.key} report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${tool.key} report excludes raw placeholder project text`);
+  assertCalculationBookDocumentState(state, tool, label);
   assertReportContentState(state, tool, label, mode);
 }
 
@@ -1627,6 +1671,8 @@ function assertPlaceholderReportState(state, tool, label, mode = 'detailed') {
   assert.ok(state.html.includes('Codex QA'), `${label} ${tool.key} placeholder report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${tool.key} placeholder report excludes raw placeholder project text`);
   assert.equal(state.html.includes('計畫：局部工具驗證案'), false, `${label} ${tool.key} placeholder report excludes completed project name`);
+  assert.notEqual(state.pageReadinessLevel, 'ready', `${label} ${tool.key} placeholder project cannot be ready`);
+  assertCalculationBookDocumentState(state, tool, label);
   assertReportContentState(state, tool, label, mode);
 }
 
@@ -1997,6 +2043,10 @@ async function main() {
               const summaryPlaceholderReportState = await evaluate(client, sessionId, reportExpression('summary', 'placeholder'));
               assertReportState(summaryReportState, tool, interactionLabel, 'summary');
               assertPlaceholderReportState(summaryPlaceholderReportState, tool, `${interactionLabel} placeholder`, 'summary');
+              const blockedReportState = await evaluate(client, sessionId, reportExpression('detailed', 'complete', 'failed', tool.key));
+              assertReportState(blockedReportState, tool, `${interactionLabel} failed calculation`, 'detailed');
+              assert.equal(blockedReportState.pageReadinessLevel, 'blocked', `${interactionLabel} ${tool.key} failed calculation blocks attachment readiness`);
+              assert.equal(blockedReportState.documentReason, 'blocked', `${interactionLabel} ${tool.key} failed calculation carries blocked document reason`);
               const detailedEvidence = await renderAndValidateReportPdf(client, {
                 html: detailedReportState.html,
                 outputDir: renderedEvidenceDir,
@@ -2005,7 +2055,13 @@ async function main() {
                 renderer: 'local-quick-detailed',
                 titleNeedle: tool.reportTitleNeedle,
                 projectNeedle: '計畫：',
-                requiredNeedles: [tool.reportTitleNeedle, '計畫：', ...(tool.reportNeedles || [])],
+                requiredNeedles: [
+                  tool.reportTitleNeedle,
+                  '計畫：',
+                  ...(tool.reportNeedles || []),
+                  ...(detailedReportState.documentState === 'draft' ? ['DRAFT／非正式附件'] : []),
+                ],
+                forbiddenNeedles: detailedReportState.documentState === 'draft' ? [] : ['DRAFT'],
               });
               renderedEvidenceRecords.push({
                 key: tool.key,
@@ -2014,6 +2070,42 @@ async function main() {
                 evidence: path.basename(detailedEvidence.evidencePath),
                 pageCount: detailedEvidence.pdf.pageCount,
                 textLength: detailedEvidence.pdf.textLength,
+              });
+              const draftEvidence = await renderAndValidateReportPdf(client, {
+                html: detailedPlaceholderReportState.html,
+                outputDir: renderedEvidenceDir,
+                artifactName: `${tool.key}-draft-report`,
+                label: `${tool.key} placeholder draft report`,
+                renderer: 'local-quick-draft',
+                titleNeedle: tool.reportTitleNeedle,
+                projectNeedle: '計畫：',
+                requiredNeedles: [tool.reportTitleNeedle, '計畫：', 'DRAFT／非正式附件', ...(tool.reportNeedles || [])],
+              });
+              renderedEvidenceRecords.push({
+                key: `${tool.key}-draft-boundary`,
+                renderer: draftEvidence.renderer,
+                artifact: path.basename(draftEvidence.pdfPath),
+                evidence: path.basename(draftEvidence.evidencePath),
+                pageCount: draftEvidence.pdf.pageCount,
+                textLength: draftEvidence.pdf.textLength,
+              });
+              const blockedEvidence = await renderAndValidateReportPdf(client, {
+                html: blockedReportState.html,
+                outputDir: renderedEvidenceDir,
+                artifactName: `${tool.key}-blocked-report`,
+                label: `${tool.key} failed-check draft report`,
+                renderer: 'local-quick-blocked',
+                titleNeedle: tool.reportTitleNeedle,
+                projectNeedle: '計畫：',
+                requiredNeedles: [tool.reportTitleNeedle, '計畫：', 'DRAFT／非正式附件 - 檢核不符', ...(tool.reportNeedles || [])],
+              });
+              renderedEvidenceRecords.push({
+                key: `${tool.key}-blocked-boundary`,
+                renderer: blockedEvidence.renderer,
+                artifact: path.basename(blockedEvidence.pdfPath),
+                evidence: path.basename(blockedEvidence.evidencePath),
+                pageCount: blockedEvidence.pdf.pageCount,
+                textLength: blockedEvidence.pdf.textLength,
               });
               if (tool.key === 'foundation-local') {
                 const summaryEvidence = await renderAndValidateReportPdf(client, {

@@ -230,7 +230,7 @@ flowchart TD
 
 這些字串集中登記於 `formal-tools.manifest.json` 的 `reportDisclosureNeedles`。同一 manifest 的 `documentStateRequired` 要求全部正式風力 / 地震計算書透過 `core/ui/report.js` 產生一致的 DRAFT／ready 文件狀態；頁面 readiness 只能提供狀態級別，不得把待辦明細複製進計算書。`formal-tools.contract.test.js` 檢查原始頁面與共用 renderer，`formal-browser-smoke.test.js` 則以完整案件與缺件案件檢查實際開出的計算書；若日後規範版本或文件狀態規則更新，應同步更新頁面、計算書副標、manifest 與 golden / browser smoke，不得只改首頁文案。
 
-高頻 quick 工具若已有列印計算書，簡易結果與詳算式都要保留精簡限制說明，例如「不在本頁範圍」、「正式詳算」或需轉往其他正式工具的提示。這些必要字串集中登記於 `local-quick-tools.manifest.json` 的 `reportNeedles`，由 `local-quick-tools.contract.test.js` 檢查來源頁面，並由 `local-quick-browser-smoke.test.js` 檢查實際開出的兩種報告模式。
+高頻 quick 工具若已有列印計算書，簡易結果與詳算式都要保留精簡限制說明，例如「不在本頁範圍」、「正式詳算」或需轉往其他正式工具的提示。這些必要字串集中登記於 `local-quick-tools.manifest.json` 的 `reportNeedles`，由 `local-quick-tools.contract.test.js` 檢查來源頁面，並由 `local-quick-browser-smoke.test.js` 檢查實際開出的兩種報告模式。基礎局部檢核、設備局部荷重與擋土土壓局部快算同時受 manifest 的 `documentStateRequired` 管控，透過 `core/ui/report.js` 將頁面 ready / review / blocked 狀態轉為計算書文件分類；頁面診斷明細不得複製進報告，但 review / blocked 的計算書必須保留 DRAFT／非正式附件標記與列印浮水印，並以缺件案件實際列印 PDF 證明。
 
 ### 條文語意追蹤
 
