@@ -52,8 +52,8 @@ assert(directPrintBoundarySource.includes('body.formal-tool-output-page > :not(.
 assert(directPrintBoundarySource.includes('body.formal-tool-output-page > .formal-direct-print-boundary'), 'shared CSS renders continuous beam direct-print notice', 'boundary notice rendered');
 assert(html.includes('window.ToolReportUI?.normalizeProjectFieldValue'), 'shared project meta normalization hook exists', 'continuous beam uses shared placeholder cleanup when available');
 assert(html.includes("['設計人員', 'projDesigner']"), 'designer participates in readiness completeness', 'continuous beam attachment readiness requires designer metadata');
-assert(html.includes("name:     getProjectFieldValue('projName')"), 'report export uses normalized project name', 'continuous beam report payload');
-assert(html.includes("designer: getProjectFieldValue('projDesigner')"), 'report export uses normalized designer', 'continuous beam report payload');
+assert(/name:\s*getProjectFieldValue\('projName'\)/.test(html), 'report export uses normalized project name', 'continuous beam report payload');
+assert(/designer:\s*getProjectFieldValue\('projDesigner'\)/.test(html), 'report export uses normalized designer', 'continuous beam report payload');
 assertPrintHidesSelectors(html, ['.page-only-report-status', '.save-bar', '.modal-overlay'], 'continuous beam page-only controls');
 assert(
   html.includes("beam: { url: '鋼構工具/steel-beam-formal.html?import=1'"),
@@ -473,6 +473,10 @@ function bootPage() {
   context.removeEventListener = () => {};
 
   vm.createContext(context);
+  vm.runInContext(sharedReportSource, context, { filename: sharedReportPath });
+  context.openReport = (cfg) => {
+    context.__lastReportConfig = cfg;
+  };
   vm.runInContext(mainScript, context, { filename: '連續梁分析.html#main' });
   vm.runInContext(extractFunctionBlock(moduleScript, 'collectSaveData'), context, { filename: '連續梁分析.html#collectSaveData' });
   vm.runInContext(extractFunctionBlock(moduleScript, 'restoreFromData'), context, { filename: '連續梁分析.html#restoreFromData' });
@@ -558,6 +562,7 @@ function main() {
   assert(ctx.__lastReportConfig.project.name === '', 'placeholder project name is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
   assert(ctx.__lastReportConfig.project.no === 'CB-001', 'project number remains in report export', JSON.stringify(ctx.__lastReportConfig.project));
   assert(ctx.__lastReportConfig.project.designer === '', 'placeholder designer is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
+  assert(ctx.__lastReportConfig.documentState?.label === 'DRAFT／非正式附件 - 待人工複核', 'incomplete continuous beam report is explicitly draft', JSON.stringify(ctx.__lastReportConfig.documentState));
   const reportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
   const reportText = assertReportHtmlText(reportHtml, 'continuous beam runtime report', [
     '連續梁分析計算書',
@@ -572,6 +577,7 @@ function main() {
   assert(reportHtml.includes('連續梁分析計算書'), 'continuous beam runtime report title', '連續梁分析計算書');
   assert(reportHtml.includes('計畫名稱</b>—'), 'continuous beam runtime report placeholder project fallback', '計畫名稱 —');
   assert(reportHtml.includes('CB-001'), 'continuous beam runtime report project number', 'CB-001');
+  assert(reportHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'continuous beam runtime report renders draft classification', 'DRAFT／非正式附件');
   assert(!reportHtml.includes('未填'), 'continuous beam runtime report excludes raw placeholder text', '未填');
   assert(!reportText.includes('未填'), 'continuous beam runtime visible text excludes raw placeholder text', '未填');
   for (const needle of pageOnlyNeedles) {
@@ -645,6 +651,12 @@ function main() {
   resetToSingleSpan(ctx);
   ctx.model.loads[0] = [{ type: 'udl', w: 10 }];
   ctx.renderLoadInputs();
+  ctx.document.getElementById('iMode').value = 'section';
+  ctx.runAnalysis();
+  ctx.exportPDF();
+  assert(ctx.__lastReportConfig.documentState === null, 'complete continuous beam report removes draft classification', JSON.stringify(ctx.__lastReportConfig.documentState));
+  const readyReportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
+  assert(!readyReportHtml.includes('DRAFT／非正式附件'), 'complete continuous beam runtime report is formal-ready', 'formal attachment state');
   ctx.document.getElementById('ilEnabled').checked = true;
   ctx.toggleIL();
   ctx.document.getElementById('ilType').value = 'moment';

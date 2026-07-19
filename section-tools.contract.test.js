@@ -122,6 +122,13 @@ function renderSharedReportPayload(source, filename, payload) {
   return html;
 }
 
+function assessSharedFormalAttachment(source, filename, state) {
+  const context = { window: {}, document: { title: 'QA' }, console, Date };
+  vm.createContext(context);
+  vm.runInContext(source, context, { filename });
+  return context.window.ToolReportUI.assessFormalAttachment(state);
+}
+
 function reportHtmlText(reportHtml) {
   return String(reportHtml || '')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -237,6 +244,10 @@ function captureCompositeReportPayload(source) {
     isFinite,
   };
   vm.createContext(context);
+  vm.runInContext(sharedReportSource, context, { filename: 'shared-report-runtime' });
+  context.openReport = nextPayload => {
+    payload = nextPayload;
+  };
   ['val', 'fmt', 'normalizeProjectFieldValue', 'getProjectFieldValue', 'currentHName', 'exportReport'].forEach(name => {
     vm.runInContext(functionSource(source, name), context, { filename: `composite-report:${name}` });
   });
@@ -399,7 +410,27 @@ assertProjectMetaUsesSharedNormalization(rcRetrofitHtml, 'RC retrofit section re
 
 const sharedReportSource = read(path.join('結構工具箱', 'core', 'ui', 'report.js'));
 const rcReportSource = read(path.join('鋼筋混凝土', 'shared', 'report.js'));
+const sharedReportFilename = path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js');
+const missingMetadataState = assessSharedFormalAttachment(sharedReportSource, sharedReportFilename, {
+  project: { name: '', no: 'QA-001', designer: '' },
+  calculated: true,
+});
+assert(missingMetadataState.status === 'review', 'shared attachment assessment marks missing metadata for review', JSON.stringify(missingMetadataState));
+assert(missingMetadataState.documentState?.label === 'DRAFT／非正式附件 - 待人工複核', 'shared attachment assessment emits review draft classification', JSON.stringify(missingMetadataState.documentState));
+const failedState = assessSharedFormalAttachment(sharedReportSource, sharedReportFilename, {
+  project: { name: 'QA', no: 'QA-001', designer: 'Codex QA' },
+  calculated: true,
+  failedItems: ['檢核不符'],
+});
+assert(failedState.status === 'blocked', 'shared attachment assessment blocks failed checks', JSON.stringify(failedState));
+assert(failedState.documentState?.label === 'DRAFT／非正式附件 - 檢核不符', 'shared attachment assessment emits blocked draft classification', JSON.stringify(failedState.documentState));
+const readyState = assessSharedFormalAttachment(sharedReportSource, sharedReportFilename, {
+  project: { name: 'QA', no: 'QA-001', designer: 'Codex QA' },
+  calculated: true,
+});
+assert(readyState.status === 'ready' && readyState.documentState === null, 'shared attachment assessment permits complete reviewed report', JSON.stringify(readyState));
 const compositePayload = captureCompositeReportPayload(compositeHtml);
+assert(compositePayload.documentState?.label === 'DRAFT／非正式附件 - 待人工複核', 'composite payload marks incomplete metadata as draft', JSON.stringify(compositePayload.documentState));
 const compositeReportHtml = renderSharedReportPayload(
   sharedReportSource,
   path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js'),
@@ -417,6 +448,7 @@ const compositeReportText = assertReportHtmlText(compositeReportHtml, 'composite
   '與基礎 H 型鋼比較',
 ], 520);
 assert(!compositeReportHtml.includes('未填'), 'composite runtime report excludes raw placeholder project text', '未填');
+assert(compositeReportHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'composite runtime report renders draft classification', 'DRAFT／非正式附件');
 assert(!compositeReportText.includes('未填'), 'composite runtime visible text excludes raw placeholder project text', '未填');
 
 const retrofitBeamPayload = captureRetrofitReportPayload(rcRetrofitHtml, 'exportBeamReport', 'lastBeam', {
@@ -563,11 +595,26 @@ assert(sharedReportHtml.includes('QA 計算書'), 'shared section report runtime
 assert(sharedReportHtml.includes('計畫名稱</b>—'), 'shared section report runtime placeholder project fallback', '計畫名稱 —');
 assert(sharedReportHtml.includes('SECTION-VERIFY-001'), 'shared section report runtime project number', 'SECTION-VERIFY-001');
 assert(sharedReportHtml.includes('Codex QA'), 'shared section report runtime project designer', 'Codex QA');
+assert(sharedReportHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'shared renderer automatically drafts incomplete project metadata', 'DRAFT／非正式附件');
 assert(!sharedReportHtml.includes('未填'), 'shared section report runtime excludes raw placeholder project text', '未填');
 assert(!sharedReportText.includes('未填'), 'shared section report visible text excludes raw placeholder project text', '未填');
 assert(!sharedReportText.includes('正式報告備註'), 'shared section report keeps explanatory notes out of the calculation book', '正式報告備註');
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!sharedReportHtml.includes(needle), 'shared section report runtime excludes page-only readiness wording', needle);
 }
+
+const readySharedReportHtml = renderSharedReportHtml(
+  sharedReportSource,
+  sharedReportFilename,
+  { name: 'QA Project', no: 'SECTION-READY-001', designer: 'Codex QA' }
+);
+assert(!readySharedReportHtml.includes('DRAFT／非正式附件'), 'shared renderer keeps complete passing report free of draft classification', 'formal attachment state');
+const failedSharedReportHtml = renderSharedReportPayload(sharedReportSource, sharedReportFilename, {
+  title: 'QA NG 計算書',
+  project: { name: 'QA Project', no: 'SECTION-NG-001', designer: 'Codex QA' },
+  summary: { ok: false, text: '檢核不符' },
+  checks: [{ group: '檢核結果', items: [{ label: '強度比', value: '1.20', ok: false }] }],
+});
+assert(failedSharedReportHtml.includes('DRAFT／非正式附件 - 檢核不符'), 'shared renderer automatically blocks failed report', 'DRAFT／非正式附件 - 檢核不符');
 
 console.log('\nAll section tools contract checks passed.');

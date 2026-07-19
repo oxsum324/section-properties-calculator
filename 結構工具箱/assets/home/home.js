@@ -117,8 +117,8 @@
   const reportReadinessOverview = {
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
-    summary: '頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；RC 正式計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類。',
-    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；RC 正式計算書非 ready 輸出會另帶 DRAFT／非正式附件分類。',
+    summary: '頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；採正式附件治理的計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類。',
+    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；受治理計算書非 ready 輸出會另帶 DRAFT／非正式附件分類。',
     reportTextSmokeSummary: '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理。',
     reportTextSmokeScope: '正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具與局部快算。矩陣外工具家族仍以各自報告合約治理。',
     renderedDeliveryEvidenceSummary: '最新正式放行的實際交付物渲染會以 PDF、DOCX 或 workbook 成品驗證首頁正式工具。',
@@ -130,7 +130,7 @@
     ],
     details: [
       '已治理家族涵蓋風力 / 地震 / 鋼構正式工具、RC 正式工具、連續梁 / 斷面與補強頁、平面剛架、錨栓、石材、覆工板、開挖擋土支撐與局部快算。',
-      '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理；頁面診斷明細不會寫入計算書、列印或 PDF，RC 正式計算書非 ready 的 DRAFT 文件分類則會明確進入內部檢討輸出並由附件組包檢查阻擋。',
+      '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理；頁面診斷明細不會寫入計算書、列印或 PDF，RC 與共用計算書非 ready 的 DRAFT 文件分類則會明確進入內部檢討輸出並由附件組包檢查阻擋。',
       '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
       '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
     ]
@@ -144,8 +144,8 @@
     releaseVerifiedAt: '2026-07-19',
     source: 'routeFileMap target Git history + current target worktree changes + tracked preflight release snapshot',
     routes: {
-      '/beam-analysis': '2026-07-18',
-      '/frame-analysis': '2026-07-18',
+      '/beam-analysis': '2026-07-19',
+      '/frame-analysis': '2026-07-19',
       '/struct-dx': '2026-07-19',
       '/section': '2026-07-19',
       '/composite-section': '2026-07-19',

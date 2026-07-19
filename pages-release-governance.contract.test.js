@@ -99,7 +99,10 @@ assert.ok(exists('CONTEXT.md'), 'context glossary exists');
 assert.ok(exists('docs/adr/0001-page-only-report-readiness.md'), 'page-only readiness ADR exists');
 assert.ok(context.includes('頁面專用閱讀狀態'), 'context defines page-only readiness');
 assert.ok(context.includes('不得') || context.includes('列印與 PDF 匯出時應排除'), 'context keeps export boundary');
-assert.ok(adr.includes('page-only') && adr.includes('must not be attached'), 'ADR records page-only delivery decision');
+assert.ok(
+  adr.includes('page diagnostics') && adr.includes('must not be copied into calculation books') && adr.includes('DRAFT／非正式附件'),
+  'ADR records page-only diagnostics and governed document-state delivery decision',
+);
 
 {
   const fixtureRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-artifact-builder-repo-'));

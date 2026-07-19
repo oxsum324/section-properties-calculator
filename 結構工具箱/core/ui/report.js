@@ -156,6 +156,59 @@ function hasBlankFieldValues(ids, resolver) {
   });
 }
 
+function assessFormalAttachment(state = {}) {
+  const normalizeItems = input => [...new Set((Array.isArray(input) ? input : [])
+    .map(item => String(item?.label ?? item ?? '').trim())
+    .filter(Boolean))];
+  const project = {
+    name: normalizeProjectFieldValue(state.project?.name),
+    no: normalizeProjectFieldValue(state.project?.no),
+    designer: normalizeProjectFieldValue(state.project?.designer),
+  };
+  const requiredMetadata = [
+    ['name', '計畫名稱'],
+    ['no', '計畫編號'],
+    ['designer', '設計人員'],
+  ];
+  const missingMetadata = requiredMetadata
+    .filter(([key]) => !project[key])
+    .map(([, label]) => label);
+  const failedItems = normalizeItems(state.failedItems);
+  const reviewItems = normalizeItems(state.reviewItems);
+  const calculated = state.calculated !== false;
+  const status = !calculated || failedItems.length
+    ? 'blocked'
+    : (reviewItems.length || missingMetadata.length ? 'review' : 'ready');
+  const detailParts = [];
+  if (!calculated) detailParts.push('計算或分析尚未完成。');
+  if (failedItems.length) detailParts.push(`尚有 ${failedItems.length} 項檢核不符：${failedItems.join('、')}。`);
+  if (reviewItems.length) detailParts.push(`尚有 ${reviewItems.length} 項待人工複核：${reviewItems.join('、')}。`);
+  if (missingMetadata.length) detailParts.push(`案件識別資料尚缺：${missingMetadata.join('、')}。`);
+  if (status !== 'ready') detailParts.push('完成複核及資料補正前不得作為正式附件。');
+  const documentState = status === 'ready' ? null : {
+    kind: 'draft',
+    reason: status,
+    label: status === 'blocked'
+      ? 'DRAFT／非正式附件 - 檢核不符'
+      : 'DRAFT／非正式附件 - 待人工複核',
+    detail: detailParts.join(' '),
+  };
+  return {
+    status,
+    project,
+    calculated,
+    failedItems,
+    reviewItems,
+    missingMetadata,
+    formalOutputAllowed: status === 'ready',
+    readyToSign: status === 'ready',
+    documentClass: status === 'ready'
+      ? { key: 'ready-to-sign', label: '可送簽版' }
+      : { key: 'draft', label: '內部複核版' },
+    documentState,
+  };
+}
+
 function normalizeStatusGridItem(item) {
   if (Array.isArray(item)) {
     return { label: item[0], value: item[1] };
@@ -196,6 +249,7 @@ if (typeof window !== 'undefined') {
     normalizeProjectFieldValue,
     normalizeReportVersion,
     hasBlankFieldValues,
+    assessFormalAttachment,
     buildReportTrace,
     renderStatusGridPanel,
     calculationBookPageOnlyLabels: CALCULATION_BOOK_PAGE_ONLY_LABELS,
@@ -249,6 +303,30 @@ function openReport(cfg) {
   const sourceTrace = getReportSourceTrace(cfg);
 
   const esc = escapeReportHtml;
+  const inferredFailedItems = [];
+  if (cfg.summary?.ok === false) inferredFailedItems.push(cfg.summary.text || '檢核結論不符');
+  (Array.isArray(cfg.checks) ? cfg.checks : []).forEach(group => {
+    (Array.isArray(group?.items) ? group.items : []).forEach(item => {
+      if (item?.ok === false) inferredFailedItems.push(item.label || group.group || '檢核項目不符');
+    });
+  });
+  const hasConfiguredDocumentState = Object.prototype.hasOwnProperty.call(cfg, 'documentState');
+  const configuredDocumentState = hasConfiguredDocumentState
+    ? (cfg.documentState && typeof cfg.documentState === 'object' ? cfg.documentState : null)
+    : assessFormalAttachment({
+        project: proj,
+        calculated: cfg.calculated !== false,
+        failedItems: [...inferredFailedItems, ...(Array.isArray(cfg.failedItems) ? cfg.failedItems : [])],
+        reviewItems: cfg.reviewItems,
+      }).documentState;
+  const documentState = configuredDocumentState && configuredDocumentState.kind === 'draft'
+    ? {
+        kind: 'draft',
+        reason: configuredDocumentState.reason === 'blocked' ? 'blocked' : 'review',
+        label: String(configuredDocumentState.label || 'DRAFT／非正式附件').trim(),
+        detail: String(configuredDocumentState.detail || '本文件僅供內部檢討，不得作為正式附件。').trim(),
+      }
+    : null;
 
   const inputsHtml = getCalculationBookInputGroups(cfg.inputs).map(g => `
     <section class="rep-block${g.keepTogether ? ' rep-block--keep' : ''}">
@@ -329,6 +407,12 @@ function openReport(cfg) {
     <h3>檢核結論</h3>
     <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
   </section>`;
+  const documentStateHtml = documentState
+    ? `<section class="rep-document-state rep-document-state--${esc(documentState.reason)}" data-document-state="${esc(documentState.kind)}" data-document-reason="${esc(documentState.reason)}">
+        <strong>${esc(documentState.label)}</strong>
+        <span>${esc(documentState.detail)}</span>
+      </section>`
+    : '';
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -345,6 +429,11 @@ body { font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif
 .rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
+.rep-document-state { margin:12px 0 16px; padding:10px 14px; border:2px solid #b91c1c;
+                      background:#fff1f2; color:#881337; page-break-inside:avoid; }
+.rep-document-state strong { display:block; font-size:16px; letter-spacing:.03em; }
+.rep-document-state span { display:block; margin-top:4px; font-size:11px; line-height:1.5; }
+.rep-document-state--review { border-color:#b45309; background:#fff7ed; color:#7c2d12; }
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;
             font-size:12px; margin:14px 0 18px; }
 .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
@@ -402,8 +491,16 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 }
 @media print {
   body { background:#fff; padding:0; }
+  body.rep-document-draft::after { content:""; position:fixed; left:50%; top:46%; width:160mm; height:44mm;
+    transform:translate(-50%,-50%) rotate(-28deg);
+    background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 160'%3E%3Cpath d='M45 130V30H85Q125 30 125 80Q125 130 85 130Z M155 130L195 30L235 130M170 92H220 M265 130V30H305Q345 30 345 62Q345 94 305 94H265M305 94L350 130 M385 130V30H455M385 78H445 M480 30H565M522 30V130' fill='none' stroke='%23991b1b' stroke-width='18' stroke-linecap='square' stroke-linejoin='miter' opacity='.08'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:999; }
+  .rep-document-state { display:block; position:absolute; top:0; right:0; z-index:1000;
+    width:auto; max-width:48%; margin:0; padding:1mm 2mm; white-space:nowrap; }
+  .rep-document-state strong { font-size:9px; }
+  .rep-document-state span { display:none; }
   .rep-toolbar { display:none; }
-  .rep-paper { box-shadow:none; padding:0; max-width:none; }
+  .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
   thead { display:table-header-group; }
@@ -412,9 +509,9 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 }
 </style>
 </head>
-<body>
+<body${documentState ? ` class="rep-document-draft rep-document-${documentState.reason}"` : ''}>
 <div class="rep-toolbar">
-  <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
+  <button onclick="window.print()">${documentState ? '🖨️ 列印內部檢討版 / 存 PDF' : '🖨️ 列印 / 存 PDF'}</button>
   <button onclick="closeReportWindow()">✕ 關閉</button>
   <span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span>
 </div>
@@ -423,6 +520,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <h1>${esc(cfg.title || '計算書')}</h1>
     ${cfg.subtitle?`<div class="sub">${esc(cfg.subtitle)}</div>`:''}
   </div>
+  ${documentStateHtml}
   <div class="rep-meta${sourceTrace.tool ? ' rep-meta--traceable' : ''}">
     <div><b>計畫名稱</b>${esc(proj.name)||'—'}</div>
     <div><b>計畫編號</b>${esc(proj.no)||'—'}</div>

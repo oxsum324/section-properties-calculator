@@ -270,8 +270,10 @@ assert(
   '頁面專用閱讀狀態',
 );
 assert(
-  pageOnlyReportReadinessAdr.includes('must not be attached to calculation books') && pageOnlyReportReadinessAdr.includes('formal calculation attachments'),
-  'ADR records page-only report readiness decision',
+  pageOnlyReportReadinessAdr.includes('must not be copied into calculation books') &&
+    pageOnlyReportReadinessAdr.includes('Document classification is different from page diagnostics') &&
+    pageOnlyReportReadinessAdr.includes('DRAFT／非正式附件'),
+  'ADR records page-only diagnostics and calculation-book document-state decision',
   'docs/adr/0001-page-only-report-readiness.md',
 );
 assert(

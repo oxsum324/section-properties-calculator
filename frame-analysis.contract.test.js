@@ -45,7 +45,7 @@ function assertIncludesAll(source, needles, label) {
   });
 }
 
-function captureFrameReportHtml(source) {
+function captureFrameReportHtml(source, project = {}) {
   let reportHtml = '';
   const reportStatus = { textContent: '' };
   const reportLink = {
@@ -56,6 +56,12 @@ function captureFrameReportHtml(source) {
     },
   };
   const elements = new Map([
+    ['projName', { value: project.name || '' }],
+    ['projNo', { value: project.no || '' }],
+    ['projDesigner', { value: project.designer || '' }],
+    ['projNote', { value: project.note || '' }],
+    ['errorMsg', { textContent: '', style: { display: 'none' } }],
+    ['selfWeight', { checked: false }],
     ['reportStatus', reportStatus],
     ['reportLink', reportLink],
     ['geomCanvas', { toDataURL() { return 'data:image/png;base64,geom'; } }],
@@ -78,8 +84,10 @@ function captureFrameReportHtml(source) {
       memberLoads: [{ caseId: 1, member: 1, w: 1.5, dir: 'globalY' }],
       memberPointLoads: [{ caseId: 1, member: 1, P: 8, a: 3, dir: 'globalY' }],
       solution: {
+        comboText: '1D',
         validation: { checks: [{ level: 'ok', text: '模型基本自檢通過。' }] },
         equilibrium: {
+          ok: true,
           applied: { Fx: 0, Fy: -20, M: -72 },
           support: { Fx: 0, Fy: 20, M: 72 },
           residual: { Fx: 0, Fy: 0, M: 0 },
@@ -143,6 +151,7 @@ function captureFrameReportHtml(source) {
     },
   };
   vm.createContext(context);
+  vm.runInContext(sharedReportSource, context, { filename: 'shared-report-runtime' });
   [
     'asNonNegativeNumber',
     'springValue',
@@ -155,8 +164,14 @@ function captureFrameReportHtml(source) {
     'normalizeLoadCaseId',
     'comboFactor',
     'loadCaseName',
+    'formatActiveCombination',
     'escapeHtml',
     'fmtCheck',
+    'hasAnySpring',
+    'activeFrameLoadCount',
+    'getFrameProjectInfo',
+    'missingFrameProjectFields',
+    'frameReportReadinessModel',
     'setReportLink',
     'setReportStatus',
     'printReport',
@@ -213,6 +228,7 @@ function assertReportHtmlText(reportHtml, label, requiredNeedles, minLength = 70
 
 const frameAnalysisHtml = read(path.join('鋼架', '平面剛架分析.html'));
 const directPrintBoundary = read(path.join('結構工具箱', 'core', 'direct-print-boundary.css'));
+const sharedReportSource = read(path.join('結構工具箱', 'core', 'ui', 'report.js'));
 
 assert(!frameAnalysisHtml.includes('alert('), 'rigid frame avoids blocking alert', 'alert(');
 
@@ -238,6 +254,13 @@ assertIncludesAll(frameAnalysisHtml, [
   'id="reportStatus"',
   'id="reportLink"',
   'id="frameReportReadiness"',
+  'id="projName"',
+  'id="projNo"',
+  'id="projDesigner"',
+  '../結構工具箱/core/ui/report.js',
+  'function getFrameProjectInfo',
+  'assessFormalAttachment',
+  'buildReportTrace',
   'page-only-report-status',
   'page-only-tool-actions',
   'URL.createObjectURL(new Blob',
@@ -280,6 +303,13 @@ assertFunctionTemplateExcludes(frameAnalysisHtml, 'printReport', 'const html = `
 const frameReportRuntime = captureFrameReportHtml(frameAnalysisHtml);
 const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid frame runtime report', [
   '平面剛架分析 計算書',
+  '計畫名稱',
+  '計畫編號',
+  '設計人員',
+  '產出工具',
+  '工具版本',
+  '輸出時間',
+  '計算指紋',
   '分析組合',
   '節點',
   '桿件',
@@ -292,6 +322,7 @@ const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid fra
 assert(frameReportRuntime.html.includes('平面剛架分析 計算書'), 'rigid frame runtime report title', '平面剛架分析 計算書');
 assert(frameReportRuntime.html.includes('載重</h2>'), 'rigid frame runtime report keeps load table', '載重');
 assert(frameReportRuntime.html.includes('平衡檢核'), 'rigid frame runtime report keeps equilibrium section', '平衡檢核');
+assert(frameReportRuntime.html.includes('DRAFT／非正式附件 - 待人工複核'), 'rigid frame incomplete report is explicitly draft', 'DRAFT／非正式附件');
 assert(frameReportText.includes('節點 N2'), 'rigid frame visible report text keeps node data', '節點 N2');
 assert(frameReportText.includes('桿件 M1'), 'rigid frame visible report text keeps member data', '桿件 M1');
 assert(frameReportRuntime.href === 'blob:frame-report', 'rigid frame runtime report link set', frameReportRuntime.href);
@@ -300,5 +331,16 @@ assert(frameReportRuntime.status.includes('已產生計算書'), 'rigid frame ru
 for (const needle of pageOnlyReportStatusNeedles) {
   assert(!frameReportRuntime.html.includes(needle), 'rigid frame runtime report excludes page-only readiness wording', needle);
 }
+
+const readyFrameReport = captureFrameReportHtml(frameAnalysisHtml, {
+  name: 'Frame QA',
+  no: 'FR-001',
+  designer: 'Codex QA',
+  note: 'Ready attachment sample',
+});
+assert(!readyFrameReport.html.includes('DRAFT／非正式附件'), 'rigid frame complete report removes draft classification', 'formal attachment state');
+assert(readyFrameReport.html.includes('Frame QA'), 'rigid frame complete report keeps project name', 'Frame QA');
+assert(readyFrameReport.html.includes('FR-001'), 'rigid frame complete report keeps project number', 'FR-001');
+assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report keeps designer', 'Codex QA');
 
 console.log('\nFrame analysis contract checks passed.');

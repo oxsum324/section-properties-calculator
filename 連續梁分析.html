@@ -1652,11 +1652,14 @@ function continuousBeamReportReadinessModel() {
   const boundary = '頁面顯示，不進計算書、列印或 PDF';
   const currentError = (document.getElementById('errorMsg')?.textContent || '').trim();
   if (!solution || !diagrams) {
+    const failedItems = currentError ? [currentError] : ['分析結果尚未完成'];
     return {
       tone: 'blocked',
       label: '暫勿作附件',
       summary: currentError || '分析結果尚未完成，先不要產生計算書附件。',
       priority: currentError ? '先修正紅色錯誤訊息，再重新執行分析。' : '先執行分析，確認剪力圖、彎矩圖與撓度曲線已更新。',
+      failedItems,
+      reviewItems: [],
       items: [
         ['分析狀態', currentError ? '輸入需修正' : '未完成'],
         ['跨數 / 單位', `${model.numSpans || 0} 跨 / ${getUnitKey()}`],
@@ -1669,22 +1672,27 @@ function continuousBeamReportReadinessModel() {
   const missing = missingProjectFields();
   const reviewItems = [];
   const loadCount = model.loads.reduce((sum, arr) => sum + ((arr || []).length), 0);
-  if (missing.length) reviewItems.push(`缺 ${missing.join('、')}`);
   if (!loadCount) reviewItems.push('尚未輸入載重，內力圖需確認是否為空載案例');
   if (document.getElementById('iMode')?.value === 'direct') reviewItems.push('I 值為直接輸入，需確認來源');
   if (document.getElementById('matSelect')?.value === 'custom') reviewItems.push('材料 E 值為自訂，需確認專案依據');
   if (model.spans.some(sp => (sp.hinges || []).length)) reviewItems.push('含內絞點，需確認位置與模型假設');
   if (document.getElementById('ilEnabled')?.checked) reviewItems.push('影響線已啟用，需確認目標支承或位置為報告需要');
+  const readinessItems = [
+    ...(missing.length ? [`缺 ${missing.join('、')}`] : []),
+    ...reviewItems,
+  ];
 
   return {
-    tone: reviewItems.length ? 'review' : 'ready',
-    label: reviewItems.length ? '可作附件，需人工複核' : '可作附件',
-    summary: reviewItems.length
+    tone: readinessItems.length ? 'review' : 'ready',
+    label: readinessItems.length ? '可作附件，需人工複核' : '可作附件',
+    summary: readinessItems.length
       ? '分析結果已可閱讀，但仍有模型來源或表頭資料需人工複核。'
       : '分析結果、表頭與主要模型輸入已完成；可作為計算書附件候選。',
-    priority: reviewItems.length
-      ? `先確認：${reviewItems[0]}`
+    priority: readinessItems.length
+      ? `先確認：${readinessItems[0]}`
       : '先確認支承條件、載重組合與輸出圖形，再產出計算書。',
+    failedItems: [],
+    reviewItems,
     items: [
       ['分析狀態', '已完成'],
       ['跨數 / 單位', `${model.numSpans} 跨 / ${getUnitKey()}`],
@@ -2045,14 +2053,25 @@ function exportPDF() {
     });
   }
 
+  const project = {
+    name: getProjectFieldValue('projName'),
+    no: getProjectFieldValue('projNo'),
+    designer: getProjectFieldValue('projDesigner'),
+  };
+  const reportReadiness = continuousBeamReportReadinessModel();
+  const attachmentReadiness = window.ToolReportUI.assessFormalAttachment({
+    project,
+    calculated: !!solution && !!diagrams,
+    failedItems: reportReadiness.failedItems,
+    reviewItems: reportReadiness.reviewItems,
+  });
+
   openReport({
     title: '連續梁分析計算書',
     subtitle: `${n} 跨連續梁　｜　單位：${uk}`,
-    project: {
-      name:     getProjectFieldValue('projName'),
-      no:       getProjectFieldValue('projNo'),
-      designer: getProjectFieldValue('projDesigner'),
-    },
+    project,
+    documentState: attachmentReadiness.documentState,
+    documentClass: attachmentReadiness.documentClass,
     summary: { ok: null, text: '線彈性連續梁分析（Matrix Stiffness Method）' },
     inputs: [
       { group: '基本設定',   items: basicItems },
