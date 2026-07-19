@@ -140,15 +140,15 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 1,
-    generatedAt: '2026-07-19',
-    releaseVerifiedAt: '2026-07-19',
+    generatedAt: '2026-07-20',
+    releaseVerifiedAt: '2026-07-20',
     source: 'routeFileMap target Git history + current target worktree changes + tracked preflight release snapshot',
     routes: {
-      '/beam-analysis': '2026-07-19',
-      '/frame-analysis': '2026-07-19',
+      '/beam-analysis': '2026-07-20',
+      '/frame-analysis': '2026-07-20',
       '/struct-dx': '2026-07-19',
       '/section': '2026-07-19',
-      '/composite-section': '2026-07-19',
+      '/composite-section': '2026-07-20',
       '/rc-beam': '2026-07-18',
       '/rc-column': '2026-07-18',
       '/rc-slab': '2026-07-19',
