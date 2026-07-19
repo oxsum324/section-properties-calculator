@@ -1,4 +1,5 @@
 const assert = require('assert');
+const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -27,6 +28,8 @@ const pagesWorkflow = readText('.github/workflows/pages-deploy.yml');
 const pagesSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
 const pagesBrowserSmoke = readText('結構工具箱/tools/pages-live-browser-smoke.js');
 const pagesBrowserRunner = readText('結構工具箱/tools/run-pages-browser-smoke.sh');
+const artifactBuilderPath = path.join(repoRoot, '結構工具箱', 'tools', 'build-pages-artifact.js');
+const artifactBuilder = readText('結構工具箱/tools/build-pages-artifact.js');
 const deploymentManifestBuilderPath = path.join(repoRoot, '結構工具箱', 'tools', 'build-pages-deployment-manifest.js');
 const deploymentManifestBuilder = readText('結構工具箱/tools/build-pages-deployment-manifest.js');
 const artifactSmoke = readText('run-pages-artifact-smoke.ps1');
@@ -99,6 +102,44 @@ assert.ok(context.includes('不得') || context.includes('列印與 PDF 匯出�
 assert.ok(adr.includes('page-only') && adr.includes('must not be attached'), 'ADR records page-only delivery decision');
 
 {
+  const fixtureRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-artifact-builder-repo-'));
+  const fixtureSite = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-artifact-builder-site-'));
+  try {
+    childProcess.execFileSync('git', ['init', '--quiet', fixtureRepo]);
+    childProcess.execFileSync('git', ['-C', fixtureRepo, 'config', 'core.autocrlf', 'true']);
+    fs.writeFileSync(path.join(fixtureRepo, '.gitignore'), 'ignored.html\n', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, 'keep.html'), '<p>tracked</p>\n', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, 'deleted.html'), '<p>delete</p>\n', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, 'README.md'), '# private\n', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, 'secret.test.js'), 'throw new Error("private");\n', 'utf8');
+    fs.mkdirSync(path.join(fixtureRepo, 'dev_tools'), { recursive: true });
+    fs.writeFileSync(path.join(fixtureRepo, 'dev_tools', 'secret.html'), '<p>private</p>\n', 'utf8');
+    const privateBuilder = path.join(fixtureRepo, '結構工具箱', 'tools', 'build-pages-artifact.js');
+    fs.mkdirSync(path.dirname(privateBuilder), { recursive: true });
+    fs.writeFileSync(privateBuilder, 'module.exports = {};\n', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, 'ignored.html'), '<p>ignored</p>\n', 'utf8');
+    childProcess.execFileSync('git', ['-C', fixtureRepo, 'add', '-A']);
+
+    fs.writeFileSync(path.join(fixtureRepo, 'keep.html'), '<p>working change</p>\r\n', 'utf8');
+    fs.writeFileSync(path.join(fixtureRepo, 'new-page.html'), '<p>new page</p>\r\n', 'utf8');
+    fs.rmSync(path.join(fixtureRepo, 'deleted.html'));
+
+    const { stagePagesArtifact } = require(artifactBuilderPath);
+    const result = stagePagesArtifact({ repoRoot: fixtureRepo, siteRoot: fixtureSite });
+    assert.equal(result.publishedCount, 2, 'artifact builder stages tracked changes and non-ignored new published files only');
+    assert.equal(result.missingCount, 1, 'artifact builder omits tracked working-tree deletions');
+    assert.equal(fs.readFileSync(path.join(fixtureSite, 'keep.html'), 'utf8'), '<p>working change</p>\n', 'artifact builder applies Git clean filters to tracked changes');
+    assert.equal(fs.readFileSync(path.join(fixtureSite, 'new-page.html'), 'utf8'), '<p>new page</p>\n', 'artifact builder applies Git clean filters to new published files');
+    for (const privatePath of ['README.md', 'secret.test.js', 'dev_tools/secret.html', '結構工具箱/tools/build-pages-artifact.js', 'ignored.html', 'deleted.html']) {
+      assert.equal(fs.existsSync(path.join(fixtureSite, ...privatePath.split('/'))), false, `artifact builder excludes ${privatePath}`);
+    }
+  } finally {
+    fs.rmSync(fixtureRepo, { recursive: true, force: true });
+    fs.rmSync(fixtureSite, { recursive: true, force: true });
+  }
+}
+
+{
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-deployment-manifest-contract-'));
   try {
     fs.mkdirSync(path.join(fixtureRoot, 'assets'), { recursive: true });
@@ -129,15 +170,12 @@ assert.ok(adr.includes('page-only') && adr.includes('must not be attached'), 'AD
   }
 }
 
-assert.ok(pagesWorkflow.includes("--exclude='output/'"), 'Pages workflow excludes generated output');
-assert.ok(pagesWorkflow.includes("--exclude='*.md'"), 'Pages workflow excludes markdown docs');
-assert.ok(pagesWorkflow.includes("--exclude='*.ps1'"), 'Pages workflow excludes PowerShell helpers');
-assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/attachment-package-check.js'"), 'Pages workflow excludes attachment package checker');
-assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/rendered-delivery-evidence.js'"), 'Pages workflow excludes rendered delivery evidence helper');
-assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/rendered-delivery-evidence.inventory.json'"), 'Pages workflow excludes rendered delivery evidence inventory');
-assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/pages-live-browser-smoke.js'"), 'Pages workflow excludes browser smoke source');
-assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/run-pages-browser-smoke.sh'"), 'Pages workflow excludes browser smoke runner');
-assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/build-pages-deployment-manifest.js'"), 'Pages workflow excludes deployment manifest builder source');
+assert.ok(pagesWorkflow.includes('node "結構工具箱/tools/build-pages-artifact.js" --repo-root "." --site-root "_site"'), 'Pages workflow stages through the shared Git-inventory builder');
+assert.equal(pagesWorkflow.includes('rsync -a'), false, 'Pages workflow does not keep a second rsync exclusion policy');
+assert.ok(artifactBuilder.includes("'output'") && artifactBuilder.includes("'.md'") && artifactBuilder.includes("'.ps1'"), 'shared artifact builder excludes generated output, docs, and scripts');
+assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBuilder.includes('rendered-delivery-evidence.js'), 'shared artifact builder excludes delivery governance helpers');
+assert.ok(artifactBuilder.includes('GIT_INDEX_FILE') && artifactBuilder.includes("core.autocrlf=false") && artifactBuilder.includes("core.eol=lf"), 'shared artifact builder uses an isolated normalized Git index');
+assert.ok(artifactBuilder.includes("'--cached', '--others', '--exclude-standard'") && artifactBuilder.includes("'--pathspec-from-file=-'"), 'shared artifact builder stages tracked and non-ignored working files');
 assert.ok(pagesWorkflow.includes('pages-live-smoke.js') && pagesWorkflow.includes('--check-private-boundary'), 'Pages workflow runs private-boundary smoke before and after deploy');
 assert.ok(pagesWorkflow.includes('actions/setup-node@v6') && pagesWorkflow.includes('node-version: 24'), 'Pages browser smoke pins its Node runtime');
 const stagedGateIndex = pagesWorkflow.indexOf('- name: Verify staged Pages artifact');
@@ -176,6 +214,7 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.
 assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.inventory.json'), 'Pages smoke blocks rendered delivery evidence inventory publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/pages-live-browser-smoke.js'), 'Pages smoke blocks browser smoke source publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/run-pages-browser-smoke.sh'), 'Pages smoke blocks browser smoke runner publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-artifact.js'), 'Pages smoke blocks shared artifact builder publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-manifest.js'), 'Pages smoke blocks deployment manifest builder publication');
 assert.ok(pagesSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages smoke validates the public deployment manifest and expected commit');
 assert.ok(pagesSmoke.includes('deployed Pages runId matches the current workflow run') && pagesSmoke.includes('sha256-tree-v1'), 'Pages smoke validates workflow run and tree digest metadata');
@@ -196,22 +235,14 @@ assert.ok(toolBoundaries.includes('只有正式 live') && toolBoundaries.include
 assert.ok(staging.includes('暫態網路錯誤最多重試一次'), 'staging guide documents the bounded live retry rule');
 
 assert.ok(artifactSmoke.includes('GetTempPath'), 'local artifact smoke stages in temp');
-assert.ok(artifactSmoke.includes('robocopy'), 'local artifact smoke builds a staged site');
-assert.ok(artifactSmoke.includes("'output'"), 'local artifact smoke excludes output');
-assert.ok(artifactSmoke.includes("'.claude'"), 'local artifact smoke excludes local worktrees');
-assert.ok(artifactSmoke.includes("'node_modules'"), 'local artifact smoke excludes node_modules');
+assert.ok(artifactSmoke.includes('$ArtifactBuilder') && artifactSmoke.includes('--repo-root $RepoRoot --site-root $SiteRoot'), 'local artifact smoke uses the shared Git-inventory builder');
+assert.equal(artifactSmoke.includes('robocopy'), false, 'local artifact smoke does not keep a second robocopy exclusion policy');
 assert.ok(artifactSmoke.includes('pages-live-smoke.js'), 'local artifact smoke reuses Pages smoke');
 assert.ok(artifactSmoke.includes('pages-live-browser-smoke.js'), 'local artifact smoke reuses Pages browser smoke');
-assert.ok(artifactSmoke.includes("'pages-live-browser-smoke.js'"), 'local artifact smoke excludes browser smoke source');
-assert.ok(artifactSmoke.includes("'run-pages-browser-smoke.sh'"), 'local artifact smoke excludes browser smoke runner');
-assert.ok(artifactSmoke.includes("'build-pages-deployment-manifest.js'"), 'local artifact smoke excludes deployment manifest builder source');
 assert.ok(artifactSmoke.includes('$DeploymentManifestBuilder') && artifactSmoke.includes('--expected-commit-sha $CommitSha'), 'local artifact smoke builds and verifies deployment provenance');
 assert.ok(artifactSmoke.includes('$SourceDirty') && artifactSmoke.includes('--source-dirty $SourceDirty.ToString().ToLowerInvariant()'), 'local artifact smoke records dirty source state honestly');
 assert.ok(artifactSmoke.includes("@playwright/cli@0.1.17") && artifactSmoke.includes("terser@5.49.0"), 'local artifact smoke pins the browser CLI and minifier');
 assert.ok(artifactSmoke.includes('ConvertFrom-Json') && artifactSmoke.includes('$BrowserResult.isError'), 'local artifact smoke fails on Playwright CLI JSON errors');
-assert.ok(artifactSmoke.includes("'attachment-package-check.js'"), 'local artifact smoke excludes attachment package checker');
-assert.ok(artifactSmoke.includes("'rendered-delivery-evidence.js'"), 'local artifact smoke excludes rendered delivery evidence helper');
-assert.ok(artifactSmoke.includes("'rendered-delivery-evidence.inventory.json'"), 'local artifact smoke excludes rendered delivery evidence inventory');
 assert.ok(artifactSmoke.includes('--check-private-boundary'), 'local artifact smoke keeps private-boundary check');
 assert.equal(artifactSmoke.includes('--allow-local-output'), false, 'local artifact smoke must not allow repo-root output');
 

@@ -23,6 +23,12 @@ $BrowserSmokeScript = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'pag
 if (-not $BrowserSmokeScript) {
   throw 'Could not find pages-live-browser-smoke.js under the repository tools directories.'
 }
+$ArtifactBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pages-artifact.js' |
+  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)build-pages-artifact.js" } |
+  Select-Object -First 1
+if (-not $ArtifactBuilder) {
+  throw 'Could not find build-pages-artifact.js under the repository tools directory.'
+}
 $RouteBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pages-clean-routes.js' |
   Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)build-pages-clean-routes.js" } |
   Select-Object -First 1
@@ -47,81 +53,10 @@ if (-not $Npx) {
 
 $Stamp = Get-Date -Format 'yyyyMMddHHmmss'
 $SiteRoot = Join-Path ([IO.Path]::GetTempPath()) "struct-tools-pages-artifact-$Stamp"
-New-Item -ItemType Directory -Path $SiteRoot | Out-Null
 
-$ExcludeDirs = @(
-  '.git',
-  '.github',
-  '.claude',
-  '.codex',
-  '_site',
-  'output',
-  'dev_tools',
-  'tests',
-  'node_modules',
-  '.vite',
-  '.playwright-cli',
-  '.pytest_cache',
-  '__pycache__',
-  '.column-testdeps',
-  '.foundation-testdeps',
-  '.single-pile-testdeps',
-  '.slab-testdeps',
-  'app_data',
-  'tmp',
-  '_tmp'
-)
-$DynamicExcludeDirs = @()
-$DynamicExcludeDirs += Get-ChildItem -LiteralPath $RepoRoot -Recurse -Directory -Filter 'bolt-review-tool' -ErrorAction SilentlyContinue |
-  Where-Object { $_.FullName -notlike "*$([IO.Path]::DirectorySeparatorChar).claude$([IO.Path]::DirectorySeparatorChar)*" } |
-  Select-Object -ExpandProperty FullName
-$DynamicExcludeDirs += Get-ChildItem -LiteralPath $RepoRoot -Recurse -Directory -Filter 'backend' -ErrorAction SilentlyContinue |
-  Where-Object {
-    $_.FullName -notlike "*$([IO.Path]::DirectorySeparatorChar).claude$([IO.Path]::DirectorySeparatorChar)*" -and
-    (Test-Path -LiteralPath (Join-Path $_.FullName 'app/main.py'))
-  } |
-  Select-Object -ExpandProperty FullName
-$DynamicExcludeDirs += Get-ChildItem -LiteralPath $RepoRoot -Recurse -Directory -Filter 'frontend' -ErrorAction SilentlyContinue |
-  Where-Object {
-    $_.FullName -notlike "*$([IO.Path]::DirectorySeparatorChar).claude$([IO.Path]::DirectorySeparatorChar)*" -and
-    (Test-Path -LiteralPath (Join-Path $_.FullName 'src/App.tsx')) -and
-    (Test-Path -LiteralPath (Join-Path $_.FullName 'package.json'))
-  } |
-  Select-Object -ExpandProperty FullName
-$ExcludeDirs += $DynamicExcludeDirs
-$ExcludeFiles = @(
-  'README.md',
-  'STAGING_GROUPS.md',
-  'TOOL_BOUNDARIES.md',
-  'TOOL_REPORT_GUIDE.md',
-  'pages-live-smoke.js',
-  'pages-live-browser-smoke.js',
-  'run-pages-browser-smoke.sh',
-  'build-pages-clean-routes.js',
-  'build-pages-deployment-manifest.js',
-  'attachment-package-check.js',
-  'rendered-delivery-evidence.js',
-  'rendered-delivery-evidence.inventory.json',
-  '*.py',
-  '*.pyc',
-  '*.reg',
-  '*.ts',
-  '*.tsx',
-  '*.tgz',
-  'package.json',
-  'package-lock.json',
-  'requirements.txt',
-  'vite.config.*',
-  '*.ps1',
-  '*.bat',
-  '*.test.js',
-  '*.contract.test.js',
-  '*.md'
-)
-
-& robocopy $RepoRoot $SiteRoot /E /XD $ExcludeDirs /XF $ExcludeFiles /NFL /NDL /NJH /NJS /NP | Out-Null
-if ($LASTEXITCODE -gt 7) {
-  throw "robocopy failed with exit code $LASTEXITCODE"
+& node $ArtifactBuilder.FullName --repo-root $RepoRoot --site-root $SiteRoot
+if ($LASTEXITCODE -ne 0) {
+  throw "build-pages-artifact.js failed with exit code $LASTEXITCODE"
 }
 & node $RouteBuilder.FullName --site-root $SiteRoot --config (Join-Path $RepoRoot 'vercel.json')
 if ($LASTEXITCODE -ne 0) {
