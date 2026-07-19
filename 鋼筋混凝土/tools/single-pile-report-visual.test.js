@@ -175,6 +175,8 @@ async function reportMetrics(report) {
     const clean = s => String(s || '').replace(/\s+/g, ' ').trim();
     const paper = document.querySelector('.rep-paper');
     const paperRect = paper?.getBoundingClientRect();
+    const calculationPaper = paper?.cloneNode(true);
+    calculationPaper?.querySelector('.rep-document-state')?.remove();
     const overflowing = [...document.querySelectorAll('.rep-paper table, .rep-paper th, .rep-paper td, .rep-paper figure, .rep-paper pre, .rep-paper img')]
       .filter(el => el.scrollWidth > el.clientWidth + 2)
       .slice(0, 12)
@@ -189,7 +191,11 @@ async function reportMetrics(report) {
       title: clean(document.querySelector('h1')?.textContent),
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
+      documentState: document.querySelector('.rep-document-state')?.dataset.documentState || '',
+      documentReason: document.querySelector('.rep-document-state')?.dataset.documentReason || '',
+      documentStateText: clean(document.querySelector('.rep-document-state')?.textContent),
       bodyText: clean(document.body.innerText),
+      calculationText: clean(calculationPaper?.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       stepCount: document.querySelectorAll('.rep-step').length,
       diagramCount: document.querySelectorAll('.rep-diagram img').length,
@@ -236,6 +242,9 @@ async function main() {
 
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${key} tool page loads`, `status=${response && response.status()}`);
+      await page.fill('#projName', 'RC 單樁正式附件測試');
+      await page.fill('#projNo', 'RC-PILE-001');
+      await page.fill('#projDesigner', 'QA');
       await applyCase(page, key);
       await page.waitForTimeout(300);
 
@@ -254,6 +263,7 @@ async function main() {
         control: window.singlePileLast?.recommendation || window.singlePileLast?.displayCandidate,
         mode: window.singlePileLast?.calcMode,
         readinessText: document.getElementById('singlePileAttachmentReadinessCard')?.innerText?.replace(/\s+/g, ' ').trim() || '',
+        readinessStatus: document.getElementById('singlePileAttachmentReadiness')?.dataset.attachmentStatus || '',
       }));
       assert(state.hasReportButton, `${key} report button exists`, 'btnReport');
       assert(state.hasOpenReport, `${key} shared report module loaded`, 'openReport');
@@ -261,6 +271,7 @@ async function main() {
       assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
       assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
       assert(state.readinessText.includes('優先閱讀'), `${key} page attachment readiness priority`, state.readinessText);
+      assert(state.readinessText.includes('案件識別資料') && state.readinessText.includes('完整'), `${key} page metadata completeness`, state.readinessText);
       if (expected.expectedSnapshot === 'OK') {
         assert(state.best && state.best.diaCm >= 40, `${key} recommendation exists`, `D=${state.best?.diaCm}`);
         assert(state.summaryOk === true, `${key} summary snapshot OK`, state.summaryStatusText);
@@ -298,12 +309,16 @@ async function main() {
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {
         assert,
-        include: ['單樁', '承載力', '計算書'],
+        include: ['單樁', '承載力', '計算書', ...(state.readinessStatus === 'ready' ? [] : ['DRAFT／非正式附件'])],
+        exclude: state.readinessStatus === 'ready' ? ['DRAFT／非正式附件'] : [],
       });
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === '單樁承載力設計計算書', `${key} report title`, metrics.title);
       assert(!metrics.hasReportSummary, `${key} report status summary hidden`, 'no .rep-summary');
+      const expectedDraft = state.readinessStatus !== 'ready';
+      assert(metrics.documentState === (expectedDraft ? 'draft' : ''), `${key} report document class follows page readiness`, `${state.readinessStatus} -> ${metrics.documentState || 'ready'}`);
+      assert(metrics.documentReason === (state.readinessStatus === 'blocked' ? 'blocked' : expectedDraft ? 'review' : ''), `${key} report document reason`, metrics.documentReason || 'ready');
       assert(metrics.checkGroupCount >= 3, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.stepCount >= 4, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagram`, `count=${metrics.diagramCount}`);
@@ -325,7 +340,7 @@ async function main() {
         '不列為 OK 結論',
         '需補充資料確認',
       ]) {
-        assert(!metrics.bodyText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
+        assert(!metrics.calculationText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
       }
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
       assert(metrics.overflowSample.length === 0, `${key} report element overflow`, metrics.overflowSample.map(o => `${o.tag}.${o.cls}`).join(', ') || 'none');
@@ -335,6 +350,18 @@ async function main() {
       assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], `${key} pdf written`);
 
       await report.close();
+      if (state.readinessStatus === 'ready') {
+        await page.fill('#projNo', '');
+        await page.waitForTimeout(150);
+        const degradedReport = await openReportPopup(page);
+        attachPageGuards(degradedReport, guard, `${key}:metadata-degraded-report`);
+        await degradedReport.waitForSelector('.rep-paper', { timeout: 10000 });
+        const degradedMetrics = await reportMetrics(degradedReport);
+        assert(degradedMetrics.documentState === 'draft', `${key} missing metadata downgrades report document class`, degradedMetrics.documentState || 'ready');
+        assert(degradedMetrics.documentReason === 'review', `${key} missing metadata downgrades report reason`, degradedMetrics.documentReason || 'ready');
+        assert(degradedMetrics.documentStateText.includes('計畫編號'), `${key} missing metadata is named in report classification`, degradedMetrics.documentStateText);
+        await degradedReport.close();
+      }
       await page.close();
     }
   } finally {

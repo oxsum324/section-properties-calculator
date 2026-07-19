@@ -520,6 +520,8 @@
 </div>
 
 <script src="結構工具箱/core/ui/report.js"></script>
+<script src="鋼筋混凝土/shared/common.js"></script>
+<script src="鋼筋混凝土/shared/report.js"></script>
 <script>
 const PI = Math.PI;
 function val(id) { const el=document.getElementById(id); return el? (parseFloat(el.value)||0) : 0; }
@@ -554,6 +556,39 @@ function missingProjectFields() {
   return fields
     .filter(([, id]) => !getProjectFieldValue(id))
     .map(([label]) => label);
+}
+function getRetrofitProjectInfo() {
+  return {
+    name: getProjectFieldValue('projName'),
+    no: getProjectFieldValue('projNo'),
+    designer: getProjectFieldValue('projDesigner'),
+  };
+}
+function assessBeamRetrofitAttachmentReadiness(data, project = getRetrofitProjectInfo()) {
+  const failedItems = [];
+  const reviewItems = [];
+  if (data?.shear?.shearRatio !== null && data?.shear?.shearRatio > 1) failedItems.push('剪力需求 Vu/φVn > 1.0');
+  if (data?.shear?.Vs_Vf_capped) reviewItems.push('剪力補強貢獻達規範上限');
+  if (data && data?.shear?.shearRatio === null) reviewItems.push('尚未輸入 Vu，剪力需求需人工確認');
+  return window.RCUI.assessFormalAttachment({
+    project,
+    calculated: !!data,
+    failedItems,
+    reviewItems,
+  });
+}
+function assessColumnRetrofitAttachmentReadiness(data, project = getRetrofitProjectInfo()) {
+  const failedItems = [];
+  const reviewItems = [];
+  if (data?.pm?.checkRatio_conf !== null && data?.pm?.checkRatio_conf > 1) failedItems.push('P-M 需求 Mu/φMn > 1.0');
+  if (data?.shear?.Vs_Vj_capped) reviewItems.push('剪力補強貢獻達規範上限');
+  if (data && data?.pm?.checkRatio_conf === null) reviewItems.push('P-M 需求點未形成可判定之容量交點');
+  return window.RCUI.assessFormalAttachment({
+    project,
+    calculated: !!data,
+    failedItems,
+    reviewItems,
+  });
 }
 function readinessBase(kind, data) {
   if (!data) {
@@ -662,14 +697,26 @@ function buildColumnReadinessModel(data) {
 function renderReportReadiness(targetId, model) {
   const el = document.getElementById(targetId);
   if (!el) return;
-  el.className = `report-readiness page-only-report-status ${model.tone}`;
+  const attachmentReadiness = targetId === 'b-report-readiness'
+    ? assessBeamRetrofitAttachmentReadiness(lastBeam)
+    : assessColumnRetrofitAttachmentReadiness(lastCol);
+  const tone = attachmentReadiness.status === 'neutral' ? model.tone : attachmentReadiness.status;
+  const label = tone === 'blocked'
+    ? '暫勿作附件'
+    : tone === 'review'
+      ? '可作附件，需人工複核'
+      : tone === 'ready'
+        ? '可作附件'
+        : model.label;
+  el.dataset.attachmentStatus = attachmentReadiness.status;
+  el.className = `report-readiness page-only-report-status ${tone}`;
   el.innerHTML = `
     <div class="report-readiness-head">
       <div>
         <p class="report-readiness-kicker">頁面輔助</p>
         <h3>產報前檢查</h3>
       </div>
-      <span class="report-readiness-badge">${model.label}</span>
+      <span class="report-readiness-badge">${label}</span>
     </div>
     <p class="report-readiness-summary">${model.summary}</p>
     <div class="report-readiness-priority"><span>優先閱讀</span><strong>${model.priority}</strong></div>
@@ -2201,14 +2248,14 @@ function exportBeamReport() {
   ];
 
   const cvs = document.getElementById('beamCanvas');
+  const project = getRetrofitProjectInfo();
+  const attachmentReadiness = assessBeamRetrofitAttachmentReadiness(lastBeam, project);
   openReport({
     title: 'RC 梁補強斷面計算書',
     subtitle: `${g.b_mm}×${g.h_mm} 矩形梁　｜　${modeTxt}`,
-    project: {
-      name: getProjectFieldValue('projName'),
-      no:   getProjectFieldValue('projNo'),
-      designer: getProjectFieldValue('projDesigner'),
-    },
+    project,
+    documentState: attachmentReadiness.documentState,
+    documentClass: attachmentReadiness.documentClass,
     summary: { ok:null, text:`補強後 φMn = ${fmt(u.res.phi*u.res.Mn/1e5)} tf·m；φVn = ${fmt(sh.phiVn/1000)} tf` },
     diagrams: [{ title:'梁斷面示意', dataURL: cvs.toDataURL('image/png'), width: 360 }],
     inputs: [
@@ -2320,14 +2367,14 @@ function exportColReport() {
 
   const cvs = document.getElementById('colCanvas');
   const pmCvs = document.getElementById('pmCanvas');
+  const project = getRetrofitProjectInfo();
+  const attachmentReadiness = assessColumnRetrofitAttachmentReadiness(lastCol, project);
   openReport({
     title: 'RC 柱補強斷面計算書',
     subtitle: `${g.b_mm}×${g.h_mm} 矩形柱　｜　${modeTxt}`,
-    project: {
-      name: getProjectFieldValue('projName'),
-      no:   getProjectFieldValue('projNo'),
-      designer: getProjectFieldValue('projDesigner'),
-    },
+    project,
+    documentState: attachmentReadiness.documentState,
+    documentClass: attachmentReadiness.documentClass,
     summary: { ok:null, text:`補強後 φPn,max = ${fmt(0.65*d.axial.Pn_max_conf/1000)} tf；φVn = ${fmt(sh.phiVn/1000)} tf` },
     diagrams: [
       { title:'柱斷面示意', dataURL: cvs.toDataURL('image/png'), width: 380 },

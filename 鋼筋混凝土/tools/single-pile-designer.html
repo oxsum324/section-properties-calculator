@@ -387,7 +387,21 @@
       </div>
 
       <div class="card page-only-case-tools">
-        <h2>場址快捷帶入</h2>
+        <h2>案件資料與場址快捷帶入</h2>
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div class="form-group">
+            <label for="projName">計畫名稱</label>
+            <input id="projName" type="text" placeholder="計畫名稱">
+          </div>
+          <div class="form-group">
+            <label for="projNo">計畫編號</label>
+            <input id="projNo" type="text" placeholder="計畫編號">
+          </div>
+          <div class="form-group">
+            <label for="projDesigner">設計人</label>
+            <input id="projDesigner" type="text" placeholder="設計人">
+          </div>
+        </div>
         <div class="preset-grid">
           <button id="btnPresetBh5" type="button" class="preset-btn secondary">高捷紅線 R17 BH-5<small>粉質細砂為主，示範短樁搜尋</small></button>
           <button id="btnPresetB031" type="button" class="preset-btn secondary">高捷紅線 R17 B-031<small>含泥岩層，示範深樁搜尋</small></button>
@@ -734,18 +748,20 @@
     'simpleFs1Long', 'simpleFs2Long', 'simpleFs1Short', 'simpleFs2Short', 'upliftSafetyFactor',
     'soilProfile'
   ];
+  const PROJECT_METADATA_FIELD_IDS = ['projName', 'projNo', 'projDesigner'];
+  const CASE_FIELD_IDS = [...PROJECT_METADATA_FIELD_IDS, ...FIELD_IDS];
   const SOIL_ONLY_FIELD_IDS = ['soilProfile'];
 
-  function captureCurrentState() {
+  function captureCurrentState(fieldIds = CASE_FIELD_IDS) {
     const state = {};
-    FIELD_IDS.forEach(id => {
+    fieldIds.forEach(id => {
       const el = $(id);
       if (el) state[id] = el.value;
     });
     return state;
   }
 
-  function applyState(state, fieldIds = FIELD_IDS) {
+  function applyState(state, fieldIds = CASE_FIELD_IDS) {
     fieldIds.forEach(id => {
       const el = $(id);
       if (el && Object.prototype.hasOwnProperty.call(state, id)) el.value = state[id];
@@ -754,7 +770,7 @@
 
   function saveUserDefaults() {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(captureCurrentState()));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(captureCurrentState(FIELD_IDS)));
       $('presetSummary').textContent = '已將目前頁面上的載重、搜尋範圍、細部參數與土層資料保存為你的自訂預設值。重新開啟此頁時會自動載入。';
     } catch (err) {
       $('presetSummary').textContent = `儲存自訂預設失敗：${err && err.message ? err.message : err}`;
@@ -766,7 +782,7 @@
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (!raw) return false;
       const state = JSON.parse(raw);
-      applyState(state);
+      applyState(state, FIELD_IDS);
       $('presetSummary').textContent = '已載入你先前保存的自訂預設值。快捷鍵仍只會更新土層資料。';
       return true;
     } catch (err) {
@@ -1611,6 +1627,28 @@ ${gainText}`;
     node.hidden = !message;
   }
 
+  function getSinglePileProjectInfo() {
+    return window.RCUI.getProjectMetadataState({
+      name: $('projName')?.value,
+      no: $('projNo')?.value,
+      designer: $('projDesigner')?.value
+    }).project;
+  }
+
+  function assessSinglePileAttachmentReadiness(r, project = getSinglePileProjectInfo()) {
+    const candidate = r?.bestCandidate || r?.displayCandidate || null;
+    const failedItems = [];
+    if (Array.isArray(r?.errors)) failedItems.push(...r.errors);
+    if (r && !r.ok) failedItems.push('搜尋範圍內沒有完全通過的單樁方案。');
+    if (candidate?.pass === false) failedItems.push(...(candidate.reasons || []));
+    return window.RCUI.assessFormalAttachment({
+      project,
+      calculated: !!r && (!!candidate || failedItems.length > 0),
+      failedItems,
+      reviewItems: Array.isArray(r?.reviewWarnings) ? r.reviewWarnings : []
+    });
+  }
+
   function updateSinglePileAttachmentReadiness(r) {
     const hostId = 'singlePileAttachmentReadiness';
     if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
@@ -1634,18 +1672,17 @@ ${gainText}`;
       return;
     }
     const candidate = r.bestCandidate || r.displayCandidate;
-    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
-    const failed = [];
-    if (!r.ok) failed.push('搜尋範圍內沒有完全通過的單樁方案。');
-    if (candidate && candidate.pass === false) {
-      (candidate.reasons || []).forEach(reason => failed.push(reason));
-    }
-    const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
-    const label = failed.length ? '暫勿作附件' : reviewWarnings.length ? '待人工複核' : '可送簽';
+    const attachmentReadiness = assessSinglePileAttachmentReadiness(r);
+    window.lastSinglePileAttachmentReadiness = attachmentReadiness;
+    const reviewWarnings = attachmentReadiness.unresolvedReviewItems;
+    const failed = attachmentReadiness.failedItems;
+    const status = attachmentReadiness.status;
+    const label = status === 'blocked' ? '暫勿作附件' : status === 'review' ? '待人工複核' : '可送簽';
     const items = [
       { label: '候選方案', value: candidate ? `D ${candidate.diaCm} cm / L ${Number(candidate.depthM).toFixed(1)} m` : '未建立', tone: candidate ? (failed.length ? 'fail' : 'ok') : 'fail' },
       { label: '承載 / 沉陷 / 樁身', value: failed.length ? '未完整通過' : '數值通過', tone: failed.length ? 'fail' : 'ok' },
       { label: '人工複核', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
+      { label: '案件識別資料', value: attachmentReadiness.metadata.complete ? '完整' : `缺 ${attachmentReadiness.metadata.missingItems.join('、')}`, tone: attachmentReadiness.metadata.complete ? 'ok' : 'warn' },
       ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' })),
       ...failed.map((text, index) => ({ label: `阻擋 ${index + 1}`, value: text, tone: 'fail' }))
     ];
@@ -1653,7 +1690,7 @@ ${gainText}`;
       status,
       label,
       items,
-      notes: [boundaryNote, '人工複核項目仍須由地工資料、專案規範或設計者判斷補齊。']
+      notes: [boundaryNote, attachmentReadiness.metadata.complete ? '' : `可送簽版尚缺：${attachmentReadiness.metadata.missingItems.join('、')}。`, '人工複核項目仍須由地工資料、專案規範或設計者判斷補齊。']
     });
   }
 
@@ -1673,11 +1710,16 @@ ${gainText}`;
     const candidate = r.bestCandidate || r.displayCandidate;
     const tipName = layerLabel(candidate.tip.tipLayer);
     const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : collectSinglePileReviewWarnings(r.params, r.compliance);
+    const proj = getSinglePileProjectInfo();
+    const attachmentReadiness = assessSinglePileAttachmentReadiness(r, proj);
     const diagram = buildPileProfileDiagram(candidate, r.soilLayers);
 
     openReport({
       title: '單樁承載力設計計算書',
       subtitle: 'RC 工具箱 · 單樁承載力、沉陷與樁身初步檢核',
+      project: proj,
+      documentState: attachmentReadiness.documentState,
+      documentClass: attachmentReadiness.documentClass,
       inputs: [
         { group: '載重與材料', items: [
           { label: '長期 / 短期服務載重', value: `${fmt(params.longTermLoad)} / ${fmt(params.shortTermLoad)}`, unit: 'tf' },
@@ -1972,6 +2014,9 @@ ${preset.note}
   });
   $('btnSaveDraft').addEventListener('click', saveProjectDraft);
   $('btnLoadDraft').addEventListener('click', loadProjectDraft);
+  PROJECT_METADATA_FIELD_IDS.forEach(id => {
+    $(id)?.addEventListener('input', () => updateSinglePileAttachmentReadiness(window.singlePileLast));
+  });
   document.querySelectorAll('input, select, textarea').forEach(el => {
     el.addEventListener('change', calc);
   });

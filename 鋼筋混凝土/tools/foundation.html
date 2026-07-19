@@ -3756,6 +3756,24 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
     return [];
   }
 
+  function getFoundationProjectInfo() {
+    return window.RCUI.getProjectMetadataState({
+      name: $('projName')?.value,
+      no: $('projNo')?.value,
+      designer: $('projDesigner')?.value
+    }).project;
+  }
+
+  function assessFoundationAttachmentReadiness(r, project = getFoundationProjectInfo()) {
+    const checks = collectFoundationAttachmentChecks(r);
+    return window.RCUI.assessFormalAttachment({
+      project,
+      calculated: !!r,
+      failedItems: checks.filter(([, ok]) => ok === false).map(([label]) => label),
+      reviewItems: Array.isArray(r?.reviewWarnings) ? r.reviewWarnings : []
+    });
+  }
+
   function updateFoundationAttachmentReadiness(r) {
     if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
     const hostId = 'foundationAttachmentReadiness';
@@ -3769,15 +3787,17 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       });
       return;
     }
-    const checks = collectFoundationAttachmentChecks(r);
-    const failed = checks.filter(([, ok]) => ok === false).map(([label]) => label);
-    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
-    const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
-    const label = failed.length ? '暫勿作附件' : reviewWarnings.length ? '待人工複核' : '可送簽';
+    const attachmentReadiness = assessFoundationAttachmentReadiness(r);
+    window.lastFoundationAttachmentReadiness = attachmentReadiness;
+    const failed = attachmentReadiness.failedItems;
+    const reviewWarnings = attachmentReadiness.unresolvedReviewItems;
+    const status = attachmentReadiness.status;
+    const label = status === 'blocked' ? '暫勿作附件' : status === 'review' ? '待人工複核' : '可送簽';
     const items = [
       { label: '分頁', value: ({ iso:'獨立基腳', combined:'聯合基腳', mat:'筏式基礎', pile:'樁基／樁帽', retain:'擋土牆', seismic:'耐震' })[r.tab] || r.tab || '未指定', tone: 'neutral' },
       { label: '主要檢核', value: failed.length ? `${failed.length} 項未通過` : '數值通過', tone: failed.length ? 'fail' : 'ok' },
       { label: '正式分析需求', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
+      { label: '案件識別資料', value: attachmentReadiness.metadata.complete ? '完整' : `缺 ${attachmentReadiness.metadata.missingItems.join('、')}`, tone: attachmentReadiness.metadata.complete ? 'ok' : 'warn' },
       ...failed.map((label, index) => ({ label: `阻擋 ${index + 1}`, value: label, tone: 'fail' })),
       ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' }))
     ];
@@ -3785,7 +3805,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       status,
       label,
       items,
-      notes: [boundaryNote, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
+      notes: [boundaryNote, attachmentReadiness.metadata.complete ? '' : `可送簽版尚缺：${attachmentReadiness.metadata.missingItems.join('、')}。`, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
     });
   }
 
@@ -4223,6 +4243,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       no: window.RCUI.normalizeProjectFieldValue($('projNo').value),
       designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
     };
+    const attachmentReadiness = assessFoundationAttachmentReadiness(r, proj);
     const tabNames = { iso:'獨立基腳', combined:'聯合基腳', mat:'筏式基礎', pile:'樁基／樁帽', retain:'擋土牆', seismic:'耐震' };
     const modeStr = currentMode === 'design' ? '設計' : '檢核';
 
@@ -4475,6 +4496,8 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
       subtitle: `RC 工具箱 · 112 年混凝土結構設計規範`,
       project: proj,
+      documentState: attachmentReadiness.documentState,
+      documentClass: attachmentReadiness.documentClass,
       inputs,
       checks,
       steps,

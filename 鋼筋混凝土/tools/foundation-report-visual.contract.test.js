@@ -6,6 +6,7 @@ const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'foundation-report-visual.test.js');
 const testFoundationPath = path.join(toolsDir, 'test-foundation.ps1');
 const casesPath = path.join(toolsDir, 'foundation-regression-cases.json');
+const toolPath = path.join(toolsDir, 'foundation.html');
 
 function read(file) {
   assert.ok(fs.existsSync(file), `missing required file: ${file}`);
@@ -19,6 +20,14 @@ function assertIncludes(text, needle, label) {
 const visual = read(visualPath);
 const testFoundation = read(testFoundationPath);
 const cases = JSON.parse(read(casesPath));
+const tool = read(toolPath);
+
+[
+  'assessFoundationAttachmentReadiness',
+  'documentState: attachmentReadiness.documentState',
+  'documentClass: attachmentReadiness.documentClass',
+  '案件識別資料',
+].forEach(needle => assertIncludes(tool, needle, 'foundation formal attachment state wiring'));
 
 [
   'iso_default',
@@ -45,6 +54,12 @@ const cases = JSON.parse(read(casesPath));
   'page attachment readiness card',
   'page attachment readiness boundary',
   'page attachment readiness priority',
+  'page metadata completeness',
+  'documentState',
+  'documentReason',
+  'calculationText',
+  'report document class follows page readiness',
+  'DRAFT／非正式附件',
   'report excludes page-only status',
   '不列為 OK 結論',
   'assertReportScreenshotQuality(screenshotPath',

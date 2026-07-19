@@ -5,6 +5,7 @@ const path = require('path');
 const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'single-pile-report-visual.test.js');
 const testSinglePilePath = path.join(toolsDir, 'test-single-pile.ps1');
+const toolPath = path.join(toolsDir, 'single-pile-designer.html');
 
 function read(file) {
   assert.ok(fs.existsSync(file), `missing required file: ${file}`);
@@ -17,6 +18,16 @@ function assertIncludes(text, needle, label) {
 
 const visual = read(visualPath);
 const testSinglePile = read(testSinglePilePath);
+const tool = read(toolPath);
+
+[
+  'PROJECT_METADATA_FIELD_IDS',
+  'projName',
+  'assessSinglePileAttachmentReadiness',
+  'documentState: attachmentReadiness.documentState',
+  'documentClass: attachmentReadiness.documentClass',
+  '案件識別資料',
+].forEach(needle => assertIncludes(tool, needle, 'single pile formal attachment state wiring'));
 
 [
   'default_code',
@@ -37,12 +48,19 @@ const testSinglePile = read(testSinglePilePath);
   'page attachment readiness card',
   'page attachment readiness boundary',
   'page attachment readiness priority',
+  'page metadata completeness',
+  'documentState',
+  'documentReason',
+  'calculationText',
+  'report document class follows page readiness',
+  'missing metadata downgrades report document class',
+  'DRAFT／非正式附件',
   '人工複核 / 補充資料需求',
   '不列為 OK 結論',
   'report excludes page-only status',
   'assertReportScreenshotQuality(screenshotPath',
   'assertReportPdfTextQuality(pdfPath',
-  "include: ['單樁', '承載力', '計算書']",
+  "'單樁', '承載力', '計算書'",
   'screenshotQuality',
   'pdfTextQuality',
   'assertArtifact(screenshotPath',

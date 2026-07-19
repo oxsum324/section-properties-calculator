@@ -296,6 +296,8 @@ async function reportMetrics(report) {
     const clean = s => String(s || '').replace(/\s+/g, ' ').trim();
     const paper = document.querySelector('.rep-paper');
     const paperRect = paper?.getBoundingClientRect();
+    const calculationPaper = paper?.cloneNode(true);
+    calculationPaper?.querySelector('.rep-document-state')?.remove();
     const overflowing = [...document.querySelectorAll('.rep-paper table, .rep-paper th, .rep-paper td, .rep-paper figure, .rep-paper pre')]
       .filter(el => el.scrollWidth > el.clientWidth + 2)
       .slice(0, 12)
@@ -311,7 +313,11 @@ async function reportMetrics(report) {
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
+      documentState: document.querySelector('.rep-document-state')?.dataset.documentState || '',
+      documentReason: document.querySelector('.rep-document-state')?.dataset.documentReason || '',
+      documentStateText: clean(document.querySelector('.rep-document-state')?.textContent),
       bodyText: clean(document.body.innerText),
+      calculationText: clean(calculationPaper?.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       methodRowCount: document.querySelectorAll('.rep-method tbody tr').length,
       stepCount: document.querySelectorAll('.rep-step').length,
@@ -368,6 +374,9 @@ async function main() {
 
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${key} tool page loads`, `status=${response && response.status()}`);
+      await page.fill('#projName', 'RC 牆正式附件測試');
+      await page.fill('#projNo', 'RC-WALL-001');
+      await page.fill('#projDesigner', 'QA');
       await applyCase(page, key);
       await page.waitForTimeout(350);
 
@@ -382,12 +391,14 @@ async function main() {
         reviewWarningCount: window.wallLast?.reviewWarnings?.length || 0,
         methodRows: window.getWallMethodAuditRows ? window.getWallMethodAuditRows(window.wallLast).length : 0,
         readinessText: document.getElementById('wallAttachmentReadinessCard')?.innerText?.replace(/\s+/g, ' ').trim() || '',
+        readinessStatus: document.getElementById('wallAttachmentReadiness')?.dataset.attachmentStatus || '',
       }));
       assert(state.wallLastOk, `${key} calculation state exists`, state.banner);
       assert(state.methodRows >= 6, `${key} method audit rows`, `rows=${state.methodRows}`);
       assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
       assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
       assert(state.readinessText.includes('優先閱讀'), `${key} page attachment readiness priority`, state.readinessText);
+      assert(state.readinessText.includes('案件識別資料') && state.readinessText.includes('完整'), `${key} page metadata completeness`, state.readinessText);
       if (expected.expectedSnapshot === 'NG' || expected.expectedSnapshot === '待確認') {
         assert(!state.banner.includes('OK — 符合規範'), `${key} no misleading summary banner`, state.banner);
       }
@@ -421,12 +432,16 @@ async function main() {
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {
         assert,
-        include: ['牆設計計算書', '計算書'],
+        include: ['牆設計計算書', '計算書', ...(state.readinessStatus === 'ready' ? [] : ['DRAFT／非正式附件'])],
+        exclude: state.readinessStatus === 'ready' ? ['DRAFT／非正式附件'] : [],
       });
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
       assert(!metrics.hasReportSummary, `${key} report status banner hidden`, 'no .rep-summary');
+      const expectedDraft = state.readinessStatus !== 'ready';
+      assert(metrics.documentState === (expectedDraft ? 'draft' : ''), `${key} report document class follows page readiness`, `${state.readinessStatus} -> ${metrics.documentState || 'ready'}`);
+      assert(metrics.documentReason === (state.readinessStatus === 'blocked' ? 'blocked' : expectedDraft ? 'review' : ''), `${key} report document reason`, metrics.documentReason || 'ready');
       assert(metrics.checkGroupCount >= expected.minCheckGroups, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.methodRowCount >= 6, `${key} method audit table rows`, `count=${metrics.methodRowCount}`);
       assert(metrics.stepCount >= 4, `${key} report detailed steps`, `count=${metrics.stepCount}`);
@@ -449,7 +464,7 @@ async function main() {
         '不列為 OK 結論',
         '需正式分析確認',
       ]) {
-        assert(!metrics.bodyText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
+        assert(!metrics.calculationText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
       }
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
       assert(!metrics.bodyText.includes('18.10'), `${key} report has no stale 18.10 clause refs`, 'uses 112 18.7 wall clauses');
