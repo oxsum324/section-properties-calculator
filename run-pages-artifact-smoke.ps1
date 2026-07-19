@@ -29,6 +29,12 @@ $RouteBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pag
 if (-not $RouteBuilder) {
   throw 'Could not find build-pages-clean-routes.js under the repository tools directory.'
 }
+$DeploymentManifestBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pages-deployment-manifest.js' |
+  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)build-pages-deployment-manifest.js" } |
+  Select-Object -First 1
+if (-not $DeploymentManifestBuilder) {
+  throw 'Could not find build-pages-deployment-manifest.js under the repository tools directory.'
+}
 
 $Python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $Python) {
@@ -92,6 +98,7 @@ $ExcludeFiles = @(
   'pages-live-browser-smoke.js',
   'run-pages-browser-smoke.sh',
   'build-pages-clean-routes.js',
+  'build-pages-deployment-manifest.js',
   'attachment-package-check.js',
   'rendered-delivery-evidence.js',
   'rendered-delivery-evidence.inventory.json',
@@ -121,6 +128,22 @@ if ($LASTEXITCODE -ne 0) {
   throw "build-pages-clean-routes.js failed with exit code $LASTEXITCODE"
 }
 New-Item -ItemType File -Path (Join-Path $SiteRoot '.nojekyll') -Force | Out-Null
+$CommitSha = ((& git -C $RepoRoot rev-parse HEAD) | Out-String).Trim()
+if ($LASTEXITCODE -ne 0 -or $CommitSha -notmatch '^[0-9a-f]{40}$') {
+  throw 'Could not resolve the repository HEAD commit for the Pages deployment manifest.'
+}
+$SourceDirty = -not [string]::IsNullOrWhiteSpace(((& git -C $RepoRoot status --porcelain --untracked-files=all) | Out-String).Trim())
+$LocalRunId = "local-$Stamp"
+& node $DeploymentManifestBuilder.FullName `
+  --site-root $SiteRoot `
+  --commit-sha $CommitSha `
+  --source-ref 'local-artifact' `
+  --source-dirty $SourceDirty.ToString().ToLowerInvariant() `
+  --run-id $LocalRunId `
+  --run-attempt '1'
+if ($LASTEXITCODE -ne 0) {
+  throw "build-pages-deployment-manifest.js failed with exit code $LASTEXITCODE"
+}
 
 if ($Port -le 0) {
   $Port = 48230 + (Get-Random -Maximum 500)
@@ -157,7 +180,11 @@ try {
     throw "temporary Pages server did not become ready at $BaseUrl"
   }
 
-  node $SmokeScript.FullName --base-url $BaseUrl --check-private-boundary
+  node $SmokeScript.FullName `
+    --base-url $BaseUrl `
+    --check-private-boundary `
+    --expected-commit-sha $CommitSha `
+    --expected-run-id $LocalRunId
   if ($LASTEXITCODE -ne 0) {
     throw "pages-live-smoke.js failed with exit code $LASTEXITCODE"
   }
