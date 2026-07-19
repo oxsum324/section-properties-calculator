@@ -411,6 +411,7 @@ const maturityMatrix = readText(path.join(toolboxRoot, 'tools/tool-maturity-matr
 const pagesLiveSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-smoke.js'));
 const pagesLiveBrowserSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-browser-smoke.js'));
 const pagesBrowserRunner = readText(path.join(toolboxRoot, 'tools/run-pages-browser-smoke.sh'));
+const pagesDeploymentManifestBuilder = readText(path.join(toolboxRoot, 'tools/build-pages-deployment-manifest.js'));
 const pagesCleanRouteBuilderPath = path.join(toolboxRoot, 'tools/build-pages-clean-routes.js');
 const pagesCleanRouteBuilder = readText(pagesCleanRouteBuilderPath);
 const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
@@ -685,6 +686,8 @@ assert.ok(pagesLiveSmoke.includes('toolbox-entrypoints.contract.test.js'), 'Page
 assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/build-pages-clean-routes.js'), 'Pages live smoke blocks clean-route builder publication');
 assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/pages-live-browser-smoke.js'), 'Pages live smoke blocks browser smoke source publication');
 assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/run-pages-browser-smoke.sh'), 'Pages live smoke blocks browser smoke runner publication');
+assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/build-pages-deployment-manifest.js'), 'Pages live smoke blocks deployment manifest builder publication');
+assert.ok(pagesLiveSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesLiveSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages live smoke verifies the deployed commit manifest');
 assert.ok(pagesLiveBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesLiveBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
 assert.ok(pagesLiveBrowserSmoke.includes("page.on('pageerror'") && pagesLiveBrowserSmoke.includes("page.on('requestfailed'") && pagesLiveBrowserSmoke.includes('horizontal overflow'), 'Pages browser smoke checks runtime, network, and overflow failures');
 assert.ok(pagesLiveBrowserSmoke.includes("route === '/rc-pile'") && pagesLiveBrowserSmoke.includes("route === '/wind-cc'") && pagesLiveBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke keeps high-risk route regressions');
@@ -717,6 +720,8 @@ assert.ok(pagesArtifactSmoke.includes('DynamicExcludeDirs'), 'local Pages artifa
 assert.ok(pagesArtifactSmoke.includes('pages-live-smoke.js'), 'local Pages artifact smoke calls shared live smoke');
 assert.ok(pagesArtifactSmoke.includes('pages-live-browser-smoke.js'), 'local Pages artifact smoke calls shared browser smoke');
 assert.ok(pagesArtifactSmoke.includes("'run-pages-browser-smoke.sh'"), 'local Pages artifact smoke excludes browser smoke runner');
+assert.ok(pagesArtifactSmoke.includes("'build-pages-deployment-manifest.js'"), 'local Pages artifact smoke excludes deployment manifest builder source');
+assert.ok(pagesArtifactSmoke.includes('$DeploymentManifestBuilder') && pagesArtifactSmoke.includes('--expected-run-id $LocalRunId'), 'local Pages artifact smoke builds and verifies deployment provenance');
 assert.ok(pagesArtifactSmoke.includes("@playwright/cli@0.1.17") && pagesArtifactSmoke.includes("terser@5.49.0"), 'local Pages artifact smoke pins browser dependencies');
 assert.ok(pagesArtifactSmoke.includes('$BrowserResult.isError'), 'local Pages artifact smoke checks CLI JSON error state');
 assert.ok(pagesArtifactSmoke.includes('build-pages-clean-routes.js'), 'local Pages artifact smoke builds clean routes');
@@ -750,6 +755,7 @@ assert.ok(pagesDeployWorkflow.includes("--exclude='*.md'"), 'Pages deploy workfl
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/pages-live-smoke.js'"), 'Pages deploy workflow excludes live smoke script');
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/pages-live-browser-smoke.js'"), 'Pages deploy workflow excludes browser smoke source');
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/run-pages-browser-smoke.sh'"), 'Pages deploy workflow excludes browser smoke runner');
+assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/build-pages-deployment-manifest.js'"), 'Pages deploy workflow excludes deployment manifest builder source');
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/build-pages-clean-routes.js'"), 'Pages deploy workflow excludes clean-route builder');
 assert.ok(pagesDeployWorkflow.includes("--exclude='**/dev_tools/'"), 'Pages deploy workflow excludes dev_tools directories');
 assert.ok(pagesDeployWorkflow.includes("--exclude='螺栓檢討/bolt-review-tool/'"), 'Pages deploy workflow excludes anchor source project');
@@ -767,6 +773,13 @@ const stagedArtifactGateIndex = pagesDeployWorkflow.indexOf('- name: Verify stag
 const pagesArchiveIndex = pagesDeployWorkflow.indexOf('- name: Archive GitHub Pages artifact');
 assert.ok(stagedArtifactGateIndex >= 0 && stagedArtifactGateIndex < pagesArchiveIndex, 'Pages deploy workflow blocks archive on staged artifact smoke');
 assert.ok(pagesDeployWorkflow.includes('python3 -m http.server 4173') && pagesDeployWorkflow.includes('--directory _site'), 'Pages deploy workflow serves the exact staged _site artifact');
+assert.ok(pagesDeployWorkflow.includes('build-pages-deployment-manifest.js') && pagesDeployWorkflow.includes('--commit-sha "$GITHUB_SHA"'), 'Pages deploy workflow writes staged commit provenance');
+assert.ok(pagesDeployWorkflow.includes('- name: Verify clean source checkout') && pagesDeployWorkflow.includes('--source-dirty "false"'), 'Pages deploy workflow proves clean source provenance before staging');
+assert.ok(pagesDeployWorkflow.includes('--expected-run-id "$GITHUB_RUN_ID"') && pagesDeployWorkflow.includes('PAGES_EXPECTED_RUN_ID: ${{ github.run_id }}'), 'Pages deploy workflow verifies staged and live run provenance');
+assert.ok(pagesDeployWorkflow.includes('--expect-clean-source') && pagesDeployWorkflow.includes('PAGES_EXPECT_CLEAN_SOURCE: 1'), 'Pages deploy workflow rejects dirty staged and live provenance');
+assert.ok(readme.includes('sourceDirty: false') && readme.includes('sourceDirty: true'), 'README documents formal and local source provenance');
+assert.ok(boundaries.includes('sourceDirty: false') && boundaries.includes('sourceDirty: true'), 'TOOL_BOUNDARIES documents clean and dirty source provenance');
+assert.ok(staging.includes('git status --porcelain --untracked-files=all') && staging.includes('sourceDirty: false'), 'STAGING_GROUPS documents clean source evidence');
 assert.equal((pagesDeployWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages deploy workflow reuses browser smoke before and after deploy');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages deploy workflow bounds live browser transient retries');
 assert.ok(pagesBrowserRunner.includes('install-browser chromium') && pagesBrowserRunner.includes('value.isError'), 'Pages browser runner installs Chromium and fails on CLI JSON errors');
@@ -774,6 +787,7 @@ assert.ok(pagesBrowserRunner.includes("@playwright/cli@0.1.17") && pagesBrowserR
 assert.ok(pagesBrowserRunner.includes('trap cleanup EXIT') && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner cleans up and invokes the shared source');
 assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner only retries transient 5xx and network failures');
 assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner fails non-transient or persistent issues');
+assert.ok(pagesDeploymentManifestBuilder.includes("algorithm: 'sha256-tree-v1'") && pagesDeploymentManifestBuilder.includes('artifactDigest'), 'Pages deployment manifest builder records a deterministic artifact digest');
 assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}'), 'Pages live smoke uses deployed page URL');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');

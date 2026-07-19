@@ -45,6 +45,7 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/pages-live-browser-smoke.js',
   '結構工具箱/tools/run-pages-browser-smoke.sh',
   '結構工具箱/tools/build-pages-clean-routes.js',
+  '結構工具箱/tools/build-pages-deployment-manifest.js',
   '結構工具箱/tools/attachment-package-check.js',
   '結構工具箱/tools/local-quick-browser-smoke.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
@@ -121,6 +122,41 @@ async function assertPublicAssets(html, pageUrl, label) {
 async function fetchJson(url) {
   const text = await fetchText(url);
   return JSON.parse(text);
+}
+
+async function assertDeploymentManifest(base) {
+  const manifest = await fetchJson(liveUrl(base, 'pages-deployment.json'));
+  assert.equal(manifest.schemaVersion, 1, 'Pages deployment manifest schemaVersion');
+  assert.equal(manifest.kind, 'pages-deployment', 'Pages deployment manifest kind');
+  assert.match(manifest.generatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, 'Pages deployment manifest generatedAt');
+  assert.match(manifest.commitSha, /^[0-9a-f]{40}$/i, 'Pages deployment manifest commitSha');
+  assert.equal(typeof manifest.sourceRef, 'string', 'Pages deployment manifest sourceRef');
+  assert.ok(manifest.sourceRef, 'Pages deployment manifest sourceRef populated');
+  assert.equal(typeof manifest.sourceDirty, 'boolean', 'Pages deployment manifest sourceDirty boolean');
+  assert.equal(typeof manifest.runId, 'string', 'Pages deployment manifest runId');
+  assert.ok(manifest.runId, 'Pages deployment manifest runId populated');
+  assert.equal(Number.isInteger(manifest.runAttempt), true, 'Pages deployment manifest runAttempt integer');
+  assert.ok(manifest.runAttempt >= 1, 'Pages deployment manifest runAttempt positive');
+  assert.equal(manifest.artifactDigestAlgorithm, 'sha256-tree-v1', 'Pages deployment manifest digest algorithm');
+  assert.match(manifest.artifactDigest, /^[0-9a-f]{64}$/i, 'Pages deployment manifest artifactDigest');
+  assert.equal(Number.isInteger(manifest.fileCount), true, 'Pages deployment manifest fileCount integer');
+  assert.ok(manifest.fileCount >= 300, 'Pages deployment manifest covers the complete staged tree');
+  assert.equal(Number.isInteger(manifest.totalBytes), true, 'Pages deployment manifest totalBytes integer');
+  assert.ok(manifest.totalBytes > 0, 'Pages deployment manifest totalBytes positive');
+
+  const expectedCommitSha = (argValue('--expected-commit-sha') || process.env.PAGES_EXPECTED_COMMIT_SHA || '').toLowerCase();
+  const expectedRunId = argValue('--expected-run-id') || process.env.PAGES_EXPECTED_RUN_ID || '';
+  if (expectedCommitSha) {
+    assert.match(expectedCommitSha, /^[0-9a-f]{40}$/, 'expected Pages commit SHA');
+    assert.equal(manifest.commitSha.toLowerCase(), expectedCommitSha, 'deployed Pages commit matches the requested source commit');
+  }
+  if (expectedRunId) {
+    assert.equal(manifest.runId, String(expectedRunId), 'deployed Pages runId matches the current workflow run');
+  }
+  if (hasArg('--expect-clean-source') || process.env.PAGES_EXPECT_CLEAN_SOURCE === '1') {
+    assert.equal(manifest.sourceDirty, false, 'deployed Pages manifest must come from a clean source checkout');
+  }
+  return manifest;
 }
 
 function assertStatusPayload(payload, label) {
@@ -216,6 +252,7 @@ async function assertPrivateBoundary(base) {
 
 async function main() {
   const base = baseUrl();
+  const deploymentManifest = await assertDeploymentManifest(base);
   const homeUrl = liveUrl(base, '結構工具箱/');
   const homeJsUrl = liveUrl(base, '結構工具箱/assets/home/home.js');
   const platformStatusUrl = liveUrl(base, '結構工具箱/assets/status/platform-status.json');
@@ -337,6 +374,7 @@ async function main() {
   }
 
   console.log(`pages live smoke OK (${base})`);
+  console.log(`deployment commit=${deploymentManifest.commitSha}, run=${deploymentManifest.runId}, dirty=${deploymentManifest.sourceDirty}, files=${deploymentManifest.fileCount}, digest=${deploymentManifest.artifactDigest}`);
   console.log(`home routes checked=${cleanRouteCounts.total} (generated=${cleanRouteCounts.generated}, direct=${cleanRouteCounts.direct})`);
   console.log(`platform runId=${platformStatus.runId}, preflight runId=${preflightStatus.runId}, reportReadiness runId=${reportReadinessStatus.runId}`);
 }

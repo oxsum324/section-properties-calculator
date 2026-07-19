@@ -31,6 +31,9 @@ jobs:
         with:
           node-version: 24
 
+      - name: Verify clean source checkout
+        run: test -z "$(git status --porcelain --untracked-files=all)"
+
       - name: Stage static site
         run: |
           set -euo pipefail
@@ -48,6 +51,7 @@ jobs:
             --exclude='結構工具箱/tools/pages-live-browser-smoke.js' \
             --exclude='結構工具箱/tools/run-pages-browser-smoke.sh' \
             --exclude='結構工具箱/tools/build-pages-clean-routes.js' \
+            --exclude='結構工具箱/tools/build-pages-deployment-manifest.js' \
             --exclude='結構工具箱/tools/attachment-package-check.js' \
             --exclude='結構工具箱/tools/rendered-delivery-evidence.js' \
             --exclude='結構工具箱/tools/rendered-delivery-evidence.inventory.json' \
@@ -91,6 +95,13 @@ jobs:
             ./ _site/
           node "結構工具箱/tools/build-pages-clean-routes.js" --site-root "_site" --config "vercel.json"
           touch _site/.nojekyll
+          node "結構工具箱/tools/build-pages-deployment-manifest.js" \
+            --site-root "_site" \
+            --commit-sha "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --source-dirty "false" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT"
 
       - name: Verify staged Pages artifact
         run: |
@@ -118,7 +129,12 @@ jobs:
             exit 1
           fi
 
-          node "結構工具箱/tools/pages-live-smoke.js" --base-url "$base_url" --check-private-boundary
+          node "結構工具箱/tools/pages-live-smoke.js" \
+            --base-url "$base_url" \
+            --check-private-boundary \
+            --expected-commit-sha "$GITHUB_SHA" \
+            --expected-run-id "$GITHUB_RUN_ID" \
+            --expect-clean-source
           bash "結構工具箱/tools/run-pages-browser-smoke.sh" "$base_url" "pages-staged-browser"
 
       - name: Archive GitHub Pages artifact
@@ -169,6 +185,9 @@ jobs:
       - name: Run live Pages smoke
         env:
           PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}
+          PAGES_EXPECTED_COMMIT_SHA: ${{ github.sha }}
+          PAGES_EXPECTED_RUN_ID: ${{ github.run_id }}
+          PAGES_EXPECT_CLEAN_SOURCE: 1
         run: node "結構工具箱/tools/pages-live-smoke.js" --check-private-boundary
 
       - name: Run live Pages browser smoke
