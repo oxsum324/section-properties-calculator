@@ -151,7 +151,7 @@
       return labels.length ? labels.join('、') : '梁、柱、板、牆、剪力牆、基礎、單樁';
     }
 
-    function renderStatus(payload, summaryUrl) {
+    function renderStatus(payload, summaryUrl, sourceKind = 'local') {
       if (!/^https?:$/i.test(window.location.protocol) && !payload) {
         card.innerHTML = `
           <div class="audit-status-card__head">
@@ -163,22 +163,25 @@
         return;
       }
 
+      const isPublic = sourceKind === 'public' || payload?.kind === 'platform-status';
       const tone = payload && payload.pass ? 'ok' : (payload ? 'fail' : 'warn');
-      const badge = payload ? (payload.pass ? '最新巡檢通過' : `最新巡檢異常 ${payload.failureCount || 0} 項`) : '未讀取';
+      const badge = payload
+        ? (payload.pass ? (isPublic ? '平台最近巡檢通過' : '最新巡檢通過') : `${isPublic ? '平台最近巡檢異常' : '最新巡檢異常'} ${payload.failureCount || 0} 項`)
+        : (isPublic ? '公開狀態未載入' : '未讀取');
       const meta = payload ? [
         payload.runId ? `runId｜${payload.runId}` : '',
-        payload.loop ? '模式｜循環' : '模式｜單次',
+        isPublic ? '來源｜正式放行公開快照' : (payload.loop ? '模式｜循環' : '模式｜單次'),
         `結果｜${payload.failureCount || 0} 項異常`
       ].filter(Boolean) : [];
 
       card.innerHTML = `
         <div class="audit-status-card__head">
-          <span class="audit-status-card__title">RC 自動巡檢</span>
+          <span class="audit-status-card__title">${isPublic ? '平台公開巡檢狀態' : 'RC 自動巡檢'}</span>
           <span class="audit-status-card__badge ${tone}">${badge}</span>
         </div>
-        <div class="audit-status-card__summary">${payload ? `最近一輪 RC 巡檢 ${payload.pass ? '已通過' : '發現異常'}，可作為${moduleText(payload)}工具的健康度參考。` : '尚未取得最新 RC 巡檢狀態。'}</div>
+        <div class="audit-status-card__summary">${payload ? (isPublic ? `公開平台最近一輪巡檢 ${payload.pass ? '已通過' : '發現異常'}；RC 詳細巡檢僅供本機工作環境讀取。` : `最近一輪 RC 巡檢 ${payload.pass ? '已通過' : '發現異常'}，可作為${moduleText(payload)}工具的健康度參考。`) : (isPublic ? '尚未取得公開平台巡檢狀態。' : '尚未取得最新 RC 巡檢狀態。')}</div>
         ${meta.length ? `<div class="audit-status-card__meta">${meta.map((item) => `<span>${item}</span>`).join('')}</div>` : ''}
-        ${summaryUrl ? `<div class="audit-status-card__links"><a href="${summaryUrl}" target="_blank" rel="noreferrer">開啟 RC 巡檢摘要</a></div>` : ''}
+        ${summaryUrl ? `<div class="audit-status-card__links"><a href="${summaryUrl}" target="_blank" rel="noreferrer">${isPublic ? '開啟工具箱狀態總覽' : '開啟 RC 巡檢摘要'}</a></div>` : ''}
       `;
     }
 
@@ -187,13 +190,23 @@
       return;
     }
 
-    fetch(`./output/audit/audit-status.json?ts=${Date.now()}`, { cache: 'no-store' })
+    const hostname = String(window.location.hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+    const localHost = ['localhost', '0.0.0.0', '::1'].includes(hostname)
+      || /^127(?:\.\d{1,3}){3}$/.test(hostname)
+      || /^10(?:\.\d{1,3}){3}$/.test(hostname)
+      || /^192\.168(?:\.\d{1,3}){2}$/.test(hostname)
+      || (() => { const match = hostname.match(/^172\.(\d{1,2})(?:\.\d{1,3}){2}$/); return Boolean(match && Number(match[1]) >= 16 && Number(match[1]) <= 31); })();
+    const source = localHost
+      ? { kind: 'local', url: './output/audit/audit-status.json', summaryUrl: './output/audit/audit-summary.md' }
+      : { kind: 'public', url: '../結構工具箱/assets/status/platform-status.json', summaryUrl: '../結構工具箱/index.html' };
+
+    fetch(`${source.url}?ts=${Date.now()}`, { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
       })
-      .then((payload) => renderStatus(payload, './output/audit/audit-summary.md'))
-      .catch(() => renderStatus(null, ''));
+      .then((payload) => renderStatus(payload, source.summaryUrl, source.kind))
+      .catch(() => renderStatus(null, '', source.kind));
   })();
 </script>
 </body>

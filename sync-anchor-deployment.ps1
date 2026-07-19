@@ -119,7 +119,9 @@ try {
     }
   }
 
-  $env:ANCHOR_BASE_PATH = '/anchor/'
+  # The tracked anchor/ mirror is published at different parent paths by
+  # GitHub Pages and Vercel. Relative URLs keep one build portable in both.
+  $env:ANCHOR_BASE_PATH = './'
   npm run build
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
@@ -151,12 +153,12 @@ Copy-Item -Path (Join-Path $resolvedDist '*') -Destination $resolvedAnchor -Recu
 
 $indexPath = Join-Path $resolvedAnchor 'index.html'
 $index = Get-Content -LiteralPath $indexPath -Raw -Encoding UTF8
-$referencedAssets = [regex]::Matches($index, '/anchor/assets/([^"''<>]+)') |
+$referencedAssets = [regex]::Matches($index, '(?:\./)?assets/([^"''<>]+)') |
   ForEach-Object { $_.Groups[1].Value } |
   Sort-Object -Unique
 $manifest = [ordered]@{
   generatedAt = (Get-Date).ToString('s')
-  basePath = '/anchor/'
+  basePath = './'
   sourceFingerprint = Get-AnchorSourceFingerprint -WorkspaceRoot $resolvedRoot
   sourceRoots = $anchorSourceRoots
   referencedAssets = @($referencedAssets)

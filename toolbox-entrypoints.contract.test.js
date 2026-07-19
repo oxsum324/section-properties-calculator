@@ -647,6 +647,10 @@ assert.ok(pagesLiveSmoke.includes('reportReadinessStatus.preflightStatusSourcePa
 assert.ok(pagesLiveSmoke.includes('--allow-local-output'), 'Pages live smoke supports local repo-root preview override');
 assert.ok(pagesLiveSmoke.includes('PUBLIC_ROUTE_SAMPLES'), 'Pages live smoke has public route sample inventory');
 assert.ok(pagesLiveSmoke.includes('assertPublicRouteSamples'), 'Pages live smoke checks representative public routes');
+assert.ok(pagesLiveSmoke.includes("{ path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true }"), 'Pages live smoke checks anchor application assets');
+assert.ok(pagesLiveSmoke.includes('async function assertPublicAssets'), 'Pages live smoke has public asset availability gate');
+assert.ok(pagesLiveSmoke.includes('response.arrayBuffer()'), 'Pages live smoke rejects empty application assets');
+assert.ok(pagesLiveSmoke.includes("'../結構工具箱/assets/status/platform-status.json'"), 'Pages live smoke checks RC public status routing');
 assert.ok(pagesLiveSmoke.includes('CLEAN_ROUTE_SAMPLES'), 'Pages live smoke has clean-route sample inventory');
 assert.ok(pagesLiveSmoke.includes('assertCleanRouteSamples'), 'Pages live smoke checks generated clean routes');
 assert.ok(pagesLiveSmoke.includes("source: '/rc-column'"), 'Pages live smoke samples the RC column clean route');

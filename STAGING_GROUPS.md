@@ -97,17 +97,17 @@ Add formal report traceability metadata
 
 ## B. 錨栓部署鏡像
 
-已落地：`d530816 Refresh anchor deployment assets`。下次更新 `/anchor/` 靜態部署輸出時，必須讓舊 hash 刪除、新 hash 新增與部署 fingerprint manifest 一起 staging。
+已落地：`d530816 Refresh anchor deployment assets`。下次更新 `anchor/` 靜態部署輸出時，必須讓舊 hash 刪除、新 hash 新增與部署 fingerprint manifest 一起 staging；共用鏡像固定採 `./` 相對 base，才能同時支援 Pages 倉庫子路徑與 Vercel `/anchor/`。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\sync-anchor-deployment.ps1
-git add -A -- anchor/index.html anchor/service-worker.js anchor/deployment-manifest.json anchor/assets
+git add -A -- anchor/index.html anchor/service-worker.js anchor/manifest.webmanifest anchor/deployment-manifest.json anchor/assets
 ```
 
 提交前檢查：
 
 ```powershell
-Select-String -Path "anchor/index.html","anchor/service-worker.js" -Pattern "/anchor/|BASE_PATH"
+Select-String -Path "anchor/index.html","anchor/service-worker.js" -Pattern '\./assets/|BASE_PATH'
 Get-Content "anchor/deployment-manifest.json"
 ```
 
