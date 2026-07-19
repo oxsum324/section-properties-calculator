@@ -768,9 +768,12 @@ const pagesArchiveIndex = pagesDeployWorkflow.indexOf('- name: Archive GitHub Pa
 assert.ok(stagedArtifactGateIndex >= 0 && stagedArtifactGateIndex < pagesArchiveIndex, 'Pages deploy workflow blocks archive on staged artifact smoke');
 assert.ok(pagesDeployWorkflow.includes('python3 -m http.server 4173') && pagesDeployWorkflow.includes('--directory _site'), 'Pages deploy workflow serves the exact staged _site artifact');
 assert.equal((pagesDeployWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages deploy workflow reuses browser smoke before and after deploy');
+assert.ok(pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages deploy workflow bounds live browser transient retries');
 assert.ok(pagesBrowserRunner.includes('install-browser chromium') && pagesBrowserRunner.includes('value.isError'), 'Pages browser runner installs Chromium and fails on CLI JSON errors');
 assert.ok(pagesBrowserRunner.includes("@playwright/cli@0.1.17") && pagesBrowserRunner.includes("terser@5.49.0"), 'Pages browser runner pins browser dependencies');
 assert.ok(pagesBrowserRunner.includes('trap cleanup EXIT') && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner cleans up and invokes the shared source');
+assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner only retries transient 5xx and network failures');
+assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner fails non-transient or persistent issues');
 assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}'), 'Pages live smoke uses deployed page URL');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
