@@ -37,62 +37,7 @@ jobs:
       - name: Stage static site
         run: |
           set -euo pipefail
-          mkdir -p _site
-          rsync -a --delete \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='_site/' \
-            --exclude='output/' \
-            --exclude='README.md' \
-            --exclude='STAGING_GROUPS.md' \
-            --exclude='TOOL_BOUNDARIES.md' \
-            --exclude='TOOL_REPORT_GUIDE.md' \
-            --exclude='結構工具箱/tools/pages-live-smoke.js' \
-            --exclude='結構工具箱/tools/pages-live-browser-smoke.js' \
-            --exclude='結構工具箱/tools/run-pages-browser-smoke.sh' \
-            --exclude='結構工具箱/tools/build-pages-clean-routes.js' \
-            --exclude='結構工具箱/tools/build-pages-deployment-manifest.js' \
-            --exclude='結構工具箱/tools/attachment-package-check.js' \
-            --exclude='結構工具箱/tools/rendered-delivery-evidence.js' \
-            --exclude='結構工具箱/tools/rendered-delivery-evidence.inventory.json' \
-            --exclude='石材固定/dev_tools/' \
-            --exclude='**/dev_tools/' \
-            --exclude='螺栓檢討/bolt-review-tool/' \
-            --exclude='開挖擋土支撐/backend/' \
-            --exclude='開挖擋土支撐/frontend/' \
-            --exclude='石材固定/tests/' \
-            --exclude='**/tests/' \
-            --exclude='*.py' \
-            --exclude='*.pyc' \
-            --exclude='*.reg' \
-            --exclude='*.ts' \
-            --exclude='*.tsx' \
-            --exclude='*.tgz' \
-            --exclude='package.json' \
-            --exclude='package-lock.json' \
-            --exclude='requirements.txt' \
-            --exclude='vite.config.*' \
-            --exclude='*.ps1' \
-            --exclude='*.bat' \
-            --exclude='*.test.js' \
-            --exclude='*.contract.test.js' \
-            --exclude='*.md' \
-            --exclude='**/*.py' \
-            --exclude='**/*.pyc' \
-            --exclude='**/*.reg' \
-            --exclude='**/*.ts' \
-            --exclude='**/*.tsx' \
-            --exclude='**/*.tgz' \
-            --exclude='**/package.json' \
-            --exclude='**/package-lock.json' \
-            --exclude='**/requirements.txt' \
-            --exclude='**/vite.config.*' \
-            --exclude='**/*.ps1' \
-            --exclude='**/*.bat' \
-            --exclude='**/*.test.js' \
-            --exclude='**/*.contract.test.js' \
-            --exclude='**/*.md' \
-            ./ _site/
+          node "結構工具箱/tools/build-pages-artifact.js" --repo-root "." --site-root "_site"
           node "結構工具箱/tools/build-pages-clean-routes.js" --site-root "_site" --config "vercel.json"
           touch _site/.nojekyll
           node "結構工具箱/tools/build-pages-deployment-manifest.js" \

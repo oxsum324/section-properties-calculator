@@ -44,6 +44,7 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/pages-live-smoke.js',
   '結構工具箱/tools/pages-live-browser-smoke.js',
   '結構工具箱/tools/run-pages-browser-smoke.sh',
+  '結構工具箱/tools/build-pages-artifact.js',
   '結構工具箱/tools/build-pages-clean-routes.js',
   '結構工具箱/tools/build-pages-deployment-manifest.js',
   '結構工具箱/tools/attachment-package-check.js',
