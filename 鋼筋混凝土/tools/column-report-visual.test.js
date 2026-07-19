@@ -221,6 +221,13 @@ async function main() {
 
       const directPrintPdfPath = path.join(OUT_DIR, `column-direct-print-${tc.key}.pdf`);
       await page.emulateMedia({ media: 'print' });
+      await page.waitForFunction(() => {
+        const notice = document.querySelector('.rc-direct-print-boundary');
+        if (!notice || notice.getClientRects().length === 0) return false;
+        return Array.from(document.body.children).every(el =>
+          el.classList.contains('rc-direct-print-boundary') || el.getClientRects().length === 0
+        );
+      }, { timeout: 5000 });
       const directPrintState = await page.evaluate(() => ({
         noticeRects: document.querySelector('.rc-direct-print-boundary')?.getClientRects().length || 0,
         noticeText: document.querySelector('.rc-direct-print-boundary')?.textContent?.replace(/\s+/g, ' ').trim() || '',
