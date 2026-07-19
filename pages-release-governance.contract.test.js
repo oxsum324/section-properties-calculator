@@ -180,6 +180,7 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-mani
 assert.ok(pagesSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages smoke validates the public deployment manifest and expected commit');
 assert.ok(pagesSmoke.includes('deployed Pages runId matches the current workflow run') && pagesSmoke.includes('sha256-tree-v1'), 'Pages smoke validates workflow run and tree digest metadata');
 assert.ok(pagesSmoke.includes('deployed Pages manifest must come from a clean source checkout'), 'Pages smoke validates clean deployment provenance');
+assert.ok(pagesSmoke.includes("manifest.fileCount > 0") && !pagesSmoke.includes('manifest.fileCount >= 300'), 'Pages smoke does not confuse a dirty local file count with the canonical clean artifact');
 assert.ok(readme.includes('sourceDirty: false') && readme.includes('sourceDirty: true'), 'README explains formal clean and local dirty provenance');
 assert.ok(toolBoundaries.includes('sourceDirty: false') && toolBoundaries.includes('sourceDirty: true'), 'tool boundaries explain clean deployment provenance');
 assert.ok(staging.includes('git status --porcelain --untracked-files=all') && staging.includes('sourceDirty: false'), 'staging guide documents the clean checkout requirement');
