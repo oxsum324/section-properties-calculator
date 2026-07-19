@@ -2022,6 +2022,20 @@ button:disabled {
     width: 100%;
   }
 
+  .resource-hub-header,
+  .resource-hub-tabs,
+  .resource-hub-body {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .resource-hub-status,
+  .resource-hub,
+  .resource-hub-body > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .field-grid,
   .switch-grid {
     grid-template-columns: 1fr;

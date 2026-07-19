@@ -146,7 +146,7 @@
     routes: {
       '/beam-analysis': '2026-07-18',
       '/frame-analysis': '2026-07-18',
-      '/struct-dx': '2026-06-23',
+      '/struct-dx': '2026-07-19',
       '/section': '2026-07-19',
       '/composite-section': '2026-07-19',
       '/rc-beam': '2026-07-18',
