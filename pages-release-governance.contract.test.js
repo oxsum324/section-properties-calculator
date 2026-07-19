@@ -105,6 +105,10 @@ assert.ok(pagesSmoke.includes('assets/status/preflight-summary.json'), 'Pages sm
 assert.ok(pagesSmoke.includes('assets/status/report-readiness-status.json'), 'Pages smoke checks report readiness status');
 assert.ok(pagesSmoke.includes('reportReadinessStatus.runId, preflightStatus.runId'), 'Pages smoke aligns report readiness and preflight runId');
 assert.ok(pagesSmoke.includes('reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath'), 'Pages smoke aligns report readiness preflight source');
+assert.ok(pagesSmoke.includes("{ path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true }"), 'Pages smoke opts anchor into public asset checks');
+assert.ok(pagesSmoke.includes('async function assertPublicAssets'), 'Pages smoke fetches public page assets');
+assert.ok(pagesSmoke.includes('response.arrayBuffer()'), 'Pages smoke rejects empty public assets');
+assert.ok(pagesSmoke.includes("'../結構工具箱/assets/status/platform-status.json'"), 'Pages smoke checks RC public status routing');
 assert.ok(pagesSmoke.includes('CONTEXT.md'), 'Pages smoke blocks context publication');
 assert.ok(pagesSmoke.includes('docs/adr/0001-page-only-report-readiness.md'), 'Pages smoke blocks ADR publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/attachment-package-check.js'), 'Pages smoke blocks attachment package checker publication');

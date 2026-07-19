@@ -242,6 +242,10 @@ for (const [position, key] of expectedModules.entries()) {
 }
 assert(menuCards.length >= expectedModules.length, 'index menu exposes all audited modules', `cards=${menuCards.length}`);
 assert(menuCards.length === expectedModules.length + 1 && menuCards[expectedModules.length].href === '../RC補強斷面性質.html', 'index menu only has expected non-audited RC strengthening entry', JSON.stringify(menuCards.map((card) => card.href)));
+assertIncludes(index, "kind: 'public', url: '../結構工具箱/assets/status/platform-status.json'", 'RC public page reads published platform status');
+assertIncludes(index, "kind: 'local', url: './output/audit/audit-status.json'", 'RC local page keeps detailed audit status');
+assertIncludes(index, '平台公開巡檢狀態', 'RC public status is labeled as platform-wide');
+assertIncludes(index, 'RC 詳細巡檢僅供本機工作環境讀取', 'RC public status explains local detail boundary');
 for (const card of menuCards) {
   const target = localHtmlTarget(ROOT, card.href);
   assert(target && fs.existsSync(target), `menu card target exists: ${card.href}`, target || 'non-local');

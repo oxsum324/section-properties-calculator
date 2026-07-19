@@ -38,7 +38,7 @@ node ..\anchor-report.contract.test.js
 powershell -ExecutionPolicy Bypass -File .\sync-anchor-deployment.ps1
 ```
 
-部署同步會以 `ANCHOR_BASE_PATH=/anchor/` build，刷新 `anchor/` 靜態輸出與 `anchor/deployment-manifest.json` 的 source fingerprint。提交時應把原始碼變更與 `/anchor/` 部署鏡像變更分清楚檢查。
+部署同步會以 `ANCHOR_BASE_PATH=./` build，刷新 `anchor/` 靜態輸出與 `anchor/deployment-manifest.json` 的 source fingerprint。相對資源路徑讓同一份鏡像可部署於 GitHub Pages 的倉庫子路徑與 Vercel `/anchor/`；提交時應把原始碼變更與部署鏡像變更分清楚檢查。
 
 ## 人工複核邊界
 

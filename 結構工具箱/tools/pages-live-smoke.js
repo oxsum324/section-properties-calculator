@@ -2,7 +2,7 @@ const assert = require('assert');
 
 const DEFAULT_BASE_URL = 'https://oxsum324.github.io/section-properties-calculator/';
 const PUBLIC_ROUTE_SAMPLES = [
-  { path: '鋼筋混凝土/', needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢'] },
+  { path: '鋼筋混凝土/', needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '平台公開巡檢狀態'] },
   { path: '鋼筋混凝土/tools/beam.html', needles: ['梁 Beam 設計', 'RC 工具箱'] },
   { path: '鋼筋混凝土/tools/shear-wall.html', needles: ['剪力牆 Shear Wall', '18.7'] },
   { path: '鋼構工具/', needles: ['鋼構正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '鋼構正式工具主頁列印已封鎖'] },
@@ -10,7 +10,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '鋼構工具/steel-beam-formal.html', needles: ['鋼梁正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '輸出正式報表'] },
   { path: '鋼構工具/steel-column-formal.html', needles: ['鋼柱正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '本頁不得作為附件'] },
   { path: '鋼構工具/app.js', needles: ['getAuditStatusSource', '../結構工具箱/assets/status/platform-status.json', '平台公開巡檢狀態', '鋼構本機自巡檢狀態'] },
-  { path: 'anchor/', needles: ['錨栓檢討工具'] },
+  { path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true },
   { path: '石材固定/石材計算書產生器_規範版V2.html', needles: ['石材外牆固定構件計算書產生器', '規範版', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '石材工具主頁列印已封鎖', 'buildPrintableSheetsHtml()', 'const V2_METHOD_MEDIA = Object.freeze({', "mode:'public_static'", '公開靜態版不檢查本機服務', 'const proseAt = m.search(/[\\u3400-\\u9fff]/);'] },
   { path: '覆工板/index.html', needles: ['覆工板系統計算工具', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '覆工板工具主頁列印已封鎖', 'printDeckingReport()'] },
   { path: '開挖擋土支撐/index.html', needles: ['開挖擋土支撐計算工具', '本機服務工具'] },
@@ -92,6 +92,30 @@ async function fetchText(url) {
   return response.text();
 }
 
+function localAssetUrls(html, pageUrl) {
+  const page = new URL(pageUrl);
+  const urls = [];
+  const tagPattern = /<(?:script|link)\b[^>]*?\b(?:src|href)=["']([^"']+)["'][^>]*>/gi;
+  for (const match of html.matchAll(tagPattern)) {
+    const reference = match[1].trim();
+    if (!reference || /^(?:data:|javascript:|mailto:|#)/i.test(reference)) continue;
+    const assetUrl = new URL(reference, page);
+    if (assetUrl.origin === page.origin) urls.push(assetUrl.toString());
+  }
+  return [...new Set(urls)];
+}
+
+async function assertPublicAssets(html, pageUrl, label) {
+  const assetUrls = localAssetUrls(html, pageUrl);
+  assert.ok(assetUrls.length > 0, `${label} should reference public assets`);
+  for (const assetUrl of assetUrls) {
+    const response = await fetch(assetUrl, { redirect: 'manual', cache: 'no-store' });
+    assert.equal(response.status, 200, `${assetUrl} expected HTTP 200, got ${response.status}`);
+    const body = await response.arrayBuffer();
+    assert.ok(body.byteLength > 0, `${assetUrl} should not be empty`);
+  }
+}
+
 async function fetchJson(url) {
   const text = await fetchText(url);
   return JSON.parse(text);
@@ -128,11 +152,13 @@ function assertNoLocalWorkspaceLeak(text, label) {
 
 async function assertPublicRouteSamples(base) {
   for (const sample of PUBLIC_ROUTE_SAMPLES) {
-    const html = await fetchText(liveUrl(base, sample.path));
+    const pageUrl = liveUrl(base, sample.path);
+    const html = await fetchText(pageUrl);
     for (const needle of sample.needles) {
       assert.ok(html.includes(needle), `${sample.path} missing public page marker: ${needle}`);
     }
     assertNoLocalWorkspaceLeak(html, sample.path);
+    if (sample.checkAssets) await assertPublicAssets(html, pageUrl, sample.path);
   }
 }
 

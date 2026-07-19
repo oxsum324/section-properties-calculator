@@ -26,6 +26,8 @@ const BUILD_TIMESTAMP = new Date().toISOString()
  * - 預設 '/section-properties-calculator/anchor/'（GitHub Pages oxsum324 倉庫）
  * - Vercel / 自訂 domain：設 ANCHOR_BASE_PATH=/anchor/
  * - Tauri / 桌面包裝：設 ANCHOR_BASE_PATH=./
+ * - repo 根目錄的共用部署鏡像：sync-anchor-deployment.ps1 固定設為 ./，
+ *   讓同一份 anchor/ 輸出可同時發布到 Pages 倉庫子路徑與 Vercel /anchor/。
  * - 子路徑：設 ANCHOR_BASE_PATH=/structural-tools/anchor/
  *
  * service worker 的 APP_SHELL 路徑也由此值生成，無第二處需要同步。

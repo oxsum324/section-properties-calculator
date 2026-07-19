@@ -986,6 +986,7 @@ $anchorRouteCommand = @'
 $indexPath = 'anchor\index.html'
 $workerPath = 'anchor\service-worker.js'
 $manifestPath = 'anchor\deployment-manifest.json'
+$webManifestPath = 'anchor\manifest.webmanifest'
 $sourceRoots = @(
   '螺栓檢討\bolt-review-tool\src',
   '螺栓檢討\bolt-review-tool\public',
@@ -1057,18 +1058,27 @@ function Get-AnchorSourceFingerprint([string]$WorkspaceRoot) {
 if (-not (Test-Path -LiteralPath $indexPath)) { Write-Error "missing $indexPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $workerPath)) { Write-Error "missing $workerPath"; exit 1 }
 if (-not (Test-Path -LiteralPath $manifestPath)) { Write-Error "missing $manifestPath; run sync-anchor-deployment.ps1"; exit 1 }
+if (-not (Test-Path -LiteralPath $webManifestPath)) { Write-Error "missing $webManifestPath"; exit 1 }
 $index = Get-Content -LiteralPath $indexPath -Raw -Encoding UTF8
 $worker = Get-Content -LiteralPath $workerPath -Raw -Encoding UTF8
 $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-if ($index -notmatch '/anchor/assets/index-[^"]+\.js') { Write-Error 'anchor index does not point at /anchor/assets/index-*.js'; exit 1 }
-if ($worker -notmatch "BASE_PATH\s*=\s*'/anchor/'") { Write-Error 'anchor service worker BASE_PATH is not /anchor/'; exit 1 }
-if ($manifest.basePath -ne '/anchor/') { Write-Error "anchor deployment manifest basePath is not /anchor/: $($manifest.basePath)"; exit 1 }
+$webManifest = Get-Content -LiteralPath $webManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($index -notmatch '(?:src|href)="\./assets/index-[^"]+\.js') { Write-Error 'anchor index does not point at portable ./assets/index-*.js'; exit 1 }
+if ($index -match '(?:src|href)="/anchor/') { Write-Error 'anchor index contains origin-root /anchor/ asset references'; exit 1 }
+if ($worker -notmatch "BASE_PATH\s*=\s*'\./'") { Write-Error 'anchor service worker BASE_PATH is not portable ./'; exit 1 }
+if ($manifest.basePath -ne './') { Write-Error "anchor deployment manifest basePath is not portable ./: $($manifest.basePath)"; exit 1 }
+if ($webManifest.start_url -ne './' -or $webManifest.scope -ne './') { Write-Error 'anchor web manifest start_url/scope are not portable ./' ; exit 1 }
+if (-not $webManifest.icons -or @($webManifest.icons | Where-Object { $_.src -eq './icon.svg' }).Count -eq 0) { Write-Error 'anchor web manifest icon is not portable ./icon.svg'; exit 1 }
 $currentFingerprint = Get-AnchorSourceFingerprint (Get-Location).Path
 if ($manifest.sourceFingerprint -ne $currentFingerprint) {
   Write-Error "anchor deployment source fingerprint is stale; run sync-anchor-deployment.ps1"
   exit 1
 }
-$assetNames = [regex]::Matches($index, '/anchor/assets/([^"]+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+$assetNames = [regex]::Matches($index, '(?:\./)?assets/([^"]+)') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+if ($assetNames.Count -eq 0) {
+  Write-Error 'anchor index has no referenced assets'
+  exit 1
+}
 foreach ($name in $assetNames) {
   $assetPath = Join-Path 'anchor\assets' $name
   if (-not (Test-Path -LiteralPath $assetPath)) {
@@ -1471,7 +1481,7 @@ $checks = @(
   },
   @{
     Path = 'sync-anchor-deployment.ps1'
-    Needles = @('ANCHOR_BASE_PATH', '/anchor/', 'deployment-manifest.json', 'sourceFingerprint', 'Remove-Item', 'Copy-Item')
+    Needles = @('ANCHOR_BASE_PATH', "'./'", 'deployment-manifest.json', 'sourceFingerprint', 'Remove-Item', 'Copy-Item')
   },
   @{
     Path = '鋼構工具\run-audit.bat'
