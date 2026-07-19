@@ -90,6 +90,7 @@ $ExcludeFiles = @(
   'TOOL_REPORT_GUIDE.md',
   'pages-live-smoke.js',
   'pages-live-browser-smoke.js',
+  'run-pages-browser-smoke.sh',
   'build-pages-clean-routes.js',
   'attachment-package-check.js',
   'rendered-delivery-evidence.js',
