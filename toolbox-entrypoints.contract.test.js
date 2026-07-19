@@ -413,6 +413,7 @@ const pagesCleanRouteBuilderPath = path.join(toolboxRoot, 'tools/build-pages-cle
 const pagesCleanRouteBuilder = readText(pagesCleanRouteBuilderPath);
 const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
 const pagesArtifactSmoke = readText(path.join(repoRoot, 'run-pages-artifact-smoke.ps1'));
+const anchorSync = readText(path.join(repoRoot, 'sync-anchor-deployment.ps1'));
 
 function assertPagesCleanRouteBuilder() {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-clean-routes-contract-'));
@@ -653,8 +654,16 @@ assert.ok(pagesLiveSmoke.includes('response.arrayBuffer()'), 'Pages live smoke r
 assert.ok(pagesLiveSmoke.includes("'../結構工具箱/assets/status/platform-status.json'"), 'Pages live smoke checks RC public status routing');
 assert.ok(pagesLiveSmoke.includes('CLEAN_ROUTE_SAMPLES'), 'Pages live smoke has clean-route sample inventory');
 assert.ok(pagesLiveSmoke.includes('assertCleanRouteSamples'), 'Pages live smoke checks generated clean routes');
+assert.ok(pagesLiveSmoke.includes('homeCleanRoutes'), 'Pages live smoke derives the full clean-route inventory from public home.js');
+assert.ok(pagesLiveSmoke.includes('assertAllHomeCleanRoutes'), 'Pages live smoke checks every homepage clean route');
 assert.ok(pagesLiveSmoke.includes("source: '/rc-column'"), 'Pages live smoke samples the RC column clean route');
 assert.ok(pagesLiveSmoke.includes('assertNoLocalWorkspaceLeak'), 'Pages live smoke rejects local workspace path leaks from public pages');
+assert.ok(anchorSync.includes('$fullResolved.Substring($basePrefix.Length)'), 'anchor sync fingerprint uses runtime-stable relative paths');
+assert.ok(preflight.includes('$fullResolved.Substring($basePrefix.Length)'), 'anchor preflight fingerprint uses the same runtime-stable relative paths');
+assert.ok(anchorSync.includes('[System.StringComparer]::Ordinal'), 'anchor sync fingerprint uses runtime-stable ordinal record sorting');
+assert.ok(preflight.includes('[System.StringComparer]::Ordinal'), 'anchor preflight fingerprint uses the same runtime-stable ordinal record sorting');
+assert.equal(anchorSync.includes('MakeRelativeUri'), false, 'anchor sync fingerprint avoids runtime-dependent URI relative paths');
+assert.equal(preflight.includes('$baseUri.MakeRelativeUri($fullUri)'), false, 'anchor preflight fingerprint avoids runtime-dependent URI relative paths');
 assert.ok(pagesLiveSmoke.includes('鋼筋混凝土/tools/beam.html'), 'Pages live smoke samples RC tool page');
 assert.ok(pagesLiveSmoke.includes('鋼構工具/steel-beam-formal.html'), 'Pages live smoke samples steel formal page');
 assert.ok(pagesLiveSmoke.includes('鋼構工具/plate-check.html'), 'Pages live smoke samples steel plate formal page');

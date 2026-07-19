@@ -830,6 +830,9 @@ for (const inlineValidationPage of [
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertIncludes(html, needle, 'wind-cc page-only report readiness'));
   assert.ok(/@media\s+print[\s\S]*\.page-only-report-status/.test(html), 'wind-cc page-only report readiness hidden from print');
+  const refShotTag = html.match(/<img\s+id="refShot"[^>]*>/)?.[0] || '';
+  assert.ok(refShotTag, 'wind-cc reference image exists');
+  assert.equal(/\bsrc=/.test(refShotTag), false, 'wind-cc reference image waits for the calculated figure before requesting an asset');
 
   const windReport = readText(toolboxFile('core/wind-report.js'));
   [
