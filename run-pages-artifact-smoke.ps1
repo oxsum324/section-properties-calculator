@@ -17,6 +17,12 @@ $SmokeScript = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'pages-live
 if (-not $SmokeScript) {
   throw 'Could not find pages-live-smoke.js under the repository tools directories.'
 }
+$BrowserSmokeScript = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'pages-live-browser-smoke.js' |
+  Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)pages-live-browser-smoke.js" } |
+  Select-Object -First 1
+if (-not $BrowserSmokeScript) {
+  throw 'Could not find pages-live-browser-smoke.js under the repository tools directories.'
+}
 $RouteBuilder = Get-ChildItem -LiteralPath $RepoRoot -Recurse -Filter 'build-pages-clean-routes.js' |
   Where-Object { $_.FullName -like "*$([IO.Path]::DirectorySeparatorChar)tools$([IO.Path]::DirectorySeparatorChar)build-pages-clean-routes.js" } |
   Select-Object -First 1
@@ -27,6 +33,10 @@ if (-not $RouteBuilder) {
 $Python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $Python) {
   throw 'python is required to serve the staged Pages artifact.'
+}
+$Npx = Get-Command npx -ErrorAction SilentlyContinue
+if (-not $Npx) {
+  throw 'npx is required to run the staged Pages browser smoke.'
 }
 
 $Stamp = Get-Date -Format 'yyyyMMddHHmmss'
@@ -79,6 +89,7 @@ $ExcludeFiles = @(
   'TOOL_BOUNDARIES.md',
   'TOOL_REPORT_GUIDE.md',
   'pages-live-smoke.js',
+  'pages-live-browser-smoke.js',
   'build-pages-clean-routes.js',
   'attachment-package-check.js',
   'rendered-delivery-evidence.js',
@@ -117,6 +128,8 @@ $BaseUrl = "http://127.0.0.1:$Port/"
 $StdoutLog = Join-Path ([IO.Path]::GetTempPath()) "struct-tools-pages-artifact-$Stamp.out.log"
 $StderrLog = Join-Path ([IO.Path]::GetTempPath()) "struct-tools-pages-artifact-$Stamp.err.log"
 $Server = $null
+$BrowserSession = "pages-artifact-browser-$Stamp"
+$BrowserOpened = $false
 
 try {
   $Server = Start-Process -FilePath $Python.Source `
@@ -147,9 +160,36 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "pages-live-smoke.js failed with exit code $LASTEXITCODE"
   }
+
+  $OpenRaw = (& $Npx.Source --yes --package '@playwright/cli@0.1.17' playwright-cli --json "-s=$BrowserSession" open $BaseUrl | Out-String)
+  if ($LASTEXITCODE -ne 0) {
+    throw "Playwright CLI open failed with exit code $LASTEXITCODE"
+  }
+  $OpenResult = $OpenRaw | ConvertFrom-Json
+  if ($OpenResult.isError) {
+    throw "Playwright CLI open failed: $($OpenResult.error)"
+  }
+  $BrowserOpened = $true
+
+  $BrowserCode = ((& $Npx.Source --yes 'terser@5.49.0' $BrowserSmokeScript.FullName --compress 'side_effects=false' --mangle) -join "`n").TrimEnd().TrimEnd(';')
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($BrowserCode)) {
+    throw "pages-live-browser-smoke.js minification failed with exit code $LASTEXITCODE"
+  }
+  $BrowserRaw = (& $Npx.Source --yes --package '@playwright/cli@0.1.17' playwright-cli --json "-s=$BrowserSession" run-code $BrowserCode | Out-String)
+  if ($LASTEXITCODE -ne 0) {
+    throw "Playwright CLI browser smoke failed with exit code $LASTEXITCODE"
+  }
+  $BrowserResult = $BrowserRaw | ConvertFrom-Json
+  if ($BrowserResult.isError) {
+    throw "pages-live-browser-smoke.js failed: $($BrowserResult.error)"
+  }
+  Write-Host "Pages browser smoke passed: $($BrowserResult.result)"
   Write-Host "Local Pages artifact smoke passed: $BaseUrl"
 }
 finally {
+  if ($BrowserOpened) {
+    & $Npx.Source --yes --package '@playwright/cli@0.1.17' playwright-cli "-s=$BrowserSession" close 2>$null | Out-Null
+  }
   if ($Server -and -not $Server.HasExited) {
     Stop-Process -Id $Server.Id -Force
   }
