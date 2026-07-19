@@ -25,7 +25,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/index.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/index.html:1)
 - 平台巡檢儀表板：
   [結構工具箱/audit-dashboard.html](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/audit-dashboard.html:1)
-  可直接檢視平台 history、preflight latest / full / quick、近期異常趨勢、耗時與最慢檢查，並固定提醒頁面診斷明細不會寫入計算書、列印或 PDF；RC 正式計算書若非 ready，內部檢討輸出會另帶 `DRAFT／非正式附件` 文件分類，並由附件組包檢查阻擋。首頁的頁面專用總覽另會顯示最近一次正式放行的實際交付物渲染完成數，但公開快照不包含交付檔名或案件內容。
+  可直接檢視平台 history、preflight latest / full / quick、近期異常趨勢、耗時與最慢檢查，並固定提醒頁面診斷明細不會寫入計算書、列印或 PDF；採正式附件治理的計算書若非 ready，內部檢討輸出會另帶 `DRAFT／非正式附件` 文件分類，並由附件組包檢查阻擋。首頁的頁面專用總覽另會顯示最近一次正式放行的實際交付物渲染完成數，但公開快照不包含交付檔名或案件內容。
 - 鋼構正式規範工具：
   [鋼構工具/index.html](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/index.html:1)
 - 鋼構正式頁 regression：
@@ -108,13 +108,13 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/local-quick-tools.run.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.run.js:1)
 - 連續梁分析 regression：
   [continuous-beam-regression.test.js](/C:/Users/USER/Desktop/AI/小工具製作/continuous-beam-regression.test.js:1)
-  - 固定檢查連續梁分析計算書的 HTML 輸出可讀文字、計畫資訊、支承反力、梁示意圖、剪力圖與彎矩圖，並排除頁面專用閱讀狀態。瀏覽器直接列印操作頁已由共用邊界樣式封鎖，只顯示一頁操作指引；真正的計算書仍由結果區「計算書」按鈕產生。
+  - 固定檢查連續梁分析計算書的 HTML 輸出可讀文字、計畫資訊、支承反力、梁示意圖、剪力圖與彎矩圖，並排除頁面專用閱讀狀態。案件資料缺漏、直接輸入 I 值或其他待人工確認條件會使計算書標示 `DRAFT／非正式附件`；資料完整且無待確認項目時才移除 DRAFT。瀏覽器直接列印操作頁已由共用邊界樣式封鎖，只顯示一頁操作指引；真正的計算書仍由結果區「計算書」按鈕產生。
 - 斷面工具共同契約測試：
   [section-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/section-tools.contract.test.js:1)
-  - 鎖住斷面性質、合成斷面與 RC 補強斷面頁的 inline status / 報表 payload 邊界，並把共享報表與 runtime HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單，避免頁面專用閱讀狀態混入正式報表。基本斷面、獨立版基本斷面與合成斷面的瀏覽器直接列印已由共用邊界樣式封鎖，只顯示一頁操作指引；RC 補強斷面沿用 RC 正式工具相同邊界，所有實際輸出都必須走頁面內的 PDF／計算書流程。
+  - 鎖住斷面性質、合成斷面與 RC 補強斷面頁的 inline status / 報表 payload 邊界，並把共享報表與 runtime HTML 轉成可讀文字檢查標題、計畫資訊、主要章節與 page-only wording 排除清單，避免頁面專用閱讀狀態混入正式報表。共用計算書產生器會預設依案件資料與檢核結果判定文件狀態：不完整或檢核不符時輸出 DRAFT，完整且通過時不帶 DRAFT。基本斷面、獨立版基本斷面與合成斷面的瀏覽器直接列印已由共用邊界樣式封鎖，只顯示一頁操作指引；RC 補強斷面沿用 RC 正式工具相同邊界，所有實際輸出都必須走頁面內的 PDF／計算書流程。
 - 平面剛架報告邊界契約測試：
   [frame-analysis.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/frame-analysis.contract.test.js:1)
-  - 鎖住 `鋼架/平面剛架分析.html` 的頁面 / 計算書邊界，確認附件閱讀狀態只留在頁面，`printReport()` 實際產出的 blob 計算書具備足量可讀文字、必要分析章節與節點 / 桿件資料，且不帶 page-only wording，並維持彈性支承、分析組合、平衡檢核與響應式版面 smoke。瀏覽器直接列印操作頁已由共用邊界樣式封鎖，只顯示一頁操作指引，必須使用頁面內的「列印計算書」流程產生附件候選。
+  - 鎖住 `鋼架/平面剛架分析.html` 的頁面 / 計算書邊界，確認附件閱讀狀態只留在頁面，`printReport()` 實際產出的 blob 計算書具備案件資料、產出工具、版本、輸出時間、計算指紋、必要分析章節與節點 / 桿件資料，且不帶 page-only wording；案件資料缺漏或模型仍有待確認項目時明確輸出 DRAFT，完整通過時才移除 DRAFT。另維持彈性支承、分析組合、平衡檢核與響應式版面 smoke。瀏覽器直接列印操作頁已由共用邊界樣式封鎖，只顯示一頁操作指引，必須使用頁面內的「列印計算書」流程產生附件候選。
 - 覆工板 Word 報告邊界契約測試：
   [覆工板/decking-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/覆工板/decking-report.contract.test.js:1)
   - 鎖住 `覆工板/report/gen_report.py` 與固定 smoke fixture 的 `.docx` 產報邊界，確認案名 / 編號 / 日期與主要章節仍會寫入 Word 計算書，但頁面上的附件閱讀狀態不會混入輸出；操作頁直接列印只顯示一頁邊界通知，頁面內「列印彙整計算書」才會暫時啟用只含彙整報告的 PDF 列印模式，Word 流程維持獨立。正式 release 另把當輪 DOCX 與結構摘要保存在 `decking-formal` 證據目錄，供平台總閘門重新解析。

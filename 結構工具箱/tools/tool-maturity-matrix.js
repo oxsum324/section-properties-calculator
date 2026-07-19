@@ -1679,12 +1679,12 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const renderedDeliverySummary = supplementalDeliveryDeclared
     ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
-  const summary = `頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；RC 正式計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
+  const summary = `頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；採正式附件治理的計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
     pageOnlyTitles.length
       ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
-    `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項確認正式輸出的可讀文字與頁面診斷明細排除；RC 正式計算書非 ready 的 DRAFT 文件分類是必要輸出邊界，不屬於 page-only 診斷明細。`,
+    `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項確認正式輸出的可讀文字與頁面診斷明細排除；受治理計算書非 ready 的 DRAFT 文件分類是必要輸出邊界，不屬於 page-only 診斷明細。`,
     `正式放行實際交付物渲染佐證：${renderedDeliveryComplete} / ${renderedDeliveryRequired} 個首頁正式工具已完成，涵蓋 ${renderedDeliveryFamilies.length} 個工具家族${supplementalDeliveryDeclared ? `；另有 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired} 個矩陣外報告 / 服務成品，涵蓋 ${supplementalDeliveryFamilies.length} 個補充家族` : ''}；證據來自 release ${String(renderedDeliveryPayload?.runId || '-')}。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。`,
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
@@ -1700,7 +1700,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
-    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；RC 正式計算書非 ready 輸出會另帶 DRAFT／非正式附件分類。',
+    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；受治理計算書非 ready 輸出會另帶 DRAFT／非正式附件分類。',
     details,
     pageOnlyBoundaryRequired: required,
     pageOnlyBoundaryComplete: complete,

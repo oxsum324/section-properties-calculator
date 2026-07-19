@@ -1,3 +1,7 @@
-# Keep report readiness as page-only status
+# Separate page diagnostics from calculation-book document state
 
-The tools may show report readiness and priority reading status on the page or homepage, but this status must not be attached to calculation books, printed output, PDFs, Word reports, or workbook exports. The trade-off is deliberate: the status helps internal review and triage, while formal calculation attachments should contain engineering inputs, assumptions, code references, results, and necessary review notes only.
+The tools may show report readiness, control-flow explanations, and priority reading status on the work page or homepage, but those diagnostic details must not be copied into calculation books, printed output, PDFs, Word reports, or workbook exports. They help internal review and triage; the calculation attachment itself should contain project identification, engineering inputs, assumptions, code references, calculations, results, conclusions, and output traceability only.
+
+Document classification is different from page diagnostics and belongs in the calculation book. A governed report is `ready` only when required project metadata is complete, calculation has finished, no failed check remains, and every tool-specific manual-review condition is cleared. Otherwise the output is an internal review document and must carry a concise `DRAFT／非正式附件` classification and print watermark. A ready report removes DRAFT and becomes a candidate `可送簽版`; it is not automatically a signed or approved formal attachment.
+
+The shared calculation-book renderer enforces this rule by default from project metadata and failed checks. Individual tools may add stricter review conditions, but may not weaken the shared minimum. Direct printing of a work page remains blocked and must never be confused with either a DRAFT calculation book or a ready-to-sign report.

@@ -751,14 +751,22 @@ function exportReport() {
   ];
   if (t.Jclosed !== null) totalItems.push({ label:'J_closed (封閉箱型)', value: fmt(t.Jclosed), unit:'cm⁴' });
 
+  const project = {
+    name: getProjectFieldValue('projName'),
+    no: getProjectFieldValue('projNo'),
+    designer: getProjectFieldValue('projDesigner'),
+  };
+  const attachmentReadiness = window.ToolReportUI.assessFormalAttachment({
+    project,
+    calculated: true,
+  });
+
   openReport({
     title: '合成斷面性質計算書',
     subtitle: `${currentHName()}　｜　${modeText}`,
-    project: {
-      name:     getProjectFieldValue('projName'),
-      no:       getProjectFieldValue('projNo'),
-      designer: getProjectFieldValue('projDesigner'),
-    },
+    project,
+    documentState: attachmentReadiness.documentState,
+    documentClass: attachmentReadiness.documentClass,
     summary: { ok: null, text: `合成斷面性質計算：${modeText}` },
     diagrams: [{ title:'合成斷面示意圖', dataURL, width: 500 }],
     inputs: [
