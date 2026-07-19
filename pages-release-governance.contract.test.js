@@ -109,6 +109,8 @@ assert.ok(pagesSmoke.includes("{ path: 'anchor/', needles: ['錨栓檢討工具'
 assert.ok(pagesSmoke.includes('async function assertPublicAssets'), 'Pages smoke fetches public page assets');
 assert.ok(pagesSmoke.includes('response.arrayBuffer()'), 'Pages smoke rejects empty public assets');
 assert.ok(pagesSmoke.includes("'../結構工具箱/assets/status/platform-status.json'"), 'Pages smoke checks RC public status routing');
+assert.ok(pagesSmoke.includes('homeCleanRoutes'), 'Pages smoke derives the complete clean-route inventory from public home.js');
+assert.ok(pagesSmoke.includes('assertAllHomeCleanRoutes'), 'Pages smoke checks every homepage clean route after deploy');
 assert.ok(pagesSmoke.includes('CONTEXT.md'), 'Pages smoke blocks context publication');
 assert.ok(pagesSmoke.includes('docs/adr/0001-page-only-report-readiness.md'), 'Pages smoke blocks ADR publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/attachment-package-check.js'), 'Pages smoke blocks attachment package checker publication');

@@ -7,14 +7,16 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 function Get-RelativePathText {
   param([string]$BasePath, [string]$FullPath)
-  $baseResolved = (Resolve-Path -LiteralPath $BasePath).Path
+  $baseResolved = (Resolve-Path -LiteralPath $BasePath).Path.TrimEnd([char[]]@('\', '/'))
   $fullResolved = (Resolve-Path -LiteralPath $FullPath).Path
-  if (-not $baseResolved.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
-    $baseResolved = $baseResolved + [System.IO.Path]::DirectorySeparatorChar
+  if ($fullResolved.Equals($baseResolved, [System.StringComparison]::OrdinalIgnoreCase)) {
+    return ''
   }
-  $baseUri = New-Object System.Uri($baseResolved)
-  $fullUri = New-Object System.Uri($fullResolved)
-  return [System.Uri]::UnescapeDataString($baseUri.MakeRelativeUri($fullUri).ToString()).Replace('\', '/')
+  $basePrefix = $baseResolved + [System.IO.Path]::DirectorySeparatorChar
+  if (-not $fullResolved.StartsWith($basePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Path is outside base path: $FullPath"
+  }
+  return $fullResolved.Substring($basePrefix.Length).Replace('\', '/')
 }
 
 function Get-FileSha256Text {
@@ -89,7 +91,9 @@ function Get-AnchorSourceFingerprint {
     }
   }
 
-  $joined = ($records | Sort-Object) -join "`n"
+  $sortedRecords = $records.ToArray()
+  [System.Array]::Sort($sortedRecords, [System.StringComparer]::Ordinal)
+  $joined = $sortedRecords -join "`n"
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($joined)
   $sha = [System.Security.Cryptography.SHA256]::Create()
   try {

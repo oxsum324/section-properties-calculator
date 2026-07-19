@@ -173,6 +173,37 @@ async function assertCleanRouteSamples(base) {
   }
 }
 
+function homeCleanRoutes(homeJs) {
+  const routes = [...homeJs.matchAll(/\bhref:\s*['"](\/[^'"]+)['"]/g)].map(match => match[1]);
+  const uniqueRoutes = [...new Set(routes)];
+  assert.ok(uniqueRoutes.length >= 40, `home.js should expose the complete clean-route inventory, got ${uniqueRoutes.length}`);
+  assert.equal(uniqueRoutes.length, routes.length, 'home.js clean routes should be unique');
+  return uniqueRoutes;
+}
+
+async function assertAllHomeCleanRoutes(base, homeJs) {
+  const routes = homeCleanRoutes(homeJs);
+  let generatedCount = 0;
+  let directCount = 0;
+  for (const source of routes) {
+    const path = `${source.replace(/^\/+/, '')}/`;
+    const html = await fetchText(liveUrl(base, path));
+    if (html.includes('generated-by: build-pages-clean-routes.js')) {
+      generatedCount += 1;
+      assert.ok(html.includes(`content="${source}"`), `${path} missing clean-route source marker`);
+      assert.ok(html.includes('pages-clean-route-target'), `${path} missing clean-route destination marker`);
+      assert.ok(html.includes('window.location.search + window.location.hash'), `${path} does not preserve query and hash`);
+    } else {
+      directCount += 1;
+      assert.ok(html.length >= 500, `${path} direct public route should return a populated page`);
+      assert.ok(/<title>[^<]+<\/title>/i.test(html), `${path} direct public route should expose a page title`);
+    }
+    assertNoLocalWorkspaceLeak(html, path);
+  }
+  assert.equal(generatedCount + directCount, routes.length, 'every homepage route should be classified and checked');
+  return { total: routes.length, generated: generatedCount, direct: directCount };
+}
+
 async function assertPrivateBoundary(base) {
   for (const path of PRIVATE_PATHS) {
     const url = liveUrl(base, path);
@@ -295,6 +326,7 @@ async function main() {
 
   await assertPublicRouteSamples(base);
   await assertCleanRouteSamples(base);
+  const cleanRouteCounts = await assertAllHomeCleanRoutes(base, homeJs);
   if (!allowLocalOutput()) {
     await assertOldOutputNotRequired(base);
   }
@@ -303,6 +335,7 @@ async function main() {
   }
 
   console.log(`pages live smoke OK (${base})`);
+  console.log(`home routes checked=${cleanRouteCounts.total} (generated=${cleanRouteCounts.generated}, direct=${cleanRouteCounts.direct})`);
   console.log(`platform runId=${platformStatus.runId}, preflight runId=${preflightStatus.runId}, reportReadiness runId=${reportReadinessStatus.runId}`);
 }
 

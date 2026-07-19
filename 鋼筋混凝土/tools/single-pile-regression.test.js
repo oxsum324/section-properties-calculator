@@ -98,6 +98,28 @@ async function main() {
     const rowCount = await page.locator('#candidateTable tbody tr').count();
     assert(rowCount > 10, 'single-pile candidate rows', `rows=${rowCount}`);
 
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const desktopLayout = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth
+    }));
+    assert(desktopLayout.scrollWidth <= desktopLayout.clientWidth + 2, 'single-pile desktop layout', `scroll=${desktopLayout.scrollWidth}, client=${desktopLayout.clientWidth}`);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileLayout = await page.evaluate(() => {
+      const candidateWrap = document.querySelector('#candidateTable').closest('.table-wrap');
+      return {
+        clientWidth: document.documentElement.clientWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        tableClientWidth: candidateWrap.clientWidth,
+        tableScrollWidth: candidateWrap.scrollWidth
+      };
+    });
+    assert(mobileLayout.scrollWidth <= mobileLayout.clientWidth + 2, 'single-pile mobile layout', `scroll=${mobileLayout.scrollWidth}, client=${mobileLayout.clientWidth}`);
+    assert(mobileLayout.tableScrollWidth > mobileLayout.tableClientWidth, 'single-pile mobile table containment', `tableScroll=${mobileLayout.tableScrollWidth}, tableClient=${mobileLayout.tableClientWidth}`);
+
+    await page.setViewportSize({ width: 1280, height: 720 });
+
     await page.fill('#longTermLoad', '77');
     await page.fill('#diameterMin', '55');
     await page.fill('#depthMin', '13');
