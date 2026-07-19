@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const net = require('node:net');
 const { spawn } = require('node:child_process');
 const {
   resolveEvidenceDir,
@@ -138,6 +139,33 @@ function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function getFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+async function waitForJson(url, timeoutMs = 20000) {
+  const startedAt = Date.now();
+  let lastError;
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return await response.json();
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    await wait(100);
+  }
+  throw lastError || new Error(`Timed out waiting for ${url}`);
+}
+
 function withTimeout(promise, ms, label) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -158,9 +186,11 @@ function formatError(error) {
 
 async function launchEdgeOnce(edgePath) {
   const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), 'steel-audit-edge-'));
+  const debugPort = await getFreePort();
+  const versionUrl = `http://127.0.0.1:${debugPort}/json/version`;
   const browserArgs = [
     '--headless=new',
-    '--remote-debugging-port=0',
+    `--remote-debugging-port=${debugPort}`,
     '--remote-allow-origins=*',
     '--disable-background-networking',
     '--disable-default-apps',
@@ -174,29 +204,13 @@ async function launchEdgeOnce(edgePath) {
   ];
   let child;
   try {
-    child = spawn(edgePath, browserArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
-    const wsUrl = await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Timed out waiting for Edge DevTools endpoint.')), 20000);
-      const inspect = chunk => {
-        const text = String(chunk);
-        const match = text.match(/DevTools listening on (ws:\/\/[^\s]+)/);
-        if (match) {
-          clearTimeout(timer);
-          resolve(match[1]);
-        }
-      };
-      child.stdout.on('data', inspect);
-      child.stderr.on('data', inspect);
-      child.once('error', error => {
-        clearTimeout(timer);
-        reject(error);
-      });
-      child.once('exit', code => {
-        clearTimeout(timer);
-        reject(new Error(`Edge exited before DevTools endpoint was available. exitCode=${code}`));
-      });
-    });
-    return { child, profileDir, wsUrl };
+    child = spawn(edgePath, browserArgs, { stdio: 'ignore', windowsHide: true });
+    const version = await Promise.race([
+      waitForJson(versionUrl, 20000),
+      new Promise((_, reject) => child.once('error', reject)),
+    ]);
+    if (!version.webSocketDebuggerUrl) throw new Error('Edge DevTools endpoint did not provide webSocketDebuggerUrl.');
+    return { child, profileDir, wsUrl: version.webSocketDebuggerUrl, debugPort };
   } catch (error) {
     if (child && !child.killed) child.kill('SIGKILL');
     try {

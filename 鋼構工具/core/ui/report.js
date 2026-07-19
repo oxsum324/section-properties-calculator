@@ -209,6 +209,77 @@ function assessFormalAttachment(state = {}) {
   };
 }
 
+const FORMAL_DOCUMENT_STATE_REPORT_CSS = `
+.rep-document-state { margin:12px 0 16px; padding:10px 14px; border:2px solid #b91c1c;
+  background:#fff1f2; color:#881337; page-break-inside:avoid; }
+.rep-document-state strong { display:block; font-size:16px; letter-spacing:.03em; }
+.rep-document-state span { display:block; margin-top:4px; font-size:11px; line-height:1.5; }
+.rep-document-state--review { border-color:#b45309; background:#fff7ed; color:#7c2d12; }
+@media print {
+  .rep-document-state { display:block; position:absolute; top:0; right:0; z-index:1000;
+    width:auto; max-width:48%; margin:0; padding:1mm 2mm; white-space:nowrap; }
+  .rep-document-state strong { font-size:9px; }
+  .rep-document-state span { display:none; }
+  .rep-document-state::after { content:""; position:fixed; left:50%; top:46%; width:160mm; height:44mm;
+    transform:translate(-50%,-50%) rotate(-28deg);
+    background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 160'%3E%3Cpath d='M45 130V30H85Q125 30 125 80Q125 130 85 130Z M155 130L195 30L235 130M170 92H220 M265 130V30H305Q345 30 345 62Q345 94 305 94H265M305 94L350 130 M385 130V30H455M385 78H445 M480 30H565M522 30V130' fill='none' stroke='%23991b1b' stroke-width='18' stroke-linecap='square' stroke-linejoin='miter' opacity='.08'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:999; }
+}`;
+
+function normalizeFormalDocumentState(documentState) {
+  if (!documentState || documentState.kind !== 'draft') return null;
+  return {
+    kind: 'draft',
+    reason: documentState.reason === 'blocked' ? 'blocked' : 'review',
+    label: String(documentState.label || 'DRAFT／非正式附件').trim(),
+    detail: String(documentState.detail || '本文件僅供內部檢討，不得作為正式附件。').trim(),
+  };
+}
+
+function getPageReportReadinessLevel(root) {
+  const scope = root || (typeof document !== 'undefined' ? document : null);
+  if (!scope?.querySelector) return '';
+  if (scope.querySelector('.page-only-report-status.blocked, .page-only-report-status .blocked')) return 'blocked';
+  if (scope.querySelector('.page-only-report-status.review, .page-only-report-status .review')) return 'review';
+  if (scope.querySelector('.page-only-report-status.ready, .page-only-report-status .ready')) return 'ready';
+  return '';
+}
+
+function buildFormalDocumentStateReport(state = {}) {
+  const readinessLevel = ['ready', 'review', 'blocked'].includes(state.readinessLevel)
+    ? state.readinessLevel
+    : '';
+  const failedItems = Array.isArray(state.failedItems) ? [...state.failedItems] : [];
+  const reviewItems = Array.isArray(state.reviewItems) ? [...state.reviewItems] : [];
+  if (readinessLevel === 'blocked' && failedItems.length === 0) {
+    failedItems.push('規範適用或檢核結果未通過');
+  }
+  if (readinessLevel === 'review' && reviewItems.length === 0) {
+    reviewItems.push('計算結果尚待人工複核');
+  }
+  const assessment = assessFormalAttachment({
+    project: state.project,
+    calculated: state.calculated,
+    failedItems,
+    reviewItems,
+  });
+  const documentState = normalizeFormalDocumentState(assessment.documentState);
+  if (!documentState) {
+    return { ...assessment, documentState: null, css: FORMAL_DOCUMENT_STATE_REPORT_CSS, html: '' };
+  }
+  const esc = escapeReportHtml;
+  return {
+    ...assessment,
+    documentState,
+    css: FORMAL_DOCUMENT_STATE_REPORT_CSS,
+    html: `<style data-formal-document-state-style>${FORMAL_DOCUMENT_STATE_REPORT_CSS}</style>
+      <section class="rep-document-state rep-document-state--${esc(documentState.reason)}" data-document-state="${esc(documentState.kind)}" data-document-reason="${esc(documentState.reason)}">
+        <strong>${esc(documentState.label)}</strong>
+        <span>${esc(documentState.detail)}</span>
+      </section>`,
+  };
+}
+
 function normalizeStatusGridItem(item) {
   if (Array.isArray(item)) {
     return { label: item[0], value: item[1] };
@@ -250,6 +321,8 @@ if (typeof window !== 'undefined') {
     normalizeReportVersion,
     hasBlankFieldValues,
     assessFormalAttachment,
+    buildFormalDocumentStateReport,
+    getPageReportReadinessLevel,
     buildReportTrace,
     renderStatusGridPanel,
     calculationBookPageOnlyLabels: CALCULATION_BOOK_PAGE_ONLY_LABELS,
@@ -319,14 +392,7 @@ function openReport(cfg) {
         failedItems: [...inferredFailedItems, ...(Array.isArray(cfg.failedItems) ? cfg.failedItems : [])],
         reviewItems: cfg.reviewItems,
       }).documentState;
-  const documentState = configuredDocumentState && configuredDocumentState.kind === 'draft'
-    ? {
-        kind: 'draft',
-        reason: configuredDocumentState.reason === 'blocked' ? 'blocked' : 'review',
-        label: String(configuredDocumentState.label || 'DRAFT／非正式附件').trim(),
-        detail: String(configuredDocumentState.detail || '本文件僅供內部檢討，不得作為正式附件。').trim(),
-      }
-    : null;
+  const documentState = normalizeFormalDocumentState(configuredDocumentState);
 
   const inputsHtml = getCalculationBookInputGroups(cfg.inputs).map(g => `
     <section class="rep-block${g.keepTogether ? ' rep-block--keep' : ''}">

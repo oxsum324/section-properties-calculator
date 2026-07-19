@@ -403,6 +403,19 @@ function closeReportWindow() {
     return { ok, text: text || '—' };
   }
 
+  function buildPageDocumentStateReport(projectInfo) {
+    const reportUi = global.ToolReportUI;
+    if (!reportUi || typeof reportUi.buildFormalDocumentStateReport !== 'function') {
+      showWindReportIssue('共用文件狀態模組未載入，無法產生正式計算書。');
+      return null;
+    }
+    return reportUi.buildFormalDocumentStateReport({
+      project: projectInfo,
+      calculated: true,
+      readinessLevel: reportUi.getPageReportReadinessLevel(document),
+    });
+  }
+
   function collectWindForceChecks() {
     const groups = [];
     appendIf(groups, parseKVList(document.getElementById('bannerKey'), '綜合結論摘要'));
@@ -732,6 +745,8 @@ function closeReportWindow() {
     const inputGroups = collectInputGroups();
     const reportTrace = buildWindReportTrace({ title, subtitle, mode, summary, inputGroups });
     if (!reportTrace) return;
+    const documentStateReport = buildPageDocumentStateReport(proj);
+    if (!documentStateReport) return;
     const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(inputGroups) : '';
     const notesHtml = '';
     const html = `<!doctype html>
@@ -804,6 +819,7 @@ ${reportToolbarHtml()}
     <h1>${esc(title)} 計算書</h1>
     ${subtitle ? `<div class="sub">${esc(subtitle)}</div>` : ''}
   </div>
+  ${documentStateReport.html}
   <div class="rep-meta rep-meta--traceable">
     <div><b>計畫名稱</b>${esc(proj.name) || '—'}</div>
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>
@@ -862,6 +878,8 @@ ${reportWindowScriptHtml()}
     const inputGroups = collectInputGroups();
     const reportTrace = buildWindReportTrace({ title, subtitle, mode, summary, inputGroups });
     if (!reportTrace) return;
+    const documentStateReport = buildPageDocumentStateReport(proj);
+    if (!documentStateReport) return;
     const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(inputGroups) : '';
     const notesHtml = '';
     const sections = collectWindGenericSections();
@@ -936,6 +954,7 @@ ${reportToolbarHtml()}
     <h1>${esc(title)} 計算書</h1>
     ${subtitle ? `<div class="sub">${esc(subtitle)}</div>` : ''}
   </div>
+  ${documentStateReport.html}
   <div class="rep-meta rep-meta--traceable">
     <div><b>計畫名稱</b>${esc(proj.name) || '—'}</div>
     <div><b>計畫編號</b>${esc(proj.no) || '—'}</div>

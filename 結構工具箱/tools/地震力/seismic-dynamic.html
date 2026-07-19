@@ -1808,6 +1808,11 @@ function openDynamicReport() {
     outputSource: { tool: '反應譜動力分析', version: TOOL_VERSION },
     snapshot: { reportMode, includeModelCheck, calculation, x, y, modelCheck },
   });
+  const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
+    project: proj,
+    calculated: true,
+    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document)
+  });
   const spectrumCanvas = document.getElementById('dynamicSpectrumChart');
   const spectrumImage = spectrumCanvas ? spectrumCanvas.toDataURL('image/png') : '';
   const html = `<!doctype html>
@@ -1841,6 +1846,7 @@ function openDynamicReport() {
     <div class="paper">
       <h1>反應譜動力分析規範整理計算書</h1>
       <div class="sub">依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求</div>
+      ${documentStateReport.html}
       <div class="meta meta--traceable">
         <div><b>計畫名稱</b>${esc(proj.name || '—')}</div>
         <div><b>計畫編號</b>${esc(proj.no || '—')}</div>

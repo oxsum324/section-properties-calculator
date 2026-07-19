@@ -275,7 +275,7 @@ function Run-AuditPass {
     $summaryLines.Add("- formal-core-sync-check: pass")
     $manifestPath = Join-Path $root "core\formal-core-manifest.json"
     if (Test-Path $manifestPath) {
-      $manifest = Get-Content -Path $manifestPath -Raw | ConvertFrom-Json
+      $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
       $summaryLines.Add("- formal-core-manifest: $manifestPath")
       $summaryLines.Add("  generatedAt=$($manifest.generatedAt)")
       $summaryLines.Add("  files=$((@($manifest.files).Count))")

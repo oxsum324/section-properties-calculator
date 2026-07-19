@@ -142,7 +142,7 @@
     version: 1,
     generatedAt: '2026-07-20',
     releaseVerifiedAt: '2026-07-20',
-    source: 'routeFileMap target Git history + current target worktree changes + tracked preflight release snapshot',
+    source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
       '/beam-analysis': '2026-07-20',
       '/frame-analysis': '2026-07-20',
@@ -166,20 +166,20 @@
       '/wind-overview': '2026-07-16',
       '/wind-kzt': '2026-07-16',
       '/wind-special': '2026-07-10',
-      '/wind-force': '2026-07-18',
-      '/wind-cc': '2026-07-19',
-      '/wind-parapet': '2026-07-18',
-      '/wind-open-roof': '2026-07-18',
-      '/wind-object-solid': '2026-07-18',
-      '/wind-object-frame': '2026-07-18',
-      '/wind-lattice-tower': '2026-07-18',
-      '/wind-object-tower': '2026-07-18',
-      '/wind-fence-sign': '2026-07-18',
-      '/wind-sign-pole': '2026-07-18',
-      '/seismic-force': '2026-07-18',
-      '/seismic-dynamic': '2026-07-18',
-      '/seismic-appendage': '2026-07-18',
-      '/seismic-misc': '2026-07-18',
+      '/wind-force': '2026-07-20',
+      '/wind-cc': '2026-07-20',
+      '/wind-parapet': '2026-07-20',
+      '/wind-open-roof': '2026-07-20',
+      '/wind-object-solid': '2026-07-20',
+      '/wind-object-frame': '2026-07-20',
+      '/wind-lattice-tower': '2026-07-20',
+      '/wind-object-tower': '2026-07-20',
+      '/wind-fence-sign': '2026-07-20',
+      '/wind-sign-pole': '2026-07-20',
+      '/seismic-force': '2026-07-20',
+      '/seismic-dynamic': '2026-07-20',
+      '/seismic-appendage': '2026-07-20',
+      '/seismic-misc': '2026-07-20',
       '/anchor': '2026-07-19',
       '/stone-fixing': '2026-07-19',
       '/foundation-local': '2026-07-18',
@@ -187,6 +187,26 @@
       '/earth-pressure': '2026-07-18',
       '/decking': '2026-07-19',
       '/excavation-support': '2026-06-26'
+    }
+  };
+
+  const HOME_TOOL_UPDATE_DEPENDENCIES = {
+    version: 1,
+    routes: {
+      '/wind-force': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js'],
+      '/wind-cc': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js'],
+      '/wind-open-roof': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js'],
+      '/wind-parapet': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js'],
+      '/wind-object-solid': ['結構工具箱/core/ui/report.js'],
+      '/wind-object-frame': ['結構工具箱/core/ui/report.js'],
+      '/wind-lattice-tower': ['結構工具箱/core/ui/report.js'],
+      '/wind-object-tower': ['結構工具箱/core/ui/report.js'],
+      '/wind-fence-sign': ['結構工具箱/core/ui/report.js'],
+      '/wind-sign-pole': ['結構工具箱/core/ui/report.js'],
+      '/seismic-force': ['結構工具箱/core/ui/report.js'],
+      '/seismic-dynamic': ['結構工具箱/core/ui/report.js'],
+      '/seismic-appendage': ['結構工具箱/core/ui/report.js'],
+      '/seismic-misc': ['結構工具箱/core/ui/report.js']
     }
   };
 

@@ -96,7 +96,7 @@ const inlineValidationCases = {
 
 function assertFormalToolCoverage() {
   assert.equal(formalManifest.family, 'formal-tools', 'formal browser smoke manifest family');
-  assert.equal(formalManifest.version, '0.1.0', 'formal browser smoke manifest version');
+  assert.equal(formalManifest.version, '0.2.0', 'formal browser smoke manifest version');
   assert.ok(Array.isArray(formalTools), 'formal browser smoke manifest tools');
   assert.ok(Array.isArray(requiredFormalRoutes), 'formal browser smoke manifest required routes');
   const coveredRoutes = new Set(formalTools.map(tool => tool.route));
@@ -989,6 +989,9 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       html: '',
       auditHtml: '',
       projectMeta: [],
+      readinessLevel: setupState.readinessLevel || '',
+      documentState: '',
+      documentReason: '',
     };
   }
 
@@ -1007,6 +1010,9 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       html: '',
       auditHtml: '',
       projectMeta: [],
+      readinessLevel: setupState.readinessLevel || '',
+      documentState: '',
+      documentReason: '',
     };
   }
 
@@ -1032,7 +1038,9 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
         html,
         auditHtml: html.replace(/data:image\\/png;base64,[^"'\\s<>]+/g, 'data:image/png;base64,[omitted]'),
-        projectMeta: Array.from(document.querySelectorAll('.rep-meta div, .meta div')).map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim())
+        projectMeta: Array.from(document.querySelectorAll('.rep-meta div, .meta div')).map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim()),
+        documentState: document.querySelector('[data-document-state]')?.getAttribute('data-document-state') || '',
+        documentReason: document.querySelector('[data-document-state]')?.getAttribute('data-document-reason') || ''
       };
     })()`);
     return {
@@ -1047,6 +1055,9 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       html: state.html,
       auditHtml: state.auditHtml,
       projectMeta: state.projectMeta,
+      readinessLevel: setupState.readinessLevel || '',
+      documentState: state.documentState,
+      documentReason: state.documentReason,
     };
   } finally {
     popupErrors.unsubscribe();
@@ -1692,11 +1703,21 @@ function reportPopupSetupExpression(tool, mode = null, projectMetaState = 'curre
       await settle(1);
     }
     if (reportMode) await chooseReportMode(reportMode);
+    await settle(1);
     const button = reportId ? byId(reportId) : document.querySelector(reportSelector);
+    const readinessLevel = typeof window.ToolReportUI?.getPageReportReadinessLevel === 'function'
+      ? window.ToolReportUI.getPageReportReadinessLevel(document)
+      : (() => {
+        if (document.querySelector('.page-only-report-status.blocked, .page-only-report-status .blocked')) return 'blocked';
+        if (document.querySelector('.page-only-report-status.review, .page-only-report-status .review')) return 'review';
+        if (document.querySelector('.page-only-report-status.ready, .page-only-report-status .ready')) return 'ready';
+        return '';
+      })();
     return {
       mode: reportMode || 'default',
       missingButton: !button,
       projectMetaState: projectState,
+      readinessLevel,
     };
   })()`;
 }
@@ -1978,6 +1999,7 @@ function assertPopupReportState(state, tool, label, mode = 'default') {
   assert.ok(metaText.includes('FORMAL-VERIFY-001') || state.bodyText.includes('FORMAL-VERIFY-001'), `${label} ${tool.key} popup report project no`);
   assert.ok(metaText.includes('Codex QA') || state.bodyText.includes('Codex QA'), `${label} ${tool.key} popup report project designer`);
   assert.equal(state.bodyText.includes('未填'), false, `${label} ${tool.key} popup report should exclude placeholder project text`);
+  assertPopupDocumentStateMatchesPage(state, tool, label);
   assertNoPageErrors(state.popupErrors || [], `${label} ${tool.key} popup report`);
   assertReportContentState(state, tool, label, mode);
 }
@@ -1994,8 +2016,49 @@ function assertPlaceholderPopupReportState(state, tool, label, mode = 'default')
   assert.ok(reportText.includes('Codex QA'), `${label} ${tool.key} placeholder popup report project designer`);
   assert.equal(reportText.includes('未填'), false, `${label} ${tool.key} placeholder popup report should exclude placeholder project text`);
   assert.equal(reportText.includes('正式工具驗證案'), false, `${label} ${tool.key} placeholder popup report should not retain completed project name`);
+  assert.ok(['review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} placeholder page requires review or is blocked`);
+  assertPopupDocumentStateMatchesPage(state, tool, label);
+  for (const needle of formalManifest.reportPageOnlyForbiddenNeedles || []) {
+    assert.equal(reportText.includes(needle), false, `${label} ${tool.key} placeholder popup excludes page-only wording: ${needle}`);
+  }
   assertNoPageErrors(state.popupErrors || [], `${label} ${tool.key} placeholder popup report`);
   assertReportContentState(state, tool, label, mode);
+}
+
+function assertPopupDocumentStateMatchesPage(state, tool, label) {
+  assert.ok(['ready', 'review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} exposes page readiness`);
+  if (state.readinessLevel === 'ready') {
+    assert.equal(state.documentState, '', `${label} ${tool.key} ready popup report has no draft document state`);
+    assert.equal(state.documentReason, '', `${label} ${tool.key} ready popup report has no draft reason`);
+    assert.equal(state.bodyText.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} ready popup report has no draft label`);
+    return;
+  }
+  assert.equal(state.documentState, 'draft', `${label} ${tool.key} non-ready popup report is draft`);
+  assert.equal(state.documentReason, state.readinessLevel, `${label} ${tool.key} popup reason matches page readiness`);
+  const expectedLabel = state.readinessLevel === 'blocked'
+    ? 'DRAFT／非正式附件 - 檢核不符'
+    : 'DRAFT／非正式附件 - 待人工複核';
+  assert.ok(state.bodyText.includes(expectedLabel), `${label} ${tool.key} popup report includes ${expectedLabel}`);
+}
+
+function getReportDocumentState(state) {
+  const html = String(state?.html || '');
+  const reason = state?.documentReason
+    || html.match(/data-document-reason=["'](ready|review|blocked)["']/i)?.[1]?.toLowerCase()
+    || '';
+  const draft = state?.documentState === 'draft' || /data-document-state=["']draft["']/i.test(html);
+  return { draft, reason };
+}
+
+function getReportPdfDocumentStateNeedles(state) {
+  const documentState = getReportDocumentState(state);
+  const label = documentState.reason === 'blocked'
+    ? 'DRAFT／非正式附件 - 檢核不符'
+    : 'DRAFT／非正式附件 - 待人工複核';
+  return {
+    required: documentState.draft ? [label] : [],
+    forbidden: documentState.draft ? [] : ['DRAFT／非正式附件'],
+  };
 }
 
 function assertSeismicDynamicProjectRestoreState(state, label) {
@@ -2349,6 +2412,7 @@ async function main() {
         assertNoPageErrors(targetErrors.errors, targetLabel);
       }
       for (const tool of formalTools) {
+        console.log(`formal browser smoke progress: ${viewport.key} ${tool.key} start`);
         const label = `${viewport.key} route`;
         const url = `http://127.0.0.1:${serverPort}${tool.route}`;
         const pageErrors = await navigate(client, sessionId, url, viewport);
@@ -2437,6 +2501,7 @@ async function main() {
             || reportStates.default
             || reportStates.simple;
           assert.ok(renderedReportState?.html, `${interactionLabel} ${tool.key} has report HTML for real PDF evidence`);
+          const renderedDocumentStateNeedles = getReportPdfDocumentStateNeedles(renderedReportState);
           const renderedEvidence = await renderAndValidateReportPdf(client, {
             html: renderedReportState.html,
             outputDir: renderedEvidenceDir,
@@ -2449,10 +2514,12 @@ async function main() {
               '計畫名稱',
               ...(tool.reportNeedles || []),
               ...(tool.reportTraceRequired ? ['產出工具', '工具版本', '輸出時間', '計算指紋'] : []),
+              ...renderedDocumentStateNeedles.required,
             ],
             forbiddenNeedles: [
               ...(formalManifest.reportForbiddenNeedles || []),
               ...(formalManifest.reportPageOnlyForbiddenNeedles || []),
+              ...renderedDocumentStateNeedles.forbidden,
             ],
           });
           if (tool.reportTraceRequired) {
@@ -2467,6 +2534,7 @@ async function main() {
             textLength: renderedEvidence.pdf.textLength,
           });
           if (tool.key === 'wind-force') {
+            const summaryDocumentStateNeedles = getReportPdfDocumentStateNeedles(reportStates.simple);
             const summaryEvidence = await renderAndValidateReportPdf(client, {
               html: reportStates.simple.html,
               outputDir: renderedEvidenceDir,
@@ -2479,10 +2547,12 @@ async function main() {
                 '計畫名稱',
                 ...(tool.reportNeedles || []),
                 ...(tool.reportTraceRequired ? ['產出工具', '工具版本', '輸出時間', '計算指紋'] : []),
+                ...summaryDocumentStateNeedles.required,
               ],
               forbiddenNeedles: [
                 ...(formalManifest.reportForbiddenNeedles || []),
                 ...(formalManifest.reportPageOnlyForbiddenNeedles || []),
+                ...summaryDocumentStateNeedles.forbidden,
               ],
             });
             if (tool.reportTraceRequired) {
@@ -2517,6 +2587,7 @@ async function main() {
 
         pageErrors.unsubscribe();
         assertNoPageErrors(pageErrors.errors, `${label} ${tool.key}`);
+        console.log(`formal browser smoke progress: ${viewport.key} ${tool.key} OK`);
       }
     }
 

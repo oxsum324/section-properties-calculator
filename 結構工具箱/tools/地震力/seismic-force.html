@@ -2221,6 +2221,11 @@ function openSeismicReport() {
   }
   const project = getProjectInfo();
   const reportTrace = buildSeismicReportTrace();
+  const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
+    project,
+    calculated: true,
+    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document)
+  });
   const spectrumImage = collectSeismicDiagrams()[0];
   const inputsHtml = reportOpt('rep_inputs', true) ? renderReportInputSections(collectSeismicInputs()) : '';
   const stepsHtml = (document.getElementById('chkDetail').checked && reportOpt('rep_steps', false))
@@ -2315,6 +2320,7 @@ function openSeismicReport() {
         <h1>建築物耐震設計 — 等值靜力分析 計算書</h1>
         <div class="sub">依「建築物耐震設計規範及解說」113 年版｜第二章靜力分析方法</div>
       </div>
+      ${documentStateReport.html}
       ${reportMetaHtml(project, reportTrace)}
       ${buildSummaryIntroHtml()}
       ${buildDirectionalSummaryHtml()}
