@@ -1405,6 +1405,24 @@
     return { ok, text, numericalOk, anyFail, reviewWarnings, checks };
   }
 
+  function getWallProjectInfo() {
+    return window.RCUI.getProjectMetadataState({
+      name: $('projName')?.value,
+      no: $('projNo')?.value,
+      designer: $('projDesigner')?.value
+    }).project;
+  }
+
+  function assessWallAttachmentReadiness(r, project = getWallProjectInfo()) {
+    const summary = r ? summarizeWallResult(r) : { checks: [], reviewWarnings: [] };
+    return window.RCUI.assessFormalAttachment({
+      project,
+      calculated: !!r,
+      failedItems: summary.checks.filter(([, ok]) => ok === false).map(([label]) => label),
+      reviewItems: summary.reviewWarnings
+    });
+  }
+
   function updateWallAttachmentReadiness(r) {
     if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
     const hostId = 'wallAttachmentReadiness';
@@ -1418,14 +1436,16 @@
       });
       return;
     }
-    const summary = summarizeWallResult(r);
-    const failed = summary.checks.filter(([, ok]) => ok === false).map(([label]) => label);
-    const reviewWarnings = Array.isArray(summary.reviewWarnings) ? summary.reviewWarnings : [];
-    const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
-    const label = failed.length ? '暫勿作附件' : reviewWarnings.length ? '待人工複核' : '可送簽';
+    const attachmentReadiness = assessWallAttachmentReadiness(r);
+    window.lastWallAttachmentReadiness = attachmentReadiness;
+    const failed = attachmentReadiness.failedItems;
+    const reviewWarnings = attachmentReadiness.unresolvedReviewItems;
+    const status = attachmentReadiness.status;
+    const label = status === 'blocked' ? '暫勿作附件' : status === 'review' ? '待人工複核' : '可送簽';
     const items = [
       { label: '主要檢核', value: failed.length ? `${failed.length} 項未通過` : '數值通過', tone: failed.length ? 'fail' : 'ok' },
       { label: '正式分析需求', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
+      { label: '案件識別資料', value: attachmentReadiness.metadata.complete ? '完整' : `缺 ${attachmentReadiness.metadata.missingItems.join('、')}`, tone: attachmentReadiness.metadata.complete ? 'ok' : 'warn' },
       ...failed.map((label, index) => ({ label: `阻擋 ${index + 1}`, value: label, tone: 'fail' })),
       ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' }))
     ];
@@ -1433,7 +1453,7 @@
       status,
       label,
       items,
-      notes: [boundaryNote, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
+      notes: [boundaryNote, attachmentReadiness.metadata.complete ? '' : `可送簽版尚缺：${attachmentReadiness.metadata.missingItems.join('、')}。`, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
     });
   }
 
@@ -2448,6 +2468,7 @@ ${basementStepTxt}
       no: window.RCUI.normalizeProjectFieldValue($('projNo').value),
       designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
     };
+    const attachmentReadiness = assessWallAttachmentReadiness(r, proj);
     const typeLabel = ({bearing:'承重牆',nonbearing:'非承重牆',basement:'地下室外牆',shear:'結構剪力牆'})[r.wallType];
     const methods = getWallMethodAuditRows(r).map(row => ({
       item: row.item,
@@ -2638,6 +2659,8 @@ ${basementStepTxt}
     openReport({
       title:'牆設計計算書', subtitle:'RC Wall Design Report',
       project:proj,
+      documentState:attachmentReadiness.documentState,
+      documentClass:attachmentReadiness.documentClass,
       summary:false,
       inputs, checks, diagrams,
       steps: stepsArr,

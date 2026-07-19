@@ -1412,19 +1412,8 @@
     updateSummaryPanel(r);
   }
 
-  function updateShearWallAttachmentReadiness(r) {
-    if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
-    const hostId = 'shearWallAttachmentReadiness';
-    const boundaryNote = '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。';
-    if (!r) {
-      RCUI.renderAttachmentReadiness(hostId, {
-        status: 'neutral',
-        title: '尚未計算',
-        items: [{ label: '計算結果', value: '尚未建立', tone: 'neutral' }],
-        notes: [boundaryNote]
-      });
-      return;
-    }
+  function collectShearWallAttachmentChecks(r) {
+    if (!r) return [];
     const checks = [
       ['適用範圍', r.scopeOk ? true : null],
       ['幾何模型', r.geomModelOk],
@@ -1443,13 +1432,50 @@
     if (r.loadCasesActive || r.loadCaseParseErrors?.length) {
       checks.push(['多工況封包', !r.loadCaseFailures]);
     }
-    const failed = checks.filter(([, ok]) => ok === false).map(([label]) => label);
-    const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : [];
-    const status = failed.length ? 'blocked' : reviewWarnings.length ? 'review' : 'ready';
-    const label = failed.length ? '暫勿作附件' : reviewWarnings.length ? '待人工複核' : '可送簽';
+    return checks;
+  }
+
+  function getShearWallProjectInfo() {
+    return window.RCUI.getProjectMetadataState({
+      name: $('projName')?.value,
+      no: $('projNo')?.value,
+      designer: $('projDesigner')?.value
+    }).project;
+  }
+
+  function assessShearWallAttachmentReadiness(r, project = getShearWallProjectInfo()) {
+    const checks = collectShearWallAttachmentChecks(r);
+    return window.RCUI.assessFormalAttachment({
+      project,
+      calculated: !!r,
+      failedItems: checks.filter(([, ok]) => ok === false).map(([label]) => label),
+      reviewItems: Array.isArray(r?.reviewWarnings) ? r.reviewWarnings : []
+    });
+  }
+
+  function updateShearWallAttachmentReadiness(r) {
+    if (!window.RCUI || typeof RCUI.renderAttachmentReadiness !== 'function') return;
+    const hostId = 'shearWallAttachmentReadiness';
+    const boundaryNote = '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。';
+    if (!r) {
+      RCUI.renderAttachmentReadiness(hostId, {
+        status: 'neutral',
+        title: '尚未計算',
+        items: [{ label: '計算結果', value: '尚未建立', tone: 'neutral' }],
+        notes: [boundaryNote]
+      });
+      return;
+    }
+    const attachmentReadiness = assessShearWallAttachmentReadiness(r);
+    window.lastShearWallAttachmentReadiness = attachmentReadiness;
+    const failed = attachmentReadiness.failedItems;
+    const reviewWarnings = attachmentReadiness.unresolvedReviewItems;
+    const status = attachmentReadiness.status;
+    const label = status === 'blocked' ? '暫勿作附件' : status === 'review' ? '待人工複核' : '可送簽';
     const items = [
       { label: '主要檢核', value: failed.length ? `${failed.length} 項未通過` : '數值通過', tone: failed.length ? 'fail' : 'ok' },
       { label: '補充設計或圖說確認', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
+      { label: '案件識別資料', value: attachmentReadiness.metadata.complete ? '完整' : `缺 ${attachmentReadiness.metadata.missingItems.join('、')}`, tone: attachmentReadiness.metadata.complete ? 'ok' : 'warn' },
       ...failed.map((label, index) => ({ label: `阻擋 ${index + 1}`, value: label, tone: 'fail' })),
       ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' }))
     ];
@@ -1457,7 +1483,7 @@
       status,
       label,
       items,
-      notes: [boundaryNote, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
+      notes: [boundaryNote, attachmentReadiness.metadata.complete ? '' : `可送簽版尚缺：${attachmentReadiness.metadata.missingItems.join('、')}。`, '待確認事項仍須由正式分析模型、專案文件或設計者判斷補齊。']
     });
   }
 
@@ -1755,6 +1781,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
       no: window.RCUI.normalizeProjectFieldValue($('projNo').value),
       designer: window.RCUI.normalizeProjectFieldValue($('projDesigner').value)
     };
+    const attachmentReadiness = assessShearWallAttachmentReadiness(r, proj);
     const fmt = (v, d=1) => (v==null||isNaN(v)) ? '—' : Number(v).toFixed(d);
     const lcControls = r.loadCaseControls || {};
     const loadCaseControlItems = r.loadCasesActive ? [
@@ -1904,6 +1931,8 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
       outputSource:{ tool:'剪力牆設計／檢核', version:'V0.3' },
       subtitle:'RC Shear Wall Design Report (依 112 規範 11 / 18.7 章)',
       project:proj,
+      documentState:attachmentReadiness.documentState,
+      documentClass:attachmentReadiness.documentClass,
       summary:false,
       inputs, checks, diagrams, steps:stepsArr,
       symbols:[

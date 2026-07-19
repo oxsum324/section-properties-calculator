@@ -188,6 +188,8 @@ async function reportMetrics(report) {
     const clean = s => String(s || '').replace(/\s+/g, ' ').trim();
     const paper = document.querySelector('.rep-paper');
     const paperRect = paper?.getBoundingClientRect();
+    const calculationPaper = paper?.cloneNode(true);
+    calculationPaper?.querySelector('.rep-document-state')?.remove();
     const overflowing = [...document.querySelectorAll('.rep-paper table, .rep-paper th, .rep-paper td, .rep-paper figure, .rep-paper pre')]
       .filter(el => el.scrollWidth > el.clientWidth + 2)
       .slice(0, 12)
@@ -203,7 +205,11 @@ async function reportMetrics(report) {
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
+      documentState: document.querySelector('.rep-document-state')?.dataset.documentState || '',
+      documentReason: document.querySelector('.rep-document-state')?.dataset.documentReason || '',
+      documentStateText: clean(document.querySelector('.rep-document-state')?.textContent),
       bodyText: clean(document.body.innerText),
+      calculationText: clean(calculationPaper?.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       stepCount: document.querySelectorAll('.rep-step').length,
       diagramCount: document.querySelectorAll('.rep-diagram img').length,
@@ -247,6 +253,9 @@ async function main() {
 
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${key} tool page loads`, `status=${response && response.status()}`);
+      await page.fill('#projName', 'RC 板正式附件測試');
+      await page.fill('#projNo', 'RC-SLAB-001');
+      await page.fill('#projDesigner', 'QA');
       await applyCase(page, key);
       await page.waitForTimeout(350);
 
@@ -269,6 +278,7 @@ async function main() {
       assert(state.readinessText.includes('優先閱讀'), `${key} page attachment readiness priority`, state.readinessText);
       assert(['ready', 'review', 'estimate', 'blocked'].includes(state.readinessStatus), `${key} page attachment readiness status`, state.readinessStatus);
       assert(state.readinessDisplay !== 'none', `${key} page attachment readiness visible`, state.readinessDisplay);
+      assert(state.readinessText.includes('案件識別資料') && state.readinessText.includes('完整'), `${key} page metadata completeness`, state.readinessText);
       if (state.reviewWarningCount > 0 || state.allOk === false) {
         assert(!state.banner.includes('OK — 初步檢查通過'), `${key} no misleading page banner`, state.banner);
       }
@@ -297,12 +307,16 @@ async function main() {
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {
         assert,
-        include: ['板初步設計計算書', '計算書'],
+        include: ['板初步設計計算書', '計算書', ...(state.readinessStatus === 'ready' ? [] : ['DRAFT／非正式附件'])],
+        exclude: state.readinessStatus === 'ready' ? ['DRAFT／非正式附件'] : [],
       });
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
       assert(!metrics.hasReportSummary, `${key} report status banner hidden`, 'no .rep-summary');
+      const expectedDraft = state.readinessStatus !== 'ready';
+      assert(metrics.documentState === (expectedDraft ? 'draft' : ''), `${key} report document class follows page readiness`, `${state.readinessStatus} -> ${metrics.documentState || 'ready'}`);
+      assert(metrics.documentReason === (state.readinessStatus === 'blocked' ? 'blocked' : expectedDraft ? 'review' : ''), `${key} report document reason`, metrics.documentReason || 'ready');
       assert(metrics.checkGroupCount >= expected.minCheckGroups, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.stepCount >= 1, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagrams`, `count=${metrics.diagramCount}`);
@@ -324,7 +338,7 @@ async function main() {
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',
       ].forEach(fragment => {
-        assert(!metrics.bodyText.includes(fragment), `${key} report excludes page-only review prompt`, fragment);
+        assert(!metrics.calculationText.includes(fragment), `${key} report excludes page-only review prompt`, fragment);
       });
       assert(!/NaN|Infinity|undefined|null|∞/.test(metrics.bodyText), `${key} report has no raw invalid tokens`, 'no NaN/Infinity/undefined/null/∞');
       assert(metrics.overflowSample.length === 0, `${key} report element overflow`, metrics.overflowSample.map(o => `${o.tag}.${o.cls}`).join(', ') || 'none');

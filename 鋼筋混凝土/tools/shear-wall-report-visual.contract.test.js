@@ -5,6 +5,7 @@ const path = require('path');
 const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'shear-wall-report-visual.test.js');
 const testShearWallReportPath = path.join(toolsDir, 'test-shear-wall-report.ps1');
+const toolPath = path.join(toolsDir, 'shear-wall.html');
 
 function read(file) {
   assert.ok(fs.existsSync(file), `missing required file: ${file}`);
@@ -17,6 +18,14 @@ function assertIncludes(text, needle, label) {
 
 const visual = read(visualPath);
 const testShearWallReport = read(testShearWallReportPath);
+const tool = read(toolPath);
+
+[
+  'assessShearWallAttachmentReadiness',
+  'documentState:attachmentReadiness.documentState',
+  'documentClass:attachmentReadiness.documentClass',
+  '案件識別資料',
+].forEach(needle => assertIncludes(tool, needle, 'shear wall formal attachment state wiring'));
 
 [
   'slender_seismic',
@@ -36,13 +45,19 @@ const testShearWallReport = read(testShearWallReportPath);
   'page attachment readiness card',
   'page attachment readiness boundary',
   'page attachment readiness priority',
+  'page metadata completeness',
+  'documentState',
+  'documentReason',
+  'calculationText',
+  'report document class follows page readiness',
+  'DRAFT／非正式附件',
   'report excludes page-only status',
   'c@Pu 不採用',
   'toolbarDisplayPrint',
   'assertReportScreenshotQuality(screenshotPath',
   'assertReportPdfTextQuality(pdfPath',
   "'V0.3'",
-  "include: ['RC Shear Wall', '計算書', 'V0.3']",
+  "'RC Shear Wall', '計算書', 'V0.3'",
   'screenshotQuality',
   'pdfTextQuality',
   'assertArtifact(screenshotPath',

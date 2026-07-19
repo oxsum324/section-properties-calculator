@@ -6,6 +6,7 @@ const toolsDir = __dirname;
 const visualPath = path.join(toolsDir, 'slab-report-visual.test.js');
 const testSlabPath = path.join(toolsDir, 'test-slab.ps1');
 const casesPath = path.join(toolsDir, 'slab-regression-cases.json');
+const toolPath = path.join(toolsDir, 'slab.html');
 
 function read(file) {
   assert.ok(fs.existsSync(file), `missing required file: ${file}`);
@@ -19,6 +20,14 @@ function assertIncludes(text, needle, label) {
 const visual = read(visualPath);
 const testSlab = read(testSlabPath);
 const cases = JSON.parse(read(casesPath));
+const tool = read(toolPath);
+
+[
+  'assessSlabAttachmentReadiness',
+  'documentState: attachmentReadiness.documentState',
+  'documentClass: attachmentReadiness.documentClass',
+  '案件識別資料',
+].forEach(needle => assertIncludes(tool, needle, 'slab formal attachment state wiring'));
 
 [
   'one_basic',
@@ -43,6 +52,12 @@ const cases = JSON.parse(read(casesPath));
   'page attachment readiness card',
   'page attachment readiness boundary',
   'page attachment readiness priority',
+  'page metadata completeness',
+  'documentState',
+  'documentReason',
+  'calculationText',
+  'report document class follows page readiness',
+  'DRAFT／非正式附件',
   'report excludes page-only review prompt',
   'assertReportScreenshotQuality(screenshotPath',
   'assertReportPdfTextQuality(pdfPath',
