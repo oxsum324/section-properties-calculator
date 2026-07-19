@@ -57,11 +57,17 @@ function assertProjectMetaUsesSharedNormalization(source, label, exportFunctions
   assert(missingBody.includes('!getProjectFieldValue(id)'), `${label} readiness checks normalized project fields`, missingBody);
   for (const functionName of exportFunctions) {
     const body = functionSource(source, functionName);
-    assert(/name:\s*getProjectFieldValue\('projName'\)/.test(body), `${label} ${functionName} normalizes project name before report export`, body);
-    assert(/no:\s*getProjectFieldValue\('projNo'\)/.test(body), `${label} ${functionName} normalizes project number before report export`, body);
-    assert(/designer:\s*getProjectFieldValue\('projDesigner'\)/.test(body), `${label} ${functionName} normalizes designer before report export`, body);
-    assert(!/document\.getElementById\('projName'\)\.value\s*\|\|\s*''/.test(body), `${label} ${functionName} no longer exports raw project name`, body);
-    assert(!/document\.getElementById\('projDesigner'\)\.value\s*\|\|\s*''/.test(body), `${label} ${functionName} no longer exports raw designer`, body);
+    const helperMatch = body.match(/const\s+project\s*=\s*([A-Za-z_$][\w$]*)\(\)\s*;/);
+    const projectBody = helperMatch ? functionSource(source, helperMatch[1]) : body;
+    assert(/name:\s*getProjectFieldValue\('projName'\)/.test(projectBody), `${label} ${functionName} normalizes project name before report export`, projectBody);
+    assert(/no:\s*getProjectFieldValue\('projNo'\)/.test(projectBody), `${label} ${functionName} normalizes project number before report export`, projectBody);
+    assert(/designer:\s*getProjectFieldValue\('projDesigner'\)/.test(projectBody), `${label} ${functionName} normalizes designer before report export`, projectBody);
+    if (helperMatch) {
+      assert(/\bproject\s*,/.test(body), `${label} ${functionName} passes normalized project metadata to the report`, body);
+    }
+    const normalizationSource = `${body}\n${projectBody}`;
+    assert(!/document\.getElementById\('projName'\)\.value\s*\|\|\s*''/.test(normalizationSource), `${label} ${functionName} no longer exports raw project name`, normalizationSource);
+    assert(!/document\.getElementById\('projDesigner'\)\.value\s*\|\|\s*''/.test(normalizationSource), `${label} ${functionName} no longer exports raw designer`, normalizationSource);
   }
 }
 
@@ -262,6 +268,27 @@ function captureRetrofitReportPayload(source, functionName, stateKey, stateValue
           return text === '未填' ? '' : text;
         },
       },
+      RCUI: {
+        assessFormalAttachment(state = {}) {
+          const failedItems = Array.isArray(state.failedItems) ? state.failedItems.filter(Boolean) : [];
+          const reviewItems = Array.isArray(state.reviewItems) ? state.reviewItems.filter(Boolean) : [];
+          const project = state.project || {};
+          const missingMetadata = ['name', 'no', 'designer'].filter(key => !String(project[key] || '').trim());
+          const status = failedItems.length ? 'blocked' : (reviewItems.length || missingMetadata.length ? 'review' : 'ready');
+          return {
+            status,
+            documentClass: status === 'ready' ? { kind: 'signable', label: '可送簽版' } : { kind: 'draft', label: '非正式附件' },
+            documentState: status === 'ready' ? null : {
+              kind: 'draft',
+              reason: status,
+              label: status === 'blocked' ? 'DRAFT／非正式附件 - 檢核不符' : 'DRAFT／非正式附件 - 待人工複核',
+              detail: status === 'blocked'
+                ? `仍有 ${failedItems.length} 項檢核不符。`
+                : `案件識別資料尚缺 ${missingMetadata.length} 項。`,
+            },
+          };
+        },
+      },
     },
     document: {
       getElementById(id) {
@@ -285,7 +312,14 @@ function captureRetrofitReportPayload(source, functionName, stateKey, stateValue
     [stateKey]: stateValue,
   };
   vm.createContext(context);
-  ['fmt', 'normalizeProjectFieldValue', 'getProjectFieldValue', functionName].forEach(name => {
+  [
+    'fmt',
+    'normalizeProjectFieldValue',
+    'getProjectFieldValue',
+    'getRetrofitProjectInfo',
+    functionName === 'exportBeamReport' ? 'assessBeamRetrofitAttachmentReadiness' : 'assessColumnRetrofitAttachmentReadiness',
+    functionName,
+  ].forEach(name => {
     vm.runInContext(functionSource(source, name), context, { filename: `${functionName}:${name}` });
   });
   assert(typeof context[functionName] === 'function', `${functionName} runtime function exists`, functionName);
@@ -364,6 +398,7 @@ assertReportPayloadExcludes(rcRetrofitHtml, 'exportColReport', pageOnlyReportSta
 assertProjectMetaUsesSharedNormalization(rcRetrofitHtml, 'RC retrofit section reports', ['exportBeamReport', 'exportColReport']);
 
 const sharedReportSource = read(path.join('結構工具箱', 'core', 'ui', 'report.js'));
+const rcReportSource = read(path.join('鋼筋混凝土', 'shared', 'report.js'));
 const compositePayload = captureCompositeReportPayload(compositeHtml);
 const compositeReportHtml = renderSharedReportPayload(
   sharedReportSource,
@@ -430,8 +465,8 @@ const retrofitBeamPayload = captureRetrofitReportPayload(rcRetrofitHtml, 'export
   },
 });
 const retrofitBeamHtml = renderSharedReportPayload(
-  sharedReportSource,
-  path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js'),
+  rcReportSource,
+  path.join(__dirname, '鋼筋混凝土', 'shared', 'report.js'),
   retrofitBeamPayload
 );
 const retrofitBeamText = assertReportHtmlText(retrofitBeamHtml, 'RC retrofit beam runtime report', [
@@ -451,6 +486,7 @@ assert(retrofitBeamHtml.includes('RC 梁補強斷面計算書'), 'RC retrofit be
 assert(retrofitBeamHtml.includes('計畫名稱</b>—'), 'RC retrofit beam runtime project placeholder', '計畫名稱 —');
 assert(retrofitBeamHtml.includes('RETROFIT-QA-001'), 'RC retrofit beam runtime project number', 'RETROFIT-QA-001');
 assert(retrofitBeamHtml.includes('Codex QA'), 'RC retrofit beam runtime project designer', 'Codex QA');
+assert(retrofitBeamHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'RC retrofit beam runtime marks incomplete metadata as draft', 'DRAFT／非正式附件');
 assert(!retrofitBeamHtml.includes('未填'), 'RC retrofit beam runtime excludes raw placeholder project text', '未填');
 assert(!retrofitBeamText.includes('未填'), 'RC retrofit beam visible text excludes raw placeholder project text', '未填');
 for (const needle of pageOnlyReportStatusNeedles) {
@@ -481,8 +517,8 @@ const retrofitColumnPayload = captureRetrofitReportPayload(rcRetrofitHtml, 'expo
   shear: { Vc: 180000, Vs_used: 95000, Vj: 40000, Vn_base: 275000, Vn: 315000, phiVn_base: 206250, phiVn: 236250 },
 });
 const retrofitColumnHtml = renderSharedReportPayload(
-  sharedReportSource,
-  path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js'),
+  rcReportSource,
+  path.join(__dirname, '鋼筋混凝土', 'shared', 'report.js'),
   retrofitColumnPayload
 );
 const retrofitColumnText = assertReportHtmlText(retrofitColumnHtml, 'RC retrofit column runtime report', [
@@ -501,6 +537,7 @@ assert(retrofitColumnHtml.includes('RC 柱補強斷面計算書'), 'RC retrofit 
 assert(retrofitColumnHtml.includes('計畫名稱</b>—'), 'RC retrofit column runtime project placeholder', '計畫名稱 —');
 assert(retrofitColumnHtml.includes('RETROFIT-QA-001'), 'RC retrofit column runtime project number', 'RETROFIT-QA-001');
 assert(retrofitColumnHtml.includes('Codex QA'), 'RC retrofit column runtime project designer', 'Codex QA');
+assert(retrofitColumnHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'RC retrofit column runtime marks incomplete metadata as draft', 'DRAFT／非正式附件');
 assert(!retrofitColumnHtml.includes('未填'), 'RC retrofit column runtime excludes raw placeholder project text', '未填');
 assert(!retrofitColumnText.includes('未填'), 'RC retrofit column visible text excludes raw placeholder project text', '未填');
 for (const needle of pageOnlyReportStatusNeedles) {
