@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>struct.dx — 結構解題套件</title>
+<link rel="icon" href="data:,">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;500;600&display=swap');
 :root{
@@ -179,6 +180,17 @@ textarea::placeholder,input::placeholder{color:var(--text3)}
 
 /* ── Tooltip pill ── */
 .tpill{display:inline-block;font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:3px;border:1px solid var(--border2);color:var(--text3);margin-left:4px}
+
+@media (max-width:600px){
+  nav{max-width:100%;overflow-x:auto}
+  .nav-logo,.nav-status{display:none}
+  .nav-tabs{min-width:0}
+  .tab{flex:1;justify-content:center;padding:0 8px;white-space:nowrap}
+  .page.active{display:block;overflow-y:auto}
+  .two-col,.three-col{grid-template-columns:minmax(0,1fr);overflow:visible}
+  .col{min-height:320px;overflow:visible;border-right:0;border-bottom:1px solid var(--border)}
+  .col-body{overflow:visible}
+}
 </style>
 </head>
 <body>

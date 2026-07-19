@@ -409,6 +409,7 @@ const releaseWrapper = readText(path.join(repoRoot, 'run-preflight-tools-release
 const auditAll = readText(path.join(repoRoot, 'audit-all.ps1'));
 const maturityMatrix = readText(path.join(toolboxRoot, 'tools/tool-maturity-matrix.js'));
 const pagesLiveSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-smoke.js'));
+const pagesLiveBrowserSmoke = readText(path.join(toolboxRoot, 'tools/pages-live-browser-smoke.js'));
 const pagesCleanRouteBuilderPath = path.join(toolboxRoot, 'tools/build-pages-clean-routes.js');
 const pagesCleanRouteBuilder = readText(pagesCleanRouteBuilderPath);
 const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
@@ -681,6 +682,10 @@ assert.ok(boundaries.includes('CONTEXT.md') && boundaries.includes('docs/adr/'),
 assert.ok(pagesLiveSmoke.includes('preflight-tools.ps1'), 'Pages live smoke blocks preflight script publication');
 assert.ok(pagesLiveSmoke.includes('toolbox-entrypoints.contract.test.js'), 'Pages live smoke blocks contract publication');
 assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/build-pages-clean-routes.js'), 'Pages live smoke blocks clean-route builder publication');
+assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/pages-live-browser-smoke.js'), 'Pages live smoke blocks browser smoke source publication');
+assert.ok(pagesLiveBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesLiveBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
+assert.ok(pagesLiveBrowserSmoke.includes("page.on('pageerror'") && pagesLiveBrowserSmoke.includes("page.on('requestfailed'") && pagesLiveBrowserSmoke.includes('horizontal overflow'), 'Pages browser smoke checks runtime, network, and overflow failures');
+assert.ok(pagesLiveBrowserSmoke.includes("route === '/rc-pile'") && pagesLiveBrowserSmoke.includes("route === '/wind-cc'") && pagesLiveBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke keeps high-risk route regressions');
 assert.ok(pagesLiveSmoke.includes('石材固定/dev_tools/baseline_capture.html'), 'Pages live smoke blocks stone dev tools publication');
 assert.ok(pagesLiveSmoke.includes('石材固定/server.py'), 'Pages live smoke blocks stone backend helper publication');
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/backend/app/main.py'), 'Pages live smoke blocks excavation backend publication');
@@ -708,6 +713,9 @@ assert.ok(pagesArtifactSmoke.includes("'backend'"), 'local Pages artifact smoke 
 assert.ok(pagesArtifactSmoke.includes("'frontend'"), 'local Pages artifact smoke excludes service frontends');
 assert.ok(pagesArtifactSmoke.includes('DynamicExcludeDirs'), 'local Pages artifact smoke dynamically narrows source-project directory exclusions');
 assert.ok(pagesArtifactSmoke.includes('pages-live-smoke.js'), 'local Pages artifact smoke calls shared live smoke');
+assert.ok(pagesArtifactSmoke.includes('pages-live-browser-smoke.js'), 'local Pages artifact smoke calls shared browser smoke');
+assert.ok(pagesArtifactSmoke.includes("@playwright/cli@0.1.17") && pagesArtifactSmoke.includes("terser@5.49.0"), 'local Pages artifact smoke pins browser dependencies');
+assert.ok(pagesArtifactSmoke.includes('$BrowserResult.isError'), 'local Pages artifact smoke checks CLI JSON error state');
 assert.ok(pagesArtifactSmoke.includes('build-pages-clean-routes.js'), 'local Pages artifact smoke builds clean routes');
 assert.ok(pagesArtifactSmoke.includes("'build-pages-clean-routes.js'"), 'local Pages artifact smoke excludes clean-route builder from publication');
 assert.ok(pagesArtifactSmoke.includes('--check-private-boundary'), 'local Pages artifact smoke verifies private boundary');
@@ -737,6 +745,7 @@ assert.ok(pagesDeployWorkflow.includes("--exclude='*.test.js'"), 'Pages deploy w
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.contract.test.js'"), 'Pages deploy workflow excludes contract tests');
 assert.ok(pagesDeployWorkflow.includes("--exclude='*.md'"), 'Pages deploy workflow excludes markdown docs');
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/pages-live-smoke.js'"), 'Pages deploy workflow excludes live smoke script');
+assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/pages-live-browser-smoke.js'"), 'Pages deploy workflow excludes browser smoke source');
 assert.ok(pagesDeployWorkflow.includes("--exclude='結構工具箱/tools/build-pages-clean-routes.js'"), 'Pages deploy workflow excludes clean-route builder');
 assert.ok(pagesDeployWorkflow.includes("--exclude='**/dev_tools/'"), 'Pages deploy workflow excludes dev_tools directories');
 assert.ok(pagesDeployWorkflow.includes("--exclude='螺栓檢討/bolt-review-tool/'"), 'Pages deploy workflow excludes anchor source project');
@@ -750,6 +759,8 @@ assert.ok(pagesDeployWorkflow.includes("--exclude='**/package.json'"), 'Pages de
 assert.ok(pagesDeployWorkflow.includes('needs: deploy'), 'Pages live smoke waits for deploy job');
 assert.ok(pagesDeployWorkflow.includes('build-pages-clean-routes.js" --site-root "_site" --config "vercel.json"'), 'Pages deploy workflow builds Vercel-compatible clean routes for Pages');
 assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-smoke.js'), 'Pages deploy workflow runs smoke script after deployment');
+assert.ok(pagesDeployWorkflow.includes('結構工具箱/tools/pages-live-browser-smoke.js'), 'Pages deploy workflow runs browser smoke after deployment');
+assert.ok(pagesDeployWorkflow.includes('install-browser chromium') && pagesDeployWorkflow.includes('value.isError'), 'Pages deploy workflow installs Chromium and fails on CLI JSON errors');
 assert.ok(pagesDeployWorkflow.includes('--check-private-boundary'), 'Pages deploy workflow verifies private artifact boundary');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}'), 'Pages live smoke uses deployed page URL');
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
@@ -1020,6 +1031,7 @@ for (const tool of manifestTools) {
   'Pages deploy',
   'Pages deploy / live smoke',
   'pages-live-smoke.js',
+  'pages-live-browser-smoke.js',
   'build-pages-clean-routes.js',
   '.github/workflows/pages-deploy.yml',
   'preflight contract 文件化',

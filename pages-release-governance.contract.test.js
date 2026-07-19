@@ -23,6 +23,7 @@ const context = readText('CONTEXT.md');
 const adr = readText('docs/adr/0001-page-only-report-readiness.md');
 const pagesWorkflow = readText('.github/workflows/pages-deploy.yml');
 const pagesSmoke = readText('結構工具箱/tools/pages-live-smoke.js');
+const pagesBrowserSmoke = readText('結構工具箱/tools/pages-live-browser-smoke.js');
 const artifactSmoke = readText('run-pages-artifact-smoke.ps1');
 const maturityMatrix = readText('結構工具箱/tools/tool-maturity-matrix.js');
 const platformStatus = readJson('結構工具箱/assets/status/platform-status.json');
@@ -98,7 +99,12 @@ assert.ok(pagesWorkflow.includes("--exclude='*.ps1'"), 'Pages workflow excludes 
 assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/attachment-package-check.js'"), 'Pages workflow excludes attachment package checker');
 assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/rendered-delivery-evidence.js'"), 'Pages workflow excludes rendered delivery evidence helper');
 assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/rendered-delivery-evidence.inventory.json'"), 'Pages workflow excludes rendered delivery evidence inventory');
+assert.ok(pagesWorkflow.includes("--exclude='結構工具箱/tools/pages-live-browser-smoke.js'"), 'Pages workflow excludes browser smoke source');
 assert.ok(pagesWorkflow.includes('pages-live-smoke.js') && pagesWorkflow.includes('--check-private-boundary'), 'Pages workflow runs private-boundary smoke after deploy');
+assert.ok(pagesWorkflow.includes('actions/setup-node@v6') && pagesWorkflow.includes('node-version: 24'), 'Pages browser smoke pins its Node runtime');
+assert.ok(pagesWorkflow.includes("@playwright/cli@0.1.17") && pagesWorkflow.includes('install-browser chromium'), 'Pages workflow installs the pinned Chromium smoke runtime');
+assert.ok(pagesWorkflow.includes("terser@5.49.0") && pagesWorkflow.includes('pages-live-browser-smoke.js'), 'Pages workflow runs the reusable browser smoke source');
+assert.ok(pagesWorkflow.includes('value.isError') && pagesWorkflow.includes('trap cleanup EXIT'), 'Pages browser smoke fails on CLI JSON errors and always closes its session');
 
 assert.ok(pagesSmoke.includes('assets/status/platform-status.json'), 'Pages smoke checks platform status');
 assert.ok(pagesSmoke.includes('assets/status/preflight-summary.json'), 'Pages smoke checks preflight status');
@@ -116,6 +122,13 @@ assert.ok(pagesSmoke.includes('docs/adr/0001-page-only-report-readiness.md'), 'P
 assert.ok(pagesSmoke.includes('結構工具箱/tools/attachment-package-check.js'), 'Pages smoke blocks attachment package checker publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.js'), 'Pages smoke blocks rendered delivery evidence helper publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/rendered-delivery-evidence.inventory.json'), 'Pages smoke blocks rendered delivery evidence inventory publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/pages-live-browser-smoke.js'), 'Pages smoke blocks browser smoke source publication');
+
+assert.ok(pagesBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
+assert.ok(pagesBrowserSmoke.includes('routes.length < 40') && pagesBrowserSmoke.includes('new Set(routes).size'), 'Pages browser smoke validates the homepage route inventory');
+assert.ok(pagesBrowserSmoke.includes("page.on('pageerror'") && pagesBrowserSmoke.includes("page.on('requestfailed'") && pagesBrowserSmoke.includes("page.on('response'"), 'Pages browser smoke captures runtime and network failures');
+assert.ok(pagesBrowserSmoke.includes('horizontal overflow') && pagesBrowserSmoke.includes("route === '/rc-pile'") && pagesBrowserSmoke.includes("route === '/wind-cc'") && pagesBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke covers overflow and high-risk route regressions');
+assert.ok(pagesBrowserSmoke.includes('localArtifactPreview') && pagesBrowserSmoke.includes('127.0.0.1:8765/status'), 'Pages browser smoke narrows local artifact service exceptions');
 
 assert.ok(artifactSmoke.includes('GetTempPath'), 'local artifact smoke stages in temp');
 assert.ok(artifactSmoke.includes('robocopy'), 'local artifact smoke builds a staged site');
@@ -123,6 +136,10 @@ assert.ok(artifactSmoke.includes("'output'"), 'local artifact smoke excludes out
 assert.ok(artifactSmoke.includes("'.claude'"), 'local artifact smoke excludes local worktrees');
 assert.ok(artifactSmoke.includes("'node_modules'"), 'local artifact smoke excludes node_modules');
 assert.ok(artifactSmoke.includes('pages-live-smoke.js'), 'local artifact smoke reuses Pages smoke');
+assert.ok(artifactSmoke.includes('pages-live-browser-smoke.js'), 'local artifact smoke reuses Pages browser smoke');
+assert.ok(artifactSmoke.includes("'pages-live-browser-smoke.js'"), 'local artifact smoke excludes browser smoke source');
+assert.ok(artifactSmoke.includes("@playwright/cli@0.1.17") && artifactSmoke.includes("terser@5.49.0"), 'local artifact smoke pins the browser CLI and minifier');
+assert.ok(artifactSmoke.includes('ConvertFrom-Json') && artifactSmoke.includes('$BrowserResult.isError'), 'local artifact smoke fails on Playwright CLI JSON errors');
 assert.ok(artifactSmoke.includes("'attachment-package-check.js'"), 'local artifact smoke excludes attachment package checker');
 assert.ok(artifactSmoke.includes("'rendered-delivery-evidence.js'"), 'local artifact smoke excludes rendered delivery evidence helper');
 assert.ok(artifactSmoke.includes("'rendered-delivery-evidence.inventory.json'"), 'local artifact smoke excludes rendered delivery evidence inventory');
