@@ -688,6 +688,7 @@ assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/pages-live-browser-smok
 assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/run-pages-browser-smoke.sh'), 'Pages live smoke blocks browser smoke runner publication');
 assert.ok(pagesLiveSmoke.includes('結構工具箱/tools/build-pages-deployment-manifest.js'), 'Pages live smoke blocks deployment manifest builder publication');
 assert.ok(pagesLiveSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesLiveSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages live smoke verifies the deployed commit manifest');
+assert.ok(pagesLiveSmoke.includes('manifest.fileCount > 0') && !pagesLiveSmoke.includes('manifest.fileCount >= 300'), 'Pages live smoke accepts the canonical clean artifact without a local-worktree file-count assumption');
 assert.ok(pagesLiveBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesLiveBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
 assert.ok(pagesLiveBrowserSmoke.includes("page.on('pageerror'") && pagesLiveBrowserSmoke.includes("page.on('requestfailed'") && pagesLiveBrowserSmoke.includes('horizontal overflow'), 'Pages browser smoke checks runtime, network, and overflow failures');
 assert.ok(pagesLiveBrowserSmoke.includes("route === '/rc-pile'") && pagesLiveBrowserSmoke.includes("route === '/wind-cc'") && pagesLiveBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke keeps high-risk route regressions');
