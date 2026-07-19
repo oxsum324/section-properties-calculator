@@ -456,6 +456,7 @@
   </div>
 </div>
 
+<script src="../../core/ui/report.js"></script>
 <script src="../local-quick-export.js?v=1"></script>
 <script src="earth-pressure-core.js?v=1"></script>
 <!-- earth-pressure-smoke -->
@@ -501,6 +502,8 @@
   if (!Core) throw new Error('EarthPressureCore is not loaded.');
   const Exporter = window.LocalQuickExport;
   if (!Exporter) throw new Error('LocalQuickExport is not loaded.');
+  const ReportUI = window.ToolReportUI;
+  if (!ReportUI) throw new Error('ToolReportUI is not loaded.');
 
   function $(id) { return document.getElementById(id); }
   function val(id) { return $(id).value; }
@@ -576,10 +579,13 @@
       { label: '計算書模式', value: earthReportModeLabel() },
       { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' }
     );
+    const level = !lastResult.overallOk ? 'blocked' : (reviewItems.length ? 'review' : 'ready');
     return {
-      level: reviewItems.length ? 'review' : 'ready',
-      badge: reviewItems.length ? '優先複核' : '可作附件',
-      title: reviewItems.length ? '計算已完成，但產報前建議優先閱讀下列項目。' : '計算已完成，可產生計算書附件。',
+      level,
+      badge: level === 'blocked' ? '暫勿作附件' : (level === 'review' ? '優先複核' : '可作附件'),
+      title: level === 'blocked'
+        ? '計算已完成，但檢核尚未通過，僅可產生內部檢討版。'
+        : (level === 'review' ? '計算已完成，但產報前建議優先閱讀下列項目。' : '計算已完成，可產生計算書附件。'),
       items: items
     };
   }
@@ -1224,6 +1230,11 @@
     ];
     const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
     const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
+    const documentStateReport = ReportUI.buildFormalDocumentStateReport({
+      project: proj,
+      calculated: true,
+      readinessLevel: ReportUI.getPageReportReadinessLevel(document)
+    });
     const diagramHtml = buildPressureDiagramSvg(r);
     const forceRows = [
       ['土壓', fmt(r.soilForce), fmt(r.soilMoment)],
@@ -1301,6 +1312,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <div class="toolbar"><button onclick="window.print()">列印 / 存 PDF</button><button onclick="window.close()">關閉</button></div>
 <main class="paper">
 <h1>擋土土壓局部穩定檢核計算書</h1>
+${documentStateReport.html}
 <div class="case-head"><span>計畫：${escapeHtml(reportProjectMetaValue(proj.name))}</span><span>編號：${escapeHtml(reportProjectMetaValue(proj.no))}</span><span>整理人：${escapeHtml(reportProjectMetaValue(proj.designer))}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.6</span></div>
 <div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
 ${body}

@@ -104,6 +104,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 每次送往 `master` 的 PR 會在 `windows-latest` 執行 `run-preflight-tools-ci.bat` 的 clean-checkout gate，以唯讀權限、無 secrets、限時 30 分鐘的方式建立狀態檢查；無論成功或失敗都保留 7 天的 preflight summary / history artifact。CI 模式只執行不依賴 ignored audit 狀態、本機 node_modules、Python 額外套件或本機工具檔的可重現契約；完整 46 項 quick 與正式 release preflight 仍須在交付工作站執行，CI 綠燈不得取代正式放行證據。`pr-validation.contract.test.js` 會鎖住觸發條件、權限、runtime 版本、wrapper、clean-checkout 邊界與證據路徑。
 - 局部快算工具 manifest：
   [結構工具箱/tools/local-quick-tools.manifest.json](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.manifest.json:1)
+  - 基礎局部檢核、設備局部荷重與擋土土壓局部快算的簡易結果／詳算式計算書共用 `core/ui/report.js` 文件狀態：檢核不符時輸出 `DRAFT／非正式附件 - 檢核不符`，案件資料或人工複核未完成時輸出 `DRAFT／非正式附件 - 待人工複核`，只有 ready 才移除 DRAFT。頁面的產報前診斷明細仍不進計算書；瀏覽器直接列印操作頁仍只顯示封鎖通知。
 - 局部快算 manifest runner：
   [結構工具箱/tools/local-quick-tools.run.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/local-quick-tools.run.js:1)
 - 連續梁分析 regression：

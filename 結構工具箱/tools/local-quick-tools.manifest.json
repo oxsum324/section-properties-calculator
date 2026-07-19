@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "family": "local-quick-tools",
   "description": "高頻局部快算工具清冊。此檔集中記錄工具入口、核心檔案、測試檔、乾淨路由與文件邊界，供契約測試與交付檢查使用。",
   "shared": {
@@ -9,6 +9,9 @@
     "outputConsistencyTest": "tools/local-quick-output-consistency.test.js",
     "browserSmokeTest": "tools/local-quick-browser-smoke.test.js",
     "contractTest": "tools/local-quick-tools.contract.test.js",
+    "documentStateHelper": "core/ui/report.js",
+    "documentStateBuilder": "buildFormalDocumentStateReport",
+    "documentStateRequired": true,
     "directPrintBoundaryStylesheet": "core/direct-print-boundary.css",
     "directPrintBodyClass": "local-quick-output-page",
     "directPrintBoundaryClass": "local-quick-direct-print-boundary",

@@ -1026,6 +1026,8 @@ function buildLocalQuickRows(state) {
     const goldenPath = toolboxFile(tool.golden);
     const corePath = toolboxFile(tool.core);
     const coreText = fileExists(corePath) ? readText(corePath) : '';
+    const documentStateHelperPath = toolboxFile(state.localQuickManifest.shared.documentStateHelper);
+    const documentStateHelperText = fileExists(documentStateHelperPath) ? readText(documentStateHelperPath) : '';
     const browserSmokePath = toolboxFile(state.localQuickManifest.shared.browserSmokeTest);
     const browserSmokeText = fileExists(browserSmokePath) ? readText(browserSmokePath) : '';
     const rowSourceTrace = sourceTraceFor([
@@ -1033,6 +1035,7 @@ function buildLocalQuickRows(state) {
       toolboxSourceInput('core', tool.core),
       toolboxSourceInput('golden', tool.golden),
       toolboxSourceInput('test', tool.test),
+      toolboxSourceInput('document-state-helper', state.localQuickManifest.shared.documentStateHelper),
       toolboxSourceInput('shared-output-consistency-test', state.localQuickManifest.shared.outputConsistencyTest),
       toolboxSourceInput('shared-browser-smoke-test', state.localQuickManifest.shared.browserSmokeTest),
       toolboxSourceInput('shared-contract-test', state.localQuickManifest.shared.contractTest)
@@ -1057,6 +1060,12 @@ function buildLocalQuickRows(state) {
         browserSmokeText.includes('reportHtmlText') &&
         browserSmokeText.includes('visible report text')
       ) : NA,
+      documentState: state.localQuickManifest.shared.documentStateRequired === true
+        ? fileExists(documentStateHelperPath)
+          && documentStateHelperText.includes(state.localQuickManifest.shared.documentStateBuilder)
+          && html.includes(state.localQuickManifest.shared.documentStateBuilder)
+          && html.includes('getPageReportReadinessLevel')
+        : NA,
       outputConsistency: fileExists(toolboxFile(state.localQuickManifest.shared.outputConsistencyTest)),
       manifestContract: fileExists(toolboxFile(state.localQuickManifest.shared.contractTest)),
       jsonRoundTrip: hasJsonImport ? tool.jsonRoundTrip === true : NA,
@@ -1064,7 +1073,7 @@ function buildLocalQuickRows(state) {
     };
     const score = scoreChecks(checks);
     const requiredPass = checks.htmlExists && checks.cleanRoute && checks.homeEntry && checks.coreExists &&
-      checks.goldenCaseRegression && checks.jsonExport && checks.browserSmoke && checks.manifestContract;
+      checks.goldenCaseRegression && checks.jsonExport && checks.browserSmoke && checks.manifestContract && checks.documentState;
 
     return withUpgradeGaps({
       family: 'local-quick-tools',
@@ -1081,6 +1090,7 @@ function buildLocalQuickRows(state) {
       coverage: {
         reportModes: checks.reportModes === true,
         reportTextSmoke: checks.reportTextSmoke === true,
+        documentState: checks.documentState === true,
         jsonExport: checks.jsonExport,
         jsonImport: checks.jsonImport,
         diagramGeometry: checks.diagramGeometry === true,
@@ -2101,7 +2111,7 @@ function checkMatrix(payload, markdown, options = {}) {
       assert.equal(row.checks.reportTextSmoke, true, `${row.key} report text smoke`);
       assert.equal(row.coverage.reportTextSmoke, true, `${row.key} report text smoke coverage`);
     }
-    if (row.family === 'formal-tools') {
+    if (row.family === 'formal-tools' || row.family === 'local-quick-tools') {
       assert.equal(row.checks.documentState, true, `${row.key} calculation-book document state`);
       assert.equal(row.coverage.documentState, true, `${row.key} calculation-book document state coverage`);
     }

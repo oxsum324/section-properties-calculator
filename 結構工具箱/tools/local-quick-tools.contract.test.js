@@ -88,7 +88,7 @@ const formalManifestPath = assertFile('tools/formal-tools.manifest.json');
 const formalManifestText = readText(formalManifestPath);
 const formalManifest = JSON.parse(formalManifestText);
 
-assert.equal(manifest.version, '0.2.0', 'local quick tools manifest version');
+assert.equal(manifest.version, '0.3.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
@@ -142,6 +142,7 @@ const exportHelperPath = assertFile(manifest.shared.exportHelper);
 const exportHelperTestPath = assertFile(manifest.shared.exportHelperTest);
 const outputConsistencyTestPath = assertFile(manifest.shared.outputConsistencyTest);
 const browserSmokeTestPath = assertFile(manifest.shared.browserSmokeTest);
+const documentStateHelperPath = assertFile(manifest.shared.documentStateHelper);
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
 const formalBrowserSmokeTestPath = assertFile('tools/formal-browser-smoke.test.js');
 const runnerText = readText(runnerPath);
@@ -149,23 +150,35 @@ const exportHelperText = readText(exportHelperPath);
 const exportHelperTestText = readText(exportHelperTestPath);
 const outputConsistencyTestText = readText(outputConsistencyTestPath);
 const browserSmokeTestText = readText(browserSmokeTestPath);
+const documentStateHelperText = readText(documentStateHelperPath);
 const directPrintBoundaryText = readText(directPrintBoundaryPath);
 const formalBrowserSmokeTestText = readText(formalBrowserSmokeTestPath);
 const ExportHelper = require(exportHelperPath);
 
 [
-  '"version": "0.2.0"',
+  '"version": "0.3.0"',
   '"family": "local-quick-tools"',
   '"shared"',
   '"runner"',
   '"outputConsistencyTest"',
   '"browserSmokeTest"',
+  '"documentStateHelper"',
+  '"documentStateBuilder"',
+  '"documentStateRequired"',
   '"tools"',
   '"foundation-local"',
   '"equipment-load"',
   '"earth-pressure"',
   '"jsonRoundTrip"',
 ].forEach(needle => assertIncludes(manifestText, needle, 'local quick tools manifest'));
+
+assert.equal(manifest.shared.documentStateRequired, true, 'local quick calculation-book document state is required');
+[
+  manifest.shared.documentStateBuilder,
+  'getPageReportReadinessLevel',
+  'DRAFT／非正式附件',
+  'data-formal-document-state-style',
+].forEach(needle => assertIncludes(documentStateHelperText, needle, 'local quick shared document-state helper'));
 
 assert.equal(manifest.shared.directPrintBodyClass, 'local-quick-output-page', 'local quick direct-print body class');
 assert.equal(manifest.shared.directPrintBoundaryClass, 'local-quick-direct-print-boundary', 'local quick direct-print boundary class');
@@ -1266,6 +1279,7 @@ for (const tool of tools) {
     tool.calcFunction,
     'href="../../core/style.css"',
     'href="../../core/direct-print-boundary.css"',
+    `src="../../${manifest.shared.documentStateHelper}`,
     'src="../local-quick-export.js',
     `src="${tool.core.split('/').pop()}`,
     'id="btnCalc"',
@@ -1280,6 +1294,10 @@ for (const tool of tools) {
     '下載 JSON',
     'LocalQuickExport',
     'function downloadResultJson',
+    `ReportUI.${manifest.shared.documentStateBuilder}`,
+    'ReportUI.getPageReportReadinessLevel(document)',
+    '${documentStateReport.html}',
+    "const level = !lastResult.overallOk ? 'blocked'",
     `class="${manifest.shared.directPrintBodyClass}"`,
     `class="${manifest.shared.directPrintBoundaryClass}"`,
   ].forEach(needle => assertIncludes(html, needle, `${tool.key} html`));
