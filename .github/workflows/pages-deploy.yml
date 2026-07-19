@@ -174,4 +174,6 @@ jobs:
       - name: Run live Pages browser smoke
         env:
           PAGES_BASE_URL: ${{ needs.deploy.outputs.page_url }}
+          PAGES_BROWSER_SMOKE_ATTEMPTS: 2
+          PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5
         run: bash "結構工具箱/tools/run-pages-browser-smoke.sh" "$PAGES_BASE_URL" "pages-live-browser"

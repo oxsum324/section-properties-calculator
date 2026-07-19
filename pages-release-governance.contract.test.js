@@ -110,9 +110,12 @@ assert.ok(stagedGateIndex >= 0 && stagedGateIndex < archiveIndex, 'Pages staged 
 assert.ok(pagesWorkflow.includes('python3 -m http.server 4173') && pagesWorkflow.includes('--directory _site'), 'Pages staged artifact gate serves the exact _site tree');
 assert.ok(pagesWorkflow.includes('pages-live-smoke.js" --base-url "$base_url" --check-private-boundary'), 'Pages staged artifact gate runs HTTP and private-boundary checks');
 assert.equal((pagesWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages workflow reuses the browser runner before and after deploy');
+assert.ok(pagesWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages live browser smoke allows one bounded transient retry');
 assert.ok(pagesBrowserRunner.includes("@playwright/cli@0.1.17") && pagesBrowserRunner.includes('install-browser chromium'), 'Pages browser runner installs the pinned Chromium runtime');
 assert.ok(pagesBrowserRunner.includes("terser@5.49.0") && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner invokes the reusable browser smoke source');
 assert.ok(pagesBrowserRunner.includes('value.isError') && pagesBrowserRunner.includes('trap cleanup EXIT'), 'Pages browser runner fails on CLI JSON errors and always closes its session');
+assert.ok(pagesBrowserRunner.includes('status(?: of)? 5') && pagesBrowserRunner.includes('ERR_(?:TIMED_OUT|CONNECTION_RESET'), 'Pages browser runner narrows retry eligibility to transient 5xx and network failures');
+assert.ok(pagesBrowserRunner.includes('"$attempt" -lt "$attempts"') && pagesBrowserRunner.includes('throw new Error(value.error)'), 'Pages browser runner bounds retries and fails persistent or non-transient errors');
 
 assert.ok(pagesSmoke.includes('assets/status/platform-status.json'), 'Pages smoke checks platform status');
 assert.ok(pagesSmoke.includes('assets/status/preflight-summary.json'), 'Pages smoke checks preflight status');
@@ -138,6 +141,8 @@ assert.ok(pagesBrowserSmoke.includes('routes.length < 40') && pagesBrowserSmoke.
 assert.ok(pagesBrowserSmoke.includes("page.on('pageerror'") && pagesBrowserSmoke.includes("page.on('requestfailed'") && pagesBrowserSmoke.includes("page.on('response'"), 'Pages browser smoke captures runtime and network failures');
 assert.ok(pagesBrowserSmoke.includes('horizontal overflow') && pagesBrowserSmoke.includes("route === '/rc-pile'") && pagesBrowserSmoke.includes("route === '/wind-cc'") && pagesBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke covers overflow and high-risk route regressions');
 assert.ok(pagesBrowserSmoke.includes('localArtifactPreview') && pagesBrowserSmoke.includes('127.0.0.1:8765/status'), 'Pages browser smoke narrows local artifact service exceptions');
+assert.ok(toolBoundaries.includes('只有正式 live') && toolBoundaries.includes('HTTP 5xx'), 'tool boundaries documents the live-only transient retry boundary');
+assert.ok(staging.includes('暫態網路錯誤最多重試一次'), 'staging guide documents the bounded live retry rule');
 
 assert.ok(artifactSmoke.includes('GetTempPath'), 'local artifact smoke stages in temp');
 assert.ok(artifactSmoke.includes('robocopy'), 'local artifact smoke builds a staged site');
