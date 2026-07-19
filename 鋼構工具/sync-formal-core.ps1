@@ -99,7 +99,7 @@ function Read-Manifest {
     return $null
   }
 
-  return Get-Content -Path $Path -Raw | ConvertFrom-Json
+  return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
 function Get-ManifestDrift {

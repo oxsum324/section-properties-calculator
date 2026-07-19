@@ -152,12 +152,15 @@ const traceCatalog = JSON.parse(readText(traceCatalogPath));
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
 const directPrintBoundary = readText(directPrintBoundaryPath);
 
-assert.equal(manifest.version, '0.1.0', 'formal tools manifest version');
+assert.equal(manifest.version, '0.2.0', 'formal tools manifest version');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
 assert.ok(Array.isArray(tools), 'formal tools manifest tools');
 assert.equal(tools.length, 14, 'formal tools manifest tool count');
 assert.equal(manifest.shared.directPrintBodyClass, 'formal-tool-output-page', 'formal direct-print body class');
 assert.equal(manifest.shared.directPrintBoundaryClass, 'formal-direct-print-boundary', 'formal direct-print boundary class');
+assert.equal(manifest.shared.documentStateHelper, 'core/ui/report.js', 'formal document state helper');
+assert.equal(manifest.shared.documentStateBuilder, 'buildFormalDocumentStateReport', 'formal document state builder');
+assert.equal(manifest.shared.documentStateRequired, true, 'formal document state required');
 assert.ok(manifest.shared.directPrintBoundaryNeedles.length >= 3, 'formal direct-print boundary wording');
 assertIncludes(
   directPrintBoundary,
@@ -221,6 +224,38 @@ assert.equal(
   'shared report runtime helper treats placeholder project name as missing'
 );
 assert.equal(sharedReportRuntime.ToolReportUI.normalizeProjectFieldValue('未填'), '', 'shared report runtime helper clears placeholder project text');
+assert.equal(typeof sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport, 'function', 'shared report runtime exposes formal document state renderer');
+assert.equal(typeof sharedReportRuntime.ToolReportUI.getPageReportReadinessLevel, 'function', 'shared report runtime exposes page readiness resolver');
+const readyDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport({
+  project: { name: 'QA', no: 'QA-001', designer: 'Codex QA' },
+  calculated: true,
+  readinessLevel: 'ready',
+});
+assert.equal(readyDocumentStateReport.status, 'ready', 'complete formal report document state is ready');
+assert.equal(readyDocumentStateReport.html, '', 'ready formal report does not add draft content');
+const reviewDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport({
+  project: { name: '', no: 'QA-001', designer: 'Codex QA' },
+  calculated: true,
+  readinessLevel: 'review',
+});
+assert.equal(reviewDocumentStateReport.status, 'review', 'incomplete formal report document state needs review');
+assertIncludes(reviewDocumentStateReport.html, 'DRAFT／非正式附件 - 待人工複核', 'review formal report draft label');
+assertIncludes(reviewDocumentStateReport.html, 'data-document-state="draft"', 'review formal report document state marker');
+assertNoIncludes(reviewDocumentStateReport.html, '產報前檢查', 'review formal report excludes page-only status wording');
+const blockedDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport({
+  project: { name: 'QA', no: 'QA-001', designer: 'Codex QA' },
+  calculated: true,
+  readinessLevel: 'blocked',
+});
+assert.equal(blockedDocumentStateReport.status, 'blocked', 'failed formal report document state is blocked');
+assertIncludes(blockedDocumentStateReport.html, 'DRAFT／非正式附件 - 檢核不符', 'blocked formal report draft label');
+assert.equal(
+  sharedReportRuntime.ToolReportUI.getPageReportReadinessLevel({
+    querySelector(selector) { return selector.includes('.review') ? {} : null; },
+  }),
+  'review',
+  'shared report runtime resolves nested page readiness without copying page text',
+);
 assert(sharedReportRuntime.ToolReportUI.calculationBookPageOnlyLabels.includes('輸入模式'), 'shared report runtime publishes calculation-book page-only labels');
 assert.deepEqual(
   JSON.parse(JSON.stringify(sharedReportRuntime.ToolReportUI.getCalculationBookInputGroups([
@@ -619,6 +654,7 @@ for (const tool of tools) {
 
   const htmlPath = assertFile(tool.html);
   const html = readText(htmlPath);
+  const documentStateRendererSource = html.includes('../../core/wind-report.js') ? windReportSource : html;
   assertIncludes(html, tool.titleNeedle, `${tool.key} title needle in HTML`);
   assertIncludes(html, tool.familyNeedle, `${tool.key} family needle in HTML`);
   assertIncludes(html, tool.calcButton, `${tool.key} calc button in HTML`);
@@ -639,6 +675,9 @@ for (const tool of tools) {
     `class="${manifest.shared.directPrintBoundaryClass}"`,
     `${tool.key} has direct-print boundary notice`
   );
+  assertIncludes(html, `../../${manifest.shared.documentStateHelper}`, `${tool.key} loads shared document state helper`);
+  assertIncludes(documentStateRendererSource, manifest.shared.documentStateBuilder, `${tool.key} report applies shared document state`);
+  assertIncludes(documentStateRendererSource, 'getPageReportReadinessLevel', `${tool.key} report derives document state from page readiness`);
   for (const needle of manifest.shared.directPrintBoundaryNeedles) {
     assertIncludes(html, needle, `${tool.key} direct-print guidance`);
   }

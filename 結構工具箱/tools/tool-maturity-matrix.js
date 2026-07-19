@@ -30,6 +30,7 @@ const UPGRADE_TARGETS = [
 const COVERAGE_TOTALS = [
   { key: 'reportModes', label: '報告模式' },
   { key: 'reportTextSmoke', label: '報告可讀文字抽檢' },
+  { key: 'documentState', label: '計算書文件狀態' },
   { key: 'jsonExport', label: 'JSON 匯出' },
   { key: 'jsonImport', label: 'JSON 匯入' },
   { key: 'diagramGeometry', label: '圖面幾何驗證' },
@@ -939,14 +940,22 @@ function buildFormalRows(state) {
   const traceByKey = new Map((state.formalTraceabilityCatalog.tools || []).map(entry => [entry.key, entry]));
   const formalContractPath = toolboxFile(state.formalManifest.shared.contractTest);
   const formalContractText = fileExists(formalContractPath) ? readText(formalContractPath) : '';
+  const documentStateHelperPath = toolboxFile(state.formalManifest.shared.documentStateHelper);
+  const documentStateHelperText = fileExists(documentStateHelperPath) ? readText(documentStateHelperPath) : '';
+  const windReportPath = toolboxFile('core/wind-report.js');
+  const windReportText = fileExists(windReportPath) ? readText(windReportPath) : '';
   return state.formalManifest.tools.map((tool) => {
     const htmlPath = toolboxFile(tool.html);
     const html = fileExists(htmlPath) ? readText(htmlPath) : '';
     const caps = tool.capabilities || {};
     const hasJsonWorkflow = Boolean(caps.jsonExport || caps.jsonImport || tool.exportButton || tool.importButton);
     const goldenCaseCount = Array.isArray(tool.goldenCases) ? tool.goldenCases.length : 0;
+    const usesSharedWindReport = html.includes('../../core/wind-report.js');
+    const documentStateRendererText = usesSharedWindReport ? windReportText : html;
     const rowSourceTrace = sourceTraceFor([
       toolboxSourceInput('html', tool.html),
+      toolboxSourceInput('document-state-helper', state.formalManifest.shared.documentStateHelper),
+      ...(usesSharedWindReport ? [toolboxSourceInput('wind-report-renderer', 'core/wind-report.js')] : []),
       toolboxSourceInput('shared-contract-test', state.formalManifest.shared.contractTest),
       toolboxSourceInput('traceability-catalog', 'tools/formal-traceability.catalog.json')
     ]);
@@ -965,6 +974,12 @@ function buildFormalRows(state) {
         formalContractText.includes('reportHtmlText') &&
         formalContractText.includes('visible report text')
       ) : NA,
+      documentState: state.formalManifest.shared.documentStateRequired === true
+        ? fileExists(documentStateHelperPath)
+          && documentStateHelperText.includes(state.formalManifest.shared.documentStateBuilder)
+          && documentStateRendererText.includes(state.formalManifest.shared.documentStateBuilder)
+          && documentStateRendererText.includes('getPageReportReadinessLevel')
+        : NA,
       reportModeRegression: tool.reportMode ? bool(tool.reportExpectations?.simple && tool.reportExpectations?.detail) : NA,
       diagramGeometry: caps.diagramGeometry ? bool(tool.diagramChecks && (tool.diagramRoleNeedles || []).length > 0) : NA,
       coreRegression: caps.coreRegression === true,
@@ -973,7 +988,7 @@ function buildFormalRows(state) {
       referenceTraceability: hasReferenceTraceability(html, tool, traceEntry)
     };
     const score = scoreChecks(checks);
-    const requiredPass = checks.htmlExists && checks.cleanRoute && checks.homeEntry && checks.reportButton && checks.browserSmoke && checks.reportRegression;
+    const requiredPass = checks.htmlExists && checks.cleanRoute && checks.homeEntry && checks.reportButton && checks.browserSmoke && checks.reportRegression && checks.documentState;
 
     return withUpgradeGaps({
       family: 'formal-tools',
@@ -990,6 +1005,7 @@ function buildFormalRows(state) {
       coverage: {
         reportModes: checks.reportModes === true,
         reportTextSmoke: checks.reportTextSmoke === true,
+        documentState: checks.documentState === true,
         jsonExport: bool(tool.exportButton),
         jsonImport: bool(tool.importButton),
         diagramGeometry: bool(tool.diagramChecks),
@@ -1106,6 +1122,7 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
     jsonImport: rows.filter(row => row.coverage.jsonImport).length,
     reportModes: rows.filter(row => row.coverage.reportModes).length,
     reportTextSmoke: rows.filter(row => row.coverage.reportTextSmoke).length,
+    documentState: rows.filter(row => row.coverage.documentState).length,
     diagramGeometry: rows.filter(row => row.coverage.diagramGeometry).length,
     coreRegression: rows.filter(row => row.coverage.coreRegression).length,
     goldenCaseRegression: rows.filter(row => row.coverage.goldenCaseRegression).length,
@@ -2083,6 +2100,10 @@ function checkMatrix(payload, markdown, options = {}) {
     if (row.checks.reportModes === true) {
       assert.equal(row.checks.reportTextSmoke, true, `${row.key} report text smoke`);
       assert.equal(row.coverage.reportTextSmoke, true, `${row.key} report text smoke coverage`);
+    }
+    if (row.family === 'formal-tools') {
+      assert.equal(row.checks.documentState, true, `${row.key} calculation-book document state`);
+      assert.equal(row.coverage.documentState, true, `${row.key} calculation-book document state coverage`);
     }
     assert.ok(Array.isArray(row.upgradeGaps), `${row.key} upgrade gaps array`);
     assert.ok(row.upgradePriority, `${row.key} upgrade priority`);

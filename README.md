@@ -61,7 +61,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/formal-tools.run.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-tools.run.js:1)
 - 風力 / 地震正式工具共同契約測試：
   [結構工具箱/tools/formal-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-tools.contract.test.js:1)
-  - 固定檢查正式工具 manifest、乾淨路由、報表分流、示意圖角色與 HTML 彈窗型計算書可讀文字，避免頁面專用「優先建議報告閱讀狀態」混入列印計算書。14 個正式風力／地震工作頁的瀏覽器直接列印另由共用邊界樣式完全封鎖，只輸出一頁操作指引；真正的簡易／詳算計算書仍由頁面上的「列印計算書」流程產生。
+  - 固定檢查正式工具 manifest、乾淨路由、報表分流、示意圖角色與 HTML 彈窗型計算書可讀文字，避免頁面專用「優先建議報告閱讀狀態」混入列印計算書。14 個正式風力／地震計算書統一由 `core/ui/report.js` 把頁面 readiness 轉成文件狀態：案件識別或複核未完成時輸出精簡 `DRAFT／非正式附件` 與列印浮水印，完整 ready 報告不帶 DRAFT；browser smoke 同時實測兩種案件狀態。14 個工作頁的瀏覽器直接列印另由共用邊界樣式完全封鎖，只輸出一頁操作指引；真正的簡易／詳算計算書仍由頁面上的「列印計算書」流程產生。
 - 耐風共用案件檔與一鍵預填契約：
   [結構工具箱/tools/wind-shared-profile.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/wind-shared-profile.contract.test.js:1)
   - `wind-overview.html` 以 `wind-shared-profile.v1` 保存案件識別、地點、地況、用途係數、Kzt 與主結構幾何；由總覽開啟 11 個支援工具時，會以明確欄位映射自動預填。只有主風力抵抗系統工具會承接總高、正整數樓層數與 X／Y 平面尺寸；屋頂平均高、屋簷高、風向專用尺寸、招牌與塔體等專用幾何不會由總覽代填，所有子工具仍須確認其專用幾何與規範路線。
@@ -89,7 +89,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 確認 `run-preflight-tools-release.bat` 固定帶 `-ForceSlowChecks` 與 `-ForcePlatformAudit` 且不透傳任意參數，preflight 本體也會拒絕 `-Quick` 與 release force flags 同時使用；`結構工具箱/tools/rendered-delivery-evidence.js` 會把風力 / 地震、局部快算與鋼構正式報表真正列印成 PDF，再以 Poppler 檢查頁數、可讀文字、非空白頁、稀疏末頁、頁邊截切、表格標題、閱讀順序、頁尾與內容不得混列、頁尾不得只剩孤立章節標題、每個續頁必須從章節 / 步驟 / 重複表頭開始，以及 page-only 文字排除；從孤立公式、單一資料列或無標籤片段起頁時，`uncontextualPageStartCount` 必須大於 0 並阻擋正式放行。共用列印樣式會讓章節標題跟隨後續內容、表格列不被拆頁，且跨頁表格重複表頭；短輸入群組可用明確的 `keepTogether` 標記局部保留，不對所有輸入表全面強制不跨頁。`結構工具箱/tools/rendered-delivery-evidence.inventory.json` 對齊首頁 31 個 formal 入口，`結構工具箱/tools/rendered-delivery-evidence.contract.test.js` 則彙整 RC、鋼構、風 / 震、局部快算、錨栓、石材與覆工板的當輪實際證據；非 formal 的動力分析摘要另以 `seismic-report` 補充證據重新解析當輪 PDF 與 evidence JSON，開挖本機服務則以 `excavation-formal` 保存當輪 PDF、DOCX 與 latest download 副本並核對雜湊，使首頁 `31/31` 與補充報告 / 服務成品 `2/2` 分開揭露。錨栓正式報告會把當輪 HTML、DOCX、XLSX 保存在 `anchor-formal` 證據目錄，總閘門會重新解析 HTML、`word/document.xml` 與 XLSX workbook / worksheet XML，核對案名、章節、工作表、檔案尺寸與 page-only 排除清單，不再只接受 `anchor-report-contract` 日誌。石材正式報告會把當輪 PDF、DOCX 與 audit JSON 保存在 `stone-formal` 證據目錄，總閘門會重新解析 PDF 並核對 DOCX 簽章與 audit 尺寸，不再只接受測試日誌文字。覆工板正式報告會把當輪 DOCX 保存在 `decking-formal` 證據目錄，總閘門會重新解析 `word/document.xml`，核對案名、編號、日期、章節、段落、表格、檔案尺寸與 page-only 排除清單，不再接受固定共用路徑或測試日誌代替當輪成品。RC 平台 audit 延續執行各正式頁的 PNG / PDF 視覺 smoke，並共用同一套 PDF 分頁成品檢查。所有渲染證據寫入當輪 `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/`，並由 `release-readiness-contract` 鎖住；preflight summary / history / homepage status 同時保留 force flags、慢測重用與平台 audit 重用資訊，避免把一般 full run 或 quick run 誤當正式放行證據。release 尾段 history manifest 尚未更新時，矩陣刷新必須優先讀取當輪通過的 full summary 與完整渲染證據；latest 為 quick 或失敗時則回退最近一次通過的 full history，不讓失敗 run 覆蓋公開成功快照。
 - 工具成熟度矩陣產生器：
   [結構工具箱/tools/tool-maturity-matrix.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/tool-maturity-matrix.js:1)
-  - 合併正式工具與局部快算 manifest，輸出 `reportTextSmoke` / `報告可讀文字抽檢`、golden case、JSON round-trip、reference traceability 等治理覆蓋率，讓首頁與巡檢儀表板能看見報告可讀性證據，但不把頁面閱讀狀態寫入計算書或列印 PDF。
+  - 合併正式工具與局部快算 manifest，輸出 `reportTextSmoke` / `報告可讀文字抽檢`、`documentState` / `計算書文件狀態`、golden case、JSON round-trip、reference traceability 等治理覆蓋率，讓首頁與巡檢儀表板能看見報告可讀性及 DRAFT／ready 邊界證據，但不把頁面閱讀狀態明細寫入計算書或列印 PDF。
 - GitHub Pages deploy / live smoke：
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)
   [結構工具箱/tools/pages-live-browser-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-browser-smoke.js:1)

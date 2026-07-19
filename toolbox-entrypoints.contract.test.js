@@ -352,6 +352,7 @@ const homeSource = readText(homeJsPath);
 const homeIndex = readText(path.join(toolboxRoot, 'index.html'));
 const homeTools = evaluateLiteral(extractConstLiteral(homeSource, 'tools'), 'home-tools');
 const homeToolUpdates = evaluateLiteral(extractConstLiteral(homeSource, 'HOME_TOOL_UPDATES'), 'home-tool-updates');
+const homeToolUpdateDependencies = evaluateLiteral(extractConstLiteral(homeSource, 'HOME_TOOL_UPDATE_DEPENDENCIES'), 'home-tool-update-dependencies');
 const toolStates = evaluateLiteral(extractConstLiteral(homeSource, 'toolStates'), 'tool-states');
 const stateBoundaryRules = evaluateLiteral(extractConstLiteral(homeSource, 'stateBoundaryRules'), 'state-boundary-rules');
 const governanceSources = evaluateLiteral(extractConstLiteral(homeSource, 'governanceSources'), 'governance-sources');
@@ -459,6 +460,7 @@ assert.ok(Array.isArray(homeTools), 'home tools array');
 assert.ok(homeTools.length >= 40, 'home tool count should cover the governed platform');
 assert.equal(homeSource.includes('HOME_DATA_UPDATED'), false, 'home cards must not share one fallback update date');
 assert.equal(homeToolUpdates.version, 1, 'home tool update catalog version');
+assert.equal(homeToolUpdateDependencies.version, 1, 'home tool update dependency catalog version');
 assertHomeDate(homeToolUpdates.generatedAt, 'HOME_TOOL_UPDATES generatedAt');
 assertHomeDate(homeToolUpdates.releaseVerifiedAt, 'HOME_TOOL_UPDATES releaseVerifiedAt');
 assert.equal(typeof homeToolUpdates.source, 'string', 'home tool update catalog source');
@@ -798,6 +800,7 @@ assert.ok(readme.includes('Windows PowerShell 5.1'), 'README documents Windows P
 assert.ok(boundaries.includes('Windows PowerShell 5.1'), 'TOOL_BOUNDARIES documents Windows PowerShell encoding risk');
 const steelAuditTool = readText(path.join(repoRoot, '鋼構工具', 'audit-tool.ps1'));
 const steelBrowserRunner = readText(path.join(repoRoot, '鋼構工具', 'steel-audit-browser-runner.js'));
+const steelFormalCoreSync = readText(path.join(repoRoot, '鋼構工具', 'sync-formal-core.ps1'));
 [
   'steel-audit-browser-runner.js',
   'Invoke-BrowserAuditRunner',
@@ -814,6 +817,14 @@ const steelBrowserRunner = readText(path.join(repoRoot, '鋼構工具', 'steel-a
 ].forEach(needle => assert.ok(steelBrowserRunner.includes(needle), `steel audit Edge CDP runner missing: ${needle}`));
 assert.ok(staging.includes('鋼構工具/steel-audit-browser-runner.js'), 'STAGING_GROUPS includes steel audit browser runner');
 assert.ok(boundaries.includes('鋼構工具/steel-audit-browser-runner.js'), 'TOOL_BOUNDARIES includes steel audit browser runner');
+assert.ok(
+  steelFormalCoreSync.includes('Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json'),
+  'steel formal core sync reads its UTF-8 manifest consistently in Windows PowerShell and PowerShell 7'
+);
+assert.ok(
+  steelAuditTool.includes('Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json'),
+  'steel audit reads its UTF-8 formal core manifest consistently in Windows PowerShell and PowerShell 7'
+);
 assert.ok(readme.includes('Edge CDP browser runner'), 'README documents steel audit Edge CDP runner');
 assert.ok(boundaries.includes('Edge CDP browser runner'), 'TOOL_BOUNDARIES documents steel audit Edge CDP runner');
 assert.ok(readme.includes('run-preflight-tools-release.bat'), 'README documents release preflight wrapper');
@@ -922,16 +933,23 @@ for (const tool of homeTools) {
   const homeUpdated = homeToolUpdates.routes[tool.href];
   assertHomeDate(homeUpdated, `${tool.title} home updated date`);
   assert.ok(homeUpdated <= homeToolUpdates.generatedAt, `${tool.title} home updated date must not exceed catalog generation date`);
-  const lastCommittedDate = latestCommittedDate(relativeFile);
+  const dependencyFiles = homeToolUpdateDependencies.routes[tool.href] || [];
+  dependencyFiles.forEach(dependencyFile => {
+    assert.equal(typeof dependencyFile, 'string', `${tool.title} update dependency path`);
+    assert.ok(fs.existsSync(path.join(repoRoot, ...dependencyFile.split('/'))), `${tool.title} update dependency missing: ${dependencyFile}`);
+  });
+  const contentFiles = [relativeFile, ...dependencyFiles];
+  const committedDates = contentFiles.map(latestCommittedDate).filter(Boolean).sort();
+  const lastCommittedDate = committedDates.at(-1) || null;
   if (lastCommittedDate) {
-    const targetChanged = hasWorkingTreeChange(relativeFile);
-    const expectedContentDate = targetChanged
+    const changedFiles = contentFiles.filter(hasWorkingTreeChange);
+    const expectedContentDate = changedFiles.length > 0
       ? homeToolUpdates.generatedAt
       : lastCommittedDate;
     assert.equal(
       homeUpdated,
       expectedContentDate,
-      `${tool.title} home updated date must match ${targetChanged ? 'current target worktree change' : 'target Git history'} (${relativeFile})`
+      `${tool.title} home updated date must match ${changedFiles.length > 0 ? 'current target or shared dependency worktree change' : 'target and shared dependency Git history'} (${contentFiles.join(', ')})`
     );
   }
   assert.ok(tool.version, `${tool.title} home version`);
