@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { buildAttachmentReadinessModel } from './attachmentReadiness'
-import { assessProductCompleteness, evaluateProject } from './calc'
+import {
+  assessProductCompleteness,
+  evaluateProject,
+  evaluateProjectBatch,
+} from './calc'
 import type { ProjectCase } from './domain'
 import { defaultProducts, defaultProject, normalizeReportSettings } from './defaults'
 
 const baseProduct = defaultProducts.find(
   (product) => product.id === 'generic-cast-m20',
 )!
+const readyReportSettings = normalizeReportSettings({
+  companyName: '測試工程顧問有限公司',
+  projectCode: 'ANCHOR-001',
+  designer: '王設計',
+  checker: '李複核',
+  issueDate: '2026-07-20',
+})
 
 function cloneProject(overrides: Partial<ProjectCase> = {}): ProjectCase {
   return {
@@ -21,12 +32,15 @@ function cloneProject(overrides: Partial<ProjectCase> = {}): ProjectCase {
   }
 }
 
-function buildModel(project: ProjectCase = cloneProject()) {
+function buildModel(
+  project: ProjectCase = cloneProject(),
+  reportSettings = readyReportSettings,
+) {
   const review = evaluateProject(project, baseProduct)
   return buildAttachmentReadinessModel({
     review,
     completeness: assessProductCompleteness(baseProduct),
-    reportSettings: normalizeReportSettings(project.report),
+    reportSettings,
   })
 }
 
@@ -68,12 +82,61 @@ describe('buildAttachmentReadinessModel', () => {
     expect(model.priority.value).toContain('先處理')
   })
 
+  it('uses the controlling load case instead of only the active editor case', () => {
+    const safeLoadCase = defaultProject.loadCases![0]
+    const project = cloneProject({
+      activeLoadCaseId: safeLoadCase.id,
+      loadCases: [
+        {
+          ...safeLoadCase,
+          loads: { ...safeLoadCase.loads },
+        },
+        {
+          ...safeLoadCase,
+          id: 'load-case-fail',
+          name: '控制失敗組合',
+          loads: { ...safeLoadCase.loads, tensionKn: 100000 },
+        },
+      ],
+    })
+    const batchReview = evaluateProjectBatch(project, baseProduct)
+    const model = buildAttachmentReadinessModel({
+      batchReview,
+      review: batchReview.activeReview,
+      completeness: assessProductCompleteness(baseProduct),
+      reportSettings: normalizeReportSettings(project.report),
+    })
+
+    expect(batchReview.activeReview.summary.overallStatus).toBe('pass')
+    expect(batchReview.summary.overallStatus).toBe('fail')
+    expect(batchReview.controllingLoadCaseId).toBe('load-case-fail')
+    expect(model.status).toBe('blocked')
+    expect(model.priority.value).toContain('不符合')
+  })
+
   it('requires manual review when checks are intentionally excluded', () => {
     const model = buildModel(cloneProject({ excludedCheckIds: ['pullout'] }))
 
     expect(model.status).toBe('review')
     expect(model.label).toBe('可作附件，需人工複核')
     expect(model.priority.value).toContain('不檢討')
+  })
+
+  it('requires manual review when project and sign-off metadata is incomplete', () => {
+    const model = buildModel(
+      cloneProject(),
+      normalizeReportSettings(defaultProject.report),
+    )
+
+    expect(model.status).toBe('review')
+    expect(model.priority.value).toContain('案號 / 專案')
+    expect(model.priority.value).toContain('設計人員')
+    expect(model.priority.value).toContain('複核人員')
+    expect(model.items).toContainEqual({
+      label: '案件資料',
+      value: '缺 5 項',
+      tone: 'warn',
+    })
   })
 
   it('requires manual review when product evaluation data is incomplete', () => {
@@ -87,7 +150,7 @@ describe('buildAttachmentReadinessModel', () => {
     const model = buildAttachmentReadinessModel({
       review,
       completeness: assessProductCompleteness(incompleteProduct),
-      reportSettings: normalizeReportSettings(project.report),
+      reportSettings: readyReportSettings,
     })
 
     expect(assessProductCompleteness(incompleteProduct).formal).toBe(false)

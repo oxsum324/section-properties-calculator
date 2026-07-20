@@ -61,7 +61,13 @@ describe('buildStandaloneReportHtml', () => {
       completeness: assessProductCompleteness(product!),
       evaluationFieldStates: getEvaluationFieldStates(product!),
       unitPreferences: normalizeUnitPreferences(defaultProject.ui),
-      reportSettings: normalizeReportSettings(defaultProject.report),
+      reportSettings: normalizeReportSettings({
+        companyName: '測試工程顧問有限公司',
+        projectCode: 'ANCHOR-001',
+        designer: '王設計',
+        checker: '李複核',
+        issueDate: '2026-07-20',
+      }),
     })
 
     expect(html).toContain('<!doctype html>')
@@ -69,6 +75,11 @@ describe('buildStandaloneReportHtml', () => {
     expect(html).toContain('載重組合批次檢核')
     expect(html).toContain('φ / ψ 採用總表')
     expect(html).toContain('使用邊界與版本追溯')
+    expect(html).toContain('data-document-state="ready"')
+    expect(html).toContain('文件分類｜可送簽版')
+    expect(html).toContain('王設計')
+    expect(html).toContain('李複核')
+    expect(html).not.toContain('DRAFT /')
     expect(html).toContain(CURRENT_CALC_ENGINE_VERSION)
     expect(html).toContain(ENGINEERING_USE_DISCLAIMER)
     expect(html).not.toContain('離線狀態')

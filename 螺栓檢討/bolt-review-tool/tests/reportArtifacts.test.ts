@@ -35,7 +35,9 @@ const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
   '頁面顯示，不進計算書、列印或 PDF',
 ]
 
-function buildParams() {
+function buildParams(
+  documentState: 'ready' | 'review' | 'blocked' = 'ready',
+) {
   const product = defaultProducts.find(
     (item) => item.id === defaultProject.selectedProductId,
   )
@@ -43,6 +45,13 @@ function buildParams() {
 
   const project = {
     ...defaultProject,
+    report: normalizeReportSettings({
+      companyName: '測試工程顧問有限公司',
+      projectCode: 'ANCHOR-001',
+      designer: '王設計',
+      checker: '李複核',
+      issueDate: '2026-07-20',
+    }),
     candidateLayoutVariants: [
       {
         id: 'layout-wide',
@@ -57,6 +66,19 @@ function buildParams() {
         updatedAt: REPORT_GENERATED_AT,
       },
     ],
+  }
+  if (documentState === 'review') {
+    project.excludedCheckIds = [
+      ...(defaultProject.excludedCheckIds ?? []),
+      'pullout',
+    ]
+  }
+  if (documentState === 'blocked') {
+    project.loads = { ...defaultProject.loads, tensionKn: 100000 }
+    project.loadCases = (defaultProject.loadCases ?? []).map((loadCase) => ({
+      ...loadCase,
+      loads: { ...loadCase.loads, tensionKn: 100000 },
+    }))
   }
   const batchReview = evaluateProjectBatch(project, product!)
   const auditEntry = {
@@ -123,6 +145,8 @@ describe('release report artifacts', () => {
   it('serializes and optionally preserves the actual HTML, DOCX, and XLSX reports', async () => {
     const params = buildParams()
     const html = buildStandaloneReportHtml(params)
+    const reviewHtml = buildStandaloneReportHtml(buildParams('review'))
+    const blockedHtml = buildStandaloneReportHtml(buildParams('blocked'))
     const docx = await serializeReportDocument(params)
     const workbook = await serializeReportWorkbook(params)
 
@@ -131,12 +155,22 @@ describe('release report artifacts', () => {
     expect(html).toContain(defaultProject.name)
     expect(html).toContain('載重組合批次檢核')
     expect(html).toContain('使用邊界與版本追溯')
+    expect(html).toContain('data-document-state="ready"')
+    expect(html).toContain('文件分類｜可送簽版')
+    expect(html).toContain('王設計')
+    expect(html).toContain('李複核')
+    expect(reviewHtml).toContain('data-document-state="review"')
+    expect(reviewHtml).toContain('文件分類｜DRAFT / 待人工複核')
+    expect(blockedHtml).toContain('data-document-state="blocked"')
+    expect(blockedHtml).toContain('文件分類｜DRAFT / 檢核不符')
     expect(docx.byteLength).toBeGreaterThan(4_000)
     expect(Buffer.from(docx).subarray(0, 2).toString('ascii')).toBe('PK')
     expect(workbook.byteLength).toBeGreaterThan(4_000)
     expect(Buffer.from(workbook).subarray(0, 2).toString('ascii')).toBe('PK')
     for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES) {
       expect(html).not.toContain(needle)
+      expect(reviewHtml).not.toContain(needle)
+      expect(blockedHtml).not.toContain(needle)
     }
 
     const evidenceDir = resolveEvidenceDirectory()
@@ -148,9 +182,13 @@ describe('release report artifacts', () => {
     const htmlName = `${ARTIFACT_KEY}.html`
     const docxName = `${ARTIFACT_KEY}.docx`
     const workbookName = `${ARTIFACT_KEY}.xlsx`
+    const reviewHtmlName = `${ARTIFACT_KEY}-review.html`
+    const blockedHtmlName = `${ARTIFACT_KEY}-blocked.html`
     writeFileSync(path.join(evidenceDir, htmlName), html, 'utf8')
     writeFileSync(path.join(evidenceDir, docxName), docx)
     writeFileSync(path.join(evidenceDir, workbookName), workbook)
+    writeFileSync(path.join(evidenceDir, reviewHtmlName), reviewHtml, 'utf8')
+    writeFileSync(path.join(evidenceDir, blockedHtmlName), blockedHtml, 'utf8')
     writeFileSync(
       path.join(evidenceDir, 'rendered-delivery-evidence-summary.json'),
       `${JSON.stringify(
@@ -167,6 +205,13 @@ describe('release report artifacts', () => {
               artifact: htmlName,
               document: docxName,
               workbook: workbookName,
+              documentState: 'ready',
+              reviewArtifact: reviewHtmlName,
+              reviewDocumentState: 'review',
+              reviewHtmlTextLength: reviewHtml.length,
+              blockedArtifact: blockedHtmlName,
+              blockedDocumentState: 'blocked',
+              blockedHtmlTextLength: blockedHtml.length,
               htmlTextLength: html.length,
               documentBytes: docx.byteLength,
               workbookBytes: workbook.byteLength,

@@ -58,6 +58,13 @@ function buildParams() {
 
   const project = {
     ...defaultProject,
+    report: normalizeReportSettings({
+      companyName: '測試工程顧問有限公司',
+      projectCode: 'ANCHOR-001',
+      designer: '王設計',
+      checker: '李複核',
+      issueDate: '2026-07-20',
+    }),
     candidateLayoutVariants: [
       {
         id: 'layout-wide',
@@ -217,6 +224,21 @@ describe('reportWorkbook', () => {
     const summaryRows = worksheetToObjects(workbook, 'Summary')
     expect(summaryRows.some((row) => row.項目 === '案例名稱')).toBe(true)
     expect(summaryRows.some((row) => row.項目 === '控制模式')).toBe(true)
+    expect(
+      summaryRows.some(
+        (row) => row.項目 === '文件分類' && row.值 === '可送簽版',
+      ),
+    ).toBe(true)
+    expect(
+      summaryRows.some(
+        (row) => row.項目 === '設計人員' && row.值 === '王設計',
+      ),
+    ).toBe(true)
+    expect(
+      summaryRows.some(
+        (row) => row.項目 === '複核人員' && row.值 === '李複核',
+      ),
+    ).toBe(true)
     expect(
       summaryRows.some(
         (row) =>

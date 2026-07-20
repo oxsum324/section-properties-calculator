@@ -78,15 +78,29 @@ function assertArtifact(file, expectedSignature, title) {
 async function openReportPopup(page, options = {}) {
   const timeoutMs = options.timeoutMs ?? 30000;
   const triggerSelector = options.triggerSelector ?? '#btnReport';
-  const knownPages = new Set(page.context().pages());
+  await page.waitForFunction(selector => {
+    const trigger = document.querySelector(selector);
+    return trigger && !trigger.disabled && trigger.getClientRects().length > 0;
+  }, triggerSelector, { timeout: timeoutMs });
+  const popupPromise = page.waitForEvent('popup', { timeout: timeoutMs });
   await page.click(triggerSelector);
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const report = page.context().pages().find(candidate => candidate !== page && !candidate.isClosed() && !knownPages.has(candidate));
-    if (report) return report;
-    await page.waitForTimeout(100);
-  }
-  throw new Error(`report popup did not open within ${timeoutMs}ms`);
+  return popupPromise;
+}
+
+async function waitForCalculatedReadiness(page, timeoutMs = 15000) {
+  await page.waitForFunction(() => (
+    typeof window.calcBeam === 'function'
+    && typeof window.RCUI?.renderAttachmentReadiness === 'function'
+  ), null, { timeout: timeoutMs });
+  await page.evaluate(() => window.calcBeam());
+  await page.waitForFunction(() => {
+    const target = document.getElementById('beamAttachmentReadiness');
+    const text = document.getElementById('beamAttachmentReadinessCard')?.textContent || '';
+    return !!window.beamLast
+      && ['ready', 'review', 'blocked'].includes(target?.dataset.attachmentStatus || '')
+      && text.includes('產報前檢查')
+      && !text.includes('尚未計算');
+  }, null, { timeout: timeoutMs });
 }
 
 function serveStatic(rootDir, port = PORT) {
@@ -231,7 +245,7 @@ async function main() {
       const response = await page.goto(toolUrl, { waitUntil: 'networkidle', timeout: 30000 });
       assert(response && response.status() === 200, `${tc.key} tool page loads`, `status=${response && response.status()}`);
       await applyCase(page, tc);
-      await page.waitForTimeout(350);
+      await waitForCalculatedReadiness(page);
 
       const state = await page.evaluate(() => ({
         banner: document.getElementById('bannerStatus')?.innerText?.replace(/\s+/g, ' ').trim() || '',

@@ -12,6 +12,7 @@ import type {
   UnitPreferences,
 } from './domain'
 import type { ReportArtifactParams } from './reportExport'
+import { buildReportDocumentState } from './reportDocumentState'
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
 import { getUnitSymbol, toDisplayValue } from './units'
 
@@ -385,11 +386,22 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
   const calcEngineStatusLabel = calcEngineVersionStatus.mismatch
     ? `本案原始版本 ${calcEngineVersionStatus.projectVersion}，目前以 ${calcEngineVersionStatus.runtimeVersion} 重算；正式交付前應重新檢核並留痕。`
     : `與目前工具版本一致（${CURRENT_CALC_ENGINE_VERSION}）`
+  const documentState = buildReportDocumentState({
+    batchReview,
+    review,
+    completeness,
+    reportSettings,
+  })
   return [
     { 項目: '案例名稱', 值: review.project.name },
+    { 項目: '文件分類', 值: documentState.label },
+    { 項目: '文件說明', 值: documentState.reason },
     { 項目: '規範版本', 值: review.ruleProfile.versionLabel },
     { 項目: '案號/專案', 值: reportSettings.projectCode || '' },
     { 項目: '公司/單位', 值: reportSettings.companyName || '' },
+    { 項目: '設計人員', 值: reportSettings.designer || '' },
+    { 項目: '複核人員', 值: reportSettings.checker || '' },
+    { 項目: '發行日期', 值: reportSettings.issueDate || '' },
     { 項目: '產品', 值: `${selectedProduct.brand} ${selectedProduct.model}` },
     { 項目: '產品族群', 值: familyLabel(selectedProduct.family) },
     { 項目: '整體判定', 值: statusLabel(batchReview.summary.overallStatus) },

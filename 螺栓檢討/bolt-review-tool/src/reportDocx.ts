@@ -21,6 +21,7 @@ import {
 } from './appMeta'
 import { buildStandaloneGeometrySketchSvg } from './reportExport'
 import type { ReportArtifactParams } from './reportExport'
+import { buildReportDocumentState } from './reportDocumentState'
 import { REPORT_TIMESTAMP_LABELS } from './reportTimestamps'
 import {
   buildAuditRows,
@@ -381,6 +382,18 @@ function buildSummarySection(
   params: ReportArtifactParams,
   geometryPngBytes: Uint8Array | null,
 ) {
+  const documentState = buildReportDocumentState({
+    batchReview: params.batchReview,
+    review: params.review,
+    completeness: params.completeness,
+    reportSettings: params.reportSettings,
+  })
+  const documentStateColor =
+    documentState.status === 'blocked'
+      ? docxColors.dcrFailText
+      : documentState.status === 'review'
+        ? '8A5A00'
+        : docxColors.brand
   const geometryParagraphs: Paragraph[] = []
   if (geometryPngBytes) {
     geometryParagraphs.push(
@@ -450,6 +463,17 @@ function buildSummarySection(
       alignment: AlignmentType.CENTER,
       color: docxColors.muted,
       size: 24,
+    }),
+    createParagraph(`文件分類｜${documentState.label}`, {
+      bold: true,
+      alignment: AlignmentType.CENTER,
+      color: documentStateColor,
+      size: 22,
+    }),
+    createParagraph(documentState.reason, {
+      alignment: AlignmentType.CENTER,
+      color: docxColors.muted,
+      size: 18,
     }),
     createParagraph(
       `${params.review.ruleProfile.versionLabel} / ${params.reportSettings.companyName || '未填公司'} / ${params.reportSettings.projectCode || '未填案號'}`,
@@ -555,6 +579,12 @@ export function buildReportDocument(
   params: ReportArtifactParams,
   geometryPngBytes: Uint8Array | null = null,
 ) {
+  const documentState = buildReportDocumentState({
+    batchReview: params.batchReview,
+    review: params.review,
+    completeness: params.completeness,
+    reportSettings: params.reportSettings,
+  })
   const loadCaseRows = buildLoadCaseRows(params)
   const resultRows = buildResultRows(params)
   const dimensionRows = buildDimensionRows(params)
@@ -602,8 +632,8 @@ export function buildReportDocument(
 
   return new Document({
     creator: 'bolt-review-tool',
-    title: `${params.review.project.name} 錨栓檢討報告`,
-    description: '鋼筋混凝土錨栓檢討 Word 匯出報告',
+    title: `${documentState.isDraft ? 'DRAFT - ' : ''}${params.review.project.name} 錨栓檢討報告`,
+    description: `鋼筋混凝土錨栓檢討 Word 匯出報告；文件分類：${documentState.label}`,
     sections: [
       {
         properties: {

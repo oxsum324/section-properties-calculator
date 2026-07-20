@@ -45,6 +45,13 @@ function buildParams() {
 
   const project = {
     ...defaultProject,
+    report: normalizeReportSettings({
+      companyName: '測試工程顧問有限公司',
+      projectCode: 'ANCHOR-001',
+      designer: '王設計',
+      checker: '李複核',
+      issueDate: '2026-07-20',
+    }),
     candidateLayoutVariants: [
       {
         id: 'layout-wide',
@@ -170,6 +177,10 @@ describe('reportDocx', () => {
     expect(buffer[3]).toBe(0x04)
 
     const visibleText = docxVisibleText(buffer)
+    expect(visibleText).toContain('文件分類｜可送簽版')
+    expect(visibleText).toContain('設計人員王設計')
+    expect(visibleText).toContain('複核人員李複核')
+    expect(visibleText).not.toContain('DRAFT /')
     for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES) {
       expect(visibleText).not.toContain(needle)
     }

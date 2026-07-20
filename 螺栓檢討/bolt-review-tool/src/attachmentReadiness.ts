@@ -30,6 +30,7 @@ export interface AttachmentReadinessModel {
 }
 
 export interface BuildAttachmentReadinessInput {
+  batchReview?: ReturnType<typeof import('./calc').evaluateProjectBatch>
   review: ReviewResult
   completeness: ProductCompleteness
   reportSettings: ReportSettings
@@ -73,7 +74,12 @@ function firstReviewIssue(
   review: ReviewResult,
   completeness: ProductCompleteness,
   excludedCount: number,
+  missingReportMetadata: string[],
 ): string {
+  if (missingReportMetadata.length > 0) {
+    return `案件資料缺 ${missingReportMetadata.join('、')}`
+  }
+
   if (!completeness.formal && completeness.missing.length > 0) {
     return `產品評估資料缺 ${completeness.missing.length} 項`
   }
@@ -101,30 +107,61 @@ function firstReviewIssue(
   return '送審前仍需確認產品評估報告、施工圖與專案文件'
 }
 
+function getMissingReportMetadata(
+  review: ReviewResult,
+  reportSettings: ReportSettings,
+): string[] {
+  return [
+    ['計畫名稱', review.project.name],
+    ['案號 / 專案', reportSettings.projectCode],
+    ['公司 / 單位', reportSettings.companyName],
+    ['設計人員', reportSettings.designer],
+    ['複核人員', reportSettings.checker],
+    ['發行日期', reportSettings.issueDate],
+  ]
+    .filter(([, value]) => !String(value || '').trim())
+    .map(([label]) => label)
+}
+
 export function buildAttachmentReadinessModel({
+  batchReview,
   review,
   completeness,
   reportSettings,
 }: BuildAttachmentReadinessInput): AttachmentReadinessModel {
+  const summary = batchReview?.summary ?? review.summary
+  const controllingReview =
+    batchReview?.loadCaseReviews.find(
+      (item) => item.loadCaseId === batchReview.controllingLoadCaseId,
+    )?.review ?? review
   const excludedCount = review.project.excludedCheckIds?.length ?? 0
-  const governingDcr = getGoverningDcr(review.summary)
+  const missingReportMetadata = getMissingReportMetadata(review, reportSettings)
+  const governingDcr = getGoverningDcr(summary)
   const modeLabel = reportModeLabel(reportSettings)
-  const overallTone = toneForStatus(review.summary.overallStatus)
+  const overallTone = toneForStatus(summary.overallStatus)
   const hasReviewIssue =
     !completeness.formal ||
-    REVIEW_STATUSES.has(review.summary.overallStatus) ||
+    REVIEW_STATUSES.has(summary.overallStatus) ||
+    missingReportMetadata.length > 0 ||
     excludedCount > 0
 
   const sharedItems: AttachmentReadinessItem[] = [
     {
       label: '整體判定',
-      value: statusLabel(review.summary.overallStatus),
+      value: statusLabel(summary.overallStatus),
       tone: overallTone,
     },
     {
       label: '控制 DCR',
       value: governingDcr === null ? '未建立' : formatNumber(governingDcr),
       tone: governingDcr !== null && governingDcr > 1 ? 'fail' : 'ok',
+    },
+    {
+      label: '案件資料',
+      value: missingReportMetadata.length
+        ? `缺 ${missingReportMetadata.length} 項`
+        : '完整',
+      tone: missingReportMetadata.length ? 'warn' : 'ok',
     },
     {
       label: '產品資料',
@@ -148,14 +185,14 @@ export function buildAttachmentReadinessModel({
     '匯出前請確認產品評估報告、施工圖與專案文件已完成留痕。',
   ]
 
-  if (review.summary.overallStatus === 'fail') {
+  if (summary.overallStatus === 'fail') {
     return {
       status: 'blocked',
       label: '暫勿作附件',
       summary: '尚有阻擋項目，先不要匯出為公司計算附件。',
       priority: {
         label: '優先閱讀',
-        value: `先處理：${firstBlockingIssue(review)}`,
+        value: `先處理：${firstBlockingIssue(controllingReview)}`,
         tone: 'fail',
       },
       items: sharedItems,
@@ -173,7 +210,12 @@ export function buildAttachmentReadinessModel({
       summary: '數值未見阻擋，但仍有資料或適用性需人工複核。',
       priority: {
         label: '優先閱讀',
-        value: `先確認：${firstReviewIssue(review, completeness, excludedCount)}`,
+        value: `先確認：${firstReviewIssue(
+          review,
+          completeness,
+          excludedCount,
+          missingReportMetadata,
+        )}`,
         tone: 'warn',
       },
       items: sharedItems,

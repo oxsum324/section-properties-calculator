@@ -250,6 +250,7 @@ const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/
 const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
 const anchorReportWorkbookTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts'));
 const anchorAttachmentReadinessTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts'));
+const anchorReportDocumentState = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocumentState.ts'));
 const excavationReportingTest = readText(repoFile('開挖擋土支撐/backend/tests/test_reporting.py'));
 
 [
@@ -364,6 +365,10 @@ assert(anchorReportExportTest.includes('expectNoPageOnlyReportStatus(html)'), 'a
 assert(anchorReportDocxTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'anchor DOCX smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
 assert(anchorReportDocxTest.includes('for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES)'), 'anchor DOCX smoke asserts DOCX excludes page-only wording', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
 assert(anchorReportWorkbookTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'anchor workbook smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
+assert(anchorReportDocumentState.includes('DRAFT / 待人工複核'), 'anchor report state keeps review draft classification', 'DRAFT / 待人工複核');
+assert(anchorReportDocumentState.includes('DRAFT / 檢核不符'), 'anchor report state keeps blocked draft classification', 'DRAFT / 檢核不符');
+assert(anchorReportDocumentState.includes('可送簽版'), 'anchor report state keeps ready sign-off classification', '可送簽版');
+assert(anchorReportDocumentState.includes('頁面的操作流程、閱讀順序與說明卡不進報告'), 'anchor report state separates page guidance from report classification', '頁面的操作流程、閱讀順序與說明卡不進報告');
 assert(anchorReportWorkbookTest.includes('for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES)'), 'anchor workbook smoke asserts XLSX excludes page-only wording', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
 assert(anchorAttachmentReadinessTest.includes("expect(model.notes.join('\\n')).toContain('不會寫入計算書或列印 PDF')"), 'anchor attachment readiness smoke keeps page-only boundary note', '不會寫入計算書或列印 PDF');
 assert(excavationReportingTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'excavation reporting smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');

@@ -74,7 +74,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 以 `螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json` 與 `螺栓檢討/bolt-review-tool/src/anchorTraceabilityCatalog.test.ts` 為源頭，確認錨栓第17章、17.10、22.8.3、產品評估與補強鋼筋 traceability 仍可追到輸入、計算、報告、證據與人工複核邊界；平台 preflight 會以 `anchor-traceability-contract` 留下獨立通過紀錄，再由 `anchor-verify` 與 `anchor-route` 覆核原始碼與部署鏡像。
 - 錨栓報告邊界契約測試：
   [螺栓檢討/anchor-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/螺栓檢討/anchor-report.contract.test.js:1)
-  - 包裝 `reportExport` / `reportDocx` / `reportWorkbook` / `attachmentReadiness` 與 `reportArtifacts` 五組 vitest，確認「優先建議報告閱讀狀態」與頁面輔助文字只留在工作頁面，不混入錨栓計算書、列印 PDF 或 workbook/docx 輸出；正式 release 另會把同一案例實際序列化的 HTML、DOCX、XLSX 保存在當輪 `anchor-formal` 證據目錄。
+  - 包裝 `reportExport` / `reportDocx` / `reportWorkbook` / `attachmentReadiness` / `reportDocumentState` 與 `reportArtifacts` 六組 vitest，確認「優先建議報告閱讀狀態」與頁面輔助文字只留在工作頁面，不混入錨栓計算書、列印 PDF 或 workbook/docx 輸出；計算書只保留必要文件分類，整批載重通過且計畫名稱、案號、公司、設計人、複核人、發行日期完整時為「可送簽版」，待確認、案件資料缺漏或不符合時分別為 `DRAFT / 待人工複核`、`DRAFT / 檢核不符`，且非 ready 檔名附加 `_DRAFT`。正式 release 另會把同一案例的 ready / review / blocked HTML 與 ready DOCX、XLSX 保存在當輪 `anchor-formal` 證據目錄並驗證文件分類。
 - 石材報告邊界契約測試：
   [石材固定/stone-report.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/石材固定/stone-report.contract.test.js:1)
   - 包裝 `server_smoke_test.py` 內與匯出稽核最相關的測試，固定檢查 Word/PDF 匯出稽核摘要、頁面專用「優先建議報告閱讀狀態」清理與 payload HTML 不一致時的降級判定，避免 page-only 閱讀狀態混入正式交付。V2 操作主頁另共用 `結構工具箱/core/direct-print-boundary.css`；瀏覽器功能表直接列印只顯示一頁邊界通知，`#printout` 不得繞過封鎖，正式預覽 / PDF / Word 仍走獨立報表輸出。

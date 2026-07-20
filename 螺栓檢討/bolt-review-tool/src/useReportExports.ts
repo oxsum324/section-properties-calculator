@@ -16,6 +16,10 @@ import {
 } from './calc'
 import { formatAuditHash } from './evaluationAudit'
 import type { ReportArtifactParams } from './reportExport'
+import {
+  appendReportDocumentStateSuffix,
+  buildReportDocumentState,
+} from './reportDocumentState'
 
 type BatchReviewResult = ReturnType<typeof evaluateProjectBatch>
 type CandidateProductReview = ReturnType<
@@ -77,6 +81,20 @@ export function useReportExports(deps: {
     ensureProjectAudit,
     setSaveMessage,
   } = deps
+
+  function getDocumentState() {
+    return buildReportDocumentState({
+      batchReview,
+      review,
+      completeness,
+      reportSettings,
+    })
+  }
+
+  function getReportFileStem(fallback = 'anchor-review-report') {
+    const safeName = makeSafeFileName(project.name, fallback)
+    return appendReportDocumentStateSuffix(safeName, getDocumentState())
+  }
 
   function getReportArtifactParams(
     autoPrint = false,
@@ -140,7 +158,7 @@ export function useReportExports(deps: {
 
   async function exportHtmlReport() {
     const url = await buildReportBlobUrl(false, 'html')
-    const safeName = makeSafeFileName(project.name, 'anchor-review-report')
+    const safeName = getReportFileStem()
     const link = document.createElement('a')
     link.href = url
     link.download = `${safeName}.html`
@@ -158,7 +176,7 @@ export function useReportExports(deps: {
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })
-    const safeName = makeSafeFileName(project.name, 'anchor-review-report')
+    const safeName = getReportFileStem()
     downloadBlob(blob, `${safeName}.xlsx`)
     setSaveMessage(
       reused
@@ -177,10 +195,14 @@ export function useReportExports(deps: {
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     })
     // DOCX 沿用既有的「替換 + 折疊空白」規則（不同於其他匯出的 trim）
-    const safeName =
+    const safeNameBase =
       (project.name || 'anchor-review-report')
         .replace(/[\\/:*?"<>|]+/g, '-')
         .replaceAll(/\s+/g, '-')
+    const safeName = appendReportDocumentStateSuffix(
+      safeNameBase,
+      getDocumentState(),
+    )
     downloadBlob(blob, `${safeName}.docx`)
     setSaveMessage(
       reused

@@ -120,6 +120,8 @@ const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/
 const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
 const anchorReportWorkbookTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts'));
 const anchorAttachmentReadinessTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts'));
+const anchorReportDocumentState = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocumentState.ts'));
+const anchorReportDocumentStateTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocumentState.test.ts'));
 const anchorReportArtifactsTest = readText(repoFile('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts'));
 const rootReadme = readText(repoFile('README.md'));
 const preflight = readText(repoFile('preflight-tools.ps1'));
@@ -402,6 +404,7 @@ assertIncludesAny(
   'src/reportDocx.test.ts',
   'src/reportWorkbook.test.ts',
   'src/attachmentReadiness.test.ts',
+  'src/reportDocumentState.test.ts',
   'tests/reportArtifacts.test.ts',
 ].forEach(needle => assertIncludes(anchorReportContract, needle, `anchor report boundary contract wraps ${needle}`));
 
@@ -442,13 +445,33 @@ assertIncludesAny(
   'serializeReportDocument',
   'serializeReportWorkbook',
   'buildStandaloneReportHtml',
+  'reviewArtifact',
+  'blockedArtifact',
+  'reviewDocumentState',
+  'blockedDocumentState',
 ].forEach(needle => assertIncludes(anchorReportArtifactsTest, needle, `anchor durable release artifact test keeps ${needle}`));
 
 [
   '頁面顯示，不進計算書、列印或 PDF',
   '不會寫入計算書或列印 PDF',
   '優先閱讀',
+  'uses the controlling load case instead of only the active editor case',
+  'requires manual review when project and sign-off metadata is incomplete',
 ].forEach(needle => assertIncludes(anchorAttachmentReadinessTest, needle, `anchor attachment readiness boundary keeps ${needle}`));
+
+[
+  'DRAFT / 檢核不符',
+  'DRAFT / 待人工複核',
+  '可送簽版',
+  'appendReportDocumentStateSuffix',
+].forEach(needle => assertIncludes(anchorReportDocumentState, needle, `anchor report document state keeps ${needle}`));
+
+[
+  "status: 'ready'",
+  "status: 'review'",
+  "status: 'blocked'",
+  '錨栓檢討_DRAFT',
+].forEach(needle => assertIncludes(anchorReportDocumentStateTest, needle, `anchor report document state regression keeps ${needle}`));
 
 [
   '螺栓檢討/anchor-report.contract.test.js',

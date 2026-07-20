@@ -20,7 +20,9 @@
 - 測試或程式證據
 - 人工複核邊界
 
-`src/anchorTraceabilityCatalog.test.ts` 會檢查 catalog 結構、證據檔存在、README 說明，以及核心原始碼仍保留 17.6、17.7、17.8、17.9、17.10、22.8.3 與補強鋼筋路線。repo 根層級的 `螺栓檢討/anchor-traceability.contract.test.js` 另會檢查平台 preflight、首頁 governance 與 staging / boundary 文件是否同步，讓 `anchor-traceability-contract` 成為獨立可追溯 gate；`螺栓檢討/anchor-report.contract.test.js` 則把報告匯出與附件閱讀狀態，以及 `tests/reportArtifacts.test.ts` 的實體產物測試收斂成平台層報告邊界 gate。正式 release 會把同一案例序列化的 HTML、DOCX、XLSX 留在當輪 `anchor-formal`，再由總閘門解析 HTML、DOCX / XLSX ZIP 內容與工作表清冊，不以通過日誌取代成品。新增計算路徑、報告段落、workbook/docx 邊界、正式產物留存或人工判斷邊界時，需同步更新 catalog 與 contract test。
+`src/anchorTraceabilityCatalog.test.ts` 會檢查 catalog 結構、證據檔存在、README 說明，以及核心原始碼仍保留 17.6、17.7、17.8、17.9、17.10、22.8.3 與補強鋼筋路線。repo 根層級的 `螺栓檢討/anchor-traceability.contract.test.js` 另會檢查平台 preflight、首頁 governance 與 staging / boundary 文件是否同步，讓 `anchor-traceability-contract` 成為獨立可追溯 gate；`螺栓檢討/anchor-report.contract.test.js` 則把報告匯出與附件閱讀狀態、`reportDocumentState` 文件分類，以及 `tests/reportArtifacts.test.ts` 的實體產物測試收斂成平台層報告邊界 gate。正式 release 會把同一案例序列化的 HTML、DOCX、XLSX 留在當輪 `anchor-formal`，再由總閘門解析 HTML、DOCX / XLSX ZIP 內容與工作表清冊，不以通過日誌取代成品。新增計算路徑、報告段落、workbook/docx 邊界、正式產物留存或人工判斷邊界時，需同步更新 catalog 與 contract test。
+
+HTML 工作頁的產報前檢查仍只供操作判讀，不會整張搬入計算書。匯出時只保留必要文件分類：整批載重通過，且計畫名稱、案號、公司、設計人、複核人及發行日期完整時標示「可送簽版」；仍待人工確認或案件資料缺漏時標示 `DRAFT / 待人工複核`，任一控制組合不符合時標示 `DRAFT / 檢核不符`；兩種 DRAFT 的 HTML、DOCX、XLSX 檔名都會附加 `_DRAFT`。設計人、複核人與發行日期會寫入三種報告。可送簽版只代表具備進入公司簽核流程的條件，不表示已完成技師複核、簽章或成為正式附件。
 
 ## 常用指令
 
