@@ -282,6 +282,85 @@ function findConflicts(records, key, label, issues) {
   return groups;
 }
 
+function normalizedFingerprints(record) {
+  return unique((record.fingerprints || []).map(item => String(item || '').toUpperCase()));
+}
+
+function fingerprintPairingKey(record) {
+  const projectNo = String(record.projectNo || '').trim();
+  const sourceTool = String(record.sourceTool || '').trim();
+  const toolVersion = normalizeToolVersion(record.toolVersion);
+  return projectNo && sourceTool && toolVersion ? `${projectNo}\u0000${sourceTool}\u0000${toolVersion}` : '';
+}
+
+function analyzeFingerprintRelationships(records, issues) {
+  const groups = new Map();
+  records.forEach(record => {
+    const key = fingerprintPairingKey(record);
+    if (!key || !normalizedFingerprints(record).length) return;
+    if (!groups.has(key)) groups.set(key, { sources: [], reports: [] });
+    const group = groups.get(key);
+    if (String(record.type || '').toLowerCase() === 'json') group.sources.push(record);
+    else if (isDocumentClassRequired(record)) group.reports.push(record);
+  });
+
+  const links = [];
+  groups.forEach(group => {
+    if (!group.sources.length || !group.reports.length) return;
+    const matchedSources = new Set();
+    const matchedReports = new Set();
+    group.sources.forEach(source => {
+      const sourceFingerprints = new Set(normalizedFingerprints(source));
+      group.reports.forEach(report => {
+        const shared = normalizedFingerprints(report).filter(fingerprint => sourceFingerprints.has(fingerprint));
+        if (!shared.length) return;
+        matchedSources.add(source);
+        matchedReports.add(report);
+        shared.forEach(fingerprint => links.push({
+          projectNo: source.projectNo,
+          sourceTool: source.sourceTool,
+          toolVersion: normalizeToolVersion(source.toolVersion),
+          fingerprint,
+          sourceFile: source.file,
+          reportFile: report.file,
+        }));
+      });
+    });
+    const unmatchedSources = group.sources.filter(record => !matchedSources.has(record));
+    const unmatchedReports = group.reports.filter(record => !matchedReports.has(record));
+    if (!unmatchedSources.length && !unmatchedReports.length) return;
+    const files = [...unmatchedSources, ...unmatchedReports].map(record => record.file);
+    const exactPair = group.sources.length === 1 && group.reports.length === 1;
+    issues.push(buildIssue(
+      exactPair ? 'error' : 'warn',
+      exactPair ? 'source-report-fingerprint-mismatch' : 'unmatched-source-report-fingerprint',
+      exactPair
+        ? `${group.sources[0].file} 與 ${group.reports[0].file} 屬同一案件、工具及版本，但計算指紋不一致；來源資料與計算書並非同一次計算，不得組包。`
+        : `同一案件、工具及版本仍有來源資料或計算書無法以計算指紋配對：${files.join('、')}；請確認是否混入不同計算狀態。`,
+      files,
+    ));
+  });
+  return links;
+}
+
+function findDuplicateFingerprints(records, issues) {
+  const fingerprints = new Map();
+  records.forEach(record => normalizedFingerprints(record).forEach(fingerprint => {
+    if (!fingerprints.has(fingerprint)) fingerprints.set(fingerprint, { sources: [], outputs: [] });
+    const group = fingerprints.get(fingerprint);
+    if (String(record.type || '').toLowerCase() === 'json') group.sources.push(record.file);
+    else group.outputs.push(record.file);
+  }));
+  fingerprints.forEach((group, fingerprint) => {
+    if (group.sources.length > 1) {
+      issues.push(buildIssue('warn', 'duplicate-source-fingerprint', `計算指紋 ${fingerprint} 出現在多份來源資料；確認是否重複附入同一計算狀態。`, group.sources));
+    }
+    if (group.outputs.length > 1) {
+      issues.push(buildIssue('warn', 'duplicate-report-fingerprint', `計算指紋 ${fingerprint} 出現在多份輸出附件；確認是否重複附入同一計算結果。`, group.outputs));
+    }
+  });
+}
+
 function analyzePackage(records, options = {}) {
   const issues = [];
   const unsupportedFiles = unique(options.unsupportedFiles || []);
@@ -346,21 +425,15 @@ function analyzePackage(records, options = {}) {
     if (versions.size > 1) issues.push(buildIssue('error', 'tool-version-conflict', `${sourceTool} 使用多個工具版本：${[...versions.keys()].join(' / ')}`, [...versions.values()].flat()));
   });
   readable.filter(record => !record.fingerprints.length).forEach(record => issues.push(buildIssue('warn', 'missing-fingerprint', `${record.file} 未找到計算指紋；請人工確認其來源與內容是否屬於本案。`, [record.file])));
-  const fingerprints = new Map();
-  readable.forEach(record => record.fingerprints.forEach(fingerprint => {
-    if (!fingerprints.has(fingerprint)) fingerprints.set(fingerprint, []);
-    fingerprints.get(fingerprint).push(record.file);
-  }));
-  fingerprints.forEach((files, fingerprint) => {
-    if (files.length > 1) issues.push(buildIssue('warn', 'duplicate-fingerprint', `計算指紋 ${fingerprint} 出現在多份附件；確認是否重複附入同一計算結果。`, files));
-  });
+  const fingerprintLinks = analyzeFingerprintRelationships(readable, issues);
+  findDuplicateFingerprints(readable, issues);
   const errorCount = issues.filter(issue => issue.level === 'error').length;
   const warningCount = issues.filter(issue => issue.level === 'warn').length;
   return {
     kind: 'attachment-package-check.v1', generatedAt: new Date().toISOString(),
     status: errorCount ? 'blocked' : warningCount ? 'review' : 'ready',
     summary: { attachments: records.length, unsupported: unsupportedFiles.length, errors: errorCount, warnings: warningCount },
-    expectedProjectNo, attachments: records, issues,
+    expectedProjectNo, attachments: records, fingerprintLinks, issues,
   };
 }
 
@@ -384,6 +457,7 @@ function formatSummary(report) {
   ];
   if (report.skippedGeneratedEvidence?.length) lines.push(`已略過 ${report.skippedGeneratedEvidence.length} 個驗證中間檔（.evidence.json、成對文字擷取或渲染摘要）。`);
   if (report.unsupportedFiles?.length) lines.push(`未檢查 ${report.unsupportedFiles.length} 個不支援檔案；附件狀態不得自動放行。`);
+  if (report.fingerprintLinks?.length) lines.push(`來源資料與計算書已完成 ${report.fingerprintLinks.length} 組計算指紋配對。`);
   report.attachments.forEach(record => {
     const documentClass = (record.draftDocumentNeedles || []).length
       ? 'DRAFT／非正式附件'
@@ -441,4 +515,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
