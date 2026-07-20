@@ -1749,6 +1749,7 @@ function App() {
         </span>
       </div>
       <AttachmentReadinessPanel
+        batchReview={batchReview}
         review={review}
         completeness={completeness}
         reportSettings={reportSettings}

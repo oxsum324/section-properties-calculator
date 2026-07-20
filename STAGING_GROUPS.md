@@ -211,11 +211,12 @@ Strengthen formal steel tool pages and reports
 
 ## G. 錨栓原始碼與部署鏡像前置
 
-`螺栓檢討/bolt-review-tool/` 是 `/anchor/` 部署鏡像的來源。這包提交原始碼；提交 `/anchor/` hash 資產前，先跑 `sync-anchor-deployment.ps1` 並用 B 包提交部署鏡像。新增規範路線、報告段落、workbook/docx 邊界、正式產物留存或人工複核邊界時，需同步提交 `anchor-traceability.catalog.json`、package 內 `anchorTraceabilityCatalog.test.ts`、`tests/reportArtifacts.test.ts`，以及平台層 `螺栓檢討/anchor-traceability.contract.test.js`、`螺栓檢討/anchor-report.contract.test.js` 與 rendered delivery evidence 治理檔。只有 `src/` 或部署來源改動才需同步 `/anchor/` 鏡像；獨立 `tests/` 治理檔不屬於部署 fingerprint。
+`螺栓檢討/bolt-review-tool/` 是 `/anchor/` 部署鏡像的來源。這包提交原始碼；提交 `/anchor/` hash 資產前，先跑 `sync-anchor-deployment.ps1` 並用 B 包提交部署鏡像。新增規範路線、報告段落、workbook/docx 邊界、正式產物留存或人工複核邊界時，需同步提交 `anchor-traceability.catalog.json`、package 內 `anchorTraceabilityCatalog.test.ts`、`reportDocumentState.ts`、對應報告 / 附件狀態測試、`tests/reportArtifacts.test.ts`，以及平台層 `螺栓檢討/anchor-traceability.contract.test.js`、`螺栓檢討/anchor-report.contract.test.js` 與 rendered delivery evidence 治理檔。只有 `src/` 或部署來源改動才需同步 `/anchor/` 鏡像；獨立 `tests/` 治理檔不屬於部署 fingerprint。
 
 ```powershell
 git add -- "螺栓檢討/bolt-review-tool/README.md" "螺栓檢討/bolt-review-tool/package.json" "螺栓檢討/bolt-review-tool/vite.config.ts"
 git add -- "螺栓檢討/bolt-review-tool/src/App.css" "螺栓檢討/bolt-review-tool/src/App.tsx" "螺栓檢討/bolt-review-tool/src/confirmDialog.ts" "螺栓檢討/bolt-review-tool/src/defaults.ts" "螺栓檢討/bolt-review-tool/src/defaults.test.ts" "螺栓檢討/bolt-review-tool/src/useAuditTrail.ts" "螺栓檢討/bolt-review-tool/src/useProjectLibrary.ts" "螺栓檢討/bolt-review-tool/src/useWorkspaceHydration.ts"
+git add -- "螺栓檢討/bolt-review-tool/src/AttachmentReadinessPanel.tsx" "螺栓檢討/bolt-review-tool/src/attachmentReadiness.ts" "螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts" "螺栓檢討/bolt-review-tool/src/reportDocumentState.ts" "螺栓檢討/bolt-review-tool/src/reportDocumentState.test.ts" "螺栓檢討/bolt-review-tool/src/reportExport.ts" "螺栓檢討/bolt-review-tool/src/reportExport.test.ts" "螺栓檢討/bolt-review-tool/src/reportDocx.ts" "螺栓檢討/bolt-review-tool/src/reportDocx.test.ts" "螺栓檢討/bolt-review-tool/src/reportWorkbook.ts" "螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts" "螺栓檢討/bolt-review-tool/src/useReportExports.ts"
 git add -- "螺栓檢討/bolt-review-tool/src/anchor-traceability.catalog.json" "螺栓檢討/bolt-review-tool/src/anchorTraceabilityCatalog.test.ts" "螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts" "螺栓檢討/anchor-traceability.contract.test.js" "螺栓檢討/anchor-report.contract.test.js"
 ```
 

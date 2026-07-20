@@ -6,17 +6,20 @@ import type {
 import { buildAttachmentReadinessModel } from './attachmentReadiness'
 
 interface AttachmentReadinessPanelProps {
+  batchReview: ReturnType<typeof import('./calc').evaluateProjectBatch>
   review: ReviewResult
   completeness: ProductCompleteness
   reportSettings: ReportSettings
 }
 
 export function AttachmentReadinessPanel({
+  batchReview,
   review,
   completeness,
   reportSettings,
 }: AttachmentReadinessPanelProps) {
   const model = buildAttachmentReadinessModel({
+    batchReview,
     review,
     completeness,
     reportSettings,

@@ -39,6 +39,9 @@ const cases = JSON.parse(read(casesPath));
 [
   'process.env.BEAM_REPORT_PORT || 0',
   'server.address().port',
+  'waitForCalculatedReadiness',
+  "typeof window.RCUI?.renderAttachmentReadiness === 'function'",
+  "page.waitForEvent('popup'",
   'beamAttachmentReadinessCard',
   'page attachment readiness card',
   'page attachment readiness boundary',

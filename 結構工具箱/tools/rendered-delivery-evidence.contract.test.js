@@ -505,6 +505,8 @@ assert.ok(anchorEvidence, 'anchor current-run summary resolves the formal artifa
 const anchorHtmlPath = path.join(anchorEvidenceDir, anchorEvidence.artifact || '');
 const anchorDocxPath = path.join(anchorEvidenceDir, anchorEvidence.document || '');
 const anchorWorkbookPath = path.join(anchorEvidenceDir, anchorEvidence.workbook || '');
+const anchorReviewHtmlPath = path.join(anchorEvidenceDir, anchorEvidence.reviewArtifact || '');
+const anchorBlockedHtmlPath = path.join(anchorEvidenceDir, anchorEvidence.blockedArtifact || '');
 for (const [filePath, label] of [
   [anchorHtmlPath, 'HTML'],
   [anchorDocxPath, 'DOCX'],
@@ -512,13 +514,26 @@ for (const [filePath, label] of [
 ]) {
   assert.ok(fs.existsSync(filePath) && fs.statSync(filePath).size > 1024, `anchor current-run ${label} artifact exists and is non-empty`);
 }
+for (const [filePath, label] of [
+  [anchorReviewHtmlPath, 'review HTML'],
+  [anchorBlockedHtmlPath, 'blocked HTML'],
+]) {
+  assert.ok(fs.existsSync(filePath) && fs.statSync(filePath).size > 1024, `anchor current-run ${label} artifact exists and is non-empty`);
+}
 
 const anchorHtml = fs.readFileSync(anchorHtmlPath, 'utf8');
 const anchorHtmlText = decodeHtmlText(anchorHtml);
+const anchorReviewHtml = fs.readFileSync(anchorReviewHtmlPath, 'utf8');
+const anchorReviewHtmlText = decodeHtmlText(anchorReviewHtml);
+const anchorBlockedHtml = fs.readFileSync(anchorBlockedHtmlPath, 'utf8');
+const anchorBlockedHtmlText = decodeHtmlText(anchorBlockedHtml);
 assert.ok(anchorHtmlText.length > 3000, 'anchor HTML artifact contains substantial visible text');
 for (const needle of ['錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '使用邊界與版本追溯']) {
   assert.ok(anchorHtmlText.includes(needle), `anchor HTML artifact contains ${needle}`);
 }
+assert.ok(anchorHtml.includes('data-document-state="ready"'), 'anchor HTML artifact records ready document state');
+assert.ok(anchorHtmlText.includes('文件分類｜可送簽版'), 'anchor HTML artifact identifies the sign-off candidate');
+assert.ok(anchorHtmlText.includes('王設計') && anchorHtmlText.includes('李複核'), 'anchor HTML artifact includes designer and checker');
 
 assert.equal(fs.readFileSync(anchorDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has DOCX ZIP signature');
 const anchorDocxEntries = readZipEntries(anchorDocxPath, 'anchor DOCX');
@@ -528,6 +543,8 @@ assert.ok(anchorDocxText.length > 3000, 'anchor DOCX artifact contains substanti
 for (const needle of ['鋼筋混凝土錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '逐項檢核明細', '使用邊界與版本']) {
   assert.ok(anchorDocxText.includes(needle), `anchor DOCX artifact contains ${needle}`);
 }
+assert.ok(anchorDocxText.includes('文件分類｜可送簽版'), 'anchor DOCX artifact identifies the sign-off candidate');
+assert.ok(/設計人員\s*王設計/.test(anchorDocxText) && /複核人員\s*李複核/.test(anchorDocxText), 'anchor DOCX artifact includes designer and checker');
 
 assert.equal(fs.readFileSync(anchorWorkbookPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has XLSX ZIP signature');
 const anchorWorkbookEntries = readZipEntries(anchorWorkbookPath, 'anchor XLSX');
@@ -544,6 +561,11 @@ assert.ok(anchorWorkbookText.length > 2000, 'anchor XLSX artifact contains subst
 for (const needle of ['柱腳基板示例', '案例名稱', '控制模式', '使用邊界 / 簽證責任']) {
   assert.ok(anchorWorkbookText.includes(needle), `anchor XLSX artifact contains ${needle}`);
 }
+assert.ok(anchorWorkbookText.includes('文件分類'), 'anchor XLSX artifact includes document classification');
+assert.ok(anchorWorkbookText.includes('可送簽版'), 'anchor XLSX artifact identifies the sign-off candidate');
+assert.ok(anchorWorkbookText.includes('設計人員') && anchorWorkbookText.includes('王設計'), 'anchor XLSX artifact includes designer');
+assert.ok(anchorWorkbookText.includes('複核人員') && anchorWorkbookText.includes('李複核'), 'anchor XLSX artifact includes checker');
+assert.equal(anchorEvidence.documentState, 'ready', 'anchor summary records ready document state');
 
 const anchorForbiddenNeedles = [
   '產報前檢查',
@@ -563,8 +585,18 @@ for (const needle of anchorForbiddenNeedles) {
   assert.equal(anchorHtmlText.includes(needle), false, `anchor HTML excludes page-only status: ${needle}`);
   assert.equal(anchorDocxText.includes(needle), false, `anchor DOCX excludes page-only status: ${needle}`);
   assert.equal(anchorWorkbookText.includes(needle), false, `anchor XLSX excludes page-only status: ${needle}`);
+  assert.equal(anchorReviewHtmlText.includes(needle), false, `anchor review HTML excludes page-only status: ${needle}`);
+  assert.equal(anchorBlockedHtmlText.includes(needle), false, `anchor blocked HTML excludes page-only status: ${needle}`);
 }
+assert.ok(anchorReviewHtml.includes('data-document-state="review"'), 'anchor review HTML records review document state');
+assert.ok(anchorReviewHtmlText.includes('文件分類｜DRAFT / 待人工複核'), 'anchor review HTML carries the required draft classification');
+assert.ok(anchorBlockedHtml.includes('data-document-state="blocked"'), 'anchor blocked HTML records blocked document state');
+assert.ok(anchorBlockedHtmlText.includes('文件分類｜DRAFT / 檢核不符'), 'anchor blocked HTML carries the required draft classification');
 assert.equal(anchorEvidence.htmlTextLength, anchorHtml.length, 'anchor summary matches preserved HTML length');
+assert.equal(anchorEvidence.reviewDocumentState, 'review', 'anchor summary records review document state');
+assert.equal(anchorEvidence.reviewHtmlTextLength, anchorReviewHtml.length, 'anchor summary matches review HTML length');
+assert.equal(anchorEvidence.blockedDocumentState, 'blocked', 'anchor summary records blocked document state');
+assert.equal(anchorEvidence.blockedHtmlTextLength, anchorBlockedHtml.length, 'anchor summary matches blocked HTML length');
 assert.equal(anchorEvidence.documentBytes, fs.statSync(anchorDocxPath).size, 'anchor summary matches preserved DOCX size');
 assert.equal(anchorEvidence.workbookBytes, fs.statSync(anchorWorkbookPath).size, 'anchor summary matches preserved XLSX size');
 records.push({

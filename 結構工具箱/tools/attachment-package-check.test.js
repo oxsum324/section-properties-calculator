@@ -61,6 +61,8 @@ const draftDocumentReport = Checker.analyzePackage([
 ], { projectNo: 'PKG-001' });
 assert.equal(draftDocumentReport.status, 'blocked');
 assert(draftDocumentReport.issues.some(issue => issue.code === 'draft-document'));
+assert(Checker.DRAFT_DOCUMENT_NEEDLES.includes('DRAFT /'));
+assert(Checker.DRAFT_DOCUMENT_NEEDLES.includes('DRAFT／'));
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-package-check-'));
 try {
@@ -88,6 +90,12 @@ try {
   const draftPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(draftPackage.status, 'blocked', 'draft report cannot enter a delivery package');
   assert(draftPackage.issues.some(issue => issue.code === 'draft-document'));
+
+  fs.writeFileSync(path.join(tempDir, 'anchor-review-draft.html'), '<div>文件分類｜DRAFT / 待人工複核</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>產出工具：錨栓檢討工具</div><div>工具版本：v1</div><div>輸出時間：2026/07/20 10:30:00</div>', 'utf8');
+  const anchorDraftPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
+  const anchorDraft = anchorDraftPackage.attachments.find(item => item.file.endsWith('anchor-review-draft.html'));
+  assert(anchorDraft?.draftDocumentNeedles.includes('DRAFT /'));
+  assert.equal(anchorDraftPackage.status, 'blocked', 'anchor DRAFT document state cannot enter a delivery package');
 
   const evidenceDir = path.join(tempDir, 'evidence');
   fs.mkdirSync(evidenceDir, { recursive: true });
