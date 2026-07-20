@@ -1,5 +1,5 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "family": "formal-tools",
   "description": "風力 / 地震正式工具清冊。此檔集中記錄正式頁入口、乾淨路由、瀏覽器 smoke、報表 regression 與示意圖幾何檢查，避免首頁、路由、preflight 與 smoke coverage 漂移。",
   "shared": {
@@ -9,6 +9,7 @@
     "documentStateHelper": "core/ui/report.js",
     "documentStateBuilder": "buildFormalDocumentStateReport",
     "documentStateRequired": true,
+    "sourceReportFingerprintRequired": true,
     "readyDocumentClass": "ready-to-sign",
     "readyDocumentLabel": "文件分類｜可送簽版",
     "directPrintBoundaryStylesheet": "core/direct-print-boundary.css",

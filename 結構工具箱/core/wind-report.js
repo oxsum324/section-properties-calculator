@@ -66,6 +66,18 @@
     });
   }
 
+  function getCurrentReportTrace() {
+    const title = textFrom(document.querySelector('header h1')) || '耐風計算書';
+    const subtitle = textFrom(document.querySelector('header p'));
+    return buildWindReportTrace({
+      title,
+      subtitle,
+      mode: currentReportMode(),
+      summary: collectSummary(),
+      inputGroups: collectInputGroups(),
+    });
+  }
+
   function isProjectMetaMissing(projectInfo = project()) {
     return isBlankProjectMetaValue(projectInfo?.name)
       || isBlankProjectMetaValue(projectInfo?.no)
@@ -743,7 +755,7 @@ function closeReportWindow() {
     const mode = currentReportMode();
     const isSummaryReport = mode === 'summary';
     const inputGroups = collectInputGroups();
-    const reportTrace = buildWindReportTrace({ title, subtitle, mode, summary, inputGroups });
+    const reportTrace = getCurrentReportTrace();
     if (!reportTrace) return;
     const documentStateReport = buildPageDocumentStateReport(proj);
     if (!documentStateReport) return;
@@ -876,7 +888,7 @@ ${reportWindowScriptHtml()}
     const mode = currentReportMode();
     const isSummaryReport = mode === 'summary';
     const inputGroups = collectInputGroups();
-    const reportTrace = buildWindReportTrace({ title, subtitle, mode, summary, inputGroups });
+    const reportTrace = getCurrentReportTrace();
     if (!reportTrace) return;
     const documentStateReport = buildPageDocumentStateReport(proj);
     if (!documentStateReport) return;
@@ -1009,6 +1021,7 @@ ${reportWindowScriptHtml()}
     openWindReport,
     bind,
     clearWindReportIssue,
+    getCurrentReportTrace,
     normalizeProjectFieldValue,
     isProjectMetaMissing,
     renderStatusGridPanel

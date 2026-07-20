@@ -977,10 +977,12 @@ function applyCaseInputs(payload) {
 }
 function exportCaseJson() {
   if (calc() === false) return;
+  const reportTrace = buildSeismicReportTrace();
   const payload = {
     schema: CASE_SCHEMA_VERSION,
     tool: { id: 'seismic-force', name: '等值靜力分析', version: TOOL_VERSION },
     generatedAt: new Date().toISOString(),
+    calculationFingerprint: reportTrace.calculationFingerprint,
     ...readCaseInputs(),
     result: readExportResultSummary()
   };

@@ -152,7 +152,8 @@ const traceCatalog = JSON.parse(readText(traceCatalogPath));
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
 const directPrintBoundary = readText(directPrintBoundaryPath);
 
-assert.equal(manifest.version, '0.2.0', 'formal tools manifest version');
+assert.equal(manifest.version, '0.3.0', 'formal tools manifest version');
+assert.equal(manifest.shared.sourceReportFingerprintRequired, true, 'formal source JSON and report fingerprint link required');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
 assert.ok(Array.isArray(tools), 'formal tools manifest tools');
 assert.equal(tools.length, 14, 'formal tools manifest tool count');
@@ -1114,19 +1115,20 @@ for (const inlineValidationPage of [
   ].forEach(needle => assertNoIncludes(reportBody, needle, 'wind-sign-pole report excludes page-only readiness wording'));
 }
 
-for (const [relativePath, reportFunction, openFunction] of [
-  ['tools/風力/wind-object-solid.html', 'buildSolidObjectReportHtml', 'openSolidObjectReport'],
-  ['tools/風力/wind-object-frame.html', 'buildFrameObjectReportHtml', 'openFrameObjectReport'],
-  ['tools/風力/wind-lattice-tower.html', 'buildLatticeTowerReportHtml', 'openLatticeTowerReport'],
-  ['tools/風力/wind-object-tower.html', 'buildTowerObjectReportHtml', 'openTowerObjectReport'],
-  ['tools/風力/wind-fence-sign.html', 'buildFenceSignReportHtml', 'openFenceSignReport'],
-  ['tools/風力/wind-sign-pole.html', 'buildSignPoleReportHtml', 'openSignPoleReport']
+for (const [relativePath, traceFunction, reportFunction, openFunction] of [
+  ['tools/風力/wind-object-solid.html', 'buildSolidObjectReportTrace', 'buildSolidObjectReportHtml', 'openSolidObjectReport'],
+  ['tools/風力/wind-object-frame.html', 'buildFrameObjectReportTrace', 'buildFrameObjectReportHtml', 'openFrameObjectReport'],
+  ['tools/風力/wind-lattice-tower.html', 'buildLatticeTowerReportTrace', 'buildLatticeTowerReportHtml', 'openLatticeTowerReport'],
+  ['tools/風力/wind-object-tower.html', 'buildTowerObjectReportTrace', 'buildTowerObjectReportHtml', 'openTowerObjectReport'],
+  ['tools/風力/wind-fence-sign.html', 'buildFenceSignReportTrace', 'buildFenceSignReportHtml', 'openFenceSignReport'],
+  ['tools/風力/wind-sign-pole.html', 'buildSignPoleReportTrace', 'buildSignPoleReportHtml', 'openSignPoleReport']
 ]) {
   const html = readText(toolboxFile(relativePath));
-  const reportStart = html.indexOf(`function ${reportFunction}()`);
+  const reportStart = html.indexOf(`function ${traceFunction}(`);
   const reportEnd = html.indexOf(`function ${openFunction}()`, reportStart);
   assert.ok(reportStart >= 0 && reportEnd > reportStart, `${relativePath} trace report body isolated`);
   const reportBody = html.slice(reportStart, reportEnd);
+  assertIncludes(reportBody, `const reportTrace = ${traceFunction}(`, `${relativePath} report reuses source trace helper`);
   ['window.ToolReportUI.buildReportTrace', '產出工具', '工具版本', '輸出時間', '計算指紋'].forEach(needle => {
     assertIncludes(reportBody, needle, `${relativePath} formal trace ${needle}`);
   });

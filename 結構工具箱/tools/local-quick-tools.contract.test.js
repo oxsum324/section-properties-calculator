@@ -92,7 +92,7 @@ assert.equal(manifest.version, '0.3.0', 'local quick tools manifest version');
 assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest family');
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
-assert.equal(formalManifest.version, '0.2.0', 'formal tools manifest version');
+assert.equal(formalManifest.version, '0.3.0', 'formal tools manifest version');
 assert.equal(formalManifest.family, 'formal-tools', 'formal tools manifest family');
 assert.ok(Array.isArray(formalManifest.tools), 'formal tools manifest tools');
 assert.ok(Array.isArray(formalManifest.requiredRoutes), 'formal tools manifest required routes');
@@ -301,7 +301,7 @@ assert.equal(directPrintBoundaryText.includes('content: "DRAFT"'), false, 'local
 ].forEach(needle => assertIncludes(formalBrowserSmokeTestText, needle, 'formal browser smoke test'));
 
 [
-  '"version": "0.2.0"',
+  '"version": "0.3.0"',
   '"family": "formal-tools"',
   '"shared"',
   '"runner"',

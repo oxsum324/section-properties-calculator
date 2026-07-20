@@ -431,10 +431,12 @@ function resetCaseDefaults() {
 }
 function exportCaseJson() {
   calc();
+  const reportTrace = buildTowerObjectReportTrace(lastResult);
   const payload = {
     schema: CASE_SCHEMA_VERSION,
     tool: { id: 'wind-object-tower', name: '煙囪 / 水塔風力', version: TOOL_VERSION },
     generatedAt: new Date().toISOString(),
+    calculationFingerprint: reportTrace.calculationFingerprint,
     ...readCaseInputs(),
     result: lastResult || null
   };
@@ -930,6 +932,14 @@ function buildSimpleResultRows(r) {
   if (r.top) rows.splice(5, 0, ['頂部附加風力 F_top', `${fmt(r.top.force,1)} kgf`]);
   return rows;
 }
+function buildTowerObjectReportTrace(result) {
+  return window.ToolReportUI.buildReportTrace({
+    title: '煙囪 / 水塔風力計算書',
+    subtitle: '依建築物耐風設計規範及解說 107 年版｜表 2.12 Cf 路線',
+    outputSource: { tool: '煙囪 / 水塔風力', version: TOOL_VERSION },
+    snapshot: { reportMode: getPrintReportMode(), result }
+  });
+}
 function buildTowerObjectReportHtml() {
   const r = calc();
   if (!r) return '';
@@ -937,12 +947,7 @@ function buildTowerObjectReportHtml() {
   const project = getProjectInfo();
   const today = new Date();
   const todayStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
-  const reportTrace = window.ToolReportUI.buildReportTrace({
-    title: '煙囪 / 水塔風力計算書',
-    subtitle: '依建築物耐風設計規範及解說 107 年版｜表 2.12 Cf 路線',
-    outputSource: { tool: '煙囪 / 水塔風力', version: TOOL_VERSION },
-    snapshot: { reportMode: getPrintReportMode(), result: r }
-  });
+  const reportTrace = buildTowerObjectReportTrace(r);
   const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
     project,
     calculated: true,

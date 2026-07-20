@@ -598,6 +598,7 @@ function exportCaseJson() {
     schema: CASE_SCHEMA_VERSION,
     tool: { id: 'wind-cc', name: '區域風壓 C&C', version: TOOL_VERSION },
     generatedAt: new Date().toISOString(),
+    calculationFingerprint: window.WindReport.getCurrentReportTrace().calculationFingerprint,
     ...readCaseInputs(),
     result: readExportResultSummary()
   };
