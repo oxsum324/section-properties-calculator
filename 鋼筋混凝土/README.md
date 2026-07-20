@@ -61,7 +61,7 @@ RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Us
 
 獨立契約測試位於 [tools/rc-traceability.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-traceability.contract.test.js:1)，會確認每個 RC 模組的 trace 數量、規範來源、報告落點、證據檔存在與人工複核措辭，並由 RC audit 與平台 preflight 直接執行。
 
-RC 專案 JSON 與正式計算書共用同一枚 `CF-` 計算指紋。指紋納入工具識別、計算模式、計算欄位、結果摘要、外力匯入及人工複核紀錄；案名、計畫編號、設計者、儲存時間、版本字串與純畫面分頁不納入。基礎分頁代表不同計算類型，另以計算情境納入。契約測試位於 [tools/rc-project-fingerprint.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js:1)，7 個報告視覺 smoke 會實際比對來源 JSON 與報告頁的指紋完全一致。
+RC 專案 JSON 與正式計算書共用同一枚 `CF-` 計算指紋。指紋納入工具識別、計算模式、計算欄位、結果摘要、外力匯入及人工複核紀錄；案名、計畫編號、設計者、儲存時間、版本字串與純畫面分頁不納入。基礎分頁代表不同計算類型，另以計算情境納入。梁、柱、板、牆、剪力牆、基礎與單樁讀取專案 JSON 時，會先驗證 schema、工具種類、工具版本及來源內容指紋，再套用輸入並重新計算；只有重算指紋與來源完全相同才保留匯入結果，不相容、遭修改或無法完整還原時會回復匯入前狀態。契約測試位於 [tools/rc-project-fingerprint.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-project-fingerprint.contract.test.js:1)，7 個報告視覺 smoke 會實際套用來源並比對重算指紋與報告頁完全一致；梁、柱、板回歸另以真實檔案介面確認錯誤版本遭拒且現有輸入不變。
 
 梁報告視覺 smoke contract 位於 [tools/beam-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/beam-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免頁面專用提醒或人工複核提示漂移進計算書。
 

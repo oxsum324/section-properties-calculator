@@ -312,7 +312,18 @@ async function main() {
       if (tc.tab === 'mat') {
         assert(state.mcDdmText.includes('待確認') && state.mcDdmWarn, `${tc.key} DDM unavailable UI is warning`, state.mcDdmText);
       }
-      const sourceFingerprint = await page.evaluate(() => window.collectFoundationProjectData().calculationFingerprint);
+      const sourceReplay = await page.evaluate(() => {
+        const source = window.collectFoundationProjectData();
+        const result = window.applyFoundationProjectData(source, { silent: true });
+        return {
+          applied: result.applied,
+          sourceFingerprint: source.calculationFingerprint,
+          replayedFingerprint: window.collectFoundationProjectData().calculationFingerprint
+        };
+      });
+      assert(sourceReplay.applied > 20, `${tc.key} project source replay applies fields`, `count=${sourceReplay.applied}`);
+      assert(sourceReplay.replayedFingerprint === sourceReplay.sourceFingerprint, `${tc.key} project source replay preserves calculation fingerprint`, `${sourceReplay.sourceFingerprint} -> ${sourceReplay.replayedFingerprint}`);
+      const sourceFingerprint = sourceReplay.sourceFingerprint;
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });

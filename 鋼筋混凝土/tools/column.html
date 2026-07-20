@@ -650,7 +650,7 @@
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
-<script src="../shared/report.js?v=5"></script>
+<script src="../shared/report.js?v=6"></script>
 
 <script src="../shared/pmsection.js?v=2"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
@@ -1020,11 +1020,13 @@
   }
 
   function normalizeColumnProjectPayload(raw) {
-    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!payload || payload.schema !== COLUMN_PROJECT_SCHEMA || payload.tool !== 'rc-column' || !payload.fields) {
-      throw new Error('unsupported column project schema');
-    }
-    return payload;
+    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+      expectedSchema: COLUMN_PROJECT_SCHEMA,
+      expectedToolId: 'rc-column',
+      expectedVersion: 'V3.1',
+      sourceKey: 'fields',
+      fingerprintOptions: { ignoredKeys: ['activeTab'] }
+    });
   }
 
   function setColumnProjectControl(id, saved) {
@@ -1055,6 +1057,7 @@
 
   function applyColumnProjectData(raw, options = {}) {
     const payload = normalizeColumnProjectPayload(raw);
+    const previous = options.skipReplayCheck ? null : collectColumnProjectData();
     setColumnMode(payload.mode, { enforceCheckDefaults: false, recalculate: false, applyPanel: false });
     let applied = 0;
     Object.entries(payload.fields).forEach(([id, saved]) => {
@@ -1066,12 +1069,20 @@
     if (typeof calcColumn === 'function') calcColumn();
     const tab = ['geom','rebar','loads','pm','shear','summary'].includes(payload.activeTab) ? payload.activeTab : 'geom';
     applyPanel(tab);
+    if (!options.skipReplayCheck) {
+      try {
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectColumnProjectData());
+      } catch (error) {
+        applyColumnProjectData(previous, { silent: true, skipReplayCheck: true });
+        throw error;
+      }
+    }
     if (!options.silent) {
       const source = options.sourceLabel || '柱專案檔';
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showColumnProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+      showColumnProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
     return { payload, applied };
   }
@@ -1083,7 +1094,7 @@
       return applyColumnProjectData(text, { sourceLabel: '柱專案檔' });
     } catch (err) {
       console.error('column project load failed', err);
-      showColumnProjectStatus('柱專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      showColumnProjectStatus(`柱專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
       return null;
     }
   }

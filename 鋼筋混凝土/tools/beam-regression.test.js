@@ -595,6 +595,21 @@ async function exerciseBeamProjectStorage(page) {
     document.getElementById('projName').value = '檔案匯入前';
     document.getElementById('MuPos').value = '2';
   });
+  const rejectedBeamProject = JSON.parse(JSON.stringify(saved));
+  rejectedBeamProject.appVersion = 'V0.0';
+  await page.setInputFiles('#beamProjectFile', {
+    name: 'rc-beam-project-wrong-version.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(rejectedBeamProject), 'utf8')
+  });
+  await page.waitForFunction(() => document.getElementById('beamProjectStatus')?.textContent?.includes('已保留原輸入'));
+  const rejectedImport = await page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    MuPos: document.getElementById('MuPos')?.value,
+    status: document.getElementById('beamProjectStatus')?.textContent || ''
+  }));
+  assert(rejectedImport.projectName === '檔案匯入前' && rejectedImport.MuPos === '2', 'beam rejects incompatible source without changing inputs', JSON.stringify(rejectedImport));
+  assert(rejectedImport.status.includes('工具版本不符'), 'beam explains incompatible source rejection', rejectedImport.status);
   await page.setInputFiles('#beamProjectFile', {
     name: 'rc-beam-project.json',
     mimeType: 'application/json',
@@ -608,7 +623,7 @@ async function exerciseBeamProjectStorage(page) {
   }));
   assert(imported.projectName === '梁專案存讀檔測試', 'beam project file input import project name', imported.projectName);
   assert(imported.MuPos === '88', 'beam project file input import MuPos', imported.MuPos);
-  assert(imported.status.includes('已讀取梁專案檔'), 'beam project file input status', imported.status);
+  assert(imported.status.includes('已讀取梁專案檔並重現計算') && imported.status.includes(saved.calculationFingerprint), 'beam project file input status', imported.status);
 
   const draft = await page.evaluate(() => {
     const setField = (id, value) => {

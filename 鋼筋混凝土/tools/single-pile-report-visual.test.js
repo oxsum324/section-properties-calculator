@@ -285,7 +285,16 @@ async function main() {
       } else {
         assert(state.control && state.control.diaCm >= 40, `${key} control candidate exists`, `D=${state.control?.diaCm}`);
       }
-      const sourceFingerprint = await page.evaluate(() => window.buildProjectPayload().calculationFingerprint);
+      const sourceReplay = await page.evaluate(() => {
+        const source = window.buildProjectPayload();
+        window.applyProjectPayload(source, '測試來源', { silent: true });
+        return {
+          sourceFingerprint: source.calculationFingerprint,
+          replayedFingerprint: window.buildProjectPayload().calculationFingerprint
+        };
+      });
+      assert(sourceReplay.replayedFingerprint === sourceReplay.sourceFingerprint, `${key} project source replay preserves calculation fingerprint`, `${sourceReplay.sourceFingerprint} -> ${sourceReplay.replayedFingerprint}`);
+      const sourceFingerprint = sourceReplay.sourceFingerprint;
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });

@@ -661,7 +661,7 @@
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
-<script src="../shared/report.js?v=5"></script>
+<script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="../shared/flexure.js?v=1"></script>
@@ -936,11 +936,13 @@
   }
 
   function normalizeWallProjectPayload(raw) {
-    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!payload || payload.schema !== WALL_PROJECT_SCHEMA || payload.tool !== 'rc-wall' || !payload.fields) {
-      throw new Error('unsupported wall project schema');
-    }
-    return payload;
+    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+      expectedSchema: WALL_PROJECT_SCHEMA,
+      expectedToolId: 'rc-wall',
+      expectedVersion: 'V3.1',
+      sourceKey: 'fields',
+      fingerprintOptions: { ignoredKeys: ['activeTab'] }
+    });
   }
 
   function setWallProjectControl(id, saved) {
@@ -971,6 +973,7 @@
 
   function applyWallProjectData(raw, options = {}) {
     const payload = normalizeWallProjectPayload(raw);
+    const previous = options.skipReplayCheck ? null : collectWallProjectData();
     setWallMode(payload.mode || 'design');
     let applied = 0;
     Object.entries(payload.fields).forEach(([id, saved]) => {
@@ -980,7 +983,12 @@
       const body = $('aggBody');
       if (body) body.innerHTML = '';
       _aggRowSeq = 0;
-      payload.aggRows.forEach(row => addAggRow(row));
+      payload.aggRows.forEach(row => addAggRow({
+        ...row,
+        hwlw: Number.isFinite(Number(row?.hwlw))
+          ? Number(row.hwlw)
+          : (Number(row?.lw) > 0 ? Number(row.hw) / Number(row.lw) : 0)
+      }));
     }
     syncDetailHelp();
     syncAdvancedCaseTools();
@@ -988,12 +996,20 @@
     if (typeof calcWall === 'function') calcWall();
     const tab = ['geom','load','rebar','methods','summary'].includes(payload.activeTab) ? payload.activeTab : 'geom';
     applyPanel(tab);
+    if (!options.skipReplayCheck) {
+      try {
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectWallProjectData());
+      } catch (error) {
+        applyWallProjectData(previous, { silent: true, skipReplayCheck: true });
+        throw error;
+      }
+    }
     if (!options.silent) {
       const source = options.sourceLabel || '牆專案檔';
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showWallProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+      showWallProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
     return { payload, applied };
   }
@@ -1005,7 +1021,7 @@
       return applyWallProjectData(text, { sourceLabel: '牆專案檔' });
     } catch (err) {
       console.error('wall project load failed', err);
-      showWallProjectStatus('牆專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      showWallProjectStatus(`牆專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
       return null;
     }
   }
