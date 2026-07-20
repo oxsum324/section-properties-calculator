@@ -115,7 +115,7 @@ try {
   assert.equal(unclassifiedFormalReport?.documentClassRequired, true);
   assert.deepEqual(unclassifiedFormalReport?.readyDocumentNeedles, []);
   const reviewCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
-  assert.equal(reviewCli.status, 0, reviewCli.stderr || reviewCli.stdout);
+  assert.equal(reviewCli.status, 1, reviewCli.stderr || reviewCli.stdout);
   assert.match(reviewCli.stdout, /附件組包一致性檢查：需人工確認/);
   assert.match(reviewCli.stdout, /文件未分類/);
 
@@ -131,7 +131,7 @@ try {
   const parsedIdentityIssue = missingDesignerPackage.issues.find(issue => issue.code === 'missing-report-identity');
   assert.match(parsedIdentityIssue?.message || '', /設計人員/);
   const missingDesignerCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
-  assert.equal(missingDesignerCli.status, 0, missingDesignerCli.stderr || missingDesignerCli.stdout);
+  assert.equal(missingDesignerCli.status, 1, missingDesignerCli.stderr || missingDesignerCli.stdout);
   assert.match(missingDesignerCli.stdout, /需人工確認/);
   assert.match(missingDesignerCli.stdout, /未能抽取設計人員/);
 
@@ -139,6 +139,9 @@ try {
   const draftPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(draftPackage.status, 'blocked', 'draft report cannot enter a delivery package');
   assert(draftPackage.issues.some(issue => issue.code === 'draft-document'));
+  const blockedCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
+  assert.equal(blockedCli.status, 2, blockedCli.stderr || blockedCli.stdout);
+  assert.match(blockedCli.stdout, /附件組包一致性檢查：暫勿整理/);
 
   fs.writeFileSync(path.join(tempDir, 'anchor-review-draft.html'), '<div>文件分類｜DRAFT / 待人工複核</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>產出工具：錨栓檢討工具</div><div>工具版本：v1</div><div>輸出時間：2026/07/20 10:30:00</div>', 'utf8');
   const anchorDraftPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
@@ -182,6 +185,19 @@ try {
 }
 
 assert.deepEqual(Checker.parseArgs(['--input', 'C:/case', '--project-no', 'PKG-001']), { input: 'C:/case', projectNo: 'PKG-001' });
+assert.deepEqual(Checker.PACKAGE_STATUS_EXIT_CODES, { ready: 0, review: 1, blocked: 2 });
+assert.equal(Checker.CLI_ERROR_EXIT_CODE, 3);
+assert.equal(Checker.exitCodeForStatus('ready'), 0);
+assert.equal(Checker.exitCodeForStatus('review'), 1);
+assert.equal(Checker.exitCodeForStatus('blocked'), 2);
+assert.equal(Checker.exitCodeForStatus('unknown'), 3);
+const helpCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--help'], { encoding: 'utf8' });
+assert.equal(helpCli.status, 0, helpCli.stderr || helpCli.stdout);
+const missingInputCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js')], { encoding: 'utf8' });
+assert.equal(missingInputCli.status, 3, missingInputCli.stderr || missingInputCli.stdout);
+const missingFolderPath = path.join(os.tmpdir(), `attachment-package-check-missing-${process.pid}-${Date.now()}`);
+const missingFolderCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', missingFolderPath], { encoding: 'utf8' });
+assert.equal(missingFolderCli.status, 3, missingFolderCli.stderr || missingFolderCli.stdout);
 assert.match(Checker.formatSummary(readyReport), /僅供交付前整理/);
 assert.match(Checker.formatSummary({ ...readyReport, skippedGeneratedEvidence: ['formal-report.evidence.json'] }), /已略過 1 個驗證中間檔/);
 

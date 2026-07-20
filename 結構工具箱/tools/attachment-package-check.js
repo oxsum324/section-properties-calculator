@@ -14,6 +14,12 @@ const DRAFT_DOCUMENT_NEEDLES = [
   'DRAFT /', 'DRAFT／', '非正式附件', '列印內部檢討版', '本文件僅供內部檢討', '本文件僅供內部複核', '不得作為正式附件',
 ];
 const READY_DOCUMENT_CLASS_LABEL = '文件分類｜可送簽版';
+const PACKAGE_STATUS_EXIT_CODES = Object.freeze({
+  ready: 0,
+  review: 1,
+  blocked: 2,
+});
+const CLI_ERROR_EXIT_CODE = 3;
 const REPORT_DOCUMENT_NEEDLES = ['計算書', '計算報告', '檢討報告', '設計報告', '計算附件'];
 const REPORT_IDENTITY_FIELDS = [
   ['projectName', '計畫名稱'],
@@ -366,6 +372,12 @@ function formatSummary(report) {
   return lines.join('\n');
 }
 
+function exitCodeForStatus(status) {
+  return Object.prototype.hasOwnProperty.call(PACKAGE_STATUS_EXIT_CODES, status)
+    ? PACKAGE_STATUS_EXIT_CODES[status]
+    : CLI_ERROR_EXIT_CODE;
+}
+
 function parseArgs(argv) {
   const options = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -381,22 +393,26 @@ function parseArgs(argv) {
 
 function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv);
-  if (options.help || !options.input) {
+  if (options.help) {
     console.log('用法：node attachment-package-check.js --input <附件資料夾> [--project-no <計畫編號>] [--output <內部檢查結果.json>]');
-    return options.help ? 0 : 2;
+    return 0;
+  }
+  if (!options.input) {
+    console.log('用法：node attachment-package-check.js --input <附件資料夾> [--project-no <計畫編號>] [--output <內部檢查結果.json>]');
+    return CLI_ERROR_EXIT_CODE;
   }
   const report = checkPackage(options.input, options);
   if (options.output) fs.writeFileSync(path.resolve(options.output), JSON.stringify(report, null, 2) + '\n', 'utf8');
   console.log(formatSummary(report));
-  return report.status === 'blocked' ? 1 : 0;
+  return exitCodeForStatus(report.status);
 }
 
 if (require.main === module) {
   try { process.exitCode = main(); }
   catch (error) {
     console.error(`附件組包一致性檢查失敗：${error.message || error}`);
-    process.exitCode = 2;
+    process.exitCode = CLI_ERROR_EXIT_CODE;
   }
 }
 
-module.exports = { PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };
+module.exports = { PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
