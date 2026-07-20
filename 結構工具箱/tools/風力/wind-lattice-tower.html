@@ -283,7 +283,7 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
-<script src="../../core/ui/report.js"></script>
+<script src="../../core/ui/report.js?v=7"></script>
 <script>
 const W = window.Wind;
 const TOOL_VERSION = '1.1';
@@ -509,11 +509,17 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
-      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
-        setCaseStatus(`已讀取不同版本案件 JSON (${payload.schema})，將盡量依現有欄位套用。`, 'warn');
-      }
-      applyCaseInputs(payload);
-      setCaseStatus('已匯入案件 JSON，並依目前頁面重新計算。');
+      const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
+        expectedSchema: CASE_SCHEMA_VERSION,
+        expectedToolId: 'wind-lattice-tower',
+        expectedVersion: TOOL_VERSION,
+        capture: () => readCaseInputs(),
+        apply: source => applyCaseInputs(source),
+        recalculate: () => calc(),
+        getFingerprint: () => buildLatticeTowerReportTrace(lastResult).calculationFingerprint,
+        restore: previous => applyCaseInputs(previous)
+      });
+      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');
     } finally {

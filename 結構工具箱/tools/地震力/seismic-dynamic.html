@@ -568,7 +568,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
-<script src="../../core/ui/report.js"></script>
+<script src="../../core/ui/report.js?v=7"></script>
 <script>
 const S = Seismic;
 const STATIC_STORAGE_KEY = 'seismic-static-summary';
@@ -912,8 +912,14 @@ function collectCaseInputs() {
   return { values, checks };
 }
 
-function applyCaseInputs(inputs) {
+function applyCaseInputs(source) {
+  const payload = source?.inputs ? source : { inputs: source };
+  const inputs = payload.inputs || {};
   if (!inputs?.values) return;
+  const project = payload.project || {};
+  if (project.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(project.name);
+  if (project.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(project.no);
+  if (project.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(project.designer);
   const values = inputs.values || {};
   const checks = inputs.checks || {};
   const citySel = document.getElementById('zoneCity');
@@ -952,6 +958,7 @@ function buildCasePayload() {
     : null;
   return {
     schemaVersion: CASE_SCHEMA_VERSION,
+    tool: { id: 'seismic-dynamic', name: '反應譜動力分析摘要', version: TOOL_VERSION },
     toolVersion: TOOL_VERSION,
     exportedAt: new Date().toISOString(),
     project: getProjectInfo(),
@@ -1032,7 +1039,7 @@ function loadCaseDraft() {
       return;
     }
     const payload = JSON.parse(raw);
-    applyCaseInputs(payload.inputs || payload);
+    applyCaseInputs(payload);
     refreshCaseAfterDraftLoad();
     setCaseDraftStatus('已讀取瀏覽器暫存，並依目前頁面重新整理。');
   } catch (err) {
@@ -1046,18 +1053,24 @@ function importCaseJsonFile(file) {
   reader.onload = () => {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
-      if (!payload?.schemaVersion || !payload.schemaVersion.startsWith('seismic-dynamic.case.')) {
-        setInputStatus('這不是本頁支援的動力分析案件 JSON。');
-        return;
-      }
-      applyCaseInputs(payload.inputs);
-      lastDynamicResult = null;
-      const ok = calcDynamic();
-      document.getElementById('staticImportStatus').innerHTML = ok === false
-        ? `已匯入案件 JSON：${escapeHtml(file.name)}，但輸入尚未通過檢核。`
-        : `已匯入案件 JSON：${escapeHtml(file.name)}。`;
+      const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
+        expectedSchema: CASE_SCHEMA_VERSION,
+        expectedToolId: 'seismic-dynamic',
+        expectedVersion: TOOL_VERSION,
+        allowSchemaToolIdentity: true,
+        capture: () => ({ project: getProjectInfo(), inputs: collectCaseInputs() }),
+        apply: source => applyCaseInputs(source),
+        recalculate: () => calcDynamic(),
+        getFingerprint: () => buildDynamicReportTrace(lastDynamicResult).calculationFingerprint,
+        restore: previous => {
+          applyCaseInputs(previous);
+          calcDynamic();
+        }
+      });
+      document.getElementById('staticImportStatus').textContent =
+        `已匯入案件 JSON：${file.name}，並重現計算；計算指紋 ${replay.calculationFingerprint}。`;
     } catch (err) {
-      setInputStatus(`案件 JSON 讀取失敗：${err.message}`);
+      document.getElementById('staticImportStatus').textContent = `案件 JSON 讀取失敗：${err.message || err}`;
     } finally {
       const input = document.getElementById('caseJsonFile');
       if (input) input.value = '';
@@ -1794,7 +1807,7 @@ function buildDynamicReportTrace(state = lastDynamicResult) {
   const modelCheck = normalizeModelCheck(result.modelCheck || readModelCheckInputs());
   const includeModelCheck = Boolean(document.getElementById('printModelCheckSection')?.checked);
   const reportMode = document.getElementById('reportMode')?.value === 'summary' ? 'summary' : 'detailed';
-  const { project: ignoredProject, ...calculation } = result;
+  const { project: ignoredProject, savedAt: ignoredSavedAt, ...calculation } = result;
   return window.ToolReportUI.buildReportTrace({
     title: '反應譜動力分析規範整理計算書',
     subtitle: '依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求',

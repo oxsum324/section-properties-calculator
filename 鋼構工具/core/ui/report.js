@@ -179,6 +179,81 @@ function validateCalculationSourcePayload(payload, options = {}) {
   return payload;
 }
 
+function validateCalculationCasePayload(payload, options = {}) {
+  const fail = (message) => {
+    throw new Error(`案件 JSON 驗證失敗：${message}`);
+  };
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) fail('內容不是有效物件。');
+  const actualSchema = String(payload.schema ?? payload.schemaVersion ?? '').trim();
+  const expectedSchema = String(options.expectedSchema || '').trim();
+  if (!actualSchema) fail('缺少案件 schema。');
+  if (expectedSchema && actualSchema !== expectedSchema) {
+    fail(`案件格式不符（來源 ${actualSchema}，目前 ${expectedSchema}）。`);
+  }
+
+  const expectedToolId = String(options.expectedToolId || '').trim();
+  const actualToolId = String(payload.tool?.id || '').trim();
+  const schemaIdentifiesTool = options.allowSchemaToolIdentity === true &&
+    expectedToolId && actualSchema.startsWith(`${expectedToolId}.case.`);
+  if (expectedToolId && !actualToolId && !schemaIdentifiesTool) fail('缺少工具識別。');
+  if (expectedToolId && actualToolId && actualToolId !== expectedToolId) {
+    fail(`工具種類不符（來源 ${actualToolId}，目前 ${expectedToolId}）。`);
+  }
+
+  const actualVersion = normalizeReportVersion(payload.tool?.version ?? payload.toolVersion);
+  const expectedVersion = normalizeReportVersion(options.expectedVersion);
+  if (!actualVersion) fail('缺少工具版本。');
+  if (expectedVersion && actualVersion !== expectedVersion) {
+    fail(`工具版本不符（來源 ${actualVersion}，目前 ${expectedVersion}）。`);
+  }
+  if (!/^CF-[0-9A-F]{16}$/.test(String(payload.calculationFingerprint || ''))) {
+    fail('計算指紋格式不正確。');
+  }
+  return payload;
+}
+
+function assertCalculationCaseReplay(payload, replayedFingerprint) {
+  const sourceFingerprint = String(payload?.calculationFingerprint || '');
+  const actualFingerprint = String(replayedFingerprint || '');
+  if (!/^CF-[0-9A-F]{16}$/.test(actualFingerprint)) {
+    throw new Error('案件 JSON 重現失敗：重新計算後未取得有效計算指紋。');
+  }
+  if (sourceFingerprint !== actualFingerprint) {
+    throw new Error(`案件 JSON 重現失敗：來源 ${sourceFingerprint}，重算 ${actualFingerprint}。`);
+  }
+  return actualFingerprint;
+}
+
+function replayCalculationCasePayload(payload, options = {}) {
+  for (const name of ['capture', 'apply', 'recalculate', 'getFingerprint', 'restore']) {
+    if (typeof options[name] !== 'function') {
+      throw new Error(`案件 JSON 回放設定缺少 ${name}。`);
+    }
+  }
+  const previous = options.capture();
+  let applied = false;
+  try {
+    const source = validateCalculationCasePayload(payload, options);
+    applied = true;
+    options.apply(source);
+    if (options.recalculate() === false) {
+      throw new Error('案件 JSON 重現失敗：重新計算未通過輸入檢核。');
+    }
+    const calculationFingerprint = assertCalculationCaseReplay(source, options.getFingerprint());
+    return { payload: source, calculationFingerprint };
+  } catch (error) {
+    if (applied) {
+      try {
+        options.restore(previous);
+      } catch (rollbackError) {
+        throw new Error(`${error.message || error}；原輸入復原失敗：${rollbackError.message || rollbackError}`);
+      }
+    }
+    const message = String(error?.message || error || '未知錯誤').replace(/[。；\s]+$/, '');
+    throw new Error(`${message}；已保留原輸入。`);
+  }
+}
+
 async function readCalculationSourceFile(file, options = {}) {
   if (!file) throw new Error('尚未選擇來源 JSON。');
   if (Number(file.size || 0) > 5 * 1024 * 1024) throw new Error('來源 JSON 超過 5 MB。');
@@ -400,6 +475,9 @@ if (typeof window !== 'undefined') {
     buildReportTrace,
     validateCalculationSourcePayload,
     readCalculationSourceFile,
+    validateCalculationCasePayload,
+    assertCalculationCaseReplay,
+    replayCalculationCasePayload,
     renderStatusGridPanel,
     calculationBookPageOnlyLabels: CALCULATION_BOOK_PAGE_ONLY_LABELS,
     getCalculationBookInputGroups,

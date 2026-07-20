@@ -154,6 +154,7 @@ const directPrintBoundary = readText(directPrintBoundaryPath);
 
 assert.equal(manifest.version, '0.3.0', 'formal tools manifest version');
 assert.equal(manifest.shared.sourceReportFingerprintRequired, true, 'formal source JSON and report fingerprint link required');
+assert.equal(manifest.shared.caseReplayValidationRequired, true, 'formal case JSON requires exact validated replay');
 assert.equal(manifest.family, 'formal-tools', 'formal tools manifest family');
 assert.ok(Array.isArray(tools), 'formal tools manifest tools');
 assert.equal(tools.length, 14, 'formal tools manifest tool count');
@@ -229,6 +230,51 @@ assert.equal(
 assert.equal(sharedReportRuntime.ToolReportUI.normalizeProjectFieldValue('未填'), '', 'shared report runtime helper clears placeholder project text');
 assert.equal(typeof sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport, 'function', 'shared report runtime exposes formal document state renderer');
 assert.equal(typeof sharedReportRuntime.ToolReportUI.getPageReportReadinessLevel, 'function', 'shared report runtime exposes page readiness resolver');
+assert.equal(typeof sharedReportRuntime.ToolReportUI.validateCalculationCasePayload, 'function', 'shared report runtime exposes formal case validation');
+assert.equal(typeof sharedReportRuntime.ToolReportUI.assertCalculationCaseReplay, 'function', 'shared report runtime exposes formal case replay assertion');
+assert.equal(typeof sharedReportRuntime.ToolReportUI.replayCalculationCasePayload, 'function', 'shared report runtime exposes guarded formal case replay');
+const formalCasePayload = {
+  schema: 'qa-formal.case.v1',
+  tool: { id: 'qa-formal', version: 'V2.0' },
+  calculationFingerprint: 'CF-1234567890ABCDEF',
+  values: { demand: '10' },
+};
+assert.doesNotThrow(() => sharedReportRuntime.ToolReportUI.validateCalculationCasePayload(formalCasePayload, {
+  expectedSchema: 'qa-formal.case.v1',
+  expectedToolId: 'qa-formal',
+  expectedVersion: '2.0',
+}), 'matching formal case source validates');
+assert.throws(() => sharedReportRuntime.ToolReportUI.validateCalculationCasePayload({ ...formalCasePayload, schema: 'qa-formal.case.v0' }, {
+  expectedSchema: 'qa-formal.case.v1', expectedToolId: 'qa-formal', expectedVersion: '2.0',
+}), /案件格式不符/, 'formal case validation rejects a different schema');
+assert.throws(() => sharedReportRuntime.ToolReportUI.validateCalculationCasePayload({ ...formalCasePayload, tool: { id: 'other-tool', version: 'V2.0' } }, {
+  expectedSchema: 'qa-formal.case.v1', expectedToolId: 'qa-formal', expectedVersion: '2.0',
+}), /工具種類不符/, 'formal case validation rejects a different tool');
+assert.throws(() => sharedReportRuntime.ToolReportUI.validateCalculationCasePayload({ ...formalCasePayload, tool: { id: 'qa-formal', version: 'V9.9' } }, {
+  expectedSchema: 'qa-formal.case.v1', expectedToolId: 'qa-formal', expectedVersion: '2.0',
+}), /工具版本不符/, 'formal case validation rejects a different tool version');
+let replayState = { values: { demand: '7' }, fingerprint: 'CF-AAAAAAAAAAAAAAAA' };
+const replayOptions = {
+  expectedSchema: 'qa-formal.case.v1',
+  expectedToolId: 'qa-formal',
+  expectedVersion: '2.0',
+  capture: () => JSON.parse(JSON.stringify(replayState)),
+  apply: source => { replayState = { values: { ...source.values }, fingerprint: 'CF-1234567890ABCDEF' }; },
+  recalculate: () => true,
+  getFingerprint: () => replayState.fingerprint,
+  restore: previous => { replayState = previous; },
+};
+assert.equal(
+  sharedReportRuntime.ToolReportUI.replayCalculationCasePayload(formalCasePayload, replayOptions).calculationFingerprint,
+  formalCasePayload.calculationFingerprint,
+  'guarded formal case replay accepts an exact recalculation fingerprint'
+);
+replayState = { values: { demand: 'rollback-sentinel' }, fingerprint: 'CF-BBBBBBBBBBBBBBBB' };
+assert.throws(() => sharedReportRuntime.ToolReportUI.replayCalculationCasePayload({
+  ...formalCasePayload,
+  calculationFingerprint: 'CF-0000000000000000',
+}, replayOptions), /重現失敗.*已保留原輸入/, 'guarded formal case replay rejects a fingerprint mismatch');
+assert.equal(replayState.values.demand, 'rollback-sentinel', 'fingerprint mismatch restores the prior formal case input');
 const readyDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport({
   project: { name: 'QA', no: 'QA-001', designer: 'Codex QA' },
   calculated: true,
@@ -519,6 +565,11 @@ assertIncludes(windReportSource, 'global.ToolReportUI.getCalculationBookInputGro
 ].forEach(([relativePath, needle]) => {
   assertNoIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} should not retain stale project metadata when restored blank values are present`);
 });
+assertIncludes(
+  readText(toolboxFile('tools/地震力/seismic-dynamic.html')),
+  'savedAt: ignoredSavedAt',
+  'seismic dynamic calculation fingerprint excludes the volatile calculation timestamp'
+);
 
 [
   'tools/formal-tools.manifest.json',
@@ -549,6 +600,11 @@ assertIncludes(windReportSource, 'global.ToolReportUI.getCalculationBookInputGro
   'tool.extraExportButtons || []',
   'settlePage',
   'waitForImportStatus',
+  'versionGuard',
+  'fingerprintGuard',
+  'wrong-version',
+  'wrong-fingerprint',
+  '已保留原輸入',
   'Page.javascriptDialogOpening',
   'inlineValidationExpression',
   'assertInlineValidationState',
@@ -689,6 +745,17 @@ for (const tool of tools) {
   }
   if (tool.exportButton) assertIncludes(html, tool.exportButton, `${tool.key} export button in HTML`);
   if (tool.importButton) assertIncludes(html, tool.importButton, `${tool.key} import button in HTML`);
+  if (tool.jsonRoundTrip && manifest.shared.caseReplayValidationRequired) {
+    assertIncludes(html, '../../core/ui/report.js?v=7', `${tool.key} loads the guarded case replay core`);
+    assertIncludes(html, 'replayCalculationCasePayload', `${tool.key} validates and replays imported case JSON`);
+    assertIncludes(html, 'expectedSchema: CASE_SCHEMA_VERSION', `${tool.key} requires an exact case schema`);
+    assertIncludes(html, `expectedToolId: '${tool.key}'`, `${tool.key} requires the current tool identity`);
+    assertIncludes(html, 'expectedVersion: TOOL_VERSION', `${tool.key} requires the current tool version`);
+    assertIncludes(html, 'getFingerprint:', `${tool.key} compares the recalculated fingerprint`);
+    assertIncludes(html, 'restore:', `${tool.key} restores the prior inputs after a failed replay`);
+    assertNoIncludes(html, '盡量依現有欄位套用', `${tool.key} no longer applies a different schema on a best-effort basis`);
+    assertNoIncludes(html, '已盡量套用可辨識欄位', `${tool.key} no longer applies recognizable fields from a different schema`);
+  }
   if (tool.reportMode) {
     const controls = tool.reportModeControls || {};
     if (controls.simpleButton || controls.detailButton) {

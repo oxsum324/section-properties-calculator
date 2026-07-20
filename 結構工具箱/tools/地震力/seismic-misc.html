@@ -374,7 +374,7 @@
 
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
-<script src="../../core/ui/report.js"></script>
+<script src="../../core/ui/report.js?v=7"></script>
 <script>
 const S = Seismic;
 let lastMiscResult = null;
@@ -761,14 +761,21 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
-      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
-        setCaseStatus(`已讀取不同版本案件 JSON (${payload.schema})，將盡量依現有欄位套用。`, 'warn');
-      }
-      applyCaseInputs(payload);
-      lastMiscResult = null;
+      const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
+        expectedSchema: CASE_SCHEMA_VERSION,
+        expectedToolId: 'seismic-misc',
+        expectedVersion: TOOL_VERSION,
+        capture: () => readCaseInputs(),
+        apply: source => applyCaseInputs(source),
+        recalculate: () => calcMiscPage(),
+        getFingerprint: () => buildMiscReportTrace(lastMiscResult).calculationFingerprint,
+        restore: previous => {
+          applyCaseInputs(previous);
+          calcMiscPage();
+        }
+      });
       miscReportInputsChanged = false;
-      document.getElementById('resultPanel').style.display = 'none';
-      setCaseStatus('已匯入案件 JSON；請按「計算雜項工作物地震力」重新整理結果。');
+      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
       setMiscReportValidationMessage('');
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');

@@ -1154,6 +1154,31 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       }
       return readCaseStatus().includes('已匯入案件 JSON');
     };
+    const clearCaseStatus = () => {
+      for (const selector of ['#caseStatus', '#caseJsonStatus', '#staticImportStatus']) {
+        const node = document.querySelector(selector);
+        if (node) node.textContent = '';
+      }
+    };
+    const waitForCaseStatus = async needle => {
+      const started = Date.now();
+      while (Date.now() - started < 1500) {
+        if (readCaseStatus().includes(needle)) return readCaseStatus();
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      return readCaseStatus();
+    };
+    const importPayloadDirectly = async (candidate, suffix, expectedNeedle) => {
+      clearCaseStatus();
+      importCaseJsonFile(new File(
+        [JSON.stringify(candidate)],
+        ${JSON.stringify(tool.key)} + '-' + suffix + '.json',
+        { type: 'application/json' }
+      ));
+      const status = await waitForCaseStatus(expectedNeedle);
+      await settle(2);
+      return status;
+    };
     const mutate = id => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -1235,8 +1260,31 @@ function jsonRoundTripExpression(tool, sourcePayload) {
         : String(actualValue ?? '') === String(expectedValue);
       if (!matches) mismatches.push({ key, expected: expectedValue, actual: actualValue });
     }
+    const successfulCaseStatus = readCaseStatus();
 
-    const caseStatus = readCaseStatus();
+    let versionGuard = { status: '', unchanged: false };
+    let fingerprintGuard = { status: '', restored: false };
+    if (typeof importCaseJsonFile === 'function') {
+      const wrongVersion = JSON.parse(JSON.stringify(payload));
+      wrongVersion.tool = { ...(wrongVersion.tool || {}), version: 'V0.0' };
+      wrongVersion.toolVersion = 'V0.0';
+      writeValue('projName', 'version-guard-sentinel');
+      const versionStatus = await importPayloadDirectly(wrongVersion, 'wrong-version', '已保留原輸入');
+      versionGuard = {
+        status: versionStatus,
+        unchanged: readValue('projName') === 'version-guard-sentinel'
+      };
+
+      const wrongFingerprint = JSON.parse(JSON.stringify(payload));
+      wrongFingerprint.calculationFingerprint = 'CF-0000000000000000';
+      writeValue('projName', 'fingerprint-guard-sentinel');
+      const fingerprintStatus = await importPayloadDirectly(wrongFingerprint, 'wrong-fingerprint', '已保留原輸入');
+      fingerprintGuard = {
+        status: fingerprintStatus,
+        restored: readValue('projName') === 'fingerprint-guard-sentinel'
+      };
+    }
+
     return {
       missingPayload: false,
       missingFileInput: !fileInput,
@@ -1247,7 +1295,7 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       expectedCount: Object.keys(expected).length,
       recalculatedAfterImport,
       mismatches,
-      caseStatus,
+      caseStatus: successfulCaseStatus,
       resultSelectors: {
         '#r-cf .value': readText('#r-cf .value'),
         '#r-qz .value': readText('#r-qz .value'),
@@ -1255,7 +1303,9 @@ function jsonRoundTripExpression(tool, sourcePayload) {
       },
       resultValues,
       payloadSchema,
-      payloadToolId
+      payloadToolId,
+      versionGuard,
+      fingerprintGuard
     };
   })()`;
 }
@@ -2300,7 +2350,7 @@ function assertJsonRoundTripState(state, tool, label) {
   assert.deepEqual(
     state.mismatches,
     [],
-    `${label} ${tool.key} JSON round-trip restores inputs: ${JSON.stringify(state.mismatches, null, 2)}`
+    `${label} ${tool.key} JSON round-trip restores inputs: ${JSON.stringify({ caseStatus: state.caseStatus, mismatches: state.mismatches }, null, 2)}`
   );
   assert.ok(
     state.caseStatus.includes('已匯入案件 JSON'),
@@ -2308,6 +2358,12 @@ function assertJsonRoundTripState(state, tool, label) {
   );
   assert.equal(state.payloadToolId, tool.key, `${label} ${tool.key} JSON round-trip payload tool`);
   assert.ok(state.payloadSchema, `${label} ${tool.key} JSON round-trip payload schema`);
+  assert.equal(state.versionGuard?.unchanged, true, `${label} ${tool.key} wrong-version JSON leaves the prior inputs unchanged`);
+  assert.ok(state.versionGuard?.status.includes('工具版本不符'), `${label} ${tool.key} wrong-version status: ${state.versionGuard?.status}`);
+  assert.ok(state.versionGuard?.status.includes('已保留原輸入'), `${label} ${tool.key} wrong-version status preserves original inputs`);
+  assert.equal(state.fingerprintGuard?.restored, true, `${label} ${tool.key} fingerprint mismatch restores the prior inputs`);
+  assert.ok(state.fingerprintGuard?.status.includes('重現失敗'), `${label} ${tool.key} fingerprint mismatch status: ${state.fingerprintGuard?.status}`);
+  assert.ok(state.fingerprintGuard?.status.includes('已保留原輸入'), `${label} ${tool.key} fingerprint mismatch status preserves original inputs`);
   const recalculatedValues = [
     ...Object.values(state.resultSelectors || {}),
     ...(state.resultValues || []),
