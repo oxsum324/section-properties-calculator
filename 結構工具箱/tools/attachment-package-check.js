@@ -13,6 +13,8 @@ const PAGE_ONLY_NEEDLES = [
 const DRAFT_DOCUMENT_NEEDLES = [
   'DRAFT /', 'DRAFT／', '非正式附件', '列印內部檢討版', '本文件僅供內部檢討', '本文件僅供內部複核', '不得作為正式附件',
 ];
+const READY_DOCUMENT_CLASS_LABEL = '文件分類｜可送簽版';
+const REPORT_DOCUMENT_NEEDLES = ['計算書', '計算報告', '檢討報告', '設計報告', '計算附件'];
 const FIELD_LABELS = {
   projectName: ['計畫名稱', '專案名稱', '工程名稱', '案件名稱'],
   projectNo: ['計畫編號', '專案編號', '工程編號', '案件編號'],
@@ -58,6 +60,27 @@ function normalizeToolVersion(value) {
   const namespacedVersion = raw.match(/^[a-z][a-z0-9-]*\.v(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);
   if (namespacedVersion) return `v${namespacedVersion[1]}`;
   return raw;
+}
+
+function detectReadyDocumentClass(text) {
+  const normalized = normalizeText(text);
+  return /文件分類\s*(?:[｜|:：]\s*)?可送簽版/.test(normalized)
+    ? [READY_DOCUMENT_CLASS_LABEL]
+    : [];
+}
+
+function isDocumentClassRequired(record = {}) {
+  if (typeof record.documentClassRequired === 'boolean') return record.documentClassRequired;
+  if (String(record.type || '').toLowerCase() === 'json') return false;
+  if ((record.readyDocumentNeedles || []).length || (record.draftDocumentNeedles || []).length) return true;
+  if ((record.reportDocumentNeedles || []).length) return true;
+  return Boolean(
+    record.sourceTool
+    && record.toolVersion
+    && record.outputTime
+    && Array.isArray(record.fingerprints)
+    && record.fingerprints.length
+  );
 }
 
 function run(command, args, label) {
@@ -161,7 +184,8 @@ function inspectAttachment(filePath, rootDir) {
   const record = {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: fs.statSync(filePath).size,
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '',
-    fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], errors: [],
+    fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
+    reportDocumentNeedles: [], documentClassRequired: false, errors: [],
   };
   try {
     let text = '';
@@ -177,6 +201,10 @@ function inspectAttachment(filePath, rootDir) {
     record.textLength = normalizeText(text).length;
     record.pageOnlyNeedles = PAGE_ONLY_NEEDLES.filter(needle => text.includes(needle));
     record.draftDocumentNeedles = DRAFT_DOCUMENT_NEEDLES.filter(needle => text.includes(needle));
+    record.readyDocumentNeedles = detectReadyDocumentClass(text);
+    const normalizedText = normalizeText(text);
+    record.reportDocumentNeedles = REPORT_DOCUMENT_NEEDLES.filter(needle => normalizedText.includes(needle));
+    record.documentClassRequired = isDocumentClassRequired({ ...record, documentClassRequired: undefined });
   } catch (error) {
     record.errors.push(error.message || String(error));
   }
@@ -236,6 +264,8 @@ function analyzePackage(records, options = {}) {
     if (record.pageOnlyNeedles.length) issues.push(buildIssue('error', 'page-only-leak', `${record.file} 含有頁面專用文字：${record.pageOnlyNeedles.join('、')}`, [record.file]));
     if ((record.draftDocumentNeedles || []).length) {
       issues.push(buildIssue('error', 'draft-document', `${record.file} 含有非正式／內部檢討文件標記：${record.draftDocumentNeedles.join('、')}；不得納入交付附件組包。`, [record.file]));
+    } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
+      issues.push(buildIssue('warn', 'missing-document-class', `${record.file} 未找到「${READY_DOCUMENT_CLASS_LABEL}」；不得自動視為可交付附件，請回原工具重產或人工確認文件來源與簽認狀態。`, [record.file]));
     }
   });
   const readable = records.filter(record => !record.errors.length);
@@ -308,7 +338,12 @@ function formatSummary(report) {
   ];
   if (report.skippedGeneratedEvidence?.length) lines.push(`已略過 ${report.skippedGeneratedEvidence.length} 個驗證中間檔（.evidence.json、成對文字擷取或渲染摘要）。`);
   report.attachments.forEach(record => {
-    const trace = [record.projectNo, record.sourceTool, record.toolVersion, record.fingerprints.join(',')].filter(Boolean).join('｜') || '未抽取追溯資訊';
+    const documentClass = (record.draftDocumentNeedles || []).length
+      ? 'DRAFT／非正式附件'
+      : (record.readyDocumentNeedles || []).length
+        ? '可送簽版'
+        : isDocumentClassRequired(record) ? '文件未分類' : '';
+    const trace = [record.projectNo, record.sourceTool, record.toolVersion, record.fingerprints.join(','), documentClass].filter(Boolean).join('｜') || '未抽取追溯資訊';
     lines.push(`- ${record.file}：${record.errors.length ? `讀取失敗 (${record.errors.join('；')})` : trace}`);
   });
   report.issues.forEach(issue => lines.push(`[${issue.level === 'error' ? '阻擋' : '提醒'}] ${issue.message}`));
@@ -349,4 +384,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, normalizeText, cleanMetadataValue, normalizeToolVersion, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };
+module.exports = { PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, REPORT_DOCUMENT_NEEDLES, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };

@@ -30,9 +30,19 @@ assert.equal(Checker.normalizeToolVersion('V4.0'), 'v4.0');
 assert.equal(Checker.normalizeToolVersion('wind-force.v1'), 'v1');
 
 const readyReport = Checker.analyzePackage([
-  { file: 'beam.pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+  { file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件分類｜可送簽版'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
 ], { projectNo: 'PKG-001' });
 assert.equal(readyReport.status, 'ready');
+assert.deepEqual(Checker.detectReadyDocumentClass('<strong>文件分類｜可送簽版</strong>'), ['文件分類｜可送簽版']);
+assert.deepEqual(Checker.detectReadyDocumentClass('<div>文件分類</div><div>可送簽版</div>'), ['文件分類｜可送簽版']);
+assert.equal(Checker.READY_DOCUMENT_CLASS_LABEL, '文件分類｜可送簽版');
+
+const unclassifiedReport = Checker.analyzePackage([
+  { file: 'beam-unclassified.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+], { projectNo: 'PKG-001' });
+assert.equal(unclassifiedReport.status, 'review', 'unclassified formal report cannot be silently treated as ready');
+assert(unclassifiedReport.issues.some(issue => issue.code === 'missing-document-class'));
+assert.match(Checker.formatSummary(unclassifiedReport), /文件未分類/);
 
 const incompleteTraceReport = Checker.analyzePackage([
   { file: 'legacy.pdf', errors: [], pageOnlyNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: '', toolVersion: '', outputTime: '', fingerprints: ['CF-1234ABCD5678EF90'] },
@@ -77,14 +87,30 @@ try {
   assert.equal(scanned.attachments.length, 1);
   assert.equal(scanned.attachments[0].projectNo, 'PKG-001');
   assert.equal(scanned.attachments[0].toolVersion, 'v1');
+  assert.equal(scanned.attachments[0].documentClassRequired, false, 'project JSON is source data and does not require a report document class');
   assert.equal(scanned.status, 'ready');
   const cli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stderr || cli.stdout);
   assert.match(cli.stdout, /附件組包一致性檢查：可整理/);
 
-  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-AAAA0000BBBB1111</div>', 'utf8');
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-AAAA0000BBBB1111</div>', 'utf8');
   const legacyJsonAndFormalReport = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
-  assert.equal(legacyJsonAndFormalReport.status, 'ready', 'legacy JSON and canonical report versions remain compatible');
+  assert.equal(legacyJsonAndFormalReport.status, 'review', 'compatible but unclassified report requires review');
+  assert(legacyJsonAndFormalReport.issues.some(issue => issue.code === 'missing-document-class'));
+  assert.equal(legacyJsonAndFormalReport.issues.some(issue => issue.code === 'tool-version-conflict'), false, 'legacy JSON and canonical report versions remain compatible');
+  const unclassifiedFormalReport = legacyJsonAndFormalReport.attachments.find(item => item.file === 'wind-formal.html');
+  assert.equal(unclassifiedFormalReport?.documentClassRequired, true);
+  assert.deepEqual(unclassifiedFormalReport?.readyDocumentNeedles, []);
+  const reviewCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
+  assert.equal(reviewCli.status, 0, reviewCli.stderr || reviewCli.stdout);
+  assert.match(reviewCli.stdout, /附件組包一致性檢查：需人工確認/);
+  assert.match(reviewCli.stdout, /文件未分類/);
+
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件分類｜可送簽版</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-AAAA0000BBBB1111</div>', 'utf8');
+  const classifiedPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
+  assert.equal(classifiedPackage.status, 'ready', 'explicit ready document classification allows package readiness');
+  const classifiedReport = classifiedPackage.attachments.find(item => item.file === 'wind-formal.html');
+  assert.deepEqual(classifiedReport?.readyDocumentNeedles, ['文件分類｜可送簽版']);
 
   fs.writeFileSync(path.join(tempDir, 'rc-draft.html'), '<div>DRAFT／非正式附件 - 待人工複核</div><div>本文件僅供內部複核；完成複核及資料補正前不得作為正式附件。</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：RC 梁</div><div>工具版本：V3.1</div><div>輸出時間：2026/07/16 14:31:43</div><div>計算指紋：CF-BBBB0000CCCC1111</div>', 'utf8');
   const draftPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
