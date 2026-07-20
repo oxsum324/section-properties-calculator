@@ -337,7 +337,7 @@
 
 <script src="../../core/loads/seismic.js"></script>
 <script src="../../core/loads/seismic-zones.js"></script>
-<script src="../../core/ui/report.js"></script>
+<script src="../../core/ui/report.js?v=7"></script>
 <script>
 const S = Seismic;
 const TOOL_VERSION = '2.5';
@@ -516,7 +516,13 @@ function collectCaseInputs() {
   return { values, checks };
 }
 
-function applyCaseInputs(inputs) {
+function applyCaseInputs(source) {
+  const payload = source?.inputs ? source : { inputs: source };
+  const inputs = payload.inputs || {};
+  const project = payload.project || {};
+  if (project.name != null) document.getElementById('projName').value = window.ToolReportUI.normalizeProjectFieldValue(project.name);
+  if (project.no != null) document.getElementById('projNo').value = window.ToolReportUI.normalizeProjectFieldValue(project.no);
+  if (project.designer != null) document.getElementById('projDesigner').value = window.ToolReportUI.normalizeProjectFieldValue(project.designer);
   const merged = {
     values: { ...DEFAULT_CASE_INPUTS.values, ...(inputs?.values || {}) },
     checks: { ...DEFAULT_CASE_INPUTS.checks, ...(inputs?.checks || {}) }
@@ -552,6 +558,7 @@ function applyCaseInputs(inputs) {
 function buildCasePayload() {
   return {
     schemaVersion: CASE_SCHEMA_VERSION,
+    tool: { id: 'seismic-appendage', name: '附屬構造物地震力', version: TOOL_VERSION },
     toolVersion: TOOL_VERSION,
     exportedAt: new Date().toISOString(),
     project: getProjectInfo(),
@@ -632,7 +639,7 @@ function loadCaseDraft() {
       return;
     }
     const payload = JSON.parse(raw);
-    applyCaseInputs(payload.inputs || payload);
+    applyCaseInputs(payload);
     refreshCaseAfterDraftLoad();
     setCaseDraftStatus('已讀取瀏覽器暫存，並依目前頁面重新整理。');
   } catch (err) {
@@ -646,14 +653,22 @@ function importCaseJsonFile(file) {
   reader.onload = () => {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
-      if (payload.schemaVersion && payload.schemaVersion !== CASE_SCHEMA_VERSION) {
-        throw new Error(`案件格式不符：${payload.schemaVersion}`);
-      }
-      applyCaseInputs(payload.inputs || payload);
-      lastAppendResult = null;
+      const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
+        expectedSchema: CASE_SCHEMA_VERSION,
+        expectedToolId: 'seismic-appendage',
+        expectedVersion: TOOL_VERSION,
+        allowSchemaToolIdentity: true,
+        capture: () => ({ project: getProjectInfo(), inputs: collectCaseInputs() }),
+        apply: source => applyCaseInputs(source),
+        recalculate: () => calcAppendagePage(),
+        getFingerprint: () => buildAppendageReportTrace(lastAppendResult).calculationFingerprint,
+        restore: previous => {
+          applyCaseInputs(previous);
+          calcAppendagePage();
+        }
+      });
       appendageReportInputsChanged = false;
-      document.getElementById('resultPanel').style.display = 'none';
-      setCaseStatus('已匯入案件 JSON；請按「計算附屬構造物地震力」重新整理結果。');
+      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
       setAppendageReportValidationMessage('');
     } catch (err) {
       setCaseStatus(`匯入失敗：${err.message || err}`, 'warn');

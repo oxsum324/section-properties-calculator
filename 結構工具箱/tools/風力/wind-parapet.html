@@ -391,7 +391,7 @@
 </div>
 
 <script src="../../core/loads/wind.js"></script>
-<script src="../../core/ui/report.js"></script>
+<script src="../../core/ui/report.js?v=7"></script>
 <script src="../../core/wind-report.js"></script>
 <script>
 const W = Wind;
@@ -696,14 +696,21 @@ function importCaseJsonFile(file) {
   reader.onload = function() {
     try {
       const payload = JSON.parse(String(reader.result || '{}'));
-      if (payload.schema && payload.schema !== CASE_SCHEMA_VERSION) {
-        setCaseStatus(`已匯入案件 JSON；schema ${payload.schema} 與目前 ${CASE_SCHEMA_VERSION} 不同，已盡量套用可辨識欄位。`, true);
-      } else {
-        setCaseStatus('已匯入案件 JSON，並重新計算女兒牆風壓結果。');
-      }
-      applyCaseInputs(payload);
+      const replay = window.ToolReportUI.replayCalculationCasePayload(payload, {
+        expectedSchema: CASE_SCHEMA_VERSION,
+        expectedToolId: 'wind-parapet',
+        expectedVersion: TOOL_VERSION,
+        capture: () => readCaseInputs(),
+        apply: source => applyCaseInputs(source),
+        recalculate: () => calc(),
+        getFingerprint: () => window.WindReport.getCurrentReportTrace().calculationFingerprint,
+        restore: previous => applyCaseInputs(previous)
+      });
+      setCaseStatus(`已匯入案件 JSON，並重現計算；計算指紋 ${replay.calculationFingerprint}。`);
     } catch (err) {
-      setCaseStatus('匯入失敗：JSON 格式無法解析。', true);
+      setCaseStatus(`匯入失敗：${err.message || err}`, true);
+    } finally {
+      document.getElementById('caseJsonFile').value = '';
     }
   };
   reader.readAsText(file, 'utf-8');
