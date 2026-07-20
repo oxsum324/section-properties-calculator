@@ -523,7 +523,7 @@
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
-<script src="../shared/report.js?v=5"></script>
+<script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="../shared/wall.js?v=2"></script>
@@ -719,11 +719,13 @@
   }
 
   function normalizeShearWallProjectPayload(raw) {
-    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!payload || payload.schema !== SHEAR_WALL_PROJECT_SCHEMA || payload.tool !== 'rc-shear-wall' || !payload.fields) {
-      throw new Error('unsupported shear wall project schema');
-    }
-    return payload;
+    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+      expectedSchema: SHEAR_WALL_PROJECT_SCHEMA,
+      expectedToolId: 'rc-shear-wall',
+      expectedVersion: 'V0.3',
+      sourceKey: 'fields',
+      fingerprintOptions: { ignoredKeys: ['activeTab'] }
+    });
   }
 
   function setShearWallProjectControl(id, saved) {
@@ -754,6 +756,7 @@
 
   function applyShearWallProjectData(raw, options = {}) {
     const payload = normalizeShearWallProjectPayload(raw);
+    const previous = options.skipReplayCheck ? null : collectShearWallProjectData();
     setShearWallMode(payload.mode, { recalculate: false, applyPanel: false });
     let applied = 0;
     Object.entries(payload.fields).forEach(([id, saved]) => {
@@ -766,12 +769,20 @@
     if (typeof calcShearWall === 'function') calcShearWall();
     const tab = ['geom','load','rebar','pm','shear','detail','summary'].includes(payload.activeTab) ? payload.activeTab : 'geom';
     applyPanel(tab);
+    if (!options.skipReplayCheck) {
+      try {
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectShearWallProjectData());
+      } catch (error) {
+        applyShearWallProjectData(previous, { silent: true, skipReplayCheck: true });
+        throw error;
+      }
+    }
     if (!options.silent) {
       const source = options.sourceLabel || '剪力牆專案檔';
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showShearWallProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+      showShearWallProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
     return { payload, applied };
   }
@@ -783,7 +794,7 @@
       return applyShearWallProjectData(text, { sourceLabel: '剪力牆專案檔' });
     } catch (err) {
       console.error('shear wall project load failed', err);
-      showShearWallProjectStatus('剪力牆專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      showShearWallProjectStatus(`剪力牆專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
       return null;
     }
   }

@@ -250,7 +250,18 @@ async function main() {
         assert(state.banner.includes('待確認 —'), `${tc.key} banner uses pending-review count`, state.banner);
         assert(state.readinessText.includes('待人工複核'), `${tc.key} page readiness flags review`, state.readinessText);
       }
-      const sourceFingerprint = await page.evaluate(() => window.collectShearWallProjectData().calculationFingerprint);
+      const sourceReplay = await page.evaluate(() => {
+        const source = window.collectShearWallProjectData();
+        const result = window.applyShearWallProjectData(source, { silent: true });
+        return {
+          applied: result.applied,
+          sourceFingerprint: source.calculationFingerprint,
+          replayedFingerprint: window.collectShearWallProjectData().calculationFingerprint
+        };
+      });
+      assert(sourceReplay.applied > 20, `${tc.key} project source replay applies fields`, `count=${sourceReplay.applied}`);
+      assert(sourceReplay.replayedFingerprint === sourceReplay.sourceFingerprint, `${tc.key} project source replay preserves calculation fingerprint`, `${sourceReplay.sourceFingerprint} -> ${sourceReplay.replayedFingerprint}`);
+      const sourceFingerprint = sourceReplay.sourceFingerprint;
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });

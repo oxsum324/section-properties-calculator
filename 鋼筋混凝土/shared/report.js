@@ -189,10 +189,58 @@ function withProjectCalculationFingerprint(payload, options = {}) {
   };
 }
 
+function normalizeProjectToolVersion(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^v?(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);
+  return match ? `V${match[1]}` : raw;
+}
+
+function validateProjectCalculationSource(raw, options = {}) {
+  const fail = message => { throw new Error(`專案 JSON 驗證失敗：${message}`); };
+  let payload;
+  try {
+    payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    fail('內容無法解析。');
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) fail('內容不是有效物件。');
+  if (options.expectedSchema && payload.schema !== options.expectedSchema) fail('schema 或檔案版本不符。');
+  const toolId = typeof payload.tool === 'string' ? payload.tool : String(payload.tool?.id || '');
+  if (options.expectedToolId && toolId !== options.expectedToolId) fail(`工具種類不符（${toolId || '未提供'}）。`);
+  const sourceVersion = normalizeProjectToolVersion(payload.appVersion || payload.tool?.pageVersion || payload.pageVersion);
+  const expectedVersion = normalizeProjectToolVersion(options.expectedVersion);
+  if (!sourceVersion) fail('缺少工具版本。');
+  if (expectedVersion && sourceVersion !== expectedVersion) fail(`工具版本不符（來源 ${sourceVersion}，目前 ${expectedVersion}）。`);
+  const sourceKey = options.sourceKey || 'fields';
+  if (!payload[sourceKey] || typeof payload[sourceKey] !== 'object' || Array.isArray(payload[sourceKey])) {
+    fail(`缺少可重現的 ${sourceKey} 輸入。`);
+  }
+  if (!/^CF-[0-9A-F]{16}$/.test(String(payload.calculationFingerprint || ''))) fail('計算指紋格式不正確。');
+  const fingerprintOptions = typeof options.fingerprintOptions === 'function'
+    ? options.fingerprintOptions(payload)
+    : (options.fingerprintOptions || {});
+  const expectedFingerprint = buildProjectCalculationFingerprint(payload, fingerprintOptions);
+  if (expectedFingerprint !== payload.calculationFingerprint) {
+    fail(`來源內容與計算指紋不一致（來源 ${payload.calculationFingerprint}，驗證 ${expectedFingerprint}）。`);
+  }
+  return payload;
+}
+
+function assertProjectCalculationReplay(source, replayed) {
+  const sourceFingerprint = String(source?.calculationFingerprint || '');
+  const replayedFingerprint = String(replayed?.calculationFingerprint || '');
+  if (!sourceFingerprint || sourceFingerprint !== replayedFingerprint) {
+    throw new Error(`專案 JSON 重現失敗：來源 ${sourceFingerprint || '未提供'}，重算 ${replayedFingerprint || '無法計算'}。`);
+  }
+  return replayed;
+}
+
 if (typeof window !== 'undefined') {
   window.RCReportFingerprint = Object.assign(window.RCReportFingerprint || {}, {
     buildProjectCalculationFingerprint,
     withProjectCalculationFingerprint,
+    validateProjectCalculationSource,
+    assertProjectCalculationReplay,
   });
 }
 

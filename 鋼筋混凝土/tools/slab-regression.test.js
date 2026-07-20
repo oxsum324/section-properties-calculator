@@ -192,6 +192,21 @@ async function exerciseSlabProjectStorage(page) {
     document.getElementById('projName').value = '檔案匯入前';
     document.getElementById('Lx').value = '101';
   });
+  const rejectedSlabProject = JSON.parse(JSON.stringify(saved));
+  rejectedSlabProject.appVersion = 'V0.0';
+  await page.setInputFiles('#slabProjectFile', {
+    name: 'rc-slab-project-wrong-version.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(rejectedSlabProject), 'utf8')
+  });
+  await page.waitForFunction(() => document.getElementById('slabProjectStatus')?.textContent?.includes('已保留原輸入'));
+  const rejectedImport = await page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    Lx: document.getElementById('Lx')?.value,
+    status: document.getElementById('slabProjectStatus')?.textContent || ''
+  }));
+  assert(rejectedImport.projectName === '檔案匯入前' && rejectedImport.Lx === '101', 'slab rejects incompatible source without changing inputs', JSON.stringify(rejectedImport));
+  assert(rejectedImport.status.includes('工具版本不符'), 'slab explains incompatible source rejection', rejectedImport.status);
   await page.setInputFiles('#slabProjectFile', {
     name: 'rc-slab-project.json',
     mimeType: 'application/json',
@@ -205,7 +220,7 @@ async function exerciseSlabProjectStorage(page) {
   }));
   assert(imported.projectName === '板專案存讀檔測試', 'slab project file input import project name', imported.projectName);
   assert(imported.Lx === '620', 'slab project file input import Lx', imported.Lx);
-  assert(imported.status.includes('已讀取板專案檔'), 'slab project file input status', imported.status);
+  assert(imported.status.includes('已讀取板專案檔並重現計算') && imported.status.includes(saved.calculationFingerprint), 'slab project file input status', imported.status);
 
   const draft = await page.evaluate(() => {
     const setField = (id, value) => {

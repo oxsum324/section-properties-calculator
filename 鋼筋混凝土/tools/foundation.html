@@ -1091,7 +1091,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/report.js?v=5"></script>
+<script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="./pile-site-presets.js?v=1"></script>
@@ -2003,11 +2003,16 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   }
 
   function normalizeFoundationProjectPayload(raw) {
-    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!payload || payload.schema !== FOUNDATION_PROJECT_SCHEMA || payload.tool !== 'rc-foundation' || !payload.fields) {
-      throw new Error('unsupported foundation project schema');
-    }
-    return payload;
+    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+      expectedSchema: FOUNDATION_PROJECT_SCHEMA,
+      expectedToolId: 'rc-foundation',
+      expectedVersion: 'V3.1',
+      sourceKey: 'fields',
+      fingerprintOptions: payload => ({
+        ignoredKeys: ['activeTab'],
+        calculationContext: { foundationTab: payload.activeTab }
+      })
+    });
   }
 
   function setFoundationProjectControl(id, saved) {
@@ -2038,6 +2043,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
 
   function applyFoundationProjectData(raw, options = {}) {
     const payload = normalizeFoundationProjectPayload(raw);
+    const previous = options.skipReplayCheck ? null : collectFoundationProjectData();
     setFoundationMode(payload.mode, { recalculate: false });
     let applied = 0;
     Object.entries(payload.fields).forEach(([id, saved]) => {
@@ -2055,12 +2061,20 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     if (typeof calcFdtn === 'function') calcFdtn();
     const tab = ['iso','combined','mat','pile','retain','seismic'].includes(payload.activeTab) ? payload.activeTab : 'iso';
     applyPanel(tab);
+    if (!options.skipReplayCheck) {
+      try {
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectFoundationProjectData());
+      } catch (error) {
+        applyFoundationProjectData(previous, { silent: true, skipReplayCheck: true });
+        throw error;
+      }
+    }
     if (!options.silent) {
       const source = options.sourceLabel || '基礎專案檔';
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showFoundationProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+      showFoundationProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
     return { payload, applied };
   }
@@ -2072,7 +2086,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       return applyFoundationProjectData(text, { sourceLabel: '基礎專案檔' });
     } catch (err) {
       console.error('foundation project load failed', err);
-      showFoundationProjectStatus('基礎專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      showFoundationProjectStatus(`基礎專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
       return null;
     }
   }

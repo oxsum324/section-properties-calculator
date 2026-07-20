@@ -607,7 +607,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/report.js?v=5"></script>
+<script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -794,11 +794,12 @@
     }
   }
   function normalizeSlabProjectPayload(raw) {
-    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!payload || payload.schema !== SLAB_PROJECT_SCHEMA || payload.tool !== 'rc-slab' || !payload.fields) {
-      throw new Error('unsupported slab project schema');
-    }
-    return payload;
+    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+      expectedSchema: SLAB_PROJECT_SCHEMA,
+      expectedToolId: 'rc-slab',
+      expectedVersion: 'V3.1',
+      sourceKey: 'fields'
+    });
   }
   function setSlabProjectControl(id, saved) {
     const el = $(id);
@@ -827,6 +828,7 @@
   }
   function applySlabProjectData(raw, options = {}) {
     const payload = normalizeSlabProjectPayload(raw);
+    const previous = options.skipReplayCheck ? null : collectSlabProjectData();
     setSlabMode(payload.mode, { recalculate: false });
     if (payload.loadMode) setLoadMode(payload.loadMode);
     let applied = 0;
@@ -841,12 +843,20 @@
     syncDetailHelp();
     syncAdvancedCaseTools();
     if (typeof calcSlab === 'function') calcSlab();
+    if (!options.skipReplayCheck) {
+      try {
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectSlabProjectData());
+      } catch (error) {
+        applySlabProjectData(previous, { silent: true, skipReplayCheck: true });
+        throw error;
+      }
+    }
     if (!options.silent) {
       const source = options.sourceLabel || '板專案檔';
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showSlabProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+      showSlabProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
     return { payload, applied };
   }
@@ -857,7 +867,7 @@
       return applySlabProjectData(text, { sourceLabel: '板專案檔' });
     } catch (err) {
       console.error('slab project load failed', err);
-      showSlabProjectStatus('板專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      showSlabProjectStatus(`板專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
       return null;
     }
   }

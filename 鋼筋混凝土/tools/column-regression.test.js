@@ -185,6 +185,21 @@ async function exerciseProjectStorage(page) {
     document.getElementById('projName').value = '檔案匯入前';
     document.getElementById('Pu').value = '2';
   });
+  const rejectedColumnProject = JSON.parse(JSON.stringify(saved));
+  rejectedColumnProject.appVersion = 'V0.0';
+  await page.setInputFiles('#columnProjectFile', {
+    name: 'rc-column-project-wrong-version.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(rejectedColumnProject), 'utf8')
+  });
+  await page.waitForFunction(() => document.getElementById('projectFileStatus')?.textContent?.includes('已保留原輸入'));
+  const rejectedImport = await page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    Pu: document.getElementById('Pu')?.value,
+    status: document.getElementById('projectFileStatus')?.textContent || ''
+  }));
+  assert(rejectedImport.projectName === '檔案匯入前' && rejectedImport.Pu === '2', 'column rejects incompatible source without changing inputs', JSON.stringify(rejectedImport));
+  assert(rejectedImport.status.includes('工具版本不符'), 'column explains incompatible source rejection', rejectedImport.status);
   await page.setInputFiles('#columnProjectFile', {
     name: 'rc-column-project.json',
     mimeType: 'application/json',
@@ -198,7 +213,7 @@ async function exerciseProjectStorage(page) {
   }));
   assert(imported.projectName === '柱專案存讀檔測試', 'column project file input import project name', imported.projectName);
   assert(imported.Pu === '321', 'column project file input import Pu', imported.Pu);
-  assert(imported.status.includes('已讀取柱專案檔'), 'column project file input status', imported.status);
+  assert(imported.status.includes('已讀取柱專案檔並重現計算') && imported.status.includes(saved.calculationFingerprint), 'column project file input status', imported.status);
 
   const draft = await page.evaluate(() => {
     const setValue = (id, value) => {

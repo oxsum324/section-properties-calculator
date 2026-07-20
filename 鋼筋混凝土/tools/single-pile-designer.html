@@ -620,7 +620,7 @@
 </div>
 
 <script src="../shared/common.js?v=4"></script>
-<script src="../shared/report.js?v=5"></script>
+<script src="../shared/report.js?v=6"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -826,16 +826,32 @@
     URL.revokeObjectURL(url);
   }
 
-  function applyProjectPayload(payload, label = '案例檔') {
-    if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
-    if (payload.tool && payload.tool.id && payload.tool.id !== 'single-pile-designer') {
-      throw new Error(`此 JSON 屬於 ${payload.tool.id}，不是單樁承載力設計器案例。`);
-    }
-    const state = payload.state || payload.input || payload;
+  function normalizeProjectPayload(payload) {
+    return window.RCReportFingerprint.validateProjectCalculationSource(payload, {
+      expectedSchema: PROJECT_SCHEMA,
+      expectedToolId: 'single-pile-designer',
+      expectedVersion: 'V3.1',
+      sourceKey: 'state'
+    });
+  }
+
+  function applyProjectPayload(raw, label = '案例檔', options = {}) {
+    const payload = normalizeProjectPayload(raw);
+    const previous = options.skipReplayCheck ? null : buildProjectPayload();
+    const state = payload.state;
     applyState(state);
     updateModeUi();
     calc();
-    $('presetSummary').textContent = `已讀取 ${label}。`;
+    if (!options.skipReplayCheck) {
+      try {
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, buildProjectPayload());
+      } catch (error) {
+        applyProjectPayload(previous, '原輸入', { silent: true, skipReplayCheck: true });
+        throw error;
+      }
+    }
+    if (!options.silent) $('presetSummary').textContent = `已讀取 ${label} 並重現計算｜計算指紋 ${payload.calculationFingerprint}`;
+    return payload;
   }
 
   function saveProjectJson() {
@@ -850,7 +866,7 @@
       const payload = JSON.parse(await file.text());
       applyProjectPayload(payload, file.name || '案例檔');
     } catch (err) {
-      $('presetSummary').textContent = `讀取 JSON 失敗：${err && err.message ? err.message : err}`;
+      $('presetSummary').textContent = `讀取 JSON 失敗，已保留原輸入：${err && err.message ? err.message : err}`;
     } finally {
       $('projectFile').value = '';
     }
@@ -1999,6 +2015,7 @@ ${preset.note}
   }
 
   window.buildProjectPayload = buildProjectPayload;
+  window.applyProjectPayload = applyProjectPayload;
 
   $('btnCalc').addEventListener('click', calc);
   $('btnSample').addEventListener('click', loadSample);

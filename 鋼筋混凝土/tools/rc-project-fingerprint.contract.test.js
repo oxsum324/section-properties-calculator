@@ -13,6 +13,8 @@ const fingerprintApi = context.window.RCReportFingerprint;
 assert.ok(fingerprintApi, 'shared report should expose RCReportFingerprint');
 assert.strictEqual(typeof fingerprintApi.buildProjectCalculationFingerprint, 'function');
 assert.strictEqual(typeof fingerprintApi.withProjectCalculationFingerprint, 'function');
+assert.strictEqual(typeof fingerprintApi.validateProjectCalculationSource, 'function');
+assert.strictEqual(typeof fingerprintApi.assertProjectCalculationReplay, 'function');
 
 const basePayload = {
   schema: 'rc-beam-project-v1',
@@ -35,6 +37,24 @@ const basePayload = {
 const options = { ignoredKeys: ['activeTab'] };
 const base = fingerprintApi.withProjectCalculationFingerprint(basePayload, options);
 assert.match(base.calculationFingerprint, /^CF-[A-F0-9]{16}$/);
+assert.doesNotThrow(() => fingerprintApi.validateProjectCalculationSource(base, {
+  expectedSchema: 'rc-beam-project-v1',
+  expectedToolId: 'rc-beam',
+  expectedVersion: 'V3.1',
+  sourceKey: 'fields',
+  fingerprintOptions: options,
+}));
+assert.throws(() => fingerprintApi.validateProjectCalculationSource({ ...base, appVersion: 'V9.9' }, {
+  expectedSchema: 'rc-beam-project-v1', expectedToolId: 'rc-beam', expectedVersion: 'V3.1', sourceKey: 'fields', fingerprintOptions: options,
+}), /工具版本不符/);
+assert.throws(() => fingerprintApi.validateProjectCalculationSource({ ...base, tool: 'rc-column' }, {
+  expectedSchema: 'rc-beam-project-v1', expectedToolId: 'rc-beam', expectedVersion: 'V3.1', sourceKey: 'fields', fingerprintOptions: options,
+}), /工具種類不符/);
+assert.throws(() => fingerprintApi.validateProjectCalculationSource({ ...base, fields: { ...base.fields, MuPos: { kind: 'input', value: '999' } } }, {
+  expectedSchema: 'rc-beam-project-v1', expectedToolId: 'rc-beam', expectedVersion: 'V3.1', sourceKey: 'fields', fingerprintOptions: options,
+}), /來源內容與計算指紋不一致/);
+assert.doesNotThrow(() => fingerprintApi.assertProjectCalculationReplay(base, { calculationFingerprint: base.calculationFingerprint }));
+assert.throws(() => fingerprintApi.assertProjectCalculationReplay(base, { calculationFingerprint: 'CF-0000000000000000' }), /重現失敗/);
 
 const identityOnlyChange = {
   ...basePayload,
@@ -107,8 +127,11 @@ const pageContracts = [
 
 for (const [file, collector, snapshotCall] of pageContracts) {
   const html = fs.readFileSync(path.join(__dirname, file), 'utf8');
-  assert.ok(html.includes('shared/report.js?v=5'), `${file} should load the fingerprint-enabled shared report`);
+  assert.ok(html.includes('shared/report.js?v=6'), `${file} should load the replay-verified shared report`);
   assert.ok(html.includes('withProjectCalculationFingerprint(payload'), `${file} should fingerprint its project JSON payload`);
+  assert.ok(html.includes('validateProjectCalculationSource'), `${file} should validate schema, tool, version, and source fingerprint before applying project JSON`);
+  assert.ok(html.includes('assertProjectCalculationReplay'), `${file} should recompute and compare the fingerprint after applying project JSON`);
+  assert.ok(html.includes('skipReplayCheck: true'), `${file} should roll back to the previous state after a replay mismatch`);
   assert.ok(html.includes(snapshotCall), `${file} report should use a fresh ${collector} snapshot`);
   assert.ok(html.includes('calculationFingerprint: projectSnapshot.calculationFingerprint')
     || html.includes('calculationFingerprint:projectSnapshot.calculationFingerprint'), `${file} report should reuse the project JSON calculation fingerprint`);

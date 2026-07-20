@@ -30,7 +30,7 @@
                      showSteps 勾選且該檢核啟用時)
         ‧ summary  : false；附件適用狀態留在頁面產報前檢查，不寫入計算書
         ‧ notes    : 第一條即「作業模式：設計／檢核」
-        ‧ openReport() 共用模組 (../shared/report.js?v=5) 統一輸出
+        ‧ openReport() 共用模組 (../shared/report.js?v=6) 統一輸出
         ‧ window.xxxLast 必須包含所有 r.* 欄位 (含 svMin/okBarsPerLayer 等)
 
   (4) 規範附加檢核 (依各構件規範對照)
@@ -797,7 +797,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/report.js?v=5"></script>
+<script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -1008,11 +1008,13 @@
   }
 
   function normalizeBeamProjectPayload(raw) {
-    const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!payload || payload.schema !== BEAM_PROJECT_SCHEMA || payload.tool !== 'rc-beam' || !payload.fields) {
-      throw new Error('unsupported beam project schema');
-    }
-    return payload;
+    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+      expectedSchema: BEAM_PROJECT_SCHEMA,
+      expectedToolId: 'rc-beam',
+      expectedVersion: 'V3.1',
+      sourceKey: 'fields',
+      fingerprintOptions: { ignoredKeys: ['activeTab'] }
+    });
   }
 
   function setBeamProjectControl(id, saved) {
@@ -1043,6 +1045,7 @@
 
   function applyBeamProjectData(raw, options = {}) {
     const payload = normalizeBeamProjectPayload(raw);
+    const previous = options.skipReplayCheck ? null : collectBeamProjectData();
     setBeamMode(payload.mode, { recalculate: false, applyPanel: false });
     let applied = 0;
     Object.entries(payload.fields).forEach(([id, saved]) => {
@@ -1054,12 +1057,20 @@
     if (typeof calcBeam === 'function') calcBeam();
     const tab = ['geom','loads','flex','shear','torsion','defl','seismic','summary'].includes(payload.activeTab) ? payload.activeTab : 'geom';
     applyPanel(tab);
+    if (!options.skipReplayCheck) {
+      try {
+        window.RCReportFingerprint.assertProjectCalculationReplay(payload, collectBeamProjectData());
+      } catch (error) {
+        applyBeamProjectData(previous, { silent: true, skipReplayCheck: true });
+        throw error;
+      }
+    }
     if (!options.silent) {
       const source = options.sourceLabel || '梁專案檔';
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showBeamProjectStatus(`已讀取${source}：${name}，套用 ${applied} 個欄位。`);
+      showBeamProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
     }
     return { payload, applied };
   }
@@ -1071,7 +1082,7 @@
       return applyBeamProjectData(text, { sourceLabel: '梁專案檔' });
     } catch (err) {
       console.error('beam project load failed', err);
-      showBeamProjectStatus('梁專案檔讀取失敗：檔案格式或版本不符。', 'fail');
+      showBeamProjectStatus(`梁專案檔讀取失敗，已保留原輸入：${err?.message || '檔案格式或版本不符。'}`, 'fail');
       return null;
     }
   }
