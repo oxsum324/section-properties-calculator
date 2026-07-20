@@ -1,6 +1,13 @@
 async page => {
   const initialUrl = page.url();
-  const base = initialUrl.endsWith('/') ? initialUrl : `${initialUrl}/`;
+  const initialBase = initialUrl.endsWith('/') ? initialUrl : `${initialUrl}/`;
+  const base = await page.evaluate(candidateBase => {
+    const storageKey = 'pages-browser-smoke-deployment-base';
+    const preservedBase = sessionStorage.getItem(storageKey);
+    if (preservedBase) return preservedBase;
+    sessionStorage.setItem(storageKey, candidateBase);
+    return candidateBase;
+  }, initialBase);
   const viewports = [
     { key: 'desktop', width: 1280, height: 800 },
     { key: 'mobile', width: 390, height: 844 }

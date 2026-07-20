@@ -230,6 +230,8 @@ assert.ok(deploymentManifestBuilder.includes("algorithm: 'sha256-tree-v1'") && d
 assert.ok(deploymentManifestBuilder.includes("relativePath === MANIFEST_FILE") && deploymentManifestBuilder.includes("files.sort"), 'deployment manifest builder excludes itself and uses stable path ordering');
 
 assert.ok(pagesBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
+assert.ok(pagesBrowserSmoke.includes("sessionStorage.getItem(storageKey)") && pagesBrowserSmoke.includes("sessionStorage.setItem(storageKey, candidateBase)"), 'Pages browser smoke preserves the deployment base across bounded retries');
+assert.ok(pagesBrowserSmoke.indexOf("await page.goto(`${base}%E7%B5%90%E6%A7%8B%E5%B7%A5%E5%85%B7%E7%AE%B1/`") < pagesBrowserSmoke.indexOf("fetch('assets/home/home.js'"), 'Pages browser smoke returns to the toolbox inventory before every retry');
 assert.ok(pagesBrowserSmoke.includes('routes.length < 40') && pagesBrowserSmoke.includes('new Set(routes).size'), 'Pages browser smoke validates the homepage route inventory');
 assert.ok(pagesBrowserSmoke.includes("page.on('pageerror'") && pagesBrowserSmoke.includes("page.on('requestfailed'") && pagesBrowserSmoke.includes("page.on('response'"), 'Pages browser smoke captures runtime and network failures');
 assert.ok(pagesBrowserSmoke.includes('horizontal overflow') && pagesBrowserSmoke.includes("route === '/rc-pile'") && pagesBrowserSmoke.includes("route === '/wind-cc'") && pagesBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke covers overflow and high-risk route regressions');
