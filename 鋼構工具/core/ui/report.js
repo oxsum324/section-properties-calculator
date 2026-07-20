@@ -147,6 +147,50 @@ function buildReportTrace(cfg = {}) {
   };
 }
 
+function validateCalculationSourcePayload(payload, options = {}) {
+  const fail = (message) => {
+    throw new Error(`來源 JSON 驗證失敗：${message}`);
+  };
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) fail('內容不是有效物件。');
+  if (payload.schemaVersion !== 1) fail('不支援此 schemaVersion。');
+  if (payload.kind !== 'formal-calculation-source') fail('kind 不是正式計算來源。');
+  if (!payload.tool || typeof payload.tool !== 'object') fail('缺少工具識別。');
+  const expectedToolIds = (Array.isArray(options.expectedToolIds) ? options.expectedToolIds : [options.expectedToolId])
+    .map(value => String(value || '').trim())
+    .filter(Boolean);
+  if (expectedToolIds.length && !expectedToolIds.includes(String(payload.tool.id || '').trim())) {
+    fail(`工具種類不符（${payload.tool.id || '未提供'}）。`);
+  }
+  const expectedVersion = normalizeReportVersion(options.expectedVersion);
+  const actualVersion = normalizeReportVersion(payload.tool.version);
+  if (!actualVersion) fail('缺少工具版本。');
+  if (expectedVersion && actualVersion !== expectedVersion) {
+    fail(`工具版本不符（來源 ${actualVersion}，目前 ${expectedVersion}）。`);
+  }
+  if (!payload.fields || typeof payload.fields !== 'object' || Array.isArray(payload.fields) || !Object.keys(payload.fields).length) {
+    fail('缺少可重現的輸入欄位。');
+  }
+  if (!/^CF-[0-9A-F]{16}$/.test(String(payload.calculationFingerprint || ''))) {
+    fail('計算指紋格式不正確。');
+  }
+  if (payload.report?.calculationFingerprint !== payload.calculationFingerprint) {
+    fail('來源與報告快照的計算指紋不一致。');
+  }
+  return payload;
+}
+
+async function readCalculationSourceFile(file, options = {}) {
+  if (!file) throw new Error('尚未選擇來源 JSON。');
+  if (Number(file.size || 0) > 5 * 1024 * 1024) throw new Error('來源 JSON 超過 5 MB。');
+  let payload;
+  try {
+    payload = JSON.parse(await file.text());
+  } catch {
+    throw new Error('來源 JSON 無法解析。');
+  }
+  return validateCalculationSourcePayload(payload, options);
+}
+
 function hasBlankFieldValues(ids, resolver) {
   const getNode = typeof resolver === 'function'
     ? resolver
@@ -354,6 +398,8 @@ if (typeof window !== 'undefined') {
     buildFormalDocumentStateReport,
     getPageReportReadinessLevel,
     buildReportTrace,
+    validateCalculationSourcePayload,
+    readCalculationSourceFile,
     renderStatusGridPanel,
     calculationBookPageOnlyLabels: CALCULATION_BOOK_PAGE_ONLY_LABELS,
     getCalculationBookInputGroups,

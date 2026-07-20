@@ -606,6 +606,10 @@ async function assertFormalBeamReportPopupComplete(cdp, sessionId, context = {})
       designer: FORMAL_PROJECT_META.projDesigner,
     },
     sourcePayloadBuilder: 'buildBeamSourcePayload',
+    sourceReplay: {
+      builder: 'buildBeamSourcePayload', inputSelector: '#inputImportSourceJson', mutationSelector: '#inFy',
+      sourceFieldKey: 'inFy', statusSelector: '#beamInputStatus', nestedFields: true,
+    },
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-beam-formal' : '',
   });
 }
@@ -678,6 +682,11 @@ async function assertMainPlateReportPopupPlaceholder(cdp, sessionId, context = {
     },
     absentNeedles: ['未填'],
     sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    sourceReplay: {
+      builder: 'buildSteelConnectionSourcePayload', inputSelector: '#importSourceJsonInput',
+      mutationSelector: 'input[name="plateThickness"]:not([disabled])', sourceFieldKey: 'plateThickness',
+      statusSelector: '#exportReportStatus', nestedFields: false,
+    },
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-plate' : '',
   });
 }
@@ -693,6 +702,11 @@ async function assertMainTensionReportPopup(cdp, sessionId, context = {}) {
       designer: LEGACY_TENSION_PROJECT_META.designer,
     },
     sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    sourceReplay: {
+      builder: 'buildSteelConnectionSourcePayload', inputSelector: '#importSourceJsonInput',
+      mutationSelector: 'input[name="memberThickness"]:not([disabled])', sourceFieldKey: 'memberThickness',
+      statusSelector: '#exportReportStatus', nestedFields: false,
+    },
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-tension' : '',
   });
 }
@@ -708,6 +722,11 @@ async function assertStandalonePlateReportPopup(cdp, sessionId, context = {}) {
       designer: LEGACY_STANDALONE_PLATE_PROJECT_META.designer,
     },
     sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    sourceReplay: {
+      builder: 'buildSteelConnectionSourcePayload', inputSelector: '#importSourceJsonInput',
+      mutationSelector: 'input[name="plateThickness"]:not([disabled])', sourceFieldKey: 'plateThickness',
+      statusSelector: '#exportReportStatus', nestedFields: false,
+    },
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-standalone-plate' : '',
   });
 }
@@ -747,6 +766,10 @@ async function assertFormalColumnReportPopupComplete(cdp, sessionId, context = {
       designer: FORMAL_PROJECT_META.projDesigner,
     },
     sourcePayloadBuilder: 'buildColumnSourcePayload',
+    sourceReplay: {
+      builder: 'buildColumnSourcePayload', inputSelector: '#inputImportSourceJson', mutationSelector: '#inFy',
+      sourceFieldKey: 'inFy', statusSelector: '#columnInputStatus', nestedFields: true,
+    },
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-column-formal' : '',
   });
 }
@@ -872,12 +895,72 @@ async function assertFormalProjectMetaPlaceholderRendered(cdp, sessionId, select
   }
 }
 
+async function assertSourceJsonReplay(cdp, sessionId, options) {
+  const state = await evaluate(cdp, sessionId, `(async () => {
+    const source = window.__steelSourceReplayPayload;
+    const builder = window[${JSON.stringify(options.builder)}];
+    const input = document.querySelector(${JSON.stringify(options.inputSelector)});
+    const field = document.querySelector(${JSON.stringify(options.mutationSelector)});
+    const status = document.querySelector(${JSON.stringify(options.statusSelector)});
+    if (!source || typeof builder !== 'function' || !input || !field || !status) {
+      throw new Error('source replay prerequisites missing');
+    }
+    const expectedValue = ${options.nestedFields
+      ? `source.fields?.[${JSON.stringify(options.sourceFieldKey)}]?.value`
+      : `source.fields?.[${JSON.stringify(options.sourceFieldKey)}]`};
+    if (expectedValue === undefined) throw new Error('source replay field missing');
+    const triggerImport = async (payload, statusNeedle) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([JSON.stringify(payload)], 'calculation-source.json', { type: 'application/json' }));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < 5000) {
+        if ((status.textContent || '').includes(statusNeedle)) return status.textContent || '';
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      throw new Error('source replay status timeout: ' + (status.textContent || ''));
+    };
+    field.value = String(Number(field.value || 0) + 17);
+    field.dispatchEvent(new Event('change', { bubbles: true }));
+    const successStatus = await triggerImport(source, '已匯入並重現計算');
+    const replay = builder();
+    const restoredValue = field.value;
+    const invalid = JSON.parse(JSON.stringify(source));
+    invalid.tool.version = 'V999.0';
+    const beforeReject = builder().calculationFingerprint;
+    const rejectedStatus = await triggerImport(invalid, '工具版本不符');
+    const afterReject = builder().calculationFingerprint;
+    return {
+      expectedValue: String(expectedValue),
+      restoredValue: String(restoredValue),
+      sourceFingerprint: source.calculationFingerprint,
+      replayFingerprint: replay?.calculationFingerprint || '',
+      successStatus,
+      rejectedStatus,
+      beforeReject,
+      afterReject,
+      inputCleared: input.value === '',
+    };
+  })()`, `${options.label} source JSON replay`);
+  if (state.restoredValue !== state.expectedValue || state.replayFingerprint !== state.sourceFingerprint) {
+    throw new Error(`${options.label} source replay mismatch: ${JSON.stringify(state)}`);
+  }
+  if (!state.successStatus.includes(state.sourceFingerprint) || !state.rejectedStatus.includes('已保留原輸入')) {
+    throw new Error(`${options.label} source replay status mismatch: ${JSON.stringify(state)}`);
+  }
+  if (state.beforeReject !== state.afterReject || !state.inputCleared) {
+    throw new Error(`${options.label} rejected source should preserve state and clear file input: ${JSON.stringify(state)}`);
+  }
+}
+
 async function assertFormalReportPopup(cdp, sessionId, options) {
   const sourceExport = options.sourcePayloadBuilder
     ? await evaluate(cdp, sessionId, `(() => {
         const builder = window[${JSON.stringify(options.sourcePayloadBuilder)}];
         if (typeof builder !== 'function') throw new Error('missing source payload builder ${options.sourcePayloadBuilder}');
-        const payload = builder();
+         const payload = builder();
+         window.__steelSourceReplayPayload = payload;
         const button = document.querySelector('#btnExportSourceJson');
         if (!button) throw new Error('missing #btnExportSourceJson');
         const originalCreateObjectURL = URL.createObjectURL;
@@ -904,6 +987,9 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       })()`, `${options.label} source payload`)
     : null;
   const sourcePayload = sourceExport?.payload || null;
+  if (sourcePayload && options.sourceReplay) {
+    await assertSourceJsonReplay(cdp, sessionId, { ...options.sourceReplay, label: options.label });
+  }
   const popup = await openFormalReportPopup(cdp, sessionId, options.label, options.buttonSelector || '#btnReport');
   const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
     title: document.title || '',
@@ -1002,7 +1088,8 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     ? await evaluate(cdp, sessionId, `(() => {
         const builder = window[${JSON.stringify(options.sourcePayloadBuilder)}];
         if (typeof builder !== 'function') throw new Error('missing source payload builder ${options.sourcePayloadBuilder}');
-        const payload = builder();
+         const payload = builder();
+         window.__steelSourceReplayPayload = payload;
         const button = document.querySelector('#exportSourceJsonBtn');
         if (!button) throw new Error('missing #exportSourceJsonBtn');
         const originalCreateObjectURL = URL.createObjectURL;
@@ -1029,6 +1116,9 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       })()`, `${options.label} source payload`)
     : null;
   const sourcePayload = sourceExport?.payload || null;
+  if (sourcePayload && options.sourceReplay) {
+    await assertSourceJsonReplay(cdp, sessionId, { ...options.sourceReplay, label: options.label });
+  }
   const popup = await openLegacyReportPopup(cdp, sessionId, options.label, options.buttonSelector);
   const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
     title: document.title || '',

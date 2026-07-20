@@ -283,6 +283,28 @@ assert.equal(sharedReportRuntime.ToolReportUI, sharedReportRuntime.SteelFormalUI
 assert.equal(localReportRuntime.ToolReportUI, localReportRuntime.SteelFormalUI, "steel local report runtime should alias ToolReportUI and SteelFormalUI");
 assert.equal(sharedReportRuntime.ToolReportUI.normalizeProjectFieldValue("未填"), "", "shared report runtime should clear placeholder project text");
 assert.equal(localReportRuntime.SteelFormalUI.normalizeProjectFieldValue("未填"), "", "steel local report runtime should clear placeholder project text");
+const validCalculationSource = {
+  schemaVersion: 1,
+  kind: "formal-calculation-source",
+  tool: { id: "steel-beam-formal", version: "V1.0" },
+  fields: { inFy: { value: "2450" } },
+  calculationFingerprint: "CF-1234567890ABCDEF",
+  report: { calculationFingerprint: "CF-1234567890ABCDEF" },
+};
+assert.doesNotThrow(
+  () => localReportRuntime.SteelFormalUI.validateCalculationSourcePayload(validCalculationSource, { expectedToolId: "steel-beam-formal", expectedVersion: "V1.0" }),
+  "steel report core should accept a matching calculation source envelope",
+);
+assert.throws(
+  () => localReportRuntime.SteelFormalUI.validateCalculationSourcePayload({ ...validCalculationSource, tool: { id: "steel-column-formal", version: "V1.0" } }, { expectedToolId: "steel-beam-formal", expectedVersion: "V1.0" }),
+  /工具種類不符/,
+  "steel report core should reject a source from another tool",
+);
+assert.throws(
+  () => localReportRuntime.SteelFormalUI.validateCalculationSourcePayload({ ...validCalculationSource, tool: { id: "steel-beam-formal", version: "V2.0" } }, { expectedToolId: "steel-beam-formal", expectedVersion: "V1.0" }),
+  /工具版本不符/,
+  "steel report core should reject a source from another version",
+);
 for (const key of ["connection", "plate", "tension", "beam", "column"]) {
   const metadata = toolMetadataRuntime.SteelToolMetadata?.[key];
   assert.ok(metadata, `tool-metadata.js should expose ${key} metadata`);
@@ -375,6 +397,11 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
     /id="exportSourceJsonBtn"[^>]*>[^<]*匯出來源 JSON<\/button>/,
     `${label} page should expose a calculation-source JSON export`,
   );
+  assert.match(
+    html,
+    /id="importSourceJsonBtn"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="importSourceJsonInput"[^>]*type="file"[^>]*accept="application\/json,\.json"[^>]*hidden/,
+    `${label} page should expose a calculation-source JSON import`,
+  );
 }
 for (const [label, html] of [
   ["steel main", indexSource],
@@ -463,6 +490,11 @@ assert.match(
   appSource,
   /exportSourceJsonBtn\.addEventListener\("click", exportConnectionSourceJson\)[\s\S]*window\.buildSteelConnectionSourcePayload = buildConnectionSourcePayload/s,
   "connection suite should wire and expose the source JSON payload for browser verification",
+);
+assert.match(
+  appSource,
+  /function validateConnectionSourcePayload\(payload\)[\s\S]*validateCalculationSourcePayload[\s\S]*工具種類與檢核模組不一致[\s\S]*function importConnectionSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*setFormState\(previous\.fields, false\)[\s\S]*importSourceJsonInput\.addEventListener\("change"/s,
+  "connection source import should validate, replay, compare fingerprints, and restore the prior state on failure",
 );
 for (const needle of reportTraceLabels) {
   assert.ok(mainReportBuilderSource.includes(needle), `connection and plate report builder should include ${needle}`);
@@ -757,6 +789,11 @@ assert.match(
   "steel-beam-formal.html should expose a calculation-source JSON export",
 );
 assert.match(
+  beamFormalHtmlSource,
+  /id="btnImportSourceJson"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
+  "steel-beam-formal.html should expose a calculation-source JSON import",
+);
+assert.match(
   beamBuildReportSource,
   /function buildBeamSourcePayload\(result = runCheck\(\)\)[\s\S]*SteelFormalUI\.buildReportTrace\(reportConfig\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: collectBeamSourceFields\(\)[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*openReport\(buildBeamReportConfig\(result\)\)/s,
   "steel-beam-formal.js should reuse one report configuration for the source JSON and calculation book fingerprint",
@@ -765,6 +802,11 @@ assert.match(
   beamFormalSource,
   /btnExportSourceJson[\s\S]*exportBeamSourceJson[\s\S]*window\.buildBeamSourcePayload = buildBeamSourcePayload/s,
   "steel-beam-formal.js should expose and wire the source payload for browser verification",
+);
+assert.match(
+  beamFormalSource,
+  /function applyBeamSourceState\(source\)[\s\S]*convertFields: false[\s\S]*function validateBeamSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importBeamSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyBeamSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
+  "steel beam source import should preserve units, validate provenance, replay the calculation, and roll back on mismatch",
 );
 assert.match(
   beamFormalHtmlSource,
@@ -797,6 +839,11 @@ assert.match(
   "steel-column-formal.html should expose a calculation-source JSON export",
 );
 assert.match(
+  columnFormalHtmlSource,
+  /id="btnImportSourceJson"[^>]*>[^<]*匯入來源 JSON<\/button>[\s\S]*id="inputImportSourceJson"[^>]*type="file"[^>]*hidden/,
+  "steel-column-formal.html should expose a calculation-source JSON import",
+);
+assert.match(
   columnBuildReportSource,
   /function buildColumnSourcePayload\(result = runCheck\(\)\)[\s\S]*SteelFormalUI\.buildReportTrace\(reportConfig\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: collectColumnSourceFields\(\)[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*openReport\(buildColumnReportConfig\(result\)\)/s,
   "steel-column-formal.js should reuse one report configuration for the source JSON and calculation book fingerprint",
@@ -805,6 +852,11 @@ assert.match(
   columnFormalSource,
   /btnExportSourceJson[\s\S]*exportColumnSourceJson[\s\S]*window\.buildColumnSourcePayload = buildColumnSourcePayload/s,
   "steel-column-formal.js should expose and wire the source payload for browser verification",
+);
+assert.match(
+  columnFormalSource,
+  /function applyColumnSourceState\(source\)[\s\S]*convertFields: false[\s\S]*function validateColumnSourcePayload\(payload\)[\s\S]*expectedToolId: TOOL_METADATA\.id[\s\S]*function importColumnSourceJson\(file\)[\s\S]*replay\.calculationFingerprint !== payload\.calculationFingerprint[\s\S]*applyColumnSourceState\(previous\)[\s\S]*inputImportSourceJson.*addEventListener\("change"/s,
+  "steel column source import should preserve units, validate provenance, replay the calculation, and roll back on mismatch",
 );
 assert.match(
   columnFormalHtmlSource,
@@ -1020,6 +1072,11 @@ assert.match(
   browserRunnerSource,
   /main-tension-report-popup[\s\S]*standalone-plate-report-popup[\s\S]*sourcePayloadBuilder:\s*'buildSteelConnectionSourcePayload'[\s\S]*#exportSourceJsonBtn[\s\S]*button\.click\(\)[\s\S]*sourcePayload\.project\?\.no !== options\.expectedProject\.tag[\s\S]*sourcePayload\.calculationFingerprint !== reportFingerprint[\s\S]*steel-main-tension[\s\S]*steel-standalone-plate/s,
   "steel-audit-browser-runner.js should download connection/tension/plate source JSON and compare it with each rendered calculation book",
+);
+assert.match(
+  browserRunnerSource,
+  /sourceReplay:[\s\S]*buildBeamSourcePayload[\s\S]*buildSteelConnectionSourcePayload[\s\S]*buildColumnSourcePayload[\s\S]*function assertSourceJsonReplay[\s\S]*new DataTransfer\(\)[\s\S]*new File\([\s\S]*已匯入並重現計算[\s\S]*V999\.0[\s\S]*工具版本不符/s,
+  "steel browser runner should replay real source files for all formal steel tools and reject an incompatible version without changing state",
 );
 assert.match(
   browserRunnerSource,
