@@ -429,6 +429,7 @@ const readyState = assessSharedFormalAttachment(sharedReportSource, sharedReport
   calculated: true,
 });
 assert(readyState.status === 'ready' && readyState.documentState === null, 'shared attachment assessment permits complete reviewed report', JSON.stringify(readyState));
+assert(readyState.documentClass?.label === '可送簽版', 'shared attachment assessment exposes ready sign-off candidate class', JSON.stringify(readyState.documentClass));
 const compositePayload = captureCompositeReportPayload(compositeHtml);
 assert(compositePayload.documentState?.label === 'DRAFT／非正式附件 - 待人工複核', 'composite payload marks incomplete metadata as draft', JSON.stringify(compositePayload.documentState));
 const compositeReportHtml = renderSharedReportPayload(
@@ -609,6 +610,17 @@ const readySharedReportHtml = renderSharedReportHtml(
   { name: 'QA Project', no: 'SECTION-READY-001', designer: 'Codex QA' }
 );
 assert(!readySharedReportHtml.includes('DRAFT／非正式附件'), 'shared renderer keeps complete passing report free of draft classification', 'formal attachment state');
+assert(readySharedReportHtml.includes('data-document-class="ready-to-sign"'), 'shared renderer marks complete passing report as ready-to-sign', 'ready-to-sign');
+assert(readySharedReportHtml.includes('文件分類｜可送簽版'), 'shared renderer shows compact ready document classification', '文件分類｜可送簽版');
+assert(readySharedReportHtml.includes('正式附件仍須完成公司簽認'), 'shared renderer keeps approval boundary in ready report', '正式附件仍須完成公司簽認');
+const readyRcReportHtml = renderSharedReportHtml(
+  rcReportSource,
+  path.join(__dirname, '鋼筋混凝土', 'shared', 'report.js'),
+  { name: 'RC QA Project', no: 'RC-READY-001', designer: 'Codex QA' }
+);
+assert(readyRcReportHtml.includes('data-document-class="ready-to-sign"'), 'RC shared renderer marks complete report as ready-to-sign', 'ready-to-sign');
+assert(readyRcReportHtml.includes('文件分類｜可送簽版'), 'RC shared renderer shows ready document classification', '文件分類｜可送簽版');
+assert(!readyRcReportHtml.includes('DRAFT／非正式附件'), 'RC shared renderer keeps ready report free of draft classification', 'formal attachment state');
 const failedSharedReportHtml = renderSharedReportPayload(sharedReportSource, sharedReportFilename, {
   title: 'QA NG 計算書',
   project: { name: 'QA Project', no: 'SECTION-NG-001', designer: 'Codex QA' },

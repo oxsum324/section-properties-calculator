@@ -277,6 +277,7 @@ dashboardScripts.forEach((match, index) => {
   'reportReadinessBoundaryNote',
   '報告閱讀狀態邊界',
   '不會寫入計算書、列印或 PDF。',
+  '文件分類｜可送簽版',
   '正式交付請以完整檢查或正式放行結果為準。',
   'kpiFreshness',
   'kpiFreshnessHint',

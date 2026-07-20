@@ -177,8 +177,14 @@ assert.equal(manifest.shared.documentStateRequired, true, 'local quick calculati
   manifest.shared.documentStateBuilder,
   'getPageReportReadinessLevel',
   'DRAFT／非正式附件',
+  manifest.shared.readyDocumentClass,
+  '文件分類｜',
+  '可送簽版',
   'data-formal-document-state-style',
 ].forEach(needle => assertIncludes(documentStateHelperText, needle, 'local quick shared document-state helper'));
+
+assert.equal(manifest.shared.readyDocumentClass, 'ready-to-sign', 'local quick ready document class');
+assert.equal(manifest.shared.readyDocumentLabel, '文件分類｜可送簽版', 'local quick ready document label');
 
 assert.equal(manifest.shared.directPrintBodyClass, 'local-quick-output-page', 'local quick direct-print body class');
 assert.equal(manifest.shared.directPrintBoundaryClass, 'local-quick-direct-print-boundary', 'local quick direct-print boundary class');

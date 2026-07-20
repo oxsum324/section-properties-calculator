@@ -9,6 +9,8 @@
     "documentStateHelper": "core/ui/report.js",
     "documentStateBuilder": "buildFormalDocumentStateReport",
     "documentStateRequired": true,
+    "readyDocumentClass": "ready-to-sign",
+    "readyDocumentLabel": "文件分類｜可送簽版",
     "directPrintBoundaryStylesheet": "core/direct-print-boundary.css",
     "directPrintBodyClass": "formal-tool-output-page",
     "directPrintBoundaryClass": "formal-direct-print-boundary",

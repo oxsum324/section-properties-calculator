@@ -1096,6 +1096,7 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
       const html = writes.join('');
       const reportDocument = new DOMParser().parseFromString(html, 'text/html');
       const documentStateNode = reportDocument.querySelector('[data-document-state]');
+      const documentClassNode = reportDocument.querySelector('[data-document-class]');
       return {
         projectMetaState: projectState,
         calculationState: requestedCalculationState,
@@ -1111,7 +1112,9 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
         pageReadinessLevel,
         documentState: documentStateNode?.getAttribute('data-document-state') || '',
         documentReason: documentStateNode?.getAttribute('data-document-reason') || '',
-        documentStateText: (documentStateNode?.textContent || '').replace(/\s+/g, ' ').trim()
+        documentStateText: (documentStateNode?.textContent || '').replace(/\s+/g, ' ').trim(),
+        documentClass: documentClassNode?.getAttribute('data-document-class') || '',
+        documentClassText: (documentClassNode?.textContent || '').replace(/\s+/g, ' ').trim()
       };
     } finally {
       window.open = originalOpen;
@@ -1315,6 +1318,7 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
   assert.ok(state.reportReadinessStatusText.includes('報告閱讀狀態總覽'), `${label} new home report readiness summary card`);
   assert.ok(state.reportReadinessStatusText.includes('優先建議報告閱讀狀態'), `${label} new home report readiness wording`);
   assert.ok(state.reportReadinessStatusText.includes('不會寫入計算書、列印或 PDF'), `${label} new home report readiness export boundary`);
+  assert.ok(state.reportReadinessStatusText.includes('文件分類｜可送簽版'), `${label} new home report readiness ready classification`);
   assert.ok(state.reportReadinessStatusText.includes('正式計算書可讀文字抽檢'), `${label} new home report text coverage`);
   assert.ok(state.reportReadinessStatusText.includes('實際交付物渲染'), `${label} new home rendered delivery evidence`);
   for (const statusId of ['platformStatus', 'preflightStatus', 'reportReadinessStatus']) {
@@ -1635,9 +1639,13 @@ function assertCalculationBookDocumentState(state, tool, label) {
   if (!requiresDraft) {
     assert.equal(state.documentState, '', `${label} ${tool.key} ready report has no document-state block`);
     assert.equal(state.documentReason, '', `${label} ${tool.key} ready report has no draft reason`);
+    assert.equal(state.documentClass, 'ready-to-sign', `${label} ${tool.key} ready report carries sign-off candidate class`);
+    assert.ok(state.documentClassText.includes('文件分類｜可送簽版'), `${label} ${tool.key} ready classification is visible`);
+    assert.ok(state.documentClassText.includes('正式附件仍須完成公司簽認'), `${label} ${tool.key} ready report preserves the approval boundary`);
     assert.equal(state.html.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} ready report has no DRAFT label`);
     return;
   }
+  assert.equal(state.documentClass, '', `${label} ${tool.key} non-ready report does not claim ready-to-sign class`);
   const expectedReason = state.pageReadinessLevel === 'blocked' ? 'blocked' : 'review';
   assert.equal(state.documentState, 'draft', `${label} ${tool.key} non-ready report is classified as draft`);
   assert.equal(state.documentReason, expectedReason, `${label} ${tool.key} draft reason follows page readiness`);
@@ -2059,7 +2067,7 @@ async function main() {
                   tool.reportTitleNeedle,
                   '計畫：',
                   ...(tool.reportNeedles || []),
-                  ...(detailedReportState.documentState === 'draft' ? ['DRAFT／非正式附件'] : []),
+                  ...(detailedReportState.documentState === 'draft' ? ['DRAFT／非正式附件'] : ['文件分類｜可送簽版']),
                 ],
                 forbiddenNeedles: detailedReportState.documentState === 'draft' ? [] : ['DRAFT'],
               });

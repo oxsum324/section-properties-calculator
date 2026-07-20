@@ -992,6 +992,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       readinessLevel: setupState.readinessLevel || '',
       documentState: '',
       documentReason: '',
+      documentClass: '',
     };
   }
 
@@ -1013,6 +1014,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       readinessLevel: setupState.readinessLevel || '',
       documentState: '',
       documentReason: '',
+      documentClass: '',
     };
   }
 
@@ -1040,7 +1042,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         auditHtml: html.replace(/data:image\\/png;base64,[^"'\\s<>]+/g, 'data:image/png;base64,[omitted]'),
         projectMeta: Array.from(document.querySelectorAll('.rep-meta div, .meta div')).map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim()),
         documentState: document.querySelector('[data-document-state]')?.getAttribute('data-document-state') || '',
-        documentReason: document.querySelector('[data-document-state]')?.getAttribute('data-document-reason') || ''
+        documentReason: document.querySelector('[data-document-state]')?.getAttribute('data-document-reason') || '',
+        documentClass: document.querySelector('[data-document-class]')?.getAttribute('data-document-class') || ''
       };
     })()`);
     return {
@@ -1058,6 +1061,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       readinessLevel: setupState.readinessLevel || '',
       documentState: state.documentState,
       documentReason: state.documentReason,
+      documentClass: state.documentClass,
     };
   } finally {
     popupErrors.unsubscribe();
@@ -2030,9 +2034,13 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   if (state.readinessLevel === 'ready') {
     assert.equal(state.documentState, '', `${label} ${tool.key} ready popup report has no draft document state`);
     assert.equal(state.documentReason, '', `${label} ${tool.key} ready popup report has no draft reason`);
+    assert.equal(state.documentClass, 'ready-to-sign', `${label} ${tool.key} ready popup report carries sign-off candidate class`);
+    assert.ok(state.bodyText.includes('文件分類｜可送簽版'), `${label} ${tool.key} ready popup report identifies the sign-off candidate`);
+    assert.ok(state.bodyText.includes('正式附件仍須完成公司簽認'), `${label} ${tool.key} ready popup report preserves the approval boundary`);
     assert.equal(state.bodyText.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} ready popup report has no draft label`);
     return;
   }
+  assert.equal(state.documentClass, '', `${label} ${tool.key} non-ready popup report does not claim ready-to-sign class`);
   assert.equal(state.documentState, 'draft', `${label} ${tool.key} non-ready popup report is draft`);
   assert.equal(state.documentReason, state.readinessLevel, `${label} ${tool.key} popup reason matches page readiness`);
   const expectedLabel = state.readinessLevel === 'blocked'
@@ -2056,7 +2064,7 @@ function getReportPdfDocumentStateNeedles(state) {
     ? 'DRAFT／非正式附件 - 檢核不符'
     : 'DRAFT／非正式附件 - 待人工複核';
   return {
-    required: documentState.draft ? [label] : [],
+    required: documentState.draft ? [label] : ['文件分類｜可送簽版'],
     forbidden: documentState.draft ? [] : ['DRAFT／非正式附件'],
   };
 }

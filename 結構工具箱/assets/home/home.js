@@ -117,8 +117,8 @@
   const reportReadinessOverview = {
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
-    summary: '頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；採正式附件治理的計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類。',
-    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；受治理計算書非 ready 輸出會另帶 DRAFT／非正式附件分類。',
+    summary: '頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；採正式附件治理的計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類，ready 則明確標示「文件分類｜可送簽版」。',
+    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；受治理計算書會明確標示 DRAFT／非正式附件或「文件分類｜可送簽版」。',
     reportTextSmokeSummary: '正式計算書可讀文字抽檢由成熟度矩陣與最新完整交付前檢查的瀏覽器 smoke 共同治理。',
     reportTextSmokeScope: '正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具與局部快算。矩陣外工具家族仍以各自報告合約治理。',
     renderedDeliveryEvidenceSummary: '最新正式放行的實際交付物渲染會以 PDF、DOCX 或 workbook 成品驗證首頁正式工具。',

@@ -126,7 +126,7 @@ Refresh anchor deployment assets
 - `覆工板/`：以「程式碼納入、工程資料排除」處理。納入 `.gitignore`、`README.md`、`index.html`、`report/gen_report.py`、`shared/h-section-table.js`、`test-fixtures/report-smoke.json`、`dump_xls.py`、`產生計算書.bat`、`decking-report.contract.test.js`、`decking-traceability.catalog.json`、`decking-traceability.contract.test.js`；排除 Excel、Word/PDF、`吊車/`、`_extracted/`、dump 文字檔、pycache 與本機輸出。preflight 已做 Python compile、Word 報告邊界 contract 與 traceability contract；正式 release 的當輪 DOCX 與結構摘要只留在 ignored 的 `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/decking-formal/`，不提交案件成品。
 - `鋼架/`：目前只有 `平面剛架分析.html`，頁面 / 計算書邊界已由根目錄 `frame-analysis.contract.test.js` 治理；案件資料、產出追溯與 ready / DRAFT 文件狀態必須與頁面本體及該 contract 一起 staging、一起審查。
 
-共用計算書文件狀態：調整 `結構工具箱/core/ui/report.js` 的 ready / review / blocked 判定、DRAFT 浮水印或附件文件分類時，必須同步 staging `section-tools.contract.test.js`、`continuous-beam-regression.test.js`、`frame-analysis.contract.test.js`、`合成斷面性質.html`、`連續梁分析.html`、`鋼架/平面剛架分析.html`、`README.md`、`TOOL_BOUNDARIES.md`、`docs/adr/0001-page-only-report-readiness.md`、首頁／矩陣／dashboard 說明與對應 smoke 契約。頁面診斷明細仍維持 page-only，不得以文件分類為由寫入計算書。
+共用計算書文件狀態：調整 `結構工具箱/core/ui/report.js` 的 ready / review / blocked 判定、DRAFT 浮水印或附件文件分類時，必須同步 staging `section-tools.contract.test.js`、`continuous-beam-regression.test.js`、`frame-analysis.contract.test.js`、`合成斷面性質.html`、`連續梁分析.html`、`鋼架/平面剛架分析.html`、`README.md`、`TOOL_BOUNDARIES.md`、`docs/adr/0001-page-only-report-readiness.md`、首頁／矩陣／dashboard 說明與對應 smoke 契約。ready 計算書只增加精簡的 `文件分類｜可送簽版`，頁面診斷明細仍維持 page-only，不得以文件分類為由寫入計算書。
 
 ```powershell
 git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/ui_smoke_test.py" "石材固定/js/code-profiles-registry.spec.js" "石材固定/js/code-profiles-registry-smoke.test.js" "石材固定/js/regression-smoke.test.js"
