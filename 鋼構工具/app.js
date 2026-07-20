@@ -10,10 +10,11 @@
       ? STEEL_TOOL_METADATA.tension
       : STEEL_TOOL_METADATA.connection;
   const withFormalToolVersion = (title, metadata) => `${title} ${metadata.version}`;
-  const STORAGE_KEY = location.pathname.toLowerCase().includes("plate-check")
+  const IS_STANDALONE_PLATE = location.pathname.toLowerCase().includes("plate-check");
+  const STORAGE_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-draft-v2"
     : "steel-connection-suite-draft-v3";
-  const UI_PREFS_KEY = location.pathname.toLowerCase().includes("plate-check")
+  const UI_PREFS_KEY = IS_STANDALONE_PLATE
     ? "steel-plate-check-ui-v1"
     : "steel-connection-suite-ui-v1";
 
@@ -803,6 +804,8 @@
   const examplePresetSelect = document.getElementById("examplePresetSelect");
   const saveDraftBtn = document.getElementById("saveDraftBtn");
   const exportSourceJsonBtn = document.getElementById("exportSourceJsonBtn");
+  const importSourceJsonBtn = document.getElementById("importSourceJsonBtn");
+  const importSourceJsonInput = document.getElementById("importSourceJsonInput");
   const exportReportBtn = document.getElementById("exportReportBtn");
   const copySummaryBtn = document.getElementById("copySummaryBtn");
   const printReportBtn = document.getElementById("printReportBtn");
@@ -2292,6 +2295,52 @@
     setExportReportStatus(`已匯出來源 JSON｜計算指紋 ${payload.calculationFingerprint}`);
   }
 
+  function validateConnectionSourcePayload(payload) {
+    const expectedMetadata = getFormalToolMetadata(payload.connectionType);
+    const allowedToolIds = IS_STANDALONE_PLATE
+      ? [STEEL_TOOL_METADATA.plate.id]
+      : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id];
+    SteelFormalUI.validateCalculationSourcePayload(payload, {
+      expectedToolIds: allowedToolIds,
+      expectedVersion: expectedMetadata.version,
+    });
+    if (!['plate_check', 'tension_member'].includes(payload.connectionType)) {
+      throw new Error('來源 JSON 驗證失敗：不支援此檢核模組。');
+    }
+    if (payload.tool.id !== expectedMetadata.id || payload.fields.connectionType !== payload.connectionType) {
+      throw new Error('來源 JSON 驗證失敗：工具種類與檢核模組不一致。');
+    }
+    if (!['LRFD', 'ASD'].includes(payload.designMethod) || payload.fields.designMethod !== payload.designMethod) {
+      throw new Error('來源 JSON 驗證失敗：設計方法不一致。');
+    }
+    return payload;
+  }
+
+  async function importConnectionSourceJson(file) {
+    const previous = buildConnectionSourcePayload();
+    let stateChanged = false;
+    try {
+      const payload = validateConnectionSourcePayload(await SteelFormalUI.readCalculationSourceFile(file, {
+        expectedToolIds: IS_STANDALONE_PLATE
+          ? [STEEL_TOOL_METADATA.plate.id]
+          : [STEEL_TOOL_METADATA.plate.id, STEEL_TOOL_METADATA.tension.id],
+        expectedVersion: STEEL_TOOL_METADATA.plate.version,
+      }));
+      stateChanged = true;
+      setFormState(payload.fields, false);
+      const replay = buildConnectionSourcePayload();
+      if (replay.calculationFingerprint !== payload.calculationFingerprint) {
+        throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay.calculationFingerprint}）。`);
+      }
+      setExportReportStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
+    } catch (error) {
+      if (stateChanged) setFormState(previous.fields, false);
+      setExportReportStatus(`匯入失敗，已保留原輸入｜${error?.message || '未知錯誤'}`);
+    } finally {
+      if (importSourceJsonInput) importSourceJsonInput.value = '';
+    }
+  }
+
   function buildReportHtml(result) {
     const reportTrace = buildConnectionReportTrace(result);
     const escReport = SteelFormalUI.escapeHtml;
@@ -2744,6 +2793,8 @@ ${endingFlowHtml}
   loadExampleBtn.addEventListener("click", () => setFormState(getCurrentExampleState(), true));
   saveDraftBtn.addEventListener("click", () => persistDraft(collectFormState()));
   exportSourceJsonBtn.addEventListener("click", exportConnectionSourceJson);
+  importSourceJsonBtn.addEventListener("click", () => importSourceJsonInput.click());
+  importSourceJsonInput.addEventListener("change", () => importConnectionSourceJson(importSourceJsonInput.files?.[0]));
   exportReportBtn.addEventListener("click", exportReport);
   copySummaryBtn.addEventListener("click", copySummary);
   printReportBtn.addEventListener("click", exportReport);
@@ -2775,6 +2826,7 @@ ${endingFlowHtml}
     field.addEventListener("focus", () => updateQuickNavActive("input"));
   });
   window.buildSteelConnectionSourcePayload = buildConnectionSourcePayload;
+  window.importSteelConnectionSourceJson = importConnectionSourceJson;
   setFormState(loadSavedDraft() || getCurrentExampleState(), false);
   activatePanel(currentPanel);
   loadAuditStatus();

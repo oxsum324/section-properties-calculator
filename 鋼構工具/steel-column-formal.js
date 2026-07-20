@@ -1734,6 +1734,71 @@
     setInputStatus(`已匯出來源 JSON｜計算指紋 ${payload.calculationFingerprint}`);
   }
 
+  function captureColumnSourceState() {
+    return {
+      project: { name: $("projName").value, no: $("projNo").value, designer: $("projDesigner").value },
+      designMethod,
+      unitMode,
+      fields: collectColumnSourceFields(),
+    };
+  }
+
+  function applyColumnSourceState(source) {
+    setUnitMode(source.unitMode, { convertFields: false, rerun: false, persist: false });
+    setMethod(source.designMethod);
+    $("projName").value = source.project?.name || "";
+    $("projNo").value = source.project?.no || "";
+    $("projDesigner").value = source.project?.designer || "";
+    const sectionType = source.fields?.sectionTypeSelect?.value;
+    if (["h", "shs", "rhs", "chs"].includes(sectionType)) $("sectionTypeSelect").value = sectionType;
+    syncSectionTypeUI();
+    Object.entries(source.fields || {}).forEach(([id, entry]) => {
+      const field = $(id);
+      if (!field || !field.matches("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]") || field.disabled || field.dataset.filterInput) return;
+      if (field.type === "checkbox") field.checked = Boolean(entry?.value);
+      else field.value = entry?.value ?? "";
+    });
+    syncSectionTypeUI();
+    syncColumnProjectMetaUi();
+    persistUiPrefs();
+    resultState = runCheck();
+    return resultState;
+  }
+
+  function validateColumnSourcePayload(payload) {
+    SteelFormalUI.validateCalculationSourcePayload(payload, {
+      expectedToolId: TOOL_METADATA.id,
+      expectedVersion: TOOL_METADATA.version,
+    });
+    if (!["LRFD", "ASD"].includes(payload.designMethod)) throw new Error("來源 JSON 驗證失敗：設計方法不正確。");
+    if (!["legacy", "si"].includes(payload.unitMode)) throw new Error("來源 JSON 驗證失敗：輸入單位模式不正確。");
+    if (!payload.project || typeof payload.project !== "object") throw new Error("來源 JSON 驗證失敗：缺少案件資料。");
+    return payload;
+  }
+
+  async function importColumnSourceJson(file) {
+    const previous = captureColumnSourceState();
+    let stateChanged = false;
+    try {
+      const payload = validateColumnSourcePayload(await SteelFormalUI.readCalculationSourceFile(file, {
+        expectedToolId: TOOL_METADATA.id,
+        expectedVersion: TOOL_METADATA.version,
+      }));
+      stateChanged = true;
+      const replayResult = applyColumnSourceState(payload);
+      const replay = replayResult ? buildColumnSourcePayload(replayResult) : null;
+      if (!replay || replay.calculationFingerprint !== payload.calculationFingerprint) {
+        throw new Error(`重現指紋不一致（來源 ${payload.calculationFingerprint}，重算 ${replay?.calculationFingerprint || "無法計算"}）。`);
+      }
+      setInputStatus(`已匯入並重現計算｜計算指紋 ${replay.calculationFingerprint}`);
+    } catch (error) {
+      if (stateChanged) applyColumnSourceState(previous);
+      setInputStatus(`匯入失敗，已保留原輸入｜${error?.message || "未知錯誤"}`);
+    } finally {
+      $("inputImportSourceJson").value = "";
+    }
+  }
+
   function buildReport() {
     const result = runCheck();
     if (!result) return;
@@ -1756,6 +1821,8 @@
     $("btnASD").addEventListener("click", () => { setMethod("ASD"); resultState = runCheck(); });
     $("runCheckBtn").addEventListener("click", () => { resultState = runCheck(); });
     $("btnExportSourceJson").addEventListener("click", exportColumnSourceJson);
+    $("btnImportSourceJson").addEventListener("click", () => $("inputImportSourceJson").click());
+    $("inputImportSourceJson").addEventListener("change", () => importColumnSourceJson($("inputImportSourceJson").files?.[0]));
     $("btnReport").addEventListener("click", buildReport);
     $("printReportBtn").addEventListener("click", buildReport);
     $("columnJumpGoverningBtn").addEventListener("click", () => scrollToBlock(getGoverningTarget()));
@@ -1818,6 +1885,7 @@
   }
 
   window.buildColumnSourcePayload = buildColumnSourcePayload;
+  window.importColumnSourceJson = importColumnSourceJson;
   buildSecOptions();
   buildMatOptions();
   renderGlossary();
