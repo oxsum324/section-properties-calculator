@@ -1706,7 +1706,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const renderedDeliverySummary = supplementalDeliveryDeclared
     ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
-  const summary = `頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；採正式附件治理的計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
+  const summary = `頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查，不會寫入計算書、列印或 PDF；採正式附件治理的計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類，ready 則明確標示「文件分類｜可送簽版」。目前首頁矩陣外 ${complete} / ${required} 個有列印 / 報表表面的入口已完成頁面專用閱讀狀態治理。`;
   const details = [
     pageOnlyTitles.length
       ? `目前覆蓋 ${pageOnlyStateLabels.join(' / ')} 入口：${pageOnlyTitles.join('、')}。`
@@ -1727,7 +1727,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
-    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；受治理計算書非 ready 輸出會另帶 DRAFT／非正式附件分類。',
+    compactSummary: '「優先建議報告閱讀狀態」診斷明細不會寫入計算書、列印或 PDF；受治理計算書會明確標示 DRAFT／非正式附件或「文件分類｜可送簽版」。',
     details,
     pageOnlyBoundaryRequired: required,
     pageOnlyBoundaryComplete: complete,

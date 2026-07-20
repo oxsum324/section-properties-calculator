@@ -272,6 +272,7 @@ async function main() {
   assert.ok(homeJs.includes("label: '報告閱讀狀態總覽'"), 'home.js keeps report readiness overview label');
   assert.ok(homeJs.includes('頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查'), 'home.js keeps page-only diagnostic boundary summary');
   assert.ok(homeJs.includes('採正式附件治理的計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類'), 'home.js distinguishes governed draft document classification from page-only diagnostics');
+  assert.ok(homeJs.includes('ready 則明確標示「文件分類｜可送簽版」'), 'home.js explains governed ready document classification');
   assert.ok(homeJs.includes('完整檢查'), 'home.js keeps full preflight mode label');
   assert.ok(homeJs.includes('快速檢查'), 'home.js keeps quick preflight mode label');
   assert.ok(homeJs.includes('正式放行'), 'home.js keeps release preflight mode label');
@@ -330,6 +331,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness report text scope keeps other-family boundary');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('優先建議報告閱讀狀態'), 'report readiness compact summary keeps page-only wording');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('不會寫入計算書、列印或 PDF'), 'report readiness compact summary keeps export boundary');
+  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('文件分類｜可送簽版'), 'report readiness compact summary keeps ready document classification');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceRequired, 31, 'report readiness rendered delivery covers every formal homepage tool');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery fully covered');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');

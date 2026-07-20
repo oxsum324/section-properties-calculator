@@ -657,6 +657,9 @@ function main() {
   assert(ctx.__lastReportConfig.documentState === null, 'complete continuous beam report removes draft classification', JSON.stringify(ctx.__lastReportConfig.documentState));
   const readyReportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
   assert(!readyReportHtml.includes('DRAFT／非正式附件'), 'complete continuous beam runtime report is formal-ready', 'formal attachment state');
+  assert(readyReportHtml.includes('data-document-class="ready-to-sign"'), 'complete continuous beam report records ready-to-sign document class', 'ready-to-sign');
+  assert(readyReportHtml.includes('文件分類｜可送簽版'), 'complete continuous beam report identifies the sign-off candidate', '文件分類｜可送簽版');
+  assert(readyReportHtml.includes('正式附件仍須完成公司簽認'), 'complete continuous beam report preserves the approval boundary', '正式附件仍須完成公司簽認');
   ctx.document.getElementById('ilEnabled').checked = true;
   ctx.toggleIL();
   ctx.document.getElementById('ilType').value = 'moment';

@@ -210,12 +210,18 @@ function assessFormalAttachment(state = {}) {
 }
 
 const FORMAL_DOCUMENT_STATE_REPORT_CSS = `
+.rep-document-class { display:flex; align-items:baseline; gap:8px; margin:0 0 12px; padding:5px 8px;
+  border:1px solid #86b89a; background:#f4fbf6; color:#14532d; font-size:11px;
+  line-height:1.45; page-break-inside:avoid; }
+.rep-document-class strong { flex:0 0 auto; font-size:12px; letter-spacing:.02em; }
+.rep-document-class span { color:#365c42; }
 .rep-document-state { margin:12px 0 16px; padding:10px 14px; border:2px solid #b91c1c;
   background:#fff1f2; color:#881337; page-break-inside:avoid; }
 .rep-document-state strong { display:block; font-size:16px; letter-spacing:.03em; }
 .rep-document-state span { display:block; margin-top:4px; font-size:11px; line-height:1.5; }
 .rep-document-state--review { border-color:#b45309; background:#fff7ed; color:#7c2d12; }
 @media print {
+  .rep-document-class { margin:0 0 3mm; padding:1mm 2mm; }
   .rep-document-state { display:block; position:absolute; top:0; right:0; z-index:1000;
     width:auto; max-width:48%; margin:0; padding:1mm 2mm; white-space:nowrap; }
   .rep-document-state strong { font-size:9px; }
@@ -233,6 +239,18 @@ function normalizeFormalDocumentState(documentState) {
     reason: documentState.reason === 'blocked' ? 'blocked' : 'review',
     label: String(documentState.label || 'DRAFT／非正式附件').trim(),
     detail: String(documentState.detail || '本文件僅供內部檢討，不得作為正式附件。').trim(),
+  };
+}
+
+function normalizeFormalDocumentClass(documentClass, documentState) {
+  if (documentState) return null;
+  const configured = documentClass && typeof documentClass === 'object' ? documentClass : {};
+  const configuredKey = String(configured.key || configured.kind || '').trim().toLowerCase();
+  const acceptsReadyMetadata = ['ready-to-sign', 'signable', 'ready'].includes(configuredKey);
+  return {
+    key: 'ready-to-sign',
+    label: String(acceptsReadyMetadata && configured.label ? configured.label : '可送簽版').trim(),
+    detail: String(acceptsReadyMetadata && configured.detail ? configured.detail : '本文件具備進入簽核流程的必要條件；正式附件仍須完成公司簽認、技師簽章或專案核准程序。').trim(),
   };
 }
 
@@ -264,8 +282,20 @@ function buildFormalDocumentStateReport(state = {}) {
     reviewItems,
   });
   const documentState = normalizeFormalDocumentState(assessment.documentState);
+  const documentClass = normalizeFormalDocumentClass(assessment.documentClass, documentState);
   if (!documentState) {
-    return { ...assessment, documentState: null, css: FORMAL_DOCUMENT_STATE_REPORT_CSS, html: '' };
+    const esc = escapeReportHtml;
+    return {
+      ...assessment,
+      documentState: null,
+      documentClass,
+      css: FORMAL_DOCUMENT_STATE_REPORT_CSS,
+      html: `<style data-formal-document-state-style>${FORMAL_DOCUMENT_STATE_REPORT_CSS}</style>
+        <section class="rep-document-class rep-document-class--ready" data-document-class="${esc(documentClass.key)}">
+          <strong>文件分類｜${esc(documentClass.label)}</strong>
+          <span>${esc(documentClass.detail)}</span>
+        </section>`,
+    };
   }
   const esc = escapeReportHtml;
   return {
@@ -384,15 +414,22 @@ function openReport(cfg) {
     });
   });
   const hasConfiguredDocumentState = Object.prototype.hasOwnProperty.call(cfg, 'documentState');
-  const configuredDocumentState = hasConfiguredDocumentState
-    ? (cfg.documentState && typeof cfg.documentState === 'object' ? cfg.documentState : null)
+  const automaticAttachmentAssessment = hasConfiguredDocumentState
+    ? null
     : assessFormalAttachment({
         project: proj,
         calculated: cfg.calculated !== false,
         failedItems: [...inferredFailedItems, ...(Array.isArray(cfg.failedItems) ? cfg.failedItems : [])],
         reviewItems: cfg.reviewItems,
-      }).documentState;
+      });
+  const configuredDocumentState = hasConfiguredDocumentState
+    ? (cfg.documentState && typeof cfg.documentState === 'object' ? cfg.documentState : null)
+    : automaticAttachmentAssessment.documentState;
   const documentState = normalizeFormalDocumentState(configuredDocumentState);
+  const configuredDocumentClass = cfg.documentClass && typeof cfg.documentClass === 'object'
+    ? cfg.documentClass
+    : automaticAttachmentAssessment?.documentClass;
+  const documentClass = normalizeFormalDocumentClass(configuredDocumentClass, documentState);
 
   const inputsHtml = getCalculationBookInputGroups(cfg.inputs).map(g => `
     <section class="rep-block${g.keepTogether ? ' rep-block--keep' : ''}">
@@ -479,6 +516,12 @@ function openReport(cfg) {
         <span>${esc(documentState.detail)}</span>
       </section>`
     : '';
+  const documentClassHtml = documentClass
+    ? `<section class="rep-document-class rep-document-class--ready" data-document-class="${esc(documentClass.key)}">
+        <strong>文件分類｜${esc(documentClass.label)}</strong>
+        <span>${esc(documentClass.detail)}</span>
+      </section>`
+    : '';
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -495,6 +538,11 @@ body { font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif
 .rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
+.rep-document-class { display:flex; align-items:baseline; gap:8px; margin:0 0 12px; padding:5px 8px;
+                      border:1px solid #86b89a; background:#f4fbf6; color:#14532d;
+                      font-size:11px; line-height:1.45; page-break-inside:avoid; }
+.rep-document-class strong { flex:0 0 auto; font-size:12px; letter-spacing:.02em; }
+.rep-document-class span { color:#365c42; }
 .rep-document-state { margin:12px 0 16px; padding:10px 14px; border:2px solid #b91c1c;
                       background:#fff1f2; color:#881337; page-break-inside:avoid; }
 .rep-document-state strong { display:block; font-size:16px; letter-spacing:.03em; }
@@ -557,6 +605,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 }
 @media print {
   body { background:#fff; padding:0; }
+  .rep-document-class { margin:0 0 3mm; padding:1mm 2mm; }
   body.rep-document-draft::after { content:""; position:fixed; left:50%; top:46%; width:160mm; height:44mm;
     transform:translate(-50%,-50%) rotate(-28deg);
     background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 160'%3E%3Cpath d='M45 130V30H85Q125 30 125 80Q125 130 85 130Z M155 130L195 30L235 130M170 92H220 M265 130V30H305Q345 30 345 62Q345 94 305 94H265M305 94L350 130 M385 130V30H455M385 78H445 M480 30H565M522 30V130' fill='none' stroke='%23991b1b' stroke-width='18' stroke-linecap='square' stroke-linejoin='miter' opacity='.08'/%3E%3C/svg%3E");
@@ -586,7 +635,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <h1>${esc(cfg.title || '計算書')}</h1>
     ${cfg.subtitle?`<div class="sub">${esc(cfg.subtitle)}</div>`:''}
   </div>
-  ${documentStateHtml}
+  ${documentStateHtml || documentClassHtml}
   <div class="rep-meta${sourceTrace.tool ? ' rep-meta--traceable' : ''}">
     <div><b>計畫名稱</b>${esc(proj.name)||'—'}</div>
     <div><b>計畫編號</b>${esc(proj.no)||'—'}</div>

@@ -2156,8 +2156,14 @@ function printReport() {
       memberPointLoads: state.memberPointLoads,
     },
   });
+  const documentClass = documentState
+    ? null
+    : (attachmentReadiness.documentClass || { key: 'ready-to-sign', label: '可送簽版' });
   const documentStateHtml = documentState
     ? `<section class="report-document-state report-document-state--${escapeHtml(documentState.reason)}" data-document-state="${escapeHtml(documentState.kind)}" data-document-reason="${escapeHtml(documentState.reason)}"><strong>${escapeHtml(documentState.label)}</strong><span>${escapeHtml(documentState.detail)}</span></section>`
+    : '';
+  const documentClassHtml = documentClass
+    ? `<section class="report-document-class report-document-class--ready" data-document-class="ready-to-sign"><strong>文件分類｜${escapeHtml(documentClass.label || '可送簽版')}</strong><span>本文件具備進入簽核流程的必要條件；正式附件仍須完成公司簽認、技師簽章或專案核准程序。</span></section>`
     : '';
   const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>平面剛架分析計算書 ${today}</title>
 <style>body{font-family:'Microsoft JhengHei',sans-serif;margin:24px;color:#1e293b;font-size:13px;}
@@ -2169,13 +2175,15 @@ th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0
 .meta{color:#64748b;font-size:12px;margin:2px 0;} button{padding:6px 14px;margin:6px 0;cursor:pointer;}
 .project-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:5px 14px;margin:12px 0 16px;font-size:11px;}
 .project-meta div{border-bottom:1px dotted #94a3b8;padding:3px 0;}.project-meta b{display:inline-block;min-width:62px;color:#475569;}
+.report-document-class{display:flex;align-items:baseline;gap:8px;margin:0 0 12px;padding:5px 8px;border:1px solid #86b89a;background:#f4fbf6;color:#14532d;font-size:11px;line-height:1.45;page-break-inside:avoid;}
+.report-document-class strong{flex:0 0 auto;font-size:12px;letter-spacing:.02em}.report-document-class span{color:#365c42}
 .report-document-state{margin:10px 0 14px;padding:9px 12px;border:2px solid #b91c1c;background:#fff1f2;color:#881337;page-break-inside:avoid;}
 .report-document-state strong,.report-document-state span{display:block}.report-document-state strong{font-size:15px}.report-document-state span{margin-top:3px;font-size:11px;line-height:1.5}
 .report-document-state--review{border-color:#b45309;background:#fff7ed;color:#7c2d12;}
-@media print{button{display:none;}body.report-document-draft::after{content:'DRAFT';position:fixed;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-28deg);font:700 96pt/1 sans-serif;color:rgba(153,27,27,.07);z-index:999;pointer-events:none}.report-document-state{position:absolute;top:0;right:0;max-width:48%;margin:0;padding:1mm 2mm;white-space:nowrap;z-index:1000}.report-document-state strong{font-size:9px}.report-document-state span{display:none}}</style></head><body${documentState ? ` class="report-document-draft report-document-${escapeHtml(documentState.reason)}"` : ''}>
+@media print{button{display:none;}.report-document-class{margin:0 0 3mm;padding:1mm 2mm}body.report-document-draft::after{content:'DRAFT';position:fixed;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-28deg);font:700 96pt/1 sans-serif;color:rgba(153,27,27,.07);z-index:999;pointer-events:none}.report-document-state{position:absolute;top:0;right:0;max-width:48%;margin:0;padding:1mm 2mm;white-space:nowrap;z-index:1000}.report-document-state strong{font-size:9px}.report-document-state span{display:none}}</style></head><body${documentState ? ` class="report-document-draft report-document-${escapeHtml(documentState.reason)}"` : ''}>
 <h1>平面剛架分析 計算書</h1>
 <p class="meta">直接勁度法 (Direct Stiffness Method) ‧ 單位 tf-m</p>
-${documentStateHtml}
+${documentStateHtml || documentClassHtml}
 <div class="project-meta">
 <div><b>計畫名稱</b>${escapeHtml(project.name) || '—'}</div><div><b>計畫編號</b>${escapeHtml(project.no) || '—'}</div><div><b>設計人員</b>${escapeHtml(project.designer) || '—'}</div>
 <div><b>產出工具</b>${escapeHtml(reportTrace.sourceTrace.tool)}</div><div><b>工具版本</b>${escapeHtml(reportTrace.sourceTrace.version)}</div><div><b>輸出時間</b>${escapeHtml(reportTrace.generatedAt)}</div>

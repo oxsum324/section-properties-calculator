@@ -161,6 +161,8 @@ assert.equal(manifest.shared.directPrintBoundaryClass, 'formal-direct-print-boun
 assert.equal(manifest.shared.documentStateHelper, 'core/ui/report.js', 'formal document state helper');
 assert.equal(manifest.shared.documentStateBuilder, 'buildFormalDocumentStateReport', 'formal document state builder');
 assert.equal(manifest.shared.documentStateRequired, true, 'formal document state required');
+assert.equal(manifest.shared.readyDocumentClass, 'ready-to-sign', 'formal ready document class');
+assert.equal(manifest.shared.readyDocumentLabel, '文件分類｜可送簽版', 'formal ready document label');
 assert.ok(manifest.shared.directPrintBoundaryNeedles.length >= 3, 'formal direct-print boundary wording');
 assertIncludes(
   directPrintBoundary,
@@ -232,7 +234,10 @@ const readyDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDoc
   readinessLevel: 'ready',
 });
 assert.equal(readyDocumentStateReport.status, 'ready', 'complete formal report document state is ready');
-assert.equal(readyDocumentStateReport.html, '', 'ready formal report does not add draft content');
+assertIncludes(readyDocumentStateReport.html, 'data-document-class="ready-to-sign"', 'ready formal report document class marker');
+assertIncludes(readyDocumentStateReport.html, '文件分類｜可送簽版', 'ready formal report sign-off candidate label');
+assertIncludes(readyDocumentStateReport.html, '正式附件仍須完成公司簽認', 'ready formal report preserves approval boundary');
+assertNoIncludes(readyDocumentStateReport.html, 'DRAFT／非正式附件', 'ready formal report does not add draft content');
 const reviewDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport({
   project: { name: '', no: 'QA-001', designer: 'Codex QA' },
   calculated: true,

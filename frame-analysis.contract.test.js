@@ -339,6 +339,9 @@ const readyFrameReport = captureFrameReportHtml(frameAnalysisHtml, {
   note: 'Ready attachment sample',
 });
 assert(!readyFrameReport.html.includes('DRAFT／非正式附件'), 'rigid frame complete report removes draft classification', 'formal attachment state');
+assert(readyFrameReport.html.includes('data-document-class="ready-to-sign"'), 'rigid frame complete report records ready-to-sign document class', 'ready-to-sign');
+assert(readyFrameReport.html.includes('文件分類｜可送簽版'), 'rigid frame complete report identifies the sign-off candidate', '文件分類｜可送簽版');
+assert(readyFrameReport.html.includes('正式附件仍須完成公司簽認'), 'rigid frame complete report preserves the approval boundary', '正式附件仍須完成公司簽認');
 assert(readyFrameReport.html.includes('Frame QA'), 'rigid frame complete report keeps project name', 'Frame QA');
 assert(readyFrameReport.html.includes('FR-001'), 'rigid frame complete report keeps project number', 'FR-001');
 assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report keeps designer', 'Codex QA');

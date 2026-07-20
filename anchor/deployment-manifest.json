@@ -1,26 +1,26 @@
-﻿{
-    "generatedAt":  "2026-07-20T10:59:47",
-    "basePath":  "./",
-    "sourceFingerprint":  "d139eaaeb4e4d9ebe6ed102dcf8e1113ceca20d09418ed694e94dbe73eef9909",
-    "sourceRoots":  [
-                        "螺栓檢討\\bolt-review-tool\\src",
-                        "螺栓檢討\\bolt-review-tool\\public",
-                        "螺栓檢討\\bolt-review-tool\\package.json",
-                        "螺栓檢討\\bolt-review-tool\\package-lock.json",
-                        "螺栓檢討\\bolt-review-tool\\vite.config.ts",
-                        "螺栓檢討\\bolt-review-tool\\tsconfig.json",
-                        "螺栓檢討\\bolt-review-tool\\tsconfig.app.json",
-                        "螺栓檢討\\bolt-review-tool\\tsconfig.node.json",
-                        "螺栓檢討\\bolt-review-tool\\eslint.config.js"
-                    ],
-    "referencedAssets":  [
-                             "appMeta-EtU9LxdN.js",
-                             "basePlateStressState-wYduPT6T.js",
-                             "chunk-62oNxeRG.js",
-                             "defaults-8fgafi6Q.js",
-                             "index-ABhi1H42.css",
-                             "index-Bny8nTsm.js",
-                             "loadCasePresetInput-CpGAIu5j.js",
-                             "units-m4ngsLPL.js"
-                         ]
+{
+  "generatedAt": "2026-07-20T13:15:02",
+  "basePath": "./",
+  "sourceFingerprint": "2da19b0404e9417926b09bc826bdc02833840d41f6754d23948d6e7fd96c74a2",
+  "sourceRoots": [
+    "螺栓檢討\\bolt-review-tool\\src",
+    "螺栓檢討\\bolt-review-tool\\public",
+    "螺栓檢討\\bolt-review-tool\\package.json",
+    "螺栓檢討\\bolt-review-tool\\package-lock.json",
+    "螺栓檢討\\bolt-review-tool\\vite.config.ts",
+    "螺栓檢討\\bolt-review-tool\\tsconfig.json",
+    "螺栓檢討\\bolt-review-tool\\tsconfig.app.json",
+    "螺栓檢討\\bolt-review-tool\\tsconfig.node.json",
+    "螺栓檢討\\bolt-review-tool\\eslint.config.js"
+  ],
+  "referencedAssets": [
+    "appMeta-BX1A-Hku.js",
+    "basePlateStressState-wYduPT6T.js",
+    "chunk-62oNxeRG.js",
+    "defaults-DbuNLWxb.js",
+    "index-ABhi1H42.css",
+    "index-DW6P8oqE.js",
+    "loadCasePresetInput-CpGAIu5j.js",
+    "units-m4ngsLPL.js"
+  ]
 }
