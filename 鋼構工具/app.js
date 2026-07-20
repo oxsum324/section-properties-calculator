@@ -802,6 +802,7 @@
   const loadExampleBtn = document.getElementById("loadExampleBtn");
   const examplePresetSelect = document.getElementById("examplePresetSelect");
   const saveDraftBtn = document.getElementById("saveDraftBtn");
+  const exportSourceJsonBtn = document.getElementById("exportSourceJsonBtn");
   const exportReportBtn = document.getElementById("exportReportBtn");
   const copySummaryBtn = document.getElementById("copySummaryBtn");
   const printReportBtn = document.getElementById("printReportBtn");
@@ -2218,9 +2219,9 @@
     }
   }
 
-  function buildReportHtml(result) {
+  function buildConnectionReportConfig(result) {
     const outputSource = getFormalToolMetadata(result.state.connectionType);
-    const reportTrace = SteelFormalUI.buildReportTrace({
+    return {
       title: result.reportTitle,
       subtitle: result.reportSubtitle,
       outputSource,
@@ -2232,7 +2233,67 @@
         detailChecks: result.detailChecks,
         derivedAreas: result.derivedAreas,
       },
-    });
+    };
+  }
+
+  function buildConnectionReportTrace(result) {
+    return SteelFormalUI.buildReportTrace(buildConnectionReportConfig(result));
+  }
+
+  function buildConnectionSourcePayload(result = window.latestSteelConnectionResult || calculateConnection(collectFormState())) {
+    const reportConfig = buildConnectionReportConfig(result);
+    const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
+    return {
+      schemaVersion: 1,
+      kind: "formal-calculation-source",
+      savedAt: new Date().toISOString(),
+      project: {
+        name: normalizeProjectMetaValue(result.state.projectName),
+        no: normalizeProjectMetaValue(result.state.connectionTag),
+        designer: normalizeProjectMetaValue(result.state.designer),
+      },
+      tool: {
+        id: reportConfig.outputSource.id,
+        name: reportTrace.sourceTrace.tool,
+        version: reportTrace.sourceTrace.version,
+      },
+      connectionType: result.state.connectionType,
+      designMethod: result.state.designMethod,
+      fields: { ...result.state },
+      calculationFingerprint: reportTrace.calculationFingerprint,
+      report: {
+        title: reportConfig.title,
+        subtitle: reportConfig.subtitle,
+        checks: reportConfig.checks,
+        summary: reportConfig.summary,
+        snapshot: reportConfig.snapshot,
+        calculationFingerprint: reportTrace.calculationFingerprint,
+      },
+    };
+  }
+
+  function sourceJsonFilename(payload) {
+    const identity = payload.project.no || payload.project.name || "source";
+    const safeIdentity = String(identity).trim().replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "") || "source";
+    return `${payload.tool.id}-${safeIdentity}.json`;
+  }
+
+  function exportConnectionSourceJson() {
+    const payload = buildConnectionSourcePayload();
+    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = sourceJsonFilename(payload);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setExportReportStatus(`已匯出來源 JSON｜計算指紋 ${payload.calculationFingerprint}`);
+  }
+
+  function buildReportHtml(result) {
+    const reportTrace = buildConnectionReportTrace(result);
     const escReport = SteelFormalUI.escapeHtml;
     const strengthRows = result.checks.map((check) => `
       <tr>
@@ -2253,7 +2314,7 @@
         <td>${item.passes ? "OK" : "NG"}</td>
       </tr>
     `).join("");
-    const flowHtml = showFlow.checked ? result.checks.map((check) => `
+    const flowSections = showFlow.checked ? result.checks.map((check) => `
       <section class="block">
         <h3>${check.label}${check.codeRef || check.equationRef ? `｜${[check.codeRef, check.equationRef].filter(Boolean).join("｜")}` : ""}</h3>
         <p style="font-size:12px;color:#555;margin:0 0 8px;">${buildDecisionSentence(check)}</p>
@@ -2261,7 +2322,9 @@
           ? `<div class="equation-math-wrap equation-math-wrap--print"><div class="equation-math equation-math--print">${check.latexLines.map((line) => `<div class="equation-math__line">\\[${line}\\]</div>`).join("")}</div><div class="mono mono--fallback">${(check.equationLines || []).join("<br>")}</div></div>`
           : `<div class="mono">${(check.equationLines || []).join("<br>")}</div>`}
       </section>
-    `).join("") : "";
+    `) : [];
+    const flowHtml = flowSections.slice(0, -1).join("");
+    const endingFlowHtml = flowSections.at(-1) || "";
     const plateAreaTable = result.state.connectionType === "plate_check" && result.derivedAreas
       ? `<section class="block"><h3>連接板派生面積</h3><table><tbody>
           <tr><th>Ag</th><td>${formatNumber(result.derivedAreas.Ag, 2)} mm²</td></tr>
@@ -2341,6 +2404,7 @@ ${plateAreaTable}
 ${tensionAreaTable}
 ${flowHtml}
 <div class="report-ending">
+${endingFlowHtml}
 <section class="block"><h3>檢核結論</h3><div class="banner">${reportBanner.textContent}</div></section>
 </div>
 </div>
@@ -2679,6 +2743,7 @@ ${flowHtml}
   showFlow.addEventListener("change", () => update(false));
   loadExampleBtn.addEventListener("click", () => setFormState(getCurrentExampleState(), true));
   saveDraftBtn.addEventListener("click", () => persistDraft(collectFormState()));
+  exportSourceJsonBtn.addEventListener("click", exportConnectionSourceJson);
   exportReportBtn.addEventListener("click", exportReport);
   copySummaryBtn.addEventListener("click", copySummary);
   printReportBtn.addEventListener("click", exportReport);
@@ -2709,6 +2774,7 @@ ${flowHtml}
   document.querySelectorAll(`[form="${form.id}"]`).forEach((field) => {
     field.addEventListener("focus", () => updateQuickNavActive("input"));
   });
+  window.buildSteelConnectionSourcePayload = buildConnectionSourcePayload;
   setFormState(loadSavedDraft() || getCurrentExampleState(), false);
   activatePanel(currentPanel);
   loadAuditStatus();

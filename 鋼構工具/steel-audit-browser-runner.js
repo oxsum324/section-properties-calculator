@@ -36,7 +36,9 @@ const scenarios = [
   { name: 'main-plate', url: '/index.html' },
   { name: 'main-plate-report-popup-placeholder', url: '/index.html', setup: setupMainPlateProjectMetaPlaceholder, assert: assertMainPlateReportPopupPlaceholder },
   { name: 'main-tension', url: '/index.html', setup: setupMainTension },
+  { name: 'main-tension-report-popup', url: '/index.html', setup: setupMainTensionReport, assert: assertMainTensionReportPopup },
   { name: 'standalone-plate', url: '/plate-check.html' },
+  { name: 'standalone-plate-report-popup', url: '/plate-check.html', setup: setupStandalonePlateReport, assert: assertStandalonePlateReportPopup },
   { name: 'formal-beam', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaPlaceholder, assert: assertFormalBeamReadiness },
   { name: 'formal-beam-import-candidate', url: '/steel-beam-formal.html?import=1', setup: setupFormalBeamImportCandidate, assert: assertFormalBeamImportCandidate },
   { name: 'formal-beam-meta-complete', url: '/steel-beam-formal.html', setup: setupFormalProjectMetaComplete, assert: assertFormalBeamReadinessMetaComplete },
@@ -74,6 +76,18 @@ const FORMAL_PROJECT_META_PLACEHOLDER = {
 const LEGACY_PROJECT_META_PLACEHOLDER = {
   projectName: '未填',
   connectionTag: 'PL-VERIFY-001',
+  designer: 'Codex QA',
+};
+
+const LEGACY_TENSION_PROJECT_META = {
+  projectName: '鋼構拉力構件驗證案',
+  connectionTag: 'TM-VERIFY-001',
+  designer: 'Codex QA',
+};
+
+const LEGACY_STANDALONE_PLATE_PROJECT_META = {
+  projectName: '鋼構連接板驗證案',
+  connectionTag: 'PL-VERIFY-002',
   designer: 'Codex QA',
 };
 
@@ -337,6 +351,30 @@ async function setupMainTension(cdp, sessionId) {
     return true;
   })()`, 'main tension setup');
   await wait(300);
+}
+
+async function setupLegacyProjectMeta(cdp, sessionId, fields, label) {
+  await evaluate(cdp, sessionId, `(() => {
+    const fields = ${JSON.stringify(fields)};
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = document.querySelector('[name="' + name + '"]');
+      if (!input) throw new Error('missing [name="' + name + '"]');
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    return true;
+  })()`, label);
+  await wait(250);
+}
+
+async function setupMainTensionReport(cdp, sessionId) {
+  await setupMainTension(cdp, sessionId);
+  await setupLegacyProjectMeta(cdp, sessionId, LEGACY_TENSION_PROJECT_META, 'main tension project meta setup');
+}
+
+async function setupStandalonePlateReport(cdp, sessionId) {
+  await setupLegacyProjectMeta(cdp, sessionId, LEGACY_STANDALONE_PLATE_PROJECT_META, 'standalone plate project meta setup');
 }
 
 async function setupMainPlateProjectMetaPlaceholder(cdp, sessionId) {
@@ -639,7 +677,38 @@ async function assertMainPlateReportPopupPlaceholder(cdp, sessionId, context = {
       designer: LEGACY_PROJECT_META_PLACEHOLDER.designer,
     },
     absentNeedles: ['未填'],
+    sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-plate' : '',
+  });
+}
+
+async function assertMainTensionReportPopup(cdp, sessionId, context = {}) {
+  return assertLegacyReportPopup(cdp, sessionId, {
+    label: 'main tension report popup',
+    buttonSelector: '#printReportBtn',
+    titleNeedle: '拉力構件檢核計算書',
+    expectedProject: {
+      name: LEGACY_TENSION_PROJECT_META.projectName,
+      tag: LEGACY_TENSION_PROJECT_META.connectionTag,
+      designer: LEGACY_TENSION_PROJECT_META.designer,
+    },
+    sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-main-tension' : '',
+  });
+}
+
+async function assertStandalonePlateReportPopup(cdp, sessionId, context = {}) {
+  return assertLegacyReportPopup(cdp, sessionId, {
+    label: 'standalone plate report popup',
+    buttonSelector: '#printReportBtn',
+    titleNeedle: '連接板檢核計算書',
+    expectedProject: {
+      name: LEGACY_STANDALONE_PLATE_PROJECT_META.projectName,
+      tag: LEGACY_STANDALONE_PLATE_PROJECT_META.connectionTag,
+      designer: LEGACY_STANDALONE_PLATE_PROJECT_META.designer,
+    },
+    sourcePayloadBuilder: 'buildSteelConnectionSourcePayload',
+    renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-standalone-plate' : '',
   });
 }
 
@@ -929,6 +998,37 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
 }
 
 async function assertLegacyReportPopup(cdp, sessionId, options) {
+  const sourceExport = options.sourcePayloadBuilder
+    ? await evaluate(cdp, sessionId, `(() => {
+        const builder = window[${JSON.stringify(options.sourcePayloadBuilder)}];
+        if (typeof builder !== 'function') throw new Error('missing source payload builder ${options.sourcePayloadBuilder}');
+        const payload = builder();
+        const button = document.querySelector('#exportSourceJsonBtn');
+        if (!button) throw new Error('missing #exportSourceJsonBtn');
+        const originalCreateObjectURL = URL.createObjectURL;
+        const originalRevokeObjectURL = URL.revokeObjectURL;
+        const originalAnchorClick = HTMLAnchorElement.prototype.click;
+        let download = null;
+        try {
+          URL.createObjectURL = () => 'blob:steel-connection-source-json-browser-test';
+          URL.revokeObjectURL = () => {};
+          HTMLAnchorElement.prototype.click = function captureSourceDownload() {
+            download = { filename: this.download || '', href: this.href || '' };
+          };
+          button.click();
+        } finally {
+          URL.createObjectURL = originalCreateObjectURL;
+          URL.revokeObjectURL = originalRevokeObjectURL;
+          HTMLAnchorElement.prototype.click = originalAnchorClick;
+        }
+        return {
+          payload,
+          download,
+          status: document.querySelector('#exportReportStatus')?.textContent || '',
+        };
+      })()`, `${options.label} source payload`)
+    : null;
+  const sourcePayload = sourceExport?.payload || null;
   const popup = await openLegacyReportPopup(cdp, sessionId, options.label, options.buttonSelector);
   const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
     title: document.title || '',
@@ -973,6 +1073,24 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
   assertFormalReportTraceText(snapshot.bodyText, options.label);
+  if (sourcePayload) {
+    const reportFingerprint = snapshot.bodyText.match(/計算指紋\s*(CF-[0-9A-F]{16})/)?.[1] || '';
+    if (sourcePayload.schemaVersion !== 1 || sourcePayload.kind !== 'formal-calculation-source') {
+      throw new Error(`${options.label} invalid source payload envelope: ${JSON.stringify(sourcePayload)}`);
+    }
+    if (!sourcePayload.tool?.name || !sourcePayload.tool?.version || !sourcePayload.fields?.connectionType) {
+      throw new Error(`${options.label} incomplete source payload trace/input fields: ${JSON.stringify(sourcePayload)}`);
+    }
+    if (sourcePayload.project?.no !== options.expectedProject.tag) {
+      throw new Error(`${options.label} source payload project mismatch: ${JSON.stringify(sourcePayload.project)}`);
+    }
+    if (!sourceExport.download?.filename?.endsWith('.json') || !sourceExport.status.includes(sourcePayload.calculationFingerprint)) {
+      throw new Error(`${options.label} source JSON download/status mismatch: ${JSON.stringify(sourceExport)}`);
+    }
+    if (!reportFingerprint || sourcePayload.calculationFingerprint !== reportFingerprint || sourcePayload.report?.calculationFingerprint !== reportFingerprint) {
+      throw new Error(`${options.label} source/report fingerprint mismatch: ${sourcePayload.calculationFingerprint} / ${sourcePayload.report?.calculationFingerprint} / ${reportFingerprint}`);
+    }
+  }
   if (options.renderEvidenceKey) {
     const evidence = await renderAndValidateReportPdf(cdp, {
       html: snapshot.html,
@@ -1439,7 +1557,7 @@ async function main() {
       renderedEvidenceDir,
       'steel-formal',
       renderedEvidenceRecords,
-      ['steel-main-plate', 'steel-beam-formal', 'steel-column-formal']
+      ['steel-main-plate', 'steel-main-tension', 'steel-standalone-plate', 'steel-beam-formal', 'steel-column-formal']
     )
     : null;
   if (renderedSummary) {

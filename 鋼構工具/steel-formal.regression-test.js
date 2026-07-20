@@ -245,6 +245,11 @@ assert.match(
   /<div class="report-ending">[\s\S]*<h3>檢核結論<\/h3>[\s\S]*<\/div>/,
   "legacy report should keep the final conclusion together at the end",
 );
+assert.match(
+  appSource,
+  /const flowSections = showFlow\.checked[\s\S]*const endingFlowHtml = flowSections\.at\(-1\) \|\| ""[\s\S]*<div class="report-ending">\s*\$\{endingFlowHtml\}[\s\S]*<h3>檢核結論<\/h3>/s,
+  "legacy report should keep the final calculation step with the conclusion to avoid a sparse final page",
+);
 assert.doesNotMatch(
   appSource.match(/function buildReportHtml\(result\)[\s\S]*?\n  }\n\n  function openReportWindow/)?.[0] || "",
   /設計依據與限制條件|buildReviewSectionsMarkup|設計備註/,
@@ -365,6 +370,11 @@ for (const [label, html] of [["main", indexSource], ["standalone plate", plateCh
     /\.\/tool-metadata\.js[\s\S]*\.\/core\/ui\/report\.js[\s\S]*\.\/calculator\.js[\s\S]*\.\/app\.js/s,
     `${label} page should load canonical metadata and the report trace core before app.js`,
   );
+  assert.match(
+    html,
+    /id="exportSourceJsonBtn"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+    `${label} page should expose a calculation-source JSON export`,
+  );
 }
 for (const [label, html] of [
   ["steel main", indexSource],
@@ -437,12 +447,22 @@ assert.match(
   /const getFormalToolMetadata =[\s\S]*const withFormalToolVersion =[\s\S]*function renderSummary\(result\)[\s\S]*versionedPageTitle[\s\S]*pageTitle\.textContent = versionedPageTitle[\s\S]*document\.title = versionedPageTitle/s,
   "the connection suite should preserve the canonical visible version when the active module changes",
 );
-const mainReportBuilderSource = appSource.match(/function buildReportHtml\(result\)\s*\{[\s\S]*?\n\s*function exportReport\(\)/)?.[0] || "";
+const mainReportBuilderSource = appSource.match(/function buildConnectionReportConfig\(result\)\s*\{[\s\S]*?\n\s*function exportReport\(\)/)?.[0] || "";
 assert.ok(mainReportBuilderSource, "app.js should expose a statically inspectable formal report builder");
 assert.match(
   mainReportBuilderSource,
-  /SteelFormalUI\.buildReportTrace\([\s\S]*outputSource[\s\S]*reportTrace\.sourceTrace\.tool[\s\S]*reportTrace\.sourceTrace\.version[\s\S]*reportTrace\.generatedAt[\s\S]*reportTrace\.calculationFingerprint/s,
+  /function buildConnectionReportConfig\(result\)[\s\S]*outputSource[\s\S]*function buildConnectionReportTrace\(result\)[\s\S]*SteelFormalUI\.buildReportTrace\(buildConnectionReportConfig\(result\)\)[\s\S]*reportTrace\.sourceTrace\.tool[\s\S]*reportTrace\.sourceTrace\.version[\s\S]*reportTrace\.generatedAt[\s\S]*reportTrace\.calculationFingerprint/s,
   "connection and plate reports should emit all four trace fields from the shared report trace core",
+);
+assert.match(
+  mainReportBuilderSource,
+  /function buildConnectionSourcePayload\(result = window\.latestSteelConnectionResult[\s\S]*buildConnectionReportConfig\(result\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: \{ \.\.\.result\.state \}[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*function buildReportHtml\(result\)[\s\S]*buildConnectionReportTrace\(result\)/s,
+  "connection, tension, and plate source JSON should reuse the formal report configuration and calculation fingerprint",
+);
+assert.match(
+  appSource,
+  /exportSourceJsonBtn\.addEventListener\("click", exportConnectionSourceJson\)[\s\S]*window\.buildSteelConnectionSourcePayload = buildConnectionSourcePayload/s,
+  "connection suite should wire and expose the source JSON payload for browser verification",
 );
 for (const needle of reportTraceLabels) {
   assert.ok(mainReportBuilderSource.includes(needle), `connection and plate report builder should include ${needle}`);
@@ -995,6 +1015,11 @@ assert.match(
   browserRunnerSource,
   /sourcePayloadBuilder:\s*'buildBeamSourcePayload'[\s\S]*sourcePayloadBuilder:\s*'buildColumnSourcePayload'[\s\S]*#btnExportSourceJson[\s\S]*button\.click\(\)[\s\S]*sourceExport\.download\?\.filename\?\.endsWith\('\.json'\)[\s\S]*sourcePayload\.calculationFingerprint !== reportFingerprint[\s\S]*sourcePayload\.report\?\.calculationFingerprint !== reportFingerprint/s,
   "steel-audit-browser-runner.js should exercise the source JSON download and compare beam/column fingerprints with the rendered calculation books",
+);
+assert.match(
+  browserRunnerSource,
+  /main-tension-report-popup[\s\S]*standalone-plate-report-popup[\s\S]*sourcePayloadBuilder:\s*'buildSteelConnectionSourcePayload'[\s\S]*#exportSourceJsonBtn[\s\S]*button\.click\(\)[\s\S]*sourcePayload\.project\?\.no !== options\.expectedProject\.tag[\s\S]*sourcePayload\.calculationFingerprint !== reportFingerprint[\s\S]*steel-main-tension[\s\S]*steel-standalone-plate/s,
+  "steel-audit-browser-runner.js should download connection/tension/plate source JSON and compare it with each rendered calculation book",
 );
 assert.match(
   browserRunnerSource,
