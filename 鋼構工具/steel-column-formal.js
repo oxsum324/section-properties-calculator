@@ -1627,11 +1627,9 @@
     return result;
   }
 
-  function buildReport() {
-    const result = runCheck();
-    if (!result) return;
+  function buildColumnReportConfig(result) {
     const summaryState = getColumnReportSummaryState(result);
-    openReport({
+    return {
       title: "鋼柱正式規範核算計算書",
       subtitle: `Steel Column Formal Report (${designMethod})`,
       outputSource: TOOL_METADATA,
@@ -1671,7 +1669,75 @@
       ],
       summary: summaryState,
       steps: buildReportSteps(result),
+    };
+  }
+
+  function collectColumnSourceFields() {
+    const fields = {};
+    document.querySelectorAll("#inputColumn .card input[id], #inputColumn .card select[id], #inputColumn .card textarea[id]").forEach((field) => {
+      if (field.disabled || field.dataset.filterInput) return;
+      fields[field.id] = {
+        value: field.type === "checkbox" ? field.checked : field.value,
+      };
     });
+    return fields;
+  }
+
+  function buildColumnSourcePayload(result = runCheck()) {
+    if (!result) return null;
+    const reportConfig = buildColumnReportConfig(result);
+    const reportTrace = SteelFormalUI.buildReportTrace(reportConfig);
+    return {
+      schemaVersion: 1,
+      kind: "formal-calculation-source",
+      savedAt: new Date().toISOString(),
+      project: reportConfig.project,
+      tool: {
+        id: TOOL_METADATA.id,
+        name: reportTrace.sourceTrace.tool,
+        version: reportTrace.sourceTrace.version,
+      },
+      designMethod,
+      unitMode,
+      fields: collectColumnSourceFields(),
+      calculationFingerprint: reportTrace.calculationFingerprint,
+      report: {
+        title: reportConfig.title,
+        subtitle: reportConfig.subtitle,
+        inputs: reportConfig.inputs,
+        checks: reportConfig.checks,
+        summary: reportConfig.summary,
+        steps: reportConfig.steps,
+        calculationFingerprint: reportTrace.calculationFingerprint,
+      },
+    };
+  }
+
+  function sourceJsonFilename(project = {}) {
+    const identity = project.no || project.name || "source";
+    const safeIdentity = String(identity).trim().replace(/[\\/:*?"<>|\s]+/g, "-").replace(/^-+|-+$/g, "") || "source";
+    return `${TOOL_METADATA.id}-${safeIdentity}.json`;
+  }
+
+  function exportColumnSourceJson() {
+    const payload = buildColumnSourcePayload();
+    if (!payload) return;
+    const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = sourceJsonFilename(payload.project);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+    setInputStatus(`已匯出來源 JSON｜計算指紋 ${payload.calculationFingerprint}`);
+  }
+
+  function buildReport() {
+    const result = runCheck();
+    if (!result) return;
+    openReport(buildColumnReportConfig(result));
   }
 
   function bindEvents() {
@@ -1689,6 +1755,7 @@
     $("btnLRFD").addEventListener("click", () => { setMethod("LRFD"); resultState = runCheck(); });
     $("btnASD").addEventListener("click", () => { setMethod("ASD"); resultState = runCheck(); });
     $("runCheckBtn").addEventListener("click", () => { resultState = runCheck(); });
+    $("btnExportSourceJson").addEventListener("click", exportColumnSourceJson);
     $("btnReport").addEventListener("click", buildReport);
     $("printReportBtn").addEventListener("click", buildReport);
     $("columnJumpGoverningBtn").addEventListener("click", () => scrollToBlock(getGoverningTarget()));
@@ -1750,6 +1817,7 @@
     });
   }
 
+  window.buildColumnSourcePayload = buildColumnSourcePayload;
   buildSecOptions();
   buildMatOptions();
   renderGlossary();

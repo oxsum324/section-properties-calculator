@@ -28,6 +28,18 @@ assert.equal(Checker.extractTextMetadata('產出工具：建築物耐風設計 �
 assert.equal(Checker.normalizeToolVersion('4.0'), 'v4.0');
 assert.equal(Checker.normalizeToolVersion('V4.0'), 'v4.0');
 assert.equal(Checker.normalizeToolVersion('wind-force.v1'), 'v1');
+const steelMemberSourceExtracted = Checker.extractJsonMetadata({
+  schemaVersion: 1,
+  kind: 'formal-calculation-source',
+  savedAt: '2026-07-21T00:06:15.000Z',
+  project: { name: '鋼構測試案', no: 'STEEL-001', designer: 'Codex QA' },
+  tool: { id: 'steel-beam-formal', name: '鋼梁正式規範核算工具', version: 'v1.0' },
+  calculationFingerprint: 'CF-ABCDEF0123456789',
+});
+assert.equal(steelMemberSourceExtracted.projectNo, 'STEEL-001');
+assert.equal(steelMemberSourceExtracted.sourceTool, '鋼梁正式規範核算工具');
+assert.equal(steelMemberSourceExtracted.toolVersion, 'v1.0');
+assert.deepEqual(steelMemberSourceExtracted.fingerprints, ['CF-ABCDEF0123456789']);
 
 const readyReport = Checker.analyzePackage([
   { file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件分類｜可送簽版'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },

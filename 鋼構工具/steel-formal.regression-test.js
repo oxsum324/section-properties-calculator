@@ -671,7 +671,7 @@ assert.match(
 );
 assert.match(
   beamFormalSource,
-  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*openReport\({[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
+  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*function buildBeamReportConfig\(result\)[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
   "steel-beam-formal.js should normalize placeholder project metadata before syncing report meta and exporting the formal report",
 );
 assert.doesNotMatch(
@@ -719,8 +719,8 @@ assert.match(
   /localStorage\.setItem\(UI_PREFS_KEY[\s\S]*unitMode[\s\S]*parsed\.unitMode === "legacy" \|\| parsed\.unitMode === "si"/,
   "steel-column-formal.js should persist and restore the last-used unit mode",
 );
-const beamBuildReportSource = beamFormalSource.match(/function buildReport\(\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
-const columnBuildReportSource = columnFormalSource.match(/function buildReport\(\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
+const beamBuildReportSource = beamFormalSource.match(/function buildBeamReportConfig\(result\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
+const columnBuildReportSource = columnFormalSource.match(/function buildColumnReportConfig\(result\)[\s\S]*?function bindEvents\(\)/)?.[0] || "";
 assert.match(
   beamBuildReportSource,
   /subtitle: `Steel Beam Formal Report \(\$\{designMethod\}\)`[\s\S]*inputs:[\s\S]*group: "斷面與材料"[\s\S]*checks:[\s\S]*summary: summaryState[\s\S]*steps: buildReportSteps\(result\)/s,
@@ -730,6 +730,21 @@ assert.doesNotMatch(
   beamBuildReportSource,
   /highlights:|summaryFacts:|group: "單位系統"|symbols:|notes:/,
   "steel-beam-formal.js should keep unit cards, summary cards, symbols, and explanatory notes out of the calculation book",
+);
+assert.match(
+  beamFormalHtmlSource,
+  /id="btnExportSourceJson"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+  "steel-beam-formal.html should expose a calculation-source JSON export",
+);
+assert.match(
+  beamBuildReportSource,
+  /function buildBeamSourcePayload\(result = runCheck\(\)\)[\s\S]*SteelFormalUI\.buildReportTrace\(reportConfig\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: collectBeamSourceFields\(\)[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*openReport\(buildBeamReportConfig\(result\)\)/s,
+  "steel-beam-formal.js should reuse one report configuration for the source JSON and calculation book fingerprint",
+);
+assert.match(
+  beamFormalSource,
+  /btnExportSourceJson[\s\S]*exportBeamSourceJson[\s\S]*window\.buildBeamSourcePayload = buildBeamSourcePayload/s,
+  "steel-beam-formal.js should expose and wire the source payload for browser verification",
 );
 assert.match(
   beamFormalHtmlSource,
@@ -758,6 +773,21 @@ assert.doesNotMatch(
 );
 assert.match(
   columnFormalHtmlSource,
+  /id="btnExportSourceJson"[^>]*>[^<]*匯出來源 JSON<\/button>/,
+  "steel-column-formal.html should expose a calculation-source JSON export",
+);
+assert.match(
+  columnBuildReportSource,
+  /function buildColumnSourcePayload\(result = runCheck\(\)\)[\s\S]*SteelFormalUI\.buildReportTrace\(reportConfig\)[\s\S]*kind: "formal-calculation-source"[\s\S]*fields: collectColumnSourceFields\(\)[\s\S]*calculationFingerprint: reportTrace\.calculationFingerprint[\s\S]*openReport\(buildColumnReportConfig\(result\)\)/s,
+  "steel-column-formal.js should reuse one report configuration for the source JSON and calculation book fingerprint",
+);
+assert.match(
+  columnFormalSource,
+  /btnExportSourceJson[\s\S]*exportColumnSourceJson[\s\S]*window\.buildColumnSourcePayload = buildColumnSourcePayload/s,
+  "steel-column-formal.js should expose and wire the source payload for browser verification",
+);
+assert.match(
+  columnFormalHtmlSource,
   /columnShowFlowInReport[^>]*checked hidden[\s\S]*columnShowSymbolsInReport[^>]*hidden[\s\S]*正式計算書固定輸出採用輸入、公式代入、檢核結果與結論[\s\S]*只保留在本 HTML 畫面/s,
   "steel-column-formal.html should explain the fixed calculation-book boundary on the page",
 );
@@ -778,7 +808,7 @@ assert.match(
 );
 assert.match(
   columnFormalSource,
-  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*openReport\({[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
+  /const getProjectMetaValue = \(id\) => SteelFormalUI\.normalizeProjectFieldValue\(\$\(id\)\?\.value\);[\s\S]*function renderMeta\(result\)\s*{[\s\S]*getProjectMetaValue\("projName"\)[\s\S]*getProjectMetaValue\("projNo"\)[\s\S]*getProjectMetaValue\("projDesigner"\)[\s\S]*function buildColumnReportConfig\(result\)[\s\S]*project:\s*{\s*name:\s*getProjectMetaValue\("projName"\),\s*no:\s*getProjectMetaValue\("projNo"\),\s*designer:\s*getProjectMetaValue\("projDesigner"\)\s*}/s,
   "steel-column-formal.js should normalize placeholder project metadata before syncing report meta and exporting the formal report",
 );
 assert.doesNotMatch(
@@ -960,6 +990,11 @@ assert.match(
   browserRunnerSource,
   /assertFormalBeamReportPopupComplete[\s\S]*buttonSelector:\s*'#printReportBtn'[\s\S]*assertFormalColumnReportPopupComplete[\s\S]*buttonSelector:\s*'#printReportBtn'/s,
   "steel-audit-browser-runner.js should exercise the actual beam and column result-area formal-report actions",
+);
+assert.match(
+  browserRunnerSource,
+  /sourcePayloadBuilder:\s*'buildBeamSourcePayload'[\s\S]*sourcePayloadBuilder:\s*'buildColumnSourcePayload'[\s\S]*#btnExportSourceJson[\s\S]*button\.click\(\)[\s\S]*sourceExport\.download\?\.filename\?\.endsWith\('\.json'\)[\s\S]*sourcePayload\.calculationFingerprint !== reportFingerprint[\s\S]*sourcePayload\.report\?\.calculationFingerprint !== reportFingerprint/s,
+  "steel-audit-browser-runner.js should exercise the source JSON download and compare beam/column fingerprints with the rendered calculation books",
 );
 assert.match(
   browserRunnerSource,

@@ -567,6 +567,7 @@ async function assertFormalBeamReportPopupComplete(cdp, sessionId, context = {})
       no: FORMAL_PROJECT_META.projNo,
       designer: FORMAL_PROJECT_META.projDesigner,
     },
+    sourcePayloadBuilder: 'buildBeamSourcePayload',
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-beam-formal' : '',
   });
 }
@@ -676,6 +677,7 @@ async function assertFormalColumnReportPopupComplete(cdp, sessionId, context = {
       no: FORMAL_PROJECT_META.projNo,
       designer: FORMAL_PROJECT_META.projDesigner,
     },
+    sourcePayloadBuilder: 'buildColumnSourcePayload',
     renderEvidenceKey: context.viewport?.label === 'desktop' ? 'steel-column-formal' : '',
   });
 }
@@ -802,6 +804,37 @@ async function assertFormalProjectMetaPlaceholderRendered(cdp, sessionId, select
 }
 
 async function assertFormalReportPopup(cdp, sessionId, options) {
+  const sourceExport = options.sourcePayloadBuilder
+    ? await evaluate(cdp, sessionId, `(() => {
+        const builder = window[${JSON.stringify(options.sourcePayloadBuilder)}];
+        if (typeof builder !== 'function') throw new Error('missing source payload builder ${options.sourcePayloadBuilder}');
+        const payload = builder();
+        const button = document.querySelector('#btnExportSourceJson');
+        if (!button) throw new Error('missing #btnExportSourceJson');
+        const originalCreateObjectURL = URL.createObjectURL;
+        const originalRevokeObjectURL = URL.revokeObjectURL;
+        const originalAnchorClick = HTMLAnchorElement.prototype.click;
+        let download = null;
+        try {
+          URL.createObjectURL = () => 'blob:steel-source-json-browser-test';
+          URL.revokeObjectURL = () => {};
+          HTMLAnchorElement.prototype.click = function captureSourceDownload() {
+            download = { filename: this.download || '', href: this.href || '' };
+          };
+          button.click();
+        } finally {
+          URL.createObjectURL = originalCreateObjectURL;
+          URL.revokeObjectURL = originalRevokeObjectURL;
+          HTMLAnchorElement.prototype.click = originalAnchorClick;
+        }
+        return {
+          payload,
+          download,
+          status: document.querySelector('#beamInputStatus, #columnInputStatus')?.textContent || '',
+        };
+      })()`, `${options.label} source payload`)
+    : null;
+  const sourcePayload = sourceExport?.payload || null;
   const popup = await openFormalReportPopup(cdp, sessionId, options.label, options.buttonSelector || '#btnReport');
   const snapshot = await evaluate(cdp, popup.sessionId, `(() => ({
     title: document.title || '',
@@ -850,6 +883,24 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
   }
   assertFormalReportTraceText(snapshot.bodyText, options.label);
+  if (sourcePayload) {
+    const reportFingerprint = snapshot.bodyText.match(/計算指紋\s*(CF-[0-9A-F]{16})/)?.[1] || '';
+    if (sourcePayload.schemaVersion !== 1 || sourcePayload.kind !== 'formal-calculation-source') {
+      throw new Error(`${options.label} invalid source payload envelope: ${JSON.stringify(sourcePayload)}`);
+    }
+    if (!sourcePayload.tool?.name || !sourcePayload.tool?.version || !sourcePayload.fields?.inFy) {
+      throw new Error(`${options.label} incomplete source payload trace/input fields: ${JSON.stringify(sourcePayload)}`);
+    }
+    if (sourcePayload.project?.no !== options.expectedProject.no) {
+      throw new Error(`${options.label} source payload project mismatch: ${JSON.stringify(sourcePayload.project)}`);
+    }
+    if (!sourceExport.download?.filename?.endsWith('.json') || !sourceExport.status.includes(sourcePayload.calculationFingerprint)) {
+      throw new Error(`${options.label} source JSON download/status mismatch: ${JSON.stringify(sourceExport)}`);
+    }
+    if (!reportFingerprint || sourcePayload.calculationFingerprint !== reportFingerprint || sourcePayload.report?.calculationFingerprint !== reportFingerprint) {
+      throw new Error(`${options.label} source/report fingerprint mismatch: ${sourcePayload.calculationFingerprint} / ${sourcePayload.report?.calculationFingerprint} / ${reportFingerprint}`);
+    }
+  }
   if (options.renderEvidenceKey) {
     const evidence = await renderAndValidateReportPdf(cdp, {
       html: snapshot.html,

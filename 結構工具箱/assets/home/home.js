@@ -140,7 +140,7 @@
   // tracked preflight snapshot。禁止以單一 fallback 日期覆蓋所有卡片。
   const HOME_TOOL_UPDATES = {
     version: 1,
-    generatedAt: '2026-07-20',
+    generatedAt: '2026-07-21',
     releaseVerifiedAt: '2026-07-20',
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
@@ -158,8 +158,8 @@
       '/rc-pile': '2026-07-20',
       '/rc-retrofit-section': '2026-07-20',
       '/steel-formal': '2026-07-18',
-      '/steel-beam-formal': '2026-07-18',
-      '/steel-column-formal': '2026-07-18',
+      '/steel-beam-formal': '2026-07-21',
+      '/steel-column-formal': '2026-07-21',
       '/steel-plate': '2026-07-18',
       '/steel-beam': '2026-07-18',
       '/steel-column': '2026-07-18',
@@ -201,6 +201,8 @@
       '/rc-foundation': ['鋼筋混凝土/shared/report.js'],
       '/rc-pile': ['鋼筋混凝土/shared/report.js'],
       '/rc-retrofit-section': ['鋼筋混凝土/shared/report.js'],
+      '/steel-beam-formal': ['鋼構工具/steel-beam-formal.js'],
+      '/steel-column-formal': ['鋼構工具/steel-column-formal.js'],
       '/wind-force': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js'],
       '/wind-cc': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js'],
       '/wind-open-roof': ['結構工具箱/core/ui/report.js', '結構工具箱/core/wind-report.js'],
