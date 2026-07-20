@@ -167,6 +167,7 @@ const fallbackText = expectedLabels.join('、');
 const requiredQaArtifacts = [
   'tools/audit-status.contract.test.js',
   'tools/rc-traceability.contract.test.js',
+  'tools/rc-project-fingerprint.contract.test.js',
   'tools/rc-index-menu-browser-smoke.test.js',
   'tools/test-rc-index-menu.ps1',
   'shared/direct-print-boundary.css',
@@ -326,6 +327,8 @@ assertIncludes(audit, 'RC index menu browser smoke', 'audit runs index menu brow
 ].forEach(needle => assertIncludes(rcIndexBrowser, needle, 'RC index smoke enforces direct-print block'));
 assertIncludes(sharedReport, 'showRcReportIssue', 'shared report exposes inline popup-block status helper');
 assertIncludes(sharedReport, 'repWindowStatus', 'shared report exposes inline report-window status helper');
+assertIncludes(sharedReport, 'window.RCReportFingerprint', 'shared report exposes project calculation fingerprint API');
+assertIncludes(audit, 'RC project/report calculation fingerprint contract', 'RC audit wires project/report calculation fingerprint contract');
 assert(!sharedReport.includes('alert('), 'shared report uses inline status instead of blocking alerts');
 validateRcTraceabilityCatalog(rcTraceCatalog, rcTraceCatalogText);
 assertIncludes(testBeam, 'Beam report visual smoke', 'test-beam runs beam report visual smoke');
@@ -341,6 +344,7 @@ assertIncludes(testSinglePile, 'single-pile-report-visual.test.js', 'test-single
 assertIncludes(index, 'moduleText(payload)', 'index renders module list from audit status metadata');
 assertIncludes(index, fallbackText, 'index fallback matches expected module labels');
 assertIncludes(readme, '`shared/common.js` helper 單元測試', 'README documents shared common helper unit tests');
+assertIncludes(readme, 'RC 專案 JSON／計算書指紋一致性 contract', 'README documents project/report calculation fingerprint contract');
 assertIncludes(readme, '剪力牆完整 suite', 'README documents shear wall suite');
 assertIncludes(readme, '梁回歸測試與報告視覺 smoke', 'README documents beam suite label');
 assertIncludes(readme, '柱回歸測試與報告視覺 smoke', 'README documents column suite label');
@@ -360,6 +364,7 @@ assertIncludes(readme, '單樁回歸測試與報告視覺 smoke', 'README docume
   '.\\tools\\test-shear-wall.ps1',
   '.\\tools\\test-shear-wall-report.ps1',
   '.\\tools\\test-rc-index-menu.ps1',
+  'node .\\tools\\rc-project-fingerprint.contract.test.js',
   'node .\\shared\\common.test.js',
 ].forEach(command => assertIncludes(readme, command, `README documents direct command ${command}`));
 assertIncludes(readme, '剪力牆報告視覺 smoke', 'README documents shear wall report visual smoke');

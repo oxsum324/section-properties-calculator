@@ -620,7 +620,7 @@
 </div>
 
 <script src="../shared/common.js?v=4"></script>
-<script src="../shared/report.js?v=4"></script>
+<script src="../shared/report.js?v=5"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -801,7 +801,7 @@
   }
 
   function buildProjectPayload() {
-    return {
+    const payload = {
       schema: PROJECT_SCHEMA,
       tool: {
         id: 'single-pile-designer',
@@ -811,6 +811,7 @@
       savedAt: new Date().toISOString(),
       state: captureCurrentState()
     };
+    return window.RCReportFingerprint.withProjectCalculationFingerprint(payload);
   }
 
   function downloadJson(filename, payload) {
@@ -1696,6 +1697,7 @@ ${gainText}`;
 
   function buildSinglePileReport() {
     calc();
+    const projectSnapshot = buildProjectPayload();
     const r = window.singlePileLast;
     if (!r || (!r.bestCandidate && !r.displayCandidate)) {
       setReportStatus('目前沒有可產生計算書的單樁試算結果。');
@@ -1717,6 +1719,7 @@ ${gainText}`;
     openReport({
       title: '單樁承載力設計計算書',
       subtitle: 'RC 工具箱 · 單樁承載力、沉陷與樁身初步檢核',
+      calculationFingerprint: projectSnapshot.calculationFingerprint,
       project: proj,
       documentState: attachmentReadiness.documentState,
       documentClass: attachmentReadiness.documentClass,
@@ -1994,6 +1997,8 @@ ${preset.note}
 24, 35, 50, 18, 0, 1.20, mudstone`;
     calc();
   }
+
+  window.buildProjectPayload = buildProjectPayload;
 
   $('btnCalc').addEventListener('click', calc);
   $('btnSample').addEventListener('click', loadSample);

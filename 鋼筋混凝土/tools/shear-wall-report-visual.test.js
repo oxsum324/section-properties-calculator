@@ -173,6 +173,7 @@ async function reportMetrics(report) {
       }));
     return {
       title: clean(document.querySelector('h1')?.textContent),
+      calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
@@ -249,6 +250,7 @@ async function main() {
         assert(state.banner.includes('待確認 —'), `${tc.key} banner uses pending-review count`, state.banner);
         assert(state.readinessText.includes('待人工複核'), `${tc.key} page readiness flags review`, state.readinessText);
       }
+      const sourceFingerprint = await page.evaluate(() => window.collectShearWallProjectData().calculationFingerprint);
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -281,6 +283,8 @@ async function main() {
       results.push({ key: tc.key, title: tc.title, screenshotPath, pdfPath, state, metrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === '剪力牆設計計算書', `${tc.key} report title`, metrics.title);
+      assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
+      assert(metrics.calculationFingerprint === sourceFingerprint, `${tc.key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(metrics.bodyText.includes('產出工具'), `${tc.key} report source tool label`, metrics.bodyText);
       assert(metrics.bodyText.includes('剪力牆設計／檢核'), `${tc.key} report source tool`, metrics.bodyText);
       assert(metrics.bodyText.includes('工具版本'), `${tc.key} report source version label`, metrics.bodyText);

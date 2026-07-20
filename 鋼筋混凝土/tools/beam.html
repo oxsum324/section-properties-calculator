@@ -30,7 +30,7 @@
                      showSteps 勾選且該檢核啟用時)
         ‧ summary  : false；附件適用狀態留在頁面產報前檢查，不寫入計算書
         ‧ notes    : 第一條即「作業模式：設計／檢核」
-        ‧ openReport() 共用模組 (../shared/report.js?v=4) 統一輸出
+        ‧ openReport() 共用模組 (../shared/report.js?v=5) 統一輸出
         ‧ window.xxxLast 必須包含所有 r.* 欄位 (含 svMin/okBarsPerLayer 等)
 
   (4) 規範附加檢核 (依各構件規範對照)
@@ -797,7 +797,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/report.js?v=4"></script>
+<script src="../shared/report.js?v=5"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -955,7 +955,7 @@
       fields[el.id] = readBeamControl(el);
     });
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
-    return {
+    const payload = {
       schema: BEAM_PROJECT_SCHEMA,
       tool: 'rc-beam',
       toolTitle: '梁 Beam 設計／檢核',
@@ -975,6 +975,7 @@
         manualReviewItems: collectBeamManualReviewItems(window.beamLast || {})
       }
     };
+    return window.RCReportFingerprint.withProjectCalculationFingerprint(payload, { ignoredKeys: ['activeTab'] });
   }
 
   function beamProjectFilename(payload) {
@@ -2943,8 +2944,8 @@ ${layerBars.map(L => {
 
   // === 計算書產生 ===
   function buildBeamReport() {
-    // 永遠先以最新輸入跑一次計算，確保 beamLast 與 DOM 同步
-    calcBeam();
+    // 專案快照會先以最新輸入計算，並提供 JSON 與計算書共用的計算指紋。
+    const projectSnapshot = collectBeamProjectData();
     const r = window.beamLast;
     const isDesignMode = (currentMode === 'design');
     const reportDetail = $('showSteps')?.checked;
@@ -3264,6 +3265,7 @@ ${layerBars.map(L => {
       title: isDesignMode ? '梁設計計算書' : '梁檢核計算書',
       subtitle: isDesignMode ? 'RC Beam Design Report' : 'RC Beam Check Report',
       project: proj,
+      calculationFingerprint: projectSnapshot.calculationFingerprint,
       documentState: attachmentReadiness.documentState,
       summary:false,
       inputs, checks, steps: stepsArr, diagrams,

@@ -128,6 +128,74 @@ function buildCalculationFingerprint(cfg) {
   return `CF-${fingerprintHash(source, 0x811C9DC5)}${fingerprintHash(source, 0x9E3779B9)}`;
 }
 
+const RC_PROJECT_FINGERPRINT_IGNORED_KEYS = Object.freeze([
+  'calculationFingerprint',
+  'savedAt',
+  'exportedAt',
+  'generatedAt',
+  'metadata',
+  'schema',
+  'tool',
+  'toolTitle',
+  'appVersion',
+  'pageVersion',
+  'projectName',
+  'projectNo',
+  'designer',
+  'projName',
+  'projNo',
+  'projDesigner',
+]);
+
+function normalizeProjectFingerprintValue(value, ignoredKeys) {
+  if (value === null || value === undefined) return null;
+  if (Array.isArray(value)) return value.map((item) => normalizeProjectFingerprintValue(item, ignoredKeys));
+  if (typeof value === 'object') {
+    const normalized = {};
+    Object.keys(value).sort().forEach((key) => {
+      if (ignoredKeys.has(key) || key === 'dataURL' || key === 'html') return;
+      normalized[key] = normalizeProjectFingerprintValue(value[key], ignoredKeys);
+    });
+    return normalized;
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) return String(value);
+  return String(value);
+}
+
+function buildProjectCalculationFingerprint(payload, options = {}) {
+  const ignoredKeys = new Set([
+    ...RC_PROJECT_FINGERPRINT_IGNORED_KEYS,
+    ...(Array.isArray(options.ignoredKeys) ? options.ignoredKeys : []),
+  ]);
+  const toolId = typeof payload?.tool === 'string'
+    ? payload.tool
+    : String(payload?.tool?.id || '');
+  const sourceState = {
+    toolId,
+    payload,
+  };
+  if (options.calculationContext !== undefined) {
+    sourceState.calculationContext = options.calculationContext;
+  }
+  const snapshot = normalizeProjectFingerprintValue(sourceState, ignoredKeys);
+  const source = JSON.stringify(snapshot);
+  return `CF-${fingerprintHash(source, 0x811C9DC5)}${fingerprintHash(source, 0x9E3779B9)}`;
+}
+
+function withProjectCalculationFingerprint(payload, options = {}) {
+  return {
+    ...payload,
+    calculationFingerprint: buildProjectCalculationFingerprint(payload, options),
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.RCReportFingerprint = Object.assign(window.RCReportFingerprint || {}, {
+    buildProjectCalculationFingerprint,
+    withProjectCalculationFingerprint,
+  });
+}
+
 function getReportSourceTrace(cfg) {
   const configured = cfg.outputSource && typeof cfg.outputSource === 'object' ? cfg.outputSource : {};
   const documentTitle = typeof document !== 'undefined' ? String(document.title || '').trim() : '';

@@ -189,6 +189,7 @@ async function reportMetrics(report) {
       }));
     return {
       title: clean(document.querySelector('h1')?.textContent),
+      calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
       documentState: document.querySelector('.rep-document-state')?.dataset.documentState || '',
@@ -284,6 +285,7 @@ async function main() {
       } else {
         assert(state.control && state.control.diaCm >= 40, `${key} control candidate exists`, `D=${state.control?.diaCm}`);
       }
+      const sourceFingerprint = await page.evaluate(() => window.buildProjectPayload().calculationFingerprint);
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -315,6 +317,8 @@ async function main() {
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === '單樁承載力設計計算書', `${key} report title`, metrics.title);
+      assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${key} project JSON calculation fingerprint`, sourceFingerprint);
+      assert(metrics.calculationFingerprint === sourceFingerprint, `${key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasReportSummary, `${key} report status summary hidden`, 'no .rep-summary');
       const expectedDraft = state.readinessStatus !== 'ready';
       assert(metrics.documentState === (expectedDraft ? 'draft' : ''), `${key} report document class follows page readiness`, `${state.readinessStatus} -> ${metrics.documentState || 'ready'}`);

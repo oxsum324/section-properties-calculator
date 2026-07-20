@@ -523,7 +523,7 @@
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
-<script src="../shared/report.js?v=4"></script>
+<script src="../shared/report.js?v=5"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="../shared/wall.js?v=2"></script>
@@ -666,7 +666,7 @@
     });
     const snap = window.swLast || {};
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
-    return {
+    const payload = {
       schema: SHEAR_WALL_PROJECT_SCHEMA,
       tool: 'rc-shear-wall',
       toolTitle: '剪力牆 Shear Wall 設計／檢核',
@@ -686,6 +686,7 @@
         controllingLoadCase: snap.controlLoadCase?.name || ''
       }
     };
+    return window.RCReportFingerprint.withProjectCalculationFingerprint(payload, { ignoredKeys: ['activeTab'] });
   }
 
   function shearWallProjectFilename(payload) {
@@ -1774,7 +1775,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
 
   // ===================== 計算書 =====================
   function buildReport() {
-    if (!window.swLast) calcShearWall();
+    const projectSnapshot = collectShearWallProjectData();
     const r = window.swLast; if (!r) return;
     const proj = {
       name: window.RCUI.normalizeProjectFieldValue($('projName').value),
@@ -1931,6 +1932,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
       outputSource:{ tool:'剪力牆設計／檢核', version:'V0.3' },
       subtitle:'RC Shear Wall Design Report (依 112 規範 11 / 18.7 章)',
       project:proj,
+      calculationFingerprint:projectSnapshot.calculationFingerprint,
       documentState:attachmentReadiness.documentState,
       documentClass:attachmentReadiness.documentClass,
       summary:false,
