@@ -15,6 +15,11 @@ const DRAFT_DOCUMENT_NEEDLES = [
 ];
 const READY_DOCUMENT_CLASS_LABEL = '文件分類｜可送簽版';
 const REPORT_DOCUMENT_NEEDLES = ['計算書', '計算報告', '檢討報告', '設計報告', '計算附件'];
+const REPORT_IDENTITY_FIELDS = [
+  ['projectName', '計畫名稱'],
+  ['projectNo', '計畫編號'],
+  ['designer', '設計人員'],
+];
 const FIELD_LABELS = {
   projectName: ['計畫名稱', '專案名稱', '工程名稱', '案件名稱'],
   projectNo: ['計畫編號', '專案編號', '工程編號', '案件編號'],
@@ -269,7 +274,7 @@ function analyzePackage(records, options = {}) {
     }
   });
   const readable = records.filter(record => !record.errors.length);
-  const projectNumbers = findConflicts(readable, 'projectNo', '計畫編號', issues);
+  findConflicts(readable, 'projectNo', '計畫編號', issues);
   findConflicts(readable, 'projectName', '計畫名稱', issues);
   findConflicts(readable, 'designer', '設計人員', issues);
   const expectedProjectNo = String(options.projectNo || '').trim();
@@ -278,8 +283,18 @@ function analyzePackage(records, options = {}) {
       issues.push(buildIssue('error', 'project-no-mismatch', `${record.file} 的計畫編號 ${record.projectNo} 與指定 ${expectedProjectNo} 不一致。`, [record.file]));
     }
   });
-  if (!projectNumbers.size) issues.push(buildIssue('warn', 'missing-project-no', '未能從附件抽取計畫編號；建議以 --project-no 指定本次案件編號。'));
-  readable.filter(record => !record.projectNo).forEach(record => issues.push(buildIssue('warn', 'missing-project-no', `${record.file} 未能抽取計畫編號。`, [record.file])));
+  readable.forEach(record => {
+    if (isDocumentClassRequired(record)) {
+      const missingIdentityFields = REPORT_IDENTITY_FIELDS
+        .filter(([key]) => !String(record[key] || '').trim())
+        .map(([, label]) => label);
+      if (missingIdentityFields.length) {
+        issues.push(buildIssue('warn', 'missing-report-identity', `${record.file} 未能抽取${missingIdentityFields.join('、')}；可送簽計算書必須具備完整案件識別資料，請回原工具補正後重產。`, [record.file]));
+      }
+    } else if (!record.projectNo) {
+      issues.push(buildIssue('warn', 'missing-project-no', `${record.file} 未能抽取計畫編號；建議以 --project-no 指定本次案件編號。`, [record.file]));
+    }
+  });
   readable.forEach(record => {
     const missingTraceFields = [
       !record.sourceTool && '產出工具',
@@ -343,7 +358,7 @@ function formatSummary(report) {
       : (record.readyDocumentNeedles || []).length
         ? '可送簽版'
         : isDocumentClassRequired(record) ? '文件未分類' : '';
-    const trace = [record.projectNo, record.sourceTool, record.toolVersion, record.fingerprints.join(','), documentClass].filter(Boolean).join('｜') || '未抽取追溯資訊';
+    const trace = [record.projectName, record.projectNo, record.designer, record.sourceTool, record.toolVersion, record.fingerprints.join(','), documentClass].filter(Boolean).join('｜') || '未抽取追溯資訊';
     lines.push(`- ${record.file}：${record.errors.length ? `讀取失敗 (${record.errors.join('；')})` : trace}`);
   });
   report.issues.forEach(issue => lines.push(`[${issue.level === 'error' ? '阻擋' : '提醒'}] ${issue.message}`));
@@ -384,4 +399,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, REPORT_DOCUMENT_NEEDLES, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };
+module.exports = { PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, parseArgs };

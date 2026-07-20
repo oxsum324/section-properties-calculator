@@ -128,7 +128,7 @@ Refresh anchor deployment assets
 
 共用計算書文件狀態：調整 `結構工具箱/core/ui/report.js` 的 ready / review / blocked 判定、DRAFT 浮水印或附件文件分類時，必須同步 staging `section-tools.contract.test.js`、`continuous-beam-regression.test.js`、`frame-analysis.contract.test.js`、`合成斷面性質.html`、`連續梁分析.html`、`鋼架/平面剛架分析.html`、`README.md`、`TOOL_BOUNDARIES.md`、`docs/adr/0001-page-only-report-readiness.md`、首頁／矩陣／dashboard 說明與對應 smoke 契約。ready 計算書只增加精簡的 `文件分類｜可送簽版`，頁面診斷明細仍維持 page-only，不得以文件分類為由寫入計算書。
 
-附件組包文件分類：調整 `attachment-package-check.js` 的 DRAFT 阻擋、`文件分類｜可送簽版` 辨識或未分類 review 規則時，必須同步 staging `attachment-package-check.test.js`、`README.md`、`TOOL_BOUNDARIES.md` 與 `TOOL_REPORT_GUIDE.md`。計算書／計算報告或具完整追溯欄位的文件必須明確分類才可自動判為可整理；專案 JSON 維持來源資料角色，不要求報告文件分類。
+附件組包文件分類：調整 `attachment-package-check.js` 的 DRAFT 阻擋、`文件分類｜可送簽版` 辨識、案件識別或未分類 review 規則時，必須同步 staging `attachment-package-check.test.js`、`README.md`、`TOOL_BOUNDARIES.md` 與 `TOOL_REPORT_GUIDE.md`。計算書／計算報告或具完整追溯欄位的文件必須有計畫名稱、計畫編號、設計人員及明確分類，才可自動判為可整理；專案 JSON 維持來源資料角色，不要求報告文件分類或完整報告案件識別。
 
 ```powershell
 git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/ui_smoke_test.py" "石材固定/js/code-profiles-registry.spec.js" "石材固定/js/code-profiles-registry-smoke.test.js" "石材固定/js/regression-smoke.test.js"
