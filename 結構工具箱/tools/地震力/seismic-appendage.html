@@ -561,7 +561,11 @@ function buildCasePayload() {
 }
 
 function exportCaseJson() {
+  if (!lastAppendResult || appendageReportInputsChanged) {
+    if (calcAppendagePage() === false) return;
+  }
   const payload = buildCasePayload();
+  payload.calculationFingerprint = buildAppendageReportTrace(lastAppendResult).calculationFingerprint;
   const base = payload.project.no || payload.project.name || 'seismic-appendage-case';
   downloadTextFile(`${safeFileName(base)}-case.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
   setCaseStatus('已匯出附屬構造物案件 JSON；可用於日後回讀本頁輸入與計算結果。');
@@ -1239,6 +1243,14 @@ function calcAppendagePage() {
   return true;
 }
 
+function buildAppendageReportTrace(result) {
+  return window.ToolReportUI.buildReportTrace({
+    title: '附屬構造物地震力計算書',
+    subtitle: '依「建築物耐震設計規範及解說」113 年版｜第四章附屬構造物',
+    outputSource: { tool: '附屬構造物地震力', version: TOOL_VERSION },
+    snapshot: { reportMode: getPrintReportMode(), result },
+  });
+}
 function openAppendageReport() {
   if (!lastAppendResult || appendageReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none') {
     if (calcAppendagePage() === false) return;
@@ -1250,12 +1262,7 @@ function openAppendageReport() {
   const zoneText = [document.getElementById('zoneCity').value, document.getElementById('zoneDist').value].filter(Boolean).join(' ') || '採指定震區參數';
   const siteClassText = document.getElementById('siteClass').selectedOptions[0]?.textContent || '—';
   const includeCalcDetail = getPrintReportMode() === 'detail';
-  const reportTrace = window.ToolReportUI.buildReportTrace({
-    title: '附屬構造物地震力計算書',
-    subtitle: '依「建築物耐震設計規範及解說」113 年版｜第四章附屬構造物',
-    outputSource: { tool: '附屬構造物地震力', version: TOOL_VERSION },
-    snapshot: { reportMode: getPrintReportMode(), result: r },
-  });
+  const reportTrace = buildAppendageReportTrace(r);
   const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
     project: proj,
     calculated: true,

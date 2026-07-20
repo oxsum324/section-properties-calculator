@@ -961,8 +961,12 @@ function buildCasePayload() {
 }
 
 function exportCaseJson() {
+  if (!lastDynamicResult || dynamicReportInputsChanged) {
+    if (calcDynamic() === false) return;
+  }
   const payload = buildCasePayload();
   if (!payload) return;
+  payload.calculationFingerprint = buildDynamicReportTrace(lastDynamicResult).calculationFingerprint;
   const base = payload.project.no || payload.project.name || 'seismic-dynamic-case';
   downloadTextFile(`${safeFileName(base)}-case.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
 }
@@ -1779,6 +1783,26 @@ function renderDynamicResult() {
   }
 }
 
+function buildDynamicReportTrace(state = lastDynamicResult) {
+  if (!state) return null;
+  const { result, x, y } = state;
+  result.x.staticFull = result.x.staticFull || result.x.staticRef;
+  result.y.staticFull = result.y.staticFull || result.y.staticRef;
+  result.x.floorRatio = result.x.floorRatio || result.baseShearFloorRatio || 1;
+  result.y.floorRatio = result.y.floorRatio || result.baseShearFloorRatio || 1;
+  result.designActions = buildDesignActions(result);
+  const modelCheck = normalizeModelCheck(result.modelCheck || readModelCheckInputs());
+  const includeModelCheck = Boolean(document.getElementById('printModelCheckSection')?.checked);
+  const reportMode = document.getElementById('reportMode')?.value === 'summary' ? 'summary' : 'detailed';
+  const { project: ignoredProject, ...calculation } = result;
+  return window.ToolReportUI.buildReportTrace({
+    title: '反應譜動力分析規範整理計算書',
+    subtitle: '依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求',
+    outputSource: { tool: '反應譜動力分析', version: TOOL_VERSION },
+    snapshot: { reportMode, includeModelCheck, calculation, x, y, modelCheck },
+  });
+}
+
 function openDynamicReport() {
   if (!lastDynamicResult || dynamicReportInputsChanged || document.getElementById('resultPanel')?.style.display === 'none') {
     if (calcDynamic() === false) return;
@@ -1801,13 +1825,7 @@ function openDynamicReport() {
   const includeModelCheck = Boolean(document.getElementById('printModelCheckSection')?.checked);
   const reportMode = document.getElementById('reportMode')?.value === 'summary' ? 'summary' : 'detailed';
   const isSummaryReport = reportMode === 'summary';
-  const { project: ignoredProject, ...calculation } = result;
-  const reportTrace = window.ToolReportUI.buildReportTrace({
-    title: '反應譜動力分析規範整理計算書',
-    subtitle: '依「建築物耐震設計規範及解說」113 年版第三章整理反應譜動力分析結果、設計輸入譜與總橫力調整要求',
-    outputSource: { tool: '反應譜動力分析', version: TOOL_VERSION },
-    snapshot: { reportMode, includeModelCheck, calculation, x, y, modelCheck },
-  });
+  const reportTrace = buildDynamicReportTrace(lastDynamicResult);
   const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
     project: proj,
     calculated: true,

@@ -61,7 +61,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [結構工具箱/tools/formal-tools.run.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-tools.run.js:1)
 - 風力 / 地震正式工具共同契約測試：
   [結構工具箱/tools/formal-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-tools.contract.test.js:1)
-  - 固定檢查正式工具 manifest、乾淨路由、報表分流、示意圖角色與 HTML 彈窗型計算書可讀文字，避免頁面專用「優先建議報告閱讀狀態」混入列印計算書。14 個正式風力／地震計算書統一由 `core/ui/report.js` 把頁面 readiness 轉成文件狀態：案件識別或複核未完成時輸出精簡 `DRAFT／非正式附件` 與列印浮水印，完整 ready 報告不帶 DRAFT；browser smoke 同時實測兩種案件狀態。14 個工作頁的瀏覽器直接列印另由共用邊界樣式完全封鎖，只輸出一頁操作指引；真正的簡易／詳算計算書仍由頁面上的「列印計算書」流程產生。
+  - 固定檢查正式工具 manifest、乾淨路由、報表分流、示意圖角色與 HTML 彈窗型計算書可讀文字，避免頁面專用「優先建議報告閱讀狀態」混入列印計算書。14 個正式風力／地震計算書統一由 `core/ui/report.js` 把頁面 readiness 轉成文件狀態：案件識別或複核未完成時輸出精簡 `DRAFT／非正式附件` 與列印浮水印，完整 ready 報告不帶 DRAFT；browser smoke 同時實測兩種案件狀態，並逐工具確認匯出來源 JSON 與同次詳算式計算書使用相同計算指紋。14 個工作頁的瀏覽器直接列印另由共用邊界樣式完全封鎖，只輸出一頁操作指引；真正的簡易／詳算計算書仍由頁面上的「列印計算書」流程產生。
 - 耐風共用案件檔與一鍵預填契約：
   [結構工具箱/tools/wind-shared-profile.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/wind-shared-profile.contract.test.js:1)
   - `wind-overview.html` 以 `wind-shared-profile.v1` 保存案件識別、地點、地況、用途係數、Kzt 與主結構幾何；由總覽開啟 11 個支援工具時，會以明確欄位映射自動預填。只有主風力抵抗系統工具會承接總高、正整數樓層數與 X／Y 平面尺寸；屋頂平均高、屋簷高、風向專用尺寸、招牌與塔體等專用幾何不會由總覽代填，所有子工具仍須確認其專用幾何與規範路線。

@@ -96,7 +96,7 @@ const inlineValidationCases = {
 
 function assertFormalToolCoverage() {
   assert.equal(formalManifest.family, 'formal-tools', 'formal browser smoke manifest family');
-  assert.equal(formalManifest.version, '0.2.0', 'formal browser smoke manifest version');
+  assert.equal(formalManifest.version, '0.3.0', 'formal browser smoke manifest version');
   assert.ok(Array.isArray(formalTools), 'formal browser smoke manifest tools');
   assert.ok(Array.isArray(requiredFormalRoutes), 'formal browser smoke manifest required routes');
   const coveredRoutes = new Set(formalTools.map(tool => tool.route));
@@ -887,6 +887,24 @@ function exportCaptureExpression(tool, projectMetaState = 'complete', exportButt
         setProjectField('projNo', 'FORMAL-VERIFY-001');
         setProjectField('projDesigner', 'Codex QA');
         await settle(1);
+      }
+      const reportModeControls = ${JSON.stringify(tool.reportModeControls || null)};
+      const detailButtonId = reportModeControls && reportModeControls.detailButton;
+      const detailButton = detailButtonId
+        ? document.getElementById(detailButtonId)
+        : document.querySelector('[data-report-mode="detail"]');
+      if (detailButton) {
+        detailButton.click();
+        await settle(1);
+      } else {
+        const reportModeSelect = document.getElementById((reportModeControls && reportModeControls.selectId) || 'reportMode');
+        const detailValue = (reportModeControls && reportModeControls.detailValue) || 'detailed';
+        if (reportModeSelect && Array.from(reportModeSelect.options || []).some(option => option.value === detailValue)) {
+          reportModeSelect.value = detailValue;
+          reportModeSelect.dispatchEvent(new Event('input', { bubbles: true }));
+          reportModeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+          await settle(1);
+        }
       }
       const exportId = ${JSON.stringify(exportButtonId)} || ${JSON.stringify(tool.exportButton)};
       const button = document.getElementById(exportId);
@@ -2154,6 +2172,7 @@ function assertExportState(state, tool, label) {
   assert.equal(state.blobCount, 1, `${label} ${tool.key} export blob count`);
   assert.ok(state.textLength > 300, `${label} ${tool.key} export payload length`);
   assert.ok(state.payload && typeof state.payload === 'object', `${label} ${tool.key} export JSON`);
+  assert.match(state.payload.calculationFingerprint || '', /^CF-[0-9A-F]{16}$/, `${label} ${tool.key} export calculation fingerprint`);
   assert.ok(state.downloads[0].download.endsWith('.json'), `${label} ${tool.key} export filename`);
   assert.equal(state.downloads[0].attached, true, `${label} ${tool.key} export anchor attached`);
   assert.ok(state.payload.project && typeof state.payload.project === 'object', `${label} ${tool.key} export project payload`);
@@ -2175,6 +2194,17 @@ function assertExportState(state, tool, label) {
       serializedPayload.includes(tool.titleNeedle.slice(0, 2)) ||
       serializedPayload.includes('project'),
     `${label} ${tool.key} export payload identity`
+  );
+}
+
+function assertSourceReportFingerprintLink(exportState, reportState, tool, label) {
+  if (!tool.exportButton || !tool.reportTraceRequired) return;
+  const reportFingerprint = String(reportState?.html || '').match(/計算指紋<\/b>\s*(CF-[0-9A-F]{16})/)?.[1] || '';
+  assert.match(reportFingerprint, /^CF-[0-9A-F]{16}$/, `${label} ${tool.key} linked report fingerprint`);
+  assert.equal(
+    exportState?.payload?.calculationFingerprint,
+    reportFingerprint,
+    `${label} ${tool.key} source JSON and detailed report fingerprint link`
   );
 }
 
@@ -2440,6 +2470,9 @@ async function main() {
           const exportState = tool.exportButton
             ? await evaluate(client, sessionId, exportCaptureExpression(tool))
             : null;
+          const linkedReportState = tool.exportButton && tool.reportTraceRequired
+            ? await evaluate(client, sessionId, reportCaptureExpression(tool, 'detail'))
+            : null;
           const placeholderExportState = tool.exportButton
             ? await evaluate(client, sessionId, exportCaptureExpression(tool, 'placeholder'))
             : null;
@@ -2483,6 +2516,7 @@ async function main() {
             placeholderPopupReportStates[mode] = await popupReportCaptureState(client, sessionId, tool, mode, 'placeholder');
           }
           assertExportState(exportState, tool, interactionLabel);
+          assertSourceReportFingerprintLink(exportState, linkedReportState, tool, interactionLabel);
           assertPlaceholderExportState(placeholderExportState, tool, `${interactionLabel} placeholder`);
           for (const { extraExport, state } of extraExportStates) {
             assertExtraExportState(state, tool, extraExport, interactionLabel);

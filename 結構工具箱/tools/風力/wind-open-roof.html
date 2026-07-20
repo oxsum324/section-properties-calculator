@@ -549,6 +549,7 @@ function exportCaseJson() {
     schema: CASE_SCHEMA_VERSION,
     tool: { id: 'wind-open-roof', name: '開放式建築屋面風壓', version: TOOL_VERSION },
     generatedAt: new Date().toISOString(),
+    calculationFingerprint: window.WindReport.getCurrentReportTrace().calculationFingerprint,
     ...readCaseInputs(),
     result: readExportResultSummary()
   };
