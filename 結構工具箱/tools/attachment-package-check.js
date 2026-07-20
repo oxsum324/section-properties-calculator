@@ -5,6 +5,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const SUPPORTED_EXTENSIONS = new Set(['.pdf', '.docx', '.xlsx', '.json', '.txt', '.html', '.htm']);
+const IGNORED_SYSTEM_FILES = new Set(['thumbs.db', 'desktop.ini', '.ds_store']);
 const PAGE_ONLY_NEEDLES = [
   '產報前檢查', '附件適用狀態', '優先建議報告閱讀狀態', '優先閱讀', '報告閱讀狀態',
   '可作附件，需人工複核', '暫勿作附件', '頁面輔助', '不會寫入計算書',
@@ -230,25 +231,39 @@ function isGeneratedEvidenceFile(fileName, siblingNames) {
   return siblingNames.has(`${stem}.evidence.json`);
 }
 
+function isIgnorableSystemFile(fileName) {
+  return IGNORED_SYSTEM_FILES.has(String(fileName || '').toLowerCase());
+}
+
 function collectAttachmentFiles(inputDir, ignoredFile) {
   const files = [];
   const skippedGeneratedEvidence = [];
+  const skippedSystemFiles = [];
+  const unsupportedFiles = [];
   const walk = directory => {
     const entries = fs.readdirSync(directory, { withFileTypes: true });
     const siblingNames = new Set(entries.map(entry => entry.name.toLowerCase()));
     for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue;
+      if (entry.isDirectory() && entry.name.startsWith('.')) continue;
       const entryPath = path.join(directory, entry.name);
       if (entry.isDirectory()) walk(entryPath);
-      else if (entry.isFile() && path.resolve(entryPath) !== ignoredFile && SUPPORTED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
-        if (isGeneratedEvidenceFile(entry.name, siblingNames)) skippedGeneratedEvidence.push(entryPath);
-        else files.push(entryPath);
+      else if (entry.isFile() && path.resolve(entryPath) !== ignoredFile) {
+        if (SUPPORTED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
+          if (isGeneratedEvidenceFile(entry.name, siblingNames)) skippedGeneratedEvidence.push(entryPath);
+          else files.push(entryPath);
+        } else if (isIgnorableSystemFile(entry.name)) skippedSystemFiles.push(entryPath);
+        else unsupportedFiles.push(entryPath);
       }
     }
   };
   walk(inputDir);
   const sortFiles = (left, right) => left.localeCompare(right, 'zh-Hant');
-  return { files: files.sort(sortFiles), skippedGeneratedEvidence: skippedGeneratedEvidence.sort(sortFiles) };
+  return {
+    files: files.sort(sortFiles),
+    skippedGeneratedEvidence: skippedGeneratedEvidence.sort(sortFiles),
+    skippedSystemFiles: skippedSystemFiles.sort(sortFiles),
+    unsupportedFiles: unsupportedFiles.sort(sortFiles),
+  };
 }
 
 function buildIssue(level, code, message, files = []) {
@@ -269,7 +284,14 @@ function findConflicts(records, key, label, issues) {
 
 function analyzePackage(records, options = {}) {
   const issues = [];
+  const unsupportedFiles = unique(options.unsupportedFiles || []);
   if (!records.length) issues.push(buildIssue('error', 'no-attachments', '資料夾內沒有可檢查的 PDF、DOCX、XLSX、JSON、HTML 或文字附件。'));
+  if (unsupportedFiles.length) {
+    const displayedFiles = unsupportedFiles.slice(0, 8);
+    const remaining = unsupportedFiles.length - displayedFiles.length;
+    const suffix = remaining ? `（另有 ${remaining} 個）` : '';
+    issues.push(buildIssue('warn', 'unsupported-attachment', `有 ${unsupportedFiles.length} 個檔案未納入內容檢查：${displayedFiles.join('、')}${suffix}；請轉成支援格式後重查，或逐份人工確認其交付用途。`, unsupportedFiles));
+  }
   records.forEach(record => {
     if (record.errors.length) issues.push(buildIssue('error', 'unreadable-attachment', `${record.file} 無法讀取：${record.errors.join('；')}`, [record.file]));
     if (record.pageOnlyNeedles.length) issues.push(buildIssue('error', 'page-only-leak', `${record.file} 含有頁面專用文字：${record.pageOnlyNeedles.join('、')}`, [record.file]));
@@ -337,7 +359,7 @@ function analyzePackage(records, options = {}) {
   return {
     kind: 'attachment-package-check.v1', generatedAt: new Date().toISOString(),
     status: errorCount ? 'blocked' : warningCount ? 'review' : 'ready',
-    summary: { attachments: records.length, errors: errorCount, warnings: warningCount },
+    summary: { attachments: records.length, unsupported: unsupportedFiles.length, errors: errorCount, warnings: warningCount },
     expectedProjectNo, attachments: records, issues,
   };
 }
@@ -347,8 +369,11 @@ function checkPackage(inputDir, options = {}) {
   if (!fs.existsSync(resolvedInput) || !fs.statSync(resolvedInput).isDirectory()) throw new Error(`附件資料夾不存在：${resolvedInput || inputDir || '(未指定)'}`);
   const ignoredFile = options.output ? path.resolve(options.output) : '';
   const collection = collectAttachmentFiles(resolvedInput, ignoredFile);
-  const report = analyzePackage(collection.files.map(file => inspectAttachment(file, resolvedInput)), options);
+  const unsupportedFiles = collection.unsupportedFiles.map(file => path.relative(resolvedInput, file) || path.basename(file));
+  const report = analyzePackage(collection.files.map(file => inspectAttachment(file, resolvedInput)), { ...options, unsupportedFiles });
   report.skippedGeneratedEvidence = collection.skippedGeneratedEvidence.map(file => path.relative(resolvedInput, file) || path.basename(file));
+  report.skippedSystemFiles = collection.skippedSystemFiles.map(file => path.relative(resolvedInput, file) || path.basename(file));
+  report.unsupportedFiles = unsupportedFiles;
   return report;
 }
 
@@ -358,6 +383,7 @@ function formatSummary(report) {
     `附件 ${report.summary.attachments} 份；阻擋 ${report.summary.errors} 項；提醒 ${report.summary.warnings} 項。`,
   ];
   if (report.skippedGeneratedEvidence?.length) lines.push(`已略過 ${report.skippedGeneratedEvidence.length} 個驗證中間檔（.evidence.json、成對文字擷取或渲染摘要）。`);
+  if (report.unsupportedFiles?.length) lines.push(`未檢查 ${report.unsupportedFiles.length} 個不支援檔案；附件狀態不得自動放行。`);
   report.attachments.forEach(record => {
     const documentClass = (record.draftDocumentNeedles || []).length
       ? 'DRAFT／非正式附件'
@@ -415,4 +441,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

@@ -156,6 +156,9 @@ try {
   fs.writeFileSync(path.join(evidenceDir, 'formal-report.evidence.json'), '{}', 'utf8');
   fs.writeFileSync(path.join(evidenceDir, 'rendered-delivery-evidence-summary.json'), '{}', 'utf8');
   fs.writeFileSync(path.join(evidenceDir, 'case.json'), JSON.stringify({ project: { no: 'PKG-001' } }), 'utf8');
+  fs.writeFileSync(path.join(evidenceDir, 'detail-scan.png'), 'fixture', 'utf8');
+  fs.writeFileSync(path.join(evidenceDir, '.hidden-package.zip'), 'fixture', 'utf8');
+  fs.writeFileSync(path.join(evidenceDir, 'Thumbs.db'), 'fixture', 'utf8');
   const evidenceCollection = Checker.collectAttachmentFiles(evidenceDir, '');
   assert.deepEqual(evidenceCollection.files.map(file => path.basename(file)), ['case.json', 'formal-report.pdf']);
   assert.deepEqual(evidenceCollection.skippedGeneratedEvidence.map(file => path.basename(file)), [
@@ -163,6 +166,28 @@ try {
     'formal-report.txt',
     'rendered-delivery-evidence-summary.json'
   ]);
+  assert.deepEqual(evidenceCollection.unsupportedFiles.map(file => path.basename(file)).sort(), ['.hidden-package.zip', 'detail-scan.png'].sort());
+  assert.deepEqual(evidenceCollection.skippedSystemFiles.map(file => path.basename(file)), ['Thumbs.db']);
+
+  const unsupportedDir = path.join(tempDir, 'unsupported-package');
+  fs.mkdirSync(unsupportedDir, { recursive: true });
+  fs.writeFileSync(path.join(unsupportedDir, 'case.json'), JSON.stringify({
+    tool: { name: '矩形建物 MWFRS', version: 'v1' },
+    project: { no: 'PKG-001' },
+    calculationFingerprint: 'CF-1234ABCD5678EF90',
+    savedAt: '2026/07/20 16:00:00',
+  }), 'utf8');
+  fs.writeFileSync(path.join(unsupportedDir, 'legacy-scan.png'), 'fixture', 'utf8');
+  const unsupportedPackage = Checker.checkPackage(unsupportedDir, { projectNo: 'PKG-001' });
+  assert.equal(unsupportedPackage.status, 'review', 'unread unsupported file prevents automatic package readiness');
+  assert.equal(unsupportedPackage.summary.attachments, 1);
+  assert.equal(unsupportedPackage.summary.unsupported, 1);
+  assert.deepEqual(unsupportedPackage.unsupportedFiles, ['legacy-scan.png']);
+  const unsupportedIssue = unsupportedPackage.issues.find(issue => issue.code === 'unsupported-attachment');
+  assert.match(unsupportedIssue?.message || '', /legacy-scan\.png/);
+  const unsupportedCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', unsupportedDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
+  assert.equal(unsupportedCli.status, 1, unsupportedCli.stderr || unsupportedCli.stdout);
+  assert.match(unsupportedCli.stdout, /未檢查 1 個不支援檔案/);
 
   const fixtureDir = path.join(tempDir, 'fixture');
   fs.mkdirSync(path.join(fixtureDir, 'word'), { recursive: true });
@@ -186,6 +211,10 @@ try {
 
 assert.deepEqual(Checker.parseArgs(['--input', 'C:/case', '--project-no', 'PKG-001']), { input: 'C:/case', projectNo: 'PKG-001' });
 assert.deepEqual(Checker.PACKAGE_STATUS_EXIT_CODES, { ready: 0, review: 1, blocked: 2 });
+assert(Checker.SUPPORTED_EXTENSIONS.has('.pdf'));
+assert(Checker.IGNORED_SYSTEM_FILES.has('thumbs.db'));
+assert.equal(Checker.isIgnorableSystemFile('Thumbs.db'), true);
+assert.equal(Checker.isIgnorableSystemFile('legacy-scan.png'), false);
 assert.equal(Checker.CLI_ERROR_EXIT_CODE, 3);
 assert.equal(Checker.exitCodeForStatus('ready'), 0);
 assert.equal(Checker.exitCodeForStatus('review'), 1);
