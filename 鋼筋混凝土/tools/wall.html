@@ -661,7 +661,7 @@
 <script src="../../結構工具箱/core/ui/formulas.js"></script>
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
-<script src="../shared/report.js?v=4"></script>
+<script src="../shared/report.js?v=5"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="../shared/flexure.js?v=1"></script>
@@ -883,7 +883,7 @@
     });
     const snap = window.wallLast || {};
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
-    return {
+    const payload = {
       schema: WALL_PROJECT_SCHEMA,
       tool: 'rc-wall',
       toolTitle: '牆 Wall 設計／檢核',
@@ -903,6 +903,7 @@
         reviewWarningCount: Array.isArray(snap.reviewWarnings) ? snap.reviewWarnings.length : 0
       }
     };
+    return window.RCReportFingerprint.withProjectCalculationFingerprint(payload, { ignoredKeys: ['activeTab'] });
   }
 
   function wallProjectFilename(payload) {
@@ -2461,7 +2462,7 @@ ${basementStepTxt}
   }
 
   function buildWallReport() {
-    if (!window.wallLast) calcWall();
+    const projectSnapshot = collectWallProjectData();
     const r = window.wallLast;
     const proj = {
       name: window.RCUI.normalizeProjectFieldValue($('projName').value),
@@ -2659,6 +2660,7 @@ ${basementStepTxt}
     openReport({
       title:'牆設計計算書', subtitle:'RC Wall Design Report',
       project:proj,
+      calculationFingerprint:projectSnapshot.calculationFingerprint,
       documentState:attachmentReadiness.documentState,
       documentClass:attachmentReadiness.documentClass,
       summary:false,

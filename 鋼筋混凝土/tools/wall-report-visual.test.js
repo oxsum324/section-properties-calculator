@@ -310,6 +310,7 @@ async function reportMetrics(report) {
       }));
     return {
       title: clean(document.querySelector('h1')?.textContent),
+      calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
@@ -407,6 +408,7 @@ async function main() {
         assert(state.reviewWarningCount >= 1, `${key} review warnings captured`, `count=${state.reviewWarningCount}`);
         assert(state.readinessText.includes('待人工複核'), `${key} page readiness flags review`, state.readinessText);
       }
+      const sourceFingerprint = await page.evaluate(() => window.collectWallProjectData().calculationFingerprint);
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -438,6 +440,8 @@ async function main() {
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === expected.title, `${key} report title`, metrics.title);
+      assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${key} project JSON calculation fingerprint`, sourceFingerprint);
+      assert(metrics.calculationFingerprint === sourceFingerprint, `${key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasReportSummary, `${key} report status banner hidden`, 'no .rep-summary');
       const expectedDraft = state.readinessStatus !== 'ready';
       assert(metrics.documentState === (expectedDraft ? 'draft' : ''), `${key} report document class follows page readiness`, `${state.readinessStatus} -> ${metrics.documentState || 'ready'}`);

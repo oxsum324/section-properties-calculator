@@ -194,6 +194,7 @@ async function reportMetrics(report) {
       }));
     return {
       title: clean(document.querySelector('h1')?.textContent),
+      calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
@@ -304,6 +305,7 @@ async function main() {
       assert(!directPrintPdfText.text.includes('DRAFT'), `${tc.key} direct-print PDF is not a draft calculation book`, 'DRAFT');
       assertArtifact(directPrintPdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} blocked direct-print PDF written`);
 
+      const sourceFingerprint = await page.evaluate(() => window.collectBeamProjectData().calculationFingerprint);
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${tc.key}:report`);
       await report.waitForSelector('.rep-paper', { timeout: 10000 });
@@ -336,6 +338,8 @@ async function main() {
       results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
+      assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
+      assert(metrics.calculationFingerprint === sourceFingerprint, `${tc.key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasReportSummary, `${tc.key} report status banner hidden`, 'no .rep-summary');
       assert(metrics.checkGroupCount >= 6, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 1, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);

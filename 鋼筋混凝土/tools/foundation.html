@@ -1091,7 +1091,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/report.js?v=4"></script>
+<script src="../shared/report.js?v=5"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="./pile-site-presets.js?v=1"></script>
@@ -1947,7 +1947,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     });
     const snap = window.ftLast || {};
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
-    return {
+    const payload = {
       schema: FOUNDATION_PROJECT_SCHEMA,
       tool: 'rc-foundation',
       toolTitle: '基礎 Foundation 設計／檢核',
@@ -1967,6 +1967,10 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
         reviewWarningCount: Array.isArray(snap.reviewWarnings) ? snap.reviewWarnings.length : 0
       }
     };
+    return window.RCReportFingerprint.withProjectCalculationFingerprint(payload, {
+      ignoredKeys: ['activeTab'],
+      calculationContext: { foundationTab: currentTab },
+    });
   }
 
   function foundationProjectFilename(payload) {
@@ -4235,7 +4239,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
   //  計算書
   // ============================================================
   function buildFtReport() {
-    calcFdtn();
+    const projectSnapshot = collectFoundationProjectData();
     if (!window.ftLast) return;
     const r = window.ftLast;
     const proj = {
@@ -4496,6 +4500,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
       subtitle: `RC 工具箱 · 112 年混凝土結構設計規範`,
       project: proj,
+      calculationFingerprint: projectSnapshot.calculationFingerprint,
       documentState: attachmentReadiness.documentState,
       documentClass: attachmentReadiness.documentClass,
       inputs,

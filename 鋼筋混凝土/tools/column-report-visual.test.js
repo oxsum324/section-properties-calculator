@@ -157,6 +157,7 @@ async function extractReportMetrics(report) {
       }));
     return {
       title: clean(document.querySelector('h1')?.textContent),
+      calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
       bodyText,
       summaryText,
       hasReportSummary: Boolean(reportSummary),
@@ -218,6 +219,7 @@ async function main() {
           height: rect ? Math.round(rect.height) : 0
         };
       });
+      const sourceFingerprint = await page.evaluate(() => window.collectColumnProjectData().calculationFingerprint);
 
       const directPrintPdfPath = path.join(OUT_DIR, `column-direct-print-${tc.key}.pdf`);
       await page.emulateMedia({ media: 'print' });
@@ -287,6 +289,8 @@ async function main() {
       assert(['ready', 'review', 'blocked'].includes(pageReadiness.status), `${tc.key} page attachment readiness status`, pageReadiness.status);
       assert(pageReadiness.display !== 'none' && pageReadiness.width > 0 && pageReadiness.height > 0, `${tc.key} page attachment readiness visible`, `${pageReadiness.display} ${pageReadiness.width}x${pageReadiness.height}`);
       assert(!metrics.hasReportSummary, `${tc.key} report top reminder hidden`, 'no .rep-summary');
+      assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
+      assert(metrics.calculationFingerprint === sourceFingerprint, `${tc.key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasCoverageSummary, `${tc.key} coverage summary hidden`, 'no .rep-coverage-summary-wrap');
       assert(metrics.cardCount === 0, `${tc.key} coverage summary cards hidden`, `count=${metrics.cardCount}`);
       assert(printMetrics.toolbarDisplay === 'none', `${tc.key} print toolbar hidden`, `display=${printMetrics.toolbarDisplay}`);

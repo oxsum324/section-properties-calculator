@@ -607,7 +607,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
-<script src="../shared/report.js?v=4"></script>
+<script src="../shared/report.js?v=5"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -745,7 +745,7 @@
       fields[el.id] = readSlabControl(el);
     });
     const bannerText = $('bannerStatus')?.textContent?.replace(/\s+/g, ' ').trim() || '';
-    return {
+    const payload = {
       schema: SLAB_PROJECT_SCHEMA,
       tool: 'rc-slab',
       toolTitle: '板 Slab 設計／檢核',
@@ -764,6 +764,7 @@
         reviewWarningCount: window.slabLast?.reviewWarnings?.length ?? 0
       }
     };
+    return window.RCReportFingerprint.withProjectCalculationFingerprint(payload);
   }
   function slabProjectFilename(payload) {
     const meta = payload?.metadata || {};
@@ -2229,7 +2230,7 @@
 
   // ─── 計算書 ────────────────────────────────────
   function buildSlabReport() {
-    if (!window.slabLast) calcSlab();
+    const projectSnapshot = collectSlabProjectData();
     const r = window.slabLast;
     const proj = {
       name: window.RCUI.normalizeProjectFieldValue($('projName').value),
@@ -2544,6 +2545,7 @@
         ? `RC Slab Preliminary Design Report — ${reportGrade}`
         : `RC Slab Preliminary Verification Report — ${reportGrade}`,
       project: proj,
+      calculationFingerprint: projectSnapshot.calculationFingerprint,
       documentState: attachmentReadiness.documentState,
       documentClass: attachmentReadiness.documentClass,
       summary:false,
