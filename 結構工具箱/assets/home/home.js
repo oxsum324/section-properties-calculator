@@ -180,7 +180,7 @@
       '/seismic-dynamic': '2026-07-21',
       '/seismic-appendage': '2026-07-21',
       '/seismic-misc': '2026-07-21',
-      '/anchor': '2026-07-20',
+      '/anchor': '2026-07-21',
       '/stone-fixing': '2026-07-19',
       '/foundation-local': '2026-07-21',
       '/equipment-load': '2026-07-21',
