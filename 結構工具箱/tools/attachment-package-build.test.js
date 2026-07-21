@@ -36,6 +36,7 @@ function writeReport(inputDir, documentState, relativeFile = 'reports/beam.html'
     '<div>產出工具：RC 梁</div>',
     '<div>工具版本：v3.1</div>',
     '<div>輸出時間：2026/07/21 21:00:00</div>',
+    '<div>核可時間：2026/07/21 21:05:00</div>',
     `<div>計算指紋：${FINGERPRINT}</div>`,
   ].join('\n'), 'utf8');
   return filePath;
@@ -86,7 +87,7 @@ try {
 
   const manifestText = fs.readFileSync(manifestPath, 'utf8');
   const manifest = JSON.parse(manifestText);
-  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.schemaVersion, 3);
   assert.equal(manifest.kind, Builder.MANIFEST_KIND);
   assert.equal(manifest.generatedAt, FIXED_NOW.toISOString());
   assert.equal(manifest.projectNo, 'PKG-001');
@@ -100,13 +101,16 @@ try {
   const reorderedManifest = JSON.parse(JSON.stringify(manifest));
   reorderedManifest.formalAttachments[0].fingerprints.reverse();
   reorderedManifest.traceabilitySources[0].fingerprints.reverse();
-  assert.equal(Builder.packageFingerprintV2(reorderedManifest), result.packageFingerprint, 'v2 fingerprint is independent of fingerprint array order');
+  assert.equal(Builder.packageFingerprintV3(reorderedManifest), result.packageFingerprint, 'v3 fingerprint is independent of fingerprint array order');
   const changedTraceabilityManifest = JSON.parse(JSON.stringify(manifest));
   changedTraceabilityManifest.formalAttachments[0].toolVersion = 'v9.9';
-  assert.notEqual(Builder.packageFingerprintV2(changedTraceabilityManifest), result.packageFingerprint, 'v2 fingerprint covers traceability metadata');
+  assert.notEqual(Builder.packageFingerprintV3(changedTraceabilityManifest), result.packageFingerprint, 'v3 fingerprint covers traceability metadata');
+  const changedApprovalManifest = JSON.parse(JSON.stringify(manifest));
+  changedApprovalManifest.formalAttachments[0].approvalTime = '2026/07/21 22:00:00';
+  assert.notEqual(Builder.packageFingerprintV3(changedApprovalManifest), result.packageFingerprint, 'v3 fingerprint covers formal approval time');
   const changedBoundaryManifest = JSON.parse(JSON.stringify(manifest));
   changedBoundaryManifest.boundary.instruction = 'altered boundary';
-  assert.notEqual(Builder.packageFingerprintV2(changedBoundaryManifest), result.packageFingerprint, 'v2 fingerprint covers package boundary');
+  assert.notEqual(Builder.packageFingerprintV3(changedBoundaryManifest), result.packageFingerprint, 'v3 fingerprint covers package boundary');
   assert.equal(manifestText.includes(tempRoot), false, 'internal manifest must not leak absolute local paths');
   assert.equal(fs.existsSync(path.join(readyOutput, Builder.FORMAL_ATTACHMENTS_DIR, 'source', 'beam.json')), false, 'source JSON is not placed in the formal attachment directory');
 
@@ -122,6 +126,48 @@ try {
   assert.match(cli.stdout, /正式附件 1 份；內部追溯來源 1 份/);
   assert.match(cli.stdout, /發布前完整性驗證：通過/);
   assert.equal(fs.existsSync(path.join(cliOutput, Builder.FORMAL_ATTACHMENTS_DIR, 'reports', 'beam.html')), true);
+
+  const retryRenameSource = path.join(tempRoot, 'retry-rename-source');
+  const retryRenameOutput = path.join(tempRoot, 'retry-rename-output');
+  fs.mkdirSync(retryRenameSource);
+  const originalRenameSync = fs.renameSync;
+  let renameAttempts = 0;
+  fs.renameSync = function patchedRenameSync(source, target) {
+    renameAttempts += 1;
+    if (renameAttempts === 1) {
+      const error = new Error('simulated transient Windows lock');
+      error.code = 'EPERM';
+      throw error;
+    }
+    return originalRenameSync.call(fs, source, target);
+  };
+  try {
+    Builder.publishStagingDirectory(retryRenameSource, retryRenameOutput, { retryDelaysMs: [0, 0] });
+  } finally {
+    fs.renameSync = originalRenameSync;
+  }
+  assert.equal(renameAttempts, 2, 'transient Windows rename lock is retried once');
+  assert.equal(fs.existsSync(retryRenameOutput), true);
+  const nonRetryRenameSource = path.join(tempRoot, 'non-retry-rename-source');
+  const nonRetryRenameOutput = path.join(tempRoot, 'non-retry-rename-output');
+  fs.mkdirSync(nonRetryRenameSource);
+  let nonRetryAttempts = 0;
+  fs.renameSync = function patchedNonRetryableRename() {
+    nonRetryAttempts += 1;
+    const error = new Error('simulated non-retryable rename failure');
+    error.code = 'EXDEV';
+    throw error;
+  };
+  try {
+    assert.throws(
+      () => Builder.publishStagingDirectory(nonRetryRenameSource, nonRetryRenameOutput, { retryDelaysMs: [0, 0, 0] }),
+      /simulated non-retryable rename failure/,
+    );
+  } finally {
+    fs.renameSync = originalRenameSync;
+  }
+  assert.equal(nonRetryAttempts, 1, 'non-retryable rename errors fail immediately');
+  assert.equal(fs.existsSync(nonRetryRenameSource), true);
 
   const selfVerifyInput = path.join(tempRoot, 'self-verify-failure-input');
   const selfVerifyOutput = path.join(tempRoot, 'self-verify-failure-package');

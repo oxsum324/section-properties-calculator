@@ -12,13 +12,19 @@ const extracted = Checker.extractTextMetadata(`
 產出工具：RC 梁設計／檢核
 工具版本：V3.1
 輸出時間：2026/07/12 13:00:00
+核可時間：2026/07/12 13:05:00
 計算指紋：CF-1234ABCD5678EF90
 `);
 assert.equal(extracted.projectName, '測試大樓');
 assert.equal(extracted.projectNo, 'PKG-001');
 assert.equal(extracted.sourceTool, 'RC 梁設計／檢核');
 assert.equal(extracted.toolVersion, 'v3.1');
+assert.equal(extracted.approvalTime, '2026/07/12 13:05:00');
 assert.deepEqual(extracted.fingerprints, ['CF-1234ABCD5678EF90']);
+assert.equal(Checker.isValidApprovalTime('2026/07/12 13:05:00'), true);
+assert.equal(Checker.isValidApprovalTime('2026-07-12T05:05:00.000Z'), true);
+assert.equal(Checker.isValidApprovalTime('2026/02/30 13:05:00'), false);
+assert.equal(Checker.isValidApprovalTime('2026-02-30T05:05:00.000Z'), false);
 const htmlExtracted = Checker.extractTextMetadata('<div><b>計畫名稱</b>測試大樓</div><div><b>計畫編號</b>PKG-001</div><div><b>工具版本</b>V3.1</div><div><b>計算指紋</b>CF-1234ABCD5678EF90</div>');
 assert.equal(htmlExtracted.projectName, '測試大樓');
 assert.equal(htmlExtracted.projectNo, 'PKG-001');
@@ -48,7 +54,7 @@ assert.equal(steelMemberSourceExtracted.toolVersion, 'v1.0');
 assert.deepEqual(steelMemberSourceExtracted.fingerprints, ['CF-ABCDEF0123456789']);
 
 const readyReport = Checker.analyzePackage([
-  { file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+  { file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', approvalTime: '2026/07/12 13:05:00', fingerprints: ['CF-1234ABCD5678EF90'] },
 ], { projectNo: 'PKG-001' });
 assert.equal(readyReport.status, 'ready');
 assert.match(Checker.formatSummary(readyReport), /測試大樓｜PKG-001｜Codex QA/);
@@ -70,7 +76,7 @@ const sourceRecord = {
 const reportRecord = {
   file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'],
   projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1',
-  outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'],
+  outputTime: '2026/07/12 13:00:00', approvalTime: '2026/07/12 13:05:00', fingerprints: ['CF-1234ABCD5678EF90'],
 };
 const matchedSourceReport = Checker.analyzePackage([sourceRecord, reportRecord], { projectNo: 'PKG-001' });
 assert.equal(matchedSourceReport.status, 'ready', 'one source JSON and one report with the same fingerprint form a valid traceability link');
@@ -103,11 +109,22 @@ assert(unclassifiedReport.issues.some(issue => issue.code === 'missing-document-
 assert.match(Checker.formatSummary(unclassifiedReport), /文件未分類/);
 
 const missingReportIdentity = Checker.analyzePackage([
-  { file: 'beam-missing-identity.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'], projectName: '', projectNo: '', designer: '', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+  { file: 'beam-missing-identity.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'], projectName: '', projectNo: '', designer: '', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', approvalTime: '2026/07/12 13:05:00', fingerprints: ['CF-1234ABCD5678EF90'] },
 ], { projectNo: 'PKG-001' });
 assert.equal(missingReportIdentity.status, 'ready', 'formal attachment may inherit blank case identity from its main report');
 assert.equal(missingReportIdentity.issues.some(issue => issue.code === 'missing-report-identity'), false, 'blank optional attachment identity is not an issue');
 assert.deepEqual(Checker.REPORT_IDENTITY_FIELDS.map(([, label]) => label), ['計畫名稱', '計畫編號', '設計人員']);
+
+const missingApprovalTime = Checker.analyzePackage([
+  { ...reportRecord, file: 'beam-no-approval-time.pdf', approvalTime: '' },
+]);
+assert.equal(missingApprovalTime.status, 'blocked', 'formal attachment marker without approval time cannot be packaged');
+assert(missingApprovalTime.issues.some(issue => issue.code === 'missing-formal-approval-time'));
+const invalidApprovalTime = Checker.analyzePackage([
+  { ...reportRecord, file: 'beam-invalid-approval-time.pdf', approvalTime: '2026/02/30 13:05:00' },
+]);
+assert.equal(invalidApprovalTime.status, 'blocked');
+assert(invalidApprovalTime.issues.some(issue => issue.code === 'invalid-formal-approval-time'));
 
 const incompleteTraceReport = Checker.analyzePackage([
   { file: 'legacy.pdf', errors: [], pageOnlyNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: '', toolVersion: '', outputTime: '', fingerprints: ['CF-1234ABCD5678EF90'] },
@@ -181,7 +198,7 @@ try {
   assert.match(reviewCli.stdout, /附件組包一致性檢查：需人工確認/);
   assert.match(reviewCli.stdout, /文件未分類/);
 
-  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
   const classifiedPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(classifiedPackage.status, 'ready', 'explicit ready document classification allows package readiness');
   const classifiedReport = classifiedPackage.attachments.find(item => item.file === 'wind-formal.html');
@@ -189,7 +206,7 @@ try {
   assert.equal(classifiedPackage.fingerprintLinks.length, 1, 'project JSON and ready report are linked by fingerprint');
   assert.equal(classifiedPackage.issues.some(issue => issue.code.includes('duplicate')), false);
 
-  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
   const missingDesignerPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(missingDesignerPackage.status, 'ready', 'parsed formal attachment may omit designer and inherit it from the main report');
   assert.equal(missingDesignerPackage.issues.some(issue => issue.code === 'missing-report-identity'), false);
@@ -300,8 +317,8 @@ try {
   fs.mkdirSync(path.join(fixtureDir, 'word'), { recursive: true });
   fs.mkdirSync(path.join(fixtureDir, 'xl', 'worksheets'), { recursive: true });
   fs.writeFileSync(path.join(fixtureDir, 'word', 'document.xml'), '<w:document><w:p><w:t>計畫名稱：測試大樓</w:t></w:p><w:p><w:t>計畫編號：PKG-001</w:t></w:p></w:document>', 'utf8');
-  fs.writeFileSync(path.join(fixtureDir, 'word', 'footer1.xml'), '<w:ftr><w:p><w:t>文件狀態：正式附件</w:t></w:p><w:p><w:t>產出工具：錨栓檢討工具</w:t></w:p><w:p><w:t>工具版本：v1</w:t></w:p><w:p><w:t>輸出時間：2026/07/21 21:00:00</w:t></w:p><w:p><w:t>計算指紋：CF-1234ABCD5678EF90</w:t></w:p></w:ftr>', 'utf8');
-  fs.writeFileSync(path.join(fixtureDir, 'xl', 'sharedStrings.xml'), '<sst><si><t>文件狀態</t></si><si><t>正式附件</t></si><si><t>計畫名稱</t></si><si><t>測試大樓</t></si><si><t>計畫編號</t></si><si><t>PKG-001</t></si><si><t>產出工具</t></si><si><t>錨栓檢討工具</t></si><si><t>工具版本</t></si><si><t>v1</t></si><si><t>輸出時間</t></si><si><t>2026/07/21 21:00:00</t></si><si><t>計算指紋</t></si><si><t>CF-1234ABCD5678EF90</t></si></sst>', 'utf8');
+  fs.writeFileSync(path.join(fixtureDir, 'word', 'footer1.xml'), '<w:ftr><w:p><w:t>文件狀態：正式附件</w:t></w:p><w:p><w:t>核可時間：2026/07/21 21:05:00</w:t></w:p><w:p><w:t>產出工具：錨栓檢討工具</w:t></w:p><w:p><w:t>工具版本：v1</w:t></w:p><w:p><w:t>輸出時間：2026/07/21 21:00:00</w:t></w:p><w:p><w:t>計算指紋：CF-1234ABCD5678EF90</w:t></w:p></w:ftr>', 'utf8');
+  fs.writeFileSync(path.join(fixtureDir, 'xl', 'sharedStrings.xml'), '<sst><si><t>文件狀態</t></si><si><t>正式附件</t></si><si><t>核可時間</t></si><si><t>2026/07/21 21:05:00</t></si><si><t>計畫名稱</t></si><si><t>測試大樓</t></si><si><t>計畫編號</t></si><si><t>PKG-001</t></si><si><t>產出工具</t></si><si><t>錨栓檢討工具</t></si><si><t>工具版本</t></si><si><t>v1</t></si><si><t>輸出時間</t></si><si><t>2026/07/21 21:00:00</t></si><si><t>計算指紋</t></si><si><t>CF-1234ABCD5678EF90</t></si></sst>', 'utf8');
   fs.writeFileSync(path.join(fixtureDir, 'xl', 'worksheets', 'sheet1.xml'), '<worksheet><sheetData><row><c><v>0</v></c></row></sheetData></worksheet>', 'utf8');
   for (const [archive, source] of [['sample.docx', 'word'], ['sample.xlsx', 'xl']]) {
     const result = spawnSync('tar', ['-a', '-cf', path.join(tempDir, archive), '-C', fixtureDir, source], { encoding: 'utf8' });
@@ -315,6 +332,7 @@ try {
   assert.equal(docxRecord.sourceTool, '錨栓檢討工具');
   assert.equal(docxRecord.toolVersion, 'v1');
   assert.equal(docxRecord.outputTime, '2026/07/21 21:00:00');
+  assert.equal(docxRecord.approvalTime, '2026/07/21 21:05:00');
   assert.deepEqual(docxRecord.readyDocumentNeedles, ['文件狀態：正式附件']);
   assert.deepEqual(docxRecord.fingerprints, ['CF-1234ABCD5678EF90']);
   assert.deepEqual(xlsxRecord.errors, []);
@@ -323,6 +341,7 @@ try {
   assert.equal(xlsxRecord.sourceTool, '錨栓檢討工具');
   assert.equal(xlsxRecord.toolVersion, 'v1');
   assert.equal(xlsxRecord.outputTime, '2026/07/21 21:00:00');
+  assert.equal(xlsxRecord.approvalTime, '2026/07/21 21:05:00');
   assert.deepEqual(xlsxRecord.readyDocumentNeedles, ['文件狀態：正式附件']);
   assert.deepEqual(xlsxRecord.fingerprints, ['CF-1234ABCD5678EF90']);
 } finally {

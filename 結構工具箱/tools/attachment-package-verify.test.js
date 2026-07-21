@@ -30,6 +30,7 @@ function writeReadySource(inputDir) {
     '<div>產出工具：RC 梁</div>',
     '<div>工具版本：v3.1</div>',
     '<div>輸出時間：2026/07/21 22:00:00</div>',
+    '<div>核可時間：2026/07/21 22:05:00</div>',
     `<div>計算指紋：${FINGERPRINT}</div>`,
   ].join('\n'), 'utf8');
 }
@@ -101,10 +102,23 @@ try {
   const legacyReport = Verifier.verifyPackage(legacyPackage);
   assert.equal(legacyReport.status, 'ready', 'existing v1 packages remain verifiable');
 
+  const previousV2Package = createPackage(tempRoot, 'previous-v2');
+  const previousV2Manifest = readManifest(previousV2Package);
+  previousV2Manifest.schemaVersion = 2;
+  previousV2Manifest.kind = Builder.PREVIOUS_MANIFEST_KIND;
+  previousV2Manifest.formalAttachments.forEach(record => { delete record.approvalTime; });
+  previousV2Manifest.traceabilitySources.forEach(record => { delete record.approvalTime; });
+  previousV2Manifest.packageFingerprint = Builder.packageFingerprintV2(previousV2Manifest);
+  writeManifest(previousV2Package, previousV2Manifest);
+  writeReadme(previousV2Package, previousV2Manifest.packageFingerprint);
+  const previousV2Report = Verifier.verifyPackage(previousV2Package);
+  assert.equal(previousV2Report.status, 'ready', 'existing v2 packages remain verifiable without approval-time fields');
+
   const fingerprintTamperCases = [
     ['trace-source-tool', manifest => { manifest.formalAttachments[0].sourceTool = '另一套工具'; }],
     ['trace-tool-version', manifest => { manifest.formalAttachments[0].toolVersion = 'v9.9'; }],
     ['trace-output-time', manifest => { manifest.formalAttachments[0].outputTime = '2026/07/21 23:59:59'; }],
+    ['formal-approval-time', manifest => { manifest.formalAttachments[0].approvalTime = '2026/07/21 23:58:00'; }],
     ['trace-calculation-fingerprint', manifest => { manifest.formalAttachments[0].fingerprints[0] = 'CF-FFFFFFFFFFFFFFFF'; }],
     ['project-no', manifest => { manifest.projectNo = 'PKG-ALTERED'; }],
     ['generated-at', manifest => { manifest.generatedAt = '2026-07-21T15:00:00.000Z'; }],

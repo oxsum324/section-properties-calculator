@@ -36,6 +36,7 @@ const FIELD_LABELS = {
   sourceTool: ['產出工具', '工具名稱'],
   toolVersion: ['目前工具版本', '工具版本', '頁面版本'],
   outputTime: ['輸出時間', '報表生成時間'],
+  approvalTime: ['正式附件核可時間', '核可時間'],
 };
 const METADATA_TERMINATORS = [
   ...Object.values(FIELD_LABELS).flat(),
@@ -90,6 +91,26 @@ function normalizeToolVersion(value) {
   const namespacedVersion = raw.match(/^[a-z][a-z0-9-]*\.v(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);
   if (namespacedVersion) return `v${namespacedVersion[1]}`;
   return raw;
+}
+
+function isValidApprovalTime(value) {
+  const text = cleanMetadataValue(value);
+  if (!text) return false;
+  const local = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:T|\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d{1,3})?$/.exec(text);
+  const zoned = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-]\d{2}:?\d{2})$/.exec(text);
+  const match = local || zoned;
+  if (match) {
+    const parts = [match[1], match[2], match[3], match[4], match[5], match[6] || '0'].map(Number);
+    const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], parts[3], parts[4], parts[5]));
+    const validCalendarTime = date.getUTCFullYear() === parts[0]
+      && date.getUTCMonth() === parts[1] - 1
+      && date.getUTCDate() === parts[2]
+      && date.getUTCHours() === parts[3]
+      && date.getUTCMinutes() === parts[4]
+      && date.getUTCSeconds() === parts[5];
+    return validCalendarTime && (!zoned || Number.isFinite(Date.parse(text)));
+  }
+  return false;
 }
 
 function detectReadyDocumentClass(text) {
@@ -179,6 +200,7 @@ function extractJsonMetadata(value) {
     sourceTool: cleanMetadataValue(tool.name || tool.id || value?.toolName),
     toolVersion: normalizeToolVersion(tool.version || value?.toolVersion || value?.pageVersion),
     outputTime: cleanMetadataValue(value?.savedAt || value?.outputTime),
+    approvalTime: cleanMetadataValue(value?.documentApproval?.approvedAt || value?.approvedAt || value?.report?.approvedAt),
     fingerprints,
   };
 }
@@ -215,6 +237,7 @@ function extractTextMetadata(text) {
     sourceTool: extractLabelValue(normalized, FIELD_LABELS.sourceTool),
     toolVersion: normalizeToolVersion(extractLabelValue(normalized, FIELD_LABELS.toolVersion)),
     outputTime: extractLabelValue(normalized, FIELD_LABELS.outputTime),
+    approvalTime: extractLabelValue(normalized, FIELD_LABELS.approvalTime),
     fingerprints: unique((normalized.match(/CF-[0-9A-F]{16}/gi) || []).map(item => item.toUpperCase())),
   };
 }
@@ -223,7 +246,7 @@ function inspectAttachment(filePath, rootDir) {
   const type = path.extname(filePath).toLowerCase().slice(1) || 'unknown';
   const record = {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
-    textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '',
+    textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
     reportDocumentNeedles: [], documentClassRequired: false, errors: [],
   };
@@ -428,6 +451,10 @@ function analyzePackage(records, options = {}) {
       issues.push(buildIssue('error', 'internal-review-document', `${record.file} 的文件狀態仍為內部審閱：${record.draftDocumentNeedles.join('、')}；請在計算書預覽完成核可後再納入正式附件組包。`, [record.file]));
     } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
       issues.push(buildIssue('warn', 'missing-document-class', `${record.file} 未找到「${READY_DOCUMENT_CLASS_LABEL}」；不得自動視為已核可附件，請回原工具確認文件狀態。`, [record.file]));
+    } else if ((record.readyDocumentNeedles || []).length && !record.approvalTime) {
+      issues.push(buildIssue('error', 'missing-formal-approval-time', `${record.file} 已標示正式附件，但缺少核可時間；請回原工具重新勾選核可並輸出。`, [record.file]));
+    } else if ((record.readyDocumentNeedles || []).length && !isValidApprovalTime(record.approvalTime)) {
+      issues.push(buildIssue('error', 'invalid-formal-approval-time', `${record.file} 的核可時間格式或日期無效：${record.approvalTime}。`, [record.file]));
     }
   });
   const readable = records.filter(record => !record.errors.length);
@@ -508,7 +535,7 @@ function formatSummary(report) {
       : (record.readyDocumentNeedles || []).length
         ? '正式附件'
         : isDocumentClassRequired(record) ? '文件未分類' : '';
-    const trace = [record.projectName, record.projectNo, record.designer, record.sourceTool, record.toolVersion, record.fingerprints.join(','), documentClass].filter(Boolean).join('｜') || '未抽取追溯資訊';
+    const trace = [record.projectName, record.projectNo, record.designer, record.sourceTool, record.toolVersion, record.fingerprints.join(','), documentClass, record.approvalTime ? `核可 ${record.approvalTime}` : ''].filter(Boolean).join('｜') || '未抽取追溯資訊';
     lines.push(`- ${record.file}：${record.errors.length ? `讀取失敗 (${record.errors.join('；')})` : trace}`);
   });
   report.issues.forEach(issue => lines.push(`[${issue.level === 'error' ? '阻擋' : '提醒'}] ${issue.message}`));
@@ -559,4 +586,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

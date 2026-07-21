@@ -11,7 +11,8 @@ const TRACE_SOURCES_DIR = '來源資料';
 const PACKAGE_MANIFEST_FILE = '附件包清單.json';
 const INTERNAL_README_FILE = 'README.txt';
 const LEGACY_MANIFEST_KIND = 'formal-attachment-package.v1';
-const MANIFEST_KIND = 'formal-attachment-package.v2';
+const PREVIOUS_MANIFEST_KIND = 'formal-attachment-package.v2';
+const MANIFEST_KIND = 'formal-attachment-package.v3';
 const PACKAGE_BOUNDARY_INSTRUCTION = `送入主報告的檔案只取 ${FORMAL_ATTACHMENTS_DIR}；${INTERNAL_TRACE_DIR} 僅供公司內部追溯。`;
 
 function timestampToken(value = new Date()) {
@@ -99,6 +100,7 @@ function copyRecord(record, inputDir, stagingDir, packageRoot) {
     sourceTool: record.sourceTool,
     toolVersion: record.toolVersion,
     outputTime: record.outputTime,
+    approvalTime: record.approvalTime,
     fingerprints: [...(record.fingerprints || [])],
   };
 }
@@ -142,7 +144,21 @@ function canonicalFingerprintRecord(record = {}) {
   };
 }
 
-function canonicalPackageFingerprintPayload(manifest = {}) {
+function canonicalFingerprintRecordV3(record = {}) {
+  const canonical = canonicalFingerprintRecord(record);
+  return {
+    packagedFile: canonical.packagedFile,
+    bytes: canonical.bytes,
+    sha256: canonical.sha256,
+    sourceTool: canonical.sourceTool,
+    toolVersion: canonical.toolVersion,
+    outputTime: canonical.outputTime,
+    approvalTime: record.approvalTime,
+    fingerprints: canonical.fingerprints,
+  };
+}
+
+function canonicalPackageFingerprintPayload(manifest = {}, canonicalizeRecord = canonicalFingerprintRecord) {
   const formalAttachments = Array.isArray(manifest.formalAttachments) ? manifest.formalAttachments : [];
   const traceabilitySources = Array.isArray(manifest.traceabilitySources) ? manifest.traceabilitySources : [];
   return {
@@ -150,9 +166,9 @@ function canonicalPackageFingerprintPayload(manifest = {}) {
     kind: manifest.kind,
     generatedAt: manifest.generatedAt,
     projectNo: manifest.projectNo,
-    formalAttachments: formalAttachments.map(canonicalFingerprintRecord)
+    formalAttachments: formalAttachments.map(canonicalizeRecord)
       .sort((left, right) => ordinalCompare(left.packagedFile, right.packagedFile)),
-    traceabilitySources: traceabilitySources.map(canonicalFingerprintRecord)
+    traceabilitySources: traceabilitySources.map(canonicalizeRecord)
       .sort((left, right) => ordinalCompare(left.packagedFile, right.packagedFile)),
     checkSummary: {
       attachments: manifest.checkSummary?.attachments,
@@ -173,6 +189,11 @@ function packageFingerprintV2(manifest) {
   return `PKG-${crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 24).toUpperCase()}`;
 }
 
+function packageFingerprintV3(manifest) {
+  const payload = canonicalPackageFingerprintPayload(manifest, canonicalFingerprintRecordV3);
+  return `PKG-${crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 24).toUpperCase()}`;
+}
+
 function packageFingerprintForManifest(manifest = {}) {
   if (manifest.schemaVersion === 1 && manifest.kind === LEGACY_MANIFEST_KIND) {
     return packageFingerprint(
@@ -180,7 +201,8 @@ function packageFingerprintForManifest(manifest = {}) {
       Array.isArray(manifest.traceabilitySources) ? manifest.traceabilitySources : [],
     );
   }
-  if (manifest.schemaVersion === 2 && manifest.kind === MANIFEST_KIND) return packageFingerprintV2(manifest);
+  if (manifest.schemaVersion === 2 && manifest.kind === PREVIOUS_MANIFEST_KIND) return packageFingerprintV2(manifest);
+  if (manifest.schemaVersion === 3 && manifest.kind === MANIFEST_KIND) return packageFingerprintV3(manifest);
   throw new Error('不支援的附件包清單格式。');
 }
 
@@ -204,6 +226,30 @@ function portableVerificationResult(verification) {
     issues: [...(verification.issues || [])],
     records: [...(verification.records || [])],
   };
+}
+
+function waitMilliseconds(milliseconds) {
+  if (milliseconds > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
+function publishStagingDirectory(stagingDir, outputDir, options = {}) {
+  const retryDelaysMs = Array.isArray(options.retryDelaysMs) ? options.retryDelaysMs : [0, 50, 150, 300];
+  const retryableCodes = new Set(['EPERM', 'EACCES', 'EBUSY']);
+  let lastError;
+  for (let attempt = 0; attempt < retryDelaysMs.length; attempt += 1) {
+    waitMilliseconds(Number(retryDelaysMs[attempt]) || 0);
+    try {
+      fs.renameSync(stagingDir, outputDir);
+      return;
+    } catch (error) {
+      lastError = error;
+      const canRetry = retryableCodes.has(error?.code)
+        && !fs.existsSync(outputDir)
+        && attempt < retryDelaysMs.length - 1;
+      if (!canRetry) throw error;
+    }
+  }
+  throw lastError;
 }
 
 function buildPackage(inputDir, options = {}) {
@@ -239,7 +285,7 @@ function buildPackage(inputDir, options = {}) {
     const formalAttachments = formalRecords.map(record => copyRecord(record, resolvedInput, stagingDir, FORMAL_ATTACHMENTS_DIR));
     const traceabilitySources = traceabilityRecords.map(record => copyRecord(record, resolvedInput, stagingDir, path.join(INTERNAL_TRACE_DIR, TRACE_SOURCES_DIR)));
     const manifest = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       kind: MANIFEST_KIND,
       generatedAt: (options.now instanceof Date ? options.now : new Date(options.now || Date.now())).toISOString(),
       projectNo: resolveProjectNo(report),
@@ -258,7 +304,7 @@ function buildPackage(inputDir, options = {}) {
         instruction: PACKAGE_BOUNDARY_INSTRUCTION,
       },
     };
-    manifest.packageFingerprint = packageFingerprintV2(manifest);
+    manifest.packageFingerprint = packageFingerprintV3(manifest);
     const internalDir = path.join(stagingDir, INTERNAL_TRACE_DIR);
     fs.mkdirSync(internalDir, { recursive: true });
     fs.writeFileSync(path.join(internalDir, PACKAGE_MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
@@ -272,7 +318,7 @@ function buildPackage(inputDir, options = {}) {
     if (verification.status !== 'ready') {
       throw new Error(`正式附件包發布前完整性驗證未通過：${summarizeVerificationFailure(verification)}`);
     }
-    fs.renameSync(stagingDir, resolvedOutput);
+    publishStagingDirectory(stagingDir, resolvedOutput);
     return {
       kind: 'formal-attachment-package-build.v1',
       status: 'ready',
@@ -338,6 +384,7 @@ module.exports = {
   PACKAGE_MANIFEST_FILE,
   INTERNAL_README_FILE,
   LEGACY_MANIFEST_KIND,
+  PREVIOUS_MANIFEST_KIND,
   MANIFEST_KIND,
   PACKAGE_BOUNDARY_INSTRUCTION,
   timestampToken,
@@ -350,11 +397,15 @@ module.exports = {
   packageFingerprint,
   ordinalCompare,
   canonicalFingerprintRecord,
+  canonicalFingerprintRecordV3,
   canonicalPackageFingerprintPayload,
   packageFingerprintV2,
+  packageFingerprintV3,
   packageFingerprintForManifest,
   summarizeVerificationFailure,
   portableVerificationResult,
+  waitMilliseconds,
+  publishStagingDirectory,
   buildPackage,
   parseArgs,
   usage,

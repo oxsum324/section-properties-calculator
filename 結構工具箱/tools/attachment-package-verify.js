@@ -6,6 +6,7 @@ const Builder = require('./attachment-package-build.js');
 const Checker = require('./attachment-package-check.js');
 
 const LEGACY_MANIFEST_KIND = Builder.LEGACY_MANIFEST_KIND;
+const PREVIOUS_MANIFEST_KIND = Builder.PREVIOUS_MANIFEST_KIND;
 const MANIFEST_KIND = Builder.MANIFEST_KIND;
 const VERIFICATION_KIND = 'formal-attachment-package-verification.v1';
 
@@ -76,9 +77,10 @@ function validateManifestHeader(manifest, report) {
     return;
   }
   const isLegacyManifest = manifest.schemaVersion === 1 && manifest.kind === LEGACY_MANIFEST_KIND;
-  const isCurrentManifest = manifest.schemaVersion === 2 && manifest.kind === MANIFEST_KIND;
-  if (!isLegacyManifest && !isCurrentManifest) {
-    addIssue(report, 'unsupported-manifest-schema', `附件包清單格式不符：僅接受 schemaVersion 1／${LEGACY_MANIFEST_KIND} 或 schemaVersion 2／${MANIFEST_KIND}。`, [manifestRelativePath()]);
+  const isPreviousManifest = manifest.schemaVersion === 2 && manifest.kind === PREVIOUS_MANIFEST_KIND;
+  const isCurrentManifest = manifest.schemaVersion === 3 && manifest.kind === MANIFEST_KIND;
+  if (!isLegacyManifest && !isPreviousManifest && !isCurrentManifest) {
+    addIssue(report, 'unsupported-manifest-schema', `附件包清單格式不符：僅接受 v1／${LEGACY_MANIFEST_KIND}、v2／${PREVIOUS_MANIFEST_KIND} 或 v3／${MANIFEST_KIND}。`, [manifestRelativePath()]);
   }
   if (typeof manifest.generatedAt !== 'string' || !manifest.generatedAt || !Number.isFinite(Date.parse(manifest.generatedAt))) {
     addIssue(report, 'invalid-generated-at', '附件包清單缺少有效的建立時間。', [manifestRelativePath()]);
@@ -101,7 +103,7 @@ function validateManifestHeader(manifest, report) {
   }
 }
 
-function validateRecord(record, role, index, report, seenPaths) {
+function validateRecord(record, role, index, report, seenPaths, schemaVersion) {
   const roleLabel = role === 'formal' ? '正式附件' : '內部追溯來源';
   const expectedPrefix = role === 'formal'
     ? `${Builder.FORMAL_ATTACHMENTS_DIR}/`
@@ -138,6 +140,10 @@ function validateRecord(record, role, index, report, seenPaths) {
       || !Array.isArray(record.fingerprints) || !record.fingerprints.length
       || record.fingerprints.some(value => typeof value !== 'string' || !value.trim())) {
     addIssue(report, 'invalid-traceability-record', `${packagedFile} 缺少產出工具、版本、輸出時間或計算指紋。`, [packagedFile]);
+  }
+  if (role === 'formal' && schemaVersion >= 3
+      && (typeof record.approvalTime !== 'string' || !Checker.isValidApprovalTime(record.approvalTime))) {
+    addIssue(report, 'invalid-formal-approval-time', `${packagedFile} 缺少有效的正式附件核可時間。`, [packagedFile]);
   }
   return { record, role, packagedFile };
 }
@@ -243,8 +249,8 @@ function verifyPackage(inputDir) {
 
   const seenPaths = new Set();
   const validItems = [
-    ...formalRecords.map((record, index) => validateRecord(record, 'formal', index, report, seenPaths)),
-    ...traceRecords.map((record, index) => validateRecord(record, 'traceability', index, report, seenPaths)),
+    ...formalRecords.map((record, index) => validateRecord(record, 'formal', index, report, seenPaths, manifest.schemaVersion)),
+    ...traceRecords.map((record, index) => validateRecord(record, 'traceability', index, report, seenPaths, manifest.schemaVersion)),
   ].filter(Boolean);
 
   let expectedFingerprint = '';
@@ -325,6 +331,7 @@ if (require.main === module) {
 
 module.exports = {
   LEGACY_MANIFEST_KIND,
+  PREVIOUS_MANIFEST_KIND,
   MANIFEST_KIND,
   VERIFICATION_KIND,
   normalizeSlash,
