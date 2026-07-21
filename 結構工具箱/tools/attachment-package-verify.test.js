@@ -9,7 +9,7 @@ const Builder = require('./attachment-package-build.js');
 const Verifier = require('./attachment-package-verify.js');
 
 const FINGERPRINT = 'CF-1234ABCD5678EF90';
-const FIXED_NOW = new Date('2026-07-21T14:00:00.000Z');
+const FIXED_NOW = new Date('2026-07-21T14:10:00.000Z');
 
 function writeReadySource(inputDir) {
   const sourcePath = path.join(inputDir, 'source', 'beam.json');
@@ -152,6 +152,25 @@ try {
   writeReadme(invalidOutputTimePackage, invalidOutputTimeManifest.packageFingerprint);
   const invalidOutputTimeReport = Verifier.verifyPackage(invalidOutputTimePackage);
   assert.equal(hasIssue(invalidOutputTimeReport, 'invalid-output-time'), true);
+
+  const packageBeforeApproval = createPackage(tempRoot, 'package-before-approval');
+  const packageBeforeApprovalManifest = readManifest(packageBeforeApproval);
+  packageBeforeApprovalManifest.generatedAt = '2026-07-21T14:04:00.000Z';
+  packageBeforeApprovalManifest.packageFingerprint = Builder.packageFingerprintV3(packageBeforeApprovalManifest);
+  writeManifest(packageBeforeApproval, packageBeforeApprovalManifest);
+  writeReadme(packageBeforeApproval, packageBeforeApprovalManifest.packageFingerprint);
+  const packageBeforeApprovalReport = Verifier.verifyPackage(packageBeforeApproval);
+  assert.equal(hasIssue(packageBeforeApprovalReport, 'package-generated-before-approval'), true);
+  assert.equal(hasIssue(packageBeforeApprovalReport, 'package-fingerprint-mismatch'), false, 'package chronology is validated independently of fingerprint consistency');
+
+  const invalidGeneratedAtPackage = createPackage(tempRoot, 'invalid-generated-at');
+  const invalidGeneratedAtManifest = readManifest(invalidGeneratedAtPackage);
+  invalidGeneratedAtManifest.generatedAt = '2026-02-30T14:10:00.000Z';
+  invalidGeneratedAtManifest.packageFingerprint = Builder.packageFingerprintV3(invalidGeneratedAtManifest);
+  writeManifest(invalidGeneratedAtPackage, invalidGeneratedAtManifest);
+  writeReadme(invalidGeneratedAtPackage, invalidGeneratedAtManifest.packageFingerprint);
+  const invalidGeneratedAtReport = Verifier.verifyPackage(invalidGeneratedAtPackage);
+  assert.equal(hasIssue(invalidGeneratedAtReport, 'invalid-generated-at'), true);
 
   const unsupportedPackage = createPackage(tempRoot, 'unsupported-schema-pair');
   const unsupportedManifest = readManifest(unsupportedPackage);

@@ -35,8 +35,8 @@ function writeReport(inputDir, documentState, relativeFile = 'reports/beam.html'
     '<div>計畫編號：PKG-001</div>',
     '<div>產出工具：RC 梁</div>',
     '<div>工具版本：v3.1</div>',
-    '<div>輸出時間：2026/07/21 21:00:00</div>',
-    '<div>核可時間：2026/07/21 21:05:00</div>',
+    '<div>輸出時間：2026/07/21 20:50:00</div>',
+    '<div>核可時間：2026/07/21 20:55:00</div>',
     `<div>計算指紋：${FINGERPRINT}</div>`,
   ].join('\n'), 'utf8');
   return filePath;

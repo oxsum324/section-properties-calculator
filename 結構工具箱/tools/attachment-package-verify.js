@@ -30,6 +30,12 @@ function isSafeManifestPath(value) {
   return parts.every(part => part && part !== '.' && part !== '..');
 }
 
+function parseManifestGeneratedAt(value) {
+  if (typeof value !== 'string'
+      || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:?\d{2})$/.test(value)) return null;
+  return Checker.parseTraceDateTime(value);
+}
+
 function addIssue(report, code, message, files = []) {
   report.issues.push({ level: 'error', code, message, files });
 }
@@ -82,7 +88,7 @@ function validateManifestHeader(manifest, report) {
   if (!isLegacyManifest && !isPreviousManifest && !isCurrentManifest) {
     addIssue(report, 'unsupported-manifest-schema', `附件包清單格式不符：僅接受 v1／${LEGACY_MANIFEST_KIND}、v2／${PREVIOUS_MANIFEST_KIND} 或 v3／${MANIFEST_KIND}。`, [manifestRelativePath()]);
   }
-  if (typeof manifest.generatedAt !== 'string' || !manifest.generatedAt || !Number.isFinite(Date.parse(manifest.generatedAt))) {
+  if (!Number.isFinite(parseManifestGeneratedAt(manifest.generatedAt))) {
     addIssue(report, 'invalid-generated-at', '附件包清單缺少有效的建立時間。', [manifestRelativePath()]);
   }
   if (typeof manifest.projectNo !== 'string') {
@@ -256,6 +262,15 @@ function verifyPackage(inputDir) {
       && manifest.checkSummary.attachments !== formalRecords.length + traceRecords.length) {
     addIssue(report, 'check-summary-count-mismatch', '附件包清單的組包前附件數與正式附件及內部追溯來源筆數不符。', [manifestRelativePath()]);
   }
+  if (manifest.schemaVersion >= 3) {
+    const packageGeneratedEpoch = parseManifestGeneratedAt(manifest.generatedAt);
+    if (Number.isFinite(packageGeneratedEpoch)) formalRecords.forEach(record => {
+      const approvalEpoch = Checker.parseTraceDateTime(record?.approvalTime);
+      if (Number.isFinite(approvalEpoch) && approvalEpoch > packageGeneratedEpoch) {
+        addIssue(report, 'package-generated-before-approval', '附件包建立時間早於正式附件核可時間。', [record.packagedFile || manifestRelativePath()]);
+      }
+    });
+  }
 
   const seenPaths = new Set();
   const validItems = [
@@ -348,6 +363,7 @@ module.exports = {
   manifestRelativePath,
   readmeRelativePath,
   isSafeManifestPath,
+  parseManifestGeneratedAt,
   listPackageEntries,
   expectedDirectories,
   verifyPackage,
