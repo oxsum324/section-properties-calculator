@@ -98,6 +98,8 @@ assert.deepEqual(
   [{ key: 'x', pointer: '/items/0/x' }],
 );
 assert.deepEqual(Verifier.findDuplicateJsonKeys('{"a":1,"b":{"c":2}}'), []);
+assert.equal(Verifier.jsonPointerPart('a~/b'), 'a~0~1b');
+assert.deepEqual(Verifier.unknownObjectFields({ a: 1, extra: 2 }, ['a']), ['extra']);
 assert.deepEqual(Verifier.parseArgs(['--input', 'C:/formal-package']), { input: 'C:/formal-package' });
 assert.match(Verifier.usage(), /正式附件包資料夾/);
 
@@ -379,6 +381,34 @@ try {
   ], { encoding: 'utf8' });
   assert.equal(duplicateJsonCli.status, 2, duplicateJsonCli.stderr || duplicateJsonCli.stdout);
   assert.match(duplicateJsonCli.stdout, /重複 JSON 欄位/);
+
+  const unknownFieldCases = [
+    ['top-level', manifest => { manifest.releaseStatus = 'ready'; }, '/releaseStatus'],
+    ['check-summary', manifest => { manifest.checkSummary.reviewed = true; }, '/checkSummary/reviewed'],
+    ['boundary', manifest => { manifest.boundary.alternateDirectory = 'formal'; }, '/boundary/alternateDirectory'],
+    ['formal-record', manifest => { manifest.formalAttachments[0].documentState = '正式附件'; }, '/formalAttachments/0/documentState'],
+    ['trace-record', manifest => { manifest.traceabilitySources[0].trusted = true; }, '/traceabilitySources/0/trusted'],
+  ];
+  unknownFieldCases.forEach(([name, mutate, pointer]) => {
+    const packageDir = createPackage(tempRoot, `unknown-manifest-field-${name}`);
+    const manifest = readManifest(packageDir);
+    mutate(manifest);
+    writeManifest(packageDir, manifest);
+    const report = Verifier.verifyPackage(packageDir);
+    const issue = report.issues.find(item => item.code === 'unknown-manifest-field');
+    assert.equal(report.status, 'blocked');
+    assert.ok(issue, `${name} unknown field must be blocked`);
+    assert.match(issue.message, new RegExp(pointer.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    assert.equal(hasIssue(report, 'package-fingerprint-mismatch'), false, `${name} unknown field must be blocked even when the parsed fingerprint remains valid`);
+    assert.equal(hasIssue(report, 'readme-mismatch'), false);
+    if (name === 'top-level') {
+      const cli = spawnSync(process.execPath, [
+        path.join(__dirname, 'attachment-package-verify.js'), '--input', packageDir,
+      ], { encoding: 'utf8' });
+      assert.equal(cli.status, 2, cli.stderr || cli.stdout);
+      assert.match(cli.stdout, /未定義且未納入附件包指紋/);
+    }
+  });
 
   const wrongRolePackage = createPackage(tempRoot, 'wrong-role');
   const wrongRoleManifest = readManifest(wrongRolePackage);

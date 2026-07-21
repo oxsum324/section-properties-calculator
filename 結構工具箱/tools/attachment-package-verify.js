@@ -10,6 +10,16 @@ const LEGACY_MANIFEST_KIND = Builder.LEGACY_MANIFEST_KIND;
 const PREVIOUS_MANIFEST_KIND = Builder.PREVIOUS_MANIFEST_KIND;
 const MANIFEST_KIND = Builder.MANIFEST_KIND;
 const VERIFICATION_KIND = 'formal-attachment-package-verification.v1';
+const MANIFEST_FIELDS = Object.freeze([
+  'schemaVersion', 'kind', 'generatedAt', 'projectNo', 'packageFingerprint',
+  'formalAttachments', 'traceabilitySources', 'checkSummary', 'boundary',
+]);
+const CHECK_SUMMARY_FIELDS = Object.freeze(['attachments', 'errors', 'warnings', 'fingerprintLinks']);
+const BOUNDARY_FIELDS = Object.freeze(['formalDirectory', 'internalDirectory', 'instruction']);
+const RECORD_FIELDS = Object.freeze([
+  'packagedFile', 'bytes', 'sha256', 'sourceTool', 'toolVersion',
+  'outputTime', 'approvalTime', 'fingerprints',
+]);
 
 function normalizeSlash(value) {
   return String(value || '').replace(/\\/g, '/');
@@ -55,6 +65,28 @@ function sha256Buffer(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+function jsonPointerPart(value) {
+  return String(value).replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+function unknownObjectFields(value, allowedFields) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  const allowed = new Set(allowedFields);
+  return Object.keys(value).filter(key => !allowed.has(key)).sort();
+}
+
+function validateKnownObjectFields(value, allowedFields, pointer, label, report) {
+  const unknownFields = unknownObjectFields(value, allowedFields);
+  if (!unknownFields.length) return;
+  const pointers = unknownFields.map(key => `${pointer}/${jsonPointerPart(key)}`);
+  addIssue(
+    report,
+    'unknown-manifest-field',
+    `${label}含有未定義且未納入附件包指紋的欄位：${pointers.join('、')}；無法安全解讀。`,
+    [manifestRelativePath()],
+  );
+}
+
 function findDuplicateJsonKeys(value, maxDepth = 128) {
   const text = String(value);
   const duplicates = [];
@@ -85,10 +117,6 @@ function findDuplicateJsonKeys(value, maxDepth = 128) {
     fail('JSON 字串未結束');
   }
 
-  function pointerPart(key) {
-    return String(key).replace(/~/g, '~0').replace(/\//g, '~1');
-  }
-
   function scanValue(pointer, depth) {
     if (depth > maxDepth) throw new Error(`JSON 巢狀深度超過 ${maxDepth} 層`);
     skipWhitespace();
@@ -104,7 +132,7 @@ function findDuplicateJsonKeys(value, maxDepth = 128) {
       }
       while (index < text.length) {
         const key = parseString();
-        const childPointer = `${pointer}/${pointerPart(key)}`;
+        const childPointer = `${pointer}/${jsonPointerPart(key)}`;
         if (keys.has(key)) duplicates.push({ key, pointer: childPointer });
         else keys.add(key);
         skipWhitespace();
@@ -282,6 +310,7 @@ function validateManifestHeader(manifest, report) {
     addIssue(report, 'invalid-manifest', '附件包清單必須是 JSON 物件。', [manifestRelativePath()]);
     return;
   }
+  validateKnownObjectFields(manifest, MANIFEST_FIELDS, '', '附件包清單', report);
   const isLegacyManifest = manifest.schemaVersion === 1 && manifest.kind === LEGACY_MANIFEST_KIND;
   const isPreviousManifest = manifest.schemaVersion === 2 && manifest.kind === PREVIOUS_MANIFEST_KIND;
   const isCurrentManifest = manifest.schemaVersion === 3 && manifest.kind === MANIFEST_KIND;
@@ -300,6 +329,7 @@ function validateManifestHeader(manifest, report) {
       || manifest.boundary.instruction !== Builder.PACKAGE_BOUNDARY_INSTRUCTION) {
     addIssue(report, 'invalid-package-boundary', '附件包清單的正式附件／內部追溯資料夾邊界不正確。', [manifestRelativePath()]);
   }
+  validateKnownObjectFields(manifest.boundary, BOUNDARY_FIELDS, '/boundary', '附件包分流邊界', report);
   const summaryValues = ['attachments', 'errors', 'warnings', 'fingerprintLinks']
     .map(key => manifest.checkSummary?.[key]);
   if (!manifest.checkSummary || typeof manifest.checkSummary !== 'object'
@@ -307,6 +337,7 @@ function validateManifestHeader(manifest, report) {
       || manifest.checkSummary.errors !== 0 || manifest.checkSummary.warnings !== 0) {
     addIssue(report, 'invalid-check-summary', '附件包清單的組包前檢查摘要不完整或格式不正確；正式組包應為零阻擋與零提醒。', [manifestRelativePath()]);
   }
+  validateKnownObjectFields(manifest.checkSummary, CHECK_SUMMARY_FIELDS, '/checkSummary', '附件包檢查摘要', report);
 }
 
 function validateRecord(record, role, index, report, seenPaths, schemaVersion) {
@@ -318,6 +349,8 @@ function validateRecord(record, role, index, report, seenPaths, schemaVersion) {
     addIssue(report, 'invalid-manifest-record', `${roleLabel}清單第 ${index + 1} 筆不是有效物件。`, [manifestRelativePath()]);
     return null;
   }
+  const recordPointer = `/${role === 'formal' ? 'formalAttachments' : 'traceabilitySources'}/${index}`;
+  validateKnownObjectFields(record, RECORD_FIELDS, recordPointer, `${roleLabel}清單第 ${index + 1} 筆`, report);
 
   const packagedFile = record.packagedFile;
   if (!isSafeManifestPath(packagedFile)) {
@@ -618,6 +651,8 @@ module.exports = {
   listPackageEntries,
   expectedDirectories,
   sha256Buffer,
+  jsonPointerPart,
+  unknownObjectFields,
   findDuplicateJsonKeys,
   verifyPackageStability,
   verifyPackage,
