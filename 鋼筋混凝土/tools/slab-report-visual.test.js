@@ -189,7 +189,7 @@ async function reportMetrics(report) {
     const paper = document.querySelector('.rep-paper');
     const paperRect = paper?.getBoundingClientRect();
     const calculationPaper = paper?.cloneNode(true);
-    calculationPaper?.querySelector('.rep-document-state')?.remove();
+    calculationPaper?.querySelector('.rep-document-status-line')?.remove();
     const overflowing = [...document.querySelectorAll('.rep-paper table, .rep-paper th, .rep-paper td, .rep-paper figure, .rep-paper pre')]
       .filter(el => el.scrollWidth > el.clientWidth + 2)
       .slice(0, 12)
@@ -206,9 +206,9 @@ async function reportMetrics(report) {
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
-      documentState: document.querySelector('.rep-document-state')?.dataset.documentState || '',
-      documentReason: document.querySelector('.rep-document-state')?.dataset.documentReason || '',
-      documentStateText: clean(document.querySelector('.rep-document-state')?.textContent),
+      documentState: document.querySelector('.rep-document-status-line')?.dataset.documentClass || '',
+      documentApproved: document.querySelector('.rep-document-status-line')?.dataset.approved || '',
+      documentStateText: clean(document.querySelector('.rep-document-status-line')?.textContent),
       bodyText: clean(document.body.innerText),
       calculationText: clean(calculationPaper?.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
@@ -279,7 +279,7 @@ async function main() {
       assert(state.readinessText.includes('優先閱讀'), `${key} page attachment readiness priority`, state.readinessText);
       assert(['ready', 'review', 'estimate', 'blocked'].includes(state.readinessStatus), `${key} page attachment readiness status`, state.readinessStatus);
       assert(state.readinessDisplay !== 'none', `${key} page attachment readiness visible`, state.readinessDisplay);
-      assert(state.readinessText.includes('案件識別資料') && state.readinessText.includes('完整'), `${key} page metadata completeness`, state.readinessText);
+      assert(state.readinessText.includes('案件識別資料') && state.readinessText.includes('已填'), `${key} page metadata completeness`, state.readinessText);
       if (state.reviewWarningCount > 0 || state.allOk === false) {
         assert(!state.banner.includes('OK — 初步檢查通過'), `${key} no misleading page banner`, state.banner);
       }
@@ -309,8 +309,8 @@ async function main() {
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {
         assert,
-        include: ['板初步設計計算書', '計算書', ...(state.readinessStatus === 'ready' ? [] : ['DRAFT／非正式附件'])],
-        exclude: state.readinessStatus === 'ready' ? ['DRAFT／非正式附件'] : [],
+        include: ['板初步設計計算書', '計算書', '文件狀態：內部審閱'],
+        exclude: ['DRAFT／非正式附件'],
       });
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
@@ -318,9 +318,8 @@ async function main() {
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${key} project JSON calculation fingerprint`, sourceFingerprint);
       assert(metrics.calculationFingerprint === sourceFingerprint, `${key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasReportSummary, `${key} report status banner hidden`, 'no .rep-summary');
-      const expectedDraft = state.readinessStatus !== 'ready';
-      assert(metrics.documentState === (expectedDraft ? 'draft' : ''), `${key} report document class follows page readiness`, `${state.readinessStatus} -> ${metrics.documentState || 'ready'}`);
-      assert(metrics.documentReason === (state.readinessStatus === 'blocked' ? 'blocked' : expectedDraft ? 'review' : ''), `${key} report document reason`, metrics.documentReason || 'ready');
+      assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${key} report defaults to printable internal review independent of engineering readiness`, `${state.readinessStatus} -> ${metrics.documentState}`);
+      assert(metrics.documentStateText.includes('文件狀態：內部審閱'), `${key} report carries concise document status`, metrics.documentStateText);
       assert(metrics.checkGroupCount >= expected.minCheckGroups, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.stepCount >= 1, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagrams`, `count=${metrics.diagramCount}`);

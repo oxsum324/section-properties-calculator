@@ -1,11 +1,10 @@
-import { buildAttachmentReadinessModel } from './attachmentReadiness'
 import type {
   ProductCompleteness,
   ReportSettings,
   ReviewResult,
 } from './domain'
 
-export type ReportDocumentStateStatus = 'ready' | 'review' | 'blocked'
+export type ReportDocumentStateStatus = 'formal-attachment' | 'internal-review'
 
 export interface ReportDocumentState {
   status: ReportDocumentStateStatus
@@ -21,42 +20,21 @@ export interface BuildReportDocumentStateInput {
   reportSettings: ReportSettings
 }
 
-function removeActionPrefix(value: string): string {
-  return value.replace(/^(先處理|先確認)：/, '').trim()
-}
-
 /**
- * 將頁面用的附件適用性判斷壓縮為計算書必要的文件分類。
- * 頁面的操作流程、閱讀順序與說明卡不進報告；非 ready 文件則必須明確標示 DRAFT。
+ * 文件身分只反映使用者是否已完成核可，不取代工程檢核結果。
+ * NG、資料待確認等內容仍應如實列在計算書中；頁面流程說明不進報告。
  */
 export function buildReportDocumentState(
   input: BuildReportDocumentStateInput,
 ): ReportDocumentState {
-  const readiness = buildAttachmentReadinessModel(input)
-  const issue = removeActionPrefix(readiness.priority.value)
-
-  if (readiness.status === 'blocked') {
-    return {
-      status: 'blocked',
-      label: 'DRAFT / 檢核不符',
-      reason: `不得送簽；${issue}。`,
-      isDraft: true,
-    }
-  }
-
-  if (readiness.status === 'review') {
-    return {
-      status: 'review',
-      label: 'DRAFT / 待人工複核',
-      reason: `完成人工複核後方可送簽；${issue}。`,
-      isDraft: true,
-    }
-  }
-
+  const approved = input.reportSettings.documentApproved === true
   return {
-    status: 'ready',
-    label: '可送簽版',
-    reason: '數值檢核與必要資料具備送簽條件；仍須完成技師複核及簽章。',
+    status: approved ? 'formal-attachment' : 'internal-review',
+    label: approved ? '正式附件' : '內部審閱',
+    reason:
+      approved && input.reportSettings.documentApprovedAt
+        ? `核可時間：${input.reportSettings.documentApprovedAt}`
+        : '',
     isDraft: false,
   }
 }
@@ -65,5 +43,6 @@ export function appendReportDocumentStateSuffix(
   fileStem: string,
   state: ReportDocumentState,
 ): string {
-  return state.isDraft ? `${fileStem}_DRAFT` : fileStem
+  void state
+  return fileStem
 }

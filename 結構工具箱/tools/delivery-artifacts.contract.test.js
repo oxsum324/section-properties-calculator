@@ -474,21 +474,21 @@ assertIncludesAny(
   '不會寫入計算書或列印 PDF',
   '優先閱讀',
   'uses the controlling load case instead of only the active editor case',
-  'requires manual review when project and sign-off metadata is incomplete',
+  'allows blank optional attachment identity to be inherited from the main report',
 ].forEach(needle => assertIncludes(anchorAttachmentReadinessTest, needle, `anchor attachment readiness boundary keeps ${needle}`));
 
 [
-  'DRAFT / 檢核不符',
-  'DRAFT / 待人工複核',
-  '可送簽版',
+  'internal-review',
+  'formal-attachment',
+  '核可時間',
   'appendReportDocumentStateSuffix',
 ].forEach(needle => assertIncludes(anchorReportDocumentState, needle, `anchor report document state keeps ${needle}`));
 
 [
-  "status: 'ready'",
-  "status: 'review'",
-  "status: 'blocked'",
-  '錨栓檢討_DRAFT',
+  "status: 'internal-review'",
+  "status: 'formal-attachment'",
+  'printable internal review',
+  'truthfully contain failed calculations',
 ].forEach(needle => assertIncludes(anchorReportDocumentStateTest, needle, `anchor report document state regression keeps ${needle}`));
 
 [

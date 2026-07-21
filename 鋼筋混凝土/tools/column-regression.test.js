@@ -365,9 +365,9 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
 
   const readyInputs = { columnDevTop: 500, columnDevBottom: 500 };
   const missingMetadata = await loadScenario('default_rect_design', {}, readyInputs);
-  assert(missingMetadata.status === 'review', 'column empty metadata is preview-only', missingMetadata.text);
+  assert(missingMetadata.status === 'ready', 'column empty metadata can be inherited from the main report', missingMetadata.text);
   assert(missingMetadata.assessment?.metadata?.missingItems?.length === 3, 'column empty metadata lists all required fields', JSON.stringify(missingMetadata.assessment?.metadata));
-  assert(missingMetadata.text.includes('僅供預覽') && missingMetadata.text.includes('缺 3 項'), 'column page explains metadata preview boundary', missingMetadata.text);
+  assert(missingMetadata.text.includes('由主文承接') && missingMetadata.text.includes('未填 3 項'), 'column page explains inherited metadata', missingMetadata.text);
   const screenPrintNotice = await page.evaluate(() => getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display);
   assert(screenPrintNotice === 'none', 'column direct-print boundary stays hidden on screen', screenPrintNotice);
   await page.emulateMedia({ media: 'print' });
@@ -391,10 +391,10 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
   const readyReport = await captureColumnReportHtml(page);
   assert(!readyReport.includes('DRAFT／非正式附件'), 'column ready report has no draft state', 'formal report');
   assert(!readyReport.includes('data-document-state="draft"'), 'column ready report has no draft marker', 'formal report');
+  assert(readyReport.includes('data-initial-approved="false"') && readyReport.includes('本計算內容已完成審閱，核可作為正式附件'), 'column report defaults to printable internal review with explicit approval control', 'approval model');
   await page.evaluate(() => { document.getElementById('projNo').value = ''; });
   const currentMissingReport = await captureColumnReportHtml(page);
-  assert(currentMissingReport.includes('DRAFT／非正式附件 - 待人工複核'), 'column report rechecks metadata at export time', 'project number cleared after calculation');
-  assert(currentMissingReport.includes('案件識別資料尚缺：計畫編號'), 'column draft identifies metadata cleared after calculation', 'current project fields used');
+  assert(!currentMissingReport.includes('<b>計畫編號</b>') && !currentMissingReport.includes('DRAFT／非正式附件'), 'column report omits blank optional project number without downgrading the attachment', 'project number cleared after calculation');
   await page.evaluate(project => {
     document.getElementById('projName').value = project.name;
     document.getElementById('projNo').value = project.no;
@@ -405,11 +405,9 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
 
   const review = await loadScenario('development_anchor_manual_review', metadata);
   assert(review.status === 'review', 'column manual-review case stays review', review.text);
-  assert(review.text.includes('待人工複核') && review.text.includes('僅供預覽'), 'column review page gives explicit manual-review boundary', review.text);
+  assert(review.text.includes('待人工複核') && review.text.includes('仍可列印'), 'column review page keeps engineering review separate from printability', review.text);
   const reviewReport = await captureColumnReportHtml(page);
-  assert(reviewReport.includes('DRAFT／非正式附件 - 待人工複核'), 'column review report is explicit draft', 'review document state');
-  assert(reviewReport.includes('data-document-reason="review"'), 'column review report carries review reason', 'review document state');
-  assert(reviewReport.includes('列印內部檢討版 / 存 PDF'), 'column review report print action stays internal', 'draft toolbar');
+  assert(!reviewReport.includes('DRAFT／非正式附件') && reviewReport.includes('data-initial-approved="false"'), 'column review result remains a printable internal-review calculation book', 'review document state');
 
   await page.click('.section-tabs button[data-tab="summary"]');
   const reviewPanel = await page.evaluate(() => ({
@@ -435,13 +433,13 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
     saved: window.collectColumnProjectData()
   }));
   assert(resolved.status === 'ready', 'traceable column review reaches ready-to-sign', resolved.text);
-  assert(resolved.text.includes('可送簽') && resolved.text.includes('已完成 1 項'), 'column page identifies ready-to-sign and completed review', resolved.text);
-  assert(resolved.banner.includes('複核完成 — 可送簽') && !resolved.banner.includes('需人工複核'), 'column summary banner agrees with ready-to-sign state', resolved.banner);
-  assert(resolved.assessment?.readyToSign === true && resolved.assessment?.unresolvedReviewItems?.length === 0, 'column resolved assessment closes review gate', JSON.stringify(resolved.assessment));
+  assert(resolved.text.includes('可核可') && resolved.text.includes('已完成 1 項'), 'column page identifies approval availability and completed review', resolved.text);
+  assert(resolved.banner.includes('複核完成 — 可核可') && !resolved.banner.includes('需人工複核'), 'column summary banner agrees with approval availability', resolved.banner);
+  assert(resolved.assessment?.approvalRequired === true && resolved.assessment?.readyToSign === false && resolved.assessment?.unresolvedReviewItems?.length === 0, 'column resolved engineering review still awaits explicit document approval', JSON.stringify(resolved.assessment));
   assert(resolved.saved.reviewResolutions?.length === 1 && resolved.saved.reviewResolutions[0].reference === 'S-302', 'column project persists review record', JSON.stringify(resolved.saved.reviewResolutions));
   const resolvedReport = await captureColumnReportHtml(page);
   assert(!resolvedReport.includes('DRAFT／非正式附件'), 'resolved column review removes draft state', 'ready-to-sign report');
-  ['人工複核採用記錄', '複核完成／可送簽版', '人工複核（已完成）', '已複核', '柱端錨定—依據', '配筋圖／S-302', 'QA-01'].forEach(fragment => {
+  ['人工複核採用記錄', '人工複核（已完成）', '已複核', '柱端錨定—依據', '配筋圖／S-302', 'QA-01'].forEach(fragment => {
     assert(resolvedReport.includes(fragment), 'column report carries traceable review record', fragment);
   });
   ['未輸入時不作通過判定', '人工複核項，不納入自動 OK 判定', '報告不作通過判定'].forEach(fragment => {
@@ -474,13 +472,12 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
   assert(staleReview.text.includes('條件已變更') && staleReview.text.includes('不能沿用'), 'column page explains stale review record', staleReview.text);
   assert(staleReview.assessment?.unresolvedReviews?.[0]?.validation?.contextMatches === false, 'column stale review exposes context mismatch', JSON.stringify(staleReview.assessment));
   const staleReport = await captureColumnReportHtml(page);
-  assert(staleReport.includes('DRAFT／非正式附件 - 待人工複核'), 'stale column review restores draft state', 'changed review context');
+  assert(!staleReport.includes('DRAFT／非正式附件') && staleReport.includes('data-initial-approved="false"'), 'stale column engineering review keeps document in internal-review state', 'changed review context');
 
   const blocked = await loadScenario('ng_heavy_check', metadata);
   assert(blocked.status === 'blocked', 'column failed case is blocked', blocked.text);
   const blockedReport = await captureColumnReportHtml(page);
-  assert(blockedReport.includes('DRAFT／非正式附件 - 檢核不符'), 'column blocked report is explicit draft', 'blocked document state');
-  assert(blockedReport.includes('data-document-reason="blocked"'), 'column blocked report carries blocked reason', 'blocked document state');
+  assert(!blockedReport.includes('DRAFT／非正式附件') && blockedReport.includes('data-initial-approved="false"'), 'column NG result stays printable and defaults to internal review', 'blocked document state');
   ['產報前檢查', '優先閱讀', '可作附件，需人工複核', '暫勿作附件', '不會寫入計算書或列印 PDF'].forEach(fragment => {
     assert(!blockedReport.includes(fragment), 'column draft report excludes page-only readiness wording', fragment);
   });

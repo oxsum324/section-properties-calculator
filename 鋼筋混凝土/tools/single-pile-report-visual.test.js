@@ -176,7 +176,7 @@ async function reportMetrics(report) {
     const paper = document.querySelector('.rep-paper');
     const paperRect = paper?.getBoundingClientRect();
     const calculationPaper = paper?.cloneNode(true);
-    calculationPaper?.querySelector('.rep-document-state')?.remove();
+    calculationPaper?.querySelector('.rep-document-status-line')?.remove();
     const overflowing = [...document.querySelectorAll('.rep-paper table, .rep-paper th, .rep-paper td, .rep-paper figure, .rep-paper pre, .rep-paper img')]
       .filter(el => el.scrollWidth > el.clientWidth + 2)
       .slice(0, 12)
@@ -192,9 +192,11 @@ async function reportMetrics(report) {
       calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
-      documentState: document.querySelector('.rep-document-state')?.dataset.documentState || '',
-      documentReason: document.querySelector('.rep-document-state')?.dataset.documentReason || '',
-      documentStateText: clean(document.querySelector('.rep-document-state')?.textContent),
+      documentState: document.querySelector('.rep-document-status-line')?.dataset.documentClass || '',
+      documentApproved: document.querySelector('.rep-document-status-line')?.dataset.approved || '',
+      documentStateText: clean(document.querySelector('.rep-document-status-line')?.textContent),
+      hasApprovalControl: Boolean(document.getElementById('repAttachmentApproval')),
+      metadataLabels: [...document.querySelectorAll('.rep-meta b')].map(node => clean(node.textContent)),
       bodyText: clean(document.body.innerText),
       calculationText: clean(calculationPaper?.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
@@ -272,7 +274,7 @@ async function main() {
       assert(state.readinessText.includes('產報前檢查'), `${key} page attachment readiness card`, state.readinessText);
       assert(state.readinessText.includes('不會寫入計算書或列印 PDF'), `${key} page attachment readiness boundary`, state.readinessText);
       assert(state.readinessText.includes('優先閱讀'), `${key} page attachment readiness priority`, state.readinessText);
-      assert(state.readinessText.includes('案件識別資料') && state.readinessText.includes('完整'), `${key} page metadata completeness`, state.readinessText);
+      assert(state.readinessText.includes('案件識別資料') && state.readinessText.includes('已填'), `${key} page metadata completeness`, state.readinessText);
       if (expected.expectedSnapshot === 'OK') {
         assert(state.best && state.best.diaCm >= 40, `${key} recommendation exists`, `D=${state.best?.diaCm}`);
         assert(state.summaryOk === true, `${key} summary snapshot OK`, state.summaryStatusText);
@@ -320,8 +322,8 @@ async function main() {
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${key} report`, {
         assert,
-        include: ['單樁', '承載力', '計算書', ...(state.readinessStatus === 'ready' ? [] : ['DRAFT／非正式附件'])],
-        exclude: state.readinessStatus === 'ready' ? ['DRAFT／非正式附件'] : [],
+        include: ['單樁', '承載力', '計算書', '文件狀態：內部審閱'],
+        exclude: ['DRAFT／非正式附件'],
       });
       results.push({ key, screenshotPath, pdfPath, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
@@ -329,9 +331,8 @@ async function main() {
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${key} project JSON calculation fingerprint`, sourceFingerprint);
       assert(metrics.calculationFingerprint === sourceFingerprint, `${key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasReportSummary, `${key} report status summary hidden`, 'no .rep-summary');
-      const expectedDraft = state.readinessStatus !== 'ready';
-      assert(metrics.documentState === (expectedDraft ? 'draft' : ''), `${key} report document class follows page readiness`, `${state.readinessStatus} -> ${metrics.documentState || 'ready'}`);
-      assert(metrics.documentReason === (state.readinessStatus === 'blocked' ? 'blocked' : expectedDraft ? 'review' : ''), `${key} report document reason`, metrics.documentReason || 'ready');
+      assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${key} report defaults to printable internal review independent of engineering readiness`, `${state.readinessStatus} -> ${metrics.documentState}`);
+      assert(metrics.documentStateText.includes('文件狀態：內部審閱'), `${key} report carries concise document status`, metrics.documentStateText);
       assert(metrics.checkGroupCount >= 3, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.stepCount >= 4, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagram`, `count=${metrics.diagramCount}`);
@@ -370,9 +371,9 @@ async function main() {
         attachPageGuards(degradedReport, guard, `${key}:metadata-degraded-report`);
         await degradedReport.waitForSelector('.rep-paper', { timeout: 10000 });
         const degradedMetrics = await reportMetrics(degradedReport);
-        assert(degradedMetrics.documentState === 'draft', `${key} missing metadata downgrades report document class`, degradedMetrics.documentState || 'ready');
-        assert(degradedMetrics.documentReason === 'review', `${key} missing metadata downgrades report reason`, degradedMetrics.documentReason || 'ready');
-        assert(degradedMetrics.documentStateText.includes('計畫編號'), `${key} missing metadata is named in report classification`, degradedMetrics.documentStateText);
+        assert(degradedMetrics.documentState === 'internal-review' && degradedMetrics.hasApprovalControl, `${key} blank project metadata stays printable and is inherited from the main report`, degradedMetrics.documentState || 'missing');
+        assert(!degradedMetrics.metadataLabels.includes('計畫編號'), `${key} blank project number row is omitted`, degradedMetrics.metadataLabels.join(', '));
+        assert(!degradedMetrics.bodyText.includes('DRAFT／非正式附件'), `${key} blank project metadata does not create a draft classification`, degradedMetrics.bodyText);
         await degradedReport.close();
       }
       await page.close();

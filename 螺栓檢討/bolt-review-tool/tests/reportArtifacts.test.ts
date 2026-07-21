@@ -51,6 +51,9 @@ function buildParams(
       designer: '王設計',
       checker: '李複核',
       issueDate: '2026-07-20',
+      documentApproved: documentState === 'ready',
+      documentApprovedAt:
+        documentState === 'ready' ? REPORT_GENERATED_AT : '',
     }),
     candidateLayoutVariants: [
       {
@@ -155,14 +158,14 @@ describe('release report artifacts', () => {
     expect(html).toContain(defaultProject.name)
     expect(html).toContain('載重組合批次檢核')
     expect(html).toContain('使用邊界與版本追溯')
-    expect(html).toContain('data-document-state="ready"')
-    expect(html).toContain('文件分類｜可送簽版')
+    expect(html).toContain('data-document-state="formal-attachment"')
+    expect(html).toContain('文件狀態：正式附件')
     expect(html).toContain('王設計')
     expect(html).toContain('李複核')
-    expect(reviewHtml).toContain('data-document-state="review"')
-    expect(reviewHtml).toContain('文件分類｜DRAFT / 待人工複核')
-    expect(blockedHtml).toContain('data-document-state="blocked"')
-    expect(blockedHtml).toContain('文件分類｜DRAFT / 檢核不符')
+    expect(reviewHtml).toContain('data-document-state="internal-review"')
+    expect(reviewHtml).toContain('文件狀態：內部審閱')
+    expect(blockedHtml).toContain('data-document-state="internal-review"')
+    expect(blockedHtml).toContain('文件狀態：內部審閱')
     expect(docx.byteLength).toBeGreaterThan(4_000)
     expect(Buffer.from(docx).subarray(0, 2).toString('ascii')).toBe('PK')
     expect(workbook.byteLength).toBeGreaterThan(4_000)

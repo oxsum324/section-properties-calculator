@@ -15,6 +15,8 @@ export const defaultReportSettings: ReportSettings = {
   checker: '',
   issueDate: '',
   reportMode: 'full',
+  documentApproved: false,
+  documentApprovedAt: '',
 }
 
 export function normalizeReportSettings(

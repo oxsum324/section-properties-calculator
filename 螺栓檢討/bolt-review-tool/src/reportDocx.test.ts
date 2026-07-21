@@ -51,6 +51,8 @@ function buildParams() {
       designer: '王設計',
       checker: '李複核',
       issueDate: '2026-07-20',
+      documentApproved: true,
+      documentApprovedAt: '2026-07-20T10:00:00.000Z',
     }),
     candidateLayoutVariants: [
       {
@@ -177,7 +179,7 @@ describe('reportDocx', () => {
     expect(buffer[3]).toBe(0x04)
 
     const visibleText = docxVisibleText(buffer)
-    expect(visibleText).toContain('文件分類｜可送簽版')
+    expect(visibleText).toContain('文件狀態：正式附件')
     expect(visibleText).toContain('設計人員王設計')
     expect(visibleText).toContain('複核人員李複核')
     expect(visibleText).not.toContain('DRAFT /')

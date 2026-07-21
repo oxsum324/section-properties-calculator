@@ -518,6 +518,9 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
     completeness,
     reportSettings,
   })
+  const calculationFingerprint = auditEntry?.hash
+    ? `CF-${formatAuditHash(auditEntry.hash, 16)}`
+    : ''
   const calcEngineStatusLabel = calcEngineVersionStatus.mismatch
     ? `本案原始版本 ${calcEngineVersionStatus.projectVersion}，目前以 ${calcEngineVersionStatus.runtimeVersion} 重算；正式交付前應重新檢核並留痕。`
     : `本案計算版本與目前工具版本一致：${calcEngineVersionStatus.runtimeVersion}`
@@ -632,7 +635,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${documentState.isDraft ? 'DRAFT - ' : ''}${escapeHtml(review.project.name)} - 錨栓檢討報告</title>
+    <title>${escapeHtml(review.project.name)} - 錨栓檢討報告</title>
     <style>
       @page {
         size: A4;
@@ -650,11 +653,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       h1,h2,h3 { margin:0 0 12px; }
       p,li,td,th,dd,dt,small,span,strong { line-height:1.5; }
       .hero { background:linear-gradient(135deg,#ffffff 0%,#eef8fb 100%); border:1px solid var(--line); border-radius:24px; padding:28px; margin-bottom:24px; }
-      .document-state { display:flex; align-items:flex-start; gap:12px; margin:0 0 18px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:#f8fafc; }
-      .document-state strong { white-space:nowrap; }
-      .document-state span { color:var(--muted); }
-      .document-state-review { border-color:#f3c97b; background:#fff8e8; }
-      .document-state-blocked { border-color:#e7a5a5; background:#fff1f1; color:var(--fail); }
+      .document-footer-status { margin-top:20px; padding-top:8px; border-top:1px solid var(--line); color:var(--muted); font-size:9pt; text-align:right; }
       .hero-logo { display:block; max-width:160px; max-height:80px; margin-bottom:14px; object-fit:contain; }
       .hero-grid,.grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
       .card { background:#fff; border:1px solid var(--line); border-radius:20px; padding:20px; margin-bottom:20px; box-shadow:0 8px 20px rgba(20,33,61,.06); }
@@ -719,6 +718,7 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
         background: #f0f4f5;
       }
       .preview-toolbar-hint { color: #6a7a80; font-size: 12px; }
+      .preview-approval-control { display:flex; gap:6px; align-items:center; font-weight:600; }
       @media print {
         body { background:#fff; }
         main { max-width:none; padding:0; }
@@ -733,6 +733,10 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
   </head>
   <body>
     <div class="report-preview-toolbar" data-role="preview-toolbar">
+      <label class="preview-approval-control">
+        <input id="reportAttachmentApproval" type="checkbox" ${documentState.status === 'formal-attachment' ? 'checked' : ''} />
+        本計算內容已完成審閱，核可作為正式附件
+      </label>
       <button type="button" onclick="window.print()" aria-label="列印報表">
         🖨 列印 / 另存 PDF
       </button>
@@ -751,14 +755,10 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
         <p class="meta">${escapeHtml(reportSettings.companyName || '工程報表')}</p>
         <h1>${escapeHtml(review.project.name)}</h1>
         <p>台灣《建築物混凝土結構設計規範》112年版第17章 錨栓檢討 ${escapeHtml(reportModeLabel(reportSettings.reportMode))}</p>
-        <div class="document-state document-state-${documentState.status}" data-document-state="${documentState.status}">
-          <strong>文件分類｜${escapeHtml(documentState.label)}</strong>
-          <span>${escapeHtml(documentState.reason)}</span>
-        </div>
         <div class="hero-grid">
-          <div><small class="meta">案號 / 專案</small><div>${escapeHtml(reportSettings.projectCode || '未填')}</div></div>
-          <div><small class="meta">設計人員</small><div>${escapeHtml(reportSettings.designer || '未填')}</div></div>
-          <div><small class="meta">複核人員</small><div>${escapeHtml(reportSettings.checker || '未填')}</div></div>
+          ${reportSettings.projectCode ? `<div><small class="meta">案號 / 專案</small><div>${escapeHtml(reportSettings.projectCode)}</div></div>` : ''}
+          ${reportSettings.designer ? `<div><small class="meta">設計人員</small><div>${escapeHtml(reportSettings.designer)}</div></div>` : ''}
+          ${reportSettings.checker ? `<div><small class="meta">複核人員</small><div>${escapeHtml(reportSettings.checker)}</div></div>` : ''}
           <div><small class="meta">規範版本</small><div>${escapeHtml(review.ruleProfile.versionLabel)}</div></div>
           <div><small class="meta">發行日期</small><div>${escapeHtml(formatDate(reportSettings.issueDate))}</div></div>
           <div><small class="meta">${REPORT_TIMESTAMP_LABELS.editedAt}</small><div>${escapeHtml(formatDateTime(review.project.updatedAt))}</div></div>
@@ -1096,7 +1096,37 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
             .join('')}
         </ul>
       </section>
+      <footer
+        id="reportDocumentStatus"
+        class="document-footer-status"
+        data-document-state="${documentState.status}"
+        data-approved-at="${escapeHtml(reportSettings.documentApprovedAt || '')}"
+        data-calculation-fingerprint="${escapeHtml(calculationFingerprint)}"
+      >文件狀態：${escapeHtml(documentState.label)}${documentState.reason ? `｜${escapeHtml(documentState.reason)}` : ''}${calculationFingerprint ? `｜計算指紋：${escapeHtml(calculationFingerprint)}` : ''}</footer>
     </main>
+    <script>
+      (() => {
+        const checkbox = document.getElementById('reportAttachmentApproval')
+        const status = document.getElementById('reportDocumentStatus')
+        if (!checkbox || !status) return
+        let approvedAt = status.dataset.approvedAt || ''
+        const fingerprint = status.dataset.calculationFingerprint || ''
+        const formatNow = () => new Date().toLocaleString('zh-TW', { hour12:false })
+        const update = () => {
+          if (checkbox.checked && !approvedAt) approvedAt = formatNow()
+          if (!checkbox.checked) approvedAt = ''
+          const parts = checkbox.checked
+            ? ['文件狀態：正式附件', approvedAt ? '核可時間：' + approvedAt : '']
+            : ['文件狀態：內部審閱']
+          if (fingerprint) parts.push('計算指紋：' + fingerprint)
+          status.textContent = parts.filter(Boolean).join('｜')
+          status.dataset.documentState = checkbox.checked ? 'formal-attachment' : 'internal-review'
+          status.dataset.approvedAt = approvedAt
+        }
+        checkbox.addEventListener('change', update)
+        update()
+      })()
+    </script>
     ${
       autoPrint
         ? `<script>

@@ -315,7 +315,6 @@ const sharedReportHtml = renderReportHtml(sharedReportSource, sharedReportPath, 
 const localReportHtml = renderReportHtml(localReportCoreSource, localReportCorePath, { name: "未填", no: "FORMAL-VERIFY-001", designer: "Codex QA" });
 const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report generator", [
   "QA 計算書",
-  "計畫名稱",
   "計畫編號",
   "FORMAL-VERIFY-001",
   "設計人員",
@@ -334,7 +333,6 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, "shared report g
 ]);
 const localReportText = assertReportHtmlText(localReportHtml, "steel local report generator", [
   "QA 計算書",
-  "計畫名稱",
   "計畫編號",
   "FORMAL-VERIFY-001",
   "設計人員",
@@ -363,10 +361,14 @@ assert.equal(sharedReportHtml.includes("未填"), false, "shared report generato
 assert.equal(localReportHtml.includes("未填"), false, "steel local report generator should scrub placeholder project metadata in rendered output");
 assert.equal(sharedReportText.includes("未填"), false, "shared report generator visible text should scrub placeholder project metadata");
 assert.equal(localReportText.includes("未填"), false, "steel local report generator visible text should scrub placeholder project metadata");
-assert.match(sharedReportHtml, /計畫名稱<\/b>—/, "shared report generator should fallback blank project name to dash");
-assert.match(localReportHtml, /計畫名稱<\/b>—/, "steel local report generator should fallback blank project name to dash");
+assert.equal(sharedReportText.includes("計畫名稱"), false, "shared report generator should omit a blank optional project-name row");
+assert.equal(localReportText.includes("計畫名稱"), false, "steel local report generator should omit a blank optional project-name row");
 assert.match(sharedReportHtml, /FORMAL-VERIFY-001/, "shared report generator should keep project number after placeholder scrub");
 assert.match(localReportHtml, /FORMAL-VERIFY-001/, "steel local report generator should keep project number after placeholder scrub");
+assert.match(sharedReportHtml, /本計算內容已完成審閱，核可作為正式附件/, "shared report generator should expose the explicit approval control");
+assert.match(localReportHtml, /本計算內容已完成審閱，核可作為正式附件/, "steel local report generator should expose the explicit approval control");
+assert.match(sharedReportHtml, /文件狀態：內部審閱/, "shared report generator should default every newly generated report to internal review");
+assert.match(localReportHtml, /文件狀態：內部審閱/, "steel local report generator should default every newly generated report to internal review");
 assert.match(sharedReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, "shared report generator should include a stable calculation fingerprint");
 assert.match(localReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, "steel local report generator should include a stable calculation fingerprint");
 assert.match(
@@ -415,8 +417,8 @@ for (const [label, html] of [
   assert.equal(heading, title, `${label} document title and H1 should expose the same canonical version`);
   assert.match(
     html,
-    /id="printReportBtn"[^>]*>輸出正式報表<\/button>/,
-    `${label} result action should identify the traceable formal-report path instead of direct page printing`,
+    /id="printReportBtn"[^>]*>產生計算書<\/button>/,
+    `${label} result action should identify the clean calculation-book path instead of direct page printing`,
   );
   assert.match(
     html,
@@ -431,7 +433,9 @@ for (const [label, html] of [
   for (const needle of [
     "鋼構正式工具主頁列印已封鎖",
     "此頁是操作介面，不是計算書",
-    "使用頁面上的「輸出正式報表」按鈕",
+    "使用頁面上的「產生計算書」按鈕",
+    "開啟可列印的內部審閱版",
+    "核可為正式附件",
     "本頁不得作為附件",
   ]) {
     assert.ok(html.includes(needle), `${label} direct-print notice should include ${needle}`);
@@ -1050,8 +1054,8 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
-  /FORMAL_PROJECT_META_PLACEHOLDER[\s\S]*projName:\s*'未填'[\s\S]*setupFormalProjectMetaPlaceholder[\s\S]*assertFormalReportReadiness[\s\S]*assertFormalProjectMetaPlaceholderRendered[\s\S]*nameId:\s*'#beamMetaProjectName'[\s\S]*nameId:\s*'#columnMetaProjectName'[\s\S]*assertFormalReportReadinessTextAbsent[\s\S]*計畫名稱 \/ 編號 \/ 設計人尚未完整[\s\S]*不會寫入計算書或列印 PDF/s,
-  "steel-audit-browser-runner.js should define placeholder-metadata browser checks for readiness, page meta fallback, and the print/PDF boundary",
+  /FORMAL_PROJECT_META_PLACEHOLDER[\s\S]*projName:\s*''[\s\S]*setupFormalProjectMetaPlaceholder[\s\S]*assertFormalReportReadiness[\s\S]*assertFormalProjectMetaPlaceholderRendered[\s\S]*nameId:\s*'#beamMetaProjectName'[\s\S]*nameId:\s*'#columnMetaProjectName'[\s\S]*expectedProject:[\s\S]*name:\s*''[\s\S]*approvalControl[\s\S]*internal-review[\s\S]*formal-attachment[\s\S]*不會寫入計算書或列印 PDF/s,
+  "steel-audit-browser-runner.js should verify blank project metadata, page fallback, print boundaries, and approval-state switching",
 );
 assert.match(
   browserRunnerSource,

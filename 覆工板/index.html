@@ -868,6 +868,11 @@
     <h2 class="decking-report-page-only">📑 覆工板系統結構計算書（彙整版）</h2>
     <div class="note decking-report-page-only">此頁整合 Tab②~⑤ 所有檢核結果；請使用「🖨 列印彙整計算書」輸出 PDF，瀏覽器直接列印操作頁只會顯示邊界通知。</div>
 
+    <label class="decking-report-page-only" style="display:flex;align-items:center;gap:8px;margin:10px 0;padding:10px 12px;border:1px solid #94a3b8;border-radius:6px;background:#fff;cursor:pointer;">
+      <input type="checkbox" id="deckingAttachmentApproved" style="width:17px;height:17px;">
+      <span><b>本計算內容已完成審閱，核可作為正式附件</b><br><small style="color:#64748b;">未勾選仍可列印，文件狀態為「內部審閱」。</small></span>
+    </label>
+
     <div class="row-flex decking-report-page-only" style="margin-bottom:12px; padding:10px; background:#e8f4ff; border:1px solid #b8d4f0; border-radius:6px;">
       <b style="color:#1a4480;">📄 產出正式 Word 計算書：</b>
       <button class="btn" onclick="exportJSON()">💾 步驟 1：下載 JSON 參數檔</button>
@@ -1574,32 +1579,16 @@ function reportReadinessModel(R, projectInfo) {
     };
   }
 
-  if (missingProjectInfo.length > 0) {
-    return {
-      tone: 'review',
-      label: '可作附件，需人工複核',
-      summary: '主要檢核通過，但專案資料尚未完整，送審前需補齊。',
-      priority: `先補齊：${missingProjectInfo.join('、')}`,
-      items: [
-        ['整體判定', '通過'],
-        ['主構件', requiredDone ? '已計算' : '未完整'],
-        ['附加檢核', `${optionalDone} / 3 項`],
-        ['專案資料', `缺 ${missingProjectInfo.join('、')}`],
-        ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF'],
-      ],
-    };
-  }
-
   return {
     tone: 'ready',
     label: '可作附件',
-    summary: '主要檢核與專案資料已可支援產出；送出前仍需確認人工留痕與附件版本。',
-    priority: '先確認 JSON / Word 檔與列印 PDF 均由本次計算輸出，再歸檔。',
+    summary: '主要計算已完成；案件識別資料可由主文承接，附件核可由下方方塊決定。',
+    priority: '確認輸出內容後，依用途選擇內部審閱或核可為正式附件。',
     items: [
       ['整體判定', '通過'],
       ['主構件', requiredDone ? '已計算' : '未完整'],
       ['附加檢核', `${optionalDone} / 3 項`],
-      ['專案資料', '完整'],
+      ['專案資料', missingProjectInfo.length ? `由主文承接（未填 ${missingProjectInfo.join('、')}）` : '已填'],
       ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF'],
     ],
   };
@@ -1842,8 +1831,23 @@ function cancelResetAll() {
 //============================================================
 // 匯出 JSON 參數檔（給 Python 產 Word 報告用）
 //============================================================
+function buildDeckingCalculationFingerprint(g = G(), results = RESULTS) {
+  const source = JSON.stringify({ global:g, results });
+  const hashWithSeed = seed => {
+    let hash = seed >>> 0;
+    for (let i = 0; i < source.length; i += 1) {
+      hash ^= source.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).toUpperCase().padStart(8, '0');
+  };
+  return `CF-${hashWithSeed(0x811C9DC5)}${hashWithSeed(0x9E3779B9)}`;
+}
+
 function exportJSON() {
   const g = G();
+  const approval = document.getElementById('deckingAttachmentApproved');
+  if (approval?.checked && !approval.dataset.approvedAt) approval.dataset.approvedAt = new Date().toLocaleString('zh-TW', { hour12:false });
   const payload = {
     project: {
       name: document.getElementById('proj_name').value || '',
@@ -1878,6 +1882,12 @@ function exportJSON() {
     results: JSON.parse(JSON.stringify(RESULTS, (k, v) =>
       (typeof v === 'object' && v !== null && 'name' in v && 'H' in v) ? {name: v.name, H: v.H, B: v.B, tw: v.tw, tf: v.tf, A: v.A, Wb: v.Wb, Ix: v.Ix, Iy: v.Iy, Sx: v.Sx, Sy: v.Sy, rx: v.rx, ry: v.ry} : v
     )),
+    document: {
+      mode: 'attachment',
+      approved: approval?.checked === true,
+      approvedAt: approval?.checked ? (approval.dataset.approvedAt || '') : '',
+      calculationFingerprint: buildDeckingCalculationFingerprint(g, RESULTS),
+    },
     exportedAt: new Date().toISOString(),
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
@@ -1897,15 +1907,6 @@ function printDeckingReport() {
   recalcAll();
   const reportTab = document.querySelector('nav.tabs button[data-tab="report"]');
   if (reportTab) reportTab.click();
-  const missingProjectFields = [
-    ['案名', 'proj_name'],
-    ['案件編號', 'proj_no'],
-    ['日期', 'proj_date'],
-  ].filter(([, id]) => !textOrBlank(document.getElementById(id)?.value)).map(([label]) => label);
-  if (missingProjectFields.length) {
-    setActionStatus(`暫不列印：請先填寫${missingProjectFields.join('、')}。`, 'error');
-    return false;
-  }
   setActionStatus('');
   document.body.classList.add('decking-report-print-mode');
   try {
@@ -1918,10 +1919,15 @@ function printDeckingReport() {
 
 function buildReport() {
   const g = G();
-  const name = document.getElementById('proj_name').value || '(未填)';
-  const no   = document.getElementById('proj_no').value || '(未填)';
+  const name = document.getElementById('proj_name').value || '';
+  const no   = document.getElementById('proj_no').value || '';
   const date = document.getElementById('proj_date').value || '';
   const R = RESULTS;
+  const approval = document.getElementById('deckingAttachmentApproved');
+  if (approval?.checked && !approval.dataset.approvedAt) approval.dataset.approvedAt = new Date().toLocaleString('zh-TW', { hour12:false });
+  if (approval && !approval.checked) delete approval.dataset.approvedAt;
+  const approved = approval?.checked === true;
+  const calculationFingerprint = buildDeckingCalculationFingerprint(g, R);
 
   const chk = (ok) => ok===undefined?'—':(ok?'<span class="check ok">OK</span>':'<span class="check ng">NG</span>');
   const pct = (a,b) => (a && b)?`${(a/b*100).toFixed(0)}%`:'—';
@@ -1990,7 +1996,7 @@ function buildReport() {
   const html = `
     <div style="text-align:center; margin-bottom:16px;">
       <h1 style="margin:4px 0; font-size:22px;">覆工板系統結構計算書</h1>
-      <div style="color:#666; font-size:13px;">案名：${name}　　案件編號：${no}　　日期：${date}</div>
+      ${(name || no || date) ? `<div style="color:#666; font-size:13px;">${name ? `案名：${name}` : ''}${name && no ? '　　' : ''}${no ? `案件編號：${no}` : ''}${(name || no) && date ? '　　' : ''}${date ? `日期：${date}` : ''}</div>` : ''}
     </div>
 
     <div class="summary" style="text-align:center; font-size:16px; background:${overallOk?'#d4edda':'#f8d7da'}; border-color:${overallOk?'#b7e1c2':'#e9a4a4'}">
@@ -2049,7 +2055,8 @@ function buildReport() {
       <p><b>(8) 側撐：</b>Lc = min(L1, L2)，其中 L1 = 640·B/√Fy、L2 = 1.4×10⁶·Af/(H·Fy)。Lt ≤ Lc → 充分側撐。</p>
     </div>
 
-    <div style="margin-top:24px; text-align:right; color:#888; font-size:11px;">
+    <div style="margin-top:24px; text-align:right; color:#666; font-size:10px;">
+      <div style="font-weight:700;color:${approved ? '#14532d' : '#4b5563'};">${approved ? `文件狀態：正式附件｜核可時間：${approval.dataset.approvedAt}` : '文件狀態：內部審閱'}｜計算指紋：${calculationFingerprint}</div>
       報告產出時間：${new Date().toLocaleString('zh-TW')}｜覆工板系統計算工具 v1.0
     </div>
   `;
@@ -2078,8 +2085,15 @@ function bindAll() {
   // 任一輸入變動 → 全部重算 + 儲存
   document.querySelectorAll('input, select').forEach(el => {
     if (!el.id) return;
-    el.addEventListener('input', () => recalcAll());
-    el.addEventListener('change', () => recalcAll());
+    const recalcAndResetApproval = () => {
+      if (el.id !== 'deckingAttachmentApproved') {
+        const approval = document.getElementById('deckingAttachmentApproved');
+        if (approval) { approval.checked = false; delete approval.dataset.approvedAt; }
+      }
+      recalcAll();
+    };
+    el.addEventListener('input', recalcAndResetApproval);
+    el.addEventListener('change', recalcAndResetApproval);
   });
 }
 

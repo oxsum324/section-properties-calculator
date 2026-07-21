@@ -297,20 +297,18 @@ function assessFormalAttachment(state = {}) {
   const calculated = state.calculated !== false;
   const status = !calculated || failedItems.length
     ? 'blocked'
-    : (reviewItems.length || missingMetadata.length ? 'review' : 'ready');
+    : (reviewItems.length ? 'review' : 'ready');
   const detailParts = [];
   if (!calculated) detailParts.push('計算或分析尚未完成。');
   if (failedItems.length) detailParts.push(`尚有 ${failedItems.length} 項檢核不符：${failedItems.join('、')}。`);
   if (reviewItems.length) detailParts.push(`尚有 ${reviewItems.length} 項待人工複核：${reviewItems.join('、')}。`);
-  if (missingMetadata.length) detailParts.push(`案件識別資料尚缺：${missingMetadata.join('、')}。`);
-  if (status !== 'ready') detailParts.push('完成複核及資料補正前不得作為正式附件。');
-  const documentState = status === 'ready' ? null : {
-    kind: 'draft',
+  if (missingMetadata.length) detailParts.push(`案件識別資料可由主文承接：${missingMetadata.join('、')}。`);
+  const approved = state.approved === true || state.documentApproval?.approved === true;
+  const documentState = approved ? null : {
+    kind: 'internal-review',
     reason: status,
-    label: status === 'blocked'
-      ? 'DRAFT／非正式附件 - 檢核不符'
-      : 'DRAFT／非正式附件 - 待人工複核',
-    detail: detailParts.join(' '),
+    label: '內部審閱',
+    detail: '本計算內容尚未勾選核可；仍可列印供內部審閱。',
   };
   return {
     status,
@@ -319,57 +317,129 @@ function assessFormalAttachment(state = {}) {
     failedItems,
     reviewItems,
     missingMetadata,
-    formalOutputAllowed: status === 'ready',
-    readyToSign: status === 'ready',
-    documentClass: status === 'ready'
-      ? { key: 'ready-to-sign', label: '可送簽版' }
-      : { key: 'draft', label: '內部複核版' },
+    printable: calculated,
+    approvalRequired: !approved,
+    formalOutputAllowed: calculated,
+    readyToSign: calculated && approved,
+    documentClass: approved
+      ? { key: 'formal-attachment', label: '正式附件' }
+      : { key: 'internal-review', label: '內部審閱' },
     documentState,
+    engineeringDetail: detailParts.join(' '),
   };
 }
 
 const FORMAL_DOCUMENT_STATE_REPORT_CSS = `
-.rep-document-class { display:flex; align-items:baseline; gap:8px; margin:0 0 12px; padding:5px 8px;
-  border:1px solid #86b89a; background:#f4fbf6; color:#14532d; font-size:11px;
-  line-height:1.45; page-break-inside:avoid; }
-.rep-document-class strong { flex:0 0 auto; font-size:12px; letter-spacing:.02em; }
-.rep-document-class span { color:#365c42; }
-.rep-document-state { margin:12px 0 16px; padding:10px 14px; border:2px solid #b91c1c;
-  background:#fff1f2; color:#881337; page-break-inside:avoid; }
-.rep-document-state strong { display:block; font-size:16px; letter-spacing:.03em; }
-.rep-document-state span { display:block; margin-top:4px; font-size:11px; line-height:1.5; }
-.rep-document-state--review { border-color:#b45309; background:#fff7ed; color:#7c2d12; }
-@media print {
-  .rep-document-class { margin:0 0 3mm; padding:1mm 2mm; }
-  .rep-document-state { display:block; position:absolute; top:0; right:0; z-index:1000;
-    width:auto; max-width:48%; margin:0; padding:1mm 2mm; white-space:nowrap; }
-  .rep-document-state strong { font-size:9px; }
-  .rep-document-state span { display:none; }
-  .rep-document-state::after { content:""; position:fixed; left:50%; top:46%; width:160mm; height:44mm;
-    transform:translate(-50%,-50%) rotate(-28deg);
-    background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 160'%3E%3Cpath d='M45 130V30H85Q125 30 125 80Q125 130 85 130Z M155 130L195 30L235 130M170 92H220 M265 130V30H305Q345 30 345 62Q345 94 305 94H265M305 94L350 130 M385 130V30H455M385 78H445 M480 30H565M522 30V130' fill='none' stroke='%23991b1b' stroke-width='18' stroke-linecap='square' stroke-linejoin='miter' opacity='.08'/%3E%3C/svg%3E");
-    pointer-events:none; z-index:999; }
-}`;
+.rep-attachment-approval-source { display:none !important; }
+.rep-approval-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; padding:7px 10px;
+  border:1px solid #94a3b8; border-radius:4px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
+.rep-approval-control input { width:16px; height:16px; margin:0; accent-color:#166534; }
+.rep-document-status-line { display:block; margin-bottom:3mm; color:#4b5563; font-weight:600; }
+.rep-footer-copyright { display:block; }
+.rep-footer { break-inside:avoid-page; page-break-inside:avoid; }
+.rep-document-status-line[data-document-class="formal-attachment"] { color:#14532d; }
+@media print { .rep-approval-control { display:none !important; } }`;
 
 function normalizeFormalDocumentState(documentState) {
-  if (!documentState || documentState.kind !== 'draft') return null;
+  if (!documentState) return null;
   return {
-    kind: 'draft',
-    reason: documentState.reason === 'blocked' ? 'blocked' : 'review',
-    label: String(documentState.label || 'DRAFT／非正式附件').trim(),
-    detail: String(documentState.detail || '本文件僅供內部檢討，不得作為正式附件。').trim(),
+    kind: 'internal-review',
+    reason: ['blocked', 'review', 'ready'].includes(documentState.reason) ? documentState.reason : 'review',
+    label: '內部審閱',
+    detail: '本計算內容尚未勾選核可；仍可列印供內部審閱。',
   };
 }
 
 function normalizeFormalDocumentClass(documentClass, documentState) {
-  if (documentState) return null;
+  if (documentState) return { key: 'internal-review', label: '內部審閱', detail: '' };
   const configured = documentClass && typeof documentClass === 'object' ? documentClass : {};
   const configuredKey = String(configured.key || configured.kind || '').trim().toLowerCase();
-  const acceptsReadyMetadata = ['ready-to-sign', 'signable', 'ready'].includes(configuredKey);
+  const approved = ['formal-attachment', 'approved', 'formal'].includes(configuredKey);
   return {
-    key: 'ready-to-sign',
-    label: String(acceptsReadyMetadata && configured.label ? configured.label : '可送簽版').trim(),
-    detail: String(acceptsReadyMetadata && configured.detail ? configured.detail : '本文件具備進入簽核流程的必要條件；正式附件仍須完成公司簽認、技師簽章或專案核准程序。').trim(),
+    key: approved ? 'formal-attachment' : 'internal-review',
+    label: approved ? '正式附件' : '內部審閱',
+    detail: '',
+  };
+}
+
+function buildAttachmentApprovalReport(options = {}) {
+  const approved = options.approved === true;
+  const fingerprint = String(options.calculationFingerprint || '').trim();
+  const approvedAt = String(options.approvedAt || '').trim();
+  const esc = escapeReportHtml;
+  return {
+    approved,
+    css: FORMAL_DOCUMENT_STATE_REPORT_CSS,
+    html: `<style data-formal-document-state-style>${FORMAL_DOCUMENT_STATE_REPORT_CSS}</style>
+      <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" aria-hidden="true"></span>
+      <script data-attachment-approval-script>
+      (function () {
+        function initAttachmentApproval() {
+          var source = document.querySelector('.rep-attachment-approval-source');
+          if (!source || source.dataset.initialized === 'true') return;
+          source.dataset.initialized = 'true';
+          var toolbar = document.querySelector('.rep-toolbar, .toolbar');
+          var footer = document.querySelector('.rep-footer');
+          var paper = document.querySelector('.rep-paper, .paper') || document.body;
+          Array.from(document.querySelectorAll('.rep-meta div, .meta div')).forEach(function (row) {
+            var text = String(row.textContent || '').replace(/\s+/g, ' ').trim();
+            if (/^(計畫名稱|計畫編號|設計人員)\s*[—-]$/.test(text)) row.hidden = true;
+          });
+          if (!footer) {
+            footer = document.createElement('div');
+            footer.className = 'rep-footer';
+            paper.appendChild(footer);
+          }
+          var fingerprint = source.dataset.calculationFingerprint || '';
+          if (!fingerprint) {
+            var traceRow = Array.from(document.querySelectorAll('.rep-meta div')).find(function (row) {
+              return /計算指紋/.test(row.textContent || '');
+            });
+            fingerprint = traceRow ? String(traceRow.textContent || '').replace(/^.*?計算指紋\s*/, '').trim() : '';
+          }
+          var status = document.createElement('span');
+          status.className = 'rep-document-status-line';
+          footer.insertBefore(status, footer.firstChild);
+          var checkbox = document.getElementById('repAttachmentApproval');
+          if (!checkbox && toolbar) {
+            var label = document.createElement('label');
+            label.className = 'rep-approval-control';
+            checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = 'repAttachmentApproval';
+            checkbox.setAttribute('aria-label', '核可為正式附件');
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode('本計算內容已完成審閱，核可作為正式附件'));
+            toolbar.insertBefore(label, toolbar.firstChild);
+          }
+          if (!checkbox) return;
+          checkbox.checked = source.dataset.initialApproved === 'true';
+          var approvedAtValue = source.dataset.approvedAt || '';
+          function formatNow() {
+            var d = new Date();
+            var pad = function (value) { return String(value).padStart(2, '0'); };
+            return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+          }
+          function updateStatus() {
+            if (checkbox.checked && !approvedAtValue) approvedAtValue = formatNow();
+            if (!checkbox.checked) approvedAtValue = '';
+            var parts = checkbox.checked
+              ? ['文件狀態：正式附件', approvedAtValue ? '核可時間：' + approvedAtValue : '']
+              : ['文件狀態：內部審閱'];
+            if (fingerprint) parts.push('計算指紋：' + fingerprint);
+            status.textContent = parts.filter(Boolean).join('｜');
+            status.dataset.documentClass = checkbox.checked ? 'formal-attachment' : 'internal-review';
+            status.dataset.approved = checkbox.checked ? 'true' : 'false';
+            status.dataset.approvedAt = approvedAtValue;
+            document.body.dataset.documentClass = status.dataset.documentClass;
+          }
+          checkbox.addEventListener('change', updateStatus);
+          updateStatus();
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAttachmentApproval, { once:true });
+        else initAttachmentApproval();
+      })();
+      <\/script>`,
   };
 }
 
@@ -399,33 +469,21 @@ function buildFormalDocumentStateReport(state = {}) {
     calculated: state.calculated,
     failedItems,
     reviewItems,
+    approved: state.approved === true || state.documentApproval?.approved === true,
   });
   const documentState = normalizeFormalDocumentState(assessment.documentState);
   const documentClass = normalizeFormalDocumentClass(assessment.documentClass, documentState);
-  if (!documentState) {
-    const esc = escapeReportHtml;
-    return {
-      ...assessment,
-      documentState: null,
-      documentClass,
-      css: FORMAL_DOCUMENT_STATE_REPORT_CSS,
-      html: `<style data-formal-document-state-style>${FORMAL_DOCUMENT_STATE_REPORT_CSS}</style>
-        <section class="rep-document-class rep-document-class--ready" data-document-class="${esc(documentClass.key)}">
-          <strong>文件分類｜${esc(documentClass.label)}</strong>
-          <span>${esc(documentClass.detail)}</span>
-        </section>`,
-    };
-  }
-  const esc = escapeReportHtml;
+  const approvalReport = buildAttachmentApprovalReport({
+    approved: documentClass.key === 'formal-attachment',
+    calculationFingerprint: state.calculationFingerprint,
+    approvedAt: state.approvedAt || state.documentApproval?.approvedAt,
+  });
   return {
     ...assessment,
     documentState,
+    documentClass,
     css: FORMAL_DOCUMENT_STATE_REPORT_CSS,
-    html: `<style data-formal-document-state-style>${FORMAL_DOCUMENT_STATE_REPORT_CSS}</style>
-      <section class="rep-document-state rep-document-state--${esc(documentState.reason)}" data-document-state="${esc(documentState.kind)}" data-document-reason="${esc(documentState.reason)}">
-        <strong>${esc(documentState.label)}</strong>
-        <span>${esc(documentState.detail)}</span>
-      </section>`,
+    html: approvalReport.html,
   };
 }
 
@@ -470,6 +528,7 @@ if (typeof window !== 'undefined') {
     normalizeReportVersion,
     hasBlankFieldValues,
     assessFormalAttachment,
+    buildAttachmentApprovalReport,
     buildFormalDocumentStateReport,
     getPageReportReadinessLevel,
     buildReportTrace,
@@ -537,23 +596,23 @@ function openReport(cfg) {
       if (item?.ok === false) inferredFailedItems.push(item.label || group.group || '檢核項目不符');
     });
   });
-  const hasConfiguredDocumentState = Object.prototype.hasOwnProperty.call(cfg, 'documentState');
-  const automaticAttachmentAssessment = hasConfiguredDocumentState
-    ? null
-    : assessFormalAttachment({
-        project: proj,
-        calculated: cfg.calculated !== false,
-        failedItems: [...inferredFailedItems, ...(Array.isArray(cfg.failedItems) ? cfg.failedItems : [])],
-        reviewItems: cfg.reviewItems,
-      });
-  const configuredDocumentState = hasConfiguredDocumentState
-    ? (cfg.documentState && typeof cfg.documentState === 'object' ? cfg.documentState : null)
-    : automaticAttachmentAssessment.documentState;
-  const documentState = normalizeFormalDocumentState(configuredDocumentState);
-  const configuredDocumentClass = cfg.documentClass && typeof cfg.documentClass === 'object'
-    ? cfg.documentClass
-    : automaticAttachmentAssessment?.documentClass;
-  const documentClass = normalizeFormalDocumentClass(configuredDocumentClass, documentState);
+  const initialApproval = cfg.documentApproval && typeof cfg.documentApproval === 'object'
+    ? cfg.documentApproval
+    : (cfg.attachmentApproval && typeof cfg.attachmentApproval === 'object' ? cfg.attachmentApproval : {});
+  const automaticAttachmentAssessment = assessFormalAttachment({
+    project: proj,
+    calculated: cfg.calculated !== false,
+    failedItems: [...inferredFailedItems, ...(Array.isArray(cfg.failedItems) ? cfg.failedItems : [])],
+    reviewItems: cfg.reviewItems,
+    approved: initialApproval.approved === true,
+  });
+  const documentState = normalizeFormalDocumentState(automaticAttachmentAssessment.documentState);
+  const documentClass = normalizeFormalDocumentClass(automaticAttachmentAssessment.documentClass, documentState);
+  const approvalReport = buildAttachmentApprovalReport({
+    approved: initialApproval.approved === true,
+    calculationFingerprint,
+    approvedAt: initialApproval.approvedAt,
+  });
 
   const inputsHtml = getCalculationBookInputGroups(cfg.inputs).map(g => `
     <section class="rep-block${g.keepTogether ? ' rep-block--keep' : ''}">
@@ -634,18 +693,7 @@ function openReport(cfg) {
     <h3>檢核結論</h3>
     <div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>
   </section>`;
-  const documentStateHtml = documentState
-    ? `<section class="rep-document-state rep-document-state--${esc(documentState.reason)}" data-document-state="${esc(documentState.kind)}" data-document-reason="${esc(documentState.reason)}">
-        <strong>${esc(documentState.label)}</strong>
-        <span>${esc(documentState.detail)}</span>
-      </section>`
-    : '';
-  const documentClassHtml = documentClass
-    ? `<section class="rep-document-class rep-document-class--ready" data-document-class="${esc(documentClass.key)}">
-        <strong>文件分類｜${esc(documentClass.label)}</strong>
-        <span>${esc(documentClass.detail)}</span>
-      </section>`
-    : '';
+  const documentStateHtml = approvalReport.html;
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -662,16 +710,7 @@ body { font-family: "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif
 .rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
-.rep-document-class { display:flex; align-items:baseline; gap:8px; margin:0 0 12px; padding:5px 8px;
-                      border:1px solid #86b89a; background:#f4fbf6; color:#14532d;
-                      font-size:11px; line-height:1.45; page-break-inside:avoid; }
-.rep-document-class strong { flex:0 0 auto; font-size:12px; letter-spacing:.02em; }
-.rep-document-class span { color:#365c42; }
-.rep-document-state { margin:12px 0 16px; padding:10px 14px; border:2px solid #b91c1c;
-                      background:#fff1f2; color:#881337; page-break-inside:avoid; }
-.rep-document-state strong { display:block; font-size:16px; letter-spacing:.03em; }
-.rep-document-state span { display:block; margin-top:4px; font-size:11px; line-height:1.5; }
-.rep-document-state--review { border-color:#b45309; background:#fff7ed; color:#7c2d12; }
+${FORMAL_DOCUMENT_STATE_REPORT_CSS}
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;
             font-size:12px; margin:14px 0 18px; }
 .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
@@ -729,15 +768,6 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 }
 @media print {
   body { background:#fff; padding:0; }
-  .rep-document-class { margin:0 0 3mm; padding:1mm 2mm; }
-  body.rep-document-draft::after { content:""; position:fixed; left:50%; top:46%; width:160mm; height:44mm;
-    transform:translate(-50%,-50%) rotate(-28deg);
-    background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 160'%3E%3Cpath d='M45 130V30H85Q125 30 125 80Q125 130 85 130Z M155 130L195 30L235 130M170 92H220 M265 130V30H305Q345 30 345 62Q345 94 305 94H265M305 94L350 130 M385 130V30H455M385 78H445 M480 30H565M522 30V130' fill='none' stroke='%23991b1b' stroke-width='18' stroke-linecap='square' stroke-linejoin='miter' opacity='.08'/%3E%3C/svg%3E");
-    pointer-events:none; z-index:999; }
-  .rep-document-state { display:block; position:absolute; top:0; right:0; z-index:1000;
-    width:auto; max-width:48%; margin:0; padding:1mm 2mm; white-space:nowrap; }
-  .rep-document-state strong { font-size:9px; }
-  .rep-document-state span { display:none; }
   .rep-toolbar { display:none; }
   .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
@@ -748,9 +778,9 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 }
 </style>
 </head>
-<body${documentState ? ` class="rep-document-draft rep-document-${documentState.reason}"` : ''}>
+<body data-document-class="${esc(documentClass.key)}">
 <div class="rep-toolbar">
-  <button onclick="window.print()">${documentState ? '🖨️ 列印內部檢討版 / 存 PDF' : '🖨️ 列印 / 存 PDF'}</button>
+  <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
   <button onclick="closeReportWindow()">✕ 關閉</button>
   <span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span>
 </div>
@@ -759,11 +789,11 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <h1>${esc(cfg.title || '計算書')}</h1>
     ${cfg.subtitle?`<div class="sub">${esc(cfg.subtitle)}</div>`:''}
   </div>
-  ${documentStateHtml || documentClassHtml}
+  ${documentStateHtml}
   <div class="rep-meta${sourceTrace.tool ? ' rep-meta--traceable' : ''}">
-    <div><b>計畫名稱</b>${esc(proj.name)||'—'}</div>
-    <div><b>計畫編號</b>${esc(proj.no)||'—'}</div>
-    <div><b>設計人員</b>${esc(proj.designer)||'—'}</div>
+    ${proj.name ? `<div><b>計畫名稱</b>${esc(proj.name)}</div>` : ''}
+    ${proj.no ? `<div><b>計畫編號</b>${esc(proj.no)}</div>` : ''}
+    ${proj.designer ? `<div><b>設計人員</b>${esc(proj.designer)}</div>` : ''}
     <div><b>製表日期</b>${esc(proj.date)}</div>
     ${sourceTrace.tool ? `<div><b>產出工具</b>${esc(sourceTrace.tool)}</div>` : ''}
     ${sourceTrace.version ? `<div><b>工具版本</b>${esc(sourceTrace.version)}</div>` : ''}
@@ -780,7 +810,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     ${summaryHtml}
   </div>
 
-  <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
+  <div class="rep-footer"><span class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</span></div>
 </div>
 <script>
 function showReportWindowStatus(message) {
@@ -812,7 +842,7 @@ function closeReportWindow() {
 function projectFieldsHTML(prefix='proj') {
   return `
   <div class="card">
-    <h3>計畫資訊（計算書 header）</h3>
+    <h3>附件識別資料（選填，可由主文承接）</h3>
     <div class="form-row">
       <div class="form-group"><label>計畫名稱</label><input type="text" id="${prefix}Name" placeholder="例：XX 大樓新建工程"></div>
       <div class="form-group"><label>計畫編號</label><input type="text" id="${prefix}No" placeholder="例：2026-001"></div>

@@ -7,7 +7,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '鋼筋混凝土/tools/shear-wall.html', needles: ['剪力牆 Shear Wall', '18.7'] },
   { path: '鋼構工具/', needles: ['鋼構正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '鋼構正式工具主頁列印已封鎖'] },
   { path: '鋼構工具/plate-check.html', needles: ['鋼構連接板正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '此頁是操作介面，不是計算書'] },
-  { path: '鋼構工具/steel-beam-formal.html', needles: ['鋼梁正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '輸出正式報表'] },
+  { path: '鋼構工具/steel-beam-formal.html', needles: ['鋼梁正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '產生計算書'] },
   { path: '鋼構工具/steel-column-formal.html', needles: ['鋼柱正式規範核算工具', '../結構工具箱/core/direct-print-boundary.css', 'steel-formal-output-page', '本頁不得作為附件'] },
   { path: '鋼構工具/app.js', needles: ['getAuditStatusSource', '../結構工具箱/assets/status/platform-status.json', '平台公開巡檢狀態', '鋼構本機自巡檢狀態'] },
   { path: 'anchor/', needles: ['錨栓檢討工具'], checkAssets: true },
@@ -271,8 +271,8 @@ async function main() {
   assert.equal(/fetch\(\s*[`'"]\/output\//.test(homeJs), false, 'home.js must not fetch domain-root output paths');
   assert.ok(homeJs.includes("label: '報告閱讀狀態總覽'"), 'home.js keeps report readiness overview label');
   assert.ok(homeJs.includes('頁面上的「優先建議報告閱讀狀態」診斷明細只供公司內部整理計算附件前檢查'), 'home.js keeps page-only diagnostic boundary summary');
-  assert.ok(homeJs.includes('採正式附件治理的計算書若非 ready，輸出會另以 DRAFT／非正式附件標明文件分類'), 'home.js distinguishes governed draft document classification from page-only diagnostics');
-  assert.ok(homeJs.includes('ready 則明確標示「文件分類｜可送簽版」'), 'home.js explains governed ready document classification');
+  assert.ok(homeJs.includes('計算書預設為可列印的內部審閱，勾選核可後改為正式附件'), 'home.js separates page diagnostics from approval-based document identity');
+  assert.ok(homeJs.includes('工程檢核狀態與文件身分分開'), 'home.js explains engineering and document states are independent');
   assert.ok(homeJs.includes('完整檢查'), 'home.js keeps full preflight mode label');
   assert.ok(homeJs.includes('快速檢查'), 'home.js keeps quick preflight mode label');
   assert.ok(homeJs.includes('正式放行'), 'home.js keeps release preflight mode label');
@@ -331,7 +331,7 @@ async function main() {
   assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness report text scope keeps other-family boundary');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('優先建議報告閱讀狀態'), 'report readiness compact summary keeps page-only wording');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('不會寫入計算書、列印或 PDF'), 'report readiness compact summary keeps export boundary');
-  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('文件分類｜可送簽版'), 'report readiness compact summary keeps ready document classification');
+  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('文件預設內部審閱，明確核可後為正式附件'), 'report readiness compact summary keeps approval-based document classification');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceRequired, 31, 'report readiness rendered delivery covers every formal homepage tool');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery fully covered');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');

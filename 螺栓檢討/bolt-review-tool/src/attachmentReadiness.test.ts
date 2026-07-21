@@ -122,20 +122,18 @@ describe('buildAttachmentReadinessModel', () => {
     expect(model.priority.value).toContain('不檢討')
   })
 
-  it('requires manual review when project and sign-off metadata is incomplete', () => {
+  it('allows blank optional attachment identity to be inherited from the main report', () => {
     const model = buildModel(
       cloneProject(),
       normalizeReportSettings(defaultProject.report),
     )
 
-    expect(model.status).toBe('review')
-    expect(model.priority.value).toContain('案號 / 專案')
-    expect(model.priority.value).toContain('設計人員')
-    expect(model.priority.value).toContain('複核人員')
+    expect(model.status).toBe('ready')
+    expect(model.priority.value).not.toContain('案號 / 專案')
     expect(model.items).toContainEqual({
-      label: '案件資料',
-      value: '缺 5 項',
-      tone: 'warn',
+      label: '附件識別',
+      value: '未填欄位由主文承接',
+      tone: 'neutral',
     })
   })
 

@@ -195,6 +195,9 @@ async function reportMetrics(report) {
     return {
       title: clean(document.querySelector('h1')?.textContent),
       calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
+      documentState: document.querySelector('.rep-document-status-line')?.dataset.documentClass || '',
+      documentApproved: document.querySelector('.rep-document-status-line')?.dataset.approved || '',
+      documentStateText: clean(document.querySelector('.rep-document-status-line')?.textContent),
       summary: clean(document.querySelector('.rep-summary')?.textContent),
       summaryClass: document.querySelector('.rep-summary')?.className || '',
       hasReportSummary: Boolean(document.querySelector('.rep-summary')),
@@ -331,8 +334,9 @@ async function main() {
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
-        include: ['計算書'],
+        include: ['計算書', '文件狀態：內部審閱'],
         includeAny: [['梁設計計算書', '梁檢核計算書']],
+        exclude: ['DRAFT／非正式附件'],
       });
       const expected = EXPECTED[tc.key] || {};
       results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
@@ -341,6 +345,7 @@ async function main() {
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
       assert(metrics.calculationFingerprint === sourceFingerprint, `${tc.key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasReportSummary, `${tc.key} report status banner hidden`, 'no .rep-summary');
+      assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${tc.key} report defaults to printable internal review`, metrics.documentStateText);
       assert(metrics.checkGroupCount >= 6, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 1, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {

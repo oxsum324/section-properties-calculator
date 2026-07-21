@@ -16,10 +16,17 @@ const LOGO_MAX_BYTES = 200 * 1024
 export function ReportSettingsPanel(props: {
   reportSettings: ReportSettings
   patchReport: (patch: Partial<ReportSettings>) => void
+  onDocumentApprovalChange: (approved: boolean) => void
   setSaveMessage: (message: string) => void
   simpleMode: boolean
 }) {
-  const { reportSettings, patchReport, setSaveMessage, simpleMode } = props
+  const {
+    reportSettings,
+    patchReport,
+    onDocumentApprovalChange,
+    setSaveMessage,
+    simpleMode,
+  } = props
 
   return (
     <details
@@ -151,6 +158,19 @@ export function ReportSettingsPanel(props: {
       <p className="helper-text">
         摘要版列印時只保留控制檢核與例外尺寸；完整明細版會附上逐項條文與產品證據對照。
       </p>
+      <label className="report-approval-control">
+        <input
+          type="checkbox"
+          checked={reportSettings.documentApproved === true}
+          onChange={(event) => onDocumentApprovalChange(event.target.checked)}
+        />
+        <span>
+          <strong>本計算內容已完成審閱，核可作為正式附件</strong>
+          <small>
+            未勾選時為可列印的內部審閱版；修改計算內容後會自動取消核可。
+          </small>
+        </span>
+      </label>
       <p className="helper-text">
         目前工具版本：<code>{CURRENT_CALC_ENGINE_VERSION}</code> · build{' '}
         <code>{formatDateTime(CURRENT_APP_BUILD_TIME)}</code>。

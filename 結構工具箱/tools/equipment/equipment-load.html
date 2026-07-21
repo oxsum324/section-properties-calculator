@@ -865,34 +865,34 @@
   function detailedBody(r, svgHtml) {
     let extra = '';
     if (r.concreteBearingApplicable) {
-      extra += `<h3>5. 混凝土承壓基準</h3>
+      extra += `<div class="rpt-step"><h3>5. 混凝土承壓基準</h3>
 <p><code>A1 = ${fmt(r.concreteBearingAreaA1, 4)} m²；A2 = ${fmt(r.concreteBearingAreaA2, 4)} m²；√(A2/A1) = ${fmt(r.concreteBearingFactor, 2)}（上限 2）</code></p>
-<p><code>φBn = φ·0.85·f'c·A1·√(A2/A1) = ${fmt(r.concreteBearingDesign)} tf ${r.pointLoad <= r.concreteBearingDesign ? '≥' : '<'} Ppoint = ${fmt(r.pointLoad)} tf</code></p>`;
+<p><code>φBn = φ·0.85·f'c·A1·√(A2/A1) = ${fmt(r.concreteBearingDesign)} tf ${r.pointLoad <= r.concreteBearingDesign ? '≥' : '<'} Ppoint = ${fmt(r.pointLoad)} tf</code></p></div>`;
     }
     if (r.punchingApplicable) {
-      extra += `<h3>6. RC 穿孔剪力初判（雙向剪力）</h3>
+      extra += `<div class="rpt-step"><h3>6. RC 穿孔剪力初判（雙向剪力）</h3>
 <p><code>bo = 2(b + l + 2d) = ${fmt(r.punchingBo)} m；β = ${fmt(r.punchingBeta, 2)}；αs = ${fmt(r.punchingAlpha, 0)}</code></p>
 <p><code>vc = min(1.06√f'c, 0.53(1+2/β)√f'c, 0.265(αs·d/bo+2)√f'c) = ${fmt(r.punchingVc)} kgf/cm²</code></p>
-<p><code>φVn = ${fmt(r.punchingDesignShear)} tf ${r.pointLoad <= r.punchingDesignShear ? '≥' : '<'} Ppoint = ${fmt(r.pointLoad)} tf</code></p>`;
+<p><code>φVn = ${fmt(r.punchingDesignShear)} tf ${r.pointLoad <= r.punchingDesignShear ? '≥' : '<'} Ppoint = ${fmt(r.pointLoad)} tf</code></p></div>`;
     }
     if (r.steelPlateApplicable) {
-      extra += `<h3>7. 鋼板分散厚度初判</h3>
+      extra += `<div class="rpt-step"><h3>7. 鋼板分散厚度初判</h3>
 <p><code>qplate = Ppoint/(Bp·Lp) = ${fmt(r.steelPlatePressure)} tf/m²；懸臂 a = ${fmt(r.steelPlateControllingProjection)} m</code></p>
-<p><code>Mu = qplate·a²/2 = ${fmt(r.steelPlateMomentDemand, 4)} tf·m/m；t,req = ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm（現用 ${fmt(r.steelPlateThickness * 1000, 0)} mm）</code></p>`;
+<p><code>Mu = qplate·a²/2 = ${fmt(r.steelPlateMomentDemand, 4)} tf·m/m；t,req = ${fmt(r.steelPlateRequiredThickness * 1000, 1)} mm（現用 ${fmt(r.steelPlateThickness * 1000, 0)} mm）</code></p></div>`;
     }
     return `
 <h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div>
 <h2>計算內容</h2>
-<h3>1. 設備設計重量</h3>
+<div class="rpt-step"><h3>1. 設備設計重量</h3>
 <p><code>Wservice = Wd + Wf + Wa = ${fmt(r.equipmentWeight)} + ${fmt(r.fluidWeight)} + ${fmt(r.accessoryWeight)} = ${fmt(r.serviceWeight)} tf</code></p>
-<p><code>Wdesign = Wservice × I = ${fmt(r.serviceWeight)} × ${fmt(r.dynamicFactor, 2)} = ${fmt(r.designWeight)} tf</code></p>
-<h3>2. 單點反力與接觸壓</h3>
+<p><code>Wdesign = Wservice × I = ${fmt(r.serviceWeight)} × ${fmt(r.dynamicFactor, 2)} = ${fmt(r.designWeight)} tf</code></p></div>
+<div class="rpt-step"><h3>2. 單點反力與接觸壓</h3>
 <p><code>Ppoint = Wdesign / n = ${fmt(r.designWeight)} / ${r.supportCount} = ${fmt(r.pointLoad)} tf</code></p>
-<p><code>Acontact = b×l = ${fmt(r.contactB)}×${fmt(r.contactL)} = ${fmt(r.contactAreaEach, 4)} m²；qcontact = ${fmt(r.qContact)} tf/m²</code></p>
-<h3>3. 1:1 分布壓</h3>
-<p><code>Bspread = b+2h = ${fmt(r.spreadB)} m；Lspread = l+2h = ${fmt(r.spreadL)} m；qspread = ${fmt(r.qSpread)} tf/m²</code></p>
-<h3>4. 等效面載重與水平力</h3>
-<p><code>qequiv = Wdesign/(Bplan·Lplan) = ${fmt(r.qEquivalent)} tf/m²；H = kh·Wdesign = ${fmt(r.horizontalTotal)} tf（每點 ${fmt(r.horizontalPerSupport)} tf）</code></p>
+<p><code>Acontact = b×l = ${fmt(r.contactB)}×${fmt(r.contactL)} = ${fmt(r.contactAreaEach, 4)} m²；qcontact = ${fmt(r.qContact)} tf/m²</code></p></div>
+<div class="rpt-step"><h3>3. 1:1 分布壓</h3>
+<p><code>Bspread = b+2h = ${fmt(r.spreadB)} m；Lspread = l+2h = ${fmt(r.spreadL)} m；qspread = ${fmt(r.qSpread)} tf/m²</code></p></div>
+<div class="rpt-step"><h3>4. 等效面載重與水平力</h3>
+<p><code>qequiv = Wdesign/(Bplan·Lplan) = ${fmt(r.qEquivalent)} tf/m²；H = kh·Wdesign = ${fmt(r.horizontalTotal)} tf（每點 ${fmt(r.horizontalPerSupport)} tf）</code></p></div>
 ${extra}
 <div class="note">本頁為設備支承局部荷重與承壓 / 穿孔剪力 / 鋼板分散之檢核；錨栓、樓板與梁配筋、振動與疲勞不在本頁範圍，錨栓請用錨栓檢討工具，構件配筋回正式構件工具。</div>`;
   }
@@ -935,10 +935,16 @@ ${extra}
     const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
     const svgHtml = svgForReport(r);
     const body = mode === 'summary' ? summaryBody(r, svgHtml) : detailedBody(r, svgHtml);
+    const reportTrace = ReportUI.buildReportTrace({
+      title: '設備局部荷重計算書',
+      outputSource: { tool: '設備局部荷重', version: 'V0.2' },
+      snapshot: { mode, result: r }
+    });
     const documentStateReport = ReportUI.buildFormalDocumentStateReport({
       project: proj,
       calculated: true,
-      readinessLevel: ReportUI.getPageReportReadinessLevel(document)
+      readinessLevel: ReportUI.getPageReportReadinessLevel(document),
+      calculationFingerprint: reportTrace.calculationFingerprint
     });
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>設備局部荷重計算書</title>
@@ -949,6 +955,7 @@ body{font-family:"Microsoft JhengHei",Arial,sans-serif;background:#f8fafc;color:
 .paper{max-width:880px;margin:20px auto;background:#fff;padding:30px 34px;box-shadow:0 2px 12px rgba(15,23,42,.12);}
 h1{font-size:1.4rem;margin:0 0 8px;color:#0f172a;} h2{font-size:1.05rem;border-bottom:2px solid #e5e7eb;padding-bottom:6px;margin-top:22px;color:#0b7285;}
 h3{font-size:0.96rem;margin:14px 0 4px;color:#0e7490;}
+.rpt-step{display:table;width:100%;break-inside:avoid;page-break-inside:avoid;}
 .case-head{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.9rem;color:#334155;border-bottom:1px solid #e5e7eb;padding-bottom:8px;}
 table{width:100%;border-collapse:collapse;font-size:.9rem;margin-top:8px;} th,td{border:1px solid #d1d5db;padding:7px 9px;text-align:left;vertical-align:top;} th{background:#f9fafb;width:34%;}
 code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-radius:4px;} p{margin:4px 0;}
@@ -961,7 +968,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <main class="paper">
 <h1>設備局部荷重計算書</h1>
 ${documentStateReport.html}
-<div class="case-head"><span>計畫：${escapeHtml(reportProjectMetaValue(proj.name))}</span><span>編號：${escapeHtml(reportProjectMetaValue(proj.no))}</span><span>整理人：${escapeHtml(reportProjectMetaValue(proj.designer))}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：設備局部荷重 V0.2</span></div>
+<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>整理人：${escapeHtml(proj.designer)}</span>` : ''}<span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：設備局部荷重 V0.2</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');

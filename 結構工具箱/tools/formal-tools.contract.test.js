@@ -163,8 +163,9 @@ assert.equal(manifest.shared.directPrintBoundaryClass, 'formal-direct-print-boun
 assert.equal(manifest.shared.documentStateHelper, 'core/ui/report.js', 'formal document state helper');
 assert.equal(manifest.shared.documentStateBuilder, 'buildFormalDocumentStateReport', 'formal document state builder');
 assert.equal(manifest.shared.documentStateRequired, true, 'formal document state required');
-assert.equal(manifest.shared.readyDocumentClass, 'ready-to-sign', 'formal ready document class');
-assert.equal(manifest.shared.readyDocumentLabel, '文件分類｜可送簽版', 'formal ready document label');
+assert.equal(manifest.shared.readyDocumentClass, 'formal-attachment', 'formal approved document class');
+assert.equal(manifest.shared.readyDocumentLabel, '文件狀態：正式附件', 'formal approved document label');
+assert.equal(manifest.shared.internalReviewLabel, '文件狀態：內部審閱', 'formal internal-review document label');
 assert.ok(manifest.shared.directPrintBoundaryNeedles.length >= 3, 'formal direct-print boundary wording');
 assertIncludes(
   directPrintBoundary,
@@ -281,18 +282,23 @@ const readyDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDoc
   readinessLevel: 'ready',
 });
 assert.equal(readyDocumentStateReport.status, 'ready', 'complete formal report document state is ready');
-assertIncludes(readyDocumentStateReport.html, 'data-document-class="ready-to-sign"', 'ready formal report document class marker');
-assertIncludes(readyDocumentStateReport.html, '文件分類｜可送簽版', 'ready formal report sign-off candidate label');
-assertIncludes(readyDocumentStateReport.html, '正式附件仍須完成公司簽認', 'ready formal report preserves approval boundary');
+assertIncludes(readyDocumentStateReport.html, 'data-initial-approved="false"', 'ready formal report defaults to internal review');
+assertIncludes(readyDocumentStateReport.html, '本計算內容已完成審閱，核可作為正式附件', 'ready formal report exposes approval checkbox');
 assertNoIncludes(readyDocumentStateReport.html, 'DRAFT／非正式附件', 'ready formal report does not add draft content');
+const approvedDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport({
+  project: {}, calculated: true, readinessLevel: 'ready', approved: true,
+  calculationFingerprint: 'CF-1234567890ABCDEF', approvedAt: '2026/07/21 12:00:00',
+});
+assertIncludes(approvedDocumentStateReport.html, 'data-initial-approved="true"', 'approved report initializes as formal attachment');
+assert.equal(approvedDocumentStateReport.documentClass.key, 'formal-attachment', 'approved report carries formal attachment class');
 const reviewDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport({
   project: { name: '', no: 'QA-001', designer: 'Codex QA' },
   calculated: true,
   readinessLevel: 'review',
 });
-assert.equal(reviewDocumentStateReport.status, 'review', 'incomplete formal report document state needs review');
-assertIncludes(reviewDocumentStateReport.html, 'DRAFT／非正式附件 - 待人工複核', 'review formal report draft label');
-assertIncludes(reviewDocumentStateReport.html, 'data-document-state="draft"', 'review formal report document state marker');
+assert.equal(reviewDocumentStateReport.status, 'review', 'engineering readiness still records review state');
+assertIncludes(reviewDocumentStateReport.html, 'data-initial-approved="false"', 'review report remains printable as internal review');
+assertNoIncludes(reviewDocumentStateReport.html, 'DRAFT／非正式附件', 'review report does not add DRAFT banner');
 assertNoIncludes(reviewDocumentStateReport.html, '產報前檢查', 'review formal report excludes page-only status wording');
 const blockedDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalDocumentStateReport({
   project: { name: 'QA', no: 'QA-001', designer: 'Codex QA' },
@@ -300,7 +306,8 @@ const blockedDocumentStateReport = sharedReportRuntime.ToolReportUI.buildFormalD
   readinessLevel: 'blocked',
 });
 assert.equal(blockedDocumentStateReport.status, 'blocked', 'failed formal report document state is blocked');
-assertIncludes(blockedDocumentStateReport.html, 'DRAFT／非正式附件 - 檢核不符', 'blocked formal report draft label');
+assertIncludes(blockedDocumentStateReport.html, 'data-initial-approved="false"', 'NG result remains printable as internal review');
+assertNoIncludes(blockedDocumentStateReport.html, 'DRAFT／非正式附件', 'NG result does not become a DRAFT document');
 assert.equal(
   sharedReportRuntime.ToolReportUI.getPageReportReadinessLevel({
     querySelector(selector) { return selector.includes('.review') ? {} : null; },
@@ -325,7 +332,6 @@ assert.equal(
 const sharedReportHtml = renderReportHtml(toolboxFile('core/ui/report.js'), { name: '未填', no: 'FORMAL-VERIFY-001', designer: 'Codex QA' });
 const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared formal report generator', [
   'QA 計算書',
-  '計畫名稱',
   '計畫編號',
   'FORMAL-VERIFY-001',
   '設計人員',
@@ -350,9 +356,11 @@ for (const forbidden of ['頁面操作說明', '摘要卡說明', '符號附註'
 }
 assertNoIncludes(sharedReportHtml, '未填', 'shared report generator should scrub placeholder project metadata at render time');
 assertNoIncludes(sharedReportText, '未填', 'shared report generator visible text should scrub placeholder project metadata at render time');
-assertIncludes(sharedReportHtml, '計畫名稱</b>—', 'shared report generator should fallback blank project name to dash');
+assertNoIncludes(sharedReportText, '計畫名稱', 'shared report generator should omit a blank optional project-name row');
 assertIncludes(sharedReportHtml, 'FORMAL-VERIFY-001', 'shared report generator should keep project number');
 assertIncludes(sharedReportHtml, 'Codex QA', 'shared report generator should keep designer');
+assertIncludes(sharedReportHtml, '本計算內容已完成審閱，核可作為正式附件', 'shared report generator should expose the explicit approval control');
+assertIncludes(sharedReportHtml, '文件狀態：內部審閱', 'shared report generator should default every newly generated report to internal review');
 assert.match(sharedReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, 'shared report generator should include a stable calculation fingerprint');
 const reportFingerprintOf = (html) => html.match(/計算指紋<\/b>(CF-[0-9A-F]{16})/)?.[1] || '';
 const matchingCalculationHtml = renderReportHtml(toolboxFile('core/ui/report.js'), { name: '另一個案件', no: 'FORMAL-VERIFY-002', designer: 'Reviewer' });

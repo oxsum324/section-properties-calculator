@@ -64,6 +64,8 @@ function buildParams() {
       designer: '王設計',
       checker: '李複核',
       issueDate: '2026-07-20',
+      documentApproved: true,
+      documentApprovedAt: '2026-07-20T10:00:00.000Z',
     }),
     candidateLayoutVariants: [
       {
@@ -226,7 +228,7 @@ describe('reportWorkbook', () => {
     expect(summaryRows.some((row) => row.項目 === '控制模式')).toBe(true)
     expect(
       summaryRows.some(
-        (row) => row.項目 === '文件分類' && row.值 === '可送簽版',
+        (row) => row.項目 === '文件狀態' && row.值 === '正式附件',
       ),
     ).toBe(true)
     expect(

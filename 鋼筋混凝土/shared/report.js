@@ -254,6 +254,94 @@ function getReportSourceTrace(cfg) {
   return { tool, version };
 }
 
+const RC_ATTACHMENT_APPROVAL_REPORT_CSS = `
+.rep-attachment-approval-source { display:none !important; }
+.rep-approval-control { display:inline-flex; align-items:center; gap:6px; margin-right:10px; padding:7px 10px;
+  border:1px solid #94a3b8; border-radius:4px; background:#fff; color:#1f2937; font-size:12px; cursor:pointer; }
+.rep-approval-control input { width:16px; height:16px; margin:0; accent-color:#166534; }
+.rep-document-status-line { display:block; margin-bottom:3mm; color:#4b5563; font-weight:600; }
+.rep-footer-copyright { display:block; }
+.rep-footer { break-inside:avoid-page; page-break-inside:avoid; }
+.rep-document-status-line[data-document-class="formal-attachment"] { color:#14532d; }
+@media print { .rep-approval-control { display:none !important; } }`;
+
+function buildRcAttachmentApprovalReport(options = {}) {
+  const approved = options.approved === true;
+  const fingerprint = String(options.calculationFingerprint || '').trim();
+  const approvedAt = String(options.approvedAt || '').trim();
+  const esc = s => (s === null || s === undefined ? '' : String(s))
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return `<style data-formal-document-state-style>${RC_ATTACHMENT_APPROVAL_REPORT_CSS}</style>
+    <span class="rep-attachment-approval-source" data-initial-approved="${approved ? 'true' : 'false'}" data-calculation-fingerprint="${esc(fingerprint)}" data-approved-at="${esc(approvedAt)}" aria-hidden="true"></span>
+    <script data-attachment-approval-script>
+    (function () {
+      function initAttachmentApproval() {
+        var source = document.querySelector('.rep-attachment-approval-source');
+        if (!source || source.dataset.initialized === 'true') return;
+        source.dataset.initialized = 'true';
+        var toolbar = document.querySelector('.rep-toolbar, .toolbar');
+        var footer = document.querySelector('.rep-footer');
+        var paper = document.querySelector('.rep-paper, .paper') || document.body;
+        Array.from(document.querySelectorAll('.rep-meta div, .meta div')).forEach(function (row) {
+          var text = String(row.textContent || '').replace(/\s+/g, ' ').trim();
+          if (/^(計畫名稱|計畫編號|設計人員)\s*[—-]$/.test(text)) row.hidden = true;
+        });
+        if (!footer) {
+          footer = document.createElement('div');
+          footer.className = 'rep-footer';
+          paper.appendChild(footer);
+        }
+        var fingerprint = source.dataset.calculationFingerprint || '';
+        var status = document.createElement('span');
+        status.className = 'rep-document-status-line';
+        footer.insertBefore(status, footer.firstChild);
+        var checkbox = document.getElementById('repAttachmentApproval');
+        if (!checkbox && toolbar) {
+          var label = document.createElement('label');
+          label.className = 'rep-approval-control';
+          checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = 'repAttachmentApproval';
+          checkbox.setAttribute('aria-label', '核可為正式附件');
+          label.appendChild(checkbox);
+          label.appendChild(document.createTextNode('本計算內容已完成審閱，核可作為正式附件'));
+          toolbar.insertBefore(label, toolbar.firstChild);
+        }
+        if (!checkbox) return;
+        checkbox.checked = source.dataset.initialApproved === 'true';
+        var approvedAtValue = source.dataset.approvedAt || '';
+        function formatNow() {
+          var d = new Date();
+          var pad = function (value) { return String(value).padStart(2, '0'); };
+          return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        }
+        function updateStatus() {
+          if (checkbox.checked && !approvedAtValue) approvedAtValue = formatNow();
+          if (!checkbox.checked) approvedAtValue = '';
+          var parts = checkbox.checked
+            ? ['文件狀態：正式附件', approvedAtValue ? '核可時間：' + approvedAtValue : '']
+            : ['文件狀態：內部審閱'];
+          if (fingerprint) parts.push('計算指紋：' + fingerprint);
+          status.textContent = parts.filter(Boolean).join('｜');
+          status.dataset.documentClass = checkbox.checked ? 'formal-attachment' : 'internal-review';
+          status.dataset.approved = checkbox.checked ? 'true' : 'false';
+          status.dataset.approvedAt = approvedAtValue;
+          document.body.dataset.documentClass = status.dataset.documentClass;
+        }
+        checkbox.addEventListener('change', updateStatus);
+        updateStatus();
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAttachmentApproval, { once:true });
+      else initAttachmentApproval();
+    })();
+    <\/script>`;
+}
+
+if (typeof window !== 'undefined') {
+  window.RCUI = window.RCUI || {};
+  window.RCUI.buildAttachmentApprovalReport = buildRcAttachmentApprovalReport;
+}
+
 function openReport(cfg) {
   const today = new Date();
   const todayStr = today.getFullYear() + '/' +
@@ -266,29 +354,19 @@ function openReport(cfg) {
   const reportGeneratedAt = formatReportTimestamp(today);
   const calculationFingerprint = buildCalculationFingerprint(cfg);
   const sourceTrace = getReportSourceTrace(cfg);
-  const configuredDocumentState = cfg.documentState && typeof cfg.documentState === 'object'
-    ? cfg.documentState
-    : null;
-  const documentState = configuredDocumentState && configuredDocumentState.kind === 'draft'
-    ? {
-        kind: 'draft',
-        reason: configuredDocumentState.reason === 'blocked' ? 'blocked' : 'review',
-        label: String(configuredDocumentState.label || 'DRAFT／非正式附件').trim(),
-        detail: String(configuredDocumentState.detail || '本文件僅供內部檢討，不得作為正式附件。').trim()
-      }
-    : null;
-  const configuredDocumentClass = cfg.documentClass && typeof cfg.documentClass === 'object'
-    ? cfg.documentClass
-    : {};
-  const configuredDocumentClassKey = String(configuredDocumentClass.key || configuredDocumentClass.kind || '').trim().toLowerCase();
-  const acceptsReadyDocumentClass = ['ready-to-sign', 'signable', 'ready'].includes(configuredDocumentClassKey);
-  const documentClass = documentState
-    ? null
-    : {
-        key: 'ready-to-sign',
-        label: String(acceptsReadyDocumentClass && configuredDocumentClass.label ? configuredDocumentClass.label : '可送簽版').trim(),
-        detail: String(acceptsReadyDocumentClass && configuredDocumentClass.detail ? configuredDocumentClass.detail : '本文件具備進入簽核流程的必要條件；正式附件仍須完成公司簽認、技師簽章或專案核准程序。').trim()
-      };
+  const initialApproval = cfg.documentApproval && typeof cfg.documentApproval === 'object'
+    ? cfg.documentApproval
+    : (cfg.attachmentApproval && typeof cfg.attachmentApproval === 'object' ? cfg.attachmentApproval : {});
+  const approved = initialApproval.approved === true;
+  const documentClass = {
+    key: approved ? 'formal-attachment' : 'internal-review',
+    label: approved ? '正式附件' : '內部審閱'
+  };
+  const approvalHtml = buildRcAttachmentApprovalReport({
+    approved,
+    calculationFingerprint,
+    approvedAt: initialApproval.approvedAt
+  });
 
   const esc = s => (s===null||s===undefined?'':String(s))
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -416,18 +494,7 @@ function openReport(cfg) {
   const summaryHtml = hasSummary
     ? `<div class="rep-summary ${summaryCls}">${esc(summary.text || '—')}</div>`
     : '';
-  const documentStateHtml = documentState
-    ? `<section class="rep-document-state rep-document-state--${esc(documentState.reason)}" data-document-state="${esc(documentState.kind)}" data-document-reason="${esc(documentState.reason)}">
-        <strong>${esc(documentState.label)}</strong>
-        <span>${esc(documentState.detail)}</span>
-      </section>`
-    : '';
-  const documentClassHtml = documentClass
-    ? `<section class="rep-document-class rep-document-class--ready" data-document-class="${esc(documentClass.key)}">
-        <strong>文件分類｜${esc(documentClass.label)}</strong>
-        <span>${esc(documentClass.detail)}</span>
-      </section>`
-    : '';
+  const documentStateHtml = approvalHtml;
 
   const html = `<!doctype html>
 <html lang="zh-TW">
@@ -444,16 +511,7 @@ body { font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans TC", system-
 .rep-header { border-bottom:3px double #222; padding-bottom:12px; margin-bottom:16px; }
 .rep-header h1 { margin:0 0 4px; font-size:22px; }
 .rep-header .sub { color:#555; font-size:13px; }
-.rep-document-class { display:flex; align-items:baseline; gap:8px; margin:0 0 12px; padding:5px 8px;
-                      border:1px solid #86b89a; background:#f4fbf6; color:#14532d;
-                      font-size:11px; line-height:1.45; page-break-inside:avoid; }
-.rep-document-class strong { flex:0 0 auto; font-size:12px; letter-spacing:.02em; }
-.rep-document-class span { color:#365c42; }
-.rep-document-state { margin:12px 0 16px; padding:10px 14px; border:2px solid #b91c1c;
-                      background:#fff1f2; color:#881337; page-break-inside:avoid; }
-.rep-document-state strong { display:block; font-size:16px; letter-spacing:.03em; }
-.rep-document-state span { display:block; margin-top:4px; font-size:11px; line-height:1.5; }
-.rep-document-state--review { border-color:#b45309; background:#fff7ed; color:#7c2d12; }
+${RC_ATTACHMENT_APPROVAL_REPORT_CSS}
 .rep-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;
             font-size:12px; margin:14px 0 18px; }
 .rep-meta--traceable { grid-template-columns:repeat(3,1fr); gap:6px 14px; }
@@ -530,15 +588,6 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
               font-size:10px; color:#666; text-align:right; }
 @media print {
   body { background:#fff; padding:0; }
-  .rep-document-class { margin:0 0 3mm; padding:1mm 2mm; }
-  body.rep-document-draft::after { content:""; position:fixed; left:50%; top:46%; width:160mm; height:44mm;
-    transform:translate(-50%,-50%) rotate(-28deg);
-    background:center/contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 160'%3E%3Cpath d='M45 130V30H85Q125 30 125 80Q125 130 85 130Z M155 130L195 30L235 130M170 92H220 M265 130V30H305Q345 30 345 62Q345 94 305 94H265M305 94L350 130 M385 130V30H455M385 78H445 M480 30H565M522 30V130' fill='none' stroke='%23991b1b' stroke-width='18' stroke-linecap='square' stroke-linejoin='miter' opacity='.08'/%3E%3C/svg%3E");
-    pointer-events:none; z-index:999; }
-  .rep-document-state { display:block; position:absolute; top:0; right:0; z-index:1000;
-    width:auto; max-width:48%; margin:0; padding:1mm 2mm; white-space:nowrap; }
-  .rep-document-state strong { font-size:9px; }
-  .rep-document-state span { display:none; }
   .rep-toolbar { display:none; }
   .rep-paper { position:relative; box-shadow:none; padding:0; max-width:none; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
@@ -549,9 +598,9 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
 }
 </style>
 </head>
-<body${documentState ? ` class="rep-document-draft rep-document-${documentState.reason}"` : ''}>
+<body data-document-class="${esc(documentClass.key)}">
 <div class="rep-toolbar">
-  <button onclick="window.print()">${documentState ? '🖨️ 列印內部檢討版 / 存 PDF' : '🖨️ 列印 / 存 PDF'}</button>
+  <button onclick="window.print()">🖨️ 列印 / 存 PDF</button>
   <button onclick="closeReportWindow()">✕ 關閉</button>
   <span class="rep-window-status" id="repWindowStatus" role="status" aria-live="polite"></span>
 </div>
@@ -560,11 +609,11 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
     <h1>${esc(cfg.title || '計算書')}</h1>
     ${cfg.subtitle?`<div class="sub">${esc(cfg.subtitle)}</div>`:''}
   </div>
-  ${documentStateHtml || documentClassHtml}
+  ${documentStateHtml}
   <div class="rep-meta${sourceTrace.tool ? ' rep-meta--traceable' : ''}">
-    <div><b>計畫名稱</b>${esc(proj.name)||'—'}</div>
-    <div><b>計畫編號</b>${esc(proj.no)||'—'}</div>
-    <div><b>設計人員</b>${esc(proj.designer)||'—'}</div>
+    ${proj.name ? `<div><b>計畫名稱</b>${esc(proj.name)}</div>` : ''}
+    ${proj.no ? `<div><b>計畫編號</b>${esc(proj.no)}</div>` : ''}
+    ${proj.designer ? `<div><b>設計人員</b>${esc(proj.designer)}</div>` : ''}
     <div><b>製表日期</b>${esc(proj.date)}</div>
     ${sourceTrace.tool ? `<div><b>產出工具</b>${esc(sourceTrace.tool)}</div>` : ''}
     ${sourceTrace.version ? `<div><b>工具版本</b>${esc(sourceTrace.version)}</div>` : ''}
@@ -580,7 +629,7 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   ${coverageHtml}
   ${summaryHtml}
 
-  <div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
+  <div class="rep-footer"><span class="rep-footer-copyright">版權所有 弘一工程顧問有限公司</span></div>
 </div>
 <script>
 function showReportWindowStatus(message) {
@@ -612,7 +661,7 @@ function closeReportWindow() {
 function projectFieldsHTML(prefix='proj') {
   return `
   <div class="card">
-    <h3>計畫資訊（計算書 header）</h3>
+    <h3>附件識別資料（選填，可由主文承接）</h3>
     <div class="form-row">
       <div class="form-group"><label>計畫名稱</label><input type="text" id="${prefix}Name" placeholder="例：XX 大樓新建工程"></div>
       <div class="form-group"><label>計畫編號</label><input type="text" id="${prefix}No" placeholder="例：2026-001"></div>

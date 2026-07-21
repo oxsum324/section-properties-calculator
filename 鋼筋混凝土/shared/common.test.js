@@ -82,24 +82,28 @@ function main() {
   assert(emptyMetadata.complete === false, 'empty project metadata is incomplete', JSON.stringify(emptyMetadata.missingItems));
   assert(emptyMetadata.missingItems.join('、') === '計畫名稱、計畫編號、設計人', 'all required metadata fields are listed', emptyMetadata.missingItems.join('、'));
 
-  const metadataDraft = RCUI.assessFormalAttachment({ project: {}, failedItems: [], reviewItems: [] });
-  assert(metadataDraft.status === 'review', 'missing metadata cannot be ready', metadataDraft.status);
-  assert(metadataDraft.formalOutputAllowed === false, 'missing metadata blocks formal output', String(metadataDraft.formalOutputAllowed));
-  assert(metadataDraft.documentState?.label.includes('DRAFT／非正式附件'), 'missing metadata produces explicit draft state', metadataDraft.documentState?.label);
-  assert(metadataDraft.documentState?.detail.includes('計畫名稱、計畫編號、設計人'), 'draft state identifies missing metadata', metadataDraft.documentState?.detail);
+  const metadataReview = RCUI.assessFormalAttachment({ project: {}, failedItems: [], reviewItems: [] });
+  assert(metadataReview.status === 'ready', 'missing metadata does not reduce engineering readiness', metadataReview.status);
+  assert(metadataReview.formalOutputAllowed === true, 'missing metadata still allows printable attachment output', String(metadataReview.formalOutputAllowed));
+  assert(metadataReview.documentState?.label === '內部審閱', 'unchecked report defaults to internal review', metadataReview.documentState?.label);
+  assert(metadataReview.metadata.missingItems.length === 3, 'missing metadata stays available as inherited context', JSON.stringify(metadataReview.metadata));
 
   const completeProject = { name: '測試工程', no: 'RC-001', designer: 'QA' };
   const readyAssessment = RCUI.assessFormalAttachment({ project: completeProject, failedItems: [], reviewItems: [] });
   assert(readyAssessment.status === 'ready', 'complete clean assessment is ready', readyAssessment.status);
   assert(readyAssessment.formalOutputAllowed === true, 'ready assessment allows formal output', String(readyAssessment.formalOutputAllowed));
-  assert(readyAssessment.readyToSign === true, 'ready assessment is explicitly ready to sign', String(readyAssessment.readyToSign));
-  assert(readyAssessment.documentClass?.label === '可送簽版', 'ready assessment carries document class', readyAssessment.documentClass?.label);
-  assert(readyAssessment.documentState === null, 'ready assessment has no draft document state', String(readyAssessment.documentState));
+  assert(readyAssessment.readyToSign === false, 'unchecked report still awaits explicit approval', String(readyAssessment.readyToSign));
+  assert(readyAssessment.documentClass?.label === '內部審閱', 'unchecked report carries internal-review class', readyAssessment.documentClass?.label);
+  assert(readyAssessment.documentState?.kind === 'internal-review', 'unchecked report has internal-review state', JSON.stringify(readyAssessment.documentState));
+  const approvedAssessment = RCUI.assessFormalAttachment({ project: {}, failedItems: [], reviewItems: [], approved: true });
+  assert(approvedAssessment.readyToSign === true, 'approval promotes exact report to formal attachment', String(approvedAssessment.readyToSign));
+  assert(approvedAssessment.documentClass?.label === '正式附件', 'approved report carries formal attachment class', approvedAssessment.documentClass?.label);
+  assert(approvedAssessment.documentState === null, 'approved report removes internal-review state', String(approvedAssessment.documentState));
 
   const reviewAssessment = RCUI.assessFormalAttachment({ project: completeProject, reviewItems: ['柱端錨定'] });
   assert(reviewAssessment.status === 'review', 'manual item requires review', reviewAssessment.status);
-  assert(reviewAssessment.formalOutputAllowed === false, 'review assessment blocks formal output', String(reviewAssessment.formalOutputAllowed));
-  assert(reviewAssessment.documentState?.label.includes('待人工複核'), 'review draft has explicit manual-review label', reviewAssessment.documentState?.label);
+  assert(reviewAssessment.formalOutputAllowed === true, 'review assessment remains printable', String(reviewAssessment.formalOutputAllowed));
+  assert(reviewAssessment.documentState?.label === '內部審閱', 'review output stays cleanly classified as internal review', reviewAssessment.documentState?.label);
 
   const reviewRequirement = { id: 'column-anchorage', label: '柱端錨定', contextKey: 'ctx-001' };
   const reviewResolution = {
@@ -114,7 +118,7 @@ function main() {
   assert(resolvedAssessment.status === 'ready', 'traceable manual review can reach ready-to-sign', resolvedAssessment.status);
   assert(resolvedAssessment.resolvedReviewItems.join('、') === '柱端錨定', 'resolved manual review is listed', JSON.stringify(resolvedAssessment.resolvedReviewItems));
   assert(resolvedAssessment.unresolvedReviewItems.length === 0, 'resolved manual review clears pending item', JSON.stringify(resolvedAssessment.unresolvedReviewItems));
-  assert(resolvedAssessment.documentState === null, 'resolved manual review removes draft state', String(resolvedAssessment.documentState));
+  assert(resolvedAssessment.documentState?.kind === 'internal-review', 'resolved manual review still awaits explicit attachment approval', JSON.stringify(resolvedAssessment.documentState));
 
   const staleAssessment = RCUI.assessFormalAttachment({
     project: completeProject,
@@ -124,12 +128,12 @@ function main() {
   assert(staleAssessment.status === 'review', 'changed calculation context invalidates prior review', staleAssessment.status);
   assert(staleAssessment.unresolvedReviewItems.join('、') === '柱端錨定', 'stale review returns to unresolved list', JSON.stringify(staleAssessment.unresolvedReviewItems));
   assert(staleAssessment.unresolvedReviews[0]?.validation?.contextMatches === false, 'stale review explains context mismatch', JSON.stringify(staleAssessment.unresolvedReviews[0]?.validation));
-  assert(staleAssessment.documentState?.detail.includes('柱端錨定'), 'stale draft names unresolved review item', staleAssessment.documentState?.detail);
+  assert(staleAssessment.documentState?.detail.includes('仍可列印'), 'stale review output remains printable', staleAssessment.documentState?.detail);
 
   const blockedAssessment = RCUI.assessFormalAttachment({ project: completeProject, failedItems: ['剪力強度'] });
   assert(blockedAssessment.status === 'blocked', 'failed check is blocked', blockedAssessment.status);
-  assert(blockedAssessment.formalOutputAllowed === false, 'blocked assessment blocks formal output', String(blockedAssessment.formalOutputAllowed));
-  assert(blockedAssessment.documentState?.label.includes('檢核不符'), 'blocked draft has explicit failure label', blockedAssessment.documentState?.label);
+  assert(blockedAssessment.formalOutputAllowed === true, 'NG result remains printable as an attachment record', String(blockedAssessment.formalOutputAllowed));
+  assert(blockedAssessment.documentState?.label === '內部審閱', 'NG result does not become a DRAFT classification', blockedAssessment.documentState?.label);
 
   assert(typeof RCUI.getAttachmentReadinessPriority === 'function', 'attachment readiness priority helper exported', typeof RCUI.getAttachmentReadinessPriority);
   const blockedPriority = RCUI.getAttachmentReadinessPriority({
@@ -167,7 +171,7 @@ function main() {
     items: [{ label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF', tone: 'neutral' }]
   });
   assert(readyPriority.tone === 'ok', 'ready priority tone', readyPriority.tone);
-  assert(readyPriority.value.includes('可送簽版') && readyPriority.value.includes('簽認程序'), 'ready priority explains ready-to-sign boundary', readyPriority.value);
+  assert(readyPriority.value.includes('核可為正式附件'), 'ready priority explains explicit approval boundary', readyPriority.value);
 
   if (failed) {
     console.error(`\n${failed} common helper tests failed.`);

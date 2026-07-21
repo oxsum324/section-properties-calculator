@@ -4719,6 +4719,41 @@ label.field-has-warning > input {
   margin: 0;
 }
 
+.report-document-status {
+  margin-top: 16px;
+  padding-top: 8px;
+  border-top: 1px solid #cbd5d8;
+  color: #5b6b70;
+  font-size: 9pt;
+  text-align: right;
+}
+
+.report-approval-control {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid #b8c8cc;
+  border-radius: 8px;
+  background: #f7fafb;
+  cursor: pointer;
+}
+
+.report-approval-control input {
+  margin-top: 3px;
+}
+
+.report-approval-control span,
+.report-approval-control small {
+  display: block;
+}
+
+.report-approval-control small {
+  margin-top: 3px;
+  color: #5b6b70;
+}
+
 .attachment-readiness-panel {
   display: grid;
   gap: 14px;

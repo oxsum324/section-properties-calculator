@@ -42,13 +42,13 @@ assert.equal(steelMemberSourceExtracted.toolVersion, 'v1.0');
 assert.deepEqual(steelMemberSourceExtracted.fingerprints, ['CF-ABCDEF0123456789']);
 
 const readyReport = Checker.analyzePackage([
-  { file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件分類｜可送簽版'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+  { file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
 ], { projectNo: 'PKG-001' });
 assert.equal(readyReport.status, 'ready');
 assert.match(Checker.formatSummary(readyReport), /測試大樓｜PKG-001｜Codex QA/);
-assert.deepEqual(Checker.detectReadyDocumentClass('<strong>文件分類｜可送簽版</strong>'), ['文件分類｜可送簽版']);
-assert.deepEqual(Checker.detectReadyDocumentClass('<div>文件分類</div><div>可送簽版</div>'), ['文件分類｜可送簽版']);
-assert.equal(Checker.READY_DOCUMENT_CLASS_LABEL, '文件分類｜可送簽版');
+assert.deepEqual(Checker.detectReadyDocumentClass('<strong>文件狀態：正式附件</strong>'), ['文件狀態：正式附件']);
+assert.deepEqual(Checker.detectReadyDocumentClass('<div>文件狀態</div><div>正式附件</div>'), ['文件狀態：正式附件']);
+assert.equal(Checker.READY_DOCUMENT_CLASS_LABEL, '文件狀態：正式附件');
 
 const sourceRecord = {
   file: 'beam.json', type: 'json', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
@@ -56,7 +56,7 @@ const sourceRecord = {
   outputTime: '2026/07/12 12:59:00', fingerprints: ['CF-1234ABCD5678EF90'],
 };
 const reportRecord = {
-  file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件分類｜可送簽版'],
+  file: 'beam.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'],
   projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1',
   outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'],
 };
@@ -91,13 +91,10 @@ assert(unclassifiedReport.issues.some(issue => issue.code === 'missing-document-
 assert.match(Checker.formatSummary(unclassifiedReport), /文件未分類/);
 
 const missingReportIdentity = Checker.analyzePackage([
-  { file: 'beam-missing-identity.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件分類｜可送簽版'], projectName: '', projectNo: '', designer: '', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+  { file: 'beam-missing-identity.pdf', type: 'pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: ['文件狀態：正式附件'], projectName: '', projectNo: '', designer: '', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/12 13:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
 ], { projectNo: 'PKG-001' });
-assert.equal(missingReportIdentity.status, 'review', 'ready-class report still requires complete case identity');
-const identityIssue = missingReportIdentity.issues.find(issue => issue.code === 'missing-report-identity');
-assert(identityIssue);
-assert.match(identityIssue.message, /計畫名稱、計畫編號、設計人員/);
-assert.equal(missingReportIdentity.issues.some(issue => issue.code === 'missing-project-no'), false, 'formal report identity uses one consolidated issue');
+assert.equal(missingReportIdentity.status, 'ready', 'formal attachment may inherit blank case identity from its main report');
+assert.equal(missingReportIdentity.issues.some(issue => issue.code === 'missing-report-identity'), false, 'blank optional attachment identity is not an issue');
 assert.deepEqual(Checker.REPORT_IDENTITY_FIELDS.map(([, label]) => label), ['計畫名稱', '計畫編號', '設計人員']);
 
 const incompleteTraceReport = Checker.analyzePackage([
@@ -126,7 +123,13 @@ const draftDocumentReport = Checker.analyzePackage([
   { file: 'beam-draft.pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: ['非正式附件', '不得作為正式附件'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/16 14:31:43', fingerprints: ['CF-1234ABCD5678EF90'] },
 ], { projectNo: 'PKG-001' });
 assert.equal(draftDocumentReport.status, 'blocked');
-assert(draftDocumentReport.issues.some(issue => issue.code === 'draft-document'));
+assert(draftDocumentReport.issues.some(issue => issue.code === 'internal-review-document'));
+const internalReviewReport = Checker.analyzePackage([
+  { file: 'beam-review.pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: ['文件狀態：內部審閱'], readyDocumentNeedles: [], projectName: '', projectNo: '', designer: '', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/21 09:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+]);
+assert.equal(internalReviewReport.status, 'blocked', 'printable internal-review output is not a formally approved package attachment');
+assert(internalReviewReport.issues.some(issue => issue.code === 'internal-review-document'));
+assert(Checker.DRAFT_DOCUMENT_NEEDLES.includes('文件狀態：內部審閱'));
 assert(Checker.DRAFT_DOCUMENT_NEEDLES.includes('DRAFT /'));
 assert(Checker.DRAFT_DOCUMENT_NEEDLES.includes('DRAFT／'));
 
@@ -164,28 +167,26 @@ try {
   assert.match(reviewCli.stdout, /附件組包一致性檢查：需人工確認/);
   assert.match(reviewCli.stdout, /文件未分類/);
 
-  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件分類｜可送簽版</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
   const classifiedPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(classifiedPackage.status, 'ready', 'explicit ready document classification allows package readiness');
   const classifiedReport = classifiedPackage.attachments.find(item => item.file === 'wind-formal.html');
-  assert.deepEqual(classifiedReport?.readyDocumentNeedles, ['文件分類｜可送簽版']);
+  assert.deepEqual(classifiedReport?.readyDocumentNeedles, ['文件狀態：正式附件']);
   assert.equal(classifiedPackage.fingerprintLinks.length, 1, 'project JSON and ready report are linked by fingerprint');
   assert.equal(classifiedPackage.issues.some(issue => issue.code.includes('duplicate')), false);
 
-  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件分類｜可送簽版</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
   const missingDesignerPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
-  assert.equal(missingDesignerPackage.status, 'review', 'parsed ready-class report without designer requires review');
-  const parsedIdentityIssue = missingDesignerPackage.issues.find(issue => issue.code === 'missing-report-identity');
-  assert.match(parsedIdentityIssue?.message || '', /設計人員/);
+  assert.equal(missingDesignerPackage.status, 'ready', 'parsed formal attachment may omit designer and inherit it from the main report');
+  assert.equal(missingDesignerPackage.issues.some(issue => issue.code === 'missing-report-identity'), false);
   const missingDesignerCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
-  assert.equal(missingDesignerCli.status, 1, missingDesignerCli.stderr || missingDesignerCli.stdout);
-  assert.match(missingDesignerCli.stdout, /需人工確認/);
-  assert.match(missingDesignerCli.stdout, /未能抽取設計人員/);
+  assert.equal(missingDesignerCli.status, 0, missingDesignerCli.stderr || missingDesignerCli.stdout);
+  assert.match(missingDesignerCli.stdout, /可整理/);
 
   fs.writeFileSync(path.join(tempDir, 'rc-draft.html'), '<div>DRAFT／非正式附件 - 待人工複核</div><div>本文件僅供內部複核；完成複核及資料補正前不得作為正式附件。</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：RC 梁</div><div>工具版本：V3.1</div><div>輸出時間：2026/07/16 14:31:43</div><div>計算指紋：CF-BBBB0000CCCC1111</div>', 'utf8');
   const draftPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(draftPackage.status, 'blocked', 'draft report cannot enter a delivery package');
-  assert(draftPackage.issues.some(issue => issue.code === 'draft-document'));
+  assert(draftPackage.issues.some(issue => issue.code === 'internal-review-document'));
   const blockedCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
   assert.equal(blockedCli.status, 2, blockedCli.stderr || blockedCli.stdout);
   assert.match(blockedCli.stdout, /附件組包一致性檢查：暫勿整理/);

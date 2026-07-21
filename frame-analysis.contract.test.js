@@ -303,9 +303,6 @@ assertFunctionTemplateExcludes(frameAnalysisHtml, 'printReport', 'const html = `
 const frameReportRuntime = captureFrameReportHtml(frameAnalysisHtml);
 const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid frame runtime report', [
   '平面剛架分析 計算書',
-  '計畫名稱',
-  '計畫編號',
-  '設計人員',
   '產出工具',
   '工具版本',
   '輸出時間',
@@ -322,7 +319,8 @@ const frameReportText = assertReportHtmlText(frameReportRuntime.html, 'rigid fra
 assert(frameReportRuntime.html.includes('平面剛架分析 計算書'), 'rigid frame runtime report title', '平面剛架分析 計算書');
 assert(frameReportRuntime.html.includes('載重</h2>'), 'rigid frame runtime report keeps load table', '載重');
 assert(frameReportRuntime.html.includes('平衡檢核'), 'rigid frame runtime report keeps equilibrium section', '平衡檢核');
-assert(frameReportRuntime.html.includes('DRAFT／非正式附件 - 待人工複核'), 'rigid frame incomplete report is explicitly draft', 'DRAFT／非正式附件');
+assert(frameReportRuntime.html.includes('文件狀態：內部審閱'), 'rigid frame report defaults to printable internal review', '文件狀態：內部審閱');
+assert(frameReportRuntime.html.includes('本計算內容已完成審閱，核可作為正式附件'), 'rigid frame report exposes explicit approval checkbox', '核可作為正式附件');
 assert(frameReportText.includes('節點 N2'), 'rigid frame visible report text keeps node data', '節點 N2');
 assert(frameReportText.includes('桿件 M1'), 'rigid frame visible report text keeps member data', '桿件 M1');
 assert(frameReportRuntime.href === 'blob:frame-report', 'rigid frame runtime report link set', frameReportRuntime.href);
@@ -338,10 +336,9 @@ const readyFrameReport = captureFrameReportHtml(frameAnalysisHtml, {
   designer: 'Codex QA',
   note: 'Ready attachment sample',
 });
-assert(!readyFrameReport.html.includes('DRAFT／非正式附件'), 'rigid frame complete report removes draft classification', 'formal attachment state');
-assert(readyFrameReport.html.includes('data-document-class="ready-to-sign"'), 'rigid frame complete report records ready-to-sign document class', 'ready-to-sign');
-assert(readyFrameReport.html.includes('文件分類｜可送簽版'), 'rigid frame complete report identifies the sign-off candidate', '文件分類｜可送簽版');
-assert(readyFrameReport.html.includes('正式附件仍須完成公司簽認'), 'rigid frame complete report preserves the approval boundary', '正式附件仍須完成公司簽認');
+assert(readyFrameReport.html.includes('文件狀態：內部審閱'), 'rigid frame complete report remains printable before approval', '文件狀態：內部審閱');
+assert(readyFrameReport.html.includes('data-document-class="internal-review"'), 'rigid frame complete report records internal-review document class', 'internal-review');
+assert(readyFrameReport.html.includes('本計算內容已完成審閱，核可作為正式附件'), 'rigid frame complete report exposes explicit approval action', '核可作為正式附件');
 assert(readyFrameReport.html.includes('Frame QA'), 'rigid frame complete report keeps project name', 'Frame QA');
 assert(readyFrameReport.html.includes('FR-001'), 'rigid frame complete report keeps project number', 'FR-001');
 assert(readyFrameReport.html.includes('Codex QA'), 'rigid frame complete report keeps designer', 'Codex QA');

@@ -306,7 +306,7 @@
   </div>
 
   <div class="card" style="padding:12px 20px; margin-bottom:16px;">
-    <div style="font-size:0.88em; font-weight:700; color:var(--primary); margin-bottom:8px;">計畫資訊（計算書表頭）</div>
+    <div style="font-size:0.88em; font-weight:700; color:var(--primary); margin-bottom:8px;">附件識別資料（選填，可由主文承接）</div>
     <div class="form-row" style="grid-template-columns: 2fr 1fr 1fr 1fr; gap:10px;">
       <div class="form-group"><label>計畫名稱</label><input type="text" id="projName" placeholder="例：XX 大樓新建工程"></div>
       <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
@@ -1677,17 +1677,14 @@ function continuousBeamReportReadinessModel() {
   if (document.getElementById('matSelect')?.value === 'custom') reviewItems.push('材料 E 值為自訂，需確認專案依據');
   if (model.spans.some(sp => (sp.hinges || []).length)) reviewItems.push('含內絞點，需確認位置與模型假設');
   if (document.getElementById('ilEnabled')?.checked) reviewItems.push('影響線已啟用，需確認目標支承或位置為報告需要');
-  const readinessItems = [
-    ...(missing.length ? [`缺 ${missing.join('、')}`] : []),
-    ...reviewItems,
-  ];
+  const readinessItems = [...reviewItems];
 
   return {
     tone: readinessItems.length ? 'review' : 'ready',
     label: readinessItems.length ? '可作附件，需人工複核' : '可作附件',
     summary: readinessItems.length
-      ? '分析結果已可閱讀，但仍有模型來源或表頭資料需人工複核。'
-      : '分析結果、表頭與主要模型輸入已完成；可作為計算書附件候選。',
+      ? '分析結果已可閱讀，但仍有模型來源需人工複核。'
+      : '分析結果與主要模型輸入已完成；可產生計算書。',
     priority: readinessItems.length
       ? `先確認：${readinessItems[0]}`
       : '先確認支承條件、載重組合與輸出圖形，再產出計算書。',
@@ -1697,7 +1694,7 @@ function continuousBeamReportReadinessModel() {
       ['分析狀態', '已完成'],
       ['跨數 / 單位', `${model.numSpans} 跨 / ${getUnitKey()}`],
       ['載重數量', `${loadCount} 組`],
-      ['專案資料', missing.length ? `缺 ${missing.join('、')}` : '完整'],
+      ['附件識別', missing.length ? '未填欄位由主文承接' : '已填寫'],
       ['輸出邊界', boundary],
     ],
   };

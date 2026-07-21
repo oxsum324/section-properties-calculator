@@ -382,18 +382,6 @@ function buildSummarySection(
   params: ReportArtifactParams,
   geometryPngBytes: Uint8Array | null,
 ) {
-  const documentState = buildReportDocumentState({
-    batchReview: params.batchReview,
-    review: params.review,
-    completeness: params.completeness,
-    reportSettings: params.reportSettings,
-  })
-  const documentStateColor =
-    documentState.status === 'blocked'
-      ? docxColors.dcrFailText
-      : documentState.status === 'review'
-        ? '8A5A00'
-        : docxColors.brand
   const geometryParagraphs: Paragraph[] = []
   if (geometryPngBytes) {
     geometryParagraphs.push(
@@ -464,19 +452,12 @@ function buildSummarySection(
       color: docxColors.muted,
       size: 24,
     }),
-    createParagraph(`文件分類｜${documentState.label}`, {
-      bold: true,
-      alignment: AlignmentType.CENTER,
-      color: documentStateColor,
-      size: 22,
-    }),
-    createParagraph(documentState.reason, {
-      alignment: AlignmentType.CENTER,
-      color: docxColors.muted,
-      size: 18,
-    }),
     createParagraph(
-      `${params.review.ruleProfile.versionLabel} / ${params.reportSettings.companyName || '未填公司'} / ${params.reportSettings.projectCode || '未填案號'}`,
+      [
+        params.review.ruleProfile.versionLabel,
+        params.reportSettings.companyName,
+        params.reportSettings.projectCode,
+      ].filter(Boolean).join(' / '),
       {
         alignment: AlignmentType.CENTER,
         color: docxColors.muted,
@@ -628,12 +609,26 @@ export function buildReportDocument(
     }),
     // 使用邊界與版本：固定置於文件最末，作為簽證責任 / 版本驗證依據
     ...buildVersionAndDisclaimerSection(params),
+    createParagraph(
+      [
+        `文件狀態：${documentState.label}`,
+        documentState.reason,
+        params.auditEntry?.hash
+          ? `計算指紋：CF-${params.auditEntry.hash.slice(0, 16).toUpperCase()}`
+          : '',
+      ].filter(Boolean).join('｜'),
+      {
+        alignment: AlignmentType.RIGHT,
+        color: docxColors.muted,
+        size: 18,
+      },
+    ),
   ]
 
   return new Document({
     creator: 'bolt-review-tool',
-    title: `${documentState.isDraft ? 'DRAFT - ' : ''}${params.review.project.name} 錨栓檢討報告`,
-    description: `鋼筋混凝土錨栓檢討 Word 匯出報告；文件分類：${documentState.label}`,
+    title: `${params.review.project.name} 錨栓檢討報告`,
+    description: `鋼筋混凝土錨栓檢討 Word 匯出報告；文件狀態：${documentState.label}`,
     sections: [
       {
         properties: {

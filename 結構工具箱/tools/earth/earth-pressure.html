@@ -1230,10 +1230,16 @@
     ];
     const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
     const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
+    const reportTrace = ReportUI.buildReportTrace({
+      title: '擋土土壓局部快算計算書',
+      outputSource: { tool: '擋土土壓局部快算', version: 'V0.6' },
+      snapshot: { mode, result: r }
+    });
     const documentStateReport = ReportUI.buildFormalDocumentStateReport({
       project: proj,
       calculated: true,
-      readinessLevel: ReportUI.getPageReportReadinessLevel(document)
+      readinessLevel: ReportUI.getPageReportReadinessLevel(document),
+      calculationFingerprint: reportTrace.calculationFingerprint
     });
     const diagramHtml = buildPressureDiagramSvg(r);
     const forceRows = [
@@ -1313,7 +1319,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <main class="paper">
 <h1>擋土土壓局部穩定檢核計算書</h1>
 ${documentStateReport.html}
-<div class="case-head"><span>計畫：${escapeHtml(reportProjectMetaValue(proj.name))}</span><span>編號：${escapeHtml(reportProjectMetaValue(proj.no))}</span><span>整理人：${escapeHtml(reportProjectMetaValue(proj.designer))}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.6</span></div>
+<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>整理人：${escapeHtml(proj.designer)}</span>` : ''}<span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.6</span></div>
 <div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
 ${body}
 </main></body></html>`;

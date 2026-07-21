@@ -6,7 +6,7 @@
     python gen_report.py <input.json> [output.docx]
     若未指定 output，會存在 JSON 同目錄，檔名：覆工板計算書_{案名}_{日期}.docx
 """
-import sys, os, json, io
+import sys, os, json, io, hashlib
 # Windows 主控台 UTF-8 輸出
 if sys.platform.startswith('win'):
     try:
@@ -111,6 +111,14 @@ def generate(json_path, out_path=None):
     g = data['global']
     R = data.get('results', {})
     inp = data.get('inputs', {})
+    document_state = data.get('document', {})
+    document_mode = document_state.get('mode') or 'attachment'
+    approved = document_state.get('approved') is True
+    approved_at = str(document_state.get('approvedAt') or '').strip()
+    calculation_fingerprint = str(document_state.get('calculationFingerprint') or '').strip()
+    if not calculation_fingerprint:
+        calculation_source = json.dumps({'global': g, 'results': R}, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+        calculation_fingerprint = f"CF-{hashlib.sha256(calculation_source.encode('utf-8')).hexdigest()[:16].upper()}"
 
     doc = Document()
     # 版面：A4、邊界 2cm
@@ -134,16 +142,21 @@ def generate(json_path, out_path=None):
     r = t.add_run('覆工板系統結構計算書')
     set_run_font(r, size=26, bold=True, color='1A4480')
 
-    add_para(doc, '', size=10)
-    add_para(doc, f"案　　　名：{p.get('name') or '（未填）'}", size=13, align=WD_ALIGN_PARAGRAPH.CENTER)
-    add_para(doc, f"案件編號：{p.get('no') or '（未填）'}", size=13, align=WD_ALIGN_PARAGRAPH.CENTER)
-    add_para(doc, f"日　　　期：{p.get('date') or datetime.now().strftime('%Y-%m-%d')}", size=13, align=WD_ALIGN_PARAGRAPH.CENTER)
+    project_rows = [
+        ('案　　　名', str(p.get('name') or '').strip()),
+        ('案件編號', str(p.get('no') or '').strip()),
+        ('日　　　期', str(p.get('date') or '').strip()),
+    ]
+    project_rows = [(label, value) for label, value in project_rows if value]
+    if project_rows:
+        add_para(doc, '', size=10)
+        for label, value in project_rows:
+            add_para(doc, f"{label}：{value}", size=13, align=WD_ALIGN_PARAGRAPH.CENTER)
 
     for _ in range(6):
         add_para(doc, '', size=11)
 
     add_para(doc, '弘一工程顧問有限公司', size=15, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
-    add_para(doc, '執業土木技師：歐瀚文', size=12, align=WD_ALIGN_PARAGRAPH.CENTER)
 
     doc.add_page_break()
 
@@ -426,11 +439,17 @@ def generate(json_path, out_path=None):
     add_para(doc, '')
     add_para(doc, f"本計算書係依本案設計載重（HS 20-44 卡車、PC400 履帶車、指定噸位吊車）為依據，若實際施工載重或機具規格變更，應另行檢核。", size=9)
 
-    # 簽章欄
+    # 獨立報告才保留簽章欄；附件模式由主文承接簽認。
+    if document_mode == 'standalone':
+        add_para(doc, '')
+        add_para(doc, '')
+        add_table(doc, ['設　計','覆　核','核　定'], [['','',''],[' ',' ',' ']], col_widths=[5.6, 5.6, 5.6])
     add_para(doc, '')
-    add_para(doc, '')
-    add_table(doc, ['設　計','覆　核','核　定'], [['','',''],[' ',' ',' ']], col_widths=[5.6, 5.6, 5.6])
-    add_para(doc, '')
+    status_parts = ['文件狀態：正式附件' if approved else '文件狀態：內部審閱']
+    if approved and approved_at:
+        status_parts.append(f'核可時間：{approved_at}')
+    status_parts.append(f'計算指紋：{calculation_fingerprint}')
+    add_para(doc, '｜'.join(status_parts), size=9, bold=True, align=WD_ALIGN_PARAGRAPH.RIGHT)
     add_para(doc, f"報告產出時間：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", size=9, align=WD_ALIGN_PARAGRAPH.RIGHT)
 
     # ----- 存檔 -----

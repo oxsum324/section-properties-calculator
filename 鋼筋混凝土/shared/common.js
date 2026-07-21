@@ -162,37 +162,22 @@ window.RCUI.assessFormalAttachment = function(state = {}) {
 
   const status = failedItems.length
     ? 'blocked'
-    : (unresolvedReviews.length || !metadata.complete ? 'review' : 'ready');
-  const metadataText = metadata.missingItems.join('、');
-  let summary = '數值檢核、必要輸入、人工複核與案件識別資料已完成，可產生公司計算附件的可送簽版。';
+    : (unresolvedReviews.length ? 'review' : 'ready');
+  const approved = state.approved === true || state.documentApproval?.approved === true;
+  let summary = approved
+    ? '本計算內容已核可為正式附件；案件識別資料可由主文承接。'
+    : '計算內容可列印供內部審閱；請於計算書預覽勾選核可後作為正式附件。';
   if (status === 'blocked') {
-    summary = `尚有 ${failedItems.length} 項不符；僅能輸出明確標示的內部檢討版。`;
+    summary = `計算結果有 ${failedItems.length} 項不符；仍可列印並如實納入附件，核可不代表工程結果合格。`;
   } else if (status === 'review') {
-    const reasons = [];
-    if (unresolvedReviews.length) reasons.push(`${unresolvedReviews.length} 項待完成可追溯的人工複核`);
-    if (!metadata.complete) reasons.push(`案件識別資料缺少：${metadataText}`);
-    summary = `${reasons.join('；')}；目前僅能預覽或輸出非正式附件。`;
+    summary = `尚有 ${unresolvedReviews.length} 項待人工複核；計算書仍可列印供審閱，核可狀態由預覽視窗決定。`;
   }
 
-  const draftDetail = status === 'blocked'
-    ? [
-        `本文件僅供內部檢討；仍有 ${failedItems.length} 項數值或規範檢核不符，不得作為正式附件。`,
-        unresolvedReviews.length ? `另有 ${unresolvedReviews.length} 項待人工複核：${unresolvedReviewItems.join('、')}。` : '',
-        metadata.complete ? '' : `案件識別資料尚缺：${metadataText}。`
-      ].filter(Boolean).join(' ')
-    : [
-        '本文件僅供內部複核；',
-        unresolvedReviews.length ? `尚有 ${unresolvedReviews.length} 項待人工複核：${unresolvedReviewItems.join('、')}。` : '',
-        metadata.complete ? '' : `案件識別資料尚缺：${metadataText}。`,
-        '完成複核及資料補正前不得作為正式附件。'
-      ].filter(Boolean).join(' ');
-  const documentState = status === 'ready' ? null : {
-    kind: 'draft',
+  const documentState = approved ? null : {
+    kind: 'internal-review',
     reason: status,
-    label: status === 'blocked'
-      ? 'DRAFT／非正式附件 - 檢核不符'
-      : 'DRAFT／非正式附件 - 待人工複核',
-    detail: draftDetail
+    label: '內部審閱',
+    detail: '本計算內容尚未勾選核可；仍可列印供內部審閱。'
   };
 
   return {
@@ -207,11 +192,13 @@ window.RCUI.assessFormalAttachment = function(state = {}) {
     resolvedReviews,
     unresolvedReviews,
     metadata,
-    formalOutputAllowed: status === 'ready',
-    readyToSign: status === 'ready',
-    documentClass: status === 'ready'
-      ? { key: 'ready-to-sign', label: '可送簽版' }
-      : { key: 'draft', label: '內部複核版' },
+    printable: true,
+    approvalRequired: !approved,
+    formalOutputAllowed: true,
+    readyToSign: approved,
+    documentClass: approved
+      ? { key: 'formal-attachment', label: '正式附件' }
+      : { key: 'internal-review', label: '內部審閱' },
     documentState
   };
 };
@@ -341,7 +328,7 @@ window.RCUI.getAttachmentReadinessPriority = function(state = {}, itemsInput, no
     }
   }
   if (status === 'ready') {
-    return { label: '優先閱讀', value: '條件已齊全，可產生可送簽版；正式附件仍須完成簽認程序。', tone: 'ok' };
+    return { label: '優先閱讀', value: '計算內容已齊全；產生後可於計算書預覽選擇內部審閱或核可為正式附件。', tone: 'ok' };
   }
   return null;
 };
@@ -358,10 +345,10 @@ window.RCUI.renderAttachmentReadiness = function(targetId, state = {}) {
     neutral: 'neutral'
   };
   const statusLabel = {
-    ready: '可送簽',
+    ready: '可核可',
     review: '待人工複核',
-    estimate: '僅供初估，不建議直接作附件',
-    blocked: '暫勿作附件',
+    estimate: '初估結果',
+    blocked: '有檢核不符',
     neutral: '尚未計算'
   };
   const status = statusTone[state.status] ? state.status : 'neutral';

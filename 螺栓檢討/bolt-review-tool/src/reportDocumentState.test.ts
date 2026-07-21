@@ -50,33 +50,46 @@ function buildState(project: ProjectCase = cloneProject()) {
 }
 
 describe('buildReportDocumentState', () => {
-  it('keeps passing reports as a sign-off candidate without declaring them formal', () => {
+  it('defaults every newly generated report to printable internal review', () => {
     const state = buildState()
 
     expect(state).toMatchObject({
-      status: 'ready',
-      label: '可送簽版',
+      status: 'internal-review',
+      label: '內部審閱',
       isDraft: false,
     })
-    expect(state.reason).toContain('技師複核及簽章')
     expect(appendReportDocumentStateSuffix('錨栓檢討', state)).toBe('錨栓檢討')
   })
 
-  it('marks intentionally excluded checks as a review draft', () => {
+  it('uses explicit approval to classify the document as a formal attachment', () => {
+    const state = buildState(cloneProject({
+      report: {
+        ...readyReportSettings,
+        documentApproved: true,
+        documentApprovedAt: '2026-07-20T10:00:00.000Z',
+      },
+    }))
+
+    expect(state).toMatchObject({
+      status: 'formal-attachment',
+      label: '正式附件',
+      isDraft: false,
+    })
+    expect(state.reason).toContain('核可時間')
+  })
+
+  it('keeps intentionally excluded checks visible without converting the document to DRAFT', () => {
     const state = buildState(cloneProject({ excludedCheckIds: ['pullout'] }))
 
     expect(state).toMatchObject({
-      status: 'review',
-      label: 'DRAFT / 待人工複核',
-      isDraft: true,
+      status: 'internal-review',
+      label: '內部審閱',
+      isDraft: false,
     })
-    expect(state.reason).toContain('不檢討')
-    expect(appendReportDocumentStateSuffix('錨栓檢討', state)).toBe(
-      '錨栓檢討_DRAFT',
-    )
+    expect(appendReportDocumentStateSuffix('錨栓檢討', state)).toBe('錨栓檢討')
   })
 
-  it('marks failed calculations as a blocked draft', () => {
+  it('allows an approved formal attachment to truthfully contain failed calculations', () => {
     const failingLoads = {
       ...defaultProject.loads,
       tensionKn: 100000,
@@ -84,6 +97,11 @@ describe('buildReportDocumentState', () => {
     const state = buildState(
       cloneProject({
         loads: failingLoads,
+        report: {
+          ...readyReportSettings,
+          documentApproved: true,
+          documentApprovedAt: '2026-07-20T10:00:00.000Z',
+        },
         loadCases: (defaultProject.loadCases ?? []).map((loadCase) => ({
           ...loadCase,
           loads: { ...loadCase.loads, tensionKn: 100000 },
@@ -92,23 +110,21 @@ describe('buildReportDocumentState', () => {
     )
 
     expect(state).toMatchObject({
-      status: 'blocked',
-      label: 'DRAFT / 檢核不符',
-      isDraft: true,
+      status: 'formal-attachment',
+      label: '正式附件',
+      isDraft: false,
     })
-    expect(state.reason).toContain('不得送簽')
   })
 
-  it('keeps a calculation-version mismatch as a review draft', () => {
+  it('keeps a calculation-version mismatch as internal review until explicit approval', () => {
     const state = buildState(
       cloneProject({ calcEngineVersion: 'legacy-backup-v1-unverified' }),
     )
 
     expect(state).toMatchObject({
-      status: 'review',
-      label: 'DRAFT / 待人工複核',
-      isDraft: true,
+      status: 'internal-review',
+      label: '內部審閱',
+      isDraft: false,
     })
-    expect(state.reason).toContain('計算版本與目前工具不一致')
   })
 })

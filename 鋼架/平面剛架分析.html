@@ -1892,10 +1892,7 @@ function frameReportReadinessModel(validationOverride) {
   if (state.nodes.some(hasAnySpring)) reviewItems.push('存在彈性支承，請確認彈簧剛度來源與適用性。');
   if (sol.equilibrium && !sol.equilibrium.ok) reviewItems.push(`平衡檢核需檢查：殘差 Fx/Fy/M = ${fmtCheck(sol.equilibrium.residual.Fx)} / ${fmtCheck(sol.equilibrium.residual.Fy)} / ${fmtCheck(sol.equilibrium.residual.M)}。`);
   const missingMetadata = missingFrameProjectFields();
-  const readinessItems = [
-    ...(missingMetadata.length ? [`案件識別資料缺少：${missingMetadata.join('、')}`] : []),
-    ...reviewItems,
-  ];
+  const readinessItems = [...reviewItems];
 
   return {
     level: readinessItems.length ? 'review' : 'ready',
@@ -1907,7 +1904,8 @@ function frameReportReadinessModel(validationOverride) {
     meta: [
       `節點 / 桿件：${state.nodes.length} / ${state.members.length}`,
       `載重案例：${activeCases}/${state.loadCases.length} 啟用`,
-      `分析組合：${sol.comboText || formatActiveCombination()}`
+      `分析組合：${sol.comboText || formatActiveCombination()}`,
+      missingMetadata.length ? `案件識別資料由主文承接：${missingMetadata.join('、')}` : '案件識別資料已填'
     ]
   };
 }
@@ -2141,7 +2139,6 @@ function printReport() {
     failedItems: reportReadiness.failedItems,
     reviewItems: reportReadiness.reviewItems,
   });
-  const documentState = attachmentReadiness.documentState;
   const reportTrace = window.ToolReportUI.buildReportTrace({
     title: '平面剛架分析計算書',
     outputSource: { tool: '平面剛架分析', version: 'V0.2' },
@@ -2156,15 +2153,9 @@ function printReport() {
       memberPointLoads: state.memberPointLoads,
     },
   });
-  const documentClass = documentState
-    ? null
-    : (attachmentReadiness.documentClass || { key: 'ready-to-sign', label: '可送簽版' });
-  const documentStateHtml = documentState
-    ? `<section class="report-document-state report-document-state--${escapeHtml(documentState.reason)}" data-document-state="${escapeHtml(documentState.kind)}" data-document-reason="${escapeHtml(documentState.reason)}"><strong>${escapeHtml(documentState.label)}</strong><span>${escapeHtml(documentState.detail)}</span></section>`
-    : '';
-  const documentClassHtml = documentClass
-    ? `<section class="report-document-class report-document-class--ready" data-document-class="ready-to-sign"><strong>文件分類｜${escapeHtml(documentClass.label || '可送簽版')}</strong><span>本文件具備進入簽核流程的必要條件；正式附件仍須完成公司簽認、技師簽章或專案核准程序。</span></section>`
-    : '';
+  const approvalReport = window.ToolReportUI.buildAttachmentApprovalReport({
+    calculationFingerprint: reportTrace.calculationFingerprint,
+  });
   const html = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>平面剛架分析計算書 ${today}</title>
 <style>body{font-family:'Microsoft JhengHei',sans-serif;margin:24px;color:#1e293b;font-size:13px;}
 h1{font-size:18px;border-bottom:2px solid #2563eb;padding-bottom:6px;margin:0 0 4px;}
@@ -2172,24 +2163,19 @@ h2{font-size:14px;color:#2563eb;margin:16px 0 6px;}
 table{border-collapse:collapse;width:100%;margin-bottom:8px;}
 th,td{border:1px solid #cbd5e1;padding:4px 8px;text-align:center;font-size:12px;}
 th{background:#f1f5f9;} img{max-width:100%;border:1px solid #e2e8f0;margin:4px 0;}
-.meta{color:#64748b;font-size:12px;margin:2px 0;} button{padding:6px 14px;margin:6px 0;cursor:pointer;}
+.meta{color:#64748b;font-size:12px;margin:2px 0;} button{padding:6px 14px;margin:6px 0;cursor:pointer;}.rep-toolbar{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px}.rep-footer{margin-top:12px;color:#64748b;font-size:10px;text-align:right;}
 .project-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:5px 14px;margin:12px 0 16px;font-size:11px;}
 .project-meta div{border-bottom:1px dotted #94a3b8;padding:3px 0;}.project-meta b{display:inline-block;min-width:62px;color:#475569;}
-.report-document-class{display:flex;align-items:baseline;gap:8px;margin:0 0 12px;padding:5px 8px;border:1px solid #86b89a;background:#f4fbf6;color:#14532d;font-size:11px;line-height:1.45;page-break-inside:avoid;}
-.report-document-class strong{flex:0 0 auto;font-size:12px;letter-spacing:.02em}.report-document-class span{color:#365c42}
-.report-document-state{margin:10px 0 14px;padding:9px 12px;border:2px solid #b91c1c;background:#fff1f2;color:#881337;page-break-inside:avoid;}
-.report-document-state strong,.report-document-state span{display:block}.report-document-state strong{font-size:15px}.report-document-state span{margin-top:3px;font-size:11px;line-height:1.5}
-.report-document-state--review{border-color:#b45309;background:#fff7ed;color:#7c2d12;}
-@media print{button{display:none;}.report-document-class{margin:0 0 3mm;padding:1mm 2mm}body.report-document-draft::after{content:'DRAFT';position:fixed;left:50%;top:46%;transform:translate(-50%,-50%) rotate(-28deg);font:700 96pt/1 sans-serif;color:rgba(153,27,27,.07);z-index:999;pointer-events:none}.report-document-state{position:absolute;top:0;right:0;max-width:48%;margin:0;padding:1mm 2mm;white-space:nowrap;z-index:1000}.report-document-state strong{font-size:9px}.report-document-state span{display:none}}</style></head><body${documentState ? ` class="report-document-draft report-document-${escapeHtml(documentState.reason)}"` : ''}>
+@media print{.rep-toolbar{display:none}}</style></head><body data-document-class="internal-review">
+<div class="rep-toolbar"><button onclick="window.print()">列印 / 另存 PDF</button><button onclick="window.close()">關閉</button></div>
 <h1>平面剛架分析 計算書</h1>
 <p class="meta">直接勁度法 (Direct Stiffness Method) ‧ 單位 tf-m</p>
-${documentStateHtml || documentClassHtml}
+${approvalReport.html}
 <div class="project-meta">
-<div><b>計畫名稱</b>${escapeHtml(project.name) || '—'}</div><div><b>計畫編號</b>${escapeHtml(project.no) || '—'}</div><div><b>設計人員</b>${escapeHtml(project.designer) || '—'}</div>
+${project.name ? `<div><b>計畫名稱</b>${escapeHtml(project.name)}</div>` : ''}${project.no ? `<div><b>計畫編號</b>${escapeHtml(project.no)}</div>` : ''}${project.designer ? `<div><b>設計人員</b>${escapeHtml(project.designer)}</div>` : ''}
 <div><b>產出工具</b>${escapeHtml(reportTrace.sourceTrace.tool)}</div><div><b>工具版本</b>${escapeHtml(reportTrace.sourceTrace.version)}</div><div><b>輸出時間</b>${escapeHtml(reportTrace.generatedAt)}</div>
 <div><b>計算指紋</b>${escapeHtml(reportTrace.calculationFingerprint)}</div>${project.note ? `<div><b>專案備註</b>${escapeHtml(project.note)}</div>` : ''}
 </div>
-<button onclick="window.print()">${documentState ? '列印內部檢討版 / 另存 PDF' : '列印 / 另存 PDF'}</button>
 <h2>分析組合</h2><table><tr><th>載重案例</th><th>因子</th></tr>${comboRows}</table>
 <h2>節點</h2><table><tr><th>節點</th><th>X(m)</th><th>Y(m)</th><th>支承</th></tr>${nodesRows}</table>
 <h2>桿件</h2><table><tr><th>桿件</th><th>i→j</th><th>E(tf/cm²)</th><th>A(cm²)</th><th>I(cm⁴)</th><th>端鉸接</th></tr>${memRows}</table>
@@ -2202,7 +2188,7 @@ ${documentStateHtml || documentClassHtml}
 <h2>軸力圖 N (tf)</h2><img src="${img('axialCanvas')}">
 <h2>節點位移 / 反力</h2><table><tr><th>節點</th><th>uX(mm)</th><th>uY(mm)</th><th>θZ(×10⁻³rad)</th><th>Rx(tf)</th><th>Ry(tf)</th><th>Mz(tf·m)</th></tr>${dispRows}</table>
 <h2>桿件極值</h2><table><tr><th>桿件</th><th>L(m)</th><th>|M|max(tf·m)</th><th>|V|max(tf)</th><th>|N|max(tf)</th></tr>${extrRows}</table>
-<p class="meta">本計算書由平面剛架分析工具產生，僅供結構分析校核參考；最終設計與圖說仍應由執業技師簽證。</p>
+<div class="rep-footer">版權所有 弘一工程顧問有限公司</div>
 </body></html>`;
   if (lastReportObjectUrl) URL.revokeObjectURL(lastReportObjectUrl);
   lastReportObjectUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));

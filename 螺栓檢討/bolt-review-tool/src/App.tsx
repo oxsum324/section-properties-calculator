@@ -454,6 +454,10 @@ function App() {
   const [project, setProject] = useState<ProjectCase>(() =>
     cloneProject(defaultProject),
   )
+  const [documentApproval, setDocumentApproval] = useState({
+    approved: false,
+    approvedAt: '',
+  })
   // 啟動水合 5 個 state + 2 個 callback 已下放至 useWorkspaceHydration（hook 呼叫於下方）
   const [saveMessage, setSaveMessage] = useState('尚未同步到本機資料庫')
   const [confirmRequest, setConfirmRequest] =
@@ -594,6 +598,28 @@ function App() {
   const candidateLayoutVariants = project.candidateLayoutVariants ?? []
   const unitPreferences = normalizeUnitPreferences(project.ui)
   const reportSettings = normalizeReportSettings(project.report)
+  const approvalCalculationKey = useMemo(() => {
+    const snapshot: Record<string, unknown> = { ...project }
+    delete snapshot.report
+    delete snapshot.auditTrail
+    delete snapshot.updatedAt
+    return JSON.stringify(snapshot)
+  }, [project])
+  const approvalCalculationKeyRef = useRef(approvalCalculationKey)
+  useEffect(() => {
+    if (approvalCalculationKeyRef.current !== approvalCalculationKey) {
+      approvalCalculationKeyRef.current = approvalCalculationKey
+      setDocumentApproval({ approved: false, approvedAt: '' })
+    }
+  }, [approvalCalculationKey])
+  const effectiveReportSettings = useMemo<ReportSettings>(
+    () => ({
+      ...reportSettings,
+      documentApproved: documentApproval.approved,
+      documentApprovedAt: documentApproval.approvedAt,
+    }),
+    [reportSettings, documentApproval],
+  )
   const simpleMode = unitPreferences.simpleMode
   const activeRuleProfile = getRuleProfileById(project.ruleProfileId)
   const ruleProfileOptions = getRuleProfileOptions()
@@ -1299,7 +1325,7 @@ function App() {
     completeness,
     evaluationFieldStates,
     unitPreferences,
-    reportSettings,
+    reportSettings: effectiveReportSettings,
     latestAuditEntry,
     ensureProjectAudit,
     setSaveMessage,
@@ -2592,8 +2618,19 @@ function App() {
           />
 
           <ReportSettingsPanel
-            reportSettings={reportSettings}
+            reportSettings={effectiveReportSettings}
             patchReport={patchReport}
+            onDocumentApprovalChange={(approved) => {
+              setDocumentApproval({
+                approved,
+                approvedAt: approved ? new Date().toISOString() : '',
+              })
+              setSaveMessage(
+                approved
+                  ? '已核可本次計算內容為正式附件。'
+                  : '已切換為可列印的內部審閱版。',
+              )
+            }}
             setSaveMessage={setSaveMessage}
             simpleMode={simpleMode}
           />
@@ -3635,7 +3672,7 @@ function App() {
         completeness={completeness}
         evaluationFieldStates={evaluationFieldStates}
         unitPreferences={unitPreferences}
-        reportSettings={reportSettings}
+        reportSettings={effectiveReportSettings}
         latestAuditEntry={latestAuditEntry}
       />
       {isDraggingFile ? (

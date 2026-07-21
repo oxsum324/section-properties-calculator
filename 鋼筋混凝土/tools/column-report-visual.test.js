@@ -158,6 +158,10 @@ async function extractReportMetrics(report) {
     return {
       title: clean(document.querySelector('h1')?.textContent),
       calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
+      documentState: document.querySelector('.rep-document-status-line')?.dataset.documentClass || '',
+      documentApproved: document.querySelector('.rep-document-status-line')?.dataset.approved || '',
+      documentStateText: clean(document.querySelector('.rep-document-status-line')?.textContent),
+      hasApprovalControl: Boolean(document.getElementById('repAttachmentApproval')),
       bodyText,
       summaryText,
       hasReportSummary: Boolean(reportSummary),
@@ -276,8 +280,9 @@ async function main() {
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
-        include: ['計算書'],
+        include: ['計算書', '文件狀態：內部審閱'],
         includeAny: [['柱設計計算書', '柱檢核計算書']],
+        exclude: ['DRAFT／非正式附件'],
       });
       results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
@@ -289,6 +294,7 @@ async function main() {
       assert(['ready', 'review', 'blocked'].includes(pageReadiness.status), `${tc.key} page attachment readiness status`, pageReadiness.status);
       assert(pageReadiness.display !== 'none' && pageReadiness.width > 0 && pageReadiness.height > 0, `${tc.key} page attachment readiness visible`, `${pageReadiness.display} ${pageReadiness.width}x${pageReadiness.height}`);
       assert(!metrics.hasReportSummary, `${tc.key} report top reminder hidden`, 'no .rep-summary');
+      assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false' && metrics.hasApprovalControl, `${tc.key} report defaults to printable internal review`, metrics.documentStateText);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
       assert(metrics.calculationFingerprint === sourceFingerprint, `${tc.key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasCoverageSummary, `${tc.key} coverage summary hidden`, 'no .rep-coverage-summary-wrap');
@@ -324,7 +330,7 @@ async function main() {
     await page.goto(toolUrl, { waitUntil: 'networkidle' });
     await applyCase(page, resolvedCase);
     await page.evaluate(() => {
-      const values = { projName: '可送簽版測試工程', projNo: 'RC-COL-SIGN', projDesigner: 'QA' };
+      const values = { projName: '正式附件核可測試工程', projNo: 'RC-COL-SIGN', projDesigner: 'QA' };
       Object.entries(values).forEach(([id, value]) => {
         const el = document.getElementById(id);
         el.value = value;
@@ -341,33 +347,38 @@ async function main() {
     await page.click('[data-review-item="column-anchorage"] [data-review-action="confirm"]');
     const readyState = await page.evaluate(() => ({
       status: document.getElementById('columnAttachmentReadiness')?.dataset.attachmentStatus,
-      readyToSign: window.lastColumnAttachmentReadiness?.readyToSign
+      readyToSign: window.lastColumnAttachmentReadiness?.readyToSign,
+      approvalRequired: window.lastColumnAttachmentReadiness?.approvalRequired
     }));
-    assert(readyState.status === 'ready' && readyState.readyToSign === true, 'resolved review visual case reaches ready-to-sign', JSON.stringify(readyState));
+    assert(readyState.status === 'ready' && readyState.readyToSign === false && readyState.approvalRequired === true, 'resolved engineering review still awaits explicit document approval', JSON.stringify(readyState));
 
     const report = await openReportPopup(page);
     await report.waitForSelector('.rep-paper', { timeout: 10000 });
     await report.setViewportSize({ width: 980, height: 1300 });
     await report.waitForTimeout(300);
-    const screenshotPath = path.join(OUT_DIR, 'column-report-resolved-review-ready-to-sign.png');
-    const pdfPath = path.join(OUT_DIR, 'column-report-resolved-review-ready-to-sign.pdf');
+    await report.check('#repAttachmentApproval');
+    await report.waitForFunction(() => document.querySelector('.rep-document-status-line')?.dataset.documentClass === 'formal-attachment');
+    const screenshotPath = path.join(OUT_DIR, 'column-report-resolved-review-formal-attachment.png');
+    const pdfPath = path.join(OUT_DIR, 'column-report-resolved-review-formal-attachment.pdf');
     await report.screenshot({ path: screenshotPath, fullPage: true });
     await report.emulateMedia({ media: 'print' });
     await report.pdf({ path: pdfPath, format: 'A4', printBackground: true, margin: { top: '18mm', right: '14mm', bottom: '18mm', left: '14mm' } });
     await report.emulateMedia({ media: 'screen' });
     const metrics = await extractReportMetrics(report);
-    const screenshotQuality = assertReportScreenshotQuality(screenshotPath, 'resolved review ready-to-sign report', { assert });
-    const pdfTextQuality = assertReportPdfTextQuality(pdfPath, 'resolved review ready-to-sign report', {
+    const screenshotQuality = assertReportScreenshotQuality(screenshotPath, 'resolved review formal attachment', { assert });
+    const pdfTextQuality = assertReportPdfTextQuality(pdfPath, 'resolved review formal attachment', {
       assert,
-      include: ['柱檢核計算書', '人工複核採用記錄', '複核完成／可送簽版', '配筋圖／S-302', 'QA-01', '人工複核（已完成）', '已複核']
+      include: ['柱檢核計算書', '文件狀態：正式附件', '核可時間', '人工複核採用記錄', '配筋圖／S-302', 'QA-01', '人工複核（已完成）', '已複核'],
+      exclude: ['DRAFT／非正式附件']
     });
     ['DRAFT／非正式附件', '未輸入時不作通過判定', '人工複核項，不納入自動 OK 判定', '報告不作通過判定'].forEach(fragment => {
       assert(!metrics.bodyText.includes(fragment), 'resolved review rendered report has no stale draft conclusion', fragment);
     });
     assert(!metrics.hasHorizontalPageOverflow && metrics.overflowSample.length === 0, 'resolved review rendered report has no overflow', JSON.stringify(metrics.overflowSample));
+    assert(metrics.documentState === 'formal-attachment' && metrics.documentApproved === 'true', 'resolved review checkbox produces formal attachment status', metrics.documentStateText);
     assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], 'resolved review screenshot written');
     assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], 'resolved review PDF written');
-    results.push({ key: 'resolved-review-ready-to-sign', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality });
+    results.push({ key: 'resolved-review-formal-attachment', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality });
     await report.close();
     await page.close();
   } finally {

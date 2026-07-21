@@ -983,7 +983,7 @@ async function waitForPopupReady(client, sessionId, label, timeoutMs = POPUP_REA
       }))()`);
       lastState = state;
       const reportMarker = state.heading.includes('計算書') || state.bodyText.includes('計算書') || state.title.includes('計算書');
-      if (state.readyState === 'complete' && reportMarker && state.bodyText.includes('計畫名稱')) {
+      if (state.readyState === 'complete' && reportMarker && state.bodyText.length > 80) {
         return state;
       }
     } catch (_) {}
@@ -1011,6 +1011,9 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentState: '',
       documentReason: '',
       documentClass: '',
+      approvalControl: false,
+      approvedDocumentClass: '',
+      approvedStatusText: '',
     };
   }
 
@@ -1033,6 +1036,9 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentState: '',
       documentReason: '',
       documentClass: '',
+      approvalControl: false,
+      approvedDocumentClass: '',
+      approvedStatusText: '',
     };
   }
 
@@ -1051,6 +1057,20 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
   try {
     await waitForPopupReady(client, popupSessionId, popupLabel);
     const state = await evaluate(client, popupSessionId, `(() => {
+      const approval = document.getElementById('repAttachmentApproval');
+      const status = () => document.querySelector('.rep-document-status-line');
+      const initialDocumentClass = status()?.dataset.documentClass || '';
+      const initialStatusText = (status()?.textContent || '').replace(/\s+/g, ' ').trim();
+      if (approval) {
+        approval.checked = true;
+        approval.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const approvedDocumentClass = status()?.dataset.documentClass || '';
+      const approvedStatusText = (status()?.textContent || '').replace(/\s+/g, ' ').trim();
+      if (approval) {
+        approval.checked = false;
+        approval.dispatchEvent(new Event('change', { bubbles: true }));
+      }
       const html = document.documentElement ? document.documentElement.outerHTML : '';
       return {
         title: document.title || '',
@@ -1058,10 +1078,16 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
         html,
         auditHtml: html.replace(/data:image\\/png;base64,[^"'\\s<>]+/g, 'data:image/png;base64,[omitted]'),
-        projectMeta: Array.from(document.querySelectorAll('.rep-meta div, .meta div')).map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim()),
-        documentState: document.querySelector('[data-document-state]')?.getAttribute('data-document-state') || '',
-        documentReason: document.querySelector('[data-document-state]')?.getAttribute('data-document-reason') || '',
-        documentClass: document.querySelector('[data-document-class]')?.getAttribute('data-document-class') || ''
+        projectMeta: Array.from(document.querySelectorAll('.rep-meta div, .meta div'))
+          .filter(node => !node.hidden && getComputedStyle(node).display !== 'none')
+          .map(node => (node.textContent || '').replace(/\\s+/g, ' ').trim()),
+        documentState: initialDocumentClass,
+        documentReason: '',
+        documentClass: initialDocumentClass,
+        documentStateText: initialStatusText,
+        approvalControl: Boolean(approval),
+        approvedDocumentClass,
+        approvedStatusText
       };
     })()`);
     return {
@@ -1080,6 +1106,10 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentState: state.documentState,
       documentReason: state.documentReason,
       documentClass: state.documentClass,
+      documentStateText: state.documentStateText,
+      approvalControl: state.approvalControl,
+      approvedDocumentClass: state.approvedDocumentClass,
+      approvedStatusText: state.approvedStatusText,
     };
   } finally {
     popupErrors.unsubscribe();
@@ -1765,8 +1795,8 @@ function reportPopupSetupExpression(tool, mode = null, projectMetaState = 'curre
     };
     if (projectState === 'placeholder') {
       setProjectField('projName', '未填');
-      setProjectField('projNo', 'FORMAL-VERIFY-001');
-      setProjectField('projDesigner', 'Codex QA');
+      setProjectField('projNo', '');
+      setProjectField('projDesigner', '未填');
       await settle(1);
     } else if (projectState === 'complete') {
       setProjectField('projName', '正式工具驗證案');
@@ -1909,10 +1939,12 @@ function assertReportExpectations(state, tool, label, mode) {
   if (!expectations) return;
   const auditHtml = state.auditHtml || state.html || '';
   for (const needle of expectations.mustInclude || []) {
-    assert.ok(auditHtml.includes(needle), `${label} ${tool.key} ${mode} report includes ${needle}`);
+    const target = needle === '計算內容' ? '<h3>計算內容</h3>' : needle;
+    assert.ok(auditHtml.includes(target), `${label} ${tool.key} ${mode} report includes ${needle}`);
   }
   for (const needle of expectations.mustExclude || []) {
-    const index = auditHtml.indexOf(needle);
+    const target = needle === '計算內容' ? '<h3>計算內容</h3>' : needle;
+    const index = auditHtml.indexOf(target);
     const context = index >= 0 ? auditHtml.slice(Math.max(0, index - 160), index + 160) : '';
     assert.equal(index >= 0, false, `${label} ${tool.key} ${mode} report excludes ${needle}: ${context}`);
   }
@@ -2084,11 +2116,11 @@ function assertPlaceholderPopupReportState(state, tool, label, mode = 'default')
   assert.equal(state.missingButton, false, `${label} ${tool.key} placeholder popup report button exists`);
   assert.equal(state.popupOpened, true, `${label} ${tool.key} placeholder popup report opened`);
   assert.ok(reportTitleText.includes('計算書'), `${label} ${tool.key} placeholder popup report title`);
-  assert.ok(reportText.includes('FORMAL-VERIFY-001'), `${label} ${tool.key} placeholder popup report project no`);
-  assert.ok(reportText.includes('Codex QA'), `${label} ${tool.key} placeholder popup report project designer`);
+  assert.equal(reportText.includes('計畫編號'), false, `${label} ${tool.key} blank project number row is omitted`);
+  assert.equal(reportText.includes('設計人員'), false, `${label} ${tool.key} blank designer row is omitted`);
   assert.equal(reportText.includes('未填'), false, `${label} ${tool.key} placeholder popup report should exclude placeholder project text`);
   assert.equal(reportText.includes('正式工具驗證案'), false, `${label} ${tool.key} placeholder popup report should not retain completed project name`);
-  assert.ok(['review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} placeholder page requires review or is blocked`);
+  assert.ok(['ready', 'review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} blank project identity does not determine engineering readiness`);
   assertPopupDocumentStateMatchesPage(state, tool, label);
   for (const needle of formalManifest.reportPageOnlyForbiddenNeedles || []) {
     assert.equal(reportText.includes(needle), false, `${label} ${tool.key} placeholder popup excludes page-only wording: ${needle}`);
@@ -2099,41 +2131,27 @@ function assertPlaceholderPopupReportState(state, tool, label, mode = 'default')
 
 function assertPopupDocumentStateMatchesPage(state, tool, label) {
   assert.ok(['ready', 'review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} exposes page readiness`);
-  if (state.readinessLevel === 'ready') {
-    assert.equal(state.documentState, '', `${label} ${tool.key} ready popup report has no draft document state`);
-    assert.equal(state.documentReason, '', `${label} ${tool.key} ready popup report has no draft reason`);
-    assert.equal(state.documentClass, 'ready-to-sign', `${label} ${tool.key} ready popup report carries sign-off candidate class`);
-    assert.ok(state.bodyText.includes('文件分類｜可送簽版'), `${label} ${tool.key} ready popup report identifies the sign-off candidate`);
-    assert.ok(state.bodyText.includes('正式附件仍須完成公司簽認'), `${label} ${tool.key} ready popup report preserves the approval boundary`);
-    assert.equal(state.bodyText.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} ready popup report has no draft label`);
-    return;
-  }
-  assert.equal(state.documentClass, '', `${label} ${tool.key} non-ready popup report does not claim ready-to-sign class`);
-  assert.equal(state.documentState, 'draft', `${label} ${tool.key} non-ready popup report is draft`);
-  assert.equal(state.documentReason, state.readinessLevel, `${label} ${tool.key} popup reason matches page readiness`);
-  const expectedLabel = state.readinessLevel === 'blocked'
-    ? 'DRAFT／非正式附件 - 檢核不符'
-    : 'DRAFT／非正式附件 - 待人工複核';
-  assert.ok(state.bodyText.includes(expectedLabel), `${label} ${tool.key} popup report includes ${expectedLabel}`);
+  assert.equal(state.approvalControl, true, `${label} ${tool.key} popup exposes explicit approval checkbox`);
+  assert.equal(state.documentState, 'internal-review', `${label} ${tool.key} popup defaults to printable internal review`);
+  assert.ok(state.documentStateText.includes('文件狀態：內部審閱'), `${label} ${tool.key} popup renders internal review footer`);
+  assert.equal(state.approvedDocumentClass, 'formal-attachment', `${label} ${tool.key} approval checkbox creates formal attachment`);
+  assert.ok(state.approvedStatusText.includes('文件狀態：正式附件') && state.approvedStatusText.includes('核可時間'), `${label} ${tool.key} formal attachment records approval time`);
+  assert.equal(state.bodyText.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} popup has no DRAFT banner regardless of engineering readiness`);
 }
 
 function getReportDocumentState(state) {
   const html = String(state?.html || '');
-  const reason = state?.documentReason
-    || html.match(/data-document-reason=["'](ready|review|blocked)["']/i)?.[1]?.toLowerCase()
-    || '';
-  const draft = state?.documentState === 'draft' || /data-document-state=["']draft["']/i.test(html);
-  return { draft, reason };
+  const documentClass = state?.documentClass
+    || html.match(/<body\b[^>]*data-document-class=["'](internal-review|formal-attachment)["']/i)?.[1]?.toLowerCase()
+    || 'internal-review';
+  return { documentClass };
 }
 
 function getReportPdfDocumentStateNeedles(state) {
   const documentState = getReportDocumentState(state);
-  const label = documentState.reason === 'blocked'
-    ? 'DRAFT／非正式附件 - 檢核不符'
-    : 'DRAFT／非正式附件 - 待人工複核';
   return {
-    required: documentState.draft ? [label] : ['文件分類｜可送簽版'],
-    forbidden: documentState.draft ? [] : ['DRAFT／非正式附件'],
+    required: [documentState.documentClass === 'formal-attachment' ? '文件狀態：正式附件' : '文件狀態：內部審閱'],
+    forbidden: ['DRAFT／非正式附件'],
   };
 }
 

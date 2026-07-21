@@ -285,18 +285,17 @@ function captureRetrofitReportPayload(source, functionName, stateKey, stateValue
           const reviewItems = Array.isArray(state.reviewItems) ? state.reviewItems.filter(Boolean) : [];
           const project = state.project || {};
           const missingMetadata = ['name', 'no', 'designer'].filter(key => !String(project[key] || '').trim());
-          const status = failedItems.length ? 'blocked' : (reviewItems.length || missingMetadata.length ? 'review' : 'ready');
+          const status = failedItems.length ? 'blocked' : (reviewItems.length ? 'review' : 'ready');
           return {
             status,
-            documentClass: status === 'ready' ? { kind: 'signable', label: '可送簽版' } : { kind: 'draft', label: '非正式附件' },
-            documentState: status === 'ready' ? null : {
-              kind: 'draft',
+            documentClass: { key: 'internal-review', label: '內部審閱' },
+            documentState: {
+              kind: 'internal-review',
               reason: status,
-              label: status === 'blocked' ? 'DRAFT／非正式附件 - 檢核不符' : 'DRAFT／非正式附件 - 待人工複核',
-              detail: status === 'blocked'
-                ? `仍有 ${failedItems.length} 項檢核不符。`
-                : `案件識別資料尚缺 ${missingMetadata.length} 項。`,
+              label: '內部審閱',
+              detail: '本計算內容尚未勾選核可；仍可列印供內部審閱。',
             },
+            metadata: { missingItems: missingMetadata },
           };
         },
       },
@@ -415,23 +414,27 @@ const missingMetadataState = assessSharedFormalAttachment(sharedReportSource, sh
   project: { name: '', no: 'QA-001', designer: '' },
   calculated: true,
 });
-assert(missingMetadataState.status === 'review', 'shared attachment assessment marks missing metadata for review', JSON.stringify(missingMetadataState));
-assert(missingMetadataState.documentState?.label === 'DRAFT／非正式附件 - 待人工複核', 'shared attachment assessment emits review draft classification', JSON.stringify(missingMetadataState.documentState));
+assert(missingMetadataState.status === 'ready', 'shared attachment assessment treats blank metadata as inherited', JSON.stringify(missingMetadataState));
+assert(missingMetadataState.documentState?.label === '內部審閱', 'shared attachment assessment defaults to internal review', JSON.stringify(missingMetadataState.documentState));
 const failedState = assessSharedFormalAttachment(sharedReportSource, sharedReportFilename, {
   project: { name: 'QA', no: 'QA-001', designer: 'Codex QA' },
   calculated: true,
   failedItems: ['檢核不符'],
 });
 assert(failedState.status === 'blocked', 'shared attachment assessment blocks failed checks', JSON.stringify(failedState));
-assert(failedState.documentState?.label === 'DRAFT／非正式附件 - 檢核不符', 'shared attachment assessment emits blocked draft classification', JSON.stringify(failedState.documentState));
+assert(failedState.documentState?.label === '內部審閱', 'shared attachment assessment keeps NG result printable without DRAFT', JSON.stringify(failedState.documentState));
 const readyState = assessSharedFormalAttachment(sharedReportSource, sharedReportFilename, {
   project: { name: 'QA', no: 'QA-001', designer: 'Codex QA' },
   calculated: true,
 });
-assert(readyState.status === 'ready' && readyState.documentState === null, 'shared attachment assessment permits complete reviewed report', JSON.stringify(readyState));
-assert(readyState.documentClass?.label === '可送簽版', 'shared attachment assessment exposes ready sign-off candidate class', JSON.stringify(readyState.documentClass));
+assert(readyState.status === 'ready' && readyState.documentState?.kind === 'internal-review', 'shared attachment assessment awaits explicit approval', JSON.stringify(readyState));
+assert(readyState.documentClass?.label === '內部審閱', 'shared attachment assessment exposes internal-review class', JSON.stringify(readyState.documentClass));
+const approvedState = assessSharedFormalAttachment(sharedReportSource, sharedReportFilename, {
+  project: {}, calculated: true, approved: true,
+});
+assert(approvedState.documentState === null && approvedState.documentClass?.label === '正式附件', 'shared attachment approval promotes report without project metadata', JSON.stringify(approvedState));
 const compositePayload = captureCompositeReportPayload(compositeHtml);
-assert(compositePayload.documentState?.label === 'DRAFT／非正式附件 - 待人工複核', 'composite payload marks incomplete metadata as draft', JSON.stringify(compositePayload.documentState));
+assert(compositePayload.documentState?.label === '內部審閱', 'composite payload treats incomplete metadata as internal review', JSON.stringify(compositePayload.documentState));
 const compositeReportHtml = renderSharedReportPayload(
   sharedReportSource,
   path.join(__dirname, '結構工具箱', 'core', 'ui', 'report.js'),
@@ -439,7 +442,6 @@ const compositeReportHtml = renderSharedReportPayload(
 );
 const compositeReportText = assertReportHtmlText(compositeReportHtml, 'composite section runtime report', [
   '合成斷面性質計算書',
-  '計畫名稱',
   '計畫編號',
   'COMP-QA-001',
   '設計人員',
@@ -449,7 +451,9 @@ const compositeReportText = assertReportHtmlText(compositeReportHtml, 'composite
   '與基礎 H 型鋼比較',
 ], 520);
 assert(!compositeReportHtml.includes('未填'), 'composite runtime report excludes raw placeholder project text', '未填');
-assert(compositeReportHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'composite runtime report renders draft classification', 'DRAFT／非正式附件');
+assert(compositeReportHtml.includes('repAttachmentApproval'), 'composite runtime report renders approval control', 'repAttachmentApproval');
+assert(compositeReportHtml.includes('文件狀態：內部審閱'), 'composite runtime report initializes printable internal-review status', '文件狀態：內部審閱');
+assert(!compositeReportText.includes('計畫名稱'), 'composite runtime report omits blank project-name row', compositeReportText);
 assert(!compositeReportText.includes('未填'), 'composite runtime visible text excludes raw placeholder project text', '未填');
 
 const retrofitBeamPayload = captureRetrofitReportPayload(rcRetrofitHtml, 'exportBeamReport', 'lastBeam', {
@@ -504,7 +508,6 @@ const retrofitBeamHtml = renderSharedReportPayload(
 );
 const retrofitBeamText = assertReportHtmlText(retrofitBeamHtml, 'RC retrofit beam runtime report', [
   'RC 梁補強斷面計算書',
-  '計畫名稱',
   '計畫編號',
   'RETROFIT-QA-001',
   '設計人員',
@@ -516,10 +519,10 @@ const retrofitBeamText = assertReportHtmlText(retrofitBeamHtml, 'RC retrofit bea
   '補強後 φMn',
 ], 650);
 assert(retrofitBeamHtml.includes('RC 梁補強斷面計算書'), 'RC retrofit beam runtime report title', 'RC 梁補強斷面計算書');
-assert(retrofitBeamHtml.includes('計畫名稱</b>—'), 'RC retrofit beam runtime project placeholder', '計畫名稱 —');
+assert(!retrofitBeamText.includes('計畫名稱'), 'RC retrofit beam omits blank project-name row', retrofitBeamText);
 assert(retrofitBeamHtml.includes('RETROFIT-QA-001'), 'RC retrofit beam runtime project number', 'RETROFIT-QA-001');
 assert(retrofitBeamHtml.includes('Codex QA'), 'RC retrofit beam runtime project designer', 'Codex QA');
-assert(retrofitBeamHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'RC retrofit beam runtime marks incomplete metadata as draft', 'DRAFT／非正式附件');
+assert(retrofitBeamHtml.includes('repAttachmentApproval'), 'RC retrofit beam runtime includes approval control', 'repAttachmentApproval');
 assert(!retrofitBeamHtml.includes('未填'), 'RC retrofit beam runtime excludes raw placeholder project text', '未填');
 assert(!retrofitBeamText.includes('未填'), 'RC retrofit beam visible text excludes raw placeholder project text', '未填');
 for (const needle of pageOnlyReportStatusNeedles) {
@@ -556,7 +559,6 @@ const retrofitColumnHtml = renderSharedReportPayload(
 );
 const retrofitColumnText = assertReportHtmlText(retrofitColumnHtml, 'RC retrofit column runtime report', [
   'RC 柱補強斷面計算書',
-  '計畫名稱',
   '計畫編號',
   'RETROFIT-QA-001',
   '設計人員',
@@ -567,10 +569,10 @@ const retrofitColumnText = assertReportHtmlText(retrofitColumnHtml, 'RC retrofit
   'P-M 需求點檢核',
 ], 650);
 assert(retrofitColumnHtml.includes('RC 柱補強斷面計算書'), 'RC retrofit column runtime report title', 'RC 柱補強斷面計算書');
-assert(retrofitColumnHtml.includes('計畫名稱</b>—'), 'RC retrofit column runtime project placeholder', '計畫名稱 —');
+assert(!retrofitColumnText.includes('計畫名稱'), 'RC retrofit column omits blank project-name row', retrofitColumnText);
 assert(retrofitColumnHtml.includes('RETROFIT-QA-001'), 'RC retrofit column runtime project number', 'RETROFIT-QA-001');
 assert(retrofitColumnHtml.includes('Codex QA'), 'RC retrofit column runtime project designer', 'Codex QA');
-assert(retrofitColumnHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'RC retrofit column runtime marks incomplete metadata as draft', 'DRAFT／非正式附件');
+assert(retrofitColumnHtml.includes('repAttachmentApproval'), 'RC retrofit column runtime includes approval control', 'repAttachmentApproval');
 assert(!retrofitColumnHtml.includes('未填'), 'RC retrofit column runtime excludes raw placeholder project text', '未填');
 assert(!retrofitColumnText.includes('未填'), 'RC retrofit column visible text excludes raw placeholder project text', '未填');
 for (const needle of pageOnlyReportStatusNeedles) {
@@ -584,7 +586,6 @@ const sharedReportHtml = renderSharedReportHtml(
 );
 const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared section report runtime', [
   'QA 計算書',
-  '計畫名稱',
   '計畫編號',
   'SECTION-VERIFY-001',
   '設計人員',
@@ -593,10 +594,10 @@ const sharedReportText = assertReportHtmlText(sharedReportHtml, 'shared section 
   '檢核結果',
 ], 260);
 assert(sharedReportHtml.includes('QA 計算書'), 'shared section report runtime title', 'QA 計算書');
-assert(sharedReportHtml.includes('計畫名稱</b>—'), 'shared section report runtime placeholder project fallback', '計畫名稱 —');
+assert(!sharedReportText.includes('計畫名稱'), 'shared section report runtime omits blank project-name row', sharedReportText);
 assert(sharedReportHtml.includes('SECTION-VERIFY-001'), 'shared section report runtime project number', 'SECTION-VERIFY-001');
 assert(sharedReportHtml.includes('Codex QA'), 'shared section report runtime project designer', 'Codex QA');
-assert(sharedReportHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'shared renderer automatically drafts incomplete project metadata', 'DRAFT／非正式附件');
+assert(sharedReportHtml.includes('data-initial-approved="false"'), 'shared renderer defaults to printable internal review', 'data-initial-approved="false"');
 assert(!sharedReportHtml.includes('未填'), 'shared section report runtime excludes raw placeholder project text', '未填');
 assert(!sharedReportText.includes('未填'), 'shared section report visible text excludes raw placeholder project text', '未填');
 assert(!sharedReportText.includes('正式報告備註'), 'shared section report keeps explanatory notes out of the calculation book', '正式報告備註');
@@ -609,24 +610,30 @@ const readySharedReportHtml = renderSharedReportHtml(
   sharedReportFilename,
   { name: 'QA Project', no: 'SECTION-READY-001', designer: 'Codex QA' }
 );
-assert(!readySharedReportHtml.includes('DRAFT／非正式附件'), 'shared renderer keeps complete passing report free of draft classification', 'formal attachment state');
-assert(readySharedReportHtml.includes('data-document-class="ready-to-sign"'), 'shared renderer marks complete passing report as ready-to-sign', 'ready-to-sign');
-assert(readySharedReportHtml.includes('文件分類｜可送簽版'), 'shared renderer shows compact ready document classification', '文件分類｜可送簽版');
-assert(readySharedReportHtml.includes('正式附件仍須完成公司簽認'), 'shared renderer keeps approval boundary in ready report', '正式附件仍須完成公司簽認');
+assert(!readySharedReportHtml.includes('DRAFT／非正式附件'), 'shared renderer no longer emits DRAFT classification', 'clean attachment output');
+assert(readySharedReportHtml.includes('data-initial-approved="false"'), 'shared renderer requires explicit approval even when calculation is ready', 'data-initial-approved="false"');
+assert(readySharedReportHtml.includes('本計算內容已完成審閱，核可作為正式附件'), 'shared renderer provides approval checkbox wording', 'approval control');
 const readyRcReportHtml = renderSharedReportHtml(
   rcReportSource,
   path.join(__dirname, '鋼筋混凝土', 'shared', 'report.js'),
   { name: 'RC QA Project', no: 'RC-READY-001', designer: 'Codex QA' }
 );
-assert(readyRcReportHtml.includes('data-document-class="ready-to-sign"'), 'RC shared renderer marks complete report as ready-to-sign', 'ready-to-sign');
-assert(readyRcReportHtml.includes('文件分類｜可送簽版'), 'RC shared renderer shows ready document classification', '文件分類｜可送簽版');
-assert(!readyRcReportHtml.includes('DRAFT／非正式附件'), 'RC shared renderer keeps ready report free of draft classification', 'formal attachment state');
+assert(readyRcReportHtml.includes('data-initial-approved="false"'), 'RC shared renderer defaults to internal review', 'data-initial-approved="false"');
+assert(readyRcReportHtml.includes('本計算內容已完成審閱，核可作為正式附件'), 'RC shared renderer provides approval checkbox wording', 'approval control');
+assert(!readyRcReportHtml.includes('DRAFT／非正式附件'), 'RC shared renderer no longer emits DRAFT classification', 'clean attachment output');
+const approvedSharedReportHtml = renderSharedReportPayload(sharedReportSource, sharedReportFilename, {
+  title: 'QA 核可計算書', project: {}, documentApproval: { approved: true, approvedAt: '2026/07/21 12:00:00' },
+  summary: { ok: false, text: '檢核結果不符但已確認內容' },
+});
+assert(approvedSharedReportHtml.includes('data-initial-approved="true"'), 'approved shared report binds formal state to generated snapshot', 'data-initial-approved="true"');
+assert(approvedSharedReportHtml.includes('data-approved-at="2026/07/21 12:00:00"'), 'approved shared report preserves approval time', 'approval timestamp');
 const failedSharedReportHtml = renderSharedReportPayload(sharedReportSource, sharedReportFilename, {
   title: 'QA NG 計算書',
   project: { name: 'QA Project', no: 'SECTION-NG-001', designer: 'Codex QA' },
   summary: { ok: false, text: '檢核不符' },
   checks: [{ group: '檢核結果', items: [{ label: '強度比', value: '1.20', ok: false }] }],
 });
-assert(failedSharedReportHtml.includes('DRAFT／非正式附件 - 檢核不符'), 'shared renderer automatically blocks failed report', 'DRAFT／非正式附件 - 檢核不符');
+assert(failedSharedReportHtml.includes('data-initial-approved="false"'), 'shared renderer keeps NG result printable as internal review', 'data-initial-approved="false"');
+assert(!failedSharedReportHtml.includes('DRAFT／非正式附件'), 'shared renderer does not turn an NG engineering result into a DRAFT document', 'clean NG attachment');
 
 console.log('\nAll section tools contract checks passed.');

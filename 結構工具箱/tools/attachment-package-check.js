@@ -13,8 +13,9 @@ const PAGE_ONLY_NEEDLES = [
 ];
 const DRAFT_DOCUMENT_NEEDLES = [
   'DRAFT /', 'DRAFT／', '非正式附件', '列印內部檢討版', '本文件僅供內部檢討', '本文件僅供內部複核', '不得作為正式附件',
+  '文件狀態：內部審閱',
 ];
-const READY_DOCUMENT_CLASS_LABEL = '文件分類｜可送簽版';
+const READY_DOCUMENT_CLASS_LABEL = '文件狀態：正式附件';
 const PACKAGE_STATUS_EXIT_CODES = Object.freeze({
   ready: 0,
   review: 1,
@@ -76,7 +77,7 @@ function normalizeToolVersion(value) {
 
 function detectReadyDocumentClass(text) {
   const normalized = normalizeText(text);
-  return /文件分類\s*(?:[｜|:：]\s*)?可送簽版/.test(normalized)
+  return /文件狀態\s*(?:[｜|:：]\s*)?正式附件/.test(normalized)
     ? [READY_DOCUMENT_CLASS_LABEL]
     : [];
 }
@@ -290,7 +291,7 @@ function fingerprintPairingKey(record) {
   const projectNo = String(record.projectNo || '').trim();
   const sourceTool = String(record.sourceTool || '').trim();
   const toolVersion = normalizeToolVersion(record.toolVersion);
-  return projectNo && sourceTool && toolVersion ? `${projectNo}\u0000${sourceTool}\u0000${toolVersion}` : '';
+  return sourceTool && toolVersion ? `${projectNo}\u0000${sourceTool}\u0000${toolVersion}` : '';
 }
 
 function analyzeFingerprintRelationships(records, issues) {
@@ -375,9 +376,9 @@ function analyzePackage(records, options = {}) {
     if (record.errors.length) issues.push(buildIssue('error', 'unreadable-attachment', `${record.file} 無法讀取：${record.errors.join('；')}`, [record.file]));
     if (record.pageOnlyNeedles.length) issues.push(buildIssue('error', 'page-only-leak', `${record.file} 含有頁面專用文字：${record.pageOnlyNeedles.join('、')}`, [record.file]));
     if ((record.draftDocumentNeedles || []).length) {
-      issues.push(buildIssue('error', 'draft-document', `${record.file} 含有非正式／內部檢討文件標記：${record.draftDocumentNeedles.join('、')}；不得納入交付附件組包。`, [record.file]));
+      issues.push(buildIssue('error', 'internal-review-document', `${record.file} 的文件狀態仍為內部審閱：${record.draftDocumentNeedles.join('、')}；請在計算書預覽完成核可後再納入正式附件組包。`, [record.file]));
     } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
-      issues.push(buildIssue('warn', 'missing-document-class', `${record.file} 未找到「${READY_DOCUMENT_CLASS_LABEL}」；不得自動視為可交付附件，請回原工具重產或人工確認文件來源與簽認狀態。`, [record.file]));
+      issues.push(buildIssue('warn', 'missing-document-class', `${record.file} 未找到「${READY_DOCUMENT_CLASS_LABEL}」；不得自動視為已核可附件，請回原工具確認文件狀態。`, [record.file]));
     }
   });
   const readable = records.filter(record => !record.errors.length);
@@ -388,18 +389,6 @@ function analyzePackage(records, options = {}) {
   if (expectedProjectNo) readable.forEach(record => {
     if (record.projectNo && record.projectNo !== expectedProjectNo) {
       issues.push(buildIssue('error', 'project-no-mismatch', `${record.file} 的計畫編號 ${record.projectNo} 與指定 ${expectedProjectNo} 不一致。`, [record.file]));
-    }
-  });
-  readable.forEach(record => {
-    if (isDocumentClassRequired(record)) {
-      const missingIdentityFields = REPORT_IDENTITY_FIELDS
-        .filter(([key]) => !String(record[key] || '').trim())
-        .map(([, label]) => label);
-      if (missingIdentityFields.length) {
-        issues.push(buildIssue('warn', 'missing-report-identity', `${record.file} 未能抽取${missingIdentityFields.join('、')}；可送簽計算書必須具備完整案件識別資料，請回原工具補正後重產。`, [record.file]));
-      }
-    } else if (!record.projectNo) {
-      issues.push(buildIssue('warn', 'missing-project-no', `${record.file} 未能抽取計畫編號；建議以 --project-no 指定本次案件編號。`, [record.file]));
     }
   });
   readable.forEach(record => {
@@ -460,9 +449,9 @@ function formatSummary(report) {
   if (report.fingerprintLinks?.length) lines.push(`來源資料與計算書已完成 ${report.fingerprintLinks.length} 組計算指紋配對。`);
   report.attachments.forEach(record => {
     const documentClass = (record.draftDocumentNeedles || []).length
-      ? 'DRAFT／非正式附件'
+      ? '內部審閱'
       : (record.readyDocumentNeedles || []).length
-        ? '可送簽版'
+        ? '正式附件'
         : isDocumentClassRequired(record) ? '文件未分類' : '';
     const trace = [record.projectName, record.projectNo, record.designer, record.sourceTool, record.toolVersion, record.fingerprints.join(','), documentClass].filter(Boolean).join('｜') || '未抽取追溯資訊';
     lines.push(`- ${record.file}：${record.errors.length ? `讀取失敗 (${record.errors.join('；')})` : trace}`);

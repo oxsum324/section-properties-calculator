@@ -32,6 +32,7 @@ function renderDeckingReportRuntime(source, fixture, filename) {
     'proj_date': { value: fixture.project?.date || '' },
     'report-readiness': { innerHTML: '', className: '' },
     'report-output': { innerHTML: '' },
+    'deckingAttachmentApproved': { checked: false, dataset: {} },
   };
   const context = {
     console,
@@ -54,6 +55,7 @@ function renderDeckingReportRuntime(source, fixture, filename) {
     functionSource(source, 'resultFailures'),
     functionSource(source, 'reportReadinessModel'),
     functionSource(source, 'renderReportReadiness'),
+    functionSource(source, 'buildDeckingCalculationFingerprint'),
     functionSource(source, 'buildReport'),
   ].join('\n');
   vm.createContext(context);
@@ -111,11 +113,8 @@ assert(html.includes('onclick="printDeckingReport()"'), 'decking uses dedicated 
 const printDeckingReportSource = functionSource(html, 'printDeckingReport');
 assert(printDeckingReportSource.includes("recalcAll();"), 'decking report print recalculates current state', 'recalcAll');
 assert(printDeckingReportSource.includes('button[data-tab="report"]'), 'decking report print activates report tab', 'report tab');
-['proj_name', 'proj_no', 'proj_date'].forEach((id) => {
-  assert(printDeckingReportSource.includes(`'${id}'`), 'decking report print requires project metadata', id);
-});
-assert(printDeckingReportSource.includes('暫不列印：請先填寫'), 'decking report print blocks missing project metadata', 'missing project metadata');
-assert(printDeckingReportSource.includes("setActionStatus('');"), 'decking report print clears stale metadata warning after recovery', 'clear print status');
+assert(!printDeckingReportSource.includes('暫不列印：請先填寫'), 'decking report print does not block blank optional project metadata', 'optional metadata');
+assert(html.includes('本計算內容已完成審閱，核可作為正式附件'), 'decking report exposes explicit approval checkbox', 'approval control');
 assert(printDeckingReportSource.includes("classList.add('decking-report-print-mode')"), 'decking report print arms dedicated print mode', 'decking-report-print-mode add');
 assert(printDeckingReportSource.includes('window.print();'), 'decking dedicated report path invokes browser print', 'window.print');
 assert(printDeckingReportSource.includes("classList.remove('decking-report-print-mode')"), 'decking report print always clears dedicated mode', 'decking-report-print-mode remove');

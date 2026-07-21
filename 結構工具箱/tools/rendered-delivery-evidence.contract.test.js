@@ -531,8 +531,8 @@ assert.ok(anchorHtmlText.length > 3000, 'anchor HTML artifact contains substanti
 for (const needle of ['錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '使用邊界與版本追溯']) {
   assert.ok(anchorHtmlText.includes(needle), `anchor HTML artifact contains ${needle}`);
 }
-assert.ok(anchorHtml.includes('data-document-state="ready"'), 'anchor HTML artifact records ready document state');
-assert.ok(anchorHtmlText.includes('文件分類｜可送簽版'), 'anchor HTML artifact identifies the sign-off candidate');
+assert.ok(anchorHtml.includes('data-document-state="formal-attachment"'), 'anchor HTML artifact records formal attachment state');
+assert.ok(anchorHtmlText.includes('文件狀態：正式附件'), 'anchor HTML artifact identifies the approved attachment');
 assert.ok(anchorHtmlText.includes('王設計') && anchorHtmlText.includes('李複核'), 'anchor HTML artifact includes designer and checker');
 
 assert.equal(fs.readFileSync(anchorDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has DOCX ZIP signature');
@@ -543,7 +543,7 @@ assert.ok(anchorDocxText.length > 3000, 'anchor DOCX artifact contains substanti
 for (const needle of ['鋼筋混凝土錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '逐項檢核明細', '使用邊界與版本']) {
   assert.ok(anchorDocxText.includes(needle), `anchor DOCX artifact contains ${needle}`);
 }
-assert.ok(anchorDocxText.includes('文件分類｜可送簽版'), 'anchor DOCX artifact identifies the sign-off candidate');
+assert.ok(anchorDocxText.includes('文件狀態：正式附件'), 'anchor DOCX artifact identifies the approved attachment');
 assert.ok(/設計人員\s*王設計/.test(anchorDocxText) && /複核人員\s*李複核/.test(anchorDocxText), 'anchor DOCX artifact includes designer and checker');
 
 assert.equal(fs.readFileSync(anchorWorkbookPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has XLSX ZIP signature');
@@ -561,8 +561,8 @@ assert.ok(anchorWorkbookText.length > 2000, 'anchor XLSX artifact contains subst
 for (const needle of ['柱腳基板示例', '案例名稱', '控制模式', '使用邊界 / 簽證責任']) {
   assert.ok(anchorWorkbookText.includes(needle), `anchor XLSX artifact contains ${needle}`);
 }
-assert.ok(anchorWorkbookText.includes('文件分類'), 'anchor XLSX artifact includes document classification');
-assert.ok(anchorWorkbookText.includes('可送簽版'), 'anchor XLSX artifact identifies the sign-off candidate');
+assert.ok(anchorWorkbookText.includes('文件狀態'), 'anchor XLSX artifact includes document status');
+assert.ok(anchorWorkbookText.includes('正式附件'), 'anchor XLSX artifact identifies the approved attachment');
 assert.ok(anchorWorkbookText.includes('設計人員') && anchorWorkbookText.includes('王設計'), 'anchor XLSX artifact includes designer');
 assert.ok(anchorWorkbookText.includes('複核人員') && anchorWorkbookText.includes('李複核'), 'anchor XLSX artifact includes checker');
 assert.equal(anchorEvidence.documentState, 'ready', 'anchor summary records ready document state');
@@ -588,10 +588,12 @@ for (const needle of anchorForbiddenNeedles) {
   assert.equal(anchorReviewHtmlText.includes(needle), false, `anchor review HTML excludes page-only status: ${needle}`);
   assert.equal(anchorBlockedHtmlText.includes(needle), false, `anchor blocked HTML excludes page-only status: ${needle}`);
 }
-assert.ok(anchorReviewHtml.includes('data-document-state="review"'), 'anchor review HTML records review document state');
-assert.ok(anchorReviewHtmlText.includes('文件分類｜DRAFT / 待人工複核'), 'anchor review HTML carries the required draft classification');
-assert.ok(anchorBlockedHtml.includes('data-document-state="blocked"'), 'anchor blocked HTML records blocked document state');
-assert.ok(anchorBlockedHtmlText.includes('文件分類｜DRAFT / 檢核不符'), 'anchor blocked HTML carries the required draft classification');
+assert.ok(anchorReviewHtml.includes('data-document-state="internal-review"'), 'anchor review HTML records internal-review document state');
+assert.ok(anchorReviewHtmlText.includes('文件狀態：內部審閱'), 'anchor review HTML remains printable without a draft banner');
+assert.equal(anchorReviewHtmlText.includes('DRAFT'), false, 'anchor review HTML contains no DRAFT label');
+assert.ok(anchorBlockedHtml.includes('data-document-state="internal-review"'), 'anchor blocked HTML records internal-review document state');
+assert.ok(anchorBlockedHtmlText.includes('文件狀態：內部審閱'), 'anchor blocked HTML keeps engineering failure separate from document identity');
+assert.equal(anchorBlockedHtmlText.includes('DRAFT'), false, 'anchor blocked HTML contains no DRAFT label');
 assert.equal(anchorEvidence.htmlTextLength, anchorHtml.length, 'anchor summary matches preserved HTML length');
 assert.equal(anchorEvidence.reviewDocumentState, 'review', 'anchor summary records review document state');
 assert.equal(anchorEvidence.reviewHtmlTextLength, anchorReviewHtml.length, 'anchor summary matches review HTML length');

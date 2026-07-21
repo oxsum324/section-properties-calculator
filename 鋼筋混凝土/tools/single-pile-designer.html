@@ -282,7 +282,7 @@
 </style>
 </head>
 <body class="rc-formal-output-page">
-<div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生受案件資料與檢核狀態管控的內部檢討版或可送簽版；本頁不得作為附件。</span></div>
+<div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <div class="page">
   <section class="hero">
     <h1>單樁承載力設計器 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
@@ -1682,7 +1682,7 @@ ${gainText}`;
     if (Array.isArray(r.errors) && r.errors.length) {
       RCUI.renderAttachmentReadiness(hostId, {
         status: 'blocked',
-        title: '暫勿作附件',
+        title: '有檢核不符',
         items: r.errors.map(text => ({ label: '輸入資料', value: text, tone: 'fail' })),
         notes: ['請先修正土層或搜尋範圍輸入，再產生計算書。', boundaryNote]
       });
@@ -1694,12 +1694,12 @@ ${gainText}`;
     const reviewWarnings = attachmentReadiness.unresolvedReviewItems;
     const failed = attachmentReadiness.failedItems;
     const status = attachmentReadiness.status;
-    const label = status === 'blocked' ? '暫勿作附件' : status === 'review' ? '待人工複核' : '可送簽';
+    const label = status === 'blocked' ? '有檢核不符' : status === 'review' ? '待人工複核' : '可核可';
     const items = [
       { label: '候選方案', value: candidate ? `D ${candidate.diaCm} cm / L ${Number(candidate.depthM).toFixed(1)} m` : '未建立', tone: candidate ? (failed.length ? 'fail' : 'ok') : 'fail' },
       { label: '承載 / 沉陷 / 樁身', value: failed.length ? '未完整通過' : '數值通過', tone: failed.length ? 'fail' : 'ok' },
       { label: '人工複核', value: reviewWarnings.length ? `${reviewWarnings.length} 項` : '無', tone: reviewWarnings.length ? 'warn' : 'ok' },
-      { label: '案件識別資料', value: attachmentReadiness.metadata.complete ? '完整' : `缺 ${attachmentReadiness.metadata.missingItems.join('、')}`, tone: attachmentReadiness.metadata.complete ? 'ok' : 'warn' },
+      { label: '案件識別資料', value: attachmentReadiness.metadata.complete ? '已填' : '由主文承接', tone: 'neutral' },
       ...reviewWarnings.map((text, index) => ({ label: `人工複核 ${index + 1}`, value: text, tone: 'warn' })),
       ...failed.map((text, index) => ({ label: `阻擋 ${index + 1}`, value: text, tone: 'fail' }))
     ];
@@ -1707,7 +1707,7 @@ ${gainText}`;
       status,
       label,
       items,
-      notes: [boundaryNote, attachmentReadiness.metadata.complete ? '' : `可送簽版尚缺：${attachmentReadiness.metadata.missingItems.join('、')}。`, '人工複核項目仍須由地工資料、專案規範或設計者判斷補齊。']
+      notes: [boundaryNote, attachmentReadiness.metadata.complete ? '' : `未填的${attachmentReadiness.metadata.missingItems.join('、')}可由主文承接，不影響附件列印或核可。`, '人工複核項目仍須由地工資料、專案規範或設計者判斷補齊。']
     });
   }
 

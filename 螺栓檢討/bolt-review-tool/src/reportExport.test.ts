@@ -67,6 +67,8 @@ describe('buildStandaloneReportHtml', () => {
         designer: '王設計',
         checker: '李複核',
         issueDate: '2026-07-20',
+        documentApproved: true,
+        documentApprovedAt: '2026-07-20T10:00:00.000Z',
       }),
     })
 
@@ -75,8 +77,9 @@ describe('buildStandaloneReportHtml', () => {
     expect(html).toContain('載重組合批次檢核')
     expect(html).toContain('φ / ψ 採用總表')
     expect(html).toContain('使用邊界與版本追溯')
-    expect(html).toContain('data-document-state="ready"')
-    expect(html).toContain('文件分類｜可送簽版')
+    expect(html).toContain('data-document-state="formal-attachment"')
+    expect(html).toContain('文件狀態：正式附件')
+    expect(html).toContain('本計算內容已完成審閱，核可作為正式附件')
     expect(html).toContain('王設計')
     expect(html).toContain('李複核')
     expect(html).not.toContain('DRAFT /')

@@ -181,6 +181,23 @@ function run(command, args, label) {
   return result.stdout || '';
 }
 
+function runWithRetries(command, args, label, attempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return run(command, args, label);
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        // Windows antivirus/indexing can briefly retain a newly written PDF.
+        // A bounded synchronous pause keeps delivery validation deterministic.
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150 * attempt);
+      }
+    }
+  }
+  throw lastError;
+}
+
 function readPpmMetrics(filePath) {
   const buffer = fs.readFileSync(filePath);
   let offset = 0;
@@ -242,7 +259,7 @@ function validatePdfFile(pdfPath, options) {
   assert.ok(pageCount > 0, `${options.label} PDF has at least one page`);
 
   const textPath = pdfPath.replace(/\.pdf$/i, '.txt');
-  run('pdftotext', ['-layout', pdfPath, textPath], `${options.label} pdftotext`);
+  runWithRetries('pdftotext', ['-layout', pdfPath, textPath], `${options.label} pdftotext`);
   const layoutText = fs.readFileSync(textPath, 'utf8');
   const text = decodeText(layoutText);
   assert.ok(text.length >= (options.minTextLength || 300), `${options.label} PDF has readable text: chars=${text.length}`);

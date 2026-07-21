@@ -75,15 +75,10 @@ function firstReviewIssue(
   review: ReviewResult,
   completeness: ProductCompleteness,
   excludedCount: number,
-  missingReportMetadata: string[],
   calcEngineMismatch: boolean,
 ): string {
   if (calcEngineMismatch) {
     return '案例計算版本與目前工具不一致，需採用目前版本重算並建立新留痕'
-  }
-
-  if (missingReportMetadata.length > 0) {
-    return `案件資料缺 ${missingReportMetadata.join('、')}`
   }
 
   if (!completeness.formal && completeness.missing.length > 0) {
@@ -152,7 +147,6 @@ export function buildAttachmentReadinessModel({
     calcEngineVersion.mismatch ||
     !completeness.formal ||
     REVIEW_STATUSES.has(summary.overallStatus) ||
-    missingReportMetadata.length > 0 ||
     excludedCount > 0
 
   const sharedItems: AttachmentReadinessItem[] = [
@@ -167,11 +161,11 @@ export function buildAttachmentReadinessModel({
       tone: governingDcr !== null && governingDcr > 1 ? 'fail' : 'ok',
     },
     {
-      label: '案件資料',
+      label: '附件識別',
       value: missingReportMetadata.length
-        ? `缺 ${missingReportMetadata.length} 項`
-        : '完整',
-      tone: missingReportMetadata.length ? 'warn' : 'ok',
+        ? '未填欄位由主文承接'
+        : '已填寫',
+      tone: 'neutral',
     },
     {
       label: '產品資料',
@@ -231,7 +225,6 @@ export function buildAttachmentReadinessModel({
           review,
           completeness,
           excludedCount,
-          missingReportMetadata,
           calcEngineVersion.mismatch,
         )}`,
         tone: 'warn',

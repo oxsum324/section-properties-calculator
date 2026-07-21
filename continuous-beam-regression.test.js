@@ -554,7 +554,8 @@ function main() {
   ctx.document.getElementById('projNo').value = 'CB-001';
   ctx.document.getElementById('projDesigner').value = '未填';
   ctx.renderContinuousBeamReadiness();
-  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('缺 計畫名稱、設計人員'), 'placeholder project text still counts as missing metadata', ctx.document.getElementById('reportReadiness').innerHTML);
+  assert(ctx.document.getElementById('reportReadiness').innerHTML.includes('未填欄位由主文承接'), 'blank optional attachment identity is inherited from the main report', ctx.document.getElementById('reportReadiness').innerHTML);
+  assert(!ctx.document.getElementById('reportReadiness').innerHTML.includes('缺 計畫名稱、設計人員'), 'blank optional attachment identity is not treated as an attachment defect', ctx.document.getElementById('reportReadiness').innerHTML);
   const placeholderSave = ctx.collectSaveData();
   assert(placeholderSave.projName === '', 'placeholder project name is normalized before local save', JSON.stringify(placeholderSave));
   assert(placeholderSave.projDesigner === '', 'placeholder designer is normalized before local save', JSON.stringify(placeholderSave));
@@ -562,11 +563,10 @@ function main() {
   assert(ctx.__lastReportConfig.project.name === '', 'placeholder project name is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
   assert(ctx.__lastReportConfig.project.no === 'CB-001', 'project number remains in report export', JSON.stringify(ctx.__lastReportConfig.project));
   assert(ctx.__lastReportConfig.project.designer === '', 'placeholder designer is scrubbed before report export', JSON.stringify(ctx.__lastReportConfig.project));
-  assert(ctx.__lastReportConfig.documentState?.label === 'DRAFT／非正式附件 - 待人工複核', 'incomplete continuous beam report is explicitly draft', JSON.stringify(ctx.__lastReportConfig.documentState));
+  assert(ctx.__lastReportConfig.documentState?.label === '內部審閱', 'new continuous beam report defaults to printable internal review', JSON.stringify(ctx.__lastReportConfig.documentState));
   const reportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
   const reportText = assertReportHtmlText(reportHtml, 'continuous beam runtime report', [
     '連續梁分析計算書',
-    '計畫名稱',
     '計畫編號',
     'CB-001',
     '支承反力',
@@ -575,9 +575,10 @@ function main() {
     '彎矩圖',
   ]);
   assert(reportHtml.includes('連續梁分析計算書'), 'continuous beam runtime report title', '連續梁分析計算書');
-  assert(reportHtml.includes('計畫名稱</b>—'), 'continuous beam runtime report placeholder project fallback', '計畫名稱 —');
+  assert(!reportText.includes('計畫名稱'), 'continuous beam runtime report omits blank optional project name', reportText);
   assert(reportHtml.includes('CB-001'), 'continuous beam runtime report project number', 'CB-001');
-  assert(reportHtml.includes('DRAFT／非正式附件 - 待人工複核'), 'continuous beam runtime report renders draft classification', 'DRAFT／非正式附件');
+  assert(reportHtml.includes('文件狀態：內部審閱'), 'continuous beam runtime report renders printable internal-review status', '文件狀態：內部審閱');
+  assert(reportHtml.includes('本計算內容已完成審閱，核可作為正式附件'), 'continuous beam runtime report exposes approval checkbox', '核可作為正式附件');
   assert(!reportHtml.includes('未填'), 'continuous beam runtime report excludes raw placeholder text', '未填');
   assert(!reportText.includes('未填'), 'continuous beam runtime visible text excludes raw placeholder text', '未填');
   for (const needle of pageOnlyNeedles) {
@@ -654,12 +655,11 @@ function main() {
   ctx.document.getElementById('iMode').value = 'section';
   ctx.runAnalysis();
   ctx.exportPDF();
-  assert(ctx.__lastReportConfig.documentState === null, 'complete continuous beam report removes draft classification', JSON.stringify(ctx.__lastReportConfig.documentState));
+  assert(ctx.__lastReportConfig.documentState?.label === '內部審閱', 'every newly generated continuous beam report starts as internal review', JSON.stringify(ctx.__lastReportConfig.documentState));
   const readyReportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
-  assert(!readyReportHtml.includes('DRAFT／非正式附件'), 'complete continuous beam runtime report is formal-ready', 'formal attachment state');
-  assert(readyReportHtml.includes('data-document-class="ready-to-sign"'), 'complete continuous beam report records ready-to-sign document class', 'ready-to-sign');
-  assert(readyReportHtml.includes('文件分類｜可送簽版'), 'complete continuous beam report identifies the sign-off candidate', '文件分類｜可送簽版');
-  assert(readyReportHtml.includes('正式附件仍須完成公司簽認'), 'complete continuous beam report preserves the approval boundary', '正式附件仍須完成公司簽認');
+  assert(readyReportHtml.includes('文件狀態：內部審閱'), 'complete continuous beam runtime report remains printable before approval', '文件狀態：內部審閱');
+  assert(readyReportHtml.includes('data-document-class="internal-review"'), 'complete continuous beam report records internal-review document class', 'internal-review');
+  assert(readyReportHtml.includes('本計算內容已完成審閱，核可作為正式附件'), 'complete continuous beam report exposes explicit approval action', '核可作為正式附件');
   ctx.document.getElementById('ilEnabled').checked = true;
   ctx.toggleIL();
   ctx.document.getElementById('ilType').value = 'moment';

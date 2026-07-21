@@ -78,7 +78,7 @@
 </style>
 </head>
 <body class="rc-formal-output-page">
-<div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生受案件資料與檢核狀態管控的內部檢討版或可送簽版；本頁不得作為附件。</span></div>
+<div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
   <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V3.1</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 單向板 + 簡化二向板初步設計、自動配筋</p>
@@ -690,13 +690,13 @@
       items: [
         { label: '不符項目', value: `${failedItems.length} 項`, tone: failedItems.length ? 'fail' : 'ok' },
         { label: '人工 / 正式分析', value: `${reviewItems.length} 項`, tone: reviewItems.length ? 'warn' : 'ok' },
-        { label: '案件識別資料', value: attachmentReadiness.metadata.complete ? '完整' : `缺 ${attachmentReadiness.metadata.missingItems.join('、')}`, tone: attachmentReadiness.metadata.complete ? 'ok' : 'warn' },
+        { label: '案件識別資料', value: attachmentReadiness.metadata.complete ? '已填' : '由主文承接', tone: 'neutral' },
         { label: '方法狀態', value: methodValue, tone: r.isOneWay ? 'ok' : 'warn' },
         { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF', tone: 'neutral' }
       ],
       notes: [
         '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。',
-        attachmentReadiness.metadata.complete ? '' : `可送簽版尚缺：${attachmentReadiness.metadata.missingItems.join('、')}。`,
+        attachmentReadiness.metadata.complete ? '' : `未填的${attachmentReadiness.metadata.missingItems.join('、')}可由主文承接，不影響附件列印或核可。`,
         failedItems.length ? `優先處理：${firstFailures}${moreFailures}。` : '',
         reviewItems.length ? `需確認：${reviewPreview}${reviewMore}。` : ''
       ]

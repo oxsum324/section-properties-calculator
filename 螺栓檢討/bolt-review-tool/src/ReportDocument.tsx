@@ -42,6 +42,7 @@ import {
 } from './formatHelpers'
 import { getUnitSymbol, type QuantityKind } from './units'
 import { getResultPresentationSummary } from './resultPresentation'
+import { buildReportDocumentState } from './reportDocumentState'
 import {
   dimensionSourceLabel,
   formatResultFactorList,
@@ -226,6 +227,15 @@ export function ReportDocument({
   )
   const bestLayoutVariantReview = layoutVariantReviews[0]
   const isSummaryReport = reportSettings.reportMode === 'summary'
+  const documentState = buildReportDocumentState({
+    batchReview,
+    review,
+    completeness,
+    reportSettings,
+  })
+  const calculationFingerprint = latestAuditEntry?.hash
+    ? `CF-${latestAuditEntry.hash.slice(0, 16).toUpperCase()}`
+    : ''
   const combinedNotes = Array.from(
     new Set([...review.summary.notes, ...completeness.missing]),
   )
@@ -268,7 +278,7 @@ export function ReportDocument({
           />
         ) : null}
         <div className="report-cover-badge">
-          {reportSettings.companyName || '工程報表草稿'}
+          {reportSettings.companyName || '工程報表'}
         </div>
         <p className="report-kicker">Taiwan RC Anchor Review Report</p>
         <h1>{review.project.name}</h1>
@@ -279,14 +289,18 @@ export function ReportDocument({
         </p>
 
         <div className="report-cover-grid">
-          <article className="report-cover-card">
-            <span>案號 / 專案</span>
-            <strong>{reportSettings.projectCode || '未填'}</strong>
-          </article>
-          <article className="report-cover-card">
-            <span>發行日期</span>
-            <strong>{formatDate(reportSettings.issueDate)}</strong>
-          </article>
+          {reportSettings.projectCode ? (
+            <article className="report-cover-card">
+              <span>案號 / 專案</span>
+              <strong>{reportSettings.projectCode}</strong>
+            </article>
+          ) : null}
+          {reportSettings.issueDate ? (
+            <article className="report-cover-card">
+              <span>發行日期</span>
+              <strong>{formatDate(reportSettings.issueDate)}</strong>
+            </article>
+          ) : null}
           <article className="report-cover-card">
             <span>規範版本</span>
             <strong>{review.ruleProfile.versionLabel}</strong>
@@ -307,14 +321,8 @@ export function ReportDocument({
         </div>
 
         <div className="report-cover-footer">
-          <div>
-            <span>設計</span>
-            <strong>{reportSettings.designer || '—'}</strong>
-          </div>
-          <div>
-            <span>校核</span>
-            <strong>{reportSettings.checker || '—'}</strong>
-          </div>
+          {reportSettings.designer ? <div><span>設計</span><strong>{reportSettings.designer}</strong></div> : null}
+          {reportSettings.checker ? <div><span>校核</span><strong>{reportSettings.checker}</strong></div> : null}
           <div>
             <span>產品</span>
             <strong>{selectedProduct.brand} {selectedProduct.model}</strong>
@@ -324,12 +332,12 @@ export function ReportDocument({
 
       <div className="report-running-head">
         <span>{review.project.name}</span>
-        <span>{reportSettings.projectCode || '未填案號'}</span>
+        {reportSettings.projectCode ? <span>{reportSettings.projectCode}</span> : null}
         <span>{review.ruleProfile.chapter17Title}</span>
       </div>
 
       <div className="report-running-foot">
-        <span>{reportSettings.companyName || '工程報表草稿'}</span>
+        <span>{reportSettings.companyName || '工程報表'}</span>
         <span>{review.ruleProfile.versionLabel}</span>
         <span className="report-page-number" />
       </div>
@@ -338,7 +346,7 @@ export function ReportDocument({
         <header className="report-header">
           <div>
             <p className="report-org">
-              {reportSettings.companyName || '工程報表草稿'}
+              {reportSettings.companyName || '工程報表'}
             </p>
             <p className="report-kicker">Taiwan RC Anchor Review Report</p>
             <h1>{review.project.name}</h1>
@@ -347,9 +355,9 @@ export function ReportDocument({
               {reportModeLabel(reportSettings.reportMode)}
             </p>
             <div className="report-meta-inline">
-              <span>案號：{reportSettings.projectCode || '—'}</span>
-              <span>設計：{reportSettings.designer || '—'}</span>
-              <span>校核：{reportSettings.checker || '—'}</span>
+              {reportSettings.projectCode ? <span>案號：{reportSettings.projectCode}</span> : null}
+              {reportSettings.designer ? <span>設計：{reportSettings.designer}</span> : null}
+              {reportSettings.checker ? <span>校核：{reportSettings.checker}</span> : null}
             </div>
           </div>
           <div className="report-meta">
@@ -1038,23 +1046,25 @@ export function ReportDocument({
           </ul>
         </section>
 
+        {reportSettings.designer || reportSettings.checker || reportSettings.issueDate ? (
         <section className="report-signoff">
-          <article className="report-signoff-card">
+          {reportSettings.designer ? <article className="report-signoff-card">
             <span>設計者簽核</span>
-            <strong>{reportSettings.designer || '待填'}</strong>
+            <strong>{reportSettings.designer}</strong>
             <div className="report-signature-line" />
-          </article>
-          <article className="report-signoff-card">
+          </article> : null}
+          {reportSettings.checker ? <article className="report-signoff-card">
             <span>校核者簽核</span>
-            <strong>{reportSettings.checker || '待填'}</strong>
+            <strong>{reportSettings.checker}</strong>
             <div className="report-signature-line" />
-          </article>
-          <article className="report-signoff-card">
+          </article> : null}
+          {reportSettings.issueDate ? <article className="report-signoff-card">
             <span>發行日期</span>
             <strong>{formatDate(reportSettings.issueDate)}</strong>
             <div className="report-signature-line" />
-          </article>
+          </article> : null}
         </section>
+        ) : null}
 
         <section className="report-section report-disclaimer-section">
           <h2>使用邊界與版本</h2>
@@ -1096,6 +1106,16 @@ export function ReportDocument({
             {ENGINEERING_USE_DISCLAIMER}
           </p>
         </section>
+        <footer
+          className="report-document-status"
+          data-document-state={documentState.status}
+        >
+          {[
+            `文件狀態：${documentState.label}`,
+            documentState.reason,
+            calculationFingerprint ? `計算指紋：${calculationFingerprint}` : '',
+          ].filter(Boolean).join('｜')}
+        </footer>
       </div>
     </section>
   )

@@ -272,8 +272,9 @@ assert(
 );
 assert(
   pageOnlyReportReadinessAdr.includes('must not be copied into calculation books') &&
-    pageOnlyReportReadinessAdr.includes('Document classification is different from page diagnostics') &&
-    pageOnlyReportReadinessAdr.includes('DRAFT／非正式附件'),
+    pageOnlyReportReadinessAdr.includes('Engineering status and document identity are independent') &&
+    pageOnlyReportReadinessAdr.includes('文件狀態：內部審閱') &&
+    pageOnlyReportReadinessAdr.includes('文件狀態：正式附件'),
   'ADR records page-only diagnostics and calculation-book document-state decision',
   'docs/adr/0001-page-only-report-readiness.md',
 );
@@ -365,10 +366,10 @@ assert(anchorReportExportTest.includes('expectNoPageOnlyReportStatus(html)'), 'a
 assert(anchorReportDocxTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'anchor DOCX smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
 assert(anchorReportDocxTest.includes('for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES)'), 'anchor DOCX smoke asserts DOCX excludes page-only wording', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
 assert(anchorReportWorkbookTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'anchor workbook smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
-assert(anchorReportDocumentState.includes('DRAFT / 待人工複核'), 'anchor report state keeps review draft classification', 'DRAFT / 待人工複核');
-assert(anchorReportDocumentState.includes('DRAFT / 檢核不符'), 'anchor report state keeps blocked draft classification', 'DRAFT / 檢核不符');
-assert(anchorReportDocumentState.includes('可送簽版'), 'anchor report state keeps ready sign-off classification', '可送簽版');
-assert(anchorReportDocumentState.includes('頁面的操作流程、閱讀順序與說明卡不進報告'), 'anchor report state separates page guidance from report classification', '頁面的操作流程、閱讀順序與說明卡不進報告');
+assert(anchorReportDocumentState.includes("'formal-attachment' | 'internal-review'"), 'anchor report state exposes explicit attachment approval classes', 'formal-attachment');
+assert(anchorReportDocumentState.includes("label: approved ? '正式附件' : '內部審閱'"), 'anchor report state uses explicit approval for document identity', '正式附件');
+assert(anchorReportDocumentState.includes('核可時間'), 'anchor report state records approval time', '核可時間');
+assert(anchorReportDocumentState.includes('文件身分只反映使用者是否已完成核可'), 'anchor report state separates engineering results from document approval', '文件身分只反映使用者是否已完成核可');
 assert(anchorReportWorkbookTest.includes('for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES)'), 'anchor workbook smoke asserts XLSX excludes page-only wording', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');
 assert(anchorAttachmentReadinessTest.includes("expect(model.notes.join('\\n')).toContain('不會寫入計算書或列印 PDF')"), 'anchor attachment readiness smoke keeps page-only boundary note', '不會寫入計算書或列印 PDF');
 assert(excavationReportingTest.includes('PAGE_ONLY_REPORT_STATUS_NEEDLES'), 'excavation reporting smoke keeps page-only needle list', 'PAGE_ONLY_REPORT_STATUS_NEEDLES');

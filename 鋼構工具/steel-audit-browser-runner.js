@@ -53,7 +53,7 @@ const scenarios = [
 ];
 
 const STEEL_DIRECT_PRINT_TITLE = '鋼構正式工具主頁列印已封鎖';
-const STEEL_DIRECT_PRINT_BODY = '此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「輸出正式報表」按鈕產生依目前案件資料與檢核狀態整理的正式報表；本頁不得作為附件。';
+const STEEL_DIRECT_PRINT_BODY = '此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「產生計算書」按鈕開啟可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。';
 const steelDirectPrintPages = [
   { key: 'steel-main-formal', url: '/index.html', pageTitle: '鋼構正式規範核算工具 V1.0' },
   { key: 'steel-plate-formal', url: '/plate-check.html', pageTitle: '鋼構連接板正式規範核算工具 V1.0' },
@@ -68,9 +68,9 @@ const FORMAL_PROJECT_META = {
 };
 
 const FORMAL_PROJECT_META_PLACEHOLDER = {
-  projName: '未填',
-  projNo: 'STEEL-VERIFY-001',
-  projDesigner: 'Codex QA',
+  projName: '',
+  projNo: '',
+  projDesigner: '',
 };
 
 const LEGACY_PROJECT_META_PLACEHOLDER = {
@@ -425,12 +425,12 @@ async function setupFormalBeamImportCandidate(cdp, sessionId) {
     section: { title: '上游參考斷面' },
     material: null,
   };
-  const loadEvent = waitForEvent(cdp, 'Page.loadEventFired', sessionId, () => true, 30000);
   await evaluate(cdp, sessionId, `(() => {
     localStorage.setItem('structToolbox.pendingForces', ${JSON.stringify(JSON.stringify(payload))});
-    location.reload();
     return true;
-  })()`, 'formal beam import candidate reload');
+  })()`, 'formal beam import candidate storage');
+  const loadEvent = waitForEvent(cdp, 'Page.loadEventFired', sessionId, () => true, 60000);
+  await cdp.send('Page.reload', { ignoreCache: true }, sessionId);
   await loadEvent;
   await wait(350);
   await setupFormalProjectMetaComplete(cdp, sessionId);
@@ -619,7 +619,7 @@ async function assertFormalBeamReportPopupPlaceholder(cdp, sessionId) {
     label: 'beam formal report popup placeholder',
     titleNeedle: '鋼梁正式規範核算計算書',
     expectedProject: {
-      name: '—',
+      name: '',
       no: FORMAL_PROJECT_META_PLACEHOLDER.projNo,
       designer: FORMAL_PROJECT_META_PLACEHOLDER.projDesigner,
     },
@@ -676,7 +676,7 @@ async function assertMainPlateReportPopupPlaceholder(cdp, sessionId, context = {
     buttonSelector: '#printReportBtn',
     titleNeedle: '連接板檢核計算書',
     expectedProject: {
-      name: '—',
+      name: '',
       tag: LEGACY_PROJECT_META_PLACEHOLDER.connectionTag,
       designer: LEGACY_PROJECT_META_PLACEHOLDER.designer,
     },
@@ -779,7 +779,7 @@ async function assertFormalColumnReportPopupPlaceholder(cdp, sessionId) {
     label: 'column formal report popup placeholder',
     titleNeedle: '鋼柱正式規範核算計算書',
     expectedProject: {
-      name: '—',
+      name: '',
       no: FORMAL_PROJECT_META_PLACEHOLDER.projNo,
       designer: FORMAL_PROJECT_META_PLACEHOLDER.projDesigner,
     },
@@ -890,7 +890,7 @@ async function assertFormalProjectMetaPlaceholderRendered(cdp, sessionId, select
     no: document.querySelector(${JSON.stringify(selectors.noId)})?.innerText?.trim() || '',
     designer: document.querySelector(${JSON.stringify(selectors.designerId)})?.innerText?.trim() || '',
   }))()`, label);
-  if (meta.name !== '—' || meta.no !== FORMAL_PROJECT_META_PLACEHOLDER.projNo || meta.designer !== FORMAL_PROJECT_META_PLACEHOLDER.projDesigner) {
+  if (meta.name !== '—' || meta.no !== '—' || meta.designer !== '—') {
     throw new Error(`${label} mismatch: ${JSON.stringify(meta)}`);
   }
 }
@@ -1000,6 +1000,23 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
     sectionHeadings: Array.from(document.querySelectorAll('.rep-paper h3')).map((node) => (node.innerText || '').replace(/\\s+/g, ' ').trim()),
     uiCardCount: document.querySelectorAll('.rep-highlights, .rep-summary-facts').length,
   }))()`, `${options.label} snapshot`);
+  const approvalState = await evaluate(cdp, popup.sessionId, `(() => {
+    const approval = document.getElementById('repAttachmentApproval');
+    const status = () => document.querySelector('.rep-document-status-line');
+    const initialDocumentClass = status()?.dataset.documentClass || '';
+    const initialStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+    if (approval) {
+      approval.checked = true;
+      approval.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const approvedDocumentClass = status()?.dataset.documentClass || '';
+    const approvedStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+    if (approval) {
+      approval.checked = false;
+      approval.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    return { approvalControl: Boolean(approval), initialDocumentClass, initialStatusText, approvedDocumentClass, approvedStatusText };
+  })()`, `${options.label} approval state`);
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
   }
@@ -1027,15 +1044,25 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   if (conclusionIndex < 0 || conclusionIndex !== snapshot.sectionHeadings.length - 1) {
     throw new Error(`${options.label} should place 檢核結論 after calculation content: ${JSON.stringify(snapshot.sectionHeadings)}`);
   }
-  const [nameRow = '', noRow = '', designerRow = ''] = snapshot.metaRows;
-  if (!nameRow.includes(options.expectedProject.name)) {
-    throw new Error(`${options.label} project name mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  const expectedRows = [
+    ['計畫名稱', options.expectedProject.name],
+    ['計畫編號', options.expectedProject.no],
+    ['設計人員', options.expectedProject.designer],
+  ];
+  for (const [rowLabel, expectedValue] of expectedRows) {
+    const row = snapshot.metaRows.find((item) => item.startsWith(rowLabel)) || '';
+    if (expectedValue ? !row.includes(expectedValue) : Boolean(row)) {
+      throw new Error(`${options.label} ${rowLabel} mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+    }
   }
-  if (!noRow.includes(options.expectedProject.no)) {
-    throw new Error(`${options.label} project no mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  if (!approvalState.approvalControl || approvalState.initialDocumentClass !== 'internal-review' || !approvalState.initialStatusText.includes('文件狀態：內部審閱')) {
+    throw new Error(`${options.label} should default to printable internal review: ${JSON.stringify(approvalState)}`);
   }
-  if (!designerRow.includes(options.expectedProject.designer)) {
-    throw new Error(`${options.label} project designer mismatch: ${JSON.stringify(snapshot.metaRows)}`);
+  if (approvalState.approvedDocumentClass !== 'formal-attachment' || !approvalState.approvedStatusText.includes('文件狀態：正式附件') || !approvalState.approvedStatusText.includes('核可時間')) {
+    throw new Error(`${options.label} approval checkbox should create a traceable formal attachment: ${JSON.stringify(approvalState)}`);
+  }
+  if (snapshot.bodyText.includes('DRAFT')) {
+    throw new Error(`${options.label} should not render a DRAFT banner: ${snapshot.bodyText}`);
   }
   assertFormalReportTraceText(snapshot.bodyText, options.label);
   if (sourcePayload) {
@@ -1064,7 +1091,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       label: options.label,
       renderer: 'steel-formal-report',
       titleNeedle: options.titleNeedle,
-      requiredNeedles: [options.titleNeedle, '計畫名稱', '計算過程明細', '檢核結論', ...FORMAL_REPORT_TRACE_LABELS],
+      requiredNeedles: [options.titleNeedle, '計畫名稱', '計算過程明細', '檢核結論', '文件狀態：內部審閱', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
     });
     assertFormalReportTraceText(fs.readFileSync(evidence.pdf.textPath, 'utf8'), `${options.label} rendered PDF`);
@@ -1278,7 +1305,7 @@ async function waitForPopupReady(cdp, sessionId, label, timeoutMs = 10000) {
         title: document.title || '',
         bodyText: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim(),
       }))()`, label);
-      if (state.readyState === 'complete' && state.title && state.bodyText.includes('計畫名稱')) {
+      if (state.readyState === 'complete' && state.title && state.bodyText.includes('計算書') && state.bodyText.length > 80) {
         return state;
       }
     } catch (_) {}
@@ -1362,7 +1389,7 @@ async function verifySteelDirectPrintBlock(cdp, page) {
     const pdf = validatePdfFile(pdfPath, {
       label: `${page.key} work-page direct-print block`,
       titleNeedle: STEEL_DIRECT_PRINT_TITLE,
-      requiredNeedles: [STEEL_DIRECT_PRINT_TITLE, '此頁是操作介面，不是計算書', '輸出正式報表', '本頁不得作為附件'],
+      requiredNeedles: [STEEL_DIRECT_PRINT_TITLE, '此頁是操作介面，不是計算書', '產生計算書', '本頁不得作為'],
       forbiddenNeedles: [page.pageTitle, '計畫名稱', 'DRAFT', '非正式附件'],
       minTextLength: 60,
     });

@@ -51,7 +51,7 @@ def validate_payload_for_formal_output(payload: dict) -> dict:
       'reason': '...'    # 短描述
     }
 
-    若 is_formal == False，呼叫者應加上「草稿（無計算指紋）」浮水印。
+    此檢查只回報追溯資料完整性，不決定文件是否為正式附件。
     """
     if not isinstance(payload, dict):
         return {'is_formal': False, 'missing': ['payload'], 'reason': 'payload 非 dict'}
@@ -66,7 +66,7 @@ def validate_payload_for_formal_output(payload: dict) -> dict:
         missing.append('results.checks')
 
     # 公式自動指紋（http:// 才會有；file:// 受限為 None）
-    # 可選：若沒有 calc_source_hash 視為「離線環境」，發草稿警示但不拒絕
+    # 可選：若沒有 calc_source_hash 視為「離線環境」，回報追溯資料不完整
     if not meta.get('calc_source_hash'):
         missing.append('meta.calc_source_hash')
 
@@ -80,7 +80,7 @@ def validate_payload_for_formal_output(payload: dict) -> dict:
         missing.append('meta.calculator_version')
 
     is_formal = len(missing) == 0
-    reason = '正式版本（含完整指紋與計算結果）' if is_formal else f'缺少 {len(missing)} 項：{", ".join(missing)}'
+    reason = '追溯資料完整（含指紋與計算結果）' if is_formal else f'缺少 {len(missing)} 項：{", ".join(missing)}'
     return {'is_formal': is_formal, 'missing': missing, 'reason': reason}
 
 
@@ -90,14 +90,12 @@ def render_payload_to_pdf(payload: dict, out_pdf: Path, tool_url: str = TOOL_URL
     走 Paged.js 分頁而非原生 @media print，才能支援 target-counter 讓
     TOC 頁碼對齊實際列印頁次。
 
-    V2 治理：若 enforce_fingerprint=True 且 payload 不滿足正式版指紋要求，
-    PDF 會自動加上「草稿（無計算指紋）」浮水印（透過 V2 既有 __V2_DRAFT_MODE 機制）。
+    指紋檢查只做追溯提示；文件狀態由 payload.document.approved 明確決定。
     """
     # ── V2 指紋閘門 ──
     validation = validate_payload_for_formal_output(payload)
-    is_draft = enforce_fingerprint and not validation['is_formal']
-    if is_draft:
-        print(f"[auto_word] ⚠ 將以草稿模式產出（{validation['reason']}）", flush=True)
+    if enforce_fingerprint and not validation['is_formal']:
+        print(f"[auto_word] ⚠ 追溯資料待確認（{validation['reason']}）", flush=True)
     else:
         print(f"[auto_word] ✓ {validation['reason']}", flush=True)
 
@@ -123,26 +121,19 @@ def render_payload_to_pdf(payload: dict, out_pdf: Path, tool_url: str = TOOL_URL
         page.wait_for_load_state('networkidle')
         time.sleep(0.5)
 
-        # V2 治理：若 payload 缺指紋，啟用「草稿模式」加浮水印
-        if is_draft:
-            page.evaluate(
-                """(reason) => {
-                    window.__V2_DRAFT_MODE = true;
-                    // 在每張 a4 頁面加上「草稿」浮水印
-                    document.querySelectorAll('#preview-sheets .a4').forEach(p => {
-                        if (p.querySelector('.v2-draft-watermark')) return;
-                        const wm = document.createElement('div');
-                        wm.className = 'v2-draft-watermark';
-                        wm.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:80pt;color:rgba(200,40,40,0.18);font-weight:bold;pointer-events:none;z-index:9999;letter-spacing:8px;font-family:sans-serif';
-                        wm.textContent = '草稿 DRAFT';
-                        wm.title = '本檔缺少完整計算指紋，僅供參考；不得作為正式送審文件。原因：' + reason;
-                        p.style.position = p.style.position || 'relative';
-                        p.appendChild(wm);
-                    });
-                }""",
-                validation['reason']
-            )
-            time.sleep(0.3)
+        # 文件狀態只由明確核可值決定；缺指紋不再加上大面積 DRAFT 浮水印。
+        page.evaluate(
+            """(approved) => {
+                const checkbox = document.getElementById('v2_attachment_approved');
+                if (!checkbox) return;
+                checkbox.checked = approved === true;
+                if (typeof window.v2SetAttachmentApproval === 'function') {
+                    window.v2SetAttachmentApproval(checkbox.checked);
+                }
+            }""",
+            bool((payload.get('document') or {}).get('approved')),
+        )
+        time.sleep(0.2)
 
         # 在原頁呼叫 buildPagedPrintHtml + promoteAnchorIds，組 Paged.js HTML
         paged_html = page.evaluate(

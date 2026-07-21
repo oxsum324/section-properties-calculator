@@ -1227,7 +1227,7 @@ function assertDashboardLiveState(state, label, expected) {
   ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', '! 未完成 / 摘要異常'].forEach((needle) => {
     assert.ok(state.timelineLegendText.includes(needle), `${label} live timeline legend includes ${needle}: ${state.timelineLegendText}`);
   });
-  ['報告閱讀狀態邊界', '頁面診斷明細只供公司內部整理', '非 ready 會標示 DRAFT／非正式附件', 'ready 則標示「文件分類｜可送簽版」'].forEach((needle) => {
+  ['報告閱讀狀態邊界', '頁面診斷明細只供公司內部整理', '文件狀態由核可勾選決定', '內部審閱與正式附件皆可列印'].forEach((needle) => {
     assert.ok(state.reportReadinessBoundaryNoteText.includes(needle), `${label} live boundary note includes ${needle}: ${state.reportReadinessBoundaryNoteText}`);
   });
   const platformCard = state.statusCards.find(card => card.id === 'platformOverallStatus');
@@ -1360,7 +1360,7 @@ function assertDashboardState(state, label, expectedLive = null) {
   ['F 完整檢查', 'Q 快速檢查', 'R 正式放行', '! 未完成 / 摘要異常'].forEach((needle) => {
     assert.ok(state.timelineLegendText.includes(needle), `${label} timeline legend includes ${needle}: ${state.timelineLegendText}`);
   });
-  ['報告閱讀狀態邊界', '頁面診斷明細只供公司內部整理', '非 ready 會標示 DRAFT／非正式附件', 'ready 則標示「文件分類｜可送簽版」'].forEach((needle) => {
+  ['報告閱讀狀態邊界', '頁面診斷明細只供公司內部整理', '文件狀態由核可勾選決定', '內部審閱與正式附件皆可列印'].forEach((needle) => {
     assert.ok(state.reportReadinessBoundaryNoteText.includes(needle), `${label} boundary note includes ${needle}: ${state.reportReadinessBoundaryNoteText}`);
   });
   assert.ok(

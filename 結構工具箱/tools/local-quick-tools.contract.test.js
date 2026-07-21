@@ -176,15 +176,16 @@ assert.equal(manifest.shared.documentStateRequired, true, 'local quick calculati
 [
   manifest.shared.documentStateBuilder,
   'getPageReportReadinessLevel',
-  'DRAFT／非正式附件',
+  '內部審閱',
   manifest.shared.readyDocumentClass,
-  '文件分類｜',
-  '可送簽版',
+  '正式附件',
+  'repAttachmentApproval',
   'data-formal-document-state-style',
 ].forEach(needle => assertIncludes(documentStateHelperText, needle, 'local quick shared document-state helper'));
 
-assert.equal(manifest.shared.readyDocumentClass, 'ready-to-sign', 'local quick ready document class');
-assert.equal(manifest.shared.readyDocumentLabel, '文件分類｜可送簽版', 'local quick ready document label');
+assert.equal(manifest.shared.readyDocumentClass, 'formal-attachment', 'local quick approved document class');
+assert.equal(manifest.shared.readyDocumentLabel, '文件狀態：正式附件', 'local quick approved document label');
+assert.equal(manifest.shared.internalReviewLabel, '文件狀態：內部審閱', 'local quick internal-review document label');
 
 assert.equal(manifest.shared.directPrintBodyClass, 'local-quick-output-page', 'local quick direct-print body class');
 assert.equal(manifest.shared.directPrintBoundaryClass, 'local-quick-direct-print-boundary', 'local quick direct-print boundary class');
@@ -380,9 +381,9 @@ require(exportHelperTestPath);
   ['tools/equipment/equipment-load.html', 'Exporter.normalizeProjectFieldValue(project.name)'],
   ['tools/earth/earth-pressure.html', 'Exporter.normalizeProjectFieldValue(project.name)'],
   ['tools/foundation/foundation-local.html', 'Exporter.normalizeProjectFieldValue(project.name)'],
-  ['tools/equipment/equipment-load.html', 'reportProjectMetaValue(proj.name)'],
-  ['tools/earth/earth-pressure.html', 'reportProjectMetaValue(proj.name)'],
-  ['tools/foundation/foundation-local.html', 'reportProjectMetaValue(proj.name)'],
+  ['tools/equipment/equipment-load.html', '<div class="case-head">${proj.name ?'],
+  ['tools/earth/earth-pressure.html', '<div class="case-head">${proj.name ?'],
+  ['tools/foundation/foundation-local.html', '<div class="case-head">${proj.name ?'],
   ['tools/equipment/equipment-load.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],
   ['tools/earth/earth-pressure.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],
   ['tools/foundation/foundation-local.html', "name: Exporter.normalizeProjectFieldValue($('projName').value)"],

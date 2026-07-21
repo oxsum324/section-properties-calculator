@@ -533,7 +533,7 @@ assert.equal(reportReadinessOverview.badge, '頁面專用', 'report readiness ov
 assert.equal(reportReadinessOverview.label, '報告閱讀狀態總覽', 'report readiness overview label');
 assert.ok(reportReadinessOverview.summary.includes('優先建議報告閱讀狀態'), 'report readiness overview summary mentions page-only readiness');
 assert.ok(reportReadinessOverview.summary.includes('不會寫入計算書、列印或 PDF'), 'report readiness overview summary keeps export boundary');
-assert.ok(reportReadinessOverview.compactSummary.includes('優先建議報告閱讀狀態') && reportReadinessOverview.compactSummary.includes('不會寫入計算書、列印或 PDF'), 'report readiness overview keeps compact page-only summary');
+assert.ok(reportReadinessOverview.compactSummary.includes('頁面診斷明細不進計算書') && reportReadinessOverview.compactSummary.includes('兩者皆可列印'), 'report readiness overview keeps compact page-only and approval summary');
 assert.ok(reportReadinessOverview.reportTextSmokeSummary.includes('正式計算書可讀文字抽檢'), 'report readiness overview keeps report text summary');
 assert.ok(Array.isArray(reportReadinessOverview.details) && reportReadinessOverview.details.length >= 2, 'report readiness overview details exist');
 assert.ok(reportReadinessOverview.details.join(' ').includes('RC 正式工具'), 'report readiness overview covers RC family');

@@ -1189,10 +1189,16 @@ ${r.liquefactionValid ? `<p><code>控制點：z=${fmt(r.liquefactionGoverningPoi
     const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
     const svgHtml = svgForReport(r);
     const body = mode === 'summary' ? summaryBody(r, svgHtml) : detailedBody(r, svgHtml);
+    const reportTrace = ReportUI.buildReportTrace({
+      title: '基礎局部穩定檢核計算書',
+      outputSource: { tool: '基礎局部檢核', version: 'V0.6' },
+      snapshot: { mode, result: r }
+    });
     const documentStateReport = ReportUI.buildFormalDocumentStateReport({
       project: proj,
       calculated: true,
-      readinessLevel: ReportUI.getPageReportReadinessLevel(document)
+      readinessLevel: ReportUI.getPageReportReadinessLevel(document),
+      calculationFingerprint: reportTrace.calculationFingerprint
     });
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>基礎局部穩定檢核計算書</title>
@@ -1215,7 +1221,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <main class="paper">
 <h1>基礎局部穩定檢核計算書</h1>
 ${documentStateReport.html}
-<div class="case-head"><span>計畫：${escapeHtml(reportProjectMetaValue(proj.name))}</span><span>編號：${escapeHtml(reportProjectMetaValue(proj.no))}</span><span>設計人：${escapeHtml(reportProjectMetaValue(proj.designer))}</span><span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.6</span></div>
+<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>設計人：${escapeHtml(proj.designer)}</span>` : ''}<span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：基礎局部檢核 V0.6</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');

@@ -102,6 +102,10 @@ export interface ReportSettings {
   checker: string
   issueDate: string
   reportMode: ReportMode
+  /** 本次計算內容是否已由使用者明確核可為正式附件；不作為工程 PASS 判定。 */
+  documentApproved?: boolean
+  /** 核可時間；重新產生或修改計算內容時由頁面狀態清除。 */
+  documentApprovedAt?: string
   /**
    * 公司 LOGO（dataURL，建議 PNG/SVG，最大 200KB）。
    * 報表封面與列印 running-head 自動帶入。空字串代表未設定。

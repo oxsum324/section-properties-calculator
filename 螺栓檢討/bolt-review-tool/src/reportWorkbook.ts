@@ -394,8 +394,8 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
   })
   return [
     { 項目: '案例名稱', 值: review.project.name },
-    { 項目: '文件分類', 值: documentState.label },
-    { 項目: '文件說明', 值: documentState.reason },
+    { 項目: '文件狀態', 值: documentState.label },
+    ...(documentState.reason ? [{ 項目: '核可資訊', 值: documentState.reason }] : []),
     { 項目: '規範版本', 值: review.ruleProfile.versionLabel },
     { 項目: '案號/專案', 值: reportSettings.projectCode || '' },
     { 項目: '公司/單位', 值: reportSettings.companyName || '' },

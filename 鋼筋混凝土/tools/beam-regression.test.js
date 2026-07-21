@@ -414,9 +414,9 @@ async function exerciseBeamAttachmentBoundary(page, pack) {
   };
 
   const missingMetadata = await loadScenario('smrf_detail_inputs_ok', {});
-  assert(missingMetadata.status === 'review', 'beam empty metadata is preview-only', missingMetadata.text);
-  assert(missingMetadata.assessment?.metadata?.missingItems?.length === 3, 'beam empty metadata lists all required fields', JSON.stringify(missingMetadata.assessment?.metadata));
-  assert(missingMetadata.text.includes('僅供預覽') && missingMetadata.text.includes('缺 3 項'), 'beam page explains metadata preview boundary', missingMetadata.text);
+  assert(missingMetadata.status === 'ready', 'beam empty metadata remains eligible for document approval', missingMetadata.text);
+  assert(missingMetadata.assessment?.metadata?.missingItems?.length === 3, 'beam empty metadata records fields inherited from the main report', JSON.stringify(missingMetadata.assessment?.metadata));
+  assert(missingMetadata.text.includes('由主文承接（未填 3 項）') && missingMetadata.text.includes('不影響附件列印或核可'), 'beam page explains optional metadata inheritance', missingMetadata.text);
   const screenPrintNotice = await page.evaluate(() => getComputedStyle(document.querySelector('.rc-direct-print-boundary')).display);
   assert(screenPrintNotice === 'none', 'beam direct-print boundary stays hidden on screen', screenPrintNotice);
   await page.emulateMedia({ media: 'print' });
@@ -440,10 +440,10 @@ async function exerciseBeamAttachmentBoundary(page, pack) {
   const readyReport = await captureBeamReportHtml(page);
   assert(!readyReport.includes('DRAFT／非正式附件'), 'beam ready report has no draft state', 'formal report');
   assert(!readyReport.includes('data-document-state="draft"'), 'beam ready report has no draft marker', 'formal report');
+  assert(readyReport.includes('data-initial-approved="false"') && readyReport.includes('本計算內容已完成審閱，核可作為正式附件'), 'beam report defaults to printable internal review with explicit approval control', 'approval model');
   await page.evaluate(() => { document.getElementById('projNo').value = ''; });
   const currentMissingReport = await captureBeamReportHtml(page);
-  assert(currentMissingReport.includes('DRAFT／非正式附件 - 待人工複核'), 'beam report rechecks metadata at export time', 'project number cleared after calculation');
-  assert(currentMissingReport.includes('案件識別資料尚缺：計畫編號'), 'beam draft identifies metadata cleared after calculation', 'current project fields used');
+  assert(!currentMissingReport.includes('<b>計畫編號</b>') && !currentMissingReport.includes('DRAFT／非正式附件'), 'beam report omits blank optional project number without downgrading the attachment', 'project number cleared after calculation');
   await page.evaluate(project => {
     document.getElementById('projName').value = project.name;
     document.getElementById('projNo').value = project.no;
@@ -454,17 +454,14 @@ async function exerciseBeamAttachmentBoundary(page, pack) {
 
   const review = await loadScenario('development_manual_review', metadata);
   assert(review.status === 'review', 'beam manual-review case stays review', review.text);
-  assert(review.text.includes('待人工複核') && review.text.includes('僅供預覽'), 'beam review page gives explicit manual-review boundary', review.text);
+  assert(review.text.includes('待人工複核') && review.text.includes('仍可列印'), 'beam review page keeps engineering review separate from printability', review.text);
   const reviewReport = await captureBeamReportHtml(page);
-  assert(reviewReport.includes('DRAFT／非正式附件 - 待人工複核'), 'beam review report is explicit draft', 'review document state');
-  assert(reviewReport.includes('data-document-reason="review"'), 'beam review report carries review reason', 'review document state');
-  assert(reviewReport.includes('列印內部檢討版 / 存 PDF'), 'beam review report print action stays internal', 'draft toolbar');
+  assert(!reviewReport.includes('DRAFT／非正式附件') && reviewReport.includes('data-initial-approved="false"'), 'beam review result remains a printable internal-review calculation book', 'review document state');
 
   const blocked = await loadScenario('shear_avmin_spacing_ng', metadata);
   assert(blocked.status === 'blocked', 'beam failed case is blocked', blocked.text);
   const blockedReport = await captureBeamReportHtml(page);
-  assert(blockedReport.includes('DRAFT／非正式附件 - 檢核不符'), 'beam blocked report is explicit draft', 'blocked document state');
-  assert(blockedReport.includes('data-document-reason="blocked"'), 'beam blocked report carries blocked reason', 'blocked document state');
+  assert(!blockedReport.includes('DRAFT／非正式附件') && blockedReport.includes('data-initial-approved="false"'), 'beam NG result stays printable and defaults to internal review', 'blocked document state');
   ['產報前檢查', '優先閱讀', '可作附件，需人工複核', '暫勿作附件', '不會寫入計算書或列印 PDF'].forEach(fragment => {
     assert(!blockedReport.includes(fragment), 'beam draft report excludes page-only readiness wording', fragment);
   });

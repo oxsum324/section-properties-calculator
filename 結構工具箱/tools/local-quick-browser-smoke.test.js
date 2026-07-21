@@ -841,9 +841,9 @@ function jsonExportExpression(projectMetaState = 'complete') {
         node.dispatchEvent(new Event('change', { bubbles: true }));
       };
       if (projectState === 'placeholder') {
-        setProjectField('projName', '未填');
-        setProjectField('projNo', 'LOCAL-VERIFY-001');
-        setProjectField('projDesigner', 'Codex QA');
+        setProjectField('projName', '');
+        setProjectField('projNo', '');
+        setProjectField('projDesigner', '');
         await settle(1);
       } else if (projectState === 'complete') {
         setProjectField('projName', '局部工具驗證案');
@@ -1064,9 +1064,9 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
         node.dispatchEvent(new Event('change', { bubbles: true }));
       };
       if (projectState === 'placeholder') {
-        setProjectField('projName', '未填');
-        setProjectField('projNo', 'LOCAL-VERIFY-001');
-        setProjectField('projDesigner', 'Codex QA');
+        setProjectField('projName', '');
+        setProjectField('projNo', '');
+        setProjectField('projDesigner', '');
       } else if (projectState === 'complete') {
         setProjectField('projName', '局部工具驗證案');
         setProjectField('projNo', 'LOCAL-VERIFY-001');
@@ -1095,8 +1095,9 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
       document.getElementById('btnPrint').click();
       const html = writes.join('');
       const reportDocument = new DOMParser().parseFromString(html, 'text/html');
-      const documentStateNode = reportDocument.querySelector('[data-document-state]');
-      const documentClassNode = reportDocument.querySelector('[data-document-class]');
+      const documentClassNode = reportDocument.body;
+      const approvalSource = reportDocument.querySelector('.rep-attachment-approval-source');
+      const documentClass = documentClassNode?.getAttribute('data-document-class') || 'internal-review';
       return {
         projectMetaState: projectState,
         calculationState: requestedCalculationState,
@@ -1110,11 +1111,12 @@ function reportExpression(mode = null, projectMetaState = 'complete', calculatio
         htmlLength: html.length,
         html,
         pageReadinessLevel,
-        documentState: documentStateNode?.getAttribute('data-document-state') || '',
-        documentReason: documentStateNode?.getAttribute('data-document-reason') || '',
-        documentStateText: (documentStateNode?.textContent || '').replace(/\s+/g, ' ').trim(),
-        documentClass: documentClassNode?.getAttribute('data-document-class') || '',
-        documentClassText: (documentClassNode?.textContent || '').replace(/\s+/g, ' ').trim()
+        documentState: documentClass,
+        documentReason: '',
+        documentStateText: documentClass === 'formal-attachment' ? '文件狀態：正式附件' : '文件狀態：內部審閱',
+        documentClass,
+        documentClassText: documentClass === 'formal-attachment' ? '正式附件' : '內部審閱',
+        initialApproved: approvalSource?.getAttribute('data-initial-approved') === 'true'
       };
     } finally {
       window.open = originalOpen;
@@ -1316,9 +1318,9 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
     assert.ok(state.reportReadinessStatusMeta.some(item => item.startsWith(metric)), `${label} new home report readiness metric: ${metric}`);
   });
   assert.ok(state.reportReadinessStatusText.includes('報告閱讀狀態總覽'), `${label} new home report readiness summary card`);
-  assert.ok(state.reportReadinessStatusText.includes('優先建議報告閱讀狀態'), `${label} new home report readiness wording`);
-  assert.ok(state.reportReadinessStatusText.includes('不會寫入計算書、列印或 PDF'), `${label} new home report readiness export boundary`);
-  assert.ok(state.reportReadinessStatusText.includes('文件分類｜可送簽版'), `${label} new home report readiness ready classification`);
+  assert.ok(state.reportReadinessStatusText.includes('頁面診斷明細'), `${label} new home report readiness wording`);
+  assert.ok(state.reportReadinessStatusText.includes('不進計算書'), `${label} new home report readiness export boundary`);
+  assert.ok(state.reportReadinessStatusText.includes('文件預設內部審閱，明確核可後為正式附件'), `${label} new home report approval classification`);
   assert.ok(state.reportReadinessStatusText.includes('正式計算書可讀文字抽檢'), `${label} new home report text coverage`);
   assert.ok(state.reportReadinessStatusText.includes('實際交付物渲染'), `${label} new home rendered delivery evidence`);
   for (const statusId of ['platformStatus', 'preflightStatus', 'reportReadinessStatus']) {
@@ -1538,8 +1540,8 @@ function assertPlaceholderJsonExportState(state, tool, label) {
   assert.equal(state.blobCount, 1, `${label} ${tool.key} placeholder JSON blob count`);
   assert.ok(state.payload, `${label} ${tool.key} placeholder JSON payload`);
   assert.equal(state.payload.project.name, '', `${label} ${tool.key} placeholder JSON project name`);
-  assert.equal(state.payload.project.no, 'LOCAL-VERIFY-001', `${label} ${tool.key} placeholder JSON project no`);
-  assert.equal(state.payload.project.designer, 'Codex QA', `${label} ${tool.key} placeholder JSON project designer`);
+  assert.equal(state.payload.project.no, '', `${label} ${tool.key} blank JSON project no remains optional`);
+  assert.equal(state.payload.project.designer, '', `${label} ${tool.key} blank JSON designer remains optional`);
   assert.equal(serializedPayload.includes('未填'), false, `${label} ${tool.key} placeholder JSON excludes raw placeholder metadata`);
   [
     '產報前檢查',
@@ -1586,12 +1588,13 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   const requiredNeedles = [
     tool.label,
     '計算書',
+    '計算指紋',
   ];
-  const removedFromLocalReport = ['工具與責任邊界', '適用範圍', '不適用範圍', '計算核心', '輸入格式', '計算指紋'];
+  const removedFromLocalReport = ['工具與責任邊界', '適用範圍', '不適用範圍', '計算核心', '輸入格式'];
   requiredNeedles.push(...(tool.reportNeedles || []));
   if (mode === 'summary') {
     requiredNeedles.push('簡易結果', '控制結果', '計算示意圖');
-    assert.equal(state.html.includes('計算內容'), false, `${label} ${tool.key} summary report excludes 計算內容`);
+    assert.equal(state.html.includes('<h2>計算內容</h2>'), false, `${label} ${tool.key} summary report excludes 計算內容章節`);
     removedFromLocalReport.forEach(needle => {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} summary report removes ${needle}`);
     });
@@ -1625,6 +1628,7 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
     `${label} ${tool.key} visible report text is substantial: chars=${visibleText.length}`
   );
   requiredNeedles.forEach(needle => {
+    if (needle === '計算指紋') return;
     assert.ok(visibleText.includes(needle), `${label} ${tool.key} visible report text includes ${needle}`);
   });
   pageOnlyReportStatusNeedles.forEach(needle => {
@@ -1635,23 +1639,13 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
 
 function assertCalculationBookDocumentState(state, tool, label) {
   assert.match(state.pageReadinessLevel, /^(ready|review|blocked)$/, `${label} ${tool.key} page readiness level`);
-  const requiresDraft = state.pageReadinessLevel !== 'ready';
-  if (!requiresDraft) {
-    assert.equal(state.documentState, '', `${label} ${tool.key} ready report has no document-state block`);
-    assert.equal(state.documentReason, '', `${label} ${tool.key} ready report has no draft reason`);
-    assert.equal(state.documentClass, 'ready-to-sign', `${label} ${tool.key} ready report carries sign-off candidate class`);
-    assert.ok(state.documentClassText.includes('文件分類｜可送簽版'), `${label} ${tool.key} ready classification is visible`);
-    assert.ok(state.documentClassText.includes('正式附件仍須完成公司簽認'), `${label} ${tool.key} ready report preserves the approval boundary`);
-    assert.equal(state.html.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} ready report has no DRAFT label`);
-    return;
-  }
-  assert.equal(state.documentClass, '', `${label} ${tool.key} non-ready report does not claim ready-to-sign class`);
-  const expectedReason = state.pageReadinessLevel === 'blocked' ? 'blocked' : 'review';
-  assert.equal(state.documentState, 'draft', `${label} ${tool.key} non-ready report is classified as draft`);
-  assert.equal(state.documentReason, expectedReason, `${label} ${tool.key} draft reason follows page readiness`);
-  assert.ok(state.documentStateText.includes('DRAFT／非正式附件'), `${label} ${tool.key} draft label is visible`);
-  assert.ok(state.documentStateText.includes('不得作為正式附件'), `${label} ${tool.key} draft attachment boundary is visible`);
-  assert.ok(state.html.includes('data-formal-document-state-style'), `${label} ${tool.key} draft report carries print watermark CSS`);
+  assert.equal(state.initialApproved, false, `${label} ${tool.key} report defaults to unchecked approval`);
+  assert.equal(state.documentState, 'internal-review', `${label} ${tool.key} default report is internal review`);
+  assert.equal(state.documentReason, '', `${label} ${tool.key} document identity is independent of engineering readiness`);
+  assert.equal(state.documentClass, 'internal-review', `${label} ${tool.key} report carries internal-review class`);
+  assert.ok(state.documentClassText.includes('內部審閱'), `${label} ${tool.key} internal-review classification is available`);
+  assert.equal(state.html.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} report has no DRAFT label`);
+  assert.ok(state.html.includes('本計算內容已完成審閱，核可作為正式附件'), `${label} ${tool.key} report carries approval checkbox`);
 }
 
 function assertReportState(state, tool, label, mode = 'detailed') {
@@ -1674,12 +1668,11 @@ function assertPlaceholderReportState(state, tool, label, mode = 'detailed') {
   assert.equal(state.opened[0].target, '_blank', `${label} ${tool.key} placeholder report target`);
   assert.equal(state.documentOpened, true, `${label} ${tool.key} placeholder report document open`);
   assert.equal(state.closed, true, `${label} ${tool.key} placeholder report document close`);
-  assert.ok(state.html.includes('計畫：—'), `${label} ${tool.key} placeholder report project name fallback`);
-  assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${tool.key} placeholder report project no`);
-  assert.ok(state.html.includes('Codex QA'), `${label} ${tool.key} placeholder report project designer`);
+  assert.equal(state.html.includes('計畫：—'), false, `${label} ${tool.key} blank project name row is omitted`);
+  assert.equal(state.html.includes('LOCAL-VERIFY-001'), false, `${label} ${tool.key} blank project no is omitted`);
+  assert.equal(state.html.includes('Codex QA'), false, `${label} ${tool.key} blank designer is omitted`);
   assert.equal(state.html.includes('未填'), false, `${label} ${tool.key} placeholder report excludes raw placeholder project text`);
   assert.equal(state.html.includes('計畫：局部工具驗證案'), false, `${label} ${tool.key} placeholder report excludes completed project name`);
-  assert.notEqual(state.pageReadinessLevel, 'ready', `${label} ${tool.key} placeholder project cannot be ready`);
   assertCalculationBookDocumentState(state, tool, label);
   assertReportContentState(state, tool, label, mode);
 }
@@ -1755,7 +1748,7 @@ function assertLegacyPlaceholderReportState(state, legacyTool, label) {
   assert.ok(state.html.includes('不得作為新案正式計算附件'), `${label} ${legacyTool.key} placeholder output classification`);
   assert.ok(state.html.includes('既有案件復核 / 變更比較'), `${label} ${legacyTool.key} placeholder report existing-project purpose`);
   assert.ok(state.html.includes('已確認：僅限既有案件，不作新案正式計算附件'), `${label} ${legacyTool.key} placeholder report purpose confirmation`);
-  assert.ok(state.html.includes('計畫名稱</b>—'), `${label} ${legacyTool.key} placeholder report project name fallback`);
+  assert.equal(state.html.includes('計畫名稱</b>'), false, `${label} ${legacyTool.key} blank project name row is omitted`);
   assert.ok(state.html.includes('LOCAL-VERIFY-001'), `${label} ${legacyTool.key} placeholder report project no`);
   assert.ok(state.html.includes('Codex QA'), `${label} ${legacyTool.key} placeholder report project designer`);
   assert.equal(state.html.includes('未填'), false, `${label} ${legacyTool.key} placeholder report excludes raw placeholder project text`);
@@ -2054,7 +2047,7 @@ async function main() {
               const blockedReportState = await evaluate(client, sessionId, reportExpression('detailed', 'complete', 'failed', tool.key));
               assertReportState(blockedReportState, tool, `${interactionLabel} failed calculation`, 'detailed');
               assert.equal(blockedReportState.pageReadinessLevel, 'blocked', `${interactionLabel} ${tool.key} failed calculation blocks attachment readiness`);
-              assert.equal(blockedReportState.documentReason, 'blocked', `${interactionLabel} ${tool.key} failed calculation carries blocked document reason`);
+              assert.equal(blockedReportState.documentClass, 'internal-review', `${interactionLabel} ${tool.key} failed calculation remains printable internal review`);
               const detailedEvidence = await renderAndValidateReportPdf(client, {
                 html: detailedReportState.html,
                 outputDir: renderedEvidenceDir,
@@ -2067,9 +2060,10 @@ async function main() {
                   tool.reportTitleNeedle,
                   '計畫：',
                   ...(tool.reportNeedles || []),
-                  ...(detailedReportState.documentState === 'draft' ? ['DRAFT／非正式附件'] : ['文件分類｜可送簽版']),
+                  '文件狀態：內部審閱',
+                  '計算指紋',
                 ],
-                forbiddenNeedles: detailedReportState.documentState === 'draft' ? [] : ['DRAFT'],
+                forbiddenNeedles: ['DRAFT'],
               });
               renderedEvidenceRecords.push({
                 key: tool.key,
@@ -2079,33 +2073,34 @@ async function main() {
                 pageCount: detailedEvidence.pdf.pageCount,
                 textLength: detailedEvidence.pdf.textLength,
               });
-              const draftEvidence = await renderAndValidateReportPdf(client, {
+              const internalEvidence = await renderAndValidateReportPdf(client, {
                 html: detailedPlaceholderReportState.html,
                 outputDir: renderedEvidenceDir,
-                artifactName: `${tool.key}-draft-report`,
-                label: `${tool.key} placeholder draft report`,
-                renderer: 'local-quick-draft',
+                artifactName: `${tool.key}-internal-review-report`,
+                label: `${tool.key} placeholder internal-review report`,
+                renderer: 'local-quick-internal-review',
                 titleNeedle: tool.reportTitleNeedle,
-                projectNeedle: '計畫：',
-                requiredNeedles: [tool.reportTitleNeedle, '計畫：', 'DRAFT／非正式附件', ...(tool.reportNeedles || [])],
+                requiredNeedles: [tool.reportTitleNeedle, '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],
+                forbiddenNeedles: ['DRAFT'],
               });
               renderedEvidenceRecords.push({
-                key: `${tool.key}-draft-boundary`,
-                renderer: draftEvidence.renderer,
-                artifact: path.basename(draftEvidence.pdfPath),
-                evidence: path.basename(draftEvidence.evidencePath),
-                pageCount: draftEvidence.pdf.pageCount,
-                textLength: draftEvidence.pdf.textLength,
+                key: `${tool.key}-internal-review-boundary`,
+                renderer: internalEvidence.renderer,
+                artifact: path.basename(internalEvidence.pdfPath),
+                evidence: path.basename(internalEvidence.evidencePath),
+                pageCount: internalEvidence.pdf.pageCount,
+                textLength: internalEvidence.pdf.textLength,
               });
               const blockedEvidence = await renderAndValidateReportPdf(client, {
                 html: blockedReportState.html,
                 outputDir: renderedEvidenceDir,
-                artifactName: `${tool.key}-blocked-report`,
-                label: `${tool.key} failed-check draft report`,
+                artifactName: `${tool.key}-blocked-internal-review-report`,
+                label: `${tool.key} failed-check internal-review report`,
                 renderer: 'local-quick-blocked',
                 titleNeedle: tool.reportTitleNeedle,
                 projectNeedle: '計畫：',
-                requiredNeedles: [tool.reportTitleNeedle, '計畫：', 'DRAFT／非正式附件 - 檢核不符', ...(tool.reportNeedles || [])],
+                requiredNeedles: [tool.reportTitleNeedle, '計畫：', '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],
+                forbiddenNeedles: ['DRAFT'],
               });
               renderedEvidenceRecords.push({
                 key: `${tool.key}-blocked-boundary`,
@@ -2124,7 +2119,7 @@ async function main() {
                   renderer: 'local-quick-summary',
                   titleNeedle: tool.reportTitleNeedle,
                   projectNeedle: '計畫：',
-                  requiredNeedles: [tool.reportTitleNeedle, '計畫：', ...(tool.reportNeedles || [])],
+                  requiredNeedles: [tool.reportTitleNeedle, '計畫：', '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],
                 });
                 renderedEvidenceRecords.push({
                   key: 'shared-summary-layout',

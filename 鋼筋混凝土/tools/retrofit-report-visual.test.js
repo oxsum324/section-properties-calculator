@@ -107,14 +107,14 @@ async function main() {
     await report.waitForTimeout(300);
     const metrics = await report.evaluate(() => {
       const paper = document.querySelector('.rep-paper')?.cloneNode(true);
-      paper?.querySelector('.rep-document-state')?.remove();
+      paper?.querySelector('.rep-document-status-line')?.remove();
       return {
         title: document.querySelector('h1')?.innerText?.trim() || '',
         bodyText: (document.body?.innerText || '').replace(/\s+/g, ' ').trim(),
         calculationText: (paper?.innerText || '').replace(/\s+/g, ' ').trim(),
-        documentState: document.querySelector('.rep-document-state')?.dataset.documentState || '',
-        documentReason: document.querySelector('.rep-document-state')?.dataset.documentReason || '',
-        documentStateText: (document.querySelector('.rep-document-state')?.innerText || '').replace(/\s+/g, ' ').trim(),
+        documentState: document.querySelector('.rep-document-status-line')?.dataset.documentClass || '',
+        documentApproved: document.querySelector('.rep-document-status-line')?.dataset.approved || '',
+        documentStateText: (document.querySelector('.rep-document-status-line')?.innerText || '').replace(/\s+/g, ' ').trim(),
         tableCount: document.querySelectorAll('table').length,
         tableHeaderCount: document.querySelectorAll('th').length,
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
@@ -124,7 +124,7 @@ async function main() {
       };
     });
     assert.equal(metrics.title, 'RC 梁補強斷面計算書', 'RC retrofit report title');
-    assert.equal(metrics.documentState, '', 'RC retrofit ready report has no draft classification');
+    assert.equal(metrics.documentState, 'internal-review', 'RC retrofit report defaults to printable internal review');
     assert.ok(metrics.tableCount > 0 && metrics.tableHeaderCount > 0, 'RC retrofit report tables expose headings');
     assert.equal(metrics.horizontalOverflow, false, 'RC retrofit report has no horizontal overflow');
     assert.equal(metrics.elementOverflow, 0, 'RC retrofit report tables and media do not overflow');
@@ -145,7 +145,7 @@ async function main() {
     const screenshotQuality = assertReportScreenshotQuality(screenshotPath, 'RC retrofit beam report', { assert });
     const pdfTextQuality = assertReportPdfTextQuality(pdfPath, 'RC retrofit beam report', {
       assert,
-      include: ['計畫名稱', 'RC 補強正式報告驗證案'],
+      include: ['計畫名稱', 'RC 補強正式報告驗證案', '文件狀態：內部審閱'],
       exclude: ['DRAFT／非正式附件'],
     });
     assert.equal(errors.length, 0, `RC retrofit page/report console errors: ${errors.join(' | ')}`);
@@ -168,27 +168,25 @@ async function main() {
     fs.writeFileSync(path.join(outputDir, 'rendered-delivery-evidence-summary.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
     await report.close();
 
-    const metadataDraftPromise = page.context().waitForEvent('page', { timeout: 15000 });
+    const metadataReviewPromise = page.context().waitForEvent('page', { timeout: 15000 });
     await page.evaluate(() => {
       const projectNo = document.getElementById('projNo');
       projectNo.value = '';
       projectNo.dispatchEvent(new Event('input', { bubbles: true }));
       exportBeamReport();
     });
-    const metadataDraft = await metadataDraftPromise;
-    await metadataDraft.waitForSelector('.rep-document-state', { timeout: 10000 });
-    const metadataDraftState = await metadataDraft.evaluate(() => ({
-      state: document.querySelector('.rep-document-state')?.dataset.documentState || '',
-      reason: document.querySelector('.rep-document-state')?.dataset.documentReason || '',
-      text: document.querySelector('.rep-document-state')?.innerText || '',
+    const metadataReview = await metadataReviewPromise;
+    await metadataReview.waitForSelector('.rep-document-status-line', { timeout: 10000 });
+    const metadataReviewState = await metadataReview.evaluate(() => ({
+      state: document.querySelector('.rep-document-status-line')?.dataset.documentClass || '',
+      approved: document.querySelector('.rep-document-status-line')?.dataset.approved || '',
+      labels: [...document.querySelectorAll('.rep-meta b')].map(node => node.textContent?.trim() || ''),
+      bodyText: document.body.innerText || '',
     }));
-    assert.deepEqual(
-      [metadataDraftState.state, metadataDraftState.reason],
-      ['draft', 'review'],
-      'RC retrofit report rechecks missing project metadata at export time',
-    );
-    assert.ok(metadataDraftState.text.includes('計畫編號'), 'RC retrofit draft names missing project number');
-    await metadataDraft.close();
+    assert.deepEqual([metadataReviewState.state, metadataReviewState.approved], ['internal-review', 'false'], 'RC retrofit blank project metadata remains printable for internal review');
+    assert.equal(metadataReviewState.labels.includes('計畫編號'), false, 'RC retrofit blank project number row is omitted');
+    assert.equal(metadataReviewState.bodyText.includes('DRAFT／非正式附件'), false, 'RC retrofit blank project metadata does not create DRAFT');
+    await metadataReview.close();
 
     const blockedPopupPromise = page.context().waitForEvent('page', { timeout: 15000 });
     await page.evaluate(() => {
@@ -204,12 +202,19 @@ async function main() {
       exportColReport();
     });
     const blockedReport = await blockedPopupPromise;
-    await blockedReport.waitForSelector('.rep-document-state', { timeout: 10000 });
+    await blockedReport.waitForSelector('.rep-document-status-line', { timeout: 10000 });
     const blockedState = await blockedReport.evaluate(() => ({
-      state: document.querySelector('.rep-document-state')?.dataset.documentState || '',
-      reason: document.querySelector('.rep-document-state')?.dataset.documentReason || '',
+      state: document.querySelector('.rep-document-status-line')?.dataset.documentClass || '',
+      approved: document.querySelector('.rep-document-status-line')?.dataset.approved || '',
     }));
-    assert.deepEqual([blockedState.state, blockedState.reason], ['draft', 'blocked'], 'RC retrofit failed column report is blocked draft');
+    assert.deepEqual([blockedState.state, blockedState.approved], ['internal-review', 'false'], 'RC retrofit failed column report remains printable and defaults to internal review');
+    await blockedReport.check('#repAttachmentApproval');
+    const approvedBlockedState = await blockedReport.evaluate(() => ({
+      state: document.querySelector('.rep-document-status-line')?.dataset.documentClass || '',
+      text: document.querySelector('.rep-document-status-line')?.innerText || '',
+    }));
+    assert.equal(approvedBlockedState.state, 'formal-attachment', 'RC retrofit NG calculation can be explicitly approved as a truthful formal attachment');
+    assert.ok(approvedBlockedState.text.includes('核可時間'), 'RC retrofit formal attachment records approval time');
     await blockedReport.close();
     await page.close();
     console.log(`RC retrofit report visual smoke OK (summary=${path.join(outputDir, 'rendered-delivery-evidence-summary.json')})`);

@@ -100,7 +100,7 @@ assert.ok(exists('docs/adr/0001-page-only-report-readiness.md'), 'page-only read
 assert.ok(context.includes('頁面專用閱讀狀態'), 'context defines page-only readiness');
 assert.ok(context.includes('不得') || context.includes('列印與 PDF 匯出時應排除'), 'context keeps export boundary');
 assert.ok(
-  adr.includes('page diagnostics') && adr.includes('must not be copied into calculation books') && adr.includes('DRAFT／非正式附件'),
+  adr.includes('page diagnostics') && adr.includes('must not be copied into calculation books') && adr.includes('文件狀態：內部審閱') && adr.includes('文件狀態：正式附件'),
   'ADR records page-only diagnostics and governed document-state delivery decision',
 );
 
@@ -304,7 +304,7 @@ if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)
 }
 assert.equal(JSON.stringify(reportReadinessStatus).includes('"artifact":'), false, 'report readiness snapshot excludes artifact fields');
 assert.equal(/\.(?:pdf|docx|xlsx)\b/i.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness snapshot excludes delivery filenames');
-assert.ok(String(reportReadinessStatus.compactSummary || '').includes('優先建議報告閱讀狀態') && String(reportReadinessStatus.compactSummary || '').includes('不會寫入計算書、列印或 PDF'), 'report readiness keeps compact page-only summary');
+assert.ok(String(reportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書') && String(reportReadinessStatus.compactSummary || '').includes('內部審閱') && String(reportReadinessStatus.compactSummary || '').includes('正式附件') && String(reportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'report readiness keeps compact page-only and approval-state summary');
 assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness exposes report text coverage');
 assert.ok(reportReadinessStatus.details.join(' ').includes('瀏覽器 smoke 證據'), 'report readiness exposes report text runtime evidence');
 assert.ok(reportReadinessStatus.details.join(' ').includes('正式放行實際交付物渲染佐證'), 'report readiness exposes actual rendered delivery evidence');

@@ -49,8 +49,8 @@
 - menu card 目標頁皆回傳 HTTP 200。
 - browser console / page error / 4xx 或 5xx response 皆不得出現。
 - 各工具頁需有 title 與基本可見內容，並輸出首頁截圖與 JSON 稽核紀錄。
-- 梁、柱、板、牆、剪力牆、基礎、單樁與 RC 補強斷面共 8 個正式輸出頁，瀏覽器直接列印時只能產生一頁「RC 工具主頁列印已封鎖」通知；工作頁內容與 DRAFT 浮水印不得進入 PDF。
-- 內部 `DRAFT／非正式附件` 與 `可送簽版` 仍由各頁「計算書」按鈕產生；直接列印封鎖不得影響正式計算書 popup、PNG／PDF 成品與狀態判定。
+- 梁、柱、板、牆、剪力牆、基礎、單樁與 RC 補強斷面共 8 個輸出頁，瀏覽器直接列印時只能產生一頁「RC 工具主頁列印已封鎖」通知；工作頁內容不得進入 PDF。
+- 各頁「計算書」按鈕產生可列印的內部審閱版；在預覽視窗勾選核可後改為正式附件。空白案件欄位可由主文承接，工程 NG 不等同文件 DRAFT；計算輸入變更後核可自動失效。
 
 RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-traceability.catalog.json:1)，目前覆蓋梁、柱、板、牆、剪力牆、基礎與單樁，集中登記：
 
