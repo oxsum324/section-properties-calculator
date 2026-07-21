@@ -4,6 +4,7 @@ import type {
   ReviewResult,
   ReviewStatus,
 } from './domain'
+import { getCalcEngineVersionStatus } from './appMeta'
 import { formatNumber, getGoverningDcr } from './formatHelpers'
 import { statusLabel } from './resultDisplayHelpers'
 
@@ -75,7 +76,12 @@ function firstReviewIssue(
   completeness: ProductCompleteness,
   excludedCount: number,
   missingReportMetadata: string[],
+  calcEngineMismatch: boolean,
 ): string {
+  if (calcEngineMismatch) {
+    return '案例計算版本與目前工具不一致，需採用目前版本重算並建立新留痕'
+  }
+
   if (missingReportMetadata.length > 0) {
     return `案件資料缺 ${missingReportMetadata.join('、')}`
   }
@@ -136,10 +142,14 @@ export function buildAttachmentReadinessModel({
     )?.review ?? review
   const excludedCount = review.project.excludedCheckIds?.length ?? 0
   const missingReportMetadata = getMissingReportMetadata(review, reportSettings)
+  const calcEngineVersion = getCalcEngineVersionStatus(
+    review.project.calcEngineVersion,
+  )
   const governingDcr = getGoverningDcr(summary)
   const modeLabel = reportModeLabel(reportSettings)
   const overallTone = toneForStatus(summary.overallStatus)
   const hasReviewIssue =
+    calcEngineVersion.mismatch ||
     !completeness.formal ||
     REVIEW_STATUSES.has(summary.overallStatus) ||
     missingReportMetadata.length > 0 ||
@@ -167,6 +177,13 @@ export function buildAttachmentReadinessModel({
       label: '產品資料',
       value: completeness.formal ? '完整' : `缺 ${completeness.missing.length} 項`,
       tone: completeness.formal ? 'ok' : 'warn',
+    },
+    {
+      label: '計算版本',
+      value: calcEngineVersion.mismatch
+        ? `${calcEngineVersion.projectVersion} → ${calcEngineVersion.runtimeVersion}，待確認`
+        : calcEngineVersion.runtimeVersion,
+      tone: calcEngineVersion.mismatch ? 'warn' : 'ok',
     },
     {
       label: '不檢討項目',
@@ -215,6 +232,7 @@ export function buildAttachmentReadinessModel({
           completeness,
           excludedCount,
           missingReportMetadata,
+          calcEngineVersion.mismatch,
         )}`,
         tone: 'warn',
       },

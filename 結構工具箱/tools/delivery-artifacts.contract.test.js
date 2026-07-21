@@ -120,6 +120,8 @@ const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/
 const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
 const anchorReportWorkbookTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts'));
 const anchorAttachmentReadinessTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts'));
+const anchorBackup = readText(repoFile('螺栓檢討/bolt-review-tool/src/backup.ts'));
+const anchorBackupTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/backup.test.ts'));
 const anchorReportDocumentState = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocumentState.ts'));
 const anchorReportDocumentStateTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocumentState.test.ts'));
 const anchorReportArtifactsTest = readText(repoFile('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts'));
@@ -405,8 +407,24 @@ assertIncludesAny(
   'src/reportWorkbook.test.ts',
   'src/attachmentReadiness.test.ts',
   'src/reportDocumentState.test.ts',
+  'src/backup.test.ts',
   'tests/reportArtifacts.test.ts',
 ].forEach(needle => assertIncludes(anchorReportContract, needle, `anchor report boundary contract wraps ${needle}`));
+
+[
+  'WORKSPACE_BACKUP_VERSION = 2',
+  'buildWorkspaceCaseReplay',
+  'verifyWorkspaceBackupReplay',
+  'evaluateProjectBatch',
+  '重新計算後指紋不符',
+  'legacy-backup-v1-unverified',
+].forEach(needle => assertIncludes(anchorBackup, needle, `anchor workspace backup replay keeps ${needle}`));
+
+[
+  'rejects a v2 backup when recalculation no longer matches the source',
+  'keeps legacy v1 data recoverable but marks it unverified and clears audits',
+  'invalidatedAuditEntries',
+].forEach(needle => assertIncludes(anchorBackupTest, needle, `anchor workspace replay regression keeps ${needle}`));
 
 [
   'buildStandaloneReportHtml',
@@ -478,6 +496,8 @@ assertIncludesAny(
   '報告匯出與附件閱讀狀態',
   '平台層報告邊界 gate',
   'workbook/docx 邊界',
+  '工作區 JSON 自 v2',
+  '保留原工作區',
 ].forEach(needle => assertIncludes(anchorPackageReadme, needle, `anchor README delivery boundary keeps ${needle}`));
 
 [

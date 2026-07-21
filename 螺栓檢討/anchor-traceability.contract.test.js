@@ -91,6 +91,8 @@ const reportDocument = readText(packageFile('src/ReportDocument.tsx'));
 const seismicGuidance = readText(packageFile('src/seismicRouteGuidance.ts'));
 const appCss = readText(packageFile('src/App.css'));
 const appSource = readText(packageFile('src/App.tsx'));
+const backupSource = readText(packageFile('src/backup.ts'));
+const projectLibrarySource = readText(packageFile('src/useProjectLibrary.ts'));
 const attachmentReadinessPanel = readText(packageFile('src/AttachmentReadinessPanel.tsx'));
 const reportSettingsPanel = readText(packageFile('src/ReportSettingsPanel.tsx'));
 const caseLibraryPanel = readText(packageFile('src/CaseLibraryPanel.tsx'));
@@ -241,6 +243,17 @@ assert(appSource.includes('resource-back-bar'), 'anchor report workspace keeps a
 assert(appSource.includes('legacy-panel') && appSource.includes('data-shows="report"'), 'anchor report workspace keeps unit preview as a page-only panel', 'legacy-panel data-shows=\"report\"');
 assert(caseLibraryPanel.includes('case-actions') && caseLibraryPanel.includes('case-library-toolbar'), 'anchor case library keeps page-only action rows', 'CaseLibraryPanel.tsx');
 assert(caseDocumentsPanel.includes('document-upload-row') && caseDocumentsPanel.includes('document-preview-panel'), 'anchor case documents keep page-only upload and preview surfaces', 'CaseDocumentsPanel.tsx');
+[
+  'WORKSPACE_BACKUP_VERSION = 2',
+  'buildWorkspaceCaseReplay',
+  'verifyWorkspaceBackupReplay',
+  'evaluateProjectBatch',
+  '重新計算後指紋不符',
+  'legacy-backup-v1-unverified',
+].forEach(needle => assert(backupSource.includes(needle), 'anchor backup keeps verified calculation replay', needle));
+assert(projectLibrarySource.includes('await verifyWorkspaceBackupReplay(parsed)'), 'anchor import verifies replay before workspace merge', 'verifyWorkspaceBackupReplay');
+assert(projectLibrarySource.indexOf('await verifyWorkspaceBackupReplay(parsed)') < projectLibrarySource.indexOf('mergeWorkspaceBackup('), 'anchor import verifies replay before mutating merged workspace', 'verify before merge');
+assert(projectLibrarySource.includes('已保留原工作區'), 'anchor import reports rollback boundary', '已保留原工作區');
 assertPrintHidesSelectors(
   appCss,
   [
@@ -275,6 +288,7 @@ assertPrintHidesSelectors(
   'src/reportDocx.test.ts',
   'src/reportWorkbook.test.ts',
   'src/attachmentReadiness.test.ts',
+  'src/backup.test.ts',
   'tests/reportArtifacts.test.ts',
 ].forEach(needle => assert(reportContract.includes(needle), 'anchor report contract keeps targeted report suites', needle));
 

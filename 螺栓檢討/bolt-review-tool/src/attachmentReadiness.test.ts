@@ -157,4 +157,19 @@ describe('buildAttachmentReadinessModel', () => {
     expect(model.status).toBe('review')
     expect(model.priority.value).toContain('產品評估資料缺')
   })
+
+  it('requires manual review when the imported calculation version is not current', () => {
+    const model = buildModel(
+      cloneProject({ calcEngineVersion: 'legacy-backup-v1-unverified' }),
+    )
+
+    expect(model.status).toBe('review')
+    expect(model.priority.value).toContain('計算版本與目前工具不一致')
+    expect(model.items).toContainEqual(
+      expect.objectContaining({
+        label: '計算版本',
+        tone: 'warn',
+      }),
+    )
+  })
 })
