@@ -25,6 +25,7 @@ assert.equal(Checker.isValidApprovalTime('2026/07/12 13:05:00'), true);
 assert.equal(Checker.isValidApprovalTime('2026-07-12T05:05:00.000Z'), true);
 assert.equal(Checker.isValidApprovalTime('2026/02/30 13:05:00'), false);
 assert.equal(Checker.isValidApprovalTime('2026-02-30T05:05:00.000Z'), false);
+assert.equal(Checker.parseTraceDateTime('2026/07/12 13:05:00'), Checker.parseTraceDateTime('2026-07-12T05:05:00.000Z'));
 const htmlExtracted = Checker.extractTextMetadata('<div><b>計畫名稱</b>測試大樓</div><div><b>計畫編號</b>PKG-001</div><div><b>工具版本</b>V3.1</div><div><b>計算指紋</b>CF-1234ABCD5678EF90</div>');
 assert.equal(htmlExtracted.projectName, '測試大樓');
 assert.equal(htmlExtracted.projectNo, 'PKG-001');
@@ -125,6 +126,20 @@ const invalidApprovalTime = Checker.analyzePackage([
 ]);
 assert.equal(invalidApprovalTime.status, 'blocked');
 assert(invalidApprovalTime.issues.some(issue => issue.code === 'invalid-formal-approval-time'));
+const approvalBeforeOutput = Checker.analyzePackage([
+  { ...reportRecord, file: 'beam-approval-before-output.pdf', approvalTime: '2026/07/12 12:59:59' },
+]);
+assert.equal(approvalBeforeOutput.status, 'blocked');
+assert(approvalBeforeOutput.issues.some(issue => issue.code === 'formal-approval-before-output'));
+const equalApprovalAndOutput = Checker.analyzePackage([
+  { ...reportRecord, file: 'beam-equal-approval-output.pdf', approvalTime: reportRecord.outputTime },
+]);
+assert.equal(equalApprovalAndOutput.status, 'ready', 'approval and output may share the same displayed second');
+const invalidOutputTime = Checker.analyzePackage([
+  { ...reportRecord, file: 'beam-invalid-output-time.pdf', outputTime: '2026/02/30 13:00:00' },
+]);
+assert.equal(invalidOutputTime.status, 'review');
+assert(invalidOutputTime.issues.some(issue => issue.code === 'invalid-output-time'));
 
 const incompleteTraceReport = Checker.analyzePackage([
   { file: 'legacy.pdf', errors: [], pageOnlyNeedles: [], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: '', toolVersion: '', outputTime: '', fingerprints: ['CF-1234ABCD5678EF90'] },

@@ -131,8 +131,27 @@ try {
     mutate(manifest);
     writeManifest(packageDir, manifest);
     const report = Verifier.verifyPackage(packageDir);
-    assert.equal(hasIssue(report, 'package-fingerprint-mismatch'), true, `${name} tampering must invalidate the v2 fingerprint`);
+    assert.equal(hasIssue(report, 'package-fingerprint-mismatch'), true, `${name} tampering must invalidate the v3 fingerprint`);
   });
+
+  const approvalBeforeOutputPackage = createPackage(tempRoot, 'approval-before-output');
+  const approvalBeforeOutputManifest = readManifest(approvalBeforeOutputPackage);
+  approvalBeforeOutputManifest.formalAttachments[0].outputTime = '2026/07/21 22:06:00';
+  approvalBeforeOutputManifest.packageFingerprint = Builder.packageFingerprintV3(approvalBeforeOutputManifest);
+  writeManifest(approvalBeforeOutputPackage, approvalBeforeOutputManifest);
+  writeReadme(approvalBeforeOutputPackage, approvalBeforeOutputManifest.packageFingerprint);
+  const approvalBeforeOutputReport = Verifier.verifyPackage(approvalBeforeOutputPackage);
+  assert.equal(hasIssue(approvalBeforeOutputReport, 'formal-approval-before-output'), true);
+  assert.equal(hasIssue(approvalBeforeOutputReport, 'package-fingerprint-mismatch'), false, 'chronology is validated independently of fingerprint consistency');
+
+  const invalidOutputTimePackage = createPackage(tempRoot, 'invalid-output-time');
+  const invalidOutputTimeManifest = readManifest(invalidOutputTimePackage);
+  invalidOutputTimeManifest.formalAttachments[0].outputTime = '2026/02/30 22:00:00';
+  invalidOutputTimeManifest.packageFingerprint = Builder.packageFingerprintV3(invalidOutputTimeManifest);
+  writeManifest(invalidOutputTimePackage, invalidOutputTimeManifest);
+  writeReadme(invalidOutputTimePackage, invalidOutputTimeManifest.packageFingerprint);
+  const invalidOutputTimeReport = Verifier.verifyPackage(invalidOutputTimePackage);
+  assert.equal(hasIssue(invalidOutputTimeReport, 'invalid-output-time'), true);
 
   const unsupportedPackage = createPackage(tempRoot, 'unsupported-schema-pair');
   const unsupportedManifest = readManifest(unsupportedPackage);

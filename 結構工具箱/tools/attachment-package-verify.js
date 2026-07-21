@@ -145,6 +145,16 @@ function validateRecord(record, role, index, report, seenPaths, schemaVersion) {
       && (typeof record.approvalTime !== 'string' || !Checker.isValidApprovalTime(record.approvalTime))) {
     addIssue(report, 'invalid-formal-approval-time', `${packagedFile} 缺少有效的正式附件核可時間。`, [packagedFile]);
   }
+  if (schemaVersion >= 3 && !Number.isFinite(Checker.parseTraceDateTime(record.outputTime))) {
+    addIssue(report, 'invalid-output-time', `${packagedFile} 缺少有效的輸出時間。`, [packagedFile]);
+  }
+  if (role === 'formal' && schemaVersion >= 3) {
+    const outputEpoch = Checker.parseTraceDateTime(record.outputTime);
+    const approvalEpoch = Checker.parseTraceDateTime(record.approvalTime);
+    if (Number.isFinite(outputEpoch) && Number.isFinite(approvalEpoch) && approvalEpoch < outputEpoch) {
+      addIssue(report, 'formal-approval-before-output', `${packagedFile} 的核可時間早於輸出時間。`, [packagedFile]);
+    }
+  }
   return { record, role, packagedFile };
 }
 

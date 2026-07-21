@@ -93,9 +93,9 @@ function normalizeToolVersion(value) {
   return raw;
 }
 
-function isValidApprovalTime(value) {
+function parseTraceDateTime(value) {
   const text = cleanMetadataValue(value);
-  if (!text) return false;
+  if (!text) return null;
   const local = /^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:T|\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d{1,3})?$/.exec(text);
   const zoned = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-]\d{2}:?\d{2})$/.exec(text);
   const match = local || zoned;
@@ -108,9 +108,18 @@ function isValidApprovalTime(value) {
       && date.getUTCHours() === parts[3]
       && date.getUTCMinutes() === parts[4]
       && date.getUTCSeconds() === parts[5];
-    return validCalendarTime && (!zoned || Number.isFinite(Date.parse(text)));
+    if (!validCalendarTime) return null;
+    if (zoned) {
+      const epoch = Date.parse(text);
+      return Number.isFinite(epoch) ? epoch : null;
+    }
+    return date.getTime() - 8 * 60 * 60 * 1000;
   }
-  return false;
+  return null;
+}
+
+function isValidApprovalTime(value) {
+  return Number.isFinite(parseTraceDateTime(value));
 }
 
 function detectReadyDocumentClass(text) {
@@ -455,6 +464,12 @@ function analyzePackage(records, options = {}) {
       issues.push(buildIssue('error', 'missing-formal-approval-time', `${record.file} 已標示正式附件，但缺少核可時間；請回原工具重新勾選核可並輸出。`, [record.file]));
     } else if ((record.readyDocumentNeedles || []).length && !isValidApprovalTime(record.approvalTime)) {
       issues.push(buildIssue('error', 'invalid-formal-approval-time', `${record.file} 的核可時間格式或日期無效：${record.approvalTime}。`, [record.file]));
+    } else if ((record.readyDocumentNeedles || []).length) {
+      const outputEpoch = parseTraceDateTime(record.outputTime);
+      const approvalEpoch = parseTraceDateTime(record.approvalTime);
+      if (Number.isFinite(outputEpoch) && Number.isFinite(approvalEpoch) && approvalEpoch < outputEpoch) {
+        issues.push(buildIssue('error', 'formal-approval-before-output', `${record.file} 的核可時間 ${record.approvalTime} 早於輸出時間 ${record.outputTime}；請回原工具重新輸出並核可。`, [record.file]));
+      }
     }
   });
   const readable = records.filter(record => !record.errors.length);
@@ -475,6 +490,8 @@ function analyzePackage(records, options = {}) {
     ].filter(Boolean);
     if (missingTraceFields.length) {
       issues.push(buildIssue('warn', 'missing-output-trace', `${record.file} 未能抽取${missingTraceFields.join('、')}；請人工確認其來源與交付用途。`, [record.file]));
+    } else if (!Number.isFinite(parseTraceDateTime(record.outputTime))) {
+      issues.push(buildIssue('warn', 'invalid-output-time', `${record.file} 的輸出時間格式或日期無效：${record.outputTime}；不得自動放行。`, [record.file]));
     }
   });
   const toolVersions = new Map();
@@ -586,4 +603,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
