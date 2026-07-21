@@ -149,6 +149,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [attachment-package-check.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-check.js:1)
 - 驗證後正式附件組包：
   [attachment-package-build.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-build.js:1)
+- 正式附件包事後完整性驗證：
+  [attachment-package-verify.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-verify.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -159,6 +161,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 附件整理完成、送出計算附件前，可將附件資料夾拖曳到 `結構工具箱/tools/檢查附件組包.bat`，或執行 `node 結構工具箱/tools/attachment-package-check.js --input <附件資料夾> --project-no <計畫編號>`。它讀取 PDF、DOCX、XLSX、JSON、HTML 與文字附件，會自動略過 `.evidence.json`、成對的文字擷取檔、渲染摘要及作業系統雜項檔案，並檢查同工具版本、來源 JSON 與正式計算書的計算指紋配對、真正重複的來源／輸出及頁面專用文字。`文件狀態：內部審閱` 會阻擋正式組包，`文件狀態：正式附件` 才能自動放行；計畫名稱、計畫編號與設計人可由主文承接，不列為必要欄位。缺少產出工具、版本、輸出時間、指紋或遇到未支援格式時仍降為 `review`。命令列採失敗封閉：只有 `ready` 回傳退出碼 `0`；`review` 回傳 `1`、`blocked` 回傳 `2`，參數或執行錯誤回傳 `3`。檢查結果只供內部整理，不得附入計算書、列印或 PDF。
 
 檢查通過後，可將同一資料夾拖曳到 `結構工具箱/tools/建立正式附件包.bat`，或執行 `node 結構工具箱/tools/attachment-package-build.js --input <附件資料夾> [--output <輸出資料夾>] [--project-no <計畫編號>]`。組包器直接沿用上述檢查結果；只有 `ready` 且至少一份文件明確標示「文件狀態：正式附件」時才會建立輸出。正式計算書放入 `01_正式附件/`；來源 JSON、SHA-256 清單與附件包指紋放入 `99_內部追溯_勿附入主報告/`。`review`、內部審閱、無正式文件、輸出位於來源資料夾內或輸出位置已存在時皆不產生正式包；建立過程先寫入暫存資料夾，完成後才原子更名，避免留下半成品。
+
+正式附件包在寄送、複製或歸檔後，可將整個附件包資料夾拖曳到 `結構工具箱/tools/驗證正式附件包.bat`，或執行 `node 結構工具箱/tools/attachment-package-verify.js --input <正式附件包資料夾>`。驗證器不修改任何檔案，會逐一核對清單格式、資料夾邊界、檔案大小、SHA-256、附件包指紋與內部 README，並阻擋遺漏、替換、額外檔案／資料夾、符號連結及路徑越界。只有整包吻合時回傳退出碼 `0`；任何完整性異常回傳 `2`，參數或執行錯誤回傳 `3`。此機制用於偵測傳輸或整理過程中的變動，不等同數位簽章或第三方身分驗證。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 

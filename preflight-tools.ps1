@@ -1225,6 +1225,11 @@ node 結構工具箱/tools/attachment-package-build.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageVerifyCommand = @'
+node 結構工具箱/tools/attachment-package-verify.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -2014,6 +2019,13 @@ $checks = @(
     label = "Formal attachment package builder"
     workdir = $root
     command = $attachmentPackageBuildCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-verify"
+    label = "Formal attachment package integrity verifier"
+    workdir = $root
+    command = $attachmentPackageVerifyCommand
     slow = $false
   },
   [pscustomobject]@{
