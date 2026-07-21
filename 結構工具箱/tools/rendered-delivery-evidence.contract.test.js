@@ -528,7 +528,7 @@ const anchorReviewHtmlText = decodeHtmlText(anchorReviewHtml);
 const anchorBlockedHtml = fs.readFileSync(anchorBlockedHtmlPath, 'utf8');
 const anchorBlockedHtmlText = decodeHtmlText(anchorBlockedHtml);
 assert.ok(anchorHtmlText.length > 3000, 'anchor HTML artifact contains substantial visible text');
-for (const needle of ['錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '使用邊界與版本追溯']) {
+for (const needle of ['錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '文件追溯與版本', '產出工具', '工具版本', '輸出時間', '計算指紋']) {
   assert.ok(anchorHtmlText.includes(needle), `anchor HTML artifact contains ${needle}`);
 }
 assert.ok(anchorHtml.includes('data-document-state="formal-attachment"'), 'anchor HTML artifact records formal attachment state');
@@ -548,7 +548,7 @@ const anchorDocxText = anchorDocxTextEntries
   .map(([, value]) => decodeXmlText(value.toString('utf8')))
   .join('\n');
 assert.ok(anchorDocxText.length > 3000, 'anchor DOCX artifact contains substantial visible text');
-for (const needle of ['鋼筋混凝土錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '逐項檢核明細', '使用邊界與版本']) {
+for (const needle of ['鋼筋混凝土錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '逐項檢核明細', '文件追溯與版本', '產出工具', '工具版本', '輸出時間', '計算指紋']) {
   assert.ok(anchorDocxText.includes(needle), `anchor DOCX artifact contains ${needle}`);
 }
 assert.ok(anchorDocxText.includes('文件狀態：正式附件'), 'anchor DOCX artifact identifies the approved attachment');
@@ -566,7 +566,7 @@ const anchorWorkbookText = [...anchorWorkbookEntries.entries()]
   .map(([, value]) => decodeXmlText(value.toString('utf8')))
   .join('\n');
 assert.ok(anchorWorkbookText.length > 2000, 'anchor XLSX artifact contains substantial worksheet text');
-for (const needle of ['柱腳基板示例', '案例名稱', '控制模式', '使用邊界 / 簽證責任']) {
+for (const needle of ['柱腳基板示例', '案例名稱', '控制模式', '產出工具', '工具版本', '輸出時間', '計算指紋']) {
   assert.ok(anchorWorkbookText.includes(needle), `anchor XLSX artifact contains ${needle}`);
 }
 assert.ok(anchorWorkbookText.includes('文件狀態'), 'anchor XLSX artifact includes document status');
@@ -588,6 +588,8 @@ const anchorForbiddenNeedles = [
   '不會寫入計算書',
   '不會寫入計算書或列印 PDF',
   '頁面顯示，不進計算書、列印或 PDF',
+  '本工具計算結果僅供工程判讀、方案比較與報表整理輔助',
+  '使用邊界 / 簽證責任',
 ];
 for (const needle of anchorForbiddenNeedles) {
   assert.equal(anchorHtmlText.includes(needle), false, `anchor HTML excludes page-only status: ${needle}`);

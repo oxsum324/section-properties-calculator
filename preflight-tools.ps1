@@ -1220,6 +1220,11 @@ node 結構工具箱/tools/attachment-package-check.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageBuildCommand = @'
+node 結構工具箱/tools/attachment-package-build.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -2002,6 +2007,13 @@ $checks = @(
     label = "Attachment package consistency check"
     workdir = $root
     command = $attachmentPackageCheckCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-build"
+    label = "Formal attachment package builder"
+    workdir = $root
+    command = $attachmentPackageBuildCommand
     slow = $false
   },
   [pscustomobject]@{

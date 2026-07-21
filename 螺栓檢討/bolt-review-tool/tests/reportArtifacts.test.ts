@@ -157,7 +157,7 @@ describe('release report artifacts', () => {
     expect(html).toContain('<!doctype html>')
     expect(html).toContain(defaultProject.name)
     expect(html).toContain('載重組合批次檢核')
-    expect(html).toContain('使用邊界與版本追溯')
+    expect(html).toContain('文件追溯與版本')
     expect(html).toContain('data-document-state="formal-attachment"')
     expect(html).toContain('文件狀態：正式附件')
     expect(html).toContain('王設計')

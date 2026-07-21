@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs'
 import {
   CURRENT_APP_BUILD_TIME,
   CURRENT_CALC_ENGINE_VERSION,
-  ENGINEERING_USE_DISCLAIMER,
+  REPORT_SOURCE_TOOL,
   getCalcEngineVersionStatus,
 } from './appMeta'
 import type {
@@ -392,10 +392,17 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     completeness,
     reportSettings,
   })
+  const calculationFingerprint = params.auditEntry?.hash
+    ? `CF-${params.auditEntry.hash.slice(0, 16).toUpperCase()}`
+    : ''
   return [
     { 項目: '案例名稱', 值: review.project.name },
     { 項目: '文件狀態', 值: documentState.label },
     ...(documentState.reason ? [{ 項目: '核可資訊', 值: documentState.reason }] : []),
+    { 項目: '產出工具', 值: REPORT_SOURCE_TOOL },
+    { 項目: '工具版本', 值: calcEngineVersionStatus.runtimeVersion },
+    { 項目: '輸出時間', 值: formatDateTime(reportGeneratedAt) },
+    { 項目: '計算指紋', 值: calculationFingerprint },
     { 項目: '規範版本', 值: review.ruleProfile.versionLabel },
     { 項目: '案號/專案', 值: reportSettings.projectCode || '' },
     { 項目: '公司/單位', 值: reportSettings.companyName || '' },
@@ -420,7 +427,6 @@ export function buildSummaryRows(params: ReportArtifactParams): ReportTableRow[]
     { 項目: REPORT_TIMESTAMP_LABELS.auditSource, 值: auditSourceLabel(params.auditEntry?.source) },
     { 項目: REPORT_TIMESTAMP_LABELS.auditHash, 值: formatAuditHash(params.auditEntry?.hash) },
     { 項目: '目前 build 時間', 值: formatDateTime(CURRENT_APP_BUILD_TIME) },
-    { 項目: '使用邊界 / 簽證責任', 值: ENGINEERING_USE_DISCLAIMER },
     {
       項目: '目前單位',
       值: `${getUnitSymbol('length', unitPreferences)} / ${getUnitSymbol('area', unitPreferences)} / ${getUnitSymbol('force', unitPreferences)} / ${getUnitSymbol('stress', unitPreferences)}`,

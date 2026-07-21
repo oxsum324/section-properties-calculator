@@ -17,6 +17,7 @@ import {
 } from 'docx'
 import {
   CURRENT_APP_BUILD_TIME,
+  REPORT_SOURCE_TOOL,
   getCalcEngineVersionStatus,
 } from './appMeta'
 import { buildStandaloneGeometrySketchSvg } from './reportExport'
@@ -525,6 +526,15 @@ function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
     params.review.project.calcEngineVersion,
   )
   const versionRows: Array<[string, string]> = [
+    ['產出工具', REPORT_SOURCE_TOOL],
+    ['工具版本', status.runtimeVersion],
+    ['輸出時間', formatDocxDateTime(params.reportGeneratedAt ?? new Date().toISOString())],
+    [
+      '計算指紋',
+      params.auditEntry?.hash
+        ? `CF-${params.auditEntry.hash.slice(0, 16).toUpperCase()}`
+        : '—',
+    ],
     ['本案計算版本', status.projectVersion],
     ['目前工具版本（runtime）', status.runtimeVersion],
     [
@@ -540,7 +550,7 @@ function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
     ],
   ]
   return [
-    createParagraph('使用邊界與版本', {
+    createParagraph('文件追溯與版本', {
       heading: HeadingLevel.HEADING_1,
     }),
     new Table({
@@ -617,7 +627,7 @@ export function buildReportDocument(
     ...buildSection('審查留痕', auditRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
     }),
-    // 使用邊界與版本：固定置於文件最末，作為簽證責任 / 版本驗證依據
+    // 文件追溯與版本：固定置於文件最末，保留正式附件來源與版本驗證依據
     ...buildVersionAndDisclaimerSection(params),
   ]
 

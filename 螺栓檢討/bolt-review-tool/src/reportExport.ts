@@ -1,7 +1,7 @@
 import { getAnchorReinforcementOverlay } from './anchorReinforcementOverlay'
 import {
   CURRENT_APP_BUILD_TIME,
-  ENGINEERING_USE_DISCLAIMER,
+  REPORT_SOURCE_TOOL,
   getCalcEngineVersionStatus,
 } from './appMeta'
 import { getBasePlateBearingOverlay } from './bearingOverlay'
@@ -836,15 +836,18 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
       }
 
       <section class="card">
-        <h2>使用邊界與版本追溯</h2>
+        <h2>文件追溯與版本</h2>
         <ul>
+          <li>產出工具 = ${escapeHtml(REPORT_SOURCE_TOOL)}</li>
+          <li>工具版本 = <code>${escapeHtml(calcEngineVersionStatus.runtimeVersion)}</code></li>
+          <li>輸出時間 = ${escapeHtml(formatDateTime(reportGeneratedAt))}</li>
+          <li>計算指紋 = ${escapeHtml(calculationFingerprint || '—')}</li>
           <li>版本狀態 = ${escapeHtml(calcEngineStatusLabel)}</li>
           <li>案件計算版本 = <code>${escapeHtml(calcEngineVersionStatus.projectVersion)}</code></li>
           <li>目前工具版本 = <code>${escapeHtml(calcEngineVersionStatus.runtimeVersion)}</code></li>
           <li>目前 build 時間 = ${escapeHtml(formatDateTime(CURRENT_APP_BUILD_TIME))}</li>
           <li>留痕來源 / Hash = ${escapeHtml(auditEntry ? `${auditSourceLabel(auditEntry.source)} / ${formatAuditHash(auditEntry.hash, 16)}` : '未留存')}</li>
         </ul>
-        <p class="meta">${escapeHtml(ENGINEERING_USE_DISCLAIMER)}</p>
       </section>
 
       <section class="card">

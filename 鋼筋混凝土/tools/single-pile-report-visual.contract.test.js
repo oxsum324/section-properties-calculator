@@ -43,6 +43,11 @@ const tool = read(toolPath);
 
 [
   'process.env.SINGLE_PILE_REPORT_PORT || 0',
+  'process.env.SINGLE_PILE_CALCULATION_TIMEOUT_MS || 30000',
+  'did not finish within',
+  'Optimistic parameter case did not apply alphaSoft=1.20',
+  'void page.click(triggerSelector',
+  'report trigger failed',
   'server.address().port',
   'singlePileAttachmentReadinessCard',
   'page attachment readiness card',

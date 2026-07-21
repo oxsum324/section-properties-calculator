@@ -25,6 +25,11 @@ assert.equal(htmlExtracted.projectNo, 'PKG-001');
 assert.equal(htmlExtracted.toolVersion, 'v3.1');
 assert.equal(Checker.extractTextMetadata('設計人員 Codex QA 製表日期 2026/07/12 計算書模式 詳算式').designer, 'Codex QA');
 assert.equal(Checker.extractTextMetadata('產出工具：建築物耐風設計 — 開放式建 築屋面風壓 工具版本：v1').sourceTool, '建築物耐風設計 — 開放式建築屋面風壓');
+assert.equal(
+  Checker.extractTextMetadata('工具版本 f05d596 輸出時間 2026/07/17 08:00 目前工具版本 f05d596 版本狀態 與目前工具版本一致').toolVersion,
+  'f05d596',
+  'metadata extraction uses the first canonical field instead of a later explanatory version field',
+);
 assert.equal(Checker.normalizeToolVersion('4.0'), 'v4.0');
 assert.equal(Checker.normalizeToolVersion('V4.0'), 'v4.0');
 assert.equal(Checker.normalizeToolVersion('wind-force.v1'), 'v1');
@@ -241,7 +246,8 @@ try {
   fs.mkdirSync(path.join(fixtureDir, 'word'), { recursive: true });
   fs.mkdirSync(path.join(fixtureDir, 'xl', 'worksheets'), { recursive: true });
   fs.writeFileSync(path.join(fixtureDir, 'word', 'document.xml'), '<w:document><w:p><w:t>計畫名稱：測試大樓</w:t></w:p><w:p><w:t>計畫編號：PKG-001</w:t></w:p></w:document>', 'utf8');
-  fs.writeFileSync(path.join(fixtureDir, 'xl', 'sharedStrings.xml'), '<sst><si><t>計畫名稱</t></si><si><t>測試大樓</t></si><si><t>計畫編號</t></si><si><t>PKG-001</t></si></sst>', 'utf8');
+  fs.writeFileSync(path.join(fixtureDir, 'word', 'footer1.xml'), '<w:ftr><w:p><w:t>文件狀態：正式附件</w:t></w:p><w:p><w:t>產出工具：錨栓檢討工具</w:t></w:p><w:p><w:t>工具版本：v1</w:t></w:p><w:p><w:t>輸出時間：2026/07/21 21:00:00</w:t></w:p><w:p><w:t>計算指紋：CF-1234ABCD5678EF90</w:t></w:p></w:ftr>', 'utf8');
+  fs.writeFileSync(path.join(fixtureDir, 'xl', 'sharedStrings.xml'), '<sst><si><t>文件狀態</t></si><si><t>正式附件</t></si><si><t>計畫名稱</t></si><si><t>測試大樓</t></si><si><t>計畫編號</t></si><si><t>PKG-001</t></si><si><t>產出工具</t></si><si><t>錨栓檢討工具</t></si><si><t>工具版本</t></si><si><t>v1</t></si><si><t>輸出時間</t></si><si><t>2026/07/21 21:00:00</t></si><si><t>計算指紋</t></si><si><t>CF-1234ABCD5678EF90</t></si></sst>', 'utf8');
   fs.writeFileSync(path.join(fixtureDir, 'xl', 'worksheets', 'sheet1.xml'), '<worksheet><sheetData><row><c><v>0</v></c></row></sheetData></worksheet>', 'utf8');
   for (const [archive, source] of [['sample.docx', 'word'], ['sample.xlsx', 'xl']]) {
     const result = spawnSync('tar', ['-a', '-cf', path.join(tempDir, archive), '-C', fixtureDir, source], { encoding: 'utf8' });
@@ -251,8 +257,18 @@ try {
   const xlsxRecord = Checker.inspectAttachment(path.join(tempDir, 'sample.xlsx'), tempDir);
   assert.deepEqual(docxRecord.errors, []);
   assert.equal(docxRecord.projectNo, 'PKG-001');
+  assert.equal(docxRecord.sourceTool, '錨栓檢討工具');
+  assert.equal(docxRecord.toolVersion, 'v1');
+  assert.equal(docxRecord.outputTime, '2026/07/21 21:00:00');
+  assert.deepEqual(docxRecord.readyDocumentNeedles, ['文件狀態：正式附件']);
+  assert.deepEqual(docxRecord.fingerprints, ['CF-1234ABCD5678EF90']);
   assert.deepEqual(xlsxRecord.errors, []);
   assert.equal(xlsxRecord.projectNo, 'PKG-001');
+  assert.equal(xlsxRecord.sourceTool, '錨栓檢討工具');
+  assert.equal(xlsxRecord.toolVersion, 'v1');
+  assert.equal(xlsxRecord.outputTime, '2026/07/21 21:00:00');
+  assert.deepEqual(xlsxRecord.readyDocumentNeedles, ['文件狀態：正式附件']);
+  assert.deepEqual(xlsxRecord.fingerprints, ['CF-1234ABCD5678EF90']);
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }

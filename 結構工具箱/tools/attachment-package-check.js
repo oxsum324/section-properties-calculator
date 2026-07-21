@@ -32,11 +32,16 @@ const FIELD_LABELS = {
   projectName: ['計畫名稱', '專案名稱', '工程名稱', '案件名稱'],
   projectNo: ['計畫編號', '專案編號', '工程編號', '案件編號'],
   designer: ['設計人員', '設計者', '設計人'],
-  sourceTool: ['產出工具'],
-  toolVersion: ['工具版本', '頁面版本'],
-  outputTime: ['輸出時間'],
+  sourceTool: ['產出工具', '工具名稱'],
+  toolVersion: ['目前工具版本', '工具版本', '頁面版本'],
+  outputTime: ['輸出時間', '報表生成時間'],
 };
-const METADATA_TERMINATORS = [...Object.values(FIELD_LABELS).flat(), '製表日期', '計算書模式', '計算指紋'];
+const METADATA_TERMINATORS = [
+  ...Object.values(FIELD_LABELS).flat(),
+  '文件狀態', '核可資訊', '複核人員', '規範版本', '發行日期', '案例最後編修', '留痕時間', '留痕來源', '留痕 Hash',
+  '案件計算版本', '本案計算版本', '版本狀態', '版本一致性',
+  '整體判定', '正式判定', '控制組合', '控制模式', '製表日期', '計算書模式', '計算指紋',
+];
 
 function normalizeText(value) {
   return String(value || '')
@@ -123,14 +128,19 @@ function extractPdfText(filePath) {
 function extractDocxText(filePath) {
   const entries = readArchiveEntries(filePath);
   if (!entries.includes('word/document.xml')) throw new Error('DOCX 缺少 word/document.xml');
-  return decodeXmlText(readArchiveEntry(filePath, 'word/document.xml'));
+  const contentEntries = entries.filter(entry => (
+    entry === 'word/document.xml'
+    || /^word\/(?:header|footer)\d+\.xml$/i.test(entry)
+  ));
+  return decodeXmlText(contentEntries.map(entry => readArchiveEntry(filePath, entry)).join('\n'));
 }
 
 function extractXlsxText(filePath) {
   const allEntries = readArchiveEntries(filePath);
-  const sharedEntries = allEntries.filter(entry => entry === 'xl/sharedStrings.xml');
-  const entries = sharedEntries.length ? sharedEntries : allEntries.filter(entry => (
-    entry === 'xl/workbook.xml' || /^xl\/worksheets\/sheet\d+\.xml$/i.test(entry)
+  const entries = allEntries.filter(entry => (
+    entry === 'xl/sharedStrings.xml'
+    || entry === 'xl/workbook.xml'
+    || /^xl\/worksheets\/sheet\d+\.xml$/i.test(entry)
   ));
   if (!entries.length) throw new Error('XLSX 缺少可讀取的 workbook XML');
   return decodeXmlText(entries.map(entry => readArchiveEntry(filePath, entry)).join('\n'));
@@ -167,9 +177,14 @@ function escapeRegex(value) {
 
 function extractLabelValue(text, labels) {
   const nextLabels = METADATA_TERMINATORS.map(escapeRegex).join('|');
-  for (const label of labels) {
-    const match = String(text || '').match(new RegExp(`${escapeRegex(label)}\\s*[:：]?\\s*([^\\r\\n]{0,140})`, 'i'));
-    if (!match) continue;
+  const candidates = labels
+    .map(label => ({
+      label,
+      match: new RegExp(`${escapeRegex(label)}\\s*[:：]?\\s*([^\\r\\n]{0,140})`, 'i').exec(String(text || '')),
+    }))
+    .filter(candidate => candidate.match)
+    .sort((left, right) => left.match.index - right.match.index || right.label.length - left.label.length);
+  for (const { match } of candidates) {
     const value = match[1]
       .replace(new RegExp(`\\s*(?:${nextLabels})\\s*[:：]?[\\s\\S]*$`, 'i'), '')
       .replace(/[｜|]+$/g, '')

@@ -214,7 +214,7 @@ describe('reportDocx', () => {
       '候選配置比選',
       '產品證據與文件對照',
       '審查留痕',
-      '使用邊界與版本',
+      '文件追溯與版本',
     ]
 
     expect(structure.visibleText.length).toBeGreaterThan(3_000)
@@ -225,6 +225,10 @@ describe('reportDocx', () => {
     expect(structure.pageBreakCount).toBeLessThanOrEqual(1)
     expect(structure.cantSplitCount).toBeGreaterThanOrEqual(30)
     expect(structure.visibleText).toContain('逐項檢核說明')
+    expect(structure.visibleText).toContain('產出工具錨栓檢討工具')
+    expect(structure.visibleText).toContain('工具版本')
+    expect(structure.visibleText).toContain('輸出時間')
+    expect(structure.visibleText).toContain('計算指紋—')
     expect(structure.visibleText).toContain('核可時間：2026/07/20 18:00:00')
     expect(structure.visibleText).not.toContain('T10:00:00.000Z')
     for (const title of sectionTitles) {

@@ -10,7 +10,7 @@ import {
   defaultProject,
   normalizeReportSettings,
 } from './defaults'
-import { CURRENT_CALC_ENGINE_VERSION, ENGINEERING_USE_DISCLAIMER } from './appMeta'
+import { CURRENT_CALC_ENGINE_VERSION, ENGINEERING_USE_DISCLAIMER, REPORT_SOURCE_TOOL } from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildStandaloneReportHtml } from './reportExport'
 import { normalizeUnitPreferences } from './units'
@@ -76,7 +76,7 @@ describe('buildStandaloneReportHtml', () => {
     expect(html).toContain(defaultProject.name)
     expect(html).toContain('載重組合批次檢核')
     expect(html).toContain('φ / ψ 採用總表')
-    expect(html).toContain('使用邊界與版本追溯')
+    expect(html).toContain('文件追溯與版本')
     expect(html).toContain('data-document-state="formal-attachment"')
     expect(html).toContain('文件狀態：正式附件')
     expect(html).toContain('本計算內容已完成審閱，核可作為正式附件')
@@ -84,7 +84,11 @@ describe('buildStandaloneReportHtml', () => {
     expect(html).toContain('李複核')
     expect(html).not.toContain('DRAFT /')
     expect(html).toContain(CURRENT_CALC_ENGINE_VERSION)
-    expect(html).toContain(ENGINEERING_USE_DISCLAIMER)
+    expect(html).toContain(`產出工具 = ${REPORT_SOURCE_TOOL}`)
+    expect(html).toContain('工具版本 =')
+    expect(html).toContain('輸出時間 =')
+    expect(html).toContain('計算指紋 = —')
+    expect(html).not.toContain(ENGINEERING_USE_DISCLAIMER)
     expect(html).not.toContain('離線狀態')
     expectNoPageOnlyReportStatus(html)
   })
@@ -148,6 +152,7 @@ describe('buildStandaloneReportHtml', () => {
     })
 
     expect(html).toContain('審查留痕')
+    expect(html).toContain('計算指紋 = CF-ABCDEF123456')
     expect(html).toContain('ABCDEF123456')
     expect(html).toContain('手動留存')
   })

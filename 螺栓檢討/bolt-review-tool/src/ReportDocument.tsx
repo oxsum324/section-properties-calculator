@@ -8,7 +8,7 @@
 import {
   CURRENT_APP_BUILD_TIME,
   CURRENT_CALC_ENGINE_VERSION,
-  ENGINEERING_USE_DISCLAIMER,
+  REPORT_SOURCE_TOOL,
 } from './appMeta'
 import {
   evaluateCandidateProducts,
@@ -1067,8 +1067,20 @@ export function ReportDocument({
         ) : null}
 
         <section className="report-section report-disclaimer-section">
-          <h2>使用邊界與版本</h2>
+          <h2>文件追溯與版本</h2>
           <dl className="report-version-list">
+            <div>
+              <dt>產出工具</dt>
+              <dd>{REPORT_SOURCE_TOOL}</dd>
+            </div>
+            <div>
+              <dt>工具版本</dt>
+              <dd><code>{CURRENT_CALC_ENGINE_VERSION}</code></dd>
+            </div>
+            {calculationFingerprint ? <div>
+              <dt>計算指紋</dt>
+              <dd><code>{calculationFingerprint}</code></dd>
+            </div> : null}
             <div>
               <dt>本案計算版本</dt>
               <dd>
@@ -1101,10 +1113,6 @@ export function ReportDocument({
               </dd>
             </div>
           </dl>
-          <p className="report-disclaimer-text">
-            <strong>簽證責任聲明：</strong>
-            {ENGINEERING_USE_DISCLAIMER}
-          </p>
         </section>
         <footer
           className="report-document-status"

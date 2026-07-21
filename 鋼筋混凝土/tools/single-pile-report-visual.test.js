@@ -13,6 +13,7 @@ const CASE_KEYS = (process.env.SINGLE_PILE_REPORT_CASES || 'default_code,bh5_reg
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
+const CALCULATION_TIMEOUT_MS = Number(process.env.SINGLE_PILE_CALCULATION_TIMEOUT_MS || 30000);
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -62,7 +63,23 @@ const CASES = {
         el?.dispatchEvent(new Event('input', { bubbles: true }));
         el?.dispatchEvent(new Event('change', { bubbles: true }));
       });
-      await page.waitForFunction(() => window.singlePileLast?.complianceOk === false, null, { timeout: 10000 });
+      try {
+        await page.waitForFunction(
+          () => Math.abs((window.singlePileLast?.params?.rules?.alphaSoft ?? 0) - 1.2) < 1e-9,
+          null,
+          { timeout: CALCULATION_TIMEOUT_MS },
+        );
+      } catch (error) {
+        const diagnostics = await page.evaluate(() => ({
+          inputValue: document.getElementById('alphaSoft')?.value ?? null,
+          snapshotValue: window.singlePileLast?.params?.rules?.alphaSoft ?? null,
+          complianceOk: window.singlePileLast?.complianceOk ?? null,
+          warnings: window.singlePileLast?.reviewWarnings ?? [],
+        }));
+        throw new Error(`Optimistic parameter case did not apply alphaSoft=1.20: ${JSON.stringify(diagnostics)}; ${error.message}`);
+      }
+      const complianceOk = await page.evaluate(() => window.singlePileLast?.complianceOk);
+      if (complianceOk !== false) throw new Error(`Optimistic parameter case kept complianceOk=${String(complianceOk)}`);
     },
     fragments: [
       '規範假設檢核',
@@ -99,17 +116,21 @@ function assertArtifact(file, expectedSignature, title) {
 }
 
 async function openReportPopup(page, options = {}) {
-  const timeoutMs = options.timeoutMs ?? 30000;
+  const timeoutMs = options.timeoutMs ?? CALCULATION_TIMEOUT_MS;
   const triggerSelector = options.triggerSelector ?? '#btnReport';
   const knownPages = new Set(page.context().pages());
-  await page.click(triggerSelector);
+  let clickError = null;
+  void page.click(triggerSelector, { timeout: timeoutMs }).catch(error => {
+    clickError = error;
+  });
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const report = page.context().pages().find(candidate => candidate !== page && !candidate.isClosed() && !knownPages.has(candidate));
     if (report) return report;
+    if (clickError) throw new Error(`report trigger failed: ${clickError.message}`);
     await page.waitForTimeout(100);
   }
-  throw new Error(`report popup did not open within ${timeoutMs}ms`);
+  throw new Error(`report popup did not open within ${timeoutMs}ms${clickError ? `: ${clickError.message}` : ''}`);
 }
 
 function serveStatic(rootDir, port = PORT) {
@@ -167,7 +188,21 @@ async function applyCase(page, key) {
   const tc = CASES[key];
   if (!tc) throw new Error(`Unknown single pile report visual case: ${key}`);
   if (tc.setup) await tc.setup(page);
-  await page.waitForFunction(() => window.singlePileLast && window.singlePileLast.candidateCount > 0, null, { timeout: 10000 });
+  try {
+    await page.waitForFunction(
+      () => window.singlePileLast && window.singlePileLast.candidateCount > 0,
+      null,
+      { timeout: CALCULATION_TIMEOUT_MS },
+    );
+  } catch (error) {
+    const diagnostics = await page.evaluate(() => ({
+      readyState: document.readyState,
+      banner: document.getElementById('banner')?.innerText?.replace(/\s+/g, ' ').trim() || '',
+      candidateCount: window.singlePileLast?.candidateCount ?? null,
+      calculationMode: window.singlePileLast?.calcMode ?? null,
+    }));
+    throw new Error(`Single pile case ${key} did not finish within ${CALCULATION_TIMEOUT_MS} ms: ${JSON.stringify(diagnostics)}; ${error.message}`);
+  }
 }
 
 async function reportMetrics(report) {
@@ -299,7 +334,7 @@ async function main() {
       const sourceFingerprint = sourceReplay.sourceFingerprint;
       const report = await openReportPopup(page);
       attachPageGuards(report, guard, `${key}:report`);
-      await report.waitForSelector('.rep-paper', { timeout: 10000 });
+      await report.waitForSelector('.rep-paper', { timeout: CALCULATION_TIMEOUT_MS });
       await report.setViewportSize({ width: 980, height: 1300 });
       await report.waitForTimeout(500);
 
@@ -369,7 +404,7 @@ async function main() {
         await page.waitForTimeout(150);
         const degradedReport = await openReportPopup(page);
         attachPageGuards(degradedReport, guard, `${key}:metadata-degraded-report`);
-        await degradedReport.waitForSelector('.rep-paper', { timeout: 10000 });
+        await degradedReport.waitForSelector('.rep-paper', { timeout: CALCULATION_TIMEOUT_MS });
         const degradedMetrics = await reportMetrics(degradedReport);
         assert(degradedMetrics.documentState === 'internal-review' && degradedMetrics.hasApprovalControl, `${key} blank project metadata stays printable and is inherited from the main report`, degradedMetrics.documentState || 'missing');
         assert(!degradedMetrics.metadataLabels.includes('計畫編號'), `${key} blank project number row is omitted`, degradedMetrics.metadataLabels.join(', '));

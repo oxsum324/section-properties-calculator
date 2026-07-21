@@ -12,7 +12,7 @@ import {
   defaultProject,
   normalizeReportSettings,
 } from './defaults'
-import { CURRENT_CALC_ENGINE_VERSION } from './appMeta'
+import { CURRENT_CALC_ENGINE_VERSION, ENGINEERING_USE_DISCLAIMER, REPORT_SOURCE_TOOL } from './appMeta'
 import { getEvaluationFieldStates } from './evaluationCatalog'
 import { buildReportWorkbook, serializeReportWorkbook } from './reportWorkbook'
 import { normalizeUnitPreferences } from './units'
@@ -247,11 +247,14 @@ describe('reportWorkbook', () => {
           row.項目 === '案件計算版本' && row.值 === CURRENT_CALC_ENGINE_VERSION,
       ),
     ).toBe(true)
-    expect(
-      summaryRows.some((row) => row.項目 === '使用邊界 / 簽證責任'),
-    ).toBe(true)
+    expect(summaryRows.some((row) => row.項目 === '產出工具' && row.值 === REPORT_SOURCE_TOOL)).toBe(true)
+    expect(summaryRows.some((row) => row.項目 === '工具版本' && row.值 === CURRENT_CALC_ENGINE_VERSION)).toBe(true)
+    expect(summaryRows.some((row) => row.項目 === '輸出時間' && row.值)).toBe(true)
+    expect(summaryRows.some((row) => row.項目 === '計算指紋' && String(row.值).startsWith('CF-'))).toBe(true)
+    expect(summaryRows.some((row) => row.項目 === '使用邊界 / 簽證責任')).toBe(false)
     const text = workbookText(workbook)
     expect(text.length).toBeGreaterThan(2_000)
+    expect(text).not.toContain(ENGINEERING_USE_DISCLAIMER)
     for (const needle of PAGE_ONLY_REPORT_STATUS_NEEDLES) {
       expect(text).not.toContain(needle)
     }
