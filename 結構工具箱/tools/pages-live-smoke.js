@@ -329,9 +329,9 @@ async function main() {
   assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('風力 / 地震正式工具'), 'report readiness report text scope includes formal tools');
   assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('局部快算'), 'report readiness report text scope includes local quick tools');
   assert.ok(String(reportReadinessStatus.reportTextSmokeScope || '').includes('矩陣外工具家族'), 'report readiness report text scope keeps other-family boundary');
-  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('優先建議報告閱讀狀態'), 'report readiness compact summary keeps page-only wording');
-  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('不會寫入計算書、列印或 PDF'), 'report readiness compact summary keeps export boundary');
+  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('頁面診斷明細不進計算書'), 'report readiness compact summary keeps page-only wording');
   assert.ok(String(reportReadinessStatus.compactSummary || '').includes('文件預設內部審閱，明確核可後為正式附件'), 'report readiness compact summary keeps approval-based document classification');
+  assert.ok(String(reportReadinessStatus.compactSummary || '').includes('兩者皆可列印'), 'report readiness compact summary keeps printable approval boundary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceRequired, 31, 'report readiness rendered delivery covers every formal homepage tool');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceComplete, reportReadinessStatus.renderedDeliveryEvidenceRequired, 'report readiness rendered delivery fully covered');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceIssueCount, 0, 'report readiness rendered delivery issues empty');

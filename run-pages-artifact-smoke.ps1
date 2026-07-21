@@ -46,9 +46,23 @@ $Python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $Python) {
   throw 'python is required to serve the staged Pages artifact.'
 }
-$Npx = Get-Command npx -ErrorAction SilentlyContinue
+$Node = Get-Command node.exe -ErrorAction SilentlyContinue
+if (-not $Node) {
+  $Node = Get-Command node -ErrorAction SilentlyContinue
+}
+$Npx = Get-Command npx.ps1 -ErrorAction SilentlyContinue
+if (-not $Npx) {
+  $Npx = Get-Command npx -ErrorAction SilentlyContinue
+}
 if (-not $Npx) {
   throw 'npx is required to run the staged Pages browser smoke.'
+}
+if (-not $Node) {
+  throw 'node is required to run the staged Pages browser smoke.'
+}
+$NpxCli = Join-Path (Split-Path -Parent $Npx.Source) 'node_modules\npm\bin\npx-cli.js'
+if (-not (Test-Path -LiteralPath $NpxCli)) {
+  throw "Could not resolve npx-cli.js beside $($Npx.Source)."
 }
 
 $Stamp = Get-Date -Format 'yyyyMMddHHmmss'
@@ -124,7 +138,7 @@ try {
     throw "pages-live-smoke.js failed with exit code $LASTEXITCODE"
   }
 
-  $OpenRaw = (& $Npx.Source --yes --package '@playwright/cli@0.1.17' playwright-cli --json "-s=$BrowserSession" open $BaseUrl | Out-String)
+  $OpenRaw = (& $Node.Source $NpxCli --yes --package '@playwright/cli@0.1.17' playwright-cli --json "-s=$BrowserSession" open $BaseUrl | Out-String)
   if ($LASTEXITCODE -ne 0) {
     throw "Playwright CLI open failed with exit code $LASTEXITCODE"
   }
@@ -134,13 +148,20 @@ try {
   }
   $BrowserOpened = $true
 
-  $BrowserCode = ((& $Npx.Source --yes 'terser@5.49.0' $BrowserSmokeScript.FullName --compress 'side_effects=false' --mangle) -join "`n").TrimEnd().TrimEnd(';')
+  $BrowserCode = ((& $Node.Source $NpxCli --yes 'terser@5.49.0' $BrowserSmokeScript.FullName --compress 'side_effects=false' --mangle --format 'ascii_only=true') -join "`n").TrimEnd().TrimEnd(';')
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($BrowserCode)) {
     throw "pages-live-browser-smoke.js minification failed with exit code $LASTEXITCODE"
   }
-  $BrowserRaw = (& $Npx.Source --yes --package '@playwright/cli@0.1.17' playwright-cli --json "-s=$BrowserSession" run-code $BrowserCode | Out-String)
-  if ($LASTEXITCODE -ne 0) {
-    throw "Playwright CLI browser smoke failed with exit code $LASTEXITCODE"
+  $BrowserCodeBase64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($BrowserCode))
+  $BrowserDecoder = "function d(s){var a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',o='',i=0,n=0;for(;i!==s.length;i+=4){n=a.indexOf(s[i])*262144+a.indexOf(s[i+1])*4096+(s[i+2]==='='?0:a.indexOf(s[i+2])*64)+(s[i+3]==='='?0:a.indexOf(s[i+3]));o+=String.fromCharCode(Math.floor(n/65536),Math.floor(n/256)-256*Math.floor(n/65536),n-256*Math.floor(n/256));if(s[i+3]==='=')o=o.slice(0,-1);if(s[i+2]==='=')o=o.slice(0,-1)}return o}"
+  $BrowserBootstrap = "async function(page){$BrowserDecoder;return await(eval(d('$BrowserCodeBase64')))(page)}"
+  if ($BrowserBootstrap.Length -ge 7500) {
+    throw "pages-live-browser-smoke.js Windows bootstrap is too long: $($BrowserBootstrap.Length) characters"
+  }
+  $BrowserRaw = (& $Node.Source $NpxCli --yes --package '@playwright/cli@0.1.17' playwright-cli --json "-s=$BrowserSession" run-code $BrowserBootstrap | Out-String)
+  $BrowserExitCode = $LASTEXITCODE
+  if ($BrowserExitCode -ne 0) {
+    throw "Playwright CLI browser smoke failed with exit code $BrowserExitCode`n$($BrowserRaw.Trim())"
   }
   $BrowserResult = $BrowserRaw | ConvertFrom-Json
   if ($BrowserResult.isError) {
@@ -151,7 +172,7 @@ try {
 }
 finally {
   if ($BrowserOpened) {
-    & $Npx.Source --yes --package '@playwright/cli@0.1.17' playwright-cli "-s=$BrowserSession" close 2>$null | Out-Null
+    & $Node.Source $NpxCli --yes --package '@playwright/cli@0.1.17' playwright-cli "-s=$BrowserSession" close 2>$null | Out-Null
   }
   if ($Server -and -not $Server.HasExited) {
     Stop-Process -Id $Server.Id -Force

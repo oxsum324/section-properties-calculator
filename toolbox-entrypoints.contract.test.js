@@ -649,6 +649,8 @@ assert.ok(pagesCleanRouteBuilder.includes('window.location.replace(target)'), 'P
 assert.ok(pagesCleanRouteBuilder.includes('window.location.search + window.location.hash'), 'Pages clean-route builder preserves query and hash');
 assert.ok(pagesLiveSmoke.includes('assets/status/preflight-summary.json'), 'Pages live smoke checks preflight status asset');
 assert.ok(pagesLiveSmoke.includes('assets/status/report-readiness-status.json'), 'Pages live smoke checks report readiness status asset');
+assert.ok(pagesLiveSmoke.includes("compactSummary || '').includes('頁面診斷明細不進計算書'"), 'Pages live smoke accepts the canonical compact page-only wording');
+assert.ok(pagesLiveSmoke.includes("compactSummary || '').includes('兩者皆可列印'"), 'Pages live smoke accepts the canonical printable approval wording');
 assert.ok(pagesLiveSmoke.includes('reportReadinessStatus.runId, preflightStatus.runId'), 'Pages live smoke aligns report readiness runId with public preflight status');
 assert.ok(pagesLiveSmoke.includes('reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath'), 'Pages live smoke aligns report readiness source with public preflight status');
 assert.ok(pagesLiveSmoke.includes('--allow-local-output'), 'Pages live smoke supports local repo-root preview override');
@@ -708,6 +710,9 @@ assert.ok(boundaries.includes('run-pages-artifact-smoke.ps1'), 'TOOL_BOUNDARIES 
 assert.ok(pagesArtifactSmoke.includes('GetTempPath'), 'local Pages artifact smoke stages into temp');
 assert.ok(pagesArtifactSmoke.includes('$ArtifactBuilder') && pagesArtifactSmoke.includes('--repo-root $RepoRoot --site-root $SiteRoot'), 'local Pages artifact smoke uses the shared Git-inventory builder');
 assert.equal(pagesArtifactSmoke.includes('robocopy'), false, 'local Pages artifact smoke has no duplicate robocopy exclusion policy');
+assert.ok(pagesArtifactSmoke.includes("node_modules\\npm\\bin\\npx-cli.js"), 'local Pages artifact smoke bypasses Windows npx wrapper argument rewriting');
+assert.ok(pagesArtifactSmoke.includes("--format 'ascii_only=true'") && pagesArtifactSmoke.includes('$BrowserCodeBase64') && pagesArtifactSmoke.includes('$BrowserBootstrap'), 'local Pages artifact smoke carries browser code through a Windows-safe ASCII/Base64 argument');
+assert.ok(pagesArtifactSmoke.includes('$BrowserRaw.Trim()'), 'local Pages artifact smoke preserves Playwright CLI diagnostics on non-zero exit');
 assert.ok(pagesArtifactBuilder.includes("'--cached', '--others', '--exclude-standard'") && pagesArtifactBuilder.includes('GIT_INDEX_FILE'), 'shared Pages artifact builder uses Git inventory and an isolated index');
 assert.ok(pagesArtifactBuilder.includes("core.autocrlf=false") && pagesArtifactBuilder.includes("core.eol=lf"), 'shared Pages artifact builder normalizes Windows and Linux staged bytes');
 assert.ok(pagesArtifactBuilder.includes("'output'") && pagesArtifactBuilder.includes("'dev_tools'") && pagesArtifactBuilder.includes("'tests'"), 'shared Pages artifact builder owns private directory exclusions');
