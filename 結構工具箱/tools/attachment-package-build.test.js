@@ -86,15 +86,27 @@ try {
 
   const manifestText = fs.readFileSync(manifestPath, 'utf8');
   const manifest = JSON.parse(manifestText);
-  assert.equal(manifest.kind, 'formal-attachment-package.v1');
+  assert.equal(manifest.schemaVersion, 2);
+  assert.equal(manifest.kind, Builder.MANIFEST_KIND);
   assert.equal(manifest.generatedAt, FIXED_NOW.toISOString());
   assert.equal(manifest.projectNo, 'PKG-001');
   assert.equal(manifest.packageFingerprint, result.packageFingerprint);
+  assert.equal(Builder.packageFingerprintForManifest(manifest), result.packageFingerprint);
   assert.equal(manifest.formalAttachments[0].packagedFile, '01_正式附件/reports/beam.html');
   assert.equal(manifest.traceabilitySources[0].packagedFile, '99_內部追溯_勿附入主報告/來源資料/source/beam.json');
   assert.equal(manifest.formalAttachments[0].sha256, sha256(reportPath));
   assert.equal(manifest.traceabilitySources[0].sha256, sha256(sourcePath));
   assert.equal(manifest.boundary.instruction.includes('送入主報告的檔案只取 01_正式附件'), true);
+  const reorderedManifest = JSON.parse(JSON.stringify(manifest));
+  reorderedManifest.formalAttachments[0].fingerprints.reverse();
+  reorderedManifest.traceabilitySources[0].fingerprints.reverse();
+  assert.equal(Builder.packageFingerprintV2(reorderedManifest), result.packageFingerprint, 'v2 fingerprint is independent of fingerprint array order');
+  const changedTraceabilityManifest = JSON.parse(JSON.stringify(manifest));
+  changedTraceabilityManifest.formalAttachments[0].toolVersion = 'v9.9';
+  assert.notEqual(Builder.packageFingerprintV2(changedTraceabilityManifest), result.packageFingerprint, 'v2 fingerprint covers traceability metadata');
+  const changedBoundaryManifest = JSON.parse(JSON.stringify(manifest));
+  changedBoundaryManifest.boundary.instruction = 'altered boundary';
+  assert.notEqual(Builder.packageFingerprintV2(changedBoundaryManifest), result.packageFingerprint, 'v2 fingerprint covers package boundary');
   assert.equal(manifestText.includes(tempRoot), false, 'internal manifest must not leak absolute local paths');
   assert.equal(fs.existsSync(path.join(readyOutput, Builder.FORMAL_ATTACHMENTS_DIR, 'source', 'beam.json')), false, 'source JSON is not placed in the formal attachment directory');
 

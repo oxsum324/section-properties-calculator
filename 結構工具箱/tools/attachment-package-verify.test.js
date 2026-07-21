@@ -60,6 +60,14 @@ function writeManifest(packageDir, manifest) {
   fs.writeFileSync(manifestPath(packageDir), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
 }
 
+function writeReadme(packageDir, packageFingerprint) {
+  fs.writeFileSync(
+    path.join(packageDir, Builder.INTERNAL_TRACE_DIR, Builder.INTERNAL_README_FILE),
+    `本資料夾僅供公司內部追溯，勿附入主報告、正式計算書或送審附件。\r\n正式交付請只取「${Builder.FORMAL_ATTACHMENTS_DIR}」內的檔案。\r\n附件包指紋：${packageFingerprint}\r\n`,
+    'utf8',
+  );
+}
+
 function hasIssue(report, code) {
   return report.issues.some(issue => issue.code === code);
 }
@@ -82,6 +90,43 @@ try {
   assert.equal(readyReport.summary.errors, 0);
   assert.equal(readyReport.records.every(record => record.status === 'verified'), true);
   assert.match(Verifier.formatSummary(readyReport), /完整性驗證：通過/);
+
+  const legacyPackage = createPackage(tempRoot, 'legacy-v1');
+  const legacyManifest = readManifest(legacyPackage);
+  legacyManifest.schemaVersion = 1;
+  legacyManifest.kind = Builder.LEGACY_MANIFEST_KIND;
+  legacyManifest.packageFingerprint = Builder.packageFingerprint(legacyManifest.formalAttachments, legacyManifest.traceabilitySources);
+  writeManifest(legacyPackage, legacyManifest);
+  writeReadme(legacyPackage, legacyManifest.packageFingerprint);
+  const legacyReport = Verifier.verifyPackage(legacyPackage);
+  assert.equal(legacyReport.status, 'ready', 'existing v1 packages remain verifiable');
+
+  const fingerprintTamperCases = [
+    ['trace-source-tool', manifest => { manifest.formalAttachments[0].sourceTool = '另一套工具'; }],
+    ['trace-tool-version', manifest => { manifest.formalAttachments[0].toolVersion = 'v9.9'; }],
+    ['trace-output-time', manifest => { manifest.formalAttachments[0].outputTime = '2026/07/21 23:59:59'; }],
+    ['trace-calculation-fingerprint', manifest => { manifest.formalAttachments[0].fingerprints[0] = 'CF-FFFFFFFFFFFFFFFF'; }],
+    ['project-no', manifest => { manifest.projectNo = 'PKG-ALTERED'; }],
+    ['generated-at', manifest => { manifest.generatedAt = '2026-07-21T15:00:00.000Z'; }],
+    ['check-summary', manifest => { manifest.checkSummary.warnings += 1; }],
+    ['package-boundary', manifest => { manifest.boundary.instruction = 'altered boundary'; }],
+  ];
+  fingerprintTamperCases.forEach(([name, mutate]) => {
+    const packageDir = createPackage(tempRoot, `metadata-${name}`);
+    const manifest = readManifest(packageDir);
+    mutate(manifest);
+    writeManifest(packageDir, manifest);
+    const report = Verifier.verifyPackage(packageDir);
+    assert.equal(hasIssue(report, 'package-fingerprint-mismatch'), true, `${name} tampering must invalidate the v2 fingerprint`);
+  });
+
+  const unsupportedPackage = createPackage(tempRoot, 'unsupported-schema-pair');
+  const unsupportedManifest = readManifest(unsupportedPackage);
+  unsupportedManifest.schemaVersion = 1;
+  writeManifest(unsupportedPackage, unsupportedManifest);
+  const unsupportedReport = Verifier.verifyPackage(unsupportedPackage);
+  assert.equal(hasIssue(unsupportedReport, 'unsupported-manifest-schema'), true);
+  assert.equal(hasIssue(unsupportedReport, 'package-fingerprint-mismatch'), true);
 
   const cli = spawnSync(process.execPath, [
     path.join(__dirname, 'attachment-package-verify.js'), '--input', readyPackage,
@@ -150,6 +195,12 @@ try {
     path.join(__dirname, 'attachment-package-verify.js'), '--input', malformedPackage,
   ], { encoding: 'utf8' });
   assert.equal(malformedCli.status, 2, malformedCli.stderr || malformedCli.stdout);
+
+  const nonObjectManifestPackage = createPackage(tempRoot, 'non-object-manifest');
+  fs.writeFileSync(manifestPath(nonObjectManifestPackage), 'null\n', 'utf8');
+  const nonObjectManifestReport = Verifier.verifyPackage(nonObjectManifestPackage);
+  assert.equal(nonObjectManifestReport.status, 'blocked');
+  assert.equal(hasIssue(nonObjectManifestReport, 'invalid-manifest'), true);
 
   const missingManifestPackage = createPackage(tempRoot, 'missing-manifest');
   fs.rmSync(manifestPath(missingManifestPackage));

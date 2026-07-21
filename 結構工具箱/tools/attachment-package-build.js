@@ -10,6 +10,9 @@ const INTERNAL_TRACE_DIR = '99_內部追溯_勿附入主報告';
 const TRACE_SOURCES_DIR = '來源資料';
 const PACKAGE_MANIFEST_FILE = '附件包清單.json';
 const INTERNAL_README_FILE = 'README.txt';
+const LEGACY_MANIFEST_KIND = 'formal-attachment-package.v1';
+const MANIFEST_KIND = 'formal-attachment-package.v2';
+const PACKAGE_BOUNDARY_INSTRUCTION = `送入主報告的檔案只取 ${FORMAL_ATTACHMENTS_DIR}；${INTERNAL_TRACE_DIR} 僅供公司內部追溯。`;
 
 function timestampToken(value = new Date()) {
   const date = value instanceof Date ? value : new Date(value);
@@ -117,6 +120,70 @@ function packageFingerprint(formalAttachments, traceabilitySources) {
   return `PKG-${crypto.createHash('sha256').update(JSON.stringify(stableRecords)).digest('hex').slice(0, 24).toUpperCase()}`;
 }
 
+function ordinalCompare(left, right) {
+  const leftText = String(left || '');
+  const rightText = String(right || '');
+  if (leftText < rightText) return -1;
+  if (leftText > rightText) return 1;
+  return 0;
+}
+
+function canonicalFingerprintRecord(record = {}) {
+  return {
+    packagedFile: record.packagedFile,
+    bytes: record.bytes,
+    sha256: record.sha256,
+    sourceTool: record.sourceTool,
+    toolVersion: record.toolVersion,
+    outputTime: record.outputTime,
+    fingerprints: Array.isArray(record.fingerprints)
+      ? [...record.fingerprints].sort(ordinalCompare)
+      : record.fingerprints,
+  };
+}
+
+function canonicalPackageFingerprintPayload(manifest = {}) {
+  const formalAttachments = Array.isArray(manifest.formalAttachments) ? manifest.formalAttachments : [];
+  const traceabilitySources = Array.isArray(manifest.traceabilitySources) ? manifest.traceabilitySources : [];
+  return {
+    schemaVersion: manifest.schemaVersion,
+    kind: manifest.kind,
+    generatedAt: manifest.generatedAt,
+    projectNo: manifest.projectNo,
+    formalAttachments: formalAttachments.map(canonicalFingerprintRecord)
+      .sort((left, right) => ordinalCompare(left.packagedFile, right.packagedFile)),
+    traceabilitySources: traceabilitySources.map(canonicalFingerprintRecord)
+      .sort((left, right) => ordinalCompare(left.packagedFile, right.packagedFile)),
+    checkSummary: {
+      attachments: manifest.checkSummary?.attachments,
+      errors: manifest.checkSummary?.errors,
+      warnings: manifest.checkSummary?.warnings,
+      fingerprintLinks: manifest.checkSummary?.fingerprintLinks,
+    },
+    boundary: {
+      formalDirectory: manifest.boundary?.formalDirectory,
+      internalDirectory: manifest.boundary?.internalDirectory,
+      instruction: manifest.boundary?.instruction,
+    },
+  };
+}
+
+function packageFingerprintV2(manifest) {
+  const payload = canonicalPackageFingerprintPayload(manifest);
+  return `PKG-${crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex').slice(0, 24).toUpperCase()}`;
+}
+
+function packageFingerprintForManifest(manifest = {}) {
+  if (manifest.schemaVersion === 1 && manifest.kind === LEGACY_MANIFEST_KIND) {
+    return packageFingerprint(
+      Array.isArray(manifest.formalAttachments) ? manifest.formalAttachments : [],
+      Array.isArray(manifest.traceabilitySources) ? manifest.traceabilitySources : [],
+    );
+  }
+  if (manifest.schemaVersion === 2 && manifest.kind === MANIFEST_KIND) return packageFingerprintV2(manifest);
+  throw new Error('不支援的附件包清單格式。');
+}
+
 function resolveProjectNo(report) {
   if (report.expectedProjectNo) return report.expectedProjectNo;
   const values = [...new Set((report.attachments || []).map(record => String(record.projectNo || '').trim()).filter(Boolean))];
@@ -172,11 +239,11 @@ function buildPackage(inputDir, options = {}) {
     const formalAttachments = formalRecords.map(record => copyRecord(record, resolvedInput, stagingDir, FORMAL_ATTACHMENTS_DIR));
     const traceabilitySources = traceabilityRecords.map(record => copyRecord(record, resolvedInput, stagingDir, path.join(INTERNAL_TRACE_DIR, TRACE_SOURCES_DIR)));
     const manifest = {
-      schemaVersion: 1,
-      kind: 'formal-attachment-package.v1',
+      schemaVersion: 2,
+      kind: MANIFEST_KIND,
       generatedAt: (options.now instanceof Date ? options.now : new Date(options.now || Date.now())).toISOString(),
       projectNo: resolveProjectNo(report),
-      packageFingerprint: packageFingerprint(formalAttachments, traceabilitySources),
+      packageFingerprint: '',
       formalAttachments,
       traceabilitySources,
       checkSummary: {
@@ -188,9 +255,10 @@ function buildPackage(inputDir, options = {}) {
       boundary: {
         formalDirectory: FORMAL_ATTACHMENTS_DIR,
         internalDirectory: INTERNAL_TRACE_DIR,
-        instruction: `送入主報告的檔案只取 ${FORMAL_ATTACHMENTS_DIR}；${INTERNAL_TRACE_DIR} 僅供公司內部追溯。`,
+        instruction: PACKAGE_BOUNDARY_INSTRUCTION,
       },
     };
+    manifest.packageFingerprint = packageFingerprintV2(manifest);
     const internalDir = path.join(stagingDir, INTERNAL_TRACE_DIR);
     fs.mkdirSync(internalDir, { recursive: true });
     fs.writeFileSync(path.join(internalDir, PACKAGE_MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
@@ -269,6 +337,9 @@ module.exports = {
   TRACE_SOURCES_DIR,
   PACKAGE_MANIFEST_FILE,
   INTERNAL_README_FILE,
+  LEGACY_MANIFEST_KIND,
+  MANIFEST_KIND,
+  PACKAGE_BOUNDARY_INSTRUCTION,
   timestampToken,
   defaultOutputDir,
   isPathInside,
@@ -277,6 +348,11 @@ module.exports = {
   sha256File,
   safeSourcePath,
   packageFingerprint,
+  ordinalCompare,
+  canonicalFingerprintRecord,
+  canonicalPackageFingerprintPayload,
+  packageFingerprintV2,
+  packageFingerprintForManifest,
   summarizeVerificationFailure,
   portableVerificationResult,
   buildPackage,

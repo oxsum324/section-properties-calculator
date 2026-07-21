@@ -5,7 +5,8 @@ const path = require('path');
 const Builder = require('./attachment-package-build.js');
 const Checker = require('./attachment-package-check.js');
 
-const MANIFEST_KIND = 'formal-attachment-package.v1';
+const LEGACY_MANIFEST_KIND = Builder.LEGACY_MANIFEST_KIND;
+const MANIFEST_KIND = Builder.MANIFEST_KIND;
 const VERIFICATION_KIND = 'formal-attachment-package-verification.v1';
 
 function normalizeSlash(value) {
@@ -74,8 +75,10 @@ function validateManifestHeader(manifest, report) {
     addIssue(report, 'invalid-manifest', '附件包清單必須是 JSON 物件。', [manifestRelativePath()]);
     return;
   }
-  if (manifest.schemaVersion !== 1 || manifest.kind !== MANIFEST_KIND) {
-    addIssue(report, 'unsupported-manifest-schema', `附件包清單格式不符：僅接受 schemaVersion 1 與 ${MANIFEST_KIND}。`, [manifestRelativePath()]);
+  const isLegacyManifest = manifest.schemaVersion === 1 && manifest.kind === LEGACY_MANIFEST_KIND;
+  const isCurrentManifest = manifest.schemaVersion === 2 && manifest.kind === MANIFEST_KIND;
+  if (!isLegacyManifest && !isCurrentManifest) {
+    addIssue(report, 'unsupported-manifest-schema', `附件包清單格式不符：僅接受 schemaVersion 1／${LEGACY_MANIFEST_KIND} 或 schemaVersion 2／${MANIFEST_KIND}。`, [manifestRelativePath()]);
   }
   if (typeof manifest.generatedAt !== 'string' || !manifest.generatedAt || !Number.isFinite(Date.parse(manifest.generatedAt))) {
     addIssue(report, 'invalid-generated-at', '附件包清單缺少有效的建立時間。', [manifestRelativePath()]);
@@ -83,11 +86,18 @@ function validateManifestHeader(manifest, report) {
   if (typeof manifest.projectNo !== 'string') {
     addIssue(report, 'invalid-project-no', '附件包清單的計畫編號格式不正確；空白可接受，但欄位必須存在。', [manifestRelativePath()]);
   }
-  if (!manifest.boundary || manifest.boundary.formalDirectory !== Builder.FORMAL_ATTACHMENTS_DIR || manifest.boundary.internalDirectory !== Builder.INTERNAL_TRACE_DIR) {
+  if (!manifest.boundary
+      || manifest.boundary.formalDirectory !== Builder.FORMAL_ATTACHMENTS_DIR
+      || manifest.boundary.internalDirectory !== Builder.INTERNAL_TRACE_DIR
+      || manifest.boundary.instruction !== Builder.PACKAGE_BOUNDARY_INSTRUCTION) {
     addIssue(report, 'invalid-package-boundary', '附件包清單的正式附件／內部追溯資料夾邊界不正確。', [manifestRelativePath()]);
   }
-  if (!manifest.checkSummary || typeof manifest.checkSummary !== 'object') {
-    addIssue(report, 'invalid-check-summary', '附件包清單缺少組包前檢查摘要。', [manifestRelativePath()]);
+  const summaryValues = ['attachments', 'errors', 'warnings', 'fingerprintLinks']
+    .map(key => manifest.checkSummary?.[key]);
+  if (!manifest.checkSummary || typeof manifest.checkSummary !== 'object'
+      || summaryValues.some(value => !Number.isSafeInteger(value) || value < 0)
+      || manifest.checkSummary.errors !== 0 || manifest.checkSummary.warnings !== 0) {
+    addIssue(report, 'invalid-check-summary', '附件包清單的組包前檢查摘要不完整或格式不正確；正式組包應為零阻擋與零提醒。', [manifestRelativePath()]);
   }
 }
 
@@ -125,7 +135,8 @@ function validateRecord(record, role, index, report, seenPaths) {
   if (typeof record.sourceTool !== 'string' || !record.sourceTool.trim()
       || typeof record.toolVersion !== 'string' || !record.toolVersion.trim()
       || typeof record.outputTime !== 'string' || !record.outputTime.trim()
-      || !Array.isArray(record.fingerprints) || !record.fingerprints.length) {
+      || !Array.isArray(record.fingerprints) || !record.fingerprints.length
+      || record.fingerprints.some(value => typeof value !== 'string' || !value.trim())) {
     addIssue(report, 'invalid-traceability-record', `${packagedFile} 缺少產出工具、版本、輸出時間或計算指紋。`, [packagedFile]);
   }
   return { record, role, packagedFile };
@@ -208,6 +219,10 @@ function verifyPackage(inputDir) {
     return report;
   }
   validateManifestHeader(manifest, report);
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    report.summary.errors = report.issues.length;
+    return report;
+  }
   report.packageFingerprint = typeof manifest.packageFingerprint === 'string' ? manifest.packageFingerprint : '';
 
   const formalRecords = Array.isArray(manifest.formalAttachments) ? manifest.formalAttachments : [];
@@ -221,6 +236,10 @@ function verifyPackage(inputDir) {
   if (!formalRecords.length) {
     addIssue(report, 'no-formal-attachments', '正式附件包不得沒有正式附件。', [Builder.FORMAL_ATTACHMENTS_DIR]);
   }
+  if (Number.isSafeInteger(manifest.checkSummary?.attachments)
+      && manifest.checkSummary.attachments !== formalRecords.length + traceRecords.length) {
+    addIssue(report, 'check-summary-count-mismatch', '附件包清單的組包前附件數與正式附件及內部追溯來源筆數不符。', [manifestRelativePath()]);
+  }
 
   const seenPaths = new Set();
   const validItems = [
@@ -228,9 +247,12 @@ function verifyPackage(inputDir) {
     ...traceRecords.map((record, index) => validateRecord(record, 'traceability', index, report, seenPaths)),
   ].filter(Boolean);
 
-  const fingerprintFormalRecords = formalRecords.filter(record => record && typeof record === 'object' && !Array.isArray(record));
-  const fingerprintTraceRecords = traceRecords.filter(record => record && typeof record === 'object' && !Array.isArray(record));
-  const expectedFingerprint = Builder.packageFingerprint(fingerprintFormalRecords, fingerprintTraceRecords);
+  let expectedFingerprint = '';
+  try {
+    expectedFingerprint = Builder.packageFingerprintForManifest(manifest);
+  } catch (error) {
+    expectedFingerprint = '';
+  }
   if (!/^PKG-[0-9A-F]{24}$/.test(report.packageFingerprint) || report.packageFingerprint !== expectedFingerprint) {
     addIssue(report, 'package-fingerprint-mismatch', '附件包指紋與清單內容重新計算結果不符。', [manifestRelativePath()]);
   }
@@ -302,6 +324,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  LEGACY_MANIFEST_KIND,
   MANIFEST_KIND,
   VERIFICATION_KIND,
   normalizeSlash,
