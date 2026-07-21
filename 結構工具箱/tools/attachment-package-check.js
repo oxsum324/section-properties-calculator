@@ -73,6 +73,7 @@ function cleanMetadataValue(value) {
 
 function normalizeToolVersion(value) {
   const raw = cleanMetadataValue(value);
+  if (/^[0-9a-f]{7,40}$/i.test(raw) && /[a-f]/i.test(raw)) return raw;
   const bareVersion = raw.match(/^v?(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);
   if (bareVersion) return `v${bareVersion[1]}`;
   const namespacedVersion = raw.match(/^[a-z][a-z0-9-]*\.v(\d+(?:\.\d+)*(?:[-+.\w]*)?)$/i);

@@ -33,6 +33,7 @@ assert.equal(
 assert.equal(Checker.normalizeToolVersion('4.0'), 'v4.0');
 assert.equal(Checker.normalizeToolVersion('V4.0'), 'v4.0');
 assert.equal(Checker.normalizeToolVersion('wind-force.v1'), 'v1');
+assert.equal(Checker.normalizeToolVersion('114245f'), '114245f', 'Git commit hashes that start with a digit are not semantic versions');
 const steelMemberSourceExtracted = Checker.extractJsonMetadata({
   schemaVersion: 1,
   kind: 'formal-calculation-source',
