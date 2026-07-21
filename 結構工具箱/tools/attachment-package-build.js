@@ -108,6 +108,22 @@ function resolveProjectNo(report) {
   return values.length === 1 ? values[0] : '';
 }
 
+function summarizeVerificationFailure(verification) {
+  const messages = (verification?.issues || []).map(issue => issue.message).filter(Boolean);
+  return messages.length ? messages.slice(0, 3).join('；') : '未提供錯誤明細';
+}
+
+function portableVerificationResult(verification) {
+  return {
+    kind: verification.kind,
+    status: verification.status,
+    packageFingerprint: verification.packageFingerprint,
+    summary: { ...verification.summary },
+    issues: [...(verification.issues || [])],
+    records: [...(verification.records || [])],
+  };
+}
+
 function buildPackage(inputDir, options = {}) {
   const targetOutput = options.output || defaultOutputDir(inputDir, options.now || new Date());
   const { resolvedInput, resolvedOutput } = validateBuildPaths(inputDir, targetOutput);
@@ -168,6 +184,11 @@ function buildPackage(inputDir, options = {}) {
       `本資料夾僅供公司內部追溯，勿附入主報告、正式計算書或送審附件。\r\n正式交付請只取「${FORMAL_ATTACHMENTS_DIR}」內的檔案。\r\n附件包指紋：${manifest.packageFingerprint}\r\n`,
       'utf8',
     );
+    const Verifier = require('./attachment-package-verify.js');
+    const verification = Verifier.verifyPackage(stagingDir);
+    if (verification.status !== 'ready') {
+      throw new Error(`正式附件包發布前完整性驗證未通過：${summarizeVerificationFailure(verification)}`);
+    }
     fs.renameSync(stagingDir, resolvedOutput);
     return {
       kind: 'formal-attachment-package-build.v1',
@@ -178,6 +199,7 @@ function buildPackage(inputDir, options = {}) {
       formalAttachmentCount: formalAttachments.length,
       traceabilitySourceCount: traceabilitySources.length,
       packageFingerprint: manifest.packageFingerprint,
+      selfVerification: portableVerificationResult(verification),
       report,
     };
   } catch (error) {
@@ -222,15 +244,8 @@ function main(argv = process.argv.slice(2)) {
   console.log(`正式附件包已建立：${result.outputDir}`);
   console.log(`正式附件 ${result.formalAttachmentCount} 份；內部追溯來源 ${result.traceabilitySourceCount} 份。`);
   console.log(`附件包指紋：${result.packageFingerprint}`);
+  console.log('發布前完整性驗證：通過。');
   return 0;
-}
-
-if (require.main === module) {
-  try { process.exitCode = main(); }
-  catch (error) {
-    console.error(`正式附件組包失敗：${error.message || error}`);
-    process.exitCode = Checker.CLI_ERROR_EXIT_CODE;
-  }
 }
 
 module.exports = {
@@ -246,7 +261,17 @@ module.exports = {
   isFormalAttachment,
   sha256File,
   packageFingerprint,
+  summarizeVerificationFailure,
+  portableVerificationResult,
   buildPackage,
   parseArgs,
   usage,
 };
+
+if (require.main === module) {
+  try { process.exitCode = main(); }
+  catch (error) {
+    console.error(`正式附件組包失敗：${error.message || error}`);
+    process.exitCode = Checker.CLI_ERROR_EXIT_CODE;
+  }
+}

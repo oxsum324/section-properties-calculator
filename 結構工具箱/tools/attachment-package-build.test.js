@@ -7,6 +7,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const Builder = require('./attachment-package-build.js');
+const Verifier = require('./attachment-package-verify.js');
 
 const FINGERPRINT = 'CF-1234ABCD5678EF90';
 const FIXED_NOW = new Date('2026-07-21T13:00:00.000Z');
@@ -66,6 +67,11 @@ try {
   assert.equal(result.formalAttachmentCount, 1);
   assert.equal(result.traceabilitySourceCount, 1);
   assert.match(result.packageFingerprint, /^PKG-[0-9A-F]{24}$/);
+  assert.equal(result.selfVerification.status, 'ready');
+  assert.equal(result.selfVerification.packageFingerprint, result.packageFingerprint);
+  assert.equal(result.selfVerification.summary.expectedFiles, 2);
+  assert.equal(result.selfVerification.summary.verifiedFiles, 2);
+  assert.equal(Object.prototype.hasOwnProperty.call(result.selfVerification, 'packageDir'), false, 'portable verification result must not retain the temporary path');
 
   const packagedReport = path.join(readyOutput, Builder.FORMAL_ATTACHMENTS_DIR, 'reports', 'beam.html');
   const packagedSource = path.join(readyOutput, Builder.INTERNAL_TRACE_DIR, Builder.TRACE_SOURCES_DIR, 'source', 'beam.json');
@@ -101,7 +107,38 @@ try {
   assert.equal(cli.status, 0, cli.stderr || cli.stdout);
   assert.match(cli.stdout, /正式附件包已建立/);
   assert.match(cli.stdout, /正式附件 1 份；內部追溯來源 1 份/);
+  assert.match(cli.stdout, /發布前完整性驗證：通過/);
   assert.equal(fs.existsSync(path.join(cliOutput, Builder.FORMAL_ATTACHMENTS_DIR, 'reports', 'beam.html')), true);
+
+  const selfVerifyInput = path.join(tempRoot, 'self-verify-failure-input');
+  const selfVerifyOutput = path.join(tempRoot, 'self-verify-failure-package');
+  fs.mkdirSync(selfVerifyInput, { recursive: true });
+  writeSourceJson(selfVerifyInput);
+  writeReport(selfVerifyInput, '文件狀態：正式附件');
+  const originalVerifyPackage = Verifier.verifyPackage;
+  Verifier.verifyPackage = () => ({
+    kind: Verifier.VERIFICATION_KIND,
+    status: 'blocked',
+    packageFingerprint: '',
+    summary: { expectedFiles: 2, verifiedFiles: 1, errors: 1, warnings: 0 },
+    issues: [{ level: 'error', code: 'simulated-verification-failure', message: '模擬完整性驗證失敗', files: [] }],
+    records: [],
+  });
+  try {
+    assert.throws(
+      () => Builder.buildPackage(selfVerifyInput, { output: selfVerifyOutput, projectNo: 'PKG-001', now: FIXED_NOW }),
+      /發布前完整性驗證未通過：模擬完整性驗證失敗/,
+    );
+  } finally {
+    Verifier.verifyPackage = originalVerifyPackage;
+  }
+  assert.equal(fs.existsSync(selfVerifyOutput), false, 'failed self-verification must not publish the output directory');
+  const selfVerifyStagingPrefix = `.${path.basename(selfVerifyOutput)}.tmp-`;
+  assert.deepEqual(
+    fs.readdirSync(path.dirname(selfVerifyOutput)).filter(name => name.startsWith(selfVerifyStagingPrefix)),
+    [],
+    'failed self-verification must remove the temporary package',
+  );
 
   const reviewInput = path.join(tempRoot, 'review-input');
   const reviewOutput = path.join(tempRoot, 'review-package');
