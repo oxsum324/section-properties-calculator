@@ -133,6 +133,8 @@ jobs:
           PAGES_EXPECTED_COMMIT_SHA: ${{ github.sha }}
           PAGES_EXPECTED_RUN_ID: ${{ github.run_id }}
           PAGES_EXPECT_CLEAN_SOURCE: 1
+          PAGES_HTTP_SMOKE_ATTEMPTS: 2
+          PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5
         run: node "結構工具箱/tools/pages-live-smoke.js" --check-private-boundary
 
       - name: Run live Pages browser smoke

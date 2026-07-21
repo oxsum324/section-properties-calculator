@@ -3,6 +3,7 @@ const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const PagesLiveSmoke = require('./結構工具箱/tools/pages-live-smoke.js');
 
 const repoRoot = __dirname;
 
@@ -193,6 +194,9 @@ assert.ok(pagesWorkflow.includes('--expect-clean-source') && pagesWorkflow.inclu
 assert.ok(pagesWorkflow.includes('PAGES_EXPECTED_COMMIT_SHA: ${{ github.sha }}') && pagesWorkflow.includes('PAGES_EXPECTED_RUN_ID: ${{ github.run_id }}'), 'Pages live smoke verifies the deployed commit and run identity');
 assert.equal((pagesWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages workflow reuses the browser runner before and after deploy');
 assert.ok(pagesWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages live browser smoke allows one bounded transient retry');
+assert.ok(pagesWorkflow.includes('PAGES_HTTP_SMOKE_ATTEMPTS: 2') && pagesWorkflow.includes('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages live HTTP smoke allows one bounded transient retry');
+assert.ok(pagesSmoke.includes('response.status >= 500 && response.status <= 599') && pagesSmoke.includes('runWithTransientRetry'), 'Pages HTTP smoke classifies 5xx and runs through the bounded retry wrapper');
+assert.ok(pagesSmoke.includes("environmentInteger('PAGES_HTTP_SMOKE_ATTEMPTS', 1, 1)") && pagesSmoke.includes("environmentInteger('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS', 5, 0)"), 'Pages HTTP smoke defaults staged and local runs to one attempt');
 assert.ok(pagesBrowserRunner.includes("@playwright/cli@0.1.17") && pagesBrowserRunner.includes('install-browser chromium'), 'Pages browser runner installs the pinned Chromium runtime');
 assert.ok(pagesBrowserRunner.includes("terser@5.49.0") && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner invokes the reusable browser smoke source');
 assert.ok(pagesBrowserRunner.includes('value.isError') && pagesBrowserRunner.includes('trap cleanup EXIT'), 'Pages browser runner fails on CLI JSON errors and always closes its session');
@@ -236,8 +240,8 @@ assert.ok(pagesBrowserSmoke.includes('routes.length < 40') && pagesBrowserSmoke.
 assert.ok(pagesBrowserSmoke.includes("page.on('pageerror'") && pagesBrowserSmoke.includes("page.on('requestfailed'") && pagesBrowserSmoke.includes("page.on('response'"), 'Pages browser smoke captures runtime and network failures');
 assert.ok(pagesBrowserSmoke.includes('horizontal overflow') && pagesBrowserSmoke.includes("route === '/rc-pile'") && pagesBrowserSmoke.includes("route === '/wind-cc'") && pagesBrowserSmoke.includes("route === '/stone-fixing'"), 'Pages browser smoke covers overflow and high-risk route regressions');
 assert.ok(pagesBrowserSmoke.includes('localArtifactPreview') && pagesBrowserSmoke.includes('127.0.0.1:8765/status'), 'Pages browser smoke narrows local artifact service exceptions');
-assert.ok(toolBoundaries.includes('只有正式 live') && toolBoundaries.includes('HTTP 5xx'), 'tool boundaries documents the live-only transient retry boundary');
-assert.ok(staging.includes('暫態網路錯誤最多重試一次'), 'staging guide documents the bounded live retry rule');
+assert.ok(toolBoundaries.includes('只有正式 live') && toolBoundaries.includes('HTTP smoke') && toolBoundaries.includes('HTTP 5xx'), 'tool boundaries documents the live-only transient retry boundary');
+assert.ok(staging.includes('HTTP smoke') && staging.includes('完整重跑最多一次') && staging.includes('第二次持續失敗仍阻擋'), 'staging guide documents the bounded live retry rule');
 
 assert.ok(artifactSmoke.includes('GetTempPath'), 'local artifact smoke stages in temp');
 assert.ok(artifactSmoke.includes('$ArtifactBuilder') && artifactSmoke.includes('--repo-root $RepoRoot --site-root $SiteRoot'), 'local artifact smoke uses the shared Git-inventory builder');
@@ -309,4 +313,60 @@ assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可�
 assert.ok(reportReadinessStatus.details.join(' ').includes('瀏覽器 smoke 證據'), 'report readiness exposes report text runtime evidence');
 assert.ok(reportReadinessStatus.details.join(' ').includes('正式放行實際交付物渲染佐證'), 'report readiness exposes actual rendered delivery evidence');
 
-console.log('pages release governance contract OK');
+async function testPagesHttpRetryBoundary() {
+  await assert.rejects(
+    () => PagesLiveSmoke.fetchResponse('https://example.test/transient', {}, async () => ({ status: 503 })),
+    error => error instanceof PagesLiveSmoke.TransientPagesSmokeError && /HTTP 503/.test(error.message),
+  );
+  const notPublished = await PagesLiveSmoke.fetchResponse('https://example.test/private', {}, async () => ({ status: 404 }));
+  assert.equal(notPublished.status, 404, 'HTTP 404 remains a non-transient private-boundary result');
+
+  const reset = new Error('fetch failed');
+  reset.cause = Object.assign(new Error('socket reset'), { code: 'ECONNRESET' });
+  await assert.rejects(
+    () => PagesLiveSmoke.fetchResponse('https://example.test/reset', {}, async () => { throw reset; }),
+    error => error instanceof PagesLiveSmoke.TransientPagesSmokeError && error.cause === reset,
+  );
+
+  let attempts = 0;
+  const retryDelays = [];
+  const recovered = await PagesLiveSmoke.runWithTransientRetry(async () => {
+    attempts += 1;
+    if (attempts === 1) throw new PagesLiveSmoke.TransientPagesSmokeError('temporary HTTP 503');
+    return 'recovered';
+  }, {
+    attempts: 2,
+    delayMs: 5000,
+    sleep: async value => { retryDelays.push(value); },
+  });
+  assert.equal(recovered, 'recovered');
+  assert.equal(attempts, 2, 'transient HTTP smoke retries exactly once');
+  assert.deepEqual(retryDelays, [5000], 'transient HTTP smoke uses the bounded delay');
+
+  attempts = 0;
+  await assert.rejects(
+    () => PagesLiveSmoke.runWithTransientRetry(async () => {
+      attempts += 1;
+      throw new Error('expected HTTP 200, got 404');
+    }, { attempts: 2, sleep: async () => {} }),
+    /got 404/,
+  );
+  assert.equal(attempts, 1, 'non-transient HTTP failures do not retry');
+
+  attempts = 0;
+  await assert.rejects(
+    () => PagesLiveSmoke.runWithTransientRetry(async () => {
+      attempts += 1;
+      throw new PagesLiveSmoke.TransientPagesSmokeError('persistent HTTP 503');
+    }, { attempts: 2, delayMs: 0, sleep: async () => {} }),
+    /persistent HTTP 503/,
+  );
+  assert.equal(attempts, 2, 'persistent transient failure remains blocked after one retry');
+}
+
+testPagesHttpRetryBoundary().then(() => {
+  console.log('pages release governance contract OK');
+}).catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

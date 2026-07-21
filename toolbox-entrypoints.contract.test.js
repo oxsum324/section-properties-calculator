@@ -765,6 +765,8 @@ assert.ok(boundaries.includes('sourceDirty: false') && boundaries.includes('sour
 assert.ok(staging.includes('git status --porcelain --untracked-files=all') && staging.includes('sourceDirty: false'), 'STAGING_GROUPS documents clean source evidence');
 assert.equal((pagesDeployWorkflow.match(/bash "結構工具箱\/tools\/run-pages-browser-smoke\.sh"/g) || []).length, 2, 'Pages deploy workflow reuses browser smoke before and after deploy');
 assert.ok(pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_ATTEMPTS: 2') && pagesDeployWorkflow.includes('PAGES_BROWSER_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages deploy workflow bounds live browser transient retries');
+assert.ok(pagesDeployWorkflow.includes('PAGES_HTTP_SMOKE_ATTEMPTS: 2') && pagesDeployWorkflow.includes('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS: 5'), 'Pages deploy workflow bounds live HTTP transient retries');
+assert.ok(pagesLiveSmoke.includes('response.status >= 500 && response.status <= 599') && pagesLiveSmoke.includes('runWithTransientRetry'), 'Pages live HTTP smoke treats 5xx as retryable failures through a bounded wrapper');
 assert.ok(pagesBrowserRunner.includes('install-browser chromium') && pagesBrowserRunner.includes('value.isError'), 'Pages browser runner installs Chromium and fails on CLI JSON errors');
 assert.ok(pagesBrowserRunner.includes("@playwright/cli@0.1.17") && pagesBrowserRunner.includes("terser@5.49.0"), 'Pages browser runner pins browser dependencies');
 assert.ok(pagesBrowserRunner.includes('trap cleanup EXIT') && pagesBrowserRunner.includes('pages-live-browser-smoke.js'), 'Pages browser runner cleans up and invokes the shared source');

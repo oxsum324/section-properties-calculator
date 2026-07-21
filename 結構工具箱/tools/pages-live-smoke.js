@@ -1,6 +1,10 @@
 const assert = require('assert');
 
 const DEFAULT_BASE_URL = 'https://oxsum324.github.io/section-properties-calculator/';
+const TRANSIENT_NETWORK_ERROR_CODES = new Set([
+  'ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EAI_AGAIN', 'ENETUNREACH', 'EHOSTUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET',
+]);
 const PUBLIC_ROUTE_SAMPLES = [
   { path: '鋼筋混凝土/', needles: ['鋼筋混凝土構件設計工具箱', 'RC 自動巡檢', '../結構工具箱/assets/status/platform-status.json', '平台公開巡檢狀態'] },
   { path: '鋼筋混凝土/tools/beam.html', needles: ['梁 Beam 設計', 'RC 工具箱'] },
@@ -92,8 +96,48 @@ function liveUrl(base, relativePath) {
   return new URL(encodeURI(relativePath), base).toString();
 }
 
+class TransientPagesSmokeError extends Error {
+  constructor(message, cause = null) {
+    super(message);
+    this.name = 'TransientPagesSmokeError';
+    this.transient = true;
+    if (cause) this.cause = cause;
+  }
+}
+
+function isTransientNetworkError(error) {
+  const seen = new Set();
+  let current = error;
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    if (TRANSIENT_NETWORK_ERROR_CODES.has(String(current.code || '').toUpperCase())) return true;
+    current = current.cause;
+  }
+  return false;
+}
+
+function isTransientSmokeError(error) {
+  return Boolean(error?.transient) || isTransientNetworkError(error);
+}
+
+async function fetchResponse(url, options = {}, fetchImpl = globalThis.fetch) {
+  let response;
+  try {
+    response = await fetchImpl(url, options);
+  } catch (error) {
+    if (isTransientNetworkError(error)) {
+      throw new TransientPagesSmokeError(`${url} 暫時性網路錯誤：${error.message || error}`, error);
+    }
+    throw error;
+  }
+  if (response.status >= 500 && response.status <= 599) {
+    throw new TransientPagesSmokeError(`${url} 暫時回傳 HTTP ${response.status}`);
+  }
+  return response;
+}
+
 async function fetchText(url) {
-  const response = await fetch(url, { redirect: 'manual', cache: 'no-store' });
+  const response = await fetchResponse(url, { redirect: 'manual', cache: 'no-store' });
   assert.equal(response.status, 200, `${url} expected HTTP 200, got ${response.status}`);
   return response.text();
 }
@@ -115,7 +159,7 @@ async function assertPublicAssets(html, pageUrl, label) {
   const assetUrls = localAssetUrls(html, pageUrl);
   assert.ok(assetUrls.length > 0, `${label} should reference public assets`);
   for (const assetUrl of assetUrls) {
-    const response = await fetch(assetUrl, { redirect: 'manual', cache: 'no-store' });
+    const response = await fetchResponse(assetUrl, { redirect: 'manual', cache: 'no-store' });
     assert.equal(response.status, 200, `${assetUrl} expected HTTP 200, got ${response.status}`);
     const body = await response.arrayBuffer();
     assert.ok(body.byteLength > 0, `${assetUrl} should not be empty`);
@@ -182,7 +226,7 @@ async function assertOldOutputNotRequired(base) {
     liveUrl(base, 'output/preflight/preflight-summary.json')
   ];
   for (const url of legacyUrls) {
-    const response = await fetch(url, { redirect: 'manual', cache: 'no-store' });
+    const response = await fetchResponse(url, { redirect: 'manual', cache: 'no-store' });
     assert.notEqual(response.status, 200, `${url} should not be the homepage status source`);
   }
 }
@@ -248,9 +292,42 @@ async function assertAllHomeCleanRoutes(base, homeJs) {
 async function assertPrivateBoundary(base) {
   for (const path of PRIVATE_PATHS) {
     const url = liveUrl(base, path);
-    const response = await fetch(url, { redirect: 'manual', cache: 'no-store' });
+    const response = await fetchResponse(url, { redirect: 'manual', cache: 'no-store' });
     assert.notEqual(response.status, 200, `${path} should not be published to Pages`);
   }
+}
+
+function environmentInteger(name, fallback, minimum) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  if (!/^\d+$/.test(raw) || Number(raw) < minimum || !Number.isSafeInteger(Number(raw))) {
+    throw new Error(`${name} 必須是大於或等於 ${minimum} 的整數。`);
+  }
+  return Number(raw);
+}
+
+function delay(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+async function runWithTransientRetry(task, options = {}) {
+  const attempts = options.attempts ?? 1;
+  const delayMs = options.delayMs ?? 5000;
+  const sleep = options.sleep || delay;
+  const onRetry = options.onRetry || (() => {});
+  if (!Number.isSafeInteger(attempts) || attempts < 1) throw new Error('HTTP smoke attempts 必須是正整數。');
+  if (!Number.isSafeInteger(delayMs) || delayMs < 0) throw new Error('HTTP smoke retry delay 必須是非負整數。');
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      if (!isTransientSmokeError(error) || attempt >= attempts) throw error;
+      onRetry(error, { attempt, nextAttempt: attempt + 1, attempts, delayMs });
+      await sleep(delayMs);
+    }
+  }
+  throw new Error('Pages HTTP smoke 未執行。');
 }
 
 async function main() {
@@ -384,7 +461,33 @@ async function main() {
   console.log(`platform runId=${platformStatus.runId}, preflight runId=${preflightStatus.runId}, reportReadiness runId=${reportReadinessStatus.runId}`);
 }
 
-main().catch(error => {
-  console.error(error);
-  process.exit(1);
-});
+async function runCli() {
+  const attempts = environmentInteger('PAGES_HTTP_SMOKE_ATTEMPTS', 1, 1);
+  const retryDelaySeconds = environmentInteger('PAGES_HTTP_SMOKE_RETRY_DELAY_SECONDS', 5, 0);
+  await runWithTransientRetry(main, {
+    attempts,
+    delayMs: retryDelaySeconds * 1000,
+    onRetry(error, context) {
+      console.error(`Pages HTTP smoke attempt ${context.attempt}/${context.attempts} 遇到暫態錯誤：${error.message || error}`);
+      console.error(`將於 ${retryDelaySeconds} 秒後完整重跑 HTTP smoke（attempt ${context.nextAttempt}/${context.attempts}）。`);
+    },
+  });
+}
+
+if (require.main === module) {
+  runCli().catch(error => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  TransientPagesSmokeError,
+  isTransientNetworkError,
+  isTransientSmokeError,
+  fetchResponse,
+  environmentInteger,
+  runWithTransientRetry,
+  main,
+  runCli,
+};
