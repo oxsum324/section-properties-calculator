@@ -80,10 +80,15 @@ function copyRecord(record, inputDir, stagingDir, packageRoot) {
   const targetPath = path.resolve(stagingDir, packagedFile);
   if (!isPathInside(stagingDir, targetPath)) throw new Error(`附件輸出路徑超出組包資料夾：${record.file}`);
   fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+  const inspectedHash = String(record.sourceSha256 || '').toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(inspectedHash)) throw new Error(`附件缺少檢查階段 SHA-256：${record.file}`);
+  const sourceHashBefore = sha256File(sourcePath);
+  if (sourceHashBefore !== inspectedHash) throw new Error(`附件來源檔案在檢查後已變更：${record.file}`);
   fs.copyFileSync(sourcePath, targetPath);
-  const sourceHash = sha256File(sourcePath);
+  const sourceHashAfter = sha256File(sourcePath);
   const targetHash = sha256File(targetPath);
-  if (sourceHash !== targetHash) throw new Error(`附件複製後雜湊不一致：${record.file}`);
+  if (sourceHashAfter !== sourceHashBefore) throw new Error(`附件來源檔案在複製期間發生變更：${record.file}`);
+  if (targetHash !== inspectedHash) throw new Error(`附件複製後雜湊與檢查階段不一致：${record.file}`);
   return {
     packagedFile: packagedFile.split(path.sep).join('/'),
     bytes: fs.statSync(targetPath).size,

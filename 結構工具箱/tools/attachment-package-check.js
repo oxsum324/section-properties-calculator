@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -64,6 +65,16 @@ function decodeXmlText(value) {
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function sha256File(filePath) {
+  return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
+
+function fileSnapshot(filePath) {
+  const stat = fs.lstatSync(filePath);
+  if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('附件來源不是一般檔案');
+  return { bytes: stat.size, sha256: sha256File(filePath) };
 }
 
 function cleanMetadataValue(value) {
@@ -211,12 +222,14 @@ function extractTextMetadata(text) {
 function inspectAttachment(filePath, rootDir) {
   const type = path.extname(filePath).toLowerCase().slice(1) || 'unknown';
   const record = {
-    file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: fs.statSync(filePath).size,
+    file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
     reportDocumentNeedles: [], documentClassRequired: false, errors: [],
   };
   try {
+    const before = fileSnapshot(filePath);
+    record.size = before.bytes;
     let text = '';
     let metadata = null;
     if (type === 'pdf') text = extractPdfText(filePath);
@@ -234,6 +247,11 @@ function inspectAttachment(filePath, rootDir) {
     const normalizedText = normalizeText(text);
     record.reportDocumentNeedles = REPORT_DOCUMENT_NEEDLES.filter(needle => normalizedText.includes(needle));
     record.documentClassRequired = isDocumentClassRequired({ ...record, documentClassRequired: undefined });
+    const after = fileSnapshot(filePath);
+    record.sourceSha256 = after.sha256;
+    if (before.bytes !== after.bytes || before.sha256 !== after.sha256) {
+      record.errors.push('附件在內容檢查期間發生變更；請停止重新輸出檔案後再重查');
+    }
   } catch (error) {
     record.errors.push(error.message || String(error));
   }
@@ -541,4 +559,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

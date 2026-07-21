@@ -7,6 +7,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const Builder = require('./attachment-package-build.js');
+const Checker = require('./attachment-package-check.js');
 const Verifier = require('./attachment-package-verify.js');
 
 const FINGERPRINT = 'CF-1234ABCD5678EF90';
@@ -159,6 +160,62 @@ try {
     () => Builder.safeSourcePath(linkedInput, path.join('linked-outside', 'outside.html')),
     /來源路徑不得包含符號連結或 junction/,
     'copy layer independently rejects a linked path even if the pre-check were bypassed',
+  );
+
+  const changedAfterCheckInput = path.join(tempRoot, 'changed-after-check-input');
+  const changedAfterCheckOutput = path.join(tempRoot, 'changed-after-check-package');
+  fs.mkdirSync(changedAfterCheckInput, { recursive: true });
+  const changedAfterCheckReport = writeReport(changedAfterCheckInput, '文件狀態：正式附件');
+  const originalCheckPackage = Checker.checkPackage;
+  Checker.checkPackage = (...args) => {
+    const report = originalCheckPackage(...args);
+    fs.appendFileSync(changedAfterCheckReport, '\nchanged-after-check', 'utf8');
+    return report;
+  };
+  try {
+    assert.throws(
+      () => Builder.buildPackage(changedAfterCheckInput, { output: changedAfterCheckOutput, projectNo: 'PKG-001', now: FIXED_NOW }),
+      /來源檔案在檢查後已變更/,
+    );
+  } finally {
+    Checker.checkPackage = originalCheckPackage;
+  }
+  assert.equal(fs.existsSync(changedAfterCheckOutput), false, 'source replacement after check must not publish a package');
+  const changedAfterCheckStagingPrefix = `.${path.basename(changedAfterCheckOutput)}.tmp-`;
+  assert.deepEqual(
+    fs.readdirSync(path.dirname(changedAfterCheckOutput)).filter(name => name.startsWith(changedAfterCheckStagingPrefix)),
+    [],
+    'source replacement after check must remove the temporary package',
+  );
+
+  const changedDuringCopyInput = path.join(tempRoot, 'changed-during-copy-input');
+  const changedDuringCopyOutput = path.join(tempRoot, 'changed-during-copy-package');
+  fs.mkdirSync(changedDuringCopyInput, { recursive: true });
+  const changedDuringCopyReport = writeReport(changedDuringCopyInput, '文件狀態：正式附件');
+  const originalCopyFileSync = fs.copyFileSync;
+  let changedDuringCopy = false;
+  fs.copyFileSync = function patchedCopyFileSync(sourcePath, targetPath, ...args) {
+    const result = originalCopyFileSync.call(fs, sourcePath, targetPath, ...args);
+    if (!changedDuringCopy && path.resolve(String(sourcePath)) === path.resolve(changedDuringCopyReport)) {
+      changedDuringCopy = true;
+      fs.appendFileSync(changedDuringCopyReport, '\nchanged-during-copy', 'utf8');
+    }
+    return result;
+  };
+  try {
+    assert.throws(
+      () => Builder.buildPackage(changedDuringCopyInput, { output: changedDuringCopyOutput, projectNo: 'PKG-001', now: FIXED_NOW }),
+      /來源檔案在複製期間發生變更/,
+    );
+  } finally {
+    fs.copyFileSync = originalCopyFileSync;
+  }
+  assert.equal(fs.existsSync(changedDuringCopyOutput), false, 'source change during copy must not publish a package');
+  const changedDuringCopyStagingPrefix = `.${path.basename(changedDuringCopyOutput)}.tmp-`;
+  assert.deepEqual(
+    fs.readdirSync(path.dirname(changedDuringCopyOutput)).filter(name => name.startsWith(changedDuringCopyStagingPrefix)),
+    [],
+    'source change during copy must remove the temporary package',
   );
 
   const reviewInput = path.join(tempRoot, 'review-input');

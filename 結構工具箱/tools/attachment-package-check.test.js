@@ -161,6 +161,8 @@ try {
   assert.equal(scanned.attachments[0].documentClassRequired, false, 'project JSON is source data and does not require a report document class');
   assert.equal(scanned.attachments[0].projectName, '');
   assert.equal(scanned.attachments[0].designer, '');
+  assert.equal(scanned.attachments[0].sourceSha256, Checker.sha256File(path.join(tempDir, 'wind.json')));
+  assert.match(scanned.attachments[0].sourceSha256, /^[0-9a-f]{64}$/);
   assert.equal(scanned.status, 'ready');
   const cli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stderr || cli.stdout);
@@ -274,6 +276,26 @@ try {
   assert.match(linkedCli.stdout, /已阻擋 1 個來源符號連結/);
   assert.throws(() => Checker.checkPackage(linkedEntry), /資料夾本身不得是符號連結或 junction/);
 
+  const changingFile = path.join(tempDir, 'changing-during-inspection.html');
+  fs.writeFileSync(changingFile, '<div>文件狀態：正式附件</div><div>產出工具：測試工具</div><div>工具版本：v1</div><div>輸出時間：2026/07/22 01:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
+  const originalReadFileSync = fs.readFileSync;
+  let changingFileReadCount = 0;
+  fs.readFileSync = function patchedReadFileSync(filePath, ...args) {
+    const value = originalReadFileSync.call(fs, filePath, ...args);
+    if (path.resolve(String(filePath)) === path.resolve(changingFile) && ++changingFileReadCount === 2) {
+      fs.appendFileSync(changingFile, '\nchanged-during-inspection', 'utf8');
+    }
+    return value;
+  };
+  let changingRecord;
+  try {
+    changingRecord = Checker.inspectAttachment(changingFile, tempDir);
+  } finally {
+    fs.readFileSync = originalReadFileSync;
+  }
+  assert(changingRecord.errors.some(message => message.includes('內容檢查期間發生變更')), 'inspection must reject a file changed while metadata is being read');
+  fs.rmSync(changingFile);
+
   const fixtureDir = path.join(tempDir, 'fixture');
   fs.mkdirSync(path.join(fixtureDir, 'word'), { recursive: true });
   fs.mkdirSync(path.join(fixtureDir, 'xl', 'worksheets'), { recursive: true });
@@ -288,6 +310,7 @@ try {
   const docxRecord = Checker.inspectAttachment(path.join(tempDir, 'sample.docx'), tempDir);
   const xlsxRecord = Checker.inspectAttachment(path.join(tempDir, 'sample.xlsx'), tempDir);
   assert.deepEqual(docxRecord.errors, []);
+  assert.equal(docxRecord.sourceSha256, Checker.sha256File(path.join(tempDir, 'sample.docx')));
   assert.equal(docxRecord.projectNo, 'PKG-001');
   assert.equal(docxRecord.sourceTool, '錨栓檢討工具');
   assert.equal(docxRecord.toolVersion, 'v1');
@@ -295,6 +318,7 @@ try {
   assert.deepEqual(docxRecord.readyDocumentNeedles, ['文件狀態：正式附件']);
   assert.deepEqual(docxRecord.fingerprints, ['CF-1234ABCD5678EF90']);
   assert.deepEqual(xlsxRecord.errors, []);
+  assert.equal(xlsxRecord.sourceSha256, Checker.sha256File(path.join(tempDir, 'sample.xlsx')));
   assert.equal(xlsxRecord.projectNo, 'PKG-001');
   assert.equal(xlsxRecord.sourceTool, '錨栓檢討工具');
   assert.equal(xlsxRecord.toolVersion, 'v1');
