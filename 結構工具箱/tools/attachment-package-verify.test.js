@@ -99,6 +99,25 @@ try {
   assert.equal(readyReport.summary.errors, 0);
   assert.equal(readyReport.records.every(record => record.status === 'verified'), true);
   assert.match(Verifier.formatSummary(readyReport), /完整性驗證：通過/);
+  assert.equal(
+    Verifier.samePackageRoot(
+      Verifier.packageRootIdentity(readyPackage),
+      Verifier.packageRootIdentity(readyPackage),
+    ),
+    true,
+  );
+
+  const linkedTargetPackage = createPackage(tempRoot, 'linked-root-target');
+  const linkedRootPackage = path.join(tempRoot, 'linked-root-package');
+  fs.symlinkSync(linkedTargetPackage, linkedRootPackage, process.platform === 'win32' ? 'junction' : 'dir');
+  const linkedRootReport = Verifier.verifyPackage(linkedRootPackage);
+  assert.equal(linkedRootReport.status, 'blocked');
+  assert.equal(hasIssue(linkedRootReport, 'package-root-symbolic-link'), true);
+  const linkedRootCli = spawnSync(process.execPath, [
+    path.join(__dirname, 'attachment-package-verify.js'), '--input', linkedRootPackage,
+  ], { encoding: 'utf8' });
+  assert.equal(linkedRootCli.status, 2, linkedRootCli.stderr || linkedRootCli.stdout);
+  assert.match(linkedRootCli.stdout, /根目錄本身不得是符號連結或 Windows junction/);
 
   const legacyPackage = createPackage(tempRoot, 'legacy-v1');
   const legacyManifest = readManifest(legacyPackage);
@@ -227,6 +246,37 @@ try {
   assert.equal(hasIssue(changingReport, 'package-changed-during-verification'), true);
   assert.equal(hasIssue(changingReport, 'hash-mismatch'), false, 'the second snapshot must catch changes after the first successful hash');
   assert.equal(hasIssue(changingReport, 'package-fingerprint-mismatch'), false);
+
+  const replacedRootPackage = createPackage(tempRoot, 'replaced-root-during-verification');
+  const replacedRootPath = path.resolve(replacedRootPackage);
+  const originalLstatSync = fs.lstatSync;
+  let rootIdentityReads = 0;
+  let replacedRootReport;
+  try {
+    fs.lstatSync = (filePath, ...args) => {
+      const stat = originalLstatSync(filePath, ...args);
+      if (path.resolve(filePath) === replacedRootPath) {
+        rootIdentityReads += 1;
+        if (rootIdentityReads === 2) {
+          return {
+            isDirectory: () => stat.isDirectory(),
+            isSymbolicLink: () => stat.isSymbolicLink(),
+            dev: stat.dev,
+            ino: `${stat.ino}-replaced`,
+            birthtimeMs: stat.birthtimeMs,
+          };
+        }
+      }
+      return stat;
+    };
+    replacedRootReport = Verifier.verifyPackage(replacedRootPackage);
+  } finally {
+    fs.lstatSync = originalLstatSync;
+  }
+  assert.equal(rootIdentityReads >= 2, true);
+  assert.equal(replacedRootReport.status, 'blocked');
+  assert.equal(hasIssue(replacedRootReport, 'package-changed-during-verification'), true);
+  assert.equal(replacedRootReport.issues.some(issue => issue.files.includes('(附件包根目錄)')), true);
 
   const missingPackage = createPackage(tempRoot, 'missing');
   const missingManifest = readManifest(missingPackage);

@@ -55,6 +55,29 @@ function sha256Buffer(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+function packageRootIdentity(packageDir) {
+  const stat = fs.lstatSync(packageDir, { bigint: true });
+  const resolveRealPath = fs.realpathSync.native || fs.realpathSync;
+  return {
+    isDirectory: stat.isDirectory(),
+    isSymbolicLink: stat.isSymbolicLink(),
+    realPath: resolveRealPath(packageDir),
+    dev: stat.dev,
+    ino: stat.ino,
+    birthtimeMs: stat.birthtimeMs,
+  };
+}
+
+function samePackageRoot(left, right) {
+  return left && right
+    && !right.isSymbolicLink
+    && right.isDirectory
+    && left.realPath === right.realPath
+    && left.dev === right.dev
+    && left.ino === right.ino
+    && left.birthtimeMs === right.birthtimeMs;
+}
+
 function listPackageEntries(rootDir) {
   const files = [];
   const directories = [];
@@ -92,8 +115,13 @@ function expectedDirectories(expectedFiles) {
   return result;
 }
 
-function verifyPackageStability(packageDir, baselineEntries, observedHashes, report) {
+function verifyPackageStability(packageDir, baselineRoot, baselineEntries, observedHashes, report) {
   const changedPaths = new Set();
+  try {
+    if (!samePackageRoot(baselineRoot, packageRootIdentity(packageDir))) changedPaths.add('(附件包根目錄)');
+  } catch (error) {
+    changedPaths.add('(附件包根目錄)');
+  }
   let finalEntries;
   try {
     finalEntries = listPackageEntries(packageDir);
@@ -288,8 +316,12 @@ function verifyReadme(packageDir, manifest, report, observedHashes) {
 
 function verifyPackage(inputDir) {
   const packageDir = path.resolve(inputDir || '');
-  if (!fs.existsSync(packageDir) || !fs.statSync(packageDir).isDirectory()) {
+  if (!fs.existsSync(packageDir)) {
     throw new Error(`正式附件包資料夾不存在：${packageDir || inputDir || '(未指定)'}`);
+  }
+  const rootIdentity = packageRootIdentity(packageDir);
+  if (!rootIdentity.isDirectory && !rootIdentity.isSymbolicLink) {
+    throw new Error(`正式附件包路徑不是資料夾：${packageDir}`);
   }
   const report = {
     kind: VERIFICATION_KIND,
@@ -302,6 +334,11 @@ function verifyPackage(inputDir) {
     records: [],
   };
   const observedHashes = new Map();
+  if (rootIdentity.isSymbolicLink) {
+    addIssue(report, 'package-root-symbolic-link', '正式附件包根目錄本身不得是符號連結或 Windows junction；請選取實際附件包資料夾。', [packageDir]);
+    report.summary.errors = report.issues.length;
+    return report;
+  }
 
   const manifestPath = report.manifestPath;
   if (!fs.existsSync(manifestPath) || !fs.lstatSync(manifestPath).isFile()) {
@@ -379,7 +416,7 @@ function verifyPackage(inputDir) {
     entries.symbolicLinks.forEach(relativePath => addIssue(report, 'unexpected-symbolic-link', `附件包含有不允許的符號連結：${relativePath}。`, [relativePath]));
     entries.files.filter(file => !expectedFiles.has(file)).forEach(file => addIssue(report, 'unexpected-file', `附件包含有清單外檔案：${file}。`, [file]));
     entries.directories.filter(directory => !expectedDirs.has(directory)).forEach(directory => addIssue(report, 'unexpected-directory', `附件包含有清單外資料夾：${directory}。`, [directory]));
-    verifyPackageStability(packageDir, entries, observedHashes, report);
+    verifyPackageStability(packageDir, rootIdentity, entries, observedHashes, report);
   } catch (error) {
     addIssue(report, 'package-changed-during-verification', `附件包在驗證期間發生變動，無法完成目錄快照：${error.message || error}`, []);
   }
@@ -451,6 +488,8 @@ module.exports = {
   portableManifestPathKey,
   isSafeManifestPath,
   parseManifestGeneratedAt,
+  packageRootIdentity,
+  samePackageRoot,
   listPackageEntries,
   expectedDirectories,
   sha256Buffer,
