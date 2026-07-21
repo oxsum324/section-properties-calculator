@@ -98,4 +98,17 @@ describe('buildReportDocumentState', () => {
     })
     expect(state.reason).toContain('不得送簽')
   })
+
+  it('keeps a calculation-version mismatch as a review draft', () => {
+    const state = buildState(
+      cloneProject({ calcEngineVersion: 'legacy-backup-v1-unverified' }),
+    )
+
+    expect(state).toMatchObject({
+      status: 'review',
+      label: 'DRAFT / 待人工複核',
+      isDraft: true,
+    })
+    expect(state.reason).toContain('計算版本與目前工具不一致')
+  })
 })

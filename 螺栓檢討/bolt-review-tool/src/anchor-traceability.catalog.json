@@ -60,12 +60,12 @@
         {
           "id": "anchor-product-evidence-links",
           "clause": "建築物混凝土結構設計規範第17章評估資料留存與專案文件追溯",
-          "purpose": "人工輸入的產品資料需能連到專案文件或掃描資料，報告與 audit trail 應保留欄位來源，不讓使用者失去證據鏈。",
-          "inputs": ["documents", "linkedDocument", "verifiedFields", "evaluation.notes", "auditTrail", "source"],
-          "calculation": ["evaluation field catalog", "document link resolution", "verified field summary", "project audit entry", "workspace backup"],
+          "purpose": "人工輸入的產品資料需能連到專案文件或掃描資料；報告、audit trail 與工作區備份應保留來源，匯入案例須由目前計算核心重算並比對來源指紋，不讓使用者把可讀 JSON 誤當已重現結果。",
+          "inputs": ["documents", "linkedDocument", "verifiedFields", "evaluation.notes", "auditTrail", "source", "workspace backup schema/version", "caseReplay fingerprint"],
+          "calculation": ["evaluation field catalog", "document link resolution", "verified field summary", "project audit entry", "workspace backup v2", "evaluateProjectBatch replay", "SHA-256 fingerprint comparison", "legacy v1 review downgrade"],
           "report": ["產品評估資料", "已驗證欄位", "文件連結", "備註", "audit trail"],
-          "evidence": ["src/evidenceLinks.test.ts", "src/evaluationAudit.ts", "src/evaluationAudit.test.ts", "src/backup.test.ts", "src/useAuditTrail.ts", "src/useReportExports.ts"],
-          "manualReview": ["文件連結只能證明資料來源已留存；欄位正確性、產品有效期限、專案適用條件與文件真偽仍須由設計者或審查者人工複核。"]
+          "evidence": ["src/evidenceLinks.test.ts", "src/evaluationAudit.ts", "src/evaluationAudit.test.ts", "src/backup.ts", "src/backup.test.ts", "src/useProjectLibrary.ts", "src/useAuditTrail.ts", "src/useReportExports.ts", "src/attachmentReadiness.ts"],
+          "manualReview": ["文件連結與案例重現指紋只能證明資料來源留存及目前計算結果一致；欄位正確性、產品有效期限、專案適用條件與文件真偽仍須由設計者或審查者人工複核；舊 v1 備份或計算版本不一致時不得直接作為可送簽版。"]
         }
       ]
     },

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildWorkspaceBackup,
+  LEGACY_UNVERIFIED_CALC_VERSION,
   mergeWorkspaceBackup,
   parseWorkspaceBackup,
+  verifyWorkspaceBackupReplay,
+  WORKSPACE_BACKUP_VERSION,
 } from './backup'
 import { defaultProducts, defaultProject } from './defaults'
 
@@ -62,6 +65,12 @@ describe('workspace backup helpers', () => {
     const parsed = parseWorkspaceBackup(JSON.stringify(payload))
 
     expect(parsed.schema).toBe('bolt-review-tool-backup')
+    expect(parsed.version).toBe(WORKSPACE_BACKUP_VERSION)
+    expect(parsed.caseReplay).toHaveLength(1)
+    await expect(verifyWorkspaceBackupReplay(parsed)).resolves.toEqual({
+      verifiedProjects: 1,
+      legacyProjects: 0,
+    })
     expect(parsed.products).toHaveLength(defaultProducts.length)
     expect(parsed.projects[0].name).toBe(defaultProject.name)
     expect(parsed.projects[0].documents).toHaveLength(1)
@@ -73,6 +82,25 @@ describe('workspace backup helpers', () => {
     const duplicateProject = {
       ...defaultProject,
       selectedProductId: defaultProducts[0].id,
+      auditTrail: [
+        {
+          id: 'audit-imported',
+          createdAt: '2026-04-20T00:00:00.000Z',
+          hash: 'abcdef1234567890',
+          source: 'manual' as const,
+          ruleProfileId: defaultProject.ruleProfileId,
+          projectName: defaultProject.name,
+          productLabel: 'Generic Cast-in Headed M20',
+          summary: {
+            overallStatus: 'pass' as const,
+            governingMode: '鋼材拉力',
+            governingDcr: 0.42,
+            maxDcr: 0.42,
+            controllingLoadCaseName: 'LC1',
+            updatedAt: '2026-04-20T00:00:00.000Z',
+          },
+        },
+      ],
       documents: [
         {
           id: 'doc-1',
@@ -113,6 +141,8 @@ describe('workspace backup helpers', () => {
     expect(merged.projects[1].selectedProductId).not.toBe('')
     expect(merged.files).toHaveLength(1)
     expect(merged.projects[1].documents?.[0]?.id).toBe(merged.files[0].id)
+    expect(merged.projects[1].auditTrail).toHaveLength(0)
+    expect(merged.invalidatedAuditEntries).toBe(1)
   })
 
   it('rejects backup with wrong schema marker', () => {
@@ -129,6 +159,87 @@ describe('workspace backup helpers', () => {
     expect(() => parseWorkspaceBackup('{"products":')).toThrow(
       /JSON 格式錯誤/,
     )
+  })
+
+  it('rejects unsupported backup versions and incomplete v2 replay data', () => {
+    expect(() =>
+      parseWorkspaceBackup(
+        JSON.stringify({
+          schema: 'bolt-review-tool-backup',
+          version: 99,
+          products: [],
+          projects: [],
+        }),
+      ),
+    ).toThrow(/版本不支援/)
+
+    expect(() =>
+      parseWorkspaceBackup(
+        JSON.stringify({
+          schema: 'bolt-review-tool-backup',
+          version: WORKSPACE_BACKUP_VERSION,
+          products: defaultProducts,
+          projects: [defaultProject],
+        }),
+      ),
+    ).toThrow(/缺少 caseReplay/)
+  })
+
+  it('rejects a v2 backup when recalculation no longer matches the source', async () => {
+    const payload = await buildWorkspaceBackup(
+      defaultProducts,
+      [defaultProject],
+      [],
+    )
+    const tampered = structuredClone(payload)
+    tampered.projects[0].loads.tensionKn += 5
+    const parsed = parseWorkspaceBackup(JSON.stringify(tampered))
+
+    await expect(verifyWorkspaceBackupReplay(parsed)).rejects.toThrow(
+      /重新計算後指紋不符.*已保留原工作區/,
+    )
+  })
+
+  it('keeps legacy v1 data recoverable but marks it unverified and clears audits', async () => {
+    const legacyProject = {
+      ...defaultProject,
+      auditTrail: [
+        {
+          id: 'legacy-audit',
+          createdAt: '2026-04-20T00:00:00.000Z',
+          hash: 'abcdef1234567890',
+          source: 'manual' as const,
+          ruleProfileId: defaultProject.ruleProfileId,
+          projectName: defaultProject.name,
+          productLabel: 'Generic Cast-in Headed M20',
+          summary: {
+            overallStatus: 'pass' as const,
+            governingMode: '鋼材拉力',
+            maxDcr: 0.42,
+            updatedAt: '2026-04-20T00:00:00.000Z',
+          },
+        },
+      ],
+    }
+    const parsed = parseWorkspaceBackup(
+      JSON.stringify({
+        schema: 'bolt-review-tool-backup',
+        version: 1,
+        products: defaultProducts,
+        projects: [legacyProject],
+        files: [],
+      }),
+    )
+
+    expect(parsed.legacyUnverified).toBe(true)
+    expect(parsed.projects[0].calcEngineVersion).toBe(
+      LEGACY_UNVERIFIED_CALC_VERSION,
+    )
+    expect(parsed.projects[0].auditTrail).toHaveLength(0)
+    await expect(verifyWorkspaceBackupReplay(parsed)).resolves.toEqual({
+      verifiedProjects: 0,
+      legacyProjects: 1,
+    })
   })
 
   it('rejects backup missing required fields per project', () => {

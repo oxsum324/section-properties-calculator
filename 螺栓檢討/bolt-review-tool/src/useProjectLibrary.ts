@@ -300,11 +300,14 @@ export function useProjectLibrary(deps: {
         setSaveMessage(`忽略非 JSON 檔案：${file.name}`)
         return
       }
-      const { mergeWorkspaceBackup, parseWorkspaceBackup } = await import(
-        './backup'
-      )
+      const {
+        mergeWorkspaceBackup,
+        parseWorkspaceBackup,
+        verifyWorkspaceBackupReplay,
+      } = await import('./backup')
       const text = await file.text()
       const parsed = parseWorkspaceBackup(text)
+      const replay = await verifyWorkspaceBackupReplay(parsed)
       const currentFiles = await db.files.toArray()
       const merged = mergeWorkspaceBackup(
         products,
@@ -321,13 +324,23 @@ export function useProjectLibrary(deps: {
         setActiveProjectId(nextProject.id)
         setProject(nextProject)
       })
+      const replayMessage = parsed.legacyUnverified
+        ? `舊版 v1 備份無來源指紋，${replay.legacyProjects} 個案例已標記待複核`
+        : `已重新計算並驗證 ${replay.verifiedProjects} 個案例`
+      const auditMessage =
+        merged.invalidatedAuditEntries > 0
+          ? `；已撤銷 ${merged.invalidatedAuditEntries} 筆因匯入識別重編而失效的舊留痕`
+          : ''
       setSaveMessage(
-        `已匯入 ${merged.importedProjects} 個案例 / ${merged.importedProducts} 個產品 / ${merged.importedFiles} 份附件`,
+        `已匯入 ${merged.importedProjects} 個案例 / ${merged.importedProducts} 個產品 / ${merged.importedFiles} 份附件；${replayMessage}${auditMessage}`,
       )
     } catch (error) {
       const message =
         error instanceof Error ? error.message : '匯入失敗，請確認 JSON 格式。'
-      setSaveMessage(`匯入失敗：${message}`)
+      const preservedMessage = message.includes('已保留原工作區')
+        ? ''
+        : ' 已保留原工作區。'
+      setSaveMessage(`匯入失敗：${message}${preservedMessage}`)
     }
   }
 
