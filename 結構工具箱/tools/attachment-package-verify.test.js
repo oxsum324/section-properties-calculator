@@ -85,6 +85,19 @@ assert.equal(
   Verifier.portableManifestPathKey('01_正式附件/reports/BEAM.HTML'),
   Verifier.portableManifestPathKey('01_正式附件/reports/beam.html'),
 );
+assert.deepEqual(
+  Verifier.findDuplicateJsonKeys('{"a":1,"a":2}'),
+  [{ key: 'a', pointer: '/a' }],
+);
+assert.deepEqual(
+  Verifier.findDuplicateJsonKeys('{"projectNo":"A","project\\u004eo":"B"}'),
+  [{ key: 'projectNo', pointer: '/projectNo' }],
+);
+assert.deepEqual(
+  Verifier.findDuplicateJsonKeys('{"items":[{"x":1,"x":2}]}'),
+  [{ key: 'x', pointer: '/items/0/x' }],
+);
+assert.deepEqual(Verifier.findDuplicateJsonKeys('{"a":1,"b":{"c":2}}'), []);
 assert.deepEqual(Verifier.parseArgs(['--input', 'C:/formal-package']), { input: 'C:/formal-package' });
 assert.match(Verifier.usage(), /正式附件包資料夾/);
 
@@ -333,6 +346,39 @@ try {
   const portableCollisionReport = Verifier.verifyPackage(portableCollisionPackage);
   assert.equal(hasIssue(portableCollisionReport, 'portable-path-collision'), true);
   assert.equal(hasIssue(portableCollisionReport, 'package-fingerprint-mismatch'), false, 'path uniqueness is validated independently of fingerprint consistency');
+
+  const duplicateJsonCases = [
+    ['literal', 'projectNo'],
+    ['escaped', 'project\\u004eo'],
+  ];
+  duplicateJsonCases.forEach(([name, finalKey]) => {
+    const packageDir = createPackage(tempRoot, `duplicate-json-key-${name}`);
+    const originalText = fs.readFileSync(manifestPath(packageDir), 'utf8');
+    const expectedLine = '  "projectNo": "PKG-VERIFY-001"';
+    const tamperedText = originalText.replace(
+      expectedLine,
+      `  "projectNo": "AMBIGUOUS",\n  "${finalKey}": "PKG-VERIFY-001"`,
+    );
+    assert.notEqual(tamperedText, originalText, `${name} duplicate-key fixture must modify the manifest`);
+    fs.writeFileSync(manifestPath(packageDir), tamperedText, 'utf8');
+    const report = Verifier.verifyPackage(packageDir);
+    assert.equal(report.status, 'blocked');
+    assert.equal(hasIssue(report, 'duplicate-manifest-json-key'), true);
+    assert.equal(hasIssue(report, 'package-fingerprint-mismatch'), false, `${name} duplicate key must be blocked even when the parsed fingerprint remains valid`);
+    assert.equal(hasIssue(report, 'readme-mismatch'), false);
+  });
+
+  const duplicateJsonCliPackage = createPackage(tempRoot, 'duplicate-json-key-cli');
+  const duplicateJsonCliText = fs.readFileSync(manifestPath(duplicateJsonCliPackage), 'utf8').replace(
+    '  "projectNo": "PKG-VERIFY-001"',
+    '  "projectNo": "AMBIGUOUS",\n  "projectNo": "PKG-VERIFY-001"',
+  );
+  fs.writeFileSync(manifestPath(duplicateJsonCliPackage), duplicateJsonCliText, 'utf8');
+  const duplicateJsonCli = spawnSync(process.execPath, [
+    path.join(__dirname, 'attachment-package-verify.js'), '--input', duplicateJsonCliPackage,
+  ], { encoding: 'utf8' });
+  assert.equal(duplicateJsonCli.status, 2, duplicateJsonCli.stderr || duplicateJsonCli.stdout);
+  assert.match(duplicateJsonCli.stdout, /重複 JSON 欄位/);
 
   const wrongRolePackage = createPackage(tempRoot, 'wrong-role');
   const wrongRoleManifest = readManifest(wrongRolePackage);

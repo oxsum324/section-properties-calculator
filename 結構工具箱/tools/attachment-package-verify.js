@@ -55,6 +55,114 @@ function sha256Buffer(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+function findDuplicateJsonKeys(value, maxDepth = 128) {
+  const text = String(value);
+  const duplicates = [];
+  let index = 0;
+
+  function fail(message) {
+    throw new Error(`${message}（字元 ${index + 1}）`);
+  }
+
+  function skipWhitespace() {
+    while (index < text.length && /[\u0020\u0009\u000a\u000d]/.test(text[index])) index += 1;
+  }
+
+  function parseString() {
+    if (text[index] !== '"') fail('預期 JSON 字串');
+    const start = index;
+    index += 1;
+    while (index < text.length) {
+      if (text[index] === '\\') {
+        index += 2;
+      } else if (text[index] === '"') {
+        index += 1;
+        return JSON.parse(text.slice(start, index));
+      } else {
+        index += 1;
+      }
+    }
+    fail('JSON 字串未結束');
+  }
+
+  function pointerPart(key) {
+    return String(key).replace(/~/g, '~0').replace(/\//g, '~1');
+  }
+
+  function scanValue(pointer, depth) {
+    if (depth > maxDepth) throw new Error(`JSON 巢狀深度超過 ${maxDepth} 層`);
+    skipWhitespace();
+    if (index >= text.length) fail('JSON 值不完整');
+
+    if (text[index] === '{') {
+      index += 1;
+      skipWhitespace();
+      const keys = new Set();
+      if (text[index] === '}') {
+        index += 1;
+        return;
+      }
+      while (index < text.length) {
+        const key = parseString();
+        const childPointer = `${pointer}/${pointerPart(key)}`;
+        if (keys.has(key)) duplicates.push({ key, pointer: childPointer });
+        else keys.add(key);
+        skipWhitespace();
+        if (text[index] !== ':') fail('JSON 物件欄位缺少冒號');
+        index += 1;
+        scanValue(childPointer, depth + 1);
+        skipWhitespace();
+        if (text[index] === '}') {
+          index += 1;
+          return;
+        }
+        if (text[index] !== ',') fail('JSON 物件欄位之間缺少逗號');
+        index += 1;
+        skipWhitespace();
+      }
+      fail('JSON 物件未結束');
+    }
+
+    if (text[index] === '[') {
+      index += 1;
+      skipWhitespace();
+      if (text[index] === ']') {
+        index += 1;
+        return;
+      }
+      let itemIndex = 0;
+      while (index < text.length) {
+        scanValue(`${pointer}/${itemIndex}`, depth + 1);
+        itemIndex += 1;
+        skipWhitespace();
+        if (text[index] === ']') {
+          index += 1;
+          return;
+        }
+        if (text[index] !== ',') fail('JSON 陣列項目之間缺少逗號');
+        index += 1;
+        skipWhitespace();
+      }
+      fail('JSON 陣列未結束');
+    }
+
+    if (text[index] === '"') {
+      parseString();
+      return;
+    }
+
+    const start = index;
+    while (index < text.length && !/[\u0020\u0009\u000a\u000d,}\]]/.test(text[index])) index += 1;
+    if (start === index) fail('JSON 值格式不正確');
+    JSON.parse(text.slice(start, index));
+  }
+
+  scanValue('', 0);
+  skipWhitespace();
+  if (index !== text.length) fail('JSON 根值後仍有多餘內容');
+  return duplicates;
+}
+
 function packageRootIdentity(packageDir) {
   const stat = fs.lstatSync(packageDir, { bigint: true });
   const resolveRealPath = fs.realpathSync.native || fs.realpathSync;
@@ -348,14 +456,31 @@ function verifyPackage(inputDir) {
   }
 
   let manifest;
+  let manifestText;
   try {
     const manifestBuffer = fs.readFileSync(manifestPath);
     observedHashes.set(manifestRelativePath(), sha256Buffer(manifestBuffer));
-    manifest = JSON.parse(manifestBuffer.toString('utf8'));
+    manifestText = manifestBuffer.toString('utf8');
+    manifest = JSON.parse(manifestText);
   } catch (error) {
     addIssue(report, 'invalid-manifest-json', `附件包清單不是有效 JSON：${error.message || error}`, [manifestRelativePath()]);
     report.summary.errors = report.issues.length;
     return report;
+  }
+  try {
+    const duplicateKeys = findDuplicateJsonKeys(manifestText);
+    if (duplicateKeys.length) {
+      const shown = duplicateKeys.slice(0, 5).map(item => item.pointer).join('、');
+      const remainder = duplicateKeys.length > 5 ? `，另有 ${duplicateKeys.length - 5} 項` : '';
+      addIssue(
+        report,
+        'duplicate-manifest-json-key',
+        `附件包清單含有 ${duplicateKeys.length} 個重複 JSON 欄位：${shown}${remainder}；不同解析器可能產生不同內容。`,
+        [manifestRelativePath()],
+      );
+    }
+  } catch (error) {
+    addIssue(report, 'ambiguous-manifest-json', `附件包清單無法完成欄位唯一性掃描：${error.message || error}`, [manifestRelativePath()]);
   }
   validateManifestHeader(manifest, report);
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
@@ -493,6 +618,7 @@ module.exports = {
   listPackageEntries,
   expectedDirectories,
   sha256Buffer,
+  findDuplicateJsonKeys,
   verifyPackageStability,
   verifyPackage,
   formatSummary,
