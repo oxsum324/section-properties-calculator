@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const Builder = require('./attachment-package-build.js');
 const Checker = require('./attachment-package-check.js');
 
@@ -50,6 +51,10 @@ function addIssue(report, code, message, files = []) {
   report.issues.push({ level: 'error', code, message, files });
 }
 
+function sha256Buffer(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
 function listPackageEntries(rootDir) {
   const files = [];
   const directories = [];
@@ -85,6 +90,55 @@ function expectedDirectories(expectedFiles) {
     }
   });
   return result;
+}
+
+function verifyPackageStability(packageDir, baselineEntries, observedHashes, report) {
+  const changedPaths = new Set();
+  let finalEntries;
+  try {
+    finalEntries = listPackageEntries(packageDir);
+  } catch (error) {
+    addIssue(report, 'package-changed-during-verification', `附件包在驗證期間發生變動，無法完成第二次目錄快照：${error.message || error}`, []);
+    return;
+  }
+
+  for (const key of ['files', 'directories', 'symbolicLinks']) {
+    const before = new Set(baselineEntries[key] || []);
+    const after = new Set(finalEntries[key] || []);
+    before.forEach(relativePath => { if (!after.has(relativePath)) changedPaths.add(relativePath); });
+    after.forEach(relativePath => { if (!before.has(relativePath)) changedPaths.add(relativePath); });
+  }
+
+  observedHashes.forEach((baselineHash, relativePath) => {
+    const absolutePath = path.resolve(packageDir, ...relativePath.split('/'));
+    try {
+      const stat = fs.lstatSync(absolutePath);
+      if (!Builder.isPathInside(packageDir, absolutePath) || stat.isSymbolicLink() || !stat.isFile()
+          || Builder.sha256File(absolutePath).toLowerCase() !== baselineHash.toLowerCase()) {
+        changedPaths.add(relativePath);
+      }
+    } catch (error) {
+      changedPaths.add(relativePath);
+    }
+  });
+
+  try {
+    const settledEntries = listPackageEntries(packageDir);
+    for (const key of ['files', 'directories', 'symbolicLinks']) {
+      const beforeHashing = new Set(finalEntries[key] || []);
+      const afterHashing = new Set(settledEntries[key] || []);
+      beforeHashing.forEach(relativePath => { if (!afterHashing.has(relativePath)) changedPaths.add(relativePath); });
+      afterHashing.forEach(relativePath => { if (!beforeHashing.has(relativePath)) changedPaths.add(relativePath); });
+    }
+  } catch (error) {
+    addIssue(report, 'package-changed-during-verification', `附件包在第二次雜湊期間發生變動，無法完成最終目錄快照：${error.message || error}`, []);
+    return;
+  }
+
+  if (changedPaths.size) {
+    const files = [...changedPaths].sort();
+    addIssue(report, 'package-changed-during-verification', `附件包在驗證期間有 ${files.length} 個項目發生新增、移除、替換或內容變更；請停止同步或重新輸出後再驗證。`, files);
+  }
 }
 
 function validateManifestHeader(manifest, report) {
@@ -184,7 +238,7 @@ function validateRecord(record, role, index, report, seenPaths, schemaVersion) {
   return { record, role, packagedFile };
 }
 
-function verifyRecord(packageDir, item, report) {
+function verifyRecord(packageDir, item, report, observedHashes) {
   const absolutePath = path.resolve(packageDir, ...item.packagedFile.split('/'));
   if (!Builder.isPathInside(packageDir, absolutePath)) {
     addIssue(report, 'unsafe-manifest-path', `${item.packagedFile} 超出附件包資料夾。`, [item.packagedFile]);
@@ -203,6 +257,7 @@ function verifyRecord(packageDir, item, report) {
   }
 
   const actualHash = Builder.sha256File(absolutePath);
+  observedHashes.set(item.packagedFile, actualHash);
   let status = 'verified';
   if (stat.size !== item.record.bytes) {
     addIssue(report, 'size-mismatch', `${item.packagedFile} 的檔案大小與清單不符。`, [item.packagedFile]);
@@ -215,14 +270,16 @@ function verifyRecord(packageDir, item, report) {
   report.records.push({ packagedFile: item.packagedFile, role: item.role, bytes: stat.size, sha256: actualHash, status });
 }
 
-function verifyReadme(packageDir, manifest, report) {
+function verifyReadme(packageDir, manifest, report, observedHashes) {
   const relativePath = readmeRelativePath();
   const absolutePath = path.join(packageDir, ...relativePath.split('/'));
   if (!fs.existsSync(absolutePath) || !fs.lstatSync(absolutePath).isFile()) {
     addIssue(report, 'missing-internal-readme', '附件包缺少內部追溯 README。', [relativePath]);
     return;
   }
-  const text = fs.readFileSync(absolutePath, 'utf8');
+  const buffer = fs.readFileSync(absolutePath);
+  const text = buffer.toString('utf8');
+  observedHashes.set(relativePath, sha256Buffer(buffer));
   const expectedText = `本資料夾僅供公司內部追溯，勿附入主報告、正式計算書或送審附件。\r\n正式交付請只取「${Builder.FORMAL_ATTACHMENTS_DIR}」內的檔案。\r\n附件包指紋：${manifest?.packageFingerprint || ''}\r\n`;
   if (text !== expectedText) {
     addIssue(report, 'readme-mismatch', '內部追溯 README 的附件邊界或附件包指紋與清單不符。', [relativePath]);
@@ -244,6 +301,7 @@ function verifyPackage(inputDir) {
     issues: [],
     records: [],
   };
+  const observedHashes = new Map();
 
   const manifestPath = report.manifestPath;
   if (!fs.existsSync(manifestPath) || !fs.lstatSync(manifestPath).isFile()) {
@@ -254,7 +312,9 @@ function verifyPackage(inputDir) {
 
   let manifest;
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const manifestBuffer = fs.readFileSync(manifestPath);
+    observedHashes.set(manifestRelativePath(), sha256Buffer(manifestBuffer));
+    manifest = JSON.parse(manifestBuffer.toString('utf8'));
   } catch (error) {
     addIssue(report, 'invalid-manifest-json', `附件包清單不是有效 JSON：${error.message || error}`, [manifestRelativePath()]);
     report.summary.errors = report.issues.length;
@@ -308,15 +368,21 @@ function verifyPackage(inputDir) {
     addIssue(report, 'package-fingerprint-mismatch', '附件包指紋與清單內容重新計算結果不符。', [manifestRelativePath()]);
   }
 
-  validItems.forEach(item => verifyRecord(packageDir, item, report));
-  verifyReadme(packageDir, manifest, report);
+  validItems.forEach(item => verifyRecord(packageDir, item, report, observedHashes));
+  verifyReadme(packageDir, manifest, report, observedHashes);
 
   const expectedFiles = new Set([manifestRelativePath(), readmeRelativePath(), ...validItems.map(item => item.packagedFile)]);
   const expectedDirs = expectedDirectories(expectedFiles);
-  const entries = listPackageEntries(packageDir);
-  entries.symbolicLinks.forEach(relativePath => addIssue(report, 'unexpected-symbolic-link', `附件包含有不允許的符號連結：${relativePath}。`, [relativePath]));
-  entries.files.filter(file => !expectedFiles.has(file)).forEach(file => addIssue(report, 'unexpected-file', `附件包含有清單外檔案：${file}。`, [file]));
-  entries.directories.filter(directory => !expectedDirs.has(directory)).forEach(directory => addIssue(report, 'unexpected-directory', `附件包含有清單外資料夾：${directory}。`, [directory]));
+  let entries;
+  try {
+    entries = listPackageEntries(packageDir);
+    entries.symbolicLinks.forEach(relativePath => addIssue(report, 'unexpected-symbolic-link', `附件包含有不允許的符號連結：${relativePath}。`, [relativePath]));
+    entries.files.filter(file => !expectedFiles.has(file)).forEach(file => addIssue(report, 'unexpected-file', `附件包含有清單外檔案：${file}。`, [file]));
+    entries.directories.filter(directory => !expectedDirs.has(directory)).forEach(directory => addIssue(report, 'unexpected-directory', `附件包含有清單外資料夾：${directory}。`, [directory]));
+    verifyPackageStability(packageDir, entries, observedHashes, report);
+  } catch (error) {
+    addIssue(report, 'package-changed-during-verification', `附件包在驗證期間發生變動，無法完成目錄快照：${error.message || error}`, []);
+  }
 
   report.summary.expectedFiles = validItems.length;
   report.summary.verifiedFiles = report.records.filter(record => record.status === 'verified').length;
@@ -387,6 +453,8 @@ module.exports = {
   parseManifestGeneratedAt,
   listPackageEntries,
   expectedDirectories,
+  sha256Buffer,
+  verifyPackageStability,
   verifyPackage,
   formatSummary,
   parseArgs,

@@ -203,6 +203,31 @@ try {
   assert.equal(hasIssue(modifiedReport, 'size-mismatch'), true);
   assert.equal(hasIssue(modifiedReport, 'hash-mismatch'), true);
 
+  const changingPackage = createPackage(tempRoot, 'changing-during-verification');
+  const changingManifest = readManifest(changingPackage);
+  const changingFile = path.join(changingPackage, ...changingManifest.formalAttachments[0].packagedFile.split('/'));
+  const originalSha256File = Builder.sha256File;
+  let changedDuringVerification = false;
+  let changingReport;
+  try {
+    Builder.sha256File = filePath => {
+      const hash = originalSha256File(filePath);
+      if (!changedDuringVerification && path.resolve(filePath) === path.resolve(changingFile)) {
+        fs.appendFileSync(filePath, '\nchanged during verification', 'utf8');
+        changedDuringVerification = true;
+      }
+      return hash;
+    };
+    changingReport = Verifier.verifyPackage(changingPackage);
+  } finally {
+    Builder.sha256File = originalSha256File;
+  }
+  assert.equal(changedDuringVerification, true);
+  assert.equal(changingReport.status, 'blocked');
+  assert.equal(hasIssue(changingReport, 'package-changed-during-verification'), true);
+  assert.equal(hasIssue(changingReport, 'hash-mismatch'), false, 'the second snapshot must catch changes after the first successful hash');
+  assert.equal(hasIssue(changingReport, 'package-fingerprint-mismatch'), false);
+
   const missingPackage = createPackage(tempRoot, 'missing');
   const missingManifest = readManifest(missingPackage);
   fs.rmSync(path.join(missingPackage, ...missingManifest.formalAttachments[0].packagedFile.split('/')));
