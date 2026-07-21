@@ -77,6 +77,14 @@ assert.equal(Verifier.isSafeManifestPath('01_正式附件/reports/beam.html'), t
 assert.equal(Verifier.isSafeManifestPath('../beam.html'), false);
 assert.equal(Verifier.isSafeManifestPath('C:/beam.html'), false);
 assert.equal(Verifier.isSafeManifestPath('01_正式附件\\beam.html'), false);
+assert.equal(Verifier.isSafeManifestPath('01_正式附件/reports/CON.txt'), false);
+assert.equal(Verifier.isSafeManifestPath('01_正式附件/reports/beam.html.'), false);
+assert.equal(Verifier.isSafeManifestPath('01_正式附件/reports/beam?.html'), false);
+assert.equal(Verifier.isSafeManifestPath('01_正式附件/reports/cafe\u0301.html'), false);
+assert.equal(
+  Verifier.portableManifestPathKey('01_正式附件/reports/BEAM.HTML'),
+  Verifier.portableManifestPathKey('01_正式附件/reports/beam.html'),
+);
 assert.deepEqual(Verifier.parseArgs(['--input', 'C:/formal-package']), { input: 'C:/formal-package' });
 assert.match(Verifier.usage(), /正式附件包資料夾/);
 
@@ -225,6 +233,31 @@ try {
   writeManifest(unsafePathPackage, unsafeManifest);
   const unsafeReport = Verifier.verifyPackage(unsafePathPackage);
   assert.equal(hasIssue(unsafeReport, 'unsafe-manifest-path'), true);
+
+  const duplicatePathPackage = createPackage(tempRoot, 'duplicate-path');
+  const duplicatePathManifest = readManifest(duplicatePathPackage);
+  duplicatePathManifest.formalAttachments.push({ ...duplicatePathManifest.formalAttachments[0] });
+  duplicatePathManifest.checkSummary.attachments += 1;
+  duplicatePathManifest.packageFingerprint = Builder.packageFingerprintV3(duplicatePathManifest);
+  writeManifest(duplicatePathPackage, duplicatePathManifest);
+  writeReadme(duplicatePathPackage, duplicatePathManifest.packageFingerprint);
+  const duplicatePathReport = Verifier.verifyPackage(duplicatePathPackage);
+  assert.equal(hasIssue(duplicatePathReport, 'duplicate-manifest-path'), true);
+  assert.equal(hasIssue(duplicatePathReport, 'package-fingerprint-mismatch'), false);
+
+  const portableCollisionPackage = createPackage(tempRoot, 'portable-path-collision');
+  const portableCollisionManifest = readManifest(portableCollisionPackage);
+  portableCollisionManifest.formalAttachments.push({
+    ...portableCollisionManifest.formalAttachments[0],
+    packagedFile: portableCollisionManifest.formalAttachments[0].packagedFile.replace('beam.html', 'BEAM.HTML'),
+  });
+  portableCollisionManifest.checkSummary.attachments += 1;
+  portableCollisionManifest.packageFingerprint = Builder.packageFingerprintV3(portableCollisionManifest);
+  writeManifest(portableCollisionPackage, portableCollisionManifest);
+  writeReadme(portableCollisionPackage, portableCollisionManifest.packageFingerprint);
+  const portableCollisionReport = Verifier.verifyPackage(portableCollisionPackage);
+  assert.equal(hasIssue(portableCollisionReport, 'portable-path-collision'), true);
+  assert.equal(hasIssue(portableCollisionReport, 'package-fingerprint-mismatch'), false, 'path uniqueness is validated independently of fingerprint consistency');
 
   const wrongRolePackage = createPackage(tempRoot, 'wrong-role');
   const wrongRoleManifest = readManifest(wrongRolePackage);

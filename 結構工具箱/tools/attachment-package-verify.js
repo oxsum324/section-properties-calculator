@@ -22,12 +22,22 @@ function readmeRelativePath() {
   return `${Builder.INTERNAL_TRACE_DIR}/${Builder.INTERNAL_README_FILE}`;
 }
 
+function portableManifestPathKey(value) {
+  return String(value || '').normalize('NFC').toLocaleLowerCase('en-US');
+}
+
+function isPortableManifestPart(part) {
+  if (!part || part !== part.normalize('NFC')) return false;
+  if (/[<>:"|?*\u0000-\u001f]/.test(part) || /[. ]$/.test(part)) return false;
+  return !/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(part);
+}
+
 function isSafeManifestPath(value) {
   if (typeof value !== 'string' || !value || value !== value.trim()) return false;
   if (value.includes('\\') || value.includes('\0') || value.includes(':')) return false;
   if (path.posix.isAbsolute(value) || path.posix.normalize(value) !== value) return false;
   const parts = value.split('/');
-  return parts.every(part => part && part !== '.' && part !== '..');
+  return parts.every(part => part !== '.' && part !== '..' && isPortableManifestPart(part));
 }
 
 function parseManifestGeneratedAt(value) {
@@ -128,11 +138,21 @@ function validateRecord(record, role, index, report, seenPaths, schemaVersion) {
     addIssue(report, 'wrong-package-role', `${packagedFile} 不在指定的${roleLabel}資料夾內。`, [packagedFile]);
     return null;
   }
-  if (seenPaths.has(packagedFile)) {
-    addIssue(report, 'duplicate-manifest-path', `附件包清單重複列出 ${packagedFile}。`, [packagedFile]);
+  const portablePathKey = portableManifestPathKey(packagedFile);
+  const previousPath = seenPaths.get(portablePathKey);
+  if (previousPath) {
+    const exactDuplicate = previousPath === packagedFile;
+    addIssue(
+      report,
+      exactDuplicate ? 'duplicate-manifest-path' : 'portable-path-collision',
+      exactDuplicate
+        ? `附件包清單重複列出 ${packagedFile}。`
+        : `附件包清單的 ${previousPath} 與 ${packagedFile} 在 Windows／跨平台檔名規則下會指向相同路徑。`,
+      [previousPath, packagedFile],
+    );
     return null;
   }
-  seenPaths.add(packagedFile);
+  seenPaths.set(portablePathKey, packagedFile);
 
   if (!Number.isSafeInteger(record.bytes) || record.bytes < 0) {
     addIssue(report, 'invalid-manifest-bytes', `${packagedFile} 的檔案大小紀錄不正確。`, [packagedFile]);
@@ -272,7 +292,7 @@ function verifyPackage(inputDir) {
     });
   }
 
-  const seenPaths = new Set();
+  const seenPaths = new Map();
   const validItems = [
     ...formalRecords.map((record, index) => validateRecord(record, 'formal', index, report, seenPaths, manifest.schemaVersion)),
     ...traceRecords.map((record, index) => validateRecord(record, 'traceability', index, report, seenPaths, manifest.schemaVersion)),
@@ -362,6 +382,7 @@ module.exports = {
   normalizeSlash,
   manifestRelativePath,
   readmeRelativePath,
+  portableManifestPathKey,
   isSafeManifestPath,
   parseManifestGeneratedAt,
   listPackageEntries,
