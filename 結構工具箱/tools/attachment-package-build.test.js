@@ -140,6 +140,27 @@ try {
     'failed self-verification must remove the temporary package',
   );
 
+  const linkedInput = path.join(tempRoot, 'linked-input');
+  const linkedTarget = path.join(tempRoot, 'linked-target');
+  const linkedOutput = path.join(tempRoot, 'linked-package');
+  const linkedEntry = path.join(linkedInput, 'linked-outside');
+  fs.mkdirSync(linkedInput, { recursive: true });
+  fs.mkdirSync(linkedTarget, { recursive: true });
+  writeSourceJson(linkedInput);
+  writeReport(linkedInput, '文件狀態：正式附件');
+  fs.writeFileSync(path.join(linkedTarget, 'outside.html'), '<div>outside</div>', 'utf8');
+  fs.symlinkSync(linkedTarget, linkedEntry, process.platform === 'win32' ? 'junction' : 'dir');
+  const linkedResult = Builder.buildPackage(linkedInput, { output: linkedOutput, projectNo: 'PKG-001', now: FIXED_NOW });
+  assert.equal(linkedResult.status, 'blocked', 'source junction must block the builder');
+  assert.equal(linkedResult.built, false);
+  assert(linkedResult.report.issues.some(issue => issue.code === 'unsafe-source-entry'));
+  assert.equal(fs.existsSync(linkedOutput), false, 'unsafe source junction must not create an output package');
+  assert.throws(
+    () => Builder.safeSourcePath(linkedInput, path.join('linked-outside', 'outside.html')),
+    /來源路徑不得包含符號連結或 junction/,
+    'copy layer independently rejects a linked path even if the pre-check were bypassed',
+  );
+
   const reviewInput = path.join(tempRoot, 'review-input');
   const reviewOutput = path.join(tempRoot, 'review-package');
   fs.mkdirSync(reviewInput, { recursive: true });

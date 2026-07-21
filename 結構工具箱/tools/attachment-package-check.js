@@ -257,20 +257,22 @@ function collectAttachmentFiles(inputDir, ignoredFile) {
   const skippedGeneratedEvidence = [];
   const skippedSystemFiles = [];
   const unsupportedFiles = [];
+  const unsafeSourceEntries = [];
   const walk = directory => {
     const entries = fs.readdirSync(directory, { withFileTypes: true });
     const siblingNames = new Set(entries.map(entry => entry.name.toLowerCase()));
     for (const entry of entries) {
       if (entry.isDirectory() && entry.name.startsWith('.')) continue;
       const entryPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) walk(entryPath);
+      if (entry.isSymbolicLink()) unsafeSourceEntries.push(entryPath);
+      else if (entry.isDirectory()) walk(entryPath);
       else if (entry.isFile() && path.resolve(entryPath) !== ignoredFile) {
         if (SUPPORTED_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
           if (isGeneratedEvidenceFile(entry.name, siblingNames)) skippedGeneratedEvidence.push(entryPath);
           else files.push(entryPath);
         } else if (isIgnorableSystemFile(entry.name)) skippedSystemFiles.push(entryPath);
         else unsupportedFiles.push(entryPath);
-      }
+      } else if (!entry.isFile()) unsafeSourceEntries.push(entryPath);
     }
   };
   walk(inputDir);
@@ -280,6 +282,7 @@ function collectAttachmentFiles(inputDir, ignoredFile) {
     skippedGeneratedEvidence: skippedGeneratedEvidence.sort(sortFiles),
     skippedSystemFiles: skippedSystemFiles.sort(sortFiles),
     unsupportedFiles: unsupportedFiles.sort(sortFiles),
+    unsafeSourceEntries: unsafeSourceEntries.sort(sortFiles),
   };
 }
 
@@ -381,7 +384,19 @@ function findDuplicateFingerprints(records, issues) {
 function analyzePackage(records, options = {}) {
   const issues = [];
   const unsupportedFiles = unique(options.unsupportedFiles || []);
+  const unsafeSourceEntries = unique(options.unsafeSourceEntries || []);
   if (!records.length) issues.push(buildIssue('error', 'no-attachments', '資料夾內沒有可檢查的 PDF、DOCX、XLSX、JSON、HTML 或文字附件。'));
+  if (unsafeSourceEntries.length) {
+    const displayedEntries = unsafeSourceEntries.slice(0, 8);
+    const remaining = unsafeSourceEntries.length - displayedEntries.length;
+    const suffix = remaining ? `（另有 ${remaining} 個）` : '';
+    issues.push(buildIssue(
+      'error',
+      'unsafe-source-entry',
+      `來源資料夾含有 ${unsafeSourceEntries.length} 個符號連結、junction 或其他特殊項目：${displayedEntries.join('、')}${suffix}；為避免遺漏或帶入資料夾外內容，不得組包。`,
+      unsafeSourceEntries,
+    ));
+  }
   if (unsupportedFiles.length) {
     const displayedFiles = unsupportedFiles.slice(0, 8);
     const remaining = unsupportedFiles.length - displayedFiles.length;
@@ -437,21 +452,26 @@ function analyzePackage(records, options = {}) {
   return {
     kind: 'attachment-package-check.v1', generatedAt: new Date().toISOString(),
     status: errorCount ? 'blocked' : warningCount ? 'review' : 'ready',
-    summary: { attachments: records.length, unsupported: unsupportedFiles.length, errors: errorCount, warnings: warningCount },
-    expectedProjectNo, attachments: records, fingerprintLinks, issues,
+    summary: { attachments: records.length, unsupported: unsupportedFiles.length, unsafeSourceEntries: unsafeSourceEntries.length, errors: errorCount, warnings: warningCount },
+    expectedProjectNo, attachments: records, fingerprintLinks, issues, unsafeSourceEntries,
   };
 }
 
 function checkPackage(inputDir, options = {}) {
   const resolvedInput = path.resolve(inputDir || '');
-  if (!fs.existsSync(resolvedInput) || !fs.statSync(resolvedInput).isDirectory()) throw new Error(`附件資料夾不存在：${resolvedInput || inputDir || '(未指定)'}`);
+  if (!fs.existsSync(resolvedInput)) throw new Error(`附件資料夾不存在：${resolvedInput || inputDir || '(未指定)'}`);
+  const inputStat = fs.lstatSync(resolvedInput);
+  if (inputStat.isSymbolicLink()) throw new Error(`附件資料夾本身不得是符號連結或 junction：${resolvedInput}`);
+  if (!inputStat.isDirectory()) throw new Error(`附件資料夾不存在：${resolvedInput || inputDir || '(未指定)'}`);
   const ignoredFile = options.output ? path.resolve(options.output) : '';
   const collection = collectAttachmentFiles(resolvedInput, ignoredFile);
   const unsupportedFiles = collection.unsupportedFiles.map(file => path.relative(resolvedInput, file) || path.basename(file));
-  const report = analyzePackage(collection.files.map(file => inspectAttachment(file, resolvedInput)), { ...options, unsupportedFiles });
+  const unsafeSourceEntries = collection.unsafeSourceEntries.map(file => path.relative(resolvedInput, file) || path.basename(file));
+  const report = analyzePackage(collection.files.map(file => inspectAttachment(file, resolvedInput)), { ...options, unsupportedFiles, unsafeSourceEntries });
   report.skippedGeneratedEvidence = collection.skippedGeneratedEvidence.map(file => path.relative(resolvedInput, file) || path.basename(file));
   report.skippedSystemFiles = collection.skippedSystemFiles.map(file => path.relative(resolvedInput, file) || path.basename(file));
   report.unsupportedFiles = unsupportedFiles;
+  report.unsafeSourceEntries = unsafeSourceEntries;
   return report;
 }
 
@@ -462,6 +482,7 @@ function formatSummary(report) {
   ];
   if (report.skippedGeneratedEvidence?.length) lines.push(`已略過 ${report.skippedGeneratedEvidence.length} 個驗證中間檔（.evidence.json、成對文字擷取或渲染摘要）。`);
   if (report.unsupportedFiles?.length) lines.push(`未檢查 ${report.unsupportedFiles.length} 個不支援檔案；附件狀態不得自動放行。`);
+  if (report.unsafeSourceEntries?.length) lines.push(`已阻擋 ${report.unsafeSourceEntries.length} 個來源符號連結、junction 或特殊項目。`);
   if (report.fingerprintLinks?.length) lines.push(`來源資料與計算書已完成 ${report.fingerprintLinks.length} 組計算指紋配對。`);
   report.attachments.forEach(record => {
     const documentClass = (record.draftDocumentNeedles || []).length

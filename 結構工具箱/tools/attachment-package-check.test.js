@@ -56,6 +56,12 @@ assert.deepEqual(Checker.detectReadyDocumentClass('<strong>文件狀態：正式
 assert.deepEqual(Checker.detectReadyDocumentClass('<div>文件狀態</div><div>正式附件</div>'), ['文件狀態：正式附件']);
 assert.equal(Checker.READY_DOCUMENT_CLASS_LABEL, '文件狀態：正式附件');
 
+const unsafeSourceReport = Checker.analyzePackage([], { unsafeSourceEntries: ['linked-outside'] });
+assert.equal(unsafeSourceReport.status, 'blocked');
+assert.equal(unsafeSourceReport.summary.unsafeSourceEntries, 1);
+assert(unsafeSourceReport.issues.some(issue => issue.code === 'unsafe-source-entry'));
+assert.match(Checker.formatSummary(unsafeSourceReport), /已阻擋 1 個來源符號連結/);
+
 const sourceRecord = {
   file: 'beam.json', type: 'json', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
   projectName: '測試大樓', projectNo: 'PKG-001', designer: '', sourceTool: 'RC 梁', toolVersion: 'V3.1',
@@ -242,6 +248,31 @@ try {
   const unsupportedCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', unsupportedDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
   assert.equal(unsupportedCli.status, 1, unsupportedCli.stderr || unsupportedCli.stdout);
   assert.match(unsupportedCli.stdout, /未檢查 1 個不支援檔案/);
+
+  const linkedTargetDir = path.join(tempDir, 'linked-target');
+  const linkedInputDir = path.join(tempDir, 'linked-input');
+  const linkedEntry = path.join(linkedInputDir, 'linked-outside');
+  fs.mkdirSync(linkedTargetDir, { recursive: true });
+  fs.mkdirSync(linkedInputDir, { recursive: true });
+  fs.writeFileSync(path.join(linkedTargetDir, 'outside.html'), '<div>文件狀態：正式附件</div>', 'utf8');
+  fs.writeFileSync(path.join(linkedInputDir, 'case.json'), JSON.stringify({
+    tool: { name: '矩形建物 MWFRS', version: 'v1' },
+    project: { no: 'PKG-001' },
+    calculationFingerprint: 'CF-1234ABCD5678EF90',
+    savedAt: '2026/07/20 16:00:00',
+  }), 'utf8');
+  fs.symlinkSync(linkedTargetDir, linkedEntry, process.platform === 'win32' ? 'junction' : 'dir');
+  const linkedCollection = Checker.collectAttachmentFiles(linkedInputDir, '');
+  assert.deepEqual(linkedCollection.files.map(file => path.basename(file)), ['case.json']);
+  assert.deepEqual(linkedCollection.unsafeSourceEntries.map(file => path.basename(file)), ['linked-outside']);
+  const linkedPackage = Checker.checkPackage(linkedInputDir, { projectNo: 'PKG-001' });
+  assert.equal(linkedPackage.status, 'blocked', 'source junction must block automatic packaging');
+  assert.deepEqual(linkedPackage.unsafeSourceEntries, ['linked-outside']);
+  assert(linkedPackage.issues.some(issue => issue.code === 'unsafe-source-entry'));
+  const linkedCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', linkedInputDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
+  assert.equal(linkedCli.status, 2, linkedCli.stderr || linkedCli.stdout);
+  assert.match(linkedCli.stdout, /已阻擋 1 個來源符號連結/);
+  assert.throws(() => Checker.checkPackage(linkedEntry), /資料夾本身不得是符號連結或 junction/);
 
   const fixtureDir = path.join(tempDir, 'fixture');
   fs.mkdirSync(path.join(fixtureDir, 'word'), { recursive: true });

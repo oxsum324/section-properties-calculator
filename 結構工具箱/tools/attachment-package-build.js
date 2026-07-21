@@ -61,6 +61,16 @@ function sha256File(filePath) {
 function safeSourcePath(inputDir, relativeFile) {
   const sourcePath = path.resolve(inputDir, relativeFile);
   if (!isPathInside(inputDir, sourcePath)) throw new Error(`附件路徑超出來源資料夾：${relativeFile}`);
+  const relativePath = path.relative(path.resolve(inputDir), sourcePath);
+  let currentPath = path.resolve(inputDir);
+  for (const segment of relativePath.split(path.sep).filter(Boolean)) {
+    currentPath = path.join(currentPath, segment);
+    const stat = fs.lstatSync(currentPath);
+    if (stat.isSymbolicLink()) throw new Error(`附件來源路徑不得包含符號連結或 junction：${relativeFile}`);
+  }
+  const realInput = fs.realpathSync(inputDir);
+  const realSource = fs.realpathSync(sourcePath);
+  if (!isPathInside(realInput, realSource)) throw new Error(`附件實際來源超出來源資料夾：${relativeFile}`);
   return sourcePath;
 }
 
@@ -260,6 +270,7 @@ module.exports = {
   validateBuildPaths,
   isFormalAttachment,
   sha256File,
+  safeSourcePath,
   packageFingerprint,
   summarizeVerificationFailure,
   portableVerificationResult,

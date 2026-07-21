@@ -128,7 +128,7 @@ Refresh anchor deployment assets
 
 共用計算書文件狀態：調整 `結構工具箱/core/ui/report.js` 的核可方塊、內部審閱／正式附件頁尾、空白案件欄位省略或輸入變更撤銷核可時，必須同步 staging `section-tools.contract.test.js`、`continuous-beam-regression.test.js`、`frame-analysis.contract.test.js`、相關頁面、README、邊界文件、ADR、首頁／矩陣／dashboard 說明與 browser smoke。頁面診斷明細仍維持 page-only。
 
-附件組包文件分類：調整 `attachment-package-check.js` 的 `文件狀態：內部審閱` 阻擋、`文件狀態：正式附件` 辨識、追溯欄位或未分類 review 規則時，必須同步 staging 檢查／組包／事後驗證測試、三個批次入口與三份治理文件。計畫名稱、計畫編號與設計人可由主文承接；產出工具、版本、時間與指紋仍依追溯規則檢查。專案 JSON 維持來源資料角色，不要求報告文件狀態；`attachment-package-build.js` 只在 ready 後把正式文件與內部追溯資料分流，禁止覆寫既有輸出或留下半成品，並必須在暫存區呼叫同一驗證器，完整通過才原子發布；測試需證明自我驗證失敗時暫存與輸出皆不存在。`attachment-package-verify.js` 只讀取既有正式附件包，需阻擋清單／雜湊／指紋／README 不符、遺漏、額外項目、符號連結與路徑越界，且不得將驗證結果寫回包內。
+附件組包文件分類：調整 `attachment-package-check.js` 的 `文件狀態：內部審閱` 阻擋、`文件狀態：正式附件` 辨識、追溯欄位、來源符號連結／junction 或未分類 review 規則時，必須同步 staging 檢查／組包／事後驗證測試、三個批次入口與三份治理文件。計畫名稱、計畫編號與設計人可由主文承接；產出工具、版本、時間與指紋仍依追溯規則檢查。專案 JSON 維持來源資料角色，不要求報告文件狀態；來源根目錄或內容含連結／junction 時必須 blocked 並列名，組包複製層還需逐層拒絕連結及確認實際來源未越界。`attachment-package-build.js` 只在 ready 後把正式文件與內部追溯資料分流，禁止覆寫既有輸出或留下半成品，並必須在暫存區呼叫同一驗證器，完整通過才原子發布；測試需證明自我驗證失敗時暫存與輸出皆不存在。`attachment-package-verify.js` 只讀取既有正式附件包，需阻擋清單／雜湊／指紋／README 不符、遺漏、額外項目、符號連結與路徑越界，且不得將驗證結果寫回包內。
 
 ```powershell
 git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/ui_smoke_test.py" "石材固定/js/code-profiles-registry.spec.js" "石材固定/js/code-profiles-registry-smoke.test.js" "石材固定/js/regression-smoke.test.js"
