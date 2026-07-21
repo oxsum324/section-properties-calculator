@@ -538,7 +538,15 @@ assert.ok(anchorHtmlText.includes('王設計') && anchorHtmlText.includes('李�
 assert.equal(fs.readFileSync(anchorDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has DOCX ZIP signature');
 const anchorDocxEntries = readZipEntries(anchorDocxPath, 'anchor DOCX');
 assert.ok(anchorDocxEntries.has('word/document.xml'), 'anchor DOCX contains word/document.xml');
-const anchorDocxText = decodeXmlText(anchorDocxEntries.get('word/document.xml').toString('utf8'));
+const anchorDocxTextEntries = [...anchorDocxEntries.entries()]
+  .filter(([name]) => name === 'word/document.xml' || /^word\/footer\d+\.xml$/.test(name));
+assert.ok(
+  anchorDocxTextEntries.some(([name]) => /^word\/footer\d+\.xml$/.test(name)),
+  'anchor DOCX contains the attachment identity footer'
+);
+const anchorDocxText = anchorDocxTextEntries
+  .map(([, value]) => decodeXmlText(value.toString('utf8')))
+  .join('\n');
 assert.ok(anchorDocxText.length > 3000, 'anchor DOCX artifact contains substantial visible text');
 for (const needle of ['鋼筋混凝土錨栓檢討報告', '柱腳基板示例', '載重組合批次檢核', '逐項檢核明細', '使用邊界與版本']) {
   assert.ok(anchorDocxText.includes(needle), `anchor DOCX artifact contains ${needle}`);

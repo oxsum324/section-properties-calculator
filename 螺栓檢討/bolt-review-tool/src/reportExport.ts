@@ -724,8 +724,9 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
         main { max-width:none; padding:0; }
         .card,.hero,.geometry-wrap { box-shadow:none; break-inside:avoid-page; }
         table { break-inside:auto; }
-        tr,td,th { break-inside:avoid; }
-        h2,h3 { break-after:avoid-page; }
+        tr,td,th { break-inside:avoid; page-break-inside:avoid; }
+        h2,h3 { break-after:avoid-page; page-break-after:avoid; }
+        p,li { orphans:3; widows:3; }
         .hero { break-after:page; }
         .report-preview-toolbar { display: none !important; }
       }
@@ -1111,12 +1112,17 @@ export function buildStandaloneReportHtml(params: ReportArtifactParams) {
         if (!checkbox || !status) return
         let approvedAt = status.dataset.approvedAt || ''
         const fingerprint = status.dataset.calculationFingerprint || ''
-        const formatNow = () => new Date().toLocaleString('zh-TW', { hour12:false })
+        const formatApprovedAt = (value) => {
+          const parsed = new Date(value)
+          return Number.isFinite(parsed.getTime())
+            ? parsed.toLocaleString('zh-TW', { timeZone:'Asia/Taipei', hour12:false })
+            : value
+        }
         const update = () => {
-          if (checkbox.checked && !approvedAt) approvedAt = formatNow()
+          if (checkbox.checked && !approvedAt) approvedAt = new Date().toISOString()
           if (!checkbox.checked) approvedAt = ''
           const parts = checkbox.checked
-            ? ['文件狀態：正式附件', approvedAt ? '核可時間：' + approvedAt : '']
+            ? ['文件狀態：正式附件', approvedAt ? '核可時間：' + formatApprovedAt(approvedAt) : '']
             : ['文件狀態：內部審閱']
           if (fingerprint) parts.push('計算指紋：' + fingerprint)
           status.textContent = parts.filter(Boolean).join('｜')

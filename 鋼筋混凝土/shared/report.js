@@ -310,16 +310,15 @@ function buildRcAttachmentApprovalReport(options = {}) {
         if (!checkbox) return;
         checkbox.checked = source.dataset.initialApproved === 'true';
         var approvedAtValue = source.dataset.approvedAt || '';
-        function formatNow() {
-          var d = new Date();
-          var pad = function (value) { return String(value).padStart(2, '0'); };
-          return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+        function formatApprovedAt(value) {
+          var d = new Date(value);
+          return Number.isFinite(d.getTime()) ? d.toLocaleString('zh-TW', { timeZone:'Asia/Taipei', hour12:false }) : value;
         }
         function updateStatus() {
-          if (checkbox.checked && !approvedAtValue) approvedAtValue = formatNow();
+          if (checkbox.checked && !approvedAtValue) approvedAtValue = new Date().toISOString();
           if (!checkbox.checked) approvedAtValue = '';
           var parts = checkbox.checked
-            ? ['文件狀態：正式附件', approvedAtValue ? '核可時間：' + approvedAtValue : '']
+            ? ['文件狀態：正式附件', approvedAtValue ? '核可時間：' + formatApprovedAt(approvedAtValue) : '']
             : ['文件狀態：內部審閱'];
           if (fingerprint) parts.push('計算指紋：' + fingerprint);
           status.textContent = parts.filter(Boolean).join('｜');
@@ -593,7 +592,9 @@ table { width:100%; border-collapse:collapse; font-size:12px; }
   .rep-block h3, .rep-step h4 { break-after:avoid-page; page-break-after:avoid; }
   .rep-block--keep { break-inside:avoid-page; page-break-inside:avoid; }
   thead { display:table-header-group; }
+  table { break-inside:auto; page-break-inside:auto; }
   tr { break-inside:avoid-page; page-break-inside:avoid; }
+  p, li, .rep-step-body { orphans:3; widows:3; }
   .rep-footer { position:static; width:auto; clear:both; padding:1mm 0 0; margin-top:8mm; break-before:avoid-page; page-break-before:avoid; break-inside:avoid; }
 }
 </style>

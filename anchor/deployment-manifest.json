@@ -1,7 +1,7 @@
 ﻿{
-    "generatedAt":  "2026-07-21T17:40:04",
+    "generatedAt":  "2026-07-21T19:30:50",
     "basePath":  "./",
-    "sourceFingerprint":  "d48b105141eec2ca35c1153ba59f8424e408a35c394c46d14274a55eca7cf542",
+    "sourceFingerprint":  "ec6e723abb3fe1a2f4f8628630eed4d832417aad471d2ccae4f87486895272f1",
     "sourceRoots":  [
                         "螺栓檢討\\bolt-review-tool\\src",
                         "螺栓檢討\\bolt-review-tool\\public",
@@ -14,12 +14,12 @@
                         "螺栓檢討\\bolt-review-tool\\eslint.config.js"
                     ],
     "referencedAssets":  [
-                             "appMeta-CWIHtunM.js",
+                             "appMeta-Au4u3PuX.js",
                              "basePlateStressState-wYduPT6T.js",
                              "chunk-62oNxeRG.js",
-                             "defaults-B8XZ2czo.js",
+                             "defaults-C76TWBSz.js",
+                             "index-CI_RqTa-.js",
                              "index-CLw7UvzA.css",
-                             "index-W6YFXDH9.js",
                              "loadCasePresetInput-CpGAIu5j.js",
                              "units-m4ngsLPL.js"
                          ]

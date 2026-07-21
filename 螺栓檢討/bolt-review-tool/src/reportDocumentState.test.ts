@@ -76,6 +76,8 @@ describe('buildReportDocumentState', () => {
       isDraft: false,
     })
     expect(state.reason).toContain('核可時間')
+    expect(state.reason).toBe('核可時間：2026/07/20 18:00:00')
+    expect(state.reason).not.toContain('T10:00:00.000Z')
   })
 
   it('keeps intentionally excluded checks visible without converting the document to DRAFT', () => {

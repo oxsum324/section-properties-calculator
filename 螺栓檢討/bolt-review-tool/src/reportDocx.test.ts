@@ -35,6 +35,7 @@ const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
   '流程顯示',
   '報表模式',
   '輸出設定',
+  '簽證責任聲明',
 ]
 
 function buildParams() {
@@ -141,11 +142,22 @@ function readZipEntry(buffer: Uint8Array, entryName: string) {
 }
 
 function docxVisibleText(buffer: Uint8Array) {
-  return readZipEntry(buffer, 'word/document.xml')
+  const bodyText = readZipEntry(buffer, 'word/document.xml')
     .replace(/<[^>]+>/g, '')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
+  let footerText = ''
+  try {
+    footerText = readZipEntry(buffer, 'word/footer1.xml')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+  } catch {
+    // 沒有頁尾時維持既有行為。
+  }
+  return `${bodyText}${footerText}`
 }
 
 function readDocxStructure(buffer: Uint8Array) {
@@ -162,6 +174,8 @@ function readDocxStructure(buffer: Uint8Array) {
     paragraphCount: documentXml.match(/<w:p(?:\s|>)/g)?.length ?? 0,
     tableCount: documentXml.match(/<w:tbl(?:\s|>)/g)?.length ?? 0,
     tableRowCount: documentXml.match(/<w:tr(?:\s|>)/g)?.length ?? 0,
+    sectionCount: documentXml.match(/<w:sectPr(?:\s|>)/g)?.length ?? 0,
+    cantSplitCount: documentXml.match(/<w:cantSplit\/?\s*>/g)?.length ?? 0,
     pageBreakCount:
       documentXml.match(/w:pageBreakBefore|<w:br[^>]+w:type="page"/g)
         ?.length ?? 0,
@@ -207,7 +221,12 @@ describe('reportDocx', () => {
     expect(structure.paragraphCount).toBeGreaterThanOrEqual(35)
     expect(structure.tableCount).toBeGreaterThanOrEqual(9)
     expect(structure.tableRowCount).toBeGreaterThanOrEqual(30)
-    expect(structure.pageBreakCount).toBeGreaterThanOrEqual(6)
+    expect(structure.sectionCount).toBe(3)
+    expect(structure.pageBreakCount).toBeLessThanOrEqual(1)
+    expect(structure.cantSplitCount).toBeGreaterThanOrEqual(30)
+    expect(structure.visibleText).toContain('逐項檢核說明')
+    expect(structure.visibleText).toContain('核可時間：2026/07/20 18:00:00')
+    expect(structure.visibleText).not.toContain('T10:00:00.000Z')
     for (const title of sectionTitles) {
       expect(structure.visibleText).toContain(title)
     }

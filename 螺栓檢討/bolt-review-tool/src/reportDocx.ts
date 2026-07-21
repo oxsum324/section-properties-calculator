@@ -2,8 +2,10 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
   HeadingLevel,
   ImageRun,
+  PageOrientation,
   Packer,
   Paragraph,
   Table,
@@ -15,8 +17,6 @@ import {
 } from 'docx'
 import {
   CURRENT_APP_BUILD_TIME,
-  CURRENT_CALC_ENGINE_VERSION,
-  ENGINEERING_USE_DISCLAIMER,
   getCalcEngineVersionStatus,
 } from './appMeta'
 import { buildStandaloneGeometrySketchSvg } from './reportExport'
@@ -171,6 +171,8 @@ function createParagraph(
     heading: options?.heading,
     alignment: options?.alignment,
     pageBreakBefore: options?.pageBreakBefore,
+    keepNext: Boolean(options?.heading),
+    keepLines: Boolean(options?.heading),
     spacing: {
       after: 120,
     },
@@ -230,6 +232,7 @@ function createTableCell(
     children: [
       new Paragraph({
         alignment: options?.alignment,
+        keepLines: true,
         spacing: { after: 0 },
         children: [
           new TextRun({
@@ -284,6 +287,7 @@ function buildDataTable(
     rows: [
       new TableRow({
         tableHeader: true,
+        cantSplit: true,
         children: headers.map((header) =>
           createTableCell(header, {
             bold: true,
@@ -296,6 +300,7 @@ function buildDataTable(
       ...rows.map(
         (row) =>
           new TableRow({
+            cantSplit: true,
             children: headers.map((header) => {
               const text = toCellText(row[header])
               const fill = dcrHeaders.has(header) ? getDcrFill(text) : undefined
@@ -365,6 +370,7 @@ function buildTimestampBlock(params: ReportArtifactParams): Table {
     rows: rows.map(
       ([label, value]) =>
         new TableRow({
+          cantSplit: true,
           children: [
             createTableCell(label, {
               bold: true,
@@ -496,9 +502,23 @@ function buildSection(
   ]
 }
 
+function buildResultNotes(rows: ReportTableRow[]) {
+  const noteRows = rows
+    .filter((row) => String(row.說明 ?? '').trim())
+    .map((row) => ({
+      檢核項目: [row.組合, row.檢核模式].filter(Boolean).join('｜'),
+      計算說明: row.說明,
+    }))
+  if (noteRows.length === 0) return []
+  return [
+    createParagraph('逐項檢核說明', { heading: HeadingLevel.HEADING_2 }),
+    buildDataTable(noteRows),
+  ]
+}
+
 /**
- * 「使用邊界與版本」終章：報告固定附最後一頁，含 calc engine 版本、build 時間、
- * 版本一致性狀態，以及法律免責聲明。供工程審查與簽證驗證。
+ * 「使用邊界與版本」終章：保留 calc engine 版本、build 時間與版本一致性狀態，
+ * 供附件追溯；通用流程警語與責任宣告留在 HTML 畫面，不寫入計算附件。
  */
 function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
   const status = getCalcEngineVersionStatus(
@@ -522,7 +542,6 @@ function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
   return [
     createParagraph('使用邊界與版本', {
       heading: HeadingLevel.HEADING_1,
-      pageBreakBefore: true,
     }),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -530,6 +549,7 @@ function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
       rows: versionRows.map(
         ([label, value]) =>
           new TableRow({
+            cantSplit: true,
             children: [
               createTableCell(label, {
                 bold: true,
@@ -541,18 +561,6 @@ function buildVersionAndDisclaimerSection(params: ReportArtifactParams) {
           }),
       ),
     }),
-    createParagraph('簽證責任聲明', {
-      heading: HeadingLevel.HEADING_2,
-    }),
-    createParagraph(ENGINEERING_USE_DISCLAIMER, {
-      color: docxColors.muted,
-    }),
-    createParagraph(
-      `本報告由 bolt-review-tool ${CURRENT_CALC_ENGINE_VERSION} 自動產出；` +
-        '計算邏輯經內部測試，但仍應由執業技師依現行規範、原始資料與完整工程判斷負責。' +
-        '報表設計值與最大數值 DCR 僅供決策輔助；正式設計、審查、簽證以技師最終認定為準。',
-      { color: docxColors.muted, size: 18 },
-    ),
   ]
 }
 
@@ -575,55 +583,45 @@ export function buildReportDocument(
   const evidenceRows = buildEvidenceRows(params)
   const auditRows = buildAuditRows(params)
 
-  const children = [
+  const portraitOpeningChildren = [
     ...buildSummarySection(params, geometryPngBytes),
     ...buildSection('載重組合批次檢核', loadCaseRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
-      pageBreakBefore: true,
     }),
+  ]
+  const landscapeDetailChildren = [
     ...buildSection('逐項檢核明細', resultRows, {
       highlightDcrHeaders: ['DCR', 'DCR重算'],
-      omittedHeaders: ['DCR重算'],
-      pageBreakBefore: true,
+      omittedHeaders: ['DCR重算', '說明'],
     }),
-    ...buildSection('尺寸檢核', dimensionRows, {
-      pageBreakBefore: true,
-    }),
-    ...buildSection('φ / ψ 與因子總表', factorRows, {
-      pageBreakBefore: true,
-    }),
+    ...buildResultNotes(resultRows),
+    ...buildSection('尺寸檢核', dimensionRows),
+    ...buildSection('φ / ψ 與因子總表', factorRows),
+  ]
+  const documentStatusLine = [
+    `文件狀態：${documentState.label}`,
+    documentState.reason,
+    params.auditEntry?.hash
+      ? `計算指紋：CF-${params.auditEntry.hash.slice(0, 16).toUpperCase()}`
+      : '',
+  ].filter(Boolean).join('｜')
+
+  const portraitClosingChildren = [
     ...buildSection('候選產品比選', candidateRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
-      pageBreakBefore: true,
     }),
     ...buildSection('候選配置比選', layoutRows, {
       highlightDcrHeaders: ['控制DCR'],
-      pageBreakBefore: true,
     }),
-    ...buildSection('產品證據與文件對照', evidenceRows, {
-      pageBreakBefore: true,
-    }),
+    ...buildSection('產品證據與文件對照', evidenceRows),
     ...buildSection('審查留痕', auditRows, {
       highlightDcrHeaders: ['控制DCR', '最大數值DCR'],
-      pageBreakBefore: true,
     }),
     // 使用邊界與版本：固定置於文件最末，作為簽證責任 / 版本驗證依據
     ...buildVersionAndDisclaimerSection(params),
-    createParagraph(
-      [
-        `文件狀態：${documentState.label}`,
-        documentState.reason,
-        params.auditEntry?.hash
-          ? `計算指紋：CF-${params.auditEntry.hash.slice(0, 16).toUpperCase()}`
-          : '',
-      ].filter(Boolean).join('｜'),
-      {
-        alignment: AlignmentType.RIGHT,
-        color: docxColors.muted,
-        size: 18,
-      },
-    ),
   ]
+
+  const pageMargin = { top: 720, right: 720, bottom: 720, left: 720 }
 
   return new Document({
     creator: 'bolt-review-tool',
@@ -631,17 +629,32 @@ export function buildReportDocument(
     description: `鋼筋混凝土錨栓檢討 Word 匯出報告；文件狀態：${documentState.label}`,
     sections: [
       {
+        properties: { page: { margin: pageMargin } },
+        children: portraitOpeningChildren,
+      },
+      {
         properties: {
           page: {
-            margin: {
-              top: 720,
-              right: 720,
-              bottom: 720,
-              left: 720,
-            },
+            margin: pageMargin,
+            size: { orientation: PageOrientation.LANDSCAPE },
           },
         },
-        children,
+        children: landscapeDetailChildren,
+      },
+      {
+        properties: { page: { margin: pageMargin } },
+        footers: {
+          default: new Footer({
+            children: [
+              createParagraph(documentStatusLine, {
+                alignment: AlignmentType.RIGHT,
+                color: docxColors.muted,
+                size: 18,
+              }),
+            ],
+          }),
+        },
+        children: portraitClosingChildren,
       },
     ],
   })

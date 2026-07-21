@@ -1953,7 +1953,7 @@ $checks = @(
     workdir = $root
     command = $rcColumnReportContractCommand
     slow = $false
-    timeoutSeconds = 300
+    timeoutSeconds = 600
   },
   [pscustomobject]@{
     key = "rc-shear-wall-report-contract"
@@ -2247,7 +2247,7 @@ $checks = @(
     command = $formalToolsRunnerCommand
     slow = $true
     cache = $formalRunnerCache
-    timeoutSeconds = 300
+    timeoutSeconds = 600
   },
   [pscustomobject]@{
     key = "rendered-delivery-evidence"

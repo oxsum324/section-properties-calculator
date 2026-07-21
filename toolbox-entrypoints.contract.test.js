@@ -771,13 +771,20 @@ assert.ok(pagesDeployWorkflow.includes('PAGES_BASE_URL: ${{ needs.deploy.outputs
 assert.ok(preflight.includes('key = "staging-groups-coverage"'), 'preflight includes staging groups coverage gate');
 assert.match(
   preflight,
-  /key\s*=\s*"rc-column-report-contract"[\s\S]{0,320}?timeoutSeconds\s*=\s*300/,
-  'RC column report contract keeps a five-minute timeout for the full visual evidence set'
+  /key\s*=\s*"rc-column-report-contract"[\s\S]{0,320}?timeoutSeconds\s*=\s*600/,
+  'RC column report contract keeps a ten-minute timeout for the full visual evidence set'
+);
+assert.match(
+  preflight,
+  /key\s*=\s*"formal-browser-smoke"[\s\S]{0,320}?timeoutSeconds\s*=\s*600/,
+  'formal browser smoke keeps a ten-minute timeout for release-mode browser evidence'
 );
 [readme, boundaries, staging].forEach((documentText, index) => {
   const label = ['README', 'TOOL_BOUNDARIES', 'STAGING_GROUPS'][index];
   assert.ok(documentText.includes('rc-column-report-contract'), `${label} documents the RC column report gate`);
-  assert.ok(documentText.includes('timeoutSeconds = 300'), `${label} documents the RC column report timeout`);
+  assert.ok(documentText.includes('timeoutSeconds = 600'), `${label} documents the RC column report timeout`);
+  assert.ok(documentText.includes('formal-browser-smoke'), `${label} documents the formal browser smoke gate`);
+  assert.ok(documentText.includes('timeoutSeconds = 600'), `${label} documents the formal browser smoke timeout`);
 });
 assert.ok(preflight.includes('$maturityMatrixScript = Join-Path $root "結構工具箱\\tools\\tool-maturity-matrix.js"'), 'preflight resolves maturity matrix after summary');
 assert.ok(preflight.includes('$matrixProc = Start-Process -FilePath node'), 'preflight refreshes maturity matrix from summary');
