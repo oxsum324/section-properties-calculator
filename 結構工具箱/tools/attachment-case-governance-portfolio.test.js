@@ -127,6 +127,7 @@ function issueCodes(result) {
 }
 
 assert.equal(Portfolio.PORTFOLIO_KIND, 'formal-attachment-case-governance-portfolio.v1');
+assert.equal(Portfolio.PORTFOLIO_VIEW_KIND, 'formal-attachment-case-governance-portfolio.filtered-view.v1');
 assert.match(Portfolio.PORTFOLIO_BOUNDARY_INSTRUCTION, /不得放入計算書、主報告或正式附件包/);
 assert.deepEqual(Portfolio.TRIAGE_RULES.map(item => item.code), [
   'source-stability-blocked',
@@ -138,10 +139,25 @@ assert.deepEqual(Portfolio.TRIAGE_RULES.map(item => item.code), [
   'package-compatibility-review',
   'other-review',
 ]);
-assert.deepEqual(Portfolio.parseArgs(['--parent', 'C:/cases', '--json']), { json: true, parent: 'C:/cases' });
+assert.deepEqual(Portfolio.parseArgs(['--parent', 'C:/cases', '--json']), {
+  json: true,
+  onlyActionable: false,
+  priority: '',
+  parent: 'C:/cases',
+});
+assert.deepEqual(Portfolio.parseArgs(['--parent', 'C:/cases', '--only-actionable', '--priority', 'p1']), {
+  json: false,
+  onlyActionable: true,
+  priority: 'P1',
+  parent: 'C:/cases',
+});
 assert.throws(() => Portfolio.parseArgs(['--parent']), /缺少路徑值/);
+assert.throws(() => Portfolio.parseArgs(['--priority']), /缺少 P0、P1 或 P2/);
+assert.throws(() => Portfolio.parseArgs(['--priority', 'P3']), /只接受 P0、P1 或 P2/);
 assert.throws(() => Portfolio.parseArgs(['--unknown']), /未知參數/);
 assert.match(Portfolio.usage(), /只掃描直接子資料夾/);
+assert.match(Portfolio.usage(), /--only-actionable/);
+assert.match(Portfolio.usage(), /篩選只改變顯示內容/);
 assert.match(Portfolio.usage(), /不代表任何案件的正式附件核可/);
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-case-portfolio-'));
@@ -189,10 +205,32 @@ try {
   assert.match(Portfolio.formatSummary(ready), /全部可進入內部歸檔複核/);
   assert.match(Portfolio.formatSummary(ready), /忽略非案件資料夾：1/);
   assert.match(Portfolio.formatSummary(ready), /處置優先：無；待處理案件 0；問題群組 0/);
+  const readyActionable = Portfolio.buildFilteredView(ready, { onlyActionable: true });
+  assert.equal(readyActionable.kind, Portfolio.PORTFOLIO_VIEW_KIND);
+  assert.equal(readyActionable.status, 'ready');
+  assert.equal(readyActionable.portfolioFingerprint, ready.portfolioFingerprint);
+  assert.deepEqual(readyActionable.filter, {
+    onlyActionable: true,
+    priority: 'all',
+    fingerprintScope: 'all-cases',
+    portfolioIssuesAlwaysIncluded: true,
+    selectedCaseCount: 0,
+    selectedGroupCount: 0,
+    fullCaseCount: 2,
+    fullGroupCount: 0,
+  });
+  assert.deepEqual(readyActionable.cases, []);
+  assert.deepEqual(readyActionable.groups, []);
+  assert.match(Portfolio.formatSummary(ready, { onlyActionable: true }), /顯示篩選：僅待處理案件；案件 0\/2/);
+  assert.doesNotMatch(Portfolio.formatSummary(ready, { onlyActionable: true }), /案件甲：|案件乙：/);
 
   const readyCli = cli(['--parent', parent, '--json']);
   assert.equal(readyCli.status, 0, readyCli.stderr || readyCli.stdout);
   assert.equal(JSON.parse(readyCli.stdout).status, 'ready');
+  const readyFilteredCli = cli(['--parent', parent, '--only-actionable', '--json']);
+  assert.equal(readyFilteredCli.status, 0, readyFilteredCli.stderr || readyFilteredCli.stdout);
+  assert.equal(JSON.parse(readyFilteredCli.stdout).kind, Portfolio.PORTFOLIO_VIEW_KIND);
+  assert.equal(JSON.parse(readyFilteredCli.stdout).filter.selectedCaseCount, 0);
 
   addReceipt(caseB.historyDir, '3', TIMES.receipt3);
   const reviewBefore = digest(parent);
@@ -206,8 +244,19 @@ try {
   assert.deepEqual(review.triage.casePriorityCounts, { P0: 0, P1: 1, P2: 0 });
   assert.deepEqual(review.triage.groups.map(item => item.code), ['baseline-advance-review']);
   assert.deepEqual(review.triage.groups[0].cases, ['案件乙']);
+  const reviewP1 = Portfolio.buildFilteredView(review, { priority: 'p1' });
+  assert.equal(reviewP1.status, 'review');
+  assert.equal(reviewP1.portfolioFingerprint, review.portfolioFingerprint);
+  assert.deepEqual(reviewP1.groups.map(item => item.code), ['baseline-advance-review']);
+  assert.deepEqual(reviewP1.cases.map(item => item.caseName), ['案件乙']);
+  const reviewP0 = Portfolio.buildFilteredView(review, { priority: 'P0' });
+  assert.equal(reviewP0.filter.selectedCaseCount, 0);
+  assert.equal(reviewP0.filter.selectedGroupCount, 0);
   assert.equal(digest(parent), reviewBefore);
   assert.equal(cli(['--parent', parent, '--json']).status, 1);
+  const reviewFilteredCli = cli(['--parent', parent, '--priority', 'p1', '--json']);
+  assert.equal(reviewFilteredCli.status, 1, reviewFilteredCli.stderr || reviewFilteredCli.stdout);
+  assert.deepEqual(JSON.parse(reviewFilteredCli.stdout).cases.map(item => item.caseName), ['案件乙']);
 
   const caseCPath = path.join(parent, '案件丙');
   copyDirectory(caseA.caseRoot, caseCPath);
@@ -222,7 +271,24 @@ try {
   assert.deepEqual(blocked.triage.groups.map(item => item.code), ['trusted-chain-blocked', 'baseline-advance-review']);
   assert.deepEqual(blocked.triage.groups[0].cases, ['案件丙']);
   assert.match(Portfolio.formatSummary(blocked), /\[P0\] 可信基準版本鏈需修復；1 案（案件丙）/);
+  const blockedP0 = Portfolio.buildFilteredView(blocked, { priority: 'P0' });
+  assert.equal(blockedP0.status, 'blocked');
+  assert.equal(blockedP0.filter.fingerprintScope, 'all-cases');
+  assert.equal(blockedP0.portfolioFingerprint, blocked.portfolioFingerprint);
+  assert.deepEqual(blockedP0.groups.map(item => item.code), ['trusted-chain-blocked']);
+  assert.deepEqual(blockedP0.cases.map(item => item.caseName), ['案件丙']);
+  assert.doesNotMatch(JSON.stringify(blockedP0), /案件甲|案件乙/);
+  const blockedP1 = Portfolio.buildFilteredView(blocked, { priority: 'P1' });
+  assert.deepEqual(blockedP1.groups.map(item => item.code), ['baseline-advance-review']);
+  assert.deepEqual(blockedP1.cases.map(item => item.caseName), ['案件乙']);
+  const blockedP0Text = Portfolio.formatSummary(blocked, { priority: 'P0' });
+  assert.match(blockedP0Text, /顯示篩選：P0；案件 1\/3；群組 1\/2；狀態與指紋仍涵蓋全部案件/);
+  assert.match(blockedP0Text, /案件丙：blocked/);
+  assert.doesNotMatch(blockedP0Text, /案件甲：|案件乙：/);
   assert.equal(cli(['--parent', parent, '--json']).status, 2);
+  const blockedFilteredCli = cli(['--parent', parent, '--priority', 'P0', '--json']);
+  assert.equal(blockedFilteredCli.status, 2, blockedFilteredCli.stderr || blockedFilteredCli.stdout);
+  assert.deepEqual(JSON.parse(blockedFilteredCli.stdout).cases.map(item => item.caseName), ['案件丙']);
 
   const caseDPath = path.join(parent, '案件丁');
   fs.mkdirSync(caseDPath);
@@ -264,6 +330,11 @@ try {
   assert.equal(raced.triage.highestPriority, 'P0');
   assert.deepEqual(raced.triage.groups.map(item => item.code), ['source-stability-blocked']);
   assert.deepEqual(raced.triage.groups[0].portfolioIssueCodes, ['portfolio-changed-during-read']);
+  const racedP2 = Portfolio.buildFilteredView(raced, { priority: 'P2' });
+  assert.equal(racedP2.status, 'blocked');
+  assert.deepEqual(racedP2.groups, []);
+  assert.deepEqual(racedP2.cases, []);
+  assert.equal(racedP2.portfolioIssues.some(item => item.code === 'portfolio-changed-during-read'), true);
   assert.match(Portfolio.formatSummary(raced), /固定案件上層資料夾與治理資料後重新執行/);
 
   const overlapping = Portfolio.buildTriage([
@@ -291,6 +362,7 @@ try {
   assert.equal(cli(['--help']).status, 0);
   assert.equal(cli([]).status, 3);
   assert.equal(cli(['--unknown']).status, 3);
+  assert.equal(cli(['--parent', parent, '--priority', 'P4']).status, 3);
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
 }

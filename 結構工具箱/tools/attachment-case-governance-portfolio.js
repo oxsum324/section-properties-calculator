@@ -10,6 +10,7 @@ const Chain = require('./attachment-package-upgrade-history-baseline-chain.js');
 const Root = require('./attachment-case-governance-root.js');
 
 const PORTFOLIO_KIND = 'formal-attachment-case-governance-portfolio.v1';
+const PORTFOLIO_VIEW_KIND = 'formal-attachment-case-governance-portfolio.filtered-view.v1';
 const PORTFOLIO_BOUNDARY_INSTRUCTION = '本總覽只供案件內部批次確認附件治理狀態；不得放入計算書、主報告或正式附件包，亦不代表任何案件的正式附件核可或數位簽章。';
 const TRIAGE_RULES = Object.freeze([
   { code: 'source-stability-blocked', label: '檢查期間資料異動，先停止歸檔並固定來源', priority: 'P0', priorityLevel: 0, sequence: 10, actionCodes: ['rerun-after-source-stable', 'rerun-after-case-root-stable'], portfolioIssueCodes: ['portfolio-changed-during-read'] },
@@ -309,9 +310,68 @@ function inspectPortfolio(parentDir, options = {}) {
   return result;
 }
 
-function formatSummary(result) {
+function normalizeViewOptions(options = {}) {
+  const priority = String(options.priority || '').toUpperCase();
+  if (priority && !['P0', 'P1', 'P2'].includes(priority)) throw new Error('參數 --priority 只接受 P0、P1 或 P2。');
+  return {
+    onlyActionable: Boolean(options.onlyActionable),
+    priority,
+  };
+}
+
+function hasViewFilter(options = {}) {
+  const normalized = normalizeViewOptions(options);
+  return normalized.onlyActionable || Boolean(normalized.priority);
+}
+
+function buildFilteredView(result, options = {}) {
+  const filter = normalizeViewOptions(options);
+  const groups = result.triage.groups.filter(group => !filter.priority || group.priority === filter.priority);
+  const selectedNames = new Set();
+  if (filter.priority) groups.forEach(group => group.cases.forEach(name => selectedNames.add(name)));
+  else result.cases.filter(item => !filter.onlyActionable || item.status !== 'ready').forEach(item => selectedNames.add(item.caseName));
+  const cases = result.cases.filter(item => selectedNames.has(item.caseName));
+  return {
+    schemaVersion: 1,
+    kind: PORTFOLIO_VIEW_KIND,
+    generatedAt: result.generatedAt,
+    status: result.status,
+    portfolioFingerprint: result.portfolioFingerprint,
+    boundary: result.boundary,
+    fullResult: {
+      discovery: result.discovery,
+      summary: result.summary,
+      triage: {
+        highestPriority: result.triage.highestPriority,
+        actionableCaseCount: result.triage.actionableCaseCount,
+        portfolioIssueCount: result.triage.portfolioIssueCount,
+        groupCount: result.triage.groupCount,
+        casePriorityCounts: result.triage.casePriorityCounts,
+      },
+    },
+    filter: {
+      onlyActionable: filter.onlyActionable,
+      priority: filter.priority || 'all',
+      fingerprintScope: 'all-cases',
+      portfolioIssuesAlwaysIncluded: true,
+      selectedCaseCount: cases.length,
+      selectedGroupCount: groups.length,
+      fullCaseCount: result.discovery.caseCount,
+      fullGroupCount: result.triage.groupCount,
+    },
+    groups,
+    cases,
+    portfolioIssues: result.issues,
+  };
+}
+
+function formatSummary(result, options = {}) {
   const statusLabel = result.status === 'ready' ? '全部可進入內部歸檔複核' : result.status === 'review' ? '有案件需人工確認' : '有案件停止歸檔';
   const priorityLabel = result.triage.highestPriority === 'none' ? '無' : result.triage.highestPriority;
+  const filtered = hasViewFilter(options);
+  const view = filtered ? buildFilteredView(result, options) : null;
+  const displayedGroups = view ? view.groups : result.triage.groups;
+  const displayedCases = view ? view.cases : result.cases;
   const lines = [
     '多案件附件治理唯讀總覽',
     `狀態：${statusLabel}`,
@@ -320,20 +380,26 @@ function formatSummary(result) {
     `批次指紋：${result.portfolioFingerprint}`,
     `處置優先：${priorityLabel}；待處理案件 ${result.triage.actionableCaseCount}；問題群組 ${result.triage.groupCount}`,
   ];
-  result.triage.groups.forEach(group => {
+  if (view) {
+    const filters = [];
+    if (view.filter.onlyActionable) filters.push('僅待處理案件');
+    if (view.filter.priority !== 'all') filters.push(view.filter.priority);
+    lines.push(`顯示篩選：${filters.join(' + ')}；案件 ${view.filter.selectedCaseCount}/${view.filter.fullCaseCount}；群組 ${view.filter.selectedGroupCount}/${view.filter.fullGroupCount}；狀態與指紋仍涵蓋全部案件`);
+  }
+  displayedGroups.forEach(group => {
     const caseText = group.caseCount ? `；${group.caseCount} 案（${group.cases.join('、')}）` : '';
     const portfolioText = group.portfolioIssueCodes.length ? `；上層問題 ${group.portfolioIssueCodes.join('、')}` : '';
     lines.push(`- [${group.priority}] ${group.label}${caseText}${portfolioText}`);
   });
-  result.cases.forEach(item => lines.push(`- ${item.caseName}：${item.status}；附件包 ${item.packageStatus}；版本鏈 ${item.chainStatus}；待前進 ${item.pendingAdditions}`));
+  displayedCases.forEach(item => lines.push(`- ${item.caseName}：${item.status}；附件包 ${item.packageStatus}；版本鏈 ${item.chainStatus}；待前進 ${item.pendingAdditions}`));
   result.issues.forEach(item => lines.push(`- 阻擋 [${item.code}] ${item.message}`));
-  result.nextActions.forEach(item => lines.push(`- 下一步：${item.message}`));
+  if (!filtered) result.nextActions.forEach(item => lines.push(`- 下一步：${item.message}`));
   lines.push(PORTFOLIO_BOUNDARY_INSTRUCTION);
   return lines.join('\n');
 }
 
 function parseArgs(argv) {
-  const options = { json: false };
+  const options = { json: false, onlyActionable: false, priority: '' };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--parent') {
@@ -342,6 +408,14 @@ function parseArgs(argv) {
       options.parent = value;
       index += 1;
     } else if (arg === '--json') options.json = true;
+    else if (arg === '--only-actionable') options.onlyActionable = true;
+    else if (arg === '--priority') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) throw new Error('參數 --priority 缺少 P0、P1 或 P2。');
+      options.priority = value.toUpperCase();
+      normalizeViewOptions(options);
+      index += 1;
+    }
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new Error(`未知參數：${arg}`);
   }
@@ -350,8 +424,9 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    '用法：node attachment-case-governance-portfolio.js --parent <案件上層資料夾> [--json]',
+    '用法：node attachment-case-governance-portfolio.js --parent <案件上層資料夾> [--only-actionable] [--priority P0|P1|P2] [--json]',
     '只掃描直接子資料夾；有附件治理結構的視為案件，其餘列為忽略。',
+    '篩選只改變顯示內容；整批狀態、退出碼與 POR- 指紋仍涵蓋全部案件。',
     '結果固定唯讀；ready 不代表任何案件的正式附件核可。',
   ].join('\n');
 }
@@ -367,7 +442,8 @@ function main(argv = process.argv.slice(2)) {
     return Checker.CLI_ERROR_EXIT_CODE;
   }
   const result = inspectPortfolio(options.parent, options);
-  console.log(options.json ? JSON.stringify(result, null, 2) : formatSummary(result));
+  const output = hasViewFilter(options) ? buildFilteredView(result, options) : result;
+  console.log(options.json ? JSON.stringify(output, null, 2) : formatSummary(result, options));
   return Checker.exitCodeForStatus(result.status);
 }
 
@@ -382,6 +458,7 @@ if (require.main === module) {
 
 module.exports = {
   PORTFOLIO_KIND,
+  PORTFOLIO_VIEW_KIND,
   PORTFOLIO_BOUNDARY_INSTRUCTION,
   TRIAGE_RULES,
   hasExactGovernanceName,
@@ -394,6 +471,9 @@ module.exports = {
   portfolioFingerprint,
   portableCase,
   inspectPortfolio,
+  normalizeViewOptions,
+  hasViewFilter,
+  buildFilteredView,
   formatSummary,
   parseArgs,
   usage,
