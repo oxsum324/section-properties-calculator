@@ -61,6 +61,17 @@ function addIssue(report, code, message, files = []) {
   report.issues.push({ level: 'error', code, message, files });
 }
 
+function addWarning(report, code, message, files = []) {
+  report.issues.push({ level: 'warning', code, message, files });
+}
+
+function summarizeIssues(report) {
+  report.summary.errors = report.issues.filter(issue => issue.level === 'error').length;
+  report.summary.warnings = report.issues.filter(issue => issue.level === 'warning').length;
+  report.status = report.summary.errors ? 'blocked' : report.summary.warnings ? 'review' : 'ready';
+  return report;
+}
+
 function sha256Buffer(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
@@ -316,6 +327,16 @@ function validateManifestHeader(manifest, report) {
   const isCurrentManifest = manifest.schemaVersion === 3 && manifest.kind === MANIFEST_KIND;
   if (!isLegacyManifest && !isPreviousManifest && !isCurrentManifest) {
     addIssue(report, 'unsupported-manifest-schema', `附件包清單格式不符：僅接受 v1／${LEGACY_MANIFEST_KIND}、v2／${PREVIOUS_MANIFEST_KIND} 或 v3／${MANIFEST_KIND}。`, [manifestRelativePath()]);
+  } else if (isLegacyManifest || isPreviousManifest) {
+    const limitation = isLegacyManifest
+      ? '附件包指紋未涵蓋目前 v3 的完整追溯 metadata 與正式核可時間'
+      : '附件包指紋未綁定目前 v3 要求的正式核可時間';
+    addWarning(
+      report,
+      'legacy-manifest-review',
+      `此附件包採 v${manifest.schemaVersion} 舊版清單；可依原版規則驗證完整性，但${limitation}。需人工確認；重新組包為 v3 後，才能自動判定正式附件包通過。`,
+      [manifestRelativePath()],
+    );
   }
   if (!Number.isFinite(parseManifestGeneratedAt(manifest.generatedAt))) {
     addIssue(report, 'invalid-generated-at', '附件包清單缺少有效的建立時間。', [manifestRelativePath()]);
@@ -477,15 +498,13 @@ function verifyPackage(inputDir) {
   const observedHashes = new Map();
   if (rootIdentity.isSymbolicLink) {
     addIssue(report, 'package-root-symbolic-link', '正式附件包根目錄本身不得是符號連結或 Windows junction；請選取實際附件包資料夾。', [packageDir]);
-    report.summary.errors = report.issues.length;
-    return report;
+    return summarizeIssues(report);
   }
 
   const manifestPath = report.manifestPath;
   if (!fs.existsSync(manifestPath) || !fs.lstatSync(manifestPath).isFile()) {
     addIssue(report, 'missing-manifest', '正式附件包缺少附件包清單。', [manifestRelativePath()]);
-    report.summary.errors = report.issues.length;
-    return report;
+    return summarizeIssues(report);
   }
 
   let manifest;
@@ -497,8 +516,7 @@ function verifyPackage(inputDir) {
     manifest = JSON.parse(manifestText);
   } catch (error) {
     addIssue(report, 'invalid-manifest-json', `附件包清單不是有效 JSON：${error.message || error}`, [manifestRelativePath()]);
-    report.summary.errors = report.issues.length;
-    return report;
+    return summarizeIssues(report);
   }
   try {
     const duplicateKeys = findDuplicateJsonKeys(manifestText);
@@ -517,8 +535,7 @@ function verifyPackage(inputDir) {
   }
   validateManifestHeader(manifest, report);
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
-    report.summary.errors = report.issues.length;
-    return report;
+    return summarizeIssues(report);
   }
   report.packageFingerprint = typeof manifest.packageFingerprint === 'string' ? manifest.packageFingerprint : '';
 
@@ -581,18 +598,17 @@ function verifyPackage(inputDir) {
 
   report.summary.expectedFiles = validItems.length;
   report.summary.verifiedFiles = report.records.filter(record => record.status === 'verified').length;
-  report.summary.errors = report.issues.length;
-  report.status = report.issues.length ? 'blocked' : 'ready';
-  return report;
+  return summarizeIssues(report);
 }
 
 function formatSummary(report) {
+  const statusLabel = report.status === 'ready' ? '通過' : report.status === 'review' ? '需人工確認' : '阻擋';
   const lines = [
-    `正式附件包完整性驗證：${report.status === 'ready' ? '通過' : '阻擋'}`,
-    `清單檔案 ${report.summary.expectedFiles} 份；已驗證 ${report.summary.verifiedFiles} 份；阻擋 ${report.summary.errors} 項。`,
+    `正式附件包完整性驗證：${statusLabel}`,
+    `清單檔案 ${report.summary.expectedFiles} 份；已驗證 ${report.summary.verifiedFiles} 份；阻擋 ${report.summary.errors} 項；提醒 ${report.summary.warnings} 項。`,
   ];
   if (report.packageFingerprint) lines.push(`附件包指紋：${report.packageFingerprint}`);
-  report.issues.forEach(issue => lines.push(`[阻擋] ${issue.message}`));
+  report.issues.forEach(issue => lines.push(`[${issue.level === 'warning' ? '提醒' : '阻擋'}] ${issue.message}`));
   lines.push('此驗證結果僅供交付與歸檔前確認，不應附入主報告。');
   return lines.join('\n');
 }
@@ -624,7 +640,7 @@ function main(argv = process.argv.slice(2)) {
   }
   const report = verifyPackage(options.input);
   console.log(formatSummary(report));
-  return report.status === 'ready' ? 0 : Checker.PACKAGE_STATUS_EXIT_CODES.blocked;
+  return Checker.exitCodeForStatus(report.status);
 }
 
 if (require.main === module) {
@@ -655,6 +671,7 @@ module.exports = {
   unknownObjectFields,
   findDuplicateJsonKeys,
   verifyPackageStability,
+  summarizeIssues,
   verifyPackage,
   formatSummary,
   parseArgs,

@@ -112,6 +112,7 @@ try {
   assert.equal(readyReport.summary.expectedFiles, 2);
   assert.equal(readyReport.summary.verifiedFiles, 2);
   assert.equal(readyReport.summary.errors, 0);
+  assert.equal(readyReport.summary.warnings, 0);
   assert.equal(readyReport.records.every(record => record.status === 'verified'), true);
   assert.match(Verifier.formatSummary(readyReport), /完整性驗證：通過/);
   assert.equal(
@@ -142,7 +143,17 @@ try {
   writeManifest(legacyPackage, legacyManifest);
   writeReadme(legacyPackage, legacyManifest.packageFingerprint);
   const legacyReport = Verifier.verifyPackage(legacyPackage);
-  assert.equal(legacyReport.status, 'ready', 'existing v1 packages remain verifiable');
+  assert.equal(legacyReport.status, 'review', 'existing v1 packages remain integrity-verifiable but cannot be auto-released');
+  assert.equal(legacyReport.summary.errors, 0);
+  assert.equal(legacyReport.summary.warnings, 1);
+  assert.equal(legacyReport.records.every(record => record.status === 'verified'), true);
+  assert.equal(hasIssue(legacyReport, 'legacy-manifest-review'), true);
+  assert.match(Verifier.formatSummary(legacyReport), /完整性驗證：需人工確認/);
+  const legacyCli = spawnSync(process.execPath, [
+    path.join(__dirname, 'attachment-package-verify.js'), '--input', legacyPackage,
+  ], { encoding: 'utf8' });
+  assert.equal(legacyCli.status, 1, legacyCli.stderr || legacyCli.stdout);
+  assert.match(legacyCli.stdout, /\[提醒\].*重新組包為 v3/);
 
   const previousV2Package = createPackage(tempRoot, 'previous-v2');
   const previousV2Manifest = readManifest(previousV2Package);
@@ -154,7 +165,19 @@ try {
   writeManifest(previousV2Package, previousV2Manifest);
   writeReadme(previousV2Package, previousV2Manifest.packageFingerprint);
   const previousV2Report = Verifier.verifyPackage(previousV2Package);
-  assert.equal(previousV2Report.status, 'ready', 'existing v2 packages remain verifiable without approval-time fields');
+  assert.equal(previousV2Report.status, 'review', 'existing v2 packages remain integrity-verifiable without approval-time fields but cannot be auto-released');
+  assert.equal(previousV2Report.summary.errors, 0);
+  assert.equal(previousV2Report.summary.warnings, 1);
+  assert.equal(previousV2Report.records.every(record => record.status === 'verified'), true);
+  assert.equal(hasIssue(previousV2Report, 'legacy-manifest-review'), true);
+
+  const previousV2FormalPath = path.join(previousV2Package, ...previousV2Manifest.formalAttachments[0].packagedFile.split('/'));
+  fs.appendFileSync(previousV2FormalPath, '\n內容遭修改', 'utf8');
+  const blockedPreviousV2Report = Verifier.verifyPackage(previousV2Package);
+  assert.equal(blockedPreviousV2Report.status, 'blocked', 'integrity errors take precedence over legacy review');
+  assert.equal(blockedPreviousV2Report.summary.errors > 0, true);
+  assert.equal(blockedPreviousV2Report.summary.warnings, 1);
+  assert.equal(hasIssue(blockedPreviousV2Report, 'hash-mismatch'), true);
 
   const fingerprintTamperCases = [
     ['trace-source-tool', manifest => { manifest.formalAttachments[0].sourceTool = '另一套工具'; }],
