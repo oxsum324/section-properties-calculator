@@ -5,13 +5,14 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
+const CALCULATION_BOOK_CONTENT_BOUNDARY = require('./calculation-book-content-boundary.json');
+
 const SUPPORTED_EXTENSIONS = new Set(['.pdf', '.docx', '.xlsx', '.json', '.txt', '.html', '.htm']);
 const IGNORED_SYSTEM_FILES = new Set(['thumbs.db', 'desktop.ini', '.ds_store']);
-const PAGE_ONLY_NEEDLES = [
-  '產報前檢查', '附件適用狀態', '優先建議報告閱讀狀態', '優先閱讀', '報告閱讀狀態',
-  '可作附件，需人工複核', '暫勿作附件', '頁面輔助', '不會寫入計算書',
-  '輸入模式', '計算書模式', '換算對照', '流程顯示', '報表模式', '輸出設定',
-];
+const PAGE_ONLY_NEEDLES = [...new Set([
+  ...Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
+  '可作附件，需人工複核',
+])];
 const DRAFT_DOCUMENT_NEEDLES = [
   'DRAFT /', 'DRAFT／', '非正式附件', '列印內部檢討版', '本文件僅供內部檢討', '本文件僅供內部複核', '不得作為正式附件',
   '文件狀態：內部審閱',

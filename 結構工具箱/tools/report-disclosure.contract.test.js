@@ -54,6 +54,8 @@ function assertPrintHidesSelectors(text, selectors, label) {
 }
 
 const contractRelativePath = '結構工具箱/tools/report-disclosure.contract.test.js';
+const calculationBookBoundaryRelativePath = '結構工具箱/tools/calculation-book-content-boundary.json';
+const calculationBookBoundary = readJson(repoFile(calculationBookBoundaryRelativePath));
 const catalogs = [
   {
     family: 'formal-traceability',
@@ -97,27 +99,11 @@ const manualPattern = /人工複核|人工確認|人工判斷|設計者|審查�
 const reportLandingPattern = /[\u4e00-\u9fff]|報告|計算書|檢核|摘要|表|圖|輸出|列印|PDF|DOCX|Word|JSON|下載|落點|結論|採用|控制|欄位|標籤|名稱|說明|路線|status|summary|matrix|report|latest|Cache-Control|Omega|DCR|OK|NG|KL|Fa|Fbx|Fby|SBE|HSS|SMRF|P-M/;
 const boundaryPattern = /人工複核|人工確認|人工判斷|待確認|不列為 OK|不提供正式|初步|初篩|簡化|專案文件|施工圖|專案模型|圖說|地工報告|外部分析|風洞|評估報告|產品文件|正式手算|適用範圍|邊界|超出|另行|服務|下載|簽章|確認|複核|判讀|控管|責任/;
 const forbiddenAuthorityWording = ['工具內建', '工具建議', '專業版'];
-const pageOnlyReportStatusNeedles = [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-];
-const calculationBookUiOnlyNeedles = [
-  '輸入模式',
-  '計算書模式',
-  '換算對照',
-  '流程顯示',
-  '報表模式',
-  '輸出設定',
-];
+const boundaryCategories = calculationBookBoundary.forbiddenCategories || {};
+const pageOnlyReportStatusNeedles = boundaryCategories.pageReadingStatus || [];
+const calculationBookUiOnlyNeedles = boundaryCategories.interfaceAndWorkflow || [];
+const calculationBookGovernanceOnlyNeedles = boundaryCategories.governanceNarrative || [];
+const calculationBookForbiddenNeedles = [...new Set(Object.values(boundaryCategories).flat())];
 const formalReportRendererFiles = [
   '結構工具箱/core/ui/report.js',
   '結構工具箱/core/wind-report.js',
@@ -215,7 +201,14 @@ const contextDoc = readText(repoFile('CONTEXT.md'));
 const pageOnlyReportReadinessAdr = readText(repoFile('docs/adr/0001-page-only-report-readiness.md'));
 const calculationBookContentAdr = readText(repoFile('docs/adr/0003-calculation-book-content-boundary.md'));
 const formalManifest = readJson(repoFile('結構工具箱/tools/formal-tools.manifest.json'));
+const formalToolsContract = readText(repoFile('結構工具箱/tools/formal-tools.contract.test.js'));
+const localQuickToolsContract = readText(repoFile('結構工具箱/tools/local-quick-tools.contract.test.js'));
+const localQuickBrowserSmoke = readText(repoFile('結構工具箱/tools/local-quick-browser-smoke.test.js'));
 const attachmentPackageCheck = readText(repoFile('結構工具箱/tools/attachment-package-check.js'));
+const renderedDeliveryEvidence = readText(repoFile('結構工具箱/tools/rendered-delivery-evidence.js'));
+const deckingToolsContract = readText(repoFile('decking-tools.contract.test.js'));
+const frameAnalysisContract = readText(repoFile('frame-analysis.contract.test.js'));
+const sectionToolsContract = readText(repoFile('section-tools.contract.test.js'));
 const sharedCalculationReport = readText(repoFile('結構工具箱/core/ui/report.js'));
 const rcSharedCalculationReport = readText(repoFile('鋼筋混凝土/shared/report.js'));
 const rcSharedStyle = readText(repoFile('鋼筋混凝土/shared/style.css'));
@@ -243,15 +236,18 @@ const rcSinglePileReportVisualTest = readText(repoFile('鋼筋混凝土/tools/si
 const stoneServer = readText(repoFile('石材固定/server.py'));
 const stoneServerSmoke = readText(repoFile('石材固定/server_smoke_test.py'));
 const stoneReportContract = readText(repoFile('石材固定/stone-report.contract.test.js'));
+const deckingReportContract = readText(repoFile('覆工板/decking-report.contract.test.js'));
 const steelFormalRegressionTest = readText(repoFile('鋼構工具/steel-formal.regression-test.js'));
 const steelBrowserRunner = readText(repoFile('鋼構工具/steel-audit-browser-runner.js'));
 const steelFormalStyles = readText(repoFile('鋼構工具/styles.css'));
 const anchorReportExportTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportExport.test.ts'));
 const anchorReportDocxTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocx.test.ts'));
 const anchorReportWorkbookTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportWorkbook.test.ts'));
+const anchorReportArtifactsTest = readText(repoFile('螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts'));
 const anchorAttachmentReadinessTest = readText(repoFile('螺栓檢討/bolt-review-tool/src/attachmentReadiness.test.ts'));
 const anchorReportDocumentState = readText(repoFile('螺栓檢討/bolt-review-tool/src/reportDocumentState.ts'));
 const excavationReportingTest = readText(repoFile('開挖擋土支撐/backend/tests/test_reporting.py'));
+const excavationReleaseArtifacts = readText(repoFile('開挖擋土支撐/backend/tests/release_report_artifacts.py'));
 
 [
   readme,
@@ -262,6 +258,7 @@ const excavationReportingTest = readText(repoFile('開挖擋土支撐/backend/te
   const label = ['README', 'TOOL_BOUNDARIES', 'STAGING_GROUPS', 'TOOL_REPORT_GUIDE'][index];
   assert(docText.includes(contractRelativePath), `${label} documents report disclosure contract`, contractRelativePath);
   assert(docText.includes('report-disclosure-contract'), `${label} documents report disclosure preflight key`, 'report-disclosure-contract');
+  assert(docText.includes(calculationBookBoundaryRelativePath), `${label} documents the shared calculation-book content boundary`, calculationBookBoundaryRelativePath);
 });
 
 assert(reportGuide.includes('規範判定') && reportGuide.includes('初估 / 簡化') && reportGuide.includes('人工複核'), 'TOOL_REPORT_GUIDE keeps report disclosure vocabulary', '規範判定 / 初估 / 簡化 / 人工複核');
@@ -281,7 +278,9 @@ assert(
 assert(
   calculationBookContentAdr.includes('calculation-first') &&
     calculationBookContentAdr.includes('Input-mode guidance') &&
-    calculationBookContentAdr.includes('calculation content precedes the conclusion'),
+    calculationBookContentAdr.includes('calculation content precedes the conclusion') &&
+    calculationBookContentAdr.includes(calculationBookBoundaryRelativePath) &&
+    calculationBookContentAdr.includes('code-coverage matrices'),
   'ADR records the calculation-book content boundary',
   'docs/adr/0003-calculation-book-content-boundary.md',
 );
@@ -294,14 +293,33 @@ assert(
   'TOOL_REPORT_GUIDE links page-only readiness glossary, ADR, and delivery boundaries',
   '頁面專用閱讀狀態 / Word / DOCX / workbook',
 );
-assert(Array.isArray(formalManifest.reportPageOnlyForbiddenNeedles) && formalManifest.reportPageOnlyForbiddenNeedles.length >= 8, 'formal manifest carries page-only report boundary needles', 'reportPageOnlyForbiddenNeedles');
-for (const needle of [...pageOnlyReportStatusNeedles, ...calculationBookUiOnlyNeedles]) {
+assert(calculationBookBoundary.version === '1.0.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
+assert(calculationBookBoundary.scope === 'all-calculation-book-and-formal-attachment-outputs', 'calculation-book boundary covers every attachment output', calculationBookBoundary.scope);
+['pageReadingStatus', 'interfaceAndWorkflow', 'governanceNarrative'].forEach(category => {
+  assertStringArray(boundaryCategories[category], `calculation-book boundary ${category}`);
+});
+assert(
+  calculationBookForbiddenNeedles.length === Object.values(boundaryCategories).flat().length,
+  'calculation-book boundary forbidden needles are unique',
+  `needles=${calculationBookForbiddenNeedles.length}`,
+);
+assertStringArray(calculationBookBoundary.requiredCalculationContent, 'calculation-book boundary required calculation content');
+assert(
+  Array.isArray(calculationBookBoundary.allowedDocumentStates) &&
+    calculationBookBoundary.allowedDocumentStates.includes('文件狀態：內部審閱') &&
+    calculationBookBoundary.allowedDocumentStates.includes('文件狀態：正式附件'),
+  'calculation-book boundary keeps printable internal review and formal attachment identities',
+  '內部審閱 / 正式附件',
+);
+assert(Array.isArray(formalManifest.reportPageOnlyForbiddenNeedles) && formalManifest.reportPageOnlyForbiddenNeedles.length >= calculationBookForbiddenNeedles.length, 'formal manifest carries calculation-book boundary needles', 'reportPageOnlyForbiddenNeedles');
+for (const needle of calculationBookForbiddenNeedles) {
   assert(formalManifest.reportPageOnlyForbiddenNeedles.includes(needle), 'formal manifest page-only report boundary needle', needle);
 }
 assert(
   reportGuide.includes('正式計算書與 HTML 畫面分層') &&
     reportGuide.includes('docs/adr/0003-calculation-book-content-boundary.md') &&
-    calculationBookUiOnlyNeedles.every(needle => reportGuide.includes(needle)),
+    reportGuide.includes(calculationBookBoundaryRelativePath) &&
+    [...calculationBookUiOnlyNeedles, ...calculationBookGovernanceOnlyNeedles].every(needle => reportGuide.includes(needle)),
   'TOOL_REPORT_GUIDE defines the calculation-first report boundary',
   '正式計算書與 HTML 畫面分層',
 );
@@ -317,10 +335,16 @@ assert(
   'CALCULATION_BOOK_PAGE_ONLY_LABELS',
 );
 assert(
-  rcSharedCalculationReport.includes('RC_CALCULATION_BOOK_PAGE_ONLY_LABELS') &&
+    rcSharedCalculationReport.includes('RC_CALCULATION_BOOK_PAGE_ONLY_LABELS') &&
     rcSharedCalculationReport.includes('getRcCalculationBookInputGroups') &&
     !rcSharedCalculationReport.includes('const notesHtml') &&
     !rcSharedCalculationReport.includes('const symHtml') &&
+    !rcSharedCalculationReport.includes('const methodsHtml') &&
+    !rcSharedCalculationReport.includes('const coverageHtml') &&
+    !rcSharedCalculationReport.includes('methods: cfg.methods') &&
+    !rcSharedCalculationReport.includes('coverage: cfg.coverage') &&
+    !rcSharedCalculationReport.includes('.rep-method') &&
+    !rcSharedCalculationReport.includes('.rep-coverage') &&
     rcSharedCalculationReport.indexOf('${inputsHtml}') < rcSharedCalculationReport.indexOf('${checksHtml}') &&
     rcSharedCalculationReport.indexOf('${checksHtml}') < rcSharedCalculationReport.indexOf('${stepsHtml}') &&
     rcSharedCalculationReport.indexOf('${stepsHtml}') < rcSharedCalculationReport.indexOf('${summaryHtml}'),
@@ -329,16 +353,26 @@ assert(
 );
 [
   ['attachment package checker', attachmentPackageCheck],
+  ['rendered PDF validator', renderedDeliveryEvidence],
+  ['formal tools contract', formalToolsContract],
+  ['local quick tools contract', localQuickToolsContract],
+  ['local quick browser smoke', localQuickBrowserSmoke],
+  ['decking runtime contract', deckingToolsContract],
+  ['frame report contract', frameAnalysisContract],
+  ['section report contract', sectionToolsContract],
   ['RC rendered PDF helper', rcReportScreenshotQualityHelper],
   ['stone export smoke', stoneServerSmoke],
+  ['decking DOCX smoke', deckingReportContract],
+  ['steel formal regression', steelFormalRegressionTest],
+  ['steel browser runner', steelBrowserRunner],
   ['anchor HTML smoke', anchorReportExportTest],
   ['anchor DOCX smoke', anchorReportDocxTest],
   ['anchor workbook smoke', anchorReportWorkbookTest],
+  ['anchor release artifact smoke', anchorReportArtifactsTest],
   ['excavation PDF / DOCX smoke', excavationReportingTest],
+  ['excavation release artifacts', excavationReleaseArtifacts],
 ].forEach(([label, source]) => {
-  calculationBookUiOnlyNeedles.forEach(needle => {
-    assert(source.includes(needle), `${label} rejects calculation-book UI-only wording`, needle);
-  });
+  assert(source.includes('calculation-book-content-boundary.json'), `${label} consumes the shared calculation-book boundary`, calculationBookBoundaryRelativePath);
 });
 assert(stoneServer.includes('PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS'), 'stone export server keeps page-only review key markers', 'PAGE_ONLY_REVIEW_STATUS_KEY_MARKERS');
 assert(stoneServer.includes('def _strip_page_only_review_status'), 'stone export server keeps page-only review status stripper', '_strip_page_only_review_status');

@@ -162,6 +162,15 @@ assert.equal(pageOnlyReport.status, 'blocked');
 assert(pageOnlyReport.issues.some(issue => issue.code === 'page-only-leak'));
 assert(Checker.PAGE_ONLY_NEEDLES.includes('計算書模式'));
 assert(Checker.PAGE_ONLY_NEEDLES.includes('輸出設定'));
+assert(Checker.PAGE_ONLY_NEEDLES.includes('計算層級 / 複核邊界'));
+assert(Checker.PAGE_ONLY_NEEDLES.includes('條文對照 ＆ 方法分級'));
+assert(Checker.PAGE_ONLY_NEEDLES.includes('規範覆蓋矩陣'));
+
+const governanceNarrativeReport = Checker.analyzePackage([
+  { file: 'governance-heavy.pdf', errors: [], pageOnlyNeedles: ['規範覆蓋矩陣'], projectName: '', projectNo: '', designer: '', sourceTool: 'RC 柱', toolVersion: 'V3.1', outputTime: '2026/07/23 10:00:00', fingerprints: ['CF-1234ABCD5678EF90'] },
+]);
+assert.equal(governanceNarrativeReport.status, 'blocked');
+assert(governanceNarrativeReport.issues.some(issue => issue.code === 'page-only-leak'));
 
 const draftDocumentReport = Checker.analyzePackage([
   { file: 'beam-draft.pdf', errors: [], pageOnlyNeedles: [], draftDocumentNeedles: ['非正式附件', '不得作為正式附件'], projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1', outputTime: '2026/07/16 14:31:43', fingerprints: ['CF-1234ABCD5678EF90'] },

@@ -261,7 +261,7 @@ Expand RC tool governance and report verification
 ```powershell
 git add -- "鋼構工具/app.js" "鋼構工具/tool-metadata.js" "鋼構工具/index.html" "鋼構工具/plate-check.html" "鋼構工具/core" "鋼構工具/steel-beam-formal.html" "鋼構工具/steel-beam-formal.js" "鋼構工具/steel-column-formal.html" "鋼構工具/steel-column-formal.js" "鋼構工具/steel-formal.regression-test.js" "鋼構工具/steel-audit-browser-runner.js" "鋼構工具/steel-traceability.catalog.json" "鋼構工具/steel-traceability.contract.test.js" "鋼構工具/steel-member-formal.css" "鋼構工具/styles.css" "鋼構工具/README.md" "結構工具箱/core/direct-print-boundary.css"
 git add -- "結構工具箱/tools/鋼構/steel-beam.html" "結構工具箱/tools/鋼構/steel-column.html"
-git add -- "結構工具箱/core/ui/report.js" "鋼筋混凝土/shared/report.js" "結構工具箱/tools/formal-tools.manifest.json" "結構工具箱/tools/formal-tools.contract.test.js" "結構工具箱/tools/report-disclosure.contract.test.js"
+git add -- "結構工具箱/core/ui/report.js" "鋼筋混凝土/shared/report.js" "結構工具箱/tools/calculation-book-content-boundary.json" "結構工具箱/tools/formal-tools.manifest.json" "結構工具箱/tools/formal-tools.contract.test.js" "結構工具箱/tools/report-disclosure.contract.test.js"
 git add -- "docs/adr/0003-calculation-book-content-boundary.md" "TOOL_REPORT_GUIDE.md" "TOOL_BOUNDARIES.md" "CONTEXT.md" "README.md" "STAGING_GROUPS.md"
 ```
 

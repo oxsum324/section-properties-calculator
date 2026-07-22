@@ -2487,12 +2487,6 @@ ${basementStepTxt}
     };
     const attachmentReadiness = assessWallAttachmentReadiness(r, proj);
     const typeLabel = ({bearing:'承重牆',nonbearing:'非承重牆',basement:'地下室外牆',shear:'結構剪力牆'})[r.wallType];
-    const methods = getWallMethodAuditRows(r).map(row => ({
-      item: row.item,
-      level: ({ code:'規範檢核', approx:'工程近似', rough:'概算', na:'不適用' })[row.kind] || '工程近似',
-      ref: row.ref,
-      note: row.note,
-    }));
 
     const inputs = [
       { group:'幾何', items:[
@@ -2682,7 +2676,6 @@ ${basementStepTxt}
       summary:false,
       inputs, checks, diagrams,
       steps: stepsArr,
-      methods,
       symbols:[
         { sym:"fc'", desc:'混凝土抗壓強度' },
         { sym:'fy', desc:'鋼筋降伏強度' },

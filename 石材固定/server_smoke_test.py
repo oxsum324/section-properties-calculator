@@ -17,24 +17,14 @@ import generate_docx
 import server
 from audit_schema import REQUIRED_AUDIT_PATHS, nested
 
-PAGE_ONLY_REPORT_STATUS_NEEDLES = (
-    '產報前檢查',
-    '附件適用狀態',
-    '優先建議報告閱讀狀態',
-    '優先閱讀',
-    '報告閱讀狀態',
-    '可作附件',
-    '暫勿作附件',
-    '頁面輔助',
-    '公司內部整理計算附件',
-    '不會寫入計算書',
-    '不會寫入計算書或列印 PDF',
-    '輸入模式',
-    '計算書模式',
-    '換算對照',
-    '流程顯示',
-    '報表模式',
-    '輸出設定',
+CALCULATION_BOOK_CONTENT_BOUNDARY = json.loads(
+    (Path(__file__).resolve().parents[1] / '結構工具箱' / 'tools' / 'calculation-book-content-boundary.json').read_text(encoding='utf-8')
+)
+PAGE_ONLY_REPORT_STATUS_NEEDLES = tuple(dict.fromkeys(
+    needle
+    for category in CALCULATION_BOOK_CONTENT_BOUNDARY['forbiddenCategories'].values()
+    for needle in category
+)) + (
     '可切換',
     '面積直輸模式',
     '面積輸入模式',

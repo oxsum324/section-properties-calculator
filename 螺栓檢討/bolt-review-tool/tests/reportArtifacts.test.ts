@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import {
   assessProductCompleteness,
@@ -20,20 +20,13 @@ import { normalizeUnitPreferences } from '../src/units'
 
 const ARTIFACT_KEY = 'anchor-review'
 const REPORT_GENERATED_AT = '2026-07-17T00:00:00.000Z'
-const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-  '頁面顯示，不進計算書、列印或 PDF',
-]
+const CALCULATION_BOOK_CONTENT_BOUNDARY = JSON.parse(readFileSync(
+  new URL('../../../結構工具箱/tools/calculation-book-content-boundary.json', import.meta.url),
+  'utf8',
+)) as { forbiddenCategories: Record<string, string[]> }
+const PAGE_ONLY_REPORT_STATUS_NEEDLES = [...new Set(
+  Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
+)]
 
 function buildParams(
   documentState: 'ready' | 'review' | 'blocked' = 'ready',

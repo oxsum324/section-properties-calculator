@@ -5,6 +5,7 @@ const path = require('path');
 const vm = require('vm');
 const { inflateRawSync } = require('zlib');
 const {
+  DEFAULT_FORBIDDEN,
   findPdfFooterOverlapLines,
   summarizePdfLayoutPages,
   findPdfOrphanPageEndHeadings,
@@ -20,6 +21,10 @@ const inventoryPath = path.join(toolsRoot, 'rendered-delivery-evidence.inventory
 const homePath = path.join(toolboxRoot, 'assets', 'home', 'home.js');
 const inventory = JSON.parse(fs.readFileSync(inventoryPath, 'utf8'));
 const homeSource = fs.readFileSync(homePath, 'utf8');
+
+for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
+  assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
+}
 
 assert.deepEqual(
   findPdfFooterOverlapLines('資料列內容   版權所有 弘一工程顧問有限公司').overlaps,
@@ -575,19 +580,7 @@ assert.ok(anchorWorkbookText.includes('設計人員') && anchorWorkbookText.incl
 assert.ok(anchorWorkbookText.includes('複核人員') && anchorWorkbookText.includes('李複核'), 'anchor XLSX artifact includes checker');
 assert.equal(anchorEvidence.documentState, 'ready', 'anchor summary records ready document state');
 
-const anchorForbiddenNeedles = [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-  '頁面顯示，不進計算書、列印或 PDF',
+const anchorForbiddenNeedles = [...DEFAULT_FORBIDDEN,
   '本工具計算結果僅供工程判讀、方案比較與報表整理輔助',
   '使用邊界 / 簽證責任',
 ];
@@ -665,21 +658,7 @@ for (const needle of [
   assert.ok(deckingDocxText.includes(needle), `decking DOCX artifact contains ${needle}`);
 }
 assert.equal(deckingDocxText.includes('（未填）'), false, 'decking DOCX does not use missing project placeholders');
-for (const needle of [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-  '輸出邊界',
-  '頁面顯示，不進計算書、列印或 PDF',
-]) {
+for (const needle of [...DEFAULT_FORBIDDEN, '輸出邊界']) {
   assert.equal(deckingDocxText.includes(needle), false, `decking DOCX excludes page-only status: ${needle}`);
 }
 assert.equal(deckingEvidence.documentBytes, fs.statSync(deckingDocxPath).size, 'decking summary matches preserved DOCX size');
@@ -869,18 +848,7 @@ for (const needle of [
 ]) {
   assert.ok(excavationDocxText.includes(needle), `excavation DOCX artifact contains ${needle}`);
 }
-for (const needle of [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-]) {
+for (const needle of DEFAULT_FORBIDDEN) {
   assert.equal(excavationDocxText.includes(needle), false, `excavation DOCX excludes page-only status: ${needle}`);
 }
 assert.ok(fs.readFileSync(excavationPdfPath).equals(fs.readFileSync(excavationLatestPdfPath)), 'excavation latest PDF matches current generated PDF');

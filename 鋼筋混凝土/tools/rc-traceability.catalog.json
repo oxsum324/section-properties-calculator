@@ -93,7 +93,7 @@
           "purpose": "柱端直線錨定、非直線錨定、耐震搭接位置與 Class A/B 需求分開判定，缺資料時不列為 OK。",
           "inputs": ["columnDevTop", "columnDevBottom", "columnDevTopType", "columnDevBottomType", "lapSpliceStart", "lapSpliceEnd", "lapSpliceLength", "lapSpliceClassRequested"],
           "calculation": ["25.4.2 ℓd", "非直線錨定人工複核", "18.4.4.3 搭接位置", "25.5.2 搭接長度", "Class A 條件"],
-          "report": ["握裹 / 搭接長度 (規範 25 章)", "柱端錨定", "耐震搭接", "工程檢核總表", "規範覆蓋矩陣"],
+          "report": ["握裹 / 搭接長度 (規範 25 章)", "柱端錨定", "耐震搭接", "工程檢核總表"],
           "evidence": ["tools/column-regression.test.js", "tools/column-regression-cases.json", "tools/column-report-visual.test.js", "tools/column-report-visual.contract.test.js"],
           "manualReview": ["彎鉤錨定、機械錨定、搭接實際區段、產品認可資料與施工圖仍須由設計者人工複核。"]
         }
@@ -149,7 +149,7 @@
           "purpose": "區分規範檢核、工程近似與概算，避免把初步判定誤列為完整正式分析。",
           "inputs": ["wallType", "seismic", "fc", "fy", "tw", "lw", "hw", "Vu", "Mu", "Pu", "rhoL", "rhoT"],
           "calculation": ["牆幾何與最小配筋檢核", "18.7.2.4 材料限制", "18.7.4.4 剪力上限", "總判定合併待確認事項"],
-          "report": ["條文對照 ＆ 方法分級", "規範檢核", "待確認 / 正式分析需求"],
+          "report": ["牆幾何與最小配筋檢核", "規範檢核", "待確認 / 正式分析需求"],
           "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js", "tools/wall-report-visual.contract.test.js"],
           "manualReview": ["開口牆、連肢牆、多片牆耦合效應與力流分配須依施工圖及分析模型人工複核。"]
         },

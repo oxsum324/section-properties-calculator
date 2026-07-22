@@ -4,6 +4,7 @@ const { spawnSync } = require('child_process');
 
 const toolRoot = __dirname;
 const repoRoot = path.resolve(toolRoot, '..');
+const calculationBookContentBoundary = require('../結構工具箱/tools/calculation-book-content-boundary.json');
 
 function assert(pass, title, detail) {
   if (!pass) throw new Error(`${title} :: ${detail}`);
@@ -72,24 +73,13 @@ const outPath = path.join(outDir, outFileName);
 const html = readUtf8('index.html');
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 
-const pageOnlyReportStatusNeedles = [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
+const pageOnlyReportStatusNeedles = [...new Set([
+  ...Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
   '輸出邊界',
-  '頁面顯示，不進計算書、列印或 PDF',
   '覆工板工具主頁列印已封鎖',
   '此頁是操作介面，不是計算書',
   '暫不列印：請先填寫',
-];
+])];
 
 assert(fs.existsSync(fixturePath), 'decking report fixture exists', 'test-fixtures/report-smoke.json');
 assert(html.includes('id="report-readiness"'), 'decking report readiness outlet exists', 'report-readiness');

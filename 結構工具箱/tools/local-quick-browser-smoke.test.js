@@ -12,6 +12,7 @@ const {
   validatePdfFile,
   writeEvidenceSummary,
 } = require('./rendered-delivery-evidence');
+const calculationBookContentBoundary = require('./calculation-book-content-boundary.json');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -27,13 +28,9 @@ const viewports = [
   { key: 'mobile', width: 390, height: 844, mobile: true },
 ];
 
-const pageOnlyReportStatusNeedles = [
-  '產報前檢查',
-  '優先閱讀',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書或列印 PDF',
-];
+const pageOnlyReportStatusNeedles = [...new Set(
+  Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
+)];
 
 function reportHtmlText(reportHtml) {
   return String(reportHtml || '')

@@ -1787,11 +1787,6 @@ ${gainText}`;
         { group: '逐層承載力表', body: layerRowsForReport(candidate) },
         { group: '候選方案矩陣', body: candidateRowsForReport(r.candidates || [], r.bestCandidate) }
       ],
-      methods: [
-        { item: '單樁承載力', level: getModeLabel(params.calcMode), ref: params.calcMode === 'regulation' ? '規範分項 FS' : '工程初估', note: params.calcMode === 'regulation' ? `支承力法：${getRegulationMethodLabel(params.regulationMethod)}` : '依採用之 FS 與工程參數計算' },
-        { item: '砂層端承', level: '規範判定', ref: '20D 臨界深度', note: 'N>50 極緊密砂或卵礫石依輸入上限控制' },
-        { item: '沉陷估算', level: '工程估算', ref: 'Ws + Wpp + Wps', note: params.settlementMode === 'manual' ? '採指定係數' : '依材料條件推估係數' }
-      ],
       symbols: [
         { sym: 'Qs', desc: '樁周摩擦力' },
         { sym: 'Qb', desc: '樁端承載力' },

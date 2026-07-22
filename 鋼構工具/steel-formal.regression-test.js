@@ -3,6 +3,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
+const calculationBookContentBoundary = require("../結構工具箱/tools/calculation-book-content-boundary.json");
+
 function loadSteelCore() {
   const steelPath = path.join(__dirname, "..", "結構工具箱", "core", "materials", "steel.js");
   const source = fs.readFileSync(steelPath, "utf8");
@@ -89,7 +91,7 @@ function assertReportHtmlText(html, label, requiredNeedles) {
   for (const needle of requiredNeedles) {
     assert.ok(text.includes(needle), `${label} visible report text should include ${needle}`);
   }
-  for (const needle of [...pageOnlyReportStatusNeedles, ...calculationBookUiOnlyNeedles]) {
+  for (const needle of [...pageOnlyReportStatusNeedles, ...calculationBookUiOnlyNeedles, ...calculationBookGovernanceOnlyNeedles]) {
     assert.equal(text.includes(needle), false, `${label} visible report text should exclude page-only wording: ${needle}`);
   }
   return text;
@@ -201,26 +203,9 @@ const localReportRuntime = loadWindowScript(localReportCoreSource, localReportCo
 const toolMetadataRuntime = loadWindowScript(toolMetadataSource, toolMetadataPath);
 const reportTraceLabels = ["產出工具", "工具版本", "輸出時間", "計算指紋"];
 const formalReportReferenceNeedles = ["功能借鏡", "SkyCiv", "ClearCalcs", "Dlubal"];
-const pageOnlyReportStatusNeedles = [
-  "產報前檢查",
-  "附件適用狀態",
-  "優先建議報告閱讀狀態",
-  "報告閱讀狀態",
-  "可作附件",
-  "暫勿作附件",
-  "頁面輔助",
-  "公司內部整理計算附件",
-  "不會寫入計算書",
-  "不會寫入計算書或列印 PDF",
-];
-const calculationBookUiOnlyNeedles = [
-  "輸入模式",
-  "計算書模式",
-  "換算對照",
-  "流程顯示",
-  "報表模式",
-  "輸出設定",
-];
+const pageOnlyReportStatusNeedles = calculationBookContentBoundary.forbiddenCategories.pageReadingStatus;
+const calculationBookUiOnlyNeedles = calculationBookContentBoundary.forbiddenCategories.interfaceAndWorkflow;
+const calculationBookGovernanceOnlyNeedles = calculationBookContentBoundary.forbiddenCategories.governanceNarrative;
 
 for (const token of [
   "const toY = (value) => 36 + value * scale",

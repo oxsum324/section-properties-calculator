@@ -4,19 +4,11 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const DEFAULT_FORBIDDEN = [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-];
+const CALCULATION_BOOK_CONTENT_BOUNDARY = require('./calculation-book-content-boundary.json');
+
+const DEFAULT_FORBIDDEN = [...new Set(
+  Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
+)];
 
 const DEFAULT_FOOTER_NEEDLES = [
   '版權所有 弘一工程顧問有限公司',

@@ -33,9 +33,8 @@ const EXPECTED = {
       'SBE 沿水平延伸',
       '18.7.4.4',
       '18.7.6.3',
-      '條文對照 ＆ 方法分級',
       '牆水平斷面配筋示意',
-      '規範檢核',
+      '面內剪力',
     ],
   },
   basement_oop: {
@@ -46,10 +45,9 @@ const EXPECTED = {
       '地下室外牆',
       '地下室外牆模型',
       '懸臂牆 (底部固定)',
-      '地下室外牆土壓自動計算',
+      '地下室外牆土壓概算',
       '面外撓曲',
       'P-Δ 方法',
-      '工程近似',
       '牆水平斷面配筋示意',
     ],
   },
@@ -61,7 +59,7 @@ const EXPECTED = {
       '地下室外牆',
       '地下室外牆模型',
       '簡支條帶',
-      '地下室外牆土壓自動計算',
+      '地下室外牆土壓概算',
       '牆水平斷面配筋示意',
     ],
   },
@@ -446,7 +444,7 @@ async function main() {
       assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${key} report defaults to printable internal review independent of engineering readiness`, `${state.readinessStatus} -> ${metrics.documentState}`);
       assert(metrics.documentStateText.includes('文件狀態：內部審閱'), `${key} report carries concise document status`, metrics.documentStateText);
       assert(metrics.checkGroupCount >= expected.minCheckGroups, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
-      assert(metrics.methodRowCount >= 6, `${key} method audit table rows`, `count=${metrics.methodRowCount}`);
+      assert(metrics.methodRowCount === 0, `${key} report excludes method audit table`, `count=${metrics.methodRowCount}`);
       assert(metrics.stepCount >= 4, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
@@ -466,6 +464,9 @@ async function main() {
         '待確認事項 1',
         '不列為 OK 結論',
         '需正式分析確認',
+        '計算方法與適用邊界',
+        '條文對照 ＆ 方法分級',
+        '規範覆蓋矩陣',
       ]) {
         assert(!metrics.calculationText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
       }

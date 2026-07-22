@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const calculationBookContentBoundary = require('./結構工具箱/tools/calculation-book-content-boundary.json');
 
 function read(relPath) {
   return fs.readFileSync(path.join(__dirname, relPath), 'utf8');
@@ -188,16 +189,9 @@ function captureFrameReportHtml(source, project = {}) {
   };
 }
 
-const pageOnlyReportStatusNeedles = [
-  '產報前檢查',
-  '優先閱讀',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-];
+const pageOnlyReportStatusNeedles = [...new Set(
+  Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
+)];
 
 function reportHtmlText(reportHtml) {
   return String(reportHtml || '')

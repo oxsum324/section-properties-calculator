@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const calculationBookContentBoundary = require('./calculation-book-content-boundary.json');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -116,24 +117,9 @@ function reportHtmlText(html) {
     .trim();
 }
 
-const pageOnlyReportStatusNeedles = [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-  '輸入模式',
-  '計算書模式',
-  '換算對照',
-  '流程顯示',
-  '報表模式',
-  '輸出設定',
-];
+const pageOnlyReportStatusNeedles = [...new Set(
+  Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
+)];
 
 function assertReportHtmlText(html, label, requiredNeedles) {
   const text = reportHtmlText(html);

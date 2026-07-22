@@ -47,7 +47,7 @@ const CASES = {
     fragments: [
       '規範模式',
       '規範靜力學公式',
-      '規範分項 FS',
+      '規範分項安全係數',
       '土層與單樁承載',
       'N 值經驗式適用性',
       '逐層承載力表',
@@ -235,6 +235,7 @@ async function reportMetrics(report) {
       bodyText: clean(document.body.innerText),
       calculationText: clean(calculationPaper?.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
+      methodRowCount: document.querySelectorAll('.rep-method tbody tr').length,
       stepCount: document.querySelectorAll('.rep-step').length,
       diagramCount: document.querySelectorAll('.rep-diagram img').length,
       imageNaturalSizes: [...document.querySelectorAll('.rep-diagram img')].map(img => ({
@@ -369,6 +370,7 @@ async function main() {
       assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${key} report defaults to printable internal review independent of engineering readiness`, `${state.readinessStatus} -> ${metrics.documentState}`);
       assert(metrics.documentStateText.includes('文件狀態：內部審閱'), `${key} report carries concise document status`, metrics.documentStateText);
       assert(metrics.checkGroupCount >= 3, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
+      assert(metrics.methodRowCount === 0, `${key} report excludes method audit table`, `count=${metrics.methodRowCount}`);
       assert(metrics.stepCount >= 4, `${key} report detailed steps`, `count=${metrics.stepCount}`);
       assert(metrics.diagramCount >= 1, `${key} report diagram`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
@@ -388,6 +390,9 @@ async function main() {
         '人工複核項目 1',
         '不列為 OK 結論',
         '需補充資料確認',
+        '計算方法與適用邊界',
+        '條文對照 ＆ 方法分級',
+        '規範覆蓋矩陣',
       ]) {
         assert(!metrics.calculationText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
       }

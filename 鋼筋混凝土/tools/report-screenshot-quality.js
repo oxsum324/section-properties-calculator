@@ -4,27 +4,12 @@ const { spawnSync } = require('child_process');
 const zlib = require('zlib');
 const { validatePdfFile } = require('../../結構工具箱/tools/rendered-delivery-evidence');
 
-const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
+const CALCULATION_BOOK_CONTENT_BOUNDARY = require('../../結構工具箱/tools/calculation-book-content-boundary.json');
+
+const PAGE_ONLY_REPORT_STATUS_NEEDLES = [...new Set([
+  ...Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
   '可作附件，需人工複核',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-  '頁面顯示，不進計算書、列印或 PDF',
-  '輸入模式',
-  '計算書模式',
-  '換算對照',
-  '流程顯示',
-  '報表模式',
-  '輸出設定',
-];
+])];
 
 function paethPredictor(left, up, upperLeft) {
   const p = left + up - upperLeft;

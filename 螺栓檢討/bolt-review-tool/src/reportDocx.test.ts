@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Buffer } from 'node:buffer'
+import { readFileSync } from 'node:fs'
 import { inflateRawSync } from 'node:zlib'
 import {
   assessProductCompleteness,
@@ -16,27 +17,14 @@ import { getEvaluationFieldStates } from './evaluationCatalog'
 import { serializeReportDocument } from './reportDocx'
 import { normalizeUnitPreferences } from './units'
 
-const PAGE_ONLY_REPORT_STATUS_NEEDLES = [
-  '產報前檢查',
-  '附件適用狀態',
-  '優先建議報告閱讀狀態',
-  '優先閱讀',
-  '報告閱讀狀態',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-  '頁面顯示，不進計算書、列印或 PDF',
-  '輸入模式',
-  '計算書模式',
-  '換算對照',
-  '流程顯示',
-  '報表模式',
-  '輸出設定',
+const CALCULATION_BOOK_CONTENT_BOUNDARY = JSON.parse(readFileSync(
+  new URL('../../../結構工具箱/tools/calculation-book-content-boundary.json', import.meta.url),
+  'utf8',
+)) as { forbiddenCategories: Record<string, string[]> }
+const PAGE_ONLY_REPORT_STATUS_NEEDLES = [...new Set([
+  ...Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
   '簽證責任聲明',
-]
+])]
 
 function buildParams() {
   const product = defaultProducts.find(

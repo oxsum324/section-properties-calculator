@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const assert = require('assert');
+const calculationBookContentBoundary = require('./calculation-book-content-boundary.json');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -59,16 +60,9 @@ function assertFunctionTemplateExcludes(source, functionName, startNeedle, needl
   needles.forEach(needle => assertNoIncludes(template, needle, label));
 }
 
-const pageOnlyReportStatusNeedles = [
-  '產報前檢查',
-  '優先閱讀',
-  '可作附件',
-  '暫勿作附件',
-  '頁面輔助',
-  '公司內部整理計算附件',
-  '不會寫入計算書',
-  '不會寫入計算書或列印 PDF',
-];
+const pageOnlyReportStatusNeedles = [...new Set(
+  Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
+)];
 
 function assertHomeToolCategories(title, categories, label) {
   const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

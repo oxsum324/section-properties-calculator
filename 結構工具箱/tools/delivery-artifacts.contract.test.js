@@ -132,6 +132,19 @@ const boundaries = readText(repoFile('TOOL_BOUNDARIES.md'));
 const reportGuide = readText(repoFile('TOOL_REPORT_GUIDE.md'));
 const maturityMatrixScript = readText(repoFile('結構工具箱/tools/tool-maturity-matrix.js'));
 
+[
+  ['stone report artifact checks', stoneServerSmoke],
+  ['decking report artifact checks', deckingReportContract],
+  ['excavation report checks', excavationReportingTests],
+  ['excavation release artifact checks', excavationReleaseArtifacts],
+  ['anchor HTML artifact checks', anchorReportExportTest],
+  ['anchor DOCX artifact checks', anchorReportDocxTest],
+  ['anchor XLSX artifact checks', anchorReportWorkbookTest],
+  ['anchor release artifact checks', anchorReportArtifactsTest],
+].forEach(([label, source]) => {
+  assertIncludes(source, 'calculation-book-content-boundary.json', `${label} consumes shared calculation-book boundary`);
+});
+
 assert(stoneCatalog.family === 'stone-traceability', 'stone catalog family', stoneCatalog.family);
 assert(deckingCatalog.family === 'decking-traceability', 'decking catalog family', deckingCatalog.family);
 assert(excavationCatalog.family === 'excavation-traceability', 'excavation catalog family', excavationCatalog.family);
