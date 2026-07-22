@@ -24,24 +24,21 @@ const CHROME_CANDIDATES = [
 
 const EXPECTED_REPORT_TEXT = {
   default_rect_design: [
-    '規範覆蓋矩陣',
+    '工程檢核總表',
     '柱端錨定',
-    '報告不作通過判定',
-    '細長效應與二階邊界'
+    '握裹 / 搭接長度',
+    '長細比 k·ℓu/r'
   ],
   seismic_lap_class_a_ineligible_uses_b: [
-    '規範覆蓋矩陣',
-    '耐震搭接',
-    '長度=不符',
-    '等級=B',
-    '報告不作通過判定'
+    '工程檢核總表',
+    '搭接 / 施工圖',
+    '搭接長度',
+    'Class A未成立，按 Class B'
   ],
   seismic_detail_first_outside_spacing_ng: [
-    '規範覆蓋矩陣',
-    '橫向鋼筋間距與圍束',
-    '首支=不符',
-    '外區=不符',
-    '搭接位置或長度未完整輸入'
+    '首支箍筋位置',
+    'ℓo 外橫向筋間距',
+    '搭接位置或搭接長度未完整輸入'
   ]
 };
 
@@ -213,10 +210,13 @@ async function main() {
       await page.click('.section-tabs button[data-tab="summary"]');
       const pageReadiness = await page.evaluate(() => {
         const card = document.getElementById('columnAttachmentReadinessCard');
+        const methodCard = document.getElementById('columnMethodBoundaryCard');
         const target = document.getElementById('columnAttachmentReadiness');
         const rect = card?.getBoundingClientRect();
         return {
           text: card?.textContent?.replace(/\s+/g, ' ').trim() || '',
+          methodText: methodCard?.textContent?.replace(/\s+/g, ' ').trim() || '',
+          methodDisplay: methodCard ? getComputedStyle(methodCard).display : '',
           status: target?.dataset.attachmentStatus || '',
           display: card ? getComputedStyle(card).display : '',
           width: rect ? Math.round(rect.width) : 0,
@@ -290,6 +290,9 @@ async function main() {
       assert(failedResponses.length === 0, `${tc.key} report failed responses`, 'none');
       assert(pageReadiness.text.includes('產報前檢查'), `${tc.key} page attachment readiness card`, pageReadiness.text);
       assert(pageReadiness.text.includes('不會寫入計算書或列印 PDF'), `${tc.key} page attachment readiness boundary`, pageReadiness.text);
+      assert(pageReadiness.methodText.includes('計算方法與適用邊界'), `${tc.key} page method boundary card`, pageReadiness.methodText);
+      assert(pageReadiness.methodText.includes('不會寫入計算書或列印 PDF'), `${tc.key} page method/report boundary`, pageReadiness.methodText);
+      assert(pageReadiness.methodDisplay !== 'none', `${tc.key} page method boundary visible`, pageReadiness.methodDisplay);
       assert(pageReadiness.text.includes('優先閱讀'), `${tc.key} page attachment readiness priority`, pageReadiness.text);
       assert(['ready', 'review', 'blocked'].includes(pageReadiness.status), `${tc.key} page attachment readiness status`, pageReadiness.status);
       assert(pageReadiness.display !== 'none' && pageReadiness.width > 0 && pageReadiness.height > 0, `${tc.key} page attachment readiness visible`, `${pageReadiness.display} ${pageReadiness.width}x${pageReadiness.height}`);
@@ -310,6 +313,10 @@ async function main() {
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',
+        '計算層級 / 複核邊界',
+        '條文對照 ＆ 方法分級',
+        '規範覆蓋矩陣',
+        '若需載重包絡線，請先使用載重組合產生器',
       ].forEach(fragment => {
         assert(!metrics.bodyText.includes(fragment), `${tc.key} report excludes page-only attachment readiness`, fragment);
       });
@@ -368,9 +375,10 @@ async function main() {
     const screenshotQuality = assertReportScreenshotQuality(screenshotPath, 'resolved review formal attachment', { assert });
     const pdfTextQuality = assertReportPdfTextQuality(pdfPath, 'resolved review formal attachment', {
       assert,
-      include: ['柱檢核計算書', '文件狀態：正式附件', '核可時間', '人工複核採用記錄', '配筋圖／S-302', 'QA-01', '人工複核（已完成）', '已複核'],
+      include: ['柱檢核計算書', '文件狀態：正式附件', '核可時間', '配筋圖／S-302', 'QA-01', '已完成可追溯複核', '已複核'],
       exclude: ['DRAFT／非正式附件']
     });
+    assert(metrics.bodyText.includes('人工複核採用記錄'), 'resolved review rendered report keeps traceable review heading', '人工複核採用記錄');
     ['DRAFT／非正式附件', '未輸入時不作通過判定', '人工複核項，不納入自動 OK 判定', '報告不作通過判定'].forEach(fragment => {
       assert(!metrics.bodyText.includes(fragment), 'resolved review rendered report has no stale draft conclusion', fragment);
     });

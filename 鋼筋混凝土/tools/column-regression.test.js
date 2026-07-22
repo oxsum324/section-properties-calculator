@@ -439,7 +439,7 @@ async function exerciseColumnAttachmentBoundary(page, pack) {
   assert(resolved.saved.reviewResolutions?.length === 1 && resolved.saved.reviewResolutions[0].reference === 'S-302', 'column project persists review record', JSON.stringify(resolved.saved.reviewResolutions));
   const resolvedReport = await captureColumnReportHtml(page);
   assert(!resolvedReport.includes('DRAFT／非正式附件'), 'resolved column review removes draft state', 'ready-to-sign report');
-  ['人工複核採用記錄', '人工複核（已完成）', '已複核', '柱端錨定—依據', '配筋圖／S-302', 'QA-01'].forEach(fragment => {
+  ['人工複核採用記錄', '已完成可追溯複核', '已複核', '柱端錨定—依據', '配筋圖／S-302', 'QA-01'].forEach(fragment => {
     assert(resolvedReport.includes(fragment), 'column report carries traceable review record', fragment);
   });
   ['未輸入時不作通過判定', '人工複核項，不納入自動 OK 判定', '報告不作通過判定'].forEach(fragment => {
@@ -498,6 +498,10 @@ async function main() {
   assert(html.includes('../shared/pmsection.js'), 'column.html loads shared PM section engine', 'single-axis P-M core is shared and testable');
   assert(html.includes('pmCore.curve'), 'column.html calls shared PM section engine', 'rectangular column P-M uses shared core');
   assert(html.includes('reportCoverage'), 'column.html builds report coverage matrix', 'code-clause coverage matrix exists');
+  assert(html.includes('id="columnMethodBoundaryCard"'), 'column.html keeps method boundaries on work page', 'method explanations remain page-only');
+  assert(html.includes('本區僅供操作與判讀，不會寫入計算書或列印 PDF'), 'column.html labels report boundary', 'page explains what the calculation book excludes');
+  assert(html.includes('lastColumnReportDiagnostics'), 'column.html exposes page diagnostics', 'coverage remains regression-testable without entering the report');
+  assert(!html.includes('inputs, checks, steps: stepsArr, diagrams, methods: reportMethods, coverage: reportCoverage'), 'column report excludes method and coverage matrices', 'generic governance stays on the work page');
   assert(html.includes('summary:false'), 'column report hides top summary banner', 'operator-only reminders stay out of the report');
   assert(!html.includes('coverageSummary: reportCoverageSummary'), 'column report omits coverage summary cards', 'gap summaries stay on the page, not in the report');
   assert(html.includes('lastColumnReportConfig'), 'column.html exposes last report config', 'report coverage can be regression tested');
@@ -741,7 +745,7 @@ async function main() {
           return {
             html,
             summary: (window.lastColumnReportConfig && window.lastColumnReportConfig.summary),
-            coverage: (window.lastColumnReportConfig && window.lastColumnReportConfig.coverage) || [],
+            coverage: (window.lastColumnReportDiagnostics && window.lastColumnReportDiagnostics.coverage) || [],
             coverageSummary: (window.lastColumnReportConfig && window.lastColumnReportConfig.coverageSummary) || []
           };
         });
