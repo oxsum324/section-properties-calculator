@@ -1,8 +1,8 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-07-22T11:49:10.953Z",
-  "runId": "20260722-193057",
+  "generatedAt": "2026-07-22T12:18:44.103Z",
+  "runId": "20260722-200041",
   "pass": true,
   "failureCount": 0,
   "badge": "頁面專用",
@@ -12,7 +12,7 @@
   "details": [
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
-    "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260722-193057。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260722-200041。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
     "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
     "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。"
@@ -26,7 +26,7 @@
   "reportTextSmokeEvidenceRequired": 2,
   "reportTextSmokeEvidenceComplete": 2,
   "reportTextSmokeEvidenceIssueCount": 0,
-  "reportTextSmokeEvidenceRunId": "20260722-193057",
+  "reportTextSmokeEvidenceRunId": "20260722-200041",
   "reportTextSmokeEvidenceGates": [
     {
       "key": "formal-browser-smoke",
@@ -37,7 +37,7 @@
       "complete": 14,
       "pass": true,
       "reused": false,
-      "seconds": 85.5
+      "seconds": 82.6
     },
     {
       "key": "local-quick-tools-runner",
@@ -48,7 +48,7 @@
       "complete": 3,
       "pass": true,
       "reused": false,
-      "seconds": 32.9
+      "seconds": 34.3
     }
   ],
   "reportTextSmokeEvidenceUnmappedFamilies": [],
@@ -56,7 +56,7 @@
   "renderedDeliveryEvidenceRequired": 31,
   "renderedDeliveryEvidenceComplete": 31,
   "renderedDeliveryEvidenceIssueCount": 0,
-  "renderedDeliveryEvidenceRunId": "20260722-193057",
+  "renderedDeliveryEvidenceRunId": "20260722-200041",
   "renderedDeliveryEvidenceFamilies": [
     {
       "family": "anchor-formal",
@@ -92,8 +92,8 @@
     }
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 31 / 31；補充報告 / 服務成品 2 / 2。",
-  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260722-193057/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "0ddc6c3e1cc01f813f978a7fa27f57b873ae2104ab1186e780818cf390b6c7f6",
+  "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260722-200041/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
+  "renderedDeliveryEvidenceSourceHash": "276beb489f51da5199de60106a8863321fa36489e75401498499c12acf89274b",
   "supplementalDeliveryEvidenceRequired": 2,
   "supplementalDeliveryEvidenceComplete": 2,
   "supplementalDeliveryEvidenceIssueCount": 0,
@@ -135,6 +135,6 @@
     }
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
-  "preflightStatusSourcePath": "output/preflight/history/20260722-193057/preflight-summary.json",
-  "sourceHash": "609479bd75b4c92d8778c52c30c419949619b97d57ccc77c0ef15144ddd6f1c7"
+  "preflightStatusSourcePath": "output/preflight/history/20260722-200041/preflight-summary.json",
+  "sourceHash": "d26bf0cccbc4eca062afc0e3f997278a9e2fdfbc98aae897e0031c0f13c0fb1f"
 }

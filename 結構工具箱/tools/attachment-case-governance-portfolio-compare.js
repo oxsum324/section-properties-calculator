@@ -9,11 +9,13 @@ const History = require('./attachment-package-upgrade-history.js');
 const Portfolio = require('./attachment-case-governance-portfolio.js');
 
 const COMPARISON_KIND = 'formal-attachment-case-governance-portfolio-comparison.v1';
+const COMPARISON_VIEW_KIND = 'formal-attachment-case-governance-portfolio-comparison-view.v1';
 const COMPARISON_BOUNDARY_INSTRUCTION = '本比較只供內部確認兩份完整多案件治理快照的差異；不得放入計算書、主報告或正式附件包，亦不代表任何案件的正式附件核可、版本前進或數位簽章。';
 const MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024;
 const STATUS_LEVEL = Object.freeze({ ready: 0, review: 1, blocked: 2 });
 const PRIORITY_LEVEL = Object.freeze({ none: 9, P2: 2, P1: 1, P0: 0 });
 const CHANGE_ORDER = Object.freeze({ regressed: 0, added: 1, removed: 2, improved: 3, changed: 4, unchanged: 5 });
+const CHANGE_TYPES = Object.freeze(Object.keys(CHANGE_ORDER));
 const TOP_LEVEL_FIELDS = ['schemaVersion', 'kind', 'generatedAt', 'status', 'portfolioFingerprint', 'boundary', 'discovery', 'summary', 'triage', 'cases', 'issues', 'nextActions'];
 const CASE_FIELDS = ['caseName', 'status', 'caseFingerprint', 'governanceFingerprint', 'packageStatus', 'chainStatus', 'currentReceiptCount', 'pendingAdditions', 'issueCodes', 'nextActionCodes'];
 
@@ -282,6 +284,46 @@ function compareFiles(previousPath, currentPath, options = {}) {
   });
 }
 
+function normalizeViewFilters(options = {}) {
+  const onlyBlocking = options.onlyBlocking === true;
+  const requested = Array.isArray(options.changeTypes) ? options.changeTypes : [];
+  requested.forEach(type => {
+    if (!CHANGE_TYPES.includes(type)) throw new Error(`不支援的差異類型：${type}`);
+  });
+  const changeTypes = [...new Set(requested)].sort((left, right) => CHANGE_ORDER[left] - CHANGE_ORDER[right]);
+  if (onlyBlocking && changeTypes.length) throw new Error('--only-blocking 不得與 --change 同時使用。');
+  return { onlyBlocking, changeTypes };
+}
+
+function buildFilteredView(result, options = {}) {
+  const filters = normalizeViewFilters(options);
+  if (!filters.onlyBlocking && !filters.changeTypes.length) return result;
+  const visibleChanges = result.changes.filter(item => filters.onlyBlocking
+    ? item.currentStatus === 'blocked' || item.change === 'regressed'
+    : filters.changeTypes.includes(item.change));
+  const visibleNames = new Set(visibleChanges.map(item => item.caseName));
+  const nextActions = result.nextActions.flatMap(action => {
+    if (!action.cases.length) return [{ ...action, cases: [] }];
+    const cases = action.cases.filter(name => visibleNames.has(name));
+    return cases.length ? [{ ...action, cases }] : [];
+  });
+  return {
+    ...result,
+    kind: COMPARISON_VIEW_KIND,
+    view: {
+      filters,
+      fingerprintScope: 'all-changes',
+      fullChangeCount: result.changes.length,
+      displayedChangeCount: visibleChanges.length,
+      hiddenChangeCount: result.changes.length - visibleChanges.length,
+      fullNextActionCount: result.nextActions.length,
+      displayedNextActionCount: nextActions.length,
+    },
+    changes: visibleChanges,
+    nextActions,
+  };
+}
+
 function formatSummary(result) {
   const label = result.status === 'ready' ? '內容穩定且目前批次 ready' : result.status === 'review' ? '差異需人工確認' : '目前批次或差異有阻擋';
   const lines = [
@@ -292,7 +334,11 @@ function formatSummary(result) {
     `差異：新增 ${result.summary.added}；移除 ${result.summary.removed}；改善 ${result.summary.improved}；惡化 ${result.summary.regressed}；同狀態變更 ${result.summary.changed}；未變 ${result.summary.unchanged}`,
     `比較指紋：${result.comparisonFingerprint}`,
   ];
-  result.changes.filter(item => item.change !== 'unchanged').forEach(item => lines.push(`- ${item.caseName}：${item.change}；${item.previousStatus}/${item.previousPriority} → ${item.currentStatus}/${item.currentPriority}`));
+  if (result.view) {
+    const focus = result.view.filters.onlyBlocking ? '目前阻擋或惡化' : result.view.filters.changeTypes.join('、');
+    lines.push(`顯示篩選：${focus}；顯示 ${result.view.displayedChangeCount}/${result.view.fullChangeCount}；指紋範圍 ${result.view.fingerprintScope}`);
+  }
+  result.changes.filter(item => result.view || item.change !== 'unchanged').forEach(item => lines.push(`- ${item.caseName}：${item.change}；${item.previousStatus}/${item.previousPriority} → ${item.currentStatus}/${item.currentPriority}`));
   result.issues.forEach(item => lines.push(`- 阻擋 [${item.code}] ${item.message}`));
   result.nextActions.forEach(item => lines.push(`- 下一步：${item.message}`));
   lines.push(COMPARISON_BOUNDARY_INSTRUCTION);
@@ -300,7 +346,7 @@ function formatSummary(result) {
 }
 
 function parseArgs(argv) {
-  const options = { json: false };
+  const options = { json: false, onlyBlocking: false, changeTypes: [] };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--previous' || arg === '--current') {
@@ -308,17 +354,24 @@ function parseArgs(argv) {
       if (!value || value.startsWith('--')) throw new Error(`參數 ${arg} 缺少 JSON 路徑。`);
       options[arg.slice(2)] = value;
       index += 1;
-    } else if (arg === '--json') options.json = true;
+    } else if (arg === '--change') {
+      const value = argv[index + 1];
+      if (!value || value.startsWith('--')) throw new Error('參數 --change 缺少差異類型。');
+      options.changeTypes.push(value);
+      index += 1;
+    } else if (arg === '--only-blocking') options.onlyBlocking = true;
+    else if (arg === '--json') options.json = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new Error(`未知參數：${arg}`);
   }
-  return options;
+  return { ...options, ...normalizeViewFilters(options) };
 }
 
 function usage() {
   return [
-    '用法：node attachment-case-governance-portfolio-compare.js --previous <前次完整總覽.json> --current <目前完整總覽.json> [--json]',
+    '用法：node attachment-case-governance-portfolio-compare.js --previous <前次完整總覽.json> --current <目前完整總覽.json> [--only-blocking | --change <類型> ...] [--json]',
     '只接受未套用 --only-actionable 或 --priority 的完整多案件總覽 JSON。',
+    `差異類型：${CHANGE_TYPES.join('、')}；篩選只縮減顯示，不改變完整狀態、摘要、退出碼或 CMP 指紋。`,
     '比較固定唯讀；結果不會修改、核可或推進任何案件。',
   ].join('\n');
 }
@@ -328,7 +381,8 @@ function main(argv = process.argv.slice(2)) {
   if (options.help) { console.log(usage()); return Checker.PACKAGE_STATUS_EXIT_CODES.ready; }
   if (!options.previous || !options.current) { console.error(usage()); return Checker.CLI_ERROR_EXIT_CODE; }
   const result = compareFiles(options.previous, options.current, options);
-  console.log(options.json ? JSON.stringify(result, null, 2) : formatSummary(result));
+  const displayResult = buildFilteredView(result, options);
+  console.log(options.json ? JSON.stringify(displayResult, null, 2) : formatSummary(displayResult));
   return Checker.exitCodeForStatus(result.status);
 }
 
@@ -342,6 +396,7 @@ if (require.main === module) {
 
 module.exports = {
   COMPARISON_KIND,
+  COMPARISON_VIEW_KIND,
   COMPARISON_BOUNDARY_INSTRUCTION,
   MAX_SNAPSHOT_BYTES,
   plainObject,
@@ -361,6 +416,8 @@ module.exports = {
   comparisonFingerprint,
   compareSnapshots,
   compareFiles,
+  normalizeViewFilters,
+  buildFilteredView,
   formatSummary,
   parseArgs,
   usage,

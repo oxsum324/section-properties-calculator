@@ -1620,7 +1620,7 @@ $checks = @(
   },
   @{
     Path = '結構工具箱\tools\比較多案件附件治理總覽.bat'
-    Needles = @('attachment-case-governance-portfolio-compare.js', '--previous', '%~1', '--current', '%~2')
+    Needles = @('attachment-case-governance-portfolio-compare.js', '--previous', '%~1', '--current', '%~2', '%~3', '--only-blocking', '--change')
   }
 )
 

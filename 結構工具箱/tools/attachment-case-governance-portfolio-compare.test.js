@@ -107,15 +107,27 @@ function cli(args) {
 }
 
 assert.equal(Compare.COMPARISON_KIND, 'formal-attachment-case-governance-portfolio-comparison.v1');
+assert.equal(Compare.COMPARISON_VIEW_KIND, 'formal-attachment-case-governance-portfolio-comparison-view.v1');
 assert.match(Compare.COMPARISON_BOUNDARY_INSTRUCTION, /不得放入計算書、主報告或正式附件包/);
 assert.deepEqual(Compare.parseArgs(['--previous', 'old.json', '--current', 'new.json', '--json']), {
   json: true,
+  onlyBlocking: false,
+  changeTypes: [],
   previous: 'old.json',
   current: 'new.json',
 });
+assert.deepEqual(Compare.parseArgs(['--change', 'added', '--change', 'regressed']), {
+  json: false,
+  onlyBlocking: false,
+  changeTypes: ['regressed', 'added'],
+});
 assert.throws(() => Compare.parseArgs(['--previous']), /缺少 JSON 路徑/);
+assert.throws(() => Compare.parseArgs(['--change']), /缺少差異類型/);
+assert.throws(() => Compare.parseArgs(['--change', 'unknown']), /不支援的差異類型/);
+assert.throws(() => Compare.parseArgs(['--only-blocking', '--change', 'added']), /不得與 --change 同時使用/);
 assert.throws(() => Compare.parseArgs(['--unknown']), /未知參數/);
 assert.match(Compare.usage(), /未套用 --only-actionable 或 --priority/);
+assert.match(Compare.usage(), /fingerprint|指紋/i);
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-portfolio-compare-'));
 try {
@@ -186,9 +198,54 @@ try {
     result.comparisonFingerprint,
   );
 
+  const blockingView = Compare.buildFilteredView(result, { onlyBlocking: true });
+  assert.equal(blockingView.kind, Compare.COMPARISON_VIEW_KIND);
+  assert.equal(blockingView.status, result.status);
+  assert.equal(blockingView.comparisonFingerprint, result.comparisonFingerprint);
+  assert.deepEqual(blockingView.summary, result.summary);
+  assert.deepEqual(blockingView.view, {
+    filters: { onlyBlocking: true, changeTypes: [] },
+    fingerprintScope: 'all-changes',
+    fullChangeCount: 6,
+    displayedChangeCount: 3,
+    hiddenChangeCount: 3,
+    fullNextActionCount: 6,
+    displayedNextActionCount: 4,
+  });
+  assert.deepEqual(blockingView.changes.map(item => `${item.change}:${item.caseName}`), [
+    'regressed:案件甲',
+    'added:案件己',
+    'changed:案件丙',
+  ]);
+  assert.deepEqual(blockingView.nextActions.map(item => item.code), [
+    'repair-current-portfolio',
+    'review-regressions',
+    'review-added-cases',
+    'review-same-status-changes',
+  ]);
+  assert.equal(result.kind, Compare.COMPARISON_KIND);
+  assert.equal(result.changes.length, 6);
+  assert.match(Compare.formatSummary(blockingView), /顯示篩選：目前阻擋或惡化；顯示 3\/6；指紋範圍 all-changes/);
+
+  const selectedView = Compare.buildFilteredView(result, { changeTypes: ['added', 'regressed', 'added'] });
+  assert.deepEqual(selectedView.view.filters.changeTypes, ['regressed', 'added']);
+  assert.deepEqual(selectedView.changes.map(item => item.caseName), ['案件甲', '案件己']);
+  assert.equal(selectedView.status, result.status);
+  assert.equal(selectedView.comparisonFingerprint, result.comparisonFingerprint);
+
   const blockedCli = cli(['--previous', previousPath, '--current', currentPath, '--json']);
   assert.equal(blockedCli.status, 2, blockedCli.stderr || blockedCli.stdout);
   assert.equal(JSON.parse(blockedCli.stdout).status, 'blocked');
+  const blockingCli = cli(['--previous', previousPath, '--current', currentPath, '--only-blocking', '--json']);
+  assert.equal(blockingCli.status, blockedCli.status, blockingCli.stderr || blockingCli.stdout);
+  const blockingCliResult = JSON.parse(blockingCli.stdout);
+  assert.equal(blockingCliResult.kind, Compare.COMPARISON_VIEW_KIND);
+  assert.equal(blockingCliResult.comparisonFingerprint, JSON.parse(blockedCli.stdout).comparisonFingerprint);
+  assert.deepEqual(blockingCliResult.changes.map(item => item.caseName), ['案件甲', '案件己', '案件丙']);
+  assert.doesNotMatch(blockingCli.stdout, /案件丁|案件乙|案件戊/);
+  const selectedCli = cli(['--previous', previousPath, '--current', currentPath, '--change', 'added', '--change', 'regressed', '--json']);
+  assert.equal(selectedCli.status, blockedCli.status, selectedCli.stderr || selectedCli.stdout);
+  assert.deepEqual(JSON.parse(selectedCli.stdout).changes.map(item => item.caseName), ['案件甲', '案件己']);
 
   const stablePrevious = makeSnapshot([makeCase('穩定案件', 'ready', '5')], 'C', TIMES.previous);
   const stableCurrent = JSON.parse(JSON.stringify(stablePrevious));
@@ -203,6 +260,9 @@ try {
   assert.deepEqual(stable.summary, { added: 0, removed: 0, improved: 0, regressed: 0, changed: 0, unchanged: 1, portfolioChanged: false });
   assert.deepEqual(stable.nextActions.map(item => item.code), ['archive-stable-comparison']);
   assert.equal(cli(['--previous', stablePreviousPath, '--current', stableCurrentPath, '--json']).status, 0);
+  const stableBlockingCli = cli(['--previous', stablePreviousPath, '--current', stableCurrentPath, '--only-blocking', '--json']);
+  assert.equal(stableBlockingCli.status, 0, stableBlockingCli.stderr || stableBlockingCli.stdout);
+  assert.equal(JSON.parse(stableBlockingCli.stdout).view.displayedChangeCount, 0);
 
   const reviewPrevious = makeSnapshot([makeCase('複核案件', 'review', '6')], 'D', TIMES.previous);
   const reviewCurrent = JSON.parse(JSON.stringify(reviewPrevious));
@@ -247,6 +307,8 @@ try {
 
   assert.equal(cli(['--help']).status, 0);
   assert.equal(cli([]).status, 3);
+  assert.equal(cli(['--change', 'unknown']).status, 3);
+  assert.equal(cli(['--only-blocking', '--change', 'added']).status, 3);
   assert.equal(cli(['--unknown']).status, 3);
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
