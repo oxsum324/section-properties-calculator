@@ -1255,6 +1255,11 @@ node 結構工具箱/tools/attachment-package-upgrade-history.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageUpgradeHistoryIndexCommand = @'
+node 結構工具箱/tools/attachment-package-upgrade-history-index.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1549,6 +1554,10 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\舊版附件包升級流程.bat'
     Needles = @('attachment-package-upgrade-flow.js', '--input', '%~1', '--output', '%~2', '--project-no', '%~3', '--history-dir', '%~4')
+  },
+  @{
+    Path = '結構工具箱\tools\檢查附件升級內部歷程.bat'
+    Needles = @('attachment-package-upgrade-history-index.js', '--history', '%~1', '--baseline', '%~2')
   }
 )
 
@@ -2102,6 +2111,13 @@ $checks = @(
     label = "External legacy attachment upgrade history receipts"
     workdir = $root
     command = $attachmentPackageUpgradeHistoryCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-upgrade-history-index"
+    label = "Read-only legacy attachment upgrade history index"
+    workdir = $root
+    command = $attachmentPackageUpgradeHistoryIndexCommand
     slow = $false
   },
   [pscustomobject]@{
