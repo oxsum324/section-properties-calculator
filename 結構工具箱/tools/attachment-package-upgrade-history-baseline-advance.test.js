@@ -180,6 +180,19 @@ try {
     /新版基準 SHA-256 不符/,
   );
 
+  const duplicateApprovalBundle = path.join(tempRoot, 'duplicate-approval-bundle-copy');
+  fs.mkdirSync(duplicateApprovalBundle);
+  fs.copyFileSync(advanced.baselinePath, path.join(duplicateApprovalBundle, Advance.BASELINE_FILE_NAME), fs.constants.COPYFILE_EXCL);
+  const duplicateApprovalText = fs.readFileSync(advanced.approvalPath, 'utf8').replace(
+    `"reviewedAt": "${approval.reviewedAt}",`,
+    `"reviewedAt": "${approval.reviewedAt}",\n  "reviewedAt": "${approval.reviewedAt}",`,
+  );
+  fs.writeFileSync(path.join(duplicateApprovalBundle, Advance.APPROVAL_FILE_NAME), duplicateApprovalText, 'utf8');
+  assert.throws(
+    () => Advance.validateAdvancementBundle(duplicateApprovalBundle, historyDir, baselinePath, { now: ADVANCE_TIME }),
+    /重複 JSON 欄位/,
+  );
+
   const approvalHash = hash(advanced.approvalPath);
   assert.throws(
     () => Advance.advanceBaseline(historyDir, {

@@ -7,6 +7,7 @@ const Builder = require('./attachment-package-build.js');
 const History = require('./attachment-package-upgrade-history.js');
 const Index = require('./attachment-package-upgrade-history-index.js');
 const Baseline = require('./attachment-package-upgrade-history-baseline.js');
+const Verifier = require('./attachment-package-verify.js');
 
 const ADVANCEMENT_KIND = 'formal-attachment-package-upgrade-history-baseline-advancement.v1';
 const APPROVAL_KIND = 'formal-attachment-package-upgrade-history-baseline-advancement-record.v1';
@@ -223,7 +224,7 @@ function writeApprovalRecord(record, filePath) {
     fs.fsyncSync(handle);
     fs.closeSync(handle);
     handle = null;
-    const persisted = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const persisted = readApprovalRecord(filePath);
     validateApprovalRecord(persisted);
     if (persisted.advancementFingerprint !== record.advancementFingerprint) {
       throw new Error('可信基準前進核准紀錄寫入後指紋不一致。');
@@ -234,6 +235,17 @@ function writeApprovalRecord(record, filePath) {
     }
     fs.rmSync(filePath, { force: true });
     throw error;
+  }
+}
+
+function readApprovalRecord(filePath) {
+  const rawText = fs.readFileSync(filePath, 'utf8');
+  const duplicates = Verifier.findDuplicateJsonKeys(rawText);
+  if (duplicates.length) throw new Error('可信基準前進核准紀錄含重複 JSON 欄位。');
+  try {
+    return JSON.parse(rawText);
+  } catch (error) {
+    throw new Error(`可信基準前進核准紀錄 JSON 無法解析：${error.message}`);
   }
 }
 
@@ -248,7 +260,7 @@ function validateAdvancementBundle(bundleDir, historyDir, previousBaselinePath, 
   }
   const nextBaselinePath = path.join(resolvedBundle, BASELINE_FILE_NAME);
   const approvalPath = path.join(resolvedBundle, APPROVAL_FILE_NAME);
-  const approval = JSON.parse(fs.readFileSync(approvalPath, 'utf8'));
+  const approval = readApprovalRecord(approvalPath);
   validateApprovalRecord(approval);
   if (approval.previousBaseline.sha256 !== sha256File(previousBaselinePath)) {
     throw new Error('可信基準前進核准紀錄的舊基準 SHA-256 不符。');
@@ -293,12 +305,15 @@ function validateAdvancementBundle(bundleDir, historyDir, previousBaselinePath, 
       || approval.nextBaseline.receiptCount !== nextRecords.length) {
     throw new Error('可信基準前進核准紀錄的集合指紋或收據數不一致。');
   }
-  const historyMatch = Index.inspectHistoryDir(historyDir, {
-    baseline: nextBaselinePath,
-    now: options.now,
-  });
-  if (historyMatch.status !== 'valid' || historyMatch.baseline.status !== 'match') {
-    throw new Error('可信基準前進包的新版基準與目前歷程未完全相符。');
+  let historyMatch = null;
+  if (options.requireHistoryMatch !== false) {
+    historyMatch = Index.inspectHistoryDir(historyDir, {
+      baseline: nextBaselinePath,
+      now: options.now,
+    });
+    if (historyMatch.status !== 'valid' || historyMatch.baseline.status !== 'match') {
+      throw new Error('可信基準前進包的新版基準與目前歷程未完全相符。');
+    }
   }
   return { approval, previousRecords, nextRecords, difference, historyMatch };
 }
@@ -542,6 +557,7 @@ module.exports = {
   approvalFingerprint,
   buildApprovalRecord,
   validateApprovalRecord,
+  readApprovalRecord,
   validateAdvancementBundle,
   defaultBundleDir,
   validateBundleOutput,
