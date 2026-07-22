@@ -157,6 +157,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [attachment-package-upgrade-workspace.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-workspace.js:1)
 - 舊版附件升級工作區完成度檢查：
   [attachment-package-upgrade-workspace-check.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-workspace-check.js:1)
+- 舊版正式附件統一升級流程：
+  [attachment-package-upgrade-flow.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-flow.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -177,6 +179,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 確認完整舊包需要升級後，可將它拖曳到 `結構工具箱/tools/建立舊版附件升級工作區.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-workspace.js --input <舊版正式附件包> [--output <新工作區>] [--json]`。建立器只新增獨立工作區，不修改舊包，也不複製舊附件、來源資料、metadata 或核可時間；`00_內部升級工作說明_勿附入主報告/` 只放逐份待辦，`01_新組包來源/` 只預建空白的「重新輸出正式計算書」與「重新確認來源資料」資料夾。完成重算與重新核可後，只能選取 `01_新組包來源/` 交給正式組包器，不得選取整個升級工作區。工作區採暫存後原子發布，失敗不留半成品；建立成功仍固定為 `review`／退出碼 `1`，不代表正式附件已核可。v3 完整包不建立工作區並回傳 `ready=0`；異常包不建立工作區並回傳 `blocked=2`；參數或執行錯誤為 `3`。
 
 新輸出整理完成後，可將整個工作區拖曳到 `結構工具箱/tools/檢查舊版附件升級工作區.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-workspace-check.js --input <升級工作區> [--project-no <計畫編號>] [--json]`。完成度檢查器固定唯讀，先核對工作清單指紋、JSON／Markdown 同源與目錄邊界，再沿用附件組包檢查，並以「產出工具＋舊計算指紋」逐份尋找各 1 份新計算書及新來源；新工具版本可以不同，但兩份新檔仍須彼此版本與指紋一致。新輸出、來源儲存與正式核可時間均不得早於工作區建立時間，因此手動複製舊包內容不會通過。缺件、內部審閱或尚未重新核可維持 `review=1`；指紋不符、清單遭修改、邊界多檔或不安全連結為 `blocked=2`；只有全部逐份完成才是 `ready=0`。正式組包器會自動辨識 `01_新組包來源/` 並先執行同一閘門，未通過時不建立附件包；通過後的新 v3 包也固定輸出在工作區外。
+
+日常操作可只使用 `結構工具箱/tools/舊版附件包升級流程.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-flow.js --input <正式附件包｜升級工作區｜新組包來源> [--output <新工作區或新 v3 包>] [--project-no <計畫編號>] [--json]`。統一流程會先辨識輸入階段：完整 v1／v2 包建立安全工作區後停止於 review；未完成工作區只列出待辦；完成度 ready 的工作區才呼叫正式組包器並產生驗證通過的 v3；既有完整 v3 不做任何變更；完整性異常則 blocked。即使直接選取 `01_新組包來源/`，也會回到父工作區執行同一完成度閘門，不能繞過重新輸出與人工核可。`--output` 在舊包階段代表新工作區，在完成工作區階段代表新 v3 包；省略時使用各階段的安全預設位置。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 

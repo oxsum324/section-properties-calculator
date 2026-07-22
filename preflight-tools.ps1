@@ -1245,6 +1245,11 @@ node 結構工具箱/tools/attachment-package-upgrade-workspace-check.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageUpgradeFlowCommand = @'
+node 結構工具箱/tools/attachment-package-upgrade-flow.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1535,6 +1540,10 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\檢查舊版附件升級工作區.bat'
     Needles = @('attachment-package-upgrade-workspace-check.js', '--input', '%~1', '--project-no', '%~2')
+  },
+  @{
+    Path = '結構工具箱\tools\舊版附件包升級流程.bat'
+    Needles = @('attachment-package-upgrade-flow.js', '--input', '%~1', '--output', '%~2', '--project-no', '%~3')
   }
 )
 
@@ -2074,6 +2083,13 @@ $checks = @(
     label = "Legacy attachment upgrade workspace completion gate"
     workdir = $root
     command = $attachmentPackageUpgradeWorkspaceCheckCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-upgrade-flow"
+    label = "Unified legacy attachment package upgrade flow"
+    workdir = $root
+    command = $attachmentPackageUpgradeFlowCommand
     slow = $false
   },
   [pscustomobject]@{
