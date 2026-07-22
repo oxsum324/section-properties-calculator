@@ -69,6 +69,7 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/attachment-case-governance-portfolio-compare.js',
   '結構工具箱/tools/attachment-case-governance-portfolio-snapshot.js',
   '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-index.js',
+  '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend.js',
   '結構工具箱/tools/local-quick-browser-smoke.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
