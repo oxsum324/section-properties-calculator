@@ -145,6 +145,7 @@ try {
   assert.equal(result.created, true);
   assert.equal(result.workspaceDir, outputDir);
   assert.equal(result.packageSourceDir, path.join(outputDir, Workspace.PACKAGE_SOURCE_DIR));
+  assert.match(result.planFingerprint, /^WSP-[0-9A-F]{24}$/);
   assert.deepEqual(result.copiedLegacyFiles, []);
   assert.deepEqual(result.workItemSummary, { total: 1, paired: 1, externalSourceRequired: 0 });
   assert.deepEqual(directorySnapshot(legacyPackage), packageBefore, 'workspace creation must not modify the old package');

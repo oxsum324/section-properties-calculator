@@ -6,6 +6,7 @@ const Checker = require('./attachment-package-check.js');
 const Builder = require('./attachment-package-build.js');
 const Workspace = require('./attachment-package-upgrade-workspace.js');
 const Completion = require('./attachment-package-upgrade-workspace-check.js');
+const History = require('./attachment-package-upgrade-history.js');
 
 const FLOW_KIND = 'formal-attachment-package-upgrade-flow.v1';
 const INPUT_KINDS = Object.freeze({
@@ -96,6 +97,14 @@ function runUpgradeFlow(inputDir, options = {}) {
   };
 }
 
+function runUpgradeFlowWithHistory(inputDir, options = {}) {
+  const detected = detectInputKind(inputDir);
+  const historyContext = History.prepareHistoryContext(inputDir, detected, options);
+  const flowResult = runUpgradeFlow(inputDir, options);
+  const history = History.recordFlowResult(flowResult, historyContext, options);
+  return { ...flowResult, history };
+}
+
 function formatSummary(result) {
   const lines = ['舊版正式附件統一升級流程'];
   if (result.action === 'workspace-created') {
@@ -115,6 +124,11 @@ function formatSummary(result) {
     lines.push(`附件包指紋：${result.buildResult.packageFingerprint}`);
     lines.push('發布前完整性驗證：通過。');
   }
+  if (result.history?.written) {
+    lines.push(`內部升級歷程收據：${result.history.recordPath}`);
+    lines.push(`歷程收據指紋：${result.history.receiptFingerprint}`);
+    lines.push(History.HISTORY_BOUNDARY_INSTRUCTION);
+  }
   return lines.join('\n');
 }
 
@@ -125,6 +139,7 @@ function parseArgs(argv) {
     if (arg === '--input') options.input = argv[++index];
     else if (arg === '--output') options.output = argv[++index];
     else if (arg === '--project-no') options.projectNo = argv[++index];
+    else if (arg === '--history-dir') options.historyDir = argv[++index];
     else if (arg === '--json') options.json = true;
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new Error(`未知參數：${arg}`);
@@ -135,7 +150,8 @@ function parseArgs(argv) {
 function usage() {
   return [
     '用法：node attachment-package-upgrade-flow.js --input <正式附件包｜升級工作區｜新組包來源>',
-    '  [--output <新工作區或新 v3 包>] [--project-no <計畫編號>] [--json]',
+    '  [--output <新工作區或新 v3 包>] [--project-no <計畫編號>]',
+    '  [--history-dir <外部內部歷程資料夾>] [--json]',
   ].join('\n');
 }
 
@@ -149,7 +165,7 @@ function main(argv = process.argv.slice(2)) {
     console.log(usage());
     return Checker.CLI_ERROR_EXIT_CODE;
   }
-  const result = runUpgradeFlow(options.input, options);
+  const result = runUpgradeFlowWithHistory(options.input, options);
   console.log(options.json ? JSON.stringify(result, null, 2) : formatSummary(result));
   return Checker.exitCodeForStatus(result.status);
 }
@@ -167,6 +183,7 @@ module.exports = {
   INPUT_KINDS,
   detectInputKind,
   runUpgradeFlow,
+  runUpgradeFlowWithHistory,
   formatSummary,
   parseArgs,
   usage,

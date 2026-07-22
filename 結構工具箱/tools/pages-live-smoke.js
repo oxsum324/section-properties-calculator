@@ -58,6 +58,7 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/attachment-package-upgrade-workspace.js',
   '結構工具箱/tools/attachment-package-upgrade-workspace-check.js',
   '結構工具箱/tools/attachment-package-upgrade-flow.js',
+  '結構工具箱/tools/attachment-package-upgrade-history.js',
   '結構工具箱/tools/local-quick-browser-smoke.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',

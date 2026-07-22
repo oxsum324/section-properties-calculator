@@ -189,6 +189,7 @@ function createUpgradeWorkspace(inputDir, options = {}) {
     workspaceDir: resolvedOutput,
     packageSourceDir: path.join(resolvedOutput, PACKAGE_SOURCE_DIR),
     copiedLegacyFiles: [],
+    planFingerprint: plan.planFingerprint,
     planFiles: [
       `${INTERNAL_GUIDE_DIR}/${PLAN_JSON_FILE}`,
       `${INTERNAL_GUIDE_DIR}/${PLAN_MARKDOWN_FILE}`,

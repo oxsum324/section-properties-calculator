@@ -112,8 +112,8 @@ function fillFreshWorkspace(workspaceDir) {
 
 assert.equal(Flow.FLOW_KIND, 'formal-attachment-package-upgrade-flow.v1');
 assert.deepEqual(
-  Flow.parseArgs(['--input', 'C:/input', '--output', 'C:/output', '--project-no', PROJECT_NO, '--json']),
-  { json: true, input: 'C:/input', output: 'C:/output', projectNo: PROJECT_NO },
+  Flow.parseArgs(['--input', 'C:/input', '--output', 'C:/output', '--project-no', PROJECT_NO, '--history-dir', 'C:/history', '--json']),
+  { json: true, input: 'C:/input', output: 'C:/output', projectNo: PROJECT_NO, historyDir: 'C:/history' },
 );
 assert.match(Flow.usage(), /正式附件包｜升級工作區｜新組包來源/);
 
@@ -192,6 +192,19 @@ try {
   assert.equal(fs.existsSync(path.join(tempRoot, 'unused-output')), false);
   assert.deepEqual(directorySnapshot(currentPackage), currentBefore, 'current v3 flow must be read-only');
   assert.match(Flow.formatSummary(current), /不執行任何變更/);
+  const currentHistoryDir = path.join(tempRoot, 'current-history');
+  const currentCli = spawnSync(process.execPath, [
+    path.join(__dirname, 'attachment-package-upgrade-flow.js'),
+    '--input', currentPackage,
+    '--history-dir', currentHistoryDir,
+    '--json',
+  ], { encoding: 'utf8' });
+  assert.equal(currentCli.status, 0, currentCli.stderr || currentCli.stdout);
+  const currentCliResult = JSON.parse(currentCli.stdout);
+  assert.equal(currentCliResult.action, 'no-upgrade-needed');
+  assert.equal(currentCliResult.history.written, true);
+  assert.equal(fs.existsSync(currentCliResult.history.recordPath), true);
+  assert.deepEqual(directorySnapshot(currentPackage), currentBefore, 'external history must not modify current v3 package');
 
   const blockedLegacy = createLegacyPackage(tempRoot, 'blocked-legacy');
   const blockedFormalPath = path.join(
@@ -205,6 +218,18 @@ try {
   assert.equal(blocked.status, 'blocked');
   assert.equal(blocked.changedState, false);
   assert.equal(fs.existsSync(blockedWorkspace), false);
+  const blockedHistoryDir = path.join(tempRoot, 'blocked-history');
+  const blockedCli = spawnSync(process.execPath, [
+    path.join(__dirname, 'attachment-package-upgrade-flow.js'),
+    '--input', blockedLegacy.packageDir,
+    '--history-dir', blockedHistoryDir,
+    '--json',
+  ], { encoding: 'utf8' });
+  assert.equal(blockedCli.status, 2, blockedCli.stderr || blockedCli.stdout);
+  const blockedCliResult = JSON.parse(blockedCli.stdout);
+  assert.equal(blockedCliResult.action, 'package-blocked');
+  assert.equal(blockedCliResult.history.receipt.flow.status, 'blocked');
+  assert.equal(fs.existsSync(blockedCliResult.history.recordPath), true);
 
   const missingManifestPackage = createCurrentPackage(tempRoot, 'missing-manifest');
   fs.rmSync(manifestPath(missingManifestPackage));
@@ -239,6 +264,24 @@ try {
   assert.equal(cliResult.action, 'workspace-created');
   assert.equal(cliResult.status, 'review');
   assert.equal(fs.existsSync(cliWorkspace), true);
+  assert.equal(cliResult.history.written, true);
+  assert.equal(fs.existsSync(cliResult.history.recordPath), true);
+  assert.equal(path.resolve(cliResult.history.historyDir), path.join(tempRoot, '附件升級內部歷程_勿附入主報告'));
+  assert.equal(Builder.isPathInside(cliLegacy.packageDir, cliResult.history.recordPath), false);
+  assert.equal(Builder.isPathInside(cliWorkspace, cliResult.history.recordPath), false);
+  assert.doesNotMatch(fs.readFileSync(cliResult.history.recordPath, 'utf8'), /approvalTime|核可時間/i);
+
+  const invalidHistoryLegacy = createLegacyPackage(tempRoot, 'invalid-history-legacy');
+  const invalidHistoryWorkspace = path.join(tempRoot, 'invalid-history-workspace-must-not-exist');
+  assert.throws(
+    () => Flow.runUpgradeFlowWithHistory(invalidHistoryLegacy.packageDir, {
+      output: invalidHistoryWorkspace,
+      historyDir: path.join(invalidHistoryLegacy.packageDir, 'history'),
+      now: WORKSPACE_NOW,
+    }),
+    /必須位於附件包、升級工作區及正式輸出之外/,
+  );
+  assert.equal(fs.existsSync(invalidHistoryWorkspace), false, 'unsafe history boundary must stop before workspace creation');
 
   const unknownDir = path.join(tempRoot, 'unknown');
   fs.mkdirSync(unknownDir);

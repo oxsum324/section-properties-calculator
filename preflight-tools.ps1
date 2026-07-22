@@ -1250,6 +1250,11 @@ node 結構工具箱/tools/attachment-package-upgrade-flow.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageUpgradeHistoryCommand = @'
+node 結構工具箱/tools/attachment-package-upgrade-history.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1543,7 +1548,7 @@ $checks = @(
   },
   @{
     Path = '結構工具箱\tools\舊版附件包升級流程.bat'
-    Needles = @('attachment-package-upgrade-flow.js', '--input', '%~1', '--output', '%~2', '--project-no', '%~3')
+    Needles = @('attachment-package-upgrade-flow.js', '--input', '%~1', '--output', '%~2', '--project-no', '%~3', '--history-dir', '%~4')
   }
 )
 
@@ -2090,6 +2095,13 @@ $checks = @(
     label = "Unified legacy attachment package upgrade flow"
     workdir = $root
     command = $attachmentPackageUpgradeFlowCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-upgrade-history"
+    label = "External legacy attachment upgrade history receipts"
+    workdir = $root
+    command = $attachmentPackageUpgradeHistoryCommand
     slow = $false
   },
   [pscustomobject]@{
