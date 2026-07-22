@@ -161,8 +161,10 @@ try {
   assert.equal(recurringCaseIssue.recurring, true);
   assert.equal(recurringCaseIssue.active, true);
   assert.equal(recurringCaseIssue.snapshotCount, 2);
+  assert.equal(recurringCaseIssue.activeSinceAt, TIMES.second);
   assert.equal(recurringTopIssue.recurring, true);
   assert.equal(recurringTopIssue.active, false);
+  assert.equal(recurringTopIssue.activeSinceAt, '');
   assert.equal(progress.nextActions.some(item => item.code === 'review-active-recurring-issues'), true);
   assert.equal(directoryDigest(progressDirectory), progressDigest);
 
@@ -208,6 +210,7 @@ try {
   assert.equal(removedCase.currentStatus, 'missing');
   assert.equal(removedCase.attentionPriority, 'P2');
   assert.equal(removedCase.attentionReasons.includes('case-removed-from-current'), true);
+  assert.equal(removedCase.missingSinceAt, TIMES.second);
   assert.equal(removal.summary.removedCurrentCases, 1);
   assert.equal(removal.latestTransitionStatus, 'ready');
   assert.equal(removal.attentionStatus, 'review');

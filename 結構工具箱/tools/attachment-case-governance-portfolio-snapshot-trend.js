@@ -133,6 +133,18 @@ function buildIssueTrends(snapshots) {
     activeAtPortfolio: latestPortfolioCodes.has(item.code),
     recurring: item.snapshotTimes.size >= 2,
     active: latestPortfolioCodes.has(item.code) || latestCaseCodes.has(item.code),
+    activeSinceAt: (() => {
+      if (!latestPortfolioCodes.has(item.code) && !latestCaseCodes.has(item.code)) return '';
+      let activeSinceAt = '';
+      for (let index = snapshots.length - 1; index >= 0; index -= 1) {
+        const snapshot = snapshots[index];
+        const present = snapshot.issues.some(issueItem => issueItem.code === item.code)
+          || snapshot.cases.some(caseItem => caseItem.issueCodes.includes(item.code));
+        if (!present) break;
+        activeSinceAt = snapshot.generatedAt;
+      }
+      return activeSinceAt;
+    })(),
     firstSeenAt: item.firstSeenAt,
     lastSeenAt: item.lastSeenAt,
   })).sort((left, right) => Number(right.active) - Number(left.active)
@@ -174,6 +186,12 @@ function buildCaseTrends(snapshots, comparisons, issueTrends) {
     const activeRecurringIssueCodes = (currentCase?.issueCodes || []).filter(code => recurringCodes.has(code)).sort();
     const attention = attentionForCase(currentCase, currentPriority, latestChangeRecord?.change || 'not-observed', lastSignificant?.change || 'not-observed', activeRecurringIssueCodes);
     const transitionCounts = Object.fromEntries(CHANGE_TYPES.map(type => [type, changes.filter(item => item.change === type).length]));
+    let missingSinceAt = '';
+    if (!currentCase) {
+      for (let index = statusTrail.length - 1; index >= 0 && statusTrail[index].status === 'missing'; index -= 1) {
+        missingSinceAt = statusTrail[index].generatedAt;
+      }
+    }
     return {
       caseName,
       attentionPriority: attention.priority,
@@ -183,6 +201,7 @@ function buildCaseTrends(snapshots, comparisons, issueTrends) {
       latestTransitionChange: latestChangeRecord?.change || 'not-observed',
       firstSeenAt: observed[0]?.generatedAt || '',
       lastSeenAt: observed.at(-1)?.generatedAt || '',
+      missingSinceAt,
       snapshotsPresent: observed.length,
       statusTrail,
       transitionCounts,

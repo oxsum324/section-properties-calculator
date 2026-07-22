@@ -1310,6 +1310,11 @@ node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend.t
 exit $LASTEXITCODE
 '@
 
+$attachmentCaseGovernancePortfolioSnapshotTrendDispositionCommand = @'
+node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1648,6 +1653,14 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\分析多案件治理快照趨勢.bat'
     Needles = @('attachment-case-governance-portfolio-snapshot-trend.js', '--directory', '%~1')
+  },
+  @{
+    Path = '結構工具箱\tools\檢查多案件治理趨勢處置.bat'
+    Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition.js', '--directory', '%~1', '--ledger', '%~2')
+  },
+  @{
+    Path = '結構工具箱\tools\記錄多案件治理趨勢處置.bat'
+    Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition.js', '--directory', '%~1', '--ledger', '%~2', '--acknowledge', '--reviewer', '%~3', '--basis', '%~4', '%~5', '%~6', '--case-removal', '--recurring-issue')
   }
 )
 
@@ -2278,6 +2291,13 @@ $checks = @(
     label = "Read-only multi-case governance cross-snapshot trend analysis"
     workdir = $root
     command = $attachmentCaseGovernancePortfolioSnapshotTrendCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-case-governance-portfolio-snapshot-trend-disposition"
+    label = "Append-only multi-case governance trend disposition receipts"
+    workdir = $root
+    command = $attachmentCaseGovernancePortfolioSnapshotTrendDispositionCommand
     slow = $false
   },
   [pscustomobject]@{
