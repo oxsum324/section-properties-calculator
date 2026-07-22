@@ -539,6 +539,7 @@ async function assertLocalQuickDirectPrintBlocked(client, sessionId, manifest, t
       fs.writeFileSync(pdfPath, pdfBuffer);
       const pdf = validatePdfFile(pdfPath, {
         label: `${tool.key} direct-print block`,
+        contentBoundaryProfile: 'direct-print-boundary',
         minTextLength: 40,
         requiredNeedles: boundaryNeedles,
         forbiddenNeedles: [tool.label, '計畫名稱', 'DRAFT'],
@@ -1585,12 +1586,16 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   const requiredNeedles = [
     tool.label,
     '計算書',
+    '產出工具',
+    '工具版本',
+    '輸出時間',
     '計算指紋',
+    '檢核結論',
   ];
   const removedFromLocalReport = ['工具與責任邊界', '適用範圍', '不適用範圍', '計算核心', '輸入格式'];
   requiredNeedles.push(...(tool.reportNeedles || []));
   if (mode === 'summary') {
-    requiredNeedles.push('簡易結果', '控制結果', '計算示意圖');
+    requiredNeedles.push('控制結果', '計算示意圖');
     assert.equal(state.html.includes('<h2>計算內容</h2>'), false, `${label} ${tool.key} summary report excludes 計算內容章節`);
     removedFromLocalReport.forEach(needle => {
       assert.equal(state.html.includes(needle), false, `${label} ${tool.key} summary report removes ${needle}`);
@@ -1631,6 +1636,9 @@ function assertReportContentState(state, tool, label, mode = 'detailed') {
   pageOnlyReportStatusNeedles.forEach(needle => {
     assert.equal(state.html.includes(needle), false, `${label} ${tool.key} report excludes page-only readiness ${needle}`);
     assert.equal(visibleText.includes(needle), false, `${label} ${tool.key} visible report text excludes page-only readiness ${needle}`);
+  });
+  ['製表：', '模式：'].forEach(needle => {
+    assert.equal(visibleText.includes(needle), false, `${label} ${tool.key} visible report excludes workflow metadata ${needle}`);
   });
 }
 
@@ -2051,6 +2059,7 @@ async function main() {
                 artifactName: `${tool.key}-detailed-report`,
                 label: `${tool.key} detailed report`,
                 renderer: 'local-quick-detailed',
+                contentBoundaryProfile: 'traceable-calculation-book',
                 titleNeedle: tool.reportTitleNeedle,
                 projectNeedle: '計畫：',
                 requiredNeedles: [
@@ -2076,6 +2085,7 @@ async function main() {
                 artifactName: `${tool.key}-internal-review-report`,
                 label: `${tool.key} placeholder internal-review report`,
                 renderer: 'local-quick-internal-review',
+                contentBoundaryProfile: 'traceable-calculation-book',
                 titleNeedle: tool.reportTitleNeedle,
                 requiredNeedles: [tool.reportTitleNeedle, '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],
                 forbiddenNeedles: ['DRAFT'],
@@ -2094,6 +2104,7 @@ async function main() {
                 artifactName: `${tool.key}-blocked-internal-review-report`,
                 label: `${tool.key} failed-check internal-review report`,
                 renderer: 'local-quick-blocked',
+                contentBoundaryProfile: 'traceable-calculation-book',
                 titleNeedle: tool.reportTitleNeedle,
                 projectNeedle: '計畫：',
                 requiredNeedles: [tool.reportTitleNeedle, '計畫：', '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],
@@ -2114,6 +2125,7 @@ async function main() {
                   artifactName: 'shared-summary-layout',
                   label: 'shared local quick summary layout',
                   renderer: 'local-quick-summary',
+                  contentBoundaryProfile: 'traceable-calculation-summary',
                   titleNeedle: tool.reportTitleNeedle,
                   projectNeedle: '計畫：',
                   requiredNeedles: [tool.reportTitleNeedle, '計畫：', '文件狀態：內部審閱', '計算指紋', ...(tool.reportNeedles || [])],

@@ -1094,6 +1094,7 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
       artifactName: options.renderEvidenceKey,
       label: options.label,
       renderer: 'steel-formal-report',
+      contentBoundaryProfile: 'traceable-calculation-book',
       titleNeedle: options.titleNeedle,
       requiredNeedles: [options.titleNeedle, '計畫名稱', '計算過程明細', '檢核結論', '文件狀態：內部審閱', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
@@ -1219,6 +1220,7 @@ async function assertLegacyReportPopup(cdp, sessionId, options) {
       artifactName: options.renderEvidenceKey,
       label: options.label,
       renderer: 'steel-main-report',
+      contentBoundaryProfile: 'traceable-calculation-book',
       titleNeedle: options.titleNeedle,
       requiredNeedles: [options.titleNeedle, '計畫名稱', '檢核結論', ...FORMAL_REPORT_TRACE_LABELS],
       forbiddenNeedles,
@@ -1392,6 +1394,7 @@ async function verifySteelDirectPrintBlock(cdp, page) {
     fs.writeFileSync(pdfPath, Buffer.from(pdfResult.data || '', 'base64'));
     const pdf = validatePdfFile(pdfPath, {
       label: `${page.key} work-page direct-print block`,
+      contentBoundaryProfile: 'direct-print-boundary',
       titleNeedle: STEEL_DIRECT_PRINT_TITLE,
       requiredNeedles: [STEEL_DIRECT_PRINT_TITLE, '此頁是操作介面，不是計算書', '產生計算書', '本頁不得作為'],
       forbiddenNeedles: [page.pageTitle, '計畫名稱', 'DRAFT', '非正式附件'],

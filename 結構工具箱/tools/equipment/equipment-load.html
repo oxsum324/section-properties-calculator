@@ -894,7 +894,8 @@
 <div class="rpt-step"><h3>4. 等效面載重與水平力</h3>
 <p><code>qequiv = Wdesign/(Bplan·Lplan) = ${fmt(r.qEquivalent)} tf/m²；H = kh·Wdesign = ${fmt(r.horizontalTotal)} tf（每點 ${fmt(r.horizontalPerSupport)} tf）</code></p></div>
 ${extra}
-<div class="note">本頁為設備支承局部荷重與承壓 / 穿孔剪力 / 鋼板分散之檢核；錨栓、樓板與梁配筋、振動與疲勞不在本頁範圍，錨栓請用錨栓檢討工具，構件配筋回正式構件工具。</div>`;
+<div class="note">本頁為設備支承局部荷重與承壓 / 穿孔剪力 / 鋼板分散之檢核；錨栓、樓板與梁配筋、振動與疲勞不在本頁範圍，應另行正式檢核。</div>
+<h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>`;
   }
 
   function summaryBody(r, svgHtml) {
@@ -921,10 +922,10 @@ ${extra}
 <h2>設計條件</h2><table>${reportRows(condRows)}</table>
 <h2>計算示意圖</h2><div class="rpt-diagram">${svgHtml}</div>
 <h2>控制結果</h2>
-<div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>
 <table>${reportRows(ctrlRows)}</table>
 <table><tr><th>檢核項目</th><th>結果</th></tr>${checkRows}</table>
-<div class="note">本頁為設備支承局部荷重與承壓 / 穿孔剪力 / 鋼板分散之檢核；錨栓、樓板與梁配筋、振動與疲勞不在本頁範圍，錨栓請用錨栓檢討工具，構件配筋回正式構件工具。</div>`;
+<div class="note">本頁為設備支承局部荷重與承壓 / 穿孔剪力 / 鋼板分散之檢核；錨栓、樓板與梁配筋、振動與疲勞不在本頁範圍，應另行正式檢核。</div>
+<h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '設備局部荷重初步通過' : '設備局部荷重需調整或另行詳算'}</div>`;
   }
 
   function openReport() {
@@ -932,7 +933,6 @@ ${extra}
     if (!r) return;
     const proj = gatherProjectInfo();
     const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
-    const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
     const svgHtml = svgForReport(r);
     const body = mode === 'summary' ? summaryBody(r, svgHtml) : detailedBody(r, svgHtml);
     const reportTrace = ReportUI.buildReportTrace({
@@ -968,7 +968,7 @@ code{font-family:Consolas,monospace;background:#f1f5f9;padding:1px 5px;border-ra
 <main class="paper">
 <h1>設備局部荷重計算書</h1>
 ${documentStateReport.html}
-<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>整理人：${escapeHtml(proj.designer)}</span>` : ''}<span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：設備局部荷重 V0.2</span></div>
+<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>整理人：${escapeHtml(proj.designer)}</span>` : ''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(reportTrace.sourceTrace.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "scope": "all-calculation-book-and-formal-attachment-outputs",
   "description": "正式計算書只承載可直接納入附件的工程計算內容；操作提示、閱讀狀態、介面模式與治理矩陣只留在 HTML 工作頁。",
   "forbiddenCategories": {
@@ -38,6 +38,9 @@
       "條文對照 ＆ 方法分級",
       "規範覆蓋矩陣",
       "若需載重包絡線，請先使用載重組合產生器",
+      "應回 RC 基礎完整工具",
+      "錨栓請用錨栓檢討工具",
+      "構件配筋回正式構件工具",
       "治理一致性總覽",
       "protocol 1.0.0 compliant"
     ]
@@ -51,6 +54,105 @@
     "計算結論",
     "產出工具、版本、輸出時間與計算指紋"
   ],
+  "requiredContentGroups": {
+    "adoptedInputs": {
+      "description": "可辨識本次採用的工程輸入、材料、幾何、荷載或規範條件。",
+      "anyOf": [
+        "採用",
+        "輸入",
+        "材料",
+        "幾何",
+        "設計條件",
+        "荷載資料",
+        "基本資料",
+        "基本參數",
+        "基本風速",
+        "工址與設計譜參考",
+        "規範查表路線",
+        "規範適用檢查",
+        "設備設計重量",
+        "擋土牆型式"
+      ]
+    },
+    "calculationProcess": {
+      "description": "可辨識公式、代入、逐步計算、檢核表或結構分析過程。",
+      "anyOf": [
+        "計算內容",
+        "計算過程",
+        "計算明細",
+        "逐步計算",
+        "載重計算",
+        "代入值",
+        "檢核公式",
+        "檢核表",
+        "強度檢核總表",
+        "結構計算結果",
+        "總橫力比對表",
+        "分段剪力表",
+        "組合結果",
+        "FS_slide",
+        "φMn",
+        "φVn",
+        "q(z)"
+      ]
+    },
+    "engineeringResult": {
+      "description": "可辨識本次計算的數值成果、控制項目、工程判定或結論。",
+      "anyOf": [
+        "檢核結論",
+        "計算結果",
+        "強度結果",
+        "檢核結果",
+        "整體判定",
+        "綜合結論",
+        "控制結果",
+        "設計採用表",
+        "控制區域明細",
+        "設計判讀與採用",
+        "合計結果",
+        "底部剪力",
+        "需求比",
+        "利用率",
+        "DCR",
+        "通過",
+        "不通過",
+        "✓ OK"
+      ]
+    },
+    "traceability": {
+      "description": "原生計算書可追溯到產出工具、版本、輸出時間與計算指紋。",
+      "allOf": [
+        "產出工具",
+        "工具版本",
+        "輸出時間",
+        "計算指紋"
+      ]
+    }
+  },
+  "validationProfiles": {
+    "calculation-book": [
+      "adoptedInputs",
+      "calculationProcess",
+      "engineeringResult"
+    ],
+    "traceable-calculation-book": [
+      "adoptedInputs",
+      "calculationProcess",
+      "engineeringResult",
+      "traceability"
+    ],
+    "traceable-calculation-summary": [
+      "adoptedInputs",
+      "engineeringResult",
+      "traceability"
+    ],
+    "compiled-engineering-report": [
+      "adoptedInputs",
+      "calculationProcess",
+      "engineeringResult"
+    ],
+    "direct-print-boundary": []
+  },
   "allowedDocumentStates": [
     "文件狀態：內部審閱",
     "文件狀態：正式附件"

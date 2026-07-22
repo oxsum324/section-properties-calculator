@@ -293,7 +293,7 @@ assert(
   'TOOL_REPORT_GUIDE links page-only readiness glossary, ADR, and delivery boundaries',
   '頁面專用閱讀狀態 / Word / DOCX / workbook',
 );
-assert(calculationBookBoundary.version === '1.0.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
+assert(calculationBookBoundary.version === '1.1.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
 assert(calculationBookBoundary.scope === 'all-calculation-book-and-formal-attachment-outputs', 'calculation-book boundary covers every attachment output', calculationBookBoundary.scope);
 ['pageReadingStatus', 'interfaceAndWorkflow', 'governanceNarrative'].forEach(category => {
   assertStringArray(boundaryCategories[category], `calculation-book boundary ${category}`);
@@ -304,6 +304,29 @@ assert(
   `needles=${calculationBookForbiddenNeedles.length}`,
 );
 assertStringArray(calculationBookBoundary.requiredCalculationContent, 'calculation-book boundary required calculation content');
+const calculationContentGroups = calculationBookBoundary.requiredContentGroups;
+const calculationContentProfiles = calculationBookBoundary.validationProfiles;
+assert(calculationContentGroups && typeof calculationContentGroups === 'object', 'calculation-book boundary defines machine-verifiable positive content groups', 'requiredContentGroups');
+['adoptedInputs', 'calculationProcess', 'engineeringResult', 'traceability'].forEach(groupKey => {
+  const group = calculationContentGroups[groupKey];
+  assert(group && typeof group.description === 'string' && group.description.trim(), `calculation-book content group ${groupKey} has a description`, groupKey);
+  const needles = [...(group.anyOf || []), ...(group.allOf || [])];
+  assertStringArray(needles, `calculation-book content group ${groupKey} matchers`);
+  assert(needles.length === new Set(needles).size, `calculation-book content group ${groupKey} matchers are unique`, groupKey);
+});
+assert(calculationContentProfiles && typeof calculationContentProfiles === 'object', 'calculation-book boundary defines validation profiles', 'validationProfiles');
+['calculation-book', 'traceable-calculation-book', 'traceable-calculation-summary', 'compiled-engineering-report', 'direct-print-boundary'].forEach(profileKey => {
+  const groups = calculationContentProfiles[profileKey];
+  assert(Array.isArray(groups), `calculation-book validation profile ${profileKey} is an array`, profileKey);
+  assert(groups.length === new Set(groups).size, `calculation-book validation profile ${profileKey} has unique groups`, profileKey);
+  groups.forEach(groupKey => assert(calculationContentGroups[groupKey], `calculation-book validation profile ${profileKey} references a known group`, groupKey));
+});
+assert(
+  calculationContentProfiles['traceable-calculation-book'].includes('traceability') &&
+    calculationContentProfiles['direct-print-boundary'].length === 0,
+  'calculation-book profiles require traceability where supported and exempt direct-print notices',
+  'traceable-calculation-book / direct-print-boundary',
+);
 assert(
   Array.isArray(calculationBookBoundary.allowedDocumentStates) &&
     calculationBookBoundary.allowedDocumentStates.includes('文件狀態：內部審閱') &&

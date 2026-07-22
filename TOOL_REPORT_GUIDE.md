@@ -39,11 +39,11 @@
 - `輸入模式`、`計算書模式`、`換算對照`、`流程顯示`、`報表模式`、`輸出設定`、`計算書輸出項目`、`列印勾選`、`未命名區塊`。
 - `正式檢核：選擇`、`報表推估：選擇`、`符號說明`、`附註 / 說明`等介面選項或教學附錄。
 - `計算方法與適用邊界`、`計算層級 / 複核邊界`、`條文對照 ＆ 方法分級`、`規範覆蓋矩陣`等治理矩陣；必要的條文、假設與複核結論必須改放在對應計算列。
-- `若需載重包絡線，請先使用載重組合產生器`、`治理一致性總覽`、`protocol 1.0.0 compliant`等操作指令或內部治理文字。
+- `若需載重包絡線，請先使用載重組合產生器`、`應回 RC 基礎完整工具`、`錨栓請用錨栓檢討工具`、`構件配筋回正式構件工具`、`治理一致性總覽`、`protocol 1.0.0 compliant` 等操作指令或內部治理文字。
 - 頁面導覽、閱讀優先順序、附件整理狀態、介面重點卡與摘要事實卡。
 - 符號詞典教學、專有名詞教學、長篇條文解釋及如何操作工具的說明。
 
-跨工具共同禁入清單以 `結構工具箱/tools/calculation-book-content-boundary.json` 為單一規則來源，由瀏覽器報表、PDF 成品驗證、DOCX / XLSX / HTML 測試與附件組包共同引用。條文與工程限制不是全面刪除；若它們是簽認計算所需，必須改寫成對應輸入、公式、結果或結論的一部分。決策背景見 `docs/adr/0003-calculation-book-content-boundary.md`。
+跨工具共同內容契約以 `結構工具箱/tools/calculation-book-content-boundary.json` 為單一規則來源：除了統一禁入頁面閱讀狀態、介面流程與治理敘述，也以可執行的正向內容群組要求成品至少能辨識「採用輸入」、「計算／檢核過程」與「工程結果」。原生工具計算書另須具備產出工具、工具版本、輸出時間與計算指紋；編製型工程報告可由同一交付包的 audit / provenance 檔承接工具內部追溯。工作頁直接列印的阻擋通知不是計算書，使用專用剖面豁免正向內容群組。瀏覽器報表、PDF 成品驗證、DOCX / XLSX / HTML 測試與附件組包共同引用本契約。條文與工程限制不是全面刪除；若它們是簽認計算所需，必須改寫成對應輸入、公式、結果或結論的一部分。決策背景見 `docs/adr/0003-calculation-book-content-boundary.md`。
 
 ### 工程狀態、內部審閱與正式附件
 
@@ -269,7 +269,7 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 
 `結構工具箱/tools/delivery-artifacts.contract.test.js` 是交付物一致性契約；它鎖住石材 audit JSON / Word / PDF、錨栓 HTML / XLSX / DOCX 報告、覆工板 JSON 匯出 / Word 計算書與開挖擋土支撐 PDF / DOCX / latest download API 的 traceability、README、smoke fixture、報表產生器、前端產出狀態與下載邊界。新增或修改正式交付檔、報表 schema、下載端點或本機 app_data 邊界時，需同步更新 catalog 與文件，並讓平台 preflight 的 `delivery-artifacts-contract` 留下獨立通過紀錄；成熟度矩陣與巡檢儀表板會在 Global Governance Gates 顯示這個 gate。
 
-`結構工具箱/tools/rendered-delivery-evidence.js` 是正式放行的實際渲染門檻，`rendered-delivery-evidence.inventory.json` 對齊首頁 31 個 formal 入口，`rendered-delivery-evidence.contract.test.js` 負責彙整當輪證據。風力 / 地震正式工具、局部快算與鋼構正式報表會在 release 慢測中真正列印成 A4 PDF，逐件檢查頁數、可讀文字、非空白頁、頁邊截切、表格標題、標題到案件資料的閱讀順序、頁尾不得只剩孤立章節標題、續頁第一個可讀內容必須是章節 / 步驟 / 重複表頭，以及本章 page-only 字串完全排除；若從孤立公式、單一資料列或無標籤片段起頁，必須記入 `uncontextualPageStartCount` 並判定失敗。共用摘要與詳算版型各保留至少一件代表證據。RC 報告沿用各工具的 PNG / PDF 視覺 smoke，並呼叫相同的 PDF 分頁成品檢查；錨栓 release 會保存實際 HTML、DOCX、XLSX，重新解析 HTML、`word/document.xml` 與 XLSX workbook / worksheet XML，核對案名、章節、工作表與 page-only 排除清單。覆工板 release 會在 `decking-formal` 保存當輪 DOCX，重新解析 `word/document.xml`，核對案名 / 編號 / 日期、主要章節、段落數、表格數、檔案尺寸及 page-only 排除清單。動力分析摘要雖屬 report 狀態，release 仍會在 `formal-tools` 保存當輪 PDF 與 evidence JSON，總閘門以 `seismic-report` 補充家族重新解析頁數、文字、表格、續頁脈絡與 page-only 排除；開挖本機服務則在 `excavation-formal` 保存當輪 PDF、DOCX 與 latest download 副本，重新解析 PDF / Office XML 並核對副本雜湊。兩者合計以補充報告 / 服務成品 `2/2` 呈現，不灌入首頁正式工具的 `31/31`。DOCX / workbook 必須抽取段落、表格或儲存格文字；只通過 HTML 字串、固定共用輸出路徑、原始碼契約或測試日誌，不再足以作為 release 證據。
+`結構工具箱/tools/rendered-delivery-evidence.js` 是正式放行的實際渲染門檻，`rendered-delivery-evidence.inventory.json` 對齊首頁 31 個 formal 入口，`rendered-delivery-evidence.contract.test.js` 負責彙整當輪證據。風力 / 地震正式工具、局部快算與鋼構正式報表會在 release 慢測中真正列印成 A4 PDF，逐件檢查頁數、可讀文字、非空白頁、頁邊截切、表格標題、標題到案件資料的閱讀順序、頁尾不得只剩孤立章節標題、續頁第一個可讀內容必須是章節 / 步驟 / 重複表頭，以及本章 page-only 字串完全排除；同時依輸出類型驗證採用輸入、計算／檢核過程、工程結果與必要追溯資訊，任一正向內容群組缺漏即阻擋正式放行。若從孤立公式、單一資料列或無標籤片段起頁，必須記入 `uncontextualPageStartCount` 並判定失敗。共用摘要與詳算版型各保留至少一件代表證據。RC 報告沿用各工具的 PNG / PDF 視覺 smoke，並呼叫相同的 PDF 分頁與正向內容成品檢查；錨栓 release 會保存實際 HTML、DOCX、XLSX，重新解析 HTML、`word/document.xml` 與 XLSX workbook / worksheet XML，核對案名、章節、工作表與 page-only 排除清單。覆工板 release 會在 `decking-formal` 保存當輪 DOCX，重新解析 `word/document.xml`，核對案名 / 編號 / 日期、主要章節、段落數、表格數、檔案尺寸及 page-only 排除清單。動力分析摘要雖屬 report 狀態，release 仍會在 `formal-tools` 保存當輪 PDF 與 evidence JSON，總閘門以 `seismic-report` 補充家族重新解析頁數、文字、表格、續頁脈絡與正向內容；開挖本機服務則在 `excavation-formal` 保存當輪 PDF、DOCX 與 latest download 副本，重新解析 PDF / Office XML 並核對副本雜湊。兩者合計以補充報告 / 服務成品 `2/2` 呈現，不灌入首頁正式工具的 `31/31`。DOCX / workbook 必須抽取段落、表格或儲存格文字；只通過 HTML 字串、固定共用輸出路徑、原始碼契約或測試日誌，不再足以作為 release 證據。
 
 ### 採用依據文字
 

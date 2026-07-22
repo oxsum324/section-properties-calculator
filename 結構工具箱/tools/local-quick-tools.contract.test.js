@@ -1317,6 +1317,11 @@ for (const tool of tools) {
     [
       'Exporter.isProjectMetaMissing',
       'Exporter.renderStatusGridPanel',
+      '產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}',
+      '工具版本：${escapeHtml(reportTrace.sourceTrace.version)}',
+      '輸出時間：${escapeHtml(reportTrace.generatedAt)}',
+      '計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}',
+      '<h2>檢核結論</h2>',
     ].forEach(needle => assertIncludes(html, needle, `${tool.key} readiness helper usage`));
     assertFunctionTemplateExcludes(
       html,
@@ -1324,6 +1329,13 @@ for (const tool of tools) {
       'const reportHtml = `',
       pageOnlyReportStatusNeedles,
       `${tool.key} report excludes page-only readiness wording`
+    );
+    assertFunctionTemplateExcludes(
+      html,
+      'openReport',
+      'const reportHtml = `',
+      ['<span>製表：', '<span>模式：', '<span>版本：'],
+      `${tool.key} report metadata uses canonical trace labels instead of workflow labels`
     );
   }
   if (tool.key === 'equipment-load') assertIncludes(html, 'id="equipmentReportReadiness"', `${tool.key} page-only readiness target`);

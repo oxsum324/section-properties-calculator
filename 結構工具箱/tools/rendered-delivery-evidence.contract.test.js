@@ -5,7 +5,11 @@ const path = require('path');
 const vm = require('vm');
 const { inflateRawSync } = require('zlib');
 const {
+  CALCULATION_BOOK_CONTENT_BOUNDARY,
+  CONTENT_GROUPS,
+  CONTENT_PROFILES,
   DEFAULT_FORBIDDEN,
+  evaluateCalculationContent,
   findPdfFooterOverlapLines,
   summarizePdfLayoutPages,
   findPdfOrphanPageEndHeadings,
@@ -24,6 +28,45 @@ const homeSource = fs.readFileSync(homePath, 'utf8');
 
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
+}
+assert.equal(CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.1.0', 'rendered delivery evidence consumes the current calculation-book boundary contract');
+assert.deepEqual(
+  CONTENT_PROFILES['traceable-calculation-book'],
+  ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'traceability'],
+  'traceable calculation-book profile requires all four positive content groups'
+);
+assert.deepEqual(
+  CONTENT_PROFILES['traceable-calculation-summary'],
+  ['adoptedInputs', 'engineeringResult', 'traceability'],
+  'traceable summary profile keeps inputs, results, and provenance without requiring repeated detailed equations'
+);
+assert.ok(CONTENT_GROUPS.engineeringResult.anyOf.includes('檢核結論'), 'engineering result group recognizes an explicit check conclusion');
+assert.deepEqual(
+  evaluateCalculationContent(
+    '採用材料與荷載資料。計算內容含公式與代入值。檢核結論：通過。產出工具 A，工具版本 v1，輸出時間 2026/07/23，計算指紋 CF-123。',
+    { contentBoundaryProfile: 'traceable-calculation-book' }
+  ).missingGroups,
+  [],
+  'positive content gate accepts a complete traceable calculation book'
+);
+assert.deepEqual(
+  evaluateCalculationContent(
+    '採用材料與荷載資料。計算內容含公式與代入值。產出工具 A，工具版本 v1，輸出時間 2026/07/23，計算指紋 CF-123。',
+    { contentBoundaryProfile: 'traceable-calculation-book' }
+  ).missingGroups,
+  ['engineeringResult'],
+  'positive content gate rejects a calculation book without an engineering result'
+);
+assert.deepEqual(
+  evaluateCalculationContent('此頁是操作介面，不是計算書。', { contentBoundaryProfile: 'direct-print-boundary' }).missingGroups,
+  [],
+  'direct-print boundary notice is exempt from calculation-book content requirements'
+);
+
+function assertCalculationContentProfile(value, profile, label) {
+  const result = evaluateCalculationContent(value, { contentBoundaryProfile: profile });
+  assert.deepEqual(result.missingGroups, [], `${label} satisfies ${profile}: ${result.missingGroups.join(', ')}`);
+  return result;
 }
 
 assert.deepEqual(
@@ -446,6 +489,7 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
   const pdf = validatePdfFile(artifact.path, {
     label: tool.title,
     minTextLength: 500,
+    contentBoundaryProfile: 'traceable-calculation-book',
     forbiddenNeedles: [],
   });
   records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, pageCount: pdf.pageCount, textLength: pdf.textLength });
@@ -465,6 +509,7 @@ const stoneDocxPath = path.join(stoneEvidenceDir, stoneEvidence.document || '');
 const stoneAuditPath = path.join(stoneEvidenceDir, stoneEvidence.evidence || '');
 const stonePdf = validatePdfFile(stonePdfPath, {
   label: stoneTool.title,
+  contentBoundaryProfile: 'compiled-engineering-report',
   minTextLength: 8000,
   requiredNeedles: ['結 構 計 算 書', '石材外牆固定構件', 'Auto Word Formal Artifact', '送審速覽', '設計者註記'],
   titleNeedle: '結 構 計 算 書',
@@ -539,6 +584,9 @@ for (const needle of ['錨栓檢討報告', '柱腳基板示例', '載重組合�
 assert.ok(anchorHtml.includes('data-document-state="formal-attachment"'), 'anchor HTML artifact records formal attachment state');
 assert.ok(anchorHtmlText.includes('文件狀態：正式附件'), 'anchor HTML artifact identifies the approved attachment');
 assert.ok(anchorHtmlText.includes('王設計') && anchorHtmlText.includes('李複核'), 'anchor HTML artifact includes designer and checker');
+assertCalculationContentProfile(anchorHtmlText, 'traceable-calculation-book', 'anchor HTML artifact');
+assertCalculationContentProfile(anchorReviewHtmlText, 'traceable-calculation-book', 'anchor review HTML artifact');
+assertCalculationContentProfile(anchorBlockedHtmlText, 'traceable-calculation-book', 'anchor blocked HTML artifact');
 
 assert.equal(fs.readFileSync(anchorDocxPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has DOCX ZIP signature');
 const anchorDocxEntries = readZipEntries(anchorDocxPath, 'anchor DOCX');
@@ -558,6 +606,7 @@ for (const needle of ['鋼筋混凝土錨栓檢討報告', '柱腳基板示例',
 }
 assert.ok(anchorDocxText.includes('文件狀態：正式附件'), 'anchor DOCX artifact identifies the approved attachment');
 assert.ok(/設計人員\s*王設計/.test(anchorDocxText) && /複核人員\s*李複核/.test(anchorDocxText), 'anchor DOCX artifact includes designer and checker');
+assertCalculationContentProfile(anchorDocxText, 'traceable-calculation-book', 'anchor DOCX artifact');
 
 assert.equal(fs.readFileSync(anchorWorkbookPath).subarray(0, 2).toString('ascii'), 'PK', 'anchor report artifact has XLSX ZIP signature');
 const anchorWorkbookEntries = readZipEntries(anchorWorkbookPath, 'anchor XLSX');
@@ -578,6 +627,7 @@ assert.ok(anchorWorkbookText.includes('文件狀態'), 'anchor XLSX artifact inc
 assert.ok(anchorWorkbookText.includes('正式附件'), 'anchor XLSX artifact identifies the approved attachment');
 assert.ok(anchorWorkbookText.includes('設計人員') && anchorWorkbookText.includes('王設計'), 'anchor XLSX artifact includes designer');
 assert.ok(anchorWorkbookText.includes('複核人員') && anchorWorkbookText.includes('李複核'), 'anchor XLSX artifact includes checker');
+assertCalculationContentProfile(anchorWorkbookText, 'traceable-calculation-book', 'anchor XLSX artifact');
 assert.equal(anchorEvidence.documentState, 'ready', 'anchor summary records ready document state');
 
 const anchorForbiddenNeedles = [...DEFAULT_FORBIDDEN,
@@ -661,6 +711,7 @@ assert.equal(deckingDocxText.includes('（未填）'), false, 'decking DOCX does
 for (const needle of [...DEFAULT_FORBIDDEN, '輸出邊界']) {
   assert.equal(deckingDocxText.includes(needle), false, `decking DOCX excludes page-only status: ${needle}`);
 }
+assertCalculationContentProfile(deckingDocxText, 'compiled-engineering-report', 'decking DOCX artifact');
 assert.equal(deckingEvidence.documentBytes, fs.statSync(deckingDocxPath).size, 'decking summary matches preserved DOCX size');
 assert.equal(deckingEvidence.documentXmlBytes, Buffer.byteLength(deckingDocumentXml, 'utf8'), 'decking summary matches document.xml size');
 assert.equal(deckingEvidence.documentTextLength, deckingRawText.length, 'decking summary matches extracted DOCX text length');
@@ -695,6 +746,7 @@ const seismicDynamicEvidencePath = path.join(formalReportEvidenceDir, seismicDyn
 assert.ok(fs.existsSync(seismicDynamicEvidencePath), 'seismic dynamic current-run evidence JSON exists');
 const seismicDynamicPdf = validatePdfFile(seismicDynamicPdfPath, {
   label: '反應譜動力分析摘要報告',
+  contentBoundaryProfile: 'traceable-calculation-book',
   minTextLength: 2500,
   requiredNeedles: [
     '反應譜動力分析規範整理計算書',
@@ -774,6 +826,7 @@ for (const [filePath, label, signature] of [
 }
 const excavationPdf = validatePdfFile(excavationPdfPath, {
   label: '開挖擋土支撐正式報告',
+  contentBoundaryProfile: 'compiled-engineering-report',
   minTextLength: 25000,
   requiredNeedles: [
     '擋土支撐檢核計算書',

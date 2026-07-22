@@ -230,6 +230,7 @@ function assertReportPdfTextQuality(file, title, options = {}) {
     renderedStats = validatePdfFile(file, {
       label: title,
       minTextLength,
+      contentBoundaryProfile: options.contentBoundaryProfile || 'traceable-calculation-book',
       projectNeedle: '__skip_project_order__',
       forbiddenNeedles: options.exclude || options.forbiddenText || [],
     });

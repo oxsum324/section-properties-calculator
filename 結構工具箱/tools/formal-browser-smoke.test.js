@@ -552,6 +552,7 @@ async function assertDirectWorkPagePrintBlocked(client, sessionId, tool, label, 
       fs.writeFileSync(pdfPath, pdfBuffer);
       const pdf = validatePdfFile(pdfPath, {
         label: `${tool.key} direct-print block`,
+        contentBoundaryProfile: 'direct-print-boundary',
         minTextLength: 40,
         requiredNeedles: boundaryNeedles,
         forbiddenNeedles: [tool.titleNeedle, '計畫名稱', 'DRAFT'],
@@ -2624,6 +2625,7 @@ async function main() {
             artifactName: `${tool.key}-formal-report`,
             label: `${tool.key} formal report`,
             renderer: tool.reportMode ? 'formal-detailed' : 'formal-default',
+            contentBoundaryProfile: 'traceable-calculation-book',
             titleNeedle: tool.titleNeedle,
             requiredNeedles: [
               tool.titleNeedle,
@@ -2657,6 +2659,7 @@ async function main() {
               artifactName: 'shared-summary-layout',
               label: 'shared formal summary layout',
               renderer: 'formal-summary',
+              contentBoundaryProfile: 'traceable-calculation-summary',
               titleNeedle: tool.titleNeedle,
               requiredNeedles: [
                 tool.titleNeedle,

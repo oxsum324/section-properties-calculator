@@ -1229,7 +1229,6 @@
       ...r.wallTypeOutput.outputGroups.map(group => [group.label, group.detail])
     ];
     const mode = ($('reportMode') && $('reportMode').value === 'summary') ? 'summary' : 'detailed';
-    const modeLabel = mode === 'summary' ? '簡易結果' : '詳算式';
     const reportTrace = ReportUI.buildReportTrace({
       title: '擋土土壓局部快算計算書',
       outputSource: { tool: '擋土土壓局部快算', version: 'V0.6' },
@@ -1268,13 +1267,15 @@ ${r.seismic.valid ? `<p><code>ψ = atan(kh/(1−kv)) = atan(${fmt(r.kh, 3)}/${fm
 <p><code>FS_slide(地震) = ${fmt(r.seismic.seismicFsSlide, 2)} / 需求 ${fmt(r.seismic.fsSlideReqSeismic, 2)}；FS_over(地震) = ${fmt(r.seismic.seismicFsOver, 2)} / 需求 ${fmt(r.seismic.fsOverReqSeismic, 2)}</code></p>`
 : `<p><code style="color:#b91c1c;">${escapeHtml(r.seismic.reason)}</code></p>`}` : ''}
 <h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
-<div class="note">本頁以每公尺牆長做局部穩定檢核${r.useCoulomb ? '（採 Coulomb 含牆摩擦 δ 與背填 / 牆背傾角）' : '（Rankine 水平背填土壓）'}${r.seismic ? '，並加做地震時 Mononobe-Okabe 土壓' : '；地震土壓、背填坡度、牆背摩擦不在本頁範圍'}。分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。</div>`;
+<div class="note">本頁以每公尺牆長做局部穩定檢核${r.useCoulomb ? '（採 Coulomb 含牆摩擦 δ 與背填 / 牆背傾角）' : '（Rankine 水平背填土壓）'}${r.seismic ? '，並加做地震時 Mononobe-Okabe 土壓' : '；地震土壓、背填坡度、牆背摩擦不在本頁範圍'}。分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。</div>
+<h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>`;
     const summaryBodyHtml = `
 <h2>設計條件</h2><table>${reportRows(basisRows.concat([inputRows[1], inputRows[3], inputRows[4]]))}</table>
 <h2>計算示意圖</h2><div class="report-diagram">${diagramHtml}</div>
 <h2>牆型工作輸出</h2><table>${reportRows(wallTypeRows)}</table>
 <h2>控制結果</h2><table>${reportRows(resultRows)}</table>
-<div class="note">本頁以每公尺牆長做局部穩定檢核${r.useCoulomb ? '（採 Coulomb 含牆摩擦 δ 與背填 / 牆背傾角）' : '（Rankine 水平背填土壓）'}${r.seismic ? '，並加做地震時 Mononobe-Okabe 土壓' : '；地震土壓、背填坡度、牆背摩擦不在本頁範圍'}。分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。</div>`;
+<div class="note">本頁以每公尺牆長做局部穩定檢核${r.useCoulomb ? '（採 Coulomb 含牆摩擦 δ 與背填 / 牆背傾角）' : '（Rankine 水平背填土壓）'}${r.seismic ? '，並加做地震時 Mononobe-Okabe 土壓' : '；地震土壓、背填坡度、牆背摩擦不在本頁範圍'}。分層土、基礎埋置、滲流、被動土壓動員位移與牆身 / 趾踵版結構配筋仍應另行正式詳算。</div>
+<h2>檢核結論</h2><div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>`;
     const body = mode === 'summary' ? summaryBodyHtml : detailedBodyHtml;
     const reportHtml = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"><title>擋土土壓局部快算計算書</title>
@@ -1319,8 +1320,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;margin-top:8px;} th,t
 <main class="paper">
 <h1>擋土土壓局部穩定檢核計算書</h1>
 ${documentStateReport.html}
-<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>整理人：${escapeHtml(proj.designer)}</span>` : ''}<span>製表：${escapeHtml(nowText())}</span><span>模式：${modeLabel}</span><span>版本：擋土土壓局部快算 V0.6</span></div>
-<div class="conclusion">${r.overallOk ? '土壓局部穩定檢核通過' : '需修正尺寸 / 載重，或改採正式詳算'}</div>
+<div class="case-head">${proj.name ? `<span>計畫：${escapeHtml(proj.name)}</span>` : ''}${proj.no ? `<span>編號：${escapeHtml(proj.no)}</span>` : ''}${proj.designer ? `<span>整理人：${escapeHtml(proj.designer)}</span>` : ''}<span>產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}</span><span>工具版本：${escapeHtml(reportTrace.sourceTrace.version)}</span><span>輸出時間：${escapeHtml(reportTrace.generatedAt)}</span><span>計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}</span></div>
 ${body}
 </main></body></html>`;
     const win = window.open('', '_blank');
