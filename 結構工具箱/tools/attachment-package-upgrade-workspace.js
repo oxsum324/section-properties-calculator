@@ -29,6 +29,20 @@ function normalizedDate(value = new Date()) {
   return date;
 }
 
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function planFingerprint(plan) {
+  const payload = { ...plan };
+  delete payload.planFingerprint;
+  return `WSP-${crypto.createHash('sha256').update(canonicalJson(payload), 'utf8').digest('hex').slice(0, 24).toUpperCase()}`;
+}
+
 function validateWorkspacePaths(inputDir, outputDir) {
   const resolvedInput = path.resolve(inputDir || '');
   const resolvedOutput = path.resolve(outputDir || '');
@@ -45,7 +59,7 @@ function validateWorkspacePaths(inputDir, outputDir) {
 }
 
 function workspacePlan(assessment, generatedAt = new Date().toISOString()) {
-  return {
+  const plan = {
     schemaVersion: 1,
     kind: WORKSPACE_KIND,
     generatedAt,
@@ -78,6 +92,8 @@ function workspacePlan(assessment, generatedAt = new Date().toISOString()) {
       actions: item.actions.map(action => ({ ...action })),
     })),
   };
+  plan.planFingerprint = planFingerprint(plan);
+  return plan;
 }
 
 function formatPlanMarkdown(plan) {
@@ -88,6 +104,7 @@ function formatPlanMarkdown(plan) {
     '',
     `- 舊包版本：v${plan.sourcePackage.schemaVersion}`,
     `- 舊包指紋：${plan.sourcePackage.packageFingerprint}`,
+    `- 工作清單指紋：${plan.planFingerprint}`,
     `- 目標版本：v${plan.targetPackage.schemaVersion}`,
     `- 正式狀態：尚待重新輸出與核可（review）`,
     `- 組包來源：${plan.boundaries.packageSourceDirectory}`,
@@ -253,6 +270,8 @@ module.exports = {
   PLAN_MARKDOWN_FILE,
   defaultWorkspaceDir,
   normalizedDate,
+  canonicalJson,
+  planFingerprint,
   validateWorkspacePaths,
   workspacePlan,
   formatPlanMarkdown,

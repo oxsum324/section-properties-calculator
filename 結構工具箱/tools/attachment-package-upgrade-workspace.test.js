@@ -169,6 +169,8 @@ try {
   assert.equal(plan.kind, Workspace.WORKSPACE_KIND);
   assert.equal(plan.formalReadiness, 'review');
   assert.equal(plan.generatedAt, FIXED_NOW.toISOString());
+  assert.match(plan.planFingerprint, /^WSP-[0-9A-F]{24}$/);
+  assert.equal(Workspace.planFingerprint(plan), plan.planFingerprint);
   assert.deepEqual(plan.copiedLegacyFiles, []);
   assert.equal(plan.workItems.length, 1);
   assert.equal(plan.workItems[0].priorOutputTime, '2026/07/21 22:00:00');
@@ -176,6 +178,7 @@ try {
   assert.doesNotMatch(planText, /approvalTime/i);
   assert.doesNotMatch(markdown, /LEGACY-CONTENT-MUST-NOT-BE-COPIED/);
   assert.match(markdown, /僅供內部升級作業/);
+  assert.match(markdown, new RegExp(plan.planFingerprint));
   assert.match(markdown, /不得選取整個工作區/);
   assert.match(markdown, /未複製任何舊附件、來源資料、metadata 或核可時間/);
   assert.match(Workspace.formatSummary(result), /舊附件複製：0 份；舊 metadata／核可時間預填：0 項/);

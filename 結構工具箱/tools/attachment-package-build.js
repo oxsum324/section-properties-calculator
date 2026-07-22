@@ -253,11 +253,36 @@ function publishStagingDirectory(stagingDir, outputDir, options = {}) {
 }
 
 function buildPackage(inputDir, options = {}) {
-  const targetOutput = options.output || defaultOutputDir(inputDir, options.now || new Date());
+  const UpgradeWorkspaceCheck = require('./attachment-package-upgrade-workspace-check.js');
+  const upgradeWorkspaceRoot = UpgradeWorkspaceCheck.workspaceRootForPackageSource(inputDir);
+  const targetOutput = options.output || (upgradeWorkspaceRoot
+    ? path.join(
+      path.dirname(upgradeWorkspaceRoot),
+      `${path.basename(upgradeWorkspaceRoot)}-v3正式附件包-${timestampToken(options.now || new Date())}`,
+    )
+    : defaultOutputDir(inputDir, options.now || new Date()));
   const { resolvedInput, resolvedOutput } = validateBuildPaths(inputDir, targetOutput);
-  let report = Checker.checkPackage(resolvedInput, { projectNo: options.projectNo || '' });
+  if (upgradeWorkspaceRoot && isPathInside(upgradeWorkspaceRoot, resolvedOutput)) {
+    throw new Error('由升級工作區建立的新 v3 正式附件包必須輸出在工作區外，不得混入內部待辦或新組包來源。');
+  }
+  const upgradeWorkspaceCheck = upgradeWorkspaceRoot
+    ? UpgradeWorkspaceCheck.checkUpgradeWorkspace(upgradeWorkspaceRoot, { projectNo: options.projectNo || '' })
+    : null;
+  let report = upgradeWorkspaceCheck
+    ? upgradeWorkspaceCheck.packageCheck
+    : Checker.checkPackage(resolvedInput, { projectNo: options.projectNo || '' });
+  if (upgradeWorkspaceCheck && upgradeWorkspaceCheck.status !== 'ready') {
+    return {
+      kind: 'formal-attachment-package-build.v1',
+      status: upgradeWorkspaceCheck.status,
+      built: false,
+      outputDir: '',
+      upgradeWorkspaceCheck,
+      report,
+    };
+  }
   if (report.status !== 'ready') {
-    return { kind: 'formal-attachment-package-build.v1', status: report.status, built: false, outputDir: '', report };
+    return { kind: 'formal-attachment-package-build.v1', status: report.status, built: false, outputDir: '', upgradeWorkspaceCheck, report };
   }
 
   const formalRecords = report.attachments.filter(isFormalAttachment);
@@ -274,7 +299,7 @@ function buildPackage(inputDir, options = {}) {
     );
   }
   if (report.status !== 'ready') {
-    return { kind: 'formal-attachment-package-build.v1', status: report.status, built: false, outputDir: '', report };
+    return { kind: 'formal-attachment-package-build.v1', status: report.status, built: false, outputDir: '', upgradeWorkspaceCheck, report };
   }
 
   fs.mkdirSync(path.dirname(resolvedOutput), { recursive: true });
@@ -329,6 +354,7 @@ function buildPackage(inputDir, options = {}) {
       traceabilitySourceCount: traceabilitySources.length,
       packageFingerprint: manifest.packageFingerprint,
       selfVerification: portableVerificationResult(verification),
+      upgradeWorkspaceCheck,
       report,
     };
   } catch (error) {
@@ -365,6 +391,14 @@ function main(argv = process.argv.slice(2)) {
     return Checker.CLI_ERROR_EXIT_CODE;
   }
   const result = buildPackage(options.input, options);
+  if (result.upgradeWorkspaceCheck) {
+    const UpgradeWorkspaceCheck = require('./attachment-package-upgrade-workspace-check.js');
+    console.log(UpgradeWorkspaceCheck.formatSummary(result.upgradeWorkspaceCheck));
+    if (!result.built) {
+      console.log('未建立正式附件包。');
+      return Checker.exitCodeForStatus(result.status);
+    }
+  }
   console.log(Checker.formatSummary(result.report));
   if (!result.built) {
     console.log('未建立正式附件包。');
