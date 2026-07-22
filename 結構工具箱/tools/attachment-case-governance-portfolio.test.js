@@ -128,6 +128,16 @@ function issueCodes(result) {
 
 assert.equal(Portfolio.PORTFOLIO_KIND, 'formal-attachment-case-governance-portfolio.v1');
 assert.match(Portfolio.PORTFOLIO_BOUNDARY_INSTRUCTION, /不得放入計算書、主報告或正式附件包/);
+assert.deepEqual(Portfolio.TRIAGE_RULES.map(item => item.code), [
+  'source-stability-blocked',
+  'formal-package-blocked',
+  'trusted-chain-blocked',
+  'case-layout-blocked',
+  'other-blocked',
+  'baseline-advance-review',
+  'package-compatibility-review',
+  'other-review',
+]);
 assert.deepEqual(Portfolio.parseArgs(['--parent', 'C:/cases', '--json']), { json: true, parent: 'C:/cases' });
 assert.throws(() => Portfolio.parseArgs(['--parent']), /缺少路徑值/);
 assert.throws(() => Portfolio.parseArgs(['--unknown']), /未知參數/);
@@ -158,6 +168,14 @@ try {
   assert.equal(ready.discovery.ignoredDirectoryCount, 1);
   assert.deepEqual(ready.discovery.ignoredDirectories, ['說明資料']);
   assert.deepEqual(ready.summary, { readyCases: 2, reviewCases: 0, blockedCases: 0, errors: 0, warnings: 0 });
+  assert.deepEqual(ready.triage, {
+    highestPriority: 'none',
+    actionableCaseCount: 0,
+    portfolioIssueCount: 0,
+    groupCount: 0,
+    casePriorityCounts: { P0: 0, P1: 0, P2: 0 },
+    groups: [],
+  });
   assert.deepEqual(ready.cases.map(item => item.caseName), ['案件乙', '案件甲'].sort());
   assert.equal(ready.cases.every(item => item.status === 'ready'), true);
   assert.deepEqual(ready.nextActions.map(item => item.code), ['internal-archive-review']);
@@ -170,6 +188,7 @@ try {
   );
   assert.match(Portfolio.formatSummary(ready), /全部可進入內部歸檔複核/);
   assert.match(Portfolio.formatSummary(ready), /忽略非案件資料夾：1/);
+  assert.match(Portfolio.formatSummary(ready), /處置優先：無；待處理案件 0；問題群組 0/);
 
   const readyCli = cli(['--parent', parent, '--json']);
   assert.equal(readyCli.status, 0, readyCli.stderr || readyCli.stdout);
@@ -182,6 +201,11 @@ try {
   assert.deepEqual(review.summary, { readyCases: 1, reviewCases: 1, blockedCases: 0, errors: 0, warnings: 0 });
   assert.equal(review.cases.find(item => item.caseName === '案件乙').pendingAdditions, 1);
   assert.deepEqual(review.nextActions.map(item => item.code), ['review-pending-cases']);
+  assert.equal(review.triage.highestPriority, 'P1');
+  assert.equal(review.triage.actionableCaseCount, 1);
+  assert.deepEqual(review.triage.casePriorityCounts, { P0: 0, P1: 1, P2: 0 });
+  assert.deepEqual(review.triage.groups.map(item => item.code), ['baseline-advance-review']);
+  assert.deepEqual(review.triage.groups[0].cases, ['案件乙']);
   assert.equal(digest(parent), reviewBefore);
   assert.equal(cli(['--parent', parent, '--json']).status, 1);
 
@@ -192,6 +216,12 @@ try {
   assert.equal(blocked.status, 'blocked');
   assert.deepEqual(blocked.summary, { readyCases: 1, reviewCases: 1, blockedCases: 1, errors: 0, warnings: 0 });
   assert.deepEqual(blocked.nextActions.map(item => item.code), ['repair-blocked-cases', 'review-pending-cases']);
+  assert.equal(blocked.triage.highestPriority, 'P0');
+  assert.equal(blocked.triage.actionableCaseCount, 2);
+  assert.deepEqual(blocked.triage.casePriorityCounts, { P0: 1, P1: 1, P2: 0 });
+  assert.deepEqual(blocked.triage.groups.map(item => item.code), ['trusted-chain-blocked', 'baseline-advance-review']);
+  assert.deepEqual(blocked.triage.groups[0].cases, ['案件丙']);
+  assert.match(Portfolio.formatSummary(blocked), /\[P0\] 可信基準版本鏈需修復；1 案（案件丙）/);
   assert.equal(cli(['--parent', parent, '--json']).status, 2);
 
   const caseDPath = path.join(parent, '案件丁');
@@ -202,6 +232,8 @@ try {
   assert.equal(incomplete.discovery.caseCount, 4);
   assert.equal(incomplete.summary.blockedCases, 2);
   assert.equal(incomplete.cases.find(item => item.caseName === '案件丁').issueCodes.includes('missing-upgrade-history'), true);
+  assert.deepEqual(incomplete.triage.casePriorityCounts, { P0: 2, P1: 1, P2: 0 });
+  assert.deepEqual(incomplete.triage.groups.map(item => item.code), ['trusted-chain-blocked', 'case-layout-blocked', 'baseline-advance-review']);
 
   const emptyParent = path.join(tempRoot, '空上層');
   fs.mkdirSync(path.join(emptyParent, '一般文件'), { recursive: true });
@@ -211,6 +243,11 @@ try {
   assert.equal(empty.discovery.ignoredDirectoryCount, 1);
   assert.equal(issueCodes(empty).includes('portfolio-empty'), true);
   assert.deepEqual(empty.nextActions.map(item => item.code), ['fix-portfolio-layout']);
+  assert.equal(empty.triage.highestPriority, 'P0');
+  assert.equal(empty.triage.actionableCaseCount, 0);
+  assert.equal(empty.triage.portfolioIssueCount, 1);
+  assert.deepEqual(empty.triage.groups.map(item => item.code), ['case-layout-blocked']);
+  assert.deepEqual(empty.triage.groups[0].portfolioIssueCodes, ['portfolio-empty']);
 
   const raceParent = path.join(tempRoot, '競態上層');
   fs.mkdirSync(raceParent);
@@ -224,7 +261,32 @@ try {
   assert.equal(raced.status, 'blocked');
   assert.equal(issueCodes(raced).includes('portfolio-changed-during-read'), true);
   assert.deepEqual(raced.nextActions.map(item => item.code), ['rerun-after-portfolio-stable']);
+  assert.equal(raced.triage.highestPriority, 'P0');
+  assert.deepEqual(raced.triage.groups.map(item => item.code), ['source-stability-blocked']);
+  assert.deepEqual(raced.triage.groups[0].portfolioIssueCodes, ['portfolio-changed-during-read']);
   assert.match(Portfolio.formatSummary(raced), /固定案件上層資料夾與治理資料後重新執行/);
+
+  const overlapping = Portfolio.buildTriage([
+    {
+      caseName: '雙重阻擋案',
+      status: 'blocked',
+      nextActionCodes: ['repair-formal-package', 'repair-trusted-baseline-chain'],
+    },
+    {
+      caseName: '相容性複核案',
+      status: 'review',
+      nextActionCodes: ['review-or-upgrade-formal-package'],
+    },
+  ]);
+  assert.equal(overlapping.actionableCaseCount, 2);
+  assert.deepEqual(overlapping.casePriorityCounts, { P0: 1, P1: 0, P2: 1 });
+  assert.deepEqual(overlapping.groups.map(item => item.code), [
+    'formal-package-blocked',
+    'trusted-chain-blocked',
+    'package-compatibility-review',
+  ]);
+  assert.equal(overlapping.groups[0].cases.includes('雙重阻擋案'), true);
+  assert.equal(overlapping.groups[1].cases.includes('雙重阻擋案'), true);
 
   assert.equal(cli(['--help']).status, 0);
   assert.equal(cli([]).status, 3);

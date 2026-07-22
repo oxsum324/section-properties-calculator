@@ -11,6 +11,16 @@ const Root = require('./attachment-case-governance-root.js');
 
 const PORTFOLIO_KIND = 'formal-attachment-case-governance-portfolio.v1';
 const PORTFOLIO_BOUNDARY_INSTRUCTION = '本總覽只供案件內部批次確認附件治理狀態；不得放入計算書、主報告或正式附件包，亦不代表任何案件的正式附件核可或數位簽章。';
+const TRIAGE_RULES = Object.freeze([
+  { code: 'source-stability-blocked', label: '檢查期間資料異動，先停止歸檔並固定來源', priority: 'P0', priorityLevel: 0, sequence: 10, actionCodes: ['rerun-after-source-stable', 'rerun-after-case-root-stable'], portfolioIssueCodes: ['portfolio-changed-during-read'] },
+  { code: 'formal-package-blocked', label: '正式附件包需修復或重新建立', priority: 'P0', priorityLevel: 0, sequence: 20, actionCodes: ['repair-formal-package'], portfolioIssueCodes: [] },
+  { code: 'trusted-chain-blocked', label: '可信基準版本鏈需修復', priority: 'P0', priorityLevel: 0, sequence: 30, actionCodes: ['repair-trusted-baseline-chain'], portfolioIssueCodes: [] },
+  { code: 'case-layout-blocked', label: '案件或上層資料夾結構需整理', priority: 'P0', priorityLevel: 0, sequence: 40, actionCodes: ['fix-case-root-layout'], portfolioIssueCodes: ['unsafe-portfolio-entry', 'portfolio-entry-unreadable', 'portfolio-empty'] },
+  { code: 'other-blocked', label: '其他阻擋問題需先查明並修復', priority: 'P0', priorityLevel: 0, sequence: 90, actionCodes: [], portfolioIssueCodes: [] },
+  { code: 'baseline-advance-review', label: '合法新增收據待複核並前進可信基準', priority: 'P1', priorityLevel: 1, sequence: 10, actionCodes: ['advance-trusted-baseline'], portfolioIssueCodes: [] },
+  { code: 'package-compatibility-review', label: '附件包相容性提醒待確認或升級', priority: 'P2', priorityLevel: 2, sequence: 10, actionCodes: ['review-or-upgrade-formal-package'], portfolioIssueCodes: [] },
+  { code: 'other-review', label: '其他人工確認事項待處理', priority: 'P2', priorityLevel: 2, sequence: 90, actionCodes: [], portfolioIssueCodes: [] },
+]);
 
 function issue(level, code, message, entries = []) {
   return { level, code, message, entries: [...entries].sort() };
@@ -113,7 +123,72 @@ function snapshotsUnchanged(records) {
   }
 }
 
-function portfolioFingerprint(scan, cases, issues) {
+function buildTriage(cases, portfolioIssues = []) {
+  const groups = new Map();
+  const casePriorities = new Map();
+  const ruleByCode = new Map(TRIAGE_RULES.map(rule => [rule.code, rule]));
+  const ensureGroup = rule => {
+    if (!groups.has(rule.code)) {
+      groups.set(rule.code, {
+        rule,
+        cases: new Set(),
+        actionCodes: new Set(),
+        portfolioIssueCodes: new Set(),
+      });
+    }
+    return groups.get(rule.code);
+  };
+
+  cases.filter(item => item.status !== 'ready').forEach(item => {
+    const actions = new Set(item.nextActionCodes);
+    let matched = TRIAGE_RULES.filter(rule => rule.actionCodes.some(code => actions.has(code)));
+    if (!matched.length) matched = [ruleByCode.get(item.status === 'blocked' ? 'other-blocked' : 'other-review')];
+    matched.forEach(rule => {
+      const group = ensureGroup(rule);
+      group.cases.add(item.caseName);
+      rule.actionCodes.filter(code => actions.has(code)).forEach(code => group.actionCodes.add(code));
+    });
+    const best = matched.reduce((current, rule) => Math.min(current, rule.priorityLevel), 9);
+    casePriorities.set(item.caseName, best);
+  });
+
+  portfolioIssues.forEach(item => {
+    let matched = TRIAGE_RULES.filter(rule => rule.portfolioIssueCodes.includes(item.code));
+    if (!matched.length) matched = [ruleByCode.get(item.level === 'error' ? 'other-blocked' : 'other-review')];
+    matched.forEach(rule => ensureGroup(rule).portfolioIssueCodes.add(item.code));
+  });
+
+  const serializedGroups = [...groups.values()]
+    .sort((left, right) => left.rule.priorityLevel - right.rule.priorityLevel
+      || left.rule.sequence - right.rule.sequence
+      || left.rule.code.localeCompare(right.rule.code))
+    .map(group => {
+      const caseNames = [...group.cases].sort();
+      const portfolioCodes = [...group.portfolioIssueCodes].sort();
+      return {
+        priority: group.rule.priority,
+        code: group.rule.code,
+        label: group.rule.label,
+        scope: caseNames.length && portfolioCodes.length ? 'portfolio-and-case' : portfolioCodes.length ? 'portfolio' : 'case',
+        caseCount: caseNames.length,
+        cases: caseNames,
+        actionCodes: [...group.actionCodes].sort(),
+        portfolioIssueCodes: portfolioCodes,
+      };
+    });
+  const casePriorityCounts = { P0: 0, P1: 0, P2: 0 };
+  casePriorities.forEach(level => { casePriorityCounts[`P${Math.min(level, 2)}`] += 1; });
+  return {
+    highestPriority: serializedGroups.length ? serializedGroups[0].priority : 'none',
+    actionableCaseCount: casePriorities.size,
+    portfolioIssueCount: portfolioIssues.length,
+    groupCount: serializedGroups.length,
+    casePriorityCounts,
+    groups: serializedGroups,
+  };
+}
+
+function portfolioFingerprint(scan, cases, issues, triage = buildTriage(cases, issues)) {
   const payload = {
     discovery: scanSignature(scan),
     cases: cases.map(item => ({
@@ -125,6 +200,7 @@ function portfolioFingerprint(scan, cases, issues) {
       nextActionCodes: item.nextActionCodes,
     })),
     issues: issues.map(item => ({ level: item.level, code: item.code, entries: item.entries })),
+    triage,
   };
   const digest = crypto.createHash('sha256')
     .update(History.canonicalJson(payload), 'utf8')
@@ -198,6 +274,7 @@ function inspectPortfolio(parentDir, options = {}) {
   if (!nextActions.length) {
     nextActions.push({ code: 'fix-portfolio-layout', message: '整理案件上層資料夾後重新執行批次總覽。', cases: [] });
   }
+  const triage = buildTriage(cases, issues);
   const result = {
     schemaVersion: 1,
     kind: PORTFOLIO_KIND,
@@ -223,23 +300,31 @@ function inspectPortfolio(parentDir, options = {}) {
       errors: issues.filter(item => item.level === 'error').length,
       warnings: issues.filter(item => item.level === 'warn').length,
     },
+    triage,
     cases,
     issues,
     nextActions,
   };
-  result.portfolioFingerprint = portfolioFingerprint(scanBefore, cases, issues);
+  result.portfolioFingerprint = portfolioFingerprint(scanBefore, cases, issues, triage);
   return result;
 }
 
 function formatSummary(result) {
   const statusLabel = result.status === 'ready' ? '全部可進入內部歸檔複核' : result.status === 'review' ? '有案件需人工確認' : '有案件停止歸檔';
+  const priorityLabel = result.triage.highestPriority === 'none' ? '無' : result.triage.highestPriority;
   const lines = [
     '多案件附件治理唯讀總覽',
     `狀態：${statusLabel}`,
     `案件：${result.discovery.caseCount}；ready ${result.summary.readyCases}；review ${result.summary.reviewCases}；blocked ${result.summary.blockedCases}`,
     `忽略非案件資料夾：${result.discovery.ignoredDirectoryCount}`,
     `批次指紋：${result.portfolioFingerprint}`,
+    `處置優先：${priorityLabel}；待處理案件 ${result.triage.actionableCaseCount}；問題群組 ${result.triage.groupCount}`,
   ];
+  result.triage.groups.forEach(group => {
+    const caseText = group.caseCount ? `；${group.caseCount} 案（${group.cases.join('、')}）` : '';
+    const portfolioText = group.portfolioIssueCodes.length ? `；上層問題 ${group.portfolioIssueCodes.join('、')}` : '';
+    lines.push(`- [${group.priority}] ${group.label}${caseText}${portfolioText}`);
+  });
   result.cases.forEach(item => lines.push(`- ${item.caseName}：${item.status}；附件包 ${item.packageStatus}；版本鏈 ${item.chainStatus}；待前進 ${item.pendingAdditions}`));
   result.issues.forEach(item => lines.push(`- 阻擋 [${item.code}] ${item.message}`));
   result.nextActions.forEach(item => lines.push(`- 下一步：${item.message}`));
@@ -298,12 +383,14 @@ if (require.main === module) {
 module.exports = {
   PORTFOLIO_KIND,
   PORTFOLIO_BOUNDARY_INSTRUCTION,
+  TRIAGE_RULES,
   hasExactGovernanceName,
   caseSignal,
   scanPortfolio,
   scanSignature,
   governanceCandidateSnapshots,
   snapshotsUnchanged,
+  buildTriage,
   portfolioFingerprint,
   portableCase,
   inspectPortfolio,
