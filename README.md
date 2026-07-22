@@ -173,6 +173,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [attachment-case-governance-overview.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-overview.js:1)
 - 單一案件根目錄治理入口：
   [attachment-case-governance-root.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-root.js:1)
+- 多案件附件治理唯讀總覽：
+  [attachment-case-governance-portfolio.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -209,6 +211,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 案件歸檔前，可執行 `node 結構工具箱/tools/attachment-case-governance-overview.js --package <正式附件包> --history <外部歷程資料夾> --chain-root <可信基準根目錄> [--initial-baseline <根目錄外的初始可信基準 JSON>] [--json]`，或使用 `結構工具箱/tools/檢查案件附件治理總覽.bat`。總覽固定唯讀並直接沿用正式附件包驗證器與可信基準版本鏈驗證器：附件包 `ready` 且版本鏈 `valid` 時才回報「可進入內部歸檔複核」／退出碼 0；舊包相容性提醒或合法新增尚待前進為 `review=1`；附件包損壞、斷鏈、篡改、核准證據異常或總覽期間任一輸入改變為 `blocked=2`。輸入三區必須是完全分離的實體資料夾，檢查前後重驗整體快照；輸出只含資料夾名稱、狀態、數量與 `PKG-`／`HIX-`／`HCX-`／`GOV-` 指紋，不含完整路徑、計算內容、複核人或依據。`ready` 不是新增核可，只表示現有正式附件包與內部追溯證據一致；總覽不得附入計算書、主報告、正式附件包或 Pages。
 
 若正式附件包、外部歷程及可信基準鏈都放在同一案件根目錄的直接子資料夾，可只執行 `node 結構工具箱/tools/attachment-case-governance-root.js --root <案件根目錄> [--json]`，或把案件根目錄拖曳至 `結構工具箱/tools/檢查案件根目錄附件治理.bat`。入口以附件包清單、`formal-attachment-package-upgrade-history-record.v1` 收據、標準歷程／基準資料夾名稱、可信索引 JSON 與前進包固定兩檔結構辨識候選；三類各恰好一組才會呼叫同一治理總覽。缺少候選、多組候選、同一資料夾跨角色、連結項目或執行期間候選／選定內容改變均為 `blocked=2`，不依日期、名稱或排序自行猜選。非標準資料夾名稱仍可依封閉結構辨識；使用根目錄外初始基準等特殊配置時，改用前述三路徑進階入口。輸出只揭露直接子資料夾名稱、`CAS-` 案件指紋與既有治理摘要，維持唯讀、內部使用且不代表正式附件核可。
+
+多個案件集中在同一上層資料夾時，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio.js --parent <案件上層資料夾> [--json]`，或把上層資料夾拖曳至 `結構工具箱/tools/檢查多案件附件治理總覽.bat`。入口只掃描直接子資料夾，有附件治理結構者視為案件，其餘資料夾明列為忽略；各案沿用單一案件根目錄入口，不會自行提升狀態。只要一案 `blocked`，整批即為 `blocked=2`；無 blocked 但有 `review` 時為 `review=1`；全部 ready 才為 `ready=0`。檢查前後會重掃案件清單並重驗治理候選快照，輸出只含案件名稱、狀態、問題／下一步代碼與 `POR-`／既有治理指紋，不含完整路徑、計算內容、複核人或依據。總覽固定唯讀，只供內部跨案排序，不代表正式附件核可，也不得放入計算書、主報告、正式附件包或 Pages。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 
