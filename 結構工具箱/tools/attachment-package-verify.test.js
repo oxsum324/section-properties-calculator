@@ -109,6 +109,8 @@ try {
   const readyReport = Verifier.verifyPackage(readyPackage);
   assert.equal(readyReport.kind, Verifier.VERIFICATION_KIND);
   assert.equal(readyReport.status, 'ready');
+  assert.equal(readyReport.manifestSchemaVersion, 3);
+  assert.equal(readyReport.manifestKind, Builder.MANIFEST_KIND);
   assert.equal(readyReport.summary.expectedFiles, 2);
   assert.equal(readyReport.summary.verifiedFiles, 2);
   assert.equal(readyReport.summary.errors, 0);
@@ -144,6 +146,8 @@ try {
   writeReadme(legacyPackage, legacyManifest.packageFingerprint);
   const legacyReport = Verifier.verifyPackage(legacyPackage);
   assert.equal(legacyReport.status, 'review', 'existing v1 packages remain integrity-verifiable but cannot be auto-released');
+  assert.equal(legacyReport.manifestSchemaVersion, 1);
+  assert.equal(legacyReport.manifestKind, Builder.LEGACY_MANIFEST_KIND);
   assert.equal(legacyReport.summary.errors, 0);
   assert.equal(legacyReport.summary.warnings, 1);
   assert.equal(legacyReport.records.every(record => record.status === 'verified'), true);
@@ -166,6 +170,8 @@ try {
   writeReadme(previousV2Package, previousV2Manifest.packageFingerprint);
   const previousV2Report = Verifier.verifyPackage(previousV2Package);
   assert.equal(previousV2Report.status, 'review', 'existing v2 packages remain integrity-verifiable without approval-time fields but cannot be auto-released');
+  assert.equal(previousV2Report.manifestSchemaVersion, 2);
+  assert.equal(previousV2Report.manifestKind, Builder.PREVIOUS_MANIFEST_KIND);
   assert.equal(previousV2Report.summary.errors, 0);
   assert.equal(previousV2Report.summary.warnings, 1);
   assert.equal(previousV2Report.records.every(record => record.status === 'verified'), true);

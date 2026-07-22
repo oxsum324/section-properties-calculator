@@ -1230,6 +1230,11 @@ node 結構工具箱/tools/attachment-package-verify.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageUpgradeAssessCommand = @'
+node 結構工具箱/tools/attachment-package-upgrade-assess.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1508,6 +1513,10 @@ $checks = @(
   @{
     Path = '結構工具箱\run-audit-core.bat'
     Needles = @('audit-core.ps1', '-Quiet')
+  },
+  @{
+    Path = '結構工具箱\tools\評估舊版附件包升級.bat'
+    Needles = @('attachment-package-upgrade-assess.js', '--input', '%~1')
   }
 )
 
@@ -2026,6 +2035,13 @@ $checks = @(
     label = "Formal attachment package integrity verifier"
     workdir = $root
     command = $attachmentPackageVerifyCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-upgrade-assess"
+    label = "Legacy attachment package upgrade assessment"
+    workdir = $root
+    command = $attachmentPackageUpgradeAssessCommand
     slow = $false
   },
   [pscustomobject]@{

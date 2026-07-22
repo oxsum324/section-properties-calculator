@@ -490,6 +490,8 @@ function verifyPackage(inputDir) {
     status: 'blocked',
     packageDir,
     manifestPath: path.join(packageDir, Builder.INTERNAL_TRACE_DIR, Builder.PACKAGE_MANIFEST_FILE),
+    manifestSchemaVersion: null,
+    manifestKind: '',
     packageFingerprint: '',
     summary: { expectedFiles: 0, verifiedFiles: 0, errors: 0, warnings: 0 },
     issues: [],
@@ -532,6 +534,10 @@ function verifyPackage(inputDir) {
     }
   } catch (error) {
     addIssue(report, 'ambiguous-manifest-json', `附件包清單無法完成欄位唯一性掃描：${error.message || error}`, [manifestRelativePath()]);
+  }
+  if (manifest && typeof manifest === 'object' && !Array.isArray(manifest)) {
+    report.manifestSchemaVersion = Number.isSafeInteger(manifest.schemaVersion) ? manifest.schemaVersion : null;
+    report.manifestKind = typeof manifest.kind === 'string' ? manifest.kind : '';
   }
   validateManifestHeader(manifest, report);
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
