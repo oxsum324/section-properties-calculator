@@ -168,6 +168,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 
 要處理既有 v1／v2 包時，可將附件包拖曳到 `結構工具箱/tools/評估舊版附件包升級.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-assess.js --input <正式附件包資料夾> [--json]`。評估器先沿用同一完整性驗證器：異常包固定 blocked，不提供升級捷徑；完整的舊包則列為 review，依序要求保留舊包、由原始工具重新確認並輸出計算結果、重新勾選正式附件核可、另建新的 v3 包。它不修改附件包、不在原清單補欄位、不複製或推算舊核可時間，也不自行產生正式附件；v3 包若已驗證通過則明確回報不需升級。CLI 狀態碼維持 `ready=0`、`review=1`、`blocked=2`、參數或執行錯誤 `3`，`--json` 只把同一份內部評估輸出到標準輸出。
 
+升級評估另會依「產出工具＋版本＋共享計算指紋」為每份正式附件配對包內來源資料，列出附件路徑、舊輸出時間、指紋、來源檔案及四項待辦。找不到來源時會逐份標示需回外部可信原始檔或原工具重建，禁止從舊報告反推輸入；文字與 `--json` 使用同一份工作清單。v3 或 blocked 包不產生誤導性的重新輸出清單。
+
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 
 工具成熟度矩陣的下一步品質欄位同時包含 `reportTextSmoke`、`goldenCaseRegression`、`jsonRoundTrip` 與 `referenceTraceability`；其中 `reportTextSmoke` 只揭露報告可讀文字抽檢是否已被 smoke / contract 覆蓋，不把頁面專用閱讀狀態寫入計算書或 PDF。

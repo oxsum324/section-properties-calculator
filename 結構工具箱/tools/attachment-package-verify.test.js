@@ -116,6 +116,12 @@ try {
   assert.equal(readyReport.summary.errors, 0);
   assert.equal(readyReport.summary.warnings, 0);
   assert.equal(readyReport.records.every(record => record.status === 'verified'), true);
+  const readyFormalRecord = readyReport.records.find(record => record.role === 'formal');
+  assert.equal(readyFormalRecord.sourceTool, 'RC 梁');
+  assert.equal(readyFormalRecord.toolVersion, 'v3.1');
+  assert.equal(readyFormalRecord.outputTime, '2026/07/21 22:00:00');
+  assert.equal(readyFormalRecord.approvalTime, '2026/07/21 22:05:00');
+  assert.deepEqual(readyFormalRecord.fingerprints, [FINGERPRINT]);
   assert.match(Verifier.formatSummary(readyReport), /完整性驗證：通過/);
   assert.equal(
     Verifier.samePackageRoot(
@@ -151,6 +157,7 @@ try {
   assert.equal(legacyReport.summary.errors, 0);
   assert.equal(legacyReport.summary.warnings, 1);
   assert.equal(legacyReport.records.every(record => record.status === 'verified'), true);
+  assert.equal(legacyReport.records.find(record => record.role === 'formal').approvalTime, '2026/07/21 22:05:00');
   assert.equal(hasIssue(legacyReport, 'legacy-manifest-review'), true);
   assert.match(Verifier.formatSummary(legacyReport), /完整性驗證：需人工確認/);
   const legacyCli = spawnSync(process.execPath, [
@@ -175,6 +182,7 @@ try {
   assert.equal(previousV2Report.summary.errors, 0);
   assert.equal(previousV2Report.summary.warnings, 1);
   assert.equal(previousV2Report.records.every(record => record.status === 'verified'), true);
+  assert.equal(previousV2Report.records.find(record => record.role === 'formal').approvalTime, '');
   assert.equal(hasIssue(previousV2Report, 'legacy-manifest-review'), true);
 
   const previousV2FormalPath = path.join(previousV2Package, ...previousV2Manifest.formalAttachments[0].packagedFile.split('/'));

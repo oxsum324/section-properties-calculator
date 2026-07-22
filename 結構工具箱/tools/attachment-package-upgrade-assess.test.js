@@ -10,6 +10,7 @@ const Builder = require('./attachment-package-build.js');
 const Assessor = require('./attachment-package-upgrade-assess.js');
 
 const FINGERPRINT = 'CF-1234ABCD5678EF90';
+const SECOND_FINGERPRINT = 'CF-90EF7856CDAB3412';
 const FIXED_NOW = new Date('2026-07-21T14:10:00.000Z');
 
 function writeReadySource(inputDir) {
@@ -33,6 +34,24 @@ function writeReadySource(inputDir) {
     '<div>輸出時間：2026/07/21 22:00:00</div>',
     '<div>核可時間：2026/07/21 22:05:00</div>',
     `<div>計算指紋：${FINGERPRINT}</div>`,
+  ].join('\n'), 'utf8');
+
+  fs.writeFileSync(path.join(inputDir, 'source', 'column.json'), JSON.stringify({
+    schema: 'tool-project-storage.v1',
+    tool: { id: 'rc-column', name: 'RC 柱', version: 'V3.1' },
+    project: { no: 'PKG-UPGRADE-001' },
+    calculationFingerprint: SECOND_FINGERPRINT,
+    savedAt: '2026/07/21 22:01:00',
+  }), 'utf8');
+  fs.writeFileSync(path.join(inputDir, 'reports', 'column.html'), [
+    '<h1>RC 柱設計計算書</h1>',
+    '<div>文件狀態：正式附件</div>',
+    '<div>計畫編號：PKG-UPGRADE-001</div>',
+    '<div>產出工具：RC 柱</div>',
+    '<div>工具版本：v3.1</div>',
+    '<div>輸出時間：2026/07/21 22:01:00</div>',
+    '<div>核可時間：2026/07/21 22:06:00</div>',
+    `<div>計算指紋：${SECOND_FINGERPRINT}</div>`,
   ].join('\n'), 'utf8');
 }
 
@@ -62,6 +81,10 @@ function writeReadme(packageDir, packageFingerprint) {
   );
 }
 
+function writeManifest(packageDir, manifest) {
+  fs.writeFileSync(manifestPath(packageDir), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+}
+
 function convertToLegacy(packageDir, schemaVersion) {
   const filePath = manifestPath(packageDir);
   const manifest = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -72,7 +95,7 @@ function convertToLegacy(packageDir, schemaVersion) {
   manifest.packageFingerprint = schemaVersion === 1
     ? Builder.packageFingerprint(manifest.formalAttachments, manifest.traceabilitySources)
     : Builder.packageFingerprintV2(manifest);
-  fs.writeFileSync(filePath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  writeManifest(packageDir, manifest);
   writeReadme(packageDir, manifest.packageFingerprint);
   return manifest;
 }
@@ -108,6 +131,14 @@ assert.deepEqual(
 );
 assert.match(Assessor.usage(), /--json/);
 assert.equal(Assessor.legacyUpgradeRequirements().length, 4);
+assert.equal(Assessor.recordsShareIdentity(
+  { sourceTool: 'RC 梁', toolVersion: 'v3.1', fingerprints: [FINGERPRINT] },
+  { sourceTool: 'RC 梁', toolVersion: 'V3.1', fingerprints: [FINGERPRINT.toLowerCase()] },
+), true);
+assert.equal(Assessor.recordsShareIdentity(
+  { sourceTool: 'RC 梁', toolVersion: 'v3.1', fingerprints: [FINGERPRINT] },
+  { sourceTool: 'RC 柱', toolVersion: 'v3.1', fingerprints: [FINGERPRINT] },
+), false);
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-package-upgrade-assess-'));
 try {
@@ -121,6 +152,8 @@ try {
   assert.equal(currentReport.inPlaceUpgradeAllowed, false);
   assert.equal(currentReport.currentPackage.schemaVersion, 3);
   assert.deepEqual(requirementCodes(currentReport), ['no-upgrade-needed']);
+  assert.deepEqual(currentReport.workItemSummary, { total: 0, paired: 0, externalSourceRequired: 0 });
+  assert.deepEqual(currentReport.workItems, []);
   assert.deepEqual(directorySnapshot(currentPackage), currentSnapshot, 'v3 assessment must not modify the package');
   assert.match(Assessor.formatSummary(currentReport), /不需升級/);
 
@@ -141,6 +174,16 @@ try {
     assert.equal(report.currentPackage.kind, legacyManifest.kind);
     assert.equal(report.verification.summary.errors, 0);
     assert.equal(report.verification.summary.warnings, 1);
+    assert.deepEqual(report.workItemSummary, { total: 2, paired: 2, externalSourceRequired: 0 });
+    assert.equal(report.workItems.length, 2);
+    assert.equal(report.workItems.every(item => item.sourceStatus === 'paired' && item.sourceFiles.length === 1), true);
+    assert.equal(report.workItems.every(item => item.actions.map(action => action.code).join(',')
+      === 'confirm-source,reexport-formal-attachment,renew-formal-approval,stage-for-v3-package'), true);
+    const beamWorkItem = report.workItems.find(item => item.sourceTool === 'RC 梁');
+    assert.ok(beamWorkItem);
+    assert.match(beamWorkItem.formalAttachment, /beam\.html$/);
+    assert.match(beamWorkItem.sourceFiles[0], /beam\.json$/);
+    assert.deepEqual(beamWorkItem.fingerprints, [FINGERPRINT]);
     assert.deepEqual(requirementCodes(report), [
       'preserve-legacy-package',
       'confirm-and-reexport-current-results',
@@ -151,6 +194,9 @@ try {
     const summary = Assessor.formatSummary(report);
     assert.match(summary, /需重新核可後組包/);
     assert.match(summary, /不得覆寫舊包/);
+    assert.match(summary, /逐份工作清單：2 份；已配對來源 2 份；需外部來源 0 份/);
+    assert.match(summary, /\[附件 1\].*beam\.html/);
+    assert.match(summary, /對應來源：.*beam\.json/);
     assert.doesNotMatch(summary, /自動升級/);
 
     const cli = spawnSync(process.execPath, [
@@ -160,6 +206,7 @@ try {
     const jsonReport = JSON.parse(cli.stdout);
     assert.equal(jsonReport.status, 'review');
     assert.equal(jsonReport.inPlaceUpgradeAllowed, false);
+    assert.equal(jsonReport.workItems.length, 2);
 
     if (schemaVersion === 2) {
       const formalPath = path.join(legacyPackage, ...legacyManifest.formalAttachments[0].packagedFile.split('/'));
@@ -175,6 +222,31 @@ try {
       assert.equal(blockedCli.status, 2, blockedCli.stderr || blockedCli.stdout);
     }
   }
+
+  const missingSourcePackage = createPackage(tempRoot, 'legacy-v2-missing-source');
+  const missingSourceManifest = convertToLegacy(missingSourcePackage, 2);
+  const removedSource = missingSourceManifest.traceabilitySources.find(record => record.sourceTool === 'RC 柱');
+  assert.ok(removedSource);
+  missingSourceManifest.traceabilitySources = missingSourceManifest.traceabilitySources
+    .filter(record => record !== removedSource);
+  missingSourceManifest.checkSummary.attachments = missingSourceManifest.formalAttachments.length
+    + missingSourceManifest.traceabilitySources.length;
+  missingSourceManifest.checkSummary.fingerprintLinks = 1;
+  missingSourceManifest.packageFingerprint = Builder.packageFingerprintV2(missingSourceManifest);
+  fs.rmSync(path.join(missingSourcePackage, ...removedSource.packagedFile.split('/')));
+  writeManifest(missingSourcePackage, missingSourceManifest);
+  writeReadme(missingSourcePackage, missingSourceManifest.packageFingerprint);
+  const missingSourceSnapshot = directorySnapshot(missingSourcePackage);
+  const missingSourceReport = Assessor.assessUpgrade(missingSourcePackage);
+  assert.equal(missingSourceReport.status, 'review');
+  assert.deepEqual(missingSourceReport.workItemSummary, { total: 2, paired: 1, externalSourceRequired: 1 });
+  const externalSourceItem = missingSourceReport.workItems.find(item => item.sourceStatus === 'external-source-required');
+  assert.ok(externalSourceItem);
+  assert.equal(externalSourceItem.sourceFiles.length, 0);
+  assert.equal(externalSourceItem.actions[0].state, 'external-source-required');
+  assert.match(externalSourceItem.actions[0].message, /不得從舊報告反推輸入/);
+  assert.match(Assessor.formatSummary(missingSourceReport), /包內未配對，需回外部可信來源/);
+  assert.deepEqual(directorySnapshot(missingSourcePackage), missingSourceSnapshot, 'missing-source assessment must remain read-only');
 
   const helpCli = spawnSync(process.execPath, [
     path.join(__dirname, 'attachment-package-upgrade-assess.js'), '--help',

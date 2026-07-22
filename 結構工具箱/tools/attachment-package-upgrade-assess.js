@@ -47,6 +47,65 @@ function blockedRequirement() {
   }];
 }
 
+function recordFingerprints(record) {
+  return Checker.normalizedFingerprints(record).sort();
+}
+
+function recordsShareIdentity(formalRecord, sourceRecord) {
+  if (String(formalRecord.sourceTool || '').trim() !== String(sourceRecord.sourceTool || '').trim()) return false;
+  if (Checker.normalizeToolVersion(formalRecord.toolVersion) !== Checker.normalizeToolVersion(sourceRecord.toolVersion)) return false;
+  const sourceFingerprints = new Set(recordFingerprints(sourceRecord));
+  return recordFingerprints(formalRecord).some(fingerprint => sourceFingerprints.has(fingerprint));
+}
+
+function buildWorkItems(records) {
+  const formalRecords = records.filter(record => record.role === 'formal')
+    .sort((left, right) => String(left.packagedFile).localeCompare(String(right.packagedFile), 'zh-Hant'));
+  const sourceRecords = records.filter(record => record.role === 'traceability');
+  return formalRecords.map((formalRecord, index) => {
+    const sources = sourceRecords.filter(sourceRecord => recordsShareIdentity(formalRecord, sourceRecord))
+      .map(sourceRecord => sourceRecord.packagedFile)
+      .sort((left, right) => String(left).localeCompare(String(right), 'zh-Hant'));
+    const hasPackagedSource = sources.length > 0;
+    const sourceInstruction = hasPackagedSource
+      ? `由原始工具重新開啟或匯入：${sources.join('、')}。`
+      : '附件包內沒有同工具版本且共享計算指紋的來源資料；請回到外部可信的原始計算檔或原工具重建，不得從舊報告反推輸入。';
+    return {
+      sequence: index + 1,
+      formalAttachment: formalRecord.packagedFile,
+      sourceTool: formalRecord.sourceTool,
+      toolVersion: formalRecord.toolVersion,
+      priorOutputTime: formalRecord.outputTime,
+      priorApprovalTime: formalRecord.approvalTime || '',
+      fingerprints: recordFingerprints(formalRecord),
+      sourceStatus: hasPackagedSource ? 'paired' : 'external-source-required',
+      sourceFiles: sources,
+      actions: [
+        {
+          code: 'confirm-source',
+          state: hasPackagedSource ? 'required' : 'external-source-required',
+          message: sourceInstruction,
+        },
+        {
+          code: 'reexport-formal-attachment',
+          state: 'required',
+          message: '以目前工具與規範重新計算確認，另行輸出新的正式計算書，不覆寫舊附件。',
+        },
+        {
+          code: 'renew-formal-approval',
+          state: 'required',
+          message: '檢查新輸出內容後重新勾選正式附件核可，產生新的核可時間。',
+        },
+        {
+          code: 'stage-for-v3-package',
+          state: 'required',
+          message: '將新計算書與對應來源資料放入新的組包來源資料夾，等待建立 v3 包。',
+        },
+      ],
+    };
+  });
+}
+
 function assessUpgrade(inputDir) {
   const verification = Verifier.verifyPackage(inputDir);
   const schemaVersion = verification.manifestSchemaVersion;
@@ -59,6 +118,7 @@ function assessUpgrade(inputDir) {
   let status = 'blocked';
   let requiresUpgrade = false;
   let requirements = blockedRequirement();
+  let workItems = [];
   if (verification.status === 'ready' && isCurrent) {
     status = 'ready';
     requirements = currentPackageRequirement();
@@ -66,7 +126,9 @@ function assessUpgrade(inputDir) {
     status = 'review';
     requiresUpgrade = true;
     requirements = legacyUpgradeRequirements();
+    workItems = buildWorkItems(verification.records);
   }
+  const pairedWorkItems = workItems.filter(item => item.sourceStatus === 'paired').length;
 
   return {
     kind: ASSESSMENT_KIND,
@@ -86,6 +148,12 @@ function assessUpgrade(inputDir) {
     requiresUpgrade,
     automaticUpgradeAllowed: false,
     inPlaceUpgradeAllowed: false,
+    workItemSummary: {
+      total: workItems.length,
+      paired: pairedWorkItems,
+      externalSourceRequired: workItems.length - pairedWorkItems,
+    },
+    workItems,
     verification: {
       status: verification.status,
       summary: { ...verification.summary },
@@ -112,10 +180,22 @@ function formatSummary(report) {
   report.verification.issues
     .filter(issue => issue.level === 'error')
     .forEach(issue => lines.push(`[阻擋] ${issue.message}`));
-  report.requirements.forEach(requirement => {
+  const shownRequirements = report.workItems.length
+    ? report.requirements.filter(requirement => ['preserve-legacy-package', 'build-separate-v3-package'].includes(requirement.code))
+    : report.requirements;
+  shownRequirements.forEach(requirement => {
     const label = requirement.state === 'satisfied' ? '完成' : requirement.state === 'blocked' ? '阻擋' : '必要';
     lines.push(`[${label}] ${requirement.message}`);
   });
+  if (report.workItems.length) {
+    lines.push(`逐份工作清單：${report.workItemSummary.total} 份；已配對來源 ${report.workItemSummary.paired} 份；需外部來源 ${report.workItemSummary.externalSourceRequired} 份。`);
+    report.workItems.forEach(item => {
+      lines.push(`[附件 ${item.sequence}] ${item.formalAttachment}`);
+      lines.push(`  產出：${item.sourceTool} ${item.toolVersion}；舊輸出時間：${item.priorOutputTime || '未記錄'}；計算指紋：${item.fingerprints.join('、') || '未記錄'}`);
+      lines.push(`  對應來源：${item.sourceFiles.length ? item.sourceFiles.join('、') : '包內未配對，需回外部可信來源'}`);
+      item.actions.forEach(action => lines.push(`  [待辦] ${action.message}`));
+    });
+  }
   lines.push('本工具只讀取附件包並提供內部遷移指引，不修改檔案、不補造 metadata，也不產生正式附件。');
   return lines.join('\n');
 }
@@ -164,6 +244,9 @@ module.exports = {
   legacyUpgradeRequirements,
   currentPackageRequirement,
   blockedRequirement,
+  recordFingerprints,
+  recordsShareIdentity,
+  buildWorkItems,
   assessUpgrade,
   formatSummary,
   parseArgs,

@@ -428,6 +428,21 @@ function validateRecord(record, role, index, report, seenPaths, schemaVersion) {
   return { record, role, packagedFile };
 }
 
+function verificationRecord(item, values = {}) {
+  return {
+    packagedFile: item.packagedFile,
+    role: item.role,
+    sourceTool: typeof item.record.sourceTool === 'string' ? item.record.sourceTool.trim() : '',
+    toolVersion: typeof item.record.toolVersion === 'string' ? item.record.toolVersion.trim() : '',
+    outputTime: typeof item.record.outputTime === 'string' ? item.record.outputTime.trim() : '',
+    approvalTime: typeof item.record.approvalTime === 'string' ? item.record.approvalTime.trim() : '',
+    fingerprints: Array.isArray(item.record.fingerprints)
+      ? item.record.fingerprints.map(value => String(value || '').trim()).filter(Boolean)
+      : [],
+    ...values,
+  };
+}
+
 function verifyRecord(packageDir, item, report, observedHashes) {
   const absolutePath = path.resolve(packageDir, ...item.packagedFile.split('/'));
   if (!Builder.isPathInside(packageDir, absolutePath)) {
@@ -436,13 +451,13 @@ function verifyRecord(packageDir, item, report, observedHashes) {
   }
   if (!fs.existsSync(absolutePath)) {
     addIssue(report, 'missing-file', `附件包缺少清單所列檔案：${item.packagedFile}。`, [item.packagedFile]);
-    report.records.push({ packagedFile: item.packagedFile, role: item.role, status: 'missing' });
+    report.records.push(verificationRecord(item, { status: 'missing' }));
     return;
   }
   const stat = fs.lstatSync(absolutePath);
   if (stat.isSymbolicLink() || !stat.isFile()) {
     addIssue(report, 'invalid-file-type', `${item.packagedFile} 不是一般檔案。`, [item.packagedFile]);
-    report.records.push({ packagedFile: item.packagedFile, role: item.role, status: 'invalid' });
+    report.records.push(verificationRecord(item, { status: 'invalid' }));
     return;
   }
 
@@ -457,7 +472,7 @@ function verifyRecord(packageDir, item, report, observedHashes) {
     addIssue(report, 'hash-mismatch', `${item.packagedFile} 的 SHA-256 與清單不符，檔案可能已被修改。`, [item.packagedFile]);
     status = 'mismatch';
   }
-  report.records.push({ packagedFile: item.packagedFile, role: item.role, bytes: stat.size, sha256: actualHash, status });
+  report.records.push(verificationRecord(item, { bytes: stat.size, sha256: actualHash, status }));
 }
 
 function verifyReadme(packageDir, manifest, report, observedHashes) {
