@@ -1295,6 +1295,11 @@ node 結構工具箱/tools/attachment-case-governance-portfolio-compare.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentCaseGovernancePortfolioSnapshotCommand = @'
+node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1621,6 +1626,10 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\比較多案件附件治理總覽.bat'
     Needles = @('attachment-case-governance-portfolio-compare.js', '--previous', '%~1', '--current', '%~2', '%~3', '--only-blocking', '--change')
+  },
+  @{
+    Path = '結構工具箱\tools\保存多案件附件治理快照.bat'
+    Needles = @('attachment-case-governance-portfolio-snapshot.js', '--parent', '%~1', '--output', '%~2')
   }
 )
 
@@ -2230,6 +2239,13 @@ $checks = @(
     label = "Read-only multi-case governance snapshot comparison"
     workdir = $root
     command = $attachmentCaseGovernancePortfolioCompareCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-case-governance-portfolio-snapshot"
+    label = "Safe internal multi-case governance snapshot publication"
+    workdir = $root
+    command = $attachmentCaseGovernancePortfolioSnapshotCommand
     slow = $false
   },
   [pscustomobject]@{
