@@ -1280,6 +1280,11 @@ node 結構工具箱/tools/attachment-case-governance-overview.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentCaseGovernanceRootCommand = @'
+node 結構工具箱/tools/attachment-case-governance-root.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1594,6 +1599,10 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\檢查案件附件治理總覽.bat'
     Needles = @('attachment-case-governance-overview.js', '--package', '%~1', '--history', '%~2', '--chain-root', '%~3', '--initial-baseline', '%~4')
+  },
+  @{
+    Path = '結構工具箱\tools\檢查案件根目錄附件治理.bat'
+    Needles = @('attachment-case-governance-root.js', '--root', '%~1')
   }
 )
 
@@ -2182,6 +2191,13 @@ $checks = @(
     label = "Read-only case attachment governance overview"
     workdir = $root
     command = $attachmentCaseGovernanceOverviewCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-case-governance-root"
+    label = "Single-root read-only case attachment governance entry"
+    workdir = $root
+    command = $attachmentCaseGovernanceRootCommand
     slow = $false
   },
   [pscustomobject]@{
