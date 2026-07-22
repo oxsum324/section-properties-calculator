@@ -189,6 +189,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js:1)
 - 多案件治理趨勢處置可信檢查點歷程：
   [attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js:1)
+- 單一設定檔附件治理工作區：
+  [attachment-case-governance-workspace.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-workspace.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -241,6 +243,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 為了補上 `TAI-` 收據鏈只靠自身無法識別「尾端整段被刪除」的限制，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js --directory <治理快照資料夾> --ledger <內部處置紀錄資料夾> --checkpoint <指定的外部可信檢查點 JSON> [--json]`，或使用 `結構工具箱/tools/檢查多案件治理趨勢處置檢查點.bat`。初次錨定使用 `--initialize --output <外部檢查點資料夾> --reviewer <複核人> --basis <依據>`；既有前綴完全相同且只有新收據時，才可使用 `--advance --checkpoint <前一檢查點> --accept-additions --output <外部檢查點資料夾> --reviewer <複核人> --basis <依據>`，或使用 `結構工具箱/tools/建立多案件治理趨勢處置檢查點.bat`。每次建立不可覆寫的新檔，以 `TAC-` 綁定當時完整收據清單、每檔 SHA-256、`TRA-` 終端與 `TAI-`；前進檔再綁定前一檢查點的檔名、`TAC-` 與 SHA-256。指定鏈若較檢查點短，即使剩餘前綴仍可通過鏈內驗證，也會以尾端截斷 blocked；既有前綴變更同樣 blocked，純新增則維持 review，直到人工複核後建立新檢查點。檢查點必須位於快照與處置鏈之外的受保護位置，使用時必須明確指定，工具不會自動猜選所謂最新檔；若檢查點本身可被任意替換，本機雜湊無法提供獨立信任。可信檢查點只證明處置鏈相對完整性，不會把目前 `review`／`blocked` 降級，也不是正式附件核可、數位簽章或附件內容；檢查點、工具、測試、批次入口與結果均不得放入計算書、主報告、正式附件包或 Pages。
 
 當同一資料夾累積多份 `TAC-` 後，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js --directory <治理快照資料夾> --ledger <內部處置紀錄資料夾> --history <可信檢查點歷程資料夾> --head <明確指定的受信任 TAC 終點 JSON> [--json]`，或使用 `結構工具箱/tools/檢查多案件治理趨勢處置檢查點歷程.bat`。歷程入口只接受直接位於指定資料夾的封閉實體 JSON、單一 link count 與內容一致檔名；恰須一份 initial，後續 advance 必須逐份引用前一檔名、`TAC-` 及 SHA-256，完整保留收據前綴、增加收據數、正確記錄接受新增數，且案件群組、快照及處置資料夾範圍不得改變。缺少中間檔、替換、改名、分叉、循環、回退、範圍切換或讀取競態均 blocked，並以 `TCH-` 綁定整條有序歷程；指定終點是唯一鏈尾時 ready，其後另有合法檢查點時只回報 review，要求人工改指新的受信任終點。工具絕不依時間或檔名自動猜選終點，因為改用較舊路徑會破壞外部信任意義。歷程狀態不得低於目前處置／工程狀態，結果不含完整路徑、複核人或依據；它不是正式附件核可、防竄改儲存或數位簽章，也不得進入計算書、主報告、正式附件包或 Pages。
+
+若不希望每次手動輸入四個治理來源，可使用 `node 結構工具箱/tools/attachment-case-governance-workspace.js --config <附件治理工作區設定 JSON> [--json]`，或把設定檔拖曳至 `結構工具箱/tools/檢查附件治理工作區.bat`。初次建立使用 `--create --workspace-name <名稱> --directory <快照> --ledger <處置鏈> --history <檢查點歷程> --head <受信任 TAC 終點> --output <設定資料夾> --reviewer <複核人> --basis <依據>`；終點合法前進後，使用 `--create --previous-config <前一設定> --head <新終點> --output <設定資料夾> --reviewer <複核人> --basis <依據>`，或使用 `結構工具箱/tools/建立附件治理工作區.bat`。設定檔採相對於自身資料夾的正規化路徑，以 `TGW-` 綁定工作區名稱、三個固定來源、受信任終點的檔名／`TAC-`／SHA-256、內部複核決定及前一設定身分；輸出資料夾必須與所有治理來源完全分離。每次建立排他鎖與暫存檔，fsync、封閉回讀、發布前後來源重驗後才原子發布新檔，永不覆寫既有設定；前進固定沿用前一設定名稱與來源，且新終點必須是舊終點的後續檢查點。日常檢查只需一個 `--config`，若設定被改名、移動後相對拓撲失效、硬連結化、終點三重身分不符或任一治理來源改變，均失敗封閉。命令結果不含相對／完整路徑、複核人或依據，且不會降低目前工程 `review`／`blocked`；工作區設定不是正式附件核可、防竄改儲存或數位簽章，也不得進入計算書、主報告、正式附件包或 Pages。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 

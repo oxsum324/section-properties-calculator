@@ -1325,6 +1325,11 @@ node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-d
 exit $LASTEXITCODE
 '@
 
+$attachmentCaseGovernanceWorkspaceCommand = @'
+node 結構工具箱/tools/attachment-case-governance-workspace.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1683,6 +1688,14 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\檢查多案件治理趨勢處置檢查點歷程.bat'
     Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js', '--directory', '%~1', '--ledger', '%~2', '--history', '%~3', '--head', '%~4')
+  },
+  @{
+    Path = '結構工具箱\tools\檢查附件治理工作區.bat'
+    Needles = @('attachment-case-governance-workspace.js', '--config', '%~1')
+  },
+  @{
+    Path = '結構工具箱\tools\建立附件治理工作區.bat'
+    Needles = @('attachment-case-governance-workspace.js', '%~1', '%~2', '%~3', '%~4', '%~5', '%~6', '%~7', '%~8', '%~9', '--create', '--workspace-name', '--directory', '--ledger', '--history', '--head', '--output', '--reviewer', '--basis', '--previous-config')
   }
 )
 
@@ -2334,6 +2347,13 @@ $checks = @(
     label = "Designated-head history verification for trusted disposition checkpoints"
     workdir = $root
     command = $attachmentCaseGovernancePortfolioSnapshotTrendDispositionCheckpointHistoryCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-case-governance-workspace"
+    label = "Single-config attachment governance workspace verification"
+    workdir = $root
+    command = $attachmentCaseGovernanceWorkspaceCommand
     slow = $false
   },
   [pscustomobject]@{
