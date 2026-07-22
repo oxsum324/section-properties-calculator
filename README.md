@@ -175,6 +175,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [attachment-case-governance-root.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-root.js:1)
 - 多案件附件治理唯讀總覽：
   [attachment-case-governance-portfolio.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio.js:1)
+- 多案件治理快照唯讀比較：
+  [attachment-case-governance-portfolio-compare.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-compare.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -213,6 +215,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 若正式附件包、外部歷程及可信基準鏈都放在同一案件根目錄的直接子資料夾，可只執行 `node 結構工具箱/tools/attachment-case-governance-root.js --root <案件根目錄> [--json]`，或把案件根目錄拖曳至 `結構工具箱/tools/檢查案件根目錄附件治理.bat`。入口以附件包清單、`formal-attachment-package-upgrade-history-record.v1` 收據、標準歷程／基準資料夾名稱、可信索引 JSON 與前進包固定兩檔結構辨識候選；三類各恰好一組才會呼叫同一治理總覽。缺少候選、多組候選、同一資料夾跨角色、連結項目或執行期間候選／選定內容改變均為 `blocked=2`，不依日期、名稱或排序自行猜選。非標準資料夾名稱仍可依封閉結構辨識；使用根目錄外初始基準等特殊配置時，改用前述三路徑進階入口。輸出只揭露直接子資料夾名稱、`CAS-` 案件指紋與既有治理摘要，維持唯讀、內部使用且不代表正式附件核可。
 
 多個案件集中在同一上層資料夾時，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio.js --parent <案件上層資料夾> [--only-actionable] [--priority P0|P1|P2] [--json]`，或把上層資料夾拖曳至 `結構工具箱/tools/檢查多案件附件治理總覽.bat` 執行完整總覽。入口只掃描直接子資料夾，有附件治理結構者視為案件，其餘資料夾明列為忽略；各案沿用單一案件根目錄入口，不會自行提升狀態。只要一案 `blocked`，整批即為 `blocked=2`；無 blocked 但有 `review` 時為 `review=1`；全部 ready 才為 `ready=0`。跨案處置另依既有問題與下一步代碼衍生分群：P0 為來源異動、附件包、版本鏈或案件結構等停止歸檔事項，P1 為合法新增收據待複核並前進可信基準，P2 為附件包相容性或其他人工確認；同案可出現在多個原因群，但優先案件數只計一次。`--only-actionable` 只顯示非 ready 案件，`--priority` 只顯示指定層級群組及其中案件；篩選視圖仍明列完整總數、完整批次狀態及 `fingerprintScope=all-cases`，退出碼與 `POR-` 指紋不因隱藏案件而改變，上層阻擋問題也不會被篩選隱藏。檢查前後會重掃案件清單並重驗治理候選快照，輸出只含案件名稱、狀態、優先群組、問題／下一步代碼與 `POR-`／既有治理指紋，不含完整路徑、計算內容、複核人或依據。總覽固定唯讀，只供內部跨案排序，不代表正式附件核可，也不得放入計算書、主報告、正式附件包或 Pages。
+
+比較兩次完整批次狀態時，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-compare.js --previous <前次完整總覽.json> --current <目前完整總覽.json> [--json]`，或使用 `結構工具箱/tools/比較多案件附件治理總覽.bat`。比較器只接受未套用 `--only-actionable`／`--priority` 的完整 v1 總覽，並封閉驗證欄位、重複 JSON key、摘要、案件唯一性、狀態與可重算分群；篩選視圖、額外欄位、錯誤摘要或比較期間來源改變均拒絕或 blocked。結果依案件名稱列出新增、移除、改善、惡化、同狀態內容變更及未變，使用 `CMP-` 比較指紋綁定兩個完整 `POR-` 指紋與差異；目前總覽若仍 blocked／review，不會因兩次相同而被提升為 ready。輸出只含快照檔名、案件名稱、狀態／優先層級、差異代碼與指紋，不含完整路徑、計算內容、複核人或依據。比較固定唯讀，不修改、核可、前進或重新掃描案件，也不得放入計算書、主報告、正式附件包或 Pages。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 
