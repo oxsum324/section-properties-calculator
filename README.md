@@ -220,6 +220,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 
 需要保存可供上述比較器直接讀取的完整快照時，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot.js --parent <案件上層資料夾> --output <內部治理快照資料夾> [--json]`，或使用 `結構工具箱/tools/保存多案件附件治理快照.bat`。快照資料夾必須與案件上層完全分離，避免新增內部檔案改變案件發現結果；工具依總覽時間與 `POR-` 產生新檔名，同名檔永不覆寫。完整 JSON 先以排他暫存寫入及 fsync，再由比較器的封閉規則自我驗證；發布前重新建立相同總覽，並在原子硬連結發布前後重驗案件集合與治理候選內容。來源在總覽讀取期間變動時不保存，發布邊界發生競態則撤回新檔；穩定的 ready、review 或 blocked 狀態都可保存供跨期追蹤，退出碼仍保持 0／1／2。命令輸出只揭露快照資料夾名稱、檔名、SHA-256、案件數及 `POR-`，不含完整路徑、計算內容、複核人或依據。快照屬內部治理資料，不是正式附件核可、版本前進或數位簽章，不得放入計算書、主報告、正式附件包或 Pages。
 
+快照累積後，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-index.js --directory <內部治理快照資料夾> [--compare-latest [--only-blocking | --change regressed|added|removed|improved|changed|unchanged ...]] [--json]`，或使用 `結構工具箱/tools/檢查多案件治理快照歷程.bat`；批次入口第二參數填 `compare` 可比較最新兩版，第三參數可填 `blocking` 或一種差異類型。索引只接受發布器產生、檔名與內容時間／`POR-` 完全一致、沒有其他硬連結別名的實體 JSON；連結、子目錄、非 JSON、損壞或重複 key、改名檔、同群組重複時間及執行期間任何新增／移除／替換都失敗封閉。快照依內含的案件上層名稱分群；資料夾含多群組時只建立 review 索引並要求分開，`--compare-latest` 會 blocked，避免憑名稱或時間跨案件猜選。單一群組至少兩份有效快照時，依內含 `generatedAt` 選取最新兩版並呼叫同一比較器；比較完成後再次重驗整個資料夾與全部來源雜湊。索引完整性與最新快照健康分開計算，整體狀態不得低於最新快照或比較結果；索引與比較固定唯讀，不修改快照、不核可或前進版本，也不得放入計算書、主報告、正式附件包或 Pages。
+
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 
 工具成熟度矩陣的下一步品質欄位同時包含 `reportTextSmoke`、`goldenCaseRegression`、`jsonRoundTrip` 與 `referenceTraceability`；其中 `reportTextSmoke` 只揭露報告可讀文字抽檢是否已被 smoke / contract 覆蓋，不把頁面專用閱讀狀態寫入計算書或 PDF。
