@@ -93,6 +93,13 @@ function cli(args) {
   return spawnSync(process.execPath, [path.join(__dirname, 'attachment-case-governance-workspace.js'), ...args], { encoding: 'utf8' });
 }
 
+function batchCli(fileName, args) {
+  return spawnSync(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'call', path.join(__dirname, fileName), ...args], {
+    encoding: 'utf8',
+    env: { ...process.env, ATTACHMENT_GOVERNANCE_NO_PAUSE: '1' },
+  });
+}
+
 assert.equal(Workspace.WORKSPACE_KIND, 'formal-attachment-case-governance-workspace.v1');
 assert.equal(Workspace.WORKSPACE_STATE_KIND, 'formal-attachment-case-governance-workspace-state.v1');
 assert.match(Workspace.WORKSPACE_BOUNDARY_INSTRUCTION, /固定附件治理來源/);
@@ -319,6 +326,39 @@ try {
   const readyCli = cli(['--config', secondConfigPath, '--json']);
   assert.equal(readyCli.status, 0);
   assert.equal(JSON.parse(readyCli.stdout).workspaceName, '案件甲治理工作區');
+  if (process.platform === 'win32') {
+    const readyBatch = batchCli('檢查附件治理工作區.bat', [secondConfigPath]);
+    assert.equal(readyBatch.status, 0, `${readyBatch.stdout}\n${readyBatch.stderr}`);
+    assert.match(readyBatch.stdout, /附件治理工作區狀態/);
+    assert.match(readyBatch.stdout, /狀態：ready/);
+    assert.doesNotMatch(`${readyBatch.stdout}\n${readyBatch.stderr}`, /not recognized|Press any key/i);
+
+    const batchSnapshots = path.join(tempRoot, 'batch-sources', 'snapshots');
+    const batchLedger = path.join(tempRoot, 'batch-sources', 'ledger');
+    const batchHistory = path.join(tempRoot, 'batch-trusted', 'history');
+    const batchConfigs = path.join(tempRoot, 'batch-configs');
+    const batchNow = Date.now();
+    writeSnapshot(batchSnapshots, makeSnapshot([caseA], 'C', new Date(batchNow - 3 * 60 * 60 * 1000).toISOString(), '批次案件群組'));
+    writeSnapshot(batchSnapshots, makeSnapshot([caseA], 'C', new Date(batchNow - 2 * 60 * 60 * 1000).toISOString(), '批次案件群組'));
+    fs.mkdirSync(path.dirname(batchHistory), { recursive: true });
+    const batchCheckpoint = Checkpoint.publishCheckpoint(batchSnapshots, batchLedger, {
+      initialize: true,
+      output: batchHistory,
+      reviewer: '批次複核人',
+      basis: '建立批次入口測試檢查點。',
+      now: new Date(batchNow - 60 * 60 * 1000),
+    });
+    const batchHead = path.join(batchHistory, batchCheckpoint.publication.checkpointFileName);
+    const createBatch = batchCli('建立附件治理工作區.bat', [
+      'initial', '批次工作區', batchSnapshots, batchLedger, batchHistory, batchHead, batchConfigs, '批次複核人', '驗證中文參數及完整建立流程。',
+    ]);
+    assert.equal(createBatch.status, 0, `${createBatch.stdout}\n${createBatch.stderr}`);
+    assert.match(createBatch.stdout, /工作區：批次工作區/);
+    assert.doesNotMatch(`${createBatch.stdout}\n${createBatch.stderr}`, /not recognized|Press any key/i);
+    const batchConfigNames = fs.readdirSync(batchConfigs).filter(name => name.endsWith('.json'));
+    assert.equal(batchConfigNames.length, 1);
+    assert.equal(Workspace.inspectWorkspace(path.join(batchConfigs, batchConfigNames[0])).status, 'ready');
+  }
   const reviewCli = cli(['--config', firstConfigPath, '--json']);
   assert.equal(reviewCli.status, 1);
   const blockedCli = cli(['--config', wrongHeadPath, '--json']);

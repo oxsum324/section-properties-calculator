@@ -28,14 +28,17 @@ node "%~dp0attachment-case-governance-workspace.js" --create --previous-config "
 :done
 set "RESULT=%ERRORLEVEL%"
 echo.
-pause
-exit /b %RESULT%
+if not defined ATTACHMENT_GOVERNANCE_NO_PAUSE pause
+goto finish
 
 :usage
-echo 用法：
-echo   初始：建立附件治理工作區.bat initial "工作區名稱" "快照資料夾" "處置鏈資料夾" "檢查點歷程資料夾" "受信任 TAC 終點" "設定輸出資料夾" "複核人" "複核依據"
-echo   前進：建立附件治理工作區.bat advance "前一工作區設定" "新受信任 TAC 終點" "設定輸出資料夾" "複核人" "複核依據"
+echo Usage:
+echo   create-governance-workspace BAT initial "name" "snapshots" "ledger" "history" "trusted TAC head" "config output" "reviewer" "basis"
+echo   create-governance-workspace BAT advance "previous config" "new trusted TAC head" "config output" "reviewer" "basis"
 echo.
-echo 每次建立不可覆寫的新設定；前進固定沿用前一設定的名稱與三個來源。
-pause
-exit /b 3
+echo Every run creates a new immutable config. Advance keeps the existing name and sources.
+if not defined ATTACHMENT_GOVERNANCE_NO_PAUSE pause
+set "RESULT=3"
+
+:finish
+exit /b %RESULT%

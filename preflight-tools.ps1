@@ -1691,11 +1691,11 @@ $checks = @(
   },
   @{
     Path = '結構工具箱\tools\檢查附件治理工作區.bat'
-    Needles = @('attachment-case-governance-workspace.js', '--config', '%~1')
+    Needles = @('attachment-case-governance-workspace.js', '--config', '%~1', 'ATTACHMENT_GOVERNANCE_NO_PAUSE')
   },
   @{
     Path = '結構工具箱\tools\建立附件治理工作區.bat'
-    Needles = @('attachment-case-governance-workspace.js', '%~1', '%~2', '%~3', '%~4', '%~5', '%~6', '%~7', '%~8', '%~9', '--create', '--workspace-name', '--directory', '--ledger', '--history', '--head', '--output', '--reviewer', '--basis', '--previous-config')
+    Needles = @('attachment-case-governance-workspace.js', '%~1', '%~2', '%~3', '%~4', '%~5', '%~6', '%~7', '%~8', '%~9', '--create', '--workspace-name', '--directory', '--ledger', '--history', '--head', '--output', '--reviewer', '--basis', '--previous-config', 'ATTACHMENT_GOVERNANCE_NO_PAUSE')
   }
 )
 
