@@ -165,6 +165,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [attachment-package-upgrade-history-index.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-index.js:1)
 - 附件升級可信基準安全發布器：
   [attachment-package-upgrade-history-baseline.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-baseline.js:1)
+- 附件升級可信基準版本前進：
+  [attachment-package-upgrade-history-baseline-advance.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-baseline-advance.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -193,6 +195,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 要查驗外部歷程，可將 `附件升級內部歷程_勿附入主報告/` 拖曳到 `結構工具箱/tools/檢查附件升級內部歷程.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-history-index.js --history <外部歷程資料夾> [--baseline <外部保存的可信索引 JSON>] [--json]`。索引器固定唯讀，採封閉欄位白名單，逐份驗證 JSON 欄位唯一、`HIS-` 指紋、檔名／時間／動作／receiptId 一致、動作與 ready／review／blocked 語意、完成摘要及讀取前後雙快照，並產生不含完整路徑的 `HIX-` 集合指紋。沒有基準時只能確認目前收據完整，不能證明過去是否曾刪除；外部保存且狀態為 `valid` 的可信索引可供 `--baseline` 比對，同 ID 改變或收據遺失為 `blocked=2`，合法新增為 `review=1`，完全相符為 `valid=0`，參數或執行錯誤為 `3`。可信基準與索引輸出不得存回歷程收據資料夾；此結果只代表內部歷程完整性，不代表附件正式核可，也不等同數位簽章。
 
 第一次建立可信基準時，可直接把歷程資料夾拖曳到 `結構工具箱/tools/建立附件升級可信基準.bat`，或執行 `node 結構工具箱/tools/attachment-package-upgrade-history-baseline.js --history <外部歷程資料夾> [--baseline <既有外部可信基準 JSON>] [--output <新的外部基準 JSON>] [--json]`。未指定輸出時會在歷程旁建立 `附件升級可信基準_勿附入主報告/`，不必手動重新導向；只有歷程索引為 `valid` 才會以同目錄暫存、發布前自我驗證及原子更名建立新 JSON，既有檔案永不覆寫。空歷程、收據損壞，或相較既有基準出現未確認新增／遺失／改變時均不產生基準；因此提供舊基準後，合法新增仍需先人工確認，不能被發布器靜默納入。基準只含不具完整路徑的收據摘要與 `HIX-` 指紋，固定存於歷程、計算書、主報告及正式附件包之外；它是內部完整性錨點，不是附件核可或數位簽章。
+
+既有基準之後出現合法新增收據時，先用唯讀索引確認差異，再執行 `node 結構工具箱/tools/attachment-package-upgrade-history-baseline-advance.js --history <外部歷程資料夾> --baseline <既有外部可信基準 JSON> --accept-additions --reviewer <內部複核人> --basis <複核依據> [--output <新的外部前進包資料夾>] [--json]`，或使用 `結構工具箱/tools/推進附件升級可信基準.bat`。前進工具只接受「舊收據完全不變且僅有新增」；遺失、同 ID 改變、收據篡改或其他警告均不發布。明確接受後會建立一個新前進包，內含新版 `valid` 基準與 `formal-attachment-package-upgrade-history-baseline-advancement-record.v1` 內部核准紀錄；紀錄綁定舊／新基準 SHA-256、`HIX-` 集合指紋、收據數、逐筆新增 ID／`HIS-` 指紋、複核人及依據。兩檔先在隱藏暫存目錄完成封閉欄位、`HAD-` 指紋、差異集合、歷程回讀及 SHA-256 交叉驗證，最後整個目錄原子發布，既有基準永不改寫。此核准只代表接受內部歷程新增，不是計算書或正式附件核可，也不得附入主報告。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 
