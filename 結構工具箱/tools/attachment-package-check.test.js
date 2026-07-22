@@ -5,6 +5,8 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const Checker = require('./attachment-package-check.js');
 
+const COMPLETE_CALCULATION_CONTENT = '<section><h2>採用輸入</h2><div>材料與荷載資料</div></section><section><h2>計算內容</h2><div>檢核公式與代入值</div></section><section><h2>檢核結論</h2><div>檢核結果：通過</div></section>';
+
 const extracted = Checker.extractTextMetadata(`
 計畫名稱：測試大樓
 計畫編號：PKG-001
@@ -62,6 +64,11 @@ assert.match(Checker.formatSummary(readyReport), /測試大樓｜PKG-001｜Codex
 assert.deepEqual(Checker.detectReadyDocumentClass('<strong>文件狀態：正式附件</strong>'), ['文件狀態：正式附件']);
 assert.deepEqual(Checker.detectReadyDocumentClass('<div>文件狀態</div><div>正式附件</div>'), ['文件狀態：正式附件']);
 assert.equal(Checker.READY_DOCUMENT_CLASS_LABEL, '文件狀態：正式附件');
+assert.equal(Checker.CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.2.0');
+assert.deepEqual(Checker.CONTENT_PROFILES['calculation-summary'], ['adoptedInputs', 'engineeringResult']);
+assert.equal(Checker.detectCalculationContentProfile('RC 梁設計計算書'), 'calculation-book');
+assert.equal(Checker.detectCalculationContentProfile('RC 梁計算摘要'), 'calculation-summary');
+assert.equal(Checker.extractHtmlText('<style>採用輸入 計算內容 檢核結論</style><div hidden>採用輸入</div><div aria-hidden="true">計算內容</div><h1>RC 梁設計計算書</h1>'), 'RC 梁設計計算書');
 
 const unsafeSourceReport = Checker.analyzePackage([], { unsafeSourceEntries: ['linked-outside'] });
 assert.equal(unsafeSourceReport.status, 'blocked');
@@ -209,7 +216,7 @@ try {
   assert.equal(cli.status, 0, cli.stderr || cli.stdout);
   assert.match(cli.stdout, /附件組包一致性檢查：可整理/);
 
-  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), `<h1>矩形建物風力計算書</h1><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>${COMPLETE_CALCULATION_CONTENT}`, 'utf8');
   const legacyJsonAndFormalReport = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(legacyJsonAndFormalReport.status, 'review', 'compatible but unclassified report requires review');
   assert(legacyJsonAndFormalReport.issues.some(issue => issue.code === 'missing-document-class'));
@@ -223,20 +230,42 @@ try {
   assert.match(reviewCli.stdout, /文件未分類/);
 
   fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
+  const emptyShellPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
+  assert.equal(emptyShellPackage.status, 'blocked', 'title, approval, and trace metadata cannot replace engineering calculation content');
+  assert(emptyShellPackage.issues.some(issue => issue.code === 'missing-calculation-content'));
+  const emptyShellRecord = emptyShellPackage.attachments.find(item => item.file === 'wind-formal.html');
+  assert.deepEqual(emptyShellRecord?.contentBoundary?.missingGroups, ['adoptedInputs', 'calculationProcess', 'engineeringResult']);
+  assert.match(Checker.formatSummary(emptyShellPackage), /內容缺 adoptedInputs,calculationProcess,engineeringResult/);
+
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), `<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>${COMPLETE_CALCULATION_CONTENT}`, 'utf8');
   const classifiedPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(classifiedPackage.status, 'ready', 'explicit ready document classification allows package readiness');
   const classifiedReport = classifiedPackage.attachments.find(item => item.file === 'wind-formal.html');
   assert.deepEqual(classifiedReport?.readyDocumentNeedles, ['文件狀態：正式附件']);
+  assert.deepEqual(classifiedReport?.contentBoundary?.missingGroups, []);
   assert.equal(classifiedPackage.fingerprintLinks.length, 1, 'project JSON and ready report are linked by fingerprint');
   assert.equal(classifiedPackage.issues.some(issue => issue.code.includes('duplicate')), false);
 
-  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), '<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>', 'utf8');
+  fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), `<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>${COMPLETE_CALCULATION_CONTENT}`, 'utf8');
   const missingDesignerPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
   assert.equal(missingDesignerPackage.status, 'ready', 'parsed formal attachment may omit designer and inherit it from the main report');
   assert.equal(missingDesignerPackage.issues.some(issue => issue.code === 'missing-report-identity'), false);
   const missingDesignerCli = spawnSync(process.execPath, [path.join(__dirname, 'attachment-package-check.js'), '--input', tempDir, '--project-no', 'PKG-001'], { encoding: 'utf8' });
   assert.equal(missingDesignerCli.status, 0, missingDesignerCli.stderr || missingDesignerCli.stdout);
   assert.match(missingDesignerCli.stdout, /可整理/);
+
+  const scriptedShellPath = path.join(tempDir, 'scripted-empty-shell.html');
+  fs.writeFileSync(scriptedShellPath, '<h1>RC 梁設計計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>產出工具：RC 梁</div><div>工具版本：v3.1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-9999AAAA8888BBBB</div><script>const hidden = "採用輸入 計算內容 檢核結論";</script>', 'utf8');
+  const scriptedShellRecord = Checker.inspectAttachment(scriptedShellPath, tempDir);
+  assert.deepEqual(scriptedShellRecord.contentBoundary?.missingGroups, ['adoptedInputs', 'calculationProcess', 'engineeringResult'], 'script source cannot satisfy visible calculation content');
+  fs.rmSync(scriptedShellPath);
+
+  const summaryPath = path.join(tempDir, 'design-summary.html');
+  fs.writeFileSync(summaryPath, '<h1>RC 梁計算摘要</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>產出工具：RC 梁</div><div>工具版本：v3.1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-9999AAAA8888BBBB</div><section>採用材料與荷載資料</section><section>檢核結果：通過</section>', 'utf8');
+  const summaryRecord = Checker.inspectAttachment(summaryPath, tempDir);
+  assert.equal(summaryRecord.contentBoundary?.profile, 'calculation-summary');
+  assert.deepEqual(summaryRecord.contentBoundary?.missingGroups, [], 'an explicitly titled summary may omit repeated detailed equations');
+  fs.rmSync(summaryPath);
 
   fs.writeFileSync(path.join(tempDir, 'rc-draft.html'), '<div>DRAFT／非正式附件 - 待人工複核</div><div>本文件僅供內部複核；完成複核及資料補正前不得作為正式附件。</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：RC 梁</div><div>工具版本：V3.1</div><div>輸出時間：2026/07/16 14:31:43</div><div>計算指紋：CF-BBBB0000CCCC1111</div>', 'utf8');
   const draftPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });

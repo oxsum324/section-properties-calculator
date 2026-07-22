@@ -55,7 +55,9 @@ function assertPrintHidesSelectors(text, selectors, label) {
 
 const contractRelativePath = '結構工具箱/tools/report-disclosure.contract.test.js';
 const calculationBookBoundaryRelativePath = '結構工具箱/tools/calculation-book-content-boundary.json';
+const calculationBookBoundaryEvaluatorRelativePath = '結構工具箱/tools/calculation-book-content-boundary.js';
 const calculationBookBoundary = readJson(repoFile(calculationBookBoundaryRelativePath));
+const calculationBookBoundaryEvaluator = readText(repoFile(calculationBookBoundaryEvaluatorRelativePath));
 const catalogs = [
   {
     family: 'formal-traceability',
@@ -293,7 +295,7 @@ assert(
   'TOOL_REPORT_GUIDE links page-only readiness glossary, ADR, and delivery boundaries',
   '頁面專用閱讀狀態 / Word / DOCX / workbook',
 );
-assert(calculationBookBoundary.version === '1.1.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
+assert(calculationBookBoundary.version === '1.2.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
 assert(calculationBookBoundary.scope === 'all-calculation-book-and-formal-attachment-outputs', 'calculation-book boundary covers every attachment output', calculationBookBoundary.scope);
 ['pageReadingStatus', 'interfaceAndWorkflow', 'governanceNarrative'].forEach(category => {
   assertStringArray(boundaryCategories[category], `calculation-book boundary ${category}`);
@@ -315,7 +317,7 @@ assert(calculationContentGroups && typeof calculationContentGroups === 'object',
   assert(needles.length === new Set(needles).size, `calculation-book content group ${groupKey} matchers are unique`, groupKey);
 });
 assert(calculationContentProfiles && typeof calculationContentProfiles === 'object', 'calculation-book boundary defines validation profiles', 'validationProfiles');
-['calculation-book', 'traceable-calculation-book', 'traceable-calculation-summary', 'compiled-engineering-report', 'direct-print-boundary'].forEach(profileKey => {
+['calculation-book', 'calculation-summary', 'traceable-calculation-book', 'traceable-calculation-summary', 'compiled-engineering-report', 'direct-print-boundary'].forEach(profileKey => {
   const groups = calculationContentProfiles[profileKey];
   assert(Array.isArray(groups), `calculation-book validation profile ${profileKey} is an array`, profileKey);
   assert(groups.length === new Set(groups).size, `calculation-book validation profile ${profileKey} has unique groups`, profileKey);
@@ -374,9 +376,19 @@ assert(
   'RC shared calculation report filters interface fields and places the conclusion after calculation content',
   'RC_CALCULATION_BOOK_PAGE_ONLY_LABELS',
 );
+assert(
+  calculationBookBoundaryEvaluator.includes('calculation-book-content-boundary.json')
+    && calculationBookBoundaryEvaluator.includes('evaluateCalculationContent'),
+  'calculation-book evaluator consumes the JSON contract and exposes the shared positive-content gate',
+  calculationBookBoundaryEvaluatorRelativePath,
+);
 [
   ['attachment package checker', attachmentPackageCheck],
   ['rendered PDF validator', renderedDeliveryEvidence],
+].forEach(([label, source]) => {
+  assert(source.includes('calculation-book-content-boundary.js'), `${label} consumes the shared calculation-book evaluator`, calculationBookBoundaryEvaluatorRelativePath);
+});
+[
   ['formal tools contract', formalToolsContract],
   ['local quick tools contract', localQuickToolsContract],
   ['local quick browser smoke', localQuickBrowserSmoke],

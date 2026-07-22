@@ -5,7 +5,12 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const CALCULATION_BOOK_CONTENT_BOUNDARY = require('./calculation-book-content-boundary.json');
+const {
+  CALCULATION_BOOK_CONTENT_BOUNDARY,
+  CONTENT_GROUPS,
+  CONTENT_PROFILES,
+  evaluateCalculationContent,
+} = require('./calculation-book-content-boundary.js');
 
 const SUPPORTED_EXTENSIONS = new Set(['.pdf', '.docx', '.xlsx', '.json', '.txt', '.html', '.htm']);
 const IGNORED_SYSTEM_FILES = new Set(['thumbs.db', 'desktop.ini', '.ds_store']);
@@ -25,6 +30,7 @@ const PACKAGE_STATUS_EXIT_CODES = Object.freeze({
 });
 const CLI_ERROR_EXIT_CODE = 3;
 const REPORT_DOCUMENT_NEEDLES = ['計算書', '計算報告', '檢討報告', '設計報告', '計算附件'];
+const CALCULATION_SUMMARY_DOCUMENT_NEEDLES = ['計算摘要', '檢核摘要', '設計摘要', '計算結果摘要'];
 const REPORT_IDENTITY_FIELDS = [
   ['projectName', '計畫名稱'],
   ['projectNo', '計畫編號'],
@@ -67,6 +73,20 @@ function decodeXmlText(value) {
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function extractHtmlText(value) {
+  return normalizeText(String(value || '')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(?:script|style|template|noscript)\b[^>]*>[\s\S]*?<\/(?:script|style|template|noscript)>/gi, ' ')
+    .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?:\s*=\s*(?:["'][^"']*["']|[^\s>]+))?|\saria-hidden\s*=\s*["']?true["']?|\sstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)[^"']*["'])[^>]*>[\s\S]*?<\/\1>/gi, ' '));
+}
+
+function detectCalculationContentProfile(value) {
+  const titleRegion = normalizeText(value).slice(0, 320);
+  return CALCULATION_SUMMARY_DOCUMENT_NEEDLES.some(needle => titleRegion.includes(needle))
+    ? 'calculation-summary'
+    : 'calculation-book';
 }
 
 function sha256File(filePath) {
@@ -258,7 +278,7 @@ function inspectAttachment(filePath, rootDir) {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
-    reportDocumentNeedles: [], documentClassRequired: false, errors: [],
+    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, errors: [],
   };
   try {
     const before = fileSnapshot(filePath);
@@ -271,7 +291,10 @@ function inspectAttachment(filePath, rootDir) {
     else if (type === 'json') {
       text = fs.readFileSync(filePath, 'utf8');
       metadata = extractJsonMetadata(JSON.parse(text));
-    } else text = fs.readFileSync(filePath, 'utf8');
+    } else {
+      text = fs.readFileSync(filePath, 'utf8');
+      if (type === 'html' || type === 'htm') text = extractHtmlText(text);
+    }
     Object.assign(record, metadata || extractTextMetadata(text));
     record.textLength = normalizeText(text).length;
     record.pageOnlyNeedles = PAGE_ONLY_NEEDLES.filter(needle => text.includes(needle));
@@ -280,6 +303,11 @@ function inspectAttachment(filePath, rootDir) {
     const normalizedText = normalizeText(text);
     record.reportDocumentNeedles = REPORT_DOCUMENT_NEEDLES.filter(needle => normalizedText.includes(needle));
     record.documentClassRequired = isDocumentClassRequired({ ...record, documentClassRequired: undefined });
+    if (record.documentClassRequired) {
+      const contentBoundaryProfile = detectCalculationContentProfile(normalizedText);
+      record.calculationSummaryNeedles = CALCULATION_SUMMARY_DOCUMENT_NEEDLES.filter(needle => normalizedText.slice(0, 320).includes(needle));
+      record.contentBoundary = evaluateCalculationContent(normalizedText, { contentBoundaryProfile });
+    }
     const after = fileSnapshot(filePath);
     record.sourceSha256 = after.sha256;
     if (before.bytes !== after.bytes || before.sha256 !== after.sha256) {
@@ -457,6 +485,17 @@ function analyzePackage(records, options = {}) {
   records.forEach(record => {
     if (record.errors.length) issues.push(buildIssue('error', 'unreadable-attachment', `${record.file} 無法讀取：${record.errors.join('；')}`, [record.file]));
     if (record.pageOnlyNeedles.length) issues.push(buildIssue('error', 'page-only-leak', `${record.file} 含有頁面專用文字：${record.pageOnlyNeedles.join('、')}`, [record.file]));
+    if (record.contentBoundary?.missingGroups?.length) {
+      const missingDescriptions = record.contentBoundary.groups
+        .filter(group => !group.pass)
+        .map(group => group.description || group.key);
+      issues.push(buildIssue(
+        'error',
+        'missing-calculation-content',
+        `${record.file} 缺少可辨識的計算附件實質內容：${missingDescriptions.join('、')}；只有標題、狀態、核可或追溯資料不得組成正式附件。`,
+        [record.file],
+      ));
+    }
     if ((record.draftDocumentNeedles || []).length) {
       issues.push(buildIssue('error', 'internal-review-document', `${record.file} 的文件狀態仍為內部審閱：${record.draftDocumentNeedles.join('、')}；請在計算書預覽完成核可後再納入正式附件組包。`, [record.file]));
     } else if (isDocumentClassRequired(record) && !(record.readyDocumentNeedles || []).length) {
@@ -553,7 +592,10 @@ function formatSummary(report) {
       : (record.readyDocumentNeedles || []).length
         ? '正式附件'
         : isDocumentClassRequired(record) ? '文件未分類' : '';
-    const trace = [record.projectName, record.projectNo, record.designer, record.sourceTool, record.toolVersion, record.fingerprints.join(','), documentClass, record.approvalTime ? `核可 ${record.approvalTime}` : ''].filter(Boolean).join('｜') || '未抽取追溯資訊';
+    const contentStatus = record.contentBoundary
+      ? record.contentBoundary.missingGroups.length ? `內容缺 ${record.contentBoundary.missingGroups.join(',')}` : '工程內容完整'
+      : '';
+    const trace = [record.projectName, record.projectNo, record.designer, record.sourceTool, record.toolVersion, record.fingerprints.join(','), documentClass, contentStatus, record.approvalTime ? `核可 ${record.approvalTime}` : ''].filter(Boolean).join('｜') || '未抽取追溯資訊';
     lines.push(`- ${record.file}：${record.errors.length ? `讀取失敗 (${record.errors.join('；')})` : trace}`);
   });
   report.issues.forEach(issue => lines.push(`[${issue.level === 'error' ? '阻擋' : '提醒'}] ${issue.message}`));
@@ -604,4 +646,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, extractHtmlText, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

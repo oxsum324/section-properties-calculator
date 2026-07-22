@@ -40,6 +40,9 @@ function writeReport(filePath, options = {}) {
     `<div>輸出時間：${options.outputTime || '2026/07/21 21:50:00'}</div>`,
     `<div>核可時間：${options.approvalTime || '2026/07/21 21:55:00'}</div>`,
     `<div>計算指紋：${options.fingerprint || FINGERPRINT}</div>`,
+    '<section><h2>採用輸入</h2><div>材料與荷載資料</div></section>',
+    '<section><h2>計算內容</h2><div>檢核公式與代入值</div></section>',
+    '<section><h2>檢核結論</h2><div>檢核結果：通過</div></section>',
   ].join('\n'), 'utf8');
 }
 

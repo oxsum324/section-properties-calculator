@@ -39,6 +39,9 @@ function writeReport(filePath, outputTime = '2026/07/21 21:50:00', approvalTime 
     `<div>輸出時間：${outputTime}</div>`,
     `<div>核可時間：${approvalTime}</div>`,
     `<div>計算指紋：${FINGERPRINT}</div>`,
+    '<section><h2>採用輸入</h2><div>材料與荷載資料</div></section>',
+    '<section><h2>計算內容</h2><div>檢核公式與代入值</div></section>',
+    '<section><h2>檢核結論</h2><div>檢核結果：通過</div></section>',
   ].join('\n'), 'utf8');
 }
 

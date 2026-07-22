@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "scope": "all-calculation-book-and-formal-attachment-outputs",
   "description": "正式計算書只承載可直接納入附件的工程計算內容；操作提示、閱讀狀態、介面模式與治理矩陣只留在 HTML 工作頁。",
   "forbiddenCategories": {
@@ -133,6 +133,10 @@
     "calculation-book": [
       "adoptedInputs",
       "calculationProcess",
+      "engineeringResult"
+    ],
+    "calculation-summary": [
+      "adoptedInputs",
       "engineeringResult"
     ],
     "traceable-calculation-book": [
