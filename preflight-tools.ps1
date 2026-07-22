@@ -1275,6 +1275,11 @@ node 結構工具箱/tools/attachment-package-upgrade-history-baseline-chain.tes
 exit $LASTEXITCODE
 '@
 
+$attachmentCaseGovernanceOverviewCommand = @'
+node 結構工具箱/tools/attachment-case-governance-overview.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1585,6 +1590,10 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\檢查附件升級可信基準版本鏈.bat'
     Needles = @('attachment-package-upgrade-history-baseline-chain.js', '--history', '%~1', '--chain-root', '%~2', '--initial-baseline', '%~3')
+  },
+  @{
+    Path = '結構工具箱\tools\檢查案件附件治理總覽.bat'
+    Needles = @('attachment-case-governance-overview.js', '--package', '%~1', '--history', '%~2', '--chain-root', '%~3', '--initial-baseline', '%~4')
   }
 )
 
@@ -2166,6 +2175,13 @@ $checks = @(
     label = "Read-only trusted attachment upgrade history baseline chain verifier"
     workdir = $root
     command = $attachmentPackageUpgradeHistoryBaselineChainCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-case-governance-overview"
+    label = "Read-only case attachment governance overview"
+    workdir = $root
+    command = $attachmentCaseGovernanceOverviewCommand
     slow = $false
   },
   [pscustomobject]@{

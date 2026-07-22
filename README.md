@@ -169,6 +169,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [attachment-package-upgrade-history-baseline-advance.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-baseline-advance.js:1)
 - 附件升級可信基準版本鏈唯讀驗證器：
   [attachment-package-upgrade-history-baseline-chain.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-history-baseline-chain.js:1)
+- 案件附件治理唯讀總覽：
+  [attachment-case-governance-overview.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-overview.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -201,6 +203,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 既有基準之後出現合法新增收據時，先用唯讀索引確認差異，再執行 `node 結構工具箱/tools/attachment-package-upgrade-history-baseline-advance.js --history <外部歷程資料夾> --baseline <既有外部可信基準 JSON> --accept-additions --reviewer <內部複核人> --basis <複核依據> [--output <新的外部前進包資料夾>] [--json]`，或使用 `結構工具箱/tools/推進附件升級可信基準.bat`。前進工具只接受「舊收據完全不變且僅有新增」；遺失、同 ID 改變、收據篡改或其他警告均不發布。明確接受後會建立一個新前進包，內含新版 `valid` 基準與 `formal-attachment-package-upgrade-history-baseline-advancement-record.v1` 內部核准紀錄；紀錄綁定舊／新基準 SHA-256、`HIX-` 集合指紋、收據數、逐筆新增 ID／`HIS-` 指紋、複核人及依據。兩檔先在隱藏暫存目錄完成封閉欄位、重複 JSON key、`HAD-` 指紋、差異集合、歷程回讀及 SHA-256 交叉驗證，最後整個目錄原子發布，既有基準永不改寫。此核准只代表接受內部歷程新增，不是計算書或正式附件核可，也不得附入主報告。
 
 多次前進後，可執行 `node 結構工具箱/tools/attachment-package-upgrade-history-baseline-chain.js --history <外部歷程資料夾> --chain-root <可信基準根目錄> [--initial-baseline <根目錄外的初始可信基準 JSON>] [--json]`，或使用 `結構工具箱/tools/檢查附件升級可信基準版本鏈.bat`。版本鏈驗證器固定唯讀，依基準 SHA-256 與每份核准紀錄建立單根、單終端的線性鏈，逐段重驗純新增差異、核准時間、`HAD-`、`HIX-`、`HIS-` 及新舊基準交叉證據；缺口、分叉、合流、重複基準、基準遭替換、缺少或重複鍵核准紀錄、目前歷程遺失或改變均為 `blocked=2`。終端基準與目前歷程相符為 `valid=0`；目前歷程只有尚未納入的合法新增時為 `review=1`，表示需另行複核與前進，不會自動改寫版本鏈。輸出只含相對名稱、指紋與摘要，不含完整路徑、複核人或依據；`HCX-` 是目前版本鏈集合指紋，不是數位簽章。版本鏈、核准紀錄與檢查結果均屬內部治理資料，不得放入計算書、主報告、正式附件包或 Pages。
+
+案件歸檔前，可執行 `node 結構工具箱/tools/attachment-case-governance-overview.js --package <正式附件包> --history <外部歷程資料夾> --chain-root <可信基準根目錄> [--initial-baseline <根目錄外的初始可信基準 JSON>] [--json]`，或使用 `結構工具箱/tools/檢查案件附件治理總覽.bat`。總覽固定唯讀並直接沿用正式附件包驗證器與可信基準版本鏈驗證器：附件包 `ready` 且版本鏈 `valid` 時才回報「可進入內部歸檔複核」／退出碼 0；舊包相容性提醒或合法新增尚待前進為 `review=1`；附件包損壞、斷鏈、篡改、核准證據異常或總覽期間任一輸入改變為 `blocked=2`。輸入三區必須是完全分離的實體資料夾，檢查前後重驗整體快照；輸出只含資料夾名稱、狀態、數量與 `PKG-`／`HIX-`／`HCX-`／`GOV-` 指紋，不含完整路徑、計算內容、複核人或依據。`ready` 不是新增核可，只表示現有正式附件包與內部追溯證據一致；總覽不得附入計算書、主報告、正式附件包或 Pages。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 

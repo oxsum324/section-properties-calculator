@@ -161,6 +161,10 @@ try {
   });
   assert.equal(externalInitial.status, 'valid');
   assert.equal(externalInitial.summary.baselines, 3);
+  assert.throws(
+    () => Chain.inspectChain(main.historyDir, main.chainRoot, { now: TIMES.inspect, initialBaseline: main.initialPath }),
+    /不得位於歷程或版本鏈根目錄內/,
+  );
 
   const missingApprovalRoot = path.join(tempRoot, 'missing-approval-root');
   copyDirectoryFiles(main.chainRoot, missingApprovalRoot);

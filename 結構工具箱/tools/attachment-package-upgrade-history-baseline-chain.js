@@ -34,8 +34,8 @@ function physicalDirectory(directory, label) {
   return { resolved, realPath };
 }
 
-function directorySnapshot(directory) {
-  const root = physicalDirectory(directory, '可信基準版本鏈根目錄');
+function directorySnapshot(directory, label = '可信基準版本鏈根目錄') {
+  const root = physicalDirectory(directory, label);
   const rootStat = fs.lstatSync(root.resolved, { bigint: true });
   const entries = [];
   function visit(current, relativeParent = '') {
@@ -106,8 +106,11 @@ function inspectChain(historyDir, chainRoot, options = {}) {
     const external = Advance.fileSnapshot(options.initialBaseline);
     externalPath = external.resolved;
     externalBefore = external;
-    if (Builder.isPathInside(history.resolved, external.realPath)) {
-      throw new Error('外部初始可信基準不得位於歷程資料夾內。');
+    if (Builder.isPathInside(history.resolved, external.realPath)
+        || Builder.isPathInside(history.realPath, external.realPath)
+        || Builder.isPathInside(root.resolved, external.realPath)
+        || Builder.isPathInside(root.realPath, external.realPath)) {
+      throw new Error('外部初始可信基準不得位於歷程或版本鏈根目錄內。');
     }
   }
 
