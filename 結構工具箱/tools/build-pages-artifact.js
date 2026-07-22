@@ -31,6 +31,7 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend.js',
   '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition.js',
   '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js',
+  '結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
 ]);

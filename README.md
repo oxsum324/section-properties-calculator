@@ -187,6 +187,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [attachment-case-governance-portfolio-snapshot-trend-disposition.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition.js:1)
 - 多案件治理趨勢處置外部可信檢查點：
   [attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js:1)
+- 多案件治理趨勢處置可信檢查點歷程：
+  [attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js:1)
 - 錨栓 `anchor/` 可攜式部署同步（Pages 子路徑與 Vercel `/anchor/` 共用）：
   [sync-anchor-deployment.ps1](/C:/Users/USER/Desktop/AI/小工具製作/sync-anchor-deployment.ps1:1)
 
@@ -237,6 +239,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 對趨勢中的預期案件移除或目前仍反覆出現的提醒完成內部判讀後，可先執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition.js --directory <治理快照資料夾> --ledger <獨立內部處置紀錄資料夾> [--json]`，或使用 `結構工具箱/tools/檢查多案件治理趨勢處置.bat` 檢視原始注意與處置後有效注意；明確確認時加上 `--acknowledge [--case-removal <案件名稱> ...] [--recurring-issue <問題代碼> ...] --reviewer <內部複核人> --basis <複核依據>`，單一目標也可使用 `結構工具箱/tools/記錄多案件治理趨勢處置.bat`。處置紀錄資料夾必須與快照資料夾完全分離，只接受依序號、時間與 `TRA-` 命名的封閉實體 JSON；重複 key、改名、額外項目、硬連結、序號缺口、前後指紋不連續、時間倒退或讀取競態均 blocked。每份收據以 `DTE-` 綁定案件本次持續移除的開始時間與最後出現時間，或問題本次連續出現的開始時間、受影響案件集合及上層出現狀態；同一證據持續跨新快照時既有收據仍有效，案件重新加入後再移除、問題消失再發生或受影響案件集合改變時必須重新確認。唯讀組合結果完成前會再次同時重讀趨勢與收據鏈，任一側改變即 blocked。發布採上層排他鎖、排他暫存、fsync、自我回讀、發布前趨勢／收據鏈重驗、原子硬連結與發布後再次重驗；同一有效目標不得重複確認。`TAI-` 綁定完整收據鏈，`TDS-` 綁定目前趨勢、適用收據與有效注意。收據內保存複核人與依據，但命令結果不揭露；確認只可解除對應的歷史型 P2 注意，不能覆蓋目前 blocked／review、既有 P0／P1 或最新惡化。處置收據與結果均屬公司內部治理資料，不是正式附件核可、版本前進、風險評分或數位簽章，不得放入計算書、主報告、正式附件包或 Pages。
 
 為了補上 `TAI-` 收據鏈只靠自身無法識別「尾端整段被刪除」的限制，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js --directory <治理快照資料夾> --ledger <內部處置紀錄資料夾> --checkpoint <指定的外部可信檢查點 JSON> [--json]`，或使用 `結構工具箱/tools/檢查多案件治理趨勢處置檢查點.bat`。初次錨定使用 `--initialize --output <外部檢查點資料夾> --reviewer <複核人> --basis <依據>`；既有前綴完全相同且只有新收據時，才可使用 `--advance --checkpoint <前一檢查點> --accept-additions --output <外部檢查點資料夾> --reviewer <複核人> --basis <依據>`，或使用 `結構工具箱/tools/建立多案件治理趨勢處置檢查點.bat`。每次建立不可覆寫的新檔，以 `TAC-` 綁定當時完整收據清單、每檔 SHA-256、`TRA-` 終端與 `TAI-`；前進檔再綁定前一檢查點的檔名、`TAC-` 與 SHA-256。指定鏈若較檢查點短，即使剩餘前綴仍可通過鏈內驗證，也會以尾端截斷 blocked；既有前綴變更同樣 blocked，純新增則維持 review，直到人工複核後建立新檢查點。檢查點必須位於快照與處置鏈之外的受保護位置，使用時必須明確指定，工具不會自動猜選所謂最新檔；若檢查點本身可被任意替換，本機雜湊無法提供獨立信任。可信檢查點只證明處置鏈相對完整性，不會把目前 `review`／`blocked` 降級，也不是正式附件核可、數位簽章或附件內容；檢查點、工具、測試、批次入口與結果均不得放入計算書、主報告、正式附件包或 Pages。
+
+當同一資料夾累積多份 `TAC-` 後，可執行 `node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js --directory <治理快照資料夾> --ledger <內部處置紀錄資料夾> --history <可信檢查點歷程資料夾> --head <明確指定的受信任 TAC 終點 JSON> [--json]`，或使用 `結構工具箱/tools/檢查多案件治理趨勢處置檢查點歷程.bat`。歷程入口只接受直接位於指定資料夾的封閉實體 JSON、單一 link count 與內容一致檔名；恰須一份 initial，後續 advance 必須逐份引用前一檔名、`TAC-` 及 SHA-256，完整保留收據前綴、增加收據數、正確記錄接受新增數，且案件群組、快照及處置資料夾範圍不得改變。缺少中間檔、替換、改名、分叉、循環、回退、範圍切換或讀取競態均 blocked，並以 `TCH-` 綁定整條有序歷程；指定終點是唯一鏈尾時 ready，其後另有合法檢查點時只回報 review，要求人工改指新的受信任終點。工具絕不依時間或檔名自動猜選終點，因為改用較舊路徑會破壞外部信任意義。歷程狀態不得低於目前處置／工程狀態，結果不含完整路徑、複核人或依據；它不是正式附件核可、防竄改儲存或數位簽章，也不得進入計算書、主報告、正式附件包或 Pages。
 
 RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 

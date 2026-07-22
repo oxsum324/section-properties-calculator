@@ -1320,6 +1320,11 @@ node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-d
 exit $LASTEXITCODE
 '@
 
+$attachmentCaseGovernancePortfolioSnapshotTrendDispositionCheckpointHistoryCommand = @'
+node 結構工具箱/tools/attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1674,6 +1679,10 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\建立多案件治理趨勢處置檢查點.bat'
     Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint.js', '--directory', '%~1', '--ledger', '%~2', '--output', '%~3', '--reviewer', '%~4', '--basis', '%~5', '%~6', '--initialize', '--advance', '--checkpoint', '--accept-additions')
+  },
+  @{
+    Path = '結構工具箱\tools\檢查多案件治理趨勢處置檢查點歷程.bat'
+    Needles = @('attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history.js', '--directory', '%~1', '--ledger', '%~2', '--history', '%~3', '--head', '%~4')
   }
 )
 
@@ -2318,6 +2327,13 @@ $checks = @(
     label = "External trusted checkpoint for trend disposition receipt chains"
     workdir = $root
     command = $attachmentCaseGovernancePortfolioSnapshotTrendDispositionCheckpointCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-case-governance-portfolio-snapshot-trend-disposition-checkpoint-history"
+    label = "Designated-head history verification for trusted disposition checkpoints"
+    workdir = $root
+    command = $attachmentCaseGovernancePortfolioSnapshotTrendDispositionCheckpointHistoryCommand
     slow = $false
   },
   [pscustomobject]@{
