@@ -443,6 +443,73 @@ function verificationRecord(item, values = {}) {
   };
 }
 
+function comparableTraceDate(value) {
+  const epoch = Checker.parseTraceDateTime(value);
+  return Number.isFinite(epoch) ? `epoch:${epoch}` : `text:${String(value || '').trim()}`;
+}
+
+function comparableFingerprints(record) {
+  return Checker.normalizedFingerprints(record).sort();
+}
+
+function manifestContentMetadataMismatches(item, inspectedRecord, schemaVersion) {
+  const mismatches = [];
+  if (String(item.record.sourceTool || '').trim() !== String(inspectedRecord.sourceTool || '').trim()) mismatches.push('產出工具');
+  if (Checker.normalizeToolVersion(item.record.toolVersion) !== Checker.normalizeToolVersion(inspectedRecord.toolVersion)) mismatches.push('工具版本');
+  if (comparableTraceDate(item.record.outputTime) !== comparableTraceDate(inspectedRecord.outputTime)) mismatches.push('輸出時間');
+  if (item.role === 'formal' && schemaVersion >= 3
+      && comparableTraceDate(item.record.approvalTime) !== comparableTraceDate(inspectedRecord.approvalTime)) mismatches.push('核可時間');
+  if (JSON.stringify(comparableFingerprints(item.record)) !== JSON.stringify(comparableFingerprints(inspectedRecord))) mismatches.push('計算指紋');
+  return mismatches;
+}
+
+function verifyPackagedContent(packageDir, validItems, manifest, report) {
+  if (manifest.schemaVersion < 3) return;
+  const verifiedPaths = new Set(report.records
+    .filter(record => record.status === 'verified')
+    .map(record => record.packagedFile));
+  const inspectedItems = [];
+  validItems.forEach(item => {
+    if (!verifiedPaths.has(item.packagedFile)) return;
+    const absolutePath = path.resolve(packageDir, ...item.packagedFile.split('/'));
+    const inspectedRecord = Checker.inspectAttachment(absolutePath, packageDir);
+    inspectedItems.push({ item, inspectedRecord });
+    const verification = report.records.find(record => record.packagedFile === item.packagedFile);
+    if (verification) {
+      verification.documentClass = (inspectedRecord.readyDocumentNeedles || []).includes(Checker.READY_DOCUMENT_CLASS_LABEL)
+        ? Checker.READY_DOCUMENT_CLASS_LABEL
+        : '';
+      verification.contentBoundary = inspectedRecord.contentBoundary
+        ? {
+          profile: inspectedRecord.contentBoundary.profile,
+          missingGroups: [...inspectedRecord.contentBoundary.missingGroups],
+        }
+        : null;
+    }
+    const mismatches = manifestContentMetadataMismatches(item, inspectedRecord, manifest.schemaVersion);
+    if (mismatches.length) {
+      addIssue(
+        report,
+        'manifest-content-metadata-mismatch',
+        `${item.packagedFile} 的清單資料與附件實際內容不一致：${mismatches.join('、')}。`,
+        [item.packagedFile],
+      );
+    }
+  });
+
+  report.summary.formalContentExpected = validItems.filter(item => item.role === 'formal').length;
+  report.summary.formalContentChecked = inspectedItems.filter(entry => entry.item.role === 'formal').length;
+  if (!inspectedItems.length) return;
+  const contentReport = Checker.analyzePackage(
+    inspectedItems.map(entry => entry.inspectedRecord),
+    { projectNo: typeof manifest.projectNo === 'string' ? manifest.projectNo : '' },
+  );
+  contentReport.issues.forEach(issue => {
+    if (issue.level === 'warn') addWarning(report, issue.code, issue.message, issue.files);
+    else addIssue(report, issue.code, issue.message, issue.files);
+  });
+}
+
 function verifyRecord(packageDir, item, report, observedHashes) {
   const absolutePath = path.resolve(packageDir, ...item.packagedFile.split('/'));
   if (!Builder.isPathInside(packageDir, absolutePath)) {
@@ -508,7 +575,14 @@ function verifyPackage(inputDir) {
     manifestSchemaVersion: null,
     manifestKind: '',
     packageFingerprint: '',
-    summary: { expectedFiles: 0, verifiedFiles: 0, errors: 0, warnings: 0 },
+    summary: {
+      expectedFiles: 0,
+      verifiedFiles: 0,
+      formalContentExpected: 0,
+      formalContentChecked: 0,
+      errors: 0,
+      warnings: 0,
+    },
     issues: [],
     records: [],
   };
@@ -602,6 +676,7 @@ function verifyPackage(inputDir) {
   }
 
   validItems.forEach(item => verifyRecord(packageDir, item, report, observedHashes));
+  verifyPackagedContent(packageDir, validItems, manifest, report);
   verifyReadme(packageDir, manifest, report, observedHashes);
 
   const expectedFiles = new Set([manifestRelativePath(), readmeRelativePath(), ...validItems.map(item => item.packagedFile)]);
@@ -625,8 +700,9 @@ function verifyPackage(inputDir) {
 function formatSummary(report) {
   const statusLabel = report.status === 'ready' ? '通過' : report.status === 'review' ? '需人工確認' : '阻擋';
   const lines = [
-    `正式附件包完整性驗證：${statusLabel}`,
+    `正式附件包完整性與工程內容驗證：${statusLabel}`,
     `清單檔案 ${report.summary.expectedFiles} 份；已驗證 ${report.summary.verifiedFiles} 份；阻擋 ${report.summary.errors} 項；提醒 ${report.summary.warnings} 項。`,
+    `正式附件內容複驗 ${report.summary.formalContentChecked} / ${report.summary.formalContentExpected} 份。`,
   ];
   if (report.packageFingerprint) lines.push(`附件包指紋：${report.packageFingerprint}`);
   report.issues.forEach(issue => lines.push(`[${issue.level === 'warning' ? '提醒' : '阻擋'}] ${issue.message}`));
@@ -692,6 +768,10 @@ module.exports = {
   unknownObjectFields,
   findDuplicateJsonKeys,
   verifyPackageStability,
+  comparableTraceDate,
+  comparableFingerprints,
+  manifestContentMetadataMismatches,
+  verifyPackagedContent,
   summarizeIssues,
   verifyPackage,
   formatSummary,

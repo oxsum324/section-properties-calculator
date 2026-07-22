@@ -93,6 +93,8 @@
 | `結構工具箱/assets/hy/colors_and_type.css` | 納入 | 弘一首頁設計 token；只使用本機 / 系統字型，不載入遠端 Google Fonts，確保離線 preflight 與現場瀏覽器可用。 |
 | `螺栓檢討/bolt-review-tool/` | 保持原工具碼與 deploy 輸出分流 | 原始 React 工具用 npm verify；`anchor/` 是部署鏡像。修改 `src/` 原始碼後先跑 `sync-anchor-deployment.ps1`，再跑 preflight；獨立 `tests/` 治理檔不屬於部署 fingerprint。新增規範路線時同步更新 `src/anchor-traceability.catalog.json` 與 `src/anchorTraceabilityCatalog.test.ts`；調整計算書、workbook、docx、正式產物留存或頁面專用附件閱讀狀態時，需一併更新 repo 層 `螺栓檢討/anchor-report.contract.test.js` 與 `tests/reportArtifacts.test.ts`。 |
 
+目前 v3 正式附件包的事後驗證不只核對雜湊與清單；驗證器會重新解析包內正式附件及來源 JSON，重做正向工程內容、page-only 排除、正式附件身分、核可時間與來源／報告指紋配對，並核對清單 metadata 與附件實際文字。測試必須證明即使同步改寫附件、檔案雜湊、清單及附件包指紋，空殼計算書或工具／版本／時間／指紋不一致仍會 blocked。既有 v1／v2 維持原完整性規則及 review 分級。
+
 ## 不進 repo 的類型
 
 - `node_modules/`、`.vite/`、`.playwright-cli/`

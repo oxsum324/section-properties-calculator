@@ -341,7 +341,7 @@ function buildPackage(inputDir, options = {}) {
     const Verifier = require('./attachment-package-verify.js');
     const verification = Verifier.verifyPackage(stagingDir);
     if (verification.status !== 'ready') {
-      throw new Error(`正式附件包發布前完整性驗證未通過：${summarizeVerificationFailure(verification)}`);
+      throw new Error(`正式附件包發布前完整性與工程內容驗證未通過：${summarizeVerificationFailure(verification)}`);
     }
     publishStagingDirectory(stagingDir, resolvedOutput);
     return {
@@ -407,7 +407,7 @@ function main(argv = process.argv.slice(2)) {
   console.log(`正式附件包已建立：${result.outputDir}`);
   console.log(`正式附件 ${result.formalAttachmentCount} 份；內部追溯來源 ${result.traceabilitySourceCount} 份。`);
   console.log(`附件包指紋：${result.packageFingerprint}`);
-  console.log('發布前完整性驗證：通過。');
+  console.log('發布前完整性與工程內容驗證：通過。');
   return 0;
 }
 

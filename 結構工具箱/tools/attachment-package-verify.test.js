@@ -72,6 +72,17 @@ function writeReadme(packageDir, packageFingerprint) {
   );
 }
 
+function refreshV3PackageIntegrity(packageDir, manifest) {
+  [...manifest.formalAttachments, ...manifest.traceabilitySources].forEach(record => {
+    const filePath = path.join(packageDir, ...record.packagedFile.split('/'));
+    record.bytes = fs.statSync(filePath).size;
+    record.sha256 = Builder.sha256File(filePath);
+  });
+  manifest.packageFingerprint = Builder.packageFingerprintV3(manifest);
+  writeManifest(packageDir, manifest);
+  writeReadme(packageDir, manifest.packageFingerprint);
+}
+
 function hasIssue(report, code) {
   return report.issues.some(issue => issue.code === code);
 }
@@ -116,6 +127,8 @@ try {
   assert.equal(readyReport.manifestKind, Builder.MANIFEST_KIND);
   assert.equal(readyReport.summary.expectedFiles, 2);
   assert.equal(readyReport.summary.verifiedFiles, 2);
+  assert.equal(readyReport.summary.formalContentExpected, 1);
+  assert.equal(readyReport.summary.formalContentChecked, 1);
   assert.equal(readyReport.summary.errors, 0);
   assert.equal(readyReport.summary.warnings, 0);
   assert.equal(readyReport.records.every(record => record.status === 'verified'), true);
@@ -125,7 +138,9 @@ try {
   assert.equal(readyFormalRecord.outputTime, '2026/07/21 22:00:00');
   assert.equal(readyFormalRecord.approvalTime, '2026/07/21 22:05:00');
   assert.deepEqual(readyFormalRecord.fingerprints, [FINGERPRINT]);
-  assert.match(Verifier.formatSummary(readyReport), /完整性驗證：通過/);
+  assert.deepEqual(readyFormalRecord.contentBoundary, { profile: 'calculation-book', missingGroups: [] });
+  assert.match(Verifier.formatSummary(readyReport), /完整性與工程內容驗證：通過/);
+  assert.match(Verifier.formatSummary(readyReport), /正式附件內容複驗 1 \/ 1 份/);
   assert.equal(
     Verifier.samePackageRoot(
       Verifier.packageRootIdentity(readyPackage),
@@ -162,7 +177,7 @@ try {
   assert.equal(legacyReport.records.every(record => record.status === 'verified'), true);
   assert.equal(legacyReport.records.find(record => record.role === 'formal').approvalTime, '2026/07/21 22:05:00');
   assert.equal(hasIssue(legacyReport, 'legacy-manifest-review'), true);
-  assert.match(Verifier.formatSummary(legacyReport), /完整性驗證：需人工確認/);
+  assert.match(Verifier.formatSummary(legacyReport), /完整性與工程內容驗證：需人工確認/);
   const legacyCli = spawnSync(process.execPath, [
     path.join(__dirname, 'attachment-package-verify.js'), '--input', legacyPackage,
   ], { encoding: 'utf8' });
@@ -266,7 +281,39 @@ try {
     path.join(__dirname, 'attachment-package-verify.js'), '--input', readyPackage,
   ], { encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stderr || cli.stdout);
-  assert.match(cli.stdout, /正式附件包完整性驗證：通過/);
+  assert.match(cli.stdout, /正式附件包完整性與工程內容驗證：通過/);
+
+  const forgedEmptyShellPackage = createPackage(tempRoot, 'forged-empty-shell');
+  const forgedEmptyShellManifest = readManifest(forgedEmptyShellPackage);
+  const forgedEmptyShellPath = path.join(
+    forgedEmptyShellPackage,
+    ...forgedEmptyShellManifest.formalAttachments[0].packagedFile.split('/'),
+  );
+  fs.writeFileSync(forgedEmptyShellPath, [
+    '<h1>RC 梁設計計算書</h1>',
+    '<div>文件狀態：正式附件</div>',
+    '<div>計畫編號：PKG-VERIFY-001</div>',
+    '<div>產出工具：RC 梁</div>',
+    '<div>工具版本：v3.1</div>',
+    '<div>輸出時間：2026/07/21 22:00:00</div>',
+    '<div>核可時間：2026/07/21 22:05:00</div>',
+    `<div>計算指紋：${FINGERPRINT}</div>`,
+  ].join('\n'), 'utf8');
+  refreshV3PackageIntegrity(forgedEmptyShellPackage, forgedEmptyShellManifest);
+  const forgedEmptyShellReport = Verifier.verifyPackage(forgedEmptyShellPackage);
+  assert.equal(forgedEmptyShellReport.status, 'blocked', 'self-consistent hashes cannot turn a title/status shell into a formal attachment');
+  assert.equal(hasIssue(forgedEmptyShellReport, 'missing-calculation-content'), true);
+  assert.equal(hasIssue(forgedEmptyShellReport, 'hash-mismatch'), false);
+  assert.equal(hasIssue(forgedEmptyShellReport, 'package-fingerprint-mismatch'), false);
+
+  const forgedMetadataPackage = createPackage(tempRoot, 'forged-content-metadata');
+  const forgedMetadataManifest = readManifest(forgedMetadataPackage);
+  forgedMetadataManifest.formalAttachments[0].toolVersion = 'v9.9';
+  refreshV3PackageIntegrity(forgedMetadataPackage, forgedMetadataManifest);
+  const forgedMetadataReport = Verifier.verifyPackage(forgedMetadataPackage);
+  assert.equal(forgedMetadataReport.status, 'blocked', 'manifest metadata must match the actual formal attachment text');
+  assert.equal(hasIssue(forgedMetadataReport, 'manifest-content-metadata-mismatch'), true);
+  assert.equal(hasIssue(forgedMetadataReport, 'package-fingerprint-mismatch'), false);
 
   const modifiedPackage = createPackage(tempRoot, 'modified');
   const modifiedManifest = readManifest(modifiedPackage);

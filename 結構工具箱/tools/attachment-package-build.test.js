@@ -127,7 +127,7 @@ try {
   assert.equal(cli.status, 0, cli.stderr || cli.stdout);
   assert.match(cli.stdout, /正式附件包已建立/);
   assert.match(cli.stdout, /正式附件 1 份；內部追溯來源 1 份/);
-  assert.match(cli.stdout, /發布前完整性驗證：通過/);
+  assert.match(cli.stdout, /發布前完整性與工程內容驗證：通過/);
   assert.equal(fs.existsSync(path.join(cliOutput, Builder.FORMAL_ATTACHMENTS_DIR, 'reports', 'beam.html')), true);
 
   const retryRenameSource = path.join(tempRoot, 'retry-rename-source');
@@ -189,7 +189,7 @@ try {
   try {
     assert.throws(
       () => Builder.buildPackage(selfVerifyInput, { output: selfVerifyOutput, projectNo: 'PKG-001', now: FIXED_NOW }),
-      /發布前完整性驗證未通過：模擬完整性驗證失敗/,
+      /發布前完整性與工程內容驗證未通過：模擬完整性驗證失敗/,
     );
   } finally {
     Verifier.verifyPackage = originalVerifyPackage;

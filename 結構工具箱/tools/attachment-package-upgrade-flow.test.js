@@ -167,7 +167,7 @@ try {
   assert.equal(Verifier.verifyPackage(newPackageDir).status, 'ready');
   assert.deepEqual(directorySnapshot(workspaceDir), readyWorkspaceSnapshot, 'successful flow must not modify the workspace');
   assert.match(Flow.formatSummary(completed), /新的 v3 正式附件包已建立/);
-  assert.match(Flow.formatSummary(completed), /發布前完整性驗證：通過/);
+  assert.match(Flow.formatSummary(completed), /發布前完整性與工程內容驗證：通過/);
 
   const sourceInputPackage = path.join(tempRoot, 'source-input-v3-package');
   const sourceInputResult = Flow.runUpgradeFlow(packageSourceDir, {

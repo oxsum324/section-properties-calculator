@@ -122,7 +122,7 @@ function formatSummary(result) {
     lines.push(Completion.formatSummary(result.completion));
     lines.push(`新的 v3 正式附件包已建立：${result.packageDir}`);
     lines.push(`附件包指紋：${result.buildResult.packageFingerprint}`);
-    lines.push('發布前完整性驗證：通過。');
+    lines.push('發布前完整性與工程內容驗證：通過。');
   }
   if (result.history?.written) {
     lines.push(`內部升級歷程收據：${result.history.recordPath}`);
