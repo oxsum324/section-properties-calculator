@@ -1260,6 +1260,11 @@ node 結構工具箱/tools/attachment-package-upgrade-history-index.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageUpgradeHistoryBaselineCommand = @'
+node 結構工具箱/tools/attachment-package-upgrade-history-baseline.test.js
+exit $LASTEXITCODE
+'@
+
 $releaseReadinessContractCommand = @'
 node 結構工具箱/tools/release-readiness.contract.test.js
 exit $LASTEXITCODE
@@ -1558,6 +1563,10 @@ $checks = @(
   @{
     Path = '結構工具箱\tools\檢查附件升級內部歷程.bat'
     Needles = @('attachment-package-upgrade-history-index.js', '--history', '%~1', '--baseline', '%~2')
+  },
+  @{
+    Path = '結構工具箱\tools\建立附件升級可信基準.bat'
+    Needles = @('attachment-package-upgrade-history-baseline.js', '--history', '%~1', '--baseline', '%~2', '--output', '%~3')
   }
 )
 
@@ -2118,6 +2127,13 @@ $checks = @(
     label = "Read-only legacy attachment upgrade history index"
     workdir = $root
     command = $attachmentPackageUpgradeHistoryIndexCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-upgrade-history-baseline"
+    label = "Trusted legacy attachment upgrade history baseline publisher"
+    workdir = $root
+    command = $attachmentPackageUpgradeHistoryBaselineCommand
     slow = $false
   },
   [pscustomobject]@{
