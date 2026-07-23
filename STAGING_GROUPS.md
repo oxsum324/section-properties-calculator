@@ -25,7 +25,7 @@
 
 ```powershell
 git add -- CONTEXT.md docs/adr/0001-page-only-report-readiness.md
-git add -- ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "run-preflight-tools-ci.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js"
+git add -- ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "run-preflight-tools-ci.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js"
 git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/tool-maturity-matrix.js"
 git add -- "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
@@ -50,7 +50,8 @@ node .\結構工具箱\tools\report-disclosure.contract.test.js
 node .\結構工具箱\tools\tool-maturity-matrix.js --write --check
 .\run-preflight-tools-release.bat
 .\run-pages-artifact-smoke.ps1
-git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
+.\push-pages-release.ps1 -VerifyOnly
+git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
 
 下次不要混入本包：
@@ -72,7 +73,7 @@ Harden page-only report readiness release evidence
 下次可直接 staging 的檔案：
 
 ```powershell
-git add -- .gitignore README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/ docs/adr/0001-page-only-report-readiness.md .github/workflows/pages-deploy.yml .github/workflows/pr-validation.yml preflight-tools.ps1 run-preflight-tools.bat run-preflight-tools-quick.bat run-preflight-tools-ci.bat run-preflight-tools-release.bat run-pages-artifact-smoke.ps1 sync-anchor-deployment.ps1 continuous-beam-regression.test.js test-continuous-beam.ps1 "連續梁分析.html" browser-dialogs.contract.test.js decking-tools.contract.test.js frame-analysis.contract.test.js pages-release-governance.contract.test.js pr-validation.contract.test.js section-tools.contract.test.js stone-feedback.contract.test.js struct-dx.contract.test.js toolbox-entrypoints.contract.test.js
+git add -- .gitignore README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/ docs/adr/0001-page-only-report-readiness.md .github/workflows/pages-deploy.yml .github/workflows/pr-validation.yml preflight-tools.ps1 run-preflight-tools.bat run-preflight-tools-quick.bat run-preflight-tools-ci.bat run-preflight-tools-release.bat run-pages-artifact-smoke.ps1 push-pages-release.ps1 push-pages-release.bat sync-anchor-deployment.ps1 continuous-beam-regression.test.js test-continuous-beam.ps1 "連續梁分析.html" browser-dialogs.contract.test.js decking-tools.contract.test.js frame-analysis.contract.test.js pages-release-governance.contract.test.js pr-validation.contract.test.js section-tools.contract.test.js stone-feedback.contract.test.js struct-dx.contract.test.js toolbox-entrypoints.contract.test.js
 git add -- platform-audit-preflight.ps1 refresh-platform-status.ps1 audit-all.ps1 run-audit-all.bat run-audit-all-loop.bat
 git add -- "鋼構工具/run-audit.bat" "鋼筋混凝土/run-audit.bat" "結構工具箱/audit-core.ps1" "結構工具箱/run-audit-core.bat"
 git add -- "開挖擋土支撐/start_html_mode.ps1" "開挖擋土支撐/stop_html_mode.ps1" "開挖擋土支撐/excavation-traceability.contract.test.js" "開挖擋土支撐/excavation-report.contract.test.js" "開挖擋土支撐/backend/tests/release_report_artifacts.py"
@@ -299,6 +300,7 @@ Replace anchor dialogs with in-app confirmations
 .\preflight-tools.ps1 -Quick
 .\preflight-tools.ps1
 .\run-pages-artifact-smoke.ps1
+.\push-pages-release.ps1 -VerifyOnly
 git diff --check
 git status --short --untracked-files=normal
 ```

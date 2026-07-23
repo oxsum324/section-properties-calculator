@@ -418,6 +418,8 @@ const pagesCleanRouteBuilderPath = path.join(toolboxRoot, 'tools/build-pages-cle
 const pagesCleanRouteBuilder = readText(pagesCleanRouteBuilderPath);
 const pagesDeployWorkflow = readText(path.join(repoRoot, '.github/workflows/pages-deploy.yml'));
 const pagesArtifactSmoke = readText(path.join(repoRoot, 'run-pages-artifact-smoke.ps1'));
+const pushPagesRelease = readText(path.join(repoRoot, 'push-pages-release.ps1'));
+const pushPagesReleaseBatch = readText(path.join(repoRoot, 'push-pages-release.bat'));
 const anchorSync = readText(path.join(repoRoot, 'sync-anchor-deployment.ps1'));
 
 function assertPagesCleanRouteBuilder() {
@@ -704,9 +706,20 @@ assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/backend/app/main.py'), 'Pa
 assert.ok(pagesLiveSmoke.includes('開挖擋土支撐/frontend/src/App.tsx'), 'Pages live smoke blocks excavation frontend source publication');
 assert.ok(pagesLiveSmoke.includes('螺栓檢討/bolt-review-tool/src/App.tsx'), 'Pages live smoke blocks anchor source publication');
 assert.ok(fs.existsSync(path.join(repoRoot, 'run-pages-artifact-smoke.ps1')), 'local Pages artifact smoke wrapper exists');
+assert.ok(fs.existsSync(path.join(repoRoot, 'push-pages-release.ps1')) && fs.existsSync(path.join(repoRoot, 'push-pages-release.bat')), 'safe Pages push and release wrappers exist');
 assert.ok(readme.includes('run-pages-artifact-smoke.ps1'), 'README documents local Pages artifact smoke wrapper');
+assert.ok(readme.includes('push-pages-release.ps1'), 'README documents safe Pages push and release verification');
 assert.ok(staging.includes('run-pages-artifact-smoke.ps1'), 'STAGING_GROUPS includes local Pages artifact smoke wrapper');
+assert.ok(staging.includes('push-pages-release.ps1') && staging.includes('push-pages-release.bat'), 'STAGING_GROUPS includes safe Pages release wrappers');
 assert.ok(boundaries.includes('run-pages-artifact-smoke.ps1'), 'TOOL_BOUNDARIES includes local Pages artifact smoke wrapper');
+assert.ok(boundaries.includes('push-pages-release.ps1') && boundaries.includes('push-pages-release.bat'), 'TOOL_BOUNDARIES includes safe Pages release wrappers');
+assert.ok(pushPagesRelease.includes("'status', '--porcelain', '--untracked-files=all'") && pushPagesRelease.includes("'rev-list', '--left-right', '--count'"), 'safe Pages release wrapper proves clean and non-diverged source');
+assert.ok(pushPagesRelease.includes("$ErrorActionPreference = 'Continue'") && pushPagesRelease.includes('$exitCode = $LASTEXITCODE'), 'safe Pages release wrapper handles successful native stderr without weakening exit-code failures');
+assert.ok(pushPagesRelease.includes('Wait-PushRun') && pushPagesRelease.includes('Dispatch-WorkflowRun'), 'safe Pages release wrapper waits before fallback dispatch');
+assert.ok(pushPagesRelease.includes("$expectedNames = @('build', 'deploy', 'live-smoke')") && pushPagesRelease.includes('TopLevelStale'), 'safe Pages release wrapper uses required job evidence even when aggregate status is stale');
+assert.ok(pushPagesRelease.includes('JobStatusStale') && pushPagesRelease.includes('allStepsSuccessful') && pushPagesRelease.includes('$failedSteps'), 'safe Pages release wrapper requires successful steps before accepting a stale job aggregate');
+assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && pushPagesRelease.includes('sourceDirty'), 'safe Pages release wrapper verifies cache-busted public provenance');
+assert.ok(pushPagesReleaseBatch.includes('push-pages-release.ps1'), 'safe Pages batch invokes the governed PowerShell entrypoint');
 assert.ok(pagesArtifactSmoke.includes('GetTempPath'), 'local Pages artifact smoke stages into temp');
 assert.ok(pagesArtifactSmoke.includes('$ArtifactBuilder') && pagesArtifactSmoke.includes('--repo-root $RepoRoot --site-root $SiteRoot'), 'local Pages artifact smoke uses the shared Git-inventory builder');
 assert.equal(pagesArtifactSmoke.includes('robocopy'), false, 'local Pages artifact smoke has no duplicate robocopy exclusion policy');

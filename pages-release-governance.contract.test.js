@@ -34,6 +34,8 @@ const artifactBuilder = readText('結構工具箱/tools/build-pages-artifact.js'
 const deploymentManifestBuilderPath = path.join(repoRoot, '結構工具箱', 'tools', 'build-pages-deployment-manifest.js');
 const deploymentManifestBuilder = readText('結構工具箱/tools/build-pages-deployment-manifest.js');
 const artifactSmoke = readText('run-pages-artifact-smoke.ps1');
+const pushPagesRelease = readText('push-pages-release.ps1');
+const pushPagesReleaseBatch = readText('push-pages-release.bat');
 const maturityMatrix = readText('結構工具箱/tools/tool-maturity-matrix.js');
 const platformStatus = readJson('結構工具箱/assets/status/platform-status.json');
 const preflightStatus = readJson('結構工具箱/assets/status/preflight-summary.json');
@@ -72,6 +74,7 @@ assert.ok(staging.includes('run-pages-artifact-smoke.ps1'), 'A0 includes local P
 assert.ok(staging.includes('結構工具箱/assets/status/report-readiness-status.json'), 'A0 includes report readiness snapshot');
 
 assert.ok(toolBoundaries.includes('run-pages-artifact-smoke.ps1'), 'tool boundaries documents local Pages artifact smoke wrapper');
+assert.ok(toolBoundaries.includes('push-pages-release.ps1') && toolBoundaries.includes('push-pages-release.bat'), 'tool boundaries documents safe Pages push and verification entrypoints');
 assert.ok(toolBoundaries.includes('pages-release-governance.contract.test.js'), 'tool boundaries documents A0 release governance contract');
 assert.ok(toolBoundaries.includes('CONTEXT.md') && toolBoundaries.includes('docs/adr/'), 'tool boundaries keeps page-only docs out of Pages artifact');
 assert.ok(toolBoundaries.includes('output/') && toolBoundaries.includes('.claude') && toolBoundaries.includes('node_modules'), 'tool boundaries documents local artifact exclusions');
@@ -80,6 +83,23 @@ assert.ok(toolBoundaries.includes('--allow-local-output') && toolBoundaries.incl
 assert.ok(preflightTools.includes('pagesReleaseGovernanceContractCommand'), 'preflight defines A0 governance contract command');
 assert.ok(preflightTools.includes('node pages-release-governance.contract.test.js'), 'preflight runs A0 governance contract');
 assert.ok(preflightTools.includes('pages-release-governance-contract'), 'preflight records A0 governance contract result');
+
+assert.ok(exists('push-pages-release.ps1') && exists('push-pages-release.bat'), 'safe Pages push and verification entrypoints exist');
+assert.ok(pushPagesRelease.includes("'status', '--porcelain', '--untracked-files=all'"), 'Pages push wrapper rejects dirty tracked and untracked worktrees');
+assert.ok(pushPagesRelease.includes("$ErrorActionPreference = 'Continue'") && pushPagesRelease.includes('$exitCode = $LASTEXITCODE'), 'Pages push wrapper lets native exit codes decide success instead of treating Git progress on stderr as failure');
+assert.ok(pushPagesRelease.includes("'fetch', '--prune', $Remote, $Branch") && pushPagesRelease.includes("'rev-list', '--left-right', '--count'"), 'Pages push wrapper checks remote divergence before push');
+assert.ok(pushPagesRelease.includes("'push', $Remote") && !pushPagesRelease.includes('--force'), 'Pages push wrapper performs a non-force push');
+assert.ok(pushPagesRelease.includes('Wait-PushRun') && pushPagesRelease.includes('Dispatch-WorkflowRun'), 'Pages push wrapper waits for the push workflow before fallback dispatch');
+assert.ok(pushPagesRelease.indexOf('Wait-PushRun -HeadSha $headSha') < pushPagesRelease.indexOf('Dispatch-WorkflowRun -HeadSha $headSha'), 'fallback dispatch is ordered after the bounded push-run wait');
+assert.ok(pushPagesRelease.includes("$expectedNames = @('build', 'deploy', 'live-smoke')"), 'Pages push wrapper requires all three release jobs');
+assert.ok(pushPagesRelease.includes('$failedJobs') && pushPagesRelease.includes('has failed jobs'), 'Pages push wrapper fails closed on a failed job instead of dispatching over it');
+assert.ok(pushPagesRelease.includes('TopLevelStale') && pushPagesRelease.includes('AllExpectedSuccessful'), 'Pages push wrapper distinguishes stale aggregate status from successful required jobs');
+assert.ok(pushPagesRelease.includes('JobStatusStale') && pushPagesRelease.includes('allStepsSuccessful') && pushPagesRelease.includes("$run.conclusion -eq 'success'"), 'Pages push wrapper accepts a stale job aggregate only when the successful run and every job step agree');
+assert.ok(pushPagesRelease.includes('$failedSteps') && pushPagesRelease.includes('has failed steps'), 'Pages push wrapper fails closed on any failed job step');
+assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && pushPagesRelease.includes('Test-ManifestIdentity'), 'Pages push wrapper verifies a cache-busted public deployment manifest');
+assert.ok(pushPagesRelease.includes('commitSha') && pushPagesRelease.includes('runId') && pushPagesRelease.includes('sourceDirty'), 'Pages push wrapper binds the manifest to commit, run, and clean source provenance');
+assert.ok(pushPagesRelease.includes('AllowDirtyVerification is only valid with VerifyOnly and can never authorize a push or dispatch.'), 'dirty verification mode cannot authorize mutation');
+assert.ok(pushPagesReleaseBatch.includes('push-pages-release.ps1') && pushPagesReleaseBatch.includes('%*'), 'Pages release batch forwards explicit operator options to the safe PowerShell entrypoint');
 
 {
   const orderedTokens = [
