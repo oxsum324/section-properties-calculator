@@ -1,5 +1,6 @@
 const assert = require('assert');
 const fs = require('fs');
+const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -69,6 +70,60 @@ assert.deepEqual(Checker.CONTENT_PROFILES['calculation-summary'], ['adoptedInput
 assert.equal(Checker.detectCalculationContentProfile('RC 梁設計計算書'), 'calculation-book');
 assert.equal(Checker.detectCalculationContentProfile('RC 梁計算摘要'), 'calculation-summary');
 assert.equal(Checker.extractHtmlText('<style>採用輸入 計算內容 檢核結論</style><div hidden>採用輸入</div><div aria-hidden="true">計算內容</div><h1>RC 梁設計計算書</h1>'), 'RC 梁設計計算書');
+assert.equal(
+  Checker.extractHtmlText('<style>.hidden-by-class{display:none}</style><div class="hidden-by-class">採用輸入 計算內容 檢核結論 Mu=12.5 tf·m DCR=0.69</div><div>可見報告</div>'),
+  '可見報告',
+  'class-based display:none content cannot satisfy an attachment boundary',
+);
+assert.equal(
+  Checker.extractHtmlText('<style>@media print{.print-hidden{visibility:hidden!important}}</style><div class="print-hidden">採用輸入 計算內容 檢核結論 Mu=12.5 tf·m DCR=0.69</div><div>列印可見報告</div>'),
+  '列印可見報告',
+  '@media print hidden content cannot satisfy an attachment boundary',
+);
+assert.equal(
+  Checker.extractHtmlText('<style>.transparent{opacity:0}.clear{color:transparent}</style><div class="transparent">採用輸入 計算內容</div><div class="clear">檢核結論 DCR=0.69</div><div>可見報告</div>'),
+  '可見報告',
+  'zero-opacity and transparent text cannot satisfy an attachment boundary',
+);
+const offscreenHtml = Checker.extractHtmlVisibleContent('<style>.offscreen{position:absolute;left:-9999px}</style><div class="offscreen">採用輸入 計算內容 檢核結論 Mu=12.5 tf·m DCR=0.69</div><div>可見報告</div>');
+assert(offscreenHtml.text.includes('採用輸入'), 'static extraction keeps unresolved offscreen text only for diagnosis');
+assert.deepEqual(offscreenHtml.visibilityIssues, ['.offscreen'], 'unresolved offscreen CSS forces visibility review instead of claiming visible text');
+const whiteOnWhiteHtml = Checker.extractHtmlVisibleContent('<style>.white-on-white{color:#fff;background-color:rgb(255,255,255)}</style><div class="white-on-white">採用輸入 計算內容 檢核結論 Mu=12.5 tf·m DCR=0.69</div><div>可見報告</div>');
+assert.deepEqual(whiteOnWhiteHtml.visibilityIssues, ['.white-on-white'], 'same foreground/background text forces visibility review');
+assert.equal(whiteOnWhiteHtml.text, '可見報告', 'same-color text is excluded from visible engineering content');
+const inlineWhiteDefaultHtml = Checker.extractHtmlVisibleContent('<div style="color:white">採用輸入 計算內容 檢核結論 Mu=12.5 tf·m DCR=0.69</div><div>可見報告</div>');
+assert.equal(inlineWhiteDefaultHtml.text, '可見報告', 'inline white text on the default white page cannot satisfy an attachment boundary');
+assert.deepEqual(inlineWhiteDefaultHtml.visibilityIssues, ['inline div']);
+const splitSameColorHtml = Checker.extractHtmlVisibleContent('<style>.split-same{color:white}.split-same{background:white}</style><div class="split-same">採用輸入 計算內容 檢核結論 Mu=12.5 tf·m DCR=0.69</div><div>可見報告</div>');
+assert.equal(splitSameColorHtml.text, '可見報告', 'separate rules for the same selector are merged before contrast evaluation');
+assert.deepEqual(splitSameColorHtml.visibilityIssues, ['.split-same']);
+const zeroClippedHtml = Checker.extractHtmlVisibleContent('<div style="width:0;height:0;overflow:hidden">採用輸入 計算內容 檢核結論 Mu=12.5 tf·m DCR=0.69</div><div>可見報告</div>');
+assert.equal(zeroClippedHtml.text, '可見報告', 'zero-size clipped content cannot satisfy an attachment boundary');
+assert.deepEqual(zeroClippedHtml.visibilityIssues, []);
+const contrastedHeadingHtml = Checker.extractHtmlVisibleContent('<div style="background:navy"><h1 style="color:white">明確對比彩色標題</h1></div>');
+assert.equal(contrastedHeadingHtml.text, '明確對比彩色標題', 'white text on an explicit dark ancestor remains visible');
+assert.deepEqual(contrastedHeadingHtml.visibilityIssues, [], 'clear foreground/background contrast is not flagged');
+const complexVisibilitySelectorHtml = Checker.extractHtmlVisibleContent('<style>.report .calc{color:white}</style><section class="report"><div class="calc">保留作診斷的工程內容</div></section>');
+assert(complexVisibilitySelectorHtml.text.includes('保留作診斷的工程內容'));
+assert.deepEqual(complexVisibilitySelectorHtml.visibilityIssues, ['.report .calc'], 'unparsed selectors with visibility-related declarations require review');
+const complexTypographySelectorHtml = Checker.extractHtmlVisibleContent('<style>.report h1{font-weight:700;letter-spacing:.02em}</style><section class="report"><h1>純排版標題</h1></section>');
+assert.equal(complexTypographySelectorHtml.text, '純排版標題');
+assert.deepEqual(complexTypographySelectorHtml.visibilityIssues, [], 'pure typography on a complex selector does not require visibility review');
+const linkedStylesheetHtml = Checker.extractHtmlVisibleContent('<link rel="stylesheet" href="report.css"><div>外部樣式診斷內容</div>');
+assert.equal(linkedStylesheetHtml.text, '外部樣式診斷內容');
+assert.deepEqual(linkedStylesheetHtml.visibilityIssues, ['link[rel=stylesheet]']);
+const importedStylesheetHtml = Checker.extractHtmlVisibleContent('<style>@import url("report.css");</style><div>匯入樣式診斷內容</div>');
+assert.equal(importedStylesheetHtml.text, '匯入樣式診斷內容');
+assert.deepEqual(importedStylesheetHtml.visibilityIssues, ['@import']);
+const unparsedColorHtml = Checker.extractHtmlVisibleContent('<style>.tone{color:hsl(0 0% 100%)}</style><div class="tone">HSL 診斷內容</div>');
+assert.equal(unparsedColorHtml.text, 'HSL 診斷內容');
+assert.deepEqual(unparsedColorHtml.visibilityIssues, ['.tone'], 'unsupported color functions require review even on a simple selector');
+const unparsedVariableBackgroundHtml = Checker.extractHtmlVisibleContent('<div style="background:var(--report-background)">CSS 變數診斷內容</div>');
+assert.equal(unparsedVariableBackgroundHtml.text, 'CSS 變數診斷內容');
+assert.deepEqual(unparsedVariableBackgroundHtml.visibilityIssues, ['inline div']);
+
+
+
 
 const unsafeSourceReport = Checker.analyzePackage([], { unsafeSourceEntries: ['linked-outside'] });
 assert.equal(unsafeSourceReport.status, 'blocked');
@@ -86,7 +141,113 @@ const reportRecord = {
   projectName: '測試大樓', projectNo: 'PKG-001', designer: 'Codex QA', sourceTool: 'RC 梁', toolVersion: 'V3.1',
   outputTime: '2026/07/12 13:00:00', approvalTime: '2026/07/12 13:05:00', fingerprints: ['CF-1234ABCD5678EF90'],
 };
+const whiteOnWhitePackage = Checker.analyzePackage([{ ...reportRecord, file: 'white-on-white.html', type: 'html', visibilityEvidence: { status: 'review', method: 'html-static-print-visibility', reasons: whiteOnWhiteHtml.visibilityIssues } }]);
+assert.equal(whiteOnWhitePackage.status, 'review', 'white-on-white HTML cannot automatically pass as a formal attachment');
+assert(whiteOnWhitePackage.issues.some(issue => issue.code === 'visibility-boundary-review'));
 const matchedSourceReport = Checker.analyzePackage([sourceRecord, reportRecord], { projectNo: 'PKG-001' });
+const canonicalEvidenceHash = 'a'.repeat(64);
+const canonicalVisibleText = Checker.normalizeText(COMPLETE_CALCULATION_CONTENT);
+const canonicalVisibleBoundary = Checker.evaluateCalculationContent(canonicalVisibleText, { contentBoundaryProfile: 'calculation-book' });
+const canonicalEvidence = {
+  kind: Checker.CANONICAL_RENDER_EVIDENCE_KIND,
+  artifact: 'beam.pdf',
+  artifactSha256: canonicalEvidenceHash,
+  sourceHtmlSha256: 'b'.repeat(64),
+  renderer: 'browser-print',
+  dom: {
+    printVisibility: {
+      ambiguousTextNodeCount: 0,
+      checks: ['print-media', 'text-range-client-rects'],
+    },
+  },
+  pdf: {
+    pageCount: 1,
+    pages: [{ width: 596, height: 842, inkPixels: 12000, inkRatio: 0.0239, bounds: { minX: 40, minY: 50, maxX: 550, maxY: 790 } }],
+    visibleText: {
+      source: 'controlled-html-print-session',
+      method: 'print-media-computed-style-client-rects',
+      generatedInSamePrintSession: true,
+      derivedFromRenderedPages: false,
+      text: canonicalVisibleText,
+      textLength: canonicalVisibleText.length,
+      textSha256: crypto.createHash('sha256').update(canonicalVisibleText, 'utf8').digest('hex'),
+      contentBoundary: canonicalVisibleBoundary,
+    },
+  },
+};
+assert.equal(
+  Checker.validateCanonicalRenderEvidence(canonicalEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash }).status,
+  'verified',
+  'same-session print-visible DOM plus artifact hash and rendered page metrics form canonical evidence',
+);
+const traceableVisibleText = Checker.normalizeText(`RC 梁設計計算書 產出工具：RC 梁 工具版本：v3.1 輸出時間：2026/07/12 13:00:00 計算指紋：CF-1234ABCD5678EF90 ${COMPLETE_CALCULATION_CONTENT}`);
+assert.equal(Checker.detectCalculationContentProfile(traceableVisibleText), 'traceable-calculation-book', 'complete visible traceability selects the traceable book profile');
+const traceableEvidence = JSON.parse(JSON.stringify(canonicalEvidence));
+traceableEvidence.pdf.visibleText.text = traceableVisibleText;
+traceableEvidence.pdf.visibleText.textLength = traceableVisibleText.length;
+traceableEvidence.pdf.visibleText.textSha256 = crypto.createHash('sha256').update(traceableVisibleText, 'utf8').digest('hex');
+traceableEvidence.pdf.visibleText.contentBoundary = Checker.evaluateCalculationContent(traceableVisibleText, { contentBoundaryProfile: 'traceable-calculation-book' });
+assert.equal(
+  Checker.validateCanonicalRenderEvidence(traceableEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash }).status,
+  'verified',
+  'traceable calculation-book evidence remains compatible with formal browser smoke output',
+);
+const traceableSummaryText = traceableVisibleText.replace('RC 梁設計計算書', 'RC 梁計算摘要');
+assert.equal(Checker.detectCalculationContentProfile(traceableSummaryText), 'traceable-calculation-summary', 'summary title and complete traceability select the traceable summary profile');
+const traceableSummaryEvidence = JSON.parse(JSON.stringify(traceableEvidence));
+traceableSummaryEvidence.pdf.visibleText.text = traceableSummaryText;
+traceableSummaryEvidence.pdf.visibleText.textLength = traceableSummaryText.length;
+traceableSummaryEvidence.pdf.visibleText.textSha256 = crypto.createHash('sha256').update(traceableSummaryText, 'utf8').digest('hex');
+traceableSummaryEvidence.pdf.visibleText.contentBoundary = Checker.evaluateCalculationContent(traceableSummaryText, { contentBoundaryProfile: 'traceable-calculation-summary' });
+assert.equal(Checker.validateCanonicalRenderEvidence(traceableSummaryEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash }).status, 'verified', 'traceable calculation-summary evidence remains compatible');
+const compiledEvidence = JSON.parse(JSON.stringify(traceableEvidence));
+compiledEvidence.pdf.visibleText.contentBoundary = Checker.evaluateCalculationContent(traceableVisibleText, { contentBoundaryProfile: 'compiled-engineering-report' });
+assert.equal(
+  Checker.validateCanonicalRenderEvidence(compiledEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash }).status,
+  'verified',
+  'compiled engineering reports remain compatible with the calculation-book family while content is independently reevaluated',
+);
+const downgradedTraceableEvidence = JSON.parse(JSON.stringify(traceableEvidence));
+downgradedTraceableEvidence.pdf.visibleText.contentBoundary = Checker.evaluateCalculationContent(traceableVisibleText, { contentBoundaryProfile: 'calculation-book' });
+const downgradedTraceableResult = Checker.validateCanonicalRenderEvidence(downgradedTraceableEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash });
+assert.equal(downgradedTraceableResult.status, 'review', 'traceable visible content cannot claim a non-traceable profile');
+assert(downgradedTraceableResult.reasons.includes('visible-content-profile'));
+assert.equal(
+  Checker.validateCanonicalRenderEvidence(canonicalEvidence, { artifactName: 'beam.pdf', artifactSha256: 'd'.repeat(64) }).status,
+  'review',
+  'canonical evidence cannot be reused after the PDF bytes change',
+);
+assert.equal(
+  Checker.validateCanonicalRenderEvidence(canonicalEvidence, { artifactName: 'other.pdf', artifactSha256: canonicalEvidenceHash }).status,
+  'review',
+  'canonical evidence cannot be reused for another PDF filename',
+);
+const falseBoundaryEvidence = JSON.parse(JSON.stringify(canonicalEvidence));
+falseBoundaryEvidence.pdf.visibleText.text = '只有標題與狀態，沒有工程計算內容。';
+falseBoundaryEvidence.pdf.visibleText.textLength = falseBoundaryEvidence.pdf.visibleText.text.length;
+falseBoundaryEvidence.pdf.visibleText.textSha256 = crypto.createHash('sha256').update(falseBoundaryEvidence.pdf.visibleText.text, 'utf8').digest('hex');
+assert.equal(
+  Checker.validateCanonicalRenderEvidence(falseBoundaryEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash }).status,
+  'review', 'checker recomputes visible calculation content instead of trusting a claimed empty missingGroups list',
+);
+const falseProfileEvidence = JSON.parse(JSON.stringify(canonicalEvidence));
+falseProfileEvidence.pdf.visibleText.contentBoundary.profile = 'calculation-summary';
+const falseProfileResult = Checker.validateCanonicalRenderEvidence(falseProfileEvidence, { artifactName: 'beam.pdf', artifactSha256: canonicalEvidenceHash });
+assert.equal(falseProfileResult.status, 'review', 'checker redetects the visible document profile instead of trusting an evidence claim');
+assert(
+  falseProfileResult.reasons.includes('visible-content-profile'),
+  'forged calculation-summary profile is rejected when visible text is a calculation book',
+);
+const textOnlyPdfReport = Checker.analyzePackage([
+  { ...reportRecord, visibilityEvidence: { status: 'review', method: 'pdftotext-only', reasons: ['canonical-render-evidence-missing'] } },
+]);
+assert.equal(textOnlyPdfReport.status, 'review', 'PDF text extraction alone cannot automatically pass the package');
+assert(textOnlyPdfReport.issues.some(issue => issue.code === 'pdf-canonical-render-evidence-required'));
+const canonicalPdfReport = Checker.analyzePackage([
+  { ...reportRecord, visibilityEvidence: { status: 'verified', method: 'canonical-render-visible-text', reasons: [] } },
+]);
+assert.equal(canonicalPdfReport.status, 'ready', 'verified canonical render evidence preserves formal PDF readiness');
+
 assert.equal(matchedSourceReport.status, 'ready', 'one source JSON and one report with the same fingerprint form a valid traceability link');
 assert.equal(matchedSourceReport.fingerprintLinks.length, 1);
 assert.equal(matchedSourceReport.fingerprintLinks[0].sourceFile, 'beam.json');
@@ -236,6 +397,44 @@ try {
   const emptyShellRecord = emptyShellPackage.attachments.find(item => item.file === 'wind-formal.html');
   assert.deepEqual(emptyShellRecord?.contentBoundary?.missingGroups, ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'engineeringValues']);
   assert.match(Checker.formatSummary(emptyShellPackage), /內容缺 adoptedInputs,calculationProcess,engineeringResult,engineeringValues/);
+  const visibilitySecurityShell = '<h1>RC 梁設計計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>產出工具：RC 梁</div><div>工具版本：v3.1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-9999AAAA8888BBBB</div>';
+  const visibilitySecurityCases = [
+    { name: 'inline-white-default', html: `${visibilitySecurityShell}<div style="color:white">${COMPLETE_CALCULATION_CONTENT}</div>` },
+    { name: 'split-same-color', html: `<style>.concealed{color:white}.concealed{background:white}</style>${visibilitySecurityShell}<div class="concealed">${COMPLETE_CALCULATION_CONTENT}</div>` },
+    { name: 'zero-clipped-box', html: `${visibilitySecurityShell}<div style="width:0;height:0;overflow:hidden">${COMPLETE_CALCULATION_CONTENT}</div>` },
+  ];
+  visibilitySecurityCases.forEach(testCase => {
+    const fixturePath = path.join(tempDir, `${testCase.name}.html`);
+    fs.writeFileSync(fixturePath, testCase.html, 'utf8');
+    const record = Checker.inspectAttachment(fixturePath, tempDir);
+    assert.deepEqual(
+      record.contentBoundary?.missingGroups,
+      ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'engineeringValues'],
+      `${testCase.name} concealed content cannot satisfy the calculation boundary`,
+    );
+    const packageResult = Checker.analyzePackage([record]);
+    assert.notEqual(packageResult.status, 'ready', `${testCase.name} package cannot be ready`);
+    fs.rmSync(fixturePath);
+  });
+
+  const visibilityReviewCases = [
+    { name: 'complex-visibility-selector', html: `<style>.report .calc{color:white}</style>${visibilitySecurityShell}<section class="report"><div class="calc">${COMPLETE_CALCULATION_CONTENT}</div></section>` },
+    { name: 'external-stylesheet', html: `<link rel="stylesheet" href="report.css">${visibilitySecurityShell}${COMPLETE_CALCULATION_CONTENT}` },
+    { name: 'css-import', html: `<style>@import url("report.css");</style>${visibilitySecurityShell}${COMPLETE_CALCULATION_CONTENT}` },
+    { name: 'unparsed-color', html: `<style>.tone{color:hsl(0 0% 100%);background:var(--report-background)}</style>${visibilitySecurityShell}<div class="tone">${COMPLETE_CALCULATION_CONTENT}</div>` },
+  ];
+  visibilityReviewCases.forEach(testCase => {
+    const fixturePath = path.join(tempDir, `${testCase.name}.html`);
+    fs.writeFileSync(fixturePath, testCase.html, 'utf8');
+    const record = Checker.inspectAttachment(fixturePath, tempDir);
+    assert.deepEqual(record.contentBoundary?.missingGroups, [], `${testCase.name} visible text remains available for diagnosis`);
+    assert.equal(record.visibilityEvidence?.status, 'review', `${testCase.name} requires visibility review`);
+    const packageResult = Checker.analyzePackage([record]);
+    assert.equal(packageResult.status, 'review', `${testCase.name} package cannot be ready`);
+    assert(packageResult.issues.some(issue => issue.code === 'visibility-boundary-review'));
+    fs.rmSync(fixturePath);
+  });
+
 
   fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), `<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>${COMPLETE_CALCULATION_CONTENT}`, 'utf8');
   const classifiedPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
@@ -263,7 +462,7 @@ try {
   const summaryPath = path.join(tempDir, 'design-summary.html');
   fs.writeFileSync(summaryPath, '<h1>RC 梁計算摘要</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>產出工具：RC 梁</div><div>工具版本：v3.1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-9999AAAA8888BBBB</div><section>採用材料與荷載資料：Mu=12.5 tf·m</section><section>DCR=0.69；檢核結果：通過</section>', 'utf8');
   const summaryRecord = Checker.inspectAttachment(summaryPath, tempDir);
-  assert.equal(summaryRecord.contentBoundary?.profile, 'calculation-summary');
+  assert.equal(summaryRecord.contentBoundary?.profile, 'traceable-calculation-summary');
   assert.deepEqual(summaryRecord.contentBoundary?.missingGroups, [], 'an explicitly titled summary may omit repeated detailed equations');
   fs.rmSync(summaryPath);
 
@@ -372,7 +571,8 @@ try {
   fs.writeFileSync(path.join(fixtureDir, 'word', 'document.xml'), '<w:document><w:p><w:t>計畫名稱：測試大樓</w:t></w:p><w:p><w:t>計畫編號：PKG-001</w:t></w:p></w:document>', 'utf8');
   fs.writeFileSync(path.join(fixtureDir, 'word', 'footer1.xml'), '<w:ftr><w:p><w:t>文件狀態：正式附件</w:t></w:p><w:p><w:t>核可時間：2026/07/21 21:05:00</w:t></w:p><w:p><w:t>產出工具：錨栓檢討工具</w:t></w:p><w:p><w:t>工具版本：v1</w:t></w:p><w:p><w:t>輸出時間：2026/07/21 21:00:00</w:t></w:p><w:p><w:t>計算指紋：CF-1234ABCD5678EF90</w:t></w:p></w:ftr>', 'utf8');
   fs.writeFileSync(path.join(fixtureDir, 'xl', 'sharedStrings.xml'), '<sst><si><t>文件狀態</t></si><si><t>正式附件</t></si><si><t>核可時間</t></si><si><t>2026/07/21 21:05:00</t></si><si><t>計畫名稱</t></si><si><t>測試大樓</t></si><si><t>計畫編號</t></si><si><t>PKG-001</t></si><si><t>產出工具</t></si><si><t>錨栓檢討工具</t></si><si><t>工具版本</t></si><si><t>v1</t></si><si><t>輸出時間</t></si><si><t>2026/07/21 21:00:00</t></si><si><t>計算指紋</t></si><si><t>CF-1234ABCD5678EF90</t></si></sst>', 'utf8');
-  fs.writeFileSync(path.join(fixtureDir, 'xl', 'worksheets', 'sheet1.xml'), '<worksheet><sheetData><row><c><v>0</v></c></row></sheetData></worksheet>', 'utf8');
+  const xlsxMetadataCells = Array.from({ length: 16 }, (_, index) => `<c t="s"><v>${index}</v></c>`).join('');
+  fs.writeFileSync(path.join(fixtureDir, 'xl', 'worksheets', 'sheet1.xml'), `<worksheet><sheetData><row>${xlsxMetadataCells}</row></sheetData></worksheet>`, 'utf8');
   for (const [archive, source] of [['sample.docx', 'word'], ['sample.xlsx', 'xl']]) {
     const result = spawnSync('tar', ['-a', '-cf', path.join(tempDir, archive), '-C', fixtureDir, source], { encoding: 'utf8' });
     assert.equal(result.status, 0, `${archive} fixture archive`);
@@ -397,6 +597,61 @@ try {
   assert.equal(xlsxRecord.approvalTime, '2026/07/21 21:05:00');
   assert.deepEqual(xlsxRecord.readyDocumentNeedles, ['文件狀態：正式附件']);
   assert.deepEqual(xlsxRecord.fingerprints, ['CF-1234ABCD5678EF90']);
+
+  const hiddenDocxRoot = path.join(tempDir, 'hidden-docx-root');
+  fs.mkdirSync(path.join(hiddenDocxRoot, 'word'), { recursive: true });
+  fs.writeFileSync(path.join(hiddenDocxRoot, 'word', 'document.xml'), `<w:document>
+    <w:p><w:r><w:t>RC 梁設計計算書</w:t></w:r></w:p>
+    <w:p><w:r><w:t>文件狀態：正式附件 核可時間：2026/07/21 21:05:00 產出工具：RC 梁 工具版本：v3.1 輸出時間：2026/07/21 21:00:00 計算指紋：CF-1234ABCD5678EF90</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>採用輸入：fc'=280 kgf/cm²；Mu=12.5 tf·m。計算內容：Mu=12.5 tf·m；φMn=18.2 tf·m。檢核結論：DCR=0.69；通過。</w:t></w:r></w:p>
+  </w:document>`, 'utf8');
+  const hiddenDocxPath = path.join(tempDir, 'hidden-content.docx');
+  const hiddenDocxArchive = spawnSync('tar', ['-a', '-cf', hiddenDocxPath, '-C', hiddenDocxRoot, 'word'], { encoding: 'utf8' });
+  assert.equal(hiddenDocxArchive.status, 0, hiddenDocxArchive.stderr || 'hidden DOCX fixture archive');
+  const hiddenDocxRecord = Checker.inspectAttachment(hiddenDocxPath, tempDir);
+  assert.deepEqual(hiddenDocxRecord.errors, []);
+  assert.deepEqual(
+    hiddenDocxRecord.contentBoundary?.missingGroups,
+    ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'engineeringValues'],
+    'w:vanish text cannot satisfy DOCX calculation content',
+  );
+
+  const missingCellReferenceIssues = [];
+  const missingCellReferenceText = Checker.extractVisibleWorksheetText('<worksheet><cols><col min="2" max="2" hidden="1"/></cols><sheetData><row><c t="s"><v>0</v></c></row></sheetData></worksheet>', ['不可判讀'], { visibilityIssues: missingCellReferenceIssues });
+  assert.equal(missingCellReferenceText, '', 'a cell without r cannot be classified as visible when hidden columns exist');
+  assert.deepEqual(
+    missingCellReferenceIssues,
+    ['工作表含隱藏欄，但儲存格缺少可判讀的 r 參照'],
+    'missing cell references force XLSX visibility review instead of silently accepting hidden-column content',
+  );
+  const hiddenXlsxRoot = path.join(tempDir, 'hidden-xlsx-root');
+  fs.mkdirSync(path.join(hiddenXlsxRoot, 'xl', '_rels'), { recursive: true });
+  fs.mkdirSync(path.join(hiddenXlsxRoot, 'xl', 'worksheets'), { recursive: true });
+  const hiddenXlsxStrings = [
+    'RC 梁設計計算書', '文件狀態：正式附件', '核可時間：2026/07/21 21:05:00', '產出工具：RC 梁',
+    '工具版本：v3.1', '輸出時間：2026/07/21 21:00:00', '計算指紋：CF-1234ABCD5678EF90',
+    "採用輸入：fc'=280 kgf/cm²；Mu=12.5 tf·m。計算內容：Mu=12.5 tf·m；φMn=18.2 tf·m。檢核結論：DCR=0.69；通過。",
+  ];
+  fs.writeFileSync(path.join(hiddenXlsxRoot, 'xl', 'sharedStrings.xml'), `<sst>${hiddenXlsxStrings.map(item => `<si><t>${item}</t></si>`).join('')}</sst>`, 'utf8');
+  fs.writeFileSync(path.join(hiddenXlsxRoot, 'xl', 'workbook.xml'), '<workbook><sheets><sheet name="Visible" sheetId="1" r:id="rId1"/><sheet name="Hidden" sheetId="2" state="hidden" r:id="rId2"/></sheets></workbook>', 'utf8');
+  fs.writeFileSync(path.join(hiddenXlsxRoot, 'xl', '_rels', 'workbook.xml.rels'), '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="worksheets/sheet2.xml"/></Relationships>', 'utf8');
+  fs.writeFileSync(path.join(hiddenXlsxRoot, 'xl', 'worksheets', 'sheet1.xml'), `<worksheet><cols><col min="2" max="2" hidden="1"/></cols><sheetData>
+    ${Array.from({ length: 7 }, (_, index) => `<row r="${index + 1}"><c r="A${index + 1}" t="s"><v>${index}</v></c></row>`).join('')}
+    <row r="8" hidden="1"><c r="A8" t="s"><v>7</v></c></row>
+    <row r="9"><c r="B9" t="s"><v>7</v></c></row>
+  </sheetData></worksheet>`, 'utf8');
+  fs.writeFileSync(path.join(hiddenXlsxRoot, 'xl', 'worksheets', 'sheet2.xml'), '<worksheet><sheetData><row><c t="s"><v>7</v></c></row></sheetData></worksheet>', 'utf8');
+  const hiddenXlsxPath = path.join(tempDir, 'hidden-content.xlsx');
+  const hiddenXlsxArchive = spawnSync('tar', ['-a', '-cf', hiddenXlsxPath, '-C', hiddenXlsxRoot, 'xl'], { encoding: 'utf8' });
+  assert.equal(hiddenXlsxArchive.status, 0, hiddenXlsxArchive.stderr || 'hidden XLSX fixture archive');
+  const hiddenXlsxRecord = Checker.inspectAttachment(hiddenXlsxPath, tempDir);
+  assert.deepEqual(hiddenXlsxRecord.errors, []);
+  assert.equal(hiddenXlsxRecord.visibilityEvidence?.status, 'bounded', 'cells with valid r references make hidden columns deterministic');
+  assert.deepEqual(
+    hiddenXlsxRecord.contentBoundary?.missingGroups,
+    ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'engineeringValues'],
+    'hidden worksheet, hidden row and hidden column text cannot satisfy XLSX calculation content',
+  );
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
@@ -421,5 +676,18 @@ const missingFolderCli = spawnSync(process.execPath, [path.join(__dirname, 'atta
 assert.equal(missingFolderCli.status, 3, missingFolderCli.stderr || missingFolderCli.stdout);
 assert.match(Checker.formatSummary(readyReport), /僅供交付前整理/);
 assert.match(Checker.formatSummary({ ...readyReport, skippedGeneratedEvidence: ['formal-report.evidence.json'] }), /已略過 1 個驗證中間檔/);
+const preflightPath = path.resolve(__dirname, '..', '..', 'preflight-tools.ps1');
+const preflightSource = fs.readFileSync(preflightPath, 'utf8');
+const attachmentCommandStart = preflightSource.indexOf('$attachmentPackageCheckCommandLines');
+const attachmentCommandEnd = preflightSource.indexOf('$attachmentPackageBuildCommand', attachmentCommandStart);
+assert.ok(attachmentCommandStart >= 0 && attachmentCommandEnd > attachmentCommandStart, 'attachment preflight command region exists');
+const attachmentCommandRegion = preflightSource.slice(attachmentCommandStart, attachmentCommandEnd);
+assert.ok(attachmentCommandRegion.indexOf('attachment-package-check.test.js') < attachmentCommandRegion.indexOf('attachment-canonical-render-e2e.test.js'), 'attachment unit runs before browser E2E');
+assert.match(attachmentCommandRegion, /if \(-not \$Quick -and -not \$CI\)/, 'quick and CI retain the unit gate while skipping only browser E2E');
+const attachmentKeyStart = preflightSource.indexOf('key = "attachment-package-check"');
+const attachmentKeyEnd = preflightSource.indexOf('key = "attachment-package-build"', attachmentKeyStart);
+const attachmentKeyRegion = preflightSource.slice(attachmentKeyStart, attachmentKeyEnd);
+assert.match(attachmentKeyRegion, /slow\s*=\s*\$false/, 'attachment-package-check key remains in quick and CI preflight');
+
 
 console.log('attachment package check OK');

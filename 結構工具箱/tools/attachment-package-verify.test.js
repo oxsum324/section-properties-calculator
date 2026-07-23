@@ -138,7 +138,7 @@ try {
   assert.equal(readyFormalRecord.outputTime, '2026/07/21 22:00:00');
   assert.equal(readyFormalRecord.approvalTime, '2026/07/21 22:05:00');
   assert.deepEqual(readyFormalRecord.fingerprints, [FINGERPRINT]);
-  assert.deepEqual(readyFormalRecord.contentBoundary, { profile: 'calculation-book', missingGroups: [] });
+  assert.deepEqual(readyFormalRecord.contentBoundary, { profile: 'traceable-calculation-book', missingGroups: [] });
   assert.match(Verifier.formatSummary(readyReport), /完整性與工程內容驗證：通過/);
   assert.match(Verifier.formatSummary(readyReport), /正式附件內容複驗 1 \/ 1 份/);
   assert.equal(

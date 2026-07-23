@@ -282,6 +282,23 @@ for (const relativePath of [
 for (const relativePath of [
   '結構工具箱/core/ui/report.js',
   '鋼構工具/core/ui/report.js',
+]) {
+  const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+  for (const needle of [
+    "source.dataset.initialApproved = checkbox.checked ? 'true' : 'false'",
+    'source.dataset.approvedAt = approvedAtValue',
+    "checkbox.setAttribute('checked', 'checked')",
+    "checkbox.removeAttribute('checked')",
+  ]) {
+    assert.ok(
+      source.includes(needle),
+      `${relativePath} serializes approval state for reload-safe formal attachment rendering: ${needle}`
+    );
+  }
+}
+for (const relativePath of [
+  '結構工具箱/core/ui/report.js',
+  '鋼構工具/core/ui/report.js',
   '鋼筋混凝土/shared/report.js',
 ]) {
   const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -807,7 +824,14 @@ const seismicDynamicPdf = validatePdfFile(seismicDynamicPdfPath, {
 });
 const seismicDynamicEvidenceJson = readJson(seismicDynamicEvidencePath);
 assert.equal(seismicDynamicEvidenceJson.artifact, seismicDynamicEvidence.artifact, 'seismic dynamic evidence names the preserved PDF');
-assert.equal(seismicDynamicEvidenceJson.renderer, 'formal-detailed', 'seismic dynamic evidence uses the detailed formal renderer');
+assert.equal(seismicDynamicEvidence.renderer, 'formal-attachment-detailed', 'seismic dynamic summary identifies the approved detailed formal-attachment renderer');
+assert.equal(seismicDynamicEvidence.evidenceRole, 'approved-formal-attachment', 'seismic dynamic summary identifies approved formal-attachment evidence');
+assert.equal(seismicDynamicEvidence.documentClass, 'formal-attachment', 'seismic dynamic summary records the formal-attachment document class');
+assert.ok(Number.isFinite(Date.parse(seismicDynamicEvidence.approvalTime || '')), 'seismic dynamic summary records a valid approval time');
+assert.match(seismicDynamicEvidence.calculationFingerprint || '', /^CF-[0-9A-F]{16}$/, 'seismic dynamic summary records the approved calculation fingerprint');
+assert.equal(seismicDynamicEvidence.internalReviewDocumentClass, 'internal-review', 'seismic dynamic summary confirms the pre-approval internal-review state');
+assert.equal(seismicDynamicEvidence.internalReviewStateVerified, true, 'seismic dynamic summary verifies the internal-review to formal-attachment transition');
+assert.equal(seismicDynamicEvidenceJson.renderer, seismicDynamicEvidence.renderer, 'seismic dynamic evidence uses the approved renderer named by the current-run summary');
 assert.equal(seismicDynamicEvidenceJson.dom.horizontalOverflow, false, 'seismic dynamic report has no horizontal overflow');
 assert.ok(seismicDynamicEvidenceJson.dom.tableCount >= 6, 'seismic dynamic report keeps populated tables');
 assert.equal(seismicDynamicEvidenceJson.pdf.pageCount, seismicDynamicPdf.pageCount, 'seismic dynamic evidence matches PDF page count');

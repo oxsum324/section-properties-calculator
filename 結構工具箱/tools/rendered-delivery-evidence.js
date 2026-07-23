@@ -1,4 +1,5 @@
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -12,6 +13,8 @@ const {
   decodeText,
   evaluateCalculationContent,
 } = require('./calculation-book-content-boundary.js');
+const CANONICAL_RENDER_EVIDENCE_KIND = 'attachment-canonical-render-evidence.v1';
+
 
 const DEFAULT_FOOTER_NEEDLES = [
   '版權所有 弘一工程顧問有限公司',
@@ -420,6 +423,208 @@ async function renderAndValidateReportPdf(client, options) {
     }
 
     await client.send('Emulation.setEmulatedMedia', { media: 'print' }, sessionId);
+    const printDomResult = await client.send('Runtime.evaluate', {
+      expression: `(() => {
+        const clean = value => String(value || '').replace(/\\s+/g, ' ').trim();
+        const transparentColor = value => {
+          const color = clean(value).toLowerCase();
+          if (!color) return false;
+          if (color === 'transparent') return true;
+          if (/^rgba\\(/.test(color)) {
+            const parts = color.slice(5, -1).split(',').map(item => item.trim());
+            return parts.length === 4 && Number(parts[3]) <= 0.01;
+          }
+          return /\\/\\s*0(?:\\.0+)?\\s*\\)$/.test(color);
+        };
+        const intersects = (left, right) => (
+          left.right > right.left && left.left < right.right
+          && left.bottom > right.top && left.top < right.bottom
+        );
+        const isDegenerateClipRect = value => {
+          const clip = clean(value).toLowerCase();
+          if (!clip || clip === 'auto' || clip === 'rect(auto, auto, auto, auto)') return false;
+          const match = clip.match(/^rect\\(\\s*(-?[\\d.]+)px\\s*[, ]\\s*(-?[\\d.]+)px\\s*[, ]\\s*(-?[\\d.]+)px\\s*[, ]\\s*(-?[\\d.]+)px\\s*\\)$/);
+          if (!match) return false;
+          const edges = match.slice(1).map(Number);
+          return edges.every(Number.isFinite)
+            && Math.abs(edges[0] - edges[2]) <= 0.01
+            && Math.abs(edges[1] - edges[3]) <= 0.01;
+        };
+        const inspectTextNode = node => {
+        const parseComputedColor = value => {
+          const color = clean(value).toLowerCase();
+          if (color === 'transparent') return [0, 0, 0, 0];
+          const numbers = color.match(/[\\d.]+/g)?.map(Number) || [];
+          if (!/^rgba?\\(/.test(color) || numbers.length < 3) return null;
+          return [numbers[0], numbers[1], numbers[2], Number.isFinite(numbers[3]) ? numbers[3] : 1];
+        };
+        const blendOnWhite = color => color.slice(0, 3).map(channel => channel * color[3] + 255 * (1 - color[3]));
+        const luminance = color => {
+          const linear = color.slice(0, 3).map(channel => {
+            const value = channel / 255;
+            return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+          });
+          return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+        };
+        const contrastRatio = (left, right) => {
+          const first = luminance(left);
+          const second = luminance(right);
+          return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+        };
+        const inspectTextContrast = element => {
+          const foregroundStyle = getComputedStyle(element);
+          const foreground = parseComputedColor(foregroundStyle.webkitTextFillColor || foregroundStyle.color)
+            || parseComputedColor(foregroundStyle.color);
+          let background = [255, 255, 255, 1];
+          let ambiguousBackground = false;
+          for (let current = element; current; current = current.parentElement) {
+            const style = getComputedStyle(current);
+            if (style.backgroundImage && style.backgroundImage !== 'none') ambiguousBackground = true;
+            const candidate = parseComputedColor(style.backgroundColor);
+            if (candidate && candidate[3] > 0.01) {
+              background = candidate;
+              break;
+            }
+          }
+          if (!foreground) return { lowContrast: false, ambiguous: true, ratio: null, reason: 'unparsed-foreground' };
+          const ratio = contrastRatio(blendOnWhite(foreground), blendOnWhite(background));
+          const lowContrast = ratio <= 1.05;
+          const reason = ambiguousBackground
+            ? 'background-image'
+            : (ratio > 1.05 && ratio < 1.5 ? 'near-zero-contrast' : '');
+          return { lowContrast, ambiguous: Boolean(reason), ratio, reason };
+        };
+
+          let element = node.parentElement;
+          let opacity = 1;
+          let ambiguous = false;
+          const ambiguousReasons = [];
+          const assistiveMath = element?.closest?.('mjx-assistive-mml');
+          if (assistiveMath) {
+            const assistiveStyle = getComputedStyle(assistiveMath);
+            const assistiveHiddenOverflow = [assistiveStyle.overflow, assistiveStyle.overflowX, assistiveStyle.overflowY]
+              .some(item => ['hidden', 'clip'].includes(item));
+            const assistiveHasClip = assistiveStyle.clip
+              && !['auto', 'rect(auto, auto, auto, auto)'].includes(assistiveStyle.clip);
+            if (['absolute', 'fixed'].includes(assistiveStyle.position) && assistiveHiddenOverflow && assistiveHasClip) {
+              return { visible: false, ambiguous: false, lowContrast: false };
+            }
+          }
+          const contrast = inspectTextContrast(element);
+          const clippingAncestors = [];
+          while (element) {
+            const style = getComputedStyle(element);
+            if (style.display === 'none' || ['hidden', 'collapse'].includes(style.visibility)
+              || style.contentVisibility === 'hidden' || Number.parseFloat(style.fontSize || '0') <= 0
+              || transparentColor(style.color) || transparentColor(style.webkitTextFillColor)) {
+              return { visible: false, ambiguous: false, lowContrast: false };
+            }
+            const elementOpacity = Number.parseFloat(style.opacity || '1');
+            if (Number.isFinite(elementOpacity)) opacity *= elementOpacity;
+            if (opacity <= 0.01) return { visible: false, ambiguous: false, lowContrast: false };
+            const box = element.getBoundingClientRect();
+            const hasHiddenOverflow = [style.overflow, style.overflowX, style.overflowY]
+              .some(item => ['hidden', 'clip'].includes(item));
+            const isDefinitelyClippedAssistiveText = ['absolute', 'fixed'].includes(style.position)
+              && hasHiddenOverflow
+              && box.width <= 2 && box.height <= 2
+              && isDegenerateClipRect(style.clip);
+            if (isDefinitelyClippedAssistiveText) {
+              return { visible: false, ambiguous: false, lowContrast: false };
+            }
+            if (contrast.ambiguous) {
+              ambiguous = true;
+              if (contrast.reason && !ambiguousReasons.includes(contrast.reason)) ambiguousReasons.push(contrast.reason);
+            }
+            if (opacity < 0.1) {
+              ambiguous = true;
+              if (!ambiguousReasons.includes('near-transparent')) ambiguousReasons.push('near-transparent');
+            }
+            if (style.clipPath && style.clipPath !== 'none') {
+              ambiguous = true;
+              if (!ambiguousReasons.includes('clip-path')) ambiguousReasons.push('clip-path');
+            }
+            if (style.clip && !['auto', 'rect(auto, auto, auto, auto)'].includes(style.clip)) {
+              ambiguous = true;
+              if (!ambiguousReasons.includes('clip')) ambiguousReasons.push('clip');
+            }
+            if (hasHiddenOverflow) {
+              clippingAncestors.push(box);
+            }
+            element = element.parentElement;
+          }
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
+          range.detach?.();
+          const horizontalLimit = 8.27 * 96 + 2;
+          const visible = rects.some(rect => (
+            rect.right > 0 && rect.bottom > 0 && rect.left < horizontalLimit
+            && clippingAncestors.every(clip => intersects(rect, clip))
+          ));
+          return { visible: visible && !contrast.lowContrast, ambiguous, lowContrast: contrast.lowContrast, ambiguousReasons };
+        };
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        const visible = [];
+        let textNodeCount = 0;
+        let excludedTextNodeCount = 0;
+        let excludedLowContrastTextNodeCount = 0;
+        let ambiguousTextNodeCount = 0;
+        const ambiguousSamples = [];
+        let node;
+        while ((node = walker.nextNode())) {
+          const text = clean(node.nodeValue);
+          if (!text) continue;
+          textNodeCount += 1;
+          const state = inspectTextNode(node);
+          if (state.lowContrast) excludedLowContrastTextNodeCount += 1;
+          if (state.ambiguous) {
+            ambiguousTextNodeCount += 1;
+            if (ambiguousSamples.length < 12) {
+              ambiguousSamples.push({
+                text: text.slice(0, 120),
+                tag: node.parentElement?.tagName || '',
+                className: clean(node.parentElement?.className || '').slice(0, 120),
+                reasons: state.ambiguousReasons || [],
+              });
+            }
+          }
+          if (!state.visible || state.ambiguous) {
+            excludedTextNodeCount += 1;
+            continue;
+          }
+          visible.push(text);
+        }
+        return {
+          bodyText: clean(visible.join(' ')),
+          textNodeCount,
+          excludedTextNodeCount,
+          excludedLowContrastTextNodeCount,
+          ambiguousTextNodeCount,
+          ambiguousSamples,
+          checks: [
+            'print-media',
+            'computed-display-visibility-content-visibility',
+            'computed-opacity-color-font-size-and-contrast',
+            'text-range-client-rects',
+            'overflow-clipping-intersection',
+            'horizontal-print-bounds',
+          ],
+        };
+      })()`,
+      returnByValue: true,
+    }, sessionId);
+    assert.equal(printDomResult.exceptionDetails, undefined, `${options.label} print-visibility DOM evaluation succeeds: ${JSON.stringify(printDomResult.exceptionDetails || {})}`);
+    const printDom = printDomResult.result?.value || {};
+    assert.ok((printDom.bodyText || '').length >= (options.minTextLength || 300), `${options.label} print-visible DOM has readable text`);
+    assert.equal(printDom.ambiguousTextNodeCount || 0, 0, `${options.label} print-visible DOM has no unresolved clipped or near-transparent text: ${JSON.stringify(printDom.ambiguousSamples || [])}`);
+    const visibleContentBoundary = evaluateCalculationContent(printDom.bodyText, options);
+    assert.deepEqual(
+      visibleContentBoundary.missingGroups,
+      [],
+      `${options.label} print-visible DOM includes required calculation content groups: ${visibleContentBoundary.missingGroups.join(', ')}`
+    );
+
     const printed = await client.send('Page.printToPDF', {
       printBackground: true,
       paperWidth: 8.27,
@@ -441,7 +646,10 @@ async function renderAndValidateReportPdf(client, options) {
       continuationContextLabels: dom.continuationContextLabels || [],
     });
     const evidence = {
+      kind: CANONICAL_RENDER_EVIDENCE_KIND,
       artifact: path.basename(pdfPath),
+      artifactSha256: crypto.createHash('sha256').update(pdfBuffer).digest('hex'),
+      sourceHtmlSha256: crypto.createHash('sha256').update(String(options.html), 'utf8').digest('hex'),
       label: options.label,
       generatedAt: new Date().toISOString(),
       renderer: options.renderer || 'browser-print',
@@ -452,8 +660,27 @@ async function renderAndValidateReportPdf(client, options) {
         tableCount: dom.tableCount,
         tableHeaders: dom.tableHeaders,
         horizontalOverflow: dom.horizontalOverflow,
+        printVisibility: {
+          textNodeCount: printDom.textNodeCount,
+          excludedTextNodeCount: printDom.excludedTextNodeCount,
+          excludedLowContrastTextNodeCount: printDom.excludedLowContrastTextNodeCount,
+          ambiguousTextNodeCount: printDom.ambiguousTextNodeCount,
+          checks: printDom.checks,
+        },
       },
-      pdf,
+      pdf: {
+        ...pdf,
+        visibleText: {
+          source: 'controlled-html-print-session',
+          method: 'print-media-computed-style-client-rects',
+          generatedInSamePrintSession: true,
+          derivedFromRenderedPages: false,
+          text: printDom.bodyText,
+          textLength: printDom.bodyText.length,
+          textSha256: crypto.createHash('sha256').update(printDom.bodyText, 'utf8').digest('hex'),
+          contentBoundary: visibleContentBoundary,
+        },
+      },
     };
     fs.writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`, 'utf8');
     return { ...evidence, pdfPath, evidencePath };
@@ -484,6 +711,7 @@ function writeEvidenceSummary(outputDir, family, records, expectedKeys = []) {
 
 module.exports = {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
+  CANONICAL_RENDER_EVIDENCE_KIND,
   CONTENT_GROUPS,
   CONTENT_PROFILES,
   DEFAULT_FORBIDDEN,

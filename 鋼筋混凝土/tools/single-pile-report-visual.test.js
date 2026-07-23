@@ -14,6 +14,7 @@ const CASE_KEYS = (process.env.SINGLE_PILE_REPORT_CASES || 'default_code,bh5_reg
   .map(s => s.trim())
   .filter(Boolean);
 const CALCULATION_TIMEOUT_MS = Number(process.env.SINGLE_PILE_CALCULATION_TIMEOUT_MS || 30000);
+const REPORT_POPUP_TIMEOUT_MS = Number(process.env.SINGLE_PILE_REPORT_POPUP_TIMEOUT_MS || 60000);
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -116,7 +117,7 @@ function assertArtifact(file, expectedSignature, title) {
 }
 
 async function openReportPopup(page, options = {}) {
-  const timeoutMs = options.timeoutMs ?? CALCULATION_TIMEOUT_MS;
+  const timeoutMs = options.timeoutMs ?? REPORT_POPUP_TIMEOUT_MS;
   const triggerSelector = options.triggerSelector ?? '#btnReport';
   const knownPages = new Set(page.context().pages());
   let clickError = null;

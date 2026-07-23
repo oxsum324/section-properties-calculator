@@ -1215,10 +1215,17 @@ node 結構工具箱/tools/delivery-artifacts.contract.test.js
 exit $LASTEXITCODE
 '@
 
-$attachmentPackageCheckCommand = @'
-node 結構工具箱/tools/attachment-package-check.test.js
-exit $LASTEXITCODE
-'@
+$attachmentPackageCheckCommandLines = @(
+  'node 結構工具箱/tools/attachment-package-check.test.js'
+  'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+)
+if (-not $Quick -and -not $CI) {
+  $attachmentPackageCheckCommandLines += @(
+    'node 結構工具箱/tools/attachment-canonical-render-e2e.test.js'
+    'if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }'
+  )
+}
+$attachmentPackageCheckCommand = (@($attachmentPackageCheckCommandLines) + @('exit 0')) -join [Environment]::NewLine
 
 $attachmentPackageBuildCommand = @'
 node 結構工具箱/tools/attachment-package-build.test.js

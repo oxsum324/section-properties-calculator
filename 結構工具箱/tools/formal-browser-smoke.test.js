@@ -1014,7 +1014,14 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentClass: '',
       approvalControl: false,
       approvedDocumentClass: '',
+      approvedCheckboxAttribute: false,
+      internalCheckboxAttribute: false,
       approvedStatusText: '',
+      approvedAt: '',
+      initialCalculationFingerprint: '',
+      approvedCalculationFingerprint: '',
+      approvedHtml: '',
+      approvedAuditHtml: '',
     };
   }
 
@@ -1039,7 +1046,14 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentClass: '',
       approvalControl: false,
       approvedDocumentClass: '',
+      approvedCheckboxAttribute: false,
+      internalCheckboxAttribute: false,
       approvedStatusText: '',
+      approvedAt: '',
+      initialCalculationFingerprint: '',
+      approvedCalculationFingerprint: '',
+      approvedHtml: '',
+      approvedAuditHtml: '',
     };
   }
 
@@ -1060,18 +1074,40 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
     const state = await evaluate(client, popupSessionId, `(() => {
       const approval = document.getElementById('repAttachmentApproval');
       const status = () => document.querySelector('.rep-document-status-line');
+      const approvalSource = () => document.querySelector('.rep-attachment-approval-source');
+      const calculationFingerprint = () => {
+        const fromSource = (approvalSource()?.dataset.calculationFingerprint || '').trim();
+        if (fromSource) return fromSource;
+        const fromStatus = (status()?.textContent || '').match(/CF-[0-9A-F]{16}/)?.[0] || '';
+        if (fromStatus) return fromStatus;
+        const traceRow = Array.from(document.querySelectorAll('.rep-meta div, .meta div'))
+          .find(node => /計算指紋/.test(node.textContent || ''));
+        return (traceRow?.textContent || '').match(/CF-[0-9A-F]{16}/)?.[0] || '';
+      };
       const initialDocumentClass = status()?.dataset.documentClass || '';
-      const initialStatusText = (status()?.textContent || '').replace(/\s+/g, ' ').trim();
+      const initialStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+      const initialCalculationFingerprint = calculationFingerprint();
       if (approval) {
         approval.checked = true;
         approval.dispatchEvent(new Event('change', { bubbles: true }));
       }
       const approvedDocumentClass = status()?.dataset.documentClass || '';
-      const approvedStatusText = (status()?.textContent || '').replace(/\s+/g, ' ').trim();
+      const approvedStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+      const approvedAt = status()?.dataset.approvedAt || '';
+      const approvedCalculationFingerprint = calculationFingerprint();
+      const approvedCheckboxAttribute = Boolean(approval?.hasAttribute('checked'));
+      const approvedRoot = document.documentElement?.cloneNode(true);
+      const approvedSource = approvedRoot?.querySelector('.rep-attachment-approval-source');
+      if (approvedSource) approvedSource.removeAttribute('data-initialized');
+      approvedRoot?.querySelectorAll('.rep-document-status-line, .rep-approval-control')
+        .forEach(node => node.remove());
+      approvedRoot?.querySelector('body')?.removeAttribute('data-document-class');
+      const approvedHtml = approvedRoot ? approvedRoot.outerHTML : '';
       if (approval) {
         approval.checked = false;
         approval.dispatchEvent(new Event('change', { bubbles: true }));
       }
+      const internalCheckboxAttribute = Boolean(approval?.hasAttribute('checked'));
       const html = document.documentElement ? document.documentElement.outerHTML : '';
       return {
         title: document.title || '',
@@ -1088,7 +1124,14 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         documentStateText: initialStatusText,
         approvalControl: Boolean(approval),
         approvedDocumentClass,
-        approvedStatusText
+        approvedCheckboxAttribute,
+        internalCheckboxAttribute,
+        approvedStatusText,
+        approvedAt,
+        initialCalculationFingerprint,
+        approvedCalculationFingerprint,
+        approvedHtml,
+        approvedAuditHtml: approvedHtml.replace(/data:image\\/png;base64,[^"'\\s<>]+/g, 'data:image/png;base64,[omitted]')
       };
     })()`);
     return {
@@ -1110,7 +1153,14 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentStateText: state.documentStateText,
       approvalControl: state.approvalControl,
       approvedDocumentClass: state.approvedDocumentClass,
+      approvedCheckboxAttribute: state.approvedCheckboxAttribute,
+      internalCheckboxAttribute: state.internalCheckboxAttribute,
       approvedStatusText: state.approvedStatusText,
+      approvedAt: state.approvedAt,
+      initialCalculationFingerprint: state.initialCalculationFingerprint,
+      approvedCalculationFingerprint: state.approvedCalculationFingerprint,
+      approvedHtml: state.approvedHtml,
+      approvedAuditHtml: state.approvedAuditHtml,
     };
   } finally {
     popupErrors.unsubscribe();
@@ -2131,12 +2181,25 @@ function assertPlaceholderPopupReportState(state, tool, label, mode = 'default')
 }
 
 function assertPopupDocumentStateMatchesPage(state, tool, label) {
+  const readyDocumentLabel = formalManifest.shared.readyDocumentLabel || '文件狀態：正式附件';
+  const internalReviewLabel = formalManifest.shared.internalReviewLabel || '文件狀態：內部審閱';
   assert.ok(['ready', 'review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} exposes page readiness`);
   assert.equal(state.approvalControl, true, `${label} ${tool.key} popup exposes explicit approval checkbox`);
   assert.equal(state.documentState, 'internal-review', `${label} ${tool.key} popup defaults to printable internal review`);
-  assert.ok(state.documentStateText.includes('文件狀態：內部審閱'), `${label} ${tool.key} popup renders internal review footer`);
+  assert.ok(state.documentStateText.includes(internalReviewLabel), `${label} ${tool.key} popup renders internal review footer`);
+  assert.match(state.html || '', /<body\b[^>]*data-document-class=["']internal-review["']/i, `${label} ${tool.key} preserves internal-review HTML evidence`);
   assert.equal(state.approvedDocumentClass, 'formal-attachment', `${label} ${tool.key} approval checkbox creates formal attachment`);
-  assert.ok(state.approvedStatusText.includes('文件狀態：正式附件') && state.approvedStatusText.includes('核可時間'), `${label} ${tool.key} formal attachment records approval time`);
+  assert.equal(state.approvedCheckboxAttribute, true, `${label} ${tool.key} approval synchronizes the checked attribute`);
+  assert.equal(state.internalCheckboxAttribute, false, `${label} ${tool.key} returning to internal review removes the checked attribute`);
+  assert.ok(state.approvedStatusText.includes(readyDocumentLabel) && state.approvedStatusText.includes('核可時間'), `${label} ${tool.key} formal attachment records approval time`);
+  assert.ok(Number.isFinite(Date.parse(state.approvedAt || '')), `${label} ${tool.key} formal attachment exposes a machine-readable approval time`);
+  assert.match(state.initialCalculationFingerprint || '', /^CF-[0-9A-F]{16}$/, `${label} ${tool.key} internal-review report exposes a calculation fingerprint`);
+  assert.equal(state.approvedCalculationFingerprint, state.initialCalculationFingerprint, `${label} ${tool.key} approval preserves the calculation fingerprint`);
+  assert.ok(state.approvedHtml, `${label} ${tool.key} captures rehydratable approved HTML before returning to internal review`);
+  assert.match(state.approvedHtml, /<span\b[^>]*class=["'][^"']*rep-attachment-approval-source[^"']*["'][^>]*data-initial-approved=["']true["']/i, `${label} ${tool.key} serialized approval source remains formally approved`);
+  assert.ok(state.approvedHtml.includes(`data-approved-at="${state.approvedAt}"`), `${label} ${tool.key} serialized approval source preserves approval time`);
+  assert.ok(state.approvedHtml.includes(state.approvedCalculationFingerprint), `${label} ${tool.key} approved HTML preserves the same calculation fingerprint`);
+  assert.doesNotMatch(state.approvedHtml, /<body\b[^>]*data-document-class=/i, `${label} ${tool.key} approved HTML must rehydrate its document class from the serialized approval source`);
   assert.equal(state.bodyText.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} popup has no DRAFT banner regardless of engineering readiness`);
 }
 
@@ -2150,9 +2213,21 @@ function getReportDocumentState(state) {
 
 function getReportPdfDocumentStateNeedles(state) {
   const documentState = getReportDocumentState(state);
+  const readyDocumentLabel = formalManifest.shared.readyDocumentLabel || '文件狀態：正式附件';
+  const internalReviewLabel = formalManifest.shared.internalReviewLabel || '文件狀態：內部審閱';
+  const formalAttachment = documentState.documentClass === 'formal-attachment';
   return {
-    required: [documentState.documentClass === 'formal-attachment' ? '文件狀態：正式附件' : '文件狀態：內部審閱'],
-    forbidden: ['DRAFT／非正式附件'],
+    required: [formalAttachment ? readyDocumentLabel : internalReviewLabel],
+    forbidden: ['DRAFT／非正式附件', formalAttachment ? internalReviewLabel : readyDocumentLabel],
+  };
+}
+
+function getApprovedReportPdfDocumentStateNeedles(state) {
+  const readyDocumentLabel = formalManifest.shared.readyDocumentLabel || '文件狀態：正式附件';
+  const internalReviewLabel = formalManifest.shared.internalReviewLabel || '文件狀態：內部審閱';
+  return {
+    required: [readyDocumentLabel, '核可時間', '計算指紋', state.approvedCalculationFingerprint],
+    forbidden: ['DRAFT／非正式附件', internalReviewLabel],
   };
 }
 
@@ -2613,18 +2688,15 @@ async function main() {
             assertPlaceholderPopupReportState(popupReportState, tool, `${interactionLabel} popup placeholder`, mode);
           }
           const renderedReportState = popupReportStates.detail
-            || popupReportStates.default
-            || reportStates.detail
-            || reportStates.default
-            || reportStates.simple;
-          assert.ok(renderedReportState?.html, `${interactionLabel} ${tool.key} has report HTML for real PDF evidence`);
-          const renderedDocumentStateNeedles = getReportPdfDocumentStateNeedles(renderedReportState);
+            || popupReportStates.default;
+          assert.ok(renderedReportState?.approvedHtml, `${interactionLabel} ${tool.key} has approved report HTML for real formal-attachment PDF evidence`);
+          const renderedDocumentStateNeedles = getApprovedReportPdfDocumentStateNeedles(renderedReportState);
           const renderedEvidence = await renderAndValidateReportPdf(client, {
-            html: renderedReportState.html,
+            html: renderedReportState.approvedHtml,
             outputDir: renderedEvidenceDir,
-            artifactName: `${tool.key}-formal-report`,
-            label: `${tool.key} formal report`,
-            renderer: tool.reportMode ? 'formal-detailed' : 'formal-default',
+            artifactName: `${tool.key}-formal-attachment-report`,
+            label: `${tool.key} approved formal attachment report`,
+            renderer: tool.reportMode ? 'formal-attachment-detailed' : 'formal-attachment-default',
             contentBoundaryProfile: 'traceable-calculation-book',
             titleNeedle: tool.titleNeedle,
             requiredNeedles: [
@@ -2646,6 +2718,12 @@ async function main() {
           renderedEvidenceRecords.push({
             key: tool.key,
             renderer: renderedEvidence.renderer,
+            evidenceRole: 'approved-formal-attachment',
+            documentClass: renderedReportState.approvedDocumentClass,
+            approvalTime: renderedReportState.approvedAt,
+            calculationFingerprint: renderedReportState.approvedCalculationFingerprint,
+            internalReviewDocumentClass: renderedReportState.documentClass,
+            internalReviewStateVerified: renderedReportState.documentClass === 'internal-review',
             artifact: path.basename(renderedEvidence.pdfPath),
             evidence: path.basename(renderedEvidence.evidencePath),
             pageCount: renderedEvidence.pdf.pageCount,
@@ -2656,9 +2734,9 @@ async function main() {
             const summaryEvidence = await renderAndValidateReportPdf(client, {
               html: reportStates.simple.html,
               outputDir: renderedEvidenceDir,
-              artifactName: 'shared-summary-layout',
-              label: 'shared formal summary layout',
-              renderer: 'formal-summary',
+              artifactName: 'shared-summary-layout-internal-review',
+              label: 'shared internal-review summary layout',
+              renderer: 'internal-review-summary',
               contentBoundaryProfile: 'traceable-calculation-summary',
               titleNeedle: tool.titleNeedle,
               requiredNeedles: [
@@ -2680,6 +2758,9 @@ async function main() {
             renderedEvidenceRecords.push({
               key: 'shared-summary-layout',
               renderer: summaryEvidence.renderer,
+              evidenceRole: 'internal-review-layout',
+              documentClass: 'internal-review',
+              approvalTime: null,
               artifact: path.basename(summaryEvidence.pdfPath),
               evidence: path.basename(summaryEvidence.evidencePath),
               pageCount: summaryEvidence.pdf.pageCount,
@@ -2688,6 +2769,12 @@ async function main() {
             renderedEvidenceRecords.push({
               key: 'shared-detailed-layout',
               renderer: renderedEvidence.renderer,
+              evidenceRole: 'approved-formal-attachment-layout',
+              documentClass: renderedReportState.approvedDocumentClass,
+              approvalTime: renderedReportState.approvedAt,
+              calculationFingerprint: renderedReportState.approvedCalculationFingerprint,
+              internalReviewDocumentClass: renderedReportState.documentClass,
+              internalReviewStateVerified: renderedReportState.documentClass === 'internal-review',
               artifact: path.basename(renderedEvidence.pdfPath),
               evidence: path.basename(renderedEvidence.evidencePath),
               pageCount: renderedEvidence.pdf.pageCount,

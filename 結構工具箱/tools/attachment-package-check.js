@@ -23,6 +23,7 @@ const DRAFT_DOCUMENT_NEEDLES = [
   '文件狀態：內部審閱',
 ];
 const READY_DOCUMENT_CLASS_LABEL = '文件狀態：正式附件';
+const CANONICAL_RENDER_EVIDENCE_KIND = 'attachment-canonical-render-evidence.v1';
 const PACKAGE_STATUS_EXIT_CODES = Object.freeze({
   ready: 0,
   review: 1,
@@ -71,22 +72,350 @@ function decodeXmlText(value) {
     .replace(/<[^>]+>/g, ' '));
 }
 
+function decodeXmlEntities(value) {
+  return String(value || '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, decimal) => String.fromCodePoint(parseInt(decimal, 10)))
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function parseMarkupAttributes(value) {
+  const attributes = {};
+  const pattern = /([^\s"'<>\/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+  let match;
+  while ((match = pattern.exec(String(value || '')))) {
+    attributes[match[1].toLowerCase()] = match[2] ?? match[3] ?? match[4] ?? '';
+  }
+  return attributes;
+}
+
+function parseSimpleCssSelector(value) {
+  let rest = String(value || '').trim();
+  if (!rest || /[\s>+~:\[\]*]/.test(rest)) return null;
+  const tagMatch = /^[a-z][\w-]*/i.exec(rest);
+  const selector = { tag: '', id: '', classes: [] };
+  if (tagMatch) {
+    selector.tag = tagMatch[0].toLowerCase();
+    rest = rest.slice(tagMatch[0].length);
+  }
+  while (rest) {
+    const item = /^([.#])([\w-]+)/.exec(rest);
+    if (!item) return null;
+    if (item[1] === '#') {
+      if (selector.id) return null;
+      selector.id = item[2];
+    } else selector.classes.push(item[2]);
+    rest = rest.slice(item[0].length);
+  }
+  return selector.tag || selector.id || selector.classes.length ? selector : null;
+}
+
+function collectApplicableCssRules(value, applies = true, rules = []) {
+  const css = String(value || '').replace(/\/\*[\s\S]*?\*\//g, ' ');
+  let cursor = 0;
+  while (cursor < css.length) {
+    const open = css.indexOf('{', cursor);
+    if (open < 0) break;
+    const header = css.slice(cursor, open).trim().replace(/^;+/, '').trim();
+    let depth = 1;
+    let close = open + 1;
+    while (close < css.length && depth) {
+      if (css[close] === '{') depth += 1;
+      else if (css[close] === '}') depth -= 1;
+      close += 1;
+    }
+    if (depth) break;
+    const body = css.slice(open + 1, close - 1);
+    if (/^@media\b/i.test(header)) {
+      const media = header.replace(/^@media\b/i, '').trim();
+      const printApplicable = !/\bnot\s+print\b/i.test(media)
+        && (/\bprint\b|\ball\b/i.test(media) || !/\bscreen\b/i.test(media));
+      collectApplicableCssRules(body, applies && printApplicable, rules);
+    } else if (/^@(?:supports|layer|container)\b/i.test(header)) {
+      collectApplicableCssRules(body, applies, rules);
+    } else if (applies && header && !header.startsWith('@')) {
+      rules.push({ selectors: header, declarations: body });
+    }
+    cursor = close;
+  }
+  return rules;
+}
+
+function hasZeroClippedBoxStyle(value) {
+  const style = String(value || '');
+  const zeroDimension = property => new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*0(?:\\.0+)?(?:px|pt|em|rem|%|vw|vh)?\\s*(?:!important\\s*)?(?:;|$)`, 'i').test(style);
+  const clippedOverflow = /(?:^|;)\s*overflow(?:-[xy])?\s*:\s*(?:hidden|clip)\b/i.test(style);
+  return zeroDimension('width') && zeroDimension('height') && clippedOverflow;
+}
+
+function hasDefinitelyHiddenStyle(value) {
+  const style = String(value || '');
+  return /\bdisplay\s*:\s*none\b/i.test(style)
+    || /\bvisibility\s*:\s*(?:hidden|collapse)\b/i.test(style)
+    || /\bcontent-visibility\s*:\s*hidden\b/i.test(style)
+    || /(?:^|;)\s*opacity\s*:\s*0(?:\.0+)?\s*(?:!important\s*)?(?:;|$)/i.test(style)
+    || /\b(?:color|-webkit-text-fill-color)\s*:\s*transparent\b/i.test(style)
+    || /\b(?:color|-webkit-text-fill-color)\s*:\s*rgba\([^)]*,\s*0(?:\.0+)?\s*\)/i.test(style)
+    || /\bfont-size\s*:\s*0(?:[a-z%]+)?\s*(?:!important\s*)?(?:;|$)/i.test(style)
+    || /\btransform\s*:\s*scale(?:3d|x|y)?\(\s*0(?:\s*[,)]|\s*$)/i.test(style)
+    || /\bfilter\s*:\s*opacity\(\s*0(?:%|(?:\.0+)?)?\s*\)/i.test(style)
+    || hasZeroClippedBoxStyle(style);
+}
+
+const CSS_NAMED_COLORS = Object.freeze({
+  white: [255, 255, 255, 1], black: [0, 0, 0, 1], navy: [0, 0, 128, 1], blue: [0, 0, 255, 1],
+  red: [255, 0, 0, 1], green: [0, 128, 0, 1], lime: [0, 255, 0, 1], yellow: [255, 255, 0, 1],
+  orange: [255, 165, 0, 1], purple: [128, 0, 128, 1], teal: [0, 128, 128, 1], gray: [128, 128, 128, 1], grey: [128, 128, 128, 1],
+});
+
+function parseCssColor(value) {
+  const text = String(value || '').trim().toLowerCase().replace(/\s*!important\s*$/, '');
+  if (CSS_NAMED_COLORS[text]) return [...CSS_NAMED_COLORS[text]];
+  const shortHex = /^#([0-9a-f]{3})$/i.exec(text);
+  if (shortHex) return [...shortHex[1]].map(value => parseInt(value + value, 16)).concat(1);
+  const hex = /^#([0-9a-f]{6})$/i.exec(text);
+  if (hex) return [0, 2, 4].map(index => parseInt(hex[1].slice(index, index + 2), 16)).concat(1);
+  const rgb = /^rgba?\(([^)]+)\)$/i.exec(text);
+  if (!rgb) return null;
+  const parts = rgb[1].replace(/\//g, ' ').split(/[\s,]+/).filter(Boolean).map(Number);
+  if (parts.length < 3 || parts.slice(0, 3).some(item => !Number.isFinite(item))) return null;
+  return [parts[0], parts[1], parts[2], Number.isFinite(parts[3]) ? parts[3] : 1];
+}
+
+function mergeCssDeclarations(...values) {
+  const merged = new Map();
+  values.forEach(value => {
+    const pattern = /(?:^|;)\s*([-\w]+)\s*:\s*([^;]+)/g;
+    let match;
+    while ((match = pattern.exec(String(value || '')))) {
+      const property = match[1].toLowerCase();
+      const rawValue = match[2].trim();
+      const important = /\s*!important\s*$/i.test(rawValue);
+      const existing = merged.get(property);
+      if (existing?.important && !important) continue;
+      merged.set(property, { value: rawValue, important });
+    }
+  });
+  return [...merged.entries()].map(([property, entry]) => `${property}:${entry.value}`).join(';');
+}
+function cssDeclarationEntries(value) {
+  const entries = [];
+  const pattern = /(?:^|;)\s*([-\w]+)\s*:\s*([^;]+)/g;
+  let match;
+  while ((match = pattern.exec(String(value || '')))) {
+    entries.push({ property: match[1].toLowerCase(), value: match[2].trim() });
+  }
+  return entries;
+}
+
+const VISIBILITY_RELATED_CSS_PROPERTIES = new Set([
+  'display', 'visibility', 'content-visibility', 'opacity', 'content',
+  'color', '-webkit-text-fill-color', 'font-size', 'line-clamp', '-webkit-line-clamp',
+  'position', 'top', 'right', 'bottom', 'left', 'float', 'clear', 'z-index',
+  'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height',
+  'text-indent', 'white-space', 'writing-mode', 'contain',
+  'transform', 'translate', 'scale', 'rotate', 'filter', 'mix-blend-mode',
+]);
+
+function hasVisibilityRelatedDeclarations(value) {
+  return cssDeclarationEntries(value).some(({ property }) => (
+    VISIBILITY_RELATED_CSS_PROPERTIES.has(property)
+    || /^(?:background|margin|padding|inset|overflow|clip|mask|grid|flex|align|justify|place)(?:-|$)/.test(property)
+  ));
+}
+
+function hasUnparsedColorDeclarations(value) {
+  const colorProperties = new Set(['color', '-webkit-text-fill-color', 'background-color', 'background']);
+  return cssDeclarationEntries(value).some(({ property, value: rawValue }) => {
+    if (!colorProperties.has(property)) return false;
+    const normalized = rawValue.replace(/\s*!important\s*$/i, '').trim();
+    if (/^(?:inherit|initial|unset|revert(?:-layer)?|transparent)$/i.test(normalized)) return false;
+    if (property === 'color' || property === '-webkit-text-fill-color') {
+      if (/^currentcolor$/i.test(normalized)) return false;
+    } else if (/^none$/i.test(normalized)) return false;
+    const functions = [...normalized.matchAll(/([-\w]+)\s*\(/g)].map(match => match[1].toLowerCase());
+    if (functions.some(name => !['rgb', 'rgba'].includes(name))) return true;
+    return !extractCssColorDeclaration(`${property}:${normalized}`, property);
+  });
+}
+
+function collectLinkedStylesheetIssues(value) {
+  const issues = [];
+  const pattern = /<link\b([^>]*)>/gi;
+  let match;
+  while ((match = pattern.exec(String(value || '')))) {
+    const attributes = parseMarkupAttributes(match[1]);
+    if (String(attributes.rel || '').toLowerCase().split(/\s+/).includes('stylesheet')) issues.push('link[rel=stylesheet]');
+  }
+  return unique(issues);
+}
+
+
+function extractCssColorDeclaration(value, property) {
+  const pattern = new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`, 'i');
+  const declaration = pattern.exec(String(value || ''))?.[1] || '';
+  const colorToken = /#[0-9a-f]{3,6}\b|rgba?\([^)]+\)|\b(?:white|black|navy|blue|red|green|lime|yellow|orange|purple|teal|gr[ae]y)\b/i.exec(declaration)?.[0] || '';
+  return parseCssColor(colorToken);
+}
+
+function hasSameForegroundBackgroundStyle(value) {
+  const foreground = extractCssColorDeclaration(value, '(?:color|-webkit-text-fill-color)');
+  const background = extractCssColorDeclaration(value, 'background-color')
+    || extractCssColorDeclaration(value, 'background');
+  if (!foreground || !background || foreground[3] <= 0 || background[3] <= 0) return false;
+  return foreground.slice(0, 3).every((channel, index) => channel === background[index]);
+}
+
+function hasAmbiguousVisibilityStyle(value) {
+  const style = String(value || '');
+  return /\bclip(?:-path)?\s*:/i.test(style)
+    || /\b(?:left|right|top|bottom|text-indent)\s*:\s*-\s*[1-9]\d{2,}(?:px|pt|em|rem|vw|vh|%)/i.test(style)
+    || /\b(?:left|top)\s*:\s*[1-9]\d{3,}(?:px|pt|em|rem|vw|vh|%)/i.test(style)
+    || /\btransform\s*:[^;]*translate(?:3d|x|y)?\([^)]*-\s*[1-9]\d{2,}/i.test(style)
+    || hasSameForegroundBackgroundStyle(style);
+}
+
+function collectHiddenCssSelectors(value) {
+  const selectors = [];
+  const rules = [];
+  const visibilityIssues = [];
+  const styles = String(value || '').match(/<style\b[^>]*>[\s\S]*?<\/style>/gi) || [];
+  styles.forEach(style => {
+    const css = style.replace(/^<style\b[^>]*>/i, '').replace(/<\/style>$/i, '');
+    const uncommentedCss = css.replace(/\/\*[\s\S]*?\*\//g, ' ');
+    if (/@import\b/i.test(uncommentedCss)) visibilityIssues.push('@import');
+    collectApplicableCssRules(css).forEach(rule => {
+      const declarations = String(rule.declarations || '');
+      const visibilityRelated = hasVisibilityRelatedDeclarations(declarations);
+      const definitelyHidden = hasDefinitelyHiddenStyle(declarations);
+      const ambiguous = hasAmbiguousVisibilityStyle(declarations);
+      rule.selectors.split(',').map(item => item.trim()).filter(Boolean).forEach(rawSelector => {
+        const parsed = parseSimpleCssSelector(rawSelector);
+        if (parsed) {
+          rules.push({ selector: parsed, declarations, rawSelector });
+          if (definitelyHidden) selectors.push(parsed);
+        } else if (definitelyHidden || ambiguous || visibilityRelated) visibilityIssues.push(rawSelector);
+      });
+    });
+  });
+  return { selectors, rules, visibilityIssues: unique(visibilityIssues) };
+}
+
+function matchesSimpleCssSelector(tagName, attributes, selector) {
+  if (selector.tag && selector.tag !== tagName) return false;
+  if (selector.id && selector.id !== attributes.id) return false;
+  const classes = new Set(String(attributes.class || '').split(/\s+/).filter(Boolean));
+  return selector.classes.every(className => classes.has(className));
+}
+
+function extractHtmlVisibleContent(value) {
+  const source = String(value || '').replace(/<!--[\s\S]*?-->/g, ' ');
+  const css = collectHiddenCssSelectors(source);
+  const content = source.replace(/<(?:script|style|template|noscript)\b[^>]*>[\s\S]*?<\/(?:script|style|template|noscript)>/gi, ' ');
+  const tokens = content.match(/<[^>]*>|[^<]+/g) || [];
+  const stack = [];
+  const output = [];
+  const visibilityIssues = [...css.visibilityIssues, ...collectLinkedStylesheetIssues(source)];
+  const voidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
+  tokens.forEach(token => {
+    if (!token.startsWith('<')) {
+      if (!stack.some(item => item.hidden)) output.push(token);
+      return;
+    }
+    const closing = /^<\s*\/\s*([a-z][\w:-]*)[^>]*>$/i.exec(token);
+    if (closing) {
+      const tagName = closing[1].toLowerCase();
+      for (let index = stack.length - 1; index >= 0; index -= 1) {
+        if (stack[index].tagName === tagName) {
+          stack.splice(index);
+          break;
+        }
+      }
+      return;
+    }
+    const opening = /^<\s*([a-z][\w:-]*)\b([\s\S]*?)\/?\s*>$/i.exec(token);
+    if (!opening) return;
+    const tagName = opening[1].toLowerCase();
+    const attributes = parseMarkupAttributes(opening[2]);
+    const inlineStyle = String(attributes.style || '');
+    const matchedRules = css.rules.filter(rule => matchesSimpleCssSelector(tagName, attributes, rule.selector));
+    const mergedStyle = mergeCssDeclarations(...matchedRules.map(rule => rule.declarations), inlineStyle);
+    const parentState = stack.at(-1) || { hidden: false, foreground: [0, 0, 0, 1], background: [255, 255, 255, 1] };
+    const specifiedForeground = extractCssColorDeclaration(mergedStyle, '-webkit-text-fill-color') || extractCssColorDeclaration(mergedStyle, 'color');
+    const foreground = specifiedForeground || parentState.foreground;
+    const specifiedBackground = extractCssColorDeclaration(mergedStyle, 'background-color') || extractCssColorDeclaration(mergedStyle, 'background');
+    const background = specifiedBackground?.[3] > 0 ? specifiedBackground : parentState.background;
+    const sameEffectiveColor = Boolean(foreground && background && foreground[3] > 0 && background[3] > 0 && foreground.slice(0, 3).every((channel, index) => channel === background[index]));
+    const ownHidden = Object.prototype.hasOwnProperty.call(attributes, 'hidden')
+      || String(attributes['aria-hidden'] || '').toLowerCase() === 'true'
+      || hasDefinitelyHiddenStyle(mergedStyle)
+      || css.selectors.some(selector => matchesSimpleCssSelector(tagName, attributes, selector))
+      || sameEffectiveColor;
+    const ambiguous = hasAmbiguousVisibilityStyle(mergedStyle) || sameEffectiveColor || hasUnparsedColorDeclarations(mergedStyle);
+    if (ambiguous) {
+      const issueLabels = [
+        ...matchedRules.map(rule => rule.rawSelector),
+        ...(inlineStyle ? [`inline ${tagName}`] : []),
+      ];
+      if (!issueLabels.length) issueLabels.push(`computed ${tagName}`);
+      visibilityIssues.push(...issueLabels);
+    }
+    const hidden = Boolean(parentState.hidden || ownHidden);
+    if (!voidTags.has(tagName) && !/\/\s*>$/.test(token)) stack.push({ tagName, hidden, foreground, background });
+  });
+  return {
+    text: normalizeText(output.join(' ')),
+    visibilityIssues: unique(visibilityIssues),
+    unsupportedHiddenSelectors: unique(visibilityIssues),
+  };
+}
+
 function extractHtmlText(value) {
-  return normalizeText(String(value || '')
-    .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(?:script|style|template|noscript)\b[^>]*>[\s\S]*?<\/(?:script|style|template|noscript)>/gi, ' ')
-    .replace(/<([a-z][\w:-]*)\b[^>]*(?:\shidden(?:\s*=\s*(?:["'][^"']*["']|[^\s>]+))?|\saria-hidden\s*=\s*["']?true["']?|\sstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)[^"']*["'])[^>]*>[\s\S]*?<\/\1>/gi, ' '));
+  return extractHtmlVisibleContent(value).text;
+}
+
+function hasCompleteVisibleTraceabilityMetadata(value) {
+  const metadata = extractTextMetadata(value);
+  return Boolean(
+    metadata.sourceTool
+    && metadata.toolVersion
+    && metadata.outputTime
+    && Array.isArray(metadata.fingerprints)
+    && metadata.fingerprints.length,
+  );
 }
 
 function detectCalculationContentProfile(value) {
   const titleRegion = normalizeText(value).slice(0, 320);
-  return CALCULATION_SUMMARY_DOCUMENT_NEEDLES.some(needle => titleRegion.includes(needle))
+  const baseProfile = CALCULATION_SUMMARY_DOCUMENT_NEEDLES.some(needle => titleRegion.includes(needle))
     ? 'calculation-summary'
     : 'calculation-book';
+  return hasCompleteVisibleTraceabilityMetadata(value) ? `traceable-${baseProfile}` : baseProfile;
+}
+
+function calculationContentProfileFamily(profile) {
+  const normalized = String(profile || '');
+  if (['calculation-summary', 'traceable-calculation-summary'].includes(normalized)) return 'calculation-summary';
+  if (['calculation-book', 'traceable-calculation-book', 'compiled-engineering-report'].includes(normalized)) return 'calculation-book';
+  return normalized;
+}
+
+function isCompatibleClaimedContentProfile(claimedProfile, detectedProfile) {
+  const claimed = String(claimedProfile || '');
+  if (!Object.prototype.hasOwnProperty.call(CONTENT_PROFILES, claimed)) return false;
+  const claimedFamily = calculationContentProfileFamily(claimed);
+  const detectedFamily = calculationContentProfileFamily(detectedProfile);
+  if (claimedFamily !== detectedFamily) return false;
+  if (claimed === 'compiled-engineering-report') return detectedFamily === 'calculation-book';
+  return claimed === detectedProfile;
 }
 
 function sha256File(filePath) {
@@ -188,25 +517,333 @@ function extractPdfText(filePath) {
   return run('pdftotext', ['-layout', filePath, '-'], `${path.basename(filePath)} PDF text`);
 }
 
+function validateCanonicalRenderEvidence(evidence, expected = {}) {
+  const reasons = [];
+  const value = evidence && typeof evidence === 'object' ? evidence : {};
+  const pdf = value.pdf && typeof value.pdf === 'object' ? value.pdf : {};
+  const pages = Array.isArray(pdf.pages) ? pdf.pages : [];
+  const visibleText = pdf.visibleText && typeof pdf.visibleText === 'object' ? pdf.visibleText : {};
+  const contentBoundary = visibleText.contentBoundary && typeof visibleText.contentBoundary === 'object'
+    ? visibleText.contentBoundary
+    : null;
+  if (value.kind !== CANONICAL_RENDER_EVIDENCE_KIND) reasons.push('kind');
+  if (!value.artifact || path.basename(String(value.artifact)) !== String(expected.artifactName || '')) reasons.push('artifact');
+  if (!/^[0-9a-f]{64}$/i.test(String(value.artifactSha256 || ''))
+    || String(value.artifactSha256 || '').toLowerCase() !== String(expected.artifactSha256 || '').toLowerCase()) reasons.push('artifactSha256');
+  if (!String(value.renderer || '').trim()) reasons.push('renderer');
+  if (!Number.isInteger(pdf.pageCount) || pdf.pageCount < 1 || pages.length !== pdf.pageCount) reasons.push('pages');
+  let totalInkPixels = 0;
+  pages.forEach((page, index) => {
+    const width = Number(page?.width);
+    const height = Number(page?.height);
+    const inkPixels = Number(page?.inkPixels);
+    const inkRatio = Number(page?.inkRatio);
+    if (!(width > 0 && height > 0 && inkPixels >= 0 && inkRatio >= 0 && inkRatio <= 1)) {
+      reasons.push(`page-${index + 1}-metrics`);
+      return;
+    }
+    totalInkPixels += inkPixels;
+    if (inkPixels > 0) {
+      const bounds = page?.bounds || {};
+      const validBounds = Number(bounds.minX) >= 0 && Number(bounds.minY) >= 0
+        && Number(bounds.maxX) >= Number(bounds.minX) && Number(bounds.maxX) < width
+        && Number(bounds.maxY) >= Number(bounds.minY) && Number(bounds.maxY) < height;
+      if (!validBounds) reasons.push(`page-${index + 1}-bounds`);
+    }
+  });
+  if (!(totalInkPixels > 0)) reasons.push('page-ink');
+  const printVisibility = value.dom?.printVisibility && typeof value.dom.printVisibility === 'object'
+    ? value.dom.printVisibility
+    : {};
+  const renderedPageText = visibleText.derivedFromRenderedPages === true
+    && visibleText.source === 'rendered-page-ocr'
+    && /(?:ocr|vision)/i.test(String(visibleText.method || ''));
+  const controlledPrintDom = visibleText.source === 'controlled-html-print-session'
+    && visibleText.derivedFromRenderedPages === false
+    && visibleText.generatedInSamePrintSession === true
+    && /^[0-9a-f]{64}$/i.test(String(value.sourceHtmlSha256 || ''))
+    && printVisibility.ambiguousTextNodeCount === 0
+    && Array.isArray(printVisibility.checks)
+    && printVisibility.checks.includes('print-media')
+    && printVisibility.checks.includes('text-range-client-rects');
+  if ((!renderedPageText && !controlledPrintDom) || !String(visibleText.method || '').trim()) reasons.push('visible-text-method');
+  const evidenceText = typeof visibleText.text === 'string' ? visibleText.text : '';
+  if (!Number.isInteger(visibleText.textLength) || visibleText.textLength < 1 || evidenceText.length !== visibleText.textLength) reasons.push('visible-text-length');
+  const evidenceTextSha256 = crypto.createHash('sha256').update(evidenceText, 'utf8').digest('hex');
+  if (!/^[0-9a-f]{64}$/i.test(String(visibleText.textSha256 || ''))
+    || evidenceTextSha256 !== String(visibleText.textSha256 || '').toLowerCase()) reasons.push('visible-text-sha256');
+  let visibleContentBoundary = null;
+  const detectedContentProfile = detectCalculationContentProfile(evidenceText);
+  if (!contentBoundary || !Array.isArray(contentBoundary.missingGroups) || contentBoundary.missingGroups.length
+    || !String(contentBoundary.profile || '')) reasons.push('visible-content-boundary');
+  if (!isCompatibleClaimedContentProfile(contentBoundary?.profile, detectedContentProfile)) reasons.push('visible-content-profile');
+  try {
+    visibleContentBoundary = evaluateCalculationContent(evidenceText, { contentBoundaryProfile: detectedContentProfile });
+    if (visibleContentBoundary.missingGroups.length) reasons.push('visible-content-boundary');
+  } catch (error) {
+    reasons.push('visible-content-boundary');
+  }
+  return {
+    status: reasons.length ? 'review' : 'verified',
+    method: 'canonical-render-visible-text',
+    evidenceKind: value.kind || '',
+    reasons: unique(reasons),
+    visibleText: evidenceText,
+    visibleContentBoundary,
+  };
+}
+
+function loadPdfVisibilityEvidence(filePath, artifactSha256) {
+  const parsed = path.parse(filePath);
+  const candidates = [
+    path.join(parsed.dir, `${parsed.name}.canonical-render.evidence.json`),
+    path.join(parsed.dir, `${parsed.name}.evidence.json`),
+  ];
+  const evidencePath = candidates.find(candidate => fs.existsSync(candidate));
+  if (!evidencePath) {
+    return {
+      status: 'review',
+      method: 'pdftotext-only',
+      evidenceKind: '',
+      evidenceFile: '',
+      reasons: ['canonical-render-evidence-missing'],
+    };
+  }
+  try {
+    const before = fileSnapshot(evidencePath);
+    const evidence = JSON.parse(fs.readFileSync(evidencePath, 'utf8'));
+    const result = validateCanonicalRenderEvidence(evidence, {
+      artifactName: path.basename(filePath),
+      artifactSha256,
+    });
+    const after = fileSnapshot(evidencePath);
+    if (before.bytes !== after.bytes || before.sha256 !== after.sha256) {
+      result.status = 'review';
+      result.reasons = unique([...result.reasons, 'evidence-changed-during-inspection']);
+    }
+    return { ...result, evidenceFile: path.basename(evidencePath) };
+  } catch (error) {
+    return {
+      status: 'review',
+      method: 'pdftotext-only',
+      evidenceKind: '',
+      evidenceFile: path.basename(evidencePath),
+      reasons: ['canonical-render-evidence-invalid', error.message || String(error)],
+    };
+  }
+}
+
+function xmlPropertyEnabled(value, propertyName) {
+  const match = new RegExp(`<${escapeRegex(propertyName)}\\b([^>]*)>`, 'i').exec(String(value || ''));
+  if (!match) return false;
+  const attributes = parseMarkupAttributes(match[1]);
+  const setting = String(attributes['w:val'] ?? attributes.val ?? '').toLowerCase();
+  return !['0', 'false', 'off', 'no'].includes(setting);
+}
+
+function xmlAttributeValue(value, attributeName) {
+  const attributes = parseMarkupAttributes(value);
+  return attributes[String(attributeName || '').toLowerCase()] ?? '';
+}
+
+function collectDocxHiddenStyleIds(value) {
+  const styles = new Map();
+  const pattern = /<w:style\b([^>]*)>([\s\S]*?)<\/w:style>/gi;
+  let match;
+  while ((match = pattern.exec(String(value || '')))) {
+    const styleId = xmlAttributeValue(match[1], 'w:styleId');
+    if (!styleId) continue;
+    const basedOnMatch = /<w:basedOn\b([^>]*)\/?\s*>/i.exec(match[2]);
+    styles.set(styleId, {
+      hidden: xmlPropertyEnabled(match[2], 'w:vanish'),
+      basedOn: basedOnMatch ? xmlAttributeValue(basedOnMatch[1], 'w:val') : '',
+    });
+  }
+  const hidden = new Set([...styles].filter(([, style]) => style.hidden).map(([styleId]) => styleId));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    styles.forEach((style, styleId) => {
+      if (!hidden.has(styleId) && style.basedOn && hidden.has(style.basedOn)) {
+        hidden.add(styleId);
+        changed = true;
+      }
+    });
+  }
+  return hidden;
+}
+
+function stripDocxHiddenText(value, hiddenStyleIds = new Set()) {
+  const hiddenByStyle = (fragment, propertyName) => {
+    const match = new RegExp(`<w:${propertyName}\\b([^>]*)\\/?\\s*>`, 'i').exec(fragment || '');
+    return Boolean(match && hiddenStyleIds.has(xmlAttributeValue(match[1], 'w:val')));
+  };
+  return String(value || '').replace(/<w:p\b[^>]*>[\s\S]*?<\/w:p>/gi, paragraph => {
+    const properties = /<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/i.exec(paragraph)?.[0] || '';
+    if (xmlPropertyEnabled(properties, 'w:vanish') || hiddenByStyle(properties, 'pStyle')) return ' ';
+    return paragraph.replace(/<w:r\b[^>]*>[\s\S]*?<\/w:r>/gi, run => {
+      const runProperties = /<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/i.exec(run)?.[0] || '';
+      return xmlPropertyEnabled(runProperties, 'w:vanish') || hiddenByStyle(runProperties, 'rStyle') ? ' ' : run;
+    });
+  });
+}
+
 function extractDocxText(filePath) {
   const entries = readArchiveEntries(filePath);
   if (!entries.includes('word/document.xml')) throw new Error('DOCX 缺少 word/document.xml');
+  const styles = entries.includes('word/styles.xml')
+    ? collectDocxHiddenStyleIds(readArchiveEntry(filePath, 'word/styles.xml'))
+    : new Set();
   const contentEntries = entries.filter(entry => (
     entry === 'word/document.xml'
     || /^word\/(?:header|footer)\d+\.xml$/i.test(entry)
   ));
-  return decodeXmlText(contentEntries.map(entry => readArchiveEntry(filePath, entry)).join('\n'));
+  const visibleXml = contentEntries.map(entry => stripDocxHiddenText(readArchiveEntry(filePath, entry), styles)).join('\n');
+  return decodeXmlText(visibleXml);
+}
+
+function parseSharedStrings(value) {
+  const strings = [];
+  const pattern = /<si\b[^>]*>([\s\S]*?)<\/si>/gi;
+  let match;
+  while ((match = pattern.exec(String(value || '')))) {
+    const pieces = [];
+    const textPattern = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
+    let textMatch;
+    while ((textMatch = textPattern.exec(match[1]))) pieces.push(decodeXmlEntities(textMatch[1]));
+    strings.push(normalizeText(pieces.join(' ')));
+  }
+  return strings;
+}
+
+function worksheetColumnNumber(reference) {
+  const match = /^([A-Z]+)\d+$/i.exec(String(reference || '').trim());
+  if (!match) return 0;
+  return [...match[1].toUpperCase()].reduce((total, letter) => (total * 26) + letter.charCodeAt(0) - 64, 0);
+}
+
+function extractVisibleWorksheetText(value, sharedStrings = [], options = {}) {
+  const source = String(value || '');
+  const visibilityIssues = Array.isArray(options.visibilityIssues) ? options.visibilityIssues : [];
+  const hiddenColumnRanges = [];
+  let columnMatch;
+  const columnPattern = /<col\b([^>]*)\/?\s*>/gi;
+  while ((columnMatch = columnPattern.exec(source))) {
+    if (!/^(?:1|true)$/i.test(String(xmlAttributeValue(columnMatch[1], 'hidden')))) continue;
+    const min = Number(xmlAttributeValue(columnMatch[1], 'min'));
+    const max = Number(xmlAttributeValue(columnMatch[1], 'max'));
+    if (Number.isInteger(min) && min >= 1 && Number.isInteger(max) && max >= min) hiddenColumnRanges.push({ min, max });
+    else visibilityIssues.push('工作表隱藏欄缺少有效 min/max 範圍');
+  }
+  const rows = [];
+  const rowPattern = /<row\b([^>]*)>([\s\S]*?)<\/row>/gi;
+  let rowMatch;
+  let sawRows = false;
+  while ((rowMatch = rowPattern.exec(source))) {
+    sawRows = true;
+    const hidden = /^(?:1|true)$/i.test(String(xmlAttributeValue(rowMatch[1], 'hidden')));
+    if (!hidden) rows.push(rowMatch[2]);
+  }
+  const regions = sawRows ? rows : [source];
+  const output = [];
+  regions.forEach(region => {
+    const cellPattern = /<c\b([^>]*)>([\s\S]*?)<\/c>/gi;
+    let cellMatch;
+    while ((cellMatch = cellPattern.exec(region))) {
+      if (hiddenColumnRanges.length) {
+        const reference = xmlAttributeValue(cellMatch[1], 'r');
+        const columnNumber = worksheetColumnNumber(reference);
+        if (!columnNumber) {
+          visibilityIssues.push('工作表含隱藏欄，但儲存格缺少可判讀的 r 參照');
+          continue;
+        }
+        if (hiddenColumnRanges.some(range => columnNumber >= range.min && columnNumber <= range.max)) continue;
+      }
+      const cellType = String(xmlAttributeValue(cellMatch[1], 't')).toLowerCase();
+      const cellXml = cellMatch[2];
+      let cellText = '';
+      if (cellType === 's') {
+        const index = Number(/<v\b[^>]*>([\s\S]*?)<\/v>/i.exec(cellXml)?.[1]);
+        if (Number.isInteger(index) && index >= 0) cellText = sharedStrings[index] || '';
+      } else if (cellType === 'inlinestr') {
+        const pieces = [...cellXml.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/gi)].map(item => decodeXmlEntities(item[1]));
+        cellText = pieces.join(' ');
+      } else {
+        const valueMatch = /<v\b[^>]*>([\s\S]*?)<\/v>/i.exec(cellXml);
+        if (valueMatch) cellText = decodeXmlEntities(valueMatch[1]);
+      }
+      if (normalizeText(cellText)) output.push(cellText);
+    }
+  });
+  return normalizeText(output.join(' '));
+}
+
+function resolveVisibleWorksheetEntries(allEntries, workbookXml, relationshipsXml) {
+  const worksheetEntries = allEntries.filter(entry => /^xl\/worksheets\/[^/]+\.xml$/i.test(entry));
+  if (!workbookXml) return { entries: worksheetEntries, names: [], visibilityIssues: [] };
+  const relationshipTargets = new Map();
+  let relationshipMatch;
+  const relationshipPattern = /<Relationship\b([^>]*)\/?\s*>/gi;
+  while ((relationshipMatch = relationshipPattern.exec(String(relationshipsXml || '')))) {
+    const id = xmlAttributeValue(relationshipMatch[1], 'Id');
+    const target = xmlAttributeValue(relationshipMatch[1], 'Target');
+    if (id && target) relationshipTargets.set(id, target);
+  }
+  const actualEntries = new Map(allEntries.map(entry => [entry.toLowerCase(), entry]));
+  const visibleEntries = [];
+  const visibleNames = [];
+  const visibilityIssues = [];
+  let sheetIndex = 0;
+  let sheetMatch;
+  const sheetPattern = /<sheet\b([^>]*)\/?\s*>/gi;
+  while ((sheetMatch = sheetPattern.exec(String(workbookXml || '')))) {
+    const attributes = sheetMatch[1];
+    const state = String(xmlAttributeValue(attributes, 'state')).toLowerCase();
+    const hidden = state === 'hidden' || state === 'veryhidden';
+    const relationshipId = xmlAttributeValue(attributes, 'r:id');
+    const target = relationshipTargets.get(relationshipId) || '';
+    const normalizedTarget = target
+      ? path.posix.normalize(target.startsWith('/') ? target.slice(1) : path.posix.join('xl', target.replace(/\\/g, '/')))
+      : '';
+    const resolvedEntry = (normalizedTarget && actualEntries.get(normalizedTarget.toLowerCase())) || worksheetEntries[sheetIndex] || '';
+    if (!resolvedEntry) visibilityIssues.push(`工作表 ${xmlAttributeValue(attributes, 'name') || sheetIndex + 1} 無法解析來源 XML`);
+    else if (!hidden) {
+      visibleEntries.push(resolvedEntry);
+      visibleNames.push(decodeXmlEntities(xmlAttributeValue(attributes, 'name')));
+    }
+    sheetIndex += 1;
+  }
+  if (!sheetIndex) return { entries: worksheetEntries, names: [], visibilityIssues: ['workbook.xml 未列出工作表'] };
+  return { entries: unique(visibleEntries), names: visibleNames, visibilityIssues };
+}
+
+function extractXlsxVisibleContent(filePath) {
+  const allEntries = readArchiveEntries(filePath);
+  const worksheetEntries = allEntries.filter(entry => /^xl\/worksheets\/[^/]+\.xml$/i.test(entry));
+  if (!worksheetEntries.length) throw new Error('XLSX 缺少可讀取的 worksheet XML');
+  const sharedStrings = allEntries.includes('xl/sharedStrings.xml')
+    ? parseSharedStrings(readArchiveEntry(filePath, 'xl/sharedStrings.xml'))
+    : [];
+  const workbookXml = allEntries.includes('xl/workbook.xml') ? readArchiveEntry(filePath, 'xl/workbook.xml') : '';
+  const relationshipsXml = allEntries.includes('xl/_rels/workbook.xml.rels')
+    ? readArchiveEntry(filePath, 'xl/_rels/workbook.xml.rels')
+    : '';
+  const visible = resolveVisibleWorksheetEntries(allEntries, workbookXml, relationshipsXml);
+  const visibilityIssues = [...visible.visibilityIssues];
+  const text = [
+    ...visible.names,
+    ...visible.entries.map(entry => {
+      const worksheetIssues = [];
+      const worksheetText = extractVisibleWorksheetText(readArchiveEntry(filePath, entry), sharedStrings, { visibilityIssues: worksheetIssues });
+      visibilityIssues.push(...worksheetIssues.map(issue => `${entry}: ${issue}`));
+      return worksheetText;
+    }),
+  ].filter(Boolean).join('\n');
+  return { text: normalizeText(text), visibilityIssues: unique(visibilityIssues) };
 }
 
 function extractXlsxText(filePath) {
-  const allEntries = readArchiveEntries(filePath);
-  const entries = allEntries.filter(entry => (
-    entry === 'xl/sharedStrings.xml'
-    || entry === 'xl/workbook.xml'
-    || /^xl\/worksheets\/sheet\d+\.xml$/i.test(entry)
-  ));
-  if (!entries.length) throw new Error('XLSX 缺少可讀取的 workbook XML');
-  return decodeXmlText(entries.map(entry => readArchiveEntry(filePath, entry)).join('\n'));
+  return extractXlsxVisibleContent(filePath).text;
 }
 
 function extractJsonMetadata(value) {
@@ -272,28 +909,86 @@ function extractTextMetadata(text) {
   };
 }
 
+function canonicalPdfMetadataCompatibility(pdfText, visibleText) {
+  const reasons = [];
+  const pdfMetadata = extractTextMetadata(pdfText);
+  const visibleMetadata = extractTextMetadata(visibleText);
+  for (const key of ['sourceTool', 'toolVersion', 'outputTime', 'approvalTime']) {
+    if (!pdfMetadata[key] || !visibleMetadata[key] || pdfMetadata[key] !== visibleMetadata[key]) {
+      reasons.push(`pdf-visible-${key}-mismatch`);
+    }
+  }
+  const pdfFingerprints = [...pdfMetadata.fingerprints].sort();
+  const visibleFingerprints = [...visibleMetadata.fingerprints].sort();
+  if (!pdfFingerprints.length || pdfFingerprints.join('\u0000') !== visibleFingerprints.join('\u0000')) {
+    reasons.push('pdf-visible-fingerprint-mismatch');
+  }
+  const pdfReady = detectReadyDocumentClass(pdfText).length > 0;
+  const visibleReady = detectReadyDocumentClass(visibleText).length > 0;
+  if (!pdfReady || pdfReady !== visibleReady) reasons.push('pdf-visible-document-class-mismatch');
+  const pdfDraft = DRAFT_DOCUMENT_NEEDLES.some(needle => String(pdfText || '').includes(needle));
+  const visibleDraft = DRAFT_DOCUMENT_NEEDLES.some(needle => String(visibleText || '').includes(needle));
+  if (pdfDraft !== visibleDraft) reasons.push('pdf-visible-draft-class-mismatch');
+  return {
+    pass: reasons.length === 0,
+    reasons,
+    pdfMetadata,
+    visibleMetadata,
+  };
+}
+
 function inspectAttachment(filePath, rootDir) {
   const type = path.extname(filePath).toLowerCase().slice(1) || 'unknown';
   const record = {
     file: path.relative(rootDir, filePath) || path.basename(filePath), type, size: 0, sourceSha256: '',
     textLength: 0, projectName: '', projectNo: '', designer: '', sourceTool: '', toolVersion: '', outputTime: '', approvalTime: '',
     fingerprints: [], pageOnlyNeedles: [], draftDocumentNeedles: [], readyDocumentNeedles: [],
-    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, errors: [],
+    reportDocumentNeedles: [], calculationSummaryNeedles: [], documentClassRequired: false, contentBoundary: null, visibilityEvidence: null, errors: [],
   };
   try {
     const before = fileSnapshot(filePath);
     record.size = before.bytes;
     let text = '';
     let metadata = null;
-    if (type === 'pdf') text = extractPdfText(filePath);
-    else if (type === 'docx') text = extractDocxText(filePath);
-    else if (type === 'xlsx') text = extractXlsxText(filePath);
+    let canonicalContentBoundary = null;
+    if (type === 'pdf') {
+      const pdfText = extractPdfText(filePath);
+      const visibilityEvidence = loadPdfVisibilityEvidence(filePath, before.sha256);
+      text = pdfText;
+      if (visibilityEvidence.status === 'verified') {
+        const compatibility = canonicalPdfMetadataCompatibility(pdfText, visibilityEvidence.visibleText);
+        if (compatibility.pass) {
+          text = visibilityEvidence.visibleText;
+          canonicalContentBoundary = visibilityEvidence.visibleContentBoundary;
+        } else {
+          visibilityEvidence.status = 'review';
+          visibilityEvidence.reasons = unique([...visibilityEvidence.reasons, ...compatibility.reasons]);
+        }
+      }
+      const { visibleText: _visibleText, visibleContentBoundary: _visibleContentBoundary, ...publicEvidence } = visibilityEvidence;
+      record.visibilityEvidence = publicEvidence;
+    } else if (type === 'docx') {
+      text = extractDocxText(filePath);
+      record.visibilityEvidence = { status: 'bounded', method: 'docx-openxml-visible-text', reasons: [] };
+    } else if (type === 'xlsx') {
+      const visibleContent = extractXlsxVisibleContent(filePath);
+      text = visibleContent.text;
+      record.visibilityEvidence = visibleContent.visibilityIssues.length
+        ? { status: 'review', method: 'xlsx-openxml-visible-cells', reasons: visibleContent.visibilityIssues }
+        : { status: 'bounded', method: 'xlsx-openxml-visible-cells', reasons: [] };
+    }
     else if (type === 'json') {
       text = fs.readFileSync(filePath, 'utf8');
       metadata = extractJsonMetadata(JSON.parse(text));
     } else {
       text = fs.readFileSync(filePath, 'utf8');
-      if (type === 'html' || type === 'htm') text = extractHtmlText(text);
+      if (type === 'html' || type === 'htm') {
+        const visibleContent = extractHtmlVisibleContent(text);
+        text = visibleContent.text;
+        record.visibilityEvidence = visibleContent.visibilityIssues.length
+          ? { status: 'review', method: 'html-static-print-visibility', reasons: visibleContent.visibilityIssues }
+          : { status: 'bounded', method: 'html-static-print-visibility', reasons: [] };
+      }
     }
     Object.assign(record, metadata || extractTextMetadata(text));
     record.textLength = normalizeText(text).length;
@@ -306,7 +1001,7 @@ function inspectAttachment(filePath, rootDir) {
     if (record.documentClassRequired) {
       const contentBoundaryProfile = detectCalculationContentProfile(normalizedText);
       record.calculationSummaryNeedles = CALCULATION_SUMMARY_DOCUMENT_NEEDLES.filter(needle => normalizedText.slice(0, 320).includes(needle));
-      record.contentBoundary = evaluateCalculationContent(normalizedText, { contentBoundaryProfile });
+      record.contentBoundary = canonicalContentBoundary || evaluateCalculationContent(normalizedText, { contentBoundaryProfile });
     }
     const after = fileSnapshot(filePath);
     record.sourceSha256 = after.sha256;
@@ -460,6 +1155,7 @@ function findDuplicateFingerprints(records, issues) {
   });
 }
 
+
 function analyzePackage(records, options = {}) {
   const issues = [];
   const unsupportedFiles = unique(options.unsupportedFiles || []);
@@ -485,6 +1181,24 @@ function analyzePackage(records, options = {}) {
   records.forEach(record => {
     if (record.errors.length) issues.push(buildIssue('error', 'unreadable-attachment', `${record.file} 無法讀取：${record.errors.join('；')}`, [record.file]));
     if (record.pageOnlyNeedles.length) issues.push(buildIssue('error', 'page-only-leak', `${record.file} 含有頁面專用文字：${record.pageOnlyNeedles.join('、')}`, [record.file]));
+    if (!record.errors.length && record.visibilityEvidence?.status === 'review') {
+      const isPdf = String(record.type || '').toLowerCase() === 'pdf';
+      if (isPdf) {
+        issues.push(buildIssue(
+          'warn',
+          'pdf-canonical-render-evidence-required',
+          `${record.file} 目前只以 PDF 文字層檢查，無法排除白字、透明或頁外文字；請提供與檔案 SHA-256 綁定的同次列印可見 DOM 與逐頁渲染證據（${CANONICAL_RENDER_EVIDENCE_KIND}），或逐頁人工確認。`,
+          [record.file],
+        ));
+      } else {
+        issues.push(buildIssue(
+          'warn',
+          'visibility-boundary-review',
+          `${record.file} 含有目前無法可靠解析的可見性規則（${record.visibilityEvidence.reasons.join('、')}）；不得自動視為可見內容，請人工確認輸出。`,
+          [record.file],
+        ));
+      }
+    }
     if (record.contentBoundary?.missingGroups?.length) {
       const missingDescriptions = record.contentBoundary.groups
         .filter(group => !group.pass)
@@ -646,4 +1360,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, extractHtmlText, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };
+module.exports = { CALCULATION_BOOK_CONTENT_BOUNDARY, CONTENT_GROUPS, CONTENT_PROFILES, CANONICAL_RENDER_EVIDENCE_KIND, SUPPORTED_EXTENSIONS, IGNORED_SYSTEM_FILES, PAGE_ONLY_NEEDLES, DRAFT_DOCUMENT_NEEDLES, READY_DOCUMENT_CLASS_LABEL, PACKAGE_STATUS_EXIT_CODES, CLI_ERROR_EXIT_CODE, REPORT_DOCUMENT_NEEDLES, CALCULATION_SUMMARY_DOCUMENT_NEEDLES, REPORT_IDENTITY_FIELDS, normalizeText, decodeXmlEntities, extractHtmlText, extractHtmlVisibleContent, hasDefinitelyHiddenStyle, hasAmbiguousVisibilityStyle, detectCalculationContentProfile, evaluateCalculationContent, cleanMetadataValue, normalizeToolVersion, parseTraceDateTime, isValidApprovalTime, detectReadyDocumentClass, isDocumentClassRequired, sha256File, fileSnapshot, validateCanonicalRenderEvidence, loadPdfVisibilityEvidence, collectDocxHiddenStyleIds, stripDocxHiddenText, parseSharedStrings, extractVisibleWorksheetText, resolveVisibleWorksheetEntries, extractXlsxVisibleContent, extractTextMetadata, extractJsonMetadata, inspectAttachment, isGeneratedEvidenceFile, isIgnorableSystemFile, collectAttachmentFiles, normalizedFingerprints, fingerprintPairingKey, analyzeFingerprintRelationships, findDuplicateFingerprints, analyzePackage, checkPackage, formatSummary, exitCodeForStatus, parseArgs };

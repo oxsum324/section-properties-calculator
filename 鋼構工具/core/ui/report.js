@@ -422,6 +422,10 @@ function buildAttachmentApprovalReport(options = {}) {
           function updateStatus() {
             if (checkbox.checked && !approvedAtValue) approvedAtValue = new Date().toISOString();
             if (!checkbox.checked) approvedAtValue = '';
+            source.dataset.initialApproved = checkbox.checked ? 'true' : 'false';
+            source.dataset.approvedAt = approvedAtValue;
+            if (checkbox.checked) checkbox.setAttribute('checked', 'checked');
+            else checkbox.removeAttribute('checked');
             var parts = checkbox.checked
               ? ['文件狀態：正式附件', approvedAtValue ? '核可時間：' + formatApprovedAt(approvedAtValue) : '']
               : ['文件狀態：內部審閱'];
