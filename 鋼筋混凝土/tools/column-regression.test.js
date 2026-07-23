@@ -240,6 +240,77 @@ async function exerciseProjectStorage(page) {
   assert(draft.raw && draft.raw.includes('rc-column-project-v1'), 'column project draft localStorage payload', 'draft saved');
 }
 
+async function exerciseCapacityLoadCombo(page) {
+  await page.goto(TOOL_URL, { waitUntil:'networkidle' });
+  await page.evaluate(() => {
+    document.querySelector('.mode-btn[data-mode="check"]')?.click();
+    const setValue = (id, value) => {
+      const input = document.getElementById(id);
+      if (!input) throw new Error(`missing load-combo input ${id}`);
+      input.value = String(value);
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+      input.dispatchEvent(new Event('change', { bubbles:true }));
+    };
+    setValue('lcCol_P_D', 200);
+    setValue('lcCol_Mx_W', -50);
+    setValue('lcCol_My_E', 20);
+  });
+  await page.waitForFunction(() => window.lastLoadComboSuggestions?.lcCol?.states?.[0]?.details?.status === 'evaluated');
+
+  const before = await page.evaluate(() => {
+    const state = window.lastLoadComboSuggestions.lcCol.states[0];
+    return {
+      score:state.score,
+      details:state.details,
+      tuple:state.governing,
+      criterion:state.criterion,
+      scoreText:document.getElementById('lcCol_limit_0_score')?.textContent || '',
+    };
+  });
+  assert(before.criterion === 'custom', 'column load-combo uses capacity scorer', before.criterion);
+  assert(before.details.status === 'evaluated' && Number.isFinite(before.details.utilization), 'column capacity tuple has finite utilization', JSON.stringify(before.details));
+  assert(before.scoreText === before.details.utilization.toFixed(3), 'column capacity score is readable utilization', before.scoreText);
+
+  // 載重組合面板預設可收合；直接觸發按鈕，驗證選取與套用邏輯不受畫面展開狀態影響。
+  await page.evaluate(() => document.getElementById('lcCol_limit_0_select')?.click());
+  await page.evaluate(() => document.getElementById('lcCol_btnApply')?.click());
+  await page.waitForFunction(() => window.lastLoadCombo?.lcCol?.tuplePreserved === true && window.colLast);
+  const applied = await page.evaluate(() => {
+    const r = window.colLast;
+    const stored = window.lastLoadCombo.lcCol;
+    const reportGroup = window.LoadCombo.toReportGroup('lcCol', '採用載重組合');
+    return {
+      selectedTuple:stored.selectedTuple,
+      tuplePreserved:stored.tuplePreserved,
+      Pu:r.Pu,
+      Mux:r.Mux,
+      Muy:r.Muy,
+      Mc:r.Mc,
+      Mcy:r.Mcy,
+      utilization:r.biaxialSurfaceRatio,
+      reportGroup,
+    };
+  });
+  assert(applied.tuplePreserved === true, 'column capacity suggestion preserves one complete tuple', JSON.stringify(applied.selectedTuple));
+  assert(applied.selectedTuple.name === before.tuple.name, 'column applies the capacity-governing tuple', applied.selectedTuple.name);
+  assert(applied.Pu === before.details.Pu && applied.Mux === Math.abs(before.details.Mx) && applied.Muy === Math.abs(before.details.My), 'column target mapping keeps signed source tuple and magnitude demand fields', JSON.stringify(applied));
+  assert(nearlyEqual(applied.Mc, before.details.Mc, 1e-9) && nearlyEqual(applied.Mcy, before.details.Mcy, 1e-9), 'column formal result reuses identical Pu-dependent magnification', `${applied.Mc}/${before.details.Mc}, ${applied.Mcy}/${before.details.Mcy}`);
+  assert(nearlyEqual(applied.utilization, before.details.utilization, 1e-9), 'column formal result and tuple scorer use identical biaxial capacity ratio', `${applied.utilization}/${before.details.utilization}`);
+  assert(JSON.stringify(applied.reportGroup).includes('來源完整有號內力'), 'column report group keeps source signed tuple', JSON.stringify(applied.reportGroup));
+  assert(!JSON.stringify(applied.reportGroup).includes('容量利用率'), 'column capacity suggestions remain page-only', JSON.stringify(applied.reportGroup));
+
+  const refreshed = await page.evaluate(async previousScore => {
+    const input = document.getElementById('lu');
+    input.value = '800';
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const state = window.lastLoadComboSuggestions?.lcCol?.states?.[0];
+    return { previousScore, score:state?.score, status:state?.details?.status };
+  }, before.score);
+  assert(Number.isFinite(refreshed.score) && refreshed.score > refreshed.previousScore, 'column geometry/slenderness change refreshes capacity suggestions', JSON.stringify(refreshed));
+}
+
 async function runColumnForceCandidateReviewCase(page) {
   const payload = {
     target: 'column-rect',
@@ -496,6 +567,11 @@ async function main() {
   assert(html.includes('function applyBeamColumnJointImport'), 'column.html has beam-column joint importer', 'column import helper exists');
   assert(html.includes('beamJointImport: window.lastBeamColumnJointImport'), 'column.html stores imported beam joint payload', 'colLast keeps import source');
   assert(html.includes('../shared/pmsection.js'), 'column.html loads shared PM section engine', 'single-axis P-M core is shared and testable');
+  assert(html.includes('../shared/column-evaluator.js'), 'column.html loads shared column demand evaluator', 'Pu-dependent magnification is shared and testable');
+  assert(html.includes('ColumnEvaluator.magnifyAxis') && html.includes('ColumnEvaluator.limitStateScore'), 'column formal calculation and load-combo scorer share one magnification core', 'shared evaluator wiring');
+  assert(html.includes("key:'pm-capacity'") && html.includes('scorer:scoreColumnTuple'), 'column load-combo first state is true capacity utilization', 'capacity scorer present');
+  assert(html.includes('refreshLimitStateSuggestions(window.rcColumnLoadComboConfig)'), 'column section changes refresh capacity suggestions', 'reactive capacity refresh');
+  assert(!html.includes('(swayMode && isFinite(deltaS)) ? deltaS : 1'), 'column no longer falls back to deltaS=1 when sway magnification is unstable', 'fail-closed sway magnification');
   assert(html.includes('pmCore.curve'), 'column.html calls shared PM section engine', 'rectangular column P-M uses shared core');
   assert(html.includes('reportCoverage'), 'column.html builds report coverage matrix', 'code-clause coverage matrix exists');
   assert(html.includes('id="columnMethodBoundaryCard"'), 'column.html keeps method boundaries on work page', 'method explanations remain page-only');
@@ -543,6 +619,8 @@ async function main() {
     assert(failedResponses.length === 0, 'column page resources', 'no missing static resources during initial load');
     await exerciseProjectStorage(page);
     assert(pageErrors.length === 0, 'column project storage workflow', 'no page errors during project save/load checks');
+    await exerciseCapacityLoadCombo(page);
+    assert(pageErrors.length === 0, 'column capacity load-combo workflow', 'no page errors during capacity tuple checks');
 
     for (const tc of pack.cases) {
       await page.goto(TOOL_URL, { waitUntil: 'networkidle' });

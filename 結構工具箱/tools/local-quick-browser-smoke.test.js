@@ -2028,6 +2028,21 @@ async function main() {
         expectedTargets: { inPu:'100.000', inMux:'20.000', inMuy:'0.000' },
       },
       {
+        key: 'rc-column',
+        route: '/rc-column',
+        prefix: 'lcCol',
+        sourceWrites: [
+          { id:'lcCol_P_D', value:200 },
+          { id:'lcCol_Mx_W', value:-50 },
+          { id:'lcCol_My_E', value:20 },
+        ],
+        targetIds: ['Pu', 'Mux', 'Muy', 'Vu'],
+        expectedValues: { P:240, Mx:-50, My:0, V:0 },
+        expectedTargets: { Pu:'240.000', Mux:'50.000', Muy:'0.000', Vu:'0.000' },
+        expectedCriterion: 'custom',
+        expectedCapacityStatus: 'evaluated',
+      },
+      {
         key: 'rc-shear-wall',
         route: '/rc-shear-wall',
         prefix: 'lcSW',
