@@ -56,6 +56,22 @@
     if (![fc, fy, h, lw, vBarArea, vBarDb, vSp, layers].every(item => item > 0) || hBarDb < 0 || cover < 0) {
       return { status:'capacity-unresolved', valid:false, reason:'P-M 斷面參數未完整建立' };
     }
+    const boundaryBarArea = Number(base?.boundaryBarArea || 0);
+    const boundaryBarDb = Number(base?.boundaryBarDb || 0);
+    const boundaryBarCountEach = Number(base?.boundaryBarCountEach || 0);
+    if (![boundaryBarArea, boundaryBarDb, boundaryBarCountEach].every(Number.isFinite)
+      || boundaryBarArea < 0 || boundaryBarDb < 0 || boundaryBarCountEach < 0
+      || !Number.isInteger(boundaryBarCountEach)) {
+      return { status:'capacity-unresolved', valid:false, reason:'牆端附加縱筋參數須為非負有限值，且每端支數須為整數' };
+    }
+    const boundaryEnabled = boundaryBarCountEach > 0;
+    if (boundaryEnabled && (!(boundaryBarArea > 0) || !(boundaryBarDb > 0))) {
+      return { status:'capacity-unresolved', valid:false, reason:'啟用牆端附加縱筋時須提供鋼筋面積與直徑' };
+    }
+    const throughThicknessOffset = cover + hBarDb + Math.max(vBarDb, boundaryEnabled ? boundaryBarDb : 0) / 2;
+    if (throughThicknessOffset > h / 2 + 1e-9) {
+      return { status:'capacity-unresolved', valid:false, reason:'保護層與鋼筋尺寸無法置入牆厚斷面' };
+    }
     const edgeOffset = cover + hBarDb + vBarDb / 2;
     if (!(edgeOffset < lw / 2)) {
       return { status:'capacity-unresolved', valid:false, reason:'保護層與鋼筋尺寸無法置入牆長斷面' };
@@ -63,10 +79,19 @@
     const usableLength = lw - 2 * edgeOffset;
     const intervals = Math.max(1, Math.ceil(usableLength / vSp));
     const actualSpacing = usableLength / intervals;
-    const bars = Array.from({ length:intervals + 1 }, (_, index) => ({
+    const distributedBars = Array.from({ length:intervals + 1 }, (_, index) => ({
       y:edgeOffset + actualSpacing * index,
       As:layers * vBarArea,
     }));
+    const boundaryEdgeOffset = boundaryEnabled ? cover + hBarDb + boundaryBarDb / 2 : null;
+    if (boundaryEnabled && !(boundaryEdgeOffset < lw / 2)) {
+      return { status:'capacity-unresolved', valid:false, reason:'保護層與牆端鋼筋尺寸無法置入牆長斷面' };
+    }
+    const boundaryBars = boundaryEnabled ? [
+      { y:boundaryEdgeOffset, As:boundaryBarCountEach * boundaryBarArea },
+      { y:lw - boundaryEdgeOffset, As:boundaryBarCountEach * boundaryBarArea },
+    ] : [];
+    const bars = distributedBars.concat(boundaryBars).sort((a, b) => a.y - b.y);
     const sec = { b:h, h:lw, bars };
     const mat = {
       fc,
@@ -88,8 +113,16 @@
       pMin:range.min,
       pMax:range.max,
       edgeOffset,
+      boundaryEdgeOffset,
+      throughThicknessOffset,
       actualSpacing,
-      barCount:bars.length,
+      barCount:distributedBars.length,
+      distributedRowCount:distributedBars.length,
+      distributedBarCount:distributedBars.length * layers,
+      boundaryBarCountEach,
+      boundaryBarCountTotal:boundaryBarCountEach * 2,
+      AstDistributed:distributedBars.length * layers * vBarArea,
+      AstBoundary:boundaryBarCountEach * 2 * boundaryBarArea,
       Ast:pm.Ast,
     };
   };
@@ -122,9 +155,18 @@
       outOfRange:check.outOfRange,
       phiPnMax:capacity.pm.phiPnMax,
       Po:capacity.pm.Po,
+      design:capacity.pm.design,
       barCount:capacity.barCount,
+      distributedRowCount:capacity.distributedRowCount,
+      distributedBarCount:capacity.distributedBarCount,
+      boundaryBarCountEach:capacity.boundaryBarCountEach,
+      boundaryBarCountTotal:capacity.boundaryBarCountTotal,
+      AstDistributed:capacity.AstDistributed,
+      AstBoundary:capacity.AstBoundary,
       Ast:capacity.Ast,
       edgeOffset:capacity.edgeOffset,
+      boundaryEdgeOffset:capacity.boundaryEdgeOffset,
+      throughThicknessOffset:capacity.throughThicknessOffset,
       actualSpacing:capacity.actualSpacing,
       reason:status === 'axial-out-of-range'
         ? 'Pu 超出 P-M 設計軸力封包'

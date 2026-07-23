@@ -34,6 +34,8 @@ const EXPECTED = {
       '18.7.4.4',
       '18.7.6.3',
       '牆水平斷面配筋示意',
+      'P-M 設計互制圖',
+      '兩端附加縱筋',
       '面內剪力',
     ],
   },
@@ -49,6 +51,7 @@ const EXPECTED = {
       '面外撓曲',
       'P-Δ 方法',
       '牆水平斷面配筋示意',
+      'P-M 設計互制圖',
     ],
   },
   basement_pass_warn: {
@@ -61,6 +64,7 @@ const EXPECTED = {
       '簡支條帶',
       '地下室外牆土壓概算',
       '牆水平斷面配筋示意',
+      'P-M 設計互制圖',
     ],
   },
 };
@@ -373,6 +377,38 @@ async function exerciseWallCapacityLoadCombo(page) {
   });
   assert(reranked.status === 'evaluated' && reranked.after > reranked.before, 'wall reinforcement change reranks shear utilization', `${reranked.before} -> ${reranked.after}`);
 
+  const boundarySection = await page.evaluate(() => {
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if ((el.type || '').toLowerCase() === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles:true }));
+      el.dispatchEvent(new Event('change', { bubbles:true }));
+    };
+    set('cover', 4);
+    set('pmBoundaryBar', '#8');
+    set('pmBoundaryCountEach', 4);
+    set('pmBoundaryRebar', true);
+    const result = {
+      cover:window.wallLast?.cover,
+      enabled:window.wallLast?.pmBoundaryRebar,
+      Ast:window.wallLast?.pmAst,
+      AstDistributed:window.wallLast?.pmAstDistributed,
+      AstBoundary:window.wallLast?.pmAstBoundary,
+      boundaryCount:window.wallLast?.pmBoundaryBarCountTotal,
+      diagramMarkup:document.getElementById('wallPMDiagram')?.innerHTML || '',
+      boundaryPanelDisplay:getComputedStyle(document.getElementById('pmBoundaryRebarInputs')).display,
+    };
+    set('pmBoundaryRebar', false);
+    set('cover', 2);
+    return result;
+  });
+  assert(boundarySection.enabled === true && boundarySection.cover === 4 && boundarySection.boundaryCount === 8, 'wall accepts cover and per-end concentrated reinforcement inputs', JSON.stringify(boundarySection));
+  assert(boundarySection.AstBoundary > 0 && boundarySection.Ast > boundarySection.AstDistributed, 'wall end reinforcement enters formal P-M steel area', `Ast=${boundarySection.Ast}, distributed=${boundarySection.AstDistributed}, boundary=${boundarySection.AstBoundary}`);
+  assert(boundarySection.diagramMarkup.includes('<polygon') && boundarySection.diagramMarkup.includes('需求'), 'wall page renders P-M envelope and demand point', `markup=${boundarySection.diagramMarkup.length}`);
+  assert(boundarySection.boundaryPanelDisplay !== 'none', 'wall shows end reinforcement controls when enabled', boundarySection.boundaryPanelDisplay);
+
   const derivedLargeE = await page.evaluate(() => {
     const set = (id, value) => {
       const el = document.getElementById(id);
@@ -554,7 +590,7 @@ async function main() {
       assert(metrics.checkGroupCount >= expected.minCheckGroups, `${key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.methodRowCount === 0, `${key} report excludes method audit table`, `count=${metrics.methodRowCount}`);
       assert(metrics.stepCount >= 4, `${key} report detailed steps`, `count=${metrics.stepCount}`);
-      assert(metrics.diagramCount >= 1, `${key} report diagrams`, `count=${metrics.diagramCount}`);
+      assert(metrics.diagramCount >= 2, `${key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
         assert(img.width > 0 && img.height > 0, `${key} diagram rendered: ${img.alt || '(image)'}`, `${img.width}x${img.height}`);
       }

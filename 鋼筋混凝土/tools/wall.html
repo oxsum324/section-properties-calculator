@@ -244,6 +244,22 @@
           <label>鋼筋層數</label>
           <select id="layers"><option value="1">單層</option><option value="2" selected>雙層</option></select>
         </div>
+        <div class="form-row" data-rebar-spacing>
+          <div class="form-group"><label>保護層厚度 (cm)</label><input type="number" id="cover" value="2" min="0" step="0.5"></div>
+          <div class="form-group checkbox-row" style="align-self:end; min-height:42px;">
+            <input type="checkbox" id="pmBoundaryRebar">
+            <label for="pmBoundaryRebar">計入兩端附加集中縱筋</label>
+          </div>
+        </div>
+        <div id="pmBoundaryRebarInputs" style="display:none; padding:10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
+          <div class="form-row">
+            <div class="form-group"><label>附加縱筋號數</label>
+              <select id="pmBoundaryBar"><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
+            </div>
+            <div class="form-group"><label>每端附加支數 (支)</label><input type="number" id="pmBoundaryCountEach" value="4" min="1" step="1"></div>
+          </div>
+          <p class="hint detail-help">支數為每一牆端、跨牆厚方向的附加縱筋總數；容量模型將其集中於保護層、橫筋及半徑決定的端部鋼筋中心。此數量不含原有均布縱筋。</p>
+        </div>
       </div>
 
       <div class="card subpanel" data-panel="load">
@@ -455,6 +471,12 @@
         <h2>牆斷面配筋示意 <span class="hint" style="margin-left:auto; font-style:normal;">水平切面 plan cut</span></h2>
         <svg id="wallRebarSvg" viewBox="0 0 520 220" style="width:100%; max-width:560px; display:block; margin:0 auto; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px;"></svg>
         <p class="hint" id="wallRebarSvgNote" style="text-align:center;">—</p>
+      </div>
+
+      <div class="card mobile-fold" data-shows="load rebar summary">
+        <h2>P-M 設計互制圖 <span class="hint" style="margin-left:auto; font-style:normal;">設計強度與需求點</span></h2>
+        <svg id="wallPMDiagram" viewBox="0 0 520 300" style="width:100%; max-width:560px; display:block; margin:0 auto; background:#fff; border:1px solid #cbd5e1; border-radius:6px;"></svg>
+        <p class="hint" id="wallPMDiagramNote" style="text-align:center;">—</p>
       </div>
 
       <div class="card mobile-fold" data-shows="rebar summary">
@@ -670,7 +692,7 @@
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/wall.js?v=2"></script>
 <script src="../shared/pmsection.js?v=2"></script>
-<script src="../shared/wall-inplane-evaluator.js?v=1"></script>
+<script src="../shared/wall-inplane-evaluator.js?v=2"></script>
 <script>
   function syncDetailHelp() {
     document.body.classList.toggle('show-detail-help', !!document.getElementById('showDetailHelp')?.checked);
@@ -777,7 +799,7 @@
         fc: 280, fy: 4200, lambdaSel: '1.00',
         h: 20, lw: 500, lc: 300, k: 1.0, hw: 1500,
         Pu: 80, e: 2, MuIn: '', Vu: 35,
-        vBar: '#4', vSp: 20, hBar: '#4', hSp: 20, layers: '2',
+        vBar: '#4', vSp: 20, hBar: '#4', hSp: 20, layers: '2', cover: 2, pmBoundaryRebar: false,
         Mua: 2, PuOop: 20,
         basementWall: false,
         sigmaMax: 40, MuW: 800, duhw: 0.012, cBE: 80, fytBE: 4200
@@ -794,7 +816,8 @@
         fc: 280, fy: 4200, lambdaSel: '1.00',
         h: 30, lw: 400, lc: 320, k: 1.0, hw: 1400,
         Pu: 120, e: 2, MuIn: '', Vu: 140,
-        vBar: '#5', vSp: 15, hBar: '#5', hSp: 15, layers: '2',
+        vBar: '#5', vSp: 15, hBar: '#5', hSp: 15, layers: '2', cover: 4,
+        pmBoundaryRebar: true, pmBoundaryBar: '#8', pmBoundaryCountEach: 4,
         Mua: 3.5, PuOop: 18,
         basementWall: false,
         sigmaMax: 70, MuW: 950, duhw: 0.015, cBE: 70, fytBE: 4200
@@ -811,7 +834,7 @@
         fc: 280, fy: 4200, lambdaSel: '1.00',
         h: 25, lw: 450, lc: 300, k: 1.0, hw: 1200,
         Pu: 60, e: 1, MuIn: '', Vu: 25,
-        vBar: '#4', vSp: 15, hBar: '#4', hSp: 15, layers: '2',
+        vBar: '#4', vSp: 15, hBar: '#4', hSp: 15, layers: '2', cover: 2, pmBoundaryRebar: false,
         Mua: 0, PuOop: 12,
         basementWall: true, bwSupport: 'cantilever',
         bwH: 3.5, bwGamma: 1.8, bwKa: 0.33, bwSurch: 1.0, bwHw: 1.2, bwGw: 1.0,
@@ -829,7 +852,7 @@
         fc: 280, fy: 4200, lambdaSel: '1.00',
         h: 45, lw: 520, lc: 250, k: 1.0, hw: 300,
         Pu: 25, e: 1, MuIn: '', Vu: 8,
-        vBar: '#5', vSp: 12, hBar: '#5', hSp: 12, layers: '2',
+        vBar: '#5', vSp: 12, hBar: '#5', hSp: 12, layers: '2', cover: 2, pmBoundaryRebar: false,
         Mua: 0, PuOop: 8,
         basementWall: true, bwSupport: 'simple',
         bwH: 1.8, bwGamma: 1.7, bwKa: 0.28, bwSurch: 0.2, bwHw: 0, bwGw: 1.0,
@@ -1356,7 +1379,7 @@
     const warnings = [];
     if (!r) return warnings;
     if (r.slenderMethod || r.okOopFlex !== undefined || r.okDeltaLim !== undefined) {
-      warnings.push('面外 Slender Wall / P-Delta 目前採單位寬條帶、固定保護層與簡化邊界假設，數值通過仍須以正式面外分析與配筋位置確認。');
+      warnings.push('面外 Slender Wall / P-Delta 目前採單位寬條帶、輸入保護層與簡化邊界假設，數值通過仍須以正式面外分析與配筋位置確認。');
     }
     if (r.bwModelLabel || r.bwSupport || r.wallType === 'basement') {
       warnings.push('地下室外牆土壓自動計算目前為三角形土壓、矩形超載與水壓之簡化概算，正式設計仍須依實際支承、側壓分布與整體模型確認。');
@@ -1494,6 +1517,12 @@
     const vBar = $('vBar').value, vSp = num('vSp');
     const hBar = $('hBar').value, hSp = num('hSp');
     const layers = parseInt($('layers').value);
+    const cover = num('cover');
+    const pmBoundaryRebar = !!$('pmBoundaryRebar')?.checked;
+    const pmBoundaryBar = $('pmBoundaryBar')?.value || '#8';
+    const pmBoundaryCountEach = pmBoundaryRebar ? Math.max(0, Math.floor(num('pmBoundaryCountEach'))) : 0;
+    const pmBoundaryBox = $('pmBoundaryRebarInputs');
+    if (pmBoundaryBox) pmBoundaryBox.style.display = pmBoundaryRebar ? '' : 'none';
     const sigmaMax = num('sigmaMax');     // kgf/cm²
     let Mua_in = num('Mua') * 1e5;        // tf·m/m → kgf·cm/m
     let PuOop = num('PuOop') * 1000;      // tf/m → kgf/m
@@ -1568,7 +1597,10 @@
       hBarDb: REBAR_TABLE[hBar].db,
       vSp,
       layers,
-      cover: 2,
+      cover,
+      boundaryBarArea:pmBoundaryRebar ? REBAR_TABLE[pmBoundaryBar].area : 0,
+      boundaryBarDb:pmBoundaryRebar ? REBAR_TABLE[pmBoundaryBar].db : 0,
+      boundaryBarCountEach:pmBoundaryCountEach,
       pmSteps: 140,
       seismic,
       wallType,
@@ -1594,7 +1626,7 @@
     const Ec = 12000 * Math.sqrt(fc);
     const n = Math.round(Es / Ec);                         // 模數比
     const Asl_perM = (layers * vAb * 100) / vSp;          // cm²/m (垂直筋)
-    const coverOop = 2;                                   // cm, 既有工具統一假設
+    const coverOop = cover;                               // cm, 與配筋輸入一致
     const faceOffOop = Math.min(h / 2, coverOop + REBAR_TABLE[hBar].db + REBAR_TABLE[vBar].db / 2);
     const oopLayers = (layers >= 2)
       ? [
@@ -2043,7 +2075,9 @@
 
       stepsLoadTxt =
 `【1】面內 P-M 互制 (應變相容法)
-  配筋模型: ${pmDemand.barCount} 排縱筋，總 Ast=${fmt(pmDemand.Ast,2)} cm²；端部中心距=${fmt(pmDemand.edgeOffset,2)} cm
+  配筋模型: 均布 ${pmDemand.distributedRowCount} 排（${pmDemand.distributedBarCount} 支），Ast=${fmt(pmDemand.AstDistributed,2)} cm²；保護層=${fmt(cover,1)} cm
+  ${pmBoundaryRebar ? `兩端各附加 ${pmBoundaryCountEach}-${pmBoundaryBar}，附加 Ast=${fmt(pmDemand.AstBoundary,2)} cm²；端筋中心距=${fmt(pmDemand.boundaryEdgeOffset,2)} cm` : '未配置牆端附加集中縱筋'}
+  總 Ast=${fmt(pmDemand.Ast,2)} cm²；均布端排中心距=${fmt(pmDemand.edgeOffset,2)} cm
   P-M 設計軸力範圍 = ${fmt(pmDemand.pMin,1)} ~ ${fmt(pmDemand.pMax,1)} tf
   Pu = ${fmt(Pu/1000,1)} tf；Mu = ${fmt(MuIn,2)} tf·m${hasExplicitMuIn ? '（直接輸入）' : `（由 Pu·e=${fmt(Pu/1000,1)}·${fmt(e/100,3)} 推導）`}
   φMn @ Pu = ${fmt(pmDemand.phiMn,2)} tf·m；利用率 |Mu|/φMn = ${fmt(pmDemand.utilization,3)}
@@ -2153,10 +2187,14 @@ ${basementStepTxt}
       phiMnInplane:pmDemand.phiMn, pmUtil:pmDemand.utilization,
       pmStatus:pmDemand.status, pmPMin:pmDemand.pMin, pmPMax:pmDemand.pMax,
       pmPo:pmDemand.Po, pmPhiPnMax:pmDemand.phiPnMax,
-      pmAst:pmDemand.Ast, pmBarCount:pmDemand.barCount,
-      pmEdgeOffset:pmDemand.edgeOffset, pmActualSpacing:pmDemand.actualSpacing,
+      pmAst:pmDemand.Ast, pmAstDistributed:pmDemand.AstDistributed, pmAstBoundary:pmDemand.AstBoundary,
+      pmBarCount:pmDemand.barCount, pmDistributedBarCount:pmDemand.distributedBarCount,
+      pmBoundaryBarCountTotal:pmDemand.boundaryBarCountTotal,
+      pmEdgeOffset:pmDemand.edgeOffset, pmBoundaryEdgeOffset:pmDemand.boundaryEdgeOffset,
+      pmActualSpacing:pmDemand.actualSpacing, pmDesign:pmDemand.design,
       phiVn: phiVn/1000, Vu: Vu/1000,
-      vBar, vSp, hBar, hSp, layers, sigmaMax,
+      vBar, vSp, hBar, hSp, layers, cover,
+      pmBoundaryRebar, pmBoundaryBar, pmBoundaryCountEach, sigmaMax,
       dbV: REBAR_TABLE[vBar]?.db,
       hmin, Ag, Pn_kgf:Pn, phiPn_kgf:phiPn,
       rhol, rhot, rholMin, rhotMin, needTwoLayer,
@@ -2205,6 +2243,7 @@ ${basementStepTxt}
     if (typeof buildSummaryTable === 'function') buildSummaryTable();
     if (typeof buildMethodAuditTable === 'function') buildMethodAuditTable();
     if (typeof drawWallRebar === 'function') drawWallRebar();
+    if (typeof drawWallPMDiagram === 'function') drawWallPMDiagram();
   }
 
   // === 牆斷面配筋示意 (SVG, plan cut) ===
@@ -2213,57 +2252,64 @@ ${basementStepTxt}
     const svg = document.getElementById('wallRebarSvg'); if (!svg) return;
     const dbV = REBAR_TABLE[r.vBar]?.db || 1.27;
     const dbH = REBAR_TABLE[r.hBar]?.db || 1.27;
-    const nSp = 4;                 // 顯示 4 段間距
-    const W_cm = Math.max(nSp * r.vSp, 1);
-    const H_cm = Math.max(r.h, 1);
     const vw = 520, vh = 220;
     const padL = 70, padR = 30, padT = 40, padB = 50;
     const innerW = vw - padL - padR, innerH = vh - padT - padB;
-    const s = Math.min(innerW / W_cm, innerH / H_cm);
-    const drawW = W_cm * s, drawH = H_cm * s;
-    const x0 = padL + (innerW - drawW) / 2;
-    const y0 = padT + (innerH - drawH) / 2;
-    const cover = 2;               // cm (保護層假設)
+    const drawW = innerW, drawH = innerH;
+    const x0 = padL, y0 = padT;
+    const sx = drawW / Math.max(r.lw, 1);
+    const sy = drawH / Math.max(r.h, 1);
+    const cover = r.cover;
     const faceOff = cover + dbH + dbV / 2;
     const layers = r.layers;
     const rowYs = (layers === 1) ? [r.h / 2] : [faceOff, r.h - faceOff];
-    const barXs = []; for (let i = 0; i <= nSp; i++) barXs.push(i * r.vSp);
+    const barXs = Array.from({ length:r.pmBarCount || 0 }, (_, index) => r.pmEdgeOffset + index * r.pmActualSpacing);
     // BE 觸發：端部加密示意
     const showBE = (r.seismic || r.wallType === 'shear') && (r.sigmaMax > 0.2 * r.fc);
     // 畫圖
-    const dotR = Math.max(2.5, Math.min(5, dbV * s * 0.5));
+    const dotR = Math.max(2.3, Math.min(4.2, dbV * 1.7));
     let body = '';
     // 標題
-    body += `<text x="${vw/2}" y="20" fill="#1a3d5c" font-size="13" text-anchor="middle" font-weight="600">牆水平斷面 — ${layers === 2 ? '雙層' : '單層'}配筋 ${showBE ? '(端部 SBE 加密)' : ''}</text>`;
+    body += `<text x="${vw/2}" y="20" fill="#1a3d5c" font-size="13" text-anchor="middle" font-weight="600">牆水平斷面 — ${layers === 2 ? '雙層' : '單層'}配筋${r.pmBoundaryRebar ? '＋兩端附加筋' : ''}</text>`;
     // 牆外框
     body += `<rect x="${x0}" y="${y0}" width="${drawW}" height="${drawH}" fill="#e0e7ef" stroke="#1a3d5c" stroke-width="1.8"/>`;
     // 保護層虛線
-    const cy1 = y0 + cover * s, cy2 = y0 + drawH - cover * s;
+    const cy1 = y0 + cover * sy, cy2 = y0 + drawH - cover * sy;
     body += `<line x1="${x0}" y1="${cy1}" x2="${x0+drawW}" y2="${cy1}" stroke="#94a3b8" stroke-width="0.6" stroke-dasharray="3,2"/>`;
     body += `<line x1="${x0}" y1="${cy2}" x2="${x0+drawW}" y2="${cy2}" stroke="#94a3b8" stroke-width="0.6" stroke-dasharray="3,2"/>`;
     // 橫筋 (藍線，沿牆長方向)
     rowYs.forEach(ry => {
-      const py = y0 + ry * s;
+      const py = y0 + ry * sy;
       body += `<line x1="${x0}" y1="${py}" x2="${x0+drawW}" y2="${py}" stroke="#0ea5e9" stroke-width="2"/>`;
     });
     // 縱筋 (紅點，於交點)
     rowYs.forEach(ry => {
       barXs.forEach(bx => {
-        const px = x0 + bx * s, py = y0 + ry * s;
+        const px = x0 + bx * sx, py = y0 + ry * sy;
         body += `<circle cx="${px}" cy="${py}" r="${dotR}" fill="#dc2626" stroke="#7f1d1d" stroke-width="0.8"/>`;
       });
     });
-    // BE 端部加密：在最左 1 格加倍紅點
-    if (showBE) {
-      const extraX = r.vSp / 2;
-      rowYs.forEach(ry => {
-        const py = y0 + ry * s;
-        body += `<circle cx="${x0 + extraX * s}" cy="${py}" r="${dotR}" fill="#ea580c" stroke="#7c2d12" stroke-width="0.8"/>`;
+    // 使用者輸入的兩端附加集中縱筋
+    if (r.pmBoundaryRebar && r.pmBoundaryCountEach > 0) {
+      const boundaryDb = REBAR_TABLE[r.pmBoundaryBar]?.db || dbV;
+      const boundaryR = Math.max(2.6, Math.min(5, boundaryDb * 1.8));
+      const boundaryFaceOff = cover + dbH + boundaryDb / 2;
+      const yMin = Math.min(boundaryFaceOff, r.h / 2);
+      const yMax = Math.max(r.h - boundaryFaceOff, r.h / 2);
+      const boundaryYs = Array.from({ length:r.pmBoundaryCountEach }, (_, index) => (
+        r.pmBoundaryCountEach === 1 ? r.h / 2 : yMin + (yMax - yMin) * index / (r.pmBoundaryCountEach - 1)
+      ));
+      [r.pmBoundaryEdgeOffset, r.lw - r.pmBoundaryEdgeOffset].forEach(bx => {
+        boundaryYs.forEach(by => {
+          body += `<circle cx="${x0 + bx * sx}" cy="${y0 + by * sy}" r="${boundaryR}" fill="#f97316" stroke="#7c2d12" stroke-width="0.9"/>`;
+        });
       });
-      // BE 範圍虛框
-      const beW = r.vSp * s;
+    }
+    // SBE 需求範圍只作幾何標示，不假設已配置附加筋
+    if (showBE) {
+      const beW = Math.min(Math.max(r.sbeExtX || r.vSp, r.vSp), r.lw) * sx;
       body += `<rect x="${x0}" y="${y0 - 4}" width="${beW}" height="${drawH + 8}" fill="none" stroke="#ea580c" stroke-width="1.2" stroke-dasharray="4,2"/>`;
-      body += `<text x="${x0 + beW/2}" y="${y0 - 8}" fill="#ea580c" font-size="10" text-anchor="middle">SBE 加密</text>`;
+      body += `<text x="${x0 + beW/2}" y="${y0 - 8}" fill="#ea580c" font-size="10" text-anchor="middle">SBE 需求範圍</text>`;
     }
     // 尺寸線：h (左側)
     const xDim = x0 - 14;
@@ -2271,25 +2317,73 @@ ${basementStepTxt}
     body += `<text x="${xDim - 6}" y="${y0 + drawH/2 + 4}" fill="#475569" font-size="11" text-anchor="end">h=${r.h}</text>`;
     // 尺寸線：s (底部, 第 1 個間距)
     const yDim = y0 + drawH + 14;
-    const sx1 = x0 + barXs[0] * s, sx2 = x0 + barXs[1] * s;
-    body += `<line x1="${sx1}" y1="${yDim}" x2="${sx2}" y2="${yDim}" stroke="#475569" stroke-width="0.9" marker-end="url(#arr)" marker-start="url(#arr)"/>`;
-    body += `<text x="${(sx1+sx2)/2}" y="${yDim + 14}" fill="#475569" font-size="11" text-anchor="middle">s=${r.vSp} cm</text>`;
+    body += `<line x1="${x0}" y1="${yDim}" x2="${x0+drawW}" y2="${yDim}" stroke="#475569" stroke-width="0.9" marker-end="url(#arr)" marker-start="url(#arr)"/>`;
+    body += `<text x="${x0+drawW/2}" y="${yDim + 14}" fill="#475569" font-size="11" text-anchor="middle">ℓw=${r.lw} cm；均布 s≈${r.pmActualSpacing.toFixed(1)} cm</text>`;
     // 圖例
     const lgY = vh - 12;
     body += `<circle cx="${padL}" cy="${lgY}" r="3.5" fill="#dc2626" stroke="#7f1d1d" stroke-width="0.6"/>`;
     body += `<text x="${padL + 8}" y="${lgY + 4}" fill="#475569" font-size="10">縱筋 ${r.vBar}</text>`;
     body += `<line x1="${padL + 72}" y1="${lgY}" x2="${padL + 92}" y2="${lgY}" stroke="#0ea5e9" stroke-width="2"/>`;
     body += `<text x="${padL + 96}" y="${lgY + 4}" fill="#475569" font-size="10">橫筋 ${r.hBar}</text>`;
-    if (showBE) {
+    if (r.pmBoundaryRebar) {
       body += `<circle cx="${padL + 160}" cy="${lgY}" r="3.5" fill="#ea580c" stroke="#7c2d12" stroke-width="0.6"/>`;
-      body += `<text x="${padL + 168}" y="${lgY + 4}" fill="#475569" font-size="10">SBE 加強</text>`;
+      body += `<text x="${padL + 168}" y="${lgY + 4}" fill="#475569" font-size="10">端部附加 ${r.pmBoundaryBar}</text>`;
     }
     const defs = `<defs><marker id="arr" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#475569"/></marker></defs>`;
     svg.innerHTML = defs + body;
     const note = document.getElementById('wallRebarSvgNote');
     if (note) {
-      note.textContent = `縱筋 ${r.vBar} @ ${r.vSp} cm (紅點) ， 橫筋 ${r.hBar} @ ${r.hSp} cm (藍線) ， ${layers} 層；示意僅顯示 ${nSp} 個間距範圍，保護層假設 ${cover} cm。`;
+      note.textContent = `均布縱筋 ${r.vBar} @ ${r.vSp} cm（實際 ${r.pmActualSpacing.toFixed(1)} cm），橫筋 ${r.hBar} @ ${r.hSp} cm，${layers} 層；保護層 ${cover} cm${r.pmBoundaryRebar ? `；兩端各附加 ${r.pmBoundaryCountEach}-${r.pmBoundaryBar}` : ''}。`;
     }
+  }
+
+  function drawWallPMDiagram() {
+    const r = window.wallLast; if (!r) return;
+    const svg = document.getElementById('wallPMDiagram'); if (!svg) return;
+    const design = Array.isArray(r.pmDesign) ? r.pmDesign.filter(pt => Number.isFinite(pt?.P) && Number.isFinite(pt?.M)) : [];
+    if (design.length < 2) {
+      svg.innerHTML = '<text x="260" y="150" text-anchor="middle" fill="#64748b" font-size="13">P-M 設計封包無法建立</text>';
+      const note = document.getElementById('wallPMDiagramNote');
+      if (note) note.textContent = '—';
+      return;
+    }
+    const vw = 520, vh = 300;
+    const left = 64, right = 24, top = 28, bottom = 46;
+    const innerW = vw - left - right, innerH = vh - top - bottom;
+    const maxCurveM = Math.max(...design.map(pt => Math.abs(pt.M)), 1);
+    const maxM = Math.max(maxCurveM, Math.abs(r.MuIn || 0)) * 1.10;
+    const pValues = design.map(pt => pt.P).concat([r.Pu]);
+    const rawMinP = Math.min(...pValues, 0), rawMaxP = Math.max(...pValues, 0);
+    const pSpan = Math.max(rawMaxP - rawMinP, 1);
+    const minP = rawMinP - pSpan * 0.06, maxP = rawMaxP + pSpan * 0.06;
+    const x = m => left + (m + maxM) / (2 * maxM) * innerW;
+    const y = p => top + (maxP - p) / (maxP - minP) * innerH;
+    const pos = design.map(pt => `${x(pt.M).toFixed(1)},${y(pt.P).toFixed(1)}`);
+    const neg = design.slice().reverse().map(pt => `${x(-pt.M).toFixed(1)},${y(pt.P).toFixed(1)}`);
+    const envelope = pos.concat(neg).join(' ');
+    const demandX = x(r.MuIn), demandY = y(r.Pu);
+    const demandColor = r.okPM ? '#15803d' : '#dc2626';
+    const pTicks = [rawMaxP, 0, rawMinP].filter((value, index, arr) => arr.findIndex(item => Math.abs(item - value) < 1e-6) === index);
+    const mTicks = [-maxCurveM, 0, maxCurveM];
+    let body = `<rect x="${left}" y="${top}" width="${innerW}" height="${innerH}" fill="#f8fafc" stroke="#cbd5e1"/>`;
+    body += `<polygon points="${envelope}" fill="#dbeafe" fill-opacity="0.70" stroke="#1d4ed8" stroke-width="2"/>`;
+    body += `<line x1="${left}" y1="${y(0)}" x2="${left+innerW}" y2="${y(0)}" stroke="#64748b" stroke-width="0.9"/>`;
+    body += `<line x1="${x(0)}" y1="${top}" x2="${x(0)}" y2="${top+innerH}" stroke="#64748b" stroke-width="0.9"/>`;
+    pTicks.forEach(value => {
+      body += `<line x1="${left-4}" y1="${y(value)}" x2="${left}" y2="${y(value)}" stroke="#475569"/>`;
+      body += `<text x="${left-8}" y="${y(value)+4}" text-anchor="end" fill="#475569" font-size="10">${value.toFixed(0)}</text>`;
+    });
+    mTicks.forEach(value => {
+      body += `<line x1="${x(value)}" y1="${top+innerH}" x2="${x(value)}" y2="${top+innerH+4}" stroke="#475569"/>`;
+      body += `<text x="${x(value)}" y="${top+innerH+17}" text-anchor="middle" fill="#475569" font-size="10">${value.toFixed(0)}</text>`;
+    });
+    body += `<circle cx="${demandX}" cy="${demandY}" r="5" fill="${demandColor}" stroke="#fff" stroke-width="1.5"/>`;
+    body += `<text x="${Math.min(demandX+8, vw-155)}" y="${Math.max(demandY-8, 16)}" fill="${demandColor}" font-size="11" font-weight="600">需求 (${r.MuIn.toFixed(1)}, ${r.Pu.toFixed(1)})</text>`;
+    body += `<text x="${left+innerW/2}" y="${vh-8}" text-anchor="middle" fill="#334155" font-size="11">設計彎矩 φMn (tf·m)</text>`;
+    body += `<text x="14" y="${top+innerH/2}" text-anchor="middle" fill="#334155" font-size="11" transform="rotate(-90 14 ${top+innerH/2})">設計軸力 φPn (tf)</text>`;
+    svg.innerHTML = body;
+    const note = document.getElementById('wallPMDiagramNote');
+    if (note) note.textContent = `P-M 設計包絡線與需求點：Pu=${r.Pu.toFixed(1)} tf，Mu=${r.MuIn.toFixed(1)} tf·m，利用率=${Number.isFinite(r.pmUtil) ? r.pmUtil.toFixed(3) : '—'}。`;
   }
 
   // === 綜合報告彙整表 (Summary) ===
@@ -2397,7 +2491,7 @@ ${basementStepTxt}
         item: '面內 P-M 互制',
         kind: 'code',
         ref: '21.2.2 / 應變相容',
-        note: '依目前均布縱筋、輸入間距與固定 2 cm 保護層建立設計封包；端部集中筋應改用剪力牆完整工具。'
+        note: `依均布縱筋、實際保護層${r.pmBoundaryRebar ? '及兩端附加集中縱筋' : ''}建立設計封包，並於計算書輸出互制圖與需求點。`
       },
       {
         item: '面內軸力簡易公式 φPn',
@@ -2409,7 +2503,7 @@ ${basementStepTxt}
         item: '面外 Slender Wall / P-Δ',
         kind: 'approx',
         ref: '11.8',
-        note: '已檢查適用條件並用應變相容求 φMn，但仍採單位寬條帶與固定保護層假設，建議作為初步設計與比對。'
+        note: '已檢查適用條件並用應變相容求 φMn；採單位寬條帶且沿用輸入保護層，建議作為初步設計與比對。'
       },
       {
         item: '地下室外牆土壓自動計算',
@@ -2527,6 +2621,8 @@ ${basementStepTxt}
         { label:'垂直筋', value:`${r.vBar} @ ${r.vSp} cm` },
         { label:'水平筋', value:`${r.hBar} @ ${r.hSp} cm` },
         { label:'層數', value:`${r.layers} 層` },
+        { label:'保護層', value:r.cover, unit:'cm' },
+        ...(r.pmBoundaryRebar ? [{ label:'兩端附加縱筋', value:`每端 ${r.pmBoundaryCountEach}-${r.pmBoundaryBar}` }] : []),
         { label:'ρℓ / ρt', value:`${r.rhol.toFixed(4)} / ${r.rhot.toFixed(4)}` }
       ]},
       { group:'外力', items:[
@@ -2561,7 +2657,7 @@ ${basementStepTxt}
       ]},
       { group:'面內 P-M', items:[
         { label:'P-M 設計封包', formula:'應變相容法；εcu=0.003，φ依最外受拉筋應變',
-          sub:`Pu=${(r.Pu_kgf/1000).toFixed(1)} tf（範圍 ${r.pmPMin.toFixed(1)}~${r.pmPMax.toFixed(1)}）；均布縱筋 Ast=${r.pmAst.toFixed(2)} cm²`,
+          sub:`Pu=${(r.Pu_kgf/1000).toFixed(1)} tf（範圍 ${r.pmPMin.toFixed(1)}~${r.pmPMax.toFixed(1)}）；Ast=${r.pmAst.toFixed(2)} cm²（均布 ${r.pmAstDistributed.toFixed(2)}${r.pmBoundaryRebar ? `＋端部 ${r.pmAstBoundary.toFixed(2)}` : ''}）`,
           value:r.pmStatus === 'axial-out-of-range'
             ? 'Pu 超出軸力封包'
             : `φMn/|Mu|=${Number(r.phiMnInplane).toFixed(1)}/${Math.abs(r.MuIn).toFixed(1)} tf·m；利用率 ${Number(r.pmUtil).toFixed(3)}`,
@@ -2675,7 +2771,7 @@ ${basementStepTxt}
         if (txt) stepsArr.push({ group: label, body: txt });
       };
       grab('stepsGeomBody',    '幾何 ＆ 材料');
-      grab('stepsLoadBody',    '載重 (φPn / φVn)');
+      grab('stepsLoadBody',    '載重 (P-M / φVn)');
       grab('stepsRebarBody',   '配筋 ＆ 詳細規定');
       grab('stepsMethodsBody', '面外 P-Δ ＆ SBE 延伸');
     }
@@ -2687,6 +2783,15 @@ ${basementStepTxt}
         title:'牆水平斷面配筋示意',
         dataURL: rebarData,
         caption:$('wallRebarSvgNote')?.textContent || '',
+        width:520
+      });
+    }
+    const pmData = svgToDataURL($('wallPMDiagram'));
+    if (pmData) {
+      diagrams.push({
+        title:'P-M 設計互制圖',
+        dataURL:pmData,
+        caption:$('wallPMDiagramNote')?.textContent || '',
         width:520
       });
     }
@@ -2826,7 +2931,7 @@ ${basementStepTxt}
       { key:'V', label:'剪力 Vu', unit:'tf' },
     ],
     limitStates: [
-      { key:'pm-capacity', label:'P-M 容量利用率', criterion:'custom', criterionLabel:'依目前均布縱筋斷面逐完整組合計算 |Mu|/φMn @ Pu；軸壓與軸拉均納入設計封包', scorer:scoreWallPMTuple },
+      { key:'pm-capacity', label:'P-M 容量利用率', criterion:'custom', criterionLabel:'依均布縱筋、輸入保護層及選用的牆端附加筋逐完整組合計算 |Mu|/φMn @ Pu；軸壓與軸拉均納入設計封包', scorer:scoreWallPMTuple },
       { key:'shear-capacity', label:'剪力容量利用率', criterion:'custom', criterionLabel:'逐完整組合計算 |Vu|/φVn；特殊結構牆並納入 Vu/(2.65√fc′Acv) 控制', scorer:scoreWallShearTuple },
     ],
     targetIds: { P:'Pu', M:'MuIn', V:'Vu' },

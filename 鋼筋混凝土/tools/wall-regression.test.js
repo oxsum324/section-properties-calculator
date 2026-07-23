@@ -71,9 +71,11 @@ function main() {
   assert(wallHtml.includes('id="bwSupport"'), 'wall.html has basement support selector', 'basement wall model is selectable');
   assert(wallHtml.includes('簡式不適用，P-M 仍照常檢核'), 'wall.html keeps P-M active when the simple formula is out of range', 'eccentricity no longer blocks the formal P-M check');
   assert(wallHtml.includes('../shared/pmsection.js?v=2'), 'wall.html loads the shared P-M engine', 'general wall uses the same strain-compatibility core');
-  assert(wallHtml.includes('../shared/wall-inplane-evaluator.js?v=1'), 'wall.html loads the in-plane capacity evaluator', 'formal calculation and load combinations share one evaluator');
+  assert(wallHtml.includes('../shared/wall-inplane-evaluator.js?v=2'), 'wall.html loads the in-plane capacity evaluator', 'formal calculation and load combinations share one evaluator');
   assert(wallHtml.includes('WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase)'), 'wall.html formal calculation uses the shared evaluator', 'displayed capacities and tuple ranking cannot drift apart');
   assert(wallHtml.includes('WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase'), 'wall.html formal calculation evaluates the P-M envelope', 'axial tension and eccentric compression use the formal section model');
+  assert(wallHtml.includes('id="cover"') && wallHtml.includes('id="pmBoundaryRebar"') && wallHtml.includes('id="pmBoundaryCountEach"'), 'wall.html exposes actual cover and optional end reinforcement', 'P-M section assumptions are user inputs');
+  assert(wallHtml.includes('id="wallPMDiagram"') && wallHtml.includes("title:'P-M 設計互制圖'"), 'wall.html renders and reports the P-M interaction diagram', 'formal report includes capacity envelope and demand point');
   assert(wallHtml.includes("key:'pm-capacity'") && wallHtml.includes("key:'shear-capacity'"), 'wall load combinations expose capacity-based limit states', 'P-M and shear are separated');
   assert(wallHtml.includes("{ key:'M', label:'彎矩 Mu'"), 'wall load combinations include signed in-plane moment', 'complete P-M-V tuple is preserved');
   assert(wallHtml.includes('refreshLimitStateSuggestions(window.rcWallLoadComboConfig)'), 'wall capacity suggestions refresh after section recalculation', 'section changes immediately rerank tuples');
@@ -128,6 +130,15 @@ function main() {
   assert(axialOut.status === 'axial-out-of-range' && axialOut.score >= 1e12,
     '牆 P-M 軸力越界失敗關閉',
     `${axialOut.scoreLabel}, score=${axialOut.score}`);
+  const boundaryCapacity = WallInplaneEvaluator.computePMCapacity({
+    ...inplaneBase,
+    boundaryBarArea:REBAR_TABLE['#8'].area,
+    boundaryBarDb:REBAR_TABLE['#8'].db,
+    boundaryBarCountEach:4,
+  });
+  assert(boundaryCapacity.valid && boundaryCapacity.AstBoundary > 0 && boundaryCapacity.pMin < pmCapacity.pMin,
+    '一般牆端部附加筋進入同一 P-M 斷面模型',
+    `Ast,b=${boundaryCapacity.AstBoundary.toFixed(2)} cm², Pmin=${boundaryCapacity.pMin.toFixed(1)} tf`);
 
   section('Out-of-Plane Flexure Modeling');
   const fc = 280;

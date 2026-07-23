@@ -21,10 +21,38 @@ const pmCapacity = Evaluator.computePMCapacity(base);
 assert.equal(pmCapacity.status, 'evaluated');
 assert.ok(pmCapacity.pMin < 0 && pmCapacity.pMax > 0);
 assert.ok(pmCapacity.barCount >= 2 && pmCapacity.actualSpacing <= base.vSp + 1e-9);
+assert.equal(pmCapacity.AstBoundary, 0);
+
+const boundaryBase = {
+  ...base,
+  boundaryBarArea:5.067,
+  boundaryBarDb:2.54,
+  boundaryBarCountEach:4,
+};
+const boundaryCapacity = Evaluator.computePMCapacity(boundaryBase);
+assert.equal(boundaryCapacity.status, 'evaluated');
+assert.equal(boundaryCapacity.boundaryBarCountTotal, 8);
+assert.ok(Math.abs(boundaryCapacity.AstBoundary - 8 * 5.067) < 1e-9);
+assert.ok(Math.abs(boundaryCapacity.Ast - pmCapacity.Ast - boundaryCapacity.AstBoundary) < 1e-9);
+assert.ok(boundaryCapacity.pMin < pmCapacity.pMin, 'additional end bars increase axial tension capacity');
+assert.ok(boundaryCapacity.boundaryEdgeOffset > base.cover);
+
+const coverCapacity = Evaluator.computePMCapacity({ ...base, cover:5 });
+assert.equal(coverCapacity.status, 'evaluated');
+assert.ok(coverCapacity.edgeOffset > pmCapacity.edgeOffset);
+
+const invalidBoundary = Evaluator.computePMCapacity({ ...base, boundaryBarCountEach:2.5, boundaryBarArea:5.067, boundaryBarDb:2.54 });
+assert.equal(invalidBoundary.status, 'capacity-unresolved');
+const invalidThickness = Evaluator.computePMCapacity({ ...base, h:10, cover:4 });
+assert.equal(invalidThickness.status, 'capacity-unresolved');
 
 const pmCompression = Evaluator.pmScore(base, { P:80, M:30 });
 assert.equal(pmCompression.status, 'evaluated');
 assert.ok(pmCompression.phiMn > 0 && pmCompression.utilization > 0);
+
+const pmBoundaryCompression = Evaluator.pmScore(boundaryBase, { P:80, M:30 });
+assert.equal(pmBoundaryCompression.status, 'evaluated');
+assert.ok(pmBoundaryCompression.AstBoundary > 0 && pmBoundaryCompression.design.length > 2);
 
 const pmTension = Evaluator.pmScore(base, { P:-40, M:10 });
 assert.equal(pmTension.status, 'evaluated');
