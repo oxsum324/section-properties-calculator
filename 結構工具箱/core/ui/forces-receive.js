@@ -9,6 +9,7 @@
   const STORAGE_KEY = 'structToolbox.pendingForces';
   const importMode = document.currentScript?.dataset?.forceImportMode || 'candidate';
   let pendingPayload = null;
+  let lastAppliedPayload = null;
 
   function getParam(name) {
     return new URLSearchParams(location.search).get(name);
@@ -55,6 +56,7 @@
       fillFromMap('[data-material]', pendingPayload.material || {}, filled, '※');
     }
     const payload = clone(pendingPayload);
+    lastAppliedPayload = clone(payload);
     if (options.clear !== false) discardPending();
     return { payload, filled };
   }
@@ -78,7 +80,13 @@
     const detail = document.createElement('div');
     const timestamp = meta.timestamp ? new Date(meta.timestamp).toLocaleString('zh-TW') : '—';
     const basis = meta.factored ? '已因數化' : '未因數化';
-    detail.textContent = `已自 ForcePicker 匯入內力｜來源：${meta.source || '—'}｜工況：${meta.caseName || '—'}｜${basis}｜時間：${timestamp}｜填入：${filled.join('、') || '(無對應欄位)'}`;
+    const combination = meta.combination;
+    const verifiedCombination = combination?.validationStatus === 'verified' &&
+      combination?.tuplePreserved === true && !!combination.name;
+    const combinationText = !combination ? '' : (verifiedCombination
+      ? `｜採用組合：${combination.method || '—'} ${combination.name}（完整配對）`
+      : `｜採用組合：${combination.method || '—'} ${combination.name || '—'}（未驗證來源）`);
+    detail.textContent = `已自 ForcePicker 匯入內力｜來源：${meta.source || '—'}｜工況：${meta.caseName || '—'}${combinationText}｜${basis}｜時間：${timestamp}｜填入：${filled.join('、') || '(無對應欄位)'}`;
     const close = document.createElement('button');
     close.type = 'button';
     close.textContent = '關閉';
@@ -104,6 +112,7 @@
   window.ForcePickerReceive = {
     STORAGE_KEY,
     getPending: () => clone(pendingPayload),
+    getLastApplied: () => clone(lastAppliedPayload),
     applyPending,
     discardPending,
     mode: importMode

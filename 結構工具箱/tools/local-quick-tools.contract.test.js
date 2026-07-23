@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const { spawnSync } = require('child_process');
 const assert = require('assert');
 const calculationBookContentBoundary = require('./calculation-book-content-boundary.json');
@@ -119,6 +120,9 @@ const repoDocs = {
   steelBeam: readText(toolboxFile('tools/鋼構/steel-beam.html')),
   steelColumn: readText(toolboxFile('tools/鋼構/steel-column.html')),
   forcePicker: readText(toolboxFile('tools/force-picker.html')),
+  forcePickerCore: readText(toolboxFile('core/ui/force-picker.js')),
+  loadComboCore: readText(toolboxFile('core/loads/loadcombo.js')),
+  forcesReceive: readText(toolboxFile('core/ui/forces-receive.js')),
   readme: readText(repoFile('README.md')),
   toolReportGuide: readText(repoFile('TOOL_REPORT_GUIDE.md')),
   boundaries: readText(repoFile('TOOL_BOUNDARIES.md')),
@@ -135,6 +139,7 @@ const runnerPath = assertFile(manifest.shared.runner);
 const exportHelperPath = assertFile(manifest.shared.exportHelper);
 const exportHelperTestPath = assertFile(manifest.shared.exportHelperTest);
 const outputConsistencyTestPath = assertFile(manifest.shared.outputConsistencyTest);
+const loadComboV2TestPath = assertFile(manifest.shared.loadComboV2Test);
 const browserSmokeTestPath = assertFile(manifest.shared.browserSmokeTest);
 const documentStateHelperPath = assertFile(manifest.shared.documentStateHelper);
 const directPrintBoundaryPath = assertFile(manifest.shared.directPrintBoundaryStylesheet);
@@ -143,6 +148,7 @@ const runnerText = readText(runnerPath);
 const exportHelperText = readText(exportHelperPath);
 const exportHelperTestText = readText(exportHelperTestPath);
 const outputConsistencyTestText = readText(outputConsistencyTestPath);
+const loadComboV2TestText = readText(loadComboV2TestPath);
 const browserSmokeTestText = readText(browserSmokeTestPath);
 const documentStateHelperText = readText(documentStateHelperPath);
 const directPrintBoundaryText = readText(directPrintBoundaryPath);
@@ -155,6 +161,7 @@ const ExportHelper = require(exportHelperPath);
   '"shared"',
   '"runner"',
   '"outputConsistencyTest"',
+  '"loadComboV2Test"',
   '"browserSmokeTest"',
   '"documentStateHelper"',
   '"documentStateBuilder"',
@@ -204,6 +211,7 @@ assert.equal(directPrintBoundaryText.includes('content: "DRAFT"'), false, 'local
   'local quick tools manifest runner OK',
   'manifest.shared.exportHelperTest',
   'manifest.shared.outputConsistencyTest',
+  'manifest.shared.loadComboV2Test',
   'manifest.shared.browserSmokeTest',
   'manifest.shared.contractTest',
   'runNode',
@@ -215,6 +223,14 @@ assert.equal(directPrintBoundaryText.includes('content: "DRAFT"'), false, 'local
   'Exporter.buildPayload',
   'r.provenance',
 ].forEach(needle => assertIncludes(outputConsistencyTestText, needle, 'local quick output consistency test'));
+
+[
+  'component envelopes must not be synthesized into a non-existent force tuple',
+  'testSignsAndSourceInputsArePreserved',
+  'selectGoverningTuple',
+  'selectGoverningLimitStates',
+  'testLimitStateRecommendationsPreserveTuples',
+].forEach(needle => assertIncludes(loadComboV2TestText, needle, 'load combination tuple regression'));
 
 [
   'local quick browser smoke OK',
@@ -263,6 +279,9 @@ assert.equal(directPrintBoundaryText.includes('content: "DRAFT"'), false, 'local
   'forcePickerStatusExpression',
   '/force-picker',
   'targetStatus',
+  'loadComboLimitStateExpression',
+  'limit-state suggestion',
+  '頁面輔助，不進計算書',
 ].forEach(needle => assertIncludes(browserSmokeTestText, needle, 'local quick browser smoke test'));
 
 [
@@ -607,6 +626,180 @@ assertIncludes(repoDocs.windSpecial, 'function normalizeBasisText', 'wind specia
 assertIncludes(repoDocs.forcePicker, 'id="targetStatus"', 'force picker inline target status');
 assertIncludes(repoDocs.forcePicker, 'function setTargetStatus', 'force picker inline target status helper');
 assert.equal(repoDocs.forcePicker.includes('alert('), false, 'force picker uses inline status instead of alerts');
+assertIncludes(repoDocs.forcePicker, 'name="robots" content="noindex,nofollow"', 'force picker stays out of search indexes');
+assertIncludes(repoDocs.forcePicker, '內力 Picker（內部流程）', 'force picker is labeled as internal workflow');
+assertIncludes(repoDocs.forcePicker, 'id="comboSelect"', 'force picker requires an explicit combination selection');
+assertIncludes(repoDocs.forcePicker, 'id="comboStatus"', 'force picker combination inline status');
+assertIncludes(repoDocs.forcePicker, 'LoadCombo.computeTuples', 'force picker uses tuple-preserving load combinations');
+assertIncludes(repoDocs.forcePicker, 'LoadCombo.getTupleByName', 'force picker selects one complete combination tuple');
+assertIncludes(repoDocs.forcePicker, 'meta.combination = collected.combination', 'force picker records combination metadata');
+assertIncludes(repoDocs.forcePicker, 'tuplePreserved: true', 'force picker marks tuple preservation');
+assert.equal(repoDocs.forcePicker.includes('env[k].abs'), false, 'force picker never synthesizes component absolute envelopes');
+assertIncludes(repoDocs.forcePickerCore, 'function normalizeCombination', 'force picker transport normalizes combination metadata');
+assertIncludes(repoDocs.forcePickerCore, 'combination: validateCombination(payload.meta?.combination, rawForces)', 'force picker transport validates combination metadata against raw forces');
+assertIncludes(repoDocs.forcePicker, 'factors: { ...tuple.factors }', 'force picker payload keeps selected combination factors');
+assertIncludes(repoDocs.forcePicker, 'values: { ...tuple.values }', 'force picker payload keeps original signed tuple values');
+assertIncludes(repoDocs.forcePickerCore, "['P', 'M', 'MNeg', 'V', 'T']", 'RC beam target keeps signed axial force');
+assertIncludes(repoDocs.forcePickerCore, 'function adaptForTarget', 'force picker has target sign adapter');
+assertIncludes(repoDocs.forcePickerCore, 'output.MNeg = signedMoment < 0 ? Math.abs(signedMoment) : 0', 'force picker splits negative beam moment to positive MNeg magnitude');
+assertIncludes(repoDocs.forcePickerCore, 'output.P = axial', 'force picker preserves signed axial force');
+assertIncludes(repoDocs.forcePickerCore, 'factors: normalizeNumericMap(combination.factors)', 'force picker transport keeps combination factors');
+assertIncludes(repoDocs.forcePickerCore, 'values: normalizeNumericMap(combination.values)', 'force picker transport keeps original signed tuple values');
+assertIncludes(repoDocs.forcePickerCore, 'function validateCombination', 'force picker has native combination provenance validator');
+assertIncludes(repoDocs.forcePickerCore, "combination.tuplePreserved !== true", 'force picker does not upgrade an unclaimed tuple');
+assertIncludes(repoDocs.forcePickerCore, 'native_combo_catalog_unavailable', 'force picker fails closed without native combo catalog');
+assertIncludes(repoDocs.forcePickerCore, 'stashInternal({ ...payload, forces:adaptedForces, target }, rawForces)', 'force picker validates before target adaptation');
+assertIncludes(repoDocs.forcePicker, 'ForcePicker.sendTo(t.key, payload)', 'force picker page sends unfiltered raw forces to transport');
+assertNoIncludes(repoDocs.forcePicker, 'ForcePicker.sendTo(t.key, { ...payload, forces: filtered })', 'force picker page never prefilters transport provenance');
+assertIncludes(repoDocs.forcesReceive, "combination?.validationStatus === 'verified'", 'force receiver requires verified provenance for complete pairing');
+assertIncludes(repoDocs.forcesReceive, '未驗證來源', 'force receiver discloses unverified or legacy provenance');
+
+{
+  let storedValue = '';
+  const context = {
+    window: { open() {} },
+    localStorage: {
+      setItem(_key, value) { storedValue = value; },
+      getItem() { return storedValue; },
+      removeItem() { storedValue = ''; },
+    },
+    Date,
+    JSON,
+    Object,
+  };
+  vm.createContext(context);
+  vm.runInContext(repoDocs.loadComboCore, context, { filename:'core/loads/loadcombo.js' });
+  vm.runInContext(repoDocs.forcePickerCore, context, { filename:'core/ui/force-picker.js' });
+  const combination = {
+    name:'1.2D+1.0L-1.0E',
+    method:'LRFD',
+    tuplePreserved:true,
+    factors:{ D:1.2, L:1, W:0, E:-1 },
+    values:{ P:-12, Mx:-8, My:6, Vx:-4, Vy:3, T:-2 },
+  };
+  const safe = context.window.ForcePicker.stash({
+    meta: { source:'contract', caseName:'signed tuple', factored:true, combination },
+    forces: combination.values,
+    target: 'column-rect',
+  });
+  combination.name = 'mutated-after-stash';
+  combination.factors.E = 999;
+  combination.values.Mx = 999;
+  const consumed = context.window.ForcePicker.consume();
+  const plain = value => JSON.parse(JSON.stringify(value));
+  const beamNegative = plain(context.window.ForcePicker.filterForTarget(
+    { P:-12, Mx:-8, Vx:-4, T:-2 },
+    'beam'
+  ));
+  const beamPositive = plain(context.window.ForcePicker.filterForTarget(
+    { P:25, Mx:8, Vx:4, T:2 },
+    'beam'
+  ));
+  const columnRect = plain(context.window.ForcePicker.filterForTarget(
+    { P:-12, Mx:-8, My:6, Vx:-4, Vy:3 },
+    'column-rect'
+  ));
+  const columnCirc = plain(context.window.ForcePicker.filterForTarget(
+    { P:25, Mx:-8, Vx:-4 },
+    'column-circ'
+  ));
+
+  assert.equal(safe.meta.combination.name, '1.2D+1.0L-1.0E', 'force picker stash clones combination metadata');
+  assert.equal(safe.meta.combination.factors.E, -1, 'force picker stash clones combination factors');
+  assert.equal(safe.meta.combination.values.Mx, -8, 'force picker stash clones signed tuple values');
+  assert.equal(consumed.meta.combination.name, '1.2D+1.0L-1.0E', 'force picker consume keeps combination name');
+  assert.equal(consumed.meta.combination.method, 'LRFD', 'force picker consume keeps combination method');
+  assert.equal(consumed.meta.combination.tuplePreserved, true, 'force picker consume keeps tuple preservation flag');
+  assert.equal(consumed.meta.combination.validationStatus, 'verified', 'force picker verifies a native tuple against raw forces');
+  assert.deepEqual(plain(consumed.meta.combination.reasons), [], 'verified force picker tuple has no validation reasons');
+  assert.equal(consumed.meta.combination.values.Mx, -8, 'force picker consume keeps original negative moment');
+  assert.equal(consumed.meta.combination.values.T, -2, 'force picker consume keeps original negative torsion');
+  assert.deepEqual(beamNegative, { P:-12, M:0, MNeg:8, V:4, T:2 }, 'RC beam splits negative M and preserves negative P');
+  assert.deepEqual(beamPositive, { P:25, M:8, MNeg:0, V:4, T:2 }, 'RC beam splits positive M and preserves positive P');
+  assert.deepEqual(columnRect, { P:-12, Mx:8, Vx:4, My:6, Vy:3 }, 'RC rectangular column uses magnitudes except signed P');
+  assert.deepEqual(columnCirc, { P:25, Mx:8, Vx:4 }, 'RC circular column uses magnitudes except signed P');
+  const transportMeta = {
+    source:'contract',
+    caseName:'signed tuple transport',
+    factored:true,
+    combination:{
+      name:'1.2D+1.0L-1.0E',
+      method:'LRFD',
+      tuplePreserved:true,
+      factors:{ D:1.2, L:1, W:0, E:-1 },
+      values:{ P:-12, Mx:-8, Vx:-4, T:-2 },
+    },
+  };
+  const transportForces = { P:-12, Mx:-8, Vx:-4, T:-2 };
+  const forgedName = context.window.ForcePicker.validateCombination({
+    ...transportMeta.combination,
+    name:'FORGED-COMBO',
+  }, transportForces);
+  const forgedFactors = context.window.ForcePicker.validateCombination({
+    ...transportMeta.combination,
+    factors:{ ...transportMeta.combination.factors, E:1 },
+  }, transportForces);
+  const forgedValues = context.window.ForcePicker.validateCombination({
+    ...transportMeta.combination,
+    values:{ ...transportMeta.combination.values, Mx:999 },
+  }, transportForces);
+  const unclaimedTuple = context.window.ForcePicker.validateCombination({
+    ...transportMeta.combination,
+    tuplePreserved:false,
+  }, transportForces);
+  const aliasVerified = context.window.ForcePicker.validateCombination(
+    transportMeta.combination,
+    { P:-12, M:-8.0004, V:-4.0004, T:-2 }
+  );
+  const nativeLoadCombo = context.window.LoadCombo;
+  delete context.window.LoadCombo;
+  const unavailableCatalog = context.window.ForcePicker.validateCombination(transportMeta.combination, transportForces);
+  context.window.LoadCombo = nativeLoadCombo;
+  assert.ok(forgedName.reasons.includes('combination_name_not_native'), 'force picker rejects forged combo name');
+  assert.ok(forgedFactors.reasons.includes('factor_mismatch:E'), 'force picker rejects forged combo factors');
+  assert.ok(forgedValues.reasons.includes('value_mismatch:Mx->Mx'), 'force picker rejects forged tuple values');
+  assert.ok(unclaimedTuple.reasons.includes('tuple_preservation_not_claimed'), 'force picker never upgrades an unclaimed tuple');
+  [forgedName, forgedFactors, forgedValues, unclaimedTuple].forEach(result => assert.equal(result.tuplePreserved, false, 'invalid provenance clears tuple preservation'));
+  assert.equal(aliasVerified.validationStatus, 'verified', 'force picker accepts Mx/Vx to M/V aliases within three-decimal tolerance');
+  assert.equal(unavailableCatalog.validationStatus, 'unverified', 'missing native catalog fails closed as unverified');
+  assert.equal(unavailableCatalog.tuplePreserved, false, 'unverified source cannot claim tuple preservation');
+  context.window.ForcePicker.sendTo(
+    'beam',
+    { meta:transportMeta, forces:{ P:-12, Mx:-8, Vx:-4, T:-2 } },
+    'about:blank'
+  );
+  const negativeTransport = context.window.ForcePicker.consume();
+  assert.equal(negativeTransport.forces.P, -12, 'RC beam send transport preserves negative P');
+  assert.equal(negativeTransport.forces.M, 0, 'RC beam send transport clears positive M for negative source moment');
+  assert.equal(negativeTransport.forces.MNeg, 8, 'RC beam send transport stores negative moment as positive MNeg');
+  assert.equal(negativeTransport.forces.V, 4, 'RC beam send transport stores shear magnitude');
+  assert.equal(negativeTransport.forces.T, 2, 'RC beam send transport stores torsion magnitude');
+  assert.equal(negativeTransport.meta.combination.values.Mx, -8, 'RC beam send transport keeps original signed moment metadata');
+
+  assert.equal(negativeTransport.meta.combination.validationStatus, 'verified', 'RC beam transport verifies provenance before adapting forces');
+  assert.equal(negativeTransport.meta.combination.tuplePreserved, true, 'verified RC beam transport preserves tuple claim');
+  context.window.ForcePicker.sendTo(
+    'beam',
+    {
+      meta:{
+        ...transportMeta,
+        combination:{
+          ...transportMeta.combination,
+          values:{ P:25, Mx:8, Vx:4, T:2 },
+        },
+      },
+      forces:{ P:25, Mx:8, Vx:4, T:2 },
+    },
+    'about:blank'
+  );
+  const positiveTransport = context.window.ForcePicker.consume();
+  assert.equal(positiveTransport.forces.P, 25, 'RC beam send transport preserves positive P');
+  assert.equal(positiveTransport.forces.M, 8, 'RC beam send transport stores positive moment magnitude');
+  assert.equal(positiveTransport.forces.MNeg, 0, 'RC beam send transport clears MNeg for positive source moment');
+
+}
+
+
 assertHomeToolCategories('連續梁分析', ['analysis'], 'continuous beam stays in analysis category');
 assertHomeToolCategories('struct.dx 解題套件', ['analysis'], 'struct dx stays in analysis category');
 assertHomeToolCategories('合成斷面性質', ['reference'], 'composite section stays in reference category');

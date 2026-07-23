@@ -1832,6 +1832,10 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         ...(r.seismic ? [{ label:'δu/hw', value:r.duhw }] : []),
         ...(r.testCaseKey ? [{ label:'內建案例', value: SW_TEST_CASES[r.testCaseKey]?.label || r.testCaseKey }] : []),
       ]},
+      ...(() => {
+        const group = LoadCombo.toReportGroup('lcSW', '採用載重組合');
+        return group ? [group] : [];
+      })(),
       ...(r.loadCasesActive ? [{ group:'多組載重工況控制摘要', items:loadCaseControlItems }] : []),
     ];
 
@@ -1961,7 +1965,6 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         '剪力 φ 依 21.2.4.1：標稱剪力 Vn 小於撓曲強度發展對應剪力 Vmn 時採 0.60，否則 0.75',
         r.seismic ? '已套用特殊結構牆 (18.7) 耐震規定，含邊界構材圍束筋 Ash 檢核 (18.7.6.4)' : '未套用耐震規定 (一般結構牆/承重牆)',
         '本頁限單一牆段之面內檢核；連肢牆 (coupled wall)、連接梁、開口牆與整體耐震牆系統需完整模型分析，不在本工具範圍',
-        '本計算書由 RC 工具箱自動產生，僅供初步設計與檢算參考，最終設計圖說仍應由執業技師簽證',
       ],
     });
   }
@@ -2054,11 +2057,25 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
 
   // 載重組合產生器
   if (window.LoadCombo) {
-    const lcCfg = { prefix:'lcSW', forces:[
+    const lcCfg = { prefix:'lcSW', tupleMode:'select', forces:[
       { key:'P', label:'軸力 Pu', unit:'tf' },
       { key:'M', label:'面內彎矩 Mu', unit:'tf·m' },
       { key:'V', label:'面內剪力 Vu', unit:'tf' },
-    ], targetIds:{ P:'Pu', M:'Mu', V:'Vu' } };
+    ], limitStates:[
+      { key:'pm-vector', label:'P-M 需求向量候選', criterion:'normalized-srss', criterionLabel:'|P|、|M| 正規化 SRSS；僅供候選，P-M 容量以牆檢核結果為準', terms:[{ forceKey:'P' }, { forceKey:'M' }] },
+      { key:'compression', label:'最大軸壓 P+', criterion:'positive', forceKey:'P' },
+      { key:'tension', label:'最大軸拉 P−', criterion:'negative', forceKey:'P' },
+      { key:'shear', label:'剪力 |V|', criterion:'abs', forceKey:'V' },
+    ], targetIds:{ P:'Pu', M:'Mu', V:'Vu' },
+    targetReportMeta: {
+      Pu:{ label:'軸力需求 Pu（有號）', unit:'tf', signed:true },
+      Mu:{ label:'彎矩需求 |Mu|', unit:'tf·m' },
+      Vu:{ label:'剪力需求 |Vu|', unit:'tf' },
+    },
+    targetAdapter: ({ forceKey, value, targets }) => [{
+      id:targets[0],
+      value:forceKey === 'P' ? value : Math.abs(value),
+    }] };
     const host = $('lcWallPanel');
     if (host) { host.innerHTML = LoadCombo.buildPanel(lcCfg); LoadCombo.bind(lcCfg); }
   }

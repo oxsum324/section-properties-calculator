@@ -4036,6 +4036,20 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     const adjusted = adoptedColumnForceImport.fields.some(field => Math.abs(field.value - Number(current[field.key])) > 1e-9);
     const meta = adoptedColumnForceImport.meta || {};
     const adoptedAt = new Date(adoptedColumnForceImport.adoptedAt).toLocaleString('zh-TW');
+    const combination = meta.combination || {};
+    const tuplePreserved = combination.validationStatus === 'verified' &&
+      combination.tuplePreserved === true && !!combination.name;
+    const forceUnits = { P:'tf', Mx:'tf·m', My:'tf·m', M:'tf·m', MNeg:'tf·m', Vx:'tf', Vy:'tf', V:'tf', T:'tf·m' };
+    const adoptedValues = adoptedColumnForceImport.fields.map(field => {
+      const value = Math.abs(field.value) < 1e-9 ? 0 : field.value;
+      return `${field.label}=${value > 0 ? '+' : ''}${value.toFixed(2)} ${field.unit}`;
+    }).join('；');
+    const signedTupleValues = tuplePreserved && combination.values && typeof combination.values === 'object'
+      ? Object.entries(combination.values).filter(([, value]) => Number.isFinite(Number(value))).map(([key, rawValue]) => {
+          const value = Math.abs(Number(rawValue)) < 1e-9 ? 0 : Number(rawValue);
+          return `${key}=${value > 0 ? '+' : ''}${value.toFixed(2)} ${forceUnits[key] || ''}`.trim();
+        }).join('；')
+      : '';
     return {
       group: '上游內力採用記錄',
       keepTogether: true,
@@ -4044,8 +4058,15 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         { label: '來源', value: meta.source || '—' },
         { label: '工況', value: meta.caseName || '—' },
         { label: '上游資料基準', value: describeColumnForceImportBasis(meta) },
+        { label: '來源驗證狀態', value: tuplePreserved ? '已驗證來源（同一載重組合）' : '未驗證來源' },
+        ...(tuplePreserved ? [
+          { label: '設計方法', value: combination.method || '—' },
+          { label: '採用組合', value: combination.name },
+          { label: '來源配對狀態', value: signedTupleValues ? '同一載重組合的完整有號內力已保留' : '舊版資料未提供來源完整有號內力' },
+          ...(signedTupleValues ? [{ label: '來源完整有號內力', value: signedTupleValues }] : []),
+        ] : []),
         { label: '採用判定', value: adoptedColumnForceImport.adoptionBasis === 'factored' ? '人工確認作為係數化設計外力' : '人工確認採用' },
-        { label: '採用欄位', value: adoptedColumnForceImport.fields.map(field => `${field.label}=${field.value.toFixed(2)} ${field.unit}`).join('；') },
+        { label: tuplePreserved ? '採用需求欄位' : '採用欄位（來源未驗證）', value: adoptedValues },
         { label: '確認時間', value: adoptedAt }
       ]
     };
@@ -4143,17 +4164,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         { label:'Mpr 鋼筋強度倍率', value:(r.beamJointImport.values?.mprFactor ?? 0).toFixed(2) }
       ]}] : []),
       ...(() => {
-        const envStored = window.lastLoadCombo && window.lastLoadCombo[lcColCfg.prefix];
-        const envDetail = envStored?.detail;
-        if (!envDetail) return [];
-        const items = [
-          { label:'組合模式', value: envDetail.comboName },
-          { label:'控制 |P|', value: `${envDetail.envelope.P.abs.name} (${Math.abs(envDetail.envelope.P.abs.value).toFixed(2)} tf)` },
-          { label:'控制 |Mx|', value: `${envDetail.envelope.Mx.abs.name} (${Math.abs(envDetail.envelope.Mx.abs.value).toFixed(2)} tf·m)` },
-          { label:'控制 |My|', value: `${envDetail.envelope.My.abs.name} (${Math.abs(envDetail.envelope.My.abs.value).toFixed(2)} tf·m)` },
-        ];
-        if (envDetail.envelope.V) items.push({ label:'控制 |V|', value: `${envDetail.envelope.V.abs.name} (${Math.abs(envDetail.envelope.V.abs.value).toFixed(2)} tf)` });
-        return [{ group:'載重組合包絡摘要', items }];
+        const group = LoadCombo.toReportGroup(lcColCfg.prefix, '採用載重組合');
+        return group ? [group] : [];
       })()
     ];
 
@@ -4592,25 +4604,6 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
       if (pmYCv && pmYCv.toDataURL && (r.colType==='rect')) diagrams.push({
         title:'P-M 互制曲線 (繞 Y 軸)',
         dataURL: pmYCv.toDataURL('image/png'), width: 360 });
-      const envStored = window.lastLoadCombo && window.lastLoadCombo[lcColCfg.prefix];
-      const envDetail = envStored?.detail;
-      if (envDetail) {
-        [
-          { key:'P', title:'載重包絡線 — 軸力', unit:'tf' },
-          { key:'Mx', title:'載重包絡線 — 強軸彎矩', unit:'tf·m' },
-          { key:'My', title:'載重包絡線 — 弱軸彎矩', unit:'tf·m' },
-          ...(envDetail.envelope.V ? [{ key:'V', title:'載重包絡線 — 剪力', unit:'tf' }] : []),
-        ].forEach(spec => {
-          const cv = document.createElement('canvas');
-          LoadCombo.drawEnvelopeChart(cv, envDetail, spec.key, { width: 700, height: 280 });
-          diagrams.push({
-            title: spec.title,
-            dataURL: cv.toDataURL('image/png'),
-            width: 420,
-            caption: `${envDetail.comboName}；紅點為控制 |值| = ${Math.abs(envDetail.envelope[spec.key].abs.value).toFixed(2)} ${spec.unit} (${envDetail.envelope[spec.key].abs.name})`
-          });
-        });
-      }
     } catch(e) { console.warn('diagram capture failed', e); }
 
     // 保留方法與條文覆蓋資料供頁面診斷及回歸測試使用，但不傳入計算書。
@@ -4642,9 +4635,6 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         ...(r.beamJointImport
           ? [`梁柱接頭資料由 RC 梁頁匯入：${r.beamJointImport.targetLabel || '梁端'}，Mnb=${(r.beamJointImport.values?.mnbControl ?? 0).toFixed(2)} tf·m，梁 Mpr 控制剪力=${(r.beamJointImport.values?.veCap ?? 0).toFixed(2)} tf。`]
           : []),
-        ...(window.lastLoadCombo && window.lastLoadCombo[lcColCfg.prefix]?.detail
-          ? [`載重組合圖採 ${window.lastLoadCombo[lcColCfg.prefix].detail.comboName} 封包。`]
-          : [])
       ]
     };
     window.lastColumnReportConfig = reportConfig;
@@ -5055,13 +5045,30 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
 
   const lcColCfg = {
     prefix: 'lcCol',
+    tupleMode: 'select',
     forces: [
       { key:'P',  label:'軸力 Pu',  unit:'tf' },
       { key:'Mx', label:'Mux',     unit:'tf·m' },
       { key:'My', label:'Muy',     unit:'tf·m' },
       { key:'V',  label:'剪力 Vu',  unit:'tf' },
     ],
+    limitStates: [
+      { key:'pm-vector', label:'P-Mx-My 需求向量候選', criterion:'normalized-srss', criterionLabel:'|P|、|Mx|、|My| 正規化 SRSS；僅供候選，容量互制以柱檢核結果為準', terms:[{ forceKey:'P' }, { forceKey:'Mx' }, { forceKey:'My' }] },
+      { key:'compression', label:'最大軸壓 P+', criterion:'positive', forceKey:'P' },
+      { key:'tension', label:'最大軸拉 P−', criterion:'negative', forceKey:'P' },
+      { key:'shear', label:'剪力 |V|', criterion:'abs', forceKey:'V' },
+    ],
     targetIds: { P:'Pu', Mx:'Mux', My:'Muy', V:'Vu' },
+    targetReportMeta: {
+      Pu:{ label:'軸力需求 Pu（有號）', unit:'tf', signed:true },
+      Mux:{ label:'強軸彎矩需求 |Mux|', unit:'tf·m' },
+      Muy:{ label:'弱軸彎矩需求 |Muy|', unit:'tf·m' },
+      Vu:{ label:'剪力需求 |Vu|', unit:'tf' },
+    },
+    targetAdapter: ({ forceKey, value, targets }) => [{
+      id:targets[0],
+      value:forceKey === 'P' ? value : Math.abs(value),
+    }],
   };
   document.getElementById('lcColPanel').innerHTML = LoadCombo.buildPanel(lcColCfg);
   LoadCombo.bind(lcColCfg);

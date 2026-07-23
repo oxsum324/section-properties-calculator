@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
 <title>內力 Picker — 上游分析 → 下游設計</title>
 <link rel="stylesheet" href="../core/style.css">
 <style>
@@ -46,12 +47,16 @@
 </head>
 <body>
 <header>
-  <h1>內力 Picker</h1>
-  <p>從上游分析工具收集內力,送往下游構件設計工具 (梁 / 柱)</p>
+  <h1>內力 Picker（內部流程）</h1>
+  <p>從上游分析工具收集內力，送往下游構件設計工具（梁／柱）</p>
   <p style="margin-top:4px;"><a class="back" href="../index.html">← 回主選單</a></p>
 </header>
 
 <div class="container">
+
+  <div class="note" role="status">
+    此頁目前屬內部整合流程，尚未列入首頁正式工具。載重組合模式只會送出使用者明確選定的同一組合完整內力，不再把不同控制組合的最大值合成為一組需求。原始有號內力會保存在組合 metadata；送入設計欄位時才依各工具語意轉為正、負彎矩分流或需求量值。
+  </div>
 
   <div class="card">
     <h2>① 內力來源</h2>
@@ -74,7 +79,7 @@
 
     <div class="tabs">
       <button class="tab-btn active" data-pane="manual">A. 直接輸入因數化內力</button>
-      <button class="tab-btn" data-pane="combo">B. 輸入 D/L/W/E + 自動套用組合</button>
+      <button class="tab-btn" data-pane="combo">B. 輸入 D/L/W/E + 選擇完整組合</button>
     </div>
 
     <!-- ─── A. 直接輸入 ─── -->
@@ -122,7 +127,7 @@
 
     <!-- ─── B. 載重組合 ─── -->
     <div class="pane" id="pane-combo">
-      <div class="hint" style="margin-bottom:10px;">輸入未因數化的 D / L / W / E 各分量,將套用 TW112 規範組合 (10 組,含風力 W) 取封包。</div>
+      <div class="hint" style="margin-bottom:10px;">輸入未因數化的 D / L / W / E 各分量後，請選擇要送出的完整組合。預覽與 metadata 會保留 P、M、V、T 的同組配對及原始正負號。</div>
       <table class="combo">
         <thead>
           <tr>
@@ -131,13 +136,24 @@
             <th>L 活載</th>
             <th>W 風</th>
             <th>E 震</th>
-            <th>封包</th>
-            <th>主控組合</th>
+            <th>選定值</th>
+            <th>採用組合</th>
           </tr>
         </thead>
         <tbody id="comboBody"></tbody>
       </table>
-      <button class="btn-secondary" id="btnCalcCombo" style="margin-top:10px;">計算封包</button>
+      <div class="form-row" style="margin-top:10px; align-items:end;">
+        <div class="form-group">
+          <label for="comboSelect">採用載重組合</label>
+          <select id="comboSelect">
+            <option value="">請先選擇完整組合</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <button class="btn-secondary" id="btnCalcCombo" type="button">更新組合結果</button>
+        </div>
+      </div>
+      <div class="input-status" id="comboStatus" aria-live="polite"></div>
     </div>
   </div>
 
@@ -206,54 +222,124 @@ document.getElementById('comboBody').innerHTML = COMBO_FORCES.map(f => `
 `).join('');
 
 const lcCfg = { prefix: 'lc', forces: COMBO_FORCES };
+const comboSelect = document.getElementById('comboSelect');
+const comboSet = LoadCombo.getComboSet(lcCfg);
 
-document.getElementById('btnCalcCombo').addEventListener('click', () => {
-  const env = LoadCombo.compute(lcCfg);
-  for (const f of COMBO_FORCES) {
-    const r = env[f.key];
-    document.getElementById(`lc_${f.key}_out`).textContent = r.value.toFixed(2);
-    document.getElementById(`lc_${f.key}_gov`).textContent = r.governing || '—';
-  }
-  refreshPreview();
+function setComboStatus(message) {
+  document.getElementById('comboStatus').textContent = message || '';
+}
+
+function readComboInputs() {
+  const forces = {};
+  COMBO_FORCES.forEach(force => {
+    forces[force.key] = {};
+    ['D','L','W','E'].forEach(loadCase => {
+      const value = parseFloat(document.getElementById(`lc_${force.key}_${loadCase}`).value);
+      forces[force.key][loadCase] = Number.isFinite(value) ? value : 0;
+    });
+  });
+  return forces;
+}
+
+function computeComboTuples() {
+  return LoadCombo.computeTuples({
+    method: comboSet.method,
+    forces: readComboInputs(),
+    source: {
+      type: 'force-picker',
+      sourceTool: document.getElementById('src').value,
+      caseName: document.getElementById('caseName').value,
+    },
+  });
+}
+
+function renderSelectedCombo(tuple) {
+  COMBO_FORCES.forEach(force => {
+    const value = tuple?.values?.[force.key];
+    document.getElementById(`lc_${force.key}_out`).textContent =
+      Number.isFinite(value) ? value.toFixed(2) : '—';
+    document.getElementById(`lc_${force.key}_gov`).textContent = tuple?.name || '—';
+  });
+}
+
+comboSet.combos.forEach(combo => {
+  const option = document.createElement('option');
+  option.value = combo.name;
+  option.textContent = combo.name;
+  comboSelect.appendChild(option);
 });
+
+document.getElementById('btnCalcCombo').addEventListener('click', refreshPreview);
 
 // ─── 收集當前模式之 forces ───
 function collectForces() {
   const activePane = document.querySelector('.pane.active').id;
   const forces = {};
   let factored = false;
+  let combination = null;
 
   if (activePane === 'pane-manual') {
     factored = true;
+    setComboStatus('');
     ['P','Mx','My','Vx','Vy','M','V','T'].forEach(k => {
-      const v = parseFloat(document.getElementById('m-' + k).value);
-      if (isFinite(v)) forces[k] = v;
+      const value = parseFloat(document.getElementById('m-' + k).value);
+      if (Number.isFinite(value)) forces[k] = value;
     });
     // 梁 alias: M / V 留空時取 Mx / Vx
     if (forces.M == null && forces.Mx != null) forces.M = forces.Mx;
     if (forces.V == null && forces.Vx != null) forces.V = forces.Vx;
   } else {
-    factored = true;  // 載重組合輸出本來就是因數化
-    const env = LoadCombo.compute(lcCfg);
-    for (const k of Object.keys(env)) {
-      const v = env[k].abs;     // 取絕對值封包
-      if (v !== 0) forces[k] = +v.toFixed(3);
+    factored = true;
+    const comboName = comboSelect.value;
+    if (!comboName) {
+      renderSelectedCombo(null);
+      setComboStatus('請先選擇一個完整載重組合；尚未建立可送出的內力 payload。');
+      return { forces, factored, combination:null, valid:false };
     }
+    const tupleResult = computeComboTuples();
+    const tuple = LoadCombo.getTupleByName(tupleResult, comboName);
+    if (!tuple) {
+      renderSelectedCombo(null);
+      setComboStatus('找不到選定的載重組合；尚未建立可送出的內力 payload。');
+      return { forces, factored, combination:null, valid:false };
+    }
+
+    renderSelectedCombo(tuple);
+    COMBO_FORCES.forEach(force => {
+      const value = tuple.values[force.key];
+      if (Number.isFinite(value)) forces[force.key] = +value.toFixed(3);
+    });
     if (forces.Mx != null) forces.M = forces.Mx;
     if (forces.Vx != null) forces.V = forces.Vx;
+    combination = {
+      name: tuple.name,
+      method: tuple.method || tupleResult.method,
+      tuplePreserved: true,
+      factors: { ...tuple.factors },
+      values: { ...tuple.values },
+    };
+    setComboStatus(`已採用 ${combination.name}；所有內力均取自同一組合並保留正負號。`);
   }
-  return { forces, factored };
+  return { forces, factored, combination, valid:true };
 }
 
 // ─── 預覽 ───
 function refreshPreview() {
-  const { forces, factored } = collectForces();
+  const collected = collectForces();
+  if (!collected.valid) {
+    document.getElementById('preview').textContent =
+      '載重組合模式尚未選擇完整組合，不會建立或送出 payload。';
+    return null;
+  }
   const meta = {
-    source:   document.getElementById('src').value,
+    source: document.getElementById('src').value,
     caseName: document.getElementById('caseName').value,
-    factored,
+    factored: collected.factored,
+    loadBasis: collected.factored ? 'factored' : 'unconfirmed',
+    inputMode: collected.combination ? 'combination' : 'manual',
   };
-  const payload = { meta, forces };
+  if (collected.combination) meta.combination = collected.combination;
+  const payload = { meta, forces:collected.forces };
   document.getElementById('preview').textContent = JSON.stringify(payload, null, 2);
   return payload;
 }
@@ -285,13 +371,17 @@ TARGETS.forEach(t => {
   if (!t.disabled) {
     card.addEventListener('click', () => {
       const payload = refreshPreview();
-      const filtered = ForcePicker.filterForTarget(payload.forces, t.key);
-      if (Object.keys(filtered).length === 0) {
+      if (!payload) {
+        setTargetStatus('載重組合模式尚未選擇完整組合，未送出任何內力。');
+        return;
+      }
+      const compatible = ForcePicker.filterForTarget(payload.forces, t.key);
+      if (Object.keys(compatible).length === 0) {
         setTargetStatus(`目前沒有 ${t.name} 需要的內力 (${keys})。`);
         return;
       }
       setTargetStatus('');
-      ForcePicker.sendTo(t.key, { ...payload, forces: filtered });
+      ForcePicker.sendTo(t.key, payload);
     });
   }
   targetGrid.appendChild(card);

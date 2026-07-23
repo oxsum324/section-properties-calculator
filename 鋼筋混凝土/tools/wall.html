@@ -2514,7 +2514,11 @@ ${basementStepTxt}
         ...(r.testCaseKey ? [{ label:'內建案例', value: WALL_TEST_CASES[r.testCaseKey]?.label || r.testCaseKey }] : []),
         ...(r.bwModelLabel ? [{ label:'地下室外牆模型', value:r.bwModelLabel }] : []),
         ...(r.seismic?[{ label:'σmax', value:r.sigmaMax, unit:'kgf/cm²' }]:[])
-      ]}
+      ]},
+      ...(() => {
+        const group = LoadCombo.toReportGroup('lcWall', '採用載重組合');
+        return group ? [group] : [];
+      })()
     ];
 
     const checks = [
@@ -2690,7 +2694,6 @@ ${basementStepTxt}
       ],
       notes:[
         '依據 112 年混凝土結構設計規範',
-        '本計算書由 RC 工具箱自動產生，僅供初步設計參考',
         r.seismic?'已套用特殊結構牆 (SSW) 耐震規定':'未套用耐震規定',
         `面外撓曲採 ${r.slenderMethod==='simple'?'簡版 (1 次 P-δ)':'完整 P-Δ 迭代'} (Ec = 12000·√fc′, 規範 19.2.2)`,
         r.aggRows && r.aggRows.length ? `多片牆聚合：${r.aggRows.length} 段，ΣφVn=${(r.sumVn_kgf/1000).toFixed(1)} tf` : '未啟用多片牆聚合'
@@ -2783,11 +2786,26 @@ ${basementStepTxt}
 
   const lcWallCfg = {
     prefix: 'lcWall',
+    tupleMode: 'select',
     forces: [
       { key:'P', label:'軸力 Pu', unit:'tf' },
       { key:'V', label:'剪力 Vu', unit:'tf' },
     ],
+    limitStates: [
+      { key:'pv-vector', label:'P-V 需求向量候選', criterion:'normalized-srss', criterionLabel:'|P|、|V| 正規化 SRSS；套用後仍由牆軸力與剪力檢核判定', terms:[{ forceKey:'P' }, { forceKey:'V' }] },
+      { key:'compression', label:'最大軸壓 P+', criterion:'positive', forceKey:'P' },
+      { key:'tension', label:'最大軸拉 P−', criterion:'negative', forceKey:'P' },
+      { key:'shear', label:'剪力 |V|', criterion:'abs', forceKey:'V' },
+    ],
     targetIds: { P:'Pu', V:'Vu' },
+    targetReportMeta: {
+      Pu:{ label:'軸力需求 Pu（有號）', unit:'tf', signed:true },
+      Vu:{ label:'剪力需求 |Vu|', unit:'tf' },
+    },
+    targetAdapter: ({ forceKey, value, targets }) => [{
+      id:targets[0],
+      value:forceKey === 'P' ? value : Math.abs(value),
+    }],
   };
   document.getElementById('lcWallPanel').innerHTML = LoadCombo.buildPanel(lcWallCfg);
   LoadCombo.bind(lcWallCfg);

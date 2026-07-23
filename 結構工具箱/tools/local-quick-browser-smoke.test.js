@@ -909,7 +909,20 @@ function legacyInlineValidationExpression(testCase) {
       hasInputStatus: !!document.getElementById('inputStatus'),
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
-      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
+      overflowElements: Array.from(document.querySelectorAll('body *')).map(element => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName,
+          id: element.id || '',
+          className: typeof element.className === 'string' ? element.className : '',
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+          scrollWidth: element.scrollWidth || 0,
+          clientWidth: element.clientWidth || 0
+        };
+      }).filter(item => item.right > document.documentElement.clientWidth + 2 || item.left < -2).slice(0, 12)
     };
   })()`;
 }
@@ -925,14 +938,130 @@ function forcePickerStatusExpression() {
       };
       requestAnimationFrame(step);
     });
-    document.querySelector('.target-card:not(.disabled)')?.click();
+    const targetCards = Array.from(document.querySelectorAll('.target-card:not(.disabled)'));
+    const targetCard = targetCards[0];
+    const originalSendTo = ForcePicker.sendTo;
+    const originalOpen = window.open;
+    const sends = [];
+    window.open = () => null;
+    ForcePicker.sendTo = (target, payload) => {
+      const safePayload = originalSendTo(target, payload, 'about:blank');
+      sends.push({ target, payload:safePayload });
+      return safePayload;
+    };
+
+    targetCard?.click();
     await settle(2);
+    const targetStatus = document.getElementById('targetStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+
+    document.querySelector('[data-pane="combo"]')?.click();
+    await settle(2);
+    targetCard?.click();
+    await settle(2);
+    const blockedComboStatus = document.getElementById('comboStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+    const blockedTargetStatus = document.getElementById('targetStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+    const sentBeforeSelection = sends.length;
+
+    const setValue = (id, value) => {
+      const input = document.getElementById(id);
+      input.value = String(value);
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+      input.dispatchEvent(new Event('change', { bubbles:true }));
+    };
+    setValue('lc_P_W', 10);
+    setValue('lc_Mx_W', -5);
+    setValue('lc_Vx_W', -2);
+    setValue('lc_T_W', -3);
+    const comboSelect = document.getElementById('comboSelect');
+    comboSelect.value = '1.2D+1.0L+1.0W';
+    comboSelect.dispatchEvent(new Event('change', { bubbles:true }));
+    document.getElementById('btnCalcCombo')?.click();
+    await settle(2);
+
+    let previewPayload = null;
+    try {
+      previewPayload = JSON.parse(document.getElementById('preview')?.textContent || 'null');
+    } catch (_error) {
+      previewPayload = null;
+    }
+    targetCards.forEach(card => card.click());
+    await settle(2);
+    const beamPayload = sends.find(item => item.target === 'beam')?.payload || null;
+    const columnRectPayload = sends.find(item => item.target === 'column-rect')?.payload || null;
+    const columnCircPayload = sends.find(item => item.target === 'column-circ')?.payload || null;
+    const comboStatus = document.getElementById('comboStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+    const forgedInput = JSON.parse(JSON.stringify(previewPayload));
+    forgedInput.meta.combination.name = 'FORGED-COMBO';
+    ForcePicker.sendTo('beam', forgedInput);
+    const forgedTransport = sends[sends.length - 1]?.payload || null;
+    ForcePicker.sendTo = originalSendTo;
+    window.open = originalOpen;
+
     return {
       title: document.title,
       hasTargetStatus: !!document.getElementById('targetStatus'),
-      targetStatus: document.getElementById('targetStatus')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+      hasComboStatus: !!document.getElementById('comboStatus'),
+      targetStatus,
+      blockedComboStatus,
+      blockedTargetStatus,
+      sentBeforeSelection,
+      previewPayload,
+      beamPayload,
+      columnRectPayload,
+      columnCircPayload,
+      forgedTransport,
+      sendCount: sends.length,
+      comboStatus,
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+    };
+  })()`;
+}
+
+function loadComboLimitStateExpression(testCase) {
+  return `(async () => {
+    const settle = (frames = 3) => new Promise(resolve => {
+      let remaining = frames;
+      const step = () => {
+        remaining -= 1;
+        if (remaining <= 0) resolve();
+        else requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
+    const setValue = (id, value) => {
+      const input = document.getElementById(id);
+      if (!input) return false;
+      input.value = String(value);
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+      input.dispatchEvent(new Event('change', { bubbles:true }));
+      return true;
+    };
+    const sourceWrites = ${JSON.stringify(testCase.sourceWrites)}.map(item => ({ ...item, applied:setValue(item.id, item.value) }));
+    await settle();
+    const suggestionBefore = window.lastLoadComboSuggestions?.[${JSON.stringify(testCase.prefix)}] || null;
+    const selectButton = document.getElementById(${JSON.stringify(`${testCase.prefix}_limit_0_select`)});
+    selectButton?.click();
+    await settle();
+    const selectedRadio = document.querySelector('input[name="${testCase.prefix}_tupleSelect"]:checked');
+    document.getElementById(${JSON.stringify(`${testCase.prefix}_btnApply`)})?.click();
+    await settle(5);
+    const stored = window.lastLoadCombo?.[${JSON.stringify(testCase.prefix)}] || null;
+    const reportGroup = window.LoadCombo?.toReportGroup(${JSON.stringify(testCase.prefix)}, '採用載重組合') || null;
+    return {
+      title: document.title,
+      sourceWrites,
+      hasLoadCombo: typeof window.LoadCombo?.selectGoverningLimitStates === 'function',
+      suggestionBefore,
+      selectedIndex: selectedRadio ? Number(selectedRadio.value) : -1,
+      selectedName: stored?.selectedTuple?.name || '',
+      selectedValues: stored?.selectedTuple?.values || null,
+      tuplePreserved: stored?.tuplePreserved === true,
+      targetValues: Object.fromEntries(${JSON.stringify(testCase.targetIds)}.map(id => [id, document.getElementById(id)?.value || ''])),
+      reportGroup,
+      statusText: document.getElementById(${JSON.stringify(`${testCase.prefix}_status`)})?.textContent?.replace(/\s+/g, ' ').trim() || '',
+      suggestionHeading: Array.from(document.querySelectorAll('.hint')).map(node => node.textContent || '').find(text => text.includes('控制組合建議')) || '',
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
     };
   })()`;
@@ -1872,6 +2001,33 @@ async function main() {
         expectedStatus: '斷面尺寸',
       },
     ];
+    const loadComboLimitStateCases = [
+      {
+        key: 'steel-beam',
+        route: '/steel-beam',
+        prefix: 'lcSB',
+        sourceWrites: [
+          { id:'lcSB_M_W', value:-10 },
+          { id:'lcSB_V_W', value:-4 },
+        ],
+        targetIds: ['inMu', 'inVu'],
+        expectedValues: { M:-10, V:-4 },
+        expectedTargets: { inMu:'10.000', inVu:'4.000' },
+      },
+      {
+        key: 'steel-column',
+        route: '/steel-column',
+        prefix: 'lcSC',
+        sourceWrites: [
+          { id:'lcSC_P_L', value:100 },
+          { id:'lcSC_Mx_W', value:-20 },
+          { id:'lcSC_My_E', value:15 },
+        ],
+        targetIds: ['inPu', 'inMux', 'inMuy'],
+        expectedValues: { P:100, Mx:-20, My:0 },
+        expectedTargets: { inPu:'100.000', inMux:'20.000', inMuy:'0.000' },
+      },
+    ];
     const legacyReportCases = [
       {
         key: 'steel-beam',
@@ -1942,6 +2098,31 @@ async function main() {
         assert.deepEqual(result.errors, [], `${label} console/dialog errors: ${result.errors.join(' | ')}`);
         assert.equal(result.state.hasInputStatus, true, `${label} has input status`);
         assert.ok(result.state.inputStatus.includes(validationCase.expectedStatus), `${label} status text`);
+        assert.equal(result.state.horizontalOverflow, false, `${label} horizontal overflow: ${JSON.stringify(result.state.overflowElements || [])}`);
+      }
+      for (const loadComboCase of loadComboLimitStateCases) {
+        const label = `${viewport.key} ${loadComboCase.key} limit-state suggestion`;
+        const result = await navigateAndInspect(
+          client,
+          sessionId,
+          `http://127.0.0.1:${serverPort}${loadComboCase.route}`,
+          viewport,
+          loadComboLimitStateExpression(loadComboCase)
+        );
+        assert.deepEqual(result.errors, [], `${label} console/dialog errors: ${result.errors.join(' | ')}`);
+        assert.equal(result.state.hasLoadCombo, true, `${label} limit-state API loaded`);
+        assert.ok(result.state.sourceWrites.every(item => item.applied), `${label} source inputs exist`);
+        assert.ok(result.state.suggestionBefore?.pass, `${label} suggestions pass`);
+        assert.ok(result.state.suggestionBefore?.states?.[0]?.governing, `${label} first suggestion exists`);
+        assert.equal(result.state.selectedName, '1.2D+1.0L+1.0W', `${label} deterministic complete tuple`);
+        assert.equal(result.state.selectedIndex, 2, `${label} selected radio index`);
+        assert.deepEqual(result.state.selectedValues, loadComboCase.expectedValues, `${label} signed tuple values`);
+        assert.equal(result.state.tuplePreserved, true, `${label} tuple remains preserved after apply`);
+        assert.deepEqual(result.state.targetValues, loadComboCase.expectedTargets, `${label} target mapping`);
+        assert.ok(result.state.reportGroup?.items?.some(item => item.label === '來源完整有號內力'), `${label} report keeps source tuple`);
+        assert.equal(JSON.stringify(result.state.reportGroup).includes('控制組合建議'), false, `${label} page-only suggestions stay out of report`);
+        assert.ok(result.state.statusText.includes('已套用'), `${label} apply status`);
+        assert.ok(result.state.suggestionHeading.includes('頁面輔助，不進計算書'), `${label} visible page-only boundary`);
         assert.equal(result.state.horizontalOverflow, false, `${label} horizontal overflow`);
       }
       for (const referenceTool of referenceReadinessCases) {
@@ -1996,6 +2177,51 @@ async function main() {
         assert.deepEqual(result.errors, [], `${label} console/dialog errors: ${result.errors.join(' | ')}`);
         assert.equal(result.state.hasTargetStatus, true, `${label} has target status`);
         assert.ok(result.state.targetStatus.includes('目前沒有'), `${label} status text`);
+        assert.equal(result.state.hasComboStatus, true, `${label} has combo status`);
+        assert.ok(result.state.blockedComboStatus.includes('請先選擇'), `${label} blocks missing combination`);
+        assert.ok(result.state.blockedTargetStatus.includes('未送出'), `${label} reports blocked downstream send`);
+        assert.equal(result.state.sentBeforeSelection, 0, `${label} sends nothing before combination selection`);
+        assert.ok(result.state.previewPayload, `${label} selected tuple preview payload`);
+        assert.equal(result.state.previewPayload.meta.combination.name, '1.2D+1.0L+1.0W', `${label} combination name`);
+        assert.equal(result.state.previewPayload.meta.combination.method, 'LRFD', `${label} combination method`);
+        assert.equal(result.state.previewPayload.meta.combination.tuplePreserved, true, `${label} tuple-preserved metadata`);
+        assert.equal(result.state.previewPayload.meta.combination.factors.W, 1, `${label} selected combination factors`);
+        assert.equal(result.state.previewPayload.meta.combination.values.Mx, -5, `${label} metadata keeps signed Mx`);
+        assert.equal(result.state.previewPayload.meta.combination.values.Vx, -2, `${label} metadata keeps signed Vx`);
+        assert.equal(result.state.previewPayload.meta.combination.values.T, -3, `${label} metadata keeps signed T`);
+        assert.equal(result.state.previewPayload.forces.P, 10, `${label} selected tuple positive P`);
+        assert.equal(result.state.previewPayload.forces.Mx, -5, `${label} selected tuple negative Mx`);
+        assert.equal(result.state.previewPayload.forces.Vx, -2, `${label} selected tuple negative Vx`);
+        assert.equal(result.state.previewPayload.forces.T, -3, `${label} selected tuple negative T`);
+        assert.equal(result.state.previewPayload.forces.M, -5, `${label} beam M alias keeps sign`);
+        assert.equal(result.state.previewPayload.forces.V, -2, `${label} beam V alias keeps sign`);
+        assert.equal(result.state.sendCount, 4, `${label} sends three RC targets plus one forged provenance probe`);
+        assert.ok(result.state.beamPayload, `${label} RC beam payload`);
+        assert.equal(result.state.beamPayload.meta.combination.tuplePreserved, true, `${label} beam tuple metadata`);
+        assert.equal(result.state.beamPayload.meta.combination.validationStatus, 'verified', `${label} beam provenance verified`);
+        assert.deepEqual(result.state.beamPayload.meta.combination.reasons, [], `${label} verified beam provenance has no reasons`);
+        assert.equal(result.state.beamPayload.meta.combination.values.Mx, -5, `${label} beam metadata keeps signed Mx`);
+        assert.equal(result.state.beamPayload.meta.combination.values.T, -3, `${label} beam metadata keeps signed T`);
+        assert.equal(result.state.beamPayload.forces.P, 10, `${label} RC beam keeps signed P`);
+        assert.equal(result.state.beamPayload.forces.M, 0, `${label} negative M clears positive beam demand`);
+        assert.equal(result.state.beamPayload.forces.MNeg, 5, `${label} negative M becomes positive MNeg magnitude`);
+        assert.equal(result.state.beamPayload.forces.V, 2, `${label} beam V becomes magnitude`);
+        assert.equal(result.state.beamPayload.forces.T, 3, `${label} beam T becomes magnitude`);
+        assert.equal(result.state.columnRectPayload.forces.P, 10, `${label} rectangular column keeps signed P`);
+        assert.equal(result.state.columnRectPayload.forces.Mx, 5, `${label} rectangular column Mx magnitude`);
+        assert.equal(result.state.columnRectPayload.forces.My, 0, `${label} rectangular column My magnitude`);
+        assert.equal(result.state.columnRectPayload.forces.Vx, 2, `${label} rectangular column Vx magnitude`);
+        assert.equal(result.state.columnRectPayload.forces.Vy, 0, `${label} rectangular column Vy magnitude`);
+        assert.equal(result.state.columnCircPayload.forces.P, 10, `${label} circular column keeps signed P`);
+        assert.equal(result.state.columnCircPayload.forces.Mx, 5, `${label} circular column Mx magnitude`);
+        assert.equal(result.state.columnCircPayload.forces.Vx, 2, `${label} circular column Vx magnitude`);
+        assert.ok(result.state.comboStatus.includes('1.2D+1.0L+1.0W'), `${label} selected combination status`);
+        assert.equal(result.state.columnRectPayload.meta.combination.validationStatus, 'verified', `${label} rectangular column provenance verified`);
+        assert.equal(result.state.columnCircPayload.meta.combination.validationStatus, 'verified', `${label} circular column provenance verified`);
+        assert.equal(result.state.forgedTransport.meta.combination.validationStatus, 'invalid', `${label} forged combo provenance rejected`);
+        assert.equal(result.state.forgedTransport.meta.combination.tuplePreserved, false, `${label} forged combo cannot preserve tuple claim`);
+        assert.ok(result.state.forgedTransport.meta.combination.reasons.includes('combination_name_not_native'), `${label} forged combo rejection reason`);
+
         assert.equal(result.state.horizontalOverflow, false, `${label} horizontal overflow`);
       }
 

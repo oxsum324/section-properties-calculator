@@ -44,7 +44,7 @@
 
   // 各 target 預期使用的 force keys (用於驗證 + UI 顯示)
   const TARGET_KEYS = {
-    'beam':         ['M', 'MNeg', 'V', 'T'],
+    'beam':         ['P', 'M', 'MNeg', 'V', 'T'],
     'column-rect':  ['P', 'Mx', 'My', 'Vx', 'Vy'],
     'column-circ':  ['P', 'Mx', 'Vx'],
     'steel-beam':   ['M', 'MNeg', 'V'],
@@ -70,19 +70,159 @@
     T:  { label: '扭矩 T',         unit: 'tf·m', sign: '' },
   };
 
+  const NATIVE_FACTOR_KEYS = ['D', 'L', 'W', 'E'];
+  const STRUCTURAL_FORCE_KEYS = new Set(['P', 'Mx', 'My', 'Vx', 'Vy', 'T', 'M', 'MNeg', 'V']);
+  const TUPLE_VALUE_TOLERANCE = 0.00051;
+
+  function normalizeNumericMap(value) {
+    if (!value || typeof value !== 'object') return null;
+    const normalized = {};
+    Object.entries(value).forEach(([key, rawValue]) => {
+      const numeric = Number(rawValue);
+      if (Number.isFinite(numeric)) normalized[key] = numeric;
+    });
+    return Object.keys(normalized).length ? normalized : null;
+  }
+
+  function equivalentForceKeys(key) {
+    if (key === 'M' || key === 'Mx') return ['M', 'Mx'];
+    if (key === 'V' || key === 'Vx') return ['V', 'Vx'];
+    return [key];
+  }
+
+  function normalizeCombination(combination) {
+    if (!combination || typeof combination !== 'object') return null;
+    const normalized = {
+      name: String(combination.name || '').trim(),
+      method: String(combination.method || '').trim().toUpperCase(),
+      tuplePreserved: combination.tuplePreserved === true,
+      factors: normalizeNumericMap(combination.factors),
+      values: normalizeNumericMap(combination.values),
+      validationStatus: String(combination.validationStatus || '').trim(),
+      reasons: Array.isArray(combination.reasons)
+        ? combination.reasons.map(reason => String(reason)).filter(Boolean)
+        : [],
+    };
+    return normalized.name || normalized.method || normalized.tuplePreserved ||
+      normalized.factors || normalized.values ? normalized : null;
+  }
+
+  function validateCombination(combination, rawForces) {
+    const normalized = normalizeCombination(combination);
+    if (!normalized) return null;
+
+    const reasons = [];
+    const addReason = reason => {
+      if (!reasons.includes(reason)) reasons.push(reason);
+    };
+    const rawFactorSource = combination?.factors;
+    const rawValueSource = combination?.values;
+    const rawForceSource = rawForces && typeof rawForces === 'object' ? rawForces : {};
+
+    if (!['LRFD', 'ASD'].includes(normalized.method)) addReason('method_not_supported');
+    if (!normalized.name) addReason('combination_name_missing');
+    if (combination.tuplePreserved !== true) addReason('tuple_preservation_not_claimed');
+
+    let nativeCombo = null;
+    let catalogUnavailable = false;
+    if (['LRFD', 'ASD'].includes(normalized.method)) {
+      if (!global.LoadCombo || typeof global.LoadCombo.getComboSet !== 'function') {
+        catalogUnavailable = true;
+        addReason('native_combo_catalog_unavailable');
+      } else {
+        try {
+          const comboSet = global.LoadCombo.getComboSet(normalized.method);
+          nativeCombo = comboSet?.combos?.find(combo => combo.name === normalized.name) || null;
+          if (!nativeCombo) addReason('combination_name_not_native');
+        } catch (_error) {
+          catalogUnavailable = true;
+          addReason('native_combo_catalog_unavailable');
+        }
+      }
+    }
+
+    if (!rawFactorSource || typeof rawFactorSource !== 'object' || Array.isArray(rawFactorSource)) {
+      addReason('factors_missing');
+    } else {
+      const factorKeys = Object.keys(rawFactorSource);
+      NATIVE_FACTOR_KEYS.forEach(key => {
+        if (!Object.prototype.hasOwnProperty.call(rawFactorSource, key)) {
+          addReason(`factor_missing:${key}`);
+          return;
+        }
+        const factor = Number(rawFactorSource[key]);
+        if (!Number.isFinite(factor)) {
+          addReason(`factor_not_numeric:${key}`);
+        } else if (nativeCombo && Math.abs(factor - nativeCombo[key]) > 1e-12) {
+          addReason(`factor_mismatch:${key}`);
+        }
+      });
+      factorKeys
+        .filter(key => !NATIVE_FACTOR_KEYS.includes(key))
+        .forEach(key => addReason(`factor_unexpected:${key}`));
+    }
+
+    if (!rawValueSource || typeof rawValueSource !== 'object' || Array.isArray(rawValueSource) ||
+        Object.keys(rawValueSource).length === 0) {
+      addReason('values_missing');
+    } else {
+      Object.entries(rawValueSource).forEach(([key, rawValue]) => {
+        const value = Number(rawValue);
+        if (!Number.isFinite(value)) {
+          addReason(`value_not_numeric:${key}`);
+          return;
+        }
+        const matchingRawKeys = equivalentForceKeys(key).filter(candidate =>
+          Object.prototype.hasOwnProperty.call(rawForceSource, candidate)
+        );
+        if (matchingRawKeys.length === 0) {
+          addReason(`raw_force_missing:${key}`);
+          return;
+        }
+        matchingRawKeys.forEach(rawKey => {
+          const rawForce = Number(rawForceSource[rawKey]);
+          if (!Number.isFinite(rawForce)) {
+            addReason(`raw_force_not_numeric:${rawKey}`);
+          } else if (Math.abs(value - rawForce) > TUPLE_VALUE_TOLERANCE) {
+            addReason(`value_mismatch:${key}->${rawKey}`);
+          }
+        });
+      });
+
+      Object.keys(rawForceSource)
+        .filter(key => STRUCTURAL_FORCE_KEYS.has(key))
+        .forEach(rawKey => {
+          const matchingValueKeys = equivalentForceKeys(rawKey).filter(candidate =>
+            Object.prototype.hasOwnProperty.call(rawValueSource, candidate)
+          );
+          if (matchingValueKeys.length === 0) addReason(`value_missing_for_raw:${rawKey}`);
+        });
+    }
+
+    const substantiveReasons = reasons.filter(reason => reason !== 'native_combo_catalog_unavailable');
+    normalized.validationStatus = substantiveReasons.length > 0
+      ? 'invalid'
+      : (catalogUnavailable ? 'unverified' : 'verified');
+    normalized.reasons = reasons;
+    normalized.tuplePreserved = normalized.validationStatus === 'verified';
+    return normalized;
+  }
+
   /**
    * 暫存內力到 localStorage
    */
-  function stash(payload) {
+  function stashInternal(payload, validationForces) {
+    const rawForces = normalizeNumericMap(validationForces) || {};
     const safe = {
       meta: {
         source:    payload.meta?.source    || '未指定',
         caseName:  payload.meta?.caseName  || '未命名工況',
         factored:  !!payload.meta?.factored,
         loadBasis: payload.meta?.loadBasis || (payload.meta?.factored ? 'factored' : 'unconfirmed'),
+        combination: validateCombination(payload.meta?.combination, rawForces),
         timestamp: new Date().toISOString(),
       },
-      forces: payload.forces || {},
+      forces: normalizeNumericMap(payload.forces) || {},
       // 可選: 斷面幾何 {shape:'rect'|'circle', b, h, D, title}
       section:  payload.section  || null,
       // 可選: 材料性質 {fc, fy}  (kgf/cm²)
@@ -93,6 +233,10 @@
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(safe));
     return safe;
+  }
+
+  function stash(payload) {
+    return stashInternal(payload, payload.forces);
   }
 
   /**
@@ -115,6 +259,62 @@
     localStorage.removeItem(STORAGE_KEY);
   }
 
+  function finiteForceValue(forces, key) {
+    const rawValue = forces && forces[key];
+    if (rawValue == null || rawValue === '') return null;
+    const numeric = Number(rawValue);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+
+  /**
+   * 將來源內力轉成各下游工具的輸入語意。
+   * 原始 signed tuple 必須另存於 meta.combination.values，不得由本結果反推。
+   */
+  function adaptForTarget(forces, target) {
+    const source = forces || {};
+
+    if (target === 'beam' || target === 'steel-beam') {
+      const output = {};
+      const axial = finiteForceValue(source, 'P');
+      if (target === 'beam' && axial != null) output.P = axial;
+      const explicitNegativeMoment = finiteForceValue(source, 'MNeg');
+      const directMoment = finiteForceValue(source, 'M');
+      const signedMoment = directMoment != null ? directMoment : finiteForceValue(source, 'Mx');
+      if (explicitNegativeMoment != null) {
+        output.M = Math.abs(signedMoment || 0);
+        output.MNeg = Math.abs(explicitNegativeMoment);
+      } else if (signedMoment != null) {
+        output.M = signedMoment >= 0 ? Math.abs(signedMoment) : 0;
+        output.MNeg = signedMoment < 0 ? Math.abs(signedMoment) : 0;
+      }
+      const signedShear = finiteForceValue(source, 'V') ?? finiteForceValue(source, 'Vx');
+      const signedTorsion = finiteForceValue(source, 'T');
+      if (signedShear != null) output.V = Math.abs(signedShear);
+      if (signedTorsion != null) output.T = Math.abs(signedTorsion);
+      return output;
+    }
+
+    if (target === 'column-rect' || target === 'column-circ') {
+      const output = {};
+      const axial = finiteForceValue(source, 'P');
+      const mx = finiteForceValue(source, 'Mx') ?? finiteForceValue(source, 'M');
+      const vx = finiteForceValue(source, 'Vx') ?? finiteForceValue(source, 'V');
+      if (axial != null) output.P = axial;
+      if (mx != null) output.Mx = Math.abs(mx);
+      if (vx != null) output.Vx = Math.abs(vx);
+      if (target === 'column-rect') {
+        const my = finiteForceValue(source, 'My');
+        const vy = finiteForceValue(source, 'Vy');
+        if (my != null) output.My = Math.abs(my);
+        if (vy != null) output.Vy = Math.abs(vy);
+      }
+      return output;
+    }
+
+    return normalizeNumericMap(source) || {};
+  }
+
+
   /**
    * 送出 — 暫存後開新分頁到目標工具
    * @param {string}  target   - 'beam' | 'column-rect' | 'column-circ'
@@ -126,18 +326,22 @@
   function sendTo(target, payload, urlOverride) {
     const url = urlOverride || TARGET_URL[target];
     if (!url) throw new Error('未知 target: ' + target);
-    stash({ ...payload, target });
+    const rawForces = normalizeNumericMap(payload.forces) || {};
+    const adaptedForces = filterForTarget(rawForces, target);
+    const safe = stashInternal({ ...payload, forces:adaptedForces, target }, rawForces);
     window.open(url, '_blank');
+    return safe;
   }
 
   /**
    * 過濾 forces 只保留目標工具會用到的鍵
    */
   function filterForTarget(forces, target) {
-    const keys = TARGET_KEYS[target] || Object.keys(forces);
+    const adapted = adaptForTarget(forces, target);
+    const keys = TARGET_KEYS[target] || Object.keys(adapted);
     const out = {};
     for (const k of keys) {
-      if (forces[k] != null && !isNaN(forces[k])) out[k] = forces[k];
+      if (adapted[k] != null && !isNaN(adapted[k])) out[k] = adapted[k];
     }
     return out;
   }
@@ -151,7 +355,9 @@
     stash,
     consume,
     clear,
+    adaptForTarget,
     sendTo,
+    validateCombination,
     filterForTarget,
   };
 })(window);

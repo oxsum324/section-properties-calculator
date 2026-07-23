@@ -7,6 +7,7 @@
     "exportHelper": "tools/local-quick-export.js",
     "exportHelperTest": "tools/local-quick-export.test.js",
     "outputConsistencyTest": "tools/local-quick-output-consistency.test.js",
+    "loadComboV2Test": "tools/loadcombo-v2.test.js",
     "browserSmokeTest": "tools/local-quick-browser-smoke.test.js",
     "contractTest": "tools/local-quick-tools.contract.test.js",
     "documentStateHelper": "core/ui/report.js",

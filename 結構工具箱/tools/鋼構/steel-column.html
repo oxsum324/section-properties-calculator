@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="../../core/style.css">
 <style>
   .two-col { display: grid; grid-template-columns: 400px 1fr; gap: 20px; align-items: start; }
+  .two-col > * { min-width: 0; }
+  #lcPanel { min-width: 0; max-width: 100%; }
   .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .cls-tag { display:inline-block; padding:2px 10px; border-radius:4px; font-size:0.82em; font-weight:700; }
   .cls-nonslender { background:#dcfce7; color:#166534; }
@@ -499,12 +501,25 @@ function fillK() {
 // ── LoadCombo ──
 const lcCfg = {
   prefix: 'lcSC',
+  tupleMode:'select',
   forces: [
     {key:'P', label:'軸壓力 Pu', unit:'tf'},
     {key:'Mx', label:'強軸彎矩 Mux', unit:'tf·m'},
     {key:'My', label:'弱軸彎矩 Muy', unit:'tf·m'},
   ],
+  limitStates:[
+    { key:'pm-vector', label:'P-Mx-My 需求向量候選', criterion:'normalized-srss', criterionLabel:'|P|、|Mx|、|My| 正規化 SRSS；僅供候選，H1 互制以鋼柱檢核結果為準', terms:[{ forceKey:'P' }, { forceKey:'Mx' }, { forceKey:'My' }] },
+    { key:'axial', label:'軸力 |P|', criterion:'abs', forceKey:'P' },
+    { key:'strong-axis', label:'強軸彎矩 |Mx|', criterion:'abs', forceKey:'Mx' },
+    { key:'weak-axis', label:'弱軸彎矩 |My|', criterion:'abs', forceKey:'My' },
+  ],
   targetIds: {P:'inPu', Mx:'inMux', My:'inMuy'},
+  targetReportMeta: {
+    inPu:{ label:'軸壓需求 |P|', unit:'tf' },
+    inMux:{ label:'強軸彎矩需求 |Mx|', unit:'tf·m' },
+    inMuy:{ label:'弱軸彎矩需求 |My|', unit:'tf·m' },
+  },
+  targetAdapter: ({ value, targets }) => [{ id:targets[0], value:Math.abs(value) }],
   getMethod: () => designMethod,
   onApplied: () => renderColumnEnvelope(),
 };
@@ -525,7 +540,7 @@ function renderColumnEnvelope() {
     { key:'My', title:'弱軸彎矩控制圖 |My|', unit:'tf·m' },
   ];
   $('envResult').innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">顯示目前 ${detail.comboName} 的各組合控制值；此圖用於辨識主控組合，不等同鋼柱 P-M 強度互制包絡。</div>
+    <div class="hint" style="margin-bottom:10px;">顯示目前 ${detail.comboName} 的各組合比較值；P-Mx-My 建議是需求向量候選，選用後仍套用該列完整有號內力，不會拼接不同組合分量，也不等同 H1 容量互制包絡。</div>
     ${cards.map(card => {
       const env = detail.envelope[card.key];
       return `
@@ -901,6 +916,52 @@ buildMatOptions();
 renderLoadComboPanel();
 onMatSelect();
 
+function buildSteelColumnForceImportGroup(currentForces) {
+  const payload = window.ForcePickerReceive?.getLastApplied?.();
+  const meta = payload?.meta || {};
+  const combination = meta.combination || {};
+  const tuplePreserved = combination.validationStatus === 'verified' &&
+    combination.tuplePreserved === true && !!combination.name;
+  const forceUnits = { P:'tf', Mx:'tf·m', My:'tf·m', M:'tf·m', MNeg:'tf·m', Vx:'tf', Vy:'tf', V:'tf', T:'tf·m' };
+  const signedEntries = tuplePreserved && combination.values && typeof combination.values === 'object'
+    ? Object.entries(combination.values).filter(([, value]) => Number.isFinite(Number(value))) : [];
+  const fields = [
+    { key:'P', label:'P', unit:'tf' },
+    { key:'Mx', label:'Mx', unit:'tf·m' },
+    { key:'My', label:'My', unit:'tf·m' },
+  ].filter(field => Number.isFinite(Number(payload?.forces?.[field.key])));
+  if (!fields.length) return null;
+  const adjusted = fields.some(field => Math.abs(Number(payload.forces[field.key]) - Number(currentForces[field.key])) > 1e-9);
+  const adoptedVector = fields.map(field => {
+    const value = Math.abs(Number(payload.forces[field.key])) < 1e-9 ? 0 : Number(payload.forces[field.key]);
+    return `${field.label}=${value > 0 ? '+' : ''}${value.toFixed(2)} ${field.unit}`;
+  }).join('；');
+  const signedVector = signedEntries.map(([key, rawValue]) => {
+    const value = Math.abs(Number(rawValue)) < 1e-9 ? 0 : Number(rawValue);
+    return `${key}=${value > 0 ? '+' : ''}${value.toFixed(2)} ${forceUnits[key] || ''}`.trim();
+  }).join('；');
+  const factorVector = tuplePreserved && combination.factors && typeof combination.factors === 'object'
+    ? Object.entries(combination.factors).map(([key, value]) => `${key}=${Number(value)}`).join('；') : '';
+  return {
+    group: '上游內力採用記錄',
+    keepTogether: true,
+    items: [
+      { label:'資料狀態', value:tuplePreserved
+        ? (adjusted ? '完整組合匯入後已人工調整' : '已自上游完整配對匯入')
+        : (adjusted ? '未驗證來源；匯入後已人工調整' : '未驗證來源') },
+      { label:'來源', value:meta.source || '—' },
+      { label:'工況', value:meta.caseName || '—' },
+      { label:'來源驗證狀態', value:tuplePreserved ? '已驗證來源（同一載重組合）' : '未驗證來源' },
+      ...(tuplePreserved ? [
+        { label:'設計方法', value:combination.method || '—' },
+        { label:'採用組合', value:combination.name },
+        ...(factorVector ? [{ label:'組合係數', value:factorVector }] : []),
+        ...(signedVector ? [{ label:'來源完整有號內力', value:signedVector }] : []),
+      ] : []),
+      { label:tuplePreserved ? '採用需求欄位' : '採用欄位（來源未驗證）', value:adoptedVector },
+    ],
+  };
+}
 function buildColumnReport() {
   if (!columnLegacyPurpose()) {
     setColumnReportValidationMessage('請先選擇既有案件用途，才可產出舊案延續計算記錄。');
@@ -986,37 +1047,7 @@ function buildColumnReport() {
     no: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projNo')?.value),
     designer: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projDesigner')?.value),
   };
-  const envStored = window.lastLoadCombo && window.lastLoadCombo[lcCfg.prefix];
-  const envDetail = envStored && envStored.method === designMethod ? envStored.detail : null;
-  const diagrams = [];
-  try {
-    if (envDetail) {
-      [
-        { id:'colEnvelope_P', key:'P', title:'荷重組合控制圖 — 軸力', unit:'tf' },
-        { id:'colEnvelope_Mx', key:'Mx', title:'荷重組合控制圖 — 強軸彎矩', unit:'tf·m' },
-        { id:'colEnvelope_My', key:'My', title:'荷重組合控制圖 — 弱軸彎矩', unit:'tf·m' },
-      ].forEach(spec => {
-        const env = envDetail.envelope[spec.key];
-        const src = $(spec.id);
-        let dataURL = src?.toDataURL ? src.toDataURL('image/png') : null;
-        if (!dataURL) {
-          const cv = document.createElement('canvas');
-          LoadCombo.drawEnvelopeChart(cv, envDetail, spec.key, { width: 700, height: 280 });
-          dataURL = cv.toDataURL('image/png');
-        }
-        if (dataURL) {
-          diagrams.push({
-            title: spec.title,
-            dataURL,
-            width: 420,
-            caption: `${envDetail.comboName}；紅點為控制 |值| = ${f2(Math.abs(env.abs.value))} ${spec.unit} (${env.abs.name})。此圖僅為荷重組合控制摘要，非鋼柱 P-M 強度互制圖。`,
-          });
-        }
-      });
-    }
-  } catch (e) {
-    console.warn('steel column envelope capture failed', e);
-  }
+  const importedForceGroup = buildSteelColumnForceImportGroup({ P:Pu_tf, Mx:Mux_tf, My:Muy_tf });
 
   openReport({
     title: '鋼柱舊案延續計算記錄',
@@ -1051,14 +1082,11 @@ function buildColumnReport() {
           { label:'Muy', value: Muy_tf, unit:'tf·m' },
         ] : []),
       ]},
-      ...(envDetail ? [{ group: '荷重組合控制摘要', items: [
-        { label:'組合模式', value: envDetail.comboName },
-        { label:'Pmax', value: f2(envDetail.envelope.P.max.value), unit:'tf' },
-        { label:'Pmin', value: f2(envDetail.envelope.P.min.value), unit:'tf' },
-        { label:'控制 |P|', value: `${f2(Math.abs(envDetail.envelope.P.abs.value))} (${envDetail.envelope.P.abs.name})` },
-        { label:'Mx 控制 |值|', value: `${f2(Math.abs(envDetail.envelope.Mx.abs.value))} (${envDetail.envelope.Mx.abs.name})`, unit:'tf·m' },
-        { label:'My 控制 |值|', value: `${f2(Math.abs(envDetail.envelope.My.abs.value))} (${envDetail.envelope.My.abs.name})`, unit:'tf·m' },
-      ]}] : []),
+      ...(importedForceGroup ? [importedForceGroup] : []),
+      ...(() => {
+        const group = LoadCombo.toReportGroup(lcCfg.prefix, '採用載重組合');
+        return group ? [group] : [];
+      })(),
     ],
     checks: [
       { group: '斷面分類 (壓力構件)', items: [
@@ -1073,7 +1101,6 @@ function buildColumnReport() {
       ]},
       ...(hasMoment ? [{ group: '軸力—彎矩互制 (AISC H1)', items: interChecks }] : []),
     ],
-    diagrams,
     summary: { ok: allOk, text: allOk ? '✓ 全部通過 — 斷面安全' : '✗ 部分不通過 — 請依建議調整' },
   });
 }

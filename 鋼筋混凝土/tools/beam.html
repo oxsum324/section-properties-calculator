@@ -2834,7 +2834,9 @@ ${layerBars.map(L => {
   const BEAM_FORCE_CANDIDATE_FIELDS = [
     { key: 'M', label: '+Mu (底拉)', unit: 'tf·m' },
     { key: 'MNeg', label: '−Mu (頂拉)', unit: 'tf·m' },
-    { key: 'V', label: 'Vu', unit: 'tf' }
+    { key: 'V', label: 'Vu', unit: 'tf' },
+    { key: 'P', label: 'Pu', unit: 'tf' },
+    { key: 'T', label: 'Tu', unit: 'tf·m' }
   ];
 
   function describeForceImportBasis(meta = {}) {
@@ -2890,6 +2892,11 @@ ${layerBars.map(L => {
         adoptionBasis: 'factored',
         adoptedAt: new Date().toISOString()
       };
+      const adoptedTorsion = candidates.find(field => field.key === 'T')?.value;
+      if (Number.isFinite(adoptedTorsion) && Math.abs(adoptedTorsion) > 1e-9) {
+        $('enableTorsion').checked = true;
+        syncToggles();
+      }
       card.style.display = 'none';
       calcBeam();
     };
@@ -2932,10 +2939,24 @@ ${layerBars.map(L => {
 
   function buildBeamForceImportReportGroup(r) {
     if (!adoptedBeamForceImport) return null;
-    const current = { M: r.MuPos_in, MNeg: r.MuNeg_in, V: r.Vu_in };
+    const current = { M: r.MuPos_in, MNeg: r.MuNeg_in, V: r.Vu_in, P: r.Pu_in, T: r.Tu_in };
     const adjusted = adoptedBeamForceImport.fields.some(field => Math.abs(field.value - Number(current[field.key])) > 1e-9);
     const meta = adoptedBeamForceImport.meta || {};
     const adoptedAt = new Date(adoptedBeamForceImport.adoptedAt).toLocaleString('zh-TW');
+    const combination = meta.combination || {};
+    const tuplePreserved = combination.validationStatus === 'verified' &&
+      combination.tuplePreserved === true && !!combination.name;
+    const forceUnits = { P:'tf', Mx:'tf·m', My:'tf·m', M:'tf·m', MNeg:'tf·m', Vx:'tf', Vy:'tf', V:'tf', T:'tf·m' };
+    const adoptedValues = adoptedBeamForceImport.fields.map(field => {
+      const value = Math.abs(field.value) < 1e-9 ? 0 : field.value;
+      return `${field.label}=${value > 0 ? '+' : ''}${value.toFixed(2)} ${field.unit}`;
+    }).join('；');
+    const signedTupleValues = tuplePreserved && combination.values && typeof combination.values === 'object'
+      ? Object.entries(combination.values).filter(([, value]) => Number.isFinite(Number(value))).map(([key, rawValue]) => {
+          const value = Math.abs(Number(rawValue)) < 1e-9 ? 0 : Number(rawValue);
+          return `${key}=${value > 0 ? '+' : ''}${value.toFixed(2)} ${forceUnits[key] || ''}`.trim();
+        }).join('；')
+      : '';
     return {
       group: '上游內力採用記錄',
       keepTogether: true,
@@ -2944,8 +2965,15 @@ ${layerBars.map(L => {
         { label: '來源', value: meta.source || '—' },
         { label: '工況', value: meta.caseName || '—' },
         { label: '上游資料基準', value: describeForceImportBasis(meta) },
+        { label: '來源驗證狀態', value: tuplePreserved ? '已驗證來源（同一載重組合）' : '未驗證來源' },
+        ...(tuplePreserved ? [
+          { label: '設計方法', value: combination.method || '—' },
+          { label: '採用組合', value: combination.name },
+          { label: '來源配對狀態', value: signedTupleValues ? '同一載重組合的完整有號內力已保留' : '舊版資料未提供來源完整有號內力' },
+          ...(signedTupleValues ? [{ label: '來源完整有號內力', value: signedTupleValues }] : []),
+        ] : []),
         { label: '採用判定', value: adoptedBeamForceImport.adoptionBasis === 'factored' ? '人工確認作為係數化設計外力' : '人工確認採用' },
-        { label: '採用欄位', value: adoptedBeamForceImport.fields.map(field => `${field.label}=${field.value.toFixed(2)} ${field.unit}`).join('；') },
+        { label: tuplePreserved ? '採用需求欄位' : '採用欄位（來源未驗證）', value: adoptedValues },
         { label: '確認時間', value: adoptedAt }
       ]
     };
@@ -3011,17 +3039,8 @@ ${layerBars.map(L => {
         { label:'Mpr 鋼筋強度倍率', value:r.beamColumnJoint.values.mprFactor.toFixed(2) }
       ]}] : []),
       ...(() => {
-        const envStored = window.lastLoadCombo && window.lastLoadCombo[lcBeamCfg.prefix];
-        const envDetail = envStored?.detail;
-        if (!envDetail) return [];
-        const items = [
-          { label:'組合模式', value: envDetail.comboName },
-          { label:'控制 |M|', value: `${envDetail.envelope.M ? envDetail.envelope.M.abs.name : '—'} (${envDetail.envelope.M ? Math.abs(envDetail.envelope.M.abs.value).toFixed(2) : '—'} tf·m)` },
-          { label:'控制 |V|', value: `${envDetail.envelope.V ? envDetail.envelope.V.abs.name : '—'} (${envDetail.envelope.V ? Math.abs(envDetail.envelope.V.abs.value).toFixed(2) : '—'} tf)` },
-        ];
-        if (envDetail.envelope.P) items.push({ label:'控制 |P|', value: `${envDetail.envelope.P.abs.name} (${Math.abs(envDetail.envelope.P.abs.value).toFixed(2)} tf)` });
-        if (envDetail.envelope.T) items.push({ label:'控制 |T|', value: `${envDetail.envelope.T.abs.name} (${Math.abs(envDetail.envelope.T.abs.value).toFixed(2)} tf·m)` });
-        return [{ group:'載重組合包絡摘要', items }];
+        const group = LoadCombo.toReportGroup(lcBeamCfg.prefix, '採用載重組合');
+        return group ? [group] : [];
       })()
     ];
 
@@ -3249,25 +3268,6 @@ ${layerBars.map(L => {
           : `${sectionType} 形：bw=${bw}, h=${h}, bf=${bf}, hf=${hf} cm`;
         diagrams.push({ title:'梁斷面 (含底/頂主筋與箍筋)', dataURL: secURL, caption: cap });
       }
-      const envStored = window.lastLoadCombo && window.lastLoadCombo[lcBeamCfg.prefix];
-      const envDetail = envStored?.detail;
-      if (envDetail) {
-        [
-          { key:'M', title:'載重包絡線 — 彎矩', unit:'tf·m' },
-          { key:'V', title:'載重包絡線 — 剪力', unit:'tf' },
-          ...(envDetail.envelope.P ? [{ key:'P', title:'載重包絡線 — 軸力', unit:'tf' }] : []),
-          ...(envDetail.envelope.T ? [{ key:'T', title:'載重包絡線 — 扭矩', unit:'tf·m' }] : []),
-        ].forEach(spec => {
-          const cv = document.createElement('canvas');
-          LoadCombo.drawEnvelopeChart(cv, envDetail, spec.key, { width: 700, height: 280 });
-          diagrams.push({
-            title: spec.title,
-            dataURL: cv.toDataURL('image/png'),
-            width: 420,
-            caption: `${envDetail.comboName}；紅點為控制 |值| = ${Math.abs(envDetail.envelope[spec.key].abs.value).toFixed(2)} ${spec.unit} (${envDetail.envelope[spec.key].abs.name})`
-          });
-        });
-      }
     } catch(e) { console.warn('beam diagram capture failed', e); }
 
     openReport({
@@ -3299,13 +3299,9 @@ ${layerBars.map(L => {
         '扭力：本頁自動判定 Tu 是否可忽略；Tu 超過門檻時承接專案 22.7 詳算結論，未輸入時列為人工複核；本頁不自動反算 At/Al。',
         '撓度：跨深比僅作免算條件；連接易損構造或 h < hmin 時，需以 Bischoff Ie 嚴謹撓度計算確認，未計算時列為人工複核。',
         '裂縫控制：主筋間距採最外排受拉鋼筋中心間距估算；未另算使用應力時，依 24.3.2 採 fs=2/3fy 的簡化上限，完整裂縫寬度或特殊暴露條件仍須由專案文件確認。',
-        '本計算書僅供初步設計檢核參考。',
         ...(r.seismic && r.beamColumnJoint
           ? [`梁柱接頭輸出：${r.beamColumnJoint.targetLabel}，Mnb=${r.beamColumnJoint.values.mnbControl.toFixed(2)} tf·m，梁 Mpr 控制剪力=${r.beamColumnJoint.values.veCap.toFixed(2)} tf。`]
           : []),
-        ...(window.lastLoadCombo && window.lastLoadCombo[lcBeamCfg.prefix]?.detail
-          ? [`載重組合圖採 ${window.lastLoadCombo[lcBeamCfg.prefix].detail.comboName} 封包。`]
-          : ['若需載重包絡線，請先使用載重組合產生器套用後再輸出計算書。']),
         ...(reportDetail ? [
           `計算過程等級：${getStepsVerbosity('full') === 'summary' ? '摘要步驟' : '完整步驟與公式'}`,
           r.seismic ? '已套用特殊抗彎矩構架 (SMRF) 耐震規定' : '未套用耐震規定',
@@ -3595,13 +3591,37 @@ ${layerBars.map(L => {
   // 載重組合產生器
   const lcBeamCfg = {
     prefix: 'lcBeam',
+    tupleMode: 'select',
     forces: [
       { key:'M', label:'彎矩 Mu', unit:'tf·m' },
       { key:'V', label:'剪力 Vu', unit:'tf' },
       { key:'P', label:'軸壓 Pu', unit:'tf' },
       { key:'T', label:'扭矩 Tu', unit:'tf·m' },
     ],
-    targetIds: { M:'MuPos', V:'Vu', P:'Pu', T:'Tu' },  // 套用後寫入 +Mu；−Mu 請手動填或於 flex 分頁調整
+    limitStates: [
+      { key:'flexure-positive', label:'正彎矩 Mu+', criterion:'positive', forceKey:'M', criterionLabel:'M 正向最大值；套用時仍帶入同列 P / V / T' },
+      { key:'flexure-negative', label:'負彎矩 Mu−', criterion:'negative', forceKey:'M', criterionLabel:'M 負向最大幅值；套用時仍帶入同列 P / V / T' },
+      { key:'shear-torsion', label:'剪力—扭矩需求向量', criterion:'normalized-srss', criterionLabel:'|V|、|T| 依本批次包絡正規化之 SRSS；非容量互制', terms:[{ forceKey:'V' }, { forceKey:'T' }] },
+      { key:'axial-reference', label:'軸力幅值參考', criterion:'abs', forceKey:'P', criterionLabel:'|P| 最大值；供軸力效應工況篩選' },
+    ],
+    targetIds: { M:['MuPos','MuNeg'], V:'Vu', P:'Pu', T:'Tu' },
+    targetReportMeta: {
+      MuPos:{ label:'正彎矩需求 Mu+', unit:'tf·m' },
+      MuNeg:{ label:'負彎矩需求 |Mu−|', unit:'tf·m' },
+      Vu:{ label:'剪力需求 |Vu|', unit:'tf' },
+      Pu:{ label:'軸力需求 Pu（有號）', unit:'tf', signed:true },
+      Tu:{ label:'扭矩需求 |Tu|', unit:'tf·m' },
+    },
+    targetAdapter: ({ forceKey, value, targets }) => {
+      if (forceKey === 'M') return [
+        { id:targets[0], value:value >= 0 ? Math.abs(value) : 0 },
+        { id:targets[1], value:value < 0 ? Math.abs(value) : 0 },
+      ];
+      return [{
+        id:targets[0],
+        value:forceKey === 'P' ? value : Math.abs(value),
+      }];
+    },
   };
   document.getElementById('lcBeamPanel').innerHTML = LoadCombo.buildPanel(lcBeamCfg);
   LoadCombo.bind(lcBeamCfg);

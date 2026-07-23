@@ -81,12 +81,14 @@ if (!Array.isArray(manifest.tools) || manifest.tools.length === 0) {
 assertFile(manifest.shared.exportHelper);
 assertFile(manifest.shared.exportHelperTest);
 assertFile(manifest.shared.outputConsistencyTest);
+assertFile(manifest.shared.loadComboV2Test);
 assertFile(manifest.shared.browserSmokeTest);
 assertFile(manifest.shared.contractTest);
 
 console.log(`[local-quick] manifest v${manifest.version}: ${manifest.tools.length} tools`);
 runNode('export helper regression', manifest.shared.exportHelperTest);
 runNode('output consistency regression', manifest.shared.outputConsistencyTest);
+runNode('load combination tuple regression', manifest.shared.loadComboV2Test);
 runNode('browser smoke regression', manifest.shared.browserSmokeTest);
 runNode('manifest contract regression', manifest.shared.contractTest);
 console.log(`local quick tools manifest runner OK (${manifest.tools.length} tools)`);

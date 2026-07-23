@@ -7,6 +7,8 @@
 <link rel="stylesheet" href="../../core/style.css">
 <style>
   .two-col { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+  .two-col > * { min-width: 0; }
+  #lcPanel { min-width: 0; max-width: 100%; }
   .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .cls-tag { display:inline-block; padding:2px 10px; border-radius:4px; font-size:0.82em; font-weight:700; }
   .cls-compact     { background:#dcfce7; color:#166534; }
@@ -469,11 +471,21 @@ function onMatSelect() {
 // ── 載重組合 ──
 const lcCfg = {
   prefix:'lcSB',
+  tupleMode:'select',
   forces:[
     {key:'M', label:'彎矩 Mu', unit:'tf·m'},
     {key:'V', label:'剪力 Vu', unit:'tf'},
   ],
+  limitStates:[
+    { key:'flexure', label:'彎矩 |M|', criterion:'abs', forceKey:'M' },
+    { key:'shear', label:'剪力 |V|', criterion:'abs', forceKey:'V' },
+  ],
   targetIds: {M:'inMu', V:'inVu'},
+  targetReportMeta: {
+    inMu:{ label:'彎矩需求 |M|', unit:'tf·m' },
+    inVu:{ label:'剪力需求 |V|', unit:'tf' },
+  },
+  targetAdapter: ({ value, targets }) => [{ id:targets[0], value:Math.abs(value) }],
   getMethod: () => designMethod,
   onApplied: () => renderBeamEnvelope(),
 };
@@ -496,7 +508,7 @@ function renderBeamEnvelope() {
   const envM = detail.envelope.M;
   const envV = detail.envelope.V;
   $('envResult').innerHTML = `
-    <div class="hint" style="margin-bottom:10px;">顯示目前 ${detail.comboName} 的各組合控制值；此圖用於辨識主控組合，不代表跨內內力分布包絡。</div>
+    <div class="hint" style="margin-bottom:10px;">顯示目前 ${detail.comboName} 的各組合比較值；上方建議可自動找出彎矩或剪力控制列，但選用後仍套用該列完整有號內力，不會拼接不同組合分量，也不代表跨斷面內力分布包絡。</div>
     <div class="step-card">
       <h4>彎矩控制圖 |M|</h4>
       <div class="formula">Mmax = ${f2(envM.max.value)} tf·m (${envM.max.name})</div>
@@ -778,6 +790,51 @@ renderLoadComboPanel();
 // 預設選第一個材料
 onMatSelect();
 
+function buildSteelBeamForceImportGroup(currentForces) {
+  const payload = window.ForcePickerReceive?.getLastApplied?.();
+  const meta = payload?.meta || {};
+  const combination = meta.combination || {};
+  const tuplePreserved = combination.validationStatus === 'verified' &&
+    combination.tuplePreserved === true && !!combination.name;
+  const forceUnits = { P:'tf', Mx:'tf·m', My:'tf·m', M:'tf·m', MNeg:'tf·m', Vx:'tf', Vy:'tf', V:'tf', T:'tf·m' };
+  const signedEntries = tuplePreserved && combination.values && typeof combination.values === 'object'
+    ? Object.entries(combination.values).filter(([, value]) => Number.isFinite(Number(value))) : [];
+  const fields = [
+    { key:'M', label:'M', unit:'tf·m' },
+    { key:'V', label:'V', unit:'tf' },
+  ].filter(field => Number.isFinite(Number(payload?.forces?.[field.key])));
+  if (!fields.length) return null;
+  const adjusted = fields.some(field => Math.abs(Number(payload.forces[field.key]) - Number(currentForces[field.key])) > 1e-9);
+  const adoptedVector = fields.map(field => {
+    const value = Math.abs(Number(payload.forces[field.key])) < 1e-9 ? 0 : Number(payload.forces[field.key]);
+    return `${field.label}=${value > 0 ? '+' : ''}${value.toFixed(2)} ${field.unit}`;
+  }).join('；');
+  const signedVector = signedEntries.map(([key, rawValue]) => {
+    const value = Math.abs(Number(rawValue)) < 1e-9 ? 0 : Number(rawValue);
+    return `${key}=${value > 0 ? '+' : ''}${value.toFixed(2)} ${forceUnits[key] || ''}`.trim();
+  }).join('；');
+  const factorVector = tuplePreserved && combination.factors && typeof combination.factors === 'object'
+    ? Object.entries(combination.factors).map(([key, value]) => `${key}=${Number(value)}`).join('；') : '';
+  return {
+    group: '上游內力採用記錄',
+    keepTogether: true,
+    items: [
+      { label:'資料狀態', value:tuplePreserved
+        ? (adjusted ? '完整組合匯入後已人工調整' : '已自上游完整配對匯入')
+        : (adjusted ? '未驗證來源；匯入後已人工調整' : '未驗證來源') },
+      { label:'來源', value:meta.source || '—' },
+      { label:'工況', value:meta.caseName || '—' },
+      { label:'來源驗證狀態', value:tuplePreserved ? '已驗證來源（同一載重組合）' : '未驗證來源' },
+      ...(tuplePreserved ? [
+        { label:'設計方法', value:combination.method || '—' },
+        { label:'採用組合', value:combination.name },
+        ...(factorVector ? [{ label:'組合係數', value:factorVector }] : []),
+        ...(signedVector ? [{ label:'來源完整有號內力', value:signedVector }] : []),
+      ] : []),
+      { label:tuplePreserved ? '採用需求欄位' : '採用欄位（來源未驗證）', value:adoptedVector },
+    ],
+  };
+}
 function buildBeamReport() {
   if (!beamLegacyPurpose()) {
     setBeamReportValidationMessage('請先選擇既有案件用途，才可產出舊案延續計算記錄。');
@@ -825,29 +882,7 @@ function buildBeamReport() {
     no: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projNo')?.value),
     designer: window.ToolReportUI.normalizeProjectFieldValue(document.getElementById('projDesigner')?.value),
   };
-  const envStored = window.lastLoadCombo && window.lastLoadCombo[lcCfg.prefix];
-  const envDetail = envStored && envStored.method === designMethod ? envStored.detail : null;
-  const diagrams = [];
-  try {
-    if (envDetail) {
-      const chartSpecs = [
-        { id:'beamEnvelopeM', key:'M', title:'荷重組合控制圖 — 彎矩', caption:`${envDetail.comboName}；紅點為控制 |M| = ${f2(Math.abs(envDetail.envelope.M.abs.value))} tf·m (${envDetail.envelope.M.abs.name})。此圖為組合控制值摘要，非跨內彎矩包絡。` },
-        { id:'beamEnvelopeV', key:'V', title:'荷重組合控制圖 — 剪力', caption:`${envDetail.comboName}；紅點為控制 |V| = ${f2(Math.abs(envDetail.envelope.V.abs.value))} tf (${envDetail.envelope.V.abs.name})。此圖為組合控制值摘要，非跨內剪力包絡。` },
-      ];
-      chartSpecs.forEach(spec => {
-        const src = $(spec.id);
-        let dataURL = src?.toDataURL ? src.toDataURL('image/png') : null;
-        if (!dataURL) {
-          const cv = document.createElement('canvas');
-          LoadCombo.drawEnvelopeChart(cv, envDetail, spec.key, { width: 700, height: 280 });
-          dataURL = cv.toDataURL('image/png');
-        }
-        if (dataURL) diagrams.push({ title: spec.title, dataURL, caption: spec.caption, width: 420 });
-      });
-    }
-  } catch (e) {
-    console.warn('steel beam envelope capture failed', e);
-  }
+  const importedForceGroup = buildSteelBeamForceImportGroup({ M:Mu_tf, V:Vu_tf });
 
   const clsNote = c => ({compact:'位於塑性設計範圍',['non-compact']:'屬非結實，需折減彎矩強度',slender:'屬細長肢材，需考慮局部挫屈折減'})[c];
   const clsText = c => ({compact:'結實',['non-compact']:'非結實',slender:'細長'})[c];
@@ -884,15 +919,11 @@ function buildBeamReport() {
         { label: vDemand, value: Vu_tf, unit:'tf' },
         { label: `|${vDemand}|`, value: Vu_abs_tf, unit:'tf' },
       ]},
-      ...(envDetail ? [{ group: '荷重組合控制摘要', items: [
-        { label:'組合模式', value: envDetail.comboName },
-        { label:'Mmax', value: f2(envDetail.envelope.M.max.value), unit:'tf·m' },
-        { label:'Mmin', value: f2(envDetail.envelope.M.min.value), unit:'tf·m' },
-        { label:'控制 |M|', value: `${f2(Math.abs(envDetail.envelope.M.abs.value))} (${envDetail.envelope.M.abs.name})` },
-        { label:'Vmax', value: f2(envDetail.envelope.V.max.value), unit:'tf' },
-        { label:'Vmin', value: f2(envDetail.envelope.V.min.value), unit:'tf' },
-        { label:'控制 |V|', value: `${f2(Math.abs(envDetail.envelope.V.abs.value))} (${envDetail.envelope.V.abs.name})` },
-      ]}] : []),
+      ...(importedForceGroup ? [importedForceGroup] : []),
+      ...(() => {
+        const group = LoadCombo.toReportGroup(lcCfg.prefix, '採用載重組合');
+        return group ? [group] : [];
+      })(),
     ],
     checks: [
       { group: '斷面分類', items: [
@@ -921,7 +952,6 @@ function buildBeamReport() {
       ok: allOk,
       text: allOk ? '✓ 全部通過 — 斷面安全' : (deflStatus === 'skipped' && flexOk && shearOk ? '△ 強度通過，撓度未檢核' : '✗ 部分不通過 — 請依建議調整'),
     },
-    diagrams,
   });
 }
 </script>
