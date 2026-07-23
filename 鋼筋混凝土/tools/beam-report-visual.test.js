@@ -10,7 +10,7 @@ const CASES_PATH = path.join(__dirname, 'beam-regression-cases.json');
 const OUT_DIR = path.resolve(process.env.BEAM_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.BEAM_REPORT_CASES || 'default_rect_design,smrf_ve_controls_shear_demand,t_beam_seismic_vc0')
+const CASE_KEYS = (process.env.BEAM_REPORT_CASES || 'default_rect_design,smrf_ve_controls_shear_demand,t_beam_seismic_vc0,l_beam_seismic_vc0')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -52,6 +52,19 @@ const EXPECTED = {
     fragments: [
       '梁檢核計算書',
       '斷面型式 T 形',
+      '梁腹寬 bw 40 cm',
+      '翼板寬 bf 120 cm',
+      '翼板厚 hf 15 cm',
+      'T/L 梁 底拉，翼板受壓，受拉區在腹板，b 取 bw',
+      'T/L 梁 頂拉，翼板受拉，b 取 min(bf, 2bw) = min(120, 80)',
+      '耐震 Vc=0',
+    ],
+  },
+  l_beam_seismic_vc0: {
+    title: '梁檢核計算書',
+    fragments: [
+      '梁檢核計算書',
+      '斷面型式 L 形',
       '梁腹寬 bw 40 cm',
       '翼板寬 bf 120 cm',
       '翼板厚 hf 15 cm',
@@ -205,6 +218,42 @@ async function reportMetrics(report) {
         clientWidth: el.clientWidth,
         scrollWidth: el.scrollWidth,
       }));
+    const diagramSectionBounds = [...document.querySelectorAll('.rep-diagram img')].map(img => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0);
+      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let minX = canvas.width;
+      let maxX = -1;
+      let midMinX = canvas.width;
+      let midMaxX = -1;
+      const midY = Math.floor(canvas.height / 2);
+      const isSectionFill = (r, g, b, a) => a > 0 && (
+        (r === 224 && g === 242 && b === 254)
+        || (r === 241 && g === 245 && b === 249)
+      );
+      for (let y = 0; y < canvas.height; y += 1) {
+        for (let x = 0; x < canvas.width; x += 1) {
+          const idx = (y * canvas.width + x) * 4;
+          if (!isSectionFill(data[idx], data[idx + 1], data[idx + 2], data[idx + 3])) continue;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          if (y === midY) {
+            midMinX = Math.min(midMinX, x);
+            midMaxX = Math.max(midMaxX, x);
+          }
+        }
+      }
+      return {
+        width: canvas.width,
+        minX: maxX >= 0 ? minX : null,
+        maxX: maxX >= 0 ? maxX : null,
+        midMinX: midMaxX >= 0 ? midMinX : null,
+        midMaxX: midMaxX >= 0 ? midMaxX : null,
+      };
+    });
     return {
       title: clean(document.querySelector('h1')?.textContent),
       calculationFingerprint: clean(document.querySelector('.rep-meta')?.innerText).match(/計算指紋\s*(CF-[A-F0-9]{16})/)?.[1] || '',
@@ -218,6 +267,7 @@ async function reportMetrics(report) {
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       diagramCount: document.querySelectorAll('.rep-diagram img').length,
       diagramCaptions: [...document.querySelectorAll('.rep-diagram-caption')].map(el => clean(el.textContent)),
+      diagramSectionBounds,
       imageNaturalSizes: [...document.querySelectorAll('.rep-diagram img')].map(img => ({
         alt: img.getAttribute('alt') || '',
         width: img.naturalWidth,
@@ -375,6 +425,26 @@ async function main() {
           !metrics.diagramCaptions.some(caption => caption.includes('40×75 cm 矩形')),
           `${tc.key} T-beam excludes rectangular caption`,
           metrics.diagramCaptions.join(' | '),
+        );
+      }
+      if (tc.key === 'l_beam_seismic_vc0') {
+        const sectionBounds = metrics.diagramSectionBounds[0] || {};
+        assert(
+          metrics.diagramCaptions.includes('L 形：bw=40, h=75, bf=120, hf=15 cm'),
+          `${tc.key} L-beam section caption`,
+          metrics.diagramCaptions.join(' | '),
+        );
+        assert(
+          Number.isFinite(sectionBounds.maxX) && sectionBounds.maxX < sectionBounds.width - 10,
+          `${tc.key} L-beam flange stays inside canvas`,
+          JSON.stringify(sectionBounds),
+        );
+        assert(
+          Number.isFinite(sectionBounds.midMinX)
+            && sectionBounds.midMinX < sectionBounds.width * 0.15
+            && sectionBounds.midMaxX < sectionBounds.width * 0.45,
+          `${tc.key} L-beam web aligns with flange edge`,
+          JSON.stringify(sectionBounds),
         );
       }
       for (const fragment of expected.fragments || []) {

@@ -3531,7 +3531,9 @@ ${layerBars.map(L => {
     const margin = 30;
     const scale = Math.min((W - margin * 2) / totalW, (H - margin * 2) / h);
     const drawW = bw * scale, drawH = h * scale;
-    const ox = (W - drawW) / 2, oy = (H - drawH) / 2;
+    const sectionW = totalW * scale;
+    const ox = sectionType === 'L' ? (W - sectionW) / 2 : (W - drawW) / 2;
+    const oy = (H - drawH) / 2;
 
     // 翼板
     ctx.strokeStyle = '#1e293b';
@@ -3617,7 +3619,7 @@ ${layerBars.map(L => {
     ctx.fillStyle = '#64748b';
     ctx.font = '12px Consolas';
     ctx.textAlign = 'center';
-    ctx.fillText(`bw = ${bw} cm`, W / 2, oy + drawH + 18);
+    ctx.fillText(`bw = ${bw} cm`, ox + drawW / 2, oy + drawH + 18);
     ctx.save();
     ctx.translate(ox - 8, H / 2);
     ctx.rotate(-Math.PI / 2);

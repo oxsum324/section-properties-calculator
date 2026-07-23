@@ -26,6 +26,7 @@ const cases = JSON.parse(read(casesPath));
   'default_rect_design',
   'smrf_ve_controls_shear_demand',
   't_beam_seismic_vc0',
+  'l_beam_seismic_vc0',
 ].forEach(key => {
   assert.ok(cases.cases.some(tc => tc.key === key), `visual smoke case missing from regression cases: ${key}`);
   assertIncludes(visual, key, 'beam report visual smoke case list');
@@ -50,6 +51,9 @@ const cases = JSON.parse(read(casesPath));
   'report excludes page-only attachment readiness',
   'T-beam section caption',
   'T-beam excludes rectangular caption',
+  'L-beam section caption',
+  'L-beam flange stays inside canvas',
+  'L-beam web aligns with flange edge',
   '容量式候選依',
   '套用並檢核',
   'M+ / M− / V 利用率',
