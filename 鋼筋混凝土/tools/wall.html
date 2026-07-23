@@ -244,14 +244,14 @@
           <label>鋼筋層數</label>
           <select id="layers"><option value="1">單層</option><option value="2" selected>雙層</option></select>
         </div>
-        <div class="form-row" data-rebar-spacing>
+        <div class="form-row">
           <div class="form-group"><label>保護層厚度 (cm)</label><input type="number" id="cover" value="2" min="0" step="0.5"></div>
-          <div class="form-group checkbox-row" style="align-self:end; min-height:42px;">
+          <div class="form-group checkbox-row" data-check-only style="align-self:end; min-height:42px;">
             <input type="checkbox" id="pmBoundaryRebar">
             <label for="pmBoundaryRebar">計入兩端附加集中縱筋</label>
           </div>
         </div>
-        <div id="pmBoundaryRebarInputs" style="display:none; padding:10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
+        <div id="pmBoundaryRebarInputs" data-check-only style="display:none; padding:10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
           <div class="form-row">
             <div class="form-group"><label>附加縱筋號數</label>
               <select id="pmBoundaryBar"><option>#4</option><option>#5</option><option>#6</option><option>#7</option><option selected>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
@@ -441,6 +441,7 @@
           <div class="line"><span class="lbl">建議縱筋</span><span class="combo" id="heroVBarSugg">—</span></div>
           <div class="line"><span class="lbl">建議橫筋</span><span class="combo" id="heroHBarSugg">—</span></div>
         </div>
+        <div id="wallRebarDesignCandidates" style="margin-top:12px;"></div>
       </div>
 
       <div class="card mobile-fold" data-shows="geom summary">
@@ -693,6 +694,7 @@
 <script src="../shared/wall.js?v=2"></script>
 <script src="../shared/pmsection.js?v=2"></script>
 <script src="../shared/wall-inplane-evaluator.js?v=2"></script>
+<script src="../shared/wall-rebar-designer.js?v=1"></script>
 <script>
   function syncDetailHelp() {
     document.body.classList.toggle('show-detail-help', !!document.getElementById('showDetailHelp')?.checked);
@@ -1522,7 +1524,7 @@
     const pmBoundaryBar = $('pmBoundaryBar')?.value || '#8';
     const pmBoundaryCountEach = pmBoundaryRebar ? Math.max(0, Math.floor(num('pmBoundaryCountEach'))) : 0;
     const pmBoundaryBox = $('pmBoundaryRebarInputs');
-    if (pmBoundaryBox) pmBoundaryBox.style.display = pmBoundaryRebar ? '' : 'none';
+    if (pmBoundaryBox) pmBoundaryBox.style.display = currentMode !== 'design' && pmBoundaryRebar ? '' : 'none';
     const sigmaMax = num('sigmaMax');     // kgf/cm²
     let Mua_in = num('Mua') * 1e5;        // tf·m/m → kgf·cm/m
     let PuOop = num('PuOop') * 1000;      // tf/m → kgf/m
@@ -1885,10 +1887,26 @@
     const hSugg_sp = suggestSpacing(hBar, rhotReq);
     const layerSugg = (layersSuggN === 2) ? '雙層 (需)' : '單層可';
 
+    const designSearch = currentMode === 'design' && window.WallRebarDesigner
+      ? WallRebarDesigner.search({
+          base:wallInplaneEvaluatorBase,
+          demand:{ P:Pu / 1000, M:MuIn, V:Vu / 1000 },
+          barTable:REBAR_TABLE,
+          limit:5,
+        })
+      : { status:'inactive', reason:'檢核模式不執行候選搜尋', candidates:[] };
+    const primaryDesign = designSearch.candidates?.[0] || null;
+
     $('heroHSugg').textContent = `${hSugg} cm (目前 ${h} cm)`;
-    $('heroLayerSugg').textContent = layerSugg;
-    $('heroVBarSugg').textContent = `${vBar} @ ${vSugg.sp} cm × ${layersSuggN} 層 (ρℓ需求=${rholReq.toFixed(4)})`;
-    $('heroHBarSugg').textContent = `${hBar} @ ${hSugg_sp.sp} cm × ${layersSuggN} 層 (ρt需求=${rhotReq.toFixed(4)})`;
+    $('heroLayerSugg').textContent = primaryDesign
+      ? `${primaryDesign.layers} 層（容量式候選）`
+      : layerSugg;
+    $('heroVBarSugg').textContent = primaryDesign
+      ? `${primaryDesign.vBar} @ ${primaryDesign.vSp} cm × ${primaryDesign.layers} 層${primaryDesign.boundaryEnabled ? `＋兩端各 ${primaryDesign.boundaryCountEach}-${primaryDesign.boundaryBar}` : ''}`
+      : `${vBar} @ ${vSugg.sp} cm × ${layersSuggN} 層 (ρℓ需求=${rholReq.toFixed(4)})`;
+    $('heroHBarSugg').textContent = primaryDesign
+      ? `${primaryDesign.hBar} @ ${primaryDesign.hSp} cm × ${primaryDesign.layers} 層（剪力利用率 ${primaryDesign.shearUtilization.toFixed(3)}）`
+      : `${hBar} @ ${hSugg_sp.sp} cm × ${layersSuggN} 層 (ρt需求=${rhotReq.toFixed(4)})`;
     document.getElementById('rebarHeroH').classList.toggle('fail', h < hmin);
 
     // === 內嵌建議 (rebar card 中, 僅 design mode 顯示) ===
@@ -1897,6 +1915,7 @@
       $('inlineHSugg').textContent = `橫筋  ${hBar} @ ${hSugg_sp.sp} cm  (原始需求 ${hSugg_sp.raw.toFixed(1)} cm，ρt需求 ${rhotReq.toFixed(4)})`;
       $('inlineLayerSugg').textContent = `層數  ${layersSuggN} 層  (${needTwoLayer ? '剪力／hw·ℓw 要求雙層' : '單層可'})`;
     }
+    renderWallRebarDesignCandidates(designSearch);
 
     // 綜合結論基礎判定；完整 summary banner 於細部與聚合檢核完成後更新。
     const okH = h >= hmin;
@@ -2199,7 +2218,7 @@ ${basementStepTxt}
       hmin, Ag, Pn_kgf:Pn, phiPn_kgf:phiPn,
       rhol, rhot, rholMin, rhotMin, needTwoLayer,
       Acv, hwlw, alpha_c, Vn_kgf:Vn, phiVn_kgf:phiVn, VnLimit_kgf:VnLimit,
-      hSugg, layerSugg,
+      hSugg, layerSugg, designSearch,
       okH, okRhol, okRhot, okLayers, okAxial, okPM, okShear:okShearChk,
       // gates
       isWallPier, hwlw_pier, lwbw, fcLimitOk, isShearWall,
@@ -2245,6 +2264,66 @@ ${basementStepTxt}
     if (typeof drawWallRebar === 'function') drawWallRebar();
     if (typeof drawWallPMDiagram === 'function') drawWallPMDiagram();
   }
+
+  function renderWallRebarDesignCandidates(result) {
+    const host = $('wallRebarDesignCandidates');
+    if (!host) return;
+    if (currentMode !== 'design') {
+      host.style.display = 'none';
+      host.innerHTML = '';
+      return;
+    }
+    host.style.display = '';
+    const candidates = result?.candidates || [];
+    if (!candidates.length) {
+      const reason = result?.reason || '尚無容量式候選。';
+      host.innerHTML = `<div style="padding:10px 12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;font-size:0.88em;"><strong>未找到可直接套用方案</strong><br>${reason}。可調整牆厚、材料或擴大配筋範圍後再計算。</div>`;
+      return;
+    }
+    const rows = candidates.map((candidate, index) => `
+      <tr>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${index + 1}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.vBar} @ ${candidate.vSp} cm × ${candidate.layers} 層</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.boundaryEnabled ? `每端 ${candidate.boundaryCountEach}-${candidate.boundaryBar}` : '無'}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.hBar} @ ${candidate.hSp} cm × ${candidate.layers} 層</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.pmUtilization.toFixed(3)} / ${candidate.shearUtilization.toFixed(3)}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;"><button type="button" class="wall-design-apply" data-candidate-index="${index}" style="padding:5px 10px;border:0;border-radius:5px;background:#0e7490;color:#fff;cursor:pointer;">套用並檢核</button></td>
+      </tr>`).join('');
+    host.innerHTML = `
+      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">容量式候選依總鋼筋量、施工擁擠程度與利用率排序；所有列均已通過 P-M、剪力、最小配筋、筋距及可配置性篩選。</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.84em;border:1px solid #cbd5e1;min-width:720px;">
+          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">均布縱筋</th><th style="padding:6px;">兩端附加筋</th><th style="padding:6px;">水平筋</th><th style="padding:6px;">P-M / V 利用率</th><th style="padding:6px;">操作</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function applyWallRebarCandidate(index) {
+    const candidate = window.wallLast?.designSearch?.candidates?.[Number(index)];
+    if (!candidate) return false;
+    const values = {
+      vBar:candidate.vBar,
+      vSp:candidate.vSp,
+      hBar:candidate.hBar,
+      hSp:candidate.hSp,
+      layers:String(candidate.layers),
+      cover:candidate.cover,
+      pmBoundaryBar:candidate.boundaryBar || '#8',
+      pmBoundaryCountEach:candidate.boundaryCountEach || 4,
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const el = $(id);
+      if (el) el.value = String(value);
+    });
+    if ($('pmBoundaryRebar')) $('pmBoundaryRebar').checked = !!candidate.boundaryEnabled;
+    if ($('testCaseSelect')) $('testCaseSelect').value = '';
+    if ($('testCaseHint')) $('testCaseHint').textContent = `已套用容量式候選 ${Number(index) + 1}，並切換至檢核模式。`;
+    setWallMode('check');
+    calcWall();
+    return true;
+  }
+  window.applyWallRebarCandidate = applyWallRebarCandidate;
 
   // === 牆斷面配筋示意 (SVG, plan cut) ===
   function drawWallRebar() {
@@ -2578,6 +2657,9 @@ ${basementStepTxt}
     document.querySelectorAll('[data-rebar-spacing]').forEach(el => {
       el.style.display = isDesign ? 'none' : '';
     });
+    document.querySelectorAll('[data-check-only]').forEach(el => {
+      el.style.display = isDesign ? 'none' : '';
+    });
     // 設計模式專屬的內嵌建議卡片
     const inline = $('rebarDesignInlineSugg');
     if (inline) inline.style.display = isDesign ? '' : 'none';
@@ -2908,6 +2990,10 @@ ${basementStepTxt}
   });
   document.getElementById('btnReport')?.addEventListener('click', buildWallReport);
   document.getElementById('btnReport2')?.addEventListener('click', buildWallReport);
+  document.getElementById('wallRebarDesignCandidates')?.addEventListener('click', event => {
+    const button = event.target.closest('.wall-design-apply');
+    if (button) applyWallRebarCandidate(button.dataset.candidateIndex);
+  });
 
   const wallTupleDemand = tuple => ({
     P: Number(tuple?.values?.P),

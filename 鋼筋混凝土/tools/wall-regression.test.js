@@ -11,12 +11,13 @@ const flexurePath = path.join(ROOT, 'shared', 'flexure.js');
 const wallPath = path.join(ROOT, 'shared', 'wall.js');
 const pmSectionPath = path.join(ROOT, 'shared', 'pmsection.js');
 const wallInplaneEvaluatorPath = path.join(ROOT, 'shared', 'wall-inplane-evaluator.js');
+const wallRebarDesignerPath = path.join(ROOT, 'shared', 'wall-rebar-designer.js');
 
 function bootLibs() {
   const context = { console, window: {}, Math };
   context.window = context;
   vm.createContext(context);
-  for (const file of [concretePath, rebarPath, commonPath, flexurePath, wallPath, pmSectionPath, wallInplaneEvaluatorPath]) {
+  for (const file of [concretePath, rebarPath, commonPath, flexurePath, wallPath, pmSectionPath, wallInplaneEvaluatorPath, wallRebarDesignerPath]) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
   return context;
@@ -34,7 +35,7 @@ function section(title) {
 function main() {
   const wallHtml = fs.readFileSync(wallHtmlPath, 'utf8');
   const libs = bootLibs();
-  const { Wall, WallInplaneEvaluator, Flexure, Concrete, Rebar } = libs;
+  const { Wall, WallInplaneEvaluator, WallRebarDesigner, Flexure, Concrete, Rebar } = libs;
   const { calcBeta1 } = Concrete;
   const { REBAR_TABLE } = Rebar;
 
@@ -76,6 +77,8 @@ function main() {
   assert(wallHtml.includes('WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase'), 'wall.html formal calculation evaluates the P-M envelope', 'axial tension and eccentric compression use the formal section model');
   assert(wallHtml.includes('id="cover"') && wallHtml.includes('id="pmBoundaryRebar"') && wallHtml.includes('id="pmBoundaryCountEach"'), 'wall.html exposes actual cover and optional end reinforcement', 'P-M section assumptions are user inputs');
   assert(wallHtml.includes('id="wallPMDiagram"') && wallHtml.includes("title:'P-M 設計互制圖'"), 'wall.html renders and reports the P-M interaction diagram', 'formal report includes capacity envelope and demand point');
+  assert(wallHtml.includes('../shared/wall-rebar-designer.js?v=1'), 'wall.html loads the capacity-based reinforcement designer', 'design suggestions share the formal evaluators');
+  assert(wallHtml.includes('id="wallRebarDesignCandidates"') && wallHtml.includes('applyWallRebarCandidate'), 'wall.html exposes ranked reinforcement candidates and apply action', 'a selected candidate returns to formal check mode');
   assert(wallHtml.includes("key:'pm-capacity'") && wallHtml.includes("key:'shear-capacity'"), 'wall load combinations expose capacity-based limit states', 'P-M and shear are separated');
   assert(wallHtml.includes("{ key:'M', label:'彎矩 Mu'"), 'wall load combinations include signed in-plane moment', 'complete P-M-V tuple is preserved');
   assert(wallHtml.includes('refreshLimitStateSuggestions(window.rcWallLoadComboConfig)'), 'wall capacity suggestions refresh after section recalculation', 'section changes immediately rerank tuples');
@@ -139,6 +142,16 @@ function main() {
   assert(boundaryCapacity.valid && boundaryCapacity.AstBoundary > 0 && boundaryCapacity.pMin < pmCapacity.pMin,
     '一般牆端部附加筋進入同一 P-M 斷面模型',
     `Ast,b=${boundaryCapacity.AstBoundary.toFixed(2)} cm², Pmin=${boundaryCapacity.pMin.toFixed(1)} tf`);
+  const designed = WallRebarDesigner.search({
+    base:inplaneBase,
+    demand:{ P:120, M:300, V:50 },
+    barTable:REBAR_TABLE,
+    verticalBars:['#4', '#5'], horizontalBars:['#4', '#5'],
+    boundaryBars:['#8'], boundaryCounts:[4], spacings:[15, 20, 25], limit:3,
+  });
+  assert(designed.status === 'evaluated' && designed.candidates.every(item => item.pmUtilization <= 1 && item.shearUtilization <= 1),
+    '一般牆容量式配筋搜尋同時通過 P-M 與剪力',
+    `candidates=${designed.candidates.length}`);
 
   section('Out-of-Plane Flexure Modeling');
   const fc = 280;

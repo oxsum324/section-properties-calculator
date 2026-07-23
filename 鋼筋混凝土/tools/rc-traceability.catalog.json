@@ -182,6 +182,16 @@
           "report": ["施工縫剪摩擦", "待確認 / 正式分析需求", "不列為 OK 結論"],
           "evidence": ["tools/wall-regression.test.js", "tools/wall-report-visual.test.js", "tools/wall-report-visual.contract.test.js"],
           "manualReview": ["施工縫粗糙度、穿縫鋼筋、開口補強與搭接位置須依施工圖人工複核。"]
+        },
+        {
+          "id": "wall-rebar-design-search-21-2",
+          "clause": "混凝土結構設計規範 112 年版 11.6 / 11.7 / 21.2.2",
+          "purpose": "設計模式以正式 P-M 與剪力 evaluator 搜尋可施工配筋候選，避免只用最小鋼筋比反算間距後誤認已完成強度設計。",
+          "inputs": ["Pu", "Mu", "Vu", "fc", "fy", "h", "lw", "cover", "候選均布縱筋", "候選端部附加筋", "候選水平筋", "候選層數"],
+          "calculation": ["WallRebarDesigner.search", "P-M 應變相容利用率", "剪力容量利用率", "最小配筋", "筋距上限", "牆厚可配置性", "鋼筋量與擁擠程度排序"],
+          "report": ["實際採用配筋", "P-M 設計互制圖", "φMn @ Pu", "φVn ≥ Vu"],
+          "evidence": ["shared/wall-rebar-designer.test.js", "tools/wall-regression.test.js", "tools/wall-report-visual.test.js", "tools/wall-report-visual.contract.test.js"],
+          "manualReview": ["候選排序僅供選案；套用後須回正式檢核，並由設計者確認鋼筋續接、錨定、端部圍束與施工可行性。"]
         }
       ]
     },

@@ -295,6 +295,36 @@ async function exerciseWallProjectStorage(page) {
 
 async function exerciseWallCapacityLoadCombo(page) {
   await page.reload({ waitUntil: 'networkidle', timeout: 30000 });
+  await page.waitForFunction(() => window.wallLast?.designSearch?.candidates?.length > 0, null, { timeout: 10000 });
+  const designCandidate = await page.evaluate(() => ({
+    candidate:window.wallLast.designSearch.candidates[0],
+    rowCount:document.querySelectorAll('#wallRebarDesignCandidates .wall-design-apply').length,
+    text:document.getElementById('wallRebarDesignCandidates')?.innerText || '',
+  }));
+  assert(designCandidate.rowCount >= 1 && designCandidate.text.includes('容量式候選'), 'wall design mode renders ranked capacity-based reinforcement candidates', `rows=${designCandidate.rowCount}`);
+  assert(designCandidate.candidate.pmUtilization <= 1 && designCandidate.candidate.shearUtilization <= 1, 'wall design candidate satisfies P-M and shear capacities', JSON.stringify(designCandidate.candidate));
+  await page.click('.section-tabs button[data-tab="rebar"]');
+  await page.click('#wallRebarDesignCandidates .wall-design-apply');
+  await page.waitForFunction(() => document.querySelector('.mode-btn.active')?.dataset.mode === 'check' && !!window.wallLast, null, { timeout:10000 });
+  const appliedDesign = await page.evaluate(() => ({
+    mode:document.querySelector('.mode-btn.active')?.dataset.mode,
+    vBar:document.getElementById('vBar')?.value,
+    vSp:Number(document.getElementById('vSp')?.value),
+    hBar:document.getElementById('hBar')?.value,
+    hSp:Number(document.getElementById('hSp')?.value),
+    layers:Number(document.getElementById('layers')?.value),
+    boundary:document.getElementById('pmBoundaryRebar')?.checked,
+    okPM:window.wallLast?.okPM,
+    okShear:window.wallLast?.okShear,
+  }));
+  assert(appliedDesign.mode === 'check'
+    && appliedDesign.vBar === designCandidate.candidate.vBar && appliedDesign.vSp === designCandidate.candidate.vSp
+    && appliedDesign.hBar === designCandidate.candidate.hBar && appliedDesign.hSp === designCandidate.candidate.hSp
+    && appliedDesign.layers === designCandidate.candidate.layers && appliedDesign.boundary === designCandidate.candidate.boundaryEnabled,
+  'wall applies one complete reinforcement candidate and switches to check mode', JSON.stringify(appliedDesign));
+  assert(appliedDesign.okPM === true && appliedDesign.okShear === true, 'applied wall design candidate passes formal recalculation', `P-M=${appliedDesign.okPM}, V=${appliedDesign.okShear}`);
+
+  await page.reload({ waitUntil: 'networkidle', timeout: 30000 });
   await page.evaluate(() => {
     const setField = (id, value) => {
       const el = document.getElementById(id);
