@@ -10,7 +10,7 @@ const CASES_PATH = path.join(__dirname, 'beam-regression-cases.json');
 const OUT_DIR = path.resolve(process.env.BEAM_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.BEAM_REPORT_CASES || 'default_rect_design,smrf_ve_controls_shear_demand')
+const CASE_KEYS = (process.env.BEAM_REPORT_CASES || 'default_rect_design,smrf_ve_controls_shear_demand,t_beam_seismic_vc0')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -45,6 +45,19 @@ const EXPECTED = {
       '耐震 Vc=0',
       '首支箍筋距柱面',
       '跨內 Mn',
+    ],
+  },
+  t_beam_seismic_vc0: {
+    title: '梁檢核計算書',
+    fragments: [
+      '梁檢核計算書',
+      '斷面型式 T 形',
+      '梁腹寬 bw 40 cm',
+      '翼板寬 bf 120 cm',
+      '翼板厚 hf 15 cm',
+      'T/L 梁 底拉，翼板受壓，受拉區在腹板，b 取 bw',
+      'T/L 梁 頂拉，翼板受拉，b 取 min(bf, 2bw) = min(120, 80)',
+      '耐震 Vc=0',
     ],
   },
 };
@@ -204,6 +217,7 @@ async function reportMetrics(report) {
       bodyText: clean(document.body.innerText),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       diagramCount: document.querySelectorAll('.rep-diagram img').length,
+      diagramCaptions: [...document.querySelectorAll('.rep-diagram-caption')].map(el => clean(el.textContent)),
       imageNaturalSizes: [...document.querySelectorAll('.rep-diagram img')].map(img => ({
         alt: img.getAttribute('alt') || '',
         width: img.naturalWidth,
@@ -350,6 +364,18 @@ async function main() {
       assert(metrics.diagramCount >= 1, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
         assert(img.width > 0 && img.height > 0, `${tc.key} diagram rendered: ${img.alt || '(image)'}`, `${img.width}x${img.height}`);
+      }
+      if (tc.key === 't_beam_seismic_vc0') {
+        assert(
+          metrics.diagramCaptions.includes('T 形：bw=40, h=75, bf=120, hf=15 cm'),
+          `${tc.key} T-beam section caption`,
+          metrics.diagramCaptions.join(' | '),
+        );
+        assert(
+          !metrics.diagramCaptions.some(caption => caption.includes('40×75 cm 矩形')),
+          `${tc.key} T-beam excludes rectangular caption`,
+          metrics.diagramCaptions.join(' | '),
+        );
       }
       for (const fragment of expected.fragments || []) {
         assert(metrics.bodyText.includes(fragment), `${tc.key} report includes`, fragment);
