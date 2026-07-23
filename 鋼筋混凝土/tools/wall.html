@@ -666,6 +666,7 @@
 <script src="../shared/devlength.js?v=2"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/wall.js?v=2"></script>
+<script src="../shared/wall-inplane-evaluator.js?v=1"></script>
 <script>
   function syncDetailHelp() {
     document.body.classList.toggle('show-detail-help', !!document.getElementById('showDetailHelp')?.checked);
@@ -1543,13 +1544,6 @@
     // === SSW fc' ≤ 350 限制 ===
     const fcLimitOk = Wall.checkFcLimit(fc, isShearWall);
 
-    // === 簡易軸力公式 (e ≤ h/6) ===
-    const eLimit = h / 6;
-    const eOk = e <= eLimit;
-    const Ag = h * lw;
-    const Pn = Wall.simplePn({ fc, Ag, k, lc, h });
-    const phiPn = eOk ? (PHI.compTied * Pn) : NaN;
-
     // === 鋼筋比 ===
     const vAb = REBAR_TABLE[vBar].area;
     const hAb = REBAR_TABLE[hBar].area;
@@ -1557,13 +1551,17 @@
     const rhol = (layers * vAb) / (h * vSp);
     const rhot = (layers * hAb) / (h * hSp);
 
-    // === 剪力 (結構牆) ===
-    const Acv = h * lw;
-    const hwlw = hw / lw;
-    const alpha_c = Wall.alphaC(hwlw);
-    const Vn = Wall.vn({ Acv, alpha_c, lambda, fc, rhot, fy });
-    const phiVn = PHI.shear * Vn;
-    const VnLimit = Wall.vnMaxSingle(fc, Acv);
+    // === 面內軸壓／剪力容量（與載重組合控制共用同一 evaluator） ===
+    const wallInplaneEvaluatorBase = {
+      fc, fy, h, lw, lc, k, hw, e, lambda, rhot,
+      phiComp: PHI.compTied,
+      phiShear: PHI.shear,
+      seismic,
+      wallType,
+    };
+    const inplaneCapacity = WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase);
+    const { eLimit, eOk, Ag, Pn, Acv, hwlw, alpha_c, Vn, phiVn, VnLimit } = inplaneCapacity;
+    const phiPn = inplaneCapacity.phiPn == null ? NaN : inplaneCapacity.phiPn;
 
     // === 雙層鋼筋網判斷 ===
     const needTwoLayer = Wall.needTwoLayer({ Vu, phi: PHI.shear, alpha_c, lambda, fc, Acv, hwlw });
@@ -2137,6 +2135,7 @@ ${basementStepTxt}
       stepsGeomTxt, stepsLoadTxt, stepsRebarTxt, stepsMethodsTxt,
       showSteps: !!$('showSteps')?.checked,
       seismic, wallType, fc, fy, lambda, h, lw, lc, k, hw,
+      wallInplaneEvaluatorBase,
       Pu_kgf:Pu, e, eLimit, eOk, Vu_kgf:Vu,
       phiPn: phiPn/1000, Pu: Pu/1000,
       phiVn: phiVn/1000, Vu: Vu/1000,
@@ -2180,6 +2179,9 @@ ${basementStepTxt}
     wallResult.summaryText = wallSummary.text;
     wallResult.numericalOk = wallSummary.numericalOk;
     window.wallLast = wallResult;
+    if (window.rcWallLoadComboConfig && window.LoadCombo?.refreshLimitStateSuggestions) {
+      window.LoadCombo.refreshLimitStateSuggestions(window.rcWallLoadComboConfig);
+    }
     updateBanner(window.wallLast);
     updateWallAttachmentReadiness(window.wallLast);
     updateQuickSummaryWall();
@@ -2784,6 +2786,21 @@ ${basementStepTxt}
   document.getElementById('btnReport')?.addEventListener('click', buildWallReport);
   document.getElementById('btnReport2')?.addEventListener('click', buildWallReport);
 
+  const wallTupleDemand = tuple => ({
+    P: Number(tuple?.values?.P),
+    V: Number(tuple?.values?.V),
+  });
+  const currentWallInplaneBase = () => window.wallLast?.wallInplaneEvaluatorBase || null;
+  const scoreWallCompressionTuple = tuple => WallInplaneEvaluator.compressionScore(
+    currentWallInplaneBase(), wallTupleDemand(tuple)
+  );
+  const scoreWallTensionTuple = tuple => WallInplaneEvaluator.tensionScore(
+    currentWallInplaneBase(), wallTupleDemand(tuple)
+  );
+  const scoreWallShearTuple = tuple => WallInplaneEvaluator.shearScore(
+    currentWallInplaneBase(), wallTupleDemand(tuple)
+  );
+
   const lcWallCfg = {
     prefix: 'lcWall',
     tupleMode: 'select',
@@ -2792,10 +2809,9 @@ ${basementStepTxt}
       { key:'V', label:'剪力 Vu', unit:'tf' },
     ],
     limitStates: [
-      { key:'pv-vector', label:'P-V 需求向量候選', criterion:'normalized-srss', criterionLabel:'|P|、|V| 正規化 SRSS；套用後仍由牆軸力與剪力檢核判定', terms:[{ forceKey:'P' }, { forceKey:'V' }] },
-      { key:'compression', label:'最大軸壓 P+', criterion:'positive', forceKey:'P' },
-      { key:'tension', label:'最大軸拉 P−', criterion:'negative', forceKey:'P' },
-      { key:'shear', label:'剪力 |V|', criterion:'abs', forceKey:'V' },
+      { key:'compression-capacity', label:'軸壓容量利用率', criterion:'custom', criterionLabel:'依目前牆斷面逐完整組合計算 Pu/φPn；|e| > h/6 時失敗關閉', scorer:scoreWallCompressionTuple },
+      { key:'tension-boundary', label:'軸拉容量邊界', criterion:'custom', criterionLabel:'目前牆頁未建立面內軸拉容量；P < 0 時失敗關閉並要求 P-M／拉力詳算', scorer:scoreWallTensionTuple },
+      { key:'shear-capacity', label:'剪力容量利用率', criterion:'custom', criterionLabel:'逐完整組合計算 |Vu|/φVn；特殊結構牆並納入 Vu/(2.65√fc′Acv) 控制', scorer:scoreWallShearTuple },
     ],
     targetIds: { P:'Pu', V:'Vu' },
     targetReportMeta: {
@@ -2807,6 +2823,7 @@ ${basementStepTxt}
       value:forceKey === 'P' ? value : Math.abs(value),
     }],
   };
+  window.rcWallLoadComboConfig = lcWallCfg;
   document.getElementById('lcWallPanel').innerHTML = LoadCombo.buildPanel(lcWallCfg);
   LoadCombo.bind(lcWallCfg);
 

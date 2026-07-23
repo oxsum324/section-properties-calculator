@@ -25,6 +25,11 @@ const tool = read(toolPath);
   'documentState:attachmentReadiness.documentState',
   'documentClass:attachmentReadiness.documentClass',
   '案件識別資料',
+  '../shared/wall-inplane-evaluator.js?v=1',
+  'WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase)',
+  "key:'compression-capacity'",
+  "key:'tension-boundary'",
+  "key:'shear-capacity'",
 ].forEach(needle => assertIncludes(tool, needle, 'wall formal attachment state wiring'));
 
 [
@@ -35,6 +40,8 @@ const tool = read(toolPath);
 
 [
   'Wall report visual smoke',
+  'Wall in-plane evaluator tests',
+  'wall-inplane-evaluator.test.js',
   'wall-report-visual.test.js',
   'node $visualTestFile',
 ].forEach(needle => assertIncludes(testWall, needle, 'test-wall visual smoke wiring'));
@@ -43,6 +50,9 @@ const tool = read(toolPath);
   'process.env.WALL_REPORT_PORT || 0',
   'server.address().port',
   'wallAttachmentReadinessCard',
+  'exerciseWallCapacityLoadCombo',
+  'wall tension suggestion fails closed',
+  'wall eccentricity overflow fails closed in browser workflow',
   'page attachment readiness card',
   'page attachment readiness boundary',
   'page attachment readiness priority',
