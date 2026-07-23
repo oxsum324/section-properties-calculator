@@ -2027,6 +2027,23 @@ async function main() {
         expectedValues: { P:100, Mx:-20, My:0 },
         expectedTargets: { inPu:'100.000', inMux:'20.000', inMuy:'0.000' },
       },
+      {
+        key: 'rc-shear-wall',
+        route: '/rc-shear-wall',
+        prefix: 'lcSW',
+        sourceWrites: [
+          { id:'lcSW_P_D', value:100 },
+          { id:'lcSW_M_W', value:-200 },
+          { id:'lcSW_V_W', value:-50 },
+        ],
+        targetIds: ['Pu', 'Mu', 'Vu'],
+        expectedName: '0.9D+1.0W',
+        expectedIndex: 6,
+        expectedValues: { P:90, M:-200, V:-50 },
+        expectedTargets: { Pu:'90.000', Mu:'200.000', Vu:'50.000' },
+        expectedCriterion: 'custom',
+        expectedCapacityStatus: 'evaluated',
+      },
     ];
     const legacyReportCases = [
       {
@@ -2114,8 +2131,15 @@ async function main() {
         assert.ok(result.state.sourceWrites.every(item => item.applied), `${label} source inputs exist`);
         assert.ok(result.state.suggestionBefore?.pass, `${label} suggestions pass`);
         assert.ok(result.state.suggestionBefore?.states?.[0]?.governing, `${label} first suggestion exists`);
-        assert.equal(result.state.selectedName, '1.2D+1.0L+1.0W', `${label} deterministic complete tuple`);
-        assert.equal(result.state.selectedIndex, 2, `${label} selected radio index`);
+        if (loadComboCase.expectedCriterion) {
+          assert.equal(result.state.suggestionBefore.states[0].criterion, loadComboCase.expectedCriterion, `${label} capacity criterion`);
+        }
+        if (loadComboCase.expectedCapacityStatus) {
+          assert.equal(result.state.suggestionBefore.states[0].details?.status, loadComboCase.expectedCapacityStatus, `${label} capacity evaluation status`);
+          assert.ok(Number.isFinite(result.state.suggestionBefore.states[0].details?.utilization), `${label} finite capacity utilization`);
+        }
+        assert.equal(result.state.selectedName, loadComboCase.expectedName || '1.2D+1.0L+1.0W', `${label} deterministic complete tuple; actual=${result.state.selectedName}`);
+        assert.equal(result.state.selectedIndex, loadComboCase.expectedIndex ?? 2, `${label} selected radio index; actual=${result.state.selectedIndex}`);
         assert.deepEqual(result.state.selectedValues, loadComboCase.expectedValues, `${label} signed tuple values`);
         assert.equal(result.state.tuplePreserved, true, `${label} tuple remains preserved after apply`);
         assert.deepEqual(result.state.targetValues, loadComboCase.expectedTargets, `${label} target mapping`);

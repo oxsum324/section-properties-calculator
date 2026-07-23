@@ -232,5 +232,80 @@
     return result;
   };
 
+  // LoadCombo 頁面候選專用：沿用正式工況 evaluator 評分，且以有限高分
+  // 將軸力封包越界或剪力 phi 無法建立列為控制候選，避免被一般有限利用率略過。
+  // scoreLabel 僅供頁面顯示；正式計算書仍只輸出人工採用後的完整 tuple 與計算結果。
+  WallEvaluator.limitStateScore = function (base, lc, state) {
+    const failClosedScore = Number.MAX_SAFE_INTEGER;
+    const result = WallEvaluator.evaluateLoadCase(base, lc);
+    if (state === 'pm') {
+      if (!result.pmAxialOk) {
+        return {
+          score: failClosedScore,
+          scoreLabel: '軸力越界',
+          status: 'axial-out-of-range',
+          utilization: null,
+          Pu: result.Pu,
+          Mu: result.Mu,
+        };
+      }
+      if (!Number.isFinite(result.pmUtil)) {
+        return {
+          score: failClosedScore,
+          scoreLabel: '容量待確認',
+          status: 'capacity-unresolved',
+          utilization: null,
+          Pu: result.Pu,
+          Mu: result.Mu,
+        };
+      }
+      return {
+        score: result.pmUtil,
+        scoreLabel: result.pmUtil.toFixed(3),
+        status: 'evaluated',
+        utilization: result.pmUtil,
+        Pu: result.Pu,
+        Mu: result.Mu,
+        phiMn: result.phiMn,
+      };
+    }
+    if (state === 'shear') {
+      if (result.shearPhiMode === 'vmn-not-applicable') {
+        return {
+          score: failClosedScore,
+          scoreLabel: 'φ待確認',
+          status: 'phi-unresolved',
+          utilization: null,
+          Pu: result.Pu,
+          Mu: result.Mu,
+          Ve: result.Ve,
+        };
+      }
+      if (!Number.isFinite(result.shearUtil)) {
+        return {
+          score: failClosedScore,
+          scoreLabel: '容量待確認',
+          status: 'capacity-unresolved',
+          utilization: null,
+          Pu: result.Pu,
+          Mu: result.Mu,
+          Ve: result.Ve,
+        };
+      }
+      return {
+        score: result.shearUtil,
+        scoreLabel: result.shearUtil.toFixed(3),
+        status: 'evaluated',
+        utilization: result.shearUtil,
+        Pu: result.Pu,
+        Mu: result.Mu,
+        Ve: result.Ve,
+        phiVn: result.phiVn / 1000,
+        phiShear: result.phiShear,
+      };
+    }
+    throw new TypeError(`unsupported wall limit state: ${state}`);
+  };
+
   root.WallEvaluator = WallEvaluator;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -355,6 +355,7 @@
           activeTerms: clonePlainData(built.activeTerms),
           governing: hasDemand ? selected.governing : null,
           score: hasDemand ? topScore : null,
+          details: hasDemand ? clonePlainData(selected.details) : null,
           ties: hasDemand ? ties : [],
           evaluations: selected.evaluations,
           status: hasDemand ? 'recommended' : 'no-demand',
@@ -369,6 +370,7 @@
           activeTerms: [],
           governing: null,
           score: null,
+          details: null,
           ties: [],
           evaluations: [],
           status: 'invalid',
@@ -674,7 +676,10 @@
           combo.textContent = state.status === 'invalid' ? `設定錯誤：${state.reason}` : '目前無控制需求';
         }
       }
-      if (score) score.textContent = Number.isFinite(state.score) ? state.score.toFixed(3) : '—';
+      if (score) {
+        const customLabel = String(state.details?.scoreLabel || '').trim();
+        score.textContent = customLabel || (Number.isFinite(state.score) ? state.score.toFixed(3) : '—');
+      }
       if (button) {
         button.disabled = !state.governing;
         button.dataset.comboName = state.governing?.name || '';
@@ -991,7 +996,7 @@
     TUPLE_SCHEMA_VERSION,
     LIMIT_STATE_SCHEMA_VERSION,
     getComboSet, computeTuples, getTupleByName, selectGoverningTuple, selectGoverningLimitStates,
-    buildPanel, compute, computeDetailed, apply, clear, bind, toReportGroup, drawEnvelopeChart,
+    buildPanel, compute, computeDetailed, apply, clear, bind, refreshLimitStateSuggestions, toReportGroup, drawEnvelopeChart,
   };
 
   if (typeof window !== 'undefined') window.LoadCombo = LoadCombo;

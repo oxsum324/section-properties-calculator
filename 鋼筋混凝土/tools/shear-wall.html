@@ -1418,6 +1418,9 @@
     $('sectionNote').textContent = `tw=${g.tw} ℓw=${g.lw} cm｜端部 ${g.nBE}-${g.dBE}/端 (ℓbe=${g.lbe})｜腹部 縱${g.dV}@${g.sV} 橫${g.dH}@${g.sH} (${g.nLayer}層)`;
 
     window.swLast = r;
+    if (window.swLoadComboConfig && window.LoadCombo?.refreshLimitStateSuggestions) {
+      window.LoadCombo.refreshLimitStateSuggestions(window.swLoadComboConfig);
+    }
     updateBanner(r);
     updateShearWallAttachmentReadiness(r);
     updateQuickSummary(r);
@@ -2057,15 +2060,34 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
 
   // 載重組合產生器
   if (window.LoadCombo) {
+    const scoreTuple = (tuple, state) => {
+      const base = window.swLast;
+      if (!base || !window.WallEvaluator?.limitStateScore) return NaN;
+      const value = key => Number(tuple?.values?.[key]);
+      const Pu = value('P'), Mu = value('M'), Vu = value('V');
+      if (![Pu, Mu, Vu].every(Number.isFinite)) return NaN;
+      return WallEvaluator.limitStateScore(base, {
+        name: tuple.name,
+        Pu,
+        Mu,
+        Vu: Math.abs(Vu),
+        shearDemandMode: 'direct',
+        Vuns: 0,
+        VuEh: 0,
+        omegaV: 1,
+        omegaW: 1,
+        duhw: base.duhw,
+      }, state);
+    };
     const lcCfg = { prefix:'lcSW', tupleMode:'select', forces:[
       { key:'P', label:'軸力 Pu', unit:'tf' },
       { key:'M', label:'面內彎矩 Mu', unit:'tf·m' },
       { key:'V', label:'面內剪力 Vu', unit:'tf' },
     ], limitStates:[
-      { key:'pm-vector', label:'P-M 需求向量候選', criterion:'normalized-srss', criterionLabel:'|P|、|M| 正規化 SRSS；僅供候選，P-M 容量以牆檢核結果為準', terms:[{ forceKey:'P' }, { forceKey:'M' }] },
+      { key:'pm-capacity', label:'P-M 彎矩容量 @ Pu', criterionLabel:'逐列以既有 P-M 容量封包重算 |Mu|/φMn；軸力越界失敗關閉', scorer:tuple => scoreTuple(tuple, 'pm') },
       { key:'compression', label:'最大軸壓 P+', criterion:'positive', forceKey:'P' },
       { key:'tension', label:'最大軸拉 P−', criterion:'negative', forceKey:'P' },
-      { key:'shear', label:'剪力 |V|', criterion:'abs', forceKey:'V' },
+      { key:'shear-capacity', label:'剪力容量 Ve/φVn', criterionLabel:'逐列重算 21.2.4.1 剪力 φ 與 Ve/φVn；φ 無法建立時失敗關閉', scorer:tuple => scoreTuple(tuple, 'shear') },
     ], targetIds:{ P:'Pu', M:'Mu', V:'Vu' },
     targetReportMeta: {
       Pu:{ label:'軸力需求 Pu（有號）', unit:'tf', signed:true },
@@ -2076,6 +2098,7 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
       id:targets[0],
       value:forceKey === 'P' ? value : Math.abs(value),
     }] };
+    window.swLoadComboConfig = lcCfg;
     const host = $('lcWallPanel');
     if (host) { host.innerHTML = LoadCombo.buildPanel(lcCfg); LoadCombo.bind(lcCfg); }
   }

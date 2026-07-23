@@ -271,7 +271,7 @@ function testTupleSelectionUiAndTargetInvalidation() {
       { key:'T', label:'扭矩 T', unit:'tf·m' },
     ],
     limitStates: [
-      { key:'negative-flexure', label:'負彎矩', criterion:'negative', forceKey:'M' },
+      { key:'negative-flexure', label:'負彎矩', criterionLabel:'自訂容量評分', scorer:tuple => ({ score:-tuple.values.M, scoreLabel:'容量待確認' }) },
       { key:'shear-torsion', label:'剪力—扭矩', criterion:'normalized-srss', terms:[{ forceKey:'V' }, { forceKey:'T' }] },
     ],
     targetIds: { M:['targetMuPos','targetMuNeg'], V:'targetV', P:'targetP', T:'targetT' },
@@ -352,6 +352,8 @@ function testTupleSelectionUiAndTargetInvalidation() {
     assert.equal(elements.targetP.value, '0');
     assert.ok(elements.lcTest_limit_0_combo.textContent.includes('1.2D+1.0L+1.0W'));
     assert.ok(elements.lcTest_limit_0_combo.textContent.includes('平手'));
+    assert.equal(elements.lcTest_limit_0_score.textContent, '容量待確認', 'custom score label is rendered instead of a sentinel number');
+    assert.equal(global.window.lastLoadComboSuggestions.lcTest.states[0].details.scoreLabel, '容量待確認');
     assert.equal(elements.lcTest_limit_0_select.disabled, false);
     assert.equal(global.window.lastLoadComboSuggestions.lcTest.states[0].governing.values.M, -10);
 

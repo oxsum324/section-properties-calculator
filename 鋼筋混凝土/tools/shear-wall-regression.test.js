@@ -23,7 +23,7 @@ function bootLibs() {
   context.window = context;
   context.globalThis = context;
   vm.createContext(context);
-  for (const file of [concretePath, rebarPath, commonPath, wallPath, pmPath, wallBasePath]) {
+  for (const file of [concretePath, rebarPath, commonPath, wallPath, pmPath, wallBasePath, wallEvaluatorPath]) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
   return context;
@@ -66,7 +66,7 @@ function main() {
   const wallBaseSrc = fs.readFileSync(wallBasePath, 'utf8');
   const wallEvaluatorSrc = fs.readFileSync(wallEvaluatorPath, 'utf8');
   const libs = bootLibs();
-  const { Wall, PMSection, Concrete, Rebar, WallBase } = libs;
+  const { Wall, PMSection, Concrete, Rebar, WallBase, WallEvaluator } = libs;
   const { REBAR_TABLE } = Rebar;
 
   section('源碼結構守衛');
@@ -95,7 +95,7 @@ function main() {
   assert(wallSrc.includes('Wall.shearFrictionDesign') && wallSrc.includes('Wall.shearFrictionVnMax'), '共用牆模組提供 22.9 剪摩擦初估函式', 'Wall.shearFrictionDesign present');
   assert(loadCasesSrc.includes('LoadCases.parseText') && loadCasesSrc.includes('LoadCases.pickControls') && loadCasesSrc.includes('LoadCases.result'), '共用多工況模組提供解析與控制工況函式', 'LoadCases shared present');
   assert(wallBaseSrc.includes('WallBase.buildBase') && wallBaseSrc.includes('WallBase.buildBars') && wallBaseSrc.includes('WallBase.geometry'), '共用剪力牆 base 模組提供幾何、配筋與容量組裝', 'WallBase shared present');
-  assert(wallEvaluatorSrc.includes('WallEvaluator.evaluateLoadCase') && wallEvaluatorSrc.includes('WallEvaluator.nominalMomentAtPu') && wallEvaluatorSrc.includes('WallEvaluator.reviewWarnings'), '共用剪力牆工況檢核模組提供工況判定、Mn 內插與待確認事項', 'WallEvaluator shared present');
+  assert(wallEvaluatorSrc.includes('WallEvaluator.evaluateLoadCase') && wallEvaluatorSrc.includes('WallEvaluator.nominalMomentAtPu') && wallEvaluatorSrc.includes('WallEvaluator.reviewWarnings') && wallEvaluatorSrc.includes('WallEvaluator.limitStateScore'), '共用剪力牆工況檢核模組提供工況判定、Mn 內插、容量候選與待確認事項', 'WallEvaluator shared present');
   assert(!/18\.10\s*章|18\.10\.6/.test(`${html}\n${wallSrc}`), '剪力牆頁面與共用模組不再誤用基礎章作為牆章', 'no stale foundation clause');
   assert(html.includes('reviewWarnings'), '待確認事項納入整體結論', 'reviewWarnings present');
   assert(html.includes('function updateShearWallAttachmentReadiness'), '剪力牆頁面列出附件 readiness', 'page-only readiness helper present');
@@ -143,6 +143,8 @@ function main() {
   assert(html.includes('const candBase = WallBase.buildBase(cg, { pmSteps: 90 })'), 'P-M 邊界建議候選使用共用 base builder', 'flexural suggestion uses WallBase');
   assert(!html.includes('sbeSpLimitCand') && !html.includes('AshReqCand') && !html.includes('AshProvCand') && !html.includes('PMSection.curve({ b: cg'), 'P-M 邊界建議不重算 P-M/SBE/Ash 基礎量', 'no duplicate flexural candidate base formulas');
   assert(html.includes("WallEvaluator.evaluateLoadCase(r, currentLoadCaseFromInputs('主工況'))") && html.includes('WallEvaluator.evaluateLoadCase(base, c)'), '頁面主工況與多工況皆使用共用剪力牆工況檢核核心', 'page uses shared evaluator');
+  assert(html.includes("scorer:tuple => scoreTuple(tuple, 'pm')") && html.includes("scorer:tuple => scoreTuple(tuple, 'shear')"), '載重組合建議逐列使用既有剪力牆容量 evaluator', 'capacity-based tuple scorers present');
+  assert(html.includes('refreshLimitStateSuggestions(window.swLoadComboConfig)'), '斷面或配筋變更後會重算容量控制組合', 'capacity suggestions refresh with section state');
   assert(!/function\s+evaluateLoadCase\s*\(/.test(html) && !/function\s+nominalMomentAtPu\s*\(/.test(html) && !html.includes('WallEvaluator.nominalMomentAtPu'), '頁面不再內嵌或直接呼叫工況檢核與 Mn 內插核心', 'no duplicate wall evaluator in html');
   assert(!html.includes('Wall.designShear({') && !html.includes('Wall.shearFrictionDesign({') && !html.includes('Wall.needTwoLayer({'), '頁面不再重算主工況剪力與剪摩擦核心公式', 'no duplicate primary demand formulas');
   assert(!html.includes('reviewWarnings.push') && html.includes('primary.reviewWarnings'), '頁面不再組裝待確認事項，改用共用 evaluator 結果', 'warnings from shared evaluator');
@@ -177,6 +179,19 @@ function main() {
   near(cAtPu, 69.2, 0.05, '@Pu 中性軸 c');
   near(dem.phiMn, 1466.9, 0.02, 'φMn @Pu');
   assert(dem.ok === true && dem.util < 1, '需求 Mu 落於封包內', `util=${dem.util.toFixed(3)}`);
+
+  section('容量型載重組合候選 (逐完整 tuple 重算)');
+  const baseCase = { ...g, shearDemandMode:'direct', Vuns:0, VuEh:0, omegaV:1, omegaW:1 };
+  const pmLow = WallEvaluator.limitStateScore(base, { ...baseCase, name:'PM-low', Pu:100, Mu:400, Vu:80 }, 'pm');
+  const pmHigh = WallEvaluator.limitStateScore(base, { ...baseCase, name:'PM-high', Pu:150, Mu:900, Vu:80 }, 'pm');
+  assert(pmHigh.score > pmLow.score && pmHigh.status === 'evaluated', 'P-M 候選依各列 Pu 重算 |Mu|/φMn', `${pmLow.scoreLabel} -> ${pmHigh.scoreLabel}`);
+  const pBeyond = base.pm.design.reduce((max, point) => Math.max(max, point.P), -Infinity) + 100;
+  const pmOut = WallEvaluator.limitStateScore(base, { ...baseCase, name:'P-out', Pu:pBeyond, Mu:1, Vu:1 }, 'pm');
+  assert(pmOut.status === 'axial-out-of-range' && pmOut.score > pmHigh.score && pmOut.scoreLabel === '軸力越界', 'P-M 軸力越界失敗關閉並排為控制候選', `score=${pmOut.score}`);
+  const shearResolved = WallEvaluator.limitStateScore(base, { ...baseCase, name:'V-resolved', Pu:150, Mu:650, Vu:160 }, 'shear');
+  const shearUnresolved = WallEvaluator.limitStateScore(base, { ...baseCase, name:'V-phi-pending', Pu:150, Mu:0, Vu:20 }, 'shear');
+  assert(shearResolved.status === 'evaluated' && Number.isFinite(shearResolved.score), '剪力候選使用逐列 Ve/φVn', `util=${shearResolved.scoreLabel}`);
+  assert(shearUnresolved.status === 'phi-unresolved' && shearUnresolved.score > shearResolved.score && shearUnresolved.scoreLabel === 'φ待確認', '剪力 φ 無法建立時失敗關閉', `score=${shearUnresolved.score}`);
 
   section('面內剪力 (Wall.*)');
   const aH = REBAR_TABLE[g.dH].area;
