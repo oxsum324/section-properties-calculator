@@ -106,6 +106,16 @@
           "report": ["握裹 / 搭接長度 (規範 25 章)", "柱端錨定", "耐震搭接", "工程檢核總表"],
           "evidence": ["tools/column-regression.test.js", "tools/column-regression-cases.json", "tools/column-report-visual.test.js", "tools/column-report-visual.contract.test.js"],
           "manualReview": ["彎鉤錨定、機械錨定、搭接實際區段、產品認可資料與施工圖仍須由設計者人工複核。"]
+        },
+        {
+          "id": "column-rebar-design-search-21-22-25",
+          "clause": "混凝土結構設計規範 112 年版 10.6.1 / 21.2.2 / 22.4.2 / 25.7.2",
+          "purpose": "矩形柱設計模式跨主筋號數、每邊位置數與束筋數搜尋容量式候選，並以正式雙軸 P-M 核心篩選與排序。",
+          "inputs": ["Pu", "Mux", "Muy", "fc", "fy", "b", "h", "cover", "tieNo", "seismic", "主筋候選", "每邊位置數", "束筋數"],
+          "calculation": ["ColumnRebarDesigner.search", "PMSection.curve", "ColumnEvaluator.evaluateDemand", "雙向 P-Mx-My 角度掃描", "0.01 ≤ ρg ≤ 0.06/0.08", "25.7.2 排內可配置性", "鋼筋量與擁擠程度排序"],
+          "report": ["實際採用主筋", "每側位置數", "P-M 互制檢核", "P-Mx-My 角度掃描", "ρg 配筋比", "配筋規範檢核"],
+          "evidence": ["shared/column-rebar-designer.test.js", "tools/column-regression.test.js", "tools/column-report-visual.test.js", "tools/column-report-visual.contract.test.js"],
+          "manualReview": ["候選只預篩縱向主筋容量、配筋率與排內配置；套用後須回正式檢核確認剪力、圍束、錨定、搭接、耐震細節與施工圖一致性。"]
         }
       ]
     },

@@ -393,6 +393,85 @@ async function captureColumnReportHtml(page) {
   });
 }
 
+async function exerciseColumnRebarDesignCandidates(page) {
+  await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+  const designed = await page.evaluate(() => {
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.value = String(value);
+    };
+    window.setColumnMode?.('design', { recalculate:false, applyPanel:false });
+    const manual = document.getElementById('manualLayout');
+    if (manual) manual.checked = false;
+    const seismic = document.getElementById('seismicMode');
+    if (seismic) seismic.checked = false;
+    setValue('colType', 'rect');
+    setValue('fc', 280);
+    setValue('fy', 4200);
+    setValue('b', 60);
+    setValue('h', 60);
+    setValue('cover', 4);
+    setValue('Pu', 250);
+    setValue('Mux', 25);
+    setValue('Muy', 15);
+    setValue('Vu', 10);
+    setValue('Vuy', 8);
+    const started = performance.now();
+    window.calcColumn();
+    const elapsedMs = performance.now() - started;
+    const candidates = window.colLast?.designSearch?.candidates || [];
+    return {
+      elapsedMs,
+      hostText:document.getElementById('columnRebarDesignCandidates')?.innerText || '',
+      candidates:candidates.map(item => ({
+        barNo:item.barNo, nSide:item.nSide, bundle:item.bundle, nBar:item.nBar,
+        Ast:item.Ast, rhog:item.rhog, utilization:item.utilization,
+      })),
+      evaluatedCount:window.colLast?.designSearch?.evaluatedCount ?? null,
+    };
+  });
+  assert(designed.candidates.length === 5, 'column capacity rebar candidates', `count=${designed.candidates.length}; evaluated=${designed.evaluatedCount}`);
+  assert(designed.candidates.every(item => item.utilization <= 1 && item.rhog >= 0.01 && item.rhog <= 0.08), 'column candidate formal capacity and rho filters', JSON.stringify(designed.candidates));
+  assert(designed.hostText.includes('套用並檢核') && designed.hostText.includes('候選只留在工作頁'), 'column candidate work-page boundary', designed.hostText.replace(/\s+/g, ' ').slice(0, 220));
+
+  const beforeReport = await captureColumnReportHtml(page);
+  ['容量式主筋候選', '每邊位置數', '候選只留在工作頁', '套用並檢核'].forEach(fragment => {
+    assert(!beforeReport.includes(fragment), 'column report excludes unapplied rebar candidates', fragment);
+  });
+
+  const applied = await page.evaluate(() => {
+    const first = { ...window.colLast.designSearch.candidates[0] };
+    const ok = window.applyColumnRebarCandidate(0);
+    const r = window.colLast || {};
+    return {
+      ok,
+      first,
+      mode:document.querySelector('.mode-btn.active')?.dataset.mode,
+      manualLayout:document.getElementById('manualLayout')?.checked,
+      layoutMode:document.getElementById('layoutMode')?.value,
+      barNo:r.barNo,
+      nBar:r.nBar,
+      nFaceB:r.nFaceB,
+      nFaceH:r.nFaceH,
+      nPerBundle:r.nPerBundle,
+      okRhog:r.okRhog,
+      pmOk:r.pmOk,
+      biaxialSurfaceOk:r.biaxialSurfaceOk,
+      okBarsPerSide:r.okBarsPerSide,
+      designSearch:r.designSearch,
+    };
+  });
+  assert(applied.ok && applied.mode === 'check' && applied.manualLayout && applied.layoutMode === 'sym', 'column candidate applies into formal check mode', JSON.stringify(applied));
+  assert(applied.barNo === applied.first.barNo && applied.nBar === applied.first.nBar && applied.nFaceB === applied.first.nSide && applied.nFaceH === applied.first.nSide && applied.nPerBundle === applied.first.bundle, 'column candidate preserves selected symmetric layout', JSON.stringify(applied));
+  assert(applied.okRhog && applied.pmOk && applied.biaxialSurfaceOk && applied.okBarsPerSide, 'column applied candidate passes formal longitudinal checks', JSON.stringify(applied));
+  assert(applied.designSearch === null, 'column check snapshot excludes candidate search state', String(applied.designSearch));
+
+  const afterReport = await captureColumnReportHtml(page);
+  ['容量式主筋候選', '每邊位置數', '候選只留在工作頁', '套用並檢核'].forEach(fragment => {
+    assert(!afterReport.includes(fragment), 'column report excludes candidate comparison after adoption', fragment);
+  });
+}
+
 async function exerciseColumnAttachmentBoundary(page, pack) {
   const byKey = new Map(pack.cases.map(tc => [tc.key, tc]));
   const metadata = { name: '附件門檻測試工程', no: 'RC-COL-GATE', designer: 'QA' };
@@ -568,6 +647,10 @@ async function main() {
   assert(html.includes('beamJointImport: window.lastBeamColumnJointImport'), 'column.html stores imported beam joint payload', 'colLast keeps import source');
   assert(html.includes('../shared/pmsection.js'), 'column.html loads shared PM section engine', 'single-axis P-M core is shared and testable');
   assert(html.includes('../shared/column-evaluator.js'), 'column.html loads shared column demand evaluator', 'Pu-dependent magnification is shared and testable');
+  assert(html.includes('../shared/column-rebar-designer.js'), 'column.html loads shared column rebar designer', 'capacity candidate core is shared and testable');
+  assert(html.includes('id="columnRebarDesignCandidates"'), 'column.html has capacity candidate host', 'candidate comparison stays on work page');
+  assert(html.includes('function applyColumnRebarCandidate'), 'column.html applies a selected column candidate', 'candidate adoption enters formal check flow');
+  assert(html.includes('ColumnEvaluator.evaluateDemand') && html.includes('capacityAtPu:computeBiaxialSurfaceAtPu'), 'column candidates reuse formal biaxial capacity core', 'candidate capacity does not use a second formula path');
   assert(html.includes('ColumnEvaluator.magnifyAxis') && html.includes('ColumnEvaluator.limitStateScore'), 'column formal calculation and load-combo scorer share one magnification core', 'shared evaluator wiring');
   assert(html.includes("key:'pm-capacity'") && html.includes('scorer:scoreColumnTuple'), 'column load-combo first state is true capacity utilization', 'capacity scorer present');
   assert(html.includes('refreshLimitStateSuggestions(window.rcColumnLoadComboConfig)'), 'column section changes refresh capacity suggestions', 'reactive capacity refresh');
@@ -617,6 +700,8 @@ async function main() {
     await wait(300);
     assert(pageErrors.length === 0, 'column page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'column page resources', 'no missing static resources during initial load');
+    await exerciseColumnRebarDesignCandidates(page);
+    assert(pageErrors.length === 0, 'column rebar candidate workflow', 'no page errors during capacity candidate adoption');
     await exerciseProjectStorage(page);
     assert(pageErrors.length === 0, 'column project storage workflow', 'no page errors during project save/load checks');
     await exerciseCapacityLoadCombo(page);

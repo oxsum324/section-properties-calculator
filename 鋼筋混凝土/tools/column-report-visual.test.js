@@ -282,7 +282,7 @@ async function main() {
         assert,
         include: ['計算書', '文件狀態：內部審閱'],
         includeAny: [['柱設計計算書', '柱檢核計算書']],
-        exclude: ['DRAFT／非正式附件'],
+        exclude: ['DRAFT／非正式附件', '容量式主筋候選', '候選只留在工作頁', '套用並檢核'],
       });
       results.push({ key: tc.key, pageErrors, failedResponses, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, metrics, printMetrics, screenshotQuality, pdfTextQuality });
 
@@ -317,6 +317,9 @@ async function main() {
         '條文對照 ＆ 方法分級',
         '規範覆蓋矩陣',
         '若需載重包絡線，請先使用載重組合產生器',
+        '容量式主筋候選',
+        '候選只留在工作頁',
+        '套用並檢核',
       ].forEach(fragment => {
         assert(!metrics.bodyText.includes(fragment), `${tc.key} report excludes page-only attachment readiness`, fragment);
       });
@@ -376,7 +379,7 @@ async function main() {
     const pdfTextQuality = assertReportPdfTextQuality(pdfPath, 'resolved review formal attachment', {
       assert,
       include: ['柱檢核計算書', '文件狀態：正式附件', '核可時間', '配筋圖／S-302', 'QA-01', '已完成可追溯複核', '已複核'],
-      exclude: ['DRAFT／非正式附件']
+      exclude: ['DRAFT／非正式附件', '容量式主筋候選', '候選只留在工作頁', '套用並檢核']
     });
     assert(metrics.bodyText.includes('人工複核採用記錄'), 'resolved review rendered report keeps traceable review heading', '人工複核採用記錄');
     ['DRAFT／非正式附件', '未輸入時不作通過判定', '人工複核項，不納入自動 OK 判定', '報告不作通過判定'].forEach(fragment => {
