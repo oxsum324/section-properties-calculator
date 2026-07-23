@@ -6,6 +6,7 @@ $visualTestFile = Join-Path $root 'column-report-visual.test.js'
 $pmSectionTest = Join-Path (Split-Path -Parent $root) 'shared\pmsection.test.js'
 $columnEvaluatorTest = Join-Path (Split-Path -Parent $root) 'shared\column-evaluator.test.js'
 $columnRebarDesignerTest = Join-Path (Split-Path -Parent $root) 'shared\column-rebar-designer.test.js'
+$columnTransverseDesignerTest = Join-Path (Split-Path -Parent $root) 'shared\column-transverse-designer.test.js'
 $playwrightDepsScript = Join-Path $root 'ensure-playwright-deps.ps1'
 . $playwrightDepsScript -Root $root -PreferredDirName '.column-testdeps'
 
@@ -25,6 +26,12 @@ Write-Host "`n== Shared column rebar designer unit tests ==" -ForegroundColor Cy
 node $columnRebarDesignerTest
 if ($LASTEXITCODE -ne 0) {
   throw "shared column rebar designer tests failed with exit code $LASTEXITCODE"
+}
+
+Write-Host "`n== Shared column transverse designer unit tests ==" -ForegroundColor Cyan
+node $columnTransverseDesignerTest
+if ($LASTEXITCODE -ne 0) {
+  throw "shared column transverse designer tests failed with exit code $LASTEXITCODE"
 }
 
 Write-Host "`n== Column regression tests ==" -ForegroundColor Cyan

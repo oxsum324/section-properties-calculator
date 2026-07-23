@@ -426,16 +426,32 @@ async function exerciseColumnRebarDesignCandidates(page) {
       candidates:candidates.map(item => ({
         barNo:item.barNo, nSide:item.nSide, bundle:item.bundle, nBar:item.nBar,
         Ast:item.Ast, rhog:item.rhog, utilization:item.utilization,
+        pmUtilization:item.pmUtilization,
+        transverse:item.transverse ? {
+          tieNo:item.transverse.tieNo,
+          spacing:item.transverse.spacing,
+          nCrossTieX:item.transverse.nCrossTieX,
+          nCrossTieY:item.transverse.nCrossTieY,
+          utilization:item.transverse.utilization,
+          shearStrengthOk:item.transverse.shearStrengthOk,
+          avMinOk:item.transverse.avMinOk,
+          shearSizeOk:item.transverse.shearSizeOk,
+          spacingOk:item.transverse.spacingOk,
+          lateralSupportOk:item.transverse.lateralSupportOk,
+          confinementOk:item.transverse.confinementOk,
+        } : null,
       })),
       evaluatedCount:window.colLast?.designSearch?.evaluatedCount ?? null,
     };
   });
   assert(designed.candidates.length === 5, 'column capacity rebar candidates', `count=${designed.candidates.length}; evaluated=${designed.evaluatedCount}`);
   assert(designed.candidates.every(item => item.utilization <= 1 && item.rhog >= 0.01 && item.rhog <= 0.08), 'column candidate formal capacity and rho filters', JSON.stringify(designed.candidates));
+  assert(designed.candidates.every(item => item.transverse?.shearStrengthOk && item.transverse?.avMinOk && item.transverse?.shearSizeOk && item.transverse?.spacingOk && item.transverse?.lateralSupportOk && item.transverse?.confinementOk), 'column candidate transverse filters', JSON.stringify(designed.candidates));
+  assert(designed.hostText.includes('箍筋／繫筋') && designed.hostText.includes('兩向剪力') && designed.hostText.includes('Av,min'), 'column integrated candidate disclosure', designed.hostText.replace(/\s+/g, ' ').slice(0, 320));
   assert(designed.hostText.includes('套用並檢核') && designed.hostText.includes('候選只留在工作頁'), 'column candidate work-page boundary', designed.hostText.replace(/\s+/g, ' ').slice(0, 220));
 
   const beforeReport = await captureColumnReportHtml(page);
-  ['容量式主筋候選', '每邊位置數', '候選只留在工作頁', '套用並檢核'].forEach(fragment => {
+  ['整體配筋候選', '箍筋／繫筋', '每邊位置數', '候選只留在工作頁', '套用並檢核'].forEach(fragment => {
     assert(!beforeReport.includes(fragment), 'column report excludes unapplied rebar candidates', fragment);
   });
 
@@ -454,22 +470,84 @@ async function exerciseColumnRebarDesignCandidates(page) {
       nFaceB:r.nFaceB,
       nFaceH:r.nFaceH,
       nPerBundle:r.nPerBundle,
+      tieNo:r.tieNo,
+      crossTieNo:r.crossTieNo,
+      tieS:r.tieS,
+      crossTieS:r.crossTieS,
+      nctX:r.nctX,
+      nctY:r.nctY,
       okRhog:r.okRhog,
       pmOk:r.pmOk,
       biaxialSurfaceOk:r.biaxialSurfaceOk,
       okBarsPerSide:r.okBarsPerSide,
+      okShear:r.okShear,
+      okShearStrength:r.okShearStrength,
+      okShearAvMin:r.okShearAvMin,
+      okShearSize:r.okShearSize,
+      okLateralSupport:r.okLateralSupport,
+      phiVnX:r.phiVn_kgf,
+      phiVnY:r.phiVn_y_kgf,
+      designVx:r.designVxTf,
+      designVy:r.designVyTf,
       designSearch:r.designSearch,
     };
   });
   assert(applied.ok && applied.mode === 'check' && applied.manualLayout && applied.layoutMode === 'sym', 'column candidate applies into formal check mode', JSON.stringify(applied));
   assert(applied.barNo === applied.first.barNo && applied.nBar === applied.first.nBar && applied.nFaceB === applied.first.nSide && applied.nFaceH === applied.first.nSide && applied.nPerBundle === applied.first.bundle, 'column candidate preserves selected symmetric layout', JSON.stringify(applied));
   assert(applied.okRhog && applied.pmOk && applied.biaxialSurfaceOk && applied.okBarsPerSide, 'column applied candidate passes formal longitudinal checks', JSON.stringify(applied));
+  assert(applied.tieNo === applied.first.transverse.tieNo && applied.crossTieNo === applied.first.transverse.crossTieNo && applied.tieS === applied.first.transverse.spacing && applied.crossTieS === applied.first.transverse.spacing && applied.nctX === applied.first.transverse.nCrossTieX && applied.nctY === applied.first.transverse.nCrossTieY, 'column candidate preserves transverse layout', JSON.stringify(applied));
+  assert(applied.okShear && applied.okShearStrength && applied.okShearAvMin && applied.okShearSize && applied.okLateralSupport, 'column applied candidate passes formal transverse checks', JSON.stringify(applied));
+  assert(Math.abs(applied.phiVnX - applied.first.transverse.phiVnX) <= 1e-6 && Math.abs(applied.phiVnY - applied.first.transverse.phiVnY) <= 1e-6 && Math.abs(applied.designVx - applied.first.transverse.designVx) <= 1e-9 && Math.abs(applied.designVy - applied.first.transverse.designVy) <= 1e-9, 'column candidate transverse prediction matches formal recalculation', JSON.stringify(applied));
   assert(applied.designSearch === null, 'column check snapshot excludes candidate search state', String(applied.designSearch));
 
   const afterReport = await captureColumnReportHtml(page);
-  ['容量式主筋候選', '每邊位置數', '候選只留在工作頁', '套用並檢核'].forEach(fragment => {
+  ['整體配筋候選', '箍筋／繫筋', '每邊位置數', '候選只留在工作頁', '套用並檢核'].forEach(fragment => {
     assert(!afterReport.includes(fragment), 'column report excludes candidate comparison after adoption', fragment);
   });
+
+  await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+  const seismicApplied = await page.evaluate(() => {
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.value = String(value);
+    };
+    window.setColumnMode?.('design', { recalculate:false, applyPanel:false });
+    document.getElementById('manualLayout').checked = false;
+    document.getElementById('seismicMode').checked = true;
+    document.getElementById('autoVe').checked = false;
+    setValue('colType', 'rect');
+    setValue('fc', 280);
+    setValue('fy', 4200);
+    setValue('b', 60);
+    setValue('h', 60);
+    setValue('cover', 4);
+    setValue('Pu', 250);
+    setValue('Mux', 25);
+    setValue('Muy', 15);
+    setValue('Vu', 20);
+    setValue('Vuy', 15);
+    setValue('Ve', 20);
+    window.calcColumn();
+    const candidates = window.colLast?.designSearch?.candidates || [];
+    const first = candidates[0] ? { ...candidates[0] } : null;
+    const appliedOk = first ? window.applyColumnRebarCandidate(0) : false;
+    const r = window.colLast || {};
+    return {
+      count:candidates.length,
+      first,
+      appliedOk,
+      seismic:r.seismic,
+      confinementOk:r.confinementOk,
+      okSeismicTieSpacing:r.okSeismicTieSpacing,
+      okLateralSupport:r.okLateralSupport,
+      okShear:r.okShear,
+      phiVnX:r.phiVn_kgf,
+      phiVnY:r.phiVn_y_kgf,
+    };
+  });
+  assert(seismicApplied.count === 5 && seismicApplied.first?.transverse?.confinementOk, 'column seismic candidates include confinement design', JSON.stringify(seismicApplied));
+  assert(seismicApplied.appliedOk && seismicApplied.seismic && seismicApplied.confinementOk && seismicApplied.okSeismicTieSpacing && seismicApplied.okLateralSupport && seismicApplied.okShear, 'column seismic candidate passes formal transverse checks after adoption', JSON.stringify(seismicApplied));
+  assert(Math.abs(seismicApplied.phiVnX - seismicApplied.first.transverse.phiVnX) <= 1e-6 && Math.abs(seismicApplied.phiVnY - seismicApplied.first.transverse.phiVnY) <= 1e-6, 'column seismic transverse prediction matches formal recalculation', JSON.stringify(seismicApplied));
 }
 
 async function exerciseColumnAttachmentBoundary(page, pack) {
@@ -648,9 +726,11 @@ async function main() {
   assert(html.includes('../shared/pmsection.js'), 'column.html loads shared PM section engine', 'single-axis P-M core is shared and testable');
   assert(html.includes('../shared/column-evaluator.js'), 'column.html loads shared column demand evaluator', 'Pu-dependent magnification is shared and testable');
   assert(html.includes('../shared/column-rebar-designer.js'), 'column.html loads shared column rebar designer', 'capacity candidate core is shared and testable');
+  assert(html.includes('../shared/column-transverse-designer.js'), 'column.html loads shared column transverse designer', 'shear and confinement candidate core is shared and testable');
   assert(html.includes('id="columnRebarDesignCandidates"'), 'column.html has capacity candidate host', 'candidate comparison stays on work page');
   assert(html.includes('function applyColumnRebarCandidate'), 'column.html applies a selected column candidate', 'candidate adoption enters formal check flow');
   assert(html.includes('ColumnEvaluator.evaluateDemand') && html.includes('capacityAtPu:computeBiaxialSurfaceAtPu'), 'column candidates reuse formal biaxial capacity core', 'candidate capacity does not use a second formula path');
+  assert(html.includes('ColumnTransverseDesigner.search') && html.includes('candidateVe.designX'), 'column candidates include exact candidate-specific transverse demand', 'probable shear and transverse reinforcement are evaluated per longitudinal layout');
   assert(html.includes('ColumnEvaluator.magnifyAxis') && html.includes('ColumnEvaluator.limitStateScore'), 'column formal calculation and load-combo scorer share one magnification core', 'shared evaluator wiring');
   assert(html.includes("key:'pm-capacity'") && html.includes('scorer:scoreColumnTuple'), 'column load-combo first state is true capacity utilization', 'capacity scorer present');
   assert(html.includes('refreshLimitStateSuggestions(window.rcColumnLoadComboConfig)'), 'column section changes refresh capacity suggestions', 'reactive capacity refresh');

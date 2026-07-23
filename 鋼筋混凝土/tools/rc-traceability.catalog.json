@@ -109,13 +109,13 @@
         },
         {
           "id": "column-rebar-design-search-21-22-25",
-          "clause": "混凝土結構設計規範 112 年版 10.6.1 / 21.2.2 / 22.4.2 / 25.7.2",
-          "purpose": "矩形柱設計模式跨主筋號數、每邊位置數與束筋數搜尋容量式候選，並以正式雙軸 P-M 核心篩選與排序。",
-          "inputs": ["Pu", "Mux", "Muy", "fc", "fy", "b", "h", "cover", "tieNo", "seismic", "主筋候選", "每邊位置數", "束筋數"],
-          "calculation": ["ColumnRebarDesigner.search", "PMSection.curve", "ColumnEvaluator.evaluateDemand", "雙向 P-Mx-My 角度掃描", "0.01 ≤ ρg ≤ 0.06/0.08", "25.7.2 排內可配置性", "鋼筋量與擁擠程度排序"],
-          "report": ["實際採用主筋", "每側位置數", "P-M 互制檢核", "P-Mx-My 角度掃描", "ρg 配筋比", "配筋規範檢核"],
-          "evidence": ["shared/column-rebar-designer.test.js", "tools/column-regression.test.js", "tools/column-report-visual.test.js", "tools/column-report-visual.contract.test.js"],
-          "manualReview": ["候選只預篩縱向主筋容量、配筋率與排內配置；套用後須回正式檢核確認剪力、圍束、錨定、搭接、耐震細節與施工圖一致性。"]
+          "clause": "混凝土結構設計規範 112 年版 10.6.1 / 10.6.2 / 18.4.5.2 / 18.4.5.3 / 表 18.4.5.4 / 21.2.2 / 22.4.2 / 22.5 / 25.7.2",
+          "purpose": "矩形柱設計模式跨主筋、箍筋、繫筋與間距搜尋整體容量式候選，並以逐配置雙軸 P-M、剪力及圍束需求篩選與排序。",
+          "inputs": ["Pu", "Mux", "Muy", "Vu", "Vuy", "Ve", "fc", "fy", "fyt", "b", "h", "cover", "seismic", "主筋候選", "每邊位置數", "束筋數", "箍筋候選", "間距候選"],
+          "calculation": ["ColumnRebarDesigner.search", "ColumnTransverseDesigner.search", "PMSection.curve", "ColumnEvaluator.evaluateDemand", "雙向 P-Mx-My 角度掃描", "候選配置 Mpr / Ve", "φVn,x/y", "10.6.2 Av,min", "22.5.1.2 斷面上限", "18.4.5.2 側撐", "18.4.5.3 間距", "表 18.4.5.4 圍束量", "0.01 ≤ ρg ≤ 0.06/0.08", "25.7.2 排內可配置性"],
+          "report": ["實際採用主筋", "實際採用箍筋與繫筋", "每側位置數", "P-M 互制檢核", "P-Mx-My 角度掃描", "ρg 配筋比", "剪力檢核", "橫向鋼筋間距與圍束"],
+          "evidence": ["shared/column-rebar-designer.test.js", "shared/column-transverse-designer.test.js", "tools/column-regression.test.js", "tools/column-report-visual.test.js", "tools/column-report-visual.contract.test.js"],
+          "manualReview": ["候選預篩縱向與橫向配筋容量及配置性；套用後仍須由正式流程重算，柱端錨定、搭接、首支箍筋、ℓo 外間距、接頭與施工圖一致性由設計者完成自動或人工複核。"]
         }
       ]
     },

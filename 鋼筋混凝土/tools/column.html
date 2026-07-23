@@ -669,6 +669,7 @@
 <script src="../shared/pmsection.js?v=2"></script>
 <script src="../shared/column-evaluator.js?v=1"></script>
 <script src="../shared/column-rebar-designer.js?v=1"></script>
+<script src="../shared/column-transverse-designer.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -977,15 +978,16 @@
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.nBar}-${candidate.barNo}</td>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${candidate.nSide}</td>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${candidate.bundle > 1 ? `×${candidate.bundle} 束筋` : '單筋'}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.transverse ? `${candidate.transverse.tieNo} @ ${candidate.transverse.spacing} cm；X/Y 繫筋 ${candidate.transverse.nCrossTieX}/${candidate.transverse.nCrossTieY}` : '—'}</td>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.Ast.toFixed(2)} / ${(candidate.rhog * 100).toFixed(2)}%</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.utilization.toFixed(3)}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.pmUtilization.toFixed(3)} / ${candidate.transverse?.utilization?.toFixed(3) || '—'}</td>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;"><button type="button" class="column-design-apply" data-candidate-index="${index}" style="padding:5px 10px;border:0;border-radius:5px;background:#0e7490;color:#fff;cursor:pointer;">套用並檢核</button></td>
       </tr>`).join('');
     host.innerHTML = `
-      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">矩形柱 P–M 主筋候選依鋼筋量、擁擠程度與利用率排序；每列已通過正式雙軸 P–M 容量、配筋率及排內可配置性篩選。剪力、圍束、錨定與耐震細節在套用後由正式檢核判定。候選只留在工作頁。</div>
+      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">矩形柱整體配筋候選依主筋量、橫向筋量、擁擠程度與利用率排序；每列已預先通過雙軸 P–M、配筋率、排內配置、兩向剪力、Av,min、斷面上限、側撐、間距及耐震圍束量。套用後仍由正式流程重算；錨定、搭接、首支箍筋、ℓo 外間距及施工圖維持正式／人工複核。候選只留在工作頁。</div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:0.84em;border:1px solid #cbd5e1;min-width:760px;">
-          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">主筋</th><th style="padding:6px;">每邊位置數</th><th style="padding:6px;">配置</th><th style="padding:6px;">Ast / ρg</th><th style="padding:6px;">P–M 利用率</th><th style="padding:6px;">操作</th></tr></thead>
+          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">主筋</th><th style="padding:6px;">每邊位置數</th><th style="padding:6px;">配置</th><th style="padding:6px;">箍筋／繫筋</th><th style="padding:6px;">Ast / ρg</th><th style="padding:6px;">P–M / 橫向利用率</th><th style="padding:6px;">操作</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -1003,13 +1005,19 @@
       cornerBundle:candidate.bundle,
       interiorBundle:candidate.bundle,
       nBar:candidate.nBar,
+      tieNo:candidate.transverse?.tieNo,
+      crossTieNo:candidate.transverse?.crossTieNo,
+      tieS:candidate.transverse?.spacing,
+      crossTieS:candidate.transverse?.spacing,
+      nCrossTieX:candidate.transverse?.nCrossTieX,
+      nCrossTieY:candidate.transverse?.nCrossTieY,
     };
     Object.entries(values).forEach(([id, value]) => {
       const el = $(id);
-      if (el) el.value = value;
+      if (el && value != null) el.value = value;
     });
     setColumnMode('check');
-    showColumnProjectStatus(`已套用容量式主筋候選 ${Number(index) + 1}，並切換至正式檢核模式。`);
+    showColumnProjectStatus(`已套用容量式柱配筋候選 ${Number(index) + 1}，並切換至正式檢核模式。`);
     return true;
   }
   window.applyColumnRebarCandidate = applyColumnRebarCandidate;
@@ -2449,9 +2457,9 @@
     };
 
     // 容量式候選只供 HTML 工作頁比較；正式計算書僅採用套用後的實際配筋與檢核結果。
-    const designSearch = (currentMode === 'design' && !manualLayout && colType === 'rect' && window.ColumnRebarDesigner)
+    const designSearch = (currentMode === 'design' && !manualLayout && colType === 'rect' && window.ColumnRebarDesigner && window.ColumnTransverseDesigner)
       ? window.ColumnRebarDesigner.search({
-          b, h, cover, tieDb, seismic, barTable:REBAR_TABLE, limit:5,
+          b, h, cover, tieDb:REBAR_TABLE['#5'].db, seismic, barTable:REBAR_TABLE, limit:5,
           evaluateCandidate(candidate) {
             const layout = attachBarSize(
               makeLayoutSym(candidate.nSide, candidate.nSide, candidate.bundle, candidate.bundle),
@@ -2471,11 +2479,55 @@
                 fc, fy, beta1, phiFactorComp:candidateX.phiFactorComp, phiPnMax:candidateX.phiPnMax,
               },
             }, { Pu, Mx:Mux, My:Muy }, { capacityAtPu:computeBiaxialSurfaceAtPu });
+            if (!(evaluation.status === 'evaluated' && evaluation.ok)) {
+              return { ok:false, utilization:evaluation.utilization };
+            }
+            const candidateDepth = buildShearDepths(colType, b, h, cover, candidate.nBar, candidate.ab, candidate.db, layout);
+            const candidateOptional = id => {
+              const el = $(id);
+              if (!el || String(el.value || '').trim() === '') return null;
+              const value = Number(el.value);
+              return Number.isFinite(value) ? value : null;
+            };
+            const candidateVe = buildProbableShearDemand({
+              seismic,
+              auto:$('autoVe')?.checked !== false,
+              colType, b, h, fc, fy, cover,
+              nBar:candidate.nBar, ab:candidate.ab, beta1, db:candidate.db, layout,
+              Pu, lu,
+              VuxTf:Math.abs(num('Vu')), VuyTf:Math.abs(num('Vuy')), manualVe:num('Ve'),
+              mprFactor:num('mprFactor') || 1.25,
+              PuMin:candidateOptional('mprPuMin'), PuMax:candidateOptional('mprPuMax'),
+              beamCapX:num('VeBeamCapX'), beamCapY:num('VeBeamCapY'),
+            });
+            const candidateNu = Pu * 1000;
+            const candidateLowAxial = candidateNu < Ag * fc / 20;
+            const candidateEqX = seismic ? (($('autoVe')?.checked !== false) ? Math.max(candidateVe.autoX, candidateVe.manual) : candidateVe.manual) : 0;
+            const candidateEqY = seismic ? (($('autoVe')?.checked !== false) ? Math.max(candidateVe.autoY, candidateVe.manual) : candidateVe.manual) : 0;
+            const transverseSearch = ColumnTransverseDesigner.search({
+              b, h, cover, Ag, fc, fy, Pu,
+              mainDb:candidate.db, bundle:candidate.bundle, nSide:candidate.nSide,
+              dX:candidateDepth.d_x, dY:candidateDepth.d_y,
+              designVx:candidateVe.designX, designVy:candidateVe.designY,
+              forceVc0X:seismic && candidateLowAxial && candidateVe.designX > 0 && candidateEqX >= 0.5 * candidateVe.designX,
+              forceVc0Y:seismic && candidateLowAxial && candidateVe.designY > 0 && candidateEqY >= 0.5 * candidateVe.designY,
+              seismic, tieFy, crossTieFy, phiShear:PHI.shear,
+              barTable:REBAR_TABLE, limit:1,
+            });
+            const transverse = transverseSearch.candidates?.[0] || null;
             return {
-              ok:evaluation.status === 'evaluated' && evaluation.ok,
-              utilization:evaluation.utilization,
+              ok:!!transverse,
+              utilization:transverse ? Math.max(evaluation.utilization, transverse.utilization) : Infinity,
+              pmUtilization:evaluation.utilization,
               phiMnX:evaluation.phiMnAtPu,
               phiMnY:evaluation.phiMnyAtPu,
+              transverse:transverse ? {
+                ...transverse,
+                designVx:candidateVe.designX,
+                designVy:candidateVe.designY,
+                forceVc0X:seismic && candidateLowAxial && candidateVe.designX > 0 && candidateEqX >= 0.5 * candidateVe.designX,
+                forceVc0Y:seismic && candidateLowAxial && candidateVe.designY > 0 && candidateEqY >= 0.5 * candidateVe.designY,
+              } : null,
             };
           },
         })

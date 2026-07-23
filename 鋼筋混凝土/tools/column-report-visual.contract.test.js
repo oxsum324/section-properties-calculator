@@ -51,6 +51,8 @@ const cases = JSON.parse(read(casesPath));
   'page method/report boundary',
   'report excludes page-only attachment readiness',
   '容量式主筋候選',
+  '整體配筋候選',
+  '箍筋／繫筋',
   '候選只留在工作頁',
   '套用並檢核',
   '計算層級 / 複核邊界',

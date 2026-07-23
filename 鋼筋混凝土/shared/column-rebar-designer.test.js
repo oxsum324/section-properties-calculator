@@ -11,11 +11,14 @@ const result = global.ColumnRebarDesigner.search({
     utilization:45 / candidate.Ast,
     phiMnX:120,
     phiMnY:120,
+    pmUtilization:45 / candidate.Ast,
+    transverse:{ tieNo:'#4', spacing:10 },
   }),
 });
 assert.equal(result.status, 'evaluated');
 assert.equal(result.candidates.length, 5);
 assert.ok(result.candidates.every(candidate => candidate.Ast >= 45 && candidate.rhog >= 0.01 && candidate.rhog <= 0.08));
+assert.ok(result.candidates.every(candidate => candidate.transverse?.tieNo === '#4' && candidate.pmUtilization <= 1));
 for (let index = 1; index < result.candidates.length; index += 1) {
   assert.ok(result.candidates[index].Ast + 1e-9 >= result.candidates[index - 1].Ast);
 }

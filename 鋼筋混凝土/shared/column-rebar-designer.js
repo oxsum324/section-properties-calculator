@@ -60,11 +60,14 @@
       candidates.push({
         ...candidate,
         utilization,
+        pmUtilization:Number(result.pmUtilization ?? utilization),
+        transverseSteel:Number(result.transverse?.transverseSteel) || 0,
         phiMnX:Number(result.phiMnX), phiMnY:Number(result.phiMnY),
+        transverse:result.transverse || null,
       });
       if (candidates.length === limit) acceptedAstLimit = candidate.Ast;
     }
-    candidates.sort((a, b2) => a.Ast - b2.Ast || a.congestion - b2.congestion || b2.utilization - a.utilization);
+    candidates.sort((a, b2) => a.Ast - b2.Ast || a.transverseSteel - b2.transverseSteel || a.congestion - b2.congestion || b2.utilization - a.utilization);
     const picked = [];
     const keys = new Set();
     for (const candidate of candidates) {
