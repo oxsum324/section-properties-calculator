@@ -85,5 +85,65 @@
     };
   }
 
-  root.ColumnRebarDesigner = { search };
+  function searchCircular(options) {
+    const table = options?.barTable || root.Rebar?.REBAR_TABLE || root.REBAR_TABLE || {};
+    const D = Number(options?.D), cover = Number(options?.cover), transverseDb = Number(options?.transverseDb);
+    const Ag = Math.PI * D * D / 4;
+    const maxRho = options?.seismic === true ? 0.06 : 0.08;
+    const evaluate = options?.evaluateCandidate;
+    if (![D, cover, transverseDb].every(Number.isFinite) || ![D, Ag].every(finitePositive) || typeof evaluate !== 'function') {
+      return { status:'invalid-input', reason:'圓柱幾何與正式容量 evaluator 須完整提供', candidates:[] };
+    }
+    const bars = [...new Set(options?.bars || DEFAULT_BARS)].filter(barNo => table[barNo]);
+    const pool = [];
+    for (const barNo of bars) {
+      const bar = table[barNo];
+      const rLong = D / 2 - cover - transverseDb - bar.db / 2;
+      if (!(rLong > 0)) continue;
+      for (let nBar = 6; nBar <= 48; nBar += 1) {
+        const chord = 2 * rLong * Math.sin(Math.PI / nBar);
+        const clear = chord - bar.db;
+        const clearRequired = Math.max(1.5 * bar.db, 4);
+        if (clear + 1e-9 < clearRequired) break;
+        const Ast = nBar * bar.area;
+        const rhog = Ast / Ag;
+        if (rhog < 0.01 - 1e-9 || rhog > maxRho + 1e-9) continue;
+        pool.push({
+          barNo, nBar, Ast, rhog, db:bar.db, ab:bar.area,
+          chord, clear, clearRequired, congestion:nBar + bar.db * 2,
+        });
+      }
+    }
+    pool.sort((a, b) => a.Ast - b.Ast || a.congestion - b.congestion);
+    const candidates = [];
+    let evaluatedCount = 0;
+    const limit = Math.max(1, Number(options?.limit) || 5);
+    let acceptedAstLimit = Infinity;
+    for (const candidate of pool) {
+      if (candidates.length >= limit && candidate.Ast > acceptedAstLimit + 1e-9) break;
+      evaluatedCount += 1;
+      let result;
+      try { result = evaluate(candidate); } catch (error) { continue; }
+      const utilization = Number(result?.utilization);
+      if (result?.ok !== true || !Number.isFinite(utilization) || utilization > 1 + 1e-9) continue;
+      candidates.push({
+        ...candidate,
+        utilization,
+        pmUtilization:Number(result.pmUtilization ?? utilization),
+        transverseSteel:Number(result.transverse?.transverseSteel) || 0,
+        phiMnX:Number(result.phiMnX), phiMnY:Number(result.phiMnY),
+        transverse:result.transverse || null,
+      });
+      if (candidates.length === limit) acceptedAstLimit = candidate.Ast;
+    }
+    candidates.sort((a, b) => a.Ast - b.Ast || a.transverseSteel - b.transverseSteel || a.congestion - b.congestion || b.utilization - a.utilization);
+    return {
+      status:candidates.length ? 'evaluated' : 'no-solution',
+      reason:candidates.length ? '' : '目前搜尋範圍內沒有通過正式 P-M 容量、配筋率及圓周淨距的圓柱方案',
+      candidates:candidates.slice(0, limit),
+      evaluatedCount,
+    };
+  }
+
+  root.ColumnRebarDesigner = { search, searchCircular };
 })(typeof window !== 'undefined' ? window : globalThis);

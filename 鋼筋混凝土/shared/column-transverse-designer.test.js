@@ -28,7 +28,29 @@ assert.equal(impossible.status, 'no-solution');
 const invalid = global.ColumnTransverseDesigner.evaluate({ b:60 });
 assert.equal(invalid.status, 'invalid-input');
 
+const circularCommon = {
+  D:60, cover:4, Ag:Math.PI * 60 * 60 / 4, fc:280, fy:4200, Pu:250,
+  mainDb:table['#8'].db, nBar:12, dX:52, dY:52,
+  designVx:20, designVy:18, forceVc0X:false, forceVc0Y:false,
+  hoopFy:2800, phiShear:0.75, barTable:table,
+};
+const circularNormal = global.ColumnTransverseDesigner.searchCircular({ ...circularCommon, seismic:false, limit:2 });
+assert.equal(circularNormal.status, 'evaluated');
+assert.equal(circularNormal.candidates.length, 2);
+assert.ok(circularNormal.candidates.every(item => item.circularLayoutOk && item.shearStrengthOk && item.avMinOk && item.shearSizeOk && item.spacingOk));
+
+const circularSeismic = global.ColumnTransverseDesigner.searchCircular({ ...circularCommon, seismic:true, forceVc0X:true, forceVc0Y:true, limit:2 });
+assert.equal(circularSeismic.status, 'evaluated');
+assert.ok(circularSeismic.candidates.every(item => item.confinementOk && item.rhoS >= item.rhoSReq - 1e-9));
+
+const circularImpossible = global.ColumnTransverseDesigner.searchCircular({ ...circularCommon, designVx:500, designVy:500, seismic:true });
+assert.equal(circularImpossible.status, 'no-solution');
+
+const circularInvalid = global.ColumnTransverseDesigner.evaluateCircular({ D:60 });
+assert.equal(circularInvalid.status, 'invalid-input');
+
 console.log('column transverse designer unit: PASS', {
   normal:normal.candidates[0],
   seismic:seismic.candidates[0],
+  circular:circularSeismic.candidates[0],
 });

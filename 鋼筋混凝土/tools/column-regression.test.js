@@ -548,6 +548,67 @@ async function exerciseColumnRebarDesignCandidates(page) {
   assert(seismicApplied.count === 5 && seismicApplied.first?.transverse?.confinementOk, 'column seismic candidates include confinement design', JSON.stringify(seismicApplied));
   assert(seismicApplied.appliedOk && seismicApplied.seismic && seismicApplied.confinementOk && seismicApplied.okSeismicTieSpacing && seismicApplied.okLateralSupport && seismicApplied.okShear, 'column seismic candidate passes formal transverse checks after adoption', JSON.stringify(seismicApplied));
   assert(Math.abs(seismicApplied.phiVnX - seismicApplied.first.transverse.phiVnX) <= 1e-6 && Math.abs(seismicApplied.phiVnY - seismicApplied.first.transverse.phiVnY) <= 1e-6, 'column seismic transverse prediction matches formal recalculation', JSON.stringify(seismicApplied));
+
+  for (const circularType of ['circleTied', 'circle']) {
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    const circularApplied = await page.evaluate(type => {
+      const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = String(value);
+      };
+      window.setColumnMode?.('design', { recalculate:false, applyPanel:false });
+      document.getElementById('manualLayout').checked = false;
+      document.getElementById('seismicMode').checked = true;
+      document.getElementById('autoVe').checked = false;
+      setValue('colType', type);
+      setValue('fc', 280);
+      setValue('fy', 4200);
+      setValue('b', 80);
+      // 圓柱只以 b 作直徑 D；刻意保留不同 h，鎖定矩形次尺寸不得污染圓柱結果。
+      setValue('h', 55);
+      setValue('cover', 4);
+      setValue('Pu', 150);
+      setValue('Mux', 20);
+      setValue('Muy', 15);
+      setValue('Vu', 15);
+      setValue('Vuy', 12);
+      setValue('Ve', 15);
+      window.calcColumn();
+      const candidates = window.colLast?.designSearch?.candidates || [];
+      const first = candidates[0] ? { ...candidates[0] } : null;
+      const hostText = document.getElementById('columnRebarDesignCandidates')?.innerText || '';
+      const appliedOk = first ? window.applyColumnRebarCandidate(0) : false;
+      const r = window.colLast || {};
+      return {
+        type, count:candidates.length, first, hostText, appliedOk,
+        mode:document.querySelector('.mode-btn.active')?.dataset.mode,
+        barNo:r.barNo, nBar:r.nBar, tieNo:r.tieNo, tieS:r.tieS,
+        spiralBar:r.spiralBar, spiralS:r.spiralS,
+        okRhog:r.okRhog, pmOk:r.pmOk, biaxialSurfaceOk:r.biaxialSurfaceOk,
+        okBarsPerSide:r.okBarsPerSide, okShear:r.okShear,
+        okShearStrength:r.okShearStrength, okShearAvMin:r.okShearAvMin,
+        okShearSize:r.okShearSize, confinementOk:r.confinementOk,
+        okSeismicTieSpacing:r.okSeismicTieSpacing,
+        phiVnX:r.phiVn_kgf, phiVnY:r.phiVn_y_kgf,
+      };
+    }, circularType);
+    assert(circularApplied.count === 5, `column ${circularType} integrated candidates`, JSON.stringify(circularApplied));
+    assert(circularApplied.hostText.includes('圓周均布') && circularApplied.hostText.includes('圓周淨距') && circularApplied.hostText.includes('候選只留在工作頁'), `column ${circularType} work-page disclosure`, circularApplied.hostText.replace(/\s+/g, ' ').slice(0, 320));
+    assert(circularApplied.appliedOk && circularApplied.mode === 'check', `column ${circularType} candidate applies into formal check mode`, JSON.stringify(circularApplied));
+    assert(circularApplied.barNo === circularApplied.first.barNo && circularApplied.nBar === circularApplied.first.nBar, `column ${circularType} preserves longitudinal layout`, JSON.stringify(circularApplied));
+    if (circularType === 'circle') {
+      assert(circularApplied.spiralBar === circularApplied.first.transverse.hoopNo && circularApplied.spiralS === circularApplied.first.transverse.spacing, 'column spiral candidate preserves transverse layout', JSON.stringify(circularApplied));
+    } else {
+      assert(circularApplied.tieNo === circularApplied.first.transverse.hoopNo && circularApplied.tieS === circularApplied.first.transverse.spacing, 'column circular-tied candidate preserves transverse layout', JSON.stringify(circularApplied));
+    }
+    assert(circularApplied.okRhog && circularApplied.pmOk && circularApplied.biaxialSurfaceOk && circularApplied.okBarsPerSide, `column ${circularType} applied candidate passes longitudinal checks`, JSON.stringify(circularApplied));
+    assert(circularApplied.okShear && circularApplied.okShearStrength && circularApplied.okShearAvMin && circularApplied.okShearSize && circularApplied.confinementOk && circularApplied.okSeismicTieSpacing, `column ${circularType} applied candidate passes transverse checks`, JSON.stringify(circularApplied));
+    assert(Math.abs(circularApplied.phiVnX - circularApplied.first.transverse.phiVnX) <= 1e-6 && Math.abs(circularApplied.phiVnY - circularApplied.first.transverse.phiVnY) <= 1e-6, `column ${circularType} transverse prediction matches formal recalculation`, JSON.stringify(circularApplied));
+    const circularReport = await captureColumnReportHtml(page);
+    ['整體配筋候選', '圓周淨距', '候選只留在工作頁', '套用並檢核'].forEach(fragment => {
+      assert(!circularReport.includes(fragment), `column ${circularType} report excludes candidates`, fragment);
+    });
+  }
 }
 
 async function exerciseColumnAttachmentBoundary(page, pack) {

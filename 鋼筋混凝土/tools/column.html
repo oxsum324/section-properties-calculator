@@ -668,8 +668,8 @@
 
 <script src="../shared/pmsection.js?v=2"></script>
 <script src="../shared/column-evaluator.js?v=1"></script>
-<script src="../shared/column-rebar-designer.js?v=1"></script>
-<script src="../shared/column-transverse-designer.js?v=1"></script>
+<script src="../shared/column-rebar-designer.js?v=2"></script>
+<script src="../shared/column-transverse-designer.js?v=2"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -972,22 +972,24 @@
       host.innerHTML = `<div style="padding:10px 12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;font-size:0.88em;"><strong>未找到可直接套用方案</strong><br>${reason}。可調整柱寬、柱深、保護層、材料或載重後再計算。</div>`;
       return;
     }
+    const candidateType = window.colLast?.colType || $('colType')?.value || 'rect';
+    const circular = candidateType === 'circle' || candidateType === 'circleTied';
     const rows = candidates.map((candidate, index) => `
       <tr>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${index + 1}</td>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.nBar}-${candidate.barNo}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${candidate.nSide}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${candidate.bundle > 1 ? `×${candidate.bundle} 束筋` : '單筋'}</td>
-        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.transverse ? `${candidate.transverse.tieNo} @ ${candidate.transverse.spacing} cm；X/Y 繫筋 ${candidate.transverse.nCrossTieX}/${candidate.transverse.nCrossTieY}` : '—'}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${circular ? '圓周均布' : candidate.nSide}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${circular ? `淨距 ${candidate.clear.toFixed(1)} cm` : (candidate.bundle > 1 ? `×${candidate.bundle} 束筋` : '單筋')}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.transverse ? (circular ? `${candidateType === 'circle' ? '螺箍筋' : '圓形閉合箍筋'} ${candidate.transverse.hoopNo} @ ${candidate.transverse.spacing} cm` : `${candidate.transverse.tieNo} @ ${candidate.transverse.spacing} cm；X/Y 繫筋 ${candidate.transverse.nCrossTieX}/${candidate.transverse.nCrossTieY}`) : '—'}</td>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.Ast.toFixed(2)} / ${(candidate.rhog * 100).toFixed(2)}%</td>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.pmUtilization.toFixed(3)} / ${candidate.transverse?.utilization?.toFixed(3) || '—'}</td>
         <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;"><button type="button" class="column-design-apply" data-candidate-index="${index}" style="padding:5px 10px;border:0;border-radius:5px;background:#0e7490;color:#fff;cursor:pointer;">套用並檢核</button></td>
       </tr>`).join('');
     host.innerHTML = `
-      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">矩形柱整體配筋候選依主筋量、橫向筋量、擁擠程度與利用率排序；每列已預先通過雙軸 P–M、配筋率、排內配置、兩向剪力、Av,min、斷面上限、側撐、間距及耐震圍束量。套用後仍由正式流程重算；錨定、搭接、首支箍筋、ℓo 外間距及施工圖維持正式／人工複核。候選只留在工作頁。</div>
+      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">${circular ? '圓柱' : '矩形柱'}整體配筋候選依主筋量、橫向筋量、擁擠程度與利用率排序；每列已預先通過雙軸 P–M、配筋率、${circular ? '圓周淨距' : '排內配置與側撐'}、兩向剪力、Av,min、斷面上限、間距及耐震圍束量。套用後仍由正式流程重算；錨定、搭接、首支箍筋、ℓo 外間距及施工圖維持正式／人工複核。候選只留在工作頁。</div>
       <div style="overflow-x:auto;">
         <table style="width:100%;border-collapse:collapse;font-size:0.84em;border:1px solid #cbd5e1;min-width:760px;">
-          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">主筋</th><th style="padding:6px;">每邊位置數</th><th style="padding:6px;">配置</th><th style="padding:6px;">箍筋／繫筋</th><th style="padding:6px;">Ast / ρg</th><th style="padding:6px;">P–M / 橫向利用率</th><th style="padding:6px;">操作</th></tr></thead>
+          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">主筋</th><th style="padding:6px;">${circular ? '主筋配置' : '每邊位置數'}</th><th style="padding:6px;">${circular ? '圓周淨距' : '配置'}</th><th style="padding:6px;">${circular ? '橫向筋' : '箍筋／繫筋'}</th><th style="padding:6px;">Ast / ρg</th><th style="padding:6px;">P–M / 橫向利用率</th><th style="padding:6px;">操作</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -996,7 +998,20 @@
   function applyColumnRebarCandidate(index) {
     const candidate = window.colLast?.designSearch?.candidates?.[Number(index)];
     if (!candidate) return false;
-    const values = {
+    const candidateType = window.colLast?.colType || $('colType')?.value || 'rect';
+    const circular = candidateType === 'circle' || candidateType === 'circleTied';
+    const values = circular ? {
+      barNo:candidate.barNo,
+      faceBarNo:candidate.barNo,
+      nBar:candidate.nBar,
+      nCrossTieX:0,
+      nCrossTieY:0,
+      legsX:2,
+      legsY:2,
+      ...(candidateType === 'circle'
+        ? { spiralBar:candidate.transverse?.hoopNo, spiralS:candidate.transverse?.spacing }
+        : { tieNo:candidate.transverse?.hoopNo, tieS:candidate.transverse?.spacing }),
+    } : {
       barNo:candidate.barNo,
       faceBarNo:candidate.barNo,
       layoutMode:'sym',
@@ -2026,7 +2041,8 @@
       const _faceDbE = REBAR_TABLE[_faceBarNoE]?.db || _dbCorner;
       const _dbLongEarly = Math.min(_dbCorner, _faceDbE);
       const _tieDbE = REBAR_TABLE[tieNo].db;
-      const _minDim = Math.min(b, h);
+      const _colTypeEarly = document.getElementById('colType')?.value || colType;
+      const _minDim = (_colTypeEarly === 'circle' || _colTypeEarly === 'circleTied') ? b : Math.min(b, h);
       const _seisDbLimit = seismicLongBarSpacingLimit(fy, _dbLongEarly);
       // 規範上限 (25.7.2 / 18.4.5.3)，so 會在完整布局後再精算收斂
       const _sCode = _seismicEarly
@@ -2042,7 +2058,6 @@
       const _spSEl  = document.getElementById('spiralS');
       let _tieSRound = _sRound;
       let _spSRound = Math.min(_sRound, 7.5);
-      const _colTypeEarly = document.getElementById('colType')?.value || colType;
       if (_seismicEarly && (_colTypeEarly === 'circle' || _colTypeEarly === 'circleTied')) {
         const _Dch = Math.max(0, b - 2 * cover);
         const _Ach = Math.PI * _Dch * _Dch / 4;
@@ -2457,16 +2472,17 @@
     };
 
     // 容量式候選只供 HTML 工作頁比較；正式計算書僅採用套用後的實際配筋與檢核結果。
-    const designSearch = (currentMode === 'design' && !manualLayout && colType === 'rect' && window.ColumnRebarDesigner && window.ColumnTransverseDesigner)
-      ? window.ColumnRebarDesigner.search({
-          b, h, cover, tieDb:REBAR_TABLE['#5'].db, seismic, barTable:REBAR_TABLE, limit:5,
-          evaluateCandidate(candidate) {
-            const layout = attachBarSize(
+    const candidateEvaluator = (currentMode === 'design' && !manualLayout && window.ColumnRebarDesigner && window.ColumnTransverseDesigner)
+      ? function evaluateColumnCandidate(candidate) {
+            const isRectCandidate = colType === 'rect';
+            const layout = isRectCandidate ? attachBarSize(
               makeLayoutSym(candidate.nSide, candidate.nSide, candidate.bundle, candidate.bundle),
               candidate.ab, candidate.db, candidate.ab, candidate.db
-            );
+            ) : null;
             const candidateX = computePMSection(b, h, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, layout);
-            const candidateY = computePMSection(h, b, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, rotateLayoutForY(layout));
+            const candidateY = isRectCandidate
+              ? computePMSection(h, b, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, rotateLayoutForY(layout))
+              : computePMSection(b, b, fc, fy, cover, candidate.nBar, candidate.ab, beta1, colType, candidate.db, null);
             const evaluation = ColumnEvaluator.evaluateDemand({
               pmDesignX:candidateX.pmDesign,
               pmDesignY:candidateY.pmDesign,
@@ -2504,16 +2520,27 @@
             const candidateLowAxial = candidateNu < Ag * fc / 20;
             const candidateEqX = seismic ? (($('autoVe')?.checked !== false) ? Math.max(candidateVe.autoX, candidateVe.manual) : candidateVe.manual) : 0;
             const candidateEqY = seismic ? (($('autoVe')?.checked !== false) ? Math.max(candidateVe.autoY, candidateVe.manual) : candidateVe.manual) : 0;
-            const transverseSearch = ColumnTransverseDesigner.search({
-              b, h, cover, Ag, fc, fy, Pu,
-              mainDb:candidate.db, bundle:candidate.bundle, nSide:candidate.nSide,
-              dX:candidateDepth.d_x, dY:candidateDepth.d_y,
-              designVx:candidateVe.designX, designVy:candidateVe.designY,
-              forceVc0X:seismic && candidateLowAxial && candidateVe.designX > 0 && candidateEqX >= 0.5 * candidateVe.designX,
-              forceVc0Y:seismic && candidateLowAxial && candidateVe.designY > 0 && candidateEqY >= 0.5 * candidateVe.designY,
-              seismic, tieFy, crossTieFy, phiShear:PHI.shear,
-              barTable:REBAR_TABLE, limit:1,
-            });
+            const forceVc0X = seismic && candidateLowAxial && candidateVe.designX > 0 && candidateEqX >= 0.5 * candidateVe.designX;
+            const forceVc0Y = seismic && candidateLowAxial && candidateVe.designY > 0 && candidateEqY >= 0.5 * candidateVe.designY;
+            const transverseSearch = isRectCandidate
+              ? ColumnTransverseDesigner.search({
+                  b, h, cover, Ag, fc, fy, Pu,
+                  mainDb:candidate.db, bundle:candidate.bundle, nSide:candidate.nSide,
+                  dX:candidateDepth.d_x, dY:candidateDepth.d_y,
+                  designVx:candidateVe.designX, designVy:candidateVe.designY,
+                  forceVc0X, forceVc0Y,
+                  seismic, tieFy, crossTieFy, phiShear:PHI.shear,
+                  barTable:REBAR_TABLE, limit:1,
+                })
+              : ColumnTransverseDesigner.searchCircular({
+                  D:b, cover, Ag, fc, fy, Pu,
+                  mainDb:candidate.db, nBar:candidate.nBar,
+                  dX:candidateDepth.d_x, dY:candidateDepth.d_y,
+                  designVx:candidateVe.designX, designVy:candidateVe.designY,
+                  forceVc0X, forceVc0Y,
+                  seismic, hoopFy:colType === 'circle' ? spiralFy : tieFy, phiShear:PHI.shear,
+                  barTable:REBAR_TABLE, limit:1,
+                });
             const transverse = transverseSearch.candidates?.[0] || null;
             return {
               ok:!!transverse,
@@ -2525,13 +2552,22 @@
                 ...transverse,
                 designVx:candidateVe.designX,
                 designVy:candidateVe.designY,
-                forceVc0X:seismic && candidateLowAxial && candidateVe.designX > 0 && candidateEqX >= 0.5 * candidateVe.designX,
-                forceVc0Y:seismic && candidateLowAxial && candidateVe.designY > 0 && candidateEqY >= 0.5 * candidateVe.designY,
+                forceVc0X, forceVc0Y,
               } : null,
             };
-          },
-        })
+          }
       : null;
+    const designSearch = !candidateEvaluator
+      ? null
+      : (colType === 'rect'
+          ? window.ColumnRebarDesigner.search({
+              b, h, cover, tieDb:REBAR_TABLE['#5'].db, seismic, barTable:REBAR_TABLE, limit:5,
+              evaluateCandidate:candidateEvaluator,
+            })
+          : window.ColumnRebarDesigner.searchCircular({
+              D:b, cover, transverseDb:REBAR_TABLE['#5'].db, seismic, barTable:REBAR_TABLE, limit:5,
+              evaluateCandidate:candidateEvaluator,
+            }));
 
     // === Bresler reciprocal / load contour (使用放大後 Mc, Mcy) ===
     let breslerRatio = null, breslerMethod = null, breslerOk = null;
@@ -2622,10 +2658,11 @@
     const vcNuTermRaw = Ag > 0 ? Nu / (6 * Ag) : 0;
     const vcNuTerm = vcNuTermRaw > 0 ? Math.min(vcNuTermRaw, 0.05 * fc) : vcNuTermRaw;
     const vcStress = Math.max(0, vcBaseStress + vcNuTerm);
+    const shearWidthY = (colType === 'circle' || colType === 'circleTied') ? b : h;
     const Vc_x_raw = vcStress * b * d_x;
-    const Vc_y_raw = vcStress * h * d_y;
+    const Vc_y_raw = vcStress * shearWidthY * d_y;
     const Vc_x_cap = 1.33 * lambdaC * sqrtFc * b * d_x;
-    const Vc_y_cap = 1.33 * lambdaC * sqrtFc * h * d_y;
+    const Vc_y_cap = 1.33 * lambdaC * sqrtFc * shearWidthY * d_y;
     const Vc_x = Math.min(Vc_x_raw, Vc_x_cap);
     const Vc_y = Math.min(Vc_y_raw, Vc_y_cap);
     const Vc = Vc_x;
@@ -2835,19 +2872,19 @@
     const phiVn = phiVc_eff + phiVs;
     const phiVn_y = phiVc_y_eff + phiVs_y;
     const shearSectionNomX = Vc_x + 2.12 * lambdaC * sqrtFc * b * d_x;
-    const shearSectionNomY = Vc_y + 2.12 * lambdaC * sqrtFc * h * d_y;
+    const shearSectionNomY = Vc_y + 2.12 * lambdaC * sqrtFc * shearWidthY * d_y;
     const shearSectionLimitX = PHI.shear * shearSectionNomX;
     const shearSectionLimitY = PHI.shear * shearSectionNomY;
     const avMinTriggerX = PHI.shear * 0.265 * lambdaC * sqrtFc * b * d_x;
-    const avMinTriggerY = PHI.shear * 0.265 * lambdaC * sqrtFc * h * d_y;
+    const avMinTriggerY = PHI.shear * 0.265 * lambdaC * sqrtFc * shearWidthY * d_y;
     const avMinRequiredX = designVxTf * 1000 > avMinTriggerX + 1e-6;
     const avMinRequiredY = designVyTf * 1000 > avMinTriggerY + 1e-6;
     const avMinDemandFytPerLenX = Math.max(0.2 * lambdaC * sqrtFc * b, 3.5 * b);
-    const avMinDemandFytPerLenY = Math.max(0.2 * lambdaC * sqrtFc * h, 3.5 * h);
+    const avMinDemandFytPerLenY = Math.max(0.2 * lambdaC * sqrtFc * shearWidthY, 3.5 * shearWidthY);
     const avMinDemandRootX = 0.2 * lambdaC * sqrtFc * b;
-    const avMinDemandRootY = 0.2 * lambdaC * sqrtFc * h;
+    const avMinDemandRootY = 0.2 * lambdaC * sqrtFc * shearWidthY;
     const avMinDemandFlatX = 3.5 * b;
-    const avMinDemandFlatY = 3.5 * h;
+    const avMinDemandFlatY = 3.5 * shearWidthY;
     const avMinProvidedFytPerLenX =
       (2 * shearMainAb * shearMainFy) / shearMainS +
       (shearNctX > 0 ? (shearNctX * crossTieAb * crossTieFy) / crossTieS : 0);

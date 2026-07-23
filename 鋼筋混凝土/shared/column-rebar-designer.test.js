@@ -32,4 +32,18 @@ assert.equal(noSolution.status, 'no-solution');
 const invalid = global.ColumnRebarDesigner.search({ b:60, h:60, cover:4, tieDb:1.27 });
 assert.equal(invalid.status, 'invalid-input');
 
-console.log('column rebar designer unit: PASS', { candidates:result.candidates.length, evaluated:result.evaluatedCount });
+const circular = global.ColumnRebarDesigner.searchCircular({
+  D:60, cover:4, transverseDb:table['#5'].db, seismic:true, barTable:table, limit:5,
+  evaluateCandidate(candidate) {
+    return { ok:candidate.nBar >= 8, utilization:0.8, pmUtilization:0.7, transverse:{ transverseSteel:0.2 } };
+  },
+});
+assert.equal(circular.status, 'evaluated');
+assert.equal(circular.candidates.length, 5);
+assert.ok(circular.candidates.every(item => item.nBar >= 8 && item.nBar * item.ab / (Math.PI * 60 * 60 / 4) >= 0.01 - 1e-9));
+assert.ok(circular.candidates.every(item => item.clear >= item.clearRequired - 1e-9));
+
+const circularInvalid = global.ColumnRebarDesigner.searchCircular({ D:60 });
+assert.equal(circularInvalid.status, 'invalid-input');
+
+console.log('column rebar designer unit: PASS', { candidates:result.candidates.length, circular:circular.candidates.length, evaluated:result.evaluatedCount });

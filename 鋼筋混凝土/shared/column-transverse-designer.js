@@ -18,6 +18,16 @@
     return { req:highTrigger ? Math.max(a, b, c) : Math.max(a, b), highTrigger, parts:{ a, b, c }, kf, kn };
   }
 
+  function circularConfinementDemand({ Ag, Ach, fc, fyt, PuKgf }) {
+    if (!(Ach > 0 && fyt > 0 && Ag > Ach)) return { req:NaN, highTrigger:false };
+    const kf = Math.max(1, fc / 1750 + 0.6);
+    const highTrigger = PuKgf > 0.3 * Ag * fc || fc > 700;
+    const d = 0.45 * (Ag / Ach - 1) * fc / fyt;
+    const e = 0.12 * fc / fyt;
+    const f = 0.35 * PuKgf * kf / (fyt * Ach);
+    return { req:highTrigger ? Math.max(d, e, f) : Math.max(d, e), highTrigger, parts:{ d, e, f }, kf, kn:1 };
+  }
+
   function lateralSupport(face, nSide, cover, tieDb, dbEq, seismic, hxLimit, requireEveryBarSupport) {
     if (nSide <= 2) return { ok:true, legsMin:2, crossTies:0, pitch:0, hx:0, unsupClear:0 };
     const pitch = (face - 2 * cover - 2 * tieDb - dbEq) / (nSide - 1);
@@ -156,5 +166,108 @@
     };
   }
 
-  root.ColumnTransverseDesigner = { evaluate, search, confinementDemand, lateralSupport, seismicSpacingLimit };
+  function evaluateCircular(options) {
+    const o = options || {};
+    const required = ['D','cover','fc','fy','Pu','mainDb','nBar','dX','dY','designVx','designVy','hoopDb','hoopAb','hoopFy','spacing'];
+    if (!required.every(key => finite(o[key])) || !(o.D > 0 && o.fc > 0 && o.mainDb > 0 && o.nBar >= 6 && o.hoopDb > 0 && o.hoopAb > 0 && o.spacing > 0)) {
+      return { status:'invalid-input', ok:false, reason:'圓柱橫向筋 evaluator 輸入不完整' };
+    }
+    const Ag = finite(o.Ag) ? Number(o.Ag) : Math.PI * o.D * o.D / 4;
+    const phiShear = finite(o.phiShear) ? Number(o.phiShear) : 0.75;
+    const lambda = finite(o.lambda) ? Number(o.lambda) : 1;
+    const sqrtFc = Math.sqrt(o.fc);
+    const Nu = o.Pu * 1000;
+    const rLong = Math.max(0, o.D / 2 - o.cover - o.hoopDb - o.mainDb / 2);
+    const hx = rLong > 0 ? 2 * rLong * Math.sin(Math.PI / o.nBar) : Infinity;
+    const factor = o.fy <= 4200 ? 6 : (o.fy <= 5000 ? 5.5 : 5);
+    const soRaw = Number.isFinite(hx) && hx > 0 ? 10 + (35 - hx) / 3 : 15;
+    const so = Math.max(10, Math.min(15, soRaw));
+    const spacingLimit = o.seismic
+      ? Math.min(o.D / 4, factor * o.mainDb, so)
+      : Math.min(16 * o.mainDb, 48 * o.hoopDb, o.D);
+    const spacingOk = o.spacing <= spacingLimit + 1e-6;
+
+    const vcBaseStress = 0.53 * lambda * sqrtFc;
+    const vcNuRaw = Ag > 0 ? Nu / (6 * Ag) : 0;
+    const vcNu = vcNuRaw > 0 ? Math.min(vcNuRaw, 0.05 * o.fc) : vcNuRaw;
+    const vcStress = Math.max(0, vcBaseStress + vcNu);
+    const VcX = Math.min(vcStress * o.D * o.dX, 1.33 * lambda * sqrtFc * o.D * o.dX);
+    const VcY = Math.min(vcStress * o.D * o.dY, 1.33 * lambda * sqrtFc * o.D * o.dY);
+    const phiVcX = o.forceVc0X ? 0 : phiShear * VcX;
+    const phiVcY = o.forceVc0Y ? 0 : phiShear * VcY;
+    const provided = 2 * o.hoopAb * o.hoopFy / o.spacing;
+    const phiVnX = phiVcX + phiShear * provided * o.dX;
+    const phiVnY = phiVcY + phiShear * provided * o.dY;
+    const shearStrengthOk = phiVnX + 1e-6 >= o.designVx * 1000 && phiVnY + 1e-6 >= o.designVy * 1000;
+    const sectionLimitX = phiShear * (VcX + 2.12 * lambda * sqrtFc * o.D * o.dX);
+    const sectionLimitY = phiShear * (VcY + 2.12 * lambda * sqrtFc * o.D * o.dY);
+    const shearSizeOk = sectionLimitX + 1e-6 >= o.designVx * 1000 && sectionLimitY + 1e-6 >= o.designVy * 1000;
+    const triggerX = phiShear * 0.265 * lambda * sqrtFc * o.D * o.dX;
+    const triggerY = phiShear * 0.265 * lambda * sqrtFc * o.D * o.dY;
+    const avMinRequiredX = o.designVx * 1000 > triggerX + 1e-6;
+    const avMinRequiredY = o.designVy * 1000 > triggerY + 1e-6;
+    const avMinDemand = Math.max(0.2 * lambda * sqrtFc * o.D, 3.5 * o.D);
+    const avMinOk = (!avMinRequiredX || provided + 1e-6 >= avMinDemand) && (!avMinRequiredY || provided + 1e-6 >= avMinDemand);
+
+    const Dch = Math.max(0, o.D - 2 * o.cover);
+    const Ach = Math.PI * Dch * Dch / 4;
+    const conf = circularConfinementDemand({ Ag, Ach, fc:o.fc, fyt:o.hoopFy, PuKgf:Nu });
+    const rhoS = Dch > 0 ? 4 * o.hoopAb / (Dch * o.spacing) : NaN;
+    const fytLimitOk = o.hoopFy <= 7000;
+    const confinementOk = !o.seismic || (rhoS + 1e-9 >= conf.req && fytLimitOk);
+    const clear = Number.isFinite(hx) ? hx - o.mainDb : -Infinity;
+    const clearRequired = Math.max(1.5 * o.mainDb, 4);
+    const circularLayoutOk = clear + 1e-9 >= clearRequired;
+    const ratios = [
+      o.designVx > 0 ? o.designVx * 1000 / phiVnX : 0,
+      o.designVy > 0 ? o.designVy * 1000 / phiVnY : 0,
+      avMinRequiredX || avMinRequiredY ? avMinDemand / provided : 0,
+      o.spacing / spacingLimit,
+      o.seismic ? conf.req / rhoS : 0,
+      o.designVx > 0 ? o.designVx * 1000 / sectionLimitX : 0,
+      o.designVy > 0 ? o.designVy * 1000 / sectionLimitY : 0,
+      clearRequired / Math.max(clear, 1e-9),
+    ].filter(Number.isFinite);
+    const utilization = ratios.length ? Math.max(...ratios) : Infinity;
+    const ok = circularLayoutOk && spacingOk && shearStrengthOk && shearSizeOk && avMinOk && confinementOk && utilization <= 1 + 1e-9;
+    return {
+      status:'evaluated', ok, utilization, hx, clear, clearRequired, circularLayoutOk,
+      spacing:o.spacing, spacingLimit, spacingOk, spacingData:{ limit:spacingLimit, factor, so, soRaw },
+      phiVnX, phiVnY, shearStrengthOk, sectionLimitX, sectionLimitY, shearSizeOk,
+      avMinRequiredX, avMinRequiredY, avMinDemandX:avMinDemand, avMinDemandY:avMinDemand,
+      avMinProvidedX:provided, avMinProvidedY:provided, avMinOk,
+      rhoS, rhoSReq:conf.req, confinementOk, confinementDemand:conf, fytLimitOk,
+      transverseSteel:4 * o.hoopAb / o.spacing,
+      reason:ok ? '' : '圓柱橫向筋方案未同時通過圓周配置、剪力、Av,min、斷面上限、間距或圍束量',
+    };
+  }
+
+  function searchCircular(options) {
+    const table = options?.barTable || root.Rebar?.REBAR_TABLE || root.REBAR_TABLE || {};
+    const bars = [...new Set(options?.bars || DEFAULT_BARS)].filter(no => table[no]);
+    const spacings = [...new Set(options?.spacings || DEFAULT_SPACINGS)].map(Number).filter(value => value > 0).sort((a, b) => b - a);
+    const candidates = [];
+    let evaluatedCount = 0;
+    for (const hoopNo of bars) {
+      for (const spacing of spacings) {
+        evaluatedCount += 1;
+        const bar = table[hoopNo];
+        const result = evaluateCircular({ ...options, hoopDb:bar.db, hoopAb:bar.area, spacing });
+        if (!result.ok) continue;
+        candidates.push({ hoopNo, ...result });
+      }
+    }
+    candidates.sort((a, b) => a.transverseSteel - b.transverseSteel || b.spacing - a.spacing || b.utilization - a.utilization);
+    const limit = Math.max(1, Number(options?.limit) || 3);
+    return {
+      status:candidates.length ? 'evaluated' : 'no-solution',
+      reason:candidates.length ? '' : '目前搜尋範圍內沒有同時通過圓周配置、剪力、Av,min、斷面上限、間距與耐震圍束量的圓柱橫向筋方案',
+      candidates:candidates.slice(0, limit), evaluatedCount,
+    };
+  }
+
+  root.ColumnTransverseDesigner = {
+    evaluate, search, evaluateCircular, searchCircular,
+    confinementDemand, circularConfinementDemand, lateralSupport, seismicSpacingLimit
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
