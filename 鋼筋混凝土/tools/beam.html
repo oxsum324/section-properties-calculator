@@ -798,6 +798,7 @@
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/report.js?v=6"></script>
+<script src="../shared/beam-evaluator.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -1528,62 +1529,33 @@
   }
 
   function calcShearData({ sectionType, bw, bf, hf, h, fc, fyt, d, stirrup, legs, s, Vu, Tu, seismic, Ve, Pu, Ag, enableTorsion, torsionDesignStatus = 'pending', rhoShear, cover, tieDb }) {
-    const lambda = LAMBDA_NORMAL;
     const stirrupAb = REBAR_TABLE[stirrup].area;
     const Av = legs * stirrupAb;
-    const AvProvidedPerS = (s > 0) ? (Av / s) : 0;
-    const AvMinPerS = Math.max(0.2 * Math.sqrt(fc) * bw / fyt, 3.5 * bw / fyt);
-    const hasMinStir = AvProvidedPerS >= AvMinPerS;
-    const rhoForVc = Math.max(rhoShear || 0, 0.0001);
-    const sqrtFc = Math.sqrt(fc);
-    const vcBaseStress = 0.53 * lambda * sqrtFc;
-    const axialStressRaw = (Ag > 0) ? (Pu / (6 * Ag)) : 0;
-    const axialStress = Math.min(Math.max(axialStressRaw, -vcBaseStress), 0.05 * fc);
-    const vcSimpleStress = Math.max(0, vcBaseStress + axialStress);
-    const vcRhoStress = Math.max(0, 2.12 * lambda * Math.cbrt(rhoForVc) * sqrtFc + axialStress);
-    const axialFactor = vcBaseStress > 0 ? vcSimpleStress / vcBaseStress : 1;
-    const lambdaS = calcShearSizeFactor(d);
-    const VcSimple = vcSimpleStress * bw * d;
-    const VcRho = vcRhoStress * bw * d;
-    const VcRaw = hasMinStir ? Math.max(VcSimple, VcRho) : lambdaS * VcRho;
-    const VcMax = 1.33 * lambda * sqrtFc * bw * d;
-    const Vc = Math.max(0, Math.min(VcRaw, VcMax));
-    const phiVc = PHI.shear * Vc;
-    const Vs_provided = (s > 0) ? (Av * fyt * d) / s : 0;
-    const phiVs = PHI.shear * Vs_provided;
-    const phiVn = phiVc + phiVs;
-    const shearDemand = seismic ? Math.max(Vu, Ve || 0) : Vu;
-    const shearDemandSource = seismic && Ve > Vu ? 'Ve' : 'Vu';
-    let forceVc0 = false;
-    if (seismic) {
-      const halfEarthquakeShear = Ve > 0.5 * shearDemand;
-      const lowAxial = Pu < (Ag * fc / 20);
-      forceVc0 = halfEarthquakeShear && lowAxial;
-    }
-    const phiVn_eff = forceVc0 ? phiVs : phiVn;
+    const strength = BeamEvaluator.computeShearState({
+      sectionType, bw, bf, hf, h, fc, fyt, d, Ag, Av, s, rhoShear,
+      phiShear:PHI.shear, lambda:LAMBDA_NORMAL, seismic, Ve,
+      enableTorsion, torsionDesignStatus,
+    }, { Pu, Vu, Tu });
+    const {
+      lambda, Vc, phiVc, AvProvidedPerS, Vs_provided, phiVs, phiVn,
+      forceVc0, phiVn_eff, shearDemand, shearDemandSource, AvMinPerS, hasMinStir,
+      lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress,
+      torNegligible, torsionNeedsDesign, Tu_th
+    } = strength;
     const VuLimit_minStir = PHI.shear * 0.265 * lambda * Math.sqrt(fc) * bw * d;
     const needsMinStir = shearDemand > VuLimit_minStir;
     const needsShearRebar = needsMinStir || shearDemand > (forceVc0 ? 0 : phiVc);
     const okShearMin = !needsMinStir || hasMinStir;
-    const highShearVs = Vs_provided > 1.06 * lambda * sqrtFc * bw * d;
+    const highShearVs = Vs_provided > 1.06 * lambda * Math.sqrt(fc) * bw * d;
     const shearSpacingLimit = highShearVs ? Math.min(d / 4, 30) : Math.min(d / 2, 60);
     const clearWidth = Math.max(0, bw - 2 * (cover || 0) - 2 * (tieDb || 0));
     const legSpacing = legs > 1 ? clearWidth / (legs - 1) : Infinity;
     const shearLegSpacingLimit = highShearVs ? d / 2 : d;
     const okShearSpacing = !needsShearRebar || (s > 0 && s <= shearSpacingLimit && legSpacing <= shearLegSpacingLimit);
 
-    let torNegligible = true, Tu_th = 0, torsionNeedsDesign = false, torsionStatusOk = true, torsionDetailOk = true;
-    if (enableTorsion) {
-      const b_eff = (sectionType === 'rect') ? bw : bf;
-      const Acp = (sectionType === 'rect') ? bw * h : (bw * h + (b_eff - bw) * hf);
-      const pcp = (sectionType === 'rect') ? 2 * (bw + h) : 2 * (b_eff + h);
-      Tu_th = PHI.shear * 0.265 * lambda * Math.sqrt(fc) * (Acp * Acp / pcp);
-      torNegligible = Tu < Tu_th;
-      torsionNeedsDesign = !torNegligible;
-      if (torNegligible) {
-        torsionDetailOk = true;
-        torsionStatusOk = true;
-      } else if (torsionDesignStatus === 'ok') {
+    let torsionStatusOk = true, torsionDetailOk = true;
+    if (enableTorsion && torsionNeedsDesign) {
+      if (torsionDesignStatus === 'ok') {
         torsionDetailOk = true;
         torsionStatusOk = true;
       } else if (torsionDesignStatus === 'ng') {
@@ -2086,6 +2058,16 @@
       lambdaS, rhoForVc, axialFactor, vcBaseStress, axialStress, vcSimpleStress, vcRhoStress, shearSpacingLimit, highShearVs, legSpacing, shearLegSpacingLimit,
       okShearSpacing, torNegligible, torsionNeedsDesign, torsionStatusOk, torsionDetailOk, Tu_th
     } = shearData;
+
+    const beamEvaluatorBase = {
+      phiMnPos,
+      phiMnNeg,
+      shearBase: {
+        sectionType, bw, bf, hf, h, fc, fyt, d, Ag, Av, s, rhoShear,
+        phiShear:PHI.shear, lambda:LAMBDA_NORMAL, seismic, Ve,
+        enableTorsion, torsionDesignStatus,
+      },
+    };
 
     // === 跨深比 hmin (僅在啟用時計算) ===
     const factorMap = { simple: 16, oneEnd: 18.5, bothEnd: 21, cantilever: 8 };
@@ -2672,9 +2654,14 @@ ${layerBars.map(L => {
       developmentData,
       // 梁柱接頭輸出
       beamColumnJoint,
+      // 載重組合逐工況 evaluator 基準
+      beamEvaluatorBase,
       // 撓度 (可選)
       defl: deflResult
     };
+    if (window.rcBeamLoadComboConfig && window.LoadCombo?.refreshLimitStateSuggestions) {
+      window.LoadCombo.refreshLimitStateSuggestions(window.rcBeamLoadComboConfig);
+    }
     updateBeamAttachmentReadiness(window.beamLast);
   }
 
@@ -3589,6 +3576,20 @@ ${layerBars.map(L => {
     el.addEventListener('change', calcBeam);
   });
   // 載重組合產生器
+  const beamTupleDemand = tuple => {
+    const value = key => Number(tuple?.values?.[key]);
+    return { M:value('M'), V:value('V'), P:value('P'), T:value('T') };
+  };
+  const scoreBeamFlexureTuple = direction => tuple => {
+    const base = window.beamLast?.beamEvaluatorBase;
+    if (!base || !window.BeamEvaluator?.flexureScore) return NaN;
+    return BeamEvaluator.flexureScore(base, beamTupleDemand(tuple), direction);
+  };
+  const scoreBeamShearTorsionTuple = tuple => {
+    const base = window.beamLast?.beamEvaluatorBase;
+    if (!base || !window.BeamEvaluator?.shearTorsionScore) return NaN;
+    return BeamEvaluator.shearTorsionScore(base, beamTupleDemand(tuple));
+  };
   const lcBeamCfg = {
     prefix: 'lcBeam',
     tupleMode: 'select',
@@ -3599,10 +3600,9 @@ ${layerBars.map(L => {
       { key:'T', label:'扭矩 Tu', unit:'tf·m' },
     ],
     limitStates: [
-      { key:'flexure-positive', label:'正彎矩 Mu+', criterion:'positive', forceKey:'M', criterionLabel:'M 正向最大值；套用時仍帶入同列 P / V / T' },
-      { key:'flexure-negative', label:'負彎矩 Mu−', criterion:'negative', forceKey:'M', criterionLabel:'M 負向最大幅值；套用時仍帶入同列 P / V / T' },
-      { key:'shear-torsion', label:'剪力—扭矩需求向量', criterion:'normalized-srss', criterionLabel:'|V|、|T| 依本批次包絡正規化之 SRSS；非容量互制', terms:[{ forceKey:'V' }, { forceKey:'T' }] },
-      { key:'axial-reference', label:'軸力幅值參考', criterion:'abs', forceKey:'P', criterionLabel:'|P| 最大值；供軸力效應工況篩選' },
+      { key:'flexure-positive-capacity', label:'正彎矩容量利用率', criterionLabel:'依目前斷面 φMn⁺ 逐完整組合計算 Mu⁺/φMn⁺', scorer:scoreBeamFlexureTuple('positive') },
+      { key:'flexure-negative-capacity', label:'負彎矩容量利用率', criterionLabel:'依目前斷面 φMn⁻ 逐完整組合計算 |Mu⁻|/φMn⁻', scorer:scoreBeamFlexureTuple('negative') },
+      { key:'shear-torsion-boundary', label:'剪力容量／扭力門檻', criterionLabel:'逐列依 Pu 重算 φVn 與耐震 Vc 歸零；Tu 達門檻時因未建立 φTn / V-T 互制而失敗關閉', scorer:scoreBeamShearTorsionTuple },
     ],
     targetIds: { M:['MuPos','MuNeg'], V:'Vu', P:'Pu', T:'Tu' },
     targetReportMeta: {
@@ -3622,7 +3622,16 @@ ${layerBars.map(L => {
         value:forceKey === 'P' ? value : Math.abs(value),
       }];
     },
+    onApplied: stored => {
+      const torsionDemand = Math.abs(Number(stored?.selectedTuple?.values?.T) || 0);
+      if (torsionDemand > 1e-9 && !$('enableTorsion').checked) {
+        $('enableTorsion').checked = true;
+        syncToggles();
+      }
+      calcBeam();
+    },
   };
+  window.rcBeamLoadComboConfig = lcBeamCfg;
   document.getElementById('lcBeamPanel').innerHTML = LoadCombo.buildPanel(lcBeamCfg);
   LoadCombo.bind(lcBeamCfg);
 

@@ -15,6 +15,7 @@ const concretePath = path.join(ROOT, '結構工具箱', 'core', 'materials', 'co
 const rebarPath = path.join(ROOT, '結構工具箱', 'core', 'materials', 'rebar.js');
 const flexurePath = path.join(RC_ROOT, 'shared', 'flexure.js');
 const commonPath = path.join(RC_ROOT, 'shared', 'common.js');
+const beamEvaluatorPath = path.join(RC_ROOT, 'shared', 'beam-evaluator.js');
 const toleranceDefault = 0.001;
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -647,6 +648,106 @@ async function exerciseBeamProjectStorage(page) {
   assert(draft.raw && draft.raw.includes('rc-beam-project-v1'), 'beam project draft localStorage payload', 'draft saved');
 }
 
+async function exerciseCapacityLoadCombo(page) {
+  await page.goto(TOOL_URL, { waitUntil:'networkidle' });
+  await page.evaluate(() => {
+    document.querySelector('.mode-btn[data-mode="check"]')?.click();
+    const setValue = (id, value) => {
+      const input = document.getElementById(id);
+      if (!input) throw new Error(`missing load-combo input ${id}`);
+      input.value = String(value);
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+      input.dispatchEvent(new Event('change', { bubbles:true }));
+    };
+    setValue('lcBeam_M_D', 40);
+    setValue('lcBeam_M_W', -100);
+    setValue('lcBeam_V_D', 10);
+    setValue('lcBeam_V_W', -50);
+    setValue('lcBeam_P_D', 100);
+  });
+  await page.waitForFunction(() => {
+    const states = window.lastLoadComboSuggestions?.lcBeam?.states;
+    return states?.length === 3 && states.every(state => state.details?.status === 'evaluated');
+  });
+
+  const before = await page.evaluate(() => {
+    const states = window.lastLoadComboSuggestions.lcBeam.states;
+    return states.map((state, index) => ({
+      index,
+      key:state.key,
+      criterion:state.criterion,
+      score:state.score,
+      details:state.details,
+      tuple:state.governing,
+      scoreText:document.getElementById(`lcBeam_limit_${index}_score`)?.textContent || '',
+    }));
+  });
+  assert(before.every(state => state.criterion === 'custom'), 'beam load-combo uses capacity / boundary scorers', JSON.stringify(before.map(state => state.key)));
+  assert(before[0].details.flexureDirection === 'positive' && Number.isFinite(before[0].details.flexureUtilization), 'beam positive flexure tuple has finite capacity utilization', JSON.stringify(before[0].details));
+  assert(before[1].details.flexureDirection === 'negative' && Number.isFinite(before[1].details.flexureUtilization), 'beam negative flexure tuple has finite capacity utilization', JSON.stringify(before[1].details));
+  assert(Number.isFinite(before[2].details.shearUtilization) && before[2].scoreText === before[2].score.toFixed(3), 'beam shear tuple has readable true capacity utilization', JSON.stringify(before[2].details));
+
+  await page.evaluate(() => document.getElementById('lcBeam_limit_2_select')?.click());
+  await page.evaluate(() => document.getElementById('lcBeam_btnApply')?.click());
+  await page.waitForFunction(() => window.lastLoadCombo?.lcBeam?.tuplePreserved === true && window.beamLast);
+  const applied = await page.evaluate(() => {
+    const r = window.beamLast;
+    const stored = window.lastLoadCombo.lcBeam;
+    return {
+      selectedTuple:stored.selectedTuple,
+      tuplePreserved:stored.tuplePreserved,
+      MuPos:r.MuPos_in,
+      MuNeg:r.MuNeg_in,
+      Vu:r.Vu_in,
+      Pu:r.Pu_in,
+      phiVn:r.phiVn_kgf / 1000,
+      shearDemand:r.shearDemand / 1000,
+      reportGroup:window.LoadCombo.toReportGroup('lcBeam', '採用載重組合'),
+    };
+  });
+  const shearState = before[2];
+  assert(applied.tuplePreserved === true && applied.selectedTuple.name === shearState.tuple.name, 'beam capacity suggestion applies one complete tuple', JSON.stringify(applied.selectedTuple));
+  assert(applied.Pu === shearState.details.P && applied.Vu === Math.abs(shearState.details.V), 'beam target mapping preserves signed source and magnitude demand semantics', JSON.stringify(applied));
+  assert(nearlyEqual(applied.phiVn, shearState.details.shearCapacity, 1e-9), 'beam formal result reuses identical Pu-dependent shear capacity', `${applied.phiVn}/${shearState.details.shearCapacity}`);
+  assert(nearlyEqual(applied.shearDemand, shearState.details.shearDemand, 1e-9), 'beam formal result and tuple scorer use identical shear demand', `${applied.shearDemand}/${shearState.details.shearDemand}`);
+  assert(JSON.stringify(applied.reportGroup).includes('來源完整有號內力'), 'beam report group keeps source signed tuple', JSON.stringify(applied.reportGroup));
+  assert(!JSON.stringify(applied.reportGroup).includes('容量利用率') && !JSON.stringify(applied.reportGroup).includes('扭力門檻'), 'beam capacity suggestions remain page-only', JSON.stringify(applied.reportGroup));
+
+  const refreshed = await page.evaluate(async previousScore => {
+    const input = document.getElementById('stirS');
+    input.value = '20';
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const state = window.lastLoadComboSuggestions?.lcBeam?.states?.[2];
+    return { previousScore, score:state?.score, status:state?.details?.status };
+  }, shearState.score);
+  assert(Number.isFinite(refreshed.score) && refreshed.score > refreshed.previousScore, 'beam stirrup change refreshes capacity suggestions', JSON.stringify(refreshed));
+
+  const torsion = await page.evaluate(async () => {
+    const input = document.getElementById('lcBeam_T_W');
+    input.value = '2';
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const state = window.lastLoadComboSuggestions?.lcBeam?.states?.[2];
+    return { score:state?.score, details:state?.details, scoreText:document.getElementById('lcBeam_limit_2_score')?.textContent || '' };
+  });
+  assert(torsion.details?.status === 'torsion-review-required' && torsion.score >= 1e12, 'beam torsion above threshold fails closed', JSON.stringify(torsion));
+  assert(torsion.scoreText === '扭力詳算待複核', 'beam torsion fail-closed state stays readable', torsion.scoreText);
+
+  await page.evaluate(() => document.getElementById('lcBeam_limit_2_select')?.click());
+  await page.evaluate(() => document.getElementById('lcBeam_btnApply')?.click());
+  await page.waitForFunction(() => document.getElementById('enableTorsion')?.checked && window.beamLast?.torsionNeedsDesign === true);
+  const torsionApplied = await page.evaluate(() => ({
+    enabled:document.getElementById('enableTorsion')?.checked,
+    Tu:window.beamLast?.Tu_in,
+    needsDesign:window.beamLast?.torsionNeedsDesign,
+    detailOk:window.beamLast?.torsionDetailOk,
+  }));
+  assert(torsionApplied.enabled && torsionApplied.Tu > 0 && torsionApplied.needsDesign && torsionApplied.detailOk == null, 'beam applying torsional tuple enables formal torsion review without fake approval', JSON.stringify(torsionApplied));
+}
+
 async function runBeamColumnHandoffCase(page) {
   section('Beam Column Joint Handoff');
   await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
@@ -792,6 +893,8 @@ async function runBrowserCases() {
     assert(failedResponses.length === 0, 'beam page resources', 'no missing static resources during initial load');
     await exerciseBeamProjectStorage(page);
     assert(pageErrors.length === 0, 'beam project storage workflow', 'no page errors during project save/load checks');
+    await exerciseCapacityLoadCombo(page);
+    assert(pageErrors.length === 0, 'beam capacity load-combo workflow', 'no page errors during capacity tuple checks');
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await wait(300);
 
@@ -844,6 +947,7 @@ async function runBrowserCases() {
 async function main() {
   const beamHtml = fs.readFileSync(beamPath, 'utf8');
   const sharedCommon = fs.readFileSync(commonPath, 'utf8');
+  const beamEvaluatorSource = fs.readFileSync(beamEvaluatorPath, 'utf8');
   section('Source Helpers');
   assert(beamHtml.includes('function calcSmrfSpacingDbFactor'), 'beam.html has calcSmrfSpacingDbFactor', 'helper exists in source');
   assert(beamHtml.includes('function calcBischoffIe'), 'beam.html has calcBischoffIe', 'helper exists in source');
@@ -863,7 +967,12 @@ async function main() {
   assert(beamHtml.includes('表層筋 (h > 90 cm)'), 'beam.html labels surface reinforcement', 'skin reinforcement wording is report-safe');
   assert(beamHtml.includes('規範依據：112 年混凝土結構設計規範'), 'beam report declares code basis', 'report exposes code version');
   assert(beamHtml.includes('Nu/(6Ag)'), 'beam shear axial term is displayed as stress', 'avoids treating axial stress as a multiplier');
-  assert(beamHtml.includes('shearDemand = seismic ? Math.max(Vu, Ve || 0) : Vu'), 'beam.html has SMRF shear demand control', 'seismic shear demand uses max(Vu, Ve)');
+  assert(beamHtml.includes('../shared/beam-evaluator.js'), 'beam.html loads shared beam demand evaluator', 'tuple scoring and formal shear calculation share one DOM-free core');
+  assert(beamHtml.includes('BeamEvaluator.computeShearState') && beamHtml.includes('BeamEvaluator.flexureScore') && beamHtml.includes('BeamEvaluator.shearTorsionScore'), 'beam formal calculation and load-combo scorers share evaluator', 'shared evaluator wiring');
+  assert(beamEvaluatorSource.includes('const shearDemand = seismic ? Math.max(Vu, Ve) : Vu'), 'beam evaluator has SMRF shear demand control', 'seismic shear demand uses max(Vu, Ve)');
+  assert(beamHtml.includes("key:'flexure-positive-capacity'") && beamHtml.includes("key:'shear-torsion-boundary'"), 'beam load-combo states use true flexure / shear capacity and torsion boundary', 'capacity scorers present');
+  assert(beamHtml.includes('refreshLimitStateSuggestions(window.rcBeamLoadComboConfig)'), 'beam section changes refresh capacity suggestions', 'reactive capacity refresh');
+  assert(!beamHtml.includes('剪力—扭矩需求向量') && !beamHtml.includes('normalized-srss'), 'beam no longer labels normalized demand vector as governing capacity', 'old demand-vector candidate removed');
   const oldSmrfBeamClause = ['18', '6', '3', '2'].join('.');
   assert(!beamHtml.includes(oldSmrfBeamClause), 'beam.html does not use old SMRF beam clause label', 'uses 18.3.3.2 for beam moment ratio');
   assert(beamHtml.includes('id="stepsVerbosity"'), 'beam.html has steps verbosity selector', 'summary/full selector exists in source');
