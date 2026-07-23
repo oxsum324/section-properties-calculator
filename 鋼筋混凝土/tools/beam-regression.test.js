@@ -16,6 +16,7 @@ const rebarPath = path.join(ROOT, '結構工具箱', 'core', 'materials', 'rebar
 const flexurePath = path.join(RC_ROOT, 'shared', 'flexure.js');
 const commonPath = path.join(RC_ROOT, 'shared', 'common.js');
 const beamEvaluatorPath = path.join(RC_ROOT, 'shared', 'beam-evaluator.js');
+const beamDesignerPath = path.join(RC_ROOT, 'shared', 'beam-rebar-designer.js');
 const toleranceDefault = 0.001;
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -868,6 +869,76 @@ async function runBeamForceCandidateReviewCase(page) {
   assert(restored.html.includes('人工確認作為係數化設計外力'), 'beam project restores adopted force decision into report', 'adoption decision preserved');
 }
 
+async function exerciseBeamRebarDesignCandidates(page) {
+  const before = await page.evaluate(() => {
+    const setValue = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!value;
+      else el.value = String(value);
+    };
+    setValue('sectionType', 'rect');
+    setValue('bw', 35); setValue('h', 65); setValue('ln', 600);
+    setValue('cover', 4); setValue('layerSv', 3); setValue('barShMin', 4);
+    setValue('fc', 280); setValue('fy', 4200); setValue('fyt', 2800);
+    setValue('MuPos', 60); setValue('MuNeg', 35); setValue('Vu', 22);
+    setValue('Pu', 0); setValue('Tu', 0); setValue('Ve', 0);
+    setValue('seismicMode', false); setValue('enableTorsion', false);
+    window.setBeamMode?.('design', { recalculate:false, applyPanel:false });
+    window.calcBeam();
+    const first = window.beamLast?.designSearch?.candidates?.[0];
+    return {
+      count: window.beamLast?.designSearch?.candidates?.length || 0,
+      status: window.beamLast?.designSearch?.status,
+      first,
+      text: document.getElementById('beamRebarDesignCandidates')?.innerText || '',
+    };
+  });
+  assert(before.status === 'evaluated' && before.count >= 3, 'beam capacity-based rebar candidates', `${before.status}, count=${before.count}`);
+  assert(before.text.includes('底筋') && before.text.includes('箍筋') && before.text.includes('M+ / M− / V 利用率'), 'beam candidate table content', before.text.replace(/\s+/g, ' ').slice(0, 220));
+
+  await page.click('.section-tabs button[data-tab="flex"]');
+  await page.click('.beam-design-apply');
+  await wait(100);
+  const applied = await page.evaluate(expected => {
+    const numbers = prefix => [1, 2, 3].map(index => Number(document.getElementById(`${prefix}Bar${index}N`)?.value || 0));
+    const report = (() => {
+      let html = '';
+      const previousOpen = window.open;
+      window.open = () => ({ document:{ open(){}, write(chunk){ html += String(chunk); }, close(){} }, close(){}, closed:false });
+      try { window.buildBeamReport(); } finally { window.open = previousOpen; }
+      return html;
+    })();
+    return {
+      mode: document.querySelector('.mode-btn.active')?.dataset.mode,
+      bottomCounts: numbers('bot'), topCounts: numbers('top'),
+      bottomBar: document.getElementById('botBar1No')?.value,
+      topBar: document.getElementById('topBar1No')?.value,
+      stirrup: document.getElementById('stirrup')?.value,
+      legs: Number(document.getElementById('legs')?.value),
+      spacing: Number(document.getElementById('stirS')?.value),
+      checks: {
+        flexPos: window.beamLast?.okFlexPos, flexNeg: window.beamLast?.okFlexNeg,
+        shear: window.beamLast?.okShear, asMin: window.beamLast?.okAsMin,
+        rhoMax: window.beamLast?.okRhoMax, mcr: window.beamLast?.okMcr,
+        layerSpacing: window.beamLast?.okLayerSpacing, barsPerLayer: window.beamLast?.okBarsPerLayer,
+        crackSpacing: window.beamLast?.okCrackSpacing,
+      },
+      candidateVisible: !!document.querySelector('#beamRebarDesignCandidates .beam-design-apply'),
+      report,
+      expected,
+    };
+  }, before.first);
+  assert(applied.mode === 'check', 'beam candidate adoption switches to formal check mode', applied.mode);
+  assert(JSON.stringify(applied.bottomCounts) === JSON.stringify(before.first.bottomCounts) && JSON.stringify(applied.topCounts) === JSON.stringify(before.first.topCounts), 'beam candidate adoption preserves full layer counts', JSON.stringify({ bottom:applied.bottomCounts, top:applied.topCounts }));
+  assert(applied.bottomBar === before.first.bottomBar && applied.topBar === before.first.topBar && applied.stirrup === before.first.stirrup && applied.legs === before.first.legs && applied.spacing === before.first.spacing, 'beam candidate adoption preserves bar and stirrup configuration', JSON.stringify({ bottomBar:applied.bottomBar, topBar:applied.topBar, stirrup:applied.stirrup, legs:applied.legs, spacing:applied.spacing }));
+  assert(Object.values(applied.checks).every(value => value === true), 'beam adopted candidate passes formal beam checks', JSON.stringify(applied.checks));
+  assert(!applied.candidateVisible, 'beam candidate table hides outside design mode', String(applied.candidateVisible));
+  ['容量式候選依', '套用並檢核', 'M+ / M− / V 利用率'].forEach(fragment => {
+    assert(!applied.report.includes(fragment), 'beam report excludes page-only rebar candidate content', fragment);
+  });
+}
+
 async function runBrowserCases() {
   section('Browser Regression Cases');
   const pack = JSON.parse(fs.readFileSync(casesPath, 'utf8'));
@@ -891,6 +962,10 @@ async function runBrowserCases() {
     await wait(300);
     assert(pageErrors.length === 0, 'beam page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'beam page resources', 'no missing static resources during initial load');
+    await exerciseBeamRebarDesignCandidates(page);
+    assert(pageErrors.length === 0, 'beam rebar candidate workflow', 'no page errors during candidate search and adoption');
+    await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
+    await wait(300);
     await exerciseBeamProjectStorage(page);
     assert(pageErrors.length === 0, 'beam project storage workflow', 'no page errors during project save/load checks');
     await exerciseCapacityLoadCombo(page);
@@ -948,6 +1023,7 @@ async function main() {
   const beamHtml = fs.readFileSync(beamPath, 'utf8');
   const sharedCommon = fs.readFileSync(commonPath, 'utf8');
   const beamEvaluatorSource = fs.readFileSync(beamEvaluatorPath, 'utf8');
+  const beamDesignerSource = fs.readFileSync(beamDesignerPath, 'utf8');
   section('Source Helpers');
   assert(beamHtml.includes('function calcSmrfSpacingDbFactor'), 'beam.html has calcSmrfSpacingDbFactor', 'helper exists in source');
   assert(beamHtml.includes('function calcBischoffIe'), 'beam.html has calcBischoffIe', 'helper exists in source');
@@ -968,6 +1044,10 @@ async function main() {
   assert(beamHtml.includes('規範依據：112 年混凝土結構設計規範'), 'beam report declares code basis', 'report exposes code version');
   assert(beamHtml.includes('Nu/(6Ag)'), 'beam shear axial term is displayed as stress', 'avoids treating axial stress as a multiplier');
   assert(beamHtml.includes('../shared/beam-evaluator.js'), 'beam.html loads shared beam demand evaluator', 'tuple scoring and formal shear calculation share one DOM-free core');
+  assert(beamHtml.includes('../shared/beam-rebar-designer.js'), 'beam.html loads capacity-based rebar designer', 'design candidates use a separately tested DOM-free core');
+  assert(beamHtml.includes('id="beamRebarDesignCandidates"') && beamHtml.includes('applyBeamRebarCandidate'), 'beam.html exposes ranked rebar candidates and adoption', 'page-only candidates can be applied into formal check mode');
+  assert(beamDesignerSource.includes('Flexure.solveSection') && beamDesignerSource.includes('BeamEvaluator.computeShearState'), 'beam designer shares formal flexure and shear cores', 'candidate screening is capacity-based');
+  assert(beamDesignerSource.includes("['inactive', 'below-threshold']"), 'beam designer fails closed beyond automatic torsion boundary', '22.7 torsion design is not invented by the candidate search');
   assert(beamHtml.includes('BeamEvaluator.computeShearState') && beamHtml.includes('BeamEvaluator.flexureScore') && beamHtml.includes('BeamEvaluator.shearTorsionScore'), 'beam formal calculation and load-combo scorers share evaluator', 'shared evaluator wiring');
   assert(beamEvaluatorSource.includes('const shearDemand = seismic ? Math.max(Vu, Ve) : Vu'), 'beam evaluator has SMRF shear demand control', 'seismic shear demand uses max(Vu, Ve)');
   assert(beamHtml.includes("key:'flexure-positive-capacity'") && beamHtml.includes("key:'shear-torsion-boundary'"), 'beam load-combo states use true flexure / shear capacity and torsion boundary', 'capacity scorers present');

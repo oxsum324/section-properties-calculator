@@ -365,6 +365,9 @@ async function main() {
         '可作附件，需人工複核',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',
+        '容量式候選依',
+        '套用並檢核',
+        'M+ / M− / V 利用率',
       ].forEach(fragment => {
         assert(!metrics.bodyText.includes(fragment), `${tc.key} report excludes page-only attachment readiness`, fragment);
       });

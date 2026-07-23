@@ -48,6 +48,16 @@
           "report": ["握裹 / 搭接長度", "人工複核 / 補充資料需求", "梁端錨定", "搭接 / 施工圖", "不列為 OK 結論"],
           "evidence": ["tools/beam-regression.test.js", "tools/beam-regression-cases.json", "tools/beam-report-visual.test.js", "tools/beam-report-visual.contract.test.js"],
           "manualReview": ["彎鉤、機械錨定、搭接區段、產品認可資料與實際鋼筋配置須由設計者依施工圖人工複核。"]
+        },
+        {
+          "id": "beam-rebar-design-search-21-22",
+          "clause": "混凝土結構設計規範 112 年版 9.6 / 9.7 / 21.2.2 / 22.2 / 22.5",
+          "purpose": "設計模式跨主筋與箍筋配置搜尋容量式候選，避免只依指定號數反算根數而漏掉更合適或不可施工的方案。",
+          "inputs": ["MuPos", "MuNeg", "Vu", "Ve", "Pu", "Tu", "bw", "h", "cover", "layerSv", "主筋候選", "箍筋候選"],
+          "calculation": ["BeamRebarDesigner.search", "正負彎矩應變相容利用率", "剪力容量利用率", "As,min", "ρmax", "1.2Mcr", "裂縫與筋距限制", "施工擁擠程度排序"],
+          "report": ["實際採用底筋", "實際採用頂筋", "實際採用箍筋", "φMn⁺ ≥ +Mu", "φMn⁻ ≥ −Mu", "φVn ≥ Vd"],
+          "evidence": ["shared/beam-rebar-designer.test.js", "tools/beam-regression.test.js", "tools/beam-report-visual.test.js", "tools/beam-report-visual.contract.test.js"],
+          "manualReview": ["候選排序只供選案；套用後須回正式檢核，錨定、搭接、截斷、扭力與施工細節仍由設計者依配筋圖及專案資料確認。"]
         }
       ]
     },

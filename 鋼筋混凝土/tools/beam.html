@@ -644,6 +644,7 @@
           <div class="line"><span class="lbl">建議配置</span><span class="combo" id="heroCombo">—</span></div>
           <div class="line"><span class="lbl">目前配置 / 需求</span><span class="big" id="heroAsRatio">—</span></div>
         </div>
+        <div id="beamRebarDesignCandidates" style="margin-top:12px;"></div>
       </div>
 
       <!-- 設計建議 (剪力) -->
@@ -799,6 +800,7 @@
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/report.js?v=6"></script>
 <script src="../shared/beam-evaluator.js?v=1"></script>
+<script src="../shared/beam-rebar-designer.js?v=1"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script>
@@ -1707,6 +1709,64 @@
     card.style.display = '';
     list.innerHTML = warnings.map((msg, idx) => `<div style="margin:6px 0; color:#92400e;">${idx + 1}. ${msg}</div>`).join('');
   }
+
+  function beamCandidateLayerText(barNo, counts) {
+    return (counts || []).map((count, index) => count > 0 ? `第${index + 1}排 ${count}-${barNo}` : '').filter(Boolean).join('＋') || '—';
+  }
+
+  function renderBeamRebarDesignCandidates(result) {
+    const host = $('beamRebarDesignCandidates');
+    if (!host) return;
+    if (currentMode !== 'design') {
+      host.style.display = 'none';
+      host.innerHTML = '';
+      return;
+    }
+    host.style.display = '';
+    const candidates = result?.candidates || [];
+    if (!candidates.length) {
+      host.innerHTML = `<div style="padding:10px 12px;border:1px solid #f59e0b;background:#fffbeb;color:#92400e;border-radius:6px;font-size:0.88em;"><strong>未找到可直接套用方案</strong><br>${result?.reason || '尚無容量式候選。'}。可調整梁寬、梁深、排間距或材料後再計算。</div>`;
+      return;
+    }
+    const rows = candidates.map((candidate, index) => `
+      <tr>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;">${index + 1}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${beamCandidateLayerText(candidate.bottomBar, candidate.bottomCounts)}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${beamCandidateLayerText(candidate.topBar, candidate.topCounts)}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;">${candidate.legs} 肢 ${candidate.stirrup} @ ${candidate.spacing} cm</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace;">${candidate.flexPosUtilization.toFixed(3)} / ${candidate.flexNegUtilization.toFixed(3)} / ${candidate.shearUtilization.toFixed(3)}</td>
+        <td style="padding:6px;border-bottom:1px solid #e2e8f0;text-align:center;"><button type="button" class="beam-design-apply" data-candidate-index="${index}" style="padding:5px 10px;border:0;border-radius:5px;background:#0e7490;color:#fff;cursor:pointer;">套用並檢核</button></td>
+      </tr>`).join('');
+    host.innerHTML = `
+      <div style="font-size:0.86em;color:#475569;margin-bottom:6px;">容量式候選依鋼筋量、施工擁擠程度與利用率排序；每列均已通過正／負彎矩、剪力、最小配筋、筋距及可配置性篩選。候選僅供頁面比較，套用後才形成正式檢核結果。</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.84em;border:1px solid #cbd5e1;min-width:760px;">
+          <thead><tr style="background:#e2e8f0;"><th style="padding:6px;">#</th><th style="padding:6px;">底筋</th><th style="padding:6px;">頂筋</th><th style="padding:6px;">箍筋</th><th style="padding:6px;">M+ / M− / V 利用率</th><th style="padding:6px;">操作</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function applyBeamRebarCandidate(index) {
+    const candidate = window.beamLast?.designSearch?.candidates?.[Number(index)];
+    if (!candidate) return false;
+    [0, 1, 2].forEach(layer => {
+      const suffix = layer + 1;
+      const bottomNo = $(`botBar${suffix}No`), bottomN = $(`botBar${suffix}N`);
+      const topNo = $(`topBar${suffix}No`), topN = $(`topBar${suffix}N`);
+      if (bottomNo) bottomNo.value = candidate.bottomBar;
+      if (bottomN) bottomN.value = candidate.bottomCounts[layer] || 0;
+      if (topNo) topNo.value = candidate.topBar;
+      if (topN) topN.value = candidate.topCounts[layer] || 0;
+    });
+    if ($('stirrup')) $('stirrup').value = candidate.stirrup;
+    if ($('legs')) $('legs').value = candidate.legs;
+    if ($('stirS')) $('stirS').value = candidate.spacing;
+    setBeamMode('check');
+    showBeamProjectStatus(`已套用容量式配筋候選 ${Number(index) + 1}，並切換至正式檢核模式。`);
+    return true;
+  }
+  window.applyBeamRebarCandidate = applyBeamRebarCandidate;
 
   function buildStepBlock(title, summaryLines, fullLines, isFull) {
     const lines = isFull ? [...summaryLines, ...fullLines] : summaryLines;
@@ -2618,6 +2678,17 @@ ${layerBars.map(L => {
       }
     }
 
+    // 容量式候選只供 HTML 操作頁比較，不屬於正式計算書內容。
+    const designSearch = (currentMode === 'design' && window.BeamRebarDesigner)
+      ? window.BeamRebarDesigner.search({
+          sectionType, bw, h, bf, hf, ln, cover, sv, shMin,
+          fc, fy, fyt, beta1,
+          MuPos:num('MuPos'), MuNeg:num('MuNeg'), Vu:num('Vu'), Pu:num('Pu'), Tu:num('Tu'), Ve:num('Ve'),
+          seismic, enableTorsion, torsionDesignStatus,
+          barTable:REBAR_TABLE, limit:5,
+        })
+      : null;
+
     // === 儲存所有計算明細供計算書產生器使用 ===
     window.beamLast = {
       // 輸入
@@ -2645,6 +2716,7 @@ ${layerBars.map(L => {
       // 設計建議
       designInfeasible: (currentMode === 'design') ? designInfeasible : false,
       AsReqPos, AsReqNeg, bestComboPos, bestComboNeg, VsReq, sFinal,
+      designSearch,
       warnings, stepsVerbosity: $('stepsVerbosity')?.value || 'full',
       // 檢核
       okFlex, okFlexPos, okFlexNeg, okShear, okShearStrength, okShearMin, okShearSpacing,
@@ -2662,6 +2734,7 @@ ${layerBars.map(L => {
     if (window.rcBeamLoadComboConfig && window.LoadCombo?.refreshLimitStateSuggestions) {
       window.LoadCombo.refreshLimitStateSuggestions(window.rcBeamLoadComboConfig);
     }
+    renderBeamRebarDesignCandidates(designSearch);
     updateBeamAttachmentReadiness(window.beamLast);
   }
 
@@ -3691,6 +3764,11 @@ ${layerBars.map(L => {
       'd-defLong':    '長期撓度 Δlt = (1+λΔ)·Δi\nλΔ = ξ / (1+50ρ′)，ρ′ 為壓力筋比'
     });
   }
+
+  document.getElementById('beamRebarDesignCandidates')?.addEventListener('click', event => {
+    const button = event.target.closest('.beam-design-apply');
+    if (button) applyBeamRebarCandidate(button.dataset.candidateIndex);
+  });
 
   // 載入時初始化 + 算一次 + 套用預設分頁顯示
   window.addEventListener('load', () => { syncToggles(); syncDesignFields(); ingestQueryParams(); applyPanel('geom'); attachFormulaTips(); });
