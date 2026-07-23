@@ -311,12 +311,17 @@ async function exerciseWallCapacityLoadCombo(page) {
     setField('k', 1);
     setField('hw', 1200);
     setField('e', 2);
+    setField('MuIn', '');
     setField('hBar', '#4');
     setField('hSp', 18);
     setField('lcWall_P_D', 100);
     setField('lcWall_P_L', 0);
     setField('lcWall_P_W', -180);
     setField('lcWall_P_E', 0);
+    setField('lcWall_M_D', 10);
+    setField('lcWall_M_L', 0);
+    setField('lcWall_M_W', -80);
+    setField('lcWall_M_E', 0);
     setField('lcWall_V_D', 10);
     setField('lcWall_V_L', 0);
     setField('lcWall_V_W', -50);
@@ -324,37 +329,38 @@ async function exerciseWallCapacityLoadCombo(page) {
     window.calcWall();
     window.LoadCombo.refreshLimitStateSuggestions(window.rcWallLoadComboConfig);
   });
-  await page.waitForFunction(() => window.lastLoadComboSuggestions?.lcWall?.states?.length === 3, null, { timeout: 10000 });
+  await page.waitForFunction(() => window.lastLoadComboSuggestions?.lcWall?.states?.length === 2, null, { timeout: 10000 });
 
   const initial = await page.evaluate(() => ({
     states:window.lastLoadComboSuggestions.lcWall.states,
     phiPn:window.wallLast?.phiPn_kgf / 1000,
     phiVn:window.wallLast?.phiVn_kgf / 1000,
   }));
-  const compression = initial.states.find(state => state.key === 'compression-capacity');
-  const tension = initial.states.find(state => state.key === 'tension-boundary');
+  const pm = initial.states.find(state => state.key === 'pm-capacity');
   const shear = initial.states.find(state => state.key === 'shear-capacity');
-  assert(compression?.criterion === 'custom' && compression.details?.status === 'evaluated', 'wall load combo uses axial capacity scorer', `${compression?.governing?.name}: criterion=${compression?.criterion}`);
-  assert(compression?.governing?.values?.P === 300 && compression.details?.axialCapacity === initial.phiPn, 'wall compression suggestion preserves complete tuple and formal φPn', `${compression?.governing?.name}: P=${compression?.governing?.values?.P}, φPn=${compression?.details?.axialCapacity}`);
-  assert(tension?.details?.status === 'tension-capacity-unresolved' && tension?.score >= 1e12, 'wall tension suggestion fails closed', `${tension?.governing?.name}: ${tension?.details?.scoreLabel}`);
+  const tensionEvaluation = pm?.evaluations?.find(item => item.name === '0.9D+1.0W');
+  assert(pm?.criterion === 'custom' && pm.details?.status === 'evaluated', 'wall load combo uses P-M capacity scorer', `${pm?.governing?.name}: criterion=${pm?.criterion}`);
+  assert(pm?.governing?.values?.P === -90 && pm?.governing?.values?.M === -71 && pm.details?.phiMn > 0, 'wall P-M suggestion preserves the governing tension tuple and formal φMn', `${pm?.governing?.name}: P=${pm?.governing?.values?.P}, M=${pm?.governing?.values?.M}, φMn=${pm?.details?.phiMn}`);
+  assert(tensionEvaluation?.details?.status === 'evaluated' && tensionEvaluation?.details?.P === -90, 'wall tension tuple is evaluated by the P-M envelope', `${tensionEvaluation?.name}: utilization=${tensionEvaluation?.details?.utilization}`);
   assert(shear?.details?.status === 'evaluated' && shear.details?.shearCapacity === initial.phiVn, 'wall shear suggestion uses formal φVn', `${shear?.governing?.name}: utilization=${shear?.score}`);
   assert(shear?.governing?.values?.V === 62, 'wall shear suggestion retains signed source tuple', `${shear?.governing?.name}: V=${shear?.governing?.values?.V}`);
 
   await page.evaluate(() => {
-    document.getElementById('lcWall_limit_2_select')?.click();
+    document.getElementById('lcWall_limit_1_select')?.click();
     document.getElementById('lcWall_btnApply')?.click();
   });
   await page.waitForFunction(() => Math.abs((window.wallLast?.Vu_kgf || 0) - 62000) < 1e-6, null, { timeout: 10000 });
   const applied = await page.evaluate(() => ({
     Pu:document.getElementById('Pu')?.value,
+    Mu:document.getElementById('MuIn')?.value,
     Vu:document.getElementById('Vu')?.value,
     selected:window.lastLoadCombo?.lcWall?.selectedTuple,
     preserved:window.lastLoadCombo?.lcWall?.tuplePreserved,
     reportText:window.LoadCombo.toReportGroup('lcWall', '載重組合')?.items?.map(item => `${item.label} ${item.value}`).join(' ') || '',
   }));
-  assert(applied.preserved === true && applied.selected?.values?.P === 300 && applied.selected?.values?.V === 62, 'wall applies one complete governing tuple', JSON.stringify(applied.selected));
-  assert(Number(applied.Pu) === 300 && Number(applied.Vu) === 62, 'wall writes signed P and magnitude V to formal demand fields', `Pu=${applied.Pu}, Vu=${applied.Vu}`);
-  assert(!/容量利用率|偏心超界|拉力容量待確認/.test(applied.reportText), 'wall report records adopted tuple without page-only ranking commentary', applied.reportText);
+  assert(applied.preserved === true && applied.selected?.values?.P === 300 && applied.selected?.values?.M === 92 && applied.selected?.values?.V === 62, 'wall applies one complete governing tuple', JSON.stringify(applied.selected));
+  assert(Number(applied.Pu) === 300 && Number(applied.Mu) === 92 && Number(applied.Vu) === 62, 'wall writes signed P and magnitude M/V to formal demand fields', `Pu=${applied.Pu}, Mu=${applied.Mu}, Vu=${applied.Vu}`);
+  assert(!/容量利用率|軸力越界|控制候選/.test(applied.reportText), 'wall report records adopted tuple without page-only ranking commentary', applied.reportText);
 
   const reranked = await page.evaluate(() => {
     const before = window.lastLoadComboSuggestions.lcWall.states.find(state => state.key === 'shear-capacity')?.score;
@@ -367,14 +373,27 @@ async function exerciseWallCapacityLoadCombo(page) {
   });
   assert(reranked.status === 'evaluated' && reranked.after > reranked.before, 'wall reinforcement change reranks shear utilization', `${reranked.before} -> ${reranked.after}`);
 
-  const eccentric = await page.evaluate(() => {
-    const e = document.getElementById('e');
-    e.value = '10';
-    e.dispatchEvent(new Event('input', { bubbles:true }));
-    e.dispatchEvent(new Event('change', { bubbles:true }));
-    return window.lastLoadComboSuggestions.lcWall.states.find(state => state.key === 'compression-capacity');
+  const derivedLargeE = await page.evaluate(() => {
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      el.value = value;
+      el.dispatchEvent(new Event('input', { bubbles:true }));
+      el.dispatchEvent(new Event('change', { bubbles:true }));
+    };
+    set('Pu', '80');
+    set('MuIn', '');
+    set('e', '10');
+    return { eOk:window.wallLast?.eOk, okPM:window.wallLast?.okPM, MuIn:window.wallLast?.MuIn, pmStatus:window.wallLast?.pmStatus };
   });
-  assert(eccentric?.details?.status === 'eccentricity-out-of-range' && eccentric?.score >= 1e12 && eccentric?.details?.scoreLabel === '偏心超界', 'wall eccentricity overflow fails closed in browser workflow', `${eccentric?.governing?.name}: ${eccentric?.details?.scoreLabel}`);
+  assert(derivedLargeE.eOk === false && derivedLargeE.okPM === true && derivedLargeE.pmStatus === 'evaluated' && Math.abs(derivedLargeE.MuIn - 8) < 1e-9, 'wall derives Mu=Pu·e and keeps P-M active beyond the simple-formula range', JSON.stringify(derivedLargeE));
+
+  const axialOut = await page.evaluate(() => {
+    const p = document.getElementById('lcWall_P_D');
+    p.value = '2000';
+    p.dispatchEvent(new Event('input', { bubbles:true }));
+    return window.lastLoadComboSuggestions.lcWall.states.find(state => state.key === 'pm-capacity');
+  });
+  assert(axialOut?.details?.status === 'axial-out-of-range' && axialOut?.score >= 1e12 && axialOut?.details?.scoreLabel === '軸力越界', 'wall P-M axial envelope overflow fails closed in browser workflow', `${axialOut?.governing?.name}: ${axialOut?.details?.scoreLabel}`);
 }
 
 async function reportMetrics(report) {

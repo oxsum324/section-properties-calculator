@@ -26,9 +26,9 @@ const tool = read(toolPath);
   'documentClass:attachmentReadiness.documentClass',
   '案件識別資料',
   '../shared/wall-inplane-evaluator.js?v=1',
+  '../shared/pmsection.js?v=2',
   'WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase)',
-  "key:'compression-capacity'",
-  "key:'tension-boundary'",
+  "key:'pm-capacity'",
   "key:'shear-capacity'",
 ].forEach(needle => assertIncludes(tool, needle, 'wall formal attachment state wiring'));
 
@@ -51,8 +51,9 @@ const tool = read(toolPath);
   'server.address().port',
   'wallAttachmentReadinessCard',
   'exerciseWallCapacityLoadCombo',
-  'wall tension suggestion fails closed',
-  'wall eccentricity overflow fails closed in browser workflow',
+  'wall tension tuple is evaluated by the P-M envelope',
+  'wall derives Mu=Pu·e and keeps P-M active beyond the simple-formula range',
+  'wall P-M axial envelope overflow fails closed in browser workflow',
   'page attachment readiness card',
   'page attachment readiness boundary',
   'page attachment readiness priority',

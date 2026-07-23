@@ -9,13 +9,14 @@ const rebarPath = path.join(ROOT, '..', '結構工具箱', 'core', 'materials', 
 const commonPath = path.join(ROOT, 'shared', 'common.js');
 const flexurePath = path.join(ROOT, 'shared', 'flexure.js');
 const wallPath = path.join(ROOT, 'shared', 'wall.js');
+const pmSectionPath = path.join(ROOT, 'shared', 'pmsection.js');
 const wallInplaneEvaluatorPath = path.join(ROOT, 'shared', 'wall-inplane-evaluator.js');
 
 function bootLibs() {
   const context = { console, window: {}, Math };
   context.window = context;
   vm.createContext(context);
-  for (const file of [concretePath, rebarPath, commonPath, flexurePath, wallPath, wallInplaneEvaluatorPath]) {
+  for (const file of [concretePath, rebarPath, commonPath, flexurePath, wallPath, pmSectionPath, wallInplaneEvaluatorPath]) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
   }
   return context;
@@ -68,10 +69,13 @@ function main() {
   assert(wallHtml.includes('function buildWallBaselineReport()'), 'wall.html can build baseline report', 'baseline export helper exists');
   assert(wallHtml.includes('function compareWallCaseJson()'), 'wall.html can compare wall case JSON', 'compare helper exists');
   assert(wallHtml.includes('id="bwSupport"'), 'wall.html has basement support selector', 'basement wall model is selectable');
-  assert(wallHtml.includes('e > h/6 時簡易公式不適用'), 'wall.html disables simple axial formula when eccentricity is large', 'axial gate message exists');
+  assert(wallHtml.includes('簡式不適用，P-M 仍照常檢核'), 'wall.html keeps P-M active when the simple formula is out of range', 'eccentricity no longer blocks the formal P-M check');
+  assert(wallHtml.includes('../shared/pmsection.js?v=2'), 'wall.html loads the shared P-M engine', 'general wall uses the same strain-compatibility core');
   assert(wallHtml.includes('../shared/wall-inplane-evaluator.js?v=1'), 'wall.html loads the in-plane capacity evaluator', 'formal calculation and load combinations share one evaluator');
   assert(wallHtml.includes('WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase)'), 'wall.html formal calculation uses the shared evaluator', 'displayed capacities and tuple ranking cannot drift apart');
-  assert(wallHtml.includes("key:'compression-capacity'") && wallHtml.includes("key:'tension-boundary'") && wallHtml.includes("key:'shear-capacity'"), 'wall load combinations expose capacity-based limit states', 'compression, tension boundary, and shear are separated');
+  assert(wallHtml.includes('WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase'), 'wall.html formal calculation evaluates the P-M envelope', 'axial tension and eccentric compression use the formal section model');
+  assert(wallHtml.includes("key:'pm-capacity'") && wallHtml.includes("key:'shear-capacity'"), 'wall load combinations expose capacity-based limit states', 'P-M and shear are separated');
+  assert(wallHtml.includes("{ key:'M', label:'彎矩 Mu'"), 'wall load combinations include signed in-plane moment', 'complete P-M-V tuple is preserved');
   assert(wallHtml.includes('refreshLimitStateSuggestions(window.rcWallLoadComboConfig)'), 'wall capacity suggestions refresh after section recalculation', 'section changes immediately rerank tuples');
   assert(!wallHtml.includes("key:'pv-vector'") && !wallHtml.includes("criterion:'normalized-srss'"), 'wall load combinations remove artificial P-V vector ranking', 'no dimensionless demand-vector proxy remains');
   assert(wallHtml.includes("const triCoef = isCantilever ? (1 / 6) : 0.0641"), 'wall.html has basement triangular moment coefficients', 'cantilever/simple model switch exists');
@@ -104,21 +108,26 @@ function main() {
 
   const inplaneBase = {
     fc:280, fy:4200, h:25, lw:500, lc:300, k:1, hw:1200,
-    e:2, lambda:1, rhot:0.003, phiComp:0.65, phiShear:0.75,
+    e:2, lambda:1, rhot:0.003, phiComp:0.65, phiTen:0.90, phiShear:0.75, pnMaxFactor:0.80,
+    vBarArea:1.267, vBarDb:1.27, hBarDb:1.27, vSp:20, layers:2, cover:2,
     seismic:false, wallType:'bearing',
   };
-  const compression = WallInplaneEvaluator.compressionScore(inplaneBase, { P:120, V:30 });
-  assert(compression.status === 'evaluated' && compression.score === compression.axialUtilization,
-    '牆軸壓組合依 φPn 容量評分',
+  const pmCapacity = WallInplaneEvaluator.computePMCapacity(inplaneBase);
+  assert(pmCapacity.valid && pmCapacity.pMin < 0 && pmCapacity.pMax > 0,
+    '一般牆建立含軸拉與軸壓的 P-M 設計封包',
+    `P=${pmCapacity.pMin.toFixed(1)}~${pmCapacity.pMax.toFixed(1)} tf`);
+  const compression = WallInplaneEvaluator.pmScore(inplaneBase, { P:120, M:30, V:30 });
+  assert(compression.status === 'evaluated' && compression.score === compression.utilization,
+    '牆壓彎組合依 φMn@Pu 容量評分',
     `utilization=${compression.score.toFixed(3)}`);
-  const tension = WallInplaneEvaluator.tensionScore(inplaneBase, { P:-40, V:30 });
-  assert(tension.status === 'tension-capacity-unresolved' && tension.score >= 1e12,
-    '牆軸拉組合失敗關閉',
-    `${tension.scoreLabel}, score=${tension.score}`);
-  const eccentric = WallInplaneEvaluator.compressionScore({ ...inplaneBase, e:5 }, { P:120, V:30 });
-  assert(eccentric.status === 'eccentricity-out-of-range' && eccentric.score >= 1e12,
-    '牆偏心超界組合失敗關閉',
-    `${eccentric.scoreLabel}, score=${eccentric.score}`);
+  const tension = WallInplaneEvaluator.pmScore(inplaneBase, { P:-40, M:10, V:30 });
+  assert(tension.status === 'evaluated' && Number.isFinite(tension.utilization),
+    '牆拉彎組合納入 P-M 設計封包',
+    `utilization=${tension.score.toFixed(3)}`);
+  const axialOut = WallInplaneEvaluator.pmScore(inplaneBase, { P:pmCapacity.pMin - 50, M:0, V:0 });
+  assert(axialOut.status === 'axial-out-of-range' && axialOut.score >= 1e12,
+    '牆 P-M 軸力越界失敗關閉',
+    `${axialOut.scoreLabel}, score=${axialOut.score}`);
 
   section('Out-of-Plane Flexure Modeling');
   const fc = 280;

@@ -44,6 +44,108 @@
     };
   };
 
+  WallInplaneEvaluator.computePMCapacity = function (base) {
+    const PMSection = root.PMSection;
+    if (!PMSection) return { status:'capacity-unresolved', valid:false, reason:'P-M 互制核心未載入' };
+    const keys = ['fc', 'fy', 'h', 'lw', 'vBarArea', 'vBarDb', 'hBarDb', 'vSp', 'layers', 'cover'];
+    const value = Object.fromEntries(keys.map(key => [key, Number(base?.[key])]));
+    if (!Object.values(value).every(Number.isFinite)) {
+      return { status:'capacity-unresolved', valid:false, reason:'P-M 斷面參數須為有限值' };
+    }
+    const { fc, fy, h, lw, vBarArea, vBarDb, hBarDb, vSp, layers, cover } = value;
+    if (![fc, fy, h, lw, vBarArea, vBarDb, vSp, layers].every(item => item > 0) || hBarDb < 0 || cover < 0) {
+      return { status:'capacity-unresolved', valid:false, reason:'P-M 斷面參數未完整建立' };
+    }
+    const edgeOffset = cover + hBarDb + vBarDb / 2;
+    if (!(edgeOffset < lw / 2)) {
+      return { status:'capacity-unresolved', valid:false, reason:'保護層與鋼筋尺寸無法置入牆長斷面' };
+    }
+    const usableLength = lw - 2 * edgeOffset;
+    const intervals = Math.max(1, Math.ceil(usableLength / vSp));
+    const actualSpacing = usableLength / intervals;
+    const bars = Array.from({ length:intervals + 1 }, (_, index) => ({
+      y:edgeOffset + actualSpacing * index,
+      As:layers * vBarArea,
+    }));
+    const sec = { b:h, h:lw, bars };
+    const mat = {
+      fc,
+      fy,
+      phiComp:Number.isFinite(Number(base?.phiComp)) ? Number(base.phiComp) : 0.65,
+      phiTen:Number.isFinite(Number(base?.phiTen)) ? Number(base.phiTen) : 0.90,
+      PnMaxFactor:Number.isFinite(Number(base?.pnMaxFactor)) ? Number(base.pnMaxFactor) : 0.80,
+    };
+    const pm = PMSection.curve(sec, mat, { steps:Number(base?.pmSteps) || 140 });
+    const range = PMSection.pRange(pm.design);
+    const valid = Number.isFinite(range.min) && Number.isFinite(range.max) && range.min < 0 && range.max > 0;
+    return {
+      status:valid ? 'evaluated' : 'capacity-unresolved',
+      valid,
+      reason:valid ? '' : 'P-M 設計封包無法建立',
+      sec,
+      mat,
+      pm,
+      pMin:range.min,
+      pMax:range.max,
+      edgeOffset,
+      actualSpacing,
+      barCount:bars.length,
+      Ast:pm.Ast,
+    };
+  };
+
+  WallInplaneEvaluator.evaluatePMDemand = function (base, demand) {
+    const P = Number(demand?.P);
+    const explicitM = Number(demand?.M);
+    const e = Number(base?.e);
+    const M = Number.isFinite(explicitM)
+      ? explicitM
+      : (Number.isFinite(P) && Number.isFinite(e) ? P * e / 100 : NaN);
+    if (![P, M].every(Number.isFinite)) {
+      return { status:'invalid-demand', ok:false, P, M, reason:'P / M 須為有限值' };
+    }
+    const capacity = WallInplaneEvaluator.computePMCapacity(base);
+    if (!capacity.valid) return { status:capacity.status, ok:false, P, M, reason:capacity.reason };
+    const check = root.PMSection.checkDemand(capacity.pm.design, P, M);
+    const status = check.axialOk === false ? 'axial-out-of-range'
+      : Number.isFinite(check.util) ? 'evaluated' : 'capacity-unresolved';
+    return {
+      status,
+      ok:status === 'evaluated' && check.ok,
+      P,
+      M,
+      phiMn:check.axialOk === false ? null : check.phiMn,
+      utilization:check.axialOk === false ? null : check.util,
+      pMin:check.pMin,
+      pMax:check.pMax,
+      axialOk:check.axialOk,
+      outOfRange:check.outOfRange,
+      phiPnMax:capacity.pm.phiPnMax,
+      Po:capacity.pm.Po,
+      barCount:capacity.barCount,
+      Ast:capacity.Ast,
+      edgeOffset:capacity.edgeOffset,
+      actualSpacing:capacity.actualSpacing,
+      reason:status === 'axial-out-of-range'
+        ? 'Pu 超出 P-M 設計軸力封包'
+        : status === 'capacity-unresolved' ? 'P-M 容量無法建立' : '',
+    };
+  };
+
+  WallInplaneEvaluator.pmScore = function (base, demand) {
+    const result = WallInplaneEvaluator.evaluatePMDemand(base, demand);
+    if (result.status !== 'evaluated') {
+      const labels = {
+        'invalid-demand':'需求無效',
+        'axial-out-of-range':'軸力越界',
+        'capacity-unresolved':'容量待確認',
+      };
+      const demandRank = Math.min(Math.abs(Number(result.P) || 0) + Math.abs(Number(result.M) || 0), 1e6);
+      return { score:FAIL_CLOSED_BASE + demandRank, scoreLabel:labels[result.status] || '容量待確認', ...result };
+    }
+    return { score:result.utilization, scoreLabel:result.utilization.toFixed(3), ...result };
+  };
+
   WallInplaneEvaluator.evaluateDemand = function (base, demand) {
     const P = Number(demand?.P);
     const V = Number(demand?.V);

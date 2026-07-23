@@ -209,13 +209,14 @@
       </div>
 
       <div class="card subpanel" data-panel="load">
-        <h2>面內載重 (Pu / Vu)</h2>
+        <h2>面內載重 (Pu / Mu / Vu)</h2>
         <div class="form-row">
           <div class="form-group"><label>因數化軸力 Pu (tf)</label><input type="number" id="Pu" value="80"></div>
           <div class="form-group"><label>偏心 e (cm)</label><input type="number" id="e" value="2"></div>
         </div>
+        <div class="form-group"><label>面內因數化彎矩 Mu (tf·m，可留空)</label><input type="number" id="MuIn" value="" placeholder="留空時採 Mu = Pu·e"></div>
         <div class="form-group"><label>面內剪力 Vu (tf)</label><input type="number" id="Vu" value="50"></div>
-        <p class="hint detail-help">若 e ≤ h/6 可使用簡易公式 11.5.3.1。Pu 與 Vu 可由下方「載重組合產生器」自動帶入。</p>
+        <p class="hint detail-help">P-M 互制採應變相容法；Mu 留空時依 Pu·e 推導。若 e ≤ h/6，另列簡易公式 11.5.3.1 供對照。Pu、Mu、Vu 可由載重組合產生器帶入。</p>
       </div>
 
       <div class="card subpanel" data-panel="rebar">
@@ -442,6 +443,8 @@
         <h2>斷面強度結果 <span class="hint" style="margin-left:auto; font-style:normal;">依目前配筋</span></h2>
         <div class="results-grid">
           <div class="result-item" id="r-phiPn"><span class="label">φPn (簡易)</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
+          <div class="result-item" id="r-phiMnInplane"><span class="label">φMn @ Pu</span><span><span class="value">—</span><span class="unit">tf·m</span></span></div>
+          <div class="result-item" id="r-pmUtil"><span class="label">P-M 利用率</span><span class="value">—</span></div>
           <div class="result-item" id="r-rhol"><span class="label">ρℓ (縱)</span><span class="value">—</span></div>
           <div class="result-item" id="r-rhot"><span class="label">ρt (橫)</span><span class="value">—</span></div>
           <div class="result-item" id="r-phiVn"><span class="label">φVn</span><span><span class="value">—</span><span class="unit">tf</span></span></div>
@@ -458,11 +461,11 @@
         <h2>規範檢核</h2>
         <div class="results-grid">
           <div class="result-item" id="c-h"><span class="label">牆厚滿足下限</span><span class="value">—</span></div>
-          <div class="result-item" id="c-e"><span class="label">e ≤ h/6 (簡易公式適用)</span><span class="value">—</span></div>
+          <div class="result-item" id="c-e"><span class="label">e ≤ h/6 (簡式參考)</span><span class="value">—</span></div>
           <div class="result-item" id="c-rhol"><span class="label">ρℓ ≥ 下限</span><span class="value">—</span></div>
           <div class="result-item" id="c-rhot"><span class="label">ρt ≥ 下限</span><span class="value">—</span></div>
           <div class="result-item" id="c-layers"><span class="label">需雙層鋼筋網?</span><span class="value">—</span></div>
-          <div class="result-item" id="c-axial"><span class="label">φPn ≥ Pu</span><span class="value">—</span></div>
+          <div class="result-item" id="c-axial"><span class="label">P-M 設計封包</span><span class="value">—</span></div>
           <div class="result-item" id="c-shear"><span class="label">φVn ≥ Vu</span><span class="value">—</span></div>
         </div>
       </div>
@@ -666,6 +669,7 @@
 <script src="../shared/devlength.js?v=2"></script>
 <script src="../shared/flexure.js?v=1"></script>
 <script src="../shared/wall.js?v=2"></script>
+<script src="../shared/pmsection.js?v=2"></script>
 <script src="../shared/wall-inplane-evaluator.js?v=1"></script>
 <script>
   function syncDetailHelp() {
@@ -704,8 +708,8 @@
     const quickChecks = document.getElementById('quickChecks');
     const quickRebar = document.getElementById('quickRebar');
     if (quickH) quickH.textContent = `${fmt(r.h)} / hmin ${fmt(r.hmin)} cm`;
-    if (quickLoad) quickLoad.textContent = `Pu ${fmt((r.Pu_kgf || 0) / 1000, 1)} tf · Vu ${fmt((r.Vu_kgf || 0) / 1000, 1)} tf`;
-    if (quickChecks) quickChecks.textContent = `${r.okH ? '厚度OK' : '厚度NG'} / ${r.okShear ? '剪力OK' : '剪力NG'} / ${r.okAxial ? '軸力OK' : '軸力NG'}`;
+    if (quickLoad) quickLoad.textContent = `Pu ${fmt((r.Pu_kgf || 0) / 1000, 1)} tf · Mu ${fmt(r.MuIn, 1)} tf·m · Vu ${fmt((r.Vu_kgf || 0) / 1000, 1)} tf`;
+    if (quickChecks) quickChecks.textContent = `${r.okH ? '厚度OK' : '厚度NG'} / ${r.okShear ? '剪力OK' : '剪力NG'} / ${r.okPM ? 'P-M OK' : 'P-M NG'}`;
     if (quickRebar) quickRebar.textContent = `${r.layers >= 2 ? '雙層' : '單層'} ${r.vBar || '—'}@${fmt(r.vSp)} / ${r.hBar || '—'}@${fmt(r.hSp)}`;
   }
   function applyPanel(tab) {
@@ -772,7 +776,7 @@
         showSteps: false,
         fc: 280, fy: 4200, lambdaSel: '1.00',
         h: 20, lw: 500, lc: 300, k: 1.0, hw: 1500,
-        Pu: 80, e: 2, Vu: 35,
+        Pu: 80, e: 2, MuIn: '', Vu: 35,
         vBar: '#4', vSp: 20, hBar: '#4', hSp: 20, layers: '2',
         Mua: 2, PuOop: 20,
         basementWall: false,
@@ -789,7 +793,7 @@
         showSteps: false,
         fc: 280, fy: 4200, lambdaSel: '1.00',
         h: 30, lw: 400, lc: 320, k: 1.0, hw: 1400,
-        Pu: 120, e: 2, Vu: 140,
+        Pu: 120, e: 2, MuIn: '', Vu: 140,
         vBar: '#5', vSp: 15, hBar: '#5', hSp: 15, layers: '2',
         Mua: 3.5, PuOop: 18,
         basementWall: false,
@@ -806,7 +810,7 @@
         showSteps: false,
         fc: 280, fy: 4200, lambdaSel: '1.00',
         h: 25, lw: 450, lc: 300, k: 1.0, hw: 1200,
-        Pu: 60, e: 1, Vu: 25,
+        Pu: 60, e: 1, MuIn: '', Vu: 25,
         vBar: '#4', vSp: 15, hBar: '#4', hSp: 15, layers: '2',
         Mua: 0, PuOop: 12,
         basementWall: true, bwSupport: 'cantilever',
@@ -824,7 +828,7 @@
         showSteps: false,
         fc: 280, fy: 4200, lambdaSel: '1.00',
         h: 45, lw: 520, lc: 250, k: 1.0, hw: 300,
-        Pu: 25, e: 1, Vu: 8,
+        Pu: 25, e: 1, MuIn: '', Vu: 8,
         vBar: '#5', vSp: 12, hBar: '#5', hSp: 12, layers: '2',
         Mua: 0, PuOop: 8,
         basementWall: true, bwSupport: 'simple',
@@ -1378,8 +1382,7 @@
       ['Wall Pier', !r.isWallPier],
       ["fc' 上限", r.fcLimitOk],
       ['牆厚', r.okH],
-      ['e ≤ h/6', r.eOk],
-      ['φPn ≥ Pu', r.okAxial],
+      ['P-M 封包', r.okPM ?? r.okAxial],
       ['φVn ≥ Vu', r.okShear],
       ['ρℓ', r.okRhol],
       ['ρt', r.okRhot],
@@ -1485,6 +1488,8 @@
     const hw = num('hw');
     const Pu = num('Pu') * 1000;          // kgf
     const e = num('e');
+    const hasExplicitMuIn = String($('MuIn')?.value || '').trim() !== '';
+    const MuIn = hasExplicitMuIn ? num('MuIn') : (Pu / 1000) * e / 100; // tf·m
     const Vu = num('Vu') * 1000;          // kgf
     const vBar = $('vBar').value, vSp = num('vSp');
     const hBar = $('hBar').value, hSp = num('hSp');
@@ -1555,13 +1560,24 @@
     const wallInplaneEvaluatorBase = {
       fc, fy, h, lw, lc, k, hw, e, lambda, rhot,
       phiComp: PHI.compTied,
+      phiTen: PHI.tension,
       phiShear: PHI.shear,
+      pnMaxFactor: 0.80,
+      vBarArea: vAb,
+      vBarDb: REBAR_TABLE[vBar].db,
+      hBarDb: REBAR_TABLE[hBar].db,
+      vSp,
+      layers,
+      cover: 2,
+      pmSteps: 140,
       seismic,
       wallType,
     };
     const inplaneCapacity = WallInplaneEvaluator.computeCapacity(wallInplaneEvaluatorBase);
     const { eLimit, eOk, Ag, Pn, Acv, hwlw, alpha_c, Vn, phiVn, VnLimit } = inplaneCapacity;
     const phiPn = inplaneCapacity.phiPn == null ? NaN : inplaneCapacity.phiPn;
+    const pmDemand = WallInplaneEvaluator.evaluatePMDemand(wallInplaneEvaluatorBase, { P:Pu / 1000, M:MuIn });
+    const okPM = pmDemand.status === 'evaluated' && pmDemand.ok;
 
     // === 雙層鋼筋網判斷 ===
     const needTwoLayer = Wall.needTwoLayer({ Vu, phi: PHI.shear, alpha_c, lambda, fc, Acv, hwlw });
@@ -1698,6 +1714,8 @@
     }
     setResult('r-rhol', rhol, '', 4);
     setResult('r-rhot', rhot, '', 4);
+    setResult('r-phiMnInplane', pmDemand.phiMn, 'tf·m', 1, okPM ? 'ok' : 'fail');
+    setResult('r-pmUtil', pmDemand.utilization, '', 3, okPM ? 'ok' : 'fail');
     setResult('r-phiVn', phiVn / 1000, 'tf', 1);
     setResult('r-hwlw', hwlw, '', 2);
     setResult('r-Acv', Acv, 'cm²', 0);
@@ -1780,15 +1798,15 @@
 
     // === 規範檢核 ===
     setCheck('c-h', h >= hmin, `${h} / ${hmin.toFixed(1)}`);
-    setCheck('c-e', eOk, `e=${e} / h/6=${eLimit.toFixed(1)}`);
+    setCheck('c-e', null, `e=${e} / h/6=${eLimit.toFixed(1)}；${eOk ? '簡式可列對照' : '簡式不適用，P-M 仍照常檢核'}`);
     setCheck('c-rhol', rhol >= rholMin, `${rhol.toFixed(4)} / ${rholMin.toFixed(4)}`);
     setCheck('c-rhot', rhot >= rhotMin, `${rhot.toFixed(4)} / ${rhotMin.toFixed(4)}`);
     setCheck('c-layers', !needTwoLayer || layers >= 2,
              needTwoLayer ? (layers >= 2 ? `需雙層✓` : `需雙層✗ 目前 ${layers}`) : `單層可`);
-    setCheck('c-axial', eOk ? (phiPn >= Pu) : null,
-             eOk
-               ? `φPn=${(phiPn/1000).toFixed(1)} / Pu=${(Pu/1000).toFixed(1)}`
-               : '— 簡易公式不適用，請改用一般 P-M 分析');
+    setCheck('c-axial', okPM,
+             pmDemand.status === 'axial-out-of-range'
+               ? `Pu=${(Pu/1000).toFixed(1)} 超出 ${pmDemand.pMin.toFixed(1)}~${pmDemand.pMax.toFixed(1)} tf`
+               : `|Mu|=${Math.abs(MuIn).toFixed(1)} / φMn=${Number(pmDemand.phiMn || 0).toFixed(1)} tf·m；利用率=${Number(pmDemand.utilization || 0).toFixed(3)}`);
     setCheck('c-shear', phiVn >= Vu, `${(phiVn/1000).toFixed(1)} / ${(Vu/1000).toFixed(1)}`);
 
     // === 耐震檢核 ===
@@ -1853,7 +1871,7 @@
     const okRhol = rhol >= rholMin;
     const okRhot = rhot >= rhotMin;
     const okLayers = !needTwoLayer || layers >= 2;
-    const okAxial = eOk ? (phiPn >= Pu) : null;
+    const okAxial = okPM;
     const okShearChk = phiVn >= Vu;
 
     // === 有效翼版寬 (Phase C) ===
@@ -2023,19 +2041,13 @@
   αc = ${fmt(alpha_c,3)}
   Vn 單段上限 = 2.65·√fc'·Acv = 2.65·√${fc}·${fmt(Acv,0)} = ${fmt(VnLimit/1000,1)} tf`;
 
-      const axialCheckTxt = eOk
-        ? `  φPn = 0.65·Pn = ${fmt(phiPn/1000,1)} tf
-  檢核: φPn ${phiPn>=Pu?'≥':'<'} Pu = ${fmt(Pu/1000,1)} → ${phiPn>=Pu?'✓':'✗'}`
-        : `  Pn = 0.55·fc'·Ag·[1 − (k·ℓc/(32h))²] (僅適用 e ≤ h/6)
-  本例 e = ${e} > h/6 = ${fmt(eLimit,2)}，故簡易軸力公式不適用
-  → 請改用一般 P-M 分析，不以本式判定 φPn ≥ Pu`;
       stepsLoadTxt =
-`【1】面內軸力 (簡易公式 11.5.3.1)
-  適用條件 e ≤ h/6: e = ${e} ， h/6 = ${fmt(eLimit,2)} → ${eOk?'✓':'✗'}
-  Pn = 0.55·fc'·Ag·[1 − (k·ℓc/(32h))²]
-     = 0.55·${fc}·${fmt(Ag,0)}·[1 − (${k}·${lc}/(32·${h}))²]
-     = ${fmt(Pn/1000,1)} tf
-${axialCheckTxt}
+`【1】面內 P-M 互制 (應變相容法)
+  配筋模型: ${pmDemand.barCount} 排縱筋，總 Ast=${fmt(pmDemand.Ast,2)} cm²；端部中心距=${fmt(pmDemand.edgeOffset,2)} cm
+  P-M 設計軸力範圍 = ${fmt(pmDemand.pMin,1)} ~ ${fmt(pmDemand.pMax,1)} tf
+  Pu = ${fmt(Pu/1000,1)} tf；Mu = ${fmt(MuIn,2)} tf·m${hasExplicitMuIn ? '（直接輸入）' : `（由 Pu·e=${fmt(Pu/1000,1)}·${fmt(e/100,3)} 推導）`}
+  φMn @ Pu = ${fmt(pmDemand.phiMn,2)} tf·m；利用率 |Mu|/φMn = ${fmt(pmDemand.utilization,3)}
+  → ${pmDemand.status === 'axial-out-of-range' ? '✗ Pu 超出設計軸力封包' : (okPM ? '✓ P-M 封包內' : '✗ 超出 P-M 封包')}
 
 【2】面內剪力 (規範 11.5.4)
   Vn = Acv·(αc·λ·√fc' + ρt·fy)
@@ -2136,8 +2148,13 @@ ${basementStepTxt}
       showSteps: !!$('showSteps')?.checked,
       seismic, wallType, fc, fy, lambda, h, lw, lc, k, hw,
       wallInplaneEvaluatorBase,
-      Pu_kgf:Pu, e, eLimit, eOk, Vu_kgf:Vu,
+      Pu_kgf:Pu, e, eLimit, eOk, MuIn, hasExplicitMuIn, Vu_kgf:Vu,
       phiPn: phiPn/1000, Pu: Pu/1000,
+      phiMnInplane:pmDemand.phiMn, pmUtil:pmDemand.utilization,
+      pmStatus:pmDemand.status, pmPMin:pmDemand.pMin, pmPMax:pmDemand.pMax,
+      pmPo:pmDemand.Po, pmPhiPnMax:pmDemand.phiPnMax,
+      pmAst:pmDemand.Ast, pmBarCount:pmDemand.barCount,
+      pmEdgeOffset:pmDemand.edgeOffset, pmActualSpacing:pmDemand.actualSpacing,
       phiVn: phiVn/1000, Vu: Vu/1000,
       vBar, vSp, hBar, hSp, layers, sigmaMax,
       dbV: REBAR_TABLE[vBar]?.db,
@@ -2145,7 +2162,7 @@ ${basementStepTxt}
       rhol, rhot, rholMin, rhotMin, needTwoLayer,
       Acv, hwlw, alpha_c, Vn_kgf:Vn, phiVn_kgf:phiVn, VnLimit_kgf:VnLimit,
       hSugg, layerSugg,
-      okH, okRhol, okRhot, okLayers, okAxial, okShear:okShearChk,
+      okH, okRhol, okRhot, okLayers, okAxial, okPM, okShear:okShearChk,
       // gates
       isWallPier, hwlw_pier, lwbw, fcLimitOk, isShearWall,
       // 翼版
@@ -2297,12 +2314,9 @@ ${basementStepTxt}
     }
 
     sec('② 載重 (面內)');
-    row('e ≤ h/6 (簡易公式適用)', `e=${r.e}, h/6=${fmt(r.eLimit,1)}`, ok(r.eOk));
-    row('φPn ≥ Pu',
-      r.eOk
-        ? `${fmt(r.phiPn_kgf/1000,1)} / ${fmt(r.Pu_kgf/1000,1)} tf`
-        : '— (e > h/6，簡易公式不適用)',
-      ok(r.okAxial));
+    row('P-M 設計封包', `Pu=${fmt(r.Pu_kgf/1000,1)} tf，Mu=${fmt(r.MuIn,1)} tf·m，利用率=${fmt(r.pmUtil,3)}`, ok(r.okPM));
+    row('φMn @ Pu', `${fmt(r.phiMnInplane,1)} / ${fmt(Math.abs(r.MuIn),1)} tf·m`, ok(r.okPM));
+    row('e ≤ h/6 (簡式對照)', `e=${r.e}, h/6=${fmt(r.eLimit,1)}；${r.eOk ? '可列簡式' : '簡式不適用'}`, ok(null));
     row('φVn ≥ Vu', `${fmt(r.phiVn_kgf/1000,1)} / ${fmt(r.Vu_kgf/1000,1)} tf`, ok(r.okShear));
     row('Vn 上限 (2.65√fc·Acv)', `${fmt(r.VnLimit_kgf/1000,1)} tf`, ok(null));
     if (r.aggRows && r.aggRows.length) {
@@ -2343,7 +2357,7 @@ ${basementStepTxt}
     }
 
     // 底部總結
-    const allCheckBools = [r.okH, r.eOk, r.okAxial, r.okShear, r.okRhol, r.okRhot, r.okLayers, r.okOopFlex, r.okDeltaLim, r.okVSp, r.okHSp];
+    const allCheckBools = [r.okH, r.okPM, r.okShear, r.okRhol, r.okRhot, r.okLayers, r.okOopFlex, r.okDeltaLim, r.okVSp, r.okHSp];
     const failCount = allCheckBools.filter(b => b === false).length;
     const totalCount = allCheckBools.filter(b => b === true || b === false).length;
     const reviewWarnings = Array.isArray(r.reviewWarnings) ? r.reviewWarnings : collectWallReviewWarnings(r);
@@ -2380,10 +2394,16 @@ ${basementStepTxt}
         note: '以目前牆段 Acv、ρt、αc 計算，屬規範檢核。'
       },
       {
+        item: '面內 P-M 互制',
+        kind: 'code',
+        ref: '21.2.2 / 應變相容',
+        note: '依目前均布縱筋、輸入間距與固定 2 cm 保護層建立設計封包；端部集中筋應改用剪力牆完整工具。'
+      },
+      {
         item: '面內軸力簡易公式 φPn',
         kind: r.eOk ? 'code' : 'na',
         ref: '11.5.3.1',
-        note: r.eOk ? '僅在 e ≤ h/6 時採用。' : '目前 e > h/6，工具已停用此簡式，需改用一般 P-M 分析。'
+        note: r.eOk ? '僅列為 e ≤ h/6 工況的對照值，正式結論採 P-M 封包。' : '目前 e > h/6，簡式不適用；正式結論仍由 P-M 封包判定。'
       },
       {
         item: '面外 Slender Wall / P-Δ',
@@ -2511,6 +2531,7 @@ ${basementStepTxt}
       ]},
       { group:'外力', items:[
         { label:'Pu', value:(r.Pu_kgf/1000).toFixed(2), unit:'tf' },
+        { label:'Mu', value:r.MuIn.toFixed(2), unit:'tf·m' },
         { label:'偏心 e', value:r.e, unit:'cm' },
         { label:'Vu', value:(r.Vu_kgf/1000).toFixed(2), unit:'tf' },
         ...(r.testCaseKey ? [{ label:'內建案例', value: WALL_TEST_CASES[r.testCaseKey]?.label || r.testCaseKey }] : []),
@@ -2534,20 +2555,17 @@ ${basementStepTxt}
         { label:'h ≥ hmin', formula: ({bearing:'min(lc,lw)/25',nonbearing:'min(lc,lw)/30',basement:'≥20cm',shear:'max(lc/25, lw/25, 10)'})[r.wallType],
           sub:`hmin = ${r.hmin.toFixed(1)} cm    h = ${r.h} cm`,
           value:`${r.h}`, unit:'cm', ok:r.okH },
-        { label:'偏心 e ≤ h/6', formula:'簡易公式適用範圍',
+        { label:'偏心 e ≤ h/6', formula:'簡易公式對照範圍',
           sub:`e=${r.e}    h/6=${r.eLimit.toFixed(1)}`,
-          value:`${r.e}`, unit:'cm', ok:r.eOk }
+          value:r.eOk ? '簡式可列對照' : '簡式不適用', ok:null }
       ]},
-      { group:'軸力', items:[
-        { label:'φPn ≥ Pu', formula: r.eOk
-            ? "φPn = 0.65·0.55·fc'·Ag·[1−(k·lc/(32h))²]"
-            : 'e > h/6 時簡易公式不適用，請改用一般 P-M 分析',
-          sub: r.eOk
-            ? `= 0.65·0.55·${r.fc}·${r.Ag}·[1−(${r.k}·${r.lc}/(32·${r.h}))²]`
-            : `e=${r.e} > h/6=${r.eLimit.toFixed(1)}`,
-          value: r.eOk
-            ? `${(r.phiPn_kgf/1000).toFixed(1)} / ${(r.Pu_kgf/1000).toFixed(1)}`
-            : '— (不適用)', unit:'tf', ok:r.okAxial }
+      { group:'面內 P-M', items:[
+        { label:'P-M 設計封包', formula:'應變相容法；εcu=0.003，φ依最外受拉筋應變',
+          sub:`Pu=${(r.Pu_kgf/1000).toFixed(1)} tf（範圍 ${r.pmPMin.toFixed(1)}~${r.pmPMax.toFixed(1)}）；均布縱筋 Ast=${r.pmAst.toFixed(2)} cm²`,
+          value:r.pmStatus === 'axial-out-of-range'
+            ? 'Pu 超出軸力封包'
+            : `φMn/|Mu|=${Number(r.phiMnInplane).toFixed(1)}/${Math.abs(r.MuIn).toFixed(1)} tf·m；利用率 ${Number(r.pmUtil).toFixed(3)}`,
+          ok:r.okPM }
       ]},
       { group:'剪力', items:[
         { label:'αc 內插', formula:'hw/lw ≤1.5→0.80, ≥2.0→0.53',
@@ -2722,11 +2740,11 @@ ${basementStepTxt}
       kv.push({ label:'h', val:`${r.h} cm`, ok:null });
       kv.push({ label:'hmin', val:`${r.hmin.toFixed(1)} cm`, ok:r.okH });
     } else if (tab === 'load') {
-      checks.push(['e ≤ h/6 (簡易公式適用)', r.eOk]);
-      checks.push(['φPn ≥ Pu', r.okAxial]);
+      checks.push(['P-M 設計封包', r.okPM]);
       checks.push(['φVn ≥ Vu', r.okShear]);
-      kv.push({ label:'φPn', val: r.eOk ? `${r.phiPn.toFixed(2)} tf` : '— (不適用)', ok:r.okAxial });
+      kv.push({ label:'φMn@Pu', val: Number.isFinite(r.phiMnInplane) ? `${r.phiMnInplane.toFixed(2)} tf·m` : '—', ok:r.okPM });
       kv.push({ label:'Pu', val:`${r.Pu.toFixed(2)} tf`, ok:null });
+      kv.push({ label:'Mu', val:`${r.MuIn.toFixed(2)} tf·m`, ok:null });
       kv.push({ label:'φVn', val:`${r.phiVn.toFixed(2)} tf`, ok:r.okShear });
       kv.push({ label:'Vu', val:`${r.Vu.toFixed(2)} tf`, ok:null });
     } else if (tab === 'rebar') {
@@ -2788,13 +2806,11 @@ ${basementStepTxt}
 
   const wallTupleDemand = tuple => ({
     P: Number(tuple?.values?.P),
+    M: Number(tuple?.values?.M),
     V: Number(tuple?.values?.V),
   });
   const currentWallInplaneBase = () => window.wallLast?.wallInplaneEvaluatorBase || null;
-  const scoreWallCompressionTuple = tuple => WallInplaneEvaluator.compressionScore(
-    currentWallInplaneBase(), wallTupleDemand(tuple)
-  );
-  const scoreWallTensionTuple = tuple => WallInplaneEvaluator.tensionScore(
+  const scoreWallPMTuple = tuple => WallInplaneEvaluator.pmScore(
     currentWallInplaneBase(), wallTupleDemand(tuple)
   );
   const scoreWallShearTuple = tuple => WallInplaneEvaluator.shearScore(
@@ -2806,16 +2822,17 @@ ${basementStepTxt}
     tupleMode: 'select',
     forces: [
       { key:'P', label:'軸力 Pu', unit:'tf' },
+      { key:'M', label:'彎矩 Mu', unit:'tf·m' },
       { key:'V', label:'剪力 Vu', unit:'tf' },
     ],
     limitStates: [
-      { key:'compression-capacity', label:'軸壓容量利用率', criterion:'custom', criterionLabel:'依目前牆斷面逐完整組合計算 Pu/φPn；|e| > h/6 時失敗關閉', scorer:scoreWallCompressionTuple },
-      { key:'tension-boundary', label:'軸拉容量邊界', criterion:'custom', criterionLabel:'目前牆頁未建立面內軸拉容量；P < 0 時失敗關閉並要求 P-M／拉力詳算', scorer:scoreWallTensionTuple },
+      { key:'pm-capacity', label:'P-M 容量利用率', criterion:'custom', criterionLabel:'依目前均布縱筋斷面逐完整組合計算 |Mu|/φMn @ Pu；軸壓與軸拉均納入設計封包', scorer:scoreWallPMTuple },
       { key:'shear-capacity', label:'剪力容量利用率', criterion:'custom', criterionLabel:'逐完整組合計算 |Vu|/φVn；特殊結構牆並納入 Vu/(2.65√fc′Acv) 控制', scorer:scoreWallShearTuple },
     ],
-    targetIds: { P:'Pu', V:'Vu' },
+    targetIds: { P:'Pu', M:'MuIn', V:'Vu' },
     targetReportMeta: {
       Pu:{ label:'軸力需求 Pu（有號）', unit:'tf', signed:true },
+      MuIn:{ label:'面內彎矩需求 |Mu|', unit:'tf·m' },
       Vu:{ label:'剪力需求 |Vu|', unit:'tf' },
     },
     targetAdapter: ({ forceKey, value, targets }) => [{
