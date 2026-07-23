@@ -261,6 +261,7 @@ const excavationReleaseArtifacts = readText(repoFile('開挖擋土支撐/backend
   assert(docText.includes(contractRelativePath), `${label} documents report disclosure contract`, contractRelativePath);
   assert(docText.includes('report-disclosure-contract'), `${label} documents report disclosure preflight key`, 'report-disclosure-contract');
   assert(docText.includes(calculationBookBoundaryRelativePath), `${label} documents the shared calculation-book content boundary`, calculationBookBoundaryRelativePath);
+  assert(docText.includes('至少兩個實際工程數值'), `${label} documents the minimum engineering-value threshold`, '至少兩個實際工程數值');
 });
 
 assert(reportGuide.includes('規範判定') && reportGuide.includes('初估 / 簡化') && reportGuide.includes('人工複核'), 'TOOL_REPORT_GUIDE keeps report disclosure vocabulary', '規範判定 / 初估 / 簡化 / 人工複核');
@@ -295,7 +296,7 @@ assert(
   'TOOL_REPORT_GUIDE links page-only readiness glossary, ADR, and delivery boundaries',
   '頁面專用閱讀狀態 / Word / DOCX / workbook',
 );
-assert(calculationBookBoundary.version === '1.2.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
+assert(calculationBookBoundary.version === '1.3.0', 'calculation-book boundary carries a versioned shared contract', calculationBookBoundary.version);
 assert(calculationBookBoundary.scope === 'all-calculation-book-and-formal-attachment-outputs', 'calculation-book boundary covers every attachment output', calculationBookBoundary.scope);
 ['pageReadingStatus', 'interfaceAndWorkflow', 'governanceNarrative'].forEach(category => {
   assertStringArray(boundaryCategories[category], `calculation-book boundary ${category}`);
@@ -316,6 +317,22 @@ assert(calculationContentGroups && typeof calculationContentGroups === 'object',
   assertStringArray(needles, `calculation-book content group ${groupKey} matchers`);
   assert(needles.length === new Set(needles).size, `calculation-book content group ${groupKey} matchers are unique`, groupKey);
 });
+const engineeringValuesGroup = calculationContentGroups.engineeringValues;
+assert(
+  engineeringValuesGroup && engineeringValuesGroup.minimumPatternMatches === 2,
+  'calculation-book content requires at least two actual engineering values',
+  engineeringValuesGroup?.minimumPatternMatches,
+);
+assertStringArray(engineeringValuesGroup.patterns, 'calculation-book engineering value patterns');
+engineeringValuesGroup.patterns.forEach(pattern => {
+  let compiles = true;
+  try {
+    new RegExp(pattern, 'giu');
+  } catch (error) {
+    compiles = false;
+  }
+  assert(compiles, 'calculation-book engineering value pattern compiles', pattern);
+});
 assert(calculationContentProfiles && typeof calculationContentProfiles === 'object', 'calculation-book boundary defines validation profiles', 'validationProfiles');
 ['calculation-book', 'calculation-summary', 'traceable-calculation-book', 'traceable-calculation-summary', 'compiled-engineering-report', 'direct-print-boundary'].forEach(profileKey => {
   const groups = calculationContentProfiles[profileKey];
@@ -325,6 +342,7 @@ assert(calculationContentProfiles && typeof calculationContentProfiles === 'obje
 });
 assert(
   calculationContentProfiles['traceable-calculation-book'].includes('traceability') &&
+    calculationContentProfiles['calculation-book'].includes('engineeringValues') &&
     calculationContentProfiles['direct-print-boundary'].length === 0,
   'calculation-book profiles require traceability where supported and exempt direct-print notices',
   'traceable-calculation-book / direct-print-boundary',
@@ -378,7 +396,9 @@ assert(
 );
 assert(
   calculationBookBoundaryEvaluator.includes('calculation-book-content-boundary.json')
-    && calculationBookBoundaryEvaluator.includes('evaluateCalculationContent'),
+    && calculationBookBoundaryEvaluator.includes('evaluateCalculationContent')
+    && calculationBookBoundaryEvaluator.includes('minimumPatternMatches')
+    && calculationBookBoundaryEvaluator.includes('patternMatches'),
   'calculation-book evaluator consumes the JSON contract and exposes the shared positive-content gate',
   calculationBookBoundaryEvaluatorRelativePath,
 );

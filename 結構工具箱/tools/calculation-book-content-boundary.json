@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "scope": "all-calculation-book-and-formal-attachment-outputs",
   "description": "正式計算書只承載可直接納入附件的工程計算內容；操作提示、閱讀狀態、介面模式與治理矩陣只留在 HTML 工作頁。",
   "forbiddenCategories": {
@@ -48,6 +48,7 @@
   "requiredCalculationContent": [
     "採用輸入與單位",
     "公式、代入值與計算結果",
+    "至少兩個可辨識且不屬於版本、日期或指紋的實際工程數值",
     "工程檢核與控制結果",
     "緊鄰相關計算的條文依據與必要假設",
     "已完成且可追溯的人工複核紀錄",
@@ -119,6 +120,14 @@
         "✓ OK"
       ]
     },
+    "engineeringValues": {
+      "description": "可辨識至少兩個非追溯欄位的實際工程數值、單位或具名計算結果。",
+      "minimumPatternMatches": 2,
+      "patterns": [
+        "[-+]?\\d+(?:[.,]\\d+)?\\s*(?:kgf/cm(?:²|2)|tf[·⋅\\-.]?m|kN[·⋅\\-.]?m|N[·⋅\\-.]?m|mm(?:²|2|³|3)?|cm(?:²|2|³|3)?|m(?:²|2|³|3)?|kgf|tf|kN|MPa|GPa|Pa|psi|%|sec|Hz|g)(?![A-Za-z])",
+        "(?:DCR|需求比|利用率|安全係數|FS(?:_[A-Za-z]+)?|φ?Mn|φ?Vn|Pu|Mu|Vu|SDS|SD1|SMS|SM1|Cb|Cc|C_f|Cf|q\\(z\\)|Vh|Vv)\\s*(?:=|：|:)\\s*[-+]?\\d+(?:[.,]\\d+)?"
+      ]
+    },
     "traceability": {
       "description": "原生計算書可追溯到產出工具、版本、輸出時間與計算指紋。",
       "allOf": [
@@ -133,27 +142,32 @@
     "calculation-book": [
       "adoptedInputs",
       "calculationProcess",
-      "engineeringResult"
+      "engineeringResult",
+      "engineeringValues"
     ],
     "calculation-summary": [
       "adoptedInputs",
-      "engineeringResult"
+      "engineeringResult",
+      "engineeringValues"
     ],
     "traceable-calculation-book": [
       "adoptedInputs",
       "calculationProcess",
       "engineeringResult",
+      "engineeringValues",
       "traceability"
     ],
     "traceable-calculation-summary": [
       "adoptedInputs",
       "engineeringResult",
+      "engineeringValues",
       "traceability"
     ],
     "compiled-engineering-report": [
       "adoptedInputs",
       "calculationProcess",
-      "engineeringResult"
+      "engineeringResult",
+      "engineeringValues"
     ],
     "direct-print-boundary": []
   },

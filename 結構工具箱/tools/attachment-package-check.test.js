@@ -5,7 +5,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const Checker = require('./attachment-package-check.js');
 
-const COMPLETE_CALCULATION_CONTENT = '<section><h2>採用輸入</h2><div>材料與荷載資料</div></section><section><h2>計算內容</h2><div>檢核公式與代入值</div></section><section><h2>檢核結論</h2><div>檢核結果：通過</div></section>';
+const COMPLETE_CALCULATION_CONTENT = '<section><h2>採用輸入</h2><div>材料與荷載資料：fc\'=280 kgf/cm²；Mu=12.5 tf·m</div></section><section><h2>計算內容</h2><div>檢核公式與代入值：Mu=12.5 tf·m；φMn=18.2 tf·m</div></section><section><h2>檢核結論</h2><div>DCR=0.69；檢核結果：通過</div></section>';
 
 const extracted = Checker.extractTextMetadata(`
 計畫名稱：測試大樓
@@ -64,8 +64,8 @@ assert.match(Checker.formatSummary(readyReport), /測試大樓｜PKG-001｜Codex
 assert.deepEqual(Checker.detectReadyDocumentClass('<strong>文件狀態：正式附件</strong>'), ['文件狀態：正式附件']);
 assert.deepEqual(Checker.detectReadyDocumentClass('<div>文件狀態</div><div>正式附件</div>'), ['文件狀態：正式附件']);
 assert.equal(Checker.READY_DOCUMENT_CLASS_LABEL, '文件狀態：正式附件');
-assert.equal(Checker.CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.2.0');
-assert.deepEqual(Checker.CONTENT_PROFILES['calculation-summary'], ['adoptedInputs', 'engineeringResult']);
+assert.equal(Checker.CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.3.0');
+assert.deepEqual(Checker.CONTENT_PROFILES['calculation-summary'], ['adoptedInputs', 'engineeringResult', 'engineeringValues']);
 assert.equal(Checker.detectCalculationContentProfile('RC 梁設計計算書'), 'calculation-book');
 assert.equal(Checker.detectCalculationContentProfile('RC 梁計算摘要'), 'calculation-summary');
 assert.equal(Checker.extractHtmlText('<style>採用輸入 計算內容 檢核結論</style><div hidden>採用輸入</div><div aria-hidden="true">計算內容</div><h1>RC 梁設計計算書</h1>'), 'RC 梁設計計算書');
@@ -234,8 +234,8 @@ try {
   assert.equal(emptyShellPackage.status, 'blocked', 'title, approval, and trace metadata cannot replace engineering calculation content');
   assert(emptyShellPackage.issues.some(issue => issue.code === 'missing-calculation-content'));
   const emptyShellRecord = emptyShellPackage.attachments.find(item => item.file === 'wind-formal.html');
-  assert.deepEqual(emptyShellRecord?.contentBoundary?.missingGroups, ['adoptedInputs', 'calculationProcess', 'engineeringResult']);
-  assert.match(Checker.formatSummary(emptyShellPackage), /內容缺 adoptedInputs,calculationProcess,engineeringResult/);
+  assert.deepEqual(emptyShellRecord?.contentBoundary?.missingGroups, ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'engineeringValues']);
+  assert.match(Checker.formatSummary(emptyShellPackage), /內容缺 adoptedInputs,calculationProcess,engineeringResult,engineeringValues/);
 
   fs.writeFileSync(path.join(tempDir, 'wind-formal.html'), `<h1>矩形建物風力計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>計畫名稱：測試大樓</div><div>計畫編號：PKG-001</div><div>設計人員：Codex QA</div><div>產出工具：矩形建物 MWFRS</div><div>工具版本：v1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-1234ABCD5678EF90</div>${COMPLETE_CALCULATION_CONTENT}`, 'utf8');
   const classifiedPackage = Checker.checkPackage(tempDir, { projectNo: 'PKG-001' });
@@ -257,11 +257,11 @@ try {
   const scriptedShellPath = path.join(tempDir, 'scripted-empty-shell.html');
   fs.writeFileSync(scriptedShellPath, '<h1>RC 梁設計計算書</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>產出工具：RC 梁</div><div>工具版本：v3.1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-9999AAAA8888BBBB</div><script>const hidden = "採用輸入 計算內容 檢核結論";</script>', 'utf8');
   const scriptedShellRecord = Checker.inspectAttachment(scriptedShellPath, tempDir);
-  assert.deepEqual(scriptedShellRecord.contentBoundary?.missingGroups, ['adoptedInputs', 'calculationProcess', 'engineeringResult'], 'script source cannot satisfy visible calculation content');
+  assert.deepEqual(scriptedShellRecord.contentBoundary?.missingGroups, ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'engineeringValues'], 'script source cannot satisfy visible calculation content');
   fs.rmSync(scriptedShellPath);
 
   const summaryPath = path.join(tempDir, 'design-summary.html');
-  fs.writeFileSync(summaryPath, '<h1>RC 梁計算摘要</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>產出工具：RC 梁</div><div>工具版本：v3.1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-9999AAAA8888BBBB</div><section>採用材料與荷載資料</section><section>檢核結果：通過</section>', 'utf8');
+  fs.writeFileSync(summaryPath, '<h1>RC 梁計算摘要</h1><div>文件狀態：正式附件</div><div>核可時間：2026/07/12 13:05:00</div><div>產出工具：RC 梁</div><div>工具版本：v3.1</div><div>輸出時間：2026/07/12 13:00:00</div><div>計算指紋：CF-9999AAAA8888BBBB</div><section>採用材料與荷載資料：Mu=12.5 tf·m</section><section>DCR=0.69；檢核結果：通過</section>', 'utf8');
   const summaryRecord = Checker.inspectAttachment(summaryPath, tempDir);
   assert.equal(summaryRecord.contentBoundary?.profile, 'calculation-summary');
   assert.deepEqual(summaryRecord.contentBoundary?.missingGroups, [], 'an explicitly titled summary may omit repeated detailed equations');

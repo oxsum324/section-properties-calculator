@@ -35,13 +35,42 @@ function evaluateCalculationContent(value, options = {}) {
     const allOf = [...new Set((rule.allOf || []).map(decodeText).filter(Boolean))];
     const matchedAnyOf = anyOf.filter(needle => text.includes(needle));
     const missingAllOf = allOf.filter(needle => !text.includes(needle));
-    const pass = (anyOf.length === 0 || matchedAnyOf.length > 0) && missingAllOf.length === 0;
+    const minimumPatternMatches = Number.isSafeInteger(rule.minimumPatternMatches)
+      ? rule.minimumPatternMatches
+      : 0;
+    const rawPatternMatches = (rule.patterns || []).flatMap(source => {
+      let pattern;
+      try {
+        pattern = new RegExp(source, 'giu');
+      } catch (error) {
+        assert.fail(`invalid calculation content pattern for ${key}: ${source}`);
+      }
+      return [...text.matchAll(pattern)].map(match => ({
+        index: match.index,
+        end: match.index + match[0].length,
+      }));
+    }).sort((left, right) => left.index - right.index || left.end - right.end);
+    const mergedPatternMatches = [];
+    for (const match of rawPatternMatches) {
+      const previous = mergedPatternMatches[mergedPatternMatches.length - 1];
+      if (!previous || match.index >= previous.end) {
+        mergedPatternMatches.push({ ...match });
+      } else {
+        previous.end = Math.max(previous.end, match.end);
+      }
+    }
+    const patternMatches = mergedPatternMatches.map(match => text.slice(match.index, match.end));
+    const pass = (anyOf.length === 0 || matchedAnyOf.length > 0)
+      && missingAllOf.length === 0
+      && patternMatches.length >= minimumPatternMatches;
     return {
       key,
       description: decodeText(rule.description),
       pass,
       matchedAnyOf,
       missingAllOf,
+      minimumPatternMatches,
+      patternMatches,
     };
   });
   return {

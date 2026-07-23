@@ -32,9 +32,9 @@ function writeReadySource(inputDir) {
     '<div>輸出時間：2026/07/21 22:00:00</div>',
     '<div>核可時間：2026/07/21 22:05:00</div>',
     `<div>計算指紋：${FINGERPRINT}</div>`,
-    '<section><h2>採用輸入</h2><div>材料與荷載資料</div></section>',
-    '<section><h2>計算內容</h2><div>檢核公式與代入值</div></section>',
-    '<section><h2>檢核結論</h2><div>檢核結果：通過</div></section>',
+    '<section><h2>採用輸入</h2><div>材料與荷載資料：fc\'=280 kgf/cm²；Mu=12.5 tf·m</div></section>',
+    '<section><h2>計算內容</h2><div>檢核公式與代入值：Mu=12.5 tf·m；φMn=18.2 tf·m</div></section>',
+    '<section><h2>檢核結論</h2><div>DCR=0.69；檢核結果：通過</div></section>',
   ].join('\n'), 'utf8');
 }
 

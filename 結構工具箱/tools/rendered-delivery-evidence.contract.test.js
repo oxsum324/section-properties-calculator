@@ -29,26 +29,27 @@ const homeSource = fs.readFileSync(homePath, 'utf8');
 for (const needle of ['計算層級 / 複核邊界', '條文對照 ＆ 方法分級', '規範覆蓋矩陣']) {
   assert.ok(DEFAULT_FORBIDDEN.includes(needle), `rendered delivery evidence shares calculation-book boundary: ${needle}`);
 }
-assert.equal(CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.2.0', 'rendered delivery evidence consumes the current calculation-book boundary contract');
+assert.equal(CALCULATION_BOOK_CONTENT_BOUNDARY.version, '1.3.0', 'rendered delivery evidence consumes the current calculation-book boundary contract');
 assert.deepEqual(
   CONTENT_PROFILES['calculation-summary'],
-  ['adoptedInputs', 'engineeringResult'],
+  ['adoptedInputs', 'engineeringResult', 'engineeringValues'],
   'non-native calculation summaries preserve engineering inputs and results while trace remains a separate package review rule'
 );
 assert.deepEqual(
   CONTENT_PROFILES['traceable-calculation-book'],
-  ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'traceability'],
-  'traceable calculation-book profile requires all four positive content groups'
+  ['adoptedInputs', 'calculationProcess', 'engineeringResult', 'engineeringValues', 'traceability'],
+  'traceable calculation-book profile requires all five positive content groups'
 );
 assert.deepEqual(
   CONTENT_PROFILES['traceable-calculation-summary'],
-  ['adoptedInputs', 'engineeringResult', 'traceability'],
+  ['adoptedInputs', 'engineeringResult', 'engineeringValues', 'traceability'],
   'traceable summary profile keeps inputs, results, and provenance without requiring repeated detailed equations'
 );
 assert.ok(CONTENT_GROUPS.engineeringResult.anyOf.includes('檢核結論'), 'engineering result group recognizes an explicit check conclusion');
+assert.equal(CONTENT_GROUPS.engineeringValues.minimumPatternMatches, 2, 'engineering value group requires at least two actual values');
 assert.deepEqual(
   evaluateCalculationContent(
-    '採用材料與荷載資料。計算內容含公式與代入值。檢核結論：通過。產出工具 A，工具版本 v1，輸出時間 2026/07/23，計算指紋 CF-123。',
+    '採用材料與荷載資料：fc\'=280 kgf/cm²。計算內容含公式與代入值：Mu=12.5 tf·m。檢核結論：DCR=0.69，通過。產出工具 A，工具版本 v1，輸出時間 2026/07/23，計算指紋 CF-123。',
     { contentBoundaryProfile: 'traceable-calculation-book' }
   ).missingGroups,
   [],
@@ -56,11 +57,29 @@ assert.deepEqual(
 );
 assert.deepEqual(
   evaluateCalculationContent(
-    '採用材料與荷載資料。計算內容含公式與代入值。產出工具 A，工具版本 v1，輸出時間 2026/07/23，計算指紋 CF-123。',
+    '採用材料與荷載資料：fc\'=280 kgf/cm²。計算內容含公式與代入值：Mu=12.5 tf·m。產出工具 A，工具版本 v1，輸出時間 2026/07/23，計算指紋 CF-123。',
     { contentBoundaryProfile: 'traceable-calculation-book' }
   ).missingGroups,
   ['engineeringResult'],
   'positive content gate rejects a calculation book without an engineering result'
+);
+assert.deepEqual(
+  evaluateCalculationContent(
+    '採用材料與荷載資料。計算內容含公式與代入值。檢核結論：通過。工具版本 v3.1，輸出時間 2026/07/23 09:30，計算指紋 CF-123。',
+    { contentBoundaryProfile: 'calculation-book' }
+  ).missingGroups,
+  ['engineeringValues'],
+  'headings, status wording, versions, dates, and fingerprints do not count as engineering values'
+);
+const oneEngineeringValue = evaluateCalculationContent(
+  '採用材料與荷載資料。計算內容：Mu=12.5 tf·m。檢核結論：通過。',
+  { contentBoundaryProfile: 'calculation-book' }
+);
+assert.deepEqual(oneEngineeringValue.missingGroups, ['engineeringValues'], 'one engineering value does not satisfy the two-value threshold');
+assert.deepEqual(
+  oneEngineeringValue.groups.find(group => group.key === 'engineeringValues')?.patternMatches,
+  ['Mu=12.5 tf·m'],
+  'overlapping named-value and unit patterns count one engineering value only'
 );
 assert.deepEqual(
   evaluateCalculationContent('此頁是操作介面，不是計算書。', { contentBoundaryProfile: 'direct-print-boundary' }).missingGroups,
