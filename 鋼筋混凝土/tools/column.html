@@ -131,8 +131,8 @@
         </div>
 
         <div class="form-row">
-          <div class="form-group"><label>b (cm)</label><input type="number" id="b" value="60" data-section="b"></div>
-          <div class="form-group"><label>h (cm)</label><input type="number" id="h" value="60" data-section="h"></div>
+          <div class="form-group" id="columnDimBGroup"><label id="columnDimBLabel" for="b">b (cm)</label><input type="number" id="b" value="60" data-section="b"></div>
+          <div class="form-group" id="columnDimHGroup"><label for="h">h (cm)</label><input type="number" id="h" value="60" data-section="h"></div>
         </div>
 
         <div class="form-row">
@@ -721,6 +721,31 @@
   // 模式切換 (設計 / 檢核)
   let currentMode = 'design';
   let adoptedColumnForceImport = null;
+  let lastColumnShape = document.getElementById('colType')?.value || 'rect';
+
+  function syncColumnShapeDimensions() {
+    const type = document.getElementById('colType')?.value || 'rect';
+    const circular = type === 'circle' || type === 'circleTied';
+    const bEl = document.getElementById('b');
+    const hEl = document.getElementById('h');
+    const bLabel = document.getElementById('columnDimBLabel');
+    const hGroup = document.getElementById('columnDimHGroup');
+    const wasCircular = lastColumnShape === 'circle' || lastColumnShape === 'circleTied';
+    if (circular) {
+      if (!wasCircular && hEl) hEl.dataset.rectValue = hEl.value;
+      if (bLabel) bLabel.textContent = '直徑 D (cm)';
+      if (hGroup) hGroup.style.display = 'none';
+      if (bEl && hEl && String(bEl.value) !== String(hEl.value)) hEl.value = bEl.value;
+    } else {
+      if (bLabel) bLabel.textContent = 'b (cm)';
+      if (hGroup) hGroup.style.display = '';
+      if (wasCircular && hEl && hEl.dataset.rectValue != null) hEl.value = hEl.dataset.rectValue;
+    }
+    lastColumnShape = type;
+    return { type, circular, b:Number(bEl?.value), h:Number(hEl?.value) };
+  }
+  window.syncColumnShapeDimensions = syncColumnShapeDimensions;
+
   function syncDesignFields() {
     // 設計模式下：主筋根數 / 箍筋與繫筋間距與數均由系統反算自動填入 (隱藏輸入)
     // 檢核模式下：使用者自行輸入主筋號數 / 根數 / 間距
@@ -1124,13 +1149,27 @@
   }
 
   function normalizeColumnProjectPayload(raw) {
-    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+    const payload = window.RCReportFingerprint.validateProjectCalculationSource(raw, {
       expectedSchema: COLUMN_PROJECT_SCHEMA,
       expectedToolId: 'rc-column',
       expectedVersion: 'V3.1',
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
+    const type = String(payload.fields?.colType?.value || 'rect');
+    const circular = type === 'circle' || type === 'circleTied';
+    const bValue = payload.fields?.b?.value;
+    if (circular && bValue != null && payload.fields?.h && String(payload.fields.h.value) !== String(bValue)) {
+      const migrated = {
+        ...payload,
+        fields:{
+          ...payload.fields,
+          h:{ ...payload.fields.h, value:String(bValue) },
+        },
+      };
+      return window.RCReportFingerprint.withProjectCalculationFingerprint(migrated, { ignoredKeys:['activeTab'] });
+    }
+    return payload;
   }
 
   function setColumnProjectControl(id, saved) {
@@ -2018,6 +2057,7 @@
     markAllResultsPending();
     const seismic = $('seismicMode').checked;
     const colType = $('colType').value;
+    syncColumnShapeDimensions();
     const fc = num('fc'), fy = num('fy');
     const b = num('b'), h = num('h');
     const lu = num('lu'), k = num('k');
@@ -5320,6 +5360,7 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
         sel.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
+    syncColumnShapeDimensions();
     syncDesignFields();
     const beamJointImported = applyBeamColumnJointImport();
     applyPanel(beamJointImported ? 'loads' : 'geom');

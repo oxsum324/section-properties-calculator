@@ -579,9 +579,25 @@ async function exerciseColumnRebarDesignCandidates(page) {
       const hostText = document.getElementById('columnRebarDesignCandidates')?.innerText || '';
       const appliedOk = first ? window.applyColumnRebarCandidate(0) : false;
       const r = window.colLast || {};
+      const normalizedProject = window.collectColumnProjectData();
+      document.getElementById('h').value = '41';
+      const noiseProject = window.collectColumnProjectData();
+      const legacyProject = JSON.parse(JSON.stringify(normalizedProject));
+      legacyProject.fields.h.value = '55';
+      const legacySigned = window.RCReportFingerprint.withProjectCalculationFingerprint(legacyProject, { ignoredKeys:['activeTab'] });
+      window.applyColumnProjectData(legacySigned, { silent:true });
+      const migratedProject = window.collectColumnProjectData();
       return {
         type, count:candidates.length, first, hostText, appliedOk,
         mode:document.querySelector('.mode-btn.active')?.dataset.mode,
+        inputH:document.getElementById('h')?.value,
+        dimensionLabel:document.getElementById('columnDimBLabel')?.textContent || '',
+        hGroupDisplay:getComputedStyle(document.getElementById('columnDimHGroup')).display,
+        projectH:migratedProject.fields.h.value,
+        normalizedFingerprint:normalizedProject.calculationFingerprint,
+        noiseFingerprint:noiseProject.calculationFingerprint,
+        legacyFingerprint:legacySigned.calculationFingerprint,
+        migratedFingerprint:migratedProject.calculationFingerprint,
         barNo:r.barNo, nBar:r.nBar, tieNo:r.tieNo, tieS:r.tieS,
         spiralBar:r.spiralBar, spiralS:r.spiralS,
         okRhog:r.okRhog, pmOk:r.pmOk, biaxialSurfaceOk:r.biaxialSurfaceOk,
@@ -593,6 +609,10 @@ async function exerciseColumnRebarDesignCandidates(page) {
       };
     }, circularType);
     assert(circularApplied.count === 5, `column ${circularType} integrated candidates`, JSON.stringify(circularApplied));
+    assert(circularApplied.inputH === '80' && circularApplied.projectH === '80', `column ${circularType} normalizes secondary dimension to D`, JSON.stringify(circularApplied));
+    assert(circularApplied.dimensionLabel.includes('直徑 D') && circularApplied.hGroupDisplay === 'none', `column ${circularType} exposes one diameter input`, JSON.stringify(circularApplied));
+    assert(circularApplied.noiseFingerprint === circularApplied.normalizedFingerprint, `column ${circularType} fingerprint ignores normalized h noise`, JSON.stringify(circularApplied));
+    assert(circularApplied.legacyFingerprint !== circularApplied.normalizedFingerprint && circularApplied.migratedFingerprint === circularApplied.normalizedFingerprint, `column ${circularType} migrates valid legacy h to D`, JSON.stringify(circularApplied));
     assert(circularApplied.hostText.includes('圓周均布') && circularApplied.hostText.includes('圓周淨距') && circularApplied.hostText.includes('候選只留在工作頁'), `column ${circularType} work-page disclosure`, circularApplied.hostText.replace(/\s+/g, ' ').slice(0, 320));
     assert(circularApplied.appliedOk && circularApplied.mode === 'check', `column ${circularType} candidate applies into formal check mode`, JSON.stringify(circularApplied));
     assert(circularApplied.barNo === circularApplied.first.barNo && circularApplied.nBar === circularApplied.first.nBar, `column ${circularType} preserves longitudinal layout`, JSON.stringify(circularApplied));
@@ -608,6 +628,17 @@ async function exerciseColumnRebarDesignCandidates(page) {
     ['整體配筋候選', '圓周淨距', '候選只留在工作頁', '套用並檢核'].forEach(fragment => {
       assert(!circularReport.includes(fragment), `column ${circularType} report excludes candidates`, fragment);
     });
+    const restoredRect = await page.evaluate(() => {
+      const type = document.getElementById('colType');
+      type.value = 'rect';
+      type.dispatchEvent(new Event('change', { bubbles:true }));
+      return {
+        h:document.getElementById('h')?.value,
+        label:document.getElementById('columnDimBLabel')?.textContent || '',
+        hGroupDisplay:getComputedStyle(document.getElementById('columnDimHGroup')).display,
+      };
+    });
+    assert(restoredRect.h === '55' && restoredRect.label === 'b (cm)' && restoredRect.hGroupDisplay !== 'none', `column ${circularType} restores rectangular h`, JSON.stringify(restoredRect));
   }
 }
 
