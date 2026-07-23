@@ -311,6 +311,48 @@
       ]
     },
     {
+      "key": "seismic_circle_tied_check",
+      "mode": "check",
+      "checkboxes": {
+        "seismicMode": true,
+        "swayMode": false,
+        "manualLayout": false,
+        "tieOverride": false
+      },
+      "selects": {
+        "colType": "circleTied",
+        "tieNo": "#4"
+      },
+      "values": {
+        "fc": 280,
+        "fy": 4200,
+        "b": 70,
+        "h": 70,
+        "lu": 320,
+        "k": 1,
+        "cover": 5,
+        "Pu": 220,
+        "Mux": 30,
+        "Muy": 20,
+        "Vu": 40,
+        "tieS": 5,
+        "Ve": 25,
+        "firstHoopDist": 5
+      },
+      "expected": {
+        "mode": "check",
+        "colType": "circleTied",
+        "seismic": true,
+        "Pu": 220,
+        "Mux": 30,
+        "Muy": 20,
+        "Vu_in": 40,
+        "tieS": 5,
+        "confinementOk": true,
+        "okShear": true
+      }
+    },
+    {
       "key": "ng_heavy_check",
       "mode": "check",
       "checkboxes": {

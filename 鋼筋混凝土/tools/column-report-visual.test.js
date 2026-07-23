@@ -10,7 +10,7 @@ const CASES_PATH = path.join(__dirname, 'column-regression-cases.json');
 const OUT_DIR = path.resolve(process.env.RC_VISUAL_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.RC_VISUAL_CASES || 'default_rect_design,seismic_lap_class_a_ineligible_uses_b,seismic_detail_first_outside_spacing_ng')
+const CASE_KEYS = (process.env.RC_VISUAL_CASES || 'default_rect_design,seismic_circle_check,seismic_circle_tied_check,seismic_lap_class_a_ineligible_uses_b,seismic_detail_first_outside_spacing_ng')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -28,6 +28,20 @@ const EXPECTED_REPORT_TEXT = {
     '柱端錨定',
     '握裹 / 搭接長度',
     '長細比 k·ℓu/r'
+  ],
+  seismic_circle_check: [
+    '圓形 (螺箍筋)',
+    '直徑 D 70 cm',
+    '螺箍筋 #4 @ 5 cm',
+    '柱斷面 (含主筋與螺箍筋)',
+    'D=70 cm'
+  ],
+  seismic_circle_tied_check: [
+    '圓形 (箍筋)',
+    '直徑 D 70 cm',
+    '圓形閉合箍筋 #4 @ 5 cm',
+    '柱斷面 (含主筋與圓形閉合箍筋)',
+    'D=70 cm'
   ],
   seismic_lap_class_a_ineligible_uses_b: [
     '工程檢核總表',
@@ -172,6 +186,13 @@ async function extractReportMetrics(report) {
       hasHorizontalPageOverflow: document.documentElement.scrollWidth > window.innerWidth + 2,
       summaryHasDuplicateUnset: summaryText.includes('未輸入；未輸入'),
       summaryHasBrokenLapNote: /等級=[AB]\s*\(/.test(summaryText),
+      diagramCount: document.querySelectorAll('.rep-diagram img').length,
+      imageNaturalSizes: [...document.querySelectorAll('.rep-diagram img')].map(img => ({
+        alt: img.alt,
+        width: img.naturalWidth,
+        height: img.naturalHeight
+      })),
+      diagramCaptionText: clean(document.querySelector('.rep-diagrams')?.innerText),
       overflowSample: overflowing
     };
   });
@@ -305,6 +326,14 @@ async function main() {
       assert(printMetrics.toolbarDisplay === 'none', `${tc.key} print toolbar hidden`, `display=${printMetrics.toolbarDisplay}`);
       assert(!metrics.hasHorizontalPageOverflow, `${tc.key} report horizontal overflow`, `scroll=${metrics.documentScrollWidth}, viewport=${metrics.viewportWidth}`);
       assert(metrics.overflowSample.length === 0, `${tc.key} report element overflow`, 'none');
+      assert(metrics.diagramCount >= 2, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
+      metrics.imageNaturalSizes.forEach(img => {
+        assert(img.width > 0 && img.height > 0, `${tc.key} diagram rendered: ${img.alt || '(image)'}`, `${img.width}x${img.height}`);
+      });
+      if (tc.selects?.colType === 'circle' || tc.selects?.colType === 'circleTied') {
+        assert(metrics.diagramCaptionText.includes('D=70 cm'), `${tc.key} circular section caption`, metrics.diagramCaptionText);
+        assert(!metrics.diagramCaptionText.includes('70×70'), `${tc.key} circular section excludes rectangular dimensions`, metrics.diagramCaptionText);
+      }
       assert(!metrics.bodyText.includes('缺漏 / 複核摘要'), `${tc.key} no gap-summary title`, 'hidden from calculation report');
       assert(!metrics.bodyText.includes('⚠ 部分項目需人工複核'), `${tc.key} no top manual-review reminder`, 'hidden from calculation report');
       [

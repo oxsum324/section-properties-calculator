@@ -4348,7 +4348,9 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     const inputs = [
       { group:'幾何', items:[
         { label:'柱型', value: typeLabel },
-        { label:'b × h', value: `${r.b} × ${r.h}`, unit:'cm' },
+        ...((r.colType==='circle' || r.colType==='circleTied')
+          ? [{ label:'直徑 D', value: r.b, unit:'cm' }]
+          : [{ label:'b × h', value: `${r.b} × ${r.h}`, unit:'cm' }]),
         { label:'淨高 ℓu', value: r.lu, unit:'cm' },
         { label:'有效長度因數 k', value: r.k },
         { label:'保護層', value: r.cover, unit:'cm' }
@@ -4374,7 +4376,11 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
             unit: `db_eq = √${r.nPerBundle}·db = ${r.dbEq.toFixed(2)} cm (規範 25.6.1.4)`
           }] : [])
         ] : []),
-        { label:'箍筋', value: `${r.tieNo} @ ${r.tieS} cm`, unit:`(X=${r.legsX}, Y=${r.legsY} 肢, fyt=${r.tieFy})` },
+        ...(r.colType==='circle'
+          ? [{ label:'螺箍筋', value: `${r.spiralBar} @ ${r.spiralS} cm`, unit:`(fyt=${r.spiralFy})` }]
+          : r.colType==='circleTied'
+            ? [{ label:'圓形閉合箍筋', value: `${r.tieNo} @ ${r.tieS} cm`, unit:`(fyt=${r.tieFy})` }]
+            : [{ label:'箍筋', value: `${r.tieNo} @ ${r.tieS} cm`, unit:`(X=${r.legsX}, Y=${r.legsY} 肢, fyt=${r.tieFy})` }]),
         ...(r.colType==='rect' ? [{
           label:'繫筋', value: `${r.crossTieNo} @ ${r.crossTieS} cm`,
           unit:`(nct,x=${r.nctX}, nct,y=${r.nctY}, fyt,ct=${r.crossTieFy})`
@@ -4837,7 +4843,8 @@ ${(colType==='circle' || colType==='circleTied')?`【4】${colType==='circle'?'�
     try {
       // 重繪斷面到報告專用大尺寸 canvas
       const secURL = renderColumnSectionForReport(r);
-      if (secURL) diagrams.push({ title:'柱斷面 (含主筋與箍筋)', dataURL: secURL,
+      if (secURL) diagrams.push({
+        title:`柱斷面 (含主筋與${r.colType==='circle' ? '螺箍筋' : (r.colType==='circleTied' ? '圓形閉合箍筋' : '箍筋')})`, dataURL: secURL,
         caption: (r.colType==='circle'||r.colType==='circleTied')
           ? `D=${r.b} cm, ${r.nBar}-${r.barNo}, 保護層 ${r.cover} cm`
           : `${r.b}×${r.h} cm, ${r.nBar}-${r.barNo}, 保護層 ${r.cover} cm` });

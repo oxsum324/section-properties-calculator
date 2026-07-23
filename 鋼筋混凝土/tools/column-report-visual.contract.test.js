@@ -24,6 +24,8 @@ const cases = JSON.parse(read(casesPath));
 
 [
   'default_rect_design',
+  'seismic_circle_check',
+  'seismic_circle_tied_check',
   'seismic_lap_class_a_ineligible_uses_b',
   'seismic_detail_first_outside_spacing_ng'
 ].forEach(key => {
@@ -64,6 +66,10 @@ const cases = JSON.parse(read(casesPath));
   'assertArtifact(screenshotPath',
   'assertReportScreenshotQuality(screenshotPath',
   'assertReportPdfTextQuality(pdfPath',
+  'report diagrams',
+  'diagram rendered',
+  'circular section caption',
+  'circular section excludes rectangular dimensions',
   'column-direct-print-${tc.key}.pdf',
   'readPdfTextWithPoppler(directPrintPdfPath)',
   'RC 工具主頁列印已封鎖',
