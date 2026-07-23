@@ -86,6 +86,7 @@ assert.ok(preflightTools.includes('pages-release-governance-contract'), 'preflig
 
 assert.ok(exists('push-pages-release.ps1') && exists('push-pages-release.bat'), 'safe Pages push and verification entrypoints exist');
 assert.ok(pushPagesRelease.includes("'status', '--porcelain', '--untracked-files=all'"), 'Pages push wrapper rejects dirty tracked and untracked worktrees');
+assert.ok(pushPagesRelease.includes('System.Text.UTF8Encoding') && pushPagesRelease.includes('[Console]::OutputEncoding = $script:NativeUtf8Encoding') && pushPagesRelease.includes('$OutputEncoding = $script:NativeUtf8Encoding'), 'Pages push wrapper pins native GitHub JSON decoding to UTF-8 for redirected Windows PowerShell runs');
 assert.ok(pushPagesRelease.includes("$ErrorActionPreference = 'Continue'") && pushPagesRelease.includes('$exitCode = $LASTEXITCODE'), 'Pages push wrapper lets native exit codes decide success instead of treating Git progress on stderr as failure');
 assert.ok(pushPagesRelease.includes("'fetch', '--prune', $Remote, $Branch") && pushPagesRelease.includes("'rev-list', '--left-right', '--count'"), 'Pages push wrapper checks remote divergence before push');
 assert.ok(pushPagesRelease.includes("'push', $Remote") && !pushPagesRelease.includes('--force'), 'Pages push wrapper performs a non-force push');

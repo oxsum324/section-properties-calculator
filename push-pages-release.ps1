@@ -15,6 +15,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Windows PowerShell 5.1 may decode native UTF-8 output with the process code page
+# when this script runs hidden with redirected output. GitHub JSON can contain a
+# Chinese commit title, so pin both native-process channels before invoking gh.
+$script:NativeUtf8Encoding = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $script:NativeUtf8Encoding
+$OutputEncoding = $script:NativeUtf8Encoding
+
 function Write-ProgressLine {
   param([string]$Message)
   if (-not $Quiet) {
