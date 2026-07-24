@@ -2336,7 +2336,6 @@
         ...(r.panelPos ? [{ label:'無梁版位置', value: ({interior:'內版',extWithBeam:'外版(有邊梁)',extNoBeam:'外版(無邊梁)'})[r.panelPos] }] : []),
         ...(r.punchData ? [{ label:'衝剪柱位', value: ({interior:'內柱',edge:'邊柱',corner:'角柱'})[r.punchData.colPos] || r.punchData.colPos }] : []),
         ...(r.punchMode ? [{ label:'衝剪需求模式', value: ({prelim:'初估模式', conservative:'保守放大模式'})[r.punchMode] || r.punchMode }] : []),
-        ...(r.testCaseKey ? [{ label:'內建案例', value: SLAB_TEST_CASES[r.testCaseKey]?.label || r.testCaseKey }] : []),
         { label:'底層 短向有效深 dX', value: r.dXBot.toFixed(2), unit:'cm' },
         { label:'底層 長向有效深 dY', value: r.dYBot.toFixed(2), unit:'cm' },
         ...(r.isThick ? [
@@ -2645,15 +2644,12 @@
         { sym:'αs',  desc:'柱位係數 (內柱40, 邊柱30, 角柱20)' },
       ],
       notes:[
-        '本報表屬初步設計 / 初步檢核等級，供配置比較、尺寸篩選與方案討論使用。',
         '依據 112 年混凝土結構設計規範 6.5、22.5、22.6 及相關最小厚度與配筋條文；雙向 / 無梁板主體目前為簡化二向條帶初估，非完整 8.10 DDM。',
         ((r.shearX.Vs||0)>0 || (r.punchData && r.punchData.puOn))
-          ? '本案剪力已計入剪力鋼筋 Vs（規範 22.5 單向／22.6 衝剪）：請確認箍筋錨定、間距上限、Vs 與 vn 上限及板厚容置條件；薄板 (h<25cm) 不建議配箍，宜改加厚。'
+          ? '本案剪力已計入剪力鋼筋 Vs（規範 22.5 單向／22.6 衝剪）；採用之箍筋、間距、Vs、vn 上限及板厚容置條件如上述檢核。'
           : '一向剪力目前採無剪力補強假設：Vn=Vc、Vs=0；縱向主筋只作為 ρw 影響 Vc，不自動視為剪力鋼筋。',
-        '本工具未納入 DDM 之總靜力矩分配、column strip / middle strip 細分配、邊柱列與角柱列處理；無梁板結果僅供初步配置與方案比較。',
-        '無梁板衝剪 Vu 目前採 tributary-area 初估或柱位保守放大估算，未納入 unbalanced moment transfer；邊柱、角柱、偏心受力與不規則格局應另作正式檢核。',
-        '未來擴充：等值構架法 (EFM, 規範 8.11)，適用不規則柱距與複雜邊界',
-        '計算結果僅供初步設計參考，實際設計仍應由執業技師簽證'
+        '雙向 / 無梁板分析未包含 DDM 之總靜力矩分配、column strip / middle strip 細分配、邊柱列與角柱列處理。',
+        '無梁板衝剪 Vu 採 tributary-area 初估或柱位保守放大估算，未包含 unbalanced moment transfer。'
       ]
     });
   }

@@ -2742,7 +2742,6 @@ ${basementStepTxt}
         { label:'Mu', value:r.MuIn.toFixed(2), unit:'tf·m' },
         { label:'偏心 e', value:r.e, unit:'cm' },
         { label:'Vu', value:(r.Vu_kgf/1000).toFixed(2), unit:'tf' },
-        ...(r.testCaseKey ? [{ label:'內建案例', value: WALL_TEST_CASES[r.testCaseKey]?.label || r.testCaseKey }] : []),
         ...(r.bwModelLabel ? [{ label:'地下室外牆模型', value:r.bwModelLabel }] : []),
         ...(r.seismic?[{ label:'σmax', value:r.sigmaMax, unit:'kgf/cm²' }]:[])
       ]},

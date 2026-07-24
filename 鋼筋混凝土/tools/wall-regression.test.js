@@ -67,6 +67,7 @@ function main() {
   const buildReportSrc = wallHtml.slice(wallHtml.indexOf('function buildWallReport'), wallHtml.indexOf('function svgToDataURL'));
   assert(!buildReportSrc.includes('RCUI.buildReviewCheckGroup'), 'wall report excludes review overview helper', 'formal-analysis overview stays page-only');
   assert(!buildReportSrc.includes('待確認 / 正式分析需求'), 'wall report excludes formal-analysis overview group', 'report has no page-only review group');
+  assert(!buildReportSrc.includes("label:'內建案例'"), 'wall report excludes built-in case provenance', 'test case stays on tool page');
   assert(wallHtml.includes('basement_pass_warn'), 'wall.html has pass-warning basement case', 'numeric pass with rough model is regression-covered');
   assert(wallHtml.includes('bearing_tension'), 'wall.html has axial-tension report case', 'negative Pu and end reinforcement are attachment-covered');
   assert(wallHtml.includes('Pu (tf；壓＋／拉－)') && wallHtml.includes('Pu（壓＋／拉－）'), 'wall.html discloses Pu sign convention', 'page and report identify compression-positive / tension-negative');

@@ -355,6 +355,9 @@ async function main() {
         '僅供初估，不建議直接作附件',
         '暫勿作附件',
         '不會寫入計算書或列印 PDF',
+        '內建案例',
+        '未來擴充：',
+        '實際設計仍應由執業技師簽證',
       ].forEach(fragment => {
         assert(!metrics.calculationText.includes(fragment), `${key} report excludes page-only review prompt`, fragment);
       });

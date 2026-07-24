@@ -28,7 +28,6 @@ const EXPECTED = {
     minCheckGroups: 7,
     fragments: [
       '承重牆',
-      '承重牆拉彎與端部筋例',
       'Pu（壓＋／拉－）',
       '-90.00 tf',
       '兩端附加縱筋',
@@ -682,6 +681,7 @@ async function main() {
         '計算方法與適用邊界',
         '條文對照 ＆ 方法分級',
         '規範覆蓋矩陣',
+        '內建案例',
       ]) {
         assert(!metrics.calculationText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
       }

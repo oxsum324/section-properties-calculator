@@ -289,6 +289,9 @@ async function main() {
   assert(style.includes('.report-readiness-card') && style.includes('@media print'), 'shared/style.css hides readiness card from print', 'page-only readiness is print-hidden');
   assert(style.includes('.report-readiness-priority'), 'shared/style.css styles prioritized readiness cue', 'page-only priority cue has stable layout');
   assert(slabHtml.includes('summary:false'), 'slab report hides top status banner', 'page-only review status stays out of the report');
+  const buildReportSrc = slabHtml.slice(slabHtml.indexOf('function buildSlabReport'), slabHtml.indexOf('function svgToDataURL'));
+  assert(!buildReportSrc.includes("label:'內建案例'"), 'slab report excludes built-in case provenance', 'test case stays on tool page');
+  assert(!buildReportSrc.includes('未來擴充：') && !buildReportSrc.includes('實際設計仍應由執業技師簽證'), 'slab report excludes page governance notes', 'future work and generic sign-off stay page-only');
   assert(slabHtml.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), 'slab project payload normalizes placeholder project name', 'project storage metadata uses shared normalizer');
   assert(!slabHtml.includes("$('projName').value.trim()"), 'slab report/project metadata no longer uses raw trim on project name', 'shared normalizer handles placeholder cleanup');
   assert(!slabHtml.includes('RCUI.buildReviewCheckGroup'), 'slab report omits formal-analysis warning group', 'review warnings remain page-only');
