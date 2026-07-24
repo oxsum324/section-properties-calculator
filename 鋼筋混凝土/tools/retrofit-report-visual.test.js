@@ -128,7 +128,7 @@ async function main() {
     assert.ok(metrics.tableCount > 0 && metrics.tableHeaderCount > 0, 'RC retrofit report tables expose headings');
     assert.equal(metrics.horizontalOverflow, false, 'RC retrofit report has no horizontal overflow');
     assert.equal(metrics.elementOverflow, 0, 'RC retrofit report tables and media do not overflow');
-    for (const forbidden of ['優先建議報告閱讀狀態', '優先閱讀', '頁面輔助', '不會寫入計算書或列印 PDF']) {
+    for (const forbidden of ['優先建議報告閱讀狀態', '優先閱讀', '頁面輔助', '不會寫入計算書或列印 PDF', '本結果為標稱強度計算', '本結果為補強初估']) {
       assert.equal(metrics.calculationText.includes(forbidden), false, `RC retrofit report excludes page-only wording: ${forbidden}`);
     }
 

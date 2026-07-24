@@ -1734,7 +1734,7 @@ ${gainText}`;
 
     openReport({
       title: '單樁承載力設計計算書',
-      subtitle: 'RC 工具箱 · 單樁承載力、沉陷與樁身初步檢核',
+      subtitle: '單樁承載力、沉陷與樁身壓應力檢核',
       calculationFingerprint: projectSnapshot.calculationFingerprint,
       project: proj,
       documentState: attachmentReadiness.documentState,
@@ -1796,9 +1796,9 @@ ${gainText}`;
       ],
       summary: false,
       notes: [
-        '本計算書為單樁承載力、沉陷與樁身壓應力初步檢核；群樁、樁帽與側向反應請另依專案分析。',
-        '若地工報告、試樁結果或專案規範提供更保守參數，應以專案指定值複核。',
-        'N 值、c、φ、γ′ 與地下水條件需由地工資料確認；特殊地層不得只依預設經驗式定案。'
+        '本計算書檢核單樁承載力、沉陷與樁身壓應力；未包含群樁、樁帽與側向反應分析。',
+        '地工報告、試樁結果或專案規範如提供較保守參數，採用值以專案指定值為準。',
+        'N 值、c、φ、γ′ 與地下水條件以地工資料為準；特殊地層不以預設經驗式作為唯一依據。'
       ]
     });
   }

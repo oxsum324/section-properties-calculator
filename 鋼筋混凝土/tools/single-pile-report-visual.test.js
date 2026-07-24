@@ -394,6 +394,8 @@ async function main() {
         '計算方法與適用邊界',
         '條文對照 ＆ 方法分級',
         '規範覆蓋矩陣',
+        'RC 工具箱 ·',
+        '初步檢核',
       ]) {
         assert(!metrics.calculationText.includes(forbidden), `${key} report excludes page-only status`, forbidden);
       }

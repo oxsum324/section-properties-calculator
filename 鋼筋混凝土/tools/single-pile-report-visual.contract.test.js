@@ -67,6 +67,8 @@ const tool = read(toolPath);
   'report excludes method audit table',
   '條文對照 ＆ 方法分級',
   '規範覆蓋矩陣',
+  'RC 工具箱 ·',
+  '初步檢核',
   'assertReportScreenshotQuality(screenshotPath',
   'assertReportPdfTextQuality(pdfPath',
   "'單樁', '承載力', '計算書'",
