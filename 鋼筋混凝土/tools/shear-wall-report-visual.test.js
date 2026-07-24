@@ -182,6 +182,7 @@ async function reportMetrics(report) {
       documentStateText: clean(document.querySelector('.rep-document-status-line')?.textContent),
       bodyText: clean(document.body.innerText),
       calculationText: clean(calculationPaper?.innerText),
+      firstInputGroup: clean(document.querySelector('.rep-block h3')?.textContent),
       checkGroupCount: document.querySelectorAll('.rep-check').length,
       diagramCount: document.querySelectorAll('.rep-diagram img').length,
       imageNaturalSizes: [...document.querySelectorAll('.rep-diagram img')].map(img => ({
@@ -303,7 +304,8 @@ async function main() {
       assert(!metrics.hasReportSummary, `${tc.key} report status summary hidden`, 'no .rep-summary');
       assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${tc.key} report defaults to printable internal review independent of engineering readiness`, `${state.readinessStatus} -> ${metrics.documentState}`);
       assert(metrics.documentStateText.includes('文件狀態：內部審閱'), `${tc.key} report carries concise document status`, metrics.documentStateText);
-      assert(metrics.checkGroupCount >= 7, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
+      assert(metrics.firstInputGroup === '幾何 ＆ 材料', `${tc.key} report starts from calculation inputs`, metrics.firstInputGroup);
+      assert(metrics.checkGroupCount >= 6, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 2, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
         assert(img.width > 0 && img.height > 0, `${tc.key} diagram rendered: ${img.alt || '(image)'}`, `${img.width}x${img.height}`);
@@ -320,6 +322,10 @@ async function main() {
         '不會寫入計算書或列印 PDF',
         '待確認事項 1',
         '不列為 OK 結論',
+        '適用範圍假設',
+        '適用範圍與模型邊界',
+        '內建案例',
+        '本頁限單一牆段之面內檢核',
       ]) {
         assert(!metrics.calculationText.includes(forbidden), `${tc.key} report excludes page-only status`, forbidden);
       }

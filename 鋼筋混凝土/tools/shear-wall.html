@@ -1808,11 +1808,6 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
     ] : [];
 
     const inputs = [
-      { group:'適用範圍假設', items:[
-        { label:'牆段型式', value:r.scopeSingleWall ? '單一牆段，無連肢牆／連接梁耦合效應' : '含連肢牆／連接梁或多牆段耦合效應' },
-        { label:'開口影響', value:r.scopeNoOpening ? '臨界斷面無開口削弱，或已由外部模型處理' : '開口或削弱未納入本斷面模型' },
-        { label:'整體分析效應', value:r.scopeAnalysisReady ? 'Pu / Mu / Ve 已由外部模型提供' : '整體牆系統與樓版集力效應待確認' },
-      ]},
       { group:'幾何 ＆ 材料', keepTogether:true, items:[
         { label:"fc'", value:r.fc, unit:'kgf/cm²' }, { label:'fy / fyt', value:`${r.fy} / ${r.fyt}`, unit:'kgf/cm²' },
         { label:'牆厚 tw', value:r.tw, unit:'cm' }, { label:'牆長 ℓw', value:r.lw, unit:'cm' },
@@ -1833,7 +1828,6 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
           { label:'18.7.3 剪力放大', value:`Vuns=${r.Vuns.toFixed(1)}, VuEh=${r.VuEh.toFixed(1)}, Ωv=${r.omegaV.toFixed(2)}, ωv=${r.omegaW.toFixed(2)}` },
         ] : [{ label:'18.7.3 剪力來源', value:'Vu 已為設計剪力 Ve' }]),
         ...(r.seismic ? [{ label:'δu/hw', value:r.duhw }] : []),
-        ...(r.testCaseKey ? [{ label:'內建案例', value: SW_TEST_CASES[r.testCaseKey]?.label || r.testCaseKey }] : []),
       ]},
       ...(() => {
         const group = LoadCombo.toReportGroup('lcSW', '採用載重組合');
@@ -1843,11 +1837,6 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
     ];
 
     const checks = [
-      { group:'適用範圍與模型邊界', items:[
-        { label:'單一牆段假設', formula:'本工具限單一牆段面內 P-M 與剪力檢核', sub:'連肢牆、連接梁與多牆段耦合效應須完整模型分析', value:r.scopeSingleWall?'符合假設':'待確認', ok:r.scopeSingleWall?true:null },
-        { label:'開口與削弱', formula:'臨界斷面須可用實牆有效斷面代表', sub:'開口牆需另行建立有效斷面、邊界構材與力流模型', value:r.scopeNoOpening?'符合假設':'待確認', ok:r.scopeNoOpening?true:null },
-        { label:'整體分析輸入', formula:'Pu / Mu / Ve 應由整體結構分析或專案指定取得', sub:'樓版、集力構件、扭轉與牆系統分配不由本頁自動分析', value:r.scopeAnalysisReady?'已確認':'待確認', ok:r.scopeAnalysisReady?true:null },
-      ]},
       { group:'幾何 (規範 18.7.1)', items:[
         { label:'Wall Pier 判定', formula:'hw/ℓw≥2.0 且 ℓw/tw≤2.5 → 改柱設計', sub:`hw/ℓw=${r.hwlw.toFixed(2)}, ℓw/tw=${(r.lw/r.tw).toFixed(2)}`, value:r.isPier?'⚠ 改柱':'牆設計', ok:!r.isPier },
         { label:'幾何模型一致性', formula:'正值、cover<tw/2、ℓbe>2cover、2ℓbe<ℓw', sub:r.geomModelIssues.length ? r.geomModelIssues.join('；') : '幾何輸入可建立有效斷面模型', value:r.geomModelOk?'有效':'需修正', ok:r.geomModelOk },
@@ -1967,7 +1956,6 @@ ${(!r.sbeReq && r.seismic) ? `免 SBE 邊界細部 (18.7.6.5)：${(r.noSbeHookRe
         '面內撓曲採應變相容纖維法 P-M 互制 (εcu=0.003, Whitney 等值應力方塊, Es=2.04×10⁶ kgf/cm²)',
         '剪力 φ 依 21.2.4.1：標稱剪力 Vn 小於撓曲強度發展對應剪力 Vmn 時採 0.60，否則 0.75',
         r.seismic ? '已套用特殊結構牆 (18.7) 耐震規定，含邊界構材圍束筋 Ash 檢核 (18.7.6.4)' : '未套用耐震規定 (一般結構牆/承重牆)',
-        '本頁限單一牆段之面內檢核；連肢牆 (coupled wall)、連接梁、開口牆與整體耐震牆系統需完整模型分析，不在本工具範圍',
       ],
     });
   }

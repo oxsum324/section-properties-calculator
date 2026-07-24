@@ -119,8 +119,10 @@ function main() {
   assert(html.includes('待確認 — ${reviewWarnings.length} 項需補充設計或圖說確認'), '摘要 banner 顯示待確認數量', 'summary banner pending-review count present');
   assert(html.includes('id="summaryWarnings"') && html.includes('function updateSummaryPanel') && html.includes('待確認事項 ${index + 1}'), '摘要頁直接列出待確認事項明細', 'summary warning details present');
   assert(html.includes('scopeSingleWall') && html.includes('scopeNoOpening') && html.includes('scopeAnalysisReady'), '適用範圍假設可輸入與匯出', 'scope assumptions present');
-  assert(html.includes('適用範圍與模型邊界'), '計算書列出適用範圍與模型邊界', 'scope report group present');
-  assert(html.includes('開口牆') && html.includes('連肢牆'), '超出單片實牆範圍之限制明確揭露', 'scope limitations present');
+  assert(html.includes('id="scopeSingleWall"') && html.includes('id="scopeNoOpening"') && html.includes('id="scopeAnalysisReady"'), '頁面保留適用範圍控制', 'scope review remains on tool page');
+  assert(!buildReportSrc.includes("group:'適用範圍假設'") && !buildReportSrc.includes("group:'適用範圍與模型邊界'"), '計算書排除頁面適用範圍治理群組', 'report starts from calculation inputs');
+  assert(!buildReportSrc.includes("label:'內建案例'") && !buildReportSrc.includes('本頁限單一牆段之面內檢核'), '計算書排除操作案例與頁面邊界提醒', 'test provenance and review note stay page-only');
+  assert(html.includes('臨界斷面無開口削弱') && html.includes('整體牆系統、樓版與集力構件'), '頁面明示模型適用條件', 'scope limitations present');
   assert(html.includes('geomModelOk') && wallBaseSrc.includes('2ℓbe 需小於 ℓw') && wallBaseSrc.includes('cover 需小於 tw/2'), '幾何模型退化納入共用 base 硬檢核', 'geometry consistency guard present');
   assert(html.includes('shearPhiMode') && wallEvaluatorSrc.includes('Vmn=Ve·Mn/Mu 不適用') && wallEvaluatorSrc.includes('Mu≤0 或 Mn@Pu≤0'), '零彎矩剪力 φ 判定不輸出 Mn/0 假公式', 'zero moment shear phi guard present');
   assert(html.includes('pmAxialOk') && html.includes('Pu超出軸力封包') && html.includes('Pu 超出 P-M 封包，c@Pu 不採用'), 'P-M 軸力越界不得採用 φMn/c@Pu', 'pm axial range guard present');
