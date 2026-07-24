@@ -52,6 +52,8 @@ function main() {
   assert(wallHtml.includes('id="btnSaveWallProject"') && wallHtml.includes('id="btnLoadWallProject"'), 'wall.html has project file controls', 'save/load buttons present');
   assert(wallHtml.includes('id="btnSaveWallDraft"') && wallHtml.includes('id="btnLoadWallDraft"'), 'wall.html has browser draft controls', 'draft buttons present');
   assert(wallHtml.includes('rc.wall.project.draft'), 'wall.html has localStorage draft key', 'wall draft key present');
+  assert(wallHtml.includes("sourceVersion === 'V3.1' ? 'V3.1' : 'V3.2'"), 'wall.html accepts verified V3.1 projects', 'legacy projects replay under the V3.2 page');
+  assert(wallHtml.includes('已依 V3.2 重新計算，請另存 V3.2 專案檔'), 'wall.html discloses V3.1 project migration', 'legacy replay prompts a V3.2 save');
   assert(wallHtml.includes('function collectWallProjectData()'), 'wall.html can collect wall project payload', 'project collect helper exists');
   assert(wallHtml.includes('function applyWallProjectData(raw'), 'wall.html can apply wall project payload', 'project apply helper exists');
   assert(wallHtml.includes('WALL_PROJECT_EXCLUDED_IDS') && wallHtml.includes('caseJson') && wallHtml.includes('baselineReport'), 'wall project excludes case-tool textareas', 'case JSON / baseline are not project inputs');
@@ -66,6 +68,8 @@ function main() {
   assert(!buildReportSrc.includes('RCUI.buildReviewCheckGroup'), 'wall report excludes review overview helper', 'formal-analysis overview stays page-only');
   assert(!buildReportSrc.includes('待確認 / 正式分析需求'), 'wall report excludes formal-analysis overview group', 'report has no page-only review group');
   assert(wallHtml.includes('basement_pass_warn'), 'wall.html has pass-warning basement case', 'numeric pass with rough model is regression-covered');
+  assert(wallHtml.includes('bearing_tension'), 'wall.html has axial-tension report case', 'negative Pu and end reinforcement are attachment-covered');
+  assert(wallHtml.includes('Pu (tf；壓＋／拉－)') && wallHtml.includes('Pu（壓＋／拉－）'), 'wall.html discloses Pu sign convention', 'page and report identify compression-positive / tension-negative');
   assert(wallHtml.includes('function importWallCaseFromJson()'), 'wall.html can import wall case JSON', 'import helper exists');
   assert(wallHtml.includes('function buildWallBaselineReport()'), 'wall.html can build baseline report', 'baseline export helper exists');
   assert(wallHtml.includes('function compareWallCaseJson()'), 'wall.html can compare wall case JSON', 'compare helper exists');

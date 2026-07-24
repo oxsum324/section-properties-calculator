@@ -38,6 +38,7 @@ const tool = read(toolPath);
 
 [
   'shear_seismic',
+  'bearing_tension',
   'basement_oop',
   'basement_pass_warn',
 ].forEach(key => assertIncludes(visual, key, 'wall report visual smoke case list'));
@@ -61,8 +62,14 @@ const tool = read(toolPath);
   'wall applies one complete reinforcement candidate and switches to check mode',
   'applied wall design candidate passes formal recalculation',
   'wall tension tuple is evaluated by the P-M envelope',
+  'preserves axial-tension sign',
+  'evaluates tension through P-M envelope',
+  'includes both-end concentrated reinforcement',
+  'plots signed demand point below zero axial force',
   'wall derives Mu=Pu·e and keeps P-M active beyond the simple-formula range',
   'wall P-M axial envelope overflow fails closed in browser workflow',
+  'wall replays verified V3.1 project under V3.2',
+  'wall V3.1 migration preserves inputs and recalculates',
   'wall accepts cover and per-end concentrated reinforcement inputs',
   'wall end reinforcement enters formal P-M steel area',
   'wall page renders P-M envelope and demand point',

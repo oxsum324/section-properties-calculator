@@ -9,7 +9,7 @@ const PORT = Number(process.env.WALL_REPORT_PORT || 0);
 const OUT_DIR = path.resolve(process.env.WALL_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.WALL_REPORT_CASES || 'shear_seismic,basement_oop,basement_pass_warn')
+const CASE_KEYS = (process.env.WALL_REPORT_CASES || 'bearing_tension,shear_seismic,basement_oop,basement_pass_warn')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -22,6 +22,22 @@ const CHROME_CANDIDATES = [
 ].filter(Boolean);
 
 const EXPECTED = {
+  bearing_tension: {
+    title: '牆設計計算書',
+    expectedSnapshot: '待確認',
+    minCheckGroups: 7,
+    fragments: [
+      '承重牆',
+      '承重牆拉彎與端部筋例',
+      'Pu（壓＋／拉－）',
+      '-90.00 tf',
+      '兩端附加縱筋',
+      '每端 4-#8',
+      'P-M 設計軸力範圍',
+      '牆水平斷面配筋示意',
+      'P-M 設計互制圖',
+    ],
+  },
   shear_seismic: {
     title: '牆設計計算書',
     expectedSnapshot: 'NG',
@@ -291,6 +307,20 @@ async function exerciseWallProjectStorage(page) {
   assert(restored.aggRows.length === 1 && restored.aggRows[0].tag === 'W-save', 'wall project restores aggregate rows', JSON.stringify(restored.aggRows));
   assert(!!restored.draftRaw, 'wall project draft saved to localStorage', 'rc.wall.project.draft');
   assert(restored.wallLastOk, 'wall project recalculates after restore', 'wallLast present');
+
+  const legacyReplay = await page.evaluate(payload => {
+    const legacy = { ...payload, appVersion: 'V3.1' };
+    const signedLegacy = window.RCReportFingerprint.withProjectCalculationFingerprint(legacy, { ignoredKeys: ['activeTab'] });
+    const replay = window.applyWallProjectData(signedLegacy, { silent: true });
+    return {
+      acceptedVersion: replay.payload.appVersion,
+      currentVersion: window.collectWallProjectData().appVersion,
+      projectName: document.getElementById('projName')?.value,
+      wallLastOk: !!window.wallLast,
+    };
+  }, saved);
+  assert(legacyReplay.acceptedVersion === 'V3.1' && legacyReplay.currentVersion === 'V3.2', 'wall replays verified V3.1 project under V3.2', JSON.stringify(legacyReplay));
+  assert(legacyReplay.projectName === '牆專案存讀檔測試' && legacyReplay.wallLastOk, 'wall V3.1 migration preserves inputs and recalculates', JSON.stringify(legacyReplay));
 }
 
 async function exerciseWallCapacityLoadCombo(page) {
@@ -565,6 +595,11 @@ async function main() {
         methodRows: window.getWallMethodAuditRows ? window.getWallMethodAuditRows(window.wallLast).length : 0,
         readinessText: document.getElementById('wallAttachmentReadinessCard')?.innerText?.replace(/\s+/g, ' ').trim() || '',
         readinessStatus: document.getElementById('wallAttachmentReadiness')?.dataset.attachmentStatus || '',
+        Pu: window.wallLast?.Pu_kgf / 1000,
+        pmStatus: window.wallLast?.pmStatus,
+        pmBoundaryRebar: window.wallLast?.pmBoundaryRebar,
+        pmBoundaryBarCountTotal: window.wallLast?.pmBoundaryBarCountTotal,
+        pmDiagramText: document.getElementById('wallPMDiagram')?.textContent || '',
       }));
       assert(state.wallLastOk, `${key} calculation state exists`, state.banner);
       assert(state.methodRows >= 6, `${key} method audit rows`, `rows=${state.methodRows}`);
@@ -579,6 +614,12 @@ async function main() {
         assert(state.summaryOk === null, `${key} summary is manual review`, `summaryOk=${state.summaryOk}, text=${state.summaryText}`);
         assert(state.reviewWarningCount >= 1, `${key} review warnings captured`, `count=${state.reviewWarningCount}`);
         assert(state.readinessText.includes('待人工複核'), `${key} page readiness flags review`, state.readinessText);
+      }
+      if (key === 'bearing_tension') {
+        assert(state.Pu === -90, `${key} preserves axial-tension sign`, `Pu=${state.Pu} tf`);
+        assert(state.pmStatus === 'evaluated', `${key} evaluates tension through P-M envelope`, state.pmStatus);
+        assert(state.pmBoundaryRebar === true && state.pmBoundaryBarCountTotal === 8, `${key} includes both-end concentrated reinforcement`, `count=${state.pmBoundaryBarCountTotal}`);
+        assert(state.pmDiagramText.includes('需求 (25.0, -90.0)'), `${key} plots signed demand point below zero axial force`, state.pmDiagramText);
       }
       const sourceFingerprint = await page.evaluate(() => window.collectWallProjectData().calculationFingerprint);
       const report = await openReportPopup(page);

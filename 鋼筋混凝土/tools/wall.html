@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>牆設計 — RC 工具箱 V3.1</title>
+<title>牆設計 — RC 工具箱 V3.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
@@ -77,8 +77,8 @@
 <body class="rc-formal-output-page">
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>牆 Wall 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.1</span></h1>
-  <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 承重牆／結構牆厚度、軸力簡易公式、特殊邊界構材</p>
+  <h1>牆 Wall 設計／檢核 <span style="font-size:0.5em; font-weight:500; opacity:0.85; margin-left:8px;">V3.2</span></h1>
+  <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 承重牆／結構牆 P-M 互制、軸壓與軸拉、面內剪力、牆端配筋與特殊邊界構材</p>
 </header>
 
 <div class="container">
@@ -114,6 +114,7 @@
         <select id="testCaseSelect">
           <option value="">請選擇案例</option>
           <option value="bearing_basic">承重牆基本例</option>
+          <option value="bearing_tension">承重牆拉彎與端部筋例</option>
           <option value="shear_seismic">結構牆耐震例</option>
           <option value="basement_oop">地下室外牆面外例</option>
           <option value="basement_pass_warn">地下室外牆通過待確認例</option>
@@ -211,12 +212,12 @@
       <div class="card subpanel" data-panel="load">
         <h2>面內載重 (Pu / Mu / Vu)</h2>
         <div class="form-row">
-          <div class="form-group"><label>因數化軸力 Pu (tf)</label><input type="number" id="Pu" value="80"></div>
+          <div class="form-group"><label>因數化軸力 Pu (tf；壓＋／拉－)</label><input type="number" id="Pu" value="80"></div>
           <div class="form-group"><label>偏心 e (cm)</label><input type="number" id="e" value="2"></div>
         </div>
         <div class="form-group"><label>面內因數化彎矩 Mu (tf·m，可留空)</label><input type="number" id="MuIn" value="" placeholder="留空時採 Mu = Pu·e"></div>
         <div class="form-group"><label>面內剪力 Vu (tf)</label><input type="number" id="Vu" value="50"></div>
-        <p class="hint detail-help">P-M 互制採應變相容法；Mu 留空時依 Pu·e 推導。若 e ≤ h/6，另列簡易公式 11.5.3.1 供對照。Pu、Mu、Vu 可由載重組合產生器帶入。</p>
+        <p class="hint detail-help">P-M 互制採應變相容法；Pu 以壓力為正、拉力為負。Mu 留空時依 Pu·e 推導。若 e ≤ h/6，另列簡易公式 11.5.3.1 供對照。Pu、Mu、Vu 可由載重組合產生器帶入。</p>
       </div>
 
       <div class="card subpanel" data-panel="rebar">
@@ -808,6 +809,24 @@
       },
       note: '一般承重牆檢核案例：適合確認厚度、軸力、剪力與基本配筋判定。'
     },
+    bearing_tension: {
+      label: '承重牆拉彎與端部筋例',
+      mode: 'check',
+      values: {
+        seismicMode: false,
+        wallType: 'bearing',
+        showSteps: false,
+        fc: 280, fy: 4200, lambdaSel: '1.00',
+        h: 25, lw: 500, lc: 300, k: 1.0, hw: 1200,
+        Pu: -90, e: 2, MuIn: 25, Vu: 30,
+        vBar: '#5', vSp: 15, hBar: '#4', hSp: 15, layers: '2', cover: 3,
+        pmBoundaryRebar: true, pmBoundaryBar: '#8', pmBoundaryCountEach: 4,
+        Mua: 2, PuOop: 12,
+        basementWall: false,
+        sigmaMax: 35, MuW: 600, duhw: 0.01, cBE: 50, fytBE: 4200
+      },
+      note: '一般承重牆拉彎案例：Pu 採拉力負號，並以牆端附加集中縱筋建立完整 P-M 設計封包。'
+    },
     shear_seismic: {
       label: '結構牆耐震例',
       mode: 'check',
@@ -917,7 +936,7 @@
       schema: WALL_PROJECT_SCHEMA,
       tool: 'rc-wall',
       toolTitle: '牆 Wall 設計／檢核',
-      appVersion: 'V3.1',
+      appVersion: 'V3.2',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       activeTab: document.querySelector('.section-tabs button.active')?.dataset.tab || 'geom',
@@ -966,10 +985,18 @@
   }
 
   function normalizeWallProjectPayload(raw) {
-    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+    let parsed = raw;
+    if (typeof raw === 'string') {
+      try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+    }
+    const sourceVersion = String(parsed?.appVersion || parsed?.tool?.pageVersion || parsed?.pageVersion || '')
+      .trim()
+      .replace(/^v/i, 'V');
+    const expectedVersion = sourceVersion === 'V3.1' ? 'V3.1' : 'V3.2';
+    return window.RCReportFingerprint.validateProjectCalculationSource(parsed, {
       expectedSchema: WALL_PROJECT_SCHEMA,
       expectedToolId: 'rc-wall',
-      expectedVersion: 'V3.1',
+      expectedVersion,
       sourceKey: 'fields',
       fingerprintOptions: { ignoredKeys: ['activeTab'] }
     });
@@ -1003,6 +1030,8 @@
 
   function applyWallProjectData(raw, options = {}) {
     const payload = normalizeWallProjectPayload(raw);
+    const sourceVersion = String(payload.appVersion || '').trim().replace(/^v/i, 'V');
+    const upgradedFromV31 = sourceVersion === 'V3.1';
     const previous = options.skipReplayCheck ? null : collectWallProjectData();
     setWallMode(payload.mode || 'design');
     let applied = 0;
@@ -1039,7 +1068,8 @@
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showWallProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
+      const upgradeNote = upgradedFromV31 ? '｜已依 V3.2 重新計算，請另存 V3.2 專案檔' : '';
+      showWallProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}${upgradeNote}`);
     }
     return { payload, applied };
   }
@@ -2708,7 +2738,7 @@ ${basementStepTxt}
         { label:'ρℓ / ρt', value:`${r.rhol.toFixed(4)} / ${r.rhot.toFixed(4)}` }
       ]},
       { group:'外力', items:[
-        { label:'Pu', value:(r.Pu_kgf/1000).toFixed(2), unit:'tf' },
+        { label:'Pu（壓＋／拉－）', value:(r.Pu_kgf/1000).toFixed(2), unit:'tf' },
         { label:'Mu', value:r.MuIn.toFixed(2), unit:'tf·m' },
         { label:'偏心 e', value:r.e, unit:'cm' },
         { label:'Vu', value:(r.Vu_kgf/1000).toFixed(2), unit:'tf' },
@@ -2894,6 +2924,8 @@ ${basementStepTxt}
         { sym:'lw', desc:'牆長' },
         { sym:'lc', desc:'牆淨高' },
         { sym:'hw', desc:'牆總高 (用於 hw/lw)' },
+        { sym:'Pu', desc:'因數化軸力（壓力為正、拉力為負）' },
+        { sym:'Mu', desc:'因數化面內彎矩' },
         { sym:'Acv', desc:'抗剪斷面積 h·lw' },
         { sym:'ρℓ', desc:'垂直筋比' },
         { sym:'ρt', desc:'水平筋比' },

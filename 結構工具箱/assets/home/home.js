@@ -152,7 +152,7 @@
       '/rc-beam': '2026-07-24',
       '/rc-column': '2026-07-24',
       '/rc-slab': '2026-07-24',
-      '/rc-wall': '2026-07-23',
+      '/rc-wall': '2026-07-24',
       '/rc-shear-wall': '2026-07-23',
       '/rc-foundation': '2026-07-23',
       '/rc-pile': '2026-07-23',
@@ -334,17 +334,17 @@
     },
     {
       title: 'RC 牆',
-      version: 'V3.1',
+      version: 'V3.2',
       href: '/rc-wall',
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
       governance: 'rc-audit',
-      output: 'RC 牆厚度、邊界構材與耐震檢核摘要',
-      summary: '承重牆、結構牆厚度、簡易軸力公式與特殊結構牆邊界構材。',
+      output: 'RC 牆 P-M、面內剪力、配筋與耐震檢核摘要',
+      summary: '承重牆與結構牆 P-M 互制、軸壓與軸拉、牆端附加筋、面內剪力及特殊邊界構材。',
       fit: 'RC 牆構件檢核與局部設計。',
       limit: '整體耐震牆系統仍需完整模型與規範判定。',
-      capabilities: ['正式核算', '耐震構件']
+      capabilities: ['正式核算', 'P-M 互制', '軸壓與軸拉', '耐震構件']
     },
     {
       title: 'RC 剪力牆',
