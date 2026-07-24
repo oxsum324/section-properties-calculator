@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>板設計 — RC 工具箱 V3.1</title>
+<title>板設計 — RC 工具箱 V3.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="../shared/style.css">
 <link rel="stylesheet" href="../shared/direct-print-boundary.css">
@@ -80,7 +80,7 @@
 <body class="rc-formal-output-page">
 <div class="rc-direct-print-boundary" aria-hidden="true"><strong>RC 工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面上的「計算書」按鈕產生可列印的內部審閱版，並可在預覽視窗核可為正式附件；本頁不得作為附件。</span></div>
 <header>
-  <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V3.1</span></h1>
+  <h1>板 Slab 設計／檢核 <span style="font-size:0.5em; opacity:0.85; margin-left:8px;">V3.2</span></h1>
   <p><a class="back" href="../../結構工具箱/index.html">← 回主選單</a> ｜ 單向板 + 簡化二向板初步設計、自動配筋</p>
 </header>
 
@@ -121,6 +121,7 @@
           <option value="flat_interior">無梁板內柱初估例</option>
           <option value="flat_interior_pass_warn">無梁板內柱數值通過待確認例</option>
           <option value="flat_edge_cons">無梁板邊柱保守例</option>
+          <option value="flat_corner_cons">無梁板角柱保守例</option>
         </select>
       </div>
       <div class="form-group" style="align-self:end;">
@@ -749,7 +750,7 @@
       schema: SLAB_PROJECT_SCHEMA,
       tool: 'rc-slab',
       toolTitle: '板 Slab 設計／檢核',
-      appVersion: 'V3.1',
+      appVersion: 'V3.2',
       savedAt: new Date().toISOString(),
       mode: currentMode,
       loadMode,
@@ -794,10 +795,18 @@
     }
   }
   function normalizeSlabProjectPayload(raw) {
-    return window.RCReportFingerprint.validateProjectCalculationSource(raw, {
+    let parsed = raw;
+    if (typeof raw === 'string') {
+      try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+    }
+    const sourceVersion = String(parsed?.appVersion || parsed?.tool?.pageVersion || parsed?.pageVersion || '')
+      .trim()
+      .replace(/^v/i, 'V');
+    const expectedVersion = sourceVersion === 'V3.1' ? 'V3.1' : 'V3.2';
+    return window.RCReportFingerprint.validateProjectCalculationSource(parsed, {
       expectedSchema: SLAB_PROJECT_SCHEMA,
       expectedToolId: 'rc-slab',
-      expectedVersion: 'V3.1',
+      expectedVersion,
       sourceKey: 'fields'
     });
   }
@@ -828,6 +837,8 @@
   }
   function applySlabProjectData(raw, options = {}) {
     const payload = normalizeSlabProjectPayload(raw);
+    const sourceVersion = String(payload.appVersion || '').trim().replace(/^v/i, 'V');
+    const upgradedFromV31 = sourceVersion === 'V3.1';
     const previous = options.skipReplayCheck ? null : collectSlabProjectData();
     setSlabMode(payload.mode, { recalculate: false });
     if (payload.loadMode) setLoadMode(payload.loadMode);
@@ -856,7 +867,8 @@
       const name = window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectName)
         || window.RCUI.normalizeProjectFieldValue(payload.metadata?.projectNo)
         || '未命名專案';
-      showSlabProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}`);
+      const upgradeNote = upgradedFromV31 ? '｜已依 V3.2 衝剪周長公式重算，請另存 V3.2 專案檔' : '';
+      showSlabProjectStatus(`已讀取${source}並重現計算：${name}，套用 ${applied} 個欄位｜計算指紋 ${payload.calculationFingerprint}${upgradeNote}`);
     }
     return { payload, applied };
   }
@@ -975,6 +987,17 @@
         layerMode:'thick', barNoXBot:'#5', barNoYBot:'#5', barNoXTop:'#5', barNoYTop:'#5'
       },
       note: '無梁板邊柱保守例：觀察保守放大模式與邊柱警語。'
+    },
+    flat_corner_cons: {
+      label: '無梁板角柱保守例',
+      mode: 'combo',
+      values: {
+        slabType:'flat', Lx:600, Ly:750, h:24, cover:2.5, fc:350, fy:4200, fyT:'4200',
+        supportX:'oneEnd', supportY:'oneEnd', supW:55, panelPos:'extNoBeam',
+        c1:50, c2:70, colPos:'corner', punchMode:'conservative', wuCombo:1.95,
+        layerMode:'thick', barNoXBot:'#5', barNoYBot:'#5', barNoXTop:'#5', barNoYTop:'#5'
+      },
+      note: '無梁板角柱保守例：觀察二邊連續臨界周長、保守放大模式與角柱警語。'
     }
   };
   function applySlabTestCase(caseKey) {
@@ -1169,9 +1192,15 @@
     const colPos = $('colPos')?.value || 'interior';
     const amp = ({ interior:1.15, edge:1.30, corner:1.50 })[colPos] || 1.15;
     const colName = ({ interior:'內柱', edge:'邊柱', corner:'角柱' })[colPos] || colPos;
-    $('punchModeHint').textContent = mode === 'conservative'
+    const boundaryText = colPos === 'interior'
+      ? '臨界周長採四邊連續。'
+      : colPos === 'edge'
+        ? '臨界周長延伸至一側板邊；未指定自由邊方向時取兩種方向較小 bo。'
+        : '臨界周長延伸至兩側板邊，採二邊連續。';
+    $('punchModeHint').textContent = (mode === 'conservative'
       ? `目前為保守放大模式：${colName} 採 ${amp.toFixed(2)} 倍 tributary-area 需求剪力作為 Vu；仍未納入 unbalanced moment transfer、活載偏載與不規則柱網之正式分布。`
-      : '目前為初估模式：Vu 直接採 tributary-area 估算，適合作為內柱或規則平版之初步比較；不宜視為正式衝剪檢核。';
+      : '目前為初估模式：Vu 直接採 tributary-area 估算，適合作為內柱或規則平版之初步比較；不宜視為正式衝剪檢核。')
+      + ` ${boundaryText}`;
   }
 
   // ─── 模式切換 ───────────────────────────────────
@@ -1286,6 +1315,46 @@
     const Vc = vc * b * d / 1000;
     const phiVc = PHI.shear * Vc;
     return { lambdaS, rhoW: rho, vc, Vc, phiVc, phiVn: phiVc, Vs: 0 };
+  }
+  function calcPunchCriticalGeometry({ c1, c2, d, colPos }) {
+    if (!(c1 > 0) || !(c2 > 0) || !(d > 0)) {
+      return { bo: 0, areaCm2: 0, formula: '輸入無效', basis: '柱尺寸與有效深度須大於 0。', orientation: '' };
+    }
+    if (colPos === 'edge') {
+      const candidates = [
+        {
+          bo: c1 + 2 * c2 + 2 * d,
+          areaCm2: (c1 + d) * (c2 + d / 2),
+          orientation: '自由邊平行 c1 邊',
+        },
+        {
+          bo: 2 * c1 + c2 + 2 * d,
+          areaCm2: (c1 + d / 2) * (c2 + d),
+          orientation: '自由邊平行 c2 邊',
+        },
+      ].sort((a, b) => (a.bo - b.bo) || (a.areaCm2 - b.areaCm2));
+      return {
+        ...candidates[0],
+        formula: 'bo = min(c1+2c2+2d, 2c1+c2+2d)',
+        basis: `邊柱三邊連續；未指定自由邊方向，依規範取較小周長（${candidates[0].orientation}）。`,
+      };
+    }
+    if (colPos === 'corner') {
+      return {
+        bo: c1 + c2 + d,
+        areaCm2: (c1 + d / 2) * (c2 + d / 2),
+        formula: 'bo = c1+c2+d',
+        basis: '角柱二邊連續；臨界周長延伸至兩側板邊緣。',
+        orientation: '兩側自由邊',
+      };
+    }
+    return {
+      bo: 2 * (c1 + c2 + 2 * d),
+      areaCm2: (c1 + d) * (c2 + d),
+      formula: 'bo = 2(c1+c2+2d)',
+      basis: '內柱四邊連續臨界斷面。',
+      orientation: '四邊連續',
+    };
   }
   function calcPunchVcNoShearReinf({ fc, lambda, d, bo, beta_c, alpha_s }) {
     const lambdaS = sizeEffectLambda(d);
@@ -2018,14 +2087,15 @@
       const c1 = num('c1'), c2 = num('c2');
       const punchMode = $('punchMode').value;
       const dPunch = Math.min(dX, dY);
-      const bo = 2 * (c1 + c2 + 2*dPunch);
-      const beta_c = Math.max(c1,c2) / Math.max(Math.min(c1,c2), 0.01);
       const colPos = $('colPos').value;
+      const punchGeometry = calcPunchCriticalGeometry({ c1, c2, d: dPunch, colPos });
+      const bo = punchGeometry.bo;
+      const beta_c = Math.max(c1,c2) / Math.max(Math.min(c1,c2), 0.01);
       const alpha_s = ({ interior:40, edge:30, corner:20 })[colPos] || 40;
       const punchVc = calcPunchVcNoShearReinf({ fc, lambda, d: dPunch, bo, beta_c, alpha_s });
       const vc = punchVc.vc;
       const phiVc2 = PHI.shear * vc * bo * dPunch / 1000;
-      const punchArea = (c1 + dPunch) * (c2 + dPunch) / 1e4;
+      const punchArea = punchGeometry.areaCm2 / 1e4;
       const tribArea = lnX * lnY;
       const VuPunchBase = wu * (tribArea - punchArea);
       const punchAmp = (punchMode === 'conservative')
@@ -2051,7 +2121,7 @@
       }
       $('punchCard').style.display = '';
       punchData = {
-        c1, c2, bo, vc, phiVc2, phiVnPunch, punchVs, puOn, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
+        c1, c2, bo, punchArea, punchGeometry, vc, phiVc2, phiVnPunch, punchVs, puOn, VuPunch, VuPunchBase, punchMode, punchAmp, colPos,
         lambdaS: punchVc.lambdaS, dPunch,
         warning: punchMode === 'conservative'
           ? `Vu 先以 tributary-area 初估，再依柱位保守放大 ${punchAmp.toFixed(2)} 倍；仍未納入 unbalanced moment transfer，僅供偏安全初估。`
@@ -2264,6 +2334,7 @@
         { label:'長向淨跨 ℓny', value: r.lnY_cm.toFixed(1), unit:'cm' },
         ...(r.stype==='two' ? [{ label:'α_fm', value: r.alphaFm.toFixed(2) }] : []),
         ...(r.panelPos ? [{ label:'無梁版位置', value: ({interior:'內版',extWithBeam:'外版(有邊梁)',extNoBeam:'外版(無邊梁)'})[r.panelPos] }] : []),
+        ...(r.punchData ? [{ label:'衝剪柱位', value: ({interior:'內柱',edge:'邊柱',corner:'角柱'})[r.punchData.colPos] || r.punchData.colPos }] : []),
         ...(r.punchMode ? [{ label:'衝剪需求模式', value: ({prelim:'初估模式', conservative:'保守放大模式'})[r.punchMode] || r.punchMode }] : []),
         ...(r.testCaseKey ? [{ label:'內建案例', value: SLAB_TEST_CASES[r.testCaseKey]?.label || r.testCaseKey }] : []),
         { label:'底層 短向有效深 dX', value: r.dXBot.toFixed(2), unit:'cm' },
@@ -2404,8 +2475,8 @@
         ])
       ]},
       ...(r.punchData ? [{ group:'雙向衝剪', items:[
-        { label:'臨界周長 bo', formula:'bo = 2(c1+c2+2d)',
-          sub:`bo = ${r.punchData.bo.toFixed(1)} cm`,
+        { label:'臨界周長 bo', formula:r.punchData.punchGeometry.formula,
+          sub:`bo = ${r.punchData.bo.toFixed(1)} cm\n${r.punchData.punchGeometry.basis}\n臨界斷面內面積 = ${(r.punchData.punchArea * 1e4).toFixed(1)} cm²`,
           value:`${r.punchData.bo.toFixed(1)}`, unit:'cm', ok:null },
         { label:`φVn ≥ Vu (衝剪)${r.punchData.puOn?'（含 Vs，規範 22.6）':'（Vs=0）'}`,
           formula: r.punchData.puOn
@@ -2539,7 +2610,8 @@
       }
       if (r.punchData) {
         shearLines.push('');
-        shearLines.push(`衝剪 bo=${fmtStep(r.punchData.bo,1)} cm；λs=${fmtStep(r.punchData.lambdaS,3)}；φVc(混凝土單獨)=${fmtStep(r.punchData.phiVc2,2)} tf`);
+        shearLines.push(`衝剪 ${r.punchData.punchGeometry.formula} = ${fmtStep(r.punchData.bo,1)} cm；${r.punchData.punchGeometry.basis}`);
+        shearLines.push(`臨界斷面內面積=${fmtStep(r.punchData.punchArea * 1e4,1)} cm²；λs=${fmtStep(r.punchData.lambdaS,3)}；φVc(混凝土單獨)=${fmtStep(r.punchData.phiVc2,2)} tf`);
         if (r.punchData.puOn && r.punchData.punchVs) {
           shearLines.push(`衝剪鋼筋(${r.punchData.punchVs.type==='stud'?'剪力釘':'閉合箍'})：vc折減=${fmtStep(r.punchData.punchVs.vc,2)}、vs=${fmtStep(r.punchData.punchVs.vs,2)}、vn=${fmtStep(r.punchData.punchVs.vn,2)} ≤ 上限 ${fmtStep(r.punchData.punchVs.vnMax,2)} kgf/cm²`);
         }

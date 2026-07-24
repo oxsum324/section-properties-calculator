@@ -9,7 +9,7 @@ const PORT = Number(process.env.SLAB_REPORT_PORT || 0);
 const OUT_DIR = path.resolve(process.env.SLAB_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.SLAB_REPORT_CASES || 'one_basic,two_basic,flat_interior_pass_warn,flat_edge_cons')
+const CASE_KEYS = (process.env.SLAB_REPORT_CASES || 'one_basic,two_basic,flat_interior_pass_warn,flat_edge_cons,flat_corner_cons')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -46,6 +46,21 @@ const EXPECTED = {
       '簡化二向條帶初估',
       'unbalanced moment transfer',
       '板 1 m 寬條帶斷面配筋示意',
+    ],
+  },
+  flat_corner_cons: {
+    title: '板初步設計計算書',
+    minCheckGroups: 7,
+    fragments: [
+      '無梁版',
+      '角柱',
+      '保守放大模式',
+      '雙向衝剪',
+      'bo = c1+c2+d',
+      '角柱二邊連續；臨界周長延伸至兩側板邊緣。',
+      '臨界斷面內面積 = 4738.5 cm²',
+      '保守放大 = 1.50',
+      'unbalanced moment transfer',
     ],
   },
   two_basic: {

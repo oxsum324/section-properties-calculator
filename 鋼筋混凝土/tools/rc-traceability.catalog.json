@@ -147,11 +147,11 @@
         },
         {
           "id": "slab-shear-punching-22-5-22-6",
-          "clause": "混凝土結構設計規範 112 年版 22.5 / 22.6 / 25.2.1",
-          "purpose": "一向剪力與雙向衝剪可選擇是否計入剪力補強，並把 unbalanced moment transfer 與偏心剪力列為正式分析邊界。",
-          "inputs": ["VuX", "VuY", "enableShearReinf", "puOn", "puType", "puFyt", "puLeg", "puS", "c1", "c2", "punchAmp"],
-          "calculation": ["φVc", "φVn = φ(Vc + Vs)", "衝剪 bo / βc / αs", "22.6 衝剪鋼筋", "25.2.1 淨距"],
-          "report": ["剪力與衝剪", "雙向衝剪", "φVn ≥ Vu (衝剪)", "unbalanced moment transfer", "方法限制說明"],
+          "clause": "混凝土結構設計規範 112 年版 22.5 / 22.6.4.1 / 22.6.5.3 / 25.2.1",
+          "purpose": "一向剪力與雙向衝剪可選擇是否計入剪力補強；內柱、邊柱與角柱依連續邊數建立最小臨界周長，並把 unbalanced moment transfer 與偏心剪力列為正式分析邊界。",
+          "inputs": ["VuX", "VuY", "enableShearReinf", "puOn", "puType", "puFyt", "puLeg", "puS", "c1", "c2", "colPos", "punchAmp"],
+          "calculation": ["φVc", "φVn = φ(Vc + Vs)", "22.6.4.1 最小臨界周長 bo", "內柱四邊 / 邊柱三邊 / 角柱二邊連續幾何", "22.6.5.3 βc / αs", "22.6 衝剪鋼筋", "25.2.1 淨距"],
+          "report": ["剪力與衝剪", "衝剪柱位", "臨界周長 bo 公式與幾何假設", "雙向衝剪", "φVn ≥ Vu (衝剪)", "unbalanced moment transfer", "方法限制說明"],
           "evidence": ["tools/slab-regression.test.js", "tools/slab-report-visual.test.js", "tools/slab-report-visual.contract.test.js"],
           "manualReview": ["衝剪鋼筋錨定、配置延伸範圍、邊柱 / 角柱偏心剪力與不平衡彎矩轉移須由專案樓板模型或正式手算人工複核。"]
         }

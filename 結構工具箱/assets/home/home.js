@@ -151,7 +151,7 @@
       '/composite-section': '2026-07-20',
       '/rc-beam': '2026-07-24',
       '/rc-column': '2026-07-24',
-      '/rc-slab': '2026-07-23',
+      '/rc-slab': '2026-07-24',
       '/rc-wall': '2026-07-23',
       '/rc-shear-wall': '2026-07-23',
       '/rc-foundation': '2026-07-23',
@@ -320,17 +320,17 @@
     },
     {
       title: 'RC 板',
-      version: 'V3.1',
+      version: 'V3.2',
       href: '/rc-slab',
       categories: ['member'],
       memberSystem: 'rc',
       state: 'formal',
       governance: 'rc-audit',
       output: 'RC 板設計、配筋與檢核摘要',
-      summary: '連續板係數法、直接設計法與自動配筋。',
-      fit: '常規 RC 板設計與配筋檢核。',
-      limit: '特殊邊界或非典型載重需另行判斷。',
-      capabilities: ['正式核算', '自動配筋']
+      summary: '單向連續板係數法、簡化二向條帶初估、衝剪與自動配筋。',
+      fit: '常規單向板設計，以及雙向板與無梁板的初步配置比較。',
+      limit: '雙向板並非完整 8.10 DDM；邊柱、角柱及不平衡彎矩須以專案分析補充確認。',
+      capabilities: ['單向板核算', '雙向初估']
     },
     {
       title: 'RC 牆',

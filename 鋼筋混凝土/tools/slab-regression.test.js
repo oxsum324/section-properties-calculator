@@ -207,6 +207,23 @@ async function exerciseSlabProjectStorage(page) {
   }));
   assert(rejectedImport.projectName === '檔案匯入前' && rejectedImport.Lx === '101', 'slab rejects incompatible source without changing inputs', JSON.stringify(rejectedImport));
   assert(rejectedImport.status.includes('工具版本不符'), 'slab explains incompatible source rejection', rejectedImport.status);
+  const legacySlabProject = JSON.parse(JSON.stringify(saved));
+  legacySlabProject.appVersion = 'V3.1';
+  await page.setInputFiles('#slabProjectFile', {
+    name: 'rc-slab-project-v3.1.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(legacySlabProject), 'utf8')
+  });
+  await page.waitForFunction(() => document.getElementById('slabProjectStatus')?.textContent?.includes('已依 V3.2 衝剪周長公式重算'));
+  const legacyImport = await page.evaluate(() => ({
+    projectName: document.getElementById('projName')?.value,
+    Lx: document.getElementById('Lx')?.value,
+    status: document.getElementById('slabProjectStatus')?.textContent || '',
+    appVersion: window.collectSlabProjectData()?.appVersion
+  }));
+  assert(legacyImport.projectName === '板專案存讀檔測試' && legacyImport.Lx === '620', 'slab accepts V3.1 project inputs for recalculation', JSON.stringify(legacyImport));
+  assert(legacyImport.appVersion === 'V3.2', 'slab upgrades replayed project provenance to V3.2', JSON.stringify(legacyImport));
+  assert(legacyImport.status.includes('請另存 V3.2 專案檔'), 'slab discloses V3.1 calculation migration', legacyImport.status);
   await page.setInputFiles('#slabProjectFile', {
     name: 'rc-slab-project.json',
     mimeType: 'application/json',
@@ -298,6 +315,7 @@ async function main() {
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await wait(250);
 
+    const captured = [];
     for (const tc of pack.cases) {
       await page.evaluate(({ mode, values }) => {
         const setLoadMode = window.setLoadMode || (() => {});
@@ -327,6 +345,9 @@ async function main() {
         punchVu: window.slabLast?.punchData?.VuPunch ?? null,
         punchPhiVc: window.slabLast?.punchData?.phiVc2 ?? null,
         punchAmp: window.slabLast?.punchData?.punchAmp ?? 1,
+        punchBo: window.slabLast?.punchData?.bo ?? null,
+        punchAreaCm2: window.slabLast?.punchData?.punchArea != null ? window.slabLast.punchData.punchArea * 1e4 : null,
+        punchGeometryFormula: window.slabLast?.punchData?.punchGeometry?.formula ?? '',
         methodLabel: window.slabLast?.methodLabel,
         numericalOk: window.slabLast?.numericalOk,
         summaryOk: window.slabLast?.summaryOk,
@@ -334,14 +355,21 @@ async function main() {
         reviewWarningCount: window.slabLast?.reviewWarnings?.length ?? 0,
         allOk: window.slabLast?.allOk
       }));
-      ['wu', 'hmin', 'VuX', 'VuY', 'phiVc1', 'phiVc1Y', 'punchVu', 'punchPhiVc', 'punchAmp'].forEach(key => {
+      ['wu', 'hmin', 'VuX', 'VuY', 'phiVc1', 'phiVc1Y', 'punchVu', 'punchPhiVc', 'punchAmp', 'punchBo', 'punchAreaCm2'].forEach(key => {
         actual[key] = sanitizeMetric(actual[key]);
       });
+      captured.push({ key: tc.key, actual });
+
+      if (process.env.SLAB_PRINT_ACTUAL === '1') continue;
 
       Object.entries(tc.expected).forEach(([key, expected]) => {
         const pass = nearlyEqual(actual[key], expected, tolerance);
         assert(pass, `${tc.key} :: ${key}`, `expected=${expected} actual=${actual[key]}`);
       });
+    }
+
+    if (process.env.SLAB_PRINT_ACTUAL === '1') {
+      console.log(JSON.stringify(captured, null, 2));
     }
 
     console.log('\nAll slab regression checks passed.');

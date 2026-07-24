@@ -34,6 +34,7 @@ const tool = read(toolPath);
   'two_basic',
   'flat_interior_pass_warn',
   'flat_edge_cons',
+  'flat_corner_cons',
 ].forEach(key => {
   assert.ok(cases.cases.some(tc => tc.key === key), `visual smoke case missing from regression cases: ${key}`);
   assertIncludes(visual, key, 'slab report visual smoke case list');
