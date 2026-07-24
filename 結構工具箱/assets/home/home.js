@@ -154,7 +154,7 @@
       '/rc-slab': '2026-07-24',
       '/rc-wall': '2026-07-24',
       '/rc-shear-wall': '2026-07-24',
-      '/rc-foundation': '2026-07-23',
+      '/rc-foundation': '2026-07-24',
       '/rc-pile': '2026-07-23',
       '/rc-retrofit-section': '2026-07-23',
       '/steel-formal': '2026-07-21',

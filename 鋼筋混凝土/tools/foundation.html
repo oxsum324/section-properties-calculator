@@ -4512,7 +4512,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
 
     openReport({
       title: `基礎${modeStr}計算書 — ${tabNames[r.tab] || ''}`,
-      subtitle: `RC 工具箱 · 112 年混凝土結構設計規範`,
+      subtitle: `112 年混凝土結構設計規範`,
       project: proj,
       calculationFingerprint: projectSnapshot.calculationFingerprint,
       documentState: attachmentReadiness.documentState,
@@ -4530,9 +4530,7 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         { sym:'ℓd', desc:'鋼筋握裹長度' }
       ],
       notes:[
-        `作業模式：${modeStr}`,
-        '依據 112 年混凝土結構設計規範',
-        '本計算書由 RC 工具箱自動產生，僅供初步設計參考'
+        '依據 112 年混凝土結構設計規範'
       ]
     });
   }

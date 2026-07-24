@@ -379,6 +379,9 @@ async function main() {
         '待確認事項 1',
         '不列為 OK 結論',
         '需正式分析確認',
+        '作業模式：',
+        'RC 工具箱 ·',
+        '僅供初步設計參考',
       ]) {
         assert(!metrics.calculationText.includes(forbidden), `${tc.key} report excludes page-only status`, forbidden);
       }

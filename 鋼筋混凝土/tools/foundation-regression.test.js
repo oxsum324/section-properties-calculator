@@ -190,6 +190,8 @@ async function main() {
   assert(reportSrc.includes('summary: false'), 'foundation report disables top status summary', 'attachment status is not printed');
   assert(!reportSrc.includes('RCUI.buildReviewCheckGroup'), 'foundation report excludes review overview helper', 'review overview stays page-only');
   assert(!reportSrc.includes('待確認 / 正式'), 'foundation report excludes formal-analysis overview groups', 'report has no page-only review group');
+  assert(!reportSrc.includes('作業模式：') && !reportSrc.includes('RC 工具箱 ·'), 'foundation report excludes page operation identity', 'mode and tool branding stay on tool page');
+  assert(!reportSrc.includes('僅供初步設計參考'), 'foundation report excludes generic preliminary disclaimer', 'report carries calculation content only');
   assert(html.includes('const FOUNDATION_PROJECT_SCHEMA = \'rc-foundation-project-v1\''), 'foundation project schema present', 'rc-foundation-project-v1');
   assert(html.includes('id="btnSaveFoundationProject"') && html.includes('id="btnLoadFoundationProject"'), 'foundation project file controls present', 'save/load buttons present');
   assert(html.includes('id="btnSaveFoundationDraft"') && html.includes('id="btnLoadFoundationDraft"'), 'foundation draft controls present', 'draft buttons present');
