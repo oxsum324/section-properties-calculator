@@ -61,7 +61,7 @@ assert.match(hubPs, /\$script:BtnAdvise\.Text = '停止辨識'/, 'advisor button
 assert.match(hubPs, /\$script:BtnAdvise\.Add_Click\([\s\S]*?\$script:AdvisorProcess[\s\S]*?Cancel-PathAdvisor[\s\S]*?Show-Recommendation/, 'the same button cancels an active advisor before it can start another run');
 assert.match(hubPs, /function Set-AdvisorButtonIdle \{[\s\S]*?唯讀辨識建議[\s\S]*?function Stop-PathAdvisor/, 'stop and completion paths can restore the idle advisor action');
 assert.match(hubPs, /AdvisorTimer\.Add_Tick\([\s\S]*?TotalSeconds -ge 60[\s\S]*?Complete-PathAdvisor/, 'timer polls advisor completion and enforces the bounded timeout');
-assert.match(hubPs, /Add_FormClosing\(\{ Stop-PathAdvisor \}\)/, 'closing the hub cleans up an in-flight advisor');
+assert.match(hubPs, /Add_FormClosing\(\{[\s\S]{0,200}?Stop-PathAdvisor[\s\S]{0,50}?\}\)/, 'closing the hub cleans up an in-flight advisor');
 const startupHandoff = hubPs.match(/\$script:MainForm\.Add_Shown\(\{[\s\S]*?(?=\n\}\)\n\n\[void\]\$script:MainForm\.ShowDialog)/)?.[0] || '';
 assert.match(startupHandoff, /StartupPaths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'startup arguments accept exactly one path and request the same read-only advice');
 assert.doesNotMatch(startupHandoff, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'startup path advice never opens or runs a child tool');
@@ -196,6 +196,28 @@ assert.equal(cancellationPayload.idleActionRestored, true);
 assert.equal(cancellationPayload.cancellationMessageShown, true);
 assert.equal(cancellationPayload.changedState, false);
 assert.equal(cancellationPayload.autoLaunched, false);
+
+const lifecycleSmoke = childProcess.spawnSync(
+  powershell,
+  [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', hubPath,
+    '-SmokeLifecycle', '-AdvisorSmokeDelayMilliseconds', '2000', '-InitialPath', toolsDir,
+  ],
+  { encoding: 'utf8', timeout: 15000 },
+);
+assert.equal(lifecycleSmoke.status, 0, lifecycleSmoke.stderr || lifecycleSmoke.stdout);
+const lifecyclePayload = JSON.parse(lifecycleSmoke.stdout.replace(/^\uFEFF/, '').trim());
+assert.equal(lifecyclePayload.status, 'pass');
+assert.equal(lifecyclePayload.winFormsMessageLoop, true);
+assert.equal(lifecyclePayload.pathChangeStoppedWorker, true);
+assert.equal(lifecyclePayload.replacementWorkerRunning, true);
+assert.equal(lifecyclePayload.pathChanged, true);
+assert.equal(lifecyclePayload.windowStayedOpenAfterPathChange, true);
+assert.equal(lifecyclePayload.formClosingObserved, true);
+assert.equal(lifecyclePayload.formClosingStoppedWorker, true);
+assert.equal(lifecyclePayload.advisorCleared, true);
+assert.equal(lifecyclePayload.changedState, false);
+assert.equal(lifecyclePayload.autoLaunched, false);
 
 const launcher = read('結構工具箱/tools/啟動案件附件工作台.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);

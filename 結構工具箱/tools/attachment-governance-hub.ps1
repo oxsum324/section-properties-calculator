@@ -5,6 +5,7 @@ param(
   [string[]]$AdditionalPath = @(),
   [switch]$Smoke,
   [switch]$SmokeCancellation,
+  [switch]$SmokeLifecycle,
   [ValidateRange(100, 5000)]
   [int]$AdvisorSmokeDelayMilliseconds = 2000
 )
@@ -14,6 +15,8 @@ $ErrorActionPreference = 'Stop'
 $script:StartupPaths = @()
 if ($InitialPath) { $script:StartupPaths += $InitialPath }
 $script:StartupPaths += @($AdditionalPath)
+if ($SmokeCancellation -and $SmokeLifecycle) { throw '取消 smoke 與生命週期 smoke 不得同時執行。' }
+if (($SmokeCancellation -or $SmokeLifecycle) -and $script:StartupPaths.Count -ne 1) { throw '動態 smoke 必須帶入單一 InitialPath。' }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -31,6 +34,9 @@ $script:AdvisorTimer = $null
 $script:BtnAdvise = $null
 $script:CancellationSmokeTimer = $null
 $script:CancellationSmokeResult = $null
+$script:LifecycleSmokeTimer = $null
+$script:LifecycleSmokeState = $null
+$script:LifecycleFormClosingObserved = $false
 $script:ToolTargets = @(
   [pscustomobject]@{
     Id = 'manager'
@@ -147,7 +153,7 @@ function Start-PathAdvisor {
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
   $startInfo.Arguments = "`"$script:WorkerPath`" --action advise --input `"$inputPath`""
-  if ($SmokeCancellation) { $startInfo.Arguments += " --smoke-delay-ms $AdvisorSmokeDelayMilliseconds" }
+  if ($SmokeCancellation -or $SmokeLifecycle) { $startInfo.Arguments += " --smoke-delay-ms $AdvisorSmokeDelayMilliseconds" }
   $startInfo.WorkingDirectory = $script:ToolDirectory
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
@@ -552,11 +558,17 @@ $script:AdvisorTimer.Add_Tick({
     Show-LaunchError -ErrorRecord $_.Exception
   }
 })
-$script:MainForm.Add_FormClosing({ Stop-PathAdvisor })
+$script:MainForm.Add_FormClosing({
+  if ($SmokeLifecycle) { $script:LifecycleFormClosingObserved = $true }
+  Stop-PathAdvisor
+})
 
-if ($SmokeCancellation) {
+if ($SmokeCancellation -or $SmokeLifecycle) {
   $script:MainForm.Opacity = 0
   $script:MainForm.ShowInTaskbar = $false
+}
+
+if ($SmokeCancellation) {
   $script:CancellationSmokeTimer = New-Object System.Windows.Forms.Timer
   $script:CancellationSmokeTimer.Interval = 250
   $script:CancellationSmokeTimer.Add_Tick({
@@ -596,6 +608,44 @@ if ($SmokeCancellation) {
   })
 }
 
+if ($SmokeLifecycle) {
+  $script:LifecycleSmokeTimer = New-Object System.Windows.Forms.Timer
+  $script:LifecycleSmokeTimer.Interval = 250
+  $script:LifecycleSmokeTimer.Add_Tick({
+    $script:LifecycleSmokeTimer.Stop()
+    try {
+      $firstPid = if ($script:AdvisorProcess) { $script:AdvisorProcess.Id } else { 0 }
+      $firstRunning = $firstPid -gt 0 -and $script:BtnAdvise.Text -eq '停止辨識'
+      $secondPath = Split-Path -Parent $script:ToolDirectory
+      Set-SharedPathAndRecommend -SelectedPath $secondPath
+      $firstExited = $firstPid -gt 0 -and -not (Get-Process -Id $firstPid -ErrorAction SilentlyContinue)
+      $secondPid = if ($script:AdvisorProcess) { $script:AdvisorProcess.Id } else { 0 }
+      $script:LifecycleSmokeState = [pscustomobject]@{
+        phasePass = [bool]($firstRunning -and $firstExited -and $secondPid -gt 0 -and $secondPid -ne $firstPid -and $script:AdvisorPath -eq $secondPath)
+        firstWorkerPid = $firstPid
+        pathChangeStoppedWorker = $firstExited
+        secondWorkerPid = $secondPid
+        replacementWorkerRunning = [bool]($secondPid -gt 0 -and $script:BtnAdvise.Text -eq '停止辨識')
+        pathChanged = [bool]($script:SharedPath.Text -eq $secondPath -and $script:AdvisorPath -eq $secondPath)
+        windowStayedOpenAfterPathChange = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+      }
+    } catch {
+      $script:LifecycleSmokeState = [pscustomobject]@{
+        phasePass = $false
+        message = $_.Exception.Message
+        firstWorkerPid = 0
+        pathChangeStoppedWorker = $false
+        secondWorkerPid = 0
+        replacementWorkerRunning = $false
+        pathChanged = $false
+        windowStayedOpenAfterPathChange = $false
+      }
+    } finally {
+      $script:MainForm.Close()
+    }
+  })
+}
+
 $script:StartupPathsHandled = $false
 $script:MainForm.Add_Shown({
   if ($script:StartupPathsHandled) { return }
@@ -605,8 +655,21 @@ $script:MainForm.Add_Shown({
     if ($script:StartupPaths.Count -ne 1) { throw '啟動時一次只能帶入一個資料夾。' }
     Set-SharedPathAndRecommend -SelectedPath ([string]$script:StartupPaths[0])
     if ($SmokeCancellation) { $script:CancellationSmokeTimer.Start() }
+    if ($SmokeLifecycle) { $script:LifecycleSmokeTimer.Start() }
   } catch {
-    if ($SmokeCancellation) {
+    if ($SmokeCancellation -or $SmokeLifecycle) {
+      if ($SmokeLifecycle) {
+        $script:LifecycleSmokeState = [pscustomobject]@{
+          phasePass = $false
+          message = $_.Exception.Message
+          firstWorkerPid = 0
+          pathChangeStoppedWorker = $false
+          secondWorkerPid = 0
+          replacementWorkerRunning = $false
+          pathChanged = $false
+          windowStayedOpenAfterPathChange = $false
+        }
+      }
       $script:CancellationSmokeResult = [pscustomobject]@{
         status = 'fail'
         winFormsMessageLoop = $true
@@ -636,4 +699,25 @@ if ($SmokeCancellation) {
   }
   $script:CancellationSmokeResult | ConvertTo-Json -Depth 4 -Compress
   if ($script:CancellationSmokeResult.status -ne 'pass') { exit 3 }
+}
+if ($SmokeLifecycle) {
+  $state = $script:LifecycleSmokeState
+  $secondPid = if ($state -and $state.PSObject.Properties.Name -contains 'secondWorkerPid') { [int]$state.secondWorkerPid } else { 0 }
+  $secondExited = $secondPid -gt 0 -and -not (Get-Process -Id $secondPid -ErrorAction SilentlyContinue)
+  $payload = [pscustomobject]@{
+    status = if ($state -and $state.phasePass -and $script:LifecycleFormClosingObserved -and $secondExited -and -not $script:AdvisorProcess) { 'pass' } else { 'fail' }
+    winFormsMessageLoop = $true
+    pathChangeStoppedWorker = [bool]($state -and $state.pathChangeStoppedWorker)
+    replacementWorkerRunning = [bool]($state -and $state.replacementWorkerRunning)
+    pathChanged = [bool]($state -and $state.pathChanged)
+    windowStayedOpenAfterPathChange = [bool]($state -and $state.windowStayedOpenAfterPathChange)
+    formClosingObserved = $script:LifecycleFormClosingObserved
+    formClosingStoppedWorker = $secondExited
+    advisorCleared = [bool](-not $script:AdvisorProcess)
+    changedState = $false
+    autoLaunched = $false
+    message = if ($state -and $state.PSObject.Properties.Name -contains 'message') { [string]$state.message } else { '' }
+  }
+  $payload | ConvertTo-Json -Depth 4 -Compress
+  if ($payload.status -ne 'pass') { exit 3 }
 }
