@@ -1242,6 +1242,11 @@ node 結構工具箱/tools/attachment-package-manager.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentCaseGovernanceViewerCommand = @'
+node 結構工具箱/tools/attachment-case-governance-viewer.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $attachmentPackageUpgradeAssessCommand = @'
 node 結構工具箱/tools/attachment-package-upgrade-assess.test.js
 exit $LASTEXITCODE
@@ -2233,6 +2238,13 @@ $checks = @(
     label = "Windows formal attachment package manager"
     workdir = $root
     command = $attachmentPackageManagerCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-case-governance-viewer"
+    label = "Windows read-only case attachment governance viewer"
+    workdir = $root
+    command = $attachmentCaseGovernanceViewerCommand
     slow = $false
   },
   [pscustomobject]@{

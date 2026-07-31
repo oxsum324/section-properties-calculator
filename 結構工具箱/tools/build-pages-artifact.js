@@ -14,6 +14,7 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/attachment-package-build.js',
   '結構工具箱/tools/attachment-package-verify.js',
   '結構工具箱/tools/attachment-package-manager-worker.js',
+  '結構工具箱/tools/attachment-case-governance-viewer-worker.js',
   '結構工具箱/tools/attachment-package-upgrade-assess.js',
   '結構工具箱/tools/attachment-package-upgrade-workspace.js',
   '結構工具箱/tools/attachment-package-upgrade-workspace-check.js',
