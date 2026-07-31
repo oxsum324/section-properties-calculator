@@ -1252,6 +1252,11 @@ node 結構工具箱/tools/attachment-package-upgrade-assistant.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentGovernanceHubCommand = @'
+node 結構工具箱/tools/attachment-governance-hub.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $attachmentPackageUpgradeAssessCommand = @'
 node 結構工具箱/tools/attachment-package-upgrade-assess.test.js
 exit $LASTEXITCODE
@@ -2257,6 +2262,13 @@ $checks = @(
     label = "Windows governed legacy attachment upgrade assistant"
     workdir = $root
     command = $attachmentPackageUpgradeAssistantCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-governance-hub"
+    label = "Windows case attachment governance hub"
+    workdir = $root
+    command = $attachmentGovernanceHubCommand
     slow = $false
   },
   [pscustomobject]@{
