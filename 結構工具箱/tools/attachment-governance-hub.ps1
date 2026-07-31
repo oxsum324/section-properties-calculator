@@ -44,7 +44,11 @@ $script:LifecycleSmokeTimer = $null
 $script:LifecycleSmokeState = $null
 $script:LifecycleFormClosingObserved = $false
 $script:TimeoutSmokeWorkerPid = 0
+$script:TimeoutRecoveryWorkerPid = 0
+$script:TimeoutSmokeDelayInjected = $false
+$script:TimeoutSmokeState = $null
 $script:TimeoutSmokeResult = $null
+$script:TimeoutRetryTimer = $null
 $script:FailureSmokeWorkerPid = 0
 $script:FailureRecoveryWorkerPid = 0
 $script:FailureSmokeErrorInjected = $false
@@ -165,10 +169,12 @@ function Start-PathAdvisor {
   if (-not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { throw "找不到唯讀辨識核心：$script:WorkerPath" }
   Stop-PathAdvisor
   $injectFailure = $SmokeFailure -and -not $script:FailureSmokeErrorInjected
+  $injectTimeoutDelay = $SmokeTimeout -and -not $script:TimeoutSmokeDelayInjected
+  $smokeDelayMilliseconds = if ($SmokeTimeout -and -not $injectTimeoutDelay) { 0 } elseif ($dynamicSmokeModeCount -eq 1) { $AdvisorSmokeDelayMilliseconds } else { 0 }
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
   $startInfo.Arguments = "`"$script:WorkerPath`" --action advise --input `"$inputPath`""
-  if ($dynamicSmokeModeCount -eq 1) { $startInfo.Arguments += " --smoke-delay-ms $AdvisorSmokeDelayMilliseconds" }
+  if ($smokeDelayMilliseconds -gt 0) { $startInfo.Arguments += " --smoke-delay-ms $smokeDelayMilliseconds" }
   if ($injectFailure) { $startInfo.Arguments += ' --smoke-error' }
   $startInfo.WorkingDirectory = $script:ToolDirectory
   $startInfo.UseShellExecute = $false
@@ -181,6 +187,12 @@ function Start-PathAdvisor {
   $process.StartInfo = $startInfo
   [void]$process.Start()
   $script:AdvisorProcess = $process
+  if ($injectTimeoutDelay) {
+    $script:TimeoutSmokeWorkerPid = $process.Id
+    $script:TimeoutSmokeDelayInjected = $true
+  } elseif ($SmokeTimeout) {
+    $script:TimeoutRecoveryWorkerPid = $process.Id
+  }
   if ($injectFailure) {
     $script:FailureSmokeWorkerPid = $process.Id
     $script:FailureSmokeErrorInjected = $true
@@ -258,6 +270,35 @@ function Finish-FailureSmokeRecovery {
     idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
     recoveryMessageShown = $recoveryMessageShown
     windowStayedOpenOnFailure = [bool]$script:FailureSmokeState.windowStayedOpenOnFailure
+    windowStayedOpenAfterRecovery = $windowStayedOpenAfterRecovery
+    changedState = $false
+    autoLaunched = $false
+  }
+  $script:MainForm.Close()
+}
+
+function Finish-TimeoutSmokeRecovery {
+  $script:TimeoutRetryTimer.Stop()
+  $recoveryWorkerExited = $script:TimeoutRecoveryWorkerPid -gt 0 -and -not (Get-Process -Id $script:TimeoutRecoveryWorkerPid -ErrorAction SilentlyContinue)
+  $recoveryCompleted = $null -ne $script:Advice -and $script:AdvicePath -eq $script:SharedPath.Text.Trim()
+  $recoveryMessageShown = $script:RecommendationText.Text -notlike '唯讀辨識未完成*' -and $script:BottomStatus.Text -like '唯讀辨識完成*'
+  $windowStayedOpenAfterRecovery = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+  $script:TimeoutSmokeResult = [pscustomobject]@{
+    status = if ($script:TimeoutSmokeState.phasePass -and $script:TimeoutSmokeState.retryPerformClick -and $script:TimeoutRecoveryWorkerPid -gt 0 -and $script:TimeoutRecoveryWorkerPid -ne $script:TimeoutSmokeWorkerPid -and $recoveryWorkerExited -and $recoveryCompleted -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '唯讀辨識建議' -and $recoveryMessageShown -and $windowStayedOpenAfterRecovery) { 'pass' } else { 'fail' }
+    winFormsMessageLoop = $true
+    timeoutObserved = [bool]$script:TimeoutSmokeState.timeoutObserved
+    firstWorkerPid = $script:TimeoutSmokeWorkerPid
+    firstWorkerExited = [bool]$script:TimeoutSmokeState.firstWorkerExited
+    timeoutMessageShown = [bool]$script:TimeoutSmokeState.timeoutMessageShown
+    retryActionVisible = [bool]$script:TimeoutSmokeState.retryActionVisible
+    retryPerformClick = [bool]$script:TimeoutSmokeState.retryPerformClick
+    recoveryWorkerPid = $script:TimeoutRecoveryWorkerPid
+    recoveryWorkerExited = $recoveryWorkerExited
+    recoveryCompleted = $recoveryCompleted
+    advisorCleared = [bool](-not $script:AdvisorProcess)
+    idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+    recoveryMessageShown = $recoveryMessageShown
+    windowStayedOpenOnTimeout = [bool]$script:TimeoutSmokeState.windowStayedOpenOnTimeout
     windowStayedOpenAfterRecovery = $windowStayedOpenAfterRecovery
     changedState = $false
     autoLaunched = $false
@@ -626,22 +667,19 @@ $script:AdvisorTimer.Add_Tick({
     Stop-PathAdvisor
     if ($SmokeTimeout) {
       $errorMessage = $_.Exception.Message
-      $script:BottomStatus.Text = "啟動失敗：$errorMessage"
+      Set-AdvisorFailureState -Message $errorMessage
+      $script:BottomStatus.Text = "唯讀辨識逾時：$errorMessage；未開啟工具、未改變案件狀態，可直接重新辨識。"
       $workerExited = $script:TimeoutSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:TimeoutSmokeWorkerPid -ErrorAction SilentlyContinue)
-      $script:TimeoutSmokeResult = [pscustomobject]@{
-        status = if ($errorMessage -like '唯讀辨識測試逾時*' -and $workerExited -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '唯讀辨識建議') { 'pass' } else { 'fail' }
-        winFormsMessageLoop = $true
+      $script:TimeoutSmokeState = [pscustomobject]@{
+        phasePass = [bool]($errorMessage -like '唯讀辨識測試逾時*' -and $workerExited -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '重新辨識' -and $script:RecommendationText.Text -like '唯讀辨識未完成*')
         timeoutObserved = [bool]($errorMessage -like '唯讀辨識測試逾時*')
-        workerPid = $script:TimeoutSmokeWorkerPid
-        workerExited = $workerExited
-        advisorCleared = [bool](-not $script:AdvisorProcess)
-        idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
-        timeoutMessageShown = [bool]($script:BottomStatus.Text -like '*唯讀辨識測試逾時*')
+        firstWorkerExited = $workerExited
+        timeoutMessageShown = [bool]($script:RecommendationText.Text -like '唯讀辨識未完成*逾時*' -and $script:BottomStatus.Text -like '唯讀辨識逾時*')
+        retryActionVisible = [bool]($script:BtnAdvise.Text -eq '重新辨識')
+        retryPerformClick = $false
         windowStayedOpenOnTimeout = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
-        changedState = $false
-        autoLaunched = $false
       }
-      $script:MainForm.Close()
+      $script:TimeoutRetryTimer.Start()
     } elseif ($SmokeFailure) {
       $errorMessage = $_.Exception.Message
       Set-AdvisorFailureState -Message $errorMessage
@@ -670,6 +708,51 @@ $script:MainForm.Add_FormClosing({
 if ($dynamicSmokeModeCount -eq 1) {
   $script:MainForm.Opacity = 0
   $script:MainForm.ShowInTaskbar = $false
+}
+
+if ($SmokeTimeout) {
+  $script:TimeoutRetryTimer = New-Object System.Windows.Forms.Timer
+  $script:TimeoutRetryTimer.Interval = 50
+  $script:TimeoutRetryTimer.Add_Tick({
+    try {
+      if (-not $script:TimeoutSmokeState.retryPerformClick) {
+        $script:BtnAdvise.PerformClick()
+        $script:TimeoutSmokeState.retryPerformClick = [bool]($script:TimeoutRecoveryWorkerPid -gt 0 -and $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '停止辨識')
+        if (-not $script:TimeoutSmokeState.retryPerformClick) { throw '逾時後重新辨識按鈕未啟動第二個背景程序。' }
+        $script:AdvisorTimer.Stop()
+        $script:TimeoutRetryTimer.Interval = 150
+        return
+      }
+      if (-not $script:AdvisorProcess -or -not $script:AdvisorProcess.HasExited) { return }
+      Complete-PathAdvisor
+      Finish-TimeoutSmokeRecovery
+    } catch {
+      $script:TimeoutRetryTimer.Stop()
+      Stop-PathAdvisor
+      $script:TimeoutSmokeResult = [pscustomobject]@{
+        status = 'fail'
+        winFormsMessageLoop = $true
+        timeoutObserved = [bool]($script:TimeoutSmokeState -and $script:TimeoutSmokeState.timeoutObserved)
+        firstWorkerPid = $script:TimeoutSmokeWorkerPid
+        firstWorkerExited = [bool]($script:TimeoutSmokeState -and $script:TimeoutSmokeState.firstWorkerExited)
+        timeoutMessageShown = [bool]($script:TimeoutSmokeState -and $script:TimeoutSmokeState.timeoutMessageShown)
+        retryActionVisible = [bool]($script:TimeoutSmokeState -and $script:TimeoutSmokeState.retryActionVisible)
+        retryPerformClick = $false
+        recoveryWorkerPid = $script:TimeoutRecoveryWorkerPid
+        recoveryWorkerExited = $false
+        recoveryCompleted = $false
+        advisorCleared = [bool](-not $script:AdvisorProcess)
+        idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+        recoveryMessageShown = $false
+        windowStayedOpenOnTimeout = [bool]($script:TimeoutSmokeState -and $script:TimeoutSmokeState.windowStayedOpenOnTimeout)
+        windowStayedOpenAfterRecovery = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+        changedState = $false
+        autoLaunched = $false
+        message = $_.Exception.Message
+      }
+      $script:MainForm.Close()
+    }
+  })
 }
 
 if ($SmokeFailure) {
@@ -824,12 +907,19 @@ $script:MainForm.Add_Shown({
           status = 'fail'
           winFormsMessageLoop = $true
           timeoutObserved = $false
-          workerPid = 0
-          workerExited = $false
+          firstWorkerPid = $script:TimeoutSmokeWorkerPid
+          firstWorkerExited = [bool]($script:TimeoutSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:TimeoutSmokeWorkerPid -ErrorAction SilentlyContinue))
+          timeoutMessageShown = $false
+          retryActionVisible = $false
+          retryPerformClick = $false
+          recoveryWorkerPid = $script:TimeoutRecoveryWorkerPid
+          recoveryWorkerExited = $false
+          recoveryCompleted = $false
           advisorCleared = [bool](-not $script:AdvisorProcess)
           idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
-          timeoutMessageShown = $false
+          recoveryMessageShown = $false
           windowStayedOpenOnTimeout = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+          windowStayedOpenAfterRecovery = $false
           changedState = $false
           autoLaunched = $false
           message = $_.Exception.Message
@@ -915,12 +1005,19 @@ if ($SmokeTimeout) {
       status = 'fail'
       winFormsMessageLoop = $true
       timeoutObserved = $false
-      workerPid = 0
-      workerExited = $false
+      firstWorkerPid = $script:TimeoutSmokeWorkerPid
+      firstWorkerExited = [bool]($script:TimeoutSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:TimeoutSmokeWorkerPid -ErrorAction SilentlyContinue))
+      timeoutMessageShown = $false
+      retryActionVisible = $false
+      retryPerformClick = $false
+      recoveryWorkerPid = $script:TimeoutRecoveryWorkerPid
+      recoveryWorkerExited = [bool]($script:TimeoutRecoveryWorkerPid -gt 0 -and -not (Get-Process -Id $script:TimeoutRecoveryWorkerPid -ErrorAction SilentlyContinue))
+      recoveryCompleted = $false
       advisorCleared = [bool](-not $script:AdvisorProcess)
       idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
-      timeoutMessageShown = $false
+      recoveryMessageShown = $false
       windowStayedOpenOnTimeout = $false
+      windowStayedOpenAfterRecovery = $false
       changedState = $false
       autoLaunched = $false
       message = '逾時煙霧測試未產生結果。'

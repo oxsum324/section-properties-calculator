@@ -234,12 +234,20 @@ const timeoutPayload = JSON.parse(timeoutSmoke.stdout.replace(/^\uFEFF/, '').tri
 assert.equal(timeoutPayload.status, 'pass');
 assert.equal(timeoutPayload.winFormsMessageLoop, true);
 assert.equal(timeoutPayload.timeoutObserved, true);
-assert.ok(timeoutPayload.workerPid > 0);
-assert.equal(timeoutPayload.workerExited, true);
+assert.ok(timeoutPayload.firstWorkerPid > 0);
+assert.equal(timeoutPayload.firstWorkerExited, true);
+assert.equal(timeoutPayload.timeoutMessageShown, true);
+assert.equal(timeoutPayload.retryActionVisible, true);
+assert.equal(timeoutPayload.retryPerformClick, true);
+assert.ok(timeoutPayload.recoveryWorkerPid > 0);
+assert.notEqual(timeoutPayload.recoveryWorkerPid, timeoutPayload.firstWorkerPid);
+assert.equal(timeoutPayload.recoveryWorkerExited, true);
+assert.equal(timeoutPayload.recoveryCompleted, true);
 assert.equal(timeoutPayload.advisorCleared, true);
 assert.equal(timeoutPayload.idleActionRestored, true);
-assert.equal(timeoutPayload.timeoutMessageShown, true);
+assert.equal(timeoutPayload.recoveryMessageShown, true);
 assert.equal(timeoutPayload.windowStayedOpenOnTimeout, true);
+assert.equal(timeoutPayload.windowStayedOpenAfterRecovery, true);
 assert.equal(timeoutPayload.changedState, false);
 assert.equal(timeoutPayload.autoLaunched, false);
 
