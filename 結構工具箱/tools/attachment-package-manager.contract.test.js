@@ -1,0 +1,137 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const childProcess = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+const Worker = require('./attachment-package-manager-worker.js');
+
+const toolsDir = __dirname;
+const repoRoot = path.resolve(toolsDir, '..', '..');
+
+function read(relativePath) {
+  return fs.readFileSync(path.join(repoRoot, ...relativePath.split('/')), 'utf8');
+}
+
+const fakeReport = {
+  status: 'ready',
+  summary: { attachments: 2, errors: 0, warnings: 0 },
+  attachments: [
+    {
+      file: '正式計算書.pdf', type: 'pdf', sourceTool: '測試工具', toolVersion: 'v1.0',
+      fingerprints: ['CF-0011223344556677'], readyDocumentNeedles: ['文件狀態：正式附件'],
+      draftDocumentNeedles: [], errors: [], contentBoundary: { missingGroups: [] },
+    },
+    {
+      file: '來源.json', type: 'json', sourceTool: '測試工具', toolVersion: 'v1.0',
+      fingerprints: ['CF-0011223344556677'], readyDocumentNeedles: [], draftDocumentNeedles: [], errors: [],
+    },
+  ],
+  fingerprintLinks: [{ fingerprint: 'CF-0011223344556677' }],
+  issues: [],
+};
+
+const fakeChecker = {
+  READY_DOCUMENT_CLASS_LABEL: '文件狀態：正式附件',
+  CLI_ERROR_EXIT_CODE: 3,
+  checkPackage() { return fakeReport; },
+  formatSummary(report) { return `CHECK:${report.status}`; },
+  exitCodeForStatus(status) { return { ready: 0, review: 1, blocked: 2 }[status] ?? 3; },
+  isDocumentClassRequired(record) { return record.type !== 'json'; },
+};
+const fakeBuilder = {
+  buildPackage() {
+    return {
+      status: 'ready', built: true, outputDir: 'C:\\case\\正式附件包',
+      formalAttachmentCount: 1, traceabilitySourceCount: 1,
+      packageFingerprint: 'PKG-00112233445566778899AABB', report: fakeReport,
+    };
+  },
+};
+const fakeVerifier = {
+  verifyPackage() {
+    return {
+      status: 'ready', packageFingerprint: 'PKG-00112233445566778899AABB',
+      summary: { expectedFiles: 2, verifiedFiles: 2, errors: 0, warnings: 0 },
+      records: [{ packagedFile: '01_正式附件/正式計算書.pdf', role: 'formal', status: 'verified' }],
+      issues: [],
+    };
+  },
+  formatSummary(report) { return `VERIFY:${report.status}`; },
+};
+const dependencies = { Checker: fakeChecker, Builder: fakeBuilder, Verifier: fakeVerifier };
+
+const check = Worker.runAction('check', { input: toolsDir }, dependencies);
+assert.equal(check.status, 'ready');
+assert.equal(check.canBuild, true);
+assert.equal(check.records.length, 2);
+assert.equal(check.records[0].state, '正式附件');
+assert.equal(check.records[1].role, '內部追溯來源');
+assert.equal(check.displayText, 'CHECK:ready');
+
+const build = Worker.runAction('build', { input: toolsDir, output: path.join(repoRoot, 'never-created') }, dependencies);
+assert.equal(build.built, true);
+assert.equal(build.packageFingerprint, 'PKG-00112233445566778899AABB');
+assert.match(build.displayText, /發布前完整性與工程內容驗證：通過/);
+
+const verify = Worker.runAction('verify', { input: toolsDir }, dependencies);
+assert.equal(verify.status, 'ready');
+assert.equal(verify.records[0].result, 'verified');
+assert.equal(verify.displayText, 'VERIFY:ready');
+
+const smoke = Worker.runAction('smoke');
+assert.equal(smoke.status, 'ready');
+assert.equal(Worker.exitCodeForResponse(smoke), 0);
+assert.throws(() => Worker.runAction('publish', { input: toolsDir }), /不支援的管理器動作/);
+assert.throws(() => Worker.runAction('check', { input: '' }), /尚未選擇資料夾/);
+
+const cli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'attachment-package-manager-worker.js'), '--action', 'smoke'], { encoding: 'utf8' });
+assert.equal(cli.status, 0, cli.stderr || cli.stdout);
+const cliPayload = JSON.parse(cli.stdout);
+assert.equal(cliPayload.status, 'ready');
+assert.equal(cliPayload.counts.modules, 3);
+
+const badCli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'attachment-package-manager-worker.js'), '--action', 'unknown'], { encoding: 'utf8' });
+assert.equal(badCli.status, 3);
+assert.equal(JSON.parse(badCli.stdout).status, 'error');
+
+const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
+[
+  'System.Windows.Forms', 'FolderBrowserDialog', 'attachment-package-manager-worker.js',
+  "ValidateSet('smoke', 'check', 'build', 'verify')", '檢查附件來源', '建立正式附件包',
+  '驗證附件包', '管理畫面與檢查結果僅供內部整理', 'workerExitCode',
+].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
+assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
+assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
+assert.match(
+  managerPs,
+  /\$script:BtnCheck\.Add_Click\(\{\s+\$script:LastReadyInput = ''\s+\$script:LastReadyProjectNo = ''/s,
+  'every new check clears the prior ready grant before the worker runs',
+);
+
+const launcher = read('結構工具箱/tools/啟動正式附件包管理器.bat');
+assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);
+assert.match(launcher, /attachment-package-manager\.ps1/);
+
+const preflight = read('preflight-tools.ps1');
+assert.match(preflight, /attachment-package-manager\.contract\.test\.js/);
+assert.match(preflight, /key = "attachment-package-manager"/);
+
+const pagesBuilder = read('結構工具箱/tools/build-pages-artifact.js');
+const pagesSmoke = read('結構工具箱/tools/pages-live-smoke.js');
+for (const privateFile of [
+  'attachment-package-manager-worker.js', 'attachment-package-manager.ps1',
+  '啟動正式附件包管理器.bat', 'attachment-package-manager.contract.test.js',
+]) {
+  assert.ok(pagesSmoke.includes(privateFile), `Pages private-boundary smoke includes ${privateFile}`);
+}
+assert.ok(pagesBuilder.includes('結構工具箱/tools/attachment-package-manager-worker.js'), 'Pages artifact builder excludes manager worker');
+
+for (const doc of ['README.md', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md']) {
+  const source = read(doc);
+  assert.ok(source.includes('attachment-package-manager-worker.js'), `${doc} documents manager worker`);
+  assert.ok(source.includes('attachment-package-manager.contract.test.js'), `${doc} documents manager contract`);
+  assert.ok(source.includes('啟動正式附件包管理器.bat'), `${doc} documents manager launcher`);
+}
+
+console.log('attachment package manager contract tests passed');

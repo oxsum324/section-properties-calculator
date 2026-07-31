@@ -1237,6 +1237,11 @@ node 結構工具箱/tools/attachment-package-verify.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentPackageManagerCommand = @'
+node 結構工具箱/tools/attachment-package-manager.contract.test.js
+exit $LASTEXITCODE
+'@
+
 $attachmentPackageUpgradeAssessCommand = @'
 node 結構工具箱/tools/attachment-package-upgrade-assess.test.js
 exit $LASTEXITCODE
@@ -2221,6 +2226,13 @@ $checks = @(
     label = "Formal attachment package integrity verifier"
     workdir = $root
     command = $attachmentPackageVerifyCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-package-manager"
+    label = "Windows formal attachment package manager"
+    workdir = $root
+    command = $attachmentPackageManagerCommand
     slow = $false
   },
   [pscustomobject]@{
