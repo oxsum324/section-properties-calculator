@@ -21,6 +21,10 @@ $script:WorkerPath = Join-Path $script:ToolDirectory 'attachment-governance-hub-
 $script:Advice = $null
 $script:AdvicePath = ''
 $script:ToolButtons = @{}
+$script:AdvisorProcess = $null
+$script:AdvisorPath = ''
+$script:AdvisorStartedAt = $null
+$script:AdvisorTimer = $null
 $script:ToolTargets = @(
   [pscustomobject]@{
     Id = 'manager'
@@ -101,10 +105,31 @@ function Get-NodePath {
   return $command.Source
 }
 
-function Invoke-PathAdvisor {
-  $inputPath = $script:SharedPath.Text.Trim()
+function Stop-PathAdvisor {
+  if ($script:AdvisorTimer) { $script:AdvisorTimer.Stop() }
+  $process = $script:AdvisorProcess
+  $script:AdvisorProcess = $null
+  $script:AdvisorPath = ''
+  $script:AdvisorStartedAt = $null
+  if (-not $process) { return }
+  try {
+    if (-not $process.HasExited) {
+      $process.Kill()
+      [void]$process.WaitForExit(2000)
+    }
+  } catch {
+    # 唯讀 advisor 結束或競態關閉時不覆蓋主要工作台狀態。
+  } finally {
+    $process.Dispose()
+  }
+}
+
+function Start-PathAdvisor {
+  param([string]$InputPath)
+  $inputPath = [string]$InputPath
   if (-not $inputPath) { throw '請先選擇或輸入共用起始資料夾。' }
   if (-not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { throw "找不到唯讀辨識核心：$script:WorkerPath" }
+  Stop-PathAdvisor
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
   $startInfo.Arguments = "`"$script:WorkerPath`" --action advise --input `"$inputPath`""
@@ -118,18 +143,56 @@ function Invoke-PathAdvisor {
   $process = New-Object System.Diagnostics.Process
   $process.StartInfo = $startInfo
   [void]$process.Start()
+  $script:AdvisorProcess = $process
+  $script:AdvisorPath = $inputPath
+  $script:AdvisorStartedAt = Get-Date
+  $script:AdvisorTimer.Start()
+}
+
+function Set-RecommendationResult {
+  param($Response, [string]$InputPath)
+  if ($script:SharedPath.Text.Trim() -ne $InputPath) { return }
+  $script:Advice = $Response
+  $script:AdvicePath = $InputPath
+  if ($Response.outcome -ne 'matched') {
+    $script:RecommendationText.Text = "$($Response.title)：$($Response.reason)"
+    $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(161, 98, 7)
+    $script:BottomStatus.Text = '唯讀辨識完成：沒有足夠訊號，請手動選擇；未開啟或執行任何工具。'
+    return
+  }
+  $script:RecommendationText.Text = "$($Response.title)｜$($Response.reason)"
+  $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(22, 101, 52)
+  $button = $script:ToolButtons[[string]$Response.recommendedTool]
+  if ($button) {
+    $button.Text = '建議｜開啟並唯讀檢查'
+    $button.UseVisualStyleBackColor = $false
+    $button.BackColor = [System.Drawing.Color]::FromArgb(220, 252, 231)
+  }
+  $script:BottomStatus.Text = '唯讀辨識完成：只提供建議，尚未開啟、檢查、建立、升級或核可。'
+}
+
+function Complete-PathAdvisor {
+  $process = $script:AdvisorProcess
+  if (-not $process -or -not $process.HasExited) { return }
+  $inputPath = $script:AdvisorPath
+  $script:AdvisorTimer.Stop()
   $stdout = $process.StandardOutput.ReadToEnd()
   $stderr = $process.StandardError.ReadToEnd()
   $process.WaitForExit()
   $exitCode = $process.ExitCode
   $process.Dispose()
+  $script:AdvisorProcess = $null
+  $script:AdvisorPath = ''
+  $script:AdvisorStartedAt = $null
+  if ($script:SharedPath.Text.Trim() -ne $inputPath) { return }
   if (-not $stdout.Trim()) { throw "唯讀辨識沒有回傳結果。$stderr" }
   $response = $stdout.Trim() | ConvertFrom-Json
   if ($exitCode -eq 3 -or $response.outcome -eq 'error') { throw [string]$response.message }
-  return $response
+  Set-RecommendationResult -Response $response -InputPath $inputPath
 }
 
 function Reset-Recommendation {
+  Stop-PathAdvisor
   $script:Advice = $null
   $script:AdvicePath = ''
   if ($script:RecommendationText) {
@@ -147,28 +210,16 @@ function Reset-Recommendation {
 
 function Show-Recommendation {
   Reset-Recommendation
-  $response = Invoke-PathAdvisor
-  $script:Advice = $response
-  $script:AdvicePath = $script:SharedPath.Text.Trim()
-  if ($response.outcome -ne 'matched') {
-    $script:RecommendationText.Text = "$($response.title)：$($response.reason)"
-    $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(161, 98, 7)
-    $script:BottomStatus.Text = '唯讀辨識完成：沒有足夠訊號，請手動選擇；未開啟或執行任何工具。'
-    return
-  }
-  $script:RecommendationText.Text = "$($response.title)｜$($response.reason)"
-  $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(22, 101, 52)
-  $button = $script:ToolButtons[[string]$response.recommendedTool]
-  if ($button) {
-    $button.Text = '建議｜開啟並唯讀檢查'
-    $button.UseVisualStyleBackColor = $false
-    $button.BackColor = [System.Drawing.Color]::FromArgb(220, 252, 231)
-  }
-  $script:BottomStatus.Text = '唯讀辨識完成：只提供建議，尚未開啟、檢查、建立、升級或核可。'
+  $inputPath = $script:SharedPath.Text.Trim()
+  $script:RecommendationText.Text = '正在執行唯讀辨識；畫面可繼續操作，變更路徑會取消本次辨識。'
+  $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(29, 78, 216)
+  $script:BottomStatus.Text = '唯讀辨識進行中：不開啟工具、不改變案件狀態。'
+  Start-PathAdvisor -InputPath $inputPath
 }
 
 function Start-GovernedTool {
   param($Target)
+  Stop-PathAdvisor
   $status = Get-TargetStatus $Target
   if (-not $status.available) {
     throw "找不到 $($Target.Name) 的受治理入口。"
@@ -444,6 +495,26 @@ $statusLabel.TextAlign = 'MiddleLeft'
 $script:BottomStatus.SizingGrip = $false
 $script:MainForm.Controls.Add($script:BottomStatus)
 $script:BottomStatus = $statusLabel
+
+$script:AdvisorTimer = New-Object System.Windows.Forms.Timer
+$script:AdvisorTimer.Interval = 150
+$script:AdvisorTimer.Add_Tick({
+  try {
+    if (-not $script:AdvisorProcess) {
+      $script:AdvisorTimer.Stop()
+      return
+    }
+    if ($script:AdvisorStartedAt -and ((Get-Date) - $script:AdvisorStartedAt).TotalSeconds -ge 60) {
+      Stop-PathAdvisor
+      throw '唯讀辨識超過 60 秒，已停止；請改選較小的案件或附件資料夾。'
+    }
+    Complete-PathAdvisor
+  } catch {
+    Stop-PathAdvisor
+    Show-LaunchError -ErrorRecord $_.Exception
+  }
+})
+$script:MainForm.Add_FormClosing({ Stop-PathAdvisor })
 
 $script:StartupPathsHandled = $false
 $script:MainForm.Add_Shown({

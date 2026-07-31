@@ -181,6 +181,8 @@ Refresh anchor deployment assets
 
 案件附件工作台：新增或調整 `attachment-governance-hub-worker.js`、`attachment-governance-hub.ps1`、`啟動案件附件工作台.bat` 時，必須同步 staging `attachment-governance-hub.contract.test.js`、三套既有 GUI 及其契約、preflight、Pages artifact／HTTP 私有邊界清冊、README 與 `TOOL_BOUNDARIES.md`。工作台可把使用者由啟動參數、選擇器或工作台內拖入的單一現有資料夾以 `InitialPath` 預填到既有工具；三種帶入方式可立即執行唯讀 advisor，但不得接受檔案／多重路徑、啟動子工具或改變案件狀態。新組包正向訊號必須是報告型檔案，或具有產出工具、版本、計畫編號、計算指紋等追溯欄位的來源附件；一般 JSON、不支援檔案或特殊項目不得單獨形成建議。唯讀 worker 只能重用既有輸入類型、升級評估、案件／多案件掃描與附件來源檢查核心來建議工具及 `InitialMode`；不得另做治理狀態、組包、升級或核可。只有目前路徑與建議完全相符且使用者明確點擊建議工具時，hub 才可傳入 `AutoInspect`；三套 GUI 只能分別觸發既有 `check / verify`、`case / portfolio` 或 `inspect`，不得觸發 `build / execute`、確認勾選或任何寫入動作。原按鈕、重查與確認閘門仍須保留；非建議工具只能預填。畫面必須明示自動辨識仍是唯讀、單擊捷徑的權限差異及治理 ready 不等於正式核可。PowerShell 非 ASCII 檔須保留 UTF-8 BOM，四個工作台檔案均不得發布至 Pages。
 
+工作台 advisor 非同步邊界：外部 Node 程序不得在 UI thread 同步等待；只能由 WinForms 計時器輪詢完成。路徑改變必須取消舊程序，結果套用前必須重驗目前路徑，60 秒逾時與視窗關閉都需清理背景程序。契約需同時守住 UI 不阻塞、過期結果不覆蓋、背景程序不殘留，且取消／逾時不形成任何子工具啟動或案件寫入。
+
 ```powershell
 git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/ui_smoke_test.py" "石材固定/js/code-profiles-registry.spec.js" "石材固定/js/code-profiles-registry-smoke.test.js" "石材固定/js/regression-smoke.test.js"
 git add -- "石材固定/README.md" "石材固定/CHANGELOG.md" "石材固定/PROJECT_FILES.md" "石材固定/RELEASE_CHECKLIST.md" "石材固定/自我檢查.bat" "石材固定/stone-traceability.catalog.json" "石材固定/stone-traceability.contract.test.js" "石材固定/stone-report.contract.test.js"

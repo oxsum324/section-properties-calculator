@@ -26,6 +26,8 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   'Set-SharedPathAndRecommend', '一次只能拖入一個資料夾',
   '[string]$InitialPath', 'ValueFromRemainingArguments', '[string[]]$AdditionalPath',
   '$script:StartupPaths', '啟動時一次只能帶入一個資料夾', 'Add_Shown',
+  'System.Windows.Forms.Timer', 'Start-PathAdvisor', 'Complete-PathAdvisor', 'Stop-PathAdvisor',
+  '唯讀辨識進行中', '畫面可繼續操作', '唯讀辨識超過 60 秒', 'Add_FormClosing',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
@@ -45,6 +47,14 @@ assert.match(pathHandoff, /Test-Path[\s\S]*?PathType Container[\s\S]*?\$script:S
 assert.doesNotMatch(pathHandoff, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'automatic advice never opens or runs a child tool');
 assert.match(hubPs, /ShowDialog\(\) -eq \[System\.Windows\.Forms\.DialogResult\]::OK[\s\S]*?Set-SharedPathAndRecommend -SelectedPath \$dialog\.SelectedPath/, 'folder selection immediately requests read-only advice');
 assert.match(hubPs, /\$folderDragDrop = \{[\s\S]*?\$paths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'drop accepts exactly one folder and requests the same read-only advice');
+const showRecommendation = hubPs.match(/function Show-Recommendation \{[\s\S]*?(?=\nfunction Start-GovernedTool)/)?.[0] || '';
+assert.match(showRecommendation, /Start-PathAdvisor -InputPath \$inputPath/, 'recommendation starts the advisor without blocking the UI thread');
+assert.doesNotMatch(showRecommendation, /ReadToEnd|WaitForExit/, 'recommendation UI path does not synchronously wait for the advisor');
+const advisorCompletion = hubPs.match(/function Complete-PathAdvisor \{[\s\S]*?(?=\nfunction Reset-Recommendation)/)?.[0] || '';
+assert.match(advisorCompletion, /HasExited[\s\S]*?SharedPath\.Text\.Trim\(\) -ne \$inputPath[\s\S]*?Set-RecommendationResult/, 'completed advice is applied only to the unchanged current path');
+assert.match(hubPs, /function Reset-Recommendation \{[\s\S]*?Stop-PathAdvisor/, 'changing the path cancels stale advice');
+assert.match(hubPs, /AdvisorTimer\.Add_Tick\([\s\S]*?TotalSeconds -ge 60[\s\S]*?Complete-PathAdvisor/, 'timer polls advisor completion and enforces the bounded timeout');
+assert.match(hubPs, /Add_FormClosing\(\{ Stop-PathAdvisor \}\)/, 'closing the hub cleans up an in-flight advisor');
 const startupHandoff = hubPs.match(/\$script:MainForm\.Add_Shown\(\{[\s\S]*?(?=\n\}\)\n\n\[void\]\$script:MainForm\.ShowDialog)/)?.[0] || '';
 assert.match(startupHandoff, /StartupPaths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'startup arguments accept exactly one path and request the same read-only advice');
 assert.doesNotMatch(startupHandoff, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'startup path advice never opens or runs a child tool');
@@ -179,6 +189,8 @@ for (const doc of ['README.md', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md']) {
   assert.ok(source.includes('attachment-governance-hub.ps1'), `${doc} documents attachment governance hub`);
   assert.ok(source.includes('attachment-governance-hub.contract.test.js'), `${doc} documents hub contract`);
   assert.ok(source.includes('啟動案件附件工作台.bat'), `${doc} documents hub launcher`);
+  assert.ok(source.includes('60 秒'), `${doc} documents the bounded asynchronous advisor timeout`);
+  assert.ok(source.includes('背景程序'), `${doc} documents advisor process cleanup`);
 }
 
 console.log('attachment governance hub contract tests passed');
