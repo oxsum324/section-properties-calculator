@@ -1,6 +1,7 @@
 ﻿[CmdletBinding()]
 param(
-  [switch]$Smoke
+  [switch]$Smoke,
+  [string]$InitialPath = ''
 )
 
 Set-StrictMode -Version Latest
@@ -224,6 +225,7 @@ $script:PathBox.Location = New-Object System.Drawing.Point(160, 64)
 $script:PathBox.Size = New-Object System.Drawing.Size(750, 28)
 $script:PathBox.Anchor = 'Top,Left,Right'
 $scopeGroup.Controls.Add($script:PathBox)
+if ($InitialPath.Trim()) { $script:PathBox.Text = $InitialPath.Trim() }
 
 $script:BtnBrowse = New-Object System.Windows.Forms.Button
 $script:BtnBrowse.Text = '選擇…'

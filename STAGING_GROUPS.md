@@ -179,7 +179,7 @@ Refresh anchor deployment assets
 
 舊版附件升級助手：新增或調整 `attachment-package-upgrade-assistant-worker.js`、`attachment-package-upgrade-assistant.ps1`、`啟動舊版附件升級助手.bat` 時，必須同步 staging `attachment-package-upgrade-assistant.contract.test.js`、preflight、Pages artifact／HTTP 私有邊界清冊、README 與 `TOOL_BOUNDARIES.md`。inspect 固定包裝既有 assessment／workspace-check 唯讀核心，execute 必須重查且只呼叫既有 unified flow；禁止另做複製、組包、核可、收據、覆寫或不安全輸出。輸入或計畫編號改變需撤銷可執行授權，執行前另需明確勾選確認。PowerShell 非 ASCII 檔須保留 UTF-8 BOM，四個助手檔案均不得發布至 Pages。
 
-案件附件工作台：新增或調整 `attachment-governance-hub.ps1`、`啟動案件附件工作台.bat` 時，必須同步 staging `attachment-governance-hub.contract.test.js`、preflight、Pages HTTP 私有邊界清冊、README 與 `TOOL_BOUNDARIES.md`。工作台只能啟動既有管理器、唯讀檢視器與升級助手，不得接受或讀取案件、另做檢查／組包／升級／核可／狀態判定；畫面必須明示三者權限差異及治理 ready 不等於正式核可。PowerShell 非 ASCII 檔須保留 UTF-8 BOM，三個工作台檔案均不得發布至 Pages。
+案件附件工作台：新增或調整 `attachment-governance-hub.ps1`、`啟動案件附件工作台.bat` 時，必須同步 staging `attachment-governance-hub.contract.test.js`、三套既有 GUI 及其契約、preflight、Pages HTTP 私有邊界清冊、README 與 `TOOL_BOUNDARIES.md`。工作台可把使用者選定的共用起始資料夾以 `InitialPath` 預填到既有管理器、唯讀檢視器與升級助手，但不得讀取案件內容、另做檢查／組包／升級／核可／狀態判定或自動觸發子工具動作；三套 GUI 只能預填欄位，仍須保留原按鈕、重查與確認閘門。畫面必須明示三者權限差異及治理 ready 不等於正式核可。PowerShell 非 ASCII 檔須保留 UTF-8 BOM，三個工作台檔案均不得發布至 Pages。
 
 ```powershell
 git add -- "石材固定/石材計算書產生器_規範版V2.html" "石材固定/server.py" "石材固定/ui_smoke_test.py" "石材固定/js/code-profiles-registry.spec.js" "石材固定/js/code-profiles-registry-smoke.test.js" "石材固定/js/regression-smoke.test.js"

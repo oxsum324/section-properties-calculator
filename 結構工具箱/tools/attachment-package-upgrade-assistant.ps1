@@ -1,6 +1,7 @@
 ﻿[CmdletBinding()]
 param(
-  [switch]$Smoke
+  [switch]$Smoke,
+  [string]$InitialPath = ''
 )
 
 Set-StrictMode -Version Latest
@@ -216,6 +217,7 @@ $script:InputPath.Location = New-Object System.Drawing.Point(205, 30)
 $script:InputPath.Size = New-Object System.Drawing.Size(705, 28)
 $script:InputPath.Anchor = 'Top,Left,Right'
 $inputGroup.Controls.Add($script:InputPath)
+if ($InitialPath.Trim()) { $script:InputPath.Text = $InitialPath.Trim() }
 
 $script:BtnBrowse = New-Object System.Windows.Forms.Button
 $script:BtnBrowse.Text = '選擇…'

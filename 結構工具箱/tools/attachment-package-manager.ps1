@@ -1,6 +1,7 @@
 ﻿[CmdletBinding()]
 param(
-  [switch]$Smoke
+  [switch]$Smoke,
+  [string]$InitialPath = ''
 )
 
 Set-StrictMode -Version Latest
@@ -210,6 +211,7 @@ function Add-FieldRow {
 }
 
 $script:SourcePath = Add-FieldRow -Parent $sourceGroup -Label '附件來源資料夾' -Y 32
+if ($InitialPath.Trim()) { $script:SourcePath.Text = $InitialPath.Trim() }
 $script:BtnBrowseSource = New-Object System.Windows.Forms.Button
 $script:BtnBrowseSource.Text = '選擇…'
 $script:BtnBrowseSource.Location = New-Object System.Drawing.Point(870, 30)

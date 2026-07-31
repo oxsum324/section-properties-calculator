@@ -103,12 +103,14 @@ const viewerPs = read('結構工具箱/tools/attachment-case-governance-viewer.p
   'System.Windows.Forms', 'FolderBrowserDialog', 'attachment-case-governance-viewer-worker.js',
   "ValidateSet('smoke', 'case', 'portfolio')", '單一案件根目錄', '多案件上層資料夾',
   '只顯示待處理案件', '本畫面不核可、不修改、也不寫入案件資料', 'workerExitCode',
+  "[string]$InitialPath = ''",
 ].forEach(needle => assert.ok(viewerPs.includes(needle), `PowerShell viewer includes ${needle}`));
 assert.equal(viewerPs.charCodeAt(0), 0xFEFF, 'PowerShell viewer keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(viewerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'viewer does not send case data over network');
 assert.doesNotMatch(viewerPs, /Set-Content|Out-File|Add-Content|Remove-Item|Move-Item|Copy-Item|New-Item/i, 'viewer does not mutate case files');
 assert.doesNotMatch(viewerPs, /-Priority\s+\(if\s*\(/, 'PowerShell 5.1 does not receive an inline if expression as an argument');
 assert.match(viewerPs, /\$priority = if \(\$script:RadioPortfolio\.Checked\)/, 'priority is resolved before invoking the worker');
+assert.match(viewerPs, /if \(\$InitialPath\.Trim\(\)\) \{ \$script:PathBox\.Text = \$InitialPath\.Trim\(\) \}/, 'viewer only pre-fills the selected scope path');
 
 const launcher = read('結構工具箱/tools/啟動案件附件治理檢視器.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);

@@ -16,6 +16,7 @@ $script:ToolTargets = @(
     Id = 'manager'
     Name = '正式附件包管理器'
     Launcher = '啟動正式附件包管理器.bat'
+    Script = 'attachment-package-manager.ps1'
     Action = '開啟組包管理器'
     Badge = '可新建產物'
     Title = '我要整理新案或重產後的正式附件'
@@ -28,6 +29,7 @@ $script:ToolTargets = @(
     Id = 'viewer'
     Name = '案件附件治理檢視器'
     Launcher = '啟動案件附件治理檢視器.bat'
+    Script = 'attachment-case-governance-viewer.ps1'
     Action = '開啟唯讀檢視器'
     Badge = '永遠唯讀'
     Title = '我要知道單一案件或多案件目前卡在哪裡'
@@ -40,6 +42,7 @@ $script:ToolTargets = @(
     Id = 'upgrade'
     Name = '舊版附件升級助手'
     Launcher = '啟動舊版附件升級助手.bat'
+    Script = 'attachment-package-upgrade-assistant.ps1'
     Action = '開啟升級助手'
     Badge = '另建升級產物'
     Title = '我有 v1／v2 舊版正式附件包要更新'
@@ -52,13 +55,15 @@ $script:ToolTargets = @(
 
 function Get-TargetStatus {
   param($Target)
-  $path = Join-Path $script:ToolDirectory $Target.Launcher
+  $launcherPath = Join-Path $script:ToolDirectory $Target.Launcher
+  $scriptPath = Join-Path $script:ToolDirectory $Target.Script
   return [pscustomobject]@{
     id = $Target.Id
     name = $Target.Name
     launcher = $Target.Launcher
-    path = $path
-    available = [bool](Test-Path -LiteralPath $path -PathType Leaf)
+    launcherPath = $launcherPath
+    scriptPath = $scriptPath
+    available = [bool]((Test-Path -LiteralPath $launcherPath -PathType Leaf) -and (Test-Path -LiteralPath $scriptPath -PathType Leaf))
   }
 }
 
@@ -82,14 +87,36 @@ function Start-GovernedTool {
   param($Target)
   $status = Get-TargetStatus $Target
   if (-not $status.available) {
-    throw "找不到 $($Target.Name) 啟動器：$($status.path)"
+    throw "找不到 $($Target.Name) 的受治理入口。"
   }
+  $arguments = "-NoProfile -ExecutionPolicy Bypass -STA -File `"$($status.scriptPath)`""
+  $initialPath = $script:SharedPath.Text.Trim()
+  if ($initialPath) { $arguments += " -InitialPath `"$initialPath`"" }
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-  $startInfo.FileName = $status.path
+  $startInfo.FileName = 'powershell.exe'
+  $startInfo.Arguments = $arguments
   $startInfo.WorkingDirectory = $script:ToolDirectory
   $startInfo.UseShellExecute = $true
   [void][System.Diagnostics.Process]::Start($startInfo)
-  $script:BottomStatus.Text = "已開啟：$($Target.Name)；案件操作仍由該工具的權限邊界控制。"
+  $handoff = if ($initialPath) { '已帶入共用起始資料夾，尚未自動檢查。' } else { '未指定起始資料夾。' }
+  $script:BottomStatus.Text = "已開啟：$($Target.Name)；$handoff"
+}
+
+function Select-SharedFolder {
+  $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+  $dialog.Description = '選擇要帶入附件工具的共同起始資料夾'
+  $dialog.ShowNewFolderButton = $false
+  if ($script:SharedPath.Text.Trim() -and (Test-Path -LiteralPath $script:SharedPath.Text.Trim() -PathType Container)) {
+    $dialog.SelectedPath = $script:SharedPath.Text.Trim()
+  }
+  try {
+    if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+      $script:SharedPath.Text = $dialog.SelectedPath
+      $script:BottomStatus.Text = '已選擇共用起始資料夾；開啟工具後仍須由你執行該工具的檢查。'
+    }
+  } finally {
+    $dialog.Dispose()
+  }
 }
 
 function Show-LaunchError {
@@ -183,8 +210,8 @@ function Add-ToolCard {
 $script:MainForm = New-Object System.Windows.Forms.Form
 $script:MainForm.Text = '案件附件工作台'
 $script:MainForm.StartPosition = 'CenterScreen'
-$script:MainForm.Size = New-Object System.Drawing.Size(1120, 780)
-$script:MainForm.MinimumSize = New-Object System.Drawing.Size(1120, 780)
+$script:MainForm.MinimumSize = New-Object System.Drawing.Size(1120, 820)
+$script:MainForm.Size = New-Object System.Drawing.Size(1120, 820)
 $script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 252)
 $script:MainForm.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10)
 
@@ -202,9 +229,37 @@ $subheader.Size = New-Object System.Drawing.Size(1040, 28)
 $subheader.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
 $script:MainForm.Controls.Add($subheader)
 
+$pathPanel = New-Object System.Windows.Forms.Panel
+$pathPanel.Location = New-Object System.Drawing.Point(22, 101)
+$pathPanel.Size = New-Object System.Drawing.Size(1056, 60)
+$pathPanel.Anchor = 'Top,Left,Right'
+$pathPanel.BackColor = [System.Drawing.Color]::FromArgb(255, 255, 255)
+$pathPanel.BorderStyle = 'FixedSingle'
+$script:MainForm.Controls.Add($pathPanel)
+
+$pathLabel = New-Object System.Windows.Forms.Label
+$pathLabel.Text = '共用起始資料夾（選填）'
+$pathLabel.Location = New-Object System.Drawing.Point(16, 18)
+$pathLabel.Size = New-Object System.Drawing.Size(180, 26)
+$pathPanel.Controls.Add($pathLabel)
+
+$script:SharedPath = New-Object System.Windows.Forms.TextBox
+$script:SharedPath.Location = New-Object System.Drawing.Point(200, 14)
+$script:SharedPath.Size = New-Object System.Drawing.Size(700, 30)
+$script:SharedPath.Anchor = 'Top,Left,Right'
+$pathPanel.Controls.Add($script:SharedPath)
+
+$browseShared = New-Object System.Windows.Forms.Button
+$browseShared.Text = '選擇一次…'
+$browseShared.Location = New-Object System.Drawing.Point(915, 12)
+$browseShared.Size = New-Object System.Drawing.Size(120, 34)
+$browseShared.Anchor = 'Top,Right'
+$browseShared.Add_Click({ Select-SharedFolder })
+$pathPanel.Controls.Add($browseShared)
+
 $guide = New-Object System.Windows.Forms.Panel
-$guide.Location = New-Object System.Drawing.Point(22, 101)
-$guide.Size = New-Object System.Drawing.Size(1056, 60)
+$guide.Location = New-Object System.Drawing.Point(22, 171)
+$guide.Size = New-Object System.Drawing.Size(1056, 48)
 $guide.Anchor = 'Top,Left,Right'
 $guide.BackColor = [System.Drawing.Color]::FromArgb(241, 245, 249)
 $script:MainForm.Controls.Add($guide)
@@ -212,17 +267,17 @@ $script:MainForm.Controls.Add($guide)
 $guideText = New-Object System.Windows.Forms.Label
 $guideText.Text = '選擇原則：新案組包 → 管理器　｜　只想查狀態 → 唯讀檢視器　｜　v1／v2 舊包 → 升級助手'
 $guideText.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 11, [System.Drawing.FontStyle]::Bold)
-$guideText.Location = New-Object System.Drawing.Point(20, 17)
+$guideText.Location = New-Object System.Drawing.Point(20, 11)
 $guideText.Size = New-Object System.Drawing.Size(1015, 28)
 $guide.Controls.Add($guideText)
 
-Add-ToolCard -Target $script:ToolTargets[0] -Top 176 -Number '01'
-Add-ToolCard -Target $script:ToolTargets[1] -Top 330 -Number '02'
-Add-ToolCard -Target $script:ToolTargets[2] -Top 484 -Number '03'
+Add-ToolCard -Target $script:ToolTargets[0] -Top 232 -Number '01'
+Add-ToolCard -Target $script:ToolTargets[1] -Top 382 -Number '02'
+Add-ToolCard -Target $script:ToolTargets[2] -Top 532 -Number '03'
 
 $notice = New-Object System.Windows.Forms.Label
 $notice.Text = '重要：工程結果、附件完整性、治理 ready 與「正式附件核可」是不同層次；只有計算書內明確核可才是正式附件。'
-$notice.Location = New-Object System.Drawing.Point(26, 644)
+$notice.Location = New-Object System.Drawing.Point(26, 686)
 $notice.Size = New-Object System.Drawing.Size(1040, 34)
 $notice.ForeColor = [System.Drawing.Color]::FromArgb(127, 29, 29)
 $notice.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10, [System.Drawing.FontStyle]::Bold)

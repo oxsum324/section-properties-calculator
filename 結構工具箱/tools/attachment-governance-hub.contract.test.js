@@ -20,6 +20,7 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '可新建產物', '永遠唯讀', '另建升級產物',
   '工作台只負責安全分流', '不代替正式核可',
   '只有計算書內明確核可才是正式附件', 'ProcessStartInfo', 'UseShellExecute',
+  '共用起始資料夾（選填）', '選擇一次…', 'FolderBrowserDialog', '-InitialPath',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
 assert.equal(hubPs.charCodeAt(0), 0xFEFF, 'PowerShell hub keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(hubPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'hub stays local');
@@ -28,6 +29,8 @@ assert.doesNotMatch(
   /Set-Content|Out-File|Add-Content|Remove-Item|Move-Item|Copy-Item|New-Item|writeFile|mkdir|rename|rmSync|unlink|copyFile|appendFile/i,
   'hub does not mutate case files or implement another write path',
 );
+assert.doesNotMatch(hubPs, /Invoke-AttachmentWorker|Invoke-GovernanceViewerWorker|Invoke-UpgradeAssistantWorker/, 'hub never invokes a case core directly');
+assert.doesNotMatch(hubPs, /-Action\s+(?:check|build|verify|case|portfolio|inspect|execute)/, 'hub does not auto-run a child action');
 
 const targetLaunchers = [
   '啟動正式附件包管理器.bat',
@@ -39,6 +42,12 @@ for (const launcher of targetLaunchers) {
   assert.ok(fs.existsSync(path.join(toolsDir, launcher)), `existing launcher is present: ${launcher}`);
 }
 assert.equal((hubPs.match(/\bLauncher\s*=\s*'/g) || []).length, 3, 'hub exposes exactly the three governed launcher definitions');
+assert.equal((hubPs.match(/\bScript\s*=\s*'/g) || []).length, 3, 'hub passes InitialPath only to the three governed PowerShell entrypoints');
+for (const childScript of [
+  'attachment-package-manager.ps1',
+  'attachment-case-governance-viewer.ps1',
+  'attachment-package-upgrade-assistant.ps1',
+]) assert.ok(hubPs.includes(childScript), `hub routes to governed script ${childScript}`);
 
 const powershell = process.platform === 'win32' ? 'powershell.exe' : 'pwsh';
 const smoke = childProcess.spawnSync(
