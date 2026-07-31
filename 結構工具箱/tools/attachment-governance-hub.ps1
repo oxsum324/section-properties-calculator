@@ -439,6 +439,7 @@ function Add-ToolCard {
   $panel = New-Object System.Windows.Forms.Panel
   $panel.Location = New-Object System.Drawing.Point(22, $Top)
   $panel.Size = New-Object System.Drawing.Size(1056, 142)
+  $panel.TabIndex = [int]$Number
   $panel.Anchor = 'Top,Left,Right'
   $panel.BackColor = $Target.Color
   $panel.BorderStyle = 'FixedSingle'
@@ -494,11 +495,17 @@ function Add-ToolCard {
   $button.Location = New-Object System.Drawing.Point(820, 49)
   $button.Size = New-Object System.Drawing.Size(205, 46)
   $button.Anchor = 'Top,Right'
+  $button.TabIndex = 0
   $button.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10, [System.Drawing.FontStyle]::Bold)
+  $button.AccessibleName = "$($Target.Title)：$($Target.Action)"
+  $button.AccessibleDescription = $Target.Boundary
   $button.Tag = $Target
   $button.Add_Click({
     try { Start-GovernedTool -Target $this.Tag }
     catch { Show-LaunchError -ErrorRecord $_.Exception }
+  })
+  $button.Add_Enter({
+    if ($script:ScrollPanel) { $script:ScrollPanel.ScrollControlIntoView($this) }
   })
   $panel.Controls.Add($button)
   $script:ToolButtons[$Target.Id] = $button
@@ -513,6 +520,7 @@ function Add-ToolCard {
 $script:MainForm = New-Object System.Windows.Forms.Form
 $script:MainForm.Text = '案件附件工作台'
 $script:MainForm.StartPosition = 'CenterScreen'
+$script:MainForm.KeyPreview = $true
 $workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
 $defaultWidth = [Math]::Min(1120, [Math]::Max(780, $workingArea.Width - 40))
 $defaultHeight = [Math]::Min(890, [Math]::Max(640, $workingArea.Height - 40))
@@ -524,6 +532,8 @@ $script:MainForm.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 
 $script:ScrollPanel = New-Object System.Windows.Forms.Panel
 $script:ScrollPanel.Dock = 'Fill'
 $script:ScrollPanel.AutoScroll = $true
+$script:ScrollPanel.TabStop = $false
+$script:ScrollPanel.AccessibleName = '案件附件工作台主要內容'
 $script:ScrollPanel.BackColor = $script:MainForm.BackColor
 $script:MainForm.Controls.Add($script:ScrollPanel)
 $script:MainForm.PerformLayout()
@@ -534,6 +544,7 @@ $script:ContentCanvas = New-Object System.Windows.Forms.Panel
 $script:ContentCanvas.Location = New-Object System.Drawing.Point(0, 0)
 $script:ContentCanvas.Size = New-Object System.Drawing.Size(1090, 800)
 $script:ContentCanvas.BackColor = $script:MainForm.BackColor
+$script:ContentCanvas.TabStop = $false
 $script:ScrollPanel.Controls.Add($script:ContentCanvas)
 
 $header = New-Object System.Windows.Forms.Label
@@ -544,7 +555,7 @@ $header.Size = New-Object System.Drawing.Size(1040, 45)
 $script:ContentCanvas.Controls.Add($header)
 
 $subheader = New-Object System.Windows.Forms.Label
-$subheader.Text = '選擇或拖入一個資料夾後會自動提出唯讀建議；建議不會自動開啟工具、不改判狀態，也不代替正式核可。'
+$subheader.Text = '拖入或選擇資料夾只會提出唯讀建議；不自動開啟工具、不改判狀態，也不代替正式核可。鍵盤：Ctrl+L 路徑、Enter 辨識、Esc 停止。'
 $subheader.Location = New-Object System.Drawing.Point(26, 66)
 $subheader.Size = New-Object System.Drawing.Size(1040, 28)
 $subheader.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
@@ -553,6 +564,7 @@ $script:ContentCanvas.Controls.Add($subheader)
 $pathPanel = New-Object System.Windows.Forms.Panel
 $pathPanel.Location = New-Object System.Drawing.Point(22, 101)
 $pathPanel.Size = New-Object System.Drawing.Size(1056, 100)
+$pathPanel.TabIndex = 0
 $pathPanel.Anchor = 'Top,Left,Right'
 $pathPanel.BackColor = [System.Drawing.Color]::FromArgb(255, 255, 255)
 $pathPanel.BorderStyle = 'FixedSingle'
@@ -569,6 +581,9 @@ $script:SharedPath = New-Object System.Windows.Forms.TextBox
 $script:SharedPath.Location = New-Object System.Drawing.Point(215, 14)
 $script:SharedPath.Size = New-Object System.Drawing.Size(550, 30)
 $script:SharedPath.Anchor = 'Top,Left,Right'
+$script:SharedPath.TabIndex = 0
+$script:SharedPath.AccessibleName = '案件或附件資料夾路徑'
+$script:SharedPath.AccessibleDescription = '輸入、貼上或拖入單一現有資料夾；辨識只讀取內容，不改變案件狀態。'
 $script:SharedPath.AllowDrop = $true
 $pathPanel.Controls.Add($script:SharedPath)
 
@@ -577,6 +592,8 @@ $browseShared.Text = '選擇並辨識…'
 $browseShared.Location = New-Object System.Drawing.Point(780, 12)
 $browseShared.Size = New-Object System.Drawing.Size(120, 34)
 $browseShared.Anchor = 'Top,Right'
+$browseShared.TabIndex = 1
+$browseShared.AccessibleName = '選擇資料夾並唯讀辨識'
 $browseShared.Add_Click({
   try { Select-SharedFolder }
   catch { Show-LaunchError -ErrorRecord $_.Exception }
@@ -588,6 +605,9 @@ $script:BtnAdvise.Text = '唯讀辨識建議'
 $script:BtnAdvise.Location = New-Object System.Drawing.Point(915, 12)
 $script:BtnAdvise.Size = New-Object System.Drawing.Size(120, 34)
 $script:BtnAdvise.Anchor = 'Top,Right'
+$script:BtnAdvise.TabIndex = 2
+$script:BtnAdvise.AccessibleName = '唯讀辨識操作'
+$script:BtnAdvise.AccessibleDescription = '開始、停止或重新執行唯讀辨識；不會開啟子工具或改變案件狀態。'
 $script:BtnAdvise.Add_Click({
   try {
     if ($script:AdvisorProcess) {
@@ -599,6 +619,21 @@ $script:BtnAdvise.Add_Click({
   catch { Show-LaunchError -ErrorRecord $_.Exception }
 })
 $pathPanel.Controls.Add($script:BtnAdvise)
+$script:MainForm.AcceptButton = $script:BtnAdvise
+$script:MainForm.Add_KeyDown({
+  if ($_.Control -and $_.KeyCode -eq [System.Windows.Forms.Keys]::L) {
+    $script:SharedPath.Focus()
+    $script:SharedPath.SelectAll()
+    $_.SuppressKeyPress = $true
+    $_.Handled = $true
+    return
+  }
+  if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Escape -and $script:AdvisorProcess) {
+    Cancel-PathAdvisor
+    $_.SuppressKeyPress = $true
+    $_.Handled = $true
+  }
+})
 
 $script:RecommendationText = New-Object System.Windows.Forms.Label
 $script:RecommendationText.Text = '選擇或拖入單一資料夾後會自動辨識；手動輸入路徑時可按右側按鈕。'
@@ -744,6 +779,8 @@ using System.Runtime.InteropServices;
 public static class AttachmentHubNativeScroll {
   public const int WM_HSCROLL = 0x114;
   public const int WM_VSCROLL = 0x115;
+  public const int SB_LEFT = 6;
+  public const int SB_TOP = 6;
   public const int SB_RIGHT = 7;
   public const int SB_BOTTOM = 7;
   [DllImport("user32.dll")]
@@ -778,8 +815,24 @@ public static class AttachmentHubNativeScroll {
       $horizontalClientRectangle = $script:ScrollPanel.RectangleToScreen($script:ScrollPanel.ClientRectangle)
       $rightmostButtonRectangle = $script:ToolButtons['upgrade'].RectangleToScreen($script:ToolButtons['upgrade'].ClientRectangle)
       $rightmostButtonReachable = $rightmostButtonRectangle.Left -ge $horizontalClientRectangle.Left -and $rightmostButtonRectangle.Right -le $horizontalClientRectangle.Right
+      [void][AttachmentHubNativeScroll]::SendMessage($script:ScrollPanel.Handle, [AttachmentHubNativeScroll]::WM_HSCROLL, [IntPtr][AttachmentHubNativeScroll]::SB_LEFT, [IntPtr]::Zero)
+      [void][AttachmentHubNativeScroll]::SendMessage($script:ScrollPanel.Handle, [AttachmentHubNativeScroll]::WM_VSCROLL, [IntPtr][AttachmentHubNativeScroll]::SB_TOP, [IntPtr]::Zero)
+      $script:MainForm.Update()
+      [System.Windows.Forms.SendKeys]::SendWait('^l')
+      [System.Windows.Forms.Application]::DoEvents()
+      $pathShortcutFocused = [bool]$script:SharedPath.Focused
+      $tabStepsToTarget = 0
+      while (-not $script:ToolButtons['upgrade'].Focused -and $tabStepsToTarget -lt 12) {
+        [System.Windows.Forms.SendKeys]::SendWait('{TAB}')
+        [System.Windows.Forms.Application]::DoEvents()
+        $tabStepsToTarget += 1
+      }
+      $keyboardTargetFocused = [bool]$script:ToolButtons['upgrade'].Focused
+      $keyboardClientRectangle = $script:ScrollPanel.RectangleToScreen($script:ScrollPanel.ClientRectangle)
+      $keyboardTargetRectangle = $script:ToolButtons['upgrade'].RectangleToScreen($script:ToolButtons['upgrade'].ClientRectangle)
+      $keyboardTargetReachable = $keyboardTargetRectangle.Left -ge $keyboardClientRectangle.Left -and $keyboardTargetRectangle.Right -le $keyboardClientRectangle.Right -and $keyboardTargetRectangle.Top -ge $keyboardClientRectangle.Top -and $keyboardTargetRectangle.Bottom -le $keyboardClientRectangle.Bottom
       $script:ViewportSmokeResult = [pscustomobject]@{
-        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Width -le 780 -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormWidth -le $workingArea.Width -and $initialFormHeight -le $workingArea.Height -and $verticalScrollVisible -and $verticalScrollAfter -gt $verticalScrollBefore -and $verticalScrollAfter -eq $verticalScrollTarget -and $noticeReachable -and $horizontalScrollVisible -and $horizontalScrollAfter -gt $horizontalScrollBefore -and $horizontalScrollAfter -eq $horizontalScrollTarget -and $rightmostButtonReachable) { 'pass' } else { 'fail' }
+        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Width -le 780 -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormWidth -le $workingArea.Width -and $initialFormHeight -le $workingArea.Height -and $verticalScrollVisible -and $verticalScrollAfter -gt $verticalScrollBefore -and $verticalScrollAfter -eq $verticalScrollTarget -and $noticeReachable -and $horizontalScrollVisible -and $horizontalScrollAfter -gt $horizontalScrollBefore -and $horizontalScrollAfter -eq $horizontalScrollTarget -and $rightmostButtonReachable -and $pathShortcutFocused -and $keyboardTargetFocused -and $keyboardTargetReachable) { 'pass' } else { 'fail' }
         winFormsMessageLoop = $true
         autoScrollEnabled = [bool]$script:ScrollPanel.AutoScroll
         minimumWidth = $script:MainForm.MinimumSize.Width
@@ -818,6 +871,14 @@ public static class AttachmentHubNativeScroll {
         rightmostButtonLeft = $rightmostButtonRectangle.Left
         rightmostButtonRight = $rightmostButtonRectangle.Right
         rightmostButtonReachable = $rightmostButtonReachable
+        pathShortcutFocused = $pathShortcutFocused
+        keyboardTargetFocused = $keyboardTargetFocused
+        keyboardTargetReachable = $keyboardTargetReachable
+        tabStepsToTarget = $tabStepsToTarget
+        keyboardTargetLeft = $keyboardTargetRectangle.Left
+        keyboardTargetRight = $keyboardTargetRectangle.Right
+        keyboardTargetTop = $keyboardTargetRectangle.Top
+        keyboardTargetBottom = $keyboardTargetRectangle.Bottom
         windowStayedOpen = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
         changedState = $false
         autoLaunched = $false
@@ -937,15 +998,24 @@ if ($SmokeCancellation) {
       $runningActionVisible = $script:BtnAdvise.Text -eq '停止辨識'
       $windowVisibleBeforeCancel = [bool]$script:MainForm.Visible
       $script:BtnAdvise.PerformClick()
-      $workerExited = $advisorPid -gt 0 -and -not (Get-Process -Id $advisorPid -ErrorAction SilentlyContinue)
+      $buttonWorkerExited = $advisorPid -gt 0 -and -not (Get-Process -Id $advisorPid -ErrorAction SilentlyContinue)
+      Show-Recommendation
+      $escapeWorkerPid = if ($script:AdvisorProcess) { $script:AdvisorProcess.Id } else { 0 }
+      $escapeRunningActionVisible = $escapeWorkerPid -gt 0 -and $script:BtnAdvise.Text -eq '停止辨識'
+      [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+      [System.Windows.Forms.Application]::DoEvents()
+      $escapeWorkerExited = $escapeWorkerPid -gt 0 -and -not (Get-Process -Id $escapeWorkerPid -ErrorAction SilentlyContinue)
       $script:CancellationSmokeResult = [pscustomobject]@{
-        status = if ($runningActionVisible -and $windowVisibleBeforeCancel -and $workerExited -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '唯讀辨識建議' -and $script:RecommendationText.Text -like '已停止唯讀辨識*') { 'pass' } else { 'fail' }
+        status = if ($runningActionVisible -and $windowVisibleBeforeCancel -and $buttonWorkerExited -and $escapeRunningActionVisible -and $escapeWorkerPid -ne $advisorPid -and $escapeWorkerExited -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '唯讀辨識建議' -and $script:RecommendationText.Text -like '已停止唯讀辨識*') { 'pass' } else { 'fail' }
         winFormsMessageLoop = $true
         performClick = $true
+        escapeKey = $true
         runningActionVisible = $runningActionVisible
         windowStayedOpen = [bool]($windowVisibleBeforeCancel -and $script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
         workerPid = $advisorPid
-        workerExited = $workerExited
+        workerExited = $buttonWorkerExited
+        escapeWorkerPid = $escapeWorkerPid
+        escapeWorkerExited = $escapeWorkerExited
         advisorCleared = [bool](-not $script:AdvisorProcess)
         idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
         cancellationMessageShown = [bool]($script:RecommendationText.Text -like '已停止唯讀辨識*')
@@ -957,6 +1027,7 @@ if ($SmokeCancellation) {
         status = 'fail'
         winFormsMessageLoop = $true
         performClick = $false
+        escapeKey = $false
         message = $_.Exception.Message
         changedState = $false
         autoLaunched = $false

@@ -30,6 +30,8 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '唯讀辨識進行中', '畫面可繼續操作', '停止辨識', 'Cancel-PathAdvisor',
   '已停止唯讀辨識', '重新辨識', '唯讀辨識超過 60 秒', 'Add_FormClosing',
   'PrimaryScreen.WorkingArea', 'AutoScrollMinSize', 'WM_VSCROLL', 'AttachmentHubNativeScroll', 'SmokeViewport',
+  'KeyPreview', 'AcceptButton', 'Add_KeyDown', 'Keys]::L', 'Keys]::Escape', 'SendKeys]::SendWait',
+  'AccessibleName', 'AccessibleDescription', '案件或附件資料夾路徑',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
@@ -202,6 +204,10 @@ assert.equal(viewportPayload.horizontalScrollVisible, true);
 assert.ok(viewportPayload.horizontalScrollAfter > viewportPayload.horizontalScrollBefore);
 assert.equal(viewportPayload.horizontalScrollAfter, viewportPayload.horizontalScrollTarget);
 assert.equal(viewportPayload.rightmostButtonReachable, true);
+assert.equal(viewportPayload.pathShortcutFocused, true);
+assert.equal(viewportPayload.keyboardTargetFocused, true);
+assert.equal(viewportPayload.keyboardTargetReachable, true);
+assert.ok(viewportPayload.tabStepsToTarget > 0 && viewportPayload.tabStepsToTarget <= 12);
 assert.equal(viewportPayload.windowStayedOpen, true);
 assert.equal(viewportPayload.changedState, false);
 assert.equal(viewportPayload.autoLaunched, false);
@@ -219,10 +225,14 @@ const cancellationPayload = JSON.parse(cancellationSmoke.stdout.replace(/^\uFEFF
 assert.equal(cancellationPayload.status, 'pass');
 assert.equal(cancellationPayload.winFormsMessageLoop, true);
 assert.equal(cancellationPayload.performClick, true);
+assert.equal(cancellationPayload.escapeKey, true);
 assert.equal(cancellationPayload.runningActionVisible, true);
 assert.equal(cancellationPayload.windowStayedOpen, true);
 assert.ok(cancellationPayload.workerPid > 0);
 assert.equal(cancellationPayload.workerExited, true);
+assert.ok(cancellationPayload.escapeWorkerPid > 0);
+assert.notEqual(cancellationPayload.escapeWorkerPid, cancellationPayload.workerPid);
+assert.equal(cancellationPayload.escapeWorkerExited, true);
 assert.equal(cancellationPayload.advisorCleared, true);
 assert.equal(cancellationPayload.idleActionRestored, true);
 assert.equal(cancellationPayload.cancellationMessageShown, true);
