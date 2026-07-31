@@ -164,6 +164,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   [啟動正式附件包管理器.bat](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/啟動正式附件包管理器.bat:1)
 - Windows 案件附件治理檢視器：
   [啟動案件附件治理檢視器.bat](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/啟動案件附件治理檢視器.bat:1)
+- Windows 舊版附件升級助手：
+  [啟動舊版附件升級助手.bat](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/啟動舊版附件升級助手.bat:1)
 - 舊版正式附件包升級評估：
   [attachment-package-upgrade-assess.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/attachment-package-upgrade-assess.js:1)
 - 舊版附件包安全升級工作區：
@@ -214,6 +216,8 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 Windows 可直接執行 `結構工具箱/tools/啟動正式附件包管理器.bat`，在同一個本機視窗完成「選擇附件來源 → 檢查 → ready 後建立正式附件包 → 選擇或沿用輸出資料夾驗證」。介面由 `attachment-package-manager.ps1` 提供資料夾選擇、狀態色塊、附件清單與問題明細；`attachment-package-manager-worker.js` 只把既有檢查、組包及驗證核心轉成結構化結果，不自行改判 `ready / review / blocked`。管理器不啟動本機網路服務、不傳送案件資料，且和其他附件治理腳本一樣不發布至 GitHub Pages。其契約由 `attachment-package-manager.contract.test.js` 固定檢查本機邊界、GUI 入口、核心接線與 Pages 私有清冊。
 
 單一案件或多案件治理可直接執行 `結構工具箱/tools/啟動案件附件治理檢視器.bat`。`attachment-case-governance-viewer.ps1` 讓使用者選擇案件根目錄或案件上層資料夾，並以狀態色塊、案件清單、P0／P1／P2、附件包狀態、可信基準鏈、待前進收據、問題與下一步顯示既有唯讀治理結果；多案件的「只顯示待處理」及優先層級篩選只縮減畫面，不改變整批狀態、退出碼或 `POR-` 指紋。`attachment-case-governance-viewer-worker.js` 直接呼叫既有單案 root 與多案 portfolio 核心，不另行升降狀態。檢視器不建立、修改、核可或寫入案件資料，不啟動網路服務，也不發布至 GitHub Pages；`ready` 只表示可進入內部歸檔複核，不代表正式附件核可。其邊界由 `attachment-case-governance-viewer.contract.test.js` 固定檢查。
+
+既有 v1／v2 正式附件包可直接執行 `結構工具箱/tools/啟動舊版附件升級助手.bat`。介面採固定兩步式流程：第一步只讀辨識輸入階段並執行既有升級評估或工作區完成度檢查，不建立產物、不寫歷程收據；第二步只有完整舊包或完成度 `ready` 的升級工作區才會提供新建動作，且必須勾選「只新建產物、不改寫舊包、本動作不代表正式核可」後才能呼叫既有 `attachment-package-upgrade-flow.js`。舊包只會另建安全升級工作區；完成工作區只會另建新的 v3 正式附件包，兩者均使用既有安全預設位置、禁止覆寫並在外部留下內部歷程收據。`attachment-package-upgrade-assistant-worker.js` 不另建第二套寫入邏輯，狀態、完成度、組包、自我驗證及收據皆沿用既有核心；GUI 不提供原地升級、複製舊核可、人工提升狀態或自訂不安全輸出位置。助手不啟動網路服務，四個檔案均不發布至 GitHub Pages；其邊界由 `attachment-package-upgrade-assistant.contract.test.js` 固定檢查。
 
 附件整理完成、送出計算附件前，也可將附件資料夾拖曳到 `結構工具箱/tools/檢查附件組包.bat`，或執行 `node 結構工具箱/tools/attachment-package-check.js --input <附件資料夾> --project-no <計畫編號>`。它讀取 PDF、DOCX、XLSX、JSON、HTML 與文字附件，會自動略過 `.evidence.json`、成對的文字擷取檔、渲染摘要及作業系統雜項檔案，並檢查同工具版本、來源 JSON 與正式計算書的計算指紋配對、真正重複的來源／輸出及頁面專用文字。所有被辨識為計算文件的成品另須通過同一正向內容契約：一般計算書至少可辨識採用輸入、計算／檢核過程、工程結果及至少兩個實際工程數值；明確標題為計算摘要者可省略重複詳算，但仍須包含採用輸入、工程結果與相同的數值門檻。只有標題、章名、文件狀態、核可時間或追溯欄位的空殼文件一律 blocked；版本、日期、時間與計算指紋也不算工程數值。HTML 的 script、style、template 與 noscript 程式內容不計入可見工程內容。來源 JSON 維持追溯資料角色，不套用計算書正向內容群組。每份檔案會在內容解析前後取得 SHA-256；檢查期間若仍被重新輸出或替換即 blocked。來源資料夾本身或其內容若含符號連結、Windows junction 或其他特殊項目也會列名並阻擋，避免靜默遺漏或帶入選取資料夾以外的檔案。`文件狀態：內部審閱` 會阻擋正式組包；文件同時具備 `文件狀態：正式附件` 與有效 `核可時間` 才能自動放行。輸出時間與核可時間會依台灣本地格式或具時區 ISO 格式解析；無效輸出日期降為 `review`，核可早於輸出則 blocked，同一顯示秒可接受。計畫名稱、計畫編號與設計人可由主文承接，不列為必要欄位。缺少產出工具、版本、輸出時間、指紋或遇到未支援格式時仍降為 `review`。命令列採失敗封閉：只有 `ready` 回傳退出碼 `0`；`review` 回傳 `1`、`blocked` 回傳 `2`，參數或執行錯誤回傳 `3`。檢查結果只供內部整理，不得附入計算書、列印或 PDF。
 附件可見性採失敗封閉：HTML 靜態檢查會排除 `hidden`、`aria-hidden`、列印媒體隱藏、透明、零尺寸及明確同色前景／背景內容；裁切、頁外位移或無法由靜態 CSS 確定的同色內容一律降為 `review`。DOCX 的 `w:vanish` 隱藏文字及 XLSX 的 hidden／veryHidden 工作表、隱藏列、隱藏欄都不計入工程內容；工作表存在隱藏欄但儲存格缺少 `r` 參照時，不猜測欄位而改列 `review`。PDF 的 `pdftotext` 只用於文字層 metadata 對照，不能證明實際可見或冒充 OCR；只有同一次瀏覽器列印工作階段取得的 print-visible DOM（computed style、有效背景／對比、`getClientRects`）、PDF SHA-256 與 `pdftoppm` 逐頁像素指標，或真正由渲染頁面取得的 OCR／vision 證據，才可自動視為 canonical evidence。檢查器會重算 evidence 內正規化 `visibleText.text` 的長度、SHA-256、文件 profile 與工程內容邊界，並要求正式狀態、核可時間、產出工具、版本、輸出時間及計算指紋與 PDF 文字層一致。這仍是可見性與一致性檢查：複雜 Office 條件格式、物件疊放、字型替換、透明度合成及掃描 PDF 的辨識誤差可能需要人工複核，不等同排版簽章或工程核可。
