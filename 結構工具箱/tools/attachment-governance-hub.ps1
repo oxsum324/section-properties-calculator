@@ -514,9 +514,10 @@ $script:MainForm = New-Object System.Windows.Forms.Form
 $script:MainForm.Text = '案件附件工作台'
 $script:MainForm.StartPosition = 'CenterScreen'
 $workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$defaultWidth = [Math]::Min(1120, [Math]::Max(780, $workingArea.Width - 40))
 $defaultHeight = [Math]::Min(890, [Math]::Max(640, $workingArea.Height - 40))
-$script:MainForm.MinimumSize = New-Object System.Drawing.Size(1120, 640)
-$script:MainForm.Size = New-Object System.Drawing.Size(1120, $defaultHeight)
+$script:MainForm.MinimumSize = New-Object System.Drawing.Size(780, 640)
+$script:MainForm.Size = New-Object System.Drawing.Size($defaultWidth, $defaultHeight)
 $script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 252)
 $script:MainForm.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10)
 
@@ -736,12 +737,14 @@ if ($dynamicSmokeModeCount -eq 1) {
 }
 
 if ($SmokeViewport) {
-  $script:MainForm.Size = New-Object System.Drawing.Size(1120, 640)
+  $script:MainForm.Size = New-Object System.Drawing.Size(800, 640)
   Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 public static class AttachmentHubNativeScroll {
+  public const int WM_HSCROLL = 0x114;
   public const int WM_VSCROLL = 0x115;
+  public const int SB_RIGHT = 7;
   public const int SB_BOTTOM = 7;
   [DllImport("user32.dll")]
   public static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam);
@@ -752,41 +755,69 @@ public static class AttachmentHubNativeScroll {
   $script:ViewportSmokeTimer.Add_Tick({
     $script:ViewportSmokeTimer.Stop()
     try {
+      $initialFormWidth = $script:MainForm.Width
       $initialFormHeight = $script:MainForm.Height
       $script:MainForm.PerformLayout()
       $script:ScrollPanel.PerformLayout()
       $script:MainForm.Update()
-      $scrollVisible = [bool]$script:ScrollPanel.VerticalScroll.Visible
-      $scrollBefore = $script:ScrollPanel.VerticalScroll.Value
-      $scrollTarget = [Math]::Max(0, $script:ScrollPanel.VerticalScroll.Maximum - $script:ScrollPanel.VerticalScroll.LargeChange + 1)
+      $verticalScrollVisible = [bool]$script:ScrollPanel.VerticalScroll.Visible
+      $verticalScrollBefore = $script:ScrollPanel.VerticalScroll.Value
+      $verticalScrollTarget = [Math]::Max(0, $script:ScrollPanel.VerticalScroll.Maximum - $script:ScrollPanel.VerticalScroll.LargeChange + 1)
+      $horizontalScrollVisible = [bool]$script:ScrollPanel.HorizontalScroll.Visible
+      $horizontalScrollBefore = $script:ScrollPanel.HorizontalScroll.Value
+      $horizontalScrollTarget = [Math]::Max(0, $script:ScrollPanel.HorizontalScroll.Maximum - $script:ScrollPanel.HorizontalScroll.LargeChange + 1)
       [void][AttachmentHubNativeScroll]::SendMessage($script:ScrollPanel.Handle, [AttachmentHubNativeScroll]::WM_VSCROLL, [IntPtr][AttachmentHubNativeScroll]::SB_BOTTOM, [IntPtr]::Zero)
       $script:MainForm.Update()
-      $scrollAfter = $script:ScrollPanel.VerticalScroll.Value
-      $clientRectangle = $script:ScrollPanel.RectangleToScreen($script:ScrollPanel.ClientRectangle)
+      $verticalScrollAfter = $script:ScrollPanel.VerticalScroll.Value
+      $verticalClientRectangle = $script:ScrollPanel.RectangleToScreen($script:ScrollPanel.ClientRectangle)
       $noticeRectangle = $notice.RectangleToScreen($notice.ClientRectangle)
-      $noticeReachable = $noticeRectangle.Top -ge $clientRectangle.Top -and $noticeRectangle.Bottom -le $clientRectangle.Bottom
+      $noticeReachable = $noticeRectangle.Top -ge $verticalClientRectangle.Top -and $noticeRectangle.Bottom -le $verticalClientRectangle.Bottom
+      [void][AttachmentHubNativeScroll]::SendMessage($script:ScrollPanel.Handle, [AttachmentHubNativeScroll]::WM_HSCROLL, [IntPtr][AttachmentHubNativeScroll]::SB_RIGHT, [IntPtr]::Zero)
+      $script:MainForm.Update()
+      $horizontalScrollAfter = $script:ScrollPanel.HorizontalScroll.Value
+      $horizontalClientRectangle = $script:ScrollPanel.RectangleToScreen($script:ScrollPanel.ClientRectangle)
+      $rightmostButtonRectangle = $script:ToolButtons['upgrade'].RectangleToScreen($script:ToolButtons['upgrade'].ClientRectangle)
+      $rightmostButtonReachable = $rightmostButtonRectangle.Left -ge $horizontalClientRectangle.Left -and $rightmostButtonRectangle.Right -le $horizontalClientRectangle.Right
       $script:ViewportSmokeResult = [pscustomobject]@{
-        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormHeight -le $workingArea.Height -and $scrollVisible -and $scrollAfter -gt $scrollBefore -and $noticeReachable) { 'pass' } else { 'fail' }
+        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Width -le 780 -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormWidth -le $workingArea.Width -and $initialFormHeight -le $workingArea.Height -and $verticalScrollVisible -and $verticalScrollAfter -gt $verticalScrollBefore -and $verticalScrollAfter -eq $verticalScrollTarget -and $noticeReachable -and $horizontalScrollVisible -and $horizontalScrollAfter -gt $horizontalScrollBefore -and $horizontalScrollAfter -eq $horizontalScrollTarget -and $rightmostButtonReachable) { 'pass' } else { 'fail' }
         winFormsMessageLoop = $true
         autoScrollEnabled = [bool]$script:ScrollPanel.AutoScroll
+        minimumWidth = $script:MainForm.MinimumSize.Width
         minimumHeight = $script:MainForm.MinimumSize.Height
+        workingAreaWidth = $workingArea.Width
         workingAreaHeight = $workingArea.Height
+        initialFormWidth = $initialFormWidth
         initialFormHeight = $initialFormHeight
+        smallClientWidth = $script:ScrollPanel.ClientSize.Width
         smallClientHeight = $script:ScrollPanel.ClientSize.Height
+        autoScrollMinWidth = $script:ScrollPanel.AutoScrollMinSize.Width
         autoScrollMinHeight = $script:ScrollPanel.AutoScrollMinSize.Height
+        displayRectangleWidth = $script:ScrollPanel.DisplayRectangle.Width
         displayRectangleHeight = $script:ScrollPanel.DisplayRectangle.Height
+        displayRectangleX = $script:ScrollPanel.DisplayRectangle.X
         displayRectangleY = $script:ScrollPanel.DisplayRectangle.Y
-        verticalScrollVisible = $scrollVisible
-        scrollMaximum = $script:ScrollPanel.VerticalScroll.Maximum
-        scrollLargeChange = $script:ScrollPanel.VerticalScroll.LargeChange
-        scrollTarget = $scrollTarget
-        scrollBefore = $scrollBefore
-        scrollAfter = $scrollAfter
-        clientTop = $clientRectangle.Top
-        clientBottom = $clientRectangle.Bottom
+        verticalScrollVisible = $verticalScrollVisible
+        verticalScrollMaximum = $script:ScrollPanel.VerticalScroll.Maximum
+        verticalScrollLargeChange = $script:ScrollPanel.VerticalScroll.LargeChange
+        verticalScrollTarget = $verticalScrollTarget
+        verticalScrollBefore = $verticalScrollBefore
+        verticalScrollAfter = $verticalScrollAfter
+        clientTop = $verticalClientRectangle.Top
+        clientBottom = $verticalClientRectangle.Bottom
         noticeTop = $noticeRectangle.Top
         noticeBottom = $noticeRectangle.Bottom
         bottomNoticeReachable = $noticeReachable
+        horizontalScrollVisible = $horizontalScrollVisible
+        horizontalScrollMaximum = $script:ScrollPanel.HorizontalScroll.Maximum
+        horizontalScrollLargeChange = $script:ScrollPanel.HorizontalScroll.LargeChange
+        horizontalScrollTarget = $horizontalScrollTarget
+        horizontalScrollBefore = $horizontalScrollBefore
+        horizontalScrollAfter = $horizontalScrollAfter
+        clientLeft = $horizontalClientRectangle.Left
+        clientRight = $horizontalClientRectangle.Right
+        rightmostButtonLeft = $rightmostButtonRectangle.Left
+        rightmostButtonRight = $rightmostButtonRectangle.Right
+        rightmostButtonReachable = $rightmostButtonReachable
         windowStayedOpen = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
         changedState = $false
         autoLaunched = $false
