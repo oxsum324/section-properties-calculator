@@ -60,7 +60,7 @@ assert.doesNotMatch(cancelAdvisor, /Start-GovernedTool|ProcessStartInfo|-AutoIns
 assert.match(hubPs, /\$script:BtnAdvise\.Text = '停止辨識'/, 'advisor button exposes an explicit stop action while work is running');
 assert.match(hubPs, /\$script:BtnAdvise\.Add_Click\([\s\S]*?\$script:AdvisorProcess[\s\S]*?Cancel-PathAdvisor[\s\S]*?Show-Recommendation/, 'the same button cancels an active advisor before it can start another run');
 assert.match(hubPs, /function Set-AdvisorButtonIdle \{[\s\S]*?唯讀辨識建議[\s\S]*?function Stop-PathAdvisor/, 'stop and completion paths can restore the idle advisor action');
-assert.match(hubPs, /AdvisorTimer\.Add_Tick\([\s\S]*?TotalSeconds -ge 60[\s\S]*?Complete-PathAdvisor/, 'timer polls advisor completion and enforces the bounded timeout');
+assert.match(hubPs, /AdvisorTimer\.Add_Tick\([\s\S]*?timeoutSeconds[\s\S]*?TotalSeconds -ge \$timeoutSeconds[\s\S]*?唯讀辨識超過 60 秒[\s\S]*?Complete-PathAdvisor/, 'timer polls advisor completion and enforces the bounded production timeout');
 assert.match(hubPs, /Add_FormClosing\(\{[\s\S]{0,200}?Stop-PathAdvisor[\s\S]{0,50}?\}\)/, 'closing the hub cleans up an in-flight advisor');
 const startupHandoff = hubPs.match(/\$script:MainForm\.Add_Shown\(\{[\s\S]*?(?=\n\}\)\n\n\[void\]\$script:MainForm\.ShowDialog)/)?.[0] || '';
 assert.match(startupHandoff, /StartupPaths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'startup arguments accept exactly one path and request the same read-only advice');
@@ -218,6 +218,29 @@ assert.equal(lifecyclePayload.formClosingStoppedWorker, true);
 assert.equal(lifecyclePayload.advisorCleared, true);
 assert.equal(lifecyclePayload.changedState, false);
 assert.equal(lifecyclePayload.autoLaunched, false);
+
+const timeoutSmoke = childProcess.spawnSync(
+  powershell,
+  [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', hubPath,
+    '-SmokeTimeout', '-AdvisorSmokeDelayMilliseconds', '2000',
+    '-AdvisorSmokeTimeoutMilliseconds', '600', '-InitialPath', toolsDir,
+  ],
+  { encoding: 'utf8', timeout: 15000 },
+);
+assert.equal(timeoutSmoke.status, 0, timeoutSmoke.stderr || timeoutSmoke.stdout);
+const timeoutPayload = JSON.parse(timeoutSmoke.stdout.replace(/^\uFEFF/, '').trim());
+assert.equal(timeoutPayload.status, 'pass');
+assert.equal(timeoutPayload.winFormsMessageLoop, true);
+assert.equal(timeoutPayload.timeoutObserved, true);
+assert.ok(timeoutPayload.workerPid > 0);
+assert.equal(timeoutPayload.workerExited, true);
+assert.equal(timeoutPayload.advisorCleared, true);
+assert.equal(timeoutPayload.idleActionRestored, true);
+assert.equal(timeoutPayload.timeoutMessageShown, true);
+assert.equal(timeoutPayload.windowStayedOpenOnTimeout, true);
+assert.equal(timeoutPayload.changedState, false);
+assert.equal(timeoutPayload.autoLaunched, false);
 
 const launcher = read('結構工具箱/tools/啟動案件附件工作台.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);

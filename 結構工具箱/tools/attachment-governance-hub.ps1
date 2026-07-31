@@ -6,8 +6,11 @@ param(
   [switch]$Smoke,
   [switch]$SmokeCancellation,
   [switch]$SmokeLifecycle,
+  [switch]$SmokeTimeout,
   [ValidateRange(100, 5000)]
-  [int]$AdvisorSmokeDelayMilliseconds = 2000
+  [int]$AdvisorSmokeDelayMilliseconds = 2000,
+  [ValidateRange(200, 5000)]
+  [int]$AdvisorSmokeTimeoutMilliseconds = 600
 )
 
 Set-StrictMode -Version Latest
@@ -15,8 +18,8 @@ $ErrorActionPreference = 'Stop'
 $script:StartupPaths = @()
 if ($InitialPath) { $script:StartupPaths += $InitialPath }
 $script:StartupPaths += @($AdditionalPath)
-if ($SmokeCancellation -and $SmokeLifecycle) { throw '取消 smoke 與生命週期 smoke 不得同時執行。' }
-if (($SmokeCancellation -or $SmokeLifecycle) -and $script:StartupPaths.Count -ne 1) { throw '動態 smoke 必須帶入單一 InitialPath。' }
+if (($SmokeCancellation -and ($SmokeLifecycle -or $SmokeTimeout)) -or ($SmokeLifecycle -and $SmokeTimeout)) { throw '一次只能執行一種動態 smoke。' }
+if (($SmokeCancellation -or $SmokeLifecycle -or $SmokeTimeout) -and $script:StartupPaths.Count -ne 1) { throw '動態 smoke 必須帶入單一 InitialPath。' }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -37,6 +40,8 @@ $script:CancellationSmokeResult = $null
 $script:LifecycleSmokeTimer = $null
 $script:LifecycleSmokeState = $null
 $script:LifecycleFormClosingObserved = $false
+$script:TimeoutSmokeWorkerPid = 0
+$script:TimeoutSmokeResult = $null
 $script:ToolTargets = @(
   [pscustomobject]@{
     Id = 'manager'
@@ -153,7 +158,7 @@ function Start-PathAdvisor {
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
   $startInfo.Arguments = "`"$script:WorkerPath`" --action advise --input `"$inputPath`""
-  if ($SmokeCancellation -or $SmokeLifecycle) { $startInfo.Arguments += " --smoke-delay-ms $AdvisorSmokeDelayMilliseconds" }
+  if ($SmokeCancellation -or $SmokeLifecycle -or $SmokeTimeout) { $startInfo.Arguments += " --smoke-delay-ms $AdvisorSmokeDelayMilliseconds" }
   $startInfo.WorkingDirectory = $script:ToolDirectory
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
@@ -548,14 +553,37 @@ $script:AdvisorTimer.Add_Tick({
       $script:AdvisorTimer.Stop()
       return
     }
-    if ($script:AdvisorStartedAt -and ((Get-Date) - $script:AdvisorStartedAt).TotalSeconds -ge 60) {
+    $timeoutSeconds = if ($SmokeTimeout) { $AdvisorSmokeTimeoutMilliseconds / 1000.0 } else { 60 }
+    if ($script:AdvisorStartedAt -and ((Get-Date) - $script:AdvisorStartedAt).TotalSeconds -ge $timeoutSeconds) {
+      if ($SmokeTimeout -and $script:AdvisorProcess) { $script:TimeoutSmokeWorkerPid = $script:AdvisorProcess.Id }
       Stop-PathAdvisor
+      if ($SmokeTimeout) { throw '唯讀辨識測試逾時，已停止背景程序。' }
       throw '唯讀辨識超過 60 秒，已停止；請改選較小的案件或附件資料夾。'
     }
     Complete-PathAdvisor
   } catch {
     Stop-PathAdvisor
-    Show-LaunchError -ErrorRecord $_.Exception
+    if ($SmokeTimeout) {
+      $errorMessage = $_.Exception.Message
+      $script:BottomStatus.Text = "啟動失敗：$errorMessage"
+      $workerExited = $script:TimeoutSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:TimeoutSmokeWorkerPid -ErrorAction SilentlyContinue)
+      $script:TimeoutSmokeResult = [pscustomobject]@{
+        status = if ($errorMessage -like '唯讀辨識測試逾時*' -and $workerExited -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '唯讀辨識建議') { 'pass' } else { 'fail' }
+        winFormsMessageLoop = $true
+        timeoutObserved = [bool]($errorMessage -like '唯讀辨識測試逾時*')
+        workerPid = $script:TimeoutSmokeWorkerPid
+        workerExited = $workerExited
+        advisorCleared = [bool](-not $script:AdvisorProcess)
+        idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+        timeoutMessageShown = [bool]($script:BottomStatus.Text -like '*唯讀辨識測試逾時*')
+        windowStayedOpenOnTimeout = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+        changedState = $false
+        autoLaunched = $false
+      }
+      $script:MainForm.Close()
+    } else {
+      Show-LaunchError -ErrorRecord $_.Exception
+    }
   }
 })
 $script:MainForm.Add_FormClosing({
@@ -563,7 +591,7 @@ $script:MainForm.Add_FormClosing({
   Stop-PathAdvisor
 })
 
-if ($SmokeCancellation -or $SmokeLifecycle) {
+if ($SmokeCancellation -or $SmokeLifecycle -or $SmokeTimeout) {
   $script:MainForm.Opacity = 0
   $script:MainForm.ShowInTaskbar = $false
 }
@@ -657,7 +685,7 @@ $script:MainForm.Add_Shown({
     if ($SmokeCancellation) { $script:CancellationSmokeTimer.Start() }
     if ($SmokeLifecycle) { $script:LifecycleSmokeTimer.Start() }
   } catch {
-    if ($SmokeCancellation -or $SmokeLifecycle) {
+    if ($SmokeCancellation -or $SmokeLifecycle -or $SmokeTimeout) {
       if ($SmokeLifecycle) {
         $script:LifecycleSmokeState = [pscustomobject]@{
           phasePass = $false
@@ -668,6 +696,22 @@ $script:MainForm.Add_Shown({
           replacementWorkerRunning = $false
           pathChanged = $false
           windowStayedOpenAfterPathChange = $false
+        }
+      }
+      if ($SmokeTimeout) {
+        $script:TimeoutSmokeResult = [pscustomobject]@{
+          status = 'fail'
+          winFormsMessageLoop = $true
+          timeoutObserved = $false
+          workerPid = 0
+          workerExited = $false
+          advisorCleared = [bool](-not $script:AdvisorProcess)
+          idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+          timeoutMessageShown = $false
+          windowStayedOpenOnTimeout = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+          changedState = $false
+          autoLaunched = $false
+          message = $_.Exception.Message
         }
       }
       $script:CancellationSmokeResult = [pscustomobject]@{
@@ -720,4 +764,24 @@ if ($SmokeLifecycle) {
   }
   $payload | ConvertTo-Json -Depth 4 -Compress
   if ($payload.status -ne 'pass') { exit 3 }
+}
+if ($SmokeTimeout) {
+  if (-not $script:TimeoutSmokeResult) {
+    $script:TimeoutSmokeResult = [pscustomobject]@{
+      status = 'fail'
+      winFormsMessageLoop = $true
+      timeoutObserved = $false
+      workerPid = 0
+      workerExited = $false
+      advisorCleared = [bool](-not $script:AdvisorProcess)
+      idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+      timeoutMessageShown = $false
+      windowStayedOpenOnTimeout = $false
+      changedState = $false
+      autoLaunched = $false
+      message = '逾時煙霧測試未產生結果。'
+    }
+  }
+  $script:TimeoutSmokeResult | ConvertTo-Json -Depth 4 -Compress
+  if ($script:TimeoutSmokeResult.status -ne 'pass') { exit 3 }
 }
