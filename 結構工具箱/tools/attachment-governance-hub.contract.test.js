@@ -28,7 +28,7 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '$script:StartupPaths', '啟動時一次只能帶入一個資料夾', 'Add_Shown',
   'System.Windows.Forms.Timer', 'Start-PathAdvisor', 'Complete-PathAdvisor', 'Stop-PathAdvisor',
   '唯讀辨識進行中', '畫面可繼續操作', '停止辨識', 'Cancel-PathAdvisor',
-  '已停止唯讀辨識', '唯讀辨識超過 60 秒', 'Add_FormClosing',
+  '已停止唯讀辨識', '重新辨識', '唯讀辨識超過 60 秒', 'Add_FormClosing',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
@@ -44,7 +44,7 @@ assert.doesNotMatch(hubPs, /-Action\s+(?:check|build|verify|case|portfolio|inspe
 assert.match(hubPs, /\$script:AdvicePath -eq \$initialPath[\s\S]*?\$script:Advice\.recommendedTool -eq \$Target\.Id[\s\S]*?\$arguments \+= ' -AutoInspect'/, 'one-click read-only inspection requires a current matched recommendation and an explicit tool click');
 assert.doesNotMatch(hubPs, /-AutoInspect[\s\S]{0,300}BtnBuild|-AutoInspect[\s\S]{0,300}BtnExecute/, 'hub does not expose a one-click write path');
 const pathHandoff = hubPs.match(/function Set-SharedPathAndRecommend \{[\s\S]*?(?=\nfunction Select-SharedFolder)/)?.[0] || '';
-assert.match(pathHandoff, /Test-Path[\s\S]*?PathType Container[\s\S]*?\$script:SharedPath\.Text[\s\S]*?Show-Recommendation/, 'selected or dropped path is validated and sent only to the read-only advisor');
+assert.match(pathHandoff, /Test-Path[\s\S]*?PathType Container[\s\S]*?Resolve-Path[\s\S]*?ProviderPath[\s\S]*?\$script:SharedPath\.Text[\s\S]*?Show-Recommendation/, 'selected or dropped path is validated, normalized to an absolute path, and sent only to the read-only advisor');
 assert.doesNotMatch(pathHandoff, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'automatic advice never opens or runs a child tool');
 assert.match(hubPs, /ShowDialog\(\) -eq \[System\.Windows\.Forms\.DialogResult\]::OK[\s\S]*?Set-SharedPathAndRecommend -SelectedPath \$dialog\.SelectedPath/, 'folder selection immediately requests read-only advice');
 assert.match(hubPs, /\$folderDragDrop = \{[\s\S]*?\$paths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'drop accepts exactly one folder and requests the same read-only advice');
@@ -247,7 +247,7 @@ const failureSmoke = childProcess.spawnSync(
   powershell,
   [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', hubPath,
-    '-SmokeFailure', '-AdvisorSmokeDelayMilliseconds', '300', '-InitialPath', toolsDir,
+    '-SmokeFailure', '-AdvisorSmokeDelayMilliseconds', '300', '-InitialPath', path.relative(repoRoot, toolsDir),
   ],
   { encoding: 'utf8', timeout: 15000 },
 );
@@ -256,12 +256,20 @@ const failurePayload = JSON.parse(failureSmoke.stdout.replace(/^\uFEFF/, '').tri
 assert.equal(failurePayload.status, 'pass');
 assert.equal(failurePayload.winFormsMessageLoop, true);
 assert.equal(failurePayload.failureObserved, true);
-assert.ok(failurePayload.workerPid > 0);
-assert.equal(failurePayload.workerExited, true);
+assert.ok(failurePayload.firstWorkerPid > 0);
+assert.equal(failurePayload.firstWorkerExited, true);
+assert.equal(failurePayload.failureMessageShown, true);
+assert.equal(failurePayload.retryActionVisible, true);
+assert.equal(failurePayload.retryPerformClick, true);
+assert.ok(failurePayload.recoveryWorkerPid > 0);
+assert.notEqual(failurePayload.recoveryWorkerPid, failurePayload.firstWorkerPid);
+assert.equal(failurePayload.recoveryWorkerExited, true);
+assert.equal(failurePayload.recoveryCompleted, true);
 assert.equal(failurePayload.advisorCleared, true);
 assert.equal(failurePayload.idleActionRestored, true);
-assert.equal(failurePayload.failureMessageShown, true);
+assert.equal(failurePayload.recoveryMessageShown, true);
 assert.equal(failurePayload.windowStayedOpenOnFailure, true);
+assert.equal(failurePayload.windowStayedOpenAfterRecovery, true);
 assert.equal(failurePayload.changedState, false);
 assert.equal(failurePayload.autoLaunched, false);
 

@@ -46,7 +46,11 @@ $script:LifecycleFormClosingObserved = $false
 $script:TimeoutSmokeWorkerPid = 0
 $script:TimeoutSmokeResult = $null
 $script:FailureSmokeWorkerPid = 0
+$script:FailureRecoveryWorkerPid = 0
+$script:FailureSmokeErrorInjected = $false
+$script:FailureSmokeState = $null
 $script:FailureSmokeResult = $null
+$script:FailureRetryTimer = $null
 $script:ToolTargets = @(
   [pscustomobject]@{
     Id = 'manager'
@@ -160,11 +164,12 @@ function Start-PathAdvisor {
   if (-not $inputPath) { throw '請先選擇或輸入共用起始資料夾。' }
   if (-not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { throw "找不到唯讀辨識核心：$script:WorkerPath" }
   Stop-PathAdvisor
+  $injectFailure = $SmokeFailure -and -not $script:FailureSmokeErrorInjected
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
   $startInfo.Arguments = "`"$script:WorkerPath`" --action advise --input `"$inputPath`""
   if ($dynamicSmokeModeCount -eq 1) { $startInfo.Arguments += " --smoke-delay-ms $AdvisorSmokeDelayMilliseconds" }
-  if ($SmokeFailure) { $startInfo.Arguments += ' --smoke-error' }
+  if ($injectFailure) { $startInfo.Arguments += ' --smoke-error' }
   $startInfo.WorkingDirectory = $script:ToolDirectory
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
@@ -176,7 +181,12 @@ function Start-PathAdvisor {
   $process.StartInfo = $startInfo
   [void]$process.Start()
   $script:AdvisorProcess = $process
-  if ($SmokeFailure) { $script:FailureSmokeWorkerPid = $process.Id }
+  if ($injectFailure) {
+    $script:FailureSmokeWorkerPid = $process.Id
+    $script:FailureSmokeErrorInjected = $true
+  } elseif ($SmokeFailure) {
+    $script:FailureRecoveryWorkerPid = $process.Id
+  }
   $script:AdvisorPath = $inputPath
   $script:AdvisorStartedAt = Get-Date
   $script:BtnAdvise.Text = '停止辨識'
@@ -226,6 +236,35 @@ function Complete-PathAdvisor {
   Set-RecommendationResult -Response $response -InputPath $inputPath
 }
 
+function Finish-FailureSmokeRecovery {
+  $script:FailureRetryTimer.Stop()
+  $recoveryWorkerExited = $script:FailureRecoveryWorkerPid -gt 0 -and -not (Get-Process -Id $script:FailureRecoveryWorkerPid -ErrorAction SilentlyContinue)
+  $recoveryCompleted = $null -ne $script:Advice -and $script:AdvicePath -eq $script:SharedPath.Text.Trim()
+  $recoveryMessageShown = $script:RecommendationText.Text -notlike '唯讀辨識未完成*' -and $script:BottomStatus.Text -like '唯讀辨識完成*'
+  $windowStayedOpenAfterRecovery = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+  $script:FailureSmokeResult = [pscustomobject]@{
+    status = if ($script:FailureSmokeState.phasePass -and $script:FailureSmokeState.retryPerformClick -and $script:FailureRecoveryWorkerPid -gt 0 -and $script:FailureRecoveryWorkerPid -ne $script:FailureSmokeWorkerPid -and $recoveryWorkerExited -and $recoveryCompleted -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '唯讀辨識建議' -and $recoveryMessageShown -and $windowStayedOpenAfterRecovery) { 'pass' } else { 'fail' }
+    winFormsMessageLoop = $true
+    failureObserved = [bool]$script:FailureSmokeState.failureObserved
+    firstWorkerPid = $script:FailureSmokeWorkerPid
+    firstWorkerExited = [bool]$script:FailureSmokeState.firstWorkerExited
+    failureMessageShown = [bool]$script:FailureSmokeState.failureMessageShown
+    retryActionVisible = [bool]$script:FailureSmokeState.retryActionVisible
+    retryPerformClick = [bool]$script:FailureSmokeState.retryPerformClick
+    recoveryWorkerPid = $script:FailureRecoveryWorkerPid
+    recoveryWorkerExited = $recoveryWorkerExited
+    recoveryCompleted = $recoveryCompleted
+    advisorCleared = [bool](-not $script:AdvisorProcess)
+    idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+    recoveryMessageShown = $recoveryMessageShown
+    windowStayedOpenOnFailure = [bool]$script:FailureSmokeState.windowStayedOpenOnFailure
+    windowStayedOpenAfterRecovery = $windowStayedOpenAfterRecovery
+    changedState = $false
+    autoLaunched = $false
+  }
+  $script:MainForm.Close()
+}
+
 function Reset-ToolRecommendationButtons {
   foreach ($target in $script:ToolTargets) {
     $button = $script:ToolButtons[$target.Id]
@@ -241,6 +280,7 @@ function Set-AdvisorFailureState {
   $script:Advice = $null
   $script:AdvicePath = ''
   Reset-ToolRecommendationButtons
+  $script:BtnAdvise.Text = '重新辨識'
   $script:RecommendationText.Text = "唯讀辨識未完成：$Message"
   $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(185, 28, 28)
   $script:BottomStatus.Text = '唯讀辨識失敗：未開啟工具、未改變案件狀態；可調整路徑後重試。'
@@ -311,7 +351,8 @@ function Set-SharedPathAndRecommend {
   if (-not $candidate.Trim() -or -not (Test-Path -LiteralPath $candidate.Trim() -PathType Container)) {
     throw '只接受單一現有資料夾；檔案或多重路徑不會帶入工作台。'
   }
-  $script:SharedPath.Text = $candidate.Trim()
+  $resolvedPath = (Resolve-Path -LiteralPath $candidate.Trim()).ProviderPath
+  $script:SharedPath.Text = $resolvedPath
   $script:BottomStatus.Text = '已帶入資料夾，正在執行唯讀辨識建議…'
   Show-Recommendation
 }
@@ -578,6 +619,9 @@ $script:AdvisorTimer.Add_Tick({
       throw '唯讀辨識超過 60 秒，已停止；請改選較小的案件或附件資料夾。'
     }
     Complete-PathAdvisor
+    if ($SmokeFailure -and $script:FailureSmokeState -and -not $script:FailureSmokeResult -and -not $script:AdvisorProcess) {
+      Finish-FailureSmokeRecovery
+    }
   } catch {
     Stop-PathAdvisor
     if ($SmokeTimeout) {
@@ -602,20 +646,16 @@ $script:AdvisorTimer.Add_Tick({
       $errorMessage = $_.Exception.Message
       Set-AdvisorFailureState -Message $errorMessage
       $workerExited = $script:FailureSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:FailureSmokeWorkerPid -ErrorAction SilentlyContinue)
-      $script:FailureSmokeResult = [pscustomobject]@{
-        status = if ($errorMessage -like '附件路徑唯讀建議測試錯誤*' -and $workerExited -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '唯讀辨識建議' -and $script:RecommendationText.Text -like '唯讀辨識未完成*') { 'pass' } else { 'fail' }
-        winFormsMessageLoop = $true
+      $script:FailureSmokeState = [pscustomobject]@{
+        phasePass = [bool]($errorMessage -like '附件路徑唯讀建議測試錯誤*' -and $workerExited -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '重新辨識' -and $script:RecommendationText.Text -like '唯讀辨識未完成*')
         failureObserved = [bool]($errorMessage -like '附件路徑唯讀建議測試錯誤*')
-        workerPid = $script:FailureSmokeWorkerPid
-        workerExited = $workerExited
-        advisorCleared = [bool](-not $script:AdvisorProcess)
-        idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+        firstWorkerExited = $workerExited
         failureMessageShown = [bool]($script:RecommendationText.Text -like '唯讀辨識未完成*' -and $script:BottomStatus.Text -like '唯讀辨識失敗*')
+        retryActionVisible = [bool]($script:BtnAdvise.Text -eq '重新辨識')
+        retryPerformClick = $false
         windowStayedOpenOnFailure = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
-        changedState = $false
-        autoLaunched = $false
       }
-      $script:MainForm.Close()
+      $script:FailureRetryTimer.Start()
     } else {
       Set-AdvisorFailureState -Message $_.Exception.Message
       Show-LaunchError -ErrorRecord $_.Exception -PreserveStatus
@@ -630,6 +670,51 @@ $script:MainForm.Add_FormClosing({
 if ($dynamicSmokeModeCount -eq 1) {
   $script:MainForm.Opacity = 0
   $script:MainForm.ShowInTaskbar = $false
+}
+
+if ($SmokeFailure) {
+  $script:FailureRetryTimer = New-Object System.Windows.Forms.Timer
+  $script:FailureRetryTimer.Interval = 50
+  $script:FailureRetryTimer.Add_Tick({
+    try {
+      if (-not $script:FailureSmokeState.retryPerformClick) {
+        $script:BtnAdvise.PerformClick()
+        $script:FailureSmokeState.retryPerformClick = [bool]($script:FailureRecoveryWorkerPid -gt 0 -and $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '停止辨識')
+        if (-not $script:FailureSmokeState.retryPerformClick) { throw '重新辨識按鈕未啟動第二個背景程序。' }
+        $script:AdvisorTimer.Stop()
+        $script:FailureRetryTimer.Interval = 150
+        return
+      }
+      if (-not $script:AdvisorProcess -or -not $script:AdvisorProcess.HasExited) { return }
+      Complete-PathAdvisor
+      Finish-FailureSmokeRecovery
+    } catch {
+      $script:FailureRetryTimer.Stop()
+      Stop-PathAdvisor
+      $script:FailureSmokeResult = [pscustomobject]@{
+        status = 'fail'
+        winFormsMessageLoop = $true
+        failureObserved = [bool]($script:FailureSmokeState -and $script:FailureSmokeState.failureObserved)
+        firstWorkerPid = $script:FailureSmokeWorkerPid
+        firstWorkerExited = [bool]($script:FailureSmokeState -and $script:FailureSmokeState.firstWorkerExited)
+        failureMessageShown = [bool]($script:FailureSmokeState -and $script:FailureSmokeState.failureMessageShown)
+        retryActionVisible = [bool]($script:FailureSmokeState -and $script:FailureSmokeState.retryActionVisible)
+        retryPerformClick = $false
+        recoveryWorkerPid = $script:FailureRecoveryWorkerPid
+        recoveryWorkerExited = $false
+        recoveryCompleted = $false
+        advisorCleared = [bool](-not $script:AdvisorProcess)
+        idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+        recoveryMessageShown = $false
+        windowStayedOpenOnFailure = [bool]($script:FailureSmokeState -and $script:FailureSmokeState.windowStayedOpenOnFailure)
+        windowStayedOpenAfterRecovery = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+        changedState = $false
+        autoLaunched = $false
+        message = $_.Exception.Message
+      }
+      $script:MainForm.Close()
+    }
+  })
 }
 
 if ($SmokeCancellation) {
@@ -755,12 +840,19 @@ $script:MainForm.Add_Shown({
           status = 'fail'
           winFormsMessageLoop = $true
           failureObserved = $false
-          workerPid = $script:FailureSmokeWorkerPid
-          workerExited = [bool]($script:FailureSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:FailureSmokeWorkerPid -ErrorAction SilentlyContinue))
+          firstWorkerPid = $script:FailureSmokeWorkerPid
+          firstWorkerExited = [bool]($script:FailureSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:FailureSmokeWorkerPid -ErrorAction SilentlyContinue))
+          failureMessageShown = $false
+          retryActionVisible = $false
+          retryPerformClick = $false
+          recoveryWorkerPid = $script:FailureRecoveryWorkerPid
+          recoveryWorkerExited = $false
+          recoveryCompleted = $false
           advisorCleared = [bool](-not $script:AdvisorProcess)
           idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
-          failureMessageShown = $false
+          recoveryMessageShown = $false
           windowStayedOpenOnFailure = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+          windowStayedOpenAfterRecovery = $false
           changedState = $false
           autoLaunched = $false
           message = $_.Exception.Message
@@ -843,12 +935,19 @@ if ($SmokeFailure) {
       status = 'fail'
       winFormsMessageLoop = $true
       failureObserved = $false
-      workerPid = $script:FailureSmokeWorkerPid
-      workerExited = [bool]($script:FailureSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:FailureSmokeWorkerPid -ErrorAction SilentlyContinue))
+      firstWorkerPid = $script:FailureSmokeWorkerPid
+      firstWorkerExited = [bool]($script:FailureSmokeWorkerPid -gt 0 -and -not (Get-Process -Id $script:FailureSmokeWorkerPid -ErrorAction SilentlyContinue))
+      failureMessageShown = $false
+      retryActionVisible = $false
+      retryPerformClick = $false
+      recoveryWorkerPid = $script:FailureRecoveryWorkerPid
+      recoveryWorkerExited = [bool]($script:FailureRecoveryWorkerPid -gt 0 -and -not (Get-Process -Id $script:FailureRecoveryWorkerPid -ErrorAction SilentlyContinue))
+      recoveryCompleted = $false
       advisorCleared = [bool](-not $script:AdvisorProcess)
       idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
-      failureMessageShown = $false
+      recoveryMessageShown = $false
       windowStayedOpenOnFailure = $false
+      windowStayedOpenAfterRecovery = $false
       changedState = $false
       autoLaunched = $false
       message = '失敗煙霧測試未產生結果。'
