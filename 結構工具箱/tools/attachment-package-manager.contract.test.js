@@ -100,7 +100,7 @@ const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
   'System.Windows.Forms', 'FolderBrowserDialog', 'attachment-package-manager-worker.js',
   "ValidateSet('smoke', 'check', 'build', 'verify')", '檢查附件來源', '建立正式附件包',
   '驗證附件包', '管理畫面與檢查結果僅供內部整理', 'workerExitCode',
-  "[string]$InitialPath = ''",
+  "[string]$InitialPath = ''", "[ValidateSet('source', 'verify')][string]$InitialMode = 'source'",
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
@@ -109,7 +109,8 @@ assert.match(
   /\$script:BtnCheck\.Add_Click\(\{\s+\$script:LastReadyInput = ''\s+\$script:LastReadyProjectNo = ''/s,
   'every new check clears the prior ready grant before the worker runs',
 );
-assert.match(managerPs, /\$script:SourcePath = Add-FieldRow[^\n]+\nif \(\$InitialPath\.Trim\(\)\) \{ \$script:SourcePath\.Text = \$InitialPath\.Trim\(\) \}/, 'manager only pre-fills the source path');
+assert.match(managerPs, /if \(\$InitialMode -eq 'source'[^\n]+\$script:SourcePath\.Text/, 'manager pre-fills source input only in source mode');
+assert.match(managerPs, /if \(\$InitialMode -eq 'verify'[^\n]+\$script:PackagePath\.Text/, 'manager pre-fills package input only in verify mode');
 
 const launcher = read('結構工具箱/tools/啟動正式附件包管理器.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);

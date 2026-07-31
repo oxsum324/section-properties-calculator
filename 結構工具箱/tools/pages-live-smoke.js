@@ -66,6 +66,7 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/attachment-package-upgrade-assistant.ps1',
   '結構工具箱/tools/啟動舊版附件升級助手.bat',
   '結構工具箱/tools/attachment-package-upgrade-assistant.contract.test.js',
+  '結構工具箱/tools/attachment-governance-hub-worker.js',
   '結構工具箱/tools/attachment-governance-hub.ps1',
   '結構工具箱/tools/啟動案件附件工作台.bat',
   '結構工具箱/tools/attachment-governance-hub.contract.test.js',

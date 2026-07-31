@@ -1,7 +1,8 @@
 ﻿[CmdletBinding()]
 param(
   [switch]$Smoke,
-  [string]$InitialPath = ''
+  [string]$InitialPath = '',
+  [ValidateSet('source', 'verify')][string]$InitialMode = 'source'
 )
 
 Set-StrictMode -Version Latest
@@ -211,7 +212,7 @@ function Add-FieldRow {
 }
 
 $script:SourcePath = Add-FieldRow -Parent $sourceGroup -Label '附件來源資料夾' -Y 32
-if ($InitialPath.Trim()) { $script:SourcePath.Text = $InitialPath.Trim() }
+if ($InitialMode -eq 'source' -and $InitialPath.Trim()) { $script:SourcePath.Text = $InitialPath.Trim() }
 $script:BtnBrowseSource = New-Object System.Windows.Forms.Button
 $script:BtnBrowseSource.Text = '選擇…'
 $script:BtnBrowseSource.Location = New-Object System.Drawing.Point(870, 30)
@@ -266,6 +267,7 @@ $script:MainForm.Controls.Add($verifyGroup)
 
 $script:PackagePath = Add-FieldRow -Parent $verifyGroup -Label '正式附件包' -Y 34
 $script:PackagePath.Width = 590
+if ($InitialMode -eq 'verify' -and $InitialPath.Trim()) { $script:PackagePath.Text = $InitialPath.Trim() }
 $script:BtnBrowsePackage = New-Object System.Windows.Forms.Button
 $script:BtnBrowsePackage.Text = '選擇…'
 $script:BtnBrowsePackage.Location = New-Object System.Drawing.Point(760, 32)

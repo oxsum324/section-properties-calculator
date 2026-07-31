@@ -11,6 +11,10 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $script:ToolDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
+$script:WorkerPath = Join-Path $script:ToolDirectory 'attachment-governance-hub-worker.js'
+$script:Advice = $null
+$script:AdvicePath = ''
+$script:ToolButtons = @{}
 $script:ToolTargets = @(
   [pscustomobject]@{
     Id = 'manager'
@@ -71,16 +75,90 @@ if ($Smoke) {
   $entries = @($script:ToolTargets | ForEach-Object { Get-TargetStatus $_ })
   $available = @($entries | Where-Object { $_.available }).Count
   [pscustomobject]@{
-    status = if ($available -eq $entries.Count) { 'ready' } else { 'blocked' }
+    status = if ($available -eq $entries.Count -and (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { 'ready' } else { 'blocked' }
     windowsFormsLoaded = $true
     readOnlyHub = $true
+    advisorAvailable = [bool](Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)
     available = $available
     total = $entries.Count
     entries = $entries
     message = "案件附件工作台入口檢查：$available/$($entries.Count) 可用"
   } | ConvertTo-Json -Depth 4 -Compress
-  if ($available -ne $entries.Count) { exit 3 }
+  if ($available -ne $entries.Count -or -not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { exit 3 }
   exit 0
+}
+
+function Get-NodePath {
+  $command = Get-Command node.exe -ErrorAction SilentlyContinue
+  if (-not $command) { $command = Get-Command node -ErrorAction SilentlyContinue }
+  if (-not $command) { throw '找不到 Node.js；無法執行唯讀路徑辨識。' }
+  return $command.Source
+}
+
+function Invoke-PathAdvisor {
+  $inputPath = $script:SharedPath.Text.Trim()
+  if (-not $inputPath) { throw '請先選擇或輸入共用起始資料夾。' }
+  if (-not (Test-Path -LiteralPath $script:WorkerPath -PathType Leaf)) { throw "找不到唯讀辨識核心：$script:WorkerPath" }
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = Get-NodePath
+  $startInfo.Arguments = "`"$script:WorkerPath`" --action advise --input `"$inputPath`""
+  $startInfo.WorkingDirectory = $script:ToolDirectory
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $startInfo.RedirectStandardOutput = $true
+  $startInfo.RedirectStandardError = $true
+  $startInfo.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+  $startInfo.StandardErrorEncoding = New-Object System.Text.UTF8Encoding($false)
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $startInfo
+  [void]$process.Start()
+  $stdout = $process.StandardOutput.ReadToEnd()
+  $stderr = $process.StandardError.ReadToEnd()
+  $process.WaitForExit()
+  $exitCode = $process.ExitCode
+  $process.Dispose()
+  if (-not $stdout.Trim()) { throw "唯讀辨識沒有回傳結果。$stderr" }
+  $response = $stdout.Trim() | ConvertFrom-Json
+  if ($exitCode -eq 3 -or $response.outcome -eq 'error') { throw [string]$response.message }
+  return $response
+}
+
+function Reset-Recommendation {
+  $script:Advice = $null
+  $script:AdvicePath = ''
+  if ($script:RecommendationText) {
+    $script:RecommendationText.Text = '尚未辨識；你也可以直接依目的選擇下方工具。'
+    $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
+  }
+  foreach ($target in $script:ToolTargets) {
+    $button = $script:ToolButtons[$target.Id]
+    if ($button) {
+      $button.Text = $target.Action
+      $button.UseVisualStyleBackColor = $true
+    }
+  }
+}
+
+function Show-Recommendation {
+  Reset-Recommendation
+  $response = Invoke-PathAdvisor
+  $script:Advice = $response
+  $script:AdvicePath = $script:SharedPath.Text.Trim()
+  if ($response.outcome -ne 'matched') {
+    $script:RecommendationText.Text = "$($response.title)：$($response.reason)"
+    $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(161, 98, 7)
+    $script:BottomStatus.Text = '唯讀辨識完成：沒有足夠訊號，請手動選擇；未開啟或執行任何工具。'
+    return
+  }
+  $script:RecommendationText.Text = "$($response.title)｜$($response.reason)"
+  $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(22, 101, 52)
+  $button = $script:ToolButtons[[string]$response.recommendedTool]
+  if ($button) {
+    $button.Text = "建議｜$($button.Text)"
+    $button.UseVisualStyleBackColor = $false
+    $button.BackColor = [System.Drawing.Color]::FromArgb(220, 252, 231)
+  }
+  $script:BottomStatus.Text = '唯讀辨識完成：只提供建議，尚未開啟、檢查、建立、升級或核可。'
 }
 
 function Start-GovernedTool {
@@ -92,6 +170,11 @@ function Start-GovernedTool {
   $arguments = "-NoProfile -ExecutionPolicy Bypass -STA -File `"$($status.scriptPath)`""
   $initialPath = $script:SharedPath.Text.Trim()
   if ($initialPath) { $arguments += " -InitialPath `"$initialPath`"" }
+  if ($initialPath -and $script:Advice -and $script:AdvicePath -eq $initialPath -and $script:Advice.recommendedTool -eq $Target.Id) {
+    $mode = [string]$script:Advice.recommendedMode
+    if ($Target.Id -eq 'manager' -and @('source', 'verify') -contains $mode) { $arguments += " -InitialMode $mode" }
+    if ($Target.Id -eq 'viewer' -and @('case', 'portfolio') -contains $mode) { $arguments += " -InitialMode $mode" }
+  }
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = 'powershell.exe'
   $startInfo.Arguments = $arguments
@@ -199,6 +282,7 @@ function Add-ToolCard {
     catch { Show-LaunchError -ErrorRecord $_.Exception }
   })
   $panel.Controls.Add($button)
+  $script:ToolButtons[$Target.Id] = $button
 
   $availability = Get-TargetStatus $Target
   if (-not $availability.available) {
@@ -210,8 +294,8 @@ function Add-ToolCard {
 $script:MainForm = New-Object System.Windows.Forms.Form
 $script:MainForm.Text = '案件附件工作台'
 $script:MainForm.StartPosition = 'CenterScreen'
-$script:MainForm.MinimumSize = New-Object System.Drawing.Size(1120, 820)
-$script:MainForm.Size = New-Object System.Drawing.Size(1120, 820)
+$script:MainForm.MinimumSize = New-Object System.Drawing.Size(1120, 890)
+$script:MainForm.Size = New-Object System.Drawing.Size(1120, 890)
 $script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 252)
 $script:MainForm.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10)
 
@@ -223,7 +307,7 @@ $header.Size = New-Object System.Drawing.Size(1040, 45)
 $script:MainForm.Controls.Add($header)
 
 $subheader = New-Object System.Windows.Forms.Label
-$subheader.Text = '先依目的選擇工具；工作台只負責安全分流，不讀取案件、不改判狀態，也不代替正式核可。'
+$subheader.Text = '可先做唯讀路徑辨識，或直接依目的選擇工具；建議不會自動開啟工具、不改判狀態，也不代替正式核可。'
 $subheader.Location = New-Object System.Drawing.Point(26, 66)
 $subheader.Size = New-Object System.Drawing.Size(1040, 28)
 $subheader.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
@@ -231,7 +315,7 @@ $script:MainForm.Controls.Add($subheader)
 
 $pathPanel = New-Object System.Windows.Forms.Panel
 $pathPanel.Location = New-Object System.Drawing.Point(22, 101)
-$pathPanel.Size = New-Object System.Drawing.Size(1056, 60)
+$pathPanel.Size = New-Object System.Drawing.Size(1056, 100)
 $pathPanel.Anchor = 'Top,Left,Right'
 $pathPanel.BackColor = [System.Drawing.Color]::FromArgb(255, 255, 255)
 $pathPanel.BorderStyle = 'FixedSingle'
@@ -245,20 +329,39 @@ $pathPanel.Controls.Add($pathLabel)
 
 $script:SharedPath = New-Object System.Windows.Forms.TextBox
 $script:SharedPath.Location = New-Object System.Drawing.Point(200, 14)
-$script:SharedPath.Size = New-Object System.Drawing.Size(700, 30)
+$script:SharedPath.Size = New-Object System.Drawing.Size(565, 30)
 $script:SharedPath.Anchor = 'Top,Left,Right'
 $pathPanel.Controls.Add($script:SharedPath)
 
 $browseShared = New-Object System.Windows.Forms.Button
 $browseShared.Text = '選擇一次…'
-$browseShared.Location = New-Object System.Drawing.Point(915, 12)
+$browseShared.Location = New-Object System.Drawing.Point(780, 12)
 $browseShared.Size = New-Object System.Drawing.Size(120, 34)
 $browseShared.Anchor = 'Top,Right'
 $browseShared.Add_Click({ Select-SharedFolder })
 $pathPanel.Controls.Add($browseShared)
 
+$script:BtnAdvise = New-Object System.Windows.Forms.Button
+$script:BtnAdvise.Text = '唯讀辨識建議'
+$script:BtnAdvise.Location = New-Object System.Drawing.Point(915, 12)
+$script:BtnAdvise.Size = New-Object System.Drawing.Size(120, 34)
+$script:BtnAdvise.Anchor = 'Top,Right'
+$script:BtnAdvise.Add_Click({
+  try { Show-Recommendation }
+  catch { Show-LaunchError -ErrorRecord $_.Exception }
+})
+$pathPanel.Controls.Add($script:BtnAdvise)
+
+$script:RecommendationText = New-Object System.Windows.Forms.Label
+$script:RecommendationText.Text = '尚未辨識；你也可以直接依目的選擇下方工具。'
+$script:RecommendationText.Location = New-Object System.Drawing.Point(200, 56)
+$script:RecommendationText.Size = New-Object System.Drawing.Size(835, 30)
+$script:RecommendationText.Anchor = 'Top,Left,Right'
+$script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
+$pathPanel.Controls.Add($script:RecommendationText)
+
 $guide = New-Object System.Windows.Forms.Panel
-$guide.Location = New-Object System.Drawing.Point(22, 171)
+$guide.Location = New-Object System.Drawing.Point(22, 211)
 $guide.Size = New-Object System.Drawing.Size(1056, 48)
 $guide.Anchor = 'Top,Left,Right'
 $guide.BackColor = [System.Drawing.Color]::FromArgb(241, 245, 249)
@@ -271,13 +374,15 @@ $guideText.Location = New-Object System.Drawing.Point(20, 11)
 $guideText.Size = New-Object System.Drawing.Size(1015, 28)
 $guide.Controls.Add($guideText)
 
-Add-ToolCard -Target $script:ToolTargets[0] -Top 232 -Number '01'
-Add-ToolCard -Target $script:ToolTargets[1] -Top 382 -Number '02'
-Add-ToolCard -Target $script:ToolTargets[2] -Top 532 -Number '03'
+Add-ToolCard -Target $script:ToolTargets[0] -Top 272 -Number '01'
+Add-ToolCard -Target $script:ToolTargets[1] -Top 422 -Number '02'
+Add-ToolCard -Target $script:ToolTargets[2] -Top 572 -Number '03'
+
+$script:SharedPath.Add_TextChanged({ Reset-Recommendation })
 
 $notice = New-Object System.Windows.Forms.Label
 $notice.Text = '重要：工程結果、附件完整性、治理 ready 與「正式附件核可」是不同層次；只有計算書內明確核可才是正式附件。'
-$notice.Location = New-Object System.Drawing.Point(26, 686)
+$notice.Location = New-Object System.Drawing.Point(26, 726)
 $notice.Size = New-Object System.Drawing.Size(1040, 34)
 $notice.ForeColor = [System.Drawing.Color]::FromArgb(127, 29, 29)
 $notice.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10, [System.Drawing.FontStyle]::Bold)

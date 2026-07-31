@@ -1,7 +1,8 @@
 ﻿[CmdletBinding()]
 param(
   [switch]$Smoke,
-  [string]$InitialPath = ''
+  [string]$InitialPath = '',
+  [ValidateSet('case', 'portfolio')][string]$InitialMode = 'case'
 )
 
 Set-StrictMode -Version Latest
@@ -213,6 +214,10 @@ $script:RadioPortfolio.Text = '多案件上層資料夾'
 $script:RadioPortfolio.Location = New-Object System.Drawing.Point(210, 28)
 $script:RadioPortfolio.Size = New-Object System.Drawing.Size(190, 26)
 $scopeGroup.Controls.Add($script:RadioPortfolio)
+if ($InitialMode -eq 'portfolio') {
+  $script:RadioCase.Checked = $false
+  $script:RadioPortfolio.Checked = $true
+}
 
 $script:PathLabel = New-Object System.Windows.Forms.Label
 $script:PathLabel.Text = '案件根目錄'

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const Worker = require('./attachment-governance-hub-worker.js');
 
 const toolsDir = __dirname;
 const repoRoot = path.resolve(toolsDir, '..', '..');
@@ -18,9 +19,10 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   'System.Windows.Forms', '案件附件工作台', '選擇原則：新案組包',
   '正式附件包管理器', '案件附件治理檢視器', '舊版附件升級助手',
   '可新建產物', '永遠唯讀', '另建升級產物',
-  '工作台只負責安全分流', '不代替正式核可',
+  '唯讀路徑辨識', '不代替正式核可',
   '只有計算書內明確核可才是正式附件', 'ProcessStartInfo', 'UseShellExecute',
-  '共用起始資料夾（選填）', '選擇一次…', 'FolderBrowserDialog', '-InitialPath',
+  '共用起始資料夾（選填）', '選擇一次…', '唯讀辨識建議', 'FolderBrowserDialog',
+  '-InitialPath', '-InitialMode', 'attachment-governance-hub-worker.js',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
 assert.equal(hubPs.charCodeAt(0), 0xFEFF, 'PowerShell hub keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(hubPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'hub stays local');
@@ -31,6 +33,67 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(hubPs, /Invoke-AttachmentWorker|Invoke-GovernanceViewerWorker|Invoke-UpgradeAssistantWorker/, 'hub never invokes a case core directly');
 assert.doesNotMatch(hubPs, /-Action\s+(?:check|build|verify|case|portfolio|inspect|execute)/, 'hub does not auto-run a child action');
+
+const workerSource = read('結構工具箱/tools/attachment-governance-hub-worker.js');
+assert.doesNotMatch(workerSource, /writeFile|mkdir|rename|rmSync|unlink|copyFile|appendFile/, 'advisor worker stays read-only');
+assert.doesNotMatch(workerSource, /https?:\/\/|fetch\(|HttpClient|Invoke-WebRequest/i, 'advisor worker stays local');
+assert.doesNotMatch(workerSource, /runUpgradeFlow|createUpgradeWorkspace|buildPackage|advanceBaseline|writeSnapshot/, 'advisor cannot call a mutating core');
+
+const baseDeps = {
+  Flow: {
+    INPUT_KINDS: { FORMAL_PACKAGE: 'formal-package', UPGRADE_WORKSPACE: 'upgrade-workspace', PACKAGE_SOURCE: 'upgrade-package-source' },
+    detectInputKind() { throw new Error('not a governed package'); },
+  },
+  Assess: { assessUpgrade() { throw new Error('not assessed'); } },
+  Root: { scanCaseRoot() { return { candidates: { packages: [], histories: [], chains: [] } }; } },
+  Portfolio: { scanPortfolio() { return { cases: [] }; } },
+  Checker: { checkPackage() { return { status: 'ready', summary: { attachments: 0, unsupported: 0, unsafeSourceEntries: 0 } }; } },
+};
+function deps(overrides = {}) { return { ...baseDeps, ...overrides }; }
+
+const workspaceAdvice = Worker.advisePath(toolsDir, deps({
+  Flow: { ...baseDeps.Flow, detectInputKind() { return { kind: 'upgrade-workspace' }; } },
+}));
+assert.equal(workspaceAdvice.recommendedTool, 'upgrade');
+assert.equal(workspaceAdvice.changedState, false);
+assert.equal(workspaceAdvice.autoLaunched, false);
+
+const legacyAdvice = Worker.advisePath(toolsDir, deps({
+  Flow: { ...baseDeps.Flow, detectInputKind() { return { kind: 'formal-package' }; } },
+  Assess: { assessUpgrade() { return { requiresUpgrade: true, status: 'review', currentPackage: { schemaVersion: 2 } }; } },
+}));
+assert.equal(legacyAdvice.recommendedTool, 'upgrade');
+
+const currentAdvice = Worker.advisePath(toolsDir, deps({
+  Flow: { ...baseDeps.Flow, detectInputKind() { return { kind: 'formal-package' }; } },
+  Assess: { assessUpgrade() { return { requiresUpgrade: false, status: 'ready', currentPackage: { schemaVersion: 3 } }; } },
+}));
+assert.equal(currentAdvice.recommendedTool, 'manager');
+assert.equal(currentAdvice.recommendedMode, 'verify');
+
+const caseAdvice = Worker.advisePath(toolsDir, deps({
+  Root: { scanCaseRoot() { return { candidates: { packages: [{}], histories: [], chains: [] } }; } },
+}));
+assert.equal(caseAdvice.recommendedTool, 'viewer');
+assert.equal(caseAdvice.recommendedMode, 'case');
+
+const portfolioAdvice = Worker.advisePath(toolsDir, deps({
+  Portfolio: { scanPortfolio() { return { cases: [{ name: 'A案' }] }; } },
+}));
+assert.equal(portfolioAdvice.recommendedMode, 'portfolio');
+
+const sourceAdvice = Worker.advisePath(toolsDir, deps({
+  Checker: { checkPackage() { return { status: 'review', summary: { attachments: 2, unsupported: 0, unsafeSourceEntries: 0 } }; } },
+}));
+assert.equal(sourceAdvice.recommendedTool, 'manager');
+assert.equal(sourceAdvice.recommendedMode, 'source');
+assert.equal(Worker.advisePath(toolsDir, baseDeps).outcome, 'unknown');
+assert.equal(Worker.runAction('smoke').readOnly, true);
+assert.throws(() => Worker.runAction('execute', { input: toolsDir }), /不支援的工作台動作/);
+
+const workerCli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'attachment-governance-hub-worker.js'), '--action', 'smoke'], { encoding: 'utf8' });
+assert.equal(workerCli.status, 0, workerCli.stderr || workerCli.stdout);
+assert.equal(JSON.parse(workerCli.stdout).autoLaunched, false);
 
 const targetLaunchers = [
   '啟動正式附件包管理器.bat',
@@ -60,6 +123,7 @@ const smokePayload = JSON.parse(smoke.stdout.replace(/^\uFEFF/, '').trim());
 assert.equal(smokePayload.status, 'ready');
 assert.equal(smokePayload.windowsFormsLoaded, true);
 assert.equal(smokePayload.readOnlyHub, true);
+assert.equal(smokePayload.advisorAvailable, true);
 assert.equal(smokePayload.available, 3);
 assert.equal(smokePayload.total, 3);
 assert.deepEqual(smokePayload.entries.map(entry => entry.id), ['manager', 'viewer', 'upgrade']);
@@ -75,7 +139,7 @@ assert.match(preflight, /key = "attachment-governance-hub"/);
 
 const pagesSmoke = read('結構工具箱/tools/pages-live-smoke.js');
 for (const privateFile of [
-  'attachment-governance-hub.ps1', '啟動案件附件工作台.bat',
+  'attachment-governance-hub-worker.js', 'attachment-governance-hub.ps1', '啟動案件附件工作台.bat',
   'attachment-governance-hub.contract.test.js',
 ]) {
   assert.ok(pagesSmoke.includes(privateFile), `Pages private-boundary smoke includes ${privateFile}`);
@@ -83,6 +147,7 @@ for (const privateFile of [
 
 for (const doc of ['README.md', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md']) {
   const source = read(doc);
+  assert.ok(source.includes('attachment-governance-hub-worker.js'), `${doc} documents attachment governance advisor`);
   assert.ok(source.includes('attachment-governance-hub.ps1'), `${doc} documents attachment governance hub`);
   assert.ok(source.includes('attachment-governance-hub.contract.test.js'), `${doc} documents hub contract`);
   assert.ok(source.includes('啟動案件附件工作台.bat'), `${doc} documents hub launcher`);
