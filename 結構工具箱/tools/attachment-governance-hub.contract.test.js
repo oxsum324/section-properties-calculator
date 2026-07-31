@@ -29,7 +29,7 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   'System.Windows.Forms.Timer', 'Start-PathAdvisor', 'Complete-PathAdvisor', 'Stop-PathAdvisor',
   '唯讀辨識進行中', '畫面可繼續操作', '停止辨識', 'Cancel-PathAdvisor',
   '已停止唯讀辨識', '重新辨識', '唯讀辨識超過 60 秒', 'Add_FormClosing',
-  'PrimaryScreen.WorkingArea', 'AutoScrollMinSize', 'WM_VSCROLL', 'AttachmentHubNativeScroll', 'SmokeViewport',
+  'Screen]::FromPoint', 'Cursor]::Position', "StartPosition = 'Manual'", 'AutoScrollMinSize', 'WM_VSCROLL', 'AttachmentHubNativeScroll', 'SmokeViewport',
   'KeyPreview', 'AcceptButton', 'Add_KeyDown', 'Keys]::L', 'Keys]::Escape', 'SendKeys]::SendWait',
   'AccessibleName', 'AccessibleDescription', '案件或附件資料夾路徑',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
@@ -192,6 +192,12 @@ assert.ok(viewportPayload.minimumWidth <= 780);
 assert.ok(viewportPayload.minimumHeight <= 640);
 assert.ok(viewportPayload.initialFormWidth <= viewportPayload.workingAreaWidth);
 assert.ok(viewportPayload.initialFormHeight <= viewportPayload.workingAreaHeight);
+assert.equal(viewportPayload.launchPointWithinWorkingArea, true);
+assert.equal(viewportPayload.formWithinWorkingArea, true);
+assert.ok(viewportPayload.initialFormLeft >= viewportPayload.workingAreaLeft);
+assert.ok(viewportPayload.initialFormTop >= viewportPayload.workingAreaTop);
+assert.ok(viewportPayload.initialFormRight <= viewportPayload.workingAreaRight);
+assert.ok(viewportPayload.initialFormBottom <= viewportPayload.workingAreaBottom);
 assert.ok(viewportPayload.smallClientWidth <= 800);
 assert.ok(viewportPayload.smallClientHeight <= 600);
 assert.ok(viewportPayload.autoScrollMinWidth >= 1090);

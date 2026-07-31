@@ -519,13 +519,19 @@ function Add-ToolCard {
 
 $script:MainForm = New-Object System.Windows.Forms.Form
 $script:MainForm.Text = '案件附件工作台'
-$script:MainForm.StartPosition = 'CenterScreen'
+$script:MainForm.StartPosition = 'Manual'
 $script:MainForm.KeyPreview = $true
-$workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$launchPoint = [System.Windows.Forms.Cursor]::Position
+$launchScreen = [System.Windows.Forms.Screen]::FromPoint($launchPoint)
+$workingArea = $launchScreen.WorkingArea
 $defaultWidth = [Math]::Min(1120, [Math]::Max(780, $workingArea.Width - 40))
 $defaultHeight = [Math]::Min(890, [Math]::Max(640, $workingArea.Height - 40))
 $script:MainForm.MinimumSize = New-Object System.Drawing.Size(780, 640)
 $script:MainForm.Size = New-Object System.Drawing.Size($defaultWidth, $defaultHeight)
+$script:MainForm.Location = New-Object System.Drawing.Point(
+  ($workingArea.Left + [Math]::Max(0, [Math]::Floor(($workingArea.Width - $script:MainForm.Width) / 2))),
+  ($workingArea.Top + [Math]::Max(0, [Math]::Floor(($workingArea.Height - $script:MainForm.Height) / 2)))
+)
 $script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 252)
 $script:MainForm.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10)
 
@@ -773,6 +779,10 @@ if ($dynamicSmokeModeCount -eq 1) {
 
 if ($SmokeViewport) {
   $script:MainForm.Size = New-Object System.Drawing.Size(800, 640)
+  $script:MainForm.Location = New-Object System.Drawing.Point(
+    ($workingArea.Left + [Math]::Max(0, [Math]::Floor(($workingArea.Width - $script:MainForm.Width) / 2))),
+    ($workingArea.Top + [Math]::Max(0, [Math]::Floor(($workingArea.Height - $script:MainForm.Height) / 2)))
+  )
   Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -794,6 +804,9 @@ public static class AttachmentHubNativeScroll {
     try {
       $initialFormWidth = $script:MainForm.Width
       $initialFormHeight = $script:MainForm.Height
+      $initialFormBounds = $script:MainForm.Bounds
+      $launchPointWithinWorkingArea = $workingArea.Contains($launchPoint)
+      $formWithinWorkingArea = $initialFormBounds.Left -ge $workingArea.Left -and $initialFormBounds.Top -ge $workingArea.Top -and $initialFormBounds.Right -le $workingArea.Right -and $initialFormBounds.Bottom -le $workingArea.Bottom
       $script:MainForm.PerformLayout()
       $script:ScrollPanel.PerformLayout()
       $script:MainForm.Update()
@@ -832,15 +845,28 @@ public static class AttachmentHubNativeScroll {
       $keyboardTargetRectangle = $script:ToolButtons['upgrade'].RectangleToScreen($script:ToolButtons['upgrade'].ClientRectangle)
       $keyboardTargetReachable = $keyboardTargetRectangle.Left -ge $keyboardClientRectangle.Left -and $keyboardTargetRectangle.Right -le $keyboardClientRectangle.Right -and $keyboardTargetRectangle.Top -ge $keyboardClientRectangle.Top -and $keyboardTargetRectangle.Bottom -le $keyboardClientRectangle.Bottom
       $script:ViewportSmokeResult = [pscustomobject]@{
-        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Width -le 780 -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormWidth -le $workingArea.Width -and $initialFormHeight -le $workingArea.Height -and $verticalScrollVisible -and $verticalScrollAfter -gt $verticalScrollBefore -and $verticalScrollAfter -eq $verticalScrollTarget -and $noticeReachable -and $horizontalScrollVisible -and $horizontalScrollAfter -gt $horizontalScrollBefore -and $horizontalScrollAfter -eq $horizontalScrollTarget -and $rightmostButtonReachable -and $pathShortcutFocused -and $keyboardTargetFocused -and $keyboardTargetReachable) { 'pass' } else { 'fail' }
+        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Width -le 780 -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormWidth -le $workingArea.Width -and $initialFormHeight -le $workingArea.Height -and $launchPointWithinWorkingArea -and $formWithinWorkingArea -and $verticalScrollVisible -and $verticalScrollAfter -gt $verticalScrollBefore -and $verticalScrollAfter -eq $verticalScrollTarget -and $noticeReachable -and $horizontalScrollVisible -and $horizontalScrollAfter -gt $horizontalScrollBefore -and $horizontalScrollAfter -eq $horizontalScrollTarget -and $rightmostButtonReachable -and $pathShortcutFocused -and $keyboardTargetFocused -and $keyboardTargetReachable) { 'pass' } else { 'fail' }
         winFormsMessageLoop = $true
         autoScrollEnabled = [bool]$script:ScrollPanel.AutoScroll
         minimumWidth = $script:MainForm.MinimumSize.Width
         minimumHeight = $script:MainForm.MinimumSize.Height
         workingAreaWidth = $workingArea.Width
         workingAreaHeight = $workingArea.Height
+        workingAreaLeft = $workingArea.Left
+        workingAreaTop = $workingArea.Top
+        workingAreaRight = $workingArea.Right
+        workingAreaBottom = $workingArea.Bottom
+        launchScreenDeviceName = $launchScreen.DeviceName
+        launchPointX = $launchPoint.X
+        launchPointY = $launchPoint.Y
+        launchPointWithinWorkingArea = $launchPointWithinWorkingArea
         initialFormWidth = $initialFormWidth
         initialFormHeight = $initialFormHeight
+        initialFormLeft = $initialFormBounds.Left
+        initialFormTop = $initialFormBounds.Top
+        initialFormRight = $initialFormBounds.Right
+        initialFormBottom = $initialFormBounds.Bottom
+        formWithinWorkingArea = $formWithinWorkingArea
         smallClientWidth = $script:ScrollPanel.ClientSize.Width
         smallClientHeight = $script:ScrollPanel.ClientSize.Height
         autoScrollMinWidth = $script:ScrollPanel.AutoScrollMinSize.Width
