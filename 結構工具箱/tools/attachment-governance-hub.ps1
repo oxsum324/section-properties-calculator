@@ -127,7 +127,7 @@ function Reset-Recommendation {
   $script:Advice = $null
   $script:AdvicePath = ''
   if ($script:RecommendationText) {
-    $script:RecommendationText.Text = '尚未辨識；你也可以直接依目的選擇下方工具。'
+    $script:RecommendationText.Text = '選擇或拖入單一資料夾後會自動辨識；手動輸入路徑時可按右側按鈕。'
     $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
   }
   foreach ($target in $script:ToolTargets) {
@@ -188,17 +188,27 @@ function Start-GovernedTool {
   $script:BottomStatus.Text = "已開啟：$($Target.Name)；$handoff"
 }
 
+function Set-SharedPathAndRecommend {
+  param([string]$SelectedPath)
+  $candidate = [string]$SelectedPath
+  if (-not $candidate.Trim() -or -not (Test-Path -LiteralPath $candidate.Trim() -PathType Container)) {
+    throw '只接受單一現有資料夾；檔案或多重路徑不會帶入工作台。'
+  }
+  $script:SharedPath.Text = $candidate.Trim()
+  $script:BottomStatus.Text = '已帶入資料夾，正在執行唯讀辨識建議…'
+  Show-Recommendation
+}
+
 function Select-SharedFolder {
   $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-  $dialog.Description = '選擇要帶入附件工具的共同起始資料夾'
+  $dialog.Description = '選擇共同起始資料夾；選取後會立即執行唯讀辨識建議'
   $dialog.ShowNewFolderButton = $false
   if ($script:SharedPath.Text.Trim() -and (Test-Path -LiteralPath $script:SharedPath.Text.Trim() -PathType Container)) {
     $dialog.SelectedPath = $script:SharedPath.Text.Trim()
   }
   try {
     if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-      $script:SharedPath.Text = $dialog.SelectedPath
-      $script:BottomStatus.Text = '已選擇共用起始資料夾；開啟工具後仍須由你執行該工具的檢查。'
+      Set-SharedPathAndRecommend -SelectedPath $dialog.SelectedPath
     }
   } finally {
     $dialog.Dispose()
@@ -310,7 +320,7 @@ $header.Size = New-Object System.Drawing.Size(1040, 45)
 $script:MainForm.Controls.Add($header)
 
 $subheader = New-Object System.Windows.Forms.Label
-$subheader.Text = '可先做唯讀路徑辨識，或直接依目的選擇工具；建議不會自動開啟工具、不改判狀態，也不代替正式核可。'
+$subheader.Text = '選擇或拖入一個資料夾後會自動提出唯讀建議；建議不會自動開啟工具、不改判狀態，也不代替正式核可。'
 $subheader.Location = New-Object System.Drawing.Point(26, 66)
 $subheader.Size = New-Object System.Drawing.Size(1040, 28)
 $subheader.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
@@ -322,26 +332,31 @@ $pathPanel.Size = New-Object System.Drawing.Size(1056, 100)
 $pathPanel.Anchor = 'Top,Left,Right'
 $pathPanel.BackColor = [System.Drawing.Color]::FromArgb(255, 255, 255)
 $pathPanel.BorderStyle = 'FixedSingle'
+$pathPanel.AllowDrop = $true
 $script:MainForm.Controls.Add($pathPanel)
 
 $pathLabel = New-Object System.Windows.Forms.Label
-$pathLabel.Text = '共用起始資料夾（選填）'
+$pathLabel.Text = '共用起始資料夾（可拖放）'
 $pathLabel.Location = New-Object System.Drawing.Point(16, 18)
-$pathLabel.Size = New-Object System.Drawing.Size(180, 26)
+$pathLabel.Size = New-Object System.Drawing.Size(200, 26)
 $pathPanel.Controls.Add($pathLabel)
 
 $script:SharedPath = New-Object System.Windows.Forms.TextBox
-$script:SharedPath.Location = New-Object System.Drawing.Point(200, 14)
-$script:SharedPath.Size = New-Object System.Drawing.Size(565, 30)
+$script:SharedPath.Location = New-Object System.Drawing.Point(215, 14)
+$script:SharedPath.Size = New-Object System.Drawing.Size(550, 30)
 $script:SharedPath.Anchor = 'Top,Left,Right'
+$script:SharedPath.AllowDrop = $true
 $pathPanel.Controls.Add($script:SharedPath)
 
 $browseShared = New-Object System.Windows.Forms.Button
-$browseShared.Text = '選擇一次…'
+$browseShared.Text = '選擇並辨識…'
 $browseShared.Location = New-Object System.Drawing.Point(780, 12)
 $browseShared.Size = New-Object System.Drawing.Size(120, 34)
 $browseShared.Anchor = 'Top,Right'
-$browseShared.Add_Click({ Select-SharedFolder })
+$browseShared.Add_Click({
+  try { Select-SharedFolder }
+  catch { Show-LaunchError -ErrorRecord $_.Exception }
+})
 $pathPanel.Controls.Add($browseShared)
 
 $script:BtnAdvise = New-Object System.Windows.Forms.Button
@@ -356,12 +371,34 @@ $script:BtnAdvise.Add_Click({
 $pathPanel.Controls.Add($script:BtnAdvise)
 
 $script:RecommendationText = New-Object System.Windows.Forms.Label
-$script:RecommendationText.Text = '尚未辨識；你也可以直接依目的選擇下方工具。'
-$script:RecommendationText.Location = New-Object System.Drawing.Point(200, 56)
-$script:RecommendationText.Size = New-Object System.Drawing.Size(835, 30)
+$script:RecommendationText.Text = '選擇或拖入單一資料夾後會自動辨識；手動輸入路徑時可按右側按鈕。'
+$script:RecommendationText.Location = New-Object System.Drawing.Point(215, 56)
+$script:RecommendationText.Size = New-Object System.Drawing.Size(820, 30)
 $script:RecommendationText.Anchor = 'Top,Left,Right'
 $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
 $pathPanel.Controls.Add($script:RecommendationText)
+
+$folderDragEnter = {
+  $paths = @($_.Data.GetData([System.Windows.Forms.DataFormats]::FileDrop))
+  if ($paths.Count -eq 1 -and (Test-Path -LiteralPath ([string]$paths[0]) -PathType Container)) {
+    $_.Effect = [System.Windows.Forms.DragDropEffects]::Copy
+  } else {
+    $_.Effect = [System.Windows.Forms.DragDropEffects]::None
+  }
+}
+$folderDragDrop = {
+  try {
+    $paths = @($_.Data.GetData([System.Windows.Forms.DataFormats]::FileDrop))
+    if ($paths.Count -ne 1) { throw '一次只能拖入一個資料夾。' }
+    Set-SharedPathAndRecommend -SelectedPath ([string]$paths[0])
+  } catch {
+    Show-LaunchError -ErrorRecord $_.Exception
+  }
+}
+$pathPanel.Add_DragEnter($folderDragEnter)
+$pathPanel.Add_DragDrop($folderDragDrop)
+$script:SharedPath.Add_DragEnter($folderDragEnter)
+$script:SharedPath.Add_DragDrop($folderDragDrop)
 
 $guide = New-Object System.Windows.Forms.Panel
 $guide.Location = New-Object System.Drawing.Point(22, 211)

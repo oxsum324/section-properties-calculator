@@ -21,7 +21,9 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '可新建產物', '永遠唯讀', '另建升級產物',
   '唯讀路徑辨識', '不代替正式核可',
   '只有計算書內明確核可才是正式附件', 'ProcessStartInfo', 'UseShellExecute',
-  '共用起始資料夾（選填）', '選擇一次…', '唯讀辨識建議', 'FolderBrowserDialog',
+  '共用起始資料夾（可拖放）', '選擇並辨識…', '唯讀辨識建議', 'FolderBrowserDialog',
+  'AllowDrop', 'DataFormats]::FileDrop', 'DragDropEffects]::Copy', 'DragDropEffects]::None',
+  'Set-SharedPathAndRecommend', '一次只能拖入一個資料夾',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
@@ -36,6 +38,11 @@ assert.doesNotMatch(hubPs, /Invoke-AttachmentWorker|Invoke-GovernanceViewerWorke
 assert.doesNotMatch(hubPs, /-Action\s+(?:check|build|verify|case|portfolio|inspect|execute)/, 'hub never invokes a child worker action directly');
 assert.match(hubPs, /\$script:AdvicePath -eq \$initialPath[\s\S]*?\$script:Advice\.recommendedTool -eq \$Target\.Id[\s\S]*?\$arguments \+= ' -AutoInspect'/, 'one-click read-only inspection requires a current matched recommendation and an explicit tool click');
 assert.doesNotMatch(hubPs, /-AutoInspect[\s\S]{0,300}BtnBuild|-AutoInspect[\s\S]{0,300}BtnExecute/, 'hub does not expose a one-click write path');
+const pathHandoff = hubPs.match(/function Set-SharedPathAndRecommend \{[\s\S]*?(?=\nfunction Select-SharedFolder)/)?.[0] || '';
+assert.match(pathHandoff, /Test-Path[\s\S]*?PathType Container[\s\S]*?\$script:SharedPath\.Text[\s\S]*?Show-Recommendation/, 'selected or dropped path is validated and sent only to the read-only advisor');
+assert.doesNotMatch(pathHandoff, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'automatic advice never opens or runs a child tool');
+assert.match(hubPs, /ShowDialog\(\) -eq \[System\.Windows\.Forms\.DialogResult\]::OK[\s\S]*?Set-SharedPathAndRecommend -SelectedPath \$dialog\.SelectedPath/, 'folder selection immediately requests read-only advice');
+assert.match(hubPs, /\$folderDragDrop = \{[\s\S]*?\$paths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'drop accepts exactly one folder and requests the same read-only advice');
 
 const workerSource = read('結構工具箱/tools/attachment-governance-hub-worker.js');
 assert.doesNotMatch(workerSource, /writeFile|mkdir|rename|rmSync|unlink|copyFile|appendFile/, 'advisor worker stays read-only');
