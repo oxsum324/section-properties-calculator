@@ -152,11 +152,17 @@ function runAction(action, options = {}, dependencies = {}) {
 }
 
 function parseArgs(argv) {
-  const options = { action: 'smoke', input: '' };
+  const options = { action: 'smoke', input: '', smokeDelayMs: 0 };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--action') options.action = argv[++index] || '';
     else if (arg === '--input') options.input = argv[++index] || '';
+    else if (arg === '--smoke-delay-ms') {
+      options.smokeDelayMs = Number(argv[++index]);
+      if (!Number.isInteger(options.smokeDelayMs) || options.smokeDelayMs < 0 || options.smokeDelayMs > 5000) {
+        throw new Error('smoke-delay-ms 必須是 0 至 5000 的整數。');
+      }
+    }
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new Error(`未知參數：${arg}`);
   }
@@ -176,6 +182,9 @@ function main(argv = process.argv.slice(2)) {
   if (options.help) {
     console.log(usage());
     return 0;
+  }
+  if (options.smokeDelayMs > 0) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, options.smokeDelayMs);
   }
   const response = runAction(options.action, options);
   console.log(JSON.stringify(response));

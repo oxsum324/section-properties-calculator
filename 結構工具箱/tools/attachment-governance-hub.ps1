@@ -3,7 +3,10 @@ param(
   [string]$InitialPath = '',
   [Parameter(ValueFromRemainingArguments = $true)]
   [string[]]$AdditionalPath = @(),
-  [switch]$Smoke
+  [switch]$Smoke,
+  [switch]$SmokeCancellation,
+  [ValidateRange(100, 5000)]
+  [int]$AdvisorSmokeDelayMilliseconds = 2000
 )
 
 Set-StrictMode -Version Latest
@@ -26,6 +29,8 @@ $script:AdvisorPath = ''
 $script:AdvisorStartedAt = $null
 $script:AdvisorTimer = $null
 $script:BtnAdvise = $null
+$script:CancellationSmokeTimer = $null
+$script:CancellationSmokeResult = $null
 $script:ToolTargets = @(
   [pscustomobject]@{
     Id = 'manager'
@@ -142,6 +147,7 @@ function Start-PathAdvisor {
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = Get-NodePath
   $startInfo.Arguments = "`"$script:WorkerPath`" --action advise --input `"$inputPath`""
+  if ($SmokeCancellation) { $startInfo.Arguments += " --smoke-delay-ms $AdvisorSmokeDelayMilliseconds" }
   $startInfo.WorkingDirectory = $script:ToolDirectory
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
@@ -548,6 +554,48 @@ $script:AdvisorTimer.Add_Tick({
 })
 $script:MainForm.Add_FormClosing({ Stop-PathAdvisor })
 
+if ($SmokeCancellation) {
+  $script:MainForm.Opacity = 0
+  $script:MainForm.ShowInTaskbar = $false
+  $script:CancellationSmokeTimer = New-Object System.Windows.Forms.Timer
+  $script:CancellationSmokeTimer.Interval = 250
+  $script:CancellationSmokeTimer.Add_Tick({
+    $script:CancellationSmokeTimer.Stop()
+    try {
+      $advisorPid = if ($script:AdvisorProcess) { $script:AdvisorProcess.Id } else { 0 }
+      $runningActionVisible = $script:BtnAdvise.Text -eq '停止辨識'
+      $windowVisibleBeforeCancel = [bool]$script:MainForm.Visible
+      $script:BtnAdvise.PerformClick()
+      $workerExited = $advisorPid -gt 0 -and -not (Get-Process -Id $advisorPid -ErrorAction SilentlyContinue)
+      $script:CancellationSmokeResult = [pscustomobject]@{
+        status = if ($runningActionVisible -and $windowVisibleBeforeCancel -and $workerExited -and -not $script:AdvisorProcess -and $script:BtnAdvise.Text -eq '唯讀辨識建議' -and $script:RecommendationText.Text -like '已停止唯讀辨識*') { 'pass' } else { 'fail' }
+        winFormsMessageLoop = $true
+        performClick = $true
+        runningActionVisible = $runningActionVisible
+        windowStayedOpen = [bool]($windowVisibleBeforeCancel -and $script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+        workerPid = $advisorPid
+        workerExited = $workerExited
+        advisorCleared = [bool](-not $script:AdvisorProcess)
+        idleActionRestored = [bool]($script:BtnAdvise.Text -eq '唯讀辨識建議')
+        cancellationMessageShown = [bool]($script:RecommendationText.Text -like '已停止唯讀辨識*')
+        changedState = $false
+        autoLaunched = $false
+      }
+    } catch {
+      $script:CancellationSmokeResult = [pscustomobject]@{
+        status = 'fail'
+        winFormsMessageLoop = $true
+        performClick = $false
+        message = $_.Exception.Message
+        changedState = $false
+        autoLaunched = $false
+      }
+    } finally {
+      $script:MainForm.Close()
+    }
+  })
+}
+
 $script:StartupPathsHandled = $false
 $script:MainForm.Add_Shown({
   if ($script:StartupPathsHandled) { return }
@@ -556,9 +604,36 @@ $script:MainForm.Add_Shown({
   try {
     if ($script:StartupPaths.Count -ne 1) { throw '啟動時一次只能帶入一個資料夾。' }
     Set-SharedPathAndRecommend -SelectedPath ([string]$script:StartupPaths[0])
+    if ($SmokeCancellation) { $script:CancellationSmokeTimer.Start() }
   } catch {
-    Show-LaunchError -ErrorRecord $_.Exception
+    if ($SmokeCancellation) {
+      $script:CancellationSmokeResult = [pscustomobject]@{
+        status = 'fail'
+        winFormsMessageLoop = $true
+        performClick = $false
+        message = $_.Exception.Message
+        changedState = $false
+        autoLaunched = $false
+      }
+      $script:MainForm.Close()
+    } else {
+      Show-LaunchError -ErrorRecord $_.Exception
+    }
   }
 })
 
 [void]$script:MainForm.ShowDialog()
+if ($SmokeCancellation) {
+  if (-not $script:CancellationSmokeResult) {
+    $script:CancellationSmokeResult = [pscustomobject]@{
+      status = 'fail'
+      winFormsMessageLoop = $true
+      performClick = $false
+      message = '取消煙霧測試未產生結果。'
+      changedState = $false
+      autoLaunched = $false
+    }
+  }
+  $script:CancellationSmokeResult | ConvertTo-Json -Depth 4 -Compress
+  if ($script:CancellationSmokeResult.status -ne 'pass') { exit 3 }
+}

@@ -133,6 +133,8 @@ assert.equal(Worker.hasAttachmentSourceSignal({ type: 'json' }), false);
 assert.equal(Worker.advisePath(toolsDir, baseDeps).outcome, 'unknown');
 assert.equal(Worker.runAction('smoke').readOnly, true);
 assert.throws(() => Worker.runAction('execute', { input: toolsDir }), /不支援的工作台動作/);
+assert.equal(Worker.parseArgs(['--smoke-delay-ms', '250']).smokeDelayMs, 250);
+assert.throws(() => Worker.parseArgs(['--smoke-delay-ms', '5001']), /0 至 5000/);
 
 const workerCli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'attachment-governance-hub-worker.js'), '--action', 'smoke'], { encoding: 'utf8' });
 assert.equal(workerCli.status, 0, workerCli.stderr || workerCli.stdout);
@@ -171,6 +173,29 @@ assert.equal(smokePayload.available, 3);
 assert.equal(smokePayload.total, 3);
 assert.deepEqual(smokePayload.entries.map(entry => entry.id), ['manager', 'viewer', 'upgrade']);
 assert.ok(smokePayload.entries.every(entry => entry.available));
+
+const cancellationSmoke = childProcess.spawnSync(
+  powershell,
+  [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', hubPath,
+    '-SmokeCancellation', '-AdvisorSmokeDelayMilliseconds', '2000', '-InitialPath', toolsDir,
+  ],
+  { encoding: 'utf8', timeout: 15000 },
+);
+assert.equal(cancellationSmoke.status, 0, cancellationSmoke.stderr || cancellationSmoke.stdout);
+const cancellationPayload = JSON.parse(cancellationSmoke.stdout.replace(/^\uFEFF/, '').trim());
+assert.equal(cancellationPayload.status, 'pass');
+assert.equal(cancellationPayload.winFormsMessageLoop, true);
+assert.equal(cancellationPayload.performClick, true);
+assert.equal(cancellationPayload.runningActionVisible, true);
+assert.equal(cancellationPayload.windowStayedOpen, true);
+assert.ok(cancellationPayload.workerPid > 0);
+assert.equal(cancellationPayload.workerExited, true);
+assert.equal(cancellationPayload.advisorCleared, true);
+assert.equal(cancellationPayload.idleActionRestored, true);
+assert.equal(cancellationPayload.cancellationMessageShown, true);
+assert.equal(cancellationPayload.changedState, false);
+assert.equal(cancellationPayload.autoLaunched, false);
 
 const launcher = read('結構工具箱/tools/啟動案件附件工作台.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);
