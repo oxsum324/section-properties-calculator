@@ -135,6 +135,7 @@ assert.equal(Worker.runAction('smoke').readOnly, true);
 assert.throws(() => Worker.runAction('execute', { input: toolsDir }), /不支援的工作台動作/);
 assert.equal(Worker.parseArgs(['--smoke-delay-ms', '250']).smokeDelayMs, 250);
 assert.throws(() => Worker.parseArgs(['--smoke-delay-ms', '5001']), /0 至 5000/);
+assert.equal(Worker.parseArgs(['--smoke-error']).smokeError, true);
 
 const workerCli = childProcess.spawnSync(process.execPath, [path.join(toolsDir, 'attachment-governance-hub-worker.js'), '--action', 'smoke'], { encoding: 'utf8' });
 assert.equal(workerCli.status, 0, workerCli.stderr || workerCli.stdout);
@@ -241,6 +242,28 @@ assert.equal(timeoutPayload.timeoutMessageShown, true);
 assert.equal(timeoutPayload.windowStayedOpenOnTimeout, true);
 assert.equal(timeoutPayload.changedState, false);
 assert.equal(timeoutPayload.autoLaunched, false);
+
+const failureSmoke = childProcess.spawnSync(
+  powershell,
+  [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', hubPath,
+    '-SmokeFailure', '-AdvisorSmokeDelayMilliseconds', '300', '-InitialPath', toolsDir,
+  ],
+  { encoding: 'utf8', timeout: 15000 },
+);
+assert.equal(failureSmoke.status, 0, failureSmoke.stderr || failureSmoke.stdout);
+const failurePayload = JSON.parse(failureSmoke.stdout.replace(/^\uFEFF/, '').trim());
+assert.equal(failurePayload.status, 'pass');
+assert.equal(failurePayload.winFormsMessageLoop, true);
+assert.equal(failurePayload.failureObserved, true);
+assert.ok(failurePayload.workerPid > 0);
+assert.equal(failurePayload.workerExited, true);
+assert.equal(failurePayload.advisorCleared, true);
+assert.equal(failurePayload.idleActionRestored, true);
+assert.equal(failurePayload.failureMessageShown, true);
+assert.equal(failurePayload.windowStayedOpenOnFailure, true);
+assert.equal(failurePayload.changedState, false);
+assert.equal(failurePayload.autoLaunched, false);
 
 const launcher = read('結構工具箱/tools/啟動案件附件工作台.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);
