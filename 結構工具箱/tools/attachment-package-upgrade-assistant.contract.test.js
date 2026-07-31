@@ -152,13 +152,16 @@ const assistantPs = read('結構工具箱/tools/attachment-package-upgrade-assis
   'System.Windows.Forms', 'FolderBrowserDialog', 'attachment-package-upgrade-assistant-worker.js',
   "ValidateSet('smoke', 'inspect', 'execute')", '1. 唯讀檢查目前階段', '我確認只新建產物，不改寫舊包',
   '2. 尚未取得可執行動作', '檢查本身不留下歷程收據', 'workerExitCode',
-  "[string]$InitialPath = ''",
+  "[string]$InitialPath = ''", '[switch]$AutoInspect',
 ].forEach(needle => assert.ok(assistantPs.includes(needle), `PowerShell assistant includes ${needle}`));
 assert.equal(assistantPs.charCodeAt(0), 0xFEFF, 'PowerShell assistant keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(assistantPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'assistant does not send case data over network');
+assert.match(assistantPs, /\$previousOutputEncoding = \[Console\]::OutputEncoding[\s\S]*?UTF8Encoding\(\$false\)[\s\S]*?finally \{\s*\[Console\]::OutputEncoding = \$previousOutputEncoding/, 'assistant decodes Node JSON as UTF-8 and restores the prior console encoding');
 assert.doesNotMatch(assistantPs, /Set-Content|Out-File|Add-Content|Remove-Item|Move-Item|Copy-Item|New-Item/i, 'GUI does not implement direct case mutation');
 assert.match(assistantPs, /Clear-ExecutionGrant\s+Set-UiBusy \$true\s+try \{\s+\$response = Invoke-UpgradeAssistantWorker -Action inspect/s, 'every inspect clears the prior execution grant');
 assert.match(assistantPs, /if \(\$InitialPath\.Trim\(\)\) \{ \$script:InputPath\.Text = \$InitialPath\.Trim\(\) \}/, 'assistant only pre-fills the upgrade input path');
+assert.match(assistantPs, /Add_Shown\(\{[\s\S]*?\$AutoInspect[\s\S]*?\$script:BtnInspect\.PerformClick\(\)[\s\S]*?\}\)/, 'explicit AutoInspect triggers only the assistant read-only inspection');
+assert.doesNotMatch(assistantPs.match(/Add_Shown\(\{[\s\S]*?\}\)/)?.[0] || '', /BtnExecute|execute/, 'AutoInspect never triggers an upgrade write action');
 
 const launcher = read('結構工具箱/tools/啟動舊版附件升級助手.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);

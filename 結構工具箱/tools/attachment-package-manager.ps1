@@ -2,7 +2,8 @@
 param(
   [switch]$Smoke,
   [string]$InitialPath = '',
-  [ValidateSet('source', 'verify')][string]$InitialMode = 'source'
+  [ValidateSet('source', 'verify')][string]$InitialMode = 'source',
+  [switch]$AutoInspect
 )
 
 Set-StrictMode -Version Latest
@@ -41,8 +42,14 @@ function Invoke-AttachmentWorker {
   if ($OutputDirectory.Trim()) { $arguments += @('--output', $OutputDirectory.Trim()) }
   if ($ProjectNo.Trim()) { $arguments += @('--project-no', $ProjectNo.Trim()) }
 
-  $raw = @(& (Get-NodePath) @arguments 2>&1)
-  $exitCode = $LASTEXITCODE
+  $previousOutputEncoding = [Console]::OutputEncoding
+  try {
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $raw = @(& (Get-NodePath) @arguments 2>&1)
+    $exitCode = $LASTEXITCODE
+  } finally {
+    [Console]::OutputEncoding = $previousOutputEncoding
+  }
   $json = ($raw | ForEach-Object { $_.ToString() }) -join "`n"
   try {
     $response = $json | ConvertFrom-Json
@@ -421,6 +428,12 @@ $script:BtnOpenOutput.Add_Click({
   if ($script:LastOutputDirectory -and (Test-Path -LiteralPath $script:LastOutputDirectory -PathType Container)) {
     Start-Process -FilePath explorer.exe -ArgumentList @($script:LastOutputDirectory)
   }
+})
+
+$script:MainForm.Add_Shown({
+  if (-not $AutoInspect -or -not $InitialPath.Trim()) { return }
+  if ($InitialMode -eq 'verify') { $script:BtnVerify.PerformClick() }
+  else { $script:BtnCheck.PerformClick() }
 })
 
 [void]$script:MainForm.ShowDialog()

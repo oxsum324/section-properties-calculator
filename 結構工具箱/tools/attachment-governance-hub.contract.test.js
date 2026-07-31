@@ -22,7 +22,8 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '唯讀路徑辨識', '不代替正式核可',
   '只有計算書內明確核可才是正式附件', 'ProcessStartInfo', 'UseShellExecute',
   '共用起始資料夾（選填）', '選擇一次…', '唯讀辨識建議', 'FolderBrowserDialog',
-  '-InitialPath', '-InitialMode', 'attachment-governance-hub-worker.js',
+  '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
+  '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
 assert.equal(hubPs.charCodeAt(0), 0xFEFF, 'PowerShell hub keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(hubPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'hub stays local');
@@ -32,7 +33,9 @@ assert.doesNotMatch(
   'hub does not mutate case files or implement another write path',
 );
 assert.doesNotMatch(hubPs, /Invoke-AttachmentWorker|Invoke-GovernanceViewerWorker|Invoke-UpgradeAssistantWorker/, 'hub never invokes a case core directly');
-assert.doesNotMatch(hubPs, /-Action\s+(?:check|build|verify|case|portfolio|inspect|execute)/, 'hub does not auto-run a child action');
+assert.doesNotMatch(hubPs, /-Action\s+(?:check|build|verify|case|portfolio|inspect|execute)/, 'hub never invokes a child worker action directly');
+assert.match(hubPs, /\$script:AdvicePath -eq \$initialPath[\s\S]*?\$script:Advice\.recommendedTool -eq \$Target\.Id[\s\S]*?\$arguments \+= ' -AutoInspect'/, 'one-click read-only inspection requires a current matched recommendation and an explicit tool click');
+assert.doesNotMatch(hubPs, /-AutoInspect[\s\S]{0,300}BtnBuild|-AutoInspect[\s\S]{0,300}BtnExecute/, 'hub does not expose a one-click write path');
 
 const workerSource = read('結構工具箱/tools/attachment-governance-hub-worker.js');
 assert.doesNotMatch(workerSource, /writeFile|mkdir|rename|rmSync|unlink|copyFile|appendFile/, 'advisor worker stays read-only');

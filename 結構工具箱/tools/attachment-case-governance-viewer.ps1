@@ -2,7 +2,8 @@
 param(
   [switch]$Smoke,
   [string]$InitialPath = '',
-  [ValidateSet('case', 'portfolio')][string]$InitialMode = 'case'
+  [ValidateSet('case', 'portfolio')][string]$InitialMode = 'case',
+  [switch]$AutoInspect
 )
 
 Set-StrictMode -Version Latest
@@ -38,8 +39,14 @@ function Invoke-GovernanceViewerWorker {
   if ($OnlyActionable) { $arguments += '--only-actionable' }
   if ($Priority.Trim() -and $Priority.Trim() -ne '全部優先層級') { $arguments += @('--priority', $Priority.Trim()) }
 
-  $raw = @(& (Get-NodePath) @arguments 2>&1)
-  $exitCode = $LASTEXITCODE
+  $previousOutputEncoding = [Console]::OutputEncoding
+  try {
+    [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $raw = @(& (Get-NodePath) @arguments 2>&1)
+    $exitCode = $LASTEXITCODE
+  } finally {
+    [Console]::OutputEncoding = $previousOutputEncoding
+  }
   $json = ($raw | ForEach-Object { $_.ToString() }) -join "`n"
   try {
     $response = $json | ConvertFrom-Json
@@ -359,4 +366,7 @@ $script:BtnInspect.Add_Click({
 })
 
 Update-ModeControls
+$script:MainForm.Add_Shown({
+  if ($AutoInspect -and $InitialPath.Trim()) { $script:BtnInspect.PerformClick() }
+})
 [void]$script:MainForm.ShowDialog()

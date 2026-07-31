@@ -100,10 +100,11 @@ const managerPs = read('結構工具箱/tools/attachment-package-manager.ps1');
   'System.Windows.Forms', 'FolderBrowserDialog', 'attachment-package-manager-worker.js',
   "ValidateSet('smoke', 'check', 'build', 'verify')", '檢查附件來源', '建立正式附件包',
   '驗證附件包', '管理畫面與檢查結果僅供內部整理', 'workerExitCode',
-  "[string]$InitialPath = ''", "[ValidateSet('source', 'verify')][string]$InitialMode = 'source'",
+  "[string]$InitialPath = ''", "[ValidateSet('source', 'verify')][string]$InitialMode = 'source'", '[switch]$AutoInspect',
 ].forEach(needle => assert.ok(managerPs.includes(needle), `PowerShell manager includes ${needle}`));
 assert.ok(managerPs.charCodeAt(0) === 0xFEFF, 'PowerShell manager keeps UTF-8 BOM for Windows PowerShell 5.1');
 assert.doesNotMatch(managerPs, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'manager stays local and does not send case data over network');
+assert.match(managerPs, /\$previousOutputEncoding = \[Console\]::OutputEncoding[\s\S]*?UTF8Encoding\(\$false\)[\s\S]*?finally \{\s*\[Console\]::OutputEncoding = \$previousOutputEncoding/, 'manager decodes Node JSON as UTF-8 and restores the prior console encoding');
 assert.match(
   managerPs,
   /\$script:BtnCheck\.Add_Click\(\{\s+\$script:LastReadyInput = ''\s+\$script:LastReadyProjectNo = ''/s,
@@ -111,6 +112,8 @@ assert.match(
 );
 assert.match(managerPs, /if \(\$InitialMode -eq 'source'[^\n]+\$script:SourcePath\.Text/, 'manager pre-fills source input only in source mode');
 assert.match(managerPs, /if \(\$InitialMode -eq 'verify'[^\n]+\$script:PackagePath\.Text/, 'manager pre-fills package input only in verify mode');
+assert.match(managerPs, /Add_Shown\(\{[\s\S]*?\$InitialMode -eq 'verify'[\s\S]*?\$script:BtnVerify\.PerformClick\(\)[\s\S]*?\$script:BtnCheck\.PerformClick\(\)[\s\S]*?\}\)/, 'explicit AutoInspect only triggers the read-only action for the selected mode');
+assert.doesNotMatch(managerPs.match(/Add_Shown\(\{[\s\S]*?\}\)/)?.[0] || '', /BtnBuild|build/, 'AutoInspect never triggers package creation');
 
 const launcher = read('結構工具箱/tools/啟動正式附件包管理器.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);

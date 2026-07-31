@@ -154,7 +154,7 @@ function Show-Recommendation {
   $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(22, 101, 52)
   $button = $script:ToolButtons[[string]$response.recommendedTool]
   if ($button) {
-    $button.Text = "建議｜$($button.Text)"
+    $button.Text = '建議｜開啟並唯讀檢查'
     $button.UseVisualStyleBackColor = $false
     $button.BackColor = [System.Drawing.Color]::FromArgb(220, 252, 231)
   }
@@ -170,10 +170,13 @@ function Start-GovernedTool {
   $arguments = "-NoProfile -ExecutionPolicy Bypass -STA -File `"$($status.scriptPath)`""
   $initialPath = $script:SharedPath.Text.Trim()
   if ($initialPath) { $arguments += " -InitialPath `"$initialPath`"" }
+  $autoInspect = $false
   if ($initialPath -and $script:Advice -and $script:AdvicePath -eq $initialPath -and $script:Advice.recommendedTool -eq $Target.Id) {
     $mode = [string]$script:Advice.recommendedMode
     if ($Target.Id -eq 'manager' -and @('source', 'verify') -contains $mode) { $arguments += " -InitialMode $mode" }
     if ($Target.Id -eq 'viewer' -and @('case', 'portfolio') -contains $mode) { $arguments += " -InitialMode $mode" }
+    $arguments += ' -AutoInspect'
+    $autoInspect = $true
   }
   $startInfo = New-Object System.Diagnostics.ProcessStartInfo
   $startInfo.FileName = 'powershell.exe'
@@ -181,7 +184,7 @@ function Start-GovernedTool {
   $startInfo.WorkingDirectory = $script:ToolDirectory
   $startInfo.UseShellExecute = $true
   [void][System.Diagnostics.Process]::Start($startInfo)
-  $handoff = if ($initialPath) { '已帶入共用起始資料夾，尚未自動檢查。' } else { '未指定起始資料夾。' }
+  $handoff = if ($autoInspect) { '已帶入建議模式並執行唯讀檢查。' } elseif ($initialPath) { '已帶入共用起始資料夾，尚未執行檢查。' } else { '未指定起始資料夾。' }
   $script:BottomStatus.Text = "已開啟：$($Target.Name)；$handoff"
 }
 
