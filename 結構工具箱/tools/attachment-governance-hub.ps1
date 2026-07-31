@@ -8,6 +8,7 @@ param(
   [switch]$SmokeLifecycle,
   [switch]$SmokeTimeout,
   [switch]$SmokeFailure,
+  [switch]$SmokeViewport,
   [ValidateRange(100, 5000)]
   [int]$AdvisorSmokeDelayMilliseconds = 2000,
   [ValidateRange(200, 5000)]
@@ -19,10 +20,12 @@ $ErrorActionPreference = 'Stop'
 $script:StartupPaths = @()
 if ($InitialPath) { $script:StartupPaths += $InitialPath }
 $script:StartupPaths += @($AdditionalPath)
-$dynamicSmokeModeCount = 0
-foreach ($mode in @($SmokeCancellation, $SmokeLifecycle, $SmokeTimeout, $SmokeFailure)) { if ($mode) { $dynamicSmokeModeCount += 1 } }
+$advisorDynamicSmokeModeCount = 0
+foreach ($mode in @($SmokeCancellation, $SmokeLifecycle, $SmokeTimeout, $SmokeFailure)) { if ($mode) { $advisorDynamicSmokeModeCount += 1 } }
+$dynamicSmokeModeCount = $advisorDynamicSmokeModeCount + [int][bool]$SmokeViewport
 if ($dynamicSmokeModeCount -gt 1) { throw '一次只能執行一種動態 smoke。' }
-if ($dynamicSmokeModeCount -eq 1 -and $script:StartupPaths.Count -ne 1) { throw '動態 smoke 必須帶入單一 InitialPath。' }
+if ($advisorDynamicSmokeModeCount -eq 1 -and $script:StartupPaths.Count -ne 1) { throw 'advisor 動態 smoke 必須帶入單一 InitialPath。' }
+if ($SmokeViewport -and $script:StartupPaths.Count -ne 0) { throw '小視窗 smoke 不接受 InitialPath。' }
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -55,6 +58,10 @@ $script:FailureSmokeErrorInjected = $false
 $script:FailureSmokeState = $null
 $script:FailureSmokeResult = $null
 $script:FailureRetryTimer = $null
+$script:ViewportSmokeTimer = $null
+$script:ViewportSmokeResult = $null
+$script:ScrollPanel = $null
+$script:ContentCanvas = $null
 $script:ToolTargets = @(
   [pscustomobject]@{
     Id = 'manager'
@@ -435,7 +442,7 @@ function Add-ToolCard {
   $panel.Anchor = 'Top,Left,Right'
   $panel.BackColor = $Target.Color
   $panel.BorderStyle = 'FixedSingle'
-  $script:MainForm.Controls.Add($panel)
+  $script:ContentCanvas.Controls.Add($panel)
 
   $accent = New-Object System.Windows.Forms.Panel
   $accent.Location = New-Object System.Drawing.Point(0, 0)
@@ -506,24 +513,41 @@ function Add-ToolCard {
 $script:MainForm = New-Object System.Windows.Forms.Form
 $script:MainForm.Text = '案件附件工作台'
 $script:MainForm.StartPosition = 'CenterScreen'
-$script:MainForm.MinimumSize = New-Object System.Drawing.Size(1120, 890)
-$script:MainForm.Size = New-Object System.Drawing.Size(1120, 890)
+$workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$defaultHeight = [Math]::Min(890, [Math]::Max(640, $workingArea.Height - 40))
+$script:MainForm.MinimumSize = New-Object System.Drawing.Size(1120, 640)
+$script:MainForm.Size = New-Object System.Drawing.Size(1120, $defaultHeight)
 $script:MainForm.BackColor = [System.Drawing.Color]::FromArgb(248, 250, 252)
 $script:MainForm.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10)
+
+$script:ScrollPanel = New-Object System.Windows.Forms.Panel
+$script:ScrollPanel.Dock = 'Fill'
+$script:ScrollPanel.AutoScroll = $true
+$script:ScrollPanel.BackColor = $script:MainForm.BackColor
+$script:MainForm.Controls.Add($script:ScrollPanel)
+$script:MainForm.PerformLayout()
+$script:ScrollPanel.AutoScrollMinSize = New-Object System.Drawing.Size(1090, 800)
+$script:ScrollPanel.AutoScrollMargin = New-Object System.Drawing.Size(16, 16)
+
+$script:ContentCanvas = New-Object System.Windows.Forms.Panel
+$script:ContentCanvas.Location = New-Object System.Drawing.Point(0, 0)
+$script:ContentCanvas.Size = New-Object System.Drawing.Size(1090, 800)
+$script:ContentCanvas.BackColor = $script:MainForm.BackColor
+$script:ScrollPanel.Controls.Add($script:ContentCanvas)
 
 $header = New-Object System.Windows.Forms.Label
 $header.Text = '案件附件工作台'
 $header.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 21, [System.Drawing.FontStyle]::Bold)
 $header.Location = New-Object System.Drawing.Point(24, 18)
 $header.Size = New-Object System.Drawing.Size(1040, 45)
-$script:MainForm.Controls.Add($header)
+$script:ContentCanvas.Controls.Add($header)
 
 $subheader = New-Object System.Windows.Forms.Label
 $subheader.Text = '選擇或拖入一個資料夾後會自動提出唯讀建議；建議不會自動開啟工具、不改判狀態，也不代替正式核可。'
 $subheader.Location = New-Object System.Drawing.Point(26, 66)
 $subheader.Size = New-Object System.Drawing.Size(1040, 28)
 $subheader.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
-$script:MainForm.Controls.Add($subheader)
+$script:ContentCanvas.Controls.Add($subheader)
 
 $pathPanel = New-Object System.Windows.Forms.Panel
 $pathPanel.Location = New-Object System.Drawing.Point(22, 101)
@@ -532,7 +556,7 @@ $pathPanel.Anchor = 'Top,Left,Right'
 $pathPanel.BackColor = [System.Drawing.Color]::FromArgb(255, 255, 255)
 $pathPanel.BorderStyle = 'FixedSingle'
 $pathPanel.AllowDrop = $true
-$script:MainForm.Controls.Add($pathPanel)
+$script:ContentCanvas.Controls.Add($pathPanel)
 
 $pathLabel = New-Object System.Windows.Forms.Label
 $pathLabel.Text = '共用起始資料夾（可拖放）'
@@ -610,7 +634,7 @@ $guide.Location = New-Object System.Drawing.Point(22, 211)
 $guide.Size = New-Object System.Drawing.Size(1056, 48)
 $guide.Anchor = 'Top,Left,Right'
 $guide.BackColor = [System.Drawing.Color]::FromArgb(241, 245, 249)
-$script:MainForm.Controls.Add($guide)
+$script:ContentCanvas.Controls.Add($guide)
 
 $guideText = New-Object System.Windows.Forms.Label
 $guideText.Text = '選擇原則：新案組包 → 管理器　｜　只想查狀態 → 唯讀檢視器　｜　v1／v2 舊包 → 升級助手'
@@ -631,7 +655,7 @@ $notice.Location = New-Object System.Drawing.Point(26, 726)
 $notice.Size = New-Object System.Drawing.Size(1040, 34)
 $notice.ForeColor = [System.Drawing.Color]::FromArgb(127, 29, 29)
 $notice.Font = New-Object System.Drawing.Font('Microsoft JhengHei UI', 10, [System.Drawing.FontStyle]::Bold)
-$script:MainForm.Controls.Add($notice)
+$script:ContentCanvas.Controls.Add($notice)
 
 $availableCount = @($script:ToolTargets | Where-Object { (Get-TargetStatus $_).available }).Count
 $script:BottomStatus = New-Object System.Windows.Forms.StatusStrip
@@ -642,6 +666,7 @@ $statusLabel.TextAlign = 'MiddleLeft'
 [void]$script:BottomStatus.Items.Add($statusLabel)
 $script:BottomStatus.SizingGrip = $false
 $script:MainForm.Controls.Add($script:BottomStatus)
+$script:BottomStatus.BringToFront()
 $script:BottomStatus = $statusLabel
 
 $script:AdvisorTimer = New-Object System.Windows.Forms.Timer
@@ -708,6 +733,77 @@ $script:MainForm.Add_FormClosing({
 if ($dynamicSmokeModeCount -eq 1) {
   $script:MainForm.Opacity = 0
   $script:MainForm.ShowInTaskbar = $false
+}
+
+if ($SmokeViewport) {
+  $script:MainForm.Size = New-Object System.Drawing.Size(1120, 640)
+  Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class AttachmentHubNativeScroll {
+  public const int WM_VSCROLL = 0x115;
+  public const int SB_BOTTOM = 7;
+  [DllImport("user32.dll")]
+  public static extern IntPtr SendMessage(IntPtr hWnd, int message, IntPtr wParam, IntPtr lParam);
+}
+'@
+  $script:ViewportSmokeTimer = New-Object System.Windows.Forms.Timer
+  $script:ViewportSmokeTimer.Interval = 150
+  $script:ViewportSmokeTimer.Add_Tick({
+    $script:ViewportSmokeTimer.Stop()
+    try {
+      $initialFormHeight = $script:MainForm.Height
+      $script:MainForm.PerformLayout()
+      $script:ScrollPanel.PerformLayout()
+      $script:MainForm.Update()
+      $scrollVisible = [bool]$script:ScrollPanel.VerticalScroll.Visible
+      $scrollBefore = $script:ScrollPanel.VerticalScroll.Value
+      $scrollTarget = [Math]::Max(0, $script:ScrollPanel.VerticalScroll.Maximum - $script:ScrollPanel.VerticalScroll.LargeChange + 1)
+      [void][AttachmentHubNativeScroll]::SendMessage($script:ScrollPanel.Handle, [AttachmentHubNativeScroll]::WM_VSCROLL, [IntPtr][AttachmentHubNativeScroll]::SB_BOTTOM, [IntPtr]::Zero)
+      $script:MainForm.Update()
+      $scrollAfter = $script:ScrollPanel.VerticalScroll.Value
+      $clientRectangle = $script:ScrollPanel.RectangleToScreen($script:ScrollPanel.ClientRectangle)
+      $noticeRectangle = $notice.RectangleToScreen($notice.ClientRectangle)
+      $noticeReachable = $noticeRectangle.Top -ge $clientRectangle.Top -and $noticeRectangle.Bottom -le $clientRectangle.Bottom
+      $script:ViewportSmokeResult = [pscustomobject]@{
+        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormHeight -le $workingArea.Height -and $scrollVisible -and $scrollAfter -gt $scrollBefore -and $noticeReachable) { 'pass' } else { 'fail' }
+        winFormsMessageLoop = $true
+        autoScrollEnabled = [bool]$script:ScrollPanel.AutoScroll
+        minimumHeight = $script:MainForm.MinimumSize.Height
+        workingAreaHeight = $workingArea.Height
+        initialFormHeight = $initialFormHeight
+        smallClientHeight = $script:ScrollPanel.ClientSize.Height
+        autoScrollMinHeight = $script:ScrollPanel.AutoScrollMinSize.Height
+        displayRectangleHeight = $script:ScrollPanel.DisplayRectangle.Height
+        displayRectangleY = $script:ScrollPanel.DisplayRectangle.Y
+        verticalScrollVisible = $scrollVisible
+        scrollMaximum = $script:ScrollPanel.VerticalScroll.Maximum
+        scrollLargeChange = $script:ScrollPanel.VerticalScroll.LargeChange
+        scrollTarget = $scrollTarget
+        scrollBefore = $scrollBefore
+        scrollAfter = $scrollAfter
+        clientTop = $clientRectangle.Top
+        clientBottom = $clientRectangle.Bottom
+        noticeTop = $noticeRectangle.Top
+        noticeBottom = $noticeRectangle.Bottom
+        bottomNoticeReachable = $noticeReachable
+        windowStayedOpen = [bool]($script:MainForm.Visible -and -not $script:MainForm.IsDisposed)
+        changedState = $false
+        autoLaunched = $false
+      }
+    } catch {
+      $script:ViewportSmokeResult = [pscustomobject]@{
+        status = 'fail'
+        winFormsMessageLoop = $true
+        autoScrollEnabled = [bool]$script:ScrollPanel.AutoScroll
+        changedState = $false
+        autoLaunched = $false
+        message = $_.Exception.Message
+      }
+    } finally {
+      $script:MainForm.Close()
+    }
+  })
 }
 
 if ($SmokeTimeout) {
@@ -882,6 +978,10 @@ $script:StartupPathsHandled = $false
 $script:MainForm.Add_Shown({
   if ($script:StartupPathsHandled) { return }
   $script:StartupPathsHandled = $true
+  if ($SmokeViewport) {
+    $script:ViewportSmokeTimer.Start()
+    return
+  }
   if ($script:StartupPaths.Count -eq 0) { return }
   try {
     if ($script:StartupPaths.Count -ne 1) { throw '啟動時一次只能帶入一個資料夾。' }
@@ -964,6 +1064,20 @@ $script:MainForm.Add_Shown({
 })
 
 [void]$script:MainForm.ShowDialog()
+if ($SmokeViewport) {
+  if (-not $script:ViewportSmokeResult) {
+    $script:ViewportSmokeResult = [pscustomobject]@{
+      status = 'fail'
+      winFormsMessageLoop = $true
+      autoScrollEnabled = [bool]$script:ScrollPanel.AutoScroll
+      changedState = $false
+      autoLaunched = $false
+      message = '小視窗煙霧測試未產生結果。'
+    }
+  }
+  $script:ViewportSmokeResult | ConvertTo-Json -Depth 4 -Compress
+  if ($script:ViewportSmokeResult.status -ne 'pass') { exit 3 }
+}
 if ($SmokeCancellation) {
   if (-not $script:CancellationSmokeResult) {
     $script:CancellationSmokeResult = [pscustomobject]@{

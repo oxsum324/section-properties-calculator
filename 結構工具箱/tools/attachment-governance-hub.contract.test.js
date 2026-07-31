@@ -29,6 +29,7 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   'System.Windows.Forms.Timer', 'Start-PathAdvisor', 'Complete-PathAdvisor', 'Stop-PathAdvisor',
   '唯讀辨識進行中', '畫面可繼續操作', '停止辨識', 'Cancel-PathAdvisor',
   '已停止唯讀辨識', '重新辨識', '唯讀辨識超過 60 秒', 'Add_FormClosing',
+  'PrimaryScreen.WorkingArea', 'AutoScrollMinSize', 'WM_VSCROLL', 'AttachmentHubNativeScroll', 'SmokeViewport',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
@@ -174,6 +175,28 @@ assert.equal(smokePayload.available, 3);
 assert.equal(smokePayload.total, 3);
 assert.deepEqual(smokePayload.entries.map(entry => entry.id), ['manager', 'viewer', 'upgrade']);
 assert.ok(smokePayload.entries.every(entry => entry.available));
+
+const viewportSmoke = childProcess.spawnSync(
+  powershell,
+  ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', hubPath, '-SmokeViewport'],
+  { encoding: 'utf8', timeout: 15000 },
+);
+assert.equal(viewportSmoke.status, 0, viewportSmoke.stderr || viewportSmoke.stdout);
+const viewportPayload = JSON.parse(viewportSmoke.stdout.replace(/^\uFEFF/, '').trim());
+assert.equal(viewportPayload.status, 'pass');
+assert.equal(viewportPayload.winFormsMessageLoop, true);
+assert.equal(viewportPayload.autoScrollEnabled, true);
+assert.ok(viewportPayload.minimumHeight <= 640);
+assert.ok(viewportPayload.initialFormHeight <= viewportPayload.workingAreaHeight);
+assert.ok(viewportPayload.smallClientHeight <= 600);
+assert.ok(viewportPayload.autoScrollMinHeight >= 800);
+assert.equal(viewportPayload.verticalScrollVisible, true);
+assert.ok(viewportPayload.scrollAfter > viewportPayload.scrollBefore);
+assert.equal(viewportPayload.scrollAfter, viewportPayload.scrollTarget);
+assert.equal(viewportPayload.bottomNoticeReachable, true);
+assert.equal(viewportPayload.windowStayedOpen, true);
+assert.equal(viewportPayload.changedState, false);
+assert.equal(viewportPayload.autoLaunched, false);
 
 const cancellationSmoke = childProcess.spawnSync(
   powershell,
