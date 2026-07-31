@@ -9,6 +9,7 @@ const Portfolio = require('./attachment-case-governance-portfolio.js');
 const Checker = require('./attachment-package-check.js');
 
 const ADVISOR_KIND = 'attachment-governance-path-advice.v1';
+const REPORT_LIKE_TYPES = new Set(['pdf', 'docx', 'xlsx', 'html', 'htm']);
 
 function physicalDirectory(inputDir) {
   const resolved = path.resolve(String(inputDir || '').trim());
@@ -40,6 +41,17 @@ function recommendation(inputDir, tool, mode, title, reason, evidence = []) {
 function candidateCount(scan) {
   return ['packages', 'histories', 'chains']
     .reduce((total, key) => total + (scan?.candidates?.[key]?.length || 0), 0);
+}
+
+function hasAttachmentSourceSignal(record) {
+  const type = String(record?.type || '').trim().toLowerCase();
+  if (REPORT_LIKE_TYPES.has(type)) return true;
+  return Boolean(
+    String(record?.sourceTool || '').trim()
+    || String(record?.toolVersion || '').trim()
+    || String(record?.projectNo || '').trim()
+    || (Array.isArray(record?.fingerprints) && record.fingerprints.length > 0)
+  );
 }
 
 function advisePath(inputDir, dependencies = {}) {
@@ -103,14 +115,12 @@ function advisePath(inputDir, dependencies = {}) {
 
   try {
     const check = deps.Checker.checkPackage(resolved);
-    const fileCount = Number(check?.summary?.attachments || 0)
-      + Number(check?.summary?.unsupported || 0)
-      + Number(check?.summary?.unsafeSourceEntries || 0);
-    if (fileCount > 0) {
+    const sourceCandidates = (check?.attachments || []).filter(hasAttachmentSourceSignal);
+    if (sourceCandidates.length > 0) {
       return recommendation(
         resolved, 'manager', 'source', '建議使用：正式附件包管理器（新組包模式）',
-        '此路徑包含可供附件一致性檢查的計算書、來源資料或待人工確認檔案。',
-        [`可辨識附件：${check.summary.attachments}`, `來源檢查結果：${check.status}`],
+        '此路徑包含可供附件一致性檢查的計算書或具追溯欄位的來源資料。',
+        [`具附件來源訊號：${sourceCandidates.length}`, `來源檢查結果：${check.status}`],
       );
     }
   } catch (_) { /* unresolved paths remain manual */ }
@@ -187,6 +197,7 @@ module.exports = {
   ADVISOR_KIND,
   physicalDirectory,
   candidateCount,
+  hasAttachmentSourceSignal,
   advisePath,
   runAction,
   parseArgs,

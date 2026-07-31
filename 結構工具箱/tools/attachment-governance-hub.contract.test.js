@@ -24,6 +24,8 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '共用起始資料夾（可拖放）', '選擇並辨識…', '唯讀辨識建議', 'FolderBrowserDialog',
   'AllowDrop', 'DataFormats]::FileDrop', 'DragDropEffects]::Copy', 'DragDropEffects]::None',
   'Set-SharedPathAndRecommend', '一次只能拖入一個資料夾',
+  '[string]$InitialPath', 'ValueFromRemainingArguments', '[string[]]$AdditionalPath',
+  '$script:StartupPaths', '啟動時一次只能帶入一個資料夾', 'Add_Shown',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
@@ -43,6 +45,9 @@ assert.match(pathHandoff, /Test-Path[\s\S]*?PathType Container[\s\S]*?\$script:S
 assert.doesNotMatch(pathHandoff, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'automatic advice never opens or runs a child tool');
 assert.match(hubPs, /ShowDialog\(\) -eq \[System\.Windows\.Forms\.DialogResult\]::OK[\s\S]*?Set-SharedPathAndRecommend -SelectedPath \$dialog\.SelectedPath/, 'folder selection immediately requests read-only advice');
 assert.match(hubPs, /\$folderDragDrop = \{[\s\S]*?\$paths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'drop accepts exactly one folder and requests the same read-only advice');
+const startupHandoff = hubPs.match(/\$script:MainForm\.Add_Shown\(\{[\s\S]*?(?=\n\}\)\n\n\[void\]\$script:MainForm\.ShowDialog)/)?.[0] || '';
+assert.match(startupHandoff, /StartupPaths\.Count -ne 1[\s\S]*?Set-SharedPathAndRecommend -SelectedPath/, 'startup arguments accept exactly one path and request the same read-only advice');
+assert.doesNotMatch(startupHandoff, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'startup path advice never opens or runs a child tool');
 
 const workerSource = read('結構工具箱/tools/attachment-governance-hub-worker.js');
 assert.doesNotMatch(workerSource, /writeFile|mkdir|rename|rmSync|unlink|copyFile|appendFile/, 'advisor worker stays read-only');
@@ -93,10 +98,21 @@ const portfolioAdvice = Worker.advisePath(toolsDir, deps({
 assert.equal(portfolioAdvice.recommendedMode, 'portfolio');
 
 const sourceAdvice = Worker.advisePath(toolsDir, deps({
-  Checker: { checkPackage() { return { status: 'review', summary: { attachments: 2, unsupported: 0, unsafeSourceEntries: 0 } }; } },
+  Checker: { checkPackage() { return { status: 'review', summary: { attachments: 2, unsupported: 0, unsafeSourceEntries: 0 }, attachments: [{ type: 'pdf' }, { type: 'json', sourceTool: 'RC 梁', toolVersion: 'v3.1', fingerprints: ['CF-1234ABCD5678EF90'] }] }; } },
 }));
 assert.equal(sourceAdvice.recommendedTool, 'manager');
 assert.equal(sourceAdvice.recommendedMode, 'source');
+const genericJsonAdvice = Worker.advisePath(toolsDir, deps({
+  Checker: { checkPackage() { return { status: 'blocked', summary: { attachments: 3, unsupported: 0, unsafeSourceEntries: 0 }, attachments: [{ type: 'json' }, { type: 'json' }, { type: 'json' }] }; } },
+}));
+assert.equal(genericJsonAdvice.outcome, 'unknown', 'generic JSON folders are not mistaken for calculation sources');
+const unsupportedOnlyAdvice = Worker.advisePath(toolsDir, deps({
+  Checker: { checkPackage() { return { status: 'review', summary: { attachments: 0, unsupported: 2, unsafeSourceEntries: 0 }, attachments: [] }; } },
+}));
+assert.equal(unsupportedOnlyAdvice.outcome, 'unknown', 'unsupported files alone do not create a package-manager recommendation');
+assert.equal(Worker.hasAttachmentSourceSignal({ type: 'pdf' }), true);
+assert.equal(Worker.hasAttachmentSourceSignal({ type: 'json', sourceTool: 'RC 梁', toolVersion: 'v3.1' }), true);
+assert.equal(Worker.hasAttachmentSourceSignal({ type: 'json' }), false);
 assert.equal(Worker.advisePath(toolsDir, baseDeps).outcome, 'unknown');
 assert.equal(Worker.runAction('smoke').readOnly, true);
 assert.throws(() => Worker.runAction('execute', { input: toolsDir }), /不支援的工作台動作/);
@@ -142,6 +158,8 @@ assert.ok(smokePayload.entries.every(entry => entry.available));
 const launcher = read('結構工具箱/tools/啟動案件附件工作台.bat');
 assert.match(launcher, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-STA\s+-File/i);
 assert.match(launcher, /attachment-governance-hub\.ps1/);
+assert.match(launcher, /if\s+"%~1"==""/i, 'launcher keeps ordinary no-path startup');
+assert.match(launcher, /-InitialPath\s+%\*/i, 'launcher forwards dropped arguments for closed validation in the hub');
 
 const preflight = read('preflight-tools.ps1');
 assert.match(preflight, /attachment-governance-hub\.contract\.test\.js/);

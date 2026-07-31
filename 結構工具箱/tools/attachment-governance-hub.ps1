@@ -1,10 +1,16 @@
 ﻿[CmdletBinding()]
 param(
+  [string]$InitialPath = '',
+  [Parameter(ValueFromRemainingArguments = $true)]
+  [string[]]$AdditionalPath = @(),
   [switch]$Smoke
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$script:StartupPaths = @()
+if ($InitialPath) { $script:StartupPaths += $InitialPath }
+$script:StartupPaths += @($AdditionalPath)
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -373,7 +379,7 @@ $pathPanel.Controls.Add($script:BtnAdvise)
 $script:RecommendationText = New-Object System.Windows.Forms.Label
 $script:RecommendationText.Text = '選擇或拖入單一資料夾後會自動辨識；手動輸入路徑時可按右側按鈕。'
 $script:RecommendationText.Location = New-Object System.Drawing.Point(215, 56)
-$script:RecommendationText.Size = New-Object System.Drawing.Size(820, 30)
+$script:RecommendationText.Size = New-Object System.Drawing.Size(820, 42)
 $script:RecommendationText.Anchor = 'Top,Left,Right'
 $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
 $pathPanel.Controls.Add($script:RecommendationText)
@@ -438,5 +444,18 @@ $statusLabel.TextAlign = 'MiddleLeft'
 $script:BottomStatus.SizingGrip = $false
 $script:MainForm.Controls.Add($script:BottomStatus)
 $script:BottomStatus = $statusLabel
+
+$script:StartupPathsHandled = $false
+$script:MainForm.Add_Shown({
+  if ($script:StartupPathsHandled) { return }
+  $script:StartupPathsHandled = $true
+  if ($script:StartupPaths.Count -eq 0) { return }
+  try {
+    if ($script:StartupPaths.Count -ne 1) { throw '啟動時一次只能帶入一個資料夾。' }
+    Set-SharedPathAndRecommend -SelectedPath ([string]$script:StartupPaths[0])
+  } catch {
+    Show-LaunchError -ErrorRecord $_.Exception
+  }
+})
 
 [void]$script:MainForm.ShowDialog()
