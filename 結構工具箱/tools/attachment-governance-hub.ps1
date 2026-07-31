@@ -25,6 +25,7 @@ $script:AdvisorProcess = $null
 $script:AdvisorPath = ''
 $script:AdvisorStartedAt = $null
 $script:AdvisorTimer = $null
+$script:BtnAdvise = $null
 $script:ToolTargets = @(
   [pscustomobject]@{
     Id = 'manager'
@@ -105,12 +106,20 @@ function Get-NodePath {
   return $command.Source
 }
 
+function Set-AdvisorButtonIdle {
+  if ($script:BtnAdvise) {
+    $script:BtnAdvise.Text = '唯讀辨識建議'
+    $script:BtnAdvise.Enabled = $true
+  }
+}
+
 function Stop-PathAdvisor {
   if ($script:AdvisorTimer) { $script:AdvisorTimer.Stop() }
   $process = $script:AdvisorProcess
   $script:AdvisorProcess = $null
   $script:AdvisorPath = ''
   $script:AdvisorStartedAt = $null
+  Set-AdvisorButtonIdle
   if (-not $process) { return }
   try {
     if (-not $process.HasExited) {
@@ -146,6 +155,7 @@ function Start-PathAdvisor {
   $script:AdvisorProcess = $process
   $script:AdvisorPath = $inputPath
   $script:AdvisorStartedAt = Get-Date
+  $script:BtnAdvise.Text = '停止辨識'
   $script:AdvisorTimer.Start()
 }
 
@@ -184,11 +194,22 @@ function Complete-PathAdvisor {
   $script:AdvisorProcess = $null
   $script:AdvisorPath = ''
   $script:AdvisorStartedAt = $null
+  Set-AdvisorButtonIdle
   if ($script:SharedPath.Text.Trim() -ne $inputPath) { return }
   if (-not $stdout.Trim()) { throw "唯讀辨識沒有回傳結果。$stderr" }
   $response = $stdout.Trim() | ConvertFrom-Json
   if ($exitCode -eq 3 -or $response.outcome -eq 'error') { throw [string]$response.message }
   Set-RecommendationResult -Response $response -InputPath $inputPath
+}
+
+function Reset-ToolRecommendationButtons {
+  foreach ($target in $script:ToolTargets) {
+    $button = $script:ToolButtons[$target.Id]
+    if ($button) {
+      $button.Text = $target.Action
+      $button.UseVisualStyleBackColor = $true
+    }
+  }
 }
 
 function Reset-Recommendation {
@@ -199,19 +220,24 @@ function Reset-Recommendation {
     $script:RecommendationText.Text = '選擇或拖入單一資料夾後會自動辨識；手動輸入路徑時可按右側按鈕。'
     $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(71, 85, 105)
   }
-  foreach ($target in $script:ToolTargets) {
-    $button = $script:ToolButtons[$target.Id]
-    if ($button) {
-      $button.Text = $target.Action
-      $button.UseVisualStyleBackColor = $true
-    }
-  }
+  Reset-ToolRecommendationButtons
+}
+
+function Cancel-PathAdvisor {
+  if (-not $script:AdvisorProcess) { return }
+  Stop-PathAdvisor
+  $script:Advice = $null
+  $script:AdvicePath = ''
+  Reset-ToolRecommendationButtons
+  $script:RecommendationText.Text = '已停止唯讀辨識；可調整路徑後重新辨識，或依工作目的手動選擇。'
+  $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(161, 98, 7)
+  $script:BottomStatus.Text = '已停止唯讀辨識：未開啟工具、未改變案件狀態。'
 }
 
 function Show-Recommendation {
   Reset-Recommendation
   $inputPath = $script:SharedPath.Text.Trim()
-  $script:RecommendationText.Text = '正在執行唯讀辨識；畫面可繼續操作，變更路徑會取消本次辨識。'
+  $script:RecommendationText.Text = '正在執行唯讀辨識；畫面可繼續操作，可按「停止辨識」取消，變更路徑也會取消本次辨識。'
   $script:RecommendationText.ForeColor = [System.Drawing.Color]::FromArgb(29, 78, 216)
   $script:BottomStatus.Text = '唯讀辨識進行中：不開啟工具、不改變案件狀態。'
   Start-PathAdvisor -InputPath $inputPath
@@ -422,7 +448,13 @@ $script:BtnAdvise.Location = New-Object System.Drawing.Point(915, 12)
 $script:BtnAdvise.Size = New-Object System.Drawing.Size(120, 34)
 $script:BtnAdvise.Anchor = 'Top,Right'
 $script:BtnAdvise.Add_Click({
-  try { Show-Recommendation }
+  try {
+    if ($script:AdvisorProcess) {
+      Cancel-PathAdvisor
+      return
+    }
+    Show-Recommendation
+  }
   catch { Show-LaunchError -ErrorRecord $_.Exception }
 })
 $pathPanel.Controls.Add($script:BtnAdvise)

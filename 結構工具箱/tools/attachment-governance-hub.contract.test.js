@@ -27,7 +27,8 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '[string]$InitialPath', 'ValueFromRemainingArguments', '[string[]]$AdditionalPath',
   '$script:StartupPaths', '啟動時一次只能帶入一個資料夾', 'Add_Shown',
   'System.Windows.Forms.Timer', 'Start-PathAdvisor', 'Complete-PathAdvisor', 'Stop-PathAdvisor',
-  '唯讀辨識進行中', '畫面可繼續操作', '唯讀辨識超過 60 秒', 'Add_FormClosing',
+  '唯讀辨識進行中', '畫面可繼續操作', '停止辨識', 'Cancel-PathAdvisor',
+  '已停止唯讀辨識', '唯讀辨識超過 60 秒', 'Add_FormClosing',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
 ].forEach(needle => assert.ok(hubPs.includes(needle), `PowerShell hub includes ${needle}`));
@@ -53,6 +54,12 @@ assert.doesNotMatch(showRecommendation, /ReadToEnd|WaitForExit/, 'recommendation
 const advisorCompletion = hubPs.match(/function Complete-PathAdvisor \{[\s\S]*?(?=\nfunction Reset-Recommendation)/)?.[0] || '';
 assert.match(advisorCompletion, /HasExited[\s\S]*?SharedPath\.Text\.Trim\(\) -ne \$inputPath[\s\S]*?Set-RecommendationResult/, 'completed advice is applied only to the unchanged current path');
 assert.match(hubPs, /function Reset-Recommendation \{[\s\S]*?Stop-PathAdvisor/, 'changing the path cancels stale advice');
+const cancelAdvisor = hubPs.match(/function Cancel-PathAdvisor \{[\s\S]*?(?=\nfunction Show-Recommendation)/)?.[0] || '';
+assert.match(cancelAdvisor, /Stop-PathAdvisor[\s\S]*?\$script:Advice = \$null[\s\S]*?\$script:AdvicePath = ''[\s\S]*?已停止唯讀辨識/, 'explicit cancellation stops the process and clears stale advice');
+assert.doesNotMatch(cancelAdvisor, /Start-GovernedTool|ProcessStartInfo|-AutoInspect/, 'explicit cancellation cannot open or run a child tool');
+assert.match(hubPs, /\$script:BtnAdvise\.Text = '停止辨識'/, 'advisor button exposes an explicit stop action while work is running');
+assert.match(hubPs, /\$script:BtnAdvise\.Add_Click\([\s\S]*?\$script:AdvisorProcess[\s\S]*?Cancel-PathAdvisor[\s\S]*?Show-Recommendation/, 'the same button cancels an active advisor before it can start another run');
+assert.match(hubPs, /function Set-AdvisorButtonIdle \{[\s\S]*?唯讀辨識建議[\s\S]*?function Stop-PathAdvisor/, 'stop and completion paths can restore the idle advisor action');
 assert.match(hubPs, /AdvisorTimer\.Add_Tick\([\s\S]*?TotalSeconds -ge 60[\s\S]*?Complete-PathAdvisor/, 'timer polls advisor completion and enforces the bounded timeout');
 assert.match(hubPs, /Add_FormClosing\(\{ Stop-PathAdvisor \}\)/, 'closing the hub cleans up an in-flight advisor');
 const startupHandoff = hubPs.match(/\$script:MainForm\.Add_Shown\(\{[\s\S]*?(?=\n\}\)\n\n\[void\]\$script:MainForm\.ShowDialog)/)?.[0] || '';
@@ -191,6 +198,7 @@ for (const doc of ['README.md', 'TOOL_BOUNDARIES.md', 'STAGING_GROUPS.md']) {
   assert.ok(source.includes('啟動案件附件工作台.bat'), `${doc} documents hub launcher`);
   assert.ok(source.includes('60 秒'), `${doc} documents the bounded asynchronous advisor timeout`);
   assert.ok(source.includes('背景程序'), `${doc} documents advisor process cleanup`);
+  assert.ok(source.includes('停止辨識'), `${doc} documents explicit user cancellation`);
 }
 
 console.log('attachment governance hub contract tests passed');
