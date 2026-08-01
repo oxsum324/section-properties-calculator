@@ -1331,19 +1331,23 @@ async function verifySteelDirectPrintBlock(cdp, page) {
     const loadEvent = waitForEvent(cdp, 'Page.loadEventFired', sessionId, () => true, 45000);
     await cdp.send('Page.navigate', { url: `${baseUrl}${page.url}` }, sessionId);
     await loadEvent;
-    await wait(300);
-
-    const screenState = await evaluate(cdp, sessionId, `(() => {
-      const boundary = document.querySelector('.steel-formal-direct-print-boundary');
-      const stylesheet = document.querySelector('link[href$="direct-print-boundary.css"]');
-      return {
-        bodyClass: document.body?.classList.contains('steel-formal-output-page') || false,
-        boundaryExists: Boolean(boundary),
-        boundaryRects: boundary?.getClientRects().length || 0,
-        stylesheetExists: Boolean(stylesheet),
-        stylesheetLoaded: Boolean(stylesheet?.sheet),
-      };
-    })()`, `${page.key} screen direct-print state`);
+    const screenStateDeadline = Date.now() + 5000;
+    let screenState;
+    do {
+      screenState = await evaluate(cdp, sessionId, `(() => {
+        const boundary = document.querySelector('.steel-formal-direct-print-boundary');
+        const stylesheet = document.querySelector('link[href$="direct-print-boundary.css"]');
+        return {
+          bodyClass: document.body?.classList.contains('steel-formal-output-page') || false,
+          boundaryExists: Boolean(boundary),
+          boundaryRects: boundary?.getClientRects().length || 0,
+          stylesheetExists: Boolean(stylesheet),
+          stylesheetLoaded: Boolean(stylesheet?.sheet),
+        };
+      })()`, `${page.key} screen direct-print state`);
+      if (screenState.bodyClass && screenState.boundaryExists && screenState.boundaryRects === 0 && screenState.stylesheetExists && screenState.stylesheetLoaded) break;
+      await wait(100);
+    } while (Date.now() < screenStateDeadline);
     if (!screenState.bodyClass) throw new Error(`${page.key} missing steel-formal-output-page body class`);
     if (!screenState.boundaryExists) throw new Error(`${page.key} missing steel formal direct-print notice`);
     if (screenState.boundaryRects !== 0) throw new Error(`${page.key} direct-print notice must stay hidden on screen`);

@@ -1034,6 +1034,11 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
+  /screenStateDeadline = Date\.now\(\) \+ 5000[\s\S]*screenState\.boundaryRects === 0[\s\S]*await wait\(100\)[\s\S]*Date\.now\(\) < screenStateDeadline/s,
+  "steel browser runner should wait for the screen stylesheet to settle before judging direct-print visibility",
+);
+assert.match(
+  browserRunnerSource,
   /setupFormalBeamInvalid[\s\S]*beamInputStatus[\s\S]*setupFormalColumnInvalid[\s\S]*columnInputStatus/s,
   "steel-audit-browser-runner.js should define browser assertions for steel formal inline validation states",
 );
