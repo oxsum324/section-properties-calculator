@@ -1,4 +1,5 @@
 const assert = require('assert');
+const crypto = require('crypto');
 
 const DEFAULT_BASE_URL = 'https://oxsum324.github.io/section-properties-calculator/';
 const TRANSIENT_NETWORK_ERROR_CODES = new Set([
@@ -214,9 +215,74 @@ async function fetchJson(url) {
   return JSON.parse(text);
 }
 
+function compareOrdinal(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function validateManifestFileInventory(manifest) {
+  assert.equal(Array.isArray(manifest.files), true, 'Pages deployment manifest files array');
+  assert.equal(manifest.files.length, manifest.fileCount, 'Pages deployment manifest file inventory count');
+  const treeHash = crypto.createHash('sha256');
+  const seen = new Set();
+  let totalBytes = 0;
+  let previousPath = '';
+
+  manifest.files.forEach((file, index) => {
+    assert.deepEqual(Object.keys(file).sort(), ['bytes', 'path', 'sha256'], `Pages deployment manifest file ${index} closed schema`);
+    assert.equal(typeof file.path, 'string', `Pages deployment manifest file ${index} path`);
+    assert.ok(file.path && !file.path.includes('\\') && !file.path.startsWith('/'), `Pages deployment manifest file ${index} safe relative path`);
+    const segments = file.path.split('/');
+    assert.ok(segments.every(segment => segment && segment !== '.' && segment !== '..' && !segment.startsWith('.')), `Pages deployment manifest file ${index} safe path segments`);
+    assert.notEqual(file.path, 'pages-deployment.json', 'Pages deployment manifest excludes itself');
+    assert.equal(seen.has(file.path), false, `Pages deployment manifest file ${index} unique path`);
+    if (index > 0) assert.equal(compareOrdinal(previousPath, file.path), -1, `Pages deployment manifest file ${index} ordinal path order`);
+    assert.equal(Number.isInteger(file.bytes), true, `Pages deployment manifest file ${index} byte count integer`);
+    assert.ok(file.bytes >= 0, `Pages deployment manifest file ${index} byte count nonnegative`);
+    assert.match(file.sha256, /^[0-9a-f]{64}$/, `Pages deployment manifest file ${index} SHA-256`);
+    seen.add(file.path);
+    previousPath = file.path;
+    totalBytes += file.bytes;
+    treeHash.update(`${file.path}\0${file.bytes}\0${file.sha256}\n`, 'utf8');
+  });
+
+  assert.equal(totalBytes, manifest.totalBytes, 'Pages deployment manifest inventory byte total');
+  assert.equal(treeHash.digest('hex'), manifest.artifactDigest, 'Pages deployment manifest inventory tree digest');
+}
+
+function artifactFileUrl(base, relativePath, runId) {
+  const encodedPath = relativePath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+  const url = new URL(encodedPath, base);
+  url.searchParams.set('artifact_check', String(runId));
+  return url.toString();
+}
+
+function validatePublishedFileContent(file, content) {
+  assert.equal(content.byteLength, file.bytes, `${file.path} deployed byte count`);
+  assert.equal(crypto.createHash('sha256').update(content).digest('hex'), file.sha256, `${file.path} deployed SHA-256`);
+}
+
+async function assertPublishedArtifact(base, manifest) {
+  validateManifestFileInventory(manifest);
+  let cursor = 0;
+  const workerCount = Math.min(8, manifest.files.length);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (cursor < manifest.files.length) {
+      const index = cursor;
+      cursor += 1;
+      const file = manifest.files[index];
+      const url = artifactFileUrl(base, file.path, manifest.runId);
+      const response = await fetchResponse(url, { redirect: 'manual', cache: 'no-store' });
+      assert.equal(response.status, 200, `${url} expected HTTP 200, got ${response.status}`);
+      const content = Buffer.from(await response.arrayBuffer());
+      validatePublishedFileContent(file, content);
+    }
+  });
+  await Promise.all(workers);
+}
+
 async function assertDeploymentManifest(base) {
   const manifest = await fetchJson(liveUrl(base, 'pages-deployment.json'));
-  assert.equal(manifest.schemaVersion, 1, 'Pages deployment manifest schemaVersion');
+  assert.equal(manifest.schemaVersion, 2, 'Pages deployment manifest schemaVersion');
   assert.equal(manifest.kind, 'pages-deployment', 'Pages deployment manifest kind');
   assert.match(manifest.generatedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, 'Pages deployment manifest generatedAt');
   assert.match(manifest.commitSha, /^[0-9a-f]{40}$/i, 'Pages deployment manifest commitSha');
@@ -233,6 +299,7 @@ async function assertDeploymentManifest(base) {
   assert.ok(manifest.fileCount > 0, 'Pages deployment manifest contains published files');
   assert.equal(Number.isInteger(manifest.totalBytes), true, 'Pages deployment manifest totalBytes integer');
   assert.ok(manifest.totalBytes > 0, 'Pages deployment manifest totalBytes positive');
+  validateManifestFileInventory(manifest);
 
   const expectedCommitSha = (argValue('--expected-commit-sha') || process.env.PAGES_EXPECTED_COMMIT_SHA || '').toLowerCase();
   const expectedRunId = argValue('--expected-run-id') || process.env.PAGES_EXPECTED_RUN_ID || '';
@@ -376,6 +443,7 @@ async function runWithTransientRetry(task, options = {}) {
 async function main() {
   const base = baseUrl();
   const deploymentManifest = await assertDeploymentManifest(base);
+  await assertPublishedArtifact(base, deploymentManifest);
   const homeUrl = liveUrl(base, '結構工具箱/');
   const homeJsUrl = liveUrl(base, '結構工具箱/assets/home/home.js');
   const platformStatusUrl = liveUrl(base, '結構工具箱/assets/status/platform-status.json');
@@ -539,6 +607,9 @@ module.exports = {
   fetchResponse,
   environmentInteger,
   runWithTransientRetry,
+  validateManifestFileInventory,
+  validatePublishedFileContent,
+  assertPublishedArtifact,
   main,
   runCli,
 };

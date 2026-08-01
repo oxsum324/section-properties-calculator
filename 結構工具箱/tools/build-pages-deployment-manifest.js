@@ -47,17 +47,24 @@ function artifactIdentity(siteRoot) {
   const files = publishedFiles(siteRoot);
   const treeHash = crypto.createHash('sha256');
   let totalBytes = 0;
+  const inventory = [];
   for (const file of files) {
     const content = fs.readFileSync(file.absolutePath);
     const contentHash = crypto.createHash('sha256').update(content).digest('hex');
     totalBytes += content.byteLength;
     treeHash.update(`${file.relativePath}\0${content.byteLength}\0${contentHash}\n`, 'utf8');
+    inventory.push({
+      path: file.relativePath,
+      bytes: content.byteLength,
+      sha256: contentHash,
+    });
   }
   return {
     algorithm: 'sha256-tree-v1',
     digest: treeHash.digest('hex'),
     fileCount: files.length,
     totalBytes,
+    files: inventory,
   };
 }
 
@@ -80,7 +87,7 @@ function buildDeploymentManifest(options) {
 
   const identity = artifactIdentity(siteRoot);
   const manifest = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: 'pages-deployment',
     generatedAt: options.generatedAt || new Date().toISOString(),
     commitSha,
@@ -92,6 +99,7 @@ function buildDeploymentManifest(options) {
     artifactDigest: identity.digest,
     fileCount: identity.fileCount,
     totalBytes: identity.totalBytes,
+    files: identity.files,
   };
   fs.writeFileSync(path.join(siteRoot, MANIFEST_FILE), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
   return manifest;

@@ -81,6 +81,9 @@ assert.ok(toolBoundaries.includes('pages-release-governance.contract.test.js'), 
 assert.ok(toolBoundaries.includes('CONTEXT.md') && toolBoundaries.includes('docs/adr/'), 'tool boundaries keeps page-only docs out of Pages artifact');
 assert.ok(toolBoundaries.includes('output/') && toolBoundaries.includes('.claude') && toolBoundaries.includes('node_modules'), 'tool boundaries documents local artifact exclusions');
 assert.ok(toolBoundaries.includes('--allow-local-output') && toolBoundaries.includes('不得用在公開站 smoke'), 'tool boundaries limits local-output allowance');
+assert.ok(readme.includes('v2 manifest') && readme.includes('逐檔下載整個公開 artifact'), 'README documents complete deployed artifact verification');
+assert.ok(toolBoundaries.includes('封閉 v2 清冊') && toolBoundaries.includes('核對 HTTP 200、位元組數及 SHA-256'), 'tool boundaries documents closed file inventory verification');
+assert.ok(staging.includes('v2 `pages-deployment.json`') && staging.includes('最多 8 個並行請求逐檔下載整個公開 artifact'), 'staging guide keeps complete artifact verification in the release package');
 
 assert.ok(preflightTools.includes('pagesReleaseGovernanceContractCommand'), 'preflight defines A0 governance contract command');
 assert.ok(preflightTools.includes('node pages-release-governance.contract.test.js'), 'preflight runs A0 governance contract');
@@ -267,13 +270,30 @@ function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty =
     };
     const first = buildDeploymentManifest(options);
     const second = buildDeploymentManifest({ ...options, generatedAt: '2026-07-19T00:01:00.000Z' });
+    assert.equal(first.schemaVersion, 2, 'deployment manifest uses the closed file-inventory schema');
     assert.equal(first.fileCount, 2, 'deployment manifest excludes hidden files and itself from the published tree digest');
+    assert.deepEqual(first.files.map(file => file.path), ['assets/app.js', 'index.html'], 'deployment manifest publishes the complete ordinal file inventory');
+    assert.equal(first.files.reduce((sum, file) => sum + file.bytes, 0), first.totalBytes, 'deployment manifest file inventory reproduces total bytes');
+    PagesLiveSmoke.validateManifestFileInventory(first);
     assert.equal(first.artifactDigest, second.artifactDigest, 'deployment manifest tree digest is deterministic across regeneration');
     assert.equal(JSON.parse(fs.readFileSync(path.join(fixtureRoot, 'pages-deployment.json'), 'utf8')).commitSha, 'a'.repeat(40), 'deployment manifest is written to the staged root');
     assert.equal(first.sourceDirty, false, 'deployment manifest records clean or dirty source state explicitly');
     fs.writeFileSync(path.join(fixtureRoot, 'assets', 'app.js'), 'console.log("changed");', 'utf8');
     const changed = buildDeploymentManifest(options);
     assert.notEqual(first.artifactDigest, changed.artifactDigest, 'deployment manifest tree digest changes with published content');
+    const forged = JSON.parse(JSON.stringify(first));
+    forged.files[0].sha256 = '0'.repeat(64);
+    assert.throws(() => PagesLiveSmoke.validateManifestFileInventory(forged), /inventory tree digest/, 'deployment manifest rejects forged file hashes');
+    const unsafe = JSON.parse(JSON.stringify(first));
+    unsafe.files[0].path = '../outside.html';
+    assert.throws(() => PagesLiveSmoke.validateManifestFileInventory(unsafe), /safe path segments/, 'deployment manifest rejects unsafe inventory paths');
+    const appEntry = first.files.find(file => file.path === 'assets/app.js');
+    PagesLiveSmoke.validatePublishedFileContent(appEntry, Buffer.from('console.log("fixture");', 'utf8'));
+    assert.throws(
+      () => PagesLiveSmoke.validatePublishedFileContent(appEntry, Buffer.from('console.log("tampered");', 'utf8')),
+      /deployed (?:byte count|SHA-256)/,
+      'deployed artifact verification rejects changed public bytes',
+    );
   } finally {
     fs.rmSync(fixtureRoot, { recursive: true, force: true });
   }
@@ -335,6 +355,9 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-mani
 assert.ok(pagesSmoke.includes('結構工具箱/tools/verify-pages-release-lineage.js'), 'Pages smoke blocks release lineage verifier publication');
 assert.ok(pagesSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages smoke validates the public deployment manifest and expected commit');
 assert.ok(pagesSmoke.includes('deployed Pages runId matches the current workflow run') && pagesSmoke.includes('sha256-tree-v1'), 'Pages smoke validates workflow run and tree digest metadata');
+assert.ok(pagesSmoke.includes('validateManifestFileInventory') && pagesSmoke.includes('inventory tree digest'), 'Pages smoke recomputes the closed file inventory digest');
+assert.ok(pagesSmoke.includes('async function assertPublishedArtifact') && pagesSmoke.includes('deployed SHA-256'), 'Pages smoke fetches and hashes every deployed artifact file');
+assert.ok(pagesSmoke.includes('Math.min(8, manifest.files.length)') && pagesSmoke.includes("artifact_check"), 'Pages smoke bounds artifact verification concurrency and cache-busts each file');
 assert.ok(pagesSmoke.includes('deployed Pages manifest must come from a clean source checkout'), 'Pages smoke validates clean deployment provenance');
 assert.ok(pagesSmoke.includes('published formal preflight status reran platform audit'), 'Pages smoke rejects reused platform audit in public formal evidence');
 assert.ok(pagesSmoke.includes("manifest.fileCount > 0") && !pagesSmoke.includes('manifest.fileCount >= 300'), 'Pages smoke does not confuse a dirty local file count with the canonical clean artifact');
@@ -343,6 +366,7 @@ assert.ok(toolBoundaries.includes('sourceDirty: false') && toolBoundaries.includ
 assert.ok(staging.includes('git status --porcelain --untracked-files=all') && staging.includes('sourceDirty: false'), 'staging guide documents the clean checkout requirement');
 assert.ok(deploymentManifestBuilder.includes("algorithm: 'sha256-tree-v1'") && deploymentManifestBuilder.includes("entry.name.startsWith('.')"), 'deployment manifest builder hashes the published non-hidden tree');
 assert.ok(deploymentManifestBuilder.includes("relativePath === MANIFEST_FILE") && deploymentManifestBuilder.includes("files.sort"), 'deployment manifest builder excludes itself and uses stable path ordering');
+assert.ok(deploymentManifestBuilder.includes('schemaVersion: 2') && deploymentManifestBuilder.includes('files: identity.files'), 'deployment manifest publishes the complete closed file inventory');
 
 assert.ok(pagesBrowserSmoke.includes("{ key: 'desktop', width: 1280, height: 800 }") && pagesBrowserSmoke.includes("{ key: 'mobile', width: 390, height: 844 }"), 'Pages browser smoke covers desktop and mobile viewports');
 assert.ok(pagesBrowserSmoke.includes("sessionStorage.getItem(storageKey)") && pagesBrowserSmoke.includes("sessionStorage.setItem(storageKey, candidateBase)"), 'Pages browser smoke preserves the deployment base across bounded retries');
