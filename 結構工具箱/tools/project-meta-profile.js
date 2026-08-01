@@ -11,7 +11,7 @@
   'use strict';
 
   const SCHEMA = 'tool-project-meta-profile.v1';
-  const PROFILE_VERSION = '1.6';
+  const PROFILE_VERSION = '1.7';
   const STORAGE_KEY = 'toolProjectMetaProfile:latest.v1';
   const LIBRARY_SCHEMA = 'tool-project-meta-profile-library.v1';
   const LIBRARY_VERSION = '1.0';
@@ -334,6 +334,119 @@
     const library = writeLibrary(buildLibrary(candidates, record.id), storage);
     restoreProfile(record.id, storage);
     return { library, profile: selectedProfile(library), id: record.id, replaced, evictedCount };
+  }
+
+  function identityUpdatePageSignature(selectedId, payload) {
+    const profile = payload?.schema === SCHEMA ? normalizeProfile(payload) : buildProfile(payload);
+    return JSON.stringify({
+      selectedId: normalizeText(selectedId),
+      project: profile.project,
+    });
+  }
+
+  function normalizeIdentityMergeChoice(choice, hasCollision) {
+    const normalized = normalizeText(choice) || 'target';
+    if (!hasCollision) return 'current';
+    if (normalized !== 'target' && normalized !== 'current') throw new Error('案件合併選擇無效。');
+    return normalized;
+  }
+
+  function prepareIdentityUpdate(selectedId, payload, storage, mergeChoice, expectedCurrentSignature) {
+    const current = loadLibrary(storage);
+    const currentSignature = librarySignature(current);
+    if (expectedCurrentSignature && expectedCurrentSignature !== currentSignature) {
+      throw new Error('案件表頭清單已變更，請重新預覽識別更新。');
+    }
+    const sourceId = normalizeText(selectedId || current.selectedId);
+    const source = current.profiles.find(record => record.id === sourceId);
+    if (!source) throw new Error('找不到要更新識別的案件表頭。');
+    const profile = payload?.schema === SCHEMA ? normalizeProfile(payload) : buildProfile(payload);
+    if (!hasProjectValues(profile)) throw new Error('目前三個表頭欄位皆為空白，不能更新案件識別。');
+    const proposed = profileRecord(profile);
+    const differences = compareProfileProjects(source, proposed);
+    if (proposed.id === sourceId) {
+      return {
+        status: 'no-change',
+        reason: differences.length ? 'identity-unchanged' : 'profile-identical',
+        mode: 'same-identity',
+        currentSignature,
+        pageSignature: identityUpdatePageSignature(sourceId, profile),
+        sourceId,
+        targetId: proposed.id,
+        source,
+        target: source,
+        proposed,
+        differences,
+        targetDifferences: differences,
+        mergeChoice: 'current',
+        library: current,
+      };
+    }
+    const target = current.profiles.find(record => record.id === proposed.id) || null;
+    const hasCollision = !!target;
+    const normalizedChoice = normalizeIdentityMergeChoice(mergeChoice, hasCollision);
+    const chosen = hasCollision && normalizedChoice === 'target' ? target : proposed;
+    const profiles = [];
+    current.profiles.forEach(record => {
+      if (record.id === sourceId) profiles.push(chosen);
+      else if (record.id !== proposed.id) profiles.push(record);
+    });
+    return {
+      status: 'ready',
+      reason: '',
+      mode: hasCollision ? 'merge' : 'rename',
+      currentSignature,
+      pageSignature: identityUpdatePageSignature(sourceId, profile),
+      sourceId,
+      targetId: proposed.id,
+      source,
+      target,
+      proposed,
+      differences,
+      targetDifferences: target ? compareProfileProjects(target, proposed) : [],
+      mergeChoice: normalizedChoice,
+      library: buildLibrary(profiles, proposed.id),
+    };
+  }
+
+  function laterTimestamp(left, right) {
+    const leftValue = validIsoTimestamp(left);
+    const rightValue = validIsoTimestamp(right);
+    if (!leftValue) return rightValue;
+    if (!rightValue) return leftValue;
+    return Date.parse(leftValue) >= Date.parse(rightValue) ? leftValue : rightValue;
+  }
+
+  function commitIdentityUpdate(preview, storage) {
+    if (!preview || preview.status !== 'ready' || !preview.library) throw new Error('案件識別更新預覽尚未可執行。');
+    const current = loadLibrary(storage);
+    if (librarySignature(current) !== preview.currentSignature) {
+      throw new Error('案件表頭清單已變更，請重新預覽識別更新。');
+    }
+    const target = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (!target) throw new Error('瀏覽器儲存空間不可用。');
+    const currentView = loadViewState(target, current);
+    const sourceArchived = isProfileArchived(currentView, preview.sourceId);
+    const targetArchived = isProfileArchived(currentView, preview.targetId);
+    const archived = new Set(currentView.archivedIds);
+    archived.delete(preview.sourceId);
+    archived.delete(preview.targetId);
+    if (preview.mode === 'rename' ? sourceArchived : (sourceArchived && targetArchived)) archived.add(preview.targetId);
+    const lastUsedAt = { ...currentView.lastUsedAt };
+    const mergedLastUsedAt = laterTimestamp(lastUsedAt[preview.sourceId], lastUsedAt[preview.targetId]);
+    delete lastUsedAt[preview.sourceId];
+    delete lastUsedAt[preview.targetId];
+    if (mergedLastUsedAt) lastUsedAt[preview.targetId] = mergedLastUsedAt;
+    const library = writeLibrary(preview.library, target);
+    const view = writeViewState({ archivedIds: [...archived], lastUsedAt }, target, library);
+    return {
+      library,
+      view,
+      profile: selectedProfile(library),
+      id: preview.targetId,
+      mode: preview.mode,
+      mergeChoice: preview.mergeChoice,
+    };
   }
 
   function selectFromLibrary(id, storage) {
@@ -683,6 +796,17 @@
     button.removeAttribute('data-project-meta-delete-confirming');
   }
 
+  function resetIdentityConfirmation(button, state, panel) {
+    state.preview = null;
+    state.pageSignature = '';
+    button.textContent = '更新所選識別';
+    button.removeAttribute('data-project-meta-identity-confirming');
+    if (panel) {
+      panel.hidden = true;
+      panel.textContent = '';
+    }
+  }
+
   function conflictLabels(conflicts) {
     return conflicts.map(item => item.label).join('、');
   }
@@ -736,6 +860,48 @@
       row.appendChild(choices);
       panel.appendChild(row);
     });
+  }
+
+  function renderIdentityUpdatePreview(doc, panel, preview, onChoice) {
+    panel.textContent = '';
+    panel.hidden = false;
+    const heading = doc.createElement('strong');
+    heading.textContent = preview.mode === 'merge' ? '案件識別衝突：請選擇合併內容' : '案件識別更新預覽';
+    panel.appendChild(heading);
+    const identity = doc.createElement('div');
+    identity.textContent = `原案件：${profileOptionLabel(preview.source)} → 新識別：${profileOptionLabel(preview.proposed)}`;
+    panel.appendChild(identity);
+    if (preview.differences.length) {
+      const changes = doc.createElement('div');
+      changes.textContent = preview.differences
+        .map(item => `${item.label}「${item.localValue || '空白'}」→「${item.backupValue || '空白'}」`)
+        .join('；');
+      panel.appendChild(changes);
+    }
+    if (preview.mode !== 'merge') return;
+    const collision = doc.createElement('div');
+    collision.textContent = `新識別已屬於另一案件：${profileOptionLabel(preview.target)}。確認後兩筆將合併為一筆。`;
+    panel.appendChild(collision);
+    const choices = doc.createElement('div');
+    choices.className = 'project-meta-identity-choices';
+    [
+      { value: 'target', label: '保留既有目標案件（預設）' },
+      { value: 'current', label: '採用目前頁面表頭' },
+    ].forEach(item => {
+      const label = doc.createElement('label');
+      const input = doc.createElement('input');
+      input.type = 'radio';
+      input.name = 'project-meta-identity-choice';
+      input.value = item.value;
+      input.checked = preview.mergeChoice === item.value;
+      input.addEventListener('change', function () {
+        if (input.checked) onChoice(item.value);
+      });
+      label.appendChild(input);
+      label.appendChild(doc.createTextNode(item.label));
+      choices.appendChild(label);
+    });
+    panel.appendChild(choices);
   }
 
   function safeToolId(text) {
@@ -847,6 +1013,7 @@
       '<input type="search" data-project-meta-search aria-label="搜尋案件表頭" placeholder="搜尋案名、編號或設計者">',
       '<select data-project-meta-select aria-label="選擇已儲存的案件表頭"></select>',
       '<button type="button" data-project-meta-save>儲存目前表頭</button>',
+      '<button type="button" data-project-meta-identity-update>更新所選識別</button>',
       '<button type="button" data-project-meta-apply>套用共用表頭</button>',
       '<button type="button" data-project-meta-archive>封存所選</button>',
       '<label class="project-meta-profile-toggle"><input type="checkbox" data-project-meta-show-archived>顯示封存</label>',
@@ -855,6 +1022,7 @@
       '<button type="button" data-project-meta-import>匯入清單</button>',
       '<input type="file" accept="application/json,.json" data-project-meta-import-file hidden>',
       '<div class="project-meta-import-conflicts" data-project-meta-import-conflicts hidden></div>',
+      '<div class="project-meta-identity-preview" data-project-meta-identity-preview hidden></div>',
       '<span class="project-meta-profile-detail" data-project-meta-detail></span>',
       '<span class="project-meta-profile-status" data-project-meta-status aria-live="polite"></span>',
     ].join('');
@@ -871,12 +1039,17 @@
       '.' + CONTROL_CLASS + ' button{cursor:pointer}',
       '.' + CONTROL_CLASS + ' button:hover{filter:brightness(.96)}',
       '.' + CONTROL_CLASS + ' button[data-project-meta-delete-confirming]{background:#fee2e2;color:#991b1b}',
+      '.' + CONTROL_CLASS + ' button[data-project-meta-identity-confirming]{background:#fef3c7;color:#92400e}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-detail{flex:1 1 280px;color:#475569}',
       '.' + CONTROL_CLASS + ' .project-meta-import-conflicts{flex:1 1 100%;display:grid;gap:7px;padding:8px;background:#fff;border:1px solid #f59e0b;border-radius:7px;color:#78350f}',
       '.' + CONTROL_CLASS + ' .project-meta-import-conflicts[hidden]{display:none}',
       '.' + CONTROL_CLASS + ' .project-meta-import-conflict{display:grid;gap:4px;padding-top:6px;border-top:1px solid #fde68a;overflow-wrap:anywhere}',
       '.' + CONTROL_CLASS + ' .project-meta-import-choices{display:flex;flex-wrap:wrap;gap:12px}',
       '.' + CONTROL_CLASS + ' .project-meta-import-choices label{display:inline-flex;align-items:center;gap:4px;font-weight:700}',
+      '.' + CONTROL_CLASS + ' .project-meta-identity-preview{flex:1 1 100%;display:grid;gap:7px;padding:8px;background:#fff;border:1px solid #f59e0b;border-radius:7px;color:#78350f;overflow-wrap:anywhere}',
+      '.' + CONTROL_CLASS + ' .project-meta-identity-preview[hidden]{display:none}',
+      '.' + CONTROL_CLASS + ' .project-meta-identity-choices{display:flex;flex-wrap:wrap;gap:12px}',
+      '.' + CONTROL_CLASS + ' .project-meta-identity-choices label{display:inline-flex;align-items:center;gap:4px;font-weight:700}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status{flex:1 1 280px;font-weight:700}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status[data-tone="warn"]{color:#92400e}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status[data-tone="error"]{color:#991b1b}',
@@ -885,6 +1058,7 @@
     if (!doc.getElementById(style.id)) doc.head.appendChild(style);
 
     const applyButton = bar.querySelector('[data-project-meta-apply]');
+    const identityButton = bar.querySelector('[data-project-meta-identity-update]');
     const profileSelect = bar.querySelector('[data-project-meta-select]');
     const searchInput = bar.querySelector('[data-project-meta-search]');
     const archiveButton = bar.querySelector('[data-project-meta-archive]');
@@ -894,9 +1068,11 @@
     const importButton = bar.querySelector('[data-project-meta-import]');
     const importInput = bar.querySelector('[data-project-meta-import-file]');
     const importConflictPanel = bar.querySelector('[data-project-meta-import-conflicts]');
+    const identityPreviewPanel = bar.querySelector('[data-project-meta-identity-preview]');
     const confirmation = { signature: '' };
     const importConfirmation = { preview: null, backup: null, resolutions: {}, baseSignature: '' };
     const deleteConfirmation = { signature: '' };
+    const identityConfirmation = { preview: null, pageSignature: '' };
     const refreshControls = function (preferredId) {
       const result = refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage, {
         query: searchInput.value,
@@ -908,6 +1084,7 @@
       exportButton.disabled = !result.library.profiles.length;
       removeButton.disabled = !hasSelection;
       archiveButton.disabled = !hasSelection;
+      identityButton.disabled = !hasSelection;
       archiveButton.textContent = selectedArchived ? '解除封存' : '封存所選';
       applyButton.disabled = !hasSelection || selectedArchived;
       setProfileDetail(bar, profileById(result.library, result.selectedId), selectedArchived);
@@ -915,6 +1092,37 @@
     };
     const resetImport = function () {
       resetImportConfirmation(importButton, importConfirmation, importConflictPanel);
+    };
+    const resetIdentity = function () {
+      resetIdentityConfirmation(identityButton, identityConfirmation, identityPreviewPanel);
+    };
+    const updateIdentityPreview = function (preview) {
+      identityConfirmation.preview = preview;
+      identityConfirmation.pageSignature = preview.pageSignature;
+      identityButton.textContent = preview.mode === 'merge' ? '確認合併案件' : '確認更新識別';
+      identityButton.setAttribute('data-project-meta-identity-confirming', 'true');
+      renderIdentityUpdatePreview(doc, identityPreviewPanel, preview, function (choice) {
+        try {
+          const updated = prepareIdentityUpdate(
+            preview.sourceId,
+            collectFromDocument(doc, meta),
+            rootWindow.localStorage,
+            choice,
+            preview.currentSignature
+          );
+          updateIdentityPreview(updated);
+          setStatus(
+            bar,
+            choice === 'target'
+              ? '合併選擇：保留既有目標案件；目前清單與頁面尚未變更。'
+              : '合併選擇：採用目前頁面表頭；目前清單與頁面尚未變更。',
+            'warn'
+          );
+        } catch (error) {
+          resetIdentity();
+          setStatus(bar, `案件識別預覽無法更新：${String(error?.message || error)}`, 'error');
+        }
+      });
     };
     const updateImportPreview = function (preview) {
       importConfirmation.preview = preview;
@@ -944,11 +1152,68 @@
       });
     };
 
+    identityButton.addEventListener('click', function () {
+      try {
+        resetApplyConfirmation(applyButton, confirmation);
+        resetImport();
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
+        const selectedId = profileSelect.value;
+        const pageProfile = collectFromDocument(doc, meta);
+        const pageSignature = identityUpdatePageSignature(selectedId, pageProfile);
+        const pending = identityConfirmation.preview;
+        if (pending && identityConfirmation.pageSignature === pageSignature) {
+          const verified = prepareIdentityUpdate(
+            selectedId,
+            pageProfile,
+            rootWindow.localStorage,
+            pending.mergeChoice,
+            pending.currentSignature
+          );
+          const result = commitIdentityUpdate(verified, rootWindow.localStorage);
+          resetIdentity();
+          searchInput.value = '';
+          refreshControls(result.id);
+          setStatus(
+            bar,
+            result.mode === 'merge'
+              ? `已合併為單一案件並更新識別；清單共 ${result.library.profiles.length} 筆，目前頁面資料未變更。`
+              : `已更新所選案件識別；清單共 ${result.library.profiles.length} 筆，目前頁面資料未變更。`,
+            'ok'
+          );
+          return;
+        }
+        const preview = prepareIdentityUpdate(selectedId, pageProfile, rootWindow.localStorage);
+        if (preview.status === 'no-change') {
+          resetIdentity();
+          setStatus(
+            bar,
+            preview.reason === 'identity-unchanged'
+              ? '目前頁面與所選案件的識別相同；若只要更新案名或設計者，請使用「儲存目前表頭」。'
+              : '目前頁面表頭與所選案件相同，無須更新識別。',
+            'warn'
+          );
+          return;
+        }
+        updateIdentityPreview(preview);
+        setStatus(
+          bar,
+          preview.mode === 'merge'
+            ? '新識別已存在；請比較兩案並選擇保留內容，再按一次「確認合併案件」。目前清單與頁面尚未變更。'
+            : '請確認原案件與新識別，再按一次「確認更新識別」。目前清單與頁面尚未變更。',
+          'warn'
+        );
+      } catch (error) {
+        resetIdentity();
+        setStatus(bar, `案件識別無法更新：${String(error?.message || error)}`, 'error');
+      }
+    });
+
     bar.querySelector('[data-project-meta-save]').addEventListener('click', function () {
       try {
         resetApplyConfirmation(applyButton, confirmation);
         resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
+        resetIdentity();
         const result = saveToLibrary(collectFromDocument(doc, meta), rootWindow.localStorage);
         searchInput.value = '';
         refreshControls(result.id);
@@ -964,6 +1229,7 @@
         resetApplyConfirmation(applyButton, confirmation);
         resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
+        resetIdentity();
         const library = loadLibrary(rootWindow.localStorage);
         const view = loadViewState(rootWindow.localStorage, library);
         if (isProfileArchived(view, profileSelect.value)) {
@@ -983,6 +1249,7 @@
       try {
         resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
+        resetIdentity();
         const library = loadLibrary(rootWindow.localStorage);
         const view = loadViewState(rootWindow.localStorage, library);
         const selectedId = profileSelect.value;
@@ -1034,6 +1301,7 @@
         resetApplyConfirmation(applyButton, confirmation);
         resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
+        resetIdentity();
         const selectedId = profileSelect.value;
         const library = loadLibrary(rootWindow.localStorage);
         const view = loadViewState(rootWindow.localStorage, library);
@@ -1061,6 +1329,7 @@
       resetApplyConfirmation(applyButton, confirmation);
       resetImport();
       resetDeleteConfirmation(removeButton, deleteConfirmation);
+      resetIdentity();
       const result = refreshControls();
       setStatus(
         bar,
@@ -1074,6 +1343,7 @@
       resetApplyConfirmation(applyButton, confirmation);
       resetImport();
       resetDeleteConfirmation(removeButton, deleteConfirmation);
+      resetIdentity();
       const result = refreshControls();
       setStatus(
         bar,
@@ -1087,6 +1357,7 @@
       try {
         resetApplyConfirmation(applyButton, confirmation);
         resetImport();
+        resetIdentity();
         const selectedId = profileSelect.value;
         const library = loadLibrary(rootWindow.localStorage);
         const signature = deleteConfirmationSignature(selectedId, library);
@@ -1116,6 +1387,7 @@
       try {
         resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
+        resetIdentity();
         const library = loadLibrary(rootWindow.localStorage);
         const result = downloadLibraryBackup(rootWindow, library);
         setStatus(bar, `已匯出 ${result.backup.profileCount} 筆案件表頭：${result.fileName}。檔案不含工程輸入或核可狀態。`, 'ok');
@@ -1125,6 +1397,7 @@
     });
     importButton.addEventListener('click', function () {
       resetDeleteConfirmation(removeButton, deleteConfirmation);
+      resetIdentity();
       if (!importConfirmation.preview) {
         importInput.value = '';
         importInput.click();
@@ -1155,6 +1428,7 @@
       resetApplyConfirmation(applyButton, confirmation);
       resetImport();
       resetDeleteConfirmation(removeButton, deleteConfirmation);
+      resetIdentity();
       const file = importInput.files?.[0];
       if (!file) return;
       try {
@@ -1257,6 +1531,9 @@
     profileSearchText,
     listLibraryProfiles,
     saveToLibrary,
+    identityUpdatePageSignature,
+    prepareIdentityUpdate,
+    commitIdentityUpdate,
     selectFromLibrary,
     removeFromLibrary,
     clearLibrary,

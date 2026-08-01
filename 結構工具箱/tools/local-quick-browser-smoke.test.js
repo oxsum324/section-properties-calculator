@@ -1738,6 +1738,80 @@ function projectMetaProfileSaveExpression() {
     await settle(30);
     const stored = JSON.parse(localStorage.getItem('toolProjectMetaProfile:latest.v1') || 'null');
     const library = JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null');
+    const baselineView = JSON.parse(localStorage.getItem('toolProjectMetaProfile:view.v1') || 'null');
+    const baselineOptions = Array.from(select.options).map(option => ({ value: option.value, text: option.textContent || '' }));
+    const baselineSelectedValue = select.value;
+    const baselinePage = {
+      name: document.getElementById('projName')?.value || '',
+      no: document.getElementById('projNo')?.value || '',
+      designer: document.getElementById('projDesigner')?.value || ''
+    };
+    const baselineStatus = document.querySelector('[data-project-meta-status]')?.textContent || '';
+    const baselineDetail = document.querySelector('[data-project-meta-detail]')?.textContent || '';
+    const identityButton = document.querySelector('[data-project-meta-identity-update]');
+    const identityPanel = document.querySelector('[data-project-meta-identity-preview]');
+    setValues({ projName: '跨工具共用案', projNo: 'SHARED-RENAMED-001', projDesigner: '共用設計者' });
+    identityButton?.click();
+    await settle(30);
+    const renamePreview = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      buttonText: identityButton?.textContent || '',
+      confirming: identityButton?.getAttribute('data-project-meta-identity-confirming') || '',
+      panelHidden: identityPanel?.hidden,
+      panelText: identityPanel?.textContent || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    identityButton?.click();
+    await settle(30);
+    const renamedId = window.ToolProjectMetaProfile.profileId(
+      window.ToolProjectMetaProfile.buildProfile({ projNo: 'SHARED-RENAMED-001' })
+    );
+    const renameCommitted = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      selectedValue: select.value,
+      panelHidden: identityPanel?.hidden,
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    setValues({ projName: '合併採用頁面', projNo: 'SHARED-ALT-002', projDesigner: '合併頁面設計者' });
+    identityButton?.click();
+    await settle(30);
+    const currentChoice = identityPanel?.querySelector('input[value="current"]');
+    const mergePreview = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      buttonText: identityButton?.textContent || '',
+      panelHidden: identityPanel?.hidden,
+      panelText: identityPanel?.textContent || '',
+      defaultChoice: identityPanel?.querySelector('input:checked')?.value || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    currentChoice.checked = true;
+    currentChoice.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(30);
+    const mergeChoice = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      selectedChoice: identityPanel?.querySelector('input:checked')?.value || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    identityButton?.click();
+    await settle(30);
+    const mergeCommitted = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      selectedValue: select.value,
+      panelHidden: identityPanel?.hidden,
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      page: {
+        name: document.getElementById('projName')?.value || '',
+        no: document.getElementById('projNo')?.value || '',
+        designer: document.getElementById('projDesigner')?.value || ''
+      }
+    };
+    localStorage.setItem('toolProjectMetaProfile:library.v1', JSON.stringify(library));
+    localStorage.setItem('toolProjectMetaProfile:latest.v1', JSON.stringify(stored));
+    localStorage.setItem('toolProjectMetaProfile:view.v1', JSON.stringify(baselineView));
     return {
       hasBar: !!document.querySelector('.project-meta-profile-bar'),
       stored,
@@ -1759,15 +1833,16 @@ function projectMetaProfileSaveExpression() {
       archived,
       archivedSelected,
       restored,
-      options: Array.from(select.options).map(option => ({ value: option.value, text: option.textContent || '' })),
-      selectedValue: select.value,
-      pageAfterSelection: {
-        name: document.getElementById('projName')?.value || '',
-        no: document.getElementById('projNo')?.value || '',
-        designer: document.getElementById('projDesigner')?.value || ''
-      },
-      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
-      detail: document.querySelector('[data-project-meta-detail]')?.textContent || '',
+      renamePreview,
+      renameCommitted: { ...renameCommitted, renamedId },
+      mergePreview,
+      mergeChoice,
+      mergeCommitted,
+      options: baselineOptions,
+      selectedValue: baselineSelectedValue,
+      pageAfterSelection: baselinePage,
+      status: baselineStatus,
+      detail: baselineDetail,
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
     };
   })()`;
@@ -2681,6 +2756,40 @@ async function main() {
         assert.ok(sharedSave.state.status.includes('尚未套用'), 'desktop project selection clearly remains non-mutating');
         assert.ok(sharedSave.state.detail.includes('儲存：'), 'desktop selected project shows its saved time');
         assert.ok(sharedSave.state.detail.includes('來源：'), 'desktop selected project shows its source tool');
+        assert.equal(sharedSave.state.renamePreview.library?.profiles?.length, 2, 'desktop identity rename preview preserves the stored project count');
+        assert.ok(sharedSave.state.renamePreview.library?.profiles?.some(item => item.project?.no === 'SHARED-001'), 'desktop identity rename preview leaves the old identity stored');
+        assert.equal(sharedSave.state.renamePreview.buttonText, '確認更新識別', 'desktop identity rename requires a distinct confirmation click');
+        assert.equal(sharedSave.state.renamePreview.confirming, 'true', 'desktop identity rename exposes confirmation state');
+        assert.equal(sharedSave.state.renamePreview.panelHidden, false, 'desktop identity rename renders the comparison panel');
+        assert.ok(sharedSave.state.renamePreview.panelText.includes('SHARED-001'), 'desktop identity rename preview names the old project');
+        assert.ok(sharedSave.state.renamePreview.panelText.includes('SHARED-RENAMED-001'), 'desktop identity rename preview names the new identity');
+        assert.ok(sharedSave.state.renamePreview.status.includes('目前清單與頁面尚未變更'), 'desktop identity rename preview states its non-mutating boundary');
+        assert.equal(sharedSave.state.renamePreview.pageNo, 'SHARED-RENAMED-001', 'desktop identity rename preview does not alter current page fields');
+        assert.equal(sharedSave.state.renameCommitted.library?.profiles?.length, 2, 'desktop confirmed identity rename preserves project count');
+        assert.equal(sharedSave.state.renameCommitted.library?.profiles?.some(item => item.project?.no === 'SHARED-001'), false, 'desktop confirmed identity rename removes the old identity');
+        assert.ok(sharedSave.state.renameCommitted.library?.profiles?.some(item => item.project?.no === 'SHARED-RENAMED-001'), 'desktop confirmed identity rename stores the new identity');
+        assert.equal(sharedSave.state.renameCommitted.selectedValue, sharedSave.state.renameCommitted.renamedId, 'desktop confirmed identity rename selects the new identity');
+        assert.equal(sharedSave.state.renameCommitted.panelHidden, true, 'desktop identity rename closes its preview after commit');
+        assert.ok(sharedSave.state.renameCommitted.status.includes('已更新所選案件識別'), 'desktop identity rename reports the committed action');
+        assert.equal(sharedSave.state.mergePreview.library?.profiles?.length, 2, 'desktop merge preview does not remove either stored project');
+        assert.equal(sharedSave.state.mergePreview.buttonText, '確認合併案件', 'desktop identity collision requires an explicit merge confirmation');
+        assert.equal(sharedSave.state.mergePreview.panelHidden, false, 'desktop identity collision renders the merge panel');
+        assert.ok(sharedSave.state.mergePreview.panelText.includes('保留既有目標案件'), 'desktop merge panel exposes the safe target-project choice');
+        assert.ok(sharedSave.state.mergePreview.panelText.includes('採用目前頁面表頭'), 'desktop merge panel exposes the current-page choice');
+        assert.equal(sharedSave.state.mergePreview.defaultChoice, 'target', 'desktop identity collision safely defaults to the existing target project');
+        assert.ok(sharedSave.state.mergePreview.status.includes('目前清單與頁面尚未變更'), 'desktop identity collision preview states its non-mutating boundary');
+        assert.equal(sharedSave.state.mergeChoice.library?.profiles?.length, 2, 'desktop merge choice remains non-mutating before confirmation');
+        assert.equal(sharedSave.state.mergeChoice.selectedChoice, 'current', 'desktop merge panel records the explicit current-page choice');
+        assert.ok(sharedSave.state.mergeChoice.status.includes('採用目前頁面表頭'), 'desktop merge choice reports the pending resolution');
+        assert.equal(sharedSave.state.mergeCommitted.library?.profiles?.length, 1, 'desktop confirmed merge collapses both identities into one project');
+        assert.equal(sharedSave.state.mergeCommitted.library?.profiles?.[0]?.project?.name, '合併採用頁面', 'desktop confirmed merge adopts the selected current-page header');
+        assert.equal(sharedSave.state.mergeCommitted.panelHidden, true, 'desktop confirmed merge closes its preview');
+        assert.ok(sharedSave.state.mergeCommitted.status.includes('已合併為單一案件'), 'desktop confirmed merge reports the committed action');
+        assert.deepEqual(
+          sharedSave.state.mergeCommitted.page,
+          { name: '合併採用頁面', no: 'SHARED-ALT-002', designer: '合併頁面設計者' },
+          'desktop confirmed merge does not change current page fields'
+        );
         assert.equal(sharedSave.state.horizontalOverflow, false, 'desktop shared project save bar has no horizontal overflow');
 
         const sharedApply = await navigateAndInspect(

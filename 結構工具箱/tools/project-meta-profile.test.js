@@ -39,7 +39,7 @@ const profile = Profile.buildProfile({
   projDesigner: ' 設計者 ',
 }, { toolId: 'source-tool', toolName: '來源工具', toolVersion: 'V1' });
 assert.equal(profile.schema, 'tool-project-meta-profile.v1');
-assert.equal(profile.profileVersion, '1.6');
+assert.equal(profile.profileVersion, '1.7');
 assert.equal(profile.project.name, '共用工程');
 assert.equal(profile.project.no, 'CASE-001');
 assert.equal(profile.project.designer, '設計者');
@@ -217,6 +217,90 @@ assert.equal(
 );
 Profile.restoreProfile(Profile.profileId(secondProfile), storage);
 assert.equal(Profile.isProfileArchived(Profile.loadViewState(storage, updatedFirst.library), Profile.profileId(secondProfile)), false);
+
+const renameStorage = memoryStorage();
+const renameSource = Profile.buildProfile({ projName: '識別更新工程', projNo: 'OLD-001', projDesigner: '原設計者' });
+const renameOther = Profile.buildProfile({ projName: '其他工程', projNo: 'OTHER-002' });
+Profile.saveToLibrary(renameSource, renameStorage);
+Profile.saveToLibrary(renameOther, renameStorage);
+Profile.markProfileUsed(Profile.profileId(renameSource), renameStorage, '2026-08-01T15:30:00.000Z');
+Profile.archiveProfile(Profile.profileId(renameSource), renameStorage);
+const renamedPayload = Profile.buildProfile({
+  projName: '識別更新工程',
+  projNo: 'NEW-001',
+  projDesigner: '新設計者',
+  savedAt: '2026-08-01T16:00:00.000Z',
+});
+const renamePreview = Profile.prepareIdentityUpdate(Profile.profileId(renameSource), renamedPayload, renameStorage);
+assert.equal(renamePreview.status, 'ready');
+assert.equal(renamePreview.mode, 'rename');
+assert.deepEqual(renamePreview.differences.map(item => item.key), ['no', 'designer']);
+assert.equal(Profile.loadLibrary(renameStorage).profiles.some(item => item.project.no === 'NEW-001'), false, 'identity rename preview is non-mutating');
+const renamed = Profile.commitIdentityUpdate(renamePreview, renameStorage);
+assert.equal(renamed.library.profiles.length, 2, 'identity rename preserves project count');
+assert.equal(renamed.library.profiles.some(item => item.project.no === 'OLD-001'), false);
+assert.equal(renamed.profile.project.no, 'NEW-001');
+assert.equal(Profile.isProfileArchived(renamed.view, renamed.id), true, 'rename migrates the local archive marker');
+assert.equal(renamed.view.lastUsedAt[renamed.id], '2026-08-01T15:30:00.000Z', 'rename migrates recent-use activity');
+
+const collisionStorage = memoryStorage();
+const collisionSource = Profile.buildProfile({ projName: '待合併舊案', projNo: 'MERGE-OLD', projDesigner: '舊案設計者' });
+const collisionTarget = Profile.buildProfile({ projName: '既有目標案', projNo: 'MERGE-NEW', projDesigner: '目標設計者' });
+Profile.saveToLibrary(collisionSource, collisionStorage);
+Profile.saveToLibrary(collisionTarget, collisionStorage);
+Profile.archiveProfile(Profile.profileId(collisionTarget), collisionStorage);
+Profile.markProfileUsed(Profile.profileId(collisionSource), collisionStorage, '2026-08-01T17:00:00.000Z');
+const collisionPayload = Profile.buildProfile({ projName: '目前頁面合併案', projNo: 'MERGE-NEW', projDesigner: '頁面設計者' });
+const collisionPreview = Profile.prepareIdentityUpdate(Profile.profileId(collisionSource), collisionPayload, collisionStorage);
+assert.equal(collisionPreview.mode, 'merge');
+assert.equal(collisionPreview.mergeChoice, 'target', 'identity collision safely defaults to the existing target project');
+assert.equal(collisionPreview.library.profiles.length, 1);
+assert.equal(collisionPreview.library.profiles[0].project.name, '既有目標案');
+assert.equal(Profile.loadLibrary(collisionStorage).profiles.length, 2, 'merge preview does not mutate either project');
+const collisionCommitted = Profile.commitIdentityUpdate(collisionPreview, collisionStorage);
+assert.equal(collisionCommitted.library.profiles.length, 1);
+assert.equal(collisionCommitted.profile.project.name, '既有目標案');
+assert.equal(Profile.isProfileArchived(collisionCommitted.view, collisionCommitted.id), false, 'merged project remains active when either source project was active');
+assert.equal(collisionCommitted.view.lastUsedAt[collisionCommitted.id], '2026-08-01T17:00:00.000Z');
+
+const currentMergeStorage = memoryStorage();
+Profile.saveToLibrary(collisionSource, currentMergeStorage);
+Profile.saveToLibrary(collisionTarget, currentMergeStorage);
+assert.throws(
+  () => Profile.prepareIdentityUpdate(Profile.profileId(collisionSource), collisionPayload, currentMergeStorage, 'unknown'),
+  /合併選擇無效/,
+  'identity collision rejects choices outside the two explicit merge options'
+);
+const currentMergePreview = Profile.prepareIdentityUpdate(
+  Profile.profileId(collisionSource),
+  collisionPayload,
+  currentMergeStorage,
+  'current'
+);
+assert.equal(currentMergePreview.library.profiles[0].project.name, '目前頁面合併案');
+const currentMergeCommitted = Profile.commitIdentityUpdate(currentMergePreview, currentMergeStorage);
+assert.equal(currentMergeCommitted.profile.project.name, '目前頁面合併案', 'explicit current-page choice controls merged content');
+
+const unchangedIdentityStorage = memoryStorage();
+Profile.saveToLibrary(renameSource, unchangedIdentityStorage);
+const sameIdentityPreview = Profile.prepareIdentityUpdate(
+  Profile.profileId(renameSource),
+  Profile.buildProfile({ projName: '只改案名', projNo: 'old-001', projDesigner: '原設計者' }),
+  unchangedIdentityStorage
+);
+assert.equal(sameIdentityPreview.status, 'no-change');
+assert.equal(sameIdentityPreview.reason, 'identity-unchanged');
+const staleRenamePreview = Profile.prepareIdentityUpdate(Profile.profileId(renameSource), renamedPayload, unchangedIdentityStorage);
+Profile.saveToLibrary(Profile.buildProfile({ projNo: 'CHANGED-DURING-PREVIEW' }), unchangedIdentityStorage);
+assert.throws(
+  () => Profile.commitIdentityUpdate(staleRenamePreview, unchangedIdentityStorage),
+  /案件表頭清單已變更/,
+  'identity preview cannot overwrite a library changed before confirmation'
+);
+assert.throws(
+  () => Profile.prepareIdentityUpdate(Profile.profileId(renameSource), Profile.buildProfile({}), unchangedIdentityStorage),
+  /不能更新案件識別/
+);
 
 const removedFirst = Profile.removeFromLibrary(updatedFirst.id, storage);
 assert.equal(removedFirst.removed.project.no, 'case-001');
