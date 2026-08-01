@@ -626,19 +626,26 @@ $script:BtnAdvise.Add_Click({
 })
 $pathPanel.Controls.Add($script:BtnAdvise)
 $script:MainForm.AcceptButton = $script:BtnAdvise
-$script:MainForm.Add_KeyDown({
-  if ($_.Control -and $_.KeyCode -eq [System.Windows.Forms.Keys]::L) {
+
+function Invoke-HubKeyDown {
+  param([Parameter(Mandatory)][System.Windows.Forms.KeyEventArgs]$EventArgs)
+
+  if ($EventArgs.Control -and $EventArgs.KeyCode -eq [System.Windows.Forms.Keys]::L) {
     $script:SharedPath.Focus()
     $script:SharedPath.SelectAll()
-    $_.SuppressKeyPress = $true
-    $_.Handled = $true
+    $EventArgs.SuppressKeyPress = $true
+    $EventArgs.Handled = $true
     return
   }
-  if ($_.KeyCode -eq [System.Windows.Forms.Keys]::Escape -and $script:AdvisorProcess) {
+  if ($EventArgs.KeyCode -eq [System.Windows.Forms.Keys]::Escape -and $script:AdvisorProcess) {
     Cancel-PathAdvisor
-    $_.SuppressKeyPress = $true
-    $_.Handled = $true
+    $EventArgs.SuppressKeyPress = $true
+    $EventArgs.Handled = $true
   }
+}
+
+$script:MainForm.Add_KeyDown({
+  Invoke-HubKeyDown -EventArgs $_
 })
 
 $script:RecommendationText = New-Object System.Windows.Forms.Label
@@ -831,14 +838,30 @@ public static class AttachmentHubNativeScroll {
       [void][AttachmentHubNativeScroll]::SendMessage($script:ScrollPanel.Handle, [AttachmentHubNativeScroll]::WM_HSCROLL, [IntPtr][AttachmentHubNativeScroll]::SB_LEFT, [IntPtr]::Zero)
       [void][AttachmentHubNativeScroll]::SendMessage($script:ScrollPanel.Handle, [AttachmentHubNativeScroll]::WM_VSCROLL, [IntPtr][AttachmentHubNativeScroll]::SB_TOP, [IntPtr]::Zero)
       $script:MainForm.Update()
-      [System.Windows.Forms.SendKeys]::SendWait('^l')
+      [void]$browseShared.Focus()
+      $pathShortcutEvent = New-Object System.Windows.Forms.KeyEventArgs(([System.Windows.Forms.Keys]::Control -bor [System.Windows.Forms.Keys]::L))
+      Invoke-HubKeyDown -EventArgs $pathShortcutEvent
       [System.Windows.Forms.Application]::DoEvents()
-      $pathShortcutFocused = [bool]$script:SharedPath.Focused
+      $pathShortcutFocused = [bool]($script:SharedPath.Focused -and $pathShortcutEvent.Handled -and $pathShortcutEvent.SuppressKeyPress)
       $tabStepsToTarget = 0
+      $focusTrace = @('path')
+      $currentFocus = $script:SharedPath
       while (-not $script:ToolButtons['upgrade'].Focused -and $tabStepsToTarget -lt 12) {
-        [System.Windows.Forms.SendKeys]::SendWait('{TAB}')
+        $focusMoved = $script:MainForm.SelectNextControl($currentFocus, $true, $true, $true, $true)
         [System.Windows.Forms.Application]::DoEvents()
         $tabStepsToTarget += 1
+        $focusedName = if ($script:SharedPath.Focused) { 'path' } elseif ($browseShared.Focused) { 'browse' } elseif ($script:BtnAdvise.Focused) { 'advise' } elseif ($script:ToolButtons['manager'].Focused) { 'manager' } elseif ($script:ToolButtons['viewer'].Focused) { 'viewer' } elseif ($script:ToolButtons['upgrade'].Focused) { 'upgrade' } else { 'other-or-none' }
+        $focusTrace += $focusedName
+        $currentFocus = switch ($focusedName) {
+          'path' { $script:SharedPath }
+          'browse' { $browseShared }
+          'advise' { $script:BtnAdvise }
+          'manager' { $script:ToolButtons['manager'] }
+          'viewer' { $script:ToolButtons['viewer'] }
+          'upgrade' { $script:ToolButtons['upgrade'] }
+          default { $currentFocus }
+        }
+        if (-not $focusMoved) { break }
       }
       $keyboardTargetFocused = [bool]$script:ToolButtons['upgrade'].Focused
       $keyboardClientRectangle = $script:ScrollPanel.RectangleToScreen($script:ScrollPanel.ClientRectangle)
@@ -901,6 +924,7 @@ public static class AttachmentHubNativeScroll {
         keyboardTargetFocused = $keyboardTargetFocused
         keyboardTargetReachable = $keyboardTargetReachable
         tabStepsToTarget = $tabStepsToTarget
+        focusTrace = $focusTrace
         keyboardTargetLeft = $keyboardTargetRectangle.Left
         keyboardTargetRight = $keyboardTargetRectangle.Right
         keyboardTargetTop = $keyboardTargetRectangle.Top
@@ -1028,7 +1052,8 @@ if ($SmokeCancellation) {
       Show-Recommendation
       $escapeWorkerPid = if ($script:AdvisorProcess) { $script:AdvisorProcess.Id } else { 0 }
       $escapeRunningActionVisible = $escapeWorkerPid -gt 0 -and $script:BtnAdvise.Text -eq '停止辨識'
-      [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+      $escapeEvent = New-Object System.Windows.Forms.KeyEventArgs([System.Windows.Forms.Keys]::Escape)
+      Invoke-HubKeyDown -EventArgs $escapeEvent
       [System.Windows.Forms.Application]::DoEvents()
       $escapeWorkerExited = $escapeWorkerPid -gt 0 -and -not (Get-Process -Id $escapeWorkerPid -ErrorAction SilentlyContinue)
       $script:CancellationSmokeResult = [pscustomobject]@{

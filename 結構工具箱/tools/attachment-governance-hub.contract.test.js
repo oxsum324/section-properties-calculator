@@ -30,7 +30,7 @@ const hubPs = fs.readFileSync(hubPath, 'utf8');
   '唯讀辨識進行中', '畫面可繼續操作', '停止辨識', 'Cancel-PathAdvisor',
   '已停止唯讀辨識', '重新辨識', '唯讀辨識超過 60 秒', 'Add_FormClosing',
   'Screen]::FromPoint', 'Cursor]::Position', "StartPosition = 'Manual'", 'AutoScrollMinSize', 'WM_VSCROLL', 'AttachmentHubNativeScroll', 'SmokeViewport',
-  'KeyPreview', 'AcceptButton', 'Add_KeyDown', 'Keys]::L', 'Keys]::Escape', 'SendKeys]::SendWait',
+  'KeyPreview', 'AcceptButton', 'Add_KeyDown', 'Keys]::L', 'Keys]::Escape', 'Invoke-HubKeyDown', 'KeyEventArgs', 'SelectNextControl',
   'AccessibleName', 'AccessibleDescription', '案件或附件資料夾路徑',
   '-InitialPath', '-InitialMode', '-AutoInspect', 'attachment-governance-hub-worker.js',
   '建議｜開啟並唯讀檢查', '已帶入建議模式並執行唯讀檢查',
