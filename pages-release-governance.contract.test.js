@@ -33,6 +33,8 @@ const artifactBuilderPath = path.join(repoRoot, '結構工具箱', 'tools', 'bui
 const artifactBuilder = readText('結構工具箱/tools/build-pages-artifact.js');
 const deploymentManifestBuilderPath = path.join(repoRoot, '結構工具箱', 'tools', 'build-pages-deployment-manifest.js');
 const deploymentManifestBuilder = readText('結構工具箱/tools/build-pages-deployment-manifest.js');
+const releaseLineageVerifierPath = path.join(repoRoot, '結構工具箱', 'tools', 'verify-pages-release-lineage.js');
+const releaseLineageVerifier = readText('結構工具箱/tools/verify-pages-release-lineage.js');
 const artifactSmoke = readText('run-pages-artifact-smoke.ps1');
 const pushPagesRelease = readText('push-pages-release.ps1');
 const pushPagesReleaseBatch = readText('push-pages-release.bat');
@@ -99,6 +101,7 @@ assert.ok(pushPagesRelease.includes('JobStatusStale') && pushPagesRelease.includ
 assert.ok(pushPagesRelease.includes('$failedSteps') && pushPagesRelease.includes('has failed steps'), 'Pages push wrapper fails closed on any failed job step');
 assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && pushPagesRelease.includes('Test-ManifestIdentity'), 'Pages push wrapper verifies a cache-busted public deployment manifest');
 assert.ok(pushPagesRelease.includes('commitSha') && pushPagesRelease.includes('runId') && pushPagesRelease.includes('sourceDirty'), 'Pages push wrapper binds the manifest to commit, run, and clean source provenance');
+assert.ok(pushPagesRelease.includes('verify-pages-release-lineage.js') && pushPagesRelease.includes('Verifying that HEAD only carries status snapshots'), 'Pages push wrapper blocks untested carrier changes before push');
 assert.ok(pushPagesRelease.includes('AllowDirtyVerification is only valid with VerifyOnly and can never authorize a push or dispatch.'), 'dirty verification mode cannot authorize mutation');
 assert.ok(pushPagesReleaseBatch.includes('push-pages-release.ps1') && pushPagesReleaseBatch.includes('%*'), 'Pages release batch forwards explicit operator options to the safe PowerShell entrypoint');
 
@@ -164,6 +167,87 @@ assert.ok(
   }
 }
 
+function createReleaseLineageFixture({ extraCarrierChange = false, sourceDirty = false } = {}) {
+  const fixtureRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-release-lineage-'));
+  const git = (...args) => childProcess.execFileSync('git', ['-C', fixtureRepo, ...args], { encoding: 'utf8' }).trim();
+  childProcess.execFileSync('git', ['init', '--quiet', fixtureRepo]);
+  git('config', 'user.email', 'fixture@example.invalid');
+  git('config', 'user.name', 'Fixture');
+  git('symbolic-ref', 'HEAD', 'refs/heads/master');
+  fs.writeFileSync(path.join(fixtureRepo, 'index.html'), '<p>tested source</p>\n', 'utf8');
+  git('add', '-A');
+  git('commit', '--quiet', '-m', 'tested source');
+  const sourceCommitSha = git('rev-parse', 'HEAD').toLowerCase();
+
+  for (const relativePath of ['platform-status.json', 'preflight-summary.json', 'report-readiness-status.json']) {
+    const fullPath = path.join(fixtureRepo, '結構工具箱', 'assets', 'status', relativePath);
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    const payload = relativePath === 'preflight-summary.json'
+      ? {
+          runId: 'fixture-release',
+          quick: false,
+          forcePlatformAudit: true,
+          forceSlowChecks: true,
+          sourceCommitSha,
+          sourceBranch: 'master',
+          sourceDirty,
+          pass: true,
+          slowReuseCount: 0,
+          platformAuditReused: false,
+          recordsCount: 2,
+          passedCount: 2,
+          postCheckCount: 1,
+          postChecksPassedCount: 1,
+        }
+      : { runId: 'fixture-release', pass: true };
+    fs.writeFileSync(fullPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  }
+  if (extraCarrierChange) fs.writeFileSync(path.join(fixtureRepo, 'index.html'), '<p>untested carrier change</p>\n', 'utf8');
+  git('add', '-A');
+  git('commit', '--quiet', '-m', 'release snapshots');
+  return { fixtureRepo, sourceCommitSha, headSha: git('rev-parse', 'HEAD').toLowerCase() };
+}
+
+{
+  const fixture = createReleaseLineageFixture();
+  try {
+    const { STATUS_PATHS, verifyPagesReleaseLineage } = require(releaseLineageVerifierPath);
+    const result = verifyPagesReleaseLineage({ repoRoot: fixture.fixtureRepo, headSha: fixture.headSha, expectedBranch: 'master' });
+    assert.equal(result.sourceCommitSha, fixture.sourceCommitSha, 'release lineage binds the carrier to the tested commit');
+    assert.deepEqual(result.changedPaths, STATUS_PATHS, 'release lineage accepts exactly the three status snapshots');
+  } finally {
+    fs.rmSync(fixture.fixtureRepo, { recursive: true, force: true });
+  }
+}
+
+{
+  const fixture = createReleaseLineageFixture({ extraCarrierChange: true });
+  try {
+    const { verifyPagesReleaseLineage } = require(releaseLineageVerifierPath);
+    assert.throws(
+      () => verifyPagesReleaseLineage({ repoRoot: fixture.fixtureRepo, headSha: fixture.headSha, expectedBranch: 'master' }),
+      /changes only the three public status snapshots/,
+      'release lineage rejects untested carrier content',
+    );
+  } finally {
+    fs.rmSync(fixture.fixtureRepo, { recursive: true, force: true });
+  }
+}
+
+{
+  const fixture = createReleaseLineageFixture({ sourceDirty: true });
+  try {
+    const { verifyPagesReleaseLineage } = require(releaseLineageVerifierPath);
+    assert.throws(
+      () => verifyPagesReleaseLineage({ repoRoot: fixture.fixtureRepo, headSha: fixture.headSha, expectedBranch: 'master' }),
+      /clean tested worktree/,
+      'release lineage rejects dirty tested sources',
+    );
+  } finally {
+    fs.rmSync(fixture.fixtureRepo, { recursive: true, force: true });
+  }
+}
+
 {
   const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pages-deployment-manifest-contract-'));
   try {
@@ -196,9 +280,13 @@ assert.ok(
 }
 
 assert.ok(pagesWorkflow.includes('node "結構工具箱/tools/build-pages-artifact.js" --repo-root "." --site-root "_site"'), 'Pages workflow stages through the shared Git-inventory builder');
+assert.ok(pagesWorkflow.includes('fetch-depth: 2'), 'Pages workflow fetches the tested parent commit for release lineage verification');
+assert.ok(pagesWorkflow.includes('- name: Verify tested release lineage') && pagesWorkflow.includes('verify-pages-release-lineage.js'), 'Pages workflow blocks staging until tested release lineage passes');
+assert.ok(pagesWorkflow.indexOf('- name: Verify tested release lineage') < pagesWorkflow.indexOf('- name: Stage static site'), 'Pages release lineage gate runs before artifact staging');
 assert.equal(pagesWorkflow.includes('rsync -a'), false, 'Pages workflow does not keep a second rsync exclusion policy');
 assert.ok(artifactBuilder.includes("'output'") && artifactBuilder.includes("'.md'") && artifactBuilder.includes("'.ps1'"), 'shared artifact builder excludes generated output, docs, and scripts');
 assert.ok(artifactBuilder.includes('attachment-package-check.js') && artifactBuilder.includes('rendered-delivery-evidence.js'), 'shared artifact builder excludes delivery governance helpers');
+assert.ok(artifactBuilder.includes('verify-pages-release-lineage.js'), 'shared artifact builder excludes the release lineage verifier');
 assert.ok(artifactBuilder.includes('GIT_INDEX_FILE') && artifactBuilder.includes("core.autocrlf=false") && artifactBuilder.includes("core.eol=lf"), 'shared artifact builder uses an isolated normalized Git index');
 assert.ok(artifactBuilder.includes("'--cached', '--others', '--exclude-standard'") && artifactBuilder.includes("'--pathspec-from-file=-'"), 'shared artifact builder stages tracked and non-ignored working files');
 assert.ok(pagesWorkflow.includes('pages-live-smoke.js') && pagesWorkflow.includes('--check-private-boundary'), 'Pages workflow runs private-boundary smoke before and after deploy');
@@ -244,9 +332,11 @@ assert.ok(pagesSmoke.includes('結構工具箱/tools/pages-live-browser-smoke.js
 assert.ok(pagesSmoke.includes('結構工具箱/tools/run-pages-browser-smoke.sh'), 'Pages smoke blocks browser smoke runner publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-artifact.js'), 'Pages smoke blocks shared artifact builder publication');
 assert.ok(pagesSmoke.includes('結構工具箱/tools/build-pages-deployment-manifest.js'), 'Pages smoke blocks deployment manifest builder publication');
+assert.ok(pagesSmoke.includes('結構工具箱/tools/verify-pages-release-lineage.js'), 'Pages smoke blocks release lineage verifier publication');
 assert.ok(pagesSmoke.includes("liveUrl(base, 'pages-deployment.json')") && pagesSmoke.includes('deployed Pages commit matches the requested source commit'), 'Pages smoke validates the public deployment manifest and expected commit');
 assert.ok(pagesSmoke.includes('deployed Pages runId matches the current workflow run') && pagesSmoke.includes('sha256-tree-v1'), 'Pages smoke validates workflow run and tree digest metadata');
 assert.ok(pagesSmoke.includes('deployed Pages manifest must come from a clean source checkout'), 'Pages smoke validates clean deployment provenance');
+assert.ok(pagesSmoke.includes('published formal preflight status reran platform audit'), 'Pages smoke rejects reused platform audit in public formal evidence');
 assert.ok(pagesSmoke.includes("manifest.fileCount > 0") && !pagesSmoke.includes('manifest.fileCount >= 300'), 'Pages smoke does not confuse a dirty local file count with the canonical clean artifact');
 assert.ok(readme.includes('sourceDirty: false') && readme.includes('sourceDirty: true'), 'README explains formal clean and local dirty provenance');
 assert.ok(toolBoundaries.includes('sourceDirty: false') && toolBoundaries.includes('sourceDirty: true'), 'tool boundaries explain clean deployment provenance');

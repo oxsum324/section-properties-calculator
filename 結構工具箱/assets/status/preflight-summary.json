@@ -14,6 +14,7 @@
   "failedKeys": [],
   "slowReuseCount": 0,
   "slowReuseKeys": [],
+  "platformAuditReused": false,
   "recordsCount": 79,
   "passedCount": 79,
   "totalSeconds": 1126.3,

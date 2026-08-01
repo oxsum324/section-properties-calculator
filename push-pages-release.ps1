@@ -327,11 +327,15 @@ Set-Location $RepoRoot
 
 $gitCommand = Get-Command git.exe -ErrorAction SilentlyContinue
 if (-not $gitCommand) { $gitCommand = Get-Command git -ErrorAction SilentlyContinue }
+$nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
+if (-not $nodeCommand) { $nodeCommand = Get-Command node -ErrorAction SilentlyContinue }
 $ghCommand = Get-Command gh.exe -ErrorAction SilentlyContinue
 if (-not $ghCommand) { $ghCommand = Get-Command gh -ErrorAction SilentlyContinue }
 if (-not $gitCommand) { throw 'git is required.' }
+if (-not $nodeCommand) { throw 'Node.js is required.' }
 if (-not $ghCommand) { throw 'GitHub CLI (gh) is required.' }
 $script:GitPath = $gitCommand.Source
+$script:NodePath = $nodeCommand.Source
 $script:GhPath = $ghCommand.Source
 
 Invoke-ExternalText -FilePath $script:GhPath -Arguments @('auth', 'status') -AllowEmpty | Out-Null
@@ -362,6 +366,18 @@ $headSha = (Invoke-ExternalText -FilePath $script:GitPath -Arguments @('rev-pars
 if ($headSha -notmatch '^[0-9a-f]{40}$') {
   throw "Could not resolve a full Git HEAD SHA. Received: $headSha"
 }
+
+$lineageScript = Join-Path $RepoRoot '結構工具箱\tools\verify-pages-release-lineage.js'
+if (-not (Test-Path -LiteralPath $lineageScript)) {
+  throw "Pages release lineage verifier is missing: $lineageScript"
+}
+Write-ProgressLine "Verifying that HEAD only carries status snapshots for its tested parent commit."
+Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
+  $lineageScript,
+  '--repo-root', $RepoRoot,
+  '--head-sha', $headSha,
+  '--expected-branch', $Branch
+) | Out-Null
 
 $pagesInfo = Get-PagesInfo
 $pagesUrl = ([string]$pagesInfo.html_url).Trim()

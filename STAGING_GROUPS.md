@@ -26,7 +26,7 @@
 ```powershell
 git add -- CONTEXT.md docs/adr/0001-page-only-report-readiness.md
 git add -- ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "run-preflight-tools-ci.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js"
-git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/tool-maturity-matrix.js"
+git add -- "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js"
 git add -- "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
 
@@ -51,7 +51,7 @@ node .\結構工具箱\tools\tool-maturity-matrix.js --write --check
 .\run-preflight-tools-release.bat
 .\run-pages-artifact-smoke.ps1
 .\push-pages-release.ps1 -VerifyOnly
-git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
+git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GROUPS.md CONTEXT.md docs/adr/0001-page-only-report-readiness.md ".github/workflows/pages-deploy.yml" ".github/workflows/pr-validation.yml" "run-pages-artifact-smoke.ps1" "push-pages-release.ps1" "push-pages-release.bat" "pages-release-governance.contract.test.js" "pr-validation.contract.test.js" "toolbox-entrypoints.contract.test.js" "結構工具箱/tools/pages-live-smoke.js" "結構工具箱/tools/pages-live-browser-smoke.js" "結構工具箱/tools/run-pages-browser-smoke.sh" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/build-pages-clean-routes.js" "結構工具箱/tools/build-pages-deployment-manifest.js" "結構工具箱/tools/verify-pages-release-lineage.js" "結構工具箱/tools/tool-maturity-matrix.js" "結構工具箱/tools/report-disclosure.contract.test.js" "結構工具箱/tools/audit-dashboard-browser-smoke.test.js" "結構工具箱/assets/status/platform-status.json" "結構工具箱/assets/status/preflight-summary.json" "結構工具箱/assets/status/report-readiness-status.json"
 ```
 
 下次不要混入本包：

@@ -14,6 +14,7 @@ const PRIVATE_FILES = new Set([
   '結構工具箱/tools/build-pages-artifact.js',
   '結構工具箱/tools/build-pages-clean-routes.js',
   '結構工具箱/tools/build-pages-deployment-manifest.js',
+  '結構工具箱/tools/verify-pages-release-lineage.js',
   '結構工具箱/tools/attachment-package-check.js',
   '結構工具箱/tools/attachment-package-build.js',
   '結構工具箱/tools/attachment-package-verify.js',

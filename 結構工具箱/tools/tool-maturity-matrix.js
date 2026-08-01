@@ -1529,6 +1529,7 @@ function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
     failedKeys: compactStringArray(payload.failedKeys),
     slowReuseCount: compactNumber(payload.slowReuseCount),
     slowReuseKeys: compactStringArray(payload.slowReuseKeys),
+    platformAuditReused: payload.platformAuditReused !== false,
     recordsCount: compactNumber(payload.recordsCount),
     passedCount: compactNumber(payload.passedCount),
     totalSeconds: compactNumber(payload.totalSeconds),
@@ -2000,6 +2001,7 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.match(homepagePreflightStatus.sourceCommitSha, /^[0-9a-f]{40}$/i, 'homepage preflight status sourceCommitSha git sha');
   assert.equal(typeof homepagePreflightStatus.sourceBranch, 'string', 'homepage preflight status sourceBranch string');
   assert.equal(typeof homepagePreflightStatus.sourceDirty, 'boolean', 'homepage preflight status sourceDirty boolean');
+  assert.equal(typeof homepagePreflightStatus.platformAuditReused, 'boolean', 'homepage preflight status platformAuditReused boolean');
   assert.equal(Number.isInteger(homepagePreflightStatus.recordsCount), true, 'homepage preflight status recordsCount integer');
   assert.equal(Number.isInteger(homepagePreflightStatus.passedCount), true, 'homepage preflight status passedCount integer');
   assert.ok(Array.isArray(homepagePreflightStatus.failedKeys), 'homepage preflight status failedKeys array');

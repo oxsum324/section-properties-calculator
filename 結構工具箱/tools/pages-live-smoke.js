@@ -55,6 +55,7 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/build-pages-artifact.js',
   '結構工具箱/tools/build-pages-clean-routes.js',
   '結構工具箱/tools/build-pages-deployment-manifest.js',
+  '結構工具箱/tools/verify-pages-release-lineage.js',
   '結構工具箱/tools/attachment-package-check.js',
   '結構工具箱/tools/attachment-package-build.js',
   '結構工具箱/tools/attachment-package-verify.js',
@@ -419,12 +420,17 @@ async function main() {
   assertStatusPayload(preflightStatus, 'preflight status');
   assert.equal(preflightStatus.kind, 'preflight-summary', 'preflight status kind');
   assert.equal(preflightStatus.quick, false, 'preflight status should publish latest full run');
+  assert.equal(preflightStatus.forcePlatformAudit, true, 'published formal preflight status forced platform audit');
+  assert.equal(preflightStatus.forceSlowChecks, true, 'published formal preflight status forced slow checks');
   assert.match(preflightStatus.sourceCommitSha, /^[0-9a-f]{40}$/i, 'preflight status sourceCommitSha git sha');
   assert.equal(typeof preflightStatus.sourceBranch, 'string', 'preflight status sourceBranch string');
   assert.equal(preflightStatus.sourceDirty, false, 'published formal preflight status starts from a clean worktree');
+  assert.equal(preflightStatus.slowReuseCount, 0, 'published formal preflight status reused no slow checks');
+  assert.equal(preflightStatus.platformAuditReused, false, 'published formal preflight status reran platform audit');
   assert.ok(/^output\/preflight\/(?:history\/[^/]+\/)?preflight-summary\.json$/.test(preflightStatus.sourcePath), 'preflight status sourcePath');
   assert.equal(Number.isInteger(preflightStatus.recordsCount), true, 'preflight recordsCount integer');
   assert.equal(preflightStatus.recordsCount, preflightStatus.passedCount, 'preflight records all passed');
+  assert.equal(preflightStatus.postCheckCount, preflightStatus.postChecksPassedCount, 'preflight post-checks all passed');
 
   const reportReadinessStatus = await fetchJson(reportReadinessStatusUrl);
   assertStatusPayload(reportReadinessStatus, 'report readiness status');
