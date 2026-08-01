@@ -334,11 +334,22 @@ assert.match(launcher, /attachment-governance-hub\.ps1/);
 assert.match(launcher, /if\s+"%~1"==""/i, 'launcher keeps ordinary no-path startup');
 assert.match(launcher, /-InitialPath\s+%\*/i, 'launcher forwards dropped arguments for closed validation in the hub');
 
+const rootLauncher = read('啟動案件附件工作台.bat');
+assert.match(rootLauncher, /call\s+"%~dp0結構工具箱\\tools\\啟動案件附件工作台\.bat"\s+%\*/i, 'root launcher delegates every argument to the governed launcher');
+assert.doesNotMatch(rootLauncher, /powershell|attachment-governance-hub\.ps1/i, 'root launcher cannot bypass the governed launcher or duplicate its PowerShell policy');
+
 const preflight = read('preflight-tools.ps1');
 assert.match(preflight, /attachment-governance-hub\.contract\.test\.js/);
 assert.match(preflight, /key = "attachment-governance-hub"/);
 
 const pagesSmoke = read('結構工具箱/tools/pages-live-smoke.js');
+assert.ok(pagesSmoke.includes("'啟動案件附件工作台.bat'"), 'Pages private-boundary smoke includes the root launcher');
+const pagesBuilder = require('./build-pages-artifact.js');
+assert.deepEqual(
+  pagesBuilder.classifyPublishedPath('啟動案件附件工作台.bat'),
+  { publish: false, reason: 'private-tooling' },
+  'Pages artifact builder excludes the root launcher explicitly',
+);
 for (const privateFile of [
   'attachment-governance-hub-worker.js', 'attachment-governance-hub.ps1', '啟動案件附件工作台.bat',
   'attachment-governance-hub.contract.test.js',

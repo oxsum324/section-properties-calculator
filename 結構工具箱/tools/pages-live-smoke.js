@@ -36,6 +36,7 @@ const CLEAN_ROUTE_SAMPLES = [
   { path: 'steel-beam-formal/', source: '/steel-beam-formal', targetNeedle: 'steel-beam-formal.html' }
 ];
 const PRIVATE_PATHS = [
+  '啟動案件附件工作台.bat',
   'README.md',
   'CONTEXT.md',
   'docs/adr/0001-page-only-report-readiness.md',
