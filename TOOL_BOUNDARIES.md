@@ -111,7 +111,7 @@
 
 ### Windows 案件附件工作台捷徑
 
-根目錄 `安裝案件附件工作台捷徑.bat`、`結構工具箱/tools/install-attachment-governance-shortcuts.ps1` 與 `結構工具箱/tools/attachment-governance-shortcut-installer.test.js` 屬於納管的本機 Windows 入口。兩個 `.lnk` 只能指向 repo 根目錄受治理的 `啟動案件附件工作台.bat`，工作目錄必須是當前 repo，且 `Arguments` 必須為空，使 SendTo 只轉交當次 Windows 選取的資料夾。安裝器只可更新帶管理標記或目標檔名為同一受治理啟動器的舊捷徑；同名但非本工具管理的捷徑必須保留原檔並失敗封閉。建立後必須重讀 `.lnk` 驗證目標、工作目錄、空參數、描述與圖示；相同且正確的捷徑不得重寫。批次入口、PowerShell 安裝器與動態測試均屬私有本機治理資產，不發布至 Pages；PowerShell 檔須保留 UTF-8 BOM。
+根目錄 `安裝案件附件工作台捷徑.bat`、`結構工具箱/tools/install-attachment-governance-shortcuts.ps1` 與 `結構工具箱/tools/attachment-governance-shortcut-installer.test.js` 屬於納管的本機 Windows 入口。桌面、SendTo 與開始功能表三個 `.lnk` 只能指向 repo 根目錄受治理的 `啟動案件附件工作台.bat`，工作目錄必須是當前 repo，且 `Arguments` 必須為空，使 SendTo 只轉交當次 Windows 選取的資料夾。安裝器必須先預檢三個目的地，只可更新帶管理標記或目標檔名為同一受治理啟動器的舊捷徑；任一處存在同名但非本工具管理的捷徑時，必須保留原檔、在寫入前停止整批安裝並失敗封閉。建立後必須重讀 `.lnk` 驗證目標、工作目錄、空參數、描述與圖示；相同且正確的捷徑不得重寫。批次入口、PowerShell 安裝器與動態測試均屬私有本機治理資產，不發布至 Pages；PowerShell 檔須保留 UTF-8 BOM。
 
 ## 不進 repo 的類型
 

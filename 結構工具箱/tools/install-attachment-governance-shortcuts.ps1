@@ -2,6 +2,7 @@
 param(
   [string]$DesktopPath = [Environment]::GetFolderPath('Desktop'),
   [string]$SendToPath = [Environment]::GetFolderPath('SendTo'),
+  [string]$ProgramsPath = [Environment]::GetFolderPath('Programs'),
   [switch]$Json
 )
 
@@ -21,7 +22,8 @@ if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
 
 $desktopFullPath = [IO.Path]::GetFullPath($DesktopPath)
 $sendToFullPath = [IO.Path]::GetFullPath($SendToPath)
-foreach ($destination in @($desktopFullPath, $sendToFullPath)) {
+$programsFullPath = [IO.Path]::GetFullPath($ProgramsPath)
+foreach ($destination in @($desktopFullPath, $sendToFullPath, $programsFullPath)) {
   if (-not (Test-Path -LiteralPath $destination -PathType Container)) {
     throw "捷徑目的資料夾不存在：$destination"
   }
@@ -40,6 +42,12 @@ $specs = @(
     Label = '傳送到'
     Path = Join-Path $sendToFullPath '以附件工作台檢查.lnk'
     Description = "$managedMarker：將單一資料夾交給唯讀辨識"
+  },
+  [pscustomobject]@{
+    Kind = 'start-menu'
+    Label = '開始功能表'
+    Path = Join-Path $programsFullPath '案件附件工作台.lnk'
+    Description = "$managedMarker：從 Windows 搜尋開啟工作台"
   }
 )
 
@@ -146,5 +154,5 @@ if ($Json) {
   foreach ($item in $results) {
     "[{0}] {1}" -f $item.status, $item.path
   }
-  '桌面可直接開啟；案件資料夾可用右鍵「傳送到」進入唯讀辨識。'
+  '桌面可直接開啟；案件資料夾可用右鍵「傳送到」進入唯讀辨識；也可按 Windows 鍵搜尋「案件附件工作台」。'
 }
