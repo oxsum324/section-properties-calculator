@@ -419,6 +419,9 @@ async function main() {
   assertStatusPayload(preflightStatus, 'preflight status');
   assert.equal(preflightStatus.kind, 'preflight-summary', 'preflight status kind');
   assert.equal(preflightStatus.quick, false, 'preflight status should publish latest full run');
+  assert.match(preflightStatus.sourceCommitSha, /^[0-9a-f]{40}$/i, 'preflight status sourceCommitSha git sha');
+  assert.equal(typeof preflightStatus.sourceBranch, 'string', 'preflight status sourceBranch string');
+  assert.equal(preflightStatus.sourceDirty, false, 'published formal preflight status starts from a clean worktree');
   assert.ok(/^output\/preflight\/(?:history\/[^/]+\/)?preflight-summary\.json$/.test(preflightStatus.sourcePath), 'preflight status sourcePath');
   assert.equal(Number.isInteger(preflightStatus.recordsCount), true, 'preflight recordsCount integer');
   assert.equal(preflightStatus.recordsCount, preflightStatus.passedCount, 'preflight records all passed');

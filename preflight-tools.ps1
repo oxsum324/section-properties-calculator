@@ -34,6 +34,33 @@ if ($CI -and -not $Quick) {
   throw "CI preflight must also use -Quick. Run run-preflight-tools-ci.bat for clean-checkout PR validation."
 }
 
+$sourceCommitSha = ""
+$sourceBranch = ""
+$sourceDirty = $true
+$sourceStateAvailable = $false
+$sourceCommitOutput = @(& git -C $root rev-parse --verify HEAD 2>$null)
+if ($LASTEXITCODE -eq 0 -and $sourceCommitOutput.Count -gt 0) {
+  $sourceCommitSha = ([string]$sourceCommitOutput[0]).Trim().ToLowerInvariant()
+}
+$sourceBranchOutput = @(& git -C $root rev-parse --abbrev-ref HEAD 2>$null)
+if ($LASTEXITCODE -eq 0 -and $sourceBranchOutput.Count -gt 0) {
+  $sourceBranch = ([string]$sourceBranchOutput[0]).Trim()
+  if ($sourceBranch -eq "HEAD") { $sourceBranch = "detached" }
+}
+$sourceStatusOutput = @(& git -C $root -c core.quotePath=false status --porcelain=v1 --untracked-files=all 2>$null)
+if ($LASTEXITCODE -eq 0) {
+  $sourceStateAvailable = $true
+  $sourceDirty = $sourceStatusOutput.Count -gt 0
+}
+
+$isReleaseMode = (-not $Quick) -and [bool]$ForcePlatformAudit -and [bool]$ForceSlowChecks
+if ($isReleaseMode -and ($sourceCommitSha -notmatch '^[0-9a-f]{40}$' -or -not $sourceStateAvailable)) {
+  throw "Release preflight requires an identifiable Git source commit and worktree state. Run it from a Git checkout."
+}
+if ($isReleaseMode -and $sourceDirty) {
+  throw "Release preflight requires a clean Git worktree. Commit or remove tracked and untracked changes before running run-preflight-tools-release.bat."
+}
+
 function Write-Status {
   param(
     [string]$Message,
@@ -702,6 +729,9 @@ function Add-PreflightIncompleteHistoryItem {
     quick = $false
     forcePlatformAudit = $false
     forceSlowChecks = $false
+    sourceCommitSha = ""
+    sourceBranch = ""
+    sourceDirty = $true
     pass = $false
     state = $State
     complete = $false
@@ -883,6 +913,9 @@ function Update-PreflightHistoryManifest {
         quick = [bool]$payload.quick
         forcePlatformAudit = [bool]$payload.forcePlatformAudit
         forceSlowChecks = [bool]$payload.forceSlowChecks
+        sourceCommitSha = if ($null -ne $payload.PSObject.Properties['sourceCommitSha']) { [string]$payload.sourceCommitSha } else { "" }
+        sourceBranch = if ($null -ne $payload.PSObject.Properties['sourceBranch']) { [string]$payload.sourceBranch } else { "" }
+        sourceDirty = if ($null -ne $payload.PSObject.Properties['sourceDirty']) { [bool]$payload.sourceDirty } else { $true }
         pass = [bool]$payload.pass
         state = "completed"
         complete = $true
@@ -936,8 +969,8 @@ function Update-PreflightHistoryManifest {
   $historyLines.Add("- inProgressCount: $inProgressCount")
   $historyLines.Add("- incompleteCount: $incompleteCount")
   $historyLines.Add("")
-  $historyLines.Add("| runId | state | generatedAt | quick | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |")
-  $historyLines.Add("|---|---|---|---:|---:|---:|---|---:|---:|---|---:|---|---|---|---|---|---|---|")
+  $historyLines.Add("| runId | state | generatedAt | quick | source commit | branch | dirty | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |")
+  $historyLines.Add("|---|---|---|---:|---|---|---:|---:|---:|---|---:|---:|---|---:|---|---|---|---|---|---|---|")
   foreach ($item in $historyItems) {
     $platformMode = if ($item.platformAuditMode) { $item.platformAuditMode } else { "-" }
     $failedKeyText = Format-HistoryMarkdownListCell @($item.failedKeys)
@@ -947,7 +980,9 @@ function Update-PreflightHistoryManifest {
     $summaryHashText = Format-HistoryHashCell $item.summaryHash
     $summaryJsonHashText = Format-HistoryHashCell $item.summaryJsonHash
     $postCheckText = if ($item.postCheckCount -gt 0) { "$($item.postChecksPassedCount) / $($item.postCheckCount)" } else { "-" }
-    $historyLines.Add("| $($item.runId) | $($item.state) | $($item.generatedAt) | $($item.quick) | $($item.pass) | $($item.failureCount) | $failedKeyText | $($item.passedCount) / $($item.recordsCount) | $($item.totalSeconds) | $platformMode | $($item.slowReuseCount) | $slowReuseKeyText | $($item.slowestText) | $summaryPathText | $summaryJsonPathText | $summaryHashText | $postCheckText | $summaryJsonHashText |")
+    $sourceCommitText = if ($item.sourceCommitSha) { ([string]$item.sourceCommitSha).Substring(0, [Math]::Min(12, ([string]$item.sourceCommitSha).Length)) } else { "-" }
+    $sourceBranchText = if ($item.sourceBranch) { Format-HistoryMarkdownCell $item.sourceBranch } else { "-" }
+    $historyLines.Add("| $($item.runId) | $($item.state) | $($item.generatedAt) | $($item.quick) | $sourceCommitText | $sourceBranchText | $($item.sourceDirty) | $($item.pass) | $($item.failureCount) | $failedKeyText | $($item.passedCount) / $($item.recordsCount) | $($item.totalSeconds) | $platformMode | $($item.slowReuseCount) | $slowReuseKeyText | $($item.slowestText) | $summaryPathText | $summaryJsonPathText | $summaryHashText | $postCheckText | $summaryJsonHashText |")
   }
 
   [ordered]@{
@@ -2865,6 +2900,9 @@ $summaryContent = @(
   "- ci: $([bool]$CI)"
   "- forcePlatformAudit: $([bool]$ForcePlatformAudit)"
   "- forceSlowChecks: $([bool]$ForceSlowChecks)"
+  "- sourceCommitSha: $sourceCommitSha"
+  "- sourceBranch: $sourceBranch"
+  "- sourceDirty: $sourceDirty"
   "- pass: $overallPass"
   $summaryMetricLines
   ""
@@ -2882,6 +2920,9 @@ $payload = [ordered]@{
   ci = [bool]$CI
   forcePlatformAudit = [bool]$ForcePlatformAudit
   forceSlowChecks = [bool]$ForceSlowChecks
+  sourceCommitSha = $sourceCommitSha
+  sourceBranch = $sourceBranch
+  sourceDirty = $sourceDirty
   pass = $overallPass
   failureCount = $failures.Count
   failures = @($failures.ToArray())
@@ -2925,6 +2966,9 @@ if ($overallPass -and -not $CI -and (Test-Path -LiteralPath $maturityMatrixScrip
       "- quick: $([bool]$Quick)"
       "- forcePlatformAudit: $([bool]$ForcePlatformAudit)"
       "- forceSlowChecks: $([bool]$ForceSlowChecks)"
+      "- sourceCommitSha: $sourceCommitSha"
+      "- sourceBranch: $sourceBranch"
+      "- sourceDirty: $sourceDirty"
       "- pass: $overallPass"
       $summaryMetricLines
       ""
@@ -2976,6 +3020,9 @@ if ($overallPass -and -not $CI -and (Test-Path -LiteralPath $maturityMatrixScrip
         "- quick: $([bool]$Quick)",
         "- forcePlatformAudit: $([bool]$ForcePlatformAudit)",
         "- forceSlowChecks: $([bool]$ForceSlowChecks)",
+        "- sourceCommitSha: $sourceCommitSha",
+        "- sourceBranch: $sourceBranch",
+        "- sourceDirty: $sourceDirty",
         "- pass: $overallPass",
         $summaryMetricLines,
         $summaryLinesLocal,
@@ -3046,6 +3093,9 @@ if ($overallPass -and -not $CI -and (Test-Path -LiteralPath $maturityMatrixScrip
         "- quick: $([bool]$Quick)",
         "- forcePlatformAudit: $([bool]$ForcePlatformAudit)",
         "- forceSlowChecks: $([bool]$ForceSlowChecks)",
+        "- sourceCommitSha: $sourceCommitSha",
+        "- sourceBranch: $sourceBranch",
+        "- sourceDirty: $sourceDirty",
         "- pass: $overallPass",
         $summaryMetricLines,
         $postCheckSummaryLines,

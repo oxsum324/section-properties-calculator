@@ -1490,13 +1490,17 @@ function assertNewHomeState(state, tools, label, preflightStatusPayload) {
     assert.ok(state.preflightStatusText.includes(expectedPreflightModeLabel(preflightStatusPayload)), `${label} new home preflight mode label`);
     assert.ok(state.preflightStatusText.includes(`runId ${preflightStatusPayload.runId}`), `${label} new home preflight runId`);
     assert.ok(state.preflightStatusText.includes(expectedPreflightEvidenceText(preflightStatusPayload)), `${label} new home preflight evidence note`);
+    if (/^[0-9a-f]{40}$/i.test(String(preflightStatusPayload.sourceCommitSha || ''))) {
+      assert.ok(state.preflightStatusText.includes(`commit ${preflightStatusPayload.sourceCommitSha.slice(0, 12)}`), `${label} new home preflight source commit`);
+    }
+    if (preflightStatusPayload.sourceDirty === false) assert.ok(state.preflightStatusText.includes('來源乾淨'), `${label} new home preflight clean source`);
   }
 }
 
 function expectedPreflightModeLabel(payload) {
   if (!payload) return '';
   if (payload.quick) return '快速檢查';
-  if (payload.forceSlowChecks && payload.forcePlatformAudit) return '正式放行';
+  if (payload.forceSlowChecks && payload.forcePlatformAudit && /^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || '')) && payload.sourceDirty === false) return '正式放行';
   return '完整檢查';
 }
 
@@ -1507,7 +1511,8 @@ function expectedPreflightEvidenceText(payload) {
     return '本輪仍有異常，修正後才可作為正式交付證據。';
   }
   if (payload.quick) return '僅供快速巡查，不作為正式交付證據。';
-  if (payload.forceSlowChecks && payload.forcePlatformAudit) return '已強制平台巡檢與慢測，可作為正式放行證據。';
+  if (payload.forceSlowChecks && payload.forcePlatformAudit && /^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || '')) && payload.sourceDirty === false) return '已強制平台巡檢與慢測，且來源 commit 可辨識、啟動時工作樹乾淨，可作為正式放行證據。';
+  if (payload.forceSlowChecks && payload.forcePlatformAudit) return '來源 commit 或乾淨工作樹證據不足，不能作為正式放行證據。';
   return '正式交付請以完整檢查或正式放行結果為準。';
 }
 

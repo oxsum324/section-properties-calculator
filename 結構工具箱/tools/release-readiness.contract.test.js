@@ -60,6 +60,11 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   '[switch]$ForceSlowChecks',
   'forcePlatformAudit = [bool]$ForcePlatformAudit',
   'forceSlowChecks = [bool]$ForceSlowChecks',
+  'sourceCommitSha = $sourceCommitSha',
+  'sourceBranch = $sourceBranch',
+  'sourceDirty = $sourceDirty',
+  'Release preflight requires an identifiable Git source commit and worktree state',
+  'Release preflight requires a clean Git worktree',
   'Quick preflight cannot be combined with release force flags',
   '$ForceSlowChecks -or $ForcePlatformAudit',
   'release startup existing node cleanup',
@@ -117,6 +122,8 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'shared-summary-layout',
   'shared-detailed-layout',
   'writeEvidenceSummary',
+  'new home preflight source commit',
+  'new home preflight clean source',
 ].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
 
 [
@@ -171,6 +178,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'minCatalogs: 0',
   'forcePlatformAudit: preflightSummary.forcePlatformAudit',
   'forceSlowChecks: preflightSummary.forceSlowChecks',
+  "sourceCommitSha: String(preflightSummary.sourceCommitSha || '')",
+  'sourceDirty: preflightSummary.sourceDirty !== false',
   'typeof payload.latestPreflight.forcePlatformAudit',
   'typeof payload.latestPreflight.forceSlowChecks',
   'tool maturity matrix release readiness gate passed',
@@ -178,6 +187,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '實際交付物渲染佐證',
   'tool maturity matrix rendered delivery evidence gate passed',
   'function isRenderedDeliveryRelease',
+  "/^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))",
+  'payload.sourceDirty === false',
   'function isCompleteRenderedDeliveryEvidence',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
@@ -193,11 +204,14 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
 [
   '.run-tick.release',
   'function isReleasePreflightRun',
-  'item.forcePlatformAudit === true && item.forceSlowChecks === true',
+  'item.forcePlatformAudit === true',
+  'item.forceSlowChecks === true',
+  "/^[0-9a-f]{40}$/i.test(String(item.sourceCommitSha || ''))",
+  'item.sourceDirty === false',
   "return '正式放行'",
   "releaseRun ? 'release'",
   "releaseRun ? 'R'",
-  '已強制平台巡檢與慢測，可作為正式放行證據。',
+  '來源 commit 可辨識、啟動時工作樹乾淨',
 ].forEach(needle => assertIncludes(dashboard, needle, `dashboard exposes release readiness ${needle}`));
 
 [
@@ -207,6 +221,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'maturity globalGovernance release readiness gate exists',
   'maturity latest preflight forcePlatformAudit boolean',
   'maturity latest preflight forceSlowChecks boolean',
+  'maturity latest preflight sourceCommitSha git sha',
+  'maturity latest preflight sourceDirty boolean',
   'rendered-delivery-evidence',
   'maturity globalGovernance rendered delivery evidence gate exists',
 ].forEach(needle => assertIncludes(dashboardContract, needle, `dashboard contract preserves release readiness ${needle}`));
@@ -214,6 +230,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
 [
   'forcePlatformAudit',
   'forceSlowChecks',
+  'sourceCommitSha',
+  'sourceDirty',
   'release-readiness-contract',
   '正式放行證據',
   'fixture-release',
@@ -227,6 +245,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'run-preflight-tools-release.bat',
   'ForceSlowChecks',
   'ForcePlatformAudit',
+  'sourceCommitSha',
+  'sourceDirty',
   'release-readiness-contract',
   '結構工具箱/tools/release-readiness.contract.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',

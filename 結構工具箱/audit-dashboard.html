@@ -847,7 +847,14 @@
     }
 
     function isReleasePreflightRun(item) {
-      return item && item.quick === false && item.forcePlatformAudit === true && item.forceSlowChecks === true;
+      return Boolean(
+        item
+        && item.quick === false
+        && item.forcePlatformAudit === true
+        && item.forceSlowChecks === true
+        && /^[0-9a-f]{40}$/i.test(String(item.sourceCommitSha || ''))
+        && item.sourceDirty === false
+      );
     }
 
     function preflightModeText(item) {
@@ -887,7 +894,8 @@
         return '本輪仍有異常，修正後才可作為正式交付證據。';
       }
       if (item.quick) return '僅供快速巡查，不作為正式交付證據。';
-      if (isReleasePreflightRun(item)) return '已強制平台巡檢與慢測，可作為正式放行證據。';
+      if (isReleasePreflightRun(item)) return '已強制平台巡檢與慢測，且來源 commit 可辨識、啟動時工作樹乾淨，可作為正式放行證據。';
+      if (item.forcePlatformAudit === true && item.forceSlowChecks === true) return '來源 commit 或乾淨工作樹證據不足，不能作為正式放行證據。';
       return '正式交付請以完整檢查或正式放行結果為準。';
     }
 
@@ -955,7 +963,12 @@
     function formatPreflightSource(item) {
       const sourcePath = String(item?.sourcePath || '').trim();
       const sourceHash = formatCommandHash(item?.sourceHash || '');
+      const sourceCommitSha = formatCommandHash(item?.sourceCommitSha || '');
+      const sourceBranch = String(item?.sourceBranch || '').trim();
       const parts = [];
+      if (sourceCommitSha !== '-') parts.push(`受測 commit ${sourceCommitSha}`);
+      if (sourceBranch) parts.push(`分支 ${sourceBranch}`);
+      if (typeof item?.sourceDirty === 'boolean') parts.push(`啟動工作樹 ${item.sourceDirty ? '有變更' : '乾淨'}`);
       if (sourcePath) parts.push(`來源 ${sourcePath}`);
       if (sourceHash !== '-') parts.push(`hash ${sourceHash}`);
       return parts.length ? `，${parts.join('，')}` : '';
@@ -1003,7 +1016,7 @@
       }
       setKpiValue(valueId, formatPreflightKpiValue(item), preflightTone(item));
       const reason = item.incompleteReason ? `，原因 ${item.incompleteReason}` : '';
-      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，狀態 ${preflightStateText(item)}${reason}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}，${preflightEvidenceText(item)}`);
+      setHint(hintId, `${preflightModeText(item)} runId ${item.runId || '-'}，狀態 ${preflightStateText(item)}${reason}，時間 ${item.generatedAt || '-'}，通過 ${formatPassedChecks(item)}，耗時 ${formatSeconds(item.totalSeconds)}，平台 audit ${formatPlatformAuditMode(item)}，慢測重用 ${formatSlowReuse(item)}，${preflightEvidenceText(item)}${formatPreflightSource(item)}`);
     }
 
     function renderPreflightRecordLinks(summary) {
@@ -1154,7 +1167,7 @@
 
       timeline.innerHTML = items.slice(0, 20).reverse().map((item) => {
         const mode = preflightModeText(item);
-        const label = `${mode} ${item.runId || '-'}｜${preflightStateText(item)}｜${preflightStatusText(item)}｜${item.generatedAt || '-'}｜通過 ${formatPassedChecks(item)}｜耗時 ${formatSeconds(item.totalSeconds)}｜平台 audit ${formatPlatformAuditMode(item)}｜慢測重用 ${formatSlowReuse(item)}｜最慢 ${formatSlowest(item)}`;
+        const label = `${mode} ${item.runId || '-'}｜${preflightStateText(item)}｜${preflightStatusText(item)}｜${item.generatedAt || '-'}｜通過 ${formatPassedChecks(item)}｜耗時 ${formatSeconds(item.totalSeconds)}｜平台 audit ${formatPlatformAuditMode(item)}｜慢測重用 ${formatSlowReuse(item)}｜最慢 ${formatSlowest(item)}${formatPreflightSource(item)}`;
         const statusClass = preflightTone(item);
         const releaseRun = isReleasePreflightRun(item);
         const modeClass = releaseRun ? 'release' : (item.quick ? 'quick' : 'full');
@@ -1180,6 +1193,7 @@
             <td>${escapeHtml(formatPlatformAuditMode(item))}</td>
             <td>${escapeHtml(formatSlowReuse(item))}</td>
             <td>${escapeHtml(formatSlowest(item))}</td>
+            <td><code>${escapeHtml(formatCommandHash(item.sourceCommitSha || ''))}</code><br>${escapeHtml(item.sourceBranch || '-')} / ${escapeHtml(item.sourceDirty === false ? '乾淨' : '有變更')}</td>
             <td><code>${escapeHtml(summaryHash)}</code></td>
             <td>${escapeHtml(postChecks)}</td>
             <td>${escapeHtml(failures)}</td>
@@ -1206,6 +1220,7 @@
               <th>平台 audit</th>
               <th>慢測重用</th>
               <th>最慢檢查</th>
+              <th>受測來源</th>
               <th>摘要 hash</th>
               <th>post checks</th>
               <th>異常內容</th>

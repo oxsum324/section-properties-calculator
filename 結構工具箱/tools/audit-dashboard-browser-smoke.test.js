@@ -124,6 +124,9 @@ function preflightHistoryItem(overrides = {}) {
     totalSeconds: 2.0,
     forcePlatformAudit: false,
     forceSlowChecks: false,
+    sourceCommitSha: '1234567890abcdef1234567890abcdef12345678',
+    sourceBranch: 'fixture-main',
+    sourceDirty: true,
     platformAuditMode: 'reuse-status',
     platformAuditReused: true,
     slowReuseCount: 1,
@@ -589,6 +592,9 @@ const fixtures = new Map(Object.entries({
     quick: false,
     forcePlatformAudit: false,
     forceSlowChecks: false,
+    sourceCommitSha: '1234567890abcdef1234567890abcdef12345678',
+    sourceBranch: 'fixture-main',
+    sourceDirty: true,
     pass: false,
     failureCount: 1,
     failures: ['dashboard-fixture-failure'],
@@ -623,6 +629,7 @@ const fixtures = new Map(Object.entries({
         passedCount: 2,
         forcePlatformAudit: true,
         forceSlowChecks: true,
+        sourceDirty: false,
         platformAuditMode: 'run-audit-all',
         platformAuditReused: false,
         slowReuseCount: 0,
@@ -1165,8 +1172,8 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
           historyHref: row.querySelector('td:nth-child(9) a:nth-child(2)')?.getAttribute('href') || '',
         })),
         platformHistoryHashes: Array.from(document.querySelectorAll('#historyWrap tbody tr')).map((row) => row.querySelector('td:nth-child(5)')?.textContent?.trim() || ''),
-        preflightHistoryHashes: Array.from(document.querySelectorAll('#preflightHistoryWrap tbody tr')).map((row) => row.querySelector('td:nth-child(11)')?.textContent?.trim() || ''),
-        preflightPostChecks: Array.from(document.querySelectorAll('#preflightHistoryWrap tbody tr')).map((row) => row.querySelector('td:nth-child(12)')?.textContent?.trim() || ''),
+        preflightHistoryHashes: Array.from(document.querySelectorAll('#preflightHistoryWrap tbody tr')).map((row) => row.querySelector('td:nth-child(12)')?.textContent?.trim() || ''),
+        preflightPostChecks: Array.from(document.querySelectorAll('#preflightHistoryWrap tbody tr')).map((row) => row.querySelector('td:nth-child(13)')?.textContent?.trim() || ''),
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
         horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
@@ -1297,8 +1304,8 @@ function assertDashboardLiveState(state, label, expected) {
   assert.ok(state.maturityBoundaryHint.includes('頁面專用閱讀狀態檢查'), `${label} live maturity boundary page-only note: ${state.maturityBoundaryHint}`);
   if (summary.quick) {
     assert.ok(state.maturityPreflightHint.includes('僅供快速巡查，不作為正式交付證據。'), `${label} live maturity quick evidence note: ${state.maturityPreflightHint}`);
-  } else if (summary.pass === true && summary.forcePlatformAudit === true && summary.forceSlowChecks === true) {
-    assert.ok(state.maturityPreflightHint.includes('已強制平台巡檢與慢測，可作為正式放行證據。'), `${label} live maturity release evidence note: ${state.maturityPreflightHint}`);
+  } else if (summary.pass === true && summary.forcePlatformAudit === true && summary.forceSlowChecks === true && /^[0-9a-f]{40}$/i.test(String(summary.sourceCommitSha || '')) && summary.sourceDirty === false) {
+    assert.ok(state.maturityPreflightHint.includes('來源 commit 可辨識、啟動時工作樹乾淨'), `${label} live maturity release evidence note: ${state.maturityPreflightHint}`);
   } else if (summary.pass === true) {
     assert.ok(state.maturityPreflightHint.includes('正式交付請以完整檢查或正式放行結果為準。'), `${label} live maturity full evidence note: ${state.maturityPreflightHint}`);
   } else {
@@ -1434,7 +1441,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     latestHref: '../output/preflight/audit-dashboard-browser-smoke-final.txt',
     historyHref: '../output/preflight/history/fixture-full/audit-dashboard-browser-smoke-final.txt',
   }], `${label} latest post-check detail rows rendered: ${JSON.stringify(state.latestPostCheckRows)}`);
-  ['完整檢查 runId fixture-full', '通過 1 / 2', '耗時 2 秒', '平台 audit 重用狀態', '慢測重用 1 (formal-browser-smoke)', '最慢 platform-audit (1.6 秒)', '本輪仍有異常，修正後才可作為正式交付證據。', '來源 output/preflight/preflight-summary.json', 'hash abcdef012345'].forEach((needle) => {
+  ['完整檢查 runId fixture-full', '通過 1 / 2', '耗時 2 秒', '平台 audit 重用狀態', '慢測重用 1 (formal-browser-smoke)', '最慢 platform-audit (1.6 秒)', '本輪仍有異常，修正後才可作為正式交付證據。', '受測 commit 1234567890ab', '分支 fixture-main', '啟動工作樹 有變更', '來源 output/preflight/preflight-summary.json', 'hash abcdef012345'].forEach((needle) => {
     assert.ok(state.maturityPreflightHint.includes(needle), `${label} maturity latest preflight hint includes ${needle}: ${state.maturityPreflightHint}`);
   });
   assert.deepEqual(

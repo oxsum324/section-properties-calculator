@@ -293,6 +293,9 @@ assert.equal(preflightStatus.kind, 'preflight-summary', 'preflight status kind')
 assert.equal(preflightStatus.quick, false, 'public preflight snapshot should publish a full/release run');
 assert.equal(preflightStatus.forcePlatformAudit, true, 'public preflight snapshot should come from forced platform audit release evidence');
 assert.equal(preflightStatus.forceSlowChecks, true, 'public preflight snapshot should come from forced slow-check release evidence');
+assert.match(preflightStatus.sourceCommitSha, /^[0-9a-f]{40}$/i, 'public preflight snapshot identifies the tested Git commit');
+assert.equal(typeof preflightStatus.sourceBranch, 'string', 'public preflight snapshot identifies the tested branch');
+assert.equal(preflightStatus.sourceDirty, false, 'public preflight snapshot comes from a clean worktree');
 assert.equal(reportReadinessStatus.kind, 'report-readiness-status', 'report readiness kind');
 assert.equal(reportReadinessStatus.badge, '頁面專用', 'report readiness badge');
 assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight');

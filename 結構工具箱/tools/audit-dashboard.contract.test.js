@@ -256,6 +256,9 @@ dashboardScripts.forEach((match, index) => {
   'formatSeconds',
   'formatSlowest',
   'formatCommandHash',
+  'formatPreflightSource',
+  '受測 commit',
+  '啟動工作樹',
   'formatRecordMode',
   'formatRecordWorkdir',
   'commandHash',
@@ -410,7 +413,9 @@ const preflightTools = readText(repoFile('preflight-tools.ps1'));
   '[System.Text.UTF8Encoding]::new($false)'
 ].forEach(needle => assertIncludes(preflightTools, needle, 'preflight markdown history log traceability'));
 [
-  '| runId | state | generatedAt | quick | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |',
+  '| runId | state | generatedAt | quick | source commit | branch | dirty | pass | failures | failed keys | passed / checks | duration(s) | platform audit | slow reuse | slow reuse keys | slowest | summary | summary json | summary hash | post checks | summary json hash |',
+  '$sourceCommitText = if ($item.sourceCommitSha)',
+  '$sourceBranchText = if ($item.sourceBranch)',
   '$($item.passedCount) / $($item.recordsCount)',
   '$failedKeyText = Format-HistoryMarkdownListCell @($item.failedKeys)',
   '$slowReuseKeyText = Format-HistoryMarkdownListCell @($item.slowReuseKeys)',
@@ -488,6 +493,9 @@ if (fs.existsSync(latestPreflightSummaryPath)) {
     );
   }
   if (latestSummaryFresh) {
+    assert.match(latestSummary.sourceCommitSha, /^[0-9a-f]{40}$/i, 'latest preflight sourceCommitSha git sha');
+    assert.equal(typeof latestSummary.sourceBranch, 'string', 'latest preflight sourceBranch string');
+    assert.equal(typeof latestSummary.sourceDirty, 'boolean', 'latest preflight sourceDirty boolean');
     assert.ok(Array.isArray(latestSummary.failedKeys), 'latest preflight failedKeys array');
     assert.ok(Array.isArray(latestSummary.slowReuseKeys), 'latest preflight slowReuseKeys array');
     assert.equal(Number.isInteger(latestSummary.slowReuseCount), true, 'latest preflight slowReuseCount integer');
@@ -614,6 +622,12 @@ if (fs.existsSync(preflightHistoryPath)) {
     assert.equal(typeof latest.totalSeconds, 'number', 'preflight totalSeconds number');
     assert.equal(typeof latest.forcePlatformAudit, 'boolean', 'preflight forcePlatformAudit boolean');
     assert.equal(typeof latest.forceSlowChecks, 'boolean', 'preflight forceSlowChecks boolean');
+    if (Object.prototype.hasOwnProperty.call(latest, 'sourceCommitSha')) {
+      assert.equal(typeof latest.sourceCommitSha, 'string', 'preflight sourceCommitSha string');
+      assert.equal(typeof latest.sourceBranch, 'string', 'preflight sourceBranch string');
+      assert.equal(typeof latest.sourceDirty, 'boolean', 'preflight sourceDirty boolean');
+      if (latest.sourceCommitSha) assert.match(latest.sourceCommitSha, /^[0-9a-f]{40}$/i, 'preflight sourceCommitSha git sha');
+    }
     assert.equal(typeof latest.platformAuditMode, 'string', 'preflight platformAuditMode string');
     assert.equal(Number.isInteger(latest.slowReuseCount), true, 'preflight slowReuseCount integer');
     assert.equal(typeof latest.slowestKey, 'string', 'preflight slowestKey string');
@@ -1054,6 +1068,9 @@ if (fs.existsSync(maturityMatrixPath)) {
     assert.equal(typeof matrix.latestPreflight.totalSeconds, 'number', 'maturity latest preflight totalSeconds number');
     assert.equal(typeof matrix.latestPreflight.forcePlatformAudit, 'boolean', 'maturity latest preflight forcePlatformAudit boolean');
     assert.equal(typeof matrix.latestPreflight.forceSlowChecks, 'boolean', 'maturity latest preflight forceSlowChecks boolean');
+    assert.match(matrix.latestPreflight.sourceCommitSha, /^[0-9a-f]{40}$/i, 'maturity latest preflight sourceCommitSha git sha');
+    assert.equal(typeof matrix.latestPreflight.sourceBranch, 'string', 'maturity latest preflight sourceBranch string');
+    assert.equal(typeof matrix.latestPreflight.sourceDirty, 'boolean', 'maturity latest preflight sourceDirty boolean');
     assert.equal(Number.isInteger(matrix.latestPreflight.recordsCount), true, 'maturity latest preflight recordsCount integer');
     assert.equal(Number.isInteger(matrix.latestPreflight.passedCount), true, 'maturity latest preflight passedCount integer');
     assert.equal(Number.isInteger(matrix.latestPreflight.slowReuseCount), true, 'maturity latest preflight slowReuseCount integer');
@@ -1070,7 +1087,7 @@ if (fs.existsSync(maturityMatrixPath)) {
         'generatedAt', 'runId', 'quick', 'pass', 'failureCount', 'recordsCount', 'passedCount',
         'totalSeconds', 'slowestKey', 'slowestSeconds', 'slowestText', 'slowReuseCount',
         'platformAuditMode', 'platformAuditReused', 'platformAuditDecisionPath',
-        'forcePlatformAudit', 'forceSlowChecks'
+        'forcePlatformAudit', 'forceSlowChecks', 'sourceCommitSha', 'sourceBranch', 'sourceDirty'
       ];
       for (const field of scalarFields) {
         assert.deepEqual(matrix.latestPreflight[field], latestSummaryForMatrix[field], `maturity latest preflight ${field} matches summary`);

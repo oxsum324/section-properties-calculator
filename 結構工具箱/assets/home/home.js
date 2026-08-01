@@ -1181,7 +1181,7 @@
     if (payload.quick) {
       return { key: 'quick', label: '快速檢查', tone: 'warn' };
     }
-    if (payload.forceSlowChecks && payload.forcePlatformAudit) {
+    if (payload.forceSlowChecks && payload.forcePlatformAudit && /^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || '')) && payload.sourceDirty === false) {
       return { key: 'release', label: '正式放行', tone: 'ok' };
     }
     return { key: 'full', label: '完整檢查', tone: 'ok' };
@@ -1196,7 +1196,8 @@
     const mode = preflightModeMeta(payload);
     if (!mode) return '';
     if (mode.key === 'quick') return '僅供快速巡查，不作為正式交付證據。';
-    if (mode.key === 'release') return '已強制平台巡檢與慢測，可作為正式放行證據。';
+    if (mode.key === 'release') return '已強制平台巡檢與慢測，且來源 commit 可辨識、啟動時工作樹乾淨，可作為正式放行證據。';
+    if (payload.forceSlowChecks && payload.forcePlatformAudit) return '來源 commit 或乾淨工作樹證據不足，不能作為正式放行證據。';
     return '正式交付請以完整檢查或正式放行結果為準。';
   }
 
@@ -1211,6 +1212,8 @@
     const mode = preflightModeMeta(payload);
     if (mode) items.push({ text: mode.label, tone: mode.tone });
     if (payload.runId) items.push({ text: `runId ${payload.runId}`, tone: 'trace' });
+    if (/^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))) items.push({ text: `commit ${payload.sourceCommitSha.slice(0, 12)}`, tone: 'trace' });
+    if (typeof payload.sourceDirty === 'boolean') items.push({ text: payload.sourceDirty ? '來源有變更' : '來源乾淨', tone: payload.sourceDirty ? 'warn' : 'ok' });
     return items;
   }
 

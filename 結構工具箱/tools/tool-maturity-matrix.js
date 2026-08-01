@@ -1202,6 +1202,9 @@ function summarize(rows, preflightSummary, preflightSummarySource = null, source
       quick: preflightSummary.quick,
       forcePlatformAudit: preflightSummary.forcePlatformAudit,
       forceSlowChecks: preflightSummary.forceSlowChecks,
+      sourceCommitSha: String(preflightSummary.sourceCommitSha || ''),
+      sourceBranch: String(preflightSummary.sourceBranch || ''),
+      sourceDirty: preflightSummary.sourceDirty !== false,
       pass: preflightSummary.pass,
       failureCount: preflightSummary.failureCount,
       failedKeys: Array.isArray(preflightSummary.failedKeys) ? preflightSummary.failedKeys : [],
@@ -1249,7 +1252,7 @@ function buildMarkdown(payload) {
     `- globalGovernance: complete=${payload.globalGovernance?.passed || 0}/${payload.globalGovernance?.required || 0}, issues=${payload.globalGovernance?.issueCount || 0}`,
     `- preflightHistoryHealth: completed=${payload.preflightHistoryHealth?.completedCount || 0}/${payload.preflightHistoryHealth?.count || 0}, incomplete=${payload.preflightHistoryHealth?.incompleteCount || 0}, inProgress=${payload.preflightHistoryHealth?.inProgressCount || 0}, latestState=${payload.preflightHistoryHealth?.latestState || '-'}`,
     payload.latestPreflight
-      ? `- latestPreflight: ${payload.latestPreflight.runId}, pass=${payload.latestPreflight.pass}, quick=${payload.latestPreflight.quick}, source=${payload.latestPreflight.sourcePath || '-'}, hash=${(payload.latestPreflight.sourceHash || '').slice(0, 12) || '-'}`
+      ? `- latestPreflight: ${payload.latestPreflight.runId}, pass=${payload.latestPreflight.pass}, quick=${payload.latestPreflight.quick}, commit=${(payload.latestPreflight.sourceCommitSha || '').slice(0, 12) || '-'}, branch=${payload.latestPreflight.sourceBranch || '-'}, dirty=${payload.latestPreflight.sourceDirty}, source=${payload.latestPreflight.sourcePath || '-'}, hash=${(payload.latestPreflight.sourceHash || '').slice(0, 12) || '-'}`
       : '- latestPreflight: unavailable',
     '',
     '## Coverage Totals',
@@ -1518,6 +1521,9 @@ function buildHomepagePreflightStatus(payload, sourceFilePath, sourcePath) {
     quick: Boolean(payload.quick),
     forcePlatformAudit: Boolean(payload.forcePlatformAudit),
     forceSlowChecks: Boolean(payload.forceSlowChecks),
+    sourceCommitSha: String(payload.sourceCommitSha || ''),
+    sourceBranch: String(payload.sourceBranch || ''),
+    sourceDirty: payload.sourceDirty !== false,
     pass: Boolean(payload.pass),
     failureCount: compactNumber(payload.failureCount),
     failedKeys: compactStringArray(payload.failedKeys),
@@ -1542,6 +1548,8 @@ function isRenderedDeliveryRelease(payload) {
     && payload.quick === false
     && payload.forcePlatformAudit === true
     && payload.forceSlowChecks === true
+    && /^[0-9a-f]{40}$/i.test(String(payload.sourceCommitSha || ''))
+    && payload.sourceDirty === false
     && payload.pass === true
     && compactNumber(payload.slowReuseCount) === 0
     && payload.platformAuditReused === false
@@ -1989,6 +1997,9 @@ function checkMatrix(payload, markdown, options = {}) {
   const latestFullHomepagePreflight = resolveHomepagePreflightSource();
   assert.ok(Array.isArray(homepagePlatformStatus.modules), 'homepage platform status modules array');
   assert.equal(typeof homepagePreflightStatus.quick, 'boolean', 'homepage preflight status quick boolean');
+  assert.match(homepagePreflightStatus.sourceCommitSha, /^[0-9a-f]{40}$/i, 'homepage preflight status sourceCommitSha git sha');
+  assert.equal(typeof homepagePreflightStatus.sourceBranch, 'string', 'homepage preflight status sourceBranch string');
+  assert.equal(typeof homepagePreflightStatus.sourceDirty, 'boolean', 'homepage preflight status sourceDirty boolean');
   assert.equal(Number.isInteger(homepagePreflightStatus.recordsCount), true, 'homepage preflight status recordsCount integer');
   assert.equal(Number.isInteger(homepagePreflightStatus.passedCount), true, 'homepage preflight status passedCount integer');
   assert.ok(Array.isArray(homepagePreflightStatus.failedKeys), 'homepage preflight status failedKeys array');
@@ -2082,6 +2093,9 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.equal(typeof payload.latestPreflight.pass, 'boolean', 'tool maturity matrix latest preflight pass boolean');
     assert.equal(typeof payload.latestPreflight.forcePlatformAudit, 'boolean', 'tool maturity matrix latest preflight forcePlatformAudit boolean');
     assert.equal(typeof payload.latestPreflight.forceSlowChecks, 'boolean', 'tool maturity matrix latest preflight forceSlowChecks boolean');
+    assert.match(payload.latestPreflight.sourceCommitSha, /^[0-9a-f]{40}$/i, 'tool maturity matrix latest preflight sourceCommitSha git sha');
+    assert.equal(typeof payload.latestPreflight.sourceBranch, 'string', 'tool maturity matrix latest preflight sourceBranch string');
+    assert.equal(typeof payload.latestPreflight.sourceDirty, 'boolean', 'tool maturity matrix latest preflight sourceDirty boolean');
     assert.equal(typeof payload.latestPreflight.totalSeconds, 'number', 'tool maturity matrix latest preflight totalSeconds number');
     assert.equal(Number.isInteger(payload.latestPreflight.recordsCount), true, 'tool maturity matrix latest preflight recordsCount integer');
     assert.equal(Number.isInteger(payload.latestPreflight.passedCount), true, 'tool maturity matrix latest preflight passedCount integer');
@@ -2092,6 +2106,7 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.equal(typeof payload.latestPreflight.sourcePath, 'string', 'tool maturity matrix latest preflight sourcePath string');
     assert.equal(typeof payload.latestPreflight.sourceMtime, 'string', 'tool maturity matrix latest preflight sourceMtime string');
     assert.match(payload.latestPreflight.sourceHash, /^[0-9a-f]{64}$/i, 'tool maturity matrix latest preflight sourceHash sha256');
+    assert.ok(markdown.includes(`commit=${payload.latestPreflight.sourceCommitSha.slice(0, 12)}`), 'tool maturity matrix markdown exposes latest preflight source commit');
     assert.ok(markdown.includes(`hash=${payload.latestPreflight.sourceHash.slice(0, 12)}`), 'tool maturity matrix markdown exposes latest preflight source hash');
   }
   for (const item of COVERAGE_TOTALS) {

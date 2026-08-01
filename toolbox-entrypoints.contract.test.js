@@ -472,6 +472,9 @@ assert.ok(homeToolUpdates.source.includes('preflight'), 'home tool update catalo
 assert.equal(preflightStatusSnapshot.quick, false, 'tracked homepage preflight snapshot is full mode');
 assert.equal(preflightStatusSnapshot.forcePlatformAudit, true, 'tracked homepage preflight snapshot forced platform audit');
 assert.equal(preflightStatusSnapshot.forceSlowChecks, true, 'tracked homepage preflight snapshot forced slow checks');
+assert.match(preflightStatusSnapshot.sourceCommitSha, /^[0-9a-f]{40}$/i, 'tracked homepage preflight snapshot identifies the tested Git commit');
+assert.equal(typeof preflightStatusSnapshot.sourceBranch, 'string', 'tracked homepage preflight snapshot identifies the tested branch');
+assert.equal(preflightStatusSnapshot.sourceDirty, false, 'tracked homepage preflight snapshot comes from a clean worktree');
 assert.equal(preflightStatusSnapshot.pass, true, 'tracked homepage preflight snapshot passed');
 const trackedReleaseDate = String(preflightStatusSnapshot.generatedAt || '').slice(0, 10);
 assertHomeDate(trackedReleaseDate, 'tracked homepage release date');
