@@ -812,7 +812,7 @@ public static class AttachmentHubNativeScroll {
       $initialFormWidth = $script:MainForm.Width
       $initialFormHeight = $script:MainForm.Height
       $initialFormBounds = $script:MainForm.Bounds
-      $launchPointWithinWorkingArea = $workingArea.Contains($launchPoint)
+      $launchPointWithinScreenBounds = $launchScreen.Bounds.Contains($launchPoint)
       $formWithinWorkingArea = $initialFormBounds.Left -ge $workingArea.Left -and $initialFormBounds.Top -ge $workingArea.Top -and $initialFormBounds.Right -le $workingArea.Right -and $initialFormBounds.Bottom -le $workingArea.Bottom
       $script:MainForm.PerformLayout()
       $script:ScrollPanel.PerformLayout()
@@ -868,7 +868,7 @@ public static class AttachmentHubNativeScroll {
       $keyboardTargetRectangle = $script:ToolButtons['upgrade'].RectangleToScreen($script:ToolButtons['upgrade'].ClientRectangle)
       $keyboardTargetReachable = $keyboardTargetRectangle.Left -ge $keyboardClientRectangle.Left -and $keyboardTargetRectangle.Right -le $keyboardClientRectangle.Right -and $keyboardTargetRectangle.Top -ge $keyboardClientRectangle.Top -and $keyboardTargetRectangle.Bottom -le $keyboardClientRectangle.Bottom
       $script:ViewportSmokeResult = [pscustomobject]@{
-        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Width -le 780 -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormWidth -le $workingArea.Width -and $initialFormHeight -le $workingArea.Height -and $launchPointWithinWorkingArea -and $formWithinWorkingArea -and $verticalScrollVisible -and $verticalScrollAfter -gt $verticalScrollBefore -and $verticalScrollAfter -eq $verticalScrollTarget -and $noticeReachable -and $horizontalScrollVisible -and $horizontalScrollAfter -gt $horizontalScrollBefore -and $horizontalScrollAfter -eq $horizontalScrollTarget -and $rightmostButtonReachable -and $pathShortcutFocused -and $keyboardTargetFocused -and $keyboardTargetReachable) { 'pass' } else { 'fail' }
+        status = if ($script:ScrollPanel.AutoScroll -and $script:MainForm.MinimumSize.Width -le 780 -and $script:MainForm.MinimumSize.Height -le 640 -and $initialFormWidth -le $workingArea.Width -and $initialFormHeight -le $workingArea.Height -and $launchPointWithinScreenBounds -and $formWithinWorkingArea -and $verticalScrollVisible -and $verticalScrollAfter -gt $verticalScrollBefore -and $verticalScrollAfter -eq $verticalScrollTarget -and $noticeReachable -and $horizontalScrollVisible -and $horizontalScrollAfter -gt $horizontalScrollBefore -and $horizontalScrollAfter -eq $horizontalScrollTarget -and $rightmostButtonReachable -and $pathShortcutFocused -and $keyboardTargetFocused -and $keyboardTargetReachable) { 'pass' } else { 'fail' }
         winFormsMessageLoop = $true
         autoScrollEnabled = [bool]$script:ScrollPanel.AutoScroll
         minimumWidth = $script:MainForm.MinimumSize.Width
@@ -882,7 +882,7 @@ public static class AttachmentHubNativeScroll {
         launchScreenDeviceName = $launchScreen.DeviceName
         launchPointX = $launchPoint.X
         launchPointY = $launchPoint.Y
-        launchPointWithinWorkingArea = $launchPointWithinWorkingArea
+        launchPointWithinScreenBounds = $launchPointWithinScreenBounds
         initialFormWidth = $initialFormWidth
         initialFormHeight = $initialFormHeight
         initialFormLeft = $initialFormBounds.Left

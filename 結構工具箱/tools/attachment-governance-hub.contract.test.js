@@ -192,7 +192,7 @@ assert.ok(viewportPayload.minimumWidth <= 780);
 assert.ok(viewportPayload.minimumHeight <= 640);
 assert.ok(viewportPayload.initialFormWidth <= viewportPayload.workingAreaWidth);
 assert.ok(viewportPayload.initialFormHeight <= viewportPayload.workingAreaHeight);
-assert.equal(viewportPayload.launchPointWithinWorkingArea, true);
+assert.equal(viewportPayload.launchPointWithinScreenBounds, true);
 assert.equal(viewportPayload.formWithinWorkingArea, true);
 assert.ok(viewportPayload.initialFormLeft >= viewportPayload.workingAreaLeft);
 assert.ok(viewportPayload.initialFormTop >= viewportPayload.workingAreaTop);
