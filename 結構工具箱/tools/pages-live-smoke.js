@@ -38,6 +38,7 @@ const CLEAN_ROUTE_SAMPLES = [
 const PRIVATE_PATHS = [
   '啟動案件附件工作台.bat',
   '安裝案件附件工作台捷徑.bat',
+  '檢查案件附件工作台捷徑.bat',
   '移除案件附件工作台捷徑.bat',
   'README.md',
   'CONTEXT.md',

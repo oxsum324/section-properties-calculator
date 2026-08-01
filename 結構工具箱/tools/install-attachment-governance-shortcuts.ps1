@@ -3,6 +3,7 @@ param(
   [string]$DesktopPath = [Environment]::GetFolderPath('Desktop'),
   [string]$SendToPath = [Environment]::GetFolderPath('SendTo'),
   [string]$ProgramsPath = [Environment]::GetFolderPath('Programs'),
+  [switch]$Check,
   [switch]$Remove,
   [switch]$Json
 )
@@ -12,12 +13,16 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $OutputEncoding = [Console]::OutputEncoding
 
+if ($Check -and $Remove) {
+  throw '檢查與移除模式不可同時使用。'
+}
+
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 $targetPath = [IO.Path]::GetFullPath((Join-Path $repoRoot '啟動案件附件工作台.bat'))
 $managedMarker = '案件附件工作台捷徑（由小工具安裝器管理）'
 $iconLocation = "$env:SystemRoot\System32\shell32.dll,71"
 
-if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+if (-not $Check -and -not $Remove -and -not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
   throw "找不到受治理的工作台入口：$targetPath"
 }
 
@@ -165,7 +170,39 @@ function Remove-ManagedShortcut {
   return [pscustomobject]@{ kind = $Spec.Kind; status = 'removed'; path = $Spec.Path }
 }
 
-if ($Remove) {
+function Get-ShortcutInspection {
+  param([Parameter(Mandatory)]$Spec)
+
+  if (-not (Test-Path -LiteralPath $Spec.Path -PathType Leaf)) {
+    return [pscustomobject]@{ kind = $Spec.Kind; status = 'absent'; path = $Spec.Path }
+  }
+
+  $existing = Get-ShortcutState -Path $Spec.Path
+  if (Test-ShortcutCurrent -State $existing -Spec $Spec) {
+    return [pscustomobject]@{ kind = $Spec.Kind; status = 'current'; path = $Spec.Path }
+  }
+  if (Test-ShortcutManaged -State $existing) {
+    return [pscustomobject]@{ kind = $Spec.Kind; status = 'repairable'; path = $Spec.Path }
+  }
+  return [pscustomobject]@{ kind = $Spec.Kind; status = 'foreign'; path = $Spec.Path }
+}
+
+$targetAvailable = [bool](Test-Path -LiteralPath $targetPath -PathType Leaf)
+$resultStatus = $null
+$resultExitCode = 0
+if ($Check) {
+  $operation = 'check'
+  $results = @($specs | ForEach-Object { Get-ShortcutInspection -Spec $_ })
+  if (-not $targetAvailable -or @($results | Where-Object { $_.status -eq 'foreign' }).Count -gt 0) {
+    $resultStatus = 'blocked'
+    $resultExitCode = 2
+  } elseif (@($results | Where-Object { $_.status -ne 'current' }).Count -gt 0) {
+    $resultStatus = 'review'
+    $resultExitCode = 1
+  } else {
+    $resultStatus = 'ready'
+  }
+} elseif ($Remove) {
   $operation = 'remove'
   $results = @($specs | ForEach-Object { Remove-ManagedShortcut -Spec $_ })
 } else {
@@ -177,8 +214,12 @@ $payload = [ordered]@{
   version = 1
   operation = $operation
   target = $targetPath
+  targetAvailable = $targetAvailable
   workingDirectory = $repoRoot
   shortcuts = $results
+}
+if ($Check) {
+  $payload['status'] = $resultStatus
 }
 
 if ($Json) {
@@ -187,9 +228,13 @@ if ($Json) {
   foreach ($item in $results) {
     "[{0}] {1}" -f $item.status, $item.path
   }
-  if ($Remove) {
+  if ($Check) {
+    "唯讀檢查結果：$resultStatus；未建立、更新或移除任何捷徑。"
+  } elseif ($Remove) {
     '已只處理本工具管理的捷徑；同名使用者捷徑會保留。'
   } else {
     '桌面可直接開啟；案件資料夾可用右鍵「傳送到」進入唯讀辨識；也可按 Windows 鍵搜尋「案件附件工作台」。'
   }
 }
+
+if ($Check) { exit $resultExitCode }

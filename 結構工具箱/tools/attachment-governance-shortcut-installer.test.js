@@ -34,6 +34,17 @@ function runInstaller(desktopPath, sendToPath, programsPath) {
   ]);
 }
 
+function runChecker(desktopPath, sendToPath, programsPath) {
+  return runPowerShell([
+    '-File', installerPath,
+    '-DesktopPath', desktopPath,
+    '-SendToPath', sendToPath,
+    '-ProgramsPath', programsPath,
+    '-Check',
+    '-Json',
+  ]);
+}
+
 function runRemover(desktopPath, sendToPath, programsPath) {
   return runPowerShell([
     '-File', installerPath,
@@ -69,7 +80,7 @@ const installerSource = fs.readFileSync(installerPath, 'utf8');
 assert.equal(installerSource.charCodeAt(0), 0xFEFF, 'installer keeps UTF-8 BOM for Windows PowerShell 5.1');
 [
   'WScript.Shell', '啟動案件附件工作台.bat', '案件附件工作台.lnk', '以附件工作台檢查.lnk', "GetFolderPath('Programs')", 'start-menu',
-  'Test-ShortcutManaged', 'Test-ShortcutCurrent', 'Test-ShortcutRemovable', 'Assert-ShortcutInstallable', 'Remove-ManagedShortcut', "operation = 'remove'", "Arguments = ''", 'Move-Item', '已保留原檔',
+  'Test-ShortcutManaged', 'Test-ShortcutCurrent', 'Test-ShortcutRemovable', 'Get-ShortcutInspection', 'Assert-ShortcutInstallable', 'Remove-ManagedShortcut', "operation = 'check'", "operation = 'remove'", "Arguments = ''", 'Move-Item', '已保留原檔',
 ].forEach(needle => assert.ok(installerSource.includes(needle), `installer includes ${needle}`));
 assert.doesNotMatch(installerSource, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'installer stays local');
 
@@ -79,6 +90,13 @@ assert.match(launcher, /install-attachment-governance-shortcuts\.ps1/);
 assert.match(launcher, /%\*/i, 'installer launcher forwards optional verification paths');
 assert.ok(launcher.includes('\r\n'), 'Windows batch launcher uses CRLF line endings');
 assert.equal(launcher.replace(/\r\n/g, '').includes('\n'), false, 'Windows batch launcher has no bare LF line endings');
+
+const checker = read('檢查案件附件工作台捷徑.bat');
+assert.match(checker, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-File/i);
+assert.match(checker, /install-attachment-governance-shortcuts\.ps1/);
+assert.match(checker, /-Check\s+%\*/i, 'checker fixes the read-only inspection mode and forwards optional paths');
+assert.ok(checker.includes('\r\n'), 'Windows checker uses CRLF line endings');
+assert.equal(checker.replace(/\r\n/g, '').includes('\n'), false, 'Windows checker has no bare LF line endings');
 
 const remover = read('移除案件附件工作台捷徑.bat');
 assert.match(remover, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-File/i);
@@ -93,6 +111,7 @@ assert.match(preflight, /key = "attachment-governance-shortcut-installer"/);
 
 const privateFiles = [
   '安裝案件附件工作台捷徑.bat',
+  '檢查案件附件工作台捷徑.bat',
   '移除案件附件工作台捷徑.bat',
   '結構工具箱/tools/install-attachment-governance-shortcuts.ps1',
   '結構工具箱/tools/attachment-governance-shortcut-installer.test.js',
@@ -126,6 +145,18 @@ fs.mkdirSync(sendToPath);
 fs.mkdirSync(programsPath);
 
 try {
+  const conflictingModes = runPowerShell([
+    '-File', installerPath,
+    '-DesktopPath', desktopPath,
+    '-SendToPath', sendToPath,
+    '-ProgramsPath', programsPath,
+    '-Check',
+    '-Remove',
+    '-Json',
+  ]);
+  assert.notEqual(conflictingModes.status, 0, 'check and remove modes are mutually exclusive');
+  assert.match(`${conflictingModes.stdout}\n${conflictingModes.stderr}`, /不可同時使用/);
+
   const first = runInstaller(desktopPath, sendToPath, programsPath);
   assert.equal(first.status, 0, first.stderr);
   const firstPayload = JSON.parse(first.stdout.trim());
@@ -148,6 +179,49 @@ try {
   assert.deepEqual(secondPayload.shortcuts.map(item => item.status), ['current', 'current', 'current']);
   assert.deepEqual(shortcuts.map(shortcut => fs.statSync(shortcut.Path).mtimeMs), timestamps, 'current shortcuts are not rewritten');
 
+  const currentCheck = runChecker(desktopPath, sendToPath, programsPath);
+  assert.equal(currentCheck.status, 0, currentCheck.stderr);
+  const currentCheckPayload = JSON.parse(currentCheck.stdout.trim());
+  assert.equal(currentCheckPayload.operation, 'check');
+  assert.equal(currentCheckPayload.status, 'ready');
+  assert.equal(currentCheckPayload.targetAvailable, true);
+  assert.deepEqual(currentCheckPayload.shortcuts.map(item => item.status), ['current', 'current', 'current']);
+  assert.deepEqual(shortcuts.map(shortcut => fs.statSync(shortcut.Path).mtimeMs), timestamps, 'read-only check does not rewrite current shortcuts');
+
+  const corruptCommand = [
+    '$shell = New-Object -ComObject WScript.Shell',
+    '$link = $shell.CreateShortcut($env:TEST_CORRUPT_LINK)',
+    '$link.Arguments = "--unexpected"',
+    '$link.Save()',
+  ].join('; ');
+  const corruptSetup = runPowerShell(['-Command', corruptCommand], {
+    env: { ...process.env, TEST_CORRUPT_LINK: path.join(desktopPath, '案件附件工作台.lnk') },
+  });
+  assert.equal(corruptSetup.status, 0, corruptSetup.stderr);
+  const corruptTimestamp = fs.statSync(path.join(desktopPath, '案件附件工作台.lnk')).mtimeMs;
+  const repairableCheck = runChecker(desktopPath, sendToPath, programsPath);
+  assert.equal(repairableCheck.status, 1, repairableCheck.stderr);
+  const repairablePayload = JSON.parse(repairableCheck.stdout.trim());
+  assert.equal(repairablePayload.status, 'review');
+  assert.deepEqual(repairablePayload.shortcuts.map(item => item.status), ['repairable', 'current', 'current']);
+  assert.equal(fs.statSync(path.join(desktopPath, '案件附件工作台.lnk')).mtimeMs, corruptTimestamp, 'read-only check does not repair a managed shortcut');
+  const repaired = runInstaller(desktopPath, sendToPath, programsPath);
+  assert.equal(repaired.status, 0, repaired.stderr);
+  assert.deepEqual(JSON.parse(repaired.stdout.trim()).shortcuts.map(item => item.status), ['updated', 'current', 'current']);
+
+  const absentDesktop = path.join(temporaryRoot, 'AbsentDesktop');
+  const absentSendTo = path.join(temporaryRoot, 'AbsentSendTo');
+  const absentPrograms = path.join(temporaryRoot, 'AbsentPrograms');
+  fs.mkdirSync(absentDesktop);
+  fs.mkdirSync(absentSendTo);
+  fs.mkdirSync(absentPrograms);
+  const absentCheck = runChecker(absentDesktop, absentSendTo, absentPrograms);
+  assert.equal(absentCheck.status, 1, absentCheck.stderr);
+  const absentPayload = JSON.parse(absentCheck.stdout.trim());
+  assert.equal(absentPayload.status, 'review');
+  assert.deepEqual(absentPayload.shortcuts.map(item => item.status), ['absent', 'absent', 'absent']);
+  assert.equal(fs.readdirSync(absentDesktop).length + fs.readdirSync(absentSendTo).length + fs.readdirSync(absentPrograms).length, 0, 'read-only check does not create missing shortcuts');
+
   const conflictDesktop = path.join(temporaryRoot, 'ConflictDesktop');
   const conflictSendTo = path.join(temporaryRoot, 'ConflictSendTo');
   const conflictPrograms = path.join(temporaryRoot, 'ConflictPrograms');
@@ -166,6 +240,13 @@ try {
     env: { ...process.env, TEST_CONFLICT_LINK: conflictPath },
   });
   assert.equal(conflictSetup.status, 0, conflictSetup.stderr);
+  const conflictTimestamp = fs.statSync(conflictPath).mtimeMs;
+  const conflictCheck = runChecker(conflictDesktop, conflictSendTo, conflictPrograms);
+  assert.equal(conflictCheck.status, 2, conflictCheck.stderr);
+  const conflictCheckPayload = JSON.parse(conflictCheck.stdout.trim());
+  assert.equal(conflictCheckPayload.status, 'blocked');
+  assert.deepEqual(conflictCheckPayload.shortcuts.map(item => item.status), ['foreign', 'absent', 'absent']);
+  assert.equal(fs.statSync(conflictPath).mtimeMs, conflictTimestamp, 'read-only check preserves a same-name user shortcut');
   const conflict = runInstaller(conflictDesktop, conflictSendTo, conflictPrograms);
   assert.notEqual(conflict.status, 0, 'a same-name user shortcut must block installation');
   assert.match(`${conflict.stdout}\n${conflict.stderr}`, /已保留原檔/);
