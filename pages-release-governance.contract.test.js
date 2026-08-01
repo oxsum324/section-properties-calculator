@@ -104,9 +104,16 @@ assert.ok(pushPagesRelease.includes('JobStatusStale') && pushPagesRelease.includ
 assert.ok(pushPagesRelease.includes('$failedSteps') && pushPagesRelease.includes('has failed steps'), 'Pages push wrapper fails closed on any failed job step');
 assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && pushPagesRelease.includes('Test-ManifestIdentity'), 'Pages push wrapper verifies a cache-busted public deployment manifest');
 assert.ok(pushPagesRelease.includes('commitSha') && pushPagesRelease.includes('runId') && pushPagesRelease.includes('sourceDirty'), 'Pages push wrapper binds the manifest to commit, run, and clean source provenance');
+assert.ok(pushPagesRelease.includes("'結構工具箱\\tools\\pages-live-smoke.js'") && pushPagesRelease.includes('Independently verifying every public artifact file'), 'Pages push wrapper independently reruns the public HTTP artifact verifier');
+assert.ok(pushPagesRelease.includes("'--check-private-boundary'") && pushPagesRelease.includes("'--expected-commit-sha'") && pushPagesRelease.includes("'--expected-run-id'") && pushPagesRelease.includes("'--expect-clean-source'"), 'Pages push wrapper preserves full public provenance and boundary arguments');
+assert.ok(pushPagesRelease.indexOf('$manifest = Wait-PublicManifest') < pushPagesRelease.indexOf('Independently verifying every public artifact file'), 'workstation artifact verification runs after the matching public manifest is visible');
+assert.ok(pushPagesRelease.includes('publicArtifactVerified = $true') && pushPagesRelease.includes('schemaVersion = $manifest.schemaVersion') && pushPagesRelease.includes('fileCount = $manifest.fileCount') && pushPagesRelease.includes('totalBytes = $manifest.totalBytes'), 'Pages push wrapper reports independently verified artifact evidence');
 assert.ok(pushPagesRelease.includes('verify-pages-release-lineage.js') && pushPagesRelease.includes('Verifying that HEAD only carries status snapshots'), 'Pages push wrapper blocks untested carrier changes before push');
 assert.ok(pushPagesRelease.includes('AllowDirtyVerification is only valid with VerifyOnly and can never authorize a push or dispatch.'), 'dirty verification mode cannot authorize mutation');
 assert.ok(pushPagesReleaseBatch.includes('push-pages-release.ps1') && pushPagesReleaseBatch.includes('%*'), 'Pages release batch forwards explicit operator options to the safe PowerShell entrypoint');
+assert.ok(readme.includes('publicArtifactVerified=true') && readme.includes('工作站事後複驗'), 'README documents workstation artifact verification as a completion condition');
+assert.ok(toolBoundaries.includes('工作站再次呼叫 `pages-live-smoke.js`') && toolBoundaries.includes('全部公開檔案大小／SHA-256'), 'tool boundaries documents the independent workstation verifier');
+assert.ok(staging.includes('一般推送、既有同 SHA 部署及 `-VerifyOnly`') && staging.includes('工作站 HTTP 複驗失敗即維持失敗'), 'staging guide keeps workstation verification fail-closed');
 
 {
   const orderedTokens = [

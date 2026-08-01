@@ -458,6 +458,19 @@ if ($runId -le 0) { throw 'Could not resolve a valid Pages workflow run ID.' }
 Write-ProgressLine "Tracking run $runId."
 $runEvidence = Wait-RunJobs -RunId $runId
 $manifest = Wait-PublicManifest -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
+$publicSmokeScript = Join-Path $RepoRoot '結構工具箱\tools\pages-live-smoke.js'
+if (-not (Test-Path -LiteralPath $publicSmokeScript)) {
+  throw "Pages public artifact verifier is missing: $publicSmokeScript"
+}
+Write-ProgressLine "Independently verifying every public artifact file from this workstation."
+Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
+  $publicSmokeScript,
+  '--base-url', $pagesUrl,
+  '--check-private-boundary',
+  '--expected-commit-sha', $headSha,
+  '--expected-run-id', ([string]$runId),
+  '--expect-clean-source'
+) | Out-Null
 
 $result = [ordered]@{
   schemaVersion = 1
@@ -480,12 +493,16 @@ $result = [ordered]@{
   jobs = $runEvidence.Jobs
   pagesUrl = $pagesUrl
   pagesStatus = [string]$pagesInfo.status
+  publicArtifactVerified = $true
   deploymentManifest = [ordered]@{
+    schemaVersion = $manifest.schemaVersion
     commitSha = [string]$manifest.commitSha
     runId = [string]$manifest.runId
     runAttempt = $manifest.runAttempt
     sourceDirty = [bool]$manifest.sourceDirty
     artifactDigest = [string]$manifest.artifactDigest
+    fileCount = $manifest.fileCount
+    totalBytes = $manifest.totalBytes
   }
 }
 
