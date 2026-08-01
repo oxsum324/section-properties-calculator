@@ -430,9 +430,6 @@ function buildOpenRoofReportReadinessModel(validationMessage = lastOpenRoofRepor
   if (staleMessage) {
     reviewItems.push({ label: '輸入已變更', value: staleMessage });
   }
-  if (window.WindReport.isProjectMetaMissing()) {
-    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
-  }
   if (r.applicabilityLevel === 'fail') {
     reviewItems.push({ label: '規範適用性', value: `θ = ${fmt(r.theta, 1)}°、h/L = ${fmt(r.hOverL, 3)}；圖 3.3 註 1 條件應於附件採用前人工確認。` });
   }

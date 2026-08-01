@@ -551,9 +551,6 @@ function towerMemberLabel(value) {
 function reportModeLabel() {
   return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
 }
-function isProjectMetaMissing() {
-  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-}
 function buildLatticeTowerReportReadinessModel(validationMessage = lastLatticeTowerReportValidationMessage) {
   const blockedItems = [];
   const reviewItems = [];
@@ -581,9 +578,6 @@ function buildLatticeTowerReportReadinessModel(validationMessage = lastLatticeTo
   readyItems.push({ label: '塔面與分段', value: `φ = ${fmt(r.phi,2)}；B = ${fmt(r.faceWidth,2)} m；n = ${r.segments}。` });
   readyItems.push({ label: '計算書模式', value: `${reportModeLabel()}；報告會重新計算目前輸入。` });
 
-  if (isProjectMetaMissing()) {
-    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
-  }
   if (r.towerShape === 'square' && !r.skewWind) {
     reviewItems.push({ label: '方形塔斜風向', value: '方形高塔未採斜風向修正；若專案須檢討斜風向，產報前應確認。' });
   }

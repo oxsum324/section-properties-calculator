@@ -502,9 +502,6 @@ function setApplicability(items) {
 function reportModeLabel() {
   return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
 }
-function isProjectMetaMissing() {
-  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-}
 function buildFrameObjectReportReadinessModel(validationMessage = lastFrameObjectReportValidationMessage) {
   const blockedItems = [];
   const reviewItems = [];
@@ -531,9 +528,6 @@ function buildFrameObjectReportReadinessModel(validationMessage = lastFrameObjec
   readyItems.push({ label: '控制結果', value: `F = ${fmt(r.force,1)} kgf；M = ${fmt(r.baseMoment,1)} kgf·m。` });
   readyItems.push({ label: '計算書模式', value: `${reportModeLabel()}；報告會重新計算目前輸入。` });
 
-  if (isProjectMetaMissing()) {
-    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
-  }
   if (r.memberType === 'circular') {
     reviewItems.push({ label: 'D√q(z) 分類', value: `D√q(z) = ${fmt(r.dSqrtQz,2)}，請確認圓形構材直徑 D 與風壓高度 z。` });
   }

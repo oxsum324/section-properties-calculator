@@ -348,10 +348,6 @@ function getProjectInfo() {
   };
 }
 
-function isProjectMetaMissing() {
-  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-}
-
 function fenceSignReportModeLabel() {
   return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
 }
@@ -599,7 +595,6 @@ function buildFenceSignReportReadinessModel(validationMessage = lastFenceSignRep
   }
 
   const reviewItems = [];
-  if (isProjectMetaMissing()) reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
   (lastResult.applic || []).filter(item => item.level !== 'ok').forEach(item => {
     reviewItems.push({ label: item.label, value: item.message });
   });

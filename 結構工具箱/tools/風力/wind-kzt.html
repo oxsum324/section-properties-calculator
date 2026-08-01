@@ -185,25 +185,10 @@ const TOPO_HINTS = {
   hill:  '軸對稱孤立圓丘：四面對稱。表 2.3(a)：地況C K₁/(H/L) = 1.05，地況AB = 0.95。',
 };
 
-function isKztProjectMetaMissing() {
-  if (ReportUI && typeof ReportUI.hasBlankFieldValues === 'function') {
-    return ReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-  }
-  return ['projName', 'projNo', 'projDesigner'].some((id) => {
-    const node = document.getElementById(id);
-    const text = (node?.value || '').trim();
-    return !text || text === '未填';
-  });
-}
-
 function composeKztReadinessModel() {
   const detail = lastKztDetail;
   const topoType = document.getElementById('topoType')?.value || 'flat';
-  const projectMetaMissing = isKztProjectMetaMissing();
   const priorityItems = [];
-  if (projectMetaMissing) {
-    priorityItems.push('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
-  }
   priorityItems.push('本頁僅整理 K1、K2、K3 與 Kzt，正式耐風附件仍須回填到 MWFRS、C&C、女兒牆或開放式屋面工具。');
   if (topoType === 'flat') {
     priorityItems.push('目前為平地條件，Kzt = 1.0；若屬山頂、丘陵或陡崖，需改填對應地形後再整理附件。');
@@ -211,16 +196,13 @@ function composeKztReadinessModel() {
     priorityItems.push('若為多重山丘、谷地或專案指定特殊地形，應改依風洞或專案分析採用，不宜直接作附件結論。');
   }
   return {
-    level: projectMetaMissing ? 'blocked' : 'review',
-    title: projectMetaMissing
-      ? 'Kzt 係數已算出，但附件識別與適用邊界尚未齊備。'
-      : 'Kzt 係數已算出，但整理附件前建議優先閱讀下列項目。',
-    badge: projectMetaMissing ? '暫勿作附件' : '優先確認',
+    level: 'review',
+    title: 'Kzt 係數已算出，但整理附件前建議優先閱讀下列項目。',
+    badge: '優先確認',
     items: [
       { label: '工具定位', value: '耐風參數查詢 / 回填，非完整耐風計算書' },
       { label: '目前地形', value: topoTypeName(detail?.topoType || topoType) },
       { label: '係數輸出', value: detail ? `K1=${fmt(detail.K1,4)}、K2=${fmt(detail.K2,4)}、K3=${fmt(detail.K3,4)}、Kzt=${fmt(detail.Kzt,4)}` : '尚未計算' },
-      { label: '附件識別', value: projectMetaMissing ? '計畫資訊未齊' : '計畫資訊已齊' },
     ],
     priorityItems,
     note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF；設計者仍須確認 §2.7 適用地形、Kzt 回填位置與送審圖說一致性。',

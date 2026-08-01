@@ -1913,13 +1913,13 @@ function assertPageState(state, tool, label) {
   assert.equal(state.pageOnlyReadinessText.includes('[object Event]'), false, `${label} ${tool.key} page-only readiness should not stringify DOM events: ${state.pageOnlyReadinessText}`);
   assert.equal(
     missingProjectMetaPattern.test(state.placeholderProjectMetaReadinessText),
-    true,
-    `${label} ${tool.key} page-only readiness should treat placeholder project metadata as missing: ${state.placeholderProjectMetaReadinessText}`
+    false,
+    `${label} ${tool.key} optional project metadata must not lower attachment readiness: ${state.placeholderProjectMetaReadinessText}`
   );
   assert.equal(
     missingProjectMetaPattern.test(state.pageOnlyReadinessText),
     false,
-    `${label} ${tool.key} page-only readiness should refresh after project meta input: ${state.pageOnlyReadinessText}`
+    `${label} ${tool.key} completed project metadata also remains free of readiness warnings: ${state.pageOnlyReadinessText}`
   );
   assert.equal(state.horizontalOverflow, false, `${label} ${tool.key} horizontal overflow: ${JSON.stringify(state.overflowing, null, 2)}`);
   assert.ok(state.visibleTextLength > 500, `${label} ${tool.key} visible content`);

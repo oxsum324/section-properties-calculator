@@ -501,9 +501,6 @@
       return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
     });
   }
-  function isProjectMetaMissing() {
-    return Exporter.isProjectMetaMissing(gatherProjectInfo());
-  }
   function foundationReportModeLabel() {
     return ($('reportMode') && $('reportMode').value === 'summary') ? '簡易結果' : '詳算式';
   }
@@ -535,7 +532,6 @@
       };
     }
     const reviewItems = [];
-    if (isProjectMetaMissing()) reviewItems.push('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
     if (!lastResult.overallOk) {
       if (!lastResult.fullContact) reviewItems.push('目前偏心已超出中央核，全接觸假設不宜直接作為正式採用值。');
       else if (!lastResult.bearingOk) reviewItems.push('容許地耐力未通過，應先修正尺寸、載重或地盤假設。');

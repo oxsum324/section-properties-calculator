@@ -602,9 +602,6 @@ function cfInterpolationText(cfData, actualHD) {
 function reportModeLabel() {
   return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
 }
-function isProjectMetaMissing() {
-  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-}
 function buildTowerObjectReportReadinessModel(validationMessage = lastTowerObjectReportValidationMessage) {
   const blockedItems = [];
   const reviewItems = [];
@@ -632,9 +629,6 @@ function buildTowerObjectReportReadinessModel(validationMessage = lastTowerObjec
   readyItems.push({ label: '合力高度', value: `z_r = ${fmt(r.resultantHeight,2)} m；本體分 ${r.segments} 段累加。` });
   readyItems.push({ label: '計算書模式', value: `${reportModeLabel()}；報告會重新計算目前輸入。` });
 
-  if (isProjectMetaMissing()) {
-    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
-  }
   if (r.hOverDActual < 1 || r.hOverDActual > 25) {
     reviewItems.push({ label: 'h/D 邊界', value: `h/D = ${fmt(r.hOverDActual,2)}，表 2.12 查表採用 ${fmt(r.cfData.hOverD,2)}，需人工確認是否仍可採用。` });
   }

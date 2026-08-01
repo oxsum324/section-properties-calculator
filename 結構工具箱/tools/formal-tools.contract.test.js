@@ -896,7 +896,6 @@ for (const inlineValidationPage of [
     'function buildWindForceReportReadinessModel',
     'function renderWindForceReportReadiness',
     'function markWindForceReportInputsChanged',
-    'window.WindReport.isProjectMetaMissing()',
     'window.WindReport.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
@@ -928,7 +927,6 @@ for (const inlineValidationPage of [
     'function buildWindCcReportReadinessModel',
     'function renderWindCcReportReadiness',
     'function markWindCcReportInputsChanged',
-    'window.WindReport.isProjectMetaMissing()',
     'window.WindReport.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
@@ -957,7 +955,6 @@ for (const inlineValidationPage of [
     'function buildOpenRoofReportReadinessModel',
     'function renderOpenRoofReportReadiness',
     'function markOpenRoofReportInputsChanged',
-    'window.WindReport.isProjectMetaMissing()',
     'window.WindReport.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
@@ -983,7 +980,6 @@ for (const inlineValidationPage of [
     'function buildParapetReportReadinessModel',
     'function renderParapetReportReadiness',
     'function markParapetReportInputsChanged',
-    'window.WindReport.isProjectMetaMissing()',
     'window.WindReport.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
@@ -1210,7 +1206,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     'function buildSeismicReportReadinessModel',
     'function renderSeismicReportReadiness',
     'function markSeismicReportInputsChanged',
-    "window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])",
     'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
@@ -1251,7 +1246,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     'function buildAppendageReportReadinessModel',
     'function renderAppendageReportReadiness',
     'function markAppendageReportInputsChanged',
-    "window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])",
     'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
@@ -1288,7 +1282,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     'function buildDynamicReportReadinessModel',
     'function renderDynamicReportReadiness',
     'function markDynamicReportInputsChanged',
-    "window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])",
     'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
@@ -1329,7 +1322,6 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     'function buildMiscReportReadinessModel',
     'function renderMiscReportReadiness',
     'function markMiscReportInputsChanged',
-    "window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])",
     'window.ToolReportUI.renderStatusGridPanel({',
     'page-only-report-status',
     '產報前檢查',
@@ -1349,6 +1341,19 @@ for (const [relativePath, traceFunction, reportFunction, openFunction] of [
     '優先閱讀',
     '不會寫入計算書或列印 PDF'
   ].forEach(needle => assertNoIncludes(reportBody, needle, 'seismic-misc report excludes page-only readiness wording'));
+}
+
+for (const tool of manifest.tools) {
+  const html = readText(toolboxFile(tool.html));
+  [
+    '計算書表頭尚未填齊計畫名稱、編號或設計人',
+    '計畫名稱、編號或設計人尚未完整，產報前建議補齊',
+    '計畫名稱 / 編號 / 設計人尚未完整，附件識別不足'
+  ].forEach(needle => assertNoIncludes(
+    html,
+    needle,
+    `${tool.key} optional project metadata must not lower attachment readiness`
+  ));
 }
 
 for (const relativePath of [

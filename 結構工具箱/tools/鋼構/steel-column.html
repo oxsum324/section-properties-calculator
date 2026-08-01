@@ -312,10 +312,6 @@ function columnLegacyReportModeLabel() {
   return $('chkDetail')?.checked ? '詳算式' : '簡易結果';
 }
 
-function isColumnProjectMetaMissing() {
-  return !!window.ToolReportUI?.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-}
-
 const columnLegacyPurposeLabels = {
   'record-continuation': '既有計算記錄延續',
   'review-change': '既有案件復核 / 變更比較',
@@ -407,7 +403,6 @@ function composeColumnReadinessModel(validationMessage = lastColumnReportValidat
   const reviewItems = ['此頁為過渡工具；新案正式計算附件必須改用鋼柱正式頁面。'];
   if (!columnLegacyPurpose()) reviewItems.unshift('尚未選擇既有案件用途，因此不得產出舊案延續計算記錄。');
   else if (!legacyUseConfirmed) reviewItems.unshift('尚未確認本次僅限既有案件，因此不得產出舊案延續計算記錄。');
-  if (isColumnProjectMetaMissing()) reviewItems.unshift('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
   if (!lastColumnResult.axialOk) reviewItems.unshift(`軸壓強度未通過，應先調整斷面或有效長度；目前控制比 ${lastColumnResult.ratio_ax}%。`);
   else if (!lastColumnResult.interOk) reviewItems.unshift(`軸力彎矩互制未通過，應先調整偏心矩、側撐或斷面；目前控制比 ${lastColumnResult.ratio_ir}%。`);
 

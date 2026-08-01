@@ -421,9 +421,6 @@
       return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
     });
   }
-  function isProjectMetaMissing() {
-    return Exporter.isProjectMetaMissing(gatherProjectInfo());
-  }
   function equipmentReportModeLabel() {
     return ($('reportMode') && $('reportMode').value === 'summary') ? '簡易結果' : '詳算式';
   }
@@ -455,7 +452,6 @@
       };
     }
     const reviewItems = [];
-    if (isProjectMetaMissing()) reviewItems.push('計畫名稱 / 編號 / 整理人尚未完整，附件識別不足。');
     if (!lastResult.overallOk) {
       const failed = (lastResult.checks || []).find(function (check) { return check && check.passed === false; });
       reviewItems.push(failed ? `控制項「${failed.label}」未通過，應先修正或改採正式詳算。` : '局部荷重檢核尚未通過，應先修正或改採正式詳算。');

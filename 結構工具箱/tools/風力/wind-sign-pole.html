@@ -384,10 +384,6 @@ function reportModeLabel() {
   return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
 }
 
-function isProjectMetaMissing() {
-  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-}
-
 function supportRouteLabel(r) {
   return r.input.supportType === 'pipe' ? '表 2.14 繩、竿、管' : '表 2.13 角柱體';
 }
@@ -420,9 +416,6 @@ function buildSignPoleReportReadinessModel(validationMessage = lastSignPoleRepor
   readyItems.push({ label: '控制結果', value: `V = ${fmt(r.total.shear, 1)} kgf；M = ${fmt(r.total.moment, 1)} kgf·m；z_r = ${fmt(r.total.resultantHeight, 2)} m。` });
   readyItems.push({ label: '計算書模式', value: `${reportModeLabel()}；報告會重新計算目前輸入。` });
 
-  if (isProjectMetaMissing()) {
-    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
-  }
   if (r.panel.cfSource === '專案指定值') {
     reviewItems.push({ label: '專案指定 C_f', value: `面板 C_f = ${fmt(r.panel.cf, 3)}，請確認採用來源已記入專案文件或設計判斷。` });
   }

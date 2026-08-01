@@ -758,9 +758,6 @@ function buildWindForceReportReadinessModel(validationMessage = lastWindForceRep
   if (staleMessage) {
     reviewItems.push({ label: '輸入已變更', value: staleMessage });
   }
-  if (window.WindReport.isProjectMetaMissing()) {
-    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
-  }
   if (r.customWindSpeed) {
     reviewItems.push({ label: '自訂風速', value: `V = ${fmt(r.V, 1)} m/s 採自訂值，請確認專案文件或設計判斷來源。` });
   }

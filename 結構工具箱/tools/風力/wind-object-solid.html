@@ -628,9 +628,6 @@ function setApplicability(items) {
 function reportModeLabel() {
   return getPrintReportMode() === 'simple' ? '簡易結果' : '詳算式';
 }
-function isProjectMetaMissing() {
-  return window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-}
 function ratioClamped(rawRatio, tableData) {
   return Math.abs(rawRatio - tableData.aspectRatio) > 1e-9;
 }
@@ -660,9 +657,6 @@ function buildSolidReportReadinessModel(validationMessage = lastSolidReportValid
   readyItems.push({ label: '控制結果', value: `F = ${fmt(r.F,1)} kgf；M_b = ${fmt(r.baseMoment,1)} kgf·m。` });
   readyItems.push({ label: '計算書模式', value: `${reportModeLabel()}；報告會重新計算目前輸入。` });
 
-  if (isProjectMetaMissing()) {
-    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
-  }
   if (r.cfSourceLabel !== '規範表 2.10 判定值') {
     reviewItems.push({
       label: 'C_f 採用依據',

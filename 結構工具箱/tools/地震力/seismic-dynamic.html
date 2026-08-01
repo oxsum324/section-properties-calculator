@@ -789,7 +789,6 @@ function buildDynamicReportReadinessModel(validationMessage = lastDynamicReportV
   const missingAdopted = actions.filter(action => !action.hasAdopted).map(action => action.dir);
   const underScaled = actions.filter(action => action.hasAdopted && !action.adoptedPass).map(action => action.dir);
 
-  if (window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])) reviewItems.push('計畫名稱、編號或設計人尚未完整，產報前建議補齊。');
   if (missingAdopted.length) reviewItems.push(`${missingAdopted.join(' / ')} 向尚未輸入採用總橫力，請確認送審附件是否需要附採用值與縮放倍率。`);
   if (underScaled.length) reviewItems.push(`${underScaled.join(' / ')} 向輸入採用總橫力仍低於第 3.3 節調整要求，需先複核縮放倍率。`);
   if (modelCheckItems.some(item => item.status !== 'pass')) {

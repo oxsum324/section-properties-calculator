@@ -1817,7 +1817,6 @@ function buildSeismicReportReadinessModel(validationMessage = '') {
   const storyCount = Math.max(floorData.length, Math.round(parseFloat(document.getElementById('N')?.value) || floorData.length || 0));
   const isTB = document.getElementById('chkTaipei')?.checked;
   const reviewItems = [];
-  if (window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])) reviewItems.push('計算書表頭尚未填齊計畫名稱、編號或設計人。');
   const applicabilityNotes = buildApplicabilityNotes(hn, storyCount, isTB, window._basinSelection);
   reviewItems.push(...applicabilityNotes);
   if (getNearFaultOverride()) reviewItems.push('已採近斷層控制譜值，請確認斷層距離與譜值來源。');

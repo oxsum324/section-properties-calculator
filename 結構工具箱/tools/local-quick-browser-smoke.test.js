@@ -1582,13 +1582,13 @@ function assertToolState(state, tool, label) {
   assert.equal(state.pageOnlyReadinessText.includes('[object Event]'), false, `${label} ${tool.key} page-only readiness should not stringify DOM events: ${state.pageOnlyReadinessText}`);
   assert.equal(
     missingProjectMetaPattern.test(state.placeholderProjectMetaReadinessText),
-    true,
-    `${label} ${tool.key} page-only readiness should treat placeholder project metadata as missing: ${state.placeholderProjectMetaReadinessText}`
+    false,
+    `${label} ${tool.key} optional project metadata must not lower attachment readiness: ${state.placeholderProjectMetaReadinessText}`
   );
   assert.equal(
     missingProjectMetaPattern.test(state.pageOnlyReadinessText),
     false,
-    `${label} ${tool.key} page-only readiness should refresh after project meta input: ${state.pageOnlyReadinessText}`
+    `${label} ${tool.key} completed project metadata also remains free of readiness warnings: ${state.pageOnlyReadinessText}`
   );
   assert.match(state.coreVersion, /^Core v0\.\d+\.0$/, `${label} ${tool.key} core version`);
   if (tool.jsonRoundTrip === true) {
@@ -1901,7 +1901,7 @@ function assertLegacyPlaceholderReportState(state, legacyTool, label) {
     assert.equal(visibleText.includes(needle), false, `${label} ${legacyTool.key} placeholder visible report text excludes page-only readiness ${needle}`);
   });
   assert.ok(state.pageOnlyReadinessText.includes('優先閱讀'), `${label} ${legacyTool.key} placeholder readiness priority`);
-  assert.equal(missingProjectMetaPattern.test(state.pageOnlyReadinessText), true, `${label} ${legacyTool.key} placeholder readiness treats placeholder metadata as missing`);
+  assert.equal(missingProjectMetaPattern.test(state.pageOnlyReadinessText), false, `${label} ${legacyTool.key} optional project metadata must not lower readiness`);
 }
 
 function assertReferenceReadinessState(state, tool, label) {
@@ -1914,10 +1914,10 @@ function assertReferenceReadinessState(state, tool, label) {
   assert.equal(state.finalReadinessText.includes('[object Event]'), false, `${label} ${tool.key} readiness should not stringify DOM events`);
   assert.equal(state.horizontalOverflow, false, `${label} ${tool.key} horizontal overflow`);
   if (tool.key === 'wind-kzt') {
-    assert.ok(state.initialClassName.includes('blocked'), `${label} ${tool.key} initial readiness blocked`);
+    assert.ok(state.initialClassName.includes('review'), `${label} ${tool.key} initial readiness review`);
     assert.ok(state.finalClassName.includes('review'), `${label} ${tool.key} final readiness review`);
-    assert.equal(missingProjectMetaPattern.test(state.initialReadinessText), true, `${label} ${tool.key} placeholder project metadata blocked`);
-    assert.equal(missingProjectMetaPattern.test(state.finalReadinessText), false, `${label} ${tool.key} complete project metadata refresh`);
+    assert.equal(missingProjectMetaPattern.test(state.initialReadinessText), false, `${label} ${tool.key} optional project metadata does not block`);
+    assert.equal(missingProjectMetaPattern.test(state.finalReadinessText), false, `${label} ${tool.key} completed project metadata remains warning-free`);
     assert.ok(state.finalReadinessText.includes('耐風參數查詢 / 回填'), `${label} ${tool.key} reference positioning`);
   }
   if (tool.key === 'wind-special') {

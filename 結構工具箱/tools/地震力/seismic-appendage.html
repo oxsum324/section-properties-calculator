@@ -955,7 +955,6 @@ function buildAppendageReportReadinessModel(validationMessage = lastAppendReport
 
   const reviewItems = [];
   const messages = validateAppendageInputs().filter(message => message.type !== 'error');
-  if (window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])) reviewItems.push('計畫名稱、編號或設計人尚未完整，產報前建議補齊。');
   messages.forEach(message => reviewItems.push(message.text));
   if (lastAppendResult.typeGroup === 'CUSTOM') {
     reviewItems.push('本案採自訂 a_p / R_p，請保留表 4-1 / 表 4-2 以外之專案依據。');

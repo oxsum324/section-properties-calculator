@@ -80,7 +80,7 @@ Exporter.renderStatusGridPanel({
   title: '計算已完成，但產報前建議優先閱讀下列項目。',
   badge: '優先複核',
   items: [
-    { label: '優先處理 1', value: '計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。' },
+    { label: '優先處理 1', value: '承載力檢核尚未完成。' },
     { label: '輸出邊界', value: '頁面顯示，不進計算書、列印或 PDF' },
   ],
   note: '此面板僅供公司內部整理計算附件前檢查，不會寫入計算書或列印 PDF。'

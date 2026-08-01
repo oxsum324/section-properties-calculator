@@ -982,7 +982,6 @@ function buildMiscReportReadinessModel(validationMessage = lastMiscReportValidat
 
   const reviewItems = [];
   const messages = validateMiscInputs().filter(message => message.type !== 'error');
-  if (window.ToolReportUI.hasBlankFieldValues(['projName', 'projNo', 'projDesigner'])) reviewItems.push('計畫名稱、編號或設計人尚未完整，產報前建議補齊。');
   messages.forEach(message => reviewItems.push(message.text));
   if (String(document.getElementById('miscType')?.value) === '-1') {
     reviewItems.push('本案採自訂 R / αy，請保留第五章表列或專案依據。');

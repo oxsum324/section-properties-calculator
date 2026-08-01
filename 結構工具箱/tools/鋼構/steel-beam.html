@@ -285,10 +285,6 @@ function beamLegacyReportModeLabel() {
   return $('chkDetail')?.checked ? '詳算式' : '簡易結果';
 }
 
-function isBeamProjectMetaMissing() {
-  return !!window.ToolReportUI?.hasBlankFieldValues(['projName', 'projNo', 'projDesigner']);
-}
-
 const beamLegacyPurposeLabels = {
   'record-continuation': '既有計算記錄延續',
   'review-change': '既有案件復核 / 變更比較',
@@ -380,7 +376,6 @@ function composeBeamReadinessModel(validationMessage = lastBeamReportValidationM
   const reviewItems = ['此頁為過渡工具；新案正式計算附件必須改用鋼梁正式頁面。'];
   if (!beamLegacyPurpose()) reviewItems.unshift('尚未選擇既有案件用途，因此不得產出舊案延續計算記錄。');
   else if (!legacyUseConfirmed) reviewItems.unshift('尚未確認本次僅限既有案件，因此不得產出舊案延續計算記錄。');
-  if (isBeamProjectMetaMissing()) reviewItems.unshift('計畫名稱 / 編號 / 設計人尚未完整，附件識別不足。');
   if (!lastBeamResult.flexOk) reviewItems.unshift(`撓曲強度未通過，應先調整斷面或側撐；目前控制比 ${lastBeamResult.ratio_flex}%。`);
   else if (!lastBeamResult.shearOk) reviewItems.unshift(`剪力強度未通過，應先調整腹板或加勁；目前控制比 ${lastBeamResult.ratio_shear}%。`);
   else if (lastBeamResult.deflStatus === 'fail') reviewItems.unshift('撓度檢核未通過，應先調整斷面慣性矩或跨度。');

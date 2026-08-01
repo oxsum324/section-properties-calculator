@@ -405,6 +405,24 @@ require(exportHelperTestPath);
 ].forEach(([relativePath, needle]) => {
   assertIncludes(readText(toolboxFile(relativePath)), needle, `${relativePath} project metadata normalization`);
 });
+for (const relativePath of [
+  'tools/equipment/equipment-load.html',
+  'tools/earth/earth-pressure.html',
+  'tools/foundation/foundation-local.html',
+  'tools/鋼構/steel-beam.html',
+  'tools/鋼構/steel-column.html',
+  'tools/風力/wind-kzt.html'
+]) {
+  const html = readText(toolboxFile(relativePath));
+  [
+    '計畫名稱 / 編號 / 設計人尚未完整，附件識別不足',
+    '計畫名稱 / 編號 / 整理人尚未完整，附件識別不足'
+  ].forEach(needle => assertNoIncludes(
+    html,
+    needle,
+    `${relativePath} optional project metadata must not lower readiness`
+  ));
+}
 [
   ['tools/equipment/equipment-load.html', "if (data.name != null) $('projName').value = Exporter.normalizeProjectFieldValue(data.name);"],
   ['tools/equipment/equipment-load.html', "if (data.no != null) $('projNo').value = Exporter.normalizeProjectFieldValue(data.no);"],
@@ -1508,7 +1526,6 @@ for (const tool of tools) {
   }
   if (['foundation-local', 'earth-pressure', 'equipment-load'].includes(tool.key)) {
     [
-      'Exporter.isProjectMetaMissing',
       'Exporter.renderStatusGridPanel',
       '產出工具：${escapeHtml(reportTrace.sourceTrace.tool)}',
       '工具版本：${escapeHtml(reportTrace.sourceTrace.version)}',
@@ -1516,6 +1533,14 @@ for (const tool of tools) {
       '計算指紋：${escapeHtml(reportTrace.calculationFingerprint)}',
       '<h2>檢核結論</h2>',
     ].forEach(needle => assertIncludes(html, needle, `${tool.key} readiness helper usage`));
+    [
+      '計畫名稱 / 編號 / 設計人尚未完整，附件識別不足',
+      '計畫名稱 / 編號 / 整理人尚未完整，附件識別不足'
+    ].forEach(needle => assertNoIncludes(
+      html,
+      needle,
+      `${tool.key} optional project metadata must not lower attachment readiness`
+    ));
     assertFunctionTemplateExcludes(
       html,
       'openReport',

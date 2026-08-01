@@ -465,9 +465,6 @@ function buildParapetReportReadinessModel(validationMessage = lastParapetReportV
   if (staleMessage) {
     reviewItems.push({ label: '輸入已變更', value: staleMessage });
   }
-  if (window.WindReport.isProjectMetaMissing()) {
-    reviewItems.push({ label: '計畫資訊', value: '計畫名稱、編號或設計人尚未完整，產報前建議補齊。' });
-  }
   if (r.applicabilityLevel === 'fail') {
     reviewItems.push({ label: '規範適用性', value: '頁面已標示規範條件局部不適用，產報前應改用適當路線或補人工說明。' });
   }

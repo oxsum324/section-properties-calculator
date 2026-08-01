@@ -525,9 +525,6 @@
       return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[ch];
     });
   }
-  function isProjectMetaMissing() {
-    return Exporter.isProjectMetaMissing(gatherProjectInfo());
-  }
   function earthReportModeLabel() {
     return ($('reportMode') && $('reportMode').value === 'summary') ? '簡易結果' : '詳算式';
   }
@@ -559,7 +556,6 @@
       };
     }
     const reviewItems = [];
-    if (isProjectMetaMissing()) reviewItems.push('計畫名稱 / 編號 / 整理人尚未完整，附件識別不足。');
     if (!lastResult.overallOk) {
       if (!lastResult.slideOk) reviewItems.push('抗滑安全係數未通過，應先修正幾何、載重或被動抵抗採用。');
       else if (!lastResult.overOk) reviewItems.push('抗傾覆安全係數未通過，應先修正尺寸、載重或改採正式詳算。');
