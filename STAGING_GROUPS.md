@@ -56,6 +56,8 @@ git diff --check -- README.md TOOL_BOUNDARIES.md TOOL_REPORT_GUIDE.md STAGING_GR
 
 `push-pages-release.ps1` 的成功不只依賴 Actions job 與 manifest 身分；一般推送、既有同 SHA 部署及 `-VerifyOnly` 都必須由目前工作站再次執行公開 `pages-live-smoke.js`，逐檔核對 v2 清冊與正式網址內容，並在結果回傳 `publicArtifactVerified=true`。工作站 HTTP 複驗失敗即維持失敗，不得只因遠端 workflow 已綠燈而略過。
 
+Windows 發布一律優先執行 `push-pages-release.bat`；此入口先找 PowerShell 7，再以 Windows PowerShell 5.1 後備。`push-pages-release.ps1` 必須維持 ASCII 來源路徑解析，不得重新加入會受 5.1 UTF-8 無 BOM 解碼影響的中文路徑字面值。
+
 下次不要混入本包：
 
 - `anchor/assets/` 舊 hash 刪除 / 新 hash 新增，改放 B 包。

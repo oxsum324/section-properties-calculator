@@ -723,6 +723,9 @@ assert.ok(pushPagesRelease.includes("$expectedNames = @('build', 'deploy', 'live
 assert.ok(pushPagesRelease.includes('JobStatusStale') && pushPagesRelease.includes('allStepsSuccessful') && pushPagesRelease.includes('$failedSteps'), 'safe Pages release wrapper requires successful steps before accepting a stale job aggregate');
 assert.ok(pushPagesRelease.includes('pages-deployment.json?release_check=') && pushPagesRelease.includes('sourceDirty'), 'safe Pages release wrapper verifies cache-busted public provenance');
 assert.ok(pushPagesReleaseBatch.includes('push-pages-release.ps1'), 'safe Pages batch invokes the governed PowerShell entrypoint');
+assert.ok(pushPagesReleaseBatch.includes('where pwsh') && pushPagesReleaseBatch.includes('pwsh -NoProfile'), 'safe Pages batch prefers PowerShell 7 for Unicode-safe execution');
+assert.ok(pushPagesReleaseBatch.includes('powershell -NoProfile'), 'safe Pages batch retains a Windows PowerShell fallback');
+assert.equal(/[^\x00-\x7F]/.test(pushPagesRelease), false, 'safe Pages PowerShell entrypoint has no encoding-sensitive non-ASCII path literals');
 assert.ok(pagesArtifactSmoke.includes('GetTempPath'), 'local Pages artifact smoke stages into temp');
 assert.ok(pagesArtifactSmoke.includes('$ArtifactBuilder') && pagesArtifactSmoke.includes('--repo-root $RepoRoot --site-root $SiteRoot'), 'local Pages artifact smoke uses the shared Git-inventory builder');
 assert.equal(pagesArtifactSmoke.includes('robocopy'), false, 'local Pages artifact smoke has no duplicate robocopy exclusion policy');

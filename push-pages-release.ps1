@@ -325,6 +325,23 @@ if (-not $RepoRoot) { $RepoRoot = (Get-Location).Path }
 $RepoRoot = (Resolve-Path $RepoRoot).Path
 Set-Location $RepoRoot
 
+function Resolve-RepoToolScript {
+  param([Parameter(Mandatory = $true)][string]$LeafName)
+
+  $matches = @(
+    Get-ChildItem -LiteralPath $RepoRoot -Directory | ForEach-Object {
+      $candidate = Join-Path $_.FullName (Join-Path 'tools' $LeafName)
+      if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+        (Resolve-Path -LiteralPath $candidate).Path
+      }
+    }
+  )
+  if ($matches.Count -ne 1) {
+    throw "Expected exactly one governed tool script named '$LeafName'; found $($matches.Count)."
+  }
+  return $matches[0]
+}
+
 $gitCommand = Get-Command git.exe -ErrorAction SilentlyContinue
 if (-not $gitCommand) { $gitCommand = Get-Command git -ErrorAction SilentlyContinue }
 $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
@@ -367,10 +384,7 @@ if ($headSha -notmatch '^[0-9a-f]{40}$') {
   throw "Could not resolve a full Git HEAD SHA. Received: $headSha"
 }
 
-$lineageScript = Join-Path $RepoRoot '結構工具箱\tools\verify-pages-release-lineage.js'
-if (-not (Test-Path -LiteralPath $lineageScript)) {
-  throw "Pages release lineage verifier is missing: $lineageScript"
-}
+$lineageScript = Resolve-RepoToolScript -LeafName 'verify-pages-release-lineage.js'
 Write-ProgressLine "Verifying that HEAD only carries status snapshots for its tested parent commit."
 Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
   $lineageScript,
@@ -458,10 +472,7 @@ if ($runId -le 0) { throw 'Could not resolve a valid Pages workflow run ID.' }
 Write-ProgressLine "Tracking run $runId."
 $runEvidence = Wait-RunJobs -RunId $runId
 $manifest = Wait-PublicManifest -PagesUrl $pagesUrl -HeadSha $headSha -RunId $runId
-$publicSmokeScript = Join-Path $RepoRoot '結構工具箱\tools\pages-live-smoke.js'
-if (-not (Test-Path -LiteralPath $publicSmokeScript)) {
-  throw "Pages public artifact verifier is missing: $publicSmokeScript"
-}
+$publicSmokeScript = Resolve-RepoToolScript -LeafName 'pages-live-smoke.js'
 Write-ProgressLine "Independently verifying every public artifact file from this workstation."
 Invoke-ExternalText -FilePath $script:NodePath -Arguments @(
   $publicSmokeScript,
