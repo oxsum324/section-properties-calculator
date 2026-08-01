@@ -39,7 +39,7 @@ const profile = Profile.buildProfile({
   projDesigner: ' 設計者 ',
 }, { toolId: 'source-tool', toolName: '來源工具', toolVersion: 'V1' });
 assert.equal(profile.schema, 'tool-project-meta-profile.v1');
-assert.equal(profile.profileVersion, '1.5');
+assert.equal(profile.profileVersion, '1.6');
 assert.equal(profile.project.name, '共用工程');
 assert.equal(profile.project.no, 'CASE-001');
 assert.equal(profile.project.designer, '設計者');
@@ -282,6 +282,10 @@ assert.equal(importPreview.status, 'ready');
 assert.equal(importPreview.additions.length, 1);
 assert.equal(importPreview.additions[0].project.no, 'CASE-002');
 assert.equal(importPreview.preserved.length, 1, 'same project identity keeps the local version');
+assert.equal(importPreview.conflicts.length, 1, 'same project identity with different header content requires review');
+assert.deepEqual(importPreview.conflicts[0].differences.map(item => item.key), ['name', 'designer']);
+assert.equal(importPreview.resolutions[Profile.profileId(profile)], 'local', 'same-project conflicts safely default to the local version');
+assert.equal(importPreview.replacements.length, 0);
 assert.equal(Profile.loadLibrary(importStorage).profiles.length, 2, 'preview is non-mutating');
 const importedLibrary = Profile.commitLibraryImport(importPreview, importStorage);
 assert.equal(importedLibrary.profiles.length, 3);
@@ -291,7 +295,34 @@ assert.equal(importedLibrary.profiles.some(item => item.project.no === 'CASE-002
 const noChangePreview = Profile.prepareLibraryImport(Profile.buildBackup(importedLibrary, '2026-08-01T14:10:00.000Z'), importStorage);
 assert.equal(noChangePreview.status, 'no-change');
 assert.equal(noChangePreview.additions.length, 0);
+assert.equal(noChangePreview.conflicts.length, 0);
+assert.equal(noChangePreview.identical.length, 3);
 assert.throws(() => Profile.commitLibraryImport(noChangePreview, importStorage), /尚未可執行/);
+
+const conflictedId = Profile.profileId(profile);
+Profile.archiveProfile(conflictedId, importStorage);
+const replacementPreview = Profile.prepareLibraryImport(backup, importStorage, { [conflictedId]: 'backup' });
+assert.equal(replacementPreview.status, 'ready');
+assert.equal(replacementPreview.additions.length, 0);
+assert.equal(replacementPreview.replacements.length, 1, 'explicit backup choice prepares one same-project replacement');
+assert.equal(replacementPreview.library.profiles.length, 3, 'same-project replacement does not change library capacity');
+assert.equal(
+  Profile.loadLibrary(importStorage).profiles.find(item => item.id === conflictedId).project.name,
+  '本機優先案名',
+  'choosing the backup remains non-mutating until confirmation'
+);
+const replacedLibrary = Profile.commitLibraryImport(replacementPreview, importStorage);
+assert.equal(replacedLibrary.profiles.find(item => item.id === conflictedId).project.name, '共用工程');
+assert.equal(
+  Profile.isProfileArchived(Profile.loadViewState(importStorage, replacedLibrary), conflictedId),
+  true,
+  'replacing header content preserves the local archive state for the same identity'
+);
+assert.throws(
+  () => Profile.prepareLibraryImport(backup, importStorage, { unknown: 'backup' }),
+  /未知案件/,
+  'import resolutions cannot target records outside the detected conflict set'
+);
 
 const changingImportStorage = memoryStorage();
 Profile.saveToLibrary(Profile.buildProfile({ projNo: 'LOCAL-010' }), changingImportStorage);
@@ -368,6 +399,9 @@ assert.match(source, /建議不再使用但仍需保留的案件改用封存/, '
 assert.match(source, /data-project-meta-detail/, 'selected project exposes saved-time and source details in the HTML work view');
 assert.match(source, /data-project-meta-export/, 'multi-project library exposes an explicit backup export');
 assert.match(source, /data-project-meta-import-confirming/, 'backup import requires an explicit preview confirmation state');
+assert.match(source, /data-project-meta-import-conflicts/, 'same-project import differences render in an explicit review panel');
+assert.match(source, /保留本機/, 'same-project import differences expose the safe local choice');
+assert.match(source, /採用備份/, 'same-project import differences expose an explicit backup replacement choice');
 assert.match(source, /目前清單與頁面尚未變更/, 'import preview states its non-mutating boundary');
 assert.match(source, /data-project-meta-search/, 'multi-project library exposes a header-only search control');
 assert.match(source, /data-project-meta-archive/, 'multi-project library exposes reversible archive management');

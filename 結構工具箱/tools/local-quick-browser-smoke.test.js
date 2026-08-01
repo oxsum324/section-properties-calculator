@@ -1635,6 +1635,47 @@ function projectMetaProfileSaveExpression() {
         designer: document.getElementById('projDesigner')?.value || ''
       }
     };
+    const firstId = window.ToolProjectMetaProfile.profileId(
+      window.ToolProjectMetaProfile.buildProfile({ projName: '跨工具共用案', projNo: 'SHARED-001', projDesigner: '共用設計者' })
+    );
+    window.ToolProjectMetaProfile.saveToLibrary(
+      window.ToolProjectMetaProfile.buildProfile({ projName: '本機差異案', projNo: 'SHARED-001', projDesigner: '本機設計者' }),
+      localStorage
+    );
+    const conflictTransfer = new DataTransfer();
+    conflictTransfer.items.add(importFile);
+    importInput.files = conflictTransfer.files;
+    importInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(60);
+    const conflictPanel = document.querySelector('[data-project-meta-import-conflicts]');
+    const backupChoice = conflictPanel?.querySelector('input[value="backup"]');
+    const conflictPreview = {
+      rowCount: conflictPanel?.querySelectorAll('[data-project-meta-import-conflict]')?.length || 0,
+      text: conflictPanel?.textContent || '',
+      hidden: conflictPanel?.hidden,
+      buttonText: importButton?.textContent || '',
+      confirming: importButton?.getAttribute('data-project-meta-import-confirming') || '',
+      localName: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null')?.profiles?.find(item => item.id === firstId)?.project?.name || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    backupChoice.checked = true;
+    backupChoice.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(30);
+    const conflictChoice = {
+      buttonText: importButton?.textContent || '',
+      localName: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null')?.profiles?.find(item => item.id === firstId)?.project?.name || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    importButton?.click();
+    await settle(30);
+    const conflictCommitted = {
+      restoredName: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null')?.profiles?.find(item => item.id === firstId)?.project?.name || '',
+      panelHidden: conflictPanel?.hidden,
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
     const select = document.querySelector('[data-project-meta-select]');
     const search = document.querySelector('[data-project-meta-search]');
     search.value = '第二設計者';
@@ -1692,9 +1733,6 @@ function projectMetaProfileSaveExpression() {
     showArchived.checked = false;
     showArchived.dispatchEvent(new Event('change', { bubbles: true }));
     await settle(30);
-    const firstId = window.ToolProjectMetaProfile.profileId(
-      window.ToolProjectMetaProfile.buildProfile({ projName: '跨工具共用案', projNo: 'SHARED-001', projDesigner: '共用設計者' })
-    );
     select.value = firstId;
     select.dispatchEvent(new Event('change', { bubbles: true }));
     await settle(30);
@@ -1714,6 +1752,9 @@ function projectMetaProfileSaveExpression() {
       },
       importPreview,
       importCommitted,
+      conflictPreview,
+      conflictChoice,
+      conflictCommitted,
       searchResult,
       archived,
       archivedSelected,
@@ -2572,7 +2613,7 @@ async function main() {
         assert.equal(sharedSave.state.exportResult.includesApprovalState, false, 'desktop project library backup excludes approval state');
         assert.equal(sharedSave.state.importPreview.libraryExists, false, 'desktop backup import preview does not write the library');
         assert.equal(sharedSave.state.importPreview.latestExists, false, 'desktop backup import preview does not write the compatibility profile');
-        assert.equal(sharedSave.state.importPreview.buttonText, '確認匯入 2 筆', 'desktop backup import requires a second explicit click');
+        assert.equal(sharedSave.state.importPreview.buttonText, '確認新增 2', 'desktop backup import requires a second explicit click');
         assert.equal(sharedSave.state.importPreview.confirming, 'true', 'desktop backup import exposes confirmation state');
         assert.ok(sharedSave.state.importPreview.status.includes('目前清單與頁面尚未變更'), 'desktop backup import preview states non-mutating boundary');
         assert.deepEqual(
@@ -2587,6 +2628,25 @@ async function main() {
           { name: '跨工具第二案', no: 'SHARED-ALT-002', designer: '第二設計者' },
           'desktop backup import commit does not change current page'
         );
+        assert.equal(sharedSave.state.conflictPreview.rowCount, 1, 'desktop same-project import renders one explicit conflict row');
+        assert.equal(sharedSave.state.conflictPreview.hidden, false, 'desktop same-project conflict panel is visible during review');
+        assert.ok(sharedSave.state.conflictPreview.text.includes('本機差異案'), 'desktop conflict panel shows the local header value');
+        assert.ok(sharedSave.state.conflictPreview.text.includes('跨工具共用案'), 'desktop conflict panel shows the backup header value');
+        assert.ok(sharedSave.state.conflictPreview.text.includes('保留本機'), 'desktop conflict panel defaults to the safe local option');
+        assert.ok(sharedSave.state.conflictPreview.text.includes('採用備份'), 'desktop conflict panel exposes explicit backup replacement');
+        assert.equal(sharedSave.state.conflictPreview.buttonText, '確認差異選擇', 'desktop unresolved default-local review still requires explicit confirmation');
+        assert.equal(sharedSave.state.conflictPreview.confirming, 'true', 'desktop conflict review exposes import confirmation state');
+        assert.equal(sharedSave.state.conflictPreview.localName, '本機差異案', 'desktop conflict preview does not mutate the local library');
+        assert.ok(sharedSave.state.conflictPreview.status.includes('目前清單與頁面尚未變更'), 'desktop conflict preview states its non-mutating boundary');
+        assert.equal(sharedSave.state.conflictPreview.pageNo, 'SHARED-ALT-002', 'desktop conflict preview does not change current page');
+        assert.equal(sharedSave.state.conflictChoice.buttonText, '確認更新 1', 'desktop backup choice updates the pending action count');
+        assert.equal(sharedSave.state.conflictChoice.localName, '本機差異案', 'desktop backup choice remains non-mutating before confirmation');
+        assert.ok(sharedSave.state.conflictChoice.status.includes('採用備份 1 筆'), 'desktop backup choice reports its pending resolution');
+        assert.equal(sharedSave.state.conflictChoice.pageNo, 'SHARED-ALT-002', 'desktop backup choice does not change current page');
+        assert.equal(sharedSave.state.conflictCommitted.restoredName, '跨工具共用案', 'desktop confirmed conflict import adopts the selected backup header');
+        assert.equal(sharedSave.state.conflictCommitted.panelHidden, true, 'desktop conflict panel closes after confirmed import');
+        assert.ok(sharedSave.state.conflictCommitted.status.includes('更新 1 筆'), 'desktop confirmed conflict import reports the replacement count');
+        assert.equal(sharedSave.state.conflictCommitted.pageNo, 'SHARED-ALT-002', 'desktop confirmed conflict import does not change current page');
         assert.equal(sharedSave.state.searchResult.optionCount, 1, 'desktop project search filters the saved-project selector');
         assert.ok(sharedSave.state.searchResult.options[0].includes('SHARED-ALT-002'), 'desktop project search matches designer text');
         assert.ok(sharedSave.state.searchResult.status.includes('只篩選清單'), 'desktop project search states its non-mutating boundary');

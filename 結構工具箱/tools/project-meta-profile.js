@@ -11,7 +11,7 @@
   'use strict';
 
   const SCHEMA = 'tool-project-meta-profile.v1';
-  const PROFILE_VERSION = '1.5';
+  const PROFILE_VERSION = '1.6';
   const STORAGE_KEY = 'toolProjectMetaProfile:latest.v1';
   const LIBRARY_SCHEMA = 'tool-project-meta-profile-library.v1';
   const LIBRARY_VERSION = '1.0';
@@ -463,34 +463,97 @@
     });
   }
 
-  function prepareLibraryImport(backupPayload, storage) {
+  function compareProfileProjects(localPayload, backupPayload) {
+    const localProfile = normalizeProfile(localPayload);
+    const backupProfile = normalizeProfile(backupPayload);
+    return FIELD_SPECS
+      .filter(spec => localProfile.project[spec.key] !== backupProfile.project[spec.key])
+      .map(spec => ({
+        key: spec.key,
+        label: spec.label,
+        localValue: localProfile.project[spec.key],
+        backupValue: backupProfile.project[spec.key],
+      }));
+  }
+
+  function normalizeImportResolutions(conflicts, resolutions) {
+    const allowedIds = new Set(conflicts.map(conflict => conflict.id));
+    const normalized = {};
+    const input = resolutions && typeof resolutions === 'object' && !Array.isArray(resolutions) ? resolutions : {};
+    for (const [rawId, rawChoice] of Object.entries(input)) {
+      const id = normalizeText(rawId);
+      if (!allowedIds.has(id)) throw new Error('匯入差異選擇包含未知案件。');
+      if (rawChoice !== 'local' && rawChoice !== 'backup') throw new Error('匯入差異選擇無效。');
+      normalized[id] = rawChoice;
+    }
+    conflicts.forEach(conflict => {
+      if (!normalized[conflict.id]) normalized[conflict.id] = 'local';
+    });
+    return normalized;
+  }
+
+  function prepareLibraryImport(backupPayload, storage, resolutions, expectedCurrentSignature) {
     const backup = normalizeBackup(backupPayload);
     const current = loadLibrary(storage);
-    const currentIds = new Set(current.profiles.map(record => record.id));
-    const additions = backup.library.profiles.filter(record => !currentIds.has(record.id));
-    const preserved = backup.library.profiles.filter(record => currentIds.has(record.id));
+    const currentSignature = librarySignature(current);
+    if (expectedCurrentSignature && expectedCurrentSignature !== currentSignature) {
+      throw new Error('本機案件表頭清單已變更，請重新選擇匯入檔。');
+    }
+    const currentById = new Map(current.profiles.map(record => [record.id, record]));
+    const additions = backup.library.profiles.filter(record => !currentById.has(record.id));
+    const matched = backup.library.profiles.filter(record => currentById.has(record.id));
+    const conflicts = matched
+      .map(backupRecord => {
+        const localRecord = currentById.get(backupRecord.id);
+        return {
+          id: backupRecord.id,
+          local: localRecord,
+          backup: backupRecord,
+          differences: compareProfileProjects(localRecord, backupRecord),
+        };
+      })
+      .filter(conflict => conflict.differences.length);
+    const conflictIds = new Set(conflicts.map(conflict => conflict.id));
+    const identical = matched.filter(record => !conflictIds.has(record.id));
+    const normalizedResolutions = normalizeImportResolutions(conflicts, resolutions);
+    const replacements = conflicts.filter(conflict => normalizedResolutions[conflict.id] === 'backup');
+    const replacementById = new Map(replacements.map(conflict => [conflict.id, conflict.backup]));
+    const preserved = matched.filter(record => !replacementById.has(record.id));
     const projectedCount = current.profiles.length + additions.length;
     if (projectedCount > MAX_PROFILES) {
       return {
         status: 'blocked',
         reason: 'capacity-exceeded',
         backup,
-        currentSignature: librarySignature(current),
+        currentSignature,
         additions,
         preserved,
+        identical,
+        conflicts,
+        resolutions: normalizedResolutions,
+        replacements,
         projectedCount,
         library: null,
       };
     }
     const selectedId = current.profiles.length ? current.selectedId : backup.library.selectedId;
-    const library = buildLibrary([...current.profiles, ...additions], selectedId);
+    const library = buildLibrary([
+      ...current.profiles.map(record => replacementById.get(record.id) || record),
+      ...additions,
+    ], selectedId);
+    const hasReview = conflicts.length > 0;
+    const hasChanges = additions.length > 0 || replacements.length > 0;
     return {
-      status: additions.length ? 'ready' : 'no-change',
-      reason: additions.length ? '' : 'all-projects-exist',
+      status: hasChanges || hasReview ? 'ready' : 'no-change',
+      reason: hasChanges || hasReview ? '' : 'all-projects-identical',
       backup,
-      currentSignature: librarySignature(current),
+      currentSignature,
       additions,
       preserved,
+      identical,
+      conflicts,
+      resolutions: normalizedResolutions,
+      replacements,
       projectedCount,
       library,
     };
@@ -500,6 +563,7 @@
     if (!preview || preview.status !== 'ready' || !preview.library) throw new Error('案件表頭匯入預覽尚未可執行。');
     const current = loadLibrary(storage);
     if (librarySignature(current) !== preview.currentSignature) throw new Error('本機案件表頭清單已變更，請重新選擇匯入檔。');
+    if (!preview.additions.length && !preview.replacements.length) return current;
     return writeLibrary(preview.library, storage);
   }
 
@@ -600,10 +664,17 @@
     button.removeAttribute('data-project-meta-confirming');
   }
 
-  function resetImportConfirmation(button, state) {
+  function resetImportConfirmation(button, state, panel) {
     state.preview = null;
+    state.backup = null;
+    state.resolutions = {};
+    state.baseSignature = '';
     button.textContent = '匯入清單';
     button.removeAttribute('data-project-meta-import-confirming');
+    if (panel) {
+      panel.hidden = true;
+      panel.textContent = '';
+    }
   }
 
   function resetDeleteConfirmation(button, state) {
@@ -614,6 +685,57 @@
 
   function conflictLabels(conflicts) {
     return conflicts.map(item => item.label).join('、');
+  }
+
+  function importButtonLabel(preview) {
+    if (!preview) return '匯入清單';
+    const parts = [];
+    if (preview.additions.length) parts.push(`新增 ${preview.additions.length}`);
+    if (preview.replacements.length) parts.push(`更新 ${preview.replacements.length}`);
+    return parts.length ? `確認${parts.join('／')}` : '確認差異選擇';
+  }
+
+  function renderImportConflicts(doc, panel, preview, onChoice) {
+    panel.textContent = '';
+    const conflicts = Array.isArray(preview?.conflicts) ? preview.conflicts : [];
+    panel.hidden = !conflicts.length;
+    if (!conflicts.length) return;
+    const heading = doc.createElement('strong');
+    heading.textContent = `同案差異 ${conflicts.length} 筆（逐案選擇）`;
+    panel.appendChild(heading);
+    conflicts.forEach((conflict, index) => {
+      const row = doc.createElement('div');
+      row.className = 'project-meta-import-conflict';
+      row.setAttribute('data-project-meta-import-conflict', conflict.id);
+      row.setAttribute('role', 'group');
+      row.setAttribute('aria-label', `匯入差異：${profileOptionLabel(conflict.local)}`);
+      const title = doc.createElement('strong');
+      title.textContent = profileOptionLabel(conflict.local);
+      row.appendChild(title);
+      const differences = doc.createElement('span');
+      differences.textContent = conflict.differences
+        .map(item => `${item.label}：本機「${item.localValue || '空白'}」／備份「${item.backupValue || '空白'}」`)
+        .join('；');
+      row.appendChild(differences);
+      const choices = doc.createElement('span');
+      choices.className = 'project-meta-import-choices';
+      [['local', '保留本機'], ['backup', '採用備份']].forEach(([value, labelText]) => {
+        const label = doc.createElement('label');
+        const input = doc.createElement('input');
+        input.type = 'radio';
+        input.name = `project-meta-import-${index}`;
+        input.value = value;
+        input.checked = preview.resolutions[conflict.id] === value;
+        input.addEventListener('change', function () {
+          if (input.checked) onChoice(conflict.id, value);
+        });
+        label.appendChild(input);
+        label.appendChild(doc.createTextNode(labelText));
+        choices.appendChild(label);
+      });
+      row.appendChild(choices);
+      panel.appendChild(row);
+    });
   }
 
   function safeToolId(text) {
@@ -732,6 +854,7 @@
       '<button type="button" data-project-meta-export>匯出清單</button>',
       '<button type="button" data-project-meta-import>匯入清單</button>',
       '<input type="file" accept="application/json,.json" data-project-meta-import-file hidden>',
+      '<div class="project-meta-import-conflicts" data-project-meta-import-conflicts hidden></div>',
       '<span class="project-meta-profile-detail" data-project-meta-detail></span>',
       '<span class="project-meta-profile-status" data-project-meta-status aria-live="polite"></span>',
     ].join('');
@@ -749,6 +872,11 @@
       '.' + CONTROL_CLASS + ' button:hover{filter:brightness(.96)}',
       '.' + CONTROL_CLASS + ' button[data-project-meta-delete-confirming]{background:#fee2e2;color:#991b1b}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-detail{flex:1 1 280px;color:#475569}',
+      '.' + CONTROL_CLASS + ' .project-meta-import-conflicts{flex:1 1 100%;display:grid;gap:7px;padding:8px;background:#fff;border:1px solid #f59e0b;border-radius:7px;color:#78350f}',
+      '.' + CONTROL_CLASS + ' .project-meta-import-conflicts[hidden]{display:none}',
+      '.' + CONTROL_CLASS + ' .project-meta-import-conflict{display:grid;gap:4px;padding-top:6px;border-top:1px solid #fde68a;overflow-wrap:anywhere}',
+      '.' + CONTROL_CLASS + ' .project-meta-import-choices{display:flex;flex-wrap:wrap;gap:12px}',
+      '.' + CONTROL_CLASS + ' .project-meta-import-choices label{display:inline-flex;align-items:center;gap:4px;font-weight:700}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status{flex:1 1 280px;font-weight:700}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status[data-tone="warn"]{color:#92400e}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status[data-tone="error"]{color:#991b1b}',
@@ -765,8 +893,9 @@
     const exportButton = bar.querySelector('[data-project-meta-export]');
     const importButton = bar.querySelector('[data-project-meta-import]');
     const importInput = bar.querySelector('[data-project-meta-import-file]');
+    const importConflictPanel = bar.querySelector('[data-project-meta-import-conflicts]');
     const confirmation = { signature: '' };
-    const importConfirmation = { preview: null };
+    const importConfirmation = { preview: null, backup: null, resolutions: {}, baseSignature: '' };
     const deleteConfirmation = { signature: '' };
     const refreshControls = function (preferredId) {
       const result = refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage, {
@@ -784,11 +913,41 @@
       setProfileDetail(bar, profileById(result.library, result.selectedId), selectedArchived);
       return result;
     };
+    const resetImport = function () {
+      resetImportConfirmation(importButton, importConfirmation, importConflictPanel);
+    };
+    const updateImportPreview = function (preview) {
+      importConfirmation.preview = preview;
+      importConfirmation.resolutions = { ...preview.resolutions };
+      importButton.textContent = importButtonLabel(preview);
+      importButton.setAttribute('data-project-meta-import-confirming', 'true');
+      renderImportConflicts(doc, importConflictPanel, preview, function (id, choice) {
+        try {
+          importConfirmation.resolutions[id] = choice;
+          const updated = prepareLibraryImport(
+            importConfirmation.backup,
+            rootWindow.localStorage,
+            importConfirmation.resolutions,
+            importConfirmation.baseSignature
+          );
+          updateImportPreview(updated);
+          const localCount = updated.conflicts.length - updated.replacements.length;
+          setStatus(
+            bar,
+            `匯入差異選擇：採用備份 ${updated.replacements.length} 筆、保留本機 ${localCount} 筆；目前清單與頁面尚未變更。`,
+            'warn'
+          );
+        } catch (error) {
+          resetImport();
+          setStatus(bar, `匯入差異無法更新：${String(error?.message || error)}`, 'error');
+        }
+      });
+    };
 
     bar.querySelector('[data-project-meta-save]').addEventListener('click', function () {
       try {
         resetApplyConfirmation(applyButton, confirmation);
-        resetImportConfirmation(importButton, importConfirmation);
+        resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
         const result = saveToLibrary(collectFromDocument(doc, meta), rootWindow.localStorage);
         searchInput.value = '';
@@ -803,7 +962,7 @@
     profileSelect.addEventListener('change', function () {
       try {
         resetApplyConfirmation(applyButton, confirmation);
-        resetImportConfirmation(importButton, importConfirmation);
+        resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
         const library = loadLibrary(rootWindow.localStorage);
         const view = loadViewState(rootWindow.localStorage, library);
@@ -822,6 +981,7 @@
     });
     applyButton.addEventListener('click', function () {
       try {
+        resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
         const library = loadLibrary(rootWindow.localStorage);
         const view = loadViewState(rootWindow.localStorage, library);
@@ -872,7 +1032,7 @@
     archiveButton.addEventListener('click', function () {
       try {
         resetApplyConfirmation(applyButton, confirmation);
-        resetImportConfirmation(importButton, importConfirmation);
+        resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
         const selectedId = profileSelect.value;
         const library = loadLibrary(rootWindow.localStorage);
@@ -899,7 +1059,7 @@
     });
     searchInput.addEventListener('input', function () {
       resetApplyConfirmation(applyButton, confirmation);
-      resetImportConfirmation(importButton, importConfirmation);
+      resetImport();
       resetDeleteConfirmation(removeButton, deleteConfirmation);
       const result = refreshControls();
       setStatus(
@@ -912,7 +1072,7 @@
     });
     showArchivedInput.addEventListener('change', function () {
       resetApplyConfirmation(applyButton, confirmation);
-      resetImportConfirmation(importButton, importConfirmation);
+      resetImport();
       resetDeleteConfirmation(removeButton, deleteConfirmation);
       const result = refreshControls();
       setStatus(
@@ -926,7 +1086,7 @@
     removeButton.addEventListener('click', function () {
       try {
         resetApplyConfirmation(applyButton, confirmation);
-        resetImportConfirmation(importButton, importConfirmation);
+        resetImport();
         const selectedId = profileSelect.value;
         const library = loadLibrary(rootWindow.localStorage);
         const signature = deleteConfirmationSignature(selectedId, library);
@@ -954,6 +1114,7 @@
     });
     exportButton.addEventListener('click', function () {
       try {
+        resetImport();
         resetDeleteConfirmation(removeButton, deleteConfirmation);
         const library = loadLibrary(rootWindow.localStorage);
         const result = downloadLibraryBackup(rootWindow, library);
@@ -974,21 +1135,25 @@
         resetDeleteConfirmation(removeButton, deleteConfirmation);
         const preview = importConfirmation.preview;
         const library = commitLibraryImport(preview, rootWindow.localStorage);
-        resetImportConfirmation(importButton, importConfirmation);
+        resetImport();
         refreshControls();
+        const localConflictCount = preview.conflicts.length - preview.replacements.length;
+        const changed = preview.additions.length || preview.replacements.length;
         setStatus(
           bar,
-          `已匯入 ${preview.additions.length} 筆案件表頭；${preview.preserved.length} 筆同案保留本機版本。清單共 ${library.profiles.length} 筆，目前頁面資料未變更。`,
+          changed
+            ? `已匯入 ${preview.additions.length} 筆、更新 ${preview.replacements.length} 筆案件表頭；同案差異另有 ${localConflictCount} 筆保留本機。清單共 ${library.profiles.length} 筆，目前頁面資料未變更。`
+            : `已完成 ${preview.conflicts.length} 筆同案差異確認，全部保留本機；清單與頁面未變更。`,
           'ok'
         );
       } catch (error) {
-        resetImportConfirmation(importButton, importConfirmation);
+        resetImport();
         setStatus(bar, `案件表頭無法匯入：${String(error?.message || error)}`, 'error');
       }
     });
     importInput.addEventListener('change', async function () {
       resetApplyConfirmation(applyButton, confirmation);
-      resetImportConfirmation(importButton, importConfirmation);
+      resetImport();
       resetDeleteConfirmation(removeButton, deleteConfirmation);
       const file = importInput.files?.[0];
       if (!file) return;
@@ -1005,19 +1170,21 @@
           return;
         }
         if (preview.status === 'no-change') {
-          setStatus(bar, `備份中的 ${preview.preserved.length} 筆案件均已存在；本機版本優先保留，清單未變更。`, 'ok');
+          setStatus(bar, `備份中的 ${preview.identical.length} 筆案件內容均與本機相同；清單未變更。`, 'ok');
           return;
         }
-        importConfirmation.preview = preview;
-        importButton.textContent = `確認匯入 ${preview.additions.length} 筆`;
-        importButton.setAttribute('data-project-meta-import-confirming', 'true');
+        importConfirmation.backup = backup;
+        importConfirmation.baseSignature = preview.currentSignature;
+        updateImportPreview(preview);
         setStatus(
           bar,
-          `匯入預覽：將新增 ${preview.additions.length} 筆；${preview.preserved.length} 筆同案保留本機版本。請再按一次「確認匯入」；目前清單與頁面尚未變更。`,
+          preview.conflicts.length
+            ? `匯入預覽：將新增 ${preview.additions.length} 筆；另有 ${preview.conflicts.length} 筆同案三欄內容不同，預設保留本機。請逐案選擇後再確認；目前清單與頁面尚未變更。`
+            : `匯入預覽：將新增 ${preview.additions.length} 筆。請再按一次確認；目前清單與頁面尚未變更。`,
           'warn'
         );
       } catch (error) {
-        resetImportConfirmation(importButton, importConfirmation);
+        resetImport();
         setStatus(bar, `案件表頭備份無法讀取：${String(error?.message || error)}`, 'error');
       }
     });
@@ -1098,6 +1265,8 @@
     serializeBackup,
     parseBackupText,
     librarySignature,
+    compareProfileProjects,
+    normalizeImportResolutions,
     prepareLibraryImport,
     commitLibraryImport,
     backupFileName,
