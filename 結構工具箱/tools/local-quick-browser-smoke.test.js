@@ -1569,23 +1569,40 @@ function assertDiagramGeometry(state, tool, label) {
 function projectMetaProfileSaveExpression() {
   return `(async () => {
     const settle = ms => new Promise(resolve => setTimeout(resolve, ms));
-    const values = {
-      projName: '跨工具共用案',
-      projNo: 'SHARED-001',
-      projDesigner: '共用設計者'
-    };
-    Object.entries(values).forEach(([id, value]) => {
-      const field = document.getElementById(id);
-      field.value = value;
-      field.dispatchEvent(new Event('input', { bubbles: true }));
-      field.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const setValues = values => Object.entries(values).forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        field.value = value;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    localStorage.removeItem('toolProjectMetaProfile:latest.v1');
+    localStorage.removeItem('toolProjectMetaProfile:library.v1');
+    setValues({ projName: '跨工具共用案', projNo: 'SHARED-001', projDesigner: '共用設計者' });
     document.querySelector('[data-project-meta-save]')?.click();
     await settle(30);
+    setValues({ projName: '跨工具第二案', projNo: 'SHARED-ALT-002', projDesigner: '第二設計者' });
+    document.querySelector('[data-project-meta-save]')?.click();
+    await settle(30);
+    const select = document.querySelector('[data-project-meta-select]');
+    const firstId = window.ToolProjectMetaProfile.profileId(
+      window.ToolProjectMetaProfile.buildProfile({ projName: '跨工具共用案', projNo: 'SHARED-001', projDesigner: '共用設計者' })
+    );
+    select.value = firstId;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(30);
     const stored = JSON.parse(localStorage.getItem('toolProjectMetaProfile:latest.v1') || 'null');
+    const library = JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null');
     return {
       hasBar: !!document.querySelector('.project-meta-profile-bar'),
       stored,
+      library,
+      options: Array.from(select.options).map(option => ({ value: option.value, text: option.textContent || '' })),
+      selectedValue: select.value,
+      pageAfterSelection: {
+        name: document.getElementById('projName')?.value || '',
+        no: document.getElementById('projNo')?.value || '',
+        designer: document.getElementById('projDesigner')?.value || ''
+      },
       status: document.querySelector('[data-project-meta-status]')?.textContent || '',
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
     };
@@ -1627,6 +1644,39 @@ function projectMetaProfileApplyExpression() {
       engineeringValue: engineeringField?.value || '',
       status: document.querySelector('[data-project-meta-status]')?.textContent || ''
     };
+    const profileSelect = document.querySelector('[data-project-meta-select]');
+    const alternateOption = Array.from(profileSelect?.options || []).find(option => (option.textContent || '').includes('SHARED-ALT-002'));
+    profileSelect.value = alternateOption?.value || '';
+    profileSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(30);
+    const selectedOnly = {
+      name: document.getElementById('projName')?.value || '',
+      no: document.getElementById('projNo')?.value || '',
+      designer: document.getElementById('projDesigner')?.value || '',
+      selectedValue: profileSelect.value,
+      latestNo: JSON.parse(localStorage.getItem('toolProjectMetaProfile:latest.v1') || 'null')?.project?.no || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || ''
+    };
+    applyButton?.click();
+    await settle(30);
+    applyButton?.click();
+    await settle(30);
+    const alternateApply = {
+      name: document.getElementById('projName')?.value || '',
+      no: document.getElementById('projNo')?.value || '',
+      designer: document.getElementById('projDesigner')?.value || '',
+      engineeringValue: engineeringField?.value || ''
+    };
+    document.querySelector('[data-project-meta-clear]')?.click();
+    await settle(30);
+    const deleteSelected = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      optionCount: profileSelect?.options?.length || 0,
+      name: document.getElementById('projName')?.value || '',
+      no: document.getElementById('projNo')?.value || '',
+      designer: document.getElementById('projDesigner')?.value || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || ''
+    };
     localStorage.setItem('toolProjectMetaProfile:latest.v1', JSON.stringify(
       window.ToolProjectMetaProfile.buildProfile({ projNo: 'STALE-CONFIRM-003' }, { toolId: 'browser-smoke' })
     ));
@@ -1653,6 +1703,9 @@ function projectMetaProfileApplyExpression() {
       hasBar: !!document.querySelector('.project-meta-profile-bar'),
       conflictAttempt,
       fullApply,
+      selectedOnly,
+      alternateApply,
+      deleteSelected,
       staleConfirmation,
       engineeringValueBefore,
       partialApply: {
@@ -2360,7 +2413,18 @@ async function main() {
         assert.equal(sharedSave.state.stored?.project?.name, '跨工具共用案', 'desktop shared project name saved');
         assert.equal(sharedSave.state.stored?.project?.no, 'SHARED-001', 'desktop shared project number saved');
         assert.equal(sharedSave.state.stored?.project?.designer, '共用設計者', 'desktop shared project designer saved');
-        assert.ok(sharedSave.state.status.includes('已儲存共用表頭'), 'desktop shared project save status');
+        assert.equal(sharedSave.state.library?.schema, 'tool-project-meta-profile-library.v1', 'desktop multi-project library schema');
+        assert.equal(sharedSave.state.library?.profiles?.length, 2, 'desktop stores two project-header profiles');
+        assert.equal(sharedSave.state.options.length, 2, 'desktop project selector exposes both saved projects');
+        assert.ok(sharedSave.state.options.some(option => option.text.includes('SHARED-001')), 'desktop selector lists first project');
+        assert.ok(sharedSave.state.options.some(option => option.text.includes('SHARED-ALT-002')), 'desktop selector lists alternate project');
+        assert.equal(sharedSave.state.selectedValue, sharedSave.state.library?.selectedId, 'desktop explicit selection persists');
+        assert.deepEqual(
+          sharedSave.state.pageAfterSelection,
+          { name: '跨工具第二案', no: 'SHARED-ALT-002', designer: '第二設計者' },
+          'selecting a stored project does not apply it to the current page'
+        );
+        assert.ok(sharedSave.state.status.includes('尚未套用'), 'desktop project selection clearly remains non-mutating');
         assert.equal(sharedSave.state.horizontalOverflow, false, 'desktop shared project save bar has no horizontal overflow');
 
         const sharedApply = await navigateAndInspect(
@@ -2388,6 +2452,27 @@ async function main() {
         );
         assert.equal(sharedApply.state.fullApply.engineeringValue, sharedApply.state.engineeringValueBefore, 'shared project metadata does not change engineering input');
         assert.ok(sharedApply.state.fullApply.status.includes('已套用 3 項'), 'desktop shared project apply status');
+        assert.deepEqual(
+          [sharedApply.state.selectedOnly.name, sharedApply.state.selectedOnly.no, sharedApply.state.selectedOnly.designer],
+          ['跨工具共用案', 'SHARED-001', '共用設計者'],
+          'selecting an alternate stored project does not mutate the target page'
+        );
+        assert.equal(sharedApply.state.selectedOnly.latestNo, 'SHARED-ALT-002', 'alternate project becomes the explicit shared selection');
+        assert.ok(sharedApply.state.selectedOnly.status.includes('尚未套用'), 'alternate project selection reports non-mutating state');
+        assert.deepEqual(
+          [sharedApply.state.alternateApply.name, sharedApply.state.alternateApply.no, sharedApply.state.alternateApply.designer],
+          ['跨工具第二案', 'SHARED-ALT-002', '第二設計者'],
+          'alternate saved project applies only after the existing conflict confirmation flow'
+        );
+        assert.equal(sharedApply.state.alternateApply.engineeringValue, sharedApply.state.engineeringValueBefore, 'alternate saved project does not change engineering input');
+        assert.equal(sharedApply.state.deleteSelected.library?.profiles?.length, 1, 'deleting the selected project removes only one library entry');
+        assert.equal(sharedApply.state.deleteSelected.optionCount, 1, 'project selector refreshes after deleting the selected profile');
+        assert.deepEqual(
+          [sharedApply.state.deleteSelected.name, sharedApply.state.deleteSelected.no, sharedApply.state.deleteSelected.designer],
+          ['跨工具第二案', 'SHARED-ALT-002', '第二設計者'],
+          'deleting a saved project does not change the current page'
+        );
+        assert.ok(sharedApply.state.deleteSelected.status.includes('目前頁面資料未變更'), 'project deletion reports its page-only non-mutating boundary');
         assert.equal(sharedApply.state.staleConfirmation.no, 'USER-EDITED-003', 'editing target metadata invalidates the earlier confirmation');
         assert.ok(sharedApply.state.staleConfirmation.status.includes('目前頁面尚未變更'), 'invalidated confirmation returns to non-mutating conflict preview');
         assert.equal(sharedApply.state.staleConfirmation.buttonText, '確認覆寫 1 項', 'invalidated confirmation requires another explicit click');

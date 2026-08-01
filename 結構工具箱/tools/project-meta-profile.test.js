@@ -39,7 +39,7 @@ const profile = Profile.buildProfile({
   projDesigner: ' 設計者 ',
 }, { toolId: 'source-tool', toolName: '來源工具', toolVersion: 'V1' });
 assert.equal(profile.schema, 'tool-project-meta-profile.v1');
-assert.equal(profile.profileVersion, '1.1');
+assert.equal(profile.profileVersion, '1.2');
 assert.equal(profile.project.name, '共用工程');
 assert.equal(profile.project.no, 'CASE-001');
 assert.equal(profile.project.designer, '設計者');
@@ -117,6 +117,73 @@ Profile.clear(storage);
 assert.equal(Profile.load(storage), null);
 assert.throws(() => Profile.normalizeProfile({ schema: 'unknown.v1' }), /不支援的共用表頭格式/);
 
+Profile.save(profile, storage);
+const migratedLibrary = Profile.loadLibrary(storage);
+assert.equal(migratedLibrary.schema, 'tool-project-meta-profile-library.v1');
+assert.equal(migratedLibrary.libraryVersion, '1.0');
+assert.equal(migratedLibrary.profiles.length, 1, 'legacy latest profile is available through the multi-project library');
+assert.equal(Profile.selectedProfile(migratedLibrary).project.no, 'CASE-001');
+
+const secondProfile = Profile.buildProfile({
+  projName: '第二工程',
+  projNo: 'CASE-002',
+  projDesigner: '第二設計者',
+  savedAt: '2026-08-01T12:00:00.000Z',
+});
+const addedSecond = Profile.saveToLibrary(secondProfile, storage);
+assert.equal(addedSecond.replaced, false);
+assert.equal(addedSecond.library.profiles.length, 2);
+assert.equal(addedSecond.profile.project.no, 'CASE-002');
+assert.equal(Profile.load(storage).project.no, 'CASE-002', 'selected library profile remains compatible with the legacy latest key');
+
+const selectedFirst = Profile.selectFromLibrary(Profile.profileId(profile), storage);
+assert.equal(selectedFirst.profile.project.no, 'CASE-001');
+assert.equal(Profile.load(storage).project.no, 'CASE-001');
+
+const updatedFirstProfile = Profile.buildProfile({
+  projName: '共用工程修訂',
+  projNo: 'case-001',
+  projDesigner: '新設計者',
+  savedAt: '2026-08-01T12:30:00.000Z',
+});
+assert.equal(Profile.profileId(updatedFirstProfile), Profile.profileId(profile), 'project number identity is case-insensitive');
+const updatedFirst = Profile.saveToLibrary(updatedFirstProfile, storage);
+assert.equal(updatedFirst.replaced, true, 'saving the same project number updates instead of duplicating it');
+assert.equal(updatedFirst.library.profiles.length, 2);
+assert.equal(updatedFirst.library.profiles[0].project.name, '共用工程修訂');
+assert.equal(updatedFirst.library.profiles[0].project.designer, '新設計者');
+
+const removedFirst = Profile.removeFromLibrary(updatedFirst.id, storage);
+assert.equal(removedFirst.removed.project.no, 'case-001');
+assert.equal(removedFirst.library.profiles.length, 1);
+assert.equal(removedFirst.profile.project.no, 'CASE-002');
+assert.equal(Profile.load(storage).project.no, 'CASE-002', 'removing the selected profile safely selects the remaining project');
+
+const capacityStorage = memoryStorage();
+let capacityResult = null;
+for (let index = 0; index <= Profile.MAX_PROFILES; index += 1) {
+  capacityResult = Profile.saveToLibrary(Profile.buildProfile({
+    projName: `容量工程 ${index}`,
+    projNo: `CAP-${String(index).padStart(2, '0')}`,
+    savedAt: `2026-08-01T13:${String(index).padStart(2, '0')}:00.000Z`,
+  }), capacityStorage);
+}
+assert.equal(capacityResult.library.profiles.length, Profile.MAX_PROFILES);
+assert.equal(capacityResult.evictedCount, 1);
+assert.equal(capacityResult.profile.project.no, 'CAP-20');
+assert.equal(capacityResult.library.profiles.some(item => item.project.no === 'CAP-00'), false, 'oldest project is evicted at capacity');
+assert.throws(
+  () => Profile.saveToLibrary(Profile.buildProfile({}), capacityStorage),
+  /沒有可儲存的案件表頭/,
+  'blank project cannot replace or expand the library'
+);
+assert.equal(Profile.loadLibrary(capacityStorage).profiles.length, Profile.MAX_PROFILES);
+
+Profile.clearLibrary(storage);
+assert.equal(Profile.load(storage), null);
+assert.equal(Profile.loadLibrary(storage).profiles.length, 0);
+assert.throws(() => Profile.normalizeLibrary({ schema: 'unknown-library.v1' }), /不支援的案件表頭清單格式/);
+
 const repoRoot = path.resolve(__dirname, '..', '..');
 const excludedDirectories = new Set(['.git', '.claude', '.codex', 'node_modules', 'output', 'testdeps', 'app_data']);
 function walk(directory) {
@@ -160,5 +227,8 @@ assert.match(source, /空白可由主文承接/, 'shared project-header UI state
 assert.doesNotMatch(source, /自動套用/, 'shared project metadata requires an explicit apply action');
 assert.match(source, /目前頁面尚未變更/, 'conflict preview clearly states that the first click is non-mutating');
 assert.match(source, /data-project-meta-confirming/, 'conflicting nonblank metadata requires a distinct confirmation state');
+assert.match(source, /data-project-meta-select/, 'multi-project library requires an explicit profile selector');
+assert.match(source, /可保存多個案件/, 'shared header UI explains the multi-project capability');
+assert.match(source, /刪除所選/, 'project removal is scoped to the explicitly selected profile');
 
 console.log(`project meta profile tests passed (${standardizedPages.length} pages)`);
