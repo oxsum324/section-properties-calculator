@@ -39,7 +39,7 @@ const profile = Profile.buildProfile({
   projDesigner: ' 設計者 ',
 }, { toolId: 'source-tool', toolName: '來源工具', toolVersion: 'V1' });
 assert.equal(profile.schema, 'tool-project-meta-profile.v1');
-assert.equal(profile.profileVersion, '1.3');
+assert.equal(profile.profileVersion, '1.4');
 assert.equal(profile.project.name, '共用工程');
 assert.equal(profile.project.no, 'CASE-001');
 assert.equal(profile.project.designer, '設計者');
@@ -153,6 +153,53 @@ assert.equal(updatedFirst.library.profiles.length, 2);
 assert.equal(updatedFirst.library.profiles[0].project.name, '共用工程修訂');
 assert.equal(updatedFirst.library.profiles[0].project.designer, '新設計者');
 
+const viewAfterSaves = Profile.loadViewState(storage, updatedFirst.library);
+assert.equal(viewAfterSaves.schema, 'tool-project-meta-profile-view.v1');
+assert.deepEqual(viewAfterSaves.archivedIds, [], 'newly saved projects are active');
+assert.deepEqual(viewAfterSaves.lastUsedAt, {}, 'saving alone does not count as a successful apply');
+assert.equal(
+  Profile.listLibraryProfiles(updatedFirst.library, viewAfterSaves)[0].project.no,
+  'case-001',
+  'active projects default to most recently saved or used order'
+);
+Profile.markProfileUsed(Profile.profileId(secondProfile), storage, '2026-08-01T15:00:00.000Z');
+const recentlyUsedView = Profile.loadViewState(storage, updatedFirst.library);
+assert.equal(
+  Profile.listLibraryProfiles(updatedFirst.library, recentlyUsedView)[0].project.no,
+  'CASE-002',
+  'successful use can move a project to the top without rewriting the library'
+);
+Profile.archiveProfile(Profile.profileId(secondProfile), storage);
+const archivedView = Profile.loadViewState(storage, updatedFirst.library);
+assert.equal(Profile.isProfileArchived(archivedView, Profile.profileId(secondProfile)), true);
+assert.equal(Profile.load(storage).project.no, 'case-001', 'archiving the selected project advances the active compatibility selection');
+assert.deepEqual(
+  Profile.listLibraryProfiles(updatedFirst.library, archivedView).map(item => item.project.no),
+  ['case-001'],
+  'archived projects are hidden from the active list without deletion'
+);
+const withArchived = Profile.listLibraryProfiles(updatedFirst.library, archivedView, { includeArchived: true });
+assert.equal(withArchived.length, 2);
+assert.equal(withArchived[0].project.no, 'CASE-002', 'archived projects keep their recent-use order when explicitly shown');
+assert.equal(withArchived[0].archived, true);
+assert.deepEqual(
+  Profile.listLibraryProfiles(updatedFirst.library, archivedView, { query: '新設計者' }).map(item => item.project.no),
+  ['case-001'],
+  'search matches the designer field'
+);
+assert.equal(
+  Profile.listLibraryProfiles(updatedFirst.library, archivedView, { query: 'case-002' }).length,
+  0,
+  'default search does not surface archived projects'
+);
+assert.equal(
+  Profile.listLibraryProfiles(updatedFirst.library, archivedView, { query: 'CASE-002', includeArchived: true }).length,
+  1,
+  'search is case-insensitive and can include archived projects explicitly'
+);
+Profile.restoreProfile(Profile.profileId(secondProfile), storage);
+assert.equal(Profile.isProfileArchived(Profile.loadViewState(storage, updatedFirst.library), Profile.profileId(secondProfile)), false);
+
 const removedFirst = Profile.removeFromLibrary(updatedFirst.id, storage);
 assert.equal(removedFirst.removed.project.no, 'case-001');
 assert.equal(removedFirst.library.profiles.length, 1);
@@ -186,6 +233,8 @@ assert.equal(backup.profileCount, 2);
 assert.deepEqual(backup.boundary.fields, ['name', 'no', 'designer']);
 assert.equal(backup.boundary.includesEngineeringInputs, false);
 assert.equal(backup.boundary.includesApprovalState, false);
+assert.equal(JSON.stringify(backup).includes('archivedIds'), false, 'local archive state is excluded from the portable backup');
+assert.equal(JSON.stringify(backup).includes('lastUsedAt'), false, 'local recent-use state is excluded from the portable backup');
 const backupText = Profile.serializeBackup(addedSecond.library, '2026-08-01T14:00:00.000Z');
 const parsedBackup = Profile.parseBackupText(backupText);
 assert.equal(parsedBackup.profileCount, 2);
@@ -247,6 +296,7 @@ assert.equal(Profile.loadLibrary(capacityStorage).profiles.length, Profile.MAX_P
 Profile.clearLibrary(storage);
 assert.equal(Profile.load(storage), null);
 assert.equal(Profile.loadLibrary(storage).profiles.length, 0);
+assert.equal(storage.getItem(Profile.VIEW_STORAGE_KEY), null, 'clearing the project library also clears local list-management state');
 assert.throws(() => Profile.normalizeLibrary({ schema: 'unknown-library.v1' }), /不支援的案件表頭清單格式/);
 
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -298,5 +348,9 @@ assert.match(source, /刪除所選/, 'project removal is scoped to the explicitl
 assert.match(source, /data-project-meta-export/, 'multi-project library exposes an explicit backup export');
 assert.match(source, /data-project-meta-import-confirming/, 'backup import requires an explicit preview confirmation state');
 assert.match(source, /目前清單與頁面尚未變更/, 'import preview states its non-mutating boundary');
+assert.match(source, /data-project-meta-search/, 'multi-project library exposes a header-only search control');
+assert.match(source, /data-project-meta-archive/, 'multi-project library exposes reversible archive management');
+assert.match(source, /依最近使用排序/, 'multi-project library states its recent-use ordering');
+assert.match(source, /封存案件須先解除封存才可套用/, 'archived projects cannot be applied accidentally');
 
 console.log(`project meta profile tests passed (${standardizedPages.length} pages)`);

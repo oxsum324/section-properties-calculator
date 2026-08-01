@@ -11,12 +11,15 @@
   'use strict';
 
   const SCHEMA = 'tool-project-meta-profile.v1';
-  const PROFILE_VERSION = '1.3';
+  const PROFILE_VERSION = '1.4';
   const STORAGE_KEY = 'toolProjectMetaProfile:latest.v1';
   const LIBRARY_SCHEMA = 'tool-project-meta-profile-library.v1';
   const LIBRARY_VERSION = '1.0';
   const LIBRARY_STORAGE_KEY = 'toolProjectMetaProfile:library.v1';
   const MAX_PROFILES = 20;
+  const VIEW_SCHEMA = 'tool-project-meta-profile-view.v1';
+  const VIEW_VERSION = '1.0';
+  const VIEW_STORAGE_KEY = 'toolProjectMetaProfile:view.v1';
   const BACKUP_SCHEMA = 'tool-project-meta-profile-backup.v1';
   const BACKUP_VERSION = '1.0';
   const MAX_BACKUP_BYTES = 256 * 1024;
@@ -152,6 +155,133 @@
     return record ? normalizeProfile(record) : null;
   }
 
+  function profileById(library, id) {
+    const normalized = library?.schema === LIBRARY_SCHEMA ? normalizeLibrary(library) : buildLibrary([]);
+    const selectedId = normalizeText(id);
+    const record = normalized.profiles.find(item => item.id === selectedId);
+    return record ? normalizeProfile(record) : null;
+  }
+
+  function validIsoTimestamp(value) {
+    const text = normalizeText(value);
+    return text && Number.isFinite(Date.parse(text)) ? new Date(text).toISOString() : '';
+  }
+
+  function buildViewState(payload, library) {
+    const input = payload && typeof payload === 'object' ? payload : {};
+    const normalizedLibrary = library?.schema === LIBRARY_SCHEMA ? normalizeLibrary(library) : buildLibrary([]);
+    const availableIds = new Set(normalizedLibrary.profiles.map(record => record.id));
+    const archivedIds = [];
+    const seen = new Set();
+    for (const value of Array.isArray(input.archivedIds) ? input.archivedIds : []) {
+      const id = normalizeText(value);
+      if (!id || !availableIds.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      archivedIds.push(id);
+    }
+    const lastUsedAt = {};
+    const activity = input.lastUsedAt && typeof input.lastUsedAt === 'object' && !Array.isArray(input.lastUsedAt)
+      ? input.lastUsedAt
+      : {};
+    for (const [rawId, rawTimestamp] of Object.entries(activity)) {
+      const id = normalizeText(rawId);
+      const timestamp = validIsoTimestamp(rawTimestamp);
+      if (availableIds.has(id) && timestamp) lastUsedAt[id] = timestamp;
+    }
+    return {
+      schema: VIEW_SCHEMA,
+      viewVersion: VIEW_VERSION,
+      updatedAt: validIsoTimestamp(input.updatedAt) || new Date().toISOString(),
+      archivedIds,
+      lastUsedAt,
+    };
+  }
+
+  function loadViewState(storage, library) {
+    const target = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    const normalizedLibrary = library?.schema === LIBRARY_SCHEMA ? normalizeLibrary(library) : loadLibrary(target);
+    if (!target) return buildViewState({}, normalizedLibrary);
+    const raw = target.getItem(VIEW_STORAGE_KEY);
+    if (!raw) return buildViewState({}, normalizedLibrary);
+    try {
+      const payload = JSON.parse(raw);
+      if (payload?.schema !== VIEW_SCHEMA) return buildViewState({}, normalizedLibrary);
+      return buildViewState(payload, normalizedLibrary);
+    } catch (_) {
+      return buildViewState({}, normalizedLibrary);
+    }
+  }
+
+  function writeViewState(payload, storage, library) {
+    const target = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (!target) throw new Error('瀏覽器儲存空間不可用。');
+    const normalizedLibrary = library?.schema === LIBRARY_SCHEMA ? normalizeLibrary(library) : loadLibrary(target);
+    const view = buildViewState({ ...payload, updatedAt: new Date().toISOString() }, normalizedLibrary);
+    target.setItem(VIEW_STORAGE_KEY, JSON.stringify(view));
+    return view;
+  }
+
+  function isProfileArchived(view, id) {
+    return Array.isArray(view?.archivedIds) && view.archivedIds.includes(normalizeText(id));
+  }
+
+  function updateProfileView(id, changes, storage, usedAt) {
+    const target = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (!target) throw new Error('瀏覽器儲存空間不可用。');
+    const library = loadLibrary(target);
+    const profileIdValue = normalizeText(id);
+    if (!library.profiles.some(record => record.id === profileIdValue)) throw new Error('找不到所選案件表頭。');
+    const current = loadViewState(target, library);
+    const archived = new Set(current.archivedIds);
+    if (changes?.archived === true) archived.add(profileIdValue);
+    if (changes?.archived === false) archived.delete(profileIdValue);
+    const lastUsedAt = { ...current.lastUsedAt };
+    if (changes?.used) lastUsedAt[profileIdValue] = validIsoTimestamp(usedAt) || new Date().toISOString();
+    return writeViewState({ archivedIds: [...archived], lastUsedAt }, target, library);
+  }
+
+  function markProfileUsed(id, storage, usedAt) {
+    return updateProfileView(id, { used: true, archived: false }, storage, usedAt);
+  }
+
+  function archiveProfile(id, storage) {
+    const target = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    const view = updateProfileView(id, { archived: true }, target);
+    const library = loadLibrary(target);
+    const archivedId = normalizeText(id);
+    if (library.selectedId === archivedId) {
+      const nextActive = listLibraryProfiles(library, view)[0];
+      if (nextActive) selectFromLibrary(nextActive.id, target);
+    }
+    return view;
+  }
+
+  function restoreProfile(id, storage) {
+    return updateProfileView(id, { archived: false }, storage);
+  }
+
+  function profileSearchText(payload) {
+    const profile = payload?.schema === SCHEMA ? normalizeProfile(payload) : buildProfile(payload);
+    return FIELD_SPECS.map(spec => profile.project[spec.key]).join(' ').normalize('NFKC').toLowerCase();
+  }
+
+  function listLibraryProfiles(library, view, options) {
+    const normalizedLibrary = library?.schema === LIBRARY_SCHEMA ? normalizeLibrary(library) : buildLibrary([]);
+    const normalizedView = buildViewState(view, normalizedLibrary);
+    const query = normalizeText(options?.query).normalize('NFKC').toLowerCase();
+    const includeArchived = options?.includeArchived === true;
+    return normalizedLibrary.profiles
+      .map((record, index) => ({
+        record,
+        index,
+        archived: isProfileArchived(normalizedView, record.id),
+        activity: Date.parse(normalizedView.lastUsedAt[record.id] || record.savedAt) || 0,
+      }))
+      .filter(item => (includeArchived || !item.archived) && (!query || profileSearchText(item.record).includes(query)))
+      .sort((left, right) => right.activity - left.activity || left.index - right.index)
+      .map(item => ({ ...item.record, archived: item.archived }));
+  }
+
   function mergeLegacyProfile(library, legacyProfile) {
     if (!legacyProfile || !hasProjectValues(legacyProfile)) return library;
     const legacyRecord = profileRecord(legacyProfile);
@@ -202,6 +332,7 @@
     const candidates = [record, ...current.profiles.filter(item => item.id !== record.id)];
     const evictedCount = Math.max(0, candidates.length - MAX_PROFILES);
     const library = writeLibrary(buildLibrary(candidates, record.id), storage);
+    restoreProfile(record.id, storage);
     return { library, profile: selectedProfile(library), id: record.id, replaced, evictedCount };
   }
 
@@ -215,11 +346,16 @@
 
   function removeFromLibrary(id, storage) {
     const current = loadLibrary(storage);
+    const currentView = loadViewState(storage, current);
     const removedId = normalizeText(id || current.selectedId);
     const removed = current.profiles.find(record => record.id === removedId) || null;
     if (!removed) return { library: current, removed: null, profile: selectedProfile(current) };
     const profiles = current.profiles.filter(record => record.id !== removedId);
-    const library = writeLibrary(buildLibrary(profiles, profiles[0]?.id || ''), storage);
+    const candidateLibrary = buildLibrary(profiles, '');
+    const nextActive = listLibraryProfiles(candidateLibrary, currentView)[0];
+    const library = writeLibrary(buildLibrary(profiles, nextActive?.id || profiles[0]?.id || ''), storage);
+    const target = storage || (typeof localStorage !== 'undefined' ? localStorage : null);
+    if (target) writeViewState(currentView, target, library);
     return { library, removed: normalizeProfile(removed), profile: selectedProfile(library) };
   }
 
@@ -228,6 +364,7 @@
     if (!target) return false;
     target.removeItem(LIBRARY_STORAGE_KEY);
     target.removeItem(STORAGE_KEY);
+    target.removeItem(VIEW_STORAGE_KEY);
     return true;
   }
 
@@ -503,26 +640,32 @@
     return label.length > 80 ? `${label.slice(0, 79)}…` : label;
   }
 
-  function refreshLibrarySelect(doc, select, storage) {
+  function refreshLibrarySelect(doc, select, storage, options) {
     const library = loadLibrary(storage);
+    const view = loadViewState(storage, library);
+    const visibleProfiles = listLibraryProfiles(library, view, options);
+    const preferredId = normalizeText(options?.preferredId || select.value || library.selectedId);
     while (select.firstChild) select.removeChild(select.firstChild);
-    if (!library.profiles.length) {
+    if (!visibleProfiles.length) {
       const option = doc.createElement('option');
       option.value = '';
-      option.textContent = '尚無已存案件';
+      option.textContent = library.profiles.length
+        ? (normalizeText(options?.query) ? '找不到符合的案件' : '無作用中案件（可顯示封存）')
+        : '尚無已存案件';
       select.appendChild(option);
       select.disabled = true;
-      return library;
+      return { library, view, visibleProfiles, selectedId: '' };
     }
-    library.profiles.forEach(record => {
+    visibleProfiles.forEach(record => {
       const option = doc.createElement('option');
       option.value = record.id;
-      option.textContent = profileOptionLabel(record);
+      option.textContent = `${record.archived ? '[封存] ' : ''}${profileOptionLabel(record)}`;
       select.appendChild(option);
     });
     select.disabled = false;
-    select.value = library.selectedId;
-    return library;
+    const selectedId = visibleProfiles.some(record => record.id === preferredId) ? preferredId : visibleProfiles[0].id;
+    select.value = selectedId;
+    return { library, view, visibleProfiles, selectedId };
   }
 
   function setStatus(bar, message, tone) {
@@ -539,9 +682,12 @@
     bar.innerHTML = [
       '<strong>跨工具共用表頭</strong>',
       '<span>可保存多個案件；選用，不影響計算。</span>',
+      '<input type="search" data-project-meta-search aria-label="搜尋案件表頭" placeholder="搜尋案名、編號或設計者">',
       '<select data-project-meta-select aria-label="選擇已儲存的案件表頭"></select>',
       '<button type="button" data-project-meta-save>儲存目前表頭</button>',
       '<button type="button" data-project-meta-apply>套用共用表頭</button>',
+      '<button type="button" data-project-meta-archive>封存所選</button>',
+      '<label class="project-meta-profile-toggle"><input type="checkbox" data-project-meta-show-archived>顯示封存</label>',
       '<button type="button" data-project-meta-clear>刪除所選</button>',
       '<button type="button" data-project-meta-export>匯出清單</button>',
       '<button type="button" data-project-meta-import>匯入清單</button>',
@@ -554,8 +700,10 @@
     style.textContent = [
       '.' + CONTROL_CLASS + '{max-width:1200px;margin:10px auto 0;padding:9px 14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f0f9ff;border:1px solid #bae6fd;border-left:4px solid #0284c7;border-radius:8px;color:#0c4a6e;font-size:.84em;line-height:1.55}',
       '.' + CONTROL_CLASS + ' strong{font-size:1em}',
-      '.' + CONTROL_CLASS + ' button,.' + CONTROL_CLASS + ' select{border:0;border-radius:7px;padding:7px 10px;background:#e0f2fe;color:#075985;font-weight:700}',
+      '.' + CONTROL_CLASS + ' button,.' + CONTROL_CLASS + ' select,.' + CONTROL_CLASS + ' input[type="search"]{border:0;border-radius:7px;padding:7px 10px;background:#e0f2fe;color:#075985;font-weight:700}',
       '.' + CONTROL_CLASS + ' select{max-width:min(100%,360px)}',
+      '.' + CONTROL_CLASS + ' input[type="search"]{width:min(100%,220px);background:#fff}',
+      '.' + CONTROL_CLASS + ' .project-meta-profile-toggle{display:inline-flex;gap:5px;align-items:center;font-weight:700;white-space:nowrap}',
       '.' + CONTROL_CLASS + ' button{cursor:pointer}',
       '.' + CONTROL_CLASS + ' button:hover{filter:brightness(.96)}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status{flex:1 1 280px;font-weight:700}',
@@ -567,17 +715,29 @@
 
     const applyButton = bar.querySelector('[data-project-meta-apply]');
     const profileSelect = bar.querySelector('[data-project-meta-select]');
+    const searchInput = bar.querySelector('[data-project-meta-search]');
+    const archiveButton = bar.querySelector('[data-project-meta-archive]');
+    const showArchivedInput = bar.querySelector('[data-project-meta-show-archived]');
     const removeButton = bar.querySelector('[data-project-meta-clear]');
     const exportButton = bar.querySelector('[data-project-meta-export]');
     const importButton = bar.querySelector('[data-project-meta-import]');
     const importInput = bar.querySelector('[data-project-meta-import-file]');
     const confirmation = { signature: '' };
     const importConfirmation = { preview: null };
-    const refreshControls = function () {
-      const library = refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage);
-      exportButton.disabled = !library.profiles.length;
-      removeButton.disabled = !library.profiles.length;
-      return library;
+    const refreshControls = function (preferredId) {
+      const result = refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage, {
+        query: searchInput.value,
+        includeArchived: showArchivedInput.checked,
+        preferredId,
+      });
+      const hasSelection = !!result.selectedId;
+      const selectedArchived = hasSelection && isProfileArchived(result.view, result.selectedId);
+      exportButton.disabled = !result.library.profiles.length;
+      removeButton.disabled = !hasSelection;
+      archiveButton.disabled = !hasSelection;
+      archiveButton.textContent = selectedArchived ? '解除封存' : '封存所選';
+      applyButton.disabled = !hasSelection || selectedArchived;
+      return result;
     };
 
     bar.querySelector('[data-project-meta-save]').addEventListener('click', function () {
@@ -585,7 +745,8 @@
         resetApplyConfirmation(applyButton, confirmation);
         resetImportConfirmation(importButton, importConfirmation);
         const result = saveToLibrary(collectFromDocument(doc, meta), rootWindow.localStorage);
-        refreshControls();
+        searchInput.value = '';
+        refreshControls(result.id);
         const action = result.replaced ? '已更新所選案件表頭' : '已新增案件表頭';
         const capacity = result.evictedCount ? `；已移除 ${result.evictedCount} 筆最舊資料以維持 ${MAX_PROFILES} 筆上限` : '';
         setStatus(bar, `${action}；清單共 ${result.library.profiles.length} 筆${capacity}。${describeProfile(result.profile)}`, 'ok');
@@ -597,7 +758,16 @@
       try {
         resetApplyConfirmation(applyButton, confirmation);
         resetImportConfirmation(importButton, importConfirmation);
+        const library = loadLibrary(rootWindow.localStorage);
+        const view = loadViewState(rootWindow.localStorage, library);
+        if (isProfileArchived(view, profileSelect.value)) {
+          const archivedProfile = profileById(library, profileSelect.value);
+          refreshControls(profileSelect.value);
+          setStatus(bar, `此案件已封存；解除封存後才可套用。目前頁面資料未變更。${describeProfile(archivedProfile)}`, 'warn');
+          return;
+        }
         const result = selectFromLibrary(profileSelect.value, rootWindow.localStorage);
+        refreshControls(profileSelect.value);
         setStatus(bar, `已選擇案件表頭，尚未套用至目前頁面。${describeProfile(result.profile)}`, 'ok');
       } catch (error) {
         setStatus(bar, `案件表頭無法選擇：${String(error?.message || error)}`, 'error');
@@ -605,7 +775,15 @@
     });
     applyButton.addEventListener('click', function () {
       try {
-        const profile = selectedProfile(loadLibrary(rootWindow.localStorage));
+        const library = loadLibrary(rootWindow.localStorage);
+        const view = loadViewState(rootWindow.localStorage, library);
+        const selectedId = profileSelect.value;
+        if (isProfileArchived(view, selectedId)) {
+          resetApplyConfirmation(applyButton, confirmation);
+          setStatus(bar, '此案件已封存；解除封存後才可套用。目前頁面資料未變更。', 'warn');
+          return;
+        }
+        const profile = profileById(library, selectedId);
         if (!profile) {
           resetApplyConfirmation(applyButton, confirmation);
           setStatus(bar, '尚無共用表頭，畫面維持原值。空白可由主文承接。', 'warn');
@@ -629,6 +807,10 @@
           : preview;
         resetApplyConfirmation(applyButton, confirmation);
         const labels = result.applied.map(item => item.label).join('、');
+        if (result.applied.length) {
+          markProfileUsed(selectedId, rootWindow.localStorage);
+          refreshControls(selectedId);
+        }
         setStatus(
           bar,
           result.applied.length ? `已套用 ${result.applied.length} 項：${labels}。請確認後再計算或核可。` : '共用表頭沒有非空白欄位，畫面維持原值。',
@@ -638,6 +820,57 @@
         resetApplyConfirmation(applyButton, confirmation);
         setStatus(bar, `共用表頭無法套用：${String(error?.message || error)}`, 'error');
       }
+    });
+    archiveButton.addEventListener('click', function () {
+      try {
+        resetApplyConfirmation(applyButton, confirmation);
+        resetImportConfirmation(importButton, importConfirmation);
+        const selectedId = profileSelect.value;
+        const library = loadLibrary(rootWindow.localStorage);
+        const view = loadViewState(rootWindow.localStorage, library);
+        const wasArchived = isProfileArchived(view, selectedId);
+        if (wasArchived) {
+          restoreProfile(selectedId, rootWindow.localStorage);
+          selectFromLibrary(selectedId, rootWindow.localStorage);
+        } else {
+          archiveProfile(selectedId, rootWindow.localStorage);
+        }
+        const refreshed = refreshControls(wasArchived ? selectedId : '');
+        const archivedCount = refreshed.view.archivedIds.length;
+        setStatus(
+          bar,
+          wasArchived
+            ? `已解除封存；清單共 ${refreshed.library.profiles.length} 筆，目前頁面資料未變更。`
+            : `已封存所選案件；目前有 ${archivedCount} 筆封存資料，可勾選「顯示封存」復原。頁面資料未變更。`,
+          'ok'
+        );
+      } catch (error) {
+        setStatus(bar, `案件表頭無法封存：${String(error?.message || error)}`, 'error');
+      }
+    });
+    searchInput.addEventListener('input', function () {
+      resetApplyConfirmation(applyButton, confirmation);
+      resetImportConfirmation(importButton, importConfirmation);
+      const result = refreshControls();
+      setStatus(
+        bar,
+        normalizeText(searchInput.value)
+          ? `搜尋結果 ${result.visibleProfiles.length} 筆；只篩選清單，目前頁面資料未變更。`
+          : `已清除搜尋；顯示 ${result.visibleProfiles.length} 筆案件。`,
+        'ok'
+      );
+    });
+    showArchivedInput.addEventListener('change', function () {
+      resetApplyConfirmation(applyButton, confirmation);
+      resetImportConfirmation(importButton, importConfirmation);
+      const result = refreshControls();
+      setStatus(
+        bar,
+        showArchivedInput.checked
+          ? `已顯示封存案件；共 ${result.view.archivedIds.length} 筆。封存案件須先解除封存才可套用。`
+          : `已隱藏封存案件；作用中案件 ${result.library.profiles.length - result.view.archivedIds.length} 筆。`,
+        'ok'
+      );
     });
     removeButton.addEventListener('click', function () {
       try {
@@ -724,12 +957,12 @@
     });
 
     try {
-      const library = refreshControls();
-      const profile = selectedProfile(library);
+      const result = refreshControls();
+      const profile = profileById(result.library, result.selectedId);
       setStatus(
         bar,
         profile
-          ? `已載入 ${library.profiles.length} 筆案件表頭；請選擇後再套用。${describeProfile(profile)}`
+          ? `已載入 ${result.library.profiles.length} 筆案件表頭；依最近使用排序，請選擇後再套用。${describeProfile(profile)}`
           : '尚無已存案件表頭；可先儲存目前非空白表頭。空白仍可由主文承接。',
         'ok'
       );
@@ -758,6 +991,9 @@
     LIBRARY_VERSION,
     LIBRARY_STORAGE_KEY,
     MAX_PROFILES,
+    VIEW_SCHEMA,
+    VIEW_VERSION,
+    VIEW_STORAGE_KEY,
     BACKUP_SCHEMA,
     BACKUP_VERSION,
     MAX_BACKUP_BYTES,
@@ -775,8 +1011,18 @@
     buildLibrary,
     normalizeLibrary,
     selectedProfile,
+    profileById,
     loadLibrary,
     writeLibrary,
+    buildViewState,
+    loadViewState,
+    writeViewState,
+    isProfileArchived,
+    markProfileUsed,
+    archiveProfile,
+    restoreProfile,
+    profileSearchText,
+    listLibraryProfiles,
     saveToLibrary,
     selectFromLibrary,
     removeFromLibrary,

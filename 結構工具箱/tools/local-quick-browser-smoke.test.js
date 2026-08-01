@@ -1577,6 +1577,7 @@ function projectMetaProfileSaveExpression() {
       });
     localStorage.removeItem('toolProjectMetaProfile:latest.v1');
     localStorage.removeItem('toolProjectMetaProfile:library.v1');
+    localStorage.removeItem('toolProjectMetaProfile:view.v1');
     setValues({ projName: '跨工具共用案', projNo: 'SHARED-001', projDesigner: '共用設計者' });
     document.querySelector('[data-project-meta-save]')?.click();
     await settle(30);
@@ -1635,6 +1636,62 @@ function projectMetaProfileSaveExpression() {
       }
     };
     const select = document.querySelector('[data-project-meta-select]');
+    const search = document.querySelector('[data-project-meta-search]');
+    search.value = '第二設計者';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle(30);
+    const searchResult = {
+      optionCount: select?.disabled ? 0 : (select?.options?.length || 0),
+      options: Array.from(select?.options || []).map(option => option.textContent || ''),
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    search.value = '';
+    search.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle(30);
+    const alternateId = window.ToolProjectMetaProfile.profileId(
+      window.ToolProjectMetaProfile.buildProfile({ projName: '跨工具第二案', projNo: 'SHARED-ALT-002', projDesigner: '第二設計者' })
+    );
+    select.value = alternateId;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(30);
+    document.querySelector('[data-project-meta-archive]')?.click();
+    await settle(30);
+    const archived = {
+      view: JSON.parse(localStorage.getItem('toolProjectMetaProfile:view.v1') || 'null'),
+      options: Array.from(select?.options || []).map(option => option.textContent || ''),
+      latestNo: JSON.parse(localStorage.getItem('toolProjectMetaProfile:latest.v1') || 'null')?.project?.no || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    const showArchived = document.querySelector('[data-project-meta-show-archived]');
+    showArchived.checked = true;
+    showArchived.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(30);
+    select.value = alternateId;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(30);
+    const archivedSelected = {
+      options: Array.from(select?.options || []).map(option => option.textContent || ''),
+      applyDisabled: document.querySelector('[data-project-meta-apply]')?.disabled,
+      archiveButtonText: document.querySelector('[data-project-meta-archive]')?.textContent || '',
+      latestNo: JSON.parse(localStorage.getItem('toolProjectMetaProfile:latest.v1') || 'null')?.project?.no || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    document.querySelector('[data-project-meta-archive]')?.click();
+    await settle(30);
+    const restored = {
+      view: JSON.parse(localStorage.getItem('toolProjectMetaProfile:view.v1') || 'null'),
+      optionCount: select?.options?.length || 0,
+      applyDisabled: document.querySelector('[data-project-meta-apply]')?.disabled,
+      latestNo: JSON.parse(localStorage.getItem('toolProjectMetaProfile:latest.v1') || 'null')?.project?.no || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      pageNo: document.getElementById('projNo')?.value || ''
+    };
+    showArchived.checked = false;
+    showArchived.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(30);
     const firstId = window.ToolProjectMetaProfile.profileId(
       window.ToolProjectMetaProfile.buildProfile({ projName: '跨工具共用案', projNo: 'SHARED-001', projDesigner: '共用設計者' })
     );
@@ -1657,6 +1714,10 @@ function projectMetaProfileSaveExpression() {
       },
       importPreview,
       importCommitted,
+      searchResult,
+      archived,
+      archivedSelected,
+      restored,
       options: Array.from(select.options).map(option => ({ value: option.value, text: option.textContent || '' })),
       selectedValue: select.value,
       pageAfterSelection: {
@@ -1738,10 +1799,9 @@ function projectMetaProfileApplyExpression() {
       designer: document.getElementById('projDesigner')?.value || '',
       status: document.querySelector('[data-project-meta-status]')?.textContent || ''
     };
-    localStorage.setItem('toolProjectMetaProfile:latest.v1', JSON.stringify(
-      window.ToolProjectMetaProfile.buildProfile({ projNo: 'STALE-CONFIRM-003' }, { toolId: 'browser-smoke' })
-    ));
+    setValue('projName', '跨工具共用案');
     setValue('projNo', 'ORIGINAL-003');
+    setValue('projDesigner', '共用設計者');
     applyButton?.click();
     await settle(30);
     setValue('projNo', 'USER-EDITED-003');
@@ -1752,9 +1812,11 @@ function projectMetaProfileApplyExpression() {
       status: document.querySelector('[data-project-meta-status]')?.textContent || '',
       buttonText: applyButton?.textContent || ''
     };
-    localStorage.setItem('toolProjectMetaProfile:latest.v1', JSON.stringify(
-      window.ToolProjectMetaProfile.buildProfile({ projNo: 'PARTIAL-002' }, { toolId: 'browser-smoke' })
-    ));
+    setValue('projName', '');
+    setValue('projNo', 'PARTIAL-002');
+    setValue('projDesigner', '');
+    document.querySelector('[data-project-meta-save]')?.click();
+    await settle(30);
     setValue('projName', '應保留案名');
     setValue('projNo', '');
     setValue('projDesigner', '應保留設計者');
@@ -2497,6 +2559,26 @@ async function main() {
           { name: '跨工具第二案', no: 'SHARED-ALT-002', designer: '第二設計者' },
           'desktop backup import commit does not change current page'
         );
+        assert.equal(sharedSave.state.searchResult.optionCount, 1, 'desktop project search filters the saved-project selector');
+        assert.ok(sharedSave.state.searchResult.options[0].includes('SHARED-ALT-002'), 'desktop project search matches designer text');
+        assert.ok(sharedSave.state.searchResult.status.includes('只篩選清單'), 'desktop project search states its non-mutating boundary');
+        assert.equal(sharedSave.state.searchResult.pageNo, 'SHARED-ALT-002', 'desktop project search does not change current page');
+        assert.equal(sharedSave.state.archived.view?.archivedIds?.length, 1, 'desktop archive stores one reversible local archive marker');
+        assert.equal(sharedSave.state.archived.options.length, 1, 'desktop active list hides the archived project');
+        assert.equal(sharedSave.state.archived.latestNo, 'SHARED-001', 'archiving the selected project advances to an active selection');
+        assert.equal(sharedSave.state.archived.pageNo, 'SHARED-ALT-002', 'desktop archive does not change current page');
+        assert.equal(sharedSave.state.archivedSelected.options.length, 2, 'desktop show-archived control reveals both projects');
+        assert.ok(sharedSave.state.archivedSelected.options.some(option => option.includes('[封存]') && option.includes('SHARED-ALT-002')), 'desktop archived project is visibly labelled');
+        assert.equal(sharedSave.state.archivedSelected.applyDisabled, true, 'desktop archived project cannot be applied before restoration');
+        assert.equal(sharedSave.state.archivedSelected.archiveButtonText, '解除封存', 'desktop archived selection exposes a restore action');
+        assert.equal(sharedSave.state.archivedSelected.latestNo, 'SHARED-001', 'selecting an archived project does not change the active compatibility selection');
+        assert.ok(sharedSave.state.archivedSelected.status.includes('解除封存後才可套用'), 'desktop archived selection explains the apply boundary');
+        assert.equal(sharedSave.state.archivedSelected.pageNo, 'SHARED-ALT-002', 'desktop archived selection does not change current page');
+        assert.equal(sharedSave.state.restored.view?.archivedIds?.length, 0, 'desktop restore clears the archive marker');
+        assert.equal(sharedSave.state.restored.optionCount, 2, 'desktop restored project remains in the full list');
+        assert.equal(sharedSave.state.restored.applyDisabled, false, 'desktop restored project can be applied again');
+        assert.equal(sharedSave.state.restored.latestNo, 'SHARED-ALT-002', 'desktop restore makes the restored project the explicit active selection');
+        assert.equal(sharedSave.state.restored.pageNo, 'SHARED-ALT-002', 'desktop restore does not change current page');
         assert.equal(sharedSave.state.library?.schema, 'tool-project-meta-profile-library.v1', 'desktop multi-project library schema');
         assert.equal(sharedSave.state.library?.profiles?.length, 2, 'desktop stores two project-header profiles');
         assert.equal(sharedSave.state.options.length, 2, 'desktop project selector exposes both saved projects');
