@@ -88,14 +88,13 @@ function Test-ShortcutCurrent {
 function Test-ShortcutManaged {
   param([Parameter(Mandatory)]$State)
 
-  $targetLeaf = if ([string]::IsNullOrWhiteSpace($State.TargetPath)) { '' } else { [IO.Path]::GetFileName($State.TargetPath) }
-  return $State.Description.StartsWith($managedMarker, [StringComparison]::Ordinal) -or $targetLeaf -ieq '啟動案件附件工作台.bat'
+  return $State.Description.StartsWith($managedMarker, [StringComparison]::Ordinal) -or $State.TargetPath -ieq $targetPath
 }
 
 function Test-ShortcutRemovable {
   param([Parameter(Mandatory)]$State)
 
-  return $State.Description.StartsWith($managedMarker, [StringComparison]::Ordinal) -or $State.TargetPath -ieq $targetPath
+  return Test-ShortcutManaged -State $State
 }
 
 function Assert-ShortcutInstallable {

@@ -282,11 +282,49 @@ try {
     env: { ...process.env, TEST_CONFLICT_LINK: sameLeafPath, TEST_CONFLICT_TARGET: unrelatedTarget },
   });
   assert.equal(sameLeafSetup.status, 0, sameLeafSetup.stderr);
+  const sameLeafTimestamp = fs.statSync(sameLeafPath).mtimeMs;
+  const sameLeafCheck = runChecker(sameLeafDesktop, sameLeafSendTo, sameLeafPrograms);
+  assert.equal(sameLeafCheck.status, 2, sameLeafCheck.stderr);
+  const sameLeafCheckPayload = JSON.parse(sameLeafCheck.stdout.trim());
+  assert.equal(sameLeafCheckPayload.status, 'blocked');
+  assert.deepEqual(sameLeafCheckPayload.shortcuts.map(item => item.status), ['foreign', 'absent', 'absent']);
+  assert.equal(fs.statSync(sameLeafPath).mtimeMs, sameLeafTimestamp, 'check does not trust or rewrite a matching target filename outside this repo');
+  const sameLeafInstall = runInstaller(sameLeafDesktop, sameLeafSendTo, sameLeafPrograms);
+  assert.notEqual(sameLeafInstall.status, 0, 'install must not take over a matching target filename outside this repo');
+  assert.match(`${sameLeafInstall.stdout}\n${sameLeafInstall.stderr}`, /已保留原檔/);
+  assert.equal(fs.statSync(sameLeafPath).mtimeMs, sameLeafTimestamp, 'failed install preserves a matching target filename outside this repo');
   const sameLeafRemoval = runRemover(sameLeafDesktop, sameLeafSendTo, sameLeafPrograms);
   assert.equal(sameLeafRemoval.status, 0, sameLeafRemoval.stderr);
   assert.deepEqual(JSON.parse(sameLeafRemoval.stdout.trim()).shortcuts.map(item => item.status), ['preserved', 'absent', 'absent']);
   const sameLeafInspect = inspectShortcuts(sameLeafDesktop, sendToPath, programsPath)[0];
   assert.equal(path.normalize(sameLeafInspect.TargetPath).toLowerCase(), path.normalize(unrelatedTarget).toLowerCase(), 'removal does not trust a matching target filename outside this repo');
+
+  const legacyManagedDesktop = path.join(temporaryRoot, 'LegacyManagedDesktop');
+  const legacyManagedSendTo = path.join(temporaryRoot, 'LegacyManagedSendTo');
+  const legacyManagedPrograms = path.join(temporaryRoot, 'LegacyManagedPrograms');
+  fs.mkdirSync(legacyManagedDesktop);
+  fs.mkdirSync(legacyManagedSendTo);
+  fs.mkdirSync(legacyManagedPrograms);
+  const legacyManagedPath = path.join(legacyManagedDesktop, '案件附件工作台.lnk');
+  const legacyManagedCommand = [
+    '$shell = New-Object -ComObject WScript.Shell',
+    '$link = $shell.CreateShortcut($env:TEST_CONFLICT_LINK)',
+    '$link.TargetPath = $env:TEST_CONFLICT_TARGET',
+    '$link.Description = "案件附件工作台捷徑（由小工具安裝器管理）：舊位置"',
+    '$link.Save()',
+  ].join('; ');
+  const legacyManagedSetup = runPowerShell(['-Command', legacyManagedCommand], {
+    env: { ...process.env, TEST_CONFLICT_LINK: legacyManagedPath, TEST_CONFLICT_TARGET: unrelatedTarget },
+  });
+  assert.equal(legacyManagedSetup.status, 0, legacyManagedSetup.stderr);
+  const legacyManagedCheck = runChecker(legacyManagedDesktop, legacyManagedSendTo, legacyManagedPrograms);
+  assert.equal(legacyManagedCheck.status, 1, legacyManagedCheck.stderr);
+  assert.deepEqual(JSON.parse(legacyManagedCheck.stdout.trim()).shortcuts.map(item => item.status), ['repairable', 'absent', 'absent']);
+  const legacyManagedInstall = runInstaller(legacyManagedDesktop, legacyManagedSendTo, legacyManagedPrograms);
+  assert.equal(legacyManagedInstall.status, 0, legacyManagedInstall.stderr);
+  assert.deepEqual(JSON.parse(legacyManagedInstall.stdout.trim()).shortcuts.map(item => item.status), ['updated', 'created', 'created']);
+  const legacyManagedInspect = inspectShortcuts(legacyManagedDesktop, legacyManagedSendTo, legacyManagedPrograms)[0];
+  assert.equal(path.normalize(legacyManagedInspect.TargetPath).toLowerCase(), path.normalize(targetPath).toLowerCase(), 'managed shortcut from an old repo location remains repairable');
 
   const lateConflictDesktop = path.join(temporaryRoot, 'LateConflictDesktop');
   const lateConflictSendTo = path.join(temporaryRoot, 'LateConflictSendTo');
