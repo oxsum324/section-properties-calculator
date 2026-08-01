@@ -211,7 +211,7 @@ table.spec th { background:#f1f5f9; color:var(--primary); }
   /* 隱藏輸入面板、按鈕 */
   .main-layout > div:first-child { display:none !important; }
   .btn-calc, .btn-secondary, .btn-print, .chk-detail, .mode-bar__report,
-  .case-actions, .case-status, .case-file-actions, .project-storage-bar { display:none !important; }
+  .case-actions, .case-status, .case-file-actions, .project-storage-bar, .project-meta-profile-bar { display:none !important; }
   .badge-v { background:#333 !important; }
   /* 結果面板 */
   #resultPanel { display:block !important; }

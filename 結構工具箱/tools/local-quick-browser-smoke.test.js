@@ -1565,6 +1565,78 @@ function assertDiagramGeometry(state, tool, label) {
     }
   }
 }
+
+function projectMetaProfileSaveExpression() {
+  return `(async () => {
+    const settle = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const values = {
+      projName: '跨工具共用案',
+      projNo: 'SHARED-001',
+      projDesigner: '共用設計者'
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const field = document.getElementById(id);
+      field.value = value;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    document.querySelector('[data-project-meta-save]')?.click();
+    await settle(30);
+    const stored = JSON.parse(localStorage.getItem('toolProjectMetaProfile:latest.v1') || 'null');
+    return {
+      hasBar: !!document.querySelector('.project-meta-profile-bar'),
+      stored,
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    };
+  })()`;
+}
+
+function projectMetaProfileApplyExpression() {
+  return `(async () => {
+    const settle = ms => new Promise(resolve => setTimeout(resolve, ms));
+    const setValue = (id, value) => {
+      const field = document.getElementById(id);
+      field.value = value;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    setValue('projName', '目標既有案');
+    setValue('projNo', 'TARGET-OLD');
+    setValue('projDesigner', '目標既有設計者');
+    const engineeringField = document.getElementById('b');
+    const engineeringValueBefore = engineeringField?.value || '';
+    document.querySelector('[data-project-meta-apply]')?.click();
+    await settle(30);
+    const fullApply = {
+      name: document.getElementById('projName')?.value || '',
+      no: document.getElementById('projNo')?.value || '',
+      designer: document.getElementById('projDesigner')?.value || '',
+      engineeringValue: engineeringField?.value || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || ''
+    };
+    localStorage.setItem('toolProjectMetaProfile:latest.v1', JSON.stringify(
+      window.ToolProjectMetaProfile.buildProfile({ projNo: 'PARTIAL-002' }, { toolId: 'browser-smoke' })
+    ));
+    setValue('projName', '應保留案名');
+    setValue('projNo', '應被取代');
+    setValue('projDesigner', '應保留設計者');
+    document.querySelector('[data-project-meta-apply]')?.click();
+    await settle(30);
+    return {
+      hasBar: !!document.querySelector('.project-meta-profile-bar'),
+      fullApply,
+      engineeringValueBefore,
+      partialApply: {
+        name: document.getElementById('projName')?.value || '',
+        no: document.getElementById('projNo')?.value || '',
+        designer: document.getElementById('projDesigner')?.value || ''
+      },
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    };
+  })()`;
+}
+
 function assertToolState(state, tool, label) {
   const missingProjectMetaPattern = /計畫名稱 \/ 編號 \/ (?:設計人|整理人)尚未完整，附件識別不足/;
   assert.equal(state.title, tool.title.replace('<title>', '').replace('</title>', ''), `${label} ${tool.key} title`);
@@ -2246,6 +2318,53 @@ async function main() {
           assert.deepEqual(placeholderResult.errors, [], `${label} placeholder console/dialog errors: ${placeholderResult.errors.join(' | ')}`);
           assertLegacyPlaceholderReportState(placeholderResult.state, legacyTool, `${label} placeholder`);
         }
+
+        const sharedSave = await navigateAndInspect(
+          client,
+          sessionId,
+          `http://127.0.0.1:${serverPort}/equipment-load`,
+          viewport,
+          projectMetaProfileSaveExpression()
+        );
+        assert.deepEqual(sharedSave.errors, [], `desktop shared project metadata save console errors: ${sharedSave.errors.join(' | ')}`);
+        assert.equal(sharedSave.state.hasBar, true, 'desktop equipment shared project metadata bar exists');
+        assert.equal(sharedSave.state.stored?.schema, 'tool-project-meta-profile.v1', 'desktop shared project metadata schema');
+        assert.equal(sharedSave.state.stored?.project?.name, '跨工具共用案', 'desktop shared project name saved');
+        assert.equal(sharedSave.state.stored?.project?.no, 'SHARED-001', 'desktop shared project number saved');
+        assert.equal(sharedSave.state.stored?.project?.designer, '共用設計者', 'desktop shared project designer saved');
+        assert.ok(sharedSave.state.status.includes('已儲存共用表頭'), 'desktop shared project save status');
+        assert.equal(sharedSave.state.horizontalOverflow, false, 'desktop shared project save bar has no horizontal overflow');
+
+        const sharedApply = await navigateAndInspect(
+          client,
+          sessionId,
+          `http://127.0.0.1:${serverPort}/rc-beam`,
+          viewport,
+          projectMetaProfileApplyExpression()
+        );
+        assert.deepEqual(sharedApply.errors, [], `desktop shared project metadata apply console errors: ${sharedApply.errors.join(' | ')}`);
+        assert.equal(sharedApply.state.hasBar, true, 'desktop RC beam shared project metadata bar exists');
+        assert.deepEqual(
+          [sharedApply.state.fullApply.name, sharedApply.state.fullApply.no, sharedApply.state.fullApply.designer],
+          ['跨工具共用案', 'SHARED-001', '共用設計者'],
+          'desktop shared project metadata crosses from local quick to RC'
+        );
+        assert.equal(sharedApply.state.fullApply.engineeringValue, sharedApply.state.engineeringValueBefore, 'shared project metadata does not change engineering input');
+        assert.ok(sharedApply.state.fullApply.status.includes('已套用 3 項'), 'desktop shared project apply status');
+        assert.deepEqual(
+          sharedApply.state.partialApply,
+          { name: '應保留案名', no: 'PARTIAL-002', designer: '應保留設計者' },
+          'blank shared project values preserve target page values'
+        );
+        assert.equal(sharedApply.state.horizontalOverflow, false, 'desktop shared project apply bar has no horizontal overflow');
+        await client.send('Emulation.setEmulatedMedia', { media: 'print' }, sessionId);
+        const sharedBarPrintDisplay = await evaluate(
+          client,
+          sessionId,
+          `getComputedStyle(document.querySelector('.project-meta-profile-bar')).display`
+        );
+        await client.send('Emulation.setEmulatedMedia', { media: 'screen' }, sessionId);
+        assert.equal(sharedBarPrintDisplay, 'none', 'shared project metadata bar is hidden from print');
       }
 
       {

@@ -1576,6 +1576,7 @@ exit 0
 
 $localQuickToolsStaticCommand = @'
 $checks = @(
+  '結構工具箱\tools\project-meta-profile.test.js',
   '結構工具箱\tools\project-storage.test.js',
   '結構工具箱\tools\local-quick-export.test.js',
   '結構工具箱\tools\local-quick-output-consistency.test.js',
@@ -2113,6 +2114,8 @@ $anchorVerifyCache = [pscustomobject]@{
 
 $localQuickRunnerCache = [pscustomobject]@{
   roots = @(
+    '結構工具箱\tools\project-meta-profile.js',
+    '結構工具箱\tools\project-meta-profile.test.js',
     '結構工具箱\tools\project-storage.js',
     '結構工具箱\tools\project-storage.test.js',
     '結構工具箱\tools\local-quick-tools.manifest.json',
@@ -2137,6 +2140,8 @@ $localQuickRunnerCache = [pscustomobject]@{
 
 $formalRunnerCache = [pscustomobject]@{
   roots = @(
+    '結構工具箱\tools\project-meta-profile.js',
+    '結構工具箱\tools\project-meta-profile.test.js',
     '結構工具箱\tools\formal-tools.manifest.json',
     '結構工具箱\tools\formal-tools.run.js',
     '結構工具箱\tools\formal-browser-smoke.test.js',
