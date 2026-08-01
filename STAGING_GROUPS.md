@@ -192,10 +192,10 @@ git add -- "覆工板/README.md" "覆工板/decking-report.contract.test.js" "�
 
 ## D. 高頻局部快算工具
 
-Windows 案件附件工作台捷徑安裝器：新增或調整根目錄 `安裝案件附件工作台捷徑.bat` 或 `install-attachment-governance-shortcuts.ps1` 時，必須同步 staging `attachment-governance-shortcut-installer.test.js`、preflight、Pages artifact／HTTP 私有邊界清冊、README 與 `TOOL_BOUNDARIES.md`。桌面、SendTo 與開始功能表三個捷徑只能指向根目錄受治理啟動器，工作目錄必須對齊 repo，參數必須為空。必須先預檢全部目的地；任一處同名使用者捷徑都必須保留原檔、在寫入前停止整批安裝並失敗封閉。已正確安裝的捷徑不得重寫。PowerShell 檔須保留 UTF-8 BOM，三個安裝器檔案均不得發布至 Pages。
+Windows 案件附件工作台捷徑安裝器：新增或調整根目錄 `安裝案件附件工作台捷徑.bat`、根目錄 `移除案件附件工作台捷徑.bat` 或 `install-attachment-governance-shortcuts.ps1` 時，必須同步 staging `attachment-governance-shortcut-installer.test.js`、preflight、Pages artifact／HTTP 私有邊界清冊、README 與 `TOOL_BOUNDARIES.md`。桌面、SendTo 與開始功能表三個捷徑只能指向根目錄受治理啟動器，工作目錄必須對齊 repo，參數必須為空。必須先預檢全部目的地；任一處同名使用者捷徑都必須保留原檔、在寫入前停止整批安裝並失敗封閉。已正確安裝的捷徑不得重寫。移除模式只能刪除受管理捷徑，不存在與同名使用者捷徑必須分別回報 `absent` 與 `preserved`。PowerShell 檔須保留 UTF-8 BOM，四個安裝／移除檔案均不得發布至 Pages。
 
 ```powershell
-git add -- "安裝案件附件工作台捷徑.bat" "結構工具箱/tools/install-attachment-governance-shortcuts.ps1" "結構工具箱/tools/attachment-governance-shortcut-installer.test.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "preflight-tools.ps1" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
+git add -- "安裝案件附件工作台捷徑.bat" "移除案件附件工作台捷徑.bat" "結構工具箱/tools/install-attachment-governance-shortcuts.ps1" "結構工具箱/tools/attachment-governance-shortcut-installer.test.js" "結構工具箱/tools/build-pages-artifact.js" "結構工具箱/tools/pages-live-smoke.js" "preflight-tools.ps1" "README.md" "TOOL_BOUNDARIES.md" "STAGING_GROUPS.md"
 ```
 
 已納入 `結構工具箱/tools/` 下，適合獨立小包提交。這類工具應維持「HTML 只渲染、core.js 做計算、*.test.js 做 golden regression」的形態。

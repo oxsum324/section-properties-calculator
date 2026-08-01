@@ -6,6 +6,7 @@ const path = require('path');
 const PRIVATE_FILES = new Set([
   '啟動案件附件工作台.bat',
   '安裝案件附件工作台捷徑.bat',
+  '移除案件附件工作台捷徑.bat',
   '結構工具箱/tools/pages-live-smoke.js',
   '結構工具箱/tools/pages-live-browser-smoke.js',
   '結構工具箱/tools/run-pages-browser-smoke.sh',

@@ -3,6 +3,7 @@ param(
   [string]$DesktopPath = [Environment]::GetFolderPath('Desktop'),
   [string]$SendToPath = [Environment]::GetFolderPath('SendTo'),
   [string]$ProgramsPath = [Environment]::GetFolderPath('Programs'),
+  [switch]$Remove,
   [switch]$Json
 )
 
@@ -86,6 +87,12 @@ function Test-ShortcutManaged {
   return $State.Description.StartsWith($managedMarker, [StringComparison]::Ordinal) -or $targetLeaf -ieq '啟動案件附件工作台.bat'
 }
 
+function Test-ShortcutRemovable {
+  param([Parameter(Mandatory)]$State)
+
+  return $State.Description.StartsWith($managedMarker, [StringComparison]::Ordinal) -or $State.TargetPath -ieq $targetPath
+}
+
 function Assert-ShortcutInstallable {
   param([Parameter(Mandatory)]$Spec)
 
@@ -139,10 +146,36 @@ function Install-Shortcut {
   return [pscustomobject]@{ kind = $Spec.Kind; status = $status; path = $Spec.Path }
 }
 
-$specs | ForEach-Object { Assert-ShortcutInstallable -Spec $_ }
-$results = @($specs | ForEach-Object { Install-Shortcut -Spec $_ })
+function Remove-ManagedShortcut {
+  param([Parameter(Mandatory)]$Spec)
+
+  if (-not (Test-Path -LiteralPath $Spec.Path -PathType Leaf)) {
+    return [pscustomobject]@{ kind = $Spec.Kind; status = 'absent'; path = $Spec.Path }
+  }
+
+  $existing = Get-ShortcutState -Path $Spec.Path
+  if (-not (Test-ShortcutRemovable -State $existing)) {
+    return [pscustomobject]@{ kind = $Spec.Kind; status = 'preserved'; path = $Spec.Path }
+  }
+
+  Remove-Item -LiteralPath $Spec.Path -Force
+  if (Test-Path -LiteralPath $Spec.Path) {
+    throw "受管理捷徑移除後驗證失敗：$($Spec.Path)"
+  }
+  return [pscustomobject]@{ kind = $Spec.Kind; status = 'removed'; path = $Spec.Path }
+}
+
+if ($Remove) {
+  $operation = 'remove'
+  $results = @($specs | ForEach-Object { Remove-ManagedShortcut -Spec $_ })
+} else {
+  $operation = 'install'
+  $specs | ForEach-Object { Assert-ShortcutInstallable -Spec $_ }
+  $results = @($specs | ForEach-Object { Install-Shortcut -Spec $_ })
+}
 $payload = [ordered]@{
   version = 1
+  operation = $operation
   target = $targetPath
   workingDirectory = $repoRoot
   shortcuts = $results
@@ -154,5 +187,9 @@ if ($Json) {
   foreach ($item in $results) {
     "[{0}] {1}" -f $item.status, $item.path
   }
-  '桌面可直接開啟；案件資料夾可用右鍵「傳送到」進入唯讀辨識；也可按 Windows 鍵搜尋「案件附件工作台」。'
+  if ($Remove) {
+    '已只處理本工具管理的捷徑；同名使用者捷徑會保留。'
+  } else {
+    '桌面可直接開啟；案件資料夾可用右鍵「傳送到」進入唯讀辨識；也可按 Windows 鍵搜尋「案件附件工作台」。'
+  }
 }

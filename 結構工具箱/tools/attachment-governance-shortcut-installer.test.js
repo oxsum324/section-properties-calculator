@@ -34,6 +34,17 @@ function runInstaller(desktopPath, sendToPath, programsPath) {
   ]);
 }
 
+function runRemover(desktopPath, sendToPath, programsPath) {
+  return runPowerShell([
+    '-File', installerPath,
+    '-DesktopPath', desktopPath,
+    '-SendToPath', sendToPath,
+    '-ProgramsPath', programsPath,
+    '-Remove',
+    '-Json',
+  ]);
+}
+
 function inspectShortcuts(desktopPath, sendToPath, programsPath) {
   const command = [
     '[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)',
@@ -58,7 +69,7 @@ const installerSource = fs.readFileSync(installerPath, 'utf8');
 assert.equal(installerSource.charCodeAt(0), 0xFEFF, 'installer keeps UTF-8 BOM for Windows PowerShell 5.1');
 [
   'WScript.Shell', '啟動案件附件工作台.bat', '案件附件工作台.lnk', '以附件工作台檢查.lnk', "GetFolderPath('Programs')", 'start-menu',
-  'Test-ShortcutManaged', 'Test-ShortcutCurrent', 'Assert-ShortcutInstallable', "Arguments = ''", 'Move-Item', '已保留原檔',
+  'Test-ShortcutManaged', 'Test-ShortcutCurrent', 'Test-ShortcutRemovable', 'Assert-ShortcutInstallable', 'Remove-ManagedShortcut', "operation = 'remove'", "Arguments = ''", 'Move-Item', '已保留原檔',
 ].forEach(needle => assert.ok(installerSource.includes(needle), `installer includes ${needle}`));
 assert.doesNotMatch(installerSource, /Invoke-WebRequest|HttpClient|https?:\/\//i, 'installer stays local');
 
@@ -69,12 +80,20 @@ assert.match(launcher, /%\*/i, 'installer launcher forwards optional verificatio
 assert.ok(launcher.includes('\r\n'), 'Windows batch launcher uses CRLF line endings');
 assert.equal(launcher.replace(/\r\n/g, '').includes('\n'), false, 'Windows batch launcher has no bare LF line endings');
 
+const remover = read('移除案件附件工作台捷徑.bat');
+assert.match(remover, /powershell\s+-NoProfile\s+-ExecutionPolicy Bypass\s+-File/i);
+assert.match(remover, /install-attachment-governance-shortcuts\.ps1/);
+assert.match(remover, /-Remove\s+%\*/i, 'remover fixes the safe removal mode and forwards optional paths');
+assert.ok(remover.includes('\r\n'), 'Windows remover uses CRLF line endings');
+assert.equal(remover.replace(/\r\n/g, '').includes('\n'), false, 'Windows remover has no bare LF line endings');
+
 const preflight = read('preflight-tools.ps1');
 assert.match(preflight, /attachment-governance-shortcut-installer\.test\.js/);
 assert.match(preflight, /key = "attachment-governance-shortcut-installer"/);
 
 const privateFiles = [
   '安裝案件附件工作台捷徑.bat',
+  '移除案件附件工作台捷徑.bat',
   '結構工具箱/tools/install-attachment-governance-shortcuts.ps1',
   '結構工具箱/tools/attachment-governance-shortcut-installer.test.js',
 ];
@@ -110,6 +129,7 @@ try {
   const first = runInstaller(desktopPath, sendToPath, programsPath);
   assert.equal(first.status, 0, first.stderr);
   const firstPayload = JSON.parse(first.stdout.trim());
+  assert.equal(firstPayload.operation, 'install');
   assert.deepEqual(firstPayload.shortcuts.map(item => item.status), ['created', 'created', 'created']);
 
   const shortcuts = inspectShortcuts(desktopPath, sendToPath, programsPath);
@@ -152,6 +172,40 @@ try {
 
   const conflictInspect = inspectShortcuts(conflictDesktop, sendToPath, programsPath)[0];
   assert.match(conflictInspect.TargetPath, /notepad\.exe$/i, 'conflicting user shortcut remains untouched');
+  const preservedRemoval = runRemover(conflictDesktop, conflictSendTo, conflictPrograms);
+  assert.equal(preservedRemoval.status, 0, preservedRemoval.stderr);
+  const preservedPayload = JSON.parse(preservedRemoval.stdout.trim());
+  assert.deepEqual(preservedPayload.shortcuts.map(item => item.status), ['preserved', 'absent', 'absent']);
+  const preservedInspect = inspectShortcuts(conflictDesktop, sendToPath, programsPath)[0];
+  assert.match(preservedInspect.TargetPath, /notepad\.exe$/i, 'removal preserves a same-name user shortcut');
+
+  const sameLeafDesktop = path.join(temporaryRoot, 'SameLeafDesktop');
+  const sameLeafSendTo = path.join(temporaryRoot, 'SameLeafSendTo');
+  const sameLeafPrograms = path.join(temporaryRoot, 'SameLeafPrograms');
+  const unrelatedRoot = path.join(temporaryRoot, 'UnrelatedTool');
+  fs.mkdirSync(sameLeafDesktop);
+  fs.mkdirSync(sameLeafSendTo);
+  fs.mkdirSync(sameLeafPrograms);
+  fs.mkdirSync(unrelatedRoot);
+  const unrelatedTarget = path.join(unrelatedRoot, '啟動案件附件工作台.bat');
+  fs.writeFileSync(unrelatedTarget, '@echo user-owned\r\n', 'utf8');
+  const sameLeafPath = path.join(sameLeafDesktop, '案件附件工作台.lnk');
+  const sameLeafCommand = [
+    '$shell = New-Object -ComObject WScript.Shell',
+    '$link = $shell.CreateShortcut($env:TEST_CONFLICT_LINK)',
+    '$link.TargetPath = $env:TEST_CONFLICT_TARGET',
+    '$link.Description = "user-owned same-leaf shortcut"',
+    '$link.Save()',
+  ].join('; ');
+  const sameLeafSetup = runPowerShell(['-Command', sameLeafCommand], {
+    env: { ...process.env, TEST_CONFLICT_LINK: sameLeafPath, TEST_CONFLICT_TARGET: unrelatedTarget },
+  });
+  assert.equal(sameLeafSetup.status, 0, sameLeafSetup.stderr);
+  const sameLeafRemoval = runRemover(sameLeafDesktop, sameLeafSendTo, sameLeafPrograms);
+  assert.equal(sameLeafRemoval.status, 0, sameLeafRemoval.stderr);
+  assert.deepEqual(JSON.parse(sameLeafRemoval.stdout.trim()).shortcuts.map(item => item.status), ['preserved', 'absent', 'absent']);
+  const sameLeafInspect = inspectShortcuts(sameLeafDesktop, sendToPath, programsPath)[0];
+  assert.equal(path.normalize(sameLeafInspect.TargetPath).toLowerCase(), path.normalize(unrelatedTarget).toLowerCase(), 'removal does not trust a matching target filename outside this repo');
 
   const lateConflictDesktop = path.join(temporaryRoot, 'LateConflictDesktop');
   const lateConflictSendTo = path.join(temporaryRoot, 'LateConflictSendTo');
@@ -187,6 +241,26 @@ try {
   assert.notEqual(lastConflict.status, 0, 'a Start Menu conflict must block the whole installation before writes');
   assert.equal(fs.existsSync(path.join(lastConflictDesktop, '案件附件工作台.lnk')), false);
   assert.equal(fs.existsSync(path.join(lastConflictSendTo, '以附件工作台檢查.lnk')), false);
+
+  const removeDesktop = path.join(temporaryRoot, 'RemoveDesktop');
+  const removeSendTo = path.join(temporaryRoot, 'RemoveSendTo');
+  const removePrograms = path.join(temporaryRoot, 'RemovePrograms');
+  fs.mkdirSync(removeDesktop);
+  fs.mkdirSync(removeSendTo);
+  fs.mkdirSync(removePrograms);
+  const removeSetup = runInstaller(removeDesktop, removeSendTo, removePrograms);
+  assert.equal(removeSetup.status, 0, removeSetup.stderr);
+  const removed = runRemover(removeDesktop, removeSendTo, removePrograms);
+  assert.equal(removed.status, 0, removed.stderr);
+  const removedPayload = JSON.parse(removed.stdout.trim());
+  assert.equal(removedPayload.operation, 'remove');
+  assert.deepEqual(removedPayload.shortcuts.map(item => item.status), ['removed', 'removed', 'removed']);
+  assert.equal(fs.readdirSync(removeDesktop).length, 0);
+  assert.equal(fs.readdirSync(removeSendTo).length, 0);
+  assert.equal(fs.readdirSync(removePrograms).length, 0);
+  const removedAgain = runRemover(removeDesktop, removeSendTo, removePrograms);
+  assert.equal(removedAgain.status, 0, removedAgain.stderr);
+  assert.deepEqual(JSON.parse(removedAgain.stdout.trim()).shortcuts.map(item => item.status), ['absent', 'absent', 'absent']);
 } finally {
   fs.rmSync(temporaryRoot, { recursive: true, force: true });
 }
