@@ -1606,7 +1606,19 @@ function projectMetaProfileApplyExpression() {
     setValue('projDesigner', '目標既有設計者');
     const engineeringField = document.getElementById('b');
     const engineeringValueBefore = engineeringField?.value || '';
-    document.querySelector('[data-project-meta-apply]')?.click();
+    const applyButton = document.querySelector('[data-project-meta-apply]');
+    applyButton?.click();
+    await settle(30);
+    const conflictAttempt = {
+      name: document.getElementById('projName')?.value || '',
+      no: document.getElementById('projNo')?.value || '',
+      designer: document.getElementById('projDesigner')?.value || '',
+      engineeringValue: engineeringField?.value || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      buttonText: applyButton?.textContent || '',
+      confirming: applyButton?.getAttribute('data-project-meta-confirming') || ''
+    };
+    applyButton?.click();
     await settle(30);
     const fullApply = {
       name: document.getElementById('projName')?.value || '',
@@ -1616,16 +1628,32 @@ function projectMetaProfileApplyExpression() {
       status: document.querySelector('[data-project-meta-status]')?.textContent || ''
     };
     localStorage.setItem('toolProjectMetaProfile:latest.v1', JSON.stringify(
+      window.ToolProjectMetaProfile.buildProfile({ projNo: 'STALE-CONFIRM-003' }, { toolId: 'browser-smoke' })
+    ));
+    setValue('projNo', 'ORIGINAL-003');
+    applyButton?.click();
+    await settle(30);
+    setValue('projNo', 'USER-EDITED-003');
+    applyButton?.click();
+    await settle(30);
+    const staleConfirmation = {
+      no: document.getElementById('projNo')?.value || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      buttonText: applyButton?.textContent || ''
+    };
+    localStorage.setItem('toolProjectMetaProfile:latest.v1', JSON.stringify(
       window.ToolProjectMetaProfile.buildProfile({ projNo: 'PARTIAL-002' }, { toolId: 'browser-smoke' })
     ));
     setValue('projName', '應保留案名');
-    setValue('projNo', '應被取代');
+    setValue('projNo', '');
     setValue('projDesigner', '應保留設計者');
-    document.querySelector('[data-project-meta-apply]')?.click();
+    applyButton?.click();
     await settle(30);
     return {
       hasBar: !!document.querySelector('.project-meta-profile-bar'),
+      conflictAttempt,
       fullApply,
+      staleConfirmation,
       engineeringValueBefore,
       partialApply: {
         name: document.getElementById('projName')?.value || '',
@@ -2345,16 +2373,28 @@ async function main() {
         assert.deepEqual(sharedApply.errors, [], `desktop shared project metadata apply console errors: ${sharedApply.errors.join(' | ')}`);
         assert.equal(sharedApply.state.hasBar, true, 'desktop RC beam shared project metadata bar exists');
         assert.deepEqual(
+          [sharedApply.state.conflictAttempt.name, sharedApply.state.conflictAttempt.no, sharedApply.state.conflictAttempt.designer],
+          ['目標既有案', 'TARGET-OLD', '目標既有設計者'],
+          'first conflicting apply leaves existing project metadata unchanged'
+        );
+        assert.equal(sharedApply.state.conflictAttempt.engineeringValue, sharedApply.state.engineeringValueBefore, 'conflict preview does not change engineering input');
+        assert.ok(sharedApply.state.conflictAttempt.status.includes('目前頁面尚未變更'), 'conflict preview explains its non-mutating state');
+        assert.equal(sharedApply.state.conflictAttempt.buttonText, '確認覆寫 3 項', 'conflict preview requires a distinct second click');
+        assert.equal(sharedApply.state.conflictAttempt.confirming, 'true', 'conflict preview exposes confirmation state');
+        assert.deepEqual(
           [sharedApply.state.fullApply.name, sharedApply.state.fullApply.no, sharedApply.state.fullApply.designer],
           ['跨工具共用案', 'SHARED-001', '共用設計者'],
           'desktop shared project metadata crosses from local quick to RC'
         );
         assert.equal(sharedApply.state.fullApply.engineeringValue, sharedApply.state.engineeringValueBefore, 'shared project metadata does not change engineering input');
         assert.ok(sharedApply.state.fullApply.status.includes('已套用 3 項'), 'desktop shared project apply status');
+        assert.equal(sharedApply.state.staleConfirmation.no, 'USER-EDITED-003', 'editing target metadata invalidates the earlier confirmation');
+        assert.ok(sharedApply.state.staleConfirmation.status.includes('目前頁面尚未變更'), 'invalidated confirmation returns to non-mutating conflict preview');
+        assert.equal(sharedApply.state.staleConfirmation.buttonText, '確認覆寫 1 項', 'invalidated confirmation requires another explicit click');
         assert.deepEqual(
           sharedApply.state.partialApply,
           { name: '應保留案名', no: 'PARTIAL-002', designer: '應保留設計者' },
-          'blank shared project values preserve target page values'
+          'blank shared project values preserve target page values and populate a blank target without confirmation'
         );
         assert.equal(sharedApply.state.horizontalOverflow, false, 'desktop shared project apply bar has no horizontal overflow');
         await client.send('Emulation.setEmulatedMedia', { media: 'print' }, sessionId);

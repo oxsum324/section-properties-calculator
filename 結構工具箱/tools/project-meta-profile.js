@@ -11,7 +11,7 @@
   'use strict';
 
   const SCHEMA = 'tool-project-meta-profile.v1';
-  const PROFILE_VERSION = '1.0';
+  const PROFILE_VERSION = '1.1';
   const STORAGE_KEY = 'toolProjectMetaProfile:latest.v1';
   const CONTROL_CLASS = 'project-meta-profile-bar';
   const FIELD_SPECS = Object.freeze([
@@ -99,9 +99,10 @@
     element.dispatchEvent(new EventCtor('change', { bubbles: true }));
   }
 
-  function applyToDocument(doc, payload) {
+  function analyzeApplication(doc, payload) {
     const profile = normalizeProfile(payload);
-    const applied = [];
+    const applicable = [];
+    const conflicts = [];
     const skipped = [];
     FIELD_SPECS.forEach(spec => {
       const element = doc?.getElementById?.(spec.id);
@@ -114,11 +115,48 @@
         skipped.push({ ...spec, reason: 'value-blank' });
         return;
       }
-      element.value = value;
-      dispatchFieldEvents(doc, element);
-      applied.push({ id: spec.id, key: spec.key, label: spec.label, value });
+      const currentValue = normalizeText(element.value);
+      const item = { id: spec.id, key: spec.key, label: spec.label, value, currentValue };
+      applicable.push(item);
+      if (currentValue && currentValue !== value) conflicts.push(item);
     });
-    return { profile, applied, skipped };
+    return { profile, applicable, conflicts, skipped };
+  }
+
+  function applyToDocument(doc, payload, options) {
+    const analysis = analyzeApplication(doc, payload);
+    const allowConflicts = options?.allowConflicts === true;
+    if (analysis.conflicts.length && !allowConflicts) {
+      return { ...analysis, applied: [], requiresConfirmation: true };
+    }
+    const applied = [];
+    analysis.applicable.forEach(item => {
+      const element = doc?.getElementById?.(item.id);
+      if (!element) return;
+      element.value = item.value;
+      dispatchFieldEvents(doc, element);
+      applied.push(item);
+    });
+    return { ...analysis, applied, requiresConfirmation: false };
+  }
+
+  function applicationSignature(doc, payload) {
+    const analysis = analyzeApplication(doc, payload);
+    return JSON.stringify({
+      savedAt: analysis.profile.savedAt,
+      project: analysis.profile.project,
+      target: FIELD_SPECS.map(spec => normalizeText(doc?.getElementById?.(spec.id)?.value)),
+    });
+  }
+
+  function resetApplyConfirmation(button, state) {
+    state.signature = '';
+    button.textContent = '套用共用表頭';
+    button.removeAttribute('data-project-meta-confirming');
+  }
+
+  function conflictLabels(conflicts) {
+    return conflicts.map(item => item.label).join('、');
   }
 
   function safeToolId(text) {
@@ -185,22 +223,43 @@
     ].join('');
     if (!doc.getElementById(style.id)) doc.head.appendChild(style);
 
+    const applyButton = bar.querySelector('[data-project-meta-apply]');
+    const confirmation = { signature: '' };
+
     bar.querySelector('[data-project-meta-save]').addEventListener('click', function () {
       try {
+        resetApplyConfirmation(applyButton, confirmation);
         const profile = save(collectFromDocument(doc, meta), rootWindow.localStorage);
         setStatus(bar, `已儲存共用表頭；可在其他工具選擇套用。${describeProfile(profile)}`, 'ok');
       } catch (error) {
         setStatus(bar, String(error?.message || error), 'warn');
       }
     });
-    bar.querySelector('[data-project-meta-apply]').addEventListener('click', function () {
+    applyButton.addEventListener('click', function () {
       try {
         const profile = load(rootWindow.localStorage);
         if (!profile) {
+          resetApplyConfirmation(applyButton, confirmation);
           setStatus(bar, '尚無共用表頭，畫面維持原值。空白可由主文承接。', 'warn');
           return;
         }
-        const result = applyToDocument(doc, profile);
+        const signature = applicationSignature(doc, profile);
+        const preview = applyToDocument(doc, profile);
+        if (preview.requiresConfirmation && confirmation.signature !== signature) {
+          confirmation.signature = signature;
+          applyButton.textContent = `確認覆寫 ${preview.conflicts.length} 項`;
+          applyButton.setAttribute('data-project-meta-confirming', 'true');
+          setStatus(
+            bar,
+            `偵測到 ${preview.conflicts.length} 項既有表頭不同：${conflictLabels(preview.conflicts)}。請確認案件後再按一次「確認覆寫」；目前頁面尚未變更。`,
+            'warn'
+          );
+          return;
+        }
+        const result = preview.requiresConfirmation
+          ? applyToDocument(doc, profile, { allowConflicts: true })
+          : preview;
+        resetApplyConfirmation(applyButton, confirmation);
         const labels = result.applied.map(item => item.label).join('、');
         setStatus(
           bar,
@@ -208,11 +267,13 @@
           result.applied.length ? 'ok' : 'warn'
         );
       } catch (error) {
+        resetApplyConfirmation(applyButton, confirmation);
         setStatus(bar, `共用表頭無法套用：${String(error?.message || error)}`, 'error');
       }
     });
     bar.querySelector('[data-project-meta-clear]').addEventListener('click', function () {
       try {
+        resetApplyConfirmation(applyButton, confirmation);
         clear(rootWindow.localStorage);
         setStatus(bar, '已清除共用表頭；目前頁面資料未變更。', 'warn');
       } catch (error) {
@@ -252,7 +313,9 @@
     save,
     load,
     clear,
+    analyzeApplication,
     applyToDocument,
+    applicationSignature,
     describeProfile,
     autoBind,
   };

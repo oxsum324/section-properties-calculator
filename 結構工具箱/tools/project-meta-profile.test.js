@@ -39,6 +39,7 @@ const profile = Profile.buildProfile({
   projDesigner: ' 設計者 ',
 }, { toolId: 'source-tool', toolName: '來源工具', toolVersion: 'V1' });
 assert.equal(profile.schema, 'tool-project-meta-profile.v1');
+assert.equal(profile.profileVersion, '1.1');
 assert.equal(profile.project.name, '共用工程');
 assert.equal(profile.project.no, 'CASE-001');
 assert.equal(profile.project.designer, '設計者');
@@ -60,7 +61,27 @@ const elements = {
   projNo: new FakeElement('OLD-001'),
   projDesigner: new FakeElement('既有設計者'),
 };
-const applied = Profile.applyToDocument(fakeDocument(elements), profile);
+const conflictDocument = fakeDocument(elements);
+const preview = Profile.applyToDocument(conflictDocument, profile);
+assert.equal(preview.requiresConfirmation, true, 'different nonblank project metadata requires confirmation');
+assert.equal(preview.conflicts.length, 3);
+assert.equal(preview.applied.length, 0, 'conflicting metadata is not partially applied before confirmation');
+assert.equal(elements.projName.value, '既有案名');
+assert.equal(elements.projNo.value, 'OLD-001');
+assert.equal(elements.projDesigner.value, '既有設計者');
+assert.deepEqual(elements.projName.events, []);
+
+const signatureBefore = Profile.applicationSignature(conflictDocument, profile);
+elements.projNo.value = 'CHANGED-BEFORE-CONFIRM';
+assert.notEqual(
+  Profile.applicationSignature(conflictDocument, profile),
+  signatureBefore,
+  'editing target metadata invalidates a pending confirmation'
+);
+elements.projNo.value = 'OLD-001';
+
+const applied = Profile.applyToDocument(conflictDocument, profile, { allowConflicts: true });
+assert.equal(applied.requiresConfirmation, false);
 assert.equal(applied.applied.length, 3);
 assert.equal(elements.projName.value, '共用工程');
 assert.equal(elements.projNo.value, 'CASE-001');
@@ -74,12 +95,23 @@ const partialElements = {
 };
 const partial = Profile.applyToDocument(
   fakeDocument(partialElements),
-  Profile.buildProfile({ projNo: 'NEW-002' })
+  Profile.buildProfile({ projNo: 'NEW-002' }),
+  { allowConflicts: true }
 );
 assert.equal(partial.applied.length, 1);
 assert.equal(partialElements.projName.value, '保留既有案名', 'blank shared project name must not erase the target page');
 assert.equal(partialElements.projNo.value, 'NEW-002');
 assert.equal(partialElements.projDesigner.value, '保留既有設計者', 'blank shared designer must not erase the target page');
+
+const blankTargetElements = {
+  projName: new FakeElement(''),
+  projNo: new FakeElement(''),
+  projDesigner: new FakeElement(''),
+};
+const blankTargetApply = Profile.applyToDocument(fakeDocument(blankTargetElements), profile);
+assert.equal(blankTargetApply.requiresConfirmation, false, 'blank targets can be populated without a redundant confirmation');
+assert.equal(blankTargetApply.applied.length, 3);
+assert.equal(blankTargetElements.projName.value, '共用工程');
 
 Profile.clear(storage);
 assert.equal(Profile.load(storage), null);
@@ -126,5 +158,7 @@ assert.ok(
 );
 assert.match(source, /空白可由主文承接/, 'shared project-header UI states that blank metadata remains valid');
 assert.doesNotMatch(source, /自動套用/, 'shared project metadata requires an explicit apply action');
+assert.match(source, /目前頁面尚未變更/, 'conflict preview clearly states that the first click is non-mutating');
+assert.match(source, /data-project-meta-confirming/, 'conflicting nonblank metadata requires a distinct confirmation state');
 
 console.log(`project meta profile tests passed (${standardizedPages.length} pages)`);

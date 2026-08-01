@@ -67,7 +67,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - `wind-overview.html` 以 `wind-shared-profile.v1` 保存案件識別、地點、地況、用途係數、Kzt 與主結構幾何；由總覽開啟 11 個支援工具時，會以明確欄位映射自動預填。只有主風力抵抗系統工具會承接總高、正整數樓層數與 X／Y 平面尺寸；屋頂平均高、屋簷高、風向專用尺寸、招牌與塔體等專用幾何不會由總覽代填，所有子工具仍須確認其專用幾何與規範路線。
 - 跨工具共用表頭與明確套用契約：
   [結構工具箱/tools/project-meta-profile.test.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/project-meta-profile.test.js:1)
-  - 目前具備 `projName`、`projNo`、`projDesigner` 標準欄位的 34 個 RC、鋼構、風力、地震、局部快算與一般分析頁，均可將非空白表頭儲存為 `tool-project-meta-profile.v1`，再由其他工具明確點選套用。共用資料只包含計畫名稱、編號與設計者，不含尺寸、荷重、材料或計算參數；空白來源不覆蓋目標頁既有值，三欄皆空白時不取代既有共用資料。控制列僅顯示於 HTML 工作頁並於列印隱藏，空白表頭仍可由主文承接且不影響附件核可。
+  - 目前具備 `projName`、`projNo`、`projDesigner` 標準欄位的 34 個 RC、鋼構、風力、地震、局部快算與一般分析頁，均可將非空白表頭儲存為 `tool-project-meta-profile.v1`，再由其他工具明確點選套用。共用資料只包含計畫名稱、編號與設計者，不含尺寸、荷重、材料或計算參數；空白來源不覆蓋目標頁既有值，三欄皆空白時不取代既有共用資料。目標頁已有不同的非空白值時，第一次點擊只列出衝突欄位且不改畫面，必須針對同一份來源與未變更的目標資料再次確認才會覆寫；空白或相同值則可直接套用。控制列僅顯示於 HTML 工作頁並於列印隱藏，空白表頭仍可由主文承接且不影響附件核可。
 - 風力 / 地震條文語意追蹤 catalog：
   [結構工具箱/tools/formal-traceability.catalog.json](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/formal-traceability.catalog.json:1)
 - 風力 / 地震條文語意追蹤契約測試：
