@@ -37,6 +37,7 @@ const CLEAN_ROUTE_SAMPLES = [
 ];
 const PRIVATE_PATHS = [
   '啟動案件附件工作台.bat',
+  '安裝案件附件工作台捷徑.bat',
   'README.md',
   'CONTEXT.md',
   'docs/adr/0001-page-only-report-readiness.md',
@@ -71,6 +72,8 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/attachment-governance-hub.ps1',
   '結構工具箱/tools/啟動案件附件工作台.bat',
   '結構工具箱/tools/attachment-governance-hub.contract.test.js',
+  '結構工具箱/tools/install-attachment-governance-shortcuts.ps1',
+  '結構工具箱/tools/attachment-governance-shortcut-installer.test.js',
   '結構工具箱/tools/attachment-package-upgrade-assess.js',
   '結構工具箱/tools/attachment-package-upgrade-workspace.js',
   '結構工具箱/tools/attachment-package-upgrade-workspace-check.js',

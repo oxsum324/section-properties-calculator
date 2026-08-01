@@ -109,6 +109,10 @@
 
 案件附件工作台的唯讀 advisor 必須在外部程序執行，由 WinForms 計時器輪詢，不得在 UI thread 使用同步 `ReadToEnd()`／`WaitForExit()`。工作台須依啟動瞬間游標所在螢幕的可用工作區調整寬高並手動置中，不得固定使用主要螢幕；最低 780 × 640px 時以獨立雙向捲動容器保留全部主要內容，狀態列固定，底部正式核可提醒及最右側工具按鈕必須可捲動到完整可見。小視窗 smoke 須在顯示前設定 800 × 640px，證明視窗四邊均在所選螢幕工作區內，並以真實 `WM_VSCROLL / SB_BOTTOM` 與 `WM_HSCROLL / SB_RIGHT` 訊息及畫面座標證明內容邊界。工作台須提供明確 Tab 順序、輔助名稱與權限描述，並支援 `Ctrl+L` 聚焦路徑、`Enter` 執行目前的唯讀辨識操作及辨識中以 `Esc` 停止；鍵盤 smoke 必須證明焦點能使窄視窗外的最右側工具完整進入可視區。辨識期間按鈕必須改為「停止辨識」，讓使用者可立即取消背景程序並保留工作台開啟；路徑變更也需取消舊程序。完成結果只有在目前路徑仍相同時才能套用；60 秒逾時與關閉視窗都必須清理背景程序。worker 逾時或失敗時必須清除既有建議、將按鈕改為「重新辨識」，並在主提示及狀態列顯示可重試的狀態，不得停留在進行中文字。取消、逾時、失敗或過期結果不得開啟子工具、改變治理狀態或寫入案件。取消 smoke 必須在真實 WinForms message loop 中先以按鈕 `PerformClick()` 停止第一個 worker，再啟動第二個 worker 並以真實 `Esc` 停止，動態證明兩種路徑都會清除 advisor、保留視窗並復原按鈕與訊息；另須在同一視窗動態切換資料夾後正常關閉，證明被替換及關閉中的兩個 worker 都不殘留；逾時 smoke 必須由真實 WinForms 計時器終止第一個慢速 worker，再按同一按鈕重試並證明第二個 worker 正常完成、結果取代逾時狀態且兩個程序均不殘留；失敗 smoke 必須以真實 worker 錯誤完成相同的重試復原，兩者均不得被人工對話框阻塞。
 
+### Windows 案件附件工作台捷徑
+
+根目錄 `安裝案件附件工作台捷徑.bat`、`結構工具箱/tools/install-attachment-governance-shortcuts.ps1` 與 `結構工具箱/tools/attachment-governance-shortcut-installer.test.js` 屬於納管的本機 Windows 入口。兩個 `.lnk` 只能指向 repo 根目錄受治理的 `啟動案件附件工作台.bat`，工作目錄必須是當前 repo，且 `Arguments` 必須為空，使 SendTo 只轉交當次 Windows 選取的資料夾。安裝器只可更新帶管理標記或目標檔名為同一受治理啟動器的舊捷徑；同名但非本工具管理的捷徑必須保留原檔並失敗封閉。建立後必須重讀 `.lnk` 驗證目標、工作目錄、空參數、描述與圖示；相同且正確的捷徑不得重寫。批次入口、PowerShell 安裝器與動態測試均屬私有本機治理資產，不發布至 Pages；PowerShell 檔須保留 UTF-8 BOM。
+
 ## 不進 repo 的類型
 
 - `node_modules/`、`.vite/`、`.playwright-cli/`

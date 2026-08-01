@@ -137,7 +137,13 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - `rc-column-report-contract` 會完整渲染三個柱案例與人工複核後正式核可案例；其 preflight 專屬上限固定為 `timeoutSeconds = 600`，保留 release 全平台負載下的瀏覽器啟動與完整證據餘裕。
   - `formal-browser-smoke` 會在 release 模式逐一重跑 14 個風力／地震正式工具的桌面與行動版報表；其 preflight 專屬上限固定為 `timeoutSeconds = 600`，保留平台稽核後的瀏覽器啟動與 31 份正式渲染證據餘裕。
 
+### Windows 案件附件工作台捷徑
+
+需要在新電腦、專案移動後或捷徑遺失時重建 Windows 入口，可執行根目錄 `安裝案件附件工作台捷徑.bat`；它透過 `install-attachment-governance-shortcuts.ps1` 建立「案件附件工作台」桌面捷徑與「以附件工作台檢查」傳送到捷徑。安裝器可重複執行，只更新由本工具管理或已指向同名受治理入口的捷徑；同名但屬於使用者的其他捷徑會保留並停止安裝。捷徑不帶固定參數，因此「傳送到」會把當次選取的單一資料夾原樣交給現有工作台封閉驗證。安裝器、捷徑與動態合約都是私有本機治理資產，不發布至 GitHub Pages。
+
 ## 巡檢分層
+
+`attachment-governance-shortcut-installer.test.js` 會在臨時桌面／SendTo 資料夾動態驗證首次安裝、重複執行不重寫、`.lnk` 目標與工作目錄，並證明同名使用者捷徑會保留。
 
 - 鋼構巡檢：
   [鋼構工具/audit-tool.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼構工具/audit-tool.ps1:1)

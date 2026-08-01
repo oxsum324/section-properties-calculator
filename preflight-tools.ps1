@@ -1257,6 +1257,11 @@ node 結構工具箱/tools/attachment-governance-hub.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$attachmentGovernanceShortcutInstallerCommand = @'
+node 結構工具箱/tools/attachment-governance-shortcut-installer.test.js
+exit $LASTEXITCODE
+'@
+
 $attachmentPackageUpgradeAssessCommand = @'
 node 結構工具箱/tools/attachment-package-upgrade-assess.test.js
 exit $LASTEXITCODE
@@ -2269,6 +2274,13 @@ $checks = @(
     label = "Windows case attachment governance hub"
     workdir = $root
     command = $attachmentGovernanceHubCommand
+    slow = $false
+  },
+  [pscustomobject]@{
+    key = "attachment-governance-shortcut-installer"
+    label = "Windows case attachment governance shortcut installer"
+    workdir = $root
+    command = $attachmentGovernanceShortcutInstallerCommand
     slow = $false
   },
   [pscustomobject]@{

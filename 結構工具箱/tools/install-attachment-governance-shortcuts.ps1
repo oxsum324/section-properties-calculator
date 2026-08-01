@@ -1,0 +1,150 @@
+﻿[CmdletBinding()]
+param(
+  [string]$DesktopPath = [Environment]::GetFolderPath('Desktop'),
+  [string]$SendToPath = [Environment]::GetFolderPath('SendTo'),
+  [switch]$Json
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+$OutputEncoding = [Console]::OutputEncoding
+
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+$targetPath = [IO.Path]::GetFullPath((Join-Path $repoRoot '啟動案件附件工作台.bat'))
+$managedMarker = '案件附件工作台捷徑（由小工具安裝器管理）'
+$iconLocation = "$env:SystemRoot\System32\shell32.dll,71"
+
+if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+  throw "找不到受治理的工作台入口：$targetPath"
+}
+
+$desktopFullPath = [IO.Path]::GetFullPath($DesktopPath)
+$sendToFullPath = [IO.Path]::GetFullPath($SendToPath)
+foreach ($destination in @($desktopFullPath, $sendToFullPath)) {
+  if (-not (Test-Path -LiteralPath $destination -PathType Container)) {
+    throw "捷徑目的資料夾不存在：$destination"
+  }
+}
+
+$shell = New-Object -ComObject WScript.Shell
+$specs = @(
+  [pscustomobject]@{
+    Kind = 'desktop'
+    Label = '桌面'
+    Path = Join-Path $desktopFullPath '案件附件工作台.lnk'
+    Description = "$managedMarker：開啟工作台"
+  },
+  [pscustomobject]@{
+    Kind = 'send-to'
+    Label = '傳送到'
+    Path = Join-Path $sendToFullPath '以附件工作台檢查.lnk'
+    Description = "$managedMarker：將單一資料夾交給唯讀辨識"
+  }
+)
+
+function Get-ShortcutState {
+  param([Parameter(Mandatory)][string]$Path)
+
+  $shortcut = $shell.CreateShortcut($Path)
+  return [pscustomobject]@{
+    TargetPath = [string]$shortcut.TargetPath
+    WorkingDirectory = [string]$shortcut.WorkingDirectory
+    Arguments = [string]$shortcut.Arguments
+    Description = [string]$shortcut.Description
+    IconLocation = [string]$shortcut.IconLocation
+  }
+}
+
+function Test-ShortcutCurrent {
+  param(
+    [Parameter(Mandatory)]$State,
+    [Parameter(Mandatory)]$Spec
+  )
+
+  return (
+    $State.TargetPath -ieq $targetPath -and
+    $State.WorkingDirectory -ieq $repoRoot -and
+    [string]::IsNullOrEmpty($State.Arguments) -and
+    $State.Description -ceq $Spec.Description -and
+    $State.IconLocation -ieq $iconLocation
+  )
+}
+
+function Test-ShortcutManaged {
+  param([Parameter(Mandatory)]$State)
+
+  $targetLeaf = if ([string]::IsNullOrWhiteSpace($State.TargetPath)) { '' } else { [IO.Path]::GetFileName($State.TargetPath) }
+  return $State.Description.StartsWith($managedMarker, [StringComparison]::Ordinal) -or $targetLeaf -ieq '啟動案件附件工作台.bat'
+}
+
+function Assert-ShortcutInstallable {
+  param([Parameter(Mandatory)]$Spec)
+
+  if (-not (Test-Path -LiteralPath $Spec.Path -PathType Leaf)) { return }
+  $existing = Get-ShortcutState -Path $Spec.Path
+  if ((Test-ShortcutCurrent -State $existing -Spec $Spec) -or (Test-ShortcutManaged -State $existing)) { return }
+  throw "已有同名但非本工具管理的捷徑，已保留原檔：$($Spec.Path)"
+}
+
+function Install-Shortcut {
+  param([Parameter(Mandatory)]$Spec)
+
+  $status = 'created'
+  if (Test-Path -LiteralPath $Spec.Path -PathType Leaf) {
+    $existing = Get-ShortcutState -Path $Spec.Path
+    if (Test-ShortcutCurrent -State $existing -Spec $Spec) {
+      return [pscustomobject]@{ kind = $Spec.Kind; status = 'current'; path = $Spec.Path }
+    }
+    if (-not (Test-ShortcutManaged -State $existing)) {
+      throw "已有同名但非本工具管理的捷徑，已保留原檔：$($Spec.Path)"
+    }
+    $status = 'updated'
+  }
+
+  $temporaryPath = Join-Path ([IO.Path]::GetDirectoryName($Spec.Path)) (".{0}.installing-{1}.lnk" -f [IO.Path]::GetFileNameWithoutExtension($Spec.Path), [guid]::NewGuid().ToString('N'))
+  try {
+    $shortcut = $shell.CreateShortcut($temporaryPath)
+    $shortcut.TargetPath = $targetPath
+    $shortcut.WorkingDirectory = $repoRoot
+    $shortcut.Arguments = ''
+    $shortcut.Description = $Spec.Description
+    $shortcut.IconLocation = $iconLocation
+    $shortcut.Save()
+
+    $staged = Get-ShortcutState -Path $temporaryPath
+    if (-not (Test-ShortcutCurrent -State $staged -Spec $Spec)) {
+      throw "捷徑建立後驗證失敗：$($Spec.Path)"
+    }
+
+    Move-Item -LiteralPath $temporaryPath -Destination $Spec.Path -Force
+    $installed = Get-ShortcutState -Path $Spec.Path
+    if (-not (Test-ShortcutCurrent -State $installed -Spec $Spec)) {
+      throw "捷徑安裝後驗證失敗：$($Spec.Path)"
+    }
+  } finally {
+    if (Test-Path -LiteralPath $temporaryPath) {
+      Remove-Item -LiteralPath $temporaryPath -Force
+    }
+  }
+
+  return [pscustomobject]@{ kind = $Spec.Kind; status = $status; path = $Spec.Path }
+}
+
+$specs | ForEach-Object { Assert-ShortcutInstallable -Spec $_ }
+$results = @($specs | ForEach-Object { Install-Shortcut -Spec $_ })
+$payload = [ordered]@{
+  version = 1
+  target = $targetPath
+  workingDirectory = $repoRoot
+  shortcuts = $results
+}
+
+if ($Json) {
+  $payload | ConvertTo-Json -Depth 4 -Compress
+} else {
+  foreach ($item in $results) {
+    "[{0}] {1}" -f $item.status, $item.path
+  }
+  '桌面可直接開啟；案件資料夾可用右鍵「傳送到」進入唯讀辨識。'
+}
