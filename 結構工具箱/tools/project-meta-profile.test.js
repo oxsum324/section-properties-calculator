@@ -39,11 +39,13 @@ const profile = Profile.buildProfile({
   projDesigner: ' 設計者 ',
 }, { toolId: 'source-tool', toolName: '來源工具', toolVersion: 'V1' });
 assert.equal(profile.schema, 'tool-project-meta-profile.v1');
-assert.equal(profile.profileVersion, '1.4');
+assert.equal(profile.profileVersion, '1.5');
 assert.equal(profile.project.name, '共用工程');
 assert.equal(profile.project.no, 'CASE-001');
 assert.equal(profile.project.designer, '設計者');
 assert.equal(profile.source.toolId, 'source-tool');
+assert.match(Profile.describeProfileSource(profile), /來源工具 V1/, 'selected-profile detail identifies the source tool and version');
+assert.doesNotMatch(Profile.describeProfileSource(profile), /Invalid Date/, 'selected-profile detail safely formats its saved time');
 
 const storage = memoryStorage();
 Profile.save(profile, storage);
@@ -135,6 +137,17 @@ assert.equal(addedSecond.replaced, false);
 assert.equal(addedSecond.library.profiles.length, 2);
 assert.equal(addedSecond.profile.project.no, 'CASE-002');
 assert.equal(Profile.load(storage).project.no, 'CASE-002', 'selected library profile remains compatible with the legacy latest key');
+const deleteSignatureSecond = Profile.deleteConfirmationSignature(addedSecond.id, addedSecond.library);
+assert.equal(
+  Profile.deleteConfirmationSignature(addedSecond.id, addedSecond.library),
+  deleteSignatureSecond,
+  'unchanged selection and library retain the same permanent-delete confirmation'
+);
+assert.notEqual(
+  Profile.deleteConfirmationSignature(Profile.profileId(profile), addedSecond.library),
+  deleteSignatureSecond,
+  'changing the selected project invalidates permanent-delete confirmation'
+);
 
 const selectedFirst = Profile.selectFromLibrary(Profile.profileId(profile), storage);
 assert.equal(selectedFirst.profile.project.no, 'CASE-001');
@@ -152,6 +165,11 @@ assert.equal(updatedFirst.replaced, true, 'saving the same project number update
 assert.equal(updatedFirst.library.profiles.length, 2);
 assert.equal(updatedFirst.library.profiles[0].project.name, '共用工程修訂');
 assert.equal(updatedFirst.library.profiles[0].project.designer, '新設計者');
+assert.notEqual(
+  Profile.deleteConfirmationSignature(addedSecond.id, updatedFirst.library),
+  deleteSignatureSecond,
+  'changing the library invalidates permanent-delete confirmation'
+);
 
 const viewAfterSaves = Profile.loadViewState(storage, updatedFirst.library);
 assert.equal(viewAfterSaves.schema, 'tool-project-meta-profile-view.v1');
@@ -344,7 +362,10 @@ assert.match(source, /目前頁面尚未變更/, 'conflict preview clearly state
 assert.match(source, /data-project-meta-confirming/, 'conflicting nonblank metadata requires a distinct confirmation state');
 assert.match(source, /data-project-meta-select/, 'multi-project library requires an explicit profile selector');
 assert.match(source, /可保存多個案件/, 'shared header UI explains the multi-project capability');
-assert.match(source, /刪除所選/, 'project removal is scoped to the explicitly selected profile');
+assert.match(source, /data-project-meta-delete-confirming/, 'permanent project removal requires a distinct confirmation state');
+assert.match(source, /確認永久刪除/, 'permanent project removal requires a second explicit click');
+assert.match(source, /建議不再使用但仍需保留的案件改用封存/, 'permanent removal directs retainable projects to the reversible archive path');
+assert.match(source, /data-project-meta-detail/, 'selected project exposes saved-time and source details in the HTML work view');
 assert.match(source, /data-project-meta-export/, 'multi-project library exposes an explicit backup export');
 assert.match(source, /data-project-meta-import-confirming/, 'backup import requires an explicit preview confirmation state');
 assert.match(source, /目前清單與頁面尚未變更/, 'import preview states its non-mutating boundary');

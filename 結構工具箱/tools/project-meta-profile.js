@@ -11,7 +11,7 @@
   'use strict';
 
   const SCHEMA = 'tool-project-meta-profile.v1';
-  const PROFILE_VERSION = '1.4';
+  const PROFILE_VERSION = '1.5';
   const STORAGE_KEY = 'toolProjectMetaProfile:latest.v1';
   const LIBRARY_SCHEMA = 'tool-project-meta-profile-library.v1';
   const LIBRARY_VERSION = '1.0';
@@ -587,6 +587,13 @@
     });
   }
 
+  function deleteConfirmationSignature(id, library) {
+    return JSON.stringify({
+      selectedId: normalizeText(id),
+      library: librarySignature(library),
+    });
+  }
+
   function resetApplyConfirmation(button, state) {
     state.signature = '';
     button.textContent = '套用共用表頭';
@@ -597,6 +604,12 @@
     state.preview = null;
     button.textContent = '匯入清單';
     button.removeAttribute('data-project-meta-import-confirming');
+  }
+
+  function resetDeleteConfirmation(button, state) {
+    state.signature = '';
+    button.textContent = '永久刪除';
+    button.removeAttribute('data-project-meta-delete-confirming');
   }
 
   function conflictLabels(conflicts) {
@@ -631,6 +644,27 @@
       .filter(spec => !!profile.project[spec.key])
       .map(spec => `${spec.label}：${profile.project[spec.key]}`);
     return values.length ? `已有共用表頭（${values.join('；')}）。` : '共用表頭沒有可套用的內容。';
+  }
+
+  function formatProfileSavedAt(value) {
+    const date = new Date(normalizeText(value));
+    if (!Number.isFinite(date.getTime())) return '時間未標示';
+    try {
+      return new Intl.DateTimeFormat('zh-TW', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }).format(date);
+    } catch (_) {
+      return date.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
+    }
+  }
+
+  function describeProfileSource(profile) {
+    if (!profile) return '';
+    const normalized = normalizeProfile(profile);
+    const sourceName = normalized.source.toolName || normalized.source.toolId || '來源未標示';
+    const sourceVersion = normalized.source.toolVersion ? ` ${normalized.source.toolVersion}` : '';
+    return `儲存：${formatProfileSavedAt(normalized.savedAt)}；來源：${sourceName}${sourceVersion}`;
   }
 
   function profileOptionLabel(payload) {
@@ -675,6 +709,12 @@
     node.dataset.tone = tone || 'ok';
   }
 
+  function setProfileDetail(bar, profile, archived) {
+    const node = bar?.querySelector?.('[data-project-meta-detail]');
+    if (!node) return;
+    node.textContent = profile ? `${archived ? '封存案件；' : ''}${describeProfileSource(profile)}` : '';
+  }
+
   function createBar(rootWindow, meta) {
     const doc = rootWindow.document;
     const bar = doc.createElement('div');
@@ -688,10 +728,11 @@
       '<button type="button" data-project-meta-apply>套用共用表頭</button>',
       '<button type="button" data-project-meta-archive>封存所選</button>',
       '<label class="project-meta-profile-toggle"><input type="checkbox" data-project-meta-show-archived>顯示封存</label>',
-      '<button type="button" data-project-meta-clear>刪除所選</button>',
+      '<button type="button" data-project-meta-clear>永久刪除</button>',
       '<button type="button" data-project-meta-export>匯出清單</button>',
       '<button type="button" data-project-meta-import>匯入清單</button>',
       '<input type="file" accept="application/json,.json" data-project-meta-import-file hidden>',
+      '<span class="project-meta-profile-detail" data-project-meta-detail></span>',
       '<span class="project-meta-profile-status" data-project-meta-status aria-live="polite"></span>',
     ].join('');
 
@@ -706,6 +747,8 @@
       '.' + CONTROL_CLASS + ' .project-meta-profile-toggle{display:inline-flex;gap:5px;align-items:center;font-weight:700;white-space:nowrap}',
       '.' + CONTROL_CLASS + ' button{cursor:pointer}',
       '.' + CONTROL_CLASS + ' button:hover{filter:brightness(.96)}',
+      '.' + CONTROL_CLASS + ' button[data-project-meta-delete-confirming]{background:#fee2e2;color:#991b1b}',
+      '.' + CONTROL_CLASS + ' .project-meta-profile-detail{flex:1 1 280px;color:#475569}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status{flex:1 1 280px;font-weight:700}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status[data-tone="warn"]{color:#92400e}',
       '.' + CONTROL_CLASS + ' .project-meta-profile-status[data-tone="error"]{color:#991b1b}',
@@ -724,6 +767,7 @@
     const importInput = bar.querySelector('[data-project-meta-import-file]');
     const confirmation = { signature: '' };
     const importConfirmation = { preview: null };
+    const deleteConfirmation = { signature: '' };
     const refreshControls = function (preferredId) {
       const result = refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage, {
         query: searchInput.value,
@@ -737,6 +781,7 @@
       archiveButton.disabled = !hasSelection;
       archiveButton.textContent = selectedArchived ? '解除封存' : '封存所選';
       applyButton.disabled = !hasSelection || selectedArchived;
+      setProfileDetail(bar, profileById(result.library, result.selectedId), selectedArchived);
       return result;
     };
 
@@ -744,6 +789,7 @@
       try {
         resetApplyConfirmation(applyButton, confirmation);
         resetImportConfirmation(importButton, importConfirmation);
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
         const result = saveToLibrary(collectFromDocument(doc, meta), rootWindow.localStorage);
         searchInput.value = '';
         refreshControls(result.id);
@@ -758,6 +804,7 @@
       try {
         resetApplyConfirmation(applyButton, confirmation);
         resetImportConfirmation(importButton, importConfirmation);
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
         const library = loadLibrary(rootWindow.localStorage);
         const view = loadViewState(rootWindow.localStorage, library);
         if (isProfileArchived(view, profileSelect.value)) {
@@ -775,6 +822,7 @@
     });
     applyButton.addEventListener('click', function () {
       try {
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
         const library = loadLibrary(rootWindow.localStorage);
         const view = loadViewState(rootWindow.localStorage, library);
         const selectedId = profileSelect.value;
@@ -825,6 +873,7 @@
       try {
         resetApplyConfirmation(applyButton, confirmation);
         resetImportConfirmation(importButton, importConfirmation);
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
         const selectedId = profileSelect.value;
         const library = loadLibrary(rootWindow.localStorage);
         const view = loadViewState(rootWindow.localStorage, library);
@@ -851,6 +900,7 @@
     searchInput.addEventListener('input', function () {
       resetApplyConfirmation(applyButton, confirmation);
       resetImportConfirmation(importButton, importConfirmation);
+      resetDeleteConfirmation(removeButton, deleteConfirmation);
       const result = refreshControls();
       setStatus(
         bar,
@@ -863,6 +913,7 @@
     showArchivedInput.addEventListener('change', function () {
       resetApplyConfirmation(applyButton, confirmation);
       resetImportConfirmation(importButton, importConfirmation);
+      resetDeleteConfirmation(removeButton, deleteConfirmation);
       const result = refreshControls();
       setStatus(
         bar,
@@ -877,7 +928,17 @@
         resetApplyConfirmation(applyButton, confirmation);
         resetImportConfirmation(importButton, importConfirmation);
         const selectedId = profileSelect.value;
+        const library = loadLibrary(rootWindow.localStorage);
+        const signature = deleteConfirmationSignature(selectedId, library);
+        if (!selectedId || deleteConfirmation.signature !== signature) {
+          deleteConfirmation.signature = signature;
+          removeButton.textContent = '確認永久刪除';
+          removeButton.setAttribute('data-project-meta-delete-confirming', 'true');
+          setStatus(bar, '永久刪除後無法復原；建議不再使用但仍需保留的案件改用封存。請確認案件後再按一次「確認永久刪除」；目前清單與頁面尚未變更。', 'warn');
+          return;
+        }
         const result = removeFromLibrary(selectedId, rootWindow.localStorage);
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
         refreshControls();
         setStatus(
           bar,
@@ -887,11 +948,13 @@
           'warn'
         );
       } catch (error) {
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
         setStatus(bar, `案件表頭無法刪除：${String(error?.message || error)}`, 'error');
       }
     });
     exportButton.addEventListener('click', function () {
       try {
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
         const library = loadLibrary(rootWindow.localStorage);
         const result = downloadLibraryBackup(rootWindow, library);
         setStatus(bar, `已匯出 ${result.backup.profileCount} 筆案件表頭：${result.fileName}。檔案不含工程輸入或核可狀態。`, 'ok');
@@ -900,6 +963,7 @@
       }
     });
     importButton.addEventListener('click', function () {
+      resetDeleteConfirmation(removeButton, deleteConfirmation);
       if (!importConfirmation.preview) {
         importInput.value = '';
         importInput.click();
@@ -907,6 +971,7 @@
       }
       try {
         resetApplyConfirmation(applyButton, confirmation);
+        resetDeleteConfirmation(removeButton, deleteConfirmation);
         const preview = importConfirmation.preview;
         const library = commitLibraryImport(preview, rootWindow.localStorage);
         resetImportConfirmation(importButton, importConfirmation);
@@ -924,6 +989,7 @@
     importInput.addEventListener('change', async function () {
       resetApplyConfirmation(applyButton, confirmation);
       resetImportConfirmation(importButton, importConfirmation);
+      resetDeleteConfirmation(removeButton, deleteConfirmation);
       const file = importInput.files?.[0];
       if (!file) return;
       try {
@@ -1039,7 +1105,10 @@
     analyzeApplication,
     applyToDocument,
     applicationSignature,
+    deleteConfirmationSignature,
     describeProfile,
+    formatProfileSavedAt,
+    describeProfileSource,
     profileOptionLabel,
     autoBind,
   };

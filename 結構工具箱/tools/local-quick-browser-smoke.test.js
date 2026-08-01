@@ -1726,6 +1726,7 @@ function projectMetaProfileSaveExpression() {
         designer: document.getElementById('projDesigner')?.value || ''
       },
       status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      detail: document.querySelector('[data-project-meta-detail]')?.textContent || '',
       horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
     };
   })()`;
@@ -1791,6 +1792,31 @@ function projectMetaProfileApplyExpression() {
     };
     document.querySelector('[data-project-meta-clear]')?.click();
     await settle(30);
+    const deletePreview = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      optionCount: profileSelect?.options?.length || 0,
+      buttonText: document.querySelector('[data-project-meta-clear]')?.textContent || '',
+      confirming: document.querySelector('[data-project-meta-clear]')?.getAttribute('data-project-meta-delete-confirming') || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      no: document.getElementById('projNo')?.value || ''
+    };
+    const deleteSearch = document.querySelector('[data-project-meta-search]');
+    deleteSearch.value = 'SHARED-ALT-002';
+    deleteSearch.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle(30);
+    const deleteInvalidated = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      buttonText: document.querySelector('[data-project-meta-clear]')?.textContent || '',
+      confirming: document.querySelector('[data-project-meta-clear]')?.getAttribute('data-project-meta-delete-confirming') || '',
+      no: document.getElementById('projNo')?.value || ''
+    };
+    deleteSearch.value = '';
+    deleteSearch.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle(30);
+    document.querySelector('[data-project-meta-clear]')?.click();
+    await settle(30);
+    document.querySelector('[data-project-meta-clear]')?.click();
+    await settle(30);
     const deleteSelected = {
       library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
       optionCount: profileSelect?.options?.length || 0,
@@ -1828,6 +1854,8 @@ function projectMetaProfileApplyExpression() {
       fullApply,
       selectedOnly,
       alternateApply,
+      deletePreview,
+      deleteInvalidated,
       deleteSelected,
       staleConfirmation,
       engineeringValueBefore,
@@ -2591,6 +2619,8 @@ async function main() {
           'selecting a stored project does not apply it to the current page'
         );
         assert.ok(sharedSave.state.status.includes('尚未套用'), 'desktop project selection clearly remains non-mutating');
+        assert.ok(sharedSave.state.detail.includes('儲存：'), 'desktop selected project shows its saved time');
+        assert.ok(sharedSave.state.detail.includes('來源：'), 'desktop selected project shows its source tool');
         assert.equal(sharedSave.state.horizontalOverflow, false, 'desktop shared project save bar has no horizontal overflow');
 
         const sharedApply = await navigateAndInspect(
@@ -2631,6 +2661,16 @@ async function main() {
           'alternate saved project applies only after the existing conflict confirmation flow'
         );
         assert.equal(sharedApply.state.alternateApply.engineeringValue, sharedApply.state.engineeringValueBefore, 'alternate saved project does not change engineering input');
+        assert.equal(sharedApply.state.deletePreview.library?.profiles?.length, 2, 'first permanent-delete click leaves the library unchanged');
+        assert.equal(sharedApply.state.deletePreview.optionCount, 2, 'first permanent-delete click leaves the selector unchanged');
+        assert.equal(sharedApply.state.deletePreview.buttonText, '確認永久刪除', 'first permanent-delete click exposes a distinct confirmation action');
+        assert.equal(sharedApply.state.deletePreview.confirming, 'true', 'first permanent-delete click exposes confirmation state');
+        assert.ok(sharedApply.state.deletePreview.status.includes('目前清單與頁面尚未變更'), 'permanent-delete preview states its non-mutating boundary');
+        assert.equal(sharedApply.state.deletePreview.no, 'SHARED-ALT-002', 'permanent-delete preview does not change current page');
+        assert.equal(sharedApply.state.deleteInvalidated.library?.profiles?.length, 2, 'searching during permanent-delete confirmation leaves the library unchanged');
+        assert.equal(sharedApply.state.deleteInvalidated.buttonText, '永久刪除', 'searching invalidates the pending permanent-delete action');
+        assert.equal(sharedApply.state.deleteInvalidated.confirming, '', 'searching clears permanent-delete confirmation state');
+        assert.equal(sharedApply.state.deleteInvalidated.no, 'SHARED-ALT-002', 'invalidating permanent delete does not change current page');
         assert.equal(sharedApply.state.deleteSelected.library?.profiles?.length, 1, 'deleting the selected project removes only one library entry');
         assert.equal(sharedApply.state.deleteSelected.optionCount, 1, 'project selector refreshes after deleting the selected profile');
         assert.deepEqual(
