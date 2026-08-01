@@ -39,7 +39,7 @@ const profile = Profile.buildProfile({
   projDesigner: ' 設計者 ',
 }, { toolId: 'source-tool', toolName: '來源工具', toolVersion: 'V1' });
 assert.equal(profile.schema, 'tool-project-meta-profile.v1');
-assert.equal(profile.profileVersion, '1.2');
+assert.equal(profile.profileVersion, '1.3');
 assert.equal(profile.project.name, '共用工程');
 assert.equal(profile.project.no, 'CASE-001');
 assert.equal(profile.project.designer, '設計者');
@@ -179,6 +179,71 @@ assert.throws(
 );
 assert.equal(Profile.loadLibrary(capacityStorage).profiles.length, Profile.MAX_PROFILES);
 
+const backup = Profile.buildBackup(addedSecond.library, '2026-08-01T14:00:00.000Z');
+assert.equal(backup.schema, 'tool-project-meta-profile-backup.v1');
+assert.equal(backup.backupVersion, '1.0');
+assert.equal(backup.profileCount, 2);
+assert.deepEqual(backup.boundary.fields, ['name', 'no', 'designer']);
+assert.equal(backup.boundary.includesEngineeringInputs, false);
+assert.equal(backup.boundary.includesApprovalState, false);
+const backupText = Profile.serializeBackup(addedSecond.library, '2026-08-01T14:00:00.000Z');
+const parsedBackup = Profile.parseBackupText(backupText);
+assert.equal(parsedBackup.profileCount, 2);
+assert.equal(parsedBackup.library.profiles[0].project.no, 'CASE-002');
+assert.equal(Profile.backupFileName('2026-08-01T14:05:06.000Z'), 'project-header-library-20260801-140506.json');
+
+const extraFieldBackup = JSON.parse(backupText);
+extraFieldBackup.engineeringInputs = { Mu: 99 };
+assert.throws(() => Profile.normalizeBackup(extraFieldBackup), /欄位不符合備份格式/, 'unknown top-level fields are rejected');
+const forbiddenBoundaryBackup = JSON.parse(backupText);
+forbiddenBoundaryBackup.boundary.includesApprovalState = true;
+assert.throws(() => Profile.normalizeBackup(forbiddenBoundaryBackup), /包含禁止資料/);
+const extraProfileFieldBackup = JSON.parse(backupText);
+extraProfileFieldBackup.library.profiles[0].material = { fc: 280 };
+assert.throws(() => Profile.normalizeBackup(extraProfileFieldBackup), /案件表頭欄位不符合備份格式/);
+const duplicateBackup = JSON.parse(backupText);
+duplicateBackup.library.profiles.push(JSON.parse(JSON.stringify(duplicateBackup.library.profiles[0])));
+duplicateBackup.profileCount += 1;
+assert.throws(() => Profile.normalizeBackup(duplicateBackup), /重複案件識別/);
+assert.throws(() => Profile.parseBackupText('x'.repeat(Profile.MAX_BACKUP_BYTES + 1)), /超過 256 KiB/);
+
+const importStorage = memoryStorage();
+Profile.saveToLibrary(Profile.buildProfile({ projName: '本機優先案名', projNo: 'CASE-001', projDesigner: '本機設計者' }), importStorage);
+Profile.saveToLibrary(Profile.buildProfile({ projName: '本機第三案', projNo: 'LOCAL-003' }), importStorage);
+const importPreview = Profile.prepareLibraryImport(backup, importStorage);
+assert.equal(importPreview.status, 'ready');
+assert.equal(importPreview.additions.length, 1);
+assert.equal(importPreview.additions[0].project.no, 'CASE-002');
+assert.equal(importPreview.preserved.length, 1, 'same project identity keeps the local version');
+assert.equal(Profile.loadLibrary(importStorage).profiles.length, 2, 'preview is non-mutating');
+const importedLibrary = Profile.commitLibraryImport(importPreview, importStorage);
+assert.equal(importedLibrary.profiles.length, 3);
+assert.equal(importedLibrary.profiles.find(item => item.id === Profile.profileId(profile)).project.name, '本機優先案名');
+assert.equal(importedLibrary.profiles.some(item => item.project.no === 'CASE-002'), true);
+
+const noChangePreview = Profile.prepareLibraryImport(Profile.buildBackup(importedLibrary, '2026-08-01T14:10:00.000Z'), importStorage);
+assert.equal(noChangePreview.status, 'no-change');
+assert.equal(noChangePreview.additions.length, 0);
+assert.throws(() => Profile.commitLibraryImport(noChangePreview, importStorage), /尚未可執行/);
+
+const changingImportStorage = memoryStorage();
+Profile.saveToLibrary(Profile.buildProfile({ projNo: 'LOCAL-010' }), changingImportStorage);
+const changingPreview = Profile.prepareLibraryImport(backup, changingImportStorage);
+Profile.saveToLibrary(Profile.buildProfile({ projNo: 'LOCAL-011' }), changingImportStorage);
+assert.throws(
+  () => Profile.commitLibraryImport(changingPreview, changingImportStorage),
+  /本機案件表頭清單已變更/,
+  'a preview cannot overwrite a library that changed before confirmation'
+);
+
+const capacityBackup = Profile.buildBackup(Profile.buildLibrary([
+  Profile.buildProfile({ projNo: 'OVER-CAPACITY-001' }),
+]), '2026-08-01T14:15:00.000Z');
+const capacityPreview = Profile.prepareLibraryImport(capacityBackup, capacityStorage);
+assert.equal(capacityPreview.status, 'blocked');
+assert.equal(capacityPreview.reason, 'capacity-exceeded');
+assert.equal(Profile.loadLibrary(capacityStorage).profiles.length, Profile.MAX_PROFILES, 'blocked import does not evict local projects');
+
 Profile.clearLibrary(storage);
 assert.equal(Profile.load(storage), null);
 assert.equal(Profile.loadLibrary(storage).profiles.length, 0);
@@ -230,5 +295,8 @@ assert.match(source, /data-project-meta-confirming/, 'conflicting nonblank metad
 assert.match(source, /data-project-meta-select/, 'multi-project library requires an explicit profile selector');
 assert.match(source, /可保存多個案件/, 'shared header UI explains the multi-project capability');
 assert.match(source, /刪除所選/, 'project removal is scoped to the explicitly selected profile');
+assert.match(source, /data-project-meta-export/, 'multi-project library exposes an explicit backup export');
+assert.match(source, /data-project-meta-import-confirming/, 'backup import requires an explicit preview confirmation state');
+assert.match(source, /目前清單與頁面尚未變更/, 'import preview states its non-mutating boundary');
 
 console.log(`project meta profile tests passed (${standardizedPages.length} pages)`);

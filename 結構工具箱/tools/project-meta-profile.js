@@ -11,12 +11,15 @@
   'use strict';
 
   const SCHEMA = 'tool-project-meta-profile.v1';
-  const PROFILE_VERSION = '1.2';
+  const PROFILE_VERSION = '1.3';
   const STORAGE_KEY = 'toolProjectMetaProfile:latest.v1';
   const LIBRARY_SCHEMA = 'tool-project-meta-profile-library.v1';
   const LIBRARY_VERSION = '1.0';
   const LIBRARY_STORAGE_KEY = 'toolProjectMetaProfile:library.v1';
   const MAX_PROFILES = 20;
+  const BACKUP_SCHEMA = 'tool-project-meta-profile-backup.v1';
+  const BACKUP_VERSION = '1.0';
+  const MAX_BACKUP_BYTES = 256 * 1024;
   const CONTROL_CLASS = 'project-meta-profile-bar';
   const FIELD_SPECS = Object.freeze([
     { id: 'projName', key: 'name', label: '計畫名稱' },
@@ -228,6 +231,168 @@
     return true;
   }
 
+  function assertExactKeys(value, expectedKeys, label) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label}格式不正確。`);
+    const actual = Object.keys(value).sort();
+    const expected = [...expectedKeys].sort();
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`${label}欄位不符合備份格式。`);
+  }
+
+  function assertPortableProfileRecord(record) {
+    assertExactKeys(record, ['id', 'schema', 'profileVersion', 'savedAt', 'source', 'project'], '案件表頭');
+    assertExactKeys(record.source, ['toolId', 'toolName', 'toolVersion'], '案件表頭來源');
+    assertExactKeys(record.project, ['name', 'no', 'designer'], '案件表頭內容');
+    const normalized = profileRecord(record);
+    if (record.id !== normalized.id) throw new Error('案件表頭識別與內容不一致。');
+    if (!hasProjectValues(normalized)) throw new Error('備份不得包含全空白案件表頭。');
+    return normalized;
+  }
+
+  function buildBackup(libraryPayload, exportedAt) {
+    const library = libraryPayload?.schema === LIBRARY_SCHEMA
+      ? normalizeLibrary(libraryPayload)
+      : buildLibrary([]);
+    return {
+      schema: BACKUP_SCHEMA,
+      backupVersion: BACKUP_VERSION,
+      exportedAt: normalizeText(exportedAt) || new Date().toISOString(),
+      profileCount: library.profiles.length,
+      boundary: {
+        fields: ['name', 'no', 'designer'],
+        includesEngineeringInputs: false,
+        includesApprovalState: false,
+      },
+      library,
+    };
+  }
+
+  function normalizeBackup(payload) {
+    assertExactKeys(payload, ['schema', 'backupVersion', 'exportedAt', 'profileCount', 'boundary', 'library'], '案件表頭備份');
+    if (payload.schema !== BACKUP_SCHEMA) throw new Error(`不支援的案件表頭備份格式：${payload.schema || '未標示'}`);
+    if (payload.backupVersion !== BACKUP_VERSION) throw new Error(`不支援的案件表頭備份版本：${payload.backupVersion || '未標示'}`);
+    const exportedAt = normalizeText(payload.exportedAt);
+    if (!/T.*(?:Z|[+-]\d{2}:\d{2})$/.test(exportedAt) || !Number.isFinite(Date.parse(exportedAt))) {
+      throw new Error('案件表頭備份時間無效。');
+    }
+    assertExactKeys(payload.boundary, ['fields', 'includesEngineeringInputs', 'includesApprovalState'], '案件表頭備份邊界');
+    if (JSON.stringify(payload.boundary.fields) !== JSON.stringify(['name', 'no', 'designer'])
+      || payload.boundary.includesEngineeringInputs !== false
+      || payload.boundary.includesApprovalState !== false) {
+      throw new Error('案件表頭備份超出允許欄位或包含禁止資料。');
+    }
+    assertExactKeys(payload.library, ['schema', 'libraryVersion', 'updatedAt', 'selectedId', 'profiles'], '案件表頭清單');
+    if (!Array.isArray(payload.library.profiles)) throw new Error('案件表頭清單內容格式不正確。');
+    if (payload.library.profiles.length > MAX_PROFILES) throw new Error(`案件表頭備份超過 ${MAX_PROFILES} 筆上限。`);
+    const records = payload.library.profiles.map(assertPortableProfileRecord);
+    const library = buildLibrary(records, payload.library.selectedId, payload.library.updatedAt);
+    if (library.profiles.length !== records.length) throw new Error('案件表頭備份包含重複案件識別。');
+    if (!Number.isInteger(payload.profileCount) || payload.profileCount !== library.profiles.length) {
+      throw new Error('案件表頭備份筆數與內容不一致。');
+    }
+    return buildBackup(library, exportedAt);
+  }
+
+  function utf8ByteLength(value) {
+    const text = String(value == null ? '' : value);
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(text).length;
+    if (typeof Buffer !== 'undefined') return Buffer.byteLength(text, 'utf8');
+    if (typeof Blob !== 'undefined') return new Blob([text]).size;
+    return text.length;
+  }
+
+  function serializeBackup(library, exportedAt) {
+    return `${JSON.stringify(buildBackup(library, exportedAt), null, 2)}\n`;
+  }
+
+  function parseBackupText(text) {
+    const raw = String(text == null ? '' : text);
+    if (!raw.trim()) throw new Error('案件表頭備份檔是空白的。');
+    if (utf8ByteLength(raw) > MAX_BACKUP_BYTES) throw new Error('案件表頭備份檔超過 256 KiB 上限。');
+    let payload;
+    try { payload = JSON.parse(raw); } catch (_) { throw new Error('案件表頭備份不是有效的 JSON。'); }
+    return normalizeBackup(payload);
+  }
+
+  function librarySignature(libraryPayload) {
+    const library = libraryPayload?.schema === LIBRARY_SCHEMA ? normalizeLibrary(libraryPayload) : buildLibrary([]);
+    return JSON.stringify({
+      selectedId: library.selectedId,
+      profiles: library.profiles.map(record => ({
+        id: record.id,
+        savedAt: record.savedAt,
+        source: record.source,
+        project: record.project,
+      })),
+    });
+  }
+
+  function prepareLibraryImport(backupPayload, storage) {
+    const backup = normalizeBackup(backupPayload);
+    const current = loadLibrary(storage);
+    const currentIds = new Set(current.profiles.map(record => record.id));
+    const additions = backup.library.profiles.filter(record => !currentIds.has(record.id));
+    const preserved = backup.library.profiles.filter(record => currentIds.has(record.id));
+    const projectedCount = current.profiles.length + additions.length;
+    if (projectedCount > MAX_PROFILES) {
+      return {
+        status: 'blocked',
+        reason: 'capacity-exceeded',
+        backup,
+        currentSignature: librarySignature(current),
+        additions,
+        preserved,
+        projectedCount,
+        library: null,
+      };
+    }
+    const selectedId = current.profiles.length ? current.selectedId : backup.library.selectedId;
+    const library = buildLibrary([...current.profiles, ...additions], selectedId);
+    return {
+      status: additions.length ? 'ready' : 'no-change',
+      reason: additions.length ? '' : 'all-projects-exist',
+      backup,
+      currentSignature: librarySignature(current),
+      additions,
+      preserved,
+      projectedCount,
+      library,
+    };
+  }
+
+  function commitLibraryImport(preview, storage) {
+    if (!preview || preview.status !== 'ready' || !preview.library) throw new Error('案件表頭匯入預覽尚未可執行。');
+    const current = loadLibrary(storage);
+    if (librarySignature(current) !== preview.currentSignature) throw new Error('本機案件表頭清單已變更，請重新選擇匯入檔。');
+    return writeLibrary(preview.library, storage);
+  }
+
+  function backupFileName(dateValue) {
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue || Date.now());
+    const iso = Number.isFinite(date.getTime()) ? date.toISOString() : new Date().toISOString();
+    return `project-header-library-${iso.replace(/[-:]/g, '').replace('T', '-').slice(0, 15)}.json`;
+  }
+
+  function downloadLibraryBackup(rootWindow, library) {
+    const doc = rootWindow?.document;
+    const URLApi = rootWindow?.URL;
+    const BlobCtor = rootWindow?.Blob;
+    if (!doc || !URLApi?.createObjectURL || !BlobCtor) throw new Error('目前瀏覽器不支援案件表頭備份下載。');
+    const backup = buildBackup(library);
+    if (!backup.profileCount) throw new Error('尚無案件表頭可供匯出。');
+    const blob = new BlobCtor([`${JSON.stringify(backup, null, 2)}\n`], { type: 'application/json;charset=utf-8' });
+    const url = URLApi.createObjectURL(blob);
+    const anchor = doc.createElement('a');
+    anchor.href = url;
+    anchor.download = backupFileName(backup.exportedAt);
+    anchor.style.display = 'none';
+    doc.body.appendChild(anchor);
+    try { anchor.click(); } finally {
+      anchor.remove();
+      rootWindow.setTimeout(() => URLApi.revokeObjectURL(url), 0);
+    }
+    return { backup, fileName: anchor.download, bytes: blob.size };
+  }
+
   function dispatchFieldEvents(doc, element) {
     const EventCtor = doc?.defaultView?.Event || (typeof Event !== 'undefined' ? Event : null);
     if (!EventCtor) return;
@@ -289,6 +454,12 @@
     state.signature = '';
     button.textContent = '套用共用表頭';
     button.removeAttribute('data-project-meta-confirming');
+  }
+
+  function resetImportConfirmation(button, state) {
+    state.preview = null;
+    button.textContent = '匯入清單';
+    button.removeAttribute('data-project-meta-import-confirming');
   }
 
   function conflictLabels(conflicts) {
@@ -372,6 +543,9 @@
       '<button type="button" data-project-meta-save>儲存目前表頭</button>',
       '<button type="button" data-project-meta-apply>套用共用表頭</button>',
       '<button type="button" data-project-meta-clear>刪除所選</button>',
+      '<button type="button" data-project-meta-export>匯出清單</button>',
+      '<button type="button" data-project-meta-import>匯入清單</button>',
+      '<input type="file" accept="application/json,.json" data-project-meta-import-file hidden>',
       '<span class="project-meta-profile-status" data-project-meta-status aria-live="polite"></span>',
     ].join('');
 
@@ -393,13 +567,25 @@
 
     const applyButton = bar.querySelector('[data-project-meta-apply]');
     const profileSelect = bar.querySelector('[data-project-meta-select]');
+    const removeButton = bar.querySelector('[data-project-meta-clear]');
+    const exportButton = bar.querySelector('[data-project-meta-export]');
+    const importButton = bar.querySelector('[data-project-meta-import]');
+    const importInput = bar.querySelector('[data-project-meta-import-file]');
     const confirmation = { signature: '' };
+    const importConfirmation = { preview: null };
+    const refreshControls = function () {
+      const library = refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage);
+      exportButton.disabled = !library.profiles.length;
+      removeButton.disabled = !library.profiles.length;
+      return library;
+    };
 
     bar.querySelector('[data-project-meta-save]').addEventListener('click', function () {
       try {
         resetApplyConfirmation(applyButton, confirmation);
+        resetImportConfirmation(importButton, importConfirmation);
         const result = saveToLibrary(collectFromDocument(doc, meta), rootWindow.localStorage);
-        refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage);
+        refreshControls();
         const action = result.replaced ? '已更新所選案件表頭' : '已新增案件表頭';
         const capacity = result.evictedCount ? `；已移除 ${result.evictedCount} 筆最舊資料以維持 ${MAX_PROFILES} 筆上限` : '';
         setStatus(bar, `${action}；清單共 ${result.library.profiles.length} 筆${capacity}。${describeProfile(result.profile)}`, 'ok');
@@ -410,6 +596,7 @@
     profileSelect.addEventListener('change', function () {
       try {
         resetApplyConfirmation(applyButton, confirmation);
+        resetImportConfirmation(importButton, importConfirmation);
         const result = selectFromLibrary(profileSelect.value, rootWindow.localStorage);
         setStatus(bar, `已選擇案件表頭，尚未套用至目前頁面。${describeProfile(result.profile)}`, 'ok');
       } catch (error) {
@@ -452,12 +639,13 @@
         setStatus(bar, `共用表頭無法套用：${String(error?.message || error)}`, 'error');
       }
     });
-    bar.querySelector('[data-project-meta-clear]').addEventListener('click', function () {
+    removeButton.addEventListener('click', function () {
       try {
         resetApplyConfirmation(applyButton, confirmation);
+        resetImportConfirmation(importButton, importConfirmation);
         const selectedId = profileSelect.value;
         const result = removeFromLibrary(selectedId, rootWindow.localStorage);
-        refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage);
+        refreshControls();
         setStatus(
           bar,
           result.removed
@@ -469,9 +657,74 @@
         setStatus(bar, `案件表頭無法刪除：${String(error?.message || error)}`, 'error');
       }
     });
+    exportButton.addEventListener('click', function () {
+      try {
+        const library = loadLibrary(rootWindow.localStorage);
+        const result = downloadLibraryBackup(rootWindow, library);
+        setStatus(bar, `已匯出 ${result.backup.profileCount} 筆案件表頭：${result.fileName}。檔案不含工程輸入或核可狀態。`, 'ok');
+      } catch (error) {
+        setStatus(bar, `案件表頭無法匯出：${String(error?.message || error)}`, 'error');
+      }
+    });
+    importButton.addEventListener('click', function () {
+      if (!importConfirmation.preview) {
+        importInput.value = '';
+        importInput.click();
+        return;
+      }
+      try {
+        resetApplyConfirmation(applyButton, confirmation);
+        const preview = importConfirmation.preview;
+        const library = commitLibraryImport(preview, rootWindow.localStorage);
+        resetImportConfirmation(importButton, importConfirmation);
+        refreshControls();
+        setStatus(
+          bar,
+          `已匯入 ${preview.additions.length} 筆案件表頭；${preview.preserved.length} 筆同案保留本機版本。清單共 ${library.profiles.length} 筆，目前頁面資料未變更。`,
+          'ok'
+        );
+      } catch (error) {
+        resetImportConfirmation(importButton, importConfirmation);
+        setStatus(bar, `案件表頭無法匯入：${String(error?.message || error)}`, 'error');
+      }
+    });
+    importInput.addEventListener('change', async function () {
+      resetApplyConfirmation(applyButton, confirmation);
+      resetImportConfirmation(importButton, importConfirmation);
+      const file = importInput.files?.[0];
+      if (!file) return;
+      try {
+        if (file.size > MAX_BACKUP_BYTES) throw new Error('案件表頭備份檔超過 256 KiB 上限。');
+        const backup = parseBackupText(await file.text());
+        const preview = prepareLibraryImport(backup, rootWindow.localStorage);
+        if (preview.status === 'blocked') {
+          setStatus(
+            bar,
+            `匯入後將有 ${preview.projectedCount} 筆，超過 ${MAX_PROFILES} 筆上限；請先刪除不需要的本機案件。清單尚未變更。`,
+            'warn'
+          );
+          return;
+        }
+        if (preview.status === 'no-change') {
+          setStatus(bar, `備份中的 ${preview.preserved.length} 筆案件均已存在；本機版本優先保留，清單未變更。`, 'ok');
+          return;
+        }
+        importConfirmation.preview = preview;
+        importButton.textContent = `確認匯入 ${preview.additions.length} 筆`;
+        importButton.setAttribute('data-project-meta-import-confirming', 'true');
+        setStatus(
+          bar,
+          `匯入預覽：將新增 ${preview.additions.length} 筆；${preview.preserved.length} 筆同案保留本機版本。請再按一次「確認匯入」；目前清單與頁面尚未變更。`,
+          'warn'
+        );
+      } catch (error) {
+        resetImportConfirmation(importButton, importConfirmation);
+        setStatus(bar, `案件表頭備份無法讀取：${String(error?.message || error)}`, 'error');
+      }
+    });
 
     try {
-      const library = refreshLibrarySelect(doc, profileSelect, rootWindow.localStorage);
+      const library = refreshControls();
       const profile = selectedProfile(library);
       setStatus(
         bar,
@@ -505,6 +758,9 @@
     LIBRARY_VERSION,
     LIBRARY_STORAGE_KEY,
     MAX_PROFILES,
+    BACKUP_SCHEMA,
+    BACKUP_VERSION,
+    MAX_BACKUP_BYTES,
     FIELD_SPECS,
     normalizeText,
     buildProfile,
@@ -525,6 +781,15 @@
     selectFromLibrary,
     removeFromLibrary,
     clearLibrary,
+    buildBackup,
+    normalizeBackup,
+    serializeBackup,
+    parseBackupText,
+    librarySignature,
+    prepareLibraryImport,
+    commitLibraryImport,
+    backupFileName,
+    downloadLibraryBackup,
     analyzeApplication,
     applyToDocument,
     applicationSignature,

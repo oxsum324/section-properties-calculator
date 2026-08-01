@@ -1583,6 +1583,57 @@ function projectMetaProfileSaveExpression() {
     setValues({ projName: '跨工具第二案', projNo: 'SHARED-ALT-002', projDesigner: '第二設計者' });
     document.querySelector('[data-project-meta-save]')?.click();
     await settle(30);
+    let capturedBlob = null;
+    let capturedDownload = '';
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalAnchorClick = HTMLAnchorElement.prototype.click;
+    URL.createObjectURL = blob => {
+      capturedBlob = blob;
+      return 'blob:project-meta-backup-test';
+    };
+    HTMLAnchorElement.prototype.click = function () {
+      capturedDownload = this.download || '';
+    };
+    try {
+      document.querySelector('[data-project-meta-export]')?.click();
+      await settle(30);
+    } finally {
+      URL.createObjectURL = originalCreateObjectURL;
+      HTMLAnchorElement.prototype.click = originalAnchorClick;
+    }
+    const exportedBackup = capturedBlob ? JSON.parse(await capturedBlob.text()) : null;
+    window.ToolProjectMetaProfile.clearLibrary(localStorage);
+    const importInput = document.querySelector('[data-project-meta-import-file]');
+    const importButton = document.querySelector('[data-project-meta-import]');
+    const importFile = new File([JSON.stringify(exportedBackup)], 'project-header-library.json', { type: 'application/json' });
+    const transfer = new DataTransfer();
+    transfer.items.add(importFile);
+    importInput.files = transfer.files;
+    importInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle(60);
+    const importPreview = {
+      libraryExists: !!localStorage.getItem('toolProjectMetaProfile:library.v1'),
+      latestExists: !!localStorage.getItem('toolProjectMetaProfile:latest.v1'),
+      buttonText: importButton?.textContent || '',
+      confirming: importButton?.getAttribute('data-project-meta-import-confirming') || '',
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      page: {
+        name: document.getElementById('projName')?.value || '',
+        no: document.getElementById('projNo')?.value || '',
+        designer: document.getElementById('projDesigner')?.value || ''
+      }
+    };
+    importButton?.click();
+    await settle(30);
+    const importCommitted = {
+      library: JSON.parse(localStorage.getItem('toolProjectMetaProfile:library.v1') || 'null'),
+      status: document.querySelector('[data-project-meta-status]')?.textContent || '',
+      page: {
+        name: document.getElementById('projName')?.value || '',
+        no: document.getElementById('projNo')?.value || '',
+        designer: document.getElementById('projDesigner')?.value || ''
+      }
+    };
     const select = document.querySelector('[data-project-meta-select]');
     const firstId = window.ToolProjectMetaProfile.profileId(
       window.ToolProjectMetaProfile.buildProfile({ projName: '跨工具共用案', projNo: 'SHARED-001', projDesigner: '共用設計者' })
@@ -1596,6 +1647,16 @@ function projectMetaProfileSaveExpression() {
       hasBar: !!document.querySelector('.project-meta-profile-bar'),
       stored,
       library,
+      exportResult: {
+        fileName: capturedDownload,
+        schema: exportedBackup?.schema || '',
+        profileCount: exportedBackup?.profileCount || 0,
+        fields: exportedBackup?.boundary?.fields || [],
+        includesEngineeringInputs: exportedBackup?.boundary?.includesEngineeringInputs,
+        includesApprovalState: exportedBackup?.boundary?.includesApprovalState
+      },
+      importPreview,
+      importCommitted,
       options: Array.from(select.options).map(option => ({ value: option.value, text: option.textContent || '' })),
       selectedValue: select.value,
       pageAfterSelection: {
@@ -2413,6 +2474,29 @@ async function main() {
         assert.equal(sharedSave.state.stored?.project?.name, '跨工具共用案', 'desktop shared project name saved');
         assert.equal(sharedSave.state.stored?.project?.no, 'SHARED-001', 'desktop shared project number saved');
         assert.equal(sharedSave.state.stored?.project?.designer, '共用設計者', 'desktop shared project designer saved');
+        assert.match(sharedSave.state.exportResult.fileName, /^project-header-library-\d{8}-\d{6}\.json$/, 'desktop project library export filename');
+        assert.equal(sharedSave.state.exportResult.schema, 'tool-project-meta-profile-backup.v1', 'desktop project library backup schema');
+        assert.equal(sharedSave.state.exportResult.profileCount, 2, 'desktop project library exports both profiles');
+        assert.deepEqual(sharedSave.state.exportResult.fields, ['name', 'no', 'designer'], 'desktop project library backup contains only header fields');
+        assert.equal(sharedSave.state.exportResult.includesEngineeringInputs, false, 'desktop project library backup excludes engineering inputs');
+        assert.equal(sharedSave.state.exportResult.includesApprovalState, false, 'desktop project library backup excludes approval state');
+        assert.equal(sharedSave.state.importPreview.libraryExists, false, 'desktop backup import preview does not write the library');
+        assert.equal(sharedSave.state.importPreview.latestExists, false, 'desktop backup import preview does not write the compatibility profile');
+        assert.equal(sharedSave.state.importPreview.buttonText, '確認匯入 2 筆', 'desktop backup import requires a second explicit click');
+        assert.equal(sharedSave.state.importPreview.confirming, 'true', 'desktop backup import exposes confirmation state');
+        assert.ok(sharedSave.state.importPreview.status.includes('目前清單與頁面尚未變更'), 'desktop backup import preview states non-mutating boundary');
+        assert.deepEqual(
+          sharedSave.state.importPreview.page,
+          { name: '跨工具第二案', no: 'SHARED-ALT-002', designer: '第二設計者' },
+          'desktop backup import preview does not change current page'
+        );
+        assert.equal(sharedSave.state.importCommitted.library?.profiles?.length, 2, 'desktop backup import restores both profiles after confirmation');
+        assert.ok(sharedSave.state.importCommitted.status.includes('已匯入 2 筆'), 'desktop backup import reports committed profile count');
+        assert.deepEqual(
+          sharedSave.state.importCommitted.page,
+          { name: '跨工具第二案', no: 'SHARED-ALT-002', designer: '第二設計者' },
+          'desktop backup import commit does not change current page'
+        );
         assert.equal(sharedSave.state.library?.schema, 'tool-project-meta-profile-library.v1', 'desktop multi-project library schema');
         assert.equal(sharedSave.state.library?.profiles?.length, 2, 'desktop stores two project-header profiles');
         assert.equal(sharedSave.state.options.length, 2, 'desktop project selector exposes both saved projects');
