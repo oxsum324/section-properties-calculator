@@ -445,6 +445,7 @@ async function main() {
   const deploymentManifest = await assertDeploymentManifest(base);
   await assertPublishedArtifact(base, deploymentManifest);
   const homeUrl = liveUrl(base, '結構工具箱/');
+  const auditDashboardUrl = liveUrl(base, '結構工具箱/audit-dashboard.html');
   const homeJsUrl = liveUrl(base, '結構工具箱/assets/home/home.js');
   const platformStatusUrl = liveUrl(base, '結構工具箱/assets/status/platform-status.json');
   const preflightStatusUrl = liveUrl(base, '結構工具箱/assets/status/preflight-summary.json');
@@ -453,6 +454,11 @@ async function main() {
 
   const homeHtml = await fetchText(homeUrl);
   assert.ok(homeHtml.includes('assets/home/home.js'), 'homepage references home.js');
+
+  const auditDashboardHtml = await fetchText(auditDashboardUrl);
+  assert.ok(auditDashboardHtml.includes('RC 正式附件完整性'), 'audit dashboard exposes RC formal attachment integrity');
+  assert.ok(auditDashboardHtml.includes('./assets/status/report-readiness-status.json'), 'audit dashboard reads the public report readiness snapshot');
+  assert.ok(auditDashboardHtml.includes('attachmentIntegrityWrap'), 'audit dashboard keeps the attachment integrity detail table');
 
   const homeJs = await fetchText(homeJsUrl);
   assert.ok(homeJs.includes("assets/status/platform-status.json"), 'home.js reads platform status asset');
@@ -550,13 +556,28 @@ async function main() {
       assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('補充報告 / 服務成品'), 'report readiness rendered delivery summary includes supplemental report and service evidence');
     }
   }
+  assert.equal(reportReadinessStatus.attachmentIntegrityScope, 'rc-formal-html', 'report readiness attachment integrity scope');
+  assert.equal(reportReadinessStatus.attachmentIntegrityRequired, 32, 'report readiness expects 32 RC HTML attachments');
+  assert.equal(reportReadinessStatus.attachmentIntegrityActual, reportReadinessStatus.attachmentIntegrityRequired, 'report readiness keeps every RC HTML attachment');
+  assert.equal(reportReadinessStatus.attachmentIntegrityVerified, reportReadinessStatus.attachmentIntegrityRequired, 'report readiness verifies every RC HTML attachment');
+  assert.equal(reportReadinessStatus.attachmentIntegrityIssueCount, 0, 'report readiness attachment integrity issues empty');
+  assert.equal(reportReadinessStatus.attachmentIntegrityPass, true, 'report readiness attachment integrity passes');
+  assert.match(reportReadinessStatus.attachmentIntegritySetSha256, /^[0-9a-f]{64}$/i, 'report readiness attachment integrity set hash');
+  assert.equal(reportReadinessStatus.attachmentIntegrityGroups.length, 8, 'report readiness exposes eight RC attachment groups');
+  assert.equal(reportReadinessStatus.attachmentIntegrityGroups.reduce((sum, group) => sum + group.expected, 0), 32, 'report readiness attachment group expectations total 32');
+  assert.ok(reportReadinessStatus.attachmentIntegrityGroups.every(group => group.pass && group.actual === group.expected && group.verified === group.expected), 'report readiness attachment groups all pass');
+  assert.ok(reportReadinessStatus.attachmentIntegrityGroups.every(group => /^[0-9a-f]{64}$/i.test(group.setSha256)), 'report readiness attachment group hashes are SHA-256');
+  assert.ok(reportReadinessStatus.attachmentIntegrityGroups.every(group => Array.isArray(group.artifacts) && group.artifacts.length === group.expected), 'report readiness attachment group artifact counts match');
+  assert.ok(reportReadinessStatus.attachmentIntegrityGroups.flatMap(group => group.artifacts).every(artifact => Number.isInteger(artifact.ordinal) && artifact.ordinal > 0 && artifact.bytes > 0 && /^[0-9a-f]{64}$/i.test(artifact.sha256)), 'report readiness attachment artifacts expose verified anonymous hashes');
   assert.equal(JSON.stringify(reportReadinessStatus).includes('"artifact":'), false, 'report readiness snapshot does not publish artifact fields');
+  assert.ok(reportReadinessStatus.attachmentIntegrityGroups.flatMap(group => group.artifacts).every(artifact => !Object.prototype.hasOwnProperty.call(artifact, 'name')), 'report readiness snapshot does not publish HTML delivery filenames');
   assert.equal(/\.(?:pdf|docx|xlsx)\b/i.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness snapshot does not publish delivery filenames');
   assert.ok(String(reportReadinessStatus.summary || '').includes('頁面專用閱讀狀態治理'), 'report readiness status summary includes governance counts');
   assert.ok(Array.isArray(reportReadinessStatus.details) && reportReadinessStatus.details.length >= 3, 'report readiness status details array');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness status exposes report text coverage');
   assert.ok(reportReadinessStatus.details.join(' ').includes('瀏覽器 smoke 證據'), 'report readiness status exposes report text runtime evidence');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式放行實際交付物渲染佐證'), 'report readiness status exposes actual rendered delivery evidence');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('RC 正式附件 HTML 完整性'), 'report readiness status exposes RC HTML attachment integrity');
   assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight status');
   assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness preflight source matches public preflight status');
   assert.ok(

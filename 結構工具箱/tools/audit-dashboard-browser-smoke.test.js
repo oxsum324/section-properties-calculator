@@ -49,6 +49,49 @@ const expectedGlobalGovernance = [
   { key: 'release-readiness-contract', label: '正式放行證據', value: '通過；runId fixture-full；0 catalogs；release-readiness-contract' },
   { key: 'rendered-delivery-evidence', label: '實際交付物渲染佐證', value: '通過；runId fixture-full；0 catalogs；rendered-delivery-evidence' },
 ];
+const fixtureAttachmentCounts = [
+  ['/rc-beam', 'RC 梁', 'rc-formal', 4],
+  ['/rc-column', 'RC 柱', 'rc-formal', 6],
+  ['/rc-slab', 'RC 板', 'rc-formal', 5],
+  ['/rc-wall', 'RC 牆', 'rc-formal', 4],
+  ['/rc-shear-wall', 'RC 剪力牆', 'rc-formal', 2],
+  ['/rc-foundation', 'RC 基礎', 'rc-formal', 6],
+  ['/rc-pile', '單樁承載力設計器', 'rc-formal', 3],
+  ['/rc-retrofit-section', 'RC 補強斷面', 'rc-retrofit', 2],
+];
+const fixtureAttachmentGroups = fixtureAttachmentCounts.map(([href, title, family, expected], groupIndex) => ({
+  href,
+  title,
+  family,
+  expected,
+  actual: expected,
+  verified: expected,
+  issueCount: 0,
+  pass: true,
+  setSha256: `${groupIndex + 1}`.repeat(64).slice(0, 64),
+  artifacts: Array.from({ length: expected }, (_, artifactIndex) => ({
+    ordinal: artifactIndex + 1,
+    bytes: 1000 + groupIndex * 100 + artifactIndex,
+    sha256: `${(groupIndex + artifactIndex + 1) % 10}`.repeat(64),
+  })),
+}));
+const fixtureAttachmentStatus = {
+  snapshotVersion: 1,
+  kind: 'report-readiness-status',
+  generatedAt: fixtureGeneratedAt,
+  runId: 'fixture-full',
+  pass: true,
+  failureCount: 0,
+  renderedDeliveryEvidenceRunId: 'fixture-release',
+  attachmentIntegrityScope: 'rc-formal-html',
+  attachmentIntegrityRequired: 32,
+  attachmentIntegrityActual: 32,
+  attachmentIntegrityVerified: 32,
+  attachmentIntegrityIssueCount: 0,
+  attachmentIntegrityPass: true,
+  attachmentIntegritySetSha256: 'a'.repeat(64),
+  attachmentIntegrityGroups: fixtureAttachmentGroups,
+};
 
 function fixtureOutputPath(relativePath) {
   return fixtureRoot + '/output/' + relativePath;
@@ -180,6 +223,7 @@ function preflightHistoryItem(overrides = {}) {
 }
 
 const fixtures = new Map(Object.entries({
+  '結構工具箱/assets/status/report-readiness-status.json': fixtureAttachmentStatus,
   'output/audit/platform-status.json': statusFixture('platform-fixture', ['steel', 'rc', 'core'], {
     lastSummaryHash: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
     lastSummaryJsonHash: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
@@ -676,6 +720,7 @@ function assertRequestAudit(audit, options = {}) {
     return;
   }
   const requiredLiveOutputPaths = [
+    '結構工具箱/assets/status/report-readiness-status.json',
     'output/audit/platform-status.json',
     'output/audit/platform-summary.md',
     'output/audit/platform-history.json',
@@ -726,6 +771,7 @@ function loadLiveExpected() {
     matrix: readJsonFile('output/audit/tool-maturity-matrix.json'),
     postChecks: normalizePostChecksPayload(readJsonFile('output/preflight/post-checks.json')),
     platformStatus: readJsonFile('output/audit/platform-status.json'),
+    reportReadinessStatus: readJsonFile('結構工具箱/assets/status/report-readiness-status.json'),
     componentStatuses: [
       { key: 'steel', title: '鋼構正式規範工具', status: readJsonFile('鋼構工具/output/audit/audit-status.json') },
       { key: 'rc', title: 'RC 構件工具', status: readJsonFile('鋼筋混凝土/output/audit/audit-status.json') },
@@ -1070,6 +1116,17 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         value: node.querySelector('span')?.textContent?.trim() || '',
         ok: node.classList.contains('ok'),
       }));
+      const attachmentIntegrityGroups = Array.from(document.querySelectorAll('#attachmentIntegrityWrap tbody tr')).map((row) => ({
+        title: row.querySelector('td:nth-child(1)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        family: row.querySelector('td:nth-child(2)')?.textContent?.trim() || '',
+        expected: row.querySelector('td:nth-child(3)')?.textContent?.trim() || '',
+        actual: row.querySelector('td:nth-child(4)')?.textContent?.trim() || '',
+        verified: row.querySelector('td:nth-child(5)')?.textContent?.trim() || '',
+        status: row.querySelector('td:nth-child(6)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        setHash: row.querySelector('td:nth-child(7)')?.textContent?.trim() || '',
+        artifactCount: row.querySelectorAll('td:nth-child(8) li').length,
+        artifactHashes: Array.from(row.querySelectorAll('td:nth-child(8) li code')).map((node) => node.textContent.trim()),
+      }));
       const records = rows.map((row) => {
         const links = Array.from(row.querySelectorAll('a'));
         return {
@@ -1102,6 +1159,12 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         coverageTotals,
         traceabilityCatalogCoverage,
         globalGovernance,
+        attachmentIntegrityStatus: document.getElementById('attachmentIntegrityStatus')?.textContent?.trim() || '',
+        attachmentIntegrityStatusHint: document.getElementById('attachmentIntegrityStatusHint')?.textContent?.trim() || '',
+        attachmentIntegrityCount: document.getElementById('attachmentIntegrityCount')?.textContent?.trim() || '',
+        attachmentIntegrityVerified: document.getElementById('attachmentIntegrityVerified')?.textContent?.trim() || '',
+        attachmentIntegrityHash: document.getElementById('attachmentIntegrityHash')?.textContent?.trim() || '',
+        attachmentIntegrityGroups,
         hasHistoryTable: !!document.querySelector('#preflightHistoryWrap table'),
         hasMaturityTable: !!document.querySelector('#maturityWrap table'),
         latestTime: document.getElementById('kpiLatestTime')?.textContent?.trim() || '',
@@ -1181,6 +1244,9 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
     })()`);
     const expectedRows = expectedLive ? expectedLive.summary.records.length : preflightRecords.length;
     const expectedPostCheckRows = expectedLive ? expectedLive.postChecks.length : 2;
+    const expectedAttachmentGroups = expectedLive
+      ? (expectedLive.reportReadinessStatus.attachmentIntegrityGroups || []).length
+      : fixtureAttachmentGroups.length;
     const expectedPreflightHint = expectedLive
       ? `通過 ${expectedLive.summary.passedCount} / ${expectedLive.summary.recordsCount}`
       : '通過 1 / 2';
@@ -1195,6 +1261,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
       lastState.maturityOtherGovernanceRows.length >= 1 &&
       lastState.maturityBoundaryRows.length >= 1 &&
       lastState.latestPostCheckRows.length === expectedPostCheckRows &&
+      lastState.attachmentIntegrityGroups.length === expectedAttachmentGroups &&
       lastState.freshness &&
       lastState.maturityPreflightHint.includes(expectedPreflightHint) &&
       (!expectedLive || Object.values(lastState.summaryPreviews || {}).every(value => value && !value.includes('讀取中') && !value.includes('讀取失敗'))) &&
@@ -1297,6 +1364,25 @@ function assertDashboardLiveState(state, label, expected) {
       );
     }
     assert.ok(rendered.value.includes(gate.key), `${label} live global governance preflight key ${gate.key}: ${rendered.value}`);
+  }
+  const attachmentStatus = expected.reportReadinessStatus;
+  assert.equal(state.attachmentIntegrityStatus, attachmentStatus.attachmentIntegrityPass ? '通過' : `異常 ${attachmentStatus.attachmentIntegrityIssueCount || 1} 項`, `${label} live attachment integrity status`);
+  assert.equal(state.attachmentIntegrityCount, `${attachmentStatus.attachmentIntegrityActual} / ${attachmentStatus.attachmentIntegrityRequired}`, `${label} live attachment integrity count`);
+  assert.equal(state.attachmentIntegrityVerified, `${attachmentStatus.attachmentIntegrityVerified} / ${attachmentStatus.attachmentIntegrityRequired}`, `${label} live attachment integrity verified count`);
+  assert.equal(state.attachmentIntegrityHash, String(attachmentStatus.attachmentIntegritySetSha256 || '').slice(0, 12), `${label} live attachment integrity set hash`);
+  assert.ok(state.attachmentIntegrityStatusHint.includes(`release ${attachmentStatus.renderedDeliveryEvidenceRunId || attachmentStatus.runId}`), `${label} live attachment integrity release trace`);
+  assert.equal(state.attachmentIntegrityGroups.length, attachmentStatus.attachmentIntegrityGroups.length, `${label} live attachment integrity group count`);
+  for (const group of attachmentStatus.attachmentIntegrityGroups) {
+    const rendered = state.attachmentIntegrityGroups.find(item => item.title === group.title);
+    assert.ok(rendered, `${label} live attachment integrity group rendered: ${group.title}`);
+    assert.equal(rendered.family, group.family, `${label} live attachment integrity family: ${group.title}`);
+    assert.equal(rendered.expected, String(group.expected), `${label} live attachment integrity expected: ${group.title}`);
+    assert.equal(rendered.actual, String(group.actual), `${label} live attachment integrity actual: ${group.title}`);
+    assert.equal(rendered.verified, String(group.verified), `${label} live attachment integrity verified: ${group.title}`);
+    assert.equal(rendered.status, group.pass ? '通過' : `異常 ${group.issueCount || 1} 項`, `${label} live attachment integrity group status: ${group.title}`);
+    assert.equal(rendered.setHash, String(group.setSha256 || '').slice(0, 12), `${label} live attachment integrity group hash: ${group.title}`);
+    assert.equal(rendered.artifactCount, group.artifacts.length, `${label} live attachment integrity artifact count: ${group.title}`);
+    assert.deepEqual(rendered.artifactHashes, group.artifacts.map(artifact => String(artifact.sha256 || '').slice(0, 12)), `${label} live attachment integrity artifact hashes: ${group.title}`);
   }
   assert.ok(state.maturityPreflightHint.includes(`runId ${summary.runId}`), `${label} live maturity hint runId: ${state.maturityPreflightHint}`);
   assert.ok(state.maturityPreflightHint.includes(`通過 ${summary.passedCount} / ${summary.recordsCount}`), `${label} live maturity hint pass count: ${state.maturityPreflightHint}`);
@@ -1459,6 +1545,24 @@ function assertDashboardState(state, label, expectedLive = null) {
     expectedGlobalGovernance.map((item) => ({ ...item, ok: true })),
     `${label} global governance gates rendered`
   );
+  assert.equal(state.attachmentIntegrityStatus, '通過', `${label} attachment integrity status`);
+  assert.equal(state.attachmentIntegrityCount, '32 / 32', `${label} attachment integrity count`);
+  assert.equal(state.attachmentIntegrityVerified, '32 / 32', `${label} attachment integrity verified count`);
+  assert.equal(state.attachmentIntegrityHash, 'aaaaaaaaaaaa', `${label} attachment integrity set hash`);
+  assert.ok(state.attachmentIntegrityStatusHint.includes('release fixture-release'), `${label} attachment integrity release trace`);
+  assert.equal(state.attachmentIntegrityGroups.length, 8, `${label} attachment integrity group count`);
+  for (const group of fixtureAttachmentGroups) {
+    const rendered = state.attachmentIntegrityGroups.find(item => item.title === group.title);
+    assert.ok(rendered, `${label} attachment integrity group rendered: ${group.title}`);
+    assert.equal(rendered.family, group.family, `${label} attachment integrity family: ${group.title}`);
+    assert.equal(rendered.expected, String(group.expected), `${label} attachment integrity expected: ${group.title}`);
+    assert.equal(rendered.actual, String(group.actual), `${label} attachment integrity actual: ${group.title}`);
+    assert.equal(rendered.verified, String(group.verified), `${label} attachment integrity verified: ${group.title}`);
+    assert.equal(rendered.status, '通過', `${label} attachment integrity group status: ${group.title}`);
+    assert.equal(rendered.setHash, String(group.setSha256).slice(0, 12), `${label} attachment integrity group hash: ${group.title}`);
+    assert.equal(rendered.artifactCount, group.artifacts.length, `${label} attachment integrity artifact count: ${group.title}`);
+    assert.deepEqual(rendered.artifactHashes, group.artifacts.map(artifact => artifact.sha256.slice(0, 12)), `${label} attachment integrity artifact hashes: ${group.title}`);
+  }
   assert.equal(state.maturitySourceTrace.length, 9, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
     state.maturitySourceTrace.some((item) => item.includes('formal-tools-manifest') && item.includes('1234567890ab')),

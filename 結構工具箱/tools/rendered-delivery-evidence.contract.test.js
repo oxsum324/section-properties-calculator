@@ -395,7 +395,40 @@ function validateHtmlArtifactRecord(directory, record, label) {
   if (record.calculationFingerprint) {
     assert.ok(visibleText.includes(record.calculationFingerprint), `${label} HTML artifact keeps fingerprint: ${record.htmlArtifact}`);
   }
-  return record.htmlArtifact;
+  return {
+    name: record.htmlArtifact,
+    bytes: fs.statSync(htmlArtifactPath).size,
+    sha256: sha256File(htmlArtifactPath),
+    calculationFingerprint: String(record.calculationFingerprint || ''),
+  };
+}
+
+function integritySetHash(artifacts) {
+  return createHash('sha256')
+    .update(artifacts
+      .map(artifact => `${artifact.name}\u0000${artifact.bytes}\u0000${artifact.sha256}`)
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
+function buildHtmlIntegrityGroup(tool, artifacts) {
+  const expected = Number(tool.htmlExpected);
+  assert.ok(Number.isInteger(expected) && expected > 0, `${tool.title} declares a positive HTML attachment expectation`);
+  assert.equal(artifacts.length, expected, `${tool.title} physical HTML attachment count`);
+  const verified = artifacts.filter(artifact => /^[0-9a-f]{64}$/.test(artifact.sha256) && artifact.bytes > 0).length;
+  return {
+    href: tool.href,
+    title: tool.title,
+    family: tool.family,
+    expected,
+    actual: artifacts.length,
+    verified,
+    issueCount: Math.max(0, expected - verified),
+    pass: artifacts.length === expected && verified === expected,
+    setSha256: integritySetHash(artifacts),
+    artifacts,
+  };
 }
 
 function validateFamilySummary(runDir, family, expectedKeys) {
@@ -524,6 +557,9 @@ for (const tool of inventory.tools) {
   assert.equal(tool.title, homeTool.title, `rendered delivery inventory title matches ${tool.href}`);
   assert.ok(tool.family && tool.evidenceKey, `rendered delivery inventory maps ${tool.href}`);
 }
+const rcHtmlInventory = inventory.tools.filter(tool => ['rc-formal', 'rc-retrofit'].includes(tool.family));
+assert.equal(rcHtmlInventory.length, 8, 'rendered delivery inventory maps all eight RC HTML attachment families');
+assert.equal(rcHtmlInventory.reduce((sum, tool) => sum + tool.htmlExpected, 0), 32, 'rendered delivery inventory declares 32 expected RC HTML attachments');
 
 const strictRelease = process.env.PREFLIGHT_RELEASE === '1';
 if (!strictRelease) {
@@ -562,14 +598,33 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
   assert.ok(Array.isArray(auditRecords) && auditRecords.length > 0, `${tool.title} report audit has records`);
   const portableRecords = auditRecords.map(record => record.portableHtml).filter(Boolean);
   assert.equal(portableRecords.length, auditRecords.length, `${tool.title} every report audit record has portable HTML evidence`);
-  const htmlArtifacts = portableRecords.map(record => validateHtmlArtifactRecord(rcDir, record, tool.title));
-  records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, htmlArtifacts, pageCount: pdf.pageCount, textLength: pdf.textLength });
+  const htmlIntegrity = portableRecords.map(record => validateHtmlArtifactRecord(rcDir, record, tool.title));
+  const htmlArtifacts = htmlIntegrity.map(item => item.name);
+  const integrity = buildHtmlIntegrityGroup(tool, htmlIntegrity);
+  records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, htmlArtifacts, htmlIntegrity, integrity, pageCount: pdf.pageCount, textLength: pdf.textLength });
 }
 
 const retrofitSummary = validateFamilySummary(runDir, 'rc-retrofit', ['rc-retrofit-section']);
 const retrofitTool = inventory.tools.find(tool => tool.family === 'rc-retrofit');
 const retrofitEvidence = retrofitSummary.records.find(record => record.key === retrofitTool.evidenceKey);
-records.push({ href: retrofitTool.href, title: retrofitTool.title, family: retrofitTool.family, evidenceKey: retrofitTool.evidenceKey, artifact: retrofitEvidence.artifact });
+const retrofitEvidenceDir = path.join(runDir, 'rendered-delivery-evidence', 'rc-retrofit');
+const retrofitHtmlIntegrity = retrofitSummary.records
+  .filter(record => record.htmlArtifact)
+  .map(record => validateHtmlArtifactRecord(retrofitEvidenceDir, {
+    htmlArtifact: record.htmlArtifact,
+    calculationFingerprint: record.portableHtml?.calculationFingerprint || '',
+  }, retrofitTool.title));
+const retrofitIntegrity = buildHtmlIntegrityGroup(retrofitTool, retrofitHtmlIntegrity);
+records.push({
+  href: retrofitTool.href,
+  title: retrofitTool.title,
+  family: retrofitTool.family,
+  evidenceKey: retrofitTool.evidenceKey,
+  artifact: retrofitEvidence.artifact,
+  htmlArtifacts: retrofitHtmlIntegrity.map(item => item.name),
+  htmlIntegrity: retrofitHtmlIntegrity,
+  integrity: retrofitIntegrity,
+});
 
 const stoneSummary = validateFamilySummary(runDir, 'stone-formal', ['stone-fixing']);
 const stoneTool = inventory.tools.find(tool => tool.family === 'stone-formal');
@@ -1016,8 +1071,28 @@ supplementalRecords.push({
 
 assert.equal(records.length, inventory.tools.length, 'release rendered evidence resolves every homepage formal tool');
 assert.equal(supplementalRecords.length, 2, 'release rendered evidence resolves every supplemental report and service artifact');
-const aggregate = {
+const attachmentIntegrityGroups = records
+  .filter(record => ['rc-formal', 'rc-retrofit'].includes(record.family))
+  .map(record => record.integrity);
+assert.equal(attachmentIntegrityGroups.length, 8, 'release rendered evidence resolves eight RC attachment integrity groups');
+const attachmentIntegrity = {
   schemaVersion: 1,
+  scope: 'rc-formal-html',
+  required: attachmentIntegrityGroups.reduce((sum, group) => sum + group.expected, 0),
+  actual: attachmentIntegrityGroups.reduce((sum, group) => sum + group.actual, 0),
+  verified: attachmentIntegrityGroups.reduce((sum, group) => sum + group.verified, 0),
+  issueCount: attachmentIntegrityGroups.reduce((sum, group) => sum + group.issueCount, 0),
+  pass: attachmentIntegrityGroups.every(group => group.pass),
+  setSha256: integritySetHash(attachmentIntegrityGroups.flatMap(group => group.artifacts)),
+  groups: attachmentIntegrityGroups,
+};
+assert.equal(attachmentIntegrity.required, 32, 'release rendered evidence expects 32 RC HTML attachments');
+assert.equal(attachmentIntegrity.actual, attachmentIntegrity.required, 'release rendered evidence keeps every expected RC HTML attachment');
+assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'release rendered evidence verifies every RC HTML attachment');
+assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
+assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
+const aggregate = {
+  schemaVersion: 2,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -1026,7 +1101,8 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass,
+  attachmentIntegrity,
   records,
   supplementalRecords,
 };

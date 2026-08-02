@@ -645,6 +645,36 @@
     </div>
   </div>
 
+  <div class="card" id="attachmentIntegrityCard">
+    <h2>RC 正式附件完整性</h2>
+    <p class="boundary-note"><strong>證據邊界：</strong>本區只顯示正式放行時保存的 HTML 附件數量與 SHA-256，不會寫入計算書、列印或 PDF，也不取代設計者核可。</p>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">完整性狀態</div>
+        <div class="kpi-value" id="attachmentIntegrityStatus">讀取中</div>
+        <div class="kpi-hint" id="attachmentIntegrityStatusHint">依最近一次正式放行證據判讀。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">實際 / 預期</div>
+        <div class="kpi-value" id="attachmentIntegrityCount">讀取中</div>
+        <div class="kpi-hint">八類 RC 正式附件 HTML 的實際檔案數與清冊預期數。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">已驗證 / 預期</div>
+        <div class="kpi-value" id="attachmentIntegrityVerified">讀取中</div>
+        <div class="kpi-hint">已逐檔確認正式附件文字、計算指紋與 SHA-256。</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">附件集合 hash</div>
+        <div class="kpi-value" id="attachmentIntegrityHash">讀取中</div>
+        <div class="kpi-hint">所有 RC HTML 檔名、大小與雜湊組成的集合指紋。</div>
+      </div>
+    </div>
+    <div class="history-table-wrap" id="attachmentIntegrityWrap" aria-label="RC Formal Attachment Integrity">
+      <div class="history-empty">讀取 RC 正式附件完整性中。</div>
+    </div>
+  </div>
+
   <div class="card">
     <h2>交付前檢查歷程</h2>
     <div class="kpi-grid">
@@ -1649,6 +1679,77 @@
       `;
     }
 
+    function renderAttachmentIntegrity(payload) {
+      const wrap = document.getElementById('attachmentIntegrityWrap');
+      const groups = Array.isArray(payload?.attachmentIntegrityGroups) ? payload.attachmentIntegrityGroups : [];
+      const declared = Number.isInteger(payload?.attachmentIntegrityRequired);
+      if (!declared) {
+        setKpiValue('attachmentIntegrityStatus', '無資料', 'warn');
+        setKpiValue('attachmentIntegrityCount', '-', 'warn');
+        setKpiValue('attachmentIntegrityVerified', '-', 'warn');
+        setKpiValue('attachmentIntegrityHash', '-', 'warn');
+        setHint('attachmentIntegrityStatusHint', '目前公開狀態尚未包含 RC HTML 完整性證據。');
+        if (wrap) wrap.innerHTML = '<div class="history-empty">目前尚無 RC 正式附件完整性證據。</div>';
+        return;
+      }
+
+      const required = Number(payload.attachmentIntegrityRequired || 0);
+      const actual = Number(payload.attachmentIntegrityActual || 0);
+      const verified = Number(payload.attachmentIntegrityVerified || 0);
+      const issues = Number(payload.attachmentIntegrityIssueCount || 0);
+      const pass = payload.attachmentIntegrityPass === true && required > 0 && actual === required && verified === required && issues === 0;
+      setKpiValue('attachmentIntegrityStatus', pass ? '通過' : `異常 ${issues || 1} 項`, pass ? 'ok' : 'fail');
+      setKpiValue('attachmentIntegrityCount', `${actual} / ${required}`, actual === required ? 'ok' : 'fail');
+      setKpiValue('attachmentIntegrityVerified', `${verified} / ${required}`, verified === required ? 'ok' : 'fail');
+      setKpiValue('attachmentIntegrityHash', formatCommandHash(payload.attachmentIntegritySetSha256), pass ? 'ok' : 'warn');
+      setHint('attachmentIntegrityStatusHint', `release ${payload.renderedDeliveryEvidenceRunId || payload.runId || '-'}；八類 RC；問題 ${issues} 項。`);
+
+      if (!wrap) return;
+      if (!groups.length) {
+        wrap.innerHTML = '<div class="history-empty">完整性摘要未包含各工具明細。</div>';
+        return;
+      }
+      wrap.innerHTML = `
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>工具</th>
+              <th>族群</th>
+              <th>預期</th>
+              <th>實際</th>
+              <th>已驗證</th>
+              <th>狀態</th>
+              <th>集合 hash</th>
+              <th>附件檔案與 SHA-256</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${groups.map((group) => {
+              const artifacts = Array.isArray(group.artifacts) ? group.artifacts : [];
+              const groupPass = group.pass === true
+                && Number(group.actual) === Number(group.expected)
+                && Number(group.verified) === Number(group.expected);
+              const artifactRows = artifacts.map((artifact) => `
+                <li><span>${escapeHtml(`附件 ${artifact.ordinal || '-'}`)}</span><br><code>${escapeHtml(formatCommandHash(artifact.sha256))}</code> · ${escapeHtml(`${artifact.bytes || 0} bytes`)}</li>
+              `).join('');
+              return `
+                <tr data-attachment-family="${escapeAttr(group.family || '-')}">
+                  <td>${escapeHtml(group.title || group.href || '-')}</td>
+                  <td><code>${escapeHtml(group.family || '-')}</code></td>
+                  <td>${escapeHtml(`${group.expected ?? 0}`)}</td>
+                  <td>${escapeHtml(`${group.actual ?? 0}`)}</td>
+                  <td>${escapeHtml(`${group.verified ?? 0}`)}</td>
+                  <td><span class="${groupPass ? 'history-pass' : 'history-fail'}">${groupPass ? '通過' : `異常 ${group.issueCount || 1} 項`}</span></td>
+                  <td><code>${escapeHtml(formatCommandHash(group.setSha256))}</code></td>
+                  <td><details><summary>${escapeHtml(`${artifacts.length} 份附件`)}</summary><ul>${artifactRows}</ul></details></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
     function parseGeneratedAt(value) {
       if (!value) return null;
       const isoLike = String(value).replace(' ', 'T');
@@ -1857,12 +1958,19 @@
         } catch (error) {
           renderMaturityMatrix(null);
         }
+        try {
+          const reportReadinessStatus = await fetchJson('./assets/status/report-readiness-status.json');
+          renderAttachmentIntegrity(reportReadinessStatus);
+        } catch (error) {
+          renderAttachmentIntegrity(null);
+        }
       } else {
         renderHistory(null);
         renderPreflightHistory(null);
         renderPreflightRecordLinks(null);
         renderPreflightPostChecks(null);
         renderMaturityMatrix(null);
+        renderAttachmentIntegrity(null);
       }
       updateLoadedAtLabel();
       scheduleAutoRefresh();

@@ -1,7 +1,7 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-02T15:07:49.815Z",
+  "generatedAt": "2026-08-02T15:27:14.284Z",
   "runId": "20260802-224634",
   "pass": true,
   "failureCount": 0,
@@ -13,6 +13,7 @@
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
     "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260802-224634。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "RC 正式附件 HTML 完整性：預期 32 份、實際 32 份、已驗證 32 份；集合 SHA-256 6ea0b2cf6d70。本項是放行證據，不會寫入計算書、列印或 PDF。",
     "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
     "正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。"
@@ -93,7 +94,7 @@
   ],
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 31 / 31；補充報告 / 服務成品 2 / 2。",
   "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260802-224634/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
-  "renderedDeliveryEvidenceSourceHash": "54ff1d038a60951c5fa26b5d47195ab7e3c0f3845b5c9323e06926901f6fae03",
+  "renderedDeliveryEvidenceSourceHash": "475c651283cfef3e284dad77e588d7dc6817d2d82287067c89916c2e7e856ae3",
   "supplementalDeliveryEvidenceRequired": 2,
   "supplementalDeliveryEvidenceComplete": 2,
   "supplementalDeliveryEvidenceIssueCount": 0,
@@ -108,6 +109,279 @@
     }
   ],
   "supplementalDeliveryEvidenceSummary": "補充報告 / 服務實際交付物渲染：2 / 2。",
+  "attachmentIntegrityScope": "rc-formal-html",
+  "attachmentIntegrityRequired": 32,
+  "attachmentIntegrityActual": 32,
+  "attachmentIntegrityVerified": 32,
+  "attachmentIntegrityIssueCount": 0,
+  "attachmentIntegrityPass": true,
+  "attachmentIntegritySetSha256": "6ea0b2cf6d705a0ce29816c5a415237fbd999b876ee62ac75aae3f4d6d23b015",
+  "attachmentIntegrityGroups": [
+    {
+      "href": "/rc-beam",
+      "title": "RC 梁",
+      "family": "rc-formal",
+      "expected": 4,
+      "actual": 4,
+      "verified": 4,
+      "issueCount": 0,
+      "pass": true,
+      "setSha256": "ab6826e56fb08dadd73c2e68e7da8dc8411b5c55d8f92354727048c8af61ff01",
+      "artifacts": [
+        {
+          "ordinal": 1,
+          "bytes": 46353,
+          "sha256": "a6433a0c4c5f352a39be06708ab702bf4d5323db28d3dfdd3f63917b42be6430"
+        },
+        {
+          "ordinal": 2,
+          "bytes": 48134,
+          "sha256": "17ea8bfa50a1f1eeb26e51aa303e7e069104b425f3a2d88287815b1c85f10f6c"
+        },
+        {
+          "ordinal": 3,
+          "bytes": 50602,
+          "sha256": "ed7b780efc28708e20e6d823e09009d069a88f5ad85341c1cd539d2549ba8582"
+        },
+        {
+          "ordinal": 4,
+          "bytes": 50926,
+          "sha256": "6d836c7b28a5cbfe181c2984d4dba4b4e5d76f7b8cc89b2d6c8c92e847fadd91"
+        }
+      ]
+    },
+    {
+      "href": "/rc-column",
+      "title": "RC 柱",
+      "family": "rc-formal",
+      "expected": 6,
+      "actual": 6,
+      "verified": 6,
+      "issueCount": 0,
+      "pass": true,
+      "setSha256": "b6db021c32a3c035a08656048d20acc584098d2cb89b487ff8c33f6507dd68d3",
+      "artifacts": [
+        {
+          "ordinal": 1,
+          "bytes": 98597,
+          "sha256": "2d08563a4a47a1b3df10ddfb24043cf572146539ec5182e66e1e5c67242ec500"
+        },
+        {
+          "ordinal": 2,
+          "bytes": 99179,
+          "sha256": "65d429ffbc7653f63ddef1b3c3bf461f334882d16738d0cc1dfff8bebefd8469"
+        },
+        {
+          "ordinal": 3,
+          "bytes": 99284,
+          "sha256": "51191e22d85684b4739457beb7bf915c8277c766acf304511b505915d16a84d4"
+        },
+        {
+          "ordinal": 4,
+          "bytes": 105273,
+          "sha256": "1b9dd47a32ebb674891600487676ece9e137b84c5558c3808153ca32b81d9bd3"
+        },
+        {
+          "ordinal": 5,
+          "bytes": 104796,
+          "sha256": "ad6e72062e9771521edd82c380b304b02937e46a67a3a55ee5d481b9cd368055"
+        },
+        {
+          "ordinal": 6,
+          "bytes": 100292,
+          "sha256": "7219396962a828a12d597255f044eabdb1994a133265443eb53f1a9d46cf2375"
+        }
+      ]
+    },
+    {
+      "href": "/rc-slab",
+      "title": "RC 板",
+      "family": "rc-formal",
+      "expected": 5,
+      "actual": 5,
+      "verified": 5,
+      "issueCount": 0,
+      "pass": true,
+      "setSha256": "95b67749906c7acc711db9744657ff1eaa202a856d19a78d5a1fb4a043d780db",
+      "artifacts": [
+        {
+          "ordinal": 1,
+          "bytes": 37344,
+          "sha256": "f1bf82b5b877d2719234b1cf321f4f3fb7ba45c7259e80af18c59cc369f43e80"
+        },
+        {
+          "ordinal": 2,
+          "bytes": 46526,
+          "sha256": "af553c60d1359e1d0d38e7e19674f0cd3280f320ec5c0a44f5adb01b9a7f06e8"
+        },
+        {
+          "ordinal": 3,
+          "bytes": 48179,
+          "sha256": "589e43e19796c60483ee73bae627d21b2c4b5c4531d94d086e1a035b38174d86"
+        },
+        {
+          "ordinal": 4,
+          "bytes": 48445,
+          "sha256": "12696dd911e8203cb7973da9dab3ed04de07461954b4ae1f387af2b77f0f775a"
+        },
+        {
+          "ordinal": 5,
+          "bytes": 48298,
+          "sha256": "50b80a1985d22988c61049a8d0051bd1569e6e305482e0884393dd93d4605450"
+        }
+      ]
+    },
+    {
+      "href": "/rc-wall",
+      "title": "RC 牆",
+      "family": "rc-formal",
+      "expected": 4,
+      "actual": 4,
+      "verified": 4,
+      "issueCount": 0,
+      "pass": true,
+      "setSha256": "a68e07cce162d8db2041a4090f0325e895d31ef9506c962da2e9d43b4b6534f7",
+      "artifacts": [
+        {
+          "ordinal": 1,
+          "bytes": 59858,
+          "sha256": "1ff0e4862c6ea7628f109e740d307ac6ad84355230dac5d2bea15e3b9167335a"
+        },
+        {
+          "ordinal": 2,
+          "bytes": 61186,
+          "sha256": "ff1eb5b03f6f00d521922f557be0e54d72b9f71f4cbbbce8f1682c68167980f1"
+        },
+        {
+          "ordinal": 3,
+          "bytes": 57725,
+          "sha256": "7b63a3596af21e490ed747afa1814002185ad2d8578eb3c0029211af5d0a2b66"
+        },
+        {
+          "ordinal": 4,
+          "bytes": 62866,
+          "sha256": "8f08c2ff8547c0ddd220d59bd40a6a3f2e63ea1d465d157dc53d2130e7402a2c"
+        }
+      ]
+    },
+    {
+      "href": "/rc-shear-wall",
+      "title": "RC 剪力牆",
+      "family": "rc-formal",
+      "expected": 2,
+      "actual": 2,
+      "verified": 2,
+      "issueCount": 0,
+      "pass": true,
+      "setSha256": "1e034a267d5d56477a586af5da7944050dd487a0f5f8577210165aa981ad664c",
+      "artifacts": [
+        {
+          "ordinal": 1,
+          "bytes": 43336,
+          "sha256": "e55ce009702c47229d92978ecdefd4de718e8b38bba64779b73c1c815a4dc69f"
+        },
+        {
+          "ordinal": 2,
+          "bytes": 43629,
+          "sha256": "461b761af6c4e318404cf01bb98e4b711a47256199b5b08fbe30c72ebb9a0e3e"
+        }
+      ]
+    },
+    {
+      "href": "/rc-foundation",
+      "title": "RC 基礎",
+      "family": "rc-formal",
+      "expected": 6,
+      "actual": 6,
+      "verified": 6,
+      "issueCount": 0,
+      "pass": true,
+      "setSha256": "6f3d591a1c07634acd6572e83eec97c648e38a8ab25d3ef024466a4c225b03e0",
+      "artifacts": [
+        {
+          "ordinal": 1,
+          "bytes": 24058,
+          "sha256": "9ebb3e5a38df3e62dfd0228670dbc88373737793a876cede74f355bfbb5350fa"
+        },
+        {
+          "ordinal": 2,
+          "bytes": 24035,
+          "sha256": "fc761053944d2b3040d2343fa49b1e2fddedcf9389fcac81c2fc82125f5994f2"
+        },
+        {
+          "ordinal": 3,
+          "bytes": 24046,
+          "sha256": "f9b7f533d0a9f6cecf9d0d18e838d3030e7ffe4578902552483e819ce095cd27"
+        },
+        {
+          "ordinal": 4,
+          "bytes": 21878,
+          "sha256": "ee42ed067da47e5c8dc78ad7e61676446b503759eec96635c75350790fe070c5"
+        },
+        {
+          "ordinal": 5,
+          "bytes": 21410,
+          "sha256": "8f7cb573492138101042e0158f5d69a4c5f791ecfbe2471f11e04521874fb35b"
+        },
+        {
+          "ordinal": 6,
+          "bytes": 25885,
+          "sha256": "3ba67ab7d9f50771aaaffc00d8e7fbf2131bfeac6807cc5108d2bfe0ea847bf0"
+        }
+      ]
+    },
+    {
+      "href": "/rc-pile",
+      "title": "單樁承載力設計器",
+      "family": "rc-formal",
+      "expected": 3,
+      "actual": 3,
+      "verified": 3,
+      "issueCount": 0,
+      "pass": true,
+      "setSha256": "6efe7089c859f645845fc2c7d46a0f1e41da5600cde5b4b8685b8ca07f9bb183",
+      "artifacts": [
+        {
+          "ordinal": 1,
+          "bytes": 34404,
+          "sha256": "7dd485c2138988371a4664b9a33cc4e69be917cf8f29ea7db36016a0db904d23"
+        },
+        {
+          "ordinal": 2,
+          "bytes": 35313,
+          "sha256": "1c08bf62049b327c7b4a20fb38a1db7c8c1f4ac00709aa826a4db22b5c5140bc"
+        },
+        {
+          "ordinal": 3,
+          "bytes": 34463,
+          "sha256": "e059593401a5e8247091b0247b376c5723a1a4b7f84b73aa522df86ece5e4083"
+        }
+      ]
+    },
+    {
+      "href": "/rc-retrofit-section",
+      "title": "RC 補強斷面",
+      "family": "rc-retrofit",
+      "expected": 2,
+      "actual": 2,
+      "verified": 2,
+      "issueCount": 0,
+      "pass": true,
+      "setSha256": "213904780a9761e2e6a1e8f9432b349b3e52acfa1b894a31170aca929598f706",
+      "artifacts": [
+        {
+          "ordinal": 1,
+          "bytes": 34336,
+          "sha256": "19e09a9adddcdc783e2d79c0629fb10ac850546e095ca16d8ae16517ebf70cab"
+        },
+        {
+          "ordinal": 2,
+          "bytes": 91452,
+          "sha256": "f20c42978381833bc1e39c1c04734b37e1ef82af8755c85391c86ab1b7f9b131"
+        }
+      ]
+    }
+  ],
   "pageOnlyRoutes": [
     {
       "route": "/steel-beam",
@@ -136,5 +410,5 @@
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
   "preflightStatusSourcePath": "output/preflight/history/20260802-224634/preflight-summary.json",
-  "sourceHash": "ce39ae0b1053d3737c7c23b80181243e20c5932eec9977589c78a9eaa8771547"
+  "sourceHash": "645d2b81de8b9adeae48b70247d63582bf38b82c2e24b906a7207fe12a519564"
 }

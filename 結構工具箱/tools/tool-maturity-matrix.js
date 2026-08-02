@@ -1568,6 +1568,7 @@ function renderedDeliveryEvidencePathForRun(runId) {
 
 function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const supplementalDeclared = Number.isInteger(evidence?.supplementalRequired);
+  const attachmentIntegrityDeclared = Number(evidence?.schemaVersion) >= 2;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1580,6 +1581,14 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       Number.isInteger(evidence.supplementalComplete)
       && evidence.supplementalComplete === evidence.supplementalRequired
       && evidence.supplementalPass === true
+    ))
+    && (!attachmentIntegrityDeclared || (
+      evidence.attachmentIntegrity?.pass === true
+      && Number.isInteger(evidence.attachmentIntegrity.required)
+      && evidence.attachmentIntegrity.actual === evidence.attachmentIntegrity.required
+      && evidence.attachmentIntegrity.verified === evidence.attachmentIntegrity.required
+      && evidence.attachmentIntegrity.issueCount === 0
+      && /^[0-9a-f]{64}$/i.test(String(evidence.attachmentIntegrity.setSha256 || ''))
     ))
   );
 }
@@ -1622,6 +1631,7 @@ function resolveRenderedDeliveryEvidenceSource() {
       .sort((left, right) => left.family.localeCompare(right.family)),
     supplementalFamilies: Array.from(supplementalFamilyCounts, ([family, complete]) => ({ family, complete }))
       .sort((left, right) => left.family.localeCompare(right.family)),
+    attachmentIntegrity: evidence?.attachmentIntegrity || null,
     filePath,
     sourcePath: displayPath(filePath),
     sourceHash: sourceHashIfExists(filePath)
@@ -1712,6 +1722,20 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
   const supplementalDeliveryFamilies = Array.isArray(renderedDeliveryEvidence?.supplementalFamilies)
     ? renderedDeliveryEvidence.supplementalFamilies
     : [];
+  const attachmentIntegrity = renderedDeliveryEvidence?.attachmentIntegrity || null;
+  const attachmentIntegrityDeclared = Boolean(
+    attachmentIntegrity
+    && attachmentIntegrity.scope === 'rc-formal-html'
+    && Number.isInteger(attachmentIntegrity.required)
+  );
+  const attachmentIntegrityRequired = attachmentIntegrityDeclared ? compactNumber(attachmentIntegrity.required) : 0;
+  const attachmentIntegrityActual = attachmentIntegrityDeclared ? compactNumber(attachmentIntegrity.actual) : 0;
+  const attachmentIntegrityVerified = attachmentIntegrityDeclared ? compactNumber(attachmentIntegrity.verified) : 0;
+  const attachmentIntegrityIssueCount = !attachmentIntegrityDeclared
+    ? 0
+    : attachmentIntegrity.pass === true
+      ? Math.max(0, attachmentIntegrityRequired - attachmentIntegrityVerified)
+      : Math.max(1, compactNumber(attachmentIntegrity.issueCount) || attachmentIntegrityRequired - attachmentIntegrityVerified);
   const renderedDeliverySummary = supplementalDeliveryDeclared
     ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
@@ -1722,6 +1746,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
     `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。`,
     `正式放行實際交付物渲染佐證：${renderedDeliveryComplete} / ${renderedDeliveryRequired} 個首頁正式工具已完成，涵蓋 ${renderedDeliveryFamilies.length} 個工具家族${supplementalDeliveryDeclared ? `；另有 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired} 個矩陣外報告 / 服務成品，涵蓋 ${supplementalDeliveryFamilies.length} 個補充家族` : ''}；證據來自 release ${String(renderedDeliveryPayload?.runId || '-')}。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。`,
+    ...(attachmentIntegrityDeclared ? [`RC 正式附件 HTML 完整性：預期 ${attachmentIntegrityRequired} 份、實際 ${attachmentIntegrityActual} 份、已驗證 ${attachmentIntegrityVerified} 份；集合 SHA-256 ${String(attachmentIntegrity.setSha256 || '').slice(0, 12)}。本項是放行證據，不會寫入計算書、列印或 PDF。`] : []),
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
     '正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準。'
@@ -1731,8 +1756,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -1765,6 +1790,35 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       supplementalDeliveryEvidenceIssueCount: supplementalDeliveryIssueCount,
       supplementalDeliveryEvidenceFamilies: supplementalDeliveryFamilies,
       supplementalDeliveryEvidenceSummary: `補充報告 / 服務實際交付物渲染：${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`,
+    } : {}),
+    ...(attachmentIntegrityDeclared ? {
+      attachmentIntegrityScope: String(attachmentIntegrity.scope || ''),
+      attachmentIntegrityRequired,
+      attachmentIntegrityActual,
+      attachmentIntegrityVerified,
+      attachmentIntegrityIssueCount,
+      attachmentIntegrityPass: attachmentIntegrity.pass === true,
+      attachmentIntegritySetSha256: String(attachmentIntegrity.setSha256 || ''),
+      attachmentIntegrityGroups: Array.isArray(attachmentIntegrity.groups)
+        ? attachmentIntegrity.groups.map(group => ({
+          href: String(group.href || ''),
+          title: String(group.title || ''),
+          family: String(group.family || ''),
+          expected: compactNumber(group.expected),
+          actual: compactNumber(group.actual),
+          verified: compactNumber(group.verified),
+          issueCount: compactNumber(group.issueCount),
+          pass: group.pass === true,
+          setSha256: String(group.setSha256 || ''),
+          artifacts: Array.isArray(group.artifacts)
+            ? group.artifacts.map((artifact, index) => ({
+              ordinal: index + 1,
+              bytes: compactNumber(artifact.bytes),
+              sha256: String(artifact.sha256 || ''),
+            }))
+            : [],
+        }))
+        : [],
     } : {}),
     pageOnlyRoutes: pageOnlyRoutes.map(item => ({
       route: String(item.route || ''),
@@ -2059,6 +2113,34 @@ function checkMatrix(payload, markdown, options = {}) {
       assert.ok(String(homepageReportReadinessStatus.supplementalDeliveryEvidenceSummary || '').includes('補充報告 / 服務實際交付物渲染'), 'homepage report readiness supplemental delivery summary');
       assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('補充報告 / 服務成品'), 'homepage report readiness rendered delivery summary includes supplemental report and service evidence');
     }
+  }
+  if (Number.isInteger(homepageReportReadinessStatus.attachmentIntegrityRequired)) {
+    assert.equal(homepageReportReadinessStatus.attachmentIntegrityScope, 'rc-formal-html', 'homepage report readiness attachment integrity scope');
+    assert.equal(homepageReportReadinessStatus.attachmentIntegrityRequired, 32, 'homepage report readiness expects 32 RC HTML attachments');
+    assert.equal(homepageReportReadinessStatus.attachmentIntegrityActual, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness keeps every RC HTML attachment');
+    assert.equal(homepageReportReadinessStatus.attachmentIntegrityVerified, homepageReportReadinessStatus.attachmentIntegrityRequired, 'homepage report readiness verifies every RC HTML attachment');
+    assert.equal(homepageReportReadinessStatus.attachmentIntegrityIssueCount, 0, 'homepage report readiness attachment integrity issues empty');
+    assert.equal(homepageReportReadinessStatus.attachmentIntegrityPass, true, 'homepage report readiness attachment integrity passes');
+    assert.match(homepageReportReadinessStatus.attachmentIntegritySetSha256, /^[0-9a-f]{64}$/i, 'homepage report readiness attachment integrity set hash');
+    assert.equal(Array.isArray(homepageReportReadinessStatus.attachmentIntegrityGroups), true, 'homepage report readiness attachment integrity groups array');
+    assert.equal(homepageReportReadinessStatus.attachmentIntegrityGroups.length, 8, 'homepage report readiness exposes eight RC attachment integrity groups');
+    assert.equal(homepageReportReadinessStatus.attachmentIntegrityGroups.reduce((sum, group) => sum + group.expected, 0), 32, 'homepage report readiness attachment group expectations total 32');
+    for (const group of homepageReportReadinessStatus.attachmentIntegrityGroups) {
+      assert.equal(group.actual, group.expected, `homepage report readiness attachment count matches: ${group.title}`);
+      assert.equal(group.verified, group.expected, `homepage report readiness attachment verification matches: ${group.title}`);
+      assert.equal(group.issueCount, 0, `homepage report readiness attachment issues empty: ${group.title}`);
+      assert.equal(group.pass, true, `homepage report readiness attachment group passes: ${group.title}`);
+      assert.match(group.setSha256, /^[0-9a-f]{64}$/i, `homepage report readiness attachment group set hash: ${group.title}`);
+      assert.equal(Array.isArray(group.artifacts), true, `homepage report readiness attachment artifacts array: ${group.title}`);
+      assert.equal(group.artifacts.length, group.expected, `homepage report readiness attachment artifacts count: ${group.title}`);
+      for (const artifact of group.artifacts) {
+        assert.equal(Object.prototype.hasOwnProperty.call(artifact, 'name'), false, `homepage report readiness does not expose attachment filename: ${group.title}`);
+        assert.ok(Number.isInteger(artifact.ordinal) && artifact.ordinal > 0, `homepage report readiness attachment artifact ordinal: ${group.title}`);
+        assert.ok(artifact.bytes > 0, `homepage report readiness attachment artifact bytes: ${group.title} #${artifact.ordinal}`);
+        assert.match(artifact.sha256, /^[0-9a-f]{64}$/i, `homepage report readiness attachment artifact hash: ${group.title} #${artifact.ordinal}`);
+      }
+    }
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('RC 正式附件 HTML 完整性'), 'homepage report readiness details include RC HTML attachment integrity');
   }
   assert.equal(homepageReportReadinessStatus.runId, homepagePreflightStatus.runId, 'homepage report readiness runId matches preflight status runId');
   assert.equal(homepageReportReadinessStatus.preflightStatusSourcePath, homepagePreflightStatus.sourcePath, 'homepage report readiness names preflight status source');
