@@ -186,6 +186,19 @@
   .history-warn { color: #92400e; font-weight: 800; }
   .history-fail { color: #991b1b; font-weight: 800; }
   .attachment-integrity-action { display: block; margin-top: 4px; color: #7c2d12; font-size: 0.82rem; line-height: 1.45; }
+  .attachment-source-link {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 6px;
+    padding: 5px 9px;
+    border: 1px solid #c2410c;
+    border-radius: 8px;
+    color: #9a3412;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-decoration: none;
+  }
+  .attachment-source-link:hover { background: #fff7ed; text-decoration: underline; }
   .attachment-remediation-toolbar {
     display: flex;
     align-items: center;
@@ -1767,6 +1780,20 @@
       return actions[code] || '停止使用該附件，回來源工具重新輸出並重跑正式 release。';
     }
 
+    function attachmentSourceToolHref(route) {
+      const sourceTools = {
+        '/rc-beam': '../鋼筋混凝土/tools/beam.html',
+        '/rc-column': '../鋼筋混凝土/tools/column.html',
+        '/rc-slab': '../鋼筋混凝土/tools/slab.html',
+        '/rc-wall': '../鋼筋混凝土/tools/wall.html',
+        '/rc-shear-wall': '../鋼筋混凝土/tools/shear-wall.html',
+        '/rc-foundation': '../鋼筋混凝土/tools/foundation.html',
+        '/rc-pile': '../鋼筋混凝土/tools/single-pile-designer.html',
+        '/rc-retrofit-section': '../RC補強斷面性質.html',
+      };
+      return sourceTools[String(route || '').trim()] || '';
+    }
+
     let attachmentRemediationChecklist = '';
 
     function checklistSingleLine(value, fallback) {
@@ -1906,6 +1933,9 @@
               const groupPass = group.pass === true
                 && Number(group.actual) === Number(group.expected)
                 && Number(group.verified) === Number(group.expected);
+              const sourceToolHref = payload.attachmentIntegrityDiagnostic === true && !groupPass
+                ? attachmentSourceToolHref(group.href)
+                : '';
               const artifactRows = artifacts.map((artifact) => {
                 const issueCode = attachmentArtifactIssueCode(artifact);
                 const statusText = issueCode ? attachmentIntegrityIssueLabel(issueCode) : '已驗證';
@@ -1920,7 +1950,10 @@
               }).join('');
               return `
                 <tr data-attachment-family="${escapeAttr(group.family || '-')}">
-                  <td>${escapeHtml(group.title || group.href || '-')}</td>
+                  <td>
+                    <span data-attachment-tool-title>${escapeHtml(group.title || group.href || '-')}</span>
+                    ${sourceToolHref ? `<br><a class="attachment-source-link screen-only" data-attachment-source-route="${escapeAttr(group.href || '')}" href="${escapeAttr(sourceToolHref)}" target="_blank" rel="noreferrer">開啟來源工具</a>` : ''}
+                  </td>
                   <td><code>${escapeHtml(group.family || '-')}</code></td>
                   <td>${escapeHtml(`${group.expected ?? 0}`)}</td>
                   <td>${escapeHtml(`${group.actual ?? 0}`)}</td>

@@ -1155,7 +1155,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         ok: node.classList.contains('ok'),
       }));
       const attachmentIntegrityGroups = Array.from(document.querySelectorAll('#attachmentIntegrityWrap tbody tr')).map((row) => ({
-        title: row.querySelector('td:nth-child(1)')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+        title: row.querySelector('[data-attachment-tool-title]')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
         family: row.querySelector('td:nth-child(2)')?.textContent?.trim() || '',
         expected: row.querySelector('td:nth-child(3)')?.textContent?.trim() || '',
         actual: row.querySelector('td:nth-child(4)')?.textContent?.trim() || '',
@@ -1170,6 +1170,9 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
           failed: node.classList.contains('history-fail'),
         })),
         artifactActions: Array.from(row.querySelectorAll('td:nth-child(8) li')).map((node) => node.querySelector('[data-integrity-action]')?.textContent?.trim() || ''),
+        sourceToolText: row.querySelector('[data-attachment-source-route]')?.textContent?.trim() || '',
+        sourceToolHref: row.querySelector('[data-attachment-source-route]')?.getAttribute('href') || '',
+        sourceToolRoute: row.querySelector('[data-attachment-source-route]')?.getAttribute('data-attachment-source-route') || '',
         failed: !!row.querySelector('td:nth-child(6) .history-fail'),
       }));
       const records = rows.map((row) => {
@@ -1350,17 +1353,28 @@ async function exerciseAttachmentRemediationCopy(client, sessionId) {
       if (status.startsWith('已複製') || status.startsWith('複製失敗')) break;
       await new Promise(resolve => setTimeout(resolve, 10));
     }
+    const sourceLink = document.querySelector('[data-attachment-source-route]');
+    const sourceResponse = sourceLink ? await fetch(sourceLink.href) : null;
     return {
       text: window.__copiedAttachmentRemediation,
       status: document.getElementById('attachmentRemediationCopyStatus')?.textContent?.trim() || '',
       buttonDisabled: button?.disabled ?? true,
+      sourceStatus: sourceResponse?.status || 0,
+      sourceHref: sourceLink?.getAttribute('href') || '',
+      sourceRoute: sourceLink?.getAttribute('data-attachment-source-route') || '',
     };
   })()`);
   await client.send('Emulation.setEmulatedMedia', { media: 'print' }, sessionId);
-  copied.printVisible = await evaluate(client, sessionId, `(() => {
-    const node = document.getElementById('attachmentRemediationToolbar');
-    return !!node && node.getClientRects().length > 0;
+  const printState = await evaluate(client, sessionId, `(() => {
+    const toolbar = document.getElementById('attachmentRemediationToolbar');
+    const sourceLink = document.querySelector('[data-attachment-source-route]');
+    return {
+      toolbarVisible: !!toolbar && toolbar.getClientRects().length > 0,
+      sourceLinkVisible: !!sourceLink && sourceLink.getClientRects().length > 0,
+    };
   })()`);
+  copied.printVisible = printState.toolbarVisible;
+  copied.sourcePrintVisible = printState.sourceLinkVisible;
   await client.send('Emulation.setEmulatedMedia', { media: 'screen' }, sessionId);
   return copied;
 }
@@ -1664,6 +1678,8 @@ function assertDashboardState(state, label, expectedLive = null) {
     assert.deepEqual(rendered.artifactHashes, group.artifacts.map(artifact => artifact.sha256.slice(0, 12)), `${label} attachment integrity artifact hashes: ${group.title}`);
     assert.deepEqual(rendered.artifactStatuses, group.artifacts.map(() => ({ code: 'verified', label: '已驗證', failed: false })), `${label} attachment integrity artifact statuses: ${group.title}`);
     assert.deepEqual(rendered.artifactActions, group.artifacts.map(() => ''), `${label} passed attachments do not show remediation actions: ${group.title}`);
+    assert.equal(rendered.sourceToolHref, '', `${label} passed/public attachment does not show source tool shortcut: ${group.title}`);
+    assert.equal(rendered.sourceToolRoute, '', `${label} passed/public attachment does not retain source route control: ${group.title}`);
   }
   assert.equal(state.maturitySourceTrace.length, 9, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
@@ -1760,10 +1776,17 @@ function assertAttachmentIntegrityFailureState(state, label) {
     '建議處置：不要重算 hash 或接受異動檔；請由原始計算重新輸出附件，再重跑正式 release。',
     '建議處置：重新輸出缺失附件，再重跑正式 release。',
   ], `${label} failed RC column attachment remediation is actionable: ${JSON.stringify(failed.artifactActions.slice(-2))}`);
+  assert.equal(failed.sourceToolText, '開啟來源工具', `${label} failed RC column exposes source tool shortcut`);
+  assert.equal(failed.sourceToolHref, '../鋼筋混凝土/tools/column.html', `${label} failed RC column shortcut uses the controlled local file route`);
+  assert.equal(failed.sourceToolRoute, '/rc-column', `${label} failed RC column shortcut retains the governed clean route identity`);
   const copied = state.attachmentRemediationCopy;
   assert.ok(copied, `${label} remediation checklist copy was exercised`);
   assert.equal(copied.buttonDisabled, false, `${label} remediation copy button is restored after copying`);
   assert.equal(copied.printVisible, false, `${label} remediation copy control is excluded from print media`);
+  assert.equal(copied.sourcePrintVisible, false, `${label} source tool shortcut is excluded from print media`);
+  assert.equal(copied.sourceStatus, 200, `${label} controlled RC source tool shortcut resolves locally`);
+  assert.equal(copied.sourceHref, '../鋼筋混凝土/tools/column.html', `${label} exercised source tool shortcut keeps controlled href`);
+  assert.equal(copied.sourceRoute, '/rc-column', `${label} exercised source tool shortcut keeps governed route identity`);
   assert.equal(copied.status, '已複製 1 份本機處置清單；未包含檔名、路徑、hash 或 bytes。', `${label} remediation copy confirms privacy boundary`);
   assert.equal(copied.text, [
     '附件完整性失敗處置清單',
@@ -1786,6 +1809,7 @@ function assertAttachmentIntegrityFailureState(state, label) {
     assert.equal(group.failed, false, `${label} unaffected attachment group has no failure tone: ${group.title}`);
     assert.ok(group.artifactStatuses.every(item => item.code === 'verified' && item.label === '已驗證' && item.failed === false), `${label} unaffected attachment artifacts remain verified: ${group.title}`);
     assert.ok(group.artifactActions.every(item => item === ''), `${label} unaffected attachment artifacts do not show remediation: ${group.title}`);
+    assert.equal(group.sourceToolHref, '', `${label} unaffected attachment group has no source tool shortcut: ${group.title}`);
   }
 }
 

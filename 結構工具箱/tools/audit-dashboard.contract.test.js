@@ -230,6 +230,9 @@ dashboardScripts.forEach((match, index) => {
   '不含檔名、路徑、hash 或 bytes',
   'attachmentRemediationToolbar',
   'screen-only',
+  'attachmentSourceToolHref',
+  'data-attachment-source-route',
+  '開啟來源工具',
   '附件檔案與 SHA-256',
   '不會寫入計算書、列印或 PDF',
   'data-governance-key',
@@ -334,6 +337,21 @@ dashboardScripts.forEach((match, index) => {
   'JSON hash',
   '來源'
 ].forEach(needle => assertIncludes(dashboard, needle, 'audit dashboard preflight history'));
+
+[
+  ['/rc-beam', '../鋼筋混凝土/tools/beam.html', '鋼筋混凝土/tools/beam.html'],
+  ['/rc-column', '../鋼筋混凝土/tools/column.html', '鋼筋混凝土/tools/column.html'],
+  ['/rc-slab', '../鋼筋混凝土/tools/slab.html', '鋼筋混凝土/tools/slab.html'],
+  ['/rc-wall', '../鋼筋混凝土/tools/wall.html', '鋼筋混凝土/tools/wall.html'],
+  ['/rc-shear-wall', '../鋼筋混凝土/tools/shear-wall.html', '鋼筋混凝土/tools/shear-wall.html'],
+  ['/rc-foundation', '../鋼筋混凝土/tools/foundation.html', '鋼筋混凝土/tools/foundation.html'],
+  ['/rc-pile', '../鋼筋混凝土/tools/single-pile-designer.html', '鋼筋混凝土/tools/single-pile-designer.html'],
+  ['/rc-retrofit-section', '../RC補強斷面性質.html', 'RC補強斷面性質.html'],
+].forEach(([route, href, sourceFile]) => {
+  assertIncludes(dashboard, `'${route}': '${href}'`, `attachment source whitelist ${route}`);
+  assert.ok(fs.existsSync(repoFile(sourceFile)), `attachment source file exists: ${sourceFile}`);
+});
+assertIncludes(dashboard, "return sourceTools[String(route || '').trim()] || '';", 'attachment source whitelist rejects unknown routes');
 
 const preflightTools = readText(repoFile('preflight-tools.ps1'));
 [
