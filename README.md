@@ -95,7 +95,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - 工具成熟度矩陣產生器：
   [結構工具箱/tools/tool-maturity-matrix.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/tool-maturity-matrix.js:1)
   - 合併正式工具與局部快算 manifest，輸出 `reportTextSmoke` / `報告可讀文字抽檢`、`documentState` / `計算書文件狀態`、golden case、JSON round-trip、reference traceability 等治理覆蓋率，讓首頁與巡檢儀表板能看見報告可讀性及內部審閱／正式附件核可邊界證據，但不把頁面閱讀狀態明細寫入計算書或列印 PDF。
-  - 最近一次正式放行另把八類 RC 的 HTML 附件清冊固定為梁 4、柱 6、板 5、牆 4、剪力牆 2、基礎 6、單樁 3、補強 2，共 32 份；逐檔核對正式狀態、計算指紋、位元組數與 SHA-256。巡檢儀表板顯示各類預期／實際／已驗證數、集合 hash 與匿名附件 hash；真實檔名只留在私人放行證據，不寫入計算書、列印、PDF 或公開狀態。
+  - 最近一次正式放行另把八類 RC 的 HTML 附件清冊固定為梁 4、柱 6、板 5、牆 4、剪力牆 2、基礎 6、單樁 3、補強 2，共 32 份；逐檔核對正式狀態、計算指紋、位元組數與 SHA-256。巡檢儀表板顯示各類預期／實際／已驗證數、集合 hash 與匿名附件 hash；若數量、驗證或 hash 異常，須紅標到實際異常的 RC 類別，桌面與手機版皆受瀏覽器回歸保護。真實檔名只留在私人放行證據，不寫入計算書、列印、PDF 或公開狀態。
   - 每份 RC 正式附件在渲染完成時即把 bytes 與 SHA-256 寫入當輪 audit／summary；release gate 必須重新讀取實體 HTML 與原始渲染紀錄比對。`html-attachment-integrity` 負向契約固定證明附件遭刪除、截短或等長改寫時皆會阻擋，不得把異動後重新計算的雜湊冒充原始產出證據。
 - GitHub Pages deploy / live smoke：
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)

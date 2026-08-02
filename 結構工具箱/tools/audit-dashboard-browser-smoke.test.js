@@ -92,6 +92,34 @@ const fixtureAttachmentStatus = {
   attachmentIntegritySetSha256: 'a'.repeat(64),
   attachmentIntegrityGroups: fixtureAttachmentGroups,
 };
+const fixtureAttachmentFailureGroups = fixtureAttachmentGroups.map((group) => {
+  const artifacts = group.artifacts.map(artifact => ({ ...artifact }));
+  if (group.href !== '/rc-column') return { ...group, artifacts };
+  return {
+    ...group,
+    actual: 5,
+    verified: 4,
+    issueCount: 2,
+    pass: false,
+    setSha256: 'f'.repeat(64),
+    artifacts: artifacts.slice(0, 5).map((artifact, index) => (
+      index === 4 ? { ...artifact, sha256: '' } : artifact
+    )),
+  };
+});
+const fixtureAttachmentFailureStatus = {
+  ...fixtureAttachmentStatus,
+  runId: 'fixture-integrity-failure',
+  pass: false,
+  failureCount: 2,
+  renderedDeliveryEvidenceRunId: 'fixture-tampered-release',
+  attachmentIntegrityActual: 31,
+  attachmentIntegrityVerified: 30,
+  attachmentIntegrityIssueCount: 2,
+  attachmentIntegrityPass: false,
+  attachmentIntegritySetSha256: 'b'.repeat(64),
+  attachmentIntegrityGroups: fixtureAttachmentFailureGroups,
+};
 
 function fixtureOutputPath(relativePath) {
   return fixtureRoot + '/output/' + relativePath;
@@ -1126,6 +1154,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         setHash: row.querySelector('td:nth-child(7)')?.textContent?.trim() || '',
         artifactCount: row.querySelectorAll('td:nth-child(8) li').length,
         artifactHashes: Array.from(row.querySelectorAll('td:nth-child(8) li code')).map((node) => node.textContent.trim()),
+        failed: !!row.querySelector('td:nth-child(6) .history-fail'),
       }));
       const records = rows.map((row) => {
         const links = Array.from(row.querySelectorAll('a'));
@@ -1160,9 +1189,12 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         traceabilityCatalogCoverage,
         globalGovernance,
         attachmentIntegrityStatus: document.getElementById('attachmentIntegrityStatus')?.textContent?.trim() || '',
+        attachmentIntegrityStatusFail: document.getElementById('attachmentIntegrityStatus')?.classList.contains('fail') || false,
         attachmentIntegrityStatusHint: document.getElementById('attachmentIntegrityStatusHint')?.textContent?.trim() || '',
         attachmentIntegrityCount: document.getElementById('attachmentIntegrityCount')?.textContent?.trim() || '',
+        attachmentIntegrityCountFail: document.getElementById('attachmentIntegrityCount')?.classList.contains('fail') || false,
         attachmentIntegrityVerified: document.getElementById('attachmentIntegrityVerified')?.textContent?.trim() || '',
+        attachmentIntegrityVerifiedFail: document.getElementById('attachmentIntegrityVerified')?.classList.contains('fail') || false,
         attachmentIntegrityHash: document.getElementById('attachmentIntegrityHash')?.textContent?.trim() || '',
         attachmentIntegrityGroups,
         hasHistoryTable: !!document.querySelector('#preflightHistoryWrap table'),
@@ -1546,8 +1578,11 @@ function assertDashboardState(state, label, expectedLive = null) {
     `${label} global governance gates rendered`
   );
   assert.equal(state.attachmentIntegrityStatus, '通過', `${label} attachment integrity status`);
+  assert.equal(state.attachmentIntegrityStatusFail, false, `${label} attachment integrity status is not failed`);
   assert.equal(state.attachmentIntegrityCount, '32 / 32', `${label} attachment integrity count`);
+  assert.equal(state.attachmentIntegrityCountFail, false, `${label} attachment integrity count is not failed`);
   assert.equal(state.attachmentIntegrityVerified, '32 / 32', `${label} attachment integrity verified count`);
+  assert.equal(state.attachmentIntegrityVerifiedFail, false, `${label} attachment integrity verified count is not failed`);
   assert.equal(state.attachmentIntegrityHash, 'aaaaaaaaaaaa', `${label} attachment integrity set hash`);
   assert.ok(state.attachmentIntegrityStatusHint.includes('release fixture-release'), `${label} attachment integrity release trace`);
   assert.equal(state.attachmentIntegrityGroups.length, 8, `${label} attachment integrity group count`);
@@ -1559,6 +1594,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     assert.equal(rendered.actual, String(group.actual), `${label} attachment integrity actual: ${group.title}`);
     assert.equal(rendered.verified, String(group.verified), `${label} attachment integrity verified: ${group.title}`);
     assert.equal(rendered.status, '通過', `${label} attachment integrity group status: ${group.title}`);
+    assert.equal(rendered.failed, false, `${label} attachment integrity group is not failed: ${group.title}`);
     assert.equal(rendered.setHash, String(group.setSha256).slice(0, 12), `${label} attachment integrity group hash: ${group.title}`);
     assert.equal(rendered.artifactCount, group.artifacts.length, `${label} attachment integrity artifact count: ${group.title}`);
     assert.deepEqual(rendered.artifactHashes, group.artifacts.map(artifact => artifact.sha256.slice(0, 12)), `${label} attachment integrity artifact hashes: ${group.title}`);
@@ -1609,6 +1645,48 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.ok(state.loadedAt.includes('頁面更新'), `${label} loaded timestamp rendered`);
 }
 
+function assertAttachmentIntegrityFailureState(state, label) {
+  assert.equal(state.horizontalOverflow, false, `${label} failure fixture horizontal overflow (${state.scrollWidth} > ${state.clientWidth})`);
+  assert.equal(state.attachmentIntegrityStatus, '異常 2 項', `${label} failed attachment integrity status`);
+  assert.equal(state.attachmentIntegrityStatusFail, true, `${label} failed attachment integrity status tone`);
+  assert.equal(state.attachmentIntegrityCount, '31 / 32', `${label} failed attachment integrity count`);
+  assert.equal(state.attachmentIntegrityCountFail, true, `${label} failed attachment integrity count tone`);
+  assert.equal(state.attachmentIntegrityVerified, '30 / 32', `${label} failed attachment integrity verified count`);
+  assert.equal(state.attachmentIntegrityVerifiedFail, true, `${label} failed attachment integrity verified tone`);
+  assert.equal(state.attachmentIntegrityHash, 'bbbbbbbbbbbb', `${label} failed attachment integrity set hash`);
+  assert.ok(state.attachmentIntegrityStatusHint.includes('release fixture-tampered-release'), `${label} failed attachment release trace`);
+  assert.ok(state.attachmentIntegrityStatusHint.includes('問題 2 項'), `${label} failed attachment issue count`);
+  assert.equal(state.attachmentIntegrityGroups.length, 8, `${label} failed attachment group count`);
+
+  const failedGroups = state.attachmentIntegrityGroups.filter(group => group.failed);
+  assert.equal(failedGroups.length, 1, `${label} exactly one attachment group failed: ${JSON.stringify(failedGroups)}`);
+  const failed = failedGroups[0];
+  assert.deepEqual({
+    title: failed.title,
+    family: failed.family,
+    expected: failed.expected,
+    actual: failed.actual,
+    verified: failed.verified,
+    status: failed.status,
+    setHash: failed.setHash,
+    artifactCount: failed.artifactCount,
+  }, {
+    title: 'RC 柱',
+    family: 'rc-formal',
+    expected: '6',
+    actual: '5',
+    verified: '4',
+    status: '異常 2 項',
+    setHash: 'ffffffffffff',
+    artifactCount: 5,
+  }, `${label} failed RC column attachment details`);
+  assert.equal(failed.artifactHashes.at(-1), '-', `${label} missing RC column artifact hash is disclosed`);
+  for (const group of state.attachmentIntegrityGroups.filter(item => item.title !== 'RC 柱')) {
+    assert.equal(group.status, '通過', `${label} unaffected attachment group remains passed: ${group.title}`);
+    assert.equal(group.failed, false, `${label} unaffected attachment group has no failure tone: ${group.title}`);
+  }
+}
+
 async function main() {
   assert.ok(fs.existsSync(repoFile('結構工具箱/audit-dashboard.html')), 'dashboard HTML exists');
   const edgePath = EDGE_CANDIDATES.find(candidate => fs.existsSync(candidate));
@@ -1638,6 +1716,8 @@ async function main() {
     await client.send('Page.enable', {}, sessionId);
     await client.send('Runtime.enable', {}, sessionId);
     await client.send('Log.enable', {}, sessionId);
+    await client.send('Network.enable', {}, sessionId);
+    await client.send('Network.setCacheDisabled', { cacheDisabled: true }, sessionId);
 
     const pageErrors = collectPageErrors(client, sessionId);
     const dashboardUrl = `http://127.0.0.1:${serverPort}/${encodeURI('結構工具箱/audit-dashboard.html')}`;
@@ -1654,6 +1734,23 @@ async function main() {
       await loaded;
       states.push({ viewport: viewport.key, state: await waitForDashboardState(client, sessionId, liveExpected) });
     }
+    const attachmentFailureStates = [];
+    if (!liveOutputMode) {
+      fixtures.set('結構工具箱/assets/status/report-readiness-status.json', fixtureAttachmentFailureStatus);
+      for (const viewport of viewports) {
+        await client.send('Emulation.setDeviceMetricsOverride', {
+          width: viewport.width,
+          height: viewport.height,
+          deviceScaleFactor: 1,
+          mobile: viewport.mobile,
+        }, sessionId);
+        const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
+        await client.send('Page.navigate', { url: dashboardUrl }, sessionId);
+        await loaded;
+        attachmentFailureStates.push({ viewport: viewport.key, state: await waitForDashboardState(client, sessionId) });
+      }
+      fixtures.set('結構工具箱/assets/status/report-readiness-status.json', fixtureAttachmentStatus);
+    }
     pageErrors.unsubscribe();
     await client.send('Browser.close').catch(() => {});
     await waitForProcessExit(edge, 5000);
@@ -1663,6 +1760,9 @@ async function main() {
     for (const { viewport, state } of states) {
       assertDashboardState(state, viewport, liveExpected);
     }
+    for (const { viewport, state } of attachmentFailureStates) {
+      assertAttachmentIntegrityFailureState(state, viewport);
+    }
 
     const liveMetrics = liveExpected ? (() => {
       const livePostChecksPassed = liveExpected.postChecks.filter(check => check.pass === true).length;
@@ -1670,7 +1770,7 @@ async function main() {
       const historyRuns = Array.from(new Set(liveExpected.postChecks.map(check => String(check.historyLog || '').match(/history[\\/](\d{8}-\d{6})[\\/]/)?.[1]).filter(Boolean)));
       return ', liveRunId=' + liveExpected.summary.runId + ', livePostChecks=' + livePostChecksPassed + '/' + liveExpected.postChecks.length + ', liveHistoryPostChecks=' + (historyLatest.postChecksPassedCount ?? '-') + '/' + (historyLatest.postCheckCount ?? '-') + ', livePostCheckHistoryRuns=' + (historyRuns.join('|') || '-');
     })() : '';
-    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
+    console.log('audit dashboard browser smoke OK (mode=' + (liveOutputMode ? 'live-output' : 'fixture') + ', viewports=' + states.length + ', attachmentFailureViewports=' + attachmentFailureStates.length + ', records=' + states[0].state.rows + ', latestLinks=' + states[0].state.latestLinks + ', historyLinks=' + states[0].state.historyLinks + ', modes=' + states[0].state.records.filter(record => record.mode).length + ', workdirs=' + states[0].state.records.filter(record => record.workdir).length + ', commandHashes=' + states[0].state.records.filter(record => record.commandHash).length + ', coverageTotals=' + states[0].state.coverageTotals.length + ', traceabilityCatalogs=' + states[0].state.traceabilityCatalogCoverage.length + ', freshnessChecked=' + (states[0].state.freshness ? 1 : 0) + ', maturityPreflightChecked=' + (states[0].state.maturityPreflightHint ? 1 : 0) + ', fixtureHits=' + requestAudit.fixtureHits.size + '/' + requiredFixturePaths.size + ', staticFiles=' + requestAudit.fileHits.size + liveMetrics + ')');
   } finally {
     if (client) client.close();
     if (edge && edge.exitCode === null) {
