@@ -6,7 +6,7 @@ const path = require('path');
 const {
   describeHtmlArtifact,
   verifyHtmlArtifact,
-} = require('./html-attachment-integrity');
+} = require('../../dev_tools/html-attachment-integrity');
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'rc-html-integrity-'));
 const htmlArtifact = 'RC-test-formal-attachment.html';

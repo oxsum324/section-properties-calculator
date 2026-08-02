@@ -1,5 +1,5 @@
 const AttachmentPackageChecker = require('../../結構工具箱/tools/attachment-package-check');
-const { describeHtmlArtifact } = require('../../結構工具箱/tools/html-attachment-integrity');
+const { describeHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
 const fs = require('fs');
 const path = require('path');
 

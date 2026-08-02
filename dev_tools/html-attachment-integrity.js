@@ -3,7 +3,7 @@ const { createHash } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const AttachmentPackageChecker = require('./attachment-package-check');
+const AttachmentPackageChecker = require('../結構工具箱/tools/attachment-package-check');
 
 function sha256Buffer(buffer) {
   return createHash('sha256').update(buffer).digest('hex');

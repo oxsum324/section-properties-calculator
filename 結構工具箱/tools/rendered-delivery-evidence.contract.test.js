@@ -5,7 +5,7 @@ const path = require('path');
 const vm = require('vm');
 const { inflateRawSync } = require('zlib');
 const AttachmentPackageChecker = require('./attachment-package-check');
-const { verifyHtmlArtifact } = require('./html-attachment-integrity');
+const { verifyHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
 const {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
   CONTENT_GROUPS,
