@@ -11,6 +11,7 @@ const {
   validatePdfFile,
   writeEvidenceSummary,
 } = require('./rendered-delivery-evidence');
+const AttachmentPackageChecker = require('./attachment-package-check');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -2226,6 +2227,11 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   assert.ok(state.approvedHtml.includes(state.approvedCalculationFingerprint), `${label} ${tool.key} approved HTML preserves the same calculation fingerprint`);
   assert.match(state.approvedHtml, /<title>[^<]*正式附件[^<]*CF-[0-9A-F]{16}[^<]*<\/title>/i, `${label} ${tool.key} saved formal HTML preserves the traceable artifact title`);
   assert.match(state.approvedHtml, /data-report-title=["'][^"']*計算書[^"']*["']/i, `${label} ${tool.key} saved formal HTML preserves the stable base report title`);
+  const savedStatusCount = (state.approvedHtml.match(/class=["'][^"']*rep-document-status-line[^"']*["']/gi) || []).length;
+  const savedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(state.approvedHtml).text;
+  assert.equal(savedStatusCount, 1, `${label} ${tool.key} saved formal HTML preserves exactly one static document-state line`);
+  assert.ok(savedVisibleText.includes(readyDocumentLabel) && savedVisibleText.includes('核可時間') && savedVisibleText.includes(state.approvedCalculationFingerprint), `${label} ${tool.key} attachment checker can read formal status, approval time, and fingerprint without running scripts`);
+  assert.doesNotMatch(state.approvedHtml, /class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i, `${label} ${tool.key} saved formal HTML removes interactive controls`);
   assert.doesNotMatch(state.approvedHtml, /<body\b[^>]*data-document-class=/i, `${label} ${tool.key} approved HTML must rehydrate its document class from the serialized approval source`);
   assert.equal(state.bodyText.includes('DRAFT／非正式附件'), false, `${label} ${tool.key} popup has no DRAFT banner regardless of engineering readiness`);
 }

@@ -608,6 +608,8 @@ assert(readySharedReportHtml.includes('data-initial-approved="false"'), 'shared 
 assert(readySharedReportHtml.includes('本計算內容已完成審閱，核可作為正式附件'), 'shared renderer provides approval checkbox wording', 'approval control');
 assert(readySharedReportHtml.includes('下載目前版本 HTML'), 'shared renderer exposes current-state HTML download', 'download current HTML');
 assert(readySharedReportHtml.includes('window.serializeReportDocumentHtml = serializeCurrentReportHtml'), 'shared renderer serializes the current approval state before download', 'HTML serializer');
+assert(readySharedReportHtml.includes("var status = document.querySelector('.rep-document-status-line')"), 'shared renderer reuses the statically saved document-state line', 'static document state');
+assert(readySharedReportHtml.includes("root.querySelectorAll('.rep-approval-control, .rep-download-control')"), 'shared renderer removes interactive controls without removing the static state line', 'static attachment evidence');
 assert(readySharedReportHtml.includes("document.title = buildArtifactBaseName(checkbox.checked ? '正式附件' : '內部審閱')"), 'shared renderer keeps PDF default title aligned with document state and fingerprint', 'traceable document title');
 const readyRcReportHtml = renderSharedReportHtml(
   rcReportSource,
@@ -619,6 +621,8 @@ assert(readyRcReportHtml.includes('本計算內容已完成審閱，核可作為
 assert(readyRcReportHtml.includes('下載目前版本 HTML'), 'RC shared renderer exposes current-state HTML download', 'download current HTML');
 assert(readyRcReportHtml.includes("source.dataset.initialApproved = checkbox.checked ? 'true' : 'false'"), 'RC approval toggle persists the current document class for downloaded HTML', 'serialized approval state');
 assert(readyRcReportHtml.includes("source.dataset.approvedAt = approvedAtValue"), 'RC approval toggle persists approval time for downloaded HTML', 'serialized approval time');
+assert(readyRcReportHtml.includes("var status = document.querySelector('.rep-document-status-line')"), 'RC renderer reuses the statically saved document-state line', 'static document state');
+assert(readyRcReportHtml.includes("root.querySelectorAll('.rep-approval-control, .rep-download-control')"), 'RC renderer removes interactive controls without removing the static state line', 'static attachment evidence');
 assert(readyRcReportHtml.includes("document.title = buildArtifactBaseName(checkbox.checked ? '正式附件' : '內部審閱')"), 'RC renderer keeps PDF default title aligned with document state and fingerprint', 'traceable document title');
 assert(!readyRcReportHtml.includes('DRAFT／非正式附件'), 'RC shared renderer no longer emits DRAFT classification', 'clean attachment output');
 const approvedSharedReportHtml = renderSharedReportPayload(sharedReportSource, sharedReportFilename, {

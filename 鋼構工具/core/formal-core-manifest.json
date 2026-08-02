@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-02T07:46:28Z",
+  "generatedAt": "2026-08-02T08:46:20Z",
   "mode": "sync",
   "toolRoot": "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具",
   "targetRoot": "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core",
@@ -19,10 +19,10 @@
       "label": "report core",
       "source": "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\結構工具箱\\core\\ui\\report.js",
       "target": "C:\\Users\\USER\\Desktop\\AI\\小工具製作\\鋼構工具\\core\\ui\\report.js",
-      "sourceHash": "96E3D0ABDEB86872B7223472014057656FB326E5FBC591EBE3D93177E376230E",
-      "targetHash": "96E3D0ABDEB86872B7223472014057656FB326E5FBC591EBE3D93177E376230E",
-      "sourceLastWriteUtc": "2026-08-02T07:45:56Z",
-      "targetLastWriteUtc": "2026-08-02T07:45:56Z",
+      "sourceHash": "E5EFCCDDF489DD509C5ED4BF07E137C164366FFA95987D7B74897461C0A333AB",
+      "targetHash": "E5EFCCDDF489DD509C5ED4BF07E137C164366FFA95987D7B74897461C0A333AB",
+      "sourceLastWriteUtc": "2026-08-02T08:43:29Z",
+      "targetLastWriteUtc": "2026-08-02T08:43:29Z",
       "inSync": true
     }
   ],

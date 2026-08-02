@@ -53,7 +53,7 @@
 - `run-audit-loop.bat`：可直接雙擊啟動循環靜默巡檢
 - `sync-formal-core.ps1`：同步 `鋼構工具/core` 與 `結構工具箱/core` 的正式頁共用核心
 - `run-sync-formal-core.bat`：可直接雙擊執行 formal core 同步
-- `core/formal-core-manifest.json`：正式頁 vendored core 的來源、雜湊與同步時間指紋；共用計算書預覽可下載保留文件狀態、核可時間與計算指紋的目前版本 HTML，列印／存 PDF 的預設標題亦包含文件狀態與指紋
+- `core/formal-core-manifest.json`：正式頁 vendored core 的來源、雜湊與同步時間指紋；共用計算書預覽可下載保留唯一且靜態可讀之文件狀態、核可時間與計算指紋的目前版本 HTML，重新開啟不重複插入狀態列，列印／存 PDF 的預設標題亦包含文件狀態與指紋
 
 ## 使用方式
 

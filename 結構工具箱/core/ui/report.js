@@ -404,9 +404,12 @@ function buildAttachmentApprovalReport(options = {}) {
             return [reportTitle, documentLabel, fingerprint].filter(Boolean).join('_')
               .replace(/[<>:"/|?*]/g, '-').split(String.fromCharCode(92)).join('-').trim();
           }
-          var status = document.createElement('span');
-          status.className = 'rep-document-status-line';
-          footer.insertBefore(status, footer.firstChild);
+          var status = document.querySelector('.rep-document-status-line');
+          if (!status) {
+            status = document.createElement('span');
+            status.className = 'rep-document-status-line';
+            footer.insertBefore(status, footer.firstChild);
+          }
           var checkbox = document.getElementById('repAttachmentApproval');
           if (!checkbox && toolbar) {
             var label = document.createElement('label');
@@ -425,7 +428,10 @@ function buildAttachmentApprovalReport(options = {}) {
             if (!root) return '';
             var savedSource = root.querySelector('.rep-attachment-approval-source');
             if (savedSource) savedSource.removeAttribute('data-initialized');
-            root.querySelectorAll('.rep-document-status-line, .rep-approval-control, .rep-download-control').forEach(function (node) {
+            root.querySelectorAll('.rep-approval-control, .rep-download-control').forEach(function (node) {
+              node.remove();
+            });
+            Array.from(root.querySelectorAll('.rep-document-status-line')).slice(1).forEach(function (node) {
               node.remove();
             });
             var savedBody = root.querySelector('body');

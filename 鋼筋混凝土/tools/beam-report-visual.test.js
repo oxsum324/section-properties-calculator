@@ -413,11 +413,13 @@ async function main() {
           reportTitle: source?.dataset.reportTitle || '',
           activeDocumentTitle: document.title || '',
           savedDocumentTitle: savedDocument?.title || '',
+          savedStaticStatusCount: savedDocument?.querySelectorAll('.rep-document-status-line').length || 0,
+          savedStaticStatusText: (savedDocument?.querySelector('.rep-document-status-line')?.textContent || '').replace(/\s+/g, ' ').trim(),
           startsWithDoctype: /^<!doctype html>/i.test(html),
           preservesApproval: /data-initial-approved=["']true["']/.test(html),
           preservesApprovalTime: Boolean(source?.dataset.approvedAt) && html.includes(`data-approved-at="${source.dataset.approvedAt}"`),
           preservesFingerprint: Boolean(source?.dataset.calculationFingerprint) && html.includes(source.dataset.calculationFingerprint),
-          removesTransientState: !savedDocument?.querySelector('.rep-document-status-line, .rep-approval-control'),
+          removesTransientControls: !savedDocument?.querySelector('.rep-approval-control, .rep-download-control'),
           rehydratesDocumentClass: !savedDocument?.body?.hasAttribute('data-document-class'),
         };
       });
@@ -442,7 +444,8 @@ async function main() {
       assert(portableHtmlState.reportTitle.includes('計算書'), `${tc.key} downloaded formal HTML preserves the stable base report title`, portableHtmlState.reportTitle);
       assert(portableHtmlState.activeDocumentTitle.includes('正式附件') && portableHtmlState.activeDocumentTitle.includes(portableHtmlState.calculationFingerprint), `${tc.key} formal PDF default title carries document state and fingerprint`, portableHtmlState.activeDocumentTitle);
       assert(portableHtmlState.savedDocumentTitle === portableHtmlState.activeDocumentTitle, `${tc.key} downloaded HTML preserves the same traceable artifact title`, `${portableHtmlState.activeDocumentTitle} -> ${portableHtmlState.savedDocumentTitle}`);
-      assert(portableHtmlState.removesTransientState && portableHtmlState.rehydratesDocumentClass, `${tc.key} downloaded formal HTML rehydrates without duplicate approval UI`, JSON.stringify(portableHtmlState));
+      assert(portableHtmlState.savedStaticStatusCount === 1 && portableHtmlState.savedStaticStatusText.includes('文件狀態：正式附件') && portableHtmlState.savedStaticStatusText.includes('核可時間') && portableHtmlState.savedStaticStatusText.includes(portableHtmlState.calculationFingerprint), `${tc.key} downloaded formal HTML is statically identifiable without running scripts`, JSON.stringify(portableHtmlState));
+      assert(portableHtmlState.removesTransientControls && portableHtmlState.rehydratesDocumentClass, `${tc.key} downloaded formal HTML rehydrates without duplicate approval UI`, JSON.stringify(portableHtmlState));
       assert(metrics.checkGroupCount >= 6, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 1, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
