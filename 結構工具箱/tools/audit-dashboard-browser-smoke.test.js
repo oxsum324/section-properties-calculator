@@ -107,9 +107,10 @@ const fixtureAttachmentFailureGroups = fixtureAttachmentGroups.map((group) => {
     )),
   };
 });
-const fixtureAttachmentFailureStatus = {
+const fixtureAttachmentFailureDiagnostic = {
   ...fixtureAttachmentStatus,
-  runId: 'fixture-integrity-failure',
+  kind: 'attachment-integrity-diagnostic',
+  runId: 'fixture-tampered-release',
   pass: false,
   failureCount: 2,
   renderedDeliveryEvidenceRunId: 'fixture-tampered-release',
@@ -119,6 +120,11 @@ const fixtureAttachmentFailureStatus = {
   attachmentIntegrityPass: false,
   attachmentIntegritySetSha256: 'b'.repeat(64),
   attachmentIntegrityGroups: fixtureAttachmentFailureGroups,
+};
+const fixtureAttachmentDiagnostic = {
+  ...fixtureAttachmentStatus,
+  kind: 'attachment-integrity-diagnostic',
+  attachmentIntegrityDiagnostic: true,
 };
 
 function fixtureOutputPath(relativePath) {
@@ -252,6 +258,7 @@ function preflightHistoryItem(overrides = {}) {
 
 const fixtures = new Map(Object.entries({
   '結構工具箱/assets/status/report-readiness-status.json': fixtureAttachmentStatus,
+  'output/preflight/attachment-integrity-latest.json': fixtureAttachmentDiagnostic,
   'output/audit/platform-status.json': statusFixture('platform-fixture', ['steel', 'rc', 'core'], {
     lastSummaryHash: '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
     lastSummaryJsonHash: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
@@ -1654,7 +1661,8 @@ function assertAttachmentIntegrityFailureState(state, label) {
   assert.equal(state.attachmentIntegrityVerified, '30 / 32', `${label} failed attachment integrity verified count`);
   assert.equal(state.attachmentIntegrityVerifiedFail, true, `${label} failed attachment integrity verified tone`);
   assert.equal(state.attachmentIntegrityHash, 'bbbbbbbbbbbb', `${label} failed attachment integrity set hash`);
-  assert.ok(state.attachmentIntegrityStatusHint.includes('release fixture-tampered-release'), `${label} failed attachment release trace`);
+  assert.ok(state.attachmentIntegrityStatusHint.includes('本機失敗 release fixture-tampered-release'), `${label} failed local attachment release trace`);
+  assert.ok(state.attachmentIntegrityStatusHint.includes('公開狀態仍保留 release fixture-release'), `${label} successful public release is retained`);
   assert.ok(state.attachmentIntegrityStatusHint.includes('問題 2 項'), `${label} failed attachment issue count`);
   assert.equal(state.attachmentIntegrityGroups.length, 8, `${label} failed attachment group count`);
 
@@ -1736,7 +1744,18 @@ async function main() {
     }
     const attachmentFailureStates = [];
     if (!liveOutputMode) {
-      fixtures.set('結構工具箱/assets/status/report-readiness-status.json', fixtureAttachmentFailureStatus);
+      const preflightFixturePath = 'output/preflight/preflight-summary.json';
+      const attachmentDiagnosticFixturePath = 'output/preflight/attachment-integrity-latest.json';
+      const originalPreflightFixture = fixtures.get(preflightFixturePath);
+      fixtures.set(preflightFixturePath, {
+        ...originalPreflightFixture,
+        runId: 'fixture-tampered-release',
+        forcePlatformAudit: true,
+        forceSlowChecks: true,
+        sourceDirty: false,
+        pass: false,
+      });
+      fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentFailureDiagnostic);
       for (const viewport of viewports) {
         await client.send('Emulation.setDeviceMetricsOverride', {
           width: viewport.width,
@@ -1749,7 +1768,8 @@ async function main() {
         await loaded;
         attachmentFailureStates.push({ viewport: viewport.key, state: await waitForDashboardState(client, sessionId) });
       }
-      fixtures.set('結構工具箱/assets/status/report-readiness-status.json', fixtureAttachmentStatus);
+      fixtures.set(preflightFixturePath, originalPreflightFixture);
+      fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentDiagnostic);
     }
     pageErrors.unsubscribe();
     await client.send('Browser.close').catch(() => {});

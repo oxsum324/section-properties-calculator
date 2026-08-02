@@ -1404,11 +1404,17 @@ exit $LASTEXITCODE
 
 $renderedDeliveryEvidenceContractCommand = @'
 node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js
-exit $LASTEXITCODE
+$renderedDeliveryExitCode = $LASTEXITCODE
+node 結構工具箱/tools/attachment-integrity-diagnostic.js
+$attachmentDiagnosticExitCode = $LASTEXITCODE
+if ($renderedDeliveryExitCode -ne 0) { exit $renderedDeliveryExitCode }
+exit $attachmentDiagnosticExitCode
 '@
 
 $htmlAttachmentIntegrityContractCommand = @'
 node 結構工具箱/tools/html-attachment-integrity.test.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+node 結構工具箱/tools/attachment-integrity-diagnostic.test.js
 exit $LASTEXITCODE
 '@
 

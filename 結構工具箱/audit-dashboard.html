@@ -1702,7 +1702,11 @@
       setKpiValue('attachmentIntegrityCount', `${actual} / ${required}`, actual === required ? 'ok' : 'fail');
       setKpiValue('attachmentIntegrityVerified', `${verified} / ${required}`, verified === required ? 'ok' : 'fail');
       setKpiValue('attachmentIntegrityHash', formatCommandHash(payload.attachmentIntegritySetSha256), pass ? 'ok' : 'warn');
-      setHint('attachmentIntegrityStatusHint', `release ${payload.renderedDeliveryEvidenceRunId || payload.runId || '-'}；八類 RC；問題 ${issues} 項。`);
+      const releaseRunId = payload.renderedDeliveryEvidenceRunId || payload.runId || '-';
+      const sourceHint = payload.attachmentIntegrityDiagnostic === true
+        ? `本機失敗 release ${releaseRunId}；公開狀態仍保留 release ${payload.publicReleaseRunId || '-'}`
+        : `release ${releaseRunId}`;
+      setHint('attachmentIntegrityStatusHint', `${sourceHint}；八類 RC；問題 ${issues} 項。`);
 
       if (!wrap) return;
       if (!groups.length) {
@@ -1748,6 +1752,19 @@
           </tbody>
         </table>
       `;
+    }
+
+    function selectAttachmentIntegrityPayload(publicStatus, localDiagnostic, latestPreflightSummary) {
+      const useLocalFailure = isReleasePreflightRun(latestPreflightSummary)
+        && latestPreflightSummary.pass === false
+        && localDiagnostic?.kind === 'attachment-integrity-diagnostic'
+        && localDiagnostic.runId === latestPreflightSummary.runId;
+      if (!useLocalFailure) return publicStatus;
+      return {
+        ...localDiagnostic,
+        attachmentIntegrityDiagnostic: true,
+        publicReleaseRunId: publicStatus?.renderedDeliveryEvidenceRunId || publicStatus?.runId || '-',
+      };
     }
 
     function parseGeneratedAt(value) {
@@ -1928,6 +1945,7 @@
     async function loadAll() {
       await Promise.all(resources.map(loadResource));
       if (isHttpMode()) {
+        let latestPreflightSummary = null;
         try {
           const historyManifest = await fetchJson('../output/audit/platform-history.json');
           renderHistory(historyManifest);
@@ -1941,7 +1959,7 @@
           renderPreflightHistory(null);
         }
         try {
-          const latestPreflightSummary = await fetchJson('../output/preflight/preflight-summary.json');
+          latestPreflightSummary = await fetchJson('../output/preflight/preflight-summary.json');
           renderPreflightRecordLinks(latestPreflightSummary);
         } catch (error) {
           renderPreflightRecordLinks(null);
@@ -1958,12 +1976,13 @@
         } catch (error) {
           renderMaturityMatrix(null);
         }
-        try {
-          const reportReadinessStatus = await fetchJson('./assets/status/report-readiness-status.json');
-          renderAttachmentIntegrity(reportReadinessStatus);
-        } catch (error) {
-          renderAttachmentIntegrity(null);
-        }
+        const [publicStatusResult, localDiagnosticResult] = await Promise.allSettled([
+          fetchJson('./assets/status/report-readiness-status.json'),
+          fetchJson('../output/preflight/attachment-integrity-latest.json'),
+        ]);
+        const reportReadinessStatus = publicStatusResult.status === 'fulfilled' ? publicStatusResult.value : null;
+        const localAttachmentDiagnostic = localDiagnosticResult.status === 'fulfilled' ? localDiagnosticResult.value : null;
+        renderAttachmentIntegrity(selectAttachmentIntegrityPayload(reportReadinessStatus, localAttachmentDiagnostic, latestPreflightSummary));
       } else {
         renderHistory(null);
         renderPreflightHistory(null);
