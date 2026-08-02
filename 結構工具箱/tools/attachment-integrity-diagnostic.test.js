@@ -7,7 +7,7 @@ const { describeHtmlArtifact } = require('../../dev_tools/html-attachment-integr
 const {
   buildAttachmentIntegrityDiagnostic,
   writeAttachmentIntegrityDiagnostic,
-} = require('./attachment-integrity-diagnostic');
+} = require('../../dev_tools/attachment-integrity-diagnostic');
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'attachment-integrity-diagnostic-'));
 const runDir = path.join(tempRoot, 'output', 'preflight', 'history', 'fixture-failed-release');

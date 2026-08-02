@@ -101,6 +101,8 @@ const PRIVATE_PATHS = [
   '結構工具箱/tools/local-quick-browser-smoke.test.js',
   '結構工具箱/tools/rendered-delivery-evidence.js',
   '結構工具箱/tools/rendered-delivery-evidence.inventory.json',
+  '結構工具箱/tools/attachment-integrity-diagnostic.js',
+  'dev_tools/attachment-integrity-diagnostic.js',
   '石材固定/dev_tools/baseline_capture.html',
   '石材固定/dev_tools/diagnostics.html',
   '石材固定/dev_tools/gov_filename_diff.py',

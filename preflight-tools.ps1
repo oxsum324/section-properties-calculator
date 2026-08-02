@@ -1405,7 +1405,7 @@ exit $LASTEXITCODE
 $renderedDeliveryEvidenceContractCommand = @'
 node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js
 $renderedDeliveryExitCode = $LASTEXITCODE
-node 結構工具箱/tools/attachment-integrity-diagnostic.js
+node dev_tools/attachment-integrity-diagnostic.js
 $attachmentDiagnosticExitCode = $LASTEXITCODE
 if ($renderedDeliveryExitCode -ne 0) { exit $renderedDeliveryExitCode }
 exit $attachmentDiagnosticExitCode

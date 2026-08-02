@@ -2,10 +2,10 @@ const { createHash } = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const { verifyHtmlArtifact } = require('../../dev_tools/html-attachment-integrity');
+const { verifyHtmlArtifact } = require('./html-attachment-integrity');
 
-const repoRoot = path.resolve(__dirname, '..', '..');
-const inventoryPath = path.join(__dirname, 'rendered-delivery-evidence.inventory.json');
+const repoRoot = path.resolve(__dirname, '..');
+const inventoryPath = path.join(repoRoot, '結構工具箱', 'tools', 'rendered-delivery-evidence.inventory.json');
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
