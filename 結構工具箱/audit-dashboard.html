@@ -1679,6 +1679,29 @@
       `;
     }
 
+    function attachmentIntegrityIssueLabel(code) {
+      const labels = {
+        'missing-file': '檔案缺失',
+        'sha256-mismatch': 'SHA-256 不符',
+        'bytes-mismatch': '位元組數不符',
+        'missing-recorded-integrity': '缺少原始完整性紀錄',
+        'formal-state-missing': '正式附件狀態缺失',
+        'fingerprint-missing': '計算指紋缺失',
+        'missing-manifest-record': '清冊缺項',
+        'missing-manifest': '找不到清冊',
+        'missing-manifest-name': '清冊識別缺失',
+        'content-invalid': '內容驗證失敗',
+      };
+      return labels[code] || `未知異常（${code}）`;
+    }
+
+    function attachmentArtifactIssueCode(artifact) {
+      const declared = String(artifact?.code || '').trim();
+      if (declared) return declared;
+      const verifiedShape = Number(artifact?.bytes) > 0 && /^[0-9a-f]{64}$/i.test(String(artifact?.sha256 || ''));
+      return verifiedShape ? '' : 'content-invalid';
+    }
+
     function renderAttachmentIntegrity(payload) {
       const wrap = document.getElementById('attachmentIntegrityWrap');
       const groups = Array.isArray(payload?.attachmentIntegrityGroups) ? payload.attachmentIntegrityGroups : [];
@@ -1733,9 +1756,17 @@
               const groupPass = group.pass === true
                 && Number(group.actual) === Number(group.expected)
                 && Number(group.verified) === Number(group.expected);
-              const artifactRows = artifacts.map((artifact) => `
-                <li><span>${escapeHtml(`附件 ${artifact.ordinal || '-'}`)}</span><br><code>${escapeHtml(formatCommandHash(artifact.sha256))}</code> · ${escapeHtml(`${artifact.bytes || 0} bytes`)}</li>
-              `).join('');
+              const artifactRows = artifacts.map((artifact) => {
+                const issueCode = attachmentArtifactIssueCode(artifact);
+                const statusText = issueCode ? attachmentIntegrityIssueLabel(issueCode) : '已驗證';
+                return `
+                  <li>
+                    <span>${escapeHtml(`附件 ${artifact.ordinal || '-'}`)}</span>
+                    · <span class="${issueCode ? 'history-fail' : 'history-pass'}" data-integrity-code="${escapeAttr(issueCode || 'verified')}">${escapeHtml(statusText)}</span>
+                    <br><code>${escapeHtml(formatCommandHash(artifact.sha256))}</code> · ${escapeHtml(`${artifact.bytes || 0} bytes`)}
+                  </li>
+                `;
+              }).join('');
               return `
                 <tr data-attachment-family="${escapeAttr(group.family || '-')}">
                   <td>${escapeHtml(group.title || group.href || '-')}</td>
