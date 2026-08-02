@@ -19,6 +19,7 @@ const {
   findSparseFinalPage,
   validatePdfFile,
   verifyCanonicalRenderedArtifact,
+  verifyRecordedArtifact,
   writeEvidenceSummary,
 } = require('./rendered-delivery-evidence');
 
@@ -604,6 +605,30 @@ try {
   fs.rmSync(canonicalIntegrityFixtureDir, { recursive: true, force: true });
 }
 
+const mixedIntegrityFixtureDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'mixed-artifact-integrity-'));
+try {
+  const documentName = 'fixture.docx';
+  const originalDocument = Buffer.from('PK\u0003\u0004original mixed artifact fixture', 'utf8');
+  const fixtureRecord = {
+    document: documentName,
+    documentBytes: originalDocument.length,
+    documentSha256: createHash('sha256').update(originalDocument).digest('hex'),
+  };
+  fs.writeFileSync(path.join(mixedIntegrityFixtureDir, documentName), originalDocument);
+  verifyRecordedArtifact(mixedIntegrityFixtureDir, fixtureRecord, { nameField: 'document' }, 'mixed artifact fixture');
+  const tamperedDocument = Buffer.from(originalDocument);
+  tamperedDocument[tamperedDocument.indexOf('original')] = 'X'.charCodeAt(0);
+  assert.equal(tamperedDocument.length, originalDocument.length, 'negative mixed artifact fixture preserves byte length');
+  fs.writeFileSync(path.join(mixedIntegrityFixtureDir, documentName), tamperedDocument);
+  assert.throws(
+    () => verifyRecordedArtifact(mixedIntegrityFixtureDir, fixtureRecord, { nameField: 'document' }, 'tampered mixed artifact fixture'),
+    /artifact SHA-256 matches its producer summary/,
+    'same-size Office artifact replacement is blocked by producer summary hash'
+  );
+} finally {
+  fs.rmSync(mixedIntegrityFixtureDir, { recursive: true, force: true });
+}
+
 const strictRelease = process.env.PREFLIGHT_RELEASE === '1';
 if (!strictRelease) {
   console.log(`Rendered delivery evidence contract OK (inventory=${inventory.tools.length}, current-run artifact verification skipped outside release mode)`);
@@ -702,6 +727,11 @@ assert.ok(fs.existsSync(stoneAuditPath), 'stone current-run rendered evidence in
 const stoneAudit = readJson(stoneAuditPath);
 assert.equal(stoneAudit.mode, 'auto_word', 'stone rendered evidence audit records the formal export path');
 assert.equal(stoneAudit.output.size_bytes, fs.statSync(stoneDocxPath).size, 'stone rendered evidence audit matches the preserved DOCX');
+const stoneArtifactIntegrity = [
+  verifyRecordedArtifact(stoneEvidenceDir, stoneEvidence, { nameField: 'artifact' }, 'stone PDF'),
+  verifyRecordedArtifact(stoneEvidenceDir, stoneEvidence, { nameField: 'document' }, 'stone DOCX'),
+  verifyRecordedArtifact(stoneEvidenceDir, stoneEvidence, { nameField: 'evidence' }, 'stone audit JSON'),
+];
 records.push({
   href: stoneTool.href,
   title: stoneTool.title,
@@ -710,6 +740,7 @@ records.push({
   artifact: stoneEvidence.artifact,
   document: stoneEvidence.document,
   evidence: stoneEvidence.evidence,
+  artifactIntegrity: stoneArtifactIntegrity,
   pageCount: stonePdf.pageCount,
   textLength: stonePdf.textLength,
 });
@@ -728,6 +759,13 @@ const anchorDocxPath = path.join(anchorEvidenceDir, anchorEvidence.document || '
 const anchorWorkbookPath = path.join(anchorEvidenceDir, anchorEvidence.workbook || '');
 const anchorReviewHtmlPath = path.join(anchorEvidenceDir, anchorEvidence.reviewArtifact || '');
 const anchorBlockedHtmlPath = path.join(anchorEvidenceDir, anchorEvidence.blockedArtifact || '');
+const anchorArtifactIntegrity = [
+  verifyRecordedArtifact(anchorEvidenceDir, anchorEvidence, { nameField: 'artifact' }, 'anchor formal HTML'),
+  verifyRecordedArtifact(anchorEvidenceDir, anchorEvidence, { nameField: 'document' }, 'anchor DOCX'),
+  verifyRecordedArtifact(anchorEvidenceDir, anchorEvidence, { nameField: 'workbook' }, 'anchor XLSX'),
+  verifyRecordedArtifact(anchorEvidenceDir, anchorEvidence, { nameField: 'reviewArtifact' }, 'anchor review HTML'),
+  verifyRecordedArtifact(anchorEvidenceDir, anchorEvidence, { nameField: 'blockedArtifact' }, 'anchor blocked HTML'),
+];
 for (const [filePath, label] of [
   [anchorHtmlPath, 'HTML'],
   [anchorDocxPath, 'DOCX'],
@@ -833,6 +871,7 @@ records.push({
   artifact: anchorEvidence.artifact,
   document: anchorEvidence.document,
   workbook: anchorEvidence.workbook,
+  artifactIntegrity: anchorArtifactIntegrity,
   htmlTextLength: anchorHtmlText.length,
   documentTextLength: anchorDocxText.length,
   workbookTextLength: anchorWorkbookText.length,
@@ -848,6 +887,9 @@ const { summary: deckingSummary, directory: deckingEvidenceDir } = validateArtif
 const deckingEvidence = deckingSummary.records.find(record => record.key === deckingTool.evidenceKey);
 assert.ok(deckingEvidence, 'decking current-run summary resolves the formal artifact record');
 const deckingDocxPath = path.join(deckingEvidenceDir, deckingEvidence.document || '');
+const deckingArtifactIntegrity = [
+  verifyRecordedArtifact(deckingEvidenceDir, deckingEvidence, { nameField: 'document' }, 'decking DOCX'),
+];
 assert.ok(
   fs.existsSync(deckingDocxPath) && fs.statSync(deckingDocxPath).size > 1024,
   'decking current-run DOCX artifact exists and is non-empty'
@@ -897,6 +939,7 @@ records.push({
   family: deckingTool.family,
   evidenceKey: deckingTool.evidenceKey,
   document: deckingEvidence.document,
+  artifactIntegrity: deckingArtifactIntegrity,
   documentBytes: fs.statSync(deckingDocxPath).size,
   documentTextLength: deckingDocxText.length,
   paragraphCount: deckingParagraphCount,
@@ -993,6 +1036,12 @@ const excavationPdfPath = path.join(excavationEvidenceDir, excavationEvidence.ar
 const excavationDocxPath = path.join(excavationEvidenceDir, excavationEvidence.document || '');
 const excavationLatestPdfPath = path.join(excavationEvidenceDir, excavationEvidence.latestArtifact || '');
 const excavationLatestDocxPath = path.join(excavationEvidenceDir, excavationEvidence.latestDocument || '');
+const excavationArtifactIntegrity = [
+  verifyRecordedArtifact(excavationEvidenceDir, excavationEvidence, { nameField: 'artifact' }, 'excavation PDF'),
+  verifyRecordedArtifact(excavationEvidenceDir, excavationEvidence, { nameField: 'document' }, 'excavation DOCX'),
+  verifyRecordedArtifact(excavationEvidenceDir, excavationEvidence, { nameField: 'latestArtifact' }, 'excavation latest PDF'),
+  verifyRecordedArtifact(excavationEvidenceDir, excavationEvidence, { nameField: 'latestDocument' }, 'excavation latest DOCX'),
+];
 for (const [filePath, label, signature] of [
   [excavationPdfPath, 'PDF', '%PDF'],
   [excavationDocxPath, 'DOCX', 'PK'],
@@ -1106,6 +1155,7 @@ supplementalRecords.push({
   document: excavationEvidence.document,
   latestArtifact: excavationEvidence.latestArtifact,
   latestDocument: excavationEvidence.latestDocument,
+  artifactIntegrity: excavationArtifactIntegrity,
   pageCount: excavationPdf.pageCount,
   pdfTextLength: excavationPdf.textLength,
   documentTextLength: excavationDocxText.length,
@@ -1131,6 +1181,20 @@ const attachmentIntegrity = {
   setSha256: integritySetHash(attachmentIntegrityGroups.flatMap(group => group.artifacts)),
   groups: attachmentIntegrityGroups,
 };
+const mixedArtifactRecords = [...records, ...supplementalRecords]
+  .flatMap(record => record.artifactIntegrity || []);
+const mixedArtifactIntegrity = {
+  schemaVersion: 1,
+  scope: 'mixed-format-release-artifacts',
+  required: 13,
+  verified: mixedArtifactRecords.length,
+  issueCount: Math.max(0, 13 - mixedArtifactRecords.length),
+  pass: mixedArtifactRecords.length === 13,
+  setSha256: integritySetHash(mixedArtifactRecords),
+  artifacts: mixedArtifactRecords,
+};
+assert.equal(mixedArtifactIntegrity.verified, mixedArtifactIntegrity.required, 'release rendered evidence verifies all 13 mixed-format artifacts');
+assert.equal(mixedArtifactIntegrity.pass, true, 'release rendered evidence passes mixed-format artifact integrity');
 assert.equal(attachmentIntegrity.required, 32, 'release rendered evidence expects 32 RC HTML attachments');
 assert.equal(attachmentIntegrity.actual, attachmentIntegrity.required, 'release rendered evidence keeps every expected RC HTML attachment');
 assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'release rendered evidence verifies every RC HTML attachment');
@@ -1146,12 +1210,13 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass,
   attachmentIntegrity,
+  mixedArtifactIntegrity,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, summary=${aggregatePath})`);

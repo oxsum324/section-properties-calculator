@@ -48,6 +48,48 @@ function readStableFile(filePath, initialStat, label) {
   return buffer;
 }
 
+function safeRelativeFile(directory, name, label) {
+  const root = path.resolve(directory);
+  const rootStat = fs.lstatSync(root);
+  assert.equal(rootStat.isSymbolicLink(), false, `${label} root is not a symbolic link`);
+  assert.equal(rootStat.isDirectory(), true, `${label} root is a directory`);
+  const normalizedName = String(name || '');
+  assert.ok(normalizedName && !path.isAbsolute(normalizedName), `${label} uses a relative filename`);
+  const segments = normalizedName.split(/[\\/]+/);
+  assert.ok(segments.every(segment => segment && !['.', '..'].includes(segment)), `${label} contains no traversal segment`);
+  const filePath = path.resolve(root, ...segments);
+  const relative = path.relative(root, filePath);
+  assert.ok(relative && !relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative), `${label} remains inside its evidence directory`);
+  let current = root;
+  let stat;
+  segments.forEach((segment, index) => {
+    current = path.join(current, segment);
+    stat = fs.lstatSync(current);
+    assert.equal(stat.isSymbolicLink(), false, `${label} path component is not a symbolic link: ${segment}`);
+    if (index < segments.length - 1) assert.equal(stat.isDirectory(), true, `${label} parent component is a directory: ${segment}`);
+  });
+  assert.equal(stat.isFile(), true, `${label} is a regular file`);
+  return { filePath, stat, name: segments.join('/') };
+}
+
+function verifyRecordedArtifact(directory, record, fields, label) {
+  const nameField = String(fields?.nameField || 'artifact');
+  const bytesField = String(fields?.bytesField || `${nameField}Bytes`);
+  const sha256Field = String(fields?.sha256Field || `${nameField}Sha256`);
+  const artifact = safeRelativeFile(directory, record?.[nameField], label);
+  const buffer = readStableFile(artifact.filePath, artifact.stat, label);
+  const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+  assert.equal(Number(record?.[bytesField]), buffer.length, `${label} producer summary records artifact bytes`);
+  assert.match(String(record?.[sha256Field] || ''), /^[0-9a-f]{64}$/i, `${label} producer summary records artifact SHA-256`);
+  assert.equal(String(record[sha256Field]).toLowerCase(), sha256, `${label} artifact SHA-256 matches its producer summary`);
+  return {
+    role: nameField,
+    name: artifact.name,
+    bytes: buffer.length,
+    sha256,
+  };
+}
+
 function verifyCanonicalRenderedArtifact(directory, record, label, options = {}) {
   const artifactName = String(record?.artifact || '');
   const evidenceName = String(record?.evidence || '');
@@ -778,6 +820,7 @@ module.exports = {
   resolveEvidenceDir,
   renderAndValidateReportPdf,
   verifyCanonicalRenderedArtifact,
+  verifyRecordedArtifact,
   validatePdfFile,
   writeEvidenceSummary,
 };

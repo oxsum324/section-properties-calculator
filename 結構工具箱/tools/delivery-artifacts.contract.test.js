@@ -207,6 +207,9 @@ const anchorReportTrace = traceById(anchorCatalog, 'anchor-strength', 'anchor-st
   'self.assertNotIn(needle, text)',
   'test_review_summary_import_is_true_opt_in_without_toc_ghost',
   'test_formal_auto_word_outputs_pdf_docx_with_review_notes_and_boundaries',
+  "'artifactSha256'",
+  "'documentSha256'",
+  "'evidenceSha256'",
 ].forEach(needle => assertIncludes(stoneAutoWordArtifact, needle, `stone auto_word artifact text extraction keeps ${needle}`));
 
 [
@@ -291,6 +294,7 @@ assertIncludesAny(
   "key: 'decking-report'",
   'rendered-delivery-evidence-summary.json',
   'documentBytes',
+  'documentSha256',
   'documentXmlBytes',
 ].forEach(needle => assertIncludes(deckingReportContract, needle, `decking report contract text extraction keeps ${needle}`));
 
@@ -400,6 +404,8 @@ assertIncludesAny(
   'rendered-delivery-evidence-summary.json',
   'artifactSha256',
   'documentSha256',
+  'latestArtifactSha256',
+  'latestDocumentSha256',
   'xmlParagraphCount',
   'latest PDF must match generated PDF',
 ].forEach(needle => assertIncludes(excavationReleaseArtifacts, needle, `excavation durable release artifact generator keeps ${needle}`));
@@ -478,6 +484,11 @@ assertIncludesAny(
   'buildStandaloneReportHtml',
   'reviewArtifact',
   'blockedArtifact',
+  'artifactSha256',
+  'documentSha256',
+  'workbookSha256',
+  'reviewArtifactSha256',
+  'blockedArtifactSha256',
   'reviewDocumentState',
   'blockedDocumentState',
 ].forEach(needle => assertIncludes(anchorReportArtifactsTest, needle, `anchor durable release artifact test keeps ${needle}`));

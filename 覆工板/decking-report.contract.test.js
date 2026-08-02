@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { createHash } = require('crypto');
 
 const toolRoot = __dirname;
 const repoRoot = path.resolve(toolRoot, '..');
@@ -142,6 +143,7 @@ if (releaseEvidenceDir) {
       key: 'decking-report',
       document: outFileName,
       documentBytes: fs.statSync(outPath).size,
+      documentSha256: createHash('sha256').update(fs.readFileSync(outPath)).digest('hex'),
       documentXmlBytes: Buffer.byteLength(docxPayload.xml, 'utf8'),
       documentTextLength: docxPayload.text.length,
       paragraphCount: docxPayload.paragraphCount,

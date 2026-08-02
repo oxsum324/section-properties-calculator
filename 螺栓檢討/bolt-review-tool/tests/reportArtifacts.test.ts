@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import {
   assessProductCompleteness,
@@ -19,6 +20,7 @@ import { serializeReportWorkbook } from '../src/reportWorkbook'
 import { normalizeUnitPreferences } from '../src/units'
 
 const ARTIFACT_KEY = 'anchor-review'
+const sha256 = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex')
 const REPORT_GENERATED_AT = '2026-07-17T00:00:00.000Z'
 const CALCULATION_BOOK_CONTENT_BOUNDARY = JSON.parse(readFileSync(
   new URL('../../../結構工具箱/tools/calculation-book-content-boundary.json', import.meta.url),
@@ -199,18 +201,26 @@ describe('release report artifacts', () => {
             {
               key: ARTIFACT_KEY,
               artifact: htmlName,
+              artifactBytes: Buffer.byteLength(html, 'utf8'),
+              artifactSha256: sha256(html),
               document: docxName,
+              documentBytes: docx.byteLength,
+              documentSha256: sha256(docx),
               workbook: workbookName,
+              workbookBytes: workbook.byteLength,
+              workbookSha256: sha256(workbook),
               documentState: 'ready',
               reviewArtifact: reviewHtmlName,
+              reviewArtifactBytes: Buffer.byteLength(reviewHtml, 'utf8'),
+              reviewArtifactSha256: sha256(reviewHtml),
               reviewDocumentState: 'review',
               reviewHtmlTextLength: reviewHtml.length,
               blockedArtifact: blockedHtmlName,
+              blockedArtifactBytes: Buffer.byteLength(blockedHtml, 'utf8'),
+              blockedArtifactSha256: sha256(blockedHtml),
               blockedDocumentState: 'blocked',
               blockedHtmlTextLength: blockedHtml.length,
               htmlTextLength: html.length,
-              documentBytes: docx.byteLength,
-              workbookBytes: workbook.byteLength,
             },
           ],
         },

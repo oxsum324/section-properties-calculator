@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
 import shutil
@@ -23,6 +24,10 @@ import auto_word
 import server
 from audit_schema import REQUIRED_AUDIT_PATHS, nested
 from server_smoke_test import PAGE_ONLY_REPORT_STATUS_NEEDLES, report_text, v2_payload
+
+
+def file_sha256(file_path: Path) -> str:
+    return hashlib.sha256(file_path.read_bytes()).hexdigest()
 
 
 ROOT = Path(__file__).resolve().parent
@@ -124,8 +129,14 @@ def persist_rendered_evidence(
         'records': [{
             'key': 'stone-fixing',
             'artifact': pdf_copy.name,
+            'artifactBytes': pdf_copy.stat().st_size,
+            'artifactSha256': file_sha256(pdf_copy),
             'document': docx_copy.name,
+            'documentBytes': docx_copy.stat().st_size,
+            'documentSha256': file_sha256(docx_copy),
             'evidence': audit_copy.name,
+            'evidenceBytes': audit_copy.stat().st_size,
+            'evidenceSha256': file_sha256(audit_copy),
             'pageCount': page_count,
             'pdfTextLength': pdf_text_length,
             'docxTextLength': docx_text_length,
