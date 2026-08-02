@@ -1439,7 +1439,8 @@ function openMiscReport() {
   const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
     project: proj,
     calculated: true,
-    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document)
+    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document),
+    calculationFingerprint: reportTrace.calculationFingerprint
   });
   const diagramHtml = renderMiscDiagram(r, { compact: true });
   const resultGridHtml = document.getElementById('miscResult')?.querySelector('.results-grid')?.outerHTML || '';

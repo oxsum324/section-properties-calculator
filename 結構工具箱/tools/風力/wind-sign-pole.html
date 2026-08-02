@@ -1202,7 +1202,8 @@ function buildSignPoleReportHtml() {
   const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
     project,
     calculated: true,
-    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document)
+    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document),
+    calculationFingerprint: reportTrace.calculationFingerprint
   });
   const diagramHtml = document.getElementById('schemaSvg')?.outerHTML || '';
   const simpleReportHtml = `

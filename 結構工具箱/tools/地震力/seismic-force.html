@@ -2232,7 +2232,8 @@ function openSeismicReport() {
   const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
     project,
     calculated: true,
-    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document)
+    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document),
+    calculationFingerprint: reportTrace.calculationFingerprint
   });
   const spectrumImage = collectSeismicDiagrams()[0];
   const inputsHtml = reportOpt('rep_inputs', true) ? renderReportInputSections(collectSeismicInputs()) : '';

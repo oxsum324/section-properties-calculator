@@ -356,6 +356,8 @@ assert.match(sharedReportHtml, /下載目前版本 HTML/, "shared report generat
 assert.match(localReportHtml, /下載目前版本 HTML/, "steel local report generator should expose current-state HTML download");
 assert.match(sharedReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serializeCurrentReportHtml/, "shared report generator should serialize the current approval state for download");
 assert.match(localReportHtml, /window\.serializeReportDocumentHtml\s*=\s*serializeCurrentReportHtml/, "steel local report generator should serialize the current approval state for download");
+assert.match(sharedReportHtml, /document\.title\s*=\s*buildArtifactBaseName\(checkbox\.checked\s*\?\s*'正式附件'\s*:\s*'內部審閱'\)/, "shared report generator should align the PDF default title with document state and fingerprint");
+assert.match(localReportHtml, /document\.title\s*=\s*buildArtifactBaseName\(checkbox\.checked\s*\?\s*'正式附件'\s*:\s*'內部審閱'\)/, "steel local report generator should align the PDF default title with document state and fingerprint");
 assert.match(sharedReportHtml, /文件狀態：內部審閱/, "shared report generator should default every newly generated report to internal review");
 assert.match(localReportHtml, /文件狀態：內部審閱/, "steel local report generator should default every newly generated report to internal review");
 assert.match(sharedReportHtml, /計算指紋<\/b>CF-[0-9A-F]{16}/, "shared report generator should include a stable calculation fingerprint");

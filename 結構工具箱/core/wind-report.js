@@ -415,7 +415,7 @@ function closeReportWindow() {
     return { ok, text: text || '—' };
   }
 
-  function buildPageDocumentStateReport(projectInfo) {
+  function buildPageDocumentStateReport(projectInfo, calculationFingerprint) {
     const reportUi = global.ToolReportUI;
     if (!reportUi || typeof reportUi.buildFormalDocumentStateReport !== 'function') {
       showWindReportIssue('共用文件狀態模組未載入，無法產生正式計算書。');
@@ -425,6 +425,7 @@ function closeReportWindow() {
       project: projectInfo,
       calculated: true,
       readinessLevel: reportUi.getPageReportReadinessLevel(document),
+      calculationFingerprint,
     });
   }
 
@@ -757,7 +758,7 @@ function closeReportWindow() {
     const inputGroups = collectInputGroups();
     const reportTrace = getCurrentReportTrace();
     if (!reportTrace) return;
-    const documentStateReport = buildPageDocumentStateReport(proj);
+    const documentStateReport = buildPageDocumentStateReport(proj, reportTrace.calculationFingerprint);
     if (!documentStateReport) return;
     const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(inputGroups) : '';
     const notesHtml = '';
@@ -890,7 +891,7 @@ ${reportWindowScriptHtml()}
     const inputGroups = collectInputGroups();
     const reportTrace = getCurrentReportTrace();
     if (!reportTrace) return;
-    const documentStateReport = buildPageDocumentStateReport(proj);
+    const documentStateReport = buildPageDocumentStateReport(proj, reportTrace.calculationFingerprint);
     if (!documentStateReport) return;
     const inputsHtml = !isSummaryReport ? buildInputSectionsHtml(inputGroups) : '';
     const notesHtml = '';

@@ -410,6 +410,9 @@ async function main() {
           serializerAvailable: typeof serializeReportDocumentHtml === 'function',
           approvedAt: source?.dataset.approvedAt || '',
           calculationFingerprint: source?.dataset.calculationFingerprint || '',
+          reportTitle: source?.dataset.reportTitle || '',
+          activeDocumentTitle: document.title || '',
+          savedDocumentTitle: savedDocument?.title || '',
           startsWithDoctype: /^<!doctype html>/i.test(html),
           preservesApproval: /data-initial-approved=["']true["']/.test(html),
           preservesApprovalTime: Boolean(source?.dataset.approvedAt) && html.includes(`data-approved-at="${source.dataset.approvedAt}"`),
@@ -436,6 +439,9 @@ async function main() {
       assert(portableHtmlState.hasDownloadControl && portableHtmlState.serializerAvailable, `${tc.key} report exposes current-state HTML download`, JSON.stringify(portableHtmlState));
       assert(Number.isFinite(Date.parse(portableHtmlState.approvedAt)), `${tc.key} downloaded formal HTML records approval time`, portableHtmlState.approvedAt);
       assert(portableHtmlState.startsWithDoctype && portableHtmlState.preservesApproval && portableHtmlState.preservesApprovalTime && portableHtmlState.preservesFingerprint, `${tc.key} downloaded formal HTML preserves approval provenance`, JSON.stringify(portableHtmlState));
+      assert(portableHtmlState.reportTitle.includes('計算書'), `${tc.key} downloaded formal HTML preserves the stable base report title`, portableHtmlState.reportTitle);
+      assert(portableHtmlState.activeDocumentTitle.includes('正式附件') && portableHtmlState.activeDocumentTitle.includes(portableHtmlState.calculationFingerprint), `${tc.key} formal PDF default title carries document state and fingerprint`, portableHtmlState.activeDocumentTitle);
+      assert(portableHtmlState.savedDocumentTitle === portableHtmlState.activeDocumentTitle, `${tc.key} downloaded HTML preserves the same traceable artifact title`, `${portableHtmlState.activeDocumentTitle} -> ${portableHtmlState.savedDocumentTitle}`);
       assert(portableHtmlState.removesTransientState && portableHtmlState.rehydratesDocumentClass, `${tc.key} downloaded formal HTML rehydrates without duplicate approval UI`, JSON.stringify(portableHtmlState));
       assert(metrics.checkGroupCount >= 6, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 1, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);

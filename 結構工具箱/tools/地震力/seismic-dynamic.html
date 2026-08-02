@@ -1841,7 +1841,8 @@ function openDynamicReport() {
   const documentStateReport = window.ToolReportUI.buildFormalDocumentStateReport({
     project: proj,
     calculated: true,
-    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document)
+    readinessLevel: window.ToolReportUI.getPageReportReadinessLevel(document),
+    calculationFingerprint: reportTrace.calculationFingerprint
   });
   const spectrumCanvas = document.getElementById('dynamicSpectrumChart');
   const spectrumImage = spectrumCanvas ? spectrumCanvas.toDataURL('image/png') : '';

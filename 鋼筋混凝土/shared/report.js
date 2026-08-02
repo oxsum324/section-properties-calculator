@@ -288,6 +288,13 @@ function buildRcAttachmentApprovalReport(options = {}) {
           paper.appendChild(footer);
         }
         var fingerprint = source.dataset.calculationFingerprint || '';
+        var reportHeading = document.querySelector('.rep-header h1, .header h1, h1');
+        var reportTitle = String(source.dataset.reportTitle || (reportHeading && reportHeading.textContent) || document.title || '計算書').trim();
+        source.dataset.reportTitle = reportTitle;
+        function buildArtifactBaseName(documentLabel) {
+          return [reportTitle, documentLabel, fingerprint].filter(Boolean).join('_')
+            .replace(/[<>:"/|?*]/g, '-').split(String.fromCharCode(92)).join('-').trim();
+        }
         var status = document.createElement('span');
         status.className = 'rep-document-status-line';
         footer.insertBefore(status, footer.firstChild);
@@ -328,11 +335,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           }
           var currentStatus = document.querySelector('.rep-document-status-line');
           var documentLabel = currentStatus && currentStatus.dataset.documentClass === 'formal-attachment' ? '正式附件' : '內部審閱';
-          var heading = document.querySelector('.rep-header h1, .header h1, h1');
-          var title = String((heading && heading.textContent) || document.title || '計算書').trim();
-          var currentFingerprint = String(source.dataset.calculationFingerprint || '').trim();
-          var fileName = [title, documentLabel, currentFingerprint].filter(Boolean).join('_')
-            .replace(/[<>:"/|?*]/g, '-').split(String.fromCharCode(92)).join('-').trim() + '.html';
+          var fileName = buildArtifactBaseName(documentLabel) + '.html';
           var url = URL.createObjectURL(new Blob([html], { type:'text/html;charset=utf-8' }));
           var link = document.createElement('a');
           link.href = url;
@@ -378,6 +381,7 @@ function buildRcAttachmentApprovalReport(options = {}) {
           status.dataset.approved = checkbox.checked ? 'true' : 'false';
           status.dataset.approvedAt = approvedAtValue;
           document.body.dataset.documentClass = status.dataset.documentClass;
+          document.title = buildArtifactBaseName(checkbox.checked ? '正式附件' : '內部審閱');
         }
         checkbox.addEventListener('change', updateStatus);
         updateStatus();
