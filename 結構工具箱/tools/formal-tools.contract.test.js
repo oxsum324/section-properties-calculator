@@ -602,6 +602,8 @@ assertIncludes(
   'Page.javascriptDialogOpening',
   'inlineValidationExpression',
   'assertInlineValidationState',
+  'downloadedFileName',
+  'downloaded formal HTML filename matches document state and fingerprint',
   "viewport.key === 'desktop'",
   'desktop interaction'
 ].forEach(needle => assertIncludes(repoDocs.smoke, needle, 'formal browser smoke manifest contract'));

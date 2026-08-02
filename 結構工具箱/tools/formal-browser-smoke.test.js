@@ -1028,6 +1028,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       approvedCalculationFingerprint: '',
       approvedHtml: '',
       approvedAuditHtml: '',
+      downloadedFileName: '',
     };
   }
 
@@ -1065,6 +1066,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       approvedCalculationFingerprint: '',
       approvedHtml: '',
       approvedAuditHtml: '',
+      downloadedFileName: '',
     };
   }
 
@@ -1084,8 +1086,9 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
     await waitForPopupReady(client, popupSessionId, popupLabel);
     const state = await evaluate(client, popupSessionId, `(() => {
       const approval = document.getElementById('repAttachmentApproval');
-      const downloadControl = Array.from(document.querySelectorAll('.rep-toolbar button, .toolbar button'))
-        .some(button => /下載目前版本 HTML/.test(button.textContent || ''));
+      const downloadButton = document.getElementById('repDownloadCurrentHtml');
+      const downloadControl = Boolean(downloadButton)
+        && /下載目前版本 HTML/.test(downloadButton.textContent || '');
       const serializerAvailable = typeof serializeReportDocumentHtml === 'function';
       const status = () => document.querySelector('.rep-document-status-line');
       const approvalSource = () => document.querySelector('.rep-attachment-approval-source');
@@ -1113,6 +1116,18 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       const approvedCheckboxAttribute = Boolean(approval?.hasAttribute('checked'));
       const approvedDocumentTitle = document.title || '';
       const approvedHtml = serializerAvailable ? serializeReportDocumentHtml() : '';
+      let downloadedFileName = '';
+      if (downloadButton) {
+        const originalAnchorClick = HTMLAnchorElement.prototype.click;
+        try {
+          HTMLAnchorElement.prototype.click = function captureReportDownload() {
+            downloadedFileName = this.download || '';
+          };
+          downloadButton.click();
+        } finally {
+          HTMLAnchorElement.prototype.click = originalAnchorClick;
+        }
+      }
       if (approval) {
         approval.checked = false;
         approval.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1147,7 +1162,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         initialCalculationFingerprint,
         approvedCalculationFingerprint,
         approvedHtml,
-        approvedAuditHtml: approvedHtml.replace(/data:image\\/png;base64,[^"'\\s<>]+/g, 'data:image/png;base64,[omitted]')
+        approvedAuditHtml: approvedHtml.replace(/data:image\\/png;base64,[^"'\\s<>]+/g, 'data:image/png;base64,[omitted]'),
+        downloadedFileName,
       };
     })()`);
     return {
@@ -1182,6 +1198,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       approvedCalculationFingerprint: state.approvedCalculationFingerprint,
       approvedHtml: state.approvedHtml,
       approvedAuditHtml: state.approvedAuditHtml,
+      downloadedFileName: state.downloadedFileName,
     };
   } finally {
     popupErrors.unsubscribe();
@@ -2220,6 +2237,7 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   assert.ok(state.initialDocumentTitle.includes('內部審閱') && state.initialDocumentTitle.includes(state.initialCalculationFingerprint), `${label} ${tool.key} internal-review PDF default title carries document state and fingerprint`);
   assert.equal(state.approvedCalculationFingerprint, state.initialCalculationFingerprint, `${label} ${tool.key} approval preserves the calculation fingerprint`);
   assert.ok(state.approvedDocumentTitle.includes('正式附件') && state.approvedDocumentTitle.includes(state.approvedCalculationFingerprint), `${label} ${tool.key} formal PDF default title carries document state and fingerprint`);
+  assert.equal(state.downloadedFileName, `${state.approvedDocumentTitle}.html`, `${label} ${tool.key} downloaded formal HTML filename matches document state and fingerprint`);
   assert.ok(state.internalDocumentTitle.includes('內部審閱') && state.internalDocumentTitle.includes(state.initialCalculationFingerprint), `${label} ${tool.key} returning to internal review restores the matching PDF default title`);
   assert.ok(state.approvedHtml, `${label} ${tool.key} captures rehydratable approved HTML before returning to internal review`);
   assert.match(state.approvedHtml, /<span\b[^>]*class=["'][^"']*rep-attachment-approval-source[^"']*["'][^>]*data-initial-approved=["']true["']/i, `${label} ${tool.key} serialized approval source remains formally approved`);
