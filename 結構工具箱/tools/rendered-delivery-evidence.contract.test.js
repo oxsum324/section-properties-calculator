@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const { inflateRawSync } = require('zlib');
+const AttachmentPackageChecker = require('./attachment-package-check');
 const {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
   CONTENT_GROUPS,
@@ -394,11 +395,22 @@ function validateFamilySummary(runDir, family, expectedKeys) {
     assert.ok(complete.has(key), `${family} rendered summary covers ${key}`);
   }
   for (const record of summary.records || []) {
-    if (!record.artifact) continue;
-    const artifactPath = path.join(path.dirname(summaryPath), record.artifact);
+    const artifactPath = record.artifact ? path.join(path.dirname(summaryPath), record.artifact) : '';
     const evidencePath = record.evidence ? path.join(path.dirname(summaryPath), record.evidence) : '';
-    assert.ok(fs.existsSync(artifactPath), `${family} artifact exists: ${record.artifact}`);
-    assert.equal(fs.readFileSync(artifactPath).subarray(0, 4).toString('ascii'), '%PDF', `${family} artifact is PDF: ${record.artifact}`);
+    const htmlArtifactPath = record.htmlArtifact ? path.join(path.dirname(summaryPath), record.htmlArtifact) : '';
+    if (artifactPath) {
+      assert.ok(fs.existsSync(artifactPath), `${family} artifact exists: ${record.artifact}`);
+      assert.equal(fs.readFileSync(artifactPath).subarray(0, 4).toString('ascii'), '%PDF', `${family} artifact is PDF: ${record.artifact}`);
+    }
+    if (htmlArtifactPath) {
+      assert.ok(fs.existsSync(htmlArtifactPath), `${family} HTML artifact exists: ${record.htmlArtifact}`);
+      const html = fs.readFileSync(htmlArtifactPath, 'utf8');
+      const visibleText = AttachmentPackageChecker.extractHtmlVisibleContent(html).text;
+      assert.ok(visibleText.includes('文件狀態：正式附件'), `${family} HTML artifact keeps static formal state: ${record.htmlArtifact}`);
+      if (record.portableHtml?.calculationFingerprint) {
+        assert.ok(visibleText.includes(record.portableHtml.calculationFingerprint), `${family} HTML artifact keeps fingerprint: ${record.htmlArtifact}`);
+      }
+    }
     if (evidencePath) assert.ok(fs.existsSync(evidencePath), `${family} evidence JSON exists: ${record.evidence}`);
   }
   return summary;

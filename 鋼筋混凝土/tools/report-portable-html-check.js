@@ -69,7 +69,7 @@ async function assertPortableFormalHtml(report, label, assert) {
   assert(!/class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i.test(state.approvedHtml), `${label} saved HTML excludes transient controls`, detail);
   assert(!/<body\b[^>]*data-document-class=/i.test(state.approvedHtml), `${label} saved HTML rehydrates document class from static source`, detail);
 
-  return summary;
+  return { ...summary, approvedHtml: state.approvedHtml };
 }
 
 module.exports = { assertPortableFormalHtml };

@@ -36,8 +36,10 @@ const wrapper = read(wrapperPath);
   'assertReportPdfTextQuality(pdfPath',
   'rendered-delivery-evidence-summary.json',
   'portableHtml: portableBeamHtml',
+  'portableBeamApprovedHtml',
   "key: 'rc-retrofit-ng-column-formal-html'",
-  'artifact: portableBlockedHtml.downloadedFileName',
+  'htmlArtifact: portableBlockedHtml.downloadedFileName',
+  'portableBlockedApprovedHtml',
 ].forEach(needle => assertIncludes(visual, needle, 'RC retrofit report visual gate'));
 
 [
