@@ -185,6 +185,7 @@
   .history-pass { color: #166534; font-weight: 800; }
   .history-warn { color: #92400e; font-weight: 800; }
   .history-fail { color: #991b1b; font-weight: 800; }
+  .attachment-integrity-action { display: block; margin-top: 4px; color: #7c2d12; font-size: 0.82rem; line-height: 1.45; }
   .history-links {
     display: flex;
     flex-wrap: wrap;
@@ -1702,6 +1703,22 @@
       return verifiedShape ? '' : 'content-invalid';
     }
 
+    function attachmentIntegrityIssueAction(code) {
+      const actions = {
+        'missing-file': '重新輸出缺失附件，再重跑正式 release。',
+        'sha256-mismatch': '不要重算 hash 或接受異動檔；請由原始計算重新輸出附件，再重跑正式 release。',
+        'bytes-mismatch': '不要改寫清冊位元組數；請由原始計算重新輸出附件，再重跑正式 release。',
+        'missing-recorded-integrity': '重新輸出附件，讓 audit／summary 同步記錄原始 bytes 與 SHA-256。',
+        'formal-state-missing': '回來源工具確認核可狀態，再重新輸出正式附件。',
+        'fingerprint-missing': '回原始計算重新產生含計算指紋的附件。',
+        'missing-manifest-record': '重跑該 RC 工具的正式附件輸出，補齊當輪清冊。',
+        'missing-manifest': '重跑該 RC 工具的 release 輸出，恢復當輪 audit／summary。',
+        'missing-manifest-name': '重新輸出附件，修復清冊中的附件識別。',
+        'content-invalid': '停止使用該檔，回來源工具重新輸出附件並重跑 release。',
+      };
+      return actions[code] || '停止使用該附件，回來源工具重新輸出並重跑正式 release。';
+    }
+
     function renderAttachmentIntegrity(payload) {
       const wrap = document.getElementById('attachmentIntegrityWrap');
       const groups = Array.isArray(payload?.attachmentIntegrityGroups) ? payload.attachmentIntegrityGroups : [];
@@ -1764,6 +1781,7 @@
                     <span>${escapeHtml(`附件 ${artifact.ordinal || '-'}`)}</span>
                     · <span class="${issueCode ? 'history-fail' : 'history-pass'}" data-integrity-code="${escapeAttr(issueCode || 'verified')}">${escapeHtml(statusText)}</span>
                     <br><code>${escapeHtml(formatCommandHash(artifact.sha256))}</code> · ${escapeHtml(`${artifact.bytes || 0} bytes`)}
+                    ${issueCode ? `<small class="attachment-integrity-action" data-integrity-action="${escapeAttr(issueCode)}">建議處置：${escapeHtml(attachmentIntegrityIssueAction(issueCode))}</small>` : ''}
                   </li>
                 `;
               }).join('');

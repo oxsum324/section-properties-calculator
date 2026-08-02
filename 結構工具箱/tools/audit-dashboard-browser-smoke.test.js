@@ -1169,6 +1169,7 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
           label: node.textContent.trim(),
           failed: node.classList.contains('history-fail'),
         })),
+        artifactActions: Array.from(row.querySelectorAll('td:nth-child(8) li')).map((node) => node.querySelector('[data-integrity-action]')?.textContent?.trim() || ''),
         failed: !!row.querySelector('td:nth-child(6) .history-fail'),
       }));
       const records = rows.map((row) => {
@@ -1431,6 +1432,7 @@ function assertDashboardLiveState(state, label, expected) {
     assert.equal(rendered.artifactCount, group.artifacts.length, `${label} live attachment integrity artifact count: ${group.title}`);
     assert.deepEqual(rendered.artifactHashes, group.artifacts.map(artifact => String(artifact.sha256 || '').slice(0, 12)), `${label} live attachment integrity artifact hashes: ${group.title}`);
     assert.deepEqual(rendered.artifactStatuses, group.artifacts.map(() => ({ code: 'verified', label: '已驗證', failed: false })), `${label} live attachment integrity artifact statuses: ${group.title}`);
+    assert.deepEqual(rendered.artifactActions, group.artifacts.map(() => ''), `${label} live passed attachments do not show remediation actions: ${group.title}`);
   }
   assert.ok(state.maturityPreflightHint.includes(`runId ${summary.runId}`), `${label} live maturity hint runId: ${state.maturityPreflightHint}`);
   assert.ok(state.maturityPreflightHint.includes(`通過 ${summary.passedCount} / ${summary.recordsCount}`), `${label} live maturity hint pass count: ${state.maturityPreflightHint}`);
@@ -1615,6 +1617,7 @@ function assertDashboardState(state, label, expectedLive = null) {
     assert.equal(rendered.artifactCount, group.artifacts.length, `${label} attachment integrity artifact count: ${group.title}`);
     assert.deepEqual(rendered.artifactHashes, group.artifacts.map(artifact => artifact.sha256.slice(0, 12)), `${label} attachment integrity artifact hashes: ${group.title}`);
     assert.deepEqual(rendered.artifactStatuses, group.artifacts.map(() => ({ code: 'verified', label: '已驗證', failed: false })), `${label} attachment integrity artifact statuses: ${group.title}`);
+    assert.deepEqual(rendered.artifactActions, group.artifacts.map(() => ''), `${label} passed attachments do not show remediation actions: ${group.title}`);
   }
   assert.equal(state.maturitySourceTrace.length, 9, `${label} maturity source trace chip count: ${JSON.stringify(state.maturitySourceTrace)}`);
   assert.ok(
@@ -1703,10 +1706,15 @@ function assertAttachmentIntegrityFailureState(state, label) {
     { code: 'sha256-mismatch', label: 'SHA-256 不符', failed: true },
     { code: 'missing-file', label: '檔案缺失', failed: true },
   ], `${label} failed RC column attachment reasons are human-readable`);
+  assert.deepEqual(failed.artifactActions.slice(-2), [
+    '建議處置：不要重算 hash 或接受異動檔；請由原始計算重新輸出附件，再重跑正式 release。',
+    '建議處置：重新輸出缺失附件，再重跑正式 release。',
+  ], `${label} failed RC column attachment remediation is actionable: ${JSON.stringify(failed.artifactActions.slice(-2))}`);
   for (const group of state.attachmentIntegrityGroups.filter(item => item.title !== 'RC 柱')) {
     assert.equal(group.status, '通過', `${label} unaffected attachment group remains passed: ${group.title}`);
     assert.equal(group.failed, false, `${label} unaffected attachment group has no failure tone: ${group.title}`);
     assert.ok(group.artifactStatuses.every(item => item.code === 'verified' && item.label === '已驗證' && item.failed === false), `${label} unaffected attachment artifacts remain verified: ${group.title}`);
+    assert.ok(group.artifactActions.every(item => item === ''), `${label} unaffected attachment artifacts do not show remediation: ${group.title}`);
   }
 }
 
