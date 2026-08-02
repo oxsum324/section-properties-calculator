@@ -61,18 +61,12 @@ function stripSnapshot(snapshot: ProjectSnapshot) {
 
 function stripProjectForAudit(project: ProjectCase) {
   return {
-    id: project.id,
-    name: project.name,
     ruleProfileId: project.ruleProfileId,
     calcEngineVersion: normalizeCalcEngineVersion(project.calcEngineVersion),
     selectedProductId: project.selectedProductId,
     candidateProductIds: [...(project.candidateProductIds ?? [])],
     candidateLayoutVariants: (project.candidateLayoutVariants ?? []).map(
       (item) => ({
-        id: item.id,
-        name: item.name,
-        note: item.note,
-        updatedAt: item.updatedAt,
         layout: { ...item.layout },
       }),
     ),
@@ -94,11 +88,6 @@ function stripProjectForAudit(project: ProjectCase) {
             project.loadPresetInput.attachmentOverstrengthFactor,
         }
       : undefined,
-    ui: project.ui ? { ...project.ui } : undefined,
-    report: project.report ? { ...project.report } : undefined,
-    documents: (project.documents ?? []).map((item) => ({ ...item })),
-    updatedAt: project.updatedAt,
-    snapshot: project.snapshot ? stripSnapshot(project.snapshot) : undefined,
   }
 }
 
@@ -203,7 +192,8 @@ export async function createProjectAuditEntry(
       formal: params.completeness.formal,
       missing: [...params.completeness.missing],
     },
-    reportSettings: { ...params.reportSettings },
+    // 文件識別欄位、核可時間與匯出格式不屬於計算內容；輸出詳略模式會改變成品內容，保留於指紋。
+    reportSettings: { reportMode: params.reportSettings.reportMode },
     snapshot: stripSnapshot(params.snapshot),
     batchReview: stripBatchReviewForAudit(params.batchReview),
   }

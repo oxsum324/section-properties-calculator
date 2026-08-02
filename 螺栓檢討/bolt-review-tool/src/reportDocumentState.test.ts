@@ -58,7 +58,16 @@ describe('buildReportDocumentState', () => {
       label: '內部審閱',
       isDraft: false,
     })
-    expect(appendReportDocumentStateSuffix('錨栓檢討', state)).toBe('錨栓檢討')
+    expect(appendReportDocumentStateSuffix('錨栓檢討', state)).toBe(
+      '錨栓檢討_內部審閱',
+    )
+    expect(
+      appendReportDocumentStateSuffix(
+        '錨栓檢討',
+        state,
+        'abcdef1234567890fedcba0987654321',
+      ),
+    ).toBe('錨栓檢討_內部審閱_CF-ABCDEF1234567890')
   })
 
   it('uses explicit approval to classify the document as a formal attachment', () => {
@@ -78,6 +87,13 @@ describe('buildReportDocumentState', () => {
     expect(state.reason).toContain('核可時間')
     expect(state.reason).toBe('核可時間：2026/07/20 18:00:00')
     expect(state.reason).not.toContain('T10:00:00.000Z')
+    expect(
+      appendReportDocumentStateSuffix(
+        '錨栓檢討',
+        state,
+        'CF-ABCDEF1234567890',
+      ),
+    ).toBe('錨栓檢討_正式附件_CF-ABCDEF1234567890')
   })
 
   it('keeps intentionally excluded checks visible without converting the document to DRAFT', () => {
@@ -88,7 +104,9 @@ describe('buildReportDocumentState', () => {
       label: '內部審閱',
       isDraft: false,
     })
-    expect(appendReportDocumentStateSuffix('錨栓檢討', state)).toBe('錨栓檢討')
+    expect(appendReportDocumentStateSuffix('錨栓檢討', state)).toBe(
+      '錨栓檢討_內部審閱',
+    )
   })
 
   it('allows an approved formal attachment to truthfully contain failed calculations', () => {

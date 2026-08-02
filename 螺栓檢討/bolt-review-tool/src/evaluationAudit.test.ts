@@ -42,6 +42,56 @@ describe('evaluationAudit', () => {
     expect(first.calcEngineVersion).toBe(CURRENT_CALC_ENGINE_VERSION)
   })
 
+  it('shares one calculation fingerprint across formats and document metadata', async () => {
+    const product = defaultProducts[0]
+    const batchReview = evaluateProjectBatch(defaultProject, product)
+    const snapshot = {
+      overallStatus: batchReview.summary.overallStatus,
+      governingMode: batchReview.summary.governingMode,
+      governingDcr: batchReview.summary.governingDcr,
+      maxDcr: batchReview.summary.maxDcr,
+      controllingLoadCaseName: batchReview.controllingLoadCaseName,
+      updatedAt: '2026-04-22T00:00:00.000Z',
+    }
+    const baseReportSettings = normalizeReportSettings(defaultProject.report)
+    const metadataProject = {
+      ...defaultProject,
+      id: 'renamed-case-id',
+      name: '不同案件顯示名稱',
+      updatedAt: '2026-08-02T09:00:00.000Z',
+      report: {
+        ...baseReportSettings,
+        designer: '王設計',
+        checker: '李複核',
+        documentApproved: true,
+        documentApprovedAt: '2026-08-02T09:01:00.000Z',
+      },
+    }
+
+    const htmlEntry = await createProjectAuditEntry({
+      project: defaultProject,
+      selectedProduct: product,
+      batchReview,
+      reportSettings: baseReportSettings,
+      completeness: assessProductCompleteness(product),
+      snapshot,
+      source: 'html',
+    })
+    const docxEntry = await createProjectAuditEntry({
+      project: metadataProject,
+      selectedProduct: product,
+      batchReview,
+      reportSettings: normalizeReportSettings(metadataProject.report),
+      completeness: assessProductCompleteness(product),
+      snapshot: { ...snapshot, updatedAt: '2026-08-02T09:02:00.000Z' },
+      source: 'docx',
+    })
+
+    expect(docxEntry.hash).toBe(htmlEntry.hash)
+    expect(htmlEntry.source).toBe('html')
+    expect(docxEntry.source).toBe('docx')
+  })
+
   it('changes hash when engineering inputs change', async () => {
     const product = defaultProducts[0]
     const changedProject = {

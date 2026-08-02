@@ -171,6 +171,15 @@ function readDocxStructure(buffer: Uint8Array) {
 }
 
 describe('reportDocx', () => {
+  it('uses a browser-compatible packer output instead of nodebuffer', async () => {
+    const source = await import('./reportDocx.ts?raw').then(
+      (module) => module.default,
+    )
+
+    expect(source).toContain('Packer.toBlob(document)')
+    expect(source).not.toContain('Packer.toBuffer(document)')
+  })
+
   it('serializes a valid docx buffer', async () => {
     const buffer = await serializeReportDocument(buildParams())
 

@@ -91,9 +91,16 @@ export function useReportExports(deps: {
     })
   }
 
-  function getReportFileStem(fallback = 'anchor-review-report') {
+  function getReportFileStem(
+    auditEntry: ProjectAuditEntry | null = latestAuditEntry,
+    fallback = 'anchor-review-report',
+  ) {
     const safeName = makeSafeFileName(project.name, fallback)
-    return appendReportDocumentStateSuffix(safeName, getDocumentState())
+    return appendReportDocumentStateSuffix(
+      safeName,
+      getDocumentState(),
+      auditEntry?.hash,
+    )
   }
 
   function getReportArtifactParams(
@@ -157,14 +164,25 @@ export function useReportExports(deps: {
   }
 
   async function exportHtmlReport() {
-    const url = await buildReportBlobUrl(false, 'html')
-    const safeName = getReportFileStem()
+    const { auditEntry, auditTrail, reused } = await ensureProjectAudit('html')
+    const { buildStandaloneReportHtml } = await import('./reportExport')
+    const html = buildStandaloneReportHtml(
+      getReportArtifactParams(false, auditEntry, auditTrail),
+    )
+    const url = URL.createObjectURL(
+      new Blob([html], { type: 'text/html;charset=utf-8' }),
+    )
+    const safeName = getReportFileStem(auditEntry)
     const link = document.createElement('a')
     link.href = url
     link.download = `${safeName}.html`
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
-    setSaveMessage(`已匯出 HTML 報告：${safeName}.html`)
+    setSaveMessage(
+      reused
+        ? `已匯出 HTML 報告：${safeName}.html（沿用留痕 ${formatAuditHash(auditEntry.hash)}）`
+        : `已匯出 HTML 報告：${safeName}.html`,
+    )
   }
 
   async function exportXlsxReport() {
@@ -176,7 +194,7 @@ export function useReportExports(deps: {
     const blob = new Blob([buffer], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     })
-    const safeName = getReportFileStem()
+    const safeName = getReportFileStem(auditEntry)
     downloadBlob(blob, `${safeName}.xlsx`)
     setSaveMessage(
       reused
@@ -202,6 +220,7 @@ export function useReportExports(deps: {
     const safeName = appendReportDocumentStateSuffix(
       safeNameBase,
       getDocumentState(),
+      auditEntry.hash,
     )
     downloadBlob(blob, `${safeName}.docx`)
     setSaveMessage(

@@ -62,7 +62,16 @@ export function buildReportDocumentState(
 export function appendReportDocumentStateSuffix(
   fileStem: string,
   state: ReportDocumentState,
+  calculationFingerprint = '',
 ): string {
-  void state
-  return fileStem
+  const rawFingerprint = calculationFingerprint.trim()
+  const normalizedFingerprint = rawFingerprint
+    ? rawFingerprint.toUpperCase().startsWith('CF-')
+      ? rawFingerprint.toUpperCase()
+      : `CF-${rawFingerprint.slice(0, 16).toUpperCase()}`
+    : ''
+
+  return [fileStem, state.label, normalizedFingerprint]
+    .filter(Boolean)
+    .join('_')
 }

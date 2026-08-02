@@ -43,6 +43,7 @@ import type {
   ReviewResult,
   UnitPreferences,
 } from './domain'
+import { buildDocumentApprovalCalculationKey } from './documentApproval'
 import type {
   EvidenceFieldView,
   EvidenceLinkStatusFilter,
@@ -598,13 +599,10 @@ function App() {
   const candidateLayoutVariants = project.candidateLayoutVariants ?? []
   const unitPreferences = normalizeUnitPreferences(project.ui)
   const reportSettings = normalizeReportSettings(project.report)
-  const approvalCalculationKey = useMemo(() => {
-    const snapshot: Record<string, unknown> = { ...project }
-    delete snapshot.report
-    delete snapshot.auditTrail
-    delete snapshot.updatedAt
-    return JSON.stringify(snapshot)
-  }, [project])
+  const approvalCalculationKey = useMemo(
+    () => buildDocumentApprovalCalculationKey(project),
+    [project],
+  )
   const approvalCalculationKeyRef = useRef(approvalCalculationKey)
   useEffect(() => {
     if (approvalCalculationKeyRef.current !== approvalCalculationKey) {
@@ -1780,6 +1778,42 @@ function App() {
         completeness={completeness}
         reportSettings={reportSettings}
       />
+      <ReportSettingsPanel
+        reportSettings={effectiveReportSettings}
+        patchReport={patchReport}
+        onDocumentApprovalChange={(approved) => {
+          setDocumentApproval({
+            approved,
+            approvedAt: approved ? new Date().toISOString() : '',
+          })
+          setSaveMessage(
+            approved
+              ? '已核可本次計算內容為正式附件。'
+              : '已切換為可列印的內部審閱版。',
+          )
+        }}
+        setSaveMessage={setSaveMessage}
+        simpleMode={simpleMode}
+      />
+      <CaseDocumentsPanel
+        caseDocuments={caseDocuments}
+        pendingDocumentKind={pendingDocumentKind}
+        setPendingDocumentKind={setPendingDocumentKind}
+        documentInputRef={documentInputRef}
+        uploadCaseDocuments={uploadCaseDocuments}
+        openDocumentDialog={openDocumentDialog}
+        previewDocumentMeta={previewDocumentMeta}
+        previewDocumentFile={previewDocumentFile}
+        previewDocumentUrl={previewDocumentUrl}
+        previewDocumentError={previewDocumentError}
+        clearPreviewDocument={clearPreviewDocument}
+        openCaseDocument={openCaseDocument}
+        downloadCaseDocument={downloadCaseDocument}
+        previewCaseDocument={previewCaseDocument}
+        deleteCaseDocument={deleteCaseDocument}
+        patchProjectDocument={patchProjectDocument}
+        simpleMode={simpleMode}
+      />
       <LandingHubGrid
         caseCards={caseCards}
         project={project}
@@ -2615,44 +2649,6 @@ function App() {
             simpleMode={simpleMode}
             seismicRouteGuidance={seismicRouteGuidance}
             applyRecommendedSeismicRoute={applyRecommendedSeismicRoute}
-          />
-
-          <ReportSettingsPanel
-            reportSettings={effectiveReportSettings}
-            patchReport={patchReport}
-            onDocumentApprovalChange={(approved) => {
-              setDocumentApproval({
-                approved,
-                approvedAt: approved ? new Date().toISOString() : '',
-              })
-              setSaveMessage(
-                approved
-                  ? '已核可本次計算內容為正式附件。'
-                  : '已切換為可列印的內部審閱版。',
-              )
-            }}
-            setSaveMessage={setSaveMessage}
-            simpleMode={simpleMode}
-          />
-
-          <CaseDocumentsPanel
-            caseDocuments={caseDocuments}
-            pendingDocumentKind={pendingDocumentKind}
-            setPendingDocumentKind={setPendingDocumentKind}
-            documentInputRef={documentInputRef}
-            uploadCaseDocuments={uploadCaseDocuments}
-            openDocumentDialog={openDocumentDialog}
-            previewDocumentMeta={previewDocumentMeta}
-            previewDocumentFile={previewDocumentFile}
-            previewDocumentUrl={previewDocumentUrl}
-            previewDocumentError={previewDocumentError}
-            clearPreviewDocument={clearPreviewDocument}
-            openCaseDocument={openCaseDocument}
-            downloadCaseDocument={downloadCaseDocument}
-            previewCaseDocument={previewCaseDocument}
-            deleteCaseDocument={deleteCaseDocument}
-            patchProjectDocument={patchProjectDocument}
-            simpleMode={simpleMode}
           />
 
           <div className="legacy-panel" data-shows="report">

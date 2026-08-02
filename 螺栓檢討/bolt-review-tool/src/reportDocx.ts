@@ -683,6 +683,8 @@ export async function serializeReportDocument(params: ReportArtifactParams) {
     console.warn('[reportDocx] 幾何圖嵌入失敗，僅輸出表格版', error)
   }
   const document = buildReportDocument(params, geometryPngBytes)
-  const buffer = await Packer.toBuffer(document)
-  return new Uint8Array(buffer)
+  // Packer.toBuffer() 會要求 JSZip 的 nodebuffer 輸出，在實際瀏覽器中會失敗。
+  // Blob 同時可由瀏覽器與目前的 Node 測試環境讀回 ArrayBuffer。
+  const blob = await Packer.toBlob(document)
+  return new Uint8Array(await blob.arrayBuffer())
 }
