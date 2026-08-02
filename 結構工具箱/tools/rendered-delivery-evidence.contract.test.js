@@ -18,6 +18,8 @@ const {
   findPdfUncontextualPageStarts,
   findSparseFinalPage,
   validatePdfFile,
+  verifyCanonicalRenderedArtifact,
+  writeEvidenceSummary,
 } = require('./rendered-delivery-evidence');
 
 const toolsRoot = __dirname;
@@ -452,6 +454,9 @@ function validateFamilySummary(runDir, family, expectedKeys) {
       assert.ok(fs.existsSync(artifactPath), `${family} artifact exists: ${record.artifact}`);
       assert.equal(fs.readFileSync(artifactPath).subarray(0, 4).toString('ascii'), '%PDF', `${family} artifact is PDF: ${record.artifact}`);
     }
+    if (artifactPath && evidencePath && ['formal-tools', 'local-quick-tools', 'steel-formal'].includes(family)) {
+      verifyCanonicalRenderedArtifact(path.dirname(summaryPath), record, `${family} ${record.key || record.artifact}`);
+    }
     if (htmlArtifactPath) {
       validateHtmlArtifactRecord(path.dirname(summaryPath), {
         htmlArtifact: record.htmlArtifact,
@@ -564,6 +569,40 @@ for (const tool of inventory.tools) {
 const rcHtmlInventory = inventory.tools.filter(tool => ['rc-formal', 'rc-retrofit'].includes(tool.family));
 assert.equal(rcHtmlInventory.length, 8, 'rendered delivery inventory maps all eight RC HTML attachment families');
 assert.equal(rcHtmlInventory.reduce((sum, tool) => sum + tool.htmlExpected, 0), 32, 'rendered delivery inventory declares 32 expected RC HTML attachments');
+
+const canonicalIntegrityFixtureDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'canonical-render-integrity-'));
+try {
+  const artifactName = 'fixture.pdf';
+  const evidenceName = 'fixture.evidence.json';
+  const originalArtifact = Buffer.from('%PDF-1.7\noriginal canonical fixture\n%%EOF\n', 'utf8');
+  fs.writeFileSync(path.join(canonicalIntegrityFixtureDir, artifactName), originalArtifact);
+  fs.writeFileSync(path.join(canonicalIntegrityFixtureDir, evidenceName), `${JSON.stringify({
+    kind: 'attachment-canonical-render-evidence.v1',
+    artifact: artifactName,
+    artifactSha256: createHash('sha256').update(originalArtifact).digest('hex'),
+  }, null, 2)}\n`, 'utf8');
+  const fixtureSummary = writeEvidenceSummary(canonicalIntegrityFixtureDir, 'fixture-family', [{
+    key: 'fixture-report',
+    artifact: artifactName,
+    evidence: evidenceName,
+  }], ['fixture-report']);
+  const fixtureRecord = fixtureSummary.payload.records[0];
+  assert.match(fixtureRecord.artifactSha256, /^[0-9a-f]{64}$/i, 'family summary records canonical artifact hash');
+  assert.match(fixtureRecord.evidenceSha256, /^[0-9a-f]{64}$/i, 'family summary records canonical evidence hash');
+  assert.equal(fixtureRecord.artifactBytes, originalArtifact.length, 'family summary records canonical artifact bytes');
+  verifyCanonicalRenderedArtifact(canonicalIntegrityFixtureDir, fixtureRecord, 'canonical fixture');
+  const tamperedArtifact = Buffer.from(originalArtifact);
+  tamperedArtifact[tamperedArtifact.indexOf('original')] = 'X'.charCodeAt(0);
+  assert.equal(tamperedArtifact.length, originalArtifact.length, 'negative fixture preserves artifact byte length');
+  fs.writeFileSync(path.join(canonicalIntegrityFixtureDir, artifactName), tamperedArtifact);
+  assert.throws(
+    () => verifyCanonicalRenderedArtifact(canonicalIntegrityFixtureDir, fixtureRecord, 'tampered canonical fixture'),
+    /artifact SHA-256 matches its original render evidence/,
+    'same-size canonical PDF replacement is blocked by original evidence hash'
+  );
+} finally {
+  fs.rmSync(canonicalIntegrityFixtureDir, { recursive: true, force: true });
+}
 
 const strictRelease = process.env.PREFLIGHT_RELEASE === '1';
 if (!strictRelease) {

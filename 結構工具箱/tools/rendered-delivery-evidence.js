@@ -28,6 +28,52 @@ function safeName(value) {
     .slice(0, 100) || 'artifact';
 }
 
+function directChildFile(directory, name, label) {
+  const normalizedName = String(name || '');
+  assert.ok(normalizedName && path.basename(normalizedName) === normalizedName && !['.', '..'].includes(normalizedName), `${label} uses a direct child filename`);
+  const filePath = path.join(path.resolve(directory), normalizedName);
+  const stat = fs.lstatSync(filePath);
+  assert.equal(stat.isSymbolicLink(), false, `${label} is not a symbolic link`);
+  assert.equal(stat.isFile(), true, `${label} is a regular file`);
+  return { filePath, stat };
+}
+
+function readStableFile(filePath, initialStat, label) {
+  const buffer = fs.readFileSync(filePath);
+  const finalStat = fs.lstatSync(filePath);
+  assert.equal(finalStat.isSymbolicLink(), false, `${label} remains a regular file`);
+  assert.equal(finalStat.isFile(), true, `${label} remains a regular file`);
+  assert.equal(finalStat.size, initialStat.size, `${label} size remains stable while verifying`);
+  assert.equal(finalStat.mtimeMs, initialStat.mtimeMs, `${label} timestamp remains stable while verifying`);
+  return buffer;
+}
+
+function verifyCanonicalRenderedArtifact(directory, record, label, options = {}) {
+  const artifactName = String(record?.artifact || '');
+  const evidenceName = String(record?.evidence || '');
+  const artifact = directChildFile(directory, artifactName, `${label} artifact`);
+  const evidenceFile = directChildFile(directory, evidenceName, `${label} evidence`);
+  const artifactBuffer = readStableFile(artifact.filePath, artifact.stat, `${label} artifact`);
+  const evidenceBuffer = readStableFile(evidenceFile.filePath, evidenceFile.stat, `${label} evidence`);
+  const evidence = JSON.parse(evidenceBuffer.toString('utf8'));
+  const artifactSha256 = crypto.createHash('sha256').update(artifactBuffer).digest('hex');
+  const evidenceSha256 = crypto.createHash('sha256').update(evidenceBuffer).digest('hex');
+  assert.equal(evidence.kind, CANONICAL_RENDER_EVIDENCE_KIND, `${label} evidence kind is canonical`);
+  assert.equal(evidence.artifact, artifactName, `${label} evidence names the preserved artifact`);
+  assert.match(String(evidence.artifactSha256 || ''), /^[0-9a-f]{64}$/i, `${label} evidence records an artifact SHA-256`);
+  assert.equal(String(evidence.artifactSha256).toLowerCase(), artifactSha256, `${label} artifact SHA-256 matches its original render evidence`);
+  if (options.requireSummaryIntegrity !== false) {
+    assert.equal(Number(record.artifactBytes), artifactBuffer.length, `${label} family summary records artifact bytes`);
+    assert.equal(String(record.artifactSha256 || '').toLowerCase(), artifactSha256, `${label} family summary records artifact SHA-256`);
+    assert.equal(String(record.evidenceSha256 || '').toLowerCase(), evidenceSha256, `${label} family summary records evidence SHA-256`);
+  }
+  return {
+    artifactBytes: artifactBuffer.length,
+    artifactSha256,
+    evidenceSha256,
+  };
+}
+
 function normalizeLayoutLine(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -691,7 +737,14 @@ async function renderAndValidateReportPdf(client, options) {
 
 function writeEvidenceSummary(outputDir, family, records, expectedKeys = []) {
   fs.mkdirSync(outputDir, { recursive: true });
-  const actualKeys = records.map(record => record.key);
+  const verifiedRecords = records.map((record) => {
+    if (!record?.artifact || !record?.evidence) return record;
+    return {
+      ...record,
+      ...verifyCanonicalRenderedArtifact(outputDir, record, `${family} ${record.key || record.artifact}`, { requireSummaryIntegrity: false }),
+    };
+  });
+  const actualKeys = verifiedRecords.map(record => record.key);
   for (const key of expectedKeys) {
     assert.ok(actualKeys.includes(key), `${family} rendered delivery evidence missing ${key}`);
   }
@@ -701,7 +754,7 @@ function writeEvidenceSummary(outputDir, family, records, expectedKeys = []) {
     generatedAt: new Date().toISOString(),
     expected: expectedKeys,
     complete: expectedKeys.filter(key => actualKeys.includes(key)),
-    records,
+    records: verifiedRecords,
     pass: expectedKeys.every(key => actualKeys.includes(key)),
   };
   const summaryPath = path.join(outputDir, 'rendered-delivery-evidence-summary.json');
@@ -724,6 +777,7 @@ module.exports = {
   evaluateCalculationContent,
   resolveEvidenceDir,
   renderAndValidateReportPdf,
+  verifyCanonicalRenderedArtifact,
   validatePdfFile,
   writeEvidenceSummary,
 };
