@@ -5,6 +5,7 @@ const path = require('path');
 const vm = require('vm');
 const { inflateRawSync } = require('zlib');
 const AttachmentPackageChecker = require('./attachment-package-check');
+const { verifyHtmlArtifact } = require('./html-attachment-integrity');
 const {
   CALCULATION_BOOK_CONTENT_BOUNDARY,
   CONTENT_GROUPS,
@@ -385,7 +386,10 @@ function sha256File(filePath) {
   return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
-function validateHtmlArtifactRecord(directory, record, label) {
+function validateHtmlArtifactRecord(directory, record, label, options = {}) {
+  if (options.requireRecordedIntegrity) {
+    return verifyHtmlArtifact(directory, record, label);
+  }
   assert.ok(record?.htmlArtifact, `${label} names HTML artifact`);
   const htmlArtifactPath = path.join(directory, record.htmlArtifact);
   assert.ok(fs.existsSync(htmlArtifactPath), `${label} HTML artifact exists: ${record.htmlArtifact}`);
@@ -598,7 +602,7 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
   assert.ok(Array.isArray(auditRecords) && auditRecords.length > 0, `${tool.title} report audit has records`);
   const portableRecords = auditRecords.map(record => record.portableHtml).filter(Boolean);
   assert.equal(portableRecords.length, auditRecords.length, `${tool.title} every report audit record has portable HTML evidence`);
-  const htmlIntegrity = portableRecords.map(record => validateHtmlArtifactRecord(rcDir, record, tool.title));
+  const htmlIntegrity = portableRecords.map(record => validateHtmlArtifactRecord(rcDir, record, tool.title, { requireRecordedIntegrity: true }));
   const htmlArtifacts = htmlIntegrity.map(item => item.name);
   const integrity = buildHtmlIntegrityGroup(tool, htmlIntegrity);
   records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, htmlArtifacts, htmlIntegrity, integrity, pageCount: pdf.pageCount, textLength: pdf.textLength });
@@ -612,8 +616,10 @@ const retrofitHtmlIntegrity = retrofitSummary.records
   .filter(record => record.htmlArtifact)
   .map(record => validateHtmlArtifactRecord(retrofitEvidenceDir, {
     htmlArtifact: record.htmlArtifact,
+    htmlArtifactBytes: record.portableHtml?.htmlArtifactBytes,
+    htmlArtifactSha256: record.portableHtml?.htmlArtifactSha256,
     calculationFingerprint: record.portableHtml?.calculationFingerprint || '',
-  }, retrofitTool.title));
+  }, retrofitTool.title, { requireRecordedIntegrity: true }));
 const retrofitIntegrity = buildHtmlIntegrityGroup(retrofitTool, retrofitHtmlIntegrity);
 records.push({
   href: retrofitTool.href,

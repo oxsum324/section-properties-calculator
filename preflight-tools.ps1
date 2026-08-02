@@ -1407,6 +1407,11 @@ node 結構工具箱/tools/rendered-delivery-evidence.contract.test.js
 exit $LASTEXITCODE
 '@
 
+$htmlAttachmentIntegrityContractCommand = @'
+node 結構工具箱/tools/html-attachment-integrity.test.js
+exit $LASTEXITCODE
+'@
+
 $pagesReleaseGovernanceContractCommand = @'
 node pages-release-governance.contract.test.js
 exit $LASTEXITCODE
@@ -2724,6 +2729,13 @@ $checks = @(
     slow = $true
     cache = $formalRunnerCache
     timeoutSeconds = 600
+  },
+  [pscustomobject]@{
+    key = "html-attachment-integrity"
+    label = "HTML attachment tamper resistance contract"
+    workdir = $root
+    command = $htmlAttachmentIntegrityContractCommand
+    slow = $false
   },
   [pscustomobject]@{
     key = "rendered-delivery-evidence"

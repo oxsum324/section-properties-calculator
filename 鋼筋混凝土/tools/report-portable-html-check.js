@@ -1,4 +1,5 @@
 const AttachmentPackageChecker = require('../../結構工具箱/tools/attachment-package-check');
+const { describeHtmlArtifact } = require('../../結構工具箱/tools/html-attachment-integrity');
 const fs = require('fs');
 const path = require('path');
 
@@ -72,13 +73,15 @@ async function assertPortableFormalHtml(report, label, assert, options = {}) {
   assert(!/<body\b[^>]*data-document-class=/i.test(state.approvedHtml), `${label} saved HTML rehydrates document class from static source`, detail);
 
   let htmlArtifact = '';
+  let htmlArtifactManifest = {};
   if (options.outputDir) {
     fs.mkdirSync(options.outputDir, { recursive: true });
     htmlArtifact = state.downloadedFileName;
+    htmlArtifactManifest = describeHtmlArtifact(htmlArtifact, state.approvedHtml);
     fs.writeFileSync(path.join(options.outputDir, htmlArtifact), state.approvedHtml, 'utf8');
   }
 
-  return { ...summary, htmlArtifact };
+  return { ...summary, htmlArtifact, ...htmlArtifactManifest };
 }
 
 module.exports = { assertPortableFormalHtml };
