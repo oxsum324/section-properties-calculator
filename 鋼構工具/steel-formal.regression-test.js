@@ -1059,6 +1059,11 @@ assert.match(
 );
 assert.match(
   browserRunnerSource,
+  /AttachmentPackageChecker[\s\S]*repDownloadCurrentHtml[\s\S]*initialDocumentTitle[\s\S]*approvedDocumentTitle[\s\S]*downloadedFileName[\s\S]*approvedDocumentTitle}\.html[\s\S]*extractHtmlVisibleContent[\s\S]*savedStatusCount !== 1/s,
+  "steel browser runner should verify formal HTML naming, static approval evidence, and attachment-checker readability",
+);
+assert.match(
+  browserRunnerSource,
   /LEGACY_PROJECT_META_PLACEHOLDER[\s\S]*projectName:\s*'未填'[\s\S]*setupMainPlateProjectMetaPlaceholder[\s\S]*plate_geometry[\s\S]*assertMainPlateProjectMetaPlaceholderRendered[\s\S]*#metaProjectName[\s\S]*assertMainPlateSummaryCopyPlaceholder[\s\S]*計畫：—[\s\S]*接頭：\$\{LEGACY_PROJECT_META_PLACEHOLDER\.connectionTag\}[\s\S]*assertLegacyReportPopup[\s\S]*buttonSelector:\s*'#printReportBtn'[\s\S]*titleNeedle:\s*'連接板檢核計算書'[\s\S]*absentNeedles:\s*\['未填'\]/s,
   "steel-audit-browser-runner.js should verify the legacy main result action scrubs placeholder project text and opens the traceable report popup",
 );

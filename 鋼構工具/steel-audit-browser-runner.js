@@ -9,6 +9,7 @@ const {
   validatePdfFile,
   writeEvidenceSummary,
 } = require('../結構工具箱/tools/rendered-delivery-evidence');
+const AttachmentPackageChecker = require('../結構工具箱/tools/attachment-package-check');
 const CALCULATION_BOOK_CONTENT_BOUNDARY = require('../結構工具箱/tools/calculation-book-content-boundary.json');
 
 const args = parseArgs(process.argv.slice(2));
@@ -1006,20 +1007,58 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   }))()`, `${options.label} snapshot`);
   const approvalState = await evaluate(cdp, popup.sessionId, `(() => {
     const approval = document.getElementById('repAttachmentApproval');
+    const downloadButton = document.getElementById('repDownloadCurrentHtml');
+    const serializerAvailable = typeof serializeReportDocumentHtml === 'function';
     const status = () => document.querySelector('.rep-document-status-line');
+    const calculationFingerprint = () => (status()?.textContent || '').match(/CF-[0-9A-F]{16}/)?.[0] || '';
     const initialDocumentClass = status()?.dataset.documentClass || '';
     const initialStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const initialCalculationFingerprint = calculationFingerprint();
+    const initialDocumentTitle = document.title || '';
     if (approval) {
       approval.checked = true;
       approval.dispatchEvent(new Event('change', { bubbles: true }));
     }
     const approvedDocumentClass = status()?.dataset.documentClass || '';
     const approvedStatusText = (status()?.textContent || '').replace(/\\s+/g, ' ').trim();
+    const approvedAt = status()?.dataset.approvedAt || '';
+    const approvedCalculationFingerprint = calculationFingerprint();
+    const approvedDocumentTitle = document.title || '';
+    const approvedHtml = serializerAvailable ? serializeReportDocumentHtml() : '';
+    let downloadedFileName = '';
+    if (downloadButton) {
+      const originalAnchorClick = HTMLAnchorElement.prototype.click;
+      try {
+        HTMLAnchorElement.prototype.click = function captureReportDownload() {
+          downloadedFileName = this.download || '';
+        };
+        downloadButton.click();
+      } finally {
+        HTMLAnchorElement.prototype.click = originalAnchorClick;
+      }
+    }
     if (approval) {
       approval.checked = false;
       approval.dispatchEvent(new Event('change', { bubbles: true }));
     }
-    return { approvalControl: Boolean(approval), initialDocumentClass, initialStatusText, approvedDocumentClass, approvedStatusText };
+    const internalDocumentTitle = document.title || '';
+    return {
+      approvalControl: Boolean(approval),
+      downloadControl: Boolean(downloadButton),
+      serializerAvailable,
+      initialDocumentClass,
+      initialStatusText,
+      initialCalculationFingerprint,
+      initialDocumentTitle,
+      approvedDocumentClass,
+      approvedStatusText,
+      approvedAt,
+      approvedCalculationFingerprint,
+      approvedDocumentTitle,
+      approvedHtml,
+      downloadedFileName,
+      internalDocumentTitle,
+    };
   })()`, `${options.label} approval state`);
   if (!snapshot.title.includes(options.titleNeedle) || !snapshot.header.includes(options.titleNeedle)) {
     throw new Error(`${options.label} title mismatch: ${JSON.stringify(snapshot)}`);
@@ -1064,6 +1103,38 @@ async function assertFormalReportPopup(cdp, sessionId, options) {
   }
   if (approvalState.approvedDocumentClass !== 'formal-attachment' || !approvalState.approvedStatusText.includes('文件狀態：正式附件') || !approvalState.approvedStatusText.includes('核可時間')) {
     throw new Error(`${options.label} approval checkbox should create a traceable formal attachment: ${JSON.stringify(approvalState)}`);
+  }
+  if (!approvalState.downloadControl || !approvalState.serializerAvailable) {
+    throw new Error(`${options.label} should expose the reusable current-state HTML download: ${JSON.stringify(approvalState)}`);
+  }
+  if (!/^CF-[0-9A-F]{16}$/.test(approvalState.initialCalculationFingerprint)
+      || approvalState.approvedCalculationFingerprint !== approvalState.initialCalculationFingerprint) {
+    throw new Error(`${options.label} approval should preserve one calculation fingerprint: ${JSON.stringify(approvalState)}`);
+  }
+  if (!approvalState.initialDocumentTitle.includes('內部審閱')
+      || !approvalState.initialDocumentTitle.includes(approvalState.initialCalculationFingerprint)
+      || !approvalState.approvedDocumentTitle.includes('正式附件')
+      || !approvalState.approvedDocumentTitle.includes(approvalState.approvedCalculationFingerprint)
+      || !approvalState.internalDocumentTitle.includes('內部審閱')
+      || !approvalState.internalDocumentTitle.includes(approvalState.initialCalculationFingerprint)) {
+    throw new Error(`${options.label} document title should follow approval state and fingerprint: ${JSON.stringify(approvalState)}`);
+  }
+  if (approvalState.downloadedFileName !== `${approvalState.approvedDocumentTitle}.html`) {
+    throw new Error(`${options.label} formal HTML filename should match the approved title: ${JSON.stringify(approvalState)}`);
+  }
+  if (!Number.isFinite(Date.parse(approvalState.approvedAt || ''))) {
+    throw new Error(`${options.label} formal HTML should preserve a machine-readable approval time: ${JSON.stringify(approvalState)}`);
+  }
+  const savedStatusCount = (approvalState.approvedHtml.match(/class=["'][^"']*rep-document-status-line[^"']*["']/gi) || []).length;
+  const savedVisibleText = AttachmentPackageChecker.extractHtmlVisibleContent(approvalState.approvedHtml).text;
+  if (savedStatusCount !== 1
+      || !savedVisibleText.includes('文件狀態：正式附件')
+      || !savedVisibleText.includes('核可時間')
+      || !savedVisibleText.includes(approvalState.approvedCalculationFingerprint)) {
+    throw new Error(`${options.label} saved formal HTML should expose one static traceable state line: ${JSON.stringify(approvalState)}`);
+  }
+  if (/class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i.test(approvalState.approvedHtml)) {
+    throw new Error(`${options.label} saved formal HTML should exclude interactive controls`);
   }
   if (snapshot.bodyText.includes('DRAFT')) {
     throw new Error(`${options.label} should not render a DRAFT banner: ${snapshot.bodyText}`);
