@@ -1,6 +1,11 @@
 @echo off
 setlocal
-powershell -ExecutionPolicy Bypass -File "%~dp0preflight-tools.ps1" -Quiet -Quick
+where pwsh >nul 2>nul
+if not errorlevel 1 (
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0preflight-tools.ps1" -Quiet -Quick
+) else (
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0preflight-tools.ps1" -Quiet -Quick
+)
 if errorlevel 1 (
   echo.
   echo Quick tool preflight failed.

@@ -1102,8 +1102,8 @@ for (const needle of formalReportReferenceNeedles) {
 }
 assert.match(
   runSyncFormalCoreBatSource,
-  /powershell -ExecutionPolicy Bypass -File "%~dp0sync-formal-core\.ps1" %\*/,
-  "run-sync-formal-core.bat should provide a double-click wrapper around the formal core sync script",
+  /where pwsh[\s\S]*pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0sync-formal-core\.ps1" %\*[\s\S]*powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0sync-formal-core\.ps1" %\*/,
+  "run-sync-formal-core.bat should prefer PowerShell 7, retain the Windows PowerShell fallback, and forward arguments",
 );
 assert.match(
   beamFormalHtmlSource,

@@ -1782,7 +1782,24 @@ foreach ($check in $checks) {
   }
 }
 
-Write-Output "launcher scripts smoke OK ($($checks.Count) scripts)"
+$powershellLaunchers = @(
+  Get-ChildItem -LiteralPath . -Recurse -File -Filter '*.bat' | Where-Object {
+    $relative = $_.FullName.Substring((Get-Location).Path.Length).TrimStart('\')
+    $relative -notmatch '^(?:\.git|\.claude|\.codex|node_modules|output|dist|build|vendor|backups)\\' -and
+      (Get-Content -LiteralPath $_.FullName -Raw -Encoding UTF8) -match '(?im)^\s*powershell(?:\.exe)?\s+.*-File'
+  }
+)
+foreach ($launcher in $powershellLaunchers) {
+  $content = Get-Content -LiteralPath $launcher.FullName -Raw -Encoding UTF8
+  foreach ($needle in @('where pwsh', 'pwsh -NoProfile', 'powershell -NoProfile')) {
+    if ($content -notlike "*$needle*") {
+      Write-Error "PowerShell launcher missing '$needle': $($launcher.FullName)"
+      exit 1
+    }
+  }
+}
+
+Write-Output "launcher scripts smoke OK ($($checks.Count) governed scripts; $($powershellLaunchers.Count) PowerShell wrappers)"
 exit 0
 '@
 
