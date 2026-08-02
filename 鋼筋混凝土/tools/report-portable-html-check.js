@@ -1,6 +1,8 @@
 const AttachmentPackageChecker = require('../../結構工具箱/tools/attachment-package-check');
+const fs = require('fs');
+const path = require('path');
 
-async function assertPortableFormalHtml(report, label, assert) {
+async function assertPortableFormalHtml(report, label, assert, options = {}) {
   const state = await report.evaluate(() => {
     const approval = document.getElementById('repAttachmentApproval');
     const downloadButton = document.getElementById('repDownloadCurrentHtml');
@@ -69,7 +71,14 @@ async function assertPortableFormalHtml(report, label, assert) {
   assert(!/class=["'][^"']*(?:rep-approval-control|rep-download-control)[^"']*["']/i.test(state.approvedHtml), `${label} saved HTML excludes transient controls`, detail);
   assert(!/<body\b[^>]*data-document-class=/i.test(state.approvedHtml), `${label} saved HTML rehydrates document class from static source`, detail);
 
-  return { ...summary, approvedHtml: state.approvedHtml };
+  let htmlArtifact = '';
+  if (options.outputDir) {
+    fs.mkdirSync(options.outputDir, { recursive: true });
+    htmlArtifact = state.downloadedFileName;
+    fs.writeFileSync(path.join(options.outputDir, htmlArtifact), state.approvedHtml, 'utf8');
+  }
+
+  return { ...summary, htmlArtifact };
 }
 
 module.exports = { assertPortableFormalHtml };

@@ -407,7 +407,8 @@ async function main() {
       assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], `${key} screenshot written`);
       assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], `${key} pdf written`);
 
-      await assertPortableFormalHtml(report, `${key} report`, assert);
+      const portableHtml = await assertPortableFormalHtml(report, `${key} report`, assert, { outputDir: OUT_DIR });
+      results[results.length - 1].portableHtml = portableHtml;
       await report.close();
       if (state.readinessStatus === 'ready') {
         await page.fill('#projNo', '');

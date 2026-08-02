@@ -385,6 +385,19 @@ function sha256File(filePath) {
   return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
+function validateHtmlArtifactRecord(directory, record, label) {
+  assert.ok(record?.htmlArtifact, `${label} names HTML artifact`);
+  const htmlArtifactPath = path.join(directory, record.htmlArtifact);
+  assert.ok(fs.existsSync(htmlArtifactPath), `${label} HTML artifact exists: ${record.htmlArtifact}`);
+  const html = fs.readFileSync(htmlArtifactPath, 'utf8');
+  const visibleText = AttachmentPackageChecker.extractHtmlVisibleContent(html).text;
+  assert.ok(visibleText.includes('文件狀態：正式附件'), `${label} HTML artifact keeps static formal state: ${record.htmlArtifact}`);
+  if (record.calculationFingerprint) {
+    assert.ok(visibleText.includes(record.calculationFingerprint), `${label} HTML artifact keeps fingerprint: ${record.htmlArtifact}`);
+  }
+  return record.htmlArtifact;
+}
+
 function validateFamilySummary(runDir, family, expectedKeys) {
   const summaryPath = path.join(runDir, 'rendered-delivery-evidence', family, 'rendered-delivery-evidence-summary.json');
   assert.ok(fs.existsSync(summaryPath), `${family} current-run rendered summary exists`);
@@ -403,13 +416,10 @@ function validateFamilySummary(runDir, family, expectedKeys) {
       assert.equal(fs.readFileSync(artifactPath).subarray(0, 4).toString('ascii'), '%PDF', `${family} artifact is PDF: ${record.artifact}`);
     }
     if (htmlArtifactPath) {
-      assert.ok(fs.existsSync(htmlArtifactPath), `${family} HTML artifact exists: ${record.htmlArtifact}`);
-      const html = fs.readFileSync(htmlArtifactPath, 'utf8');
-      const visibleText = AttachmentPackageChecker.extractHtmlVisibleContent(html).text;
-      assert.ok(visibleText.includes('文件狀態：正式附件'), `${family} HTML artifact keeps static formal state: ${record.htmlArtifact}`);
-      if (record.portableHtml?.calculationFingerprint) {
-        assert.ok(visibleText.includes(record.portableHtml.calculationFingerprint), `${family} HTML artifact keeps fingerprint: ${record.htmlArtifact}`);
-      }
+      validateHtmlArtifactRecord(path.dirname(summaryPath), {
+        htmlArtifact: record.htmlArtifact,
+        calculationFingerprint: record.portableHtml?.calculationFingerprint || '',
+      }, family);
     }
     if (evidencePath) assert.ok(fs.existsSync(evidencePath), `${family} evidence JSON exists: ${record.evidence}`);
   }
@@ -545,7 +555,15 @@ for (const tool of inventory.tools.filter(item => item.family === 'rc-formal')) 
     contentBoundaryProfile: 'traceable-calculation-book',
     forbiddenNeedles: [],
   });
-  records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, pageCount: pdf.pageCount, textLength: pdf.textLength });
+  const auditPath = path.join(rcDir, `${tool.evidenceKey}visual-audit.json`);
+  assert.ok(fs.existsSync(auditPath), `${tool.title} report audit exists`);
+  const auditPayload = readJson(auditPath);
+  const auditRecords = Array.isArray(auditPayload) ? auditPayload : auditPayload.results;
+  assert.ok(Array.isArray(auditRecords) && auditRecords.length > 0, `${tool.title} report audit has records`);
+  const portableRecords = auditRecords.map(record => record.portableHtml).filter(Boolean);
+  assert.equal(portableRecords.length, auditRecords.length, `${tool.title} every report audit record has portable HTML evidence`);
+  const htmlArtifacts = portableRecords.map(record => validateHtmlArtifactRecord(rcDir, record, tool.title));
+  records.push({ href: tool.href, title: tool.title, family: tool.family, evidenceKey: tool.evidenceKey, artifact: artifact.name, htmlArtifacts, pageCount: pdf.pageCount, textLength: pdf.textLength });
 }
 
 const retrofitSummary = validateFamilySummary(runDir, 'rc-retrofit', ['rc-retrofit-section']);

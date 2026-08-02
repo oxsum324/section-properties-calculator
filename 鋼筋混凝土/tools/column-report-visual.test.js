@@ -362,7 +362,8 @@ async function main() {
       assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], `${tc.key} screenshot written`);
       assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} pdf written`);
 
-      await assertPortableFormalHtml(report, `${tc.key} report`, assert);
+      const portableHtml = await assertPortableFormalHtml(report, `${tc.key} report`, assert, { outputDir: OUT_DIR });
+      results[results.length - 1].portableHtml = portableHtml;
       await report.close();
       await page.close();
     }
@@ -423,7 +424,8 @@ async function main() {
     assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], 'resolved review screenshot written');
     assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], 'resolved review PDF written');
     results.push({ key: 'resolved-review-formal-attachment', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality });
-    await assertPortableFormalHtml(report, 'resolved review report', assert);
+    const portableHtml = await assertPortableFormalHtml(report, 'resolved review report', assert, { outputDir: OUT_DIR });
+    results[results.length - 1].portableHtml = portableHtml;
     await report.close();
     await page.close();
   } finally {

@@ -28,18 +28,16 @@ const wrapper = read(wrapperPath);
 
 [
   "require('./report-portable-html-check')",
-  "await assertPortableFormalHtml(report, 'RC retrofit beam report', assert)",
-  "await assertPortableFormalHtml(blockedReport, 'RC retrofit NG column report', assert)",
   'RC retrofit NG calculation can be explicitly approved as a truthful formal attachment',
   'RC retrofit blank project metadata remains printable for internal review',
   'assertReportScreenshotQuality(screenshotPath',
   'assertReportPdfTextQuality(pdfPath',
   'rendered-delivery-evidence-summary.json',
   'portableHtml: portableBeamHtml',
-  'portableBeamApprovedHtml',
+  "assertPortableFormalHtml(report, 'RC retrofit beam report', assert, { outputDir })",
   "key: 'rc-retrofit-ng-column-formal-html'",
-  'htmlArtifact: portableBlockedHtml.downloadedFileName',
-  'portableBlockedApprovedHtml',
+  'htmlArtifact: portableBlockedHtml.htmlArtifact',
+  "assertPortableFormalHtml(blockedReport, 'RC retrofit NG column report', assert, { outputDir })",
 ].forEach(needle => assertIncludes(visual, needle, 'RC retrofit report visual gate'));
 
 [

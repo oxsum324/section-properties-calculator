@@ -149,9 +149,7 @@ async function main() {
       include: ['計畫名稱', 'RC 補強正式報告驗證案', '文件狀態：內部審閱'],
       exclude: ['DRAFT／非正式附件'],
     });
-    const portableBeamResult = await assertPortableFormalHtml(report, 'RC retrofit beam report', assert);
-    const { approvedHtml: portableBeamApprovedHtml, ...portableBeamHtml } = portableBeamResult;
-    fs.writeFileSync(path.join(outputDir, portableBeamHtml.downloadedFileName), portableBeamApprovedHtml, 'utf8');
+    const portableBeamHtml = await assertPortableFormalHtml(report, 'RC retrofit beam report', assert, { outputDir });
     assert.equal(errors.length, 0, `RC retrofit page/report console errors: ${errors.join(' | ')}`);
     const summary = {
       schemaVersion: 1,
@@ -161,7 +159,7 @@ async function main() {
       records: [{
         key: 'rc-retrofit-section',
         artifact: path.basename(pdfPath),
-        htmlArtifact: portableBeamHtml.downloadedFileName,
+        htmlArtifact: portableBeamHtml.htmlArtifact,
         screenshot: path.basename(screenshotPath),
         title: metrics.title,
         tableCount: metrics.tableCount,
@@ -220,12 +218,10 @@ async function main() {
     }));
     assert.equal(approvedBlockedState.state, 'formal-attachment', 'RC retrofit NG calculation can be explicitly approved as a truthful formal attachment');
     assert.ok(approvedBlockedState.text.includes('核可時間'), 'RC retrofit formal attachment records approval time');
-    const portableBlockedResult = await assertPortableFormalHtml(blockedReport, 'RC retrofit NG column report', assert);
-    const { approvedHtml: portableBlockedApprovedHtml, ...portableBlockedHtml } = portableBlockedResult;
-    fs.writeFileSync(path.join(outputDir, portableBlockedHtml.downloadedFileName), portableBlockedApprovedHtml, 'utf8');
+    const portableBlockedHtml = await assertPortableFormalHtml(blockedReport, 'RC retrofit NG column report', assert, { outputDir });
     summary.records.push({
       key: 'rc-retrofit-ng-column-formal-html',
-      htmlArtifact: portableBlockedHtml.downloadedFileName,
+      htmlArtifact: portableBlockedHtml.htmlArtifact,
       title: portableBlockedHtml.reportTitle,
       portableHtml: portableBlockedHtml,
     });
