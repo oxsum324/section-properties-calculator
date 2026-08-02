@@ -4,6 +4,7 @@ const http = require('http');
 const path = require('path');
 const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality } = require('./report-screenshot-quality');
+const { assertPortableFormalHtml } = require('./report-portable-html-check');
 
 const repoRoot = path.resolve(__dirname, '..', '..');
 const outputDir = path.resolve(
@@ -148,6 +149,7 @@ async function main() {
       include: ['計畫名稱', 'RC 補強正式報告驗證案', '文件狀態：內部審閱'],
       exclude: ['DRAFT／非正式附件'],
     });
+    const portableBeamHtml = await assertPortableFormalHtml(report, 'RC retrofit beam report', assert);
     assert.equal(errors.length, 0, `RC retrofit page/report console errors: ${errors.join(' | ')}`);
     const summary = {
       schemaVersion: 1,
@@ -163,9 +165,9 @@ async function main() {
         tableHeaderCount: metrics.tableHeaderCount,
         screenshotQuality,
         pdfTextQuality,
+        portableHtml: portableBeamHtml,
       }],
     };
-    fs.writeFileSync(path.join(outputDir, 'rendered-delivery-evidence-summary.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
     await report.close();
 
     const metadataReviewPromise = page.context().waitForEvent('page', { timeout: 15000 });
@@ -215,9 +217,17 @@ async function main() {
     }));
     assert.equal(approvedBlockedState.state, 'formal-attachment', 'RC retrofit NG calculation can be explicitly approved as a truthful formal attachment');
     assert.ok(approvedBlockedState.text.includes('核可時間'), 'RC retrofit formal attachment records approval time');
+    const portableBlockedHtml = await assertPortableFormalHtml(blockedReport, 'RC retrofit NG column report', assert);
+    summary.records.push({
+      key: 'rc-retrofit-ng-column-formal-html',
+      artifact: portableBlockedHtml.downloadedFileName,
+      title: portableBlockedHtml.reportTitle,
+      portableHtml: portableBlockedHtml,
+    });
+    fs.writeFileSync(path.join(outputDir, 'rendered-delivery-evidence-summary.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf8');
     await blockedReport.close();
     await page.close();
-    console.log(`RC retrofit report visual smoke OK (summary=${path.join(outputDir, 'rendered-delivery-evidence-summary.json')})`);
+    console.log(`RC retrofit report visual smoke OK (downloads=${portableBeamHtml.downloadedFileName}, ${portableBlockedHtml.downloadedFileName}; summary=${path.join(outputDir, 'rendered-delivery-evidence-summary.json')})`);
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

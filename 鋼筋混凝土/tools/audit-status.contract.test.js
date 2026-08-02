@@ -12,6 +12,7 @@ const testSlabPath = path.join(ROOT, 'tools', 'test-slab.ps1');
 const testWallPath = path.join(ROOT, 'tools', 'test-wall.ps1');
 const testFoundationPath = path.join(ROOT, 'tools', 'test-foundation.ps1');
 const testSinglePilePath = path.join(ROOT, 'tools', 'test-single-pile.ps1');
+const testRetrofitPath = path.join(ROOT, 'tools', 'test-retrofit-report.ps1');
 const testRcIndexPath = path.join(ROOT, 'tools', 'test-rc-index-menu.ps1');
 const rcIndexBrowserPath = path.join(ROOT, 'tools', 'rc-index-menu-browser-smoke.test.js');
 const testShearWallReportPath = path.join(ROOT, 'tools', 'test-shear-wall-report.ps1');
@@ -140,6 +141,7 @@ const testSlab = fs.readFileSync(testSlabPath, 'utf8');
 const testWall = fs.readFileSync(testWallPath, 'utf8');
 const testFoundation = fs.readFileSync(testFoundationPath, 'utf8');
 const testSinglePile = fs.readFileSync(testSinglePilePath, 'utf8');
+const testRetrofit = fs.readFileSync(testRetrofitPath, 'utf8');
 const testRcIndex = fs.readFileSync(testRcIndexPath, 'utf8');
 const rcIndexBrowser = fs.readFileSync(rcIndexBrowserPath, 'utf8');
 const testShearWallReport = fs.readFileSync(testShearWallReportPath, 'utf8');
@@ -205,6 +207,10 @@ const requiredQaArtifacts = [
   'tools/single-pile-report-visual.test.js',
   'tools/single-pile-report-visual.contract.test.js',
   'tools/test-single-pile.ps1',
+  'tools/retrofit-report-visual.test.js',
+  'tools/retrofit-report-visual.contract.test.js',
+  'tools/test-retrofit-report.ps1',
+  'tools/report-portable-html-check.js',
   'shared/common.test.js',
   'shared/loadcases.test.js',
   'shared/wall-base.test.js',
@@ -220,6 +226,7 @@ const browserSuiteScripts = [
   ['test-single-pile.ps1', testSinglePile, '.single-pile-testdeps'],
   ['test-rc-index-menu.ps1', testRcIndex, '.rc-index-testdeps'],
   ['test-shear-wall-report.ps1', testShearWallReport, '.shear-wall-report-testdeps'],
+  ['test-retrofit-report.ps1', testRetrofit, '.beam-testdeps'],
 ];
 const localDependencyDirs = [
   'tools/.beam-testdeps/',
@@ -309,6 +316,8 @@ assertIncludes(audit, 'Shear wall report visual smoke contract', 'audit runs she
 assertIncludes(audit, 'Shear wall report visual smoke', 'audit runs shear wall report visual smoke');
 assertIncludes(audit, 'Foundation report visual smoke contract', 'audit runs foundation report visual smoke contract');
 assertIncludes(audit, 'Single pile report visual smoke contract', 'audit runs single pile report visual smoke contract');
+assertIncludes(audit, 'RC Retrofit report visual smoke contract', 'audit runs RC retrofit report visual smoke contract');
+assertIncludes(audit, 'RC Retrofit report visual smoke', 'audit runs RC retrofit report visual smoke');
 assertIncludes(audit, 'Beam regression and report visual smoke', 'audit runs beam regression and report visual smoke');
 assertIncludes(audit, 'Foundation regression and report visual smoke', 'audit runs foundation regression and report visual smoke');
 assertIncludes(audit, 'Column regression and report visual smoke', 'audit runs column regression and report visual smoke');
@@ -341,6 +350,7 @@ assertIncludes(testFoundation, 'Foundation report visual smoke', 'test-foundatio
 assertIncludes(testFoundation, 'foundation-report-visual.test.js', 'test-foundation wires foundation report visual script');
 assertIncludes(testSinglePile, 'Single pile report visual smoke', 'test-single-pile runs single pile report visual smoke');
 assertIncludes(testSinglePile, 'single-pile-report-visual.test.js', 'test-single-pile wires single pile report visual script');
+assertIncludes(testRetrofit, 'retrofit-report-visual.test.js', 'test-retrofit-report wires RC retrofit visual script');
 assertIncludes(index, 'moduleText(payload)', 'index renders module list from audit status metadata');
 assertIncludes(index, fallbackText, 'index fallback matches expected module labels');
 assertIncludes(readme, '`shared/common.js` helper 單元測試', 'README documents shared common helper unit tests');
@@ -364,6 +374,7 @@ assertIncludes(readme, '單樁回歸測試與報告視覺 smoke', 'README docume
   '.\\tools\\test-shear-wall.ps1',
   '.\\tools\\test-shear-wall-report.ps1',
   '.\\tools\\test-rc-index-menu.ps1',
+  '.\\tools\\test-retrofit-report.ps1',
   'node .\\tools\\rc-project-fingerprint.contract.test.js',
   'node .\\shared\\common.test.js',
 ].forEach(command => assertIncludes(readme, command, `README documents direct command ${command}`));
@@ -380,6 +391,8 @@ assertIncludes(readme, '基礎報告視覺 smoke contract', 'README documents fo
 assertIncludes(readme, '基礎報告視覺 smoke', 'README documents foundation report visual smoke');
 assertIncludes(readme, '單樁報告視覺 smoke contract', 'README documents single pile report visual smoke contract');
 assertIncludes(readme, '單樁報告視覺 smoke', 'README documents single pile report visual smoke');
+assertIncludes(readme, 'RC 補強報告視覺 smoke contract', 'README documents RC retrofit report visual smoke contract');
+assertIncludes(readme, 'RC 補強報告視覺 smoke', 'README documents RC retrofit report visual smoke');
 assertIncludes(readme, '人工複核 / 補充資料需求', 'README documents single pile manual-review report boundary');
 assertIncludes(readme, '首頁入口瀏覽器 smoke', 'README documents index menu browser smoke');
 assertIncludes(readme, '維護品質門檻', 'README documents maintenance quality gates');

@@ -43,6 +43,8 @@
 - 基礎回歸測試與報告視覺 smoke
 - 單樁報告視覺 smoke contract
 - 單樁回歸測試與報告視覺 smoke
+- RC 補強報告視覺 smoke contract
+- RC 補強報告視覺 smoke
 
 首頁入口瀏覽器 smoke 入口為 [tools/test-rc-index-menu.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-rc-index-menu.ps1:1)，會以本機 HTTP server 實際開啟首頁與各工具卡片，檢查：
 
@@ -50,7 +52,7 @@
 - browser console / page error / 4xx 或 5xx response 皆不得出現。
 - 各工具頁需有 title 與基本可見內容，並輸出首頁截圖與 JSON 稽核紀錄。
 - 梁、柱、板、牆、剪力牆、基礎、單樁與 RC 補強斷面共 8 個輸出頁，瀏覽器直接列印時只能產生一頁「RC 工具主頁列印已封鎖」通知；工作頁內容不得進入 PDF。
-- 各頁「計算書」按鈕產生可列印的內部審閱版；在預覽視窗勾選核可後改為正式附件。預覽中的「下載目前版本 HTML」會保留一條不必執行 JavaScript 即可辨識的文件狀態、核可時間與計算指紋，重新開啟時沿用同一列並還原核可控制；分頁標題同步包含文件狀態與計算指紋，供瀏覽器列印／存 PDF 採用可辨識的預設檔名。梁、柱、板、牆、剪力牆、基礎與單樁的報告視覺 smoke 會使用 `tools/report-portable-html-check.js` 實際勾選核可並點擊下載，確認 HTML 檔名等於「計算書名稱_正式附件_計算指紋」、靜態狀態可由附件檢查器讀取，且不夾帶核可／下載控制。空白案件欄位可由主文承接，工程 NG 不等同文件 DRAFT；計算輸入變更後核可自動失效。
+- 各頁「計算書」按鈕產生可列印的內部審閱版；在預覽視窗勾選核可後改為正式附件。預覽中的「下載目前版本 HTML」會保留一條不必執行 JavaScript 即可辨識的文件狀態、核可時間與計算指紋，重新開啟時沿用同一列並還原核可控制；分頁標題同步包含文件狀態與計算指紋，供瀏覽器列印／存 PDF 採用可辨識的預設檔名。梁、柱、板、牆、剪力牆、基礎、單樁與 RC 補強斷面共 8 個報告視覺 smoke，皆使用 `tools/report-portable-html-check.js` 實際勾選核可並點擊下載，確認 HTML 檔名等於「計算書名稱_正式附件_計算指紋」、靜態狀態可由附件檢查器讀取，且不夾帶核可／下載控制。空白案件欄位可由主文承接，工程 NG 不等同文件 DRAFT；計算輸入變更後核可自動失效。
 
 RC 條文語意追蹤 catalog 位於 [tools/rc-traceability.catalog.json](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/rc-traceability.catalog.json:1)，目前覆蓋梁、柱、板、牆、剪力牆、基礎與單樁，集中登記：
 
@@ -218,6 +220,12 @@ node .\shared\common.test.js
 
 ```powershell
 .\tools\test-single-pile.ps1
+```
+
+單跑 RC 補強報告視覺 smoke：
+
+```powershell
+.\tools\test-retrofit-report.ps1
 ```
 
 單跑首頁入口瀏覽器 smoke：

@@ -236,6 +236,8 @@ const rcTestShearWallReportScript = readText(repoFile('鋼筋混凝土/tools/tes
 const rcShearWallReportVisualTest = readText(repoFile('鋼筋混凝土/tools/shear-wall-report-visual.test.js'));
 const rcTestSinglePileScript = readText(repoFile('鋼筋混凝土/tools/test-single-pile.ps1'));
 const rcSinglePileReportVisualTest = readText(repoFile('鋼筋混凝土/tools/single-pile-report-visual.test.js'));
+const rcTestRetrofitScript = readText(repoFile('鋼筋混凝土/tools/test-retrofit-report.ps1'));
+const rcRetrofitReportVisualTest = readText(repoFile('鋼筋混凝土/tools/retrofit-report-visual.test.js'));
 const stoneServer = readText(repoFile('石材固定/server.py'));
 const stoneServerSmoke = readText(repoFile('石材固定/server_smoke_test.py'));
 const stoneReportContract = readText(repoFile('石材固定/stone-report.contract.test.js'));
@@ -493,10 +495,13 @@ assert(rcReportScreenshotQualityHelper.includes('uniqueColorCount'), 'RC shared 
   ['shear wall', rcShearWallReportVisualTest],
   ['foundation', rcFoundationReportVisualTest],
   ['single pile', rcSinglePileReportVisualTest],
+  ['retrofit', rcRetrofitReportVisualTest],
 ].forEach(([label, source]) => {
   assert(source.includes("require('./report-portable-html-check')"), `RC ${label} visual smoke imports portable HTML gate`, 'report-portable-html-check');
   assert(source.includes('await assertPortableFormalHtml(report'), `RC ${label} visual smoke executes portable HTML gate`, 'assertPortableFormalHtml');
 });
+assert(rcTestRetrofitScript.includes('retrofit-report-visual.test.js'), 'RC retrofit wrapper runs report visual smoke', 'retrofit-report-visual.test.js');
+assert(rcRetrofitReportVisualTest.includes("await assertPortableFormalHtml(blockedReport, 'RC retrofit NG column report', assert)"), 'RC retrofit visual smoke downloads truthful NG formal attachment', 'RC retrofit NG column report');
 assert(rcTestColumnScript.includes('column-report-visual.test.js'), 'RC column wrapper runs report visual smoke', 'column-report-visual.test.js');
 assert(rcTestColumnScript.includes('Column report visual smoke'), 'RC column wrapper labels report visual smoke clearly', 'Column report visual smoke');
 assert(rcColumnReportVisualTest.includes('page attachment readiness boundary'), 'RC column report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
