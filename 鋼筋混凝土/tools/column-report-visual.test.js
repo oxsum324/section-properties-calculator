@@ -3,6 +3,7 @@ const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
 const { assertReportPdfTextQuality, assertReportScreenshotQuality, readPdfTextWithPoppler } = require('./report-screenshot-quality');
+const { assertPortableFormalHtml } = require('./report-portable-html-check');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PORT = Number(process.env.RC_VISUAL_PORT || 0);
@@ -361,6 +362,7 @@ async function main() {
       assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], `${tc.key} screenshot written`);
       assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], `${tc.key} pdf written`);
 
+      await assertPortableFormalHtml(report, `${tc.key} report`, assert);
       await report.close();
       await page.close();
     }
@@ -421,6 +423,7 @@ async function main() {
     assertArtifact(screenshotPath, [0x89, 0x50, 0x4e, 0x47], 'resolved review screenshot written');
     assertArtifact(pdfPath, [0x25, 0x50, 0x44, 0x46], 'resolved review PDF written');
     results.push({ key: 'resolved-review-formal-attachment', screenshotPath, pdfPath, metrics, screenshotQuality, pdfTextQuality });
+    await assertPortableFormalHtml(report, 'resolved review report', assert);
     await report.close();
     await page.close();
   } finally {

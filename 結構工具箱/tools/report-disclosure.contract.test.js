@@ -223,6 +223,7 @@ const rcSinglePileHtml = readText(repoFile('鋼筋混凝土/tools/single-pile-de
 const rcTestBeamScript = readText(repoFile('鋼筋混凝土/tools/test-beam.ps1'));
 const rcBeamReportVisualTest = readText(repoFile('鋼筋混凝土/tools/beam-report-visual.test.js'));
 const rcReportScreenshotQualityHelper = readText(repoFile('鋼筋混凝土/tools/report-screenshot-quality.js'));
+const rcPortableHtmlHelper = readText(repoFile('鋼筋混凝土/tools/report-portable-html-check.js'));
 const rcTestColumnScript = readText(repoFile('鋼筋混凝土/tools/test-column.ps1'));
 const rcColumnReportVisualTest = readText(repoFile('鋼筋混凝土/tools/column-report-visual.test.js'));
 const rcTestSlabScript = readText(repoFile('鋼筋混凝土/tools/test-slab.ps1'));
@@ -477,6 +478,25 @@ assert(rcBeamReportVisualTest.includes('beam-report-visual-audit.json'), 'RC bea
 assert(rcReportScreenshotQualityHelper.includes('function readPngVisualQuality'), 'RC shared screenshot helper parses PNG pixels', 'function readPngVisualQuality');
 assert(rcReportScreenshotQualityHelper.includes('nonWhitePixelCount'), 'RC shared screenshot helper records nonblank screenshot evidence', 'nonWhitePixelCount');
 assert(rcReportScreenshotQualityHelper.includes('uniqueColorCount'), 'RC shared screenshot helper records color diversity', 'uniqueColorCount');
+[
+  'AttachmentPackageChecker.extractHtmlVisibleContent',
+  'repDownloadCurrentHtml',
+  'downloadedFileName',
+  'downloaded filename matches approved title',
+  'attachment checker reads one static formal state line',
+].forEach(needle => assert(rcPortableHtmlHelper.includes(needle), 'RC shared portable HTML helper keeps formal attachment evidence', needle));
+[
+  ['beam', rcBeamReportVisualTest],
+  ['column', rcColumnReportVisualTest],
+  ['slab', rcSlabReportVisualTest],
+  ['wall', rcWallReportVisualTest],
+  ['shear wall', rcShearWallReportVisualTest],
+  ['foundation', rcFoundationReportVisualTest],
+  ['single pile', rcSinglePileReportVisualTest],
+].forEach(([label, source]) => {
+  assert(source.includes("require('./report-portable-html-check')"), `RC ${label} visual smoke imports portable HTML gate`, 'report-portable-html-check');
+  assert(source.includes('await assertPortableFormalHtml(report'), `RC ${label} visual smoke executes portable HTML gate`, 'assertPortableFormalHtml');
+});
 assert(rcTestColumnScript.includes('column-report-visual.test.js'), 'RC column wrapper runs report visual smoke', 'column-report-visual.test.js');
 assert(rcTestColumnScript.includes('Column report visual smoke'), 'RC column wrapper labels report visual smoke clearly', 'Column report visual smoke');
 assert(rcColumnReportVisualTest.includes('page attachment readiness boundary'), 'RC column report visual smoke asserts page-only boundary text on page', 'page attachment readiness boundary');
