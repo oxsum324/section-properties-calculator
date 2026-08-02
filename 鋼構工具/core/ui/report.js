@@ -413,6 +413,58 @@ function buildAttachmentApprovalReport(options = {}) {
             toolbar.insertBefore(label, toolbar.firstChild);
           }
           if (!checkbox) return;
+          function serializeCurrentReportHtml() {
+            var root = document.documentElement ? document.documentElement.cloneNode(true) : null;
+            if (!root) return '';
+            var savedSource = root.querySelector('.rep-attachment-approval-source');
+            if (savedSource) savedSource.removeAttribute('data-initialized');
+            root.querySelectorAll('.rep-document-status-line, .rep-approval-control, .rep-download-control').forEach(function (node) {
+              node.remove();
+            });
+            var savedBody = root.querySelector('body');
+            if (savedBody) savedBody.removeAttribute('data-document-class');
+            return '<!doctype html>' + String.fromCharCode(10) + root.outerHTML;
+          }
+          function showDownloadStatus(message) {
+            var messageTarget = document.getElementById('repWindowStatus') || document.querySelector('.rep-window-status');
+            if (messageTarget) messageTarget.textContent = message;
+          }
+          function downloadCurrentReportHtml() {
+            var html = serializeCurrentReportHtml();
+            if (!html) {
+              showDownloadStatus('無法建立下載檔案，請改用列印 / 存 PDF。');
+              return;
+            }
+            var currentStatus = document.querySelector('.rep-document-status-line');
+            var documentLabel = currentStatus && currentStatus.dataset.documentClass === 'formal-attachment' ? '正式附件' : '內部審閱';
+            var heading = document.querySelector('.rep-header h1, .header h1, h1');
+            var title = String((heading && heading.textContent) || document.title || '計算書').trim();
+            var currentFingerprint = String(source.dataset.calculationFingerprint || '').trim();
+            var fileName = [title, documentLabel, currentFingerprint].filter(Boolean).join('_')
+              .replace(/[<>:"/|?*]/g, '-').split(String.fromCharCode(92)).join('-').trim() + '.html';
+            var url = URL.createObjectURL(new Blob([html], { type:'text/html;charset=utf-8' }));
+            var link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+            showDownloadStatus('已下載' + documentLabel + ' HTML；檔案保留核可狀態、核可時間與計算指紋。');
+          }
+          window.serializeReportDocumentHtml = serializeCurrentReportHtml;
+          window.downloadReportHtml = downloadCurrentReportHtml;
+          var downloadButton = document.getElementById('repDownloadCurrentHtml');
+          if (!downloadButton && toolbar) {
+            downloadButton = document.createElement('button');
+            downloadButton.type = 'button';
+            downloadButton.id = 'repDownloadCurrentHtml';
+            downloadButton.className = 'rep-download-control';
+            downloadButton.textContent = '⬇ 下載目前版本 HTML';
+            downloadButton.addEventListener('click', downloadCurrentReportHtml);
+            var approvalControl = checkbox.closest('.rep-approval-control');
+            toolbar.insertBefore(downloadButton, approvalControl ? approvalControl.nextSibling : toolbar.firstChild);
+          }
           checkbox.checked = source.dataset.initialApproved === 'true';
           var approvedAtValue = source.dataset.approvedAt || '';
           function formatApprovedAt(value) {

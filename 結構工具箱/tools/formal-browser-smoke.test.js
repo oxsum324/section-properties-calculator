@@ -1013,6 +1013,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentReason: '',
       documentClass: '',
       approvalControl: false,
+      downloadControl: false,
+      serializerAvailable: false,
       approvedDocumentClass: '',
       approvedCheckboxAttribute: false,
       internalCheckboxAttribute: false,
@@ -1045,6 +1047,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentReason: '',
       documentClass: '',
       approvalControl: false,
+      downloadControl: false,
+      serializerAvailable: false,
       approvedDocumentClass: '',
       approvedCheckboxAttribute: false,
       internalCheckboxAttribute: false,
@@ -1073,6 +1077,9 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
     await waitForPopupReady(client, popupSessionId, popupLabel);
     const state = await evaluate(client, popupSessionId, `(() => {
       const approval = document.getElementById('repAttachmentApproval');
+      const downloadControl = Array.from(document.querySelectorAll('.rep-toolbar button, .toolbar button'))
+        .some(button => /下載目前版本 HTML/.test(button.textContent || ''));
+      const serializerAvailable = typeof serializeReportDocumentHtml === 'function';
       const status = () => document.querySelector('.rep-document-status-line');
       const approvalSource = () => document.querySelector('.rep-attachment-approval-source');
       const calculationFingerprint = () => {
@@ -1096,13 +1103,7 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       const approvedAt = status()?.dataset.approvedAt || '';
       const approvedCalculationFingerprint = calculationFingerprint();
       const approvedCheckboxAttribute = Boolean(approval?.hasAttribute('checked'));
-      const approvedRoot = document.documentElement?.cloneNode(true);
-      const approvedSource = approvedRoot?.querySelector('.rep-attachment-approval-source');
-      if (approvedSource) approvedSource.removeAttribute('data-initialized');
-      approvedRoot?.querySelectorAll('.rep-document-status-line, .rep-approval-control')
-        .forEach(node => node.remove());
-      approvedRoot?.querySelector('body')?.removeAttribute('data-document-class');
-      const approvedHtml = approvedRoot ? approvedRoot.outerHTML : '';
+      const approvedHtml = serializerAvailable ? serializeReportDocumentHtml() : '';
       if (approval) {
         approval.checked = false;
         approval.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1123,6 +1124,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
         documentClass: initialDocumentClass,
         documentStateText: initialStatusText,
         approvalControl: Boolean(approval),
+        downloadControl,
+        serializerAvailable,
         approvedDocumentClass,
         approvedCheckboxAttribute,
         internalCheckboxAttribute,
@@ -1152,6 +1155,8 @@ async function popupReportCaptureState(client, pageSessionId, tool, mode = 'defa
       documentClass: state.documentClass,
       documentStateText: state.documentStateText,
       approvalControl: state.approvalControl,
+      downloadControl: state.downloadControl,
+      serializerAvailable: state.serializerAvailable,
       approvedDocumentClass: state.approvedDocumentClass,
       approvedCheckboxAttribute: state.approvedCheckboxAttribute,
       internalCheckboxAttribute: state.internalCheckboxAttribute,
@@ -2185,6 +2190,8 @@ function assertPopupDocumentStateMatchesPage(state, tool, label) {
   const internalReviewLabel = formalManifest.shared.internalReviewLabel || '文件狀態：內部審閱';
   assert.ok(['ready', 'review', 'blocked'].includes(state.readinessLevel), `${label} ${tool.key} exposes page readiness`);
   assert.equal(state.approvalControl, true, `${label} ${tool.key} popup exposes explicit approval checkbox`);
+  assert.equal(state.downloadControl, true, `${label} ${tool.key} popup exposes current-state HTML download`);
+  assert.equal(state.serializerAvailable, true, `${label} ${tool.key} popup exposes reusable report serialization`);
   assert.equal(state.documentState, 'internal-review', `${label} ${tool.key} popup defaults to printable internal review`);
   assert.ok(state.documentStateText.includes(internalReviewLabel), `${label} ${tool.key} popup renders internal review footer`);
   assert.match(state.html || '', /<body\b[^>]*data-document-class=["']internal-review["']/i, `${label} ${tool.key} preserves internal-review HTML evidence`);

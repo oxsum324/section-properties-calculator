@@ -395,6 +395,29 @@ async function main() {
       await report.emulateMedia({ media: 'screen' });
 
       const metrics = await reportMetrics(report);
+      const portableHtmlState = await report.evaluate(() => {
+        const checkbox = document.getElementById('repAttachmentApproval');
+        if (checkbox) {
+          checkbox.checked = true;
+          checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        const source = document.querySelector('.rep-attachment-approval-source');
+        const html = typeof serializeReportDocumentHtml === 'function' ? serializeReportDocumentHtml() : '';
+        const savedDocument = html ? new DOMParser().parseFromString(html, 'text/html') : null;
+        return {
+          hasDownloadControl: Array.from(document.querySelectorAll('.rep-toolbar button'))
+            .some(button => /下載目前版本 HTML/.test(button.textContent || '')),
+          serializerAvailable: typeof serializeReportDocumentHtml === 'function',
+          approvedAt: source?.dataset.approvedAt || '',
+          calculationFingerprint: source?.dataset.calculationFingerprint || '',
+          startsWithDoctype: /^<!doctype html>/i.test(html),
+          preservesApproval: /data-initial-approved=["']true["']/.test(html),
+          preservesApprovalTime: Boolean(source?.dataset.approvedAt) && html.includes(`data-approved-at="${source.dataset.approvedAt}"`),
+          preservesFingerprint: Boolean(source?.dataset.calculationFingerprint) && html.includes(source.dataset.calculationFingerprint),
+          removesTransientState: !savedDocument?.querySelector('.rep-document-status-line, .rep-approval-control'),
+          rehydratesDocumentClass: !savedDocument?.body?.hasAttribute('data-document-class'),
+        };
+      });
       const screenshotQuality = assertReportScreenshotQuality(screenshotPath, `${tc.key} report`, { assert });
       const pdfTextQuality = assertReportPdfTextQuality(pdfPath, `${tc.key} report`, {
         assert,
@@ -403,13 +426,17 @@ async function main() {
         exclude: ['DRAFT／非正式附件'],
       });
       const expected = EXPECTED[tc.key] || {};
-      results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, printMetrics, screenshotQuality, pdfTextQuality });
+      results.push({ key: tc.key, screenshotPath, pdfPath, directPrintPdfPath, directPrintState, directPrintPdfText, state, metrics, portableHtmlState, printMetrics, screenshotQuality, pdfTextQuality });
 
       assert(metrics.title === expected.title, `${tc.key} report title`, metrics.title);
       assert(/^CF-[A-F0-9]{16}$/.test(sourceFingerprint), `${tc.key} project JSON calculation fingerprint`, sourceFingerprint);
       assert(metrics.calculationFingerprint === sourceFingerprint, `${tc.key} project JSON matches report calculation fingerprint`, `${sourceFingerprint} -> ${metrics.calculationFingerprint}`);
       assert(!metrics.hasReportSummary, `${tc.key} report status banner hidden`, 'no .rep-summary');
       assert(metrics.documentState === 'internal-review' && metrics.documentApproved === 'false', `${tc.key} report defaults to printable internal review`, metrics.documentStateText);
+      assert(portableHtmlState.hasDownloadControl && portableHtmlState.serializerAvailable, `${tc.key} report exposes current-state HTML download`, JSON.stringify(portableHtmlState));
+      assert(Number.isFinite(Date.parse(portableHtmlState.approvedAt)), `${tc.key} downloaded formal HTML records approval time`, portableHtmlState.approvedAt);
+      assert(portableHtmlState.startsWithDoctype && portableHtmlState.preservesApproval && portableHtmlState.preservesApprovalTime && portableHtmlState.preservesFingerprint, `${tc.key} downloaded formal HTML preserves approval provenance`, JSON.stringify(portableHtmlState));
+      assert(portableHtmlState.removesTransientState && portableHtmlState.rehydratesDocumentClass, `${tc.key} downloaded formal HTML rehydrates without duplicate approval UI`, JSON.stringify(portableHtmlState));
       assert(metrics.checkGroupCount >= 6, `${tc.key} report check groups`, `count=${metrics.checkGroupCount}`);
       assert(metrics.diagramCount >= 1, `${tc.key} report diagrams`, `count=${metrics.diagramCount}`);
       for (const img of metrics.imageNaturalSizes) {
