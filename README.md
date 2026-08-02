@@ -97,7 +97,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 合併正式工具與局部快算 manifest，輸出 `reportTextSmoke` / `報告可讀文字抽檢`、`documentState` / `計算書文件狀態`、golden case、JSON round-trip、reference traceability 等治理覆蓋率，讓首頁與巡檢儀表板能看見報告可讀性及內部審閱／正式附件核可邊界證據，但不把頁面閱讀狀態明細寫入計算書或列印 PDF。
   - 最近一次正式放行另把八類 RC 的 HTML 附件清冊固定為梁 4、柱 6、板 5、牆 4、剪力牆 2、基礎 6、單樁 3、補強 2，共 32 份；逐檔核對正式狀態、計算指紋、位元組數與 SHA-256。巡檢儀表板顯示各類預期／實際／已驗證數、集合 hash 與匿名附件 hash；若數量、驗證或 hash 異常，須紅標到實際異常的 RC 類別，桌面與手機版皆受瀏覽器回歸保護。真實檔名只留在私人放行證據，不寫入計算書、列印、PDF 或公開狀態。
   - 每份 RC 正式附件在渲染完成時即把 bytes 與 SHA-256 寫入當輪 audit／summary；release gate 必須重新讀取實體 HTML 與原始渲染紀錄比對。`html-attachment-integrity` 負向契約固定證明附件遭刪除、截短或等長改寫時皆會阻擋，不得把異動後重新計算的雜湊冒充原始產出證據。
-  - release 即使失敗，也會在本機保留 `output/preflight/attachment-integrity-latest.json`，以匿名附件序號列出八類 RC 的預期、實際、已驗證、hash 與異常代碼。本機巡檢儀表板只有在該診斷與最新失敗 release 的 runId 相符時才顯示，並把代碼翻成「檔案缺失」「SHA-256 不符」「位元組數不符」「缺少原始完整性紀錄」等可直接處置的原因及建議處置；hash／bytes 不符時不得改寫清冊冒充原始證據，必須由原始計算重新輸出。同時註明公開狀態仍保留哪一次成功 release；此 git ignored 診斷不得發布至 Pages。
+  - release 即使失敗，也會在本機保留 `output/preflight/attachment-integrity-latest.json`，以匿名附件序號列出八類 RC 的預期、實際、已驗證、hash 與異常代碼。本機巡檢儀表板只有在該診斷與最新失敗 release 的 runId 相符時才顯示，並把代碼翻成「檔案缺失」「SHA-256 不符」「位元組數不符」「清冊多出附件」「缺少原始完整性紀錄」等可直接處置的原因及建議處置；此狀態另提供「複製失敗項目處置清單」，只整理工具名稱、匿名附件序號、原因與安全處置，不含檔名、路徑、hash 或 bytes，且不進列印、計算書、PDF 或公開狀態。hash／bytes 不符時不得改寫清冊冒充原始證據；清冊多出附件時也不得手動刪項湊數，兩者都必須由原始計算重新輸出。同時註明公開狀態仍保留哪一次成功 release；此 git ignored 診斷不得發布至 Pages。
 - GitHub Pages deploy / live smoke：
   [結構工具箱/tools/pages-live-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-smoke.js:1)
   [結構工具箱/tools/pages-live-browser-smoke.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/pages-live-browser-smoke.js:1)

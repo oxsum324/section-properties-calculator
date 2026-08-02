@@ -99,7 +99,9 @@ function buildAttachmentIntegrityDiagnostic(options) {
     const expected = Number(tool.htmlExpected || 0);
     const manifest = loadManifestRecords(runDir, tool);
     const inspected = manifest.records.map((record, index) => inspectHtmlArtifact(manifest.directory, record, index + 1, tool.title));
-    const displayedArtifacts = inspected.slice();
+    const displayedArtifacts = inspected.map((artifact, index) => (
+      index >= expected ? { ...artifact, code: 'unexpected-manifest-record' } : artifact
+    ));
     while (displayedArtifacts.length < expected) {
       displayedArtifacts.push({
         ordinal: displayedArtifacts.length + 1,

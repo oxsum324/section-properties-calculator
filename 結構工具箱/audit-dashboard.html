@@ -186,6 +186,38 @@
   .history-warn { color: #92400e; font-weight: 800; }
   .history-fail { color: #991b1b; font-weight: 800; }
   .attachment-integrity-action { display: block; margin-top: 4px; color: #7c2d12; font-size: 0.82rem; line-height: 1.45; }
+  .attachment-remediation-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 14px 0;
+    padding: 12px 14px;
+    border: 1px solid #fdba74;
+    border-radius: 12px;
+    background: #fff7ed;
+  }
+  .attachment-remediation-toolbar[hidden] { display: none; }
+  .attachment-remediation-copy {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 9px 14px;
+    border: 1px solid #c2410c;
+    border-radius: 9px;
+    background: #c2410c;
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .attachment-remediation-copy:disabled { cursor: not-allowed; opacity: 0.55; }
+  .attachment-remediation-copy-status {
+    display: block;
+    min-height: 1.4em;
+    margin-top: 3px;
+    color: #7c2d12;
+    font-size: 0.82rem;
+  }
   .history-links {
     display: flex;
     flex-wrap: wrap;
@@ -500,6 +532,13 @@
     .summary-grid {
       grid-template-columns: 1fr;
     }
+    .attachment-remediation-toolbar {
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
+  @media print {
+    .screen-only { display: none !important; }
   }
 </style>
 </head>
@@ -649,6 +688,13 @@
   <div class="card" id="attachmentIntegrityCard">
     <h2>RC 正式附件完整性</h2>
     <p class="boundary-note"><strong>證據邊界：</strong>本區只顯示正式放行時保存的 HTML 附件數量與 SHA-256，不會寫入計算書、列印或 PDF，也不取代設計者核可。</p>
+    <div class="attachment-remediation-toolbar screen-only" id="attachmentRemediationToolbar" hidden>
+      <div>
+        <strong>本機失敗項目處置清單</strong>
+        <span class="attachment-remediation-copy-status" id="attachmentRemediationCopyStatus" role="status" aria-live="polite"></span>
+      </div>
+      <button class="attachment-remediation-copy" id="attachmentRemediationCopyButton" type="button" disabled>複製失敗項目處置清單</button>
+    </div>
     <div class="kpi-grid">
       <div class="kpi-card">
         <div class="kpi-label">完整性狀態</div>
@@ -1689,6 +1735,7 @@
         'formal-state-missing': '正式附件狀態缺失',
         'fingerprint-missing': '計算指紋缺失',
         'missing-manifest-record': '清冊缺項',
+        'unexpected-manifest-record': '清冊多出附件',
         'missing-manifest': '找不到清冊',
         'missing-manifest-name': '清冊識別缺失',
         'content-invalid': '內容驗證失敗',
@@ -1712,6 +1759,7 @@
         'formal-state-missing': '回來源工具確認核可狀態，再重新輸出正式附件。',
         'fingerprint-missing': '回原始計算重新產生含計算指紋的附件。',
         'missing-manifest-record': '重跑該 RC 工具的正式附件輸出，補齊當輪清冊。',
+        'unexpected-manifest-record': '不要手動刪除清冊項目；請由原始計算重跑該 RC 工具的完整正式附件輸出。',
         'missing-manifest': '重跑該 RC 工具的 release 輸出，恢復當輪 audit／summary。',
         'missing-manifest-name': '重新輸出附件，修復清冊中的附件識別。',
         'content-invalid': '停止使用該檔，回來源工具重新輸出附件並重跑 release。',
@@ -1719,10 +1767,95 @@
       return actions[code] || '停止使用該附件，回來源工具重新輸出並重跑正式 release。';
     }
 
+    let attachmentRemediationChecklist = '';
+
+    function checklistSingleLine(value, fallback) {
+      return String(value || '').replace(/[\r\n]+/g, ' ').trim() || fallback;
+    }
+
+    function buildAttachmentIntegrityRemediationChecklist(payload) {
+      if (payload?.attachmentIntegrityDiagnostic !== true) return '';
+      const entries = [];
+      const groups = Array.isArray(payload.attachmentIntegrityGroups) ? payload.attachmentIntegrityGroups : [];
+      groups.forEach((group) => {
+        const title = checklistSingleLine(group.title, 'RC 工具');
+        const artifacts = Array.isArray(group.artifacts) ? group.artifacts : [];
+        artifacts.forEach((artifact) => {
+          const code = attachmentArtifactIssueCode(artifact);
+          if (!code) return;
+          entries.push({
+            title,
+            ordinal: checklistSingleLine(artifact.ordinal, '-'),
+            label: attachmentIntegrityIssueLabel(code),
+            action: attachmentIntegrityIssueAction(code),
+          });
+        });
+      });
+      if (!entries.length) return '';
+      const runId = checklistSingleLine(payload.runId || payload.renderedDeliveryEvidenceRunId, '-');
+      const lines = [
+        '附件完整性失敗處置清單',
+        `失敗 release：${runId}`,
+        `問題：${entries.length} 項`,
+        '',
+      ];
+      entries.forEach((entry, index) => {
+        lines.push(`${index + 1}. ${entry.title}／附件 ${entry.ordinal}：${entry.label}`);
+        lines.push(`   處置：${entry.action}`);
+      });
+      lines.push('', '安全原則：不得藉由重算 hash、改寫 bytes 或更新清冊接受異動附件；應由原始計算重新輸出。');
+      lines.push('本清單僅供本機排除，不會寫入計算書、列印、PDF 或公開狀態。');
+      return lines.join('\n');
+    }
+
+    function renderAttachmentRemediation(payload) {
+      const toolbar = document.getElementById('attachmentRemediationToolbar');
+      const button = document.getElementById('attachmentRemediationCopyButton');
+      const status = document.getElementById('attachmentRemediationCopyStatus');
+      attachmentRemediationChecklist = buildAttachmentIntegrityRemediationChecklist(payload);
+      const available = Boolean(attachmentRemediationChecklist);
+      if (toolbar) toolbar.hidden = !available;
+      if (button) button.disabled = !available;
+      if (status) status.textContent = available ? '只複製匿名問題與安全處置，不含檔名、路徑、hash 或 bytes。' : '';
+    }
+
+    async function writeClipboardText(text) {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        return;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      if (!copied) throw new Error('clipboard copy unavailable');
+    }
+
+    async function copyAttachmentRemediationChecklist() {
+      const button = document.getElementById('attachmentRemediationCopyButton');
+      const status = document.getElementById('attachmentRemediationCopyStatus');
+      if (!attachmentRemediationChecklist || !button) return;
+      button.disabled = true;
+      try {
+        await writeClipboardText(attachmentRemediationChecklist);
+        if (status) status.textContent = '已複製 1 份本機處置清單；未包含檔名、路徑、hash 或 bytes。';
+      } catch (error) {
+        if (status) status.textContent = '複製失敗，請確認瀏覽器剪貼簿權限後再試。';
+      } finally {
+        button.disabled = false;
+      }
+    }
+
     function renderAttachmentIntegrity(payload) {
       const wrap = document.getElementById('attachmentIntegrityWrap');
       const groups = Array.isArray(payload?.attachmentIntegrityGroups) ? payload.attachmentIntegrityGroups : [];
       const declared = Number.isInteger(payload?.attachmentIntegrityRequired);
+      renderAttachmentRemediation(payload);
       if (!declared) {
         setKpiValue('attachmentIntegrityStatus', '無資料', 'warn');
         setKpiValue('attachmentIntegrityCount', '-', 'warn');
@@ -2049,6 +2182,10 @@
       refreshButton.addEventListener('click', function () {
         loadAll();
       });
+    }
+    const attachmentRemediationCopyButton = document.getElementById('attachmentRemediationCopyButton');
+    if (attachmentRemediationCopyButton) {
+      attachmentRemediationCopyButton.addEventListener('click', copyAttachmentRemediationChecklist);
     }
     const autoRefreshToggle = document.getElementById('autoRefreshToggle');
     if (autoRefreshToggle) {

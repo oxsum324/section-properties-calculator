@@ -1212,6 +1212,13 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
         attachmentIntegrityVerified: document.getElementById('attachmentIntegrityVerified')?.textContent?.trim() || '',
         attachmentIntegrityVerifiedFail: document.getElementById('attachmentIntegrityVerified')?.classList.contains('fail') || false,
         attachmentIntegrityHash: document.getElementById('attachmentIntegrityHash')?.textContent?.trim() || '',
+        attachmentRemediationVisible: (() => {
+          const node = document.getElementById('attachmentRemediationToolbar');
+          return !!node && !node.hidden && node.getClientRects().length > 0;
+        })(),
+        attachmentRemediationButtonDisabled: document.getElementById('attachmentRemediationCopyButton')?.disabled ?? true,
+        attachmentRemediationButtonText: document.getElementById('attachmentRemediationCopyButton')?.textContent?.trim() || '',
+        attachmentRemediationStatus: document.getElementById('attachmentRemediationCopyStatus')?.textContent?.trim() || '',
         attachmentIntegrityGroups,
         hasHistoryTable: !!document.querySelector('#preflightHistoryWrap table'),
         hasMaturityTable: !!document.querySelector('#maturityWrap table'),
@@ -1320,6 +1327,42 @@ async function waitForDashboardState(client, sessionId, expectedLive = null, tim
     await delay(100);
   }
   throw new Error(`Timed out waiting for complete dashboard render: ${JSON.stringify(lastState)}`);
+}
+
+async function exerciseAttachmentRemediationCopy(client, sessionId) {
+  const copied = await evaluate(client, sessionId, `(async () => {
+    window.__copiedAttachmentRemediation = '';
+    const clipboard = {
+      writeText: async (text) => {
+        window.__copiedAttachmentRemediation = String(text || '');
+      },
+    };
+    try {
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: clipboard });
+    } catch (error) {
+      if (!navigator.clipboard) throw error;
+      navigator.clipboard.writeText = clipboard.writeText;
+    }
+    const button = document.getElementById('attachmentRemediationCopyButton');
+    button?.click();
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const status = document.getElementById('attachmentRemediationCopyStatus')?.textContent?.trim() || '';
+      if (status.startsWith('已複製') || status.startsWith('複製失敗')) break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    return {
+      text: window.__copiedAttachmentRemediation,
+      status: document.getElementById('attachmentRemediationCopyStatus')?.textContent?.trim() || '',
+      buttonDisabled: button?.disabled ?? true,
+    };
+  })()`);
+  await client.send('Emulation.setEmulatedMedia', { media: 'print' }, sessionId);
+  copied.printVisible = await evaluate(client, sessionId, `(() => {
+    const node = document.getElementById('attachmentRemediationToolbar');
+    return !!node && node.getClientRects().length > 0;
+  })()`);
+  await client.send('Emulation.setEmulatedMedia', { media: 'screen' }, sessionId);
+  return copied;
 }
 
 function assertDashboardLiveState(state, label, expected) {
@@ -1603,6 +1646,9 @@ function assertDashboardState(state, label, expectedLive = null) {
   assert.equal(state.attachmentIntegrityVerifiedFail, false, `${label} attachment integrity verified count is not failed`);
   assert.equal(state.attachmentIntegrityHash, 'aaaaaaaaaaaa', `${label} attachment integrity set hash`);
   assert.ok(state.attachmentIntegrityStatusHint.includes('release fixture-release'), `${label} attachment integrity release trace`);
+  assert.equal(state.attachmentRemediationVisible, false, `${label} passed/public attachment state hides local remediation copy`);
+  assert.equal(state.attachmentRemediationButtonDisabled, true, `${label} passed/public remediation copy is disabled`);
+  assert.equal(state.attachmentRemediationStatus, '', `${label} passed/public attachment state has no remediation status`);
   assert.equal(state.attachmentIntegrityGroups.length, 8, `${label} attachment integrity group count`);
   for (const group of fixtureAttachmentGroups) {
     const rendered = state.attachmentIntegrityGroups.find(item => item.title === group.title);
@@ -1677,6 +1723,10 @@ function assertAttachmentIntegrityFailureState(state, label) {
   assert.ok(state.attachmentIntegrityStatusHint.includes('本機失敗 release fixture-tampered-release'), `${label} failed local attachment release trace`);
   assert.ok(state.attachmentIntegrityStatusHint.includes('公開狀態仍保留 release fixture-release'), `${label} successful public release is retained`);
   assert.ok(state.attachmentIntegrityStatusHint.includes('問題 2 項'), `${label} failed attachment issue count`);
+  assert.equal(state.attachmentRemediationVisible, true, `${label} failed local release shows remediation copy`);
+  assert.equal(state.attachmentRemediationButtonDisabled, false, `${label} failed local remediation copy is enabled`);
+  assert.equal(state.attachmentRemediationButtonText, '複製失敗項目處置清單', `${label} remediation copy control is explicit`);
+  assert.ok(state.attachmentRemediationStatus.includes('不含檔名、路徑、hash 或 bytes'), `${label} remediation copy privacy boundary is visible`);
   assert.equal(state.attachmentIntegrityGroups.length, 8, `${label} failed attachment group count`);
 
   const failedGroups = state.attachmentIntegrityGroups.filter(group => group.failed);
@@ -1710,6 +1760,27 @@ function assertAttachmentIntegrityFailureState(state, label) {
     '建議處置：不要重算 hash 或接受異動檔；請由原始計算重新輸出附件，再重跑正式 release。',
     '建議處置：重新輸出缺失附件，再重跑正式 release。',
   ], `${label} failed RC column attachment remediation is actionable: ${JSON.stringify(failed.artifactActions.slice(-2))}`);
+  const copied = state.attachmentRemediationCopy;
+  assert.ok(copied, `${label} remediation checklist copy was exercised`);
+  assert.equal(copied.buttonDisabled, false, `${label} remediation copy button is restored after copying`);
+  assert.equal(copied.printVisible, false, `${label} remediation copy control is excluded from print media`);
+  assert.equal(copied.status, '已複製 1 份本機處置清單；未包含檔名、路徑、hash 或 bytes。', `${label} remediation copy confirms privacy boundary`);
+  assert.equal(copied.text, [
+    '附件完整性失敗處置清單',
+    '失敗 release：fixture-tampered-release',
+    '問題：2 項',
+    '',
+    '1. RC 柱／附件 5：SHA-256 不符',
+    '   處置：不要重算 hash 或接受異動檔；請由原始計算重新輸出附件，再重跑正式 release。',
+    '2. RC 柱／附件 6：檔案缺失',
+    '   處置：重新輸出缺失附件，再重跑正式 release。',
+    '',
+    '安全原則：不得藉由重算 hash、改寫 bytes 或更新清冊接受異動附件；應由原始計算重新輸出。',
+    '本清單僅供本機排除，不會寫入計算書、列印、PDF 或公開狀態。',
+  ].join('\n'), `${label} copied remediation checklist is deterministic and actionable`);
+  for (const forbidden of ['C:/repo', '.html', '1000 bytes', '555555555555', 'ffffffffffff']) {
+    assert.equal(copied.text.includes(forbidden), false, `${label} copied remediation checklist excludes ${forbidden}`);
+  }
   for (const group of state.attachmentIntegrityGroups.filter(item => item.title !== 'RC 柱')) {
     assert.equal(group.status, '通過', `${label} unaffected attachment group remains passed: ${group.title}`);
     assert.equal(group.failed, false, `${label} unaffected attachment group has no failure tone: ${group.title}`);
@@ -1789,7 +1860,9 @@ async function main() {
         const loaded = waitForEvent(client, sessionId, 'Page.loadEventFired', 15000);
         await client.send('Page.navigate', { url: dashboardUrl }, sessionId);
         await loaded;
-        attachmentFailureStates.push({ viewport: viewport.key, state: await waitForDashboardState(client, sessionId) });
+        const state = await waitForDashboardState(client, sessionId);
+        state.attachmentRemediationCopy = await exerciseAttachmentRemediationCopy(client, sessionId);
+        attachmentFailureStates.push({ viewport: viewport.key, state });
       }
       fixtures.set(preflightFixturePath, originalPreflightFixture);
       fixtures.set(attachmentDiagnosticFixturePath, fixtureAttachmentDiagnostic);

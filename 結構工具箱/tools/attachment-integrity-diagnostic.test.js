@@ -59,6 +59,13 @@ try {
   assert.equal(latestText.includes('column-1.html'), false, 'local dashboard diagnostic omits physical attachment file names');
   assert.equal(JSON.parse(latestText).runId, 'fixture-failed-release', 'latest diagnostic retains failed release run id');
 
+  const extraBeam = writeArtifact('beam-2.html', 'CF-BEAM000000000002');
+  fs.writeFileSync(path.join(evidenceDir, 'beam-report-visual-audit.json'), `${JSON.stringify({ results: [{ portableHtml: beam }, { portableHtml: extraBeam }] }, null, 2)}\n`, 'utf8');
+  const extraRecordDiagnostic = buildAttachmentIntegrityDiagnostic({ runDir, inventory });
+  const extraBeamGroup = extraRecordDiagnostic.attachmentIntegrityGroups.find(group => group.title === 'RC 梁');
+  assert.equal(extraBeamGroup.issueCount, 1, 'extra manifest record contributes one integrity issue');
+  assert.deepEqual(extraBeamGroup.artifacts.map(artifact => artifact.code), ['', 'unexpected-manifest-record'], 'extra manifest record is classified without exposing its file name');
+
   console.log('attachment integrity diagnostic contract OK');
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
