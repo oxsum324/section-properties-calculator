@@ -765,6 +765,7 @@ function Add-PreflightIncompleteHistoryItem {
     summaryJsonHash = Get-FileTextHash -Path $SummaryJsonPath
     summaryMtime = Get-FileMtimeIso -Path $SummaryPath
     summaryJsonMtime = Get-FileMtimeIso -Path $SummaryJsonPath
+    attachmentIntegrityDiagnosticAvailable = $false
   })
 }
 
@@ -906,6 +907,8 @@ function Update-PreflightHistoryManifest {
       $summaryJsonHash = Get-FileTextHash -Path $jsonPath
       $summaryMtime = Get-FileMtimeIso -Path $markdownPath
       $summaryJsonMtime = Get-FileMtimeIso -Path $jsonPath
+      $attachmentIntegrityDiagnosticPath = Join-Path $dir.FullName "rendered-delivery-evidence\attachment-integrity-diagnostic.json"
+      $attachmentIntegrityDiagnosticAvailable = Test-Path -LiteralPath $attachmentIntegrityDiagnosticPath -PathType Leaf
 
       $historyItems.Add([pscustomobject]@{
         runId = [string]$payload.runId
@@ -949,6 +952,7 @@ function Update-PreflightHistoryManifest {
         summaryJsonHash = $summaryJsonHash
         summaryMtime = $summaryMtime
         summaryJsonMtime = $summaryJsonMtime
+        attachmentIntegrityDiagnosticAvailable = [bool]$attachmentIntegrityDiagnosticAvailable
       })
     } catch {
       Add-PreflightIncompleteHistoryItem -Items $historyItems -Directory $dir -State "invalid-summary" -Reason "invalid-summary" -SummaryPath $markdownPath -SummaryJsonPath $jsonPath

@@ -233,6 +233,13 @@ dashboardScripts.forEach((match, index) => {
   'attachmentSourceToolHref',
   'data-attachment-source-route',
   '開啟來源工具',
+  '附件異常關閉紀錄',
+  '沒有診斷的舊紀錄不推測',
+  'buildAttachmentIntegrityClosureRecords',
+  'loadAttachmentIntegrityClosures',
+  'attachmentIntegrityDiagnosticPass',
+  'attachmentIntegrityDiagnosticAvailable',
+  'data-attachment-closure-status',
   '附件檔案與 SHA-256',
   '不會寫入計算書、列印或 PDF',
   'data-governance-key',
@@ -471,6 +478,8 @@ const preflightTools = readText(repoFile('preflight-tools.ps1'));
   'summaryJsonHash = $summaryJsonHash',
   'summaryMtime = $summaryMtime',
   'summaryJsonMtime = $summaryJsonMtime',
+  'attachmentIntegrityDiagnosticAvailable = [bool]$attachmentIntegrityDiagnosticAvailable',
+  'rendered-delivery-evidence\\attachment-integrity-diagnostic.json',
   'historyLog = [string]$record.historyLog'
 ].forEach(needle => assertIncludes(preflightTools, needle, 'preflight history markdown diagnostics'));
 

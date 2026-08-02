@@ -231,6 +231,28 @@
     color: #7c2d12;
     font-size: 0.82rem;
   }
+  .attachment-closure-wrap {
+    margin: 14px 0;
+    padding: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+  .attachment-closure-wrap[hidden] { display: none; }
+  .attachment-closure-wrap h3 { margin: 0 0 4px; color: var(--primary); font-size: 1rem; }
+  .attachment-closure-wrap > p { margin: 0 0 10px; color: var(--text-light); font-size: 0.82rem; }
+  .attachment-closure-list { display: grid; gap: 8px; }
+  .attachment-closure-item {
+    padding: 10px 12px;
+    border-left: 4px solid #b45309;
+    border-radius: 8px;
+    background: #fff7ed;
+    color: #7c2d12;
+    font-size: 0.86rem;
+    line-height: 1.55;
+  }
+  .attachment-closure-item.closed { border-left-color: #15803d; background: #f0fdf4; color: #166534; }
+  .attachment-closure-item strong { display: block; }
   .history-links {
     display: flex;
     flex-wrap: wrap;
@@ -707,6 +729,11 @@
         <span class="attachment-remediation-copy-status" id="attachmentRemediationCopyStatus" role="status" aria-live="polite"></span>
       </div>
       <button class="attachment-remediation-copy" id="attachmentRemediationCopyButton" type="button" disabled>複製失敗項目處置清單</button>
+    </div>
+    <div class="attachment-closure-wrap screen-only" id="attachmentIntegrityClosureWrap" hidden aria-label="Attachment Integrity Release Closure History">
+      <h3>附件異常關閉紀錄</h3>
+      <p>只依本機正式 release 與當輪附件診斷自動配對；沒有診斷的舊紀錄不推測。</p>
+      <div class="attachment-closure-list" id="attachmentIntegrityClosureList"></div>
     </div>
     <div class="kpi-grid">
       <div class="kpi-card">
@@ -1878,6 +1905,104 @@
       }
     }
 
+    function attachmentIntegrityAffectedTools(diagnostic) {
+      const groups = Array.isArray(diagnostic?.attachmentIntegrityGroups) ? diagnostic.attachmentIntegrityGroups : [];
+      return groups.filter((group) => {
+        const expected = Number(group.expected || 0);
+        const artifacts = Array.isArray(group.artifacts) ? group.artifacts : [];
+        return group.pass !== true
+          || Number(group.issueCount || 0) > 0
+          || Number(group.actual || 0) !== expected
+          || Number(group.verified || 0) !== expected
+          || artifacts.some(artifact => Boolean(attachmentArtifactIssueCode(artifact)));
+      }).map(group => checklistSingleLine(group.title, 'RC 工具'));
+    }
+
+    function attachmentIntegrityDiagnosticPass(diagnostic) {
+      const required = Number(diagnostic?.attachmentIntegrityRequired || 0);
+      return diagnostic?.kind === 'attachment-integrity-diagnostic'
+        && diagnostic.pass === true
+        && diagnostic.attachmentIntegrityPass === true
+        && required > 0
+        && Number(diagnostic.attachmentIntegrityActual || 0) === required
+        && Number(diagnostic.attachmentIntegrityVerified || 0) === required
+        && Number(diagnostic.attachmentIntegrityIssueCount || 0) === 0;
+    }
+
+    function buildAttachmentIntegrityClosureRecords(historyManifest, diagnostics) {
+      const diagnosticByRunId = new Map((Array.isArray(diagnostics) ? diagnostics : [])
+        .filter(diagnostic => diagnostic?.kind === 'attachment-integrity-diagnostic' && diagnostic.runId)
+        .map(diagnostic => [String(diagnostic.runId), diagnostic]));
+      const releaseItems = (Array.isArray(historyManifest?.items) ? historyManifest.items : [])
+        .filter(item => isReleasePreflightRun(item) && item.complete !== false && diagnosticByRunId.has(String(item.runId || '')))
+        .slice(0, 20)
+        .reverse();
+      const records = [];
+      releaseItems.forEach((item, index) => {
+        const failedDiagnostic = diagnosticByRunId.get(String(item.runId || ''));
+        const issueCount = Number(failedDiagnostic?.attachmentIntegrityIssueCount || 0);
+        if (item.pass !== false || failedDiagnostic?.pass !== false || issueCount <= 0) return;
+        const resolution = releaseItems.slice(index + 1).find((candidate) => {
+          const candidateDiagnostic = diagnosticByRunId.get(String(candidate.runId || ''));
+          return candidate.pass === true && attachmentIntegrityDiagnosticPass(candidateDiagnostic);
+        });
+        const resolvedDiagnostic = resolution
+          ? diagnosticByRunId.get(String(resolution.runId || ''))
+          : null;
+        records.push({
+          failedRunId: checklistSingleLine(item.runId, '-'),
+          failedGeneratedAt: checklistSingleLine(item.generatedAt, '-'),
+          issueCount,
+          affectedTools: attachmentIntegrityAffectedTools(failedDiagnostic),
+          closed: Boolean(resolution),
+          resolvedRunId: resolution ? checklistSingleLine(resolution.runId, '-') : '',
+          resolvedGeneratedAt: resolution ? checklistSingleLine(resolution.generatedAt, '-') : '',
+          resolvedRequired: Number(resolvedDiagnostic?.attachmentIntegrityRequired || 0),
+          resolvedActual: Number(resolvedDiagnostic?.attachmentIntegrityActual || 0),
+          resolvedVerified: Number(resolvedDiagnostic?.attachmentIntegrityVerified || 0),
+        });
+      });
+      return records.reverse().slice(0, 5);
+    }
+
+    function renderAttachmentIntegrityClosures(records) {
+      const wrap = document.getElementById('attachmentIntegrityClosureWrap');
+      const list = document.getElementById('attachmentIntegrityClosureList');
+      const normalized = Array.isArray(records) ? records : [];
+      if (wrap) wrap.hidden = normalized.length === 0;
+      if (!list) return;
+      list.innerHTML = normalized.map((record) => {
+        const tools = record.affectedTools.length ? record.affectedTools.join('、') : '未辨識 RC 工具';
+        const statusText = record.closed ? '已由後續正式放行關閉' : '尚未關閉';
+        const resolutionText = record.closed
+          ? `成功 release ${record.resolvedRunId}（${record.resolvedGeneratedAt}）；附件 ${record.resolvedActual} / ${record.resolvedRequired}、已驗證 ${record.resolvedVerified} / ${record.resolvedRequired}、問題 0 項。`
+          : '尚無較新的成功 release 與完整附件診斷；重新輸出後須再跑正式 release。';
+        return `
+          <div class="attachment-closure-item ${record.closed ? 'closed' : 'open'}" data-attachment-closure-status="${record.closed ? 'closed' : 'open'}" data-failed-release="${escapeAttr(record.failedRunId)}" data-resolved-release="${escapeAttr(record.resolvedRunId)}">
+            <strong>${escapeHtml(statusText)}</strong>
+            <span>失敗 release ${escapeHtml(record.failedRunId)}（${escapeHtml(record.failedGeneratedAt)}）；問題 ${escapeHtml(record.issueCount)} 項；影響 ${escapeHtml(tools)}。</span><br>
+            <span>${escapeHtml(resolutionText)}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function loadAttachmentIntegrityClosures(historyManifest, localDiagnostic) {
+      if (localDiagnostic?.kind !== 'attachment-integrity-diagnostic') {
+        renderAttachmentIntegrityClosures([]);
+        return;
+      }
+      const releaseItems = (Array.isArray(historyManifest?.items) ? historyManifest.items : [])
+        .filter(item => isReleasePreflightRun(item)
+          && item.attachmentIntegrityDiagnosticAvailable === true
+          && /^[A-Za-z0-9._-]+$/.test(String(item.runId || '')))
+        .slice(0, 20);
+      const results = await Promise.allSettled(releaseItems.map(item => fetchJson(`../output/preflight/history/${encodeURIComponent(item.runId)}/rendered-delivery-evidence/attachment-integrity-diagnostic.json`)));
+      const diagnostics = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+      if (!diagnostics.some(item => item?.runId === localDiagnostic.runId)) diagnostics.push(localDiagnostic);
+      renderAttachmentIntegrityClosures(buildAttachmentIntegrityClosureRecords({ items: releaseItems }, diagnostics));
+    }
+
     function renderAttachmentIntegrity(payload) {
       const wrap = document.getElementById('attachmentIntegrityWrap');
       const groups = Array.isArray(payload?.attachmentIntegrityGroups) ? payload.attachmentIntegrityGroups : [];
@@ -2161,6 +2286,7 @@
       await Promise.all(resources.map(loadResource));
       if (isHttpMode()) {
         let latestPreflightSummary = null;
+        let preflightHistoryManifest = null;
         try {
           const historyManifest = await fetchJson('../output/audit/platform-history.json');
           renderHistory(historyManifest);
@@ -2168,7 +2294,7 @@
           renderHistory(null);
         }
         try {
-          const preflightHistoryManifest = await fetchJson('../output/preflight/preflight-history.json');
+          preflightHistoryManifest = await fetchJson('../output/preflight/preflight-history.json');
           renderPreflightHistory(preflightHistoryManifest);
         } catch (error) {
           renderPreflightHistory(null);
@@ -2198,6 +2324,7 @@
         const reportReadinessStatus = publicStatusResult.status === 'fulfilled' ? publicStatusResult.value : null;
         const localAttachmentDiagnostic = localDiagnosticResult.status === 'fulfilled' ? localDiagnosticResult.value : null;
         renderAttachmentIntegrity(selectAttachmentIntegrityPayload(reportReadinessStatus, localAttachmentDiagnostic, latestPreflightSummary));
+        await loadAttachmentIntegrityClosures(preflightHistoryManifest, localAttachmentDiagnostic);
       } else {
         renderHistory(null);
         renderPreflightHistory(null);
@@ -2205,6 +2332,7 @@
         renderPreflightPostChecks(null);
         renderMaturityMatrix(null);
         renderAttachmentIntegrity(null);
+        renderAttachmentIntegrityClosures([]);
       }
       updateLoadedAtLabel();
       scheduleAutoRefresh();
