@@ -465,9 +465,14 @@ const tools = [
     ],
   },
   {
-    label: 'section property standalone',
+    label: 'section property compatibility entry',
     path: '斷面性質計算.html',
-    needles: ['id="exportStatus"', 'function setStatus'],
+    needles: [
+      '<title>斷面性質計算工具 V2.1｜相容入口</title>', 'id="canonicalLink"',
+      'function redirectToCanonicalSectionTool', "new URL('index.html', window.location.href)",
+      'target.search = window.location.search', 'target.hash = window.location.hash',
+      'window.location.replace(target.href)',
+    ],
   },
   {
     label: 'composite section report',
@@ -517,6 +522,10 @@ for (const tool of [
 assert(directPrintBoundarySource.includes('body.formal-tool-output-page > :not(.formal-direct-print-boundary)'), 'shared CSS hides section work pages during direct print', 'formal work-page children hidden');
 assert(directPrintBoundarySource.includes('body.formal-tool-output-page > .formal-direct-print-boundary'), 'shared CSS renders section direct-print notice', 'boundary notice rendered');
 
+const sectionCompatibilityHtml = read('斷面性質計算.html');
+assert(!sectionCompatibilityHtml.includes('function calcHBeam') && !sectionCompatibilityHtml.includes('function calcGeo'), 'section compatibility entry does not fork calculation formulas', 'single canonical calculation core');
+assert(Buffer.byteLength(sectionCompatibilityHtml, 'utf8') < 5000, 'section compatibility entry stays a thin redirect', `bytes=${Buffer.byteLength(sectionCompatibilityHtml, 'utf8')}`);
+
 const compositeHtml = read('合成斷面性質.html');
 assertPrintHidesSelectors(compositeHtml, ['.page-only-tool-actions'], 'composite section JSON actions');
 assertReportPayloadExcludes(compositeHtml, 'exportReport', pageOnlyReportStatusNeedles);
@@ -530,7 +539,7 @@ for (const needle of pageOnlyReportStatusNeedles) {
 }
 assert(sectionPdfSource.includes('文件狀態：${documentStatus}') && sectionPdfSource.includes('計算指紋：${fingerprint}'), 'section property calculation book keeps state and traceability', 'document status + fingerprint');
 const sectionBrowserSmoke = read(path.join('dev_tools', 'section-properties-browser-smoke.js'));
-for (const needle of ['儲存案例 JSON', 'JSON 載入重算指紋不符', '錯誤 JSON 改變了目前案例', '計算書缺少採用尺寸', '計算書混入操作頁訊息']) {
+for (const needle of ['斷面性質計算.html?pickI=1#legacy-bookmark', '相容入口未保留 pickI 模式', '儲存案例 JSON', 'JSON 載入重算指紋不符', '錯誤 JSON 改變了目前案例', '計算書缺少採用尺寸', '計算書混入操作頁訊息']) {
   assert(sectionBrowserSmoke.includes(needle), 'section property browser smoke locks replay/report boundary', needle);
 }
 

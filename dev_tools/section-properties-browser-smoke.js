@@ -1,4 +1,11 @@
 async function sectionPropertiesBrowserSmoke(page) {
+  const legacyUrl = await page.evaluate(() => new URL('斷面性質計算.html?pickI=1#legacy-bookmark', window.location.href).href);
+  await page.goto(legacyUrl);
+  await page.waitForURL(url => url.pathname.endsWith('/index.html') && url.search === '?pickI=1' && url.hash === '#legacy-bookmark');
+  if (!await page.getByRole('button', { name: '導入至連續梁工具' }).isVisible()) throw new Error('相容入口未保留 pickI 模式');
+  const canonicalUrl = await page.evaluate(() => new URL('index.html', window.location.href).href);
+  await page.goto(canonicalUrl);
+
   const source = await page.evaluate(() => collectSectionProjectData());
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: '儲存案例 JSON' }).click();

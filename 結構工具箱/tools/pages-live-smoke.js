@@ -22,7 +22,7 @@ const PUBLIC_ROUTE_SAMPLES = [
   { path: '連續梁分析.html', needles: ['連續梁分析工具', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '分析工具主頁列印已封鎖'] },
   { path: '鋼架/平面剛架分析.html', needles: ['平面剛架分析', '../結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
   { path: 'index.html', needles: ['斷面性質計算工具', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '斷面工具主頁列印已封鎖'] },
-  { path: '斷面性質計算.html', needles: ['斷面性質計算工具', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
+  { path: '斷面性質計算.html', needles: ['斷面性質計算工具 V2.1｜相容入口', 'window.location.replace(target.href)', 'target.search = window.location.search', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '本頁不得作為附件'] },
   { path: '合成斷面性質.html', needles: ['合成斷面性質計算', '結構工具箱/core/direct-print-boundary.css', 'formal-tool-output-page', '此頁是操作介面，不是計算書'] },
   { path: 'RC補強斷面性質.html', needles: ['RC 補強斷面性質計算', '鋼筋混凝土/shared/direct-print-boundary.css', 'rc-formal-output-page', 'RC 工具主頁列印已封鎖'] },
   { path: '結構工具箱/tools/風力/wind-force.html', needles: ['矩形建物 MWFRS', '建築物耐風設計', '../../core/direct-print-boundary.css', 'formal-tool-output-page', '正式工具主頁列印已封鎖'] },
