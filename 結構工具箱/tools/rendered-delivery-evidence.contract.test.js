@@ -517,6 +517,45 @@ function anchorResultReconciliationSetHash(records) {
     .digest('hex');
 }
 
+function deckingResultReconciliationSetHash(records) {
+  return createHash('sha256')
+    .update(records
+      .map(record => [
+        record.caseId,
+        record.sourceJsonSha256,
+        record.calculationFingerprint,
+        record.verifiedAssertionCount,
+        record.documentSha256,
+      ].join('\u0000'))
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
+function validateDeckingResultReconciliationRecord(record, directory, renderedText, label) {
+  const reconciliation = record?.resultReconciliation;
+  assert.equal(reconciliation?.schemaVersion, 1, `${label} decking result reconciliation schema`);
+  assert.equal(reconciliation?.strategy, 'decking-json-replay-to-docx-hash', `${label} decking result reconciliation strategy`);
+  assert.equal(record?.key, 'decking-report', `${label} decking result reconciliation case identity`);
+  const sourceJsonName = reconciliation?.sourceJson || '';
+  assert.equal(path.basename(sourceJsonName), sourceJsonName, `${label} decking source JSON uses a local artifact name`);
+  const sourceJsonPath = path.join(directory, sourceJsonName);
+  assert.ok(fs.existsSync(sourceJsonPath), `${label} decking replayed source JSON exists`);
+  const sourceJsonSha256 = sha256File(sourceJsonPath);
+  assert.equal(reconciliation?.sourceJsonSha256, sourceJsonSha256, `${label} decking source JSON SHA-256 matches producer summary`);
+  const sourceJson = readJson(sourceJsonPath);
+  assert.equal(sourceJson?.project?.no, 'TEST-001', `${label} decking replayed source keeps case identity`);
+  assert.ok(sourceJson?.inputs && Object.keys(sourceJson.inputs).length === 6, `${label} decking replayed source keeps six calculation input groups`);
+  assert.ok(sourceJson?.results && Object.keys(sourceJson.results).length === 6, `${label} decking replayed source keeps six calculation result groups`);
+  assert.match(String(reconciliation?.calculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} decking calculation fingerprint`);
+  assert.equal(sourceJson?.document?.calculationFingerprint, reconciliation?.calculationFingerprint, `${label} decking source JSON fingerprint matches reconciliation`);
+  assert.ok(Number.isInteger(reconciliation?.verifiedAssertionCount) && reconciliation.verifiedAssertionCount >= 31, `${label} decking verified result assertions`);
+  assert.equal(reconciliation?.documentSha256, record?.documentSha256, `${label} decking DOCX hash matches producer summary`);
+  assert.equal(renderedText.includes(reconciliation?.calculationFingerprint), true, `${label} decking DOCX contains the replayed calculation fingerprint`);
+  assert.equal(reconciliation?.pass, true, `${label} decking result reconciliation passes`);
+  return { caseId: record.key, ...reconciliation };
+}
+
 function uniqueIntegrityArtifacts(artifacts, label) {
   const unique = new Map();
   for (const artifact of artifacts) {
@@ -1112,6 +1151,7 @@ const rcResultReconciliationRecords = [];
 const steelResultReconciliationRecords = [];
 const stoneResultReconciliationRecords = [];
 const anchorResultReconciliationRecords = [];
+const deckingResultReconciliationRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
@@ -1425,6 +1465,12 @@ assert.equal(deckingEvidence.tableCount, deckingTableCount, 'decking summary mat
 assert.equal(deckingEvidence.sectionCount, deckingSectionCount, 'decking summary matches DOCX section count');
 assert.equal(deckingEvidence.imageCount, deckingImageCount, 'decking summary matches DOCX image count');
 assert.equal(deckingEvidence.projectName, deckingFixture.project.name, 'decking summary matches smoke project name');
+deckingResultReconciliationRecords.push(validateDeckingResultReconciliationRecord(
+  deckingEvidence,
+  deckingEvidenceDir,
+  deckingDocxText,
+  deckingTool.title
+));
 records.push({
   href: deckingTool.href,
   title: deckingTool.title,
@@ -1773,6 +1819,19 @@ const anchorResultReconciliation = {
 assert.equal(new Set(anchorResultReconciliationRecords.map(record => record.caseId)).size, anchorResultReconciliationRecords.length, 'release rendered evidence anchor result reconciliation identities are unique');
 assert.equal(anchorResultReconciliation.complete, anchorResultReconciliation.required, 'release rendered evidence reconciles the anchor workspace replay to HTML, DOCX, and XLSX hashes');
 assert.equal(anchorResultReconciliation.pass, true, 'release rendered evidence passes anchor result reconciliation');
+const deckingResultReconciliation = {
+  schemaVersion: 1,
+  scope: 'decking-json-replay-to-docx-hash',
+  required: 1,
+  complete: deckingResultReconciliationRecords.length,
+  issueCount: Math.max(0, 1 - deckingResultReconciliationRecords.length),
+  pass: deckingResultReconciliationRecords.length === 1,
+  setSha256: deckingResultReconciliationSetHash(deckingResultReconciliationRecords),
+  records: deckingResultReconciliationRecords,
+};
+assert.equal(new Set(deckingResultReconciliationRecords.map(record => record.caseId)).size, deckingResultReconciliationRecords.length, 'release rendered evidence decking result reconciliation identities are unique');
+assert.equal(deckingResultReconciliation.complete, deckingResultReconciliation.required, 'release rendered evidence reconciles the decking JSON replay to DOCX hash');
+assert.equal(deckingResultReconciliation.pass, true, 'release rendered evidence passes decking result reconciliation');
 assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 60 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 62 RC PDF and PNG visual artifacts');
@@ -1785,7 +1844,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 9,
+  schemaVersion: 10,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -1794,7 +1853,7 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -1804,10 +1863,11 @@ const aggregate = {
   steelResultReconciliation,
   stoneResultReconciliation,
   anchorResultReconciliation,
+  deckingResultReconciliation,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, summary=${aggregatePath})`);

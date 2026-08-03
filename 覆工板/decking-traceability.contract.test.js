@@ -43,6 +43,7 @@ const readme = readUtf8('README.md');
 const html = readUtf8('index.html');
 const report = readUtf8('report/gen_report.py');
 const fixture = readUtf8('test-fixtures/report-smoke.json');
+const replay = readUtf8('decking-result-replay.js');
 const sectionTable = readUtf8('shared/h-section-table.js');
 
 const expectedTools = [
@@ -166,6 +167,15 @@ assert(seenTraceIds.size >= 8, 'decking traceability catalog trace volume', `tra
   '"Qa"',
 ].forEach((needle) => {
   assert(fixture.includes(needle), `decking report fixture keeps ${needle}`, needle);
+});
+
+[
+  'function replayDeckingExport',
+  'payload.inputs',
+  'recalcAll();',
+  'buildDeckingCalculationFingerprint',
+].forEach((needle) => {
+  assert(replay.includes(needle), `decking result replay keeps ${needle}`, needle);
 });
 
 [

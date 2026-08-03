@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { createHash } = require('crypto');
+const { replayDeckingExport } = require('./decking-result-replay');
 
 const toolRoot = __dirname;
 const repoRoot = path.resolve(toolRoot, '..');
@@ -25,6 +26,20 @@ function assertPrintHidesSelectors(text, selectors, label) {
 
 function readUtf8(relativePath) {
   return fs.readFileSync(path.join(toolRoot, relativePath), 'utf8');
+}
+
+function getPath(value, dottedPath) {
+  return dottedPath.split('.').reduce((current, key) => current?.[key], value);
+}
+
+function reconcileResult(expected, actual, dottedPath, tolerance = 0) {
+  const expectedValue = getPath(expected, dottedPath);
+  const actualValue = getPath(actual, dottedPath);
+  const pass = typeof expectedValue === 'number'
+    ? Number.isFinite(actualValue) && Math.abs(actualValue - expectedValue) <= tolerance
+    : actualValue === expectedValue;
+  assert(pass, `decking JSON replay ${dottedPath}`, `${actualValue} ≈ ${expectedValue}`);
+  return { path: dottedPath, expected: expectedValue, actual: actualValue, tolerance, pass };
 }
 
 function runPython(args, title, options = {}) {
@@ -73,6 +88,27 @@ const outFileName = releaseEvidenceDir ? 'decking-report.docx' : 'cover-slab-rep
 const outPath = path.join(outDir, outFileName);
 const html = readUtf8('index.html');
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
+const replay = replayDeckingExport(fixture, { toolRoot });
+const resultAssertions = [
+  ['deck.Mmax', 0.000001], ['deck.Vmax', 0.000001], ['deck.fb', 0.01], ['deck.fv', 0.01],
+  ['deck.def3.dmax', 0.0001], ['deck.ctrl', 0], ['deck.ok_fb', 0], ['deck.ok_fv', 0], ['deck.ok_d', 0],
+  ['stringer.Mmax', 0.001], ['stringer.Vmax', 0.01], ['stringer.fb', 0.1], ['stringer.def3.dmax', 0.001],
+  ['stringer.ctrl', 0], ['stringer.ok_fb', 0], ['stringer.ok_fv', 0], ['stringer.ok_d', 0],
+  ['girder.Mmax', 0.01], ['girder.Vmax', 0.01], ['girder.PuMax', 0.01], ['girder.def3.dmax', 0.001],
+  ['girder.ctrl', 0], ['girder.ok_fb', 0], ['girder.ok_fv', 0], ['girder.ok_d', 0],
+  ['column.worst', 0.001], ['column.ok', 0], ['bond.Nc', 0.01], ['bond.ok', 0],
+  ['pile.Qa', 0.01], ['pile.ok', 0],
+].map(([resultPath, tolerance]) => reconcileResult(fixture.results, replay.results, resultPath, tolerance));
+const replayedSource = {
+  ...fixture,
+  results: replay.results,
+  document: {
+    ...(fixture.document || {}),
+    mode: 'attachment',
+    calculationFingerprint: replay.calculationFingerprint,
+  },
+  replayedAt: new Date().toISOString(),
+};
 
 const pageOnlyReportStatusNeedles = [...new Set([
   ...Object.values(calculationBookContentBoundary.forbiddenCategories).flat(),
@@ -100,9 +136,12 @@ runPython(['-m', 'py_compile', 'dump_xls.py', path.join('report', 'gen_report.py
 
 fs.mkdirSync(outDir, { recursive: true });
 if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+const sourceFileName = releaseEvidenceDir ? 'decking-report-source.json' : 'cover-slab-report-source.json';
+const replayedSourcePath = path.join(outDir, sourceFileName);
+fs.writeFileSync(replayedSourcePath, `${JSON.stringify(replayedSource, null, 2)}\n`, 'utf8');
 
 runPython(
-  [path.join('report', 'gen_report.py'), fixturePath, outPath],
+  [path.join('report', 'gen_report.py'), replayedSourcePath, outPath],
   'decking report generation',
   { env: { COVER_SLAB_NO_OPEN: '1' } }
 );
@@ -125,6 +164,7 @@ assert(docxPayload.text.includes(fixture.project.date), 'decking docx project da
 assert(docxPayload.text.includes('部分項目不通過'), 'decking docx keeps live NG conclusion', '部分項目不通過');
 assert(!docxPayload.text.includes('（未填）'), 'decking docx does not fall back to missing project placeholders for smoke fixture', '（未填）');
 assert(docxPayload.text.includes('文件狀態：內部審閱'), 'decking docx defaults to printable internal-review status', '文件狀態：內部審閱');
+assert(docxPayload.text.includes(replay.calculationFingerprint), 'decking docx preserves replayed calculation fingerprint', replay.calculationFingerprint);
 
 pageOnlyReportStatusNeedles.forEach((needle) => {
   assert(!docxPayload.xml.includes(needle), 'decking docx excludes page-only readiness wording from XML', needle);
@@ -132,6 +172,8 @@ pageOnlyReportStatusNeedles.forEach((needle) => {
 });
 
 if (releaseEvidenceDir) {
+  const documentSha256 = createHash('sha256').update(fs.readFileSync(outPath)).digest('hex');
+  const sourceJsonSha256 = createHash('sha256').update(fs.readFileSync(replayedSourcePath)).digest('hex');
   const summary = {
     schemaVersion: 1,
     family: 'decking-formal',
@@ -143,7 +185,7 @@ if (releaseEvidenceDir) {
       key: 'decking-report',
       document: outFileName,
       documentBytes: fs.statSync(outPath).size,
-      documentSha256: createHash('sha256').update(fs.readFileSync(outPath)).digest('hex'),
+      documentSha256,
       documentXmlBytes: Buffer.byteLength(docxPayload.xml, 'utf8'),
       documentTextLength: docxPayload.text.length,
       paragraphCount: docxPayload.paragraphCount,
@@ -151,6 +193,16 @@ if (releaseEvidenceDir) {
       sectionCount: docxPayload.sectionCount,
       imageCount: docxPayload.imageCount,
       projectName: fixture.project.name,
+      resultReconciliation: {
+        schemaVersion: 1,
+        strategy: 'decking-json-replay-to-docx-hash',
+        sourceJson: sourceFileName,
+        sourceJsonSha256,
+        calculationFingerprint: replay.calculationFingerprint,
+        verifiedAssertionCount: resultAssertions.length,
+        documentSha256,
+        pass: resultAssertions.every(item => item.pass),
+      },
     }],
   };
   fs.writeFileSync(

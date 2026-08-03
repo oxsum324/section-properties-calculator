@@ -19,7 +19,7 @@
 .\preflight-tools.ps1 -Quick
 ```
 
-`decking-report.contract.test.js` 會先做 Python 語法編譯，再用 `test-fixtures/report-smoke.json` 產生一份 smoke `.docx`。一般驗證寫入 `output/preflight/`；正式 release 則把當輪 DOCX 與摘要保存在 `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/decking-formal/`。契約會確認 `report/gen_report.py`、`python-docx`、固定 JSON schema、案名 / 編號 / 日期與章節輸出仍正常，且頁面上的附件閱讀狀態不會混入 Word 計算書；平台總閘門會再解壓當輪 DOCX，重新核對文字、章節、表格、檔案尺寸與 page-only 排除清單。
+`decking-report.contract.test.js` 會先用 `decking-result-replay.js` 讀取 `test-fixtures/report-smoke.json` 的六組輸入，直接執行目前 `index.html` 計算核心，核對覆工板面、小梁、大梁、共構柱、握裹與樁基共 31 項結果；通過後才以重算 JSON 及同一計算指紋產生一份 smoke `.docx`。一般驗證寫入 `output/preflight/`；正式 release 則把當輪來源 JSON、DOCX 與摘要保存在 `PREFLIGHT_RUN_DIR/rendered-delivery-evidence/decking-formal/`。契約會確認 `report/gen_report.py`、`python-docx`、固定 JSON schema、案名 / 編號 / 日期、計算指紋與章節輸出仍正常，且頁面上的附件閱讀狀態不會混入 Word 計算書；平台總閘門會再解壓當輪 DOCX，重新核對來源與成品 SHA-256、文字、章節、表格、檔案尺寸及 page-only 排除清單。
 
 `decking-traceability.contract.test.js` 會檢查 `decking-traceability.catalog.json` 的條文語意追蹤，確認覆工板面 / 小梁 / 大梁、Pu 傳力與共構柱、握裹 / 樁基、JSON / Word 報表與施工臨設邊界各自追得到規範來源、輸入、計算核心、報告落點、測試證據與人工複核邊界。
 

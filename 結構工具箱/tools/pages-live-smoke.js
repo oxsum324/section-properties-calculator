@@ -591,6 +591,12 @@ async function main() {
   assert.equal(reportReadinessStatus.anchorResultReconciliationPass, true, 'report readiness anchor result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"anchorResultReconciliation":'), false, 'report readiness omits the private anchor reconciliation aggregate');
   assert.equal(/anchor-workspace-replay-to-html-docx-xlsx-hash|sourceBackupSha256|sourceReplayFingerprint|htmlSha256|workbookSha256/.test(reportReadinessJson), false, 'report readiness omits private anchor reconciliation scope and hashes');
+  assert.equal(reportReadinessStatus.deckingResultReconciliationRequired, 1, 'report readiness expects 1 decking result reconciliation');
+  assert.equal(reportReadinessStatus.deckingResultReconciliationComplete, reportReadinessStatus.deckingResultReconciliationRequired, 'report readiness completes the decking result reconciliation');
+  assert.equal(reportReadinessStatus.deckingResultReconciliationIssueCount, 0, 'report readiness decking result reconciliation issues empty');
+  assert.equal(reportReadinessStatus.deckingResultReconciliationPass, true, 'report readiness decking result reconciliation passes');
+  assert.equal(reportReadinessJson.includes('"deckingResultReconciliation":'), false, 'report readiness omits the private decking reconciliation aggregate');
+  assert.equal(/decking-json-replay-to-docx-hash|sourceJsonSha256|decking-report-source\.json/.test(reportReadinessJson), false, 'report readiness omits private decking reconciliation scope and hashes');
   if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
     assert.ok([1, 2].includes(reportReadinessStatus.supplementalDeliveryEvidenceRequired), 'report readiness supplemental delivery uses a supported transition count');
     assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceComplete, reportReadinessStatus.supplementalDeliveryEvidenceRequired, 'report readiness supplemental delivery fully covered');

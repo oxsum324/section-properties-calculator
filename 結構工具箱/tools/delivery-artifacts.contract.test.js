@@ -100,6 +100,7 @@ const stoneReleaseBundleSmoke = readText(repoFile('石材固定/release_bundle_s
 const stoneReadme = readText(repoFile('石材固定/README.md'));
 const deckingHtml = readText(repoFile('覆工板/index.html'));
 const deckingReport = readText(repoFile('覆工板/report/gen_report.py'));
+const deckingResultReplay = readText(repoFile('覆工板/decking-result-replay.js'));
 const deckingReportContract = readText(repoFile('覆工板/decking-report.contract.test.js'));
 const deckingFixture = readText(repoFile('覆工板/test-fixtures/report-smoke.json'));
 const deckingReadme = readText(repoFile('覆工板/README.md'));
@@ -276,6 +277,14 @@ assertIncludesAny(
 ].forEach(needle => assertIncludes(deckingReport, needle, `decking Word report keeps ${needle}`));
 
 [
+  "require('vm')",
+  'function replayDeckingExport',
+  'payload.inputs',
+  'recalcAll();',
+  'calculationFingerprint: buildDeckingCalculationFingerprint',
+].forEach(needle => assertIncludes(deckingResultReplay, needle, `decking result replay keeps ${needle}`));
+
+[
   'readDocxPayload',
   "z.read('word/document.xml')",
   'docxPayload.text.length > 2500',
@@ -296,6 +305,10 @@ assertIncludesAny(
   'documentBytes',
   'documentSha256',
   'documentXmlBytes',
+  'decking-json-replay-to-docx-hash',
+  'sourceJsonSha256',
+  'verifiedAssertionCount',
+  'calculationFingerprint',
 ].forEach(needle => assertIncludes(deckingReportContract, needle, `decking report contract text extraction keeps ${needle}`));
 
 [

@@ -19,7 +19,7 @@
 | `石材固定/stone-traceability.catalog.json`、`石材固定/stone-traceability.contract.test.js`、`石材固定/js/code-profiles-registry.spec.js`、`石材固定/js/code-profiles-registry-smoke.test.js`、`石材固定/js/regression-smoke.test.js` | 納入 | 石材 V2 條文語意追蹤 catalog 與契約測試；集中確認風力 / 耐震需求、錨栓與連接件、石材板塊與孔位、使用性與交付稽核的規範來源、輸入、計算、報告、證據與人工複核邊界。active profile 切換另由 `PROFILE_INPUT_BINDINGS` / `buildProfileInputUpdates()` 同步仍沿用舊 profile 預設的 ap、Rp 與外牆 Ip 欄位，保留人工覆寫；registry smoke 與 calc-core regression 必須證明 profile 不只改 metadata，也改變代表案例的實際需求值。 |
 | `struct-dx.contract.test.js` | 納入 | struct.dx 前端 feedback 合約；確認 diagnosis、verify engine、struct suite 三頁都有 action status outlet 與 helper。 |
 | `decking-tools.contract.test.js` | 納入 | 覆工板前端 feedback 與主頁列印邊界合約；確認套用、匯出與 reset 確認維持頁內狀態與受控確認流程，瀏覽器直接列印操作頁只能顯示邊界通知，只有「列印彙整計算書」可暫時啟用彙整報告列印模式。 |
-| `覆工板/decking-report.contract.test.js`、`覆工板/report/gen_report.py`、`覆工板/test-fixtures/report-smoke.json` | 納入 | 覆工板 Word / PDF 報告邊界契約、報表產生器與固定 smoke fixture；確認 page-only 附件閱讀狀態與列印流程說明只留在頁面，專用 PDF 列印模式只顯示彙整報告，Python 產出的 `.docx` 經 `word/document.xml` 文字抽檢後保留案名/編號/日期與計算章節，但不混入頁面專用提醒。正式 release 會把當輪 DOCX 與結構摘要寫入 `decking-formal` 證據目錄。 |
+| `覆工板/decking-result-replay.js`、`覆工板/decking-report.contract.test.js`、`覆工板/report/gen_report.py`、`覆工板/test-fixtures/report-smoke.json` | 納入 | 覆工板 JSON 重算與 Word / PDF 報告邊界契約、報表產生器及固定 smoke fixture；六組輸入會執行目前頁面計算核心並核對 31 項結果，確認 page-only 附件閱讀狀態與列印流程說明只留在頁面，專用 PDF 列印模式只顯示彙整報告，Python 產出的 `.docx` 經 `word/document.xml` 文字抽檢後保留案名/編號/日期、計算指紋與計算章節，但不混入頁面專用提醒。正式 release 會把當輪來源 JSON、DOCX 與結構摘要寫入 `decking-formal` 證據目錄。 |
 | `螺栓檢討/anchor-report.contract.test.js`、`螺栓檢討/bolt-review-tool/tests/reportArtifacts.test.ts` | 納入 | 錨栓報告邊界與正式產物契約；包裝 `bolt-review-tool` 內 `reportExport.test.ts`、`reportDocx.test.ts`、`reportWorkbook.test.ts`、`attachmentReadiness.test.ts` 與 `reportArtifacts.test.ts`，確認頁面專用的附件閱讀狀態與產報前檢查不混入計算書、列印 PDF 或 workbook/docx，且 release 當輪會把實際 HTML、DOCX、XLSX 寫入 `anchor-formal` 供總閘門重新解析。 |
 | `開挖擋土支撐/excavation-report.contract.test.js`、`開挖擋土支撐/backend/tests/test_reporting.py`、`開挖擋土支撐/backend/tests/release_report_artifacts.py` | 納入 | 開挖擋土支撐報告邊界契約、Python 報表測試與正式放行成品產生器；確認 PDF 正式版與 Word 編修版共用同一套報表文字、下載邊界與 latest report 邏輯，並用 PDF / DOCX 文字抽檢排除頁面專用閱讀狀態。release 當輪另在 ignored 的 `excavation-formal` 保存 PDF、DOCX 與 latest download 副本，供總閘門重新解析並核對雜湊。 |
 | `覆工板/decking-traceability.catalog.json`、`覆工板/decking-traceability.contract.test.js` | 納入 | 覆工板條文語意追蹤 catalog 與契約測試；集中確認 HS20 / PC400 / 吊車載重、覆工板面 / 小梁 / 大梁彎剪撓度、大梁 Pu、共構柱、握裹、樁基、JSON / Word 報表與施工臨設邊界的規範來源、輸入、計算、報告、證據與人工複核邊界。 |
@@ -129,6 +129,8 @@ Schema v7 再把 RC 梁、柱補強兩組表單重播案例納入 RC 結果鏈�
 Schema v8 新增石材 golden replay 至成品雜湊結果鏈：producer 必須使用目前瀏覽器核心重播 `case_01_standard_safe`，核對至少 6 項關鍵數值與控制結果，再以同一 payload 產生 PDF、DOCX 及 audit，並將 golden 檔、來源 payload、輸入／結果／計算來源與三份成品 SHA-256 綁入 summary。Aggregate 必須要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「石材結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden 案例內容、來源 payload、結果或成品雜湊。
 
 Schema v9 新增錨栓工作區重播至成品雜湊結果鏈：producer 必須保存 v2 工作區備份實體檔，先驗證案例重現指紋並以目前核心重新計算至少 7 項控制結果，再用同一重現指紋產生正式 HTML、DOCX 及 XLSX。Aggregate 必須重新核對來源備份 schema／版本／案例／產品／重現指紋、三份成品中的計算指紋與成品 SHA-256，要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「錨栓結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、工作區資料、來源備份、重現／計算指紋或成品雜湊。
+
+Schema v10 新增覆工板 JSON 重播至 DOCX 雜湊結果鏈：producer 必須保存來源 JSON 實體檔，從六組輸入執行目前頁面計算核心，至少核對 31 項數值、控制工況及判定，再用重算結果與同一計算指紋產生 DOCX。Aggregate 必須重新核對來源 JSON 案例、輸入／結果群組、計算指紋及 DOCX SHA-256，要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「覆工板結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、來源 JSON、輸入／結果資料、計算指紋或成品雜湊。
 
 ### Windows 案件附件工作台捷徑
 
