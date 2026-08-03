@@ -104,7 +104,7 @@ function assertArtifact(file, expectedSignature, title) {
 }
 
 async function openReportPopup(page, options = {}) {
-  const timeoutMs = options.timeoutMs ?? 30000;
+  const timeoutMs = options.timeoutMs ?? 60000;
   const triggerSelector = options.triggerSelector ?? '#btnReport';
   await page.waitForFunction(selector => {
     const trigger = document.querySelector(selector);

@@ -44,6 +44,7 @@ const cases = JSON.parse(read(casesPath));
   'waitForCalculatedReadiness',
   "typeof window.RCUI?.renderAttachmentReadiness === 'function'",
   "page.waitForEvent('popup'",
+  'timeoutMs ?? 60000',
   'beamAttachmentReadinessCard',
   'page attachment readiness card',
   'page attachment readiness boundary',
