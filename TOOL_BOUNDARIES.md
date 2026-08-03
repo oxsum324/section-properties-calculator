@@ -36,7 +36,7 @@
 | `鋼架/` | 可納入 | 目前以 `frame-analysis.contract.test.js` 治理 `平面剛架分析.html` 的頁面 / 計算書邊界與 runtime 產報 smoke；若後續納入更多剛架頁面，再補資料夾級 manifest 或 catalog。 |
 | `結構工具箱/tools/foundation/` | 納入 | 基礎局部檢核為靜態快算工具，已拆 `foundation-local-core.js`、`foundation-local-golden-cases.js` 與 `foundation-local-core.test.js`，preflight 會跑 golden regression。注意不要改放到 `tools/基礎/`，會被根目錄 `基礎/` ignore 規則誤排除。 |
 | `結構工具箱/tools/equipment/` | 納入 | 設備局部荷重為靜態快算工具，已拆 `equipment-load-core.js`、`equipment-load-golden-cases.js` 與 `equipment-load-core.test.js`，preflight 會跑接觸壓 / 分布壓 / 單點反力 regression。 |
-| `結構工具箱/tools/earth/` | 納入 | 擋土土壓局部快算為靜態初估工具，已拆 `earth-pressure-core.js`、`earth-pressure-golden-cases.js` 與 `earth-pressure-core.test.js`，preflight 會跑 Rankine 土壓 / 水壓 / 簡化穩定 regression。 |
+| `結構工具箱/tools/earth/` | 納入 | 擋土土壓局部快算為靜態初估工具，已拆 `earth-pressure-core.js`、`earth-pressure-golden-cases.js` 與 `earth-pressure-core.test.js`，preflight 會跑 Rankine／Coulomb、分層土、水壓與簡化穩定 regression。`earth-pressure-rc-bridge.js` 只接受 V0.6 懸臂式主動土壓 JSON，必須以同版核心重算並逐值核對 schema、logicSignature、合力、傾覆矩與被動抵抗後，才可把服務側向荷載送入 RC 基礎頁；靜止土壓、重力式牆、地震 M-O 或不相符結果一律在改動 RC 輸入前失敗封閉。來源基底寬／垂直重量不取代 RC 幾何，計算書只列實際採用的土壓來源、荷載與簽章。 |
 | `結構工具箱/tools/local-quick-tools.manifest.json`、`結構工具箱/core/ui/report.js`、`結構工具箱/core/direct-print-boundary.css` | 納入 | 高頻局部快算工具清冊、共用內部審閱／正式附件核可模型與工作頁直接列印邊界；集中記錄路由、入口檔、核心檔、golden regression、smoke 標記、共用 stylesheet、body class、通知 class 與必要文字，避免新增工具時漏改契約、文件狀態、列印邊界與 preflight。 |
 | `結構工具箱/tools/local-quick-tools.run.js` | 納入 | manifest-driven 局部快算測試入口；由清冊呼叫 JSON 匯出 helper regression 與共同契約，preflight 以此作為局部快算總閘門。 |
 | `結構工具箱/tools/local-quick-export.js` | 納入 | 高頻局部快算共用 JSON 匯出 helper；集中處理 payload 組裝、非有限數值序列化與下載動作，避免各頁匯出格式分歧。 |
@@ -117,7 +117,7 @@
 
 案件附件工作台的唯讀 advisor 必須在外部程序執行，由 WinForms 計時器輪詢，不得在 UI thread 使用同步 `ReadToEnd()`／`WaitForExit()`。工作台須依啟動瞬間游標所在螢幕的可用工作區調整寬高並手動置中，不得固定使用主要螢幕；最低 780 × 640px 時以獨立雙向捲動容器保留全部主要內容，狀態列固定，底部正式核可提醒及最右側工具按鈕必須可捲動到完整可見。小視窗 smoke 須在顯示前設定 800 × 640px，證明視窗四邊均在所選螢幕工作區內，並以真實 `WM_VSCROLL / SB_BOTTOM` 與 `WM_HSCROLL / SB_RIGHT` 訊息及畫面座標證明內容邊界。工作台須提供明確 Tab 順序、輔助名稱與權限描述，並支援 `Ctrl+L` 聚焦路徑、`Enter` 執行目前的唯讀辨識操作及辨識中以 `Esc` 停止；鍵盤 smoke 必須證明焦點能使窄視窗外的最右側工具完整進入可視區。辨識期間按鈕必須改為「停止辨識」，讓使用者可立即取消背景程序並保留工作台開啟；路徑變更也需取消舊程序。完成結果只有在目前路徑仍相同時才能套用；60 秒逾時與關閉視窗都必須清理背景程序。worker 逾時或失敗時必須清除既有建議、將按鈕改為「重新辨識」，並在主提示及狀態列顯示可重試的狀態，不得停留在進行中文字。取消、逾時、失敗或過期結果不得開啟子工具、改變治理狀態或寫入案件。取消 smoke 必須在真實 WinForms message loop 中先以按鈕 `PerformClick()` 停止第一個 worker，再啟動第二個 worker 並以真實 `Esc` 停止，動態證明兩種路徑都會清除 advisor、保留視窗並復原按鈕與訊息；另須在同一視窗動態切換資料夾後正常關閉，證明被替換及關閉中的兩個 worker 都不殘留；逾時 smoke 必須由真實 WinForms 計時器終止第一個慢速 worker，再按同一按鈕重試並證明第二個 worker 正常完成、結果取代逾時狀態且兩個程序均不殘留；失敗 smoke 必須以真實 worker 錯誤完成相同的重試復原，兩者均不得被人工對話框阻塞。
 
-`release-rendered-delivery-evidence` schema v3 另固定治理 canonical 完整性集合：風力／地震、局部快算與鋼構的 family summary 必須保存 PDF 與 evidence 各自的 bytes、SHA-256；release aggregate 以家族、角色及檔名去重後重驗 30 組、60 份實體檔，保存集合 SHA-256。PDF 或 evidence 任一同大小替換的負向 fixture 必須失敗關閉。成熟度矩陣僅接受 canonical 60/60、RC 視覺 62/62、混合格式 13/13 與 RC HTML 32/32 同時通過的 schema v3 證據；詳細檔名與雜湊只留私人當輪證據，不進計算書或 Pages。Pages 僅能以「成品檔案完整性」公開前三組 `60/60`、`62/62`、`13/13` 及合計 `135/135` 的類別、數量、issue 與 pass，不得公開 aggregate 私有欄位名稱、scope、artifact、bytes 或 set hash。
+`release-rendered-delivery-evidence` schema v3 另固定治理 canonical 完整性集合：風力／地震、局部快算與鋼構的 family summary 必須保存 PDF 與 evidence 各自的 bytes、SHA-256；release aggregate 以家族、角色及檔名去重後重驗 30 組、60 份實體檔，保存集合 SHA-256。PDF 或 evidence 任一同大小替換的負向 fixture 必須失敗關閉。Schema v13 納入土壓 JSON 銜接 RC 基礎案例後，成熟度矩陣僅接受 canonical 60/60、RC 視覺 64/64、混合格式 13/13 與 RC HTML 33/33 同時通過；詳細檔名與雜湊只留私人當輪證據，不進計算書或 Pages。Pages 僅能以「成品檔案完整性」公開前三組 `60/60`、`64/64`、`13/13` 及合計 `137/137` 的類別、數量、issue 與 pass，不得公開 aggregate 私有欄位名稱、scope、artifact、bytes 或 set hash。
 
 `release-rendered-delivery-evidence` schema v4 再固定治理風力／地震 14 個正式工具的結果鏈：producer 在同一瀏覽器工作階段完成 manifest 全部 golden case 的 selector、metric 與文字結果斷言後，才以最後一個已驗證案例產生正式附件，並把案例 ID／SHA-256、驗證案例數、斷言數及報告計算指紋寫入 family summary；aggregate 必須核對 14/14 的 schema、策略、數量、指紋與集合 SHA-256。Pages 只可公開「數值結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden case 身分或計算指紋。
 
@@ -126,6 +126,8 @@ Schema v5 另固定治理 RC 梁、柱、板、牆、剪力牆、基礎與單樁
 Schema v6 再固定治理鋼構主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 5 個計算來源：producer 必須在同一瀏覽器工作階段匯出來源 JSON、重新匯入重算、確認不相容版本遭拒且不改動既有狀態，再核對正式計算書與來源重播沿用同一計算指紋；aggregate 必須要求 5/5、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「鋼構結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、來源資料、來源 payload 雜湊或計算指紋。
 
 Schema v7 再把 RC 梁、柱補強兩組表單重播案例納入 RC 結果鏈：producer 必須保存表單與結果快照，證明需求值改動會改變結果，再還原表單重算並核對報告及正式 HTML 指紋；aggregate 必須要求 RC 設計與補強合計 32/32、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「RC 結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、案例內容、來源快照雜湊或計算指紋。
+
+Schema v13 再把土壓 JSON 銜接 RC 基礎案例納入結果鏈：來源必須由相同版本核心重新計算，並拒絕無效時間、遭竄改結果、不相容版本、重力式牆、靜止土壓及尚未定義 RC 強度組合的地震土壓；aggregate 必須要求 RC 設計與補強合計 33/33、RC PDF／PNG 64/64 與 RC HTML 33/33。
 
 Schema v8 新增石材 golden replay 至成品雜湊結果鏈：producer 必須使用目前瀏覽器核心重播 `case_01_standard_safe`，核對至少 6 項關鍵數值與控制結果，再以同一 payload 產生 PDF、DOCX 及 audit，並將 golden 檔、來源 payload、輸入／結果／計算來源與三份成品 SHA-256 綁入 summary。Aggregate 必須要求 1/1、案例身分唯一並形成私人集合 SHA-256。Pages 只可公開「石材結果鏈」required／complete／issue／pass，不得公開 private aggregate、scope、records、golden 案例內容、來源 payload、結果或成品雜湊。
 

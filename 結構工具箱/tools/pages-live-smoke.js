@@ -547,13 +547,13 @@ async function main() {
   assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
-  assert.equal(reportReadinessStatus.deliveryFileIntegrityRequired, 135, 'report readiness exposes the complete redacted delivery file count');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityRequired, 137, 'report readiness exposes the complete redacted delivery file count');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every redacted delivery file');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery file integrity issues empty');
   assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
   assert.deepEqual(
     reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]),
-    [['formalPdfEvidence', 60, 60], ['rcRenderedVisual', 62, 62], ['mixedFormat', 13, 13]],
+    [['formalPdfEvidence', 60, 60], ['rcRenderedVisual', 64, 64], ['mixedFormat', 13, 13]],
     'report readiness exposes the three redacted delivery integrity groups'
   );
   assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
@@ -567,7 +567,7 @@ async function main() {
   const reportReadinessJson = JSON.stringify(reportReadinessStatus);
   assert.equal(reportReadinessJson.includes('"formalResultReconciliation":'), false, 'report readiness omits the private reconciliation aggregate');
   assert.equal(/formal-golden-result-to-report-fingerprint|goldenCase|calculationFingerprint/.test(reportReadinessJson), false, 'report readiness omits private reconciliation scope, case identity and fingerprints');
-  assert.equal(reportReadinessStatus.rcResultReconciliationRequired, 32, 'report readiness expects 32 RC design and retrofit result reconciliations');
+  assert.equal(reportReadinessStatus.rcResultReconciliationRequired, 33, 'report readiness expects 33 RC design and retrofit result reconciliations');
   assert.equal(reportReadinessStatus.rcResultReconciliationComplete, reportReadinessStatus.rcResultReconciliationRequired, 'report readiness completes every RC result reconciliation');
   assert.equal(reportReadinessStatus.rcResultReconciliationIssueCount, 0, 'report readiness RC result reconciliation issues empty');
   assert.equal(reportReadinessStatus.rcResultReconciliationPass, true, 'report readiness RC result reconciliation passes');
@@ -621,14 +621,14 @@ async function main() {
     }
   }
   assert.equal(reportReadinessStatus.attachmentIntegrityScope, 'rc-formal-html', 'report readiness attachment integrity scope');
-  assert.equal(reportReadinessStatus.attachmentIntegrityRequired, 32, 'report readiness expects 32 RC HTML attachments');
+  assert.equal(reportReadinessStatus.attachmentIntegrityRequired, 33, 'report readiness expects 33 RC HTML attachments');
   assert.equal(reportReadinessStatus.attachmentIntegrityActual, reportReadinessStatus.attachmentIntegrityRequired, 'report readiness keeps every RC HTML attachment');
   assert.equal(reportReadinessStatus.attachmentIntegrityVerified, reportReadinessStatus.attachmentIntegrityRequired, 'report readiness verifies every RC HTML attachment');
   assert.equal(reportReadinessStatus.attachmentIntegrityIssueCount, 0, 'report readiness attachment integrity issues empty');
   assert.equal(reportReadinessStatus.attachmentIntegrityPass, true, 'report readiness attachment integrity passes');
   assert.match(reportReadinessStatus.attachmentIntegritySetSha256, /^[0-9a-f]{64}$/i, 'report readiness attachment integrity set hash');
   assert.equal(reportReadinessStatus.attachmentIntegrityGroups.length, 8, 'report readiness exposes eight RC attachment groups');
-  assert.equal(reportReadinessStatus.attachmentIntegrityGroups.reduce((sum, group) => sum + group.expected, 0), 32, 'report readiness attachment group expectations total 32');
+  assert.equal(reportReadinessStatus.attachmentIntegrityGroups.reduce((sum, group) => sum + group.expected, 0), 33, 'report readiness attachment group expectations total 33');
   assert.ok(reportReadinessStatus.attachmentIntegrityGroups.every(group => group.pass && group.actual === group.expected && group.verified === group.expected), 'report readiness attachment groups all pass');
   assert.ok(reportReadinessStatus.attachmentIntegrityGroups.every(group => /^[0-9a-f]{64}$/i.test(group.setSha256)), 'report readiness attachment group hashes are SHA-256');
   assert.ok(reportReadinessStatus.attachmentIntegrityGroups.every(group => Array.isArray(group.artifacts) && group.artifacts.length === group.expected), 'report readiness attachment group artifact counts match');

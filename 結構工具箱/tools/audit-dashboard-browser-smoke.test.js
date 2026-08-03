@@ -55,7 +55,7 @@ const fixtureAttachmentCounts = [
   ['/rc-slab', 'RC 板', 'rc-formal', 5],
   ['/rc-wall', 'RC 牆', 'rc-formal', 4],
   ['/rc-shear-wall', 'RC 剪力牆', 'rc-formal', 2],
-  ['/rc-foundation', 'RC 基礎', 'rc-formal', 6],
+  ['/rc-foundation', 'RC 基礎', 'rc-formal', 7],
   ['/rc-pile', '單樁承載力設計器', 'rc-formal', 3],
   ['/rc-retrofit-section', 'RC 補強斷面', 'rc-retrofit', 2],
 ];
@@ -84,9 +84,9 @@ const fixtureAttachmentStatus = {
   failureCount: 0,
   renderedDeliveryEvidenceRunId: 'fixture-release',
   attachmentIntegrityScope: 'rc-formal-html',
-  attachmentIntegrityRequired: 32,
-  attachmentIntegrityActual: 32,
-  attachmentIntegrityVerified: 32,
+  attachmentIntegrityRequired: 33,
+  attachmentIntegrityActual: 33,
+  attachmentIntegrityVerified: 33,
   attachmentIntegrityIssueCount: 0,
   attachmentIntegrityPass: true,
   attachmentIntegritySetSha256: 'a'.repeat(64),
@@ -117,8 +117,8 @@ const fixtureAttachmentFailureDiagnostic = {
   pass: false,
   failureCount: 2,
   renderedDeliveryEvidenceRunId: 'fixture-tampered-release',
-  attachmentIntegrityActual: 31,
-  attachmentIntegrityVerified: 30,
+  attachmentIntegrityActual: 32,
+  attachmentIntegrityVerified: 31,
   attachmentIntegrityIssueCount: 2,
   attachmentIntegrityPass: false,
   attachmentIntegritySetSha256: 'b'.repeat(64),
@@ -1708,9 +1708,9 @@ function assertDashboardState(state, label, expectedLive = null) {
   );
   assert.equal(state.attachmentIntegrityStatus, '通過', `${label} attachment integrity status`);
   assert.equal(state.attachmentIntegrityStatusFail, false, `${label} attachment integrity status is not failed`);
-  assert.equal(state.attachmentIntegrityCount, '32 / 32', `${label} attachment integrity count`);
+  assert.equal(state.attachmentIntegrityCount, '33 / 33', `${label} attachment integrity count`);
   assert.equal(state.attachmentIntegrityCountFail, false, `${label} attachment integrity count is not failed`);
-  assert.equal(state.attachmentIntegrityVerified, '32 / 32', `${label} attachment integrity verified count`);
+  assert.equal(state.attachmentIntegrityVerified, '33 / 33', `${label} attachment integrity verified count`);
   assert.equal(state.attachmentIntegrityVerifiedFail, false, `${label} attachment integrity verified count is not failed`);
   assert.equal(state.attachmentIntegrityHash, 'aaaaaaaaaaaa', `${label} attachment integrity set hash`);
   assert.ok(state.attachmentIntegrityStatusHint.includes('release fixture-release'), `${label} attachment integrity release trace`);
@@ -1729,7 +1729,7 @@ function assertDashboardState(state, label, expectedLive = null) {
   }], `${label} attachment failure is closed only by later successful release evidence`);
   assert.ok(state.attachmentClosures[0].text.includes('問題 2 項'), `${label} closure record retains anonymous issue count`);
   assert.ok(state.attachmentClosures[0].text.includes('影響 RC 柱'), `${label} closure record identifies affected governed tool`);
-  assert.ok(state.attachmentClosures[0].text.includes('附件 32 / 32、已驗證 32 / 32、問題 0 項'), `${label} closure record includes resolution evidence`);
+  assert.ok(state.attachmentClosures[0].text.includes('附件 33 / 33、已驗證 33 / 33、問題 0 項'), `${label} closure record includes resolution evidence`);
   assert.equal(state.attachmentClosurePrintVisible, false, `${label} closure governance is excluded from print media`);
   assert.equal(state.attachmentIntegrityGroups.length, 8, `${label} attachment integrity group count`);
   for (const group of fixtureAttachmentGroups) {
@@ -1799,9 +1799,9 @@ function assertAttachmentIntegrityFailureState(state, label) {
   assert.equal(state.horizontalOverflow, false, `${label} failure fixture horizontal overflow (${state.scrollWidth} > ${state.clientWidth})`);
   assert.equal(state.attachmentIntegrityStatus, '異常 2 項', `${label} failed attachment integrity status`);
   assert.equal(state.attachmentIntegrityStatusFail, true, `${label} failed attachment integrity status tone`);
-  assert.equal(state.attachmentIntegrityCount, '31 / 32', `${label} failed attachment integrity count`);
+  assert.equal(state.attachmentIntegrityCount, '32 / 33', `${label} failed attachment integrity count`);
   assert.equal(state.attachmentIntegrityCountFail, true, `${label} failed attachment integrity count tone`);
-  assert.equal(state.attachmentIntegrityVerified, '30 / 32', `${label} failed attachment integrity verified count`);
+  assert.equal(state.attachmentIntegrityVerified, '31 / 33', `${label} failed attachment integrity verified count`);
   assert.equal(state.attachmentIntegrityVerifiedFail, true, `${label} failed attachment integrity verified tone`);
   assert.equal(state.attachmentIntegrityHash, 'bbbbbbbbbbbb', `${label} failed attachment integrity set hash`);
   assert.ok(state.attachmentIntegrityStatusHint.includes('本機失敗 release fixture-tampered-release'), `${label} failed local attachment release trace`);

@@ -581,14 +581,22 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
-assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 135, 'tracked report readiness snapshot exposes 135 delivery files');
+assert.ok([135, 137].includes(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired), 'tracked report readiness snapshot exposes a supported delivery-file transition count');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
 assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
 assert.deepEqual(
-  reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]),
-  [['formalPdfEvidence', 60, 60], ['rcRenderedVisual', 62, 62], ['mixedFormat', 13, 13]],
-  'tracked report readiness snapshot exposes only redacted delivery integrity counts'
+  reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown.map(item => item.key),
+  ['formalPdfEvidence', 'rcRenderedVisual', 'mixedFormat'],
+  'tracked report readiness snapshot exposes only redacted delivery integrity groups'
+);
+const trackedDeliveryCounts = reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown.map(item => [item.required, item.verified]);
+assert.ok(
+  [
+    [[60, 60], [62, 62], [13, 13]],
+    [[60, 60], [64, 64], [13, 13]],
+  ].some(expected => JSON.stringify(expected) === JSON.stringify(trackedDeliveryCounts)),
+  'tracked report readiness snapshot preserves supported redacted delivery counts'
 );
 assert.equal(/sha256|artifact|filename|bytes/i.test(JSON.stringify(reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown)), false, 'tracked report readiness delivery file counts omit private evidence');
 if (Number.isInteger(reportReadinessStatusSnapshot.formalResultReconciliationRequired)) {
@@ -598,7 +606,7 @@ if (Number.isInteger(reportReadinessStatusSnapshot.formalResultReconciliationReq
   assert.equal(reportReadinessStatusSnapshot.formalResultReconciliationPass, true, 'tracked report readiness snapshot formal result reconciliation passes');
 }
 if (Number.isInteger(reportReadinessStatusSnapshot.rcResultReconciliationRequired)) {
-  assert.ok([30, 32].includes(reportReadinessStatusSnapshot.rcResultReconciliationRequired), 'tracked report readiness snapshot expects a supported RC result reconciliation transition count');
+  assert.ok([30, 32, 33].includes(reportReadinessStatusSnapshot.rcResultReconciliationRequired), 'tracked report readiness snapshot expects a supported RC result reconciliation transition count');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationComplete, reportReadinessStatusSnapshot.rcResultReconciliationRequired, 'tracked report readiness snapshot completes every RC result reconciliation');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationIssueCount, 0, 'tracked report readiness snapshot RC result reconciliation issues empty');
   assert.equal(reportReadinessStatusSnapshot.rcResultReconciliationPass, true, 'tracked report readiness snapshot RC result reconciliation passes');

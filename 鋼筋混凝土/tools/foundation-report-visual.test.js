@@ -12,7 +12,7 @@ const CASES_PATH = path.join(__dirname, 'foundation-regression-cases.json');
 const OUT_DIR = path.resolve(process.env.FOUNDATION_REPORT_OUT || (process.env.PREFLIGHT_RUN_DIR
   ? path.join(process.env.PREFLIGHT_RUN_DIR, 'rendered-delivery-evidence', 'rc-formal')
   : path.join(ROOT, 'output', 'playwright')));
-const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,combined_default,combined_pass_warn,mat_pass_warn,retain_counterfort_warn,pile_default')
+const CASE_KEYS = (process.env.FOUNDATION_REPORT_CASES || 'iso_default,combined_default,combined_pass_warn,mat_pass_warn,retain_earth_bridge,retain_counterfort_warn,pile_default')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
@@ -89,6 +89,20 @@ const EXPECTED = {
       '樁帽 φMn ≥ Mu',
       'Qall ≥ 服務需求',
       '逐層承載力表',
+    ],
+  },
+  retain_earth_bridge: {
+    title: '基礎設計計算書 — 擋土牆',
+    expectedSnapshot: 'OK',
+    minCheckGroups: 2,
+    fragments: [
+      '基礎設計計算書 — 擋土牆',
+      '採用土壓來源與穩定參數',
+      '外部土壓 JSON',
+      'earth-pressure-core:v0.6',
+      '側向合力 / 傾覆矩',
+      '穩定檢核',
+      '牆身強度檢核',
     ],
   },
   retain_counterfort_warn: {
@@ -196,7 +210,18 @@ function attachPageGuards(page, bucket, label) {
 }
 
 async function applyCase(page, tc) {
+  await page.evaluate(() => window.clearEarthPressureSource?.({ silent: true }));
   await page.click(`#mainTabs button[data-tab="${tc.tab}"]`);
+  if (tc.earthPressureInput) {
+    await page.evaluate(input => {
+      const result = window.EarthPressureCore.calculate(input);
+      window.applyEarthPressurePayload({
+        tool: { id: 'earth-pressure', name: '擋土土壓局部快算', pageVersion: 'V0.6' },
+        project: { name: 'RC 基礎正式附件測試', no: 'RC-FT-001', designer: 'QA' },
+        generatedAt: '2026-08-04T01:00:00.000Z', input, result
+      }, { silent: true });
+    }, tc.earthPressureInput);
+  }
   if (tc.values) {
     await page.evaluate(values => {
       Object.entries(values).forEach(([id, value]) => {

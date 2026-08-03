@@ -34,6 +34,7 @@ const tool = read(toolPath);
   'combined_default',
   'combined_pass_warn',
   'mat_pass_warn',
+  'retain_earth_bridge',
   'retain_counterfort_warn',
   'pile_default',
 ].forEach(key => {

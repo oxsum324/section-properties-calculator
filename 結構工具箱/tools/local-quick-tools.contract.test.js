@@ -4,6 +4,9 @@ const vm = require('vm');
 const { spawnSync } = require('child_process');
 const assert = require('assert');
 const calculationBookContentBoundary = require('./calculation-book-content-boundary.json');
+const EarthPressureCore = require('./earth/earth-pressure-core.js');
+const EarthPressureRcBridge = require('./earth/earth-pressure-rc-bridge.js');
+const earthPressureGoldenCases = require('./earth/earth-pressure-golden-cases.js');
 
 const toolsRoot = __dirname;
 const toolboxRoot = path.resolve(toolsRoot, '..');
@@ -88,6 +91,56 @@ assert.equal(manifest.family, 'local-quick-tools', 'local quick tools manifest f
 assert.ok(Array.isArray(tools), 'local quick tools manifest tools');
 assert.ok(tools.length >= 3, 'local quick tools manifest tool count');
 assert.equal(formalManifest.version, '0.3.0', 'formal tools manifest version');
+
+const bridgeInput = Object.assign({
+  designReference: 'taiwanFoundation2023',
+  wallType: 'cantilever',
+  wallCondition: 'manual',
+  waterModel: 'hydrostatic',
+  passiveMode: 'ignore',
+  passiveReductionFactor: 0.5,
+  pressureTheory: 'rankine',
+  deltaDeg: 0,
+  betaDeg: 0,
+  thetaDeg: 0,
+  seismicEnable: false,
+  kh: 0,
+  kv: 0,
+  layeredMode: false,
+  layers: [],
+  fsSlideReqSeismic: 1.2,
+  fsOverReqSeismic: 1.2
+}, earthPressureGoldenCases[0].input);
+const bridgeResult = EarthPressureCore.calculate(bridgeInput);
+const bridgePayload = {
+  tool: { id: 'earth-pressure', pageVersion: 'V0.6' },
+  project: { name: '跨工具銜接', no: 'BRIDGE-001', designer: 'QA' },
+  generatedAt: '2026-08-04T01:00:00.000Z',
+  input: bridgeInput,
+  result: bridgeResult
+};
+const bridgeState = EarthPressureRcBridge.importPayload(bridgePayload, EarthPressureCore);
+assert.equal(bridgeState.schema, 'earth-pressure-to-rc-foundation.v1', 'earth pressure RC bridge schema');
+assert.equal(bridgeState.foundationFields.rHw, bridgeInput.H * 100, 'earth pressure RC bridge maps retained height');
+assert.equal(bridgeState.serviceLoads.lateralForce, bridgeResult.totalForce, 'earth pressure RC bridge adopts recalculated lateral force');
+assert.equal(bridgeState.serviceLoads.overturningMoment, bridgeResult.overturningMoment, 'earth pressure RC bridge adopts recalculated overturning moment');
+assert.equal(EarthPressureRcBridge.normalizeState(JSON.stringify(bridgeState)).sourceTool, 'earth-pressure', 'earth pressure RC bridge state replay');
+assert.throws(
+  () => EarthPressureRcBridge.importPayload(Object.assign({}, bridgePayload, { result: Object.assign({}, bridgeResult, { totalForce: bridgeResult.totalForce + 1 }) }), EarthPressureCore),
+  /重新計算不一致/,
+  'earth pressure RC bridge rejects tampered result'
+);
+assert.throws(
+  () => EarthPressureRcBridge.importPayload(Object.assign({}, bridgePayload, { generatedAt: 'not-a-date' }), EarthPressureCore),
+  /有效的輸出時間/,
+  'earth pressure RC bridge rejects untraceable generated time'
+);
+const atRestInput = Object.assign({}, bridgeInput, { mode: 'atRest' });
+assert.throws(
+  () => EarthPressureRcBridge.importPayload(Object.assign({}, bridgePayload, { input: atRestInput, result: EarthPressureCore.calculate(atRestInput) }), EarthPressureCore),
+  /僅接受主動土壓/,
+  'earth pressure RC bridge rejects restrained model mismatch'
+);
 assert.equal(formalManifest.family, 'formal-tools', 'formal tools manifest family');
 assert.ok(Array.isArray(formalManifest.tools), 'formal tools manifest tools');
 assert.ok(Array.isArray(formalManifest.requiredRoutes), 'formal tools manifest required routes');
@@ -123,6 +176,7 @@ const repoDocs = {
   forcePickerCore: readText(toolboxFile('core/ui/force-picker.js')),
   loadComboCore: readText(toolboxFile('core/loads/loadcombo.js')),
   forcesReceive: readText(toolboxFile('core/ui/forces-receive.js')),
+  rcFoundation: readText(repoFile('鋼筋混凝土/tools/foundation.html')),
   readme: readText(repoFile('README.md')),
   toolReportGuide: readText(repoFile('TOOL_REPORT_GUIDE.md')),
   boundaries: readText(repoFile('TOOL_BOUNDARIES.md')),
@@ -134,6 +188,11 @@ repoDocs.homeSource = `${repoDocs.index}\n${repoDocs.homeHtml}\n${repoDocs.homeJ
 assertIncludes(repoDocs.windReport, 'showWindReportIssue', 'shared wind report inline status helper');
 assertIncludes(repoDocs.windReport, 'repWindowStatus', 'shared wind report window status helper');
 assert.equal(repoDocs.windReport.includes('alert('), false, 'shared wind report core uses inline status instead of alerts');
+assertIncludes(repoDocs.rcFoundation, 'id="btnImportEarthPressure"', 'RC foundation exposes governed earth pressure import');
+assertIncludes(repoDocs.rcFoundation, 'earth-pressure-rc-bridge.js', 'RC foundation loads earth pressure bridge');
+assertIncludes(repoDocs.rcFoundation, 'EARTH_PRESSURE_BRIDGE.importPayload', 'RC foundation verifies earth pressure source before adoption');
+assertIncludes(repoDocs.rcFoundation, '1.6 * sourceLoads.overturningMoment', 'RC foundation strength uses verified imported overturning moment');
+assertIncludes(repoDocs.rcFoundation, "loadSourceLabel: earthSource ? `外部土壓 JSON", 'RC foundation report snapshot identifies imported load source');
 
 const runnerPath = assertFile(manifest.shared.runner);
 const exportHelperPath = assertFile(manifest.shared.exportHelper);
@@ -527,10 +586,12 @@ assert.equal(repoDocs.homeHtml.includes('id="toolSearch"'), false, 'new home rem
 assert.equal(repoDocs.homeHtml.includes('id="stateFilterPanel"'), false, 'new home removes state filter panel');
 assert.equal(repoDocs.homeHtml.includes('id="stateFilters"'), false, 'new home removes state filters');
 assertIncludes(repoDocs.homeHtml, 'id="memberSystemPanel"', 'new home member system panel');
-assertIncludes(repoDocs.homeHtml, '不再把補齊既有案例基準列為主要工作', 'new home roadmap follows completed local quick maturity');
+assertIncludes(repoDocs.homeHtml, '不再把補齊既有案例基準或土壓重複輸入列為主要工作', 'new home roadmap follows completed local quick maturity and bridge closure');
 assertIncludes(repoDocs.homeHtml, '成熟度矩陣與巡檢儀表板', 'new home roadmap points to current governance evidence');
 assertIncludes(repoDocs.indexClassic, '三項局部快算均已具多案例基準', 'classic home reflects completed local quick golden coverage');
-assertIncludes(repoDocs.indexClassic, '擋土牆牆身／趾踵版配筋、群樁／側向樁、SRC 構件及施工階段支撐整合', 'classic home lists capability expansion after maturity closure');
+assertIncludes(repoDocs.indexClassic, '趾版／踵版配筋、群樁／側向樁、SRC 構件及施工階段支撐整合', 'classic home lists capability expansion after earth-to-RC bridge closure');
+assertIncludes(repoDocs.readme, '同版核心重算並比對 schema、邏輯簽章、合力與傾覆矩', 'README documents earth-to-RC recalculation boundary');
+assertIncludes(repoDocs.boundaries, 'earth-pressure-rc-bridge.js', 'tool boundaries govern earth-to-RC bridge');
 assert.equal(repoDocs.indexClassic.includes('短期先補 <strong>基礎局部檢核</strong>'), false, 'classic home removes stale foundation golden-case recommendation');
 assertIncludes(repoDocs.readme, '首頁的「下一步」不得沿用已完成的舊缺口', 'README documents evidence-driven roadmap');
 assertIncludes(repoDocs.boundaries, '首頁的下一步建議須對齊最新成熟度矩陣', 'tool boundary prevents stale roadmap claims');

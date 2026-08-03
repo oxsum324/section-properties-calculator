@@ -302,12 +302,12 @@
         {
           "id": "foundation-retaining-wall-boundary",
           "clause": "混凝土結構設計規範 112 年版擋土牆穩定、牆身撓曲與剪力檢核規定",
-          "purpose": "擋土牆穩定與牆身強度可列初步結果，扶壁式雙向板 / T 梁系統不足須明確列為待確認。",
-          "inputs": ["wallType", "H", "soilPressure", "surcharge", "baseWidth", "stemRebar", "sf", "fc", "fy"],
-          "calculation": ["抗滑 FS", "抗傾覆 FS", "牆身 φMn", "牆身 φVc", "扶壁間距 sf 缺口"],
-          "report": ["基礎設計計算書 — 擋土牆", "穩定檢核", "牆身強度檢核", "待確認 / 正式扶壁系統分析需求", "雙向板 / T 梁系統分析"],
-          "evidence": ["tools/foundation-regression.test.js", "tools/foundation-report-visual.test.js", "tools/foundation-report-visual.contract.test.js"],
-          "manualReview": ["扶壁式擋土牆、土壓型態、排水、地震土壓、基底滑動與牆踵牆趾配筋須由正式分析與施工圖人工複核。"]
+          "purpose": "擋土牆穩定與牆身強度可列初步結果；土壓 JSON 必須以同版核心重算相符後才能採用，扶壁式雙向板 / T 梁系統不足須明確列為待確認。",
+          "inputs": ["wallType", "H", "soilPressure", "surcharge", "baseWidth", "stemRebar", "sf", "fc", "fy", "earth-pressure V0.6 JSON"],
+          "calculation": ["土壓來源 schema / logicSignature / 同版核心重算", "外部側向合力與傾覆矩", "抗滑 FS", "抗傾覆 FS", "牆身 φMn", "牆身 φVc", "扶壁間距 sf 缺口"],
+          "report": ["基礎設計計算書 — 擋土牆", "採用土壓來源與穩定參數", "外部土壓 JSON", "穩定檢核", "牆身強度檢核", "待確認 / 正式扶壁系統分析需求", "雙向板 / T 梁系統分析"],
+          "evidence": ["../結構工具箱/tools/earth/earth-pressure-rc-bridge.js", "tools/foundation-regression.test.js", "tools/foundation-regression-cases.json", "tools/foundation-report-visual.test.js", "tools/foundation-report-visual.contract.test.js"],
+          "manualReview": ["第一階段不自動匯入靜止土壓或地震土壓；來源基底寬與垂直重量須和 RC 幾何比對。扶壁式擋土牆、排水、基底滑動與牆踵牆趾配筋仍須由正式分析與施工圖人工複核。"]
         }
       ]
     },

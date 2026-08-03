@@ -141,6 +141,26 @@
     color: var(--text-light);
     min-height: 1.3em;
   }
+  .retain-source-box {
+    margin-bottom: 14px;
+    padding: 12px;
+    border: 1px solid #93c5fd;
+    border-left: 4px solid #2563eb;
+    border-radius: 8px;
+    background: #eff6ff;
+  }
+  .retain-source-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+  }
+  .retain-source-status {
+    margin: 0;
+    color: #1e3a8a;
+    font-size: 0.84em;
+    line-height: 1.55;
+  }
 
   /* ── 響應式 ── */
   @media (max-width: 1024px) {
@@ -679,6 +699,16 @@
       <!-- ───── 擋土牆 輸入 ───── -->
       <div class="card" data-shows="retain">
         <h2>擋土牆</h2>
+        <div class="retain-source-box">
+          <strong>土壓結果銜接</strong>
+          <div class="retain-source-actions">
+            <button class="mode-bar__action" id="btnImportEarthPressure" type="button">匯入土壓 JSON</button>
+            <button class="mode-bar__action" id="btnClearEarthPressure" type="button">改回本頁公式</button>
+          </div>
+          <input class="mode-bar__file" id="earthPressureJsonFile" type="file" accept=".json,application/json">
+          <input id="retainEarthPressureSource" type="hidden" value="">
+          <p class="retain-source-status" id="earthPressureImportStatus">目前採用本頁 Ka、γ、q 公式。可匯入土壓工具 JSON，經同版核心重算驗證後採用合力與傾覆矩。</p>
+        </div>
         <div class="form-group">
           <label>牆型式</label>
           <select id="retainType">
@@ -1095,13 +1125,16 @@
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
 <script src="./pile-site-presets.js?v=1"></script>
+<script src="../../結構工具箱/tools/earth/earth-pressure-core.js?v=1"></script>
+<script src="../../結構工具箱/tools/earth/earth-pressure-rc-bridge.js?v=1"></script>
 <script>
   const $ = id => document.getElementById(id);
   const num = id => { const v = parseFloat($(id)?.value); return isNaN(v) ? 0 : v; };
   const lambda = LAMBDA_NORMAL;
   const FOUNDATION_PROJECT_SCHEMA = 'rc-foundation-project-v1';
   const FOUNDATION_PROJECT_STORAGE_KEY = 'rc.foundation.project.draft';
-  const FOUNDATION_PROJECT_EXCLUDED_IDS = new Set(['foundationProjectFile']);
+  const FOUNDATION_PROJECT_EXCLUDED_IDS = new Set(['foundationProjectFile', 'earthPressureJsonFile']);
+  const EARTH_PRESSURE_BRIDGE = window.EarthPressureRcBridge;
   const PILE_SITE_GROUPS = window.PILE_SITE_GROUPS || {};
   const PILE_SITE_PRESETS = window.PILE_SITE_PRESETS || {};
 
@@ -1919,6 +1952,70 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
     setTimeout(() => note.remove(), status === 'fail' ? 6000 : 4500);
   }
 
+  function readImportedEarthPressureSource() {
+    const raw = $('retainEarthPressureSource')?.value || '';
+    if (!raw) return null;
+    return EARTH_PRESSURE_BRIDGE.normalizeState(raw);
+  }
+
+  function renderEarthPressureImportStatus(source, message = '') {
+    const el = $('earthPressureImportStatus');
+    if (!el) return;
+    if (!source) {
+      el.textContent = message || '目前採用本頁 Ka、γ、q 公式。可匯入土壓工具 JSON，經同版核心重算驗證後採用合力與傾覆矩。';
+      el.style.color = message ? '#991b1b' : '#1e3a8a';
+      return;
+    }
+    const loads = source.serviceLoads;
+    const model = source.model;
+    const generatedAt = source.sourceGeneratedAt ? `；來源時間 ${source.sourceGeneratedAt}` : '';
+    el.textContent = `已採用外部土壓：${model.theoryLabel}；P=${loads.lateralForce.toFixed(3)} tf/m，Mo=${loads.overturningMoment.toFixed(3)} tf·m/m，Rp=${loads.effectivePassive.toFixed(3)} tf/m${generatedAt}。牆身與底版幾何仍以本頁輸入為準。`;
+    el.style.color = '#166534';
+  }
+
+  function setFoundationFieldValue(id, value) {
+    const el = $(id);
+    if (!el) return;
+    el.value = String(value);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function applyEarthPressurePayload(raw, options = {}) {
+    const source = EARTH_PRESSURE_BRIDGE.importPayload(raw, window.EarthPressureCore);
+    Object.entries(source.foundationFields).forEach(([id, value]) => setFoundationFieldValue(id, value));
+    const meta = source.project || {};
+    if (!$('projName')?.value.trim() && meta.name) setFoundationFieldValue('projName', meta.name);
+    if (!$('projNo')?.value.trim() && meta.no) setFoundationFieldValue('projNo', meta.no);
+    if (!$('projDesigner')?.value.trim() && meta.designer) setFoundationFieldValue('projDesigner', meta.designer);
+    setFoundationFieldValue('retainEarthPressureSource', JSON.stringify(source));
+    applyPanel('retain');
+    calcFdtn();
+    renderEarthPressureImportStatus(source);
+    if (!options.silent) showFoundationProjectStatus(`已驗證並匯入土壓結果：${source.model.theoryLabel}`);
+    return source;
+  }
+
+  function clearEarthPressureSource(options = {}) {
+    setFoundationFieldValue('retainEarthPressureSource', '');
+    renderEarthPressureImportStatus(null);
+    if (currentTab === 'retain') calcFdtn();
+    if (!options.silent) showFoundationProjectStatus('已改回擋土牆頁面內建 Ka、γ、q 公式。', 'warn');
+  }
+
+  async function loadEarthPressureJsonFile(file) {
+    if (!file) return null;
+    try {
+      const text = await file.text();
+      return applyEarthPressurePayload(text);
+    } catch (err) {
+      console.error('earth pressure bridge import failed', err);
+      renderEarthPressureImportStatus(readImportedEarthPressureSource(), `土壓 JSON 匯入失敗：${err?.message || err}`);
+      showFoundationProjectStatus(`土壓 JSON 匯入失敗，原計算來源未變更：${err?.message || err}`, 'fail');
+      return null;
+    }
+  }
+
   function foundationProjectControls() {
     return Array.from(document.querySelectorAll('input[id], select[id], textarea[id]')).filter(el => {
       if (!el.id || FOUNDATION_PROJECT_EXCLUDED_IDS.has(el.id)) return false;
@@ -2058,6 +2155,7 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       const ci = $('counterfortInputs');
       if (ci) ci.style.display = $('retainType').value === 'counterfort' ? '' : 'none';
     }
+    renderEarthPressureImportStatus(readImportedEarthPressureSource());
     if (typeof calcFdtn === 'function') calcFdtn();
     const tab = ['iso','combined','mat','pile','retain','seismic'].includes(payload.activeTab) ? payload.activeTab : 'iso';
     applyPanel(tab);
@@ -2131,6 +2229,12 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
       const file = event.target.files && event.target.files[0];
       loadFoundationProjectFile(file).finally(() => { event.target.value = ''; });
     });
+    $('btnImportEarthPressure')?.addEventListener('click', () => $('earthPressureJsonFile')?.click());
+    $('btnClearEarthPressure')?.addEventListener('click', () => clearEarthPressureSource());
+    $('earthPressureJsonFile')?.addEventListener('change', event => {
+      const file = event.target.files && event.target.files[0];
+      loadEarthPressureJsonFile(file).finally(() => { event.target.value = ''; });
+    });
   }
 
   window.collectFoundationProjectData = collectFoundationProjectData;
@@ -2138,6 +2242,9 @@ ${summarizeSoilLayers(preset.soilProfile)}`;
   window.saveFoundationProjectDraft = saveFoundationProjectDraft;
   window.loadFoundationProjectDraft = loadFoundationProjectDraft;
   window.downloadFoundationProjectFile = downloadFoundationProjectFile;
+  window.applyEarthPressurePayload = applyEarthPressurePayload;
+  window.clearEarthPressureSource = clearEarthPressureSource;
+  window.readImportedEarthPressureSource = readImportedEarthPressureSource;
 
   // ============================================================
   //  主計算分派
@@ -3450,6 +3557,13 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const barNo = $('rBarNo').value;
     const nBarPerM = num('rNBar');
     const sf = num('rSf');
+    let earthSource = null;
+    try {
+      earthSource = readImportedEarthPressureSource();
+    } catch (error) {
+      renderEarthPressureImportStatus(null, `已儲存的土壓來源無法使用：${error.message || error}`);
+    }
+    const sourceLoads = earthSource && earthSource.serviceLoads;
 
     const ab = REBAR_TABLE[barNo].area;
     const db = REBAR_TABLE[barNo].db;
@@ -3464,15 +3578,15 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const H_total = Hw_m + hb_m; // total wall height from base bottom
 
     // === 主動土壓 (per m run) ===
-    const Pa_tri = 0.5 * Ka * gamma * H_total * H_total; // 三角形 (tf/m)
-    const Pa_rect = Ka * qs * H_total;                     // 矩形超載 (tf/m)
-    const Pa = Pa_tri + Pa_rect;
+    const Pa_tri = sourceLoads ? 0 : 0.5 * Ka * gamma * H_total * H_total; // 三角形 (tf/m)
+    const Pa_rect = sourceLoads ? 0 : Ka * qs * H_total;                    // 矩形超載 (tf/m)
+    const Pa = sourceLoads ? sourceLoads.lateralForce : Pa_tri + Pa_rect;
     const ya_tri = H_total / 3;
     const ya_rect = H_total / 2;
-    const Ma_Pa = Pa_tri * ya_tri + Pa_rect * ya_rect; // 主動傾覆矩 (tf·m/m)，繞趾端
+    const Ma_Pa = sourceLoads ? sourceLoads.overturningMoment : Pa_tri * ya_tri + Pa_rect * ya_rect; // 主動傾覆矩 (tf·m/m)，繞趾端
 
     // === 被動土壓 ===
-    const Pp = 0.5 * Kp * gamma * hb_m * hb_m;
+    const Pp = sourceLoads ? sourceLoads.effectivePassive : 0.5 * Kp * gamma * hb_m * hb_m;
 
     // === 自重 (per m run) ===
     const W_wall = tw_m * Hw_m * gammaC;           // 牆身
@@ -3485,10 +3599,10 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const x_wall = Lt_m + tw_m / 2;
     const x_base = Btot_m / 2;
     const x_soil = Lt_m + tw_m + Lh_m / 2;
-    const Mr = W_wall * x_wall + W_base * x_base + W_soil_heel * x_soil + Pp * hb_m / 3;
+    const Mr = W_wall * x_wall + W_base * x_base + W_soil_heel * x_soil + (sourceLoads ? 0 : Pp * hb_m / 3);
 
     // 主動傾覆矩 (繞趾端)
-    const Mo = Pa_tri * ya_tri + Pa_rect * ya_rect;
+    const Mo = sourceLoads ? sourceLoads.overturningMoment : Pa_tri * ya_tri + Pa_rect * ya_rect;
 
     // === 穩定性 ===
     const FS_slide = Pa > 0 ? (mu * W_total + Pp) / Pa : Infinity;
@@ -3509,7 +3623,9 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const wu_rect = 1.6 * Ka * qs;
     // Mu at base of stem = 1.6 * [0.5*Ka*γ*Hw²/2 * Hw/3 + Ka*qs*Hw * Hw/2]
     // 用 Hw (牆身高度)
-    const Mu_stem = 1.6 * (0.5 * Ka * gamma * Hw_m * Hw_m * Hw_m / 3 + Ka * qs * Hw_m * Hw_m / 2); // tf·m/m
+    const Mu_stem = sourceLoads
+      ? 1.6 * sourceLoads.overturningMoment
+      : 1.6 * (0.5 * Ka * gamma * Hw_m * Hw_m * Hw_m / 3 + Ka * qs * Hw_m * Hw_m / 2); // tf·m/m
     const Mu_stem_kgcm = Mu_stem * 1e5 / 100; // per 100cm width → per cm? No.
     // Per 100 cm width (1m)
     const b_unit = 100; // cm
@@ -3522,7 +3638,9 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const okFlex = phiMn_wall_tfm >= Mu_wall_tfm;
 
     // 牆身剪力 (at base of stem)
-    const Vu_stem = 1.6 * (0.5 * Ka * gamma * Hw_m * Hw_m + Ka * qs * Hw_m); // tf/m
+    const Vu_stem = sourceLoads
+      ? 1.6 * sourceLoads.lateralForce
+      : 1.6 * (0.5 * Ka * gamma * Hw_m * Hw_m + Ka * qs * Hw_m); // tf/m
     const Vu_stem_kgf = Vu_stem * 1000; // per m → kgf/100cm
     const phiVc_wall = PHI.shear * 0.53 * lambda * Math.sqrt(fc) * b_unit * d_wall;
     const phiVc_wall_tfm = phiVc_wall / 1000; // kgf → tf
@@ -3532,6 +3650,9 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     if (retainType === 'counterfort') {
       reviewWarnings.push('扶壁式擋土牆目前仍以 1 m 條帶近似檢核牆身，尚未建立扶壁、牆板與底版之雙向板 / T 梁系統分析。');
       reviewWarnings.push('扶壁間距 sf 尚未納入彎矩、剪力、配筋分布與扶壁連接細部檢核，不可列為最終 OK 結論。');
+    }
+    if (earthSource && !earthSource.model.sourceOverallOk) {
+      reviewWarnings.push('匯入來源的簡化穩定檢核未通過；本頁已依 RC 幾何重算，仍應比對兩邊採用的垂直重量與基底寬。');
     }
     const summaryOk = numericalOk ? (reviewWarnings.length ? null : true) : false;
     const summaryText = summaryOk === true
@@ -3561,12 +3682,20 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     // Steps
     const sb = $('stepsRetainBody');
     if (sb) {
-      sb.innerHTML =
-`<span class="h">▸ 主動土壓 (per m run)</span>
+      const earthLoadSteps = sourceLoads
+        ? `<span class="h">▸ 外部土壓結果（同版核心重算驗證）</span>
+來源模型 = ${earthSource.model.theoryLabel}
+P = ${Pa.toFixed(3)} tf/m；作用高 = ${sourceLoads.resultantHeight.toFixed(3)} m
+Mo = ${Mo.toFixed(3)} tf·m/m；Rp採用 = ${Pp.toFixed(3)} tf/m
+來源基底 B/V = ${earthSource.sourceGeometry.baseWidth.toFixed(3)} m / ${earthSource.sourceGeometry.verticalLoad.toFixed(3)} tf/m
+本頁牆身與底版幾何另行重算穩定與 RC 強度`
+        : `<span class="h">▸ 主動土壓 (per m run)</span>
 H_total = Hw + hb = ${Hw_m.toFixed(2)} + ${hb_m.toFixed(2)} = ${H_total.toFixed(2)} m
 Pa_tri = 0.5·Ka·γ·H² = 0.5×${Ka}×${gamma}×${H_total.toFixed(2)}² = ${Pa_tri.toFixed(2)} tf/m
 Pa_rect = Ka·qs·H = ${Ka}×${qs}×${H_total.toFixed(2)} = ${Pa_rect.toFixed(2)} tf/m
-Pa = ${Pa.toFixed(2)} tf/m
+Pa = ${Pa.toFixed(2)} tf/m`;
+      sb.innerHTML =
+`${earthLoadSteps}
 
 <span class="h">▸ 穩定性</span>
 W_wall = ${tw_m}×${Hw_m}×${gammaC} = ${W_wall.toFixed(2)} tf/m
@@ -3609,7 +3738,9 @@ Vu_stem = ${Vu_stem.toFixed(2)} tf/m
       qmax_r, qmin_r, okQr, Mu_wall_tfm, phiMn_wall_tfm, okFlex,
       Vu_stem, phiVc_wall_tfm: phiVc_wall_tfm, okShear,
       ab, db, As_m, d_wall, d_base, Btot, H_total, Mr, Mo,
+      earthSource, loadSourceLabel: earthSource ? `外部土壓 JSON｜${earthSource.model.theoryLabel}` : '本頁 Ka、γ、q 公式',
       numericalOk, reviewWarnings, summaryOk, summaryText };
+    renderEarthPressureImportStatus(earthSource);
   }
 
   // ============================================================
@@ -4483,8 +4614,15 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:'牆身主筋', value:`${r.nBarPerM} 支/m ${r.barNo}`, unit:`As=${r.As_m.toFixed(2)} cm²/m` },
           { label:'有效深 d_wall', value:r.d_wall.toFixed(1), unit:'cm' }
         ]},
-        { group:'土壓與穩定參數', items:[
-          { label:'Ka / Kp', value:`${r.Ka} / ${r.Kp}` },
+        { group:'採用土壓來源與穩定參數', items:[
+          { label:'土壓來源', value:r.loadSourceLabel },
+          ...(r.earthSource ? [
+            { label:'來源版本 / 邏輯簽章', value:`${r.earthSource.sourcePageVersion} / ${r.earthSource.provenance.logicSignature}` },
+            { label:'側向合力 / 傾覆矩', value:`${r.Pa.toFixed(3)} / ${r.Mo.toFixed(3)}`, unit:'tf/m / tf·m/m' },
+            { label:'來源作用高 / Rp採用', value:`${r.earthSource.serviceLoads.resultantHeight.toFixed(3)} / ${r.Pp.toFixed(3)}`, unit:'m / tf/m' }
+          ] : [
+            { label:'Ka / Kp', value:`${r.Ka} / ${r.Kp}` }
+          ]),
           { label:'γ / qs', value:`${r.gamma} / ${r.qs}`, unit:'tf/m³ / tf/m²' },
           { label:'μ / qa', value:`${r.mu} / ${r.qa}`, unit:'/ tf/m²' },
           { label:'Pa / Pp', value:`${r.Pa.toFixed(2)} / ${r.Pp.toFixed(2)}`, unit:'tf/m' },

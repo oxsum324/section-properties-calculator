@@ -168,6 +168,58 @@ async function exerciseFoundationProjectStorage(page) {
   assert(restored.ftLastOk, 'foundation project recalculates after restore', 'ftLast pile present');
 }
 
+async function exerciseEarthPressureBridge(page) {
+  const state = await page.evaluate(() => {
+    const input = {
+      designReference: 'taiwanFoundation2023', wallType: 'cantilever', wallCondition: 'manual',
+      H: 2.5, gammaSoil: 1.8, phiDeg: 30, mode: 'active', surcharge: 1,
+      waterModel: 'hydrostatic', waterDepth: 0, gammaWater: 1,
+      baseB: 1.8, verticalLoad: 16, qa: 15, mu: 0.45,
+      passiveMode: 'ignore', passiveReductionFactor: 0.5, passive: 0,
+      fsSlideReq: 1.5, fsOverReq: 1.5,
+      pressureTheory: 'rankine', deltaDeg: 0, betaDeg: 0, thetaDeg: 0,
+      seismicEnable: false, kh: 0, kv: 0,
+      fsSlideReqSeismic: 1.2, fsOverReqSeismic: 1.2,
+      layeredMode: false, layers: []
+    };
+    const result = window.EarthPressureCore.calculate(input);
+    const source = window.applyEarthPressurePayload({
+      tool: { id: 'earth-pressure', name: '擋土土壓局部快算', pageVersion: 'V0.6' },
+      project: { name: '土壓銜接測試', no: 'EARTH-RC-001', designer: 'QA' },
+      generatedAt: '2026-08-04T01:00:00.000Z', input, result
+    }, { silent: true });
+    const saved = window.collectFoundationProjectData();
+    window.clearEarthPressureSource({ silent: true });
+    window.applyFoundationProjectData(saved, { silent: true });
+    const replay = window.readImportedEarthPressureSource();
+    return {
+      activeTab: document.querySelector('#mainTabs button.active')?.dataset.tab,
+      retainedHeight: document.getElementById('rHw')?.value,
+      hiddenSourceStored: !!saved.fields.retainEarthPressureSource?.value,
+      sourceSchema: source.schema,
+      replaySchema: replay.schema,
+      loadSourceLabel: window.ftLast?.loadSourceLabel,
+      Pa: window.ftLast?.Pa,
+      Mo: window.ftLast?.Mo,
+      Mu: window.ftLast?.Mu_wall_tfm,
+      Vu: window.ftLast?.Vu_stem,
+      expectedForce: result.totalForce,
+      expectedMoment: result.overturningMoment,
+      statusText: document.getElementById('earthPressureImportStatus')?.textContent || ''
+    };
+  });
+  assert(state.activeTab === 'retain', 'earth pressure bridge opens retaining wall tab', state.activeTab);
+  assert(state.retainedHeight === '250', 'earth pressure bridge maps retained height to RC wall', state.retainedHeight);
+  assert(state.hiddenSourceStored, 'earth pressure bridge persists in RC project fields', 'retainEarthPressureSource stored');
+  assert(state.sourceSchema === 'earth-pressure-to-rc-foundation.v1' && state.replaySchema === state.sourceSchema, 'earth pressure bridge replays with RC project fingerprint', state.replaySchema);
+  assert(state.loadSourceLabel.includes('外部土壓 JSON'), 'earth pressure bridge identifies adopted load source', state.loadSourceLabel);
+  assert(nearlyEqual(state.Pa, state.expectedForce, toleranceDefault), 'earth pressure bridge adopts verified lateral force', `${state.Pa} / ${state.expectedForce}`);
+  assert(nearlyEqual(state.Mo, state.expectedMoment, toleranceDefault), 'earth pressure bridge adopts verified overturning moment', `${state.Mo} / ${state.expectedMoment}`);
+  assert(nearlyEqual(state.Mu, 1.6 * state.expectedMoment, toleranceDefault), 'earth pressure bridge factors imported moment for stem strength', `${state.Mu}`);
+  assert(nearlyEqual(state.Vu, 1.6 * state.expectedForce, toleranceDefault), 'earth pressure bridge factors imported force for stem shear', `${state.Vu}`);
+  assert(state.statusText.includes('同版核心') || state.statusText.includes('已採用外部土壓'), 'earth pressure bridge renders page-only source status', state.statusText);
+}
+
 async function main() {
   const html = fs.readFileSync(htmlPath, 'utf8');
   const common = fs.readFileSync(commonPath, 'utf8');
@@ -201,6 +253,9 @@ async function main() {
   assert(html.includes("projectName: window.RCUI.normalizeProjectFieldValue($('projName')?.value)"), 'foundation project payload normalizes placeholder project name', 'project storage metadata uses shared normalizer');
   assert(!reportSrc.includes("$('projName').value.trim()"), 'foundation report no longer uses raw trim on project name', 'shared normalizer handles placeholder cleanup');
   assert(html.includes('function applyFoundationProjectData(raw'), 'foundation can apply project payload', 'apply helper exists');
+  assert(html.includes('id="btnImportEarthPressure"'), 'foundation has earth pressure JSON import', 'cross-tool import button exists');
+  assert(html.includes('earth-pressure-rc-bridge.js'), 'foundation loads earth pressure bridge', 'versioned bridge module exists');
+  assert(html.includes('EARTH_PRESSURE_BRIDGE.importPayload'), 'foundation validates earth pressure payload before use', 'same-core recalculation gate exists');
 
   const chromePath = CHROME_CANDIDATES.find(p => fs.existsSync(p));
   assert(!!chromePath, 'browser executable', 'system Chrome/Edge found for foundation regression test');
@@ -221,11 +276,23 @@ async function main() {
     assert(pageErrors.length === 0, 'foundation page boot', 'no page errors during initial load');
     assert(failedResponses.length === 0, 'foundation page resources', 'no missing static resources during initial load');
     await exerciseFoundationProjectStorage(page);
+    await exerciseEarthPressureBridge(page);
     await page.goto(TOOL_URL, { waitUntil: 'networkidle' });
     await wait(300);
 
     for (const tc of pack.cases) {
+      await page.evaluate(() => window.clearEarthPressureSource?.({ silent: true }));
       await page.click(`#mainTabs button[data-tab="${tc.tab}"]`);
+      if (tc.earthPressureInput) {
+        await page.evaluate(input => {
+          const result = window.EarthPressureCore.calculate(input);
+          window.applyEarthPressurePayload({
+            tool: { id: 'earth-pressure', name: '擋土土壓局部快算', pageVersion: 'V0.6' },
+            project: { name: '土壓銜接回歸', no: 'EARTH-RC-REG', designer: 'QA' },
+            generatedAt: '2026-08-04T01:00:00.000Z', input, result
+          }, { silent: true });
+        }, tc.earthPressureInput);
+      }
       if (tc.values) {
         await page.evaluate(values => {
           Object.entries(values).forEach(([id, value]) => {
