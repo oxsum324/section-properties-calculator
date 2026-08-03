@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const crypto = require('crypto');
 
 const htmlPath = path.join(__dirname, '連續梁分析.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
@@ -30,6 +31,10 @@ function assertPrintHidesSelectors(source, selectors, label) {
 }
 
 assert(html.includes('id="saveStatus"'), 'save status outlet exists', 'cloud save uses inline page status');
+assert(html.includes('>V1.3</span>'), 'continuous beam page exposes current version', 'V1.3');
+assert(html.includes("pageVersion: 'V1.3'"), 'continuous beam JSON records current page version', 'V1.3');
+assert(html.includes("schema: 'continuous-beam.project.v1'"), 'continuous beam JSON declares a stable schema', 'continuous-beam.project.v1');
+assert(html.includes('function validateContinuousBeamSaveData'), 'continuous beam validates restored model topology', 'validated before active-state mutation');
 assert(html.includes('id="saveModalStatus"'), 'save modal status outlet exists', 'save validation/errors stay in the modal');
 assert(html.includes('id="loadModalStatus"'), 'load modal status outlet exists', 'load/delete errors stay in the modal');
 assert(html.includes('function setInlineStatus'), 'inline status helper exists', 'shared helper drives non-blocking feedback');
@@ -320,6 +325,30 @@ function reportHtmlText(reportHtml) {
     .trim();
 }
 
+function stableSha256(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
+}
+
+function continuousBeamResultSnapshot(ctx) {
+  return JSON.parse(JSON.stringify({
+    input: ctx.collectSaveData(),
+    reactions: (ctx.solution?.reactions || []).map(reaction => ({
+      Ry: reaction?.Ry ?? null,
+      Mr: reaction?.Mr ?? null,
+    })),
+    spans: (ctx.diagrams?.spans || []).map(span => ({
+      xs: span.xs,
+      vs: span.vs,
+      ms: span.ms,
+      ds: span.ds,
+    })),
+  }));
+}
+
+function reportCalculationFingerprint(reportHtml) {
+  return String(reportHtml || '').match(/計算指紋<\/b>(CF-[0-9A-F]{16})/)?.[1] || '';
+}
+
 function assertReportHtmlText(reportHtml, label, requiredNeedles, minLength = 360) {
   const text = reportHtmlText(reportHtml);
   assert(text.length >= minLength, `${label} visible report text is substantial`, `chars=${text.length}`);
@@ -478,8 +507,16 @@ function bootPage() {
     context.__lastReportConfig = cfg;
   };
   vm.runInContext(mainScript, context, { filename: '連續梁分析.html#main' });
-  vm.runInContext(extractFunctionBlock(moduleScript, 'collectSaveData'), context, { filename: '連續梁分析.html#collectSaveData' });
-  vm.runInContext(extractFunctionBlock(moduleScript, 'restoreFromData'), context, { filename: '連續梁分析.html#restoreFromData' });
+  [
+    'collectSaveData',
+    'buildLocalPayload',
+    'updateFileLabel',
+    'validateContinuousBeamSaveData',
+    'restoreLocalPayload',
+    'restoreFromData',
+  ].forEach(name => {
+    vm.runInContext(extractFunctionBlock(moduleScript, name), context, { filename: `連續梁分析.html#${name}` });
+  });
 
   context.__dispatch = (type, event) => {
     (listeners[type] || []).forEach(handler => handler(event));
@@ -648,6 +685,78 @@ function main() {
   assert(restored.projDesigner === 'Alice', 'save/restore keeps designer', restored.projDesigner);
   assert(restored.projNote === 'Variant A', 'save/restore keeps note', restored.projNote);
   assert(restored.pickedSection && restored.pickedSection.title === 'Rect Beam', 'save/restore keeps picked section', restored.pickedSection ? restored.pickedSection.title : 'missing');
+
+  ctx.initModel(2);
+  ctx.model.supports[0] = { type: 'pin' };
+  ctx.model.supports[1] = { type: 'roller' };
+  ctx.model.supports[2] = { type: 'pin' };
+  ctx.model.spans[0] = { L: 5.5, eiMul: 1, hinges: [] };
+  ctx.model.spans[1] = { L: 7.25, eiMul: 0.85, hinges: [] };
+  ctx.model.loads[0] = [
+    { type: 'udl', w: 12.5 },
+    { type: 'point', P: 18, a: 2.2 },
+  ];
+  ctx.model.loads[1] = [
+    { type: 'trapezoid', w1: 5, w2: 14 },
+    { type: 'moment', M: 9.5, a: 4.1 },
+  ];
+  ctx.document.getElementById('numSpans').value = '2';
+  ctx.document.getElementById('unitSystem').value = 'kN-m';
+  ctx.document.getElementById('matSelect').value = 'steel';
+  ctx.document.getElementById('iMode').value = 'direct';
+  ctx.document.getElementById('globalI').value = '0.00042';
+  ctx.document.getElementById('eVal').value = '204000000';
+  ctx.document.getElementById('ilEnabled').checked = false;
+  ctx.renderSpanInputs();
+  ctx.renderLoadSpanSelect();
+  ctx.renderLoadInputs();
+  ctx.runAnalysis();
+  const sourcePayload = JSON.parse(JSON.stringify(ctx.buildLocalPayload()));
+  const sourceSnapshot = continuousBeamResultSnapshot(ctx);
+  const sourceSnapshotSha256 = stableSha256(sourceSnapshot);
+  ctx.exportPDF();
+  const sourceReportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
+  const sourceFingerprint = reportCalculationFingerprint(sourceReportHtml);
+  assert(sourcePayload.schema === 'continuous-beam.project.v1', 'local JSON declares continuous beam schema', sourcePayload.schema);
+  assert(sourcePayload.tool.pageVersion === 'V1.3', 'local JSON records current page version', sourcePayload.tool.pageVersion);
+  assert(/^[0-9a-f]{64}$/.test(sourceSnapshotSha256), 'source input/result snapshot has stable SHA-256', sourceSnapshotSha256);
+  assert(/^CF-[0-9A-F]{16}$/.test(sourceFingerprint), 'source report exposes calculation fingerprint', sourceFingerprint);
+
+  ctx.model.spans[0].L = 3;
+  ctx.model.loads[0] = [];
+  ctx.document.getElementById('projNo').value = 'MUTATED';
+  ctx.runAnalysis();
+  ctx.restoreLocalPayload(JSON.parse(JSON.stringify(sourcePayload)), 'round-trip.json');
+  ctx.runAnalysis();
+  const replaySnapshot = continuousBeamResultSnapshot(ctx);
+  const replaySnapshotSha256 = stableSha256(replaySnapshot);
+  ctx.exportPDF();
+  const replayReportHtml = renderSharedReportPayload(ctx.__lastReportConfig);
+  const replayFingerprint = reportCalculationFingerprint(replayReportHtml);
+  assert(replaySnapshotSha256 === sourceSnapshotSha256, 'JSON replay reproduces every adopted input and analysis result', `source=${sourceSnapshotSha256}, replay=${replaySnapshotSha256}`);
+  assert(replayFingerprint === sourceFingerprint, 'JSON replay reproduces the calculation-book fingerprint', `source=${sourceFingerprint}, replay=${replayFingerprint}`);
+  assert(ctx.document.getElementById('saveStatus').textContent.includes('round-trip.json'), 'JSON replay reports the restored local filename', ctx.document.getElementById('saveStatus').textContent);
+
+  const stateBeforeRejectedImport = stableSha256(ctx.collectSaveData());
+  let rejectedSchemaMessage = '';
+  try {
+    ctx.restoreLocalPayload({ ...sourcePayload, schema: 'continuous-beam.project.v999' }, 'future.json');
+  } catch (error) {
+    rejectedSchemaMessage = error.message;
+  }
+  assert(rejectedSchemaMessage.includes('不支援的連續梁案例版本'), 'unknown JSON schema is rejected before restore', rejectedSchemaMessage);
+  assert(stableSha256(ctx.collectSaveData()) === stateBeforeRejectedImport, 'rejected JSON schema leaves the active case unchanged', stateBeforeRejectedImport);
+
+  let rejectedModelMessage = '';
+  const malformedPayload = JSON.parse(JSON.stringify(sourcePayload));
+  malformedPayload.data.model.supports.pop();
+  try {
+    ctx.restoreLocalPayload(malformedPayload, 'malformed.json');
+  } catch (error) {
+    rejectedModelMessage = error.message;
+  }
+  assert(rejectedModelMessage.includes('支承資料與跨數不一致'), 'malformed model topology is rejected before restore', rejectedModelMessage);
+  assert(stableSha256(ctx.collectSaveData()) === stateBeforeRejectedImport, 'rejected malformed model leaves the active case unchanged', stateBeforeRejectedImport);
 
   resetToSingleSpan(ctx);
   ctx.model.loads[0] = [{ type: 'udl', w: 10 }];

@@ -195,7 +195,7 @@
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>分析工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的計算書輸出按鈕產生只包含案件資料、分析輸入、計算結果與必要結論的計算書；本頁不得作為附件。</span></div>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>連續梁分析工具 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.2</span></h1>
+  <h1>連續梁分析工具 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.3</span></h1>
   <p>Direct Stiffness Method | 剪力圖 / 彎矩圖 / 撓度曲線 / 影響線 / 計算書輸出</p>
 </header>
 <div class="save-bar">
@@ -2183,7 +2183,7 @@ function buildLocalPayload() {
     tool: {
       id: 'continuous-beam',
       name: '連續梁分析工具',
-      pageVersion: 'V1.2'
+      pageVersion: 'V1.3'
     },
     savedAt: new Date().toISOString(),
     data: collectSaveData()
@@ -2204,6 +2204,9 @@ function downloadJson(filename, payload) {
 
 function restoreLocalPayload(payload, label) {
   if (!payload || typeof payload !== 'object') throw new Error('JSON 格式不正確。');
+  if (payload.schema && payload.schema !== 'continuous-beam.project.v1') {
+    throw new Error('不支援的連續梁案例版本：' + payload.schema + '。');
+  }
   if (payload.tool && payload.tool.id && payload.tool.id !== 'continuous-beam') {
     throw new Error('此 JSON 屬於 ' + payload.tool.id + '，不是連續梁分析案例。');
   }
@@ -2214,13 +2217,41 @@ function restoreLocalPayload(payload, label) {
   window.setSaveStatus('已讀取本地檔：' + (label || '案例檔'), 'ok');
 }
 
+function validateContinuousBeamSaveData(d) {
+  if (!d || typeof d !== 'object' || Array.isArray(d)) throw new Error('案例內容不是有效物件。');
+  const savedModel = d.model;
+  if (!savedModel || typeof savedModel !== 'object' || Array.isArray(savedModel)) throw new Error('案例缺少梁模型。');
+  const spanCount = Number(savedModel.numSpans);
+  if (!Number.isInteger(spanCount) || spanCount < 1 || spanCount > 10) throw new Error('案例跨數必須是 1 至 10 的整數。');
+  if (!Array.isArray(savedModel.spans) || savedModel.spans.length !== spanCount) throw new Error('案例跨度資料與跨數不一致。');
+  if (!Array.isArray(savedModel.supports) || savedModel.supports.length !== spanCount + 1) throw new Error('案例支承資料與跨數不一致。');
+  if (!Array.isArray(savedModel.loads) || savedModel.loads.length !== spanCount || savedModel.loads.some(loads => !Array.isArray(loads))) {
+    throw new Error('案例載重資料與跨數不一致。');
+  }
+  savedModel.spans.forEach((span, index) => {
+    if (!span || !Number.isFinite(Number(span.L)) || Number(span.L) <= 0) throw new Error('跨 ' + (index + 1) + ' 長度必須大於 0。');
+  });
+  const supportedTypes = new Set(['pin', 'roller', 'fixed', 'free']);
+  savedModel.supports.forEach((support, index) => {
+    if (!support || !supportedTypes.has(support.type)) throw new Error('支承 ' + index + ' 類型不受支援。');
+  });
+  return d;
+}
+
 function restoreFromData(d) {
+  validateContinuousBeamSaveData(d);
   window._prevUnitKey = null;
   document.getElementById('unitSystem').value = d.unitSystem || 'kN-m';
   window._prevUnitKey = d.unitSystem || 'kN-m';
   // 用 Object.assign 替換 model 內容，保持 window.model 參照不變
+  const savedModel = d.model;
   Object.keys(window.model).forEach(k => delete window.model[k]);
-  Object.assign(window.model, d.model);
+  Object.assign(window.model, {
+    numSpans: Number(savedModel.numSpans),
+    spans: savedModel.spans.map(span => ({ ...span, hinges: Array.isArray(span.hinges) ? [...span.hinges] : [] })),
+    supports: savedModel.supports.map(support => ({ ...support })),
+    loads: savedModel.loads.map(loads => loads.map(load => ({ ...load }))),
+  });
   document.getElementById('numSpans').value = window.model.numSpans;
   document.getElementById('matSelect').value = d.matSelect || 'steel';
   document.getElementById('iMode').value = d.iMode || 'direct';

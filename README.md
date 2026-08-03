@@ -137,7 +137,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
   - 載重組合模式未選定完整組合時不建立或送出 payload；選定後會在 `meta.combination` 保存組合名稱、設計方法、組合係數與來源完整有號內力。送往 RC 梁／柱時另產生符合目標需求欄語意的採用值；不得用 magnitude 欄反推或冒充來源 signed tuple。此頁不列入首頁正式工具。
 - 連續梁分析 regression：
   [continuous-beam-regression.test.js](/C:/Users/USER/Desktop/AI/小工具製作/continuous-beam-regression.test.js:1)
-  - 固定檢查連續梁分析計算書的 HTML 輸出可讀文字、支承反力、梁示意圖、剪力圖與彎矩圖，並排除頁面專用閱讀狀態。計畫欄位可留空；直接輸入 I 值或其他待人工確認條件仍如實列入工程結果，但文件預設內部審閱，核可後才成為正式附件。瀏覽器直接列印操作頁已由共用邊界樣式封鎖。
+  - 固定檢查連續梁分析計算書的 HTML 輸出可讀文字、支承反力、梁示意圖、剪力圖與彎矩圖，並排除頁面專用閱讀狀態。另以雙跨混合載重案例實際匯出本地 JSON、改動目前案例、重新匯入與計算，要求採用輸入、反力、剪力、彎矩、撓度與計算書指紋完全一致；未知 schema 或拓撲不完整的 JSON 必須在改動目前案例前拒絕。計畫欄位可留空；直接輸入 I 值或其他待人工確認條件仍如實列入工程結果，但文件預設內部審閱，核可後才成為正式附件。瀏覽器直接列印操作頁已由共用邊界樣式封鎖。
 - 斷面工具共同契約測試：
   [section-tools.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/section-tools.contract.test.js:1)
   - 鎖住斷面性質、合成斷面與 RC 補強斷面頁的 inline status / 報表 payload 邊界，並把共享報表與 runtime HTML 轉成可讀文字檢查標題、主要章節、核可狀態與 page-only wording 排除清單。共用計算書產生器預設內部審閱，核可後標示正式附件；空白案件欄位與 NG 工程結果不再產生 DRAFT。工作頁直接列印仍由共用邊界樣式封鎖。

@@ -153,7 +153,7 @@
     releaseVerifiedAt: '2026-08-03',
     source: 'routeFileMap target and shared dependency Git history + current worktree changes + tracked preflight release snapshot',
     routes: {
-      '/beam-analysis': '2026-08-02',
+      '/beam-analysis': '2026-08-03',
       '/frame-analysis': '2026-08-02',
       '/struct-dx': '2026-07-19',
       '/section': '2026-07-19',
@@ -244,16 +244,16 @@
   const tools = [
     {
       title: '連續梁分析',
-      version: 'V1.2',
+      version: 'V1.3',
       href: '/beam-analysis',
       categories: ['analysis'],
       state: 'assist',
       governance: 'continuous-beam',
-      output: '內力圖、撓度與共用計算書',
-      summary: '多跨連續梁彎矩、剪力與撓度，可導入斷面 I 值並輸出共用計算書。',
+      output: '內力圖、撓度、本地 JSON 與共用計算書',
+      summary: '多跨連續梁彎矩、剪力與撓度，可導入斷面 I 值，並以本地 JSON 重播案例後輸出共用計算書。',
       fit: '模型前後快速校核、梁系初步內力整理。',
       limit: '不是完整結構模型替代品。',
-      capabilities: ['可列印', '分析輔助']
+      capabilities: ['可列印', '本地 JSON', '分析輔助']
     },
     {
       title: '平面剛架分析',
