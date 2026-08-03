@@ -430,6 +430,24 @@ function scopedIntegritySetHash(artifacts) {
     .digest('hex');
 }
 
+function formalResultReconciliationSetHash(records) {
+  return createHash('sha256')
+    .update(records
+      .map(record => [
+        record.key,
+        record.goldenCaseId,
+        record.goldenCaseSha256,
+        record.calculationFingerprint,
+        record.expectedGoldenCases,
+        record.verifiedGoldenCases,
+        record.verifiedAssertionCount,
+        record.renderedCaseAssertionCount,
+      ].join('\u0000'))
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
 function uniqueIntegrityArtifacts(artifacts, label) {
   const unique = new Map();
   for (const artifact of artifacts) {
@@ -479,6 +497,22 @@ function verifyRcVisualArtifactRecord(directory, record, label) {
   ];
 }
 
+function validateFormalResultReconciliationRecord(record, label) {
+  const reconciliation = record?.resultReconciliation;
+  assert.equal(reconciliation?.schemaVersion, 1, `${label} result reconciliation schema`);
+  assert.equal(reconciliation?.strategy, 'golden-state-to-report-fingerprint', `${label} result reconciliation strategy`);
+  assert.match(String(reconciliation?.goldenCaseId || ''), /^[a-z0-9][a-z0-9-]+$/i, `${label} rendered golden case id`);
+  assert.match(String(reconciliation?.goldenCaseSha256 || ''), /^[0-9a-f]{64}$/i, `${label} rendered golden case SHA-256`);
+  assert.ok(Number.isInteger(reconciliation?.expectedGoldenCases) && reconciliation.expectedGoldenCases > 0, `${label} expected golden cases`);
+  assert.equal(reconciliation?.verifiedGoldenCases, reconciliation?.expectedGoldenCases, `${label} verifies every golden case`);
+  assert.ok(Number.isInteger(reconciliation?.verifiedAssertionCount) && reconciliation.verifiedAssertionCount > 0, `${label} verified result assertions`);
+  assert.ok(Number.isInteger(reconciliation?.renderedCaseAssertionCount) && reconciliation.renderedCaseAssertionCount > 0, `${label} rendered case result assertions`);
+  assert.ok(reconciliation.verifiedAssertionCount >= reconciliation.renderedCaseAssertionCount, `${label} assertion coverage includes rendered case`);
+  assert.equal(reconciliation?.calculationFingerprint, record?.calculationFingerprint, `${label} report fingerprint matches reconciliation`);
+  assert.equal(reconciliation?.pass, true, `${label} result reconciliation passes`);
+  return { key: record.key, ...reconciliation };
+}
+
 function validateFamilySummary(runDir, family, expectedKeys) {
   const summaryPath = path.join(runDir, 'rendered-delivery-evidence', family, 'rendered-delivery-evidence-summary.json');
   assert.ok(fs.existsSync(summaryPath), `${family} current-run rendered summary exists`);
@@ -486,6 +520,7 @@ function validateFamilySummary(runDir, family, expectedKeys) {
   assert.equal(summary.pass, true, `${family} rendered summary passes`);
   const complete = new Set(summary.complete || summary.records?.map(record => record.key) || []);
   const canonicalArtifacts = [];
+  const formalResultReconciliations = [];
   for (const key of expectedKeys) {
     assert.ok(complete.has(key), `${family} rendered summary covers ${key}`);
   }
@@ -504,6 +539,9 @@ function validateFamilySummary(runDir, family, expectedKeys) {
         { family, role: 'renderEvidence', name: record.evidence, bytes: verified.evidenceBytes, sha256: verified.evidenceSha256 },
       );
     }
+    if (family === 'formal-tools' && record.evidenceRole === 'approved-formal-attachment') {
+      formalResultReconciliations.push(validateFormalResultReconciliationRecord(record, `${family} ${record.key}`));
+    }
     if (htmlArtifactPath) {
       validateHtmlArtifactRecord(path.dirname(summaryPath), {
         htmlArtifact: record.htmlArtifact,
@@ -512,7 +550,7 @@ function validateFamilySummary(runDir, family, expectedKeys) {
     }
     if (evidencePath) assert.ok(fs.existsSync(evidencePath), `${family} evidence JSON exists: ${record.evidence}`);
   }
-  return { summary, canonicalArtifacts };
+  return { summary, canonicalArtifacts, formalResultReconciliations };
 }
 
 function validateArtifactFamilySummary(runDir, family, expectedKeys) {
@@ -707,6 +745,35 @@ try {
   fs.rmSync(visualIntegrityFixtureDir, { recursive: true, force: true });
 }
 
+const formalResultReconciliationFixture = {
+  key: 'fixture-formal-report',
+  calculationFingerprint: 'CF-1234567890ABCDEF',
+  resultReconciliation: {
+    schemaVersion: 1,
+    strategy: 'golden-state-to-report-fingerprint',
+    goldenCaseId: 'fixture-case',
+    goldenCaseSha256: 'a'.repeat(64),
+    expectedGoldenCases: 2,
+    verifiedGoldenCases: 2,
+    verifiedAssertionCount: 8,
+    renderedCaseAssertionCount: 4,
+    calculationFingerprint: 'CF-1234567890ABCDEF',
+    pass: true,
+  },
+};
+validateFormalResultReconciliationRecord(formalResultReconciliationFixture, 'formal result reconciliation fixture');
+assert.throws(
+  () => validateFormalResultReconciliationRecord({
+    ...formalResultReconciliationFixture,
+    resultReconciliation: {
+      ...formalResultReconciliationFixture.resultReconciliation,
+      calculationFingerprint: 'CF-FEDCBA0987654321',
+    },
+  }, 'tampered formal result reconciliation fixture'),
+  /report fingerprint matches reconciliation/,
+  'formal result reconciliation blocks a report fingerprint detached from the verified golden state'
+);
+
 const strictRelease = process.env.PREFLIGHT_RELEASE === '1';
 if (!strictRelease) {
   console.log(`Rendered delivery evidence contract OK (inventory=${inventory.tools.length}, current-run artifact verification skipped outside release mode)`);
@@ -718,12 +785,14 @@ assert.ok(process.env.PREFLIGHT_RUN_DIR && fs.existsSync(runDir), 'release rende
 const records = [];
 const supplementalRecords = [];
 const canonicalArtifactRecords = [];
+const formalResultReconciliationRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
   const expectedKeys = [...new Set(tools.map(tool => tool.evidenceKey))];
-  const { summary, canonicalArtifacts } = validateFamilySummary(runDir, family, expectedKeys);
+  const { summary, canonicalArtifacts, formalResultReconciliations } = validateFamilySummary(runDir, family, expectedKeys);
   canonicalArtifactRecords.push(...canonicalArtifacts);
+  formalResultReconciliationRecords.push(...formalResultReconciliations);
   for (const tool of tools) {
     const evidence = summary.records.find(record => record.key === tool.evidenceKey);
     records.push({ href: tool.href, title: tool.title, family, evidenceKey: tool.evidenceKey, artifact: evidence?.artifact || '' });
@@ -1302,6 +1371,18 @@ const canonicalArtifactIntegrity = {
   setSha256: scopedIntegritySetHash(canonicalArtifacts),
   artifacts: canonicalArtifacts,
 };
+const formalResultReconciliation = {
+  schemaVersion: 1,
+  scope: 'formal-golden-result-to-report-fingerprint',
+  required: 14,
+  complete: formalResultReconciliationRecords.length,
+  issueCount: Math.max(0, 14 - formalResultReconciliationRecords.length),
+  pass: formalResultReconciliationRecords.length === 14,
+  setSha256: formalResultReconciliationSetHash(formalResultReconciliationRecords),
+  records: formalResultReconciliationRecords,
+};
+assert.equal(formalResultReconciliation.complete, formalResultReconciliation.required, 'release rendered evidence reconciles all 14 formal golden results to report fingerprints');
+assert.equal(formalResultReconciliation.pass, true, 'release rendered evidence passes formal result reconciliation');
 assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 60 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 62 RC PDF and PNG visual artifacts');
@@ -1314,7 +1395,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -1323,15 +1404,16 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
   canonicalArtifactIntegrity,
+  formalResultReconciliation,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, summary=${aggregatePath})`);

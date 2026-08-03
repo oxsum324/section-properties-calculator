@@ -278,6 +278,8 @@ RC、鋼構、錨栓、石材、覆工板、開挖擋土支撐或其他正式 / 
 
 Canonical family summary 另須保存 evidence bytes；schema v3 release aggregate 會把風力／地震、局部快算與鋼構的 30 組 PDF／evidence 去重為 60 份實體檔，逐份保存彙整端重驗結果及集合 SHA-256。PDF 或 evidence 任一被同大小替換都必須失敗關閉。成熟度矩陣只有在 canonical `60/60`、RC 視覺 `62/62`、混合格式 `13/13` 與 RC HTML `32/32` 同時通過時，才可採納該輪為完整 rendered delivery evidence；詳細清冊不進計算書或 Pages 公開狀態。Pages 的「成品檔案完整性」可顯示前三組合計 `135/135` 及各類別的 required／verified／issue／pass，但不得輸出原始 scope、檔名、bytes、逐檔或集合 SHA-256。
 
+Schema v4 另建立風力／地震 14 個正式工具的「golden 重算結果 → 正式報告指紋」閉合。每個 producer 必須在產報前完成該工具全部 golden case 的精確 selector、metric 與文字斷言，記錄實際用於產報的最後案例 ID／SHA-256、已驗證案例數、斷言數及同一份正式報告計算指紋；aggregate 只有在 `14/14` 全部一致時才能通過。此鏈證明成品來自已重算的既定工程案例，但不取代設計者對實際專案輸入、規範適用性及工程判定的複核。Pages 只公開完成數，不公開 golden case 內容、預期數值、雜湊或指紋。
+
 ### 採用依據文字
 
 應使用：

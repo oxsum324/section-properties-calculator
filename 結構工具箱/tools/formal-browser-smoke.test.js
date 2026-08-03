@@ -1,4 +1,5 @@
 const assert = require('assert');
+const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
 const net = require('net');
@@ -2553,6 +2554,35 @@ function assertGoldenCaseState(state, tool, goldenCase, label) {
   }
 }
 
+function buildFormalResultReconciliation(tool, goldenStates, reportState) {
+  const cases = Array.isArray(tool.goldenCases) ? tool.goldenCases : [];
+  const renderedCase = cases[cases.length - 1];
+  assert.ok(renderedCase?.id, `${tool.key} rendered formal report has a golden case identity`);
+  assert.equal(goldenStates.length, cases.length, `${tool.key} verifies every declared golden case before rendering`);
+  const countAssertions = goldenCase => (
+    Object.keys(goldenCase?.expectedSelectors || {}).length
+    + Object.keys(goldenCase?.expectedMetrics || {}).length
+    + (goldenCase?.expectedTextNeedles || []).length
+  );
+  const renderedCaseAssertionCount = countAssertions(renderedCase);
+  const verifiedAssertionCount = cases.reduce((sum, goldenCase) => sum + countAssertions(goldenCase), 0);
+  assert.ok(renderedCaseAssertionCount > 0, `${tool.key} rendered golden case has result assertions`);
+  assert.ok(verifiedAssertionCount >= renderedCaseAssertionCount, `${tool.key} verified assertion count covers rendered case`);
+  assert.match(String(reportState?.approvedCalculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${tool.key} rendered formal report has a calculation fingerprint`);
+  return {
+    schemaVersion: 1,
+    strategy: 'golden-state-to-report-fingerprint',
+    goldenCaseId: String(renderedCase.id),
+    goldenCaseSha256: crypto.createHash('sha256').update(JSON.stringify(renderedCase), 'utf8').digest('hex'),
+    expectedGoldenCases: cases.length,
+    verifiedGoldenCases: goldenStates.length,
+    verifiedAssertionCount,
+    renderedCaseAssertionCount,
+    calculationFingerprint: String(reportState.approvedCalculationFingerprint),
+    pass: goldenStates.length === cases.length && renderedCaseAssertionCount > 0,
+  };
+}
+
 function assertInlineValidationState(state, tool, label) {
   const validationCase = inlineValidationCases[tool.key];
   if (!validationCase) return;
@@ -2742,6 +2772,7 @@ async function main() {
             || popupReportStates.default;
           assert.ok(renderedReportState?.approvedHtml, `${interactionLabel} ${tool.key} has approved report HTML for real formal-attachment PDF evidence`);
           const renderedDocumentStateNeedles = getApprovedReportPdfDocumentStateNeedles(renderedReportState);
+          const resultReconciliation = buildFormalResultReconciliation(tool, goldenStates, renderedReportState);
           const renderedEvidence = await renderAndValidateReportPdf(client, {
             html: renderedReportState.approvedHtml,
             outputDir: renderedEvidenceDir,
@@ -2773,6 +2804,7 @@ async function main() {
             documentClass: renderedReportState.approvedDocumentClass,
             approvalTime: renderedReportState.approvedAt,
             calculationFingerprint: renderedReportState.approvedCalculationFingerprint,
+            resultReconciliation,
             internalReviewDocumentClass: renderedReportState.documentClass,
             internalReviewStateVerified: renderedReportState.documentClass === 'internal-review',
             artifact: path.basename(renderedEvidence.pdfPath),

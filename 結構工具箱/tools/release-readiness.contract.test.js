@@ -114,6 +114,9 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'shared-summary-layout',
   'shared-detailed-layout',
   'writeEvidenceSummary',
+  'buildFormalResultReconciliation',
+  'golden-state-to-report-fingerprint',
+  'resultReconciliation',
 ].forEach(needle => assertIncludes(formalBrowserSmoke, needle, `formal browser smoke preserves rendered evidence ${needle}`));
 
 [
@@ -169,11 +172,14 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 3',
+  'schemaVersion: 4',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
   'canonicalIntegrity=',
+  'formalResultReconciliation',
+  "scope: 'formal-golden-result-to-report-fingerprint'",
+  'formalResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
 assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evidence inventory has 31 formal tools', 'rendered-delivery-evidence.inventory.json');
@@ -198,8 +204,11 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'payload.sourceDirty === false',
   'function isCompleteRenderedDeliveryEvidence',
   'completeIntegrityDeclared',
+  'resultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
   'evidence.canonicalArtifactIntegrity.required === 60',
+  "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
+  'evidence.formalResultReconciliation.required === 14',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
   'latestSummary && latestSummary.quick === false && latestSummary.pass === true',
@@ -213,6 +222,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'deliveryFileIntegrityVerified',
   'deliveryFileIntegrityBreakdown',
   '公開狀態只提供類別、數量與通過狀態',
+  'formalResultReconciliationRequired',
+  '正式計算書結果鏈',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
 
 [
