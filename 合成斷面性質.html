@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>合成斷面性質計算 V1.1</title>
+<title>合成斷面性質計算 V1.2</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="結構工具箱/core/direct-print-boundary.css">
 <style>
@@ -41,6 +41,11 @@
   .btn-calc:hover { background: var(--primary-dark); }
   .btn-report { padding: 6px 14px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 0.84em; font-weight: 600; cursor: pointer; font-family: inherit; }
   .btn-report:hover { background: #047857; }
+  .case-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .btn-case { padding:6px 12px; background:#475569; color:white; border:none; border-radius:7px; font-size:0.8em; font-weight:600; cursor:pointer; font-family:inherit; }
+  .btn-case:hover { background:#334155; }
+  .case-status { min-height:1.4em; font-size:0.78em; color:var(--text-light); }
+  .case-status.error { color:#dc2626; }
   .results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .result-item { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; background: #f8fafc; border-radius: 8px; border-left: 3px solid var(--primary); }
   .result-item .label { font-size: 0.82em; color: var(--text-light); font-weight: 500; }
@@ -74,6 +79,7 @@
   .report-readiness-notes { margin: 0; padding-left: 18px; font-size: 0.78em; color: #57534e; line-height: 1.65; }
   @media print {
     .page-only-report-status { display: none !important; }
+    .page-only-tool-actions { display: none !important; }
   }
   .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78em; color: var(--text-light); margin-top: 6px; justify-content: center; }
   .legend span { display: flex; align-items: center; gap: 4px; }
@@ -95,7 +101,7 @@
 <div class="formal-direct-print-boundary" aria-hidden="true"><strong>斷面工具主頁列印已封鎖</strong><span>此頁是操作介面，不是計算書。請關閉列印視窗，使用頁面提供的 PDF／計算書輸出按鈕產生只包含採用輸入、計算結果與必要圖示的文件；本頁不得作為附件。</span></div>
 <header>
   <p><a href="結構工具箱/index.html" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.85em;">← 回主選單</a></p>
-  <h1>合成斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.1</span></h1>
+  <h1>合成斷面性質計算 <span style="font-size:0.55em; font-weight:500; opacity:0.85; margin-left:6px;">V1.2</span></h1>
   <p>H 型鋼 ＋ 補強／蓋板 組合斷面 | 尺寸輸入 mm, 結果輸出 cm</p>
 </header>
 
@@ -108,6 +114,12 @@
       <div class="form-group"><label>計畫編號</label><input type="text" id="projNo" placeholder="—"></div>
       <div class="form-group"><label>設計人員</label><input type="text" id="projDesigner" placeholder="—"></div>
       <div class="form-group"><label>備註</label><input type="text" id="projNote" placeholder="—"></div>
+    </div>
+    <div class="case-actions page-only-tool-actions">
+      <button class="btn-case" type="button" onclick="exportCompositeJSON()">本地存檔 JSON</button>
+      <button class="btn-case" type="button" onclick="document.getElementById('compositeJsonFile').click()">讀取 JSON</button>
+      <input type="file" id="compositeJsonFile" accept=".json,application/json" hidden onchange="importCompositeJSONFile(this)">
+      <span class="case-status" id="caseStatus" role="status" aria-live="polite"></span>
     </div>
   </div>
 
@@ -235,6 +247,107 @@ function getProjectFieldValue(id) {
   return normalizeProjectFieldValue(document.getElementById(id)?.value);
 }
 
+const COMPOSITE_PROJECT_SCHEMA = 'composite-section.project.v1';
+function setCaseStatus(message, tone = '') {
+  const el = document.getElementById('caseStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.className = `case-status${tone ? ` ${tone}` : ''}`;
+}
+function collectCompositeProjectData() {
+  return {
+    schema: COMPOSITE_PROJECT_SCHEMA,
+    tool: { id: 'composite-section', name: '合成斷面性質計算', version: 'V1.2' },
+    savedAt: new Date().toISOString(),
+    project: {
+      name: getProjectFieldValue('projName'),
+      no: getProjectFieldValue('projNo'),
+      designer: getProjectFieldValue('projDesigner'),
+      note: getProjectFieldValue('projNote'),
+    },
+    inputs: {
+      selectedSection: document.getElementById('h-select').value || '',
+      H: val('h-H'), B: val('h-B'), tw: val('h-tw'), tf: val('h-tf'), R: val('h-R'),
+      mode: document.getElementById('mode').value,
+      tsp: val('tsp'), hsp: valOrNull('hsp'), spFlush: !!document.getElementById('sp-flush').checked,
+      tcp: val('tcp'), wcp: valOrNull('wcp'),
+    },
+  };
+}
+function validateCompositeProjectData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('案例內容不是有效物件。');
+  if (data.schema !== COMPOSITE_PROJECT_SCHEMA) throw new Error('不支援的合成斷面案例版本：' + (data.schema || '未標示'));
+  if (data.tool?.id && data.tool.id !== 'composite-section') throw new Error('此 JSON 不屬於合成斷面工具。');
+  if (data.project != null && (typeof data.project !== 'object' || Array.isArray(data.project))) throw new Error('專案資料格式不正確。');
+  const inputs = data.inputs;
+  if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs)) throw new Error('案例缺少斷面輸入。');
+  for (const key of ['H', 'B', 'tw', 'tf', 'R', 'tsp', 'tcp']) {
+    if (!Number.isFinite(Number(inputs[key]))) throw new Error(key + ' 必須是有限數值。');
+  }
+  for (const key of ['H', 'B', 'tw', 'tf']) {
+    if (!(Number(inputs[key]) > 0)) throw new Error(key + ' 必須大於 0。');
+  }
+  if (Number(inputs.R) < 0) throw new Error('R 不得小於 0。');
+  if (!['none', 'side', 'cover', 'both'].includes(inputs.mode)) throw new Error('補強型式不受支援。');
+  if ((inputs.mode === 'side' || inputs.mode === 'both') && !(Number(inputs.tsp) > 0)) throw new Error('側板厚度 tsp 必須大於 0。');
+  if ((inputs.mode === 'cover' || inputs.mode === 'both') && !(Number(inputs.tcp) > 0)) throw new Error('蓋板厚度 tcp 必須大於 0。');
+  for (const key of ['hsp', 'wcp']) {
+    if (inputs[key] != null && !Number.isFinite(Number(inputs[key]))) throw new Error(key + ' 必須是有限數值或空白。');
+  }
+  return data;
+}
+function applyCompositeProjectData(data) {
+  validateCompositeProjectData(data);
+  const project = data.project || {}, inputs = data.inputs;
+  document.getElementById('projName').value = normalizeProjectFieldValue(project.name);
+  document.getElementById('projNo').value = normalizeProjectFieldValue(project.no);
+  document.getElementById('projDesigner').value = normalizeProjectFieldValue(project.designer);
+  document.getElementById('projNote').value = normalizeProjectFieldValue(project.note);
+  document.getElementById('h-select').value = inputs.selectedSection || '';
+  document.getElementById('h-H').value = Number(inputs.H);
+  document.getElementById('h-B').value = Number(inputs.B);
+  document.getElementById('h-tw').value = Number(inputs.tw);
+  document.getElementById('h-tf').value = Number(inputs.tf);
+  document.getElementById('h-R').value = Number(inputs.R);
+  document.getElementById('mode').value = inputs.mode;
+  document.getElementById('tsp').value = Number(inputs.tsp);
+  document.getElementById('hsp').value = inputs.hsp == null ? '' : Number(inputs.hsp);
+  document.getElementById('sp-flush').checked = !!inputs.spFlush;
+  document.getElementById('tcp').value = Number(inputs.tcp);
+  document.getElementById('wcp').value = inputs.wcp == null ? '' : Number(inputs.wcp);
+  onModeChange();
+  setCaseStatus('已讀取 JSON 並重新計算。');
+}
+function downloadCompositeJSON(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = filename;
+  document.body.appendChild(link); link.click(); link.remove();
+  URL.revokeObjectURL(url);
+}
+function exportCompositeJSON() {
+  try {
+    const payload = collectCompositeProjectData();
+    validateCompositeProjectData(payload);
+    downloadCompositeJSON('composite-section-' + payload.savedAt.slice(0, 10) + '.json', payload);
+    setCaseStatus('已下載本地 JSON。');
+  } catch (error) {
+    setCaseStatus('存檔失敗：' + error.message, 'error');
+  }
+}
+async function importCompositeJSONFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  try {
+    applyCompositeProjectData(JSON.parse(await file.text()));
+  } catch (error) {
+    setCaseStatus('讀檔失敗：' + error.message, 'error');
+  } finally {
+    input.value = '';
+  }
+}
+
 function missingProjectFields() {
   const fields = [
     ['計畫名稱', 'projName'],
@@ -263,18 +376,18 @@ function compositeReportReadinessModel(data) {
   const modeText = { none:'純 H 型鋼', side:'A 兩側貼板', cover:'B 上下蓋板', both:'C 四面包覆' }[data.geom.mode];
   const missing = missingProjectFields();
   return {
-    tone: missing.length ? 'review' : 'ready',
-    label: missing.length ? '可作附件，需人工複核' : '可作附件',
+    tone: 'ready',
+    label: '可作附件',
     summary: missing.length
-      ? '斷面性質已可閱讀，但計算書表頭仍需補齊。'
+      ? '斷面性質已可支援附件；空白案件欄位可由主文或附件目錄繼承。'
       : '斷面性質已可支援計算書附件；送出前仍需人工確認補強假設。',
     priority: missing.length
-      ? `先補齊：${missing.join('、')}`
+      ? `案件欄位留空：${missing.join('、')}；不影響附件成立。`
       : '先確認補強型式、板件尺寸與圖面版本，再產出計算書。',
     items: [
       ['計算狀態', '已計算'],
       ['補強型式', modeText],
-      ['專案資料', missing.length ? `缺 ${missing.join('、')}` : '完整'],
+      ['專案資料', missing.length ? `空白，由主文繼承：${missing.join('、')}` : '完整'],
       ['輸出邊界', '頁面顯示，不進計算書、列印或 PDF'],
     ],
   };
@@ -764,6 +877,7 @@ function exportReport() {
   openReport({
     title: '合成斷面性質計算書',
     subtitle: `${currentHName()}　｜　${modeText}`,
+    outputSource: { tool: '合成斷面性質計算', version: 'V1.2' },
     project,
     documentState: attachmentReadiness.documentState,
     documentClass: attachmentReadiness.documentClass,

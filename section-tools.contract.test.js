@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const crypto = require('crypto');
 const calculationBookContentBoundary = require('./結構工具箱/tools/calculation-book-content-boundary.json');
 
 function read(relPath) {
@@ -10,6 +11,12 @@ function read(relPath) {
 function assert(pass, title, detail) {
   if (!pass) throw new Error(`${title} :: ${detail}`);
   console.log(`PASS | ${title} | ${detail}`);
+}
+
+function assertThrows(fn, pattern, title) {
+  let error = null;
+  try { fn(); } catch (caught) { error = caught; }
+  assert(error && pattern.test(String(error.message || error)), title, error ? error.message : 'did not throw');
 }
 
 function functionSource(source, functionName) {
@@ -143,6 +150,104 @@ function reportHtmlText(reportHtml) {
     .replace(/&#39;/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function stableSha256(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex');
+}
+
+function reportCalculationFingerprint(reportHtml) {
+  return String(reportHtml || '').match(/計算指紋<\/b>(CF-[0-9A-F]{16})/)?.[1] || '';
+}
+
+function createCompositeRuntimeContext(source) {
+  const makeElement = (value = '') => {
+    let currentValue = String(value);
+    return {
+      get value() { return currentValue; },
+      set value(nextValue) { currentValue = String(nextValue); },
+      checked: false, textContent: '', innerHTML: '', className: '', style: {}, options: [], selectedIndex: 0,
+    };
+  };
+  const elements = new Map([
+    ['projName', makeElement('Composite Replay')],
+    ['projNo', makeElement('COMP-R01')],
+    ['projDesigner', makeElement('QA')],
+    ['projNote', makeElement('JSON result chain')],
+    ['h-select', makeElement('')],
+    ['h-H', makeElement('400')],
+    ['h-B', makeElement('200')],
+    ['h-tw', makeElement('8')],
+    ['h-tf', makeElement('13')],
+    ['h-R', makeElement('13')],
+    ['mode', makeElement('both')],
+    ['tsp', makeElement('12')],
+    ['hsp', makeElement('400')],
+    ['sp-flush', { ...makeElement(''), checked: true }],
+    ['tcp', makeElement('10')],
+    ['wcp', makeElement('240')],
+    ['side-panel', makeElement('')],
+    ['cover-panel', makeElement('')],
+    ['calcMsg', makeElement('')],
+    ['reportStatus', makeElement('')],
+    ['caseStatus', makeElement('')],
+    ['secCanvas', { ...makeElement(''), toDataURL() { return 'data:image/png;base64,composite-runtime'; } }],
+  ]);
+  const context = {
+    PI: Math.PI,
+    lastData: null,
+    __reportPayload: null,
+    window: {
+      ToolReportUI: {
+        normalizeProjectFieldValue(value) { return String(value || '').trim(); },
+        assessFormalAttachment() {
+          return {
+            documentState: { kind: 'internal-review', label: '內部審閱' },
+            documentClass: { key: 'internal-review', label: '內部審閱' },
+          };
+        },
+      },
+    },
+    document: {
+      getElementById(id) { return elements.get(id) || null; },
+    },
+    openReport(payload) { context.__reportPayload = payload; },
+    renderResults() {},
+    drawSection() {},
+    renderCompositeReportReadiness() {},
+    console,
+    Date: class extends Date {
+      constructor(...args) { super(...(args.length ? args : ['2026-08-03T00:00:00.000Z'])); }
+      static now() { return new Date('2026-08-03T00:00:00.000Z').valueOf(); }
+    },
+    Math,
+    Number,
+    String,
+    Boolean,
+    JSON,
+    Object,
+    Array,
+    Set,
+    parseFloat,
+    isFinite,
+  };
+  vm.createContext(context);
+  [
+    'val', 'valOrNull', 'fmt', 'pct', 'setReportStatus', 'normalizeProjectFieldValue',
+    'getProjectFieldValue', 'setCaseStatus', 'collectCompositeProjectData',
+    'validateCompositeProjectData', 'applyCompositeProjectData', 'currentHName',
+    'onModeChange', 'calcBaseH', 'calcSidePlates', 'calcCoverPlates', 'zeroContrib',
+    'calcClosedBoxJ', 'calcAll', 'exportReport',
+  ].forEach(name => {
+    vm.runInContext(functionSource(source, name), context, { filename: `composite-runtime:${name}` });
+  });
+  return { context, elements, getLastData: () => vm.runInContext('lastData', context) };
+}
+
+function compositeResultSnapshot(runtime) {
+  const input = JSON.parse(JSON.stringify(runtime.context.collectCompositeProjectData()));
+  delete input.savedAt;
+  return JSON.parse(JSON.stringify({ input, result: runtime.getLastData() }));
 }
 
 function assertReportHtmlText(reportHtml, label, requiredNeedles, minLength = 260) {
@@ -358,7 +463,13 @@ const tools = [
   {
     label: 'composite section report',
     path: '合成斷面性質.html',
-    needles: ['id="reportStatus"', 'id="reportReadiness"', 'function compositeReportReadinessModel', 'page-only-report-status'],
+    needles: [
+      '<title>合成斷面性質計算 V1.2</title>',
+      'id="reportStatus"', 'id="reportReadiness"', 'id="caseStatus"', 'id="compositeJsonFile"',
+      'function compositeReportReadinessModel', 'function collectCompositeProjectData',
+      'function validateCompositeProjectData', 'composite-section.project.v1',
+      '空白案件欄位可由主文或附件目錄繼承', 'page-only-report-status',
+    ],
   },
   {
     label: 'RC retrofit section reports',
@@ -392,6 +503,7 @@ assert(directPrintBoundarySource.includes('body.formal-tool-output-page > :not(.
 assert(directPrintBoundarySource.includes('body.formal-tool-output-page > .formal-direct-print-boundary'), 'shared CSS renders section direct-print notice', 'boundary notice rendered');
 
 const compositeHtml = read('合成斷面性質.html');
+assertPrintHidesSelectors(compositeHtml, ['.page-only-tool-actions'], 'composite section JSON actions');
 assertReportPayloadExcludes(compositeHtml, 'exportReport', pageOnlyReportStatusNeedles);
 assertProjectMetaUsesSharedNormalization(compositeHtml, 'composite section report', ['exportReport']);
 
@@ -448,6 +560,59 @@ assert(compositeReportHtml.includes('repAttachmentApproval'), 'composite runtime
 assert(compositeReportHtml.includes('文件狀態：內部審閱'), 'composite runtime report initializes printable internal-review status', '文件狀態：內部審閱');
 assert(!compositeReportText.includes('計畫名稱'), 'composite runtime report omits blank project-name row', compositeReportText);
 assert(!compositeReportText.includes('未填'), 'composite runtime visible text excludes raw placeholder project text', '未填');
+
+const compositeRuntime = createCompositeRuntimeContext(compositeHtml);
+compositeRuntime.context.calcAll();
+const sourceCompositeJson = JSON.parse(JSON.stringify(compositeRuntime.context.collectCompositeProjectData()));
+const sourceCompositeSnapshot = compositeResultSnapshot(compositeRuntime);
+const sourceCompositeSha = stableSha256(sourceCompositeSnapshot);
+compositeRuntime.context.exportReport();
+const sourceCompositeReportHtml = renderSharedReportPayload(
+  sharedReportSource,
+  sharedReportFilename,
+  compositeRuntime.context.__reportPayload
+);
+const sourceCompositeFingerprint = reportCalculationFingerprint(sourceCompositeReportHtml);
+assert(sourceCompositeJson.schema === 'composite-section.project.v1', 'composite JSON uses versioned schema', sourceCompositeJson.schema);
+assert(sourceCompositeJson.tool?.version === 'V1.2', 'composite JSON records current tool version', JSON.stringify(sourceCompositeJson.tool));
+assert(compositeRuntime.getLastData()?.total?.Jclosed != null, 'composite replay fixture covers closed-section torsion result', JSON.stringify(compositeRuntime.getLastData()?.total));
+assert(/^[0-9a-f]{64}$/.test(sourceCompositeSha), 'composite result snapshot has stable SHA-256', sourceCompositeSha);
+assert(/^CF-[0-9A-F]{16}$/.test(sourceCompositeFingerprint), 'composite source report has calculation fingerprint', sourceCompositeFingerprint);
+
+compositeRuntime.elements.get('h-H').value = '650';
+compositeRuntime.elements.get('mode').value = 'none';
+compositeRuntime.context.calcAll();
+compositeRuntime.context.applyCompositeProjectData(JSON.parse(JSON.stringify(sourceCompositeJson)));
+const replayCompositeSnapshot = compositeResultSnapshot(compositeRuntime);
+const replayCompositeSha = stableSha256(replayCompositeSnapshot);
+compositeRuntime.context.exportReport();
+const replayCompositeReportHtml = renderSharedReportPayload(
+  sharedReportSource,
+  sharedReportFilename,
+  compositeRuntime.context.__reportPayload
+);
+const replayCompositeFingerprint = reportCalculationFingerprint(replayCompositeReportHtml);
+assert(replayCompositeSha === sourceCompositeSha, 'composite JSON replay reproduces all inputs and section results', `${sourceCompositeSha} -> ${replayCompositeSha}`);
+assert(replayCompositeFingerprint === sourceCompositeFingerprint, 'composite JSON replay reproduces calculation-book fingerprint', `${sourceCompositeFingerprint} -> ${replayCompositeFingerprint}`);
+assert(compositeRuntime.elements.get('caseStatus').textContent.includes('已讀取 JSON'), 'composite JSON replay reports successful recalculation', compositeRuntime.elements.get('caseStatus').textContent);
+
+const stateBeforeRejectedComposite = stableSha256(compositeResultSnapshot(compositeRuntime));
+const unknownCompositeSchema = JSON.parse(JSON.stringify(sourceCompositeJson));
+unknownCompositeSchema.schema = 'composite-section.project.v999';
+assertThrows(
+  () => compositeRuntime.context.applyCompositeProjectData(unknownCompositeSchema),
+  /不支援的合成斷面案例版本/,
+  'composite JSON rejects unknown schema'
+);
+assert(stableSha256(compositeResultSnapshot(compositeRuntime)) === stateBeforeRejectedComposite, 'unknown composite schema is rejected before current state changes', unknownCompositeSchema.schema);
+const malformedComposite = JSON.parse(JSON.stringify(sourceCompositeJson));
+malformedComposite.inputs.H = 0;
+assertThrows(
+  () => compositeRuntime.context.applyCompositeProjectData(malformedComposite),
+  /H 必須大於 0/,
+  'composite JSON rejects malformed geometry'
+);
+assert(stableSha256(compositeResultSnapshot(compositeRuntime)) === stateBeforeRejectedComposite, 'malformed composite geometry is rejected before current state changes', JSON.stringify(malformedComposite.inputs));
 
 const retrofitBeamPayload = captureRetrofitReportPayload(rcRetrofitHtml, 'exportBeamReport', 'lastBeam', {
   geom: {
