@@ -94,7 +94,7 @@ const EXPECTED = {
   retain_earth_bridge: {
     title: '基礎設計計算書 — 擋土牆',
     expectedSnapshot: 'OK',
-    minCheckGroups: 2,
+    minCheckGroups: 3,
     fragments: [
       '基礎設計計算書 — 擋土牆',
       '採用土壓來源與穩定參數',
@@ -103,6 +103,9 @@ const EXPECTED = {
       '側向合力 / 傾覆矩',
       '穩定檢核',
       '牆身強度檢核',
+      '底版強度檢核',
+      '趾版底層',
+      '踵版頂層',
     ],
   },
   retain_counterfort_warn: {

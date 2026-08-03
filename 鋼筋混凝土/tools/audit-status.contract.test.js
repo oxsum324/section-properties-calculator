@@ -203,6 +203,8 @@ const requiredQaArtifacts = [
   'tools/foundation-report-visual.test.js',
   'tools/foundation-report-visual.contract.test.js',
   'tools/test-foundation.ps1',
+  'shared/retaining-base-demand.js',
+  'shared/retaining-base-demand.test.js',
   'tools/single-pile-regression.test.js',
   'tools/single-pile-report-visual.test.js',
   'tools/single-pile-report-visual.contract.test.js',
@@ -308,6 +310,7 @@ for (const rel of localDependencyDirs) {
 
 assertIncludes(audit, 'Shear wall suite', 'audit runs shear wall suite');
 assertIncludes(audit, 'Shared common helper unit tests', 'audit runs shared common helper unit tests');
+assertIncludes(audit, 'Retaining base demand unit tests', 'audit runs retaining base demand unit tests');
 assertIncludes(audit, 'RC traceability catalog contract', 'audit runs RC traceability catalog contract');
 assertIncludes(audit, 'Beam report visual smoke contract', 'audit runs beam report visual smoke contract');
 assertIncludes(audit, 'Slab report visual smoke contract', 'audit runs slab report visual smoke contract');
@@ -347,6 +350,7 @@ assertIncludes(testSlab, 'slab-report-visual.test.js', 'test-slab wires slab rep
 assertIncludes(testWall, 'Wall report visual smoke', 'test-wall runs wall report visual smoke');
 assertIncludes(testWall, 'wall-report-visual.test.js', 'test-wall wires wall report visual script');
 assertIncludes(testFoundation, 'Foundation report visual smoke', 'test-foundation runs foundation report visual smoke');
+assertIncludes(testFoundation, 'Retaining wall base demand unit tests', 'test-foundation runs retaining base demand unit tests');
 assertIncludes(testFoundation, 'foundation-report-visual.test.js', 'test-foundation wires foundation report visual script');
 assertIncludes(testSinglePile, 'Single pile report visual smoke', 'test-single-pile runs single pile report visual smoke');
 assertIncludes(testSinglePile, 'single-pile-report-visual.test.js', 'test-single-pile wires single pile report visual script');

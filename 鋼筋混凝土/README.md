@@ -95,12 +95,13 @@ RC 專案 JSON 與正式計算書共用同一枚 `CF-` 計算指紋。指紋納�
 - 報告表格、圖示與計算過程不得產生水平 overflow，並確認列印時 toolbar 隱藏。
 - 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄。
 
-基礎報告視覺 smoke contract 位於 [tools/foundation-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/foundation-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免聯合基腳 / 筏基待確認提示或 page-only 閱讀狀態漂移進計算書。
+基礎報告視覺 smoke contract 位於 [tools/foundation-report-visual.contract.test.js](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/foundation-report-visual.contract.test.js:1)，固定檢查 visual smoke 案例、wrapper wiring、頁面附件閱讀狀態邊界與輸出證據檔名，避免聯合基腳 / 筏基待確認提示或 page-only 閱讀狀態漂移進計算書。懸臂式擋土牆另由 `shared/retaining-base-demand.js` 依線性基底反力分別建立趾版 `0.9D + 1.6H` 與踵版 `1.2D + 1.6H` 淨載重，固定端設計面分別為趾版底層、踵版頂層；地下水、分層回填、Coulomb 垂直分力及扶壁式仍維持待確認，不產生自動底版 OK。
 
 基礎報告視覺 smoke 已接在 [tools/test-foundation.ps1](/C:/Users/USER/Desktop/AI/小工具製作/鋼筋混凝土/tools/test-foundation.ps1:1)，會以瀏覽器產生計算書，檢查：
 
-- 獨立基腳與樁基／樁帽兩種代表報告情境。
+- 獨立、聯合、筏式、樁基／樁帽、懸臂式擋土牆與扶壁式待確認等七種代表報告情境。
 - 樁基報告須揭露土層與單樁承載、群樁構造、服務性與樁身、樁帽結構四類檢核。
+- 懸臂式擋土牆報告須揭露 qmin 全寬接觸、趾版底層與踵版頂層之 Mu、Vu、As、φMn 與 φVc；需求核心另由 `shared/retaining-base-demand.test.js` 做純數值回歸。
 - 報告不得出現 `NaN` / `Infinity` / `undefined` / `null` / `∞` 等原始無效值。
 - 報告表格與逐層承載力表不得產生水平 overflow，並確認列印時 toolbar 隱藏。
 - 輸出 PNG、PDF（含文字抽檢）與 JSON 稽核紀錄。

@@ -202,7 +202,22 @@
         "tab": "retain",
         "retainType": "cantilever",
         "Mu_wall_tfm": 4.166666666666667,
-        "Vu_stem": 4.333333333333333
+        "Vu_stem": 4.333333333333333,
+        "qmax_r": 5.273979591836735,
+        "qmin_r": 3.2331632653061226,
+        "okContact": true,
+        "toeMu": 1.5557155004859093,
+        "toeVu": 1.8220874679548567,
+        "toeAsProv": 13.193333333333333,
+        "toeAsReq": 9,
+        "okToeFlex": true,
+        "okToeShear": true,
+        "heelMu": 1.6159370444606418,
+        "heelVu": 1.607526920014395,
+        "heelAsProv": 13.193333333333333,
+        "heelAsReq": 9,
+        "okHeelFlex": true,
+        "okHeelShear": true
       }
     },
     {
@@ -232,9 +247,9 @@
         "okShear": true,
         "numericalOk": true,
         "summaryOk": null,
-        "summaryText": "⚠ 待確認 — 2 項需正式扶壁系統分析確認",
+        "summaryText": "⚠ 待確認 — 2 項需人工複核",
         "reviewWarningCount": 2,
-        "banner": "⚠ 待確認 — 2 項需正式扶壁系統分析確認✓ 抗滑 FS ≥ 1.5 ｜ ✓ 抗傾覆 FS ≥ 2.0 ｜ ✓ qmax ≤ qa ｜ ✓ φMn ≥ Mu ｜ ✓ φVc ≥ Vu⚠ 數值檢核通過，但扶壁式仍須正式雙向板 / 扶壁系統分析，不可列為最終 OK。"
+        "banner": "⚠ 待確認 — 2 項需人工複核✓ 抗滑 FS ≥ 1.5 ｜ ✓ 抗傾覆 FS ≥ 2.0 ｜ ✓ qmax ≤ qa ｜ ✓ qmin ≥ 0 ｜ ✓ 牆身 φMn ≥ Mu ｜ ✓ 牆身 φVc ≥ Vu ｜ · 趾版強度 ｜ · 踵版強度⚠ 數值檢核通過，但仍有尚未自動完成的模型或人工複核事項，不可列為最終 OK。"
       }
     }
   ]

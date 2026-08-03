@@ -19,7 +19,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 
 工具箱首頁改用七類力量來源與檢核目的：`結構分析力量`、`風力規範外力`、`地震力規範外力`、`構件承載力檢核`、`連接、附掛物與外牆構件`、`斷面、係數與資料查詢`、`施工臨設與現場快算`。`正式核算`、`初估 / 簡化`、`本機服務` 與 `過渡工具` 只作為工具卡標籤。首頁樣式與資料驅動工具清單位於 [結構工具箱/assets/home/](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/assets/home/home.js:1)，GitHub Pages 可讀的首頁狀態快照位於 `結構工具箱/assets/status/`，由 `tool-maturity-matrix.js --write` 從本機 `output/` 精簡產生；preflight 快照優先採用最新 full run，quick preflight 的矩陣 refresh 會帶 `--preserve-homepage-status`，避免 quick run 覆蓋公開交付證據，且不直接部署完整巡檢輸出。首頁健康卡會直接揭露 `完整檢查`、`快速檢查` 或 `正式放行` 模式與 `runId`，讓讀者能分辨目前頁面看到的是 quick、full 還是 release 證據。
 
-首頁的「下一步」不得沿用已完成的舊缺口。基礎局部檢核、設備局部荷重與擋土土壓目前各有 4 組 golden cases，並已納入版本化 JSON、計算書模式與來源結果重播；其中基礎頁已可選用彈性／壓密沉陷時間率與液化簡化初判，土壓頁已涵蓋 Rankine／Coulomb、Mononobe-Okabe 與分層砂黏土。懸臂式主動土壓 JSON 可由 RC 基礎頁匯入；RC 頁會以同版核心重算並比對 schema、邏輯簽章、合力與傾覆矩後才採用，靜止土壓與地震載重組合目前失敗封閉。後續規劃應先讀取最新成熟度矩陣與巡檢儀表板，再評估趾版／踵版配筋、群樁／側向樁、SRC 構件或施工階段支撐整合等能力擴充。新工具仍須在上線前定義適用範圍、規範依據、案例基準及計算書邊界。
+首頁的「下一步」不得沿用已完成的舊缺口。基礎局部檢核、設備局部荷重與擋土土壓目前各有 4 組 golden cases，並已納入版本化 JSON、計算書模式與來源結果重播；其中基礎頁已可選用彈性／壓密沉陷時間率與液化簡化初判，土壓頁已涵蓋 Rankine／Coulomb、Mononobe-Okabe 與分層砂黏土。懸臂式主動土壓 JSON 可由 RC 基礎頁匯入；RC 頁會以同版核心重算並比對 schema、邏輯簽章、合力與傾覆矩後才採用，並已完成線性基底反力、qmin 全寬接觸、趾版底層及踵版頂層的 Mu、Vu、As、φMn、φVc 設計。地下水、分層回填、Coulomb 垂直分力、靜止土壓、地震載重組合與扶壁系統仍失敗封閉或維持待確認。後續規劃應先讀取最新成熟度矩陣與巡檢儀表板，再評估群樁／側向樁、SRC 構件或施工階段支撐整合等能力擴充。新工具仍須在上線前定義適用範圍、規範依據、案例基準及計算書邊界。
 
 ## 正式工具與入口
 
@@ -306,7 +306,7 @@ Canonical profile 也不直接相信 evidence 宣告：檢查器先由可見標�
 
 若不希望每次手動輸入四個治理來源，可使用 `node 結構工具箱/tools/attachment-case-governance-workspace.js --config <附件治理工作區設定 JSON> [--json]`，或把設定檔拖曳至 `結構工具箱/tools/檢查附件治理工作區.bat`。初次建立使用 `--create --workspace-name <名稱> --directory <快照> --ledger <處置鏈> --history <檢查點歷程> --head <受信任 TAC 終點> --output <設定資料夾> --reviewer <複核人> --basis <依據>`；終點合法前進後，使用 `--create --previous-config <前一設定> --head <新終點> --output <設定資料夾> --reviewer <複核人> --basis <依據>`，或使用 `結構工具箱/tools/建立附件治理工作區.bat`。設定檔採相對於自身資料夾的正規化路徑，以 `TGW-` 綁定工作區名稱、三個固定來源、受信任終點的檔名／`TAC-`／SHA-256、內部複核決定及前一設定身分；輸出資料夾必須與所有治理來源完全分離。每次建立排他鎖與暫存檔，fsync、封閉回讀、發布前後來源重驗後才原子發布新檔，永不覆寫既有設定；前進固定沿用前一設定名稱與來源，且新終點必須是舊終點的後續檢查點。日常檢查只需一個 `--config`，若設定被改名、移動後相對拓撲失效、硬連結化、終點三重身分不符或任一治理來源改變，均失敗封閉。命令結果不含相對／完整路徑、複核人或依據，且不會降低目前工程 `review`／`blocked`；工作區設定不是正式附件核可、防竄改儲存或數位簽章，也不得進入計算書、主報告、正式附件包或 Pages。
 
-RC 基礎工具的 `tools/test-foundation.ps1` 已串接基礎報告視覺 smoke：固定開啟獨立基腳與樁基／樁帽計算書，檢查 NG 摘要、主要檢核群組、逐層承載力表、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
+RC 基礎工具的 `tools/test-foundation.ps1` 已串接底版需求純數值回歸與 7 份基礎報告視覺 smoke：涵蓋獨立、聯合、筏式、樁基／樁帽及擋土牆，檢查 NG／待確認邊界、主要檢核群組、逐層承載力表、趾版底層與踵版頂層設計、無 `NaN` / `Infinity` / `undefined` / `null` / `∞`、無水平溢出，並輸出 PNG / PDF / JSON 稽核檔；列印模式也會確認工具列隱藏。
 
 工具成熟度矩陣的下一步品質欄位同時包含 `reportTextSmoke`、`goldenCaseRegression`、`jsonRoundTrip` 與 `referenceTraceability`；其中 `reportTextSmoke` 只揭露報告可讀文字抽檢是否已被 smoke / contract 覆蓋，不把頁面專用閱讀狀態寫入計算書或 PDF。
 

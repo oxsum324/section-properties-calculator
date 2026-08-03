@@ -753,6 +753,19 @@
           </div>
           <div class="form-group"><label>每公尺根數</label><input type="number" id="rNBar" value="8"></div>
         </div>
+        <h3 style="margin-top:8px; font-size:1em; color:#1a3d5c;">配筋 (底版)</h3>
+        <div class="form-row">
+          <div class="form-group"><label>趾版底層主筋</label>
+            <select id="rToeBarNo"><option>#3</option><option>#4</option><option selected>#5</option><option>#6</option><option>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
+          </div>
+          <div class="form-group"><label>趾版間距 (cm)</label><input type="number" id="rToeBarSp" value="15" step="0.5"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>踵版頂層主筋</label>
+            <select id="rHeelBarNo"><option>#3</option><option>#4</option><option selected>#5</option><option>#6</option><option>#7</option><option>#8</option><option>#9</option><option>#10</option><option>#11</option></select>
+          </div>
+          <div class="form-group"><label>踵版間距 (cm)</label><input type="number" id="rHeelBarSp" value="15" step="0.5"></div>
+        </div>
         <div id="counterfortInputs" style="display:none; margin-top:10px; padding:10px; background:#f8fafc; border-left:3px solid #0e7490; border-radius:4px;">
           <h3 style="margin:0 0 8px 0; font-size:1em; color:#0e7490;">扶壁間距</h3>
           <div class="form-group"><label>扶壁間距 sf (cm)</label><input type="number" id="rSf" value="300"></div>
@@ -1051,10 +1064,17 @@
           <div class="result-item rc-pending" id="rr-FSslide"><span class="label">抗滑 FS</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="rr-FSover"><span class="label">抗���覆 FS</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="rr-qmax"><span class="label">qmax</span><span><span class="value">—</span><span class="unit">tf/m²</span></span></div>
+          <div class="result-item rc-pending" id="rr-qmin"><span class="label">qmin</span><span><span class="value">—</span><span class="unit">tf/m²</span></span></div>
           <div class="result-item rc-pending" id="rr-Mu"><span class="label">牆身 Mu</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
           <div class="result-item rc-pending" id="rr-phiMn"><span class="label">牆身 φMn</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
           <div class="result-item rc-pending" id="rr-Vu"><span class="label">牆身 Vu</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
           <div class="result-item rc-pending" id="rr-phiVc"><span class="label">牆身 φVc</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item rc-pending" id="rr-ToeMu"><span class="label">趾版 Mu（底層）</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+          <div class="result-item rc-pending" id="rr-ToeAs"><span class="label">趾版 As 提供 / 需求</span><span><span class="value">—</span><span class="unit">cm²/m</span></span></div>
+          <div class="result-item rc-pending" id="rr-ToeVu"><span class="label">趾版 Vu / φVc</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
+          <div class="result-item rc-pending" id="rr-HeelMu"><span class="label">踵版 Mu（頂層）</span><span><span class="value">—</span><span class="unit">tf·m/m</span></span></div>
+          <div class="result-item rc-pending" id="rr-HeelAs"><span class="label">踵版 As 提供 / 需求</span><span><span class="value">—</span><span class="unit">cm²/m</span></span></div>
+          <div class="result-item rc-pending" id="rr-HeelVu"><span class="label">踵版 Vu / φVc</span><span><span class="value">—</span><span class="unit">tf/m</span></span></div>
         </div>
       </div>
       <div class="card" data-shows="retain">
@@ -1063,8 +1083,13 @@
           <div class="result-item rc-pending" id="rc-slide"><span class="label">抗滑 FS ≥ 1.5</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="rc-over"><span class="label">抗傾覆 FS ≥ 2.0</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="rc-q"><span class="label">qmax ≤ qa</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="rc-contact"><span class="label">qmin ≥ 0（全寬接觸）</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="rc-flex"><span class="label">牆身 φMn ≥ Mu</span><span class="value">—</span></div>
           <div class="result-item rc-pending" id="rc-shear"><span class="label">牆身 φVc ≥ Vu</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="rc-toe-flex"><span class="label">趾版 φMn ≥ Mu、As ≥ As,min</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="rc-toe-shear"><span class="label">趾版 φVc ≥ Vu</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="rc-heel-flex"><span class="label">踵版 φMn ≥ Mu、As ≥ As,min</span><span class="value">—</span></div>
+          <div class="result-item rc-pending" id="rc-heel-shear"><span class="label">踵版 φVc ≥ Vu</span><span class="value">—</span></div>
         </div>
       </div>
 
@@ -1121,6 +1146,7 @@
 <!-- RC 相容層 + 專用模組 -->
 <script src="../shared/common.js?v=4"></script>
 <script src="../shared/flexure.js?v=1"></script>
+<script src="../shared/retaining-base-demand.js?v=1"></script>
 <script src="../shared/report.js?v=6"></script>
 <script src="../../結構工具箱/core/loads/loadcombo.js"></script>
 <script src="../shared/devlength.js?v=2"></script>
@@ -1135,6 +1161,7 @@
   const FOUNDATION_PROJECT_STORAGE_KEY = 'rc.foundation.project.draft';
   const FOUNDATION_PROJECT_EXCLUDED_IDS = new Set(['foundationProjectFile', 'earthPressureJsonFile']);
   const EARTH_PRESSURE_BRIDGE = window.EarthPressureRcBridge;
+  const RETAINING_BASE_DEMAND = window.RetainingBaseDemand;
   const PILE_SITE_GROUPS = window.PILE_SITE_GROUPS || {};
   const PILE_SITE_PRESETS = window.PILE_SITE_PRESETS || {};
 
@@ -1149,6 +1176,17 @@
     if (u && unit !== undefined) u.textContent = unit;
     el.classList.remove('ok','warn','fail');
     if (status) el.classList.add(status);
+  }
+  function setRatioResult(id, provided, required, unit, digits = 2, pass = null) {
+    const el = $(id); if (!el) return;
+    el.classList.remove('rc-pending');
+    const v = el.querySelector('.value'), u = el.querySelector('.unit');
+    v.textContent = [provided, required].every(Number.isFinite)
+      ? `${Number(provided).toFixed(digits)} / ${Number(required).toFixed(digits)}`
+      : '—';
+    if (u && unit !== undefined) u.textContent = unit;
+    el.classList.remove('ok','warn','fail');
+    el.classList.add(pass === true ? 'ok' : pass === false ? 'fail' : 'warn');
   }
   function setCheck(id, pass, text) {
     const el = $(id); if (!el) return;
@@ -3557,6 +3595,10 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const barNo = $('rBarNo').value;
     const nBarPerM = num('rNBar');
     const sf = num('rSf');
+    const toeBarNo = $('rToeBarNo')?.value || '#5';
+    const toeBarSp = num('rToeBarSp');
+    const heelBarNo = $('rHeelBarNo')?.value || '#5';
+    const heelBarSp = num('rHeelBarSp');
     let earthSource = null;
     try {
       earthSource = readImportedEarthPressureSource();
@@ -3570,6 +3612,12 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const As_m = nBarPerM * ab; // per meter width
     const d_wall = tw - cover - db / 2;
     const d_base = hb - cover - db / 2;
+    const toeBar = REBAR_TABLE[toeBarNo];
+    const heelBar = REBAR_TABLE[heelBarNo];
+    const d_toe = hb - cover - toeBar.db / 2;
+    const d_heel = hb - cover - heelBar.db / 2;
+    const toeAsProv = toeBarSp > 0 ? toeBar.area * 100 / toeBarSp : 0;
+    const heelAsProv = heelBarSp > 0 ? heelBar.area * 100 / heelBarSp : 0;
     const Btot = Lt + tw + Lh; // total base width (cm)
 
     const Hw_m = Hw / 100, tw_m = tw / 100;
@@ -3599,7 +3647,8 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const x_wall = Lt_m + tw_m / 2;
     const x_base = Btot_m / 2;
     const x_soil = Lt_m + tw_m + Lh_m / 2;
-    const Mr = W_wall * x_wall + W_base * x_base + W_soil_heel * x_soil + (sourceLoads ? 0 : Pp * hb_m / 3);
+    const MrDead = W_wall * x_wall + W_base * x_base + W_soil_heel * x_soil;
+    const Mr = MrDead + (sourceLoads ? 0 : Pp * hb_m / 3);
 
     // 主動傾覆矩 (繞趾端)
     const Mo = sourceLoads ? sourceLoads.overturningMoment : Pa_tri * ya_tri + Pa_rect * ya_rect;
@@ -3612,9 +3661,11 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
 
     // === 土壓 ===
     const e = Btot_m / 2 - (Mr - Mo) / W_total;
-    const qmax_r = W_total / Btot_m * (1 + 6 * e / Btot_m);
-    const qmin_r = W_total / Btot_m * (1 - 6 * e / Btot_m);
-    const okQr = qmax_r <= qa;
+    const qToe_r = W_total / Btot_m * (1 + 6 * e / Btot_m);
+    const qHeel_r = W_total / Btot_m * (1 - 6 * e / Btot_m);
+    const qmax_r = Math.max(qToe_r, qHeel_r);
+    const qmin_r = Math.min(qToe_r, qHeel_r);
+    const okQr = qmax_r <= qa && qmin_r >= 0;
 
     // === 牆身設計 (臨界面在牆身/基腳交界) ===
     // 懸臂式：取 1m 寬 → 單向板
@@ -3645,19 +3696,84 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     const phiVc_wall = PHI.shear * 0.53 * lambda * Math.sqrt(fc) * b_unit * d_wall;
     const phiVc_wall_tfm = phiVc_wall / 1000; // kgf → tf
     const okShear = phiVc_wall_tfm >= Vu_stem;
-    const numericalOk = okSlide && okOver && okQr && okFlex && okShear;
     const reviewWarnings = [];
+    const baseReviewWarnings = [];
     if (retainType === 'counterfort') {
       reviewWarnings.push('扶壁式擋土牆目前仍以 1 m 條帶近似檢核牆身，尚未建立扶壁、牆板與底版之雙向板 / T 梁系統分析。');
       reviewWarnings.push('扶壁間距 sf 尚未納入彎矩、剪力、配筋分布與扶壁連接細部檢核，不可列為最終 OK 結論。');
     }
+    if (!RETAINING_BASE_DEMAND) baseReviewWarnings.push('底版需求計算核心未載入，趾版與踵版不得判定。');
+    if (earthSource?.model?.waterDepth > 0) baseReviewWarnings.push('土壓來源含地下水；底版淨載重尚未納入浮力與水重。');
+    if (earthSource?.model?.useLayered) baseReviewWarnings.push('土壓來源採分層回填；底版淨載重尚未建立分層垂直土重。');
+    if (earthSource?.model?.useCoulomb) baseReviewWarnings.push('土壓來源採 Coulomb 模型；底版淨載重尚未納入牆背摩擦之垂直分力。');
+    reviewWarnings.push(...baseReviewWarnings);
+
+    const baseModelApplicable = retainType === 'cantilever' && baseReviewWarnings.length === 0;
+    let baseDemand = null;
+    let baseDemandError = '';
+    if (baseModelApplicable) {
+      try {
+        baseDemand = RETAINING_BASE_DEMAND.evaluate({
+          geometry: {
+            toeLength: Lt_m,
+            stemThickness: tw_m,
+            heelLength: Lh_m,
+            toeEffectiveDepth: d_toe / 100,
+            heelEffectiveDepth: d_heel / 100
+          },
+          loads: {
+            deadVertical: W_total,
+            deadMomentAboutToe: MrDead,
+            lateralMoment: Mo,
+            baseUnitWeight: hb_m * gammaC,
+            heelSoilUnitWeight: Hw_m * gamma,
+            heelSurchargeUnitWeight: qs
+          }
+        });
+      } catch (error) {
+        baseDemandError = error?.message || String(error);
+        reviewWarnings.push(`底版需求無法計算：${baseDemandError}`);
+      }
+    }
+
+    const baseAsMin = 0.0018 * b_unit * hb;
+    const baseSmax = Math.min(3 * hb, 45);
+    const toeAsDesign = baseDemand
+      ? Flexure.designAsRect({ b:b_unit, d:d_toe, Mu_kgcm:baseDemand.toe.moment * 1e5, fc, fy })
+      : null;
+    const heelAsDesign = baseDemand
+      ? Flexure.designAsRect({ b:b_unit, d:d_heel, Mu_kgcm:baseDemand.heel.moment * 1e5, fc, fy })
+      : null;
+    const toeAsReq = toeAsDesign ? Math.max(baseAsMin, toeAsDesign.As) : NaN;
+    const heelAsReq = heelAsDesign ? Math.max(baseAsMin, heelAsDesign.As) : NaN;
+    const toePhiMn = baseDemand
+      ? Flexure.phiMnRect({ b:b_unit, d:d_toe, h:hb, As:toeAsProv, fc, fy }).phiMn / 1e5
+      : NaN;
+    const heelPhiMn = baseDemand
+      ? Flexure.phiMnRect({ b:b_unit, d:d_heel, h:hb, As:heelAsProv, fc, fy }).phiMn / 1e5
+      : NaN;
+    const toePhiVc = baseDemand ? PHI.shear * 0.53 * lambda * Math.sqrt(fc) * b_unit * d_toe / 1000 : NaN;
+    const heelPhiVc = baseDemand ? PHI.shear * 0.53 * lambda * Math.sqrt(fc) * b_unit * d_heel / 1000 : NaN;
+    const okToeFlex = baseDemand ? Boolean(
+      baseDemand.toe.faceMatches && toeAsDesign?.converged && toeBarSp > 0 && toeBarSp <= baseSmax
+      && toeAsProv >= toeAsReq && toePhiMn >= baseDemand.toe.moment
+    ) : (baseModelApplicable ? false : null);
+    const okToeShear = baseDemand ? Boolean(baseDemand.contactOk && toePhiVc >= baseDemand.toe.shear) : (baseModelApplicable ? false : null);
+    const okHeelFlex = baseDemand ? Boolean(
+      baseDemand.heel.faceMatches && heelAsDesign?.converged && heelBarSp > 0 && heelBarSp <= baseSmax
+      && heelAsProv >= heelAsReq && heelPhiMn >= baseDemand.heel.moment
+    ) : (baseModelApplicable ? false : null);
+    const okHeelShear = baseDemand ? Boolean(baseDemand.contactOk && heelPhiVc >= baseDemand.heel.shear) : (baseModelApplicable ? false : null);
+    const okContact = qmin_r >= 0 && (!baseDemand || baseDemand.contactOk);
+    const baseStrengthOk = !baseModelApplicable || (okToeFlex && okToeShear && okHeelFlex && okHeelShear && okContact);
+    const numericalOk = okSlide && okOver && okQr && okFlex && okShear && baseStrengthOk;
     if (earthSource && !earthSource.model.sourceOverallOk) {
       reviewWarnings.push('匯入來源的簡化穩定檢核未通過；本頁已依 RC 幾何重算，仍應比對兩邊採用的垂直重量與基底寬。');
     }
     const summaryOk = numericalOk ? (reviewWarnings.length ? null : true) : false;
     const summaryText = summaryOk === true
       ? '✓ OK — 符合規範'
-      : (summaryOk === false ? '✗ NG — 不符合規範' : `⚠ 待確認 — ${reviewWarnings.length} 項需正式扶壁系統分析確認`);
+      : (summaryOk === false ? '✗ NG — 不符合規範' : `⚠ 待確認 — ${reviewWarnings.length} 項需人工複核`);
 
     // 顯示
     setResult('rr-Pa', Pa, 'tf/m', 2);
@@ -3665,17 +3781,29 @@ ${noLateral ? '\n<span class="h">▸ 無側向約束</span>\n⚠ 基礎位於空
     setResult('rr-Wt', W_total, 'tf/m', 2);
     setResult('rr-FSslide', FS_slide, '', 2, okSlide ? 'ok' : 'fail');
     setResult('rr-FSover', FS_over, '', 2, okOver ? 'ok' : 'fail');
-    setResult('rr-qmax', qmax_r, 'tf/m²', 2, okQr ? 'ok' : 'fail');
+    setResult('rr-qmax', qmax_r, 'tf/m²', 2, qmax_r <= qa ? 'ok' : 'fail');
+    setResult('rr-qmin', qmin_r, 'tf/m²', 2, okContact ? 'ok' : 'fail');
     setResult('rr-Mu', Mu_wall_tfm, 'tf·m/m', 3);
     setResult('rr-phiMn', phiMn_wall_tfm, 'tf·m/m', 3);
     setResult('rr-Vu', Vu_stem, 'tf/m', 2);
     setResult('rr-phiVc', phiVc_wall_tfm, 'tf/m', 2);
+    setResult('rr-ToeMu', baseDemand?.toe.moment, 'tf·m/m', 3, okToeFlex === true ? 'ok' : okToeFlex === false ? 'fail' : 'warn');
+    setRatioResult('rr-ToeAs', toeAsProv, toeAsReq, 'cm²/m', 2, okToeFlex);
+    setRatioResult('rr-ToeVu', baseDemand?.toe.shear, toePhiVc, 'tf/m', 2, okToeShear);
+    setResult('rr-HeelMu', baseDemand?.heel.moment, 'tf·m/m', 3, okHeelFlex === true ? 'ok' : okHeelFlex === false ? 'fail' : 'warn');
+    setRatioResult('rr-HeelAs', heelAsProv, heelAsReq, 'cm²/m', 2, okHeelFlex);
+    setRatioResult('rr-HeelVu', baseDemand?.heel.shear, heelPhiVc, 'tf/m', 2, okHeelShear);
 
     setCheck('rc-slide', okSlide, `FS=${FS_slide.toFixed(2)} ${okSlide ? '≥' : '<'} 1.5`);
     setCheck('rc-over', okOver, `FS=${FS_over.toFixed(2)} ${okOver ? '≥' : '<'} 2.0`);
-    setCheck('rc-q', okQr, `${qmax_r.toFixed(2)} / ${qa}`);
+    setCheck('rc-q', qmax_r <= qa, `${qmax_r.toFixed(2)} / ${qa}`);
+    setCheck('rc-contact', okContact, `${qmin_r.toFixed(2)} tf/m²${baseDemand ? `；強度組合 ${baseDemand.contactOk ? '全寬接觸' : '出現拉力'}` : ''}`);
     setCheck('rc-flex', okFlex, `${phiMn_wall_tfm.toFixed(3)} / ${Mu_wall_tfm.toFixed(3)}`);
     setCheck('rc-shear', okShear, `${phiVc_wall_tfm.toFixed(2)} / ${Vu_stem.toFixed(2)}`);
+    setCheck('rc-toe-flex', okToeFlex, baseDemand ? `${toePhiMn.toFixed(3)} / ${baseDemand.toe.moment.toFixed(3)}；As ${toeAsProv.toFixed(2)} / ${toeAsReq.toFixed(2)}` : '待確認');
+    setCheck('rc-toe-shear', okToeShear, baseDemand ? `${toePhiVc.toFixed(2)} / ${baseDemand.toe.shear.toFixed(2)}` : '待確認');
+    setCheck('rc-heel-flex', okHeelFlex, baseDemand ? `${heelPhiMn.toFixed(3)} / ${baseDemand.heel.moment.toFixed(3)}；As ${heelAsProv.toFixed(2)} / ${heelAsReq.toFixed(2)}` : '待確認');
+    setCheck('rc-heel-shear', okHeelShear, baseDemand ? `${heelPhiVc.toFixed(2)} / ${baseDemand.heel.shear.toFixed(2)}` : '待確認');
 
     drawRetain(Lt, tw, Lh, Hw, hb);
 
@@ -3705,20 +3833,37 @@ W_total = ${W_total.toFixed(2)} tf/m
 Mr = ${Mr.toFixed(2)} tf·m/m;  Mo = ${Mo.toFixed(2)} tf·m/m
 FS_slide = (μW+Pp)/Pa = (${mu}×${W_total.toFixed(2)}+${Pp.toFixed(2)})/${Pa.toFixed(2)} = ${FS_slide.toFixed(2)} ${okSlide?'≥':'<'} 1.5 → ${okSlide?'✓':'✗'}
 FS_over = Mr/Mo = ${Mr.toFixed(2)}/${Mo.toFixed(2)} = ${FS_over.toFixed(2)} ${okOver?'≥':'<'} 2.0 → ${okOver?'✓':'✗'}
-qmax = ${qmax_r.toFixed(2)} tf/m²  ${okQr?'≤':'>'} qa=${qa} → ${okQr?'✓':'✗'}
+qmax = ${qmax_r.toFixed(2)} tf/m²  ${qmax_r <= qa?'≤':'>'} qa=${qa} → ${qmax_r <= qa?'✓':'✗'}
+qmin = ${qmin_r.toFixed(2)} tf/m²  ${qmin_r >= 0?'≥':'<'} 0 → ${qmin_r >= 0?'✓':'✗'}
 
 <span class="h">▸ 牆身 — ${retainType === 'cantilever' ? '懸臂式 (單向板)' : '扶壁式（目前仍以 1m 條帶近似）'}</span>
 d_wall = tw − cover − db/2 = ${tw} − ${cover} − ${(db/2).toFixed(1)} = ${d_wall.toFixed(1)} cm
 Mu_stem (at base) = ${Mu_wall_tfm.toFixed(3)} tf·m/m
 φMn = ${phiMn_wall_tfm.toFixed(3)} tf·m/m → ${okFlex?'✓':'✗'}
 Vu_stem = ${Vu_stem.toFixed(2)} tf/m
-φVc = ${phiVc_wall_tfm.toFixed(2)} tf/m → ${okShear?'✓':'✗'}${retainType === 'counterfort' ? '\n⚠ 扶壁間距 sf 尚未納入雙向板與扶壁系統分析' : ''}`;
+φVc = ${phiVc_wall_tfm.toFixed(2)} tf/m → ${okShear?'✓':'✗'}
+
+${baseDemand ? `<span class="h">▸ 趾版 — 固定端在牆前緣，底層主筋</span>
+強度組合 = 0.9D + 1.6H；有利被動土壓矩不納入底版強度反力
+淨向上載重（自由端 / 牆面）= ${baseDemand.toe.netFree.toFixed(3)} / ${baseDemand.toe.netWall.toFixed(3)} tf/m²
+Mu = ${baseDemand.toe.moment.toFixed(3)} tf·m/m；φMn = ${toePhiMn.toFixed(3)} tf·m/m → ${toePhiMn >= baseDemand.toe.moment?'✓':'✗'}
+As,prov / As,req = ${toeAsProv.toFixed(2)} / ${toeAsReq.toFixed(2)} cm²/m；s / smax = ${toeBarSp.toFixed(1)} / ${baseSmax.toFixed(1)} cm → ${okToeFlex?'✓':'✗'}
+Vu(d) / φVc = ${baseDemand.toe.shear.toFixed(2)} / ${toePhiVc.toFixed(2)} tf/m → ${okToeShear?'✓':'✗'}
+
+<span class="h">▸ 踵版 — 固定端在牆後緣，頂層主筋</span>
+強度組合 = 1.2D + 1.6H；淨向下載重（牆面 / 自由端）= ${baseDemand.heel.netWall.toFixed(3)} / ${baseDemand.heel.netFree.toFixed(3)} tf/m²
+Mu = ${baseDemand.heel.moment.toFixed(3)} tf·m/m；φMn = ${heelPhiMn.toFixed(3)} tf·m/m → ${heelPhiMn >= baseDemand.heel.moment?'✓':'✗'}
+As,prov / As,req = ${heelAsProv.toFixed(2)} / ${heelAsReq.toFixed(2)} cm²/m；s / smax = ${heelBarSp.toFixed(1)} / ${baseSmax.toFixed(1)} cm → ${okHeelFlex?'✓':'✗'}
+Vu(d) / φVc = ${baseDemand.heel.shear.toFixed(2)} / ${heelPhiVc.toFixed(2)} tf/m → ${okHeelShear?'✓':'✗'}` : `<span class="h">▸ 底版設計狀態</span>
+${baseDemandError || baseReviewWarnings.join('\n') || '此模型須另行建立底版分析。'}`}${retainType === 'counterfort' ? '\n⚠ 扶壁間距 sf 尚未納入雙向板與扶壁系統分析' : ''}`;
     }
 
     {
       const checks = [
         ['抗滑 FS ≥ 1.5', okSlide], ['抗傾覆 FS ≥ 2.0', okOver],
-        ['qmax ≤ qa', okQr], ['φMn ≥ Mu', okFlex], ['φVc ≥ Vu', okShear]
+        ['qmax ≤ qa', qmax_r <= qa], ['qmin ≥ 0', okContact], ['牆身 φMn ≥ Mu', okFlex], ['牆身 φVc ≥ Vu', okShear],
+        ['趾版強度', okToeFlex === null || okToeShear === null ? null : okToeFlex && okToeShear],
+        ['踵版強度', okHeelFlex === null || okHeelShear === null ? null : okHeelFlex && okHeelShear]
       ];
       const banner = $('bannerStatus'), key = $('bannerKey');
       if (banner) {
@@ -3726,7 +3871,7 @@ Vu_stem = ${Vu_stem.toFixed(2)} tf/m
         banner.innerHTML = summaryText
           + `<div style="font-size:0.7em; font-weight:500; opacity:0.85; margin-top:6px;">${checks.map(c => `${c[1]===true?'✓':c[1]===false?'✗':'·'} ${c[0]}`).join(' ｜ ')}</div>`;
         if (summaryOk === null) {
-          banner.innerHTML += `<div style="font-size:0.72em; font-weight:600; margin-top:6px; padding:6px 10px; background:#fef3c7; color:#a16207; border-left:3px solid #f59e0b; border-radius:4px;">⚠ 數值檢核通過，但扶壁式仍須正式雙向板 / 扶壁系統分析，不可列為最終 OK。</div>`;
+          banner.innerHTML += `<div style="font-size:0.72em; font-weight:600; margin-top:6px; padding:6px 10px; background:#fef3c7; color:#a16207; border-left:3px solid #f59e0b; border-radius:4px;">⚠ 數值檢核通過，但仍有尚未自動完成的模型或人工複核事項，不可列為最終 OK。</div>`;
         }
       }
       if (key) key.innerHTML = '';
@@ -3734,10 +3879,14 @@ Vu_stem = ${Vu_stem.toFixed(2)} tf/m
 
     window.ftLast = { tab:'retain', fc, fy, cover, retainType, Hw, tw, Lt, Lh, hb,
       Ka, Kp, gamma, qs, mu, qa, gammaC, barNo, nBarPerM, sf,
+      toeBarNo, toeBarSp, heelBarNo, heelBarSp, d_toe, d_heel,
       Pa, Pp, W_total, FS_slide, FS_over, okSlide, okOver,
-      qmax_r, qmin_r, okQr, Mu_wall_tfm, phiMn_wall_tfm, okFlex,
+      qToe_r, qHeel_r, qmax_r, qmin_r, okQr, okContact, Mu_wall_tfm, phiMn_wall_tfm, okFlex,
       Vu_stem, phiVc_wall_tfm: phiVc_wall_tfm, okShear,
-      ab, db, As_m, d_wall, d_base, Btot, H_total, Mr, Mo,
+      ab, db, As_m, d_wall, d_base, Btot, H_total, MrDead, Mr, Mo,
+      baseDemand, baseModelApplicable, baseDemandError, baseReviewWarnings,
+      baseAsMin, baseSmax, toeAsProv, toeAsReq, toePhiMn, toePhiVc, okToeFlex, okToeShear,
+      heelAsProv, heelAsReq, heelPhiMn, heelPhiVc, okHeelFlex, okHeelShear,
       earthSource, loadSourceLabel: earthSource ? `外部土壓 JSON｜${earthSource.model.theoryLabel}` : '本頁 Ka、γ、q 公式',
       numericalOk, reviewWarnings, summaryOk, summaryText };
     renderEarthPressureImportStatus(earthSource);
@@ -4612,7 +4761,10 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
           { label:"fc'", value:r.fc, unit:'kgf/cm²' },
           { label:'fy', value:r.fy, unit:'kgf/cm²' },
           { label:'牆身主筋', value:`${r.nBarPerM} 支/m ${r.barNo}`, unit:`As=${r.As_m.toFixed(2)} cm²/m` },
-          { label:'有效深 d_wall', value:r.d_wall.toFixed(1), unit:'cm' }
+          { label:'有效深 d_wall', value:r.d_wall.toFixed(1), unit:'cm' },
+          { label:'趾版底層主筋', value:`${r.toeBarNo} @ ${r.toeBarSp.toFixed(1)}`, unit:`As=${r.toeAsProv.toFixed(2)} cm²/m` },
+          { label:'踵版頂層主筋', value:`${r.heelBarNo} @ ${r.heelBarSp.toFixed(1)}`, unit:`As=${r.heelAsProv.toFixed(2)} cm²/m` },
+          { label:'底版有效深 d_toe / d_heel', value:`${r.d_toe.toFixed(1)} / ${r.d_heel.toFixed(1)}`, unit:'cm' }
         ]},
         { group:'採用土壓來源與穩定參數', items:[
           { label:'土壓來源', value:r.loadSourceLabel },
@@ -4633,13 +4785,24 @@ ${isSoft ? '\n⚠ 第3類軟弱土壤：繫材為強制設置' : '\n註：深基
         { group:'穩定檢核', items:[
           { label:'抗滑 FS ≥ 1.5', value:r.FS_slide.toFixed(2), ok:r.okSlide },
           { label:'抗傾覆 FS ≥ 2.0', value:r.FS_over.toFixed(2), ok:r.okOver },
-          { label:'qmax ≤ qa', value:`${r.qmax_r.toFixed(2)} / ${r.qa}`, unit:'tf/m²', ok:r.okQr }
+          { label:'qmax ≤ qa', value:`${r.qmax_r.toFixed(2)} / ${r.qa}`, unit:'tf/m²', ok:r.qmax_r <= r.qa },
+          { label:'qmin ≥ 0（全寬接觸）', value:r.qmin_r.toFixed(2), unit:'tf/m²', ok:r.okContact }
         ]},
         { group:'牆身強度檢核', items:[
           { label:'φMn ≥ Mu', value:`${r.phiMn_wall_tfm.toFixed(3)} / ${r.Mu_wall_tfm.toFixed(3)}`, unit:'tf·m/m', ok:r.okFlex },
           { label:'φVc ≥ Vu', value:`${r.phiVc_wall_tfm.toFixed(2)} / ${r.Vu_stem.toFixed(2)}`, unit:'tf/m', ok:r.okShear }
         ]}
       ];
+      if (r.baseDemand) {
+        checks.push({ group:'底版強度檢核', items:[
+          { label:'趾版底層 φMn ≥ Mu', value:`${r.toePhiMn.toFixed(3)} / ${r.baseDemand.toe.moment.toFixed(3)}`, unit:'tf·m/m', ok:r.toePhiMn >= r.baseDemand.toe.moment },
+          { label:'趾版底層 As 提供 ≥ 需求', value:`${r.toeAsProv.toFixed(2)} / ${r.toeAsReq.toFixed(2)}`, unit:'cm²/m', ok:r.okToeFlex },
+          { label:'趾版 φVc ≥ Vu(d)', value:`${r.toePhiVc.toFixed(2)} / ${r.baseDemand.toe.shear.toFixed(2)}`, unit:'tf/m', ok:r.okToeShear },
+          { label:'踵版頂層 φMn ≥ Mu', value:`${r.heelPhiMn.toFixed(3)} / ${r.baseDemand.heel.moment.toFixed(3)}`, unit:'tf·m/m', ok:r.heelPhiMn >= r.baseDemand.heel.moment },
+          { label:'踵版頂層 As 提供 ≥ 需求', value:`${r.heelAsProv.toFixed(2)} / ${r.heelAsReq.toFixed(2)}`, unit:'cm²/m', ok:r.okHeelFlex },
+          { label:'踵版 φVc ≥ Vu(d)', value:`${r.heelPhiVc.toFixed(2)} / ${r.baseDemand.heel.shear.toFixed(2)}`, unit:'tf/m', ok:r.okHeelShear }
+        ]});
+      }
     }
 
     const showStepsOn = $('showSteps')?.checked;

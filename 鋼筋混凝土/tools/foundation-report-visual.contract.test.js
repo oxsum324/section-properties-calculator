@@ -7,6 +7,8 @@ const visualPath = path.join(toolsDir, 'foundation-report-visual.test.js');
 const testFoundationPath = path.join(toolsDir, 'test-foundation.ps1');
 const casesPath = path.join(toolsDir, 'foundation-regression-cases.json');
 const toolPath = path.join(toolsDir, 'foundation.html');
+const baseDemandPath = path.join(toolsDir, '..', 'shared', 'retaining-base-demand.js');
+const baseDemandTestPath = path.join(toolsDir, '..', 'shared', 'retaining-base-demand.test.js');
 
 function read(file) {
   assert.ok(fs.existsSync(file), `missing required file: ${file}`);
@@ -21,6 +23,8 @@ const visual = read(visualPath);
 const testFoundation = read(testFoundationPath);
 const cases = JSON.parse(read(casesPath));
 const tool = read(toolPath);
+const baseDemand = read(baseDemandPath);
+const baseDemandTest = read(baseDemandTestPath);
 
 [
   'assessFoundationAttachmentReadiness',
@@ -28,6 +32,32 @@ const tool = read(toolPath);
   'documentClass: attachmentReadiness.documentClass',
   '案件識別資料',
 ].forEach(needle => assertIncludes(tool, needle, 'foundation formal attachment state wiring'));
+
+[
+  '../shared/retaining-base-demand.js?v=1',
+  "geometry: {",
+  'toeEffectiveDepth:',
+  'heelEffectiveDepth:',
+  "group:'底版強度檢核'",
+  '趾版底層 φMn ≥ Mu',
+  '踵版頂層 φMn ≥ Mu',
+].forEach(needle => assertIncludes(tool, needle, 'retaining wall base design wiring'));
+
+[
+  'rc-retaining-base-demand.v1',
+  'deadMin: 0.9',
+  'deadMax: 1.2',
+  'earth: 1.6',
+  "expectedFace: 'bottom'",
+  "expectedFace: 'top'",
+  'contactOk',
+].forEach(needle => assertIncludes(baseDemand, needle, 'retaining wall base demand core'));
+
+[
+  'toe factored moment',
+  'heel factored moment',
+  'invalid geometry fails closed',
+].forEach(needle => assertIncludes(baseDemandTest, needle, 'retaining wall base demand regression'));
 
 [
   'iso_default',

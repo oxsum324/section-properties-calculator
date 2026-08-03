@@ -3,8 +3,15 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $testFile = Join-Path $root 'foundation-regression.test.js'
 $visualTestFile = Join-Path $root 'foundation-report-visual.test.js'
+$baseDemandTestFile = Join-Path (Split-Path -Parent $root) 'shared\retaining-base-demand.test.js'
 $playwrightDepsScript = Join-Path $root 'ensure-playwright-deps.ps1'
 . $playwrightDepsScript -Root $root -PreferredDirName '.foundation-testdeps'
+
+Write-Host "`n== Retaining wall base demand unit tests ==" -ForegroundColor Cyan
+node $baseDemandTestFile
+if ($LASTEXITCODE -ne 0) {
+  throw "retaining wall base demand unit tests failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "`n== Foundation regression tests ==" -ForegroundColor Cyan
 node $testFile
