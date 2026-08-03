@@ -1757,6 +1757,58 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : attachmentIntegrity.pass === true
       ? Math.max(0, attachmentIntegrityRequired - attachmentIntegrityVerified)
       : Math.max(1, compactNumber(attachmentIntegrity.issueCount) || attachmentIntegrityRequired - attachmentIntegrityVerified);
+  const deliveryFileIntegritySources = [
+    {
+      key: 'formalPdfEvidence',
+      label: '正式 PDF 與渲染證據',
+      scope: 'canonical-rendered-pdf-evidence',
+      payload: renderedDeliveryPayload?.canonicalArtifactIntegrity,
+    },
+    {
+      key: 'rcRenderedVisual',
+      label: 'RC PDF / PNG 成品',
+      scope: 'rc-rendered-pdf-png',
+      payload: renderedDeliveryPayload?.rcVisualArtifactIntegrity,
+    },
+    {
+      key: 'mixedFormat',
+      label: '混合格式附件',
+      scope: 'mixed-format-release-artifacts',
+      payload: renderedDeliveryPayload?.mixedArtifactIntegrity,
+    },
+  ];
+  const deliveryFileIntegrityDeclared = Number(renderedDeliveryPayload?.schemaVersion) >= 3
+    && deliveryFileIntegritySources.every(item => (
+      item.payload
+      && item.payload.scope === item.scope
+      && Number.isInteger(item.payload.required)
+      && Number.isInteger(item.payload.verified)
+    ));
+  const deliveryFileIntegrityBreakdown = deliveryFileIntegrityDeclared
+    ? deliveryFileIntegritySources.map(item => {
+      const requiredCount = compactNumber(item.payload.required);
+      const verifiedCount = compactNumber(item.payload.verified);
+      const issueCount = item.payload.pass === true
+        ? Math.max(0, requiredCount - verifiedCount)
+        : Math.max(1, compactNumber(item.payload.issueCount) || requiredCount - verifiedCount);
+      return {
+        key: item.key,
+        label: item.label,
+        required: requiredCount,
+        verified: verifiedCount,
+        issueCount,
+        pass: item.payload.pass === true && verifiedCount === requiredCount && issueCount === 0,
+      };
+    })
+    : [];
+  const deliveryFileIntegrityRequired = deliveryFileIntegrityBreakdown.reduce((sum, item) => sum + item.required, 0);
+  const deliveryFileIntegrityVerified = deliveryFileIntegrityBreakdown.reduce((sum, item) => sum + item.verified, 0);
+  const deliveryFileIntegrityIssueCount = deliveryFileIntegrityBreakdown.reduce((sum, item) => sum + item.issueCount, 0);
+  const deliveryFileIntegrityPass = deliveryFileIntegrityDeclared
+    && deliveryFileIntegrityRequired > 0
+    && deliveryFileIntegrityVerified === deliveryFileIntegrityRequired
+    && deliveryFileIntegrityIssueCount === 0
+    && deliveryFileIntegrityBreakdown.every(item => item.pass);
   const renderedDeliverySummary = supplementalDeliveryDeclared
     ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
@@ -1767,6 +1819,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       : '目前沒有需要頁面專用閱讀狀態治理的矩陣外入口。',
     `正式計算書可讀文字抽檢：${reportTextSmokeComplete} / ${reportTextSmokeRequired} 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 ${reportTextSmokeEvidence.evidenceComplete} / ${reportTextSmokeEvidence.evidenceRequired}。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。`,
     `正式放行實際交付物渲染佐證：${renderedDeliveryComplete} / ${renderedDeliveryRequired} 個首頁正式工具已完成，涵蓋 ${renderedDeliveryFamilies.length} 個工具家族${supplementalDeliveryDeclared ? `；另有 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired} 個矩陣外報告 / 服務成品，涵蓋 ${supplementalDeliveryFamilies.length} 個補充家族` : ''}；證據來自 release ${String(renderedDeliveryPayload?.runId || '-')}。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。`,
+    ...(deliveryFileIntegrityDeclared ? [`正式交付檔案完整性：${deliveryFileIntegrityBreakdown.map(item => `${item.label} ${item.verified} / ${item.required}`).join('、')}；合計 ${deliveryFileIntegrityVerified} / ${deliveryFileIntegrityRequired}。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。`] : []),
     ...(attachmentIntegrityDeclared ? [`RC 正式附件 HTML 完整性：預期 ${attachmentIntegrityRequired} 份、實際 ${attachmentIntegrityActual} 份、已驗證 ${attachmentIntegrityVerified} 份；集合 SHA-256 ${String(attachmentIntegrity.setSha256 || '').slice(0, 12)}。本項是放行證據，不會寫入計算書、列印或 PDF。`] : []),
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
@@ -1777,8 +1830,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -1805,6 +1858,13 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     renderedDeliveryEvidenceSummary: renderedDeliverySummary,
     renderedDeliveryEvidenceSourcePath: String(renderedDeliveryEvidence?.sourcePath || ''),
     renderedDeliveryEvidenceSourceHash: String(renderedDeliveryEvidence?.sourceHash || ''),
+    ...(deliveryFileIntegrityDeclared ? {
+      deliveryFileIntegrityRequired,
+      deliveryFileIntegrityVerified,
+      deliveryFileIntegrityIssueCount,
+      deliveryFileIntegrityPass,
+      deliveryFileIntegrityBreakdown,
+    } : {}),
     ...(supplementalDeliveryDeclared ? {
       supplementalDeliveryEvidenceRequired: supplementalDeliveryRequired,
       supplementalDeliveryEvidenceComplete: supplementalDeliveryComplete,
@@ -2123,6 +2183,21 @@ function checkMatrix(payload, markdown, options = {}) {
   assert.equal(homepageReportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${homepageReportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/${renderedDeliveryEvidenceSummaryName}`, 'homepage report readiness rendered delivery source path');
   assert.match(homepageReportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'homepage report readiness rendered delivery source hash');
   assert.ok(String(homepageReportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'homepage report readiness rendered delivery summary');
+  if (Number.isInteger(homepageReportReadinessStatus.deliveryFileIntegrityRequired)) {
+    assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityRequired, 135, 'homepage report readiness exposes 135 verified delivery files');
+    assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityVerified, homepageReportReadinessStatus.deliveryFileIntegrityRequired, 'homepage report readiness verifies every delivery file');
+    assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'homepage report readiness delivery file integrity issues empty');
+    assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityPass, true, 'homepage report readiness delivery file integrity passes');
+    assert.deepEqual(
+      homepageReportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]),
+      [['formalPdfEvidence', 60, 60], ['rcRenderedVisual', 62, 62], ['mixedFormat', 13, 13]],
+      'homepage report readiness exposes only the expected redacted delivery integrity counts'
+    );
+    assert.ok(homepageReportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'homepage report readiness delivery file integrity groups pass');
+    assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityBreakdown.some(item => Object.prototype.hasOwnProperty.call(item, 'setSha256')), false, 'homepage report readiness delivery file integrity omits set hashes');
+    assert.equal(homepageReportReadinessStatus.deliveryFileIntegrityBreakdown.some(item => Object.prototype.hasOwnProperty.call(item, 'artifacts')), false, 'homepage report readiness delivery file integrity omits artifact lists');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('公開狀態只提供類別、數量與通過狀態'), 'homepage report readiness explains the redacted public integrity boundary');
+  }
   if (Number.isInteger(homepageReportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
     assert.ok([1, 2].includes(homepageReportReadinessStatus.supplementalDeliveryEvidenceRequired), 'homepage report readiness supplemental delivery uses a supported transition count');
     assert.equal(homepageReportReadinessStatus.supplementalDeliveryEvidenceComplete, homepageReportReadinessStatus.supplementalDeliveryEvidenceRequired, 'homepage report readiness supplemental delivery evidence complete');

@@ -548,7 +548,8 @@ assert.ok(reportReadinessOverview.details.join(' ').includes('覆工板'), 'repo
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式計算書可讀文字抽檢') && reportReadinessOverview.details.join(' ').includes('完整交付前檢查'), 'report readiness overview keeps report text runtime evidence boundary');
 assert.ok(reportReadinessOverview.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessOverview.reportTextSmokeScope.includes('局部快算'), 'report readiness overview names report text scope');
 assert.ok(reportReadinessOverview.renderedDeliveryEvidenceSummary.includes('實際交付物渲染') && reportReadinessOverview.renderedDeliveryEvidenceSummary.includes('PDF、DOCX 或 workbook 成品'), 'report readiness overview names rendered delivery evidence');
-assert.ok(Array.isArray(reportReadinessOverview.meta) && reportReadinessOverview.meta.length === 4, 'report readiness overview exposes compact metrics');
+assert.ok(Array.isArray(reportReadinessOverview.meta) && reportReadinessOverview.meta.length === 5, 'report readiness overview exposes compact metrics');
+assert.ok(reportReadinessOverview.meta.some(item => item.text === '成品檔案完整性'), 'report readiness overview exposes delivery file integrity metric');
 assert.ok(reportReadinessOverview.details.join(' ').includes('JSON/計算書/文字 邊界'), 'report readiness overview covers local quick text boundary chip');
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'report readiness overview keeps delivery boundary');
 assert.equal(reportReadinessStatusSnapshot.kind, 'report-readiness-status', 'tracked report readiness snapshot kind');
@@ -572,6 +573,16 @@ assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceFamilies.redu
 assert.ok(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSummary.includes('實際交付物渲染'), 'tracked report readiness snapshot rendered delivery summary');
 assert.equal(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatusSnapshot.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'tracked report readiness snapshot rendered delivery source path');
 assert.match(reportReadinessStatusSnapshot.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'tracked report readiness snapshot rendered delivery source hash');
+assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 135, 'tracked report readiness snapshot exposes 135 delivery files');
+assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityVerified, reportReadinessStatusSnapshot.deliveryFileIntegrityRequired, 'tracked report readiness snapshot verifies every delivery file');
+assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityIssueCount, 0, 'tracked report readiness snapshot delivery file integrity issues empty');
+assert.equal(reportReadinessStatusSnapshot.deliveryFileIntegrityPass, true, 'tracked report readiness snapshot delivery file integrity passes');
+assert.deepEqual(
+  reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]),
+  [['formalPdfEvidence', 60, 60], ['rcRenderedVisual', 62, 62], ['mixedFormat', 13, 13]],
+  'tracked report readiness snapshot exposes only redacted delivery integrity counts'
+);
+assert.equal(/sha256|artifact|filename|bytes/i.test(JSON.stringify(reportReadinessStatusSnapshot.deliveryFileIntegrityBreakdown)), false, 'tracked report readiness delivery file counts omit private evidence');
 if (Number.isInteger(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceRequired)) {
   assert.ok([1, 2].includes(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceRequired), 'tracked report readiness snapshot supplemental delivery uses a supported transition count');
   assert.equal(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceComplete, reportReadinessStatusSnapshot.supplementalDeliveryEvidenceRequired, 'tracked report readiness snapshot supplemental delivery complete');
@@ -584,6 +595,8 @@ if (Number.isInteger(reportReadinessStatusSnapshot.supplementalDeliveryEvidenceR
 }
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式計算書可讀文字抽檢'), 'tracked report readiness snapshot exposes report text coverage');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式放行實際交付物渲染佐證'), 'tracked report readiness snapshot exposes actual rendered delivery coverage');
+assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式交付檔案完整性'), 'tracked report readiness snapshot exposes delivery file integrity');
+assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('不公開檔名、逐檔雜湊或完整性集合'), 'tracked report readiness snapshot explains private evidence boundary');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('瀏覽器 smoke 證據'), 'tracked report readiness snapshot exposes report text runtime evidence');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('JSON/計算書/文字 邊界'), 'tracked report readiness snapshot covers local quick text boundary chip');
 assert.ok(reportReadinessStatusSnapshot.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'tracked report readiness snapshot keeps delivery boundary');
@@ -596,6 +609,7 @@ assert.ok(homeSource.includes("homeAssetHref('assets/status/platform-status.json
 assert.ok(homeSource.includes("homeAssetHref('assets/status/preflight-summary.json')"), 'home status fetch uses tracked preflight status asset');
 assert.ok(homeSource.includes("homeAssetHref('assets/status/report-readiness-status.json')"), 'home status fetch uses tracked report readiness asset');
 assert.ok(homeSource.includes("payload.kind === 'report-readiness-status'"), 'home status validates report readiness snapshot kind');
+assert.ok(homeSource.includes("ratio('成品檔案完整性'"), 'home status renders delivery file integrity count');
 assert.ok(homeSource.includes("dataset.statusSource = payload && payload.kind === 'report-readiness-status' ? 'snapshot' : 'static'"), 'home status exposes report readiness snapshot source flag');
 assert.ok(homeSource.includes('完整檢查'), 'home status exposes full preflight label');
 assert.ok(homeSource.includes('快速檢查'), 'home status exposes quick preflight label');

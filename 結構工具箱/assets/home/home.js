@@ -126,7 +126,8 @@
       { text: '頁面邊界', tone: 'ok' },
       { text: '可讀文字', tone: 'ok' },
       { text: '瀏覽器 smoke', tone: 'ok' },
-      { text: '成品渲染', tone: 'ok' }
+      { text: '成品渲染', tone: 'ok' },
+      { text: '成品檔案完整性', tone: 'ok' }
     ],
     details: [
       '已治理家族涵蓋風力 / 地震 / 鋼構正式工具、RC 正式工具、連續梁 / 斷面與補強頁、平面剛架、錨栓、石材、覆工板、開挖擋土支撐與局部快算。',
@@ -1265,6 +1266,9 @@
       ratio('可讀文字', payload.reportTextSmokeComplete, payload.reportTextSmokeRequired, payload.reportTextSmokeIssueCount),
       ratio('瀏覽器 smoke', payload.reportTextSmokeEvidenceComplete, payload.reportTextSmokeEvidenceRequired, payload.reportTextSmokeEvidenceIssueCount),
       ratio('成品渲染', payload.renderedDeliveryEvidenceComplete, payload.renderedDeliveryEvidenceRequired, payload.renderedDeliveryEvidenceIssueCount),
+      Number.isInteger(payload.deliveryFileIntegrityRequired) && payload.deliveryFileIntegrityRequired > 0
+        ? ratio('成品檔案完整性', payload.deliveryFileIntegrityVerified, payload.deliveryFileIntegrityRequired, payload.deliveryFileIntegrityIssueCount)
+        : null,
       Number.isInteger(payload.supplementalDeliveryEvidenceRequired) && payload.supplementalDeliveryEvidenceRequired > 0
         ? ratio('補充成品', payload.supplementalDeliveryEvidenceComplete, payload.supplementalDeliveryEvidenceRequired, payload.supplementalDeliveryEvidenceIssueCount)
         : null

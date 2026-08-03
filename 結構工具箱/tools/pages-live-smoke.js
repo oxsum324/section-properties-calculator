@@ -547,6 +547,19 @@ async function main() {
   assert.ok(String(reportReadinessStatus.renderedDeliveryEvidenceSummary || '').includes('實際交付物渲染'), 'report readiness rendered delivery summary');
   assert.equal(reportReadinessStatus.renderedDeliveryEvidenceSourcePath, `output/preflight/history/${reportReadinessStatus.renderedDeliveryEvidenceRunId}/rendered-delivery-evidence/rendered-delivery-evidence-summary.json`, 'report readiness rendered delivery source path');
   assert.match(reportReadinessStatus.renderedDeliveryEvidenceSourceHash, /^[0-9a-f]{64}$/i, 'report readiness rendered delivery source hash');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityRequired, 135, 'report readiness exposes the complete redacted delivery file count');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityVerified, reportReadinessStatus.deliveryFileIntegrityRequired, 'report readiness verifies every redacted delivery file');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityIssueCount, 0, 'report readiness delivery file integrity issues empty');
+  assert.equal(reportReadinessStatus.deliveryFileIntegrityPass, true, 'report readiness delivery file integrity passes');
+  assert.deepEqual(
+    reportReadinessStatus.deliveryFileIntegrityBreakdown.map(item => [item.key, item.required, item.verified]),
+    [['formalPdfEvidence', 60, 60], ['rcRenderedVisual', 62, 62], ['mixedFormat', 13, 13]],
+    'report readiness exposes the three redacted delivery integrity groups'
+  );
+  assert.ok(reportReadinessStatus.deliveryFileIntegrityBreakdown.every(item => item.pass && item.issueCount === 0), 'report readiness delivery integrity groups pass');
+  const deliveryFileIntegrityJson = JSON.stringify(reportReadinessStatus.deliveryFileIntegrityBreakdown);
+  assert.equal(/sha256|artifact|filename|bytes/i.test(deliveryFileIntegrityJson), false, 'report readiness redacted delivery integrity omits private artifact evidence');
+  assert.equal(/canonicalArtifactIntegrity|rcVisualArtifactIntegrity|mixedArtifactIntegrity/.test(JSON.stringify(reportReadinessStatus)), false, 'report readiness does not publish private aggregate property names');
   if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
     assert.ok([1, 2].includes(reportReadinessStatus.supplementalDeliveryEvidenceRequired), 'report readiness supplemental delivery uses a supported transition count');
     assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceComplete, reportReadinessStatus.supplementalDeliveryEvidenceRequired, 'report readiness supplemental delivery fully covered');
@@ -579,6 +592,8 @@ async function main() {
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式計算書可讀文字抽檢'), 'report readiness status exposes report text coverage');
   assert.ok(reportReadinessStatus.details.join(' ').includes('瀏覽器 smoke 證據'), 'report readiness status exposes report text runtime evidence');
   assert.ok(reportReadinessStatus.details.join(' ').includes('正式放行實際交付物渲染佐證'), 'report readiness status exposes actual rendered delivery evidence');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('正式交付檔案完整性'), 'report readiness status exposes redacted delivery file integrity');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('不公開檔名、逐檔雜湊或完整性集合'), 'report readiness status explains the private evidence boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('RC 正式附件 HTML 完整性'), 'report readiness status exposes RC HTML attachment integrity');
   assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight status');
   assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness preflight source matches public preflight status');

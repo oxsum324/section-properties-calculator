@@ -1,7 +1,7 @@
 {
   "snapshotVersion": 1,
   "kind": "report-readiness-status",
-  "generatedAt": "2026-08-03T02:48:37.092Z",
+  "generatedAt": "2026-08-03T02:59:56.432Z",
   "runId": "20260803-102713",
   "pass": true,
   "failureCount": 0,
@@ -13,6 +13,7 @@
     "目前覆蓋 過渡工具 / 輔助查詢 入口：鋼梁舊案延續頁、鋼柱舊案延續頁、Kzt 地形係數、特殊修正 / 折減。",
     "正式計算書可讀文字抽檢：17 / 17 個有報告模式的工具已完成；最新完整交付前檢查的瀏覽器 smoke 證據為 2 / 2。本項確認輸出可讀文字、頁面診斷明細排除，以及內部審閱／正式附件核可狀態。",
     "正式放行實際交付物渲染佐證：31 / 31 個首頁正式工具已完成，涵蓋 8 個工具家族；另有 2 / 2 個矩陣外報告 / 服務成品，涵蓋 2 個補充家族；證據來自 release 20260803-102713。本項只顯示於頁面狀態，不會寫入計算書、列印或 PDF。",
+    "正式交付檔案完整性：正式 PDF 與渲染證據 60 / 60、RC PDF / PNG 成品 62 / 62、混合格式附件 13 / 13；合計 135 / 135。公開狀態只提供類別、數量與通過狀態，不公開檔名、逐檔雜湊或完整性集合。",
     "RC 正式附件 HTML 完整性：預期 32 份、實際 32 份、已驗證 32 份；集合 SHA-256 9f2833067ab6。本項是放行證據，不會寫入計算書、列印或 PDF。",
     "可讀文字抽檢範圍：正式計算書可讀文字抽檢範圍：成熟度矩陣：風力 / 地震正式工具 14 項、局部快算 3 項。矩陣外工具家族仍以各自報告合約治理。",
     "首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。",
@@ -95,6 +96,36 @@
   "renderedDeliveryEvidenceSummary": "最新正式放行實際交付物渲染：首頁正式工具 31 / 31；補充報告 / 服務成品 2 / 2。",
   "renderedDeliveryEvidenceSourcePath": "output/preflight/history/20260803-102713/rendered-delivery-evidence/rendered-delivery-evidence-summary.json",
   "renderedDeliveryEvidenceSourceHash": "be417b6d461a000818c4e281698796f036c05cd1c495b964fbc297091ebbd56f",
+  "deliveryFileIntegrityRequired": 135,
+  "deliveryFileIntegrityVerified": 135,
+  "deliveryFileIntegrityIssueCount": 0,
+  "deliveryFileIntegrityPass": true,
+  "deliveryFileIntegrityBreakdown": [
+    {
+      "key": "formalPdfEvidence",
+      "label": "正式 PDF 與渲染證據",
+      "required": 60,
+      "verified": 60,
+      "issueCount": 0,
+      "pass": true
+    },
+    {
+      "key": "rcRenderedVisual",
+      "label": "RC PDF / PNG 成品",
+      "required": 62,
+      "verified": 62,
+      "issueCount": 0,
+      "pass": true
+    },
+    {
+      "key": "mixedFormat",
+      "label": "混合格式附件",
+      "required": 13,
+      "verified": 13,
+      "issueCount": 0,
+      "pass": true
+    }
+  ],
   "supplementalDeliveryEvidenceRequired": 2,
   "supplementalDeliveryEvidenceComplete": 2,
   "supplementalDeliveryEvidenceIssueCount": 0,
@@ -410,5 +441,5 @@
   ],
   "sourcePath": "output/audit/tool-maturity-matrix.json",
   "preflightStatusSourcePath": "output/preflight/history/20260803-102713/preflight-summary.json",
-  "sourceHash": "804e2d639827f2263f929acc84113a8ea69416a1088626a8c18304eef48134e4"
+  "sourceHash": "6dd545b5682ad9fa2a840e395c2d7badef5183a3ab0db79a03d3a3a6d8cad963"
 }

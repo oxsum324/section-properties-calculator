@@ -124,6 +124,8 @@ assert(!releaseWrapper.includes('%*'), 'release wrapper does not pass through ar
   'writeEvidenceSummary',
   'new home preflight source commit',
   'new home preflight clean source',
+  '成品檔案完整性',
+  '135 / 135',
 ].forEach(needle => assertIncludes(localQuickBrowserSmoke, needle, `local quick browser smoke preserves rendered evidence ${needle}`));
 
 [
@@ -207,6 +209,10 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'supplementalDeliveryEvidenceRequired',
   'supplementalDeliveryEvidenceFamilies',
   '補充報告 / 服務實際交付物渲染',
+  'deliveryFileIntegrityRequired',
+  'deliveryFileIntegrityVerified',
+  'deliveryFileIntegrityBreakdown',
+  '公開狀態只提供類別、數量與通過狀態',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
 
 [
