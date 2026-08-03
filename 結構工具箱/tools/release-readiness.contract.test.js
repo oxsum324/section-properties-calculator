@@ -201,7 +201,7 @@ for (const { name, source } of rcReportVisualSources) {
   'release rendered evidence resolves every supplemental report and service artifact',
   'supplementalRequired: 2',
   'supplementalRecords',
-  'schemaVersion: 10',
+  'schemaVersion: 11',
   'canonicalArtifactIntegrity',
   "scope: 'canonical-rendered-pdf-evidence'",
   'required: 60',
@@ -226,6 +226,9 @@ for (const { name, source } of rcReportVisualSources) {
   'deckingResultReconciliation',
   "scope: 'decking-json-replay-to-docx-hash'",
   'deckingResultReconciliation=',
+  'excavationResultReconciliation',
+  "scope: 'excavation-project-state-replay-to-pdf-docx-hash'",
+  'excavationResultReconciliation=',
   'rendered-delivery-evidence-summary.json',
 ].forEach(needle => assertIncludes(renderedEvidenceContract, needle, `rendered evidence aggregate contract preserves ${needle}`));
 assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evidence inventory has 31 formal tools', 'rendered-delivery-evidence.inventory.json');
@@ -256,6 +259,7 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'stoneResultReconciliationDeclared',
   'anchorResultReconciliationDeclared',
   'deckingResultReconciliationDeclared',
+  'excavationResultReconciliationDeclared',
   "evidence.canonicalArtifactIntegrity?.scope === 'canonical-rendered-pdf-evidence'",
   'evidence.canonicalArtifactIntegrity.required === 60',
   "evidence.formalResultReconciliation?.scope === 'formal-golden-result-to-report-fingerprint'",
@@ -270,6 +274,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   'evidence.anchorResultReconciliation.required === 1',
   "evidence.deckingResultReconciliation?.scope === 'decking-json-replay-to-docx-hash'",
   'evidence.deckingResultReconciliation.required === 1',
+  "evidence.excavationResultReconciliation?.scope === 'excavation-project-state-replay-to-pdf-docx-hash'",
+  'evidence.excavationResultReconciliation.required === 1',
   'function resolveRenderedDeliveryEvidenceSource',
   'function resolveHomepagePreflightSource',
   'latestSummary && latestSummary.quick === false && latestSummary.pass === true',
@@ -295,6 +301,8 @@ assert(JSON.parse(renderedEvidenceInventory).tools.length === 31, 'rendered evid
   '錨栓正式計算書結果鏈',
   'deckingResultReconciliationRequired',
   '覆工板正式計算書結果鏈',
+  'excavationResultReconciliationRequired',
+  '開挖擋土支撐正式計算書結果鏈',
 ].forEach(needle => assertIncludes(maturityMatrix, needle, `maturity matrix preserves release readiness ${needle}`));
 
 [

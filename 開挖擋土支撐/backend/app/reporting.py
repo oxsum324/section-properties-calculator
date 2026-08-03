@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime
+import hashlib
+import json
 import math
 from pathlib import Path
 from zipfile import ZipFile
@@ -25,6 +27,16 @@ from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemp
 
 from .config import get_settings
 from .schemas import BasicParameters, CheckResult, ProjectState, SummaryItem
+
+
+def calculation_fingerprint(project: ProjectState) -> str:
+    """Return a stable short fingerprint for the calculated report payload."""
+    if project.calculation_results is None:
+        return ""
+    payload = project.calculation_results.model_dump(mode="json", exclude={"generated_at"})
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16].upper()
+    return f"CF-{digest}"
 
 
 def build_report(project: ProjectState, *, concise_mode: bool = False) -> Path:
@@ -904,7 +916,7 @@ def _main_section_title(title: str) -> str:
 
 
 def _report_meta_rows(project: ProjectState) -> list[list[str]]:
-    return [
+    rows = [
         ["工程名稱", project.metadata.name],
         ["專案代號", project.metadata.project_code or "—"],
         ["委託單位", project.metadata.client or "—"],
@@ -913,6 +925,10 @@ def _report_meta_rows(project: ProjectState) -> list[list[str]]:
         ["工程位置", project.metadata.location or "—"],
         ["報告日期", datetime.now().strftime("%Y-%m-%d %H:%M")],
     ]
+    fingerprint = calculation_fingerprint(project)
+    if fingerprint:
+        rows.append(["計算指紋", fingerprint])
+    return rows
 
 
 def _report_outline_rows(project: ProjectState) -> list[list[str]]:

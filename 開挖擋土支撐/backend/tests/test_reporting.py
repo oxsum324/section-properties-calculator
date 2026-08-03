@@ -10,7 +10,7 @@ from docx import Document
 from pypdf import PdfReader
 
 from backend.app.calculations import calculate_project
-from backend.app.reporting import _concise_metric_text, build_report, build_word_report
+from backend.app.reporting import _concise_metric_text, build_report, build_word_report, calculation_fingerprint
 from backend.app.workbook_loader import load_default_project
 
 
@@ -101,6 +101,8 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("工程名稱", combined_text)
         self.assertIn("工程位置", combined_text)
         self.assertIn("報告日期", combined_text)
+        self.assertIn("計算指紋", combined_text)
+        self.assertIn(calculation_fingerprint(self.default_word_artifact()["project"]), combined_text)
         self.assertIn("內容提要", combined_text)
         self.assertIn("報告說明", combined_text)
         self.assertIn("六、結構計算結果", combined_text)
@@ -136,6 +138,8 @@ class ReportingTests(unittest.TestCase):
         self.assertIn("內容提要", text)
         self.assertIn("附件一", text)
         self.assertIn("主要控制項目彙整", text)
+        self.assertIn("計算指紋", text)
+        self.assertIn(calculation_fingerprint(project), text)
         self.assertEqual(first_page_text.count("擋土支撐檢核計算書"), 1)
         report_path.unlink(missing_ok=True)
 

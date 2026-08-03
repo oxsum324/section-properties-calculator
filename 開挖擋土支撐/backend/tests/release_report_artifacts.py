@@ -15,7 +15,8 @@ from pypdf import PdfReader
 
 from backend.app.calculations import calculate_project
 from backend.app.project_store import ProjectStore
-from backend.app.reporting import build_report, build_word_report
+from backend.app.reporting import build_report, build_word_report, calculation_fingerprint
+from backend.app.schemas import ProjectState
 from backend.app.workbook_loader import load_default_project
 
 
@@ -53,6 +54,70 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+RESULT_GROUPS = (
+    "support_checks",
+    "wale_checks",
+    "brace_checks",
+    "corner_brace_checks",
+    "column_checks",
+)
+
+CHECK_FIELDS = (
+    "module_name",
+    "label",
+    "formula_id",
+    "computed_value",
+    "allowable_value",
+    "utilization_ratio",
+    "status",
+    "controlling_condition",
+)
+
+
+def canonical_results(project: ProjectState) -> dict:
+    require(project.calculation_results is not None, "project must contain calculation results")
+    return project.calculation_results.model_dump(mode="json", exclude={"generated_at"})
+
+
+def canonical_sha256(payload: dict) -> str:
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def verify_replayed_results(expected: dict, actual: dict) -> tuple[int, int, dict[str, int]]:
+    assertion_count = 0
+    check_count = 0
+    group_counts: dict[str, int] = {}
+    for group_name in RESULT_GROUPS:
+        expected_checks = expected.get(group_name) or []
+        actual_checks = actual.get(group_name) or []
+        require(len(actual_checks) == len(expected_checks), f"replayed {group_name} check count must match")
+        assertion_count += 1
+        group_counts[group_name] = len(actual_checks)
+        check_count += len(actual_checks)
+        for index, (expected_check, actual_check) in enumerate(zip(expected_checks, actual_checks, strict=True)):
+            for field in CHECK_FIELDS:
+                require(
+                    actual_check.get(field) == expected_check.get(field),
+                    f"replayed {group_name}[{index}].{field} must match",
+                )
+                assertion_count += 1
+
+    expected_summary = expected.get("summary") or []
+    actual_summary = actual.get("summary") or []
+    require(len(actual_summary) == len(expected_summary), "replayed summary count must match")
+    assertion_count += 1
+    summary_fields = ("group", "label", "section_name", "status", "utilization_ratio")
+    for index, (expected_item, actual_item) in enumerate(zip(expected_summary, actual_summary, strict=True)):
+        for field in summary_fields:
+            require(actual_item.get(field) == expected_item.get(field), f"replayed summary[{index}].{field} must match")
+            assertion_count += 1
+
+    require(actual.get("warnings") == expected.get("warnings"), "replayed warnings must match")
+    assertion_count += 1
+    return check_count, assertion_count, group_counts
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         raise SystemExit("usage: release_report_artifacts.py <output-dir>")
@@ -60,12 +125,36 @@ def main() -> int:
     output_dir = Path(sys.argv[1]).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    project = load_default_project().model_copy(deep=True)
-    project.metadata.id = "release-evidence"
-    project.metadata.name = "正式放行擋土支撐範例"
-    project.metadata.project_code = "EXCAVATION-RELEASE"
-    project.metadata.location = "本地正式放行驗證"
-    project.calculation_results = calculate_project(project)
+    source_project = load_default_project().model_copy(deep=True)
+    source_project.metadata.id = "release-evidence"
+    source_project.metadata.name = "正式放行擋土支撐範例"
+    source_project.metadata.project_code = "EXCAVATION-RELEASE"
+    source_project.metadata.location = "本地正式放行驗證"
+    source_project.calculation_results = None
+
+    source_project_path = output_dir / "excavation-project-state.json"
+    source_project_path.write_text(
+        json.dumps(source_project.model_dump(mode="json"), ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    reloaded_project = ProjectState.model_validate_json(source_project_path.read_text(encoding="utf-8"))
+    require(reloaded_project.calculation_results is None, "preserved ProjectState must contain inputs only")
+
+    baseline_project = source_project.model_copy(deep=True)
+    baseline_project.calculation_results = calculate_project(baseline_project)
+    reloaded_project.calculation_results = calculate_project(reloaded_project)
+    expected_results = canonical_results(baseline_project)
+    replayed_results = canonical_results(reloaded_project)
+    require(replayed_results == expected_results, "ProjectState replay must reproduce the complete result payload")
+    verified_check_count, verified_assertion_count, verified_group_counts = verify_replayed_results(
+        expected_results,
+        replayed_results,
+    )
+    require(verified_check_count == 47, "release ProjectState replay must verify all 47 component checks")
+    project = reloaded_project
+    result_sha256 = canonical_sha256(replayed_results)
+    fingerprint = calculation_fingerprint(project)
+    require(re.fullmatch(r"CF-[0-9A-F]{16}", fingerprint) is not None, "release calculation fingerprint format")
 
     generated_pdf: Path | None = None
     generated_docx: Path | None = None
@@ -132,6 +221,8 @@ def main() -> int:
         for needle in PAGE_ONLY_REPORT_STATUS_NEEDLES:
             require(needle not in pdf_text, f"release PDF contains page-only text: {needle}")
             require(needle not in docx_text, f"release DOCX contains page-only text: {needle}")
+        require(fingerprint in pdf_text, "release PDF must contain the replayed calculation fingerprint")
+        require(fingerprint in docx_text, "release DOCX must contain the replayed calculation fingerprint")
 
         pdf_hash = sha256(pdf_path)
         docx_hash = sha256(docx_path)
@@ -175,6 +266,21 @@ def main() -> int:
                     "drawingCount": drawing_count,
                     "mediaCount": media_count,
                     "projectName": project.metadata.name,
+                    "resultReconciliation": {
+                        "schemaVersion": 1,
+                        "strategy": "excavation-project-state-replay-to-pdf-docx-hash",
+                        "caseId": project.metadata.id,
+                        "sourceProject": source_project_path.name,
+                        "sourceProjectSha256": sha256(source_project_path),
+                        "resultSha256": result_sha256,
+                        "calculationFingerprint": fingerprint,
+                        "verifiedCheckCount": verified_check_count,
+                        "verifiedAssertionCount": verified_assertion_count,
+                        "verifiedGroupCounts": verified_group_counts,
+                        "pdfSha256": pdf_hash,
+                        "docxSha256": docx_hash,
+                        "pass": True,
+                    },
                 }
             ],
         }
@@ -185,7 +291,8 @@ def main() -> int:
         print(
             "Excavation release artifacts OK "
             f"(pdfPages={len(reader.pages)}, pdfText={len(pdf_text)}, "
-            f"docxText={len(docx_text)}, output={output_dir})"
+            f"docxText={len(docx_text)}, checks={verified_check_count}, "
+            f"assertions={verified_assertion_count}, output={output_dir})"
         )
         return 0
     finally:

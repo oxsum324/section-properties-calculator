@@ -548,7 +548,7 @@ assert.ok(reportReadinessOverview.details.join(' ').includes('覆工板'), 'repo
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式計算書可讀文字抽檢') && reportReadinessOverview.details.join(' ').includes('完整交付前檢查'), 'report readiness overview keeps report text runtime evidence boundary');
 assert.ok(reportReadinessOverview.reportTextSmokeScope.includes('風力 / 地震正式工具') && reportReadinessOverview.reportTextSmokeScope.includes('局部快算'), 'report readiness overview names report text scope');
 assert.ok(reportReadinessOverview.renderedDeliveryEvidenceSummary.includes('實際交付物渲染') && reportReadinessOverview.renderedDeliveryEvidenceSummary.includes('PDF、DOCX 或 workbook 成品'), 'report readiness overview names rendered delivery evidence');
-assert.ok(Array.isArray(reportReadinessOverview.meta) && reportReadinessOverview.meta.length === 11, 'report readiness overview exposes compact metrics');
+assert.ok(Array.isArray(reportReadinessOverview.meta) && reportReadinessOverview.meta.length === 12, 'report readiness overview exposes compact metrics');
 assert.ok(reportReadinessOverview.meta.some(item => item.text === '成品檔案完整性'), 'report readiness overview exposes delivery file integrity metric');
 assert.ok(reportReadinessOverview.meta.some(item => item.text === '數值結果鏈'), 'report readiness overview exposes formal result reconciliation metric');
 assert.ok(reportReadinessOverview.meta.some(item => item.text === 'RC 結果鏈'), 'report readiness overview exposes RC result reconciliation metric');
@@ -556,6 +556,7 @@ assert.ok(reportReadinessOverview.meta.some(item => item.text === '鋼構結果�
 assert.ok(reportReadinessOverview.meta.some(item => item.text === '石材結果鏈'), 'report readiness overview exposes stone result reconciliation metric');
 assert.ok(reportReadinessOverview.meta.some(item => item.text === '錨栓結果鏈'), 'report readiness overview exposes anchor result reconciliation metric');
 assert.ok(reportReadinessOverview.meta.some(item => item.text === '覆工板結果鏈'), 'report readiness overview exposes decking result reconciliation metric');
+assert.ok(reportReadinessOverview.meta.some(item => item.text === '開挖結果鏈'), 'report readiness overview exposes excavation result reconciliation metric');
 assert.ok(reportReadinessOverview.details.join(' ').includes('JSON/計算書/文字 邊界'), 'report readiness overview covers local quick text boundary chip');
 assert.ok(reportReadinessOverview.details.join(' ').includes('正式交付仍以計算書、Word、PDF、workbook 或下載端點輸出為準'), 'report readiness overview keeps delivery boundary');
 assert.equal(reportReadinessStatusSnapshot.kind, 'report-readiness-status', 'tracked report readiness snapshot kind');

@@ -83,7 +83,9 @@ node excavation-traceability.contract.test.js
 node excavation-report.contract.test.js
 ```
 
-當 `PREFLIGHT_RELEASE=1` 且提供 `PREFLIGHT_RUN_DIR` 時，報告契約會呼叫 `backend/tests/release_report_artifacts.py`，把當輪正式放行產生的 PDF、DOCX 與專案 `latest-report.pdf` / `latest-report.docx` 最新下載副本保存到 ignored 的 `rendered-delivery-evidence/excavation-formal/`。平台總閘門會重新解析成品的文字、頁數、段落、表格、章節、圖面與媒體，並核對原始成品和最新下載副本的檔案雜湊；這是補充報告 / 服務成品 `2/2` 中的本機服務證據，與首頁 31 個正式工具分開計數，不提交工程案例或報告成品。
+當 `PREFLIGHT_RELEASE=1` 且提供 `PREFLIGHT_RUN_DIR` 時，報告契約會呼叫 `backend/tests/release_report_artifacts.py`，先把未含快取結果的 `excavation-project-state.json` 保存到 ignored 證據目錄，回讀後以目前 Python 後端核心重算 47 筆構件檢核並完成至少 618 項結果欄位核對，再以同一計算指紋產生 PDF、DOCX 與專案 `latest-report.pdf` / `latest-report.docx` 最新下載副本。平台總閘門會重新解析成品的文字、頁數、段落、表格、章節、圖面與媒體，核對兩份報告內的計算指紋、ProjectState／結果／成品 SHA-256，以及原始成品和最新下載副本的檔案雜湊；這是補充報告 / 服務成品 `2/2` 中的本機服務證據及開挖結果鏈 `1/1`，與首頁 31 個正式工具分開計數，不提交工程案例、來源 ProjectState、結果或報告成品。
+
+上述當輪正式放行的私密結果鏈與成品統一保存在 ignored 的 `rendered-delivery-evidence/excavation-formal/`，不發布到 Pages。
 
 ## 目前實作重點
 

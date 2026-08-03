@@ -335,6 +335,8 @@ assertIncludesAny(
   '_design_basis_lines',
   '_formula_source_text',
   'concise_mode',
+  'def calculation_fingerprint',
+  '["計算指紋", fingerprint]',
 ].forEach(needle => assertIncludes(excavationReporting, needle, `excavation reporting keeps ${needle}`));
 
 [
@@ -421,6 +423,13 @@ assertIncludesAny(
   'latestDocumentSha256',
   'xmlParagraphCount',
   'latest PDF must match generated PDF',
+  'excavation-project-state.json',
+  'ProjectState.model_validate_json',
+  'excavation-project-state-replay-to-pdf-docx-hash',
+  'verifiedCheckCount',
+  'verifiedAssertionCount',
+  'calculationFingerprint',
+  'release PDF must contain the replayed calculation fingerprint',
 ].forEach(needle => assertIncludes(excavationReleaseArtifacts, needle, `excavation durable release artifact generator keeps ${needle}`));
 
 [

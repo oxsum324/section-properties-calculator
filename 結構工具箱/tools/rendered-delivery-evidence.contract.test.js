@@ -532,6 +532,24 @@ function deckingResultReconciliationSetHash(records) {
     .digest('hex');
 }
 
+function excavationResultReconciliationSetHash(records) {
+  return createHash('sha256')
+    .update(records
+      .map(record => [
+        record.caseId,
+        record.sourceProjectSha256,
+        record.resultSha256,
+        record.calculationFingerprint,
+        record.verifiedCheckCount,
+        record.verifiedAssertionCount,
+        record.pdfSha256,
+        record.docxSha256,
+      ].join('\u0000'))
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
 function validateDeckingResultReconciliationRecord(record, directory, renderedText, label) {
   const reconciliation = record?.resultReconciliation;
   assert.equal(reconciliation?.schemaVersion, 1, `${label} decking result reconciliation schema`);
@@ -554,6 +572,63 @@ function validateDeckingResultReconciliationRecord(record, directory, renderedTe
   assert.equal(renderedText.includes(reconciliation?.calculationFingerprint), true, `${label} decking DOCX contains the replayed calculation fingerprint`);
   assert.equal(reconciliation?.pass, true, `${label} decking result reconciliation passes`);
   return { caseId: record.key, ...reconciliation };
+}
+
+function validateExcavationResultReconciliationRecord(record, directory, renderedTexts, label) {
+  const reconciliation = record?.resultReconciliation;
+  assert.equal(reconciliation?.schemaVersion, 1, `${label} excavation result reconciliation schema`);
+  assert.equal(
+    reconciliation?.strategy,
+    'excavation-project-state-replay-to-pdf-docx-hash',
+    `${label} excavation result reconciliation strategy`
+  );
+  assert.equal(record?.key, 'excavation-report', `${label} excavation producer record identity`);
+  assert.equal(reconciliation?.caseId, 'release-evidence', `${label} excavation replay case identity`);
+  const sourceProjectName = reconciliation?.sourceProject || '';
+  assert.equal(path.basename(sourceProjectName), sourceProjectName, `${label} excavation ProjectState uses a local artifact name`);
+  const sourceProjectPath = path.join(directory, sourceProjectName);
+  assert.ok(fs.existsSync(sourceProjectPath), `${label} excavation ProjectState exists`);
+  assert.equal(reconciliation?.sourceProjectSha256, sha256File(sourceProjectPath), `${label} excavation ProjectState SHA-256 matches producer summary`);
+  const sourceProject = readJson(sourceProjectPath);
+  assert.equal(sourceProject?.metadata?.id, reconciliation?.caseId, `${label} excavation ProjectState keeps case identity`);
+  assert.equal(sourceProject?.metadata?.project_code, 'EXCAVATION-RELEASE', `${label} excavation ProjectState keeps project code`);
+  assert.equal(sourceProject?.calculation_results, null, `${label} excavation ProjectState preserves inputs without cached results`);
+  const expectedGroupCounts = {
+    top_supports: 6,
+    bottom_supports: 6,
+    top_wales: 6,
+    bottom_wales: 6,
+    top_braces: 6,
+    bottom_braces: 6,
+    corner_braces: 8,
+    columns: 3,
+  };
+  for (const [group, expected] of Object.entries(expectedGroupCounts)) {
+    assert.equal(sourceProject?.[group]?.length, expected, `${label} excavation ProjectState keeps ${group}`);
+  }
+  assert.match(String(reconciliation?.resultSha256 || ''), /^[0-9a-f]{64}$/i, `${label} excavation result SHA-256`);
+  assert.match(String(reconciliation?.calculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} excavation calculation fingerprint`);
+  assert.equal(
+    reconciliation?.calculationFingerprint,
+    `CF-${String(reconciliation?.resultSha256 || '').slice(0, 16).toUpperCase()}`,
+    `${label} excavation fingerprint derives from replayed results`
+  );
+  assert.equal(reconciliation?.verifiedCheckCount, 47, `${label} excavation verifies all 47 component checks`);
+  assert.ok(Number.isInteger(reconciliation?.verifiedAssertionCount) && reconciliation.verifiedAssertionCount >= 618, `${label} excavation verified result assertions`);
+  assert.deepEqual(reconciliation?.verifiedGroupCounts, {
+    support_checks: 12,
+    wale_checks: 12,
+    brace_checks: 12,
+    corner_brace_checks: 8,
+    column_checks: 3,
+  }, `${label} excavation verifies every component family`);
+  assert.equal(reconciliation?.pdfSha256, record?.artifactSha256, `${label} excavation PDF hash matches producer summary`);
+  assert.equal(reconciliation?.docxSha256, record?.documentSha256, `${label} excavation DOCX hash matches producer summary`);
+  for (const [format, visibleText] of Object.entries(renderedTexts || {})) {
+    assert.ok(String(visibleText || '').includes(reconciliation.calculationFingerprint), `${label} excavation ${format} contains the replay calculation fingerprint`);
+  }
+  assert.equal(reconciliation?.pass, true, `${label} excavation result reconciliation passes`);
+  return { caseId: reconciliation.caseId, ...reconciliation };
 }
 
 function uniqueIntegrityArtifacts(artifacts, label) {
@@ -1152,6 +1227,7 @@ const steelResultReconciliationRecords = [];
 const stoneResultReconciliationRecords = [];
 const anchorResultReconciliationRecords = [];
 const deckingResultReconciliationRecords = [];
+const excavationResultReconciliationRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
@@ -1684,6 +1760,13 @@ assert.equal(excavationEvidence.xmlSectionCount, excavationSectionCount, 'excava
 assert.equal(excavationEvidence.pageBreakCount, excavationPageBreakCount, 'excavation summary matches DOCX page-break count');
 assert.equal(excavationEvidence.drawingCount, excavationDrawingCount, 'excavation summary matches DOCX drawing count');
 assert.equal(excavationEvidence.mediaCount, excavationMediaCount, 'excavation summary matches DOCX media count');
+const excavationPdfText = fs.readFileSync(excavationPdf.textPath, 'utf8');
+excavationResultReconciliationRecords.push(validateExcavationResultReconciliationRecord(
+  excavationEvidence,
+  excavationEvidenceDir,
+  { PDF: excavationPdfText, DOCX: excavationDocxText },
+  'excavation-report'
+));
 supplementalRecords.push({
   title: '開挖擋土支撐',
   family: 'excavation-formal',
@@ -1832,6 +1915,19 @@ const deckingResultReconciliation = {
 assert.equal(new Set(deckingResultReconciliationRecords.map(record => record.caseId)).size, deckingResultReconciliationRecords.length, 'release rendered evidence decking result reconciliation identities are unique');
 assert.equal(deckingResultReconciliation.complete, deckingResultReconciliation.required, 'release rendered evidence reconciles the decking JSON replay to DOCX hash');
 assert.equal(deckingResultReconciliation.pass, true, 'release rendered evidence passes decking result reconciliation');
+const excavationResultReconciliation = {
+  schemaVersion: 1,
+  scope: 'excavation-project-state-replay-to-pdf-docx-hash',
+  required: 1,
+  complete: excavationResultReconciliationRecords.length,
+  issueCount: Math.max(0, 1 - excavationResultReconciliationRecords.length),
+  pass: excavationResultReconciliationRecords.length === 1,
+  setSha256: excavationResultReconciliationSetHash(excavationResultReconciliationRecords),
+  records: excavationResultReconciliationRecords,
+};
+assert.equal(new Set(excavationResultReconciliationRecords.map(record => record.caseId)).size, excavationResultReconciliationRecords.length, 'release rendered evidence excavation result reconciliation identities are unique');
+assert.equal(excavationResultReconciliation.complete, excavationResultReconciliation.required, 'release rendered evidence reconciles the excavation ProjectState replay to PDF and DOCX hashes');
+assert.equal(excavationResultReconciliation.pass, true, 'release rendered evidence passes excavation result reconciliation');
 assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 60 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 62 RC PDF and PNG visual artifacts');
@@ -1844,7 +1940,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 10,
+  schemaVersion: 11,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -1853,7 +1949,7 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass && deckingResultReconciliation.pass && excavationResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -1864,10 +1960,11 @@ const aggregate = {
   stoneResultReconciliation,
   anchorResultReconciliation,
   deckingResultReconciliation,
+  excavationResultReconciliation,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, deckingResultReconciliation=${deckingResultReconciliation.complete}/${deckingResultReconciliation.required}, excavationResultReconciliation=${excavationResultReconciliation.complete}/${excavationResultReconciliation.required}, summary=${aggregatePath})`);

@@ -100,6 +100,7 @@ V1.6 的重點是額外新增公司內部 Web App 型工具入口，能同時看
 - 石材正式計算書結果鏈：schema v8 由目前瀏覽器核心重播 `case_01_standard_safe` golden 輸入，精確核對地震力、固定件需求與控制強度等 6 項結果，再由同一 payload 產生 PDF、DOCX 與 audit。Producer 保存 golden 檔、來源 payload、輸入／結果／計算來源及三份成品的 SHA-256；release aggregate 核對 `1/1` 並形成私人集合 SHA-256。Pages 僅顯示「石材結果鏈 `1/1`」，不公開 golden 案例資料、來源 payload、結果或成品雜湊。
 - 錨栓正式計算書結果鏈：schema v9 由 v2 工作區備份保存案例重現指紋，匯入後以目前計算核心重新計算並核對控制組合、控制模式、DCR 與判定等 7 項結果，再以同一重現指紋產生正式 HTML、DOCX 與 XLSX。Producer 私密保存實際來源備份及三份成品 SHA-256；release aggregate 核對 `1/1` 並形成私人集合 SHA-256。Pages 僅顯示「錨栓結果鏈 `1/1`」，不公開工作區資料、來源備份雜湊、案例重現／計算指紋或成品雜湊。
 - 覆工板正式計算書結果鏈：schema v10 由固定匯出 JSON 的六組輸入呼叫目前頁面計算核心，逐項重算覆工板面、小梁、大梁、共構柱、握裹與樁基共 31 項控制結果，再以重算結果及同一計算指紋產生 DOCX。Producer 私密保存實際來源 JSON、來源及成品 SHA-256；release aggregate 核對 `1/1` 並形成私人集合 SHA-256。Pages 僅顯示「覆工板結果鏈 `1/1`」，不公開來源 JSON、輸入／結果資料、計算指紋或成品雜湊。
+- 開挖擋土支撐正式計算書結果鏈：schema v11 保存不含快取計算結果的 ProjectState，回讀後以目前 Python 後端核心重新計算，逐項核對支撐、橫擋、斜撐、大角撐與柱構件共 47 筆檢核、618 項結果欄位，再以重算結果及同一計算指紋產生 PDF 與 DOCX。Producer 私密保存 ProjectState、結果及兩份成品 SHA-256；release aggregate 核對 `1/1` 並形成私人集合 SHA-256。Pages 僅顯示「開挖結果鏈 `1/1`」，不公開 ProjectState、輸入／結果資料、計算指紋或成品雜湊。
 - 工具成熟度矩陣產生器：
   [結構工具箱/tools/tool-maturity-matrix.js](/C:/Users/USER/Desktop/AI/小工具製作/結構工具箱/tools/tool-maturity-matrix.js:1)
   - 合併正式工具與局部快算 manifest，輸出 `reportTextSmoke` / `報告可讀文字抽檢`、`documentState` / `計算書文件狀態`、golden case、JSON round-trip、reference traceability 等治理覆蓋率，讓首頁與巡檢儀表板能看見報告可讀性及內部審閱／正式附件核可邊界證據，但不把頁面閱讀狀態明細寫入計算書或列印 PDF。

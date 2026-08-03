@@ -96,11 +96,11 @@
         {
           "id": "excavation-pdf-word-report-parity",
           "clause": "擋土支撐檢核計算書交付治理、設計依據段落與 PDF / DOCX 報表一致性",
-          "purpose": "PDF 與 DOCX 需引用同一份 ProjectState 與公式來源文字，避免前端結果、PDF 報表與 Word 編修版說法漂移。",
+          "purpose": "PDF 與 DOCX 需引用同一份 ProjectState 與公式來源文字；正式放行另保存未含快取結果的 ProjectState，回讀後以目前後端核心重算，避免前端結果、PDF 報表與 Word 編修版說法漂移。",
           "inputs": ["ProjectState", "ReportPayload", "concise_mode", "calculation_results", "analysis_sources", "project metadata"],
-          "calculation": ["build_report", "build_word_report", "_report_scope_lines", "_design_basis_lines", "_analysis_program_description", "_formula_source_text"],
-          "report": ["擋土支撐檢核計算書", "設計依據", "結構分析使用之電腦程式", "構件檢核彙整", "計算明細附錄"],
-          "evidence": ["backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_reporting.py", "excavation-report.contract.test.js", "frontend/src/App.tsx", "frontend/src/api.ts"],
+          "calculation": ["calculate_project", "ProjectState.model_validate_json", "calculation_fingerprint", "build_report", "build_word_report", "_report_scope_lines", "_design_basis_lines", "_analysis_program_description", "_formula_source_text"],
+          "report": ["擋土支撐檢核計算書", "計算指紋", "設計依據", "結構分析使用之電腦程式", "構件檢核彙整", "計算明細附錄"],
+          "evidence": ["backend/app/reporting.py", "backend/app/schemas.py", "backend/tests/test_reporting.py", "backend/tests/release_report_artifacts.py", "excavation-report.contract.test.js", "frontend/src/App.tsx", "frontend/src/api.ts"],
           "manualReview": ["PDF / DOCX 報表只能證明工具輸出一致；簽章、設計依據版本、圖說、分析模型、附件、專案指定值與送審文字仍須由設計者或審查者人工確認。"]
         },
         {
