@@ -498,6 +498,25 @@ function stoneResultReconciliationSetHash(records) {
     .digest('hex');
 }
 
+function anchorResultReconciliationSetHash(records) {
+  return createHash('sha256')
+    .update(records
+      .map(record => [
+        record.caseId,
+        record.sourceBackupSha256,
+        record.sourceReplayFingerprint,
+        record.calculationFingerprint,
+        record.verifiedProjectCount,
+        record.verifiedAssertionCount,
+        record.htmlSha256,
+        record.docxSha256,
+        record.workbookSha256,
+      ].join('\u0000'))
+      .sort()
+      .join('\n'), 'utf8')
+    .digest('hex');
+}
+
 function uniqueIntegrityArtifacts(artifacts, label) {
   const unique = new Map();
   for (const artifact of artifacts) {
@@ -623,6 +642,49 @@ function validateStoneResultReconciliationRecord(record, audit, label) {
   assert.equal(reconciliation?.docxSha256, record?.documentSha256, `${label} stone DOCX hash matches producer summary`);
   assert.equal(reconciliation?.auditSha256, record?.evidenceSha256, `${label} stone audit hash matches producer summary`);
   assert.equal(reconciliation?.pass, true, `${label} stone result reconciliation passes`);
+  return { key: record.key, ...reconciliation };
+}
+
+function validateAnchorResultReconciliationRecord(record, directory, renderedTexts, label) {
+  const reconciliation = record?.resultReconciliation;
+  assert.equal(reconciliation?.schemaVersion, 1, `${label} anchor result reconciliation schema`);
+  assert.equal(reconciliation?.strategy, 'anchor-workspace-replay-to-html-docx-xlsx-hash', `${label} anchor result reconciliation strategy`);
+  assert.match(String(reconciliation?.caseId || ''), /^[a-z0-9][a-z0-9_-]+$/i, `${label} anchor replay case identity`);
+  for (const [field, value] of Object.entries({
+    sourceBackupSha256: reconciliation?.sourceBackupSha256,
+    sourceReplayFingerprint: reconciliation?.sourceReplayFingerprint,
+    htmlSha256: reconciliation?.htmlSha256,
+    docxSha256: reconciliation?.docxSha256,
+    workbookSha256: reconciliation?.workbookSha256,
+  })) {
+    assert.match(String(value || ''), /^[0-9a-f]{64}$/i, `${label} anchor ${field}`);
+  }
+  assert.match(String(reconciliation?.calculationFingerprint || ''), /^CF-[0-9A-F]{16}$/i, `${label} anchor calculation fingerprint`);
+  assert.equal(reconciliation?.calculationFingerprint, `CF-${String(reconciliation?.sourceReplayFingerprint || '').slice(0, 16).toUpperCase()}`, `${label} anchor report fingerprint derives from source replay`);
+  assert.equal(reconciliation?.verifiedProjectCount, 1, `${label} anchor verifies one source project`);
+  assert.ok(Number.isInteger(reconciliation?.verifiedAssertionCount) && reconciliation.verifiedAssertionCount >= 7, `${label} anchor verified result assertions`);
+  assert.ok(record?.sourceBackup, `${label} anchor preserves the replay source backup`);
+  const sourceBackupPath = path.join(directory, record.sourceBackup);
+  assert.ok(fs.existsSync(sourceBackupPath), `${label} anchor source backup exists`);
+  assert.equal(fs.statSync(sourceBackupPath).size, record.sourceBackupBytes, `${label} anchor source backup bytes match producer summary`);
+  assert.equal(sha256File(sourceBackupPath), record.sourceBackupArtifactSha256, `${label} anchor source backup artifact SHA-256 matches producer summary`);
+  assert.equal(reconciliation?.sourceBackupSha256, record.sourceBackupArtifactSha256, `${label} anchor replay source hash matches preserved backup`);
+  const sourceBackup = readJson(sourceBackupPath);
+  assert.equal(sourceBackup.schema, 'bolt-review-tool-backup', `${label} anchor source backup schema`);
+  assert.equal(sourceBackup.version, 2, `${label} anchor source backup version`);
+  assert.equal(sourceBackup.projects?.length, 1, `${label} anchor source backup project count`);
+  assert.equal(sourceBackup.caseReplay?.length, 1, `${label} anchor source backup replay count`);
+  assert.equal(sourceBackup.projects[0]?.id, reconciliation?.caseId, `${label} anchor source project identity matches reconciliation`);
+  assert.equal(sourceBackup.caseReplay[0]?.projectId, reconciliation?.caseId, `${label} anchor replay project identity matches reconciliation`);
+  assert.equal(sourceBackup.caseReplay[0]?.selectedProductId, sourceBackup.projects[0]?.selectedProductId, `${label} anchor replay product identity matches source project`);
+  assert.equal(sourceBackup.caseReplay[0]?.fingerprint, reconciliation?.sourceReplayFingerprint, `${label} anchor source replay fingerprint matches preserved backup`);
+  assert.equal(reconciliation?.htmlSha256, record?.artifactSha256, `${label} anchor HTML hash matches producer summary`);
+  assert.equal(reconciliation?.docxSha256, record?.documentSha256, `${label} anchor DOCX hash matches producer summary`);
+  assert.equal(reconciliation?.workbookSha256, record?.workbookSha256, `${label} anchor XLSX hash matches producer summary`);
+  for (const [format, visibleText] of Object.entries(renderedTexts || {})) {
+    assert.ok(String(visibleText || '').includes(reconciliation.calculationFingerprint), `${label} anchor ${format} contains the replay calculation fingerprint`);
+  }
+  assert.equal(reconciliation?.pass, true, `${label} anchor result reconciliation passes`);
   return { key: record.key, ...reconciliation };
 }
 
@@ -982,6 +1044,58 @@ assert.throws(
   'stone result reconciliation blocks a PDF detached from the golden replay and audit chain'
 );
 
+const anchorResultFixtureDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'anchor-result-reconciliation-'));
+try {
+  const replayFingerprint = '6'.repeat(64);
+  const calculationFingerprint = `CF-${replayFingerprint.slice(0, 16).toUpperCase()}`;
+  const sourceBackupName = 'anchor-source-backup.json';
+  const sourceBackupPayload = {
+    schema: 'bolt-review-tool-backup',
+    version: 2,
+    products: [{ id: 'fixture-product' }],
+    projects: [{ id: 'fixture-anchor-case', selectedProductId: 'fixture-product' }],
+    caseReplay: [{ projectId: 'fixture-anchor-case', selectedProductId: 'fixture-product', fingerprint: replayFingerprint }],
+  };
+  const sourceBackupText = JSON.stringify(sourceBackupPayload);
+  fs.writeFileSync(path.join(anchorResultFixtureDir, sourceBackupName), sourceBackupText, 'utf8');
+  const sourceBackupSha256 = createHash('sha256').update(sourceBackupText, 'utf8').digest('hex');
+  const anchorResultReconciliationFixture = {
+    key: 'anchor-review',
+    artifactSha256: '7'.repeat(64),
+    documentSha256: '8'.repeat(64),
+    workbookSha256: '9'.repeat(64),
+    sourceBackup: sourceBackupName,
+    sourceBackupBytes: Buffer.byteLength(sourceBackupText, 'utf8'),
+    sourceBackupArtifactSha256: sourceBackupSha256,
+    resultReconciliation: {
+      schemaVersion: 1,
+      strategy: 'anchor-workspace-replay-to-html-docx-xlsx-hash',
+      caseId: 'fixture-anchor-case',
+      sourceBackupSha256,
+      sourceReplayFingerprint: replayFingerprint,
+      calculationFingerprint,
+      verifiedProjectCount: 1,
+      verifiedAssertionCount: 7,
+      htmlSha256: '7'.repeat(64),
+      docxSha256: '8'.repeat(64),
+      workbookSha256: '9'.repeat(64),
+      pass: true,
+    },
+  };
+  const renderedTexts = { HTML: calculationFingerprint, DOCX: calculationFingerprint, XLSX: calculationFingerprint };
+  validateAnchorResultReconciliationRecord(anchorResultReconciliationFixture, anchorResultFixtureDir, renderedTexts, 'anchor result reconciliation fixture');
+  assert.throws(
+    () => validateAnchorResultReconciliationRecord({
+      ...anchorResultReconciliationFixture,
+      workbookSha256: 'a'.repeat(64),
+    }, anchorResultFixtureDir, renderedTexts, 'tampered anchor result reconciliation fixture'),
+    /anchor XLSX hash matches producer summary/,
+    'anchor result reconciliation blocks a workbook detached from the replayed source backup'
+  );
+} finally {
+  fs.rmSync(anchorResultFixtureDir, { recursive: true, force: true });
+}
+
 const strictRelease = process.env.PREFLIGHT_RELEASE === '1';
 if (!strictRelease) {
   console.log(`Rendered delivery evidence contract OK (inventory=${inventory.tools.length}, current-run artifact verification skipped outside release mode)`);
@@ -997,6 +1111,7 @@ const formalResultReconciliationRecords = [];
 const rcResultReconciliationRecords = [];
 const steelResultReconciliationRecords = [];
 const stoneResultReconciliationRecords = [];
+const anchorResultReconciliationRecords = [];
 
 for (const family of ['formal-tools', 'local-quick-tools', 'steel-formal']) {
   const tools = inventory.tools.filter(tool => tool.family === family);
@@ -1234,6 +1349,12 @@ assert.equal(anchorEvidence.blockedDocumentState, 'blocked', 'anchor summary rec
 assert.equal(anchorEvidence.blockedHtmlTextLength, anchorBlockedHtml.length, 'anchor summary matches blocked HTML length');
 assert.equal(anchorEvidence.documentBytes, fs.statSync(anchorDocxPath).size, 'anchor summary matches preserved DOCX size');
 assert.equal(anchorEvidence.workbookBytes, fs.statSync(anchorWorkbookPath).size, 'anchor summary matches preserved XLSX size');
+anchorResultReconciliationRecords.push(validateAnchorResultReconciliationRecord(
+  anchorEvidence,
+  anchorEvidenceDir,
+  { HTML: anchorHtmlText, DOCX: anchorDocxText, XLSX: anchorWorkbookText },
+  anchorTool.title,
+));
 records.push({
   href: anchorTool.href,
   title: anchorTool.title,
@@ -1639,6 +1760,19 @@ const stoneResultReconciliation = {
 assert.equal(new Set(stoneResultReconciliationRecords.map(record => record.caseId)).size, stoneResultReconciliationRecords.length, 'release rendered evidence stone result reconciliation identities are unique');
 assert.equal(stoneResultReconciliation.complete, stoneResultReconciliation.required, 'release rendered evidence reconciles the stone golden replay to PDF, DOCX, and audit hashes');
 assert.equal(stoneResultReconciliation.pass, true, 'release rendered evidence passes stone result reconciliation');
+const anchorResultReconciliation = {
+  schemaVersion: 1,
+  scope: 'anchor-workspace-replay-to-html-docx-xlsx-hash',
+  required: 1,
+  complete: anchorResultReconciliationRecords.length,
+  issueCount: Math.max(0, 1 - anchorResultReconciliationRecords.length),
+  pass: anchorResultReconciliationRecords.length === 1,
+  setSha256: anchorResultReconciliationSetHash(anchorResultReconciliationRecords),
+  records: anchorResultReconciliationRecords,
+};
+assert.equal(new Set(anchorResultReconciliationRecords.map(record => record.caseId)).size, anchorResultReconciliationRecords.length, 'release rendered evidence anchor result reconciliation identities are unique');
+assert.equal(anchorResultReconciliation.complete, anchorResultReconciliation.required, 'release rendered evidence reconciles the anchor workspace replay to HTML, DOCX, and XLSX hashes');
+assert.equal(anchorResultReconciliation.pass, true, 'release rendered evidence passes anchor result reconciliation');
 assert.equal(canonicalArtifactIntegrity.verified, canonicalArtifactIntegrity.required, 'release rendered evidence verifies all 60 canonical PDF and evidence files');
 assert.equal(canonicalArtifactIntegrity.pass, true, 'release rendered evidence passes canonical PDF and evidence integrity');
 assert.equal(rcVisualArtifactIntegrity.verified, rcVisualArtifactIntegrity.required, 'release rendered evidence verifies all 62 RC PDF and PNG visual artifacts');
@@ -1651,7 +1785,7 @@ assert.equal(attachmentIntegrity.verified, attachmentIntegrity.required, 'releas
 assert.equal(attachmentIntegrity.issueCount, 0, 'release rendered evidence has no RC HTML attachment integrity issue');
 assert.equal(attachmentIntegrity.pass, true, 'release rendered evidence passes RC HTML attachment integrity');
 const aggregate = {
-  schemaVersion: 8,
+  schemaVersion: 9,
   kind: 'release-rendered-delivery-evidence',
   generatedAt: new Date().toISOString(),
   runId: path.basename(runDir),
@@ -1660,7 +1794,7 @@ const aggregate = {
   supplementalRequired: 2,
   supplementalComplete: supplementalRecords.length,
   supplementalPass: supplementalRecords.length === 2,
-  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass,
+  pass: records.length === inventory.tools.length && supplementalRecords.length === 2 && attachmentIntegrity.pass && mixedArtifactIntegrity.pass && rcVisualArtifactIntegrity.pass && canonicalArtifactIntegrity.pass && formalResultReconciliation.pass && rcResultReconciliation.pass && steelResultReconciliation.pass && stoneResultReconciliation.pass && anchorResultReconciliation.pass,
   attachmentIntegrity,
   mixedArtifactIntegrity,
   rcVisualArtifactIntegrity,
@@ -1669,10 +1803,11 @@ const aggregate = {
   rcResultReconciliation,
   steelResultReconciliation,
   stoneResultReconciliation,
+  anchorResultReconciliation,
   records,
   supplementalRecords,
 };
 const aggregatePath = path.join(runDir, 'rendered-delivery-evidence', 'rendered-delivery-evidence-summary.json');
 fs.mkdirSync(path.dirname(aggregatePath), { recursive: true });
 fs.writeFileSync(aggregatePath, `${JSON.stringify(aggregate, null, 2)}\n`, 'utf8');
-console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, summary=${aggregatePath})`);
+console.log(`Rendered delivery evidence contract OK (complete=${records.length}/${inventory.tools.length}, supplemental=${supplementalRecords.length}/2, mixedIntegrity=${mixedArtifactIntegrity.verified}/${mixedArtifactIntegrity.required}, rcVisualIntegrity=${rcVisualArtifactIntegrity.verified}/${rcVisualArtifactIntegrity.required}, canonicalIntegrity=${canonicalArtifactIntegrity.verified}/${canonicalArtifactIntegrity.required}, formalResultReconciliation=${formalResultReconciliation.complete}/${formalResultReconciliation.required}, rcResultReconciliation=${rcResultReconciliation.complete}/${rcResultReconciliation.required}, steelResultReconciliation=${steelResultReconciliation.complete}/${steelResultReconciliation.required}, stoneResultReconciliation=${stoneResultReconciliation.complete}/${stoneResultReconciliation.required}, anchorResultReconciliation=${anchorResultReconciliation.complete}/${anchorResultReconciliation.required}, summary=${aggregatePath})`);

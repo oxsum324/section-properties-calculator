@@ -585,6 +585,12 @@ async function main() {
   assert.equal(reportReadinessStatus.stoneResultReconciliationPass, true, 'report readiness stone result reconciliation passes');
   assert.equal(reportReadinessJson.includes('"stoneResultReconciliation":'), false, 'report readiness omits the private stone reconciliation aggregate');
   assert.equal(/stone-golden-replay-to-pdf-docx-hash|goldenCaseSha256|goldenInputSha256|pdfSha256|docxSha256|auditSha256|resultHash/.test(reportReadinessJson), false, 'report readiness omits private stone reconciliation scope and hashes');
+  assert.equal(reportReadinessStatus.anchorResultReconciliationRequired, 1, 'report readiness expects 1 anchor result reconciliation');
+  assert.equal(reportReadinessStatus.anchorResultReconciliationComplete, reportReadinessStatus.anchorResultReconciliationRequired, 'report readiness completes the anchor result reconciliation');
+  assert.equal(reportReadinessStatus.anchorResultReconciliationIssueCount, 0, 'report readiness anchor result reconciliation issues empty');
+  assert.equal(reportReadinessStatus.anchorResultReconciliationPass, true, 'report readiness anchor result reconciliation passes');
+  assert.equal(reportReadinessJson.includes('"anchorResultReconciliation":'), false, 'report readiness omits the private anchor reconciliation aggregate');
+  assert.equal(/anchor-workspace-replay-to-html-docx-xlsx-hash|sourceBackupSha256|sourceReplayFingerprint|htmlSha256|workbookSha256/.test(reportReadinessJson), false, 'report readiness omits private anchor reconciliation scope and hashes');
   if (Number.isInteger(reportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
     assert.ok([1, 2].includes(reportReadinessStatus.supplementalDeliveryEvidenceRequired), 'report readiness supplemental delivery uses a supported transition count');
     assert.equal(reportReadinessStatus.supplementalDeliveryEvidenceComplete, reportReadinessStatus.supplementalDeliveryEvidenceRequired, 'report readiness supplemental delivery fully covered');
@@ -627,6 +633,8 @@ async function main() {
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開來源資料、來源雜湊或計算指紋'), 'report readiness status explains steel reconciliation privacy boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('石材正式計算書結果鏈'), 'report readiness status exposes stone result reconciliation count');
   assert.ok(reportReadinessStatus.details.join(' ').includes('不公開 golden 案例資料、來源 payload 雜湊、結果雜湊或成品雜湊'), 'report readiness status explains stone reconciliation privacy boundary');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('錨栓正式計算書結果鏈'), 'report readiness status exposes anchor result reconciliation count');
+  assert.ok(reportReadinessStatus.details.join(' ').includes('不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊'), 'report readiness status explains anchor reconciliation privacy boundary');
   assert.ok(reportReadinessStatus.details.join(' ').includes('RC 正式附件 HTML 完整性'), 'report readiness status exposes RC HTML attachment integrity');
   assert.equal(reportReadinessStatus.runId, preflightStatus.runId, 'report readiness runId matches public preflight status');
   assert.equal(reportReadinessStatus.preflightStatusSourcePath, preflightStatus.sourcePath, 'report readiness preflight source matches public preflight status');

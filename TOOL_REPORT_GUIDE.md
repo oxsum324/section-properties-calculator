@@ -288,6 +288,8 @@ Schema v7 再把 RC 梁、柱補強納入來源重播結果鏈。Producer 必須
 
 Schema v8 新增石材正式計算書結果鏈。Producer 必須由 `case_01_standard_safe` golden 原始輸入啟動目前瀏覽器核心，核對至少 6 項數值與控制結果，再以同一 payload 產生 PDF、DOCX 與 export audit；summary 須綁定 golden 檔、來源 payload、輸入／結果／計算來源及三份成品 SHA-256。Aggregate 要求 `1/1`、案例身分唯一與私人集合 SHA-256；公開狀態只顯示完成數，不公開 golden 案例、來源或成品雜湊。
 
+Schema v9 新增錨栓正式計算書結果鏈。Producer 必須以 v2 工作區備份保存案例重現指紋，解析來源備份後用目前核心重新計算，核對至少 7 項控制結果，再以該重現指紋作為正式 HTML、DOCX 與 XLSX 的共同計算指紋；私密 summary 與來源備份實體檔須綁定來源及三份成品 SHA-256。Aggregate 要求 `1/1`、案例身分唯一與私人集合 SHA-256；公開狀態只顯示完成數，不公開工作區、來源備份、重現／計算指紋或成品雜湊。
+
 ### 採用依據文字
 
 應使用：

@@ -13,6 +13,12 @@ import {
   defaultProject,
   normalizeReportSettings,
 } from '../src/defaults'
+import {
+  buildWorkspaceBackup,
+  parseWorkspaceBackup,
+  verifyWorkspaceBackupReplay,
+} from '../src/backup'
+import type { AnchorProduct, ProjectCase } from '../src/domain'
 import { getEvaluationFieldStates } from '../src/evaluationCatalog'
 import { serializeReportDocument } from '../src/reportDocx'
 import { buildStandaloneReportHtml } from '../src/reportExport'
@@ -30,14 +36,9 @@ const PAGE_ONLY_REPORT_STATUS_NEEDLES = [...new Set(
   Object.values(CALCULATION_BOOK_CONTENT_BOUNDARY.forbiddenCategories).flat(),
 )]
 
-function buildParams(
+function buildProject(
   documentState: 'ready' | 'review' | 'blocked' = 'ready',
 ) {
-  const product = defaultProducts.find(
-    (item) => item.id === defaultProject.selectedProductId,
-  )
-  expect(product).toBeDefined()
-
   const project = {
     ...defaultProject,
     report: normalizeReportSettings({
@@ -78,11 +79,20 @@ function buildParams(
       loads: { ...loadCase.loads, tensionKn: 100000 },
     }))
   }
+
+  return project
+}
+
+function buildParamsFromProject(
+  project: ProjectCase,
+  product: AnchorProduct,
+  auditHash = 'abcdef1234567890abcdef1234567890',
+) {
   const batchReview = evaluateProjectBatch(project, product!)
   const auditEntry = {
     id: 'anchor-formal-artifact',
     createdAt: REPORT_GENERATED_AT,
-    hash: 'abcdef1234567890abcdef1234567890',
+    hash: auditHash,
     source: 'manual' as const,
     ruleProfileId: project.ruleProfileId,
     projectName: project.name,
@@ -118,6 +128,16 @@ function buildParams(
   }
 }
 
+function buildParams(
+  documentState: 'ready' | 'review' | 'blocked' = 'ready',
+) {
+  const product = defaultProducts.find(
+    (item) => item.id === defaultProject.selectedProductId,
+  )
+  expect(product).toBeDefined()
+  return buildParamsFromProject(buildProject(documentState), product!)
+}
+
 function resolveEvidenceDirectory() {
   const override = process.env.ANCHOR_RENDERED_EVIDENCE_DIR
   if (override) {
@@ -141,12 +161,63 @@ function resolveEvidenceDirectory() {
 
 describe('release report artifacts', () => {
   it('serializes and optionally preserves the actual HTML, DOCX, and XLSX reports', async () => {
-    const params = buildParams()
+    const sourceProject = buildProject()
+    const sourceProduct = defaultProducts.find(
+      (item) => item.id === sourceProject.selectedProductId,
+    )
+    expect(sourceProduct).toBeDefined()
+    const sourceBatchReview = evaluateProjectBatch(sourceProject, sourceProduct!)
+    const backupPayload = await buildWorkspaceBackup(
+      [sourceProduct!],
+      [sourceProject],
+      [],
+    )
+    backupPayload.exportedAt = REPORT_GENERATED_AT
+    const sourceBackupJson = JSON.stringify(backupPayload)
+    const parsedBackup = parseWorkspaceBackup(sourceBackupJson)
+    const replayVerification = await verifyWorkspaceBackupReplay(parsedBackup)
+    expect(replayVerification).toEqual({ verifiedProjects: 1, legacyProjects: 0 })
+    const replayProject = parsedBackup.projects[0]
+    const replayProduct = parsedBackup.products.find(
+      (item) => item.id === replayProject.selectedProductId,
+    )
+    const replayRecord = parsedBackup.caseReplay[0]
+    expect(replayProduct).toBeDefined()
+    expect(replayRecord.projectId).toBe(replayProject.id)
+    const params = buildParamsFromProject(
+      replayProject,
+      replayProduct!,
+      replayRecord.fingerprint,
+    )
+    expect(params.batchReview.controllingLoadCaseId).toBe(
+      sourceBatchReview.controllingLoadCaseId,
+    )
+    expect(params.batchReview.controllingLoadCaseName).toBe(
+      sourceBatchReview.controllingLoadCaseName,
+    )
+    expect(params.batchReview.summary.governingMode).toBe(
+      sourceBatchReview.summary.governingMode,
+    )
+    expect(params.batchReview.summary.governingDcr).toBe(
+      sourceBatchReview.summary.governingDcr,
+    )
+    expect(params.batchReview.summary.maxDcr).toBe(
+      sourceBatchReview.summary.maxDcr,
+    )
+    expect(params.batchReview.summary.overallStatus).toBe(
+      sourceBatchReview.summary.overallStatus,
+    )
+    expect(params.batchReview.summary.formalStatus).toBe(
+      sourceBatchReview.summary.formalStatus,
+    )
     const html = buildStandaloneReportHtml(params)
     const reviewHtml = buildStandaloneReportHtml(buildParams('review'))
     const blockedHtml = buildStandaloneReportHtml(buildParams('blocked'))
     const docx = await serializeReportDocument(params)
     const workbook = await serializeReportWorkbook(params)
+    const calculationFingerprint = `CF-${replayRecord.fingerprint
+      .slice(0, 16)
+      .toUpperCase()}`
 
     expect(html.length).toBeGreaterThan(20_000)
     expect(html).toContain('<!doctype html>')
@@ -157,6 +228,7 @@ describe('release report artifacts', () => {
     expect(html).toContain('文件狀態：正式附件')
     expect(html).toContain('王設計')
     expect(html).toContain('李複核')
+    expect(html).toContain(calculationFingerprint)
     expect(reviewHtml).toContain('data-document-state="internal-review"')
     expect(reviewHtml).toContain('文件狀態：內部審閱')
     expect(blockedHtml).toContain('data-document-state="internal-review"')
@@ -180,11 +252,27 @@ describe('release report artifacts', () => {
     const htmlName = `${ARTIFACT_KEY}.html`
     const docxName = `${ARTIFACT_KEY}.docx`
     const workbookName = `${ARTIFACT_KEY}.xlsx`
+    const sourceBackupName = `${ARTIFACT_KEY}-source-backup.json`
     const reviewHtmlName = `${ARTIFACT_KEY}-review.html`
     const blockedHtmlName = `${ARTIFACT_KEY}-blocked.html`
+    const resultReconciliation = {
+      schemaVersion: 1,
+      strategy: 'anchor-workspace-replay-to-html-docx-xlsx-hash',
+      caseId: replayProject.id,
+      sourceBackupSha256: sha256(sourceBackupJson),
+      sourceReplayFingerprint: replayRecord.fingerprint,
+      calculationFingerprint,
+      verifiedProjectCount: replayVerification.verifiedProjects,
+      verifiedAssertionCount: 7,
+      htmlSha256: sha256(html),
+      docxSha256: sha256(docx),
+      workbookSha256: sha256(workbook),
+      pass: true,
+    }
     writeFileSync(path.join(evidenceDir, htmlName), html, 'utf8')
     writeFileSync(path.join(evidenceDir, docxName), docx)
     writeFileSync(path.join(evidenceDir, workbookName), workbook)
+    writeFileSync(path.join(evidenceDir, sourceBackupName), sourceBackupJson, 'utf8')
     writeFileSync(path.join(evidenceDir, reviewHtmlName), reviewHtml, 'utf8')
     writeFileSync(path.join(evidenceDir, blockedHtmlName), blockedHtml, 'utf8')
     writeFileSync(
@@ -209,6 +297,9 @@ describe('release report artifacts', () => {
               workbook: workbookName,
               workbookBytes: workbook.byteLength,
               workbookSha256: sha256(workbook),
+              sourceBackup: sourceBackupName,
+              sourceBackupBytes: Buffer.byteLength(sourceBackupJson, 'utf8'),
+              sourceBackupArtifactSha256: sha256(sourceBackupJson),
               documentState: 'ready',
               reviewArtifact: reviewHtmlName,
               reviewArtifactBytes: Buffer.byteLength(reviewHtml, 'utf8'),
@@ -221,6 +312,7 @@ describe('release report artifacts', () => {
               blockedDocumentState: 'blocked',
               blockedHtmlTextLength: blockedHtml.length,
               htmlTextLength: html.length,
+              resultReconciliation,
             },
           ],
         },

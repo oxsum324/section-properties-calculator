@@ -1575,6 +1575,7 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
   const expandedRcResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 7;
   const steelResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 6;
   const stoneResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 8;
+  const anchorResultReconciliationDeclared = Number(evidence?.schemaVersion) >= 9;
   return Boolean(
     evidence
     && evidence.kind === 'release-rendered-delivery-evidence'
@@ -1649,6 +1650,14 @@ function isCompleteRenderedDeliveryEvidence(evidence, runId) {
       && evidence.stoneResultReconciliation.issueCount === 0
       && evidence.stoneResultReconciliation.pass === true
       && /^[0-9a-f]{64}$/i.test(String(evidence.stoneResultReconciliation.setSha256 || ''))
+    ))
+    && (!anchorResultReconciliationDeclared || (
+      evidence.anchorResultReconciliation?.scope === 'anchor-workspace-replay-to-html-docx-xlsx-hash'
+      && evidence.anchorResultReconciliation.required === 1
+      && evidence.anchorResultReconciliation.complete === 1
+      && evidence.anchorResultReconciliation.issueCount === 0
+      && evidence.anchorResultReconciliation.pass === true
+      && /^[0-9a-f]{64}$/i.test(String(evidence.anchorResultReconciliation.setSha256 || ''))
     ))
   );
 }
@@ -1911,6 +1920,21 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     : stoneResultReconciliation.pass === true
       ? Math.max(0, stoneResultReconciliationRequired - stoneResultReconciliationComplete)
       : Math.max(1, compactNumber(stoneResultReconciliation.issueCount) || stoneResultReconciliationRequired - stoneResultReconciliationComplete);
+  const anchorResultReconciliation = renderedDeliveryPayload?.anchorResultReconciliation;
+  const anchorResultReconciliationDeclared = Boolean(
+    Number(renderedDeliveryPayload?.schemaVersion) >= 9
+    && anchorResultReconciliation
+    && anchorResultReconciliation.scope === 'anchor-workspace-replay-to-html-docx-xlsx-hash'
+    && Number.isInteger(anchorResultReconciliation.required)
+    && Number.isInteger(anchorResultReconciliation.complete)
+  );
+  const anchorResultReconciliationRequired = anchorResultReconciliationDeclared ? compactNumber(anchorResultReconciliation.required) : 0;
+  const anchorResultReconciliationComplete = anchorResultReconciliationDeclared ? compactNumber(anchorResultReconciliation.complete) : 0;
+  const anchorResultReconciliationIssueCount = !anchorResultReconciliationDeclared
+    ? 0
+    : anchorResultReconciliation.pass === true
+      ? Math.max(0, anchorResultReconciliationRequired - anchorResultReconciliationComplete)
+      : Math.max(1, compactNumber(anchorResultReconciliation.issueCount) || anchorResultReconciliationRequired - anchorResultReconciliationComplete);
   const renderedDeliverySummary = supplementalDeliveryDeclared
     ? `最新正式放行實際交付物渲染：首頁正式工具 ${renderedDeliveryComplete} / ${renderedDeliveryRequired}；補充報告 / 服務成品 ${supplementalDeliveryComplete} / ${supplementalDeliveryRequired}。`
     : `最新正式放行實際交付物渲染：${renderedDeliveryComplete} / ${renderedDeliveryRequired}。`;
@@ -1926,6 +1950,7 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     ...(rcResultReconciliationDeclared ? [`RC 正式計算書結果鏈：梁、柱、板、牆、剪力牆、基礎、單樁${expandedRcResultReconciliationDeclared ? '與梁／柱補強' : ''}共 ${rcResultReconciliationComplete} / ${rcResultReconciliationRequired} 組瀏覽器回歸案例已完成來源資料重現，再核對 PDF 與正式 HTML 的同一計算指紋。公開狀態只顯示完成數，不公開案例資料、來源快照雜湊或計算指紋。`] : []),
     ...(steelResultReconciliationDeclared ? [`鋼構正式計算書結果鏈：主工具連接板、主工具拉力構件、獨立連接板、鋼梁與鋼柱共 ${steelResultReconciliationComplete} / ${steelResultReconciliationRequired} 組來源 JSON 已完成匯入重算及不相容版本拒絕，再核對渲染報告的同一計算指紋。公開狀態只顯示完成數，不公開來源資料、來源雜湊或計算指紋。`] : []),
     ...(stoneResultReconciliationDeclared ? [`石材正式計算書結果鏈：golden case ${stoneResultReconciliationComplete} / ${stoneResultReconciliationRequired} 已由目前瀏覽器核心重算並核對 PDF、DOCX 與 audit。公開狀態只顯示完成數，不公開 golden 案例資料、來源 payload 雜湊、結果雜湊或成品雜湊。`] : []),
+    ...(anchorResultReconciliationDeclared ? [`錨栓正式計算書結果鏈：工作區備份 ${anchorResultReconciliationComplete} / ${anchorResultReconciliationRequired} 已依 v2 案例重現指紋重新計算，並核對正式 HTML、DOCX 與 XLSX。公開狀態只顯示完成數，不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊。`] : []),
     ...(attachmentIntegrityDeclared ? [`RC 正式附件 HTML 完整性：預期 ${attachmentIntegrityRequired} 份、實際 ${attachmentIntegrityActual} 份、已驗證 ${attachmentIntegrityVerified} 份；集合 SHA-256 ${String(attachmentIntegrity.setSha256 || '').slice(0, 12)}。本項是放行證據，不會寫入計算書、列印或 PDF。`] : []),
     `可讀文字抽檢範圍：${reportTextSmokeEvidence.scope}`,
     '首頁卡片會標記報告邊界、計算書邊界、報表邊界或 JSON/計算書/文字 邊界，避免把 page-only 提醒誤當正式交付內容。',
@@ -1936,8 +1961,8 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
     kind: 'report-readiness-status',
     generatedAt: String(matrixPayload.generatedAt || ''),
     runId: String(preflightStatus?.runId || matrixPayload.latestPreflight?.runId || ''),
-    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && rcResultReconciliationIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0,
-    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + rcResultReconciliationIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount,
+    pass: issues === 0 && reportTextSmokeIssueCount === 0 && reportTextSmokeEvidence.evidenceIssueCount === 0 && renderedDeliveryIssueCount === 0 && supplementalDeliveryIssueCount === 0 && attachmentIntegrityIssueCount === 0 && deliveryFileIntegrityIssueCount === 0 && formalResultReconciliationIssueCount === 0 && rcResultReconciliationIssueCount === 0 && steelResultReconciliationIssueCount === 0 && stoneResultReconciliationIssueCount === 0 && anchorResultReconciliationIssueCount === 0,
+    failureCount: issues + Math.max(reportTextSmokeIssueCount, reportTextSmokeEvidence.evidenceIssueCount) + renderedDeliveryIssueCount + supplementalDeliveryIssueCount + attachmentIntegrityIssueCount + deliveryFileIntegrityIssueCount + formalResultReconciliationIssueCount + rcResultReconciliationIssueCount + steelResultReconciliationIssueCount + stoneResultReconciliationIssueCount + anchorResultReconciliationIssueCount,
     badge: '頁面專用',
     label: '報告閱讀狀態總覽',
     summary,
@@ -2002,6 +2027,14 @@ function buildHomepageReportReadinessStatus(matrixPayload, sourceHash, preflight
       stoneResultReconciliationPass: stoneResultReconciliation.pass === true
         && stoneResultReconciliationComplete === stoneResultReconciliationRequired
         && stoneResultReconciliationIssueCount === 0,
+    } : {}),
+    ...(anchorResultReconciliationDeclared ? {
+      anchorResultReconciliationRequired,
+      anchorResultReconciliationComplete,
+      anchorResultReconciliationIssueCount,
+      anchorResultReconciliationPass: anchorResultReconciliation.pass === true
+        && anchorResultReconciliationComplete === anchorResultReconciliationRequired
+        && anchorResultReconciliationIssueCount === 0,
     } : {}),
     ...(supplementalDeliveryDeclared ? {
       supplementalDeliveryEvidenceRequired: supplementalDeliveryRequired,
@@ -2367,6 +2400,14 @@ function checkMatrix(payload, markdown, options = {}) {
     assert.equal(homepageReportReadinessStatus.stoneResultReconciliationPass, true, 'homepage report readiness stone result reconciliation passes');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('石材正式計算書結果鏈'), 'homepage report readiness explains stone result reconciliation');
     assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開 golden 案例資料、來源 payload 雜湊、結果雜湊或成品雜湊'), 'homepage report readiness keeps stone reconciliation evidence private');
+  }
+  if (Number.isInteger(homepageReportReadinessStatus.anchorResultReconciliationRequired)) {
+    assert.equal(homepageReportReadinessStatus.anchorResultReconciliationRequired, 1, 'homepage report readiness expects 1 anchor result reconciliation');
+    assert.equal(homepageReportReadinessStatus.anchorResultReconciliationComplete, homepageReportReadinessStatus.anchorResultReconciliationRequired, 'homepage report readiness completes the anchor result reconciliation');
+    assert.equal(homepageReportReadinessStatus.anchorResultReconciliationIssueCount, 0, 'homepage report readiness anchor result reconciliation issues empty');
+    assert.equal(homepageReportReadinessStatus.anchorResultReconciliationPass, true, 'homepage report readiness anchor result reconciliation passes');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('錨栓正式計算書結果鏈'), 'homepage report readiness explains anchor result reconciliation');
+    assert.ok((homepageReportReadinessStatus.details || []).join(' ').includes('不公開工作區資料、來源備份雜湊、案例重現指紋、計算指紋或成品雜湊'), 'homepage report readiness keeps anchor reconciliation evidence private');
   }
   if (Number.isInteger(homepageReportReadinessStatus.supplementalDeliveryEvidenceRequired)) {
     assert.ok([1, 2].includes(homepageReportReadinessStatus.supplementalDeliveryEvidenceRequired), 'homepage report readiness supplemental delivery uses a supported transition count');
